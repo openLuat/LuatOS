@@ -1,0 +1,11 @@
+Import('RTT_ROOT')
+Import('rtconfig')
+from building import *
+
+cwd = GetCurrentDir() + "/src"
+src	= Glob('*.c')
+CPPPATH = [cwd]
+
+group = DefineGroup('Lua', src, depend = [''], CPPPATH = CPPPATH)
+
+Return('group')

@@ -5,6 +5,20 @@
 //#include "luat_fs.h"
 #include "luat_log.h"
 
+static void luat_openlibs(lua_State *L) {
+    luaL_requiref(L, "msgbus", luaopen_msgbus, 1);
+    lua_pop(L, 1);
+
+    luaL_requiref(L, "sys", luaopen_sys, 1);
+    lua_pop(L, 1);
+    
+    luaL_requiref(L, "timer", luaopen_timer, 1);
+    lua_pop(L, 1);
+    
+    luaL_requiref(L, "gpio", luaopen_gpio, 1);
+    lua_pop(L, 1);
+}
+
 static int luat_app_main(lua_State *L) {
         int re = 0;
     luat_print("luat_pmain!!!\n");
@@ -12,9 +26,7 @@ static int luat_app_main(lua_State *L) {
     luaL_openlibs(L);
 
     // 加载本地库
-    //luaL_requiref(L, "rtos", luaopen_rtos, 1);
-    luaL_requiref(L, "sys", luaopen_sys, 1);
-    luaL_requiref(L, "timer", luaopen_timer, 1);
+    luat_openlibs(L);
 
     // 打印个提示
     luat_print("luat_boot_complete\n");

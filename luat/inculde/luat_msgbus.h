@@ -4,16 +4,13 @@
 
 #include "luat_base.h"
 
+typedef int (*luat_msg_handler) (lua_State *L, const void *ptr);
+
 typedef struct{
-    uint32_t id;
-    void* data;
+    luat_msg_handler handler;
+    void* ptr;
 }rtos_msg;
 
-// 定义msgtype
-#define LUAT_MSG_TIMER       (1)
-#define LUAT_MSG_GPIO        (2)
-#define LUAT_MSG_UART_RX     (3)
-#define LUAT_MSG_UART_TXDONE (4)
 
 // 定义接口方法
 void luat_msgbus_init(void);

@@ -2,7 +2,21 @@
 #include "luat_base.h"
 #include "luat_log.h"
 
+struct luat_lib_timer_t
+{
+    void* osTimer;
+    int type;
+    size_t timeout;
+    size_t repeat;
+};
+
+
+static int l_timer_handler(lua_State *L, const void *ptr) {
+
+}
+
 static int l_timer_start(lua_State *L) {
+    
     return 0;
 }
 

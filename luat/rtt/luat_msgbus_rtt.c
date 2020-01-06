@@ -20,10 +20,12 @@ void luat_msgbus_init(void) {
                         sizeof(rtos_msg),        /* 每个消息的大小是 8 字节 */
                         sizeof(msg_pool),        /* 内存池的大小是 msg_pool 的大小 */
                         RT_IPC_FLAG_FIFO);       /* 如果有多个线程等待，按照先来先得到的方法分配消息 */
-};
+}
+
 uint32_t luat_msgbus_put(rtos_msg* msg, size_t timeout) {
     return rt_mq_send(&mq, msg, timeout);
-};
+}
+
 uint32_t luat_msgbus_get(rtos_msg* msg, size_t timeout) {
     rt_err_t result;
     result = rt_mq_recv(&mq, msg, sizeof(rtos_msg), timeout);
@@ -33,7 +35,8 @@ uint32_t luat_msgbus_get(rtos_msg* msg, size_t timeout) {
     else {
         return result;
     }
-};
+}
+
 uint32_t luat_msgbus_freesize(void) {
-    return 1024;
+    return 1;
 }

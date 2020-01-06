@@ -24,4 +24,4 @@ TODO: 构建工具链,IDE,刷机工具,等等
 
 * 参阅 [Luat 平台层](markdown/core/luat_platform.md) 
 
-* 文档索引(docs.md)
+* [文档索引](docs.md)

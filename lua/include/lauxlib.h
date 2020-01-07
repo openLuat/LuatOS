@@ -219,7 +219,7 @@ LUALIB_API void (luaL_openlib) (lua_State *L, const char *libname,
 */
 
 #include "luat_log.h"
-#define lua_writestring(s,l) luat_print(s)
+#define lua_writestring(s,l) luat_nprint(s, l)
 #define lua_writestringerror(s,p) luat_printf(s,p)
 
 /* print a string */

@@ -51,4 +51,3 @@ Module.symvers
 Mkfile.old
 dkms.conf
 
-bsp/

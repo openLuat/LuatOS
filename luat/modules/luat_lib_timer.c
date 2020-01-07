@@ -26,6 +26,7 @@ static int l_timer_stop(lua_State *L) {
 
 
 static int l_timer_mdelay(lua_State *L) {
+    lua_gettop(L);
     if (lua_isinteger(L, 1)) {
         lua_Integer ms = luaL_checkinteger(L, 1);
         if (ms)

@@ -20,13 +20,14 @@ static void luat_openlibs(lua_State *L) {
 }
 
 static int pmain(lua_State *L) {
+    lua_gettop(L);
     int re = 0;
     //luat_print("luat_pmain!!!\n");
     // 加载系统库
     luaL_openlibs(L);
 
     // 加载本地库
-    //luat_openlibs(L);
+    luat_openlibs(L);
 
     // 打印个提示
     //luat_print("luat_boot_complete\n");
@@ -44,7 +45,8 @@ static int pmain(lua_State *L) {
     //    luat_print("done main.lua-------------------------\n");
     //}
     //else {
-      re = luaL_dostring(L, "print(_VERSION)");
+    //  re = luaL_dostring(L, "print(_VERSION)");
+    //  re = luaL_dostring(L, "local a = 1");
     //    luat_print("/lua/main.lua not found!!! run default lua string\n");
     //    re = luaL_dostring(L, "print(\"test1=====\") local a = 1\n local b=2\nprint(_G)\nprint(a+b)\nprint(sys)\nprint(_VERSION)");
     //    re = luaL_dostring(L, "print(\"test2=====\") local ab=1 \nprint(rtos.get_version()) print(rtos.get_memory_free())");
@@ -52,7 +54,35 @@ static int pmain(lua_State *L) {
     //    re = luaL_dostring(L, "print(\"test4=====\") print(rtos.get_memory_free()) collectgarbage(\"collect\") print(rtos.get_memory_free())");
     //    re = luaL_dostring(L, "print(\"test5=====\") print(rtos.timer_start(1, 3000)) print(rtos.receive(5000)) print(\"timer_get?\")");
     //    re = luaL_dostring(L, "print(\"test6=====\") local f = io.open(\"abc.log\", \"w\") print(f)");
-    //    re = luaL_dostring(L, "print(_VERSION) timer.mdelay(2000) print(_VERSION)");
+    //    re = luaL_dostring(L, "print(_VERSION) print(\"sleep 2s\") timer.mdelay(2000) print(\"hi again\")");
+    /*
+        re = luaL_dostring(L, "print(_VERSION)\n"
+                   " local LED_R=32+16 local LED_G=32+17 local LED_B=32+18 \n"
+                   " gpio.setup(LED_R) gpio.setup(LED_G) gpio.setup(LED_B) \n"
+                   " gpio.set(LED_R, 0) gpio.set(LED_G, 0) gpio.set(LED_B, 0) \n"
+                   " while 1 do\n"
+                   "    gpio.set(LED_R, 1)\n"
+                   "    timer.mdelay(1000)\n"
+                   "    gpio.set(LED_R, 0)\n"
+                   "    timer.mdelay(1000)\n"
+                   "end\n");
+    */
+        // pin number pls refer pin_map.c
+        re = luaL_dostring(L, "print(_VERSION)\n"
+                   " local PA1=14 local PA4=15 \n"
+                   " gpio.setup(PA1) gpio.setup(PA4)\n"
+                   " gpio.set(PA1, 0) gpio.set(PA4, 0)\n"
+                   " while 1 do\n"
+                   "    gpio.set(PA1, 1)\n"
+                   "    gpio.set(PA4, 1)\n"
+                   "    print(\"sleep 1s\")\n"
+                   "    timer.mdelay(1000)\n"
+
+                   "    gpio.set(PA1, 0)\n"
+                   "    gpio.set(PA4, 0)\n"
+                   "    print(\"sleep 1s\")\n"
+                   "    timer.mdelay(1000)\n"
+                   "end\n");
     //}
     
     if (re) {

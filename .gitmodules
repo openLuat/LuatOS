@@ -1,0 +1,3 @@
+[submodule "bsp/w60x"]
+	path = bsp/w60x
+	url = https://gitee.com/wendal/LuatOS-W60x.git

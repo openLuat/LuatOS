@@ -27,6 +27,7 @@ size_t luat_heap_getfree(void) {
 
 void* luat_heap_alloc(void *ud, void *ptr, size_t osize, size_t nsize) {
   (void)ud; (void)osize;  /* not used */
+  //rt_kprintf("alloc ptr=%d osize=%d nsize=%d\n", ptr, osize, nsize);
   if (nsize == 0) {
     rt_free(ptr);
     return NULL;

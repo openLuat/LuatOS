@@ -36,3 +36,10 @@ int luat_timer_stop(struct luat_timer_ec616_t* timer) {
     rt_timer_delete((rt_timer_t)timer->os_timer);
     return 0;
 }
+
+
+int luat_timer_mdelay(size_t ms) {
+    if (ms > 0)
+        rt_thread_mdelay(ms);
+    return 0;
+}

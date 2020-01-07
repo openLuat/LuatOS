@@ -24,10 +24,21 @@ static int l_timer_stop(lua_State *L) {
     return 0;
 }
 
+
+static int l_timer_mdelay(lua_State *L) {
+    if (lua_isinteger(L, 1)) {
+        lua_Integer ms = luaL_checkinteger(L, 1);
+        if (ms)
+            luat_timer_mdelay(ms);
+    }
+    return 0;
+}
+
 static const luaL_Reg reg_timer[] =
 {
     { "start" , l_timer_start },
     { "stop" , l_timer_stop },
+    { "mdelay" , l_timer_mdelay },
 	{ NULL, NULL }
 };
 

@@ -18,4 +18,7 @@ struct luat_timer_ec616_t
 int luat_timer_start(struct luat_timer_ec616_t* timer);
 int luat_timer_stop(struct luat_timer_ec616_t* timer);
 
+
+int luat_timer_mdelay(size_t ms);
+
 #endif

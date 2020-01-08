@@ -19,8 +19,8 @@ int luat_timer_start(struct luat_timer_ec616_t* timer) {
     if (r_timer == NULL) {
         return 1;
     }
-    if (r_timer_start(r_timer) != RT_EOK) {
-        r_timer_delete(r_timer);
+    if (rt_timer_start(r_timer) != RT_EOK) {
+        rt_timer_delete(r_timer);
         return 1;
     };
     timer->os_timer = r_timer;

@@ -55,18 +55,8 @@ static int pmain(lua_State *L) {
     //    re = luaL_dostring(L, "print(\"test5=====\") print(rtos.timer_start(1, 3000)) print(rtos.receive(5000)) print(\"timer_get?\")");
     //    re = luaL_dostring(L, "print(\"test6=====\") local f = io.open(\"abc.log\", \"w\") print(f)");
     //    re = luaL_dostring(L, "print(_VERSION) print(\"sleep 2s\") timer.mdelay(2000) print(\"hi again\")");
-    /*
-        re = luaL_dostring(L, "print(_VERSION)\n"
-                   " local LED_R=32+16 local LED_G=32+17 local LED_B=32+18 \n"
-                   " gpio.setup(LED_R) gpio.setup(LED_G) gpio.setup(LED_B) \n"
-                   " gpio.set(LED_R, 0) gpio.set(LED_G, 0) gpio.set(LED_B, 0) \n"
-                   " while 1 do\n"
-                   "    gpio.set(LED_R, 1)\n"
-                   "    timer.mdelay(1000)\n"
-                   "    gpio.set(LED_R, 0)\n"
-                   "    timer.mdelay(1000)\n"
-                   "end\n");
-    */
+
+#ifdef RT_USING_PIN
         // pin number pls refer pin_map.c
         re = luaL_dostring(L, "print(_VERSION)\n"
                    " local PA1=14 local PA4=15 \n"
@@ -83,15 +73,22 @@ static int pmain(lua_State *L) {
                    "    print(\"sleep 1s\")\n"
                    "    timer.mdelay(1000)\n"
                    "end\n");
+#else
+        re = luaL_dostring(L, "print(_VERSION .. \" from Luat\")\n timer.mdelay(1000)\n print(_VERSION)"
+                  "local c = 0\n"
+                  "while 1 do\n"
+                  "    print(\"count=\" .. c)\n"
+                  "    timer.mdelay(1000)\n"
+                  "    c = c + 1\n"
+                  "end\n"
+                  );
+#endif
     //}
     
     if (re) {
         luat_print("luaL_dostring  return re != 0\n");
         luat_print(lua_tostring(L, -1));
     }
-
-    //lua_pushboolean(L, 1);
-    //luat_print("luat_pmain_complete\n");
     lua_pushboolean(L, 1);  /* signal no errors */
     return 1;
 }
@@ -136,9 +133,3 @@ int luat_main (int argc, char **argv) {
   lua_close(L);
   return (result && status == LUA_OK) ? 0 : 2;
 }
-
-#ifdef LUAT_MAIN
-int main(int argc, char *argv[], char *envp[] ) {
-    return luat_main(argc, argv, envp);
-}
-#endif

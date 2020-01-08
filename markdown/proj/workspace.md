@@ -42,6 +42,8 @@ git submodule update
 在`D:\github\LuatOS\bsp\w60x`目录下, 启动env工具
 
 ```
+# 更新pkgs
+pkgs --update
 # 执行编译
 scons
 # 等待编译完成后, 可以在D:\github\LuatOS\bsp\w60x\Bin目录找到刷机文件, 刷机即可

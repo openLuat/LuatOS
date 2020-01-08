@@ -44,7 +44,7 @@
 
 ### Lua API 设计与实现
 
-Lua API, 是暴露给用户lua代码调用的API
+Lua API, 是暴露给用户lua代码调用的API, 负责读取用户参数, 校验参数, 整理返回值.
 
 通常分3种: 纯lua, 部分lua部分c, 纯c
 
@@ -73,13 +73,13 @@ int luat_lib_sys_run(Lua_State *L) {
 ### C API 设计与实现
 
 要求:
-1. 必须提供头文件
+1. 必须提供头文件,供Lua API/其他C API调用.
 2. 使用luat_heap_mallac分配内存为主,注意防范内存泄漏
 3. 设计的API应尽量屏蔽平台差异, 提供对外一致的观感
 4. 通过不需要传递`Lua_State *L`, 而是传递一个参数列表或数据结构
 
 ```C
-int luat_gpio_setup(luat_gpio_conf *conf) {
+int luat_gpio_setup(luat_gpio_t conf) {
     //平台相关的实现...
 
     return 0; // ok or not

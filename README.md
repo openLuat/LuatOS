@@ -22,6 +22,7 @@ Lua base RTOS, build for many embedded systems
 
 * 参阅 [Luat 平台层](markdown/core/luat_platform.md) 
 * [文档索引](docs.md)
+* [搭建开发环境](markdown/proj/workspace.md)
 * [如何开发](markdown/proj/how_to_dev.md)
 * [预编译固件](https://github.com/openLuat/LuatOS/releases)
 

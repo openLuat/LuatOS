@@ -11,7 +11,7 @@ typedef struct luat_timer_t
     size_t type;
     size_t repeat;
     luat_msg_handler func;
-    void *ptr;
+    lua_Integer idx;
 }luat_timer_t;
 
 

@@ -5,6 +5,12 @@
 //#include "luat_fs.h"
 #include "luat_log.h"
 
+static lua_State *L;
+
+lua_State * luat_get_state() {
+  return L;
+}
+
 static void luat_openlibs(lua_State *L) {
     luaL_requiref(L, "msgbus", luaopen_msgbus, 1);
     lua_pop(L, 1);
@@ -14,9 +20,11 @@ static void luat_openlibs(lua_State *L) {
     
     luaL_requiref(L, "timer", luaopen_timer, 1);
     lua_pop(L, 1);
-    
+
+    #ifdef RT_USING_PIN
     luaL_requiref(L, "gpio", luaopen_gpio, 1);
     lua_pop(L, 1);
+    #endif
 }
 
 static int pmain(lua_State *L) {
@@ -88,7 +96,8 @@ static int pmain(lua_State *L) {
                              "timer.mdelay(1000)\n"
                              "print(\"END\")\n"
                              "timer.start(100,5,function()\n"
-                             "  print(123)\n"
+                             //"timer.start(100,function()\n"
+                             "  print(\"123\")\n"
                              "end)\n"
                              "sys.run()\n"
                   );
@@ -133,9 +142,9 @@ static int panic (lua_State *L) {
   return 0;  /* return to Lua to abort */
 }
 
-int luat_main (int argc, char **argv) {
+int luat_main (int argc, char **argv, int _) {
   int status, result;
-  lua_State *L = lua_newstate(luat_heap_alloc, NULL);
+  L = lua_newstate(luat_heap_alloc, NULL);
   if (L == NULL) {
     l_message(argv[0], "cannot create state: not enough memory");
     return 1;
@@ -147,6 +156,6 @@ int luat_main (int argc, char **argv) {
   status = lua_pcall(L, 2, 1, 0);  /* do the call */
   result = lua_toboolean(L, -1);  /* get result */
   report(L, status);
-  lua_close(L);
+  //lua_close(L);
   return (result && status == LUA_OK) ? 0 : 2;
 }

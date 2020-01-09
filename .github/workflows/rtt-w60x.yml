@@ -30,3 +30,8 @@ jobs:
         pkgs --update
         chmod 755 -R packages/wm_libraries-latest/Tools/
         scons
+    - name: Upload artifact
+      uses: actions/upload-artifact@v1
+      with:
+        name: w60x
+        path: bsp/w60x/Bin/

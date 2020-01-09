@@ -29,3 +29,14 @@ jobs:
         source ~/.env/env.sh
         pkgs --update
         scons
+    - name: prepare artifacts
+      run: |
+        cd bsp/qemu-vexpress-a9
+        mkdir qemu
+        mv qemu*.bat qemu/
+        mv qemu*.sh qemu/
+        mv rtthread.bin qemu/
+    - uses: actions/upload-artifact@v1
+      with:
+        name: qemu_img
+        path: bsp/qemu-vexpress-a9/qemu/

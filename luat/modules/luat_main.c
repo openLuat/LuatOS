@@ -20,7 +20,6 @@ static void luat_openlibs(lua_State *L) {
 }
 
 static int pmain(lua_State *L) {
-    lua_gettop(L);
     int re = 0;
     //luat_print("luat_pmain!!!\n");
     // 加载系统库
@@ -28,6 +27,7 @@ static int pmain(lua_State *L) {
 
     // 加载本地库
     luat_openlibs(L);
+    
 
     // 打印个提示
     //luat_print("luat_boot_complete\n");
@@ -74,6 +74,7 @@ static int pmain(lua_State *L) {
                    "    timer.mdelay(1000)\n"
                    "end\n");
 #else
+        /*
         re = luaL_dostring(L, "print(_VERSION .. \" from Luat\")\n timer.mdelay(1000)\n print(_VERSION)"
                   "local c = 0\n"
                   "while 1 do\n"
@@ -81,6 +82,15 @@ static int pmain(lua_State *L) {
                   "    timer.mdelay(1000)\n"
                   "    c = c + 1\n"
                   "end\n"
+                  );
+        */
+       re = luaL_dostring(L, "print(_VERSION .. \" from Luat\")\n"
+                             "timer.mdelay(1000)\n"
+                             "print(\"END\")\n"
+                             "timer.start(100,function()\n"
+                             "  print(123)\n"
+                             "end)\n"
+                             "sys.run()\n"
                   );
 #endif
     //}
@@ -117,6 +127,12 @@ static int report (lua_State *L, int status) {
   return status;
 }
 
+static int panic (lua_State *L) {
+  lua_writestringerror("PANIC: unprotected error in call to Lua API (%s)\n",
+                        lua_tostring(L, -1));
+  return 0;  /* return to Lua to abort */
+}
+
 int luat_main (int argc, char **argv) {
   int status, result;
   lua_State *L = lua_newstate(luat_heap_alloc, NULL);
@@ -124,6 +140,7 @@ int luat_main (int argc, char **argv) {
     l_message(argv[0], "cannot create state: not enough memory");
     return 1;
   }
+  if (L) lua_atpanic(L, &panic);
   lua_pushcfunction(L, &pmain);  /* to call 'pmain' in protected mode */
   lua_pushinteger(L, argc);  /* 1st argument */
   lua_pushlightuserdata(L, argv); /* 2nd argument */

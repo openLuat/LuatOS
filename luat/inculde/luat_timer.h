@@ -7,10 +7,11 @@
 typedef struct luat_timer_t
 {
     void* os_timer;
-    int timeout;
-    int _type;
-    int _repeat;
+    size_t timeout;
+    size_t type;
+    size_t repeat;
     luat_msg_handler func;
+    void *ptr;
 }luat_timer_t;
 
 

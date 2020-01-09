@@ -87,7 +87,7 @@ static int pmain(lua_State *L) {
        re = luaL_dostring(L, "print(_VERSION .. \" from Luat\")\n"
                              "timer.mdelay(1000)\n"
                              "print(\"END\")\n"
-                             "timer.start(100,function()\n"
+                             "timer.start(100,5,function()\n"
                              "  print(123)\n"
                              "end)\n"
                              "sys.run()\n"

@@ -19,9 +19,10 @@ static void rt_timer_callback(void *param) {
 }
 
 int luat_timer_start(struct luat_timer_t* timer) {
-    sprintf(timer_name, "luat_%d", timer_id++);
-    
-    rt_timer_t r_timer = rt_timer_create(timer_name, rt_timer_callback, timer, timer->timeout * (1000/RT_TICK_PER_SECOND), timer->_repeat ? RT_TIMER_FLAG_PERIODIC : RT_TIMER_FLAG_ONE_SHOT);
+    sprintf(timer_name, "luat_%ld", timer_id++);
+    rt_tick_t time = timer->timeout;
+    rt_uint8_t flag = timer->repeat ? RT_TIMER_FLAG_PERIODIC : RT_TIMER_FLAG_ONE_SHOT;
+    rt_timer_t r_timer = rt_timer_create(timer_name, rt_timer_callback, timer, time, flag);
     if (r_timer == NULL) {
         rt_kprintf("rt_timer_create FAIL\n");
         return 1;

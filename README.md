@@ -1,9 +1,9 @@
 # LuatOS
 
-![license](https://img.shields.io/github/license/openLuat/LuatOS)
+[![license](https://img.shields.io/github/license/openLuat/LuatOS)](/LICENSE)
 [![rtt-w60x ci](https://github.com/openLuat/LuatOS/workflows/rtt-w60x/badge.svg)](https://github.com/openLuat/LuatOS/actions?query=workflow%3Artt-w60x)
 [![qemu ci](https://github.com/openLuat/LuatOS/workflows/qemu-vexpress-a9/badge.svg)](https://github.com/openLuat/LuatOS/actions?query=workflow%3Aqemu-vexpress-a9)
-![issue](https://img.shields.io/github/issues/openLuat/LuatOS)
+[![issue](https://img.shields.io/github/issues/openLuat/LuatOS)](https://github.com/openLuat/LuatOS/issues)
 
 LuatOS是运行在嵌入式硬件的实时操作系统,只需要少量内存的flash空间就能运行,用户编写lua代码就可完成各种功能
 

@@ -26,7 +26,7 @@ void luat_msgbus_init(void) {
 }
 
 uint32_t luat_msgbus_put(struct rtos_msg* msg, size_t timeout) {
-    return rt_mq_send(&mq, msg, timeout);
+    return rt_mq_send(&mq, msg, sizeof(struct rtos_msg));
 }
 
 uint32_t luat_msgbus_get(struct rtos_msg* msg, size_t timeout) {

@@ -1,5 +1,10 @@
 # LuatOS
 
+![license](https://img.shields.io/github/license/openLuat/LuatOS)
+![rtt-w60x ci](https://github.com/openLuat/LuatOS/workflows/rtt-w60x/badge.svg)
+![qemu ci](https://github.com/openLuat/LuatOS/workflows/qemu-vexpress-a9/badge.svg)
+![issue](https://img.shields.io/github/issues/openLuat/LuatOS)
+
 LuatOS是运行在嵌入式硬件的实时操作系统,只需要少量内存的flash空间就能运行,用户编写lua代码就可完成各种功能
 
 Lua base RTOS, build for many embedded systems
@@ -20,7 +25,7 @@ Lua base RTOS, build for many embedded systems
 ----------------------------------------------------------------------------------
 ## 资源
 
-* 参阅 [Luat 平台层](markdown/core/luat_platform.md) 
+* 参阅 [Luat 平台层](markdown/core/luat_platform.md)
 * [文档索引](docs.md)
 * [搭建开发环境](markdown/proj/workspace.md)
 * [如何开发](markdown/proj/how_to_dev.md)

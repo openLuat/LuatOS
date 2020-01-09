@@ -19,11 +19,6 @@ static int report (lua_State *L, int status) {
   return status;
 }
 
-static int l_default_handler(lua_State *L) {
-    luat_printf("l_default_handler\n");    
-    return 0;
-}
-
 static int l_sys_run(lua_State *L) {
     struct rtos_msg msg;
     int re;
@@ -35,8 +30,7 @@ static int l_sys_run(lua_State *L) {
                 luat_printf("luat_msgbus_get!!! msg.handler == NULL\n");
                 continue;
             }
-            //lua_pushcfunction(L, msg.handler);
-            lua_pushcfunction(L, &l_default_handler);
+            lua_pushcfunction(L, msg.handler);
             lua_pushlightuserdata(L, msg.ptr);
             int re = lua_pcall(L, 1, 0, 0);
             report(L, re);

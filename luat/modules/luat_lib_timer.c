@@ -1,22 +1,29 @@
 
 #include "luat_base.h"
 #include "luat_log.h"
+#include "luat_timer.h"
+#include "luat_malloc.h"
 
-struct luat_lib_timer_t
-{
-    void* osTimer;
-    int type;
-    size_t timeout;
-    size_t repeat;
-};
-
-
-static int l_timer_handler(lua_State *L, const void *ptr) {
-
+static int l_timer_handler(lua_State *L) {
+    luat_printf("l_timer_handler\n");    
+    return 0;
 }
 
 static int l_timer_start(lua_State *L) {
-    
+    lua_gettop(L);
+    if (lua_isinteger(L, 1)) {
+        lua_Integer ms = luaL_checkinteger(L, 1);
+        if (ms > 0) {
+            struct luat_timer_t *t = luat_heap_malloc(sizeof(struct luat_timer_t));
+            t->_type = 0;
+            t->timeout = ms;
+            t->_repeat = 0;
+            t->func = &l_timer_handler;
+            luat_timer_start(t);
+            lua_pushlightuserdata(L, t);
+            return 1;
+        }
+    }
     return 0;
 }
 

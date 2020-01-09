@@ -13,6 +13,10 @@ static int l_timer_handler(lua_State *L) {
     else if (timer->repeat > 0) {
         timer->repeat --;
     }
+    if (timer->idx) {
+        lua_rawgeti(L, LUA_REGISTRYINDEX, timer->idx);
+        lua_call(L, 0, 0);
+    }
     return 0;
 }
 
@@ -26,6 +30,7 @@ static int l_timer_start(lua_State *L) {
             t->timeout = ms;
             t->repeat = 0;
             t->func = &l_timer_handler;
+            t->idx = 0;
 
             if (lua_gettop(L) > 1) {
                 if (lua_isnumber(L, 2)) {
@@ -33,7 +38,8 @@ static int l_timer_start(lua_State *L) {
                     t->repeat = repeat;
                 }
                 else if (lua_isfunction(L, 2)) {
-                    //t->ptr = lua_
+                    lua_pop(L, 1);
+                    t->idx = luaL_ref(L, LUA_REGISTRYINDEX);
                 }
             }
 

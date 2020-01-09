@@ -11,6 +11,9 @@
 #include "lauxlib.h"
 #include "stdint.h"
 
+lua_State * luat_get_state();
+int luat_main (int argc, char **argv, int _);
+
 
 LUAMOD_API int luaopen_sys( lua_State *L );
 LUAMOD_API int luaopen_timer( lua_State *L );

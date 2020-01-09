@@ -1,4 +1,4 @@
-name: rtt-w60x
+name: qemu-vexpress-a9
 
 on: [push,pull_request]
 
@@ -23,10 +23,9 @@ jobs:
         git submodule update
     - name: make
       run: |
-        cd bsp/w60x
+        cd bsp/qemu-vexpress-a9
         export RTT_EXEC_PATH=/opt/gcc-arm-none-eabi-6-2017-q2-update/bin
         echo | scons --menuconfig
         source ~/.env/env.sh
         pkgs --update
-        chmod 755 -R packages/wm_libraries-latest/Tools/
         scons

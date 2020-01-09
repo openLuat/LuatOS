@@ -1,6 +1,6 @@
 [submodule "bsp/w60x"]
 	path = bsp/w60x
-	url = https://gitee.com/wendal/LuatOS-W60x.git
+	url = https://github.com/openLuat/LuatOS-W60x.git
 [submodule "qemu-vexpress-a9"]
 	path = bsp/qemu-vexpress-a9
-	url = https://gitee.com/wendal/LuatOS-qemu-vexpress-a9.git
+	url = https://github.com/openLuat/LuatOS-qemu-vexpress-a9.git

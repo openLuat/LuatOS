@@ -6,12 +6,12 @@
 
 typedef struct luat_timer_t
 {
+    uint32_t id;
     void* os_timer;
     size_t timeout;
     size_t type;
     size_t repeat;
     luat_msg_handler func;
-    lua_Integer idx;
 }luat_timer_t;
 
 

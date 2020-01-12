@@ -13,7 +13,12 @@
 static void loadstr(int argc, char**argv) {
     if (argc < 2)
         return;
-    luaL_dostring(luat_get_state(), argv[1]);
+    lua_State* L = luat_get_state();
+    int re = luaL_dostring(L, argv[1]);
+    if (re) {
+        luat_print("luaL_dostring  return re != 0\n");
+        luat_print(lua_tostring(L, -1));
+    }
 };
 
 MSH_CMD_EXPORT(loadstr , run lua code);

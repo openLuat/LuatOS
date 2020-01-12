@@ -16,6 +16,7 @@ int luat_main (int argc, char **argv, int _);
 
 
 LUAMOD_API int luaopen_sys( lua_State *L );
+LUAMOD_API int luaopen_rtos( lua_State *L );
 LUAMOD_API int luaopen_timer( lua_State *L );
 LUAMOD_API int luaopen_msgbus( lua_State *L );
 LUAMOD_API int luaopen_gpio( lua_State *L );

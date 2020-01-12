@@ -15,6 +15,9 @@ static void luat_openlibs(lua_State *L) {
     luaL_requiref(L, "msgbus", luaopen_msgbus, 1);
     lua_pop(L, 1);
 
+    luaL_requiref(L, "rtos", luaopen_rtos, 1);
+    lua_pop(L, 1);
+
     luaL_requiref(L, "sys", luaopen_sys, 1);
     lua_pop(L, 1);
     
@@ -63,6 +66,41 @@ static int pmain(lua_State *L) {
     //    re = luaL_dostring(L, "print(\"test5=====\") print(rtos.timer_start(1, 3000)) print(rtos.receive(5000)) print(\"timer_get?\")");
     //    re = luaL_dostring(L, "print(\"test6=====\") local f = io.open(\"abc.log\", \"w\") print(f)");
     //    re = luaL_dostring(L, "print(_VERSION) print(\"sleep 2s\") timer.mdelay(2000) print(\"hi again\")");
+    
+
+    // 加载几个帮助方法吧
+    /*
+    luaL_loadstring(L, "-- rtos消息回调\n"
+                       "local handlers = {}\n"
+                       "setmetatable(handlers, {__index = function() return function() end end})\n"
+                       "rtos.on = function(id, handler) handlers[id] = handler end\n"
+                       "timer.ids = {}\n"
+                       "timer.maxid = 1\n"
+                       "timer.start = function(ms, func)\n"
+                       "  local id = timer.maxid\n"
+                       "  timer.maxid = timer.maxid + 1\n"
+                       "  local nt = rtos.timer_start(id, m)\n"
+                       "  timer.ids[id] = {nt=nt,func=func}\n"
+                       "end\n"
+                       "rtos.on(rtos.MSG_TIMER, function(msg)\n"
+                       "   local t = timer.ids[msg]\n"
+                       "   if t ~= nil then t.func() end\n"
+                       "end\n"
+                       "sys.run = functoin()\n"
+                       "   while 1 do\n"
+                       "     local id,msg = rtos.recv(0)\n"
+                       "     if id == rtos.MSG_TIMER then handlers(id)(msg) end\n"
+                       "   end\n"
+                       "end\n");
+    */
+        re = luaL_loadstring(L, "-- rtos消息回调\n"
+                      "sys.run = functoin()\n"
+                      "  print(\"sys.run -- GO!GO!GO!\")"
+                      "  while 1 do\n"
+                      "    print(\"sys.run -- GO WHILE!\")"
+                      "    local id,msg = rtos.recv(0)\n"
+                      "    print(id)\n"
+                      "end\n");
 
 #ifdef RT_USING_PIN
         // pin number pls refer pin_map.c
@@ -95,11 +133,9 @@ static int pmain(lua_State *L) {
        re = luaL_dostring(L, "print(_VERSION .. \" from Luat\")\n"
                              "timer.mdelay(1000)\n"
                              "print(\"END\")\n"
-                             "timer.start(100,5,function()\n"
-                             //"timer.start(100,function()\n"
-                             "  print(\"123\")\n"
-                             "end)\n"
-                             "sys.run()\n"
+                             "rtos.timer_start(1, 1000, 3)\n"
+                             "while 1 do print(rtos.recv(-1)) end"
+                             //"sys.run()\n"
                   );
 #endif
     //}

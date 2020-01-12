@@ -9,6 +9,7 @@
 
 static rt_uint8_t msg_pool[16*1024];
 static struct rt_messagequeue mq;
+static void *msgdata = {0};
 
 void luat_msgbus_init(void) {
     rt_err_t result;
@@ -25,6 +26,10 @@ void luat_msgbus_init(void) {
     }
 }
 
+void* luat_msgbus_data() {
+    return msgdata;
+}
+
 uint32_t luat_msgbus_put(struct rtos_msg* msg, size_t timeout) {
     return rt_mq_send(&mq, msg, sizeof(struct rtos_msg));
 }
@@ -33,9 +38,11 @@ uint32_t luat_msgbus_get(struct rtos_msg* msg, size_t timeout) {
     rt_err_t result;
     result = rt_mq_recv(&mq, msg, sizeof(struct rtos_msg), timeout);
     if (result == RT_EOK) {
+        msgdata = msg->ptr;
         return 0;
     }
     else {
+        msgdata = NULL;
         return result;
     }
 }

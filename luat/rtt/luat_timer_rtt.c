@@ -5,7 +5,6 @@
 
 #include "rtthread.h"
 
-static int32_t timer_id = 0;
 static char timer_name[32];
 
 static void rt_timer_callback(void *param) {
@@ -19,7 +18,7 @@ static void rt_timer_callback(void *param) {
 }
 
 int luat_timer_start(struct luat_timer_t* timer) {
-    sprintf(timer_name, "luat_%ld", timer_id++);
+    sprintf(timer_name, "t%ld", timer->id);
     rt_tick_t time = timer->timeout;
     rt_uint8_t flag = timer->repeat ? RT_TIMER_FLAG_PERIODIC : RT_TIMER_FLAG_ONE_SHOT;
     rt_timer_t r_timer = rt_timer_create(timer_name, rt_timer_callback, timer, time, flag);

@@ -36,7 +36,7 @@ while 1 do
     -- 从消息队列接收信息, 无限等待
     -- msgtype是消息的类型,总是一个数值
     -- msgdata是消息的内容,不一定存在
-    local msgtype, msgdata = rtos.receive(0)
+    local msgtype, msgdata = rtos.recv(0)
     -- handlers是消息处理器的table
     if msgtype and handlers[msgtype] then
         -- 如果存在对应msgtype的处理器,则执行之
@@ -48,34 +48,24 @@ end
 ## 核心流程(C层面)
 
 ```c
-void luat_main(luaState* L) {
+void l_rtos_recv(luaState* L) {
     rtos_msg msg;
     uint32_t re;
-    size_t timeout = 1000; // 每1000个tick喂一次狗
-    while (1) {
-        // 执行pub/sub队列
-
-        re = luat_msgbus_get(&msg, timeout);
-        if (re) {
-            // TODO喂狗
-        }
-        else {
-            switch(msg.msgtype) {
-            case MSG_TIMER:
-                // 清理堆栈,执行回调
-                luaL_pushfunction(L, msg.data);
-                luaL_pcall(...);
-                break;
-            case MSG_GPIO:
-                // 根据gpio的id, 执行回调
-                break;
-            case ...
-            }
-        }
-        // 检查堆栈, 继续下一轮
+    re = luat_msgbus_get(&msg, lua_checkint(L, 1));
+    if (re) {
+        // TODO喂狗
+    }
+    else {
+        msg.handler(L);
     }
 }
 ```
+
+### 关于msg.handler
+
+为了隔离具体处理逻辑, msg包含msg.ptr和msg.handler两部分
+1. 注意, 没有msg.id, 这部分数据由msg.handler回调函数自行设置到lua栈
+2. msg.ptr是msg.handler所需要的数据,通过luat_msgbus_data隐式传递.
 
 ## 相关知识点
 

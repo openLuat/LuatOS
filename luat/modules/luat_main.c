@@ -24,10 +24,10 @@ static void luat_openlibs(lua_State *L) {
     luaL_requiref(L, "timer", luaopen_timer, 1);
     lua_pop(L, 1);
 
-    #ifdef RT_USING_PIN
+    //#ifdef RT_USING_PIN
     luaL_requiref(L, "gpio", luaopen_gpio, 1);
     lua_pop(L, 1);
-    #endif
+    //#endif
 }
 
 static int pmain(lua_State *L) {
@@ -92,7 +92,6 @@ static int pmain(lua_State *L) {
                        "     if id == rtos.MSG_TIMER then handlers(id)(msg) end\n"
                        "   end\n"
                        "end\n");
-    */
         re = luaL_loadstring(L, "-- rtos消息回调\n"
                       "sys.run = functoin()\n"
                       "  print(\"sys.run -- GO!GO!GO!\")"
@@ -101,12 +100,15 @@ static int pmain(lua_State *L) {
                       "    local id,msg = rtos.recv(0)\n"
                       "    print(id)\n"
                       "end\n");
+    */
 
-#ifdef RT_USING_PIN
+//#ifdef RT_USING_PIN
         // pin number pls refer pin_map.c
+        /*
         re = luaL_dostring(L, "print(_VERSION)\n"
                    " local PA1=14 local PA4=15 \n"
-                   " gpio.setup(PA1) gpio.setup(PA4)\n"
+                   " gpio.setup(PA1,gpio.OUTPUT) gpio.setup(PA4, gpio.OUTPUT)\n"
+                   " print(PA1, PA4)\n"
                    " gpio.set(PA1, 0) gpio.set(PA4, 0)\n"
                    " while 1 do\n"
                    "    gpio.set(PA1, 1)\n"
@@ -119,7 +121,27 @@ static int pmain(lua_State *L) {
                    "    print(\"sleep 1s\")\n"
                    "    timer.mdelay(1000)\n"
                    "end\n");
-#else
+        */
+       re = luaL_dostring(L, "print(_VERSION)\n"
+                   " local PA1=14\n"
+                   " local PB7=27\n"
+                   " gpio.setup(PA1,gpio.OUTPUT)\n"
+                   " gpio.setup(PB7,gpio.INPUT, function() end)\n"
+                   " print(PA1)\n"
+                   " gpio.set(PA1, 0)\n"
+                   " while 1 do\n"
+                   "    gpio.set(PA1, 1)\n"
+                   "    print(\"sleep 1s\")\n"
+                   "    print(gpio.get(PB7) == 1)\n"
+                   "    timer.mdelay(1000)\n"
+
+                   "    gpio.set(PA1, 0)\n"
+                   "    print(\"sleep 1s\")\n"
+                   "    print(gpio.get(PB7) == 1)\n"
+                   "    timer.mdelay(1000)\n"
+                   "end\n"
+                   );
+//#else
         /*
         re = luaL_dostring(L, "print(_VERSION .. \" from Luat\")\n timer.mdelay(1000)\n print(_VERSION)"
                   "local c = 0\n"
@@ -137,7 +159,7 @@ static int pmain(lua_State *L) {
                              "while 1 do print(rtos.recv(-1)) end"
                              //"sys.run()\n"
                   );
-#endif
+//#endif
     //}
     
     if (re) {

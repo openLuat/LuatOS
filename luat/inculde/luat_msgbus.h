@@ -9,9 +9,7 @@
 #define MSG_UART_RX 3
 #define MSG_UART_TXDONE 4
 
-
-
-typedef int (*luat_msg_handler) (lua_State *L);
+typedef int (*luat_msg_handler) (lua_State *L, void* ptr);
 
 typedef struct rtos_msg{
     luat_msg_handler handler;

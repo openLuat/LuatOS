@@ -30,99 +30,23 @@ static void luat_openlibs(lua_State *L) {
     //#endif
 }
 
-static int pmain(lua_State *L) {
-    int re = 0;
-    //luat_print("luat_pmain!!!\n");
-    // 加载系统库
-    luaL_openlibs(L);
-
-    // 加载本地库
-    luat_openlibs(L);
-    
-
-    // 打印个提示
-    //luat_print("luat_boot_complete\n");
-
-    // 执行
-    //lfs_file_t file;
-    //if (LFS_FileOpen(&file, "/lua/main.lua", LFS_O_RDONLY) == LFS_ERR_OK) {
-    //    luat_print("reading main.lua--------------------\n");
-    //    char *buf = luat_heap_calloc(file.size+1);
-    //    LFS_FileRead(&file, buf, file.size);
-    //    LFS_FileClose(&file);
-    //    luat_print("run main.lua-----------------------\n");
-    //    re = luaL_dostring(L, buf);
-    //    luat_heap_free(buf);
-    //    luat_print("done main.lua-------------------------\n");
-    //}
-    //else {
-    //  re = luaL_dostring(L, "print(_VERSION)");
-    //  re = luaL_dostring(L, "local a = 1");
-    //    luat_print("/lua/main.lua not found!!! run default lua string\n");
-    //    re = luaL_dostring(L, "print(\"test1=====\") local a = 1\n local b=2\nprint(_G)\nprint(a+b)\nprint(sys)\nprint(_VERSION)");
+static int test_simple_core() {
+  // Test A, 没有外部库的逻辑
+  int re = 0;
+  re = luaL_dostring(L, "print(_VERSION)");
+  re = luaL_dostring(L, "local a = 1");
+  re = luaL_dostring(L, "print(\"test1=====\") local a = 1\n local b=2\nprint(_G)\nprint(a+b)\nprint(sys)\nprint(_VERSION)");
     //    re = luaL_dostring(L, "print(\"test2=====\") local ab=1 \nprint(rtos.get_version()) print(rtos.get_memory_free())");
     //    re = luaL_dostring(L, "print(\"test3=====\") print(a - 1)");
     //    re = luaL_dostring(L, "print(\"test4=====\") print(rtos.get_memory_free()) collectgarbage(\"collect\") print(rtos.get_memory_free())");
     //    re = luaL_dostring(L, "print(\"test5=====\") print(rtos.timer_start(1, 3000)) print(rtos.receive(5000)) print(\"timer_get?\")");
     //    re = luaL_dostring(L, "print(\"test6=====\") local f = io.open(\"abc.log\", \"w\") print(f)");
     //    re = luaL_dostring(L, "print(_VERSION) print(\"sleep 2s\") timer.mdelay(2000) print(\"hi again\")");
-    
+    return re;
+}
 
-    // 加载几个帮助方法吧
-    /*
-    luaL_loadstring(L, "-- rtos消息回调\n"
-                       "local handlers = {}\n"
-                       "setmetatable(handlers, {__index = function() return function() end end})\n"
-                       "rtos.on = function(id, handler) handlers[id] = handler end\n"
-                       "timer.ids = {}\n"
-                       "timer.maxid = 1\n"
-                       "timer.start = function(ms, func)\n"
-                       "  local id = timer.maxid\n"
-                       "  timer.maxid = timer.maxid + 1\n"
-                       "  local nt = rtos.timer_start(id, m)\n"
-                       "  timer.ids[id] = {nt=nt,func=func}\n"
-                       "end\n"
-                       "rtos.on(rtos.MSG_TIMER, function(msg)\n"
-                       "   local t = timer.ids[msg]\n"
-                       "   if t ~= nil then t.func() end\n"
-                       "end\n"
-                       "sys.run = functoin()\n"
-                       "   while 1 do\n"
-                       "     local id,msg = rtos.recv(0)\n"
-                       "     if id == rtos.MSG_TIMER then handlers(id)(msg) end\n"
-                       "   end\n"
-                       "end\n");
-        re = luaL_loadstring(L, "-- rtos消息回调\n"
-                      "sys.run = functoin()\n"
-                      "  print(\"sys.run -- GO!GO!GO!\")"
-                      "  while 1 do\n"
-                      "    print(\"sys.run -- GO WHILE!\")"
-                      "    local id,msg = rtos.recv(0)\n"
-                      "    print(id)\n"
-                      "end\n");
-    */
-
-//#ifdef RT_USING_PIN
-        // pin number pls refer pin_map.c
-        /*
-        re = luaL_dostring(L, "print(_VERSION)\n"
-                   " local PA1=14 local PA4=15 \n"
-                   " gpio.setup(PA1,gpio.OUTPUT) gpio.setup(PA4, gpio.OUTPUT)\n"
-                   " print(PA1, PA4)\n"
-                   " gpio.set(PA1, 0) gpio.set(PA4, 0)\n"
-                   " while 1 do\n"
-                   "    gpio.set(PA1, 1)\n"
-                   "    gpio.set(PA4, 1)\n"
-                   "    print(\"sleep 1s\")\n"
-                   "    timer.mdelay(1000)\n"
-
-                   "    gpio.set(PA1, 0)\n"
-                   "    gpio.set(PA4, 0)\n"
-                   "    print(\"sleep 1s\")\n"
-                   "    timer.mdelay(1000)\n"
-                   "end\n");
-        */
-       re = luaL_dostring(L, "print(_VERSION)\n"
+static int test_gpio_simple() {
+        int re = luaL_dostring(L, "print(_VERSION)\n"
                    " local PA1=14\n"
                    " local PB7=27\n"
                    " gpio.setup(PA1,gpio.OUTPUT)\n"
@@ -141,26 +65,32 @@ static int pmain(lua_State *L) {
                    "    timer.mdelay(1000)\n"
                    "end\n"
                    );
-//#else
-        /*
-        re = luaL_dostring(L, "print(_VERSION .. \" from Luat\")\n timer.mdelay(1000)\n print(_VERSION)"
-                  "local c = 0\n"
-                  "while 1 do\n"
-                  "    print(\"count=\" .. c)\n"
-                  "    timer.mdelay(1000)\n"
-                  "    c = c + 1\n"
-                  "end\n"
-                  );
-        */
-       re = luaL_dostring(L, "print(_VERSION .. \" from Luat\")\n"
-                             "timer.mdelay(1000)\n"
-                             "print(\"END\")\n"
-                             "rtos.timer_start(1, 1000, 3)\n"
-                             "while 1 do print(rtos.recv(-1)) end"
-                             //"sys.run()\n"
-                  );
-//#endif
-    //}
+        return re;
+}
+
+static int test_timer_simple() {
+          int re = luaL_dostring(L, "print(_VERSION)\n"
+                   " while 1 do\n"
+                   "    print(\"sleep 1s\")\n"
+                   "    timer.mdelay(1000)\n"
+                   "end\n"
+                   );
+        return re;
+}
+
+static int pmain(lua_State *L) {
+    int re = 0;
+    //luat_print("luat_pmain!!!\n");
+    // 加载系统库
+    luaL_openlibs(L);
+
+    // 加载本地库
+    luat_openlibs(L);
+    
+    // 测试代码
+    // re = test_core_simple();
+    re = test_gpio_simple();
+    // re = test_timer_simple();
     
     if (re) {
         luat_print("luaL_dostring  return re != 0\n");

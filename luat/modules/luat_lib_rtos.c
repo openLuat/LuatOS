@@ -13,15 +13,15 @@ static int l_rtos_recv(lua_State *L) {
     re = luat_msgbus_get(&msg, luaL_checkinteger(L, 1));
     if (!re) {
         luat_printf("luat_msgbus_get!!!\n");
-        return msg.handler(L);
+        return msg.handler(L, &msg);
     }
     return 0;
 }
 
 //------------------------------------------------------------------
-static int l_timer_handler(lua_State *L) {
+static int l_timer_handler(lua_State *L, void* ptr) {
     luat_printf("l_timer_handler\n");
-    struct luat_timer_t *timer = (struct luat_timer_t *)luat_msgbus_data();
+    struct luat_timer_t *timer = (struct luat_timer_t *)ptr;
     lua_pushinteger(L, MSG_TIMER);
     lua_pushinteger(L, timer->id);
     lua_pushinteger(L, timer->timeout);

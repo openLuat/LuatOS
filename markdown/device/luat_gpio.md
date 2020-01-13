@@ -17,18 +17,18 @@
 ## C API(平台层)
 
 ```C
-#define GPIO_LOW                 0x00
-#define GPIO_HIGH                0x01
+#define Luat_GPIO_LOW                 0x00
+#define Luat_GPIO_HIGH                0x01
 
-#define GPIO_OUTPUT         0x00
-#define GPIO_INPUT          0x01
-#define GPIO_INPUT_PULLUP   0x02
-#define GPIO_INPUT_PULLDOWN 0x03
-#define GPIO_OUTPUT_OD      0x04
+#define Luat_GPIO_OUTPUT         0x00
+#define Luat_GPIO_INPUT          0x01
+#define Luat_GPIO_INPUT_PULLUP   0x02
+#define Luat_GPIO_INPUT_PULLDOWN 0x03
+#define Luat_GPIO_OUTPUT_OD      0x04
 
-#define GPIO_RISING             0x00
-#define GPIO_FALLING            0x01
-#define GPIO_RISING_FALLING     0x02
+#define Luat_GPIO_RISING             0x00
+#define Luat_GPIO_FALLING            0x01
+#define Luat_GPIO_RISING_FALLING     0x02
 
 int luat_gpio_setup(luat_gpio_t* gpio);
 int luat_gpio_set(int pin, int level);

@@ -23,9 +23,9 @@
 消息体以4字节对齐的方式存在
 
 ```c
-struct RtosMsg {
-    uint32_t msgtype;
-    uint32_t msgdata;
+struct rtos_msg {
+    luat_msg_hanlder handler;
+    void* ptr;
 } rtos_msg;
 
 #define LUAT_MSGBUS_ITEMCOUNT ((size_t)0xFF)
@@ -33,12 +33,18 @@ struct RtosMsg {
 
 其中
 
-* msgtype 消息类型
-* msgdata 消息负载,有具体消息类型决定
+* handler 消息回调函数
+* ptr     消息负载,有具体消息类型决定
 
 ## C API
 
-使用CMSIS_OS_v2的 Queue API进行操作, put和get操作
+```C
+void luat_msgbus_init(void);
+void* luat_msgbus_data();
+uint32_t luat_msgbus_put(struct rtos_msg* msg, size_t timeout);
+uint32_t luat_msgbus_get(struct rtos_msg* msg, size_t timeout);
+uint32_t luat_msgbus_freesize(void);
+```
 
 ### 发送消息
 

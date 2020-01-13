@@ -17,9 +17,23 @@
 ## C API(平台层)
 
 ```C
+#define GPIO_LOW                 0x00
+#define GPIO_HIGH                0x01
+
+#define GPIO_OUTPUT         0x00
+#define GPIO_INPUT          0x01
+#define GPIO_INPUT_PULLUP   0x02
+#define GPIO_INPUT_PULLDOWN 0x03
+#define GPIO_OUTPUT_OD      0x04
+
+#define GPIO_RISING             0x00
+#define GPIO_FALLING            0x01
+#define GPIO_RISING_FALLING     0x02
+
 int luat_gpio_setup(luat_gpio_t* gpio);
 int luat_gpio_set(int pin, int level);
 int luat_gpio_get(int pin);
+int luat_gpio_close(int pin);
 ```
 
 ## Lua API
@@ -27,20 +41,31 @@ int luat_gpio_get(int pin);
 ## 常量
 
 ```lua
-gpio.INPUT  -- 输入模式
-gpio.OUTPUT -- 输出模式
-gpio.PULLDOWN -- 下拉
-gpio.PULLUP -- 上拉
-gpio.HIGH
-gpio.LOW
+gpio.OUTPUT          -- 输出模式,推挽
+gpio.OUTPUT_OD       -- 输出模式,开漏
+gpio.INPUT_PULLUP    -- 输入模式,上拉
+gpio.INPUT_PULLDOWN  -- 输入模式,下拉
+gpio.INPUT           -- 输入模式,缺省
+gpio.LOW             -- 低电平
+gpio.HIGH            -- 高电平
 ```
 
 ### 进入指定的功耗级别
 
 ```lua
-gpio.setup(PIN, gpio.gpio.INPUT, function(t) end, gpio.PULLUP)
+-- 简单输入
+gpio.setup(PIN, gpio.INPUT)
+-- 简单输出
+gpio.setup(PIN, gpio.OUTPUT, 0)
+-- 中断,回调函数的t的值为 GPIO_RISING 或 GPIO_FALLING
+-- 最后一个参数为中断模式, GPIO_RISING_FALLING就是默认值, 双边触发
+gpio.setup(PIN, gpio.INPUT, function(t) end, gpio.GPIO_RISING_FALLING)
+-- 设置输出为高电平
 gpio.set(PIN, gpio.HIGH)
+-- 获取输入电平或当前的输出电平
 gpio.get(PIN)
+-- 关闭引脚, 事实上是输入高阻态
+gpio.close(PIN)
 ```
 ## 相关知识点
 

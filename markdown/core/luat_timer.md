@@ -36,18 +36,20 @@ uint32_t luat_timer_stop(luat_timer_t* timer);
 
 ## 常量
 
+备用
+
 ```lua
-timer.HW -- 硬件定时器
-timer.OS -- 软件定时器
+timer.HW -- "HW" 硬件定时器
+timer.OS -- "OS" 软件定时器
 ```
 
 ### 启动定时器
 
 ```lua
--- timer_id 时钟id, 数值, 0-0xFF, 取决于LUAT_TIMER_MAXID
--- timerout 超时时长, 数值, 1-0xFFFFFFFF, 单位毫秒
-local timer_id = timer.start(timer.OS, timeout, _repeat, function(timer_id) end)
-if not timer_id then
+-- timerout 超时时长, 数值, 1-0xFFFFFFFF, 单位毫秒, 大于0才有意义
+-- repeat   额外重复次数, 数值, 1-0xFFFFFFFF, 单位毫秒,默认0
+local t = timer.start(timeout, _repeat, function() end)
+if not t then
     -- 启动成功
 else
     -- 启动失败, 可能id已满或timeout值错误
@@ -58,7 +60,7 @@ end
 
 ```lua
 -- timer_id 时钟id, 数值, 0-0xFF, 取决于LUAT_TIMER_MAXID
-timer.stop(timer_id)
+timer.stop(t)
 -- 只要传入数值型的id, timer_stop总会成功
 ```
 

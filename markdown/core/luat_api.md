@@ -46,9 +46,9 @@ lpmen.read(pos, len)            -- 从不掉电内读数据
 
 -- GPIO相关
 pmu.ldo(zone, mode)             -- 设置电压域
-gpio.setup(pin, mode, pullup,func) -- 设置GPIO脚的功能
+gpio.setup(pin, mode, pullup, func) -- 设置GPIO脚的功能
 gpio.set(pin, value)            -- 设置输出电平
-gpio.get(pin, value)            -- 获取输入电平
+gpio.get(pin)            -- 获取输入电平
 gpio.odr(pin)                   -- 获取输出电平
 
 -- UART相关

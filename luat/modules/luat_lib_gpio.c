@@ -22,6 +22,11 @@ static int l_gpio_setup(lua_State *L) {
     if (is_irq) {
         conf->callback = &l_gpio_handler;
         conf->irqmode = luaL_optinteger(L, 4, Luat_GPIO_RISING_FALLING);
+        luat_printf("gpio.setup enable irq pin=%d\n", conf->pin);
+    }
+    else {
+        conf->callback = NULL;
+        conf->irqmode = 0;
     }
     int re = luat_gpio_setup(conf);
     if (is_irq) {

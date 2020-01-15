@@ -12,17 +12,12 @@
  * 管理并抽象Wlan的C API, 提供一套Lua API供用户代码调用
 ## 相关知识点
 
-* [RT-Thread WLAN设备管理](https://www.rt-thread.org/document/site/programming-manual/device/wlan/wlan/.md)
+* [RT-Thread WLAN设备管理](https://www.rt-thread.org/document/site/programming-manual/device/wlan/wlan/)
 
 
 ## C API(平台层)
 
 ```C
-#define Luat_WLAN_MODE_NONE     0x00
-#define Luat_WLAN_MODE_STATION  0x01
-#define Luat_WLAN_MODE_AP       0x02
-#define Luat_WLAN_MODE_STA_AP   0x03
-
 #define Luat_WLAN_SECURITY_OPEN             0x00
 #define Luat_WLAN_SECURITY_WEP_PSK          0x01   
 #define Luat_WLAN_SECURITY_WEP_SHARED       0x02
@@ -35,14 +30,14 @@
 #define Luat_WLAN_SECURITY_WPS_SECURE       0x09
 
 #define Luat_WLAN_EVT_READY                 0x01
-#define Luat_WLAN_EVT_SCAN_DONE	 	        0x02    
+#define Luat_WLAN_EVT_SCAN_DONE             0x02    
 #define Luat_WLAN_EVT_SCAN_REPORT           0x03   
 #define Luat_WLAN_EVT_STA_CONNECTED         0x04   
-#define Luat_WLAN_EVT_STA_CONNECTED_FAIL	0x05 
-#define Luat_WLAN_EVT_STA_DISCONNECTED	    0x06
+#define Luat_WLAN_EVT_STA_CONNECTED_FAIL    0x05 
+#define Luat_WLAN_EVT_STA_DISCONNECTED      0x06
 #define Luat_WLAN_EVT_AP_START		        0x07
-#define Luat_WLAN_EVT_AP_STOP		        0x08
-#define Luat_WLAN_EVT_AP_ASSOCIATED		    0x09
+#define Luat_WLAN_EVT_AP_STOP               0x08
+#define Luat_WLAN_EVT_AP_ASSOCIATED         0x09
 #define Luat_WLAN_EVT_AP_DISASSOCIATED      0x0A 
 
 
@@ -57,31 +52,30 @@ luat_wlan_net_t luat_wlan_get_apnet(void)          //获取AP的网络信息
 /* WLAN 连接 */
 int luat_wlan_connect(luat_wlan_info_t *info);	    //连接热点
 int luat_wlan_is_ready(void);	                    //获取就绪标志
-luat_wlan_info_t luat_wlan_get_info(void);	        //获取连接信息
+luat_wlan_info_t luat_wlan_get_info(void);          //获取连接信息
 int luat_wlan_get_rssi(void);	                    //获取信号强度
 
 /* WLAN 扫描 */
-luat_wlan_info_t luat_wlan_scan_with_info(void);	 //扫描
+luat_wlan_info_t luat_wlan_scan_with_info(void);    //扫描
 
 /* WLAN 热点 */
-int luat_wlan_start_ap(luat_wlan_info_t);	         //启动热点
-int luat_wlan_ap_is_active(void);	                 //获取启动标志
-int luat_wlan_ap_stop(void);	                     //停止热点
-luat_wlan_info_t luat_wlan_ap_get_info(void);	     //获取热点信息
-luat_wlan_info_t luat_wlan_ap_get_stainfo(void);	 //获取连接热点的Station信息
+int luat_wlan_start_ap(luat_wlan_info_t);           //启动热点
+int luat_wlan_ap_is_active(void);                   //获取启动标志
+int luat_wlan_ap_stop(void);                        //停止热点
+luat_wlan_info_t luat_wlan_ap_get_info(void);       //获取热点信息
+luat_wlan_info_t luat_wlan_ap_get_stainfo(void);    //获取连接热点的Station信息
 
 /* WLAN 事件回调 */
-int luat_wlan_register_event_handler(int evt);	     //事件注册
-int luat_wlan_unregister_event_handler(int evt));	 //解除注册
+int luat_wlan_register_event_handler(int evt);      //事件注册
+int luat_wlan_unregister_event_handler(int evt));   //解除注册
 
 /* WLAN 功耗管理 */
-int luat_wlan_set_powersave(int level);	             //设置功耗等级，用于 station 模式。
-int luat_wlan_get_powersave(void);	                 //获取功耗等级
+int luat_wlan_set_powersave(int level);             //设置功耗等级，用于 station 模式。
+int luat_wlan_get_powersave(void);                  //获取功耗等级
 ```
 
 
 ## 常量
-
 ```lua
 --安全模式
 wlan.OPEN                        --Open security 
@@ -110,7 +104,7 @@ wlan.EVT_AP_DISASSOCIATED        --断开的 Station 信息
 
 
 
-##　Lua API
+## Lua API
 
 
 ```lua
@@ -121,7 +115,7 @@ wlan.setStaNet(ip,netmask,gateway)
     wlan.setStaNet()                    --启动DHCP，自动获取ip地址，子网掩码，网关等信息
     wlan.setStaNet(ip)                  --静态设置ip地址，ip：xxx.xxx.xxx.xxx，子网掩码：255.255.255.0,  网关：xxx.xxx.xxx.1
     wlan.setStaNet(ip,net)              --静态设置ip地址，ip：xxx.xxx.xxx.xxx，子网掩码：xxx.xxx.xxx.xxx,网关：xxx.xxx.xxx.1
-    wlan.setStaNet(ip,netmask,gateway)  --静态设置ip地址，子网掩码为255.255.255.0，网关：
+    wlan.setStaNet(ip,netmask,gateway)  --静态设置ip地址，ip：xxx.xxx.xxx.xxx，子网掩码：xxx.xxx.xxx.xxx,网关：xxx.xxx.xxx.xxx
 ]]
 
 --获取 wifi Station 模式下的网络信息
@@ -138,7 +132,7 @@ wlan.setApNet()
 用例:
     wlan.setStaNet(ip)                  --静态设置ip地址，ip：xxx.xxx.xxx.xxx，子网掩码：255.255.255.0,  网关：xxx.xxx.xxx.1
     wlan.setStaNet(ip,net)              --静态设置ip地址，ip：xxx.xxx.xxx.xxx，子网掩码：xxx.xxx.xxx.xxx,网关：xxx.xxx.xxx.1
-    wlan.setStaNet(ip,netmask,gateway)  --静态设置ip地址，子网掩码为255.255.255.0，网关：
+    wlan.setStaNet(ip,netmask,gateway)  --静态设置ip地址，ip：xxx.xxx.xxx.xxx，子网掩码：xxx.xxx.xxx.xxx,网关：xxx.xxx.xxx.xxx
 ]]
 
 --获取 wifi AP 模式下的网络信息
@@ -163,7 +157,7 @@ wlan.connect(ssid,password,bssid)
     wlan.connect(ssid)                  --连接开放的热点
     wlan.connect(ssid,password)         --连接加密的热点
     wlan.connect(ssid,password,bssid)   --连接指定MAC地址的加密的热点
-    wlan.connect(ssid,nil,bssid)        --连接指定MAC地址的开发热点
+    wlan.connect(ssid,nil,bssid)        --连接指定MAC地址的开放热点
 ]]
 
 --获取连接热点的信息
@@ -187,7 +181,7 @@ wlan.ready()
 --获取信号强度
 wlan.getrssi()
 
---创建热点（密码为空）
+--创建热点
 wlan.ap_start(ssid,password,security,channel,hidden)
 --[[
 用例:
@@ -217,11 +211,11 @@ wlan.getapinfo()
 ]]
 
 --获取加入热点的STA信息
-wlan.getapinfo()
+wlan.getJionApInfo()
 --[[
 用例:
-    local num,info = wlan.getapinfo()
-    num     已经连接的 station 数目
+    local num,info = wlan.getJionApInfo()
+    num             --已经连接的 station 数目
     info[num].ip    --station 的 ip 地址
     info[num].mac   --station 的 mac 地址
 ]]
@@ -236,7 +230,7 @@ wlan.ap_stop()
 wlan.on(EVT,fun)
 --[[
 用例:
-    wlan.on(wlan.EVT_READY ,fun)
+    wlan.on(wlan.EVT_READY ,function() ... end)
     ...
 ]]
 

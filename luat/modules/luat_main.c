@@ -56,12 +56,46 @@ static int test_gpio_simple() {
                    " while 1 do\n"
                    "    gpio.set(PA1, 1)\n"
                    "    print(\"sleep 1s\")\n"
-                   "    print(gpio.get(PB7) == 1)\n"
+                   //"    print(gpio.get(PB7) == 1)\n"
                    "    timer.mdelay(1000)\n"
 
                    "    gpio.set(PA1, 0)\n"
                    "    print(\"sleep 1s\")\n"
-                   "    print(gpio.get(PB7) == 1)\n"
+                   //"    print(gpio.get(PB7) == 1)\n"
+                   "    timer.mdelay(1000)\n"
+                   "end\n"
+                   );
+        return re;
+}
+
+static int test_gpio_led() {
+  int re = luaL_dostring(L, "print(_VERSION)\n"
+                   " local PB18=23\n"
+                   " local PB17=22\n"
+                   " local PB16=21\n"
+                   " gpio.setup(PB17,gpio.OUTPUT)\n"
+                   " gpio.setup(PB16,gpio.OUTPUT)\n"
+                   " gpio.setup(PB18,gpio.OUTPUT)\n"
+                   " gpio.set(PB17, 0)\n"
+                   " gpio.set(PB16, 0)\n"
+                   " gpio.set(PB18, 0)\n"
+                   " while 1 do\n"
+                   "    gpio.set(PB17, 1)\n"
+                   "    gpio.set(PB16, 0)\n"
+                   "    gpio.set(PB18, 0)\n"
+                   "    print(\"sleep 1s - PB17\")\n"
+                   "    timer.mdelay(1000)\n"
+                   
+                   "    gpio.set(PB17, 0)\n"
+                   "    gpio.set(PB16, 1)\n"
+                   "    gpio.set(PB18, 0)\n"
+                   "    print(\"sleep 1s - PB16\")\n"
+                   "    timer.mdelay(1000)\n"
+                   
+                   "    gpio.set(PB17, 0)\n"
+                   "    gpio.set(PB16, 0)\n"
+                   "    gpio.set(PB18, 1)\n"
+                   "    print(\"sleep 1s - PB18\")\n"
                    "    timer.mdelay(1000)\n"
                    "end\n"
                    );
@@ -89,7 +123,8 @@ static int pmain(lua_State *L) {
     
     // 测试代码
     // re = test_core_simple();
-    re = test_gpio_simple();
+    //re = test_gpio_simple();
+    re = test_gpio_led();
     // re = test_timer_simple();
     
     if (re) {

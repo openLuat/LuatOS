@@ -25,7 +25,6 @@ uint8_t luat_fs_getc(Luat_FILE stream);
 uint8_t luat_fs_fseek(Luat_FILE stream, long offset, int origin);
 uint32_t luat_fs_ftell(Luat_FILE stream);
 uint8_t luat_fs_fclose(Luat_FILE stream);
-uint8_t luat_log_print(char *buf, len);
 ```
 
 ## Lua API

@@ -151,10 +151,10 @@ static int pmain(lua_State *L) {
     // 测试代码
     // re = test_core_simple();
     // re = test_gpio_simple();
-    re = test_gpio_led();
+    // re = test_gpio_led();
     // re = test_timer_simple();
     // re = test_io_simple();
-    //re = test_load_fs();
+    re = test_load_fs();
 
     if (re) {
         //luat_print("luaL_dostring  return re != 0\n");

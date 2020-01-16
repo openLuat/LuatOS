@@ -36,10 +36,11 @@ const struct lfs_config cfg = {
 };
 
 int luat_fs_init() {
-    luat_lfs_init();
+    //luat_lfs_init();
     #ifdef RT_USING_SFUD
-    dfs_mount("W25QXX", "/", "elm", 0, 0);
+    //dfs_mount("W25QXX", "/", "elm", 0, 0);
     #endif
+    dfs_mount("spi01", "/", "lfs2", 0, 0);
 }
 
 int luat_lfs_init() {

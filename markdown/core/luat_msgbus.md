@@ -69,15 +69,35 @@ rtos.msgbus_clear() -- 无返回
 rtos.msgbuf_send(msgtype, msgdata) -- 无返回
 ```
 
-## 可用消息类型
+## 如何使用msgbus
 
-|消息类型|消息数据|备注|
-|--------|-------|----|
-|MSG_TIMER|FUNC|定时器|
-|MSG_UART_RXDATA|UART_ID, LEN|串口接收|
-|MSG_UART_TX_DONE|UART_ID|串口发送完成|
-|MSG_INT|GPIO_ID,INT|GPIO中断|
+举个栗子:
 
+```c
+// 这个函数位于 luat_gpio_rtt.c , 属于平台特定的实现
+// C 层, 被rtt/freertos/厂商rtos所调用的中断函数
+// 它的作用, 就是接收中断, 打包为rtos_msg对象,提交到msgbus队列里面
+int luat_gpio_callback(void *ptr) {
+    rtos_msg msg;
+    luat_gpio_t *gpio = (luat_gpio_t *)ptr; // 注册回调函数时,通常能传递一个自定义的参数
+    msg.handler = gpio->hanlder; // 这里的handler, 就是下面提到的l_gpio_handler方法
+    msg.ptr = ptr; // 把数据也传过去
+    luat_msgbus_put(&msg, 0); // msg的数据会被复制到msgbu,所以直接传指针就行
+}
+// 这个函数位于 luat_lib_gpio.c ,属于通用实现
+int l_gpio_handler(LuaState *L, void *ptr){
+    luat_gpio_t *gpio = (luat_gpio_t *)ptr;
+    lua_pushinteger(L, MSG_GPIO); // 这里才填入msgid, 而不是有rtos.recv里面写逻辑判断
+    lua_pushinteger(L, gpio->pin);
+    lua_pushinteger(L, gpio->dist);
+    return 3;
+}
+// rtos.recv等待新msg的到来, 然后执行msg.handler(msg.ptr)
+// while 1 do
+//     local msgid, dataA, dataB = rtos.recv(0)
+//     handlers[msgid](dataA, dataB)
+// 在 rtos.recv 内部是这样
+```
 ## 相关知识点
 
 * [Luat核心机制](luat_core.md)

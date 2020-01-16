@@ -22,5 +22,6 @@ LUAMOD_API int luaopen_msgbus( lua_State *L );
 LUAMOD_API int luaopen_gpio( lua_State *L );
 LUAMOD_API int luaopen_uart( lua_State *L );
 LUAMOD_API int luaopen_pm( lua_State *L );
+LUAMOD_API int luaopen_fs( lua_State *L );
 
 #endif

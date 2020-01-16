@@ -4,6 +4,7 @@
 #include "luat_malloc.h"
 //#include "luat_fs.h"
 #include "luat_log.h"
+#include "stdio.h"
 
 static lua_State *L;
 
@@ -79,13 +80,15 @@ static int test_gpio_led() {
                    " gpio.set(PB17, 0)\n"
                    " gpio.set(PB16, 0)\n"
                    " gpio.set(PB18, 0)\n"
+                   " local t = 0 \n"
                    " while 1 do\n"
-                   "    gpio.set(PB17, 1)\n"
-                   "    gpio.set(PB16, 0)\n"
-                   "    gpio.set(PB18, 0)\n"
+                   "    t = t+1"
+                   "    gpio.set(PB17, t%1 > 0 and 1 or 0)\n"
+                   "    gpio.set(PB16, t%3 > 0 and 1 or 0)\n"
+                   "    gpio.set(PB18, t%7 > 0 and 1 or 0)\n"
                    "    print(\"sleep 1s - PB17\")\n"
                    "    timer.mdelay(1000)\n"
-                   
+                   /*
                    "    gpio.set(PB17, 0)\n"
                    "    gpio.set(PB16, 1)\n"
                    "    gpio.set(PB18, 0)\n"
@@ -97,6 +100,7 @@ static int test_gpio_led() {
                    "    gpio.set(PB18, 1)\n"
                    "    print(\"sleep 1s - PB18\")\n"
                    "    timer.mdelay(1000)\n"
+                   */
                    "end\n"
                    );
         return re;
@@ -112,6 +116,29 @@ static int test_timer_simple() {
         return re;
 }
 
+static int test_io_simple() {
+  int re = luaL_dostring(L, "local f = io.open('/lua/main.lua')\n"
+                            " print(f:read(64))\n"
+                            " f:close()\n");
+  return re;
+}
+
+static int test_load_fs() {
+  return luaL_dofile(L, "/main.lua");
+  /*
+  FILE *f = fopen("/lua/main.lua", "r");
+  if (f) {
+    luat_printf("loading /lua/main.lua\n");
+    fclose(f);
+    return luaL_dofile(L, "/lua/main.lua");
+  }
+  else {
+    luat_printf("not found /lua/main.lua\n");
+  }
+  return 0;
+  */
+}
+
 static int pmain(lua_State *L) {
     int re = 0;
     //luat_print("luat_pmain!!!\n");
@@ -123,12 +150,14 @@ static int pmain(lua_State *L) {
     
     // 测试代码
     // re = test_core_simple();
-    //re = test_gpio_simple();
+    // re = test_gpio_simple();
     re = test_gpio_led();
     // re = test_timer_simple();
-    
+    // re = test_io_simple();
+    //re = test_load_fs();
+
     if (re) {
-        luat_print("luaL_dostring  return re != 0\n");
+        //luat_print("luaL_dostring  return re != 0\n");
         luat_print(lua_tostring(L, -1));
     }
     lua_pushboolean(L, 1);  /* signal no errors */
@@ -166,6 +195,10 @@ static int panic (lua_State *L) {
 }
 
 int luat_main (int argc, char **argv, int _) {
+  // 1. init filesystem
+  luat_fs_init();
+
+  // 2. init Lua State
   int status, result;
   L = lua_newstate(luat_heap_alloc, NULL);
   if (L == NULL) {

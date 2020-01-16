@@ -4,5 +4,21 @@
 			"path": "."
 		}
 	],
-	"settings": {}
+	"settings": {
+		"files.associations": {
+			"algorithm": "c",
+			"concepts": "c",
+			"cstddef": "c",
+			"cstdio": "c",
+			"cstdlib": "c",
+			"cstring": "c",
+			"cwchar": "c",
+			"initializer_list": "c",
+			"new": "c",
+			"type_traits": "c",
+			"utility": "c",
+			"xmemory": "c",
+			"xutility": "c"
+		}
+	}
 }

@@ -493,11 +493,26 @@ static int checkload (lua_State *L, int stat, const char *filename) {
 
 
 static int searcher_Lua (lua_State *L) {
-  const char *filename;
+  //rt_kprintf("before gettop, search lua name=%s\n", luaL_checkstring(L, 1));
+  //lua_gettop(L);
+  //rt_kprintf("after gettop,  search lua name=%s\n", luaL_checkstring(L, 1));
+  char filename[32];
   const char *name = luaL_checkstring(L, 1);
-  filename = findfile(L, name, "path", LUA_LSUBSEP);
-  if (filename == NULL) return 1;  /* module not found in this path */
-  return checkload(L, (luaL_loadfile(L, filename) == LUA_OK), filename);
+  sprintf(filename, "/%s.lua", name);
+  FILE *f = fopen(filename, "r");
+  if (f == NULL) {
+    sprintf(filename, "/lua/%s.lua", name);
+    f = fopen(filename, "r");
+  }
+  if (f == NULL) {
+    sprintf(filename, "/lib/%s.lua", name);
+    f = fopen(filename, "r");
+  }
+  if (f == NULL) return 1;
+  fclose(f);
+  int re = checkload(L, (luaL_loadfile(L, filename) == LUA_OK), filename);
+  rt_kprintf("searcher_Lua name=%s re=%d\n", name, re);
+  return re;
 }
 
 
@@ -732,7 +747,7 @@ static const luaL_Reg ll_funcs[] = {
 
 static void createsearcherstable (lua_State *L) {
   static const lua_CFunction searchers[] =
-    {searcher_preload, searcher_Lua, searcher_C, searcher_Croot, NULL};
+    {searcher_preload, searcher_Lua, NULL};
   int i;
   /* create 'searchers' table */
   lua_createtable(L, sizeof(searchers)/sizeof(searchers[0]) - 1, 0);
@@ -770,11 +785,11 @@ LUAMOD_API int luaopen_package (lua_State *L) {
   createsearcherstable(L);
   /* set paths */
   setpath(L, "path", LUA_PATH_VAR, LUA_PATH_DEFAULT);
-  setpath(L, "cpath", LUA_CPATH_VAR, LUA_CPATH_DEFAULT);
+  //setpath(L, "cpath", LUA_CPATH_VAR, LUA_CPATH_DEFAULT);
   /* store config information */
-  lua_pushliteral(L, LUA_DIRSEP "\n" LUA_PATH_SEP "\n" LUA_PATH_MARK "\n"
-                     LUA_EXEC_DIR "\n" LUA_IGMARK "\n");
-  lua_setfield(L, -2, "config");
+  //lua_pushliteral(L, LUA_DIRSEP "\n" LUA_PATH_SEP "\n" LUA_PATH_MARK "\n"
+  //                   LUA_EXEC_DIR "\n" LUA_IGMARK "\n");
+  //lua_setfield(L, -2, "config");
   /* set field 'loaded' */
   luaL_getsubtable(L, LUA_REGISTRYINDEX, LUA_LOADED_TABLE);
   lua_setfield(L, -2, "loaded");

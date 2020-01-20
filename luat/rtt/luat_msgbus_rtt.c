@@ -7,7 +7,7 @@
 #include "luat_msgbus.h"
 
 
-static rt_uint8_t msg_pool[16*1024];
+static rt_uint8_t msg_pool[4*1024];
 static struct rt_messagequeue mq;
 static void *msgdata = {0};
 

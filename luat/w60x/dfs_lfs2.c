@@ -1,6 +1,8 @@
 #include <rtdevice.h>
 #include <rtthread.h>
 
+#ifdef BSP_USING_WM_LIBRARIES
+
 #include <dfs_file.h>
 #include <dfs_fs.h>
 
@@ -886,3 +888,5 @@ int dfs_lfs2_init(void)
     return dfs_register(&_dfs_lfs_ops);
 }
 INIT_COMPONENT_EXPORT(dfs_lfs2_init);
+
+#endif

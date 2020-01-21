@@ -5,6 +5,7 @@
 //#include "luat_fs.h"
 #include "luat_log.h"
 #include "stdio.h"
+#include "luat_msgbus.h"
 
 static lua_State *L;
 
@@ -13,130 +14,34 @@ lua_State * luat_get_state() {
 }
 
 static void luat_openlibs(lua_State *L) {
-    luaL_requiref(L, "msgbus", luaopen_msgbus, 1);
-    lua_pop(L, 1);
+    //luaL_requiref(L, "msgbus", luaopen_msgbus, 1);
+    //lua_pop(L, 1);
+    luat_msgbus_init();
 
     luaL_requiref(L, "rtos", luaopen_rtos, 1);
     lua_pop(L, 1);
 
-    luaL_requiref(L, "sys", luaopen_sys, 1);
-    lua_pop(L, 1);
+    //luaL_requiref(L, "sys", luaopen_sys, 1);
+    //lua_pop(L, 1);
     
     luaL_requiref(L, "timer", luaopen_timer, 1);
     lua_pop(L, 1);
 
     //#ifdef RT_USING_PIN
-    luaL_requiref(L, "gpio", luaopen_gpio, 1);
-    lua_pop(L, 1);
+    //luaL_requiref(L, "gpio", luaopen_gpio, 1);
+    //lua_pop(L, 1);
     //#endif
-}
 
-static int test_simple_core() {
-  // Test A, 没有外部库的逻辑
-  int re = 0;
-  re = luaL_dostring(L, "print(_VERSION)");
-  re = luaL_dostring(L, "local a = 1");
-  re = luaL_dostring(L, "print(\"test1=====\") local a = 1\n local b=2\nprint(_G)\nprint(a+b)\nprint(sys)\nprint(_VERSION)");
-    //    re = luaL_dostring(L, "print(\"test2=====\") local ab=1 \nprint(rtos.get_version()) print(rtos.get_memory_free())");
-    //    re = luaL_dostring(L, "print(\"test3=====\") print(a - 1)");
-    //    re = luaL_dostring(L, "print(\"test4=====\") print(rtos.get_memory_free()) collectgarbage(\"collect\") print(rtos.get_memory_free())");
-    //    re = luaL_dostring(L, "print(\"test5=====\") print(rtos.timer_start(1, 3000)) print(rtos.receive(5000)) print(\"timer_get?\")");
-    //    re = luaL_dostring(L, "print(\"test6=====\") local f = io.open(\"abc.log\", \"w\") print(f)");
-    //    re = luaL_dostring(L, "print(_VERSION) print(\"sleep 2s\") timer.mdelay(2000) print(\"hi again\")");
-    return re;
-}
+    //luaL_requiref(L, "wlan", luaopen_wlan, 1);
+    //lua_pop(L, 1);
 
-static int test_gpio_simple() {
-        int re = luaL_dostring(L, "print(_VERSION)\n"
-                   " local PA1=14\n"
-                   " local PB7=27\n"
-                   " gpio.setup(PA1,gpio.OUTPUT)\n"
-                   " gpio.setup(PB7,gpio.INPUT, function() end)\n"
-                   " print(PA1)\n"
-                   " gpio.set(PA1, 0)\n"
-                   " while 1 do\n"
-                   "    gpio.set(PA1, 1)\n"
-                   "    print(\"sleep 1s\")\n"
-                   //"    print(gpio.get(PB7) == 1)\n"
-                   "    timer.mdelay(1000)\n"
-
-                   "    gpio.set(PA1, 0)\n"
-                   "    print(\"sleep 1s\")\n"
-                   //"    print(gpio.get(PB7) == 1)\n"
-                   "    timer.mdelay(1000)\n"
-                   "end\n"
-                   );
-        return re;
-}
-
-static int test_gpio_led() {
-  int re = luaL_dostring(L, "print(_VERSION)\n"
-                   " local PB18=23\n"
-                   " local PB17=22\n"
-                   " local PB16=21\n"
-                   " gpio.setup(PB17,gpio.OUTPUT)\n"
-                   " gpio.setup(PB16,gpio.OUTPUT)\n"
-                   " gpio.setup(PB18,gpio.OUTPUT)\n"
-                   " gpio.set(PB17, 0)\n"
-                   " gpio.set(PB16, 0)\n"
-                   " gpio.set(PB18, 0)\n"
-                   " local t = 0 \n"
-                   " while 1 do\n"
-                   "    t = t+1"
-                   "    gpio.set(PB17, t%1 > 0 and 1 or 0)\n"
-                   "    gpio.set(PB16, t%3 > 0 and 1 or 0)\n"
-                   "    gpio.set(PB18, t%7 > 0 and 1 or 0)\n"
-                   "    print(\"sleep 1s - PB17\")\n"
-                   "    timer.mdelay(1000)\n"
-                   /*
-                   "    gpio.set(PB17, 0)\n"
-                   "    gpio.set(PB16, 1)\n"
-                   "    gpio.set(PB18, 0)\n"
-                   "    print(\"sleep 1s - PB16\")\n"
-                   "    timer.mdelay(1000)\n"
-                   
-                   "    gpio.set(PB17, 0)\n"
-                   "    gpio.set(PB16, 0)\n"
-                   "    gpio.set(PB18, 1)\n"
-                   "    print(\"sleep 1s - PB18\")\n"
-                   "    timer.mdelay(1000)\n"
-                   */
-                   "end\n"
-                   );
-        return re;
-}
-
-static int test_timer_simple() {
-          int re = luaL_dostring(L, "print(_VERSION)\n"
-                   " while 1 do\n"
-                   "    print(\"sleep 1s\")\n"
-                   "    timer.mdelay(1000)\n"
-                   "end\n"
-                   );
-        return re;
-}
-
-static int test_io_simple() {
-  int re = luaL_dostring(L, "local f = io.open('/lua/main.lua')\n"
-                            " print(f:read(64))\n"
-                            " f:close()\n");
-  return re;
+    //luaL_requiref(L, "socket", luaopen_socket, 1);
+    //lua_pop(L, 1);
+    
 }
 
 static int test_load_fs() {
   return luaL_dofile(L, "/main.lua");
-  /*
-  FILE *f = fopen("/lua/main.lua", "r");
-  if (f) {
-    luat_printf("loading /lua/main.lua\n");
-    fclose(f);
-    return luaL_dofile(L, "/lua/main.lua");
-  }
-  else {
-    luat_printf("not found /lua/main.lua\n");
-  }
-  return 0;
-  */
 }
 
 static int pmain(lua_State *L) {

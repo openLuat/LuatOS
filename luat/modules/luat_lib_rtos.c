@@ -7,7 +7,7 @@
 
 
 //------------------------------------------------------------------
-static int l_rtos_recv(lua_State *L) {
+static int l_rtos_receive(lua_State *L) {
     struct rtos_msg msg;
     int re;
     re = luat_msgbus_get(&msg, luaL_checkinteger(L, 1));
@@ -15,7 +15,11 @@ static int l_rtos_recv(lua_State *L) {
         luat_printf("luat_msgbus_get!!!\n");
         return msg.handler(L, &msg);
     }
-    return 0;
+    else {
+        luat_printf("timeout!!!\n");
+        lua_pushinteger(L, -1);
+        return 1;
+    }
 }
 
 //------------------------------------------------------------------
@@ -27,7 +31,7 @@ static int l_timer_handler(lua_State *L, void* ptr) {
     lua_pushinteger(L, timer->timeout);
     lua_pushinteger(L, timer->repeat);
     if (timer->repeat == 0) {
-        luat_timer_stop(timer);
+        //luat_timer_stop(timer);
         luat_heap_free(timer);
     }
     else if (timer->repeat > 0) {
@@ -70,7 +74,7 @@ static const luaL_Reg reg_rtos[] =
 {
     { "timer_start" , l_rtos_timer_start},
     { "timer_stop",   l_rtos_timer_stop},
-    { "recv",         l_rtos_recv},
+    { "receive",      l_rtos_receive},
     { "on",           NULL},
 
     { "INF_TIMEOUT",        NULL},
@@ -86,7 +90,7 @@ LUAMOD_API int luaopen_rtos( lua_State *L ) {
     luaL_newlib(L, reg_rtos);
 
     // timeout
-    lua_pushnumber(L, 0);
+    lua_pushnumber(L, -1);
     lua_setfield(L, -2, "INF_TIMEOUT");
 
     // MSG 

@@ -1,5 +1,5 @@
 wlan.setMode("wlan0", wlan.STATION)
-wlan.join("uiot", "czcjhp1985cbm")
+wlan.join("uiot", "ABC")
 while wlan.connected() == false do
     timer.mdelay(1000)
     print("wait for connected")

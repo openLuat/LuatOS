@@ -1,0 +1,14 @@
+Import('RTT_ROOT')
+Import('rtconfig')
+from building import *
+
+cwd = GetCurrentDir()
+src	= Glob('*.c')
+CPPPATH = [cwd]
+
+group = DefineGroup('ds18b20', src, depend = [''], CPPPATH = CPPPATH)
+
+Return('group')
+
+# this package is from https://github.com/willianchanlovegithub/ds18b20
+# LICENSE : Apache License 2.0

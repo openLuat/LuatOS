@@ -12,11 +12,11 @@ static int l_rtos_receive(lua_State *L) {
     int re;
     re = luat_msgbus_get(&msg, luaL_checkinteger(L, 1));
     if (!re) {
-        luat_printf("luat_msgbus_get!!!\n");
+        luat_print("luat_msgbus_get msg!!!\n");
         return msg.handler(L, &msg);
     }
     else {
-        luat_printf("timeout!!!\n");
+        luat_print("luat_msgbus_get timeout!!!\n");
         lua_pushinteger(L, -1);
         return 1;
     }
@@ -24,7 +24,7 @@ static int l_rtos_receive(lua_State *L) {
 
 //------------------------------------------------------------------
 static int l_timer_handler(lua_State *L, void* ptr) {
-    luat_printf("l_timer_handler\n");
+    luat_print("l_timer_handler\n");
     struct luat_timer_t *timer = (struct luat_timer_t *)ptr;
     lua_pushinteger(L, MSG_TIMER);
     lua_pushinteger(L, timer->id);
@@ -68,6 +68,11 @@ static int l_rtos_timer_stop(lua_State *L) {
     }
     return 0;
 }
+
+static int l_rtos_reboot(lua_State *L) {
+    rt_hw_cpu_reset();
+}
+
 //------------------------------------------------------------------
 #include "rotable.h"
 static const rotable_Reg reg_rtos[] =
@@ -75,6 +80,7 @@ static const rotable_Reg reg_rtos[] =
     { "timer_start" ,      l_rtos_timer_start, NULL},
     { "timer_stop",        l_rtos_timer_stop,  NULL},
     { "receive",           l_rtos_receive,     NULL},
+    { "reboot",            l_rtos_reboot,      NULL},
 
     { "INF_TIMEOUT",        NULL,              -1},
 

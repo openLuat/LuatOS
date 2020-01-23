@@ -83,14 +83,17 @@ __exit:
     if (sock >= 0)
         closesocket(sock);
 }
-static const luaL_Reg reg_socket[] =
+
+
+#include "rotable.h"
+static const rotable_Reg reg_socket[] =
 {
-    { "tsend" ,  sal_tls_test },
-	{ NULL, NULL }
+    { "tsend" ,  sal_tls_test , NULL},
+	{ NULL, NULL , NULL}
 };
 
 LUAMOD_API int luaopen_socket( lua_State *L ) {
-    luaL_newlib(L, reg_socket);
+    rotable_newlib(L, reg_socket);
 
     return 1;
 }

@@ -52,47 +52,26 @@ static int l_gpio_get(lua_State *L) {
     return 1;
 }
 
-static const luaL_Reg reg_gpio[] =
+#include "rotable.h"
+static const rotable_Reg reg_gpio[] =
 {
-    { "setup" , l_gpio_setup },
-    { "set" , l_gpio_set },
-    { "get" , l_gpio_get },
-    { "LOW",     NULL},
-    { "HIGH",     NULL},
-    { "OUTPUT",     NULL},
-    { "INPUT",     NULL},
-    { "INPUT_PULLUP",     NULL},
-    { "INPUT_PULLDOWN",     NULL},
-    { "OUTPUT_OD",     NULL},
-    { "RISING",     NULL},
-    { "FALLING",     NULL},
-    { "RISING_FALLING",     NULL},
-	{ NULL, NULL }
+    { "setup" ,         l_gpio_setup ,NULL},
+    { "set" ,           l_gpio_set,   NULL},
+    { "get" ,           l_gpio_get,   NULL },
+    { "LOW",            NULL,         Luat_GPIO_LOW},
+    { "HIGH",           NULL,         Luat_GPIO_HIGH},
+    { "OUTPUT",         NULL,         Luat_GPIO_OUTPUT},
+    { "INPUT",          NULL,         Luat_GPIO_INPUT},
+    { "INPUT_PULLUP",   NULL,         Luat_GPIO_INPUT_PULLUP},
+    { "INPUT_PULLDOWN", NULL,         Luat_GPIO_INPUT_PULLDOWN},
+    { "OUTPUT_OD",      NULL,         Luat_GPIO_OUTPUT_OD},
+    { "RISING",         NULL,         Luat_GPIO_RISING},
+    { "FALLING",        NULL,         Luat_GPIO_FALLING},
+    { "RISING_FALLING", NULL,         Luat_GPIO_RISING_FALLING},
+	{ NULL,             NULL ,        NULL}
 };
 
 LUAMOD_API int luaopen_gpio( lua_State *L ) {
-    luaL_newlib(L, reg_gpio);
-
-    lua_pushnumber(L, Luat_GPIO_LOW);
-    lua_setfield(L, -2, "LOW");
-    lua_pushnumber(L, Luat_GPIO_HIGH);
-    lua_setfield(L, -2, "HIGH");
-    lua_pushnumber(L, Luat_GPIO_OUTPUT);
-    lua_setfield(L, -2, "OUTPUT");
-    lua_pushnumber(L, Luat_GPIO_INPUT);
-    lua_setfield(L, -2, "INPUT");
-    lua_pushnumber(L, Luat_GPIO_INPUT_PULLUP);
-    lua_setfield(L, -2, "INPUT_PULLUP");
-    lua_pushnumber(L, Luat_GPIO_INPUT_PULLDOWN);
-    lua_setfield(L, -2, "INPUT_PULLDOWN");
-    lua_pushnumber(L, Luat_GPIO_OUTPUT_OD);
-    lua_setfield(L, -2, "OUTPUT_OD");
-    lua_pushnumber(L, Luat_GPIO_RISING);
-    lua_setfield(L, -2, "RISING");
-    lua_pushnumber(L, Luat_GPIO_FALLING);
-    lua_setfield(L, -2, "FALLING");
-    lua_pushnumber(L, Luat_GPIO_RISING_FALLING);
-    lua_setfield(L, -2, "RISING_FALLING");
-
+    rotable_newlib(L, reg_gpio);
     return 1;
 }

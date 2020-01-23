@@ -1538,26 +1538,26 @@ static int str_unpack (lua_State *L) {
 
 /* }====================================================== */
 
-
-static const luaL_Reg strlib[] = {
-  {"byte", str_byte},
-  {"char", str_char},
-  {"dump", str_dump},
-  {"find", str_find},
-  {"format", str_format},
-  {"gmatch", gmatch},
-  {"gsub", str_gsub},
-  {"len", str_len},
-  {"lower", str_lower},
-  {"match", str_match},
-  {"rep", str_rep},
-  {"reverse", str_reverse},
-  {"sub", str_sub},
-  {"upper", str_upper},
-  {"pack", str_pack},
-  {"packsize", str_packsize},
-  {"unpack", str_unpack},
-  {NULL, NULL}
+#include "rotable.h"
+static const rotable_Reg strlib[] = {
+  {"byte", str_byte, NULL},
+  {"char", str_char, NULL},
+  {"dump", str_dump, NULL},
+  {"find", str_find, NULL},
+  {"format", str_format, NULL},
+  {"gmatch", gmatch, NULL},
+  {"gsub", str_gsub, NULL},
+  {"len", str_len, NULL},
+  {"lower", str_lower}, NULL,
+  {"match", str_match, NULL},
+  {"rep", str_rep, NULL},
+  {"reverse", str_reverse, NULL},
+  {"sub", str_sub, NULL},
+  {"upper", str_upper, NULL},
+  {"pack", str_pack, NULL},
+  {"packsize", str_packsize, NULL},
+  {"unpack", str_unpack, NULL},
+  {NULL, NULL, NULL}
 };
 
 
@@ -1577,7 +1577,7 @@ static void createmetatable (lua_State *L) {
 ** Open string library
 */
 LUAMOD_API int luaopen_string (lua_State *L) {
-  luaL_newlib(L, strlib);
+  rotable_newlib(L, strlib);
   createmetatable(L);
   return 1;
 }

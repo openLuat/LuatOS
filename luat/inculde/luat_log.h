@@ -11,6 +11,6 @@
 
 void luat_print(const char* _str);
 void luat_nprint(char *s, size_t l);
-void luat_printf(const char* _fmt, ...);
+void luat_printf(const char* _fmt, const char* value);
 
 #endif

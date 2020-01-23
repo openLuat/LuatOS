@@ -8,6 +8,7 @@ list = os.listdir(cwd)
 
 for d in list:
     path = os.path.join(cwd, d)
+    print("path=" + path)
     if os.path.isfile(os.path.join(path, 'SConscript')):
         objs = objs + SConscript(os.path.join(d, 'SConscript'))
 

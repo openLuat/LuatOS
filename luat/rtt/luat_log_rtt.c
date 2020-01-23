@@ -8,14 +8,15 @@ void luat_print(const char* _str) {
 }
 
 void luat_nprint(char *s, size_t l) {
-    //char buf[l+1];
-    //snprintf(buf, l, s);
-    rt_kputs(s);
+    char buf[2];
+    buf[1] = 0x00;
+    for (size_t i = 0; i < l; i++)
+    {
+        buf[0] = s[i];
+        rt_kputs(buf);
+    }
 }
 
-void luat_printf(const char* fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    rt_kprintf(fmt, args);
-    va_end(args);
+void luat_printf(const char* fmt, const char* value) {
+    rt_kprintf(fmt, value);
 }

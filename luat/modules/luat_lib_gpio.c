@@ -5,7 +5,7 @@
 #include "luat_malloc.h"
 
 static int l_gpio_handler(lua_State *L, void* ptr) {
-    luat_printf("l_gpio_handler\n");
+    luat_print("l_gpio_handler\n");
     struct luat_gpio_t *gpio = (struct luat_gpio_t *)ptr;
     lua_pushinteger(L, MSG_GPIO);
     lua_pushinteger(L, gpio->pin);

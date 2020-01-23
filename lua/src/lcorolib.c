@@ -148,21 +148,21 @@ static int luaB_corunning (lua_State *L) {
 }
 
 
-static const luaL_Reg co_funcs[] = {
-  {"create", luaB_cocreate},
-  {"resume", luaB_coresume},
-  {"running", luaB_corunning},
-  {"status", luaB_costatus},
-  {"wrap", luaB_cowrap},
-  {"yield", luaB_yield},
-  {"isyieldable", luaB_yieldable},
-  {NULL, NULL}
+#include "rotable.h"
+static const rotable_Reg co_funcs[] = {
+  {"create", luaB_cocreate, NULL},
+  {"resume", luaB_coresume, NULL},
+  {"running", luaB_corunning, NULL},
+  {"status", luaB_costatus, NULL},
+  {"wrap", luaB_cowrap, NULL},
+  {"yield", luaB_yield, NULL},
+  {"isyieldable", luaB_yieldable, NULL},
+  {NULL, NULL, NULL}
 };
 
 
-
 LUAMOD_API int luaopen_coroutine (lua_State *L) {
-  luaL_newlib(L, co_funcs);
+  rotable_newlib(L, co_funcs);
   return 1;
 }
 

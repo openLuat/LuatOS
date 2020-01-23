@@ -69,38 +69,23 @@ static int l_rtos_timer_stop(lua_State *L) {
     return 0;
 }
 //------------------------------------------------------------------
-
-static const luaL_Reg reg_rtos[] =
+#include "rotable.h"
+static const rotable_Reg reg_rtos[] =
 {
-    { "timer_start" , l_rtos_timer_start},
-    { "timer_stop",   l_rtos_timer_stop},
-    { "receive",      l_rtos_receive},
-    { "on",           NULL},
+    { "timer_start" ,      l_rtos_timer_start, NULL},
+    { "timer_stop",        l_rtos_timer_stop,  NULL},
+    { "receive",           l_rtos_receive,     NULL},
 
-    { "INF_TIMEOUT",        NULL},
+    { "INF_TIMEOUT",        NULL,              -1},
 
-    { "MSG_TIMER",          NULL},
-    { "MSG_GPIO",           NULL},
-    { "MSG_UART_RX",        NULL},
-    { "MSG_UART_TXDONE",    NULL},
-	{ NULL, NULL }
+    { "MSG_TIMER",          NULL,              MSG_TIMER},
+    { "MSG_GPIO",           NULL,              MSG_GPIO},
+    { "MSG_UART_RX",        NULL,              MSG_UART_RX},
+    { "MSG_UART_TXDONE",    NULL,              MSG_UART_TXDONE},
+	{ NULL,                 NULL,              NULL}
 };
 
 LUAMOD_API int luaopen_rtos( lua_State *L ) {
-    luaL_newlib(L, reg_rtos);
-
-    // timeout
-    lua_pushnumber(L, -1);
-    lua_setfield(L, -2, "INF_TIMEOUT");
-
-    // MSG 
-    lua_pushnumber(L, MSG_TIMER);
-    lua_setfield(L, -2, "MSG_TIMER");
-    lua_pushnumber(L, MSG_GPIO);
-    lua_setfield(L, -2, "MSG_GPIO");
-    lua_pushnumber(L, MSG_UART_RX);
-    lua_setfield(L, -2, "MSG_UART_RX");
-    lua_pushnumber(L, MSG_UART_TXDONE);
-    lua_setfield(L, -2, "MSG_UART_TXDONE");
+    rotable_newlib(L, reg_rtos);
     return 1;
 }

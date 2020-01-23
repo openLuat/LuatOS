@@ -68,14 +68,14 @@ static rotable* check_rotable( lua_State* L, int idx, char const* func ) {
 static rotable_Reg const* find_key( rotable_Reg const* p, int n,
                                     char const* s ) {
   if( s ) {
-    if( n >= ROTABLE_BINSEARCH_MIN ) { /* binary search */
-      return (rotable_Reg const*)bsearch( s, p, n, sizeof( *p ), reg_compare );
-    } else { /* use linear scan */
-      for( ; p->func; ++p ) {
+    //if( n >= ROTABLE_BINSEARCH_MIN ) { /* binary search */
+    //  return (rotable_Reg const*)bsearch( s, p, n, sizeof( *p ), reg_compare );
+    //} else { /* use linear scan */
+      for( ; p->name != NULL; ++p ) {
         if( 0 == reg_compare( s, p ) )
           return p;
       }
-    }
+    //}
   }
   return 0;
 }
@@ -86,8 +86,12 @@ static int rotable_func_index( lua_State* L ) {
   rotable_Reg const* p = (rotable_Reg const*)lua_touserdata( L, lua_upvalueindex( 1 ) );
   int n = lua_tointeger( L, lua_upvalueindex( 2 ) );
   p = find_key( p, n, s );
-  if( p )
-    lua_pushcfunction( L, p->func );
+  if( p ) {
+    if (p->func)
+      lua_pushcfunction( L, p->func );
+    else
+      lua_pushinteger(L, p->value);
+  }
   else
     lua_pushnil( L );
   return 1;
@@ -105,8 +109,12 @@ static int rotable_udata_index( lua_State* L ) {
   p = (rotable_Reg const*)lua_touserdata( L, -1 );
 #endif
   p = find_key( p, t->n, s );
-  if( p )
-    lua_pushcfunction( L, p->func );
+  if( p ) {
+    if (p->func)
+      lua_pushcfunction( L, p->func );
+    else
+      lua_pushinteger(L, p->value);
+  }
   else
     lua_pushnil( L );
   return 1;
@@ -131,20 +139,20 @@ static int rotable_iter( lua_State* L ) {
   p = (rotable_Reg const*)lua_touserdata( L, -1 );
 #endif
   if( s ) {
-    if( t->n >= ROTABLE_BINSEARCH_MIN ) { /* binary search */
-      q = (rotable_Reg const*)bsearch( s, p, t->n, sizeof( *p ), reg_compare );
-      if( q )
-        ++q;
-      else
-        q = p + t->n;
-    } else { /* use linear scan */
-      for( q = p; q->func; ++q ) {
+    // if( t->n >= ROTABLE_BINSEARCH_MIN ) { /* binary search */
+    //   q = (rotable_Reg const*)bsearch( s, p, t->n, sizeof( *p ), reg_compare );
+    //   if( q )
+    //     ++q;
+    //   else
+    //     q = p + t->n;
+    // } else { /* use linear scan */
+      for( q = p; q->name != NULL; ++q ) {
         if( 0 == reg_compare( s, q ) ) {
           ++q;
           break;
         }
       }
-    }
+    // }
   } else
     q = p;
   if( q->func ) {
@@ -194,31 +202,32 @@ ROTABLE_EXPORT void rotable_newlib( lua_State* L, void const* v ) {
   lua_setuservalue( L, -2 );
 #endif
   t->n = 0;
-  if( reg->func ) {
+  if( reg->name ) {
     int i = 1;
-    for( ; reg[ i ].func; ++i ) {
-      if( strcmp( reg[ i-1 ].name, reg[ i ].name ) >= 0 )
-        return;
+    for( ; reg[ i ].name != NULL ; ++i ) {
+      // if( strcmp( reg[ i-1 ].name, reg[ i ].name ) >= 0 )
+      //   return;
     }
     t->n = i;
   }
+  rt_kprintf("t->n  == %d\n", t->n);
 }
 
 
-ROTABLE_EXPORT void rotable_newidx( lua_State* L, void const* v ) {
-  rotable_Reg const* reg = (rotable_Reg const*)v;
-  int i = 0;
-  lua_pushlightuserdata( L, (void*)v);
-  for( ; reg[ i ].func; ++i ) {
-    if( strcmp( reg[ i-1 ].name, reg[ i ].name ) >= 0 ) {
-      i = 0;
-      break;
-    }
-  }
-  if( i >= ROTABLE_BINSEARCH_MIN ) {
-    lua_pushinteger( L, i );
-    lua_pushcclosure( L, rotable_func_index, 2 );
-  } else
-    lua_pushcclosure( L, rotable_func_index, 1 );
-}
+// ROTABLE_EXPORT void rotable_newidx( lua_State* L, void const* v ) {
+//   rotable_Reg const* reg = (rotable_Reg const*)v;
+//   int i = 0;
+//   lua_pushlightuserdata( L, (void*)v);
+//   for( ; reg[ i ].func; ++i ) {
+//     if( strcmp( reg[ i-1 ].name, reg[ i ].name ) >= 0 ) {
+//       i = 0;
+//       break;
+//     }
+//   }
+//   if( i >= ROTABLE_BINSEARCH_MIN ) {
+//     lua_pushinteger( L, i );
+//     lua_pushcclosure( L, rotable_func_index, 2 );
+//   } else
+//     lua_pushcclosure( L, rotable_func_index, 1 );
+// }
 

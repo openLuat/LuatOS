@@ -31,7 +31,7 @@ static int l_timer_handler(lua_State *L, void* ptr) {
     lua_pushinteger(L, timer->timeout);
     lua_pushinteger(L, timer->repeat);
     if (timer->repeat == 0) {
-        //luat_timer_stop(timer);
+        luat_timer_stop(timer);
         luat_heap_free(timer);
     }
     else if (timer->repeat > 0) {

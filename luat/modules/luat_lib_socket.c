@@ -63,7 +63,7 @@ static int sal_tls_test(lua_State *L)
     }
 
     /* 接收并打印响应的数据，使用加密数据传输 */
-    bytes_received = recv(sock, recv_data, SAL_TLS_BUFSZ  - 1, 0);
+    bytes_received = recv(sock, recv_data, SAL_TLS_BUFSZ  - 1, 1000);
     if (bytes_received <= 0)
     {
         rt_kprintf("received error,close the socket.\n");
@@ -88,8 +88,8 @@ __exit:
 #include "rotable.h"
 static const rotable_Reg reg_socket[] =
 {
-    { "tsend" ,  sal_tls_test , NULL},
-	{ NULL, NULL , NULL}
+    { "tsend" ,  sal_tls_test , 0},
+	{ NULL, NULL , 0}
 };
 
 LUAMOD_API int luaopen_socket( lua_State *L ) {

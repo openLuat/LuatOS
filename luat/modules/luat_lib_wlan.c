@@ -5,7 +5,7 @@
 #include "luat_malloc.h"
 #include "rtthread.h"
 
-#ifdef RT_WLAN_MANAGE_ENABLE
+#ifdef RT_WLAN_MANAGE_ENABLE && RT_USING_WIFI
 #include "wlan_dev.h"
 #include <wlan_mgnt.h>
 #include <wlan_prot.h>
@@ -88,16 +88,16 @@ static int l_wlan_scan_get_info(lua_State *L) {
     return 0;
 }
 
-// MAC地址
-// static int l_wlan_get_mac(lua_State *L) {
-//     char mac[16] = {0};
-//     rt_wlan_get_mac(&mac[0]);
-//     if (mac[0] != 0x00) {
-//         lua_pushstring(L, mac);
-//         return 1;
-//     }
-//     return 0;
-// }
+//MAC地址
+static int l_wlan_get_mac(lua_State *L) {
+    char mac[6] = {0};
+    rt_wlan_get_mac(mac);
+    if (mac[0] != 0x00) {
+        lua_pushfstring("%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+        return 1;
+    }
+    return 0;
+}
 
 static int l_wlan_ready(lua_State *L) {
     lua_pushinteger(L, rt_wlan_is_ready());
@@ -124,41 +124,30 @@ static void reg_wlan_callbacks(void) {
 #include "rotable.h"
 static const rotable_Reg reg_wlan[] =
 {
-    { "getMode" ,  l_wlan_get_mode , NULL},
-    { "setMode" ,  l_wlan_set_mode , NULL},
-    { "join" ,     l_wlan_join , NULL},
-    { "disconnect",l_wlan_disconnect , NULL},
-    { "connected" ,l_wlan_connected , NULL},
-    { "ready" ,    l_wlan_ready , NULL},
-    { "autoreconnect", l_wlan_autoreconnect, NULL},
-    { "scan",      l_wlan_scan, NULL},
-    { "scan_get_info_num", l_wlan_scan_get_info_num, NULL},
-    { "scan_get_info", l_wlan_scan_get_info, NULL},
-    // { "get_mac", l_wlan_get_mac},
+    { "getMode" ,  l_wlan_get_mode , 0},
+    { "setMode" ,  l_wlan_set_mode , 0},
+    { "join" ,     l_wlan_join , 0},
+    { "disconnect",l_wlan_disconnect , 0},
+    { "connected" ,l_wlan_connected , 0},
+    { "ready" ,    l_wlan_ready , 0},
+    { "autoreconnect", l_wlan_autoreconnect, 0},
+    { "scan",      l_wlan_scan, 0},
+    { "scan_get_info_num", l_wlan_scan_get_info_num, 0},
+    { "scan_get_info", l_wlan_scan_get_info, 0},
+    { "get_mac", l_wlan_get_mac, 0},
     //{ "set_mac", l_wlan_set_mac},
     
     { "NONE",      NULL , RT_WLAN_NONE},
     { "STATION",   NULL , RT_WLAN_STATION},
     { "AP",        NULL , RT_WLAN_AP},
-	{ NULL, NULL , NULL}
+	{ NULL, NULL , 0}
 };
 
 LUAMOD_API int luaopen_wlan( lua_State *L ) {
     reg_wlan_callbacks();
 
     rotable_newlib(L, reg_wlan);
-    return 1;
-}
 
-#else
-
-static const luaL_Reg reg_wlan[] =
-{
-	{ NULL, NULL }
-};
-
-LUAMOD_API int luaopen_wlan( lua_State *L ) {
-    luaL_newlib(L, reg_wlan);
     return 1;
 }
 

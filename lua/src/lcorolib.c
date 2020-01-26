@@ -150,14 +150,14 @@ static int luaB_corunning (lua_State *L) {
 
 #include "rotable.h"
 static const rotable_Reg co_funcs[] = {
-  {"create", luaB_cocreate, NULL},
-  {"resume", luaB_coresume, NULL},
-  {"running", luaB_corunning, NULL},
-  {"status", luaB_costatus, NULL},
-  {"wrap", luaB_cowrap, NULL},
-  {"yield", luaB_yield, NULL},
-  {"isyieldable", luaB_yieldable, NULL},
-  {NULL, NULL, NULL}
+  {"create", luaB_cocreate, 0},
+  {"resume", luaB_coresume, 0},
+  {"running", luaB_corunning, 0},
+  {"status", luaB_costatus, 0},
+  {"wrap", luaB_cowrap, 0},
+  {"yield", luaB_yield, 0},
+  {"isyieldable", luaB_yieldable, 0},
+  {NULL, NULL, 0}
 };
 
 

@@ -7,55 +7,13 @@
 #include "stdio.h"
 #include "luat_msgbus.h"
 
+
+static int report (lua_State *L, int status);
+
 static lua_State *L;
 
 lua_State * luat_get_state() {
   return L;
-}
-
-static void print_list_mem(const char* name) {
-  luat_printf("==openlib name=%s\n", name);
-  list_mem();
-}
-
-static void luat_openlibs(lua_State *L) {
-    // 初始化队列服务
-    luat_msgbus_init();
-    print_list_mem("done>luat_msgbus_init");
-
-    luaL_requiref(L, "rtos", luaopen_rtos, 1);
-    lua_pop(L, 1);
-    print_list_mem("done> require(rtos)");
-
-    //luaL_requiref(L, "sys", luaopen_sys, 1);
-    //lua_pop(L, 1);
-    //print_list_mem("done> require(sys)");
-    
-    luaL_requiref(L, "timer", luaopen_timer, 1);
-    lua_pop(L, 1);
-    print_list_mem("done> require(timer)");
-
-    //#ifdef RT_USING_PIN
-    luaL_requiref(L, "gpio", luaopen_gpio, 1);
-    lua_pop(L, 1);
-    print_list_mem("done> require(gpio)");
-    //#endif
-
-    luaL_requiref(L, "wlan", luaopen_wlan, 1);
-    lua_pop(L, 1);
-    print_list_mem("done> require(wlan)");
-
-    luaL_requiref(L, "socket", luaopen_socket, 1);
-    lua_pop(L, 1);
-    print_list_mem("done> require(socket)");
-    
-    luaL_requiref(L, "sensor", luaopen_sensor, 1);
-    lua_pop(L, 1);
-    print_list_mem("done> require(sensor)");
-}
-
-static int test_load_fs() {
-  return luaL_dofile(L, "/main.lua");
 }
 
 static int pmain(lua_State *L) {
@@ -70,18 +28,10 @@ static int pmain(lua_State *L) {
     luat_openlibs(L);
     print_list_mem("begin> luat_openlibs");
     
-    // 测试代码
-    // re = test_core_simple();
-    // re = test_gpio_simple();
-    // re = test_gpio_led();
-    // re = test_timer_simple();
-    // re = test_io_simple();
-    re = test_load_fs();
+    // 加载main.lua
+    re = luaL_dofile(L, "/main.lua");
 
-    if (re) {
-        //luat_print("luaL_dostring  return re != 0\n");
-        luat_print(lua_tostring(L, -1));
-    }
+    report(L, re);
     lua_pushboolean(L, 1);  /* signal no errors */
     return 1;
 }
@@ -117,12 +67,10 @@ static int panic (lua_State *L) {
 }
 
 int luat_main (int argc, char **argv, int _) {
-  list_mem();
-  luat_print("=================================call luat_main\n");
+  print_list_mem("entry luat_main");
   // 1. init filesystem
   luat_fs_init();
-  list_mem();
-  luat_print("=================================after luat_fs_init\n");
+  print_list_mem("after fs init");
 
   // 2. init Lua State
   int status, result;
@@ -132,8 +80,7 @@ int luat_main (int argc, char **argv, int _) {
     return 1;
   }
   if (L) lua_atpanic(L, &panic);
-  list_mem();
-  luat_print("=================================after lua_newstate\n");
+  print_list_mem("after lua_newstate");
   lua_pushcfunction(L, &pmain);  /* to call 'pmain' in protected mode */
   lua_pushinteger(L, argc);  /* 1st argument */
   lua_pushlightuserdata(L, argv); /* 2nd argument */

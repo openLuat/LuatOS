@@ -77,10 +77,10 @@ static int l_rtos_reboot(lua_State *L) {
 #include "rotable.h"
 static const rotable_Reg reg_rtos[] =
 {
-    { "timer_start" ,      l_rtos_timer_start, NULL},
-    { "timer_stop",        l_rtos_timer_stop,  NULL},
-    { "receive",           l_rtos_receive,     NULL},
-    { "reboot",            l_rtos_reboot,      NULL},
+    { "timer_start" ,      l_rtos_timer_start, 0},
+    { "timer_stop",        l_rtos_timer_stop,  0},
+    { "receive",           l_rtos_receive,     0},
+    { "reboot",            l_rtos_reboot,      0},
 
     { "INF_TIMEOUT",        NULL,              -1},
 
@@ -88,7 +88,7 @@ static const rotable_Reg reg_rtos[] =
     { "MSG_GPIO",           NULL,              MSG_GPIO},
     { "MSG_UART_RX",        NULL,              MSG_UART_RX},
     { "MSG_UART_TXDONE",    NULL,              MSG_UART_TXDONE},
-	{ NULL,                 NULL,              NULL}
+	{ NULL,                 NULL,              0}
 };
 
 LUAMOD_API int luaopen_rtos( lua_State *L ) {

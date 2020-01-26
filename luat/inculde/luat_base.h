@@ -14,6 +14,8 @@
 lua_State * luat_get_state();
 int luat_main (int argc, char **argv, int _);
 
+void luat_openlibs(lua_State *L);
+
 
 LUAMOD_API int luaopen_sys( lua_State *L );
 LUAMOD_API int luaopen_rtos( lua_State *L );

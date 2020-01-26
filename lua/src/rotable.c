@@ -201,16 +201,16 @@ ROTABLE_EXPORT void rotable_newlib( lua_State* L, void const* v ) {
   lua_pushlightuserdata( L, (void*)reg );
   lua_setuservalue( L, -2 );
 #endif
-  t->n = 0;
-  if( reg->name ) {
-    int i = 1;
-    for( ; reg[ i ].name != NULL ; ++i ) {
-      // if( strcmp( reg[ i-1 ].name, reg[ i ].name ) >= 0 )
-      //   return;
-    }
-    t->n = i;
-  }
-  rt_kprintf("t->n  == %d\n", t->n);
+  // t->n = 0;
+  // if( reg->name ) {
+  //   int i = 1;
+  //   for( ; reg[ i ].name != NULL ; ++i ) {
+  //     // if( strcmp( reg[ i-1 ].name, reg[ i ].name ) >= 0 )
+  //     //   return;
+  //   }
+  //   t->n = i;
+  // }
+  // rt_kprintf("t->n  == %d\n", t->n);
 }
 
 

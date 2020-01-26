@@ -20,8 +20,8 @@ static int l_sensor_ds18b20(lua_State *L) {
 #include "rotable.h"
 static const rotable_Reg reg_sensor[] =
 {
-    { "ds18b20" ,  l_sensor_ds18b20 , NULL},
-	{ NULL, NULL , NULL}
+    { "ds18b20" ,  l_sensor_ds18b20 , 0},
+	{ NULL, NULL , 0}
 };
 
 LUAMOD_API int luaopen_sensor( lua_State *L ) {

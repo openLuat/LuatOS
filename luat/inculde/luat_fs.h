@@ -19,6 +19,7 @@ typedef struct luat_file {
 } luat_file_t;
 
 int luat_fs_init();
+
 luat_fs* luat_fs_mount(luat_fs_conf_t *conf);
 luat_fs* luat_fs_umount(luat_fs_conf_t *conf);
 

@@ -17,8 +17,8 @@ static int l_timer_mdelay(lua_State *L) {
 #include "rotable.h"
 static const rotable_Reg reg_timer[] =
 {
-    { "mdelay", l_timer_mdelay, NULL},
-	{ NULL, NULL, NULL}
+    { "mdelay", l_timer_mdelay, 0},
+	{ NULL, NULL, 0}
 };
 
 LUAMOD_API int luaopen_timer( lua_State *L ) {

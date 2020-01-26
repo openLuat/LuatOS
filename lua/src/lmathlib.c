@@ -348,47 +348,47 @@ static int math_log10 (lua_State *L) {
 /* }================================================================== */
 
 
-
-static const luaL_Reg mathlib[] = {
-  {"abs",   math_abs},
-  {"acos",  math_acos},
-  {"asin",  math_asin},
-  {"atan",  math_atan},
-  {"ceil",  math_ceil},
-  {"cos",   math_cos},
-  {"deg",   math_deg},
-  {"exp",   math_exp},
-  {"tointeger", math_toint},
-  {"floor", math_floor},
-  {"fmod",   math_fmod},
-  {"ult",   math_ult},
-  {"log",   math_log},
-  {"max",   math_max},
-  {"min",   math_min},
-  {"modf",   math_modf},
-  {"rad",   math_rad},
-  {"random",     math_random},
-  {"randomseed", math_randomseed},
-  {"sin",   math_sin},
-  {"sqrt",  math_sqrt},
-  {"tan",   math_tan},
-  {"type", math_type},
+#include "rotable.h"
+static const rotable_Reg mathlib[] = {
+  {"abs",   math_abs, 0},
+  {"acos",  math_acos, 0},
+  {"asin",  math_asin, 0},
+  {"atan",  math_atan, 0},
+  {"ceil",  math_ceil, 0},
+  {"cos",   math_cos, 0},
+  {"deg",   math_deg, 0},
+  {"exp",   math_exp, 0},
+  {"tointeger", math_toint, 0},
+  {"floor", math_floor, 0},
+  {"fmod",   math_fmod, 0},
+  {"ult",   math_ult, 0},
+  {"log",   math_log, 0},
+  {"max",   math_max, 0},
+  {"min",   math_min, 0},
+  {"modf",   math_modf, 0},
+  {"rad",   math_rad, 0},
+  {"random",     math_random, 0},
+  {"randomseed", math_randomseed, 0},
+  {"sin",   math_sin, 0},
+  {"sqrt",  math_sqrt, 0},
+  {"tan",   math_tan, 0},
+  {"type", math_type, 0},
 #if defined(LUA_COMPAT_MATHLIB)
-  {"atan2", math_atan},
-  {"cosh",   math_cosh},
-  {"sinh",   math_sinh},
-  {"tanh",   math_tanh},
-  {"pow",   math_pow},
-  {"frexp", math_frexp},
-  {"ldexp", math_ldexp},
-  {"log10", math_log10},
+  {"atan2", math_atan, 0},
+  {"cosh",   math_cosh, 0},
+  {"sinh",   math_sinh, 0},
+  {"tanh",   math_tanh, 0},
+  {"pow",   math_pow, 0},
+  {"frexp", math_frexp, 0},
+  {"ldexp", math_ldexp, 0},
+  {"log10", math_log10, 0},
 #endif
   /* placeholders */
-  {"pi", NULL},
-  {"huge", NULL},
-  {"maxinteger", NULL},
-  {"mininteger", NULL},
-  {NULL, NULL}
+  // {"pi", NULL},
+  // {"huge", NULL, LUA_MAXINTEGER},
+  {"maxinteger", NULL, LUA_MAXINTEGER},
+  {"mininteger", NULL, LUA_MININTEGER},
+  {NULL, NULL, 0}
 };
 
 
@@ -396,15 +396,15 @@ static const luaL_Reg mathlib[] = {
 ** Open math library
 */
 LUAMOD_API int luaopen_math (lua_State *L) {
-  luaL_newlib(L, mathlib);
-  lua_pushnumber(L, PI);
-  lua_setfield(L, -2, "pi");
-  lua_pushnumber(L, (lua_Number)HUGE_VAL);
-  lua_setfield(L, -2, "huge");
-  lua_pushinteger(L, LUA_MAXINTEGER);
-  lua_setfield(L, -2, "maxinteger");
-  lua_pushinteger(L, LUA_MININTEGER);
-  lua_setfield(L, -2, "mininteger");
+  rotable_newlib(L, mathlib);
+  // lua_pushnumber(L, PI);
+  // lua_setfield(L, -2, "pi");
+  // lua_pushnumber(L, (lua_Number)HUGE_VAL);
+  // lua_setfield(L, -2, "huge");
+  // lua_pushinteger(L, LUA_MAXINTEGER);
+  // lua_setfield(L, -2, "maxinteger");
+  // lua_pushinteger(L, LUA_MININTEGER);
+  // lua_setfield(L, -2, "mininteger");
   return 1;
 }
 

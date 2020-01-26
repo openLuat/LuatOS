@@ -84,7 +84,7 @@ end
 -- @usage sys.taskInit(task1,'a','b')
 function sys.taskInit(fun, ...)
     local co = coroutine.create(fun)
-    coroutine.resume(co, table.unpack(arg))
+    coroutine.resume(co, ...)
     return co
 end
 
@@ -125,7 +125,7 @@ function sys.timerStop(val, ...)
             -- 回调函数相同
             if type(v) == 'table' and v.cb == val or v == val then
                 -- 可变参数相同
-                if cmpTable(arg, para[k]) then
+                if cmpTable({arg}, para[k]) then
                     rtos.timer_stop(k)
                     timerPool[k], para[k], loop[val] = nil
                     break
@@ -158,7 +158,8 @@ function sys.timerStart(fnc, ms, ...)
     --assert(fnc ~= nil, "sys.timerStart(first param) is nil !")
     --assert(ms > 0, "sys.timerStart(Second parameter) is <= zero !")
     -- 关闭完全相同的定时器
-    if arg.n == 0 then
+    local arg = {...}
+    if #arg == 0 then
         sys.timerStop(fnc)
     else
         sys.timerStop(fnc, table.unpack(arg))
@@ -175,7 +176,7 @@ function sys.timerStart(fnc, ms, ...)
     --调用底层接口启动定时器
     if rtos.timer_start(msgId, ms) ~= 1 then log.debug("rtos.timer_start error") return end
     --如果存在可变参数，在定时器参数表中保存参数
-    if arg.n ~= 0 then
+    if #arg ~= 0 then
         para[msgId] = arg
     end
     --返回定时器id
@@ -188,7 +189,7 @@ end
 -- @param ... 可变参数 fnc的参数
 -- @return number 定时器ID，如果失败，返回nil
 function sys.timerLoopStart(fnc, ms, ...)
-    local tid = sys.timerStart(fnc, ms, table.unpack(arg))
+    local tid = sys.timerStart(fnc, ms, ...)
     if tid then loop[tid] = ms end
     return tid
 end
@@ -205,7 +206,7 @@ function sys.timerIsActive(val, ...)
     else
         for k, v in pairs(timerPool) do
             if v == val then
-                if cmpTable(arg, para[k]) then return true end
+                if cmpTable({...}, para[k]) then return true end
             end
         end
     end
@@ -248,7 +249,7 @@ end
 -- @return 无
 -- @usage publish("NET_STATUS_IND")
 function sys.publish(...)
-    table.insert(messageQueue, arg)
+    table.insert(messageQueue, {...})
 end
 
 -- 分发消息

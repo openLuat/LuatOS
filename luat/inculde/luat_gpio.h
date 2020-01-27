@@ -32,6 +32,7 @@ typedef struct luat_gpio_t
 } luat_gpio_t;
 
 
+void luat_gpio_mode(int pin, int mode);
 int luat_gpio_setup(luat_gpio_t* gpio);
 int luat_gpio_set(int pin, int level);
 int luat_gpio_get(int pin);

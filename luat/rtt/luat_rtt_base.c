@@ -4,6 +4,10 @@
 #include "rtthread.h"
 #include "stdio.h"
 
+int l_sprintf(s,sz,f,i) {
+  return rt_snprintf(s, sz, f, i);
+}
+
 // 打印内存状态
 void print_list_mem(const char* name) {
   luat_printf("==>>%s\n", name);

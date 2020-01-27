@@ -33,7 +33,7 @@
 ** ensure that all software connected to Lua will be compiled with the
 ** same configuration.
 */
-#define LUA_32BITS
+/* #define LUA_32BITS */
 
 
 /*
@@ -595,12 +595,11 @@
 @@ l_sprintf is equivalent to 'snprintf' or 'sprintf' in C89.
 ** (All uses in Lua have only one format item.)
 */
-#if !defined(LUA_USE_C89)
-#define l_sprintf(s,sz,f,i)	snprintf(s,sz,f,i)
-#else
-#define l_sprintf(s,sz,f,i)	((void)(sz), sprintf(s,f,i))
-#endif
-
+// #if !defined(LUA_USE_C89)
+// #define l_sprintf(s,sz,f,i)	snprintf(s,sz,f,i)
+// #else
+// #define l_sprintf(s,sz,f,i)	((void)(sz), sprintf(s,f,i))
+// #endif
 
 /*
 @@ lua_strx2number converts an hexadecimal numeric string to a number.

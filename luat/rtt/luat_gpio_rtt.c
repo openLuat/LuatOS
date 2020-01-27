@@ -7,12 +7,16 @@
 #include "rtthread.h"
 #include <rtdevice.h>
 
+void luat_gpio_mode(int pin, int mode) {
+    rt_pin_mode(pin, mode);
+}
+
 static void luat_gpio_irq_callback(void* ptr) {
     rt_kprintf("luat_gpio_irq_callback!!!\n");
 }
 
 int luat_gpio_setup(luat_gpio_t* gpio) {
-    rt_kprintf("gpio setup pin=%d mode=%d irqmode=%d\n", gpio->pin, gpio->mode, gpio->irqmode);
+    //rt_kprintf("gpio setup pin=%d mode=%d irqmode=%d\n", gpio->pin, gpio->mode, gpio->irqmode);
     rt_pin_mode(gpio->pin, gpio->mode);
     // irq ?
     if (gpio->callback) {
@@ -26,12 +30,12 @@ int luat_gpio_setup(luat_gpio_t* gpio) {
 }
 
 int luat_gpio_set(int pin, int level) {
-    rt_kprintf("gpio set pin=%d level=%d\n", pin, level);
+    //rt_kprintf("gpio set pin=%d level=%d\n", pin, level);
     rt_pin_write(pin, level);
     return 0;
 }
 
 int luat_gpio_get(int pin) {
-    rt_kprintf("gpio get pin=%d value=%d\n", pin, rt_pin_read(pin));
+    //rt_kprintf("gpio get pin=%d value=%d\n", pin, rt_pin_read(pin));
     return rt_pin_read(pin);
 }

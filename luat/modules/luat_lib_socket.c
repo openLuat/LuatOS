@@ -19,7 +19,7 @@
 static int sal_tls_test(lua_State *L)
 {
     int ret, i;
-    char *recv_data;
+    // char *recv_data;
     struct hostent *host;
     int sock = -1, bytes_received;
     struct sockaddr_in server_addr;
@@ -27,12 +27,12 @@ static int sal_tls_test(lua_State *L)
     /* 通过函数入口参数url获得host地址（如果是域名，会做域名解析） */
     host = gethostbyname(luaL_checkstring(L, 1));
 
-    recv_data = rt_calloc(1, SAL_TLS_BUFSZ);
-    if (recv_data == RT_NULL)
-    {
-        rt_kprintf("No memory\n");
-        return;
-    }
+    // recv_data = rt_calloc(1, SAL_TLS_BUFSZ);
+    // if (recv_data == RT_NULL)
+    // {
+    //     rt_kprintf("No memory\n");
+    //     return;
+    // }
 
     /* 创建一个socket，类型是SOCKET_STREAM，TCP 协议, TLS 类型 */
     if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
@@ -63,22 +63,22 @@ static int sal_tls_test(lua_State *L)
     }
 
     /* 接收并打印响应的数据，使用加密数据传输 */
-    bytes_received = recv(sock, recv_data, SAL_TLS_BUFSZ  - 1, 1000);
-    if (bytes_received <= 0)
-    {
-        rt_kprintf("received error,close the socket.\n");
-        goto __exit;
-    }
+    // bytes_received = recv(sock, recv_data, SAL_TLS_BUFSZ  - 1, 1000);
+    // if (bytes_received <= 0)
+    // {
+    //     rt_kprintf("received error,close the socket.\n");
+    //     goto __exit;
+    // }
 
-    rt_kprintf("recv data:\n");
-    for (i = 0; i < bytes_received; i++)
-    {
-        rt_kprintf("%c", recv_data[i]);
-    }
+    // rt_kprintf("recv data:\n");
+    // for (i = 0; i < bytes_received; i++)
+    // {
+    //     rt_kprintf("%c", recv_data[i]);
+    // }
 
 __exit:
-    if (recv_data)
-        rt_free(recv_data);
+    // if (recv_data)
+    //     rt_free(recv_data);
 
     if (sock >= 0)
         closesocket(sock);

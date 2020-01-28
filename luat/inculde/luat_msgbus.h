@@ -14,14 +14,14 @@ typedef int (*luat_msg_handler) (lua_State *L, void* ptr);
 typedef struct rtos_msg{
     luat_msg_handler handler;
     void* ptr;
-}rtos_msg;
+}rtos_msg_t;
 
 
 // 定义接口方法
 void luat_msgbus_init(void);
-void* luat_msgbus_data();
-uint32_t luat_msgbus_put(struct rtos_msg* msg, size_t timeout);
-uint32_t luat_msgbus_get(struct rtos_msg* msg, size_t timeout);
+//void* luat_msgbus_data();
+uint32_t luat_msgbus_put(rtos_msg_t* msg, size_t timeout);
+uint32_t luat_msgbus_get(rtos_msg_t* msg, size_t timeout);
 uint32_t luat_msgbus_freesize(void);
 
 #endif

@@ -8,15 +8,15 @@
 
 //------------------------------------------------------------------
 static int l_rtos_receive(lua_State *L) {
-    struct rtos_msg msg;
+    rtos_msg_t msg;
     int re;
     re = luat_msgbus_get(&msg, luaL_checkinteger(L, 1));
     if (!re) {
-        luat_print("luat_msgbus_get msg!!!\n");
-        return msg.handler(L, &msg);
+        // luat_print("luat_msgbus_get msg!!!\n");
+        return msg.handler(L, msg.ptr);
     }
     else {
-        luat_print("luat_msgbus_get timeout!!!\n");
+        // luat_print("luat_msgbus_get timeout!!!\n");
         lua_pushinteger(L, -1);
         return 1;
     }
@@ -24,8 +24,8 @@ static int l_rtos_receive(lua_State *L) {
 
 //------------------------------------------------------------------
 static int l_timer_handler(lua_State *L, void* ptr) {
-    luat_print("l_timer_handler\n");
-    struct luat_timer_t *timer = (struct luat_timer_t *)ptr;
+    luat_timer_t *timer = (luat_timer_t *)ptr;
+    // luat_printf("l_timer_handler id=%ld\n", timer->id);
     lua_pushinteger(L, MSG_TIMER);
     lua_pushinteger(L, timer->id);
     lua_pushinteger(L, timer->timeout);
@@ -42,20 +42,25 @@ static int l_timer_handler(lua_State *L, void* ptr) {
 
 static int l_rtos_timer_start(lua_State *L) {
     lua_gettop(L);
-    lua_Integer id = luaL_checkinteger(L, 1);
-    lua_Integer timeout = luaL_checkinteger(L, 2);
-    lua_Integer repeat = luaL_optinteger(L, 3, 0);
-    //luat_printf("timer id=%lld ms=%lld repeat=%lld\n", id, ms, repeat);
-    if (timeout < 1)
-        return 0;
-    struct luat_timer_t *timer = (struct luat_timer_t *)luat_heap_malloc(sizeof(struct luat_timer_t));
+    size_t id = (size_t)luaL_checkinteger(L, 1) / 1;
+    size_t timeout = (size_t)luaL_checkinteger(L, 2);
+    size_t repeat = (size_t)luaL_optinteger(L, 3, 0);
+    // luat_printf("timer id=%ld\n", id);
+    // luat_printf("timer timeout=%ld\n", timeout);
+    // luat_printf("timer repeat=%ld\n", repeat);
+    if (timeout < 1) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    luat_timer_t *timer = (luat_timer_t*)luat_heap_malloc(sizeof(luat_timer_t));
     timer->id = id;
     timer->timeout = timeout;
     timer->repeat = repeat;
     timer->func = &l_timer_handler;
 
     luat_timer_start(timer);
-    lua_pushlightuserdata(L, timer);
+    //lua_pushlightuserdata(L, timer);
+    lua_pushinteger(L, 1);
 
     return 1;
 }

@@ -90,10 +90,25 @@ static int l_wlan_scan_get_info(lua_State *L) {
 
 //MAC地址
 static int l_wlan_get_mac(lua_State *L) {
-    char mac[6] = {0};
+    rt_uint8_t mac[6];
+    char buff[14];
+    mac[0] = 0x00;
     rt_wlan_get_mac(mac);
     if (mac[0] != 0x00) {
-        lua_pushfstring("%02x%02x%02x%02x%02x%02x", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+        rt_snprintf(buff, 14, "%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+        lua_pushlstring(L, buff, 12);
+        return 1;
+    }
+    return 0;
+}
+
+//MAC地址
+static int l_wlan_get_mac_raw(lua_State *L) {
+    rt_uint8_t mac[6];
+    mac[0] = 0x00;
+    rt_wlan_get_mac(mac);
+    if (mac[0] != 0x00) {
+        lua_pushlstring(L, mac, 6);
         return 1;
     }
     return 0;
@@ -135,6 +150,7 @@ static const rotable_Reg reg_wlan[] =
     { "scan_get_info_num", l_wlan_scan_get_info_num, 0},
     { "scan_get_info", l_wlan_scan_get_info, 0},
     { "get_mac", l_wlan_get_mac, 0},
+    { "get_mac_raw", l_wlan_get_mac_raw, 0},
     //{ "set_mac", l_wlan_set_mac},
     
     { "NONE",      NULL , RT_WLAN_NONE},

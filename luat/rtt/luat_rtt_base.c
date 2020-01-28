@@ -10,8 +10,8 @@ int l_sprintf(s,sz,f,i) {
 
 // 打印内存状态
 void print_list_mem(const char* name) {
-  luat_printf("==>>%s\n", name);
-  list_mem();
+  //luat_printf("==>>%s\n", name);
+  //list_mem();
 }
 
 // fix for mled加密库

@@ -1540,24 +1540,24 @@ static int str_unpack (lua_State *L) {
 
 #include "rotable.h"
 static const rotable_Reg strlib[] = {
-  {"byte", str_byte, NULL},
-  {"char", str_char, NULL},
-  {"dump", str_dump, NULL},
-  {"find", str_find, NULL},
-  {"format", str_format, NULL},
-  {"gmatch", gmatch, NULL},
-  {"gsub", str_gsub, NULL},
-  {"len", str_len, NULL},
-  {"lower", str_lower}, NULL,
-  {"match", str_match, NULL},
-  {"rep", str_rep, NULL},
-  {"reverse", str_reverse, NULL},
-  {"sub", str_sub, NULL},
-  {"upper", str_upper, NULL},
-  {"pack", str_pack, NULL},
-  {"packsize", str_packsize, NULL},
-  {"unpack", str_unpack, NULL},
-  {NULL, NULL, NULL}
+  {"byte", str_byte, 0},
+  {"char", str_char, 0},
+  {"dump", str_dump, 0},
+  {"find", str_find, 0},
+  {"format", str_format, 0},
+  {"gmatch", gmatch, 0},
+  {"gsub", str_gsub, 0},
+  {"len", str_len, 0},
+  {"lower", str_lower}, 0,
+  {"match", str_match, 0},
+  {"rep", str_rep, 0},
+  {"reverse", str_reverse, 0},
+  {"sub", str_sub, 0},
+  {"upper", str_upper, 0},
+  {"pack", str_pack, 0},
+  {"packsize", str_packsize, 0},
+  {"unpack", str_unpack, 0},
+  {NULL, NULL, 0}
 };
 
 

@@ -424,17 +424,17 @@ static int sort (lua_State *L) {
 
 #include "rotable.h"
 static const rotable_Reg tab_funcs[] = {
-  {"concat", tconcat, NULL},
+  {"concat", tconcat, 0},
 #if defined(LUA_COMPAT_MAXN)
   {"maxn", maxn, NULL},
 #endif
-  {"insert", tinsert, NULL},
-  {"pack", pack, NULL},
-  {"unpack", unpack, NULL},
-  {"remove", tremove, NULL},
-  {"move", tmove, NULL},
-  {"sort", sort, NULL},
-  {NULL, NULL, NULL}
+  {"insert", tinsert, 0},
+  {"pack", pack, 0},
+  {"unpack", unpack, 0},
+  {"remove", tremove, 0},
+  {"move", tmove, 0},
+  {"sort", sort, 0},
+  {NULL, NULL, 0}
 };
 
 

@@ -4,6 +4,7 @@
 #include "luat_timer.h"
 
 #include "rtthread.h"
+#include "rthw.h"
 
 static char timer_name[32];
 

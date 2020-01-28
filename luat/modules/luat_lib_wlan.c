@@ -5,7 +5,7 @@
 #include "luat_malloc.h"
 #include "rtthread.h"
 
-#ifdef RT_WLAN_MANAGE_ENABLE && RT_USING_WIFI
+#ifdef RT_WLAN_MANAGE_ENABLE
 #include "wlan_dev.h"
 #include <wlan_mgnt.h>
 #include <wlan_prot.h>

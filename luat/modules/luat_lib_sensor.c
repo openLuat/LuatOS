@@ -4,6 +4,7 @@
 #include "luat_timer.h"
 #include "luat_malloc.h"
 #include "rtthread.h"
+#include "rthw.h"
 #include <rtdevice.h>
 #include "luat_gpio.h"
 

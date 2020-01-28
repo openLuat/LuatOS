@@ -4,6 +4,7 @@
 #include "luat_sys.h"
 #include "luat_msgbus.h"
 #include "luat_timer.h"
+#include "luat_malloc.h"
 
 
 //------------------------------------------------------------------
@@ -67,7 +68,7 @@ static int l_rtos_timer_start(lua_State *L) {
 
 static int l_rtos_timer_stop(lua_State *L) {
     if (lua_islightuserdata(L, 1)) {
-        struct luat_timer_t *timer = (struct luat_timer_t *)lua_touserdata(L, 1);
+        luat_timer_t *timer = (luat_timer_t *)lua_touserdata(L, 1);
         luat_timer_stop(timer);
         luat_heap_free(timer);
     }

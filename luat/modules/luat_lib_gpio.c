@@ -6,7 +6,8 @@
 
 static int l_gpio_handler(lua_State *L, void* ptr) {
     //luat_print("l_gpio_handler\n");
-    struct luat_gpio_t *gpio = (struct luat_gpio_t *)ptr;
+    luat_gpio_t *gpio = (luat_gpio_t *)ptr;
+    //lua_getglobal(L, "sys");
     lua_pushinteger(L, MSG_GPIO);
     lua_pushinteger(L, gpio->pin);
     lua_pushinteger(L, luat_gpio_get(gpio->pin));
@@ -15,21 +16,20 @@ static int l_gpio_handler(lua_State *L, void* ptr) {
 
 static int l_gpio_setup(lua_State *L) {
     lua_gettop(L);
-    luat_gpio_t* conf = (luat_gpio_t*)luat_heap_malloc(sizeof(struct luat_gpio_t));
+    luat_gpio_t* conf = (luat_gpio_t*)luat_heap_malloc(sizeof(luat_gpio_t));
     conf->pin = luaL_checkinteger(L, 1);
     conf->mode = luaL_checkinteger(L, 2);
-    int is_irq = lua_isfunction(L, 3);
-    if (is_irq) {
-        conf->callback = &l_gpio_handler;
-        conf->irqmode = luaL_optinteger(L, 4, Luat_GPIO_RISING_FALLING);
-        //luat_printf("gpio.setup enable irq pin=%d\n", conf->pin);
+    conf->pull = luaL_optinteger(L, 3, Luat_GPIO_DEFAULT);
+    conf->irq = luaL_optinteger(L, 4, Luat_GPIO_BOTH);
+    if (conf->mode == Luat_GPIO_IRQ) {
+        conf->func = &l_gpio_handler;
     }
     else {
-        conf->callback = NULL;
-        conf->irqmode = 0;
+        conf->func = NULL;
+        
     }
     int re = luat_gpio_setup(conf);
-    if (is_irq) {
+    if (conf->mode == Luat_GPIO_IRQ) {
         if (re) {
             luat_heap_free(conf);
         }
@@ -37,19 +37,23 @@ static int l_gpio_setup(lua_State *L) {
     else {
         luat_heap_free(conf);
     }
-    return 0;
+    return re;
 }
 
 static int l_gpio_set(lua_State *L) {
-    lua_gettop(L);
     luat_gpio_set(luaL_checkinteger(L, 1), luaL_checkinteger(L, 2));
     return 0;
 }
 
 static int l_gpio_get(lua_State *L) {
-    lua_gettop(L);
     lua_pushinteger(L, luat_gpio_get(luaL_checkinteger(L, 1)) & 0x01 ? 1 : 0);
     return 1;
+}
+
+
+static int l_gpio_close(lua_State *L) {
+    luat_gpio_close(luaL_checkinteger(L, 1));
+    return 0;
 }
 
 #include "rotable.h"
@@ -58,16 +62,20 @@ static const rotable_Reg reg_gpio[] =
     { "setup" ,         l_gpio_setup ,0},
     { "set" ,           l_gpio_set,   0},
     { "get" ,           l_gpio_get,   0 },
+    { "close" ,         l_gpio_close, 0 },
     { "LOW",            NULL,         Luat_GPIO_LOW},
     { "HIGH",           NULL,         Luat_GPIO_HIGH},
+
     { "OUTPUT",         NULL,         Luat_GPIO_OUTPUT},
     { "INPUT",          NULL,         Luat_GPIO_INPUT},
-    { "INPUT_PULLUP",   NULL,         Luat_GPIO_INPUT_PULLUP},
-    { "INPUT_PULLDOWN", NULL,         Luat_GPIO_INPUT_PULLDOWN},
-    { "OUTPUT_OD",      NULL,         Luat_GPIO_OUTPUT_OD},
+    { "IRQ",            NULL,         Luat_GPIO_IRQ},
+
+    { "PULLUP",         NULL,         Luat_GPIO_PULLUP},
+    { "PULLDOWN",       NULL,         Luat_GPIO_PULLDOWN},
+
     { "RISING",         NULL,         Luat_GPIO_RISING},
     { "FALLING",        NULL,         Luat_GPIO_FALLING},
-    { "RISING_FALLING", NULL,         Luat_GPIO_RISING_FALLING},
+    { "BOTH",           NULL,         Luat_GPIO_BOTH},
 	{ NULL,             NULL ,        0}
 };
 

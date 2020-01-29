@@ -15,20 +15,23 @@
 
 #define Luat_GPIO_OUTPUT         0x00
 #define Luat_GPIO_INPUT          0x01
-#define Luat_GPIO_INPUT_PULLUP   0x02
-#define Luat_GPIO_INPUT_PULLDOWN 0x03
-#define Luat_GPIO_OUTPUT_OD      0x04
+#define Luat_GPIO_IRQ            0x02
+
+#define Luat_GPIO_DEFAULT        0x00
+#define Luat_GPIO_PULLUP         0x01
+#define Luat_GPIO_PULLDOWN       0x02
 
 #define Luat_GPIO_RISING             0x00
 #define Luat_GPIO_FALLING            0x01
-#define Luat_GPIO_RISING_FALLING     0x02
+#define Luat_GPIO_BOTH               0x02
 
-typedef struct luat_gpio_t
+typedef struct luat_gpio
 {
     int pin;
     int mode;
-    luat_msg_handler callback;
-    int irqmode;
+    int pull;
+    int irq;
+    luat_msg_handler func;
 } luat_gpio_t;
 
 
@@ -36,5 +39,6 @@ void luat_gpio_mode(int pin, int mode);
 int luat_gpio_setup(luat_gpio_t* gpio);
 int luat_gpio_set(int pin, int level);
 int luat_gpio_get(int pin);
+void luat_gpio_close(int pin);
 
 #endif

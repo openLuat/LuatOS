@@ -5,13 +5,24 @@
 #include "luat_malloc.h"
 
 static int l_gpio_handler(lua_State *L, void* ptr) {
-    //luat_print("l_gpio_handler\n");
     luat_gpio_t *gpio = (luat_gpio_t *)ptr;
-    //lua_getglobal(L, "sys");
+    lua_getglobal(L, "sys_pub");
+    if (!lua_isnil(L, -1)) {
+        lua_pushfstring(L, "IRQ_%d", (char)gpio->pin);
+        lua_pushinteger(L, luat_gpio_get(gpio->pin));
+        lua_call(L, 2, 0);
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    //else {
+    //    luat_print("_G.sys_pub is nil\n");
+    //    lua_pop(L, 1);
+    //}
     lua_pushinteger(L, MSG_GPIO);
-    lua_pushinteger(L, gpio->pin);
-    lua_pushinteger(L, luat_gpio_get(gpio->pin));
-    return 3;
+    // lua_pushinteger(L, gpio->pin);
+    // lua_pushinteger(L, luat_gpio_get(gpio->pin));
+    // return 3;
+    return 1;
 }
 
 static int l_gpio_setup(lua_State *L) {

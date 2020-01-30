@@ -4,8 +4,15 @@
 #include "rtthread.h"
 #include "stdio.h"
 
-int l_sprintf(s,sz,f,i) {
-  return rt_snprintf(s, sz, f, i);
+int l_sprintf(char *buf, int32_t size, const char *fmt, ...) {
+    rt_int32_t n;
+    va_list args;
+
+    va_start(args, fmt);
+    n = rt_vsnprintf(buf, size, fmt, args);
+    va_end(args);
+
+    return n;
 }
 
 // 打印内存状态

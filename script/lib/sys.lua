@@ -335,5 +335,7 @@ function sys.run()
     end
 end
 
+_G.sys_pub = sys.publish
+
 return sys
 ----------------------------

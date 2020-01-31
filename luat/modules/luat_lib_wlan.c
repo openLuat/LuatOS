@@ -32,18 +32,29 @@ static int l_wlan_set_mode(lua_State *L) {
     return 1;
 }
 
-static int l_wlan_join(lua_State *L) {
-    const char* ssid = luaL_checkstring(L, 1);
+static char* ssid = RT_NULL;
+static char* passwd = RT_NULL;
+static void _wlan_connect(void* params) {
+    rt_wlan_connect(ssid, passwd);
+}
+static int l_wlan_connect(lua_State *L) {
+    ssid = luaL_checkstring(L, 1);
+    passwd = RT_NULL;
     if (lua_isstring(L, 2)) {
-        const char* passwd = luaL_checkstring(L, 2);
-        int re = rt_wlan_connect(ssid, passwd);
-        lua_pushinteger(L, re);
+        passwd = luaL_checkstring(L, 2);
     }
-    else {
-        int re = rt_wlan_connect(ssid, RT_NULL);
-        lua_pushinteger(L, re);
+    rt_thread_t t = rt_thread_create("wlanj", _wlan_connect, RT_NULL, 1024, 20, 20);
+    if (t == RT_NULL) {
+        lua_pushinteger(L, 1);
+        lua_pushstring(L, "fail to create wlan thread");
+        return 2;
     }
-    return 1;
+    if (rt_thread_startup(t) != RT_EOK) {
+        lua_pushinteger(L, 2);
+        lua_pushstring(L, "fail to start wlan thread");
+        return 2;
+    }
+    return 0;
 }
 
 static int l_wlan_disconnect(lua_State *L) {
@@ -119,9 +130,68 @@ static int l_wlan_ready(lua_State *L) {
     return 1;
 }
 
+static int l_wlan_handler(lua_State* L, void* ptr) {
+    int event = (int)ptr;
+    lua_getglobal(L, "sys_pub");
+    if (lua_isnil(L, -1)) {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    switch (event)
+    {
+    case RT_WLAN_EVT_READY:
+        lua_pushstring(L, "WLAN_READY");
+        lua_call(L, 1, 0);
+        break;
+    case RT_WLAN_EVT_SCAN_DONE:
+        lua_pushstring(L, "WLAN_SCAN_DONE");
+        lua_call(L, 1, 0);
+        break;
+    case RT_WLAN_EVT_STA_CONNECTED:
+        lua_pushstring(L, "WLAN_STA_CONNECTED");
+        lua_pushinteger(L, 1);
+        lua_call(L, 2, 0);
+        break;
+    case RT_WLAN_EVT_STA_CONNECTED_FAIL:
+        lua_pushstring(L, "WLAN_STA_CONNECTED");
+        lua_pushinteger(L, 0);
+        lua_call(L, 2, 0);
+        break;
+    case RT_WLAN_EVT_STA_DISCONNECTED:
+        lua_pushstring(L, "WLAN_STA_DISCONNECTED");
+        lua_call(L, 1, 0);
+        break;
+    case RT_WLAN_EVT_AP_START:
+        lua_pushstring(L, "WLAN_AP_START");
+        lua_call(L, 1, 0);
+        break;
+    case RT_WLAN_EVT_AP_STOP:
+        lua_pushstring(L, "WLAN_AP_STOP");
+        lua_call(L, 1, 0);
+        break;
+    case RT_WLAN_EVT_AP_ASSOCIATED:
+        lua_pushstring(L, "WLAN_AP_ASSOCIATED");
+        lua_call(L, 1, 0);
+        break;
+    case RT_WLAN_EVT_AP_DISASSOCIATED:
+        lua_pushstring(L, "WLAN_AP_DISASSOCIATED");
+        lua_call(L, 1, 0);
+        break;
+    
+    default:
+        break;
+    }
+    lua_pushinteger(L, 0);
+    return 1;
+}
+
 // 注册回调
 static void wlan_cb(int event, struct rt_wlan_buff *buff, void *parameter) {
     rt_kprintf("wlan event -> %d\n", event);
+    rtos_msg_t msg;
+    msg.handler = l_wlan_handler;
+    msg.ptr = (void*)event;
+    luat_msgbus_put(&msg, 1);
 }
 static void reg_wlan_callbacks(void) {
     rt_wlan_register_event_handler(RT_WLAN_EVT_READY, wlan_cb, RT_NULL);
@@ -141,7 +211,7 @@ static const rotable_Reg reg_wlan[] =
 {
     { "getMode" ,  l_wlan_get_mode , 0},
     { "setMode" ,  l_wlan_set_mode , 0},
-    { "join" ,     l_wlan_join , 0},
+    { "connect" ,     l_wlan_connect , 0},
     { "disconnect",l_wlan_disconnect , 0},
     { "connected" ,l_wlan_connected , 0},
     { "ready" ,    l_wlan_ready , 0},

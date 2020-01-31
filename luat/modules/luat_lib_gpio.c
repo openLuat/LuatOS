@@ -5,23 +5,16 @@
 #include "luat_malloc.h"
 
 static int l_gpio_handler(lua_State *L, void* ptr) {
+    // 给 sys.publish方法发送数据
     luat_gpio_t *gpio = (luat_gpio_t *)ptr;
     lua_getglobal(L, "sys_pub");
     if (!lua_isnil(L, -1)) {
         lua_pushfstring(L, "IRQ_%d", (char)gpio->pin);
         lua_pushinteger(L, luat_gpio_get(gpio->pin));
         lua_call(L, 2, 0);
-        lua_pushinteger(L, 0);
-        return 1;
     }
-    //else {
-    //    luat_print("_G.sys_pub is nil\n");
-    //    lua_pop(L, 1);
-    //}
-    lua_pushinteger(L, MSG_GPIO);
-    // lua_pushinteger(L, gpio->pin);
-    // lua_pushinteger(L, luat_gpio_get(gpio->pin));
-    // return 3;
+    // 给rtos.recv方法返回个空数据
+    lua_pushinteger(L, 0);
     return 1;
 }
 

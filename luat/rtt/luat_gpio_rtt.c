@@ -54,10 +54,10 @@ int luat_gpio_setup(luat_gpio_t* gpio) {
     rt_pin_mode(gpio->pin, mode);
     if (gpio->mode == Luat_GPIO_IRQ) {
         int irq = 0;
-        if (irq == Luat_GPIO_RISING) {
+        if (gpio->irq == Luat_GPIO_RISING) {
             irq = PIN_IRQ_MODE_RISING;
         }
-        else if (irq == Luat_GPIO_FALLING) {
+        else if (gpio->irq == Luat_GPIO_FALLING) {
             irq = PIN_IRQ_MODE_FALLING;
         }
         else {

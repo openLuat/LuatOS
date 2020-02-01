@@ -22,9 +22,9 @@
 cd github
 // 国内外地址选一个就行
 // github地址
-git clone git@github.com:openLuat/LuatOS.git
+git clone https://github.com/openLuat/LuatOS.git
 // 国内镜像地址
-git clone git@gitee.com:wendal/LuatOS.git
+git clone https://gitee.com/wendal/LuatOS.git
 ```
 
 ### W60x源码
@@ -51,41 +51,4 @@ scons
 
 ## 下载源码(package形式)
 
-本质上说, LuatOS可以作为rt-thread的一个package存在, 所以可以换一种方式编译
-
-### LuatOS源码
-
-与上一个方式一样,不再重复
-
-### rt-thread源码
-
-```bash
-// github地址
-git clone https://github.com/RT-Thread/rt-thread.git
-```
-
-### 配置w60x(其他mcu一样的操作)
-
-进入 `rt-thread\bsp\w60x` 目录, 启动env工具, 并执行
-
-```
-pkgs --update
-```
-
-然后新建一个目录 `rt-thread\bsp\w60x\packages\luat`, 新建文件填入以下内容
-
-```python
-# for module compiling
-import os
-Import('RTT_ROOT')
-
-cwd = "D:/github/LuatOS"
-objs = SConscript(os.path.join(cwd, '/lua/SConscript'))
-objs = objs + SConscript(os.path.join(cwd, '/luat/SConscript'))
-
-Return('objs')
-```
-
-然后, 修改rtconfig.h, 增到main thread的堆栈大小到8192.
-
-使用scons命令执行编译, 就可得到刷机文件
+暂时取消package形式的介绍

@@ -29,7 +29,8 @@ static int pmain(lua_State *L) {
     print_list_mem("begin> luat_openlibs");
     
     // 加载main.lua
-    re = luaL_dofile(L, "/main.lua");
+    //re = luaL_dofile(L, "/main.lua");
+    re = luaL_dostring(L, "require(\"main\")");
 
     report(L, re);
     lua_pushboolean(L, 1);  /* signal no errors */

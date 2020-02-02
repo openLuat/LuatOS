@@ -38,6 +38,9 @@ static void _wlan_connect(void* params) {
     rt_wlan_connect(ssid, passwd);
 }
 static int l_wlan_connect(lua_State *L) {
+    //强制GC一次
+    lua_gc(L, LUA_GCCOLLECT, 0);
+    // 更新参数
     ssid = luaL_checkstring(L, 1);
     passwd = RT_NULL;
     if (lua_isstring(L, 2)) {

@@ -3,6 +3,12 @@
 
 local sys = {}
 
+local table = _G.table
+local unpack = table.unpack
+local rtos = _G.rtos
+local coroutine = _G.coroutine
+local log = _G.log
+
 -- lib脚本版本号，只要lib中的任何一个脚本做了修改，都需要更新此版本号
 SCRIPT_LIB_VER = "1.0.0"
 
@@ -46,7 +52,7 @@ function sys.wait(ms)
         rtos.timer_stop(timerid)
         taskTimerPool[coroutine.running()] = nil
         timerPool[timerid] = nil
-        return table.unpack(message)
+        return unpack(message)
     end
 end
 
@@ -60,7 +66,7 @@ function sys.waitUntil(id, ms)
     sys.subscribe(id, coroutine.running())
     local message = ms and {sys.wait(ms)} or {coroutine.yield()}
     sys.unsubscribe(id, coroutine.running())
-    return message[1] ~= nil, table.unpack(message, 2, #message)
+    return message[1] ~= nil, unpack(message, 2, #message)
 end
 
 --- Task任务的条件等待函数扩展（包括事件消息和定时器消息等条件），只能用于任务函数中。
@@ -73,7 +79,7 @@ function sys.waitUntilExt(id, ms)
     sys.subscribe(id, coroutine.running())
     local message = ms and {sys.wait(ms)} or {coroutine.yield()}
     sys.unsubscribe(id, coroutine.running())
-    if message[1] ~= nil then return table.unpack(message) end
+    if message[1] ~= nil then return unpack(message) end
     return false
 end
 
@@ -101,7 +107,7 @@ local function cmpTable(t1, t2)
     if not t2 then return #t1 == 0 end
     if #t1 == #t2 then
         for i = 1, #t1 do
-            if table.unpack(t1, i, i) ~= table.unpack(t2, i, i) then
+            if unpack(t1, i, i) ~= unpack(t2, i, i) then
                 return false
             end
         end
@@ -125,7 +131,7 @@ function sys.timerStop(val, ...)
             -- 回调函数相同
             if type(v) == 'table' and v.cb == val or v == val then
                 -- 可变参数相同
-                if cmpTable({arg}, para[k]) then
+                if cmpTable({...}, para[k]) then
                     rtos.timer_stop(k)
                     timerPool[k], para[k], loop[val] = nil
                     break
@@ -162,7 +168,7 @@ function sys.timerStart(fnc, ms, ...)
     if #arg == 0 then
         sys.timerStop(fnc)
     else
-        sys.timerStop(fnc, table.unpack(arg))
+        sys.timerStop(fnc, ...)
     end
     -- 为定时器申请ID，ID值 1-20 留给任务，20-30留给消息专用定时器
     while true do
@@ -188,11 +194,11 @@ end
 -- @number ms 整数，最大定时126322567毫秒
 -- @param ... 可变参数 fnc的参数
 -- @return number 定时器ID，如果失败，返回nil
-function sys.timerLoopStart(fnc, ms, ...)
-    local tid = sys.timerStart(fnc, ms, ...)
-    if tid then loop[tid] = ms end
-    return tid
-end
+--function sys.timerLoopStart(fnc, ms, ...)
+--    local tid = sys.timerStart(fnc, ms, ...)
+--    if tid then loop[tid] = ms end
+--    return tid
+--end
 
 --- 判断某个定时器是否处于开启状态
 -- @param val 有两种形式
@@ -262,9 +268,9 @@ local function dispatch()
         if subscribers[message[1]] then
             for callback, _ in pairs(subscribers[message[1]]) do
                 if type(callback) == "function" then
-                    callback(table.unpack(message, 2, #message))
+                    callback(unpack(message, 2, #message))
                 elseif type(callback) == "thread" then
-                    coroutine.resume(callback, table.unpack(message))
+                    coroutine.resume(callback, unpack(message))
                 end
             end
         end
@@ -272,17 +278,17 @@ local function dispatch()
 end
 
 -- rtos消息回调
-local handlers = {}
-setmetatable(handlers, {__index = function() return function() end end, })
+--local handlers = {}
+--setmetatable(handlers, {__index = function() return function() end end, })
 
 --- 注册rtos消息回调处理函数
 -- @number id 消息类型id
 -- @param handler 消息处理函数
 -- @return 无
 -- @usage rtos.on(rtos.MSG_KEYPAD, function(param) handle keypad message end)
-function sys.on(id, handler)
-    handlers[id] = handler
-end
+--function sys.on(id, handler)
+--    handlers[id] = handler
+--end
 
 ------------------------------------------ Luat 主调度框架  ------------------------------------------
 local function safeRun()
@@ -290,8 +296,11 @@ local function safeRun()
     dispatch()
     -- 阻塞读取外部消息
     local msg, param, exparam = rtos.receive(rtos.INF_TIMEOUT)
+    -- 空消息?
+    if not msg or msg == 0 then
+        -- 无任何操作
     -- 判断是否为定时器消息，并且消息是否注册
-    if msg == rtos.MSG_TIMER and timerPool[param] then
+    elseif msg == rtos.MSG_TIMER and timerPool[param] then
         if param < TASK_TIMER_ID_MAX then
             local taskId = timerPool[param]
             timerPool[param] = nil
@@ -304,7 +313,7 @@ local function safeRun()
             --如果不是循环定时器，从定时器id表中删除此定时器
             if not loop[param] then timerPool[param] = nil end
             if para[param] ~= nil then
-                cb(table.unpack(para[param]))
+                cb(unpack(para[param]))
                 if not loop[param] then para[param] = nil end
             else
                 cb()
@@ -313,10 +322,10 @@ local function safeRun()
             if loop[param] then rtos.timer_start(param, loop[param]) end
         end
     --其他消息（音频消息、充电管理消息、按键消息等）
-    elseif type(msg) == "number" then
-        handlers[msg](param, exparam)
-    else
-        handlers[msg.id](msg)
+    --elseif type(msg) == "number" then
+    --    handlers[msg](param, exparam)
+    --else
+    --    handlers[msg.id](msg)
     end
 end
 

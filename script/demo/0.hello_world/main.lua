@@ -2,7 +2,7 @@ local sys = require "sys"
 
 print(_VERSION)
 
-sys.timerLoopLoop(function()
+sys.timerLoopStart(function()
     print("hi, LuatOS")
 end, 3000)
 

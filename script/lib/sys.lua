@@ -194,11 +194,11 @@ end
 -- @number ms 整数，最大定时126322567毫秒
 -- @param ... 可变参数 fnc的参数
 -- @return number 定时器ID，如果失败，返回nil
---function sys.timerLoopStart(fnc, ms, ...)
---    local tid = sys.timerStart(fnc, ms, ...)
---    if tid then loop[tid] = ms end
---    return tid
---end
+function sys.timerLoopStart(fnc, ms, ...)
+    local tid = sys.timerStart(fnc, ms, ...)
+    if tid then loop[tid] = ms end
+    return tid
+end
 
 --- 判断某个定时器是否处于开启状态
 -- @param val 有两种形式

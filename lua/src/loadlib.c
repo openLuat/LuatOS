@@ -493,15 +493,16 @@ static int checkload (lua_State *L, int stat, const char *filename) {
 
 
 static int searcher_Lua (lua_State *L) {
-  //rt_kprintf("before gettop, search lua name=%s\n", luaL_checkstring(L, 1));
-  //lua_gettop(L);
-  //rt_kprintf("after gettop,  search lua name=%s\n", luaL_checkstring(L, 1));
   char filename[32];
   const char *name = luaL_checkstring(L, 1);
-  sprintf(filename, "/%s.lua", name);
+  sprintf(filename, "/%s.luac", name);
   FILE *f = fopen(filename, "r");
   if (f == NULL) {
-    sprintf(filename, "/lua/%s.lua", name);
+    sprintf(filename, "/%s.lua", name);
+    f = fopen(filename, "r");
+  }
+  if (f == NULL) {
+    sprintf(filename, "/lib/%s.luac", name);
     f = fopen(filename, "r");
   }
   if (f == NULL) {
@@ -618,10 +619,20 @@ static int ll_require (lua_State *L) {
     return 1;  /* package is already loaded */
   /* else must load package */
   lua_pop(L, 1);  /* remove 'getfield' result */
-  findloader(L, name);
-  lua_pushstring(L, name);  /* pass name as argument to module loader */
-  lua_insert(L, -2);  /* name is 1st argument (before search data) */
-  lua_call(L, 2, 1);  /* run loader to load module */
+  //findloader(L, name);
+  //lua_pushstring(L, name);  /* pass name as argument to module loader */
+  //lua_insert(L, -2);  /* name is 1st argument (before search data) */
+  //lua_call(L, 2, 1);  /* run loader to load module */
+  
+  // add by wendal, 替换原有的逻辑
+  lua_pushstring(L, name);
+  if (searcher_Lua(L) == 2) {
+    lua_pushstring(L, 1);
+    lua_call(L, 2, 1);
+  }
+  else {
+    luaL_error(L, "module '%s' not found", name);
+  }
   if (!lua_isnil(L, -1))  /* non-nil return? */
     lua_setfield(L, 2, name);  /* LOADED[name] = returned value */
   if (lua_getfield(L, 2, name) == LUA_TNIL) {   /* module set no value? */
@@ -747,7 +758,7 @@ static const luaL_Reg ll_funcs[] = {
 
 static void createsearcherstable (lua_State *L) {
   static const lua_CFunction searchers[] =
-    {searcher_preload, searcher_Lua, NULL};
+    {searcher_Lua, NULL};
   int i;
   /* create 'searchers' table */
   lua_createtable(L, sizeof(searchers)/sizeof(searchers[0]) - 1, 0);
@@ -778,18 +789,24 @@ static void createclibstable (lua_State *L) {
   lua_rawsetp(L, LUA_REGISTRYINDEX, &CLIBS);  /* set CLIBS table in registry */
 }
 
+LUAMOD_API int luaopen_package (lua_State *L) {
+  lua_pushcfunction(L, ll_require);
+  lua_setglobal(L, "require");
+  return 0;
+}
 
+#if 0
 LUAMOD_API int luaopen_package (lua_State *L) {
   createclibstable(L);
   luaL_newlib(L, pk_funcs);  /* create 'package' table */
   createsearcherstable(L);
   /* set paths */
   setpath(L, "path", LUA_PATH_VAR, LUA_PATH_DEFAULT);
-  //setpath(L, "cpath", LUA_CPATH_VAR, LUA_CPATH_DEFAULT);
+  setpath(L, "cpath", LUA_CPATH_VAR, LUA_CPATH_DEFAULT);
   /* store config information */
-  //lua_pushliteral(L, LUA_DIRSEP "\n" LUA_PATH_SEP "\n" LUA_PATH_MARK "\n"
-  //                   LUA_EXEC_DIR "\n" LUA_IGMARK "\n");
-  //lua_setfield(L, -2, "config");
+  lua_pushliteral(L, LUA_DIRSEP "\n" LUA_PATH_SEP "\n" LUA_PATH_MARK "\n"
+                     LUA_EXEC_DIR "\n" LUA_IGMARK "\n");
+  lua_setfield(L, -2, "config");
   /* set field 'loaded' */
   luaL_getsubtable(L, LUA_REGISTRYINDEX, LUA_LOADED_TABLE);
   lua_setfield(L, -2, "loaded");
@@ -802,4 +819,4 @@ LUAMOD_API int luaopen_package (lua_State *L) {
   lua_pop(L, 1);  /* pop global table */
   return 1;  /* return 'package' table */
 }
-
+#endif

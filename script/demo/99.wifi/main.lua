@@ -1,22 +1,30 @@
-wlan.setMode("wlan0", wlan.STATION)
-wlan.join("uiot", "ABC")
-while wlan.connected() == false do
-    timer.mdelay(1000)
-    print("wait for connected")
-end
+local sys = require("sys")
 
-print("connected")
+sys.subscribe("WLAN_READY", function ()
+    print("!!! wlan ready event !!!")
+end)
 
-while wlan.ready() == 0 do
-    timer.mdelay(1000)
-    print("wait for ready")
-end
+sys.taskInit(function()
+    wlan.setMode("wlan0", wlan.STATION)
+    wlan.connect("uiot", "123")
+    print("wait for WLAN_READY")
+    sys.waitUntil("WLAN_READY", 30000)
+    if wlan.ready() == 1 then
+        while 1 do
+            print("prepare ds18b20 ...")
+            local temp = (sensor.ds18b20(14) or "")
+            print("TEMP: " .. temp)
+            local t = {"GET /api/w60x/report/ds18b20?mac=", wlan.get_mac(), "&temp=", temp, " HTTP/1.0\r\n",
+                    "Host: site0.cn\r\n",
+                    "User-Agent: LuatOS/0.1.0\r\n",
+                        "\r\n"}
+            socket.tsend("site0.cn", 80, table.concat(t))
+            print("tsend complete, sleep 30s")
+            sys.wait(30*1000)
+        end
+    else
+        print("wlan NOT ready!!!!")
+    end
+end)
 
-print("wifi is ready!!!")
-
-while 1 do
-    print("connecting ...")
-    socket.tsend("111.230.171.211", 19001, "{hi:123}")
-    print("connect end")
-    timer.mdelay(10*1000)
-end
+sys.run()

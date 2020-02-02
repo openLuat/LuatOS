@@ -24,6 +24,9 @@ static int sal_tls_test(lua_State *L)
     int sock = -1, bytes_received;
     struct sockaddr_in server_addr;
 
+    // 强制GC一次先
+    lua_gc(L, LUA_GCCOLLECT, 0);
+
     /* 通过函数入口参数url获得host地址（如果是域名，会做域名解析） */
     host = gethostbyname(luaL_checkstring(L, 1));
 

@@ -11,6 +11,8 @@
 #define CONNECT_SUCCESS  0
 #define CONNECT_FAILED   1
 
+static int W1_INPUT_MODE = PIN_MODE_INPUT_PULLUP;
+
 RT_WEAK void luat_timer_us_delay(size_t us) {
     rt_hw_us_delay(us);
 }
@@ -27,7 +29,7 @@ static void w1_reset(int pin)
 static uint8_t w1_connect(int pin)
 {
     uint8_t retry = 0;
-    luat_gpio_mode(pin, Luat_GPIO_INPUT);
+    luat_gpio_mode(pin, W1_INPUT_MODE);
 
     while (luat_gpio_get(pin) && retry < 200)
     {
@@ -60,7 +62,7 @@ static uint8_t w1_read_bit(int pin)
     luat_gpio_set(pin, Luat_GPIO_LOW);
     luat_timer_us_delay(2);
     luat_gpio_set(pin, Luat_GPIO_HIGH);
-    luat_gpio_mode(pin, Luat_GPIO_INPUT);
+    luat_gpio_mode(pin, W1_INPUT_MODE);
     luat_timer_us_delay(5);
 
     if(luat_gpio_get(pin))

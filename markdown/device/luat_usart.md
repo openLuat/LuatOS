@@ -19,12 +19,10 @@
 //初始化配置串口各项参数，并打开串口
 //成功返回串口id，失败返回负数的原因代码
 int8_t luat_uart_setup(luat_uart_t* uart);
-//回调函数
-int8_t luat_uart_on(uint8_t uartid, luat_uart_on_t* uart_on);
 //关闭串口
 uint8_t luat_uart_close(uint8_t uartid);
 //获取未读取串口数据的长度
-uint32_t luat_uart_unread(uint8_t uartid);
+uint32_t luat_uart_bytes_to_read(uint8_t uartid);
 //手动读取缓存中的串口数据
 luat_uart_data_t luat_uart_read(uint8_t uartid, uint32_t length);
 //发送串口数据
@@ -48,8 +46,10 @@ uart.MSB
 ### 用例
 
 ```lua
+local uartName = "uart1"
+
 local uartid = uart.setup(
-    "uart1",--设备名
+    uartName,--设备名
     115200,--波特率
     8,--数据位
     1,--停止位
@@ -61,19 +61,18 @@ local uartid = uart.setup(
 --发数据
 uart.write(uartid,"test")
 
-
 --方式1:轮询
 while true do
-    if uart.unread(uartid) > 0 then
+    if uart.toRead(uartid) > 0 then
         local len = uart.unread(uartid)
         print(uart.read(uartid,len))
     end
-    ...--这里加上不阻塞的延时函数
+    sys.wait(100)--不阻塞的延时函数
 end
 
 --方式2:收数据回调
-uart.on(uartid,function()
-    local len = uart.unread(uartid)
+sys.subscribe("IRQ_"..uartName, function(uartid)
+    local len = uart.toRead(uartid)
     print(uart.read(uartid,len))
 end)
 

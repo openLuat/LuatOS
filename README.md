@@ -36,6 +36,12 @@ Lua base RTOS, build for many embedded systems
 
 TODO: 构建工具链,IDE,刷机工具,等等
 
+## 使用到的开源项目
+
+* [rt-thread](https://github.com/RT-Thread/rt-thread) 国产rtos
+* [rtt-ds18b20](https://github.com/willianchanlovegithub/ds18b20) 在RT-Thread环境下读取ds18b20
+* [LuaTask](https://github.com/openLuat/Luat_2G_RDA_8955) 合宙LuaTask
+* [iRTU](https://github.com/hotdll/iRTU) 基于Luat的DTU
 
 ## 授权协议
 

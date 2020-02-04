@@ -11,6 +11,10 @@
 #include <wlan_prot.h>
 #include <wlan_cfg.h>
 
+#ifdef WM_USING_ONESHOT
+#include "oneshot.h"
+#endif
+
 static int l_wlan_get_mode(lua_State *L) {
     rt_device_t dev = rt_device_find(luaL_checkstring(L, 1));
     if (dev == RT_NULL) {
@@ -32,19 +36,32 @@ static int l_wlan_set_mode(lua_State *L) {
     return 1;
 }
 
-static char* ssid = RT_NULL;
-static char* passwd = RT_NULL;
+typedef struct join_info
+{
+    char ssid[64];
+    char passwd[64];
+} join_info_t;
+static join_info_t jinfo = {0};
+
+
 static void _wlan_connect(void* params) {
-    rt_wlan_connect(ssid, passwd);
+    rt_wlan_connect(jinfo.ssid, jinfo.passwd);
 }
 static int l_wlan_connect(lua_State *L) {
     //强制GC一次
     lua_gc(L, LUA_GCCOLLECT, 0);
     // 更新参数
-    ssid = luaL_checkstring(L, 1);
-    passwd = RT_NULL;
+    size_t len;
+    const char* _ssid = luaL_checklstring(L, 1, &len);
+    rt_strncpy(jinfo.ssid, _ssid, len);
+    jinfo.ssid[len] = 0x00;
     if (lua_isstring(L, 2)) {
-        passwd = luaL_checkstring(L, 2);
+        const char* _passwd = luaL_checklstring(L, 2, &len);
+        rt_strncpy(jinfo.passwd, _passwd, len);
+        jinfo.passwd[len] = 0x00;
+    }
+    else {
+        jinfo.passwd[0] = 0x00;
     }
     rt_thread_t t = rt_thread_create("wlanj", _wlan_connect, RT_NULL, 1024, 20, 20);
     if (t == RT_NULL) {
@@ -209,6 +226,73 @@ static void reg_wlan_callbacks(void) {
     rt_wlan_register_event_handler(RT_WLAN_EVT_AP_DISASSOCIATED, wlan_cb, RT_NULL);
 }
 
+//--------------------------
+#ifdef WM_USING_ONESHOT
+static int32_t oneshot_autojoin = 0;
+static int32_t oneshot_re;
+
+static int luat_oneshot_msghandler(lua_State *L, void* ptr) {
+    lua_getglobal(L, "sys_pub");
+    if (!lua_isnil(L, -1)) {
+        lua_pushstring(L, "ONESHOT_RE");
+        if (ptr == RT_NULL) {
+            lua_call(L, 1, 0);
+        }
+        else {
+            lua_pushstring(L, jinfo.ssid);
+            lua_pushstring(L, jinfo.passwd);
+            lua_call(L, 2, 0);
+        }
+    }
+    // 给rtos.recv方法返回个空数据
+    lua_pushinteger(L, 0);
+    return 1;
+}
+
+static void _wm_oneshot_callback(int state, unsigned char *_ssid, unsigned char *_passwd) {
+    rt_kprintf("oneshot callback state=%ld\n", state);
+    if (_ssid != RT_NULL) {
+        rt_kprintf("oneshot ssid %s\n", _ssid);
+    }
+    if (_passwd != RT_NULL) {
+        rt_kprintf("oneshot key %s\n", _passwd);
+    }
+    if (state == 0) {
+        rt_memset(&jinfo, 0, sizeof(struct join_info));
+        rt_strncpy(jinfo.ssid, _ssid, rt_strlen(_ssid));
+        if (_passwd)
+        {
+            rt_strncpy(jinfo.passwd, _passwd, rt_strlen(_passwd));
+        }
+    }
+    
+    // 发送msgbus消息
+    rtos_msg_t msg;
+    msg.handler = luat_oneshot_msghandler;
+    msg.ptr = state == 0 ? (void*)1 : RT_NULL;
+    luat_msgbus_put(&msg, 1);
+}
+static int l_wlan_oneshot_start(lua_State *L) {
+    WM_ONESHOT_MODE mode = (WM_ONESHOT_MODE)luaL_optinteger(L, 1, WM_UDP);
+    oneshot_autojoin = luaL_optinteger(L, 2, 1);
+    rt_kprintf("oneshot mode=%d\n", mode);
+    int re = wm_oneshot_start(mode, _wm_oneshot_callback);
+    rt_kprintf("oneshot re=%ld\n", re);
+    lua_pushinteger(L, re);
+    return 1;
+}
+static int l_wlan_oneshot_stop(lua_State *L) {
+    wm_oneshot_stop();
+    return 0;
+}
+static int l_wlan_oneshot_state(lua_State *L) {
+    lua_pushinteger(L, wm_oneshot_get());
+    return 1;
+}
+#endif
+//--------------------------
+
+
 #include "rotable.h"
 static const rotable_Reg reg_wlan[] =
 {
@@ -225,6 +309,13 @@ static const rotable_Reg reg_wlan[] =
     { "get_mac", l_wlan_get_mac, 0},
     { "get_mac_raw", l_wlan_get_mac_raw, 0},
     //{ "set_mac", l_wlan_set_mac},
+    // ---- oneshot
+    #ifdef WM_USING_ONESHOT
+    { "oneshotStart" ,  l_wlan_oneshot_start , 0},
+    { "oneshotStop" ,   l_wlan_oneshot_stop ,  0},
+    { "oneshotState" ,  l_wlan_oneshot_state , 0},
+    #endif
+    // ---
     
     { "NONE",      NULL , RT_WLAN_NONE},
     { "STATION",   NULL , RT_WLAN_STATION},

@@ -241,7 +241,7 @@ static int luat_oneshot_msghandler(lua_State *L, void* ptr) {
         else {
             lua_pushstring(L, jinfo.ssid);
             lua_pushstring(L, jinfo.passwd);
-            lua_call(L, 2, 0);
+            lua_call(L, 3, 0);
         }
     }
     // 给rtos.recv方法返回个空数据

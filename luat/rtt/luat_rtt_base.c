@@ -47,7 +47,7 @@ void luat_openlibs(lua_State *L) {
     //luaL_requiref(L, "sys", luaopen_sys, 1);
     //lua_pop(L, 1);
     //print_list_mem("done> require(sys)");
-    
+
     luaL_requiref(L, "timer", luaopen_timer, 1);
     lua_pop(L, 1);
     print_list_mem("done> require(timer)");
@@ -60,6 +60,10 @@ void luat_openlibs(lua_State *L) {
     luaL_requiref(L, "sensor", luaopen_sensor, 1);
     lua_pop(L, 1);
     print_list_mem("done> require(sensor)");
+
+    luaL_requiref(L, "uart", luaopen_uart, 1);
+    lua_pop(L, 1);
+    print_list_mem("done> require(uart)");
     #endif
 
     #ifdef RT_USING_WIFI

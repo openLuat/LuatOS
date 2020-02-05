@@ -3,8 +3,8 @@ Import('rtconfig')
 from building import *
 
 cwd = GetCurrentDir()
-src	= Glob('modules/*.c') + Glob('rtt/*.c') + Glob('w60x/*.c') + Glob('packages/lfs/*.c')
-CPPPATH = [cwd + "/inculde", cwd + "/packages/lfs/"]
+src	= Glob('modules/*.c') + Glob('rtt/*.c') + Glob('w60x/*.c') + Glob('packages/lfs/*.c') + Glob('packages/airkiss/*.c')
+CPPPATH = [cwd + "/inculde", cwd + "/packages/lfs/", cwd + "/packages/airkiss/"]
 
 group = DefineGroup('luat', src, depend = [''], CPPPATH = CPPPATH)
 

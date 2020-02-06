@@ -5,13 +5,13 @@
 
 
 //校验位
-#define PARITY_NONE                     0
-#define PARITY_ODD                      1
-#define PARITY_EVEN                     2
+#define LUAT_PARITY_NONE                     0
+#define LUAT_PARITY_ODD                      1
+#define LUAT_PARITY_EVEN                     2
 
 //高低位顺序
-#define BIT_ORDER_LSB                   0
-#define BIT_ORDER_MSB                   1
+#define LUAT_BIT_ORDER_LSB                   0
+#define LUAT_BIT_ORDER_MSB                   1
 
 typedef struct luat_uart_t {
     uint8_t id;      //串口编号
@@ -22,7 +22,7 @@ typedef struct luat_uart_t {
 
     uint32_t parity;    // 奇偶校验位
     uint32_t bufsz;     // 接收数据缓冲区大小
-    luat_msg_handler func;
+    luat_msg_handler func;//回调
 } luat_uart_t;
 
 int8_t luat_uart_setup(luat_uart_t* uart);

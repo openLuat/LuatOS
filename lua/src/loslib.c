@@ -382,19 +382,19 @@ static int os_exit (lua_State *L) {
   return 0;
 }
 
-
-static const luaL_Reg syslib[] = {
-  {"clock",     os_clock},
-  {"date",      os_date},
-  {"difftime",  os_difftime},
-  {"execute",   os_execute},
-  {"exit",      os_exit},
-  {"getenv",    os_getenv},
-  {"remove",    os_remove},
-  {"rename",    os_rename},
-  {"setlocale", os_setlocale},
-  {"time",      os_time},
-  {"tmpname",   os_tmpname},
+#include "rotable.h"
+static const rotable_Reg syslib[] = {
+  {"clock",     os_clock, 0},
+  {"date",      os_date, 0},
+  {"difftime",  os_difftime, 0},
+//  {"execute",   os_execute, 0},
+//  {"exit",      os_exit, 0},
+//  {"getenv",    os_getenv, 0},
+  {"remove",    os_remove, 0},
+  {"rename",    os_rename, 0},
+//  {"setlocale", os_setlocale, 0},
+  {"time",      os_time, 0},
+//  {"tmpname",   os_tmpname, 0},
   {NULL, NULL}
 };
 
@@ -403,7 +403,7 @@ static const luaL_Reg syslib[] = {
 
 
 LUAMOD_API int luaopen_os (lua_State *L) {
-  luaL_newlib(L, syslib);
+  rotable_newlib(L, syslib);
   return 1;
 }
 

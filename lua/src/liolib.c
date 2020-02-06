@@ -697,7 +697,8 @@ static int f_flush (lua_State *L) {
 /*
 ** functions for 'io' library
 */
-static const luaL_Reg iolib[] = {
+#include "rotable.h"
+static const rotable_Reg iolib[] = {
   {"close", io_close},
   {"flush", io_flush},
   {"input", io_input},
@@ -736,6 +737,12 @@ static void createmeta (lua_State *L) {
   lua_setfield(L, -2, "__index");  /* metatable.__index = metatable */
   luaL_setfuncs(L, flib, 0);  /* add file methods to new metatable */
   lua_pop(L, 1);  /* pop new metatable */
+  //lua_pushvalue(L, -1);
+  //lua_newtable( L );
+  //rotable_newidx( L, flib);
+  //lua_setfield( L, -2, "__index" );
+  //lua_setmetatable( L, -2 );
+  //lua_pop(L, 1);
 }
 
 
@@ -765,12 +772,12 @@ static void createstdfile (lua_State *L, FILE *f, const char *k,
 
 
 LUAMOD_API int luaopen_io (lua_State *L) {
-  luaL_newlib(L, iolib);  /* new module */
+  rotable_newlib(L, iolib);  /* new module */
   createmeta(L);
   /* create (and set) default files */
-  createstdfile(L, stdin, IO_INPUT, "stdin");
-  createstdfile(L, stdout, IO_OUTPUT, "stdout");
-  createstdfile(L, stderr, NULL, "stderr");
+  //createstdfile(L, stdin, IO_INPUT, "stdin");
+  //createstdfile(L, stdout, IO_OUTPUT, "stdout");
+  //createstdfile(L, stderr, NULL, "stderr");
   return 1;
 }
 

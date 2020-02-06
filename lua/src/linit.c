@@ -44,8 +44,8 @@ static const luaL_Reg loadedlibs[] = {
   {LUA_LOADLIBNAME, luaopen_package},
   {LUA_COLIBNAME, luaopen_coroutine},
   {LUA_TABLIBNAME, luaopen_table},
-//  {LUA_IOLIBNAME, luaopen_io},
-//  {LUA_OSLIBNAME, luaopen_os},
+  {LUA_IOLIBNAME, luaopen_io},
+  {LUA_OSLIBNAME, luaopen_os},
   {LUA_STRLIBNAME, luaopen_string},
   {LUA_MATHLIBNAME, luaopen_math},
 //  {LUA_UTF8LIBNAME, luaopen_utf8},
@@ -61,10 +61,10 @@ LUALIB_API void luaL_openlibs (lua_State *L) {
   const luaL_Reg *lib;
   /* "require" functions from 'loadedlibs' and set results to global table */
   for (lib = loadedlibs; lib->func; lib++) {
-    //list_mem();
-    //rt_kprintf("==openlib name=%s\n", lib->name);
     luaL_requiref(L, lib->name, lib->func, 1);
     lua_pop(L, 1);  /* remove lib */
+    //extern void print_list_mem(const char* name);
+    //print_list_mem(lib->name);
   }
 }
 

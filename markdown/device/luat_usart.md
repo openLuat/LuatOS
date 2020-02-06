@@ -74,7 +74,7 @@ while true do
 end
 
 --方式2:收数据回调
-sys.subscribe("IRQ_"..uartName, function(uartid)
+sys.subscribe("IRQ_UART"..uartid, function(uartid)
     print(uart.read(uartid,maxBuffer))
 end)
 

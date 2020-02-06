@@ -3,9 +3,20 @@ Import('rtconfig')
 from building import *
 
 cwd = GetCurrentDir()
-src	= Glob('modules/*.c') + Glob('rtt/*.c') + Glob('w60x/*.c') + Glob('packages/lfs/*.c') + Glob('packages/airkiss/*.c')
-CPPPATH = [cwd + "/inculde", cwd + "/packages/lfs/", cwd + "/packages/airkiss/"]
+src	= Glob('modules/*.c') + Glob('rtt/*.c') + Glob('packages/lfs/*.c')
+CPPPATH = [cwd + "/inculde"] 
+LIB_PATH = []
+LIB = []
 
-group = DefineGroup('luat', src, depend = [''], CPPPATH = CPPPATH)
+if GetDepend(['BSP_USING_WM_LIBRARIES']):
+    src += Glob('w60x/*.c')
+    src += Glob('packages/airkiss/*.c')
+    CPPPATH += [cwd + "/packages/lfs/"]
+    CPPPATH += [cwd + "/packages/airkiss/"]
+
+    LIB_PATH += [cwd + '/packages/airkiss/']
+    LIB += ['libairkiss_log']
+
+group = DefineGroup('luat', src, depend = [''], CPPPATH = CPPPATH, LIBS = LIB, LIBPATH = LIB_PATH)
 
 Return('group')

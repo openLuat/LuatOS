@@ -16,22 +16,46 @@
 #endif
 
 static int l_wlan_get_mode(lua_State *L) {
-    rt_device_t dev = rt_device_find(luaL_checkstring(L, 1));
-    if (dev == RT_NULL) {
-        return 0;
+    char* devname = "wlan0";
+    if (lua_gettop(L) != 0) {
+        if (lua_isstring(L, 1)) {
+            devname = lua_tostring(L, 1);
+        }
+        else if (lua_isinteger(L, 1)) {
+            switch (lua_tointeger(L, 1))
+            {
+            case 1:
+                devname = "wlan1";
+                break;
+            default:
+                break;
+            }
+        }
     }
-    int mode = rt_wlan_get_mode(dev);
+    int mode = rt_wlan_get_mode(devname);
     lua_pushinteger(L, mode);
     return 1;
 }
 
 static int l_wlan_set_mode(lua_State *L) {
-    rt_device_t dev = rt_device_find(luaL_checkstring(L, 1));
+    char* devname = "wlan0";
+    if (lua_gettop(L) != 0) {
+        if (lua_isstring(L, 1)) {
+            devname = lua_tostring(L, 1);
+        }
+        else if (lua_isinteger(L, 1)) {
+            if (lua_tointeger(L, 1) == 1) {
+                devname = "wlan1";
+            }
+        }
+    }
+
+    rt_device_t dev = rt_device_find(devname);
     if (dev == RT_NULL) {
         return 0;
     }
     int mode = luaL_checkinteger(L, 2);
-    int re = rt_wlan_set_mode(dev, mode);
+    int re = rt_wlan_set_mode(devname, mode);
     lua_pushinteger(L, re);
     return 1;
 }
@@ -309,7 +333,7 @@ static int l_wlan_join_info(lua_State *L) {
 }
 
 // airkiss open
-
+#include "airkiss.h"
 static int l_wlan_airkiss_start(lua_State* L){
     rt_wlan_set_mode("wlan0", RT_WLAN_STATION);
     airkiss_set_callback(_PW_callback);
@@ -351,9 +375,7 @@ static const rotable_Reg reg_wlan[] =
 
 LUAMOD_API int luaopen_wlan( lua_State *L ) {
     reg_wlan_callbacks();
-
     rotable_newlib(L, reg_wlan);
-
     return 1;
 }
 

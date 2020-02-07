@@ -3,6 +3,8 @@
 #include "luat_malloc.h"
 #include "rtthread.h"
 #include "stdio.h"
+#include "luat_msgbus.h"
+#include "rthw.h"
 
 int l_sprintf(char *buf, int32_t size, const char *fmt, ...) {
     rt_int32_t n;
@@ -75,4 +77,18 @@ void luat_openlibs(lua_State *L) {
     luaL_requiref(L, "socket", luaopen_socket, 1);
     lua_pop(L, 1);
     print_list_mem("done> require(socket)");
+}
+
+void luat_os_reboot(int code) {
+    rt_hw_cpu_reset();
+}
+
+
+RT_WEAK void rt_hw_us_delay(rt_uint32_t us)
+{
+    ; // nop
+}
+
+RT_WEAK void rt_hw_cpu_reset() {
+    ; // nop
 }

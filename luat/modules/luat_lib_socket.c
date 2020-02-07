@@ -96,7 +96,7 @@ static int sal_tls_test(lua_State *L)
 
     /* 发送数据到 socket 连接 */
     const char *send_data = luaL_checkstring(L, 3);
-    ret = send(sock, send_data, strlen(send_data), 0);
+    ret = send(sock, send_data, rt_strlen(send_data), 0);
     if (ret <= 0)
     {
         rt_kprintf("send error,close the socket.\n");
@@ -130,7 +130,9 @@ __exit:
 static const rotable_Reg reg_socket[] =
 {
     { "tsend" ,  sal_tls_test , 0},
+    #ifdef PKG_NETUTILS_NTP
     { "ntpSync", socket_ntp_sync, 0},
+    #endif
 	{ NULL, NULL , 0}
 };
 

@@ -512,7 +512,7 @@ static int searcher_Lua (lua_State *L) {
   if (f == NULL) return 1;
   fclose(f);
   int re = checkload(L, (luaL_loadfile(L, filename) == LUA_OK), filename);
-  rt_kprintf("searcher_Lua name=%s re=%d\n", name, re);
+  //rt_kprintf("searcher_Lua name=%s re=%d\n", name, re);
   return re;
 }
 
@@ -627,7 +627,7 @@ static int ll_require (lua_State *L) {
   // add by wendal, 替换原有的逻辑
   lua_pushstring(L, name);
   if (searcher_Lua(L) == 2) {
-    lua_pushstring(L, 1);
+    lua_pushstring(L, name);
     lua_call(L, 2, 1);
   }
   else {

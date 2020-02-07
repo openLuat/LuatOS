@@ -116,7 +116,7 @@ static void do_airkiss_configwifi(void)
     rt_memset(&_ctx, 0, sizeof(rtt_airkiss_ctx_t));
     rak_ctx = &_ctx;
 
-    rt_kprintf("airkiss thread start - %s\n", airkiss_version());
+    rt_kprintf("airkiss thread start...\n");
 
     airkiss_init(&(rak_ctx->ac), &acfg);
     rt_wlan_config_autoreconnect(0);

@@ -15,7 +15,7 @@ if GetDepend(['BSP_USING_WM_LIBRARIES']):
     CPPPATH += [cwd + "/packages/airkiss/"]
 
     LIB_PATH += [cwd + '/packages/airkiss/']
-    LIB += ['libairkiss_log']
+    LIB += ['libairkiss']
 
 group = DefineGroup('luat', src, depend = [''], CPPPATH = CPPPATH, LIBS = LIB, LIBPATH = LIB_PATH)
 

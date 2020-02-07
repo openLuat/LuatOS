@@ -74,9 +74,11 @@ void luat_openlibs(lua_State *L) {
     print_list_mem("done> require(wlan)");
     #endif
 
+    #ifdef SAL_USING_POSIX
     luaL_requiref(L, "socket", luaopen_socket, 1);
     lua_pop(L, 1);
     print_list_mem("done> require(socket)");
+    #endif
 }
 
 void luat_os_reboot(int code) {

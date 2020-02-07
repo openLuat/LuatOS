@@ -9,7 +9,7 @@
 typedef struct rotable_Reg {
   char const* name;
   lua_CFunction func;
-  int value;
+  lua_Integer value;
 } rotable_Reg;
 
 #ifndef ROTABLE_EXPORT

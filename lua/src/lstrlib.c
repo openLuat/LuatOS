@@ -1548,7 +1548,7 @@ static const rotable_Reg strlib[] = {
   {"gmatch", gmatch, 0},
   {"gsub", str_gsub, 0},
   {"len", str_len, 0},
-  {"lower", str_lower}, 0,
+  {"lower", str_lower, 0},
   {"match", str_match, 0},
   {"rep", str_rep, 0},
   {"reverse", str_reverse, 0},

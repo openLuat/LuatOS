@@ -76,7 +76,8 @@ static int l_rtos_timer_stop(lua_State *L) {
 }
 
 static int l_rtos_reboot(lua_State *L) {
-    rt_hw_cpu_reset();
+    luat_os_reboot(luaL_optinteger(L, 1, 0));
+    return 0;
 }
 
 //------------------------------------------------------------------

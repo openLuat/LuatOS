@@ -148,11 +148,17 @@ static void do_airkiss_configwifi(void)
     if (_ctx.result.ssid_length > 0) {
         rt_err_t err = rt_wlan_connect(_ctx.result.ssid, _ctx.result.pwd);
         if (err == RT_EOK) {
-            rt_kprintf("airkiss auto connect success!!\n");
+            rt_kprintf("airkiss autoconnect success!!\n");
             rt_wlan_config_autoreconnect(1);
-            // ????,??????
-            rt_thread_mdelay(300);
-            // ?????
+            rt_kprintf("airkiss wait wifi ready!!\n");
+            for (size_t i = 0; i < 50; i++)
+            {
+                if (rt_wlan_is_ready()) {
+                    break;
+                }
+                rt_thread_mdelay(100);
+            }
+            rt_kprintf("airkiss send notification!!\n");
             airkiss_send_notification(_ctx.result.random);
         }
         else {

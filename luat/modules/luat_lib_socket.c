@@ -3,6 +3,7 @@
 #include "luat_log.h"
 #include "luat_timer.h"
 #include "luat_malloc.h"
+#include "luat_msgbus.h"
 
 #include <rtthread.h>
 #include <sys/socket.h> 
@@ -15,6 +16,43 @@
 //static const char *send_data = "GET /download/rt-thread.txt HTTP/1.1\r\n"
 //    "Host: www.rt-thread.org\r\n"
 //    "User-Agent: rtthread/4.0.1 rtt\r\n\r\n";
+
+#ifdef PKG_NETUTILS_NTP
+#include "ntp.h"
+static int socket_ntp_handler(lua_State *L, void* ptr) {
+    lua_getglobal(L, "sys_pub");
+    if (!lua_isnil(L, -1)) {
+        lua_pushstring(L, "NTP_UPDATE");
+        lua_call(L, 1, 0);
+    }
+    // 给rtos.recv方法返回个空数据
+    lua_pushinteger(L, 0);
+    return 1;
+}
+static void ntp_thread(void* params) {
+    time_t cur_time = ntp_sync_to_rtc((const char*)params);
+    rtos_msg_t msg;
+    msg.handler = socket_ntp_handler;
+    msg.ptr = NULL;
+    luat_msgbus_put(&msg, 1);
+}
+static int socket_ntp_sync(lua_State *L) {
+    const char* hostname = luaL_optstring(L, 1, "ntp1.aliyun.com");
+    rt_thread_t t = rt_thread_create("ntpdate", ntp_thread, (void*)hostname, 256, 25, 10);
+    if (t) {
+        if (rt_thread_startup(t)) {
+            lua_pushinteger(L, 2);
+        }
+        else {
+            lua_pushinteger(L, 0);
+        }
+    }
+    else {
+        lua_pushinteger(L, 1);
+    }
+    return 1;
+}
+#endif
 
 static int sal_tls_test(lua_State *L)
 {
@@ -92,11 +130,11 @@ __exit:
 static const rotable_Reg reg_socket[] =
 {
     { "tsend" ,  sal_tls_test , 0},
+    { "ntpSync", socket_ntp_sync, 0},
 	{ NULL, NULL , 0}
 };
 
 LUAMOD_API int luaopen_socket( lua_State *L ) {
     rotable_newlib(L, reg_socket);
-
     return 1;
 }

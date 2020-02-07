@@ -6,6 +6,8 @@
 
 #include "rtthread.h"
 #include <rtdevice.h>
+#include "dfs.h"
+#include "dfs_fs.h"
 
 #ifdef BSP_USING_WM_LIBRARIES
 #include "drv_flash.h"
@@ -16,7 +18,28 @@ int luat_fs_init() {
     //#ifdef RT_USING_SFUD
     //dfs_mount("W25QXX", "/", "elm", 0, 0);
     //#endif
-    dfs_mount("spi01", "/", "lfs2", 0, 0);
+    int re;
+    re = dfs_mount("spi01", "/", "lfs2", 0, 0);
+    if (re) {
+      rt_kprintf("w600 onchiip filesystem damage!!! do mkfs...\n");
+      re = dfs_mkfs("lfs2", "spi01");
+      if (re) {
+        rt_kprintf("mkfs FAIL!!!! re=%d\n", re);
+      }
+      else {
+        rt_kprintf("mkfs complete\n");
+        re = dfs_mount("spi01", "/", "lfs2", 0, 0);
+        if (re) {
+          rt_kprintf("mount FAIL!!!! re=%d\n", re);
+        }
+        else {
+          rt_kprintf("w600 onchip lfs mount complete\n");
+        }
+      }
+    }
+    else {
+      rt_kprintf("w600 onchip lfs mount complete\n");
+    }
 }
 
 rt_err_t wm_spi_bus_attach_device(const char *bus_name, const char *device_name, rt_uint32_t pin);

@@ -6,6 +6,9 @@
 #include "luat_msgbus.h"
 
 #include <rtthread.h>
+
+#ifdef SAL_USING_POSIX
+
 #include <sys/socket.h> 
 #include <netdb.h>
 
@@ -140,3 +143,5 @@ LUAMOD_API int luaopen_socket( lua_State *L ) {
     rotable_newlib(L, reg_socket);
     return 1;
 }
+
+#endif

@@ -19,8 +19,8 @@ int l_sprintf(char *buf, int32_t size, const char *fmt, ...) {
 
 // 打印内存状态
 void print_list_mem(const char* name) {
-  //luat_printf("==>>%s\n", name);
-  //list_mem();
+  luat_printf("==>>%s\n", name);
+  list_mem();
 }
 
 // fix for mled加密库
@@ -94,3 +94,32 @@ RT_WEAK void rt_hw_us_delay(rt_uint32_t us)
 RT_WEAK void rt_hw_cpu_reset() {
     ; // nop
 }
+
+// watchdog
+
+#ifdef BSP_USING_WDT
+#include <rtdevice.h>
+static rt_uint32_t wdg_timeout = 10;       /* 溢出时间，单位：秒*/
+static rt_device_t wdg_dev;    /* 看门狗设备句柄 */
+static void idle_hook(void)
+{
+    /* 在空闲线程的回调函数里喂狗 */
+    rt_device_control(wdg_dev, RT_DEVICE_CTRL_WDT_KEEPALIVE, NULL);
+}
+static int wdt_chk(void) {
+    wdg_dev = rt_device_find("wdt");
+    if (wdg_dev == RT_NULL) {
+        wdg_dev = rt_device_find("wdg");
+        if (wdg_dev == RT_NULL) {
+            return RT_EOK;
+        }
+    }
+    rt_kprintf("watchdog found, enable it\n");
+    rt_device_init(wdg_dev);
+    rt_device_control(wdg_dev, RT_DEVICE_CTRL_WDT_SET_TIMEOUT, (void *)wdg_timeout);
+    rt_device_control(wdg_dev, RT_DEVICE_CTRL_WDT_START, (void *)wdg_timeout);
+    rt_thread_idle_sethook(idle_hook);
+    return RT_EOK;
+}
+INIT_COMPONENT_EXPORT(wdt_chk);
+#endif

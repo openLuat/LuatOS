@@ -93,6 +93,29 @@ void* luat_heap_alloc(void *ud, void *ptr, size_t osize, size_t nsize) {
     rt_free(ptr);
     return NULL;
   }
-  else
+  else {
+    // 是不是增减内存占用呢?
+    #ifdef RT_MEM_STATS
+    if (ptr == NULL || nsize > osize) {
+        rt_uint32_t total;
+        rt_uint32_t used;
+        rt_uint32_t max_used;
+        rt_memory_info(&total, &used, &max_used);
+        #ifdef RT_WLAN_MANAGE_ENABLE
+            #include "wlan_dev.h"
+            #include <wlan_mgnt.h>
+            if (!rt_wlan_is_ready()) {
+                if (total - used < 10*1024) {
+                    return RT_NULL;
+                }
+            }
+        #endif
+        if (total - used < 4*1024) {
+            return RT_NULL;
+        }
+    }
+    #endif
     return rt_realloc(ptr, nsize);
+  }
+    
 }

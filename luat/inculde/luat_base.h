@@ -33,4 +33,6 @@ int l_sprintf(char *buf, int32_t size, const char *fmt, ...);
 
 void luat_os_reboot(int code);
 
+void stopboot(void);
+
 #endif

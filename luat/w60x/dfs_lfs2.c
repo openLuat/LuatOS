@@ -281,13 +281,14 @@ static int _dfs_lfs_unmount(struct dfs_filesystem* dfs)
 
     lfs_dfs_lock();
     /* find the device index and then umount it */
-    index = _get_disk(dfs->dev_id);
-    if (index == -1)
-    {
-        lfs_dfs_unlock();
-        return -ENOENT;
-    }
-    _lfs_mount_tbl[index] = RT_NULL;
+    //index = _get_disk(dfs->dev_id);
+    //if (index == -1) index = 0;
+    // if (index == -1)
+    // {
+    //     lfs_dfs_unlock();
+    //     return -ENOENT;
+    // }
+    _lfs_mount_tbl[0] = RT_NULL;
 
     dfs_lfs = (dfs_lfs_t*)dfs->data;
     dfs->data = RT_NULL;

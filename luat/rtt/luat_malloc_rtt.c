@@ -3,6 +3,10 @@
 #include "luat_malloc.h"
 #include "rtthread.h"
 
+#define DBG_TAG           "luat.heap"
+#define DBG_LVL           DBG_INFO
+#include <rtdbg.h>
+
 // 导入rt-thread的内存管理函数
 
 void  luat_heap_init(void) {};

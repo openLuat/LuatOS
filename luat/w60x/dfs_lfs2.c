@@ -13,6 +13,10 @@
 
 #include "drv_flash.h"
 
+#define DBG_TAG           "w60x.lfs2"
+#define DBG_LVL           DBG_INFO
+#include <rtdbg.h>
+
 #ifndef RT_DEF_LFS_DRIVERS
     #define RT_DEF_LFS_DRIVERS 1
 #endif
@@ -245,7 +249,7 @@ static int _dfs_lfs_mount(struct dfs_filesystem* dfs, unsigned long rwflag, cons
     if (dfs_lfs == RT_NULL)
     {
         lfs_dfs_unlock();
-        rt_kprintf("ERROR:no memory!\n");
+        LOG_E("ERROR:no memory!");
         return -ENOMEM;
     }
     rt_memset(dfs_lfs, 0, sizeof(dfs_lfs_t));
@@ -322,7 +326,7 @@ static int _dfs_lfs_mkfs(rt_device_t dev_id)
         {
             lfs_dfs_unlock();
             /* no space to store an temp driver */
-            rt_kprintf("sorry, there is no space to do mkfs!\n");
+            LOG_W("sorry, there is no space to do mkfs!");
 
             return -ENOSPC;
         }
@@ -334,7 +338,7 @@ static int _dfs_lfs_mkfs(rt_device_t dev_id)
         {
             _lfs_mount_tbl[index] = RT_NULL;
             lfs_dfs_unlock();
-            rt_kprintf("ERROR:no memory!\n");
+            LOG_E("ERROR:no memory!");
 
             return -ENOMEM;
         }
@@ -517,7 +521,7 @@ static int _dfs_lfs_open(struct dfs_fd* file)
         dfs_lfs_fd_t* dfs_lfs_fd = rt_malloc(sizeof(dfs_lfs_fd_t));
         if (dfs_lfs_fd == RT_NULL)
         {
-            rt_kprintf("ERROR:no memory!\n");
+            LOG_E("ERROR:no memory!");
             result = -ENOMEM;
 
             goto _error_dir;
@@ -560,7 +564,7 @@ static int _dfs_lfs_open(struct dfs_fd* file)
         dfs_lfs_fd_t* dfs_lfs_fd = rt_malloc(sizeof(dfs_lfs_fd_t));
         if (dfs_lfs_fd == RT_NULL)
         {
-            rt_kprintf("ERROR:no memory!\n");
+            LOG_E("ERROR:no memory!");
             result = -ENOMEM;
 
             goto _error_file;

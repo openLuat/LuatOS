@@ -6,6 +6,10 @@
 #include "luat_msgbus.h"
 #include "rthw.h"
 
+#define DBG_TAG           "rtt.base"
+#define DBG_LVL           DBG_INFO
+#include <rtdbg.h>
+
 int l_sprintf(char *buf, int32_t size, const char *fmt, ...) {
     rt_int32_t n;
     va_list args;
@@ -19,8 +23,10 @@ int l_sprintf(char *buf, int32_t size, const char *fmt, ...) {
 
 // 打印内存状态
 void print_list_mem(const char* name) {
-  luat_printf("==>>%s\n", name);
-  list_mem();
+    #if (DBG_LVL <= DBG_DEBUG)
+    LOG_D("check memory status, key=%s", name);
+    list_mem();
+    #endif
 }
 
 // fix for mled加密库
@@ -111,15 +117,16 @@ static int wdt_chk(void) {
     if (wdg_dev == RT_NULL) {
         wdg_dev = rt_device_find("wdg");
         if (wdg_dev == RT_NULL) {
+            LOG_I("watchdog is miss");
             return RT_EOK;
         }
     }
-    rt_kprintf("watchdog found, enable it\n");
+    LOG_I("watchdog found, enable it");
     rt_device_init(wdg_dev);
     rt_device_control(wdg_dev, RT_DEVICE_CTRL_WDT_SET_TIMEOUT, (void *)wdg_timeout);
     rt_device_control(wdg_dev, RT_DEVICE_CTRL_WDT_START, (void *)wdg_timeout);
     rt_thread_idle_sethook(idle_hook);
     return RT_EOK;
 }
-INIT_COMPONENT_EXPORT(wdt_chk);
+INIT_DEVICE_EXPORT(wdt_chk);
 #endif

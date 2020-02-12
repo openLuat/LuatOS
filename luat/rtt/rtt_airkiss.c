@@ -8,6 +8,10 @@
 
 #include <stdlib.h>
 
+#define DBG_TAG           "wlan.airkiss"
+#define DBG_LVL           DBG_DEBUG
+#include <rtdbg.h>
+
 typedef struct rtt_airkiss_ctx
 {
     airkiss_context_t ac;
@@ -33,7 +37,7 @@ static void airkiss_send_notification(uint8_t random)
     sock = socket(AF_INET, SOCK_DGRAM, 0);
     if (sock < 0)
     {
-        rt_kprintf("notify create socket error!\n");
+        LOG_W("notify create socket error!");
         goto _exit;
     }
 
@@ -49,13 +53,13 @@ static void airkiss_send_notification(uint8_t random)
 
     if (setsockopt(sock, SOL_SOCKET, SO_BROADCAST, &udpbufsize, sizeof(int)) != 0)
     {
-        rt_kprintf("notify socket setsockopt error\n");
+        LOG_W("notify socket setsockopt error");
         goto _exit;
     }
 
     if (bind(sock, (struct sockaddr *)&UDPBCServerAddr, sizeof(UDPBCServerAddr)) != 0)
     {
-        rt_kprintf("notify socket bind error\n");
+        LOG_W("notify socket bind error");
         goto _exit;
     }
 
@@ -86,10 +90,10 @@ static void prom_callback(struct rt_wlan_device *device, void *d, int s) {
         int8_t err = airkiss_get_result(&(rak_ctx->ac), &(rak_ctx->result));
         rt_exit_critical();
         if (err == 0) {
-            rt_kprintf("Airkiss DONE!! ssid=%s passwd=%s\n", rak_ctx->result.ssid, rak_ctx->result.pwd);
+            LOG_I("Airkiss DONE!! ssid=%s passwd=%s", rak_ctx->result.ssid, rak_ctx->result.pwd);
         }
         else {
-            rt_kprintf("Airkiss airkiss_get_result err=%d\n", err);
+            LOG_W("Airkiss airkiss_get_result err=%d", err);
         }
     }
 }
@@ -116,7 +120,7 @@ static void do_airkiss_configwifi(void)
     rt_memset(&_ctx, 0, sizeof(rtt_airkiss_ctx_t));
     rak_ctx = &_ctx;
 
-    rt_kprintf("airkiss thread start...\n");
+    LOG_I("airkiss thread start");
 
     airkiss_init(&(rak_ctx->ac), &acfg);
     rt_wlan_config_autoreconnect(0);
@@ -143,14 +147,14 @@ static void do_airkiss_configwifi(void)
         }
     }
     rt_wlan_dev_exit_promisc(dev);
-    rt_kprintf("airkiss loop exit\n");
+    LOG_I("airkiss main loop exit");
 
     if (_ctx.result.ssid_length > 0) {
         rt_err_t err = rt_wlan_connect(_ctx.result.ssid, _ctx.result.pwd);
         if (err == RT_EOK) {
-            rt_kprintf("airkiss autoconnect success!!\n");
+            LOG_I("airkiss autoconnect success");
             rt_wlan_config_autoreconnect(1);
-            rt_kprintf("airkiss wait wifi ready!!\n");
+            LOG_I("airkiss wait wifi ready");
             for (size_t i = 0; i < 50; i++)
             {
                 if (rt_wlan_is_ready()) {
@@ -158,19 +162,19 @@ static void do_airkiss_configwifi(void)
                 }
                 rt_thread_mdelay(100);
             }
-            rt_kprintf("airkiss send notification!!\n");
+            LOG_I("airkiss send notification");
             airkiss_send_notification(_ctx.result.random);
         }
         else {
-            rt_kprintf("airkiss auto connect FAIL!!!\n");
+            LOG_W("airkiss auto connect FAIL");
         }
     }
     if (airkiss_cb != NULL) {
-        rt_kprintf("calling airkiss_cb\n");
+        LOG_D("calling airkiss_cb");
         airkiss_cb(_ctx.result.ssid_length ? 0 : 1, _ctx.result.ssid, _ctx.result.pwd);
     }
     rak_ctx = RT_NULL;
-    rt_kprintf("airkiss thread exit\n");
+    LOG_I("airkiss thread exit");
 }
 
 static void airkiss_thread(void *p)
@@ -193,6 +197,9 @@ int airkiss_start(void)
     if (tid)
     {
         ret = rt_thread_startup(tid);
+    }
+    else {
+        LOG_E("airkiss thread fail to start");
     }
 
     return ret;

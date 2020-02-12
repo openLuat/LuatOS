@@ -41,7 +41,7 @@ static void ntp_thread(void* params) {
 }
 static int socket_ntp_sync(lua_State *L) {
     const char* hostname = luaL_optstring(L, 1, "ntp1.aliyun.com");
-    rt_thread_t t = rt_thread_create("ntpdate", ntp_thread, (void*)hostname, 256, 25, 10);
+    rt_thread_t t = rt_thread_create("ntpdate", ntp_thread, (void*)hostname, 1536, 26, 2);
     if (t) {
         if (rt_thread_startup(t)) {
             lua_pushinteger(L, 2);

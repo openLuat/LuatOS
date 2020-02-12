@@ -5,6 +5,10 @@
 #include "luat_malloc.h"
 #include "rtthread.h"
 
+#define DBG_TAG           "luat.wlan"
+#define DBG_LVL           DBG_INFO
+#include <rtdbg.h>
+
 #ifdef RT_WLAN_MANAGE_ENABLE
 #include "wlan_dev.h"
 #include <wlan_mgnt.h>
@@ -89,11 +93,13 @@ static int l_wlan_connect(lua_State *L) {
     }
     rt_thread_t t = rt_thread_create("wlanj", _wlan_connect, RT_NULL, 1024, 20, 20);
     if (t == RT_NULL) {
+        LOG_E("fail to create wlan-connect thread");
         lua_pushinteger(L, 1);
         lua_pushstring(L, "fail to create wlan thread");
         return 2;
     }
     if (rt_thread_startup(t) != RT_EOK) {
+        LOG_E("fail to start wlan-connect thread");
         lua_pushinteger(L, 2);
         lua_pushstring(L, "fail to start wlan thread");
         return 2;
@@ -231,8 +237,8 @@ static int l_wlan_handler(lua_State* L, void* ptr) {
 
 // 注册回调
 static void wlan_cb(int event, struct rt_wlan_buff *buff, void *parameter) {
-    rt_kprintf("wlan event -> %d\n", event);
     rtos_msg_t msg;
+    LOG_I("wlan event -> %d", event);
     msg.handler = l_wlan_handler;
     msg.ptr = (void*)event;
     luat_msgbus_put(&msg, 1);
@@ -271,12 +277,12 @@ static int luat_PW_msghandler(lua_State *L, void* ptr) {
 }
 
 static void _PW_callback(int state, unsigned char *_ssid, unsigned char *_passwd) {
-    rt_kprintf("oneshot/airkiss callback state=%ld\n", state);
+    LOG_I("oneshot/airkiss callback state=%ld", state);
     if (_ssid != RT_NULL) {
-        rt_kprintf("oneshot/airkiss ssid %s\n", _ssid);
+        LOG_I("oneshot/airkiss ssid %s", _ssid);
     }
     if (_passwd != RT_NULL) {
-        rt_kprintf("oneshot/airkiss key %s\n", _passwd);
+        LOG_I("oneshot/airkiss key %s", _passwd);
     }
     rt_memset(&jinfo, 0, sizeof(struct join_info));
     if (state == 0) {

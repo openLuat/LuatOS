@@ -6,6 +6,10 @@
 #include "luat_malloc.h"
 #include "luat_msgbus.h"
 
+#define DBG_TAG           "luat.msgbus"
+#define DBG_LVL           DBG_INFO
+#include <rtdbg.h>
+
 
 static rt_uint8_t msg_pool[4*1024];
 static struct rt_messagequeue mq;

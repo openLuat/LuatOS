@@ -8,12 +8,16 @@
 #include <rtdevice.h>
 #include "drivers/pin.h"
 
+#define DBG_TAG           "luat.gpio"
+#define DBG_LVL           DBG_INFO
+#include <rtdbg.h>
+
 void luat_gpio_mode(int pin, int mode) {
     rt_pin_mode(pin, mode);
 }
 
 static void luat_gpio_irq_callback(void* ptr) {
-    //rt_kprintf("luat_gpio_irq_callback!!!\n");
+    //LOG_D("IRQ Callback");
     luat_gpio_t* gpio = (luat_gpio_t*)ptr;
     rtos_msg_t msg;
     msg.handler = gpio->func;
@@ -76,17 +80,19 @@ int luat_gpio_setup(luat_gpio_t* gpio) {
 }
 
 int luat_gpio_set(int pin, int level) {
-    //rt_kprintf("gpio set pin=%d level=%d\n", pin, level);
+    LOG_D("Pin set pin=%d level=%d", pin, level);
     rt_pin_write(pin, level);
     return 0;
 }
 
 int luat_gpio_get(int pin) {
-    //rt_kprintf("gpio get pin=%d value=%d\n", pin, rt_pin_read(pin));
-    return rt_pin_read(pin);
+    int re = rt_pin_read(pin);
+    LOG_D("Pin get pin=%d value=%d", pin, re);
+    return re;
 }
 
 void luat_gpio_close(int pin) {
+    LOG_D("Pin Close, pin=%d", pin);
     rt_pin_mode(pin, PIN_MODE_INPUT);
     rt_pin_irq_enable(pin, 0);
 }

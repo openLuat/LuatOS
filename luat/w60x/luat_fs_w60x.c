@@ -9,6 +9,10 @@
 #include "dfs.h"
 #include "dfs_fs.h"
 
+#define DBG_TAG           "w60x.fs"
+#define DBG_LVL           DBG_DEBUG
+#include <rtdbg.h>
+
 #ifdef BSP_USING_WM_LIBRARIES
 #include "drv_flash.h"
 #include "lfs.h"
@@ -21,24 +25,24 @@ int luat_fs_init() {
     int re;
     re = dfs_mount("spi01", "/", "lfs2", 0, 0);
     if (re) {
-      rt_kprintf("w600 onchiip filesystem damage!!! do mkfs...\n");
+      LOG_W("w600 onchiip filesystem damage");
       re = dfs_mkfs("lfs2", "spi01");
       if (re) {
-        rt_kprintf("mkfs FAIL!!!! re=%d\n", re);
+        LOG_E("mkfs FAIL!!!! re=%d", re);
       }
       else {
-        rt_kprintf("mkfs complete\n");
+        LOG_I("mkfs complete");
         re = dfs_mount("spi01", "/", "lfs2", 0, 0);
         if (re) {
-          rt_kprintf("mount FAIL!!!! re=%d\n", re);
+          LOG_E("mount FAIL!!!! re=%d", re);
         }
         else {
-          rt_kprintf("w600 onchip lfs mount complete\n");
+          LOG_I("w600 onchip lfs mount complete");
         }
       }
     }
     else {
-      rt_kprintf("w600 onchip lfs mount complete\n");
+      LOG_I("w600 onchip lfs mount complete");
     }
 }
 
@@ -74,9 +78,9 @@ static void reinit(void* params) {
     // 挂载
     dfs_mount("spi01", "/", "lfs2", 0, 0);
     t_end = rt_tick_get();
-    rt_kprintf("time use %dms\n", t_end - t_start);
+    LOG_I("time use %dms", t_end - t_start);
   }
-  rt_kprintf("reinit DONE!\n");
+  LOG_I("reinit DONE!");
 }
 MSH_CMD_EXPORT(reinit, clean all user data);
 #endif

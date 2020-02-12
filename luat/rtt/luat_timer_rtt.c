@@ -6,39 +6,37 @@
 #include "rtthread.h"
 #include "rthw.h"
 
+#define DBG_TAG           "rtt.timer"
+#define DBG_LVL           DBG_INFO
+#include <rtdbg.h>
+
 static char timer_name[32];
 
 static void rt_timer_callback(void *param) {
-    //rt_kprintf("rt_timer_callback begin!!\n");
     rtos_msg_t msg;
     luat_timer_t *timer = (luat_timer_t*)param;
     msg.handler = timer->func;
     msg.ptr = param;
     luat_msgbus_put(&msg, 1);
-    //rt_kprintf("rt_timer_callback end!! id=%ld msg=%ld\n", timer->id, param);
 }
 
 int luat_timer_start(luat_timer_t* timer) {
-    // luat_printf("rtt timer id=%ld\n", timer->id);
-    // luat_printf("rtt timer timeout=%ld\n", timer->timeout);
-    // luat_printf("rtt timer repeat=%ld\n", timer->repeat);
-
     rt_sprintf(timer_name, "t%ld", timer->id);
-    //luat_printf("rtt timer name=%s\n", timer_name);
+    LOG_D("rtt timer name=%s", timer_name);
     rt_tick_t time = timer->timeout;
     rt_uint8_t flag = timer->repeat ? RT_TIMER_FLAG_PERIODIC : RT_TIMER_FLAG_ONE_SHOT;
     rt_timer_t r_timer = rt_timer_create(timer_name, rt_timer_callback, timer, time, flag);
     if (r_timer == NULL) {
-        //rt_kprintf("rt_timer_create FAIL\n");
+        LOG_E("rt_timer_create FAIL!!!");
         return 1;
     }
     if (rt_timer_start(r_timer) != RT_EOK) {
-        //rt_kprintf("rt_timer_start FAIL\n");
+        LOG_E("rt_timer_start FAIL!!!");
         rt_timer_delete(r_timer);
         return 1;
     };
     timer->os_timer = r_timer;
-    //rt_kprintf("rt_timer_start complete!!\n");
+    LOG_D("rt_timer_start complete");
     return 0;
 }
 

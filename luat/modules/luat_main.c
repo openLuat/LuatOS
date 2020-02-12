@@ -12,6 +12,12 @@ static int report (lua_State *L, int status);
 
 static lua_State *L;
 
+static uint8_t boot_mode = 1;
+
+void stopboot(void) {
+  boot_mode = 0;
+}
+
 lua_State * luat_get_state() {
   return L;
 }
@@ -68,6 +74,9 @@ static int panic (lua_State *L) {
 }
 
 int luat_main (int argc, char **argv, int _) {
+  if (boot_mode == 0) {
+    return; // just nop
+  }
   print_list_mem("entry luat_main");
   // 1. init filesystem
   luat_fs_init();

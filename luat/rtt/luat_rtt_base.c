@@ -99,7 +99,7 @@ RT_WEAK void rt_hw_cpu_reset() {
 
 #ifdef BSP_USING_WDT
 #include <rtdevice.h>
-static rt_uint32_t wdg_timeout = 10;       /* 溢出时间，单位：秒*/
+static rt_uint32_t wdg_timeout = 120;       /* 溢出时间，单位：秒*/
 static rt_device_t wdg_dev;    /* 看门狗设备句柄 */
 static void idle_hook(void)
 {

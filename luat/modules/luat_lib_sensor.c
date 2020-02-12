@@ -80,11 +80,14 @@ static uint8_t w1_read_byte(int pin)
     uint8_t i, j, dat;
     dat = 0;
 
+    rt_base_t level;
+    level = rt_hw_interrupt_disable();
     for (i = 1; i <= 8; i++)
     {
         j = w1_read_bit(pin);
         dat = (j << 7) | (dat >> 1);
     }
+    rt_hw_interrupt_enable(level);
 
     return dat;
 }

@@ -67,11 +67,14 @@ static struct rt_mutex _lfs_lock;
 #define lfs_dfs_lock()          rt_mutex_take(&_lfs_lock, RT_WAITING_FOREVER);
 #define lfs_dfs_unlock()        rt_mutex_release(&_lfs_lock);
 
+#define W600_FS_ADDR (0x00F0000 + LFS_BLOCK_SIZE)
+#define W600_FS_BCOUNT (10)
+
 // Read a region in a block. Negative error codes are propogated
 // to the user.
 static int _lfs_flash_read(const struct lfs_config* c, lfs_block_t block, lfs_off_t off, void* buffer, lfs_size_t size)
 {
-    return wm_flash_read(0x00F0000 + block*c->block_size + off, buffer, size) == size ? LFS_ERR_OK : LFS_ERR_IO;
+    return wm_flash_read(W600_FS_ADDR + block*c->block_size + off, buffer, size) == size ? LFS_ERR_OK : LFS_ERR_IO;
 }
 
 // Program a region in a block. The block must have previously
@@ -79,7 +82,7 @@ static int _lfs_flash_read(const struct lfs_config* c, lfs_block_t block, lfs_of
 // May return LFS_ERR_CORRUPT if the block should be considered bad.
 static int _lfs_flash_prog(const struct lfs_config* c, lfs_block_t block, lfs_off_t off, const void* buffer, lfs_size_t size)
 {
-    return wm_flash_write(0x00F0000 + block*c->block_size + off, buffer, size) == size ? LFS_ERR_OK : LFS_ERR_IO;
+    return wm_flash_write(W600_FS_ADDR + block*c->block_size + off, buffer, size) == size ? LFS_ERR_OK : LFS_ERR_IO;
 }
 
 // Erase a block. A block must be erased before being programmed.
@@ -88,7 +91,7 @@ static int _lfs_flash_prog(const struct lfs_config* c, lfs_block_t block, lfs_of
 // May return LFS_ERR_CORRUPT if the block should be considered bad.
 static int _lfs_flash_erase(const struct lfs_config* c, lfs_block_t block)
 {
-    return wm_flash_erase(0x00F0000 + block*c->block_size, c->block_size) == c->block_size ? LFS_ERR_OK : LFS_ERR_IO;
+    return wm_flash_erase(W600_FS_ADDR + block*c->block_size, c->block_size) == c->block_size ? LFS_ERR_OK : LFS_ERR_IO;
 }
 
 // Sync the state of the underlying block device. Negative error codes
@@ -207,7 +210,7 @@ static void _lfs_load_config(struct lfs_config* lfs_cfg)
     lfs_cfg->cache_size = LFS_CACHE_SIZE;
     lfs_cfg->block_cycles = LFS_BLOCK_CYCLES;
 
-    lfs_cfg->block_count = 12;
+    lfs_cfg->block_count = W600_FS_BCOUNT;
 
     lfs_cfg->lookahead_size = 32 * ((lfs_cfg->block_count + 31) / 32);
     if (lfs_cfg->lookahead_size > LFS_LOOKAHEAD_MAX)

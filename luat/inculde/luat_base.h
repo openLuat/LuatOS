@@ -2,7 +2,7 @@
 #ifndef LUAT_BASE
 #define LUAT_BASE
 
-#define LUAT_VERSION ("1.0.0")
+#define LUAT_VERSION ("1.0.1")
 
 #define LUAT_DEBUG 0
 
@@ -32,6 +32,7 @@ LUAMOD_API int luaopen_sensor( lua_State *L );
 int l_sprintf(char *buf, int32_t size, const char *fmt, ...);
 
 void luat_os_reboot(int code);
+const char* luat_os_bsp(void);
 
 void stopboot(void);
 

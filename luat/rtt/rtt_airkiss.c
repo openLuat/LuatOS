@@ -80,6 +80,9 @@ static void prom_callback(struct rt_wlan_device *device, void *d, int s) {
     int8_t ret;
     if (rak_ctx == RT_NULL)
         return;
+    //if (s < 24 || airkiss_filter(d, s)) {
+    //    return;
+    //}
     ret = airkiss_recv(&(rak_ctx->ac), d, s);
     if (ret == AIRKISS_STATUS_CHANNEL_LOCKED) {
         rak_ctx->lock_chn = 1;
@@ -204,5 +207,7 @@ int airkiss_start(void)
 
     return ret;
 }
+
+// 几个
 
 #endif

@@ -164,6 +164,10 @@ static int32_t ds18b20_get_temperature(int pin)
 // while 1 do timer.mdelay(5000) sensor.ds18b20(14) end
 static int l_sensor_ds18b20(lua_State *L) {
     int32_t temp = ds18b20_get_temperature(luaL_checkinteger(L, 1));
+    // -55°C ~ 125°C
+    if (temp > 1250 || temp < -550) {
+        return 0;
+    }
     //rt_kprintf("temp:%3d.%dC\n", temp/10, temp%10);
     lua_pushinteger(L, temp);
     return 1;

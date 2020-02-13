@@ -91,6 +91,18 @@ void luat_os_reboot(int code) {
     rt_hw_cpu_reset();
 }
 
+const char* luat_os_bsp(void) {
+    #ifdef BSP_USING_WM_LIBRARIES
+        return "w60x";
+    #else
+        #ifdef STM32L1
+            return "stm32";
+        #else
+            return "_";
+        #endif
+    #endif
+}
+
 
 RT_WEAK void rt_hw_us_delay(rt_uint32_t us)
 {

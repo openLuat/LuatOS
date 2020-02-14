@@ -65,13 +65,15 @@ end
 uart.write(uartid,"test")
 
 --方式1:轮询
-while true do
-    local data = uart.read(uartid,maxBuffer)
-    if data:len() > 0 then
-        print(data)
+sys.taskInit(function ()
+    while true do
+        local data = uart.read(uartid,maxBuffer)
+        if data:len() > 0 then
+            print(data)
+        end
+        sys.wait(100)--不阻塞的延时函数
     end
-    sys.wait(100)--不阻塞的延时函数
-end
+end)
 
 --方式2:收数据回调
 sys.subscribe("IRQ_UART"..uartid, function(uartid)

@@ -9,7 +9,7 @@ static int l_uart_handler(lua_State *L, void* ptr) {
     uint8_t *uart_id = (uint8_t *)ptr;
     lua_getglobal(L, "sys_pub");
     if (!lua_isnil(L, -1)) {
-        lua_pushfstring(L, "IRQ_UART", (char)(*uart_id));
+        lua_pushfstring(L, "IRQ_UART%d", (char)(*uart_id));
         lua_pushinteger(L, *uart_id);
         lua_call(L, 2, 0);
     }

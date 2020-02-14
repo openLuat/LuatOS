@@ -21,7 +21,7 @@ static rt_err_t uart_input(rt_device_t dev, rt_size_t size)
     uint8_t i;
     for(i=0;i<MAX_DEVICE_COUNT;i++)
     {
-        if(serials[i] == dev)
+        if(serials[i] != NULL && serials[i]->device_id == dev->device_id)
         {
             rtos_msg_t msg;
             msg.handler = serial_func[i];

@@ -6,6 +6,7 @@
 	],
 	"settings": {
 		"files.associations": {
+			"*.txt": "log",
 			"algorithm": "c",
 			"concepts": "c",
 			"cstddef": "c",
@@ -18,7 +19,11 @@
 			"type_traits": "c",
 			"utility": "c",
 			"xmemory": "c",
-			"xutility": "c"
+			"xutility": "c",
+			"luat_base.h": "c",
+			"luat_timer.h": "c",
+			"pin.h": "c",
+			"rotable.h": "c"
 		}
 	}
 }

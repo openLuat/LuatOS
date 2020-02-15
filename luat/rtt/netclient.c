@@ -91,6 +91,12 @@ static void select_handle(rt_netclient_t *thiz, char *pipe_buff, char *sock_buff
 static rt_int32_t netclient_thread_init(rt_netclient_t *thiz);
 static void netclient_thread_entry(void *param);
 
+static rt_uint32_t netc_seq = 1;
+
+rt_uint32_t rt_netc_next_no(void) {
+    return netc_seq++;
+}
+
 rt_netclient_t *rt_netclient_create(void)
 {
     rt_netclient_t *thiz = RT_NULL;
@@ -195,7 +201,6 @@ static rt_int32_t socket_deinit(rt_netclient_t *thiz)
 static rt_int32_t pipe_init(rt_netclient_t *thiz)
 {
     char dev_name[32];
-    static int pipeno = 0;
     rt_pipe_t *pipe = RT_NULL;
 
     if (thiz == RT_NULL)
@@ -204,7 +209,7 @@ static rt_int32_t pipe_init(rt_netclient_t *thiz)
         return -1;
     }
 
-    snprintf(thiz->pipe_name, sizeof(thiz->pipe_name), "pipe%d", pipeno++);
+    snprintf(thiz->pipe_name, sizeof(thiz->pipe_name), "pipe%d", thiz->id);
 
     pipe = rt_pipe_create(thiz->pipe_name, PIPE_BUFSZ);
     if (pipe == RT_NULL)

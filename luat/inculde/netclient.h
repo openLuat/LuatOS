@@ -47,6 +47,7 @@ typedef void (*rt_tpc_cb_t)(rt_netc_ent_t ent);
 
 typedef struct rt_netclient
 {
+    rt_uint32_t id;
     char hostname[32];
     rt_uint32_t port;
     rt_uint16_t type;
@@ -58,6 +59,7 @@ typedef struct rt_netclient
     rt_tpc_cb_t rx;
 }rt_netclient_t;
 
+rt_uint32_t rt_netc_next_no(void);
 rt_netclient_t *rt_netclient_create(void);
 rt_int32_t *rt_netclient_start(rt_netclient_t * thiz);
 void rt_netclient_close(rt_netclient_t *thiz);

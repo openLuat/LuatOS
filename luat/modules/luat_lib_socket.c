@@ -185,9 +185,6 @@ static int luat_lib_socket_new(lua_State* L, int netc_type) {
         LOG_W("netclient, fail to create!!!!memory full?!");
         return RT_NULL;
     }
-    else {
-        LOG_I("netclient, create successd");
-    }
 
     thiz->sock_fd = -1;
     thiz->pipe_read_fd = -1;
@@ -201,9 +198,11 @@ static int luat_lib_socket_new(lua_State* L, int netc_type) {
     thiz->hostname[1] = 0;
     thiz->port = 0;
     thiz->closed = 0;
+    thiz->id = rt_netc_next_no();
 
     luaL_setmetatable(L, LUAT_NETC_HANDLE);
 
+    LOG_I("netclient, create successd");
     return 1;
 }
 
@@ -282,6 +281,30 @@ static int luat_lib_socket_send(lua_State *L) {
 
 
 static int netc_connect(lua_State *L) {
+    rt_netclient_t* thiz;
+    size_t len;
+    char* hostname;
+    uint32_t port;
+    rt_base_t re;
+    LOG_I("luat_lib_socket_connect ...");
+    if (lua_gettop(L) < 1) {
+        LOG_W("sock:connect require 2 args! top=%d", lua_gettop(L));
+        return 0;
+    }
+    thiz = tonetc(L);
+    hostname = luaL_checklstring(L, 2, &len);
+    if (len >= 32) {
+        LOG_W("hostname is too long!!!");
+        lua_pushinteger(L, 1);
+        return 1;
+    }
+    rt_memcpy(thiz->hostname, hostname, len);
+    thiz->hostname[len] = 0x00;
+    thiz->port = luaL_optinteger(L, 3, 80);
+    thiz->rx = luat_lib_socket_ent_handler;
+    LOG_W("host=%s port=%d type=%s", thiz->hostname, thiz->port, thiz->type == NETC_TYPE_TCP ? "TCP" : "UDP");
+    re = rt_netclient_start(thiz);
+    lua_pushinteger(L, re);
     return 0;
 }
 
@@ -319,7 +342,28 @@ static int netc_tostring(lua_State *L) {
     return 1;
 }
 
+static int netc_id(lua_State *L) {
+    rt_netclient_t *netc = tonetc(L);
+    lua_pushinteger(L, netc->id);
+    return 1;
+}
+
+static int netc_host(lua_State *L) {
+    rt_netclient_t *netc = tonetc(L);
+    lua_pushstring(L, netc->hostname);
+    return 1;
+}
+
+static int netc_port(lua_State *L) {
+    rt_netclient_t *netc = tonetc(L);
+    lua_pushinteger(L, netc->port);
+    return 1;
+}
+
 static const luaL_Reg lib_netc[] = {
+    {"id",          netc_id},
+    {"host",        netc_host},
+    {"port",        netc_port},
     {"connect",     netc_connect},
     {"close",       netc_close},
     {"send",        netc_connect},

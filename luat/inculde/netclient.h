@@ -57,10 +57,17 @@ typedef struct rt_netclient
     int pipe_write_fd;
     char pipe_name[8];
     rt_tpc_cb_t rx;
+
+    // Lua callback function
+    int cb_recv;
+    int cb_close;
+    int cb_connect;
+    int cb_any;
+    int cb_error;
 }rt_netclient_t;
 
 rt_uint32_t rt_netc_next_no(void);
-rt_netclient_t *rt_netclient_create(void);
+//rt_netclient_t *rt_netclient_create(void);
 rt_int32_t *rt_netclient_start(rt_netclient_t * thiz);
 void rt_netclient_close(rt_netclient_t *thiz);
 //rt_int32_t rt_netclient_attach_rx_cb(rt_netclient_t *thiz, rt_tpc_cb_t cb);

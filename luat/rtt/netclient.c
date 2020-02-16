@@ -97,25 +97,25 @@ rt_uint32_t rt_netc_next_no(void) {
     return netc_seq++;
 }
 
-rt_netclient_t *rt_netclient_create(void)
-{
-    rt_netclient_t *thiz = RT_NULL;
+// rt_netclient_t *rt_netclient_create(void)
+// {
+//     rt_netclient_t *thiz = RT_NULL;
 
-    thiz = rt_malloc(sizeof(rt_netclient_t));
-    if (thiz == RT_NULL)
-    {
-        LOG_E("netclient alloc : malloc error");
-        return RT_NULL;
-    }
+//     thiz = rt_malloc(sizeof(rt_netclient_t));
+//     if (thiz == RT_NULL)
+//     {
+//         LOG_E("netclient alloc : malloc error");
+//         return RT_NULL;
+//     }
 
-    thiz->sock_fd = -1;
-    thiz->pipe_read_fd = -1;
-    thiz->pipe_write_fd = -1;
-    memset(thiz->pipe_name, 0, sizeof(thiz->pipe_name));
-    thiz->rx = RT_NULL;
+//     thiz->sock_fd = -1;
+//     thiz->pipe_read_fd = -1;
+//     thiz->pipe_write_fd = -1;
+//     memset(thiz->pipe_name, 0, sizeof(thiz->pipe_name));
+//     thiz->rx = RT_NULL;
     
-    return thiz;
-}
+//     return thiz;
+// }
 
 static rt_int32_t netclient_destory(rt_netclient_t *thiz)
 {
@@ -247,19 +247,22 @@ static rt_int32_t pipe_deinit(rt_netclient_t *thiz)
     }
 
     if (thiz->pipe_read_fd != -1) {
-        res = close(thiz->pipe_read_fd);
+        close(thiz->pipe_read_fd);
         thiz->pipe_read_fd = -1;
+        res ++;
     }
 
     if (thiz->pipe_write_fd != -1) {
         res = close(thiz->pipe_write_fd);
         thiz->pipe_write_fd = -1;
+        res ++;
     }
     if (thiz->pipe_name[0] != 0) {
         rt_pipe_delete(thiz->pipe_name);
+        res ++;
     }
-
-    LOG_I("pipe deinit : pipe close succeed");
+    if (res)
+        LOG_I("pipe deinit : pipe close succeed");
     return 0;
 }
 
@@ -349,18 +352,7 @@ static void select_handle(rt_netclient_t *thiz, char *pipe_buff, char *sock_buff
     }
 exit:
     LOG_I("select loop exit, cleanup");
-    free(pipe_buff);
-    free(sock_buff);
-    if (thiz != NULL) {
-        thiz->closed = 1;
-        rt_netclient_close(thiz);
-        if (thiz->rx) {
-            rt_netc_ent_t ent;
-            ent.thiz = thiz;
-            ent.event = NETC_EVENT_CLOSE;
-            thiz->rx(ent);
-        }
-    }
+    return;
 }
 
 static void netclient_thread_entry(void *param)
@@ -397,6 +389,20 @@ static void netclient_thread_entry(void *param)
     memset(pipe_buff, 0, BUFF_SIZE);
 
     select_handle(thiz, pipe_buff, sock_buff);
+
+    free(pipe_buff);
+    free(sock_buff);
+    if (thiz != NULL) {
+        thiz->closed = 1;
+        rt_netclient_close(thiz);
+        if (thiz->rx) {
+            rt_netc_ent_t ent;
+            ent.thiz = thiz;
+            ent.event = NETC_EVENT_CLOSE;
+            thiz->rx(ent);
+        }
+    }
+
 }
 
 rt_int32_t *rt_netclient_start(rt_netclient_t * thiz) {

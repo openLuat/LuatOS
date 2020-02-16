@@ -37,7 +37,7 @@ local sRollBack = true
 -- @usage sys.wait(30)
 function sys.wait(ms)
     -- 参数检测，参数不能为负值
-    assert(ms > 0, "The wait time cannot be negative!")
+    --assert(ms > 0, "The wait time cannot be negative!")
     -- 选一个未使用的定时器ID给该任务线程
     if taskTimerId >= TASK_TIMER_ID_MAX then taskTimerId = 0 end
     taskTimerId = taskTimerId + 1

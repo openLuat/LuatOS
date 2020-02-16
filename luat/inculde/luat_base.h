@@ -2,7 +2,7 @@
 #ifndef LUAT_BASE
 #define LUAT_BASE
 
-#define LUAT_VERSION ("1.0.1")
+#define LUAT_VERSION "1.0.1"
 
 #define LUAT_DEBUG 0
 

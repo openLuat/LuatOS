@@ -23,6 +23,9 @@
  */
 #include <rtthread.h>
 #include <rtdevice.h>
+
+#ifdef RT_USING_SAL
+
 #include <sys/socket.h>
 #include <sys/select.h>
 #include <sys/types.h>
@@ -300,7 +303,7 @@ static void select_handle(rt_netclient_t *thiz, char *pipe_buff, char *sock_buff
 
         /* exception handling: exit */
         if (res <= 0) {
-            LOG_I("select result=%d, goto cleanup", res);
+            LOG_I("netc[%ld] select result=%d, goto cleanup", thiz->id, res);
             goto exit;
         }
 
@@ -310,7 +313,7 @@ static void select_handle(rt_netclient_t *thiz, char *pipe_buff, char *sock_buff
             res = recv(thiz->sock_fd, sock_buff, BUFF_SIZE, 0);
 
             if (res > 0) {
-                LOG_I("data recv len=%d", res);
+                LOG_I("netc[%ld] data recv len=%d", thiz->id, res);
                 if (thiz->rx) {
                     rt_netc_ent_t ent;
                     ent.thiz = thiz;
@@ -321,7 +324,7 @@ static void select_handle(rt_netclient_t *thiz, char *pipe_buff, char *sock_buff
                 }
             }
             else {
-                LOG_I("recv return error=%d", res);
+                LOG_I("netc[%ld] recv return error=%d", thiz->id, res);
                 if (thiz->rx) {
                     rt_netc_ent_t ent;
                     ent.thiz = thiz;
@@ -351,7 +354,7 @@ static void select_handle(rt_netclient_t *thiz, char *pipe_buff, char *sock_buff
         }
     }
 exit:
-    LOG_I("select loop exit, cleanup");
+    LOG_I("netc[%ld] select loop exit, cleanup", thiz->id);
     return;
 }
 
@@ -361,19 +364,29 @@ static void netclient_thread_entry(void *param)
     char *pipe_buff = RT_NULL, *sock_buff = RT_NULL;
 
     if (socket_init(thiz, thiz->hostname, thiz->port) != 0) {
-        LOG_E("sockect_init fail!!!");
+        LOG_W("netc[%ld] connect fail", thiz->id);
         if (thiz->rx) {
             rt_netc_ent_t ent;
+            ent.thiz = thiz;
             ent.event = NETC_EVENT_CONNECT_FAIL;
             thiz->rx(ent);
         }
         return;
     }
+    else {
+        LOG_I("netc[%ld] connect ok", thiz->id);
+        if (thiz->rx) {
+            rt_netc_ent_t ent;
+            ent.thiz = thiz;
+            ent.event = NETC_EVENT_CONNECT_FAIL;
+            thiz->rx(ent);
+        }
+    }
 
     pipe_buff = malloc(BUFF_SIZE);
     if (pipe_buff == RT_NULL)
     {
-        LOG_E("fail to malloc pipe_buff!!!");
+        LOG_E("netc[%ld] fail to malloc pipe_buff!!!", thiz->id);
         return;
     }
 
@@ -381,7 +394,7 @@ static void netclient_thread_entry(void *param)
     if (sock_buff == RT_NULL)
     {
         free(pipe_buff);
-        LOG_E("fail to malloc sock_buff!!!");
+        LOG_E("netc[%ld] fail to malloc sock_buff!!!", thiz->id);
         return;
     }
 
@@ -394,7 +407,7 @@ static void netclient_thread_entry(void *param)
     free(sock_buff);
     if (thiz != NULL) {
         thiz->closed = 1;
-        rt_netclient_close(thiz);
+        netclient_destory(thiz);
         if (thiz->rx) {
             rt_netc_ent_t ent;
             ent.thiz = thiz;
@@ -413,7 +426,7 @@ rt_int32_t *rt_netclient_start(rt_netclient_t * thiz) {
     if (netclient_thread_init(thiz) != 0)
         goto quit;
 
-    LOG_I("netc start succeed");
+    LOG_I("netc[%ld] start succeed", thiz->id);
     return 0;
 
 quit:
@@ -423,9 +436,14 @@ quit:
 
 void rt_netclient_close(rt_netclient_t *thiz)
 {
-    LOG_I("netc deinit : begin");
+    LOG_I("netc[%ld] deinit start", thiz->id);
+    int fd = thiz->sock_fd;
+    if (fd != -1 && fd != 0) {
+        closesocket(fd);
+    }
+    rt_thread_mdelay(1);
     netclient_destory(thiz);
-    LOG_W("netc deinit : end");
+    LOG_I("netc[%ld] deinit end", thiz->id);
 }
 
 rt_int32_t rt_netclient_send(rt_netclient_t *thiz, const void *buff, rt_size_t len)
@@ -443,38 +461,15 @@ rt_int32_t rt_netclient_send(rt_netclient_t *thiz, const void *buff, rt_size_t l
         LOG_W("netclient send : buff is NULL");
         return -1;
     }
+    if (thiz->pipe_write_fd == -1) {
+        LOG_W("netc[%ld] socket is closed!!!", thiz->id);
+        return -1;
+    }
 
-    LOG_D("send data len=%d buff=[%s]", len, buff);
+    LOG_D("netc[%ld] send data len=%d buff=[%s]", this->id, len, buff);
 
     bytes = write(thiz->pipe_write_fd, buff, len);
     return bytes;
 }
 
-// rt_int32_t rt_netclient_attach_rx_cb(rt_netclient_t *thiz, rx_cb_t cb)
-// {
-//     if (thiz == RT_NULL)
-//     {
-//         elog_e("callback attach", "param is NULL\n");
-//         return -1;
-//     }
-
-//     thiz->rx = cb;
-//     elog_i("callback attach", "attach succeed\n");
-//     return 0;
-// }
-
-// int easy_log_init(void)
-// {
-//     /* initialize EasyFlash and EasyLogger */
-//     elog_init();
-//     /* set enabled format */
-//     elog_set_fmt(ELOG_LVL_ASSERT, ELOG_FMT_ALL & ~ELOG_FMT_P_INFO);
-//     elog_set_fmt(ELOG_LVL_ERROR, ELOG_FMT_LVL | ELOG_FMT_TAG);
-//     elog_set_fmt(ELOG_LVL_WARN, ELOG_FMT_LVL | ELOG_FMT_TAG);
-//     elog_set_fmt(ELOG_LVL_INFO, ELOG_FMT_LVL | ELOG_FMT_TAG );
-//     elog_set_fmt(ELOG_LVL_DEBUG, ELOG_FMT_LVL | ELOG_FMT_TAG);
-//     elog_set_fmt(ELOG_LVL_VERBOSE, ELOG_FMT_LVL | ELOG_FMT_TAG);
-//     /* start EasyLogger */
-//     elog_start();
-// }
-// INIT_APP_EXPORT(easy_log_init);
+#endif

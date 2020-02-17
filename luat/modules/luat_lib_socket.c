@@ -247,7 +247,7 @@ static int luat_lib_socket_new(lua_State* L, int netc_type) {
 
     luaL_setmetatable(L, LUAT_NETC_HANDLE);
 
-    LOG_I("netc[%ld], create successd", thiz->id);
+    LOG_I("netc[%ld] create successd", thiz->id);
     return 1;
 }
 
@@ -257,7 +257,7 @@ static int luat_lib_socket_connect(lua_State* L) {
     char* hostname;
     uint32_t port;
     rt_base_t re;
-    LOG_I("luat_lib_socket_connect ...");
+    //LOG_I("luat_lib_socket_connect ...");
     if (lua_gettop(L) < 3) {
         LOG_W("socket.connect require 3 args! top=%d", lua_gettop(L));
         //lua_error("socket.connect require 3 args!");

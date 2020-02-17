@@ -55,7 +55,7 @@ typedef struct rt_netclient
     int sock_fd;
     int pipe_read_fd;
     int pipe_write_fd;
-    char pipe_name[8];
+    char pipe_name[12];
     rt_tpc_cb_t rx;
 
     // Lua callback function

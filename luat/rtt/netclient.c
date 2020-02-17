@@ -90,7 +90,7 @@ static rt_int32_t socket_init(rt_netclient_t *thiz, const char *hostname, rt_uin
 static rt_int32_t socket_deinit(rt_netclient_t *thiz);
 static rt_int32_t pipe_init(rt_netclient_t *thiz);
 static rt_int32_t pipe_deinit(rt_netclient_t *thiz);
-static void select_handle(rt_netclient_t *thiz, char *pipe_buff, char *sock_buff);
+static void select_handle(rt_netclient_t *thiz, char *sock_buff);
 static rt_int32_t netclient_thread_init(rt_netclient_t *thiz);
 static void netclient_thread_entry(void *param);
 
@@ -99,26 +99,6 @@ static rt_uint32_t netc_seq = 1;
 rt_uint32_t rt_netc_next_no(void) {
     return netc_seq++;
 }
-
-// rt_netclient_t *rt_netclient_create(void)
-// {
-//     rt_netclient_t *thiz = RT_NULL;
-
-//     thiz = rt_malloc(sizeof(rt_netclient_t));
-//     if (thiz == RT_NULL)
-//     {
-//         LOG_E("netclient alloc : malloc error");
-//         return RT_NULL;
-//     }
-
-//     thiz->sock_fd = -1;
-//     thiz->pipe_read_fd = -1;
-//     thiz->pipe_write_fd = -1;
-//     memset(thiz->pipe_name, 0, sizeof(thiz->pipe_name));
-//     thiz->rx = RT_NULL;
-    
-//     return thiz;
-// }
 
 static rt_int32_t netclient_destory(rt_netclient_t *thiz)
 {
@@ -143,7 +123,6 @@ static rt_int32_t socket_init(rt_netclient_t *thiz, const char *url, rt_uint32_t
     struct sockaddr_in dst_addr;
     struct hostent *hostname;
     rt_int32_t res = 0;
-    //const char *str = "socket create succeed";
 
     if (thiz == RT_NULL)
         return -1;
@@ -168,11 +147,11 @@ static rt_int32_t socket_init(rt_netclient_t *thiz, const char *url, rt_uint32_t
     res = connect(thiz->sock_fd, (struct sockaddr *)&dst_addr, sizeof(struct sockaddr));
     if (res == -1)
     {
-        LOG_E("socket init : connect failed");
+        LOG_E("netc[%ld] connect failed", thiz->id);
         return -1;
     }
 
-    LOG_I("socket init : connected succeed");
+    LOG_I("netc[%ld] connected succeed", thiz->id);
 
     //send(thiz->sock_fd, str, strlen(str), 0);
 
@@ -196,7 +175,7 @@ static rt_int32_t socket_deinit(rt_netclient_t *thiz)
 
     thiz->sock_fd = -1;
 
-    LOG_I("socket deinit : socket close succeed");
+    LOG_I("netc[%ld] socket close succeed", thiz->id);
 
     return 0;
 }
@@ -212,12 +191,13 @@ static rt_int32_t pipe_init(rt_netclient_t *thiz)
         return -1;
     }
 
-    snprintf(thiz->pipe_name, sizeof(thiz->pipe_name), "pipe%d", thiz->id);
+    snprintf(thiz->pipe_name, sizeof(thiz->pipe_name), "p%08X", thiz->id);
 
     pipe = rt_pipe_create(thiz->pipe_name, PIPE_BUFSZ);
     if (pipe == RT_NULL)
     {
-        LOG_E("pipe create : pipe create failed");
+        thiz->pipe_name[0] = 0x00;
+        LOG_E("netc[%ld] pipe create failed", thiz->id);
         return -1;
     }
 
@@ -230,12 +210,14 @@ static rt_int32_t pipe_init(rt_netclient_t *thiz)
     if (thiz->pipe_write_fd < 0)
         goto fail_write;
 
-    LOG_I("pipe init : pipe init succeed");
+    LOG_I("netc[%ld] pipe init succeed", thiz->id);
     return 0;
 
 fail_write:
     close(thiz->pipe_read_fd);
 fail_read:
+    rt_pipe_delete(thiz->pipe_name);
+    thiz->pipe_name[0] = 0x00;
     return -1;
 }
 
@@ -265,28 +247,29 @@ static rt_int32_t pipe_deinit(rt_netclient_t *thiz)
         res ++;
     }
     if (res)
-        LOG_I("pipe deinit : pipe close succeed");
+        LOG_I("netc[%ld] pipe close succeed", thiz->id);
     return 0;
 }
 
 static rt_int32_t netclient_thread_init(rt_netclient_t *thiz)
 {
     rt_thread_t netclient_tid = RT_NULL;
-
-    netclient_tid = rt_thread_create("netc", netclient_thread_entry, thiz, 2048, 12, 10);
+    char tname[12];
+    rt_sprintf(tname, "n%08X", thiz->id);
+    netclient_tid = rt_thread_create(tname, netclient_thread_entry, thiz, 2048, 12, 10);
     if (netclient_tid == RT_NULL)
     {
-        LOG_E("netclient thread : thread create failed");
+        LOG_E("netc[%ld] thread create failed", thiz->id);
         return -1;
     }
 
     rt_thread_startup(netclient_tid);
 
-    LOG_D("netclient thread : thread init succeed");
+    LOG_D("netc[%ld] thread init succeed", thiz->id);
     return 0;
 }
 
-static void select_handle(rt_netclient_t *thiz, char *pipe_buff, char *sock_buff)
+static void select_handle(rt_netclient_t *thiz, char *sock_buff)
 {
     fd_set fds;
     rt_int32_t max_fd = 0, res = 0;
@@ -339,7 +322,7 @@ static void select_handle(rt_netclient_t *thiz, char *pipe_buff, char *sock_buff
         if (FD_ISSET(thiz->pipe_read_fd, &fds))
         {
             /* read pipe */
-            res = read(thiz->pipe_read_fd, pipe_buff, BUFF_SIZE);
+            res = read(thiz->pipe_read_fd, sock_buff, BUFF_SIZE);
 
             if (res <= 0) {
                 thiz->closed;
@@ -349,7 +332,7 @@ static void select_handle(rt_netclient_t *thiz, char *pipe_buff, char *sock_buff
                 goto exit;
             }
             else if (res > 0) {
-                send(thiz->sock_fd, pipe_buff, res, 0);
+                send(thiz->sock_fd, sock_buff, res, 0);
             }
         }
     }
@@ -361,7 +344,7 @@ exit:
 static void netclient_thread_entry(void *param)
 {
     rt_netclient_t *thiz = param;
-    char *pipe_buff = RT_NULL, *sock_buff = RT_NULL;
+    char *sock_buff = RT_NULL;
 
     if (socket_init(thiz, thiz->hostname, thiz->port) != 0) {
         LOG_W("netc[%ld] connect fail", thiz->id);
@@ -383,27 +366,17 @@ static void netclient_thread_entry(void *param)
         }
     }
 
-    pipe_buff = malloc(BUFF_SIZE);
-    if (pipe_buff == RT_NULL)
-    {
-        LOG_E("netc[%ld] fail to malloc pipe_buff!!!", thiz->id);
-        return;
-    }
-
     sock_buff = malloc(BUFF_SIZE);
     if (sock_buff == RT_NULL)
     {
-        free(pipe_buff);
         LOG_E("netc[%ld] fail to malloc sock_buff!!!", thiz->id);
         return;
     }
 
     memset(sock_buff, 0, BUFF_SIZE);
-    memset(pipe_buff, 0, BUFF_SIZE);
 
-    select_handle(thiz, pipe_buff, sock_buff);
+    select_handle(thiz, sock_buff);
 
-    free(pipe_buff);
     free(sock_buff);
     if (thiz != NULL) {
         thiz->closed = 1;

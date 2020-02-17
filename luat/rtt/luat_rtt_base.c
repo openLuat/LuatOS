@@ -52,6 +52,10 @@ void luat_openlibs(lua_State *L) {
     lua_pop(L, 1);
     print_list_mem("done> require(rtos)");
 
+    luaL_requiref(L, "log", luaopen_log, 1);
+    lua_pop(L, 1);
+    print_list_mem("done> require(log)");
+
     //luaL_requiref(L, "sys", luaopen_sys, 1);
     //lua_pop(L, 1);
     //print_list_mem("done> require(sys)");

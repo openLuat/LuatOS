@@ -28,6 +28,7 @@ LUAMOD_API int luaopen_fs( lua_State *L );
 LUAMOD_API int luaopen_wlan( lua_State *L );
 LUAMOD_API int luaopen_socket( lua_State *L );
 LUAMOD_API int luaopen_sensor( lua_State *L );
+LUAMOD_API int luaopen_log( lua_State *L );
 
 int l_sprintf(char *buf, int32_t size, const char *fmt, ...);
 

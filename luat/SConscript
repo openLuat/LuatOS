@@ -4,15 +4,17 @@ from building import *
 
 cwd = GetCurrentDir()
 src	= Glob('modules/*.c') + Glob('rtt/*.c') + Glob('packages/lfs/*.c')
-CPPPATH = [cwd + "/inculde"] 
+CPPPATH = [cwd + "/inculde"]
 LIB_PATH = []
 LIB = []
 
 if GetDepend(['BSP_USING_WM_LIBRARIES']):
     src += Glob('w60x/*.c')
     src += Glob('packages/airkiss/*.c')
+    src += Glob('packages/lua-cjson/*.c')
     CPPPATH += [cwd + "/packages/lfs/"]
     CPPPATH += [cwd + "/packages/airkiss/"]
+    CPPPATH += [cwd + "/packages/lua-cjson/"]
 
     LIB_PATH += [cwd + '/packages/airkiss/']
     LIB += ['libairkiss']

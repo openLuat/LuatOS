@@ -158,7 +158,7 @@ strncasecmp(const char *s1, const char *s2, size_t n)
 #define DEFAULT_DECODE_MAX_DEPTH 1000
 #define DEFAULT_ENCODE_INVALID_NUMBERS 0
 #define DEFAULT_DECODE_INVALID_NUMBERS 1
-#define DEFAULT_ENCODE_KEEP_BUFFER 1
+#define DEFAULT_ENCODE_KEEP_BUFFER 0
 #define DEFAULT_ENCODE_NUMBER_PRECISION 14
 
 #ifdef DISABLE_INVALID_NUMBERS
@@ -468,10 +468,10 @@ static void json_create_config(lua_State *l)
     cfg = lua_newuserdata(l, sizeof(*cfg));
 
     /* Create GC method to clean up strbuf */
-    lua_newtable(l);
-    lua_pushcfunction(l, json_destroy_config);
-    lua_setfield(l, -2, "__gc");
-    lua_setmetatable(l, -2);
+    // lua_newtable(l);
+    // lua_pushcfunction(l, json_destroy_config);
+    // lua_setfield(l, -2, "__gc");
+    // lua_setmetatable(l, -2);
 
     cfg->encode_sparse_convert = DEFAULT_SPARSE_CONVERT;
     cfg->encode_sparse_ratio = DEFAULT_SPARSE_RATIO;
@@ -1437,14 +1437,14 @@ static int lua_cjson_new(lua_State *l)
     luaL_Reg reg[] = {
         { "encode", json_encode },
         { "decode", json_decode },
-        { "encode_sparse_array", json_cfg_encode_sparse_array },
-        { "encode_max_depth", json_cfg_encode_max_depth },
-        { "decode_max_depth", json_cfg_decode_max_depth },
-        { "encode_number_precision", json_cfg_encode_number_precision },
-        { "encode_keep_buffer", json_cfg_encode_keep_buffer },
-        { "encode_invalid_numbers", json_cfg_encode_invalid_numbers },
-        { "decode_invalid_numbers", json_cfg_decode_invalid_numbers },
-        { "new", lua_cjson_new },
+        // { "encode_sparse_array", json_cfg_encode_sparse_array },
+        // { "encode_max_depth", json_cfg_encode_max_depth },
+        // { "decode_max_depth", json_cfg_decode_max_depth },
+        // { "encode_number_precision", json_cfg_encode_number_precision },
+        // { "encode_keep_buffer", json_cfg_encode_keep_buffer },
+        // { "encode_invalid_numbers", json_cfg_encode_invalid_numbers },
+        // { "decode_invalid_numbers", json_cfg_decode_invalid_numbers },
+        // { "new", lua_cjson_new },
         { NULL, NULL }
     };
 
@@ -1462,11 +1462,11 @@ static int lua_cjson_new(lua_State *l)
     lua_pushlightuserdata(l, NULL);
     lua_setfield(l, -2, "null");
 
-    /* Set module name / version fields */
-    lua_pushliteral(l, CJSON_MODNAME);
-    lua_setfield(l, -2, "_NAME");
-    lua_pushliteral(l, CJSON_VERSION);
-    lua_setfield(l, -2, "_VERSION");
+    // /* Set module name / version fields */
+    // lua_pushliteral(l, CJSON_MODNAME);
+    // lua_setfield(l, -2, "_NAME");
+    // lua_pushliteral(l, CJSON_VERSION);
+    // lua_setfield(l, -2, "_VERSION");
 
     return 1;
 }
@@ -1496,11 +1496,11 @@ int luaopen_cjson(lua_State *l)
 {
     lua_cjson_new(l);
 
-#ifdef ENABLE_CJSON_GLOBAL
-    /* Register a global "cjson" table. */
-    lua_pushvalue(l, -1);
-    lua_setglobal(l, CJSON_MODNAME);
-#endif
+// #ifdef ENABLE_CJSON_GLOBAL
+//     /* Register a global "cjson" table. */
+//     lua_pushvalue(l, -1);
+//     lua_setglobal(l, CJSON_MODNAME);
+// #endif
 
     /* Return cjson table */
     return 1;

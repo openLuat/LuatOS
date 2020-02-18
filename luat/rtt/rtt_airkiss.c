@@ -205,7 +205,7 @@ int airkiss_start(void)
         LOG_E("airkiss thread fail to start");
     }
 
-    return ret;
+    return ret == 0 ? 1 : 0;
 }
 
 // 几个

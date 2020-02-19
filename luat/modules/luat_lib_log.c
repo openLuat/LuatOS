@@ -4,15 +4,6 @@
 #include "luat_sys.h"
 #include "luat_msgbus.h"
 
-static int LOG_LEVEL = 1;
-
-#define L_SILENT 0
-#define L_DEBUG 1
-#define L_INFO 2
-#define L_WARN 3
-#define L_ERROR 4
-#define L_FATAL 5
-
 /*
 @module log 日志 
 @since 1.0.0
@@ -25,31 +16,38 @@ static int LOG_LEVEL = 1;
 @usage  log.setLevel("INFO") 设置日志级别为INFO.
 */
 static int l_log_set_level(lua_State *L) {
+    int LOG_LEVEL = 0;
     if (lua_isinteger(L, 1)) {
         LOG_LEVEL = lua_tointeger(L, 1);
     }
     else if (lua_isstring(L, 1)) {
         const char* lv = lua_tostring(L, 1);
         if (strcmp("SILENT", lv) == 0) {
-            LOG_LEVEL = L_SILENT;
+            LOG_LEVEL = LUAT_LOG_CLOSE;
         }
         else if (strcmp("DEBUG", lv) == 0) {
-            LOG_LEVEL = L_DEBUG;
+            LOG_LEVEL = LUAT_LOG_DEBUG;
         }
         else if (strcmp("INFO", lv) == 0) {
-            LOG_LEVEL = L_INFO;
+            LOG_LEVEL = LUAT_LOG_INFO;
         }
         else if (strcmp("WARN", lv) == 0) {
-            LOG_LEVEL = L_WARN;
+            LOG_LEVEL = LUAT_LOG_WARN;
         }
         else if (strcmp("ERROR", lv) == 0) {
-            LOG_LEVEL = L_ERROR;
-        }
-        else if (strcmp("FATAL", lv) == 0) {
-            LOG_LEVEL = L_FATAL;
+            LOG_LEVEL = LUAT_LOG_ERROR;
         }
     }
+    if (LOG_LEVEL == 0) {
+        LOG_LEVEL = LUAT_LOG_CLOSE;
+    }
+    luat_log_set_level(LOG_LEVEL);
     return 0;
+}
+
+int l_log_get_level(lua_State *L) {
+    lua_pushinteger(L, luat_log_get_level());
+    return 1;
 }
 
 static int l_log_2_log(lua_State *L) {
@@ -61,7 +59,7 @@ static int l_log_2_log(lua_State *L) {
     }
     lua_getglobal(L, "print");
     lua_insert(L, 1);
-    lua_pushfstring(L, "%s/%s", lua_tostring(L, 2), lua_tostring(L, 3));
+    lua_pushfstring(L, "%s/user.%s", lua_tostring(L, 2), lua_tostring(L, 3));
     lua_remove(L, 2); // remove level
     lua_remove(L, 2); // remove tag
     lua_insert(L, 2);
@@ -77,8 +75,7 @@ static int l_log_2_log(lua_State *L) {
 @usage  log.debug("onenet", "connect ok") 日志输出 D/onenet connect ok
 */
 static int l_log_debug(lua_State *L) {
-    if (LOG_LEVEL > L_DEBUG)
-        return 0;
+    if (luat_log_get_level() > LUAT_LOG_DEBUG) return 0;
     lua_pushstring(L, "D");
     lua_insert(L, 1);
     return l_log_2_log(L);
@@ -92,8 +89,7 @@ static int l_log_debug(lua_State *L) {
 @usage  log.info("onenet", "connect ok") 日志输出 I/onenet connect ok
 */
 static int l_log_info(lua_State *L) {
-    if (LOG_LEVEL > L_INFO)
-        return 0;
+    if (luat_log_get_level() > LUAT_LOG_INFO) return 0;
     lua_pushstring(L,"I");
     lua_insert(L, 1);
     return l_log_2_log(L);
@@ -107,8 +103,7 @@ static int l_log_info(lua_State *L) {
 @usage  log.warn("onenet", "connect ok") 日志输出 W/onenet connect ok
 */
 static int l_log_warn(lua_State *L) {
-    if (LOG_LEVEL > L_WARN)
-        return 0;
+    if (luat_log_get_level() > LUAT_LOG_WARN) return 0;
     lua_pushstring(L, "W");
     lua_insert(L, 1);
     return l_log_2_log(L);
@@ -122,24 +117,8 @@ static int l_log_warn(lua_State *L) {
 @usage  log.error("onenet", "connect ok") 日志输出 E/onenet connect ok
 */
 static int l_log_error(lua_State *L) {
-    if (LOG_LEVEL > L_ERROR)
-        return 0;
+    if (luat_log_get_level() > LUAT_LOG_ERROR) return 0;
     lua_pushstring(L, "E");
-    lua_insert(L, 1);
-    return l_log_2_log(L);
-}
-
-/*
-@api    log.fatal   输出日志,级别fatal
-@param  tag         日志标识,必须是字符串
-@param  ...         需打印的参数
-@return nil
-@usage  log.fatal("onenet", "connect fail") 日志输出 F/onenet connect fail
-*/
-static int l_log_fatal(lua_State *L) {
-    if (LOG_LEVEL > L_FATAL)
-        return 0;
-    lua_pushstring(L, "F");
     lua_insert(L, 1);
     return l_log_2_log(L);
 }
@@ -148,19 +127,19 @@ static int l_log_fatal(lua_State *L) {
 static const rotable_Reg reg_log[] =
 {
     { "setLevel" , l_log_set_level, 0},
+    { "getLevel" , l_log_get_level, 0},
     { "debug" , l_log_debug, 0},
     { "info" , l_log_info, 0},
     { "warn" , l_log_warn, 0},
     { "error" , l_log_error, 0},
-    { "fatal" , l_log_fatal, 0},
+    { "fatal" , l_log_error, 0}, // 以error对待
     { "_log" , l_log_2_log, 0},
 
-    // { "LOG_SILENT", NULL, 0},
-    // { "LOG_DEBUG", NULL, 1},
-    // { "LOG_INFO", NULL, 2},
-    // { "LOG_WARN", NULL, 3},
-    // { "LOG_ERROR", NULL, 4},
-    // { "LOG_FATAL", NULL, 5},
+    { "LOG_SILENT", NULL, LUAT_LOG_CLOSE},
+    { "LOG_DEBUG",  NULL, LUAT_LOG_DEBUG},
+    { "LOG_INFO",   NULL, LUAT_LOG_INFO},
+    { "LOG_WARN",   NULL, LUAT_LOG_WARN},
+    { "LOG_ERROR",  NULL, LUAT_LOG_ERROR},
 	{ NULL, NULL }
 };
 

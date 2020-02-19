@@ -77,7 +77,8 @@ int luat_main (int argc, char **argv, int _) {
   if (boot_mode == 0) {
     return; // just nop
   }
-  luat_print("\nI/main: Luat " LUAT_VERSION " build " __DATE__ " " __TIME__ "\n");
+  //luat_print("\nI/main: Luat " LUAT_VERSION " build " __DATE__ " " __TIME__ "\n");
+  luat_log_info("luat.main", "Luat " LUAT_VERSION ", build at: " __DATE__ " " __TIME__);
   print_list_mem("entry luat_main");
   // 1. init filesystem
   luat_fs_init();

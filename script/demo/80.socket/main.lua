@@ -6,7 +6,6 @@ log.debug("main", "hi from debug")
 log.info("main", "hi from info")
 log.warn("main", "hi from warn")
 log.error("main", "hi from error")
-log.fatal("main", "hi from fatal")
 
 wlan.setMode("wlan0", wlan.STATION)
 print("mac: " .. wlan.get_mac())

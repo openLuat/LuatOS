@@ -251,75 +251,75 @@ static int luat_lib_socket_new(lua_State* L, int netc_type) {
     return 1;
 }
 
-static int luat_lib_socket_connect(lua_State* L) {
-    rt_netclient_t* thiz;
-    size_t len;
-    char* hostname;
-    uint32_t port;
-    rt_base_t re;
-    //LOG_I("luat_lib_socket_connect ...");
-    if (lua_gettop(L) < 3) {
-        LOG_W("socket.connect require 3 args! top=%d", lua_gettop(L));
-        //lua_error("socket.connect require 3 args!");
-        return 0;
-    }
-    if (!lua_isuserdata(L, 1)) {
-        LOG_W("socket.connect require socket object!");
-        return 0;
-    }
-    thiz = (rt_netclient_t*)lua_touserdata(L, 1);
-    if (thiz == RT_NULL) {
-        LOG_W("rt_netclient_t is NULL!!");
-        return 0;
-    }
-    hostname = luaL_checklstring(L, 2, &len);
-    if (len >= 32) {
-        LOG_W("hostname is too long!!!");
-        lua_pushinteger(L, 1);
-        return 1;
-    }
-    rt_memcpy(thiz->hostname, hostname, len);
-    thiz->hostname[len] = 0x00;
-    thiz->port = luaL_checkinteger(L, 3);
-    thiz->rx = luat_lib_socket_ent_handler;
-    LOG_W("host=%s port=%d type=%s", thiz->hostname, thiz->port, thiz->type == NETC_TYPE_TCP ? "TCP" : "UDP");
-    re = rt_netclient_start(thiz);
-    lua_pushinteger(L, re);
-    return 1;
-}
+// static int luat_lib_socket_connect(lua_State* L) {
+//     rt_netclient_t* thiz;
+//     size_t len;
+//     char* hostname;
+//     uint32_t port;
+//     rt_base_t re;
+//     //LOG_I("luat_lib_socket_connect ...");
+//     if (lua_gettop(L) < 3) {
+//         LOG_W("socket.connect require 3 args! top=%d", lua_gettop(L));
+//         //lua_error("socket.connect require 3 args!");
+//         return 0;
+//     }
+//     if (!lua_isuserdata(L, 1)) {
+//         LOG_W("socket.connect require socket object!");
+//         return 0;
+//     }
+//     thiz = (rt_netclient_t*)lua_touserdata(L, 1);
+//     if (thiz == RT_NULL) {
+//         LOG_W("rt_netclient_t is NULL!!");
+//         return 0;
+//     }
+//     hostname = luaL_checklstring(L, 2, &len);
+//     if (len >= 32) {
+//         LOG_W("hostname is too long!!!");
+//         lua_pushinteger(L, 1);
+//         return 1;
+//     }
+//     rt_memcpy(thiz->hostname, hostname, len);
+//     thiz->hostname[len] = 0x00;
+//     thiz->port = luaL_checkinteger(L, 3);
+//     thiz->rx = luat_lib_socket_ent_handler;
+//     LOG_W("host=%s port=%d type=%s", thiz->hostname, thiz->port, thiz->type == NETC_TYPE_TCP ? "TCP" : "UDP");
+//     re = rt_netclient_start(thiz);
+//     lua_pushinteger(L, re);
+//     return 1;
+// }
 
-static int luat_lib_socket_close(lua_State* L) {
-    rt_netclient_t* thiz;
-    if (!lua_isuserdata(L, 1)) {
-        lua_error("socket.connect require socket object!");
-        return 0;
-    }
-    thiz = (rt_netclient_t*)lua_touserdata(L, 1);
-    if (thiz == RT_NULL) {
-        return 0;
-    }
-    if (thiz->sock_fd == -1) {
-        LOG_W("socket is closed, host=%s port=%ld", thiz->hostname, thiz->port);
-    }
-    rt_netclient_close(thiz);
-    return 0;
-}
+// static int luat_lib_socket_close(lua_State* L) {
+//     rt_netclient_t* thiz;
+//     if (!lua_isuserdata(L, 1)) {
+//         lua_error("socket.connect require socket object!");
+//         return 0;
+//     }
+//     thiz = (rt_netclient_t*)lua_touserdata(L, 1);
+//     if (thiz == RT_NULL) {
+//         return 0;
+//     }
+//     if (thiz->sock_fd == -1) {
+//         LOG_W("socket is closed, host=%s port=%ld", thiz->hostname, thiz->port);
+//     }
+//     rt_netclient_close(thiz);
+//     return 0;
+// }
 
-static int luat_lib_socket_send(lua_State *L) {
-    rt_netclient_t* thiz;
-    size_t len;
-    char* data;
-    if (!lua_isuserdata(L, 1)) {
-        lua_error("socket.connect require socket object!");
-        return 0;
-    }
-    thiz = (rt_netclient_t*)lua_touserdata(L, 1);
-    data = luaL_checklstring(L, 2, &len);
-    if (len > 0) {
-        rt_netclient_send(thiz, (void*)data, len);
-    }
-    return 0;
-}
+// static int luat_lib_socket_send(lua_State *L) {
+//     rt_netclient_t* thiz;
+//     size_t len;
+//     char* data;
+//     if (!lua_isuserdata(L, 1)) {
+//         lua_error(L, "socket.connect require socket object!");
+//         return 0;
+//     }
+//     thiz = (rt_netclient_t*)lua_touserdata(L, 1);
+//     data = luaL_checklstring(L, 2, &len);
+//     if (len > 0) {
+//         rt_netclient_send(thiz, (void*)data, len);
+//     }
+//     return 0;
+// }
 
 //---------------------------------------------
 #define tonetc(L)	((rt_netclient_t *)luaL_checkudata(L, 1, LUAT_NETC_HANDLE))
@@ -503,9 +503,9 @@ static const rotable_Reg reg_socket[] =
 {
     { "tcp", luat_lib_socket_tcp, 0},
     { "udp", luat_lib_socket_udp, 0},
-    { "connect", luat_lib_socket_connect, 0},
-    { "close", luat_lib_socket_close, 0},
-    { "send", luat_lib_socket_send, 0},
+    // { "connect", luat_lib_socket_connect, 0},
+    // { "close", luat_lib_socket_close, 0},
+    // { "send", luat_lib_socket_send, 0},
 
 
 

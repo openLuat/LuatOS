@@ -97,6 +97,9 @@ static void netclient_thread_entry(void *param);
 static rt_uint32_t netc_seq = 1;
 
 rt_uint32_t rt_netc_next_no(void) {
+    if (netc_seq > 0xFFFF00) {
+        netc_seq = 0xFF;
+    }
     return netc_seq++;
 }
 
@@ -191,7 +194,7 @@ static rt_int32_t pipe_init(rt_netclient_t *thiz)
         return -1;
     }
 
-    snprintf(thiz->pipe_name, sizeof(thiz->pipe_name), "p%08X", thiz->id);
+    snprintf(thiz->pipe_name, sizeof(thiz->pipe_name), "p%06X", thiz->id);
 
     pipe = rt_pipe_create(thiz->pipe_name, PIPE_BUFSZ);
     if (pipe == RT_NULL)
@@ -255,7 +258,7 @@ static rt_int32_t netclient_thread_init(rt_netclient_t *thiz)
 {
     rt_thread_t netclient_tid = RT_NULL;
     char tname[12];
-    rt_sprintf(tname, "n%08X", thiz->id);
+    rt_sprintf(tname, "n%06X", thiz->id);
     netclient_tid = rt_thread_create(tname, netclient_thread_entry, thiz, 2048, 12, 10);
     if (netclient_tid == RT_NULL)
     {

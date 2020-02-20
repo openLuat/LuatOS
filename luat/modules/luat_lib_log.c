@@ -10,7 +10,7 @@
 */
 
 /*
-@api    log.setLevel 设置日志级别
+@api    setLevel 设置日志级别
 @param  level        日志级别,可用字符串或数值, 字符串为(SILENT,DEBUG,INFO,WARN,ERROR,FATAL), 数值为(0,1,2,3,4,5)
 @return nil
 @usage  log.setLevel("INFO") 设置日志级别为INFO.
@@ -45,6 +45,11 @@ static int l_log_set_level(lua_State *L) {
     return 0;
 }
 
+/*
+@api    log.getLevel 获取日志级别
+@return  level        日志级别,可用字符串或数值, 字符串为(SILENT,DEBUG,INFO,WARN,ERROR,FATAL), 数值为(0,1,2,3,4,5)
+@usage  log.getLevel() 得到日志级别
+*/
 int l_log_get_level(lua_State *L) {
     lua_pushinteger(L, luat_log_get_level());
     return 1;

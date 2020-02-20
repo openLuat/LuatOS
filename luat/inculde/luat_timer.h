@@ -17,6 +17,7 @@ typedef struct luat_timer
 
 int luat_timer_start(luat_timer_t* timer);
 int luat_timer_stop(luat_timer_t* timer);
+luat_timer_t* luat_timer_get(size_t timer_id);
 
 
 int luat_timer_mdelay(size_t ms);

@@ -21,7 +21,7 @@ static void rt_timer_callback(void *param) {
 }
 
 int luat_timer_start(luat_timer_t* timer) {
-    rt_sprintf(timer_name, "t%ld", timer->id);
+    rt_sprintf(timer_name, "t%ld", timer->id); // TODO: 可能与rtt的命名长度冲突
     LOG_D("rtt timer name=%s", timer_name);
     rt_tick_t time = timer->timeout;
     rt_uint8_t flag = timer->repeat ? RT_TIMER_FLAG_PERIODIC : RT_TIMER_FLAG_ONE_SHOT;
@@ -48,6 +48,15 @@ int luat_timer_stop(luat_timer_t* timer) {
     rt_timer_stop((rt_timer_t)timer->os_timer);
     rt_timer_delete((rt_timer_t)timer->os_timer);
     return 0;
+}
+
+luat_timer_t* luat_timer_get(size_t timer_id) {
+    rt_sprintf(timer_name, "t%ld", timer_id);
+    rt_object_t obj = rt_object_find(timer_name, RT_Object_Class_Timer);
+    if (obj != RT_NULL) {
+        return (luat_timer_t*)((rt_timer_t)obj)->parameter;
+    }
+    return RT_NULL;
 }
 
 

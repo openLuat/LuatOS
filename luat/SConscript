@@ -12,6 +12,10 @@ LIB = []
 src += Glob('packages/lua-cjson/*.c')
 CPPPATH += [cwd + "/packages/lua-cjson/"]
 
+#vsprint
+src += Glob('packages/vsprintf/*.c')
+CPPPATH += [cwd + "/packages/vsprintf/"]
+
 
 if GetDepend(['BSP_USING_WM_LIBRARIES']):
     src += Glob('w60x/*.c')

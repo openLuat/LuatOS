@@ -31,19 +31,19 @@
 
 #define NETC_EVENT_CONNECT_OK 1
 #define NETC_EVENT_CONNECT_FAIL 2
-#define NETC_EVENT_REVC    4
+#define NETC_EVENT_RECV    4
 #define NETC_EVENT_ERROR   7
 #define NETC_EVENT_CLOSE   8
 
 
 typedef struct rt_netc_ent {
-    void* thiz;
+    rt_uint32_t netc_id;
+    rt_uint64_t lua_ref;
     rt_uint16_t event;
     rt_uint16_t len;
-    void *buff;
 }rt_netc_ent_t;
 
-typedef void (*rt_tpc_cb_t)(rt_netc_ent_t ent);
+typedef void (*rt_tpc_cb_t)(rt_netc_ent_t* ent);
 
 typedef struct rt_netclient
 {

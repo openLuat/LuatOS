@@ -36,7 +36,9 @@
 #include <stdlib.h>
 //#include "elog.h"
 #include "netclient.h"
+#include "luat_malloc.h"
 
+#include "rtthread.h"
 #define DBG_TAG           "luat.netc"
 #define DBG_LVL           DBG_INFO
 #include <rtdbg.h>
@@ -46,43 +48,6 @@
 #define BUFF_SIZE (1024)
 #define MAX_VAL(A, B) ((A) > (B) ? (A) : (B))
 #define STRCMP(a, R, b) (strcmp((a), (b)) R 0)
-// #define RX_CB_HANDLE(_buff, _len)  \
-//     do                             \
-//     {                              \
-//         if (thiz->rx)              \
-//             thiz->rx(_buff, _len); \
-//     } while (0)
-// 
-// #define EXCEPTION_HANDLE(_bytes, _tag, _info_a, _info_b)                  \
-//     do                                                                    \
-//     {                                                                     \
-//         if (_bytes < 0)                                                   \
-//         {                                                                 \
-//             LOG_E("return: %d", _bytes);                \
-//             goto exit;                                                    \
-//         }                                                                 \
-//         if (_bytes == 0)                                                  \
-//         {                                                                 \
-//             if (STRCMP(_info_b, ==, "warning"))                           \
-//                 LOG_W("return: %d", _bytes);            \
-//             else                                                          \
-//             {                                                             \
-//                 LOG_E("return: %d", _bytes);            \
-//                                                                           \
-//                 goto exit;                                                \
-//             }                                                             \
-//         }                                                                 \
-//     } while (0)
-
-// #define EXIT_HANDLE(_buff)                                            \
-//     do                                                                \
-//     {                                                                 \
-//         if (STRCMP(_buff, ==, "exit"))                                \
-//         {                                                             \
-//             LOG_I("exit handle : receive [exit], exit thread");     \
-//             goto exit;                                                \
-//         }                                                             \
-//     } while (0)
 
 static rt_netclient_t *netclient_create(void);
 static rt_int32_t netclient_destory(rt_netclient_t *thiz);
@@ -101,6 +66,25 @@ rt_uint32_t rt_netc_next_no(void) {
         netc_seq = 0xFF;
     }
     return netc_seq++;
+}
+
+static void EVENT(rt_uint64_t netc_id, rt_tpc_cb_t cb, rt_uint64_t lua_ref, rt_uint16_t tp, size_t len, void* buff) {
+    rt_netc_ent_t* ent;
+    LOG_I("netc[%ld] event type=%d", netc_id, tp);
+    if (cb == RT_NULL) return;
+    ent = luat_heap_malloc(sizeof(rt_netc_ent_t) + len);
+    if (ent == NULL) {
+        LOG_E("netc[%ld] EVENT call rt_malloc return NULL!", netc_id);
+        return;
+    }
+    ent->netc_id = netc_id;
+    ent->lua_ref = lua_ref;
+    ent->len = len;
+    ent->event = tp;
+    if (len > 0) {
+        rt_memcpy((void*)(ent+sizeof(rt_netc_ent_t)), buff, len);
+    }
+    cb(ent);
 }
 
 static rt_int32_t netclient_destory(rt_netclient_t *thiz)
@@ -301,21 +285,13 @@ static void select_handle(rt_netclient_t *thiz, char *sock_buff)
             if (res > 0) {
                 LOG_I("netc[%ld] data recv len=%d", thiz->id, res);
                 if (thiz->rx) {
-                    rt_netc_ent_t ent;
-                    ent.thiz = thiz;
-                    ent.event = NETC_EVENT_REVC;
-                    ent.len = res;
-                    ent.buff = sock_buff;
-                    thiz->rx(ent);
+                    EVENT(thiz->id, thiz->rx, thiz->cb_recv, NETC_EVENT_RECV, res, sock_buff);
                 }
             }
             else {
                 LOG_I("netc[%ld] recv return error=%d", thiz->id, res);
                 if (thiz->rx) {
-                    rt_netc_ent_t ent;
-                    ent.thiz = thiz;
-                    ent.event = NETC_EVENT_ERROR;
-                    thiz->rx(ent);
+                    EVENT(thiz->id, thiz->rx, thiz->cb_error, NETC_EVENT_ERROR, res, sock_buff);
                 }
                 goto exit;
             }
@@ -352,20 +328,14 @@ static void netclient_thread_entry(void *param)
     if (socket_init(thiz, thiz->hostname, thiz->port) != 0) {
         LOG_W("netc[%ld] connect fail", thiz->id);
         if (thiz->rx) {
-            rt_netc_ent_t ent;
-            ent.thiz = thiz;
-            ent.event = NETC_EVENT_CONNECT_FAIL;
-            thiz->rx(ent);
+            EVENT(thiz->id, thiz->rx, thiz->cb_connect, NETC_EVENT_CONNECT_OK, 0, RT_NULL);
         }
         return;
     }
     else {
         LOG_I("netc[%ld] connect ok", thiz->id);
         if (thiz->rx) {
-            rt_netc_ent_t ent;
-            ent.thiz = thiz;
-            ent.event = NETC_EVENT_CONNECT_FAIL;
-            thiz->rx(ent);
+            EVENT(thiz->id, thiz->rx, thiz->cb_connect, NETC_EVENT_CONNECT_FAIL, 0, RT_NULL);
         }
     }
 
@@ -385,10 +355,7 @@ static void netclient_thread_entry(void *param)
         thiz->closed = 1;
         netclient_destory(thiz);
         if (thiz->rx) {
-            rt_netc_ent_t ent;
-            ent.thiz = thiz;
-            ent.event = NETC_EVENT_CLOSE;
-            thiz->rx(ent);
+            EVENT(thiz->id, thiz->rx, thiz->cb_close, NETC_EVENT_CLOSE, 0, RT_NULL);
         }
     }
 

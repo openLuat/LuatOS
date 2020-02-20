@@ -20,7 +20,7 @@
 #endif
 
 /*
-@module wifi模块
+@module wlan wifi模块
 @since 1.0.0
 */
 

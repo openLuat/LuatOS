@@ -14,7 +14,7 @@
 /*
 @api    rtos.receive   接受并处理底层消息队列. 本方法通过sys.run()调用, 普通用户不要使用.
 @param  timeout        [必]超时时长,通常是-1,永久等待
-@return msgid          如果是定时器消息,会返回定时器消息id及附加信息, 其他消息由底层决定,不向lua层进行任何保证.            
+@return msgid          如果是定时器消息,会返回定时器消息id及附加信息, 其他消息由底层决定,不向lua层进行任何保证.
 */
 static int l_rtos_receive(lua_State *L) {
     rtos_msg_t msg;
@@ -54,7 +54,7 @@ static int l_timer_handler(lua_State *L, void* ptr) {
 @param  id             [必]定时器id
 @param  timeout        [必]超时时长,单位毫秒
 @param  repeat         [选]重复次数,默认是0
-@return msgid          如果是定时器消息,会返回定时器消息id及附加信息, 其他消息由底层决定,不向lua层进行任何保证.            
+@return msgid          如果是定时器消息,会返回定时器消息id及附加信息, 其他消息由底层决定,不向lua层进行任何保证.
 */
 static int l_rtos_timer_start(lua_State *L) {
     lua_gettop(L);
@@ -74,7 +74,7 @@ static int l_rtos_timer_start(lua_State *L) {
     timer->repeat = repeat;
     timer->func = &l_timer_handler;
 
-    itn re = luat_timer_start(timer);
+    int re = luat_timer_start(timer);
     if (re == 0) {
         lua_pushinteger(L, 1);
     }
@@ -87,7 +87,7 @@ static int l_rtos_timer_start(lua_State *L) {
 /*
 @api    rtos.timer_stop   关闭并释放一个定时器.用户代码请使用sys.timerStop
 @param  id             [必]定时器id
-@return nil            无返回值      
+@return nil            无返回值
 */
 static int l_rtos_timer_stop(lua_State *L) {
     luat_timer_t *timer;
@@ -106,7 +106,7 @@ static int l_rtos_timer_stop(lua_State *L) {
 
 /*
 @api    rtos.reboot   设备重启
-@return nil          无返回值  
+@return nil          无返回值
 */
 static int l_rtos_reboot(lua_State *L) {
     luat_os_reboot(luaL_optinteger(L, 1, 0));

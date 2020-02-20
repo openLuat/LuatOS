@@ -23,7 +23,8 @@
 			"luat_base.h": "c",
 			"luat_timer.h": "c",
 			"pin.h": "c",
-			"rotable.h": "c"
+			"rotable.h": "c",
+			"rthw.h": "c"
 		}
 	}
 }

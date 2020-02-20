@@ -5,6 +5,7 @@
 #include "stdio.h"
 #include "luat_msgbus.h"
 #include "rthw.h"
+#include "vsprintf.h"
 
 #define DBG_TAG           "rtt.base"
 #define DBG_LVL           DBG_INFO
@@ -15,7 +16,7 @@ int l_sprintf(char *buf, int32_t size, const char *fmt, ...) {
     va_list args;
 
     va_start(args, fmt);
-    n = rt_vsnprintf(buf, size, fmt, args);
+    n = custom_vsprintf(buf, /*size,*/ fmt, args);
     va_end(args);
 
     return n;

@@ -46,7 +46,7 @@ static int l_gpio_setup(lua_State *L) {
     }
     else {
         conf->func = NULL;
-        
+
     }
     int re = luat_gpio_setup(conf);
     if (conf->mode == Luat_GPIO_IRQ) {
@@ -57,7 +57,7 @@ static int l_gpio_setup(lua_State *L) {
     else {
         luat_heap_free(conf);
     }
-    lua_pushinteger(L, re == 0 ? 1 : 0)
+    lua_pushinteger(L, re == 0 ? 1 : 0);
     return 1;
 }
 

@@ -137,73 +137,43 @@ __exit:
 
 static int luat_lib_netc_msg_handler(lua_State* L, void* ptr) {
     rt_netc_ent_t* ent = (rt_netc_ent_t*)ptr;
-    rt_netclient_t* netc = ent->thiz;
-    //LOG_I("luat_lib_netc_msg_handler event=%d", ent->event);
+    if (lua_rawgeti(L, LUA_REGISTRYINDEX, ent->lua_ref) != LUA_TFUNCTION) {
+        LOG_W("netc[%ld] callback isn't a function", ent->netc_id);
+        return 0;
+    };
+    lua_pushinteger(L, ent->netc_id);
     switch (ent->event)
     {
     case NETC_EVENT_CONNECT_OK:
     case NETC_EVENT_CONNECT_FAIL:
-        if (netc->cb_connect) {
-            int tp = lua_rawgeti(L, LUA_REGISTRYINDEX, netc->cb_connect);
-            lua_pushinteger(L, ent->event == NETC_EVENT_CONNECT_OK ? 1 : 0);
-            lua_call(L, 1, 0);
-        }
-        else {
-            LOG_D("netc[%ld] without event:connect callback", netc->id);
-        }
+        lua_pushinteger(L, ent->event == NETC_EVENT_CONNECT_OK ? 1 : 0);
+        lua_call(L, 2, 0);
         break;
     case NETC_EVENT_CLOSE:
-        if (netc->cb_close) {
-            lua_rawgeti(L, LUA_REGISTRYINDEX, netc->cb_close);
-            lua_call(L, 0, 0);
-        }
-        else {
-            LOG_D("netc[%ld] without event:close callback", netc->id);
-        }
+        lua_call(L, 1, 0);
         break;
-    case NETC_EVENT_REVC:
-        if (netc->cb_recv) {
-            lua_rawgeti(L, LUA_REGISTRYINDEX, netc->cb_recv);
-            lua_pushlstring(L, ent->buff, ent->len);
-            lua_call(L, 1, 0);
-        }
-        else {
-            LOG_D("netc[%ld] without event:recv callback", netc->id);
-        }
+    case NETC_EVENT_RECV:
+        lua_pushlstring(L, ent + sizeof(rt_netc_ent_t), ent->len);
+        lua_call(L, 2, 0);
         break;
     case NETC_EVENT_ERROR:
-        if (netc->cb_error) {
-            lua_rawgeti(L, LUA_REGISTRYINDEX, netc->cb_error);
-            lua_call(L, 0, 0);
-        }
-        else {
-            LOG_D("netc[%ld] without event:error callback", netc->id);
-        }
+        lua_call(L, 1, 0);
         break;
     default:
         break;
     }
+    luat_heap_free((void*)ent);
     return 0;
 }
 static int luat_lib_socket_new(lua_State* L, int netc_type);
-static int luat_lib_socket_ent_handler(rt_netc_ent_t ent) {
-    rt_netclient_t* netc;
-    netc = (rt_netclient_t*)ent.thiz;
-    LOG_D("netc[%ld] event type=%d", netc->id, ent.event);
+static int luat_lib_socket_ent_handler(rt_netc_ent_t* ent) {
+    if (ent->lua_ref == 0) {
+        luat_heap_free((void*)ent);
+        return 0;
+    }
     rtos_msg_t msg;
     msg.handler = luat_lib_netc_msg_handler;
-    msg.ptr = rt_malloc(sizeof(rt_netc_ent_t));
-    if (msg.ptr == RT_NULL) {
-        LOG_E("netc[%ld] fail to malloc memory for msgbus!", netc->id);
-        return 1;
-    }
-    rt_memcpy(msg.ptr, &ent, sizeof(rt_netc_ent_t));
-    if (ent.event == NETC_EVENT_REVC) {
-        ((rt_netc_ent_t*)(msg.ptr))->buff = rt_malloc(ent.len);
-        // TODO: if rt_malloc return NULL!!!
-        rt_memcpy(((rt_netc_ent_t*)(msg.ptr))->buff, ent.buff, ent.len);
-    }
-    //LOG_I("luat_msgbus_put ...");
+    msg.ptr = ent;
     luat_msgbus_put(&msg, 1);
     return 0;
 }

@@ -42,22 +42,24 @@ size_t luat_heap_getfree(void) {
 
 #ifdef RT_USING_MEMHEAP
 
-#define HEAP_SIZE (32*1024)
-static char HEAP[HEAP_SIZE];
+
 
 #define RT_MEMHEAP_SIZE         RT_ALIGN(sizeof(struct rt_memheap_item), RT_ALIGN_SIZE)
 typedef struct rt_memheap rt_memheap_t;
 static rt_memheap_t heap;
 #ifdef BSP_USING_WM_LIBRARIES
-#define HEAP2_SIZE (64*1024)
-static rt_memheap_t heap2;
+#define HEAP2_SIZE (128*1024)
+    static rt_memheap_t heap2;
+#else
+    #define HEAP_SIZE (32*1024)
+    static char HEAP[HEAP_SIZE];
 #endif
 
 static rt_err_t luat_memheap_init() {
     #ifdef BSP_USING_WM_LIBRARIES
         // TODO: w60x应该先使用哪部分的内存呢?值得讨论
-        rt_memheap_init(&heap, "heap", &(HEAP[0]), HEAP_SIZE);
-        rt_memheap_init(&heap2, "k64", (void*)0x20030000, HEAP2_SIZE);
+        //rt_memheap_init(&heap, "heap", &(HEAP[0]), HEAP_SIZE);
+        rt_memheap_init(&heap, "heap", (void*)0x20028000, HEAP2_SIZE);
     #else
         rt_memheap_init(&heap, "heap", &(HEAP[0]), HEAP_SIZE);
     #endif
@@ -73,7 +75,8 @@ void* luat_heap_alloc(void *ud, void *ptr, size_t osize, size_t nsize) {
         rt_memheap_free(ptr);
         return NULL;
     }
-    #ifdef BSP_USING_WM_LIBRARIES
+    //#ifdef BSP_USING_WM_LIBRARIES
+    #if 0
         void* tmp = RT_NULL;
         // 场景A, ptr本来就没东西, 直接malloc
         if (ptr == RT_NULL) {
@@ -108,7 +111,7 @@ void* luat_heap_alloc(void *ud, void *ptr, size_t osize, size_t nsize) {
         }
         return tmp;
     #else
-        return rt_memheap_realloc(heap, ptr, nsize);
+        return rt_memheap_realloc(&heap, ptr, nsize);
     #endif
   #else
   if (nsize == 0) {

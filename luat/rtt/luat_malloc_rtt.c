@@ -40,59 +40,77 @@ size_t luat_heap_getfree(void) {
 #define LUA_NUMTAGS		9
 */
 
-void* luat_heap_alloc(void *ud, void *ptr, size_t osize, size_t nsize) {
-  (void)ud; (void)osize;  /* not used */
+#ifdef RT_USING_MEMHEAP
 
-#if 0
-  if (ptr == RT_NULL) {
-      // 新对象
-      ptr = rt_realloc(ptr, nsize);
-      switch (osize)
-      {
-      case 0:
-          rt_kprintf("alloc nil    ptr=0x%08X osize=%d nsize=%d\n", ptr, osize, nsize);
-          break;
-      case 1:
-          rt_kprintf("alloc bool   ptr=0x%08X osize=%d nsize=%d\n", ptr, osize, nsize);
-          break;
-      case 2:
-          rt_kprintf("alloc ludata ptr=0x%08X osize=%d nsize=%d\n", ptr, osize, nsize);
-          break;
-      case 3:
-          rt_kprintf("alloc number ptr=0x%08X osize=%d nsize=%d\n", ptr, osize, nsize);
-          break;
-      case 4:
-          rt_kprintf("alloc string ptr=0x%08X osize=%d nsize=%d\n", ptr, osize, nsize);
-          break;
-      case 5:
-          rt_kprintf("alloc table  ptr=0x%08X osize=%d nsize=%d\n", ptr, osize, nsize);
-          break;
-      case 6:
-          rt_kprintf("alloc func   ptr=0x%08X osize=%d nsize=%d\n", ptr, osize, nsize);
-          break;
-      case 7:
-          rt_kprintf("alloc udata  ptr=0x%08X osize=%d nsize=%d\n", ptr, osize, nsize);
-          break;
-      case 8:
-          rt_kprintf("alloc thread ptr=0x%08X osize=%d nsize=%d\n", ptr, osize, nsize);
-          break;
-      case 9:
-          rt_kprintf("alloc ntags  ptr=0x%08X osize=%d nsize=%d\n", ptr, osize, nsize);
-          break;
-      
-      default:
-          break;
-      }
-      return ptr;
-  }
-  else if (nsize == 0) {
-      rt_kprintf("free  ptr=0x%08X osize=%d\n", ptr, osize);
-  }
-  else {
-      rt_kprintf("realloc ptr=0x%08X osize=%d nsize=%d\n", ptr, osize, nsize);
-  }
+#define HEAP_SIZE (32*1024)
+static char HEAP[HEAP_SIZE];
+
+#define RT_MEMHEAP_SIZE         RT_ALIGN(sizeof(struct rt_memheap_item), RT_ALIGN_SIZE)
+typedef struct rt_memheap rt_memheap_t;
+static rt_memheap_t heap;
+#ifdef BSP_USING_WM_LIBRARIES
+#define HEAP2_SIZE (64*1024)
+static rt_memheap_t heap2;
 #endif
 
+static rt_err_t luat_memheap_init() {
+    #ifdef BSP_USING_WM_LIBRARIES
+        // TODO: w60x应该先使用哪部分的内存呢?值得讨论
+        rt_memheap_init(&heap, "heap", &(HEAP[0]), HEAP_SIZE);
+        rt_memheap_init(&heap2, "k64", (void*)0x20030000, HEAP2_SIZE);
+    #else
+        rt_memheap_init(&heap, "heap", &(HEAP[0]), HEAP_SIZE);
+    #endif
+    return 0;
+}
+#endif
+INIT_COMPONENT_EXPORT(luat_memheap_init);
+
+void* luat_heap_alloc(void *ud, void *ptr, size_t osize, size_t nsize) {
+  (void)ud; (void)osize;  /* not used */
+  #ifdef RT_USING_MEMHEAP
+    if (nsize == 0) {
+        rt_memheap_free(ptr);
+        return NULL;
+    }
+    #ifdef BSP_USING_WM_LIBRARIES
+        void* tmp = RT_NULL;
+        // 场景A, ptr本来就没东西, 直接malloc
+        if (ptr == RT_NULL) {
+            tmp = rt_memheap_alloc(&heap, nsize);
+            if (tmp == RT_NULL)
+                tmp = rt_memheap_alloc(&heap2, nsize);
+            return tmp;
+        }
+        // 原本属于哪个memheap呢?
+        rt_memheap_t* origin;
+        struct rt_memheap_item *header_ptr;
+        header_ptr    = (struct rt_memheap_item *) ((rt_uint8_t *)ptr - RT_MEMHEAP_SIZE);
+        origin = header_ptr->pool_ptr;
+        // 尝试在原有memheap进行缩放
+        tmp = rt_memheap_realloc(origin, ptr, nsize);
+        if (tmp == RT_NULL) {
+            // 缩放失败了, 那肯定是扩展失败
+            // 那么, 我们从另外一个heap分配一个nsize的空间试试
+            if (origin == &heap) {
+                tmp = rt_memheap_alloc(&heap2, nsize);
+            }
+            else {
+                tmp = rt_memheap_alloc(&heap, nsize);
+            }
+            // 申请成功了吗?
+            if (tmp != RT_NULL) {
+                // 成功了, 把老的ptr释放掉
+                rt_memcpy(tmp, ptr, osize);
+                rt_memheap_free(ptr);
+                ptr = tmp;
+            }
+        }
+        return tmp;
+    #else
+        return rt_memheap_realloc(heap, ptr, nsize);
+    #endif
+  #else
   if (nsize == 0) {
     rt_free(ptr);
     return NULL;
@@ -121,5 +139,5 @@ void* luat_heap_alloc(void *ud, void *ptr, size_t osize, size_t nsize) {
     #endif
     return rt_realloc(ptr, nsize);
   }
-    
+  #endif
 }

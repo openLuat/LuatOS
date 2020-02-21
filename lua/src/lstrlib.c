@@ -1567,7 +1567,7 @@ static void createmetatable (lua_State *L) {
   lua_pushvalue(L, -2);  /* copy table */
   lua_setmetatable(L, -2);  /* set table as metatable for strings */
   lua_pop(L, 1);  /* pop dummy string */
-  lua_pushvalue(L, -2);  /* get string library */
+  rotable_newidx(L, strlib);
   lua_setfield(L, -2, "__index");  /* metatable.__index = string */
   lua_pop(L, 1);  /* pop metatable */
 }

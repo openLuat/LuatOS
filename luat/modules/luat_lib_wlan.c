@@ -102,7 +102,7 @@ static void _wlan_connect(void* params) {
 */
 static int l_wlan_connect(lua_State *L) {
     //强制GC一次
-    lua_gc(L, LUA_GCCOLLECT, 0);
+    //lua_gc(L, LUA_GCCOLLECT, 0);
     // 更新参数
     size_t len;
     const char* _ssid = luaL_checklstring(L, 1, &len);

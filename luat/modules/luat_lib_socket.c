@@ -191,8 +191,8 @@ static int luat_lib_socket_new(lua_State* L, int netc_type) {
     rt_size_t len;
 
     // 强制GC一次
-    LOG_D("force execute FULL GC");
-    lua_gc(L, LUA_GCCOLLECT, 0);
+    //LOG_D("force execute FULL GC");
+    //lua_gc(L, LUA_GCCOLLECT, 0);
 
     // 生成netc结构体
     LOG_D("init netclient ...");

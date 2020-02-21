@@ -65,8 +65,8 @@ static rt_err_t luat_memheap_init() {
     #endif
     return 0;
 }
-#endif
 INIT_COMPONENT_EXPORT(luat_memheap_init);
+#endif
 
 void* luat_heap_alloc(void *ud, void *ptr, size_t osize, size_t nsize) {
   (void)ud; (void)osize;  /* not used */

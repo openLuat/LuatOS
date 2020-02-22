@@ -12,11 +12,12 @@
 static int l_gpio_handler(lua_State *L, void* ptr) {
     // 给 sys.publish方法发送数据
     luat_gpio_t *gpio = (luat_gpio_t *)ptr;
-    lua_getglobal(L, "sys_pub");
+    //lua_getglobal(L, "sys_pub");
+    lua_geti(L, LUA_REGISTRYINDEX, gpio->lua_ref);
     if (!lua_isnil(L, -1)) {
-        lua_pushfstring(L, "IRQ_%d", (char)gpio->pin);
+        //lua_pushfstring(L, "IRQ_%d", (char)gpio->pin);
         lua_pushinteger(L, luat_gpio_get(gpio->pin));
-        lua_call(L, 2, 0);
+        lua_call(L, 1, 0);
     }
     // 给rtos.recv方法返回个空数据
     lua_pushinteger(L, 0);
@@ -26,21 +27,34 @@ static int l_gpio_handler(lua_State *L, void* ptr) {
 /*
 @api gpio.setup 设置管脚功能
 @param pin [必]针脚编号,必须是数值
-@param mode [必]输入输出模式, 可以是 输入模式gpio.INPUT, 输出模式gpio.OUTPUT, 中断模式gpio.IRQ
+@param mode [必]输入输出模式. 数字0/1代表输出模式,nil代表输入模式,function代表中断模式
 @param pull [选]上拉下列模式, 可以是gpio.PULLUP 或 gpio.PULLDOWN, 需要根据实际硬件选用
-@param irq [选]中断模式, 上升沿gpio.RISING, 下降沿gpio.FALLING, 上升和下降都要gpio.BOTH.默认是BOTH
-@return re 设置失败的话会返回1, 否则返回0
+@param irq [选]中断模式, 上升沿gpio.RISING, 下降沿gpio.FALLING, 上升和下降都要gpio.BOTH.默认是RISING
+@return re 输出模式返回设置电平的闭包, 输入模式和中断模式返回获取电平的闭包
 @usage gpio.setup(17, gpio.INPUT) 设置gpio17为输入
-@usage gpio.setup(27, gpio.IRQ) 设置gpio27为中断, 通过sys.subscribe("IRQ_27", function(val) end) 可订阅中断事件
+@usage gpio.setup(27, function(val) print("IRQ_27") end, gpio.RISING) 设置gpio27为中断
 */
 static int l_gpio_setup(lua_State *L) {
-    lua_gettop(L);
+    //lua_gettop(L);
     // TODO 设置失败会内存泄漏
     luat_gpio_t* conf = (luat_gpio_t*)luat_heap_malloc(sizeof(luat_gpio_t));
     conf->pin = luaL_checkinteger(L, 1);
-    conf->mode = luaL_checkinteger(L, 2);
+    //conf->mode = luaL_checkinteger(L, 2);
+    conf->lua_ref = 0;
+    if (lua_isfunction(L, 2)) {
+        conf->mode = Luat_GPIO_IRQ;
+        lua_pushvalue(L, 2);
+        conf->lua_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+        lua_pop(L, 1);
+    }
+    else if (lua_isinteger(L, 2)) {
+        conf->mode = Luat_GPIO_OUTPUT;
+    }
+    else {
+        conf->mode = Luat_GPIO_INPUT;
+    }
     conf->pull = luaL_optinteger(L, 3, Luat_GPIO_DEFAULT);
-    conf->irq = luaL_optinteger(L, 4, Luat_GPIO_BOTH);
+    conf->irq = luaL_optinteger(L, 4, Luat_GPIO_RISING);
     if (conf->mode == Luat_GPIO_IRQ) {
         conf->func = &l_gpio_handler;
     }

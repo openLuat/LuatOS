@@ -31,6 +31,7 @@ typedef struct luat_gpio
     int mode;
     int pull;
     int irq;
+    int lua_ref;
     luat_msg_handler func;
 } luat_gpio_t;
 

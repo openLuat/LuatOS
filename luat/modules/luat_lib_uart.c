@@ -4,12 +4,12 @@
 #include "luat_malloc.h"
 #include "luat_msgbus.h"
 
-static int l_uart_handler(lua_State *L, void* ptr) {
+int l_uart_handler(lua_State *L, void* ptr) {
     luaL_Buffer b;
     uint8_t *uart_id = (uint8_t *)ptr;
     lua_getglobal(L, "sys_pub");
     if (!lua_isnil(L, -1)) {
-        lua_pushfstring(L, "IRQ_UART%d", (char)(*uart_id));
+        lua_pushfstring(L, "IRQ_UART%d", *uart_id);
         lua_pushinteger(L, *uart_id);
         lua_call(L, 2, 0);
     }
@@ -28,7 +28,6 @@ static int l_uart_setup(lua_State *L)
     uart_config->parity = luaL_checkinteger(L, 5);
     uart_config->bit_order = luaL_checkinteger(L, 6);
     uart_config->bufsz = luaL_checkinteger(L, 7);
-    uart_config->func = l_uart_handler;
 
     lua_pushinteger(L, luat_uart_setup(uart_config));
 

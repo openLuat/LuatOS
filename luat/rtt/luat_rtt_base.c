@@ -94,6 +94,12 @@ void luat_openlibs(lua_State *L) {
     luaL_requiref(L, "json", luaopen_cjson, 1);
     lua_pop(L, 1);
     print_list_mem("done> require(json)");
+
+    #ifdef RT_USING_I2C
+    luaL_requiref(L, "i2c", luaopen_i2c, 1);
+    lua_pop(L, 1);
+    print_list_mem("done> require(i2c)");
+    #endif
 }
 
 void luat_os_reboot(int code) {

@@ -54,7 +54,10 @@ local result = uart.setup(
     1,--停止位
     uart.None,--校验位
     uart.LSB,--高低位顺序
-    maxBuffer--缓冲区大小
+    maxBuffer,--缓冲区大小
+    function ()--回调函数
+        print(uart.read(uartid,maxBuffer))
+    end
 )
 
 if result ~= 0 then--返回值为0，表示打开成功
@@ -64,7 +67,7 @@ end
 --发数据
 uart.write(uartid,"test")
 
---方式1:轮询
+--轮询方式，和回调方式二选一来用
 sys.taskInit(function ()
     while true do
         local data = uart.read(uartid,maxBuffer)
@@ -73,11 +76,6 @@ sys.taskInit(function ()
         end
         sys.wait(100)--不阻塞的延时函数
     end
-end)
-
---方式2:收数据回调
-sys.subscribe("IRQ_UART"..uartid, function(uartid)
-    print(uart.read(uartid,maxBuffer))
 end)
 
 ```

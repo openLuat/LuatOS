@@ -11,7 +11,11 @@ local result = uart.setup(
     1,--停止位
     uart.None,--校验位
     uart.LSB,--高低位顺序
-    maxBuffer--缓冲区大小
+    maxBuffer,--缓冲区大小
+    function ()
+        local str = uart.read(uartid,maxBuffer)
+        print("uart","receive:"..str)
+    end
 )
 
 --返回值为0，表示打开成功
@@ -23,7 +27,7 @@ end
 --循环发数据
 sys.timerLoopStart(uart.write,1000,uartid,"test")
 
---方式1:轮询
+--轮询例子
 -- sys.taskInit(function ()
 --     while true do
 --         local data = uart.read(uartid,maxBuffer)
@@ -34,13 +38,5 @@ sys.timerLoopStart(uart.write,1000,uartid,"test")
 --         sys.wait(100)--不阻塞的延时函数
 --     end
 -- end)
-
-
--- --方式2:收数据回调
-sys.subscribe("IRQ_UART"..uartid, function(uartid)
-    local str = uart.read(uartid,maxBuffer)
-    print("uart","receive:"..str)
-    uart.write(uartid,str)
-end)
 
 sys.run()

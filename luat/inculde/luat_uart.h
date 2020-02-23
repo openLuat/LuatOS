@@ -22,9 +22,9 @@ typedef struct luat_uart_t {
 
     uint32_t parity;    // 奇偶校验位
     uint32_t bufsz;     // 接收数据缓冲区大小
-    luat_msg_handler func;//回调
 } luat_uart_t;
 
+int l_uart_handler(lua_State *L, void* ptr);
 int8_t luat_uart_setup(luat_uart_t* uart);
 uint32_t luat_uart_write(uint8_t uartid, uint8_t* data, uint32_t length);
 uint32_t luat_uart_read(uint8_t uartid, uint8_t* buffer, uint32_t length);

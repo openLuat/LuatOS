@@ -6,13 +6,16 @@
 
 int l_uart_handler(lua_State *L, void* ptr) {
     luaL_Buffer b;
-    uint8_t *uart_id = (uint8_t *)ptr;
-    lua_getglobal(L, "sys_pub");
-    if (!lua_isnil(L, -1)) {
-        lua_pushfstring(L, "IRQ_UART%d", *uart_id);
-        lua_pushinteger(L, *uart_id);
-        lua_call(L, 2, 0);
+    int *callback = (uint8_t *)ptr;
+    if(*callback != LUA_REFNIL)
+    {
+        lua_geti(L, LUA_REGISTRYINDEX, *callback);
+        if (!lua_isnil(L, -1))
+        {
+            lua_call(L, 0, 0);
+        }
     }
+
     // 给rtos.recv方法返回个空数据
     lua_pushinteger(L, 0);
     return 1;
@@ -23,11 +26,21 @@ static int l_uart_setup(lua_State *L)
     luat_uart_t *uart_config = (luat_uart_t *)luat_heap_malloc(sizeof(luat_uart_t));
     uart_config->id = luaL_checkinteger(L, 1);
     uart_config->baud_rate = luaL_checkinteger(L, 2);
-    uart_config->data_bits = luaL_checkinteger(L, 3);
-    uart_config->stop_bits = luaL_checkinteger(L, 4);
-    uart_config->parity = luaL_checkinteger(L, 5);
-    uart_config->bit_order = luaL_checkinteger(L, 6);
-    uart_config->bufsz = luaL_checkinteger(L, 7);
+    uart_config->data_bits = luaL_optinteger(L, 3, 8);
+    uart_config->stop_bits = luaL_optinteger(L, 4, 1);
+    uart_config->parity = luaL_optinteger(L, 5, LUAT_PARITY_NONE);
+    uart_config->bit_order = luaL_optinteger(L, 6, LUAT_BIT_ORDER_LSB);
+    uart_config->bufsz = luaL_optinteger(L, 7, 512);
+    if(lua_isfunction(L, 8))
+    {
+        lua_pushvalue(L, 8);
+        uart_config->callback = luaL_ref(L, LUA_REGISTRYINDEX);
+    }
+    else
+    {
+        uart_config->callback = LUA_REFNIL;//没传值
+    }
+
 
     lua_pushinteger(L, luat_uart_setup(uart_config));
 

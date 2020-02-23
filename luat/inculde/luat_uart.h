@@ -22,6 +22,7 @@ typedef struct luat_uart_t {
 
     uint32_t parity;    // 奇偶校验位
     uint32_t bufsz;     // 接收数据缓冲区大小
+    int callback;//回调函数
 } luat_uart_t;
 
 int l_uart_handler(lua_State *L, void* ptr);

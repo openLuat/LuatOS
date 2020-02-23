@@ -11,6 +11,8 @@
 #define MAX_DEVICE_COUNT 2
 //存放串口设备句柄
 static rt_device_t serials[MAX_DEVICE_COUNT] = {NULL};
+//回调函数编号
+static int callback[MAX_DEVICE_COUNT] = {NULL};
 
 static rt_err_t uart_input(rt_device_t dev, rt_size_t size)
 {
@@ -21,7 +23,7 @@ static rt_err_t uart_input(rt_device_t dev, rt_size_t size)
         {
             rtos_msg_t msg;
             msg.handler = l_uart_handler;
-            msg.ptr = &i;
+            msg.ptr = callback + i;
             luat_msgbus_put(&msg, 1);
             break;
         }
@@ -52,6 +54,7 @@ int8_t luat_uart_setup(luat_uart_t* uart)
     if(re != RT_EOK)
         return re;//失败了
 
+    callback[uart->id] = uart->callback;//回调
     //回调
     rt_device_set_rx_indicate(serials[uart->id], uart_input);
     return re;

@@ -1587,7 +1587,6 @@ static int l_json_decode_safe(lua_State *L) {
     }
     else {
         lua_pushinteger(L, 1);
-        lua_insert(L, 1);
         return 2;
     }
 }

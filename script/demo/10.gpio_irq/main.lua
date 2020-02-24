@@ -11,6 +11,6 @@ sys.subscribe("IRQ_27", function()
     print("IRQ_27!!!!")
 end)
 
-gpio.setup(27, gpio.IRQ)
+gpio.setup(27, function() print("IQR") end, nil, gpio.RISING)
 
 sys.run()

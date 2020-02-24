@@ -45,7 +45,6 @@ static int l_gpio_setup(lua_State *L) {
         conf->mode = Luat_GPIO_IRQ;
         lua_pushvalue(L, 2);
         conf->lua_ref = luaL_ref(L, LUA_REGISTRYINDEX);
-        lua_pop(L, 1);
     }
     else if (lua_isinteger(L, 2)) {
         conf->mode = Luat_GPIO_OUTPUT;

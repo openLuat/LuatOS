@@ -45,5 +45,68 @@ git commit -m "fix: xxxx"
 # 拉取最新代码
 git pull
 # 推送提交
-git push 
+git push
+```
+
+## Lua接口注释规范
+
+### 在C文件内的接口
+
+在文件的最上方，格式如下：
+
+```c
+/*
+@module  模块的调用名
+@summary 模块的简短描述信息
+@version 版本号，可选
+@data    日期，可选
+*/
+```
+
+在Lua内可调用的函数，格式类似ldoc，如下：
+
+```c
+/*
+@function module.function(调用时用到的完整函数名)
+@string 第一个参数，@后跟参数类型，空格后跟参数解释
+@number[opt=nil] 第二个参数，默认值为nil
+@table[opt={}] 第三个参数，默认值为{}
+...根据实际，列出所有参数
+@return 类型 返回的第一个值，这里是解释
+@return string 返回的第二个值，类型为string
+...根据实际，列处所有返回值
+@usage
+--使用的例子，可多行
+lcoal a,b,c = module.function("test",nil,{1,2,3})
+*/
+static int l_module_function(lua_State *L) {
+    //一堆代码
+}
+```
+
+### 在Lua文件内的接口
+
+在文件的最上方，格式如下：
+
+```lua
+-- @module  模块的调用名
+-- @summary 模块的简短描述信息
+-- @version 版本号，可选
+-- @data    日期，可选
+```
+
+可调用的函数，格式类似ldoc，如下：
+
+```lua
+-- @function module.function(调用时用到的完整函数名)
+-- @string 第一个参数，@后跟参数类型，空格后跟参数解释
+-- @number[opt=nil] 第二个参数，默认值为nil
+-- @table[opt={}] 第三个参数，默认值为{}
+-- ...根据实际，列出所有参数
+-- @return 类型 返回的第一个值，这里是解释
+-- @return string 返回的第二个值，类型为string
+-- ...根据实际，列处所有返回值
+-- @usage
+-- --使用的例子，可多行
+-- lcoal a,b,c = module.function("test",nil,{1,2,3})
 ```

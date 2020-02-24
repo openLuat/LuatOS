@@ -11,9 +11,14 @@
 #define MAX_DEVICE_COUNT 2
 //存放串口设备句柄
 static rt_device_t serials[MAX_DEVICE_COUNT] = {NULL};
-//回调函数编号
-static int callback[MAX_DEVICE_COUNT] = {NULL};
 
+typedef struct callback {
+    int received;//回调函数
+    int sent;//回调函数
+} callback;
+static callback uart_funcion[MAX_DEVICE_COUNT] = {NULL};
+
+//接收数据回调
 static rt_err_t uart_input(rt_device_t dev, rt_size_t size)
 {
     uint8_t i;
@@ -23,7 +28,25 @@ static rt_err_t uart_input(rt_device_t dev, rt_size_t size)
         {
             rtos_msg_t msg;
             msg.handler = l_uart_handler;
-            msg.ptr = callback + i;
+            msg.ptr = uart_funcion[i].received;
+            luat_msgbus_put(&msg, 1);
+            break;
+        }
+    }
+    return RT_EOK;
+}
+
+//串口发送完成事件回调
+static rt_err_t uart_sent(rt_device_t dev, void *buffer)
+{
+    uint8_t i;
+    for(i=0;i<MAX_DEVICE_COUNT;i++)
+    {
+        if(serials[i] != NULL && serials[i]->device_id == dev->device_id)
+        {
+            rtos_msg_t msg;
+            msg.handler = l_uart_handler;
+            msg.ptr = uart_funcion[i].sent;
             luat_msgbus_put(&msg, 1);
             break;
         }
@@ -54,9 +77,11 @@ int8_t luat_uart_setup(luat_uart_t* uart)
     if(re != RT_EOK)
         return re;//失败了
 
-    callback[uart->id] = uart->callback;//回调
+    uart_funcion[uart->id].received = uart->received;//接收回调
+    uart_funcion[uart->id].sent = uart->sent;//发送回调
     //回调
     rt_device_set_rx_indicate(serials[uart->id], uart_input);
+    rt_device_set_tx_complete(serials[uart->id], uart_sent);
     return re;
 }
 

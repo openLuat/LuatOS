@@ -31,6 +31,7 @@ LUAMOD_API int luaopen_sensor( lua_State *L );
 LUAMOD_API int luaopen_log( lua_State *L );
 LUAMOD_API int luaopen_cjson( lua_State *L );
 LUAMOD_API int luaopen_i2c( lua_State *L );
+LUAMOD_API int luaopen_disp( lua_State *L );
 
 int l_sprintf(char *buf, int32_t size, const char *fmt, ...);
 

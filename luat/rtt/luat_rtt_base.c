@@ -100,6 +100,12 @@ void luat_openlibs(lua_State *L) {
     lua_pop(L, 1);
     print_list_mem("done> require(i2c)");
     #endif
+
+    #ifdef PKG_USING_U8G2
+    luaL_requiref(L, "disp", luaopen_disp, 1);
+    lua_pop(L, 1);
+    print_list_mem("done> require(disp)");
+    #endif
 }
 
 void luat_os_reboot(int code) {

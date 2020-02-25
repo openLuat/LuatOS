@@ -21,7 +21,7 @@ static void rt_timer_callback(void *param) {
 }
 
 int luat_timer_start(luat_timer_t* timer) {
-    rt_sprintf(timer_name, "t%ld", timer->id); // TODO: 可能与rtt的命名长度冲突
+    rt_sprintf(timer_name, "t%06X", timer->id);
     LOG_D("rtt timer name=%s", timer_name);
     rt_tick_t time = timer->timeout;
     rt_uint8_t flag = timer->repeat ? RT_TIMER_FLAG_PERIODIC : RT_TIMER_FLAG_ONE_SHOT;

@@ -37,8 +37,8 @@ static int l_timer_handler(lua_State *L, void* ptr) {
     // luat_printf("l_timer_handler id=%ld\n", timer->id);
     lua_pushinteger(L, MSG_TIMER);
     lua_pushinteger(L, timer->id);
-    lua_pushinteger(L, timer->timeout);
     lua_pushinteger(L, timer->repeat);
+    //lua_pushinteger(L, timer->timeout);
     if (timer->repeat == 0) {
         luat_timer_stop(timer);
         luat_heap_free(timer);
@@ -46,7 +46,7 @@ static int l_timer_handler(lua_State *L, void* ptr) {
     else if (timer->repeat > 0) {
         timer->repeat --;
     }
-    return 4;
+    return 3;
 }
 
 /*

@@ -101,8 +101,6 @@ static void _wlan_connect(void* params) {
 @usage wlan.connect("uiot", "1234567890")
 */
 static int l_wlan_connect(lua_State *L) {
-    //强制GC一次
-    //lua_gc(L, LUA_GCCOLLECT, 0);
     // 更新参数
     size_t len;
     const char* _ssid = luaL_checklstring(L, 1, &len);
@@ -129,6 +127,10 @@ static int l_wlan_connect(lua_State *L) {
         lua_pushstring(L, "fail to start wlan thread");
         return 2;
     }
+    // 自动重连
+    
+    rt_wlan_config_autoreconnect(1);
+    
     return 0;
 }
 

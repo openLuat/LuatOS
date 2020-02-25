@@ -9,7 +9,7 @@
 #include <stdlib.h>
 
 #define DBG_TAG           "wlan.airkiss"
-#define DBG_LVL           DBG_DEBUG
+#define DBG_LVL           DBG_INFO
 #include <rtdbg.h>
 
 typedef struct rtt_airkiss_ctx

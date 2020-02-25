@@ -55,8 +55,12 @@ local result = uart.setup(
     uart.None,--校验位
     uart.LSB,--高低位顺序
     maxBuffer,--缓冲区大小
-    function ()--回调函数
-        print(uart.read(uartid,maxBuffer))
+    function ()--接收回调
+        local str = uart.read(uartid,maxBuffer)
+        print("uart","receive:"..str)
+    end,
+    function ()--发送完成回调
+        print("uart","send ok")
     end
 )
 

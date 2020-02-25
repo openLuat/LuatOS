@@ -34,11 +34,21 @@ static int l_uart_setup(lua_State *L)
     if(lua_isfunction(L, 8))
     {
         lua_pushvalue(L, 8);
-        uart_config->callback = luaL_ref(L, LUA_REGISTRYINDEX);
+        uart_config->received = luaL_ref(L, LUA_REGISTRYINDEX);
     }
     else
     {
-        uart_config->callback = LUA_REFNIL;//没传值
+        uart_config->received = LUA_REFNIL;//没传值
+    }
+
+    if(lua_isfunction(L, 9))
+    {
+        lua_pushvalue(L, 9);
+        uart_config->sent = luaL_ref(L, LUA_REGISTRYINDEX);
+    }
+    else
+    {
+        uart_config->sent = LUA_REFNIL;//没传值
     }
 
 

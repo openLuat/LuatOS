@@ -10,10 +10,12 @@ local TAG = "main"
 
 sys.subscribe("WLAN_READY", function ()
     print("!!! wlan ready event !!!")
+    -- 马上进行时间同步
+    socket.ntpSync()
 end)
 
 ----------------------------------------------------------------------
--- 对接SSD1306
+-- 对接SSD1306, 当前显示一行就好了
 function display_str(str)
     disp.clear()
     disp.drawStr(str, 1, 18)
@@ -102,13 +104,12 @@ end)
 -- 业务流程, 联网后定时发送温度数据到服务器
 sys.taskInit(function()
     while 1 do 
-        sys.waitUntil("WLAN_READY", 30000)
         if wlan.ready() == 1 then
-            sys.wait(5*1000)
-            print("prepare ds18b20 ...")
+            sys.wait(1000)
+            log.info("ds18b20", "start to read ds18b20 ...")
             local temp = (sensor.ds18b20(28) or "")
-            print("TEMP: " .. temp)
-            display_str("TEMP: " .. temp)
+            log.info("ds18b20", "TEMP: ", temp, os.date())
+            display_str("Temp: " .. temp  .. " rssi:" .. tostring(wlan.rssi()))
             local t = {"GET /api/w60x/report/ds18b20?mac=", wlan.get_mac(), "&temp=", temp, " HTTP/1.0\r\n",
                     "Host: site0.cn\r\n",
                     "User-Agent: LuatOS/0.1.0\r\n",
@@ -117,8 +118,11 @@ sys.taskInit(function()
             --print(data)
             -- TODO: 改成socket/netc对象
             socket.tsend("site0.cn", 80, table.concat(t))
-            print("tsend complete, sleep 30s")
-            sys.wait(30*1000)
+            log.info("network", "tsend complete, sleep 5s")
+            sys.wait(5000)
+        else
+            log.warn("main", "wlan is not ready yet")
+            sys.waitUntil("WLAN_READY", 30000)
         end
     end
 end)

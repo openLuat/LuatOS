@@ -6,6 +6,7 @@
 #include "luat_log.h"
 #include "stdio.h"
 #include "luat_msgbus.h"
+#include "luat_timer.h"
 
 
 static int report (lua_State *L, int status);
@@ -100,5 +101,8 @@ int luat_main (int argc, char **argv, int _) {
   result = lua_toboolean(L, -1);  /* get result */
   report(L, status);
   //lua_close(L);
+  luat_log_info("luat.main", "Lua VM exit!! reboot in 60s");
+  luat_timer_mdelay(60*1000);
+  luat_os_reboot(result);
   return (result && status == LUA_OK) ? 0 : 2;
 }

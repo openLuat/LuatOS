@@ -13,9 +13,9 @@ local log = _G.log
 SCRIPT_LIB_VER = "1.0.0"
 
 -- TaskID最大值
-local TASK_TIMER_ID_MAX = 0x1FFFFFFF
+local TASK_TIMER_ID_MAX = 0x1FFFFF
 -- msgId 最大值(请勿修改否则会发生msgId碰撞的危险)
-local MSG_TIMER_ID_MAX = 0x7FFFFFFF
+local MSG_TIMER_ID_MAX = 0x7FFFFF
 
 -- 任务定时器id
 local taskTimerId = 0
@@ -124,7 +124,7 @@ end
 function sys.timerStop(val, ...)
     -- val 为定时器ID
     if type(val) == 'number' then
-        timerPool[val], para[val], loop[val] = nil
+        timerPool[val], para[val] = nil
         rtos.timer_stop(val)
     else
         for k, v in pairs(timerPool) do
@@ -133,7 +133,7 @@ function sys.timerStop(val, ...)
                 -- 可变参数相同
                 if cmpTable({...}, para[k]) then
                     rtos.timer_stop(k)
-                    timerPool[k], para[k], loop[val] = nil
+                    timerPool[k], para[k] = nil
                     break
                 end
             end
@@ -149,17 +149,12 @@ function sys.timerStopAll(fnc)
     for k, v in pairs(timerPool) do
         if type(v) == "table" and v.cb == fnc or v == fnc then
             rtos.timer_stop(k)
-            timerPool[k], para[k], loop[k] = nil
+            timerPool[k], para[k] = nil
         end
     end
 end
 
---- 开启一个定时器
--- @param fnc 定时器回调函数
--- @number ms 整数，最大定时126322567毫秒
--- @param ... 可变参数 fnc的参数
--- @return number 定时器ID，如果失败，返回nil
-function sys.timerStart(fnc, ms, ...)
+function sys.timerAdvStart(fnc, ms, _repeat, ...)
     --回调函数和时长检测
     --assert(fnc ~= nil, "sys.timerStart(first param) is nil !")
     --assert(ms > 0, "sys.timerStart(Second parameter) is <= zero !")
@@ -180,7 +175,7 @@ function sys.timerStart(fnc, ms, ...)
         end
     end
     --调用底层接口启动定时器
-    if rtos.timer_start(msgId, ms) ~= 1 then log.debug("rtos.timer_start error") return end
+    if rtos.timer_start(msgId, ms, _repeat) ~= 1 then return end
     --如果存在可变参数，在定时器参数表中保存参数
     if #arg ~= 0 then
         para[msgId] = arg
@@ -189,15 +184,22 @@ function sys.timerStart(fnc, ms, ...)
     return msgId
 end
 
+--- 开启一个定时器
+-- @param fnc 定时器回调函数
+-- @number ms 整数，最大定时126322567毫秒
+-- @param ... 可变参数 fnc的参数
+-- @return number 定时器ID，如果失败，返回nil
+function sys.timerStart(fnc, ms, ...)
+    return sys.timerAdvStart(fnc, ms, 0, ...)
+end
+
 --- 开启一个循环定时器
 -- @param fnc 定时器回调函数
 -- @number ms 整数，最大定时126322567毫秒
 -- @param ... 可变参数 fnc的参数
 -- @return number 定时器ID，如果失败，返回nil
 function sys.timerLoopStart(fnc, ms, ...)
-    local tid = sys.timerStart(fnc, ms, ...)
-    if tid then loop[tid] = ms end
-    return tid
+    return sys.timerAdvStart(fnc, ms, -1, ...)
 end
 
 --- 判断某个定时器是否处于开启状态
@@ -243,10 +245,10 @@ end
 -- @param callback 消息回调处理
 -- @usage unsubscribe("NET_STATUS_IND", callback)
 function sys.unsubscribe(id, callback)
-    --if type(id) ~= "string" or (type(callback) ~= "function" and type(callback) ~= "thread") then
-    --    log.warn("warning: sys.unsubscribe invalid parameter", id, callback)
-    --    return
-    --end
+    if type(id) ~= "string" or (type(callback) ~= "function" and type(callback) ~= "thread") then
+        log.warn("warning: sys.unsubscribe invalid parameter", id, callback)
+        return
+    end
     if subscribers[id] then subscribers[id][callback] = nil end
 end
 
@@ -311,15 +313,15 @@ local function safeRun()
         else
             local cb = timerPool[param]
             --如果不是循环定时器，从定时器id表中删除此定时器
-            if not loop[param] then timerPool[param] = nil end
+            if exparam == 0 then timerPool[param] = nil end
             if para[param] ~= nil then
                 cb(unpack(para[param]))
-                if not loop[param] then para[param] = nil end
+                if exparam == 0 then para[param] = nil end
             else
                 cb()
             end
             --如果是循环定时器，继续启动此定时器
-            if loop[param] then rtos.timer_start(param, loop[param]) end
+            --if loop[param] then rtos.timer_start(param, loop[param]) end
         end
     --其他消息（音频消息、充电管理消息、按键消息等）
     --elseif type(msg) == "number" then
@@ -335,12 +337,12 @@ end
 function sys.run()
     local result, err
     while true do
-        if sRollBack then
+        --if sRollBack then
             safeRun()
-        else
-            result, err = pcall(safeRun)
-            if not result then rtos.restart(err) end
-        end
+        --else
+        --    result, err = pcall(safeRun)
+        --    if not result then rtos.restart(err) end
+        --end
     end
 end
 

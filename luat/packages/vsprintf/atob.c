@@ -34,12 +34,12 @@
 
 #include <string.h>
 
-static char * _getbase __P((char *, int *));
-#ifdef HAVE_QUAD
-static int _atob __P((unsigned long long *, char *p, int));
-#else
-static int _atob __P((unsigned long  *, char *, int));
-#endif
+// static char * _getbase __P((char * _a, int * _b));
+// #ifdef HAVE_QUAD
+// static int _atob __P((unsigned long long * _a, char *p, int _c));
+// #else
+// static int _atob __P((unsigned long  * _a, char * _b, int _c));
+// #endif
 
 static char *
 _getbase(char *p, int *basep)

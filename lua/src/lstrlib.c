@@ -1542,7 +1542,7 @@ static int str_unpack (lua_State *L) {
 static const rotable_Reg strlib[] = {
   {"byte", str_byte, 0},
   {"char", str_char, 0},
-  {"dump", str_dump, 0},
+  //{"dump", str_dump, 0},
   {"find", str_find, 0},
   {"format", str_format, 0},
   {"gmatch", gmatch, 0},

@@ -138,7 +138,7 @@ int luat_i2c_write_reg(int id, int addr, int reg, void* buff, size_t len) {
 }
 int luat_i2c_read_reg(int id,  int addr, void* buff, size_t len) {
     if (!luat_i2c_exist(id)) return 1;
-    return read_reg(i2c_devs[id], addr, buff, len);
+    return read_regs(i2c_devs[id], addr, buff, len);
 }
 
 #endif

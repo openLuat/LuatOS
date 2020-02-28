@@ -464,6 +464,9 @@ static void *resizebox (lua_State *L, int idx, size_t newsize) {
   UBox *box = (UBox *)lua_touserdata(L, idx);
   void *temp = allocf(ud, box->box, box->bsize, newsize);
   if (temp == NULL && newsize > 0) {  /* allocation error? */
+    lua_gc(L, LUA_GCCOLLECT, 0);
+  }
+  if (temp == NULL && newsize > 0) {  /* allocation error? */
     resizebox(L, idx, 0);  /* free buffer */
     luaL_error(L, "not enough memory for buffer allocation");
   }

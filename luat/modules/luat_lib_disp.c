@@ -63,7 +63,7 @@ static int l_disp_draw_text(lua_State *L) {
     u8g2_SetFont(u8g2, u8g2_font_ncenB08_tr);
     size_t len;
     size_t x, y;
-    const char* str = luaL_checklstring(L, 1, len);
+    const char* str = luaL_checklstring(L, 1, &len);
     x = luaL_checkinteger(L, 2);
     y = luaL_checkinteger(L, 3);
     

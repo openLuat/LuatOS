@@ -106,6 +106,10 @@ void luat_openlibs(lua_State *L) {
     lua_pop(L, 1);
     print_list_mem("done> require(disp)");
     #endif
+
+    luaL_requiref(L, "utest", luaopen_utest, 1);
+    lua_pop(L, 1);
+    print_list_mem("done> require(utest)");
 }
 
 void luat_os_reboot(int code) {

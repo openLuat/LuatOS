@@ -56,6 +56,7 @@
 #undef rt_free
 #undef rt_relloc
 #undef rt_calloc
+#undef RT_USING_MEMTRACE
 
 #ifndef RT_USING_MEMHEAP_AS_HEAP
 

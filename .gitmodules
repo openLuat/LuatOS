@@ -4,3 +4,6 @@
 [submodule "qemu-vexpress-a9"]
 	path = bsp/qemu-vexpress-a9
 	url = https://github.com/openLuat/LuatOS-qemu-vexpress-a9.git
+[submodule "stm32f103re"]
+	path = bsp/stm32f103re
+	url = https://github.com/openLuat/LuatOS-stm32f103re.git

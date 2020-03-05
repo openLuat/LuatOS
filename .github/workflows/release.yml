@@ -53,6 +53,22 @@ jobs:
       run: |
         cd bsp/w60x
         zip w60x Bin/*
+    - name: make stm32f103re
+      run: |
+        cd bsp/stm32f103re
+        export RTT_EXEC_PATH=/opt/gcc-arm-none-eabi-6-2017-q2-update/bin
+        echo | scons --menuconfig
+        source ~/.env/env.sh
+        pkgs --update
+        scons
+    - name: package zip file of stm32f103re
+      run: |
+        cd bsp/stm32f103re
+        mkdir stm32f103re
+        mv rtthread.bin stm32f103re/
+        mv rt-thread.elf stm32f103re/
+        mv rt-thread.map stm32f103re/
+        zip stm32f103re/*
     - name: Create Release
       id: create_release
       uses: actions/create-release@v1.0.0
@@ -81,5 +97,15 @@ jobs:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: ./bsp/qemu-vexpress-a9/qemu-vexpress-a9.zip
         asset_name: qemu-vexpress-a9.zip
+        asset_content_type: application/zip
+    - name: Upload Release Asset stm32f103re
+      id: upload-release-asset
+      uses: actions/upload-release-asset@v1.0.1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./bsp/stm32f103re/stm32f103re.zip
+        asset_name: stm32f103re.zip
         asset_content_type: application/zip
 

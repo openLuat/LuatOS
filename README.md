@@ -6,6 +6,7 @@
 [![license](https://img.shields.io/github/license/openLuat/LuatOS)](/LICENSE)
 [![rtt-w60x ci](https://github.com/openLuat/LuatOS/workflows/rtt-w60x/badge.svg)](https://github.com/openLuat/LuatOS/actions?query=workflow%3Artt-w60x)
 [![qemu ci](https://github.com/openLuat/LuatOS/workflows/qemu-vexpress-a9/badge.svg)](https://github.com/openLuat/LuatOS/actions?query=workflow%3Aqemu-vexpress-a9)
+[![stm32f103re ci](https://github.com/openLuat/LuatOS/workflows/stm32f103re/badge.svg)](https://github.com/openLuat/LuatOS/actions?query=workflow%3Astm32f103re)
 [![issue](https://img.shields.io/github/issues/openLuat/LuatOS)](https://github.com/openLuat/LuatOS/issues)
 [![License](https://img.shields.io/badge/license-MIT-4EB1BA.svg)](LICENSE)
 LuatOS是运行在嵌入式硬件的实时操作系统,只需要少量内存的flash空间就能运行,用户编写lua代码就可完成各种功能
@@ -55,7 +56,7 @@ end)
 
 -- 业务流程, 联网后定时发送温度数据到服务器
 sys.taskInit(function()
-    while 1 do 
+    while 1 do
         if wlan.ready() == 1 then
             sys.wait(1000)
             local temp = (sensor.ds18b20(28) or "")

@@ -76,7 +76,7 @@ static int panic (lua_State *L) {
 
 int luat_main (int argc, char **argv, int _) {
   if (boot_mode == 0) {
-    return; // just nop
+    return 0; // just nop
   }
   //luat_print("\nI/main: Luat " LUAT_VERSION " build " __DATE__ " " __TIME__ "\n");
   luat_log_info("luat.main", "Luat " LUAT_VERSION ", build at: " __DATE__ " " __TIME__);

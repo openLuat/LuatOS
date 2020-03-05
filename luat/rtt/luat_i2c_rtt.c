@@ -107,7 +107,7 @@ int luat_ic2_close(int id) {
 }
 
 int luat_i2c_transfer(int id, int addr, int flags, void* buff, size_t len) {
-    if (!luat_i2c_exist(id)) return;
+    if (!luat_i2c_exist(id)) return -1;
     struct rt_i2c_msg msgs;
     msgs.addr = addr;
     msgs.flags = flags;

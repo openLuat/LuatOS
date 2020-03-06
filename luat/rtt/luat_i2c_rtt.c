@@ -100,13 +100,13 @@ static rt_err_t read_regs(struct rt_i2c_bus_device *bus, rt_uint16_t addr, rt_ui
 int luat_i2c_setup(int id, int speed, int slaveaddr) {
     if (!luat_i2c_exist(id)) return 1;
     // 无事可做
-    rt_device_open(i2c_devs[id], 0);
+    rt_device_open(&i2c_devs[id]->parent, 0);
     return 0;
 }
 int luat_ic2_close(int id) {
     if (!luat_i2c_exist(id)) return 1;
     // 无事可做
-    rt_device_close(i2c_devs[id]);
+    rt_device_close(&i2c_devs[id]->parent);
     return 0;
 }
 

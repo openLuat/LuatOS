@@ -22,6 +22,8 @@ static void luat_gpio_irq_callback(void* ptr) {
     rtos_msg_t msg;
     msg.handler = gpio->func;
     msg.ptr = ptr;
+    msg.arg1 = gpio->pin;
+    msg.arg2 = luat_gpio_get(gpio->pin);
     luat_msgbus_put(&msg, 1);
 }
 

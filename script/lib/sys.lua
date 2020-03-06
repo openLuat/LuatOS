@@ -89,7 +89,10 @@ end
 -- @return co  返回该任务的线程号
 -- @usage sys.taskInit(task1,'a','b')
 function sys.taskInit(fun, ...)
-    local co = coroutine.create(fun)
+    local co = coroutine.create(function(...)
+        local result, err = pcall(fun, ...)
+        if not result then print("ERROR!!", err) end
+    end)
     coroutine.resume(co, ...)
     return co
 end
@@ -303,6 +306,7 @@ local function safeRun()
         -- 无任何操作
     -- 判断是否为定时器消息，并且消息是否注册
     elseif msg == rtos.MSG_TIMER and timerPool[param] then
+        log.info("sys", msg, param, exparam)
         if param < TASK_TIMER_ID_MAX then
             local taskId = timerPool[param]
             timerPool[param] = nil

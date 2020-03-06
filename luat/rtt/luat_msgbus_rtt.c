@@ -35,7 +35,11 @@ void luat_msgbus_init(void) {
 // }
 
 uint32_t luat_msgbus_put(rtos_msg_t* msg, size_t timeout) {
-    return rt_mq_send(&mq, msg, sizeof(rtos_msg_t));
+    int re = rt_mq_send(&mq, msg, sizeof(rtos_msg_t));
+    if (re) {
+        LOG_W("msgbus is FULL!!!!");
+    }
+    return re;
 }
 
 uint32_t luat_msgbus_get(rtos_msg_t* msg, size_t timeout) {

@@ -51,7 +51,7 @@ int luat_timer_stop(luat_timer_t* timer) {
 }
 
 luat_timer_t* luat_timer_get(size_t timer_id) {
-    rt_sprintf(timer_name, "t%ld", timer_id);
+    rt_sprintf(timer_name, "t%06X", timer_id);
     rt_object_t obj = rt_object_find(timer_name, RT_Object_Class_Timer);
     if (obj != RT_NULL) {
         return (luat_timer_t*)((rt_timer_t)obj)->parameter;

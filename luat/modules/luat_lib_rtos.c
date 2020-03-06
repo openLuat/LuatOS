@@ -22,6 +22,7 @@ static int l_rtos_receive(lua_State *L) {
     re = luat_msgbus_get(&msg, luaL_checkinteger(L, 1));
     if (!re) {
         // luat_print("luat_msgbus_get msg!!!\n");
+        lua_pushlightuserdata(L, (void*)(&msg));
         return msg.handler(L, msg.ptr);
     }
     else {
@@ -60,7 +61,7 @@ static int l_rtos_timer_start(lua_State *L) {
     lua_gettop(L);
     size_t id = (size_t)luaL_checkinteger(L, 1) / 1;
     size_t timeout = (size_t)luaL_checkinteger(L, 2);
-    size_t repeat = (size_t)luaL_optinteger(L, 3, 0);
+    int repeat = (size_t)luaL_optinteger(L, 3, 0);
     // luat_printf("timer id=%ld\n", id);
     // luat_printf("timer timeout=%ld\n", timeout);
     // luat_printf("timer repeat=%ld\n", repeat);

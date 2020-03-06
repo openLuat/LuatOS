@@ -10,7 +10,7 @@ typedef struct luat_timer
     size_t id;
     size_t timeout;
     size_t type;
-    size_t repeat;
+    int repeat;
     luat_msg_handler func;
 }luat_timer_t;
 

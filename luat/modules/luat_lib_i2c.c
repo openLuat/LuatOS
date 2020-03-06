@@ -23,7 +23,7 @@ static int l_i2c_send(lua_State *L) {
     size_t len;
     if (lua_isstring(L, 3)) {
         const char* buff = luaL_checklstring(L, 3, &len);
-        luat_i2c_send(id, addr, buff, len);
+        luat_i2c_send(id, addr, (char*)buff, len);
     }
     else if (lua_isinteger(L, 3)) {
         len = lua_gettop(L) - 2;
@@ -54,7 +54,7 @@ static int l_i2c_write_reg(lua_State *L) {
     size_t len;
     if (lua_isstring(L, 4)) {
         const char* buff = luaL_checklstring(L, 4, &len);
-        luat_i2c_write_reg(id, addr, reg, buff, len);
+        luat_i2c_write_reg(id, addr, reg, (char*)buff, len);
     }
     else if (lua_isinteger(L, 4)) {
         len = lua_gettop(L) - 2;

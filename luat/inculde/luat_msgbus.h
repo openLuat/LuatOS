@@ -14,6 +14,8 @@ typedef int (*luat_msg_handler) (lua_State *L, void* ptr);
 typedef struct rtos_msg{
     luat_msg_handler handler;
     void* ptr;
+    int arg1;
+    int arg2;
 }rtos_msg_t;
 
 

@@ -3,16 +3,41 @@
 #include "luat_uart.h"
 #include "luat_malloc.h"
 #include "luat_msgbus.h"
+#include "string.h"
+
+#define MAX_DEVICE_COUNT 10
+
+typedef struct luat_uart_cb {
+    int received;//回调函数
+    int sent;//回调函数
+} luat_uart_cb_t;
+static luat_uart_cb_t uart_cbs[MAX_DEVICE_COUNT];
 
 int l_uart_handler(lua_State *L, void* ptr) {
-    luaL_Buffer b;
-    int *callback = (uint8_t *)ptr;
-    if(*callback != LUA_REFNIL)
-    {
-        lua_geti(L, LUA_REGISTRYINDEX, *callback);
-        if (!lua_isnil(L, -1))
-        {
-            lua_call(L, 0, 0);
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    lua_pop(L, 1);
+    int uart_id = msg->arg1;
+    if (!luat_uart_exist(uart_id)) {
+        return 0;
+    }
+    // sent event
+    if (msg->arg2 == 0) {
+        if (uart_cbs[uart_id].sent) {
+            lua_geti(L, LUA_REGISTRYINDEX, uart_cbs[uart_id].sent);
+            if (lua_isfunction(L, -1)) {
+                lua_pushinteger(L, uart_id);
+                lua_call(L, 1, 0);
+            }
+        }
+    }
+    else {
+        if (uart_cbs[uart_id].received) {
+            lua_geti(L, LUA_REGISTRYINDEX, uart_cbs[uart_id].received);
+            if (lua_isfunction(L, -1)) {
+                lua_pushinteger(L, uart_id);
+                lua_pushinteger(L, msg->arg2);
+                lua_call(L, 2, 0);
+            }
         }
     }
 
@@ -30,27 +55,7 @@ static int l_uart_setup(lua_State *L)
     uart_config->stop_bits = luaL_optinteger(L, 4, 1);
     uart_config->parity = luaL_optinteger(L, 5, LUAT_PARITY_NONE);
     uart_config->bit_order = luaL_optinteger(L, 6, LUAT_BIT_ORDER_LSB);
-    uart_config->bufsz = luaL_optinteger(L, 7, 512);
-    if(lua_isfunction(L, 8))
-    {
-        lua_pushvalue(L, 8);
-        uart_config->received = luaL_ref(L, LUA_REGISTRYINDEX);
-    }
-    else
-    {
-        uart_config->received = LUA_REFNIL;//没传值
-    }
-
-    if(lua_isfunction(L, 9))
-    {
-        lua_pushvalue(L, 9);
-        uart_config->sent = luaL_ref(L, LUA_REGISTRYINDEX);
-    }
-    else
-    {
-        uart_config->sent = LUA_REFNIL;//没传值
-    }
-
+    uart_config->bufsz = luaL_optinteger(L, 7, 1024);
 
     lua_pushinteger(L, luat_uart_setup(uart_config));
 
@@ -65,7 +70,7 @@ static int l_uart_write(lua_State *L)
     uint8_t id = luaL_checkinteger(L, 1);
     buf = lua_tolstring(L, 2, &len);//取出字符串数据
     //uint32_t length = len;
-    uint8_t result = luat_uart_write(id, buf, len);
+    uint8_t result = luat_uart_write(id, (char*)buf, len);
     lua_pushinteger(L, result);
     return 1;
 }
@@ -91,6 +96,37 @@ static int l_uart_close(lua_State *L)
     return 1;
 }
 
+static int l_uart_on(lua_State *L) {
+    int uart_id = luaL_checkinteger(L, 1);
+    if (!luat_uart_exist(uart_id)) {
+        lua_pushliteral(L, "no such uart id");
+        return 1;
+    }
+    const char* event = luaL_checkstring(L, 2);
+    if (!strcmp("receive", event)) {
+        if (uart_cbs[uart_id].received != 0) {
+            luaL_unref(L, LUA_REGISTRYINDEX, uart_cbs[uart_id].received);
+            uart_cbs[uart_id].received = 0;
+        }
+        if (lua_isfunction(L, 3)) {
+            lua_pushvalue(L, 3);
+            uart_cbs[uart_id].received = luaL_ref(L, LUA_REGISTRYINDEX);
+        }
+    }
+    else if (!strcmp("sent", event)) {
+        if (uart_cbs[uart_id].sent != 0) {
+            luaL_unref(L, LUA_REGISTRYINDEX, uart_cbs[uart_id].sent);
+            uart_cbs[uart_id].sent = 0;
+        }
+        if (lua_isfunction(L, 3)) {
+            lua_pushvalue(L, 3);
+            uart_cbs[uart_id].sent = luaL_ref(L, LUA_REGISTRYINDEX);
+        }
+    }
+    luat_setup_cb(uart_id, uart_cbs[uart_id].received, uart_cbs[uart_id].sent);
+    return 0;
+}
+
 #include "rotable.h"
 static const rotable_Reg reg_uart[] =
 {
@@ -98,6 +134,7 @@ static const rotable_Reg reg_uart[] =
     { "close",  l_uart_close,0},
     { "write",  l_uart_write,0},
     { "read",   l_uart_read,0},
+    { "on",     l_uart_on, 0},
     //校验位
     { "Odd",            NULL,           LUAT_PARITY_ODD},
     { "Even",           NULL,           LUAT_PARITY_EVEN},

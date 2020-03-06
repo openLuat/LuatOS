@@ -14,21 +14,28 @@
 #define LUAT_BIT_ORDER_MSB                   1
 
 typedef struct luat_uart_t {
-    uint8_t id;      //串口编号
+    int id;      //串口编号
+    int baud_rate;  //波特率
+
     uint8_t data_bits;  //数据位
     uint8_t stop_bits;  //停止位
-    uint8_t baud_rate;  //波特率
     uint8_t bit_order;  //高低位
-
-    uint32_t parity;    // 奇偶校验位
-    uint32_t bufsz;     // 接收数据缓冲区大小
-    int received;//接收回调
-    int sent;//发送成功回调
+    uint8_t parity;    // 奇偶校验位
+    
+    size_t bufsz;     // 接收数据缓冲区大小
+    //int received;//接收回调
+    //int sent;//发送成功回调
 } luat_uart_t;
 
 int l_uart_handler(lua_State *L, void* ptr);
-int8_t luat_uart_setup(luat_uart_t* uart);
-uint32_t luat_uart_write(uint8_t uartid, uint8_t* data, uint32_t length);
-uint32_t luat_uart_read(uint8_t uartid, uint8_t* buffer, uint32_t length);
-uint8_t luat_uart_close(uint8_t uartid);
+int luat_uart_setup(luat_uart_t* uart);
+int luat_uart_write(int uartid, void* data, size_t length);
+int luat_uart_read(int uartid, void* buffer, size_t length);
+int luat_uart_close(int uartid);
+int luat_uart_exist(int uartid);
+
+int l_uart_handler(lua_State *L, void* ptr);
+
+int luat_setup_cb(int uartid, int received, int sent);
+
 #endif

@@ -116,6 +116,16 @@ void luat_os_reboot(int code) {
     rt_hw_cpu_reset();
 }
 
+void sys_start_standby(int ms);
+
+void luat_os_standy(int timeout) {
+    #ifdef BSP_USING_WM_LIBRARIES
+        #ifdef BSP_USING_STANDBY
+            sys_start_standby(timeout);
+        #endif
+    #endif
+}
+
 const char* luat_os_bsp(void) {
     #ifdef BSP_USING_WM_LIBRARIES
         return "w60x";

@@ -143,6 +143,12 @@ static int l_rtos_version(lua_State *L) {
     return 1;
 }
 
+static int l_rtos_standy(lua_State *L) {
+    int timeout = luaL_checkinteger(L, 1);
+    luat_os_standy(timeout);
+    return 0;
+}
+
 //------------------------------------------------------------------
 #include "rotable.h"
 static const rotable_Reg reg_rtos[] =
@@ -151,6 +157,7 @@ static const rotable_Reg reg_rtos[] =
     { "timer_stop",        l_rtos_timer_stop,  0},
     { "receive",           l_rtos_receive,     0},
     { "reboot",            l_rtos_reboot,      0},
+    { "standy",            l_rtos_standy,      0},
 
     { "buildDate",         l_rtos_build_date,  0},
     { "bsp",               l_rtos_bsp,         0},

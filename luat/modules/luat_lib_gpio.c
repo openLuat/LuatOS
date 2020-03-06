@@ -12,11 +12,13 @@
 static int l_gpio_handler(lua_State *L, void* ptr) {
     // 给 sys.publish方法发送数据
     luat_gpio_t *gpio = (luat_gpio_t *)ptr;
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     //lua_getglobal(L, "sys_pub");
     lua_geti(L, LUA_REGISTRYINDEX, gpio->lua_ref);
     if (!lua_isnil(L, -1)) {
         //lua_pushfstring(L, "IRQ_%d", (char)gpio->pin);
-        lua_pushinteger(L, luat_gpio_get(gpio->pin));
+        //lua_pushinteger(L, luat_gpio_get(gpio->pin));
+        lua_pushinteger(L, msg->arg2);
         lua_call(L, 1, 0);
     }
     // 给rtos.recv方法返回个空数据
@@ -31,7 +33,8 @@ static int l_gpio_handler(lua_State *L, void* ptr) {
 @param pull [选]上拉下列模式, 可以是gpio.PULLUP 或 gpio.PULLDOWN, 需要根据实际硬件选用
 @param irq [选]中断模式, 上升沿gpio.RISING, 下降沿gpio.FALLING, 上升和下降都要gpio.BOTH.默认是RISING
 @return re 输出模式返回设置电平的闭包, 输入模式和中断模式返回获取电平的闭包
-@usage gpio.setup(17, gpio.INPUT) 设置gpio17为输入
+@usage gpio.setup(17, nil) 设置gpio17为输入
+@usage gpio.setup(17, 0) 设置gpio17为输出
 @usage gpio.setup(27, function(val) print("IRQ_27") end, gpio.RISING) 设置gpio27为中断
 */
 static int l_gpio_setup(lua_State *L) {
@@ -53,7 +56,7 @@ static int l_gpio_setup(lua_State *L) {
         conf->mode = Luat_GPIO_INPUT;
     }
     conf->pull = luaL_optinteger(L, 3, Luat_GPIO_DEFAULT);
-    conf->irq = luaL_optinteger(L, 4, Luat_GPIO_RISING);
+    conf->irq = luaL_optinteger(L, 4, Luat_GPIO_BOTH);
     if (conf->mode == Luat_GPIO_IRQ) {
         conf->func = &l_gpio_handler;
     }

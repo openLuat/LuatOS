@@ -37,6 +37,7 @@ LUAMOD_API int luaopen_utest( lua_State *L );
 int l_sprintf(char *buf, int32_t size, const char *fmt, ...);
 
 void luat_os_reboot(int code);
+void luat_os_standy(int timeout);
 const char* luat_os_bsp(void);
 
 void stopboot(void);

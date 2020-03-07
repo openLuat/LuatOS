@@ -32,7 +32,7 @@ typedef struct luat_gpio
     int pull;
     int irq;
     int lua_ref;
-    luat_msg_handler func;
+    //luat_msg_handler func;
 } luat_gpio_t;
 
 
@@ -41,5 +41,7 @@ int luat_gpio_setup(luat_gpio_t* gpio);
 int luat_gpio_set(int pin, int level);
 int luat_gpio_get(int pin);
 void luat_gpio_close(int pin);
+
+int l_gpio_handler(lua_State *L, void* ptr);
 
 #endif

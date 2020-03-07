@@ -12,18 +12,21 @@
 #define DBG_LVL           DBG_INFO
 #include <rtdbg.h>
 
+int l_gpio_handler(lua_State *L, void* ptr);
+
 void luat_gpio_mode(int pin, int mode) {
     rt_pin_mode(pin, mode);
 }
 
 static void luat_gpio_irq_callback(void* ptr) {
     //LOG_D("IRQ Callback");
-    luat_gpio_t* gpio = (luat_gpio_t*)ptr;
+    int pin = (int)ptr;
+    int value = rt_pin_read(pin);
     rtos_msg_t msg;
-    msg.handler = gpio->func;
-    msg.ptr = ptr;
-    msg.arg1 = gpio->pin;
-    msg.arg2 = luat_gpio_get(gpio->pin);
+    msg.handler = l_gpio_handler;
+    msg.ptr = RT_NULL;
+    msg.arg1 = pin;
+    msg.arg2 = value;
     luat_msgbus_put(&msg, 1);
 }
 
@@ -69,7 +72,7 @@ int luat_gpio_setup(luat_gpio_t* gpio) {
         else {
             irq = PIN_IRQ_MODE_RISING_FALLING;
         }
-        rt_err_t re = rt_pin_attach_irq(gpio->pin, irq, luat_gpio_irq_callback, gpio);
+        rt_err_t re = rt_pin_attach_irq(gpio->pin, irq, luat_gpio_irq_callback, (void*)gpio->pin);
         if (re != RT_EOK) {
             return re;
         }

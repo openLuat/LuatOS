@@ -4,26 +4,38 @@
 #include "luat_gpio.h"
 #include "luat_malloc.h"
 
+static int l_gpio_close(lua_State *L);
+
+#define GPIO_IRQ_COUNT 16
+typedef struct luat_lib_gpio_cb
+{
+    int pin;
+    int lua_ref;
+} luat_lib_gpio_cb_t;
+
+static luat_lib_gpio_cb_t irq_cbs[GPIO_IRQ_COUNT];
+
 /*
 @module gpio GPIO操作
 @since 1.0.0
 */
 
-static int l_gpio_handler(lua_State *L, void* ptr) {
+int l_gpio_handler(lua_State *L, void* ptr) {
     // 给 sys.publish方法发送数据
-    luat_gpio_t *gpio = (luat_gpio_t *)ptr;
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
-    //lua_getglobal(L, "sys_pub");
-    lua_geti(L, LUA_REGISTRYINDEX, gpio->lua_ref);
-    if (!lua_isnil(L, -1)) {
-        //lua_pushfstring(L, "IRQ_%d", (char)gpio->pin);
-        //lua_pushinteger(L, luat_gpio_get(gpio->pin));
-        lua_pushinteger(L, msg->arg2);
-        lua_call(L, 1, 0);
+    int pin = msg->arg1;
+    for (size_t i = 0; i < GPIO_IRQ_COUNT; i++)
+    {
+        if (irq_cbs[i].pin == pin) {
+            lua_geti(L, LUA_REGISTRYINDEX, irq_cbs[i].lua_ref);
+            if (!lua_isnil(L, -1)) {
+                lua_pushinteger(L, msg->arg2);
+                lua_call(L, 1, 0);
+            }
+            return 0;
+        }
     }
-    // 给rtos.recv方法返回个空数据
-    lua_pushinteger(L, 0);
-    return 1;
+    return 0;
 }
 
 /*
@@ -40,39 +52,49 @@ static int l_gpio_handler(lua_State *L, void* ptr) {
 static int l_gpio_setup(lua_State *L) {
     //lua_gettop(L);
     // TODO 设置失败会内存泄漏
-    luat_gpio_t* conf = (luat_gpio_t*)luat_heap_malloc(sizeof(luat_gpio_t));
-    conf->pin = luaL_checkinteger(L, 1);
+    luat_gpio_t conf;
+    conf.pin = luaL_checkinteger(L, 1);
     //conf->mode = luaL_checkinteger(L, 2);
-    conf->lua_ref = 0;
+    conf.lua_ref = 0;
     if (lua_isfunction(L, 2)) {
-        conf->mode = Luat_GPIO_IRQ;
+        conf.mode = Luat_GPIO_IRQ;
         lua_pushvalue(L, 2);
-        conf->lua_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+        conf.lua_ref = luaL_ref(L, LUA_REGISTRYINDEX);
     }
     else if (lua_isinteger(L, 2)) {
-        conf->mode = Luat_GPIO_OUTPUT;
+        conf.mode = Luat_GPIO_OUTPUT;
     }
     else {
-        conf->mode = Luat_GPIO_INPUT;
+        conf.mode = Luat_GPIO_INPUT;
     }
-    conf->pull = luaL_optinteger(L, 3, Luat_GPIO_DEFAULT);
-    conf->irq = luaL_optinteger(L, 4, Luat_GPIO_BOTH);
-    if (conf->mode == Luat_GPIO_IRQ) {
-        conf->func = &l_gpio_handler;
-    }
-    else {
-        conf->func = NULL;
-
-    }
-    int re = luat_gpio_setup(conf);
-    if (conf->mode == Luat_GPIO_IRQ) {
-        if (re) {
-            luat_heap_free(conf);
+    conf.pull = luaL_optinteger(L, 3, Luat_GPIO_DEFAULT);
+    conf.irq = luaL_optinteger(L, 4, Luat_GPIO_BOTH);
+    int re = luat_gpio_setup(&conf);
+    if (re == 0) {
+        int flag = 1;
+        for (size_t i = 0; i < GPIO_IRQ_COUNT; i++) {
+            if (irq_cbs[i].pin == conf.pin) {
+                if (irq_cbs[i].lua_ref && irq_cbs[i].lua_ref != conf.lua_ref) {
+                    luaL_unref(L, LUA_REGISTRYINDEX, irq_cbs[i].lua_ref);
+                    irq_cbs[i].lua_ref = conf.lua_ref;
+                }
+                flag = 0;
+                break;
+            }
+            if (irq_cbs[i].pin == 0) {
+                irq_cbs[i].pin = conf.pin;
+                irq_cbs[i].lua_ref = conf.lua_ref;
+                flag = 0;
+                break;
+            }
+        }
+        if (flag) {
+            luat_log_warn("luat.gpio", "too many irq setup!!!!");
+            re = 1;
+            luat_gpio_close(conf.pin);
         }
     }
-    else {
-        luat_heap_free(conf);
-    }
+    //luat_heap_free(conf);
     lua_pushinteger(L, re == 0 ? 1 : 0);
     return 1;
 }
@@ -107,7 +129,17 @@ static int l_gpio_get(lua_State *L) {
 @usage gpio.close(17) 关闭gpio17
 */
 static int l_gpio_close(lua_State *L) {
-    luat_gpio_close(luaL_checkinteger(L, 1));
+    int pin = luaL_checkinteger(L, 1);
+    luat_gpio_close(pin);
+    for (size_t i = 0; i < GPIO_IRQ_COUNT; i++) {
+        if (irq_cbs[i].pin == pin) {
+            irq_cbs[i].pin = 0;
+            if (irq_cbs[i].lua_ref) {
+                luaL_unref(L, LUA_REGISTRYINDEX, irq_cbs[i].lua_ref);
+                irq_cbs[i].lua_ref = 0;
+            }
+        }
+    }
     return 0;
 }
 

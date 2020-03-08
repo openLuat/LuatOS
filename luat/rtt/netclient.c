@@ -97,11 +97,14 @@ static rt_int32_t netclient_destory(rt_netclient_t *thiz)
         return -1;
     }
 
+    LOG_I("netc[%ld] destory begin", thiz->id);
+
     if (thiz->sock_fd != -1)
         socket_deinit(thiz);
 
     pipe_deinit(thiz);
 
+    LOG_I("netc[%ld] destory end", thiz->id);
     return 0;
 }
 
@@ -304,7 +307,7 @@ static void select_handle(rt_netclient_t *thiz, char *sock_buff)
             res = read(thiz->pipe_read_fd, sock_buff, BUFF_SIZE);
 
             if (res <= 0) {
-                thiz->closed;
+                thiz->closed = 0;
                 goto exit;
             }
             else if (thiz->closed) {
@@ -358,7 +361,7 @@ static void netclient_thread_entry(void *param)
             EVENT(thiz->id, thiz->rx, thiz->cb_close, NETC_EVENT_CLOSE, 0, RT_NULL);
         }
     }
-
+    LOG_E("netc[%ld] thread end", thiz->id);
 }
 
 rt_int32_t *rt_netclient_start(rt_netclient_t * thiz) {

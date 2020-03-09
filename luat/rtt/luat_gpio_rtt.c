@@ -12,8 +12,6 @@
 #define DBG_LVL           DBG_INFO
 #include <rtdbg.h>
 
-int l_gpio_handler(lua_State *L, void* ptr);
-
 void luat_gpio_mode(int pin, int mode) {
     rt_pin_mode(pin, mode);
 }

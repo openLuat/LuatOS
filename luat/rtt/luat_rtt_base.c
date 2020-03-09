@@ -73,11 +73,11 @@ void luat_openlibs(lua_State *L) {
     luaL_requiref(L, "sensor", luaopen_sensor, 1);
     lua_pop(L, 1);
     print_list_mem("done> require(sensor)");
+    #endif
 
     luaL_requiref(L, "uart", luaopen_uart, 1);
     lua_pop(L, 1);
     print_list_mem("done> require(uart)");
-    #endif
 
     #ifdef RT_USING_WIFI
     luaL_requiref(L, "wlan", luaopen_wlan, 1);

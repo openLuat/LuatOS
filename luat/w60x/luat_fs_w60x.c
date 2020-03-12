@@ -10,7 +10,7 @@
 #include "dfs_fs.h"
 
 #define DBG_TAG           "w60x.fs"
-#define DBG_LVL           DBG_DEBUG
+#define DBG_LVL           DBG_LOG
 #include <rtdbg.h>
 
 #ifdef BSP_USING_WM_LIBRARIES

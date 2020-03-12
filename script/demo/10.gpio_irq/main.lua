@@ -1,6 +1,7 @@
 
 local sys = require "sys"
 
+log.info("main", "gpio demo")
 print(_VERSION)
 
 sys.timerLoopStart(function()

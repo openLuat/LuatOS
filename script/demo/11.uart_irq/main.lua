@@ -1,5 +1,7 @@
 local sys = require "sys"
 
+log.info("main", "uart demo")
+
 local uartid = 1
 
 --初始化

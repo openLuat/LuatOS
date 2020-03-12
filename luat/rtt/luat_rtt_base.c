@@ -25,7 +25,7 @@ int l_sprintf(char *buf, int32_t size, const char *fmt, ...) {
 // 打印内存状态
 void print_list_mem(const char* name) {
     #if (DBG_LVL <= DBG_DEBUG)
-    LOG_D("check memory status, key=%s", name);
+    LOG_I("check memory status, key=%s", name);
     list_mem();
     #endif
 }
@@ -152,13 +152,8 @@ RT_WEAK void rt_hw_cpu_reset() {
 
 #ifdef BSP_USING_WDT
 #include <rtdevice.h>
-static rt_uint32_t wdg_timeout = 120;       /* 溢出时间，单位：秒*/
+static rt_uint32_t wdg_timeout = 15;       /* 溢出时间，单位：秒*/
 static rt_device_t wdg_dev;    /* 看门狗设备句柄 */
-static void idle_hook(void)
-{
-    /* 在空闲线程的回调函数里喂狗 */
-    rt_device_control(wdg_dev, RT_DEVICE_CTRL_WDT_KEEPALIVE, NULL);
-}
 static int wdt_chk(void) {
     wdg_dev = rt_device_find("wdt");
     if (wdg_dev == RT_NULL) {
@@ -172,8 +167,34 @@ static int wdt_chk(void) {
     rt_device_init(wdg_dev);
     rt_device_control(wdg_dev, RT_DEVICE_CTRL_WDT_SET_TIMEOUT, (void *)wdg_timeout);
     rt_device_control(wdg_dev, RT_DEVICE_CTRL_WDT_START, (void *)wdg_timeout);
-    rt_thread_idle_sethook(idle_hook);
+    //rt_thread_idle_sethook(idle_hook);
     return RT_EOK;
 }
 INIT_DEVICE_EXPORT(wdt_chk);
+
+#define THREAD_PRIORITY         25
+#define THREAD_TIMESLICE        5
+
+ALIGN(RT_ALIGN_SIZE)
+static char rtt_wdt_stack[256];
+static struct rt_thread rtt_wdt;
+static int rtt_wdt_feed(void* args) {
+    while (1) {
+        if (wdg_dev)
+            rt_device_control(wdg_dev, RT_DEVICE_CTRL_WDT_KEEPALIVE, NULL);
+        rt_thread_mdelay(5000);
+    }
+    return 0;
+}
+static int rtt_wdt_thread_start() {
+    rt_thread_init(&rtt_wdt,
+                   "rtt_wdt",
+                   rtt_wdt_feed,
+                   RT_NULL,
+                   &rtt_wdt_stack[0],
+                   sizeof(rtt_wdt_stack),
+                   THREAD_PRIORITY - 1, THREAD_TIMESLICE);
+    rt_thread_startup(&rtt_wdt);
+}
+INIT_COMPONENT_EXPORT(rtt_wdt_thread_start);
 #endif

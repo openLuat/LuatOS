@@ -254,9 +254,9 @@ function sys.unsubscribe(id, callback)
     end
     if subscribers[id] then subscribers[id][callback] = nil end
     for k, _ in pairs(subscribers[id]) do
-        subscribers[id] = nil
-        break
+        return -- 只要进来了,就肯定不是0
     end
+    subscribers[id] = nil
 end
 
 --- 发布内部消息，存储在内部消息队列中

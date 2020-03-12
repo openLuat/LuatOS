@@ -51,7 +51,7 @@
 
 static rt_netclient_t *netclient_create(void);
 static rt_int32_t netclient_destory(rt_netclient_t *thiz);
-static rt_int32_t socket_init(rt_netclient_t *thiz, const char *hostname, rt_uint32_t port);
+static rt_int32_t socket_init(rt_netclient_t *thiz, const char *hostname, int port);
 static rt_int32_t socket_deinit(rt_netclient_t *thiz);
 static rt_int32_t pipe_init(rt_netclient_t *thiz);
 static rt_int32_t pipe_deinit(rt_netclient_t *thiz);
@@ -68,11 +68,13 @@ rt_uint32_t rt_netc_next_no(void) {
     return netc_seq++;
 }
 
-static void EVENT(rt_uint64_t netc_id, rt_tpc_cb_t cb, rt_uint64_t lua_ref, rt_uint16_t tp, size_t len, void* buff) {
+static void EVENT(int netc_id, rt_tpc_cb_t cb, int lua_ref, int tp, size_t len, void* buff) {
     rt_netc_ent_t* ent;
     LOG_I("netc[%ld] event type=%d", netc_id, tp);
     if (cb == RT_NULL) return;
-    ent = luat_heap_malloc(sizeof(rt_netc_ent_t) + len);
+    if (tp != NETC_EVENT_RECV || len < 0) len = 0;
+    //len = 0;
+    ent = luat_heap_malloc(sizeof(rt_netc_ent_t));
     if (ent == NULL) {
         LOG_E("netc[%ld] EVENT call rt_malloc return NULL!", netc_id);
         return;
@@ -82,7 +84,16 @@ static void EVENT(rt_uint64_t netc_id, rt_tpc_cb_t cb, rt_uint64_t lua_ref, rt_u
     ent->len = len;
     ent->event = tp;
     if (len > 0) {
-        rt_memcpy((void*)(ent+sizeof(rt_netc_ent_t)), buff, len);
+        ent->buff = luat_heap_malloc(len);
+        if (ent->buff == RT_NULL) {
+            LOG_E("netc[%ld] EVENT call rt_malloc buff return NULL!", netc_id);
+            luat_heap_free(ent);
+            return;
+        }
+        rt_memcpy(ent->buff, buff, len);
+    }
+    else {
+        ent->buff = RT_NULL;
     }
     cb(ent);
 }
@@ -108,7 +119,7 @@ static rt_int32_t netclient_destory(rt_netclient_t *thiz)
     return 0;
 }
 
-static rt_int32_t socket_init(rt_netclient_t *thiz, const char *url, rt_uint32_t port)
+static rt_int32_t socket_init(rt_netclient_t *thiz, const char *url, int port)
 {
     struct sockaddr_in dst_addr;
     struct hostent *hostname;
@@ -243,19 +254,22 @@ static rt_int32_t pipe_deinit(rt_netclient_t *thiz)
 
 static rt_int32_t netclient_thread_init(rt_netclient_t *thiz)
 {
-    rt_thread_t netclient_tid = RT_NULL;
+    rt_thread_t th;
     char tname[12];
     rt_sprintf(tname, "n%06X", thiz->id);
-    netclient_tid = rt_thread_create(tname, netclient_thread_entry, thiz, 2048, 12, 10);
-    if (netclient_tid == RT_NULL)
+    th = rt_thread_create(tname, netclient_thread_entry, thiz, 2048, 20, 10);
+    if (th == RT_NULL)
     {
-        LOG_E("netc[%ld] thread create failed", thiz->id);
+        LOG_E("netc[%ld] thread create fail", thiz->id);
         return -1;
     }
 
-    rt_thread_startup(netclient_tid);
+    if (rt_thread_startup(th) != RT_EOK) {
+        rt_thread_detach(th);
+        LOG_E("netc[%ld] thread start fail", thiz->id);
+        return -1;
+    }
 
-    LOG_D("netc[%ld] thread init succeed", thiz->id);
     return 0;
 }
 
@@ -283,6 +297,7 @@ static void select_handle(rt_netclient_t *thiz, char *sock_buff)
         /* socket is ready */
         if (FD_ISSET(thiz->sock_fd, &fds))
         {
+            #if 1
             res = recv(thiz->sock_fd, sock_buff, BUFF_SIZE, 0);
 
             if (res > 0) {
@@ -298,6 +313,8 @@ static void select_handle(rt_netclient_t *thiz, char *sock_buff)
                 }
                 goto exit;
             }
+            #endif
+            //EVENT(thiz->id, thiz->rx, thiz->cb_recv, NETC_EVENT_RECV, res, sock_buff);
         }
 
         /* pipe is read */
@@ -333,7 +350,7 @@ static void netclient_thread_entry(void *param)
         if (thiz->rx) {
             EVENT(thiz->id, thiz->rx, thiz->cb_connect, NETC_EVENT_CONNECT_OK, 0, RT_NULL);
         }
-        return;
+        goto netc_exit;
     }
     else {
         LOG_I("netc[%ld] connect ok", thiz->id);
@@ -342,26 +359,28 @@ static void netclient_thread_entry(void *param)
         }
     }
 
-    sock_buff = malloc(BUFF_SIZE);
+    sock_buff = rt_malloc(BUFF_SIZE);
     if (sock_buff == RT_NULL)
     {
         LOG_E("netc[%ld] fail to malloc sock_buff!!!", thiz->id);
-        return;
+        goto netc_exit;
     }
 
     memset(sock_buff, 0, BUFF_SIZE);
 
     select_handle(thiz, sock_buff);
 
-    free(sock_buff);
-    if (thiz != NULL) {
+    rt_free(sock_buff);
+    //if (thiz != NULL) {
         thiz->closed = 1;
         netclient_destory(thiz);
-        if (thiz->rx) {
-            EVENT(thiz->id, thiz->rx, thiz->cb_close, NETC_EVENT_CLOSE, 0, RT_NULL);
-        }
-    }
-    LOG_E("netc[%ld] thread end", thiz->id);
+    //    if (thiz->rx) {
+    //        EVENT(thiz->id, thiz->rx, thiz->cb_close, NETC_EVENT_CLOSE, 0, RT_NULL);
+    //    }
+    //}
+netc_exit:
+    EVENT(thiz->id, thiz->rx, 0, NETC_EVENT_END, 0, RT_NULL);
+    LOG_W("netc[%ld] thread end", thiz->id);
 }
 
 rt_int32_t *rt_netclient_start(rt_netclient_t * thiz) {
@@ -392,9 +411,9 @@ void rt_netclient_close(rt_netclient_t *thiz)
     LOG_I("netc[%ld] deinit end", thiz->id);
 }
 
-rt_int32_t rt_netclient_send(rt_netclient_t *thiz, const void *buff, rt_size_t len)
+rt_int32_t rt_netclient_send(rt_netclient_t *thiz, const void *buff, size_t len)
 {
-    rt_size_t bytes = 0;
+    size_t bytes = 0;
 
     if (thiz == RT_NULL)
     {

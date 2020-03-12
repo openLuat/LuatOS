@@ -114,7 +114,10 @@ int luat_uart_setup(luat_uart_t* uart)
         return re;//失败了
     return re;
 }
-
+#ifdef FALSE123
+#include "wm_uart.h"
+int tls_uart_dma_write(char *buf, u16 writesize, void (*cmpl_callback) (void *p), u16 uart_no);
+#endif
 int luat_uart_write(int uartid, void* data, size_t length)
 {
     if(!luat_uart_exist(uartid)) {
@@ -124,6 +127,14 @@ int luat_uart_write(int uartid, void* data, size_t length)
     if (serials[uartid]->open_flag == 0) {
         LOG_W("uart id=%d is closed", uartid);
         return -1;
+    }
+    if (uartid == 1)
+    {
+    #ifdef FALSE123
+        int re = tls_uart_dma_write(data, length, RT_NULL, 1);
+        LOG_I("tls_uart_dma_write re=%d", re);
+        return 0;
+    #endif
     }
     int re = rt_device_write(serials[uartid], 0, data, length);
     LOG_I("luat_uart_write id=%ld re=%ld length=%ld", uartid, re, length);

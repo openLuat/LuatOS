@@ -1,5 +1,6 @@
 local sys = require "sys"
 
+log.info("main", "json demo")
 print(json.null)
 
 local t = {

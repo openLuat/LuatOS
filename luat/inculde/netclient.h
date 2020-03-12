@@ -33,25 +33,27 @@
 #define NETC_EVENT_CONNECT_FAIL 2
 #define NETC_EVENT_RECV    4
 #define NETC_EVENT_ERROR   7
-#define NETC_EVENT_CLOSE   8
+//#define NETC_EVENT_CLOSE   8
+#define NETC_EVENT_END     9
 
 
 typedef struct rt_netc_ent {
-    rt_uint32_t netc_id;
-    rt_uint64_t lua_ref;
-    rt_uint16_t event;
-    rt_uint16_t len;
+    int netc_id;
+    int lua_ref;
+    int event;
+    size_t len;
+    void* buff;
 }rt_netc_ent_t;
 
 typedef void (*rt_tpc_cb_t)(rt_netc_ent_t* ent);
 
 typedef struct rt_netclient
 {
-    rt_uint32_t id;
+    int id;
     char hostname[32];
-    rt_uint32_t port;
-    rt_uint16_t type;
-    rt_uint16_t closed;
+    int port;
+    int type;
+    int closed;
     int sock_fd;
     int pipe_read_fd;
     int pipe_write_fd;
@@ -71,6 +73,6 @@ rt_uint32_t rt_netc_next_no(void);
 rt_int32_t *rt_netclient_start(rt_netclient_t * thiz);
 void rt_netclient_close(rt_netclient_t *thiz);
 //rt_int32_t rt_netclient_attach_rx_cb(rt_netclient_t *thiz, rt_tpc_cb_t cb);
-rt_int32_t rt_netclient_send(rt_netclient_t *thiz, const void *buff, rt_size_t len);
+rt_int32_t rt_netclient_send(rt_netclient_t *thiz, const void *buff, size_t len);
 
 #endif

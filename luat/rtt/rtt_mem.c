@@ -643,13 +643,13 @@ void luat_rt_memory_info(rt_uint32_t *total,
 #ifdef RT_USING_FINSH
 #include <finsh.h>
 
-void list_luat_mem(void)
+void luat_free(void)
 {
     rt_kprintf("total memory: %d\n", mem_size_aligned);
     rt_kprintf("used memory : %d\n", used_mem);
     rt_kprintf("maximum allocated memory: %d\n", max_mem);
 }
-MSH_CMD_EXPORT(list_luat_mem, list memory usage information);
+MSH_CMD_EXPORT(luat_free, list memory usage information);
 
 #ifdef RT_USING_MEMTRACE
 int memcheck(void)

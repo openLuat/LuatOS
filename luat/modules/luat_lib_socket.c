@@ -137,9 +137,17 @@ __exit:
 
 static int luat_lib_netc_msg_handler(lua_State* L, void* ptr) {
     rt_netc_ent_t* ent = (rt_netc_ent_t*)ptr;
+    if (ent->event == NETC_EVENT_END) {
+        lua_getglobal(L, "sys_pub");
+        if (lua_isfunction(L, -1)) {
+            lua_pushfstring(L, "NETC_END_%d", ent->netc_id);
+            lua_call(L, 1, 0);
+        }
+        goto exit;
+    }
     if (lua_rawgeti(L, LUA_REGISTRYINDEX, ent->lua_ref) != LUA_TFUNCTION) {
         LOG_W("netc[%ld] callback isn't a function", ent->netc_id);
-        return 0;
+        goto exit;
     };
     lua_pushinteger(L, ent->netc_id);
     switch (ent->event)
@@ -149,11 +157,11 @@ static int luat_lib_netc_msg_handler(lua_State* L, void* ptr) {
         lua_pushinteger(L, ent->event == NETC_EVENT_CONNECT_OK ? 1 : 0);
         lua_call(L, 2, 0);
         break;
-    case NETC_EVENT_CLOSE:
-        lua_call(L, 1, 0);
-        break;
+    //case NETC_EVENT_CLOSE:
+    //    lua_call(L, 1, 0);
+    //    break;
     case NETC_EVENT_RECV:
-        lua_pushlstring(L, ent + sizeof(rt_netc_ent_t), ent->len);
+        lua_pushlstring(L, ent->buff, ent->len);
         lua_call(L, 2, 0);
         break;
     case NETC_EVENT_ERROR:
@@ -162,12 +170,19 @@ static int luat_lib_netc_msg_handler(lua_State* L, void* ptr) {
     default:
         break;
     }
+exit:
+    if (ent->buff) {
+        luat_heap_free((void*)ent->buff);
+    }
     luat_heap_free((void*)ent);
     return 0;
 }
 static int luat_lib_socket_new(lua_State* L, int netc_type);
 static int luat_lib_socket_ent_handler(rt_netc_ent_t* ent) {
-    if (ent->lua_ref == 0) {
+    if (ent->event != NETC_EVENT_END && ent->lua_ref == 0) {
+        if (ent->buff) {
+            luat_heap_free((void*)ent->buff);
+        }
         luat_heap_free((void*)ent);
         return 0;
     }
@@ -324,7 +339,7 @@ static int netc_connect(lua_State *L) {
         thiz->port = luaL_optinteger(L, 3, 80);
     }
     thiz->rx = luat_lib_socket_ent_handler;
-    LOG_W("netc[%ld] host=%s port=%d type=%s", thiz->id, thiz->hostname, thiz->port, thiz->type == NETC_TYPE_TCP ? "TCP" : "UDP");
+    LOG_I("netc[%ld] host=%s port=%d type=%s", thiz->id, thiz->hostname, thiz->port, thiz->type == NETC_TYPE_TCP ? "TCP" : "UDP");
     re = rt_netclient_start(thiz);
     lua_pushinteger(L, re);
     return 1;
@@ -413,6 +428,23 @@ static int netc_port(lua_State *L) {
     return 1;
 }
 
+static int netc_clean(lua_State *L) {
+    rt_netclient_t *netc = tonetc(L);
+    if (netc->cb_error) {
+        luaL_unref(L, LUA_REGISTRYINDEX, netc->cb_error);
+    }
+    if (netc->cb_recv) {
+        luaL_unref(L, LUA_REGISTRYINDEX, netc->cb_recv);
+    }
+    if (netc->cb_close) {
+        luaL_unref(L, LUA_REGISTRYINDEX, netc->cb_close);
+    }
+    if (netc->cb_connect) {
+        luaL_unref(L, LUA_REGISTRYINDEX, netc->cb_connect);
+    }
+    return 0;
+}
+
 static int netc_on(lua_State *L) {
     rt_netclient_t *netc = tonetc(L);
     if (lua_gettop(L) < 3) {
@@ -450,8 +482,10 @@ static const luaL_Reg lib_netc[] = {
     {"host",        netc_host},
     {"port",        netc_port},
     {"connect",     netc_connect},
+    {"start",       netc_connect},
     {"close",       netc_close},
     {"send",        netc_send},
+    {"clean",       netc_clean},
     {"on",          netc_on},
     {"__gc",        netc_gc},
     {"__tostring",  netc_tostring},

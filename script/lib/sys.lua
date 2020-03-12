@@ -253,6 +253,10 @@ function sys.unsubscribe(id, callback)
         return
     end
     if subscribers[id] then subscribers[id][callback] = nil end
+    for k, _ in pairs(subscribers[id]) do
+        subscribers[id] = nil
+        break
+    end
 end
 
 --- 发布内部消息，存储在内部消息队列中
@@ -301,12 +305,12 @@ local function safeRun()
     dispatch()
     -- 阻塞读取外部消息
     local msg, param, exparam = rtos.receive(rtos.INF_TIMEOUT)
+    --log.info("sys", msg, param, exparam, tableNSize(timerPool), tableNSize(para), tableNSize(taskTimerPool), tableNSize(subscribers))
     -- 空消息?
     if not msg or msg == 0 then
         -- 无任何操作
     -- 判断是否为定时器消息，并且消息是否注册
     elseif msg == rtos.MSG_TIMER and timerPool[param] then
-        --log.info("sys", msg, param, exparam)
         if param < TASK_TIMER_ID_MAX then
             local taskId = timerPool[param]
             timerPool[param] = nil

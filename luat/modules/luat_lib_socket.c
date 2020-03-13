@@ -162,6 +162,7 @@ static int luat_lib_netc_msg_handler(lua_State* L, void* ptr) {
     //    break;
     case NETC_EVENT_RECV:
         lua_pushlstring(L, ent->buff, ent->len);
+        //lua_pushliteral(L, "");
         lua_call(L, 2, 0);
         break;
     case NETC_EVENT_ERROR:
@@ -431,16 +432,24 @@ static int netc_port(lua_State *L) {
 static int netc_clean(lua_State *L) {
     rt_netclient_t *netc = tonetc(L);
     if (netc->cb_error) {
+        LOG_I("netc[%ld] unref 0x%08X", netc->id, netc->cb_error);
         luaL_unref(L, LUA_REGISTRYINDEX, netc->cb_error);
+        netc->cb_error = 0;
     }
     if (netc->cb_recv) {
+        LOG_I("netc[%ld] unref 0x%08X", netc->id, netc->cb_recv);
         luaL_unref(L, LUA_REGISTRYINDEX, netc->cb_recv);
+        netc->cb_recv = 0;
     }
     if (netc->cb_close) {
+        LOG_I("netc[%ld] unref 0x%08X", netc->id, netc->cb_close);
         luaL_unref(L, LUA_REGISTRYINDEX, netc->cb_close);
+        netc->cb_close = 0;
     }
     if (netc->cb_connect) {
+        LOG_I("netc[%ld] unref 0x%08X", netc->id, netc->cb_connect);
         luaL_unref(L, LUA_REGISTRYINDEX, netc->cb_connect);
+        netc->cb_connect = 0;
     }
     return 0;
 }
@@ -463,9 +472,9 @@ static int netc_on(lua_State *L) {
             else if (rt_strcmp("connect", ent) == 0) {
                 netc->cb_connect = luaL_ref(L, LUA_REGISTRYINDEX);
             }
-            else if (rt_strcmp("any", ent) == 0) {
-                netc->cb_any = luaL_ref(L, LUA_REGISTRYINDEX);
-            }
+            //else if (rt_strcmp("any", ent) == 0) {
+            //    netc->cb_any = luaL_ref(L, LUA_REGISTRYINDEX);
+            //}
             else if (rt_strcmp("error", ent) == 0) {
                 netc->cb_error = luaL_ref(L, LUA_REGISTRYINDEX);
             }

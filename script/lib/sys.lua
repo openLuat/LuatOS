@@ -235,26 +235,26 @@ local messageQueue = {}
 -- @param callback 消息回调处理
 -- @usage subscribe("NET_STATUS_IND", callback)
 function sys.subscribe(id, callback)
-    --if type(id) ~= "string" or (type(callback) ~= "function" and type(callback) ~= "thread") then
-    --    log.warn("warning: sys.subscribe invalid parameter", id, callback)
-    --    return
-    --end
+    if not id or type(id) == "boolean" or (type(callback) ~= "function" and type(callback) ~= "thread") then
+        log.warn("warning: sys.subscribe invalid parameter", id, callback)
+        return
+    end
     if not subscribers[id] then subscribers[id] = {} end
     subscribers[id][callback] = true
 end
-
 --- 取消订阅消息
 -- @param id 消息id
 -- @param callback 消息回调处理
 -- @usage unsubscribe("NET_STATUS_IND", callback)
 function sys.unsubscribe(id, callback)
-    if type(id) ~= "string" or (type(callback) ~= "function" and type(callback) ~= "thread") then
+    if not id or type(id) == "boolean" or (type(callback) ~= "function" and type(callback) ~= "thread") then
         log.warn("warning: sys.unsubscribe invalid parameter", id, callback)
         return
     end
     if subscribers[id] then subscribers[id][callback] = nil end
+    -- 判断消息是否无其他订阅
     for k, _ in pairs(subscribers[id]) do
-        return -- 只要进来了,就肯定不是0
+        return
     end
     subscribers[id] = nil
 end

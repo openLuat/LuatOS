@@ -427,30 +427,30 @@ static int db_traceback (lua_State *L) {
   return 1;
 }
 
-
-static const luaL_Reg dblib[] = {
-  {"debug", db_debug},
-  {"getuservalue", db_getuservalue},
-  {"gethook", db_gethook},
-  {"getinfo", db_getinfo},
-  {"getlocal", db_getlocal},
-  {"getregistry", db_getregistry},
-  {"getmetatable", db_getmetatable},
-  {"getupvalue", db_getupvalue},
-  {"upvaluejoin", db_upvaluejoin},
-  {"upvalueid", db_upvalueid},
-  {"setuservalue", db_setuservalue},
-  {"sethook", db_sethook},
-  {"setlocal", db_setlocal},
-  {"setmetatable", db_setmetatable},
-  {"setupvalue", db_setupvalue},
-  {"traceback", db_traceback},
-  {NULL, NULL}
+#include "rotable.h"
+static const rotable_Reg dblib[] = {
+//  {"debug", db_debug, 0},
+  {"getuservalue", db_getuservalue, 0},
+  {"gethook", db_gethook, 0},
+  {"getinfo", db_getinfo, 0},
+  {"getlocal", db_getlocal, 0},
+  {"getregistry", db_getregistry, 0},
+  {"getmetatable", db_getmetatable, 0},
+  {"getupvalue", db_getupvalue, 0},
+  {"upvaluejoin", db_upvaluejoin, 0},
+  {"upvalueid", db_upvalueid, 0},
+  {"setuservalue", db_setuservalue, 0},
+  {"sethook", db_sethook, 0},
+  {"setlocal", db_setlocal, 0},
+  {"setmetatable", db_setmetatable, 0},
+  {"setupvalue", db_setupvalue, 0},
+  {"traceback", db_traceback, 0},
+  {NULL, NULL, 0}
 };
 
 
 LUAMOD_API int luaopen_debug (lua_State *L) {
-  luaL_newlib(L, dblib);
+  rotable_newlib(L, dblib);
   return 1;
 }
 

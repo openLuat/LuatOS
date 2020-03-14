@@ -91,7 +91,10 @@ end
 function sys.taskInit(fun, ...)
     local co = coroutine.create(function(...)
         local result, err = pcall(fun, ...)
-        if not result then print("ERROR!!", err) end
+        if not result then 
+            print(err)
+            error(debug.traceback())
+        end
     end)
     coroutine.resume(co, ...)
     return co

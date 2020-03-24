@@ -4,7 +4,7 @@ from building import *
 
 cwd = GetCurrentDir()
 src	= Glob('modules/*.c') + Glob('rtt/*.c') + Glob('packages/lfs/*.c')
-CPPPATH = [cwd + "/inculde"]
+CPPPATH = [cwd + "/include"]
 LIB_PATH = []
 LIB = []
 

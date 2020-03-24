@@ -11,7 +11,7 @@
 #include "lauxlib.h"
 #include "stdint.h"
 
-lua_State * luat_get_state();
+//lua_State * luat_get_state();
 int luat_main (int argc, char **argv, int _);
 
 void luat_openlibs(lua_State *L);

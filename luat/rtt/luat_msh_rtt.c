@@ -10,10 +10,11 @@
 
 #ifdef FINSH_USING_MSH
 
+extern lua_State *L;
+
 static void loadstr(int argc, char**argv) {
     if (argc < 2)
         return;
-    lua_State* L = luat_get_state();
     int re = luaL_dostring(L, argv[1]);
     if (re) {
         luat_print("luaL_dostring  return re != 0\n");

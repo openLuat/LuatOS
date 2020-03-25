@@ -38,8 +38,9 @@ static int l_utest_600_mem_check(lua_State *L) {
 static int l_utest_memdump(lua_State *L) {
     void* ptr = (void*)luaL_checkinteger(L, 1);
     size_t len = luaL_optinteger(L, 2, 256);
-
+    #if defined(RT_USING_ULOG)
     LOG_HEX("memdump", 16, ptr, len);
+    #endif
     return 0;
 }
 #ifdef RT_USING_MEMTRACE
@@ -50,6 +51,12 @@ static int l_utest_memcheck(lua_State *L) {
 }
 #endif
 
+//extern int mem_profiler_enable;
+//static int l_utest_profiler(lua_State *L) {
+//    mem_profiler_enable = luaL_optinteger(L, 1, 0);
+//    return 0;
+//}
+
 #include "rotable.h"
 static const rotable_Reg reg_utest[] =
 {
@@ -57,6 +64,7 @@ static const rotable_Reg reg_utest[] =
     { "memdump", l_utest_memdump, 0},
     #ifdef RT_USING_MEMTRACE
     { "memcheck", l_utest_memcheck, 0},
+//    { "profiler", l_utest_profiler},
     #endif
 	{ NULL, NULL }
 };

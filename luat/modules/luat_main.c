@@ -11,7 +11,7 @@
 
 static int report (lua_State *L, int status);
 
-static lua_State *L;
+lua_State *L;
 
 static uint8_t boot_mode = 1;
 

@@ -78,7 +78,7 @@ int luat_lib_sys_run(Lua_State *L) {
 3. 设计的API应尽量屏蔽平台差异, 提供对外一致的观感
 4. 通过不需要传递`Lua_State *L`, 而是传递一个参数列表或数据结构
 
-```C
+```c
 int luat_gpio_setup(luat_gpio_t conf) {
     //平台相关的实现...
 

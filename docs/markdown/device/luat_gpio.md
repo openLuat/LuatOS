@@ -16,7 +16,7 @@
 
 ## C API(平台层)
 
-```C
+```c
 #define Luat_GPIO_LOW                 0x00
 #define Luat_GPIO_HIGH                0x01
 
@@ -69,5 +69,5 @@ gpio.close(PIN)
 ```
 ## 相关知识点
 
-* [Luat核心机制](luat_core.md)
+* [Luat核心机制](/markdown/device/luat_core)
 

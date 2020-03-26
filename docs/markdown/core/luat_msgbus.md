@@ -38,7 +38,7 @@ struct rtos_msg {
 
 ## C API
 
-```C
+```c
 void luat_msgbus_init(void);
 void* luat_msgbus_data();
 uint32_t luat_msgbus_put(struct rtos_msg* msg, size_t timeout);
@@ -100,4 +100,4 @@ int l_gpio_handler(LuaState *L, void *ptr){
 ```
 ## 相关知识点
 
-* [Luat核心机制](luat_core.md)
+* [Luat核心机制](/markdown/core/luat_core)

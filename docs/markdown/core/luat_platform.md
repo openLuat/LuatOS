@@ -33,7 +33,7 @@ void *l_alloc (void *ud, void *ptr, size_t osize, size_t nsize)
 void* luat_heap_alloc(void *ud, void *ptr, size_t osize, size_t nsize);
 ```
 
-详细的API设计, 在 [内存池](luat_memory.md) 中定义, 其中还有`malloc`的抽象形式 `luat_heap_malloc`
+详细的API设计, 在 [内存池](/markdown/core/luat_memory) 中定义, 其中还有`malloc`的抽象形式 `luat_heap_malloc`
 
 ----------------------------------------------------------------------------------
 ### io 操作
@@ -48,7 +48,7 @@ lua的io操作涉及4个方面
 Lua_FILE * luat_fs_fopen(char const* _FileName, char const* _Mode);
 ```
 
-详细的API设计, 在 [文件系统](luat_fs.md) 中定义
+详细的API设计, 在 [文件系统](/markdown/core/luat_fs) 中定义
 
 这部分的修改, 是需要改动lua源码的, 替换原有的api调用
 
@@ -114,14 +114,14 @@ TODO 待完成网络通信的API设计
 
 所以, 上面3组API, 也有对应的抽象
 
-* [定时器](luat_timer.md)
-* [消息总线](luat_msgbus.md)
+* [定时器](/markdown/core/luat_timer)
+* [消息总线](/markdown/core/luat_msgbus)
 * [信号量]() 暂无场景支撑,未设计
 
 ## 相关知识点
 
-* [编码规范](../proj/code_style.md)
-* [文件系统](luat_fs.md)
-* [定时器](luat_timer.md)
-* [消息总线](luat_msgbus.md)
-* [内存池](luat_memory.md)
+* [编码规范](/markdown/proj/code_style)
+* [文件系统](/markdown/core/luat_fs)
+* [定时器](/markdown/core/luat_timer)
+* [消息总线](/markdown/core/luat_msgbus)
+* [内存池](/markdown/core/luat_memory)

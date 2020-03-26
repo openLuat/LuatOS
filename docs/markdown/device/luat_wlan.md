@@ -17,9 +17,9 @@
 
 ## C API(平台层)
 
-```C
+```c
 #define Luat_WLAN_SECURITY_OPEN             0x00
-#define Luat_WLAN_SECURITY_WEP_PSK          0x01   
+#define Luat_WLAN_SECURITY_WEP_PSK          0x01
 #define Luat_WLAN_SECURITY_WEP_SHARED       0x02
 #define Luat_WLAN_SECURITY_WPA_TKIP_PSK     0x03
 #define Luat_WLAN_SECURITY_WPA_AES_PSK      0x04
@@ -30,23 +30,23 @@
 #define Luat_WLAN_SECURITY_WPS_SECURE       0x09
 
 #define Luat_WLAN_EVT_READY                 0x01
-#define Luat_WLAN_EVT_SCAN_DONE             0x02    
-#define Luat_WLAN_EVT_SCAN_REPORT           0x03   
-#define Luat_WLAN_EVT_STA_CONNECTED         0x04   
-#define Luat_WLAN_EVT_STA_CONNECTED_FAIL    0x05 
+#define Luat_WLAN_EVT_SCAN_DONE             0x02
+#define Luat_WLAN_EVT_SCAN_REPORT           0x03
+#define Luat_WLAN_EVT_STA_CONNECTED         0x04
+#define Luat_WLAN_EVT_STA_CONNECTED_FAIL    0x05
 #define Luat_WLAN_EVT_STA_DISCONNECTED      0x06
 #define Luat_WLAN_EVT_AP_START		        0x07
 #define Luat_WLAN_EVT_AP_STOP               0x08
 #define Luat_WLAN_EVT_AP_ASSOCIATED         0x09
-#define Luat_WLAN_EVT_AP_DISASSOCIATED      0x0A 
+#define Luat_WLAN_EVT_AP_DISASSOCIATED      0x0A
 
 
 /* 网络 */
 int luat_wlan_set_stanet(luat_wlan_net_t * net)    //设置STA的网络信息
-luat_wlan_net_t luat_wlan_get_stanet(void)         //获取STA的网络信息 
+luat_wlan_net_t luat_wlan_get_stanet(void)         //获取STA的网络信息
 
-int luat_wlan_set_apnet(luat_wlan_net_t * net)     //设置AP的网络信息 
-luat_wlan_net_t luat_wlan_get_apnet(void)          //获取AP的网络信息 
+int luat_wlan_set_apnet(luat_wlan_net_t * net)     //设置AP的网络信息
+luat_wlan_net_t luat_wlan_get_apnet(void)          //获取AP的网络信息
 
 
 /* WLAN 连接 */
@@ -78,16 +78,16 @@ int luat_wlan_get_powersave(void);                  //获取功耗等级
 ## 常量
 ```lua
 --安全模式
-wlan.OPEN                        --Open security 
+wlan.OPEN                        --Open security
 wlan.WEP_PSK                     --WEP Security with open authentication
 wlan.WEP_SHARED                  --WEP Security with shared authentication
 wlan.WPA_TKIP_PSK                --WPA Security with TKIP
-wlan.WPA_AES_PSK                 --WPA Security with AES      
-wlan.WPA2_AES_PSK                --WPA2 Security with AES  
+wlan.WPA_AES_PSK                 --WPA Security with AES
+wlan.WPA2_AES_PSK                --WPA2 Security with AES
 wlan.WPA2_TKIP_PSK               --WPA2 Security with TKIP
-wlan.WPA2_MIXED_PSK              --WPA2 Security with AES & TKIP 
+wlan.WPA2_MIXED_PSK              --WPA2 Security with AES & TKIP
 wlan.WPS_OPEN                    --WPS with open securit
-wlan.WPS_SECURE                  --WPS with AES security 
+wlan.WPS_SECURE                  --WPS with AES security
 
 --注册串口事件的处理函数事件
 wlan.EVT_READY                   --IP 地址
@@ -143,7 +143,7 @@ wlan.getApNet()
 ]]
 
 --扫描热点
-wlan.scan(ssid) 
+wlan.scan(ssid)
 --[[
 用例:
     local num,info = wlan.scan()      --扫描热点
@@ -169,7 +169,7 @@ wlan.getinfo()
     info.channel   --连接热点的信道
     info.rssi      --连接热点的信号强度
     info.bssid     --连接热点的MAC地址
-    info.security  --连接热点的安全模式 
+    info.security  --连接热点的安全模式
 ]]
 
 --断开热点
@@ -189,12 +189,12 @@ wlan.ap_start(ssid,password,security,channel,hidden)
     wlan.connect(ssid,password)                               --创建加密的热点
     wlan.connect(ssid,password,security)                      --创建指定安全级别加密的热点
     wlan.connect(ssid,password,security,channel)              --创建指定信道，指定安全级别加密的热点
-    wlan.connect(ssid,password,nil,channel)                   --创建指定信道，加密的热点      
-    wlan.connect(ssid,nil,nil,channel)                        --创建指定信道，开发的热点      
-    wlan.connect(ssid,password,security,channel,hidden)       --创建指定安全级别，指定信道，是否广播ssid的加密热点  
-    wlan.connect(ssid,password,nil,channel,hidden)            --指定信道，是否广播ssid的加密热点  
-    wlan.connect(ssid,password,nil,nil,hidden)                --指定信道，是否广播ssid的加密热点  
-    wlan.connect(ssid,nil,nil,nil,hidden)                     --指定信道，是否广播ssid的开发热点  
+    wlan.connect(ssid,password,nil,channel)                   --创建指定信道，加密的热点
+    wlan.connect(ssid,nil,nil,channel)                        --创建指定信道，开发的热点
+    wlan.connect(ssid,password,security,channel,hidden)       --创建指定安全级别，指定信道，是否广播ssid的加密热点
+    wlan.connect(ssid,password,nil,channel,hidden)            --指定信道，是否广播ssid的加密热点
+    wlan.connect(ssid,password,nil,nil,hidden)                --指定信道，是否广播ssid的加密热点
+    wlan.connect(ssid,nil,nil,nil,hidden)                     --指定信道，是否广播ssid的开发热点
 ]]
 
 --获取创建热点的信息
@@ -206,7 +206,7 @@ wlan.getapinfo()
     info.channel   --连接热点的信道
     info.rssi      --连接热点的信号强度
     info.bssid     --连接热点的MAC地址
-    info.security  --连接热点的安全模式 
+    info.security  --连接热点的安全模式
     info.hidden    --是否广播ssid
 ]]
 
@@ -240,4 +240,4 @@ wlan.pw(level)
 --获取功耗等级
 wlan.getpw()
 
-``` 
+```

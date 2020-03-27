@@ -28,5 +28,19 @@
   <script src="static/prism-c.min.js"></script>
   <script src="static/prism-bash.min.js"></script>
   <script src="static/docsify-copy-code.min.js"></script>
+  <link rel="stylesheet" href="static/gitalk.css">
+  <script src="static/gitalk.min.js"></script>
+  <script src="static/gitalk.dist.min.js"></script>
+  <script>
+    const gitalk = new Gitalk({
+      clientID: '98f87e4dc70d7a646e55',
+      clientSecret: '41c69048a46316e883721295813ada0254866b3d',
+      repo: 'LuatOS',
+      owner: 'openLuat',
+      admin: ['wendal','chenxuuu'],
+      // facebook-like distraction free mode
+      distractionFreeMode: false
+    })
+  </script>
 </body>
 </html>

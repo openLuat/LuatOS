@@ -1,4 +1,4 @@
-<p align="center"><a href="#" target="_blank" rel="noopener noreferrer"><img width="100" src="logo.jpg" alt="LuatOS logo"></a></p>
+![logo](https://raw.githubusercontent.com/openLuat/LuatOS/master/logo.jpg)
 
 [![license](https://img.shields.io/github/license/openLuat/LuatOS)](/LICENSE)
 [![rtt-w60x ci](https://github.com/openLuat/LuatOS/workflows/rtt-w60x/badge.svg)](https://github.com/openLuat/LuatOS/actions?query=workflow%3Artt-w60x)
@@ -22,11 +22,11 @@ Lua base RTOS, build for many embedded systems
 ----------------------------------------------------------------------------------
 ## 总体架构
 
-![总体架构](system.jpg)
+![总体架构](https://raw.githubusercontent.com/openLuat/LuatOS/master/system.jpg)
 
 ## 代码示例节选
 
-详细代码请查阅 [script/app/playit/main.lua](script/app/playit/main.lua)
+详细代码请查阅 [script/app/playit/main.lua](https://github.com/openLuat/LuatOS/tree/master/script/app/playit/main.lua)
 
 ```lua
 local sys = require("sys")
@@ -80,13 +80,10 @@ sys.run()
 ## 资源
 
 * 参阅 [Luat 平台层](markdown/core/luat_platform.md)
-* [文档索引](docs.md)
+* [文档索引](https://github.com/openLuat/LuatOS/tree/master/docs.md)
 * [搭建开发环境](markdown/proj/workspace.md)
 * [如何开发](markdown/proj/how_to_dev.md)
 * [预编译固件](https://github.com/openLuat/LuatOS/releases)
-* [Lua 5.3中文手册](https://www.runoob.com/manual/lua53doc/)
-* [合宙官网](http://www.openluat.com)
-* [合宙商城](http://m.openluat.com)
 
 ----------------------------------------------------------------------------------
 ## 配套

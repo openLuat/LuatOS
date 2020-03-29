@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>LuatOS</title>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+  <meta name="description" content="Lua base RTOS, build for many embedded systems">
+  <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+  <link rel="stylesheet" href="static/theme-simple.css">
+</head>
+<body>
+  <div id="app">加载中。。。</div>
+  <script>
+    window.$docsify = {
+      name: 'LuatOS',
+      repo: 'openLuat/LuatOS',
+      themeColor: '#00008D',
+      auto2top: true,
+      loadSidebar: true,
+      subMaxLevel: 2
+    }
+  </script>
+  <script src="static/docsify.min.js"></script>
+  <script src="static/docsify-themeable.js"></script>
+  <script src="static/zoom-image.js"></script>
+  <script src="static/prism-lua.min.js"></script>
+  <script src="static/prism-clike.min.js"></script>
+  <script src="static/prism-c.min.js"></script>
+  <script src="static/prism-bash.min.js"></script>
+  <script src="static/docsify-copy-code.min.js"></script>
+  <link rel="stylesheet" href="static/gitalk.css">
+  <script src="static/gitalk.min.js"></script>
+  <script src="static/gitalk.dist.min.js"></script>
+  <script>
+    const gitalk = new Gitalk({
+      clientID: '98f87e4dc70d7a646e55',
+      clientSecret: '41c69048a46316e883721295813ada0254866b3d',
+      repo: 'LuatOS',
+      owner: 'openLuat',
+      admin: ['wendal','chenxuuu'],
+      // facebook-like distraction free mode
+      distractionFreeMode: false
+    })
+  </script>
+</body>
+</html>

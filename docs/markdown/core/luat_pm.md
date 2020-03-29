@@ -16,7 +16,7 @@
 
 ## C API(平台层)
 
-```C
+```c
 uint32_t luat_pm_mode(uint8_t mode);
 ```
 
@@ -38,5 +38,5 @@ pm.mode(mode)
 ```
 ## 相关知识点
 
-* [Luat核心机制](luat_core.md)
+* [Luat核心机制](/markdown/core/luat_core)
 

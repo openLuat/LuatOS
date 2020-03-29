@@ -66,5 +66,5 @@ timer.stop(t)
 
 ## 相关知识点
 
-* [Luat核心机制](luat_core.md)
-* [消息总线](msgbus.md)
+* [Luat核心机制](/markdown/core/luat_core)
+* [消息总线](/markdown/core/msgbus)

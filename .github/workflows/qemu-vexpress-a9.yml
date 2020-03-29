@@ -29,7 +29,7 @@ jobs:
         echo | scons --menuconfig
         source ~/.env/env.sh
         pkgs --update
-        scons
+        scons -j2
     - name: prepare artifacts
       run: |
         cd bsp/qemu-vexpress-a9

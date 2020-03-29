@@ -32,7 +32,7 @@ jobs:
         echo | scons --menuconfig
         source ~/.env/env.sh
         pkgs --update
-        scons
+        scons -j2
     - name: package zip file of qemu-vexpress-a9
       run: |
         cd bsp/qemu-vexpress-a9
@@ -48,7 +48,7 @@ jobs:
         source ~/.env/env.sh
         pkgs --update
         chmod 755 -R packages/wm_libraries-latest/Tools/
-        scons
+        scons -j2
     - name: package zip file of w60x
       run: |
         cd bsp/w60x
@@ -60,7 +60,7 @@ jobs:
         echo | scons --menuconfig
         source ~/.env/env.sh
         pkgs --update
-        scons
+        scons -j2
     - name: package zip file of stm32f103re
       run: |
         cd bsp/stm32f103re

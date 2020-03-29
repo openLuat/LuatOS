@@ -69,6 +69,6 @@ void l_rtos_recv(luaState* L) {
 
 ## 相关知识点
 
-* [定时器](luat_timer.md)
-* [消息总线](luat_msgbus.md)
-* [文件系统](luat_fs.md)
+* [定时器](/markdown/core/luat_timer)
+* [消息总线](/markdown/core/luat_msgbus)
+* [文件系统](/markdown/core/luat_fs)

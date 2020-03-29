@@ -87,6 +87,9 @@ sys.run()
 * [搭建开发环境](markdown/proj/workspace.md)
 * [如何开发](markdown/proj/how_to_dev.md)
 * [预编译固件](https://github.com/openLuat/LuatOS/releases)
+* [Lua 5.3中文手册](https://www.runoob.com/manual/lua53doc/)
+* [合宙官网](http://www.openluat.com)
+* [合宙商城](http://m.openluat.com)
 
 ----------------------------------------------------------------------------------
 ## 配套

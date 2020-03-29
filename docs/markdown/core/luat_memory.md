@@ -26,7 +26,7 @@
 #define LUAT_MALLOC_HEAP_SIZE ((size_t) 85 * 1024)
 ```
 
-### 
+###
 
 ```c
 // 初始化内存
@@ -56,5 +56,5 @@ mem.free_count()
 
 ## 相关知识点
 
-* [Luat核心机制](luat_core.md)
+* [Luat核心机制](/markdown/core/luat_core)
 

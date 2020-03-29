@@ -30,7 +30,7 @@ jobs:
         source ~/.env/env.sh
         pkgs --update
         chmod 755 -R packages/wm_libraries-latest/Tools/
-        scons
+        scons -j2
     - name: Upload artifact
       uses: actions/upload-artifact@v1
       with:

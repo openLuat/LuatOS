@@ -34,11 +34,11 @@ uint8_t luat_fs_fclose(Luat_FILE stream);
 ### 遍历文件夹
 
 ```lua
-local names = io.lsdir("/ldata/") 
+local names = io.lsdir("/ldata/")
 ```
 
 
 ## 相关知识点
 
-* [Luat核心机制](luat_core.md)
+* [Luat核心机制](/markdown/core/luat_core)
 

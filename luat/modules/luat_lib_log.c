@@ -1,19 +1,23 @@
 
+/*
+@module  log
+@summary 日志库
+@version 1.0
+@data    2020.03.30
+*/
 #include "luat_base.h"
 #include "luat_log.h"
 #include "luat_sys.h"
 #include "luat_msgbus.h"
 
 /*
-@module log 日志 
-@since 1.0.0
-*/
-
-/*
-@api    setLevel 设置日志级别
-@param  level        日志级别,可用字符串或数值, 字符串为(SILENT,DEBUG,INFO,WARN,ERROR,FATAL), 数值为(0,1,2,3,4,5)
-@return nil
-@usage  log.setLevel("INFO") 设置日志级别为INFO.
+设置日志级别
+@function   log.setLevel("INFO") 
+@string  level 日志级别,可用字符串或数值, 字符串为(SILENT,DEBUG,INFO,WARN,ERROR,FATAL), 数值为(0,1,2,3,4,5)
+@return nil 无返回值
+@usage  
+-- 设置日志级别为INFO
+log.setLevel("INFO")
 */
 static int l_log_set_level(lua_State *L) {
     int LOG_LEVEL = 0;
@@ -46,9 +50,12 @@ static int l_log_set_level(lua_State *L) {
 }
 
 /*
-@api    log.getLevel 获取日志级别
-@return  level        日志级别,可用字符串或数值, 字符串为(SILENT,DEBUG,INFO,WARN,ERROR,FATAL), 数值为(0,1,2,3,4,5)
-@usage  log.getLevel() 得到日志级别
+获取日志级别
+@function   log.getLevel()
+@return  int   日志级别对应0,1,2,3,4,5
+@usage  
+-- 得到日志级别
+log.getLevel()
 */
 int l_log_get_level(lua_State *L) {
     lua_pushinteger(L, luat_log_get_level());
@@ -73,11 +80,14 @@ static int l_log_2_log(lua_State *L) {
 }
 
 /*
-@api    log.debug   输出日志,级别debug
-@param  tag         日志标识,必须是字符串
-@param  ...         需打印的参数
+输出日志,级别debug
+@function    log.debug(tag, val, val2, val3, ...)
+@string  tag         日志标识,必须是字符串
+@any  ...         需打印的参数
 @return nil
-@usage  log.debug("onenet", "connect ok") 日志输出 D/onenet connect ok
+@usage  
+-- 日志输出 D/onenet connect ok
+log.debug("onenet", "connect ok") 
 */
 static int l_log_debug(lua_State *L) {
     if (luat_log_get_level() > LUAT_LOG_DEBUG) return 0;
@@ -87,11 +97,14 @@ static int l_log_debug(lua_State *L) {
 }
 
 /*
-@api    log.info   输出日志,级别info
-@param  tag         日志标识,必须是字符串
-@param  ...         需打印的参数
+输出日志,级别info
+@function    log.info(tag, val, val2, val3, ...)
+@string  tag         日志标识,必须是字符串
+@any  ...         需打印的参数
 @return nil
-@usage  log.info("onenet", "connect ok") 日志输出 I/onenet connect ok
+@usage  
+-- 日志输出 I/onenet connect ok
+log.info("onenet", "connect ok") 
 */
 static int l_log_info(lua_State *L) {
     if (luat_log_get_level() > LUAT_LOG_INFO) return 0;
@@ -101,11 +114,14 @@ static int l_log_info(lua_State *L) {
 }
 
 /*
-@api    log.warn   输出日志,级别warn
-@param  tag         日志标识,必须是字符串
-@param  ...         需打印的参数
+输出日志,级别warn
+@function    log.warn(tag, val, val2, val3, ...)
+@string  tag         日志标识,必须是字符串
+@any  ...         需打印的参数
 @return nil
-@usage  log.warn("onenet", "connect ok") 日志输出 W/onenet connect ok
+@usage  
+-- 日志输出 W/onenet connect ok
+log.warn("onenet", "connect ok") 
 */
 static int l_log_warn(lua_State *L) {
     if (luat_log_get_level() > LUAT_LOG_WARN) return 0;
@@ -115,11 +131,14 @@ static int l_log_warn(lua_State *L) {
 }
 
 /*
-@api    log.error   输出日志,error
-@param  tag         日志标识,必须是字符串
-@param  ...         需打印的参数
+输出日志,级别error
+@function    log.error(tag, val, val2, val3, ...)
+@string  tag         日志标识,必须是字符串
+@any  ...         需打印的参数
 @return nil
-@usage  log.error("onenet", "connect ok") 日志输出 E/onenet connect ok
+@usage  
+-- 日志输出 E/onenet connect ok
+log.error("onenet", "connect ok") 
 */
 static int l_log_error(lua_State *L) {
     if (luat_log_get_level() > LUAT_LOG_ERROR) return 0;

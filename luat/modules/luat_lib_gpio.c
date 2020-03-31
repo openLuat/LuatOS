@@ -1,4 +1,10 @@
 
+/*
+@module  gpio
+@summary GPIO操作
+@version 1.0
+@data    2020.03.30
+*/
 #include "luat_base.h"
 #include "luat_log.h"
 #include "luat_gpio.h"
@@ -14,11 +20,6 @@ typedef struct luat_lib_gpio_cb
 } luat_lib_gpio_cb_t;
 
 static luat_lib_gpio_cb_t irq_cbs[GPIO_IRQ_COUNT];
-
-/*
-@module gpio GPIO操作
-@since 1.0.0
-*/
 
 int l_gpio_handler(lua_State *L, void* ptr) {
     // 给 sys.publish方法发送数据
@@ -39,15 +40,22 @@ int l_gpio_handler(lua_State *L, void* ptr) {
 }
 
 /*
-@api gpio.setup 设置管脚功能
-@param pin [必]针脚编号,必须是数值
-@param mode [必]输入输出模式. 数字0/1代表输出模式,nil代表输入模式,function代表中断模式
-@param pull [选]上拉下列模式, 可以是gpio.PULLUP 或 gpio.PULLDOWN, 需要根据实际硬件选用
-@param irq [选]中断模式, 上升沿gpio.RISING, 下降沿gpio.FALLING, 上升和下降都要gpio.BOTH.默认是RISING
-@return re 输出模式返回设置电平的闭包, 输入模式和中断模式返回获取电平的闭包
-@usage gpio.setup(17, nil) 设置gpio17为输入
-@usage gpio.setup(17, 0) 设置gpio17为输出
-@usage gpio.setup(27, function(val) print("IRQ_27") end, gpio.RISING) 设置gpio27为中断
+设置管脚功能
+@funtion gpio.setup(pin, mode, pull)
+@int pin 针脚编号,必须是数值
+@any mode 输入输出模式. 数字0/1代表输出模式,nil代表输入模式,function代表中断模式
+@int pull 上拉下列模式, 可以是gpio.PULLUP 或 gpio.PULLDOWN, 需要根据实际硬件选用
+@int irq 中断触发模式, 上升沿gpio.RISING, 下降沿gpio.FALLING, 上升和下降都要gpio.BOTH.默认是RISING
+@return any 输出模式返回设置电平的闭包, 输入模式和中断模式返回获取电平的闭包
+@usage 
+-- 设置gpio17为输入
+gpio.setup(17, nil) 
+@usage 
+-- 设置gpio17为输出
+gpio.setup(17, 0) 
+@usage 
+-- 设置gpio27为中断
+gpio.setup(27, function(val) print("IRQ_27") end, gpio.RISING)
 */
 static int l_gpio_setup(lua_State *L) {
     //lua_gettop(L);
@@ -100,11 +108,14 @@ static int l_gpio_setup(lua_State *L) {
 }
 
 /*
-@api gpio.set 设置管脚电平
-@param pin [必]针脚编号,必须是数值
-@param value [必]电平, 可以是 高电平gpio.HIGH, 低电平gpio.LOW, 或者直接写数值1或0
+设置管脚电平
+@api gpio.set(pin, value)
+@int pin 针脚编号,必须是数值
+@int value 电平, 可以是 高电平gpio.HIGH, 低电平gpio.LOW, 或者直接写数值1或0
 @return nil
-@usage gpio.set(17, 0) 设置gpio17为低电平
+@usage
+-- 设置gpio17为低电平
+gpio.set(17, 0) 
 */
 static int l_gpio_set(lua_State *L) {
     luat_gpio_set(luaL_checkinteger(L, 1), luaL_checkinteger(L, 2));
@@ -112,10 +123,13 @@ static int l_gpio_set(lua_State *L) {
 }
 
 /*
-@api gpio.get 获取管脚电平
-@param pin [必]针脚编号,必须是数值
-@return value [必]电平, 高电平gpio.HIGH, 低电平gpio.LOW
-@usage gpio.get(17) 获取gpio17的当前电平
+获取管脚电平
+@api gpio.get(pin)
+@int pin 针脚编号,必须是数值
+@return value 电平, 高电平gpio.HIGH, 低电平gpio.LOW, 对应数值1和0
+@usage 
+-- 获取gpio17的当前电平
+gpio.get(17) 
 */
 static int l_gpio_get(lua_State *L) {
     lua_pushinteger(L, luat_gpio_get(luaL_checkinteger(L, 1)) & 0x01 ? 1 : 0);
@@ -123,10 +137,13 @@ static int l_gpio_get(lua_State *L) {
 }
 
 /*
-@api gpio.close 关闭管脚功能(高阻输入态),关掉中断
-@param pin [必]针脚编号,必须是数值
+关闭管脚功能(高阻输入态),关掉中断
+@api gpio.close(pin)
+@int pin 针脚编号,必须是数值
 @return nil 无返回值,总是执行成功
-@usage gpio.close(17) 关闭gpio17
+@usage
+-- 关闭gpio17
+gpio.close(17)
 */
 static int l_gpio_close(lua_State *L) {
     int pin = luaL_checkinteger(L, 1);

@@ -23,9 +23,9 @@ static void rt_timer_callback(void *param) {
 int luat_timer_start(luat_timer_t* timer) {
     rt_sprintf(timer_name, "t%06X", timer->id);
     LOG_D("rtt timer name=%s", timer_name);
-    rt_tick_t time = timer->timeout;
+    rt_tick_t tick = rt_tick_from_millisecond(timer->timeout);
     rt_uint8_t flag = timer->repeat ? RT_TIMER_FLAG_PERIODIC : RT_TIMER_FLAG_ONE_SHOT;
-    rt_timer_t r_timer = rt_timer_create(timer_name, rt_timer_callback, timer, time, flag);
+    rt_timer_t r_timer = rt_timer_create(timer_name, rt_timer_callback, timer, tick, flag);
     if (r_timer == NULL) {
         LOG_E("rt_timer_create FAIL!!!");
         return 1;

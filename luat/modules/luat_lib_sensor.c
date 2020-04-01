@@ -1,4 +1,10 @@
 
+/*
+@module  sensor
+@summary 传感器操作库
+@version 1.0
+@data    2020.03.30
+*/
 #include "luat_base.h"
 #include "luat_log.h"
 #include "luat_timer.h"
@@ -21,7 +27,7 @@ static void w1_reset(int pin)
 {
     luat_gpio_mode(pin, Luat_GPIO_OUTPUT);
     luat_gpio_set(pin, Luat_GPIO_LOW);
-    luat_timer_us_delay(780);               /* 480us - 960us */
+    luat_timer_us_delay(550);               /* 480us - 960us */
     luat_gpio_set(pin, Luat_GPIO_HIGH);
     luat_timer_us_delay(40);                /* 15us - 60us*/
 }
@@ -80,14 +86,14 @@ static uint8_t w1_read_byte(int pin)
     uint8_t i, j, dat;
     dat = 0;
 
-    rt_base_t level;
-    level = rt_hw_interrupt_disable();
+    //rt_base_t level;
+    //level = rt_hw_interrupt_disable();
     for (i = 1; i <= 8; i++)
     {
         j = w1_read_bit(pin);
         dat = (j << 7) | (dat >> 1);
     }
-    rt_hw_interrupt_enable(level);
+    //rt_hw_interrupt_enable(level);
 
     return dat;
 }
@@ -161,7 +167,15 @@ static int32_t ds18b20_get_temperature(int pin)
 
 
 // 获取DS18B20的温度数据
-// while 1 do timer.mdelay(5000) sensor.ds18b20(14) end
+// 
+/*
+获取DS18B20的温度数据
+@function    sensor.ds18b20(pin)
+@int  gpio端口号
+@return int 温度数据
+--  如果读取失败,会返回nil
+while 1 do sys.wait(5000) log.info("ds18b20", sensor.ds18b20(14)) end
+*/
 static int l_sensor_ds18b20(lua_State *L) {
     int32_t temp = ds18b20_get_temperature(luaL_checkinteger(L, 1));
     // -55°C ~ 125°C
@@ -179,7 +193,7 @@ static const rotable_Reg reg_sensor[] =
 {
     { "ds18b20" ,  l_sensor_ds18b20 , 0},
 	{ NULL, NULL , 0}
-};
+}
 
 LUAMOD_API int luaopen_sensor( lua_State *L ) {
     rotable_newlib(L, reg_sensor);

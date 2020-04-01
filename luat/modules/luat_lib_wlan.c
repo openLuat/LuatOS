@@ -1,4 +1,9 @@
-
+/*
+@module  wlan
+@summary wifi操作库
+@version 1.0
+@data    2020.03.30
+*/
 #include "luat_base.h"
 #include "luat_log.h"
 #include "luat_timer.h"
@@ -20,14 +25,13 @@
 #endif
 
 /*
-@module wlan wifi模块
-@since 1.0.0
-*/
-
-/*
 获取wifi模式
-@param  dev  设备名称,字符串或数值, 可选值0/1, "wlan0","wlan1". 默认"wlan0"
-@return mode 模式wlan.NONE, wlan.STATION, wlan.AP
+@function wlan.getMode(dev)
+@string  设备名称,字符串或数值, 可选值0/1, "wlan0","wlan1". 默认"wlan0"
+@return int 模式wlan.NONE, wlan.STATION, wlan.AP
+@usage
+-- 获取wlan0的当前模式
+local m = wlan.getMode("wlan0")
 */
 static int l_wlan_get_mode(lua_State *L) {
     char* devname = "wlan0";
@@ -53,10 +57,13 @@ static int l_wlan_get_mode(lua_State *L) {
 
 /*
 设置wifi模式
-@param  dev  设备名称,字符串或数值, 可选值0/1, "wlan0","wlan1". 默认"wlan0"
-@param mode 模式wlan.NONE, wlan.STATION, wlan.AP
-@return re   设置成功与否,通常不检查
-@usage wlan.setMode("wlan0",wlan.STATION) 将wlan设置为wifi客户端模式
+@function wlan.setMode("wlan", wlan.STATION)
+@string  设备名称,字符串或数值, 可选值0/1, "wlan0","wlan1". 默认"wlan0"
+@int 模式wlan.NONE, wlan.STATION, wlan.AP
+@return int   设置成功与否,通常不检查
+@usage 
+-- 将wlan设置为wifi客户端模式
+wlan.setMode("wlan0",wlan.STATION) 
 */
 static int l_wlan_set_mode(lua_State *L) {
     char* devname = "wlan0";
@@ -95,10 +102,13 @@ static void _wlan_connect(void* params) {
 
 /*
 连接wifi
-@param  ssid  wifi的SSID
-@param  password wifi的密码,可选
+@function wlan.connect(ssid,password)
+@string  ssid  wifi的SSID
+@string password wifi的密码,可选
 @return re   如果正常启动联网线程,无返回值,否则返回出错信息. 成功启动联网线程不等于联网成功!!
-@usage wlan.connect("uiot", "1234567890")
+@usage 
+-- 连接到uiot,密码1234567890
+wlan.connect("uiot", "1234567890")
 */
 static int l_wlan_connect(lua_State *L) {
     // 更新参数
@@ -136,8 +146,11 @@ static int l_wlan_connect(lua_State *L) {
 
 /*
 断开wifi
+@function wlan.disconnect()
 @return nil
-@usage wlan.disconnect()
+@usage
+-- 断开wifi连接 
+wlan.disconnect()
 */
 static int l_wlan_disconnect(lua_State *L) {
     if (rt_wlan_is_connected()) {
@@ -151,9 +164,12 @@ static int l_wlan_disconnect(lua_State *L) {
 }
 
 /*
-wifi station是否已连接
+是否已经连上wifi网络
+@function wlan.connected()
 @return re 已连接返回1,未连接返回0
-@usage wlan.disconnect()
+@usage 
+-- 连上wifi网络,只代表密码正确, 不一定拿到了ip
+wlan.connected()
 */
 static int l_wlan_connected(lua_State *L) {
     lua_pushboolean(L, rt_wlan_is_connected() == 1 ? 1 : 0);
@@ -162,9 +178,14 @@ static int l_wlan_connected(lua_State *L) {
 
 /*
 设置或查询wifi station是否自动连接
-@param enable 传入1启用自动连接(自动重连wifi), 传入0关闭. 不传这个参数就是查询
-@return enable 已启用自动连接(自动重连wifi)返回1, 否则返回0
-@usage wlan.disconnect()
+@function wlan.autoreconnect(enable)
+@int 传入1启用自动连接(自动重连wifi), 传入0关闭. 不传这个参数就是查询
+@return int 已启用自动连接(自动重连wifi)返回1, 否则返回0
+@usage 
+-- 查询自动连接的设置
+wlan.autoreconnect()
+-- 设置自动连接
+wlan.autoreconnect(1)
 */
 static int l_wlan_autoreconnect(lua_State *L) {
     if (lua_gettop(L) > 0) {
@@ -191,7 +212,8 @@ static int l_wlan_scan_get_info(lua_State *L) {
 
 /*
 获取mac地址
-@return mac_addr 12字节的HEX字符串
+@function wlan.get_mac()
+@return string 长度为12的HEX字符串
 @usage wlan.get_mac()
 */
 static int l_wlan_get_mac(lua_State *L) {
@@ -209,7 +231,8 @@ static int l_wlan_get_mac(lua_State *L) {
 
 /*
 获取mac地址,raw格式
-@return mac_addr 6字节的mac地址串
+@function wlan.get_mac_raw()
+@return string 6字节的mac地址串
 @usage wlan.get_mac_raw()
 */
 static int l_wlan_get_mac_raw(lua_State *L) {
@@ -225,6 +248,7 @@ static int l_wlan_get_mac_raw(lua_State *L) {
 
 /*
 wifi是否已经获取ip
+@function wlan.ready()
 @return re 已经有ip返回1,否则返回0
 @usage wlan.ready()
 */
@@ -393,7 +417,8 @@ static int l_wlan_join_info(lua_State *L) {
 
 /*
 获取wifi信号强度值rssi
-@return re 如果是station模式,返回正的rssi值,否则返回负值
+@function wlan.rssi()
+@return int 如果是station模式,返回正的rssi值,否则返回负值
 @usage wlan.rssi()
 */
 static int l_wlan_rssi(lua_State* L) {
@@ -403,6 +428,7 @@ static int l_wlan_rssi(lua_State* L) {
 
 /*
 启动airkiss配网线程
+@function wlan.airkiss_start()
 @return re 启动成功返回1,否则返回0
 @usage wlan.airkiss_start()
 */

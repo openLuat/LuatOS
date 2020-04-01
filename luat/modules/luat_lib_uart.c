@@ -1,3 +1,9 @@
+/*
+@module  uart
+@summary 串口操作库
+@version 1.0
+@data    2020.03.30
+*/
 #include "luat_base.h"
 #include "luat_log.h"
 #include "luat_uart.h"
@@ -46,23 +52,49 @@ int l_uart_handler(lua_State *L, void* ptr) {
     return 1;
 }
 
+/*
+配置串口参数
+@function    uart.setup(id, baud_rate, data_bits, stop_bits, partiy, bit_order, buff_size)
+@int 串口id, uart0写0, uart1写1
+@int 波特率 9600~115200
+@int 数据位 7或8, 一般是8
+@int 停止位 1或0, 一般是1
+@int 校验位, 可选 uart.None/uart.Even/uart.Odd
+@int 大小端, 默认小端 uart.LSB, 可选 uart.MSB
+@int 缓冲区大小, 默认值1024
+@return int 成功返回0,失败返回其他值
+@usage
+-- 最常用115200 8N1
+uart.setup(1, 115200, 8, 1, uart.NONE)
+-- 可以简写为 uart.setup(1)
+*/
 static int l_uart_setup(lua_State *L)
 {
     luat_uart_t *uart_config = (luat_uart_t *)luat_heap_malloc(sizeof(luat_uart_t));
     uart_config->id = luaL_checkinteger(L, 1);
-    uart_config->baud_rate = luaL_checkinteger(L, 2);
+    uart_config->baud_rate = luaL_optinteger(L, 2, 115200);
     uart_config->data_bits = luaL_optinteger(L, 3, 8);
     uart_config->stop_bits = luaL_optinteger(L, 4, 1);
     uart_config->parity = luaL_optinteger(L, 5, LUAT_PARITY_NONE);
     uart_config->bit_order = luaL_optinteger(L, 6, LUAT_BIT_ORDER_LSB);
     uart_config->bufsz = luaL_optinteger(L, 7, 1024);
 
-    lua_pushinteger(L, luat_uart_setup(uart_config));
+    int result luat_uart_setup(uart_config);
+    lua_pushinteger(L, result);
 
     luat_heap_free(uart_config);
     return 1;
 }
 
+/*
+写串口
+@function    uart.write(id, data)
+@int 串口id, uart0写0, uart1写1
+@string 待写入的数据
+@return int 成功的数据长度
+@usage
+uart.write(1, "rdy\r\n")
+*/
 static int l_uart_write(lua_State *L)
 {
     size_t len;
@@ -75,6 +107,15 @@ static int l_uart_write(lua_State *L)
     return 1;
 }
 
+/*
+读串口
+@function    uart.read(id, len)
+@int 串口id, uart0写0, uart1写1
+@int 读取长度
+@return string 读取到的数据
+@usage
+uart.read(1, 16)
+*/
 static int l_uart_read(lua_State *L)
 {
     uint8_t id = luaL_checkinteger(L, 1);
@@ -89,6 +130,14 @@ static int l_uart_read(lua_State *L)
     return 1;
 }
 
+/*
+关闭串口
+@function    uart.close(id)
+@int 串口id, uart0写0, uart1写1
+@return nil 无返回值
+@usage
+uart.close(1)
+*/
 static int l_uart_close(lua_State *L)
 {
     uint8_t result = luat_uart_close(luaL_checkinteger(L, 1));
@@ -96,6 +145,19 @@ static int l_uart_close(lua_State *L)
     return 1;
 }
 
+/*
+注册串口事件回调
+@function    uart.on(id, event, func)
+@int 串口id, uart0写0, uart1写1
+@string 事件名称
+@function 回调方法
+@return nil 无返回值
+@usage
+uart.on("receive", function(id, len)
+    local data = uart.read(id, len)
+    log.info("uart", id, len, data)
+end)
+*/
 static int l_uart_on(lua_State *L) {
     int uart_id = luaL_checkinteger(L, 1);
     if (!luat_uart_exist(uart_id)) {

@@ -1,4 +1,9 @@
-
+/*
+@module  socket
+@summary socket操作库
+@version 1.0
+@data    2020.03.30
+*/
 #include "luat_base.h"
 #include "luat_log.h"
 #include "luat_timer.h"
@@ -43,6 +48,18 @@ static void ntp_thread(void* params) {
     luat_msgbus_put(&msg, 1);
     LOG_D("ntp sync complete");
 }
+
+/*
+ntp时间同步
+@function    socket.ntpSync(server)
+@string ntp服务器域名,默认值ntp1.aliyun.com
+@return int 启动成功返回0, 失败返回1或者2
+--  如果读取失败,会返回nil
+socket.ntpSync()
+sys.subscribe("NTP_UPDATE", function(re)
+    log.info("ntp", "result", re)
+end)
+*/
 static int socket_ntp_sync(lua_State *L) {
     const char* hostname = luaL_optstring(L, 1, "ntp1.aliyun.com");
     LOG_D("ntp sync : %s", hostname);
@@ -62,6 +79,16 @@ static int socket_ntp_sync(lua_State *L) {
 }
 #endif
 
+/*
+直接向地址发送一段数据
+@function    socket.tsend(host, port, data)
+@string 服务器域名或者ip
+@int    服务器端口号
+@string 待发送的数据
+@return nil 无返回值
+--  如果读取失败,会返回nil
+socket.tsend("www.baidu.com", 80, "GET / HTTP/1.0\r\n\r\n")
+*/
 static int sal_tls_test(lua_State *L)
 {
     int ret, i;
@@ -131,6 +158,7 @@ __exit:
 
     if (sock >= 0)
         closesocket(sock);
+    return 0;
 }
 
 #include "netclient.h"
@@ -178,6 +206,7 @@ exit:
     luat_heap_free((void*)ent);
     return 0;
 }
+
 static int luat_lib_socket_new(lua_State* L, int netc_type);
 static int luat_lib_socket_ent_handler(rt_netc_ent_t* ent) {
     if (ent->event != NETC_EVENT_END && ent->lua_ref == 0) {
@@ -194,10 +223,38 @@ static int luat_lib_socket_ent_handler(rt_netc_ent_t* ent) {
     return 0;
 }
 //----------------------------------------------------------------
-// 新建socket对象
+/*
+新建一个tcp socket
+@function    socket.tcp()
+@return object socket对象,如果创建失败会返回nil
+--  如果读取失败,会返回nil
+local so = socket.tcp()
+if so then
+    so:host("www.baidu.com")
+    so:port(80)
+    so:on("connect", function(id, re)
+        if re == 1 then
+            so:send("GET / HTTP/1.0\r\n\r\n")
+        end
+    end)
+    so:on("recv", function(id, data)
+        log.info("netc", id, data)
+    end)
+    if so:start() == 1 then
+        sys.waitUntil("NETC_END_" .. so:id())
+    end
+    so:close()
+    so:clean()
+end
+*/
 static int luat_lib_socket_tcp(lua_State* L) {
     return luat_lib_socket_new(L, NETC_TYPE_TCP);
 }
+/*
+新建一个udp socket
+@function    socket.udp()
+@return nil 暂不支持
+*/
 static int luat_lib_socket_udp(lua_State* L) {
     return luat_lib_socket_new(L, NETC_TYPE_UDP);
 }
@@ -310,7 +367,14 @@ static int luat_lib_socket_new(lua_State* L, int netc_type) {
 //---------------------------------------------
 #define tonetc(L)	((rt_netclient_t *)luaL_checkudata(L, 1, LUAT_NETC_HANDLE))
 
-
+/*
+启动socket线程
+@function    so:start(host, port)
+@string 服务器域名或ip,如果已经使用so:host和so:port配置,就不需要传参数了
+@port 服务器端口,如果已经使用so:host和so:port配置,就不需要传参数了
+@return int 成功返回1,失败返回0
+-- 参考socket.tcp的说明, 并查阅demo
+*/
 static int netc_connect(lua_State *L) {
     rt_netclient_t* thiz;
     size_t len;
@@ -346,6 +410,12 @@ static int netc_connect(lua_State *L) {
     return 1;
 }
 
+/*
+关闭socket对象
+@function    so:close()
+@return nil 总会成功
+-- 参考socket.tcp的说明, 并查阅demo
+*/
 static int netc_close(lua_State *L) {
     rt_netclient_t *netc = tonetc(L);
     if (netc->closed == 0) {
@@ -354,6 +424,13 @@ static int netc_close(lua_State *L) {
     return 0;
 }
 
+/*
+通过socket对象发送数据
+@function    so:send(data)
+@string 待发送数据
+@return nil 总会成功
+-- 参考socket.tcp的说明, 并查阅demo
+*/
 static int netc_send(lua_State *L) {
     size_t len;
     char* data;
@@ -385,6 +462,7 @@ static int netc_gc(lua_State *L) {
     return 0;
 }
 
+
 static int netc_tostring(lua_State *L) {
     rt_netclient_t *netc = tonetc(L);
     lua_pushfstring(L, "netc[%d] %s,%d,%s %s", netc->id,
@@ -394,12 +472,25 @@ static int netc_tostring(lua_State *L) {
     return 1;
 }
 
+/*
+获取socket对象的id
+@function    so:id()
+@return int 对象id,自增量,全局唯一
+-- 参考socket.tcp的说明, 并查阅demo
+*/
 static int netc_id(lua_State *L) {
     rt_netclient_t *netc = tonetc(L);
     lua_pushinteger(L, netc->id);
     return 1;
 }
 
+/*
+设置服务器域名或ip
+@function    so:host(host)
+@string 服务器域名或ip
+@return nil 无返回值
+-- 参考socket.tcp的说明, 并查阅demo
+*/
 static int netc_host(lua_State *L) {
     rt_netclient_t *netc = tonetc(L);
     if (lua_gettop(L) > 1 && lua_isstring(L, 2)) {
@@ -419,6 +510,13 @@ static int netc_host(lua_State *L) {
     return 1;
 }
 
+/*
+设置服务器端口
+@function    so:port(port)
+@int 服务器端口
+@return nil 无返回值
+-- 参考socket.tcp的说明, 并查阅demo
+*/
 static int netc_port(lua_State *L) {
     rt_netclient_t *netc = tonetc(L);
     if (lua_gettop(L) > 1 && lua_isinteger(L, 2)) {
@@ -429,6 +527,12 @@ static int netc_port(lua_State *L) {
     return 1;
 }
 
+/*
+清理socket关联的资源,socket对象在废弃前必须调用
+@function    so:clean(0)
+@return nil 无返回值
+-- 参考socket.tcp的说明, 并查阅demo
+*/
 static int netc_clean(lua_State *L) {
     rt_netclient_t *netc = tonetc(L);
     if (netc->cb_error) {
@@ -454,6 +558,14 @@ static int netc_clean(lua_State *L) {
     return 0;
 }
 
+/*
+设置socket的事件回调
+@function    so:port(event, func)
+@string 事件名称
+@function 回调方法
+@return nil 无返回值
+-- 参考socket.tcp的说明, 并查阅demo
+*/
 static int netc_on(lua_State *L) {
     rt_netclient_t *netc = tonetc(L);
     if (lua_gettop(L) < 3) {

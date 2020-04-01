@@ -1,4 +1,9 @@
-
+/*
+@module  rtos
+@summary RTOS底层操作库
+@version 1.0
+@data    2020.03.30
+*/
 #include "luat_base.h"
 #include "luat_log.h"
 #include "luat_sys.h"
@@ -7,14 +12,12 @@
 #include "luat_malloc.h"
 
 /*
-@module rtos RTOS底层操作库
-@since 1.0.0
-*/
-
-/*
-@api    rtos.receive   接受并处理底层消息队列. 本方法通过sys.run()调用, 普通用户不要使用.
-@param  timeout        [必]超时时长,通常是-1,永久等待
+接受并处理底层消息队列.
+@function    rtos.receive(timeout)   
+@int  超时时长,通常是-1,永久等待
 @return msgid          如果是定时器消息,会返回定时器消息id及附加信息, 其他消息由底层决定,不向lua层进行任何保证.
+--  本方法通过sys.run()调用, 普通用户不要使用
+rtos.receive(-1)
 */
 static int l_rtos_receive(lua_State *L) {
     rtos_msg_t msg;
@@ -51,11 +54,16 @@ static int l_timer_handler(lua_State *L, void* ptr) {
 }
 
 /*
-@api    rtos.timer_start   启动一个定时器. 用户代码请使用 sys.timerStart
-@param  id             [必]定时器id
-@param  timeout        [必]超时时长,单位毫秒
-@param  repeat         [选]重复次数,默认是0
-@return msgid          如果是定时器消息,会返回定时器消息id及附加信息, 其他消息由底层决定,不向lua层进行任何保证.
+启动一个定时器
+@function    rtos.timer_start(id,timeout,_repeat)   
+@int  定时器id
+@int  超时时长,单位毫秒
+@int  重复次数,默认是0
+@return id 如果是定时器消息,会返回定时器消息id及附加信息, 其他消息由底层决定,不向lua层进行任何保证.
+@usage
+-- 用户代码请使用 sys.timerStart
+-- 启动一个3秒的循环定时器
+rtos.timer_start(10000, 3000, -1)
 */
 static int l_rtos_timer_start(lua_State *L) {
     lua_gettop(L);
@@ -86,9 +94,13 @@ static int l_rtos_timer_start(lua_State *L) {
 }
 
 /*
-@api    rtos.timer_stop   关闭并释放一个定时器.用户代码请使用sys.timerStop
-@param  id             [必]定时器id
+关闭并释放一个定时器
+@function    rtos.timer_stop(id)   
+@int  定时器id
 @return nil            无返回值
+@usage
+-- 用户代码请使用sys.timerStop
+rtos.timer_stop(100000)
 */
 static int l_rtos_timer_stop(lua_State *L) {
     luat_timer_t *timer;
@@ -106,8 +118,11 @@ static int l_rtos_timer_stop(lua_State *L) {
 }
 
 /*
-@api    rtos.reboot   设备重启
+设备重启
+@function    rtos.reboot()   
 @return nil          无返回值
+-- 立即重启设备
+rtos.reboot()
 */
 static int l_rtos_reboot(lua_State *L) {
     luat_os_reboot(luaL_optinteger(L, 1, 0));
@@ -117,8 +132,12 @@ static int l_rtos_reboot(lua_State *L) {
 //-----------------------------------------------------------------
 
 /*
-@api    rtos.buildDate   获取固件编译日期
-@return str              固件编译日期
+获取固件编译日期
+@function    rtos.buildDate()
+@return string 固件编译日期
+@usage
+-- 获取编译日期
+local d = rtos.buildDate()
 */
 static int l_rtos_build_date(lua_State *L) {
     lua_pushstring(L, __DATE__);
@@ -126,8 +145,12 @@ static int l_rtos_build_date(lua_State *L) {
 }
 
 /*
-@api    rtos.bsp         获取硬件类型
-@return str              硬件类型, 例如w60x
+获取硬件bsp型号
+@function    rtos.bsp()
+@return string 硬件bsp型号
+@usage
+-- 获取编译日期
+local bsp = rtos.bsp()
 */
 static int l_rtos_bsp(lua_State *L) {
     lua_pushstring(L, luat_os_bsp());
@@ -135,14 +158,27 @@ static int l_rtos_bsp(lua_State *L) {
 }
 
 /*
-@api    rtos.bsp         获取固件版本号
-@return str              固件版本号,例如"1.0.2"
+ 获取固件版本号
+@function    rtos.version()        
+@return string  固件版本号,例如"1.0.2"
+@usage
+-- 读取版本号
+local luatos_version = rtos.version()
 */
 static int l_rtos_version(lua_State *L) {
     lua_pushstring(L, LUAT_VERSION);
     return 1;
 }
 
+/*
+进入待机模式(部分设备可用,例如w60x)
+@function    rtos.standy(timeout)
+@int    休眠时长,单位毫秒     
+@return nil  无返回值
+@usage
+-- 读取版本号
+local luatos_version = rtos.version()
+*/
 static int l_rtos_standy(lua_State *L) {
     int timeout = luaL_checkinteger(L, 1);
     luat_os_standy(timeout);

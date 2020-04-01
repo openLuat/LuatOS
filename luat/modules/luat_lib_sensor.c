@@ -165,9 +165,6 @@ static int32_t ds18b20_get_temperature(int pin)
     }
 }
 
-
-// 获取DS18B20的温度数据
-// 
 /*
 获取DS18B20的温度数据
 @function    sensor.ds18b20(pin)

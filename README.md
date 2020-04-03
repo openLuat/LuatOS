@@ -79,14 +79,15 @@ sys.run()
 ----------------------------------------------------------------------------------
 ## 资源
 
-* 参阅 [Luat 平台层](markdown/core/luat_platform.md)
+* 参阅 [Luat 平台层](docs/markdown/core/luat_platform.md)
 * [文档索引](docs.md)
-* [搭建开发环境](markdown/proj/workspace.md)
-* [如何开发](markdown/proj/how_to_dev.md)
+* [搭建开发环境](docs/markdown/proj/workspace.md)
+* [如何开发](docs/markdown/proj/how_to_dev.md)
 * [预编译固件](https://github.com/openLuat/LuatOS/releases)
 * [Lua 5.3中文手册](https://www.runoob.com/manual/lua53doc/)
 * [合宙官网](http://www.openluat.com)
 * [合宙商城](http://m.openluat.com)
+* [联盛德W600/合宙Air640W专属说明](docs/markdown/bsp/w600.md)
 
 ----------------------------------------------------------------------------------
 ## 配套

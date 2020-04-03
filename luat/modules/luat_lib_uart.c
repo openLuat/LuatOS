@@ -79,7 +79,7 @@ static int l_uart_setup(lua_State *L)
     uart_config->bit_order = luaL_optinteger(L, 6, LUAT_BIT_ORDER_LSB);
     uart_config->bufsz = luaL_optinteger(L, 7, 1024);
 
-    int result luat_uart_setup(uart_config);
+    int result = luat_uart_setup(uart_config);
     lua_pushinteger(L, result);
 
     luat_heap_free(uart_config);

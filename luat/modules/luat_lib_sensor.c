@@ -190,7 +190,7 @@ static const rotable_Reg reg_sensor[] =
 {
     { "ds18b20" ,  l_sensor_ds18b20 , 0},
 	{ NULL, NULL , 0}
-}
+};
 
 LUAMOD_API int luaopen_sensor( lua_State *L ) {
     rotable_newlib(L, reg_sensor);

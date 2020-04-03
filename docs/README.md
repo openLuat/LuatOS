@@ -84,6 +84,9 @@ sys.run()
 * [搭建开发环境](markdown/proj/workspace.md)
 * [如何开发](markdown/proj/how_to_dev.md)
 * [预编译固件](https://github.com/openLuat/LuatOS/releases)
+* [合宙官网](http://www.openluat.com)
+* [合宙商城](http://m.openluat.com)
+* [联盛德W600/合宙Air640W专属说明](markdown/bsp/w600.md)
 
 ----------------------------------------------------------------------------------
 ## 配套

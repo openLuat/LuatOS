@@ -431,7 +431,7 @@ rt_int32_t rt_netclient_send(rt_netclient_t *thiz, const void *buff, size_t len)
         return -1;
     }
 
-    LOG_D("netc[%ld] send data len=%d buff=[%s]", this->id, len, buff);
+    //LOG_D("netc[%ld] send data len=%d buff=[%s]", this->id, len, buff);
 
     bytes = write(thiz->pipe_write_fd, buff, len);
     return bytes;

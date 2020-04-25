@@ -35,6 +35,9 @@ LUAMOD_API int luaopen_disp( lua_State *L );
 LUAMOD_API int luaopen_utest( lua_State *L );
 LUAMOD_API int luaopen_spi( lua_State *L );
 
+LUAMOD_API int luaopen_mqtt( lua_State *L );
+LUAMOD_API int luaopen_http( lua_State *L );
+
 int l_sprintf(char *buf, int32_t size, const char *fmt, ...);
 
 void luat_os_reboot(int code);

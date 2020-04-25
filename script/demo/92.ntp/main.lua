@@ -6,17 +6,14 @@ end)
 
 sys.taskInit(function()
     wlan.setMode("wlan0", wlan.STATION)
-    --wlan.setMode("wlan1", wlan.AP)
-    --print("oneshotStart", wlan.oneshotStart())
-    --print("airkiss", wlan.airkiss_start())
-    --sys.waitUntil("WLAN_PW_RE", 180000)
-    --wlan.setMode("wlan0", wlan.STATION)
-    wlan.connect("uiot", "12345678")
+    wlan.connect("uiot", "czcjhp1985cbm")
     print("wait for WLAN_READY")
     sys.waitUntil("WLAN_READY", 30000)
     if wlan.ready() == 1 then
+        socket.ntpSync()
+        print(os.date())
         while 1 do
-            print("prepare ds18b20 ...")
+            print("prepare ds18b20 ...", os.date())
             local temp = (sensor.ds18b20(28) or "")
             print("TEMP: " .. temp)
             local t = {"GET /api/w60x/report/ds18b20?mac=", wlan.get_mac(), "&temp=", temp, " HTTP/1.0\r\n",

@@ -7,6 +7,7 @@ PRODUCT_KEY = "1234567890"
 
 -- 日志TAG, 非必须
 local TAG = "main"
+local last_temp_data = "0"
 
 sys.subscribe("WLAN_READY", function ()
     print("!!! wlan ready event !!!")
@@ -19,6 +20,17 @@ end)
 function display_str(str)
     disp.clear()
     disp.drawStr(str, 1, 18)
+    disp.update()
+end
+
+function ui_update()
+    disp.clear()
+
+    disp.drawStr(os.date(), 1, 12)
+
+    disp.drawStr("Temp: " .. last_temp_data, 1, 24)
+    disp.drawStr("rssi: " .. tostring(wlan.rssi()), 1, 36)
+
     disp.update()
 end
 
@@ -101,25 +113,54 @@ sys.taskInit(function()
     end
 end)
 
+-- sys.timerLoopStart(function()
+--     last_temp_data = (sensor.ds18b20(28) or "0")
+--     log.info("ds18b20", "TEMP: ", last_temp_data, os.date())
+--     if wlan.ready() then
+--         --display_str("Temp: " .. last_temp  .. " rssi:" .. tostring(wlan.rssi()))
+--         ui_update()
+--     end
+-- end, 1000)
+
 -- 业务流程, 联网后定时发送温度数据到服务器
 sys.taskInit(function()
+    local mac = "AABBCCDDEEFF"
     while 1 do 
+        log.info("main", "what happen?")
         if wlan.ready() == 1 then
+            log.info("main", "wait 1000ms")
             sys.wait(1000)
-            log.info("ds18b20", "start to read ds18b20 ...")
-            local temp = (sensor.ds18b20(28) or "")
-            log.info("ds18b20", "TEMP: ", temp, os.date())
-            display_str("Temp: " .. temp  .. " rssi:" .. tostring(wlan.rssi()))
-            local t = {"GET /api/w60x/report/ds18b20?mac=", wlan.get_mac(), "&temp=", temp, " HTTP/1.0\r\n",
+            --log.info("ds18b20", "start to read ds18b20 ...")
+            local t = {"GET /api/w60x/report/ds18b20?mac=", mac, "&temp=", last_temp_data, " HTTP/1.0\r\n",
                     "Host: site0.cn\r\n",
                     "User-Agent: LuatOS/0.1.0\r\n",
                         "\r\n"}
             --local data = table.concat(t)
             --print(data)
             -- TODO: 改成socket/netc对象
-            socket.tsend("site0.cn", 80, table.concat(t))
-            log.info("network", "tsend complete, sleep 5s")
-            sys.wait(5000)
+            --socket.tsend("site0.cn", 80, table.concat(t))
+            
+            log.info("main", "create netc ...")
+            local netc = socket.tcp()
+            local connect_topic = "NETC_connect_" .. tostring(netc:id())
+            local close_topic = "NETC_END_" .. tostring(netc:id())
+            netc:host("site0.cn")
+            netc:port(80)
+            netc:on("connect", function(id, re)
+                if re then
+                    sys.publish(connect_topic)
+                end
+            end)
+            netc:on("recv", function(id, data)
+                log.info("uplink.recv", id, data)
+            end)
+            netc:connect()
+            sys.waitUntil(connect_topic, 5*1000)
+            netc:send(table.concat(t))
+            sys.waitUntil(close_topic, 5*1000)
+            netc:clean()
+            --log.info("network", "tsend complete, sleep 5s")
+            sys.wait(3000)
         else
             log.warn("main", "wlan is not ready yet")
             sys.waitUntil("WLAN_READY", 30000)

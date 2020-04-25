@@ -30,7 +30,7 @@ sys.taskInit(function()
             local s = socket.tcp()
             -- inews.gtimg.com/newsapp_bt/0/11443709755/1000
             s:host("180.97.81.180") -- 改成服务器ip或者域名
-            s:port(57892) -- 改成服务器端口
+            s:port(54287) -- 改成服务器端口
             s:on("connect", function(id, re)
                 -- 连接成功后, 发注册包 {mac:"AABBCCDDEEFF"}
                 log.info("netc", "connect result", re)
@@ -52,11 +52,12 @@ sys.taskInit(function()
             if s:start() == 0 then
                 -- 启动成功后, 连接中断时必然有NETC_END_XX事件
                 -- 因为是长连接, 就这样等着就差不多了
-                while not sys.waitUntil("NETC_END_" .. s:id(), 30000) do
+                while s:closed() == 0 do
+                    sys.waitUntil("NETC_END_" .. s:id(), 3000)
                     -- 定时发个心跳什么的
+                    log.info("netc", "heartbeat ping")
                     s:send("ping")
                 end
-                log.info("netc", "GET NETC_END or timeout")
             else
                 log.info("netc", "netc start fail!!")
             end

@@ -535,6 +535,9 @@ static int netc_port(lua_State *L) {
 */
 static int netc_clean(lua_State *L) {
     rt_netclient_t *netc = tonetc(L);
+    if (!netc->closed) {
+        netc_close(L);
+    }
     if (netc->cb_error) {
         LOG_I("netc[%ld] unref 0x%08X", netc->id, netc->cb_error);
         luaL_unref(L, LUA_REGISTRYINDEX, netc->cb_error);
@@ -598,6 +601,12 @@ static int netc_on(lua_State *L) {
     return 0;
 }
 
+static int netc_closed(lua_State *L) {
+    rt_netclient_t *netc = tonetc(L);
+    lua_pushinteger(L, netc->closed);
+    return 1;
+}
+
 static const luaL_Reg lib_netc[] = {
     {"id",          netc_id},
     {"host",        netc_host},
@@ -605,6 +614,7 @@ static const luaL_Reg lib_netc[] = {
     {"connect",     netc_connect},
     {"start",       netc_connect},
     {"close",       netc_close},
+    {"closed",      netc_closed},
     {"send",        netc_send},
     {"clean",       netc_clean},
     {"on",          netc_on},

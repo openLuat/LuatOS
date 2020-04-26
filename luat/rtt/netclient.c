@@ -116,6 +116,7 @@ static rt_int32_t netclient_destory(rt_netclient_t *thiz)
     pipe_deinit(thiz);
 
     LOG_I("netc[%ld] destory end", thiz->id);
+    thiz->closed = 1;
     return 0;
 }
 
@@ -379,6 +380,7 @@ static void netclient_thread_entry(void *param)
     //    }
     //}
 netc_exit:
+    thiz->closed = 1;
     EVENT(thiz->id, thiz->rx, 0, NETC_EVENT_END, 0, RT_NULL);
     LOG_W("netc[%ld] thread end", thiz->id);
 }

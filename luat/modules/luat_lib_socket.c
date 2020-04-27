@@ -52,7 +52,7 @@ static int sal_tls_test(lua_State *L)
 #include "netclient.h"
 
 static int luat_lib_netc_msg_handler(lua_State* L, void* ptr) {
-    rt_netc_ent_t* ent = (rt_netc_ent_t*)ptr;
+    netc_ent_t* ent = (netc_ent_t*)ptr;
     if (ent->event == NETC_EVENT_END) {
         lua_getglobal(L, "sys_pub");
         if (lua_isfunction(L, -1)) {
@@ -96,7 +96,7 @@ exit:
 }
 
 static int luat_lib_socket_new(lua_State* L, int netc_type);
-static int luat_lib_socket_ent_handler(rt_netc_ent_t* ent) {
+static int luat_lib_socket_ent_handler(netc_ent_t* ent) {
     if (ent->event != NETC_EVENT_END && ent->lua_ref == 0) {
         if (ent->buff) {
             luat_heap_free((void*)ent->buff);
@@ -148,7 +148,7 @@ static int luat_lib_socket_udp(lua_State* L) {
 }
 //-----------------------------------------------------------------
 static int luat_lib_socket_new(lua_State* L, int netc_type) {
-    rt_netclient_t* thiz;
+    netclient_t* thiz;
     size_t len;
 
     // 强制GC一次
@@ -157,14 +157,14 @@ static int luat_lib_socket_new(lua_State* L, int netc_type) {
 
     // 生成netc结构体
     //LOG_D("init netclient ...");
-    thiz = (rt_netclient_t*)lua_newuserdata(L, sizeof(rt_netclient_t));
+    thiz = (netclient_t*)lua_newuserdata(L, sizeof(netclient_t));
     if (thiz == NULL)
     {
         //LOG_W("netclient, fail to create!!!!memory full?!");
         return NULL;
     }
 
-    memset(thiz, 0, sizeof(rt_netclient_t));
+    memset(thiz, 0, sizeof(netclient_t));
 
     thiz->sock_fd = -1;
     thiz->pipe_read_fd = -1;
@@ -174,7 +174,7 @@ static int luat_lib_socket_new(lua_State* L, int netc_type) {
 
     //rt_memset(thiz->hostname, 0, sizeof(thiz->hostname));
     thiz->hostname[0] = '_';
-    thiz->id = rt_netc_next_no();
+    thiz->id = netc_next_no();
 
     luaL_setmetatable(L, LUAT_NETC_HANDLE);
 
@@ -183,7 +183,7 @@ static int luat_lib_socket_new(lua_State* L, int netc_type) {
 }
 
 // static int luat_lib_socket_connect(lua_State* L) {
-//     rt_netclient_t* thiz;
+//     netclient_t* thiz;
 //     size_t len;
 //     char* hostname;
 //     uint32_t port;
@@ -198,9 +198,9 @@ static int luat_lib_socket_new(lua_State* L, int netc_type) {
 //         LOG_W("socket.connect require socket object!");
 //         return 0;
 //     }
-//     thiz = (rt_netclient_t*)lua_touserdata(L, 1);
+//     thiz = (netclient_t*)lua_touserdata(L, 1);
 //     if (thiz == RT_NULL) {
-//         LOG_W("rt_netclient_t is NULL!!");
+//         LOG_W("netclient_t is NULL!!");
 //         return 0;
 //     }
 //     hostname = luaL_checklstring(L, 2, &len);
@@ -214,46 +214,46 @@ static int luat_lib_socket_new(lua_State* L, int netc_type) {
 //     thiz->port = luaL_checkinteger(L, 3);
 //     thiz->rx = luat_lib_socket_ent_handler;
 //     LOG_W("host=%s port=%d type=%s", thiz->hostname, thiz->port, thiz->type == NETC_TYPE_TCP ? "TCP" : "UDP");
-//     re = rt_netclient_start(thiz);
+//     re = netclient_start(thiz);
 //     lua_pushinteger(L, re);
 //     return 1;
 // }
 
 // static int luat_lib_socket_close(lua_State* L) {
-//     rt_netclient_t* thiz;
+//     netclient_t* thiz;
 //     if (!lua_isuserdata(L, 1)) {
 //         lua_error("socket.connect require socket object!");
 //         return 0;
 //     }
-//     thiz = (rt_netclient_t*)lua_touserdata(L, 1);
+//     thiz = (netclient_t*)lua_touserdata(L, 1);
 //     if (thiz == RT_NULL) {
 //         return 0;
 //     }
 //     if (thiz->sock_fd == -1) {
 //         LOG_W("socket is closed, host=%s port=%ld", thiz->hostname, thiz->port);
 //     }
-//     rt_netclient_close(thiz);
+//     netclient_close(thiz);
 //     return 0;
 // }
 
 // static int luat_lib_socket_send(lua_State *L) {
-//     rt_netclient_t* thiz;
+//     netclient_t* thiz;
 //     size_t len;
 //     char* data;
 //     if (!lua_isuserdata(L, 1)) {
 //         lua_error(L, "socket.connect require socket object!");
 //         return 0;
 //     }
-//     thiz = (rt_netclient_t*)lua_touserdata(L, 1);
+//     thiz = (netclient_t*)lua_touserdata(L, 1);
 //     data = luaL_checklstring(L, 2, &len);
 //     if (len > 0) {
-//         rt_netclient_send(thiz, (void*)data, len);
+//         netclient_send(thiz, (void*)data, len);
 //     }
 //     return 0;
 // }
 
 //---------------------------------------------
-#define tonetc(L)	((rt_netclient_t *)luaL_checkudata(L, 1, LUAT_NETC_HANDLE))
+#define tonetc(L)	((netclient_t *)luaL_checkudata(L, 1, LUAT_NETC_HANDLE))
 
 /*
 启动socket线程
@@ -264,7 +264,7 @@ static int luat_lib_socket_new(lua_State* L, int netc_type) {
 -- 参考socket.tcp的说明, 并查阅demo
 */
 static int netc_connect(lua_State *L) {
-    rt_netclient_t* thiz;
+    netclient_t* thiz;
     size_t len;
     char* hostname;
     uint32_t port;
@@ -293,7 +293,7 @@ static int netc_connect(lua_State *L) {
     }
     thiz->rx = luat_lib_socket_ent_handler;
     //LOG_I("netc[%ld] host=%s port=%d type=%s", thiz->id, thiz->hostname, thiz->port, thiz->type == NETC_TYPE_TCP ? "TCP" : "UDP");
-    re = rt_netclient_start(thiz);
+    re = netclient_start(thiz);
     lua_pushinteger(L, re);
     return 1;
 }
@@ -305,9 +305,9 @@ static int netc_connect(lua_State *L) {
 -- 参考socket.tcp的说明, 并查阅demo
 */
 static int netc_close(lua_State *L) {
-    rt_netclient_t *netc = tonetc(L);
+    netclient_t *netc = tonetc(L);
     if (netc->closed == 0) {
-        rt_netclient_close(netc);
+        netclient_close(netc);
     }
     return 0;
 }
@@ -322,19 +322,19 @@ static int netc_close(lua_State *L) {
 static int netc_send(lua_State *L) {
     size_t len;
     char* data;
-    rt_netclient_t *netc;
+    netclient_t *netc;
     netc = tonetc(L);
     data = luaL_checklstring(L, 2, &len);
     if (len > 0) {
-        rt_netclient_send(netc, (void*)data, len);
+        netclient_send(netc, (void*)data, len);
     }
     return 0;
 }
 
 static int netc_gc(lua_State *L) {
-    rt_netclient_t *netc = tonetc(L);
+    netclient_t *netc = tonetc(L);
     //LOG_I("netc[%ld] __gc trigger", netc->id);
-    rt_netclient_close(netc);
+    netclient_close(netc);
     if (netc->cb_error) {
         luaL_unref(L, LUA_REGISTRYINDEX, netc->cb_error);
     }
@@ -352,7 +352,7 @@ static int netc_gc(lua_State *L) {
 
 
 static int netc_tostring(lua_State *L) {
-    rt_netclient_t *netc = tonetc(L);
+    netclient_t *netc = tonetc(L);
     lua_pushfstring(L, "netc[%d] %s,%d,%s %s", netc->id,
                                             netc->hostname, netc->port, 
                                             netc->type == NETC_TYPE_TCP ? "TCP" : "UDP", 
@@ -367,7 +367,7 @@ static int netc_tostring(lua_State *L) {
 -- 参考socket.tcp的说明, 并查阅demo
 */
 static int netc_id(lua_State *L) {
-    rt_netclient_t *netc = tonetc(L);
+    netclient_t *netc = tonetc(L);
     lua_pushinteger(L, netc->id);
     return 1;
 }
@@ -380,7 +380,7 @@ static int netc_id(lua_State *L) {
 -- 参考socket.tcp的说明, 并查阅demo
 */
 static int netc_host(lua_State *L) {
-    rt_netclient_t *netc = tonetc(L);
+    netclient_t *netc = tonetc(L);
     if (lua_gettop(L) > 1 && lua_isstring(L, 2)) {
         size_t len;
         char* hostname;
@@ -406,7 +406,7 @@ static int netc_host(lua_State *L) {
 -- 参考socket.tcp的说明, 并查阅demo
 */
 static int netc_port(lua_State *L) {
-    rt_netclient_t *netc = tonetc(L);
+    netclient_t *netc = tonetc(L);
     if (lua_gettop(L) > 1 && lua_isinteger(L, 2)) {
         netc->port = lua_tointeger(L, 2);
         //LOG_I("netc[%ld] port=%d", netc->id, netc->port);
@@ -422,7 +422,7 @@ static int netc_port(lua_State *L) {
 -- 参考socket.tcp的说明, 并查阅demo
 */
 static int netc_clean(lua_State *L) {
-    rt_netclient_t *netc = tonetc(L);
+    netclient_t *netc = tonetc(L);
     if (!netc->closed) {
         netc_close(L);
     }
@@ -458,7 +458,7 @@ static int netc_clean(lua_State *L) {
 -- 参考socket.tcp的说明, 并查阅demo
 */
 static int netc_on(lua_State *L) {
-    rt_netclient_t *netc = tonetc(L);
+    netclient_t *netc = tonetc(L);
     if (lua_gettop(L) < 3) {
         return 0;
     }
@@ -490,7 +490,7 @@ static int netc_on(lua_State *L) {
 }
 
 static int netc_closed(lua_State *L) {
-    rt_netclient_t *netc = tonetc(L);
+    netclient_t *netc = tonetc(L);
     lua_pushinteger(L, netc->closed);
     return 1;
 }
@@ -533,9 +533,7 @@ static const rotable_Reg reg_socket[] =
 
 
     { "tsend" ,  sal_tls_test , 0},
-    #ifdef PKG_NETUTILS_NTP
-    { "ntpSync", socket_ntp_sync, 0},
-    #endif
+    { "ntpSync", socket_ntp_sync, 0}, // TODO 改成平台无关的UDP实现?
 	{ NULL, NULL , 0}
 };
 

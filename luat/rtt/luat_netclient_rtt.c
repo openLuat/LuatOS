@@ -49,32 +49,32 @@
 #define MAX_VAL(A, B) ((A) > (B) ? (A) : (B))
 #define STRCMP(a, R, b) (strcmp((a), (b)) R 0)
 
-static rt_netclient_t *netclient_create(void);
-static rt_int32_t netclient_destory(rt_netclient_t *thiz);
-static rt_int32_t socket_init(rt_netclient_t *thiz, const char *hostname, int port);
-static rt_int32_t socket_deinit(rt_netclient_t *thiz);
-static rt_int32_t pipe_init(rt_netclient_t *thiz);
-static rt_int32_t pipe_deinit(rt_netclient_t *thiz);
-static void select_handle(rt_netclient_t *thiz, char *sock_buff);
-static rt_int32_t netclient_thread_init(rt_netclient_t *thiz);
+static netclient_t *netclient_create(void);
+static rt_int32_t netclient_destory(netclient_t *thiz);
+static rt_int32_t socket_init(netclient_t *thiz, const char *hostname, int port);
+static rt_int32_t socket_deinit(netclient_t *thiz);
+static rt_int32_t pipe_init(netclient_t *thiz);
+static rt_int32_t pipe_deinit(netclient_t *thiz);
+static void select_handle(netclient_t *thiz, char *sock_buff);
+static rt_int32_t netclient_thread_init(netclient_t *thiz);
 static void netclient_thread_entry(void *param);
 
 static rt_uint32_t netc_seq = 1;
 
-uint32_t rt_netc_next_no(void) {
+uint32_t netc_next_no(void) {
     if (netc_seq > 0xFFFF00) {
         netc_seq = 0xFF;
     }
     return netc_seq++;
 }
 
-static void EVENT(int netc_id, rt_tpc_cb_t cb, int lua_ref, int tp, size_t len, void* buff) {
-    rt_netc_ent_t* ent;
+static void EVENT(int netc_id, tpc_cb_t cb, int lua_ref, int tp, size_t len, void* buff) {
+    netc_ent_t* ent;
     LOG_I("netc[%ld] event type=%d", netc_id, tp);
     if (cb == RT_NULL) return;
     if (tp != NETC_EVENT_RECV || len < 0) len = 0;
     //len = 0;
-    ent = luat_heap_malloc(sizeof(rt_netc_ent_t));
+    ent = luat_heap_malloc(sizeof(netc_ent_t));
     if (ent == NULL) {
         LOG_E("netc[%ld] EVENT call rt_malloc return NULL!", netc_id);
         return;
@@ -98,7 +98,7 @@ static void EVENT(int netc_id, rt_tpc_cb_t cb, int lua_ref, int tp, size_t len, 
     cb(ent);
 }
 
-static rt_int32_t netclient_destory(rt_netclient_t *thiz)
+static rt_int32_t netclient_destory(netclient_t *thiz)
 {
     int res = 0;
 
@@ -120,7 +120,7 @@ static rt_int32_t netclient_destory(rt_netclient_t *thiz)
     return 0;
 }
 
-static rt_int32_t socket_init(rt_netclient_t *thiz, const char *url, int port)
+static rt_int32_t socket_init(netclient_t *thiz, const char *url, int port)
 {
     struct sockaddr_in dst_addr;
     struct hostent *hostname;
@@ -160,7 +160,7 @@ static rt_int32_t socket_init(rt_netclient_t *thiz, const char *url, int port)
     return 0;
 }
 
-static rt_int32_t socket_deinit(rt_netclient_t *thiz)
+static rt_int32_t socket_deinit(netclient_t *thiz)
 {
     int res = 0;
 
@@ -182,7 +182,7 @@ static rt_int32_t socket_deinit(rt_netclient_t *thiz)
     return 0;
 }
 
-static rt_int32_t pipe_init(rt_netclient_t *thiz)
+static rt_int32_t pipe_init(netclient_t *thiz)
 {
     char dev_name[32];
     rt_pipe_t *pipe = RT_NULL;
@@ -223,7 +223,7 @@ fail_read:
     return -1;
 }
 
-static rt_int32_t pipe_deinit(rt_netclient_t *thiz)
+static rt_int32_t pipe_deinit(netclient_t *thiz)
 {
     int res = 0;
 
@@ -253,7 +253,7 @@ static rt_int32_t pipe_deinit(rt_netclient_t *thiz)
     return 0;
 }
 
-static rt_int32_t netclient_thread_init(rt_netclient_t *thiz)
+static rt_int32_t netclient_thread_init(netclient_t *thiz)
 {
     rt_thread_t th;
     char tname[12];
@@ -274,7 +274,7 @@ static rt_int32_t netclient_thread_init(rt_netclient_t *thiz)
     return 0;
 }
 
-static void select_handle(rt_netclient_t *thiz, char *sock_buff)
+static void select_handle(netclient_t *thiz, char *sock_buff)
 {
     fd_set fds;
     rt_int32_t max_fd = 0, res = 0;
@@ -343,7 +343,7 @@ exit:
 
 static void netclient_thread_entry(void *param)
 {
-    rt_netclient_t *thiz = param;
+    netclient_t *thiz = param;
     char *sock_buff = RT_NULL;
 
     if (socket_init(thiz, thiz->hostname, thiz->port) != 0) {
@@ -385,7 +385,7 @@ netc_exit:
     LOG_W("netc[%ld] thread end", thiz->id);
 }
 
-int32_t *rt_netclient_start(rt_netclient_t * thiz) {
+int32_t netclient_start(netclient_t * thiz) {
 
     if (pipe_init(thiz) != 0)
         goto quit;
@@ -401,7 +401,7 @@ quit:
     return 1;
 }
 
-void rt_netclient_close(rt_netclient_t *thiz)
+void netclient_close(netclient_t *thiz)
 {
     LOG_I("netc[%ld] deinit start", thiz->id);
     int fd = thiz->sock_fd;
@@ -413,7 +413,7 @@ void rt_netclient_close(rt_netclient_t *thiz)
     LOG_I("netc[%ld] deinit end", thiz->id);
 }
 
-int32_t rt_netclient_send(rt_netclient_t *thiz, const void *buff, size_t len)
+int32_t netclient_send(netclient_t *thiz, const void *buff, size_t len)
 {
     size_t bytes = 0;
 

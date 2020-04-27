@@ -37,17 +37,17 @@
 #define NETC_EVENT_END     9
 
 
-typedef struct rt_netc_ent {
+typedef struct netc_ent {
     int netc_id;
     int lua_ref;
     int event;
     size_t len;
     void* buff;
-}rt_netc_ent_t;
+}netc_ent_t;
 
-typedef void (*rt_tpc_cb_t)(rt_netc_ent_t* ent);
+typedef void (*tpc_cb_t)(netc_ent_t* ent);
 
-typedef struct rt_netclient
+typedef struct netclient
 {
     int id;
     char hostname[32];
@@ -58,7 +58,7 @@ typedef struct rt_netclient
     int pipe_read_fd;
     int pipe_write_fd;
     char pipe_name[12];
-    rt_tpc_cb_t rx;
+    tpc_cb_t rx;
 
     // Lua callback function
     int cb_recv;
@@ -66,13 +66,13 @@ typedef struct rt_netclient
     int cb_connect;
     int cb_any;
     int cb_error;
-}rt_netclient_t;
+}netclient_t;
 
-uint32_t rt_netc_next_no(void);
-//rt_netclient_t *rt_netclient_create(void);
-int32_t *rt_netclient_start(rt_netclient_t * thiz);
-void rt_netclient_close(rt_netclient_t *thiz);
-//rt_int32_t rt_netclient_attach_rx_cb(rt_netclient_t *thiz, rt_tpc_cb_t cb);
-int32_t rt_netclient_send(rt_netclient_t *thiz, const void *buff, size_t len);
+uint32_t netc_next_no(void);
+//netclient_t *netclient_create(void);
+int32_t netclient_start(netclient_t * thiz);
+void netclient_close(netclient_t *thiz);
+//int32_t netclient_attach_rx_cb(netclient_t *thiz, tpc_cb_t cb);
+int32_t netclient_send(netclient_t *thiz, const void *buff, size_t len);
 
 #endif

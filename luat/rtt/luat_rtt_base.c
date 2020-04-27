@@ -101,15 +101,21 @@ void luat_openlibs(lua_State *L) {
     print_list_mem("done> require(i2c)");
     #endif
 
+    #ifdef RT_USING_SPI
+    luaL_requiref(L, "spi", luaopen_spi, 1);
+    lua_pop(L, 1);
+    print_list_mem("done> require(spi)");
+    #endif
+
     #ifdef PKG_USING_U8G2
     luaL_requiref(L, "disp", luaopen_disp, 1);
     lua_pop(L, 1);
     print_list_mem("done> require(disp)");
     #endif
 
-    luaL_requiref(L, "utest", luaopen_utest, 1);
-    lua_pop(L, 1);
-    print_list_mem("done> require(utest)");
+    //luaL_requiref(L, "utest", luaopen_utest, 1);
+    //lua_pop(L, 1);
+    //print_list_mem("done> require(utest)");
 }
 
 void luat_os_reboot(int code) {

@@ -61,7 +61,7 @@ static void netclient_thread_entry(void *param);
 
 static rt_uint32_t netc_seq = 1;
 
-rt_uint32_t rt_netc_next_no(void) {
+uint32_t rt_netc_next_no(void) {
     if (netc_seq > 0xFFFF00) {
         netc_seq = 0xFF;
     }
@@ -385,7 +385,7 @@ netc_exit:
     LOG_W("netc[%ld] thread end", thiz->id);
 }
 
-rt_int32_t *rt_netclient_start(rt_netclient_t * thiz) {
+int32_t *rt_netclient_start(rt_netclient_t * thiz) {
 
     if (pipe_init(thiz) != 0)
         goto quit;
@@ -413,7 +413,7 @@ void rt_netclient_close(rt_netclient_t *thiz)
     LOG_I("netc[%ld] deinit end", thiz->id);
 }
 
-rt_int32_t rt_netclient_send(rt_netclient_t *thiz, const void *buff, size_t len)
+int32_t rt_netclient_send(rt_netclient_t *thiz, const void *buff, size_t len)
 {
     size_t bytes = 0;
 

@@ -24,7 +24,7 @@
 #ifndef __netCLIENT_H__
 #define __netCLIENT_H__
 
-#include <rtthread.h>
+#include "luat_base.h"
 
 #define NETC_TYPE_TCP 0
 #define NETC_TYPE_UDP 1
@@ -68,11 +68,11 @@ typedef struct rt_netclient
     int cb_error;
 }rt_netclient_t;
 
-rt_uint32_t rt_netc_next_no(void);
+uint32_t rt_netc_next_no(void);
 //rt_netclient_t *rt_netclient_create(void);
-rt_int32_t *rt_netclient_start(rt_netclient_t * thiz);
+int32_t *rt_netclient_start(rt_netclient_t * thiz);
 void rt_netclient_close(rt_netclient_t *thiz);
 //rt_int32_t rt_netclient_attach_rx_cb(rt_netclient_t *thiz, rt_tpc_cb_t cb);
-rt_int32_t rt_netclient_send(rt_netclient_t *thiz, const void *buff, size_t len);
+int32_t rt_netclient_send(rt_netclient_t *thiz, const void *buff, size_t len);
 
 #endif

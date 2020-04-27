@@ -539,22 +539,22 @@ static int netc_clean(lua_State *L) {
         netc_close(L);
     }
     if (netc->cb_error) {
-        LOG_I("netc[%ld] unref 0x%08X", netc->id, netc->cb_error);
+        LOG_D("netc[%ld] unref 0x%08X", netc->id, netc->cb_error);
         luaL_unref(L, LUA_REGISTRYINDEX, netc->cb_error);
         netc->cb_error = 0;
     }
     if (netc->cb_recv) {
-        LOG_I("netc[%ld] unref 0x%08X", netc->id, netc->cb_recv);
+        LOG_D("netc[%ld] unref 0x%08X", netc->id, netc->cb_recv);
         luaL_unref(L, LUA_REGISTRYINDEX, netc->cb_recv);
         netc->cb_recv = 0;
     }
     if (netc->cb_close) {
-        LOG_I("netc[%ld] unref 0x%08X", netc->id, netc->cb_close);
+        LOG_D("netc[%ld] unref 0x%08X", netc->id, netc->cb_close);
         luaL_unref(L, LUA_REGISTRYINDEX, netc->cb_close);
         netc->cb_close = 0;
     }
     if (netc->cb_connect) {
-        LOG_I("netc[%ld] unref 0x%08X", netc->id, netc->cb_connect);
+        LOG_D("netc[%ld] unref 0x%08X", netc->id, netc->cb_connect);
         luaL_unref(L, LUA_REGISTRYINDEX, netc->cb_connect);
         netc->cb_connect = 0;
     }

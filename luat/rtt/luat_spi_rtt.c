@@ -54,7 +54,7 @@ uint8_t luat_spi_close(uint8_t spi_id) {
     return -1;
 }
 //收发SPI数据，返回接收字节数
-uint32_t luat_spi_transfer(uint8_t spi_id, uint8_t* send_buf, uint8_t* recv_buf, uint32_t length) {
+uint32_t luat_spi_transfer(uint8_t spi_id, const uint8_t* send_buf, uint8_t* recv_buf, uint32_t length) {
     return -1;
 }
 //收SPI数据，返回接收字节数
@@ -62,7 +62,7 @@ uint32_t luat_spi_recv(uint8_t spi_id, uint8_t* recv_buf, uint32_t length) {
     return -1;
 }
 //发SPI数据，返回发送字节数
-uint32_t luat_spi_send(uint8_t spi_id, uint8_t* send_buf, uint32_t length) {
+uint32_t luat_spi_send(uint8_t spi_id, const uint8_t* send_buf, uint32_t length) {
     return -1;
 }
 

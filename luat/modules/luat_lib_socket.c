@@ -149,7 +149,7 @@ static int luat_lib_socket_udp(lua_State* L) {
 //-----------------------------------------------------------------
 static int luat_lib_socket_new(lua_State* L, int netc_type) {
     rt_netclient_t* thiz;
-    rt_size_t len;
+    size_t len;
 
     // 强制GC一次
     //LOG_D("force execute FULL GC");
@@ -158,13 +158,13 @@ static int luat_lib_socket_new(lua_State* L, int netc_type) {
     // 生成netc结构体
     //LOG_D("init netclient ...");
     thiz = (rt_netclient_t*)lua_newuserdata(L, sizeof(rt_netclient_t));
-    if (thiz == RT_NULL)
+    if (thiz == NULL)
     {
         //LOG_W("netclient, fail to create!!!!memory full?!");
-        return RT_NULL;
+        return NULL;
     }
 
-    rt_memset(thiz, 0, sizeof(rt_netclient_t));
+    memset(thiz, 0, sizeof(rt_netclient_t));
 
     thiz->sock_fd = -1;
     thiz->pipe_read_fd = -1;
@@ -268,7 +268,7 @@ static int netc_connect(lua_State *L) {
     size_t len;
     char* hostname;
     uint32_t port;
-    rt_base_t re;
+    int re;
     thiz = tonetc(L);
     if (lua_gettop(L) < 2) {
         if (thiz->hostname[1] != 0x00 && thiz->port > 0) {

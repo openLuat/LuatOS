@@ -1537,6 +1537,50 @@ static int str_unpack (lua_State *L) {
 }
 
 /* }====================================================== */
+static int str_toHex (lua_State *L) {
+  size_t len;
+  const char *str = luaL_checklstring(L, 1, &len);
+  luaL_Buffer buff;
+  luaL_buffinitsize(L, &buff, 2*len);
+  for (size_t i = 0; i < len; i++)
+  {
+    luaL_addchar(&buff, (*(str+i)) / 16 + 0x30);
+    luaL_addchar(&buff, (*(str+i)) % 16 + 0x30);
+  }
+  luaL_pushresult(&buff);
+  lua_pushinteger(L, len*2);
+  return 2;
+}
+static int str_fromHex (lua_State *L) {
+  size_t len;
+  const char *str = luaL_checklstring(L, 1, &len);
+  luaL_Buffer buff;
+  luaL_buffinitsize(L, &buff, len / 2);
+  for (size_t i = 0; i < len / 2; i++)
+  {
+    char a = *(str + i*2);
+    char b = *(str + i*2 + 1);
+    a = (a <= '9') ? a - '0' : (a & 0x7) + 9;
+    b = (b <= '9') ? b - '0' : (b & 0x7) + 9;
+    if (a > 0 && b > 0) {
+      luaL_addchar(&buff, (a << 4) + b);
+    }
+    else {
+      // 非法字符串直接跳过
+      // luaL_addchar(&buff, 0);
+    }
+  }
+  luaL_pushresult(&buff);
+  return 1;
+}
+static int str_urlEncode (lua_State *L) {
+  return 0;
+}
+static int str_urlDecode (lua_State *L) {
+  return 0;
+}
+
+//-----------------------------------------------------------
 
 #include "rotable.h"
 static const rotable_Reg strlib[] = {
@@ -1557,6 +1601,13 @@ static const rotable_Reg strlib[] = {
   {"pack", str_pack, 0},
   {"packsize", str_packsize, 0},
   {"unpack", str_unpack, 0},
+  //-----------------------------
+  // 添加几个常用的方法
+  {"toHex", str_toHex},
+  {"fromHex", str_fromHex},
+  //{"urlEncode", str_urlEncode},
+  //{"urlDecode", str_urlDecode},
+  //-----------------------------
   {NULL, NULL, 0}
 };
 

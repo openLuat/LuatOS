@@ -1,4 +1,4 @@
-LUATOS_DIR      := $(TOP)/LuatOS
+LUATOS_DIR      := $(LUATOS_SRC)
 CFLAGS_INC    +=  -I $(LUATOS_DIR)/lua/include \
                   -I $(LUATOS_DIR)/luat/include
 
@@ -13,7 +13,6 @@ LUATOS_CFILES = $(filter-out $(LUATOS_EXCLUDE_FILES), $(LUATOS_CSRC))
 LUATOS_COBJSTEMP := $(patsubst %.c, %.o, $(LUATOS_CFILES))
 LUATOS_COBJSTEMP :=$(subst $(LUATOS_DIR),LuatOS,$(LUATOS_COBJSTEMP))
 LUATOS_COBJS := $(addprefix $(BUILDDIR)/, $(LUATOS_COBJSTEMP))
-
 
 -include $(LUATOS_COBJS:.o=.d)
 

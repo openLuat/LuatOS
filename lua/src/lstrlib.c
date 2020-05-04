@@ -1537,6 +1537,7 @@ static int str_unpack (lua_State *L) {
 }
 
 /* }====================================================== */
+static unsigned char hexchars[] = "0123456789ABCDEF";
 static int str_toHex (lua_State *L) {
   size_t len;
   const char *str = luaL_checklstring(L, 1, &len);
@@ -1544,8 +1545,9 @@ static int str_toHex (lua_State *L) {
   luaL_buffinitsize(L, &buff, 2*len);
   for (size_t i = 0; i < len; i++)
   {
-    luaL_addchar(&buff, (*(str+i)) / 16 + 0x30);
-    luaL_addchar(&buff, (*(str+i)) % 16 + 0x30);
+    char ch = *(str+i);
+    luaL_addchar(&buff, hexchars[(unsigned char)ch >> 4]);
+    luaL_addchar(&buff, hexchars[(unsigned char)ch & 0xF]);
   }
   luaL_pushresult(&buff);
   lua_pushinteger(L, len*2);
@@ -1592,7 +1594,31 @@ static int str_split (lua_State *L) {
   return count;
 }
 static int str_urlEncode (lua_State *L) {
-  return 0;
+  size_t len;
+  const char *str = luaL_checklstring(L, 1, &len);
+  luaL_Buffer buff;
+  luaL_buffinitsize(L, &buff, len + 16); // 预留几个字节就够了吧
+
+  for (size_t i = 0; i < len; i++)
+  {
+    char ch = *(str+i);
+    if((ch >= 'A' && ch <= 'Z') ||
+			(ch >= 'a' && ch <= 'z') ||
+			(ch >= '0' && ch <= '9') ||
+			ch == '.' || ch == '-' || ch == '*' || ch == '_') {
+      luaL_addchar(&buff, ch);
+    }
+    else if (ch == ' ') {
+      luaL_addchar(&buff, '+');
+    }
+    else {
+      luaL_addchar(&buff, '%');
+      luaL_addchar(&buff, hexchars[(unsigned char)ch >> 4]);
+      luaL_addchar(&buff, hexchars[(unsigned char)ch & 0x0F]);
+    }
+  }
+  luaL_pushresult(&buff);
+  return 1;
 }
 static int str_urlDecode (lua_State *L) {
   return 0;
@@ -1624,7 +1650,7 @@ static const rotable_Reg strlib[] = {
   {"toHex", str_toHex},
   {"fromHex", str_fromHex},
   {"split", str_split},
-  //{"urlEncode", str_urlEncode},
+  {"urlEncode", str_urlEncode},
   //{"urlDecode", str_urlDecode},
   //-----------------------------
   {NULL, NULL, 0}

@@ -1573,6 +1573,24 @@ static int str_fromHex (lua_State *L) {
   luaL_pushresult(&buff);
   return 1;
 }
+static int str_split (lua_State *L) {
+  size_t len = 0;
+  const char *str = luaL_checkstring(L, 1);
+  const char *delimiters = luaL_checklstring(L, 2, &len);
+  if (len < 1) {
+    delimiters = ',';
+  }
+  char *token;
+  size_t count = 0;
+  token = strtok(str, delimiters);
+  while( token != NULL ) {
+    lua_pushstring(L, token);
+    //printf("%s - %ld\n", token, count);
+    count ++;
+    token = strtok(NULL, delimiters);
+  }
+  return count;
+}
 static int str_urlEncode (lua_State *L) {
   return 0;
 }
@@ -1605,6 +1623,7 @@ static const rotable_Reg strlib[] = {
   // 添加几个常用的方法
   {"toHex", str_toHex},
   {"fromHex", str_fromHex},
+  {"split", str_split},
   //{"urlEncode", str_urlEncode},
   //{"urlDecode", str_urlDecode},
   //-----------------------------

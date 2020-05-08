@@ -253,7 +253,7 @@ wifi是否已经获取ip
 @usage wlan.ready()
 */
 static int l_wlan_ready(lua_State *L) {
-    lua_pushinteger(L, rt_wlan_is_ready());
+    lua_pushboolean(L, rt_wlan_is_ready());
     return 1;
 }
 

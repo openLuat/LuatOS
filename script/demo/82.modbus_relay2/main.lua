@@ -19,26 +19,63 @@ sys.subscribe("WLAN_READY", function ()
     end)
 end)
 
+_G.net_link = nil
+
+-- 串口1准备一下
+uart.setup(1, 115200)
+uart.on(1, "receive", function(id, len)
+    local data = uart.read(id, len)
+    log.info("uart", data:toHex())
+    local s = _G.net_link
+    if s ~= nil then
+        s:send(data)
+    end
+    --sys.publish("net_send", data)
+end)
+
 -- 设置好GPIO的初始化状态
 gpio.setup(21, 0)
 gpio.setup(22, 0)
 gpio.setup(23, 0)
-use_netled = 1 -- 启用1, 关闭0
+_G.use_netled = 1 -- 启用1, 关闭0
 
 sys.taskInit(function()
     while 1 do
+        --log.info("wlan", "ready?", wlan.ready())
         if wlan.ready() then
             --log.info("netled", "net ready, slow")
             gpio.set(21, 1 * use_netled)
-            sys.wait(1000)
+            sys.wait(1900)
             gpio.set(21, 0)
-            sys.wait(1000)
+            sys.wait(100)
         else
             --log.info("netled", "net not ready, fast")
             gpio.set(21, 1 * use_netled)
-            sys.wait(200)
+            sys.wait(100)
             gpio.set(21, 0)
-            sys.wait(200)
+            sys.wait(100)
+        end
+    end
+end)
+
+sys.subscribe("net_recv", function(id, re, s)
+    local hex = re:toHex()
+    log.info("recv", id, hex, #re, re)
+    uart.write(1, re)
+    if #re > 7 then
+        local addr,opt,index,val = string.unpack(">bbHH", re)
+        log.info("modbus", addr,opt,index,val)
+        if addr == 3 and opt == 6 then
+            if index == 1 then
+                gpio.set(22, 0)
+            elseif index == 2 then
+                gpio.set(22, 1)
+            elseif index == 3 then
+                _G.use_netled = val
+            end
+            s:send(re) -- 原样返回
+        else
+            s:send(string.char(0))
         end
     end
 end)
@@ -61,27 +98,13 @@ sys.taskInit(function()
                     local jdata = json.encode({imei=wlan.get_mac(),csq=wlan.rssi()})
                     log.info("send reg", jdata)
                     s:send(jdata)
+                    _G.net_link = s
                 end
             end)
 
             s:on("recv", function(id, re)
-                local hex = re:toHex()
-                log.info("recv", id, hex, #re, re)
-                if #re > 7 then
-                    local addr,opt,index,val = string.unpack(">bbHH", re)
-                    log.info("modbus", addr,opt,index,val)
-                    if addr == 3 and opt == 6 then
-                        if index == 1 then
-                            gpio.set(22, value)
-                        elseif index == 2 then
-                            gpio.set(23, value)
-                        elseif index == 3 then
-                            use_netled = value
-                        end
-                        s:send(re) -- 原样返回
-                    else
-                       s:send(string.char(0))
-                    end
+                if #re > 0 then
+                    sys.publish("net_recv", id, re, s)
                 end
             end)
             --log.info("netc", "info", s)
@@ -97,12 +120,14 @@ sys.taskInit(function()
                     if tcount == 20 then
                         log.info("netc", "heartbeat ping")
                         s:send(string.char(0))
+                        tcount = 0
                     end
                 end
             else
                 log.info("netc", "netc start fail!!")
             end
             -- 一定要清理好, 不然内存泄漏, 模块内存少啊!!!
+            _G.net_link = nil
             s:clean()
             collectgarbage("collect")
             --sys_memdump()

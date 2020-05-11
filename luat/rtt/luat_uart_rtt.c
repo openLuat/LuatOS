@@ -16,6 +16,7 @@
 #define MAX_DEVICE_COUNT 10
 //存放串口设备句柄
 static rt_device_t serials[MAX_DEVICE_COUNT];
+static uint8_t serials_marks[MAX_DEVICE_COUNT];
 
 static int luat_uart_rtt_init() {
     char name[8];
@@ -63,6 +64,11 @@ static rt_err_t uart_input_cb(rt_device_t dev, rt_size_t size)
     if (uart_id < 0) {
         return RT_EOK;
     }
+    if (serials_marks[uart_id]) {
+        // 前一个回调都还没读呢
+        return RT_EOK;
+    }
+    serials_marks[uart_id] = 1;
     rtos_msg_t msg;
     msg.handler = l_uart_handler;
     msg.ptr = RT_NULL;
@@ -95,7 +101,7 @@ int luat_uart_setup(luat_uart_t* uart)
     {
         return -1;
     }
-    rt_serial_t* dev = serials[uart->id];
+    rt_device_t dev = serials[uart->id];
     if (dev == RT_NULL) {
         return -2;
     }
@@ -104,7 +110,8 @@ int luat_uart_setup(luat_uart_t* uart)
     config.baud_rate = uart->baud_rate;
     config.data_bits = uart->data_bits;
     config.stop_bits = uart->stop_bits - 1;
-    config.bufsz     = uart->bufsz;
+    //config.bufsz     = uart->bufsz;
+    config.bufsz     = 512;
     config.parity    = uart->parity;
     config.bit_order = uart->bit_order;
     rt_device_control(dev, RT_DEVICE_CTRL_CONFIG, &config);
@@ -151,6 +158,7 @@ int luat_uart_read(int uartid, void* buffer, size_t length)
         LOG_W("uart id=%d is closed", uartid);
         return -1;
     }
+    serials_marks[uartid] = 0;
     int re = rt_device_read(serials[uartid], -1, buffer, length);
     return re;
 }

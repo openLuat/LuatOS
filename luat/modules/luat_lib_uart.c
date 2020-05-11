@@ -120,13 +120,17 @@ static int l_uart_read(lua_State *L)
 {
     uint8_t id = luaL_checkinteger(L, 1);
     uint32_t length = luaL_checkinteger(L, 2);
-    uint8_t *rev = (uint8_t *)luat_heap_malloc(length);
-    uint8_t result = luat_uart_read(id, rev, length);
-    luaL_Buffer b;
-    luaL_buffinit(L, &b);
-    luaL_addlstring(&b, rev, result);
-    luaL_pushresult(&b);
-    luat_heap_free(rev);
+    void *recv = luat_heap_malloc(length);
+    int result = luat_uart_read(id, recv, length);
+    lua_gc(L, LUA_GCCOLLECT, 0);
+    if (result > 0) {
+        lua_pushlstring(L, (const char*)recv, result);
+    }
+    else
+    {
+        lua_pushstring(L, "");
+    }
+    luat_heap_free(recv);
     return 1;
 }
 

@@ -24,13 +24,13 @@ sys.taskInit(function()
     sys.waitUntil("WLAN_READY", 30000)
     while 1 do
         log.info("main", "socket loop")
-        if wlan.ready() then -- TODO 感觉wlan.ready()不是很准确,还得研究一下
+        if wlan.ready() then
             collectgarbage("collect")
             collectgarbage("collect")
             local s = socket.tcp()
             -- inews.gtimg.com/newsapp_bt/0/11443709755/1000
-            s:host("180.97.81.180") -- 改成服务器ip或者域名
-            s:port(54287) -- 改成服务器端口
+            s:host("tcplab.openluat.com") -- 改成服务器ip或者域名
+            s:port(52501) -- 改成服务器端口
             s:on("connect", function(id, re)
                 -- 连接成功后, 发注册包 {mac:"AABBCCDDEEFF"}
                 log.info("netc", "connect result", re)

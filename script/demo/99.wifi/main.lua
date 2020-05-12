@@ -14,7 +14,7 @@ sys.taskInit(function()
     wlan.connect("uiot", "12345678")
     print("wait for WLAN_READY")
     sys.waitUntil("WLAN_READY", 30000)
-    if wlan.ready() == 1 then
+    if wlan.ready() then
         while 1 do
             print("prepare ds18b20 ...")
             local temp = (sensor.ds18b20(28) or "")

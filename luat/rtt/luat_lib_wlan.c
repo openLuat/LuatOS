@@ -249,7 +249,7 @@ static int l_wlan_get_mac_raw(lua_State *L) {
 /*
 wifi是否已经获取ip
 @function wlan.ready()
-@return re 已经有ip返回1,否则返回0
+@return re 已经有ip返回true,否则返回false
 @usage wlan.ready()
 */
 static int l_wlan_ready(lua_State *L) {

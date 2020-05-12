@@ -9,7 +9,7 @@ sys.taskInit(function()
     wlan.connect("uiot", "czcjhp1985cbm")
     print("wait for WLAN_READY")
     sys.waitUntil("WLAN_READY", 30000)
-    if wlan.ready() == 1 then
+    if wlan.ready() then
         socket.ntpSync()
         print(os.date())
         while 1 do

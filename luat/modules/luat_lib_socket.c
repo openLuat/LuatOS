@@ -266,7 +266,6 @@ static int luat_lib_socket_new(lua_State* L, int netc_type) {
 static int netc_connect(lua_State *L) {
     netclient_t* thiz;
     size_t len;
-    char* hostname;
     uint32_t port;
     int re;
     thiz = tonetc(L);
@@ -281,13 +280,13 @@ static int netc_connect(lua_State *L) {
         }
     }
     else {
-        hostname = luaL_checklstring(L, 2, &len);
+        const char* hostname = luaL_checklstring(L, 2, &len);
         if (len >= 32) {
             //LOG_E("netc[%ld] hostname is too long >= 32", thiz->id);
             lua_pushinteger(L, 1);
             return 1;
         }
-        rt_memcpy(thiz->hostname, hostname, len);
+        memcpy(thiz->hostname, hostname, len);
         thiz->hostname[len] = 0x00;
         thiz->port = luaL_optinteger(L, 3, 80);
     }
@@ -321,10 +320,10 @@ static int netc_close(lua_State *L) {
 */
 static int netc_send(lua_State *L) {
     size_t len;
-    char* data;
+    
     netclient_t *netc;
     netc = tonetc(L);
-    data = luaL_checklstring(L, 2, &len);
+    const char* data = luaL_checklstring(L, 2, &len);
     if (len > 0) {
         netclient_send(netc, (void*)data, len);
     }
@@ -383,14 +382,13 @@ static int netc_host(lua_State *L) {
     netclient_t *netc = tonetc(L);
     if (lua_gettop(L) > 1 && lua_isstring(L, 2)) {
         size_t len;
-        char* hostname;
-        hostname = luaL_checklstring(L, 2, &len);
+        const char* hostname = luaL_checklstring(L, 2, &len);
         if (len >= 32) {
             //LOG_E("netc[%ld] hostname is too long!!!", netc->id);
             lua_pushinteger(L, 1);
             return 1;
         }
-        rt_memcpy(netc->hostname, hostname, len);
+        memcpy(netc->hostname, hostname, len);
         netc->hostname[len] = 0x00;
         //LOG_I("netc[%ld] host=%s", netc->id, netc->hostname);
     }
@@ -466,19 +464,19 @@ static int netc_on(lua_State *L) {
         if (lua_isfunction(L, 3)) {
             const char* ent = lua_tostring(L, 2);
             lua_pushvalue(L, 3);
-            if (rt_strcmp("recv", ent) == 0) {
+            if (strcmp("recv", ent) == 0) {
                 netc->cb_recv = luaL_ref(L, LUA_REGISTRYINDEX);
             }
-            else if (rt_strcmp("close", ent) == 0) {
+            else if (strcmp("close", ent) == 0) {
                 netc->cb_close = luaL_ref(L, LUA_REGISTRYINDEX);
             }
-            else if (rt_strcmp("connect", ent) == 0) {
+            else if (strcmp("connect", ent) == 0) {
                 netc->cb_connect = luaL_ref(L, LUA_REGISTRYINDEX);
             }
-            //else if (rt_strcmp("any", ent) == 0) {
+            //else if (strcmp("any", ent) == 0) {
             //    netc->cb_any = luaL_ref(L, LUA_REGISTRYINDEX);
             //}
-            else if (rt_strcmp("error", ent) == 0) {
+            else if (strcmp("error", ent) == 0) {
                 netc->cb_error = luaL_ref(L, LUA_REGISTRYINDEX);
             }
             else {

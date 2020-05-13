@@ -3,13 +3,16 @@ CFLAGS_INC    +=  -I $(LUATOS_DIR)/lua/include \
                   -I $(LUATOS_DIR)/luat/include
 
 LUATOS_SRC_DIRS += $(LUATOS_DIR)/lua/src \
-					$(LUATOS_DIR)/luat/modules
+					$(LUATOS_DIR)/luat/freertos \
+					$(LUATOS_DIR)/luat/modules \
+					$(LUATOS_DIR)/luat/packages\vsprintf \
+					$(LUATOS_DIR)/luat/packages\lua-cjson \
+					$(LUATOS_DIR)/luat/air302
 
 
-LUATOS_EXCLUDE_FILES := $(LUATOS_DIR)/luat/modules/luat_lib_socket.c \
 
 LUATOS_CSRC = $(foreach dir, $(LUATOS_SRC_DIRS), $(wildcard $(dir)/*.c))
-LUATOS_CFILES = $(filter-out $(LUATOS_EXCLUDE_FILES), $(LUATOS_CSRC))
+LUATOS_CFILES = $(LUATOS_CSRC)
 LUATOS_COBJSTEMP := $(patsubst %.c, %.o, $(LUATOS_CFILES))
 LUATOS_COBJSTEMP :=$(subst $(LUATOS_DIR),LuatOS,$(LUATOS_COBJSTEMP))
 LUATOS_COBJS := $(addprefix $(BUILDDIR)/, $(LUATOS_COBJSTEMP))

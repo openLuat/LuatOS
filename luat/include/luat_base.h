@@ -10,6 +10,7 @@
 #include "lualib.h"
 #include "lauxlib.h"
 #include "stdint.h"
+#include "string.h"
 
 //lua_State * luat_get_state();
 int luat_main (int argc, char **argv, int _);

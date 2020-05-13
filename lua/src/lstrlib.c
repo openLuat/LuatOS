@@ -1580,11 +1580,11 @@ static int str_split (lua_State *L) {
   const char *str = luaL_checkstring(L, 1);
   const char *delimiters = luaL_checklstring(L, 2, &len);
   if (len < 1) {
-    delimiters = ',';
+    delimiters = ",";
   }
   char *token;
   size_t count = 0;
-  token = strtok(str, delimiters);
+  token = strtok((char *)str, delimiters);
   while( token != NULL ) {
     lua_pushstring(L, token);
     //printf("%s - %ld\n", token, count);

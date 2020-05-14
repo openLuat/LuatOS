@@ -42,80 +42,63 @@ RT_WEAK struct rt_hwcrypto_device *rt_hwcrypto_dev_dufault(void) {
 // 文件系统初始化函数, 做个虚拟的
 RT_WEAK void luat_fs_init() {}
 
+static const luaL_Reg loadedlibs[] = {
+  {"_G", luaopen_base}, // _G
+  {LUA_LOADLIBNAME, luaopen_package}, // require
+  {LUA_COLIBNAME, luaopen_coroutine}, // coroutine协程库
+  {LUA_TABLIBNAME, luaopen_table},    // table库,操作table类型的数据结构
+  {LUA_IOLIBNAME, luaopen_io},        // io库,操作文件
+  {LUA_OSLIBNAME, luaopen_os},        // os库,已精简
+  {LUA_STRLIBNAME, luaopen_string},   // string库,字符串操作
+  {LUA_MATHLIBNAME, luaopen_math},    // math 数值计算
+//  {LUA_UTF8LIBNAME, luaopen_utf8},
+  {LUA_DBLIBNAME, luaopen_debug},     // debug库,已精简
+#if defined(LUA_COMPAT_BITLIB)
+  {LUA_BITLIBNAME, luaopen_bit32},    // 不太可能启用
+#endif
+// 往下是RTT环境下加载的库
+  {"rtos", luaopen_rtos},             // rtos底层库, 核心功能是队列和定时器
+  {"log", luaopen_log},               // 日志库
+  {"timer", luaopen_timer},           // 延时库
+  {"json", luaopen_cjson},            // json的序列化和反序列化
+  {"uart", luaopen_uart},             // 串口操作
+//  {"utest", luaopen_utest},
+#ifdef RT_USING_PIN
+  {"gpio", luaopen_gpio},              // GPIO脚的操作
+  {"sensor", luaopen_sensor},          // 传感器操作
+#endif
+#ifdef RT_USING_WIFI
+  {"wlan", luaopen_wlan},              // wlan/wifi联网操作
+#endif
+#ifdef SAL_USING_POSIX
+  {"socket", luaopen_socket},          // 套接字操作
+#endif
+#ifdef RT_USING_I2C
+  {"i2c", luaopen_i2c},                // I2C操作
+#endif
+#ifdef RT_USING_SPI
+  {"spi", luaopen_spi},                // SPI操作
+#endif
+#ifdef PKG_USING_U8G2
+  {"disp", luaopen_disp},              // 显示屏
+#endif
+  {NULL, NULL}
+};
 
 // 按不同的rtconfig加载不同的库函数
 void luat_openlibs(lua_State *L) {
     // 初始化队列服务
     luat_msgbus_init();
     print_list_mem("done>luat_msgbus_init");
-
-    luaL_requiref(L, "rtos", luaopen_rtos, 1);
-    lua_pop(L, 1);
-    print_list_mem("done> require(rtos)");
-
-    luaL_requiref(L, "log", luaopen_log, 1);
-    lua_pop(L, 1);
-    print_list_mem("done> require(log)");
-
-    //luaL_requiref(L, "sys", luaopen_sys, 1);
-    //lua_pop(L, 1);
-    //print_list_mem("done> require(sys)");
-
-    luaL_requiref(L, "timer", luaopen_timer, 1);
-    lua_pop(L, 1);
-    print_list_mem("done> require(timer)");
-
-    #ifdef RT_USING_PIN
-    luaL_requiref(L, "gpio", luaopen_gpio, 1);
-    lua_pop(L, 1);
-    print_list_mem("done> require(gpio)");
-
-    luaL_requiref(L, "sensor", luaopen_sensor, 1);
-    lua_pop(L, 1);
-    print_list_mem("done> require(sensor)");
-    #endif
-
-    luaL_requiref(L, "uart", luaopen_uart, 1);
-    lua_pop(L, 1);
-    print_list_mem("done> require(uart)");
-
-    #ifdef RT_USING_WIFI
-    luaL_requiref(L, "wlan", luaopen_wlan, 1);
-    lua_pop(L, 1);
-    print_list_mem("done> require(wlan)");
-    #endif
-
-    #ifdef SAL_USING_POSIX
-    luaL_requiref(L, "socket", luaopen_socket, 1);
-    lua_pop(L, 1);
-    print_list_mem("done> require(socket)");
-    #endif
-
-    luaL_requiref(L, "json", luaopen_cjson, 1);
-    lua_pop(L, 1);
-    print_list_mem("done> require(json)");
-
-    #ifdef RT_USING_I2C
-    luaL_requiref(L, "i2c", luaopen_i2c, 1);
-    lua_pop(L, 1);
-    print_list_mem("done> require(i2c)");
-    #endif
-
-    #ifdef RT_USING_SPI
-    luaL_requiref(L, "spi", luaopen_spi, 1);
-    lua_pop(L, 1);
-    print_list_mem("done> require(spi)");
-    #endif
-
-    #ifdef PKG_USING_U8G2
-    luaL_requiref(L, "disp", luaopen_disp, 1);
-    lua_pop(L, 1);
-    print_list_mem("done> require(disp)");
-    #endif
-
-    //luaL_requiref(L, "utest", luaopen_utest, 1);
-    //lua_pop(L, 1);
-    //print_list_mem("done> require(utest)");
+    // 加载系统库
+    const luaL_Reg *lib;
+    /* "require" functions from 'loadedlibs' and set results to global table */
+    for (lib = loadedlibs; lib->func; lib++) {
+        luaL_requiref(L, lib->name, lib->func, 1);
+        lua_pop(L, 1);  /* remove lib */
+        //extern void print_list_mem(const char* name);
+        //print_list_mem(lib->name);
+    }
 }
 
 void luat_os_reboot(int code) {

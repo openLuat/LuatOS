@@ -54,7 +54,7 @@ end)
 -- 业务流程, 联网后定时发送温度数据到服务器
 sys.taskInit(function()
     while 1 do
-        if wlan.ready() == 1 then
+        if wlan.ready() then
             sys.wait(1000)
             local temp = (sensor.ds18b20(28) or "")
             display_str("Temp: " .. temp  .. " rssi:" .. tostring(wlan.rssi()))

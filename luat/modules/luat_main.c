@@ -26,14 +26,14 @@ lua_State * luat_get_state() {
 static int pmain(lua_State *L) {
     int re = 0;
     
-    print_list_mem("begin> luaL_openlibs");
-    luaL_openlibs(L);
-    print_list_mem("done > luaL_openlibs");
+    //print_list_mem("begin> luaL_openlibs");
+    //luaL_openlibs(L);
+    //print_list_mem("done > luaL_openlibs");
 
     // 加载本地库
-    print_list_mem("begin> luat_openlibs");
+    //print_list_mem("begin> luat_openlibs");
     luat_openlibs(L);
-    print_list_mem("begin> luat_openlibs");
+    //print_list_mem("begin> luat_openlibs");
     
     // 加载main.lua
     //re = luaL_dofile(L, "/main.lua");

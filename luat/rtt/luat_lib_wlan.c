@@ -195,19 +195,97 @@ static int l_wlan_autoreconnect(lua_State *L) {
     return 1;
 }
 
+/*
+开始扫网,通常配合wlan.scanResult使用
+@function wlan.scan()
+@return boolean 启动结果,一般为true
+@usage 
+-- 扫描并查询结果
+wlan.scan()
+sys.waitUntil("WLAN_SCAN_DONE", 30000)
+local re = wlan.scanResult()
+for i in ipairs(re) do
+    log.info("wlan", "info", re[i].ssid, re[i].rssi)
+end
+*/
 static int l_wlan_scan(lua_State *L) {
-    lua_pushinteger(L, rt_wlan_scan());
+    lua_pushboolean(L, rt_wlan_scan() == 0);
     return 1;
 }
 
-static int l_wlan_scan_get_info_num(lua_State *L) {
-    lua_pushinteger(L, rt_wlan_scan_get_info_num());
-    return 1;
-}
+/*
+获取扫网结果,需要先执行wlan.scan,并等待WLAN_SCAN_DONE事件
+@function wlan.scanResult(num)
+@int 最大结果数量,默认50
+@return table 扫描结果的数组
+@usage 
+-- 扫描并查询结果
+wlan.scan()
+sys.waitUntil("WLAN_SCAN_DONE", 30000)
+local re = wlan.scanResult()
+for i in ipairs(re) do
+    log.info("wlan", "info", re[i].ssid, re[i].rssi)
+end
+*/
+static int l_wlan_scan_get_result(lua_State *L) {
+    int num = luaL_optinteger(L, 1, 20);                        /* 查询扫描结果数量 */
+    struct rt_wlan_scan_result *result = rt_wlan_scan_get_result();
+    if (result) {
+        LOG_I("wlan_scan_get_result >> %ld", result->num);
+    }
+    lua_createtable(L, num, 0);
+    if (result && result->num > 0) {
+        if (result->num < num) {
+            num = result->num;
+        }
+        for (size_t i = 0; i < num; i++)
+        {
+            struct rt_wlan_info info = result->info[i];
+            lua_pushinteger(L, i+1);
 
-static int l_wlan_scan_get_info(lua_State *L) {
-    //rt_wlan_ap_get_sta_info();
-    return 0;
+            // local info = {}
+            lua_createtable(L, 0, 8);
+
+            // info.ssid = xxx
+            lua_pushliteral(L, "ssid");
+            lua_pushlstring(L, info.ssid.val, info.ssid.len);
+            lua_settable(L, -3);
+
+            // info.rssi = xxx
+            lua_pushliteral(L, "rssi");
+            lua_pushinteger(L, info.rssi);
+            lua_settable(L, -3);
+
+            // info.security = xxx
+            lua_pushliteral(L, "security");
+            lua_pushinteger(L, info.security);
+            lua_settable(L, -3);
+
+            // info.channel = xxx
+            lua_pushliteral(L, "channel");
+            lua_pushinteger(L, info.channel);
+            lua_settable(L, -3);
+
+            // info.band = xxx
+            lua_pushliteral(L, "band");
+            lua_pushinteger(L, info.band);
+            lua_settable(L, -3);
+
+            // info.bssid = xxx
+            lua_pushliteral(L, "bssid");
+            lua_pushlstring(L, info.bssid, 6);
+            lua_settable(L, -3);
+
+            // info.hidden = xxx
+            lua_pushliteral(L, "hidden");
+            lua_pushinteger(L, info.hidden);
+            lua_settable(L, -3);
+
+            // re[i+1] = info
+            lua_settable(L, -3);
+        }
+    }
+    return 1;
 }
 
 /*
@@ -258,7 +336,9 @@ static int l_wlan_ready(lua_State *L) {
 }
 
 static int l_wlan_handler(lua_State* L, void* ptr) {
-    int event = (int)ptr;
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    int event = msg->arg1;
+
     lua_getglobal(L, "sys_pub");
     if (lua_isnil(L, -1)) {
         lua_pushinteger(L, 0);
@@ -317,7 +397,15 @@ static void wlan_cb(int event, struct rt_wlan_buff *buff, void *parameter) {
     rtos_msg_t msg;
     LOG_I("wlan event -> %d", event);
     msg.handler = l_wlan_handler;
-    msg.ptr = (void*)event;
+    msg.ptr = NULL;
+    msg.arg1 = event;
+    msg.arg2 = 0;
+
+    if (event == RT_WLAN_EVT_SCAN_DONE) {
+        struct rt_wlan_scan_result *result = buff->data;
+        LOG_I("scan_result num=%ld", result->num);
+    }
+
     luat_msgbus_put(&msg, 1);
 }
 static void reg_wlan_callbacks(void) {
@@ -378,10 +466,10 @@ static void _PW_callback(int state, unsigned char *_ssid, unsigned char *_passwd
 }
 
 //--------------------------
+// 联盛德的oneshot配网, 需要较多固定内存,默认不启用
 #ifdef WM_USING_ONESHOT
 static int32_t oneshot_autojoin = 0;
 static int32_t oneshot_re;
-
 
 static int l_wlan_oneshot_start(lua_State *L) {
     WM_ONESHOT_MODE mode = (WM_ONESHOT_MODE)luaL_optinteger(L, 1, WM_UDP);
@@ -451,8 +539,9 @@ static const rotable_Reg reg_wlan[] =
     { "ready" ,    l_wlan_ready , 0},
     { "autoreconnect", l_wlan_autoreconnect, 0},
     { "scan",      l_wlan_scan, 0},
-    { "scan_get_info_num", l_wlan_scan_get_info_num, 0},
-    { "scan_get_info", l_wlan_scan_get_info, 0},
+    { "scan_get_info", l_wlan_scan_get_result, 0},
+    { "scanResult", l_wlan_scan_get_result, 0},
+    { "getMac", l_wlan_get_mac, 0},
     { "get_mac", l_wlan_get_mac, 0},
     { "get_mac_raw", l_wlan_get_mac_raw, 0},
     { "rssi",        l_wlan_rssi, 0},

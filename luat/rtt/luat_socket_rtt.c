@@ -109,4 +109,19 @@ __exit:
     return 0;
 }
 
+#include <arpa/inet.h>         /* 包含 ip_addr_t 等地址相关的头文件 */
+#include <netdev.h>            /* 包含全部的 netdev 相关操作接口函数 */
+
+int luat_socket_is_ready(void) {
+    struct netdev *net = netdev_get_first_by_flags(NETDEV_FLAG_INTERNET_UP);
+    return net != RT_NULL;
+}
+
+uint32_t luat_socket_selfip(void) {
+    struct netdev *net = netdev_get_first_by_flags(NETDEV_FLAG_INTERNET_UP);
+    if (net == RT_NULL)
+        return 0;
+    return net->ip_addr.addr;
+}
+
 #endif

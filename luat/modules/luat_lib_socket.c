@@ -49,6 +49,31 @@ static int sal_tls_test(lua_State *L)
     return 0;
 }
 
+/*
+网络是否就绪
+@function    socket.isReady()
+@return boolean 已联网返回true,否则返回false
+*/
+static int l_socket_is_ready(lua_State *L) {
+    lua_pushboolean(L, luat_socket_is_ready());
+    return 1;
+}
+
+/*
+获取自身ip,通常是内网ip
+@function    socket.ip()
+@return string 已联网返回ip地址,否则返回nil
+*/
+static int l_socket_selfip(lua_State *L) {
+    uint32_t ip = luat_socket_selfip();
+    if (ip == 0) {
+        return 0;
+    }
+    lua_pushfstring(L, "%d.%d.%d.%d", (ip >> 0) & 0xFF, (ip >> 8) & 0xFF, (ip >> 16) & 0xFF, (ip >> 24) & 0xFF);
+    return 1;
+}
+
+
 #include "netclient.h"
 
 static int luat_lib_netc_msg_handler(lua_State* L, void* ptr) {
@@ -532,6 +557,8 @@ static const rotable_Reg reg_socket[] =
 
     { "tsend" ,  sal_tls_test , 0},
     { "ntpSync", socket_ntp_sync, 0}, // TODO 改成平台无关的UDP实现?
+    { "isReady", l_socket_is_ready, 0},
+    { "ip", l_socket_selfip, 0},
 	{ NULL, NULL , 0}
 };
 

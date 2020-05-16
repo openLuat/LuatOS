@@ -346,25 +346,29 @@ static int l_wlan_handler(lua_State* L, void* ptr) {
     }
     switch (event)
     {
-    case RT_WLAN_EVT_READY:
+    case RT_WLAN_EVT_READY: // 网络就绪
         lua_pushstring(L, "WLAN_READY");
         lua_call(L, 1, 0);
+        // 额外发送一个通用事件 NET_READY
+        lua_getglobal(L, "sys_pub");
+        lua_pushstring(L, "NET_READY");
+        lua_call(L, 1, 0);
         break;
-    case RT_WLAN_EVT_SCAN_DONE:
+    case RT_WLAN_EVT_SCAN_DONE: // 扫描完成
         lua_pushstring(L, "WLAN_SCAN_DONE");
         lua_call(L, 1, 0);
         break;
-    case RT_WLAN_EVT_STA_CONNECTED:
+    case RT_WLAN_EVT_STA_CONNECTED: // 连上wifi路由器/热点,但还没拿到ip
         lua_pushstring(L, "WLAN_STA_CONNECTED");
         lua_pushinteger(L, 1);
         lua_call(L, 2, 0);
         break;
-    case RT_WLAN_EVT_STA_CONNECTED_FAIL:
+    case RT_WLAN_EVT_STA_CONNECTED_FAIL: // 没有连上wifi路由器/热点,通常是密码错误
         lua_pushstring(L, "WLAN_STA_CONNECTED");
         lua_pushinteger(L, 0);
         lua_call(L, 2, 0);
         break;
-    case RT_WLAN_EVT_STA_DISCONNECTED:
+    case RT_WLAN_EVT_STA_DISCONNECTED: // 从wifi路由器/热点断开了
         lua_pushstring(L, "WLAN_STA_DISCONNECTED");
         lua_call(L, 1, 0);
         break;
@@ -403,7 +407,6 @@ static void wlan_cb(int event, struct rt_wlan_buff *buff, void *parameter) {
 
     if (event == RT_WLAN_EVT_SCAN_DONE) {
         struct rt_wlan_scan_result *result = buff->data;
-        LOG_I("scan_result num=%ld", result->num);
     }
 
     luat_msgbus_put(&msg, 1);

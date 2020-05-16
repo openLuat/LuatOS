@@ -340,7 +340,7 @@ static int netc_close(lua_State *L) {
 通过socket对象发送数据
 @function    so:send(data)
 @string 待发送数据
-@return nil 总会成功
+@return boolean 发送成功返回true,否则返回false
 -- 参考socket.tcp的说明, 并查阅demo
 */
 static int netc_send(lua_State *L) {
@@ -350,9 +350,13 @@ static int netc_send(lua_State *L) {
     netc = tonetc(L);
     const char* data = luaL_checklstring(L, 2, &len);
     if (len > 0) {
-        netclient_send(netc, (void*)data, len);
+        int32_t re = netclient_send(netc, (void*)data, len);
+        lua_pushboolean(L, re == len);
     }
-    return 0;
+    else {
+        lua_pushboolean(L, 0);
+    }
+    return 1;
 }
 
 static int netc_gc(lua_State *L) {

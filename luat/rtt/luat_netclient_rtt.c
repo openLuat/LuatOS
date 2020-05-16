@@ -425,7 +425,7 @@ int32_t netclient_send(netclient_t *thiz, const void *buff, size_t len)
 
     if (buff == RT_NULL)
     {
-        LOG_W("netclient send : buff is NULL");
+        LOG_W("netc[%ld] send : buff is NULL", thiz->id);
         return -1;
     }
     if (thiz->pipe_write_fd == -1) {

@@ -61,6 +61,7 @@ static const luaL_Reg loadedlibs[] = {
   {"log", luaopen_log},               // 日志库
   {"timer", luaopen_timer},           // 延时库
   {"json", luaopen_cjson},            // json的序列化和反序列化
+  {"pack", luaopen_pack},             // pack.pack/pack.unpack
   {"uart", luaopen_uart},             // 串口操作
 //  {"utest", luaopen_utest},
 #ifdef RT_USING_PIN

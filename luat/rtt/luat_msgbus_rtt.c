@@ -36,6 +36,7 @@ void luat_msgbus_init(void) {
 // }
 
 uint32_t luat_msgbus_put(rtos_msg_t* msg, size_t timeout) {
+    LOG_D(">>luat_msgbus_put msg->ptr= %08X", msg->ptr);
     int re = rt_mq_send(&mq, msg, sizeof(rtos_msg_t));
     if (re) {
         LOG_W("msgbus is FULL!!!!");
@@ -48,6 +49,7 @@ uint32_t luat_msgbus_get(rtos_msg_t* msg, size_t timeout) {
     result = rt_mq_recv(&mq, msg, sizeof(rtos_msg_t), timeout);
     if (result == RT_EOK) {
         // msgdata = msg->ptr;
+        LOG_D("luat_msgbus_get msg->ptr= %08X", msg->ptr);
         return 0;
     }
     else {

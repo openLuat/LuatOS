@@ -38,6 +38,7 @@ LUAMOD_API int luaopen_spi( lua_State *L );
 
 LUAMOD_API int luaopen_mqtt( lua_State *L );
 LUAMOD_API int luaopen_http( lua_State *L );
+LUAMOD_API int luaopen_pack( lua_State *L );
 
 int l_sprintf(char *buf, int32_t size, const char *fmt, ...);
 

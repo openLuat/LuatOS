@@ -104,7 +104,7 @@ sys.taskInit(function()
         log.info(TAG, "/config.json not exist")
     end
     -- 没有配网信息, 开始airkiss配网
-    while wlan.ready() ~= 1 do
+    while not wlan.ready() do
         log.info(TAG, "begin airkiss ...")
         display_str("begin airkiss ...")
         wlan.airkiss_start()
@@ -127,7 +127,7 @@ sys.taskInit(function()
     local mac = "AABBCCDDEEFF"
     while 1 do 
         log.info("main", "what happen?")
-        if wlan.ready() == 1 then
+        if wlan.ready() then
             log.info("main", "wait 1000ms")
             sys.wait(1000)
             --log.info("ds18b20", "start to read ds18b20 ...")

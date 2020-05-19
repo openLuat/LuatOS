@@ -361,7 +361,7 @@ static int netc_send(lua_State *L) {
 
 static int netc_gc(lua_State *L) {
     netclient_t *netc = tonetc(L);
-    //LOG_I("netc[%ld] __gc trigger", netc->id);
+    luat_log_info("netc[%ld] __gc trigger", netc->id);
     netclient_close(netc);
     if (netc->cb_error) {
         luaL_unref(L, LUA_REGISTRYINDEX, netc->cb_error);

@@ -70,7 +70,7 @@ sys.taskInit(function()
 end)
 
 sys.taskInit(function()
-    local host, port, selfid = "lbsmqtt.airm2m.com", 1884, wlan.getMac()
+    local host, port, selfid = "lbsmqtt.airm2m.com", 1884, wlan.getMac():lower()
     -- 等待联网成功
     while true do
         while not socket.isReady() do 
@@ -80,12 +80,16 @@ sys.taskInit(function()
         log.info("main", "mqtt loop")
         
         collectgarbage("collect")
+        collectgarbage("collect")
         local mqttc = mqtt.client(wlan.getMac(), nil, nil, false)
         while not mqttc:connect(host, port) do sys.wait(2000) end
-        log.info("mqttc", "mqtt seem ok", "try subscribe", string.format("/device/%s/req", selfid))
-        if mqttc:subscribe(string.format("/device/%s/req", selfid)) then
+        local topic_req = string.format("/device/%s/req", selfid)
+        local topic_report = string.format("/device/%s/report", selfid)
+        local topic_resp = string.format("/device/%s/resp", selfid)
+        log.info("mqttc", "mqtt seem ok", "try subscribe", topic_req)
+        if mqttc:subscribe(topic_req) then
             log.info("mqttc", "mqtt subscribe ok", "try publish")
-            if mqttc:publish(string.format("/device/%s/report", selfid), "test publish " .. os.time()) then
+            if mqttc:publish(topic_report, "test publish " .. os.time(), 1) then
                 while true do
                     log.info("mqttc", "wait for new msg")
                     local r, data, param = mqttc:receive(120000, "pub_msg")
@@ -94,10 +98,10 @@ sys.taskInit(function()
                         log.info("mqttc", "get message from server", data.payload or "nil", data.topic)
                     elseif data == "pub_msg" then
                         log.info("mqttc", "send message to server", data, param)
-                        mqttc:publish(string.format("/device/%s/resp", selfid), "response " .. param)
+                        mqttc:publish(topic_resp, "response " .. param)
                     elseif data == "timeout" then
                         log.info("mqttc", "wait timeout, send custom report")
-                        mqttc:publish(string.format("/device/%s/report", selfid), "test publish " .. os.time() .. wlan.getMac())
+                        mqttc:publish(topic_report, "test publish " .. os.time() .. wlan.getMac())
                     else
                         log.info("mqttc", "ok, something happen", "close connetion")
                         break

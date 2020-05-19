@@ -63,6 +63,7 @@ static const luaL_Reg loadedlibs[] = {
   {"json", luaopen_cjson},            // json的序列化和反序列化
   {"pack", luaopen_pack},             // pack.pack/pack.unpack
   {"uart", luaopen_uart},             // 串口操作
+  {"mqttcore",luaopen_mqttcore},      // MQTT 协议封装
 //  {"utest", luaopen_utest},
 #ifdef RT_USING_PIN
   {"gpio", luaopen_gpio},              // GPIO脚的操作

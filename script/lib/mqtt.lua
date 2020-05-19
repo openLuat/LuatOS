@@ -15,21 +15,21 @@ local CLIENT_COMMAND_TIMEOUT = 60000
 local sys = _G.sys
 local pack = _G.pack
 local string = _G.string
-
-local function encodeLen(len)
-    local s = ""
-    local digit
-    repeat
-        digit = len % 128
-        len = (len - digit) / 128
-        if len > 0 then
-            --digit = bit.bor(digit, 0x80)
-            digit = digit | 0x80
-        end
-        s = s .. string.char(digit)
-    until (len <= 0)
-    return s
-end
+local encodeLen = mqttcore.encodeLen
+-- local function encodeLen(len)
+--     local s = ""
+--     local digit
+--     repeat
+--         digit = len % 128
+--         len = (len - digit) / 128
+--         if len > 0 then
+--             --digit = bit.bor(digit, 0x80)
+--             digit = digit | 0x80
+--         end
+--         s = s .. string.char(digit)
+--     until (len <= 0)
+--     return s
+-- end
 
 local function encodeUTF8(s)
     if not s or #s == 0 then
@@ -345,7 +345,7 @@ function mqttc:connect(host, port, transport, cert, timeout)
         log.info("mqtt", "fail to start socket thread")
         return false
     end
-    log.info("mqtt", "wait for connect")
+    --log.info("mqtt", "wait for connect")
     local result, linked = sys.waitUntil(connect_topic, 15000)
     if not result then
         log.info("mqtt", "connect timeout")
@@ -355,12 +355,12 @@ function mqttc:connect(host, port, transport, cert, timeout)
         log.info("mqtt", "connect fail")
         return false
     end
-    log.info("mqtt", "send packCONNECT")
+    --log.info("mqtt", "send packCONNECT")
     if not self:write(packCONNECT(self.clientId, self.keepAlive, self.username, self.password, self.cleanSession, self.will, self.version)) then
         log.info("mqtt.client:connect", "send fail")
         return false
     end
-    log.info("mqtt", "waitfor CONNACK")
+    --log.info("mqtt", "waitfor CONNACK")
     local r, packet = self:waitfor(CONNACK, self.commandTimeout, nil, true)
     if not r or packet.rc ~= 0 then
         log.info("mqtt.client:connect", "connack error", r and packet.rc or -1)
@@ -368,7 +368,7 @@ function mqttc:connect(host, port, transport, cert, timeout)
     end
     
     self.connected = true
-    log.info("mqtt", "connected!~!")
+    --log.info("mqtt", "connected!~!")
     
     return true
 end

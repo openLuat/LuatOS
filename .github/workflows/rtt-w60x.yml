@@ -33,6 +33,8 @@ jobs:
     - name: make
       run: |
         cd bsp/w60x
+        export RTT_EXEC_PATH=/opt/gcc-arm-none-eabi-6-2017-q2-update/bin
+        source ~/.env/env.sh
         scons -j2
     - name: Upload artifact
       uses: actions/upload-artifact@v1

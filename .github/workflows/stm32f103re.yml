@@ -32,6 +32,8 @@ jobs:
     - name: make
       run: |
         cd bsp/stm32f103re
+        export RTT_EXEC_PATH=/opt/gcc-arm-none-eabi-6-2017-q2-update/bin
+        source ~/.env/env.sh
         scons -j2
     - name: prepare artifacts
       run: |

@@ -22,7 +22,7 @@ jobs:
       run: |
         git submodule init
         git submodule update
-    - name: make
+    - name: prepare packages
       run: |
         cd bsp/w60x
         export RTT_EXEC_PATH=/opt/gcc-arm-none-eabi-6-2017-q2-update/bin
@@ -30,6 +30,8 @@ jobs:
         source ~/.env/env.sh
         pkgs --update
         chmod 755 -R packages/wm_libraries-latest/Tools/
+    - name: make
+      run: |
         scons -j2
     - name: Upload artifact
       uses: actions/upload-artifact@v1

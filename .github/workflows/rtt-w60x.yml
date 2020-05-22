@@ -32,6 +32,7 @@ jobs:
         chmod 755 -R packages/wm_libraries-latest/Tools/
     - name: make
       run: |
+        cd bsp/w60x
         scons -j2
     - name: Upload artifact
       uses: actions/upload-artifact@v1

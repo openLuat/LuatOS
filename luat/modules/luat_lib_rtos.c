@@ -103,7 +103,7 @@ static int l_rtos_timer_start(lua_State *L) {
 rtos.timer_stop(100000)
 */
 static int l_rtos_timer_stop(lua_State *L) {
-    luat_timer_t *timer;
+    luat_timer_t *timer = NULL;
     if (lua_islightuserdata(L, 1)) {
         timer = (luat_timer_t *)lua_touserdata(L, 1);
     }

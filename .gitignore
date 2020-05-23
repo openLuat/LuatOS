@@ -1,5 +1,10 @@
 # Prerequisites
 *.d
+*.luac
+*.lnks
+*.pdf
+.vscode
+vscode.code-workspace
 
 # Object files
 *.o
@@ -43,7 +48,7 @@
 *.pdb
 
 # Kernel Module Compile Results
-*.mod*
+#*.mod*
 *.cmd
 .tmp_versions/
 modules.order

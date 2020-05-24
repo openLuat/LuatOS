@@ -28,7 +28,7 @@ static int luat_spi_rtt_init() {
     for (size_t i = 0; i <= SPI_DEVICE_ID_MAX; i++)
     {
         name[3] = '0' + i;
-        spi_devs[i] = (struct rt_i2c_bus_device *)rt_device_find(name);
+        spi_devs[i] = (struct rt_spi_bus_device *)rt_device_find(name);
         LOG_I("search spi name=%s ptr=0x%08X", name, spi_devs[i]);
     }
 }

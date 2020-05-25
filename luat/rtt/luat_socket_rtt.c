@@ -113,8 +113,11 @@ __exit:
 #include <netdev.h>            /* 包含全部的 netdev 相关操作接口函数 */
 
 int luat_socket_is_ready(void) {
-    struct netdev *net = netdev_get_first_by_flags(NETDEV_FLAG_INTERNET_UP);
-    return net != RT_NULL;
+    struct netdev *net = RT_NULL;
+    net = netdev_get_first_by_flags(NETDEV_FLAG_INTERNET_UP);
+    if (net == RT_NULL)
+        return 0;
+    return 1;
 }
 
 uint32_t luat_socket_selfip(void) {

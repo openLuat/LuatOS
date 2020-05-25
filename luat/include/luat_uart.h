@@ -34,8 +34,6 @@ int luat_uart_read(int uartid, void* buffer, size_t length);
 int luat_uart_close(int uartid);
 int luat_uart_exist(int uartid);
 
-int l_uart_handler(lua_State *L, void* ptr);
-
 int luat_setup_cb(int uartid, int received, int sent);
 
 #endif

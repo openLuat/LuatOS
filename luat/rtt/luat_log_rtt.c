@@ -2,10 +2,14 @@
 #include "luat_base.h"
 #include "luat_log.h"
 #include "rtthread.h"
+#include "luat_uart.h"
+#include "vsprintf.h"
 
 #define DBG_TAG           "rtt.log"
 #define DBG_LVL           DBG_INFO
 #include <rtdbg.h>
+
+static int log_uart_port = 0;
 
 void luat_print(const char* _str) {
     rt_kputs(_str);
@@ -114,8 +118,16 @@ void luat_log_warn(const char* tag, const char* _fmt, ...) {
 }
 void luat_log_error(const char* tag, const char* _fmt, ...) {
     if (LOG_LEVEL > LUAT_LOG_ERROR) return;
+    char buff[1024];
     va_list args;
     va_start(args, _fmt);
-    luat_log_log(LUAT_LOG_ERROR, tag, _fmt, args);
+    size_t len = custom_vsprintf(buff, _fmt, args);
+    if (len > 0) {
+        luat_uart_write(log_uart_port, "E/", 2);
+        luat_uart_write(log_uart_port, (void*)tag, strlen(tag));
+        luat_uart_write(log_uart_port, "\t", 1);
+        luat_uart_write(log_uart_port, buff, len);
+        luat_uart_write(log_uart_port, "\n", 1);
+    }
     va_end(args);
 }

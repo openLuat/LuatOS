@@ -1,6 +1,7 @@
 LUATOS_DIR      := $(LUATOS_SRC)
 CFLAGS_INC    +=  -I $(LUATOS_DIR)/lua/include \
-                  -I $(LUATOS_DIR)/luat/include
+                  -I $(LUATOS_DIR)/luat/include \
+				  -I $(LUATOS_DIR)/luat/packages\vsprintf \
 
 LUATOS_SRC_DIRS += $(LUATOS_DIR)/lua/src \
 					$(LUATOS_DIR)/luat/freertos \

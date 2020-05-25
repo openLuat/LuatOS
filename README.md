@@ -30,6 +30,7 @@ Lua base RTOS, build for many embedded systems
 
 ```lua
 local sys = require("sys")
+local httpv2 = require("httpv2")
 
 sys.subscribe("WLAN_READY", function ()
     print("!!! wlan ready event !!!")
@@ -57,13 +58,9 @@ sys.taskInit(function()
         if wlan.ready() then
             sys.wait(1000)
             local temp = (sensor.ds18b20(28) or "")
+            local code,headers,body = httpv2.request("GET", "http://site0.cn/api/w60x/report/ds18b20?mac=" .. wlan.get_mac() .. "&temp=" .. tostring(temp))
             display_str("Temp: " .. temp  .. " rssi:" .. tostring(wlan.rssi()))
-            local t = {"GET /api/w60x/report/ds18b20?mac=", wlan.get_mac(), "&temp=", temp, " HTTP/1.0\r\n",
-                    "Host: site0.cn\r\n",
-                    "User-Agent: LuatOS/0.1.0\r\n",
-                        "\r\n"}
-            socket.tsend("site0.cn", 80, table.concat(t))
-            log.info("network", "tsend complete, sleep 5s")
+            log.info("network", "http complete, sleep 5s", code, body)
             sys.wait(5000)
         else
             log.warn("main", "wlan is not ready yet")

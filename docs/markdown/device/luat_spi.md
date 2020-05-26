@@ -49,9 +49,11 @@ spi.full
 
 ```lua
 local spiId = 1
+local cs = 10
 
 local result = spi.setup(
     spiId,--串口id
+    cs,
     0,--CPHA
     0,--CPOL
     8,--数据宽度

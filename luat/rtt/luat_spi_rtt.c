@@ -51,7 +51,6 @@ int luat_spi_exist(int id) {
 
 //初始化配置SPI各项参数，并打开SPI
 //成功返回0
-#define SOC_W60X
 int8_t luat_spi_setup(luat_spi_t* spi) {
     char bus_name[4];
     char device_name[4];

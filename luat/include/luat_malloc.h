@@ -8,7 +8,6 @@
 #ifndef LUAT_MALLOC
 
 #define LUAT_MALLOC
-#define LUAT_MALLOC_HEAP_SIZE ((size_t) 85 * 1024)
 
 void  luat_heap_init(void);
 void* luat_heap_malloc(size_t len);

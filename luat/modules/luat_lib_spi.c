@@ -24,7 +24,7 @@ static int l_spi_setup(lua_State *L) {
     spi_config->master = luaL_optinteger(L, 8, 1);
     spi_config->mode = luaL_optinteger(L, 9, 1);
 
-    luat_spi_setup(&spi_config);
+    luat_spi_setup(spi_config);
     luat_heap_free(spi_config);
     return 0;
 }

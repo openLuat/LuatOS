@@ -93,14 +93,14 @@ _atob (unsigned long *vp, char *p, int base)
 
 		strncpy (tmp, p, q - p);
 		tmp[q - p] = '\0';
-		if (!_atob (&v1, tmp, 16))
+		if (!_atob ((unsigned long *)&v1, tmp, 16))
 			return (0);
 
 		q++;
 		if (strchr (q, '.'))
 			return (0);
 
-		if (!_atob (&v2, q, 16))
+		if (!_atob ((unsigned long *)&v2, q, 16))
 			return (0);
 		*vp = (v1 << 16) + v2;
 		return (1);
@@ -141,7 +141,7 @@ atob(uint32_t *vp, char *p, int base)
 
 	if (base == 0)
 		p = _getbase (p, &base);
-	if (_atob (&v, p, base)) {
+	if (_atob ((unsigned long *)&v, p, base)) {
 		*vp = v;
 		return (1);
 	}

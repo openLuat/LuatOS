@@ -8,14 +8,16 @@ typedef struct luat_spi
     uint8_t  CPHA;    // CPHA
     uint8_t  CPOL;    // CPOL
     uint8_t  dataw;   // 数据宽度
-    uint32_t bandrate;// 最大频率20M
     uint8_t  bit_dict;// 高低位顺序    可选，默认高位在前
     uint8_t  master;  // 主模式     可选，默认主
     uint8_t  mode;    // 全双工       可选，默认全双工
+    uint32_t bandrate;// 最大频率20M
+    uint32_t cs;      // cs控制引脚
 } luat_spi_t;
 
 /**
-spiId,--串口id
+    spiId,--串口id
+    cs,
     0,--CPHA
     0,--CPOL
     8,--数据宽度

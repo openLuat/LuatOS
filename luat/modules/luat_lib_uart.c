@@ -20,14 +20,17 @@ typedef struct luat_uart_cb {
 static luat_uart_cb_t uart_cbs[MAX_DEVICE_COUNT];
 
 int l_uart_handler(lua_State *L, void* ptr) {
+    //luat_log_debug("luat.uart", "l_uart_handler");
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     lua_pop(L, 1);
     int uart_id = msg->arg1;
     if (!luat_uart_exist(uart_id)) {
+        //luat_log_warn("luat.uart", "not exist uart id=%ld but event fired?!", uart_id);
         return 0;
     }
     // sent event
     if (msg->arg2 == 0) {
+        //luat_log_debug("luat.uart", "uart%ld sent callback", uart_id);
         if (uart_cbs[uart_id].sent) {
             lua_geti(L, LUA_REGISTRYINDEX, uart_cbs[uart_id].sent);
             if (lua_isfunction(L, -1)) {
@@ -44,6 +47,12 @@ int l_uart_handler(lua_State *L, void* ptr) {
                 lua_pushinteger(L, msg->arg2);
                 lua_call(L, 2, 0);
             }
+            else {
+                //luat_log_debug("luat.uart", "uart%ld received callback not function", uart_id);
+            }
+        }
+        else {
+            //luat_log_debug("luat.uart", "uart%ld no received callback", uart_id);
         }
     }
 
@@ -119,8 +128,16 @@ uart.read(1, 16)
 static int l_uart_read(lua_State *L)
 {
     uint8_t id = luaL_checkinteger(L, 1);
-    uint32_t length = luaL_checkinteger(L, 2);
+    uint32_t length = luaL_optinteger(L, 2, 1024);
+    if (length > 1024) {
+        length = 1024;
+    }
     void *recv = luat_heap_malloc(length);
+    if (recv == NULL) {
+        luat_log_error("luat.uart", "system is out of memory!!!");
+        lua_pushstring(L, "");
+        return 1;
+    }
     int result = luat_uart_read(id, recv, length);
     lua_gc(L, LUA_GCCOLLECT, 0);
     if (result > 0) {

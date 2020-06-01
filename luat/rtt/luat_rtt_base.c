@@ -5,22 +5,22 @@
 #include "stdio.h"
 #include "luat_msgbus.h"
 #include "rthw.h"
-#include "vsprintf.h"
+// #include "vsprintf.h"
 
 #define DBG_TAG           "rtt.base"
 #define DBG_LVL           DBG_INFO
 #include <rtdbg.h>
 
-int l_sprintf(char *buf, int32_t size, const char *fmt, ...) {
-    rt_int32_t n;
-    va_list args;
+// int l_sprintf(char *buf, int32_t size, const char *fmt, ...) {
+//     rt_int32_t n;
+//     va_list args;
 
-    va_start(args, fmt);
-    n = custom_vsprintf(buf, /*size,*/ fmt, args);
-    va_end(args);
+//     va_start(args, fmt);
+//     n = custom_vsprintf(buf, /*size,*/ fmt, args);
+//     va_end(args);
 
-    return n;
-}
+//     return n;
+// }
 
 // 打印内存状态
 void print_list_mem(const char* name) {

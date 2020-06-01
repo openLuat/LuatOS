@@ -58,8 +58,6 @@ gpio.setup(17, 0)
 gpio.setup(27, function(val) print("IRQ_27") end, gpio.RISING)
 */
 static int l_gpio_setup(lua_State *L) {
-    //lua_gettop(L);
-    // TODO 设置失败会内存泄漏
     luat_gpio_t conf;
     conf.pin = luaL_checkinteger(L, 1);
     //conf->mode = luaL_checkinteger(L, 2);
@@ -71,6 +69,7 @@ static int l_gpio_setup(lua_State *L) {
     }
     else if (lua_isinteger(L, 2)) {
         conf.mode = Luat_GPIO_OUTPUT;
+        conf.irq = lua_tointeger(L, 2) == 0 ? 0 : 1; // 重用irq当初始值用
     }
     else {
         conf.mode = Luat_GPIO_INPUT;
@@ -79,30 +78,34 @@ static int l_gpio_setup(lua_State *L) {
     conf.irq = luaL_optinteger(L, 4, Luat_GPIO_BOTH);
     int re = luat_gpio_setup(&conf);
     if (re == 0) {
-        int flag = 1;
-        for (size_t i = 0; i < GPIO_IRQ_COUNT; i++) {
-            if (irq_cbs[i].pin == conf.pin) {
-                if (irq_cbs[i].lua_ref && irq_cbs[i].lua_ref != conf.lua_ref) {
-                    luaL_unref(L, LUA_REGISTRYINDEX, irq_cbs[i].lua_ref);
-                    irq_cbs[i].lua_ref = conf.lua_ref;
+        if (conf.mode == Luat_GPIO_IRQ) {
+            int flag = 1;
+            for (size_t i = 0; i < GPIO_IRQ_COUNT; i++) {
+                if (irq_cbs[i].pin == conf.pin) {
+                    if (irq_cbs[i].lua_ref && irq_cbs[i].lua_ref != conf.lua_ref) {
+                        luaL_unref(L, LUA_REGISTRYINDEX, irq_cbs[i].lua_ref);
+                        irq_cbs[i].lua_ref = conf.lua_ref;
+                    }
+                    flag = 0;
+                    break;
                 }
-                flag = 0;
-                break;
+                if (irq_cbs[i].pin == 0) {
+                    irq_cbs[i].pin = conf.pin;
+                    irq_cbs[i].lua_ref = conf.lua_ref;
+                    flag = 0;
+                    break;
+                }
             }
-            if (irq_cbs[i].pin == 0) {
-                irq_cbs[i].pin = conf.pin;
-                irq_cbs[i].lua_ref = conf.lua_ref;
-                flag = 0;
-                break;
+            if (flag) {
+                luat_log_warn("luat.gpio", "too many irq setup!!!!");
+                re = 1;
+                luat_gpio_close(conf.pin);
             }
         }
-        if (flag) {
-            luat_log_warn("luat.gpio", "too many irq setup!!!!");
-            re = 1;
-            luat_gpio_close(conf.pin);
+        else if (conf.mode == Luat_GPIO_OUTPUT) {
+            luat_gpio_set(conf.pin, conf.irq); // irq被重用为OUTPUT的初始值
         }
     }
-    //luat_heap_free(conf);
     lua_pushinteger(L, re == 0 ? 1 : 0);
     return 1;
 }

@@ -17,7 +17,10 @@ static void luat_timer_callback(void* param) {
     luat_timer_t *timer = (luat_timer_t*)param;
     msg.handler = timer->func;
     msg.ptr = param;
-    luat_msgbus_put(&msg, 1);
+    msg.arg1 = 0;
+    msg.arg2 = 0;
+    int re = luat_msgbus_put(&msg, 1);
+    //luat_log_debug("luat.timer", "timer msgbus re=%ld", re);
 }
 
 static int nextTimerSlot() {

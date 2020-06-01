@@ -24,12 +24,12 @@ static int l_rtos_receive(lua_State *L) {
     int re;
     re = luat_msgbus_get(&msg, luaL_checkinteger(L, 1));
     if (!re) {
-        // luat_print("luat_msgbus_get msg!!!\n");
+        //luat_log_debug("luat.rtos", "rtos_msg got, invoke it handler=%08X", msg.handler);
         lua_pushlightuserdata(L, (void*)(&msg));
         return msg.handler(L, msg.ptr);
     }
     else {
-        // luat_print("luat_msgbus_get timeout!!!\n");
+        //luat_log_debug("luat.rtos", "rtos_msg get timeout");
         lua_pushinteger(L, -1);
         return 1;
     }

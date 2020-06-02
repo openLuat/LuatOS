@@ -36,11 +36,11 @@ README.md  SConstruct    luat         oneshot      project.uvoptx   rtconfig.h  
 ROM.ini    applications  makeimg.bat  project.ewp  project.uvprojx  rtconfig.py  template.uvprojx
 ```
 
-![](a0.png)
+![](media/a0.png)
 
 点了这两个按钮，虽然没啥反应，但是在鼠标上下文菜单里，应该有
 
-![](a1.png)
+![](media/a1.png)
 
 
 

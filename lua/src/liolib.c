@@ -699,18 +699,18 @@ static int f_flush (lua_State *L) {
 */
 #include "rotable.h"
 static const rotable_Reg iolib[] = {
-  {"close", io_close},
-  {"flush", io_flush},
-  {"input", io_input},
-  {"lines", io_lines},
-  {"open", io_open},
-  {"output", io_output},
-  {"popen", io_popen},
-  {"read", io_read},
-  {"tmpfile", io_tmpfile},
-  {"type", io_type},
-  {"write", io_write},
-  {NULL, NULL}
+  {"close", io_close,  0},
+  {"flush", io_flush,  0},
+  {"input", io_input,  0},
+  {"lines", io_lines,  0},
+  {"open", io_open,    0},
+  {"output", io_output,0},
+  {"popen", io_popen,  0},
+  {"read", io_read,    0},
+  {"tmpfile", io_tmpfile, 0},
+  {"type", io_type,    0},
+  {"write", io_write,  0},
+  {NULL, NULL,         0}
 };
 
 

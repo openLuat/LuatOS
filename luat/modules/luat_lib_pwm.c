@@ -4,8 +4,8 @@
 
 static int l_pwm_open(lua_State *L) {
     int channel = luaL_checkinteger(L, 1);
-    size_t period = luaL_checkinteger(L, 1);
-    size_t pulse = luaL_checkinteger(L, 1);
+    size_t period = luaL_checkinteger(L, 2);
+    size_t pulse = luaL_checkinteger(L, 3);
     if (luat_pwm_open(channel, period, pulse) == 0) {
         lua_pushboolean(L, 1);
     }

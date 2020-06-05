@@ -18,7 +18,7 @@
 static struct rt_i2c_bus_device* i2c_devs[I2C_DEVICE_ID_MAX + 1];
 
 static int luat_i2c_rtt_init() {
-    char name[16];
+    char name[8];
     name[0] = 'i';
     name[1] = '2';
     name[2] = 'c';

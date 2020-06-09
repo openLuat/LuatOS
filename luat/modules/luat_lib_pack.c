@@ -196,6 +196,7 @@ done:
     break;					\
    }
 
+
 static int l_pack(lua_State *L) 		/** pack(f,...) */
 {
  int i=2;
@@ -255,6 +256,14 @@ static int l_pack(lua_State *L) 		/** pack(f,...) */
  }
  luaL_pushresult(&b);
  return 1;
+}
+
+int luat_pack(lua_State *L) {
+   return l_pack(L);
+}
+
+int luat_unpack(lua_State *L) {
+   return l_uppack(L);
 }
 
 #include "rotable.h"

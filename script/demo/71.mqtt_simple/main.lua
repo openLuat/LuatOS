@@ -6,6 +6,7 @@ demo说明:
 ]]
 _G.sys = require("sys")
 _G.mqtt = require("mqtt")
+_G.mine = require("my_demo")
 
 log.info("main", "simple mqtt demo")
 
@@ -13,8 +14,8 @@ log.info("main", "simple mqtt demo")
 -- wifi 相关的代码
 if wlan ~= nil then
     log.info("mac", wlan.get_mac())
-    local ssid = "uiot"
-    local password = "12345678"
+    local ssid = mine.wifi_ssid
+    local password = mine.wifi_passwd
     -- 方式1 直接连接, 简单快捷
     wlan.connect(ssid, password) -- 直接连
     -- 方式2 先扫描,再连接. 例如根据rssi(信号强度)的不同, 择优选择ssid

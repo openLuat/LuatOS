@@ -1,3 +1,10 @@
+
+/**
+ * rotable 实现 lua下的只读table, 用于通常只用于库的注册.</p>
+ * 从原理上说, 是声明一个userdata内存块, 然后通过元表,将其伪装成table.<p/>
+ * 因为元表是共享的,而userdata内存块也很小(小于30字节),而且不会与方法的数量有关, 节省大量内存. 
+ * 
+ */
 #include <stddef.h>
 #include <string.h>
 #include <stdlib.h>
@@ -171,6 +178,9 @@ static int rotable_udata_pairs( lua_State* L ) {
   return 3;
 }
 
+/**
+ * 与lua_newlib对应的函数, 用于生成一个库table,区别是lua_newlib生成普通table,这个函数生成rotable.
+ */
 
 ROTABLE_EXPORT void rotable_newlib( lua_State* L, void const* v ) {
   rotable_Reg const* reg = (rotable_Reg const*)v;
@@ -203,7 +213,9 @@ ROTABLE_EXPORT void rotable_newlib( lua_State* L, void const* v ) {
 #endif
 }
 
-
+/**
+ * 为自定义对象也生成rotable形式的元表, 这个形式比rotable_newlib需要更多内存,但起码是一个解决办法.
+ */
 ROTABLE_EXPORT void rotable_newidx( lua_State* L, void const* v ) {
   lua_pushlightuserdata( L, (void*)v);
   lua_pushcclosure( L, rotable_func_index, 1 );

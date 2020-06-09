@@ -132,17 +132,17 @@ static rt_int32_t socket_init(netclient_t *thiz, const char *url, int port)
     thiz->sock_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (thiz->sock_fd == -1)
     {
-        LOG_E("netc[%ld] socket init : socket create failed", netc->id);
+        LOG_E("netc[%ld] socket init : socket create failed", thiz->id);
         return -1;
     }
 
     hostname = gethostbyname(url);
     if (hostname == NULL) {
-        LOG_W("netc[%ld] dns name relove fail, retry at 2000ms", netc->id);
+        LOG_W("netc[%ld] dns name relove fail, retry at 2000ms", thiz->id);
         rt_thread_mdelay(2000);
         hostname = gethostbyname(url);
         if (hostname == NULL) {
-            LOG_W("netc[%ld] dns name relove fail again, quit", netc->id);
+            LOG_W("netc[%ld] dns name relove fail again, quit", thiz->id);
             return -1;
         }
     }

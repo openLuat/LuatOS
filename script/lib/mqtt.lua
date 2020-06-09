@@ -16,6 +16,7 @@ local sys = _G.sys
 local pack = _G.pack
 local string = _G.string
 local encodeLen = mqttcore.encodeLen
+local encodeUTF8 = mqttcore.encodeUTF8
 -- local function encodeLen(len)
 --     local s = ""
 --     local digit
@@ -31,13 +32,13 @@ local encodeLen = mqttcore.encodeLen
 --     return s
 -- end
 
-local function encodeUTF8(s)
-    if not s or #s == 0 then
-        return ""
-    else
-        return pack.pack(">P", s)
-    end
-end
+-- local function encodeUTF8(s)
+--     if not s or #s == 0 then
+--         return ""
+--     else
+--         return pack.pack(">P", s)
+--     end
+-- end
 
 local function packCONNECT(clientId, keepAlive, username, password, cleanSession, will, version)
     local content = pack.pack(">PbbHPAAAA",

@@ -3,6 +3,7 @@
 #include "luat_log.h"
 #include "luat_sys.h"
 #include "luat_msgbus.h"
+#include "luat_pack.h"
 
 enum msgTypes
 {
@@ -348,13 +349,21 @@ static int l_mqttcore_encodeLen(lua_State *L) {
 
 
 static int l_mqttcore_encodeUTF8(lua_State *L) {
-    // size_t len = 0;
-    // char buff[4];
-    // len = luaL_checkinteger(L, 1);
-    // int rc = MQTTPacket_encode(buff, len);
-    // lua_pushlstring(L, (const char*)buff, rc);
-    // return 1;
-    return 0;
+    size_t len = lua_rawlen(L, 1);
+		//--------------------------------------------
+		// if not s or #s == 0 then
+    //    return ""
+    if(0 == len || lua_isnil(L, 1)) {
+			lua_pushlstring(L, "", 0);
+		}
+		//--------------------------------------------
+		// return pack.pack(">P", s)
+		char *s = luaL_checkstring(L, 1);
+
+		lua_pushlstring(L, ">P", 2);
+		lua_pushlstring(L, s, len);
+
+		return luat_pack(L);
 }
 
 #include "rotable.h"

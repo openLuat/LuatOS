@@ -17,7 +17,7 @@
 #include "drv_flash.h"
 #include "lfs.h"
 
-int luat_fs_init() {
+int luat_fs_init(void) {
     //luat_lfs_init();
     //#ifdef RT_USING_SFUD
     //dfs_mount("W25QXX", "/", "elm", 0, 0);

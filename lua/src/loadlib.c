@@ -23,6 +23,12 @@
 #include "lauxlib.h"
 #include "lualib.h"
 
+#include "luat_fs.h"
+#undef fopen
+#undef fclose
+#define fopen luat_fs_fopen
+#define fclose luat_fs_fclose
+
 
 /*
 ** LUA_IGMARK is a mark to ignore all before it when building the
@@ -495,22 +501,35 @@ static int checkload (lua_State *L, int stat, const char *filename) {
 static int searcher_Lua (lua_State *L) {
   char filename[32];
   const char *name = luaL_checkstring(L, 1);
-  sprintf(filename, "/%s.luac", name);
-  FILE *f = fopen(filename, "r");
-  if (f == NULL) {
+  while (1) {
+    // 假设name= main
+    //    /main.luac
+    sprintf(filename, "/%s.luac", name);
+    if (readable(filename)) break;
+    
+    //    /main.lua
     sprintf(filename, "/%s.lua", name);
-    f = fopen(filename, "r");
+    if (readable(filename)) break;
+
+    //    /lua/main.luac
+    sprintf(filename, "/lua/%s.luac", name);
+    if (readable(filename)) break;
+
+    //    /lua/main.lua
+    sprintf(filename, "/lua/%s.lua", name);
+    if (readable(filename)) break;
+
+    //    /lfs/main.lua
+    sprintf(filename, "/lfs/%s.luac", name);
+    if (readable(filename)) break;
+
+    //    /lfs/main.lua
+    sprintf(filename, "/lfs/%s.luac", name);
+    if (readable(filename)) break;
+
+    // none found!!
+    return -1;
   }
-  if (f == NULL) {
-    sprintf(filename, "/lib/%s.luac", name);
-    f = fopen(filename, "r");
-  }
-  if (f == NULL) {
-    sprintf(filename, "/lib/%s.lua", name);
-    f = fopen(filename, "r");
-  }
-  if (f == NULL) return 1;
-  fclose(f);
   int re = checkload(L, (luaL_loadfile(L, filename) == LUA_OK), filename);
   //rt_kprintf("searcher_Lua name=%s re=%d\n", name, re);
   return re;

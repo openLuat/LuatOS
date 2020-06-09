@@ -11,6 +11,8 @@
 // 调试开关, 预留
 #define LUAT_DEBUG 0
 
+#define LUAT_WEAK                     __attribute__((weak))
+
 //-------------------------------
 // 通用头文件
 #include "lua.h"

@@ -26,6 +26,23 @@
 
 #include "lauxlib.h"
 
+#include "luat_fs.h"
+
+#undef fopen
+#undef fclose
+#undef fread
+#undef fseek
+#undef feof
+#undef ferror
+
+#define fopen   luat_fs_fopen
+#define fclose  luat_fs_fclose
+#define fread   luat_fs_fread
+#define fseek   luat_fs_fseek
+#define ferror  luat_fs_ferror
+#define feof    luat_fs_feof
+
+
 
 /*
 ** {======================================================

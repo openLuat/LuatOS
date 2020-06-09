@@ -80,10 +80,10 @@ int luat_main (int argc, char **argv, int _) {
   }
   //luat_print("\nI/main: Luat " LUAT_VERSION " build " __DATE__ " " __TIME__ "\n");
   luat_log_info("luat.main", "Luat " LUAT_VERSION ", build at: " __DATE__ " " __TIME__);
-  print_list_mem("entry luat_main");
+  //print_list_mem("entry luat_main");
   // 1. init filesystem
   luat_fs_init();
-  print_list_mem("after fs init");
+  //print_list_mem("after fs init");
 
   // 2. init Lua State
   int status, result;
@@ -93,7 +93,7 @@ int luat_main (int argc, char **argv, int _) {
     return 1;
   }
   if (L) lua_atpanic(L, &panic);
-  print_list_mem("after lua_newstate");
+  //print_list_mem("after lua_newstate");
   lua_pushcfunction(L, &pmain);  /* to call 'pmain' in protected mode */
   lua_pushinteger(L, argc);  /* 1st argument */
   lua_pushlightuserdata(L, argv); /* 2nd argument */

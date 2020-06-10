@@ -26,6 +26,17 @@ static int l_crypto_md5(lua_State *L) {
 }
 
 static int l_crypto_hmac_md5(lua_State *L) {
+    size_t str_size = 0;
+    size_t key_size = 0;
+    const char* str = luaL_checklstring(L, 1, &str_size);
+    const char* key = luaL_checklstring(L, 2, &key_size);
+    char tmp[32];
+    char dst[32];
+    if (luat_crypto_hmac_md5_simple(str, str_size, key, key_size, tmp) == 0) {
+        fixhex(tmp, dst, 16);
+        lua_pushlstring(L, dst, 32);
+        return 1;
+    }
     return 0;
 }
 

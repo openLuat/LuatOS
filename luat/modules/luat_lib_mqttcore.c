@@ -338,6 +338,7 @@ int MQTTPacket_encode(char* buf, size_t length)
 // 	return len;
 // }
 
+
 static int l_mqttcore_encodeLen(lua_State *L) {
     size_t len = 0;
     char buff[4];
@@ -358,7 +359,7 @@ static int l_mqttcore_encodeUTF8(lua_State *L) {
 		}
 		//--------------------------------------------
 		// return pack.pack(">P", s)
-		char *s = luaL_checkstring(L, 1);
+		const char *s = luaL_checkstring(L, 1);
 
 		lua_pushlstring(L, ">P", 2);
 		lua_pushlstring(L, s, len);

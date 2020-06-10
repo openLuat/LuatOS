@@ -263,7 +263,7 @@ int luat_pack(lua_State *L) {
 }
 
 int luat_unpack(lua_State *L) {
-   return l_uppack(L);
+   return l_unpack(L);
 }
 
 #include "rotable.h"

@@ -95,8 +95,11 @@ static int luat_lib_netc_msg_handler(lua_State* L, void* ptr) {
     switch (ent->event)
     {
     case NETC_EVENT_CONNECT_OK:
+        lua_pushinteger(L, 1);
+        lua_call(L, 2, 0);
+        break;
     case NETC_EVENT_CONNECT_FAIL:
-        lua_pushinteger(L, ent->event == NETC_EVENT_CONNECT_OK ? 1 : 0);
+        lua_pushinteger(L, 0);
         lua_call(L, 2, 0);
         break;
     //case NETC_EVENT_CLOSE:
@@ -187,7 +190,7 @@ static int luat_lib_socket_new(lua_State* L, int netc_type) {
     if (thiz == NULL)
     {
         //LOG_W("netclient, fail to create!!!!memory full?!");
-        return NULL;
+        return 0;
     }
 
     memset(thiz, 0, sizeof(netclient_t));
@@ -345,14 +348,14 @@ static int netc_close(lua_State *L) {
 -- 参考socket.tcp的说明, 并查阅demo
 */
 static int netc_send(lua_State *L) {
-    size_t len;
+    size_t len = 0;
     
     netclient_t *netc;
     netc = tonetc(L);
     const char* data = luaL_checklstring(L, 2, &len);
     if (len > 0) {
         int32_t re = netclient_send(netc, (void*)data, len);
-        lua_pushboolean(L, re == len);
+        lua_pushboolean(L, re == len ? 1 : 0);
     }
     else {
         lua_pushboolean(L, 0);

@@ -50,7 +50,7 @@ typedef void (*tpc_cb_t)(netc_ent_t* ent);
 typedef struct netclient
 {
     int id;
-    char hostname[32];
+    char hostname[64];
     int port;
     int type;
     int closed;

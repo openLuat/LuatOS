@@ -9,6 +9,7 @@
 #include "luat_timer.h"
 #include "luat_malloc.h"
 #include "luat_msgbus.h"
+#include "luat_socket.h"
 #include "rotable.h"
 
 #include "netclient.h"

@@ -414,16 +414,20 @@ static int netc_id(lua_State *L) {
 static int netc_host(lua_State *L) {
     netclient_t *netc = tonetc(L);
     if (lua_gettop(L) > 1 && lua_isstring(L, 2)) {
-        size_t len;
+        size_t len = 0;
         const char* hostname = luaL_checklstring(L, 2, &len);
-        if (len >= 32) {
-            //LOG_E("netc[%ld] hostname is too long!!!", netc->id);
+        if (len >= 64) {
+            luat_log_error("luat.socket", "hostname is too long!!!!!");
+            lua_pushinteger(L, 1);
+            return 1;
+        }
+        else if (len == 0) {
+            luat_log_error("luat.socket", "hostname is emtry!!!!!");
             lua_pushinteger(L, 1);
             return 1;
         }
         memcpy(netc->hostname, hostname, len);
         netc->hostname[len] = 0x00;
-        //LOG_I("netc[%ld] host=%s", netc->id, netc->hostname);
     }
     lua_pushstring(L, netc->hostname);
     return 1;

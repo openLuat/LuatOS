@@ -16,10 +16,6 @@ void* luat_heap_malloc(size_t len){
     return rt_malloc(len);
 }
 void  luat_heap_free(void* ptr) {
-    #ifdef BSP_USING_WM_LIBRARIES
-    if (ptr)
-        RT_ASSERT(ptr >= 0x20000000 && ptr <= 0x20028000);
-    #endif
     rt_free(ptr);
 }
 

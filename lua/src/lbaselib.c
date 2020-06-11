@@ -20,17 +20,26 @@
 #include "lauxlib.h"
 #include "lualib.h"
 
-
+char * btoa(char *dst, uint32_t value, int base);
 static int luaB_print (lua_State *L) {
   int n = lua_gettop(L);  /* number of arguments */
   int i;
+  char buff[64] = {0};
   lua_getglobal(L, "tostring");
   for (i=1; i<=n; i++) {
     const char *s;
     size_t l;
-    lua_pushvalue(L, -1);  /* function to be called */
-    lua_pushvalue(L, i);   /* value to print */
-    lua_call(L, 1, 1);
+    // change by wendal , 2020-06-11
+    // 在Air302环境下, lua_Integer总是被转换为0
+    if (lua_isinteger(L, i)) {
+      btoa(buff, luaL_checkinteger(L, i), -10);
+      lua_pushlstring(L, buff, strlen(buff));
+    }
+    else {
+      lua_pushvalue(L, -1);  /* function to be called */
+      lua_pushvalue(L, i);   /* value to print */
+      lua_call(L, 1, 1);
+    }
     s = lua_tolstring(L, -1, &l);  /* get result */
     if (s == NULL)
       return luaL_error(L, "'tostring' must return a string to 'print'");

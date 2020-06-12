@@ -350,21 +350,13 @@ static int l_mqttcore_encodeLen(lua_State *L) {
 
 
 static int l_mqttcore_encodeUTF8(lua_State *L) {
-    size_t len = lua_rawlen(L, 1);
-		//--------------------------------------------
-		// if not s or #s == 0 then
-    //    return ""
-    if(0 == len || lua_isnil(L, 1)) {
-			lua_pushlstring(L, "", 0);
-		}
-		//--------------------------------------------
-		// return pack.pack(">P", s)
-		const char *s = luaL_checkstring(L, 1);
-
-		lua_pushlstring(L, ">P", 2);
-		lua_pushlstring(L, s, len);
-
-		return luat_pack(L);
+    if(!lua_isstring(L, 1) || 0 == lua_rawlen(L, 1)) {
+		lua_pushlstring(L, "", 0);
+		return 1;
+	}
+	lua_pushlstring(L, ">P", 2);
+	lua_insert(L, 1);
+	return luat_pack(L);
 }
 
 #include "rotable.h"

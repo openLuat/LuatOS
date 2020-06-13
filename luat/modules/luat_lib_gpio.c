@@ -62,20 +62,21 @@ static int l_gpio_setup(lua_State *L) {
     conf.pin = luaL_checkinteger(L, 1);
     //conf->mode = luaL_checkinteger(L, 2);
     conf.lua_ref = 0;
+    conf.irq = 0;
     if (lua_isfunction(L, 2)) {
         conf.mode = Luat_GPIO_IRQ;
         lua_pushvalue(L, 2);
         conf.lua_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+        conf.irq = luaL_optinteger(L, 4, Luat_GPIO_BOTH);
     }
     else if (lua_isinteger(L, 2)) {
         conf.mode = Luat_GPIO_OUTPUT;
-        conf.irq = lua_tointeger(L, 2) == 0 ? 0 : 1; // 重用irq当初始值用
+        conf.irq = luaL_checkinteger(L, 2) == 0 ? 0 : 1; // 重用irq当初始值用
     }
     else {
         conf.mode = Luat_GPIO_INPUT;
     }
     conf.pull = luaL_optinteger(L, 3, Luat_GPIO_DEFAULT);
-    conf.irq = luaL_optinteger(L, 4, Luat_GPIO_BOTH);
     int re = luat_gpio_setup(&conf);
     if (re == 0) {
         if (conf.mode == Luat_GPIO_IRQ) {

@@ -10,6 +10,8 @@
 #include "luat_gpio.h"
 #include "luat_malloc.h"
 
+static int l_gpio_set(lua_State *L);
+static int l_gpio_get(lua_State *L);
 static int l_gpio_close(lua_State *L);
 
 #define GPIO_IRQ_COUNT 16
@@ -107,7 +109,17 @@ static int l_gpio_setup(lua_State *L) {
             luat_gpio_set(conf.pin, conf.irq); // irq被重用为OUTPUT的初始值
         }
     }
-    lua_pushinteger(L, re == 0 ? 1 : 0);
+    // 生成闭包包
+    if (re != 0) {
+        return 0;
+    }
+    lua_settop(L, 1);
+    if (conf.mode == Luat_GPIO_OUTPUT) {
+        lua_pushcclosure(L, l_gpio_set, 1);
+    }
+    else {
+        lua_pushcclosure(L, l_gpio_get, 1);
+    }
     return 1;
 }
 
@@ -122,7 +134,10 @@ static int l_gpio_setup(lua_State *L) {
 gpio.set(17, 0) 
 */
 static int l_gpio_set(lua_State *L) {
-    luat_gpio_set(luaL_checkinteger(L, 1), luaL_checkinteger(L, 2));
+    if (lua_isinteger(L, lua_upvalueindex(1)))
+        luat_gpio_set(lua_tointeger(L, lua_upvalueindex(1)), luaL_checkinteger(L, 1));
+    else
+        luat_gpio_set(luaL_checkinteger(L, 1), luaL_checkinteger(L, 2));
     return 0;
 }
 
@@ -136,7 +151,10 @@ static int l_gpio_set(lua_State *L) {
 gpio.get(17) 
 */
 static int l_gpio_get(lua_State *L) {
-    lua_pushinteger(L, luat_gpio_get(luaL_checkinteger(L, 1)) & 0x01 ? 1 : 0);
+    if (lua_isinteger(L, lua_upvalueindex(1)))
+        lua_pushinteger(L, luat_gpio_get(luaL_checkinteger(L, lua_upvalueindex(1))) & 0x01 ? 1 : 0);
+    else
+        lua_pushinteger(L, luat_gpio_get(luaL_checkinteger(L, 1)) & 0x01 ? 1 : 0);
     return 1;
 }
 

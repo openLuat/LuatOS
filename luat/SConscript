@@ -16,6 +16,9 @@ CPPPATH += [cwd + "/packages/lua-cjson/"]
 src += Glob('packages/vsprintf/*.c')
 CPPPATH += [cwd + "/packages/vsprintf/"]
 
+#u8g2
+#src += Glob('packages/u8g2/*.c')
+CPPPATH += [cwd + "/packages/u8g2/"]
 
 if GetDepend(['BSP_USING_WM_LIBRARIES']):
     src += Glob('w60x/*.c')

@@ -2,13 +2,16 @@ LUATOS_DIR      := $(LUATOS_SRC)
 CFLAGS_INC    +=  -I $(LUATOS_DIR)/lua/include \
                   -I $(LUATOS_DIR)/luat/include \
 				  -I $(LUATOS_DIR)/luat/packages\vsprintf \
+				  -I $(LUATOS_DIR)/luat/packages\u8g2 \
+
 
 LUATOS_SRC_DIRS += $(LUATOS_DIR)/lua/src \
 					$(LUATOS_DIR)/luat/freertos \
 					$(LUATOS_DIR)/luat/modules \
 					$(LUATOS_DIR)/luat/packages\vsprintf \
 					$(LUATOS_DIR)/luat/packages\lua-cjson \
-					$(LUATOS_DIR)/luat/air302
+					$(LUATOS_DIR)/luat/packages\u8g2 \
+					$(LUATOS_DIR)/luat/air302 
 
 
 

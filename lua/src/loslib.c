@@ -138,16 +138,16 @@ static time_t l_checktime (lua_State *L, int arg) {
 
 
 
-static int os_execute (lua_State *L) {
-  const char *cmd = luaL_optstring(L, 1, NULL);
-  int stat = system(cmd);
-  if (cmd != NULL)
-    return luaL_execresult(L, stat);
-  else {
-    lua_pushboolean(L, stat);  /* true if there is a shell */
-    return 1;
-  }
-}
+// static int os_execute (lua_State *L) {
+//   const char *cmd = luaL_optstring(L, 1, NULL);
+//   int stat = system(cmd);
+//   if (cmd != NULL)
+//     return luaL_execresult(L, stat);
+//   else {
+//     lua_pushboolean(L, stat);  /* true if there is a shell */
+//     return 1;
+//   }
+// }
 
 
 static int os_remove (lua_State *L) {
@@ -163,21 +163,21 @@ static int os_rename (lua_State *L) {
 }
 
 
-static int os_tmpname (lua_State *L) {
-  char buff[LUA_TMPNAMBUFSIZE];
-  int err;
-  lua_tmpnam(buff, err);
-  if (err)
-    return luaL_error(L, "unable to generate a unique filename");
-  lua_pushstring(L, buff);
-  return 1;
-}
+// static int os_tmpname (lua_State *L) {
+//   char buff[LUA_TMPNAMBUFSIZE];
+//   int err;
+//   lua_tmpnam(buff, err);
+//   if (err)
+//     return luaL_error(L, "unable to generate a unique filename");
+//   lua_pushstring(L, buff);
+//   return 1;
+// }
 
 
-static int os_getenv (lua_State *L) {
-  lua_pushstring(L, getenv(luaL_checkstring(L, 1)));  /* if NULL push nil */
-  return 1;
-}
+// static int os_getenv (lua_State *L) {
+//   lua_pushstring(L, getenv(luaL_checkstring(L, 1)));  /* if NULL push nil */
+//   return 1;
+// }
 
 
 static int os_clock (lua_State *L) {
@@ -358,29 +358,29 @@ static int os_difftime (lua_State *L) {
 /* }====================================================== */
 
 
-static int os_setlocale (lua_State *L) {
-  static const int cat[] = {LC_ALL, LC_COLLATE, LC_CTYPE, LC_MONETARY,
-                      LC_NUMERIC, LC_TIME};
-  static const char *const catnames[] = {"all", "collate", "ctype", "monetary",
-     "numeric", "time", NULL};
-  const char *l = luaL_optstring(L, 1, NULL);
-  int op = luaL_checkoption(L, 2, "all", catnames);
-  lua_pushstring(L, setlocale(cat[op], l));
-  return 1;
-}
+// static int os_setlocale (lua_State *L) {
+//   static const int cat[] = {LC_ALL, LC_COLLATE, LC_CTYPE, LC_MONETARY,
+//                       LC_NUMERIC, LC_TIME};
+//   static const char *const catnames[] = {"all", "collate", "ctype", "monetary",
+//      "numeric", "time", NULL};
+//   const char *l = luaL_optstring(L, 1, NULL);
+//   int op = luaL_checkoption(L, 2, "all", catnames);
+//   lua_pushstring(L, setlocale(cat[op], l));
+//   return 1;
+// }
 
 
-static int os_exit (lua_State *L) {
-  int status;
-  if (lua_isboolean(L, 1))
-    status = (lua_toboolean(L, 1) ? EXIT_SUCCESS : EXIT_FAILURE);
-  else
-    status = (int)luaL_optinteger(L, 1, EXIT_SUCCESS);
-  if (lua_toboolean(L, 2))
-    lua_close(L);
-  if (L) exit(status);  /* 'if' to avoid warnings for unreachable 'return' */
-  return 0;
-}
+// static int os_exit (lua_State *L) {
+//   int status;
+//   if (lua_isboolean(L, 1))
+//     status = (lua_toboolean(L, 1) ? EXIT_SUCCESS : EXIT_FAILURE);
+//   else
+//     status = (int)luaL_optinteger(L, 1, EXIT_SUCCESS);
+//   if (lua_toboolean(L, 2))
+//     lua_close(L);
+//   if (L) exit(status);  /* 'if' to avoid warnings for unreachable 'return' */
+//   return 0;
+// }
 
 #include "rotable.h"
 static const rotable_Reg syslib[] = {

@@ -185,6 +185,26 @@ static int l_rtos_standy(lua_State *L) {
     return 0;
 }
 
+static int l_rtos_meminfo(lua_State *L) {
+    size_t len = 0;
+    size_t total = 0;
+    size_t used = 0;
+    size_t max_used = 0;
+    const char * str = luaL_optlstring(L, 1, "lua", &len);
+    if (strcmp("sys", str) == 0) {
+        lua_gc(L, LUA_GCCOLLECT, 0);
+        lua_gc(L, LUA_GCCOLLECT, 0);
+        luat_meminfo_sys(&total, &used, &max_used);
+    }
+    else {
+        luat_meminfo_luavm(&total, &used, &max_used);
+    }
+    lua_pushinteger(L, total);
+    lua_pushinteger(L, used);
+    lua_pushinteger(L, max_used);
+    return 3;
+}
+
 //------------------------------------------------------------------
 #include "rotable.h"
 static const rotable_Reg reg_rtos[] =
@@ -198,6 +218,7 @@ static const rotable_Reg reg_rtos[] =
     { "buildDate",         l_rtos_build_date,  0},
     { "bsp",               l_rtos_bsp,         0},
     { "version",           l_rtos_version,     0},
+    { "meminfo",           l_rtos_meminfo,     0},
 
     { "INF_TIMEOUT",        NULL,              -1},
 

@@ -628,9 +628,9 @@ void luat_rt_free(void *rmem)
 //RTM_EXPORT(rt_free);
 
 #ifdef RT_MEM_STATS
-void luat_rt_memory_info(rt_uint32_t *total,
-                    rt_uint32_t *used,
-                    rt_uint32_t *max_used)
+void luat_meminfo_luavm(size_t *total,
+                    size_t *used,
+                    size_t *max_used)
 {
     if (total != RT_NULL)
         *total = mem_size_aligned;
@@ -638,6 +638,9 @@ void luat_rt_memory_info(rt_uint32_t *total,
         *used = used_mem;
     if (max_used != RT_NULL)
         *max_used = max_mem;
+}
+void luat_meminfo_sys(size_t* total, size_t* used, size_t* max_used) {
+    rt_memory_info(total, used, max_used);
 }
 
 #ifdef RT_USING_FINSH

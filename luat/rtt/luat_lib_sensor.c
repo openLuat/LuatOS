@@ -25,7 +25,7 @@ RT_WEAK void luat_timer_us_delay(size_t us) {
 
 static void w1_reset(int pin)
 {
-    luat_gpio_mode(pin, Luat_GPIO_OUTPUT);
+    luat_gpio_mode(pin, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
     luat_gpio_set(pin, Luat_GPIO_LOW);
     luat_timer_us_delay(550);               /* 480us - 960us */
     luat_gpio_set(pin, Luat_GPIO_HIGH);
@@ -35,7 +35,7 @@ static void w1_reset(int pin)
 static uint8_t w1_connect(int pin)
 {
     uint8_t retry = 0;
-    luat_gpio_mode(pin, W1_INPUT_MODE);
+    luat_gpio_mode(pin, Luat_GPIO_INPUT, Luat_GPIO_PULLUP, 0);
 
     while (luat_gpio_get(pin) && retry < 200)
     {
@@ -64,11 +64,11 @@ static uint8_t w1_read_bit(int pin)
 {
     uint8_t data;
 
-    luat_gpio_mode(pin, Luat_GPIO_OUTPUT);
+    luat_gpio_mode(pin, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 0);
     luat_gpio_set(pin, Luat_GPIO_LOW);
     luat_timer_us_delay(2);
     luat_gpio_set(pin, Luat_GPIO_HIGH);
-    luat_gpio_mode(pin, W1_INPUT_MODE);
+    luat_gpio_mode(pin, Luat_GPIO_INPUT, Luat_GPIO_PULLUP, 0);
     luat_timer_us_delay(5);
 
     if(luat_gpio_get(pin))
@@ -102,7 +102,7 @@ static void w1_write_byte(int pin, uint8_t dat)
 {
     uint8_t j;
     uint8_t testb;
-    luat_gpio_mode(pin, Luat_GPIO_OUTPUT);
+    luat_gpio_mode(pin, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
 
     for (j = 1; j <= 8; j++)
     {

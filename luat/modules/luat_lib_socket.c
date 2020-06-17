@@ -9,6 +9,7 @@
 #include "luat_timer.h"
 #include "luat_malloc.h"
 #include "luat_msgbus.h"
+#include "luat_socket.h"
 
 
 #define LUAT_NETC_HANDLE "NETC*"
@@ -45,7 +46,7 @@ static int sal_tls_test(lua_State *L)
 {
     size_t len;
     const char* buff = luaL_checklstring(L, 3, &len);
-    luat_socket_tsend(luaL_checkstring(L, 1), luaL_checkinteger(L, 2), buff, len);
+    luat_socket_tsend(luaL_checkstring(L, 1), luaL_checkinteger(L, 2), (void*)buff, len);
     return 0;
 }
 
@@ -178,7 +179,7 @@ static int luat_lib_socket_udp(lua_State* L) {
 //-----------------------------------------------------------------
 static int luat_lib_socket_new(lua_State* L, int netc_type) {
     netclient_t* thiz;
-    size_t len;
+    //size_t len;
 
     // 强制GC一次
     //LOG_D("force execute FULL GC");
@@ -295,7 +296,7 @@ static int luat_lib_socket_new(lua_State* L, int netc_type) {
 static int netc_connect(lua_State *L) {
     netclient_t* thiz;
     size_t len;
-    uint32_t port;
+    //uint32_t port;
     int re;
     thiz = tonetc(L);
     if (lua_gettop(L) < 2) {

@@ -33,7 +33,7 @@ void luat_free(void);
 static char luavm_buff[128*1024] = {0};
 #endif
 
-static rt_err_t rtt_mem_init() {
+static int rtt_mem_init() {
     #ifdef BSP_USING_WM_LIBRARIES
     void *ptr = W600_HEAP_ADDR;
     luat_rt_system_heap_init(ptr, ptr + LUAT_HEAP_SIZE);

@@ -209,3 +209,17 @@ LUAMOD_API int luaopen_gpio( lua_State *L ) {
     rotable_newlib(L, reg_gpio);
     return 1;
 }
+
+// -------------------- 一些辅助函数
+
+void luat_gpio_mode(int pin, int mode, int pull, int initOutput) {
+    luat_gpio_t conf = {0};
+    conf.pin = pin;
+    conf.mode = mode == Luat_GPIO_INPUT ? Luat_GPIO_INPUT : Luat_GPIO_OUTPUT; // 只能是输入/输出, 不能是中断.
+    conf.pull = pull;
+    conf.irq = initOutput;
+    conf.lua_ref = 0;
+    luat_gpio_setup(&conf);
+    if (conf.mode == Luat_GPIO_OUTPUT)
+        luat_gpio_set(pin, initOutput);
+}

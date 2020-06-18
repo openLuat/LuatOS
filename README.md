@@ -19,6 +19,10 @@ Lua base RTOS, build for many embedded systems
 
 **QQ群: 1061642968**
 
+[LuatOS@码云](https://gitee.com/openLuat/LuatOS)
+
+[LuatOS@github](https://github.com/openLuat/LuatOS)
+
 ----------------------------------------------------------------------------------
 ## 总体架构
 

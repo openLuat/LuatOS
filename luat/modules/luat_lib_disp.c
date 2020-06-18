@@ -13,9 +13,10 @@
 #include "luat_log.h"
 #include "u8g2.h"
 
+#define TAG "luat.disp"
+
 static u8g2_t* u8g2;
 static int u8g2_lua_ref;
-
 /*
 显示屏初始化
 @function disp.init(id, type, port)
@@ -32,18 +33,75 @@ end
 */
 static int l_disp_init(lua_State *L) {
     if (u8g2 != NULL) {
+        luat_log_info(TAG, "disp is aready inited");
         lua_pushinteger(L, 2);
         return 1;
     }
     u8g2 = (u8g2_t*)lua_newuserdata(L, sizeof(u8g2_t));
     if (u8g2 == NULL) {
+        luat_log_error(TAG, "lua_newuserdata return NULL, out of memory ?!");
         lua_pushinteger(L, 3);
         return 1;
     }
     // TODO: 暂时只支持SSD1306 12864, I2C接口-> i2c1soft, 软件模拟
     luat_disp_conf_t conf = {0};
-    conf.pinType = 1; // I2C software
+    conf.pinType = 2; // I2C 硬件(或者是个假硬件)
     conf.ptr = u8g2;
+    if (lua_istable(L, 1)) {
+        // 参数解析
+        lua_pushliteral(L, "mode");
+        lua_gettable(L, 1);
+        if (lua_isstring(L, -1)) {
+            const char* mode = luaL_checkstring(L, -1);
+            if (strcmp("i2c_sw", mode) == 0) {
+                conf.pinType = 1;
+            }
+            else if (strcmp("i2c_hw", mode) == 0) {
+                conf.pinType = 2;
+            }
+            else if (strcmp("spi_sw_3pin", mode) == 0) {
+                conf.pinType = 3;
+            }
+            else if (strcmp("spi_sw_4pin", mode) == 0) {
+                conf.pinType = 4;
+            }
+            else if (strcmp("spi_hw_4pin", mode) == 0) {
+                conf.pinType = 5;
+            }
+        }
+        lua_pop(L, 1);
+
+        // 解析pin0 ~ pin7
+        lua_pushliteral(L, "pin0");
+        lua_gettable(L, 1);
+        if (lua_isinteger(L, -1)) {
+            conf.pin0 = luaL_checkinteger(L, -1);
+        }
+        lua_pop(L, 1);
+        
+        lua_pushliteral(L, "pin1");
+        lua_gettable(L, 1);
+        if (lua_isinteger(L, -1)) {
+            conf.pin1 = luaL_checkinteger(L, -1);
+        }
+        lua_pop(L, 1);
+        
+        lua_pushliteral(L, "pin2");
+        lua_gettable(L, 1);
+        if (lua_isinteger(L, -1)) {
+            conf.pin2 = luaL_checkinteger(L, -1);
+        }
+        lua_pop(L, 1);
+        
+        lua_pushliteral(L, "pin3");
+        lua_gettable(L, 1);
+        if (lua_isinteger(L, -1)) {
+            conf.pin3 = luaL_checkinteger(L, -1);
+        }
+        lua_pop(L, 1);
+
+        // pin4 ~ pin7暂时用不到,先不设置了
+    }
     if (luat_disp_setup(&conf)) {
         u8g2 = NULL;
         luat_log_warn("luat.disp", "init fail");
@@ -146,10 +204,14 @@ LUAT_WEAK int luat_disp_setup(luat_disp_conf_t *conf) {
     if (conf->pinType == 1) {
         u8g2_t* u8g2 = (u8g2_t*)conf->ptr;
         u8g2_Setup_ssd1306_i2c_128x64_noname_f( u8g2, U8G2_R0, u8x8_byte_sw_i2c, luat_u8x8_gpio_and_delay);
+        u8g2->u8x8.pins[U8X8_PIN_I2C_CLOCK] = conf->pin0;
+        u8g2->u8x8.pins[U8X8_PIN_I2C_DATA] = conf->pin1;
+        luat_log_debug(TAG, "setup disp i2c.sw SCL=%ld SDA=%ld", conf->pin0, conf->pin1);
         u8g2_InitDisplay(u8g2);
         u8g2_SetPowerSave(u8g2, 0);
         return 0;
     }
+    luat_log_info("luat.disp", "only i2c sw mode is support, by default impl.");
     return -1;
 }
 
@@ -191,8 +253,8 @@ LUAT_WEAK uint8_t luat_u8x8_gpio_and_delay(u8x8_t *u8x8, uint8_t msg, uint8_t ar
             luat_gpio_mode(u8x8->pins[U8X8_PIN_CS],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
             
             // set i2c pin mode
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_I2C_DATA],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_I2C_CLOCK],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+            luat_gpio_mode(u8x8->pins[U8X8_PIN_I2C_DATA],Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_HIGH);
+            luat_gpio_mode(u8x8->pins[U8X8_PIN_I2C_CLOCK],Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_HIGH);
             
             // set 8080 pin mode
             luat_gpio_mode(u8x8->pins[U8X8_PIN_D0],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);

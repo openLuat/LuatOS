@@ -482,6 +482,8 @@ static void *resizebox (lua_State *L, int idx, size_t newsize) {
   void *temp = allocf(ud, box->box, box->bsize, newsize);
   if (temp == NULL && newsize > 0) {  /* allocation error? */
     lua_gc(L, LUA_GCCOLLECT, 0);
+    lua_gc(L, LUA_GCCOLLECT, 0);
+    temp = allocf(ud, box->box, box->bsize, newsize);
   }
   if (temp == NULL && newsize > 0) {  /* allocation error? */
     resizebox(L, idx, 0);  /* free buffer */

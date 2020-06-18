@@ -26,11 +26,17 @@ void luat_rt_system_heap_init(void *begin_addr, void *end_addr);
 void luat_free(void);
 
 #ifdef BSP_USING_WM_LIBRARIES
-#define LUAT_HEAP_SIZE 64*1024
-#define W600_HEAP_ADDR 0x20028000
+    #define LUAT_HEAP_SIZE 64*1024
+    #define W600_HEAP_ADDR 0x20028000
 #else
-#define LUAT_HEAP_SIZE 128*1024
-static char luavm_buff[128*1024] = {0};
+    #ifndef LUAT_HEAP_SIZE
+        #ifdef SOC_FAMILY_STM32
+            #define LUAT_HEAP_SIZE 32*1024
+        #else
+            #define LUAT_HEAP_SIZE 128*1024
+        #endif
+    #endif
+static char luavm_buff[LUAT_HEAP_SIZE] = {0};
 #endif
 
 static int rtt_mem_init() {

@@ -174,9 +174,3 @@ uint8_t u8x8_d_a2printer_384x240(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, voi
   }
   return 1;
 }
-
-
-
-  
-
-  

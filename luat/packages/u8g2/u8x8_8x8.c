@@ -58,25 +58,21 @@ void u8x8_SetFont(u8x8_t *u8x8, const uint8_t *font_8x8)
    encoding: glyph for which the data is requested (must be between 0 and 255)
    buf: pointer to 8 bytes
 */
-static void u8x8_get_glyph_data(u8x8_t *u8x8, uint8_t encoding, uint8_t *buf, uint8_t tile_offset) U8X8_NOINLINE;
-static void u8x8_get_glyph_data(u8x8_t *u8x8, uint8_t encoding, uint8_t *buf, uint8_t tile_offset) 
+static void u8x8_get_glyph_data(u8x8_t *u8x8, uint8_t encoding, uint8_t *buf) U8X8_NOINLINE;
+static void u8x8_get_glyph_data(u8x8_t *u8x8, uint8_t encoding, uint8_t *buf) 
 {
-  uint8_t first, last, tiles, i;
+  uint8_t first, last, i;
   uint16_t offset;
   first = u8x8_pgm_read(u8x8->font+0);
   last = u8x8_pgm_read(u8x8->font+1);
-  tiles = u8x8_pgm_read(u8x8->font+2);		/* new 2019 format */
-  tiles *= u8x8_pgm_read(u8x8->font+3);	/* new 2019 format */
   
   /* get the glyph bitmap from the font */
   if ( first <= encoding && encoding <= last )
   {
     offset = encoding;
     offset -= first;
-    offset *= tiles;		/* new 2019 format */
-    offset += tile_offset;	/* new 2019 format */
     offset *= 8;
-    offset +=4;			/* changed from 2 to 4, new 2019 format */
+    offset +=2;
     for( i = 0; i < 8; i++ )
     {
       buf[i] = u8x8_pgm_read(u8x8->font+offset);
@@ -104,25 +100,9 @@ static void u8x8_get_glyph_data(u8x8_t *u8x8, uint8_t encoding, uint8_t *buf, ui
 
 void u8x8_DrawGlyph(u8x8_t *u8x8, uint8_t x, uint8_t y, uint8_t encoding)
 {
-  uint8_t th = u8x8_pgm_read(u8x8->font+2);		/* new 2019 format */
-  uint8_t tv = u8x8_pgm_read(u8x8->font+3);	/* new 2019 format */
-  uint8_t xx, tile;
   uint8_t buf[8];
-  th += x;
-  tv += y;
-  tile = 0;
-  do
-  {
-    xx = x;
-    do
-    {
-      u8x8_get_glyph_data(u8x8, encoding, buf, tile);
-      u8x8_DrawTile(u8x8, xx, y, 1, buf);
-      tile++;
-      xx++;
-    } while( xx < th );
-    y++;
-  } while( y < tv );
+  u8x8_get_glyph_data(u8x8, encoding, buf);
+  u8x8_DrawTile(u8x8, x, y, 1, buf);
 }
 
 
@@ -176,14 +156,14 @@ static void u8x8_upscale_buf(uint8_t *src, uint8_t *dest)
   } while( i > 0 );
 }
 
-static void u8x8_draw_2x2_subglyph(u8x8_t *u8x8, uint8_t x, uint8_t y, uint8_t encoding, uint8_t tile)
+void u8x8_Draw2x2Glyph(u8x8_t *u8x8, uint8_t x, uint8_t y, uint8_t encoding)
 {
   uint8_t i;
   uint16_t t;
   uint8_t buf[8];
   uint8_t buf1[8];
   uint8_t buf2[8];
-  u8x8_get_glyph_data(u8x8, encoding, buf, tile);
+  u8x8_get_glyph_data(u8x8, encoding, buf);
   for( i = 0; i < 8; i ++ )
   {
       t = u8x8_upscale_byte(buf[i]);
@@ -203,39 +183,15 @@ static void u8x8_draw_2x2_subglyph(u8x8_t *u8x8, uint8_t x, uint8_t y, uint8_t e
   u8x8_DrawTile(u8x8, x+1, y+1, 1, buf);  
 }
 
-
-void u8x8_Draw2x2Glyph(u8x8_t *u8x8, uint8_t x, uint8_t y, uint8_t encoding)
-{
-  uint8_t th = u8x8_pgm_read(u8x8->font+2);		/* new 2019 format */
-  uint8_t tv = u8x8_pgm_read(u8x8->font+3);	/* new 2019 format */
-  uint8_t xx, tile;
-  th *= 2;
-  th += x;
-  tv *= 2;
-  tv += y;
-  tile = 0;
-  do
-  {
-    xx = x;
-    do
-    {
-      u8x8_draw_2x2_subglyph(u8x8, xx, y, encoding, tile);
-      tile++;
-      xx+=2;
-    } while( xx < th );
-    y+=2;
-  } while( y < tv );  
-}
-
 /* https://github.com/olikraus/u8g2/issues/474 */
-static void u8x8_draw_1x2_subglyph(u8x8_t *u8x8, uint8_t x, uint8_t y, uint8_t encoding, uint8_t tile)
+void u8x8_Draw1x2Glyph(u8x8_t *u8x8, uint8_t x, uint8_t y, uint8_t encoding)
 {
   uint8_t i;
   uint16_t t;
   uint8_t buf[8];
   uint8_t buf1[8];
   uint8_t buf2[8];
-  u8x8_get_glyph_data(u8x8, encoding, buf, tile);
+  u8x8_get_glyph_data(u8x8, encoding, buf);
   for( i = 0; i < 8; i ++ )
   {
       t = u8x8_upscale_byte(buf[i]);
@@ -244,28 +200,6 @@ static void u8x8_draw_1x2_subglyph(u8x8_t *u8x8, uint8_t x, uint8_t y, uint8_t e
   }
   u8x8_DrawTile(u8x8, x,   y, 1, buf2);
   u8x8_DrawTile(u8x8, x, y+1, 1, buf1);
-}
-
-void u8x8_Draw1x2Glyph(u8x8_t *u8x8, uint8_t x, uint8_t y, uint8_t encoding)
-{
-  uint8_t th = u8x8_pgm_read(u8x8->font+2);		/* new 2019 format */
-  uint8_t tv = u8x8_pgm_read(u8x8->font+3);	/* new 2019 format */
-  uint8_t xx, tile;
-  th += x;
-  tv *= 2;
-  tv += y;
-  tile = 0;
-  do
-  {
-    xx = x;
-    do
-    {
-      u8x8_draw_1x2_subglyph(u8x8, xx, y, encoding, tile);
-      tile++;
-      xx++;
-    } while( xx < th );
-    y+=2;
-  } while( y < tv );  
 }
 
 /*
@@ -360,8 +294,6 @@ static uint8_t u8x8_draw_string(u8x8_t *u8x8, uint8_t x, uint8_t y, const char *
 {
   uint16_t e;
   uint8_t cnt = 0;
-  uint8_t th = u8x8_pgm_read(u8x8->font+2);		/* new 2019 format */
-
   u8x8_utf8_init(u8x8);
   for(;;)
   {
@@ -372,7 +304,7 @@ static uint8_t u8x8_draw_string(u8x8_t *u8x8, uint8_t x, uint8_t y, const char *
     if ( e != 0x0fffe )
     {
       u8x8_DrawGlyph(u8x8, x, y, e);
-      x+=th;
+      x++;
       cnt++;
     }
   }
@@ -399,10 +331,6 @@ static uint8_t u8x8_draw_2x2_string(u8x8_t *u8x8, uint8_t x, uint8_t y, const ch
 {
   uint16_t e;
   uint8_t cnt = 0;
-  uint8_t th = u8x8_pgm_read(u8x8->font+2);	/* new 2019 format */
-  
-  th <<= 1;
-  
   u8x8_utf8_init(u8x8);
   for(;;)
   {
@@ -413,7 +341,7 @@ static uint8_t u8x8_draw_2x2_string(u8x8_t *u8x8, uint8_t x, uint8_t y, const ch
     if ( e != 0x0fffe )
     {
       u8x8_Draw2x2Glyph(u8x8, x, y, e);
-      x+=th;
+      x+=2;
       cnt++;
     }
   }
@@ -437,10 +365,9 @@ uint8_t u8x8_Draw2x2UTF8(u8x8_t *u8x8, uint8_t x, uint8_t y, const char *s)
 
 static uint8_t u8x8_draw_1x2_string(u8x8_t *u8x8, uint8_t x, uint8_t y, const char *s) U8X8_NOINLINE;
 static uint8_t u8x8_draw_1x2_string(u8x8_t *u8x8, uint8_t x, uint8_t y, const char *s)
-{  
+{
   uint16_t e;
   uint8_t cnt = 0;
-  uint8_t th = u8x8_pgm_read(u8x8->font+2);	/* new 2019 format */
   u8x8_utf8_init(u8x8);
   for(;;)
   {
@@ -451,7 +378,7 @@ static uint8_t u8x8_draw_1x2_string(u8x8_t *u8x8, uint8_t x, uint8_t y, const ch
     if ( e != 0x0fffe )
     {
       u8x8_Draw1x2Glyph(u8x8, x, y, e);
-      x+=th;
+      x++;
       cnt++;
     }
   }

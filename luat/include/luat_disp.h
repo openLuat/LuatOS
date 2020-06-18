@@ -3,21 +3,22 @@
 
 typedef struct luat_disp_conf
 {
-    uint32_t pinType; // I2C_SW = 1, I2C_HW = 2, SPI_SW_3PIN = 3, SPI_HW_4PIN = 4, P8080 = 5
-    void* ptr;
+    size_t pinType; // I2C_SW = 1, I2C_HW = 2, SPI_SW_3PIN = 3, SPI_SW_4PIN = 4, SPI_HW_4PIN=5, P8080 = 6
     size_t w;
     size_t h;
+    size_t pin0;
+    size_t pin1;
+    size_t pin2;
+    size_t pin3;
+    size_t pin4;
+    size_t pin5;
+    size_t pin6;
+    size_t pin7;
     char* cname; // 控制器名称, 例如SSD1306
-    uint8_t pin0;
-    uint8_t pin1;
-    uint8_t pin2;
-    uint8_t pin3;
-    uint8_t pin4;
-    uint8_t pin5;
-    uint8_t pin6;
-    uint8_t pin7;
+    void* ptr;
 } luat_disp_conf_t;
 
 int luat_disp_setup(luat_disp_conf_t *conf);
 
 int luat_disp_close(luat_disp_conf_t *conf);
+

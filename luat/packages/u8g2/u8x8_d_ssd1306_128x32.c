@@ -211,42 +211,4 @@ uint8_t u8x8_d_ssd1306_128x32_univision(u8x8_t *u8x8, uint8_t msg, uint8_t arg_i
     return u8x8_d_ssd1306_128x32_generic(u8x8, msg, arg_int, arg_ptr);
 }
 
-/*=============================================*/
-/* issue 756 */
 
-#define	    ADDR_MODE	0 //0:horizontal, 1:vertical, 2:page
-
-
-static const u8x8_display_info_t u8x8_ssd1306_128x32_winstar_display_info =
-{
-  /* chip_enable_level = */ 0,
-  /* chip_disable_level = */ 1,
-  
-  /* post_chip_enable_wait_ns = */ 20,
-  /* pre_chip_disable_wait_ns = */ 10,
-  /* reset_pulse_width_ms = */ 100, 	/* SSD1306: 3 us */
-  /* post_reset_wait_ms = */ 100, /* far east OLEDs need much longer setup time */
-  /* sda_setup_time_ns = */ 50,		/* SSD1306: 15ns, but cycle time is 100ns, so use 100/2 */
-  /* sck_pulse_width_ns = */ 50,	/* SSD1306: 20ns, but cycle time is 100ns, so use 100/2, AVR: below 70: 8 MHz, >= 70 --> 4MHz clock */
-  /* sck_clock_hz = */ 8000000UL,	/* since Arduino 1.6.0, the SPI bus speed in Hz. Should be  1000000000/sck_pulse_width_ns, increased to 8MHz (issue 215) */
-  /* spi_mode = */ 0,		/* active high, rising edge */
-  /* i2c_bus_clock_100kHz = */ 4,
-  /* data_setup_time_ns = */ 40,
-  /* write_pulse_width_ns = */ 150,	/* SSD1306: cycle time is 300ns, so use 300/2 = 150 */
-  /* tile_width = */ 16,
-  /* tile_hight = */ 4,
-  /* default_x_offset = */ 125,
-  /* flipmode_x_offset = */ 125,
-  /* pixel_width = */ 128,
-  /* pixel_height = */ 32
-};
-
-uint8_t u8x8_d_ssd1306_128x32_winstar(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr)
-{
-    if ( msg == U8X8_MSG_DISPLAY_SETUP_MEMORY )
-    {
-      u8x8_d_helper_display_setup_memory(u8x8, &u8x8_ssd1306_128x32_winstar_display_info);
-      return 1;
-    }
-    return u8x8_d_ssd1306_128x32_generic(u8x8, msg, arg_int, arg_ptr);
-}

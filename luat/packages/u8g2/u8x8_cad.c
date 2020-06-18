@@ -120,32 +120,6 @@ uint8_t u8x8_cad_EndTransfer(u8x8_t *u8x8)
   return u8x8->cad_cb(u8x8, U8X8_MSG_CAD_END_TRANSFER, 0, NULL);
 }
 
-void u8x8_cad_vsendf(u8x8_t * u8x8, const char *fmt, va_list va)
-{
-  uint8_t d;
-  u8x8_cad_StartTransfer(u8x8);
-  while( *fmt != '\0' )
-  {
-    d = (uint8_t)va_arg(va, int);
-    switch(*fmt)
-    {
-      case 'a':  u8x8_cad_SendArg(u8x8, d); break;
-      case 'c':  u8x8_cad_SendCmd(u8x8, d); break;
-      case 'd':  u8x8_cad_SendData(u8x8, 1, &d); break;
-    }
-    fmt++;
-  }
-  u8x8_cad_EndTransfer(u8x8);
-}
-
-void u8x8_SendF(u8x8_t * u8x8, const char *fmt, ...)
-{
-  va_list va;
-  va_start(va, fmt);
-  u8x8_cad_vsendf(u8x8, fmt, va);
-  va_end(va);
-}
-
 /*
   21 c		send command c
   22 a		send arg a
@@ -433,7 +407,6 @@ static void u8x8_i2c_data_transfer(u8x8_t *u8x8, uint8_t arg_int, void *arg_ptr)
     u8x8_byte_EndTransfer(u8x8);
 }
 
-/* classic version: will put a start/stop condition around each command and arg */
 uint8_t u8x8_cad_ssd13xx_i2c(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr)
 {
   uint8_t *p;
@@ -483,83 +456,6 @@ uint8_t u8x8_cad_ssd13xx_i2c(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *a
   return 1;
 }
 
-
-/* fast version with reduced data start/stops, issue 735 */
-uint8_t u8x8_cad_ssd13xx_fast_i2c(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr)
-{
-  static uint8_t in_transfer = 0;
-  uint8_t *p;
-  switch(msg)
-  {
-    case U8X8_MSG_CAD_SEND_CMD:
-      /* improved version, takeover from ld7032 */
-      /* assumes, that the args of a command is not longer than 31 bytes */
-      /* speed improvement is about 4% compared to the classic version */
-      if ( in_transfer != 0 )
-	 u8x8_byte_EndTransfer(u8x8); 
-      
-      u8x8_byte_StartTransfer(u8x8);
-      u8x8_byte_SendByte(u8x8, 0x000);	/* cmd byte for ssd13xx controller */
-      u8x8_byte_SendByte(u8x8, arg_int);
-      in_transfer = 1;
-      /* lightning version: can replace the improved version from above */
-      /* the drawback of the lightning version is this: The complete init sequence */
-      /* must fit into the 32 byte Arduino Wire buffer, which might not always be the case */
-      /* speed improvement is about 6% compared to the classic version */
-      // if ( in_transfer == 0 )
-	// {
-	//   u8x8_byte_StartTransfer(u8x8);
-	//   u8x8_byte_SendByte(u8x8, 0x000);	/* cmd byte for ssd13xx controller */
-	//   in_transfer = 1;
-	// }
-	//u8x8_byte_SendByte(u8x8, arg_int);
-      break;
-    case U8X8_MSG_CAD_SEND_ARG:
-      u8x8_byte_SendByte(u8x8, arg_int);
-      break;      
-    case U8X8_MSG_CAD_SEND_DATA:
-      if ( in_transfer != 0 )
-	u8x8_byte_EndTransfer(u8x8); 
-      
-    
-      /* the FeatherWing OLED with the 32u4 transfer of long byte */
-      /* streams was not possible. This is broken down to */
-      /* smaller streams, 32 seems to be the limit... */
-      /* I guess this is related to the size of the Wire buffers in Arduino */
-      /* Unfortunately, this can not be handled in the byte level drivers, */
-      /* so this is done here. Even further, only 24 bytes will be sent, */
-      /* because there will be another byte (DC) required during the transfer */
-      p = arg_ptr;
-       while( arg_int > 24 )
-      {
-	u8x8_i2c_data_transfer(u8x8, 24, p);
-	arg_int-=24;
-	p+=24;
-      }
-      u8x8_i2c_data_transfer(u8x8, arg_int, p);
-      in_transfer = 0;
-      break;
-    case U8X8_MSG_CAD_INIT:
-      /* apply default i2c adr if required so that the start transfer msg can use this */
-      if ( u8x8->i2c_address == 255 )
-	u8x8->i2c_address = 0x078;
-      return u8x8->byte_cb(u8x8, msg, arg_int, arg_ptr);
-    case U8X8_MSG_CAD_START_TRANSFER:
-      in_transfer = 0;
-      break;
-    case U8X8_MSG_CAD_END_TRANSFER:
-      if ( in_transfer != 0 )
-	u8x8_byte_EndTransfer(u8x8); 
-      in_transfer = 0;
-      break;
-    default:
-      return 0;
-  }
-  return 1;
-}
-
-
-
 /* the st75256 i2c driver is a copy of the ssd13xx driver, but with arg=1 */
 /* modified from cad001 (ssd13xx) to cad011 */
 uint8_t u8x8_cad_st75256_i2c(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr)
@@ -606,8 +502,6 @@ uint8_t u8x8_cad_st75256_i2c(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *a
 }
 
 /* cad i2c procedure for the ld7032 controller */
-/* Issue https://github.com/olikraus/u8g2/issues/865 mentiones, that I2C does not work */
-/* Workaround is to remove the while loop (or increase the value in the condition) */
 uint8_t u8x8_cad_ld7032_i2c(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr)
 {
   static uint8_t in_transfer = 0;

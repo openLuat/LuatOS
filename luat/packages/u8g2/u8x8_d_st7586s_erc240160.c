@@ -1,10 +1,7 @@
 /*
   u8x8_d_st7586s_erc240160.c
-  
   Universal 8bit Graphics Library (https://github.com/olikraus/u8g2/)
-  
   Copyright (c) 2018, olikraus@gmail.com
-  
   All rights reserved.
   Redistribution and use in source and binary forms, with or without modification, 
   are permitted provided that the following conditions are met:
@@ -197,7 +194,7 @@ uint8_t u8x8_d_st7586s_erc240160(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, voi
           if (input & 0x80)          // if bit 7
             byte = byte | 0x18;  //set pixel 1
           if (input & 0x40)          // if bit 6
-            byte = byte | 0x3;  //set pixel 2
+            byte = byte | 0x03;  //set pixel 2
         }
         if (u8x8->x_offset ==1){
           if (input & 0x80)          // if bit 7

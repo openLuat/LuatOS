@@ -34,6 +34,8 @@ static int pmain(lua_State *L) {
     //print_list_mem("begin> luat_openlibs");
     luat_openlibs(L);
     //print_list_mem("begin> luat_openlibs");
+
+    lua_gc(L, LUA_GCSETPAUSE, 90); // 设置`垃圾收集器间歇率`要低于100%
     
     // 加载main.lua
     //re = luaL_dofile(L, "/main.lua");

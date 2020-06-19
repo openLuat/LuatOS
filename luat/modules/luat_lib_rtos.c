@@ -192,8 +192,8 @@ static int l_rtos_meminfo(lua_State *L) {
     size_t max_used = 0;
     const char * str = luaL_optlstring(L, 1, "lua", &len);
     if (strcmp("sys", str) == 0) {
-        lua_gc(L, LUA_GCCOLLECT, 0);
-        lua_gc(L, LUA_GCCOLLECT, 0);
+        //lua_gc(L, LUA_GCCOLLECT, 0);
+        //lua_gc(L, LUA_GCCOLLECT, 0);
         luat_meminfo_sys(&total, &used, &max_used);
     }
     else {

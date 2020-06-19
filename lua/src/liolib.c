@@ -146,6 +146,23 @@ typedef luaL_Stream LStream;
 
 #define isclosed(p)	((p)->closef == NULL)
 
+#include "luat_fs.h"
+#undef fopen
+#undef fclose
+#undef fread
+#undef fseek
+#undef feof
+#undef ferror
+#undef fwrite
+
+#define fopen   luat_fs_fopen
+#define fclose  luat_fs_fclose
+#define fread   luat_fs_fread
+#define fseek   luat_fs_fseek
+#define ferror  luat_fs_ferror
+#define feof    luat_fs_feof
+#define fwrite  luat_fs_fwrite
+
 
 static int io_type (lua_State *L) {
   LStream *p;
@@ -398,38 +415,38 @@ typedef struct {
 /*
 ** Add current char to buffer (if not out of space) and read next one
 */
-static int nextc (RN *rn) {
-  if (rn->n >= L_MAXLENNUM) {  /* buffer overflow? */
-    rn->buff[0] = '\0';  /* invalidate result */
-    return 0;  /* fail */
-  }
-  else {
-    rn->buff[rn->n++] = rn->c;  /* save current char */
-    rn->c = l_getc(rn->f);  /* read next one */
-    return 1;
-  }
-}
+// static int nextc (RN *rn) {
+//   if (rn->n >= L_MAXLENNUM) {  /* buffer overflow? */
+//     rn->buff[0] = '\0';  /* invalidate result */
+//     return 0;  /* fail */
+//   }
+//   else {
+//     rn->buff[rn->n++] = rn->c;  /* save current char */
+//     rn->c = l_getc(rn->f);  /* read next one */
+//     return 1;
+//   }
+// }
 
 
 /*
 ** Accept current char if it is in 'set' (of size 2)
 */
-static int test2 (RN *rn, const char *set) {
-  if (rn->c == set[0] || rn->c == set[1])
-    return nextc(rn);
-  else return 0;
-}
+// static int test2 (RN *rn, const char *set) {
+//   if (rn->c == set[0] || rn->c == set[1])
+//     return nextc(rn);
+//   else return 0;
+// }
 
 
 /*
 ** Read a sequence of (hex)digits
 */
-static int readdigits (RN *rn, int hex) {
-  int count = 0;
-  while ((hex ? isxdigit(rn->c) : isdigit(rn->c)) && nextc(rn))
-    count++;
-  return count;
-}
+// static int readdigits (RN *rn, int hex) {
+//   int count = 0;
+//   while ((hex ? isxdigit(rn->c) : isdigit(rn->c)) && nextc(rn))
+//     count++;
+//   return count;
+// }
 
 
 /*
@@ -437,45 +454,46 @@ static int readdigits (RN *rn, int hex) {
 ** Then it calls 'lua_stringtonumber' to check whether the format is
 ** correct and to convert it to a Lua number
 */
-static int read_number (lua_State *L, FILE *f) {
-  RN rn;
-  int count = 0;
-  int hex = 0;
-  char decp[2];
-  rn.f = f; rn.n = 0;
-  decp[0] = lua_getlocaledecpoint();  /* get decimal point from locale */
-  decp[1] = '.';  /* always accept a dot */
-  l_lockfile(rn.f);
-  do { rn.c = l_getc(rn.f); } while (isspace(rn.c));  /* skip spaces */
-  test2(&rn, "-+");  /* optional signal */
-  if (test2(&rn, "00")) {
-    if (test2(&rn, "xX")) hex = 1;  /* numeral is hexadecimal */
-    else count = 1;  /* count initial '0' as a valid digit */
-  }
-  count += readdigits(&rn, hex);  /* integral part */
-  if (test2(&rn, decp))  /* decimal point? */
-    count += readdigits(&rn, hex);  /* fractional part */
-  if (count > 0 && test2(&rn, (hex ? "pP" : "eE"))) {  /* exponent mark? */
-    test2(&rn, "-+");  /* exponent signal */
-    readdigits(&rn, 0);  /* exponent digits */
-  }
-  ungetc(rn.c, rn.f);  /* unread look-ahead char */
-  l_unlockfile(rn.f);
-  rn.buff[rn.n] = '\0';  /* finish string */
-  if (lua_stringtonumber(L, rn.buff))  /* is this a valid number? */
-    return 1;  /* ok */
-  else {  /* invalid format */
-   lua_pushnil(L);  /* "result" to be removed */
-   return 0;  /* read fails */
-  }
-}
+// static int read_number (lua_State *L, FILE *f) {
+//   RN rn;
+//   int count = 0;
+//   int hex = 0;
+//   char decp[2];
+//   rn.f = f; rn.n = 0;
+//   decp[0] = lua_getlocaledecpoint();  /* get decimal point from locale */
+//   decp[1] = '.';  /* always accept a dot */
+//   l_lockfile(rn.f);
+//   do { rn.c = l_getc(rn.f); } while (isspace(rn.c));  /* skip spaces */
+//   test2(&rn, "-+");  /* optional signal */
+//   if (test2(&rn, "00")) {
+//     if (test2(&rn, "xX")) hex = 1;  /* numeral is hexadecimal */
+//     else count = 1;  /* count initial '0' as a valid digit */
+//   }
+//   count += readdigits(&rn, hex);  /* integral part */
+//   if (test2(&rn, decp))  /* decimal point? */
+//     count += readdigits(&rn, hex);  /* fractional part */
+//   if (count > 0 && test2(&rn, (hex ? "pP" : "eE"))) {  /* exponent mark? */
+//     test2(&rn, "-+");  /* exponent signal */
+//     readdigits(&rn, 0);  /* exponent digits */
+//   }
+//   ungetc(rn.c, rn.f);  /* unread look-ahead char */
+//   l_unlockfile(rn.f);
+//   rn.buff[rn.n] = '\0';  /* finish string */
+//   if (lua_stringtonumber(L, rn.buff))  /* is this a valid number? */
+//     return 1;  /* ok */
+//   else {  /* invalid format */
+//    lua_pushnil(L);  /* "result" to be removed */
+//    return 0;  /* read fails */
+//   }
+// }
 
 
 static int test_eof (lua_State *L, FILE *f) {
-  int c = getc(f);
-  ungetc(c, f);  /* no-op when c == EOF */
-  lua_pushliteral(L, "");
-  return (c != EOF);
+  return feof(f);
+  // int c = getc(f);
+  // ungetc(c, f);  /* no-op when c == EOF */
+  // lua_pushliteral(L, "");
+  // return (c != EOF);
 }
 
 
@@ -547,9 +565,9 @@ static int g_read (lua_State *L, FILE *f, int first) {
         const char *p = luaL_checkstring(L, n);
         if (*p == '*') p++;  /* skip optional '*' (for compatibility) */
         switch (*p) {
-          case 'n':  /* number */
-            success = read_number(L, f);
-            break;
+          // case 'n':  /* number */
+          //   success = read_number(L, f);
+          //   break;
           case 'l':  /* line */
             success = read_line(L, f, 1);
             break;

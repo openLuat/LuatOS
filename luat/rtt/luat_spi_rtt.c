@@ -51,7 +51,7 @@ int luat_spi_exist(int id) {
 
 //初始化配置SPI各项参数，并打开SPI
 //成功返回0
-int8_t luat_spi_setup(luat_spi_t* spi) {
+int luat_spi_setup(luat_spi_t* spi) {
     char bus_name[4];
     char device_name[4];
     device_name[0] = bus_name[0] = 's';
@@ -100,19 +100,19 @@ int8_t luat_spi_setup(luat_spi_t* spi) {
     return 0;
 }
 //关闭SPI，成功返回0
-uint8_t luat_spi_close(uint8_t spi_id) {
+int luat_spi_close(int spi_id) {
     return rt_spi_release_bus(spi_devs[spi_id]);
 }
 //收发SPI数据，返回接收字节数
-uint32_t luat_spi_transfer(uint8_t spi_id, const uint8_t* send_buf, uint8_t* recv_buf, uint32_t length) {
+int luat_spi_transfer(int spi_id, const char* send_buf, char* recv_buf, size_t length) {
     return rt_spi_transfer(spi_devs[spi_id], send_buf, recv_buf, length);
 }
 //收SPI数据，返回接收字节数
-uint32_t luat_spi_recv(uint8_t spi_id, uint8_t* recv_buf, uint32_t length) {
+int luat_spi_recv(int spi_id, char* recv_buf, size_t length) {
     return rt_spi_recv(spi_devs[spi_id], recv_buf, length);
 }
 //发SPI数据，返回发送字节数
-uint32_t luat_spi_send(uint8_t spi_id, const uint8_t* send_buf, uint32_t length) {
+int luat_spi_send(int spi_id, const char* send_buf, size_t length) {
     return rt_spi_send(spi_devs[spi_id], send_buf, length);
 }
 

@@ -86,6 +86,10 @@ LUAMOD_API int luaopen_pack( lua_State *L );
 LUAMOD_API int luaopen_mqttcore( lua_State *L );
 /** 加载crypto库, 可选*/
 LUAMOD_API int luaopen_crypto( lua_State *L );
+LUAMOD_API int luaopen_pm( lua_State *L);
+LUAMOD_API int luaopen_m2m( lua_State *L);
+LUAMOD_API int luaopen_coap( lua_State *L);
+LUAMOD_API int luaopen_lpmem( lua_State *L);
 
 /** sprintf需要支持longlong值的打印, 提供平台无关的实现*/
 int l_sprintf(char *buf, size_t size, const char *fmt, ...);

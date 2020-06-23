@@ -88,8 +88,11 @@ static int luat_lib_netc_msg_handler(lua_State* L, void* ptr) {
         goto exit;
     }
     luat_log_debug("luat.socket", "luat_lib_netc_msg_handler event=%ld lua_ref=%ld", ent->event, ent->lua_ref);
+    if (ent->lua_ref == 0) {
+        goto exit;
+    }
     if (lua_rawgeti(L, LUA_REGISTRYINDEX, ent->lua_ref) != LUA_TFUNCTION) {
-        //LOG_W("netc[%ld] callback isn't a function", ent->netc_id);
+        luat_log_warn("luat.netc", "netc[%ld] callback isn't a function", ent->netc_id);
         goto exit;
     };
     lua_pushinteger(L, ent->netc_id);

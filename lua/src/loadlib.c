@@ -562,71 +562,71 @@ static int loadfunc (lua_State *L, const char *filename, const char *modname) {
 }
 
 
-static int searcher_C (lua_State *L) {
-  const char *name = luaL_checkstring(L, 1);
-  const char *filename = findfile(L, name, "cpath", LUA_CSUBSEP);
-  if (filename == NULL) return 1;  /* module not found in this path */
-  return checkload(L, (loadfunc(L, filename, name) == 0), filename);
-}
+// static int searcher_C (lua_State *L) {
+//   const char *name = luaL_checkstring(L, 1);
+//   const char *filename = findfile(L, name, "cpath", LUA_CSUBSEP);
+//   if (filename == NULL) return 1;  /* module not found in this path */
+//   return checkload(L, (loadfunc(L, filename, name) == 0), filename);
+// }
 
 
-static int searcher_Croot (lua_State *L) {
-  const char *filename;
-  const char *name = luaL_checkstring(L, 1);
-  const char *p = strchr(name, '.');
-  int stat;
-  if (p == NULL) return 0;  /* is root */
-  lua_pushlstring(L, name, p - name);
-  filename = findfile(L, lua_tostring(L, -1), "cpath", LUA_CSUBSEP);
-  if (filename == NULL) return 1;  /* root not found */
-  if ((stat = loadfunc(L, filename, name)) != 0) {
-    if (stat != ERRFUNC)
-      return checkload(L, 0, filename);  /* real error */
-    else {  /* open function not found */
-      lua_pushfstring(L, "\n\tno module '%s' in file '%s'", name, filename);
-      return 1;
-    }
-  }
-  lua_pushstring(L, filename);  /* will be 2nd argument to module */
-  return 2;
-}
+// static int searcher_Croot (lua_State *L) {
+//   const char *filename;
+//   const char *name = luaL_checkstring(L, 1);
+//   const char *p = strchr(name, '.');
+//   int stat;
+//   if (p == NULL) return 0;  /* is root */
+//   lua_pushlstring(L, name, p - name);
+//   filename = findfile(L, lua_tostring(L, -1), "cpath", LUA_CSUBSEP);
+//   if (filename == NULL) return 1;  /* root not found */
+//   if ((stat = loadfunc(L, filename, name)) != 0) {
+//     if (stat != ERRFUNC)
+//       return checkload(L, 0, filename);  /* real error */
+//     else {  /* open function not found */
+//       lua_pushfstring(L, "\n\tno module '%s' in file '%s'", name, filename);
+//       return 1;
+//     }
+//   }
+//   lua_pushstring(L, filename);  /* will be 2nd argument to module */
+//   return 2;
+// }
 
 
-static int searcher_preload (lua_State *L) {
-  const char *name = luaL_checkstring(L, 1);
-  lua_getfield(L, LUA_REGISTRYINDEX, LUA_PRELOAD_TABLE);
-  if (lua_getfield(L, -1, name) == LUA_TNIL)  /* not found? */
-    lua_pushfstring(L, "\n\tno field package.preload['%s']", name);
-  return 1;
-}
+// static int searcher_preload (lua_State *L) {
+//   const char *name = luaL_checkstring(L, 1);
+//   lua_getfield(L, LUA_REGISTRYINDEX, LUA_PRELOAD_TABLE);
+//   if (lua_getfield(L, -1, name) == LUA_TNIL)  /* not found? */
+//     lua_pushfstring(L, "\n\tno field package.preload['%s']", name);
+//   return 1;
+// }
 
 
-static void findloader (lua_State *L, const char *name) {
-  int i;
-  luaL_Buffer msg;  /* to build error message */
-  luaL_buffinit(L, &msg);
-  /* push 'package.searchers' to index 3 in the stack */
-  if (lua_getfield(L, lua_upvalueindex(1), "searchers") != LUA_TTABLE)
-    luaL_error(L, "'package.searchers' must be a table");
-  /*  iterate over available searchers to find a loader */
-  for (i = 1; ; i++) {
-    if (lua_rawgeti(L, 3, i) == LUA_TNIL) {  /* no more searchers? */
-      lua_pop(L, 1);  /* remove nil */
-      luaL_pushresult(&msg);  /* create error message */
-      luaL_error(L, "module '%s' not found:%s", name, lua_tostring(L, -1));
-    }
-    lua_pushstring(L, name);
-    lua_call(L, 1, 2);  /* call it */
-    if (lua_isfunction(L, -2))  /* did it find a loader? */
-      return;  /* module loader found */
-    else if (lua_isstring(L, -2)) {  /* searcher returned error message? */
-      lua_pop(L, 1);  /* remove extra return */
-      luaL_addvalue(&msg);  /* concatenate error message */
-    }
-    else
-      lua_pop(L, 2);  /* remove both returns */
-  }
-}
+// static void findloader (lua_State *L, const char *name) {
+//   int i;
+//   luaL_Buffer msg;  /* to build error message */
+//   luaL_buffinit(L, &msg);
+//   /* push 'package.searchers' to index 3 in the stack */
+//   if (lua_getfield(L, lua_upvalueindex(1), "searchers") != LUA_TTABLE)
+//     luaL_error(L, "'package.searchers' must be a table");
+//   /*  iterate over available searchers to find a loader */
+//   for (i = 1; ; i++) {
+//     if (lua_rawgeti(L, 3, i) == LUA_TNIL) {  /* no more searchers? */
+//       lua_pop(L, 1);  /* remove nil */
+//       luaL_pushresult(&msg);  /* create error message */
+//       luaL_error(L, "module '%s' not found:%s", name, lua_tostring(L, -1));
+//     }
+//     lua_pushstring(L, name);
+//     lua_call(L, 1, 2);  /* call it */
+//     if (lua_isfunction(L, -2))  /* did it find a loader? */
+//       return;  /* module loader found */
+//     else if (lua_isstring(L, -2)) {  /* searcher returned error message? */
+//       lua_pop(L, 1);  /* remove extra return */
+//       luaL_addvalue(&msg);  /* concatenate error message */
+//     }
+//     else
+//       lua_pop(L, 2);  /* remove both returns */
+//   }
+// }
 
 
 static int ll_require (lua_State *L) {
@@ -750,63 +750,63 @@ static int ll_seeall (lua_State *L) {
 
 
 
-static const luaL_Reg pk_funcs[] = {
-  {"loadlib", ll_loadlib},
-  {"searchpath", ll_searchpath},
-#if defined(LUA_COMPAT_MODULE)
-  {"seeall", ll_seeall},
-#endif
-  /* placeholders */
-  {"preload", NULL},
-  {"cpath", NULL},
-  {"path", NULL},
-  {"searchers", NULL},
-  {"loaded", NULL},
-  {NULL, NULL}
-};
+// static const luaL_Reg pk_funcs[] = {
+//   {"loadlib", ll_loadlib},
+//   {"searchpath", ll_searchpath},
+// #if defined(LUA_COMPAT_MODULE)
+//   {"seeall", ll_seeall},
+// #endif
+//   /* placeholders */
+//   {"preload", NULL},
+//   {"cpath", NULL},
+//   {"path", NULL},
+//   {"searchers", NULL},
+//   {"loaded", NULL},
+//   {NULL, NULL}
+// };
 
 
-static const luaL_Reg ll_funcs[] = {
-#if defined(LUA_COMPAT_MODULE)
-  {"module", ll_module},
-#endif
-  {"require", ll_require},
-  {NULL, NULL}
-};
+// static const luaL_Reg ll_funcs[] = {
+// #if defined(LUA_COMPAT_MODULE)
+//   {"module", ll_module},
+// #endif
+//   {"require", ll_require},
+//   {NULL, NULL}
+// };
 
 
-static void createsearcherstable (lua_State *L) {
-  static const lua_CFunction searchers[] =
-    {searcher_Lua, NULL};
-  int i;
-  /* create 'searchers' table */
-  lua_createtable(L, sizeof(searchers)/sizeof(searchers[0]) - 1, 0);
-  /* fill it with predefined searchers */
-  for (i=0; searchers[i] != NULL; i++) {
-    lua_pushvalue(L, -2);  /* set 'package' as upvalue for all searchers */
-    lua_pushcclosure(L, searchers[i], 1);
-    lua_rawseti(L, -2, i+1);
-  }
-#if defined(LUA_COMPAT_LOADERS)
-  lua_pushvalue(L, -1);  /* make a copy of 'searchers' table */
-  lua_setfield(L, -3, "loaders");  /* put it in field 'loaders' */
-#endif
-  lua_setfield(L, -2, "searchers");  /* put it in field 'searchers' */
-}
+// static void createsearcherstable (lua_State *L) {
+//   static const lua_CFunction searchers[] =
+//     {searcher_Lua, NULL};
+//   int i;
+//   /* create 'searchers' table */
+//   lua_createtable(L, sizeof(searchers)/sizeof(searchers[0]) - 1, 0);
+//   /* fill it with predefined searchers */
+//   for (i=0; searchers[i] != NULL; i++) {
+//     lua_pushvalue(L, -2);  /* set 'package' as upvalue for all searchers */
+//     lua_pushcclosure(L, searchers[i], 1);
+//     lua_rawseti(L, -2, i+1);
+//   }
+// #if defined(LUA_COMPAT_LOADERS)
+//   lua_pushvalue(L, -1);  /* make a copy of 'searchers' table */
+//   lua_setfield(L, -3, "loaders");  /* put it in field 'loaders' */
+// #endif
+//   lua_setfield(L, -2, "searchers");  /* put it in field 'searchers' */
+// }
 
 
 /*
 ** create table CLIBS to keep track of loaded C libraries,
 ** setting a finalizer to close all libraries when closing state.
 */
-static void createclibstable (lua_State *L) {
-  lua_newtable(L);  /* create CLIBS table */
-  lua_createtable(L, 0, 1);  /* create metatable for CLIBS */
-  lua_pushcfunction(L, gctm);
-  lua_setfield(L, -2, "__gc");  /* set finalizer for CLIBS table */
-  lua_setmetatable(L, -2);
-  lua_rawsetp(L, LUA_REGISTRYINDEX, &CLIBS);  /* set CLIBS table in registry */
-}
+// static void createclibstable (lua_State *L) {
+//   lua_newtable(L);  /* create CLIBS table */
+//   lua_createtable(L, 0, 1);  /* create metatable for CLIBS */
+//   lua_pushcfunction(L, gctm);
+//   lua_setfield(L, -2, "__gc");  /* set finalizer for CLIBS table */
+//   lua_setmetatable(L, -2);
+//   lua_rawsetp(L, LUA_REGISTRYINDEX, &CLIBS);  /* set CLIBS table in registry */
+// }
 
 LUAMOD_API int luaopen_package (lua_State *L) {
   lua_pushcfunction(L, ll_require);

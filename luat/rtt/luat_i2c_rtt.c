@@ -136,13 +136,38 @@ int luat_i2c_recv(int id, int addr, void* buff, size_t len) {
     return luat_i2c_transfer(id, addr, RT_I2C_RD, buff, len);
 }
 
-int luat_i2c_write_reg(int id, int addr, int reg, void* buff, size_t len) {
+int luat_i2c_write_reg(int id, int addr, int reg, uint16_t value) {
     if (!luat_i2c_exist(id)) return 1;
-    return write_reg(i2c_devs[id], addr, reg, buff, len);
+    rt_uint8_t buf[3];
+
+    buf[0] = reg; //cmd
+    buf[1] = (value >> 8) & 0xFF;
+    buf[2] = value & 0xFF;
+
+    if (rt_i2c_master_send(i2c_devs[id], addr, 0, buf, 3) == 3)
+        return RT_EOK;
+    else
+        return -RT_ERROR;
 }
-int luat_i2c_read_reg(int id,  int addr, void* buff, size_t len) {
+
+int luat_i2c_read_reg(int id,  int addr, int reg, uint16_t* value) {
     if (!luat_i2c_exist(id)) return 1;
-    return read_regs(i2c_devs[id], addr, buff, len);
+    struct rt_i2c_msg msgs;
+    uint8_t a;
+    a = addr;
+
+    msgs.addr = addr;
+    msgs.flags = RT_I2C_RD;
+    msgs.buf = &a;
+    msgs.len = 1;
+    rt_i2c_master_send(i2c_devs[id], addr, 0, &msgs, 1);
+
+    char buff[2] = {0};
+
+    rt_i2c_master_recv(i2c_devs[id], addr, 0, buff, 2);
+
+    *value = buff[0] << 8 + buff[1];
+    return 0;
 }
 
 #endif

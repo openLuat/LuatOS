@@ -115,21 +115,49 @@ static int l_i2c_write_reg(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
     int addr = luaL_checkinteger(L, 2);
     int reg = luaL_checkinteger(L, 3);
-    size_t len;
-    if (lua_isstring(L, 4)) {
-        const char* buff = luaL_checklstring(L, 4, &len);
-        luat_i2c_write_reg(id, addr, reg, (char*)buff, len);
-    }
-    else if (lua_isinteger(L, 4)) {
-        len = lua_gettop(L) - 2;
-        char buff[len+1];
-        for (size_t i = 0; i < len; i++)
-        {
-            buff[i] = lua_tointeger(L, 3+i);
-        }
-        luat_i2c_write_reg(id, addr, reg, buff, len);
-    }
+    uint16_t value = luaL_checkinteger(L, 4);
+    // size_t len;
+    // if (lua_isstring(L, 4)) {
+    //     const char* buff = luaL_checklstring(L, 4, &len);
+    //     luat_i2c_write_reg(id, addr, reg, (char*)buff, len);
+    // }
+    // else if (lua_isinteger(L, 4)) {
+    //     len = lua_gettop(L) - 2;
+    //     char buff[len+1];
+    //     for (size_t i = 0; i < len; i++)
+    //     {
+    //         buff[i] = lua_tointeger(L, 3+i);
+    //     }
+    //     luat_i2c_write_reg(id, addr, reg, buff, len);
+    // }
+    luat_i2c_write_reg(id, addr, reg, value);
     return 0;
+}
+
+static int l_i2c_read_reg(lua_State *L) {
+    int id = luaL_checkinteger(L, 1);
+    int addr = luaL_checkinteger(L, 2);
+    int reg = luaL_checkinteger(L, 3);
+    uint16_t value = 0;
+    // size_t len;
+    // if (lua_isstring(L, 4)) {
+    //     const char* buff = luaL_checklstring(L, 4, &len);
+    //     luat_i2c_write_reg(id, addr, reg, (char*)buff, len);
+    // }
+    // else if (lua_isinteger(L, 4)) {
+    //     len = lua_gettop(L) - 2;
+    //     char buff[len+1];
+    //     for (size_t i = 0; i < len; i++)
+    //     {
+    //         buff[i] = lua_tointeger(L, 3+i);
+    //     }
+    //     luat_i2c_write_reg(id, addr, reg, buff, len);
+    // }
+    if (luat_i2c_read_reg(id, addr, reg, &value) == 0) {
+        //
+    }
+    lua_pushinteger(L, value); 
+    return 1;
 }
 
 /*
@@ -155,7 +183,7 @@ static const rotable_Reg reg_i2c[] =
     { "send", l_i2c_send, 0},
     { "recv", l_i2c_recv, 0},
     { "writeReg", l_i2c_write_reg, 0},
-    // { "readReg", l_i2c_read_reg, 0},
+    { "readReg", l_i2c_read_reg, 0},
     { "close", l_i2c_close, 0},
     { "FAST",  NULL, 1},
     { "SLOW",  NULL, 0},

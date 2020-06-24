@@ -5,7 +5,7 @@
 
 #define LUAT_MSGBUS_MAXCOUNT 0xFF
 //#define LUAT_MSGBUS_MAXSIZE 8
-static osMessageQueueId_t queue; 
+static osMessageQueueId_t queue = {0}; 
 
 void luat_msgbus_init(void) {
     if (!queue) {

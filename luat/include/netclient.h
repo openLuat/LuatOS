@@ -51,6 +51,7 @@ typedef struct netclient
 {
     int id;
     char hostname[64];
+    uint32_t ipv4;
     int port;
     int type;
     int closed;

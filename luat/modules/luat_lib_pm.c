@@ -16,14 +16,14 @@ static int l_pm_request(lua_State *L) {
     return 1;
 }
 
-static int l_pm_release(lua_State *L) {
-    int mode = luaL_checkinteger(L, 1);
-    if (luat_pm_release(mode) == 0)
-        lua_pushboolean(L, 1);
-    else
-        lua_pushboolean(L, 0);
-    return 1;
-}
+// static int l_pm_release(lua_State *L) {
+//     int mode = luaL_checkinteger(L, 1);
+//     if (luat_pm_release(mode) == 0)
+//         lua_pushboolean(L, 1);
+//     else
+//         lua_pushboolean(L, 0);
+//     return 1;
+// }
 
 static int l_pm_dtimer_start(lua_State *L) {
     int dtimer_id = luaL_checkinteger(L, 1);
@@ -90,7 +90,7 @@ void luat_pm_cb(int event, int arg, void* args) {
 static const rotable_Reg reg_pm[] =
 {
     { "request" ,       l_pm_request , 0},
-    { "release" ,       l_pm_release,  0},
+    // { "release" ,       l_pm_release,  0},
     { "dtimerStart",    l_pm_dtimer_start,0},
     { "dtimerStop" ,    l_pm_dtimer_stop, 0},
     { "on",             l_pm_on,   0},

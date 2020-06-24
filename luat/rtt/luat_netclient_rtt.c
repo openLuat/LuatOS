@@ -129,7 +129,13 @@ static rt_int32_t socket_init(netclient_t *thiz, const char *url, int port)
     if (thiz == RT_NULL)
         return -1;
 
-    thiz->sock_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (thiz->type == NETC_TYPE_TCP)
+        thiz->sock_fd = socket(AF_INET, SOCK_STREAM, 0);
+    else
+    {
+        thiz->sock_fd = socket(AF_INET, SOCK_DGRAM, 0);
+    }
+    
     if (thiz->sock_fd == -1)
     {
         LOG_E("netc[%ld] socket init : socket create failed", thiz->id);
@@ -146,6 +152,7 @@ static rt_int32_t socket_init(netclient_t *thiz, const char *url, int port)
             return -1;
         }
     }
+    thiz->ipv4 = (*((struct in_addr *)hostname->h_addr)).s_addr;
 
     // TODO: print ip for hostname
     //LOG_I("socket host=%s port=%d", hostname, port);
@@ -162,7 +169,7 @@ static rt_int32_t socket_init(netclient_t *thiz, const char *url, int port)
         return -1;
     }
 
-    LOG_I("netc[%ld] connected succeed", thiz->id);
+    LOG_I("netc[%ld] connect succeed", thiz->id);
 
     //send(thiz->sock_fd, str, strlen(str), 0);
 
@@ -287,6 +294,7 @@ static void select_handle(netclient_t *thiz, char *sock_buff)
 {
     fd_set fds;
     rt_int32_t max_fd = 0, res = 0;
+    struct sockaddr_in from = {0};
 
     max_fd = MAX_VAL(thiz->sock_fd, thiz->pipe_read_fd) + 1;
     FD_ZERO(&fds);
@@ -308,7 +316,13 @@ static void select_handle(netclient_t *thiz, char *sock_buff)
         if (FD_ISSET(thiz->sock_fd, &fds))
         {
             #if 1
-            res = recv(thiz->sock_fd, sock_buff, BUFF_SIZE, 0);
+            if (thiz->type == NETC_TYPE_TCP)
+                res = recv(thiz->sock_fd, sock_buff, BUFF_SIZE, 0);
+            else
+            {
+                res = recvfrom(thiz->sock_fd, sock_buff, BUFF_SIZE, 0, &from, sizeof(struct sockaddr_in));
+            }
+            
 
             if (res > 0) {
                 LOG_I("netc[%ld] data recv len=%d", thiz->id, res);
@@ -341,7 +355,15 @@ static void select_handle(netclient_t *thiz, char *sock_buff)
                 goto exit;
             }
             else if (res > 0) {
-                send(thiz->sock_fd, sock_buff, res, 0);
+                if (thiz->type == NETC_TYPE_TCP)
+                    send(thiz->sock_fd, sock_buff, res, 0);
+                else
+                {
+                    from.sin_addr.s_addr = thiz->ipv4;
+                    from.sin_port = htons(thiz->port);
+                    from.sin_family = AF_INET;
+                    sendto(thiz->sock_fd, sock_buff, res, 0, &from, sizeof(struct sockaddr_in));
+                }
             }
         }
     }

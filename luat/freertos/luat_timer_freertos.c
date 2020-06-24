@@ -9,7 +9,7 @@
 #include "task.h"
 
 #define FREERTOS_TIMER_COUNT 32
-static luat_timer_t* timers[FREERTOS_TIMER_COUNT];
+static luat_timer_t* timers[FREERTOS_TIMER_COUNT] = {0};
 
 static void luat_timer_callback(void* param) {
     //luat_log_debug("luat.timer", "timer callback");

@@ -82,7 +82,9 @@ static int luat_lib_netc_msg_handler(lua_State* L, void* ptr) {
     if (ent->event == NETC_EVENT_END) {
         lua_getglobal(L, "sys_pub");
         if (lua_isfunction(L, -1)) {
-            lua_pushfstring(L, "NETC_END_%ld", ent->netc_id);
+            char buff[32] = {0};
+            sprintf(buff, "NETC_END_%ld", ent->netc_id);
+            lua_pushstring(L, buff);
             lua_call(L, 1, 0);
         }
         goto exit;

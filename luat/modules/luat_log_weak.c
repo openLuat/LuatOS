@@ -59,10 +59,10 @@ LUAT_WEAK void luat_log_log(int level, const char* tag, const char* _fmt, ...) {
     va_end(args);
     if (len > 0) {
         len = strlen(buff);
-        if (len > 1021)
-            len = 1021;
+        if (len > 1022)
+            len = 1022;
         buff[len] = '\n';
         buff[len+1] = 0;
-        luat_nprint(buff, len+2);
+        luat_nprint(buff, len+1);
     }
 }

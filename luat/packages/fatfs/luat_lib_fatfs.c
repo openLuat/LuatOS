@@ -1,7 +1,6 @@
 
 #include "luat_base.h"
 #include "luat_spi.h"
-#include "luat_log.h"
 #include "luat_timer.h"
 #include "luat_gpio.h"
 #include "lauxlib.h"
@@ -9,7 +8,8 @@
 #include "ff.h"			/* Obtains integer types */
 #include "diskio.h"		/* Declarations of disk functions */
 
-#define TAG "luat.fatfs"
+#define LUAT_LOG_TAG "luat.fatfs"
+#include "luat_log.h"
 
 static FATFS fs;		/* FatFs work area needed for each volume */
 extern BYTE FATFS_DEBUG; // debug log, 0 -- disable , 1 -- enable
@@ -21,7 +21,7 @@ static int fatfs_mount(lua_State *L)
     //int spiId = luaL_checkinteger(L, 1);    
     //int result = platform_spi_close(spiId);
 	//if (FATFS_DEBUG)
-	//	luat_log_debug(TAG, "fatfs_init>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\r\n");
+	//	LLOGD("fatfs_init>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\r\n");
 
 	//DWORD fre_clust, fre_sect, tot_sect;
 	// 挂载点
@@ -34,15 +34,15 @@ static int fatfs_mount(lua_State *L)
 	lua_pushinteger(L, re);
 	if (re == FR_OK) {
 		if (FATFS_DEBUG)
-			luat_log_debug(TAG, "[FatFS]fatfs_init success\r\n");
+			LLOGD("[FatFS]fatfs_init success\r\n");
 	}
 	else {
 		if (FATFS_DEBUG)
-			luat_log_debug(TAG, "[FatFS]fatfs_init FAIL!! re=%d\r\n", re);
+			LLOGD("[FatFS]fatfs_init FAIL!! re=%d\r\n", re);
 	}
 
 	//if (FATFS_DEBUG)
-	//	luat_log_debug(TAG, "fatfs_init<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\r\n");
+	//	LLOGD("fatfs_init<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\r\n");
     return 1;
 }
 
@@ -168,7 +168,7 @@ static int fatfs_lsdir(lua_State *L)
 		lua_settable(L, -3);
 	}
 	f_closedir(&dir);
-	luat_log_debug(TAG, "[FatFS] lua_gettop=%d\r\n", lua_gettop(L));
+	LLOGD("[FatFS] lua_gettop=%d\r\n", lua_gettop(L));
     return 2;
 }
 
@@ -234,7 +234,7 @@ static int fatfs_open(lua_State *L) {
 	flag |= luaL_optinteger(L, 4, 0); // 第四个参数
 
 	if (FATFS_DEBUG)
-		luat_log_debug(TAG, "[FatFS]open %s %0X\r\n", path, flag);
+		LLOGD("[FatFS]open %s %0X\r\n", path, flag);
 	DRESULT re = f_open(fil, path, (BYTE)flag);
 	if (re != FR_OK) {
 		lua_remove(L, -1);
@@ -295,7 +295,7 @@ static int fatfs_read(lua_State *L) {
 	u8 buf[limit];
 	UINT len;
 	if (FATFS_DEBUG)
-		luat_log_debug(TAG, "[FatFS]readfile limit=%d\r\n", limit);
+		LLOGD("[FatFS]readfile limit=%d\r\n", limit);
 	FRESULT re = f_read((FIL*)lua_touserdata(L, 1), buf, limit, &len);
 	lua_pushinteger(L, re);
 	if (re != FR_OK) {
@@ -332,7 +332,7 @@ static int fatfs_write(lua_State *L) {
          re = f_write(fil, buf, len, &len);
     }
     if (FATFS_DEBUG)
-		luat_log_debug(TAG, "[FatFS]write re=%d len=%d\r\n", re, len);
+		LLOGD("[FatFS]write re=%d len=%d\r\n", re, len);
     lua_pushinteger(L, re);
     lua_pushinteger(L, len);
     return 2;
@@ -398,7 +398,7 @@ static int fatfs_readfile(lua_State *L) {
 	u8 buf[limit];
 	UINT len;
 	if (FATFS_DEBUG)
-		luat_log_debug(TAG, "[FatFS]readfile seek=%d limit=%d\r\n", seek, limit);
+		LLOGD("[FatFS]readfile seek=%d limit=%d\r\n", seek, limit);
 	FRESULT fr = f_read(&fil, buf, limit, &len);
 	if (fr != FR_OK) {
 		lua_pushinteger(L, -3);
@@ -409,7 +409,7 @@ static int fatfs_readfile(lua_State *L) {
 	lua_pushinteger(L, 0);
 	lua_pushlstring(L, buf, len);
 	if (FATFS_DEBUG)
-		luat_log_debug(TAG, "[FatFS]readfile seek=%d limit=%d len=%d\r\n", seek, limit, len);
+		LLOGD("[FatFS]readfile seek=%d limit=%d len=%d\r\n", seek, limit, len);
 	return 2;
 }
 

@@ -6,9 +6,11 @@
 @data    2020.03.30
 */
 #include "luat_base.h"
-#include "luat_log.h"
 #include "luat_gpio.h"
 #include "luat_malloc.h"
+
+#define LUAT_LOG_TAG "luat.gpio"
+#include "luat_log.h"
 
 static int l_gpio_set(lua_State *L);
 static int l_gpio_get(lua_State *L);
@@ -100,7 +102,7 @@ static int l_gpio_setup(lua_State *L) {
                 }
             }
             if (flag) {
-                luat_log_warn("luat.gpio", "too many irq setup!!!!");
+                LLOGE("luat.gpio", "too many irq setup!!!!");
                 re = 1;
                 luat_gpio_close(conf.pin);
             }

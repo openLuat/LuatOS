@@ -9,7 +9,6 @@
 
 #include "luat_base.h"
 #include "luat_spi.h"
-#include "luat_log.h"
 #include "luat_timer.h"
 #include "luat_gpio.h"
 #include "lauxlib.h"
@@ -17,7 +16,8 @@
 #include "ff.h"			/* Obtains integer types */
 #include "diskio.h"		/* Declarations of disk functions */
 
-#define TAG "luat.fatfs"
+#define LUAT_LOG_TAG "luat.fatfs"
+#include "luat_log.h"
 
 
 /*--------------------------------------------------------------------------
@@ -103,7 +103,7 @@ void xmit_mmc (
 	} while (--bc);
 	#endif
 	if (FATFS_DEBUG)
-		luat_log_debug(TAG, "[FatFS]xmit_mmc bc=%d\r\n", bc);
+		LLOGD("[FatFS]xmit_mmc bc=%d\r\n", bc);
 	luat_spi_send(FATFS_SPI_ID, buff, bc);
 }
 
@@ -159,7 +159,7 @@ void rcvr_mmc (
 	
 	//memcpy(buff, buf2, bc);
 	//if (FATFS_DEBUG)
-	//	luat_log_debug(TAG, "[FatFS]rcvr_mmc first resp byte=%02X, t=%d\r\n", buf2[0], t);
+	//	LLOGD("[FatFS]rcvr_mmc first resp byte=%02X, t=%d\r\n", buf2[0], t);
 	//free(buf2);
 }
 

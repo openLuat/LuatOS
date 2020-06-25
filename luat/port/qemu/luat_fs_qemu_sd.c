@@ -16,7 +16,7 @@
 #ifdef SOC_VEXPRESS_A9
 
 int luat_fs_init(void) {
-    
+    return 0;
 }
 
 rt_err_t wm_spi_bus_attach_device(const char *bus_name, const char *device_name, rt_uint32_t pin);

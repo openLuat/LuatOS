@@ -5,12 +5,13 @@
 @data    2020.03.30
 */
 #include "luat_base.h"
-#include "luat_log.h"
 #include "luat_timer.h"
 #include "luat_malloc.h"
 #include "luat_msgbus.h"
 #include "luat_socket.h"
 
+#define LUAT_LOG_TAG "luat.socket"
+#include "luat_log.h"
 
 #define LUAT_NETC_HANDLE "NETC*"
 
@@ -84,17 +85,18 @@ static int luat_lib_netc_msg_handler(lua_State* L, void* ptr) {
         if (lua_isfunction(L, -1)) {
             char buff[32] = {0};
             sprintf(buff, "NETC_END_%ld", ent->netc_id);
+            //LLOGD("FUCK [%s]", buff);
             lua_pushstring(L, buff);
             lua_call(L, 1, 0);
         }
         goto exit;
     }
-    luat_log_debug("luat.socket", "luat_lib_netc_msg_handler event=%ld lua_ref=%ld", ent->event, ent->lua_ref);
+    LLOGD("luat_lib_netc_msg_handler event=%ld lua_ref=%ld", ent->event, ent->lua_ref);
     if (ent->lua_ref == 0) {
         goto exit;
     }
     if (lua_rawgeti(L, LUA_REGISTRYINDEX, ent->lua_ref) != LUA_TFUNCTION) {
-        luat_log_warn("luat.netc", "netc[%ld] callback isn't a function", ent->netc_id);
+        LLOGW("netc[%ld] callback isn't a function", ent->netc_id);
         goto exit;
     };
     lua_pushinteger(L, ent->netc_id);
@@ -213,79 +215,9 @@ static int luat_lib_socket_new(lua_State* L, int netc_type) {
 
     luaL_setmetatable(L, LUAT_NETC_HANDLE);
 
-    //LOG_I("netc[%ld] create successd", thiz->id);
+    //LLOGI("netc[%ld] create successd", thiz->id);
     return 1;
 }
-
-// static int luat_lib_socket_connect(lua_State* L) {
-//     netclient_t* thiz;
-//     size_t len;
-//     char* hostname;
-//     uint32_t port;
-//     rt_base_t re;
-//     //LOG_I("luat_lib_socket_connect ...");
-//     if (lua_gettop(L) < 3) {
-//         LOG_W("socket.connect require 3 args! top=%d", lua_gettop(L));
-//         //lua_error("socket.connect require 3 args!");
-//         return 0;
-//     }
-//     if (!lua_isuserdata(L, 1)) {
-//         LOG_W("socket.connect require socket object!");
-//         return 0;
-//     }
-//     thiz = (netclient_t*)lua_touserdata(L, 1);
-//     if (thiz == RT_NULL) {
-//         LOG_W("netclient_t is NULL!!");
-//         return 0;
-//     }
-//     hostname = luaL_checklstring(L, 2, &len);
-//     if (len >= 32) {
-//         LOG_W("hostname is too long!!!");
-//         lua_pushinteger(L, 1);
-//         return 1;
-//     }
-//     rt_memcpy(thiz->hostname, hostname, len);
-//     thiz->hostname[len] = 0x00;
-//     thiz->port = luaL_checkinteger(L, 3);
-//     thiz->rx = luat_lib_socket_ent_handler;
-//     LOG_W("host=%s port=%d type=%s", thiz->hostname, thiz->port, thiz->type == NETC_TYPE_TCP ? "TCP" : "UDP");
-//     re = netclient_start(thiz);
-//     lua_pushinteger(L, re);
-//     return 1;
-// }
-
-// static int luat_lib_socket_close(lua_State* L) {
-//     netclient_t* thiz;
-//     if (!lua_isuserdata(L, 1)) {
-//         lua_error("socket.connect require socket object!");
-//         return 0;
-//     }
-//     thiz = (netclient_t*)lua_touserdata(L, 1);
-//     if (thiz == RT_NULL) {
-//         return 0;
-//     }
-//     if (thiz->sock_fd == -1) {
-//         LOG_W("socket is closed, host=%s port=%ld", thiz->hostname, thiz->port);
-//     }
-//     netclient_close(thiz);
-//     return 0;
-// }
-
-// static int luat_lib_socket_send(lua_State *L) {
-//     netclient_t* thiz;
-//     size_t len;
-//     char* data;
-//     if (!lua_isuserdata(L, 1)) {
-//         lua_error(L, "socket.connect require socket object!");
-//         return 0;
-//     }
-//     thiz = (netclient_t*)lua_touserdata(L, 1);
-//     data = luaL_checklstring(L, 2, &len);
-//     if (len > 0) {
-//         netclient_send(thiz, (void*)data, len);
-//     }
-//     return 0;
-// }
 
 //---------------------------------------------
 #define tonetc(L)	((netclient_t *)luaL_checkudata(L, 1, LUAT_NETC_HANDLE))
@@ -309,7 +241,7 @@ static int netc_connect(lua_State *L) {
             // ok
         }
         else {
-            //LOG_W("sock:connect require 2 args! top=%d", lua_gettop(L));
+            //LLOGW("sock:connect require 2 args! top=%d", lua_gettop(L));
             lua_pushinteger(L, 2);
             return 1;
         }
@@ -317,7 +249,7 @@ static int netc_connect(lua_State *L) {
     else {
         const char* hostname = luaL_checklstring(L, 2, &len);
         if (len >= 32) {
-            //LOG_E("netc[%ld] hostname is too long >= 32", thiz->id);
+            //LLOGE("netc[%ld] hostname is too long >= 32", thiz->id);
             lua_pushinteger(L, 1);
             return 1;
         }
@@ -326,7 +258,7 @@ static int netc_connect(lua_State *L) {
         thiz->port = luaL_optinteger(L, 3, 80);
     }
     thiz->rx = luat_lib_socket_ent_handler;
-    //LOG_I("netc[%ld] host=%s port=%d type=%s", thiz->id, thiz->hostname, thiz->port, thiz->type == NETC_TYPE_TCP ? "TCP" : "UDP");
+    //LLOGI("netc[%ld] host=%s port=%d type=%s", thiz->id, thiz->hostname, thiz->port, thiz->type == NETC_TYPE_TCP ? "TCP" : "UDP");
     re = netclient_start(thiz);
     lua_pushinteger(L, re);
     return 1;
@@ -371,7 +303,7 @@ static int netc_send(lua_State *L) {
 
 static int netc_gc(lua_State *L) {
     netclient_t *netc = tonetc(L);
-    luat_log_info("netc", "netc[%ld] __gc trigger", netc->id);
+    LLOGI("netc[%ld] __gc trigger", netc->id);
     netclient_close(netc);
     if (netc->cb_error) {
         luaL_unref(L, LUA_REGISTRYINDEX, netc->cb_error);
@@ -423,12 +355,12 @@ static int netc_host(lua_State *L) {
         size_t len = 0;
         const char* hostname = luaL_checklstring(L, 2, &len);
         if (len >= 64) {
-            luat_log_error("luat.socket", "hostname is too long!!!!!");
+            LLOGE("hostname is too long!!!!!");
             lua_pushinteger(L, 1);
             return 1;
         }
         else if (len == 0) {
-            luat_log_error("luat.socket", "hostname is emtry!!!!!");
+            LLOGE("hostname is emtry!!!!!");
             lua_pushinteger(L, 1);
             return 1;
         }
@@ -450,7 +382,7 @@ static int netc_port(lua_State *L) {
     netclient_t *netc = tonetc(L);
     if (lua_gettop(L) > 1 && lua_isinteger(L, 2)) {
         netc->port = lua_tointeger(L, 2);
-        //LOG_I("netc[%ld] port=%d", netc->id, netc->port);
+        //LLOGI("netc[%ld] port=%d", netc->id, netc->port);
     }
     lua_pushinteger(L, netc->port);
     return 1;
@@ -523,7 +455,7 @@ static int netc_on(lua_State *L) {
                 netc->cb_error = luaL_ref(L, LUA_REGISTRYINDEX);
             }
             else {
-                //LOG_I("netc[%ld] unkown event type=%s", netc->id, ent);
+                //LLOGI("netc[%ld] unkown event type=%s", netc->id, ent);
             }
         }
     }

@@ -40,7 +40,7 @@ RT_WEAK struct rt_hwcrypto_device *rt_hwcrypto_dev_dufault(void) {
 #endif
 
 // 文件系统初始化函数, 做个虚拟的
-RT_WEAK void luat_fs_init(void) {}
+RT_WEAK int luat_fs_init(void) {return 0;}
 
 static const luaL_Reg loadedlibs[] = {
   {"_G", luaopen_base}, // _G

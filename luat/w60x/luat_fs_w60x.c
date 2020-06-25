@@ -44,6 +44,7 @@ int luat_fs_init(void) {
     else {
       LOG_I("w600 onchip lfs mount complete");
     }
+    return 0;
 }
 
 rt_err_t wm_spi_bus_attach_device(const char *bus_name, const char *device_name, rt_uint32_t pin);

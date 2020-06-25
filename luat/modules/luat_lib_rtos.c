@@ -5,11 +5,13 @@
 @data    2020.03.30
 */
 #include "luat_base.h"
-#include "luat_log.h"
 #include "luat_sys.h"
 #include "luat_msgbus.h"
 #include "luat_timer.h"
 #include "luat_malloc.h"
+
+#define LUAT_LOG_TAG "luat.rtos"
+#include "luat_log.h"
 
 /*
 接受并处理底层消息队列.
@@ -24,12 +26,12 @@ static int l_rtos_receive(lua_State *L) {
     int re;
     re = luat_msgbus_get(&msg, luaL_checkinteger(L, 1));
     if (!re) {
-        //luat_log_debug("luat.rtos", "rtos_msg got, invoke it handler=%08X", msg.handler);
+        //LLOGD("rtos_msg got, invoke it handler=%08X", msg.handler);
         lua_pushlightuserdata(L, (void*)(&msg));
         return msg.handler(L, msg.ptr);
     }
     else {
-        //luat_log_debug("luat.rtos", "rtos_msg get timeout");
+        //LLOGD("rtos_msg get timeout");
         lua_pushinteger(L, -1);
         return 1;
     }
@@ -38,7 +40,7 @@ static int l_rtos_receive(lua_State *L) {
 //------------------------------------------------------------------
 static int l_timer_handler(lua_State *L, void* ptr) {
     luat_timer_t *timer = (luat_timer_t *)ptr;
-    // luat_printf("l_timer_handler id=%ld\n", timer->id);
+    // LLOGD(("l_timer_handler id=%ld\n", timer->id);
     lua_pushinteger(L, MSG_TIMER);
     lua_pushinteger(L, timer->id);
     lua_pushinteger(L, timer->repeat);
@@ -70,9 +72,9 @@ static int l_rtos_timer_start(lua_State *L) {
     size_t id = (size_t)luaL_checkinteger(L, 1) / 1;
     size_t timeout = (size_t)luaL_checkinteger(L, 2);
     int repeat = (size_t)luaL_optinteger(L, 3, 0);
-    // luat_printf("timer id=%ld\n", id);
-    // luat_printf("timer timeout=%ld\n", timeout);
-    // luat_printf("timer repeat=%ld\n", repeat);
+    // LLOGD(("timer id=%ld\n", id);
+    // LLOGD(("timer timeout=%ld\n", timeout);
+    // LLOGD(("timer repeat=%ld\n", repeat);
     if (timeout < 1) {
         lua_pushinteger(L, 0);
         return 1;

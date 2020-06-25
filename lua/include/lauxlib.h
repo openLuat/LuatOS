@@ -218,9 +218,10 @@ LUALIB_API void (luaL_openlib) (lua_State *L, const char *libname,
 ** ===================================================================
 */
 
-#include "luat_log.h"
+void luat_nprint(char *s, size_t l);
+void luat_log_log(int level, const char* tag, const char* _fmt, ...); // 4 is ERROR
 #define lua_writestring(s,l) luat_nprint(s, l)
-#define lua_writestringerror(s,p) luat_log_error("lua.error",s,p)
+#define lua_writestringerror(s,p) luat_log_log(4, "lua.err",s,p)
 
 /* print a string */
 #if !defined(lua_writestring)

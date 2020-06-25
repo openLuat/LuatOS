@@ -10,10 +10,11 @@
 #include "luat_disp.h"
 #include "luat_gpio.h"
 #include "luat_timer.h"
-#include "luat_log.h"
 #include "u8g2.h"
 
 #define TAG "luat.disp"
+#define LUAT_LOG_TAG "luat.disp"
+#include "luat_log.h"
 
 static u8g2_t* u8g2;
 static int u8g2_lua_ref;
@@ -33,13 +34,13 @@ end
 */
 static int l_disp_init(lua_State *L) {
     if (u8g2 != NULL) {
-        luat_log_info(TAG, "disp is aready inited");
+        LLOGI("disp is aready inited");
         lua_pushinteger(L, 2);
         return 1;
     }
     u8g2 = (u8g2_t*)lua_newuserdata(L, sizeof(u8g2_t));
     if (u8g2 == NULL) {
-        luat_log_error(TAG, "lua_newuserdata return NULL, out of memory ?!");
+        LLOGE("lua_newuserdata return NULL, out of memory ?!");
         lua_pushinteger(L, 3);
         return 1;
     }
@@ -104,7 +105,7 @@ static int l_disp_init(lua_State *L) {
     }
     if (luat_disp_setup(&conf)) {
         u8g2 = NULL;
-        luat_log_warn("luat.disp", "init fail");
+        LLOGW("disp init fail");
         return 0; // 初始化失败
     }
     
@@ -206,12 +207,12 @@ LUAT_WEAK int luat_disp_setup(luat_disp_conf_t *conf) {
         u8g2_Setup_ssd1306_i2c_128x64_noname_f( u8g2, U8G2_R0, u8x8_byte_sw_i2c, luat_u8x8_gpio_and_delay);
         u8g2->u8x8.pins[U8X8_PIN_I2C_CLOCK] = conf->pin0;
         u8g2->u8x8.pins[U8X8_PIN_I2C_DATA] = conf->pin1;
-        luat_log_debug(TAG, "setup disp i2c.sw SCL=%ld SDA=%ld", conf->pin0, conf->pin1);
+        LLOGD("setup disp i2c.sw SCL=%ld SDA=%ld", conf->pin0, conf->pin1);
         u8g2_InitDisplay(u8g2);
         u8g2_SetPowerSave(u8g2, 0);
         return 0;
     }
-    luat_log_info("luat.disp", "only i2c sw mode is support, by default impl.");
+    LLOGI("only i2c sw mode is support, by default impl");
     return -1;
 }
 

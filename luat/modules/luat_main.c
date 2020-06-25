@@ -3,11 +3,12 @@
 #include "luat_base.h"
 #include "luat_malloc.h"
 #include "luat_fs.h"
-#include "luat_log.h"
 #include "stdio.h"
 #include "luat_msgbus.h"
 #include "luat_timer.h"
 
+#define LUAT_LOG_TAG "luat.main"
+#include "luat_log.h"
 
 static int report (lua_State *L, int status);
 
@@ -81,7 +82,7 @@ int luat_main (int argc, char **argv, int _) {
     return 0; // just nop
   }
   //luat_print("\nI/main: Luat " LUAT_VERSION " build " __DATE__ " " __TIME__ "\n");
-  luat_log_info("luat.main", "Luat " LUAT_VERSION ", build at: " __DATE__ " " __TIME__);
+  LLOGI("Luat " LUAT_VERSION ", build at: " __DATE__ " " __TIME__);
   //print_list_mem("entry luat_main");
   // 1. init filesystem
   luat_fs_init();
@@ -103,8 +104,8 @@ int luat_main (int argc, char **argv, int _) {
   result = lua_toboolean(L, -1);  /* get result */
   report(L, status);
   //lua_close(L);
-  luat_log_info("luat.main", "Lua VM exit!! reboot in 60s");
-  luat_timer_mdelay(60*1000);
+  LLOGE("Lua VM exit!! reboot in 30s");
+  luat_timer_mdelay(30*1000);
   luat_os_reboot(result);
   return (result && status == LUA_OK) ? 0 : 2;
 }
@@ -120,15 +121,3 @@ __attribute__((weak)) int l_sprintf(char *buf, size_t size, const char *fmt, ...
 
     return n;
 }
-
-// #include "printf.h"
-// __attribute__((weak)) int l_sprintf(char *buf, int32_t size, const char *fmt, ...) {
-//     int32_t n;
-//     va_list args;
-
-//     va_start(args, fmt);
-//     n = sprintf_(buf, /*size,*/ fmt, args);
-//     va_end(args);
-
-//     return n;
-// }

@@ -74,6 +74,7 @@ static const luaL_Reg loadedlibs[] = {
 #endif
 #ifdef SAL_USING_POSIX
   {"socket", luaopen_socket},          // 套接字操作
+  {"libcoap", luaopen_libcoap},        // 处理COAP数据包
 #endif
 #ifdef RT_USING_I2C
   {"i2c", luaopen_i2c},                // I2C操作

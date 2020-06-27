@@ -88,7 +88,7 @@ LUAMOD_API int luaopen_mqttcore( lua_State *L );
 LUAMOD_API int luaopen_crypto( lua_State *L );
 LUAMOD_API int luaopen_pm( lua_State *L);
 LUAMOD_API int luaopen_m2m( lua_State *L);
-LUAMOD_API int luaopen_coap( lua_State *L);
+LUAMOD_API int luaopen_libcoap( lua_State *L);
 LUAMOD_API int luaopen_lpmem( lua_State *L);
 
 /** sprintf需要支持longlong值的打印, 提供平台无关的实现*/

@@ -84,7 +84,7 @@ static int luat_lib_netc_msg_handler(lua_State* L, void* ptr) {
         lua_getglobal(L, "sys_pub");
         if (lua_isfunction(L, -1)) {
             char buff[32] = {0};
-            sprintf(buff, "NETC_END_%ld", ent->netc_id);
+            sprintf(buff, "NETC_END_%x", ent->netc_id);
             //LLOGD("FUCK [%s]", buff);
             lua_pushstring(L, buff);
             lua_call(L, 1, 0);
@@ -212,6 +212,7 @@ static int luat_lib_socket_new(lua_State* L, int netc_type) {
     //rt_memset(thiz->hostname, 0, sizeof(thiz->hostname));
     thiz->hostname[0] = '_';
     thiz->id = netc_next_no();
+    sprintf(thiz->idStr, "%x", thiz->id);
 
     luaL_setmetatable(L, LUAT_NETC_HANDLE);
 
@@ -333,12 +334,12 @@ static int netc_tostring(lua_State *L) {
 /*
 获取socket对象的id
 @function    so:id()
-@return int 对象id,自增量,全局唯一
+@return string 对象id,全局唯一
 -- 参考socket.tcp的说明, 并查阅demo
 */
 static int netc_id(lua_State *L) {
     netclient_t *netc = tonetc(L);
-    lua_pushinteger(L, netc->id);
+    lua_pushstring(L, netc->idStr);
     return 1;
 }
 
@@ -499,12 +500,6 @@ static const rotable_Reg reg_socket[] =
 {
     { "tcp", luat_lib_socket_tcp, 0},
     { "udp", luat_lib_socket_udp, 0},
-    // { "connect", luat_lib_socket_connect, 0},
-    // { "close", luat_lib_socket_close, 0},
-    // { "send", luat_lib_socket_send, 0},
-
-
-
     { "tsend" ,  sal_tls_test , 0},
     { "ntpSync", socket_ntp_sync, 0}, // TODO 改成平台无关的UDP实现?
     { "isReady", l_socket_is_ready, 0},

@@ -12,6 +12,39 @@
 #define LUAT_LOG_TAG "luat.libcoap"
 #include "luat_log.h"
 
+//---------------------------
+#ifndef COAP_OPTION_IF_MATCH
+
+#define COAP_OPTION_IF_MATCH        1 /* C, opaque, 0-8 B, (none) */
+#define COAP_OPTION_URI_HOST        3 /* C, String, 1-255 B, destination address */
+#define COAP_OPTION_ETAG            4 /* E, opaque, 1-8 B, (none) */
+#define COAP_OPTION_IF_NONE_MATCH   5 /* empty, 0 B, (none) */
+#define COAP_OPTION_URI_PORT        7 /* C, uint, 0-2 B, destination port */
+#define COAP_OPTION_LOCATION_PATH   8 /* E, String, 0-255 B, - */
+#define COAP_OPTION_URI_PATH       11 /* C, String, 0-255 B, (none) */
+#define COAP_OPTION_CONTENT_FORMAT 12 /* E, uint, 0-2 B, (none) */
+#define COAP_OPTION_CONTENT_TYPE COAP_OPTION_CONTENT_FORMAT
+#define COAP_OPTION_MAXAGE         14 /* E, uint, 0--4 B, 60 Seconds */
+#define COAP_OPTION_URI_QUERY      15 /* C, String, 1-255 B, (none) */
+#define COAP_OPTION_ACCEPT         17 /* C, uint,   0-2 B, (none) */
+#define COAP_OPTION_LOCATION_QUERY 20 /* E, String,   0-255 B, (none) */
+#define COAP_OPTION_SIZE2          28 /* E, uint, 0-4 B, (none) */
+#define COAP_OPTION_PROXY_URI      35 /* C, String, 1-1034 B, (none) */
+#define COAP_OPTION_PROXY_SCHEME   39 /* C, String, 1-255 B, (none) */
+#define COAP_OPTION_SIZE1          60 /* E, uint, 0-4 B, (none) */
+
+#define COAP_MEDIATYPE_TEXT_PLAIN                 0 /* text/plain (UTF-8) */
+#define COAP_MEDIATYPE_APPLICATION_LINK_FORMAT   40 /* application/link-format */
+#define COAP_MEDIATYPE_APPLICATION_XML           41 /* application/xml */
+#define COAP_MEDIATYPE_APPLICATION_OCTET_STREAM  42 /* application/octet-stream */
+#define COAP_MEDIATYPE_APPLICATION_RDF_XML       43 /* application/rdf+xml */
+#define COAP_MEDIATYPE_APPLICATION_EXI           47 /* application/exi  */
+#define COAP_MEDIATYPE_APPLICATION_JSON          50 /* application/json  */
+#define COAP_MEDIATYPE_APPLICATION_CBOR          60 /* application/cbor  */
+
+#endif
+//---------------------------
+
 
 typedef struct libcoap_header
 {
@@ -51,19 +84,23 @@ static void addopt(luat_lib_libcoap_t* _coap, uint8_t opt_type, const char* valu
 
     // LLOGD("opt type=%d value len=%d", opt_type, len);
     // LLOGD("opt optSize cur=%d", _coap->optSize);
-    _coap->opt[_coap->optSize] = (cur_opt << 4) + (len & 0xF);
+    size_t idx = _coap->optSize;
+    if (len <= 12) {
+        _coap->opt[idx++] = (cur_opt << 4) + (len & 0xF);
+    }
+    else if (len <= 268) {
+        _coap->opt[idx++] = (cur_opt << 4) + (0x0D);
+        _coap->opt[idx++] = len - 0x0D;
+    } else {
+        LLOGW("coap opt is too large!!! ignore!!!");
+        return;
+    }
     for (size_t i = 0; i < len; i++)
     {
-        _coap->opt[_coap->optSize + 1 + i] = *(value + i);
+        _coap->opt[idx++] = *(value + i);
     }
-    
-    // LLOGD("opt opt first=%d", _coap->opt[_coap->optSize]);
-    // char* opt_ptr = _coap->opt;
-    // opt_ptr +=  _coap->optSize + 1;
-    // memcpy(opt_ptr, value, len);
-    _coap->optSize += len + 1;
 
-    
+    _coap->optSize += idx;
 }
 
 // libcoap.new(libcoap.GET, "time", {}, nil)
@@ -153,6 +190,13 @@ static int l_libcoap_parse(lua_State* L) {
             if (opt_header->opt_delta == 0xF)
                 break;
             LLOGD("found opt %d %d", opt_header->opt_delta, opt_header->opt_len);
+            if (opt_header->opt_len <= 12) {
+                // nop
+            }
+            else if (opt_header->opt_len == 13) {
+                opt_header->opt_len += (unsigned int)(*(ptr+1));
+            }
+            
             ptr += opt_header->opt_len + 1;
             idx += opt_header->opt_len + 1;
             _coap->optSize += opt_header->opt_len + 1;
@@ -259,6 +303,18 @@ static int libcoap_code(lua_State *L) {
     return 1;
 }
 
+static int libcoap_httpcode(lua_State *L) {
+    luat_lib_libcoap_t *_coap = tocoap(L);
+    if (_coap == NULL) {
+        LLOGE("coap sturt is NULL");
+        lua_pushstring(L, "coap sturt is NULL");
+        lua_error(L);
+        return 0;
+    }
+    lua_pushinteger(L, (_coap->header.code >> 5) * 100 + (_coap->header.code & 0xF));
+    return 1;
+}
+
 static int libcoap_type(lua_State *L) {
     luat_lib_libcoap_t *_coap = tocoap(L);
     if (_coap == NULL) {
@@ -288,6 +344,7 @@ static const luaL_Reg lib_libcoap[] = {
     {"msgid",       libcoap_msgid},
     {"token",       libcoap_token},
     {"code",        libcoap_code},
+    {"hcode",        libcoap_httpcode},
     {"rawdata",     libcoap_rawdata},
     {"data",        libcoap_data},
     //{"__gc",        libcoap_gc},

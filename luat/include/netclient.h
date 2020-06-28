@@ -50,6 +50,7 @@ typedef void (*tpc_cb_t)(netc_ent_t* ent);
 typedef struct netclient
 {
     int id;
+    char idStr[10];
     char hostname[64];
     uint32_t ipv4;
     int port;

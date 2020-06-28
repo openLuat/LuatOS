@@ -27,10 +27,12 @@ sys.taskInit(function()
                 if #data >= 4 then
                     local _coap = libcoap.parse(data)
                     if _coap then
-                        log.info("coap", "type", _coap:tp())
-                        log.info("coap", "code", _coap:code())
-                        log.info("coap", "msgid", _coap:msgid())
+                        log.info("coap", "type", _coap:tp(), "code", _coap:code(), "msgid", _coap:msgid())
                         log.info("coap", "data", _coap:data())
+                        log.info("coap", "http statue code", _coap:hcode())
+                        if _coap:tp() == 2 and _coap:hcode() == 205 then
+                            log.info("coap", "http resp ACK and 205")
+                        end
                     end
                 end
             end)

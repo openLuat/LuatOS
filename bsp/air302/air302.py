@@ -46,7 +46,10 @@ COM_PORT = config["air302"]["COM_PORT"]
 '''
 def get_git_revision_short_hash():
     try :
-        return subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).strip()
+        if os.path.exists(PLAT_ROOT):
+            return subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], cwd=PLAT_ROOT).strip()
+        else:
+            return subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).strip()
     except:
         return ""
 
@@ -192,7 +195,9 @@ def _dl(tp, _path=None):
         f.write(FTC_CNF_TMPL)
     cmd = [FTC_PATH + "FlashToolCLI.exe", "-p", COM_PORT, "burnbatch", "--imglist"]
     if tp == "rom" or tp == "full":
-        if EC_PATH.endswith(".ec") :
+        if os.path.exists(PLAT_ROOT + "out/ec616_0h00/air302/air302.bin") :
+            shutil.copy(PLAT_ROOT + "out/ec616_0h00/air302/air302.bin", FTC_PATH + "system.bin")
+        elif EC_PATH.endswith(".ec") :
             import zipfile
             with zipfile.ZipFile(EC_PATH) as zip :
                 with open(FTC_PATH + "system.bin", "wb") as f:

@@ -57,3 +57,4 @@ Mkfile.old
 dkms.conf
 
 bsp/air302/FlashToolCLI/
+bsp/air302/tmp/

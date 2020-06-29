@@ -1,0 +1,69 @@
+
+
+-- LuaTools需要PROJECT和VERSION这两个信息
+PROJECT = "air302_disp_demo"
+VERSION = "1.0.0"
+
+-- sys库是标配
+_G.sys = require("sys")
+
+-- 网络灯
+local NETLED = gpio.setup(19, 0)
+
+----------------------------------------------------------------------
+-- 对接SSD1306
+function display_str(str)
+    disp.clear()
+    disp.drawStr(str, 1, 18)
+    disp.update()
+end
+
+function ui_update()
+    disp.clear() -- 清屏
+
+    disp.drawStr(os.date("%Y-%m-%d %H:%M:%S"), 1, 12) -- 写日期
+
+    disp.drawStr("Luat@Air302" .. " " .. _VERSION, 1, 24) -- 写版本号
+    if socket.isReady() then
+        disp.drawStr("net ready", 1, 36) -- 写网络状态
+    else
+        disp.drawStr("net not ready", 1, 36)
+    end
+    --disp.drawStr("rssi: " .. tostring(nbiot.rssi()), 1, 36)
+
+    disp.update()
+end
+
+-- 初始化显示屏
+log.info(TAG, "init ssd1306") -- log库是内置库,内置库均不需要require
+disp.init({mode="i2c_sw", pin0=17, pin1=18}) -- 通过GPIO17/GPIO18模拟, 也可以用硬件i2c脚
+display_str("Booting ...")
+
+sys.taskInit(function()
+    while 1 do
+        sys.wait(1000)
+        log.info("disp", "ui update", rtos.meminfo()) -- rtos是也是内置库
+        ui_update()
+    end
+end)
+
+sys.taskInit(function()
+    while 1 do
+        if socket.isReady() then
+            NETLED(1)
+            sys.wait(100)
+            NETLED(0)
+            sys.wait(1900)
+        else
+            NETLED(1)
+            sys.wait(500)
+            NETLED(0)
+            sys.wait(500)
+        end
+    end
+end)
+
+-- 用户代码已结束---------------------------------------------
+-- 结尾总是这一句
+sys.run()
+-- sys.run()之后后面不要加任何语句!!!!!

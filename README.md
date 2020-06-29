@@ -89,6 +89,7 @@ sys.run()
 * [合宙官网](http://www.openluat.com)
 * [合宙商城](http://m.openluat.com)
 * [联盛德W600/合宙Air640W专属说明](docs/markdown/bsp/w600.md)
+* [合宙Air302专属说明](bsp/air302/README.md)
 
 ----------------------------------------------------------------------------------
 ## 配套

@@ -52,7 +52,7 @@
 
 ## 模块购买
 
-1. 骑士智能Air302开发板 https://item.taobao.com/item.htm?id=621910075534
+1. 骑士智能Air302开发板(预售) https://item.taobao.com/item.htm?id=621910075534
 
 ## 详细教程
 

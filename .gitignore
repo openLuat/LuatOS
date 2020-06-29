@@ -56,3 +56,4 @@ Module.symvers
 Mkfile.old
 dkms.conf
 
+bsp/air302/FlashToolCLI/

@@ -25,7 +25,7 @@ static int luat_pwm_rtt_init() {
     name[4] = 0x00;
     
     // 搜索pwm0,pwm1,pwm2 ....
-    for (size_t i = 0; i <= DEVICE_ID_MAX; i++)
+    for (size_t i = 0; i < DEVICE_ID_MAX; i++)
     {
         name[3] = '0' + i;
         pwm_devs[i] = (struct rt_device_pwm *)rt_device_find(name);

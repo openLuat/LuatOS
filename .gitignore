@@ -58,3 +58,5 @@ dkms.conf
 
 bsp/air302/FlashToolCLI/
 bsp/air302/tmp/
+bsp/air302/local*
+*.zip

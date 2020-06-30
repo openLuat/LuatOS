@@ -22,7 +22,7 @@
 static struct rt_spi_bus_device* spi_devs[SPI_DEVICE_ID_MAX + 1];
 
 static int luat_spi_rtt_init() {
-    char name[5];
+    char name[6];
     name[0] = 's';
     name[1] = 'p';
     name[2] = 'i';
@@ -52,8 +52,8 @@ int luat_spi_exist(int id) {
 //初始化配置SPI各项参数，并打开SPI
 //成功返回0
 int luat_spi_setup(luat_spi_t* spi) {
-    char bus_name[4];
-    char device_name[4];
+    char bus_name[6];
+    char device_name[6];
     device_name[0] = bus_name[0] = 's';
     device_name[1] = bus_name[1] = 'p';
     device_name[2] = bus_name[2] = 'i';

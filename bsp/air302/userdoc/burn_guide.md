@@ -28,5 +28,5 @@
 
 ## FlashToolCLI下载地址
 
-https://gitee.com/openLuat/LuatOS/attach_files
+https://gitee.com/openLuat/LuatOS/attach_files 需要解压到air302.py所在目录,带文件夹.
 

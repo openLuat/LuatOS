@@ -24,36 +24,22 @@
 * `pwm`库提供多个PWM输出管脚,存在复用关系
 * `adc`库提供外部电平检测,内部温度检测,供电电压检测
 
-## 管脚映射表
+LuatOS大QQ群: 1061642968
 
-管脚编号对应w600芯片的管脚编号, 与GPIO编号有对应关系, 请查阅Air302硬件设计手册
+## 常用链接
 
-特别提示:
-
-1. ADC0 实际上对应通道2, 读取时应使用 `adc.read(2)`. 通道0为CPU温度, 通道1为VBAT电压.
-2. AON_GPIO2 对应 GPIO24 `gpio.setup(21,0)`
-3. AON_GPIO3 对应 GPIO23 `gpio.setup(23,0)`
-4. SPI功能暂不可用(截止到20200627,尚未支持)
-
-## 刷机工具
-
-1. LuaTools 最新版, 支持ec后缀的固件下载, 也支持lua脚本下载
-2. windows命令行工具链
-
-## 已知限制
-
-1. 鉴于较少的系统内存,请合理分配资源
-2. 尚未支持加密连接(TCP/UDP)
-3. 尚未支持远程升级功能
-
-## 注意事项
-
-部分管脚的电压是1.8v,请勿超电压范围使用.
-
-## 模块购买
-
-1. 骑士智能Air302开发板(预售) https://item.taobao.com/item.htm?id=621910075534
-
-## 详细教程
-
-TODO 敬请期待
+* [合宙官方](http://www.openluat.com)
+* [合宙商城](https://m.openluat.com)
+* [新手包(含刷机固件,文档,demo)](https://gitee.com/openLuat/LuatOS/releases)
+* API文档 敬请期待
+* [刷机说明@doc](http://doc.openluat.com/)
+* [刷机说明@gitee](https://gitee.com/openLuat/LuatOS/blob/master/bsp/air302/userdoc/burn_guide.txt)
+* [硬件资源说明@doc](http://doc.openluat.com/)
+* [硬件资源说明@gitee](https://gitee.com/openLuat/LuatOS/blob/master/bsp/air302/userdoc/hw_resources.txt)
+* [已知限制@doc](http://doc.openluat.com)
+* [已知限制@gitee](https://gitee.com/openLuat/LuatOS/blob/master/bsp/air302/userdoc/limits.txt)
+* [开发板购买@合宙商城](https://m.openluat.com)
+* [开发板购买@骑士智能](https://item.taobao.com/item.htm?id=621910075534)
+* [LuatOS源码@gitee](https://gitee.com/openLuat/LuatOS) 期待你的小星星
+* [LuatOS源码@github](https://github.com/openLuat/LuatOS) 期待你的小星星
+* [demo,长期更新](https://gitee.com/openLuat/LuatOS/tree/master/bsp/air302/demo)

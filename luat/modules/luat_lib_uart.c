@@ -188,7 +188,7 @@ static int l_uart_on(lua_State *L) {
         return 1;
     }
     const char* event = luaL_checkstring(L, 2);
-    if (!strcmp("receive", event)) {
+    if (!strcmp("receive", event) || !strcmp("recv", event)) {
         if (uart_cbs[uart_id].received != 0) {
             luaL_unref(L, LUA_REGISTRYINDEX, uart_cbs[uart_id].received);
             uart_cbs[uart_id].received = 0;

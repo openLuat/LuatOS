@@ -103,6 +103,7 @@ TODO: 构建工具链,IDE,刷机工具,等等
 * [LuaTask](https://github.com/openLuat/Luat_2G_RDA_8955) 合宙LuaTask
 * [iRTU](https://github.com/hotdll/iRTU) 基于Luat的DTU, 稀饭大神
 * [airkissOpen](https://github.com/heyuanjie87/airkissOpen) 参考其实现思路
+* [minmea](https://github.com/kosma/minmea) 解析nmea
 
 ## 授权协议
 

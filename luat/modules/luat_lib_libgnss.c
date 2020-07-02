@@ -103,15 +103,58 @@ static int l_libgnss_get_int_location(lua_State *L) {
 }
 
 static int l_libgnss_get_rmc(lua_State *L) {
+    lua_createtable(L, 0, 12);
+
+    lua_pushliteral(L, "valid");
     lua_pushboolean(L, frame_rmc.valid);
+    lua_settable(L, -3);
+
+    lua_pushliteral(L, "lat");
     lua_pushinteger(L, frame_rmc.latitude.value);
+    lua_settable(L, -3);
+
+    lua_pushliteral(L, "lng");
     lua_pushinteger(L, frame_rmc.longitude.value);
+    lua_settable(L, -3);
+
+    lua_pushliteral(L, "speed");
     lua_pushinteger(L, frame_rmc.speed.value);
+    lua_settable(L, -3);
+
+    lua_pushliteral(L, "course");
     lua_pushinteger(L, frame_rmc.course.value);
+    lua_settable(L, -3);
+
+
+    lua_pushliteral(L, "variation");
     lua_pushinteger(L, frame_rmc.variation.value);
-    lua_pushfstring(L, "%d-%d-%d", frame_rmc.date.year, frame_rmc.date.month, frame_rmc.date.day);
-    lua_pushfstring(L, "%d:%d:%d", frame_rmc.time.hours, frame_rmc.time.minutes, frame_rmc.time.seconds);
-    return 4;
+    lua_settable(L, -3);
+
+    lua_pushliteral(L, "year");
+    lua_pushinteger(L, frame_rmc.date.year + 2000);
+    lua_settable(L, -3);
+
+    lua_pushliteral(L, "month");
+    lua_pushinteger(L, frame_rmc.date.month);
+    lua_settable(L, -3);
+
+    lua_pushliteral(L, "day");
+    lua_pushinteger(L, frame_rmc.date.day);
+    lua_settable(L, -3);
+
+    lua_pushliteral(L, "hour");
+    lua_pushinteger(L, frame_rmc.time.hours);
+    lua_settable(L, -3);
+
+    lua_pushliteral(L, "min");
+    lua_pushinteger(L, frame_rmc.time.minutes);
+    lua_settable(L, -3);
+
+    lua_pushliteral(L, "sec");
+    lua_pushinteger(L, frame_rmc.time.seconds);
+    lua_settable(L, -3);
+
+    return 1;
 }
 
 #include "rotable.h"

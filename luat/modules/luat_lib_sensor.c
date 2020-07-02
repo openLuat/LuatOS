@@ -9,9 +9,6 @@
 #include "luat_log.h"
 #include "luat_timer.h"
 #include "luat_malloc.h"
-#include "rtthread.h"
-#include "rthw.h"
-#include <rtdevice.h>
 #include "luat_gpio.h"
 
 #define CONNECT_SUCCESS  0
@@ -19,9 +16,7 @@
 
 #define W1_INPUT_MODE PIN_MODE_INPUT_PULLUP
 
-RT_WEAK void luat_timer_us_delay(size_t us) {
-    rt_hw_us_delay(us);
-}
+
 
 static void w1_reset(int pin)
 {

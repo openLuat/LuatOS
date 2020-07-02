@@ -104,4 +104,6 @@ const char* luat_os_bsp(void);
 /** 停止启动,当前仅rt-thread实现有这个设置*/
 void stopboot(void);
 
+void luat_timer_us_delay(size_t us);
+
 #endif

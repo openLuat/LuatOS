@@ -1,8 +1,8 @@
 /*
-@module  socket
-@summary socket操作库
+@module  libcoap
+@summary coap数据处理
 @version 1.0
-@data    2020.03.30
+@data    2020.06.30
 */
 #include "luat_base.h"
 #include "luat_timer.h"

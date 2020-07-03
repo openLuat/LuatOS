@@ -2,7 +2,9 @@
   "rawText": "static int socket_ntp_sync(lua_State *L)",
   "summary": null,
   "modifier": "STATIC",
-  "returnType": "int",
+  "returns": [{
+      "type": "int"
+    }],
   "name": "socket_ntp_sync",
   "params": [{
       "type": "lua_State *",

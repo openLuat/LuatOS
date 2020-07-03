@@ -3,21 +3,9 @@ package org.luatos.toolkit.bean;
 import org.luatos.toolkit.Luats;
 import org.nutz.lang.Strings;
 
-public class FnParam {
-
-    private String type;
+public class FnParam extends FnReturn {
 
     private String name;
-
-    private String comment;
-
-    public String getType() {
-        return type;
-    }
-
-    public void setType(String type) {
-        this.type = type;
-    }
 
     public String getName() {
         return name;
@@ -29,14 +17,6 @@ public class FnParam {
         } else {
             this.name = name;
         }
-    }
-
-    public String getComment() {
-        return comment;
-    }
-
-    public void setComment(String comment) {
-        this.comment = comment;
     }
 
     public String toString() {
@@ -55,13 +35,12 @@ public class FnParam {
     public boolean equals(Object o) {
         if (o instanceof FnParam) {
             FnParam fp = (FnParam) o;
-            if (!Luats.isSame(this.type, fp.type))
+
+            if (!super.equals(fp)) {
                 return false;
+            }
 
             if (!Luats.isSame(this.name, fp.name))
-                return false;
-
-            if (!Luats.isSame(this.comment, fp.comment))
                 return false;
 
             return true;

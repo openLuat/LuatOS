@@ -2,8 +2,10 @@
   "rawText": "=INPUT",
   "summary": "ntp时间同步",
   "modifier": null,
-  "returnType": "int",
-  "returnComment": "启动成功返回0, 失败返回1或者2",
+  "returns": [{
+      "type": "int",
+      "comment": "启动成功返回0, 失败返回1或者2"
+    }],
   "name": "socket.ntpSync",
   "params": [{
       "type": "string",

@@ -7,6 +7,7 @@ import java.util.regex.Pattern;
 import org.luatos.toolkit.api.FnSignGenerating;
 import org.luatos.toolkit.bean.FnModifier;
 import org.luatos.toolkit.bean.FnParam;
+import org.luatos.toolkit.bean.FnReturn;
 import org.luatos.toolkit.bean.FnSign;
 import org.nutz.lang.Lang;
 import org.nutz.lang.Strings;
@@ -46,7 +47,7 @@ public class CFnSignGenerating implements FnSignGenerating {
         if ("static".equals(mod)) {
             fn.setModifier(FnModifier.STATIC);
         }
-        fn.setReturnType(retp);
+        fn.addReturn(new FnReturn(retp));
         fn.setName(name);
 
         // 分析参数
@@ -66,7 +67,7 @@ public class CFnSignGenerating implements FnSignGenerating {
                 FnParam pm = new FnParam();
                 pm.setType(pmtp);
                 pm.setName(pmnm);
-                fn.addParams(pm);
+                fn.addParam(pm);
             }
         }
 

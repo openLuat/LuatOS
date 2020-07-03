@@ -1,0 +1,8 @@
+{
+  "workdir": "D:/github/LuatOS/",
+  "entries": [{
+    "path": "luat/src/modules",
+    "suffixes": [".c"]
+  }],
+  "output": "${workdir}/docs/api/"
+}

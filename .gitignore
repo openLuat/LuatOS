@@ -60,3 +60,7 @@ bsp/air302/FlashToolCLI/
 bsp/air302/tmp/
 bsp/air302/local*
 *.zip
+tools/java/.classpath
+tools/java/.project
+tools/java/.settings/
+tools/java/target/

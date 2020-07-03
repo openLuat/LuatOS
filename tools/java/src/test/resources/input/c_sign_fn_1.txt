@@ -1,1 +1,0 @@
-void  luat_heap_init(void) {};

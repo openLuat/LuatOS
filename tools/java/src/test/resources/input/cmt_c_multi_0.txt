@@ -1,4 +1,0 @@
-/* results:
- *  -1, no space to install fatfs driver
- *  >= 0, there is an space to install littlefs driver
- */

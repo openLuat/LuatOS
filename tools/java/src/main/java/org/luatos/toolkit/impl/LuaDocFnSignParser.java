@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.luatos.toolkit.api.FnSignGenerating;
+import org.luatos.toolkit.api.FnSignParser;
 import org.luatos.toolkit.bean.FnExample;
 import org.luatos.toolkit.bean.FnParam;
 import org.luatos.toolkit.bean.FnReturn;
@@ -14,7 +14,7 @@ import org.nutz.lang.Lang;
 import org.nutz.lang.Strings;
 import org.nutz.lang.util.Regex;
 
-public class LuaDocFnSignGenerating implements FnSignGenerating {
+public class LuaDocFnSignParser implements FnSignParser {
 
     private static final int IN_SUMMARY = 0;
     private static final int IN_FUNC = 1;
@@ -24,7 +24,7 @@ public class LuaDocFnSignGenerating implements FnSignGenerating {
     private static Pattern P2 = Regex.getPattern(_r2);
 
     @Override
-    public FnSign gen(String block) {
+    public FnSign parse(String block) {
         String[] lines = block.split("\r?\n");
         List<String> summaries = new ArrayList<>(lines.length);
         String func;

@@ -2,8 +2,8 @@ package org.luatos.toolkit.api;
 
 import org.luatos.toolkit.bean.FnSign;
 
-public interface FnSignGenerating {
+public interface FnSignParser {
 
-    FnSign gen(String block);
+    FnSign parse(String block);
 
 }

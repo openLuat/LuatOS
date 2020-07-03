@@ -2,6 +2,6 @@ package org.luatos.toolkit.bean;
 
 public enum LuCmtType {
 
-    LUA_SIGN, BLOCK, LINES
-    
+    LUA_HEAD, LUA_SIGN, BLOCK, LINES
+
 }

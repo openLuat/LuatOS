@@ -71,6 +71,12 @@ public class CLuDocParser implements LuDocParser {
         String hr = Strings.dup('-', 40);
         for (Object en : entities) {
             System.out.println(hr);
+            if (en instanceof LuComment) {
+                System.out.printf("- {%s}\n", ((LuComment) en).getType());
+            } else {
+                System.out.println("- <CFunction>");
+            }
+            System.out.println(hr);
             System.out.println(en.toString());
         }
 

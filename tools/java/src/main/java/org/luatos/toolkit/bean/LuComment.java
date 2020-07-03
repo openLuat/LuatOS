@@ -26,6 +26,10 @@ public class LuComment {
         this.lines = null;
     }
 
+    public boolean isLuaHead() {
+        return LuCmtType.LUA_HEAD == this.type;
+    }
+
     public boolean isLuaSign() {
         return LuCmtType.LUA_SIGN == this.type;
     }
@@ -132,11 +136,15 @@ public class LuComment {
         }
 
         // 其他的普通行，只有多行注释才能接受
-        if (this.isBlock() || this.isLuaSign()) {
+        if (this.isBlock() || this.isLuaSign() || this.isLuaHead()) {
             lines.add(line);
             // 如果这个行是一个函数声明，那么切换特殊类型
-            if (this.isBlock() && line.startsWith("@function")) {
-                this.setType(LuCmtType.LUA_SIGN);
+            if (this.isBlock()) {
+                if (line.startsWith("@function")) {
+                    this.setType(LuCmtType.LUA_SIGN);
+                } else if (line.startsWith("@module")) {
+                    this.setType(LuCmtType.LUA_HEAD);
+                }
             }
             return true;
         }

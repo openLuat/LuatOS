@@ -1,9 +1,0 @@
-ntp时间同步
-@function    socket.ntpSync(server)
-@string ntp服务器域名,默认值ntp1.aliyun.com
-@return int 启动成功返回0, 失败返回1或者2
---  如果读取失败,会返回nil
-socket.ntpSync()
-sys.subscribe("NTP_UPDATE", function(re)
-    log.info("ntp", "result", re)
-end)

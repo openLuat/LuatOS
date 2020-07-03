@@ -36,6 +36,12 @@ static int pmain(lua_State *L) {
     luat_openlibs(L);
     //print_list_mem("begin> luat_openlibs");
 
+    size_t total; size_t used; size_t max_used;
+    luat_meminfo_luavm(&total, &used, &max_used);
+    LLOGD("luavm %ld %ld %ld", total, used, max_used);
+    luat_meminfo_sys(&total, &used, &max_used);
+    LLOGD("sys   %ld %ld %ld", total, used, max_used);
+
     lua_gc(L, LUA_GCSETPAUSE, 90); // 设置`垃圾收集器间歇率`要低于100%
     
     // 加载main.lua

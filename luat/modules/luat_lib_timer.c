@@ -2,7 +2,7 @@
 @module  timer
 @summary 操作底层定时器
 @version 1.0
-@data    2020.03.30
+@date    2020.03.30
 */
 #include "luat_base.h"
 #include "luat_log.h"

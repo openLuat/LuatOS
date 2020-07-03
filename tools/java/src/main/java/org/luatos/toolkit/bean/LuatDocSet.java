@@ -7,14 +7,14 @@ public class LuatDocSet {
 
     private String name;
 
-    private List<LuatDocument> docs;
+    private List<LuDocument> docs;
 
     public LuatDocSet(String name) {
         this.name = name;
         this.docs = new LinkedList<>();
     }
 
-    public void addDoc(LuatDocument doc) {
+    public void addDoc(LuDocument doc) {
         this.docs.add(doc);
     }
 
@@ -26,7 +26,7 @@ public class LuatDocSet {
         this.name = name;
     }
 
-    public List<LuatDocument> getDocs() {
+    public List<LuDocument> getDocs() {
         return docs;
     }
 

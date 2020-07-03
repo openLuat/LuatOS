@@ -3,11 +3,11 @@ package org.luatos.toolkit.bean;
 import java.util.LinkedList;
 import java.util.List;
 
-public class LuatDocument {
+public class LuDocument {
 
     private String path;
 
-    private LuatDocHeader title;
+    private LuDocHeader title;
 
     private List<FnSign> functions;
 
@@ -19,11 +19,11 @@ public class LuatDocument {
         this.path = path;
     }
 
-    public LuatDocHeader getTitle() {
+    public LuDocHeader getTitle() {
         return title;
     }
 
-    public void setTitle(LuatDocHeader title) {
+    public void setTitle(LuDocHeader title) {
         this.title = title;
     }
 

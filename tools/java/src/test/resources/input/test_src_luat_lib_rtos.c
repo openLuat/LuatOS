@@ -2,7 +2,7 @@
 @module  rtos
 @summary RTOS底层操作库
 @version 1.0
-@data    2020.03.30
+@date    2020.03.30
 */
 #include "luat_base.h"
 #include "luat_sys.h"

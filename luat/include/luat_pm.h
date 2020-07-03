@@ -19,3 +19,8 @@ int luat_pm_dtimer_stop(int id);
 void luat_pm_cb(int event, int arg, void* args);
 
 int luat_pm_last_state(void);
+
+int luat_pm_force(int mode);
+
+int luat_pm_check(void);
+

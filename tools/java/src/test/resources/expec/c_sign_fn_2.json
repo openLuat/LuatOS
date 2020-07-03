@@ -2,7 +2,9 @@
   "rawText": "static int socket_ntp_sync(lua_State *L)",
   "summary": null,
   "modifier": null,
-  "returnType": "void *",
+  "returns": [{
+      "type": "void *"
+    }],
   "name": "luat_rt_realloc",
   "params": [{
       "type": "void *",

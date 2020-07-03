@@ -2,7 +2,9 @@
   "rawText": "void  luat_heap_init(void)",
   "summary": null,
   "modifier": null,
-  "returnType": "void",
+  "returns": [{
+      "type": "void"
+    }],
   "name": "luat_heap_init",
   "params": [{
       "type": "void",

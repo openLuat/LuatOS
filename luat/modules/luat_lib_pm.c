@@ -1,4 +1,10 @@
 
+/*
+@module  pm
+@summary 电源管理
+@version 1.0
+@data    2020.07.02
+*/
 #include "lua.h"
 #include "lauxlib.h"
 #include "luat_base.h"
@@ -61,6 +67,16 @@ static int l_pm_last_reson(lua_State *L) {
     return 1;
 }
 
+static int l_pm_force(lua_State *L) {
+    lua_pushinteger(L, luat_pm_force(luaL_checkinteger(L, 1)));
+    return 1;
+}
+
+static int l_pm_check(lua_State *L) {
+    lua_pushinteger(L, luat_pm_check());
+    return 1;
+}
+
 static int luat_pm_msg_handler(lua_State *L, void* ptr) {
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     if (lua_event_cb == 0) {
@@ -94,6 +110,8 @@ static const rotable_Reg reg_pm[] =
     { "dtimerStart",    l_pm_dtimer_start,0},
     { "dtimerStop" ,    l_pm_dtimer_stop, 0},
     { "on",             l_pm_on,   0},
+    { "force",          l_pm_force, 0},
+    { "check",          l_pm_check, 0},
     { "lastReson",      l_pm_last_reson, 0},
     { "IDLE",           NULL, LUAT_PM_SLEEP_MODE_IDLE},
     { "LIGHT",          NULL, LUAT_PM_SLEEP_MODE_LIGHT},

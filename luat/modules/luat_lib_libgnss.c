@@ -1,4 +1,10 @@
 
+/*
+@module  libgnss
+@summary NMEA数据处理
+@version 1.0
+@data    2020.07.03
+*/
 #include "luat_base.h"
 #include "luat_msgbus.h"
 #include "luat_malloc.h"

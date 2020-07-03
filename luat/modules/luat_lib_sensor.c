@@ -6,22 +6,19 @@
 @data    2020.03.30
 */
 #include "luat_base.h"
-#include "luat_log.h"
 #include "luat_timer.h"
 #include "luat_malloc.h"
-#include "rtthread.h"
-#include "rthw.h"
-#include <rtdevice.h>
 #include "luat_gpio.h"
+
+#define LUAT_LOG_TAG "luat.sensor"
+#include "luat_log.h"
 
 #define CONNECT_SUCCESS  0
 #define CONNECT_FAILED   1
 
 #define W1_INPUT_MODE PIN_MODE_INPUT_PULLUP
 
-RT_WEAK void luat_timer_us_delay(size_t us) {
-    rt_hw_us_delay(us);
-}
+
 
 static void w1_reset(int pin)
 {
@@ -126,25 +123,32 @@ static void w1_write_byte(int pin, uint8_t dat)
     }
 }
 
-static int32_t ds18b20_get_temperature(int pin)
+static int32_t ds18b20_get_temperature(int pin, int32_t *val)
 {
     uint8_t TL, TH;
     int32_t tem;
     
     //ds18b20_start(pin);
     w1_reset(pin);
-    w1_connect(pin);
+    if (w1_connect(pin)) {
+        LLOGD("ds18b20 connect fail");
+        return -1;
+    }
     w1_write_byte(pin, 0xcc);  /* skip rom */
     w1_write_byte(pin, 0x44);  /* convert */
 
     //ds18b20_init(pin);
     w1_reset(pin);
-    w1_connect(pin);
+    if (w1_connect(pin)) {
+        LLOGD("ds18b20 connect fail");
+        return -1;
+    }
 
     w1_write_byte(pin, 0xcc);
     w1_write_byte(pin, 0xbe);
     TL = w1_read_byte(pin);    /* LSB first */
     TH = w1_read_byte(pin);
+    // TODO 9个字节都读出来,校验CRC
     if (TH > 7)
     {
         TH =~ TH;
@@ -153,7 +157,8 @@ static int32_t ds18b20_get_temperature(int pin)
         tem <<= 8;
         tem += TL;
         tem = (int32_t)(tem * 0.0625 * 10 + 0.5);
-        return -tem;
+        *val = tem;
+        return 0;
     }
     else
     {
@@ -161,7 +166,8 @@ static int32_t ds18b20_get_temperature(int pin)
         tem <<= 8;
         tem += TL;
         tem = (int32_t)(tem * 0.0625 * 10 + 0.5);
-        return tem;
+        *val = tem;
+        return 0;
     }
 }
 
@@ -174,13 +180,15 @@ static int32_t ds18b20_get_temperature(int pin)
 while 1 do sys.wait(5000) log.info("ds18b20", sensor.ds18b20(14)) end
 */
 static int l_sensor_ds18b20(lua_State *L) {
-    int32_t temp = ds18b20_get_temperature(luaL_checkinteger(L, 1));
+    int32_t val = 0;
+    int32_t ret = ds18b20_get_temperature(luaL_checkinteger(L, 1), &val);
     // -55°C ~ 125°C
-    if (temp > 1250 || temp < -550) {
+    if (ret) {
+        LLOGW("ds18b20 read fail");
         return 0;
     }
     //rt_kprintf("temp:%3d.%dC\n", temp/10, temp%10);
-    lua_pushinteger(L, temp);
+    lua_pushinteger(L, val);
     return 1;
 }
 

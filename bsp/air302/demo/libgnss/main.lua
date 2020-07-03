@@ -1,6 +1,6 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "air302_gpio_demo"
+PROJECT = "air302_libgnss_demo"
 VERSION = "1.0.0"
 
 -- sys库是标配

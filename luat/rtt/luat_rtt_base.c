@@ -22,13 +22,17 @@
 //     return n;
 // }
 
-// 打印内存状态
-void print_list_mem(const char* name) {
-    #if (DBG_LVL <= DBG_DEBUG)
-    LOG_I("check memory status, key=%s", name);
-    list_mem();
-    #endif
+RT_WEAK void luat_timer_us_delay(size_t us) {
+    rt_hw_us_delay(us);
 }
+
+// 打印内存状态
+// void print_list_mem(const char* name) {
+//     #if (DBG_LVL <= DBG_DEBUG)
+//     LOG_I("check memory status, key=%s", name);
+//     list_mem();
+//     #endif
+// }
 
 // fix for mled加密库
 // rtt的方法名称变了. rt_hwcrypto_dev_dufault --> rt_hwcrypto_dev_default
@@ -95,7 +99,7 @@ static const luaL_Reg loadedlibs[] = {
 void luat_openlibs(lua_State *L) {
     // 初始化队列服务
     luat_msgbus_init();
-    print_list_mem("done>luat_msgbus_init");
+    //print_list_mem("done>luat_msgbus_init");
     // 加载系统库
     const luaL_Reg *lib;
     /* "require" functions from 'loadedlibs' and set results to global table */

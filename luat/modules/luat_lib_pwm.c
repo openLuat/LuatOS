@@ -1,4 +1,9 @@
-
+/*
+@module  pwm
+@summary PWM模块
+@version 1.0
+@data    2020.07.03
+*/
 #include "luat_base.h"
 #include "luat_pwm.h"
 

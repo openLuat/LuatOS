@@ -14,7 +14,7 @@ import org.nutz.lang.Lang;
 import org.nutz.lang.Strings;
 import org.nutz.lang.util.Regex;
 
-public class LuaDocFnSignParser implements FnSignParser {
+public class DoxyFnSignParser implements FnSignParser {
 
     private static final int IN_SUMMARY = 0;
     private static final int IN_FUNC = 1;

@@ -12,12 +12,16 @@ public class FnReturn {
     public FnReturn() {}
 
     public FnReturn(String type) {
-        this.type = type;
+        this.setType(type);
     }
 
     public FnReturn(String type, String comment) {
-        this.type = type;
         this.comment = comment;
+        this.setType(type);
+    }
+
+    public boolean isType(String type) {
+        return Luats.isSame(this.type, type);
     }
 
     public String getType() {
@@ -25,7 +29,9 @@ public class FnReturn {
     }
 
     public void setType(String type) {
-        this.type = type;
+        if (null != type) {
+            this.type = type.replace(" ", "");
+        }
     }
 
     public String getComment() {

@@ -19,6 +19,17 @@ public class FnParam extends FnReturn {
         }
     }
 
+    public boolean isName(String name) {
+        return Luats.isSame(this.name, name);
+    }
+
+    public boolean isNameEndsWith(String name) {
+        if (null != this.name) {
+            return this.name.endsWith(name);
+        }
+        return false;
+    }
+
     public String toString() {
         String str = type;
         if (str.endsWith(" *")) {

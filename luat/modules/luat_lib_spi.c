@@ -88,6 +88,9 @@ static const rotable_Reg reg_spi[] =
     { "full",              0,                  1},
     { "half",              0,                  2},
 
+    { "SPI_0",             0,                  0},
+    { "SPI_1",             0,                  1},
+    { "SPI_2",             0,                  2},
 	{ NULL,                 NULL,              0}
 };
 

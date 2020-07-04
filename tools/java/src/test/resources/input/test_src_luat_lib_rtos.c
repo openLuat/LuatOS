@@ -228,7 +228,7 @@ static const rotable_Reg reg_rtos[] =
     // { "MSG_GPIO",           NULL,              MSG_GPIO},
     // { "MSG_UART_RX",        NULL,              MSG_UART_RX},
     // { "MSG_UART_TXDONE",    NULL,              MSG_UART_TXDONE},
-	{ NULL,                 NULL,              0}
+    { NULL,                 NULL,              0}
 };
 
 LUAMOD_API int luaopen_rtos( lua_State *L ) {

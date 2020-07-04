@@ -4,15 +4,16 @@ import java.util.ArrayList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.luatos.toolkit.api.FnSignGenerating;
+import org.luatos.toolkit.api.FnSignParser;
 import org.luatos.toolkit.bean.FnModifier;
 import org.luatos.toolkit.bean.FnParam;
+import org.luatos.toolkit.bean.FnReturn;
 import org.luatos.toolkit.bean.FnSign;
 import org.nutz.lang.Lang;
 import org.nutz.lang.Strings;
 import org.nutz.lang.util.Regex;
 
-public class CFnSignGenerating implements FnSignGenerating {
+public class CFnSignParser implements FnSignParser {
 
     private static String _r0 = "^\\s*((static)\\s+)?(\\w+(\\s*[*])?)\\s*(\\w+)\\s*\\(([^)]*)\\).*$";
     private static Pattern PT = Regex.getPattern(_r0);
@@ -21,7 +22,7 @@ public class CFnSignGenerating implements FnSignGenerating {
     private static Pattern PM = Regex.getPattern(_r1);
 
     @Override
-    public FnSign gen(String block) {
+    public FnSign parse(String block) {
         // 变成一行
         String str = block.replaceAll("\r?\n", " ");
 
@@ -46,7 +47,7 @@ public class CFnSignGenerating implements FnSignGenerating {
         if ("static".equals(mod)) {
             fn.setModifier(FnModifier.STATIC);
         }
-        fn.setReturnType(retp);
+        fn.addReturn(new FnReturn(retp));
         fn.setName(name);
 
         // 分析参数
@@ -66,7 +67,7 @@ public class CFnSignGenerating implements FnSignGenerating {
                 FnParam pm = new FnParam();
                 pm.setType(pmtp);
                 pm.setName(pmnm);
-                fn.addParams(pm);
+                fn.addParam(pm);
             }
         }
 

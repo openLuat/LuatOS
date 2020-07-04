@@ -3,7 +3,7 @@
 @module  gpio
 @summary GPIO操作
 @version 1.0
-@data    2020.03.30
+@date    2020.03.30
 */
 #include "luat_base.h"
 #include "luat_gpio.h"

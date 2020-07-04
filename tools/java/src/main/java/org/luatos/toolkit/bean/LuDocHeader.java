@@ -1,6 +1,6 @@
 package org.luatos.toolkit.bean;
 
-public class LuatDocHeader {
+public class LuDocHeader {
 
     private String module;
 

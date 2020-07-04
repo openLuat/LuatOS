@@ -2,7 +2,7 @@
 @module  spi
 @summary spi操作库
 @version 1.0
-@data    2020.04.23
+@date    2020.04.23
 */
 #include "luat_base.h"
 #include "luat_log.h"

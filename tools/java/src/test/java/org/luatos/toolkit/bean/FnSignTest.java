@@ -3,9 +3,9 @@ package org.luatos.toolkit.bean;
 import static org.junit.Assert.*;
 
 import org.junit.Test;
-import org.luatos.toolkit.api.FnSignGenerating;
-import org.luatos.toolkit.impl.CFnSignGenerating;
-import org.luatos.toolkit.impl.LuaDocFnSignGenerating;
+import org.luatos.toolkit.api.FnSignParser;
+import org.luatos.toolkit.impl.CFnSignParser;
+import org.luatos.toolkit.impl.LuaDocFnSignParser;
 import org.nutz.json.Json;
 import org.nutz.lang.Files;
 
@@ -17,8 +17,8 @@ public class FnSignTest {
         String expec = Files.read("expec/lua_cmt_fn_0.json");
         FnSign expFn = Json.fromJson(FnSign.class, expec);
 
-        FnSignGenerating fsg = new LuaDocFnSignGenerating();
-        FnSign axuFn = fsg.gen(input);
+        FnSignParser fsg = new LuaDocFnSignParser();
+        FnSign axuFn = fsg.parse(input);
         assertTrue(axuFn.equals(expFn));
     }
 
@@ -28,8 +28,8 @@ public class FnSignTest {
         String expec = Files.read("expec/lua_cmt_fn_1.json");
         FnSign expFn = Json.fromJson(FnSign.class, expec);
 
-        FnSignGenerating fsg = new LuaDocFnSignGenerating();
-        FnSign axuFn = fsg.gen(input);
+        FnSignParser fsg = new LuaDocFnSignParser();
+        FnSign axuFn = fsg.parse(input);
         assertTrue(axuFn.equals(expFn));
     }
 
@@ -39,8 +39,8 @@ public class FnSignTest {
         String expec = Files.read("expec/c_sign_fn_0.json");
         FnSign expFn = Json.fromJson(FnSign.class, expec);
 
-        FnSignGenerating fsg = new CFnSignGenerating();
-        FnSign axuFn = fsg.gen(input);
+        FnSignParser fsg = new CFnSignParser();
+        FnSign axuFn = fsg.parse(input);
         assertTrue(axuFn.equals(expFn));
     }
 
@@ -50,8 +50,8 @@ public class FnSignTest {
         String expec = Files.read("expec/c_sign_fn_1.json");
         FnSign expFn = Json.fromJson(FnSign.class, expec);
 
-        FnSignGenerating fsg = new CFnSignGenerating();
-        FnSign axuFn = fsg.gen(input);
+        FnSignParser fsg = new CFnSignParser();
+        FnSign axuFn = fsg.parse(input);
         assertTrue(axuFn.equals(expFn));
     }
 
@@ -61,8 +61,8 @@ public class FnSignTest {
         String expec = Files.read("expec/c_sign_fn_2.json");
         FnSign expFn = Json.fromJson(FnSign.class, expec);
 
-        FnSignGenerating fsg = new CFnSignGenerating();
-        FnSign axuFn = fsg.gen(input);
+        FnSignParser fsg = new CFnSignParser();
+        FnSign axuFn = fsg.parse(input);
         assertTrue(axuFn.equals(expFn));
     }
 

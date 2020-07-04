@@ -2,8 +2,10 @@
   "rawText": "=INPUT",
   "summary": "启动一个定时器",
   "modifier": null,
-  "returnType": "id",
-  "returnComment": "如果是定时器消息,会返回定时器消息id及附加信息, 其他消息由底层决定,不向lua层进行任何保证.",
+  "returns": [{
+      "type": "id",
+      "comment": "如果是定时器消息,会返回定时器消息id及附加信息, 其他消息由底层决定,不向lua层进行任何保证."
+    }],
   "name": "rtos.timer_start",
   "params": [{
       "type": "int",

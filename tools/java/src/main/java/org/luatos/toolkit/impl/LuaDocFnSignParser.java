@@ -5,15 +5,16 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.luatos.toolkit.api.FnSignGenerating;
+import org.luatos.toolkit.api.FnSignParser;
 import org.luatos.toolkit.bean.FnExample;
 import org.luatos.toolkit.bean.FnParam;
+import org.luatos.toolkit.bean.FnReturn;
 import org.luatos.toolkit.bean.FnSign;
 import org.nutz.lang.Lang;
 import org.nutz.lang.Strings;
 import org.nutz.lang.util.Regex;
 
-public class LuaDocFnSignGenerating implements FnSignGenerating {
+public class LuaDocFnSignParser implements FnSignParser {
 
     private static final int IN_SUMMARY = 0;
     private static final int IN_FUNC = 1;
@@ -23,7 +24,7 @@ public class LuaDocFnSignGenerating implements FnSignGenerating {
     private static Pattern P2 = Regex.getPattern(_r2);
 
     @Override
-    public FnSign gen(String block) {
+    public FnSign parse(String block) {
         String[] lines = block.split("\r?\n");
         List<String> summaries = new ArrayList<>(lines.length);
         String func;
@@ -69,7 +70,7 @@ public class LuaDocFnSignGenerating implements FnSignGenerating {
                 // 进入例子部分了
                 else if (line.startsWith("--")) {
                     if (null != exmLast && exmLast.hasCode()) {
-                        fn.addExamples(exmLast);
+                        fn.addExample(exmLast);
                     }
 
                     exmLast = new FnExample();
@@ -99,7 +100,7 @@ public class LuaDocFnSignGenerating implements FnSignGenerating {
                 // 追加说明
                 if (line.startsWith("--")) {
                     if (null != exmLast && exmLast.hasCode()) {
-                        fn.addExamples(exmLast);
+                        fn.addExample(exmLast);
                     }
                     if (null == exmLast) {
                         exmLast = new FnExample();
@@ -131,12 +132,12 @@ public class LuaDocFnSignGenerating implements FnSignGenerating {
                 param = new FnParam();
             }
             param.setName(pmnm);
-            fn.addParams(param);
+            fn.addParam(param);
         }
 
         // 最后一个例子
         if (null != exmLast && exmLast.hasCode()) {
-            fn.addExamples(exmLast);
+            fn.addExample(exmLast);
         }
 
         // 搞定
@@ -147,13 +148,15 @@ public class LuaDocFnSignGenerating implements FnSignGenerating {
         // 返回值
         if ("return".equals(feType)) {
             int pos = feCmt.indexOf(' ');
+            FnReturn fr = new FnReturn();
             if (pos > 0) {
-                fn.setReturnType(feCmt.substring(0, pos).trim());
-                fn.setReturnComment(feCmt.substring(pos + 1).trim());
+                fr.setType(feCmt.substring(0, pos).trim());
+                fr.setComment(feCmt.substring(pos + 1).trim());
             } else {
-                fn.setReturnType("??");
-                fn.setReturnComment(feCmt);
+                fr.setType("??");
+                fr.setComment(feCmt);
             }
+            fn.addReturn(fr);
         }
         // 参数
         else {

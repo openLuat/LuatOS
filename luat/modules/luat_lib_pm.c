@@ -3,7 +3,7 @@
 @module  pm
 @summary 电源管理
 @version 1.0
-@data    2020.07.02
+@date    2020.07.02
 */
 #include "lua.h"
 #include "lauxlib.h"

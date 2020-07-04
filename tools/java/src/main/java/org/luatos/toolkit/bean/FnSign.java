@@ -18,11 +18,9 @@ public class FnSign {
 
     private FnModifier modifier;
 
-    private String returnType;
-
-    private String returnComment;
-
     private String name;
+
+    private List<FnReturn> returns;
 
     private List<FnParam> params;
 
@@ -39,6 +37,7 @@ public class FnSign {
         if (null != modifier) {
             str += this.modifier.toString().toLowerCase() + " ";
         }
+
         String pmStr = "";
         if (null != params) {
             List<String> pms = new ArrayList<>(params.size());
@@ -47,7 +46,17 @@ public class FnSign {
             }
             pmStr = Strings.join(", ", pms);
         }
-        str += String.format("%s %s(%s)", returnType, name, pmStr);
+
+        String res = "";
+        if (null != returns) {
+            List<String> reList = new ArrayList<>(this.returns.size());
+            for (FnReturn re : returns) {
+                reList.add(re.getType());
+            }
+            res = Strings.join(",", reList);
+        }
+
+        str += String.format("%s %s(%s)", res, name, pmStr);
 
         return str;
     }
@@ -69,13 +78,10 @@ public class FnSign {
         if (!Luats.isSame(this.modifier, fn.modifier))
             return false;
 
-        if (!Luats.isSame(this.returnType, fn.returnType))
-            return false;
-
-        if (!Luats.isSame(this.returnComment, fn.returnComment))
-            return false;
-
         if (!Luats.isSame(this.name, fn.name))
+            return false;
+
+        if (!Luats.isSameList(this.returns, fn.returns))
             return false;
 
         if (!Luats.isSameList(this.params, fn.params))
@@ -119,28 +125,27 @@ public class FnSign {
         this.modifier = modifier;
     }
 
-    public String getReturnType() {
-        return returnType;
-    }
-
-    public void setReturnType(String returnType) {
-        this.returnType = returnType;
-    }
-
-    public String getReturnComment() {
-        return returnComment;
-    }
-
-    public void setReturnComment(String returnComment) {
-        this.returnComment = returnComment;
-    }
-
     public String getName() {
         return name;
     }
 
     public void setName(String name) {
         this.name = name;
+    }
+
+    public List<FnReturn> getReturns() {
+        return returns;
+    }
+
+    public void setReturns(List<FnReturn> returns) {
+        this.returns = returns;
+    }
+
+    public void addReturn(FnReturn fr) {
+        if (null == this.returns) {
+            this.returns = new LinkedList<>();
+        }
+        this.returns.add(fr);
     }
 
     public List<FnParam> getParams() {
@@ -151,7 +156,7 @@ public class FnSign {
         this.params = params;
     }
 
-    public void addParams(FnParam param) {
+    public void addParam(FnParam param) {
         if (null == this.params) {
             this.params = new LinkedList<>();
         }
@@ -166,7 +171,7 @@ public class FnSign {
         this.examples = examples;
     }
 
-    public void addExamples(FnExample example) {
+    public void addExample(FnExample example) {
         if (null == this.examples) {
             this.examples = new LinkedList<>();
         }

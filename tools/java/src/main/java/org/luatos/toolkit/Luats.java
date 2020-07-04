@@ -2,6 +2,8 @@ package org.luatos.toolkit;
 
 import java.util.Iterator;
 import java.util.List;
+import org.luatos.toolkit.bean.LuComment;
+import org.nutz.lang.Strings;
 
 public abstract class Luats {
 
@@ -40,6 +42,21 @@ public abstract class Luats {
             return false;
         }
         return true;
+    }
+
+    public static void printEntities(List<Object> entities) {
+        // 测试打印一下
+        String hr = Strings.dup('-', 40);
+        for (Object en : entities) {
+            System.out.println(hr);
+            if (en instanceof LuComment) {
+                System.out.printf("- {%s}\n", ((LuComment) en).getType());
+            } else {
+                System.out.println("- <CFunction>");
+            }
+            System.out.println("-");
+            System.out.println(en.toString());
+        }
     }
 
 }

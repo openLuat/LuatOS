@@ -18,7 +18,7 @@ public class CFnSignParser implements FnSignParser {
     private static String _r0 = "^\\s*((static)\\s+)?(\\w+(\\s*[*])?)\\s*(\\w+)\\s*\\(([^)]*)\\).*$";
     private static Pattern PT = Regex.getPattern(_r0);
 
-    private static String _r1 = "^(([\\w\\d]+)(\\s+[*])?)\\s*([\\w\\d]*)$";
+    private static String _r1 = "^(([\\w\\d]+)(\\s*[*])?)\\s*([\\w\\d]*)$";
     private static Pattern PM = Regex.getPattern(_r1);
 
     @Override
@@ -60,7 +60,7 @@ public class CFnSignParser implements FnSignParser {
             for (String s : ss) {
                 m = PM.matcher(s);
                 if (!m.find()) {
-                    throw Lang.makeThrow("invalid CFunction [" + block + "] param", s);
+                    throw Lang.makeThrow("invalid CFunction '" + block + "' param<%s>", s);
                 }
                 String pmtp = m.group(1);
                 String pmnm = m.group(4);

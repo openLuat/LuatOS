@@ -1,13 +1,13 @@
 {
-  "rawText": "static int socket_ntp_sync(lua_State *L)",
+  "rawText": "void *luat_rt_realloc(void *rmem, rt_size_t newsize);",
   "summary": null,
   "modifier": null,
   "returns": [{
-      "type": "void *"
+      "type": "void*"
     }],
   "name": "luat_rt_realloc",
   "params": [{
-      "type": "void *",
+      "type": "void*",
       "name": "rmem"
     }, {
       "type": "rt_size_t",

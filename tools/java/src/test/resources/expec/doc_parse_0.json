@@ -1,0 +1,234 @@
+{
+   "head": {
+      "module": "rtos",
+      "summary": "RTOS底层操作库",
+      "version": "1.0",
+      "date": "2020.03.30"
+   },
+   "functions": [{
+      "summary": "接受并处理底层消息队列.",
+      "name": "rtos.receive",
+      "returns": [{
+         "type": "msgid",
+         "comment": "如果是定时器消息,会返回定时器消息id及附加信息, 其他消息由底层决定,不向lua层进行任何保证."
+      }],
+      "params": [{
+         "name": "timeout",
+         "type": "int",
+         "comment": "超时时长,通常是-1,永久等待"
+      }],
+      "examples": [{
+         "summary": ["本方法通过sys.run()调用, 普通用户不要使用"],
+         "code": ["rtos.receive(-1)"]
+      }],
+      "refer": {
+         "rawText": "static int l_rtos_receive(lua_State *L) {",
+         "modifier": "STATIC",
+         "name": "l_rtos_receive",
+         "returns": [{
+            "type": "int"
+         }],
+         "params": [{
+            "name": "L",
+            "type": "lua_State*"
+         }]
+      }
+   }, {
+      "rawText": "static int l_timer_handler(lua_State *L, void* ptr) {",
+      "modifier": "STATIC",
+      "name": "l_timer_handler",
+      "returns": [{
+         "type": "int"
+      }],
+      "params": [{
+         "name": "L",
+         "type": "lua_State*"
+      }, {
+         "name": "ptr",
+         "type": "void*"
+      }]
+   }, {
+      "summary": "启动一个定时器",
+      "name": "rtos.timer_start",
+      "returns": [{
+         "type": "id",
+         "comment": "如果是定时器消息,会返回定时器消息id及附加信息, 其他消息由底层决定,不向lua层进行任何保证."
+      }],
+      "params": [{
+         "name": "id",
+         "type": "int",
+         "comment": "定时器id"
+      }, {
+         "name": "timeout",
+         "type": "int",
+         "comment": "超时时长,单位毫秒"
+      }, {
+         "name": "_repeat",
+         "type": "int",
+         "comment": "重复次数,默认是0"
+      }],
+      "examples": [{
+         "summary": ["用户代码请使用 sys.timerStart", "启动一个3秒的循环定时器"],
+         "code": ["rtos.timer_start(10000, 3000, -1)"]
+      }],
+      "refer": {
+         "rawText": "static int l_rtos_timer_start(lua_State *L) {",
+         "modifier": "STATIC",
+         "name": "l_rtos_timer_start",
+         "returns": [{
+            "type": "int"
+         }],
+         "params": [{
+            "name": "L",
+            "type": "lua_State*"
+         }]
+      }
+   }, {
+      "summary": "关闭并释放一个定时器",
+      "name": "rtos.timer_stop",
+      "returns": [{
+         "type": "nil",
+         "comment": "无返回值"
+      }],
+      "params": [{
+         "name": "id",
+         "type": "int",
+         "comment": "定时器id"
+      }],
+      "examples": [{
+         "summary": ["用户代码请使用sys.timerStop"],
+         "code": ["rtos.timer_stop(100000)"]
+      }],
+      "refer": {
+         "rawText": "static int l_rtos_timer_stop(lua_State *L) {",
+         "modifier": "STATIC",
+         "name": "l_rtos_timer_stop",
+         "returns": [{
+            "type": "int"
+         }],
+         "params": [{
+            "name": "L",
+            "type": "lua_State*"
+         }]
+      }
+   }, {
+      "summary": "设备重启",
+      "name": "rtos.reboot",
+      "returns": [{
+         "type": "nil",
+         "comment": "无返回值"
+      }],
+      "examples": [{
+         "summary": ["立即重启设备"],
+         "code": ["rtos.reboot()"]
+      }],
+      "refer": {
+         "rawText": "static int l_rtos_reboot(lua_State *L) {",
+         "modifier": "STATIC",
+         "name": "l_rtos_reboot",
+         "returns": [{
+            "type": "int"
+         }],
+         "params": [{
+            "name": "L",
+            "type": "lua_State*"
+         }]
+      }
+   }, {
+      "rawText": "static int l_rtos_build_date(lua_State *L) {",
+      "modifier": "STATIC",
+      "name": "l_rtos_build_date",
+      "returns": [{
+         "type": "int"
+      }],
+      "params": [{
+         "name": "L",
+         "type": "lua_State*"
+      }]
+   }, {
+      "summary": "获取硬件bsp型号",
+      "name": "rtos.bsp",
+      "returns": [{
+         "type": "string",
+         "comment": "硬件bsp型号"
+      }],
+      "examples": [{
+         "summary": ["获取编译日期"],
+         "code": ["local bsp = rtos.bsp()"]
+      }],
+      "refer": {
+         "rawText": "static int l_rtos_bsp(lua_State *L) {",
+         "modifier": "STATIC",
+         "name": "l_rtos_bsp",
+         "returns": [{
+            "type": "int"
+         }],
+         "params": [{
+            "name": "L",
+            "type": "lua_State*"
+         }]
+      }
+   }, {
+      "summary": " 获取固件版本号",
+      "name": "rtos.version",
+      "returns": [{
+         "type": "string",
+         "comment": "固件版本号,例如\"1.0.2\""
+      }],
+      "examples": [{
+         "summary": ["读取版本号"],
+         "code": ["local luatos_version = rtos.version()"]
+      }],
+      "refer": {
+         "rawText": "static int l_rtos_version(lua_State *L) {",
+         "modifier": "STATIC",
+         "name": "l_rtos_version",
+         "returns": [{
+            "type": "int"
+         }],
+         "params": [{
+            "name": "L",
+            "type": "lua_State*"
+         }]
+      }
+   }, {
+      "summary": "进入待机模式(部分设备可用,例如w60x)",
+      "name": "rtos.standy",
+      "returns": [{
+         "type": "nil",
+         "comment": "无返回值"
+      }],
+      "params": [{
+         "name": "timeout",
+         "type": "int",
+         "comment": "休眠时长,单位毫秒"
+      }],
+      "examples": [{
+         "summary": ["读取版本号"],
+         "code": ["local luatos_version = rtos.version()"]
+      }],
+      "refer": {
+         "rawText": "static int l_rtos_standy(lua_State *L) {",
+         "modifier": "STATIC",
+         "name": "l_rtos_standy",
+         "returns": [{
+            "type": "int"
+         }],
+         "params": [{
+            "name": "L",
+            "type": "lua_State*"
+         }]
+      }
+   }, {
+      "rawText": "static int l_rtos_meminfo(lua_State *L) {",
+      "modifier": "STATIC",
+      "name": "l_rtos_meminfo",
+      "returns": [{
+         "type": "int"
+      }],
+      "params": [{
+         "name": "L",
+         "type": "lua_State*"
+      }]
+   }]
+}

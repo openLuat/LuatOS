@@ -26,6 +26,8 @@ public class FnSign {
 
     private List<FnExample> examples;
 
+    private FnSign refer;
+
     public String toString() {
         String str = "";
         if (!Strings.isBlank(rawText)) {
@@ -133,6 +135,21 @@ public class FnSign {
         this.name = name;
     }
 
+    public boolean isName(String name) {
+        return Luats.isSame(this.name, name);
+    }
+
+    public boolean isNameEndsWith(String name) {
+        if (null != this.name) {
+            return this.name.endsWith(name);
+        }
+        return false;
+    }
+
+    public boolean hasReturns() {
+        return null != this.returns && !this.returns.isEmpty();
+    }
+
     public List<FnReturn> getReturns() {
         return returns;
     }
@@ -146,6 +163,25 @@ public class FnSign {
             this.returns = new LinkedList<>();
         }
         this.returns.add(fr);
+    }
+
+    public int getReturnCount() {
+        if (null != this.returns) {
+            return this.returns.size();
+        }
+        return 0;
+    }
+
+    public boolean isReturnMatch(int index, String type) {
+        if (index >= 0 && index < this.getReturnCount()) {
+            FnReturn fr = this.returns.get(index);
+            return fr.isType(type);
+        }
+        return false;
+    }
+
+    public boolean hasParams() {
+        return null != this.params && !this.params.isEmpty();
     }
 
     public List<FnParam> getParams() {
@@ -163,6 +199,30 @@ public class FnSign {
         this.params.add(param);
     }
 
+    public int getParamsCount() {
+        if (null != this.params) {
+            return this.params.size();
+        }
+        return 0;
+    }
+
+    public boolean isParamMatch(int index, String type, String name) {
+        if (index >= 0 && index < this.getParamsCount()) {
+            FnParam fp = this.params.get(index);
+            if (!fp.isType(type))
+                return false;
+            if (!fp.isName(name))
+                return false;
+
+            return true;
+        }
+        return false;
+    }
+
+    public boolean hasExamples() {
+        return null != this.examples && !this.examples.isEmpty();
+    }
+
     public List<FnExample> getExamples() {
         return examples;
     }
@@ -176,6 +236,18 @@ public class FnSign {
             this.examples = new LinkedList<>();
         }
         this.examples.add(example);
+    }
+
+    public boolean hasRefer() {
+        return null != this.refer;
+    }
+
+    public FnSign getRefer() {
+        return refer;
+    }
+
+    public void setRefer(FnSign refer) {
+        this.refer = refer;
     }
 
 }

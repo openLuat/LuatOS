@@ -1,6 +1,7 @@
 {
   "rawText": "void *luat_rt_realloc(void *rmem, rt_size_t newsize);",
   "summary": null,
+  "lang": "C",
   "modifier": null,
   "returns": [{
       "type": "void*"

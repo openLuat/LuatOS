@@ -16,7 +16,9 @@ public class FnSign {
 
     private String summary;
 
-    private FnModifier modifier;
+    private FnLang lang;
+
+    private String modifier;
 
     private String name;
 
@@ -30,9 +32,6 @@ public class FnSign {
 
     public String toString() {
         String str = "";
-        if (!Strings.isBlank(rawText)) {
-            str += rawText + "\n-----------------------------\n";
-        }
         if (null != summary) {
             str += "/*\n" + summary + "\n*/\n";
         }
@@ -60,6 +59,42 @@ public class FnSign {
 
         str += String.format("%s %s(%s)", res, name, pmStr);
 
+        if (!Strings.isBlank(rawText)) {
+            str += "\n-----------\nraw:\n" + rawText;
+        }
+
+        return str;
+    }
+
+    public String toSignature() {
+        String str = "";
+        if (null != modifier) {
+            str += this.modifier.toString().toLowerCase() + " ";
+        }
+
+        String pmStr = "";
+        if (null != params) {
+            List<String> pms = new ArrayList<>(params.size());
+            for (FnParam pm : params) {
+                pms.add(pm.toSignature(this.isLangC()));
+            }
+            pmStr = Strings.join(", ", pms);
+        }
+
+        String res = "";
+        if (null != returns && this.isLangC()) {
+            List<String> reList = new ArrayList<>(this.returns.size());
+            for (FnReturn re : returns) {
+                reList.add(re.toSignature());
+            }
+            res = Strings.join(",", reList);
+            if (!res.endsWith("*")) {
+                res += " ";
+            }
+        }
+
+        str += String.format("%s%s(%s)", res, name, pmStr);
+
         return str;
     }
 
@@ -77,6 +112,9 @@ public class FnSign {
                 return false;
             }
         }
+        if (!Luats.isSame(this.lang, fn.lang))
+            return false;
+
         if (!Luats.isSame(this.modifier, fn.modifier))
             return false;
 
@@ -103,6 +141,10 @@ public class FnSign {
         this.rawText = rawText;
     }
 
+    public boolean hasSummary() {
+        return !Strings.isBlank(summary);
+    }
+
     public String getSummary() {
         return summary;
     }
@@ -111,20 +153,51 @@ public class FnSign {
         this.summary = comment;
     }
 
+    public boolean isLangC() {
+        return FnLang.C == this.lang;
+    }
+
+    public boolean isLangLua() {
+        return FnLang.LUA == this.lang;
+    }
+
+    public FnLang getLang() {
+        return lang;
+    }
+
+    public String getLangName() {
+        return null == lang ? "" : lang.toString().toLowerCase();
+    }
+
+    public void setLang(FnLang type) {
+        this.lang = type;
+    }
+
     public boolean isLocal() {
-        return FnModifier.LOCAL == this.modifier;
+        return this.isModifier("local");
     }
 
     public boolean isStatic() {
-        return FnModifier.STATIC == this.modifier;
+        return this.isModifier("static");
     }
 
-    public FnModifier getModifier() {
+    public boolean isModifier(String mod) {
+        if (null != this.modifier) {
+            return this.modifier.contains(mod);
+        }
+        return false;
+    }
+
+    public String getModifier() {
         return modifier;
     }
 
-    public void setModifier(FnModifier modifier) {
-        this.modifier = modifier;
+    public void setModifier(String mod) {
+        if (!Strings.isBlank(mod)) {
+            this.modifier = Strings.trim(mod);
+        } else {
+            this.modifier = null;
+        }
     }
 
     public String getName() {

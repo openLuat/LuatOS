@@ -1,6 +1,7 @@
 {
   "rawText": "void  luat_heap_init(void)",
   "summary": null,
+  "lang": "C",
   "modifier": null,
   "returns": [{
       "type": "void"

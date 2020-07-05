@@ -1,6 +1,7 @@
 {
   "rawText": "=INPUT",
   "summary": "ntp时间同步",
+  "lang": "LUA",
   "modifier": null,
   "returns": [{
       "type": "int",

@@ -1,0 +1,288 @@
+{
+  "head": {
+     "module": "socket",
+     "summary": "socket操作库",
+     "version": "1.0",
+     "date": "2020.03.30"
+  },
+  "functions": [{
+     "rawText": "static int socket_ntp_sync(lua_State *L) {",
+     "lang": "C",
+     "modifier": "static",
+     "name": "socket_ntp_sync",
+     "returns": [{
+        "type": "int"
+     }],
+     "params": [{
+        "name": "L",
+        "type": "lua_State*"
+     }]
+  }, {
+     "rawText": "static int sal_tls_test(lua_State *L)",
+     "lang": "C",
+     "modifier": "static",
+     "name": "sal_tls_test",
+     "returns": [{
+        "type": "int"
+     }],
+     "params": [{
+        "name": "L",
+        "type": "lua_State*"
+     }]
+  }, {
+     "rawText": "static int l_socket_is_ready(lua_State *L) {",
+     "lang": "C",
+     "modifier": "static",
+     "name": "l_socket_is_ready",
+     "returns": [{
+        "type": "int"
+     }],
+     "params": [{
+        "name": "L",
+        "type": "lua_State*"
+     }]
+  }, {
+     "rawText": "static int l_socket_selfip(lua_State *L) {",
+     "lang": "C",
+     "modifier": "static",
+     "name": "l_socket_selfip",
+     "returns": [{
+        "type": "int"
+     }],
+     "params": [{
+        "name": "L",
+        "type": "lua_State*"
+     }]
+  }, {
+     "rawText": "static int luat_lib_netc_msg_handler(lua_State* L, void* ptr) {",
+     "lang": "C",
+     "modifier": "static",
+     "name": "luat_lib_netc_msg_handler",
+     "returns": [{
+        "type": "int"
+     }],
+     "params": [{
+        "name": "L",
+        "type": "lua_State*"
+     }, {
+        "name": "ptr",
+        "type": "void*"
+     }]
+  }, {
+     "rawText": "static int luat_lib_socket_new(lua_State* L, int netc_type);",
+     "lang": "C",
+     "modifier": "static",
+     "name": "luat_lib_socket_new",
+     "returns": [{
+        "type": "int"
+     }],
+     "params": [{
+        "name": "L",
+        "type": "lua_State*"
+     }, {
+        "name": "netc_type",
+        "type": "int"
+     }]
+  }, {
+     "rawText": "static int luat_lib_socket_ent_handler(netc_ent_t* ent) {",
+     "lang": "C",
+     "modifier": "static",
+     "name": "luat_lib_socket_ent_handler",
+     "returns": [{
+        "type": "int"
+     }],
+     "params": [{
+        "name": "ent",
+        "type": "netc_ent_t*"
+     }]
+  }, {
+     "rawText": "static int luat_lib_socket_tcp(lua_State* L) {",
+     "summary": "----------------------------------------------------------------",
+     "lang": "C",
+     "modifier": "static",
+     "name": "luat_lib_socket_tcp",
+     "returns": [{
+        "type": "int"
+     }],
+     "params": [{
+        "name": "L",
+        "type": "lua_State*"
+     }]
+  }, {
+     "summary": "新建一个udp socket",
+     "lang": "LUA",
+     "name": "socket.udp",
+     "refer": {
+        "rawText": "static int luat_lib_socket_udp(lua_State* L) {",
+        "lang": "C",
+        "modifier": "static",
+        "name": "luat_lib_socket_udp",
+        "returns": [{
+           "type": "int"
+        }],
+        "params": [{
+           "name": "L",
+           "type": "lua_State*"
+        }]
+     }
+  }, {
+     "rawText": "static int luat_lib_socket_new(lua_State* L, int netc_type) {",
+     "lang": "C",
+     "modifier": "static",
+     "name": "luat_lib_socket_new",
+     "returns": [{
+        "type": "int"
+     }],
+     "params": [{
+        "name": "L",
+        "type": "lua_State*"
+     }, {
+        "name": "netc_type",
+        "type": "int"
+     }]
+  }, {
+     "rawText": "static int netc_connect(lua_State *L) {",
+     "lang": "C",
+     "modifier": "static",
+     "name": "netc_connect",
+     "returns": [{
+        "type": "int"
+     }],
+     "params": [{
+        "name": "L",
+        "type": "lua_State*"
+     }]
+  }, {
+     "rawText": "static int netc_close(lua_State *L) {",
+     "lang": "C",
+     "modifier": "static",
+     "name": "netc_close",
+     "returns": [{
+        "type": "int"
+     }],
+     "params": [{
+        "name": "L",
+        "type": "lua_State*"
+     }]
+  }, {
+     "rawText": "static int netc_send(lua_State *L) {",
+     "lang": "C",
+     "modifier": "static",
+     "name": "netc_send",
+     "returns": [{
+        "type": "int"
+     }],
+     "params": [{
+        "name": "L",
+        "type": "lua_State*"
+     }]
+  }, {
+     "rawText": "static int netc_gc(lua_State *L) {",
+     "lang": "C",
+     "modifier": "static",
+     "name": "netc_gc",
+     "returns": [{
+        "type": "int"
+     }],
+     "params": [{
+        "name": "L",
+        "type": "lua_State*"
+     }]
+  }, {
+     "rawText": "static int netc_tostring(lua_State *L) {",
+     "lang": "C",
+     "modifier": "static",
+     "name": "netc_tostring",
+     "returns": [{
+        "type": "int"
+     }],
+     "params": [{
+        "name": "L",
+        "type": "lua_State*"
+     }]
+  }, {
+     "rawText": "static int netc_id(lua_State *L) {",
+     "lang": "C",
+     "modifier": "static",
+     "name": "netc_id",
+     "returns": [{
+        "type": "int"
+     }],
+     "params": [{
+        "name": "L",
+        "type": "lua_State*"
+     }]
+  }, {
+     "rawText": "static int netc_host(lua_State *L) {",
+     "lang": "C",
+     "modifier": "static",
+     "name": "netc_host",
+     "returns": [{
+        "type": "int"
+     }],
+     "params": [{
+        "name": "L",
+        "type": "lua_State*"
+     }]
+  }, {
+     "rawText": "static int netc_port(lua_State *L) {",
+     "lang": "C",
+     "modifier": "static",
+     "name": "netc_port",
+     "returns": [{
+        "type": "int"
+     }],
+     "params": [{
+        "name": "L",
+        "type": "lua_State*"
+     }]
+  }, {
+     "rawText": "static int netc_clean(lua_State *L) {",
+     "lang": "C",
+     "modifier": "static",
+     "name": "netc_clean",
+     "returns": [{
+        "type": "int"
+     }],
+     "params": [{
+        "name": "L",
+        "type": "lua_State*"
+     }]
+  }, {
+     "rawText": "static int netc_on(lua_State *L) {",
+     "lang": "C",
+     "modifier": "static",
+     "name": "netc_on",
+     "returns": [{
+        "type": "int"
+     }],
+     "params": [{
+        "name": "L",
+        "type": "lua_State*"
+     }]
+  }, {
+     "rawText": "static int netc_closed(lua_State *L) {",
+     "lang": "C",
+     "modifier": "static",
+     "name": "netc_closed",
+     "returns": [{
+        "type": "int"
+     }],
+     "params": [{
+        "name": "L",
+        "type": "lua_State*"
+     }]
+  }, {
+     "rawText": "static void createmeta (lua_State *L) {",
+     "lang": "C",
+     "modifier": "static",
+     "name": "createmeta",
+     "returns": [{
+        "type": "void"
+     }],
+     "params": [{
+        "name": "L",
+        "type": "lua_State*"
+     }]
+  }]
+}

@@ -7,6 +7,7 @@
    },
    "functions": [{
       "summary": "接受并处理底层消息队列.",
+      "lang": "LUA",
       "name": "rtos.receive",
       "returns": [{
          "type": "msgid",
@@ -23,7 +24,8 @@
       }],
       "refer": {
          "rawText": "static int l_rtos_receive(lua_State *L) {",
-         "modifier": "STATIC",
+         "lang": "C",
+         "modifier": "static",
          "name": "l_rtos_receive",
          "returns": [{
             "type": "int"
@@ -35,7 +37,8 @@
       }
    }, {
       "rawText": "static int l_timer_handler(lua_State *L, void* ptr) {",
-      "modifier": "STATIC",
+      "lang": "C",
+      "modifier": "static",
       "name": "l_timer_handler",
       "returns": [{
          "type": "int"
@@ -49,6 +52,7 @@
       }]
    }, {
       "summary": "启动一个定时器",
+      "lang": "LUA",
       "name": "rtos.timer_start",
       "returns": [{
          "type": "id",
@@ -73,7 +77,8 @@
       }],
       "refer": {
          "rawText": "static int l_rtos_timer_start(lua_State *L) {",
-         "modifier": "STATIC",
+         "lang": "C",
+         "modifier": "static",
          "name": "l_rtos_timer_start",
          "returns": [{
             "type": "int"
@@ -85,11 +90,8 @@
       }
    }, {
       "summary": "关闭并释放一个定时器",
+      "lang": "LUA",
       "name": "rtos.timer_stop",
-      "returns": [{
-         "type": "nil",
-         "comment": "无返回值"
-      }],
       "params": [{
          "name": "id",
          "type": "int",
@@ -101,7 +103,8 @@
       }],
       "refer": {
          "rawText": "static int l_rtos_timer_stop(lua_State *L) {",
-         "modifier": "STATIC",
+         "lang": "C",
+         "modifier": "static",
          "name": "l_rtos_timer_stop",
          "returns": [{
             "type": "int"
@@ -113,18 +116,16 @@
       }
    }, {
       "summary": "设备重启",
+      "lang": "LUA",
       "name": "rtos.reboot",
-      "returns": [{
-         "type": "nil",
-         "comment": "无返回值"
-      }],
       "examples": [{
          "summary": ["立即重启设备"],
          "code": ["rtos.reboot()"]
       }],
       "refer": {
          "rawText": "static int l_rtos_reboot(lua_State *L) {",
-         "modifier": "STATIC",
+         "lang": "C",
+         "modifier": "static",
          "name": "l_rtos_reboot",
          "returns": [{
             "type": "int"
@@ -136,7 +137,8 @@
       }
    }, {
       "rawText": "static int l_rtos_build_date(lua_State *L) {",
-      "modifier": "STATIC",
+      "lang": "C",
+      "modifier": "static",
       "name": "l_rtos_build_date",
       "returns": [{
          "type": "int"
@@ -147,6 +149,7 @@
       }]
    }, {
       "summary": "获取硬件bsp型号",
+      "lang": "LUA",
       "name": "rtos.bsp",
       "returns": [{
          "type": "string",
@@ -158,7 +161,8 @@
       }],
       "refer": {
          "rawText": "static int l_rtos_bsp(lua_State *L) {",
-         "modifier": "STATIC",
+         "lang": "C",
+         "modifier": "static",
          "name": "l_rtos_bsp",
          "returns": [{
             "type": "int"
@@ -170,6 +174,7 @@
       }
    }, {
       "summary": " 获取固件版本号",
+      "lang": "LUA",
       "name": "rtos.version",
       "returns": [{
          "type": "string",
@@ -181,7 +186,8 @@
       }],
       "refer": {
          "rawText": "static int l_rtos_version(lua_State *L) {",
-         "modifier": "STATIC",
+         "lang": "C",
+         "modifier": "static",
          "name": "l_rtos_version",
          "returns": [{
             "type": "int"
@@ -193,11 +199,8 @@
       }
    }, {
       "summary": "进入待机模式(部分设备可用,例如w60x)",
+      "lang": "LUA",
       "name": "rtos.standy",
-      "returns": [{
-         "type": "nil",
-         "comment": "无返回值"
-      }],
       "params": [{
          "name": "timeout",
          "type": "int",
@@ -209,7 +212,8 @@
       }],
       "refer": {
          "rawText": "static int l_rtos_standy(lua_State *L) {",
-         "modifier": "STATIC",
+         "lang": "C",
+         "modifier": "static",
          "name": "l_rtos_standy",
          "returns": [{
             "type": "int"
@@ -221,7 +225,8 @@
       }
    }, {
       "rawText": "static int l_rtos_meminfo(lua_State *L) {",
-      "modifier": "STATIC",
+      "lang": "C",
+      "modifier": "static",
       "name": "l_rtos_meminfo",
       "returns": [{
          "type": "int"

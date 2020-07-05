@@ -7,6 +7,7 @@ import java.util.regex.Pattern;
 
 import org.luatos.toolkit.api.FnSignParser;
 import org.luatos.toolkit.bean.FnExample;
+import org.luatos.toolkit.bean.FnLang;
 import org.luatos.toolkit.bean.FnParam;
 import org.luatos.toolkit.bean.FnReturn;
 import org.luatos.toolkit.bean.FnSign;
@@ -20,7 +21,7 @@ public class DoxyFnSignParser implements FnSignParser {
     private static final int IN_FUNC = 1;
     private static final int IN_EXAMPLE = 2;
 
-    private static String _r2 = "^\\s*([\\w\\d.]+)\\s*(\\(([^)]*)\\))?.*$";
+    private static String _r2 = "^\\s*([\\w\\d.:]+)\\s*(\\(([^)]*)\\))?.*$";
     private static Pattern P2 = Regex.getPattern(_r2);
 
     @Override
@@ -37,6 +38,7 @@ public class DoxyFnSignParser implements FnSignParser {
 
         // 准备返回值
         FnSign fn = new FnSign();
+        fn.setLang(FnLang.LUA);
 
         // 三种状态
         int mode = IN_SUMMARY;
@@ -109,6 +111,9 @@ public class DoxyFnSignParser implements FnSignParser {
                 }
                 // 那就是例子代码咯
                 else {
+                    if (null == exmLast) {
+                        exmLast = new FnExample();
+                    }
                     exmLast.appendCode(line);
                 }
             }
@@ -136,7 +141,7 @@ public class DoxyFnSignParser implements FnSignParser {
         }
 
         // 最后一个例子
-        if (null != exmLast && exmLast.hasCode()) {
+        if (null != exmLast) {
             fn.addExample(exmLast);
         }
 
@@ -149,13 +154,22 @@ public class DoxyFnSignParser implements FnSignParser {
         if ("return".equals(feType)) {
             int pos = feCmt.indexOf(' ');
             FnReturn fr = new FnReturn();
+            String type = null;
+            String cmt = null;
             if (pos > 0) {
-                fr.setType(feCmt.substring(0, pos).trim());
-                fr.setComment(feCmt.substring(pos + 1).trim());
+                type = feCmt.substring(0, pos).trim();
+                cmt = feCmt.substring(pos + 1).trim();
             } else {
-                fr.setType("??");
-                fr.setComment(feCmt);
+                type = "??";
+                cmt = feCmt.trim();
             }
+            if ("nil".equalsIgnoreCase(type)
+                || "nil".equalsIgnoreCase(cmt)
+                || Strings.isBlank(type)) {
+                return;
+            }
+            fr.setType(type);
+            fr.setComment(cmt);
             fn.addReturn(fr);
         }
         // 参数

@@ -1,0 +1,15 @@
+{
+  "rawText": "static void lfs1_superblock_fromle32(struct lfs1_disk_superblock *d) {",
+  "summary": null,
+  "lang": "C",
+  "modifier": "static",
+  "returns": [{
+      "type": "void"
+    }],
+  "name": "lfs1_superblock_fromle32",
+  "params": [{
+      "modifier": "struct",
+      "type": "lfs1_disk_superblock*",
+      "name": "d"
+    }]
+}

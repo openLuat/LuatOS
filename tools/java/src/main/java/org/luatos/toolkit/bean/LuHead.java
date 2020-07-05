@@ -18,6 +18,10 @@ public class LuHead {
 
     private String date;
 
+    public boolean hasTitle() {
+        return !Strings.isBlank(title);
+    }
+
     public String getTitle() {
         return title;
     }

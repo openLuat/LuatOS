@@ -1,0 +1,1 @@
+ static inline bool lfs_pair_isnull(const lfs_block_t pair[2]) {

@@ -1,0 +1,1 @@
+static void fixhex(const char* source, char* dst, size_t len) {

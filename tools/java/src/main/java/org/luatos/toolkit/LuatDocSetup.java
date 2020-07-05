@@ -4,6 +4,8 @@ public class LuatDocSetup {
 
     private String workdir;
 
+    private String[] as;
+
     private LuatDocEntry[] entries;
 
     private String output;
@@ -16,8 +18,20 @@ public class LuatDocSetup {
         this.workdir = workdir;
     }
 
+    public String[] getAs() {
+        return as;
+    }
+
+    public void setAs(String[] as) {
+        this.as = as;
+    }
+
     public LuatDocEntry[] getEntries() {
         return entries;
+    }
+
+    public int getEntryCount() {
+        return null != entries ? entries.length : 0;
     }
 
     public void setEntries(LuatDocEntry[] entries) {

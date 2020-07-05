@@ -1,7 +1,8 @@
 {
   "rawText": "static int l_timer_handler(lua_State *L, void* ptr) {",
   "summary": null,
-  "modifier": "STATIC",
+  "lang": "C",
+  "modifier": "static",
   "returns": [{
       "type": "int"
     }],

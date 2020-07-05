@@ -1,0 +1,17 @@
+{
+  "rawText": "static inline void lfs_cache_drop(lfs_t *lfs, lfs_cache_t *rcache) {",
+  "summary": null,
+  "lang": "C",
+  "modifier": "static inline",
+  "returns": [{
+      "type": "void"
+    }],
+  "name": "lfs_cache_drop",
+  "params": [{
+      "type": "lfs_t*",
+      "name": "lfs"
+    }, {
+      "type": "lfs_cache_t*",
+      "name": "rcache"
+    }]
+}

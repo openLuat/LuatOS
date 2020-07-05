@@ -1,0 +1,1 @@
+ static void lfs1_superblock_fromle32(struct lfs1_disk_superblock *d) {

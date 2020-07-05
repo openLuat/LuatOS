@@ -9,6 +9,8 @@ import org.nutz.lang.util.Regex;
 
 public class LuComment {
 
+    private boolean closed;
+
     private int space;
 
     private LuCmtType type;
@@ -62,6 +64,14 @@ public class LuComment {
         this.type = type;
     }
 
+    public boolean isClosed() {
+        return closed;
+    }
+
+    public void setClosed(boolean closed) {
+        this.closed = closed;
+    }
+
     public List<String> getLines() {
         return lines;
     }
@@ -76,12 +86,18 @@ public class LuComment {
 
     /**
      * @param line
-     * @return true 还可以再尝试接受输入。 false 已经关闭了
+     * @return LuCmtAppend
      */
-    public boolean appendLine(String line) {
+    public LuCmtAppend appendLine(String line) {
         if (null == lines) {
             lines = new LinkedList<>();
         }
+
+        // 已经关闭了
+        if (this.closed) {
+            return LuCmtAppend.REJECT;
+        }
+
         Matcher m;
 
         // 单行注释
@@ -93,12 +109,12 @@ public class LuComment {
             }
             // 必须自己也是单行注释
             else if (!this.isLines()) {
-                return false;
+                return LuCmtAppend.REJECT;
             }
 
             // 成功加入
             lines.add(m.group(3));
-            return true;
+            return LuCmtAppend.ACCEPT;
         }
 
         // 多行注释:
@@ -113,7 +129,7 @@ public class LuComment {
             }
             // 必须自己也是块注释
             else if (!this.isBlock()) {
-                return false;
+                return LuCmtAppend.REJECT;
             }
             // 成功加入
             String str = m.group(3);
@@ -121,7 +137,7 @@ public class LuComment {
             if (!Strings.isBlank(str) || !this.isEmpty()) {
                 lines.add(str);
             }
-            return true;
+            return LuCmtAppend.ACCEPT;
         }
 
         // 多行注释: 结尾
@@ -132,7 +148,8 @@ public class LuComment {
                 if (!Strings.isBlank(str))
                     lines.add(str);
             }
-            return false;
+            this.closed = true;
+            return LuCmtAppend.CLOSED;
         }
 
         // 其他的普通行，只有多行注释才能接受
@@ -146,16 +163,16 @@ public class LuComment {
                     this.setType(LuCmtType.LUA_HEAD);
                 }
             }
-            return true;
+            return LuCmtAppend.ACCEPT;
         }
 
-        return false;
+        return LuCmtAppend.REJECT;
     }
 
     public void parse(String block) {
         String[] ss = block.split("\r?\n");
         for (String s : ss) {
-            if (!this.appendLine(s)) {
+            if (LuCmtAppend.ACCEPT != this.appendLine(s)) {
                 return;
             }
         }

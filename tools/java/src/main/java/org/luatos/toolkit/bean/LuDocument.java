@@ -40,6 +40,8 @@ public class LuDocument {
     public void setDefaultTitle(String title) {
         if (null == head) {
             head = new LuHead();
+        }
+        if (!head.hasTitle()) {
             head.setTitle(title);
         }
     }
@@ -53,8 +55,8 @@ public class LuDocument {
     public void setPath(String path) {
         if (null == head) {
             head = new LuHead();
-            head.setPath(path);
         }
+        head.setPath(path);
     }
 
     public boolean hasFunctions() {

@@ -1,6 +1,7 @@
 {
   "rawText": "=INPUT",
   "summary": "启动一个定时器",
+  "lang": "LUA",
   "modifier": null,
   "returns": [{
       "type": "id",

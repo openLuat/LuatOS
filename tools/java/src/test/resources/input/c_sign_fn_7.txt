@@ -1,0 +1,1 @@
+  static inline void lfs_cache_drop(lfs_t *lfs, lfs_cache_t *rcache) {

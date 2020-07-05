@@ -1,8 +1,30 @@
 {
   "workdir": "D:/github/LuatOS/",
+  "as": ["md"],
   "entries": [{
-    "path": "luat/src/modules",
-    "suffixes": [".c"]
+    "title": "核心模块",
+    "path": "luat/modules",
+    "suffix": [".c"],
+    "out": "${name}",
+    "deep": true
+  }, {
+    "title": "扩展函数包",
+    "path": "luat/packages",
+    "suffix": [".c"],
+    "out": "${name}",
+    "deep": true
+  }, {
+    "title": "FreeRTOS扩展",
+    "path": "luat/freertos",
+    "suffix": [".c"],
+    "out": "${name}",
+    "deep": true
+  }, {
+    "title": "RT-Thread扩展",
+    "path": "luat/rtt",
+    "suffix": [".c"],
+    "out": "${name}",
+    "deep": true
   }],
   "output": "${workdir}/docs/api/"
 }

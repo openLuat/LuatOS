@@ -9,6 +9,20 @@ public class FnReturn {
 
     protected String comment;
 
+    protected String modifier;
+
+    public String getModifier() {
+        return modifier;
+    }
+
+    public void setModifier(String mod) {
+        if (!Strings.isBlank(mod)) {
+            this.modifier = Strings.trim(mod);
+        } else {
+            this.modifier = null;
+        }
+    }
+
     public FnReturn() {}
 
     public FnReturn(String type) {
@@ -24,6 +38,10 @@ public class FnReturn {
         return Luats.isSame(this.type, type);
     }
 
+    public boolean hasType() {
+        return !Strings.isBlank(type);
+    }
+
     public String getType() {
         return type;
     }
@@ -32,6 +50,10 @@ public class FnReturn {
         if (null != type) {
             this.type = type.replace(" ", "");
         }
+    }
+
+    public boolean hasComment() {
+        return !Strings.isBlank(comment);
     }
 
     public String getComment() {
@@ -47,12 +69,27 @@ public class FnReturn {
         if (!Strings.isBlank(comment)) {
             str += "/* " + comment + " */";
         }
+        if (null != this.modifier) {
+            return this.modifier.toString().toLowerCase() + " " + str;
+        }
+        return str;
+    }
+
+    public String toSignature() {
+        String str = this.hasType() ? this.type : "";
+        if (null != this.modifier) {
+            return this.modifier.toLowerCase() + " " + str;
+        }
         return str;
     }
 
     public boolean equals(Object o) {
         if (o instanceof FnReturn) {
             FnReturn fr = (FnReturn) o;
+
+            if (!Luats.isSame(this.modifier, fr.modifier))
+                return false;
+
             if (!Luats.isSame(this.type, fr.type))
                 return false;
 

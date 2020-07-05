@@ -1,11 +1,12 @@
 package org.luatos.toolkit.impl;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.luatos.toolkit.api.FnSignParser;
-import org.luatos.toolkit.bean.FnModifier;
+import org.luatos.toolkit.bean.FnLang;
 import org.luatos.toolkit.bean.FnParam;
 import org.luatos.toolkit.bean.FnReturn;
 import org.luatos.toolkit.bean.FnSign;
@@ -15,11 +16,8 @@ import org.nutz.lang.util.Regex;
 
 public class CFnSignParser implements FnSignParser {
 
-    private static String _r0 = "^\\s*((static)\\s+)?(\\w+(\\s*[*])?)\\s*(\\w+)\\s*\\(([^)]*)\\).*$";
+    private static String _r0 = "^\\s*((((static|local|inline)\\s+)*))?\\s*(\\w+(\\s*[*])?)\\s*(\\w+)\\s*\\(([^)]*)\\).*$";
     private static Pattern PT = Regex.getPattern(_r0);
-
-    private static String _r1 = "^(([\\w\\d]+)(\\s*[*])?)\\s*([\\w\\d]*)$";
-    private static Pattern PM = Regex.getPattern(_r1);
 
     @Override
     public FnSign parse(String block) {
@@ -36,19 +34,19 @@ public class CFnSignParser implements FnSignParser {
 
         // 提取值
         String mod = m.group(2);
-        String retp = m.group(3);
-        String name = m.group(5);
-        String params = m.group(6);
+        String retp = m.group(5);
+        String name = m.group(7);
+        String params = m.group(8);
 
         // 准备返回
         FnSign fn = new FnSign();
         fn.setRawText(block);
+        fn.setLang(FnLang.C);
 
-        if ("static".equals(mod)) {
-            fn.setModifier(FnModifier.STATIC);
-        }
-        fn.addReturn(new FnReturn(retp));
+        fn.setModifier(mod);
         fn.setName(name);
+
+        fn.addReturn(new FnReturn(retp));
 
         // 分析参数
         String[] ss = Strings.splitIgnoreBlank(params);
@@ -58,15 +56,43 @@ public class CFnSignParser implements FnSignParser {
         // 循环判断参数
         else {
             for (String s : ss) {
-                m = PM.matcher(s);
-                if (!m.find()) {
-                    throw Lang.makeThrow("invalid CFunction '" + block + "' param<%s>", s);
+                String[] mm = Strings.splitIgnoreBlank(s, "\\s+");
+                String md = null;
+                String tp = null;
+                String nm = null;
+                // 只有一个
+                if (1 == mm.length) {
+                    nm = mm[0];
                 }
-                String pmtp = m.group(1);
-                String pmnm = m.group(4);
+                // 两个的话，那么前面一个是类型
+                else if (2 == mm.length) {
+                    tp = mm[0];
+                    nm = mm[1];
+                }
+                // 超过两个，第一个是类型，最后一个是名称
+                else {
+                    int last = mm.length - 1;
+                    md = mm[0];
+                    String[] tps = Arrays.copyOfRange(mm, 1, last);
+                    tp = Strings.join(" ", tps);
+                    nm = mm[last];
+                }
+                // 弄一下指针
+                if (nm.startsWith("*")) {
+                    nm = nm.substring(1).trim();
+                    tp += "*";
+                }
+                // void 类型
+                if (null == tp && "void".equals(nm)) {
+                    tp = nm;
+                    nm = null;
+                }
+
+                // 生成参数对象
                 FnParam pm = new FnParam();
-                pm.setType(pmtp);
-                pm.setName(pmnm);
+                pm.setModifier(md);
+                pm.setType(tp);
+                pm.setName(nm);
                 fn.addParam(pm);
             }
         }

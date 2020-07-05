@@ -7,6 +7,10 @@ public class FnParam extends FnReturn {
 
     private String name;
 
+    public boolean hasName() {
+        return !Strings.isBlank(name);
+    }
+
     public String getName() {
         return name;
     }
@@ -31,16 +35,37 @@ public class FnParam extends FnReturn {
     }
 
     public String toString() {
-        String str = type;
-        if (str.endsWith(" *")) {
-            str += name;
-        } else {
-            str += " " + name;
-        }
+        String str = toTypeName();
         if (!Strings.isBlank(comment)) {
             str += "/* " + comment + " */";
         }
         return str;
+    }
+
+    private String toTypeName() {
+        String str = null == name ? "" : name;
+        if (!Strings.isBlank(type)) {
+            if (type.endsWith("*")) {
+                str = type.substring(0, type.length() - 1) + " *" + str;
+            } else if (Strings.isBlank(str)) {
+                str = type;
+            } else {
+                str = type + " " + str;
+            }
+        }
+        if (null != this.modifier) {
+            return this.modifier.toLowerCase() + " " + str;
+        }
+        return str;
+    }
+
+    public String toSignature(boolean withType) {
+        if (withType) {
+            if (this.hasType()) {
+                return this.toTypeName();
+            }
+        }
+        return this.name;
     }
 
     public boolean equals(Object o) {

@@ -7,65 +7,115 @@ version: 1.0
 date: 2020.07.03
 ---
 --------------------------------------------------
-# l_adc_open
+# adc.open
+
+```lua
+adc.open(id)
+```
+
+*
+打开adc通道
+
+## 参数表
+
+Name | Type | Description
+-----|------|--------------
+**id**|`int`| 通道id,与具体设备有关,通常从0开始
+
+## 返回值
+
+No. | Type | Description
+----|------|--------------
+1 |`boolean`| 打开结果
+
+## 调用示例
+
+```lua
+-- 打开adc通道2,并读取
+if adc.open(2) then
+    log.info("adc", adc.read(2))
+end
+adc.close(2)
+```
+## C API
 
 ```c
 static int l_adc_open(lua_State *L)
 ```
 
 
+--------------------------------------------------
+# adc.read
+
+```lua
+adc.read(id)
+```
+
+*
+读取adc通道
+
 ## 参数表
 
 Name | Type | Description
 -----|------|--------------
-**L**|`lua_State*`| *无*
+**id**|`int`| 通道id,与具体设备有关,通常从0开始
 
 ## 返回值
 
 No. | Type | Description
 ----|------|--------------
-1 |`int`| *无*
+1 |`int`| 原始值
+2 |`int`| 计算后的值
 
+## 调用示例
 
---------------------------------------------------
-# l_adc_read
+```lua
+-- 打开adc通道2,并读取
+if adc.open(2) then
+    log.info("adc", adc.read(2))
+end
+adc.close(2)
+```
+## C API
 
 ```c
 static int l_adc_read(lua_State *L)
 ```
 
 
+--------------------------------------------------
+# adc.close
+
+```lua
+adc.close(id)
+```
+
+*
+关闭adc通道
+
 ## 参数表
 
 Name | Type | Description
 -----|------|--------------
-**L**|`lua_State*`| *无*
+**id**|`null`| *无*
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`int`| *无*
+> *无返回值*
 
+## 调用示例
 
---------------------------------------------------
-# l_adc_close
+```lua
+-- 打开adc通道2,并读取
+if adc.open(2) then
+    log.info("adc", adc.read(2))
+end
+adc.close(2)
+```
+## C API
 
 ```c
 static int l_adc_close(lua_State *L)
 ```
-
-
-## 参数表
-
-Name | Type | Description
------|------|--------------
-**L**|`lua_State*`| *无*
-
-## 返回值
-
-No. | Type | Description
-----|------|--------------
-1 |`int`| *无*
 
 

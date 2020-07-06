@@ -18,6 +18,15 @@ static void fixhex(const char* source, char* dst, size_t len) {
     }
 }
 
+/**
+计算md5值
+@function crypto.md5(str)
+@string 需要计算的字符串
+@return string 计算得出的md5值的hex字符串
+@usage
+-- 计算字符串"abc"的md5
+log.info("md5", crypto.md5("abc"))
+ */
 static int l_crypto_md5(lua_State *L) {
     size_t size = 0;
     const char* str = luaL_checklstring(L, 1, &size);
@@ -31,6 +40,16 @@ static int l_crypto_md5(lua_State *L) {
     return 0;
 }
 
+/**
+计算hmac_md5值
+@function crypto.hmac_md5(str, key)
+@string 需要计算的字符串
+@string 密钥
+@return string 计算得出的hmac_md5值的hex字符串
+@usage
+-- 计算字符串"abc"的hmac_md5
+log.info("hmac_md5", crypto.hmac_md5("abc", "1234567890"))
+ */
 static int l_crypto_hmac_md5(lua_State *L) {
     size_t str_size = 0;
     size_t key_size = 0;
@@ -46,7 +65,15 @@ static int l_crypto_hmac_md5(lua_State *L) {
     return 0;
 }
 
-
+/**
+计算sha1值
+@function crypto.sha1(str)
+@string 需要计算的字符串
+@return string 计算得出的sha1值的hex字符串
+@usage
+-- 计算字符串"abc"的sha1
+log.info("sha1", crypto.sha1("abc"))
+ */
 static int l_crypto_sha1(lua_State *L) {
     size_t size = 0;
     const char* str = luaL_checklstring(L, 1, &size);
@@ -60,6 +87,16 @@ static int l_crypto_sha1(lua_State *L) {
     return 0;
 }
 
+/**
+计算hmac_sha1值
+@function crypto.hmac_sha1(str, key)
+@string 需要计算的字符串
+@string 密钥
+@return string 计算得出的hmac_sha1值的hex字符串
+@usage
+-- 计算字符串"abc"的hmac_sha1
+log.info("hmac_sha1", crypto.hmac_sha1("abc", "1234567890"))
+ */
 static int l_crypto_hmac_sha1(lua_State *L) {
     size_t str_size = 0;
     size_t key_size = 0;

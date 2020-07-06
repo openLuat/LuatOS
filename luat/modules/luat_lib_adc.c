@@ -8,6 +8,18 @@
 #include "luat_base.h"
 #include "luat_adc.h"
 
+/**
+打开adc通道
+@function adc.open(id)
+@int 通道id,与具体设备有关,通常从0开始
+@return boolean 打开结果
+@usage
+-- 打开adc通道2,并读取
+if adc.open(2) then
+    log.info("adc", adc.read(2))
+end
+adc.close(2)
+ */
 static int l_adc_open(lua_State *L) {
     if (luat_adc_open(luaL_checkinteger(L, 1), NULL) == 0) {
         lua_pushboolean(L, 1);
@@ -17,6 +29,20 @@ static int l_adc_open(lua_State *L) {
     }
     return 1;
 }
+
+/**
+读取adc通道
+@function adc.read(id)
+@int 通道id,与具体设备有关,通常从0开始
+@return int 原始值
+@return int 计算后的值
+@usage
+-- 打开adc通道2,并读取
+if adc.open(2) then
+    log.info("adc", adc.read(2))
+end
+adc.close(2)
+ */
 static int l_adc_read(lua_State *L) {
     int val = 0xFF;
     int val2 = 0xFF;
@@ -31,6 +57,16 @@ static int l_adc_read(lua_State *L) {
     }
 }
 
+/**
+关闭adc通道
+@function adc.close(id)
+@usage
+-- 打开adc通道2,并读取
+if adc.open(2) then
+    log.info("adc", adc.read(2))
+end
+adc.close(2)
+ */
 static int l_adc_close(lua_State *L) {
     luat_adc_close(luaL_checkinteger(L, 1));
     return 0;

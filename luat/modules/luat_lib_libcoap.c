@@ -103,7 +103,19 @@ static void addopt(luat_lib_libcoap_t* _coap, uint8_t opt_type, const char* valu
     _coap->optSize += idx;
 }
 
-// libcoap.new(libcoap.GET, "time", {}, nil)
+/**
+创建一个coap数据包
+@function libcoap.new(code, uri, headers, payload)
+@int coap的code, 例如libcoap.GET/libcoap.POST/libcoap.PUT/libcoap.DELETE
+@string 目标URI,必须填写, 不需要加上/开头
+@table 请求头,类似于http的headers,可选
+@string 请求体,类似于http的body,可选
+@return userdata coap数据包
+@usage
+-- 创建一个请求服务器time的数据包
+local coapdata = libcoap.new(libcoap.GET, "time")
+local data = coapdata:rawdata()
+ */
 static int l_libcoap_new(lua_State* L) {
     luat_lib_libcoap_t* _coap;
 
@@ -111,6 +123,7 @@ static int l_libcoap_new(lua_State* L) {
     _coap = (luat_lib_libcoap_t*)lua_newuserdata(L, sizeof(luat_lib_libcoap_t));
     if (_coap == NULL)
     {
+        LLOGW("out of memory!!!");
         return 0;
     }
 
@@ -148,6 +161,16 @@ static int l_libcoap_new(lua_State* L) {
     return 1;
 }
 
+/**
+解析coap数据包
+@function libcoap.parse(str)
+@string coap数据包
+@return userdata coap数据包,如果解析失败会返回nil
+@usage
+-- 解析服务器传入的数据包
+local coapdata = libcoap.parse(indata)
+log.info("coapdata", coapdata:hcode(), coapdata:data())
+ */
 static int l_libcoap_parse(lua_State* L) {
     size_t len;
     const char* buff = luaL_checklstring(L, 1, &len);
@@ -219,6 +242,15 @@ static int l_libcoap_parse(lua_State* L) {
 //---------------------------------------------
 #define tocoap(L)	((luat_lib_libcoap_t *)luaL_checkudata(L, 1, LUAT_COAP_HANDLE))
 
+/**
+获取coap数据包的msgid
+@function coapdata:msgid()
+@return int coap数据包的msgid
+@usage
+-- 解析服务器传入的数据包
+local coapdata = libcoap.parse(indata)
+log.info("coapdata", coapdata:msgid())
+ */
 static int libcoap_msgid(lua_State *L) {
     luat_lib_libcoap_t *_coap = tocoap(L);
     if (_coap == NULL) {
@@ -231,6 +263,15 @@ static int libcoap_msgid(lua_State *L) {
     return 1;
 }
 
+/**
+获取coap数据包的token
+@function coapdata:token()
+@return string coap数据包的token
+@usage
+-- 解析服务器传入的数据包
+local coapdata = libcoap.parse(indata)
+log.info("coapdata", coapdata:token())
+ */
 static int libcoap_token(lua_State *L) {
     luat_lib_libcoap_t *_coap = tocoap(L);
     if (_coap == NULL) {
@@ -244,6 +285,15 @@ static int libcoap_token(lua_State *L) {
     return 1;
 }
 
+/**
+获取coap数据包的二进制数据,用于发送到服务器
+@function coapdata:rawdata()
+@return string coap数据包的二进制数据
+@usage
+-- 解析服务器传入的数据包
+local coapdata = libcoap.new(libcoap.GET, "time")
+netc:send(coapdata:rawdata())
+ */
 static int libcoap_rawdata(lua_State *L) {
     luat_lib_libcoap_t *_coap = tocoap(L);
     if (_coap == NULL) {
@@ -291,6 +341,15 @@ static int libcoap_rawdata(lua_State *L) {
     return 1;
 }
 
+/**
+获取coap数据包的code
+@function coapdata:code()
+@return int coap数据包的code
+@usage
+-- 解析服务器传入的数据包
+local coapdata = libcoap.parse(indata)
+log.info("coapdata", coapdata:code())
+ */
 static int libcoap_code(lua_State *L) {
     luat_lib_libcoap_t *_coap = tocoap(L);
     if (_coap == NULL) {
@@ -303,6 +362,15 @@ static int libcoap_code(lua_State *L) {
     return 1;
 }
 
+/**
+获取coap数据包的http code, 比coap原始的code要友好
+@function coapdata:hcode()
+@return int coap数据包的http code,例如200,205,404
+@usage
+-- 解析服务器传入的数据包
+local coapdata = libcoap.parse(indata)
+log.info("coapdata", coapdata:hcode())
+ */
 static int libcoap_httpcode(lua_State *L) {
     luat_lib_libcoap_t *_coap = tocoap(L);
     if (_coap == NULL) {
@@ -315,6 +383,16 @@ static int libcoap_httpcode(lua_State *L) {
     return 1;
 }
 
+/**
+获取coap数据包的type, 例如libcoap.CON/NON/ACK/RST
+@function coapdata:type(t)
+@int 新的type值,可选
+@return int coap数据包的type
+@usage
+-- 解析服务器传入的数据包
+local coapdata = libcoap.parse(indata)
+log.info("coapdata", coapdata:type())
+ */
 static int libcoap_type(lua_State *L) {
     luat_lib_libcoap_t *_coap = tocoap(L);
     if (_coap == NULL) {
@@ -323,10 +401,22 @@ static int libcoap_type(lua_State *L) {
         lua_error(L);
         return 0;
     }
+    if (lua_isinteger(L, 1)) {
+        _coap->header.type = luaL_checkinteger(L, 1);
+    }
     lua_pushinteger(L, _coap->header.type);
     return 1;
 }
 
+/**
+获取coap数据包的data
+@function coapdata:data()
+@return string coap数据包的data
+@usage
+-- 解析服务器传入的数据包
+local coapdata = libcoap.parse(indata)
+log.info("coapdata", coapdata:data())
+ */
 static int libcoap_data(lua_State *L) {
     luat_lib_libcoap_t *_coap = tocoap(L);
     if (_coap == NULL) {

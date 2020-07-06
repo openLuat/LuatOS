@@ -63,6 +63,15 @@ static int parse_nmea(const char* line) {
     return 0;
 }
 
+/**
+处理nmea数据
+@function libgnss.parse(str)
+@string nmea数据
+@usage
+-- 解析nmea
+libgnss.parse(indata)
+log.info("nmea", json.encode(libgnss.getRmc()))
+ */
 static int l_libgnss_parse(lua_State *L) {
     size_t len = 0;
     const char* str = luaL_checklstring(L, 1, &len);
@@ -90,11 +99,31 @@ static int l_libgnss_parse(lua_State *L) {
     return 0;
 }
 
+/**
+当前是否已经定位成功
+@function libgnss.isFix()
+@return boolean 定位成功与否
+@usage
+-- 解析nmea
+libgnss.parse(indata)
+log.info("nmea", "isFix", libgnss.isFix())
+ */
 static int l_libgnss_is_fix(lua_State *L) {
     lua_pushboolean(L, frame_rmc.valid);
     return 1;
 }
 
+/**
+获取位置信息
+@function libgnss.getIntLocation()
+@return int lat数据, 格式为 ddmmmmmmm
+@return int lng数据, 格式为 ddmmmmmmm
+@return int speed数据
+@usage
+-- 解析nmea
+libgnss.parse(indata)
+log.info("nmea", "loc", libgnss.getIntLocation())
+ */
 static int l_libgnss_get_int_location(lua_State *L) {
     if (frame_rmc.valid) {
         lua_pushinteger(L, frame_rmc.latitude.value);
@@ -108,6 +137,15 @@ static int l_libgnss_get_int_location(lua_State *L) {
     return 3;
 }
 
+/**
+获取原始RMC位置信息
+@function libgnss.getRmc()
+@return table 原始rmc数据
+@usage
+-- 解析nmea
+libgnss.parse(indata)
+log.info("nmea", "rmc", json.encode(libgnss.getRmc()))
+ */
 static int l_libgnss_get_rmc(lua_State *L) {
     lua_createtable(L, 0, 12);
 

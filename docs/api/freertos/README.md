@@ -1,7 +1,7 @@
 ---
-title: FreeRTOS扩展
+title: FreeRTOS集成
 ---
 
-# FreeRTOS扩展
+# FreeRTOS集成
 
 - [luat_timer_freertos](luat_timer_freertos.md)

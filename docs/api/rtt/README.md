@@ -1,8 +1,8 @@
 ---
-title: RT-Thread扩展
+title: RT-Thread集成
 ---
 
-# RT-Thread扩展
+# RT-Thread集成
 
 - [luat_gpio_rtt](luat_gpio_rtt.md)
 - [luat_i2c_rtt](luat_i2c_rtt.md)

@@ -35,7 +35,7 @@ public class LuatDocGenerator {
         log.info(HR0);
         log.infof("# Luat Document Generator");
         log.infof("# v1.0");
-        log.infof("# @auth Nutz Team");
+        log.infof("# @auth LuatOS Team");
         log.infof("# @since 2020");
         log.info(HR0);
         // .....................................................

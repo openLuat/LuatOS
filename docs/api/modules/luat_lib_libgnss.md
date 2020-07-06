@@ -28,24 +28,37 @@ No. | Type | Description
 
 
 --------------------------------------------------
-# l_libgnss_parse
+# libgnss.parse
 
-```c
-static int l_libgnss_parse(lua_State *L)
+```lua
+libgnss.parse(str)
 ```
 
+*
+处理nmea数据
 
 ## 参数表
 
 Name | Type | Description
 -----|------|--------------
-**L**|`lua_State*`| *无*
+**str**|`string`| nmea数据
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`int`| *无*
+> *无返回值*
+
+## 调用示例
+
+```lua
+-- 解析nmea
+libgnss.parse(indata)
+log.info("nmea", json.encode(libgnss.getRmc()))
+```
+## C API
+
+```c
+static int l_libgnss_parse(lua_State *L)
+```
 
 
 --------------------------------------------------

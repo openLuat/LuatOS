@@ -1,13 +1,14 @@
 ---
-title: 核心模块
+title: LuaAPI模块
 ---
 
-# 核心模块
+# LuaAPI模块
 
 - [luat_lib_adc](luat_lib_adc.md)
 - [luat_lib_crypto](luat_lib_crypto.md)
 - [luat_lib_disp](luat_lib_disp.md)
 - [luat_lib_gpio](luat_lib_gpio.md)
+- [luat_lib_http](luat_lib_http.md)
 - [luat_lib_i2c](luat_lib_i2c.md)
 - [luat_lib_libcoap](luat_lib_libcoap.md)
 - [luat_lib_libgnss](luat_lib_libgnss.md)

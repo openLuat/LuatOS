@@ -45,7 +45,7 @@ int l_gpio_handler(lua_State *L, void* ptr) {
 
 /*
 设置管脚功能
-@funtion gpio.setup(pin, mode, pull)
+@function gpio.setup(pin, mode, pull)
 @int pin 针脚编号,必须是数值
 @any mode 输入输出模式. 数字0/1代表输出模式,nil代表输入模式,function代表中断模式
 @int pull 上拉下列模式, 可以是gpio.PULLUP 或 gpio.PULLDOWN, 需要根据实际硬件选用
@@ -127,7 +127,7 @@ static int l_gpio_setup(lua_State *L) {
 
 /*
 设置管脚电平
-@api gpio.set(pin, value)
+@function gpio.set(pin, value)
 @int pin 针脚编号,必须是数值
 @int value 电平, 可以是 高电平gpio.HIGH, 低电平gpio.LOW, 或者直接写数值1或0
 @return nil
@@ -145,7 +145,7 @@ static int l_gpio_set(lua_State *L) {
 
 /*
 获取管脚电平
-@api gpio.get(pin)
+@function gpio.get(pin)
 @int pin 针脚编号,必须是数值
 @return value 电平, 高电平gpio.HIGH, 低电平gpio.LOW, 对应数值1和0
 @usage 
@@ -162,7 +162,7 @@ static int l_gpio_get(lua_State *L) {
 
 /*
 关闭管脚功能(高阻输入态),关掉中断
-@api gpio.close(pin)
+@function gpio.close(pin)
 @int pin 针脚编号,必须是数值
 @return nil 无返回值,总是执行成功
 @usage

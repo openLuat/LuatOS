@@ -351,10 +351,14 @@ function mqttc:connect(host, port, transport, cert, timeout)
     local result, linked = sys.waitUntil(connect_topic, 15000)
     if not result then
         log.info("mqtt", "connect timeout")
+        self.io:clean()
+        self.io:close()
         return false
     end
     if not linked  or self.io:closed() == 1 then
         log.info("mqtt", "connect fail", result, linked, self.io:closed() == 1)
+        self.io:clean()
+        self.io:close()
         return false
     end
     --log.info("mqtt", "send packCONNECT")

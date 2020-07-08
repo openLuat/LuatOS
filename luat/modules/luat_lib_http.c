@@ -158,6 +158,13 @@ static int l_http_reqcommon(lua_State *L, uint8_t method) {
     //req->url[req->url_len] = 0x0;
     //LLOGD("URL = %s", req->url);
 
+    
+    // 先取一下回调
+    if (lua_isfunction(L, 3)) {
+        lua_settop(L, 3);
+        req->luacb = luaL_ref(L, LUA_REGISTRYINDEX);
+    }
+
     if (lua_istable(L, 2)) {
         lua_settop(L, 2);
         
@@ -175,17 +182,17 @@ static int l_http_reqcommon(lua_State *L, uint8_t method) {
         lua_pop(L, 1);
 
         // 取callback
-        lua_pushliteral(L, "cb");
-        lua_gettable(L, -2);
-        if (!lua_isnil(L, -1) && !lua_isfunction(L, -1)) {
-            lua_pop(L, 1);
-            lua_pushliteral(L, "cb must be function");
-            lua_error(L);
-            return 0;
-        }
-        else
-            req->luacb = luaL_checkinteger(L, -1);
-        lua_pop(L, 1);
+        // lua_pushliteral(L, "cb");
+        // lua_gettable(L, -2);
+        // if (!lua_isnil(L, -1) && !lua_isfunction(L, -1)) {
+        //     lua_pop(L, 1);
+        //     lua_pushliteral(L, "cb must be function");
+        //     lua_error(L);
+        //     return 0;
+        // }
+        // else
+        //     req->luacb = luaL_checkinteger(L, -1);
+        // lua_pop(L, 1);
 
         // 取headers
 

@@ -104,6 +104,7 @@ TODO: 构建工具链,IDE,刷机工具,等等
 * [iRTU](https://github.com/hotdll/iRTU) 基于Luat的DTU, 稀饭大神
 * [airkissOpen](https://github.com/heyuanjie87/airkissOpen) 参考其实现思路
 * [minmea](https://github.com/kosma/minmea) 解析nmea
+* [u8g2_wqy](https://github.com/larryli/u8g2_wqy) u8g2的中文字体
 
 ## 授权协议
 

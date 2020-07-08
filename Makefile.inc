@@ -18,7 +18,6 @@ LUATOS_SRC_DIRS += $(LUATOS_DIR)/lua/src \
 					$(LUATOS_DIR)/luat/air302 
 
 
-
 LUATOS_CSRC = $(foreach dir, $(LUATOS_SRC_DIRS), $(wildcard $(dir)/*.c))
 LUATOS_CFILES = $(LUATOS_CSRC)
 LUATOS_COBJSTEMP := $(patsubst %.c, %.o, $(LUATOS_CFILES))
@@ -28,6 +27,10 @@ LUATOS_COBJS := $(addprefix $(BUILDDIR)/, $(LUATOS_COBJSTEMP))
 -include $(LUATOS_COBJS:.o=.d)
 
 CFLAGS += -DWITH_POSIX
+
+ifeq ($(USE_CHINESE_WQY12_FONT), y)
+CFLAGS += -DUSE_CHINESE_WQY12_FONT 
+endif
 
 ifeq ($(TOOLCHAIN),GCC)
 

@@ -289,6 +289,8 @@ def main():
         elif sys.argv[argc] == "clean":
             if os.path.exists("tmp"):
                 shutil.rmtree("tmp")
+            if os.path.exists(PLAT_ROOT) :
+                subprocess.call([PLAT_ROOT + "KeilBuild.bat", "clall"], cwd=PLAT_ROOT)
         else:
             usage()
             return

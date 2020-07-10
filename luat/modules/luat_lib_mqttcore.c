@@ -353,15 +353,126 @@ static int l_mqttcore_encodeLen(lua_State *L) {
     return 1;
 }
 
+static void _add_mqtt_str(luaL_Buffer *buff, const char* str, size_t len) {
+	if (len == 0) return;
+	luaL_addchar(buff, len / 256);
+	luaL_addchar(buff, len % 256);
+	luaL_addlstring(buff, str, len);
+}
 
 static int l_mqttcore_encodeUTF8(lua_State *L) {
     if(!lua_isstring(L, 1) || 0 == lua_rawlen(L, 1)) {
 		lua_pushlstring(L, "", 0);
 		return 1;
 	}
-	lua_pushlstring(L, ">P", 2);
-	lua_insert(L, 1);
-	return luat_pack(L);
+	luaL_Buffer buff;
+	luaL_buffinit(L, &buff);
+
+	size_t len = 0;
+	const char* str = lua_tolstring(L, 1, &len);
+	_add_mqtt_str(&buff, str, len);
+	luaL_pushresult(&buff);
+	
+	return 1;
+}
+
+static int l_mqttcore_packCONNECT(lua_State *L) {
+	luaL_Buffer buff;
+	luaL_buffinit(L, &buff);
+
+	// 把参数取一下
+	// 1         2          3         4         5             6     7
+	// clientId, keepAlive, username, password, cleanSession, will, version
+	const char* clientId = luaL_checkstring(L, 1);
+	int keepAlive = luaL_optinteger(L, 2, 240);
+	const char* username = luaL_optstring(L, 3, "");
+	const char* password = luaL_optstring(L, 4, "");
+	int cleanSession = luaL_optinteger(L, 5, 1);
+
+	// 处理will
+	// topic payload  retain  qos flag
+	lua_pushstring(L, "topic");
+	lua_gettable(L, 6);
+	const char* will_topic = luaL_checkstring(L, -1);
+	lua_pop(L, 1);
+
+	lua_pushstring(L, "payload");
+	lua_gettable(L, 6);
+	const char* will_payload = luaL_checkstring(L, -1);
+	lua_pop(L, 1);
+
+	lua_pushstring(L, "retain");
+	lua_gettable(L, 6);
+	uint8_t will_retain = luaL_checkinteger(L, -1);
+	lua_pop(L, 1);
+
+	lua_pushstring(L, "qos");
+	lua_gettable(L, 6);
+	uint8_t will_qos = luaL_checkinteger(L, -1);
+	lua_pop(L, 1);
+
+	lua_pushstring(L, "flag");
+	lua_gettable(L, 6);
+	uint8_t will_flag = luaL_checkinteger(L, -1);
+	lua_pop(L, 1);
+
+	// ----- 结束处理will
+
+
+	// 添加固定头 MQTT
+	luaL_addlstring(&buff, "\0\4MQTT", 6);
+
+	// 版本号 4
+	luaL_addchar(&buff, 4);
+
+	// flags
+	uint8_t flags = 0;
+	if (strlen(username) > 0) flags += 128;
+	if (strlen(password) > 0) flags += 64;
+	if (will_retain) flags += 32;
+	if (will_qos) flags += will_qos*8;
+	if (will_flag) flags += 4;
+	if (cleanSession) flags += 2;
+	luaL_addchar(&buff, flags);
+
+	// keepalive
+	luaL_addchar(&buff, keepAlive / 256);
+	luaL_addchar(&buff, keepAlive % 256);
+
+	// client id
+	_add_mqtt_str(&buff, clientId, strlen(clientId));
+
+	// will_topic
+	_add_mqtt_str(&buff, will_topic, strlen(will_topic));
+
+	// will_topic
+	_add_mqtt_str(&buff, will_payload, strlen(will_payload));
+
+	// username and password
+	_add_mqtt_str(&buff, username, strlen(username));
+	_add_mqtt_str(&buff, password, strlen(password));
+
+	// 然后计算总长度,坑呀
+
+	luaL_Buffer buff2;
+	luaL_buffinitsize(L, &buff2, buff.n + 5);
+
+	// 标识 CONNECT
+	luaL_addchar(&buff2, CONNECT * 16);
+	// 剩余长度
+    char buf[4];
+    int rc = MQTTPacket_encode(buf, buff.n);
+    luaL_addlstring(&buff2, buf, rc);
+
+	luaL_addlstring(&buff2, buff.b, buff.n);
+
+	// 清理掉
+	luaL_pushresult(&buff);
+	lua_pop(L, 1);
+
+
+	luaL_pushresult(&buff2);
+	return 1;
 }
 
 #include "rotable.h"
@@ -369,6 +480,7 @@ static const rotable_Reg reg_mqttcore[] =
 {
     { "encodeLen", l_mqttcore_encodeLen, 0},
     { "encodeUTF8",l_mqttcore_encodeUTF8,0},
+	{ "packCONNECT", l_mqttcore_packCONNECT,0},
 	{ NULL, NULL }
 };
 

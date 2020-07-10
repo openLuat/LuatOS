@@ -32,30 +32,37 @@ local encodeLen = mqttcore.encodeLen
 --     return s
 -- end
 
-local function encodeUTF8(s)
-    if not s or #s == 0 then
-        return ""
-    else
-        return pack.pack(">P", s)
-    end
-end
+local encodeUTF8 = mqttcore.encodeUTF8
+-- local function encodeUTF8(s)
+--     if not s or #s == 0 then
+--         return ""
+--     else
+--         return pack.pack(">P", s)
+--     end
+-- end
 
-local function packCONNECT(clientId, keepAlive, username, password, cleanSession, will, version)
-    local content = pack.pack(">PbbHPAAAA",
-        version == "3.1" and "MQIsdp" or "MQTT",
-        version == "3.1" and 3 or 4,
-        (#username == 0 and 0 or 1) * 128 + (#password == 0 and 0 or 1) * 64 + will.retain * 32 + will.qos * 8 + will.flag * 4 + cleanSession * 2,
-        keepAlive,
-        clientId,
-        encodeUTF8(will.topic),
-        encodeUTF8(will.payload),
-        encodeUTF8(username),
-        encodeUTF8(password))
-    return pack.pack(">bAA",
-        CONNECT * 16,
-        encodeLen(string.len(content)),
-        content)
-end
+local packCONNECT = mqttcore.packCONNECT
+
+-- local function packCONNECT(clientId, keepAlive, username, password, cleanSession, will, version)
+--     local content = pack.pack(">PbbHPAAAA",
+--         version == "3.1" and "MQIsdp" or "MQTT",
+--         version == "3.1" and 3 or 4,
+--         (#username == 0 and 0 or 1) * 128 + (#password == 0 and 0 or 1) * 64 + will.retain * 32 + will.qos * 8 + will.flag * 4 + cleanSession * 2,
+--         keepAlive,
+--         clientId,
+--         encodeUTF8(will.topic),
+--         encodeUTF8(will.payload),
+--         encodeUTF8(username),
+--         encodeUTF8(password))
+--     local mydata = pack.pack(">bAA",
+--         CONNECT * 16,
+--         encodeLen(string.len(content)),
+--         content)
+--     local tdata = mqttcore.packCONNECT(clientId, keepAlive, username, password, cleanSession, will, version)
+--     log.info("mqtt", "true", mydata:toHex())
+--     log.info("mqtt", "false", tdata:toHex())
+--     return mydata
+-- end
 
 local function packSUBSCRIBE(dup, packetId, topics)
     local header = SUBSCRIBE * 16 + dup * 8 + 2

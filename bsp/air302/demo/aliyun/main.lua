@@ -72,7 +72,7 @@ sys.taskInit(function()
         -- 等待底层tcp连接完成
         while not mqttc:connect(host, port) do sys.wait(15000) end
         -- 连接成功, 开始订阅
-        log.info("mqttc", "mqtt seem ok", "try subscribe", topic_req)
+        log.info("mqttc", "mqtt seem ok", "try subscribe", topic_get)
         if mqttc:subscribe(topic_get) then
             -- 订阅完成, 发布业务数据
             log.info("mqttc", "mqtt subscribe ok", "try publish")
@@ -86,7 +86,7 @@ sys.taskInit(function()
                         log.info("mqttc", "get message from server", data.payload or "nil", data.topic)
                     elseif data == "pub_msg" then -- 需要上报数据
                         log.info("mqttc", "send message to server", data, param)
-                        mqttc:publish(topic_update, "response " .. param)
+                        mqttc:publish(topic_update, "response " .. param, 1)
                     elseif data == "timeout" then -- 无交互,发个定时report也行
                         log.info("mqttc", "wait timeout, send custom report")
                         mqttc:publish(topic_update, "test publish " .. os.date() .. nbiot.imei())

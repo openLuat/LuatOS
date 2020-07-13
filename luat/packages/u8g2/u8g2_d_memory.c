@@ -3,7 +3,7 @@
 
 #include "u8g2.h"
 
-static uint8_t buf[2048];
+static uint8_t buf[1024];
 	
 uint8_t *u8g2_m_16_4_1(uint8_t *page_cnt)
 {

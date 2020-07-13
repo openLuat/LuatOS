@@ -12,7 +12,6 @@
 #include "luat_timer.h"
 #include "u8g2.h"
 
-#define TAG "luat.disp"
 #define LUAT_LOG_TAG "luat.disp"
 #include "luat_log.h"
 
@@ -20,17 +19,14 @@ static u8g2_t* u8g2;
 static int u8g2_lua_ref;
 /*
 显示屏初始化
-@function disp.init(id, type, port)
-@int 显示器id, 默认值0, 当前只支持0,单个显示屏
-@string 显示屏类型,当前仅支持ssd1306,默认值也是ssd1306
-@string 接口类型,当前仅支持i2c1,默认值也是i2c1
-@return int 正常初始化1,已经初始化过2,内存不够3
+@function disp.init(conf)
+@table 配置信息
+@return int 正常初始化1,已经初始化过2,内存不够3,初始化失败返回4
 @usage
 -- 初始化i2c1的ssd1306
-if disp.init() == 1 then
-    log.info("显示屏初始化成功")
+if disp.init({mode="i2c_sw", pin0=17, pin1=18}) == 1 then
+    log.info("disp", "disp init complete")
 end
---disp.init(0, "ssd1306", "i2c1")
 */
 static int l_disp_init(lua_State *L) {
     if (u8g2 != NULL) {
@@ -106,10 +102,13 @@ static int l_disp_init(lua_State *L) {
     if (luat_disp_setup(&conf)) {
         u8g2 = NULL;
         LLOGW("disp init fail");
-        return 0; // 初始化失败
+        lua_pushinteger(L, 4);
+        return 1; // 初始化失败
     }
     
     u8g2_lua_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+
+    u8g2_SetFont(u8g2, u8g2_font_ncenB08_tr); // 设置默认字体
     
     lua_pushinteger(L, 1);
     return 1;
@@ -158,10 +157,10 @@ static int l_disp_update(lua_State *L) {
     return 0;
 }
 
+
 /*
 在显示屏上画一段文字,要调用disp.update才会更新到屏幕
-@function disp.drawStr(id, content, x, y) 
-@int 显示器id, 默认值0, 当前只支持0,单个显示屏, 这参数暂时不要传.
+@function disp.drawStr(content, x, y) 
 @string 文件内容
 @int 横坐标
 @int 竖坐标
@@ -169,26 +168,66 @@ static int l_disp_update(lua_State *L) {
 disp.drawStr("wifi is ready", 10, 20)
 */
 static int l_disp_draw_text(lua_State *L) {
-    if (u8g2 == NULL) return 0;
-    u8g2_SetFont(u8g2, u8g2_font_ncenB08_tr);
+    if (u8g2 == NULL) {
+        LLOGW("disp not init yet!!!");
+        return 0;
+    }
     size_t len;
     size_t x, y;
     const char* str = luaL_checklstring(L, 1, &len);
     x = luaL_checkinteger(L, 2);
     y = luaL_checkinteger(L, 3);
     
-    u8g2_DrawStr(u8g2, x, y, str);
+    u8g2_DrawUTF8(u8g2, x, y, str);
     return 0;
+}
+
+
+#if defined USE_CHINESE_WQY12_FONT
+#include "u8g2_wqy.h"
+#endif
+
+static int l_disp_set_font(lua_State *L) {
+    if (u8g2 == NULL) {
+        LLOGI("disp not init yet!!!");
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    int font_id = luaL_checkinteger(L, 1);
+    if (font_id < 0) {
+        lua_pushboolean(L, 0);
+    }
+    else {
+        switch (font_id)
+        {
+        case 0:
+            u8g2_SetFont(u8g2, u8g2_font_ncenB08_tr);
+            lua_pushboolean(L, 1);
+            break;
+        #if defined USE_CHINESE_WQY12_FONT
+        case 1:
+            u8g2_SetFont(u8g2, u8g2_font_wqy12_t_gb2312);
+            lua_pushboolean(L, 1);
+            break;
+        #endif
+        default:
+            lua_pushboolean(L, 0);
+            break;
+        }
+    }
+
+    return 1;
 }
 
 #include "rotable.h"
 static const rotable_Reg reg_disp[] =
 {
-    { "init", l_disp_init, 0},
-    { "close", l_disp_close, 0},
-    { "clear", l_disp_clear, 0},
-    { "update", l_disp_update, 0},
-    { "drawStr", l_disp_draw_text, 0},
+    { "init",       l_disp_init,        0},
+    { "close",      l_disp_close,       0},
+    { "clear",      l_disp_clear,       0},
+    { "update",     l_disp_update,      0},
+    { "drawStr",    l_disp_draw_text,   0},
+    { "setFont",    l_disp_set_font,    0},
 	{ NULL, NULL, 0}
 };
 
@@ -247,28 +286,35 @@ LUAT_WEAK uint8_t luat_u8x8_gpio_and_delay(u8x8_t *u8x8, uint8_t msg, uint8_t ar
             // Function which implements a delay, arg_int contains the amount of ms  
             
             // set spi pin mode 
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_SPI_CLOCK],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);//d0 a5 15 d1 a7 17 res b0 18 dc b1 19 cs a4 14  
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_SPI_DATA],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_RESET],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_DC],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_CS],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+            if (u8x8->pins[U8X8_PIN_SPI_CLOCK] != 255) {
+                luat_gpio_mode(u8x8->pins[U8X8_PIN_SPI_CLOCK],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);//d0 a5 15 d1 a7 17 res b0 18 dc b1 19 cs a4 14  
+                luat_gpio_mode(u8x8->pins[U8X8_PIN_SPI_DATA],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+                luat_gpio_mode(u8x8->pins[U8X8_PIN_RESET],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+                luat_gpio_mode(u8x8->pins[U8X8_PIN_DC],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+                luat_gpio_mode(u8x8->pins[U8X8_PIN_CS],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+            }
             
             // set i2c pin mode
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_I2C_DATA],Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_HIGH);
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_I2C_CLOCK],Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_HIGH);
+            if (u8x8->pins[U8X8_PIN_I2C_DATA] != 255) {
+                luat_gpio_mode(u8x8->pins[U8X8_PIN_I2C_DATA],Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_HIGH);
+                luat_gpio_mode(u8x8->pins[U8X8_PIN_I2C_CLOCK],Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_HIGH);
+            }
             
+            // 反正还没支持,先注释掉吧
             // set 8080 pin mode
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_D0],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_D1],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_D2],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_D3],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_D4],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_D5],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_D6],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_D7],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_E],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_DC],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_RESET],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+            // if (u8x8->pins[U8X8_PIN_D0] != 255) {
+            //     luat_gpio_mode(u8x8->pins[U8X8_PIN_D0],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+            //     luat_gpio_mode(u8x8->pins[U8X8_PIN_D1],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+            //     luat_gpio_mode(u8x8->pins[U8X8_PIN_D2],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+            //     luat_gpio_mode(u8x8->pins[U8X8_PIN_D3],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+            //     luat_gpio_mode(u8x8->pins[U8X8_PIN_D4],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+            //     luat_gpio_mode(u8x8->pins[U8X8_PIN_D5],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+            //     luat_gpio_mode(u8x8->pins[U8X8_PIN_D6],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+            //     luat_gpio_mode(u8x8->pins[U8X8_PIN_D7],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+            //     luat_gpio_mode(u8x8->pins[U8X8_PIN_E],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+            //     luat_gpio_mode(u8x8->pins[U8X8_PIN_DC],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+            //     luat_gpio_mode(u8x8->pins[U8X8_PIN_RESET],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+            // }
             
             // set value
             //luat_gpio_set(u8x8->pins[U8X8_PIN_SPI_CLOCK],1);

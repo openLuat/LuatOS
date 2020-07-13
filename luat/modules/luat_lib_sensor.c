@@ -176,20 +176,24 @@ static int32_t ds18b20_get_temperature(int pin, int32_t *val)
 @function    sensor.ds18b20(pin)
 @int  gpio端口号
 @return int 温度数据
+@return boolean 成功返回true,否则返回false
 --  如果读取失败,会返回nil
-while 1 do sys.wait(5000) log.info("ds18b20", sensor.ds18b20(14)) end
+while 1 do sys.wait(5000) log.info("ds18b20", sensor.ds18b20(17)) end
 */
 static int l_sensor_ds18b20(lua_State *L) {
     int32_t val = 0;
     int32_t ret = ds18b20_get_temperature(luaL_checkinteger(L, 1), &val);
     // -55°C ~ 125°C
-    if (ret) {
-        LLOGW("ds18b20 read fail");
-        return 0;
+    if (ret || !(val <= 1250 && val >= -550)) {
+        LLOGI("ds18b20 read fail");
+        lua_pushinteger(L, 0);
+        lua_pushboolean(L, 0);
+        return 2;
     }
     //rt_kprintf("temp:%3d.%dC\n", temp/10, temp%10);
     lua_pushinteger(L, val);
-    return 1;
+    lua_pushboolean(L, 1);
+    return 2;
 }
 
 

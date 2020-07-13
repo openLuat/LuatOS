@@ -36,6 +36,45 @@ gpio.set(19, 1)       -- 设置为高电平
 -- adc.read(5)
 -- adc.close(5)
 
+local aliyun_msgid = 1
+local vPowerSwitch = 1
+function aliyun_params_post()
+--[[
+{
+  "id": "123",
+  "version": "1.0",
+  "params": {
+    "Power": {
+      "value": "on",
+      "time": 1524448722000
+    },
+    "WF": {
+      "value": 23.6,
+      "time": 1524448722000
+    }
+  },
+  "method": "thing.event.property.post"
+}
+]]
+    aliyun_msgid = aliyun_msgid + 1
+    local re = {
+        id = tostring(aliyun_msgid),
+        version = "1.0",
+        params = {
+            PowerSwitch = {
+                value = vPowerSwitch,
+                time = os.time() * 1000
+            }
+            -- ,RSSI = {
+            --     value = nbiot.rssi(),
+            --     time = os.time() * 1000
+            -- },
+        },
+        method = "thing.event.property.post"
+    }
+    return json.encode(re)
+end
+
 -- 连接到阿里云物联网的Task
 sys.taskInit(function()
     sys.wait(2000)
@@ -52,8 +91,13 @@ sys.taskInit(function()
     --log.info("aliiot", "mqttUsername", mqttUsername)
     --log.info("aliiot", "signstr", signstr)
     --log.info("aliiot", "mqttPassword", mqttPassword)
-    local topic_get = string.format("/%s/%s/user/get", productKey, deviceName)
-    local topic_update = string.format("/%s/%s/user/update", productKey, deviceName)
+    local topic_post = string.format("/sys/%s/%s/thing/event/property/post", productKey, deviceName)
+    local topic_post_reply = string.format("/sys/%s/%s/thing/event/property/post_reply", productKey, deviceName)
+    local topic_set = string.format("/sys/%s/%s/thing/service/property/set", productKey, deviceName)
+    local topic_user_get = string.format("/%s/%s/user/get", productKey, deviceName)
+    log.info("mqtt", "topic_post", topic_post)
+    log.info("mqtt", "topic_set", topic_set)
+    log.info("mqtt", "topic_user_get", topic_user_get)
     while true do
         -- 等待联网成功
         while not socket.isReady() do 
@@ -62,21 +106,19 @@ sys.taskInit(function()
         end
         log.info("main", "net is ready!!")
         sys.wait(1000) -- 稍等一会
-        
-        -- 清理内存, 啊啊啊啊
-        collectgarbage("collect")
-        collectgarbage("collect")
 
         -- 开始连接到阿里云物联网
         local mqttc = mqtt.client(mqttClientId, 240, mqttUsername, mqttPassword)
         -- 等待底层tcp连接完成
         while not mqttc:connect(host, port) do sys.wait(15000) end
         -- 连接成功, 开始订阅
-        log.info("mqttc", "mqtt seem ok", "try subscribe", topic_req)
-        if mqttc:subscribe(topic_get) then
+        log.info("mqttc", "mqtt seem ok", "try subscribe", topic_set)
+        if mqttc:subscribe(topic_set) then
+            mqttc:subscribe(topic_post_reply)
+            mqttc:subscribe(topic_user_get)
             -- 订阅完成, 发布业务数据
-            log.info("mqttc", "mqtt subscribe ok", "try publish")
-            if mqttc:publish(topic_update, "test publish " .. selfid, 1) then
+            log.info("mqttc", "mqtt subscribe ok", "try publish", topic_post)
+            if mqttc:publish(topic_post, aliyun_params_post(), 1) then
                 -- 发布也ok了, 等待数据下发或数据上传
                 while true do
                     log.info("mqttc", "wait for new msg")
@@ -84,12 +126,22 @@ sys.taskInit(function()
                     log.info("mqttc", "mqttc:receive", r, data, param)
                     if r then -- 有下发的数据
                         log.info("mqttc", "get message from server", data.payload or "nil", data.topic)
+                        local tjsondata,result,errinfo = json.decode(data.payload)
+                        if result then
+                            log.info("mqtt", tjsondata.id, tjsondata.method)
+                            if tjsondata.method == "thing.service.property.set" and tjsondata.params then
+                                vPowerSwitch = tjsondata.params.PowerSwitch
+                                log.info("mqtt", "vPowerSwitch", "set as", vPowerSwitch)
+                            end
+                        else
+                            log.info("mqtt", "json.decode error",errinfo)
+                        end
                     elseif data == "pub_msg" then -- 需要上报数据
                         log.info("mqttc", "send message to server", data, param)
-                        mqttc:publish(topic_update, "response " .. param)
+                        mqttc:publish(topic_post, param, 1)
                     elseif data == "timeout" then -- 无交互,发个定时report也行
                         log.info("mqttc", "wait timeout, send custom report")
-                        mqttc:publish(topic_update, "test publish " .. os.date() .. nbiot.imei())
+                        mqttc:publish(topic_post, aliyun_params_post(), 1)
                     else -- 其他情况不太可能,退出连接吧
                         log.info("mqttc", "ok, something happen", "close connetion")
                         break

@@ -25,9 +25,9 @@ function ui_update()
 
     disp.drawStr("Luat@Air302" .. " " .. _VERSION, 1, 24) -- 写版本号
     if socket.isReady() then
-        disp.drawStr("net ready", 1, 36) -- 写网络状态
+        disp.drawStr("网络已经就绪", 1, 36) -- 写网络状态
     else
-        disp.drawStr("net not ready", 1, 36)
+        disp.drawStr("网络未就绪", 1, 36)
     end
     --disp.drawStr("rssi: " .. tostring(nbiot.rssi()), 1, 36)
 
@@ -35,9 +35,10 @@ function ui_update()
 end
 
 -- 初始化显示屏
-log.info(TAG, "init ssd1306") -- log库是内置库,内置库均不需要require
-disp.init({mode="i2c_sw", pin0=17, pin1=18}) -- 通过GPIO17/GPIO18模拟, 也可以用硬件i2c脚
-display_str("Booting ...")
+log.info("disp", "init ssd1306") -- log库是内置库,内置库均不需要require
+disp.init({mode="i2c_sw", pin0=17, pin1=18}) -- 通过GPIO17 SLK/GPIO18 SDA模拟, 也可以用硬件i2c脚
+disp.setFont(1) -- 启用中文字体,文泉驿点阵宋体 12x12
+display_str("启动中 ...")
 
 sys.taskInit(function()
     while 1 do

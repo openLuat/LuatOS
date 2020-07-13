@@ -20,7 +20,7 @@ config['air302'] = {
     "USER_PATH": ".\\user\\",
     "LIB_PATH" : ".\\lib\\",
     "DEMO_PATH": ".\\demo\\",
-    "MAIN_LUA_DEBUG" : "true",
+    "MAIN_LUA_DEBUG" : "false",
     "LUA_DEBUG" : "false",
     "COM_PORT" : "COM56"
 }
@@ -154,10 +154,10 @@ EC_PATH = ${EC}
 USER_PATH = user\\
 LIB_PATH = lib\\
 DEMO_PATH = demo\\
-MAIN_LUA_DEBUG = true
+MAIN_LUA_DEBUG = false
 LUA_DEBUG = false
 COM_PORT = COM56
-'''.replace("${EC}", "Air302_V0001_"+_tag+".ec"))
+'''.replace("${EC}", "Air302_V0002_"+_tag+".ec"))
 
     if os.path.exists("userdoc") :
         shutil.copytree("userdoc", "tmp/userdoc")
@@ -167,7 +167,7 @@ COM_PORT = COM56
     with open("tmp/文档在userdoc目录.txt", "w") as f:
         f.write("QQ群: 1061642968")
 
-    with zipfile.ZipFile("tmp/Air302_V0001_"+_tag+".ec", mode="w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zip :
+    with zipfile.ZipFile("tmp/Air302_V0002_"+_tag+".ec", mode="w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zip :
         zip.write("tmp/ec/luatos.bin", "luatos.bin")                   # 底层固件
         zip.write("tmp/ec/comdb.txt", "comdb.txt")                     # uart0输出的unilog所需要的数据库文件,备用
         zip.write("tmp/ec/bootloader.bin", "bootloader.bin")           # bootloader,备用
@@ -178,11 +178,11 @@ COM_PORT = COM56
     if os.path.exists(FTC_PATH):
         shutil.copytree(FTC_PATH, "tmp/FlashToolCLI")
 
-    pkg_name = "Air302_V0001_"+_tag + ".zip"
-    shutil.make_archive("Air302_V0001_"+_tag, 'zip', "tmp")
+    pkg_name = "Air302_V0002_"+_tag + ".zip"
+    shutil.make_archive("Air302_V0002_"+_tag, 'zip', "tmp")
 
     ## 拷贝一份固定路径的
-    shutil.copy("tmp/Air302_V0001_"+_tag+".ec", "tmp/Air302_dev.ec")
+    shutil.copy("tmp/Air302_V0002_"+_tag+".ec", "tmp/Air302_dev.ec")
 
     print("ALL DONE===================================================")
     print("Package Name", pkg_name)
@@ -237,7 +237,7 @@ def _lfs(_path=None):
         # 如果是lua文件, 编译之
         if name.endswith(".lua") :
             cmd = [FTC_PATH + "luac.exe"]
-            if name == "main.lua" :
+            if name.endswith("main.lua") :
                 if not MAIN_LUA_DEBUG :
                     cmd += ["-s"]
             elif not LUA_DEBUG :
@@ -259,7 +259,7 @@ def main():
     while len(sys.argv) > argc :
         if sys.argv[argc] == "build" :
             print("Action Build ----------------------------------")
-            subprocess.check_call([PLAT_ROOT + "build.bat"])
+            subprocess.check_call([PLAT_ROOT + "KeilBuild.bat"], cwd=PLAT_ROOT)
         elif sys.argv[argc] == "lfs" :
             print("Action mklfs ----------------------------------")
             _lfs()
@@ -289,6 +289,8 @@ def main():
         elif sys.argv[argc] == "clean":
             if os.path.exists("tmp"):
                 shutil.rmtree("tmp")
+            if os.path.exists(PLAT_ROOT) :
+                subprocess.call([PLAT_ROOT + "KeilBuild.bat", "clall"], cwd=PLAT_ROOT)
         else:
             usage()
             return

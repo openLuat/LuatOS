@@ -1,0 +1,7 @@
+---
+title: ${title}
+---
+
+# ${title}
+
+${index} 

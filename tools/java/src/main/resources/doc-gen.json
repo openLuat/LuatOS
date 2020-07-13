@@ -5,19 +5,25 @@
     "title": "LuaAPI模块",
     "path": "luat/modules",
     "suffix": [".c"],
-    "out": "${name}",
+    "lang" : ["LUA"],
+    "dropEmptyComment": true,
+    "out": "lua",
     "deep": true
   }, {
     "title": "FreeRTOS集成",
     "path": "luat/freertos",
     "suffix": [".c"],
-    "out": "${name}",
+    "lang" : ["C"],
+    "dropEmptyComment": true,
+    "out": "c_api/${name}",
     "deep": true
   }, {
     "title": "RT-Thread集成",
     "path": "luat/rtt",
     "suffix": [".c"],
-    "out": "${name}",
+    "lang" : ["C"],
+    "dropEmptyComment": true,
+    "out": "c_api/${name}",
     "deep": true
   }],
   "output": "${workdir}/docs/api/"

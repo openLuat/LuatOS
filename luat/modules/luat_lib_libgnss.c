@@ -65,8 +65,8 @@ static int parse_nmea(const char* line) {
 
 /**
 处理nmea数据
-@function libgnss.parse(str)
-@string nmea数据
+@api libgnss.parse(str)
+@string 原始nmea数据
 @usage
 -- 解析nmea
 libgnss.parse(indata)
@@ -101,7 +101,7 @@ static int l_libgnss_parse(lua_State *L) {
 
 /**
 当前是否已经定位成功
-@function libgnss.isFix()
+@api libgnss.isFix()
 @return boolean 定位成功与否
 @usage
 -- 解析nmea
@@ -115,7 +115,7 @@ static int l_libgnss_is_fix(lua_State *L) {
 
 /**
 获取位置信息
-@function libgnss.getIntLocation()
+@api libgnss.getIntLocation()
 @return int lat数据, 格式为 ddmmmmmmm
 @return int lng数据, 格式为 ddmmmmmmm
 @return int speed数据
@@ -139,7 +139,7 @@ static int l_libgnss_get_int_location(lua_State *L) {
 
 /**
 获取原始RMC位置信息
-@function libgnss.getRmc()
+@api libgnss.getRmc()
 @return table 原始rmc数据
 @usage
 -- 解析nmea

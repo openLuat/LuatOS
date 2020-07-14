@@ -15,7 +15,7 @@
 
 /*
 接受并处理底层消息队列.
-@function    rtos.receive(timeout)   
+@api    rtos.receive(timeout)   
 @int  超时时长,通常是-1,永久等待
 @return msgid          如果是定时器消息,会返回定时器消息id及附加信息, 其他消息由底层决定,不向lua层进行任何保证.
 --  本方法通过sys.run()调用, 普通用户不要使用
@@ -57,7 +57,7 @@ static int l_timer_handler(lua_State *L, void* ptr) {
 
 /*
 启动一个定时器
-@function    rtos.timer_start(id,timeout,_repeat)   
+@api    rtos.timer_start(id,timeout,_repeat)   
 @int  定时器id
 @int  超时时长,单位毫秒
 @int  重复次数,默认是0
@@ -97,7 +97,7 @@ static int l_rtos_timer_start(lua_State *L) {
 
 /*
 关闭并释放一个定时器
-@function    rtos.timer_stop(id)   
+@api    rtos.timer_stop(id)   
 @int  定时器id
 @return nil            无返回值
 @usage
@@ -121,7 +121,7 @@ static int l_rtos_timer_stop(lua_State *L) {
 
 /*
 设备重启
-@function    rtos.reboot()   
+@api    rtos.reboot()   
 @return nil          无返回值
 -- 立即重启设备
 rtos.reboot()
@@ -135,7 +135,7 @@ static int l_rtos_reboot(lua_State *L) {
 
 /*
 获取固件编译日期
-@function    rtos.buildDate()
+@api    rtos.buildDate()
 @return string 固件编译日期
 @usage
 -- 获取编译日期
@@ -148,7 +148,7 @@ static int l_rtos_build_date(lua_State *L) {
 
 /*
 获取硬件bsp型号
-@function    rtos.bsp()
+@api    rtos.bsp()
 @return string 硬件bsp型号
 @usage
 -- 获取编译日期
@@ -161,7 +161,7 @@ static int l_rtos_bsp(lua_State *L) {
 
 /*
  获取固件版本号
-@function    rtos.version()        
+@api    rtos.version()        
 @return string  固件版本号,例如"1.0.2"
 @usage
 -- 读取版本号
@@ -174,7 +174,7 @@ static int l_rtos_version(lua_State *L) {
 
 /*
 进入待机模式(部分设备可用,例如w60x)
-@function    rtos.standy(timeout)
+@api    rtos.standy(timeout)
 @int    休眠时长,单位毫秒     
 @return nil  无返回值
 @usage
@@ -187,6 +187,18 @@ static int l_rtos_standy(lua_State *L) {
     return 0;
 }
 
+/*
+获取内存信息
+@api    rtos.meminfo(type)
+@type   "sys"系统内存, "lua"虚拟机内存, 默认为lua虚拟机内存     
+@return int 总内存大小,单位字节
+@return int 当前使用的内存大小,单位字节
+@return int 最大使用的内存大小,单位字节
+@usage
+-- 打印内存占用
+log.info("mem.lua", rtos.meminfo())
+log.info("mem.sys", rtos.meminfo("sys"))
+*/
 static int l_rtos_meminfo(lua_State *L) {
     size_t len = 0;
     size_t total = 0;

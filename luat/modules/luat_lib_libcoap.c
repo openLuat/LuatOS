@@ -105,7 +105,7 @@ static void addopt(luat_lib_libcoap_t* _coap, uint8_t opt_type, const char* valu
 
 /**
 创建一个coap数据包
-@function libcoap.new(code, uri, headers, payload)
+@api libcoap.new(code, uri, headers, payload)
 @int coap的code, 例如libcoap.GET/libcoap.POST/libcoap.PUT/libcoap.DELETE
 @string 目标URI,必须填写, 不需要加上/开头
 @table 请求头,类似于http的headers,可选
@@ -163,7 +163,7 @@ static int l_libcoap_new(lua_State* L) {
 
 /**
 解析coap数据包
-@function libcoap.parse(str)
+@api libcoap.parse(str)
 @string coap数据包
 @return userdata coap数据包,如果解析失败会返回nil
 @usage
@@ -244,7 +244,7 @@ static int l_libcoap_parse(lua_State* L) {
 
 /**
 获取coap数据包的msgid
-@function coapdata:msgid()
+@api coapdata:msgid()
 @return int coap数据包的msgid
 @usage
 -- 解析服务器传入的数据包
@@ -265,7 +265,7 @@ static int libcoap_msgid(lua_State *L) {
 
 /**
 获取coap数据包的token
-@function coapdata:token()
+@api coapdata:token()
 @return string coap数据包的token
 @usage
 -- 解析服务器传入的数据包
@@ -287,7 +287,7 @@ static int libcoap_token(lua_State *L) {
 
 /**
 获取coap数据包的二进制数据,用于发送到服务器
-@function coapdata:rawdata()
+@api coapdata:rawdata()
 @return string coap数据包的二进制数据
 @usage
 -- 解析服务器传入的数据包
@@ -343,7 +343,7 @@ static int libcoap_rawdata(lua_State *L) {
 
 /**
 获取coap数据包的code
-@function coapdata:code()
+@api coapdata:code()
 @return int coap数据包的code
 @usage
 -- 解析服务器传入的数据包
@@ -364,7 +364,7 @@ static int libcoap_code(lua_State *L) {
 
 /**
 获取coap数据包的http code, 比coap原始的code要友好
-@function coapdata:hcode()
+@api coapdata:hcode()
 @return int coap数据包的http code,例如200,205,404
 @usage
 -- 解析服务器传入的数据包
@@ -385,7 +385,7 @@ static int libcoap_httpcode(lua_State *L) {
 
 /**
 获取coap数据包的type, 例如libcoap.CON/NON/ACK/RST
-@function coapdata:type(t)
+@api coapdata:type(t)
 @int 新的type值,可选
 @return int coap数据包的type
 @usage
@@ -410,7 +410,7 @@ static int libcoap_type(lua_State *L) {
 
 /**
 获取coap数据包的data
-@function coapdata:data()
+@api coapdata:data()
 @return string coap数据包的data
 @usage
 -- 解析服务器传入的数据包

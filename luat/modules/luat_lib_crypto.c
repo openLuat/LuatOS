@@ -20,7 +20,7 @@ static void fixhex(const char* source, char* dst, size_t len) {
 
 /**
 计算md5值
-@function crypto.md5(str)
+@api crypto.md5(str)
 @string 需要计算的字符串
 @return string 计算得出的md5值的hex字符串
 @usage
@@ -42,7 +42,7 @@ static int l_crypto_md5(lua_State *L) {
 
 /**
 计算hmac_md5值
-@function crypto.hmac_md5(str, key)
+@api crypto.hmac_md5(str, key)
 @string 需要计算的字符串
 @string 密钥
 @return string 计算得出的hmac_md5值的hex字符串
@@ -67,7 +67,7 @@ static int l_crypto_hmac_md5(lua_State *L) {
 
 /**
 计算sha1值
-@function crypto.sha1(str)
+@api crypto.sha1(str)
 @string 需要计算的字符串
 @return string 计算得出的sha1值的hex字符串
 @usage
@@ -89,7 +89,7 @@ static int l_crypto_sha1(lua_State *L) {
 
 /**
 计算hmac_sha1值
-@function crypto.hmac_sha1(str, key)
+@api crypto.hmac_sha1(str, key)
 @string 需要计算的字符串
 @string 密钥
 @return string 计算得出的hmac_sha1值的hex字符串
@@ -112,6 +112,21 @@ static int l_crypto_hmac_sha1(lua_State *L) {
     return 0;
 }
 
+static int aes_encrypt(lua_State *L) {
+    size_t mode_size = 0;
+    size_t pad_size = 0;
+    size_t str_size = 0;
+    size_t key_size = 0;
+    const char* mode = luaL_checklstring(L, 1, &mode_size);
+    const char* pad = luaL_checklstring(L, 2, &pad_size);
+    const char* str = luaL_checklstring(L, 3, &str_size);
+    const char* key = luaL_checklstring(L, 4, &key_size);
+    
+
+
+    return 0;
+}
+
 #include "rotable.h"
 static const rotable_Reg reg_crypto[] =
 {
@@ -119,6 +134,8 @@ static const rotable_Reg reg_crypto[] =
     { "hmac_md5" ,      l_crypto_hmac_md5   ,0},
     { "sha1" ,          l_crypto_sha1       ,0},
     { "hmac_sha1" ,     l_crypto_hmac_sha1  ,0},
+    // { "aes_encrypt" ,   l_crypto_aes_encrypt,0},
+    // { "aes_decrypt" ,   l_crypto_aes_decrypt,0},
 	{ NULL,             NULL                ,0}
 };
 

@@ -65,7 +65,7 @@ int l_uart_handler(lua_State *L, void* ptr) {
 
 /*
 配置串口参数
-@function    uart.setup(id, baud_rate, data_bits, stop_bits, partiy, bit_order, buff_size)
+@api    uart.setup(id, baud_rate, data_bits, stop_bits, partiy, bit_order, buff_size)
 @int 串口id, uart0写0, uart1写1
 @int 波特率 9600~115200
 @int 数据位 7或8, 一般是8
@@ -99,7 +99,7 @@ static int l_uart_setup(lua_State *L)
 
 /*
 写串口
-@function    uart.write(id, data)
+@api    uart.write(id, data)
 @int 串口id, uart0写0, uart1写1
 @string 待写入的数据
 @return int 成功的数据长度
@@ -120,7 +120,7 @@ static int l_uart_write(lua_State *L)
 
 /*
 读串口
-@function    uart.read(id, len)
+@api    uart.read(id, len)
 @int 串口id, uart0写0, uart1写1
 @int 读取长度
 @return string 读取到的数据
@@ -155,7 +155,7 @@ static int l_uart_read(lua_State *L)
 
 /*
 关闭串口
-@function    uart.close(id)
+@api    uart.close(id)
 @int 串口id, uart0写0, uart1写1
 @return nil 无返回值
 @usage
@@ -170,7 +170,7 @@ static int l_uart_close(lua_State *L)
 
 /*
 注册串口事件回调
-@function    uart.on(id, event, func)
+@api    uart.on(id, event, func)
 @int 串口id, uart0写0, uart1写1
 @string 事件名称
 @function 回调方法

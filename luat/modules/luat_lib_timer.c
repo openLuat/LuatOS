@@ -11,7 +11,7 @@
 
 /*
 硬阻塞指定时长,期间没有任何luat代码会执行,包括底层消息处理机制
-@function    timer.mdelay(timeout)
+@api    timer.mdelay(timeout)
 @int 阻塞时长
 @return nil 无返回值
 -- 本方法通常不会使用,除非你很清楚会发生什么

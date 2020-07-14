@@ -173,7 +173,7 @@ static int32_t ds18b20_get_temperature(int pin, int32_t *val)
 
 /*
 获取DS18B20的温度数据
-@function    sensor.ds18b20(pin)
+@api    sensor.ds18b20(pin)
 @int  gpio端口号
 @return int 温度数据
 @return boolean 成功返回true,否则返回false

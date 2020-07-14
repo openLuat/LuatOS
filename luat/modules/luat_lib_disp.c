@@ -19,7 +19,7 @@ static u8g2_t* u8g2;
 static int u8g2_lua_ref;
 /*
 显示屏初始化
-@function disp.init(conf)
+@api disp.init(conf)
 @table 配置信息
 @return int 正常初始化1,已经初始化过2,内存不够3,初始化失败返回4
 @usage
@@ -116,8 +116,7 @@ static int l_disp_init(lua_State *L) {
 
 /*
 关闭显示屏
-@function disp.close(id) 
-@int 显示器id, 默认值0, 当前只支持0,单个显示屏
+@api disp.close() 
 @usage
 disp.close()
 */
@@ -134,10 +133,9 @@ static int l_disp_close(lua_State *L) {
     return 0;
 }
 /*
-@function disp.clear(id) 清屏
-@int 显示器id, 默认值0, 当前只支持0,单个显示屏
+@api disp.clear() 清屏
 @usage
-disp.clear(0)
+disp.clear()
 */
 static int l_disp_clear(lua_State *L) {
     if (u8g2 == NULL) return 0;
@@ -146,10 +144,9 @@ static int l_disp_clear(lua_State *L) {
 }
 /*
 把显示数据更新到屏幕
-@function disp.update(id)
-@int 显示器id, 默认值0, 当前只支持0,单个显示屏
+@api disp.update()
 @usage
-disp.update(0)
+disp.update()
 */
 static int l_disp_update(lua_State *L) {
     if (u8g2 == NULL) return 0;
@@ -160,7 +157,7 @@ static int l_disp_update(lua_State *L) {
 
 /*
 在显示屏上画一段文字,要调用disp.update才会更新到屏幕
-@function disp.drawStr(content, x, y) 
+@api disp.drawStr(content, x, y) 
 @string 文件内容
 @int 横坐标
 @int 竖坐标
@@ -187,6 +184,13 @@ static int l_disp_draw_text(lua_State *L) {
 #include "u8g2_wqy.h"
 #endif
 
+/*
+设置字体
+@api disp.setFont(fontId) 
+@int 字体id, 默认0,纯英文8x8字节. 如果支持中文支持, 那么1代表12x12的中文字体.
+@usage
+disp.setFont(1)
+*/
 static int l_disp_set_font(lua_State *L) {
     if (u8g2 == NULL) {
         LLOGI("disp not init yet!!!");

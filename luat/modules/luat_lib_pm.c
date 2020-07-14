@@ -15,7 +15,7 @@ static int lua_event_cb = 0;
 
 /**
 请求进入指定的休眠模式
-@function pm.request(mode)
+@api pm.request(mode)
 @int 休眠模式,例如pm.IDLE/LIGHT/DEEP/HIB
 @return boolean 处理结果,即使返回成功,也不一定会进入, 也不会马上进入
 @usage
@@ -42,7 +42,7 @@ static int l_pm_request(lua_State *L) {
 
 /**
 启动底层定时器,在休眠模式下依然生效. 只触发一次
-@function pm.dtimerStart(id, timeout)
+@api pm.dtimerStart(id, timeout)
 @int 定时器id,通常是0-3
 @int 定时时长,单位毫秒
 @return boolean 处理结果
@@ -64,7 +64,7 @@ static int l_pm_dtimer_start(lua_State *L) {
 
 /**
 关闭底层定时器
-@function pm.dtimerStop(id)
+@api pm.dtimerStop(id)
 @int 定时器id
 @usage
 -- 添加底层定时器
@@ -91,7 +91,7 @@ static int l_pm_on(lua_State *L) {
 
 /**
 开机原因,用于判断是从休眠模块开机,还是电源/复位开机
-@function pm.request(mode)
+@api pm.request(mode)
 @int 休眠模式,例如pm.IDLE/LIGHT/DEEP/HIB
 @return boolean 处理结果,即使返回成功,也不一定会进入, 也不会马上进入
 @usage
@@ -105,7 +105,7 @@ static int l_pm_last_reson(lua_State *L) {
 
 /**
 强制进入指定的休眠模式
-@function pm.force(mode)
+@api pm.force(mode)
 @int 休眠模式,仅pm.DEEP/HIB
 @return boolean 处理结果,若返回成功,大概率会马上进入该休眠模式
 @usage
@@ -119,7 +119,7 @@ static int l_pm_force(lua_State *L) {
 
 /**
 检查休眠状态
-@function pm.check()
+@api pm.check()
 @return boolean 处理结果,如果能顺利进入休眠,返回true,否则返回false
 @usage
 -- 请求进入休眠模式,然后检查是否能真的休眠

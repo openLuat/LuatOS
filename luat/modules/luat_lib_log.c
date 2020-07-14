@@ -12,7 +12,7 @@
 
 /*
 设置日志级别
-@function   log.setLevel("INFO") 
+@api   log.setLevel(level) 
 @string  level 日志级别,可用字符串或数值, 字符串为(SILENT,DEBUG,INFO,WARN,ERROR,FATAL), 数值为(0,1,2,3,4,5)
 @return nil 无返回值
 @usage  
@@ -51,7 +51,7 @@ static int l_log_set_level(lua_State *L) {
 
 /*
 获取日志级别
-@function   log.getLevel()
+@api   log.getLevel()
 @return  int   日志级别对应0,1,2,3,4,5
 @usage  
 -- 得到日志级别
@@ -81,7 +81,7 @@ static int l_log_2_log(lua_State *L) {
 
 /*
 输出日志,级别debug
-@function    log.debug(tag, val, val2, val3, ...)
+@api    log.debug(tag, val, val2, val3, ...)
 @string  tag         日志标识,必须是字符串
 @any  ...         需打印的参数
 @return nil
@@ -98,7 +98,7 @@ static int l_log_debug(lua_State *L) {
 
 /*
 输出日志,级别info
-@function    log.info(tag, val, val2, val3, ...)
+@api    log.info(tag, val, val2, val3, ...)
 @string  tag         日志标识,必须是字符串
 @any  ...         需打印的参数
 @return nil
@@ -115,7 +115,7 @@ static int l_log_info(lua_State *L) {
 
 /*
 输出日志,级别warn
-@function    log.warn(tag, val, val2, val3, ...)
+@api    log.warn(tag, val, val2, val3, ...)
 @string  tag         日志标识,必须是字符串
 @any  ...         需打印的参数
 @return nil
@@ -132,7 +132,7 @@ static int l_log_warn(lua_State *L) {
 
 /*
 输出日志,级别error
-@function    log.error(tag, val, val2, val3, ...)
+@api    log.error(tag, val, val2, val3, ...)
 @string  tag         日志标识,必须是字符串
 @any  ...         需打印的参数
 @return nil

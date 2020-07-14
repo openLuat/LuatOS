@@ -373,7 +373,7 @@ function mqttc:connect(host, port, transport, cert, timeout)
         return false
     end
     --log.info("mqtt", "wait for connect")
-    local result, linked = sys.waitUntil(connect_topic, 15000)
+    local result, linked = sys.waitUntil(connect_topic, self.commandTimeout) -- 原本是15秒,在NBIOT下超时的概率不低,改成用commandTimeout
     if not result then
         log.info("mqtt", "connect timeout")
         self.io:clean()

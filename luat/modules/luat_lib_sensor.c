@@ -178,7 +178,13 @@ static int32_t ds18b20_get_temperature(int pin, int32_t *val)
 @return int 温度数据
 @return boolean 成功返回true,否则返回false
 --  如果读取失败,会返回nil
-while 1 do sys.wait(5000) log.info("ds18b20", sensor.ds18b20(17)) end
+while 1 do 
+    sys.wait(5000) 
+    local val,result = sensor.ds18b20(17)
+    -- val 301 == 30.1摄氏度
+    -- result true 读取成功
+    log.info("ds18b20", val, result)
+end
 */
 static int l_sensor_ds18b20(lua_State *L) {
     int32_t val = 0;

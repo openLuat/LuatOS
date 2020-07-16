@@ -1012,7 +1012,7 @@ static void addlenmod (char *form, const char *lenmod) {
   form[l + lm] = '\0';
 }
 
-
+#include "vsprintf.h"
 static int str_format (lua_State *L) {
   int top = lua_gettop(L);
   int arg = 1;
@@ -1033,6 +1033,7 @@ static int str_format (lua_State *L) {
       if (++arg > top)
         luaL_argerror(L, arg, "no value");
       strfrmt = scanformat(L, strfrmt, form);
+      char c = *strfrmt;
       switch (*strfrmt++) {
         case 'c': {
           nb = l_sprintf(buff, MAX_ITEM, form, (int)luaL_checkinteger(L, arg));
@@ -1041,8 +1042,28 @@ static int str_format (lua_State *L) {
         case 'd': case 'i':
         case 'o': case 'u': case 'x': case 'X': {
           lua_Integer n = luaL_checkinteger(L, arg);
-          addlenmod(form, LUA_INTEGER_FRMLEN);
-          nb = l_sprintf(buff, MAX_ITEM, form, (LUAI_UACINT)n);
+          //addlenmod(form, LUA_INTEGER_FRMLEN);
+          //nb = l_sprintf(buff, MAX_ITEM, form, (LUAI_UACINT)n);
+          // change by wendal
+          int base = 10;
+          switch (c)
+          {
+          case 'd': base = -10; break;
+          case 'i': base = -10; break;
+          case 'o': base = -8; break;
+          case 'u': base = 10; break;
+          case 'x': base = 16; break;
+          case 'X': base = 16; break;
+          }
+          llbtoa(buff, n, base);
+          nb = strlen(buff);
+          // 转大写
+          if (c == 'X') {
+            for (size_t i = 0; i < nb; i++)
+            {
+              *(buff+i) = toupper(*(buff+i));
+            }
+          }
           break;
         }
         case 'a': case 'A':

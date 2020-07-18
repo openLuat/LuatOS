@@ -80,7 +80,7 @@ public class LuComment {
         this.lines = lines;
     }
 
-    private static final String BLK_BEGIN = "^(\\s*)(/[*]|[*]{1,2} ) ?(.*)$";
+    private static final String BLK_BEGIN = "^(\\s*)(/[*][*]*) ?(.*)$";
     private static final String BLK_END = "^(.*) *([*]/)\\s*$";
     private static final String LIN_CMT = "^(\\s*)(// ?)(.*)$";
 
@@ -158,6 +158,8 @@ public class LuComment {
             // 如果这个行是一个函数声明，那么切换特殊类型
             if (this.isBlock()) {
                 if (line.startsWith("@function")) {
+                    this.setType(LuCmtType.LUA_SIGN);
+                } else if (line.startsWith("@api")) {
                     this.setType(LuCmtType.LUA_SIGN);
                 } else if (line.startsWith("@module")) {
                     this.setType(LuCmtType.LUA_HEAD);

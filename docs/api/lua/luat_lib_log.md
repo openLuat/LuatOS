@@ -6,6 +6,66 @@ date: 2020.03.30
 ---
 
 --------------------------------------------------
+# log.setLevel
+
+```lua
+log.setLevel(level)
+```
+
+设置日志级别
+
+## 参数表
+
+Name | Type | Description
+-----|------|--------------
+`level`|`string`| level 日志级别,可用字符串或数值, 字符串为(SILENT,DEBUG,INFO,WARN,ERROR,FATAL), 数值为(0,1,2,3,4,5)
+
+## 返回值
+
+> *无返回值*
+
+## 调用示例
+
+```lua
+-- 设置日志级别为INFO
+log.setLevel("INFO")
+```
+
+## C API
+
+```c
+static int l_log_set_level(lua_State *L)
+```
+
+
+--------------------------------------------------
+# log.getLevel
+
+```lua
+log.getLevel()
+```
+
+获取日志级别
+
+## 参数表
+
+> 无参数
+
+## 返回值
+
+No. | Type | Description
+----|------|--------------
+1 |`int`| 日志级别对应0,1,2,3,4,5
+
+## 调用示例
+
+```lua
+-- 得到日志级别
+log.getLevel()
+```
+
+
+--------------------------------------------------
 # log.debug
 
 ```lua

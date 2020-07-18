@@ -6,6 +6,125 @@ date: 2020.03.30
 ---
 
 --------------------------------------------------
+# socket.ntpSync
+
+```lua
+socket.ntpSync(server)
+```
+
+ntp时间同步
+
+## 参数表
+
+Name | Type | Description
+-----|------|--------------
+`server`|`string`| ntp服务器域名,默认值ntp1.aliyun.com
+
+## 返回值
+
+No. | Type | Description
+----|------|--------------
+1 |`int`| 启动成功返回0, 失败返回1或者2
+
+## 调用示例
+
+```lua
+-- 如果读取失败,会返回nil
+socket.ntpSync()
+sys.subscribe("NTP_UPDATE", function(re)
+    log.info("ntp", "result", re)
+end)
+```
+
+## C API
+
+```c
+static int socket_ntp_sync(lua_State *L)
+```
+
+
+--------------------------------------------------
+# socket.tsend
+
+```lua
+socket.tsend(host, port, data)
+```
+
+直接向地址发送一段数据
+
+## 参数表
+
+Name | Type | Description
+-----|------|--------------
+`host`|`string`| 服务器域名或者ip
+`port`|`int`| 服务器端口号
+`data`|`string`| 待发送的数据
+
+## 返回值
+
+> *无返回值*
+
+## 调用示例
+
+```lua
+-- 如果读取失败,会返回nil
+socket.tsend("www.baidu.com", 80, "GET / HTTP/1.0\r\n\r\n")
+```
+
+
+--------------------------------------------------
+# socket.isReady
+
+```lua
+socket.isReady()
+```
+
+网络是否就绪
+
+## 参数表
+
+> 无参数
+
+## 返回值
+
+No. | Type | Description
+----|------|--------------
+1 |`boolean`| 已联网返回true,否则返回false
+
+## C API
+
+```c
+static int l_socket_is_ready(lua_State *L)
+```
+
+
+--------------------------------------------------
+# socket.ip
+
+```lua
+socket.ip()
+```
+
+获取自身ip,通常是内网ip
+
+## 参数表
+
+> 无参数
+
+## 返回值
+
+No. | Type | Description
+----|------|--------------
+1 |`string`| 已联网返回ip地址,否则返回nil
+
+## C API
+
+```c
+static int l_socket_selfip(lua_State *L)
+```
+
+
+--------------------------------------------------
 # socket.tcp
 
 ```lua
@@ -76,6 +195,262 @@ socket.udp()
 
 ```c
 static int luat_lib_socket_udp(lua_State *L)
+```
+
+
+--------------------------------------------------
+# so:start
+
+```lua
+so:start(host, port)
+```
+
+启动socket线程
+
+## 参数表
+
+Name | Type | Description
+-----|------|--------------
+`host`|`string`| 服务器域名或ip,如果已经使用so:host和so:port配置,就不需要传参数了
+`port`|`port`| 服务器端口,如果已经使用so:host和so:port配置,就不需要传参数了
+
+## 返回值
+
+No. | Type | Description
+----|------|--------------
+1 |`int`| 成功返回1,失败返回0
+
+## 调用示例
+
+```lua
+-- 参考socket.tcp的说明, 并查阅demo
+
+```
+
+
+--------------------------------------------------
+# so:close
+
+```lua
+so:close()
+```
+
+关闭socket对象
+
+## 参数表
+
+> 无参数
+
+## 返回值
+
+> *无返回值*
+
+## 调用示例
+
+```lua
+-- 参考socket.tcp的说明, 并查阅demo
+
+```
+
+## C API
+
+```c
+static int netc_close(lua_State *L)
+```
+
+
+--------------------------------------------------
+# so:send
+
+```lua
+so:send(data)
+```
+
+通过socket对象发送数据
+
+## 参数表
+
+Name | Type | Description
+-----|------|--------------
+`data`|`string`| 待发送数据
+
+## 返回值
+
+No. | Type | Description
+----|------|--------------
+1 |`boolean`| 发送成功返回true,否则返回false
+
+## 调用示例
+
+```lua
+-- 参考socket.tcp的说明, 并查阅demo
+
+```
+
+## C API
+
+```c
+static int netc_send(lua_State *L)
+```
+
+
+--------------------------------------------------
+# so:id
+
+```lua
+so:id()
+```
+
+获取socket对象的id
+
+## 参数表
+
+> 无参数
+
+## 返回值
+
+No. | Type | Description
+----|------|--------------
+1 |`string`| 对象id,全局唯一
+
+## 调用示例
+
+```lua
+-- 参考socket.tcp的说明, 并查阅demo
+
+```
+
+## C API
+
+```c
+static int netc_id(lua_State *L)
+```
+
+
+--------------------------------------------------
+# so:host
+
+```lua
+so:host(host)
+```
+
+设置服务器域名或ip
+
+## 参数表
+
+Name | Type | Description
+-----|------|--------------
+`host`|`string`| 服务器域名或ip
+
+## 返回值
+
+> *无返回值*
+
+## 调用示例
+
+```lua
+-- 参考socket.tcp的说明, 并查阅demo
+
+```
+
+## C API
+
+```c
+static int netc_host(lua_State *L)
+```
+
+
+--------------------------------------------------
+# so:port
+
+```lua
+so:port(port)
+```
+
+设置服务器端口
+
+## 参数表
+
+Name | Type | Description
+-----|------|--------------
+`port`|`int`| 服务器端口
+
+## 返回值
+
+> *无返回值*
+
+## 调用示例
+
+```lua
+-- 参考socket.tcp的说明, 并查阅demo
+
+```
+
+## C API
+
+```c
+static int netc_port(lua_State *L)
+```
+
+
+--------------------------------------------------
+# so:clean
+
+```lua
+so:clean(0)
+```
+
+清理socket关联的资源,socket对象在废弃前必须调用
+
+## 参数表
+
+Name | Type | Description
+-----|------|--------------
+`0`|`null`| *无*
+
+## 返回值
+
+> *无返回值*
+
+## 调用示例
+
+```lua
+-- 参考socket.tcp的说明, 并查阅demo
+
+```
+
+## C API
+
+```c
+static int netc_clean(lua_State *L)
+```
+
+
+--------------------------------------------------
+# so:port
+
+```lua
+so:port(event, func)
+```
+
+设置socket的事件回调
+
+## 参数表
+
+Name | Type | Description
+-----|------|--------------
+`event`|`string`| 事件名称
+`func`|`function`| 回调方法
+
+## 返回值
+
+> *无返回值*
+
+## 调用示例
+
+```lua
+-- 参考socket.tcp的说明, 并查阅demo
+
 ```
 
 

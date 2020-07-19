@@ -16,11 +16,11 @@ sys.taskInit(function()
             http.get("http://site0.cn/api/httptest/simple/date", nil, function(code,headers,data)
                 log.info("http", code, data)
             end) 
-            sys.wait(300000) -- 5分钟
             pm.dtimerStart(0, 300000)
             pm.request(pm.HIB) -- 建议休眠
             --pm.force(pm.HIB) -- 强制休眠,唤醒后需要会走联网流程,不推荐
             --pm.check() -- 检查可休眠状态,用于排查
+            sys.wait(300000) -- 5分钟
         else
             sys.wait(1000)
         end

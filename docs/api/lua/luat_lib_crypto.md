@@ -12,7 +12,6 @@ date: 2020.07.03
 crypto.md5(str)
 ```
 
-*
 计算md5值
 
 ## 参数表
@@ -48,7 +47,6 @@ static int l_crypto_md5(lua_State *L)
 crypto.hmac_md5(str, key)
 ```
 
-*
 计算hmac_md5值
 
 ## 参数表
@@ -85,7 +83,6 @@ static int l_crypto_hmac_md5(lua_State *L)
 crypto.sha1(str)
 ```
 
-*
 计算sha1值
 
 ## 参数表
@@ -121,7 +118,6 @@ static int l_crypto_sha1(lua_State *L)
 crypto.hmac_sha1(str, key)
 ```
 
-*
 计算hmac_sha1值
 
 ## 参数表

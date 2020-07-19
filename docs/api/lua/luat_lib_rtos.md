@@ -143,6 +143,39 @@ static int l_rtos_reboot(lua_State *L)
 
 
 --------------------------------------------------
+# rtos.buildDate
+
+```lua
+rtos.buildDate()
+```
+
+获取固件编译日期
+
+## 参数表
+
+> 无参数
+
+## 返回值
+
+No. | Type | Description
+----|------|--------------
+1 |`string`| 固件编译日期
+
+## 调用示例
+
+```lua
+-- 获取编译日期
+local d = rtos.buildDate()
+```
+
+## C API
+
+```c
+static int l_rtos_build_date(lua_State *L)
+```
+
+
+--------------------------------------------------
 # rtos.bsp
 
 ```lua
@@ -238,6 +271,44 @@ local luatos_version = rtos.version()
 
 ```c
 static int l_rtos_standy(lua_State *L)
+```
+
+
+--------------------------------------------------
+# rtos.meminfo
+
+```lua
+rtos.meminfo(type)
+```
+
+获取内存信息
+
+## 参数表
+
+Name | Type | Description
+-----|------|--------------
+`type`|`type`| "sys"系统内存, "lua"虚拟机内存, 默认为lua虚拟机内存
+
+## 返回值
+
+No. | Type | Description
+----|------|--------------
+1 |`int`| 总内存大小,单位字节
+2 |`int`| 当前使用的内存大小,单位字节
+3 |`int`| 最大使用的内存大小,单位字节
+
+## 调用示例
+
+```lua
+-- 打印内存占用
+log.info("mem.lua", rtos.meminfo())
+log.info("mem.sys", rtos.meminfo("sys"))
+```
+
+## C API
+
+```c
+static int l_rtos_meminfo(lua_State *L)
 ```
 
 

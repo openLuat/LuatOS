@@ -12,7 +12,6 @@ date: 2020.07.03
 adc.open(id)
 ```
 
-*
 打开adc通道
 
 ## 参数表
@@ -51,7 +50,6 @@ static int l_adc_open(lua_State *L)
 adc.read(id)
 ```
 
-*
 读取adc通道
 
 ## 参数表
@@ -91,7 +89,6 @@ static int l_adc_read(lua_State *L)
 adc.close(id)
 ```
 
-*
 关闭adc通道
 
 ## 参数表

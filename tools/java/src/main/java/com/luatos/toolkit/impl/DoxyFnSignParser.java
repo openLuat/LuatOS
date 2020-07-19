@@ -25,6 +25,9 @@ public class DoxyFnSignParser implements FnSignParser {
     private static String _r2 = "^\\s*([\\w\\d.:]+)\\s*(\\(([^)]*)\\))?.*$";
     private static Pattern P2 = Regex.getPattern(_r2);
 
+    private static String _r3 = "^@(function|api)(.+)$";
+    private static Pattern P3 = Regex.getPattern(_r3);
+
     @Override
     public FnSign parse(String block) {
         String[] lines = block.split("\r?\n");
@@ -48,12 +51,14 @@ public class DoxyFnSignParser implements FnSignParser {
         for (String line : lines) {
             // 还在摘要部分
             if (IN_SUMMARY == mode) {
+
                 // 进入函数部分了
-                if (line.startsWith("@function")) {
+                Matcher m = P3.matcher(line);
+                if (m.find()) {
                     mode = IN_FUNC;
-                    func = line.substring("@function".length()).trim();
+                    func = Strings.trim(m.group(2));
                     // 来，分析一下
-                    Matcher m = P2.matcher(func);
+                    m = P2.matcher(func);
                     if (!m.find()) {
                         throw Lang.makeThrow("Invalid Lua func", func);
                     }

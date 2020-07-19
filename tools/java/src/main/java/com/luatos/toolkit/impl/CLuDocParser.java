@@ -100,13 +100,27 @@ public class CLuDocParser implements LuDocParser {
                         && fn.getParamsCount() == 1
                         && fn.isParamMatch(0, "lua_State*", "L")) {
                         // 前序方法名称与当前方法匹配
-                        if (fn.isNameEndsWith(lastFn.getName().replace('.', '_'))) {
+                        String lastFnName = lastFn.getName();
+                        int pos = lastFnName.lastIndexOf('.');
+                        if (pos < 0) {
+                            pos = lastFnName.lastIndexOf(':');
+                        }
+                        if (pos > 0) {
+                            lastFnName = lastFnName.substring(pos + 1).trim();
+                        }
+                        lastFnName = Strings.lowerWord(lastFnName, '_');
+                        if (fn.isNameEndsWith(lastFnName)) {
                             // 融合吧
                             lastFn.setRefer(fn);
                             doc.addFunctions(lastFn);
                             lastFn = null;
                             lastCmt = null;
                             continue;
+                        }
+                        // 否则先把前面的函数推入
+                        else {
+                            doc.addFunctions(lastFn);
+                            lastFn = null;
                         }
                     }
                 }

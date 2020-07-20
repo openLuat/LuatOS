@@ -20,6 +20,7 @@ config['air302'] = {
     "USER_PATH": ".\\user\\",
     "LIB_PATH" : ".\\lib\\",
     "DEMO_PATH": ".\\demo\\",
+    "TOOLS_PATH": ".\\tools\\",
     "MAIN_LUA_DEBUG" : "false",
     "LUA_DEBUG" : "false",
     "COM_PORT" : "COM56"
@@ -38,6 +39,7 @@ DEMO_PATH = os.path.abspath(config["air302"]["DEMO_PATH"])  + os.sep # 用户脚
 MAIN_LUA_DEBUG = config["air302"]["MAIN_LUA_DEBUG"] == "true"
 LUA_DEBUG = config["air302"]["LUA_DEBUG"] == "true"
 COM_PORT = config["air302"]["COM_PORT"]
+TOOLS_PATH = os.path.abspath(config["air302"]["TOOLS_PATH"])  + os.sep
 
 # TODO 从环境变量获取上述参数
 
@@ -236,7 +238,7 @@ def _lfs(_path=None):
     for name in _paths :
         # 如果是lua文件, 编译之
         if name.endswith(".lua") :
-            cmd = [FTC_PATH + "luac.exe"]
+            cmd = [TOOLS_PATH + "luac_536_32bits.exe"]
             if name.endswith("main.lua") :
                 if not MAIN_LUA_DEBUG :
                     cmd += ["-s"]
@@ -244,9 +246,9 @@ def _lfs(_path=None):
                 cmd += ["-s"]
             else:
                 print("LUA_DEBUG", LUA_DEBUG, "False" == LUA_DEBUG)
-            cmd += ["-o", FTC_PATH + "disk/" + os.path.basename(name) + "c", name]
+            cmd += ["-o", FTC_PATH + "disk/" + os.path.basename(name) + "c", os.path.basename(name)]
             print("CALL", " ".join(cmd))
-            subprocess.check_call(cmd)
+            subprocess.check_call(cmd, cwd=os.path.dirname(name))
         # 其他文件直接拷贝
         else:
             print("COPY", name, FTC_PATH + "disk/" + os.path.basename(name))

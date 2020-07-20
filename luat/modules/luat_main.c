@@ -26,15 +26,13 @@ lua_State * luat_get_state() {
 
 static int pmain(lua_State *L) {
     int re = 0;
-    
-    //print_list_mem("begin> luaL_openlibs");
-    //luaL_openlibs(L);
-    //print_list_mem("done > luaL_openlibs");
 
-    // 加载本地库
-    //print_list_mem("begin> luat_openlibs");
+    #ifdef LUA_32BITS
+    LLOGD("Lua complied with LUA_32BITS");
+    #endif
+
+    // 加载内置库
     luat_openlibs(L);
-    //print_list_mem("begin> luat_openlibs");
 
     size_t total; size_t used; size_t max_used;
     luat_meminfo_luavm(&total, &used, &max_used);

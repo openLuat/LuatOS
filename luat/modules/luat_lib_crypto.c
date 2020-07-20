@@ -200,25 +200,63 @@ static int l_crypto_cipher(lua_State *L) {
 }
 #endif
 
-static int l_crypto_crc16(lua_State *L) {
-    return 0;
+#include "crc.h"
+
+static int l_crypto_crc16(lua_State *L)
+{   
+    int inputLen;
+    const char  *inputmethod = luaL_checkstring(L, 1);
+    const char *inputData = lua_tolstring(L,2,&inputLen);
+    uint16_t poly = luaL_optnumber(L,3,0x0000);
+    uint16_t initial = luaL_optnumber(L,4,0x0000);
+    uint16_t finally = luaL_optnumber(L,5,0x0000);
+    uint8_t inReverse = luaL_optnumber(L,6,0);
+    uint8_t outReverse = luaL_optnumber(L,7,0);
+   
+    lua_pushinteger(L, calcCRC16(inputData, inputmethod,inputLen,poly,initial,finally,inReverse,outReverse));
+    return 1;
 }
 
-static int l_crypto_crc32(lua_State *L) {
-    return 0;
+static int l_crypto_crc16_modbus(lua_State *L)
+{
+    size_t len = 0;
+    const char *inputData = luaL_checklstring(L, 1, &len);
+
+    lua_pushinteger(L, calcCRC16_modbus(inputData, len));
+    return 1;
+}
+
+static int l_crypto_crc32(lua_State *L)
+{
+    size_t len = 0;
+    const char *inputData = luaL_checklstring(L, 1, &len);
+
+    lua_pushinteger(L, calcCRC32(inputData, len));
+    return 1;
+}
+
+static int l_crypto_crc8(lua_State *L)
+{
+    size_t len = 0;
+    const char *inputData = luaL_checklstring(L, 1, &len);
+
+    lua_pushinteger(L, calcCRC8(inputData, len));
+    return 1;
 }
 
 #include "rotable.h"
 static const rotable_Reg reg_crypto[] =
 {
-    { "md5" ,           l_crypto_md5        ,0},
-    { "hmac_md5" ,      l_crypto_hmac_md5   ,0},
-    { "sha1" ,          l_crypto_sha1       ,0},
-    { "hmac_sha1" ,     l_crypto_hmac_sha1  ,0},
-    { "cipher" ,        l_crypto_cipher     ,0},
-    { "crc16",          l_crypto_crc16,      0},
-    { "crc32",          l_crypto_crc32,      0},
-	{ NULL,             NULL                ,0}
+    { "md5" ,           l_crypto_md5            ,0},
+    { "hmac_md5" ,      l_crypto_hmac_md5       ,0},
+    { "sha1" ,          l_crypto_sha1           ,0},
+    { "hmac_sha1" ,     l_crypto_hmac_sha1      ,0},
+    { "cipher" ,        l_crypto_cipher         ,0},
+    { "crc16",          l_crypto_crc16          ,0},
+    { "crc16_modbus",   l_crypto_crc16_modbus   ,0},
+    { "crc32",          l_crypto_crc32          ,0},
+    { "crc8",           l_crypto_crc8           ,0},
+	{ NULL,             NULL                    ,0}
 };
 
 LUAMOD_API int luaopen_crypto( lua_State *L ) {

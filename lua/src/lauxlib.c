@@ -829,23 +829,17 @@ LUALIB_API lua_Integer luaL_len (lua_State *L, int idx) {
   return l;
 }
 
-char * btoa(char *dst, uint32_t value, int base);
+
 LUALIB_API const char *luaL_tolstring (lua_State *L, int idx, size_t *len) {
   if (luaL_callmeta(L, idx, "__tostring")) {  /* metafield? */
     if (!lua_isstring(L, -1))
       luaL_error(L, "'__tostring' must return a string");
   }
   else {
-    char buff[36];
     switch (lua_type(L, idx)) {
       case LUA_TNUMBER: {
         if (lua_isinteger(L, idx))
-          //lua_pushfstring(L, "%I", (LUAI_UACINT)lua_tointeger(L, idx));
-        {
-          lua_Integer val = luaL_checkinteger(L, idx);
-          btoa(buff, val, -10);
-          lua_pushstring(L, buff);
-        }
+          lua_pushfstring(L, "%I", (LUAI_UACINT)lua_tointeger(L, idx));
         else
           lua_pushfstring(L, "%f", (LUAI_UACNUMBER)lua_tonumber(L, idx));
         break;

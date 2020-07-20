@@ -251,7 +251,9 @@ static const rotable_Reg reg_crypto[] =
     { "hmac_md5" ,      l_crypto_hmac_md5       ,0},
     { "sha1" ,          l_crypto_sha1           ,0},
     { "hmac_sha1" ,     l_crypto_hmac_sha1      ,0},
+#if defined(FEATURE_MBEDTLS_ENABLE)
     { "cipher" ,        l_crypto_cipher         ,0},
+#endif
     { "crc16",          l_crypto_crc16          ,0},
     { "crc16_modbus",   l_crypto_crc16_modbus   ,0},
     { "crc32",          l_crypto_crc32          ,0},

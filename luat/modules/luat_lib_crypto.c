@@ -202,6 +202,21 @@ static int l_crypto_cipher(lua_State *L) {
 
 #include "crc.h"
 
+/**
+计算CRC16
+@api crypto.crc16(method, data, poly, initial, finally, inReversem outReverse)
+@string 输入模式
+@string 字符串
+@int poly值
+@int initial值
+@int finally值
+@int 输入反转,1反转,默认0不反转
+@int 输入反转,1反转,默认0不反转
+@return int 对应的CRC16值
+@usage
+-- 计算CRC16
+local crc = crypto.crc16("")
+ */
 static int l_crypto_crc16(lua_State *L)
 {   
     int inputLen;
@@ -217,6 +232,15 @@ static int l_crypto_crc16(lua_State *L)
     return 1;
 }
 
+/**
+直接计算modbus的crc16值
+@api crypto.crc16_modbus(data)
+@string 数据
+@return int 对应的CRC16值
+@usage
+-- 计算CRC16 modbus
+local crc = crypto.crc16_modbus(data)
+ */
 static int l_crypto_crc16_modbus(lua_State *L)
 {
     size_t len = 0;
@@ -226,6 +250,15 @@ static int l_crypto_crc16_modbus(lua_State *L)
     return 1;
 }
 
+/**
+计算crc32值
+@api crypto.crc32(data)
+@string 数据
+@return int 对应的CRC32值
+@usage
+-- 计算CRC32
+local crc = crypto.crc32(data)
+ */
 static int l_crypto_crc32(lua_State *L)
 {
     size_t len = 0;
@@ -235,6 +268,15 @@ static int l_crypto_crc32(lua_State *L)
     return 1;
 }
 
+/**
+计算crc8值
+@api crypto.crc8(data)
+@string 数据
+@return int 对应的CRC8值
+@usage
+-- 计算CRC8
+local crc = crypto.crc8(data)
+ */
 static int l_crypto_crc8(lua_State *L)
 {
     size_t len = 0;

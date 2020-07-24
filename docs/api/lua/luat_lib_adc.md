@@ -34,12 +34,6 @@ end
 adc.close(2)
 ```
 
-## C API
-
-```c
-static int l_adc_open(lua_State *L)
-```
-
 
 --------------------------------------------------
 # adc.read
@@ -73,12 +67,6 @@ end
 adc.close(2)
 ```
 
-## C API
-
-```c
-static int l_adc_read(lua_State *L)
-```
-
 
 --------------------------------------------------
 # adc.close
@@ -107,12 +95,6 @@ if adc.open(2) then
     log.info("adc", adc.read(2))
 end
 adc.close(2)
-```
-
-## C API
-
-```c
-static int l_adc_close(lua_State *L)
 ```
 
 

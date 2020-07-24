@@ -31,12 +31,6 @@ Name | Type | Description
 pm.request(pm.HIB)
 ```
 
-## C API
-
-```c
-static int l_pm_request(lua_State *L)
-```
-
 
 --------------------------------------------------
 # pm.dtimerStart
@@ -65,12 +59,6 @@ Name | Type | Description
 pm.dtimerStart(0, 300 * 1000) -- 5分钟后唤醒
 ```
 
-## C API
-
-```c
-static int l_pm_dtimer_start(lua_State *L)
-```
-
 
 --------------------------------------------------
 # pm.dtimerStop
@@ -96,12 +84,6 @@ Name | Type | Description
 ```lua
 -- 添加底层定时器
 pm.dtimerStart(0) -- 关闭id=0的底层定时器
-```
-
-## C API
-
-```c
-static int l_pm_dtimer_stop(lua_State *L)
 ```
 
 
@@ -158,12 +140,6 @@ Name | Type | Description
 pm.force(pm.HIB)
 ```
 
-## C API
-
-```c
-static int l_pm_force(lua_State *L)
-```
-
 
 --------------------------------------------------
 # pm.check
@@ -192,12 +168,6 @@ if pm.check() then
 else
     pm.force(pm.HIB) -- 强制休眠
 end
-```
-
-## C API
-
-```c
-static int l_pm_check(lua_State *L)
 ```
 
 

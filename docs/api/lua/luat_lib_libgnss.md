@@ -32,12 +32,6 @@ libgnss.parse(indata)
 log.info("nmea", json.encode(libgnss.getRmc()))
 ```
 
-## C API
-
-```c
-static int l_libgnss_parse(lua_State *L)
-```
-
 
 --------------------------------------------------
 # libgnss.isFix
@@ -62,12 +56,6 @@ libgnss.isFix()
 -- 解析nmea
 libgnss.parse(indata)
 log.info("nmea", "isFix", libgnss.isFix())
-```
-
-## C API
-
-```c
-static int l_libgnss_is_fix(lua_State *L)
 ```
 
 
@@ -100,12 +88,6 @@ libgnss.parse(indata)
 log.info("nmea", "loc", libgnss.getIntLocation())
 ```
 
-## C API
-
-```c
-static int l_libgnss_get_int_location(lua_State *L)
-```
-
 
 --------------------------------------------------
 # libgnss.getRmc
@@ -130,12 +112,6 @@ libgnss.getRmc()
 -- 解析nmea
 libgnss.parse(indata)
 log.info("nmea", "rmc", json.encode(libgnss.getRmc()))
-```
-
-## C API
-
-```c
-static int l_libgnss_get_rmc(lua_State *L)
 ```
 
 

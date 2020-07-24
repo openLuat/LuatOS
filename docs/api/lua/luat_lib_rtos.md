@@ -31,12 +31,6 @@ Name | Type | Description
 rtos.receive(-1)
 ```
 
-## C API
-
-```c
-static int l_rtos_receive(lua_State *L)
-```
-
 
 --------------------------------------------------
 # rtos.timer_start
@@ -67,12 +61,6 @@ Name | Type | Description
 rtos.timer_start(10000, 3000, -1)
 ```
 
-## C API
-
-```c
-static int l_rtos_timer_start(lua_State *L)
-```
-
 
 --------------------------------------------------
 # rtos.timer_stop
@@ -100,12 +88,6 @@ Name | Type | Description
 rtos.timer_stop(100000)
 ```
 
-## C API
-
-```c
-static int l_rtos_timer_stop(lua_State *L)
-```
-
 
 --------------------------------------------------
 # rtos.reboot
@@ -129,12 +111,6 @@ rtos.reboot()
 ```lua
 -- 立即重启设备
 rtos.reboot()
-```
-
-## C API
-
-```c
-static int l_rtos_reboot(lua_State *L)
 ```
 
 
@@ -162,12 +138,6 @@ rtos.buildDate()
 local d = rtos.buildDate()
 ```
 
-## C API
-
-```c
-static int l_rtos_build_date(lua_State *L)
-```
-
 
 --------------------------------------------------
 # rtos.bsp
@@ -191,12 +161,6 @@ rtos.bsp()
 ```lua
 -- 获取编译日期
 local bsp = rtos.bsp()
-```
-
-## C API
-
-```c
-static int l_rtos_bsp(lua_State *L)
 ```
 
 
@@ -224,12 +188,6 @@ rtos.version()
 local luatos_version = rtos.version()
 ```
 
-## C API
-
-```c
-static int l_rtos_version(lua_State *L)
-```
-
 
 --------------------------------------------------
 # rtos.standy
@@ -255,12 +213,6 @@ Name | Type | Description
 ```lua
 -- 读取版本号
 local luatos_version = rtos.version()
-```
-
-## C API
-
-```c
-static int l_rtos_standy(lua_State *L)
 ```
 
 
@@ -293,12 +245,6 @@ No. | Type | Description
 -- 打印内存占用
 log.info("mem.lua", rtos.meminfo())
 log.info("mem.sys", rtos.meminfo("sys"))
-```
-
-## C API
-
-```c
-static int l_rtos_meminfo(lua_State *L)
 ```
 
 

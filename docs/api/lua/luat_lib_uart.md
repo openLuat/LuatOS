@@ -41,12 +41,6 @@ uart.setup(1, 115200, 8, 1, uart.NONE)
 uart.setup(1, 115200, 8, 1, uart.NONE)
 ```
 
-## C API
-
-```c
-static int l_uart_setup(lua_State *L)
-```
-
 
 --------------------------------------------------
 # uart.write
@@ -73,12 +67,6 @@ Name | Type | Description
 ```lua
 -- 
 uart.write(1, "rdy\r\n")
-```
-
-## C API
-
-```c
-static int l_uart_write(lua_State *L)
 ```
 
 
@@ -109,12 +97,6 @@ Name | Type | Description
 uart.read(1, 16)
 ```
 
-## C API
-
-```c
-static int l_uart_read(lua_State *L)
-```
-
 
 --------------------------------------------------
 # uart.close
@@ -140,12 +122,6 @@ Name | Type | Description
 ```lua
 -- 
 uart.close(1)
-```
-
-## C API
-
-```c
-static int l_uart_close(lua_State *L)
 ```
 
 
@@ -178,12 +154,6 @@ uart.on("receive", function(id, len)
     local data = uart.read(id, len)
     log.info("uart", id, len, data)
 end)
-```
-
-## C API
-
-```c
-static int l_uart_on(lua_State *L)
 ```
 
 

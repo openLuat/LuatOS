@@ -5,6 +5,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.Writer;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 import org.nutz.lang.Files;
@@ -72,6 +73,17 @@ public class ComboDocSetRender implements LuDocSetRender {
 
     private void buildReadMe(LuatDocSet ds, File dirOut, List<LuDocument> docList)
             throws IOException {
+        for (LuDocument doc : docList) {
+            System.out.println("!!!" + doc.getDisplayTitle());
+        }
+        // 首先按照名称排序索引
+        docList.sort(new Comparator<LuDocument>() {
+            public int compare(LuDocument o1, LuDocument o2) {
+                String title1 = o1.getDisplayTitle();
+                String title2 = o2.getDisplayTitle();
+                return title1.compareTo(title2);
+            }
+        });
         // 索引
         StringBuilder sb = new StringBuilder();
         wlnf(sb, "模块 | 描述");

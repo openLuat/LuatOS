@@ -33,12 +33,6 @@ Name | Type | Description
 pwm.open(5, 1000, 50)
 ```
 
-## C API
-
-```c
-static int l_pwm_open(lua_State *L)
-```
-
 
 --------------------------------------------------
 # pwm.close
@@ -64,12 +58,6 @@ Name | Type | Description
 ```lua
 -- 关闭PWM5
 pwm.close(5)
-```
-
-## C API
-
-```c
-static int l_pwm_close(lua_State *L)
 ```
 
 

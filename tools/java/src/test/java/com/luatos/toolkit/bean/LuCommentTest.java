@@ -5,8 +5,6 @@ import static org.junit.Assert.*;
 import org.junit.Test;
 import org.nutz.lang.Files;
 
-import com.luatos.toolkit.bean.LuComment;
-
 public class LuCommentTest {
 
     @Test

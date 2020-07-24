@@ -56,12 +56,6 @@ nbiot.imsi()
 log.info("nbiot", "imsi", nbiot.imsi())
 ```
 
-## C API
-
-```c
-static int l_nbiot_imsi(lua_State *L)
-```
-
 
 --------------------------------------------------
 # nbiot.iccid
@@ -85,12 +79,6 @@ nbiot.iccid()
 ```lua
 -- 读取iccid
 log.info("nbiot", "iccid", nbiot.iccid())
-```
-
-## C API
-
-```c
-static int l_nbiot_iccid(lua_State *L)
 ```
 
 
@@ -117,13 +105,15 @@ Name | Type | Description
 
 ```lua
 -- 读取imei
+-- 设置imei
 log.info("nbiot", "imei", nbiot.imei())
-```
-
-## C API
-
-```c
-static int l_nbiot_imei(lua_State *L)
+@usage 
+log.info("nbiot", "imei", nbiot.imei("898989898989899898"))
+-- 读取imei
+-- 设置imei
+log.info("nbiot", "imei", nbiot.imei())
+@usage 
+log.info("nbiot", "imei", nbiot.imei("898989898989899898"))
 ```
 
 
@@ -151,12 +141,6 @@ nbiot.rssi()
 log.info("nbiot", "rssi", nbiot.rssi())
 ```
 
-## C API
-
-```c
-static int l_nbiot_rssi(lua_State *L)
-```
-
 
 --------------------------------------------------
 # nbiot.apn
@@ -182,12 +166,6 @@ nbiot.apn()
 log.info("nbiot", "apn", nbiot.apn())
 ```
 
-## C API
-
-```c
-static int l_nbiot_apn(lua_State *L)
-```
-
 
 --------------------------------------------------
 # nbiot.tac
@@ -211,12 +189,6 @@ nbiot.tac()
 ```lua
 -- 读取TAC
 log.info("nbiot", "tac", nbiot.tac())
-```
-
-## C API
-
-```c
-static int l_nbiot_tac(lua_State *L)
 ```
 
 
@@ -319,12 +291,6 @@ nbiot.snr()
 log.info("nbiot", "SNR", nbiot.snr())
 ```
 
-## C API
-
-```c
-static int l_nbiot_snr(lua_State *L)
-```
-
 
 --------------------------------------------------
 # nbiot.csq
@@ -348,12 +314,6 @@ nbiot.csq()
 ```lua
 -- 读取csq
 log.info("nbiot", "csq", nbiot.csq())
-```
-
-## C API
-
-```c
-static int l_nbiot_csq(lua_State *L)
 ```
 
 
@@ -416,12 +376,6 @@ log.info("nbiot", "SN", nbiot.sn())
 log.info("nbiot", "SN", nbiot.sn("My Custom SN"))
 ```
 
-## C API
-
-```c
-static int l_nbiot_sn(lua_State *L)
-```
-
 
 --------------------------------------------------
 # nbiot.updateCellInfo
@@ -449,12 +403,6 @@ sys.waitUntil("CELL_INFO_IND", 3000)
 log.info("nbiot", "cell", json.encode(nbiot.getCellInfo()))
 ```
 
-## C API
-
-```c
-static int l_nbiot_update_cell_info(lua_State *L)
-```
-
 
 --------------------------------------------------
 # nbiot.mcc
@@ -478,12 +426,6 @@ nbiot.mcc()
 ```lua
 -- 读取MCC
 log.info("nbiot", "mcc", nbiot.mcc())
-```
-
-## C API
-
-```c
-static int l_nbiot_mcc(lua_State *L)
 ```
 
 
@@ -511,12 +453,6 @@ nbiot.mnc()
 log.info("nbiot", "mnc", nbiot.mnc())
 ```
 
-## C API
-
-```c
-static int l_nbiot_mnc(lua_State *L)
-```
-
 
 --------------------------------------------------
 # nbiot.earfcn
@@ -540,12 +476,6 @@ nbiot.earfcn()
 ```lua
 -- 读取earfcn
 log.info("nbiot", "earfcn", nbiot.earfcn())
-```
-
-## C API
-
-```c
-static int l_nbiot_earfcn(lua_State *L)
 ```
 
 
@@ -598,12 +528,6 @@ nbiot.rsrq()
 log.info("nbiot", "rsrq", nbiot.rsrq())
 ```
 
-## C API
-
-```c
-static int l_nbiot_rsrq(lua_State *L)
-```
-
 
 --------------------------------------------------
 # nbiot.rsrp
@@ -627,12 +551,6 @@ nbiot.rsrp()
 ```lua
 -- 读取rsrp
 log.info("nbiot", "rsrp", nbiot.rsrp())
-```
-
-## C API
-
-```c
-static int l_nbiot_rsrp(lua_State *L)
 ```
 
 
@@ -665,25 +583,24 @@ log.info("nbiot", "PowerLevel", nbiot.powerLevel())
 # nbiot.getCellInfo
 
 ```lua
-nbiot.getCellInfo(?)
+nbiot.getCellInfo()
 ```
 
 获取网络基站详情,注册网络后可用,通过nbiot.updateCellInfo()刷新
 
 ## 参数表
 
-Name | Type | Description
------|------|--------------
-`?`|`usage`| 读取基站信息
+> 无参数
 
 ## 返回值
 
 > `table`: 网络基站详情
 
-## C API
+## 调用示例
 
-```c
-static int l_nbiot_get_cell_info(lua_State *L)
+```lua
+-- 读取基站信息
+log.info("nbiot", "cell info", json.encode(nbiot.getCellInfo()))
 ```
 
 
@@ -691,7 +608,7 @@ static int l_nbiot_get_cell_info(lua_State *L)
 # nbiot.setCFUN
 
 ```lua
-nbiot.setCFUN(val, ?)
+nbiot.setCFUN(val)
 ```
 
 进入或退出飞行模式
@@ -701,18 +618,24 @@ nbiot.setCFUN(val, ?)
 Name | Type | Description
 -----|------|--------------
 `val`|`int`| 0飞行模式,1普通联网模式
-`?`|`usage`| 进入飞行模式
 
 ## 返回值
 
 > `boolean`: 设置成功返回true,否则返回false
+
+## 调用示例
+
+```lua
+-- 进入飞行模式
+nbiot.setCFUN(0)
+```
 
 
 --------------------------------------------------
 # nbiot.setBootCFUN
 
 ```lua
-nbiot.setBootCFUN(val, ?)
+nbiot.setBootCFUN(val)
 ```
 
 设置设备上电启动时，是否进入飞行模式
@@ -722,11 +645,17 @@ nbiot.setBootCFUN(val, ?)
 Name | Type | Description
 -----|------|--------------
 `val`|`int`| 0飞行模式,1普通联网模式
-`?`|`usage`| 进入飞行模式
 
 ## 返回值
 
 > `boolean`: 设置成功返回true,否则返回false
+
+## 调用示例
+
+```lua
+-- 设置为上电进入飞行模式
+nbiot.setBootCFUN(0)
+```
 
 
 --------------------------------------------------
@@ -742,10 +671,17 @@ nbiot.getBootCFUN(val)
 
 Name | Type | Description
 -----|------|--------------
-`val`|`usage`| 进入飞行模式
+`val`|`null`| *无*
 
 ## 返回值
 
 > `int`: 开机就进入飞行模式返回0,进入普通模式返回1
+
+## 调用示例
+
+```lua
+-- 获取上电模式
+nbiot.getBootCFUN()
+```
 
 

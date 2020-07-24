@@ -34,12 +34,6 @@ sys.subscribe("NTP_UPDATE", function(re)
 end)
 ```
 
-## C API
-
-```c
-static int socket_ntp_sync(lua_State *L)
-```
-
 
 --------------------------------------------------
 # socket.tsend
@@ -87,12 +81,6 @@ socket.isReady()
 
 > `boolean`: 已联网返回true,否则返回false
 
-## C API
-
-```c
-static int l_socket_is_ready(lua_State *L)
-```
-
 
 --------------------------------------------------
 # socket.ip
@@ -110,12 +98,6 @@ socket.ip()
 ## 返回值
 
 > `string`: 已联网返回ip地址,否则返回nil
-
-## C API
-
-```c
-static int l_socket_selfip(lua_State *L)
-```
 
 
 --------------------------------------------------
@@ -159,12 +141,6 @@ if so then
 end
 ```
 
-## C API
-
-```c
-static int luat_lib_socket_tcp(lua_State *L)
-```
-
 
 --------------------------------------------------
 # socket.udp
@@ -182,12 +158,6 @@ socket.udp()
 ## 返回值
 
 > *无返回值*
-
-## C API
-
-```c
-static int luat_lib_socket_udp(lua_State *L)
-```
 
 
 --------------------------------------------------
@@ -242,12 +212,6 @@ so:close()
 
 ```
 
-## C API
-
-```c
-static int netc_close(lua_State *L)
-```
-
 
 --------------------------------------------------
 # so:send
@@ -275,12 +239,6 @@ Name | Type | Description
 
 ```
 
-## C API
-
-```c
-static int netc_send(lua_State *L)
-```
-
 
 --------------------------------------------------
 # so:id
@@ -304,12 +262,6 @@ so:id()
 ```lua
 -- 参考socket.tcp的说明, 并查阅demo
 
-```
-
-## C API
-
-```c
-static int netc_id(lua_State *L)
 ```
 
 
@@ -339,12 +291,6 @@ Name | Type | Description
 
 ```
 
-## C API
-
-```c
-static int netc_host(lua_State *L)
-```
-
 
 --------------------------------------------------
 # so:port
@@ -372,12 +318,6 @@ Name | Type | Description
 
 ```
 
-## C API
-
-```c
-static int netc_port(lua_State *L)
-```
-
 
 --------------------------------------------------
 # so:clean
@@ -403,12 +343,6 @@ Name | Type | Description
 ```lua
 -- 参考socket.tcp的说明, 并查阅demo
 
-```
-
-## C API
-
-```c
-static int netc_clean(lua_State *L)
 ```
 
 

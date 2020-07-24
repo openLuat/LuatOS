@@ -131,13 +131,14 @@ public class MarkdownLuDocRender implements LuDocRender {
                 wlnf(br, "```");
             }
 
+            // 暂时不显示 C API
             // 标题二（参考函数）
-            if (fn.hasRefer()) {
-                wlnf(br, "\n## C API");
-                wlnf(br, "\n```c");
-                wlnf(br, fn.getRefer().toSignature());
-                wlnf(br, "```");
-            }
+            // if (fn.hasRefer()) {
+            // wlnf(br, "\n## C API");
+            // wlnf(br, "\n```c");
+            // wlnf(br, fn.getRefer().toSignature());
+            // wlnf(br, "```");
+            // }
 
             // 最后结束来个空行
             wlnf(br, "\n");

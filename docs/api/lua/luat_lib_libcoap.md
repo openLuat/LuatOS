@@ -35,12 +35,6 @@ local coapdata = libcoap.new(libcoap.GET, "time")
 local data = coapdata:rawdata()
 ```
 
-## C API
-
-```c
-static int l_libcoap_new(lua_State *L)
-```
-
 
 --------------------------------------------------
 # libcoap.parse
@@ -69,12 +63,6 @@ local coapdata = libcoap.parse(indata)
 log.info("coapdata", coapdata:hcode(), coapdata:data())
 ```
 
-## C API
-
-```c
-static int l_libcoap_parse(lua_State *L)
-```
-
 
 --------------------------------------------------
 # coapdata:msgid
@@ -99,12 +87,6 @@ coapdata:msgid()
 -- 解析服务器传入的数据包
 local coapdata = libcoap.parse(indata)
 log.info("coapdata", coapdata:msgid())
-```
-
-## C API
-
-```c
-static int libcoap_msgid(lua_State *L)
 ```
 
 
@@ -133,12 +115,6 @@ local coapdata = libcoap.parse(indata)
 log.info("coapdata", coapdata:token())
 ```
 
-## C API
-
-```c
-static int libcoap_token(lua_State *L)
-```
-
 
 --------------------------------------------------
 # coapdata:rawdata
@@ -165,12 +141,6 @@ local coapdata = libcoap.new(libcoap.GET, "time")
 netc:send(coapdata:rawdata())
 ```
 
-## C API
-
-```c
-static int libcoap_rawdata(lua_State *L)
-```
-
 
 --------------------------------------------------
 # coapdata:code
@@ -195,12 +165,6 @@ coapdata:code()
 -- 解析服务器传入的数据包
 local coapdata = libcoap.parse(indata)
 log.info("coapdata", coapdata:code())
-```
-
-## C API
-
-```c
-static int libcoap_code(lua_State *L)
 ```
 
 
@@ -257,12 +221,6 @@ local coapdata = libcoap.parse(indata)
 log.info("coapdata", coapdata:type())
 ```
 
-## C API
-
-```c
-static int libcoap_type(lua_State *L)
-```
-
 
 --------------------------------------------------
 # coapdata:data
@@ -287,12 +245,6 @@ coapdata:data()
 -- 解析服务器传入的数据包
 local coapdata = libcoap.parse(indata)
 log.info("coapdata", coapdata:data())
-```
-
-## C API
-
-```c
-static int libcoap_data(lua_State *L)
 ```
 
 

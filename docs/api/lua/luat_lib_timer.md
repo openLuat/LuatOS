@@ -31,10 +31,4 @@ Name | Type | Description
 timer.mdelay(10)
 ```
 
-## C API
-
-```c
-static int l_timer_mdelay(lua_State *L)
-```
-
 

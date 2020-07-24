@@ -9,8 +9,6 @@ import org.nutz.lang.Lang;
 import org.nutz.lang.util.NutMap;
 
 import com.luatos.toolkit.bean.LuHead;
-import com.luatos.toolkit.impl.LuHeadParser;
-import com.luatos.toolkit.impl.NutMapTagParser;
 
 public class TagParserTest {
 

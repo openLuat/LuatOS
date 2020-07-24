@@ -33,12 +33,6 @@ if i2c.exist(1) then
 end
 ```
 
-## C API
-
-```c
-static int l_i2c_exist(lua_State *L)
-```
-
 
 --------------------------------------------------
 # i2c.setup
@@ -70,12 +64,6 @@ else
 end
 ```
 
-## C API
-
-```c
-static int l_i2c_setup(lua_State *L)
-```
-
 
 --------------------------------------------------
 # i2c.send
@@ -105,12 +93,6 @@ Name | Type | Description
 i2c.send(1, 0x5C, string.char(0x0F, 0x2F))
 ```
 
-## C API
-
-```c
-static int l_i2c_send(lua_State *L)
-```
-
 
 --------------------------------------------------
 # i2c.recv
@@ -138,12 +120,6 @@ Name | Type | Description
 ```lua
 -- 从i2c1读取2个字节的数据
 local data = i2c.recv(1, 0x5C, 2)
-```
-
-## C API
-
-```c
-static int l_i2c_recv(lua_State *L)
 ```
 
 
@@ -176,12 +152,6 @@ Name | Type | Description
 i2c.writeReg(1, 0x5C, 0x01, string.char(0x00, 0xF2))
 ```
 
-## C API
-
-```c
-static int l_i2c_write_reg(lua_State *L)
-```
-
 
 --------------------------------------------------
 # i2c.close
@@ -207,12 +177,6 @@ Name | Type | Description
 ```lua
 -- 关闭i2c1
 i2c.close(1)
-```
-
-## C API
-
-```c
-static int l_i2c_close(lua_State *L)
 ```
 
 

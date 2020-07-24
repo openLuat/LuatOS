@@ -48,7 +48,7 @@ public class ComboDocSetRender implements LuDocSetRender {
 
         LuatDocEntry en = ds.getEntry();
         // 准备输出目录
-        NutBean context = Lang.map("name", Files.getName(en.getPath()));
+        NutBean context = Lang.map("name", Files.getName(en.getPaths()[0]));
         context.put("workdir", setup.getWorkdir());
         String tmplOutDir = Disks.appendPath(setup.getOutput(), en.getOut());
         String phOut = Tmpl.exec(tmplOutDir, context);

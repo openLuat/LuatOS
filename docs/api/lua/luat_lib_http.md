@@ -60,7 +60,7 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--- GET请
+-- GET请求
 http.get("http://www.baidu.com/", nil, functon(ret, code, headers, body)
     log.info("http", ret, code, header, body)
 end) 

@@ -31,12 +31,6 @@ Name | Type | Description
 log.info("md5", crypto.md5("abc"))
 ```
 
-## C API
-
-```c
-static int l_crypto_md5(lua_State *L)
-```
-
 
 --------------------------------------------------
 # crypto.hmac_md5
@@ -63,12 +57,6 @@ Name | Type | Description
 ```lua
 -- 计算字符串"abc"的hmac_md5
 log.info("hmac_md5", crypto.hmac_md5("abc", "1234567890"))
-```
-
-## C API
-
-```c
-static int l_crypto_hmac_md5(lua_State *L)
 ```
 
 
@@ -98,12 +86,6 @@ Name | Type | Description
 log.info("sha1", crypto.sha1("abc"))
 ```
 
-## C API
-
-```c
-static int l_crypto_sha1(lua_State *L)
-```
-
 
 --------------------------------------------------
 # crypto.hmac_sha1
@@ -130,12 +112,6 @@ Name | Type | Description
 ```lua
 -- 计算字符串"abc"的hmac_sha1
 log.info("hmac_sha1", crypto.hmac_sha1("abc", "1234567890"))
-```
-
-## C API
-
-```c
-static int l_crypto_hmac_sha1(lua_State *L)
 ```
 
 
@@ -168,12 +144,6 @@ Name | Type | Description
 -- 计算AES
 local data = crypto.cipher_encrypt("AES-128-ECB", "PKCS7", "1234567890123456", "1234567890123456")
 local data2 = crypto.cipher_encrypt("AES-128-CBC", "PKCS7", "1234567890123456", "1234567890123456", "1234567890666666")
-```
-
-## C API
-
-```c
-static int l_crypto_cipher(lua_State *L)
 ```
 
 

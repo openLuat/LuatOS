@@ -7,7 +7,6 @@ import org.nutz.json.Json;
 import org.nutz.lang.Files;
 
 import com.luatos.toolkit.api.FnSignParser;
-import com.luatos.toolkit.bean.FnSign;
 import com.luatos.toolkit.impl.CFnSignParser;
 import com.luatos.toolkit.impl.DoxyFnSignParser;
 

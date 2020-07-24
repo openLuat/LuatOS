@@ -31,12 +31,6 @@ Name | Type | Description
 log.setLevel("INFO")
 ```
 
-## C API
-
-```c
-static int l_log_set_level(lua_State *L)
-```
-
 
 --------------------------------------------------
 # log.getLevel
@@ -93,12 +87,6 @@ Name | Type | Description
 log.debug("onenet", "connect ok") 
 ```
 
-## C API
-
-```c
-static int l_log_debug(lua_State *L)
-```
-
 
 --------------------------------------------------
 # log.info
@@ -128,12 +116,6 @@ Name | Type | Description
 ```lua
 -- 日志输出 I/onenet connect ok
 log.info("onenet", "connect ok") 
-```
-
-## C API
-
-```c
-static int l_log_info(lua_State *L)
 ```
 
 
@@ -167,12 +149,6 @@ Name | Type | Description
 log.warn("onenet", "connect ok") 
 ```
 
-## C API
-
-```c
-static int l_log_warn(lua_State *L)
-```
-
 
 --------------------------------------------------
 # log.error
@@ -202,12 +178,6 @@ Name | Type | Description
 ```lua
 -- 日志输出 E/onenet connect ok
 log.error("onenet", "connect ok") 
-```
-
-## C API
-
-```c
-static int l_log_error(lua_State *L)
 ```
 
 

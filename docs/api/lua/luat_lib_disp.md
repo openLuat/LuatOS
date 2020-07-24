@@ -33,12 +33,6 @@ if disp.init({mode="i2c_sw", pin0=17, pin1=18}) == 1 then
 end
 ```
 
-## C API
-
-```c
-static int l_disp_init(lua_State *L)
-```
-
 
 --------------------------------------------------
 # disp.close
@@ -64,12 +58,6 @@ disp.close()
 disp.close()
 ```
 
-## C API
-
-```c
-static int l_disp_close(lua_State *L)
-```
-
 
 --------------------------------------------------
 # disp.update
@@ -93,12 +81,6 @@ disp.update()
 ```lua
 -- 
 disp.update()
-```
-
-## C API
-
-```c
-static int l_disp_update(lua_State *L)
 ```
 
 
@@ -155,12 +137,6 @@ Name | Type | Description
 ```lua
 -- 
 disp.setFont(1)
-```
-
-## C API
-
-```c
-static int l_disp_set_font(lua_State *L)
 ```
 
 

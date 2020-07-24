@@ -35,12 +35,6 @@ http.req("http://www.baidu.com/", nil, functon(ret, code, headers, body)
 end) 
 ```
 
-## C API
-
-```c
-static int l_http_req(lua_State *L)
-```
-
 
 --------------------------------------------------
 # http.get
@@ -70,12 +64,6 @@ Name | Type | Description
 http.get("http://www.baidu.com/", nil, functon(ret, code, headers, body)
     log.info("http", ret, code, header, body)
 end) 
-```
-
-## C API
-
-```c
-static int l_http_get(lua_State *L)
 ```
 
 
@@ -109,12 +97,6 @@ http.post("http://www.baidu.com/", {body=json.encode(data),headers=["Content-Typ
 end) 
 ```
 
-## C API
-
-```c
-static int l_http_post(lua_State *L)
-```
-
 
 --------------------------------------------------
 # http.put
@@ -146,12 +128,6 @@ http.put("http://www.baidu.com/", {body=json.encode(data),headers=["Content-Type
 end) 
 ```
 
-## C API
-
-```c
-static int l_http_put(lua_State *L)
-```
-
 
 --------------------------------------------------
 # http.delete
@@ -181,12 +157,6 @@ Name | Type | Description
 http.put("http://www.baidu.com/", nil, functon(ret, code, headers, body)
     log.info("http", ret, code, header, body)
 end) 
-```
-
-## C API
-
-```c
-static int l_http_delete(lua_State *L)
 ```
 
 

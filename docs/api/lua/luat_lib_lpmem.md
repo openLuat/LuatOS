@@ -32,12 +32,6 @@ Name | Type | Description
 local data = lpmem.read(0, 1024)
 ```
 
-## C API
-
-```c
-static int l_lpmem_read(lua_State *L)
-```
-
 
 --------------------------------------------------
 # lpmem.write
@@ -66,12 +60,6 @@ Name | Type | Description
 lpmem.write(512, data)
 ```
 
-## C API
-
-```c
-static int l_lpmem_write(lua_State *L)
-```
-
 
 --------------------------------------------------
 # lpmem.size
@@ -95,12 +83,6 @@ lpmem.size()
 ```lua
 -- 
 lpmem.size()
-```
-
-## C API
-
-```c
-static int l_lpmem_size(lua_State *L)
 ```
 
 

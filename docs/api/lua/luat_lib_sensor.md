@@ -40,10 +40,4 @@ while 1 do
 end
 ```
 
-## C API
-
-```c
-static int l_sensor_ds18b20(lua_State *L)
-```
-
 

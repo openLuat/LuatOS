@@ -8,7 +8,6 @@ import org.nutz.lang.Files;
 
 import com.luatos.toolkit.api.LuDocParser;
 import com.luatos.toolkit.bean.LuDocument;
-import com.luatos.toolkit.impl.CLuDocParser;
 
 public class CLuDocParserTest {
 

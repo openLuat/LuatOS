@@ -56,12 +56,6 @@ gpio.setup(17, 0)
 gpio.setup(27, function(val) print("IRQ_27") end, gpio.RISING)
 ```
 
-## C API
-
-```c
-static int l_gpio_setup(lua_State *L)
-```
-
 
 --------------------------------------------------
 # gpio.set
@@ -88,12 +82,6 @@ Name | Type | Description
 ```lua
 -- 设置gpio17为低电平
 gpio.set(17, 0) 
-```
-
-## C API
-
-```c
-static int l_gpio_set(lua_State *L)
 ```
 
 
@@ -123,12 +111,6 @@ Name | Type | Description
 gpio.get(17) 
 ```
 
-## C API
-
-```c
-static int l_gpio_get(lua_State *L)
-```
-
 
 --------------------------------------------------
 # gpio.close
@@ -154,12 +136,6 @@ Name | Type | Description
 ```lua
 -- 关闭gpio17
 gpio.close(17)
-```
-
-## C API
-
-```c
-static int l_gpio_close(lua_State *L)
 ```
 
 

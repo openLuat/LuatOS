@@ -73,9 +73,6 @@ public class ComboDocSetRender implements LuDocSetRender {
 
     private void buildReadMe(LuatDocSet ds, File dirOut, List<LuDocument> docList)
             throws IOException {
-        for (LuDocument doc : docList) {
-            System.out.println("!!!" + doc.getDisplayTitle());
-        }
         // 首先按照名称排序索引
         docList.sort(new Comparator<LuDocument>() {
             public int compare(LuDocument o1, LuDocument o2) {

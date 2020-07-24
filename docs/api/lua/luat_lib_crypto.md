@@ -147,3 +147,117 @@ local data2 = crypto.cipher_encrypt("AES-128-CBC", "PKCS7", "1234567890123456", 
 ```
 
 
+--------------------------------------------------
+# crypto.crc16
+
+```lua
+crypto.crc16(method, data, poly, initial, finally, inReversem outReverse, ?)
+```
+
+计算CRC16
+
+## 参数表
+
+Name | Type | Description
+-----|------|--------------
+`method`|`string`| 输入模式
+`data`|`string`| 字符串
+`poly`|`int`| poly值
+`initial`|`int`| initial值
+`finally`|`int`| finally值
+`inReversem outReverse`|`int`| 输入反转,1反转,默认0不反转
+`?`|`int`| 输入反转,1反转,默认0不反转
+
+## 返回值
+
+> `int`: 对应的CRC16值
+
+## 调用示例
+
+```lua
+-- 计算CRC16
+local crc = crypto.crc16("")
+```
+
+
+--------------------------------------------------
+# crypto.crc16_modbus
+
+```lua
+crypto.crc16_modbus(data)
+```
+
+直接计算modbus的crc16值
+
+## 参数表
+
+Name | Type | Description
+-----|------|--------------
+`data`|`string`| 数据
+
+## 返回值
+
+> `int`: 对应的CRC16值
+
+## 调用示例
+
+```lua
+-- 计算CRC16 modbus
+local crc = crypto.crc16_modbus(data)
+```
+
+
+--------------------------------------------------
+# crypto.crc32
+
+```lua
+crypto.crc32(data)
+```
+
+计算crc32值
+
+## 参数表
+
+Name | Type | Description
+-----|------|--------------
+`data`|`string`| 数据
+
+## 返回值
+
+> `int`: 对应的CRC32值
+
+## 调用示例
+
+```lua
+-- 计算CRC32
+local crc = crypto.crc32(data)
+```
+
+
+--------------------------------------------------
+# crypto.crc8
+
+```lua
+crypto.crc8(data)
+```
+
+计算crc8值
+
+## 参数表
+
+Name | Type | Description
+-----|------|--------------
+`data`|`string`| 数据
+
+## 返回值
+
+> `int`: 对应的CRC8值
+
+## 调用示例
+
+```lua
+-- 计算CRC8
+local crc = crypto.crc8(data)
+```
+
+

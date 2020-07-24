@@ -78,7 +78,7 @@ static int l_http_req(lua_State *L) {
 @function 回调方法
 @return boolean 成功启动返回true,否则返回false.启动成功后,cb回调必然会调用一次
 @usage 
--- GET请
+-- GET请求
 http.get("http://www.baidu.com/", nil, functon(ret, code, headers, body)
     log.info("http", ret, code, header, body)
 end) 

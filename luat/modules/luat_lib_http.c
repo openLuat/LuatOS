@@ -166,11 +166,11 @@ static int l_http_reqcommon(lua_State *L, uint8_t method) {
     }
 
     if (lua_istable(L, 2)) {
-        lua_settop(L, 2);
+        lua_settop(L, 2); // 移除掉其他参数
         
         // 取method
         lua_pushliteral(L, "method");
-        lua_gettable(L, -2);
+        lua_gettable(L, 2);
         if (!lua_isnil(L, -1) && !lua_isinteger(L, -1)) {
             lua_pop(L, 1);
             lua_pushliteral(L, "method must be int");
@@ -181,24 +181,29 @@ static int l_http_reqcommon(lua_State *L, uint8_t method) {
             req->method = luaL_checkinteger(L, -1);
         lua_pop(L, 1);
 
-        // 取callback
-        // lua_pushliteral(L, "cb");
-        // lua_gettable(L, -2);
-        // if (!lua_isnil(L, -1) && !lua_isfunction(L, -1)) {
-        //     lua_pop(L, 1);
-        //     lua_pushliteral(L, "cb must be function");
-        //     lua_error(L);
-        //     return 0;
-        // }
-        // else
-        //     req->luacb = luaL_checkinteger(L, -1);
-        // lua_pop(L, 1);
+
+
+        // 取下载路径
+        lua_pushliteral(L, "dw");
+        lua_gettable(L, 2);
+        if (lua_isstring(L, -1)){
+            size_t dw_path_sz = 0;
+            const char* dw = luaL_checklstring(L, -1, &dw_path_sz);
+            if (dw_path_sz > 31) {
+                LLOGD("download path is too long!!!");
+                lua_pushliteral(L, "download path is too long!!!");
+                lua_error(L);
+                return 0;
+            }
+            strcpy(req->dwpath, dw);
+        }
+        lua_pop(L, 1);
 
         // 取headers
 
         // 取body,当前仅支持string
         lua_pushliteral(L, "body");
-        lua_gettable(L, -2);
+        lua_gettable(L, 2);
         if (!lua_isnil(L, -1) && !lua_isstring(L, -1)) {
             lua_pop(L, 1);
             lua_pushliteral(L, "body must be string");
@@ -217,7 +222,7 @@ static int l_http_reqcommon(lua_State *L, uint8_t method) {
 
         // 去ca证书路径
         lua_pushliteral(L, "ca");
-        lua_gettable(L, -2);
+        lua_gettable(L, 2);
         if (!lua_isnil(L, -1) && !lua_isstring(L, -1)) {
             lua_pop(L, 1);
             lua_pushliteral(L, "ca must be string");
@@ -236,7 +241,7 @@ static int l_http_reqcommon(lua_State *L, uint8_t method) {
 
         // timeout设置
         lua_pushliteral(L, "timeout");
-        lua_gettable(L, -2);
+        lua_gettable(L, 2);
         if (!lua_isnil(L, -1) && !lua_isinteger(L, -1)) {
             lua_pop(L, 1);
             lua_pushliteral(L, "timeout must be int");

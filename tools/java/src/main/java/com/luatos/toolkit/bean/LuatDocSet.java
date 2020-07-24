@@ -47,14 +47,6 @@ public class LuatDocSet {
         return Strings.sBlank(Files.getName(homePath), "NoTitle");
     }
 
-    public String getHomePath() {
-        return homePath;
-    }
-
-    public void setHomePath(String homePath) {
-        this.homePath = homePath;
-    }
-
     public void addDoc(LuDocument doc) {
         this.documents.add(doc);
     }

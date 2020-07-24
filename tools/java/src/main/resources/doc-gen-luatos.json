@@ -3,7 +3,10 @@
   "as": ["md"],
   "entries": [{
     "title": "LuaAPI模块",
-    "path": "LuatOS/luat/modules",
+    "paths": [
+        "LuatOS/luat/modules",
+        "air302/sdk/luat" 
+    ],
     "suffix": [".c"],
     "lang" : ["LUA"],
     "dropEmptyComment": true,
@@ -11,7 +14,7 @@
     "deep": true
   }, {
     "title": "FreeRTOS集成",
-    "path": "LuatOS/luat/freertos",
+    "paths": ["LuatOS/luat/freertos"],
     "suffix": [".c"],
     "lang" : ["C"],
     "dropEmptyComment": true,
@@ -19,19 +22,11 @@
     "deep": true
   }, {
     "title": "RT-Thread集成",
-    "path": "LuatOS/luat/rtt",
+    "paths": ["LuatOS/luat/rtt"],
     "suffix": [".c"],
     "lang" : ["C"],
     "dropEmptyComment": true,
     "out": "c_api/${name}",
-    "deep": true
-  }, {
-    "title": "LuaAPI模块",
-    "path": "air302/sdk/luat",
-    "suffix": [".c"],
-    "lang" : ["LUA"],
-    "dropEmptyComment": true,
-    "out": "lua",
     "deep": true
   }],
   "output": "${workdir}/LuatOS/docs/api/"

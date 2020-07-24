@@ -7,7 +7,7 @@ public class LuatDocEntry extends LuatRenderingSetup {
 
     private String title;
 
-    private String path;
+    private String[] paths;
 
     /**
      * 从 workdir+path 之后的路径开始算，一定不是 "/" 开头
@@ -39,19 +39,22 @@ public class LuatDocEntry extends LuatRenderingSetup {
         if (!Strings.isBlank(title)) {
             return this.title;
         }
-        return Strings.sBlank(Files.getName(path), "NoTitle");
+        if (null != paths && paths.length > 0) {
+            return Files.getName(paths[0]);
+        }
+        return "NoTitle";
     }
 
     public void setTitle(String title) {
         this.title = title;
     }
 
-    public String getPath() {
-        return path;
+    public String[] getPaths() {
+        return paths;
     }
 
-    public void setPath(String path) {
-        this.path = path;
+    public void setPaths(String[] path) {
+        this.paths = path;
     }
 
     public String[] getPrefix() {
@@ -138,7 +141,7 @@ public class LuatDocEntry extends LuatRenderingSetup {
     }
 
     public String toString() {
-        String s = String.format("# %s->%s", this.getTitle2(), this.path);
+        String s = String.format("# %s->%s", this.getTitle2(), this.paths);
         if (this.hasPrefix()) {
             s += "\n#  prefix: " + Strings.join(", ", this.prefix);
         }

@@ -624,7 +624,6 @@ l_noret luaG_ordererror (lua_State *L, const TValue *p1, const TValue *p2) {
 }
 
 
-char * btoa(char *dst, uint32_t value, int base);
 /* add src:line information to 'msg' */
 const char *luaG_addinfo (lua_State *L, const char *msg, TString *src,
                                         int line) {
@@ -634,9 +633,7 @@ const char *luaG_addinfo (lua_State *L, const char *msg, TString *src,
   else {  /* no source available; use "?" instead */
     buff[0] = '?'; buff[1] = '\0';
   }
-  char buff2[40];
-  btoa(buff2, line, 10);
-  return luaO_pushfstring(L, "%s:%s: %s", buff, buff2, msg);
+  return luaO_pushfstring(L, "%s:%d: %s", buff, line, msg);
 }
 
 

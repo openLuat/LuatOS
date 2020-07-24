@@ -22,9 +22,7 @@ Name | Type | Description
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`int`| 启动成功返回0, 失败返回1或者2
+> `int`: 启动成功返回0, 失败返回1或者2
 
 ## 调用示例
 
@@ -87,9 +85,7 @@ socket.isReady()
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`boolean`| 已联网返回true,否则返回false
+> `boolean`: 已联网返回true,否则返回false
 
 ## C API
 
@@ -113,9 +109,7 @@ socket.ip()
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`string`| 已联网返回ip地址,否则返回nil
+> `string`: 已联网返回ip地址,否则返回nil
 
 ## C API
 
@@ -139,9 +133,7 @@ socket.tcp()
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`object`| socket对象,如果创建失败会返回nil
+> `object`: socket对象,如果创建失败会返回nil
 
 ## 调用示例
 
@@ -216,9 +208,7 @@ Name | Type | Description
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`int`| 成功返回1,失败返回0
+> `int`: 成功返回1,失败返回0
 
 ## 调用示例
 
@@ -276,9 +266,7 @@ Name | Type | Description
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`boolean`| 发送成功返回true,否则返回false
+> `boolean`: 发送成功返回true,否则返回false
 
 ## 调用示例
 
@@ -309,9 +297,7 @@ so:id()
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`string`| 对象id,全局唯一
+> `string`: 对象id,全局唯一
 
 ## 调用示例
 

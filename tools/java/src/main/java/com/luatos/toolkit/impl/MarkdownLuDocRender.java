@@ -100,12 +100,21 @@ public class MarkdownLuDocRender implements LuDocRender {
             // 标题二（返回值）
             wlnf(br, "\n## 返回值\n");
             if (fn.hasReturns() && !fn.isReturnMatch(0, "void")) {
-                wlnf(br, "No. | Type | Description");
-                wlnf(br, "----|------|--------------");
-                int x = 0;
-                for (FnReturn fr : fn.getReturns()) {
+                // 只有一个返回值
+                if (fn.getReturnCount() == 1) {
+                    FnReturn fr = fn.getReturns().get(0);
                     String brief = tidyBrief(fr.getComment());
-                    wlnf(br, "%d |`%s`| %s", ++x, fr.getType(), brief);
+                    wlnf(br, "> `%s`: %s", fr.getType(), brief);
+                }
+                // 多个返回值显示表格
+                else {
+                    wlnf(br, "No. | Type | Description");
+                    wlnf(br, "----|------|--------------");
+                    int x = 0;
+                    for (FnReturn fr : fn.getReturns()) {
+                        String brief = tidyBrief(fr.getComment());
+                        wlnf(br, "%d |`%s`| %s", ++x, fr.getType(), brief);
+                    }
                 }
             } else {
                 wlnf(br, "> *无返回值*");

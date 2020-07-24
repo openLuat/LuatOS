@@ -78,7 +78,8 @@ public class LuatDocGenerator {
         // 要扫描工作目录
         else if (null != conf) {
             File fConf = Files.checkFile(conf);
-            LuatDocSetup setup = Json.fromJsonFile(LuatDocSetup.class, fConf);
+            String json = Files.read(fConf);
+            LuatDocSetup setup = Json.fromJson(LuatDocSetup.class, json);
             genForSetup(setup, outdir, outas);
         }
         // 靠
@@ -118,20 +119,26 @@ public class LuatDocGenerator {
         // .....................................................
         // 解析文档集
         for (LuatDocEntry en : setup.getEntries()) {
-            // 文档集主目录
-            String aph = Disks.appendPath(setup.getWorkdir(), en.getPath());
-            File dirHome = Files.checkFile(aph);
-            if (!dirHome.isDirectory()) {
-                throw Lang.makeThrow("path '%s' must be DIR", aph);
-            }
-
             // 输出
             log.info(HR);
             log.infof("%s", en.toString());
 
+            // 准备文档集
+            LuatDocSet ds = new LuatDocSet(en.getTitle2());
+            ds.setEntry(en);
+
             // 建立文档集合
-            log.info("scan files ...");
-            LuatDocSet ds = buildDocSet(dirHome, en);
+            for (String ph : en.getPaths()) {
+                // 文档集主目录
+                String aph = Disks.appendPath(setup.getWorkdir(), ph);
+                File dirHome = Files.checkFile(aph);
+                if (!dirHome.isDirectory()) {
+                    throw Lang.makeThrow("path '%s' must be DIR", aph);
+                }
+
+                log.infof("scan files in %s", ph);
+                joinDocSet(ds, dirHome, en);
+            }
 
             // 渲染文档
             log.info("");
@@ -140,21 +147,20 @@ public class LuatDocGenerator {
         }
     }
 
-    private static LuatDocSet buildDocSet(File dirHome, LuatDocEntry en) throws IOException {
-        LuatDocSet ds = new LuatDocSet(dirHome.getName());
-        ds.setHomePath(dirHome.getCanonicalPath());
-        ds.setEntry(en);
-
+    private static LuatDocSet joinDocSet(LuatDocSet ds, File dirHome, LuatDocEntry en)
+            throws IOException {
         // 准备索引模板
-        File fReadme = Files.getFile(dirHome, en.getReadmeFilePath());
-        if (!fReadme.exists()) {
-            fReadme = Files.findFile("dft_readme.md");
+        if (null == ds.getReadme()) {
+            File fReadme = Files.getFile(dirHome, en.getReadmeFilePath());
+            if (!fReadme.exists()) {
+                fReadme = Files.findFile("dft_readme.md");
+            }
+            String tmpl = "${index}";
+            if (null != fReadme) {
+                tmpl = Files.read(fReadme);
+            }
+            ds.setReadme(tmpl);
         }
-        String tmpl = "${index}";
-        if (null != fReadme) {
-            tmpl = Files.read(fReadme);
-        }
-        ds.setReadme(tmpl);
 
         // 递归的解析文档
         Disks.visitFile(dirHome, new FileVisitor() {

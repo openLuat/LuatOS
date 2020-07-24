@@ -23,4 +23,5 @@ title: LuaAPI模块
 [socket](luat_lib_socket.md) | socket操作库
 [timer](luat_lib_timer.md) | 操作底层定时器
 [uart](luat_lib_uart.md) | 串口操作库
+[nbiot](luat_lib_nbiot.md) | NB-IOT操作库
  

@@ -22,9 +22,7 @@ Name | Type | Description
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`boolean`| 处理结果,即使返回成功,也不一定会进入, 也不会马上进入
+> `boolean`: 处理结果,即使返回成功,也不一定会进入, 也不会马上进入
 
 ## 调用示例
 
@@ -58,9 +56,7 @@ Name | Type | Description
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`boolean`| 处理结果
+> `boolean`: 处理结果
 
 ## 调用示例
 
@@ -126,9 +122,7 @@ Name | Type | Description
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`boolean`| 处理结果,即使返回成功,也不一定会进入, 也不会马上进入
+> `boolean`: 处理结果,即使返回成功,也不一定会进入, 也不会马上进入
 
 ## 调用示例
 
@@ -155,9 +149,7 @@ Name | Type | Description
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`boolean`| 处理结果,若返回成功,大概率会马上进入该休眠模式
+> `boolean`: 处理结果,若返回成功,大概率会马上进入该休眠模式
 
 ## 调用示例
 
@@ -188,9 +180,7 @@ pm.check()
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`boolean`| 处理结果,如果能顺利进入休眠,返回true,否则返回false
+> `boolean`: 处理结果,如果能顺利进入休眠,返回true,否则返回false
 
 ## 调用示例
 

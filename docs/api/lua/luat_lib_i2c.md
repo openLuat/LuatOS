@@ -22,9 +22,7 @@ Name | Type | Description
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`int`| 存在就返回1,否则返回0
+> `int`: 存在就返回1,否则返回0
 
 ## 调用示例
 
@@ -59,9 +57,7 @@ Name | Type | Description
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`int`| 成功就返回1,否则返回0
+> `int`: 成功就返回1,否则返回0
 
 ## 调用示例
 
@@ -135,9 +131,7 @@ Name | Type | Description
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`string`| 收到的数据
+> `string`: 收到的数据
 
 ## 调用示例
 
@@ -173,9 +167,7 @@ Name | Type | Description
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`string`| 收到的数据
+> `string`: 收到的数据
 
 ## 调用示例
 

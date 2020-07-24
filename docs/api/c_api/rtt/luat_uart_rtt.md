@@ -20,9 +20,7 @@ Name | Type | Description
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`rt_err_t`| *无*
+> `rt_err_t`: *无*
 
 
 --------------------------------------------------
@@ -43,8 +41,6 @@ Name | Type | Description
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`rt_err_t`| *无*
+> `rt_err_t`: *无*
 
 

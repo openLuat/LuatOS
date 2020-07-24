@@ -25,9 +25,7 @@ Name | Type | Description
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`userdata`| coap数据包
+> `userdata`: coap数据包
 
 ## 调用示例
 
@@ -61,9 +59,7 @@ Name | Type | Description
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`userdata`| coap数据包,如果解析失败会返回nil
+> `userdata`: coap数据包,如果解析失败会返回nil
 
 ## 调用示例
 
@@ -95,9 +91,7 @@ coapdata:msgid()
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`int`| coap数据包的msgid
+> `int`: coap数据包的msgid
 
 ## 调用示例
 
@@ -129,9 +123,7 @@ coapdata:token()
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`string`| coap数据包的token
+> `string`: coap数据包的token
 
 ## 调用示例
 
@@ -163,9 +155,7 @@ coapdata:rawdata()
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`string`| coap数据包的二进制数据
+> `string`: coap数据包的二进制数据
 
 ## 调用示例
 
@@ -197,9 +187,7 @@ coapdata:code()
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`int`| coap数据包的code
+> `int`: coap数据包的code
 
 ## 调用示例
 
@@ -231,9 +219,7 @@ coapdata:hcode()
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`int`| coap数据包的http code,例如200,205,404
+> `int`: coap数据包的http code,例如200,205,404
 
 ## 调用示例
 
@@ -261,9 +247,7 @@ Name | Type | Description
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`int`| coap数据包的type
+> `int`: coap数据包的type
 
 ## 调用示例
 
@@ -295,9 +279,7 @@ coapdata:data()
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`string`| coap数据包的data
+> `string`: coap数据包的data
 
 ## 调用示例
 

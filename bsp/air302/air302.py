@@ -142,6 +142,7 @@ def _pkg():
     # 拷贝库文件和demo
     shutil.copytree(LIB_PATH, "tmp/lib")
     shutil.copytree(DEMO_PATH, "tmp/demo")
+    shutil.copytree(TOOLS_PATH, "tmp/tools")
     
     #拷贝自身
     shutil.copy(sys.argv[0], "tmp/air302.py")
@@ -149,13 +150,12 @@ def _pkg():
     with open("tmp/local.ini", "w") as f:
         f.write('''
 [air302]
-; PLAT_ROOT for factory only
-PLAT_ROOT = D:\\gitee\\air302
 FTC_PATH = FlashToolCLI\\
 EC_PATH = ${EC}
 USER_PATH = user\\
 LIB_PATH = lib\\
 DEMO_PATH = demo\\
+TOOLS_PATH = tools\\
 MAIN_LUA_DEBUG = false
 LUA_DEBUG = false
 COM_PORT = COM56
@@ -163,6 +163,8 @@ COM_PORT = COM56
 
     if os.path.exists("userdoc") :
         shutil.copytree("userdoc", "tmp/userdoc")
+    if os.path.exists("../../docs/api/lua"):
+        shutil.copytree("../../docs/api/lua", "tmp/userdoc/api")
     if os.path.exists(USER_PATH):
         shutil.copytree(USER_PATH, "tmp/user")
 
@@ -253,8 +255,8 @@ def _lfs(_path=None):
         else:
             print("COPY", name, FTC_PATH + "disk/" + os.path.basename(name))
             shutil.copy(name, FTC_PATH + "disk/" + os.path.basename(name))
-    print("CALL mklfs")
-    subprocess.check_call([FTC_PATH + "mklfs.exe"], cwd=FTC_PATH)
+    print("CALL mklfs for disk.fs")
+    subprocess.check_call([TOOLS_PATH + "mklfs.exe"], cwd=FTC_PATH)
 
 def main():
     argc = 1

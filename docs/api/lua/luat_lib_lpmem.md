@@ -23,9 +23,7 @@ Name | Type | Description
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`string`| 读取成功返回字符串,否则返回nil
+> `string`: 读取成功返回字符串,否则返回nil
 
 ## 调用示例
 
@@ -59,9 +57,7 @@ Name | Type | Description
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`boolean`| 成功返回true,否则返回false
+> `boolean`: 成功返回true,否则返回false
 
 ## 调用示例
 
@@ -92,9 +88,7 @@ lpmem.size()
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`int`| 内存块的大小
+> `int`: 内存块的大小
 
 ## 调用示例
 

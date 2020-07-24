@@ -28,9 +28,7 @@ Name | Type | Description
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`int`| 成功返回0,失败返回其他值
+> `int`: 成功返回0,失败返回其他值
 
 ## 调用示例
 
@@ -68,9 +66,7 @@ Name | Type | Description
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`int`| 成功的数据长度
+> `int`: 成功的数据长度
 
 ## 调用示例
 
@@ -104,9 +100,7 @@ Name | Type | Description
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`string`| 读取到的数据
+> `string`: 读取到的数据
 
 ## 调用示例
 

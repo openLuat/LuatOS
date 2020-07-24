@@ -24,9 +24,7 @@ Name | Type | Description
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`boolean`| 成功启动返回true,否则返回false.启动成功后,cb回调必然会调用一次
+> `boolean`: 成功启动返回true,否则返回false.启动成功后,cb回调必然会调用一次
 
 ## 调用示例
 
@@ -63,9 +61,7 @@ Name | Type | Description
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`boolean`| 成功启动返回true,否则返回false.启动成功后,cb回调必然会调用一次
+> `boolean`: 成功启动返回true,否则返回false.启动成功后,cb回调必然会调用一次
 
 ## 调用示例
 
@@ -102,9 +98,7 @@ Name | Type | Description
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`boolean`| 成功启动返回true,否则返回false.启动成功后,cb回调必然会调用一次
+> `boolean`: 成功启动返回true,否则返回false.启动成功后,cb回调必然会调用一次
 
 ## 调用示例
 
@@ -141,9 +135,7 @@ Name | Type | Description
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`boolean`| 成功启动返回true,否则返回false.启动成功后,cb回调必然会调用一次
+> `boolean`: 成功启动返回true,否则返回false.启动成功后,cb回调必然会调用一次
 
 ## 调用示例
 
@@ -180,9 +172,7 @@ Name | Type | Description
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`boolean`| 成功启动返回true,否则返回false.启动成功后,cb回调必然会调用一次
+> `boolean`: 成功启动返回true,否则返回false.启动成功后,cb回调必然会调用一次
 
 ## 调用示例
 

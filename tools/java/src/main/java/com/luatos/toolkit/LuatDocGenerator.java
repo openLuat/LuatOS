@@ -78,7 +78,8 @@ public class LuatDocGenerator {
         // 要扫描工作目录
         else if (null != conf) {
             File fConf = Files.checkFile(conf);
-            LuatDocSetup setup = Json.fromJsonFile(LuatDocSetup.class, fConf);
+            String json = Files.read(fConf);
+            LuatDocSetup setup = Json.fromJson(LuatDocSetup.class, json);
             genForSetup(setup, outdir, outas);
         }
         // 靠

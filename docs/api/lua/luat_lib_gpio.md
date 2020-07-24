@@ -25,9 +25,7 @@ Name | Type | Description
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`any`| 输出模式返回设置电平的闭包, 输入模式和中断模式返回获取电平的闭包
+> `any`: 输出模式返回设置电平的闭包, 输入模式和中断模式返回获取电平的闭包
 
 ## 调用示例
 
@@ -116,9 +114,7 @@ Name | Type | Description
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`value`| 电平, 高电平gpio.HIGH, 低电平gpio.LOW, 对应数值1和0
+> `value`: 电平, 高电平gpio.HIGH, 低电平gpio.LOW, 对应数值1和0
 
 ## 调用示例
 

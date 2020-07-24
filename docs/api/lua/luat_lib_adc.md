@@ -22,9 +22,7 @@ Name | Type | Description
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`boolean`| 打开结果
+> `boolean`: 打开结果
 
 ## 调用示例
 

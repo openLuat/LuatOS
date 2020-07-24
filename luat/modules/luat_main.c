@@ -114,13 +114,15 @@ int luat_main (int argc, char **argv, int _) {
   return (result && status == LUA_OK) ? 0 : 2;
 }
 
-#include "vsprintf.h"
+//#include "vsprintf.h"
+#include "printf.h"
 __attribute__((weak)) int l_sprintf(char *buf, size_t size, const char *fmt, ...) {
     int32_t n;
     va_list args;
 
     va_start(args, fmt);
-    n = custom_vsprintf(buf, /*size,*/ fmt, args);
+    //n = custom_vsprintf(buf, /*size,*/ fmt, args);
+    n = vsnprintf_(buf, size, fmt, args);
     va_end(args);
 
     return n;

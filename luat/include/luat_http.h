@@ -44,6 +44,7 @@ typedef struct luat_lib_http_req
     luat_lib_http_body_t body;
     int luacb;
     luat_http_cb httpcb;
+    char dwpath[32];
 }luat_lib_http_req_t;
 
 int luat_http_req(luat_lib_http_req_t *req);

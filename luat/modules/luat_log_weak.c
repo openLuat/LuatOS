@@ -2,7 +2,7 @@
 #include "luat_base.h"
 #include "luat_log.h"
 #include "luat_uart.h"
-#include "vsprintf.h"
+#include "printf.h"
 
 static uint8_t luat_log_uart_port = 0;
 static uint8_t luat_log_level_cur = LUAT_LOG_DEBUG;
@@ -56,7 +56,7 @@ LUAT_WEAK void luat_log_log(int level, const char* tag, const char* _fmt, ...) {
 
     va_list args;
     va_start(args, _fmt);
-    size_t len = custom_vsprintf(tmp, _fmt, args);
+    size_t len = vsnprintf_(tmp, LOGLOG_SIZE, _fmt, args);
     va_end(args);
     if (len > 0) {
         len = strlen(buff);

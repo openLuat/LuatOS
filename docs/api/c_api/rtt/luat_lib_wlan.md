@@ -46,8 +46,6 @@ Name | Type | Description
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`int`| *无*
+> `int`: *无*
 
 

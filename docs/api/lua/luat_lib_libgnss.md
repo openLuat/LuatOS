@@ -54,9 +54,7 @@ libgnss.isFix()
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`boolean`| 定位成功与否
+> `boolean`: 定位成功与否
 
 ## 调用示例
 
@@ -124,9 +122,7 @@ libgnss.getRmc()
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`table`| 原始rmc数据
+> `table`: 原始rmc数据
 
 ## 调用示例
 

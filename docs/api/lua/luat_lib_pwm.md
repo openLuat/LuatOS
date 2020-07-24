@@ -24,9 +24,7 @@ Name | Type | Description
 
 ## 返回值
 
-No. | Type | Description
-----|------|--------------
-1 |`boolean`| 处理结果,成功返回true,失败返回false
+> `boolean`: 处理结果,成功返回true,失败返回false
 
 ## 调用示例
 

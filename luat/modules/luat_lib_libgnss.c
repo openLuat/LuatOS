@@ -16,6 +16,9 @@
 
 typedef struct luat_libgnss
 {
+    uint8_t debug;
+    uint8_t prev_fixed;
+    int lua_ref;
     struct minmea_sentence_rmc frame_rmc;
     struct minmea_sentence_gga frame_gga;
     struct minmea_sentence_gsv frame_gsv[3];
@@ -23,22 +26,30 @@ typedef struct luat_libgnss
     struct minmea_sentence_gsa frame_gsa;
 } luat_libgnss_t;
 
-static uint8_t gnss_debug = 0;
-static uint8_t prev_gnss_fixed = 0;
 static luat_libgnss_t *gnss = NULL;
 
-static int parse_nmea(const char* line, lua_State *L) {
-    // $GNRMC,080313.00,A,2324.40756,N,11313.86184,E,0.284,,010720,,,A*68
-    //if (gnss_debug)
-    //    LLOGD("GNSS [%s]", line);
+static int luat_libgnss_init(lua_State *L) {
     if (gnss == NULL) {
         gnss = lua_newuserdata(L, sizeof(luat_libgnss_t));
         if (gnss == NULL) {
             LLOGW("luavm out of memory for libgnss data parse");
             return -1;
         }
+        gnss->lua_ref = luaL_ref(L, LUA_REGISTRYINDEX);
         memset(gnss, 0, sizeof(luat_libgnss_t));
+        lua_pop(L, 1); // 弹出userdata, 由luaL_ref确保不会被回收
     }
+    return 0;
+}
+
+static int parse_nmea(const char* line, lua_State *L) {
+    // $GNRMC,080313.00,A,2324.40756,N,11313.86184,E,0.284,,010720,,,A*68
+    //if (gnss != NULL && gnss->debug)
+    //    LLOGD("GNSS [%s]", line);
+    if (gnss == NULL && luat_libgnss_init(L)) {
+        return 0;
+    }
+    
     switch (minmea_sentence_id(line, false)) {
         case MINMEA_SENTENCE_RMC: {
             struct minmea_sentence_rmc frame_rmc;
@@ -237,42 +248,42 @@ static int l_libgnss_get_rmc(lua_State *L) {
         lua_pushinteger(L, gnss->frame_rmc.longitude.value);
         lua_settable(L, -3);
 
-        // lua_pushliteral(L, "speed");
-        // lua_pushinteger(L, gnss->frame_rmc.speed.value);
-        // lua_settable(L, -3);
+        lua_pushliteral(L, "speed");
+        lua_pushinteger(L, gnss->frame_rmc.speed.value);
+        lua_settable(L, -3);
 
-        // lua_pushliteral(L, "course");
-        // lua_pushinteger(L, gnss->frame_rmc.course.value);
-        // lua_settable(L, -3);
+        lua_pushliteral(L, "course");
+        lua_pushinteger(L, gnss->frame_rmc.course.value);
+        lua_settable(L, -3);
 
 
-        // lua_pushliteral(L, "variation");
-        // lua_pushinteger(L, gnss->frame_rmc.variation.value);
-        // lua_settable(L, -3);
+        lua_pushliteral(L, "variation");
+        lua_pushinteger(L, gnss->frame_rmc.variation.value);
+        lua_settable(L, -3);
 
-        // lua_pushliteral(L, "year");
-        // lua_pushinteger(L, gnss->frame_rmc.date.year + 2000);
-        // lua_settable(L, -3);
+        lua_pushliteral(L, "year");
+        lua_pushinteger(L, gnss->frame_rmc.date.year + 2000);
+        lua_settable(L, -3);
 
-        // lua_pushliteral(L, "month");
-        // lua_pushinteger(L, gnss->frame_rmc.date.month);
-        // lua_settable(L, -3);
+        lua_pushliteral(L, "month");
+        lua_pushinteger(L, gnss->frame_rmc.date.month);
+        lua_settable(L, -3);
 
-        // lua_pushliteral(L, "day");
-        // lua_pushinteger(L, gnss->frame_rmc.date.day);
-        // lua_settable(L, -3);
+        lua_pushliteral(L, "day");
+        lua_pushinteger(L, gnss->frame_rmc.date.day);
+        lua_settable(L, -3);
 
-        // lua_pushliteral(L, "hour");
-        // lua_pushinteger(L, gnss->frame_rmc.time.hours);
-        // lua_settable(L, -3);
+        lua_pushliteral(L, "hour");
+        lua_pushinteger(L, gnss->frame_rmc.time.hours);
+        lua_settable(L, -3);
 
-        // lua_pushliteral(L, "min");
-        // lua_pushinteger(L, gnss->frame_rmc.time.minutes);
-        // lua_settable(L, -3);
+        lua_pushliteral(L, "min");
+        lua_pushinteger(L, gnss->frame_rmc.time.minutes);
+        lua_settable(L, -3);
 
-        // lua_pushliteral(L, "sec");
-        // lua_pushinteger(L, gnss->frame_rmc.time.seconds);
-        // lua_settable(L, -3);
+        lua_pushliteral(L, "sec");
+        lua_pushinteger(L, gnss->frame_rmc.time.seconds);
+        lua_settable(L, -3);
     }
 
     return 1;
@@ -365,6 +376,7 @@ static int l_libgnss_get_gsa(lua_State *L) {
     lua_createtable(L, 12, 0);
     if (gnss != NULL) {
         for (size_t i = 0; i < 12; i++) {
+            if (gnss->frame_gsa.sats[i] == 0) break;
             lua_pushinteger(L, i + 1);
             lua_pushinteger(L, gnss->frame_gsa.sats[i]);
             lua_settable(L, -3);
@@ -423,12 +435,15 @@ static int l_libgnss_get_vtg(lua_State *L) {
 }
 
 static int l_libgnss_debug(lua_State *L) {
+    if (gnss == NULL && luat_libgnss_init(L)) {
+        return 0;
+    }
     if (lua_isboolean(L, 1) && lua_toboolean(L, 1)) {
-        gnss_debug = 1;
+        gnss->debug = 1;
     }
     else
     {
-        gnss_debug = 0;
+        gnss->debug = 0;
     }
     
     return 0;

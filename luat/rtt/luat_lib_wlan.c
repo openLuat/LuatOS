@@ -478,6 +478,13 @@ static int l_wlan_oneshot_start(lua_State *L) {
     WM_ONESHOT_MODE mode = (WM_ONESHOT_MODE)luaL_optinteger(L, 1, WM_UDP);
     oneshot_autojoin = luaL_optinteger(L, 2, 1);
     rt_kprintf("oneshot mode=%d\n", mode);
+    if (mode == WM_APWEB) {
+        rt_wlan_set_mode("wlan1", RT_WLAN_AP);
+        rt_wlan_start_ap(luaL_optstring(L, 2, "air640w"), NULL);
+    }
+    else {
+        rt_wlan_set_mode("wlan0", RT_WLAN_STATION);
+    }
     int re = wm_oneshot_start(mode, _PW_callback);
     rt_kprintf("oneshot re=%ld\n", re);
     lua_pushinteger(L, re);

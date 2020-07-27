@@ -73,7 +73,7 @@ static void reinit(void* params) {
     // 卸载之
     dfs_unmount("/");
     // 抹除整个分区
-    wm_flash_erase(USER_ADDR_START, USER_ADDR_END - USER_ADDR_START);
+    //wm_flash_erase(USER_ADDR_START, USER_ADDR_END - USER_ADDR_START);
     // 重新格式化
     dfs_mkfs("lfs2", "spi01");
     // 挂载

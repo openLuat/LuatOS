@@ -25,7 +25,7 @@ LUAT_WEAK void luat_log_set_level(int level) {
 LUAT_WEAK int luat_log_get_level() {
     return luat_log_level_cur;
 }
-#define LOGLOG_SIZE 512
+#define LOGLOG_SIZE 1024
 LUAT_WEAK void luat_log_log(int level, const char* tag, const char* _fmt, ...) {
     if (luat_log_level_cur > level) return;
     char buff[LOGLOG_SIZE];

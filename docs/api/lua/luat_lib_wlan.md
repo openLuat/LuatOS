@@ -37,7 +37,7 @@ local m = wlan.getMode("wlan0")
 # wlan.setMode
 
 ```lua
-wlan.setMode("wlan", wlan.STATION)
+wlan.setMode(dev, mode)
 ```
 
 设置wifi模式,通常不需要设置
@@ -46,8 +46,8 @@ wlan.setMode("wlan", wlan.STATION)
 
 Name | Type | Description
 -----|------|--------------
-`"wlan"`|`string`| 设备名称,字符串或数值, 可选值0/1, "wlan0","wlan1". 默认"wlan0"
-`wlan.STATION`|`int`| 模式wlan.NONE, wlan.STATION, wlan.AP
+`dev`|`string`| 设备名称,字符串或数值, 可选值0/1, "wlan0","wlan1". 默认"wlan0"
+`mode`|`int`| 模式wlan.NONE, wlan.STATION, wlan.AP
 
 ## 返回值
 
@@ -424,39 +424,60 @@ end
 # wlan.rssi
 
 ```lua
-wlan.rssi(?)
+wlan.rssi()
 ```
 
 获取wifi信号强度值rssi
 
 ## 参数表
 
-Name | Type | Description
------|------|--------------
-`?`|`usage`| wlan.rssi()
+> 无参数
 
 ## 返回值
 
 > `int`: 如果是station模式,返回正的rssi值,否则返回负值
+
+## 调用示例
+
+```lua
+-------------------------
+-- 信号强度
+log.info("wlan", wlan.rssi())
+```
 
 
 --------------------------------------------------
 # wlan.airkiss_start
 
 ```lua
-wlan.airkiss_start(?)
+wlan.airkiss_start()
 ```
 
 启动airkiss配网线程
 
 ## 参数表
 
-Name | Type | Description
------|------|--------------
-`?`|`usage`| wlan.airkiss_start()
+> 无参数
 
 ## 返回值
 
 > `re`: 启动成功返回1,否则返回0
+
+## 调用示例
+
+```lua
+-------------------------
+-- 启动airkiss配网
+wlan.airkiss_start()
+-------------------------
+-- 监听配网信息
+sys.subscribe("WLAN_PW_RE", function(ssid, passwd)
+    if ssid then
+        log.info("wlan", "Got ssid and passwd", ssid, passwd)
+    else
+        log.info("wlan", "oneshot fail")
+    end
+end)
+```
 
 

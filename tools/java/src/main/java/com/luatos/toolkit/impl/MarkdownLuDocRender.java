@@ -125,6 +125,7 @@ public class MarkdownLuDocRender implements LuDocRender {
                 wlnf(br, "\n## 调用示例\n");
                 wlnf(br, "```%s", fn.getLangName());
                 for (FnExample fe : fn.getExamples()) {
+                    wlnf(br, "-------------------------");
                     wlnf(br, "-- %s", Strings.join("\n-- ", fe.getSummary()));
                     wlnf(br, Strings.join("\n", fe.getCode()));
                 }

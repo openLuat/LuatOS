@@ -27,6 +27,7 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
+-------------------------
 -- 初始化i2c1的ssd1306
 if disp.init({mode="i2c_sw", pin0=17, pin1=18}) == 1 then
     log.info("disp", "disp init complete")
@@ -54,6 +55,7 @@ disp.close()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 关闭disp,再次使用disp相关API的话,需要重新初始化
 disp.close()
 ```
@@ -79,6 +81,7 @@ disp.update()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 把显示数据更新到屏幕
 disp.update()
 ```
@@ -108,6 +111,7 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
+-------------------------
 -- 
 disp.drawStr("wifi is ready", 10, 20)
 ```
@@ -135,6 +139,7 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
+-------------------------
 -- 设置为中文字体,对之后的drawStr有效
 disp.setFont(1)
 ```

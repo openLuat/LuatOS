@@ -27,6 +27,7 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
+-------------------------
 -- 解析nmea
 libgnss.parse(indata)
 log.info("nmea", json.encode(libgnss.getRmc()))
@@ -53,6 +54,7 @@ libgnss.isFix()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 解析nmea
 libgnss.parse(indata)
 log.info("nmea", "isFix", libgnss.isFix())
@@ -83,6 +85,7 @@ No. | Type | Description
 ## 调用示例
 
 ```lua
+-------------------------
 -- 解析nmea
 libgnss.parse(indata)
 log.info("nmea", "loc", libgnss.getIntLocation())
@@ -109,6 +112,7 @@ libgnss.getRmc()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 解析nmea
 libgnss.parse(indata)
 log.info("nmea", "rmc", json.encode(libgnss.getRmc()))
@@ -135,6 +139,7 @@ libgnss.getGsv()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 解析nmea
 libgnss.parse(indata)
 log.info("nmea", "gsv", json.encode(libgnss.getGsv()))
@@ -161,6 +166,7 @@ libgnss.getGsa()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 解析nmea
 libgnss.parse(indata)
 log.info("nmea", "gsa", json.encode(libgnss.getGsa()))
@@ -187,6 +193,7 @@ libgnss.getVtg()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 解析nmea
 libgnss.parse(indata)
 log.info("nmea", "vtg", json.encode(libgnss.getVtg()))

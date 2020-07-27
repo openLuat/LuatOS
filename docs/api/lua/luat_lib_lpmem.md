@@ -28,6 +28,7 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
+-------------------------
 -- 读取1kb的内存
 local data = lpmem.read(0, 1024)
 ```
@@ -56,6 +57,7 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
+-------------------------
 -- 往偏移量为512字节的位置, 写入数据
 lpmem.write(512, data)
 ```
@@ -81,6 +83,7 @@ lpmem.size()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 
 lpmem.size()
 ```

@@ -25,6 +25,7 @@ nbiot.isReady()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 判断是否已经联网
 if nbiot.isReady() then 
     log.info("nbiot", "net is ready")
@@ -52,6 +53,7 @@ nbiot.imsi()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 读取imsi
 log.info("nbiot", "imsi", nbiot.imsi())
 ```
@@ -77,6 +79,7 @@ nbiot.iccid()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 读取iccid
 log.info("nbiot", "iccid", nbiot.iccid())
 ```
@@ -104,15 +107,11 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
+-------------------------
 -- 读取imei
--- 设置imei
 log.info("nbiot", "imei", nbiot.imei())
-@usage 
-log.info("nbiot", "imei", nbiot.imei("898989898989899898"))
--- 读取imei
+-------------------------
 -- 设置imei
-log.info("nbiot", "imei", nbiot.imei())
-@usage 
 log.info("nbiot", "imei", nbiot.imei("898989898989899898"))
 ```
 
@@ -137,6 +136,7 @@ nbiot.rssi()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 读取rssi
 log.info("nbiot", "rssi", nbiot.rssi())
 ```
@@ -162,6 +162,7 @@ nbiot.apn()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 读取APN
 log.info("nbiot", "apn", nbiot.apn())
 ```
@@ -187,6 +188,7 @@ nbiot.tac()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 读取TAC
 log.info("nbiot", "tac", nbiot.tac())
 ```
@@ -212,6 +214,7 @@ nbiot.tacTime()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 读取Tac Time
 log.info("nbiot", "tac time", nbiot.tacTime())
 ```
@@ -237,6 +240,7 @@ nbiot.activeTime()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 读取Active Time
 log.info("nbiot", "Active Time", nbiot.activeTime())
 ```
@@ -262,6 +266,7 @@ nbiot.cellID()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 读取CellID
 log.info("nbiot", "CellID", nbiot.cellID())
 ```
@@ -287,6 +292,7 @@ nbiot.snr()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 读取SNR
 log.info("nbiot", "SNR", nbiot.snr())
 ```
@@ -312,6 +318,7 @@ nbiot.csq()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 读取csq
 log.info("nbiot", "csq", nbiot.csq())
 ```
@@ -337,6 +344,7 @@ nbiot.ceLevel()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 读取CE Level
 log.info("nbiot", "CE Level", nbiot.ceLevel())
 ```
@@ -364,15 +372,11 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
+-------------------------
 -- 读取SN
--- 设置SN
 log.info("nbiot", "SN", nbiot.sn())
-@usage 
-log.info("nbiot", "SN", nbiot.sn("My Custom SN"))
--- 读取SN
+-------------------------
 -- 设置SN
-log.info("nbiot", "SN", nbiot.sn())
-@usage 
 log.info("nbiot", "SN", nbiot.sn("My Custom SN"))
 ```
 
@@ -397,6 +401,7 @@ nbiot.updateCellInfo()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 刷新网络信息
 nbiot.updateCellInfo()
 sys.waitUntil("CELL_INFO_IND", 3000)
@@ -424,6 +429,7 @@ nbiot.mcc()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 读取MCC
 log.info("nbiot", "mcc", nbiot.mcc())
 ```
@@ -449,6 +455,7 @@ nbiot.mnc()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 读取MNC
 log.info("nbiot", "mnc", nbiot.mnc())
 ```
@@ -474,6 +481,7 @@ nbiot.earfcn()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 读取earfcn
 log.info("nbiot", "earfcn", nbiot.earfcn())
 ```
@@ -499,6 +507,7 @@ nbiot.phyCellId()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 读取phyCellId
 log.info("nbiot", "phyCellId", nbiot.phyCellId())
 ```
@@ -524,6 +533,7 @@ nbiot.rsrq()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 读取rsrq
 log.info("nbiot", "rsrq", nbiot.rsrq())
 ```
@@ -549,6 +559,7 @@ nbiot.rsrp()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 读取rsrp
 log.info("nbiot", "rsrp", nbiot.rsrp())
 ```
@@ -574,6 +585,7 @@ nbiot.powerLevel()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 读取PowerLevel
 log.info("nbiot", "PowerLevel", nbiot.powerLevel())
 ```
@@ -599,6 +611,7 @@ nbiot.getCellInfo()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 读取基站信息
 log.info("nbiot", "cell info", json.encode(nbiot.getCellInfo()))
 ```
@@ -626,6 +639,7 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
+-------------------------
 -- 进入飞行模式
 nbiot.setCFUN(0)
 ```
@@ -653,6 +667,7 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
+-------------------------
 -- 设置为上电进入飞行模式
 nbiot.setBootCFUN(0)
 ```
@@ -680,6 +695,7 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
+-------------------------
 -- 获取上电模式
 nbiot.getBootCFUN()
 ```

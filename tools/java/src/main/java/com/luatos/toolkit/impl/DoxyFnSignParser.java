@@ -115,6 +115,13 @@ public class DoxyFnSignParser implements FnSignParser {
                     }
                     exmLast.appendSummary(line.substring(2).trim());
                 }
+                // 明确开始一段示例
+                else if(line.trim().equalsIgnoreCase("@usage")) {
+                    if (null != exmLast && exmLast.hasCode()) {
+                        fn.addExample(exmLast);
+                    }
+                    exmLast = null;
+                }
                 // 那就是例子代码咯
                 else {
                     if (null == exmLast) {

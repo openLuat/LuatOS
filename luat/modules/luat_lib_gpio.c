@@ -23,6 +23,7 @@ typedef struct luat_lib_gpio_cb
     int lua_ref;
 } luat_lib_gpio_cb_t;
 
+// 保存中断回调的数组
 static luat_lib_gpio_cb_t irq_cbs[GPIO_IRQ_COUNT];
 
 int l_gpio_handler(lua_State *L, void* ptr) {
@@ -130,7 +131,7 @@ static int l_gpio_setup(lua_State *L) {
 @api gpio.set(pin, value)
 @int pin 针脚编号,必须是数值
 @int value 电平, 可以是 高电平gpio.HIGH, 低电平gpio.LOW, 或者直接写数值1或0
-@return nil
+@return nil 无返回值
 @usage
 -- 设置gpio17为低电平
 gpio.set(17, 0) 

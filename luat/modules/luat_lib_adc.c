@@ -60,6 +60,7 @@ static int l_adc_read(lua_State *L) {
 /**
 关闭adc通道
 @api adc.close(id)
+@int 通道id,与具体设备有关,通常从0开始
 @usage
 -- 打开adc通道2,并读取
 if adc.open(2) then

@@ -118,6 +118,7 @@ static int l_disp_init(lua_State *L) {
 关闭显示屏
 @api disp.close() 
 @usage
+-- 关闭disp,再次使用disp相关API的话,需要重新初始化
 disp.close()
 */
 static int l_disp_close(lua_State *L) {
@@ -135,6 +136,7 @@ static int l_disp_close(lua_State *L) {
 /*
 @api disp.clear() 清屏
 @usage
+-- 清屏
 disp.clear()
 */
 static int l_disp_clear(lua_State *L) {
@@ -142,10 +144,12 @@ static int l_disp_clear(lua_State *L) {
     u8g2_ClearBuffer(u8g2);
     return 0;
 }
+
 /*
 把显示数据更新到屏幕
 @api disp.update()
 @usage
+-- 把显示数据更新到屏幕
 disp.update()
 */
 static int l_disp_update(lua_State *L) {
@@ -189,6 +193,7 @@ static int l_disp_draw_text(lua_State *L) {
 @api disp.setFont(fontId) 
 @int 字体id, 默认0,纯英文8x8字节. 如果支持中文支持, 那么1代表12x12的中文字体.
 @usage
+-- 设置为中文字体,对之后的drawStr有效
 disp.setFont(1)
 */
 static int l_disp_set_font(lua_State *L) {
@@ -241,6 +246,9 @@ LUAMOD_API int luaopen_disp( lua_State *L ) {
     rotable_newlib(L, reg_disp);
     return 1;
 }
+
+//-----------------------------
+// 往下是一些U8G2方法的默认实现
 
 uint8_t luat_u8x8_gpio_and_delay(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr);
 

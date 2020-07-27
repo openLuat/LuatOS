@@ -55,7 +55,7 @@ static int luat_http_cb_impl(luat_lib_http_resp_t *resp) {
 }
 
 /*
-发起一个http请求
+发起一个http请求,推荐用http.get/post/put/delete方法
 @api http.req(url, params, cb)
 @string 目标URL,需要是https://或者http://开头,否则将当成http://开头
 @table 可选参数. method方法,headers请求头,body数据,ca证书路径,timeout超时时长,

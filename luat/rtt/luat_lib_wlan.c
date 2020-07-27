@@ -59,7 +59,7 @@ static int l_wlan_get_mode(lua_State *L) {
 
 /*
 设置wifi模式,通常不需要设置
-@api wlan.setMode("wlan", wlan.STATION)
+@api wlan.setMode(dev, mode)
 @string  设备名称,字符串或数值, 可选值0/1, "wlan0","wlan1". 默认"wlan0"
 @int 模式wlan.NONE, wlan.STATION, wlan.AP
 @return int   设置成功与否,通常不检查
@@ -581,7 +581,9 @@ static int l_wlan_join_info(lua_State *L) {
 获取wifi信号强度值rssi
 @function wlan.rssi()
 @return int 如果是station模式,返回正的rssi值,否则返回负值
-@usage wlan.rssi()
+@usage 
+-- 信号强度
+log.info("wlan", wlan.rssi())
 */
 static int l_wlan_rssi(lua_State* L) {
     lua_pushinteger(L, rt_wlan_get_rssi());
@@ -592,7 +594,18 @@ static int l_wlan_rssi(lua_State* L) {
 启动airkiss配网线程
 @function wlan.airkiss_start()
 @return re 启动成功返回1,否则返回0
-@usage wlan.airkiss_start()
+@usage 
+-- 启动airkiss配网
+wlan.airkiss_start()
+@usage
+-- 监听配网信息
+sys.subscribe("WLAN_PW_RE", function(ssid, passwd)
+    if ssid then
+        log.info("wlan", "Got ssid and passwd", ssid, passwd)
+    else
+        log.info("wlan", "oneshot fail")
+    end
+end)
 */
 #include "airkiss.h"
 static int l_wlan_airkiss_start(lua_State* L){

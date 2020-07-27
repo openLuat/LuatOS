@@ -15,9 +15,14 @@ uart.setup(2, 9600)
 
 sys.timerLoopStart(function()
     log.info("GPS", libgnss.getIntLocation())
-    local jdata = json.encode(libgnss.getRmc())
-    log.info("rmc", jdata)
-end, 2000) -- 两秒打印一次
+    local rmc = libgnss.getRmc()
+    log.info("rmc", json.encode(rmc))
+    --log.info("rmc", rmc.lat, rmc.lng, rmc.year, rmc.month, rmc.day, rmc.hour, rmc.min, rmc.sec)
+    -- 下面的方法需要V0002才能跑
+    log.info("vtg", json.encode(libgnss.getVtg()))
+    --log.info("gsv", json.encode(libgnss.getGsv()))
+    log.info("gsa", json.encode(libgnss.getGsa()))
+end, 3000) -- 两秒打印一次
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

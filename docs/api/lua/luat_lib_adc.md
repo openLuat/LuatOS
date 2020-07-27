@@ -27,6 +27,7 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
+-------------------------
 -- 打开adc通道2,并读取
 if adc.open(2) then
     log.info("adc", adc.read(2))
@@ -60,6 +61,7 @@ No. | Type | Description
 ## 调用示例
 
 ```lua
+-------------------------
 -- 打开adc通道2,并读取
 if adc.open(2) then
     log.info("adc", adc.read(2))
@@ -90,6 +92,7 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
+-------------------------
 -- 打开adc通道2,并读取
 if adc.open(2) then
     log.info("adc", adc.read(2))

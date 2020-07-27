@@ -30,6 +30,7 @@ No. | Type | Description
 ## 调用示例
 
 ```lua
+-------------------------
 -- 如果读取失败,会返回nil
 while 1 do 
     sys.wait(5000) 

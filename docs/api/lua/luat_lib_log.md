@@ -27,6 +27,7 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
+-------------------------
 -- 设置日志级别为INFO
 log.setLevel("INFO")
 ```
@@ -52,6 +53,7 @@ log.getLevel()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 得到日志级别
 log.getLevel()
 ```
@@ -83,6 +85,7 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
+-------------------------
 -- 日志输出 D/onenet connect ok
 log.debug("onenet", "connect ok") 
 ```
@@ -114,6 +117,7 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
+-------------------------
 -- 日志输出 I/onenet connect ok
 log.info("onenet", "connect ok") 
 ```
@@ -145,6 +149,7 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
+-------------------------
 -- 日志输出 W/onenet connect ok
 log.warn("onenet", "connect ok") 
 ```
@@ -176,6 +181,7 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
+-------------------------
 -- 日志输出 E/onenet connect ok
 log.error("onenet", "connect ok") 
 ```

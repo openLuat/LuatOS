@@ -27,6 +27,7 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
+-------------------------
 -- 如果读取失败,会返回nil
 socket.ntpSync()
 sys.subscribe("NTP_UPDATE", function(re)
@@ -59,6 +60,7 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
+-------------------------
 -- 如果读取失败,会返回nil
 socket.tsend("www.baidu.com", 80, "GET / HTTP/1.0\r\n\r\n")
 ```
@@ -120,6 +122,7 @@ socket.tcp()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 如果读取失败,会返回nil
 local so = socket.tcp()
 if so then
@@ -183,6 +186,7 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
+-------------------------
 -- 参考socket.tcp的说明, 并查阅demo
 
 ```
@@ -208,6 +212,7 @@ so:close()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 参考socket.tcp的说明, 并查阅demo
 
 ```
@@ -235,6 +240,7 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
+-------------------------
 -- 参考socket.tcp的说明, 并查阅demo
 
 ```
@@ -260,6 +266,7 @@ so:id()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 参考socket.tcp的说明, 并查阅demo
 
 ```
@@ -287,6 +294,7 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
+-------------------------
 -- 参考socket.tcp的说明, 并查阅demo
 
 ```
@@ -314,6 +322,7 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
+-------------------------
 -- 参考socket.tcp的说明, 并查阅demo
 
 ```
@@ -341,6 +350,7 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
+-------------------------
 -- 参考socket.tcp的说明, 并查阅demo
 
 ```
@@ -369,6 +379,7 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
+-------------------------
 -- 参考socket.tcp的说明, 并查阅demo
 
 ```

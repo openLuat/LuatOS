@@ -27,6 +27,7 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
+-------------------------
 -- 获取wlan0的当前模式
 local m = wlan.getMode("wlan0")
 ```
@@ -55,6 +56,7 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
+-------------------------
 -- 将wlan设置为wifi客户端模式
 wlan.setMode("wlan0",wlan.STATION) 
 ```
@@ -83,6 +85,7 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
+-------------------------
 -- 连接到uiot,密码1234567890
 wlan.connect("uiot", "1234567890")
 ```
@@ -108,6 +111,7 @@ wlan.disconnect()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 断开wifi连接
 wlan.disconnect()
 ```
@@ -133,6 +137,7 @@ wlan.connected()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 连上wifi网络,只代表密码正确, 不一定拿到了ip
 wlan.connected()
 ```
@@ -160,15 +165,11 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
+-------------------------
 -- 查询自动连接的设置
--- 设置自动连接
 wlan.autoreconnect()
-@usage
-wlan.autoreconnect(1)
--- 查询自动连接的设置
+-------------------------
 -- 设置自动连接
-wlan.autoreconnect()
-@usage
 wlan.autoreconnect(1)
 ```
 
@@ -193,6 +194,7 @@ wlan.scan()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 扫描并查询结果
 wlan.scan()
 sys.waitUntil("WLAN_SCAN_DONE", 30000)
@@ -225,6 +227,7 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
+-------------------------
 -- 扫描并查询结果
 wlan.scan()
 sys.waitUntil("WLAN_SCAN_DONE", 30000)
@@ -255,6 +258,7 @@ wlan.get_mac()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 获取MAC地址
 log.info("wlan", "mac addr", wlan.get_mac())
 ```
@@ -280,6 +284,7 @@ wlan.get_mac_raw()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 查询mac地址, 二进制模式
 local mac_raw  = wlan.get_mac_raw()
 if mac_raw then
@@ -308,6 +313,7 @@ wifi是否已经获取ip
 ## 调用示例
 
 ```lua
+-------------------------
 -- 查询是否已经wifi联网
 if wlan.ready() then
     log.info("wlan", "wifi ok", "Let's Rock!")
@@ -339,67 +345,17 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
+-------------------------
 -- UDP配网,需要下载联德盛测试APP,2.0版本
--- SOCKET配网,需要下载联德盛测试APP,2.0版本
--- AP网页配网,手机搜索wifi "W600APWEB", 密码12345678. 连上之后,保持wifi连接,浏览器访问 192.168.168.1, 按提示输入.
--- 监听配网信息
 wlan.oneShotStart(0)
-@usage 
-wlan.oneShotStart(1)
-@usage 
-wlan.oneShotStart(2, "W600APWEB", "12345678")
-@usage
-sys.subscribe("WLAN_PW_RE", function(ssid, passwd)
-    if ssid then
-        log.info("wlan", "Got ssid and passwd", ssid, passwd)
-    else
-        log.info("wlan", "oneshot fail")
-    end
-end)
--- UDP配网,需要下载联德盛测试APP,2.0版本
+-------------------------
 -- SOCKET配网,需要下载联德盛测试APP,2.0版本
--- AP网页配网,手机搜索wifi "W600APWEB", 密码12345678. 连上之后,保持wifi连接,浏览器访问 192.168.168.1, 按提示输入.
--- 监听配网信息
-wlan.oneShotStart(0)
-@usage 
 wlan.oneShotStart(1)
-@usage 
-wlan.oneShotStart(2, "W600APWEB", "12345678")
-@usage
-sys.subscribe("WLAN_PW_RE", function(ssid, passwd)
-    if ssid then
-        log.info("wlan", "Got ssid and passwd", ssid, passwd)
-    else
-        log.info("wlan", "oneshot fail")
-    end
-end)
--- UDP配网,需要下载联德盛测试APP,2.0版本
--- SOCKET配网,需要下载联德盛测试APP,2.0版本
+-------------------------
 -- AP网页配网,手机搜索wifi "W600APWEB", 密码12345678. 连上之后,保持wifi连接,浏览器访问 192.168.168.1, 按提示输入.
--- 监听配网信息
-wlan.oneShotStart(0)
-@usage 
-wlan.oneShotStart(1)
-@usage 
 wlan.oneShotStart(2, "W600APWEB", "12345678")
-@usage
-sys.subscribe("WLAN_PW_RE", function(ssid, passwd)
-    if ssid then
-        log.info("wlan", "Got ssid and passwd", ssid, passwd)
-    else
-        log.info("wlan", "oneshot fail")
-    end
-end)
--- UDP配网,需要下载联德盛测试APP,2.0版本
--- SOCKET配网,需要下载联德盛测试APP,2.0版本
--- AP网页配网,手机搜索wifi "W600APWEB", 密码12345678. 连上之后,保持wifi连接,浏览器访问 192.168.168.1, 按提示输入.
+-------------------------
 -- 监听配网信息
-wlan.oneShotStart(0)
-@usage 
-wlan.oneShotStart(1)
-@usage 
-wlan.oneShotStart(2, "W600APWEB", "12345678")
-@usage
 sys.subscribe("WLAN_PW_RE", function(ssid, passwd)
     if ssid then
         log.info("wlan", "Got ssid and passwd", ssid, passwd)
@@ -430,6 +386,7 @@ wlan.oneshotStop()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 停止配网
 wlan.oneshotStop()
 ```
@@ -455,6 +412,7 @@ wlan.oneshotState()
 ## 调用示例
 
 ```lua
+-------------------------
 -- 查询
 if wlan.oneshotState() then
     log.info("wlan", "配网中")

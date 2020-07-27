@@ -24,4 +24,5 @@ title: LuaAPI模块
 [socket](luat_lib_socket.md) | socket操作库
 [timer](luat_lib_timer.md) | 操作底层定时器
 [uart](luat_lib_uart.md) | 串口操作库
+[wlan](luat_lib_wlan.md) | wifi操作库
  

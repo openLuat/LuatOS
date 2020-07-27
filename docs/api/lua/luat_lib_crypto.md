@@ -27,7 +27,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 计算字符串"abc"的md5
 log.info("md5", crypto.md5("abc"))
 ```
@@ -56,7 +55,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 计算字符串"abc"的hmac_md5
 log.info("hmac_md5", crypto.hmac_md5("abc", "1234567890"))
 ```
@@ -84,7 +82,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 计算字符串"abc"的sha1
 log.info("sha1", crypto.sha1("abc"))
 ```
@@ -113,7 +110,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 计算字符串"abc"的hmac_sha1
 log.info("hmac_sha1", crypto.hmac_sha1("abc", "1234567890"))
 ```
@@ -145,7 +141,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 计算AES
 local data = crypto.cipher_encrypt("AES-128-ECB", "PKCS7", "1234567890123456", "1234567890123456")
 local data2 = crypto.cipher_encrypt("AES-128-CBC", "PKCS7", "1234567890123456", "1234567890123456", "1234567890666666")
@@ -180,7 +175,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 计算CRC16
 local crc = crypto.crc16("")
 ```
@@ -208,7 +202,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 计算CRC16 modbus
 local crc = crypto.crc16_modbus(data)
 ```
@@ -236,7 +229,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 计算CRC32
 local crc = crypto.crc32(data)
 ```
@@ -264,7 +256,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 计算CRC8
 local crc = crypto.crc8(data)
 ```

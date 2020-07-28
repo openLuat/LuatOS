@@ -33,7 +33,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 最常用115200 8N1
 -- 可以简写为 uart.setup(1)
 uart.setup(1, 115200, 8, 1, uart.NONE)
@@ -67,7 +66,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 
 uart.write(1, "rdy\r\n")
 ```
@@ -96,7 +94,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 
 uart.read(1, 16)
 ```
@@ -124,7 +121,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 
 uart.close(1)
 ```
@@ -154,7 +150,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 
 uart.on("receive", function(id, len)
     local data = uart.read(id, len)

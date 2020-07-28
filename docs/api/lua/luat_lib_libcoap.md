@@ -30,7 +30,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 创建一个请求服务器time的数据包
 local coapdata = libcoap.new(libcoap.GET, "time")
 local data = coapdata:rawdata()
@@ -59,7 +58,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 解析服务器传入的数据包
 local coapdata = libcoap.parse(indata)
 log.info("coapdata", coapdata:hcode(), coapdata:data())
@@ -86,7 +84,6 @@ coapdata:msgid()
 ## 调用示例
 
 ```lua
--------------------------
 -- 解析服务器传入的数据包
 local coapdata = libcoap.parse(indata)
 log.info("coapdata", coapdata:msgid())
@@ -113,7 +110,6 @@ coapdata:token()
 ## 调用示例
 
 ```lua
--------------------------
 -- 解析服务器传入的数据包
 local coapdata = libcoap.parse(indata)
 log.info("coapdata", coapdata:token())
@@ -140,7 +136,6 @@ coapdata:rawdata()
 ## 调用示例
 
 ```lua
--------------------------
 -- 解析服务器传入的数据包
 local coapdata = libcoap.new(libcoap.GET, "time")
 netc:send(coapdata:rawdata())
@@ -167,7 +162,6 @@ coapdata:code()
 ## 调用示例
 
 ```lua
--------------------------
 -- 解析服务器传入的数据包
 local coapdata = libcoap.parse(indata)
 log.info("coapdata", coapdata:code())
@@ -194,7 +188,6 @@ coapdata:hcode()
 ## 调用示例
 
 ```lua
--------------------------
 -- 解析服务器传入的数据包
 local coapdata = libcoap.parse(indata)
 log.info("coapdata", coapdata:hcode())
@@ -223,7 +216,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 解析服务器传入的数据包
 local coapdata = libcoap.parse(indata)
 log.info("coapdata", coapdata:type())
@@ -250,7 +242,6 @@ coapdata:data()
 ## 调用示例
 
 ```lua
--------------------------
 -- 解析服务器传入的数据包
 local coapdata = libcoap.parse(indata)
 log.info("coapdata", coapdata:data())

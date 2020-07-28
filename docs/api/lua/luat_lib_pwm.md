@@ -29,7 +29,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 打开PWM5, 频率1kHz, 占空比50%
 pwm.open(5, 1000, 50)
 ```
@@ -57,7 +56,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 关闭PWM5
 pwm.close(5)
 ```

@@ -88,29 +88,27 @@ pm.dtimerStart(0) -- 关闭id=0的底层定时器
 
 
 --------------------------------------------------
-# pm.request
+# pm.lastReson
 
 ```lua
-pm.request(mode)
+pm.lastReson()
 ```
 
 开机原因,用于判断是从休眠模块开机,还是电源/复位开机
 
 ## 参数表
 
-Name | Type | Description
------|------|--------------
-`mode`|`int`| 休眠模式,例如pm.IDLE/LIGHT/DEEP/HIB
+> 无参数
 
 ## 返回值
 
-> `boolean`: 处理结果,即使返回成功,也不一定会进入, 也不会马上进入
+> `int`: 0-普通开机(上电/复位),3-深睡眠开机,4-休眠开机
 
 ## 调用示例
 
 ```lua
--- 请求进入休眠模式
-pm.request(pm.HIB)
+-- 是哪种方式开机呢
+log.info("pm", "last power reson", pm.lastReson)
 ```
 
 

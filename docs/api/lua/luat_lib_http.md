@@ -29,7 +29,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- GET请求
 http.req("http://www.baidu.com/", nil, functon(ret, code, headers, body)
     log.info("http", ret, code, header, body)
@@ -61,7 +60,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- GET请求
 http.get("http://www.baidu.com/", nil, functon(ret, code, headers, body)
     log.info("http", ret, code, header, body)
@@ -93,7 +91,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- POST请求
 http.post("http://www.baidu.com/", {body=json.encode(data),headers=["Content-Type","application/json"]}, functon(ret, code, headers, body)
     log.info("http", ret, code, header, body)
@@ -125,7 +122,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- PUT请求
 http.put("http://www.baidu.com/", {body=json.encode(data),headers=["Content-Type","application/json"]}, functon(ret, code, headers, body)
     log.info("http", ret, code, header, body)
@@ -157,7 +153,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- DELETE请求
 http.put("http://www.baidu.com/", nil, functon(ret, code, headers, body)
     log.info("http", ret, code, header, body)

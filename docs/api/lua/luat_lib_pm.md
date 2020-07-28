@@ -27,7 +27,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 请求进入休眠模式
 pm.request(pm.HIB)
 ```
@@ -56,7 +55,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 添加底层定时器
 pm.dtimerStart(0, 300 * 1000) -- 5分钟后唤醒
 ```
@@ -84,7 +82,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 添加底层定时器
 pm.dtimerStart(0) -- 关闭id=0的底层定时器
 ```
@@ -112,7 +109,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 请求进入休眠模式
 pm.request(pm.HIB)
 ```
@@ -140,7 +136,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 请求进入休眠模式
 pm.force(pm.HIB)
 ```
@@ -166,7 +161,6 @@ pm.check()
 ## 调用示例
 
 ```lua
--------------------------
 -- 请求进入休眠模式,然后检查是否能真的休眠
 pm.request(pm.HIB)
 if pm.check() then

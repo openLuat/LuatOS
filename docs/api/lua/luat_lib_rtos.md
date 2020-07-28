@@ -27,7 +27,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 本方法通过sys.run()调用, 普通用户不要使用
 rtos.receive(-1)
 ```
@@ -57,7 +56,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 用户代码请使用 sys.timerStart
 -- 启动一个3秒的循环定时器
 rtos.timer_start(10000, 3000, -1)
@@ -86,7 +84,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 用户代码请使用sys.timerStop
 rtos.timer_stop(100000)
 ```
@@ -112,7 +109,6 @@ rtos.reboot()
 ## 调用示例
 
 ```lua
--------------------------
 -- 立即重启设备
 rtos.reboot()
 ```
@@ -138,7 +134,6 @@ rtos.buildDate()
 ## 调用示例
 
 ```lua
--------------------------
 -- 获取编译日期
 local d = rtos.buildDate()
 ```
@@ -164,7 +159,6 @@ rtos.bsp()
 ## 调用示例
 
 ```lua
--------------------------
 -- 获取编译日期
 local bsp = rtos.bsp()
 ```
@@ -190,7 +184,6 @@ rtos.version()
 ## 调用示例
 
 ```lua
--------------------------
 -- 读取版本号
 local luatos_version = rtos.version()
 ```
@@ -218,7 +211,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 读取版本号
 local luatos_version = rtos.version()
 ```
@@ -250,7 +242,6 @@ No. | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 打印内存占用
 log.info("mem.lua", rtos.meminfo())
 log.info("mem.sys", rtos.meminfo("sys"))

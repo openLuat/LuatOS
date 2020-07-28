@@ -30,7 +30,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 设置gpio17为输入
 gpio.setup(17, nil) 
 -------------------------
@@ -65,7 +64,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 设置gpio17为低电平
 gpio.set(17, 0) 
 ```
@@ -93,7 +91,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 获取gpio17的当前电平
 gpio.get(17) 
 ```
@@ -121,7 +118,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 关闭gpio17
 gpio.close(17)
 ```

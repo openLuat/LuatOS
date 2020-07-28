@@ -27,7 +27,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 检查i2c1是否存在
 if i2c.exist(1) then
     log.info("存在 i2c1")
@@ -57,7 +56,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 初始化i2c1
 if i2c.setup(1) then
     log.info("存在 i2c1")
@@ -91,7 +89,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 往i2c1发送2个字节的数据
 i2c.send(1, 0x5C, string.char(0x0F, 0x2F))
 ```
@@ -121,7 +118,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 从i2c1读取2个字节的数据
 local data = i2c.recv(1, 0x5C, 2)
 ```
@@ -152,7 +148,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 从i2c1的地址为0x5C的设备的寄存器0x01写入2个字节的数据
 i2c.writeReg(1, 0x5C, 0x01, string.char(0x00, 0xF2))
 ```
@@ -180,7 +175,6 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--------------------------
 -- 关闭i2c1
 i2c.close(1)
 ```

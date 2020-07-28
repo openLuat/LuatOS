@@ -91,12 +91,11 @@ static int l_pm_on(lua_State *L) {
 
 /**
 开机原因,用于判断是从休眠模块开机,还是电源/复位开机
-@api pm.request(mode)
-@int 休眠模式,例如pm.IDLE/LIGHT/DEEP/HIB
-@return boolean 处理结果,即使返回成功,也不一定会进入, 也不会马上进入
+@api pm.lastReson()
+@return int 0-普通开机(上电/复位),3-深睡眠开机,4-休眠开机
 @usage
--- 请求进入休眠模式
-pm.request(pm.HIB)
+-- 是哪种方式开机呢
+log.info("pm", "last power reson", pm.lastReson)
  */
 static int l_pm_last_reson(lua_State *L) {
     lua_pushinteger(L, luat_pm_last_state());
@@ -167,7 +166,7 @@ static const rotable_Reg reg_pm[] =
     // { "release" ,       l_pm_release,  0},
     { "dtimerStart",    l_pm_dtimer_start,0},
     { "dtimerStop" ,    l_pm_dtimer_stop, 0},
-    { "on",             l_pm_on,   0},
+    //{ "on",             l_pm_on,   0},
     { "force",          l_pm_force, 0},
     { "check",          l_pm_check, 0},
     { "lastReson",      l_pm_last_reson, 0},

@@ -92,6 +92,9 @@ static const luaL_Reg loadedlibs[] = {
 #ifdef RT_USING_HWCRYPTO
   {"crypto", luaopen_crypto},          // 加密和hash库
 #endif
+#ifdef PKG_USING_WEBCLIENT
+  {"http", luaopen_http},              // http库
+#endif
   {NULL, NULL}
 };
 

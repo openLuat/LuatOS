@@ -14,7 +14,12 @@ import json
 import configparser
 config = configparser.ConfigParser()
 config['air302'] = {
-    "PLAT_ROOT" : "D:\\github\\air302\\sdk\\PLAT\\", # 仅开发者配置
+    # ============================================================
+    # 不要修改PLAT_ROOT!不要修改PLAT_ROOT!不要修改PLAT_ROOT!
+    # PLAT_ROOT仅供SDK源码开发者使用!!!!
+    # 不要把PLAT_ROOT指向任何存在的路径!!!!!
+    "PLAT_ROOT" : "D:\\github\\air302\\sdk\\PLAT\\",
+    # ============================================================
     "FTC_PATH" : ".\\FlashToolCLI\\",
     "EC_PATH" : ".\\Air302_dev.ec",
     "USER_PATH": ".\\user\\",

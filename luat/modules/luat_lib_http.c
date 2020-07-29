@@ -171,27 +171,21 @@ static int l_http_reqcommon(lua_State *L, uint8_t method) {
     }
 
     if (lua_istable(L, 2)) {
-        lua_settop(L, 2); // 移除掉其他参数
+        //lua_settop(L, 2); // 移除掉其他参数
         
         // 取method
         lua_pushliteral(L, "method");
-        lua_gettable(L, 2);
-        if (!lua_isnil(L, -1) && !lua_isinteger(L, -1)) {
-            lua_pop(L, 1);
-            lua_pushliteral(L, "method must be int");
-            lua_error(L);
-            return 0;
-        }
-        else 
-            req->method = luaL_checkinteger(L, -1);
+        if (lua_gettable(L, 2)) {
+            if (lua_isinteger(L, -1)) {
+                req->method = luaL_checkinteger(L, -1);
+            }
+        }   
         lua_pop(L, 1);
-
 
 
         // 取下载路径
         lua_pushliteral(L, "dw");
-        lua_gettable(L, 2);
-        if (lua_isstring(L, -1)){
+        if (lua_gettable(L, 2) == LUA_TSTRING){
             size_t dw_path_sz = 0;
             const char* dw = luaL_checklstring(L, -1, &dw_path_sz);
             if (dw_path_sz > 31) {
@@ -216,7 +210,7 @@ static int l_http_reqcommon(lua_State *L, uint8_t method) {
             luat_http_req_gc(req);
             return 0;
         }
-        else  {
+        else if (lua_isstring(L, -1)) {
             tmp = (char*)luaL_checklstring(L, -1, &(req->body.size));
             if (req->body.size > 0) {
                 req->body.ptr = luat_heap_malloc(req->body.size);
@@ -235,7 +229,7 @@ static int l_http_reqcommon(lua_State *L, uint8_t method) {
             luat_http_req_gc(req);
             return 0;
         }
-        else {
+        else if (lua_isstring(L, -1)) {
             tmp = (char*)luaL_checklstring(L, -1, &(req->ca_len));
             if (req->ca_len > 0) {
                 req->ca = luat_heap_malloc(req->ca_len);
@@ -254,7 +248,7 @@ static int l_http_reqcommon(lua_State *L, uint8_t method) {
             luat_http_req_gc(req);
             return 0;
         }
-        else {
+        else if (lua_isinteger(L, -1)) {
             req->timeout_s = luaL_checkinteger(L, -1);
         }
         lua_pop(L, 1);

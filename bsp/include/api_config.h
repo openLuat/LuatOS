@@ -93,9 +93,9 @@ enum LUATOS_STATUS
  */
 enum LUATOS_MESSAGE_ID
 {
-    LUATOS_MESSAGE_NETWORK_CHANGE,              /// < 网络状态发生变化
-    LUATOS_MESSAGE_LINK_NOTIFY,                 /// < 网络准备就绪
-	LUATOS_MESSAGE_TIMER_FINISH,				/// < 定时器时间到
+    LUATOS_MESSAGE_NETWORK_CHANGE,              /// < 网络状态发生变化, param2为link type，param3为新的状态
+    LUATOS_MESSAGE_LINK_NOTIFY,                 /// < 网络准备就绪, param2为link type，param3 1就绪，0未就绪
+	LUATOS_MESSAGE_TIMER_FINISH,				/// < 定时器时间到，param2为timer_param
     LUATOS_MESSAGE_USER_START = 0x10000000,
     LUATOS_MESSAGE_VAT = 0xffffffff,
 }

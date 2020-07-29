@@ -176,4 +176,49 @@ uint64_t luatos_os_get_run_time_ms(void);
  * @return uint64_t 单位是us
  */
 uint64_t luatos_os_get_run_time_us(void);
+
+/**
+ * @brief 动态分配内存
+ * 
+ * @param size 希望分配到的字节数
+ * @return void* 失败为NULL，否则返回首地址
+ */
+void *luatos_os_malloc(u32 size);
+
+/**
+ * @brief 动态分配一块内存，并初始化为全0
+ * 
+ * @param size 希望分配到的字节数
+ * @return void* 失败为NULL，否则返回首地址
+ */
+void *luatos_os_zalloc(u32 size);
+
+/**
+ * @brief 在内存的动态存储区中分配num个长度为size的连续空间，函数返回一个指向分配起始地址的指针；如果分配不成功，返回NULL。
+ * 
+ * @param num num个
+ * @param size 长度为size
+ * @return void* 失败为NULL，否则返回首地址
+ */
+void *luatos_os_calloc(u32 num, u32 size);
+/**
+ * @brief 改变已分配的动态内存大小
+ * 
+ * @note 先判断当前的指针是否有足够的连续空间，如果有，修改ptr指向的空间大小，并且将ptr返回；
+ *      如果空间不够，先按照newsize指定的大小分配空间，将原有数据从头到尾拷贝到新分配的内存区域，
+ *      而后释放原来ptr所指内存区域，同时返回新分配的内存区域的首地址。
+ *      如果ptr为NULL，则realloc()和malloc()类似。分配一个newsize的内存块，返回一个指向该内存块的指针
+ *      如果newsize为0，效果等同于free()
+ * @param ptr 要改变内存大小的指针名
+ * @param newsize 新的大小
+ * @return void* 失败为NULL，否则返回首地址
+ */
+void *luatos_os_realloc(void *ptr, u32 newsize);
+
+/**
+ * @brief 释放已分配的动态内存
+ * 
+ * @param ptr 内存首地址
+ */
+void luatos_os_free(void *ptr);
 #endif

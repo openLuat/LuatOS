@@ -90,11 +90,9 @@ sys.run()
 * [合宙商城](http://m.openluat.com)
 * [联盛德W600/合宙Air640W专属说明](docs/markdown/bsp/w600.md)
 * [合宙Air302专属说明](bsp/air302/README.md)
+* [Lua API文档](docs/api/lua/README.md)
 
 ----------------------------------------------------------------------------------
-## 配套
-
-TODO: 构建工具链,IDE,刷机工具,等等
 
 ## 使用到的开源项目
 
@@ -106,6 +104,7 @@ TODO: 构建工具链,IDE,刷机工具,等等
 * [minmea](https://github.com/kosma/minmea) 解析nmea
 * [u8g2_wqy](https://github.com/larryli/u8g2_wqy) u8g2的中文字体
 * [printf](https://github.com/mpaland/printf) A printf / sprintf Implementation for Embedded Systems
+* [YMODEM for Python](https://github.com/alexwoo1900/ymodem) YMODEM 用于下载脚本
 
 ## 授权协议
 

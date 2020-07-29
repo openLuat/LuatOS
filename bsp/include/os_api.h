@@ -104,7 +104,76 @@ void luatos_os_shutdown(void);
  * @param [out]handle 返回的task句柄
  * @return LUATOS_STATUS 
  */
-LUATOS_STATUS luatos_os_start_task(u32 entry_address, void *task_param, const char *task_name, u32 stack_size, u8 priority, u32 *handle);
+LUATOS_STATUS luatos_os_start_task(u32 entry_address, void *task_param, const char *task_name, u32 stack_size, u8 priority, LUATOS_HANDLE *handle);
 
+/**
+ * @brief task休眠
+ * 
+ * @param msec 休眠时间，单位ms
+ */
+void luatos_os_task_sleep(u32 msec);
 
+/**
+ * @brief 进入临界保护，一般需要关闭中断
+ * 
+ * @return LUATOS_HANDLE 返回一个句柄，用于退出临界保护
+ */
+LUATOS_HANDLE luatos_os_enter_critical_section(void);
+
+/**
+ * @brief 退出临界保护，一般需要打开中断
+ * 
+ * @param handle 进入临界保护时返回的句柄
+ */
+void luatos_os_exit_critical_section(LUATOS_HANDLE handle);
+
+/**
+ * @brief 创建一个信号量
+ * 
+ * @param init_value 信号量初始值，一般为1
+ * @return LUATOS_HANDLE 返回一个信号量，如果失败为NULL
+ */
+LUATOS_HANDLE luatos_os_create_semaphore(u32 init_value);
+
+/**
+ * @brief 销毁一个信号量
+ * 
+ * @param handle 信号量
+ * @return LUATOS_STATUS 
+ */
+LUATOS_STATUS luatos_os_destroy_semaphore(LUATOS_HANDLE handle);
+
+/**
+ * @brief 获取一个信号量，根据等待时间参数决定是否立刻返回
+ * 
+ * @param handle 希望获取的信号量
+ * @param timeout 超时参数
+ *              @arg @ref 0 如果获取不到，立刻返回失败
+ *              @arg @ref 0xffffffff 如果获取不到，则一直等待
+ *              @arg @ref 其他为等待时间，单位ms
+ * @return LUATOS_STATUS 
+ */
+LUATOS_STATUS luatos_os_wait_semaphore(LUATOS_HANDLE handle, u32 timeout);
+
+/**
+ * @brief 立刻释放一个信号量
+ * 
+ * @param handle 释放的信号量
+ * @return LUATOS_STATUS 
+ */
+LUATOS_STATUS luatos_os_release_semaphore(LUATOS_HANDLE handle);
+
+/**
+ * @brief 获取开机到现在经历的时间
+ * 
+ * @return uint64_t 单位是ms
+ */
+uint64_t luatos_os_get_run_time_ms(void);
+
+/**
+ * @brief 获取开机到现在经历的时间，不是必须实现的
+ * 
+ * @return uint64_t 单位是us
+ */
+uint64_t luatos_os_get_run_time_us(void);
 #endif

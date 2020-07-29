@@ -13,18 +13,6 @@
 #define __API_CONFIG_H__
 #include "user_config.h"
 
-#if !defined LUATOS_NO_NW_API
-#define LUATOS_USE_NW_API 1
-#else
-#define LUATOS_USE_NW_API 0
-#endif
-
-#if !defined LUATOS_NO_NET_API
-#define LUATOS_USE_NET_API 1
-#else
-#define LUATOS_USE_NET_API 0
-#endif
-
 #if defined LUATOS_NO_STD_TYPE
 typedef unsigned char       u8;
 typedef char                s8;
@@ -56,6 +44,9 @@ typedef long long           int64_t;
 #define NULL                (void *)0
 #endif
 #endif
+
+typedef uint32_t        LUATOS_HANDLE;
+typedef void			TASK_RET;
 /** @struct pv_union_t
  * @brief 32bit数据集合
  * 
@@ -104,6 +95,7 @@ enum LUATOS_MESSAGE_ID
 {
     LUATOS_MESSAGE_NETWORK_CHANGE,              /// < 网络状态发生变化
     LUATOS_MESSAGE_LINK_NOTIFY,                 /// < 网络准备就绪
+	LUATOS_MESSAGE_TIMER_FINISH,				/// < 定时器时间到
     LUATOS_MESSAGE_USER_START = 0x10000000,
     LUATOS_MESSAGE_VAT = 0xffffffff,
 }

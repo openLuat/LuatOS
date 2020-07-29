@@ -16,15 +16,4 @@
 #define LUATOS_NO_STD_TYPE
 //include "stdint.h"
 //include "stddef.h"
-/**
- * @brief LUATOS_NO_NW_API 无网络link功能，打开后去除相关API
- */
-//#define LUATOS_NO_NW_API
-/*
-* 
-*/
-/**
- * @brief LUATOS_NO_NET_API 无TCP/IP功能，打开后去除相关API
- */
-//#define LUATOS_NO_NET_API
 #endif

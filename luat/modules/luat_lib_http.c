@@ -144,8 +144,7 @@ static int l_http_reqcommon(lua_State *L, uint8_t method) {
     }
     luat_lib_http_req_t *req = luat_heap_malloc(sizeof(luat_lib_http_req_t));
     if (req == NULL) {
-        LLOGE("sys out of memory!!!");
-        lua_pushliteral(L, "sys out of memory!!!");
+        lua_pushstring(L, "sys out of memory");
         lua_error(L);
         return 0;
     }
@@ -154,9 +153,15 @@ static int l_http_reqcommon(lua_State *L, uint8_t method) {
     req->method = method;
     char* tmp = (char*)luaL_checklstring(L, 1, &(req->url_len));
     req->url = luat_heap_malloc(req->url_len+1);
+    if (req->url == NULL) {
+        luat_heap_free(req);
+        lua_pushstring(L, "sys out of memory");
+        lua_error(L);
+        return 0;
+    }
+    memset(req->url, 0, req->url_len + 1);
     memcpy(req->url, tmp, req->url_len + 1);
-    //req->url[req->url_len] = 0x0;
-    //LLOGD("URL = %s", req->url);
+    LLOGD("http url=%s", req->url);
 
     
     // 先取一下回调
@@ -256,8 +261,8 @@ static int l_http_reqcommon(lua_State *L, uint8_t method) {
     }
 
     req->httpcb = luat_http_cb_impl;
-    if (req->timeout_s <= 0) {
-        req->timeout_s = 30;
+    if (req->timeout_s <= 5) {
+        req->timeout_s = 5;
     }
 
     // 执行
@@ -267,6 +272,7 @@ static int l_http_reqcommon(lua_State *L, uint8_t method) {
         return 1;
     }
     else {
+        luat_http_req_gc(req);
         LLOGW("http request return re=%ld", re);
         lua_pushboolean(L, 0);
         lua_pushinteger(L, re);
@@ -306,6 +312,7 @@ void luat_http_req_gc(luat_lib_http_req_t *req) {
     if (req->body.size > 0) {
         luat_heap_free(req->body.ptr);
     }
+
     luat_heap_free(req);
 }
 

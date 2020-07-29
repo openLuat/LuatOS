@@ -20,7 +20,8 @@ static void webclient_req(luat_lib_http_req_t *req)
 {
     int fd = -1, rc = WEBCLIENT_OK;
     size_t offset;
-    int length, total_length = 0;
+    int length = 0;
+    size_t total_length = 0;
     unsigned char *ptr = RT_NULL;
     struct webclient_session* session = RT_NULL;
     int resp_status = 0;
@@ -33,6 +34,10 @@ static void webclient_req(luat_lib_http_req_t *req)
         rc = -WEBCLIENT_NOMEM;
         goto __exit;
     }
+    else {
+        LLOGD("webclient_session_create ok");
+    }
+        
 
     rc = webclient_connect(session, URI);
     if (rc != WEBCLIENT_OK)
@@ -40,6 +45,9 @@ static void webclient_req(luat_lib_http_req_t *req)
         /* connect to webclient server failed. */
         LLOGE("http connect fail");
         goto __exit;
+    }
+    else {
+        LLOGD("http connect ok");
     }
 
     // TODO 把DELETE和PUT支持一下
@@ -50,15 +58,18 @@ static void webclient_req(luat_lib_http_req_t *req)
         LLOGE("http send header fail");
         goto __exit;
     }
+    else {
+        LLOGD("http send header ok");
+    }
 
     if (req->body.size)
     {
         webclient_write(session, req->body.ptr, req->body.size);
-
-        /* resolve response data, get http status code */
-        resp_status = webclient_handle_response(session);
-        LLOGD("post handle response(%d).", resp_status);
     }
+
+    /* resolve response data, get http status code */
+    resp_status = webclient_handle_response(session);
+    LLOGD("post handle response(%d).", resp_status);
 
     if (resp_status  != 200)
     {
@@ -85,7 +96,7 @@ static void webclient_req(luat_lib_http_req_t *req)
 
     if (session->content_length < 0)
     {
-        while (1)
+        while (total_length < 64*1024)
         {
             length = webclient_read(session, ptr, WEBCLIENT_RESPONSE_BUFSZ);
             if (length > 0)
@@ -148,24 +159,49 @@ __exit:
     luat_lib_http_resp_t *resp = luat_heap_malloc(sizeof(luat_lib_http_resp_t));
     if (resp == NULL) {
         LLOGE("sys out of memory! malloc for luat_lib_http_resp_t return NULL");
+        luat_http_req_gc(req);
         // TODO 重启?
         return;
     }
     memset(resp, 0, sizeof(luat_lib_http_resp_t));
     resp->luacb = req->luacb;
-    resp->code = rc;
-    if (rc < 0) {
-        luat_http_req_gc(req);
+    resp->code = resp_status > 0 ? resp_status : rc;
+    if (resp->code < 0) {
+        LLOGD("http req error %d %p %p", rc, resp, req->httpcb);
         req->httpcb(resp);
     }
     else {
-        if (rc == 200) {
+        if (resp_status == 200) {
             resp->body.type = 1;
-            //if (total_length > 0 && total_length < WE)
+            if (total_length > 0 && total_length < WEBCLIENT_RESPONSE_BUFSZ) {
+                resp->body.ptr = luat_heap_malloc(total_length);
+                if (resp->body.ptr != NULL) {
+                    fd = open(req->dwpath, O_RDONLY, 0);
+                    if (fd) {
+                        read(fd, resp->body.ptr, total_length);
+                        close(fd);
+                        resp->body.size = total_length;
+                    }
+                    else {
+                        resp->body.size = 0;
+                        luat_heap_free(resp->body.ptr);
+                        LLOGW("resp file is fail to open");
+                    }
+                }
+                else {
+                    LLOGW("resp body malloc fail!!! size=%d", total_length);
+                }
+            }
+            else {
+                LLOGI("resp is too big, only save at file");
+            }
+        }
+        else {
+            LLOGI("resp code != 200, skip body");
         }
         req->httpcb(resp);
     }
-
+    LLOGD("http every done, clean req");
     luat_http_req_gc(req);
 }
 
@@ -188,7 +224,7 @@ int luat_http_req(luat_lib_http_req_t *req) {
     tid = rt_thread_create("http",
                            luat_http_thread_entry,
                            req,
-                           2048,
+                           4*1024,
                            22,
                            20);
 
@@ -200,7 +236,7 @@ int luat_http_req(luat_lib_http_req_t *req) {
         LLOGE("http thread fail to start");
     }
 
-    return ret == 0 ? 1 : 0;
+    return ret;
 }
 
 

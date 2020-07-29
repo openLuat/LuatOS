@@ -36,6 +36,7 @@ Name | Type | Description
 -- 最常用115200 8N1
 -- 可以简写为 uart.setup(1)
 uart.setup(1, 115200, 8, 1, uart.NONE)
+-------------------------
 -- 最常用115200 8N1
 -- 可以简写为 uart.setup(1)
 uart.setup(1, 115200, 8, 1, uart.NONE)

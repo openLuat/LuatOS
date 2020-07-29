@@ -33,7 +33,7 @@ static int luat_shell_msg_handler(lua_State *L, void* ptr) {
         // 查询版本号
         if (strncmp("ATI", uart_buff, 3) == 0 || strncmp("ati", uart_buff, 3) == 0) {
             char buff[128] = {0};
-            sprintf(buff, "Luat_%s_LuatOS_V0002\r\n", luat_os_bsp());
+            sprintf(buff, "LuatOS_%s_%s\r\n", luat_os_bsp(), luat_version_str());
             luat_shell_print(buff);
         }
         // 重启

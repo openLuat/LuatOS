@@ -168,7 +168,7 @@ static int l_rtos_bsp(lua_State *L) {
 local luatos_version = rtos.version()
 */
 static int l_rtos_version(lua_State *L) {
-    lua_pushstring(L, LUAT_VERSION);
+    lua_pushstring(L, luat_version_str());
     return 1;
 }
 
@@ -246,4 +246,8 @@ static const rotable_Reg reg_rtos[] =
 LUAMOD_API int luaopen_rtos( lua_State *L ) {
     rotable_newlib(L, reg_rtos);
     return 1;
+}
+
+LUAT_WEAK const char* luat_version_str(void) {
+    return LUA_VERSION;
 }

@@ -81,7 +81,7 @@ adc.close(id)
 
 Name | Type | Description
 -----|------|--------------
-`id`|`null`| *无*
+`id`|`int`| 通道id,与具体设备有关,通常从0开始
 
 ## 返回值
 

@@ -115,3 +115,81 @@ log.info("nmea", "rmc", json.encode(libgnss.getRmc()))
 ```
 
 
+--------------------------------------------------
+# libgnss.getGsv
+
+```lua
+libgnss.getGsv()
+```
+
+获取原始GSV信息
+
+## 参数表
+
+> 无参数
+
+## 返回值
+
+> `table`: 原始GSV数据
+
+## 调用示例
+
+```lua
+-- 解析nmea
+libgnss.parse(indata)
+log.info("nmea", "gsv", json.encode(libgnss.getGsv()))
+```
+
+
+--------------------------------------------------
+# libgnss.getGsa
+
+```lua
+libgnss.getGsa()
+```
+
+获取原始GSA信息
+
+## 参数表
+
+> 无参数
+
+## 返回值
+
+> `table`: 原始GSA数据
+
+## 调用示例
+
+```lua
+-- 解析nmea
+libgnss.parse(indata)
+log.info("nmea", "gsa", json.encode(libgnss.getGsa()))
+```
+
+
+--------------------------------------------------
+# libgnss.getVtg
+
+```lua
+libgnss.getVtg()
+```
+
+获取原始VTA位置信息
+
+## 参数表
+
+> 无参数
+
+## 返回值
+
+> `table`: 原始VTA数据
+
+## 调用示例
+
+```lua
+-- 解析nmea
+libgnss.parse(indata)
+log.info("nmea", "vtg", json.encode(libgnss.getVtg()))
+```
+
+

@@ -5,6 +5,7 @@
     "title": "LuaAPI模块",
     "paths": [
         "LuatOS/luat/modules",
+        "LuatOS/luat/rtt",
         "air302/sdk/luat" 
     ],
     "suffix": [".c"],

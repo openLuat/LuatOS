@@ -105,14 +105,9 @@ Name | Type | Description
 
 ```lua
 -- 读取imei
--- 设置imei
 log.info("nbiot", "imei", nbiot.imei())
-@usage 
-log.info("nbiot", "imei", nbiot.imei("898989898989899898"))
--- 读取imei
+-------------------------
 -- 设置imei
-log.info("nbiot", "imei", nbiot.imei())
-@usage 
 log.info("nbiot", "imei", nbiot.imei("898989898989899898"))
 ```
 
@@ -365,14 +360,9 @@ Name | Type | Description
 
 ```lua
 -- 读取SN
--- 设置SN
 log.info("nbiot", "SN", nbiot.sn())
-@usage 
-log.info("nbiot", "SN", nbiot.sn("My Custom SN"))
--- 读取SN
+-------------------------
 -- 设置SN
-log.info("nbiot", "SN", nbiot.sn())
-@usage 
 log.info("nbiot", "SN", nbiot.sn("My Custom SN"))
 ```
 

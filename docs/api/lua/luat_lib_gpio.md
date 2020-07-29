@@ -31,28 +31,12 @@ Name | Type | Description
 
 ```lua
 -- 设置gpio17为输入
--- 设置gpio17为输出
--- 设置gpio27为中断
 gpio.setup(17, nil) 
-@usage 
-gpio.setup(17, 0) 
-@usage 
-gpio.setup(27, function(val) print("IRQ_27") end, gpio.RISING)
--- 设置gpio17为输入
+-------------------------
 -- 设置gpio17为输出
--- 设置gpio27为中断
-gpio.setup(17, nil) 
-@usage 
 gpio.setup(17, 0) 
-@usage 
-gpio.setup(27, function(val) print("IRQ_27") end, gpio.RISING)
--- 设置gpio17为输入
--- 设置gpio17为输出
+-------------------------
 -- 设置gpio27为中断
-gpio.setup(17, nil) 
-@usage 
-gpio.setup(17, 0) 
-@usage 
 gpio.setup(27, function(val) print("IRQ_27") end, gpio.RISING)
 ```
 

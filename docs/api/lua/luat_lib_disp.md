@@ -54,7 +54,7 @@ disp.close()
 ## 调用示例
 
 ```lua
--- 
+-- 关闭disp,再次使用disp相关API的话,需要重新初始化
 disp.close()
 ```
 
@@ -79,7 +79,7 @@ disp.update()
 ## 调用示例
 
 ```lua
--- 
+-- 把显示数据更新到屏幕
 disp.update()
 ```
 
@@ -135,7 +135,7 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--- 
+-- 设置为中文字体,对之后的drawStr有效
 disp.setFont(1)
 ```
 

@@ -12,7 +12,7 @@ date: 2020.07.07
 http.req(url, params, cb)
 ```
 
-发起一个http请求
+发起一个http请求,推荐用http.get/post/put/delete方法
 
 ## 参数表
 

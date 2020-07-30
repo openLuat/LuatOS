@@ -12,11 +12,11 @@ local mqtt = {}
 local CONNECT, CONNACK, PUBLISH, PUBACK, PUBREC, PUBREL, PUBCOMP, SUBSCRIBE, SUBACK, UNSUBSCRIBE, UNSUBACK, PINGREQ, PINGRESP, DISCONNECT = 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14
 local CLIENT_COMMAND_TIMEOUT = 60000
 
-local sys = _G.sys
+local sys = require "sys"
 local pack = _G.pack
 local string = _G.string
 local encodeLen = mqttcore.encodeLen
-local encodeUTF8 = mqttcore.encodeUTF8
+--local encodeUTF8 = mqttcore.encodeUTF8
 -- local function encodeLen(len)
 --     local s = ""
 --     local digit
@@ -32,6 +32,7 @@ local encodeUTF8 = mqttcore.encodeUTF8
 --     return s
 -- end
 
+local encodeUTF8 = mqttcore.encodeUTF8
 -- local function encodeUTF8(s)
 --     if not s or #s == 0 then
 --         return ""
@@ -40,61 +41,85 @@ local encodeUTF8 = mqttcore.encodeUTF8
 --     end
 -- end
 
-local function packCONNECT(clientId, keepAlive, username, password, cleanSession, will, version)
-    local content = pack.pack(">PbbHPAAAA",
-        version == "3.1" and "MQIsdp" or "MQTT",
-        version == "3.1" and 3 or 4,
-        (#username == 0 and 0 or 1) * 128 + (#password == 0 and 0 or 1) * 64 + will.retain * 32 + will.qos * 8 + will.flag * 4 + cleanSession * 2,
-        keepAlive,
-        clientId,
-        encodeUTF8(will.topic),
-        encodeUTF8(will.payload),
-        encodeUTF8(username),
-        encodeUTF8(password))
-    return pack.pack(">bAA",
-        CONNECT * 16,
-        encodeLen(string.len(content)),
-        content)
-end
+local packCONNECT = mqttcore.packCONNECT
 
-local function packSUBSCRIBE(dup, packetId, topics)
-    local header = SUBSCRIBE * 16 + dup * 8 + 2
-    local data = pack.pack(">H", packetId)
-    for topic, qos in pairs(topics) do
-        data = data .. pack.pack(">Pb", topic, qos)
-    end
-    return pack.pack(">bAA", header, encodeLen(#data), data)
-end
+-- local function packCONNECT(clientId, keepAlive, username, password, cleanSession, will, version)
+--     local content = pack.pack(">PbbHPAAAA",
+--         version == "3.1" and "MQIsdp" or "MQTT",
+--         version == "3.1" and 3 or 4,
+--         (#username == 0 and 0 or 1) * 128 + (#password == 0 and 0 or 1) * 64 + will.retain * 32 + will.qos * 8 + will.flag * 4 + cleanSession * 2,
+--         keepAlive,
+--         clientId,
+--         encodeUTF8(will.topic),
+--         encodeUTF8(will.payload),
+--         encodeUTF8(username),
+--         encodeUTF8(password))
+--     local mydata = pack.pack(">bAA",
+--         CONNECT * 16,
+--         encodeLen(string.len(content)),
+--         content)
+--     local tdata = mqttcore.packCONNECT(clientId, keepAlive, username, password, cleanSession, will, version)
+--     log.info("mqtt", "true", mydata:toHex())
+--     log.info("mqtt", "false", tdata:toHex())
+--     return mydata
+-- end
 
-local function packUNSUBSCRIBE(dup, packetId, topics)
-    local header = UNSUBSCRIBE * 16 + dup * 8 + 2
-    local data = pack.pack(">H", packetId)
-    for k, topic in pairs(topics) do
-        data = data .. pack.pack(">P", topic)
-    end
-    return pack.pack(">bAA", header, encodeLen(#data), data)
-end
+local packSUBSCRIBE = mqttcore.packSUBSCRIBE
 
-local function packPUBLISH(dup, qos, retain, packetId, topic, payload)
-    local header = PUBLISH * 16 + dup * 8 + qos * 2 + retain
-    local len = 2 + #topic + #payload
-    if qos > 0 then
-        return pack.pack(">bAPHA", header, encodeLen(len + 2), topic, packetId, payload)
-    else
-        return pack.pack(">bAPA", header, encodeLen(len), topic, payload)
-    end
-end
+-- local function packSUBSCRIBE(dup, packetId, topics)
+--     local header = SUBSCRIBE * 16 + dup * 8 + 2
+--     local data = pack.pack(">H", packetId)
+--     for topic, qos in pairs(topics) do
+--         data = data .. pack.pack(">Pb", topic, qos)
+--     end
+--     local mydata = pack.pack(">bAA", header, encodeLen(#data), data)
+--     log.info("mqtt", "true", mydata:toHex())
+--     local tdata = mqttcore.packSUBSCRIBE(dup, packetId, topics)
+--     log.info("mqtt", "false", tdata:toHex())
+--     return mydata
+-- end
 
-local function packACK(id, dup, packetId)
-    return pack.pack(">bbH", id * 16 + dup * 8 + (id == PUBREL and 1 or 0) * 2, 0x02, packetId)
-end
+local packUNSUBSCRIBE = mqttcore.packUNSUBSCRIBE
+-- local function packUNSUBSCRIBE(dup, packetId, topics)
+--     local header = UNSUBSCRIBE * 16 + dup * 8 + 2
+--     local data = pack.pack(">H", packetId)
+--     for k, topic in pairs(topics) do
+--         data = data .. pack.pack(">P", topic)
+--     end
+--     return pack.pack(">bAA", header, encodeLen(#data), data)
+-- end
 
-local function packZeroData(id, dup, qos, retain)
-    dup = dup or 0
-    qos = qos or 0
-    retain = retain or 0
-    return pack.pack(">bb", id * 16 + dup * 8 + qos * 2 + retain, 0)
-end
+local packPUBLISH = mqttcore.packPUBLISH
+
+-- local function packPUBLISH(dup, qos, retain, packetId, topic, payload)
+--     local header = PUBLISH * 16 + dup * 8 + qos * 2 + retain
+--     local len = 2 + #topic + #payload
+--     local mydata = nil
+--     if qos > 0 then
+--         mydata = pack.pack(">bAPHA", header, encodeLen(len + 2), topic, packetId, payload)
+--     else
+--         mydata = pack.pack(">bAPA", header, encodeLen(len), topic, payload)
+--     end
+--     local tdata = mqttcore.packPUBLISH(dup, qos, retain, packetId, topic, payload)
+--     log.info("mqtt", "true", mydata:toHex())
+--     log.info("mqtt", "false", tdata:toHex())
+--     return mydata
+-- end
+
+local packACK = mqttcore.packACK
+
+-- local function packACK(id, dup, packetId)
+--     return pack.pack(">bbH", id * 16 + dup * 8 + (id == PUBREL and 1 or 0) * 2, 0x02, packetId)
+-- end
+
+local packZeroData = mqttcore.packZeroData
+
+-- local function packZeroData(id, dup, qos, retain)
+--     dup = dup or 0
+--     qos = qos or 0
+--     retain = retain or 0
+--     return pack.pack(">bb", id * 16 + dup * 8 + qos * 2 + retain, 0)
+-- end
 
 local function unpack(s)
     if #s < 2 then return end
@@ -312,6 +337,7 @@ function mqttc:connect(host, port, transport, cert, timeout)
     end
     
     if self.io then
+        self.io:clean()
         self.io:close()
         self.io = nil
     end
@@ -326,9 +352,9 @@ function mqttc:connect(host, port, transport, cert, timeout)
     self.io:port(port)
     local connect_topic = "NETC_CONNECT_" .. tostring(self.io:id())
     self.io:on("connect", function(id, re)
-        log.info("mqtt", "connect result", re)
-        sys.publish(connect_topic, re == 0)
-        if not re then
+        log.info("mqtt", "connect result", re, re == 1 and "OK" or "FAIL")
+        sys.publish(connect_topic, re == 1)
+        if re == 0 then
             self.io:clean()
             self.io:close()
         end
@@ -347,13 +373,17 @@ function mqttc:connect(host, port, transport, cert, timeout)
         return false
     end
     --log.info("mqtt", "wait for connect")
-    local result, linked = sys.waitUntil(connect_topic, 15000)
+    local result, linked = sys.waitUntil(connect_topic, self.commandTimeout) -- 原本是15秒,在NBIOT下超时的概率不低,改成用commandTimeout
     if not result then
         log.info("mqtt", "connect timeout")
+        self.io:clean()
+        self.io:close()
         return false
     end
     if not linked  or self.io:closed() == 1 then
-        log.info("mqtt", "connect fail")
+        log.info("mqtt", "connect fail", result, linked, self.io:closed() == 1)
+        self.io:clean()
+        self.io:close()
         return false
     end
     --log.info("mqtt", "send packCONNECT")

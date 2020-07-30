@@ -31,6 +31,33 @@ local loop = {}
 --lua脚本运行出错时，是否回退为本地烧写的版本
 local sRollBack = true
 
+_G.COROUTINE_ERROR_ROLL_BACK = true
+_G.COROUTINE_ERROR_RESTART = true
+
+-- 对coroutine.resume加一个修饰器用于捕获协程错误
+local rawcoresume = coroutine.resume
+sys.coresume = function(...)
+    function wrapper(co,...)
+        local arg = {...}
+        if not arg[1] then
+            local traceBack = debug.traceback(co)
+            traceBack = (traceBack and traceBack~="") and (arg[2].."\r\n"..traceBack) or arg[2]
+            log.error("coroutine.resume",traceBack)
+            if errDump and type(errDump.appendErr)=="function" then
+                errDump.appendErr(traceBack)
+            end
+            if _G.COROUTINE_ERROR_ROLL_BACK then
+                sys.timerStart(assert,500,false,traceBack)
+            elseif _G.COROUTINE_ERROR_RESTART then
+                rtos.reboot()
+            end
+        end
+        return ...
+    end
+    local arg = {...}
+    return wrapper(arg[1], rawcoresume(...))
+end
+
 --- Task任务延时函数，只能用于任务函数中
 -- @number ms  整数，最大等待126322567毫秒
 -- @return 定时结束返回nil,被其他线程唤起返回调用线程传入的参数
@@ -89,14 +116,8 @@ end
 -- @return co  返回该任务的线程号
 -- @usage sys.taskInit(task1,'a','b')
 function sys.taskInit(fun, ...)
-    local co = coroutine.create(function(...)
-        local result, err = pcall(fun, ...)
-        if not result then 
-            print(err)
-            error(debug.traceback())
-        end
-    end)
-    coroutine.resume(co, ...)
+    local co = coroutine.create(fun)
+    sys.coresume(co, ...)
     return co
 end
 
@@ -282,7 +303,7 @@ local function dispatch()
                 if type(callback) == "function" then
                     callback(unpack(message, 2, #message))
                 elseif type(callback) == "thread" then
-                    coroutine.resume(callback, unpack(message))
+                    sys.coresume(callback, unpack(message))
                 end
             end
         end
@@ -319,7 +340,7 @@ local function safeRun()
             timerPool[param] = nil
             if taskTimerPool[taskId] == param then
                 taskTimerPool[taskId] = nil
-                coroutine.resume(taskId)
+                sys.coresume(taskId)
             end
         else
             local cb = timerPool[param]

@@ -1564,7 +1564,7 @@ static int str_fromHex (lua_State *L) {
     char b = *(str + i*2 + 1);
     a = (a <= '9') ? a - '0' : (a & 0x7) + 9;
     b = (b <= '9') ? b - '0' : (b & 0x7) + 9;
-    if (a > 0 && b > 0) {
+    if (a >= 0 && b >= 0) {
       luaL_addchar(&buff, (a << 4) + b);
     }
     else {

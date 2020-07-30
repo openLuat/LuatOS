@@ -64,3 +64,6 @@ tools/java/.classpath
 tools/java/.project
 tools/java/.settings/
 tools/java/target/
+
+__pycache__
+*.pyc

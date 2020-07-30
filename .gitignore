@@ -59,11 +59,16 @@ dkms.conf
 bsp/air302/FlashToolCLI/
 bsp/air302/tmp/
 bsp/air302/local*
+bsp/air302/disk/
 *.zip
 tools/java/.classpath
 tools/java/.project
 tools/java/.settings/
 tools/java/target/
+
+bsp/air640w/disk/
+bsp/air640w/tmp/
+bsp/air640w/local*
 
 __pycache__
 *.pyc

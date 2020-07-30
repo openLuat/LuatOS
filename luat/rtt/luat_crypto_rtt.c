@@ -47,21 +47,21 @@ int luat_crypto_hmac_md5_simple(const char* input, size_t ilen, const char* key,
         return -1; // 内存爆了??
     }
 
-    rt_hwcrypto_hash_update(&ctx, k_ipad, 64);
-    rt_hwcrypto_hash_update(&ctx, input, ilen);
-    rt_hwcrypto_hash_finish(&ctx, output);
+    rt_hwcrypto_hash_update(ctx, k_ipad, 64);
+    rt_hwcrypto_hash_update(ctx, input, ilen);
+    rt_hwcrypto_hash_finish(ctx, output);
 
     //rt_hwcrypto_ctx_reset(ctx);
-    rt_hwcrypto_hash_destroy(&ctx);
+    rt_hwcrypto_hash_destroy(ctx);
     ctx = rt_hwcrypto_hash_create(rt_hwcrypto_dev_default(), HWCRYPTO_TYPE_MD5);
 
-    rt_hwcrypto_hash_update(&ctx, k_opad, 64);
-    rt_hwcrypto_hash_update(&ctx, output, 16);
-    rt_hwcrypto_hash_finish(&ctx, output);
+    rt_hwcrypto_hash_update(ctx, k_opad, 64);
+    rt_hwcrypto_hash_update(ctx, output, 16);
+    rt_hwcrypto_hash_finish(ctx, output);
 
     //rt_memcpy(output, tempbuf, 16);
 
-    rt_hwcrypto_hash_destroy(&ctx);
+    rt_hwcrypto_hash_destroy(ctx);
     return 0;
 }
 
@@ -106,21 +106,21 @@ int luat_crypto_hmac_sha1_simple(const char* input, size_t ilen, const char* key
         return -1; // 内存爆了??
     }
 
-    rt_hwcrypto_hash_update(&ctx, k_ipad, 64);
-    rt_hwcrypto_hash_update(&ctx, input, ilen);
-    rt_hwcrypto_hash_finish(&ctx, output);
+    rt_hwcrypto_hash_update(ctx, k_ipad, 64);
+    rt_hwcrypto_hash_update(ctx, input, ilen);
+    rt_hwcrypto_hash_finish(ctx, output);
 
     //rt_hwcrypto_ctx_reset(ctx);
-    rt_hwcrypto_hash_destroy(&ctx);
+    rt_hwcrypto_hash_destroy(ctx);
     ctx = rt_hwcrypto_hash_create(rt_hwcrypto_dev_default(), HWCRYPTO_TYPE_SHA1);
 
-    rt_hwcrypto_hash_update(&ctx, k_opad, 64);
-    rt_hwcrypto_hash_update(&ctx, output, 20);
-    rt_hwcrypto_hash_finish(&ctx, output);
+    rt_hwcrypto_hash_update(ctx, k_opad, 64);
+    rt_hwcrypto_hash_update(ctx, output, 20);
+    rt_hwcrypto_hash_finish(ctx, output);
 
     //rt_memcpy(output, tempbuf, 20);
 
-    rt_hwcrypto_hash_destroy(&ctx);
+    rt_hwcrypto_hash_destroy(ctx);
     return 0;
 }
 #endif

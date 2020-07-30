@@ -88,7 +88,7 @@ sys.run()
 * [Lua 5.3中文手册](https://www.runoob.com/manual/lua53doc/)
 * [合宙官网](http://www.openluat.com)
 * [合宙商城](http://m.openluat.com)
-* [联盛德W600/合宙Air640W专属说明](docs/markdown/bsp/w600.md)
+* [联盛德W600/合宙Air640W专属说明](bsp/bsp/air640w/README.md)
 * [合宙Air302专属说明](bsp/air302/README.md)
 * [Lua API文档](docs/api/lua/README.md)
 

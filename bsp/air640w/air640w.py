@@ -99,16 +99,9 @@ def _pkg():
     _tag = _tag + "-" + get_git_revision_short_hash().decode()
 
     os.mkdir("tmp")
-    os.mkdir("tmp/ec")
     # 拷贝固件文件
-    if os.path.exists(PLAT_ROOT) :
-        shutil.copy(PLAT_ROOT + "out/ec616_0h00/air640w/air640w.bin", "tmp/ec/luatos.bin")
-        shutil.copy(PLAT_ROOT + "out/ec616_0h00/air640w/comdb.txt", "tmp/ec/comdb.txt")
-        shutil.copy(FTC_PATH + "image/bootloader.bin", "tmp/ec/bootloader.bin")
-        shutil.copy(FTC_PATH + "image/bootloader_head.bin", "tmp/ec/bootloader_head.bin")
-    elif os.path.exists(EC_PATH) and EC_PATH.endswith(".ec") :
-        with zipfile.ZipFile(EC_PATH) as zip :
-            zip.extractall(path="tmp/ec/")
+    if os.path.exists("../w60x/Bin/rtthread_1M.FLS") :
+        shutil.copy("../w60x/Bin/rtthread_1M.FLS", "tmp/LuatOS_Air640W_V0002.FLS")
     # 拷贝库文件和demo
     shutil.copytree(LIB_PATH, "tmp/lib")
     shutil.copytree(DEMO_PATH, "tmp/demo")
@@ -116,19 +109,7 @@ def _pkg():
     
     #拷贝自身
     shutil.copy(sys.argv[0], "tmp/air640w.py")
-    # 写入默认配置文件
-    with open("tmp/local.ini", "w") as f:
-        f.write('''
-[air640w]
-EC_PATH = ${EC}
-USER_PATH = user\\
-LIB_PATH = lib\\
-DEMO_PATH = demo\\
-TOOLS_PATH = tools\\
-MAIN_LUA_DEBUG = false
-LUA_DEBUG = false
-COM_PORT = COM56
-'''.replace("${EC}", "air640w_V0002_"+_tag+".ec"))
+    shutil.copy("README.md", "tmp/README.md")
 
     if os.path.exists("userdoc") :
         shutil.copytree("userdoc", "tmp/userdoc")
@@ -139,19 +120,21 @@ COM_PORT = COM56
 
     with open("tmp/文档在userdoc目录.txt", "w") as f:
         f.write("QQ群: 1061642968")
-
-    with zipfile.ZipFile("tmp/air640w_V0002_"+_tag+".ec", mode="w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zip :
-        zip.write("tmp/ec/luatos.bin", "luatos.bin")                   # 底层固件
-        zip.write("tmp/ec/comdb.txt", "comdb.txt")                     # uart0输出的unilog所需要的数据库文件,备用
-        zip.write(FTC_PATH + "disk.fs", "disk.bin")                    # 默认磁盘镜像
-
-    shutil.rmtree("tmp/ec/")
+    # 写入默认配置文件
+    with open("tmp/local.ini", "w") as f:
+        f.write('''
+[air640]
+USER_PATH = user\\
+LIB_PATH = lib\\
+DEMO_PATH = demo\\
+TOOLS_PATH = tools\\
+MAIN_LUA_DEBUG = false
+LUA_DEBUG = false
+COM_PORT = COM56
+''')
 
     pkg_name = "air640w_V0002_"+_tag + ".zip"
     shutil.make_archive("air640w_V0002_"+_tag, 'zip', "tmp")
-
-    ## 拷贝一份固定路径的
-    shutil.copy("tmp/air640w_V0002_"+_tag+".ec", "tmp/air640w_dev.ec")
 
     print("ALL DONE===================================================")
     print("Package Name", pkg_name)
@@ -250,28 +233,26 @@ def _lfs(_path=None):
         else:
             print("COPY", name, FTC_PATH + "disk/" + os.path.basename(name))
             shutil.copy(name, FTC_PATH + "disk/" + os.path.basename(name))
-    #print("CALL mklfs for disk.fs")
-    #subprocess.check_call([TOOLS_PATH + "mklfs.exe"], cwd=FTC_PATH)
 
 def main():
     argc = 1
     while len(sys.argv) > argc :
         if sys.argv[argc] == "build" :
             print("Action Build ----------------------------------")
-            subprocess.check_call([PLAT_ROOT + "KeilBuild.bat"], cwd=PLAT_ROOT)
+            #subprocess.check_call([PLAT_ROOT + "KeilBuild.bat"], cwd=PLAT_ROOT)
         elif sys.argv[argc] == "lfs" :
             print("Action mklfs ----------------------------------")
             _lfs()
         elif sys.argv[argc] == "pkg" :
             print("Action pkg ------------------------------------")
             _pkg()
-        elif sys.argv[argc] == "dlrom": #下载底层
-            print("Action download ROM ---------------------------")
-            if len(sys.argv) > argc + 1 and sys.argv[argc+1].startsWith("-path="):
-                _dl("rom", sys.argv[argc+1][6:])
-                argc += 1
-            else:
-                _dl("rom")
+        # elif sys.argv[argc] == "dlrom": #下载底层
+        #     print("Action download ROM ---------------------------")
+        #     if len(sys.argv) > argc + 1 and sys.argv[argc+1].startsWith("-path="):
+        #         _dl("rom", sys.argv[argc+1][6:])
+        #         argc += 1
+        #     else:
+        #         _dl("rom")
         elif sys.argv[argc] == "dlfs":
             print("Action download FS  ---------------------------")
             if len(sys.argv) > argc + 1 and sys.argv[argc+1].startsWith("-path="):
@@ -279,12 +260,12 @@ def main():
                 argc += 1
             else:
                 _dl("fs")
-        elif sys.argv[argc] == "dlfull":
-            if len(sys.argv) > argc + 1 and sys.argv[argc+1].startsWith("-path="):
-                _dl("full", sys.argv[argc+1][6:])
-                argc += 1
-            else:
-                _dl("full")
+        # elif sys.argv[argc] == "dlfull":
+        #     if len(sys.argv) > argc + 1 and sys.argv[argc+1].startsWith("-path="):
+        #         _dl("full", sys.argv[argc+1][6:])
+        #         argc += 1
+        #     else:
+        #         _dl("full")
         elif sys.argv[argc] == "clean":
             if os.path.exists("tmp"):
                 shutil.rmtree("tmp")

@@ -380,14 +380,14 @@ static void netclient_thread_entry(void *param)
     if (socket_init(thiz, thiz->hostname, thiz->port) != 0) {
         LOG_W("netc[%ld] connect fail", thiz->id);
         if (thiz->rx) {
-            EVENT(thiz->id, thiz->rx, thiz->cb_connect, NETC_EVENT_CONNECT_OK, 0, RT_NULL);
+            EVENT(thiz->id, thiz->rx, thiz->cb_connect, NETC_EVENT_CONNECT_FAIL, 0, RT_NULL);
         }
         goto netc_exit;
     }
     else {
         LOG_I("netc[%ld] connect ok", thiz->id);
         if (thiz->rx) {
-            EVENT(thiz->id, thiz->rx, thiz->cb_connect, NETC_EVENT_CONNECT_FAIL, 0, RT_NULL);
+            EVENT(thiz->id, thiz->rx, thiz->cb_connect, NETC_EVENT_CONNECT_OK, 0, RT_NULL);
         }
     }
 

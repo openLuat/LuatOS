@@ -101,7 +101,7 @@ void luatos_os_shutdown(void);
  * @param task_name task名称
  * @param stack_size 栈空间期望大小
  * @param priority task优先级
- * @param [out]handle 返回的task句柄
+ * @param [OUT]handle 返回的task句柄
  * @return LUATOS_STATUS 
  */
 LUATOS_STATUS luatos_os_start_task(u32 entry_address, void *task_param, const char *task_name, u32 stack_size, u8 priority, LUATOS_HANDLE *handle);

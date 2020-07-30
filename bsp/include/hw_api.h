@@ -11,6 +11,109 @@
 #ifndef __HW_API_H__
 #define __HW_API_H__
 #include "api_config.h"
+
+/**
+ * @brief 硬件通讯总线类型
+ * 
+ */
+enum LUATOS_HW_BUS_TYPE
+{
+    LUATOS_HW_BUS_GPIO,
+    LUATOS_HW_BUS_ADC,
+    LUATOS_HW_BUS_UART,
+    LUATOS_HW_BUS_IIC,
+    LUATOS_HW_BUS_SPI,
+    LUATOS_HW_BUS_CAN,
+    LUATOS_HW_BUS_USB,
+    LUATOS_HW_BUS_SDIO,
+    LUATOS_HW_BUS_FSMC,                         /// < 外部存储器接口，SRAM，PSRAM，并行NOR/NAND
+};
+
+/**
+ * @brief 可接收外部数据的通讯总线接收数据通知方式，可以多选
+ * 
+ */
+enum LUATOS_HW_BUS_RX_MODE
+{
+    LUATOS_HW_BUS_RX_NEW_ONCE = 0x00,           /// < 有新数据，且缓冲区没有数据时，通知一次，如果没有其他选项，默认启用
+    LUATOS_HW_BUS_RX_NEW_CONTINUE = 0x01,       /// < 有新数据就通知回调一次
+    LUATOS_HW_BUS_RX_DONE = 0x02,               /// < 接收完成后通知回调一次，对应stm32的idle irq，rda8955的rxDmaTimeout irq
+};
+
+/**
+ * @brief gpio id
+ * 
+ */
+typedef struct LUATOS_HW_GPIO_ID
+{
+    u32 port;                                       /// < bit0~bit31，代表port0~port31，或者portA，portB...
+    u32 pin;                                        /// < bit0~bit31, 代表PIN0~PIN31
+}luatos_hw_gpio_id_t;
+
+/**
+ * @brief gpio 中断类型
+ * 
+ */
+enum LUATOS_HW_GPIO_IRQ_TYPE
+{
+    LUATOS_HW_GPIO_IRQ_RISING = 0x01,
+    LUATOS_HW_GPIO_IRQ_FALLING = 0x02,
+    LUATOS_HW_GPIO_IRQ_HIGH_LEVEL = 0x10,
+    LUATOS_HW_GPIO_IRQ_LOW_LEVEL = 0x20,
+};
+
+/**
+ * @brief gpio初始化成员变量
+ * 
+ */
+typedef struct LUATOS_HW_GPIO_CONFIG
+{
+    luatos_hw_gpio_id_t id;                         /// < GPIO ID
+    void (*irq)(luatos_hw_gpio_id_t id, u8 type);   /// < 中断回调，如果不为空，且is_input为真，则启动中断功能
+    u8 is_input;                                    /// < 是否为输入型 1是 0否
+    u8 init_value;                                  /// < 初始输出电平 1高 0低
+    u8 irq_rising;                                  /// < 上升沿或者高电平中断 1启用 0不启用
+    u8 irq_falling;                                 /// < 下降沿或者低电平中断 1启用 0不启用
+    u8 irq_level;                                   /// < 边沿或者电平中断 1电平 0边沿
+    u8 debounce;                                    /// < 中断去抖动 0不启用 其他为过滤时间，单位ms
+}luatos_hw_gpio_config_t;
+
+/**
+ * @brief 串口初始化成员变量
+ * 
+ */
+typedef struct LUATOS_HW_UART_CONFIG
+{
+    u32 br;                                     /// < 波特率
+    u32 tx_cache_len;                           /// < 发送缓冲区大小
+    u32 rx_cache_len;                           /// < 接收缓冲区大小
+    void (*tx_done_cb)(u8 bus_id);              /// < 发送完成回调
+    void (*new_rx_cb)(u8 bus_id);               /// < 新接收数据通知回调
+    void (*rx_done_cb)(u8 bus_id);              /// < 接收数据完成通知回调，表明在一定时间内没有新的数据了
+    u8 id;                                      /// < 串口序号 0，1，2，3...
+    u8 data_bits;                               /// < 数据位 5，6，7，8，9
+    u8 stop_bits;                               /// < 停止位 0=1bit，1=1.5bit，2=2bit
+    u8 parity;                                  /// < 校验位 0=不校验，1=奇校验，2=偶校验
+    u8 work_mode;                               /// < 工作模式 0=全双工，1=ISO7816智能卡，2=IrDA
+    u8 rx_mode;                                 /// < 数据接收通知模式，见LUATOS_HW_BUS_RX_MODE
+}luatos_hw_uart_config_t;
+
+/**
+ * @brief 总线初始化配置集合
+ * 
+ */
+typedef union LUATOS_HW_BUS_CONFIG
+{
+    luatos_hw_gpio_config_t gpio;
+    luatos_hw_uart_config_t uart;
+}luatos_hw_bus_config_t;
+
+typedef union LUATOS_HW_BUS_ID
+{
+    luatos_hw_gpio_id_t gpio_id;
+    u8 id;
+}luatos_hw_bus_id_t;
+
 /**
  * @brief 硬件外设在luatos中的适配相关初始化工作，真正的初始化工作应该在启动luatos前就完成了
  * 
@@ -63,4 +166,90 @@ LUATOS_STATUS luatos_hw_stop_timer(LUATOS_HANDLE timer_handle);
  * @return LUATOS_STATUS 
  */
 LUATOS_STATUS luatos_hw_stop_callback_timers(u32 callback_entry_address);
+
+/**
+ * @brief 打开一条硬件总线，并按照配置初始化
+ * 
+ * @param type 总线类型
+ * @param config 初始化的配置
+ * @return LUATOS_STATUS 
+ */
+LUATOS_STATUS luatos_hw_bus_open(LUATOS_HW_BUS_TYPE type, luatos_hw_bus_config_t *config);
+
+/**
+ * @brief 关闭一条硬件总线
+ * 
+ * @param type 总线类型
+ * @param bus_id 总线id
+ * @return LUATOS_STATUS 
+ */
+LUATOS_STATUS luatos_hw_bus_close(LUATOS_HW_BUS_TYPE type, luatos_hw_bus_id_t bus_id);
+
+/**
+ * @brief 对一条硬件总线读数据
+ * 
+ * @param type 总线类型
+ * @param bus_id 总线id
+ * @param buf 读取数据缓存
+ * @param len 期望读取数据长度
+ * @param [OUT]read_len 实际读取数据长度
+ * @param flags 读取控制标志，根据总线类型决定
+ * @return LUATOS_STATUS 
+ */
+LUATOS_STATUS luatos_hw_bus_read(LUATOS_HW_BUS_TYPE type, luatos_hw_bus_id_t bus_id, void *buf, u32 len, u32 *read_len, u32 flags);
+
+/**
+ * @brief 对一条硬件总线写数据
+ * 
+ * @param type 总线类型
+ * @param bus_id 总线id
+ * @param buf 写入数据缓存
+ * @param len 期望写入数据的长度
+ * @param [OUT]write_len 实际写入数据长度
+ * @param flags 写入控制标志，根据总线类型决定
+ * @return LUATOS_STATUS 
+ */
+LUATOS_STATUS luatos_hw_bus_write(LUATOS_HW_BUS_TYPE type, luatos_hw_bus_id_t bus_id, const void *buf, u32 len, u32 *write_len, u32 flags);
+
+/**
+ * @brief 对一条硬件总线进行IO控制
+ * 
+ * @param type 总线类型
+ * @param bus_id 总线id
+ * @param cmd IO控制命令
+ * @param param IO控制参数
+ * @return LUATOS_STATUS 
+ */
+LUATOS_STATUS luatos_hw_bus_ioctrl(LUATOS_HW_BUS_TYPE type, luatos_hw_bus_id_t bus_id, u32 cmd, u32 param);
+
+/**
+ * @brief 获取rtc时间，utc时间戳形式
+ * 
+ * @return u64 utc时间戳的秒数
+ */
+u64 luatos_hw_get_rtc_tamp(void);
+
+/**
+ * @brief 设置系统运行频率，如果有多个时钟，则修改对luatos运行有影响的时钟
+ * 
+ * @param clk 频率 =0系统自动决定当前运行频率 其他为期望运行的频率，单位hz
+ * @return LUATOS_STATUS 
+ */
+LUATOS_STATUS luatos_hw_set_sys_clk(u32 clk);
+
+/**
+ * @brief 获取当前系统运行频率
+ * 
+ * @return u32 运行的频率，单位hz
+ */
+u32 luatos_hw_get_sys_clk(void);
+
+/**
+ * @brief 低功耗模式设置，由系统决定是否真正进入低功耗
+ * 
+ * @param on_off 0退出低功耗，1进入低功耗
+ * @param level 低功耗级别，目前只对NBIOT有效
+ * @return LUATOS_STATUS 
+ */
+LUATOS_STATUS luatos_hw_set_lowpower_sleep(u8 on_off, u8 level);
 #endif

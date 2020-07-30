@@ -90,7 +90,7 @@ LUATOS_STATUS luatos_nw_fly_mode(u8 on_off);
  *              @arg @ref LUATOS_NW_ID_IMEI 蜂窝网络模块的imei
  *              @arg @ref LUATOS_NW_ID_ICCID 蜂窝网络SIM卡的iccid
  *              @arg @ref LUATOS_NW_ID_ICCID 蜂窝网络SIM卡的imsi
- * @param buf 输出数据区
+ * @param [OUT]buf 输出数据区
  * @param len 输出数据区长度
  * @return LUATOS_STATUS 
  */

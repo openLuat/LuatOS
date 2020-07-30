@@ -16,4 +16,9 @@
 #define LUATOS_NO_STD_TYPE
 //include "stdint.h"
 //include "stddef.h"
+/**
+ * @brief LUATOS_NO_STD_FILE 没有对文件操作相关的定义，打开后使用luatos定义的类型，如果关闭，必须加入对文件操作相关的定义的头文件
+ * 
+ */
+#define LUATOS_NO_STD_FILE
 #endif

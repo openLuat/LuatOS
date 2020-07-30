@@ -116,4 +116,5 @@ typedef struct
 #include "hw_api.h"
 #include "nw_api.h"
 #include "net_api.h"
+#include "file_api.h"
 #endif

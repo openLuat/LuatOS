@@ -65,7 +65,7 @@ void luatos_net_init(net_callback_fun funs);
 /**
  * @brief 获取当前用的DNS服务器
  * 
- * @param [out]dns_ip DNS服务器IP地址，注意如果实际有的服务器比希望获取的少，则多余地址填IPADDR_TYPE_NONE
+ * @param [OUT]dns_ip DNS服务器IP地址，注意如果实际有的服务器比希望获取的少，则多余地址填IPADDR_TYPE_NONE
  * @param ip_num 期望获取的DNS服务器数量
  * @return LUATOS_STATUS 
  */
@@ -137,12 +137,12 @@ LUATOS_STATUS luatos_net_send(SOCKET socket_id, const void *data, u32 len, u32 f
  * @brief 非阻塞读取数据
  * 
  * @param socket_id socket id
- * @param buf 数据缓冲区
+ * @param [OUT]buf 数据缓冲区
  * @param buf_len 数据缓冲区长度
  * @param read_len 实际读取的长度
  * @return LUATOS_STATUS 
  */
-LUATOS_STATUS luatos_net_recv(SOCKET socket_id, const void *buf, u32 buf_len, u32 *read_len);
+LUATOS_STATUS luatos_net_recv(SOCKET socket_id, void *buf, u32 buf_len, u32 *read_len);
 
 /**
  * @brief 非阻塞关闭一个socket连接，注意为了应用层统一处理，即使已经关闭了，也要再回调一次close_cb

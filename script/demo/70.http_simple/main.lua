@@ -5,7 +5,7 @@ demo说明:
 3. 演示简易的网络状态灯
 ]]
 _G.sys = require("sys")
-_G.httpv2 = require("httpv2")
+--_G.httpv2 = require("httpv2")
 
 log.info("main", "simple http demo")
 
@@ -29,6 +29,7 @@ if wlan ~= nil then
         log.info("wlan", "try connect to wifi")
         wlan.connect(ssid, password)
         sys.waitUntil("WLAN_READY", 15000)
+        sys.wait(500)
         log.info("wifi", "self ip", socket.ip())
     end)
     -- 方法3 airkiss配网, 可参考 app/playit/main.lua
@@ -40,13 +41,13 @@ end
 --- 从这里开始, 代码与具体网络无关
 
 -- 联网后自动同步时间
-sys.subscribe("NET_READY", function ()
-    log.info("net", "!!! network ready event !!! send ntp")
-    sys.taskInit(function()
-        sys.wait(2000)
-        socket.ntpSync()
-    end)
-end)
+-- sys.subscribe("NET_READY", function ()
+--     log.info("net", "!!! network ready event !!! send ntp")
+--     sys.taskInit(function()
+--         sys.wait(2000)
+--         socket.ntpSync()
+--     end)
+-- end)
 
 gpio.setup(21, 0)
 _G.use_netled = 1 -- 启用1, 关闭0
@@ -77,14 +78,16 @@ sys.taskInit(function()
             sys.waitUntil("NET_READY", 1000)
         end
         log.info("main", "http loop")
-        
-        collectgarbage("collect")
-        local code, headers, body = httpv2.request("GET", "http://ip.nutz.cn/json")
-        log.info("http", "resp", code, body)
-        if tonumber(code) == 200 then
-            log.info("ip", "my outer network ip", json.decode(body).ip)
-        end
+        sys.wait(1000)
+
+        http.get("http://www.baidu.com/content-search.xml", {dw="/bd_search.xml"}, function(code,headers,body)
+            log.info("http", "baidu", code, body) -- body和文件都有
+        end)
         sys.wait(5000)
+        http.get("https://mat1.gtimg.com/www/icon/favicon2.ico", {dw="/qq_log.ico"}, function(code, headers, body)
+            log.info("http", "qq", code, body) -- 超过1500字节,只在文件里
+        end)
+        sys.wait(30000)
     end
 end)
 

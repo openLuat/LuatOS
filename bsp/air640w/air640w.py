@@ -218,7 +218,12 @@ def _lfs(_path=None):
     for name in _paths :
         # 如果是lua文件, 编译之
         if name.endswith(".lua") :
+            ## 如果使用32bits的底层,需要用luac_536_32bits编译lua文件
             cmd = [TOOLS_PATH + "luac_536_32bits.exe"]
+            print ("Using Lua 32bits!!!")
+            ## 如果使用64bits的底层,需要用luac_536_32bits编译lua文件
+            #cmd = [TOOLS_PATH + "luac.exe"]
+            #print ("Using Lua 64bits!!!")
             if name.endswith("main.lua") :
                 if not MAIN_LUA_DEBUG :
                     cmd += ["-s"]

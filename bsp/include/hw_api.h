@@ -13,7 +13,7 @@
 #include "api_config.h"
 
 /**
- * @brief 硬件通讯总线类型
+ * @brief 硬件总线类型
  * 
  */
 enum LUATOS_HW_BUS_TYPE
@@ -30,6 +30,37 @@ enum LUATOS_HW_BUS_TYPE
     LUATOS_HW_BUS_SDIO,                         /// < SDIO暂时不用
     LUATOS_HW_BUS_FSMC,                         /// < 外部存储器接口，SRAM，PSRAM，并行NOR/NAND
 };
+
+/**
+ * @brief 硬件总线读写的标志位，用于bus_read和bus_write
+ * 
+ */
+enum LUATOS_HW_BUS_FLAG
+{
+    LUATOS_HW_FLAG_NO_BLOCK = 1,                /// < 非阻塞运行，通过回调函数返回结果
+    LUATOS_HW_FLAG_BLOCK,                       /// < 阻塞运行
+    LUATOS_HW_FLAG_WITH_REG = 0x00010000,       /// < 非阻塞运行，携带读写寄存器地址，一般是I2C，LUATOS_HW_FLAG_WITH_REG|reg_address
+    LUATOS_HW_FLAG_BLOCK_WITH_REG = 0x00020000  /// < 阻塞运行，携带读写寄存器地址，一般是I2C，LUATOS_HW_FLAG_BLOCK_WITH_REG|reg_address
+};
+
+enum LUATOS_HW_BUS_CMD
+{
+    LUATOS_HW_CMD_GPIO_OUTPUT = 1,              /// < GPIO输出电平，param u32 1高 0低
+    LUATOS_HW_CMD_GPIO_INPUT,                   /// < 读取GPIO输入电平，param *u8 1高 0低
+    LUATOS_HW_CMD_TIM_START_ONCE,               /// < 启动TIM，工作一次，param u32 定时时间 ns
+    LUATOS_HW_CMD_TIM_START_REPEAT,             /// < 启动TIM，连续工作，param u32 定时时间 ns
+    LUATOS_HW_CMD_TIM_STOP,                     /// < 停止TIM
+    LUATOS_HW_CMD_ADC_READ_RAW_BLOCK,           /// < 阻塞读取ADC值，param *u32 原始ADC值
+    LUATOS_HW_CMD_ADC_READ_VOL_BLOCK,           /// < 阻塞读取电压值，param *u32 单位uV
+    LUATOS_HW_CMD_ADC_READ_RAW_NO_BLOCK,        /// < 非阻塞读取ADC值，通过回调函数返回结果，param 忽略
+    LUATOS_HW_CMD_ADC_READ_VOL_NO_BLOCK,        /// < 非阻塞读取电压值，通过回调函数返回结果，param 忽略
+    LUATOS_HW_CMD_PWM_START,                    /// < PWM启动，param *u16 占空比，如果是NULL，则用初始化配置的占空比
+    LUATOS_HW_CMD_PWM_NEW_FREQ,                 /// < PWM调整频率 param u32 新的频率 HZ
+    LUATOS_HW_CMD_PWM_NEW_DUTY,                 /// < PWM调整占空比 param u16 新的占空比 0.01%
+    LUATOS_HW_CMD_PWM_STOP,                     /// < PWM停止
+    LUATOS_HW_CMD_UART_NEW_BR,                  /// < UART切换成新的波特率 param u32
+
+}
 
 /**
  * @brief 可接收外部数据的通讯总线接收数据通知方式，可以多选
@@ -127,7 +158,6 @@ typedef struct LUATOS_HW_TIM_CONFIG
 {
     void (*done_cb)(u8 bus_id);                 /// < 转换完成通知回调
     void *sdk_config;                           /// < SDK的特殊配置，一般填NULL，让SDK自动控制
-    u32 ns_time;                                /// < 定时时间，单位ns，最多4秒
     u8 id;                                      /// < 定时通道ID 0，1，2...
 }luatos_hw_tim_config_t;
 
@@ -137,8 +167,9 @@ typedef struct LUATOS_HW_TIM_CONFIG
  */
 typedef struct LUATOS_HW_PWM_CONFIG
 {
-    u32 freq;                                   /// < 频率
-    u16 duty;                                   /// < 占空比
+    void (*done_cb)(u8 bus_id, int result);     /// < PWM用bus_write进行连续调整时，在运行一半，全部完成回调
+    u32 freq;                                   /// < 频率 HZ
+    u16 duty;                                   /// < 占空比 0.01%
     u8 polarity;                                /// < 空闲时的电平，1高，0低
     u8 id;                                      /// < PWM通道ID 0，1，2...
 }luatos_hw_PWM_config_t;
@@ -150,8 +181,6 @@ typedef struct LUATOS_HW_PWM_CONFIG
 typedef struct LUATOS_HW_UART_CONFIG
 {
     u32 br;                                     /// < 波特率
-    u32 tx_cache_len;                           /// < 发送缓冲区大小
-    u32 rx_cache_len;                           /// < 接收缓冲区大小
     void (*tx_done_cb)(u8 bus_id);              /// < 发送完成回调
     void (*new_rx_cb)(u8 bus_id);               /// < 新接收数据通知回调
     void (*rx_done_cb)(u8 bus_id);              /// < 接收数据完成通知回调，表明在一定时间内没有新的数据了
@@ -161,6 +190,12 @@ typedef struct LUATOS_HW_UART_CONFIG
     u8 parity;                                  /// < 校验位 0=不校验，1=奇校验，2=偶校验
     u8 work_mode;                               /// < 工作模式 0=全双工，1=ISO7816智能卡，2=IrDA
     u8 rx_mode;                                 /// < 数据接收通知模式，见LUATOS_HW_BUS_RX_MODE
+    u8 flow_ctrl;                               /// < 硬件流控 1开 0关
+    u8 xon_off;                                 /// < 软件流控 1开 0关
+    u8 data_copy;                               /// < bus_read和bus_write时，数据是否拷贝，1拷贝，0不拷贝
+                                                /// < 拷贝时，read数据到sdk buf，再到用户buf, write数据用户buf到sdk buf，再到外设
+                                                /// < 不拷贝，read数据到用户buf，write数据用户buf直接到外设
+                                                /// < 不拷贝时，用户buf不可以在栈区
 }luatos_hw_uart_config_t;
 
 /**
@@ -169,11 +204,15 @@ typedef struct LUATOS_HW_UART_CONFIG
  */
 typedef struct LUATOS_HW_I2C_CONFIG
 {
-    void (*done_cb)(u8 bus_id, u8 is_read);     /// < 主机模式下收发完成通知回调，从机模式下接收到主机收发数据请求
+    void (*done_cb)(u8 bus_id, int result);     /// < 主机模式下收发完成通知回调，从机模式下接收到主机收发数据请求
     u32 freq;                                   /// < 期望的总线频率，单位Hz
     u16 address;                                /// < 主机模式下，默认外设地址，从机模式下自身地址
     u8 id;                                      /// < I2C序号 0，1，2，3...
     u8 slave_mode;                              /// < 从机模式
+    u8 data_copy;                               /// < bus_read和bus_write时，数据是否拷贝，1拷贝，0不拷贝
+                                                /// < 拷贝时，read数据到sdk buf，再到用户buf, write数据用户buf到sdk buf，再到外设
+                                                /// < 不拷贝，read数据到用户buf，write数据用户buf直接到外设
+                                                /// < 不拷贝时，用户buf不可以在栈区
 }luatos_hw_I2C_config_t;
 
 /**
@@ -182,13 +221,17 @@ typedef struct LUATOS_HW_I2C_CONFIG
  */
 typedef struct LUATOS_HW_SPI_CONFIG
 {
-    void (*done_cb)(u8 bus_id, u8 is_read);     /// < 主机模式下收发完成通知回调，从机模式下接收到主机收发数据请求
+    void (*done_cb)(u8 bus_id, int result);     /// < 主机模式下收发完成通知回调，从机模式下接收到主机收发数据请求
     u32 freq;                                   /// < 期望的总线频率，单位Hz
     u8 id;                                      /// < SPI序号 0，1，2，3...
     u8 slave_mode;                              /// < 从机模式
     u8 data_bit;                                /// < 数据位 8，16
     u8 bit_sequence;                            /// < 数据位顺序 1 LSB先 0 MSB先
     u8 work_mode;                               /// < 工作模式，0~3 对应标准的MODE0~MODE3
+    u8 data_copy;                               /// < bus_read和bus_write时，数据是否拷贝，1拷贝，0不拷贝
+                                                /// < 拷贝时，read数据到sdk buf，再到用户buf, write数据用户buf到sdk buf，再到外设
+                                                /// < 不拷贝，read数据到用户buf，write数据用户buf直接到外设
+                                                /// < 不拷贝时，用户buf不可以在栈区
 }luatos_hw_spi_config_t;
 
 /**
@@ -225,13 +268,11 @@ void luatos_hw_init(void);
  * @param callback_entry_address 定时器时间到，回调函数入口地址，和回调通知任务不能同时用
  * @param task_handle 定时器时间到，回调通知的任务，和回调函数不能同时用
  * @param timer_param 定时器回调参数，返回给回调函数，或者发送luatos_message_t.param2给task
- * @param timeout_ms 定时器时间，单位ms
- * @param repeat 是否重复运行，1是，0否
  * @param lowpower_mode 是否可以在低功耗模式下运行, 1可以，0不可以
  * @return LUATOS_HANDLE 返回一个定时器句柄，失败返回NULL
  */
 LUATOS_HANDLE luatos_hw_create_timer(
-    u32 callback_entry_address, LUATOS_HANDLE task_handle, u32 timer_param, u32 timeout_ms, u8 repeat, u8 lowpower_mode);
+    u32 callback_entry_address, LUATOS_HANDLE task_handle, u32 timer_param, u8 lowpower_mode);
 
 /**
  * @brief 销毁一个非高精度定时器
@@ -244,15 +285,28 @@ LUATOS_STATUS luatos_hw_destory_timer(LUATOS_HANDLE timer_handle);
 /**
  * @brief 启动一个非高精度定时器
  * 
- * @param timer_handle 
+ * @param timer_handle 定时器句柄
+ * @param timeout_ms 定时器时间，单位ms
+ * @param repeat 是否重复运行，1是，0否
  * @return LUATOS_STATUS 
  */
-LUATOS_STATUS luatos_hw_start_timer(LUATOS_HANDLE timer_handle);
+LUATOS_STATUS luatos_hw_start_timer(LUATOS_HANDLE timer_handle, u32 timeout_ms, u8 repeat);
+
+/**
+ * @brief 检查一个非高精度定时器是否在运行
+ * 
+ * @param timer_handle 定时器句柄
+ * @return LUATOS_STATUS 
+ *                  @arg @ref LUATOS_OK 在运行
+ *                  @arg @ref LUATOS_ERROR_NO_SUCH_ID 句柄无效，没有这个定时器
+ *                  @arg @ref LUATOS_ERROR_OPERATION_FAILED 没有运行
+ */
+LUATOS_STATUS luatos_hw_check_timer_running(LUATOS_HANDLE timer_handle);
 
 /**
  * @brief 停止一个非高精度定时器
  * 
- * @param timer_handle 
+ * @param timer_handle 定时器句柄
  * @return LUATOS_STATUS 
  */
 LUATOS_STATUS luatos_hw_stop_timer(LUATOS_HANDLE timer_handle);
@@ -304,7 +358,7 @@ LUATOS_STATUS luatos_hw_bus_read(LUATOS_HW_BUS_TYPE type, luatos_hw_bus_id_t bus
  * @param buf 写入数据缓存
  * @param len 期望写入数据的长度
  * @param [OUT]write_len 实际写入数据长度
- * @param flags 写入控制标志，根据总线类型决定
+ * @param flags 写入控制标志，根据总线类型决定，见LUATOS_HW_BUS_FLAG
  * @return LUATOS_STATUS 
  */
 LUATOS_STATUS luatos_hw_bus_write(LUATOS_HW_BUS_TYPE type, luatos_hw_bus_id_t bus_id, const void *buf, u32 len, u32 *write_len, u32 flags);
@@ -314,7 +368,7 @@ LUATOS_STATUS luatos_hw_bus_write(LUATOS_HW_BUS_TYPE type, luatos_hw_bus_id_t bu
  * 
  * @param type 总线类型
  * @param bus_id 总线id
- * @param cmd IO控制命令
+ * @param cmd IO控制命令，见LUATOS_HW_BUS_CMD
  * @param param IO控制参数
  * @return LUATOS_STATUS 
  */
@@ -330,9 +384,9 @@ u64 luatos_hw_get_rtc_tamp(void);
 /**
  * @brief 获取rtc时间，utc时间
  * 
- * @param date UTC日期
- * @param time UTC时间
- * @param ms UTC时间ms
+ * @param [OUT]date UTC日期
+ * @param [OUT]time UTC时间
+ * @param [OUT]ms UTC时间ms
  * @return LUATOS_STATUS 
  */
 LUATOS_STATUS luatos_hw_get_rtc_datetime(luatos_date_struct *date, luatos_time_struct *time, u32 *ms);

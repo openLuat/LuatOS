@@ -19,13 +19,15 @@
 enum LUATOS_HW_BUS_TYPE
 {
     LUATOS_HW_BUS_GPIO,
+    LUATOS_HW_BUS_TIM,                          /// < 高精度定时器/捕获器，目前用于STM32
     LUATOS_HW_BUS_ADC,
+    LUATOS_HW_BUS_PWM,
     LUATOS_HW_BUS_UART,
-    LUATOS_HW_BUS_IIC,
+    LUATOS_HW_BUS_I2C,
     LUATOS_HW_BUS_SPI,
-    LUATOS_HW_BUS_CAN,
-    LUATOS_HW_BUS_USB,
-    LUATOS_HW_BUS_SDIO,
+    LUATOS_HW_BUS_CAN,                          /// < CAN暂时不用
+    LUATOS_HW_BUS_USB,                          /// < USB暂时不用
+    LUATOS_HW_BUS_SDIO,                         /// < SDIO暂时不用
     LUATOS_HW_BUS_FSMC,                         /// < 外部存储器接口，SRAM，PSRAM，并行NOR/NAND
 };
 
@@ -41,16 +43,6 @@ enum LUATOS_HW_BUS_RX_MODE
 };
 
 /**
- * @brief gpio id
- * 
- */
-typedef struct LUATOS_HW_GPIO_ID
-{
-    u32 port;                                       /// < bit0~bit31，代表port0~port31，或者portA，portB...
-    u32 pin;                                        /// < bit0~bit31, 代表PIN0~PIN31
-}luatos_hw_gpio_id_t;
-
-/**
  * @brief gpio 中断类型
  * 
  */
@@ -61,6 +53,44 @@ enum LUATOS_HW_GPIO_IRQ_TYPE
     LUATOS_HW_GPIO_IRQ_HIGH_LEVEL = 0x10,
     LUATOS_HW_GPIO_IRQ_LOW_LEVEL = 0x20,
 };
+
+
+typedef struct LUATOS_TIME_STRUCT
+{
+	uint8_t sec;
+	uint8_t min;
+	uint8_t hour;
+	uint8_t week;//表示日期0~6,sun~sat，表示预约时，bit0~bit6,sun~sat
+}luatos_time_struct;
+
+typedef struct LUATOS_DATE_STRUCT
+{
+	uint16_t year;
+	uint8_t mon;
+	uint8_t day;
+}luatos_date_struct;
+
+typedef union LUATOS_TIME_UNION
+{
+	uint32_t dwtime;
+	luatos_time_struct time;
+}luatos_time_union;
+
+typedef union LUATOS_DATE_UNION
+{
+	uint32_t dwdate;
+	luatos_date_struct date;
+}luatos_date_union;
+
+/**
+ * @brief gpio id
+ * 
+ */
+typedef struct LUATOS_HW_GPIO_ID
+{
+    u32 port;                                       /// < bit0~bit31，代表port0~port31，或者portA，portB...
+    u32 pin;                                        /// < bit0~bit31, 代表PIN0~PIN31
+}luatos_hw_gpio_id_t;
 
 /**
  * @brief gpio初始化成员变量
@@ -77,6 +107,41 @@ typedef struct LUATOS_HW_GPIO_CONFIG
     u8 irq_level;                                   /// < 边沿或者电平中断 1电平 0边沿
     u8 debounce;                                    /// < 中断去抖动 0不启用 其他为过滤时间，单位ms
 }luatos_hw_gpio_config_t;
+
+/**
+ * @brief adc
+ * 
+ */
+typedef struct LUATOS_HW_ADC_CONFIG
+{
+    void (*done_cb)(u8 bus_id, u32 raw_value);  /// < 转换完成通知回调
+    void *sdk_config;                           /// < SDK的特殊配置，一般填NULL，让SDK自动控制
+    u8 id;                                      /// < ADC通道ID 0，1，2...
+}luatos_hw_adc_config_t;
+
+/**
+ * @brief 高精度定时器
+ * 
+ */
+typedef struct LUATOS_HW_TIM_CONFIG
+{
+    void (*done_cb)(u8 bus_id);                 /// < 转换完成通知回调
+    void *sdk_config;                           /// < SDK的特殊配置，一般填NULL，让SDK自动控制
+    u32 ns_time;                                /// < 定时时间，单位ns，最多4秒
+    u8 id;                                      /// < 定时通道ID 0，1，2...
+}luatos_hw_tim_config_t;
+
+/**
+ * @brief pwm
+ * 
+ */
+typedef struct LUATOS_HW_PWM_CONFIG
+{
+    u32 freq;                                   /// < 频率
+    u16 duty;                                   /// < 占空比
+    u8 polarity;                                /// < 空闲时的电平，1高，0低
+    u8 id;                                      /// < PWM通道ID 0，1，2...
+}luatos_hw_PWM_config_t;
 
 /**
  * @brief 串口初始化成员变量
@@ -99,13 +164,46 @@ typedef struct LUATOS_HW_UART_CONFIG
 }luatos_hw_uart_config_t;
 
 /**
+ * @brief I2C初始化成员变量
+ * 
+ */
+typedef struct LUATOS_HW_I2C_CONFIG
+{
+    void (*done_cb)(u8 bus_id, u8 is_read);     /// < 主机模式下收发完成通知回调，从机模式下接收到主机收发数据请求
+    u32 freq;                                   /// < 期望的总线频率，单位Hz
+    u16 address;                                /// < 主机模式下，默认外设地址，从机模式下自身地址
+    u8 id;                                      /// < I2C序号 0，1，2，3...
+    u8 slave_mode;                              /// < 从机模式
+}luatos_hw_I2C_config_t;
+
+/**
+ * @brief SPI初始化成员变量
+ * 
+ */
+typedef struct LUATOS_HW_SPI_CONFIG
+{
+    void (*done_cb)(u8 bus_id, u8 is_read);     /// < 主机模式下收发完成通知回调，从机模式下接收到主机收发数据请求
+    u32 freq;                                   /// < 期望的总线频率，单位Hz
+    u8 id;                                      /// < SPI序号 0，1，2，3...
+    u8 slave_mode;                              /// < 从机模式
+    u8 data_bit;                                /// < 数据位 8，16
+    u8 bit_sequence;                            /// < 数据位顺序 1 LSB先 0 MSB先
+    u8 work_mode;                               /// < 工作模式，0~3 对应标准的MODE0~MODE3
+}luatos_hw_spi_config_t;
+
+/**
  * @brief 总线初始化配置集合
  * 
  */
 typedef union LUATOS_HW_BUS_CONFIG
 {
     luatos_hw_gpio_config_t gpio;
+    luatos_hw_adc_config_t  adc;
+    luatos_hw_tim_config_t  tim;
+    luatos_hw_PWM_config_t  pwm;
     luatos_hw_uart_config_t uart;
+    luatos_hw_I2C_config_t  I2C;
+    luatos_hw_spi_config_t  spi;
 }luatos_hw_bus_config_t;
 
 typedef union LUATOS_HW_BUS_ID
@@ -225,10 +323,19 @@ LUATOS_STATUS luatos_hw_bus_ioctrl(LUATOS_HW_BUS_TYPE type, luatos_hw_bus_id_t b
 /**
  * @brief 获取rtc时间，utc时间戳形式
  * 
- * @return u64 utc时间戳的秒数
+ * @return u64 utc时间戳的ms数
  */
 u64 luatos_hw_get_rtc_tamp(void);
 
+/**
+ * @brief 获取rtc时间，utc时间
+ * 
+ * @param date UTC日期
+ * @param time UTC时间
+ * @param ms UTC时间ms
+ * @return LUATOS_STATUS 
+ */
+LUATOS_STATUS luatos_hw_get_rtc_datetime(luatos_date_struct *date, luatos_time_struct *time, u32 *ms);
 /**
  * @brief 设置系统运行频率，如果有多个时钟，则修改对luatos运行有影响的时钟
  * 

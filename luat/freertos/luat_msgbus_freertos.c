@@ -13,11 +13,17 @@ void luat_msgbus_init(void) {
     }
 }
 uint32_t luat_msgbus_put(rtos_msg_t* msg, size_t timeout) {
+    if (queue == NULL)
+        return 1;
     return osMessageQueuePut(queue, msg, 0, timeout);
 }
 uint32_t luat_msgbus_get(rtos_msg_t* msg, size_t timeout) {
+    if (queue == NULL)
+        return 1;
     return osMessageQueueGet(queue, msg, 0, timeout);
 }
 uint32_t luat_msgbus_freesize(void) {
+    if (queue == NULL)
+        return 1;
     return osMessageQueueGetSpace(queue);
 }

@@ -45,3 +45,23 @@ LUAT_WEAK int luat_fs_remove(const char *filename) {
 LUAT_WEAK int luat_fs_rename(const char *old_filename, const char *new_filename) {
     return rename(old_filename, new_filename);
 }
+LUAT_WEAK int luat_fs_fexist(const char *filename) {
+    FILE* fd = luat_fs_fopen(filename, "rb");
+    if (fd) {
+        luat_fs_fclose(fd);
+        return 1;
+    }
+    return 0;
+}
+
+LUAT_WEAK size_t luat_fs_fsize(const char *filename) {
+    FILE *fd;
+    size_t size = 0;
+    fd = luat_fs_fopen(filename, "rb");
+    if (fd) {
+        luat_fs_fseek(fd, 0, SEEK_END);
+        size = luat_fs_ftell(fd); 
+        luat_fs_fclose(fd);
+    }
+    return size;
+}

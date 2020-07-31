@@ -33,9 +33,9 @@
 ** ensure that all software connected to Lua will be compiled with the
 ** same configuration.
 */
-#ifdef __EC616
+//#ifdef __EC616
 #define LUA_32BITS
-#endif
+//#endif
 
 /*
 @@ LUA_USE_C89 controls the use of non-ISO-C89 features.

@@ -110,6 +110,8 @@ def _pkg():
     #拷贝自身
     shutil.copy(sys.argv[0], "tmp/air640w.py")
     shutil.copy("README.md", "tmp/README.md")
+    shutil.copy("YModem.py", "tmp/YModem.py")
+    shutil.copy("YMTask.py", "tmp/YMTask.py")
 
     if os.path.exists("userdoc") :
         shutil.copytree("userdoc", "tmp/userdoc")
@@ -221,7 +223,7 @@ def _lfs(_path=None):
             ## 如果使用32bits的底层,需要用luac_536_32bits编译lua文件
             cmd = [TOOLS_PATH + "luac_536_32bits.exe"]
             print ("Using Lua 32bits!!!")
-            ## 如果使用64bits的底层,需要用luac_536_32bits编译lua文件
+            ## 如果使用64bits的底层,需要用luac编译lua文件
             #cmd = [TOOLS_PATH + "luac.exe"]
             #print ("Using Lua 64bits!!!")
             if name.endswith("main.lua") :

@@ -28,7 +28,7 @@ config['air640w'] = {
     "TOOLS_PATH": ".\\tools\\",
     "MAIN_LUA_DEBUG" : "false",
     "LUA_DEBUG" : "false",
-    "COM_PORT" : "COM34"
+    "COM_PORT" : "COM28"
 }
 if os.path.exists("local.ini") :
     config.read("local.ini")
@@ -240,6 +240,22 @@ def _lfs(_path=None):
         else:
             print("COPY", name, FTC_PATH + "disk/" + os.path.basename(name))
             shutil.copy(name, FTC_PATH + "disk/" + os.path.basename(name))
+    for root, dirs, files in os.walk("disk", topdown=False):
+        import struct
+        print("write flashx.tlv", root)
+        with open("disk/flashx.tlv", "wb") as f :
+            # 写入文件头
+            f.write(struct.pack("<HHI", 0x1234, 0x00, 0x00))
+            for name in files:
+                # 写入文件名
+                f.write(struct.pack("<HHI", 0x0101, 0x00, len(name)))
+                f.write(name.encode())
+                # 写入文件内容
+                _path = os.path.join(root, name)
+                _size = os.path.getsize(_path)
+                f.write(struct.pack("<HHI", 0x0202, 0x00, _size))
+                with open(_path, "rb") as f2 :
+                    shutil.copyfileobj(f2, f, _size)
 
 def main():
     argc = 1

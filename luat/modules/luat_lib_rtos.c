@@ -249,5 +249,5 @@ LUAMOD_API int luaopen_rtos( lua_State *L ) {
 }
 
 LUAT_WEAK const char* luat_version_str(void) {
-    return LUA_VERSION;
+    return LUAT_VERSION;
 }

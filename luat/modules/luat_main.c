@@ -81,23 +81,101 @@ static int panic (lua_State *L) {
   return 0;  /* return to Lua to abort */
 }
 
+#define UPDATE_BIN_PATH "/update.tlv"
+#define ROLLBACK_MARK_PATH "/rollback_mark"
+#define UPDATE_MARK "/update_mark"
+#define FLASHX_PATH "/flashx.tlv"
+
+int luat_bin_unpack(const char* path);
+
+static void check_update(void) {
+  // 首先, 升级文件是否存在呢?
+  if (!luat_fs_fexist(UPDATE_BIN_PATH)) {
+    // 不存在, 正常启动
+    return;
+  }
+  // 找到了, 检查一下大小
+  LLOGI("found " UPDATE_BIN_PATH " ...");
+  size_t fsize = luat_fs_fsize(UPDATE_BIN_PATH);
+  if (fsize < 256) {
+    // 太小了, 肯定不合法, 直接移除, 正常启动
+    LLOGW(UPDATE_BIN_PATH " is too small, delete it");
+    luat_fs_remove(UPDATE_BIN_PATH);
+    return;
+  }
+  // 写入标志文件.
+  // 必须提前写入, 即使解包失败, 仍标记为升级过,这样报错就能回滚
+  LLOGI("write " UPDATE_MARK  " first");
+  FILE* fd = luat_fs_fopen(UPDATE_MARK, "wb");
+  if (fd) {
+    luat_fs_fclose(fd);
+    // TODO 连标志文件都写入失败,怎么办?
+  }
+  // 开始解包升级文件
+  if (luat_bin_unpack(UPDATE_BIN_PATH) == LUA_OK) {
+    LLOGI("update OK, remove " UPDATE_BIN_PATH);
+  }
+  else {
+    LLOGW("update FAIL, remove " UPDATE_BIN_PATH);
+  }
+  // 无论是否成功,都一定要删除升级文件, 防止升级死循环
+  luat_fs_remove(UPDATE_BIN_PATH);
+  // 延迟5秒,重启
+  LLOGW("update: reboot at 5 secs");
+  luat_timer_mdelay(5*1000);
+  luat_os_reboot(0); // 重启
+}
+
+static void check_rollback(void) {
+  // 首先, 查一下是否有回滚文件
+  if (!luat_fs_fexist(ROLLBACK_MARK_PATH)) {
+    return; // 没有回滚标志文件, 正常启动
+  }
+  // 回滚文件存在,
+  LLOGW("Found " ROLLBACK_MARK_PATH  ", check rollback");
+  // 首先,移除回滚标志, 防止重复N次的回滚
+  luat_fs_remove("/rollback_mark"); // TODO 如果删除也失败呢?
+  // 然后检查原始文件, flashx.bin
+  if (!luat_fs_fexist(FLASHX_PATH)) {
+    LLOGW("NOT " FLASHX_PATH " , can't rollback");
+    return;
+  }
+  // 存在原始flashx.bin
+  LLOGD("found " FLASHX_PATH  ", unpack it");
+  // 开始回滚操作
+  if (luat_bin_unpack(FLASHX_PATH) == LUA_OK) {
+    LLOGI("rollback complete!");
+  }
+  else {
+    LLOGE("rollback FAIL");
+  }
+  // 执行完成, 准备重启
+  LLOGW("rollback: reboot at 5 secs");
+  // 延迟5秒后,重启
+  luat_timer_mdelay(5*1000);
+  luat_os_reboot(0); // 重启
+}
+
 int luat_main (int argc, char **argv, int _) {
   if (boot_mode == 0) {
     return 0; // just nop
   }
-  //luat_print("\nI/main: Luat " LUAT_VERSION " build " __DATE__ " " __TIME__ "\n");
-  LLOGI("Luat " LUAT_VERSION ", build at: " __DATE__ " " __TIME__);
-  //print_list_mem("entry luat_main");
-  // 1. init filesystem
+  LLOGI("LuatOS@%s %s - %s, build at: " __DATE__ " " __TIME__, luat_os_bsp(), luat_version_str(), LUAT_VERSION);
+  // 1. 初始化文件系统
   luat_fs_init();
-  //print_list_mem("after fs init");
 
-  // 2. init Lua State
+  // 2. 是否需要升级?
+  check_update();
+
+  // 3. 是否需要回滚呢?
+  check_rollback();
+
+  // 4. init Lua State
   int status, result;
   L = lua_newstate(luat_heap_alloc, NULL);
   if (L == NULL) {
-    l_message(argv[0], "cannot create state: not enough memory\n");
-    return 1;
+    l_message("LUAVM", "cannot create state: not enough memory\n");
+    goto _exit;
   }
   if (L) lua_atpanic(L, &panic);
   //print_list_mem("after lua_newstate");
@@ -107,10 +185,26 @@ int luat_main (int argc, char **argv, int _) {
   status = lua_pcall(L, 2, 1, 0);  /* do the call */
   result = lua_toboolean(L, -1);  /* get result */
   report(L, status);
-  //lua_close(L);
+  lua_close(L);
+_exit:
   LLOGE("Lua VM exit!! reboot in 30s");
+  // 既然是异常退出,那肯定出错了!!!
+  // 如果升级过, 那么就写入标志文件
+  {
+    if (luat_fs_fexist(UPDATE_MARK)) {
+      FILE* fd = luat_fs_fopen("/rollback_mark", "wb");
+      if (fd) {
+        luat_fs_fclose(fd);
+      }
+    }
+    else {
+      // 没升级过, 那就是线刷, 不存在回滚
+    }
+  }
+  // 等30秒,就重启吧
   luat_timer_mdelay(30*1000);
   luat_os_reboot(result);
+  // 往下是肯定不会被执行的
   return (result && status == LUA_OK) ? 0 : 2;
 }
 

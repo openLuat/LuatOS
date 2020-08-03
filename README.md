@@ -34,7 +34,6 @@ Lua base RTOS, build for many embedded systems
 
 ```lua
 local sys = require("sys")
-local httpv2 = require("httpv2")
 
 sys.subscribe("WLAN_READY", function ()
     print("!!! wlan ready event !!!")
@@ -62,10 +61,12 @@ sys.taskInit(function()
         if wlan.ready() then
             sys.wait(1000)
             local temp = (sensor.ds18b20(28) or "")
-            local code,headers,body = httpv2.request("GET", "http://site0.cn/api/w60x/report/ds18b20?mac=" .. wlan.get_mac() .. "&temp=" .. tostring(temp))
+            http.get("http://site0.cn/api/w60x/report/ds18b20?mac=" .. wlan.get_mac() .. "&temp=" .. tostring(temp), {}, function()
+                log.info("network", "http complete, sleep 5s", code, body)
+                sys.publish("HTTP_DONE")
+            end)
             display_str("Temp: " .. temp  .. " rssi:" .. tostring(wlan.rssi()))
-            log.info("network", "http complete, sleep 5s", code, body)
-            sys.wait(5000)
+            sys.waitUntil("HTTP_DONE", 5000)
         else
             log.warn("main", "wlan is not ready yet")
             sys.waitUntil("WLAN_READY", 30000)
@@ -96,6 +97,7 @@ sys.run()
 
 ## 使用到的开源项目
 
+* [lua](https://www.lua.org/) Lua官网
 * [rt-thread](https://github.com/RT-Thread/rt-thread) 国产rtos, 非常好用
 * [rtt-ds18b20](https://github.com/willianchanlovegithub/ds18b20) 在RT-Thread环境下读取ds18b20
 * [LuaTask](https://github.com/openLuat/Luat_2G_RDA_8955) 合宙LuaTask
@@ -105,6 +107,7 @@ sys.run()
 * [u8g2_wqy](https://github.com/larryli/u8g2_wqy) u8g2的中文字体
 * [printf](https://github.com/mpaland/printf) A printf / sprintf Implementation for Embedded Systems
 * [YMODEM for Python](https://github.com/alexwoo1900/ymodem) YMODEM 用于下载脚本
+* [elua](http://www.eluaproject.net/) eLua 虽然已经停更多年,但精神犹在
 
 ## 授权协议
 

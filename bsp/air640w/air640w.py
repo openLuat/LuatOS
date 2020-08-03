@@ -217,6 +217,8 @@ def _lfs(_path=None):
     # 然后遍历user目录
     for name in os.listdir(_path) :
         _paths.append(_path + name)
+    TAG_PROJECT = ""
+    TAG_VERSION = ""
     for name in _paths :
         # 如果是lua文件, 编译之
         if name.endswith(".lua") :
@@ -229,6 +231,14 @@ def _lfs(_path=None):
             if name.endswith("main.lua") :
                 if not MAIN_LUA_DEBUG :
                     cmd += ["-s"]
+                with open(name, "rb") as f :
+                    for line in f.readlines() :
+                        if line :
+                            line = line.strip().decode()
+                            if line.startswith("PROJECT =") :
+                                TAG_PROJECT = line[line.index("\"") + 1:][:-1]
+                            elif line.startswith("VERSION =") :
+                                TAG_VERSION = line[line.index("\"") + 1:][:-1]
             elif not LUA_DEBUG :
                 cmd += ["-s"]
             else:
@@ -240,6 +250,9 @@ def _lfs(_path=None):
         else:
             print("COPY", name, FTC_PATH + "disk/" + os.path.basename(name))
             shutil.copy(name, FTC_PATH + "disk/" + os.path.basename(name))
+    if TAG_PROJECT == "" or TAG_VERSION == "" :
+        print("!!!!!!!miss PROJECT or/and VERSION!!!!!!!!!!")
+
     for root, dirs, files in os.walk("disk", topdown=False):
         import struct
         print("write flashx.tlv", root)
@@ -256,6 +269,10 @@ def _lfs(_path=None):
                 f.write(struct.pack("<HHI", 0x0202, 0x00, _size))
                 with open(_path, "rb") as f2 :
                     shutil.copyfileobj(f2, f, _size)
+    if TAG_PROJECT != "" and TAG_VERSION != "":
+        # otademo_1.2.7_LuatOS_V0002_w60x
+        TAG_NAME = "%s_%s_LuatOS_V0002_w60x.tlv" % (TAG_PROJECT, TAG_VERSION)
+        shutil.copy("disk/flashx.tlv", TAG_NAME)
 
 def main():
     argc = 1

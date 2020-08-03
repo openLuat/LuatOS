@@ -219,6 +219,19 @@ static int l_rtos_meminfo(lua_State *L) {
     return 3;
 }
 
+/*
+返回底层描述信息,格式为 LuatOS_$VERSION_$BSP,可用于OTA升级判断底层信息
+@api    rtos.firmware()
+@return string 底层描述信息
+@usage
+-- 打印底层描述信息
+log.info("firmware", rtos.firmware())
+*/
+static int l_rtos_firmware(lua_State *L) {
+    lua_pushfstring(L, "LuatOS_%s_%s", luat_version_str(), luat_os_bsp());
+    return 1;
+}
+
 //------------------------------------------------------------------
 #include "rotable.h"
 static const rotable_Reg reg_rtos[] =
@@ -233,6 +246,7 @@ static const rotable_Reg reg_rtos[] =
     { "bsp",               l_rtos_bsp,         0},
     { "version",           l_rtos_version,     0},
     { "meminfo",           l_rtos_meminfo,     0},
+    { "firmware",          l_rtos_firmware,    0},
 
     { "INF_TIMEOUT",        NULL,              -1},
 

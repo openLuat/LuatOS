@@ -6,7 +6,7 @@ end)
 
 sys.taskInit(function()
     wlan.setMode("wlan0", wlan.STATION)
-    wlan.connect("uiot", "czcjhp1985cbm")
+    wlan.connect("uiot", "12345678")
     print("wait for WLAN_READY")
     sys.waitUntil("WLAN_READY", 30000)
     if wlan.ready() then

@@ -71,7 +71,7 @@ static void webclient_req(luat_lib_http_req_t *req)
     resp_status = webclient_handle_response(session);
     LLOGD("post handle response(%d).", resp_status);
 
-    if (resp_status  != 200)
+    if (resp_status  < 200)
     {
         LLOGW("get file failed, wrong response: %d (-0x%X).", resp_status, resp_status);
         rc = -WEBCLIENT_ERROR;
@@ -171,7 +171,7 @@ __exit:
         req->httpcb(resp);
     }
     else {
-        if (resp_status == 200) {
+        if (resp_status >= 200) {
             resp->body.type = 1;
             if (total_length > 0 && total_length < WEBCLIENT_RESPONSE_BUFSZ) {
                 resp->body.ptr = luat_heap_malloc(total_length);
@@ -197,7 +197,7 @@ __exit:
             }
         }
         else {
-            LLOGI("resp code != 200, skip body");
+            LLOGI("resp code < 200, skip body");
         }
         req->httpcb(resp);
     }

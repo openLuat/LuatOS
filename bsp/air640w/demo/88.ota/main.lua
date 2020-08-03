@@ -35,7 +35,7 @@ sys.taskInit(function()
                     log.info("ota", "http ota ok!!", "reboot!!")
                     rtos.reboot()
                 else
-                    log.info("ota", "resp", code)
+                    log.info("ota", "resp", code, body)
                 end
             end)
             sys.wait(120*1000)

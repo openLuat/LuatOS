@@ -221,4 +221,20 @@ void *luatos_os_realloc(void *ptr, u32 newsize);
  * @param ptr 内存首地址
  */
 void luatos_os_free(void *ptr);
+
+/**
+ * @brief 获取堆区使用信息
+ * 
+ * @param [OUT]total 总共大小
+ * @param [OUT]use 已经使用大小
+ * @param [OUT]free 可使用大小
+ */
+void luaots_os_get_heap_info(uint32_t *total, uint32_t *use, uint32_t *free);
+
+/**
+ * @brief 获取SDK版本号
+ * 
+ * @return char* 静态字符串类型的版本号
+ */
+char *luatos_os_get_version(void);
 #endif

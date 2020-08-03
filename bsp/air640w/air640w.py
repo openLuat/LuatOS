@@ -222,12 +222,8 @@ def _lfs(_path=None):
     for name in _paths :
         # 如果是lua文件, 编译之
         if name.endswith(".lua") :
-            ## 如果使用32bits的底层,需要用luac_536_32bits编译lua文件
             cmd = [TOOLS_PATH + "luac_536_32bits.exe"]
             print ("Using Lua 32bits!!!")
-            ## 如果使用64bits的底层,需要用luac编译lua文件
-            #cmd = [TOOLS_PATH + "luac.exe"]
-            #print ("Using Lua 64bits!!!")
             if name.endswith("main.lua") :
                 if not MAIN_LUA_DEBUG :
                     cmd += ["-s"]
@@ -270,8 +266,8 @@ def _lfs(_path=None):
                 with open(_path, "rb") as f2 :
                     shutil.copyfileobj(f2, f, _size)
     if TAG_PROJECT != "" and TAG_VERSION != "":
-        # otademo_1.2.7_LuatOS_V0002_w60x
-        TAG_NAME = "%s_%s_LuatOS_V0002_w60x.tlv" % (TAG_PROJECT, TAG_VERSION)
+        # otademo_1.2.7_LuatOS_V0003_w60x
+        TAG_NAME = "%s_%s_LuatOS_V0003_w60x.tlv" % (TAG_PROJECT, TAG_VERSION)
         shutil.copy("disk/flashx.tlv", TAG_NAME)
 
 def main():

@@ -8,7 +8,6 @@ CFLAGS_INC    +=  -I $(LUATOS_DIR)/lua/include \
 
 
 LUATOS_SRC_DIRS += $(LUATOS_DIR)/lua/src \
-					$(LUATOS_DIR)/luat/freertos \
 					$(LUATOS_DIR)/luat/modules \
 					$(LUATOS_DIR)/luat/packages/vsprintf \
 					$(LUATOS_DIR)/luat/packages/lua-cjson \

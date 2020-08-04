@@ -115,8 +115,6 @@ static int l_crypto_hmac_sha1(lua_State *L) {
     return 0;
 }
 
-#if defined(FEATURE_MBEDTLS_ENABLE)
-#include "cipher.h"
 /**
 对称加密
 @api crypto.cipher(type, padding, str, key, iv)
@@ -131,74 +129,10 @@ static int l_crypto_hmac_sha1(lua_State *L) {
 local data = crypto.cipher_encrypt("AES-128-ECB", "PKCS7", "1234567890123456", "1234567890123456")
 local data2 = crypto.cipher_encrypt("AES-128-CBC", "PKCS7", "1234567890123456", "1234567890123456", "1234567890666666")
  */
-static int l_crypto_cipher(lua_State *L) {
-    size_t cipher_size = 0;
-    size_t pad_size = 0;
-    size_t str_size = 0;
-    size_t key_size = 0;
-    size_t iv_size = 0;
-    const char* cipher = luaL_optlstring(L, 1, "AES-128-ECB", &cipher_size);
-    const char* pad = luaL_optlstring(L, 2, "PKCS7", &pad_size);
-    const char* str = luaL_checklstring(L, 3, &str_size);
-    const char* key = luaL_checklstring(L, 4, &key_size);
-    const char* iv = luaL_optlstring(L, 5, "", &iv_size);
-
-    const mbedtls_cipher_info_t * _cipher = mbedtls_cipher_info_from_string(cipher);
-    if (_cipher == NULL) {
-        lua_pushstring(L, "bad cipher name");
-        lua_error(L);
-        return 0;
-    }
-
-    int ret = 0;
-
-    mbedtls_cipher_context_t ctx;
-    mbedtls_cipher_init(&ctx);
-
-	ret = mbedtls_cipher_setup(&ctx, _cipher);
-    if (ret) LLOGE("mbedtls_cipher_setup fail %ld", ret);
-    ret = mbedtls_cipher_setkey(&ctx, key, key_size * 8, MBEDTLS_ENCRYPT);
-    if (ret) LLOGE("mbedtls_cipher_setkey fail %ld", ret);
-    // TODO 设置padding mode
-    // mbedtls_cipher_set_padding_mode
-    if (iv_size) {
-        ret = mbedtls_cipher_set_iv(&ctx, iv, iv_size);
-        if (ret) LLOGE("mbedtls_cipher_set_iv fail %ld", ret);
-    }
-
-    mbedtls_cipher_reset(&ctx);
-
-    //mbedtls_cipher_set_padding_mode(&ctx, MBEDTLS_PADDING_PKCS7);
-
-    // 开始注入数据
-    luaL_Buffer buff;
-    luaL_buffinit(L, &buff);
-
-    unsigned char output[32] = {0};
-    size_t input_size = 0;
-    size_t output_size = 0;
-    size_t block_size = mbedtls_cipher_get_block_size(&ctx);
-    for (size_t i = 0; i < str_size; i+=block_size) {
-        input_size = str_size - i;
-        if (input_size > block_size)
-            input_size = block_size;
-        ret = mbedtls_cipher_update(&ctx, str+i, input_size, output, &output_size);
-        if (ret) LLOGE("mbedtls_cipher_update fail %ld", ret);
-        //else LLOGD("mbedtls_cipher_update, output size=%ld", output_size);
-        if (output_size > 0)
-            luaL_addlstring(&buff, output, output_size);
-        output_size = 0;
-    }
-    ret = mbedtls_cipher_finish(&ctx, output, &output_size);
-    if (ret) LLOGE("mbedtls_cipher_finish fail %ld", ret);
-    //else LLOGD("mbedtls_cipher_finish, output size=%ld", output_size);
-    if (output_size > 0)
-        luaL_addlstring(&buff, output, output_size);
-
-    luaL_pushresult(&buff);
+LUAT_WEAK int l_crypto_cipher(lua_State *L) {
+    lua_pushliteral(L, "");
     return 1;
 }
-#endif
 
 #include "crc.h"
 
@@ -293,9 +227,7 @@ static const rotable_Reg reg_crypto[] =
     { "hmac_md5" ,      l_crypto_hmac_md5       ,0},
     { "sha1" ,          l_crypto_sha1           ,0},
     { "hmac_sha1" ,     l_crypto_hmac_sha1      ,0},
-#if defined(FEATURE_MBEDTLS_ENABLE)
     { "cipher" ,        l_crypto_cipher         ,0},
-#endif
     { "crc16",          l_crypto_crc16          ,0},
     { "crc16_modbus",   l_crypto_crc16_modbus   ,0},
     { "crc32",          l_crypto_crc32          ,0},

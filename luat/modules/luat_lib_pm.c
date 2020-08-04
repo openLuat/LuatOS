@@ -67,8 +67,8 @@ static int l_pm_dtimer_start(lua_State *L) {
 @api pm.dtimerStop(id)
 @int 定时器id
 @usage
--- 添加底层定时器
-pm.dtimerStart(0) -- 关闭id=0的底层定时器
+-- 关闭底层定时器
+pm.dtimerStop(0) -- 关闭id=0的底层定时器
  */
 static int l_pm_dtimer_stop(lua_State *L) {
     int dtimer_id = luaL_checkinteger(L, 1);

@@ -1,6 +1,6 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "air302_aliyun_autoreg_demo"
+PROJECT = "aliyun_autoreg_demo"
 VERSION = "1.0.0"
 
 --[[

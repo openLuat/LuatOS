@@ -1,6 +1,6 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "air302_pm_demo"
+PROJECT = "lowpower"
 VERSION = "1.0.0"
 
 -- 这个demo还有问题, 先不要使用!!!

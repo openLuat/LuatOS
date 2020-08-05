@@ -1,7 +1,7 @@
 
 
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "air302_disp_demo"
+PROJECT = "dispdemo"
 VERSION = "1.0.0"
 
 -- sys库是标配

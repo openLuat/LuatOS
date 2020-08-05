@@ -1,6 +1,6 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "air302_adc_demo"
+PROJECT = "adcdemo"
 VERSION = "1.0.0"
 
 -- 一定要添加sys.lua !!!!

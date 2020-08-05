@@ -5,20 +5,18 @@
 
 PROJECT = "otademo"
 VERSION = "1.0.0"
-PROJECT_KEY = "5aae50f068d9408c92b0fb5911834029"
+PROJECT_KEY = "01kgGFLlsfAabFuwJosS4surDNWOQCVH"
 
 log.info("version", VERSION) -- 打印版本号,就能知道是否升级成功
 
 local sys = require "sys"
-
-wlan.connect("uiot", "1234567890")
 
 -- 生成OTA的URL
 local iot_url = "http://iot.nutz.cn/api/site/firmware_upgrade"
 local ota_url = string.format("%s?project_key=%s&imei=%s&firmware_name=%s&version=%s", 
                         iot_url,
                         PROJECT_KEY, 
-                        wlan.getMac(),
+                        nbiot.imei(),
                         PROJECT .. "_" .. rtos.firmware(),
                         VERSION
                     )
@@ -38,7 +36,7 @@ sys.taskInit(function()
                     log.info("ota", "resp", code, body)
                 end
             end)
-            sys.wait(120*1000)
+            sys.wait(60*60*1000) -- 一小时检查一次
         else
             sys.wait(3000)
         end

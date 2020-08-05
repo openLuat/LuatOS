@@ -81,10 +81,10 @@ static int panic (lua_State *L) {
   return 0;  /* return to Lua to abort */
 }
 
-#define UPDATE_BIN_PATH "/update.tlv"
+#define UPDATE_BIN_PATH "/update.bin"
 #define ROLLBACK_MARK_PATH "/rollback_mark"
 #define UPDATE_MARK "/update_mark"
-#define FLASHX_PATH "/flashx.tlv"
+#define FLASHX_PATH "/flashx.bin"
 
 int luat_bin_unpack(const char* path);
 

@@ -291,8 +291,8 @@ def _lfs(_path=None):
                     shutil.copyfileobj(f2, f, _size)
     if TAG_PROJECT != "" and TAG_VERSION != "":
         # otademo_1.2.7_LuatOS_V0003_ec616
-        TAG_NAME = "%s_%s_LuatOS_V0003_ec616.tlv" % (TAG_PROJECT, TAG_VERSION)
-        shutil.copy(FTC_PATH + "disk/flashx.tlv", TAG_NAME)
+        TAG_NAME = "%s_%s_LuatOS_V0003_ec616.bin" % (TAG_PROJECT, TAG_VERSION)
+        shutil.copy(FTC_PATH + "disk/flashx.bin", TAG_NAME)
 
     print("CALL mklfs for disk.fs")
     subprocess.check_call([TOOLS_PATH + "mklfs.exe"], cwd=FTC_PATH)

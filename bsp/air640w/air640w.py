@@ -267,8 +267,8 @@ def _lfs(_path=None):
                     shutil.copyfileobj(f2, f, _size)
     if TAG_PROJECT != "" and TAG_VERSION != "":
         # otademo_1.2.7_LuatOS_V0003_w60x
-        TAG_NAME = "%s_%s_LuatOS_V0003_w60x.tlv" % (TAG_PROJECT, TAG_VERSION)
-        shutil.copy("disk/flashx.tlv", TAG_NAME)
+        TAG_NAME = "%s_%s_LuatOS_V0003_w60x.bin" % (TAG_PROJECT, TAG_VERSION)
+        shutil.copy("disk/flashx.bin", TAG_NAME)
 
 def main():
     argc = 1

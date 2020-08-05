@@ -1,6 +1,6 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "air302_mqtt_demo"
+PROJECT = "mqttairm2m"
 VERSION = "1.0.0"
 
 -- sys库是标配

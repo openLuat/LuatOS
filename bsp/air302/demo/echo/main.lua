@@ -1,6 +1,6 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "air302_modbus_demo"
+PROJECT = "echo"
 VERSION = "1.0.0"
 
 local sys = require "sys"

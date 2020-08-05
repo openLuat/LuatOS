@@ -251,8 +251,8 @@ def _lfs(_path=None):
 
     for root, dirs, files in os.walk("disk", topdown=False):
         import struct
-        print("write flashx.tlv", root)
-        with open("disk/flashx.tlv", "wb") as f :
+        print("write flashx.bin", root)
+        with open("disk/flashx.bin", "wb") as f :
             # 写入文件头
             f.write(struct.pack("<HHI", 0x1234, 0x00, 0x00))
             for name in files:
@@ -268,6 +268,7 @@ def _lfs(_path=None):
     if TAG_PROJECT != "" and TAG_VERSION != "":
         # otademo_1.2.7_LuatOS_V0003_w60x
         TAG_NAME = "%s_%s_LuatOS_V0003_w60x.bin" % (TAG_PROJECT, TAG_VERSION)
+        print("update bin --> " + TAG_NAME)
         shutil.copy("disk/flashx.bin", TAG_NAME)
 
 def main():

@@ -120,6 +120,7 @@ static int l_pm_force(lua_State *L) {
 检查休眠状态
 @api pm.check()
 @return boolean 处理结果,如果能顺利进入休眠,返回true,否则返回false
+@return int 底层返回值,0代表能进入最底层休眠,其他值代表最低可休眠级别
 @usage
 -- 请求进入休眠模式,然后检查是否能真的休眠
 pm.request(pm.HIB)
@@ -130,8 +131,10 @@ else
 end
  */
 static int l_pm_check(lua_State *L) {
-    lua_pushinteger(L, luat_pm_check());
-    return 1;
+    int ret = luat_pm_check();
+    lua_pushboolean(L, luat_pm_check() == 0 ? 1 : 0);
+    lua_pushinteger(L, ret);
+    return 2;
 }
 
 static int luat_pm_msg_handler(lua_State *L, void* ptr) {

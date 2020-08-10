@@ -20,7 +20,7 @@ ntp时间同步
 @api    socket.ntpSync(server)
 @string ntp服务器域名,默认值ntp1.aliyun.com
 @return int 启动成功返回0, 失败返回1或者2
---  如果读取失败,会返回nil
+@usage
 socket.ntpSync()
 sys.subscribe("NTP_UPDATE", function(re)
     log.info("ntp", "result", re)
@@ -40,7 +40,7 @@ static int socket_ntp_sync(lua_State *L) {
 @int    服务器端口号
 @string 待发送的数据
 @return nil 无返回值
---  如果读取失败,会返回nil
+@usage
 socket.tsend("www.baidu.com", 80, "GET / HTTP/1.0\r\n\r\n")
 */
 static int sal_tls_test(lua_State *L)
@@ -152,6 +152,7 @@ static int luat_lib_socket_ent_handler(netc_ent_t* ent) {
 新建一个tcp socket
 @api    socket.tcp()
 @return object socket对象,如果创建失败会返回nil
+@usage
 --  如果读取失败,会返回nil
 local so = socket.tcp()
 if so then
@@ -229,6 +230,7 @@ static int luat_lib_socket_new(lua_State* L, int netc_type) {
 @string 服务器域名或ip,如果已经使用so:host和so:port配置,就不需要传参数了
 @port 服务器端口,如果已经使用so:host和so:port配置,就不需要传参数了
 @return int 成功返回1,失败返回0
+@usage
 -- 参考socket.tcp的说明, 并查阅demo
 */
 static int netc_connect(lua_State *L) {
@@ -269,6 +271,7 @@ static int netc_connect(lua_State *L) {
 关闭socket对象
 @api    so:close()
 @return nil 总会成功
+@usage
 -- 参考socket.tcp的说明, 并查阅demo
 */
 static int netc_close(lua_State *L) {
@@ -284,6 +287,7 @@ static int netc_close(lua_State *L) {
 @api    so:send(data)
 @string 待发送数据
 @return boolean 发送成功返回true,否则返回false
+@usage
 -- 参考socket.tcp的说明, 并查阅demo
 */
 static int netc_send(lua_State *L) {
@@ -348,6 +352,7 @@ static int netc_id(lua_State *L) {
 @api    so:host(host)
 @string 服务器域名或ip
 @return nil 无返回值
+@usage
 -- 参考socket.tcp的说明, 并查阅demo
 */
 static int netc_host(lua_State *L) {
@@ -377,6 +382,7 @@ static int netc_host(lua_State *L) {
 @api    so:port(port)
 @int 服务器端口
 @return nil 无返回值
+@usage
 -- 参考socket.tcp的说明, 并查阅demo
 */
 static int netc_port(lua_State *L) {
@@ -393,6 +399,7 @@ static int netc_port(lua_State *L) {
 清理socket关联的资源,socket对象在废弃前必须调用
 @api    so:clean(0)
 @return nil 无返回值
+@usage
 -- 参考socket.tcp的说明, 并查阅demo
 */
 static int netc_clean(lua_State *L) {
@@ -429,6 +436,7 @@ static int netc_clean(lua_State *L) {
 @string 事件名称
 @function 回调方法
 @return nil 无返回值
+@usage
 -- 参考socket.tcp的说明, 并查阅demo
 */
 static int netc_on(lua_State *L) {
@@ -468,6 +476,7 @@ socket是否已经断开?
 @api    so:closed()
 @return int 未断开0,已断开1
 @return bool 未断开返回false,已断开返回true, V0003新增
+@usage
 -- 参考socket.tcp的说明, 并查阅demo
 */
 static int netc_closed(lua_State *L) {
@@ -482,6 +491,23 @@ static int netc_closed(lua_State *L) {
 @api    so:rebind(socket_id)
 @int  socket的id.
 @return bool 成功返回true, 否则返回false. V0003新增
+@usage
+-- 参考socket.tcp的说明, 并查阅demo
+*/
+static int netc_rebind(lua_State *L) {
+    netclient_t *netc = tonetc(L);
+    netc->closed = 0;
+    netc->sock_fd = luaL_checkinteger(L, 1);
+    int ret = netclient_rebind(netc);
+    lua_pushboolean(L, ret == 0 ? 1 : 0);
+    return 1;
+}
+
+/*
+获取底层socket id
+@api    so:sockid()
+@return int 底层socket id
+@usage
 -- 参考socket.tcp的说明, 并查阅demo
 */
 static int netc_rebind(lua_State *L) {
@@ -505,6 +531,7 @@ static const luaL_Reg lib_netc[] = {
     {"clean",       netc_clean},
     {"on",          netc_on},
     {"rebind",      netc_rebind},
+    {"sockid",      netc_sockid},
     {"__gc",        netc_gc},
     {"__tostring",  netc_tostring},
     {NULL, NULL}

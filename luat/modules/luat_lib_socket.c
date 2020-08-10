@@ -510,7 +510,7 @@ static int netc_rebind(lua_State *L) {
 @usage
 -- 参考socket.tcp的说明, 并查阅demo
 */
-static int netc_rebind(lua_State *L) {
+static int netc_sockid(lua_State *L) {
     netclient_t *netc = tonetc(L);
     netc->closed = 0;
     netc->sock_fd = luaL_checkinteger(L, 1);

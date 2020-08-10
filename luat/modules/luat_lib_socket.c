@@ -463,9 +463,33 @@ static int netc_on(lua_State *L) {
     return 0;
 }
 
+/*
+socket是否已经断开?
+@api    so:closed()
+@return int 未断开0,已断开1
+@return bool 未断开返回false,已断开返回true, V0003新增
+-- 参考socket.tcp的说明, 并查阅demo
+*/
 static int netc_closed(lua_State *L) {
     netclient_t *netc = tonetc(L);
     lua_pushinteger(L, netc->closed);
+    lua_pushboolean(L, netc->closed == 0 ? 1 : 0);
+    return 2;
+}
+
+/*
+为netclient绑定socket id, 该操作仅在NBIOT模块下有意义.
+@api    so:rebind(socket_id)
+@int  socket的id.
+@return bool 成功返回true, 否则返回false. V0003新增
+-- 参考socket.tcp的说明, 并查阅demo
+*/
+static int netc_rebind(lua_State *L) {
+    netclient_t *netc = tonetc(L);
+    netc->closed = 0;
+    netc->sock_fd = luaL_checkinteger(L, 1);
+    int ret = netclient_rebind(netc);
+    lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
 
@@ -480,6 +504,7 @@ static const luaL_Reg lib_netc[] = {
     {"send",        netc_send},
     {"clean",       netc_clean},
     {"on",          netc_on},
+    {"rebind",      netc_rebind},
     {"__gc",        netc_gc},
     {"__tostring",  netc_tostring},
     {NULL, NULL}

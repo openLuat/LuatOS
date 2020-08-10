@@ -497,7 +497,7 @@ static int netc_closed(lua_State *L) {
 static int netc_rebind(lua_State *L) {
     netclient_t *netc = tonetc(L);
     netc->closed = 0;
-    netc->sock_fd = luaL_checkinteger(L, 1);
+    netc->sock_fd = luaL_checkinteger(L, 2);
     int ret = netclient_rebind(netc);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
@@ -512,10 +512,7 @@ static int netc_rebind(lua_State *L) {
 */
 static int netc_sockid(lua_State *L) {
     netclient_t *netc = tonetc(L);
-    netc->closed = 0;
-    netc->sock_fd = luaL_checkinteger(L, 1);
-    int ret = netclient_rebind(netc);
-    lua_pushboolean(L, ret == 0 ? 1 : 0);
+    lua_pushinteger(L, netc->sock_fd);
     return 1;
 }
 

@@ -125,7 +125,7 @@ def _pkg():
     # 写入默认配置文件
     with open("tmp/local.ini", "w") as f:
         f.write('''
-[air640]
+[air640w]
 USER_PATH = user\\
 LIB_PATH = lib\\
 DEMO_PATH = demo\\

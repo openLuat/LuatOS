@@ -64,6 +64,6 @@ LUAT_WEAK void luat_log_log(int level, const char* tag, const char* _fmt, ...) {
             len = LOGLOG_SIZE - 2;
         buff[len] = '\r';
         buff[len+1] = '\n';
-        luat_nprint(buff, len+1);
+        luat_nprint(buff, len+2);
     }
 }

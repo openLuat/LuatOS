@@ -54,6 +54,7 @@
 #include <limits.h>
 #include <dirent.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 
 static struct lfs_config cfg;
 static lfs_t lfs;
@@ -141,6 +142,7 @@ static void compact(char *src) {
     DIR *dir;
     struct dirent *ent;
     char curr_path[PATH_MAX];
+	struct stat _stat;
 
     dir = opendir(src);
     if (dir) {
@@ -152,10 +154,11 @@ static void compact(char *src) {
                 strcat(curr_path, "/");
                 strcat(curr_path, ent->d_name);
 
-                if (ent->d_type == DT_DIR) {
+                stat(curr_path, &_stat);
+                if (S_ISDIR(_stat.st_mode)) {
                     create_dir(curr_path);
                     compact(curr_path);
-                } else if (ent->d_type == DT_REG) {
+                } else if (S_ISREG(_stat.st_mode)) {
                     create_file(curr_path);
                 }
             }

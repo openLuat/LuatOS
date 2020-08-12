@@ -141,7 +141,7 @@ static int l_uart_read(lua_State *L)
         return 1;
     }
     int result = luat_uart_read(id, recv, length);
-    lua_gc(L, LUA_GCCOLLECT, 0);
+    //lua_gc(L, LUA_GCCOLLECT, 0);
     if (result > 0) {
         lua_pushlstring(L, (const char*)recv, result);
     }

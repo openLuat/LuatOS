@@ -115,6 +115,8 @@ static int l_crypto_hmac_sha1(lua_State *L) {
     return 0;
 }
 
+int l_crypto_cipher_xxx(lua_State *L, uint8_t flags);
+
 /**
 对称加密
 @api crypto.cipher(type, padding, str, key, iv)
@@ -129,9 +131,27 @@ static int l_crypto_hmac_sha1(lua_State *L) {
 local data = crypto.cipher_encrypt("AES-128-ECB", "PKCS7", "1234567890123456", "1234567890123456")
 local data2 = crypto.cipher_encrypt("AES-128-CBC", "PKCS7", "1234567890123456", "1234567890123456", "1234567890666666")
  */
-LUAT_WEAK int l_crypto_cipher(lua_State *L) {
-    lua_pushliteral(L, "");
-    return 1;
+int l_crypto_cipher_encrypt(lua_State *L) {
+    return l_crypto_cipher_xxx(L, 1);
+}
+/**
+对称解密
+@api crypto.cipher(type, padding, str, key, iv)
+@string 算法名称, 例如 AES-128-ECB/AES-128-CBC, 可查阅mbedtls的cipher_wrap.c
+@string 对齐方式, 当前仅支持PKCS7
+@string 需要解密的数据
+@string 密钥,需要对应算法的密钥长度
+@string IV值, 非ECB算法需要
+@return string 解密后的字符串
+@usage
+-- 用AES加密,然后用AES解密
+local data = crypto.cipher_encrypt("AES-128-ECB", "PKCS7", "1234567890123456", "1234567890123456")
+local data2 = crypto.cipher_encrypt("AES-128-ECB", "PKCS7", data, "1234567890123456")
+-- data的hex为 757CCD0CDC5C90EADBEEECF638DD0000
+-- data2的值为 1234567890123456
+ */
+int l_crypto_cipher_decrypt(lua_State *L) {
+    return l_crypto_cipher_xxx(L, 0);
 }
 
 #include "crc.h"
@@ -227,7 +247,9 @@ static const rotable_Reg reg_crypto[] =
     { "hmac_md5" ,      l_crypto_hmac_md5       ,0},
     { "sha1" ,          l_crypto_sha1           ,0},
     { "hmac_sha1" ,     l_crypto_hmac_sha1      ,0},
-    { "cipher" ,        l_crypto_cipher         ,0},
+    { "cipher" ,        l_crypto_cipher_encrypt ,0},
+    { "cipher_encrypt" ,l_crypto_cipher_encrypt ,0},
+    { "cipher_decrypt" ,l_crypto_cipher_decrypt ,0},
     { "crc16",          l_crypto_crc16          ,0},
     { "crc16_modbus",   l_crypto_crc16_modbus   ,0},
     { "crc32",          l_crypto_crc32          ,0},

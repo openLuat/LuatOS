@@ -4,6 +4,9 @@
 
 #include "rtthread.h"
 
+#define LUAT_LOG_TAG "luat.crypto"
+#include "luat_log.h"
+
 #ifdef RT_USING_HWCRYPTO
 #include "hwcrypto.h"
 
@@ -126,3 +129,9 @@ int luat_crypto_hmac_sha1_simple(const char* input, size_t ilen, const char* key
 #endif
 
 #endif
+
+int l_crypto_cipher_xxx(lua_State *L, uint8_t flags) {
+    LLOGE("not support yet");
+    lua_pushliteral(L, "");
+    return 1;
+}

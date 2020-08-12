@@ -76,6 +76,6 @@ int32_t netclient_start(netclient_t * thiz);
 int32_t netclient_rebind(netclient_t * thiz);
 void netclient_close(netclient_t *thiz);
 //int32_t netclient_attach_rx_cb(netclient_t *thiz, tpc_cb_t cb);
-int32_t netclient_send(netclient_t *thiz, const void *buff, size_t len);
+int32_t netclient_send(netclient_t *thiz, const void *buff, size_t len, int flags);
 
 #endif

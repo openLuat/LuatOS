@@ -439,7 +439,7 @@ void netclient_close(netclient_t *thiz)
     LLOGI("netc[%ld] deinit end", thiz->id);
 }
 
-int32_t netclient_send(netclient_t *thiz, const void *buff, size_t len)
+int32_t netclient_send(netclient_t *thiz, const void *buff, size_t len, int flags)
 {
     size_t bytes = 0;
 

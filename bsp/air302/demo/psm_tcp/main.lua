@@ -22,7 +22,7 @@ sys.taskInit(function()
         log.info("netc", "connect", id, re)
         local data = json.encode({imei=nbiot.imei(),rssi=nbiot.rssi(),iccid=nbiot.iccid()})
         log.info("netc", "send reg package", data)
-        netc:send(data)
+        netc:send(data, 2)
         sys.publish("NETC_OK")
     end)
     netc:on("recv", function(id, data)
@@ -44,7 +44,7 @@ sys.taskInit(function()
         -- 头两个字符是我们自定义的0x5A 0xA5,不是的话,就肯定是脏数据了
         if t1 == 0x5A and t2 == 0xA5 then
             netc:rebind(sockid) -- 重建tcp上下文
-            netc:send(string.char(0)) -- 发送心跳
+            netc:send(string.char(0), 2) -- 发送心跳
             flag = true
         else
             -- 脏数据就不管了

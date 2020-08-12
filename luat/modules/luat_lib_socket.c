@@ -284,8 +284,9 @@ static int netc_close(lua_State *L) {
 
 /*
 通过socket对象发送数据
-@api    so:send(data)
+@api    so:send(data,flags)
 @string 待发送数据
+@int    可选的额外参数,底层相关.例如NBIOT下的rai值, 传入2,代表数据已经全部发送完成,可更快进入休眠.
 @return boolean 发送成功返回true,否则返回false
 @usage
 -- 参考socket.tcp的说明, 并查阅demo
@@ -296,8 +297,9 @@ static int netc_send(lua_State *L) {
     netclient_t *netc;
     netc = tonetc(L);
     const char* data = luaL_checklstring(L, 2, &len);
+    int flags = luaL_optinteger(L, 3, 0);
     if (len > 0) {
-        int32_t re = netclient_send(netc, (void*)data, len);
+        int32_t re = netclient_send(netc, (void*)data, len, flags);
         lua_pushboolean(L, re == len ? 1 : 0);
     }
     else {

@@ -7,6 +7,3 @@
 [submodule "stm32f103re"]
 	path = bsp/stm32f103re
 	url = https://github.com/openLuat/LuatOS-stm32f103re.git
-[submodule "bsp/air100"]
-	path = bsp/air100
-	url = https://gitee.com/openLuat/Luat_CSDK_Air202.git

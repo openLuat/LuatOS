@@ -675,3 +675,119 @@ nbiot.getBootCFUN()
 ```
 
 
+--------------------------------------------------
+# nbiot.setPSM
+
+```lua
+nbiot.setPSM(psmMode, tauTimeS, activeTimeS)
+```
+
+设置PSM参数
+
+## 参数表
+
+Name | Type | Description
+-----|------|--------------
+`psmMode`|`int`| psm模式, CMI_MM_DISABLE_PSM(0)/CMI_MM_ENABLE_PSM(1)/CMI_MM_DISCARD_PSM(2)
+`tauTimeS`|`int`| TAU time(unit: S)---related to T3412
+`activeTimeS`|`int`| active time(unit: S)---related to T3324
+
+## 返回值
+
+> `boolean`: 设置成功返回true,否则返回false
+
+## 调用示例
+
+```lua
+-- 设置PSM
+nbiot.setPSM(1, 60, 120)
+```
+
+
+--------------------------------------------------
+# nbiot.setEDRX
+
+```lua
+nbiot.setEDRX(modeVal, actType, reqEdrxValueMs)
+```
+
+设置EDRX参数
+
+## 参数表
+
+Name | Type | Description
+-----|------|--------------
+`modeVal`|`int`| 模式,CMI_MM_DISABLE_EDRX = 0/CMI_MM_ENABLE_EDRX_AND_DISABLE_IND = 1/CMI_MM_ENABLE_EDRX_AND_ENABLE_IND = 2/CMI_MM_DISCARD_EDRX = 3
+`actType`|`int`| 可选值, 0或者5. CMI_MM_EDRX_NO_ACT_OR_NOT_USE_EDRX = 0/CMI_MM_EDRX_NB_IOT = 5
+`reqEdrxValueMs`|`int`| edrx值,单位毫秒
+
+## 返回值
+
+> `boolean`: 设置成功返回true,否则返回false
+
+## 调用示例
+
+```lua
+-- 设置EDRX
+nbiot.setPSM(1, 5, 30000)
+```
+
+
+--------------------------------------------------
+# nbiot.getPSM
+
+```lua
+nbiot.getPSM()
+```
+
+获取PSM参数
+
+## 参数表
+
+> 无参数
+
+## 返回值
+
+No. | Type | Description
+----|------|--------------
+1 |`int`| psm模式, CMI_MM_DISABLE_PSM(0)/CMI_MM_ENABLE_PSM(1)/CMI_MM_DISCARD_PSM(2)
+2 |`int`| TAU time(unit: S)---related to T3412
+3 |`int`| active time(unit: S)---related to T3324
+
+## 调用示例
+
+```lua
+-- 获取PSM
+log.info("psm", nbiot.getPSM())
+```
+
+
+--------------------------------------------------
+# nbiot.getEDRX
+
+```lua
+nbiot.getEDRX()
+```
+
+获取EDRX参数
+
+## 参数表
+
+> 无参数
+
+## 返回值
+
+No. | Type | Description
+----|------|--------------
+1 |`int`| 模式,CMI_MM_DISABLE_EDRX = 0/CMI_MM_ENABLE_EDRX_AND_DISABLE_IND = 1/CMI_MM_ENABLE_EDRX_AND_ENABLE_IND = 2/CMI_MM_DISCARD_EDRX = 3
+2 |`int`| 可选值, 0或者5. CMI_MM_EDRX_NO_ACT_OR_NOT_USE_EDRX = 0/CMI_MM_EDRX_NB_IOT = 5
+3 |`int`| edrx值,单位毫秒
+
+## 调用示例
+
+```lua
+-- 获取EDRX
+log.info("edrx", nbiot.getEDRX())
+```
+
+

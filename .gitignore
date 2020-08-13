@@ -75,3 +75,4 @@ __pycache__
 
 *.tlv
 *.fs
+bsp/air302/air302_sdk/**

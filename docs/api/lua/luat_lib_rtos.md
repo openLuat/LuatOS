@@ -248,3 +248,28 @@ log.info("mem.sys", rtos.meminfo("sys"))
 ```
 
 
+--------------------------------------------------
+# rtos.firmware
+
+```lua
+rtos.firmware()
+```
+
+返回底层描述信息,格式为 LuatOS_$VERSION_$BSP,可用于OTA升级判断底层信息
+
+## 参数表
+
+> 无参数
+
+## 返回值
+
+> `string`: 底层描述信息
+
+## 调用示例
+
+```lua
+-- 打印底层描述信息
+log.info("firmware", rtos.firmware())
+```
+
+

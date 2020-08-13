@@ -148,6 +148,52 @@ local data2 = crypto.cipher_encrypt("AES-128-CBC", "PKCS7", "1234567890123456", 
 
 
 --------------------------------------------------
+# crypto.cipher
+
+```lua
+crypto.cipher(type, padding, str, key, iv)
+```
+
+对称解密
+
+## 参数表
+
+Name | Type | Description
+-----|------|--------------
+`type`|`string`| 算法名称, 例如 AES-128-ECB/AES-128-CBC, 可查阅mbedtls的cipher_wrap.c
+`padding`|`string`| 对齐方式, 当前仅支持PKCS7
+`str`|`string`| 需要解密的数据
+`key`|`string`| 密钥,需要对应算法的密钥长度
+`iv`|`string`| IV值, 非ECB算法需要
+
+## 返回值
+
+> `string`: 解密后的字符串
+
+## 调用示例
+
+```lua
+-- 用AES加密,然后用AES解密
+-- data的hex为 757CCD0CDC5C90EADBEEECF638DD0000
+-- data2的值为 1234567890123456
+local data = crypto.cipher_encrypt("AES-128-ECB", "PKCS7", "1234567890123456", "1234567890123456")
+local data2 = crypto.cipher_encrypt("AES-128-ECB", "PKCS7", data, "1234567890123456")
+-------------------------
+-- 用AES加密,然后用AES解密
+-- data的hex为 757CCD0CDC5C90EADBEEECF638DD0000
+-- data2的值为 1234567890123456
+local data = crypto.cipher_encrypt("AES-128-ECB", "PKCS7", "1234567890123456", "1234567890123456")
+local data2 = crypto.cipher_encrypt("AES-128-ECB", "PKCS7", data, "1234567890123456")
+-------------------------
+-- 用AES加密,然后用AES解密
+-- data的hex为 757CCD0CDC5C90EADBEEECF638DD0000
+-- data2的值为 1234567890123456
+local data = crypto.cipher_encrypt("AES-128-ECB", "PKCS7", "1234567890123456", "1234567890123456")
+local data2 = crypto.cipher_encrypt("AES-128-ECB", "PKCS7", data, "1234567890123456")
+```
+
+
+--------------------------------------------------
 # crypto.crc16
 
 ```lua

@@ -21,7 +21,7 @@ int luat_fs_info(const char* path, luat_fs_info_t *conf) {
         return 0;
     }
     else {
-        LLOGW("LFS_Statfs return != 0");
+        LLOGW("dfs_statfs return != 0");
     }
     return -1;
 }

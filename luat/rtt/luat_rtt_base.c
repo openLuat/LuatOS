@@ -11,28 +11,9 @@
 #define DBG_LVL           DBG_INFO
 #include <rtdbg.h>
 
-// int l_sprintf(char *buf, int32_t size, const char *fmt, ...) {
-//     rt_int32_t n;
-//     va_list args;
-
-//     va_start(args, fmt);
-//     n = custom_vsprintf(buf, /*size,*/ fmt, args);
-//     va_end(args);
-
-//     return n;
-// }
-
 RT_WEAK void luat_timer_us_delay(size_t us) {
     rt_hw_us_delay(us);
 }
-
-// 打印内存状态
-// void print_list_mem(const char* name) {
-//     #if (DBG_LVL <= DBG_DEBUG)
-//     LOG_I("check memory status, key=%s", name);
-//     list_mem();
-//     #endif
-// }
 
 // fix for mled加密库
 // rtt的方法名称变了. rt_hwcrypto_dev_dufault --> rt_hwcrypto_dev_default
@@ -95,6 +76,7 @@ static const luaL_Reg loadedlibs[] = {
 #ifdef PKG_USING_WEBCLIENT
   {"http", luaopen_http},              // http库
 #endif
+  {"fs",   luaopen_fs},                // 文件系统库
   {NULL, NULL}
 };
 

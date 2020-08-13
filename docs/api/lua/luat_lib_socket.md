@@ -27,7 +27,7 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--- 如果读取失败,会返回nil
+-- 
 socket.ntpSync()
 sys.subscribe("NTP_UPDATE", function(re)
     log.info("ntp", "result", re)
@@ -59,7 +59,7 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--- 如果读取失败,会返回nil
+-- 
 socket.tsend("www.baidu.com", 80, "GET / HTTP/1.0\r\n\r\n")
 ```
 
@@ -217,7 +217,7 @@ so:close()
 # so:send
 
 ```lua
-so:send(data)
+so:send(data, flags)
 ```
 
 通过socket对象发送数据
@@ -227,6 +227,7 @@ so:send(data)
 Name | Type | Description
 -----|------|--------------
 `data`|`string`| 待发送数据
+`flags`|`int`| 可选的额外参数,底层相关.例如NBIOT下的rai值, 传入2,代表数据已经全部发送完成,可更快进入休眠.
 
 ## 返回值
 
@@ -365,6 +366,86 @@ Name | Type | Description
 ## 返回值
 
 > *无返回值*
+
+## 调用示例
+
+```lua
+-- 参考socket.tcp的说明, 并查阅demo
+
+```
+
+
+--------------------------------------------------
+# so:closed
+
+```lua
+so:closed()
+```
+
+socket是否已经断开?
+
+## 参数表
+
+> 无参数
+
+## 返回值
+
+No. | Type | Description
+----|------|--------------
+1 |`int`| 未断开0,已断开1
+2 |`bool`| 未断开返回false,已断开返回true, V0003新增
+
+## 调用示例
+
+```lua
+-- 参考socket.tcp的说明, 并查阅demo
+
+```
+
+
+--------------------------------------------------
+# so:rebind
+
+```lua
+so:rebind(socket_id)
+```
+
+为netclient绑定socket id, 该操作仅在NBIOT模块下有意义.
+
+## 参数表
+
+Name | Type | Description
+-----|------|--------------
+`socket_id`|`int`| socket的id.
+
+## 返回值
+
+> `bool`: 成功返回true, 否则返回false. V0003新增
+
+## 调用示例
+
+```lua
+-- 参考socket.tcp的说明, 并查阅demo
+
+```
+
+
+--------------------------------------------------
+# so:sockid
+
+```lua
+so:sockid()
+```
+
+获取底层socket id
+
+## 参数表
+
+> 无参数
+
+## 返回值
+
+> `int`: 底层socket id
 
 ## 调用示例
 

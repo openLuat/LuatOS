@@ -82,8 +82,8 @@ Name | Type | Description
 ## 调用示例
 
 ```lua
--- 添加底层定时器
-pm.dtimerStart(0) -- 关闭id=0的底层定时器
+-- 关闭底层定时器
+pm.dtimerStop(0) -- 关闭id=0的底层定时器
 ```
 
 
@@ -154,7 +154,10 @@ pm.check()
 
 ## 返回值
 
-> `boolean`: 处理结果,如果能顺利进入休眠,返回true,否则返回false
+No. | Type | Description
+----|------|--------------
+1 |`boolean`| 处理结果,如果能顺利进入休眠,返回true,否则返回false
+2 |`int`| 底层返回值,0代表能进入最底层休眠,其他值代表最低可休眠级别
 
 ## 调用示例
 

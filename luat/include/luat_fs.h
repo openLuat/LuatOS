@@ -18,10 +18,21 @@ typedef struct luat_fs_conf {
     char mount_point[32];
 } luat_fs_conf_t;
 
+typedef struct luat_fs_info
+{
+    char filesystem[8]; // 文件系统类型
+    unsigned char type;   // 连接方式, 片上,spi flash, tf卡等
+    size_t total_block;
+    size_t block_used;
+    size_t block_size;
+}luat_fs_info_t;
+
+
 int luat_fs_init(void);
 
 int luat_fs_mount(luat_fs_conf_t *conf);
 int luat_fs_umount(luat_fs_conf_t *conf);
+int luat_fs_info(const char* path, luat_fs_info_t *conf);
 
 FILE* luat_fs_fopen(const char *filename, const char *mode);
 char luat_fs_getc(FILE* stream);
@@ -39,5 +50,6 @@ int luat_fs_fexist(const char *filename);
 
 // TODO 文件夹相关的API
 //int luat_fs_diropen(char const* _FileName);
+
 
 #endif

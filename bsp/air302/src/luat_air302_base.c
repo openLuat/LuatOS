@@ -45,7 +45,8 @@ static const luaL_Reg loadedlibs[] = {
   {"libcoap",luaopen_libcoap},         // 处理COAP消息
   {"libgnss",luaopen_libgnss},         // 处理GNSS定位数据
   {"sensor", luaopen_sensor},          // 传感器库,当前支持DS18B20
-  {"http", luaopen_http},              // http库
+  {"http",  luaopen_http},              // http库
+  {"fs",    luaopen_fs},                // 文件系统库
   {NULL, NULL}
 };
 

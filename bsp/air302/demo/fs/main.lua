@@ -26,6 +26,10 @@ function fs_test()
     f:write(tostring(c))
     f:close()
     --end
+
+    if fs then
+        log.info("fsstat", fs.fsstat("/"))
+    end
 end
 
 fs_test() -- 每次开机,把记录的数值+1

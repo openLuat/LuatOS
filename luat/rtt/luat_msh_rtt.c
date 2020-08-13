@@ -5,6 +5,9 @@
 #include "luat_timer.h"
 #include "luat_gpio.h"
 
+#define LUAT_LOG_TAG "luat.msh"
+#include "luat_log.h"
+
 #include "rtthread.h"
 #include <rtdevice.h>
 
@@ -17,8 +20,8 @@ static void loadstr(int argc, char**argv) {
         return;
     int re = luaL_dostring(L, argv[1]);
     if (re) {
-        luat_print("luaL_dostring  return re != 0\n");
-        luat_print(lua_tostring(L, -1));
+        LLOGE("luaL_dostring  return re != 0\n");
+        LLOGE(lua_tostring(L, -1));
     }
 };
 

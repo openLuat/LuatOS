@@ -34,16 +34,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-//#include "elog.h"
 #include "netclient.h"
 #include "luat_malloc.h"
 
-#include "rtthread.h"
-#define DBG_TAG           "luat.netc"
-#define DBG_LVL           DBG_INFO
-#include <rtdbg.h>
-
-
+#define LUAT_LOG_TAG "luat.netc"
+#include "luat_log.h"
 
 #define BUFF_SIZE (1024)
 #define MAX_VAL(A, B) ((A) > (B) ? (A) : (B))
@@ -70,13 +65,13 @@ uint32_t netc_next_no(void) {
 
 static void EVENT(int netc_id, tpc_cb_t cb, int lua_ref, int tp, size_t len, void* buff) {
     netc_ent_t* ent;
-    LOG_I("netc[%ld] event type=%d", netc_id, tp);
+    LLOGI("netc[%ld] event type=%d", netc_id, tp);
     if (cb == RT_NULL) return;
     if (tp != NETC_EVENT_RECV || len < 0) len = 0;
     //len = 0;
     ent = luat_heap_malloc(sizeof(netc_ent_t));
     if (ent == NULL) {
-        LOG_E("netc[%ld] EVENT call rt_malloc return NULL!", netc_id);
+        LLOGE("netc[%ld] EVENT call rt_malloc return NULL!", netc_id);
         return;
     }
     ent->netc_id = netc_id;
@@ -86,7 +81,7 @@ static void EVENT(int netc_id, tpc_cb_t cb, int lua_ref, int tp, size_t len, voi
     if (len > 0) {
         ent->buff = luat_heap_malloc(len);
         if (ent->buff == RT_NULL) {
-            LOG_E("netc[%ld] EVENT call rt_malloc buff return NULL!", netc_id);
+            LLOGE("netc[%ld] EVENT call rt_malloc buff return NULL!", netc_id);
             luat_heap_free(ent);
             return;
         }
@@ -104,18 +99,18 @@ static rt_int32_t netclient_destory(netclient_t *thiz)
 
     if (thiz == RT_NULL)
     {
-        LOG_E("netclient del : param is NULL, delete failed");
+        LLOGE("netclient del : param is NULL, delete failed");
         return -1;
     }
 
-    LOG_I("netc[%ld] destory begin", thiz->id);
+    LLOGI("netc[%ld] destory begin", thiz->id);
 
     if (thiz->sock_fd != -1)
         socket_deinit(thiz);
 
     pipe_deinit(thiz);
 
-    LOG_I("netc[%ld] destory end", thiz->id);
+    LLOGI("netc[%ld] destory end", thiz->id);
     thiz->closed = 1;
     return 0;
 }
@@ -138,24 +133,24 @@ static rt_int32_t socket_init(netclient_t *thiz, const char *url, int port)
     
     if (thiz->sock_fd == -1)
     {
-        LOG_E("netc[%ld] socket init : socket create failed", thiz->id);
+        LLOGE("netc[%ld] socket init : socket create failed", thiz->id);
         return -1;
     }
 
     hostname = gethostbyname(url);
     if (hostname == NULL) {
-        LOG_W("netc[%ld] dns name relove fail, retry at 2000ms", thiz->id);
+        LLOGW("netc[%ld] dns name relove fail, retry at 2000ms", thiz->id);
         rt_thread_mdelay(2000);
         hostname = gethostbyname(url);
         if (hostname == NULL) {
-            LOG_W("netc[%ld] dns name relove fail again, quit", thiz->id);
+            LLOGW("netc[%ld] dns name relove fail again, quit", thiz->id);
             return -1;
         }
     }
     thiz->ipv4 = (*((struct in_addr *)hostname->h_addr)).s_addr;
 
     // TODO: print ip for hostname
-    //LOG_I("socket host=%s port=%d", hostname, port);
+    //LLOGI("socket host=%s port=%d", hostname, port);
 
     dst_addr.sin_family = AF_INET;
     dst_addr.sin_port = htons(port);
@@ -165,11 +160,11 @@ static rt_int32_t socket_init(netclient_t *thiz, const char *url, int port)
     res = connect(thiz->sock_fd, (struct sockaddr *)&dst_addr, sizeof(struct sockaddr));
     if (res == -1)
     {
-        LOG_E("netc[%ld] connect failed", thiz->id);
+        LLOGE("netc[%ld] connect failed", thiz->id);
         return -1;
     }
 
-    LOG_I("netc[%ld] connect succeed", thiz->id);
+    LLOGI("netc[%ld] connect succeed", thiz->id);
 
     //send(thiz->sock_fd, str, strlen(str), 0);
 
@@ -182,7 +177,7 @@ static rt_int32_t socket_deinit(netclient_t *thiz)
 
     if (thiz == RT_NULL)
     {
-        LOG_E("socket deinit : param is NULL, socket deinit failed");
+        LLOGE("socket deinit : param is NULL, socket deinit failed");
         return -1;
     }
     if (thiz->sock_fd < 0)
@@ -193,7 +188,7 @@ static rt_int32_t socket_deinit(netclient_t *thiz)
 
     thiz->sock_fd = -1;
 
-    LOG_I("netc[%ld] socket close succeed", thiz->id);
+    LLOGI("netc[%ld] socket close succeed", thiz->id);
 
     return 0;
 }
@@ -205,7 +200,7 @@ static rt_int32_t pipe_init(netclient_t *thiz)
 
     if (thiz == RT_NULL)
     {
-        LOG_E("pipe init : param is NULL");
+        LLOGE("pipe init : param is NULL");
         return -1;
     }
 
@@ -215,7 +210,7 @@ static rt_int32_t pipe_init(netclient_t *thiz)
     if (pipe == RT_NULL)
     {
         thiz->pipe_name[0] = 0x00;
-        LOG_E("netc[%ld] pipe create failed", thiz->id);
+        LLOGE("netc[%ld] pipe create failed", thiz->id);
         return -1;
     }
 
@@ -228,7 +223,7 @@ static rt_int32_t pipe_init(netclient_t *thiz)
     if (thiz->pipe_write_fd < 0)
         goto fail_write;
 
-    LOG_I("netc[%ld] pipe init succeed", thiz->id);
+    LLOGI("netc[%ld] pipe init succeed", thiz->id);
     return 0;
 
 fail_write:
@@ -245,7 +240,7 @@ static rt_int32_t pipe_deinit(netclient_t *thiz)
 
     if (thiz == RT_NULL)
     {
-        LOG_E("pipe deinit : param is NULL, pipe deinit failed");
+        LLOGE("pipe deinit : param is NULL, pipe deinit failed");
         return -1;
     }
 
@@ -265,7 +260,7 @@ static rt_int32_t pipe_deinit(netclient_t *thiz)
         res ++;
     }
     if (res)
-        LOG_I("netc[%ld] pipe close succeed", thiz->id);
+        LLOGI("netc[%ld] pipe close succeed", thiz->id);
     return 0;
 }
 
@@ -277,13 +272,13 @@ static rt_int32_t netclient_thread_init(netclient_t *thiz)
     th = rt_thread_create(tname, netclient_thread_entry, thiz, 2048, 20, 10);
     if (th == RT_NULL)
     {
-        LOG_E("netc[%ld] thread create fail", thiz->id);
+        LLOGE("netc[%ld] thread create fail", thiz->id);
         return -1;
     }
 
     if (rt_thread_startup(th) != RT_EOK) {
         rt_thread_detach(th);
-        LOG_E("netc[%ld] thread start fail", thiz->id);
+        LLOGE("netc[%ld] thread start fail", thiz->id);
         return -1;
     }
 
@@ -308,7 +303,7 @@ static void select_handle(netclient_t *thiz, char *sock_buff)
 
         /* exception handling: exit */
         if (res <= 0) {
-            LOG_I("netc[%ld] select result=%d, goto cleanup", thiz->id, res);
+            LLOGI("netc[%ld] select result=%d, goto cleanup", thiz->id, res);
             goto exit;
         }
 
@@ -325,13 +320,13 @@ static void select_handle(netclient_t *thiz, char *sock_buff)
             
 
             if (res > 0) {
-                LOG_I("netc[%ld] data recv len=%d", thiz->id, res);
+                LLOGI("netc[%ld] data recv len=%d", thiz->id, res);
                 if (thiz->rx) {
                     EVENT(thiz->id, thiz->rx, thiz->cb_recv, NETC_EVENT_RECV, res, sock_buff);
                 }
             }
             else {
-                LOG_I("netc[%ld] recv return error=%d", thiz->id, res);
+                LLOGI("netc[%ld] recv return error=%d", thiz->id, res);
                 if (thiz->rx) {
                     EVENT(thiz->id, thiz->rx, thiz->cb_error, NETC_EVENT_ERROR, res, sock_buff);
                 }
@@ -368,7 +363,7 @@ static void select_handle(netclient_t *thiz, char *sock_buff)
         }
     }
 exit:
-    LOG_I("netc[%ld] select loop exit, cleanup", thiz->id);
+    LLOGI("netc[%ld] select loop exit, cleanup", thiz->id);
     return;
 }
 
@@ -378,14 +373,14 @@ static void netclient_thread_entry(void *param)
     char *sock_buff = RT_NULL;
 
     if (socket_init(thiz, thiz->hostname, thiz->port) != 0) {
-        LOG_W("netc[%ld] connect fail", thiz->id);
+        LLOGW("netc[%ld] connect fail", thiz->id);
         if (thiz->rx) {
             EVENT(thiz->id, thiz->rx, thiz->cb_connect, NETC_EVENT_CONNECT_FAIL, 0, RT_NULL);
         }
         goto netc_exit;
     }
     else {
-        LOG_I("netc[%ld] connect ok", thiz->id);
+        LLOGI("netc[%ld] connect ok", thiz->id);
         if (thiz->rx) {
             EVENT(thiz->id, thiz->rx, thiz->cb_connect, NETC_EVENT_CONNECT_OK, 0, RT_NULL);
         }
@@ -394,7 +389,7 @@ static void netclient_thread_entry(void *param)
     sock_buff = rt_malloc(BUFF_SIZE);
     if (sock_buff == RT_NULL)
     {
-        LOG_E("netc[%ld] fail to malloc sock_buff!!!", thiz->id);
+        LLOGE("netc[%ld] fail to malloc sock_buff!!!", thiz->id);
         goto netc_exit;
     }
 
@@ -413,7 +408,7 @@ static void netclient_thread_entry(void *param)
 netc_exit:
     thiz->closed = 1;
     EVENT(thiz->id, thiz->rx, 0, NETC_EVENT_END, 0, RT_NULL);
-    LOG_W("netc[%ld] thread end", thiz->id);
+    LLOGW("netc[%ld] thread end", thiz->id);
 }
 
 int32_t netclient_start(netclient_t * thiz) {
@@ -424,7 +419,7 @@ int32_t netclient_start(netclient_t * thiz) {
     if (netclient_thread_init(thiz) != 0)
         goto quit;
 
-    LOG_I("netc[%ld] start succeed", thiz->id);
+    LLOGI("netc[%ld] start succeed", thiz->id);
     return 0;
 
 quit:
@@ -434,40 +429,45 @@ quit:
 
 void netclient_close(netclient_t *thiz)
 {
-    LOG_I("netc[%ld] deinit start", thiz->id);
+    LLOGI("netc[%ld] deinit start", thiz->id);
     int fd = thiz->sock_fd;
     if (fd != -1 && fd != 0) {
         closesocket(fd);
     }
     rt_thread_mdelay(1);
     netclient_destory(thiz);
-    LOG_I("netc[%ld] deinit end", thiz->id);
+    LLOGI("netc[%ld] deinit end", thiz->id);
 }
 
-int32_t netclient_send(netclient_t *thiz, const void *buff, size_t len)
+int32_t netclient_send(netclient_t *thiz, const void *buff, size_t len, int flags)
 {
     size_t bytes = 0;
 
     if (thiz == RT_NULL)
     {
-        LOG_W("netclient send : param is NULL");
+        LLOGW("netclient send : param is NULL");
         return -1;
     }
 
     if (buff == RT_NULL)
     {
-        LOG_W("netc[%ld] send : buff is NULL", thiz->id);
+        LLOGW("netc[%ld] send : buff is NULL", thiz->id);
         return -1;
     }
     if (thiz->pipe_write_fd == -1) {
-        LOG_W("netc[%ld] socket is closed!!!", thiz->id);
+        LLOGW("netc[%ld] socket is closed!!!", thiz->id);
         return -1;
     }
 
-    //LOG_D("netc[%ld] send data len=%d buff=[%s]", this->id, len, buff);
+    //LLOGD("netc[%ld] send data len=%d buff=[%s]", this->id, len, buff);
 
     bytes = write(thiz->pipe_write_fd, buff, len);
     return bytes;
+}
+
+int32_t netclient_rebind(netclient_t * thiz) {
+    LLOGW("netclient_rebind not support yet!!");
+    return -1;
 }
 
 #endif

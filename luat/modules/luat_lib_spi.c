@@ -25,13 +25,14 @@ static int l_spi_setup(lua_State *L) {
     spi_config.master = luaL_optinteger(L, 8, 1); // master=1,slave=0
     spi_config.mode = luaL_optinteger(L, 9, 1); // FULL=1, half=0
 
-    luat_spi_setup(&spi_config);
-    return 0;
+    lua_pushinteger(L, luat_spi_setup(&spi_config));
+
+    return 1;
 }
 static int l_spi_close(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
-    luat_spi_close(id);
-    return 0;
+    lua_pushinteger(L, luat_spi_close(id));
+    return 1;
 }
 static int l_spi_transfer(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
@@ -66,8 +67,8 @@ static int l_spi_send(lua_State *L) {
     size_t len;
     const char* send_buff;
     send_buff = lua_tolstring(L, 2, &len);
-    luat_spi_send(id, send_buff, len);
-    return 0;
+    lua_pushinteger(L, luat_spi_send(id, send_buff, len));
+    return 1;
 }
 
 

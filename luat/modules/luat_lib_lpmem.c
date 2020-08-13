@@ -25,13 +25,16 @@ local data = lpmem.read(0, 1024)
 static int l_lpmem_read(lua_State *L) {
     size_t offset = luaL_checkinteger(L, 1);
     size_t size = luaL_checkinteger(L, 2);
-    void* buff = NULL;
+    void* buff = luat_heap_malloc(size);
     int ret = luat_lpmem_read(offset, size, buff);
     if (ret == 0) {
         lua_pushlstring(L, (const char*)buff, size);
-        return 1;
     }
-    return 0;
+    else {
+        lua_pushliteral(L, "");
+    }
+    luat_heap_free(buff);
+    return 1;
 }
 
 /*

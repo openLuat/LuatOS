@@ -3,8 +3,6 @@
 PROJECT = "lowpower"
 VERSION = "1.0.0"
 
--- 这个demo还有问题, 先不要使用!!!
-
 -- sys库是标配
 _G.sys = require("sys")
 

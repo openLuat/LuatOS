@@ -1,0 +1,10 @@
+# for module compiling
+import os
+Import('RTT_ROOT')
+
+cwd = str(Dir('#'))
+#print(">>>" + cwd)
+objs = SConscript(os.path.join(cwd, '../../../lua/SConscript'))
+objs = objs + SConscript(os.path.join(cwd, '../../../luat/SConscript'))
+
+Return('objs')

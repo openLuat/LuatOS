@@ -45,6 +45,7 @@
 
 #include "strbuf.h"
 #include "fpconv.h"
+#include "printf.h"
 
 #define MIN_OPT_LEVEL 2
 
@@ -808,7 +809,14 @@ static void json_append_number(lua_State *l,
     }
 
     strbuf_ensure_empty_length(json, FPCONV_G_FMT_BUFSIZE);
-    len = fpconv_g_fmt(strbuf_empty_ptr(json), num, DEFAULT_ENCODE_NUMBER_PRECISION);
+    if (lua_isinteger(l, lindex)) {
+        len = snprintf_("%d", strbuf_empty_ptr(json), FPCONV_G_FMT_BUFSIZE, lua_tointeger(l, lindex));
+    }
+    else {
+        //len = snprintf_("%f", strbuf_empty_ptr(json), FPCONV_G_FMT_BUFSIZE, lua_tonumber(l, lindex));
+        len = fpconv_g_fmt(strbuf_empty_ptr(json), num, DEFAULT_ENCODE_NUMBER_PRECISION);
+    }
+    //len = fpconv_g_fmt(strbuf_empty_ptr(json), num, DEFAULT_ENCODE_NUMBER_PRECISION);
     strbuf_extend_length(json, len);
 }
 
@@ -1612,7 +1620,7 @@ static int lua_cjson_new(lua_State *l)
     
 
     /* Initialise number conversions */
-    fpconv_init();
+    //fpconv_init();
 
     /* cjson module table */
     //lua_newtable(l);

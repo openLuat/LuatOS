@@ -34,6 +34,7 @@
 #include <string.h>
 
 #include "fpconv.h"
+#include "printf.h"
 
 #define assert(x) ASSERT(x)
 
@@ -52,21 +53,22 @@ static char locale_decimal_point = '.';
  * localconv() may not be thread safe (=>crash), and nl_langinfo() is
  * not supported on some platforms. Use sprintf() instead - if the
  * locale does change, at least Lua CJSON won't crash. */
-static void fpconv_update_locale()
-{
-    char buf[8];
+// static void fpconv_update_locale()
+// {
+//     // char buf[8];
 
-    snprintf(buf, sizeof(buf), "%g", 0.5);
+//     // snprintf_(buf, sizeof(buf), "%f", 0.5);
 
-    /* Failing this test might imply the platform has a buggy dtoa
-     * implementation or wide characters */
-    if (buf[0] != '0' || buf[2] != '5' || buf[3] != 0) {
-        fprintf(stderr, "Error: wide characters found or printf() bug.");
-        abort();
-    }
+//     // /* Failing this test might imply the platform has a buggy dtoa
+//     //  * implementation or wide characters */
+//     // if (buf[0] != '0' || buf[2] != '5' || buf[3] != 0) {
+//     //     fprintf(stderr, "Error: wide characters found or printf() bug.");
+//     //     abort();
+//     // }
 
-    locale_decimal_point = buf[1];
-}
+//     // locale_decimal_point = buf[1];
+//     // locale_decimal_point = '.';
+// }
 
 /* Check for a valid number character: [-+0-9a-yA-Y.]
  * Eg: -0.6e+5, infinity, 0xF0.F0pF0
@@ -92,7 +94,7 @@ static inline int valid_number_character(char ch)
     return 0;
 }
 
-#if 0 // ²»Ö§³Ölocale ²»ĞèÒªÕâ¸ö´¦Àí
+#if 0 // ä¸æ”¯æŒlocale ä¸éœ€è¦è¿™ä¸ªå¤„ç†
 /* Calculate the size of the buffer required for a strtod locale
  * conversion. */
 static int strtod_buffer_size(const char *s)
@@ -159,7 +161,7 @@ static void set_number_format(char *fmt, int precision)
 {
     int d1, d2, i;
 
-    assert(1 <= precision && precision <= 14);
+    //assert(1 <= precision && precision <= 14);
 
     /* Create printf format (%.14g) from precision */
     d1 = precision / 10;
@@ -186,10 +188,10 @@ int fpconv_g_fmt(char *str, double num, int precision)
 
     /* Pass through when decimal point character is dot. */
     if (locale_decimal_point == '.')
-        return snprintf(str, FPCONV_G_FMT_BUFSIZE, fmt, num);
+        return snprintf_(str, FPCONV_G_FMT_BUFSIZE, fmt, num);
 
-    /* snprintf() to a buffer then translate for other decimal point characters */
-    len = snprintf(buf, FPCONV_G_FMT_BUFSIZE, fmt, num);
+    /* snprintf_() to a buffer then translate for other decimal point characters */
+    len = snprintf_(buf, FPCONV_G_FMT_BUFSIZE, fmt, num);
 
     /* Copy into target location. Translate decimal point if required */
     b = buf;
@@ -202,7 +204,7 @@ int fpconv_g_fmt(char *str, double num, int precision)
 
 void fpconv_init()
 {
-    fpconv_update_locale();
+    //fpconv_update_locale();
 }
 #else
 /* In theory multibyte decimal_points are possible, but
@@ -216,8 +218,8 @@ void fpconv_init()
 static void fpconv_update_locale()
 {    
     char buf[8];
-    //mysnprintf(buf, sizeof(buf), "%g", 0.5);
-    snprintf(buf, sizeof(buf), "%d", 0);
+    //mysnprintf_(buf, sizeof(buf), "%g", 0.5);
+    snprintf_(buf, sizeof(buf), "%d", 0);
 
     /* Failing this test might imply the platform has a buggy dtoa
      * implementation or wide characters */
@@ -277,7 +279,7 @@ static void set_number_format(char *fmt, double num, int precision)
     fmt[i] = 0;
 #else
     fmt[0] = '%';
-#if 0 //²»Ö§³Ö¸¡µãÊä³ö   
+#if 0 //ä¸æ”¯æŒæµ®ç‚¹è¾“å‡º   
     if(num - d1 != 0)
     {
         fmt[1] = 'f';
@@ -303,13 +305,13 @@ int fpconv_g_fmt(char *str, double num, int precision)
 
     /* Pass through when decimal point character is dot. */
     if (locale_decimal_point == '.')
-        //return mysnprintf(str, FPCONV_G_FMT_BUFSIZE, fmt, num);
-        //²»Ö§³Ö¸¡µã£¬½«numÖ±½Ó×ª»¯³ÉintÀàĞÍ
-        return snprintf(str, FPCONV_G_FMT_BUFSIZE, fmt, (int)num);
+        //return mysnprintf_(str, FPCONV_G_FMT_BUFSIZE, fmt, num);
+        //ä¸æ”¯æŒæµ®ç‚¹ï¼Œå°†numç›´æ¥è½¬åŒ–æˆintç±»å‹
+        return snprintf_(str, FPCONV_G_FMT_BUFSIZE, fmt, (int)num);
 
-    /* snprintf() to a buffer then translate for other decimal point characters */
-    //len = mysnprintf(buf, FPCONV_G_FMT_BUFSIZE, fmt, num);
-    len = snprintf(buf, FPCONV_G_FMT_BUFSIZE, fmt, (int)num);
+    /* snprintf_() to a buffer then translate for other decimal point characters */
+    //len = mysnprintf_(buf, FPCONV_G_FMT_BUFSIZE, fmt, num);
+    len = snprintf_(buf, FPCONV_G_FMT_BUFSIZE, fmt, (int)num);
 
     /* Copy into target location. Translate decimal point if required */
     b = buf;

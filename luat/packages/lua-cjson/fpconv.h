@@ -5,6 +5,7 @@
  * Longest double printed with %.14g is 21 characters long:
  * -1.7976931348623e+308 */
 # define FPCONV_G_FMT_BUFSIZE   32
+#define LUAT_FLOATPOINT_SUPPORT 1
 
 #define inline
 

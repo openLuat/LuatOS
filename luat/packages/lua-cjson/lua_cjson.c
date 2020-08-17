@@ -810,7 +810,7 @@ static void json_append_number(lua_State *l,
 
     strbuf_ensure_empty_length(json, FPCONV_G_FMT_BUFSIZE);
     if (lua_isinteger(l, lindex)) {
-        len = snprintf_("%d", strbuf_empty_ptr(json), FPCONV_G_FMT_BUFSIZE, lua_tointeger(l, lindex));
+        len = snprintf_(strbuf_empty_ptr(json), FPCONV_G_FMT_BUFSIZE, "%d", lua_tointeger(l, lindex));
     }
     else {
         //len = snprintf_("%f", strbuf_empty_ptr(json), FPCONV_G_FMT_BUFSIZE, lua_tonumber(l, lindex));

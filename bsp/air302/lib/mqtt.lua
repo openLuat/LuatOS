@@ -143,7 +143,7 @@ local function unpack(s)
     local header = string.byte(s, 1)
     
     --local packet = {id = (header - (header % 16)) / 16, dup = ((header % 16) - ((header % 16) % 8)) / 8, qos = bit.band(header, 0x06) / 2, retain = bit.band(header, 0x01)}
-    local packet = {id = (header - (header % 16)) / 16, dup = ((header % 16) - ((header % 16) % 8)) / 8, qos = (header & 0x06) / 2, retain = (header & 0x01)}
+    local packet = {id = (header - (header % 16)) >> 4, dup = ((header % 16) - ((header % 16) % 8)) >> 3, qos = (header & 0x06) >> 1, retain = (header & 0x01)}
     local nextpos
     
     if packet.id == CONNACK then

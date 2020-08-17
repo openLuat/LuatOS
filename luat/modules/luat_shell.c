@@ -111,8 +111,7 @@ static int luat_shell_msg_handler(lua_State *L, void* ptr) {
                 lua_pcall(L, 0, 0, 0);
             }
             else {
-                LLOGW("loadstr ret=%d", ret);
-                luat_shell_print("Bad lua code\r\n");
+                LLOGW("loadstr %s", lua_tostring(L, -1));
             }
         }
         else {

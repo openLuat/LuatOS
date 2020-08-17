@@ -128,9 +128,11 @@ RT_WEAK void rt_hw_us_delay(rt_uint32_t us)
     ; // nop
 }
 
+#ifndef SOC_FAMILY_STM32
 RT_WEAK void rt_hw_cpu_reset() {
     ; // nop
 }
+#endif
 
 // watchdog
 

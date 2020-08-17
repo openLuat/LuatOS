@@ -31,7 +31,7 @@ void luat_free(void);
 #else
     #ifndef LUAT_HEAP_SIZE
         #ifdef SOC_FAMILY_STM32
-            #define LUAT_HEAP_SIZE 32*1024
+            #define LUAT_HEAP_SIZE (64*1024)
         #else
             #define LUAT_HEAP_SIZE 128*1024
         #endif
@@ -44,8 +44,9 @@ static int rtt_mem_init() {
     void *ptr = W600_HEAP_ADDR;
     luat_rt_system_heap_init(ptr, ptr + LUAT_HEAP_SIZE);
     #else
-    void *ptr = (void*)luavm_buff;
-    luat_rt_system_heap_init(ptr, ptr + LUAT_HEAP_SIZE);
+    char *ptr = (char*)luavm_buff;
+	  char *end = ptr + LUAT_HEAP_SIZE;
+    luat_rt_system_heap_init(ptr, end);
     #endif
     return 0;
 }
@@ -72,11 +73,3 @@ void* luat_heap_alloc(void *ud, void *ptr, size_t osize, size_t nsize) {
     }
     return ptr2;
 }
-
-// void luat_rt_memory_info(size_t *total,
-//                     size_t *used,
-//                     size_t *max_used);
-
-// void luat_meminfo_luavm(size_t* total, size_t* used, size_t* max_used) {
-//     luat_rt_memory_info(total, used, max_used);
-// }

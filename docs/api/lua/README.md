@@ -16,6 +16,7 @@ title: LuaAPI模块
 [libgnss](luat_lib_libgnss.md) | NMEA数据处理
 [log](luat_lib_log.md) | 日志库
 [lpmem](luat_lib_lpmem.md) | 操作低功耗不掉电内存块
+[luat_lib_fs](luat_lib_fs.md) | luat_lib_fs
 [nbiot](luat_lib_nbiot.md) | NB-IOT操作库
 [pm](luat_lib_pm.md) | 电源管理
 [pwm](luat_lib_pwm.md) | PWM模块

@@ -10,7 +10,7 @@ LuatOS是运行在嵌入式硬件的实时操作系统,只需要少量内存的f
 
 Lua base RTOS, build for many embedded systems
 
-1. 基于Lua 5.3.5
+1. 基于Lua 5.3.6
 2. 低内存需求, 最低32kb, 96kb flash空间
 3. 硬件抽象层兼容M3/arm/risc-v等
 4. 可测试,可模拟(qemu)

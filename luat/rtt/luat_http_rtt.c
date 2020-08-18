@@ -7,7 +7,7 @@
 
 #include "rtthread.h"
 
-#ifdef PKG_USING_WEBCLIENT
+#ifdef SAL_USING_POSIX
 #include "webclient.h"
 
 

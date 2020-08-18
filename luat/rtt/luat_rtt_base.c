@@ -59,6 +59,7 @@ static const luaL_Reg loadedlibs[] = {
 #endif
 #ifdef SAL_USING_POSIX
   {"socket", luaopen_socket},          // 套接字操作
+  {"http", luaopen_http},              // http库
   {"libcoap", luaopen_libcoap},        // 处理COAP数据包
 #endif
 #ifdef RT_USING_I2C
@@ -72,9 +73,6 @@ static const luaL_Reg loadedlibs[] = {
 #endif
 #ifdef RT_USING_HWCRYPTO
   {"crypto", luaopen_crypto},          // 加密和hash库
-#endif
-#ifdef PKG_USING_WEBCLIENT
-  {"http", luaopen_http},              // http库
 #endif
   {"fs",   luaopen_fs},                // 文件系统库
   {NULL, NULL}

@@ -4,8 +4,28 @@ from building import *
 
 cwd = GetCurrentDir()
 src	= Glob('*.c')
-CPPPATH = [cwd]
+CPPPATH = [cwd,  cwd + "/../include", 
+                 cwd + "/../packages/vsprintf", 
+                 cwd + "/../packages/minmea", 
+                 cwd + "/../packages/lua-cjson",
+                 ]
 
-group = DefineGroup('Applications', src, depend = [''], CPPPATH = CPPPATH)
+# remove some packages
+'''
+if not GetDepend(['RT_USING_PWM']):
+    src.remove('luat_lib_pwm.c')
+if not GetDepend(['RT_USING_I2C']):
+    src.remove('luat_lib_i2c.c')
+if not GetDepend(['RT_USING_SPI']):
+    src.remove('luat_lib_spi.c')
+if not GetDepend(['PKG_USING_WEBCLIENT']):
+    src.remove('luat_lib_http.c')
+if not GetDepend(['SAL_USING_POSIX']):
+    src.remove('luat_lib_socket.c')
+if not GetDepend(['RT_USING_ADC']):
+    src.remove('luat_lib_adc.c')
+'''
+
+group = DefineGroup('modules', src, depend = [''], CPPPATH = CPPPATH)
 
 Return('group')

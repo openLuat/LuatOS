@@ -2,37 +2,20 @@ Import('RTT_ROOT')
 Import('rtconfig')
 from building import *
 
+
 cwd = GetCurrentDir()
-src	= Glob('modules/*.c') + Glob('rtt/*.c') + Glob('packages/lfs/*.c')
+#print("cwd" + cwd)
+#src	= Glob('modules/*.c') + Glob('rtt/*.c') + Glob('packages/lfs/*.c')
 CPPPATH = [cwd + "/include"]
-LIB_PATH = []
-LIB = []
 
-# json
-src += Glob('packages/lua-cjson/*.c')
-CPPPATH += [cwd + "/packages/lua-cjson/"]
+objs = []
+list = os.listdir(cwd)
 
-#vsprint
-src += Glob('packages/vsprintf/*.c')
-CPPPATH += [cwd + "/packages/vsprintf/"]
+for d in list:
+    path = os.path.join(cwd, d)
+    if not os.path.isdir(path) :
+        continue
+    if os.path.isfile(os.path.join(path, 'SConscript')):
+        objs = objs +  SConscript(os.path.join(d, 'SConscript'))
 
-#u8g2
-#src += Glob('packages/u8g2/*.c')
-CPPPATH += [cwd + "/packages/u8g2/"]
-
-#nmea
-src += Glob('packages/minmea/*.c')
-CPPPATH += [cwd + "/packages/minmea/"]
-
-if GetDepend(['BSP_USING_WM_LIBRARIES']):
-    src += Glob('w60x/*.c')
-    src += Glob('packages/airkiss/*.c')
-    CPPPATH += [cwd + "/packages/lfs/"]
-    CPPPATH += [cwd + "/packages/airkiss/"]
-
-    LIB_PATH += [cwd + '/packages/airkiss/']
-    LIB += ['libairkiss']
-
-group = DefineGroup('luat', src, depend = [''], CPPPATH = CPPPATH, LIBS = LIB, LIBPATH = LIB_PATH)
-
-Return('group')
+Return('objs')

@@ -130,8 +130,103 @@ int luat_crypto_hmac_sha1_simple(const char* input, size_t ilen, const char* key
 
 #endif
 
+#ifdef PKG_USING_MBEDTLS
+
+#include "mbedtls/cipher.h"
+
+int l_crypto_cipher_xxx(lua_State *L, uint8_t flags) {
+    size_t cipher_size = 0;
+    size_t pad_size = 0;
+    size_t str_size = 0;
+    size_t key_size = 0;
+    size_t iv_size = 0;
+    const char* cipher = luaL_optlstring(L, 1, "AES-128-ECB", &cipher_size);
+    const char* pad = luaL_optlstring(L, 2, "PKCS7", &pad_size);
+    const char* str = luaL_checklstring(L, 3, &str_size);
+    const char* key = luaL_checklstring(L, 4, &key_size);
+    const char* iv = luaL_optlstring(L, 5, "", &iv_size);
+    mbedtls_cipher_context_t ctx;
+    mbedtls_cipher_init(&ctx);
+
+    int ret = 0;
+
+    unsigned char output[32] = {0};
+    size_t input_size = 0;
+    size_t output_size = 0;
+    size_t block_size = 0;
+    
+    luaL_Buffer buff;
+
+    const mbedtls_cipher_info_t * _cipher = mbedtls_cipher_info_from_string(cipher);
+    if (_cipher == NULL) {
+        lua_pushstring(L, "bad cipher name");
+        lua_error(L);
+        return 0;
+    }
+
+
+	ret = mbedtls_cipher_setup(&ctx, _cipher);
+    if (ret) {
+        LLOGE("mbedtls_cipher_setup fail %ld", ret);
+        goto _exit;
+    }
+    ret = mbedtls_cipher_setkey(&ctx, key, key_size * 8, flags & 0x1);
+    if (ret) {
+        LLOGE("mbedtls_cipher_setkey fail %ld", ret);
+        goto _exit;
+    }
+    // TODO 设置padding mode
+    // mbedtls_cipher_set_padding_mode
+    if (iv_size) {
+        ret = mbedtls_cipher_set_iv(&ctx, iv, iv_size);
+        if (ret) {
+            LLOGE("mbedtls_cipher_set_iv fail %ld", ret);
+            goto _exit;
+        }
+    }
+
+    mbedtls_cipher_reset(&ctx);
+
+    //mbedtls_cipher_set_padding_mode(&ctx, MBEDTLS_PADDING_PKCS7);
+
+    // 开始注入数据
+    luaL_buffinit(L, &buff);
+    block_size = mbedtls_cipher_get_block_size(&ctx);
+    for (size_t i = 0; i < str_size; i+=block_size) {
+        input_size = str_size - i;
+        if (input_size > block_size)
+            input_size = block_size;
+        ret = mbedtls_cipher_update(&ctx, str+i, input_size, output, &output_size);
+        if (ret) {
+            LLOGE("mbedtls_cipher_update fail %ld", ret);
+            goto _exit;
+        }
+        //else LLOGD("mbedtls_cipher_update, output size=%ld", output_size);
+        if (output_size > 0)
+            luaL_addlstring(&buff, output, output_size);
+        output_size = 0;
+    }
+    ret = mbedtls_cipher_finish(&ctx, output, &output_size);
+    if (ret) {
+        LLOGE("mbedtls_cipher_finish fail %ld", ret);
+        goto _exit;
+    }
+    //else LLOGD("mbedtls_cipher_finish, output size=%ld", output_size);
+    if (output_size > 0)
+        luaL_addlstring(&buff, output, output_size);
+
+_exit:
+    mbedtls_cipher_free(&ctx);
+    luaL_pushresult(&buff);
+    return 1;
+}
+
+#else
+
 int l_crypto_cipher_xxx(lua_State *L, uint8_t flags) {
     LLOGE("not support yet");
     lua_pushliteral(L, "");
     return 1;
 }
+
+#endif

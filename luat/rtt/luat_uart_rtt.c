@@ -33,6 +33,7 @@ static int luat_uart_rtt_init() {
         serials[i] = rt_device_find(name);
         LOG_I("uart device dev=0x%08X uart.id=%ld", serials[i], i);
     }
+    return 0;
 }
 INIT_COMPONENT_EXPORT(luat_uart_rtt_init);
 

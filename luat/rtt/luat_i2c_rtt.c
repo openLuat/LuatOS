@@ -152,15 +152,15 @@ int luat_i2c_write_reg(int id, int addr, int reg, uint16_t value) {
 
 int luat_i2c_read_reg(int id,  int addr, int reg, uint16_t* value) {
     if (!luat_i2c_exist(id)) return 1;
-    struct rt_i2c_msg msgs;
-    uint8_t a;
-    a = addr;
+    // struct rt_i2c_msg msgs;
+    // uint8_t a;
+    // a = reg;
 
-    msgs.addr = addr;
-    msgs.flags = RT_I2C_RD;
-    msgs.buf = &a;
-    msgs.len = 1;
-    rt_i2c_master_send(i2c_devs[id], addr, 0, &msgs, 1);
+    // msgs.addr = addr;
+    // msgs.flags = RT_I2C_RD;
+    // msgs.buf = &a;
+    // msgs.len = 1;
+    rt_i2c_master_send(i2c_devs[id], addr, 0, (const rt_uint8_t*)&reg, 1);
 
     char buff[2] = {0};
 

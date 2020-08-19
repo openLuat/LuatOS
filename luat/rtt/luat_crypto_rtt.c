@@ -131,8 +131,8 @@ int luat_crypto_hmac_sha1_simple(const char* input, size_t ilen, const char* key
 #endif
 
 #ifdef PKG_USING_MBEDTLS
-
 #include "mbedtls/cipher.h"
+#endif
 
 int l_crypto_cipher_xxx(lua_State *L, uint8_t flags) {
     size_t cipher_size = 0;
@@ -145,8 +145,6 @@ int l_crypto_cipher_xxx(lua_State *L, uint8_t flags) {
     const char* str = luaL_checklstring(L, 3, &str_size);
     const char* key = luaL_checklstring(L, 4, &key_size);
     const char* iv = luaL_optlstring(L, 5, "", &iv_size);
-    mbedtls_cipher_context_t ctx;
-    mbedtls_cipher_init(&ctx);
 
     int ret = 0;
 
@@ -156,6 +154,12 @@ int l_crypto_cipher_xxx(lua_State *L, uint8_t flags) {
     size_t block_size = 0;
     
     luaL_Buffer buff;
+
+#ifdef PKG_USING_MBEDTLS
+    mbedtls_cipher_context_t ctx;
+    mbedtls_cipher_init(&ctx);
+
+
 
     const mbedtls_cipher_info_t * _cipher = mbedtls_cipher_info_from_string(cipher);
     if (_cipher == NULL) {
@@ -219,14 +223,49 @@ _exit:
     mbedtls_cipher_free(&ctx);
     luaL_pushresult(&buff);
     return 1;
-}
-
 #else
 
-int l_crypto_cipher_xxx(lua_State *L, uint8_t flags) {
-    LLOGE("not support yet");
-    lua_pushliteral(L, "");
-    return 1;
+//#ifdef RT_USING_HWCRYPTO
+// rtt的AES硬件加密, CBC输出的是等长数据, 不太对吧
+#if 0
+    struct rt_hwcrypto_ctx *ctx = NULL;
+    #ifdef RT_HWCRYPTO_USING_AES
+        hwcrypto_mode mode = flags == 0 ? HWCRYPTO_MODE_DECRYPT : HWCRYPTO_MODE_ENCRYPT;
+        ret = -1;
+        luaL_buffinit(L, &buff);
+        #ifdef RT_HWCRYPTO_USING_AES_ECB
+        if (!strcmp("AES-128-ECB", cipher)) {
+            LLOGD("AES-128-ECB HWCRYPTO");
+            ctx = rt_hwcrypto_symmetric_create(rt_hwcrypto_dev_default(), HWCRYPTO_TYPE_AES_ECB);
+            ret = rt_hwcrypto_symmetric_setkey(ctx, key, 128);
+            ret = rt_hwcrypto_symmetric_crypt(ctx, mode, (str_size / 16) * 16, str, output);
+            buff.n = str_size;
+        }
+        #endif
+        #ifdef RT_HWCRYPTO_USING_AES_CBC
+        if (!strcmp("AES-128-CBC", cipher)) {
+            LLOGD("AES-128-CBC HWCRYPTO");
+            ctx = rt_hwcrypto_symmetric_create(rt_hwcrypto_dev_default(), HWCRYPTO_TYPE_AES_CBC);
+            ret = rt_hwcrypto_symmetric_setkey(ctx, key, 128);
+            ret = rt_hwcrypto_symmetric_setiv(ctx, iv, iv_size);
+            ret = rt_hwcrypto_symmetric_crypt(ctx, mode, (str_size / 16) * 16, str, output);
+            buff.n = str_size + (flags == 0 ? -16 : 16);
+        }
+        #endif
+        if (ctx)
+            rt_hwcrypto_symmetric_destroy(ctx);
+        if (ret) {
+            LLOGW("AES FAIL %d", ret);
+            return 0;
+        }
+        else {
+            luaL_pushresult(&buff);
+            return 1;
+        }
+    #endif
+#endif
+
+    return 0;
+#endif
 }
 
-#endif

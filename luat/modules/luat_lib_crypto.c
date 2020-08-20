@@ -173,7 +173,7 @@ local crc = crypto.crc16("")
  */
 static int l_crypto_crc16(lua_State *L)
 {   
-    int inputLen;
+    size_t inputLen;
     const char  *inputmethod = luaL_checkstring(L, 1);
     const char *inputData = lua_tolstring(L,2,&inputLen);
     uint16_t poly = luaL_optnumber(L,3,0x0000);
@@ -263,6 +263,7 @@ LUAMOD_API int luaopen_crypto( lua_State *L ) {
 }
 
 // 添加几个默认实现
+
 LUAT_WEAK int luat_crypto_md5_simple(const char* str, size_t str_size, void* out_ptr) {return -1;}
 LUAT_WEAK int luat_crypto_hmac_md5_simple(const char* str, size_t str_size, const char* mac, size_t mac_size, void* out_ptr) {return -1;}
 

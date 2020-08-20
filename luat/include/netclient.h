@@ -45,7 +45,7 @@ typedef struct netc_ent {
     void* buff;
 }netc_ent_t;
 
-typedef void (*tpc_cb_t)(netc_ent_t* ent);
+typedef int (*tpc_cb_t)(netc_ent_t* ent);
 
 typedef struct netclient
 {

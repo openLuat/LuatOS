@@ -33,7 +33,7 @@ static const luaL_Reg loadedlibs[] = {
   {"gpio", luaopen_gpio},              // GPIO脚的操作
   {"socket", luaopen_socket},          // 套接字操作
   {"i2c", luaopen_i2c},                // I2C操作
-  //{"spi", luaopen_spi},                // SPI操作
+  {"spi", luaopen_spi},                // SPI操作
   {"lpmem", luaopen_lpmem},            // 低功耗时仍工作的内存块
   {"nbiot", luaopen_nbiot},            // NBIOT专属模块
   {"adc",   luaopen_adc},              // ADC模块

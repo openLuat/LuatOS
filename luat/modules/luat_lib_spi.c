@@ -40,6 +40,8 @@ static int l_spi_transfer(lua_State *L) {
     const char* send_buff;
     send_buff = lua_tolstring(L, 2, &len);
     char* recv_buff = luat_heap_malloc(len);
+    if(recv_buff == NULL)
+        return 0;
     int ret = luat_spi_transfer(id, send_buff, recv_buff, len);
     if (ret > 0) {
         lua_pushlstring(L, recv_buff, ret);
@@ -53,6 +55,8 @@ static int l_spi_recv(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
     int len = luaL_checkinteger(L, 2);
     char* recv_buff = luat_heap_malloc(len);
+    if(recv_buff == NULL)
+        return 0;
     int ret = luat_spi_recv(id, recv_buff, len);
     if (ret > 0) {
         lua_pushlstring(L, recv_buff, ret);

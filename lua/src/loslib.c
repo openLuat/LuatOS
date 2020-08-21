@@ -21,6 +21,8 @@
 #include "lauxlib.h"
 #include "lualib.h"
 
+#include "luat_fs.h"
+
 
 /*
 ** {==================================================================
@@ -152,14 +154,14 @@ static time_t l_checktime (lua_State *L, int arg) {
 
 static int os_remove (lua_State *L) {
   const char *filename = luaL_checkstring(L, 1);
-  return luaL_fileresult(L, remove(filename) == 0, filename);
+  return luaL_fileresult(L, luat_fs_remove(filename) == 0, filename);
 }
 
 
 static int os_rename (lua_State *L) {
   const char *fromname = luaL_checkstring(L, 1);
   const char *toname = luaL_checkstring(L, 2);
-  return luaL_fileresult(L, rename(fromname, toname) == 0, NULL);
+  return luaL_fileresult(L, luat_fs_rename(fromname, toname) == 0, NULL);
 }
 
 

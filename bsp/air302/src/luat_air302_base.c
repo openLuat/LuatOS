@@ -47,6 +47,7 @@ static const luaL_Reg loadedlibs[] = {
   {"sensor", luaopen_sensor},          // 传感器库,当前支持DS18B20
   {"http",  luaopen_http},              // http库
   {"fs",    luaopen_fs},                // 文件系统库
+  {"ctiot",	luaopen_ctiot},				// ctiot库，NB专用
   {NULL, NULL}
 };
 

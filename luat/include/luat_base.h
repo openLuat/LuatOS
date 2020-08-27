@@ -90,6 +90,7 @@ LUAMOD_API int luaopen_pm( lua_State *L);
 LUAMOD_API int luaopen_m2m( lua_State *L);
 LUAMOD_API int luaopen_libcoap( lua_State *L);
 LUAMOD_API int luaopen_lpmem( lua_State *L);
+LUAMOD_API int luaopen_ctiot( lua_State *L);
 
 /** sprintf需要支持longlong值的打印, 提供平台无关的实现*/
 int l_sprintf(char *buf, size_t size, const char *fmt, ...);

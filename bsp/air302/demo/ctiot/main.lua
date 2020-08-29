@@ -45,6 +45,6 @@ local funtion task()
     log.info(TAG, "old ep", ep)
     ctiot.ep("12345678")
 end
-
+ctiot.init()
 sys.taskInit(task)
 sys.run()

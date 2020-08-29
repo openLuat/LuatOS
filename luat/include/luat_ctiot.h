@@ -69,6 +69,8 @@ enum
 };
 extern void luat_ctiot_callback(uint8_t type, uint8_t code, void *buf, uint32_t len);
 extern void luat_ctiot_init(void);
+extern uint16_t luat_ctiot_get_ep(char *userEp);
+extern uint16_t luat_ctiot_set_ep(char *userEp);
 extern uint16_t luat_ctiot_set_para(char* serverIP,uint16_t port,uint32_t lifeTime,char* objectInstanceList/*,char* pskId,char* psk*/);
 extern uint16_t luat_ctiot_set_mod(uint8_t securityMode,uint8_t idAuthMode,uint8_t autoTAUUpdate,uint8_t onUQMode,uint8_t onCELevel2Policy,uint8_t autoHeartBeat,uint8_t wakeupNotify, uint8_t protocolMode);
 extern uint16_t luat_ctiot_get_para(char* serverIP,uint16_t* port,uint32_t* lifeTime,char* objectInstanceList/*,char* pskId,char* psk*/);

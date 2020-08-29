@@ -240,6 +240,35 @@ static int l_ctiot_param(lua_State *L)
 }
 
 /**
+ * @brief 设置和读取自定义EP
+ *
+ * @param L
+ * @return int
+ */
+static int l_ctiot_ep(lua_State *L)
+{
+	char userEp[40];
+	const char *new_ep;
+	size_t len;
+	uint8_t new_set = 0;
+	luat_ctiot_get_ep(userEp);
+	new_ep = lua_tolstring(L, 1, &len);
+	if (len < 40 && len)
+	{
+		memset(userEp, 0, 40);
+		memcpy(userEp, new_ep, len);
+		new_set = 1;
+	}
+	if (new_set)
+	{
+		luat_ctiot_set_ep(userEp);
+		luat_ctiot_get_ep(userEp);
+	}
+	lua_pushstring(L, userEp);
+	return 1;
+}
+
+/**
  * @brief 设置和读取ctiot相关模式，有模式输入则设置，无论是否有模式输入，均输出当前模式
  * 
  * @param L 
@@ -358,6 +387,7 @@ static const rotable_Reg reg_ctiot[] =
 #ifdef AIR302
     { "init", l_ctiot_init, 0},
     { "param", l_ctiot_param, 0},
+	{ "ep", l_ctiot_ep, 0},
 //	{ "mode", l_ctiot_mode, 0},
 	{ "connect", l_ctiot_connect, 0},
 	{ "disconnect", l_ctiot_disconnect, 0},

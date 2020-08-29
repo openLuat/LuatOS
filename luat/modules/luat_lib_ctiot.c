@@ -207,10 +207,11 @@ static int l_ctiot_param(lua_State *L)
 	char server_ip[20];
 	const char *new_ip;
 	uint16_t port;
+	uint16_t result;
 	uint32_t lifetime;
 	size_t len;
 	uint8_t new_set = 0;
-	luat_ctiot_get_para(server_ip, &port, &lifetime, NULL);
+	result = luat_ctiot_get_para(server_ip, &port, &lifetime, NULL);
 	new_ip = lua_tolstring(L, 1, &len);
 	if (len < 20 && len)
 	{
@@ -230,8 +231,7 @@ static int l_ctiot_param(lua_State *L)
 	}
 	if (new_set)
 	{
-		luat_ctiot_set_para(server_ip, port, lifetime, NULL);
-		luat_ctiot_get_para(server_ip, &port, &lifetime, NULL);
+		result = luat_ctiot_set_para(server_ip, port, lifetime, NULL);
 	}
 	lua_pushstring(L, server_ip);
 	lua_pushinteger(L, port);

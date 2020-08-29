@@ -6,6 +6,9 @@ _G.sys = require("sys")
 
 local function cb_reg(error, error_code, param)
     log.info(TAG, "reg", error, error_code, param)
+    if not error and param > 0 then
+        log.info(TAG, "reg ok and done")
+    end
 end
 
 local function cb_tx(error, error_code, param)
@@ -40,10 +43,24 @@ sys.subscribe("CTIOT_WAKEUP", cb_wakeup)
 sys.subscribe("CTIOT_OTHER", cb_other)
 sys.subscribe("CTIOT_FOTA", cb_fota)
 
-local funtion task()
-    local ep = ctiot.ep()
-    log.info(TAG, "old ep", ep)
-    ctiot.ep("12345678")
+local function task()
+    
+    --设置自定义EP，如果不设置，则使用IMEI
+    local ep="000000000000000"
+    if ctiot.ep() ~= ep then
+        ctiot.ep(ep)
+    end
+    --设置服务器IP，端口，保活时间
+    ctiot.param("180.101.147.115", 5683, 300)
+    local ip, port, keeptime = ctiot.param()
+    log.info(TAG, "set param", ip, port, keeptime)
+	while not socket.isReady() do 
+		log.info("net", "wait for network ready")
+		sys.waitUntil("NET_READY", 1000)
+    end
+    --启动连接
+    pm.request(pm.IDLE)
+    ctiot.connect()
 end
 ctiot.init()
 sys.taskInit(task)

@@ -1,7 +1,7 @@
 #ifndef __LUAT_CTIOT_H__
 #define __LUAT_CTIOT_H__
 #include "luat_base.h"
-
+#include "stdbool.h"
 enum
 {
 	CTIOT_EVENT_REG = 0,
@@ -14,6 +14,7 @@ enum
 	CTIOT_EVENT_NOTIFY,
 	CTIOT_EVENT_SUSPEND,
 	CTIOT_EVENT_FOTA,
+	CTIOT_EVENT_AIR,
 
 	CTIOT_REG_OK = 0,
 	CTIOT_REG_TIMEOUT,
@@ -62,6 +63,21 @@ enum
 	CTIOT_FOTA_UPDATE_OVER,
 	CTIOT_FOTA_6,
 	CTIOT_FOTA_7,
+	CTIOT_AIR_NON_SEND_START=0,
+	CTIOT_AIR_CON_OK,
+	CTIOT_AIR_NON_SEND,
 };
-typedef void (*luat_ctiot_callback_t)(uint8_t type, uint8_t code, void *buf, uint32_t len);
+extern void luat_ctiot_callback(uint8_t type, uint8_t code, void *buf, uint32_t len);
+extern void luat_ctiot_init(void);
+extern uint16_t luat_ctiot_get_ep(char *userEp);
+extern uint16_t luat_ctiot_set_ep(char *userEp);
+extern uint16_t luat_ctiot_set_para(char* serverIP,uint16_t port,uint32_t lifeTime,char* objectInstanceList/*,char* pskId,char* psk*/);
+extern uint16_t luat_ctiot_set_mod(uint8_t securityMode,uint8_t idAuthMode,uint8_t autoTAUUpdate,uint8_t onUQMode,uint8_t onCELevel2Policy,uint8_t autoHeartBeat,uint8_t wakeupNotify, uint8_t protocolMode);
+extern uint16_t luat_ctiot_get_para(char* serverIP,uint16_t* port,uint32_t* lifeTime,char* objectInstanceList/*,char* pskId,char* psk*/);
+extern uint16_t luat_ctiot_get_mod(uint8_t* securityMode,uint8_t* idAuthMode,uint8_t* autoTAUUpdate,uint8_t* onUQMode,uint8_t* onCELevel2Policy,uint8_t* autoHeartBeat,uint8_t* wakeupNotify, uint8_t* protocolMode);
+extern uint16_t luat_ctiot_reg(void);
+extern uint16_t luat_ctiot_dereg(void);
+extern uint16_t luat_ctiot_update_reg(uint16_t*msgId,bool withObjects);
+extern uint16_t luat_ctiot_send(const uint8_t* data,uint32_t datalen, uint8_t sendMode, uint8_t seqNum);
+
 #endif

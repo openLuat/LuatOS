@@ -8,6 +8,7 @@ title: LuaAPI模块
 ---|----
 [adc](luat_lib_adc.md) | 数模转换
 [crypto](luat_lib_crypto.md) | 加解密和hash函数
+[ctiot](luat_lib_ctiot.md) | 中国电信CTIOT集成
 [disp](luat_lib_disp.md) | 显示屏控制
 [gpio](luat_lib_gpio.md) | GPIO操作
 [http](luat_lib_http.md) | 执行http请求

@@ -81,6 +81,7 @@ public class LuComment {
     }
 
     private static final String BLK_BEGIN = "^(\\s*)(/[*][*]*) ?(.*)$";
+    private static final String BLK_LINE = "^(\\s*[*]\\s)(.*)$";
     private static final String BLK_END = "^(.*) *([*]/)\\s*$";
     private static final String LIN_CMT = "^(\\s*)(// ?)(.*)$";
 
@@ -154,6 +155,12 @@ public class LuComment {
 
         // 其他的普通行，只有多行注释才能接受
         if (this.isBlock() || this.isLuaSign() || this.isLuaHead()) {
+            // 多行注释的话，试图去掉前面的星星
+            m = Regex.getPattern(BLK_LINE).matcher(line);
+            if (m.find()) {
+                line = m.group(2).trim();
+            }
+            // 记入行
             lines.add(line);
             // 如果这个行是一个函数声明，那么切换特殊类型
             if (this.isBlock()) {

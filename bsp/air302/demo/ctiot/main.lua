@@ -22,19 +22,8 @@ local TAG="ctiot"
 -- sys库是标配
 _G.sys = require("sys")
 
-local function cb_reg(error, error_code, param)
-    log.info(TAG, "reg", error, error_code, param)
-    if not error and param > 0 then
-        log.info(TAG, "reg ok and done")
-    end
-end
-
-local function cb_tx(error, error_code, param)
-    log.info(TAG, "tx", error, error_code, param)
-end
-
 local function cb_rx(data)
-    log.info(TAG, "rx", data)
+    log.info(TAG, "rx", data:toHex())
 end
 
 local function cb_dereg(error, error_code, param)
@@ -53,36 +42,49 @@ local function cb_other(error, error_code, param)
     log.info(TAG, "other", error, error_code, param)
 end
 
-sys.subscribe("CTIOT_TX", cb_tx)
+--sys.subscribe("CTIOT_TX", cb_tx)
 sys.subscribe("CTIOT_RX", cb_rx)
-sys.subscribe("CTIOT_REG", cb_reg)
-sys.subscribe("CTIOT_DEREG", cb_dereg)
+--sys.subscribe("CTIOT_REG", cb_reg)
+--sys.subscribe("CTIOT_DEREG", cb_dereg)
 sys.subscribe("CTIOT_WAKEUP", cb_wakeup)
 sys.subscribe("CTIOT_OTHER", cb_other)
 sys.subscribe("CTIOT_FOTA", cb_fota)
 
 local function send_test()
+    log.info(TAG, "test tx")
     --发送的数据请按照自己的profile修改
     --发送数据，并要求服务器应答
-    ctiot.write(pack.pack("<BBA", 0x00,0x05, "hello"), ctiot.CON, 0)
+    ctiot.write(pack.pack("<bbA", 0x00,0x05, "hello"), ctiot.CON, 33)
     --发送数据，并要求服务器应答，序号为11
-    --ctiot.write(pack.pack("<BBA", 0x00,0x05, "hello"), ctiot.CON, 11)
+    --ctiot.write(pack.pack("<bbA", 0x00,0x05, "hello"), ctiot.CON, 11)
     --发送数据，不需要服务器应答
-    --ctiot.write(pack.pack("<BBA", 0x00,0x05, "hello"), ctiot.NON, 0)
+    --ctiot.write(pack.pack("<bbA", 0x00,0x05, "hello"), ctiot.NON, 0)
     --发送数据，不需要服务器应答，序号为23
-    --ctiot.write(pack.pack("<BBA", 0x00,0x05, "hello"), ctiot.NON, 23)
+    --ctiot.write(pack.pack("<bbA", 0x00,0x05, "hello"), ctiot.NON, 23)
     --发送数据，不需要服务器应答，发送完成后立刻释放RRC，加快进入休眠的速度
-    --ctiot.write(pack.pack("<BBA", 0x00,0x05, "hello"), ctiot.NON_REL, 0)
+    --ctiot.write(pack.pack("<bbA", 0x00,0x05, "hello"), ctiot.NON_REL, 0)
     --发送数据，不需要服务器应答，发送完成后立刻释放RRC，加快进入休眠的速度，序号为56
-    --ctiot.write(pack.pack("<BBA", 0x00,0x05, "hello"), ctiot.NON_REL, 56)
+    --ctiot.write(pack.pack("<bbA", 0x00,0x05, "hello"), ctiot.NON_REL, 56)
     --发送数据，并要求服务器应答，接收到应答后立刻释放RRC，加快进入休眠的速度
-    --ctiot.write(pack.pack("<BBA", 0x00,0x05, "hello"), ctiot.CON_REL, 0)
+    --ctiot.write(pack.pack("<bbA", 0x00,0x05, "hello"), ctiot.CON_REL, 0)
     --发送数据，并要求服务器应答，接收到应答后立刻释放RRC，加快进入休眠的速度，序号为255，序号最大255
-    --ctiot.write(pack.pack("<BBA", 0x00,0x05, "hello"), ctiot.CON_REL, 255)
+    --ctiot.write(pack.pack("<bbA", 0x00,0x05, "hello"), ctiot.CON_REL, 255)
+    local result, tx_error, error_code, param = sys.waitUntilExt("CTIOT_TX", 20000)
+    if result then
+        if not tx_error then
+            log.info(TAG, "tx ok", param)
+        else
+            log.info(TAG, "tx fail", error_code, param)
+        end
+    else
+        log.info(TAG, "tx no work")
+    end
+
 end
 
 local function task()
     local inSleep = false
+    local isConnected = false
     --设置自定义EP，如果不设置，则使用IMEI
     local ep="qweasdzxcrtyfgh"
     if ctiot.ep() ~= ep then
@@ -98,24 +100,44 @@ local function task()
     end
     -- 非普通上电/复位上电,那就是唤醒上电咯
     if pm.lastReson() ~= 0 then
-        --todo
-        send_test()
-        sys.wait(20000)
+        isConnected = true
     else
         --启动连接
         pm.request(pm.IDLE)
         ctiot.connect()
-    end
+        local result, reg_error, error_code, param
+        while true do
+            result, reg_error, error_code, param = sys.waitUntilExt("CTIOT_REG", 30000)
+            if not result and reg_error==nil then
+                log.info(TAG, "reg wait timeout")
+                break
+            end
+            log.info(TAG, result, reg_error, error_code, param)
+            if not reg_error and param > 0 then
+                log.info(TAG, "reg ok")
+                isConnected = true
+                break
+            end
+            if reg_error then
+                log.info(TAG, "reg fail")
+                break
+            end
+        end
 
-    -- 3分钟后唤醒,发个测试数据
+    end
+    if isConnected then
+        send_test()
+    end
+    -- 30秒后唤醒,发个测试数据
     if not inSleep then
-        pm.dtimerStart(0, 180000)
+        pm.dtimerStart(0, 30000)
         inSleep = true
     end
     -- 我要睡了!!! 事实上还会等几秒, 这时候服务器还能下发数据
     pm.request(pm.DEEP)
     -- 退出CTIOT
     -- ctiot.dereg()
+    -- result, dereg_error, error_code, param = sys.waitUntilExt("CTIOT_DEREG", 30000)
 end
 ctiot.init()
 sys.taskInit(task)

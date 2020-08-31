@@ -15,6 +15,7 @@ enum
 	CTIOT_EVENT_SUSPEND,
 	CTIOT_EVENT_FOTA,
 	CTIOT_EVENT_AIR,
+	CTIOT_EVENT_DBG,
 
 	CTIOT_REG_OK = 0,
 	CTIOT_REG_TIMEOUT,
@@ -79,5 +80,5 @@ extern uint16_t luat_ctiot_reg(void);
 extern uint16_t luat_ctiot_dereg(void);
 extern uint16_t luat_ctiot_update_reg(uint16_t*msgId,bool withObjects);
 extern uint16_t luat_ctiot_send(const uint8_t* data,uint32_t datalen, uint8_t sendMode, uint8_t seqNum);
-
+extern uint16_t luat_ctiot_check_ready(void);
 #endif

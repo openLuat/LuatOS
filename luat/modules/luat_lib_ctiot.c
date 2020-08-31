@@ -1,8 +1,8 @@
 /*
 @module  ctiot
-@summary coap数据处理
+@summary 中国电信CTIOT集成
 @version 1.0
-@date    2020.06.30
+@date    2020.08.30
 */
 #include "luat_base.h"
 #include "luat_timer.h"

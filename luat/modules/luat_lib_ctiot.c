@@ -185,10 +185,9 @@ void luat_ctiot_callback(uint8_t type, uint8_t code, void *buf, uint32_t len)
 
 }
 /**
- * @brief 初始化ctiot，在复位开机后使用一次
- * 
- * @param L 
- * @return int 
+ * 初始化ctiot，在复位开机后使用一次
+ * @api ctiot.init()
+ * @return nil 无返回值
  */
 static int l_ctiot_init(lua_State *L)
 {
@@ -197,10 +196,14 @@ static int l_ctiot_init(lua_State *L)
 }
 
 /**
- * @brief 设置和读取ctiot相关参数，有参数输入则设置，无论是否有参数输入，均输出当前参数
- * 
- * @param L 
- * @return int 
+ * 设置和读取ctiot相关参数，有参数输入则设置，无论是否有参数输入，均输出当前参数
+ * @api ctiot.param(ip, port, lifetime)
+ * @string 服务器ip
+ * @int 服务器端口
+ * @int 生命周期,单位秒
+ * @return string 服务器ip
+ * @return int 服务器端口
+ * @return int 生命周期,单位秒
  */
 static int l_ctiot_param(lua_State *L)
 {
@@ -240,10 +243,10 @@ static int l_ctiot_param(lua_State *L)
 }
 
 /**
- * @brief 设置和读取自定义EP
- *
- * @param L
- * @return int
+ * 设置和读取自定义EP
+ * @api ctiot.ep(val)
+ * @string 自定义EP的值,默认是imei,读取的话不要填这个参数
+ * @return string 当前EP值
  */
 static int l_ctiot_ep(lua_State *L)
 {
@@ -268,22 +271,20 @@ static int l_ctiot_ep(lua_State *L)
 	return 1;
 }
 
-/**
- * @brief 设置和读取ctiot相关模式，有模式输入则设置，无论是否有模式输入，均输出当前模式
- * 
- * @param L 
- * @return int 
- */
+// /**
+//  * 设置和读取ctiot相关模式，有模式输入则设置，无论是否有模式输入，均输出当前模式
+//  * @api ctiot.mode()
+//  * @return nil 当前无返回值
+//  */
 static int l_ctiot_mode(lua_State *L)
 {
 	return 0;
 }
 
 /**
- * @brief 连接CTIOT，必须在设置完参数和模式后再使用
- * 
- * @param L 
- * @return int 
+ * 连接CTIOT，必须在设置完参数和模式后再使用
+ * @api ctiot.connect()
+ * @return boolean 成功返回true,否则返回false
  */
 static int l_ctiot_connect(lua_State *L)
 {
@@ -299,10 +300,9 @@ static int l_ctiot_connect(lua_State *L)
 }
 
 /**
- * @brief 断开ctiot
- * 
- * @param L 
- * @return int 
+ * 断开ctiot
+ * @api ctiot.disconnect()
+ * @return nil 无返回值
  */
 static int l_ctiot_disconnect(lua_State *L)
 {
@@ -311,10 +311,12 @@ static int l_ctiot_disconnect(lua_State *L)
 }
 
 /**
- * @brief 发送数据给ctiot
- *
- * @param L
- * @return int
+ * 发送数据给ctiot
+ * @api ctiot.write(data, mode, seq)
+ * @string 需要发送的数据
+ * @int 模式, ctiot.CON/NON/NON_REL/CON_REL
+ * @int 序号
+ * @return boolean 成功返回true,否则返回false
  */
 static int l_ctiot_write(lua_State *L)
 {
@@ -357,29 +359,32 @@ static int l_ctiot_write(lua_State *L)
 	return 2;
 }
 
-/**
- * @brief 读取已经接收到的数据
- * 
- * @param L 
- * @return int 
- */
+// /**
+//  * 读取已经接收到的数据
+//  * @api ctiot.read()
+//  * @return nil 暂无返回值
+//  */
 static int l_ctiot_read(lua_State *L)
 {
 	return 0;
 }
 
+/**
+ * 是否已经就绪
+ * @api ctiot.ready()
+ * @return boolean 已经就绪返回true,否则返回false
+ */
 static int l_ctiot_ready(lua_State *L)
 {
 	uint16_t result = luat_ctiot_check_ready();
 	lua_pushinteger(L, result);
 	return 1;
 }
-/**
- * @brief 发送更新注册信息给ctiot
- * 
- * @param L 
- * @return int 
- */
+// /**
+//  * 发送更新注册信息给ctiot
+//  * @api ctio.update()
+//  * @return nil 暂无返回值
+//  */
 static int l_ctiot_update(lua_State *L)
 {
 	return 0;

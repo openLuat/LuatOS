@@ -368,6 +368,12 @@ static int l_ctiot_read(lua_State *L)
 	return 0;
 }
 
+static int l_ctiot_ready(lua_State *L)
+{
+	uint16_t result = luat_ctiot_check_ready();
+	lua_pushinteger(L, result);
+	return 1;
+}
 /**
  * @brief 发送更新注册信息给ctiot
  * 
@@ -388,6 +394,7 @@ static const rotable_Reg reg_ctiot[] =
     { "init", l_ctiot_init, 0},
     { "param", l_ctiot_param, 0},
 	{ "ep", l_ctiot_ep, 0},
+	{ "isReady", l_ctiot_ready, 0},
 //	{ "mode", l_ctiot_mode, 0},
 	{ "connect", l_ctiot_connect, 0},
 	{ "disconnect", l_ctiot_disconnect, 0},

@@ -18,7 +18,7 @@ int luat_pm_dtimer_stop(int id);
 
 void luat_pm_cb(int event, int arg, void* args);
 
-int luat_pm_last_state(void);
+int luat_pm_last_state(int *lastState, int *rtcOrPad);
 
 int luat_pm_force(int mode);
 

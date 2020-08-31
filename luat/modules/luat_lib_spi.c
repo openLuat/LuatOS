@@ -12,6 +12,20 @@
 #include "luat_malloc.h"
 #include "luat_spi.h"
 
+/**
+设置并启用SPI
+@api spi.setup(id, cs, CPHA, CPOL, dataw, bandrate, bitdict, ms, mode)
+@int SPI号,例如0
+@int CS 片选脚,暂不可用,请填nil
+@int CPHA 默认0,可选0/1
+@int CPOL 默认0,可选0/1
+@int 数据宽度,默认8bit
+@int 波特率,默认2M=2000000
+@int 大小端, 默认spi.MSB, 可选spi.LSB
+@int 主从设置, 默认主1, 可选从机0. 通常只支持主机模式
+@int 工作模式, 全双工1, 半双工0, 默认全双工
+@return int 成功返回0,否则返回其他值
+*/
 static int l_spi_setup(lua_State *L) {
     luat_spi_t spi_config = {0};
 
@@ -29,11 +43,26 @@ static int l_spi_setup(lua_State *L) {
 
     return 1;
 }
+
+/**
+关闭指定的SPI
+@api spi.close(id)
+@int SPI号,例如0
+@return int 成功返回0,否则返回其他值
+*/
 static int l_spi_close(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
     lua_pushinteger(L, luat_spi_close(id));
     return 1;
 }
+
+/**
+传输SPI数据
+@api spi.transfer(id, send_data)
+@int SPI号,例如0
+@string 待发送的数据
+@return string 读取成功返回字符串,否则返回nil
+*/
 static int l_spi_transfer(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
     size_t len;
@@ -51,6 +80,14 @@ static int l_spi_transfer(lua_State *L) {
     luat_heap_free(recv_buff);
     return 0;
 }
+
+/**
+接收指定长度的SPI数据
+@api spi.recv(id, size)
+@int SPI号,例如0
+@int 数据长度
+@return string 读取成功返回字符串,否则返回nil
+*/
 static int l_spi_recv(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
     int len = luaL_checkinteger(L, 2);
@@ -66,6 +103,14 @@ static int l_spi_recv(lua_State *L) {
     luat_heap_free(recv_buff);
     return 0;
 }
+
+/**
+发送SPI数据
+@api spi.send(id, data)
+@int SPI号,例如0
+@string 待发送的数据
+@return int 发送结果
+*/
 static int l_spi_send(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
     size_t len;

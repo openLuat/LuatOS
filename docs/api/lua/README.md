@@ -24,6 +24,7 @@ title: LuaAPI模块
 [rtos](luat_lib_rtos.md) | RTOS底层操作库
 [sensor](luat_lib_sensor.md) | 传感器操作库
 [socket](luat_lib_socket.md) | socket操作库
+[spi](luat_lib_spi.md) | spi操作库
 [timer](luat_lib_timer.md) | 操作底层定时器
 [uart](luat_lib_uart.md) | 串口操作库
 [wlan](luat_lib_wlan.md) | wifi操作库

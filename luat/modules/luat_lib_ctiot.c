@@ -317,6 +317,7 @@ static int l_ctiot_disconnect(lua_State *L)
  * @int 模式, ctiot.CON/NON/NON_REL/CON_REL
  * @int 序号
  * @return boolean 成功返回true,否则返回false
+ * @return string 成功为nil,失败返回错误描述
  */
 static int l_ctiot_write(lua_State *L)
 {
@@ -372,7 +373,7 @@ static int l_ctiot_read(lua_State *L)
 /**
  * 是否已经就绪
  * @api ctiot.ready()
- * @return boolean 已经就绪返回true,否则返回false
+ * @return int 已经就绪返回0,否则返回错误代码
  */
 static int l_ctiot_ready(lua_State *L)
 {

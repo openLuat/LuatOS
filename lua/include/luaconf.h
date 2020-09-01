@@ -603,7 +603,7 @@
 // #endif
 // int l_sprintf(char *buf, size_t size, const char *fmt, ...);
 #include "printf.h"
-#define snprintf_ l_sprintf
+#define l_sprintf snprintf_
 
 /*
 @@ lua_strx2number converts an hexadecimal numeric string to a number.

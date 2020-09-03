@@ -131,7 +131,9 @@ def _pkg():
         shutil.rmtree("tmp")
 
     _tag = time.strftime("%Y%m%d%H%M%S", time.localtime())
-    _tag = _tag + "-" + get_git_revision_short_hash().decode()
+    _git_sha1 = get_git_revision_short_hash()
+    if _git_sha1 and _git_sha1 != "" :
+        _tag = _tag + "-" + _git_sha1.decode()
 
     os.mkdir("tmp")
     os.mkdir("tmp/ec")

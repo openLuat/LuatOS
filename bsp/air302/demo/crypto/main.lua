@@ -25,8 +25,8 @@ sys.taskInit(function()
     end
 end)
 
-sys.taskInit(function()
-    sys.wait(3000) -- 开机后展示crypto功能
+sys.timerLoopStart(function()
+    --sys.wait(3000) -- 开机后展示crypto功能
 
     -- MD5,输出结果已经hex编码
     log.info("md5", crypto.md5("abc"))
@@ -47,7 +47,8 @@ sys.taskInit(function()
     local data2_decrypt = crypto.cipher_decrypt("AES-128-CBC", "PKCS7", data2_encrypt, "1234567890123456", "1234567890666666")
     log.info("AES", data_decrypt)
     log.info("AES", data2_decrypt)
-end)
+    log.info("mem", rtos.meminfo("sys"))
+end, 2000)
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

@@ -4,7 +4,6 @@
 
 #include <stdlib.h>
 #include <string.h>//add for memset
-#include "mem_map.h"
 #include "bget.h"
 #include "luat_malloc.h"
 

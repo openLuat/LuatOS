@@ -149,11 +149,11 @@ local function task()
     end
     -- 30秒后唤醒,发个测试数据
     if not inSleep then
-        pm.dtimerStart(0, 30000)
+        pm.dtimerStart(0, 60000)
         inSleep = true
     end
     -- 我要睡了!!! 事实上还会等几秒, 这时候服务器还能下发数据
-    pm.request(pm.DEEP)
+    pm.request(pm.HIB)
     -- 退出CTIOT
     -- ctiot.dereg()
     -- result, dereg_error, error_code, param = sys.waitUntilExt("CTIOT_DEREG", 30000)

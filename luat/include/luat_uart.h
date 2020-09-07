@@ -13,7 +13,7 @@
 #define LUAT_BIT_ORDER_LSB                   0
 #define LUAT_BIT_ORDER_MSB                   1
 
-typedef struct luat_uart_t {
+typedef struct luat_uart {
     int id;      //串口编号
     int baud_rate;  //波特率
 

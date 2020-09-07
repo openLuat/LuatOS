@@ -15,6 +15,11 @@ import configparser
 config = configparser.ConfigParser()
 config['air302'] = {
     # ============================================================
+    #
+    #          配置信息是读取local.ini为主的,以下的只是默认配置.
+    #          请修改local.ini, 一般不需要修改本脚本里的配置信息.
+    #
+    # ============================================================
     # 不要修改PLAT_ROOT!不要修改PLAT_ROOT!不要修改PLAT_ROOT!
     # PLAT_ROOT仅供SDK源码开发者使用!!!!
     # 不要把PLAT_ROOT指向任何存在的路径!!!!!
@@ -28,7 +33,7 @@ config['air302'] = {
     "TOOLS_PATH": ".\\tools\\",
     "MAIN_LUA_DEBUG" : "false",
     "LUA_DEBUG" : "false",
-    "COM_PORT" : "COM56"
+    "COM_PORT" : "COM56" # 请修改local.ini文件
 }
 if os.path.exists("local.ini") :
     config.read("local.ini")
@@ -153,6 +158,8 @@ def _pkg():
     
     #拷贝自身
     shutil.copy(sys.argv[0], "tmp/air302.py")
+    shutil.copy("air302.bat", "tmp/air302.bat")
+
     # 写入默认配置文件
     with open("tmp/local.ini", "w") as f:
         f.write('''

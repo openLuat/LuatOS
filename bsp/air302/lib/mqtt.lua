@@ -208,6 +208,7 @@ function mqtt.client(clientId, keepAlive, username, password, cleanSession, will
         return packetId
     end
     o.lastOTime = 0
+    o.pkgs = {}
     
     setmetatable(o, mqttc)
     
@@ -242,10 +243,16 @@ function mqttc:read(timeout, msg, msgNoResume)
     end
 
     local topic = "MQTTC_PKG_" .. tostring(self.io:id())
-    local result, data = sys.waitUntil(topic, timeout)
-    --log.info("mqtt.read", result, data)
+    local result, data, param = sys.waitUntil({topic, msg}, timeout)
+    --log.debug("mqtt.read", result, data, param)
     if result then -- 收到topic消息
-        return true, data
+        local pkg = table.remove(self.pkgs, 1)
+        if pkg ~= nil then
+            --log.debug("mqtt", "get packet", pkg.id, pkg.packetId)
+            return true, pkg
+        end
+        --log.debug("mqtt", "get sys.msg", msg, data)
+        return false, msg, data
     else
         if self.io:closed() == 1 then
             return false
@@ -268,7 +275,8 @@ local function update_resp(_self, data)
     if packet then
         log.info("mqttc", "msg unpack ok", packet.id)
         _self.inbuf = string.sub(_self.inbuf, nextpos)
-        sys.publish("MQTTC_PKG_" .. tostring(_self.io:id()), packet)
+        table.insert(_self.pkgs, packet)
+        sys.publish("MQTTC_PKG_" .. tostring(_self.io:id()))
         if #_self.inbuf > 0 then
             update_resp(_self, "")
         end

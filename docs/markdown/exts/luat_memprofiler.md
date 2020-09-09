@@ -24,7 +24,7 @@
 
 ```c
 luat_memp_t* luat_memp_check(lua_State *L);
-luat_memp_t* luat_memp_dump(lua_State *L);
+int luat_memp_dump(lua_State *L);
 ```
 
 ## 实现原型(Lua API)

@@ -9,11 +9,11 @@
  */
 
 #include <rtthread.h>
-#include "spi_flash.h"
+//#include "spi_flash.h"
 #include "spi_flash_sfud.h"
 #include "drv_spi.h"
 
-#if defined(BSP_USING_SPI_FLASH)
+//#if defined(BSP_USING_SPI_FLASH)
 static int rt_hw_spi_flash_init(void)
 {
     __HAL_RCC_GPIOB_CLK_ENABLE();
@@ -27,5 +27,5 @@ static int rt_hw_spi_flash_init(void)
     return RT_EOK;
 }
 INIT_COMPONENT_EXPORT(rt_hw_spi_flash_init);
-#endif
+//#endif
 

@@ -67,7 +67,6 @@
 #define FINSH_CMD_SIZE 80
 #define FINSH_USING_MSH
 #define FINSH_USING_MSH_DEFAULT
-#define FINSH_USING_MSH_ONLY
 #define FINSH_ARG_MAX 10
 
 /* Device virtual file system */
@@ -99,6 +98,7 @@
 #define RT_SERIAL_USING_DMA
 #define RT_SERIAL_RB_BUFSZ 64
 #define RT_USING_PIN
+#define RT_USING_MTD_NOR
 #define RT_USING_SDIO
 #define RT_SDIO_STACK_SIZE 512
 #define RT_SDIO_THREAD_PRIORITY 15
@@ -197,11 +197,26 @@
 
 /* system packages */
 
+#define PKG_USING_FAL
+#define FAL_DEBUG_CONFIG
+#define FAL_DEBUG 1
+#define FAL_PART_HAS_TABLE_CFG
+#define FAL_USING_SFUD_PORT
+#define FAL_USING_NOR_FLASH_DEV_NAME "W25Q16JV"
+#define PKG_USING_FAL_V00500
+#define PKG_FAL_VER_NUM 0x00500
+#define PKG_USING_LITTLEFS
+#define PKG_USING_LITTLEFS_V205
+#define LFS_READ_SIZE 256
+#define LFS_PROG_SIZE 256
+#define LFS_BLOCK_SIZE 4096
+#define LFS_CACHE_SIZE 256
+#define LFS_BLOCK_CYCLES 100
+#define LFS_LOOKAHEAD_MAX 128
 
 /* peripheral libraries and drivers */
 
 #define SDIO_MAX_FREQ 1000000
-#define BSP_USING_SPI1
 
 /* miscellaneous packages */
 
@@ -219,7 +234,6 @@
 
 #define BSP_USING_USB_TO_USART
 #define BSP_USING_COM3
-#define BSP_USING_SPI_FLASH
 #define BSP_USING_SDCARD
 
 /* On-chip Peripheral Drivers */
@@ -228,7 +242,9 @@
 #define BSP_USING_UART
 #define BSP_USING_UART1
 #define BSP_USING_UART3
+#define BSP_USING_ON_CHIP_FLASH
 #define BSP_USING_SPI
+#define BSP_USING_SPI1
 #define BSP_USING_SDIO
 #define BSP_USING_UDID
 

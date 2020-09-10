@@ -25,6 +25,7 @@ typedef struct luat_lib_gpio_cb
 
 // 保存中断回调的数组
 static luat_lib_gpio_cb_t irq_cbs[GPIO_IRQ_COUNT];
+static uint8_t default_gpio_pull = Luat_GPIO_DEFAULT;
 
 int l_gpio_handler(lua_State *L, void* ptr) {
     // 给 sys.publish方法发送数据
@@ -81,7 +82,7 @@ static int l_gpio_setup(lua_State *L) {
     else {
         conf.mode = Luat_GPIO_INPUT;
     }
-    conf.pull = luaL_optinteger(L, 3, Luat_GPIO_DEFAULT);
+    conf.pull = luaL_optinteger(L, 3, default_gpio_pull);
     int re = luat_gpio_setup(&conf);
     if (re == 0) {
         if (conf.mode == Luat_GPIO_IRQ) {
@@ -185,6 +186,27 @@ static int l_gpio_close(lua_State *L) {
     return 0;
 }
 
+/*
+设置GPIO脚的默认上拉/下拉设置, 默认是平台自定义(一般为开漏).
+@api gpio.setDefaultPull(val)
+@int val 0平台自定义,1上拉, 2下拉
+@return boolean 传值正确返回true,否则返回false
+@usage
+-- 设置gpio.setup的pull默认值为上拉
+gpio.setDefaultPull(1)
+*/
+static int l_gpio_set_default_pull(lua_State *L) {
+    int value = luaL_checkinteger(L, 1);
+    if (value >= 0 & value <= 2) {
+        default_gpio_pull = value;
+        lua_pushboolean(L, 1);
+    }
+    else {
+        lua_pushboolean(L, 0);
+    }
+    return 1;
+}
+
 #include "rotable.h"
 static const rotable_Reg reg_gpio[] =
 {
@@ -192,6 +214,8 @@ static const rotable_Reg reg_gpio[] =
     { "set" ,           l_gpio_set,   0},
     { "get" ,           l_gpio_get,   0 },
     { "close" ,         l_gpio_close, 0 },
+    { "setDefaultPull", l_gpio_set_default_pull, 0},
+
     { "LOW",            NULL,         Luat_GPIO_LOW},
     { "HIGH",           NULL,         Luat_GPIO_HIGH},
 

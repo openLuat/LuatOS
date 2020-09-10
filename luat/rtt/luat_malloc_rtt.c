@@ -29,3 +29,7 @@ static int rtt_mem_init() {
     return 0;
 }
 INIT_COMPONENT_EXPORT(rtt_mem_init);
+
+void luat_meminfo_sys(size_t* total, size_t* used, size_t* max_used) {
+    rt_memory_info(total, used, max_used);
+}

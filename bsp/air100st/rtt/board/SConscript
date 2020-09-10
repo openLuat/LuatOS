@@ -10,7 +10,6 @@ cwd = GetCurrentDir()
 src = Split('''
 board.c
 CubeMX_Config/Src/stm32f4xx_hal_msp.c
-ports/fal_flash_sfud_port.c
 ports/spi_flash_init.c
 ''')
 

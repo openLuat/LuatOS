@@ -76,6 +76,28 @@ static int l_pm_dtimer_stop(lua_State *L) {
     return 0;
 }
 
+/**
+检查底层定时器是不是在运行
+@api pm.dtimerCheck(id)
+@int 定时器id
+@return boolean 处理结果,true还在运行，false不在运行
+@usage
+-- 检查底层定时器是不是在运行
+pm.dtimerCheck(0) -- 检查id=0的底层定时器
+ */
+static int l_pm_dtimer_check(lua_State *L) {
+    int dtimer_id = luaL_checkinteger(L, 1);
+    if (luat_pm_dtimer_check(dtimer_id))
+    {
+    	lua_pushboolean(L, 1);
+    }
+    else
+    {
+    	lua_pushboolean(L, 0);
+    }
+    return 1;
+}
+
 static int l_pm_on(lua_State *L) {
     if (lua_isfunction(L, 1)) {
         if (lua_event_cb != 0) {
@@ -174,6 +196,7 @@ static const rotable_Reg reg_pm[] =
     // { "release" ,       l_pm_release,  0},
     { "dtimerStart",    l_pm_dtimer_start,0},
     { "dtimerStop" ,    l_pm_dtimer_stop, 0},
+	{ "dtimerCheck" ,    l_pm_dtimer_check, 0},
     //{ "on",             l_pm_on,   0},
     { "force",          l_pm_force, 0},
     { "check",          l_pm_check, 0},

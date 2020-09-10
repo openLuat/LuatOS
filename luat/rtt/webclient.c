@@ -27,10 +27,9 @@
 #if defined(RT_USING_SAL)
 #include <netdb.h>
 #include <sys/socket.h>
-#else
-#include <lwip/netdb.h>
-#include <lwip/sockets.h>
-#endif /* RT_USING_SAL */
+// #else
+// #include <lwip/netdb.h>
+// #include <lwip/sockets.h>
 
 #define DBG_ENABLE
 #define DBG_SECTION_NAME               "web"
@@ -1699,3 +1698,7 @@ __exit:
 
     return totle_length;
 }
+
+#endif /* RT_USING_SAL */
+
+

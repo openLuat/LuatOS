@@ -2,6 +2,9 @@
 #include "luat_base.h"
 #include "luat_fs.h"
 
+#define LUAT_LOG_TAG "luat.log"
+#include "luat_log.h"
+
 int luat_fs_init(void) {
     return 0;
 }

@@ -91,6 +91,11 @@ local function task()
     local isConnected = false
     local result, error, error_code, param
     if pm.lastReson() ~= 0 then
+        --如果不是自己的定时器唤醒，继续睡
+        if pm.dtimerCheck(0) then
+            pm.request(pm.HIB)
+            return
+        end
         --唤醒的不需要处理
         pm.request(pm.IDLE)
         log.info(TAG, "after", ctiot.ep(), ctiot.param())

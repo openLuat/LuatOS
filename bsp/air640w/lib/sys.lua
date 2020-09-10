@@ -259,8 +259,14 @@ local messageQueue = {}
 -- @param callback 消息回调处理
 -- @usage subscribe("NET_STATUS_IND", callback)
 function sys.subscribe(id, callback)
-    if not id or type(id) == "boolean" or (type(callback) ~= "function" and type(callback) ~= "thread") then
-        log.warn("warning: sys.subscribe invalid parameter", id, callback)
+    --if not id or type(id) == "boolean" or (type(callback) ~= "function" and type(callback) ~= "thread") then
+    --    log.warn("warning: sys.subscribe invalid parameter", id, callback)
+    --    return
+    --end
+    --log.debug("sys", "subscribe", id, callback)
+    if type(id) == "table" then
+        -- 支持多topic订阅
+        for _, v in pairs(id) do sys.subscribe(v, callback) end
         return
     end
     if not subscribers[id] then subscribers[id] = {} end
@@ -271,8 +277,14 @@ end
 -- @param callback 消息回调处理
 -- @usage unsubscribe("NET_STATUS_IND", callback)
 function sys.unsubscribe(id, callback)
-    if not id or type(id) == "boolean" or (type(callback) ~= "function" and type(callback) ~= "thread") then
-        log.warn("warning: sys.unsubscribe invalid parameter", id, callback)
+    --if not id or type(id) == "boolean" or (type(callback) ~= "function" and type(callback) ~= "thread") then
+    --    log.warn("warning: sys.unsubscribe invalid parameter", id, callback)
+    --    return
+    --end
+    --log.debug("sys", "unsubscribe", id, callback)
+    if type(id) == "table" then
+        -- 支持多topic订阅
+        for _, v in pairs(id) do sys.unsubscribe(v, callback) end
         return
     end
     if subscribers[id] then subscribers[id][callback] = nil end

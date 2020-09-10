@@ -6,6 +6,7 @@
 #include "luat_malloc.h"
 
 luat_vdev_t vdev;
+int luat_timer_init(void);
 
 int luat_vdev_init() {
     printf("Go\r\n");
@@ -22,6 +23,12 @@ int luat_vdev_init() {
 
     // 初始化Lua VM内存
     luat_heap_init();
+
+    // 初始化msgbus
+    luat_msgbus_init();
+
+    // 初始化定时器
+    luat_timer_init();
 
     return 0;
 }

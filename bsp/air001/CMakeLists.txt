@@ -46,4 +46,7 @@ target_link_libraries(air001 printf)
 target_link_libraries(air001 cjson)
 target_link_libraries(air001 minmea)
 target_link_libraries(air001 bget)
+
+target_link_libraries(air001 pthread)
+
 #set_target_properties(air001 PROPERTIES COMPILE_FLAGS "-m32" LINK_FLAGS "-m32")

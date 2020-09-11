@@ -1,0 +1,22 @@
+# bash completion for dtools
+#
+# Copyright (C) 2018 RDA Technologies Limited and/or its affiliates("RDA").
+# All rights reserved.
+#
+# This software is supplied "AS IS" without any warranties.
+# RDA assumes no responsibility or liability for the use of the software,
+# conveys no license or title under any patent, copyright, or mask work
+# right to the product. RDA reserves the right to make changes in the
+# software without notification.  RDA also make no representation or
+# warranty that such application will be suitable for the specified use
+# without further testing or modification.
+
+__dtools_complete() {
+    if [[ "1" -eq "$COMP_CWORD" ]]; then
+        local cmdlist=$($1 cmdlist)
+        COMPREPLY=($(compgen -W "$cmdlist" -- "${COMP_WORDS[COMP_CWORD]}"))
+        return
+    fi
+}
+complete -o nospace -o default -F __dtools_complete dtools
+complete -o nospace -o default -F __dtools_complete dtools.exe

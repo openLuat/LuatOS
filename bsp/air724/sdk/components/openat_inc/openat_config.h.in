@@ -1,0 +1,11 @@
+#ifndef _OPENAT_CONFIG_H_
+#define _OPENAT_CONFIG_H_
+
+
+
+
+#cmakedefine CONFIG_AM_SPEEX_SUPPORT @CONFIG_AM_SPEEX_SUPPORT@
+
+
+
+#endif

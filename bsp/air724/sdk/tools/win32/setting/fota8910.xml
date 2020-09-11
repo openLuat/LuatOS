@@ -1,0 +1,77 @@
+<!--
+Copyright (C) 2018 RDA Technologies Limited and/or its affiliates("RDA").
+All rights reserved.
+
+This software is supplied "AS IS" without any warranties.
+RDA assumes no responsibility or liability for the use of the software,
+conveys no license or title under any patent, copyright, or mask work
+right to the product. RDA reserves the right to make changes in the
+software without notification.  RDA also make no representation or
+warranty that such application will be suitable for the specified use
+without further testing or modification.
+-->
+
+<!--
+Most likely the configuration cis suitable. And it can be changed if needed.
+-->
+
+<pacdiff>
+    <!-- The default AP application ID is "AP", and it runs on FLASH. -->
+    <pacflash id="AP" flash="SFL1" blocksize="0x10000" bundleblock="0"/>
+    <!-- The default modem image ID is "PS". It is a SFFS image. -->
+    <pacsffs id="PS" ebsize="0x10000" pbsize="0x200" mount="/modem"/>
+    <!--
+        NV will be updated inside modem image. The method must be "ignore".
+        The followings describe the rules to clear running NV. Examples:
+
+        * clear running NV on any listed NV changes:
+                <cleanrunning onchange="any"/>
+        * never clear running NV:
+                <cleanrunning onchange="never"/>
+        * clear running NV when either 0x123 or 0x456 is changed:
+                <cleanrunning onchange="0x123"/>
+                <cleanrunning onchange="0x456"/>
+    -->
+    <pacnv id="NV">
+        <nvitem id="0x259" fixnv="/modem/nvm/static_nv.bin" runningnv="/modemnvm/static_nv.bin" method="ignore">
+            <cleanrunning onchange="any"/>
+        </nvitem>
+        <nvitem id="0x25a" fixnv="/modem/nvm/phy_nv.bin" runningnv="/modemnvm/phy_nv.bin" method="ignore">
+            <cleanrunning onchange="any"/>
+        </nvitem>
+        <nvitem id="0x25b" fixnv="/modem/nvm/dynamic_nv.bin" runningnv="/modemnvm/dynamic_nv.bin" method="ignore">
+            <cleanrunning onchange="any"/>
+        </nvitem>
+        <nvitem id="0x25c" fixnv="/modem/nvm/static_nv_2.bin" runningnv="/modemnvm/static_nv_2.bin" method="ignore">
+            <cleanrunning onchange="any"/>
+        </nvitem>
+        <nvitem id="0x25d" fixnv="/modem/nvm/phy_nv_2.bin" runningnv="/modemnvm/phy_nv_2.bin" method="ignore">
+            <cleanrunning onchange="any"/>
+        </nvitem>
+        <nvitem id="0x25e" fixnv="/modem/nvm/dynamic_nv_2.bin" runningnv="/modemnvm/dynamic_nv_2.bin" method="ignore">
+            <cleanrunning onchange="any"/>
+        </nvitem>
+        <nvitem id="0x26c" fixnv="/modem/nvm/rf_nv.bin" runningnv="/modemnvm/rf_nv.bin" method="ignore">
+            <cleanrunning onchange="any"/>
+        </nvitem>
+        <nvitem id="0x277" fixnv="/modem/nvm/cfw_nv.bin" runningnv="/modemnvm/cfw_nv.bin" method="ignore">
+            <cleanrunning onchange="any"/>
+        </nvitem>
+        <nvitem id="0x278" fixnv="/modem/nvm/audio_calib.bin" runningnv="/modemnvm/audio_calib.bin" method="ignore">
+            <cleanrunning onchange="any"/>
+        </nvitem>
+        <nvitem id="0x279" fixnv="/modem/nvm/phy_nv_catm.bin" runningnv="/modemnvm/phy_nv_catm.bin" method="ignore">
+            <cleanrunning onchange="any"/>
+        </nvitem>
+        <nvitem id="0x27a" fixnv="/modem/nvm/audio_codec_nv.bin" runningnv="/modemnvm/audio_codec_nv.bin" method="ignore">
+            <cleanrunning onchange="any"/>
+        </nvitem>
+    </pacnv>
+    <!--
+        Create patch for pre-set files. Method can be ignore/diff/replace.
+        Inside, individual files can be configured. Such as:
+            <file name="some_file_name" method="ignore"/>
+     -->
+    <paccpio id="PACKAGE_FILE" method="diff">
+    </paccpio>
+</pacdiff>

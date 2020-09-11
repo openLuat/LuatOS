@@ -314,8 +314,8 @@ if(CONFIG_APPIMG_LOAD_FLASH)
     endif(CONFIG_BUILD_LUA)    
     add_subdirectory_if_exist(app/${BUILD_TARGET})
     target_link_libraries(${target} PRIVATE api)
-	target_link_libraries(${target} PRIVATE ../../../lua)
-	target_link_libraries(${target} PRIVATE ../../../luat)
+	#target_link_libraries(${target} PRIVATE ../../../lua)
+	#target_link_libraries(${target} PRIVATE ../../../luat)
     #/*+\ADD\chenzhimin\2020.07.9\*/
     if( CONFIG_BUILD_APP_SSL OR 
     CONFIG_BUILD_APP_FTP OR

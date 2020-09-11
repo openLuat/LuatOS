@@ -234,6 +234,7 @@
 
 #define BSP_USING_USB_TO_USART
 #define BSP_USING_COM3
+#define BSP_USING_SPI_FLASH
 #define BSP_USING_SDCARD
 
 /* On-chip Peripheral Drivers */

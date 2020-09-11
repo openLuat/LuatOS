@@ -13,10 +13,10 @@
 #include "spi_flash_sfud.h"
 #include "drv_spi.h"
 
-//#if defined(BSP_USING_SPI_FLASH)
+#if defined(BSP_USING_SPI_FLASH)
 static int rt_hw_spi_flash_init(void)
 {
-    __HAL_RCC_GPIOB_CLK_ENABLE();
+    __HAL_RCC_GPIOA_CLK_ENABLE();
     rt_hw_spi_device_attach("spi1", "spi10", GPIOA, GPIO_PIN_15);
 
     if (RT_NULL == rt_sfud_flash_probe("W25Q16JV", "spi10"))
@@ -27,5 +27,5 @@ static int rt_hw_spi_flash_init(void)
     return RT_EOK;
 }
 INIT_COMPONENT_EXPORT(rt_hw_spi_flash_init);
-//#endif
+#endif
 

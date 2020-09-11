@@ -11,7 +11,6 @@ src = Split('''
 board.c
 CubeMX_Config/Src/stm32f4xx_hal_msp.c
 ports/spi_flash_init.c
-ports/fal_flash_sfud_port.c
 ''')
 
 if GetDepend(['BSP_USING_ETH']):

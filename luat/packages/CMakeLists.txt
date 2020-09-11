@@ -1,0 +1,2 @@
+add_subdirectory_if_exist(lfs)
+add_subdirectory_if_exist(heap)

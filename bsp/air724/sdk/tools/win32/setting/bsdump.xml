@@ -1,0 +1,231 @@
+<bsdump>
+   <regions name="8910">
+      <region title="bootrom" base="0x00000000" size="0x10000" skip="1"/>
+      <region title="sysram" base="0x00800000" size="0x78000" skip="0"/>
+      <region title="bbsram" base="0x40080000" size="0x20000" skip="0"/>
+      <region title="riscv" base="0x50000000" size="0xc000" skip="0"/>
+      <region title="rfreg" base="0x50030000" size="0x5100" skip="0"/>
+      <region title="sysreg" base="0x50080000" size="0x64" skip="0"/>
+      <region title="clkrst" base="0x50081000" size="0xA8" skip="0"/>
+      <region title="monitor" base="0x50083000" size="0x44" skip="0"/>
+      <region title="watchdog" base="0x50084000" size="0x20" skip="0"/>
+      <region title="idle" base="0x50090000" size="0x2a8" skip="0"/>
+      <region title="idleres" base="0x50094000" size="0x30" skip="0"/>
+      <region title="pwrctrl" base="0x500A0000" size="0xD8" skip="0"/>
+      <region title="sys_ctrl" base="0x50100000" size="0x250" skip="0"/>
+      <region title="mailbox" base="0x50104000" size="0x67C" skip="0"/>
+      <region title="timer3" base="0x50105000" size="0x100" skip="0"/>
+      <region title="analog" base="0x50109000" size="0x240" skip="0"/>
+      <region title="aon_ifc" base="0x5010a004" size="0x44" skip="0"/>
+      <region title="iomux" base="0x5010c000" size="0x178" skip="0"/>
+      <region title="pmic" base="0x50308000" size="0x1000" skip="0"/>
+      <region title="irq" base="0x08800000" size="0x200" skip="0"/>
+      <region title="irq1" base="0x08800800" size="0x4C" skip="0"/>
+      <region title="timer1" base="0x08808000" size="0x100" skip="0"/>
+      <region title="timer2" base="0x08809000" size="0x100" skip="0"/>
+      <region title="timer4" base="0x0880E000" size="0x100" skip="0"/>
+      <region title="ap_ifc" base="0x0880f004" size="0x94" skip="0"/>
+      <region title="sci1" base="0x08814000" size="0x100" skip="0"/>
+      <region title="sci2" base="0x08815000" size="0x100" skip="0"/>
+      <region title="f8" base="0x09000000" size="0x200" skip="0"/>
+      <region title="axidma" base="0x090c0000" size="0x400" skip="0"/>
+      <region title="riscvram" base="0x10040000" size="0xA000" skip="0">
+         <require addr="0x500A0034" mask="0x03" value="0x03"/>
+      </region>
+      <region title="riscvem" base="0x14110000" size="0x6000" skip="0">
+         <require addr="0x500A0034" mask="0x03" value="0x03"/>
+      </region>
+      <region title="txrx" base="0x25000000" size="0x20000" skip="0">
+         <require addr="0x500A0034" mask="0x03" value="0x03"/>
+      </region>
+      <region title="rfad" base="0x25100000" size="0x3000" skip="0"/>
+      <region title="coeff" base="0x25200000" size="0x200" skip="0"/>
+      <region title="ldtc" base="0x25300000" size="0x24000" skip="0"/>
+      <region title="otdoa" base="0x25400000" size="0x60000" skip="0"/>
+      <region title="measpwr" base="0x25500000" size="0xA0000" skip="0"/>
+      <region title="iddet" base="0x25600000" size="0xc000" skip="0"/>
+      <region title="uldft" base="0x25700000" size="0x3400" skip="0"/>
+      <region title="pusch" base="0x25800000" size="0x38000" skip="0"/>
+      <region title="ulpcdci" base="0x25900000" size="0x200" skip="0"/>
+      <region title="dlfft" base="0x25a00000" size="0x16000" skip="0"/>
+      <region title="csirs" base="0x25b00000" size="0xd000" skip="0"/>
+      <region title="ldtc1" base="0x26000000" size="0x7203A0" skip="0"/>
+      <region title="corr" base="0x26000800" size="0x1c" skip="0"/>
+      <region title="rxcap" base="0x27000000" size="0x17000" skip="0"/>
+      <region title="bbapb" base="0x40000000" size="0x20000" skip="0">
+         <require addr="0x500A002C" mask="0x03" value="0x03"/>
+      </region>
+      <region title="bcpubrom" base="0x400A0000" size="0x30000" skip="0"/>
+      <region title="zaxidma" base="0x22000000" size="0x400" skip="0">
+         <require addr="0x500A0024" mask="0x03" value="0x03"/>
+      </region>
+      <region title="zitcm" base="0x21400000" size="0x4000" skip="1"/>
+      <region title="zdtcm" base="0x21500000" size="0x4000" skip="1"/>
+   </regions>
+
+   <regions name="8955">
+      <region title="pagespy" base="0x01a0c000" size="0x110" skip="0"/>
+      <region title="xcpureg" base="0x01a2b000" size="0x500" skip="0"/>
+      <region title="bcpureg" base="0x0190a000" size="0x500" skip="0"/>
+      <region title="rfspi" base="0x01a0e000" size="0x500" skip="0"/>
+      <region title="tcu" base="0x01a0f000" size="0x500" skip="0"/>
+      <region title="sysctrl" base="0x01a00000" size="0x100" skip="0"/>
+      <region title="dma" base="0x01a08000" size="0x100" skip="0"/>
+      <region title="sysifc" base="0x01a09004" size="0xfc" skip="0"/>
+      <region title="vocahb" base="0x01970000" size="0x100" skip="0"/>
+      <region title="vocsram" base="0x01940000" size="0x28000" skip="0"/>
+      <region title="syssram" base="0x01c00000" size="0x10000" skip="0"/>
+      <region title="bbsram" base="0x01980000" size="0x8000" skip="0"/>
+      <region title="dpram" base="0x01b00000" size="0x800" skip="0"/>
+      <region title="sysrom" base="0x01e00000" size="0x5000" skip="0"/>
+      <region title="bbrom" base="0x01e80000" size="0x18000" skip="0"/>
+      <region title="flash" base="0x08000000" size="0x400000" skip="1"/>
+   </regions>
+
+   <regions name="8909">
+      <region title="sys" base="0x01a00000" size="0x34000" skip="0"/>
+      <region title="goudasram" base="0x01a38000" size="0x2e40" skip="0"/>
+      <region title="usbc" base="0x01a40000" size="0x1000" skip="0"/>
+      <region title="voc" base="0x01a80000" size="0x40000" skip="0"/>
+      <region title="bbapb" base="0x01900000" size="0x1b000" skip="0"/>
+      <region title="a53" base="0x01920000" size="0x1000" skip="0"/>
+      <region title="pulpirq" base="0x088000" size="0x10" skip="0"/>
+      <region title="pulpslp" base="0x08c000" size="0x8" skip="0"/>
+      <region title="rfram" base="0x000000" size="0x6000" skip="0"/>
+      <region title="rfdig" base="0x030000" size="0xd000" skip="0"/>
+      <region title="audifc" base="0x01980000" size="0x3000" skip="0"/>
+      <region title="syssram" base="0x01c00000" size="0x10000" skip="0"/>
+      <region title="bbsram" base="0x01d00000" size="0x20000" skip="0"/>
+      <region title="nbsram" base="0x01d80000" size="0x10000" skip="0"/>
+      <region title="dpram" base="0x01b00000" size="0x800" skip="0"/>
+      <region title="sysrom" base="0x01e00000" size="0xA000" skip="0"/>
+      <region title="bbrom" base="0x01e80000" size="0x20000" skip="0"/>
+   </regions>
+
+   <regions name="8811">
+      <region title="scs" base="0xe000e000" size="0x1000" skip="0"/>
+      <region title="uart1" base="0x41800000" size="0x8" skip="0"/>
+      <region title="uart1" base="0x4180000c" size="0x20" skip="0"/>
+      <region title="uart2" base="0x41801000" size="0x8" skip="0"/>
+      <region title="uart2" base="0x4180100c" size="0x20" skip="0"/>
+      <region title="gpio1" base="0x41802000" size="0x70" skip="0"/>
+      <region title="gpt1" base="0x41803000" size="0x44" skip="0"/>
+      <region title="spi1" base="0x41a01000" size="0x8" skip="0"/>
+      <region title="spi1" base="0x41a0100c" size="0x14" skip="0"/>
+      <region title="spi2" base="0x41a02000" size="0x8" skip="0"/>
+      <region title="spi2" base="0x41a0200c" size="0x14" skip="0"/>
+      <region title="uart3" base="0x41a04000" size="0x8" skip="0"/>
+      <region title="uart3" base="0x41a0400c" size="0x20" skip="0"/>
+      <region title="uart4" base="0x41a05000" size="0x8" skip="0"/>
+      <region title="uart4" base="0x41a0500c" size="0x20" skip="0"/>
+      <region title="uart5" base="0x41a06000" size="0x8" skip="0"/>
+      <region title="uart5" base="0x41a0600c" size="0x20" skip="0"/>
+      <region title="sdmmc2" base="0x41a07000" size="0x4" skip="0"/>
+      <region title="sdmmc2" base="0x41a07800" size="0x44" skip="0"/>
+      <region title="i2s" base="0x41a08000" size="0x20" skip="0"/>
+      <region title="gpio2" base="0x41a10000" size="0x90" skip="0"/>
+      <region title="gpt2" base="0x41a11000" size="0x54" skip="0"/>
+      <region title="keypad" base="0x41a12000" size="0x1c" skip="0"/>
+      <region title="seg_lcd" base="0x41a13000" size="0x9c" skip="0"/>
+      <region title="i2c1" base="0x41a14000" size="0x8" skip="0"/>
+      <region title="i2c1" base="0x41a1400c" size="0x8" skip="0"/>
+      <region title="i2c2" base="0x41a15000" size="0x8" skip="0"/>
+      <region title="i2c2" base="0x41a1500c" size="0x8" skip="0"/>
+      <region title="i2c3" base="0x41a16000" size="0x8" skip="0"/>
+      <region title="i2c3" base="0x41a1600c" size="0x8" skip="0"/>
+      <region title="adi_if" base="0x41a40000" size="0x60" skip="0"/>
+      <region title="pwr_ctrl" base="0x41804000" size="0xa4" skip="0"/>
+      <region title="sys_irom" base="0x00000000" size="0x0" skip="1"/>
+      <region title="flash" base="0x08000000" size="0x0" skip="1"/>
+      <region title="flash_ext" base="0x0a000000" size="0x0" skip="1"/>
+      <region title="sys_drom" base="0x20000000" size="0x0" skip="1"/>
+      <region title="nb_ram" base="0x21d80000" size="0x10000" skip="0"/>
+      <region title="timer1" base="0x41806000" size="0x2c" skip="0"/>
+      <region title="iomux1" base="0x41807000" size="0x20" skip="0"/>
+      <region title="iomux2" base="0x41808000" size="0xd4" skip="0"/>
+      <region title="sys_wdt" base="0x41809000" size="0x18" skip="0"/>
+      <region title="sys_ifc1" base="0x4180e004" size="0x5c" skip="0"/>
+      <region title="bb_ctrl" base="0x41910000" size="0x3c" skip="0"/>
+      <region title="debug_uart" base="0x41a03000" size="0x1c" skip="0"/>
+      <region title="sys_ifc2" base="0x41a0e004" size="0x124" skip="0"/>
+      <region title="timer2" base="0x41a17000" size="0x2c" skip="0"/>
+      <region title="sys_dma" base="0x41a18004" size="0x2c" skip="0"/>
+      <region title="sys_ctrl" base="0x41a19000" size="0x108" skip="0"/>
+      <region title="psram8_ctrl" base="0x41a1c000" size="0x100" skip="0"/>
+      <region title="spi_flash" base="0x41a3e000" size="0x48" skip="0"/>
+      <region title="spi_flash_ext" base="0x41a3f000" size="0x48" skip="0"/>
+      <region title="psram" base="0x62000000" size="0x0" skip="1"/>
+      <region title="rf_if" base="0x41903000" size="0xb0" skip="0"/>
+      <region title="dfe" base="0x4190a000" size="0x750" skip="0"/>
+      <region title="debug_host" base="0x41a0f000" size="0x1c" skip="0"/>
+      <region title="bb_ifc" base="0x4190e004" size="0x48" skip="0"/>
+      <region title="cipher_f8" base="0x41930000" size="0x1c" skip="0"/>
+      <region title="nb_lps" base="0x41805000" size="0x2c" skip="0"/>
+      <region title="sci1" base="0x41900000" size="0x3c" skip="0"/>
+      <region title="nb_rf_spi" base="0x41901000" size="0x30" skip="0"/>
+      <region title="nb_tcu" base="0x41902000" size="0x1f0" skip="0"/>
+      <region title="sci2" base="0x41a00000" size="0x3c" skip="0"/>
+      <region title="nb_ctrl" base="0x41920000" size="0xb000" skip="0"/>
+   </regions>
+
+   <profile name="8910DM">
+      <cpu name="ap" elf="ap.elf" sw="8910AP" bsstart="by_blue_screen_end"/>
+      <cpu name="cp" elf="cp.axf" sw="8910CP" addr="0x80002800"/>
+      <include_regions name="8910"/>
+      <region title="psram" base="0x80000000" size="0x1000000" skip="0"/>
+   </profile>
+
+   <profile name="8955">
+      <cpu name="xcpu" elf="xcpu.elf" sw="8955" addr="0x01c0019c"/>
+      <cpu name="bcpu" elf="bcpu.elf" sw="8955BCPU" addr="0x01986648"/>
+      <include_regions name="8955"/>
+      <region title="psram" base="0x02000000" size="0x400000" skip="0"/>
+   </profile>
+
+   <profile name="8955SX">
+      <cpu name="xcpu" elf="xcpu.elf" sw="8955SX" addr="0x01c0019c"/>
+      <cpu name="bcpu" elf="bcpu.elf" sw="8955BCPU" addr="0x01986648"/>
+      <include_regions name="8955"/>
+      <region title="psram" base="0x02000000" size="0x400000" skip="0"/>
+   </profile>
+
+   <profile name="8908A">
+      <cpu name="xcpu" elf="xcpu.elf" sw="8909" addr="0x01c001b8"/>
+      <cpu name="bcpu" elf="bcpu.elf" sw="8909BCPU" addr="0x01d00008"/>
+      <include_regions name="8909"/>
+      <region title="psram" base="0x02000000" size="0x400000" skip="0"/>
+   </profile>
+
+   <profile name="8908ASX">
+      <cpu name="xcpu" elf="xcpu.elf" sw="8909SX" addr="0x01c001b8"/>
+      <cpu name="bcpu" elf="bcpu.elf" sw="8909BCPU" addr="0x01d00008"/>
+      <include_regions name="8909"/>
+      <region title="psram" base="0x02000000" size="0x400000" skip="0"/>
+   </profile>
+
+   <profile name="8909B">
+      <cpu name="xcpu" elf="xcpu.elf" sw="8909" addr="0x01c001b8"/>
+      <cpu name="bcpu" elf="bcpu.elf" sw="8909BCPU" addr="0x01d00008"/>
+      <include_regions name="8909"/>
+      <region title="psram" base="0x02000000" size="0x400000" skip="0"/>
+   </profile>
+
+   <profile name="8909BSX">
+      <cpu name="xcpu" elf="xcpu.elf" sw="8909SX" addr="0x01c001b8"/>
+      <cpu name="bcpu" elf="bcpu.elf" sw="8909BCPU" addr="0x01d00008"/>
+      <include_regions name="8909"/>
+      <region title="psram" base="0x02000000" size="0x400000" skip="0"/>
+   </profile>
+
+   <profile name="8811">
+      <cpu name="ap" elf="ap.elf" sw="8811" bsstart="by_blue_screen_end"/>
+      <include_regions name="8811"/>
+      <region title="sram" base="0x21c00000" size="0xf0000" skip="0"/>
+   </profile>
+
+   <profile name="8811RF">
+      <cpu name="ap" elf="ap.elf" sw="8811" bsstart="by_blue_screen_end"/>
+      <include_regions name="8811"/>
+      <region title="sram" base="0x21c00000" size="0x180000" skip="0"/>
+   </profile>
+</bsdump>

@@ -28,7 +28,7 @@
 static void _main(void* param) {
     rt_thread_mdelay(100); // 故意延后100ms
     luat_log_set_uart_port(1);
-    luat_main(NULL, NULL, NULL);
+    luat_main();
     while (1)
         rt_thread_delay(10000000);
 }

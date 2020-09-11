@@ -156,7 +156,7 @@ static void check_rollback(void) {
   luat_os_reboot(0); // 重启
 }
 
-int luat_main (int argc, char **argv, int _) {
+int luat_main (void) {
   if (boot_mode == 0) {
     return 0; // just nop
   }
@@ -180,9 +180,9 @@ int luat_main (int argc, char **argv, int _) {
   if (L) lua_atpanic(L, &panic);
   //print_list_mem("after lua_newstate");
   lua_pushcfunction(L, &pmain);  /* to call 'pmain' in protected mode */
-  lua_pushinteger(L, argc);  /* 1st argument */
-  lua_pushlightuserdata(L, argv); /* 2nd argument */
-  status = lua_pcall(L, 2, 1, 0);  /* do the call */
+  //lua_pushinteger(L, argc);  /* 1st argument */
+  //lua_pushlightuserdata(L, argv); /* 2nd argument */
+  status = lua_pcall(L, 0, 1, 0);  /* do the call */
   result = lua_toboolean(L, -1);  /* get result */
   report(L, status);
   lua_close(L);

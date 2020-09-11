@@ -12,7 +12,7 @@ int main(int argc, const char* argv[]) {
     // 初始化虚拟设备
     luat_vdev_init();
 
-    luat_main(0, (char**)NULL, 0);
+    luat_main();
 
     return 0;
 }

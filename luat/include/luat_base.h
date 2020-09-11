@@ -27,7 +27,7 @@
  * LuatOS主入口函数, 从这里开始就交由LuatOS控制了.
  * 集成时,该函数应在独立的thread/task中启动
  */
-int luat_main (int argc, char **argv, int _);
+int luat_main (void);
 
 /**
  * 加载库函数. 平台实现应该根据时间情况, 加载可用的标准库和扩展库.

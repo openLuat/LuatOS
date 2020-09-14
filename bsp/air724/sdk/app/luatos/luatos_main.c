@@ -2,6 +2,8 @@
 #include "iot_os.h"
 #include "iot_debug.h"
 
+#include "luat_base.h"
+
 int appimg_enter(void *param)
 {    
 	iot_debug_print("[os] appimg_enter");

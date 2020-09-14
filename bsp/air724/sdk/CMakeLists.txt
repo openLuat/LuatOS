@@ -15,6 +15,7 @@ set(SOURCE_TOP_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set(BINARY_TOP_DIR ${CMAKE_CURRENT_BINARY_DIR})
 set(CMAKE_C_COMPILER_FORCED   1)
 set(CMAKE_CXX_COMPILER_FORCED 1)
+set(LUATOS_TOP_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../../..//)
 
 add_definitions(-D_WINSOCKAPI_)
 
@@ -158,6 +159,8 @@ endif(CONFIG_BUILD_LUA)
 include_directories(components/include components/openat_inc)
 
 include_directories(components/newlib/include)
+include_directories(${LUATOS_TOP_DIR}luat/include ${LUATOS_TOP_DIR}lua/include)
+include_directories(${LUATOS_TOP_DIR}luat/packages/vsprintf)
 
 function(cpp_only target file)
     add_library(${target} OBJECT ${file})
@@ -276,6 +279,7 @@ add_subdirectory_if_exist(components/ril)
 add_subdirectory_if_exist(api)
 add_subdirectory_if_exist(../../../lua, lua)
 add_subdirectory_if_exist(../../../luat, luat)
+
 #/*+\ADD\chenzhimin\2020.07.9\*/
 if( CONFIG_BUILD_APP_SSL OR 
 CONFIG_BUILD_APP_FTP OR
@@ -314,8 +318,6 @@ if(CONFIG_APPIMG_LOAD_FLASH)
     endif(CONFIG_BUILD_LUA)    
     add_subdirectory_if_exist(app/${BUILD_TARGET})
     target_link_libraries(${target} PRIVATE api)
-	#target_link_libraries(${target} PRIVATE ../../../lua)
-	#target_link_libraries(${target} PRIVATE ../../../luat)
     #/*+\ADD\chenzhimin\2020.07.9\*/
     if( CONFIG_BUILD_APP_SSL OR 
     CONFIG_BUILD_APP_FTP OR

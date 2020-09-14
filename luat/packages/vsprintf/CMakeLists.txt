@@ -14,7 +14,7 @@
 #configure_file(include/fota_config.h.in ${BINARY_TOP_DIR}/include/fota_config.h)
 
 
-set(target modules)
+set(target vsprintf)
 add_library(${target} STATIC)
 set_target_properties(${target} PROPERTIES ARCHIVE_OUTPUT_DIRECTORY ${out_hex_dir})
 target_link_libraries(${target} PRIVATE ${libc_file_name} ${libm_file_name} ${libgcc_file_name})
@@ -29,7 +29,7 @@ target_include_directories(${target} PRIVATE ${PROJECT_ROOT}/components/newlib/i
 target_include_directories(${target} PRIVATE ${PROJECT_ROOT}/components/openat_inc)
 target_include_directories(${target} PRIVATE ${PROJECT_ROOT}/components/ril/inc)
 
-target_link_libraries(${target} PRIVATE modules)
+target_link_libraries(${target} PRIVATE vsprintf)
 file(GLOB SC_FILE *.c)
 target_sources(${target} PRIVATE ${SC_FILE})
 

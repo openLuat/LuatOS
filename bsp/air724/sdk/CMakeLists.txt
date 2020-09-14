@@ -163,6 +163,8 @@ include_directories(${LUATOS_TOP_DIR}luat/include ${LUATOS_TOP_DIR}lua/include)
 include_directories(${LUATOS_TOP_DIR}luat/packages/vsprintf)
 include_directories(${LUATOS_TOP_DIR}luat/packages/heap)
 include_directories(${LUATOS_TOP_DIR}luat/packages/lua-cjson)
+include_directories(${LUATOS_TOP_DIR}luat/packages/minmea)
+include_directories(${LUATOS_TOP_DIR}luat/packages/u8g2)
 
 function(cpp_only target file)
     add_library(${target} OBJECT ${file})
@@ -279,8 +281,8 @@ endif()
 
 add_subdirectory_if_exist(components/ril)
 add_subdirectory_if_exist(api)
-add_subdirectory_if_exist(../../../lua, lua)
-add_subdirectory_if_exist(../../../luat, luat)
+add_subdirectory(${LUATOS_TOP_DIR}lua ${LUATOS_TOP_DIR}lua)
+add_subdirectory(${LUATOS_TOP_DIR}luat ${LUATOS_TOP_DIR}luat)
 
 #/*+\ADD\chenzhimin\2020.07.9\*/
 if( CONFIG_BUILD_APP_SSL OR 
@@ -331,7 +333,8 @@ if(CONFIG_APPIMG_LOAD_FLASH)
         target_link_libraries(${target} PRIVATE app)
     endif()
     #/*-\ADD\chenzhimin\2020.07.9\*/
-
+	target_link_libraries(${target} PRIVATE lua)
+	target_link_libraries(${target} PRIVATE luat)
     target_link_libraries(${target} PRIVATE ${libc_file_name} ${libm_file_name} ${libgcc_file_name})
     #/*+\DEL\chenzhimin\2020.07.8\*/
     # set(pac_config ${out_hex_dir}/${target}.json)

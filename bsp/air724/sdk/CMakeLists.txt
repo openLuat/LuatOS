@@ -161,6 +161,8 @@ include_directories(components/include components/openat_inc)
 include_directories(components/newlib/include)
 include_directories(${LUATOS_TOP_DIR}luat/include ${LUATOS_TOP_DIR}lua/include)
 include_directories(${LUATOS_TOP_DIR}luat/packages/vsprintf)
+include_directories(${LUATOS_TOP_DIR}luat/packages/heap)
+include_directories(${LUATOS_TOP_DIR}luat/packages/lua-cjson)
 
 function(cpp_only target file)
     add_library(${target} OBJECT ${file})

@@ -6,6 +6,8 @@
 
 #include "rtthread.h"
 #include <rtdevice.h>
+
+#ifdef RT_USING_WIFI
 #include "wlan_mgnt.h"
 
 #define DBG_TAG           "w60x.init"
@@ -19,4 +21,4 @@ static int rtt_w60x_init() {
 }
 INIT_COMPONENT_EXPORT(rtt_w60x_init);
 #endif
-
+#endif

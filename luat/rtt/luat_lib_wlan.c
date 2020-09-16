@@ -9,6 +9,8 @@
 #include "luat_malloc.h"
 #include "rtthread.h"
 
+#ifdef RT_USING_WIFI
+
 #define DBG_TAG           "luat.wlan"
 #define DBG_LVL           DBG_INFO
 #include <rtdbg.h>
@@ -654,5 +656,7 @@ LUAMOD_API int luaopen_wlan( lua_State *L ) {
     rotable_newlib(L, reg_wlan);
     return 1;
 }
+
+#endif
 
 #endif

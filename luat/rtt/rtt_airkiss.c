@@ -1,6 +1,7 @@
 #include <rtthread.h>
 #include <rtdevice.h>
 
+#ifdef RT_USING_WIFI
 #ifdef RT_WLAN_MANAGE_ENABLE
 #include <sys/socket.h>
 
@@ -211,3 +212,5 @@ int airkiss_start(void)
 // 几个
 
 #endif
+#endif
+

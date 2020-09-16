@@ -13,9 +13,10 @@
 #endif
 
 typedef struct luat_fs_conf {
-    char name[8];
-    char filesystem[8];
-    char mount_point[32];
+    char* busname;
+    char* type;
+    char* filesystem;
+    char* mount_point;
 } luat_fs_conf_t;
 
 typedef struct luat_fs_info
@@ -30,6 +31,7 @@ typedef struct luat_fs_info
 
 int luat_fs_init(void);
 
+int luat_fs_mkfs(luat_fs_conf_t *conf);
 int luat_fs_mount(luat_fs_conf_t *conf);
 int luat_fs_umount(luat_fs_conf_t *conf);
 int luat_fs_info(const char* path, luat_fs_info_t *conf);
@@ -51,5 +53,7 @@ int luat_fs_fexist(const char *filename);
 // TODO 文件夹相关的API
 //int luat_fs_diropen(char const* _FileName);
 
+int luat_fs_mkdir(char const* _DirName);
+int luat_fs_rmdir(char const* _DirName);
 
 #endif

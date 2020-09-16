@@ -50,11 +50,54 @@ static int l_fs_fsize(lua_State *L) {
     return 1;
 }
 
+
+static int l_fs_mkdir(lua_State *L) {
+    const char* path = luaL_checkstring(L, 1);
+    lua_pushinteger(L, luat_fs_mkdir(path));
+    return 1;
+}
+
+static int l_fs_rmdir(lua_State *L) {
+    const char* path = luaL_checkstring(L, 1);
+    lua_pushinteger(L, luat_fs_rmdir(path));
+    return 1;
+}
+
+static int l_fs_mkfs(lua_State *L) {
+    luat_fs_conf_t conf = {0};
+    conf.busname = luaL_checkstring(L, 1);
+    conf.filesystem = luaL_checkstring(L, 2);
+    lua_pushinteger(L, luat_fs_mkfs(&conf));
+    return 1;
+}
+
+static int l_fs_mount(lua_State *L) {
+    luat_fs_conf_t conf = {0};
+    conf.busname = luaL_checkstring(L, 1);
+    conf.filesystem = luaL_checkstring(L, 2);
+    conf.mount_point = luaL_checkstring(L, 3);
+    conf.type = luaL_checkstring(L, 4);
+    lua_pushinteger(L, luat_fs_mount(&conf));
+    return 1;
+}
+
+static int l_fs_umount(lua_State *L) {
+    luat_fs_conf_t conf = {0};
+    conf.mount_point = luaL_checkstring(L, 1);
+    lua_pushinteger(L, luat_fs_umount(&conf));
+    return 1;
+}
+
 #include "rotable.h"
 static const rotable_Reg reg_fs[] =
 {
     { "fsstat",      l_fs_fsstat,   0},
     { "fsize",       l_fs_fsize,    0},
+    { "mkdir",       l_fs_mkdir,    0},
+    { "rmdir",       l_fs_rmdir,    0},
+    { "mkfs",        l_fs_mkfs,     0},
+    { "mount",       l_fs_mount,    0},
+    { "umount",      l_fs_umount,   0},
 	{ NULL,                 NULL,   0}
 };
 

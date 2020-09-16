@@ -16,23 +16,20 @@
 #ifdef BSP_USING_WM_LIBRARIES
 #include "drv_flash.h"
 #include "lfs.h"
+rt_err_t wm_spi_bus_attach_device(const char *bus_name, const char *device_name, rt_uint32_t pin);
 
 int luat_fs_init(void) {
-    //luat_lfs_init();
-    //#ifdef RT_USING_SFUD
-    //dfs_mount("W25QXX", "/", "elm", 0, 0);
-    //#endif
     int re;
-    re = dfs_mount("spi01", "/", "lfs2", 0, 0);
+    re = dfs_mount("onflash", "/", "lfs2", 0, 0);
     if (re) {
       LOG_W("w600 onchiip filesystem damage");
-      re = dfs_mkfs("lfs2", "spi01");
+      re = dfs_mkfs("lfs2", "onflash");
       if (re) {
         LOG_E("mkfs FAIL!!!! re=%d", re);
       }
       else {
         LOG_I("mkfs complete");
-        re = dfs_mount("spi01", "/", "lfs2", 0, 0);
+        re = dfs_mount("onflash", "/", "lfs2", 0, 0);
         if (re) {
           LOG_E("mount FAIL!!!! re=%d", re);
         }
@@ -47,17 +44,10 @@ int luat_fs_init(void) {
     return 0;
 }
 
-rt_err_t wm_spi_bus_attach_device(const char *bus_name, const char *device_name, rt_uint32_t pin);
+
 static int rt_hw_spi_flash_init(void)
 {
-  wm_spi_bus_attach_device(WM_SPI_BUS_NAME, "spi01", 20);
-
-#ifdef RT_USING_SFUD
-  if (RT_NULL == rt_sfud_flash_probe("W25QXX", "spi01"))
-  {
-    //return -RT_ERROR;
-  }
-#endif
+  wm_spi_bus_attach_device(WM_SPI_BUS_NAME, "onflash", 20); -- 占用PB_15了,怎么解决呢
   return RT_EOK;
 }
 INIT_COMPONENT_EXPORT(rt_hw_spi_flash_init);
@@ -75,9 +65,9 @@ static void reinit(void* params) {
     // 抹除整个分区
     //wm_flash_erase(USER_ADDR_START, USER_ADDR_END - USER_ADDR_START);
     // 重新格式化
-    dfs_mkfs("lfs2", "spi01");
+    dfs_mkfs("lfs2", "onflash");
     // 挂载
-    dfs_mount("spi01", "/", "lfs2", 0, 0);
+    dfs_mount("onflash", "/", "lfs2", 0, 0);
     t_end = rt_tick_get();
     LOG_I("time use %dms", t_end - t_start);
   }
@@ -85,4 +75,3 @@ static void reinit(void* params) {
 }
 MSH_CMD_EXPORT(reinit, clean all user data);
 #endif
-

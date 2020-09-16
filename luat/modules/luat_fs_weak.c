@@ -65,3 +65,25 @@ LUAT_WEAK size_t luat_fs_fsize(const char *filename) {
     }
     return size;
 }
+
+LUAT_WEAK int luat_fs_mkfs(luat_fs_conf_t *conf) {
+    LLOGE("not support yet : mkfs");
+    return -1;
+}
+LUAT_WEAK int luat_fs_mount(luat_fs_conf_t *conf) {
+    LLOGE("not support yet : mount");
+    return -1;
+}
+LUAT_WEAK int luat_fs_umount(luat_fs_conf_t *conf) {
+    LLOGE("not support yet : umount");
+    return -1;
+}
+
+LUAT_WEAK int luat_fs_mkdir(char const* _DirName) {
+    LLOGE("not support yet : mkdir");
+    return -1;
+}
+LUAT_WEAK int luat_fs_rmdir(char const* _DirName) {
+    LLOGE("not support yet : rmdir");
+    return -1;
+}

@@ -124,7 +124,10 @@ Name | Type | Description
 
 ## 返回值
 
-> `boolean`: 成功返回true,否则返回false
+No. | Type | Description
+----|------|--------------
+1 |`boolean`| 成功返回true,否则返回false
+2 |`string`| 成功为nil,失败返回错误描述
 
 
 --------------------------------------------------
@@ -142,6 +145,6 @@ ctiot.ready()
 
 ## 返回值
 
-> `boolean`: 已经就绪返回true,否则返回false
+> `int`: 已经就绪返回0,否则返回错误代码
 
 

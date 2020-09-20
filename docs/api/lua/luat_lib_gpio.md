@@ -123,3 +123,30 @@ gpio.close(17)
 ```
 
 
+--------------------------------------------------
+# gpio.setDefaultPull
+
+```lua
+gpio.setDefaultPull(val)
+```
+
+设置GPIO脚的默认上拉/下拉设置, 默认是平台自定义(一般为开漏).
+
+## 参数表
+
+Name | Type | Description
+-----|------|--------------
+`val`|`int`| val 0平台自定义,1上拉, 2下拉
+
+## 返回值
+
+> `boolean`: 传值正确返回true,否则返回false
+
+## 调用示例
+
+```lua
+-- 设置gpio.setup的pull默认值为上拉
+gpio.setDefaultPull(1)
+```
+
+

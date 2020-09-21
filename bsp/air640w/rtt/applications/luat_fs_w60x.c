@@ -47,7 +47,7 @@ int luat_fs_init(void) {
 
 static int rt_hw_spi_flash_init(void)
 {
-  wm_spi_bus_attach_device(WM_SPI_BUS_NAME, "onflash", 20); -- 占用PB_15了,怎么解决呢
+  wm_spi_bus_attach_device(WM_SPI_BUS_NAME, "onflash", 20); // 占用PB_15了,怎么解决呢
   return RT_EOK;
 }
 INIT_COMPONENT_EXPORT(rt_hw_spi_flash_init);

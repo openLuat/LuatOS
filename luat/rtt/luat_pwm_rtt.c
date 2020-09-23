@@ -43,7 +43,8 @@ static int luat_pwm_rtt_init() {
 
 INIT_COMPONENT_EXPORT(luat_pwm_rtt_init);
 
-#ifdef SOC_FAMILY_STM32
+//#ifdef SOC_FAMILY_STM32
+#if 0
 //------------------------------------------------------
 // 在 RTT， rt_device_pwm 实际上是 stm32_pwm 结构的第一个属性
 // 因此，暗戳戳的转成 (stm32_pwm *) 即可得到 channel

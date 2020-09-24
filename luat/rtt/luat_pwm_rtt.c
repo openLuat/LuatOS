@@ -18,7 +18,7 @@
 // 这里初始化一下 pwm 设备，一般的来说 pwm0 ... pwm6 就够了
 // 某些时候，还有设备直接叫 "pwm"
 #define DEVICE_ID_MAX 6
-static struct pwm_devs *pwm_devs[DEVICE_ID_MAX];
+static struct rt_device_pwm *pwm_devs[DEVICE_ID_MAX];
 
 static int luat_pwm_rtt_init() {
     char name[8];
@@ -39,6 +39,7 @@ static int luat_pwm_rtt_init() {
         pwm_devs[0] = (struct rt_device_pwm *)rt_device_find("pwm");
         LOG_D("search pwm name=%s ptr=0x%08X", "pwm", pwm_devs[0]);
     }
+		return 0;
 }
 
 INIT_COMPONENT_EXPORT(luat_pwm_rtt_init);

@@ -65,25 +65,25 @@ static int l_fs_rmdir(lua_State *L) {
 
 static int l_fs_mkfs(lua_State *L) {
     luat_fs_conf_t conf = {0};
-    conf.busname = luaL_checkstring(L, 1);
-    conf.filesystem = luaL_checkstring(L, 2);
+    conf.busname = (char*)luaL_checkstring(L, 1);
+    conf.filesystem = (char*)luaL_checkstring(L, 2);
     lua_pushinteger(L, luat_fs_mkfs(&conf));
     return 1;
 }
 
 static int l_fs_mount(lua_State *L) {
     luat_fs_conf_t conf = {0};
-    conf.busname = luaL_checkstring(L, 1);
-    conf.filesystem = luaL_checkstring(L, 2);
-    conf.mount_point = luaL_checkstring(L, 3);
-    conf.type = luaL_checkstring(L, 4);
+    conf.busname = (char*)luaL_checkstring(L, 1);
+    conf.filesystem = (char*)luaL_checkstring(L, 2);
+    conf.mount_point = (char*)luaL_checkstring(L, 3);
+    conf.type = (char*)luaL_checkstring(L, 4);
     lua_pushinteger(L, luat_fs_mount(&conf));
     return 1;
 }
 
 static int l_fs_umount(lua_State *L) {
     luat_fs_conf_t conf = {0};
-    conf.mount_point = luaL_checkstring(L, 1);
+    conf.mount_point = (char*)luaL_checkstring(L, 1);
     lua_pushinteger(L, luat_fs_umount(&conf));
     return 1;
 }

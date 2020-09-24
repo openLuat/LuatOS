@@ -9,8 +9,8 @@ LUAMOD_API int luaopen_fatfs( lua_State *L );
 
 static const luaL_Reg loadedlibs[] = {
   {"_G", luaopen_base}, // _G
-  {LUA_LOADLIBNAME, luaopen_package_air302}, // require
-//   {LUA_LOADLIBNAME, luaopen_package}, // require
+  // {LUA_LOADLIBNAME, luaopen_package_air302}, // require
+  {LUA_LOADLIBNAME, luaopen_package}, // require
   {LUA_COLIBNAME, luaopen_coroutine}, // coroutine协程库
   {LUA_TABLIBNAME, luaopen_table},    // table库,操作table类型的数据结构
   {LUA_IOLIBNAME, luaopen_io},        // io库,操作文件

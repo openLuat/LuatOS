@@ -34,6 +34,7 @@
 #undef fseek
 #undef feof
 #undef ferror
+#undef getc
 
 #define fopen   luat_fs_fopen
 #define fclose  luat_fs_fclose
@@ -41,6 +42,7 @@
 #define fseek   luat_fs_fseek
 #define ferror  luat_fs_ferror
 #define feof    luat_fs_feof
+#define getc    luat_fs_getc
 
 
 

@@ -3,7 +3,10 @@ Import('rtconfig')
 from building import *
 
 cwd = GetCurrentDir()
-src	= Glob('*.c')
+src	= []
+for p in os.listdir(cwd) :
+    if p.endswith(".c"):
+        src += [p]
 CPPPATH = [cwd,  cwd + "/../include", 
                  cwd + "/../packages/vsprintf", 
                  cwd + "/../packages/minmea", 
@@ -11,7 +14,7 @@ CPPPATH = [cwd,  cwd + "/../include",
                  ]
 
 # remove some packages
-'''
+
 if not GetDepend(['RT_USING_PWM']):
     src.remove('luat_lib_pwm.c')
 if not GetDepend(['RT_USING_I2C']):
@@ -24,7 +27,12 @@ if not GetDepend(['SAL_USING_POSIX']):
     src.remove('luat_lib_socket.c')
 if not GetDepend(['RT_USING_ADC']):
     src.remove('luat_lib_adc.c')
-'''
+if not GetDepend(['PKG_USING_U8G2']):
+    src.remove('luat_lib_disp.c')
+
+src.remove('luat_shell.c')
+src.remove('luat_lib_lpmem.c')
+src.remove('luat_lib_pm.c')
 
 group = DefineGroup('modules', src, depend = [''], CPPPATH = CPPPATH)
 

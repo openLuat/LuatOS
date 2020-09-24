@@ -50,6 +50,7 @@ static int luat_i2c_rtt_init() {
         i2c_devs[0] = (struct rt_i2c_bus_device *)rt_device_find("i2c");
         LOG_I("search i2c name=%s ptr=0x%08X", "i2c", i2c_devs[0]);
     }
+    return 0;
 }
 
 INIT_COMPONENT_EXPORT(luat_i2c_rtt_init);

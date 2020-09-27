@@ -147,7 +147,7 @@ def _pkg():
         shutil.copy(PLAT_ROOT + "out/ec616_0h00/air302/air302.bin", "tmp/ec/luatos.bin")
         shutil.copy(PLAT_ROOT + "out/ec616_0h00/air302/comdb.txt", "tmp/ec/comdb.txt")
         shutil.copy(FTC_PATH + "image/bootloader.bin", "tmp/ec/bootloader.bin")
-        shutil.copy(FTC_PATH + "image/bootloader_head.bin", "tmp/ec/bootloader_head.bin")
+        #shutil.copy(FTC_PATH + "image/bootloader_head.bin", "tmp/ec/bootloader_head.bin")
     elif os.path.exists(EC_PATH) and EC_PATH.endswith(".ec") :
         with zipfile.ZipFile(EC_PATH) as zip :
             zip.extractall(path="tmp/ec/")
@@ -189,7 +189,7 @@ COM_PORT = COM56
         zip.write("tmp/ec/luatos.bin", "luatos.bin")                   # 底层固件
         zip.write("tmp/ec/comdb.txt", "comdb.txt")                     # uart0输出的unilog所需要的数据库文件,备用
         zip.write("tmp/ec/bootloader.bin", "bootloader.bin")           # bootloader,备用
-        zip.write("tmp/ec/bootloader_head.bin", "bootloader_head.bin") # bootloader_header,备用
+        #zip.write("tmp/ec/bootloader_head.bin", "bootloader_head.bin") # bootloader_header,备用
         zip.write(FTC_PATH + "disk.fs", "disk.bin")                    # 默认磁盘镜像
 
     shutil.rmtree("tmp/ec/")
@@ -226,6 +226,7 @@ def _dl(tp, _path=None):
             print("Bad EC_PATH")
             return
         cmd += ["system"]
+        cmd += ["bootloader"]
     if tp == "fs" or tp == "full" :
         cmd += ["flexfile2"]
     print("CALL", " ".join(cmd))

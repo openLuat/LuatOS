@@ -1,7 +1,7 @@
 #ifndef ROTABLE_H_
 #define ROTABLE_H_
 
-#include <lua.h>
+#include "lua.h"
 
 /* exactly the same as luaL_Reg, but since we are on small embedded
  * microcontrollers, we don't assume that you have `lauxlib.h`

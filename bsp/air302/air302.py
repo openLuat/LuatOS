@@ -214,23 +214,27 @@ def _dl(tp, _path=None):
     cmd = [FTC_PATH + "FlashToolCLI.exe", "-p", COM_PORT, "burnbatch", "--imglist"]
     if tp == "rom" or tp == "full":
         if os.path.exists(PLAT_ROOT + "out/ec616_0h00/air302/air302.bin") :
+            print("P1 COPY beta version from PLAT_ROOT dir", PLAT_ROOT + "out/ec616_0h00/air302/air302.bin")
             shutil.copy(PLAT_ROOT + "out/ec616_0h00/air302/air302.bin", FTC_PATH + "system.bin")
         elif EC_PATH.endswith(".ec") :
+            print("P1. Unzip luatos.bin from " + EC_PATH)
             import zipfile
             with zipfile.ZipFile(EC_PATH) as zip :
                 with open(FTC_PATH + "system.bin", "wb") as f:
                     f.write(zip.read("luatos.bin"))
         elif EC_PATH.endswith(".bin"):
+            print("P1. Using bin file from " + EC_PATH)
             shutil.copy(EC_PATH, FTC_PATH + "system.bin")
         else:
-            print("Bad EC_PATH")
+            print("Bad EC_PATH : " + EC_PATH)
             return
         cmd += ["system"]
         cmd += ["bootloader"]
     if tp == "fs" or tp == "full" :
         cmd += ["flexfile2"]
-    print("CALL", " ".join(cmd))
+    print("P2. Call", " ".join(cmd))
     subprocess.check_call(cmd, cwd=FTC_PATH)
+    print("P3. Done")
 
 '''
 生成文件系统镜像

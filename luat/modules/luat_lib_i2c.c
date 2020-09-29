@@ -179,7 +179,7 @@ static int l_i2c_close(lua_State *L) {
 
 /*
 从i2c总线读取DHT12的温湿度数据
-@api i2c.readDHT(id)
+@api i2c.readDHT12(id)
 @int 设备id, 例如i2c1的id为1, i2c2的id为2
 @int DHT12的设备地址,默认0x5C
 @return boolean 读取成功返回true,否则返回false
@@ -188,7 +188,7 @@ static int l_i2c_close(lua_State *L) {
 @usage
 -- 从i2c0读取DHT12
 i2c.setup(0)
-local re, H, T = i2c.readDHT(0)
+local re, H, T = i2c.readDHT12(0)
 if re then
     log.info("dht12", H, T)
 end

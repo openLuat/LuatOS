@@ -37,7 +37,7 @@ i2c初始化
 @return int 成功就返回1,否则返回0
 @usage
 -- 初始化i2c1
-if i2c.setup(1) then
+if i2c.setup(1) == 0 then
     log.info("存在 i2c1")
 else
     i2c.close(1) -- 关掉
@@ -45,7 +45,7 @@ end
 */
 static int l_i2c_setup(lua_State *L) {
     int re = luat_i2c_setup(luaL_checkinteger(L, 1), luaL_optinteger(L, 2, 0), luaL_optinteger(L, 3, 0));
-    lua_pushinteger(L, re == 0 ? 1 : 0);
+    lua_pushinteger(L, re == 0 ? luaL_optinteger(L, 2, 0) : -1);
     return 1;
 }
 

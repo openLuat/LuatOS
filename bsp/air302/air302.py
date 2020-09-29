@@ -33,7 +33,7 @@ config['air302'] = {
     "TOOLS_PATH": ".\\tools\\",
     "MAIN_LUA_DEBUG" : "false",
     "LUA_DEBUG" : "false",
-    "COM_PORT" : "COM56" # 请修改local.ini文件
+    "COM_PORT" : "COM59" # 请修改local.ini文件
 }
 if os.path.exists("local.ini") :
     config.read("local.ini")
@@ -236,6 +236,9 @@ def _dl(tp, _path=None):
 生成文件系统镜像
 '''
 def _lfs(_path=None):
+    print("============================================================")
+    print(" Build LittltFS disk image")
+    print("============================================================")
     _disk = FTC_PATH + "disk"
     if os.path.exists(_disk) :
         shutil.rmtree(_disk)
@@ -243,10 +246,12 @@ def _lfs(_path=None):
 
     if not _path:
         _path = USER_PATH
+    print("P1. User Lua Dir == ", os.path.abspath(_path))
     # 收集需要处理的文件列表
     _paths = []
     # 首先,遍历lib目录
     if os.path.exists(LIB_PATH) :
+        print("P1. Lib  Lua Dir == ", os.path.abspath(LIB_PATH))
         for name in os.listdir(LIB_PATH) :
             _paths.append(LIB_PATH + name)
     # 然后遍历user目录
@@ -274,18 +279,18 @@ def _lfs(_path=None):
             else:
                 print("LUA_DEBUG", LUA_DEBUG, "False" == LUA_DEBUG)
             cmd += ["-o", FTC_PATH + "disk/" + os.path.basename(name) + "c", os.path.basename(name)]
-            print("CALL", " ".join(cmd))
+            print("P2. CALL Luac >> ", os.path.abspath(name))
             subprocess.check_call(cmd, cwd=os.path.dirname(name))
         # 其他文件直接拷贝
         else:
-            print("COPY", name, FTC_PATH + "disk/" + os.path.basename(name))
+            print("P2. COPY", name, FTC_PATH + "disk/" + os.path.basename(name))
             shutil.copy(name, FTC_PATH + "disk/" + os.path.basename(name))
     if TAG_PROJECT == "" or TAG_VERSION == "" :
         print("!!!!!!!miss PROJECT or/and VERSION!!!!!!!!!!")
 
     for root, dirs, files in os.walk(FTC_PATH + "disk", topdown=False):
         import struct
-        print("write flashx.bin", root)
+        print("P3. Make flashx.bin", FTC_PATH + "disk/flashx.bin")
         with open(FTC_PATH + "disk/flashx.bin", "wb") as f :
             # 写入文件头
             f.write(struct.pack("<HHI", 0x1234, 0x00, 0x00))
@@ -302,11 +307,12 @@ def _lfs(_path=None):
     if TAG_PROJECT != "" and TAG_VERSION != "":
         # otademo_1.2.7_LuatOS_V0003_ec616
         TAG_NAME = "%s_%s_LuatOS_V0003_ec616.bin" % (TAG_PROJECT, TAG_VERSION)
-        print("update bin --> " + TAG_NAME)
+        print("P4. OTA Update bin --> " + TAG_NAME)
         shutil.copy(FTC_PATH + "disk/flashx.bin", TAG_NAME)
 
-    print("CALL mklfs for disk.fs")
+    print("P5. CALL mklfs to make disk.fs")
     subprocess.check_call([TOOLS_PATH + "mklfs.exe"], cwd=FTC_PATH)
+    print("6. LFS DONE")
 
 def main():
     argc = 1

@@ -1593,6 +1593,29 @@ static int str_split (lua_State *L) {
   }
   return count;
 }
+
+static int str_toValue (lua_State *L) {
+  size_t len = 0,i;
+  const char *s = luaL_checklstring(L, 1, &len);
+  if(len == 0)//没字符串
+  {
+    lua_pushlstring(L,NULL,0);
+    lua_pushinteger(L,0);
+    return 2;
+  }
+  luaL_Buffer buff;
+  luaL_buffinitsize(L, &buff, len);
+  char * stemp;
+  for(i=0;i<len;i++)
+  {
+    stemp = (char *)s + i;
+    luaL_addchar(&buff, (*stemp>'9'? *stemp+9 : *stemp) & 0x0f);
+  }
+  luaL_pushresult(&buff);
+  lua_pushinteger(L,len);
+  return 2;
+}
+
 static int str_urlEncode (lua_State *L) {
   size_t len;
   const char *str = luaL_checklstring(L, 1, &len);
@@ -1650,6 +1673,7 @@ static const rotable_Reg strlib[] = {
   {"toHex", str_toHex},
   {"fromHex", str_fromHex},
   {"split", str_split},
+  {"toValue", str_toValue},
   {"urlEncode", str_urlEncode},
   //{"urlDecode", str_urlDecode},
   //-----------------------------

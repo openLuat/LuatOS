@@ -11,6 +11,8 @@
 #include "luat_malloc.h"
 #include "luat_i2c.h"
 
+#define LUAT_LOG_TAG "luat.i2c"
+#include "luat_log.h"
 /*
 i2c编号是否存在
 @api i2c.exist(id)
@@ -100,13 +102,13 @@ static int l_i2c_recv(lua_State *L) {
 }
 
 /*
-i2c接收数据
+i2c写寄存器数据
 @api i2c.writeReg(id, addr, reg, data)
 @int 设备id, 例如i2c1的id为1, i2c2的id为2
 @int I2C子设备的地址, 7位地址
 @int 寄存器地址
 @string 待发送的数据
-@return string 收到的数据
+@return int 发送数据的结果，0为成功
 @usage
 -- 从i2c1的地址为0x5C的设备的寄存器0x01写入2个字节的数据
 i2c.writeReg(1, 0x5C, 0x01, string.char(0x00, 0xF2))
@@ -115,48 +117,48 @@ static int l_i2c_write_reg(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
     int addr = luaL_checkinteger(L, 2);
     int reg = luaL_checkinteger(L, 3);
-    uint16_t value = luaL_checkinteger(L, 4);
-    // size_t len;
-    // if (lua_isstring(L, 4)) {
-    //     const char* buff = luaL_checklstring(L, 4, &len);
-    //     luat_i2c_write_reg(id, addr, reg, (char*)buff, len);
-    // }
-    // else if (lua_isinteger(L, 4)) {
-    //     len = lua_gettop(L) - 2;
-    //     char buff[len+1];
-    //     for (size_t i = 0; i < len; i++)
-    //     {
-    //         buff[i] = lua_tointeger(L, 3+i);
-    //     }
-    //     luat_i2c_write_reg(id, addr, reg, buff, len);
-    // }
-    luat_i2c_write_reg(id, addr, reg, value);
-    return 0;
+    size_t len;
+    const char* lb = luaL_checklstring(L, 4, &len);
+    char* buff = (char*)luat_heap_malloc(sizeof(char)*len+1);
+    *buff = (char)reg;
+    memcpy(buff+1,lb,sizeof(char)+len+1);
+    int result = luat_i2c_send(id, addr, buff, len+1);
+    luat_heap_free(buff);
+    return result;
 }
 
+/*
+i2c读寄存器数据
+@api i2c.readReg(id, addr, reg, len)
+@int 设备id, 例如i2c1的id为1, i2c2的id为2
+@int I2C子设备的地址, 7位地址
+@int 寄存器地址
+@int 待接收的数据长度
+@return string 收到的数据
+@usage
+-- 从i2c1的地址为0x5C的设备的寄存器0x01读出2个字节的数据
+i2c.readReg(1, 0x5C, 0x01, 2)
+*/
 static int l_i2c_read_reg(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
     int addr = luaL_checkinteger(L, 2);
     int reg = luaL_checkinteger(L, 3);
-    uint16_t value = 0;
-    // size_t len;
-    // if (lua_isstring(L, 4)) {
-    //     const char* buff = luaL_checklstring(L, 4, &len);
-    //     luat_i2c_write_reg(id, addr, reg, (char*)buff, len);
-    // }
-    // else if (lua_isinteger(L, 4)) {
-    //     len = lua_gettop(L) - 2;
-    //     char buff[len+1];
-    //     for (size_t i = 0; i < len; i++)
-    //     {
-    //         buff[i] = lua_tointeger(L, 3+i);
-    //     }
-    //     luat_i2c_write_reg(id, addr, reg, buff, len);
-    // }
-    if (luat_i2c_read_reg(id, addr, reg, &value) == 0) {
-        //
+    int len = luaL_checkinteger(L, 4);
+    char temp = (char)reg;
+    int result = luat_i2c_send(id, addr, &temp, 1);
+    if(result!=0){//如果返回值不为0，说明收失败了
+        LLOGD("i2c send result %d", result);
+        lua_pushlstring(L, NULL, 0);
+        return 1;
     }
-    lua_pushinteger(L, value); 
+    char* buff = (char*)luat_heap_malloc(sizeof(char)*len);
+    result = luat_i2c_recv(id, addr, buff, len);
+    if(result!=0){//如果返回值不为0，说明收失败了
+        len = 0;
+        LLOGD("i2c receive result %d", result);
+    }
+    lua_pushlstring(L, buff, len);
+    luat_heap_free(buff);
     return 1;
 }
 

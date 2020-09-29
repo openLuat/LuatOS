@@ -37,7 +37,7 @@ i2c初始化
 @return int 成功就返回1,否则返回0
 @usage
 -- 初始化i2c1
-if i2c.setup(1) then
+if i2c.setup(1) == 0 then
     log.info("存在 i2c1")
 else
     i2c.close(1) -- 关掉
@@ -45,7 +45,7 @@ end
 */
 static int l_i2c_setup(lua_State *L) {
     int re = luat_i2c_setup(luaL_checkinteger(L, 1), luaL_optinteger(L, 2, 0), luaL_optinteger(L, 3, 0));
-    lua_pushinteger(L, re == 0 ? 1 : 0);
+    lua_pushinteger(L, re == 0 ? luaL_optinteger(L, 2, 0) : -1);
     return 1;
 }
 
@@ -177,6 +177,58 @@ static int l_i2c_close(lua_State *L) {
     return 0;
 }
 
+/*
+从i2c总线读取DHT12的温湿度数据
+@api i2c.readDHT(id)
+@int 设备id, 例如i2c1的id为1, i2c2的id为2
+@int DHT12的设备地址,默认0x5C
+@return boolean 读取成功返回true,否则返回false
+@return int 湿度值,单位0.1%, 例如 591 代表 59.1%
+@return int 温度值,单位0.1摄氏度, 例如 292 代表 29.2摄氏度
+@usage
+-- 从i2c0读取DHT12
+i2c.setup(0)
+local re, H, T = i2c.readDHT(0)
+if re then
+    log.info("dht12", H, T)
+end
+*/
+static int l_i2c_readDHT12(lua_State *L) {
+    int id = luaL_checkinteger(L, 1);
+    int addr = luaL_optinteger(L, 2, 0x5C);
+    char buff[5] = {0};
+    char temp = 0x00;
+    int result = luat_i2c_send(id, addr, &temp, 1);
+    result = luat_i2c_recv(id, addr, buff, 5);
+    if (result) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    else {
+        if (buff[0] == 0 && buff[1] == 0 && buff[2] == 0 && buff[3] == 0 && buff[4] == 0) {
+            LLOGD("DHT12 DATA emtry");
+            lua_pushboolean(L, 0);
+            return 1;
+        }
+        // 检查crc值
+        LLOGD("DHT12 DATA %02X%02X%02X%02X%02X", buff[0], buff[1], buff[2], buff[3], buff[4]);
+        uint8_t crc_act = (uint8_t)buff[0] + (uint8_t)buff[1] + (uint8_t)buff[2] + (uint8_t)buff [3];
+        uint8_t crc_exp = (uint8_t)buff[4];
+        if (crc_act != crc_exp) {
+            LLOGD("DATA12 DATA crc not ok");
+            lua_pushboolean(L, 0);
+            return 1;
+        }
+        lua_pushboolean(L, 1);
+        lua_pushinteger(L, (uint8_t)buff[0] * 10 + (uint8_t)buff[1]);
+        if (((uint8_t)buff[2]) > 127)
+            lua_pushinteger(L, ((uint8_t)buff[2] - 128) * -10 + (uint8_t)buff[3]);
+        else
+            lua_pushinteger(L, (uint8_t)buff[2] * 10 + (uint8_t)buff[3]);
+        return 3;
+    }
+}
+
 #include "rotable.h"
 static const rotable_Reg reg_i2c[] =
 {
@@ -187,6 +239,9 @@ static const rotable_Reg reg_i2c[] =
     { "writeReg", l_i2c_write_reg, 0},
     { "readReg", l_i2c_read_reg, 0},
     { "close", l_i2c_close, 0},
+
+    { "readDHT12", l_i2c_readDHT12, 0},
+
     { "FAST",  NULL, 1},
     { "SLOW",  NULL, 0},
 	{ NULL, NULL, 0}

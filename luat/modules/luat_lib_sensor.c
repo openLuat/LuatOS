@@ -202,11 +202,83 @@ static int l_sensor_ds18b20(lua_State *L) {
     return 2;
 }
 
+//-------------------------------------
+// W1 单总线协议, 暴露w1_xxx方法
+//-------------------------------------
+
+/*
+单总线协议,复位设备
+@api    sensor.w1_reset(pin)
+@int  gpio端口号
+@return nil 无返回
+*/
+static int l_w1_reset(lua_State *L) {
+    w1_reset((int)luaL_checkinteger(L, 1));
+    return 0;
+}
+
+/*
+单总线协议,连接设备
+@api    sensor.w1_reset(pin)
+@int  gpio端口号
+@return boolean 成功返回true,失败返回false
+*/
+static int l_w1_connect(lua_State *L) {
+    if (w1_connect((int)luaL_checkinteger(L, 1)) == CONNECT_SUCCESS) {
+        lua_pushboolean(L, 1);
+    }
+    else {
+        lua_pushboolean(L, 0);
+    }
+    return 1;
+}
+
+/*
+单总线协议,往总线写入数据
+@api    sensor.w1_write(pin, data1,data2)
+@int  gpio端口号
+@int  第一个数据
+@int  第二个数据, 可以写N个数据
+@return nil 无返回值
+*/
+static int l_w1_write_byte(lua_State *L) {
+    int pin = luaL_checkinteger(L, 1);
+    int top = lua_gettop(L);
+    if (top > 1) {
+        for (size_t i = 2; i <= top; i++)
+        {
+            uint8_t data = luaL_checkinteger(L, i);
+            w1_write_byte(pin, data);
+        }
+    }
+    return 0;
+}
+
+/*
+单总线协议,从总线读取数据
+@api    sensor.w1_read(pin, len)
+@int  gpio端口号
+@int  读取的长度
+@return int 按读取的长度返回N个整数
+*/
+static int l_w1_read_byte(lua_State *L) {
+    int pin = luaL_checkinteger(L, 1);
+    int len = luaL_checkinteger(L, 2);
+    for (size_t i = 0; i < len; i++)
+    {
+        lua_pushinteger(L, w1_read_byte(pin));
+    }
+    return len;
+}
 
 #include "rotable.h"
 static const rotable_Reg reg_sensor[] =
 {
-    { "ds18b20" ,  l_sensor_ds18b20 , 0},
+    { "w1_reset",       l_w1_reset,     0},
+    { "w1_connect",     l_w1_connect,   0},
+    { "w1_write",  l_w1_write_byte,0},
+    { "w1_read",  l_w1_read_byte, 0},
+    { "ds18b20" ,  l_sensor_ds18b20 ,   0},
 	{ NULL, NULL , 0}
 };
 

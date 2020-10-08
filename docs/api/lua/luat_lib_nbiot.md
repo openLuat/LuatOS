@@ -719,7 +719,7 @@ Name | Type | Description
 -----|------|--------------
 `modeVal`|`int`| 模式,CMI_MM_DISABLE_EDRX = 0/CMI_MM_ENABLE_EDRX_AND_DISABLE_IND = 1/CMI_MM_ENABLE_EDRX_AND_ENABLE_IND = 2/CMI_MM_DISCARD_EDRX = 3
 `actType`|`int`| 可选值, 0或者5. CMI_MM_EDRX_NO_ACT_OR_NOT_USE_EDRX = 0/CMI_MM_EDRX_NB_IOT = 5
-`reqEdrxValueMs`|`int`| edrx值,单位毫秒
+`reqEdrxValueMs`|`int`| edrx值,4个字节长度二进制字符串
 
 ## 返回值
 
@@ -729,7 +729,7 @@ Name | Type | Description
 
 ```lua
 -- 设置EDRX
-nbiot.setPSM(1, 5, 30000)
+nbiot.setPSM(1, 5, "0101")
 ```
 
 

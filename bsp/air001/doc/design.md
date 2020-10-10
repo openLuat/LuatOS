@@ -38,3 +38,4 @@ Linux/Docker -- 虚拟设备 -- 控制API -- 界面/命令行客户端
 
 TODO 待定
 
+https://www.freertos.org/FreeRTOS-simulator-for-Linux.html

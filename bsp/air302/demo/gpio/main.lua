@@ -6,11 +6,11 @@ VERSION = "1.0.0"
 -- sys库是标配
 _G.sys = require("sys")
 
-local NETLED = gpio.setup(19, 0) -- 输出模式
-local G18 = gpio.setup(18, nil) -- 输入模式
+local NETLED = gpio.setup(19, 0, gpio.PULLUP) -- 输出模式
+local G18 = gpio.setup(18, nil, gpio.PULLUP) -- 输入模式
 local G1 = gpio.setup(1, function() -- 中断模式, 下降沿
     log.info("gpio", "BOOT button release")
-end)
+end, gpio.PULLUP)
 
 sys.taskInit(function()
     while 1 do

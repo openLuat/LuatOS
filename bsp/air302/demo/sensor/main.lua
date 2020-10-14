@@ -8,19 +8,28 @@ _G.sys = require("sys")
 
 -- 硬件接线
 --[[
-GPIO17 -- DAT
-VPAD或者NETLED或者GPIO19 -- VCC
-GND -- GND
+GPIO17     -- DAT
+VPAD/VDDIO -- VCC
+GND        -- GND
 ]]
 
 
-gpio.setup(19, 1)
+NETLED = gpio.setup(19, 1)
+sys.taskInit(function()
+    while 1 do
+        -- 一闪一闪亮晶晶
+        NETLED(0)
+        sys.wait(500)
+        NETLED(1)
+        sys.wait(500)
+    end
+end)
 
 
 sys.taskInit(function()
     while 1 do
-        log.info("sensor", "ds18b20", sensor.ds18b20(17)) -- GPIO17脚
         sys.wait(5000) -- 5秒读取一次
+        log.info("sensor", "ds18b20", sensor.ds18b20(17)) -- GPIO17脚
     end
 end)
 

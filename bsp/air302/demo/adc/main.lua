@@ -9,9 +9,7 @@ local sys = require "sys"
 -- 网络灯 GPIO19, NETLED脚
 local NETLED = gpio.setup(19, 0)     -- 初始化GPIO19, 并设置为低电平
 
-adc.open(0) -- CPU温度
-adc.open(1) -- VBAT电压
-adc.open(2) -- 模块上的ADC0脚, 0-1.8v,不要超过范围使用!!!
+
 
 sys.taskInit(function()
     while 1 do
@@ -20,14 +18,22 @@ sys.taskInit(function()
         sys.wait(1000)
         NETLED(1) -- 高电平,亮起
         sys.wait(1000)
+
+        adc.open(0) -- CPU温度
+        adc.open(1) -- VBAT电压
+        adc.open(2) -- 模块上的ADC0脚, 0-1.8v,不要超过范围使用!!!
+        --sys.wait(50)
+
         log.debug("adc", "adc0", adc.read(0)) -- adc.read 会返回两个值
         log.debug("adc", "adc1", adc.read(1))
         log.debug("adc", "adc2", adc.read(2))
+
+        -- 使用完毕后关闭,可以使得休眠电流更低.
+        adc.close(0)
+        adc.close(1)
+        adc.close(2)
     end
-    -- 支持close操作,按需使用,close后read的返回值无效,再次open后可以read
-    -- adc.close(0)
-    -- adc.close(1)
-    -- adc.close(2)
+    
 end)
 
 

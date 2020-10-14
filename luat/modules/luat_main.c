@@ -28,7 +28,7 @@ static int pmain(lua_State *L) {
     int re = 0;
 
     #ifdef LUA_32BITS
-    LLOGD("Lua complied with LUA_32BITS");
+    //LLOGD("Lua complied with LUA_32BITS");
     #endif
 
     // 加载内置库
@@ -209,15 +209,15 @@ _exit:
 }
 
 //#include "vsprintf.h"
-#include "printf.h"
-__attribute__((weak)) int l_sprintf(char *buf, size_t size, const char *fmt, ...) {
-    int32_t n;
-    va_list args;
+// #include "printf.h"
+// __attribute__((weak)) int l_sprintf(char *buf, size_t size, const char *fmt, ...) {
+//     int32_t n;
+//     va_list args;
 
-    va_start(args, fmt);
-    //n = custom_vsprintf(buf, /*size,*/ fmt, args);
-    n = vsnprintf_(buf, size, fmt, args);
-    va_end(args);
+//     va_start(args, fmt);
+//     //n = custom_vsprintf(buf, /*size,*/ fmt, args);
+//     n = vsnprintf_(buf, size, fmt, args);
+//     va_end(args);
 
-    return n;
-}
+//     return n;
+// }

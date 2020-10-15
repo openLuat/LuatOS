@@ -147,6 +147,8 @@ def _pkg():
         shutil.copy(PLAT_ROOT + "out/ec616_0h00/air302/air302.bin", "tmp/ec/luatos.bin")
         shutil.copy(PLAT_ROOT + "out/ec616_0h00/air302/comdb.txt", "tmp/ec/comdb.txt")
         shutil.copy(FTC_PATH + "image/bootloader.bin", "tmp/ec/bootloader.bin")
+        with open("tmp/ec/bootloader_head.bin", "w") as f:
+            f.write("")
         #shutil.copy(FTC_PATH + "image/bootloader_head.bin", "tmp/ec/bootloader_head.bin")
     elif os.path.exists(EC_PATH) and EC_PATH.endswith(".ec") :
         with zipfile.ZipFile(EC_PATH) as zip :

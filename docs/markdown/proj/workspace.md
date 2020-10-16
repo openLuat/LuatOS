@@ -11,6 +11,7 @@
 
 * git 从git-scm官方下载
 * rt-thread的env工具, 从rt-thread官方下载
+  * 内含pkgs,scons等包管理/编译工具
 
 ## 下载源码(子模块形式)
 

@@ -712,6 +712,58 @@ static int f_flush (lua_State *L) {
   return luaL_fileresult(L, fflush(tofile(L)) == 0, NULL);
 }
 
+static int io_exists (lua_State *L) {
+  const char *filename = luaL_checkstring(L, 1);
+  FILE* f = fopen(filename, "r");
+  lua_pushboolean(L,f != NULL);
+  if(f!=NULL)
+    fclose(f);
+  return 1;
+}
+
+static int io_fileSize (lua_State *L) {
+  const char *filename = luaL_checkstring(L, 1);
+  FILE* f = fopen(filename, "r");
+  if(f == NULL)
+    return 0;
+  int r = fseek(f, 0, SEEK_END);
+  if(r != 0)
+    return 0;
+  lua_pushinteger(L,ftell(f));
+  fseek(f, 0, SEEK_SET);
+  return 1;
+}
+
+static int io_readFile (lua_State *L) {
+  const char *filename = luaL_checkstring(L, 1);
+  const char *mode = luaL_optstring(L, 2, "r");
+  FILE* f = fopen(filename, mode);
+  if(f == NULL)
+    return 0;
+  int r = fseek(f, 0, SEEK_END);
+  if(r != 0)
+    return 0;
+  int len = ftell(f);
+  fseek(f, 0, SEEK_SET);
+  char* buff = (char*)luat_heap_malloc(len);
+  int read = fread(buff, 1, len, f);
+  lua_pushlstring(L, buff,len);
+  luat_heap_free(buff);
+  return 1;
+}
+
+static int io_writeFile (lua_State *L) {
+  const char *filename = luaL_checkstring(L, 1);
+  size_t len;
+  const char *data = luaL_checklstring(L, 2, &len);
+  const char *mode = luaL_optstring(L, 3, "w+");
+  FILE* f = fopen(filename, mode);
+  if(f == NULL)
+    return 0;
+  fwrite(data, 1 , len, f);
+  lua_pushboolean(L,1);
+  return 1;
+}
 
 /*
 ** functions for 'io' library
@@ -729,6 +781,10 @@ static const rotable_Reg iolib[] = {
   // {"tmpfile", io_tmpfile, 0},
   {"type", io_type,    0},
   // {"write", io_write,  0},
+  {"exists", io_exists,  0},
+  {"fileSize", io_fileSize,  0},
+  {"readFile", io_readFile,  0},
+  {"writeFile", io_writeFile,  0},
   {NULL, NULL,         0}
 };
 

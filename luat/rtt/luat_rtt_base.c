@@ -182,3 +182,11 @@ static int rtt_wdt_thread_start() {
 }
 INIT_COMPONENT_EXPORT(rtt_wdt_thread_start);
 #endif
+
+void luat_os_entry_cri(void) {
+  rt_interrupt_enter();
+}
+
+void luat_os_exit_cri(void) {
+  rt_interrupt_leave();
+}

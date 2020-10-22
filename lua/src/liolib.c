@@ -163,6 +163,7 @@ typedef luaL_Stream LStream;
 #define ferror  luat_fs_ferror
 #define feof    luat_fs_feof
 #define fwrite  luat_fs_fwrite
+#define ftell   luat_fs_ftell
 
 
 static int io_type (lua_State *L) {

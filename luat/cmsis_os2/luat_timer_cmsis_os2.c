@@ -3,7 +3,7 @@
 #include "luat_malloc.h"
 #include "luat_timer.h"
 #include "luat_msgbus.h"
-
+#include "cmsis_os2.h"
 #include "FreeRTOS.h"
 #include "task.h"
 
@@ -13,10 +13,10 @@
 #define FREERTOS_TIMER_COUNT 32
 static luat_timer_t* timers[FREERTOS_TIMER_COUNT] = {0};
 
-static void luat_timer_callback(TimerHandle_t xTimer) {
+static void luat_timer_callback(void* param) {
     //LLOGD("timer callback");
     rtos_msg_t msg;
-    luat_timer_t *timer = (luat_timer_t*) pvTimerGetTimerID(xTimer);
+    luat_timer_t *timer = (luat_timer_t*)param;
     msg.handler = timer->func;
     msg.ptr = param;
     msg.arg1 = 0;
@@ -44,7 +44,7 @@ int luat_timer_start(luat_timer_t* timer) {
     if (timerIndex < 0) {
         return 1; // too many timer!!
     }
-    os_timer = xTimerCreate("luat_timer", timer->timeout / portTICK_RATE_MS, timer->repeat, timer, luat_timer_callback);
+    os_timer = osTimerNew(luat_timer_callback, timer->repeat ? osTimerPeriodic : osTimerOnce, timer, NULL);
     //LLOGD("timer id=%ld, osTimerNew=%08X", timerIndex, (int)timer);
     if (!os_timer) {
         return NULL;
@@ -52,10 +52,10 @@ int luat_timer_start(luat_timer_t* timer) {
     timers[timerIndex] = timer;
     
     timer->os_timer = os_timer;
-    int re = xTimerStart(os_timer, 0);
+    int re = osTimerStart(os_timer, timer->timeout);
     //LLOGD("timer id=%ld timeout=%ld start=%ld", timerIndex, timer->timeout, re);
     if (re != 0) {
-        xTimerDelete(os_timer, 0);
+        osTimerDelete(os_timer);
         timers[timerIndex] = 0;
     }
     return re;
@@ -71,8 +71,8 @@ int luat_timer_stop(luat_timer_t* timer) {
             break;
         }
     }
-    xTimerStop(timer->os_timer);
-    xTimerDelete(timer->os_timer);
+    osTimerStop(timer->os_timer);
+    osTimerDelete(timer->os_timer);
     return 0;
 };
 
@@ -89,7 +89,7 @@ luat_timer_t* luat_timer_get(size_t timer_id) {
 
 int luat_timer_mdelay(size_t ms) {
     if (ms > 0) {
-        vTaskDelay(ms / portTICK_RATE_MS);
+        vTaskDelay(ms);
     }
     return 0;
 }

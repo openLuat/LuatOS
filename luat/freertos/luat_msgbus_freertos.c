@@ -1,29 +1,36 @@
 
 #include "luat_msgbus.h"
 
-#include "cmsis_os2.h"
+#include "FreeRTOS.h"
+#include "queue.h"
 
-#define LUAT_MSGBUS_MAXCOUNT 0xFF
-//#define LUAT_MSGBUS_MAXSIZE 8
-static osMessageQueueId_t queue = {0}; 
+#define QUEUE_LENGTH 0xFF
+#define ITEM_SIZE sizeof(rtos_msg_t)
+
+static StaticQueue_t xStaticQueue = {0};
+static QueueHandle_t xQueue = {0};
+static uint8_t ucQueueStorageArea[ QUEUE_LENGTH * ITEM_SIZE ];
 
 void luat_msgbus_init(void) {
-    if (!queue) {
-        queue = osMessageQueueNew(LUAT_MSGBUS_MAXCOUNT, sizeof(rtos_msg_t), NULL);
+    if (!xQueue) {
+        xQueue = xQueueCreateStatic( QUEUE_LENGTH,
+                                 ITEM_SIZE,
+                                 ucQueueStorageArea,
+                                 &xStaticQueue );
     }
 }
 uint32_t luat_msgbus_put(rtos_msg_t* msg, size_t timeout) {
-    if (queue == NULL)
+    if (xQueue == NULL)
         return 1;
-    return osMessageQueuePut(queue, msg, 0, timeout);
+    return xQueueSendFromISR(xQueue, msg, NULL);
 }
 uint32_t luat_msgbus_get(rtos_msg_t* msg, size_t timeout) {
-    if (queue == NULL)
+    if (xQueue == NULL)
         return 1;
-    return osMessageQueueGet(queue, msg, 0, timeout);
+    return xQueueReceive(xQueue, msg, timeout); // 要不要除portTICK_RATE_MS呢?
 }
 uint32_t luat_msgbus_freesize(void) {
-    if (queue == NULL)
+    if (xQueue == NULL)
         return 1;
-    return osMessageQueueGetSpace(queue);
+    return 1;
 }

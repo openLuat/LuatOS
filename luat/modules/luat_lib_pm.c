@@ -98,6 +98,38 @@ static int l_pm_dtimer_check(lua_State *L) {
     return 1;
 }
 
+static int l_pm_dtimer_list(lua_State *L) {
+    size_t c = 0;
+    size_t dlist[24];
+
+    luat_pm_dtimer_list(&c, dlist);
+
+    lua_createtable(L, c, 0);
+    for (size_t i = 0; i < c; i++)
+    {
+        if (dlist[i] > 0) {
+            lua_pushinteger(L, dlist[i]);
+            lua_seti(L, -3, i+1);
+        }
+    }
+
+    return 1;
+}
+
+static int l_pm_dtimer_wakeup_id(lua_State *L) {
+    int dtimer_id = 0xFF;
+
+    luat_pm_dtimer_wakeup_id(&dtimer_id);
+
+    if (dtimer_id != 0xFF) {
+        lua_pushinteger(L, dtimer_id);
+    }
+    else {
+        lua_pushinteger(L, -1);
+    }
+    return 1;
+}
+
 static int l_pm_on(lua_State *L) {
     if (lua_isfunction(L, 1)) {
         if (lua_event_cb != 0) {
@@ -126,7 +158,7 @@ static int l_pm_last_reson(lua_State *L) {
     luat_pm_last_state(&lastState, &rtcOrPad);
     lua_pushinteger(L, lastState);
     lua_pushinteger(L, rtcOrPad);
-    return 1;
+    return 2;
 }
 
 /**
@@ -164,6 +196,8 @@ static int l_pm_check(lua_State *L) {
     return 2;
 }
 
+
+
 static int luat_pm_msg_handler(lua_State *L, void* ptr) {
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     if (lua_event_cb == 0) {
@@ -196,7 +230,9 @@ static const rotable_Reg reg_pm[] =
     // { "release" ,       l_pm_release,  0},
     { "dtimerStart",    l_pm_dtimer_start,0},
     { "dtimerStop" ,    l_pm_dtimer_stop, 0},
-	{ "dtimerCheck" ,    l_pm_dtimer_check, 0},
+	{ "dtimerCheck" ,   l_pm_dtimer_check, 0},
+    { "dtimerList",     l_pm_dtimer_list, 0 },
+    { "dtimerWkId",     l_pm_dtimer_wakeup_id, 0},
     //{ "on",             l_pm_on,   0},
     { "force",          l_pm_force, 0},
     { "check",          l_pm_check, 0},

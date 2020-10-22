@@ -26,3 +26,7 @@ int luat_pm_force(int mode);
 
 int luat_pm_check(void);
 
+int luat_pm_dtimer_list(size_t* count, size_t* list);
+
+int uat_pm_dtimer_wakeup_id(int id);
+

@@ -713,6 +713,8 @@ static int f_flush (lua_State *L) {
   return luaL_fileresult(L, fflush(tofile(L)) == 0, NULL);
 }
 
+#include "luat_malloc.h"
+
 static int io_exists (lua_State *L) {
   const char *filename = luaL_checkstring(L, 1);
   FILE* f = fopen(filename, "r");

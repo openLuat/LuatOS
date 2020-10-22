@@ -146,8 +146,8 @@ static int l_pm_on(lua_State *L) {
 /**
 开机原因,用于判断是从休眠模块开机,还是电源/复位开机
 @api pm.lastReson()
-@return int 0-普通开机(上电/复位),3-深睡眠开机,4-休眠开机
 @return int 0-上电开机, RTC开机, WakeupIn/Pad开机
+@return int 0-普通开机(上电/复位),3-深睡眠开机,4-休眠开机
 @usage
 -- 是哪种方式开机呢
 log.info("pm", "last power reson", pm.lastReson)
@@ -156,8 +156,8 @@ static int l_pm_last_reson(lua_State *L) {
     int lastState = 0;
     int rtcOrPad = 0;
     luat_pm_last_state(&lastState, &rtcOrPad);
-    lua_pushinteger(L, lastState);
     lua_pushinteger(L, rtcOrPad);
+    lua_pushinteger(L, lastState);
     return 2;
 }
 

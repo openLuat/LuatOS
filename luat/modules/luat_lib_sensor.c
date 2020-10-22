@@ -234,7 +234,9 @@ end
 static int l_sensor_ds18b20(lua_State *L) {
     int32_t val = 0;
     int check_crc = lua_gettop(L) > 1 ? lua_toboolean(L, 2) : 1;
+    luat_os_entry_cri();
     int32_t ret = ds18b20_get_temperature(luaL_checkinteger(L, 1), &val, check_crc);
+    luat_os_exit_cri();
     // -55°C ~ 125°C
     if (ret || !(val <= 1250 && val >= -550)) {
         LLOGI("ds18b20 read fail");

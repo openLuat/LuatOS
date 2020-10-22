@@ -7,7 +7,7 @@
 #ifndef LUAT_BASE
 #define LUAT_BASE
 /**LuatOS版本号*/
-#define LUAT_VERSION "V0003"
+#define LUAT_VERSION "V0004"
 // 调试开关, 预留
 #define LUAT_DEBUG 0
 
@@ -101,6 +101,10 @@ void luat_os_reboot(int code);
 void luat_os_standy(int timeout);
 /** 厂商/模块名字, 例如Air302, Air640W*/
 const char* luat_os_bsp(void);
+
+void luat_os_entry_cri(void);
+
+void luat_os_exit_cri(void);
 
 /** 停止启动,当前仅rt-thread实现有这个设置*/
 void stopboot(void);

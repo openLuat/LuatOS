@@ -83,3 +83,5 @@ bsp/air302/air302_sdk/**
 *.cmake
 
 debug.log
+
+量产文件

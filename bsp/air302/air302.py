@@ -10,6 +10,9 @@ import sys
 import json
 
 BIG_VER = "V0004"
+TAG_PROJECT = ""
+TAG_VERSION = ""
+TAG_UPDATE_NAME = ""
 
 #------------------------------------------------------------------
 # 读取配置信息
@@ -92,6 +95,9 @@ def usage():
     
     用例四, 编译,打包,构建文件系统,全量下载
     python air302.py build lfs pkg dlfull
+
+    用例五, 生成量产所需要的文件
+    python air302.py lfs pkg
     ''')
 
 '''
@@ -196,18 +202,41 @@ COM_PORT = COM56
         #zip.write("tmp/ec/bootloader_head.bin", "bootloader_head.bin") # bootloader_header,备用
         zip.write(FTC_PATH + "disk.fs", "disk.bin")                    # 默认磁盘镜像
 
-    shutil.rmtree("tmp/ec/")
+    
     if os.path.exists(FTC_PATH):
         shutil.copytree(FTC_PATH, "tmp/FlashToolCLI")
 
-    pkg_name = "Air302_"+BIG_VER+"_"+_tag + ".zip"
-    shutil.make_archive("Air302_"+BIG_VER+"_"+_tag, 'zip', "tmp")
+    if TAG_PROJECT != "" and TAG_VERSION != "" :
+        print(u"为 %s %s 生成量产文件" % (TAG_PROJECT, TAG_VERSION))
+        prod_path = u"量产文件/Air302量产文件/" + TAG_PROJECT + "_" + TAG_VERSION
+        update_bin_dir = u"量产文件/Air302远程升级文件"
+        if not os.path.exists(prod_path + "/image/"):
+            os.makedirs(prod_path + "/image/")
+        if not os.path.exists(update_bin_dir):
+            os.makedirs(update_bin_dir)
+        print("量产文件目录 --> ", prod_path)
+        shutil.copyfile("tmp/ec/luatos.bin", prod_path + "/luatos.bin")
+        shutil.copyfile("tmp/ec/bootloader.bin", prod_path + "/image/bootloader.bin")
+        shutil.copyfile(FTC_PATH + "disk.fs", prod_path + "/disk.bin")
+        with open((prod_path + "/config.ini"), "wb") as f:
+            f.write(FTC_CNF_TMPL.encode())
 
-    ## 拷贝一份固定路径的
-    shutil.copy("tmp/Air302_"+BIG_VER+"_"+_tag+".ec", "tmp/Air302_dev.ec")
+        shutil.copyfile(TAG_UPDATE_NAME, update_bin_dir + "/" + TAG_UPDATE_NAME)
+        print("远程升级文件 --> ", update_bin_dir + "/" + TAG_UPDATE_NAME)
 
-    print("ALL DONE===================================================")
-    print("Package Name", pkg_name)
+        shutil.rmtree("tmp/ec/")
+
+        if not os.path.exists("量产文件/Air302刷机包/") :
+            os.makedirs("量产文件/Air302刷机包/")
+        one_ec_path = "量产文件/Air302刷机包/" + TAG_PROJECT + "_" + TAG_VERSION  + "_LuatOS_Air302_"+BIG_VER + ".ec"
+        shutil.copyfile("tmp/Air302_"+BIG_VER+"_"+_tag+".ec", one_ec_path)
+        print("一体刷机包   --> ", one_ec_path)
+    else :
+        pkg_name = "Air302_"+BIG_VER+"_"+_tag + ".zip"
+        shutil.make_archive(pkg_name, 'zip', "tmp")
+
+        ## 拷贝一份固定路径的
+        shutil.copy("tmp/Air302_"+BIG_VER+"_"+_tag+".ec", "tmp/Air302_dev.ec")
 
 '''
 下载底层或脚本
@@ -265,8 +294,9 @@ def _lfs(_path=None):
     # 然后遍历user目录
     for name in os.listdir(_path) :
         _paths.append(_path + name)
-    TAG_PROJECT = ""
-    TAG_VERSION = ""
+    global TAG_PROJECT
+    global TAG_VERSION
+    global TAG_UPDATE_NAME
     for name in _paths :
         # 如果是lua文件, 编译之
         if name.endswith(".lua") :
@@ -314,35 +344,35 @@ def _lfs(_path=None):
                     shutil.copyfileobj(f2, f, _size)
     if TAG_PROJECT != "" and TAG_VERSION != "":
         # otademo_1.2.7_LuatOS_"+BIG_VER+"_ec616
-        TAG_NAME = ("%s_%s_LuatOS_"+BIG_VER+"_ec616.bin") % (TAG_PROJECT, TAG_VERSION)
-        print("P4. OTA Update bin --> " + TAG_NAME)
-        shutil.copy(FTC_PATH + "disk/flashx.bin", TAG_NAME)
+        TAG_UPDATE_NAME = ("%s_%s_LuatOS_"+BIG_VER+"_ec616.bin") % (TAG_PROJECT, TAG_VERSION)
+        print("P4. OTA Update bin --> " + TAG_UPDATE_NAME)
+        shutil.copy(FTC_PATH + "disk/flashx.bin", TAG_UPDATE_NAME)
 
     print("P5. CALL mklfs to make disk.fs")
     subprocess.check_call([TOOLS_PATH + "mklfs.exe"], cwd=FTC_PATH)
-    print("6. LFS DONE")
+    print("P6. LFS DONE")
 
 def main():
     argc = 1
     while len(sys.argv) > argc :
         if sys.argv[argc] == "build" :
-            print("Action Build ----------------------------------")
+            print("Action Build 编译 ----------------------------------")
             subprocess.check_call([PLAT_ROOT + "KeilBuild.bat"], cwd=PLAT_ROOT)
         elif sys.argv[argc] == "lfs" :
             print("Action mklfs ----------------------------------")
             _lfs()
         elif sys.argv[argc] == "pkg" :
-            print("Action pkg ------------------------------------")
+            print("Action pkg 打包固件和生成量产文件------------------------------------")
             _pkg()
         elif sys.argv[argc] == "dlrom": #下载底层
-            print("Action download ROM ---------------------------")
+            print("Burn ROM 下载固件 ---------------------------")
             if len(sys.argv) > argc + 1 and sys.argv[argc+1].startsWith("-path="):
                 _dl("rom", sys.argv[argc+1][6:])
                 argc += 1
             else:
                 _dl("rom")
         elif sys.argv[argc] == "dlfs":
-            print("Action download FS  ---------------------------")
+            print("Burn FS 下载文件系统 ---------------------------")
             if len(sys.argv) > argc + 1 and sys.argv[argc+1].startsWith("-path="):
                 _dl("fs", sys.argv[argc+1][6:])
                 argc += 1
@@ -363,7 +393,7 @@ def main():
             usage()
             return
         argc += 1
-    print("============================================================================")
+        print("============================================================================")
     print("every done, bye")
 
 

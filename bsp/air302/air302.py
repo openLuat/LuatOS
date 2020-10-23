@@ -314,7 +314,7 @@ def _lfs(_path=None):
                     shutil.copyfileobj(f2, f, _size)
     if TAG_PROJECT != "" and TAG_VERSION != "":
         # otademo_1.2.7_LuatOS_"+BIG_VER+"_ec616
-        TAG_NAME = "%s_%s_LuatOS_"+BIG_VER+"_ec616.bin" % (TAG_PROJECT, TAG_VERSION)
+        TAG_NAME = ("%s_%s_LuatOS_"+BIG_VER+"_ec616.bin") % (TAG_PROJECT, TAG_VERSION)
         print("P4. OTA Update bin --> " + TAG_NAME)
         shutil.copy(FTC_PATH + "disk/flashx.bin", TAG_NAME)
 

@@ -217,7 +217,7 @@ COM_PORT = COM56
         print("量产文件目录 --> ", prod_path)
         shutil.copyfile("tmp/ec/luatos.bin", prod_path + "/luatos.bin")
         shutil.copyfile("tmp/ec/bootloader.bin", prod_path + "/image/bootloader.bin")
-        shutil.copyfile(FTC_PATH + "disk.fs", prod_path + "/disk.bin")
+        shutil.copyfile(FTC_PATH + "disk.fs", prod_path + "/disk.fs")
         with open((prod_path + "/config.ini"), "wb") as f:
             f.write(FTC_CNF_TMPL.encode())
 

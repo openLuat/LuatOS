@@ -199,6 +199,11 @@ static int l_i2c_readDHT12(lua_State *L) {
     char buff[5] = {0};
     char temp = 0x00;
     int result = luat_i2c_send(id, addr, &temp, 1);
+    if (result) {
+        LLOGD("DHT12 i2c bus write fail");
+        lua_pushboolean(L, 0);
+        return 1;
+    }
     result = luat_i2c_recv(id, addr, buff, 5);
     if (result) {
         lua_pushboolean(L, 0);

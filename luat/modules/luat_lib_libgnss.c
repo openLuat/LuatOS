@@ -8,6 +8,7 @@
 #include "luat_base.h"
 #include "luat_msgbus.h"
 #include "luat_malloc.h"
+#include "luat_uart.h"
 
 #define LUAT_LOG_TAG "luat.gnss"
 #include "luat_log.h"
@@ -449,6 +450,57 @@ static int l_libgnss_debug(lua_State *L) {
     return 0;
 }
 
+//-----------------------------------------------------
+// For Air530Z
+//-----------------------------------------------------
+uint8_t air530z_uart_id = 2;
+static int l_libgnss_air530_setup(lua_State *L) {
+    air530z_uart_id = luaL_checkinteger(L, 1);
+    return 0;
+}
+static int l_libgnss_air530_saveconf(lua_State *L) {
+    luat_uart_write(air530z_uart_id, "$PCAS00*01\r\n", strlen("$PCAS00*01\r\n"));
+    return 0;
+}
+static int l_libgnss_air530_setbandrate(lua_State *L) {
+    /*
+0=4800bps
+1=9600bps
+2=19200bps
+3=38400bps
+4=57600bps
+5=115200bps
+    */
+    int bandrate = luaL_checkinteger(L, 1);
+    switch (bandrate)
+    {
+    case 4800:
+        luat_uart_write(air530z_uart_id, "$PCAS01,0*1C\r\n", strlen("$PCAS01,0*1C\r\n"));
+        break;
+    case 9600:
+        luat_uart_write(air530z_uart_id, "$PCAS01,1*1D\r\n", strlen("$PCAS01,1*1D\r\n"));
+        break;
+    case 19200:
+        luat_uart_write(air530z_uart_id, "$PCAS01,2*1E\r\n", strlen("$PCAS01,2*1E\r\n"));
+        break;
+    case 38400:
+        luat_uart_write(air530z_uart_id, "$PCAS01,3*1F\r\n", strlen("$PCAS01,3*1F\r\n"));
+        break;
+    case 57600:
+        luat_uart_write(air530z_uart_id, "$PCAS01,4*18\r\n", strlen("$PCAS01,4*18\r\n"));
+        break;
+    case 115200:
+        luat_uart_write(air530z_uart_id, "$PCAS01,5*19\r\n", strlen("$PCAS01,5*19\r\n"));
+        break;
+    default:
+        LLOGD("fallback to default 9600");
+        luat_uart_write(air530z_uart_id, "$PCAS01,1*1D\r\n", strlen("$PCAS01,1*1D\r\n"));
+        break;
+    }
+    return 0;
+}
+
+
 #include "rotable.h"
 static const rotable_Reg reg_libgnss[] =
 {
@@ -460,6 +512,12 @@ static const rotable_Reg reg_libgnss[] =
     { "getGsa", l_libgnss_get_gsa, 0},
     { "getVtg", l_libgnss_get_vtg, 0},
     { "debug",  l_libgnss_debug,   0},
+
+    //-----------------------------------------
+    { "air530z_setup", l_libgnss_air530_setup, 0},
+    { "air530z_saveconf", l_libgnss_air530_saveconf, 0},
+    { "air530z_setbandrate", l_libgnss_air530_setbandrate, 0},
+
 	{ NULL, NULL , 0}
 };
 

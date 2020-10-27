@@ -218,8 +218,8 @@ COM_PORT = COM56
         shutil.copyfile("tmp/ec/luatos.bin", prod_path + "/luatos.bin")
         shutil.copyfile("tmp/ec/bootloader.bin", prod_path + "/bootloader.bin")
         shutil.copyfile(FTC_PATH + "disk.fs", prod_path + "/disk.fs")
-        with open((prod_path + "/config.ini"), "wb") as f:
-            f.write(FTC_CNF_TMPL.encode())
+        #with open((prod_path + "/config.ini"), "wb") as f:
+        #    f.write(FTC_CNF_TMPL.encode())
 
         shutil.copyfile(TAG_UPDATE_NAME, update_bin_dir + "/" + TAG_UPDATE_NAME)
         print("远程升级文件 --> ", update_bin_dir + "/" + TAG_UPDATE_NAME)

@@ -44,7 +44,8 @@
 #define feof    luat_fs_feof
 #define getc    luat_fs_getc
 
-
+#define GC_WHAT_RESIZE_BOX 1
+extern int gc_running;
 
 /*
 ** {======================================================
@@ -482,11 +483,17 @@ static void *resizebox (lua_State *L, int idx, size_t newsize) {
   lua_Alloc allocf = lua_getallocf(L, &ud);
   UBox *box = (UBox *)lua_touserdata(L, idx);
   void *temp = allocf(ud, box->box, box->bsize, newsize);
-  if (temp == NULL && newsize > 0) {  /* allocation error? */
-    lua_gc(L, LUA_GCCOLLECT, 0);
-    lua_gc(L, LUA_GCCOLLECT, 0);
-    temp = allocf(ud, box->box, box->bsize, newsize);
+  //-----------------
+  // if GC is NOT running, call Full GC
+  #if GC_WHAT_RESIZE_BOX
+  if (temp == NULL && newsize > 0) {
+    if (gc_running == 0) {
+      luaC_fullgc(L, 0);
+      temp = allocf(ud, box->box, box->bsize, newsize);
+    }
   }
+  #endif
+  //-----------------
   if (temp == NULL && newsize > 0) {  /* allocation error? */
     resizebox(L, idx, 0);  /* free buffer */
     luaL_error(L, "not enough memory for buffer allocation");

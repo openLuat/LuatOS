@@ -93,6 +93,8 @@
 
 static void reallymarkobject (global_State *g, GCObject *o);
 
+int gc_running = 0;
+
 
 /*
 ** {======================================================
@@ -1157,6 +1159,9 @@ void luaC_step (lua_State *L) {
 ** changed, nothing will be collected).
 */
 void luaC_fullgc (lua_State *L, int isemergency) {
+  //--add by wendal, 2020-11-02
+  gc_running ++;
+  //----------------------
   global_State *g = G(L);
   lua_assert(g->gckind == KGC_NORMAL);
   if (isemergency) g->gckind = KGC_EMERGENCY;  /* set flag */
@@ -1172,6 +1177,9 @@ void luaC_fullgc (lua_State *L, int isemergency) {
   luaC_runtilstate(L, bitmask(GCSpause));  /* finish collection */
   g->gckind = KGC_NORMAL;
   setpause(g);
+  //--add by wendal, 2020-11-02
+  gc_running --;
+  //----------------------
 }
 
 /* }====================================================== */

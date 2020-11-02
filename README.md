@@ -78,7 +78,7 @@ sys.run()
 
 ## 免费服务
 
-* [NetLab](https://netlab.vue2.cn) TCP/UDP透传调试,公网IP, HEX值收发, Tab式多客户端
+* [NetLab](https://netlab.luatos.io/index.html) TCP/UDP透传调试,公网IP, HEX值收发, Tab式多客户端
 
 ## 更多项目
 

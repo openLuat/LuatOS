@@ -299,6 +299,10 @@ static int netc_send(lua_State *L) {
     const char* data = luaL_checklstring(L, 2, &len);
     int flags = luaL_optinteger(L, 3, 0);
     if (len > 0) {
+        if(len > 100)
+    	{
+    		lua_gc(L, LUA_GCCOLLECT, 0);
+    	}
         int32_t re = netclient_send(netc, (void*)data, len, flags);
         lua_pushboolean(L, re == len ? 1 : 0);
     }

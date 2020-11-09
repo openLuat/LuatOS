@@ -55,7 +55,7 @@ i2c发送数据
 @int 设备id, 例如i2c1的id为1, i2c2的id为2
 @int I2C子设备的地址, 7位地址
 @string 待发送的数据
-@return nil 无返回值
+@return true/false 发送是否成功
 @usage
 -- 往i2c1发送2个字节的数据
 i2c.send(1, 0x5C, string.char(0x0F, 0x2F))
@@ -64,9 +64,10 @@ static int l_i2c_send(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
     int addr = luaL_checkinteger(L, 2);
     size_t len;
+    int result;
     if (lua_isstring(L, 3)) {
         const char* buff = luaL_checklstring(L, 3, &len);
-        luat_i2c_send(id, addr, (char*)buff, len);
+        result = luat_i2c_send(id, addr, (char*)buff, len);
     }
     else if (lua_isinteger(L, 3)) {
         len = lua_gettop(L) - 2;
@@ -75,9 +76,10 @@ static int l_i2c_send(lua_State *L) {
         {
             buff[i] = lua_tointeger(L, 3+i);
         }
-        luat_i2c_send(id, addr, buff, len);
+        result = luat_i2c_send(id, addr, buff, len);
     }
-    return 0;
+    lua_pushboolean(L, result == 0);
+    return 1;
 }
 
 /*
@@ -96,7 +98,11 @@ static int l_i2c_recv(lua_State *L) {
     int addr = luaL_checkinteger(L, 2);
     int len = luaL_checkinteger(L, 3);
     char buf[len];
-    luat_i2c_recv(id, addr, &buf[0], len);
+    int result = luat_i2c_recv(id, addr, &buf[0], len);
+    if(result!=0){//如果返回值不为0，说明收失败了
+        len = 0;
+        LLOGD("i2c receive result %d", result);
+    }
     lua_pushlstring(L, buf, len);
     return 1;
 }
@@ -108,7 +114,7 @@ i2c写寄存器数据
 @int I2C子设备的地址, 7位地址
 @int 寄存器地址
 @string 待发送的数据
-@return int 发送数据的结果，0为成功
+@return true/false 发送是否成功
 @usage
 -- 从i2c1的地址为0x5C的设备的寄存器0x01写入2个字节的数据
 i2c.writeReg(1, 0x5C, 0x01, string.char(0x00, 0xF2))
@@ -124,7 +130,8 @@ static int l_i2c_write_reg(lua_State *L) {
     memcpy(buff+1,lb,sizeof(char)+len+1);
     int result = luat_i2c_send(id, addr, buff, len+1);
     luat_heap_free(buff);
-    return result;
+    lua_pushboolean(L, result == 0);
+    return 1;
 }
 
 /*

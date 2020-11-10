@@ -91,7 +91,7 @@ static int luat_lib_netc_msg_handler(lua_State* L, void* ptr) {
         }
         goto exit;
     }
-    LLOGD("luat_lib_netc_msg_handler event=%ld lua_ref=%ld", ent->event, ent->lua_ref);
+    LLOGD("netc[%ld] event=%ld lua_ref=%ld", ent->netc_id, ent->event, ent->lua_ref);
     if (ent->lua_ref == 0) {
         goto exit;
     }

@@ -71,17 +71,30 @@ sys.taskInit(function()
     end
 end)
 
-sys.taskInit(function()
-    local host, port, clientId = "lbsmqtt.airm2m.com", 1884, wlan.getMac():lower()
+-- 声明几个topic
 
-    local topic_req = string.format("/device/%s/req", clientId)
-    local topic_report = string.format("/device/%s/report", clientId)
-    local topic_resp = string.format("/device/%s/resp", clientId)
+local host, port, clientId = "lbsmqtt.airm2m.com", 1884, wlan.getMac():lower()
+
+local topic_req = string.format("/device/%s/req", clientId)
+local topic_report = string.format("/device/%s/report", clientId)
+local topic_resp = string.format("/device/%s/resp", clientId)
+
+uart.setup(1)
+uart.on(1, "recv", function(id, len)
+    local data = uart.read(1, 1024)
+    if _G.mqttc and _G.mqttc.stat == 1 then
+        sys.taskInit(function()
+            _G.mqttc:pub(topic_resp, 1, data)
+        end)
+    end
+end)
+
+sys.taskInit(function()
 
     local sub_topics = {}
     sub_topics[topic_req] = 1
 
-    local mqttc = mqtt2.new(clientId, 300, "wendal", "123456", 1, host, port, sub_topics, function(pkg)
+    _G.mqttc = mqtt2.new(clientId, 300, "wendal", "123456", 1, host, port, sub_topics, function(pkg)
         log.info("mqtt", "Oh", json.encode(pkg))
     end, "mqtt_airm2m")
 

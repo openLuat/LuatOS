@@ -72,25 +72,25 @@ sys.taskInit(function()
 end)
 
 sys.taskInit(function()
-    local host, port, selfid = "lbsmqtt.airm2m.com", 1884, wlan.getMac():lower()
+    local host, port, clientId = "lbsmqtt.airm2m.com", 1884, wlan.getMac():lower()
 
-    local topic_req = string.format("/device/%s/req", selfid)
-    local topic_report = string.format("/device/%s/report", selfid)
-    local topic_resp = string.format("/device/%s/resp", selfid)
+    local topic_req = string.format("/device/%s/req", clientId)
+    local topic_report = string.format("/device/%s/report", clientId)
+    local topic_resp = string.format("/device/%s/resp", clientId)
 
     local sub_topics = {}
     sub_topics[topic_req] = 1
 
-    local mqttc = mqtt2.new(selfid, 300, "wendal", "123456", 0, host, port, sub_topics, function(pkg)
+    local mqttc = mqtt2.new(clientId, 300, "wendal", "123456", 1, host, port, sub_topics, function(pkg)
         log.info("mqtt", "Oh", json.encode(pkg))
-    end)
+    end, "mqtt_airm2m")
 
     --log.info("mqtt", json.encode(mqttc))
 
     while not socket.isReady() do sys.waitUntil("NET_READY", 1000) end
     sys.wait(3000)
     log.info("go", "GoGoGo")
-    mqttc:start()
+    mqttc:run() -- 会一直阻塞在这里
 end)
 
 

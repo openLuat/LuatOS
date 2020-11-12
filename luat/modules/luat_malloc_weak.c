@@ -37,7 +37,18 @@ LUAT_WEAK void* luat_heap_calloc(size_t count, size_t _size) {
 // ---------- 管理 LuaVM所使用的内存----------------
 LUAT_WEAK void* luat_heap_alloc(void *ud, void *ptr, size_t osize, size_t nsize) {
     if (nsize)
-        return bgetr(ptr, nsize);
+    {
+    	void* ptmp = bgetr(ptr, nsize);
+    	if(ptmp == NULL && osize >= nsize)
+    	{
+    		if( osize != nsize )
+    		{
+    			memset((char*)ptr + nsize, 0,(osize - nsize));
+    		}
+    		return ptr;
+    	}
+        return ptmp;
+    }
     brel(ptr);
     return NULL;
 }

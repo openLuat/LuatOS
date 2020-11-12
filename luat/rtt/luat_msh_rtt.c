@@ -15,14 +15,26 @@
 
 extern lua_State *L;
 
-static void loadstr(int argc, char**argv) {
-    if (argc < 2)
-        return;
-    int re = luaL_dostring(L, argv[1]);
+static int msgbus_handler(lua_State *L, void* ptr) {
+    int re = luaL_dostring(L, (const char*)ptr);
     if (re) {
         LLOGE("luaL_dostring  return re != 0\n");
         LLOGE(lua_tostring(L, -1));
     }
+    luat_heap_free(ptr);
+    return 0;
+}
+
+static void loadstr(int argc, char**argv) {
+    if (argc < 2)
+        return;
+    char* buff = luat_heap_malloc(strlen(argv[1])+1);
+    strcpy(buff, argv[1]);
+    rtos_msg_t msg;
+    msg.handler = msgbus_handler;
+    msg.ptr = buff;
+    luat_msgbus_put(&msg, 0);
+    
 };
 
 MSH_CMD_EXPORT(loadstr , run lua code);

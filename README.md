@@ -78,7 +78,8 @@ sys.run()
 
 ## 免费服务
 
-* [NetLab](https://netlab.vue2.cn) TCP/UDP透传调试,公网IP, HEX值收发, Tab式多客户端
+* [NetLab](https://netlab.luatos.io/index.html) TCP/UDP透传调试,公网IP, HEX值收发, Tab式多客户端. [备用地址](https://netlab.luatos.io/index.html)
+* [DevLog](udp://devlog.luatos.io:9072) 设备日志记录,格式兼容errDump.lua 查看日志请登录LuatOS官网.
 
 ## 更多项目
 

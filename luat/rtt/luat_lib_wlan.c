@@ -101,6 +101,7 @@ static join_info_t jinfo = {0};
 
 
 static void _wlan_connect(void* params) {
+    rt_wlan_config_autoreconnect(1);
     rt_wlan_connect(jinfo.ssid, jinfo.passwd);
 }
 
@@ -142,8 +143,6 @@ static int l_wlan_connect(lua_State *L) {
         return 2;
     }
     // 自动重连
-    
-    rt_wlan_config_autoreconnect(1);
     
     return 0;
 }

@@ -13,7 +13,7 @@
 
 ALIGN(RT_ALIGN_SIZE)
 static rt_uint8_t msg_pool[4*1024];
-static struct rt_messagequeue mq;
+static struct rt_messagequeue mq = {0};
 // static void *msgdata = {0};
 
 void luat_msgbus_init(void) {
@@ -36,6 +36,8 @@ void luat_msgbus_init(void) {
 // }
 
 uint32_t luat_msgbus_put(rtos_msg_t* msg, size_t timeout) {
+    if (!mq.msg_size) // 未初始化
+        return 0;
     LOG_D(">>luat_msgbus_put msg->ptr= %08X", msg->ptr);
     int re = rt_mq_send(&mq, msg, sizeof(rtos_msg_t));
     if (re) {

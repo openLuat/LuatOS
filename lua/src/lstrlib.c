@@ -1616,28 +1616,101 @@ static int str_toValue (lua_State *L) {
   return 2;
 }
 
+/*
+  将字符串进行url编码转换
+  @api string.urlEncode("123 abc")
+  @string 需要转换的字符串
+  @int	mode:url编码的转换标准,
+  			-1:自定义标准.为-1时,才会有后面的space和str_check
+  			 0:默认标准php
+  			 1:RFC3986标准,和默认的相比就是' '的转换方式不一样
+  			 这个参数不存在,按0:默认标准php处理
+  @int	space:' '空格的处理方式
+  			 0:' '转化为'+'
+  			 1:' '转换为"%20"
+  @string	str_check:不需要转换的字符,组成的字符串
+  @return string 返回转换后的字符串
+  @usage
+  -- 将字符串进行url编码转换
+  log.info(string.urlEncode("123 abc+/"))			-->> "123+abc%2B%2F"
+  
+  log.info(string.urlEncode("123 abc+/",1))			-->> "123%20abc%2B%2F"
+  
+  log.info(string.urlEncode("123 abc+/",-1,1,"/"))	-->> "123%20abc%2B/"
+  log.info(string.urlEncode("123 abc+/",-1,0,"/"))	-->> "123+abc%2B/"
+  log.info(string.urlEncode("123 abc+/",-1,0,"/ "))	-->> "123 abc%2B/"
+*/
 static int str_urlEncode (lua_State *L) {
-  size_t len;
+  int argc = lua_gettop(L);
+  int mode = 0;		//转换模式,-1:自定义标准,0:默认标准php,1:RFC3986标准,和默认的相比就是' '的转换方式不一样
+  int space = 0;	//0:' '转化为'+', 1:' '转换为"%20"
+  size_t len_check = 0;
+  const char *str_check = NULL;		//不需要转换的字符
+  size_t len = 0;
   const char *str = luaL_checklstring(L, 1, &len);
+  if(argc == 1)
+  {
+  	mode = 0;	
+  }
+  else{
+  	mode = luaL_checkinteger(L, 2);
+  }
+  if(mode == -1)
+  {
+  	/* 自定义模式 */
+  	space = luaL_checkinteger(L, 3);
+  	str_check = luaL_checklstring(L, 4, &len_check);
+  }
+  if(mode == 1)
+  {
+  	/* RFC3986 */
+  	space = 1;
+  	str_check = ".-_";
+    len_check = 3;
+  }
   luaL_Buffer buff;
-  luaL_buffinitsize(L, &buff, len + 16); // 预留几个字节就够了吧
-
+  luaL_buffinitsize(L, &buff, len + 16);
+  if(str_check == NULL)
+  {
+    str_check = ".-*_";
+    len_check = 4;
+  }
   for (size_t i = 0; i < len; i++)
   {
     char ch = *(str+i);
     if((ch >= 'A' && ch <= 'Z') ||
-			(ch >= 'a' && ch <= 'z') ||
-			(ch >= '0' && ch <= '9') ||
-			ch == '.' || ch == '-' || ch == '*' || ch == '_') {
+  		(ch >= 'a' && ch <= 'z') ||
+  		(ch >= '0' && ch <= '9')) {
       luaL_addchar(&buff, ch);
     }
-    else if (ch == ' ') {
-      luaL_addchar(&buff, '+');
-    }
     else {
-      luaL_addchar(&buff, '%');
-      luaL_addchar(&buff, hexchars[(unsigned char)ch >> 4]);
-      luaL_addchar(&buff, hexchars[(unsigned char)ch & 0x0F]);
+      char result = 0;
+      for(size_t j = 0; j < len_check; j++)
+      {
+        if(ch == str_check[j])
+        {
+          result = 1;
+          break;
+        }
+      }
+      if(result == 1)
+      {
+        luaL_addchar(&buff, str[i]);
+      }
+      else
+      {
+        if(ch == ' ')
+        {
+          if(space == 0)
+          {
+            luaL_addchar(&buff, '+');
+            continue;
+          }
+        }
+        luaL_addchar(&buff, '%');
+        luaL_addchar(&buff, hexchars[(unsigned char)str[i] >> 4]);
+        luaL_addchar(&buff, hexchars[(unsigned char)str[i] & 0x0F]);
+      }
     }
   }
   luaL_pushresult(&buff);

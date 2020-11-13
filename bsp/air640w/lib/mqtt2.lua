@@ -203,14 +203,14 @@ function mqttc:run()
                 mc.buff = mc.buff .. data
                 while 1 do
                     local packet, nextpos = unpack(mc.buff)
-                    mc.buff = mc.buff:sub(nextpos)
                     if not packet then
-                        if packet > 4096 then
+                        if #mc.buff > 4096 then
                             log.warn("mqtt", "packet is too big!!!")
                             netc:close()
                         end
                         break
                     else
+                        mc.buff = mc.buff:sub(nextpos)
                         --mclog("mqtt", "recv new pkg", json.encode(packet))
                         table.insert( mc.inpkgs, packet)
                         if #mc.buff < 2 then

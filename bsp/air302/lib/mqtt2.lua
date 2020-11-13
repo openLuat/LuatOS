@@ -24,7 +24,7 @@ local packZeroData = mqttcore.packZeroData
 
 local mclog = log.debug
 
-local function unpack(s) -- TODO 做成纯C实现
+local unpack = mqttcore.unpack or function(s)
     if #s < 2 then return end
     --mclog("mqtt", "unpack", #s, string.toHex(string.sub(s, 1, 50)))
 

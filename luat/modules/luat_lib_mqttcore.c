@@ -130,6 +130,7 @@ static int l_mqttcore_packCONNECT(lua_State *L) {
 	const char* username = luaL_optstring(L, 3, "");
 	const char* password = luaL_optstring(L, 4, "");
 	int cleanSession = luaL_optinteger(L, 5, 1);
+	cleanSession = 1; // 暂时强制清除
 
 	// 处理will
 	// topic payload  retain  qos flag
@@ -378,17 +379,129 @@ static int l_mqttcore_packZeroData(lua_State *L) {
 	return 1;
 }
 
+static size_t _mqtt_unpack_P(lua_State *L, char* ptr) {
+	size_t len = (0xFF & ptr[0]) * 256 + (0xFF & ptr[1]);
+	//LLOGD("_mqtt_unpack_P %02X %02X len %d", (0xFF & ptr[0]), (0xFF & ptr[1]), len);
+	lua_pushlstring(L, ptr+2, len);
+	return len;
+}
+
+static int l_mqttcore_unpack(lua_State *L) {
+	size_t slen = 0;
+	char* data = (char*)luaL_checklstring(L, 1, &slen);
+	if (slen < 2) {
+		return 0;
+	}
+	//LLOGD("unpack first 2 byte %02X %02X", data[0] & 0xFF, data[1] & 0xFF);
+	// 首先, 获取package的长度
+	size_t dlen = 0;
+	size_t poffset = 1;
+	size_t multiplier = 1;
+	for (; poffset < 4; poffset++)
+	{
+		if (slen <= poffset) {
+			//LLOGD("unpack, slen=%d poffset=%d, execpt more data", slen, poffset);
+			return 0;
+		}
+		dlen += (data[poffset] & 0x7F) * multiplier;
+		multiplier *= 128;
+		//LLOGD("unpack dlen current %d", dlen);
+		if((data[poffset] & 0x80) == 0) {
+			break;
+		}
+	}
+	//LLOGD("unpack, poffset %d dlen %d act %d", poffset, dlen, slen);
+	if (poffset + dlen > slen) {
+		//LLOGD("unpack, wait more data");
+		return 0;
+	}
+	
+
+	// 然后解析第0个字节,header的数据
+	uint8_t header = data[0] & 0xFF;
+	// local packet = {id = (header - (header % 16)) >> 4, 
+	//                 dup = ((header % 16) - ((header % 16) % 8)) >> 3, 
+	//                 qos = (header & 0x06) >> 1, 
+	//                 retain = (header & 0x01)}
+	int id = (header - (header % 16)) >> 4;
+	int dup = ((header % 16) - ((header % 16) % 8)) >> 3;
+	int qos = (header & 0x06) >> 1;
+	int retain = (header & 0x01);
+
+	//LLOGD("unpack id %d dup %d qos %d retain %d", id, dup, qos, retain);
+
+	lua_createtable(L, 0, 7);
+
+	lua_pushliteral(L, "id");
+	lua_pushinteger(L, id);
+	lua_settable(L, -3);
+
+	lua_pushliteral(L, "dup");
+	lua_pushinteger(L, dup);
+	lua_settable(L, -3);
+	
+	lua_pushliteral(L, "qos");
+	lua_pushinteger(L, qos);
+	lua_settable(L, -3);
+	
+	lua_pushliteral(L, "retain");
+	lua_pushinteger(L, retain);
+	lua_settable(L, -3);
+
+	size_t nextpos = poffset+1;
+
+	switch(id) {
+	case CONNACK:
+			lua_pushliteral(L, "ackFlag");
+			lua_pushinteger(L, 0xFF & data[nextpos++]);
+			lua_settable(L, -3);
+
+			lua_pushliteral(L, "rc");
+			lua_pushinteger(L, 0xFF & data[nextpos++]);
+			lua_settable(L, -3);
+			break;
+	case PUBLISH:
+			lua_pushliteral(L, "topic");
+			nextpos += _mqtt_unpack_P(L, data + nextpos) + 2;
+			//LLOGD("nextpos %d after topic", nextpos);
+			lua_settable(L, -3);
+			if (qos > 0) {
+				lua_pushliteral(L, "packetId");
+				lua_pushinteger(L, (0xFF & data[nextpos++]) * 256 + (0xFF & data[nextpos++]));
+				lua_settable(L, -3);
+				//LLOGD("nextpos %d after packetId", nextpos);
+			}
+			//LLOGD("nextpos %d before payload", nextpos);
+			lua_pushliteral(L, "payload");
+			//LLOGD("payload strlen=%d dlen %d poffset %d nextpos %d", dlen+poffset+1 - nextpos, dlen, poffset, nextpos);
+			lua_pushlstring(L, data+nextpos, dlen+poffset+1 - nextpos);
+			lua_settable(L, -3);
+			break;
+	case PINGRESP:
+			if (dlen) {
+				lua_pushliteral(L, "packetId");
+				lua_pushinteger(L, (0xFF & data[nextpos++]) * 256 + (0xFF & data[nextpos++]));
+				lua_settable(L, -3);
+			}
+			break;
+	}
+
+	lua_pushinteger(L, poffset+dlen+2);// Lua的索引从1开始,所以需要额外加1
+	return 2;
+}
+
 #include "rotable.h"
 static const rotable_Reg reg_mqttcore[] =
 {
-    { "encodeLen", l_mqttcore_encodeLen, 0},
-    { "encodeUTF8",l_mqttcore_encodeUTF8,0},
-	{ "packCONNECT", l_mqttcore_packCONNECT,0},
-	{ "packSUBSCRIBE", l_mqttcore_packSUBSCRIBE, 0},
+    { "encodeLen", 		l_mqttcore_encodeLen, 0},
+    { "encodeUTF8",		l_mqttcore_encodeUTF8,0},
+	{ "packCONNECT", 	l_mqttcore_packCONNECT,0},
+	{ "packSUBSCRIBE", 	l_mqttcore_packSUBSCRIBE, 0},
 	{ "packPUBLISH",	l_mqttcore_packPUBLISH,	0},
 	{ "packACK",		l_mqttcore_packACK,		0},
 	{ "packZeroData",   l_mqttcore_packZeroData,0},
-	{ "packUNSUBSCRIBE", l_mqttcore_packUNSUBSCRIBE,0},
+	{ "packUNSUBSCRIBE",l_mqttcore_packUNSUBSCRIBE,0},
+	{ "unpack",  		l_mqttcore_unpack, 0},
 	{ NULL, NULL }
 };
 

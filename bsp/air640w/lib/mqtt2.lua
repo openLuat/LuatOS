@@ -24,7 +24,7 @@ local packZeroData = mqttcore.packZeroData
 
 local mclog = log.debug
 
-local function unpack(s) -- TODO 做成纯C实现
+local unpack = mqttcore.unpack or function(s)
     if #s < 2 then return end
     --mclog("mqtt", "unpack", #s, string.toHex(string.sub(s, 1, 50)))
 
@@ -199,7 +199,7 @@ function mqttc:run()
                 end
             end)
             netc:on("recv", function(id, data)
-                --mclog("mqtt", "recv", id , data:sub(1, 10):toHex())
+                mclog("mqtt", "recv", id , data:sub(1, 10):toHex())
                 mc.buff = mc.buff .. data
                 while 1 do
                     local packet, nextpos = unpack(mc.buff)

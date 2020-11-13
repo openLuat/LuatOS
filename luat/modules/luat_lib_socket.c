@@ -89,6 +89,9 @@ static int luat_lib_netc_msg_handler(lua_State* L, void* ptr) {
             lua_pushstring(L, buff);
             lua_call(L, 1, 0);
         }
+        if (ent->lua_ref) {
+            luaL_unref(L, ent->lua_ref, LUA_REGISTRYINDEX);
+        }
         goto exit;
     }
     LLOGD("netc[%ld] event=%ld lua_ref=%ld", ent->netc_id, ent->event, ent->lua_ref);
@@ -267,6 +270,10 @@ static int netc_connect(lua_State *L) {
     thiz->rx = luat_lib_socket_ent_handler;
     //LLOGI("netc[%ld] host=%s port=%d type=%s", thiz->id, thiz->hostname, thiz->port, thiz->type == NETC_TYPE_TCP ? "TCP" : "UDP");
     re = netclient_start(thiz);
+    if (re == 0) {
+        lua_settop(L, 1);
+        thiz->self_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    }
     lua_pushinteger(L, re);
     return 1;
 }
@@ -326,9 +333,9 @@ static int netc_gc(lua_State *L) {
     if (netc->cb_recv) {
         luaL_unref(L, LUA_REGISTRYINDEX, netc->cb_recv);
     }
-    if (netc->cb_close) {
-        luaL_unref(L, LUA_REGISTRYINDEX, netc->cb_close);
-    }
+    // if (netc->cb_close) {
+    //     luaL_unref(L, LUA_REGISTRYINDEX, netc->cb_close);
+    // }
     if (netc->cb_connect) {
         luaL_unref(L, LUA_REGISTRYINDEX, netc->cb_connect);
     }
@@ -427,11 +434,11 @@ static int netc_clean(lua_State *L) {
         luaL_unref(L, LUA_REGISTRYINDEX, netc->cb_recv);
         netc->cb_recv = 0;
     }
-    if (netc->cb_close) {
-        //LOG_D("netc[%ld] unref 0x%08X", netc->id, netc->cb_close);
-        luaL_unref(L, LUA_REGISTRYINDEX, netc->cb_close);
-        netc->cb_close = 0;
-    }
+    // if (netc->cb_close) {
+    //     //LOG_D("netc[%ld] unref 0x%08X", netc->id, netc->cb_close);
+    //     luaL_unref(L, LUA_REGISTRYINDEX, netc->cb_close);
+    //     netc->cb_close = 0;
+    // }
     if (netc->cb_connect) {
         //LOG_D("netc[%ld] unref 0x%08X", netc->id, netc->cb_connect);
         luaL_unref(L, LUA_REGISTRYINDEX, netc->cb_connect);
@@ -461,9 +468,9 @@ static int netc_on(lua_State *L) {
             if (strcmp("recv", ent) == 0) {
                 netc->cb_recv = luaL_ref(L, LUA_REGISTRYINDEX);
             }
-            else if (strcmp("close", ent) == 0) {
-                netc->cb_close = luaL_ref(L, LUA_REGISTRYINDEX);
-            }
+            // else if (strcmp("close", ent) == 0) {
+            //     netc->cb_close = luaL_ref(L, LUA_REGISTRYINDEX);
+            // }
             else if (strcmp("connect", ent) == 0) {
                 netc->cb_connect = luaL_ref(L, LUA_REGISTRYINDEX);
             }

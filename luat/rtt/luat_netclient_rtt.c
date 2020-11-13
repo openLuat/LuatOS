@@ -407,7 +407,7 @@ static void netclient_thread_entry(void *param)
     //}
 netc_exit:
     thiz->closed = 1;
-    EVENT(thiz->id, thiz->rx, 0, NETC_EVENT_END, 0, RT_NULL);
+    EVENT(thiz->id, thiz->rx, thiz->self_ref, NETC_EVENT_END, 0, RT_NULL);
     LLOGW("netc[%ld] thread end", thiz->id);
 }
 

@@ -64,10 +64,11 @@ typedef struct netclient
 
     // Lua callback function
     int cb_recv;
-    int cb_close;
+    //int cb_close;
     int cb_connect;
     int cb_any;
     int cb_error;
+    int self_ref;
 }netclient_t;
 
 uint32_t netc_next_no(void);

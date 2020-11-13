@@ -45,7 +45,7 @@
  * for call. */
 static char locale_decimal_point = '.';
 
-#if defined(LUAT_FLOATPOINT_SUPPORT)
+//#if defined(LUAT_FLOATPOINT_SUPPORT)
 /* In theory multibyte decimal_points are possible, but
  * Lua CJSON only supports UTF-8 and known locales only have
  * single byte decimal points ([.,]).
@@ -77,87 +77,25 @@ static char locale_decimal_point = '.';
  * invalid characters are counted - strtod() will find the valid
  * number if it exists.  The risk is that slightly more memory might
  * be allocated before a parse error occurs. */
-static inline int valid_number_character(char ch)
-{
-    char lower_ch;
+// static inline int valid_number_character(char ch)
+// {
+//     char lower_ch;
 
-    if ('0' <= ch && ch <= '9')
-        return 1;
-    if (ch == '-' || ch == '+' || ch == '.')
-        return 1;
+//     if ('0' <= ch && ch <= '9')
+//         return 1;
+//     if (ch == '-' || ch == '+' || ch == '.')
+//         return 1;
 
-    /* Hex digits, exponent (e), base (p), "infinity",.. */
-    lower_ch = ch | 0x20;
-    if ('a' <= lower_ch && lower_ch <= 'y')
-        return 1;
+//     /* Hex digits, exponent (e), base (p), "infinity",.. */
+//     lower_ch = ch | 0x20;
+//     if ('a' <= lower_ch && lower_ch <= 'y')
+//         return 1;
 
-    return 0;
-}
-
-#if 0 // 不支持locale 不需要这个处理
-/* Calculate the size of the buffer required for a strtod locale
- * conversion. */
-static int strtod_buffer_size(const char *s)
-{
-    const char *p = s;
-
-    while (valid_number_character(*p))
-        p++;
-
-    return p - s;
-}
-
-/* Similar to strtod(), but must be passed the current locale's decimal point
- * character. Guaranteed to be called at the start of any valid number in a string */
-double fpconv_strtod(const char *nptr, char **endptr)
-{
-    char localbuf[FPCONV_G_FMT_BUFSIZE];
-    char *buf, *endbuf, *dp;
-    int buflen;
-    double value;
-
-    /* System strtod() is fine when decimal point is '.' */
-    if (locale_decimal_point == '.')
-        return strtod(nptr, endptr);
-
-    buflen = strtod_buffer_size(nptr);
-    if (!buflen) {
-        /* No valid characters found, standard strtod() return */
-        *endptr = (char *)nptr;
-        return 0;
-    }
-
-    /* Duplicate number into buffer */
-    if (buflen >= FPCONV_G_FMT_BUFSIZE) {
-        /* Handle unusually large numbers */
-        buf = malloc(buflen + 1);
-        if (!buf) {
-            fprintf(stderr, "Out of memory");
-            abort();
-        }
-    } else {
-        /* This is the common case.. */
-        buf = localbuf;
-    }
-    memcpy(buf, nptr, buflen);
-    buf[buflen] = 0;
-
-    /* Update decimal point character if found */
-    dp = strchr(buf, '.');
-    if (dp)
-        *dp = locale_decimal_point;
-
-    value = strtod(buf, &endbuf);
-    *endptr = (char *)&nptr[endbuf - buf];
-    if (buflen >= FPCONV_G_FMT_BUFSIZE)
-        free(buf);
-
-    return value;
-}
-#endif
+//     return 0;
+// }
 
 /* "fmt" must point to a buffer of at least 6 characters */
-static void set_number_format(char *fmt, int precision)
+static inline void set_number_format(char *fmt, int precision)
 {
     int d1, d2, i;
 
@@ -202,131 +140,9 @@ int fpconv_g_fmt(char *str, double num, int precision)
     return len;
 }
 
-void fpconv_init()
-{
-    //fpconv_update_locale();
-}
-#else
-/* In theory multibyte decimal_points are possible, but
- * Lua CJSON only supports UTF-8 and known locales only have
- * single byte decimal points ([.,]).
- *
- * localconv() may not be thread safe (=>crash), and nl_langinfo() is
- * not supported on some platforms. Use sprintf() instead - if the
- * locale does change, at least Lua CJSON won't crash. */
-
-static void fpconv_update_locale()
-{    
-    char buf[8];
-    //mysnprintf_(buf, sizeof(buf), "%g", 0.5);
-    snprintf_(buf, sizeof(buf), "%d", 0);
-
-    /* Failing this test might imply the platform has a buggy dtoa
-     * implementation or wide characters */
-    //if (buf[0] != '1' || buf[2] != '5' || buf[3] != 0) {
-    if(buf[0] != '0' || buf[1] != 0) {
-        fprintf(stderr, "Error: wide characters found or printf() bug.");
-        abort();
-    }
-
-    locale_decimal_point = buf[1];
-}
-
-/* Check for a valid number character: [-+0-9a-yA-Y.]
- * Eg: -0.6e+5, infinity, 0xF0.F0pF0
- *
- * Used to find the probable end of a number. It doesn't matter if
- * invalid characters are counted - strtod() will find the valid
- * number if it exists.  The risk is that slightly more memory might
- * be allocated before a parse error occurs. */
-static inline int valid_number_character(char ch)
-{
-    char lower_ch;
-
-    if ('0' <= ch && ch <= '9')
-        return 1;
-    if (ch == '-' || ch == '+' || ch == '.')
-        return 1;
-
-    /* Hex digits, exponent (e), base (p), "infinity",.. */
-    lower_ch = ch | 0x20;
-    if ('a' <= lower_ch && lower_ch <= 'y')
-        return 1;
-
-    return 0;
-}
-
-/* "fmt" must point to a buffer of at least 6 characters */
-static void set_number_format(char *fmt, double num, int precision)
-{
-#if 0    
-    int d1, d2, i;
-
-    assert(1 <= precision && precision <= 14);
-
-
-    /* Create printf format (%.14g) from precision */
-    d1 = precision / 10;
-    d2 = precision % 10;
-    fmt[0] = '%';
-    fmt[1] = '.';
-    i = 2;
-    if (d1) {
-        fmt[i++] = '0' + d1;
-    }
-    fmt[i++] = '0' + d2;
-    fmt[i++] = 'g';
-    fmt[i] = 0;
-#else
-    fmt[0] = '%';
-#if 0 //不支持浮点输出   
-    if(num - d1 != 0)
-    {
-        fmt[1] = 'f';
-    }
-    else
-#endif    
-    {
-        fmt[1] = 'd';
-    }
-    fmt[2] = 0;
-#endif    
-}
-
-/* Assumes there is always at least 32 characters available in the target buffer */
-int fpconv_g_fmt(char *str, double num, int precision)
-{
-    char buf[FPCONV_G_FMT_BUFSIZE];
-    char fmt[6];
-    int len;
-    char *b;
-
-    set_number_format(fmt, num, precision);
-
-    /* Pass through when decimal point character is dot. */
-    if (locale_decimal_point == '.')
-        //return mysnprintf_(str, FPCONV_G_FMT_BUFSIZE, fmt, num);
-        //不支持浮点，将num直接转化成int类型
-        return snprintf_(str, FPCONV_G_FMT_BUFSIZE, fmt, (int)num);
-
-    /* snprintf_() to a buffer then translate for other decimal point characters */
-    //len = mysnprintf_(buf, FPCONV_G_FMT_BUFSIZE, fmt, num);
-    len = snprintf_(buf, FPCONV_G_FMT_BUFSIZE, fmt, (int)num);
-
-    /* Copy into target location. Translate decimal point if required */
-    b = buf;
-    do {
-        *str++ = (*b == locale_decimal_point ? '.' : *b);
-    } while(*b++);
-
-    return len;
-}
-
-void fpconv_init()
-{
-    fpconv_update_locale();
-}
-#endif
+// void fpconv_init()
+// {
+// }
 
 /* vi:ai et sw=4 ts=4:
  */

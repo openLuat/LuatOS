@@ -305,7 +305,7 @@ typedef unsigned long Instruction;
 /*
 ** macro to control inclusion of some hard tests on stack reallocation
 */
-#define HARDSTACKTESTS
+//#define HARDSTACKTESTS
 #if !defined(HARDSTACKTESTS)
 #define condmovestack(L,pre,pos)	((void)0)
 #else

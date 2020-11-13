@@ -70,7 +70,7 @@ l_noret luaM_toobig (lua_State *L) {
 }
 
 
-
+#include "bget.h"
 /*
 ** generic allocation routine.
 */
@@ -79,10 +79,18 @@ void *luaM_realloc_ (lua_State *L, void *block, size_t osize, size_t nsize) {
   global_State *g = G(L);
   size_t realosize = (block) ? osize : 0;
   lua_assert((realosize == 0) == (block == NULL));
-#if defined(HARDMEMTESTS)
-  if (nsize > realosize && g->gcrunning)
-    luaC_fullgc(L, 1);  /* force a GC whenever possible */
-#endif
+//#if defined(HARDMEMTESTS)
+  if (nsize > realosize && g->gcrunning) {
+    bufsize curalloc;
+    bufsize totfree;
+    bufsize maxfree;
+    unsigned long  nget;
+    unsigned long nrel;
+    bstats(&curalloc, &totfree, &maxfree, &nget, &nrel);
+    if (totfree < nsize)
+      luaC_fullgc(L, 1);  /* force a GC whenever possible */
+  }
+//#endif
   newblock = (*g->frealloc)(g->ud, block, osize, nsize);
   if (newblock == NULL && nsize > 0) {
     lua_assert(nsize > realosize);  /* cannot fail when shrinking a block */

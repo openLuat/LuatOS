@@ -233,6 +233,9 @@ static const rotable_Reg reg_uart[] =
     { "Odd",            NULL,           LUAT_PARITY_ODD},
     { "Even",           NULL,           LUAT_PARITY_EVEN},
     { "None",           NULL,           LUAT_PARITY_NONE},
+    { "ODD",            NULL,           LUAT_PARITY_ODD},
+    { "EVEN",           NULL,           LUAT_PARITY_EVEN},
+    { "NONE",           NULL,           LUAT_PARITY_NONE},
     //高低位顺序
     { "LSB",            NULL,           LUAT_BIT_ORDER_LSB},
     { "MSB",            NULL,           LUAT_BIT_ORDER_MSB},

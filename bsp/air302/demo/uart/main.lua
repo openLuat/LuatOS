@@ -22,7 +22,7 @@ gpio.setup(1, function()
     -- 按一下boot按键试试
     log.info("gpio", "BOOT button release")
     uart.write(2, "boot button release")
-end)
+end, gpio.PULLUP)
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

@@ -26,15 +26,15 @@ gpio.set(19, 1)       -- 设置为高电平
 -- GPIO18/PWM4
 -- GPIO17/PWM3
 
--- 低功耗sleep2模式下依然能输出电平的AON系列GPIO
--- AON_GPIO2 --> GPIO22
+-- 低功耗sleep2模式下依然能输出电平的AON系列GPIO,电平1.8v
+-- AON_GPIO2 --> GPIO21
 -- AON_GPIO3 --> GPIO23
 
 -- ADC相关---------------------------------------
--- 通道 0-内部温度, 1-供电电压, 2-5 外部ADC管脚
--- adc.open(5)
--- adc.read(5)
--- adc.close(5)
+-- 通道 0-内部温度, 1-供电电压, 2 外部ADC管脚
+-- adc.open(2)
+-- adc.read(2)
+-- adc.close(2)
 
 local aliyun_msgid = 1
 local vPowerSwitch = 1

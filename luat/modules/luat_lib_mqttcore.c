@@ -223,14 +223,17 @@ static int l_mqttcore_packSUBSCRIBE(lua_State *L) {
 	size_t len = 0;
 	lua_pushnil(L);
 	while (lua_next(L, 3) != 0) {
-       /* 使用 '键' （在索引 -2 处） 和 '值' （在索引 -1 处）*/
-       const char* topic = luaL_checklstring(L, -2, &len);
-	   uint8_t qos = luaL_checkinteger(L, -1);
-	   luaL_addchar(&buff, len >> 8);
-	   luaL_addchar(&buff, len & 0xFF);
-	   luaL_addlstring(&buff, topic, len);
+       	/* 使用 '键' （在索引 -2 处） 和 '值' （在索引 -1 处）*/
+	   	if (lua_isstring(L, -2) && lua_isnumber(L, -1)) {
 
-	   luaL_addchar(&buff, qos);
+    		const char* topic = luaL_checklstring(L, -2, &len);
+	   		uint8_t qos = luaL_checkinteger(L, -1);
+	   		luaL_addchar(&buff, len >> 8);
+	   		luaL_addchar(&buff, len & 0xFF);
+	   		luaL_addlstring(&buff, topic, len);
+
+	   		luaL_addchar(&buff, qos);
+	   }
 
 	   lua_pop(L, 1);
     }

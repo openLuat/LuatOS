@@ -93,6 +93,14 @@ sys.taskInit(function()
 
     local sub_topics = {}
     sub_topics[topic_req] = 1
+    sub_topics[topic_req .. "1"] = 1
+    sub_topics[topic_req .. "2"] = 1
+    sub_topics[topic_req .. "3"] = 1
+    sub_topics[topic_req .. "4"] = 1
+    sub_topics[topic_req .. "5"] = 1
+    sub_topics[topic_req .. "6"] = 1
+    sub_topics[topic_req .. "7"] = 1
+    sub_topics[topic_req .. "8"] = 1
 
     _G.mqttc = mqtt2.new(clientId, 300, "wendal", "123456", 1, host, port, sub_topics, function(pkg)
         log.info("mqtt", "Oh", json.encode(pkg))

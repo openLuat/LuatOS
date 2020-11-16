@@ -17,8 +17,10 @@
 //存放串口设备句柄
 static rt_device_t serials[MAX_DEVICE_COUNT];
 static uint8_t serials_marks[MAX_DEVICE_COUNT];
+static uint8_t uart_init_complete = 0;
 
-static int luat_uart_rtt_init() {
+int luat_uart_rtt_init() {
+    if (uart_init_complete) return 0;
     char name[8];
     name[0] = 'u';
     name[1] = 'a';
@@ -31,8 +33,9 @@ static int luat_uart_rtt_init() {
     {
         name[4] = '0' + i;
         serials[i] = rt_device_find(name);
-        LOG_I("uart device dev=0x%08X uart.id=%ld", serials[i], i);
+        //LOG_I("uart device dev=0x%08X uart.id=%ld", serials[i], i);
     }
+    uart_init_complete = 1;
     return 0;
 }
 INIT_COMPONENT_EXPORT(luat_uart_rtt_init);
@@ -54,6 +57,7 @@ int luat_uart_exist(int uartid) {
     if (uartid < 0 || uartid >= MAX_DEVICE_COUNT) {
         return 0;
     }
+    luat_uart_rtt_init();
     return serials[uartid] ? 1 : 0;
 }
 

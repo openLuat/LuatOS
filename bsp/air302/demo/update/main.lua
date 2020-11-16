@@ -21,7 +21,7 @@ sys.taskInit(function()
     tostring(nbiot.imei()).."&project_key=".._G.PRODUCT_KEY.."&firmware_name="..
     _G.PROJECT.."_"..rtos.firmware().."&version="..tostring(_G.VERSION).."&need_oss_url=0"
     os.remove("/update.bin")--先删了
-    http.get("http://www.bing.com/", {dw="/update.bin"}, function(get, code, headers, body)
+    http.get(url, {dw="/update.bin"}, function(get, code, headers, body)
         log.info("update","result", get, code, headers, body)
         if get == 200 then
             log.info("update","update.bin",fs.fsize("/update.bin"))

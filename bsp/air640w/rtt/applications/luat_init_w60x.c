@@ -60,5 +60,5 @@ static int rtt_w60x_init() {
   rt_hw_exception_install(w600_bt);
   return RT_EOK;
 }
-INIT_COMPONENT_EXPORT(rtt_w60x_init);
+INIT_APP_EXPORT(rtt_w60x_init);
 #endif

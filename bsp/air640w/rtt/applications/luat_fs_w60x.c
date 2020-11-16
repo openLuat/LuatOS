@@ -17,8 +17,11 @@
 #include "drv_flash.h"
 #include "lfs.h"
 rt_err_t wm_spi_bus_attach_device(const char *bus_name, const char *device_name, rt_uint32_t pin);
+static uint8_t fs_ok = 0;
 
 int luat_fs_init(void) {
+    if (fs_ok) return 0;
+    fs_ok = 1;
     int re;
     re = dfs_mount("onflash", "/", "lfs2", 0, 0);
     if (re) {
@@ -43,7 +46,7 @@ int luat_fs_init(void) {
     }
     return 0;
 }
-
+INIT_ENV_EXPORT(luat_fs_init);
 
 static int rt_hw_spi_flash_init(void)
 {

@@ -125,18 +125,42 @@ int fpconv_g_fmt(char *str, double num, int precision)
     set_number_format(fmt, precision);
 
     /* Pass through when decimal point character is dot. */
-    if (locale_decimal_point == '.')
-        return snprintf_(str, FPCONV_G_FMT_BUFSIZE, fmt, num);
+//    if (locale_decimal_point == '.')
+//        return snprintf_(str, FPCONV_G_FMT_BUFSIZE, fmt, num);
 
     /* snprintf_() to a buffer then translate for other decimal point characters */
     len = snprintf_(buf, FPCONV_G_FMT_BUFSIZE, fmt, num);
 
     /* Copy into target location. Translate decimal point if required */
     b = buf;
-    do {
+    int i = 0;
+    int point = 0;
+    int zero = 0;
+    for(i = 0; i < len; ++i)
+    {
+        if( *(b+i) == locale_decimal_point )
+        {
+            point = i;
+            ++zero;
+        }
+        else
+        {
+            if( *(b+i) == '0' && point != 0 )
+            {
+                ++zero;
+            }
+            else
+            {
+                zero = 0;
+            }
+        }
+    }
+    len = len-zero;
+    for(i = 0; i < len; ++i)
+    {
         *str++ = (*b == locale_decimal_point ? '.' : *b);
-    } while(*b++);
-
+        *b++;
+    }
     return len;
 }
 

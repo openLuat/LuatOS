@@ -57,7 +57,7 @@ local function send_test()
     local result, tx_error, error_code, param
     --发送的数据请按照自己的profile修改
     --发送数据，并要求服务器应答
-    result, tx_error = ctiot.write(pack.pack("<bbA", 0x00,0x05, "hello"), ctiot.CON, 33)
+    result, tx_error = ctiot.write(pack.pack("<bbA", 0x00,0x05, "hello"), ctiot.CON, 0)
     --发送数据，并要求服务器应答，序号为11
     --result, tx_error = ctiot.write(pack.pack("<bbA", 0x00,0x05, "hello"), ctiot.CON, 11)
     --发送数据，不需要服务器应答
@@ -79,6 +79,26 @@ local function send_test()
             log.info(TAG, "tx ok", param)
         else
             log.info(TAG, "tx fail", error_code, param)
+            ctiot.disconnect()
+            result, dereg_error, error_code, param = sys.waitUntilExt("CTIOT_DEREG", 30000)
+            ctiot.connect()
+            while true do
+                result, error, error_code, param = sys.waitUntilExt("CTIOT_REG", 60000)
+                if not result and error==nil then
+                    log.info(TAG, "reg wait timeout")
+                    break
+                end
+                log.info(TAG, result, error, error_code, param)
+                if not error and param > 0 then
+                    log.info(TAG, "reg ok")
+                    isConnected = true
+                    break
+                end
+                if error then
+                    log.info(TAG, "reg fail")
+                    break
+                end
+            end
         end
     else
         log.info(TAG, "tx no work")
@@ -111,12 +131,15 @@ local function task()
         end
     else
         --设置自定义EP，如果不设置，则使用IMEI
-        local ep="qweasdzxcrtyfgh"
-        if ctiot.ep() ~= ep then
-            ctiot.ep(ep)
-        end
+        --local ep="867814046436271"
+        --local ep="qweasdzxcrtyfgh"
+        --if ctiot.ep() ~= ep then
+            --ctiot.ep(ep)
+        --end
+        ctiot.ep(nil)
         --设置服务器IP，端口，保活时间
-        ctiot.param("180.101.147.115", 5683, 300)
+        --ctiot.param("180.101.147.115", 5683, 300)
+        ctiot.param("221.229.214.202", 5683, 300)
         local ip, port, keeptime = ctiot.param()
         log.info(TAG, "set param", ip, port, keeptime)
     end
@@ -131,7 +154,7 @@ local function task()
         --启动连接
         ctiot.connect()
         while true do
-            result, error, error_code, param = sys.waitUntilExt("CTIOT_REG", 30000)
+            result, error, error_code, param = sys.waitUntilExt("CTIOT_REG", 60000)
             if not result and error==nil then
                 log.info(TAG, "reg wait timeout")
                 break
@@ -151,10 +174,13 @@ local function task()
     end
     if isConnected then
         send_test()
+        -- 221.229.214.202 这个IP必须在保活时间内update一下
+        ctiot.update()
+        result, error, error_code, param = sys.waitUntilExt("CTIOT_UPDATE", 60000)
     end
     -- 30秒后唤醒,发个测试数据
     if not inSleep then
-        pm.dtimerStart(0, 60000)
+        pm.dtimerStart(0, 30000)
         inSleep = true
     end
     -- 我要睡了!!! 事实上还会等几秒, 这时候服务器还能下发数据

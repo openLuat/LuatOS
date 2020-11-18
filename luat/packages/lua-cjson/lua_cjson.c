@@ -1637,50 +1637,50 @@ static int l_json_encode_safe(lua_State *L) {
 @usage json.encode_number_precision("2")-->浮点数用%.2g的方式转换为字符串
 @usage json.encode_number_precision("10f")-->浮点数用%.10f的方式转换为字符串
 */
-static int l_json_cfg_encode_number_precision(lua_State *L) {
-	int top = lua_gettop(L);
-	if(top <= 0)
-	{
-		json_easy_config.encode_number_precision = DEFAULT_ENCODE_NUMBER_PRECISION;
-		json_easy_config.encode_number_precision_mode = 'g';
-	}
-	else{
-		size_t len;
-		int prec = 0;
-		const char* mode = luaL_optlstring(L, top, "7g",&len);
-		for(int i = 0; i<len+1; i++)
-		{
-			if( *(mode+i) >= '0' &&  *(mode+i) <= '9' )
-			{
-				prec *= 10;
-				prec += *(mode+i)-'0';
-			}
-			else
-			{
-				if(*(mode+i) == 'f')
-				{
-					json_easy_config.encode_number_precision_mode = *(mode+i);
-				}
-				else
-				{
-					json_easy_config.encode_number_precision_mode = 'g';
-				}
-				break;
-			}
-		}
-		if (prec>=0 && prec<=14)
-		{
-			json_easy_config.encode_number_precision = prec;
-		}
-		else
-		{
-			json_easy_config.encode_number_precision = DEFAULT_ENCODE_NUMBER_PRECISION;
-		}
-		--top;
-		lua_settop(L,top);
-	}
-	return 0;
-}
+// static int l_json_cfg_encode_number_precision(lua_State *L) {
+// 	int top = lua_gettop(L);
+// 	if(top <= 0)
+// 	{
+// 		json_easy_config.encode_number_precision = DEFAULT_ENCODE_NUMBER_PRECISION;
+// 		json_easy_config.encode_number_precision_mode = 'g';
+// 	}
+// 	else{
+// 		size_t len;
+// 		int prec = 0;
+// 		const char* mode = luaL_optlstring(L, top, "7g",&len);
+// 		for(int i = 0; i<len+1; i++)
+// 		{
+// 			if( *(mode+i) >= '0' &&  *(mode+i) <= '9' )
+// 			{
+// 				prec *= 10;
+// 				prec += *(mode+i)-'0';
+// 			}
+// 			else
+// 			{
+// 				if(*(mode+i) == 'f')
+// 				{
+// 					json_easy_config.encode_number_precision_mode = *(mode+i);
+// 				}
+// 				else
+// 				{
+// 					json_easy_config.encode_number_precision_mode = 'g';
+// 				}
+// 				break;
+// 			}
+// 		}
+// 		if (prec>=0 && prec<=14)
+// 		{
+// 			json_easy_config.encode_number_precision = prec;
+// 		}
+// 		else
+// 		{
+// 			json_easy_config.encode_number_precision = DEFAULT_ENCODE_NUMBER_PRECISION;
+// 		}
+// 		--top;
+// 		lua_settop(L,top);
+// 	}
+// 	return 0;
+// }
 
 /*
 将字符串反序列化为对象
@@ -1716,7 +1716,7 @@ static const rotable_Reg reg_json[] = {
         // { "encode_sparse_array", json_cfg_encode_sparse_array },
         // { "encode_max_depth", json_cfg_encode_max_depth },
         // { "decode_max_depth", json_cfg_decode_max_depth },
-        { "encode_number_precision", l_json_cfg_encode_number_precision , 0},
+        // { "encode_number_precision", l_json_cfg_encode_number_precision , 0},
         // { "encode_keep_buffer", json_cfg_encode_keep_buffer },
         // { "encode_invalid_numbers", json_cfg_encode_invalid_numbers },
         // { "decode_invalid_numbers", json_cfg_decode_invalid_numbers },

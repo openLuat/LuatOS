@@ -6,6 +6,17 @@ VERSION = "1.0.0"
 -- sys库是标配
 local sys = require "sys"
 
+-- 接线
+--[[
+SHT20 --- Air302
+SDA   -   I2C_SDA
+SCL   -   I2C_SCL
+VCC   -   VDDIO
+GND   -   GND
+]]
+
+-- 提示, 老板子上的I2C丝印可能是反的, 如果读取失败请调换一下SDA和SLA
+
 -- 启动个task, 定时查询SHT20的数据
 sys.taskInit(function()
 

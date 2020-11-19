@@ -95,7 +95,7 @@ static char locale_decimal_point = '.';
 // }
 
 /* "fmt" must point to a buffer of at least 6 characters */
-static inline void set_number_format(char *fmt, int precision)
+static void set_number_format(char *fmt, int precision,char mode)
 {
     int d1, d2, i;
 
@@ -111,7 +111,7 @@ static inline void set_number_format(char *fmt, int precision)
         fmt[i++] = '0' + d1;
     }
     fmt[i++] = '0' + d2;
-    fmt[i++] = 'g';
+    fmt[i++] = mode;
     fmt[i] = 0;
 }
 /* Assumes there is always at least 32 characters available in the target buffer */
@@ -122,11 +122,30 @@ int fpconv_g_fmt(char *str, double num, int precision)
     int len;
     char *b;
 
-    set_number_format(fmt, precision);
+    set_number_format(fmt, precision,'g');
 
     /* Pass through when decimal point character is dot. */
-//    if (locale_decimal_point == '.')
-//        return snprintf_(str, FPCONV_G_FMT_BUFSIZE, fmt, num);
+    if (locale_decimal_point == '.')
+        return snprintf_(str, FPCONV_G_FMT_BUFSIZE, fmt, num);
+
+    /* snprintf_() to a buffer then translate for other decimal point characters */
+    len = snprintf_(buf, FPCONV_G_FMT_BUFSIZE, fmt, num);
+    /* Copy into target location. Translate decimal point if required */
+    b = buf;
+    do {
+        *str++ = (*b == locale_decimal_point ? '.' : *b);
+    } while(*b++);
+
+    return len;
+}
+int fpconv_f_fmt(char *str, double num, int precision)
+{
+    char buf[FPCONV_G_FMT_BUFSIZE];
+    char fmt[6];
+    int len;
+    char *b;
+
+    set_number_format(fmt, precision,'f');
 
     /* snprintf_() to a buffer then translate for other decimal point characters */
     len = snprintf_(buf, FPCONV_G_FMT_BUFSIZE, fmt, num);
@@ -161,6 +180,7 @@ int fpconv_g_fmt(char *str, double num, int precision)
         *str++ = (*b == locale_decimal_point ? '.' : *b);
         *b++;
     }
+    *str = 0x00;
     return len;
 }
 

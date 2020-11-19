@@ -17,6 +17,7 @@
 const char luat_pub_tx_tag[] = "CTIOT_TX";
 const char luat_pub_rx_tag[] = "CTIOT_RX";
 const char luat_pub_reg_tag[] = "CTIOT_REG";
+const char luat_pub_update_tag[] = "CTIOT_UPDATE";
 const char luat_pub_dereg_tag[] = "CTIOT_DEREG";
 const char luat_pub_wakeup_tag[] = "CTIOT_WAKEUP";
 const char luat_pub_other_tag[] = "CTIOT_OTHER";
@@ -46,6 +47,23 @@ static int luat_ctiot_msg_handler(lua_State *L, void* ptr)
 		default:
 			error = 1;
 			error_code = code;
+			break;
+		}
+		break;
+	case CTIOT_EVENT_UPDATE:
+		tag = (char *)luat_pub_update_tag;
+		param = 0;
+		switch (code)
+		{
+		case CTIOT_UPDATE_OK:
+			error = 0;
+			error_code = 0;
+			param = 0;
+			break;
+		default:
+			error = 1;
+			error_code = code;
+			param = 0;
 			break;
 		}
 		break;
@@ -381,14 +399,23 @@ static int l_ctiot_ready(lua_State *L)
 	lua_pushinteger(L, result);
 	return 1;
 }
-// /**
-//  * 发送更新注册信息给ctiot
-//  * @api ctio.update()
-//  * @return nil 暂无返回值
-//  */
+ /**
+  * 发送更新注册信息给ctiot
+  * @api ctio.update()
+  * @return boolean 发送成功等待结果返回true,否则返回false
+  */
 static int l_ctiot_update(lua_State *L)
 {
-	return 0;
+	uint16_t msgId;
+	if (luat_ctiot_update_reg(&msgId, NULL))
+	{
+		lua_pushboolean(L, 0);
+	}
+	else
+	{
+		lua_pushboolean(L, 1);
+	}
+	return 1;
 }
 #endif
 
@@ -406,7 +433,7 @@ static const rotable_Reg reg_ctiot[] =
 	{ "disconnect", l_ctiot_disconnect, 0},
 	{ "write", l_ctiot_write, 0},
 //	{ "read", l_ctiot_read, 0},
-//	{ "update", l_ctiot_update, 0},
+	{ "update", l_ctiot_update, 0},
     // ----- 类型常量
 	{ "CON", NULL, 0},
 	{ "NON", NULL, 1},

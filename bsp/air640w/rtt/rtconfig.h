@@ -28,15 +28,18 @@
 #define RT_USING_EVENT
 #define RT_USING_MAILBOX
 #define RT_USING_MESSAGEQUEUE
+#define RT_USING_SIGNALS
 
 /* Memory Management */
 
+#define RT_USING_MEMPOOL
 #define RT_USING_SMALL_MEM
 #define RT_USING_HEAP
 
 /* Kernel Device Object */
 
 #define RT_USING_DEVICE
+#define RT_USING_INTERRUPT_INFO
 #define RT_USING_CONSOLE
 #define RT_CONSOLEBUF_SIZE 512
 #define RT_CONSOLE_DEVICE_NAME "uart0"
@@ -175,6 +178,7 @@
 
 #define RT_USING_LWIP
 #define RT_USING_LWIP202
+#define RT_LWIP_MEM_ALIGNMENT 4
 #define RT_LWIP_IGMP
 #define RT_LWIP_ICMP
 #define RT_LWIP_DNS
@@ -217,8 +221,6 @@
 
 /* AT commands */
 
-#define LWIP_USING_DHCPD
-#define DHCPD_SERVER_IP "192.168.169.1"
 
 /* VBUS(Virtual Software BUS) */
 
@@ -279,6 +281,9 @@
 
 
 /* system packages */
+
+
+/* Micrium: Micrium software products porting for RT-Thread */
 
 
 /* peripheral libraries and drivers */

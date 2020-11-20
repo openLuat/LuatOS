@@ -14,33 +14,21 @@ import json
 import configparser
 config = configparser.ConfigParser()
 config['air640w'] = {
-    # ============================================================
-    # 不要修改PLAT_ROOT!不要修改PLAT_ROOT!不要修改PLAT_ROOT!
-    # PLAT_ROOT仅供SDK源码开发者使用!!!!
-    # 不要把PLAT_ROOT指向任何存在的路径!!!!!
-    "PLAT_ROOT" : "D:\\github\\air640w\\sdk\\PLAT\\",
-    # ============================================================
     "FTC_PATH" : ".\\",
-    "EC_PATH" : ".\\air640w_dev.ec",
-    "USER_PATH": ".\\user\\",
+    "USER_PATH": ".\\demo\\73.mqtt2",
     "LIB_PATH" : ".\\lib\\",
     "DEMO_PATH": ".\\demo\\",
     "TOOLS_PATH": ".\\tools\\",
     "MAIN_LUA_DEBUG" : "false",
     "LUA_DEBUG" : "false",
-    "COM_PORT" : "COM28"
+    "COM_PORT" : "COM59"
 }
 if os.path.exists("local.ini") :
     config.read("local.ini")
-if os.path.exists(config["air640w"]["PLAT_ROOT"]):
-    PLAT_ROOT = os.path.abspath(config["air640w"]["PLAT_ROOT"]) + os.sep # 源码地址
-else:
-    PLAT_ROOT = config["air640w"]["PLAT_ROOT"] 
-FTC_PATH = os.path.abspath(config["air640w"]["FTC_PATH"])  + os.sep   # FlashToolCLI刷机工具的目录
-EC_PATH = os.path.abspath(config["air640w"]["EC_PATH"])               # EC后缀的固件路径
+FTC_PATH = os.path.abspath(config["air640w"]["FTC_PATH"])  + os.sep   # 工作目录
 USER_PATH = os.path.abspath(config["air640w"]["USER_PATH"]) + os.sep  # 用户脚本所在的目录
-LIB_PATH = os.path.abspath(config["air640w"]["LIB_PATH"])  + os.sep   # 用户脚本所在的目录
-DEMO_PATH = os.path.abspath(config["air640w"]["DEMO_PATH"])  + os.sep # 用户脚本所在的目录
+LIB_PATH = os.path.abspath(config["air640w"]["LIB_PATH"])  + os.sep   # 库脚本所在的目录
+DEMO_PATH = os.path.abspath(config["air640w"]["DEMO_PATH"])  + os.sep # demo脚本所在的目录,仅用于固件发布包
 MAIN_LUA_DEBUG = config["air640w"]["MAIN_LUA_DEBUG"] == "true"
 LUA_DEBUG = config["air640w"]["LUA_DEBUG"] == "true"
 COM_PORT = config["air640w"]["COM_PORT"]
@@ -53,10 +41,7 @@ TOOLS_PATH = os.path.abspath(config["air640w"]["TOOLS_PATH"])  + os.sep
 '''
 def get_git_revision_short_hash():
     try :
-        if os.path.exists(PLAT_ROOT):
-            return subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], cwd=PLAT_ROOT).strip()
-        else:
-            return subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).strip()
+        return subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).strip()
     except:
         return ""
 
@@ -68,11 +53,11 @@ def usage():
     python air640w.py [action]
 
     lfs   - 编译文件系统
-    dlrom - 下载底层固件
+    dlrom - 下载底层固件(暂不支持)
     dlfs  - 下载lua脚本(即整个文件系统)
     dlfull- 下载底层和lua脚本
     pkg   - 生成发布用的压缩包
-    build - 构建源码(仅内部使用)
+    build - 构建源码(仅内部使用,暂不可用)
 
     用例1, 生成文件系统并下载到开发板
     python air640w.py lfs dlfs
@@ -91,7 +76,6 @@ def usage():
 执行打包程序,内部使用
 '''
 def _pkg():
-    # TODO 扩展为用户可用的打包ec固件的工具
     if os.path.exists("tmp"):
         shutil.rmtree("tmp")
 
@@ -223,7 +207,7 @@ def _lfs(_path=None):
         # 如果是lua文件, 编译之
         if name.endswith(".lua") :
             cmd = [TOOLS_PATH + "luac_536_32bits.exe"]
-            print ("Using Lua 32bits!!!")
+            #print ("Using Lua 32bits!!!")
             if name.endswith("main.lua") :
                 if not MAIN_LUA_DEBUG :
                     cmd += ["-s"]
@@ -262,6 +246,7 @@ def _lfs(_path=None):
                 # 写入文件内容
                 _path = os.path.join(root, name)
                 _size = os.path.getsize(_path)
+                print(_path, _size)
                 f.write(struct.pack("<HHI", 0x0202, 0x00, _size))
                 with open(_path, "rb") as f2 :
                     shutil.copyfileobj(f2, f, _size)
@@ -276,7 +261,6 @@ def main():
     while len(sys.argv) > argc :
         if sys.argv[argc] == "build" :
             print("Action Build ----------------------------------")
-            #subprocess.check_call([PLAT_ROOT + "KeilBuild.bat"], cwd=PLAT_ROOT)
         elif sys.argv[argc] == "lfs" :
             print("Action mklfs ----------------------------------")
             _lfs()

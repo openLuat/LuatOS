@@ -7,6 +7,9 @@
 #include "bget.h"
 #include "luat_malloc.h"
 
+#define LUAT_LOG_TAG "luat.vmheap"
+#include "luat_log.h"
+
 #define LUAT_WEAK                     __attribute__((weak))
 
 //------------------------------------------------
@@ -36,15 +39,32 @@ LUAT_WEAK void* luat_heap_calloc(size_t count, size_t _size) {
 //------------------------------------------------
 // ---------- 管理 LuaVM所使用的内存----------------
 LUAT_WEAK void* luat_heap_alloc(void *ud, void *ptr, size_t osize, size_t nsize) {
+    if (0) {
+        if (ptr) {
+            if (nsize) {
+                // 缩放内存块
+                LLOGD("realloc %p from %d to %d", ptr, osize, nsize);
+            }
+            else {
+                // 释放内存块
+                LLOGD("free %p ", ptr);
+                brel(ptr);
+                return NULL;
+            }
+        }
+        else {
+            // 申请内存块
+            ptr = bget(nsize);
+            LLOGD("malloc %p type=%d size=%d", ptr, osize, nsize);
+            return ptr;
+        }
+    }
+
     if (nsize)
     {
     	void* ptmp = bgetr(ptr, nsize);
     	if(ptmp == NULL && osize >= nsize)
     	{
-    		if( osize != nsize )
-    		{
-    			memset((char*)ptr + nsize, 0,(osize - nsize));
-    		}
     		return ptr;
     	}
         return ptmp;

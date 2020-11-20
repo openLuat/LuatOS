@@ -28,6 +28,8 @@
 
 LuatOS大QQ群: 1061642968
 
+Air302专属群: 972784352
+
 ## 常用链接
 
 * [合宙官方](http://www.openluat.com)

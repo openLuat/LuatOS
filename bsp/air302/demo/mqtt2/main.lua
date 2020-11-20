@@ -23,18 +23,16 @@ sys.taskInit(function ()
         ["/luatos/"..(nbiot.imei() or "no_imei").."/+"]=0,
     },
     function (data)
-        log.info("mqtt","=====cb start======")
-        for i,j in pairs(data) do
-            log.info("mqtt cb",i,j)
-        end
-        log.info("mqtt","======cb end======")
+        log.info("mqtt","receive",data.topic,data.payload,data.id,data.retain,data.qos,data.dup)
     end)
+    sys.taskInit(function() s:run() end)
 
-    s:run()
-
-    sys.timerLoopStart(function()
-        s:pub("/luatos/pub/"..(nbiot.imei() or "no_imei"), 0, tostring(os.time()))
-    end,10000)
+    while true do
+        log.info("mqtt","pub start")
+        local r,d = s:pub("/luatos/pub/"..(nbiot.imei() or "no_imei"), 0, tostring(os.time()))
+        log.info("mqtt","pub sent",r,d)
+        sys.wait(10000)
+    end
 end)
 
 -- 用户代码已结束---------------------------------------------

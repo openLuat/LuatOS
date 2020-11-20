@@ -160,7 +160,7 @@ int luat_main (void) {
   if (boot_mode == 0) {
     return 0; // just nop
   }
-  LLOGI("LuatOS@%s %s, build at: " __DATE__ " " __TIME__, luat_os_bsp(), LUAT_VERSION);
+  LLOGI("LuatOS@%s %s, Build: " __DATE__ " " __TIME__, luat_os_bsp(), LUAT_VERSION);
   // 1. 初始化文件系统
   luat_fs_init();
 

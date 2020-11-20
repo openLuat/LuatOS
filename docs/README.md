@@ -4,7 +4,7 @@
 
 LuatOS是运行在嵌入式硬件,用户编写lua代码就可完成各种功能
 
-1. 基于Lua 5.3.6
+1. 基于Lua 5.3.x
 2. 低内存需求, 最低32kb, 96kb flash空间
 3. 硬件抽象层兼容M3/arm/risc-v等
 4. 可测试,可模拟(qemu)
@@ -39,7 +39,7 @@ sys.run()
 ## 如何使用LuatOS
 
 1. 首先, 购买开发板([Wifi](https://item.taobao.com/item.htm?id=590724913462) / [NB-IOT](https://item.taobao.com/item.htm?id=625893281770&ns=1))
-2. 然后, 下载[固件包](https://gitee.com/openLuat/LuatOS/releases),按里面的文档进行刷机
+2. 然后, 下载[固件包](https://gitee.com/openLuat/LuatOS/releases),按压缩包里的文档进行刷机
 3. 开始愉快地玩耍(或者放着积灰...)
 
 有任何疑问? 加 **QQ群: 1061642968** , 很多大佬哦
@@ -47,18 +47,18 @@ sys.run()
 ----------------------------------------------------------------------------------
 ## 资源
 
-* [临时官网](https://luatos.vue2.cn/)
-* 参阅 [Luat 平台层](docs/markdown/core/luat_platform.md)
-* [文档索引](docs.md)
-* [搭建开发环境](docs/markdown/proj/workspace.md)
-* [如何开发](docs/markdown/proj/how_to_dev.md)
-* [预编译固件](https://github.com/openLuat/LuatOS/releases)
-* [Lua 5.3中文手册](https://www.runoob.com/manual/lua53doc/)
-* [合宙官网](http://www.openluat.com)
-* [合宙商城](http://m.openluat.com)
-* [联盛德W600/合宙Air640W专属说明](bsp/air640w/README.md)
-* [合宙Air302专属说明](bsp/air302/README.md)
-* [Lua API文档](docs/api/lua/README.md)
+* [预编译固件](https://github.com/openLuat/LuatOS/releases) 固件,示例,文档,都会一起发布
+* [Lua 5.3中文手册](https://www.runoob.com/manual/lua53doc/) 官方手册的中文版
+* [Lua 入门教程(5.1版)](https://wiki.openluat.com/doc/luaStart) 注意与5.3有语法差异
+* [合宙官网](http://www.openluat.com) 一家有理想的物联网公司
+* [合宙商城](http://m.openluat.com) 合宙官方商城
+* [联盛德W600/合宙Air640W专属说明](bsp/air640w/README.md) wifi模块,便宜,耐操
+* [合宙Air302专属说明](bsp/air302/README.md) NB-IOT模块,二次开发的首选
+* [Lua API文档](docs/api/lua/README.md) LuatOS的Lua API文档
+* [如何编译-Wifi固件](bsp/air640w/userdoc/how_to_build.md) 自行编译wifi模块
+* [如何编译-NBIOT固件](bsp/air302/userdoc/build_from_sdk.md) 自行编译nbiot模块
+* [收发16进制数据](http://doc.openluat.com/article/583/0) 二进制数据随意收发
+* [临时官网](https://luatos.vue2.cn/) 官网域名备案中
 
 ----------------------------------------------------------------------------------
 
@@ -75,6 +75,11 @@ sys.run()
 * [printf](https://github.com/mpaland/printf) A printf / sprintf Implementation for Embedded Systems
 * [YMODEM for Python](https://github.com/alexwoo1900/ymodem) YMODEM 用于下载脚本
 * [elua](http://www.eluaproject.net/) eLua 虽然已经停更多年,但精神犹在
+
+## 免费服务
+
+* [NetLab](https://netlab.luatos.io/index.html) TCP/UDP透传调试,公网IP, HEX值收发, Tab式多客户端. [备用地址](https://netlab.luatos.io/index.html)
+* [DevLog](udp://devlog.luatos.io:9072) 设备日志记录,格式兼容errDump.lua 查看日志请登录LuatOS官网.
 
 ## 更多项目
 

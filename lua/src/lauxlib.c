@@ -515,7 +515,7 @@ static void *newbox (lua_State *L, size_t newsize) {
 */
 #define buffonstack(B)	((B)->b != (B)->initb)
 
-
+#include "lgc.h"
 /*
 ** returns a pointer to a free area with at least 'sz' bytes
 */
@@ -545,10 +545,6 @@ LUALIB_API char *luaL_prepbuffsize (luaL_Buffer *B, size_t sz) {
 
 LUALIB_API void luaL_addlstring (luaL_Buffer *B, const char *s, size_t l) {
   if (l > 0) {  /* avoid 'memcpy' when 's' can be NULL */
-    if(l>100)
-    {
-      lua_gc(B->L, LUA_GCCOLLECT, 0);
-    }
     char *b = luaL_prepbuffsize(B, l);
     memcpy(b, s, l * sizeof(char));
     luaL_addsize(B, l);

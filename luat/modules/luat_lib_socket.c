@@ -117,10 +117,6 @@ static int luat_lib_netc_msg_handler(lua_State* L, void* ptr) {
     //    lua_call(L, 1, 0);
     //    break;
     case NETC_EVENT_RECV:
-        if(ent->len > 100)
-	    {
-	    	lua_gc(L, LUA_GCCOLLECT, 0);
-	    }
         lua_pushlstring(L, ent->buff, ent->len);
         //lua_pushliteral(L, "");
         lua_call(L, 2, 0);
@@ -310,10 +306,6 @@ static int netc_send(lua_State *L) {
     const char* data = luaL_checklstring(L, 2, &len);
     int flags = luaL_optinteger(L, 3, 0);
     if (len > 0) {
-        if(len > 100)
-    	{
-    		lua_gc(L, LUA_GCCOLLECT, 0);
-    	}
         int32_t re = netclient_send(netc, (void*)data, len, flags);
         lua_pushboolean(L, re == len ? 1 : 0);
     }

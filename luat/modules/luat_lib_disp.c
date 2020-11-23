@@ -10,6 +10,8 @@
 #include "luat_disp.h"
 #include "luat_gpio.h"
 #include "luat_timer.h"
+#include "luat_i2c.h"
+
 #include "u8g2.h"
 
 #define LUAT_LOG_TAG "luat.disp"
@@ -17,6 +19,10 @@
 
 static u8g2_t* u8g2;
 static int u8g2_lua_ref;
+static uint8_t i2c_id;
+static uint8_t i2c_addr = 0x3C;
+//static uint8_t spi_id;
+
 /*
 显示屏初始化
 @api disp.init(conf)
@@ -30,7 +36,7 @@ end
 */
 static int l_disp_init(lua_State *L) {
     if (u8g2 != NULL) {
-        LLOGI("disp is aready inited");
+        LLOGW("disp is aready inited");
         lua_pushinteger(L, 2);
         return 1;
     }
@@ -96,6 +102,27 @@ static int l_disp_init(lua_State *L) {
             conf.pin3 = luaL_checkinteger(L, -1);
         }
         lua_pop(L, 1);
+
+        lua_pushliteral(L, "i2c_id");
+        lua_gettable(L, 1);
+        if (lua_isinteger(L, -1)) {
+            i2c_id = luaL_checkinteger(L, -1);
+        }
+        lua_pop(L, 1);
+
+        lua_pushliteral(L, "i2c_addr");
+        lua_gettable(L, 1);
+        if (lua_isinteger(L, -1)) {
+            i2c_addr = luaL_checkinteger(L, -1);
+        }
+        lua_pop(L, 1);
+
+        // lua_pushliteral(L, "spi_id");
+        // lua_gettable(L, 1);
+        // if (lua_isinteger(L, -1)) {
+        //     spi_id = luaL_checkinteger(L, -1);
+        // }
+        // lua_pop(L, 1);
 
         // pin4 ~ pin7暂时用不到,先不设置了
     }
@@ -251,6 +278,7 @@ LUAMOD_API int luaopen_disp( lua_State *L ) {
 // 往下是一些U8G2方法的默认实现
 
 uint8_t luat_u8x8_gpio_and_delay(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr);
+uint8_t luat_u8x8_byte_rt_hw_i2c(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr);
 
 LUAT_WEAK int luat_disp_setup(luat_disp_conf_t *conf) {
     if (conf->pinType == 1) {
@@ -263,13 +291,47 @@ LUAT_WEAK int luat_disp_setup(luat_disp_conf_t *conf) {
         u8g2_SetPowerSave(u8g2, 0);
         return 0;
     }
+    else if (conf->pinType == 2) {
+        u8g2_t* u8g2 = (u8g2_t*)conf->ptr;
+        u8g2_Setup_ssd1306_i2c_128x64_noname_f( u8g2, U8G2_R0, luat_u8x8_byte_rt_hw_i2c, luat_u8x8_gpio_and_delay);
+        LLOGD("setup disp i2c.sw SCL=%ld SDA=%ld", conf->pin0, conf->pin1);
+        u8g2_InitDisplay(u8g2);
+        u8g2_SetPowerSave(u8g2, 0);
+        return 0;
+    }
     LLOGI("only i2c sw mode is support, by default impl");
     return -1;
 }
 
 LUAT_WEAK int luat_disp_close(luat_disp_conf_t *conf) {
     return 0;
-} 
+}
+
+LUAT_WEAK uint8_t luat_u8x8_byte_rt_hw_i2c(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr) {
+    /* u8g2/u8x8 will never send more than 32 bytes between START_TRANSFER and END_TRANSFER */
+    switch(msg)
+    {
+        case U8X8_MSG_BYTE_SEND:
+            luat_i2c_send(i2c_id, i2c_addr, (uint8_t *)arg_ptr, arg_int);
+            break;
+
+        case U8X8_MSG_BYTE_INIT:
+            break;
+
+        case U8X8_MSG_BYTE_SET_DC:
+            break;
+
+        case U8X8_MSG_BYTE_START_TRANSFER:
+            break;
+
+        case U8X8_MSG_BYTE_END_TRANSFER:
+            break;
+
+        default:
+            return 0;
+    }
+    return 1;
+}
 
 LUAT_WEAK uint8_t luat_u8x8_gpio_and_delay(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr)
 {

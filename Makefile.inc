@@ -4,7 +4,6 @@ CFLAGS_INC    +=  -I $(LUATOS_DIR)/lua/include \
 				  -I $(LUATOS_DIR)/luat/packages/vsprintf \
 				  -I $(LUATOS_DIR)/luat/packages/u8g2 \
 				  -I $(LUATOS_DIR)/luat/packages/minmea \
-				  -I $(LUATOS_DIR)/luat/packages/fatfs \
 				  -I $(LUATOS_DIR)/luat/packages/heap \
 				  -I $(LUATOS_DIR)/bsp/air302/include 
 
@@ -14,7 +13,6 @@ LUATOS_SRC_DIRS += $(LUATOS_DIR)/lua/src \
 					$(LUATOS_DIR)/luat/packages/vsprintf \
 					$(LUATOS_DIR)/luat/packages/lua-cjson \
 					$(LUATOS_DIR)/luat/packages/u8g2 \
-					$(LUATOS_DIR)/luat/packages/fatfs \
 					$(LUATOS_DIR)/luat/packages/minmea \
 					$(LUATOS_DIR)/luat/packages/heap \
 					$(LUATOS_DIR)/bsp/air302/src 

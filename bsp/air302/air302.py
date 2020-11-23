@@ -232,7 +232,7 @@ COM_PORT = COM56
         shutil.copyfile("tmp/Air302_"+BIG_VER+"_"+_tag+".ec", one_ec_path)
         print("一体刷机包   --> ", one_ec_path)
     else :
-        pkg_name = "Air302_"+BIG_VER+"_"+_tag + ".zip"
+        pkg_name = "Air302_"+BIG_VER+"_"+_tag
         shutil.make_archive(pkg_name, 'zip', "tmp")
 
         ## 拷贝一份固定路径的

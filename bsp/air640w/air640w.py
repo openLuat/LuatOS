@@ -85,7 +85,7 @@ def _pkg():
     os.mkdir("tmp")
     # 拷贝固件文件
     if os.path.exists("../w60x/Bin/rtthread_1M.FLS") :
-        shutil.copy("../w60x/Bin/rtthread_1M.FLS", "tmp/LuatOS_Air640W_V0002.FLS")
+        shutil.copy("../w60x/Bin/rtthread_1M.FLS", "tmp/LuatOS_Air640W_V0004.FLS")
     # 拷贝库文件和demo
     shutil.copytree(LIB_PATH, "tmp/lib")
     shutil.copytree(DEMO_PATH, "tmp/demo")
@@ -119,8 +119,8 @@ LUA_DEBUG = false
 COM_PORT = COM56
 ''')
 
-    pkg_name = "air640w_V0002_"+_tag + ".zip"
-    shutil.make_archive("air640w_V0002_"+_tag, 'zip', "tmp")
+    pkg_name = "air640w_V0004_"+_tag + ".zip"
+    shutil.make_archive("air640w_V0004_"+_tag, 'zip', "tmp")
 
     print("ALL DONE===================================================")
     print("Package Name", pkg_name)
@@ -139,6 +139,7 @@ def _dl(tp, _path=None):
         serial_io.bytesize = 8
         serial_io.stopbits = 1
         serial_io.timeout = 2
+        #serial_io.rtscts = 1
 
         try:
             serial_io.open()
@@ -150,6 +151,11 @@ def _dl(tp, _path=None):
 
         def sender_putc(data, timeout=15):
             return serial_io.write(data)
+
+        ## 适配CH340的RTS接到W600的RTS脚
+        serial_io.rts = 0
+        time.sleep(0.5)
+        serial_io.rts = 1
 
         serial_io.write("reboot\r\n".encode())
 

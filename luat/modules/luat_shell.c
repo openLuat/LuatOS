@@ -37,8 +37,10 @@ static int luat_shell_msg_handler(lua_State *L, void* ptr) {
             luat_shell_print(buff);
         }
         // 重启
-        else if (strncmp("AT+RESET", uart_buff, 8) == 0) {
-            luat_shell_print("OK\r\nReboot\r\n");
+        else if (strncmp("AT+RESET", uart_buff, 8) == 0 
+              || strncmp("at+ecrst", uart_buff, 8) == 0
+              || strncmp("AT+ECRST", uart_buff, 8) == 0) {
+            luat_shell_print("OK\r\n");
             luat_os_reboot(0);
         }
         // AT测试

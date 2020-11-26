@@ -84,8 +84,8 @@ def _pkg():
 
     os.mkdir("tmp")
     # 拷贝固件文件
-    if os.path.exists("../w60x/Bin/rtthread_1M.FLS") :
-        shutil.copy("../w60x/Bin/rtthread_1M.FLS", "tmp/LuatOS_Air640W_V0004.FLS")
+    if os.path.exists("rtt/Bin/rtthread_1M.FLS") :
+        shutil.copy("rtt/Bin/rtthread_1M.FLS", "tmp/LuatOS_Air640W_V0004_testing.FLS")
     # 拷贝库文件和demo
     shutil.copytree(LIB_PATH, "tmp/lib")
     shutil.copytree(DEMO_PATH, "tmp/demo")

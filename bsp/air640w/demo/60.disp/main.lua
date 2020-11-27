@@ -1,9 +1,9 @@
-local sys = require("sys")
-
--- 项目信息,预留
-PROJECT = "playit" -- W600 on LuatOS
+-- LuaTools需要PROJECT和VERSION这两个信息
+PROJECT = "dispdemo"
 VERSION = "1.0.0"
-PRODUCT_KEY = "1234567890"
+
+-- 引入必要的库文件(lua编写), 内部库不需要require
+local sys = require "sys"
 
 -- 日志TAG, 非必须
 local TAG = "main"
@@ -48,9 +48,7 @@ sys.taskInit(function()
 end)
 
 
--- TODO: 用户按钮(PB7), 用于清除配网信息,重新airkiss
-
--- TODO: 联网更新脚本和底层(也许)
-
--- 主循环, 必须加
+-- 用户代码已结束---------------------------------------------
+-- 结尾总是这一句
 sys.run()
+-- sys.run()之后后面不要加任何语句!!!!!

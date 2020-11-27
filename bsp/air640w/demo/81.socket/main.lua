@@ -4,7 +4,12 @@ wifi信息: 修改 wlan.connect
 服务器信息, 修改 s:host s:port
 可访问 http://tcplab.openluat.com 获取一个临时的tcp端口, 只适合测试ASCII字符
 ]]
-_G.sys = require("sys")
+-- LuaTools需要PROJECT和VERSION这两个信息
+PROJECT = "socket2demo"
+VERSION = "1.0.0"
+
+-- 引入必要的库文件(lua编写), 内部库不需要require
+local sys = require "sys"
 
 log.info("main", "socket demo, tcp long connect")
 
@@ -74,4 +79,7 @@ sys.taskInit(function()
     end
 end)
 
+-- 用户代码已结束---------------------------------------------
+-- 结尾总是这一句
 sys.run()
+-- sys.run()之后后面不要加任何语句!!!!!

@@ -4,7 +4,12 @@ demo说明:
 2. 演示长连接操作
 3. 演示简易的网络状态灯
 ]]
-_G.sys = require("sys")
+-- LuaTools需要PROJECT和VERSION这两个信息
+PROJECT = "modbus2relay"
+VERSION = "1.0.0"
+
+-- 引入必要的库文件(lua编写), 内部库不需要require
+local sys = require "sys"
 
 log.info("main", "simple modbus relay demo")
 
@@ -167,4 +172,7 @@ sys.taskInit(function()
 end)
 
 
+-- 用户代码已结束---------------------------------------------
+-- 结尾总是这一句
 sys.run()
+-- sys.run()之后后面不要加任何语句!!!!!

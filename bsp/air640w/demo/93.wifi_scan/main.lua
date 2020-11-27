@@ -1,6 +1,10 @@
 
--- 必须引入sys, 除非你非常了解LuatOS的机制
-_G.sys = require("sys")
+-- LuaTools需要PROJECT和VERSION这两个信息
+PROJECT = "wifiscan"
+VERSION = "1.0.0"
+
+-- 引入必要的库文件(lua编写), 内部库不需要require
+local sys = require "sys"
 
 -- 打印demo信息, 免得下错demo了
 log.info("main", "wifi scan demo")
@@ -27,4 +31,7 @@ sys.taskInit(function()
     end
 end)
 
+-- 用户代码已结束---------------------------------------------
+-- 结尾总是这一句
 sys.run()
+-- sys.run()之后后面不要加任何语句!!!!!

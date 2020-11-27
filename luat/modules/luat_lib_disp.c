@@ -285,7 +285,7 @@ LUAMOD_API int luaopen_disp( lua_State *L ) {
 // 往下是一些U8G2方法的默认实现
 
 uint8_t luat_u8x8_gpio_and_delay(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr);
-uint8_t luat_u8x8_byte_rt_hw_i2c(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr);
+uint8_t luat_u8x8_byte_hw_i2c(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr);
 
 LUAT_WEAK int luat_disp_setup(luat_disp_conf_t *conf) {
     if (conf->pinType == 1) {

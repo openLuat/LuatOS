@@ -2,15 +2,13 @@
 #include "luat_base.h"
 #include "luat_pwm.h"
 
-#include "luat_log.h"
 
 #include "rtthread.h"
 #include "rthw.h"
 #include "rtdevice.h"
 
-#define DBG_TAG           "luat.pwm"
-#define DBG_LVL           DBG_WARN
-#include <rtdbg.h>
+#define LUAT_LOG_TAG "rtt.pwm"
+#include "luat_log.h"
 
 #ifdef RT_USING_PWM
 
@@ -32,14 +30,16 @@ static int luat_pwm_rtt_init() {
     {
         name[3] = '0' + i;
         pwm_devs[i] = (struct rt_device_pwm *)rt_device_find(name);
-        LOG_D("search pwm name=%s ptr=0x%08X", name, pwm_devs[i]);
+        if (pwm_devs[i])
+            LLOGD("found pwm name=%s ptr=0x%08X", name, pwm_devs[i]);
     }
     // 看看有没有pwm
     if (pwm_devs[0] == RT_NULL) {
         pwm_devs[0] = (struct rt_device_pwm *)rt_device_find("pwm");
-        LOG_D("search pwm name=%s ptr=0x%08X", "pwm", pwm_devs[0]);
+        if (pwm_devs[0])
+            LLOGD("found pwm name=%s ptr=0x%08X", "pwm", pwm_devs[0]);
     }
-		return 0;
+	return 0;
 }
 
 INIT_COMPONENT_EXPORT(luat_pwm_rtt_init);
@@ -67,12 +67,20 @@ int luat_pwm_open(int channel, size_t period, size_t pulse) {
     int n = channel - (i * 10);
     if (i < 0 || i >= DEVICE_ID_MAX )
         return -1;
+    if (period < 1 || period > 1000000)
+        return -1;
+    if (pulse > 100)
+        pulse = 100;
 
     struct rt_device_pwm *dev = pwm_devs[i];
     if(RT_NULL == dev)
         return -1;
+
+    // 与Luat的定义不同, rtt的period和pulse是按时长作为单位的,单位是ns,即1/1000000000秒
+    // rt_period = 1000000000 / luat_period
+    // rt_pulse = (1000000000 / luat_period) * pulse / 100
     
-    rt_pwm_set(dev, n, period, pulse);
+    rt_pwm_set(dev, n, 1000000000 / period, (1000000000 / period) * pulse / 100);
     rt_pwm_enable(dev, n);
 
     return 0;

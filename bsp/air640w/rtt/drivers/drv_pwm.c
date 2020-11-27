@@ -115,6 +115,34 @@ static rt_err_t wm_pwm_control(struct rt_device_pwm *device, int cmd, void *arg)
     if (channel > 4)
         return RT_EINVAL;
 
+    //----------------------------------------------
+    // PWM4 --> PB8
+    // PWM3 --> PB15
+    // PWM1 --> PA1
+    // PWM0 --> PA0
+    if (channel == 2) {
+            return RT_EINVAL;
+    }
+    if (cmd == PWM_CMD_SET) {
+        switch (channel)
+        {
+        case 0:
+            wm_pwm1_config(WM_IO_PA_00);
+            break;
+        case 1:
+            wm_pwm2_config(WM_IO_PA_01);
+            break;
+        case 3:
+            wm_pwm4_config(WM_IO_PB_15);
+            break;
+        case 4:
+            wm_pwm5_config(WM_IO_PB_08);
+            break;
+        }
+    }
+
+    //----------------------------------------------
+
     switch (cmd)
     {
     case PWM_CMD_ENABLE:

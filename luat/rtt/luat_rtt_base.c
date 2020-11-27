@@ -74,6 +74,9 @@ static const luaL_Reg loadedlibs[] = {
 #ifdef RT_USING_HWCRYPTO
   {"crypto", luaopen_crypto},          // 加密和hash库
 #endif
+#ifdef RT_USING_PWM
+  {"pwm", luaopen_pwm},                //  PWM
+#endif
   {"fs",   luaopen_fs},                // 文件系统库
   {NULL, NULL}
 };

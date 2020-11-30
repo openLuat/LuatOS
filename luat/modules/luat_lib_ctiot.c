@@ -78,7 +78,7 @@ static int luat_ctiot_msg_handler(lua_State *L, void* ptr)
 		default:
 			error = 0;
 			error_code = 0;
-			param = len;
+			param = buff[6];
 			break;
 		}
 		break;

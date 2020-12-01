@@ -791,3 +791,114 @@ log.info("edrx", nbiot.getEDRX())
 ```
 
 
+--------------------------------------------------
+# nbiot.setTZ
+
+```lua
+nbiot.setTZ(tz, auto)
+```
+
+设置时区参数
+
+## 参数表
+
+Name | Type | Description
+-----|------|--------------
+`tz`|`int`| 时区参数,可选, 单位是1/4时区, 默认为 东8区, 对应的值为32
+`auto`|`boolean`| 是否自动设置时区,可选, 默认为true
+
+## 返回值
+
+> *无返回值*
+
+## 调用示例
+
+```lua
+-- 设置为东8区,禁用自动更新时区功能
+nbiot.setTZ(32, false)
+-------------------------
+-- 启用自动更新时区功能
+nbiot.setTZ(nil, true)
+```
+
+
+--------------------------------------------------
+# nbiot.getTZ
+
+```lua
+nbiot.getTZ()
+```
+
+获取时区参数
+
+## 参数表
+
+> 无参数
+
+## 返回值
+
+No. | Type | Description
+----|------|--------------
+1 |`int`| 时区参数,单位1/4时区, 默认东8区, 值为32
+2 |`boolean`| 自动设置时区,默认为true
+
+## 调用示例
+
+```lua
+-- 获取时区参数
+log.info("timezone", nbiot.getTZ())
+```
+
+
+--------------------------------------------------
+# nbiot.setBands
+
+```lua
+nbiot.setBands(modes)
+```
+
+设置Band模式(暂不可用)
+
+## 参数表
+
+Name | Type | Description
+-----|------|--------------
+`modes`|`any`| 模式,需要是一个table形式的数组,必须传入
+
+## 返回值
+
+> `boolean`: 设置结果
+
+## 调用示例
+
+```lua
+-- 仅搜索band 8
+log.info("band", nbiot.setBands({8}))
+```
+
+
+--------------------------------------------------
+# nbiot.getBands
+
+```lua
+nbiot.getBands()
+```
+
+获取当前使用的Band模式(暂不可用)
+
+## 参数表
+
+> 无参数
+
+## 返回值
+
+> `table`: 所设置的band的数组
+
+## 调用示例
+
+```lua
+-- 仅搜索band 8
+log.info("band", json.encode(nbiot.getBands()))
+```
+
+

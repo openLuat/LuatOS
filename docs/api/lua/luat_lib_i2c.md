@@ -84,7 +84,7 @@ Name | Type | Description
 
 ## 返回值
 
-> *无返回值*
+> `true/false`: 发送是否成功
 
 ## 调用示例
 
@@ -143,7 +143,7 @@ Name | Type | Description
 
 ## 返回值
 
-> `int`: 发送数据的结果，0为成功
+> `true/false`: 发送是否成功
 
 ## 调用示例
 

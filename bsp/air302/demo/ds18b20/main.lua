@@ -29,13 +29,7 @@ end)
 sys.taskInit(function()
     while 1 do
         sys.wait(5000) -- 5秒读取一次
-        if sensor.ds18b20_convert(17) then
-            sys.wait(1000)
-            local re, val = sensor.ds18b20_read(17)
-            log.info("tem", re, val)
-        end
-        --local re, val = sensor.w1_read(17, 9, "ds18b20")
-        --log.info("sensor", "ds18b20", sensor.ds18b20(17)) -- GPIO17脚
+        log.info("sensor", "ds18b20", sensor.ds18b20(17)) -- GPIO17脚
     end
 end)
 

@@ -18,13 +18,11 @@ LuaTools是合宙主推的Luat系列刷机工具, 功能强大, 可以从www.ope
 
 ## air302py脚本刷机
 
-脚本刷机偏极客, 需要配合"FlashToolCLI"使用,下载地址看下一个小节
-
 视频演示请查看gif目录里面的"使用air302py脚本刷底层"
 
 刷机脚本需要python 3.7+, 可以到python.org下载安装
 
-1. 确保设备已经开机,电源灯亮起. Air302为上电自动开机,没有pwrkey按钮.
+1. 确保设备已经开机,电源灯亮起. Air302为上电自动开机,没有pwrkey按钮
 2. 确保已安装串口驱动, 使用UART1
 3. 按住BOOT按钮, 然后按复位/Reset按钮, 松开BOOT按钮
 4. 修改local.ini,配置串口号和ec固件路径,其中的路径支持相对路径.
@@ -39,11 +37,11 @@ dlfs 下载文件系统
 dlrom 下载固件,仅系统分区,不含文件系统
 dlfull 下载系统分区和文件系统
 
-## FlashToolCLI下载地址
+## FlashToolCLI
 
 这是厂商的刷机工具, 与air302.py配合使用, 不是直接双击启动的.
 
-https://gitee.com/openLuat/LuatOS/attach_files 需要解压到air302.py所在目录,带文件夹.
+已经在固件压缩包里面, 不需要额外下载, 除非你看的是LuatOS源码
 
 ## 常见问题
 

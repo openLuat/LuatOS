@@ -199,7 +199,8 @@ COM_PORT = COM56
         zip.write("tmp/ec/luatos.bin", "luatos.bin")                   # 底层固件
         zip.write("tmp/ec/comdb.txt", "comdb.txt")                     # uart0输出的unilog所需要的数据库文件,备用
         zip.write("tmp/ec/bootloader.bin", "bootloader.bin")           # bootloader,备用
-        #zip.write("tmp/ec/bootloader_head.bin", "bootloader_head.bin") # bootloader_header,备用
+        if os.path.exists("tmp/ec/bootloader_head.bin"):
+            zip.write("tmp/ec/bootloader_head.bin", "bootloader_head.bin") # bootloader_header,备用
         zip.write(FTC_PATH + "disk.fs", "disk.bin")                    # 默认磁盘镜像
 
     
@@ -217,6 +218,8 @@ COM_PORT = COM56
         print("量产文件目录 --> ", prod_path)
         shutil.copyfile("tmp/ec/luatos.bin", prod_path + "/luatos.bin")
         shutil.copyfile("tmp/ec/bootloader.bin", prod_path + "/bootloader.bin")
+        if os.path.exists("tmp/ec/bootloader_head.bin"):
+            shutil.copyfile("tmp/ec/bootloader_head.bin", prod_path + "/bootloader_head.bin")
         shutil.copyfile(FTC_PATH + "disk.fs", prod_path + "/disk.fs")
         #with open((prod_path + "/config.ini"), "wb") as f:
         #    f.write(FTC_CNF_TMPL.encode())
@@ -232,7 +235,10 @@ COM_PORT = COM56
         shutil.copyfile("tmp/Air302_"+BIG_VER+"_"+_tag+".ec", one_ec_path)
         print("一体刷机包   --> ", one_ec_path)
     else :
-        pkg_name = "Air302_"+BIG_VER+"_"+_tag
+        if not os.path.exists("量产文件"):
+            os.makedirs("量产文件")
+        pkg_name = "量产文件" + "/Air302_"+BIG_VER+"_"+_tag
+        print(">>  " + pkg_name + ".zip")
         shutil.make_archive(pkg_name, 'zip', "tmp")
 
         ## 拷贝一份固定路径的

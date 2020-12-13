@@ -168,7 +168,7 @@ uint16_t calcCRC16(const uint8_t *data, const char *cmd, int length, uint16_t po
     return 0;
 }
 
-uint32_t CRC32_table[256] =
+static const uint32_t CRC32_table[256] =
 {
   0x00000000, 0x77073096, 0xEE0E612C, 0x990951BA,
   0x076DC419, 0x706AF48F, 0xE963A535, 0x9E6495A3,

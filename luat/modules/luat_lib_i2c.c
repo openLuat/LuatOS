@@ -241,6 +241,70 @@ static int l_i2c_readDHT12(lua_State *L) {
     }
 }
 
+/*
+从i2c总线读取DHT30的温湿度数据(由"好奇星"贡献)
+@api i2c.readSHT30(id,addr)
+@int 设备id, 例如i2c1的id为1, i2c2的id为2
+@int 设备addr,SHT30的设备地址,默认0x44 bit7 
+@return boolean 读取成功返回true,否则返回false
+@return int 湿度值,单位0.1%, 例如 591 代表 59.1%
+@return int 温度值,单位0.1摄氏度, 例如 292 代表 29.2摄氏度
+@usage
+-- 从i2c0读取SHT30
+i2c.setup(0)
+local re, H, T = i2c.readSHT30(0)
+if re then
+    log.info("sht30", H, T)
+end
+*/
+static int l_i2c_readSHT30(lua_State *L){
+    int id = luaL_checkinteger(L, 1);
+    int addr = luaL_optinteger(L, 2, 0x44);
+    char buff[7] = {0x2c, 0x06};
+    char temp = 0x00;
+    char hum = 0x00;
+
+    luat_i2c_send(id, addr, &buff, 2);
+    luat_timer_us_delay(1000);
+    int result = luat_i2c_recv(id, addr, buff, 6);
+    if (result) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    else {
+        if (buff[0] == 0 && buff[1] == 0 && buff[2] == 0 && buff[3] == 0 && buff[4] == 0) {
+            LLOGD("SHT30 DATA emtry");
+            lua_pushboolean(L, 0);
+            return 1;
+        }
+        // 检查crc值
+        //LLOGD("SHT30 DATA %02X %02X %02X %02X %02X %02X", buff[0], buff[1], buff[2], buff[3], buff[4], buff[5]);
+
+        temp = ((((buff[0] * 256) + buff[1]) * 175) / 65535) - 45;
+        hum = ((((buff[3] * 256) + buff[4]) * 100) / 65535);
+
+        //LLOGD("\r\n SHT30  %d deg  %d Hum ", temp, hum);
+        // 跳过CRC
+                                                
+        // uint8_t crc_act = (uint8_t)buff[0] + (uint8_t)buff[1] + (uint8_t)buff[2] + (uint8_t)buff [3];
+        // uint8_t crc_exp = (uint8_t)buff[4];
+        // if (crc_act != crc_exp) {
+        //     LLOGD("DATA12 DATA crc not ok");
+        //     lua_pushboolean(L, 0);
+        //     return 1;
+        // }
+
+        // Convert the data
+        lua_pushboolean(L, 1);
+        lua_pushinteger(L, (int)hum);
+        lua_pushinteger(L, (int)temp);
+
+        return 3;
+        // 华氏度
+        // fTemp = (cTemp * 1.8) + 32;
+    }
+}
+
 #include "rotable.h"
 static const rotable_Reg reg_i2c[] =
 {
@@ -253,6 +317,7 @@ static const rotable_Reg reg_i2c[] =
     { "close", l_i2c_close, 0},
 
     { "readDHT12", l_i2c_readDHT12, 0},
+    { "readSHT30", l_i2c_readSHT30, 0},
 
     { "FAST",  NULL, 1},
     { "SLOW",  NULL, 0},

@@ -202,17 +202,17 @@ static int l_eink_printcn(lua_State *L)
 
 
     
-    switch (font)
-    {
-        case 12:
-            Paint_DrawStringCN(&paint, x, y, str, &Font12CN, colored);
-            break;
-        case 24:
-            Paint_DrawStringCN(&paint, x, y, str, &Font24CN, colored);
-            break;   
-        default:
-            break;
-    }
+    // switch (font)
+    // {
+    //     case 12:
+    //         Paint_DrawStringCN(&paint, x, y, str, &Font12CN, colored);
+    //         break;
+    //     case 24:
+    //         Paint_DrawStringCN(&paint, x, y, str, &Font24CN, colored);
+    //         break;   
+    //     default:
+    //         break;
+    // }
     return 0;
 }
 
@@ -474,7 +474,7 @@ static const rotable_Reg reg_eink[] =
     { "setWin",         l_eink_setWin,          0},
     { "getWin",         l_eink_getWin,          0},
     { "print",          l_eink_print,           0},
-    { "printcn",        l_eink_printcn,         0},
+    //{ "printcn",        l_eink_printcn,         0},
     { "show",           l_eink_show,            0},
     { "rect",           l_eink_rect,            0},
     { "circle",         l_eink_circle,          0},

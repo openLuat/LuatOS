@@ -94,6 +94,10 @@ function eink154_update()
     eink.print(60,  30, objnow.tem .. "C", 0, 24)        
     eink.print(60,  55, objnow.tem2 .. "C~" .. objnow.tem1 .. "C", 0, 12)
 
+    -- 刷新时间
+    local t = os.date("%H:%M")
+    eink.print(100, 45, t, 12)
+
     -- 室内温湿度
     eink.print(40,  85, tostring(T) .. "C/".. tostring(H) .."%", 0, 24)
 
@@ -132,10 +136,15 @@ sys.taskInit(function()
     end
 
     if not socket.isReady() then
-        while not socket.isReady() do sys.waitUntil("NET_READY", 1000) end
+        while not socket.isReady() do
+            sys.waitUntil("NET_READY", 1000)
+            log.info("wait net ready")
+        end
     end
     -- 初始化必要的参数
+    log.info("eink", "begin setup")
     eink.setup(1, 0)
+    log.info("eink", "end setup")
 
     -- 稍微等一会,免得墨水屏没初始化完成
     sys.wait(1000)

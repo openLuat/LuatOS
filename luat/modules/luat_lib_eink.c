@@ -50,7 +50,7 @@ static int l_eink_setup(lua_State *L) {
     int num = luaL_optinteger(L, 1, 1);
     int spi_id = luaL_optinteger(L, 2, 0);
 
-    luat_spi_close(spi_id);
+    //luat_spi_close(spi_id);
 
     luat_spi_t spi_config = {0};
     spi_config.bandrate = 2000000U;//luaL_optinteger(L, 1, 2000000U); // 2000000U
@@ -63,14 +63,18 @@ static int l_eink_setup(lua_State *L) {
     spi_config.master = 1; // master=1,slave=0
     spi_config.mode = 1; // FULL=1, half=0
 
+    //LLOGD("setup GPIO for epd");
     luat_gpio_mode(luaL_optinteger(L, 3, Pin_BUSY), Luat_GPIO_INPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
     luat_gpio_mode(luaL_optinteger(L, 4, Pin_RES), Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
     luat_gpio_mode(luaL_optinteger(L, 5, Pin_DC), Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
     luat_gpio_mode(luaL_optinteger(L, 6, Pin_CS), Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
 
+    //LLOGD("spi setup>>>");
     int status = luat_spi_setup(&spi_config);
+    //LLOGD("spi setup<<<");
     if(status == 0)
     {
+        LLOGD("spi setup complete, now setup epd");
         if(num)
             status = EPD_Init(&epd, lut_full_update);
         else
@@ -80,12 +84,12 @@ static int l_eink_setup(lua_State *L) {
             LLOGD("e-Paper init failed");
             return 0;
         } 
-        frame_buffer = (unsigned char*)malloc(EPD_WIDTH * EPD_HEIGHT / 8);
+        frame_buffer = (unsigned char*)luat_heap_malloc(EPD_WIDTH * EPD_HEIGHT / 8);
         //   Paint paint;
         Paint_Init(&paint, frame_buffer, epd.width, epd.height);
         Paint_Clear(&paint, UNCOLORED);
     }
-      
+    //LLOGD("epd init complete");
     lua_pushboolean(L, 1);
     return 1;
 }

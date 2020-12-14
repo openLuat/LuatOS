@@ -134,8 +134,8 @@ sys.taskInit(function()
     if not socket.isReady() then
         while not socket.isReady() do sys.waitUntil("NET_READY", 1000) end
     end
-    -- 初始化必要的参数, 第一个参数是spi id, 而air302只有一个spi0
-    eink.setup(0)
+    -- 初始化必要的参数
+    eink.setup(1, 0)
 
     -- 稍微等一会,免得墨水屏没初始化完成
     sys.wait(1000)

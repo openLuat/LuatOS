@@ -43,24 +43,16 @@ static unsigned char* frame_buffer;
 
 /**
 设置并启用SPI
-@api eink.setup(bandrate, cs, CPHA, CPOL, dataw, id, bitdict, ms, mode)
-@int SPI号,例如0
-@int CS 片选脚,暂不可用,请填nil
-@int CPHA 默认0,可选0/1
-@int CPOL 默认0,可选0/1
-@int 数据宽度,默认8bit
-@int 波特率,默认2M=2000000
-@int 大小端, 默认spi.MSB, 可选spi.LSB
-@int 主从设置, 默认主1, 可选从机0. 通常只支持主机模式
-@int 工作模式, 全双工1, 半双工0, 默认全双工
-@int 刷新模式 0：局刷partial, 1：全刷full。默认全刷
+@api eink.setup(full, spiid)
 @return int 成功返回0,否则返回其他值
 */
 static int l_eink_setup(lua_State *L) {
-    luat_spi_t spi_config = {0};
-    int spi_id = luaL_optinteger(L, 1, 0);
+    int num = luaL_optinteger(L, 1, 1);
+    int spi_id = luaL_optinteger(L, 2, 0);
+
     luat_spi_close(spi_id);
 
+    luat_spi_t spi_config = {0};
     spi_config.bandrate = 2000000U;//luaL_optinteger(L, 1, 2000000U); // 2000000U
     spi_config.id = spi_id;
     spi_config.cs = 255; // 默认无
@@ -71,15 +63,14 @@ static int l_eink_setup(lua_State *L) {
     spi_config.master = 1; // master=1,slave=0
     spi_config.mode = 1; // FULL=1, half=0
 
-    luat_gpio_mode(luaL_optinteger(L, 2, Pin_BUSY), Luat_GPIO_INPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
-    luat_gpio_mode(luaL_optinteger(L, 3, Pin_RES), Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
-    luat_gpio_mode(luaL_optinteger(L, 4, Pin_DC), Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
-    luat_gpio_mode(luaL_optinteger(L, 5, Pin_CS), Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
+    luat_gpio_mode(luaL_optinteger(L, 3, Pin_BUSY), Luat_GPIO_INPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
+    luat_gpio_mode(luaL_optinteger(L, 4, Pin_RES), Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
+    luat_gpio_mode(luaL_optinteger(L, 5, Pin_DC), Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
+    luat_gpio_mode(luaL_optinteger(L, 6, Pin_CS), Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
 
     int status = luat_spi_setup(&spi_config);
     if(status == 0)
     {
-        int num = luaL_optinteger(L, 1, 1);
         if(num)
             status = EPD_Init(&epd, lut_full_update);
         else

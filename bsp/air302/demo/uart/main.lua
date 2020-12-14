@@ -16,6 +16,7 @@ uart.on(2, "receive", function(id, len)
     sys.publish("uart_write", data) -- 或者调用uart.write(2, data)也可以的
 end)
 uart.setup(2, 115200)
+uart.write(2, "hi from uart2\r\n")
 
 
 gpio.setup(1, function()

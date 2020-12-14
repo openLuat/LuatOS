@@ -8,6 +8,7 @@ import time
 import subprocess
 import sys
 import json
+import io
 
 #------------------------------------------------------------------
 # 读取配置信息
@@ -217,10 +218,10 @@ def _lfs(_path=None):
             if name.endswith("main.lua") :
                 if not MAIN_LUA_DEBUG :
                     cmd += ["-s"]
-                with open(name, "rb") as f :
+                with io.open(name, mode="r", encoding="utf-8") as f :
                     for line in f.readlines() :
                         if line :
-                            line = line.strip().decode()
+                            line = line.strip()
                             if line.startswith("PROJECT =") :
                                 TAG_PROJECT = line[line.index("\"") + 1:][:-1]
                             elif line.startswith("VERSION =") :

@@ -75,7 +75,7 @@ uart.write(1, "rdy\r\n")
 # uart.read
 
 ```lua
-uart.read(id, len)
+uart.read(id, len, ?)
 ```
 
 读串口
@@ -86,6 +86,7 @@ Name | Type | Description
 -----|------|--------------
 `id`|`int`| 串口id, uart0写0, uart1写1
 `len`|`int`| 读取长度
+`?`|`int`| 文件句柄(可选)
 
 ## 返回值
 

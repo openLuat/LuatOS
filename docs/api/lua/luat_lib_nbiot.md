@@ -791,3 +791,217 @@ log.info("edrx", nbiot.getEDRX())
 ```
 
 
+--------------------------------------------------
+# nbiot.setTZ
+
+```lua
+nbiot.setTZ(tz, auto)
+```
+
+设置时区参数
+
+## 参数表
+
+Name | Type | Description
+-----|------|--------------
+`tz`|`int`| 时区参数,可选, 单位是1/4时区, 默认为 东8区, 对应的值为32
+`auto`|`boolean`| 是否自动设置时区,可选, 默认为true
+
+## 返回值
+
+> *无返回值*
+
+## 调用示例
+
+```lua
+-- 设置为东8区,禁用自动更新时区功能
+nbiot.setTZ(32, false)
+-------------------------
+-- 启用自动更新时区功能
+nbiot.setTZ(nil, true)
+```
+
+
+--------------------------------------------------
+# nbiot.getTZ
+
+```lua
+nbiot.getTZ()
+```
+
+获取时区参数
+
+## 参数表
+
+> 无参数
+
+## 返回值
+
+No. | Type | Description
+----|------|--------------
+1 |`int`| 时区参数,单位1/4时区, 默认东8区, 值为32
+2 |`boolean`| 自动设置时区,默认为true
+
+## 调用示例
+
+```lua
+-- 获取时区参数
+log.info("timezone", nbiot.getTZ())
+```
+
+
+--------------------------------------------------
+# nbiot.setBands
+
+```lua
+nbiot.setBands(modes)
+```
+
+设置Band模式(暂不可用)
+
+## 参数表
+
+Name | Type | Description
+-----|------|--------------
+`modes`|`any`| 模式,需要是一个table形式的数组,必须传入
+
+## 返回值
+
+> `boolean`: 设置结果
+
+## 调用示例
+
+```lua
+-- 仅搜索band 8
+log.info("band", nbiot.setBands({8}))
+```
+
+
+--------------------------------------------------
+# nbiot.getBands
+
+```lua
+nbiot.getBands()
+```
+
+获取当前使用的Band模式(暂不可用)
+
+## 参数表
+
+> 无参数
+
+## 返回值
+
+> `table`: 所设置的band的数组
+
+## 调用示例
+
+```lua
+-- 仅搜索band 8
+log.info("band", json.encode(nbiot.getBands()))
+```
+
+
+--------------------------------------------------
+# nbiot.setEDRXPtw
+
+```lua
+nbiot.setEDRXPtw(val)
+```
+
+设置EDRX PTW参数
+
+## 参数表
+
+Name | Type | Description
+-----|------|--------------
+`val`|`int`| 需要设置的值
+
+## 返回值
+
+> `boolean`: 成功返回true,否则返回false
+
+## 调用示例
+
+```lua
+-- 设置PTW值为X
+-- 可选值
+nbiot.setEDRXPtw(val)
+reqPtwValue:
+NB-S1 mode
+The field contains the PTW value in seconds for NB-S1 mode.The PTW value is used
+as specified in 3GPP TS 23.682 [133a].The PTW value is derived as follows:
+bit
+         Paging Time Window length
+0 0 0 0  2,56 seconds
+0 0 0 1  5,12 seconds
+0 0 1 0  7,68 seconds
+0 0 1 1  10,24 seconds
+0 1 0 0  12,8 seconds
+0 1 0 1  15,36 seconds
+0 1 1 0  17,92 seconds
+0 1 1 1  20,48 seconds
+1 0 0 0  23,04 seconds
+1 0 0 1  25,6 seconds
+1 0 1 0  28,16 seconds
+1 0 1 1  30,72 seconds
+1 1 0 0  33,28 seconds
+1 1 0 1  35,84 seconds
+1 1 1 0  38,4 seconds
+1 1 1 1  40,96 seconds
+ 
+-------------------------
+-- 设置PTW值为X
+-- 可选值
+nbiot.setEDRXPtw(val)
+reqPtwValue:
+NB-S1 mode
+The field contains the PTW value in seconds for NB-S1 mode.The PTW value is used
+as specified in 3GPP TS 23.682 [133a].The PTW value is derived as follows:
+bit
+         Paging Time Window length
+0 0 0 0  2,56 seconds
+0 0 0 1  5,12 seconds
+0 0 1 0  7,68 seconds
+0 0 1 1  10,24 seconds
+0 1 0 0  12,8 seconds
+0 1 0 1  15,36 seconds
+0 1 1 0  17,92 seconds
+0 1 1 1  20,48 seconds
+1 0 0 0  23,04 seconds
+1 0 0 1  25,6 seconds
+1 0 1 0  28,16 seconds
+1 0 1 1  30,72 seconds
+1 1 0 0  33,28 seconds
+1 1 0 1  35,84 seconds
+1 1 1 0  38,4 seconds
+1 1 1 1  40,96 seconds
+ 
+```
+
+
+--------------------------------------------------
+# nbiot.getEDRXPtw
+
+```lua
+nbiot.getEDRXPtw()
+```
+
+获取EDRX PTW参数
+
+## 参数表
+
+> 无参数
+
+## 返回值
+
+> `int`: ptw值
+
+## 调用示例
+
+```lua
+-- 打印PTW值
+log.info("ptw", nbiot.getEDRXPtw())
+```
+
+

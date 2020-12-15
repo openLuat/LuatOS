@@ -24,6 +24,11 @@
 
 #include <stdlib.h>
 
+#include "u8g2.h"
+#if defined USE_CHINESE_WQY12_FONT
+#include "u8g2_wqy.h"
+#endif
+
 #define Pin_BUSY        (18)
 #define Pin_RES         (7)
 #define Pin_DC          (9)
@@ -181,6 +186,10 @@ static int l_eink_print(lua_State *L)
     return 0;
 }
 
+void u8g2_read_font_info(u8g2_font_info_t *font_info, const uint8_t *font);
+uint8_t luat_u8x8_gpio_and_delay(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr);
+const uint8_t *u8g2_font_get_glyph_data(u8g2_t *u8g2, uint16_t encoding);
+uint8_t * font_16pix_find(uint16_t e);
 /**
 缓冲区绘制中文
 @api eink.printcn(x, y, *str, font, colored)
@@ -193,21 +202,68 @@ static int l_eink_printcn(lua_State *L)
     int y           = luaL_checkinteger(L, 2);
     const char *str = luaL_checklstring(L, 3, &len);
     int colored     = luaL_optinteger(L, 4, 0);    
-    int font        = luaL_optinteger(L, 5, 12);
+    int font_size        = luaL_optinteger(L, 5, 12);
 
+    // 解码数据
+    u8g2_t *u8g2 = luat_heap_malloc(sizeof(u8g2_t));
+    u8g2_Setup_ssd1306_i2c_128x64_noname_f( u8g2, U8G2_R0, u8x8_byte_sw_i2c, luat_u8x8_gpio_and_delay);
+    u8g2_InitDisplay(u8g2);
+    u8g2_SetPowerSave(u8g2, 0);
+    u8g2->u8x8.next_cb = u8x8_utf8_next;
 
-    
-    // switch (font)
-    // {
-    //     case 12:
-    //         Paint_DrawStringCN(&paint, x, y, str, &Font12CN, colored);
-    //         break;
-    //     case 24:
-    //         Paint_DrawStringCN(&paint, x, y, str, &Font24CN, colored);
-    //         break;   
-    //     default:
-    //         break;
-    // }
+    uint16_t e;
+    u8g2_uint_t delta, sum;
+    u8x8_utf8_init(u8g2_GetU8x8(u8g2));
+    sum = 0;
+    uint8_t* str2 = (uint8_t*)str;
+    for(;;)
+    {
+        e = u8g2->u8x8.next_cb(u8g2_GetU8x8(u8g2), (uint8_t)*str2);
+        LLOGD("chinese >> 0x%04X", e);
+        if ( e == 0x0ffff )
+            break;
+        str2++;
+        if ( e != 0x0fffe )
+        {
+            //delta = u8g2_DrawGlyph(u8g2, x, y, e);
+            uint8_t * f = font_16pix_find(e);
+            if (f != NULL) {
+                LLOGD("found FONT DATA 0x%04X", e);
+                for (size_t i = 0; i < 32; i++)
+                {
+                    uint8_t pix = f[i];
+                    //LLOGD("pix data %02X   x+j=%d y+j/2=%d", pix, x, y+i/2);
+                    for (size_t j = 0; j < 8; j++)
+                    {
+                        if ((pix >> (7-j)) & 0x01) {
+                            Paint_DrawPixel(&paint, x+j, y+i/2, colored);
+                        }
+                        else {
+                            //Paint_DrawPixel(&paint, x+j, y+i/2, colored ? 1 : 0);
+                        }
+                    }
+                    i++;
+                    pix = f[i];
+                    for (size_t j = 0; j < 8; j++)
+                    {
+                        if ((pix >> (7-j)) & 0x01) {
+                            Paint_DrawPixel(&paint, x+j+8, y+i/2, colored);
+                        }
+                        else {
+                            //Paint_DrawPixel(&paint, x+j+8, y+i/2, colored ? 1 : 0);
+                        }
+                    }
+                }
+            }
+            else {
+                LLOGD("NOT found FONT DATA 0x%04X", e);
+            }
+            x += 16;
+        }
+    }
+
+    luat_heap_free(u8g2);
+
     return 0;
 }
 
@@ -469,7 +525,7 @@ static const rotable_Reg reg_eink[] =
     { "setWin",         l_eink_setWin,          0},
     { "getWin",         l_eink_getWin,          0},
     { "print",          l_eink_print,           0},
-    //{ "printcn",        l_eink_printcn,         0},
+    { "printcn",        l_eink_printcn,         0},
     { "show",           l_eink_show,            0},
     { "rect",           l_eink_rect,            0},
     { "circle",         l_eink_circle,          0},

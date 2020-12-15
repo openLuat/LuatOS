@@ -30,7 +30,12 @@ function eink154_update()
 
     eink.print(30, 30, os.date(), 0, 12)
 
-    --eink.printcn(20, 60, "中文", 0, 12)
+    eink.printcn(16, 64, "中华人民共和国", 0, 16)
+    eink.printcn(16, 64+16, "亚洲共同体", 0, 16)
+    eink.printcn(16, 64+32, "地球联邦", 0, 16)
+    eink.printcn(16, 64+16+32, "银河系联盟", 0, 16)
+
+    --log.info("iconv", utf8ToGb2312("中文"):toHex())
 
     -- 刷屏幕
     eink.show()
@@ -52,7 +57,7 @@ sys.taskInit(function()
         eink154_update()
         log.info("e-paper 1.54", "Testing End\r\n")
 
-        sys.wait(60000) -- 一分钟刷新一次
+        sys.wait(3000) -- 一分钟刷新一次
     end
 end)
 

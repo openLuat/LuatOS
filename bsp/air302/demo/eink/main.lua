@@ -28,14 +28,16 @@ function eink154_update()
 
     sys.wait(1000)
 
-    eink.print(30, 30, os.date(), 0, 12)
+    eink.print(10, 32, os.date(), 0, 12)
 
     eink.printcn(16, 64, "中华人民共和国", 0, 16)
     eink.printcn(16, 64+16, "亚洲共同体", 0, 16)
     eink.printcn(16, 64+32, "地球联邦", 0, 16)
     eink.printcn(16, 64+16+32, "银河系联盟", 0, 16)
 
-    --log.info("iconv", utf8ToGb2312("中文"):toHex())
+    eink.printcn(16, 128, "骑士智能", 0, 24)
+    eink.printcn(16, 128+24, "好记星", 0, 24)
+    eink.printcn(16, 128+24+24, "嫦娥五号", 0, 24)
 
     -- 刷屏幕
     eink.show()

@@ -189,7 +189,7 @@ static int l_eink_print(lua_State *L)
 void u8g2_read_font_info(u8g2_font_info_t *font_info, const uint8_t *font);
 uint8_t luat_u8x8_gpio_and_delay(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr);
 const uint8_t *u8g2_font_get_glyph_data(u8g2_t *u8g2, uint16_t encoding);
-uint8_t * font_16pix_find(uint16_t e);
+uint8_t * font_pix_find(uint16_t e, int font_pix_find);
 /**
 缓冲区绘制中文
 @api eink.printcn(x, y, *str, font, colored)
@@ -203,6 +203,8 @@ static int l_eink_printcn(lua_State *L)
     const char *str = luaL_checklstring(L, 3, &len);
     int colored     = luaL_optinteger(L, 4, 0);    
     int font_size        = luaL_optinteger(L, 5, 12);
+
+    //LLOGD("printcn font_size %d len %d", font_size, len);
 
     // 解码数据
     u8g2_t *u8g2 = luat_heap_malloc(sizeof(u8g2_t));
@@ -219,46 +221,39 @@ static int l_eink_printcn(lua_State *L)
     for(;;)
     {
         e = u8g2->u8x8.next_cb(u8g2_GetU8x8(u8g2), (uint8_t)*str2);
-        LLOGD("chinese >> 0x%04X", e);
+        //LLOGD("chinese >> 0x%04X", e);
         if ( e == 0x0ffff )
             break;
         str2++;
         if ( e != 0x0fffe )
         {
             //delta = u8g2_DrawGlyph(u8g2, x, y, e);
-            uint8_t * f = font_16pix_find(e);
+            uint8_t * f = font_pix_find(e, font_size);
             if (f != NULL) {
-                LLOGD("found FONT DATA 0x%04X", e);
-                for (size_t i = 0; i < 32; i++)
+                // 当前仅支持16p和24p
+                int datalen = font_size == 16 ? 32 : 72;
+                int xlen = font_size == 16 ? 2 : 3;
+                //LLOGD("found FONT DATA 0x%04X datalen=%d xlen=%d", e, datalen, xlen);
+                for (size_t i = 0; i < datalen; )
                 {
-                    uint8_t pix = f[i];
-                    //LLOGD("pix data %02X   x+j=%d y+j/2=%d", pix, x, y+i/2);
-                    for (size_t j = 0; j < 8; j++)
+                    for (size_t k = 0; k < xlen; k++)
                     {
-                        if ((pix >> (7-j)) & 0x01) {
-                            Paint_DrawPixel(&paint, x+j, y+i/2, colored);
+                        uint8_t pix = f[i];
+                        //LLOGD("pix data %02X   x+j=%d y+j/2=%d", pix, x, y+i/2);
+                        for (size_t j = 0; j < 8; j++)
+                        {
+                            if ((pix >> (7-j)) & 0x01) {
+                                Paint_DrawPixel(&paint, x+j+k*8, y+i/xlen, colored);
+                            }
                         }
-                        else {
-                            //Paint_DrawPixel(&paint, x+j, y+i/2, colored ? 1 : 0);
-                        }
-                    }
-                    i++;
-                    pix = f[i];
-                    for (size_t j = 0; j < 8; j++)
-                    {
-                        if ((pix >> (7-j)) & 0x01) {
-                            Paint_DrawPixel(&paint, x+j+8, y+i/2, colored);
-                        }
-                        else {
-                            //Paint_DrawPixel(&paint, x+j+8, y+i/2, colored ? 1 : 0);
-                        }
+                        i++;
                     }
                 }
             }
             else {
                 LLOGD("NOT found FONT DATA 0x%04X", e);
             }
-            x += 16;
+            x += font_size;
         }
     }
 

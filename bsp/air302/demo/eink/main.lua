@@ -21,23 +21,23 @@ _G.sys = require("sys")
 ]]
 
 function eink154_update()
-    -- 设置视窗大小
-    eink.setWin(200, 200, 0)
 
     eink.clear()
 
-    sys.wait(1000)
-
-    eink.print(10, 32, os.date(), 0, 12)
+    eink.print(16, 16, os.date(), 0, 12)
+    eink.print(16, 32, "LuatOS",  0, 12)
+    --eink.print(16, 48, "English - Chinese",  0, 16)
 
     eink.printcn(16, 64, "中华人民共和国", 0, 16)
-    eink.printcn(16, 64+16, "亚洲共同体", 0, 16)
-    eink.printcn(16, 64+32, "地球联邦", 0, 16)
-    eink.printcn(16, 64+16+32, "银河系联盟", 0, 16)
+    eink.printcn(16, 64+16, "中English混排", 0, 16)
+    eink.printcn(16, 64+32, "中日きんぎょ混排", 0, 16)
+    eink.printcn(16, 64+16+32, "中俄советский", 0, 16)
 
     eink.printcn(16, 128, "骑士智能", 0, 24)
     eink.printcn(16, 128+24, "好记星", 0, 24)
-    eink.printcn(16, 128+24+24, "嫦娥五号", 0, 24)
+    eink.printcn(16, 128+24+24, "嫦娥五号 いっぽん", 0, 24)
+
+    log.debug("before show")
 
     -- 刷屏幕
     eink.show()
@@ -47,9 +47,11 @@ end
 
 sys.taskInit(function()
 
-    -- 初始化必要的参数
     log.info("eink", "begin setup")
+    -- 初始化必要的参数
     eink.setup(1, 0)
+    -- 设置视窗大小
+    eink.setWin(200, 200, 0)
     log.info("eink", "end setup")
 
     -- 稍微等一会,免得墨水屏没初始化完成
@@ -59,7 +61,7 @@ sys.taskInit(function()
         eink154_update()
         log.info("e-paper 1.54", "Testing End\r\n")
 
-        sys.wait(3000) -- 一分钟刷新一次
+        sys.wait(3000) -- 3秒刷新一次
     end
 end)
 

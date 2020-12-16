@@ -171,7 +171,7 @@ static int l_eink_print(lua_State *L)
     int y           = luaL_checkinteger(L, 2);
     const char *str = luaL_checklstring(L, 3, &len);
     int colored     = luaL_optinteger(L, 4, 0);    
-    int font        = luaL_optinteger(L, 5, 16);
+    int font        = luaL_optinteger(L, 5, 12);
 
 
     switch (font)
@@ -241,15 +241,16 @@ static int l_eink_printcn(lua_State *L)
         if ( e == 0x0ffff )
             break;
         str2++;
-        if (e != 0x0fffe && e < 0x007e) {
-            char ch[2] = {e, 0};
-            if (font_size == 16)
-                Paint_DrawStringAt(&paint, x, y, ch, &Font16, colored);
-            else if (font_size == 24)
-                Paint_DrawStringAt(&paint, x, y, ch, &Font24, colored);
-            x += font_size;
-        }
-        else if ( e != 0x0fffe )
+        // if (e != 0x0fffe && e < 0x007e) {
+        //     char ch[2] = {e, 0};
+        //     if (font_size == 16)
+        //         Paint_DrawStringAt(&paint, x, y, ch, &Font16, colored);
+        //     else if (font_size == 24)
+        //         Paint_DrawStringAt(&paint, x, y, ch, &Font24, colored);
+        //     x += font_size;
+        // }
+        // else 
+        if ( e != 0x0fffe )
         {
             //delta = u8g2_DrawGlyph(u8g2, x, y, e);
             uint8_t * f = font_pix_find(e, font_size);
@@ -277,7 +278,14 @@ static int l_eink_printcn(lua_State *L)
             else {
                 LLOGD("NOT found FONT DATA 0x%04X", e);
             }
-            x += font_size;
+
+            if (e <= 0x7E)
+                x += font_size / 2;
+            else
+            {
+                x += font_size;
+            }
+            
         }
     }
 

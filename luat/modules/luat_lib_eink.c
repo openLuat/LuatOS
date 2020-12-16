@@ -225,7 +225,15 @@ static int l_eink_printcn(lua_State *L)
         if ( e == 0x0ffff )
             break;
         str2++;
-        if ( e != 0x0fffe )
+        if (e != 0x0fffe && e < 0x007e) {
+            char ch[2] = {e, 0};
+            if (font_size == 16)
+                Paint_DrawStringAt(&paint, x, y, ch, &Font16, colored);
+            else if (font_size == 24)
+                Paint_DrawStringAt(&paint, x, y, ch, &Font24, colored);
+            x += font_size;
+        }
+        else if ( e != 0x0fffe )
         {
             //delta = u8g2_DrawGlyph(u8g2, x, y, e);
             uint8_t * f = font_pix_find(e, font_size);

@@ -30,8 +30,8 @@
 #include "fonts.h"
 
 // Display resolution
-#define EPD_WIDTH       200
-#define EPD_HEIGHT      200
+#define EPD_1IN54F_WIDTH       200
+#define EPD_1IN54F_HEIGHT      200
 
 // EPD1IN54 commands
 #define DRIVER_OUTPUT_CONTROL                       0x01

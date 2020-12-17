@@ -546,7 +546,7 @@ static void EPD_1IN54F_SetMemoryPointer(EPD* epd, int x, int y) {
 
 
 
-const unsigned char lut_full_update[] =
+static const unsigned char lut_full_update[] =
 {
     0x02, 0x02, 0x01, 0x11, 0x12, 0x12, 0x22, 0x22, 
     0x66, 0x69, 0x69, 0x59, 0x58, 0x99, 0x99, 0x88, 
@@ -554,7 +554,7 @@ const unsigned char lut_full_update[] =
     0x35, 0x51, 0x51, 0x19, 0x01, 0x00
 };
 
-const unsigned char lut_partial_update[] =
+static const unsigned char lut_partial_update[] =
 {
     0x10, 0x18, 0x18, 0x08, 0x18, 0x18, 0x08, 0x00, 
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
@@ -676,8 +676,8 @@ UBYTE EPD_1IN54FF_Init(void) {
   _epd.reset_pin = RST_PIN;
   _epd.dc_pin = DC_PIN;
   _epd.cs_pin = SPI_CS_Pin;
-  _epd.width = 200;
-  _epd.height = 200;
+  _epd.width = EPD_1IN54F_WIDTH;
+  _epd.height = EPD_1IN54F_HEIGHT;
 
   EPD_1IN54F_Init(&_epd, lut_full_update);
   return 0;
@@ -686,7 +686,7 @@ void EPD_1IN54FF_Clear(void) {
   ;
 }
 void EPD_1IN54FF_Display(UBYTE *Image) {
-  EPD_1IN54F_SetFrameMemory(&_epd, Image, 0, 0, 200, 200);
+  EPD_1IN54F_SetFrameMemory(&_epd, Image, 0, 0, EPD_1IN54F_WIDTH, EPD_1IN54F_HEIGHT);
   EPD_1IN54F_DisplayFrame(&_epd);
 }
 void EPD_1IN54FF_Sleep(void) {

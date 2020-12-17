@@ -81,15 +81,15 @@ static int l_eink_setup(lua_State *L) {
     int status = luat_spi_setup(&spi_config);
     //LLOGD("spi setup<<<");
     //EPD_Model(MODEL_1in54f);
-    int epd_w = 200; // TODO 如何配置为好呢?
-    int epd_h = 200; // TODO 如何配置为好呢?
+    size_t epd_w = 0;
+    size_t epd_h = 0;
     if(status == 0)
     {
         LLOGD("spi setup complete, now setup epd");
         if(num)
-            status = EPD_Init(1);
+            status = EPD_Init(1, &epd_w, &epd_h);
         else
-            status = EPD_Init(0);
+            status = EPD_Init(0, &epd_w, &epd_h);
 
         if (status != 0) {
             LLOGD("e-Paper init failed");
@@ -233,9 +233,9 @@ static int l_eink_printcn(lua_State *L)
     u8g2->u8x8.next_cb = u8x8_utf8_next;
 
     uint16_t e;
-    u8g2_uint_t delta, sum;
+    //u8g2_uint_t delta, sum;
     u8x8_utf8_init(u8g2_GetU8x8(u8g2));
-    sum = 0;
+    //sum = 0;
     uint8_t* str2 = (uint8_t*)str;
     for(;;)
     {

@@ -14,10 +14,10 @@
 
 #include "luat_gpio.h"
 
-#include "epd1in54.h"
+// #include "epd1in54.h"
 // #include "epd2in9.h"
 
-#include "epdif.h"
+#include "epd.h"
 #include "epdpaint.h"
 #include "imagedata.h"
 #include "qrcode.h"
@@ -39,7 +39,7 @@
 #define LUAT_LOG_TAG "luat.eink"
 
 
-static EPD epd; 
+// static EPD epd; 
 static Paint paint;
 static unsigned char* frame_buffer;
 
@@ -80,21 +80,24 @@ static int l_eink_setup(lua_State *L) {
     //LLOGD("spi setup>>>");
     int status = luat_spi_setup(&spi_config);
     //LLOGD("spi setup<<<");
+    //EPD_Model(MODEL_1in54f);
+    int epd_w = 200; // TODO 如何配置为好呢?
+    int epd_h = 200; // TODO 如何配置为好呢?
     if(status == 0)
     {
         LLOGD("spi setup complete, now setup epd");
         if(num)
-            status = EPD_Init(&epd, lut_full_update);
+            status = EPD_Init(1);
         else
-            status = EPD_Init(&epd, lut_partial_update);
+            status = EPD_Init(0);
 
         if (status != 0) {
             LLOGD("e-Paper init failed");
             return 0;
         } 
-        frame_buffer = (unsigned char*)luat_heap_malloc(EPD_WIDTH * EPD_HEIGHT / 8);
+        frame_buffer = (unsigned char*)luat_heap_malloc(epd_w * epd_h / 8);
         //   Paint paint;
-        Paint_Init(&paint, frame_buffer, epd.width, epd.height);
+        Paint_Init(&paint, frame_buffer, epd_w, epd_h);
         Paint_Clear(&paint, UNCOLORED);
     }
     //LLOGD("epd init complete");
@@ -306,8 +309,10 @@ static int l_eink_show(lua_State *L)
     int x     = luaL_optinteger(L, 1, 0);
     int y     = luaL_optinteger(L, 2, 0);
     /* Display the frame_buffer */
-    EPD_SetFrameMemory(&epd, frame_buffer, x, y, Paint_GetWidth(&paint), Paint_GetHeight(&paint));
-    EPD_DisplayFrame(&epd);
+    //EPD_SetFrameMemory(&epd, frame_buffer, x, y, Paint_GetWidth(&paint), Paint_GetHeight(&paint));
+    //EPD_DisplayFrame(&epd);
+    EPD_Clear();
+    EPD_Display(frame_buffer, NULL);
     return 0;
 }
 

@@ -81,6 +81,9 @@ static int l_eink_setup(lua_State *L) {
     int status = luat_spi_setup(&spi_config);
     //LLOGD("spi setup<<<");
     //EPD_Model(MODEL_1in54f);
+    EPD_Model(MODEL_1in54_V2);
+    // EPD_Model(MODEL_2in13b_V3);
+    
     size_t epd_w = 0;
     size_t epd_h = 0;
     if(status == 0)
@@ -581,7 +584,7 @@ static const rotable_Reg reg_eink[] =
     { "show",           l_eink_show,            0},
     { "rect",           l_eink_rect,            0},
     { "circle",         l_eink_circle,          0},
-    { "line",         l_eink_line,            0},
+    { "line",           l_eink_line,            0},
 
     { "qrcode",         l_eink_qrcode,          0},   
     { "bat",            l_eink_bat,             0},      

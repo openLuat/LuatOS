@@ -185,7 +185,7 @@ int luat_main (void) {
   status = lua_pcall(L, 0, 1, 0);  /* do the call */
   result = lua_toboolean(L, -1);  /* get result */
   report(L, status);
-  lua_close(L);
+  //lua_close(L);
 _exit:
   LLOGE("Lua VM exit!! reboot in 30s");
   // 既然是异常退出,那肯定出错了!!!

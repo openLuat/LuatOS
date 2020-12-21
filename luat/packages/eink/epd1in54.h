@@ -30,8 +30,8 @@
 #include "fonts.h"
 
 // Display resolution
-#define EPD_WIDTH       200
-#define EPD_HEIGHT      200
+#define EPD_1IN54F_WIDTH       200
+#define EPD_1IN54F_HEIGHT      200
 
 // EPD1IN54 commands
 #define DRIVER_OUTPUT_CONTROL                       0x01
@@ -56,8 +56,8 @@
 #define SET_RAM_Y_ADDRESS_COUNTER                   0x4F
 #define TERMINATE_FRAME_READ_WRITE                  0xFF
 
-extern const unsigned char lut_full_update[];
-extern const unsigned char lut_partial_update[];
+static const unsigned char lut_full_update[];
+static const unsigned char lut_partial_update[];
 
 typedef struct EPD_t {
   int reset_pin;
@@ -71,12 +71,12 @@ typedef struct EPD_t {
 
 /* Hardware operating functions */
 /* public functions */
-int  EPD_Init(EPD* epd, const unsigned char* lut);
-void EPD_SendCommand(EPD* epd, unsigned char command);
-void EPD_SendData(EPD* epd, unsigned char data);
-void EPD_WaitUntilIdle(EPD* epd);
-void EPD_Reset(EPD* epd);
-void EPD_SetFrameMemory(
+int  EPD_1IN54F_Init(EPD* epd, const unsigned char* lut);
+void EPD_1IN54F_SendCommand(EPD* epd, unsigned char command);
+void EPD_1IN54F_SendData(EPD* epd, unsigned char data);
+void EPD_1IN54F_WaitUntilIdle(EPD* epd);
+void EPD_1IN54F_Reset(EPD* epd);
+void EPD_1IN54F_SetFrameMemory(
   EPD* epd,
   const unsigned char* image_buffer,
   int x,
@@ -84,17 +84,17 @@ void EPD_SetFrameMemory(
   int image_width,
   int image_height
 );
-void EPD_ClearFrameMemory(EPD* epd, unsigned char color);
-void EPD_DisplayFrame(EPD* epd);
-void EPD_Sleep(EPD* epd);
-void EPD_DelayMs(EPD* epd, unsigned int delay_time);
-void EPD_DigitalWrite(EPD* epd, int pin, int value);
-int  EPD_DigitalRead(EPD* epd, int pin);
+void EPD_1IN54F_ClearFrameMemory(EPD* epd, unsigned char color);
+void EPD_1IN54F_DisplayFrame(EPD* epd);
+void EPD_1IN54F_Sleep(EPD* epd);
+void EPD_1IN54F_DelayMs(EPD* epd, unsigned int delay_time);
+void EPD_1IN54F_DigitalWrite(EPD* epd, int pin, int value);
+int  EPD_1IN54F_DigitalRead(EPD* epd, int pin);
 
 /* private functions */
-static void EPD_SetLut(EPD* epd, const unsigned char* lut);
-static void EPD_SetMemoryArea(EPD* epd, int x_start, int y_start, int x_end, int y_end);
-static void EPD_SetMemoryPointer(EPD* epd, int x, int y);
+static void EPD_1IN54F_SetLut(EPD* epd, const unsigned char* lut);
+static void EPD_1IN54F_SetMemoryArea(EPD* epd, int x_start, int y_start, int x_end, int y_end);
+static void EPD_1IN54F_SetMemoryPointer(EPD* epd, int x, int y);
 
 
 void jd79653a_lv_fb_flush(

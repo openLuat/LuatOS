@@ -1,6 +1,6 @@
 /*
 @module  eink
-@summary eink操作库
+@summary 墨水屏操作库
 @version 1.0
 @date    2020.11.14
 */
@@ -14,15 +14,17 @@
 
 #include "luat_gpio.h"
 
-#include "epd1in54.h"
+// #include "epd1in54.h"
 // #include "epd2in9.h"
 
-#include "epdif.h"
+#include "epd.h"
 #include "epdpaint.h"
 #include "imagedata.h"
 #include "qrcode.h"
 
 #include <stdlib.h>
+
+#include "u8g2.h"
 
 #define Pin_BUSY        (18)
 #define Pin_RES         (7)
@@ -37,30 +39,27 @@
 #define LUAT_LOG_TAG "luat.eink"
 
 
-static EPD epd; 
+// static EPD epd; 
 static Paint paint;
 static unsigned char* frame_buffer;
 
 /**
-设置并启用SPI
-@api eink.setup(bandrate, cs, CPHA, CPOL, dataw, id, bitdict, ms, mode)
-@int SPI号,例如0
-@int CS 片选脚,暂不可用,请填nil
-@int CPHA 默认0,可选0/1
-@int CPOL 默认0,可选0/1
-@int 数据宽度,默认8bit
-@int 波特率,默认2M=2000000
-@int 大小端, 默认spi.MSB, 可选spi.LSB
-@int 主从设置, 默认主1, 可选从机0. 通常只支持主机模式
-@int 工作模式, 全双工1, 半双工0, 默认全双工
-@int 刷新模式 0：局刷partial, 1：全刷full。默认全刷
-@return int 成功返回0,否则返回其他值
+初始化eink
+@api eink.setup(full, spiid)
+@int 全屏刷新1,局部刷新0,默认是全屏刷新
+@int 所在的spi,默认是0
+@return boolean 成功返回true,否则返回false
 */
 static int l_eink_setup(lua_State *L) {
-    luat_spi_t spi_config = {0};
-    int spi_id = luaL_optinteger(L, 1, 0);
-    luat_spi_close(spi_id);
+    int num = luaL_optinteger(L, 1, 1);
+    int spi_id = luaL_optinteger(L, 2, 0);
 
+    if (frame_buffer != NULL) {
+        lua_pushboolean(L, 1);
+        return 0;
+    }
+
+    luat_spi_t spi_config = {0};
     spi_config.bandrate = 2000000U;//luaL_optinteger(L, 1, 2000000U); // 2000000U
     spi_config.id = spi_id;
     spi_config.cs = 255; // 默认无
@@ -71,39 +70,49 @@ static int l_eink_setup(lua_State *L) {
     spi_config.master = 1; // master=1,slave=0
     spi_config.mode = 1; // FULL=1, half=0
 
-    luat_gpio_mode(luaL_optinteger(L, 2, Pin_BUSY), Luat_GPIO_INPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
-    luat_gpio_mode(luaL_optinteger(L, 3, Pin_RES), Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
-    luat_gpio_mode(luaL_optinteger(L, 4, Pin_DC), Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
-    luat_gpio_mode(luaL_optinteger(L, 5, Pin_CS), Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
+    //LLOGD("setup GPIO for epd");
+    // TODO 事实上无法配置
+    luat_gpio_mode(luaL_optinteger(L, 3, Pin_BUSY), Luat_GPIO_INPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
+    luat_gpio_mode(luaL_optinteger(L, 4, Pin_RES), Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
+    luat_gpio_mode(luaL_optinteger(L, 5, Pin_DC), Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
+    luat_gpio_mode(luaL_optinteger(L, 6, Pin_CS), Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
 
+    //LLOGD("spi setup>>>");
     int status = luat_spi_setup(&spi_config);
+    //LLOGD("spi setup<<<");
+    //EPD_Model(MODEL_1in54f);
+    EPD_Model(MODEL_1in54_V2);
+    // EPD_Model(MODEL_2in13b_V3);
+    
+    size_t epd_w = 0;
+    size_t epd_h = 0;
     if(status == 0)
     {
-        int num = luaL_optinteger(L, 1, 1);
+        LLOGD("spi setup complete, now setup epd");
         if(num)
-            status = EPD_Init(&epd, lut_full_update);
+            status = EPD_Init(1, &epd_w, &epd_h);
         else
-            status = EPD_Init(&epd, lut_partial_update);
+            status = EPD_Init(0, &epd_w, &epd_h);
 
         if (status != 0) {
             LLOGD("e-Paper init failed");
             return 0;
         } 
-        frame_buffer = (unsigned char*)malloc(EPD_WIDTH * EPD_HEIGHT / 8);
+        frame_buffer = (unsigned char*)luat_heap_malloc(epd_w * epd_h / 8);
         //   Paint paint;
-        Paint_Init(&paint, frame_buffer, epd.width, epd.height);
+        Paint_Init(&paint, frame_buffer, epd_w, epd_h);
         Paint_Clear(&paint, UNCOLORED);
     }
-      
+    //LLOGD("epd init complete");
     lua_pushboolean(L, 1);
     return 1;
 }
 
 
 /**
-清除缓冲区
+清除绘图缓冲区
 @api eink.clear()
-
+@return nil 无返回值,不会马上刷新到设备
 */
 static int l_eink_clear(lua_State *L)
 {
@@ -117,7 +126,8 @@ static int l_eink_clear(lua_State *L)
 @api eink.setWin(width, height, rotate)
 @int width  宽度
 @int height 高度
-@int rotate 显示方向
+@int rotate 显示方向,0/1/2/3, 相当于旋转0度/90度/180度/270度
+@return nil 无返回值
 */
 static int l_eink_setWin(lua_State *L)
 {
@@ -134,7 +144,9 @@ static int l_eink_setWin(lua_State *L)
 /**
 获取窗口信息
 @api eink.getWin()
-@return int width, height, rotate
+@return int width  宽
+@return int height 高
+@return int rotate 旋转方向
 */
 static int l_eink_getWin(lua_State *L)
 {
@@ -149,9 +161,14 @@ static int l_eink_getWin(lua_State *L)
 }
 
 /**
-打印字符串
-@api eink.print(x, y, *str, colored, font)
-@return int width, height, rotate
+绘制字符串(仅ASCII)
+@api eink.print(x, y, str, colored, font)
+@int x坐标
+@int y坐标
+@string 字符串
+@int 默认是0
+@font 字体大小,默认12
+@return nil 无返回值
 */
 static int l_eink_print(lua_State *L)
 {
@@ -160,7 +177,7 @@ static int l_eink_print(lua_State *L)
     int y           = luaL_checkinteger(L, 2);
     const char *str = luaL_checklstring(L, 3, &len);
     int colored     = luaL_optinteger(L, 4, 0);    
-    int font        = luaL_optinteger(L, 5, 16);
+    int font        = luaL_optinteger(L, 5, 12);
 
 
     switch (font)
@@ -186,10 +203,19 @@ static int l_eink_print(lua_State *L)
     return 0;
 }
 
+// void u8g2_read_font_info(u8g2_font_info_t *font_info, const uint8_t *font);
+uint8_t luat_u8x8_gpio_and_delay(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr);
+const uint8_t *u8g2_font_get_glyph_data(u8g2_t *u8g2, uint16_t encoding);
+uint8_t * font_pix_find(uint16_t e, int font_pix_find);
 /**
-缓冲区绘制中文
-@api eink.printcn(x, y, *str, font, colored)
-@return int width, height, rotate
+绘制字符串,支持中文
+@api eink.printcn(x, y, str, colored, font)
+@int x坐标
+@int y坐标
+@string 字符串
+@int 默认是0
+@font 字体大小,默认12
+@return nil 无返回值
 */
 static int l_eink_printcn(lua_State *L)
 {
@@ -198,37 +224,98 @@ static int l_eink_printcn(lua_State *L)
     int y           = luaL_checkinteger(L, 2);
     const char *str = luaL_checklstring(L, 3, &len);
     int colored     = luaL_optinteger(L, 4, 0);    
-    int font        = luaL_optinteger(L, 5, 12);
+    int font_size        = luaL_optinteger(L, 5, 12);
 
+    //LLOGD("printcn font_size %d len %d", font_size, len);
 
-    
-    // switch (font)
-    // {
-    //     case 12:
-    //         Paint_DrawStringCN(&paint, x, y, str, &Font12CN, colored);
-    //         break;
-    //     case 24:
-    //         Paint_DrawStringCN(&paint, x, y, str, &Font24CN, colored);
-    //         break;   
-    //     default:
-    //         break;
-    // }
+    // 解码数据 TODO 使用无u8g2的方案
+    u8g2_t *u8g2 = luat_heap_malloc(sizeof(u8g2_t));
+    u8g2_Setup_ssd1306_i2c_128x64_noname_f( u8g2, U8G2_R0, u8x8_byte_sw_i2c, luat_u8x8_gpio_and_delay);
+    u8g2_InitDisplay(u8g2);
+    u8g2_SetPowerSave(u8g2, 0);
+    u8g2->u8x8.next_cb = u8x8_utf8_next;
+
+    uint16_t e;
+    //u8g2_uint_t delta, sum;
+    u8x8_utf8_init(u8g2_GetU8x8(u8g2));
+    //sum = 0;
+    uint8_t* str2 = (uint8_t*)str;
+    for(;;)
+    {
+        e = u8g2->u8x8.next_cb(u8g2_GetU8x8(u8g2), (uint8_t)*str2);
+        //LLOGD("chinese >> 0x%04X", e);
+        if ( e == 0x0ffff )
+            break;
+        str2++;
+        // if (e != 0x0fffe && e < 0x007e) {
+        //     char ch[2] = {e, 0};
+        //     if (font_size == 16)
+        //         Paint_DrawStringAt(&paint, x, y, ch, &Font16, colored);
+        //     else if (font_size == 24)
+        //         Paint_DrawStringAt(&paint, x, y, ch, &Font24, colored);
+        //     x += font_size;
+        // }
+        // else 
+        if ( e != 0x0fffe )
+        {
+            //delta = u8g2_DrawGlyph(u8g2, x, y, e);
+            uint8_t * f = font_pix_find(e, font_size);
+            if (f != NULL) {
+                // 当前仅支持16p和24p
+                int datalen = font_size == 16 ? 32 : 72;
+                int xlen = font_size == 16 ? 2 : 3;
+                //LLOGD("found FONT DATA 0x%04X datalen=%d xlen=%d", e, datalen, xlen);
+                for (size_t i = 0; i < datalen; )
+                {
+                    for (size_t k = 0; k < xlen; k++)
+                    {
+                        uint8_t pix = f[i];
+                        //LLOGD("pix data %02X   x+j=%d y+j/2=%d", pix, x, y+i/2);
+                        for (size_t j = 0; j < 8; j++)
+                        {
+                            if ((pix >> (7-j)) & 0x01) {
+                                Paint_DrawPixel(&paint, x+j+k*8, y+i/xlen, colored);
+                            }
+                        }
+                        i++;
+                    }
+                }
+            }
+            else {
+                LLOGD("NOT found FONT DATA 0x%04X", e);
+            }
+
+            if (e <= 0x7E)
+                x += font_size / 2;
+            else
+            {
+                x += font_size;
+            }
+            
+        }
+    }
+
+    luat_heap_free(u8g2);
+
     return 0;
 }
 
 /**
-显示缓冲区信息
+将缓冲区图像输出到屏幕
 @api eink.show(x, y)
-@int x 
-@int y
+@int x 输出的x坐标,默认0
+@int y 输出的y坐标,默认0
+@return nil 无返回值
 */
 static int l_eink_show(lua_State *L)
 {
     int x     = luaL_optinteger(L, 1, 0);
     int y     = luaL_optinteger(L, 2, 0);
     /* Display the frame_buffer */
-    EPD_SetFrameMemory(&epd, frame_buffer, x, y, Paint_GetWidth(&paint), Paint_GetHeight(&paint));
-    EPD_DisplayFrame(&epd);
+    //EPD_SetFrameMemory(&epd, frame_buffer, x, y, Paint_GetWidth(&paint), Paint_GetHeight(&paint));
+    //EPD_DisplayFrame(&epd);
+    EPD_Clear();
+    EPD_Display(frame_buffer, NULL);
     return 0;
 }
 
@@ -236,8 +323,13 @@ static int l_eink_show(lua_State *L)
 /**
 缓冲区绘制线
 @api eink.line(x, y, x2, y2, colored)
-@user
-    eink.line(0, 0, 10, 20, 0)
+@int 起点x坐标
+@int 起点y坐标
+@int 终点x坐标
+@int 终点y坐标
+@return nil 无返回值
+@usage 
+eink.line(0, 0, 10, 20, 0)
 */
 static int l_eink_line(lua_State *L)
 {
@@ -254,10 +346,16 @@ static int l_eink_line(lua_State *L)
 /**
 缓冲区绘制矩形
 @api eink.rect(x, y, x2, y2, colored, fill)
+@int 左上顶点x坐标
+@int 左上顶点y坐标
+@int 右下顶点x坐标
+@int 右下顶点y坐标
+@int 默认是0
+@int 是否填充,默认是0,不填充
+@return nil 无返回值
 @usage
-    eink.rect(0, 0, 10, 20)
-or
-    eink.rect(0, 0, 10, 20, 1) -- Filled
+eink.rect(0, 0, 10, 20)
+eink.rect(0, 0, 10, 20, 1) -- Filled
 */
 static int l_eink_rect(lua_State *L)
 {
@@ -278,10 +376,15 @@ static int l_eink_rect(lua_State *L)
 /**
 缓冲区绘制圆形
 @api eink.circle(x, y, radius, colored, fill)
-@user
-    eink.circle(0, 0, 10)
-or
-    eink.circle(0, 0, 10, 1, 1) -- Filled
+@int 圆心x坐标
+@int 圆心y坐标
+@int 半径
+@int 默认是0
+@int 是否填充,默认是0,不填充
+@return nil 无返回值
+@usage
+eink.circle(0, 0, 10)
+eink.circle(0, 0, 10, 1, 1) -- Filled
 */
 static int l_eink_circle(lua_State *L)
 {
@@ -300,11 +403,12 @@ static int l_eink_circle(lua_State *L)
 
 /**
 缓冲区绘制QRCode
-@api eink.qrcode(x, y, *str, version)
-@int x
-@int y
-@char str
-@int version :1 ~40
+@api eink.qrcode(x, y, str, version)
+@int x坐标
+@int y坐标
+@string 二维码的内容
+@int 二维码版本号
+@return nil 无返回值
 */
 static int l_eink_qrcode(lua_State *L)
 {
@@ -330,10 +434,11 @@ static int l_eink_qrcode(lua_State *L)
 
 /**
 缓冲区绘制电池
-@api eink.line(x, y, bat)
-@int x
-@int y
-@int bat 电池电压
+@api eink.bat(x, y, bat)
+@int x坐标
+@int y坐标
+@int 电池电压,单位毫伏
+@return nil 无返回值
 */
 static int l_eink_bat(lua_State *L)
 {
@@ -369,9 +474,10 @@ static int l_eink_bat(lua_State *L)
 /**
 缓冲区绘制天气图标
 @api eink.weather_icon(x, y, code)
-@int x
-@int y
-@int code 天气代号
+@int x坐标
+@int y坐标
+@int 天气代号
+@return nil 无返回值
 */
 static int l_eink_weather_icon(lua_State *L)
 {
@@ -474,19 +580,16 @@ static const rotable_Reg reg_eink[] =
     { "setWin",         l_eink_setWin,          0},
     { "getWin",         l_eink_getWin,          0},
     { "print",          l_eink_print,           0},
-    //{ "printcn",        l_eink_printcn,         0},
+    { "printcn",        l_eink_printcn,         0},
     { "show",           l_eink_show,            0},
     { "rect",           l_eink_rect,            0},
     { "circle",         l_eink_circle,          0},
-    { "circle",         l_eink_line,            0},
+    { "line",           l_eink_line,            0},
 
     { "qrcode",         l_eink_qrcode,          0},   
     { "bat",            l_eink_bat,             0},      
     { "weather_icon",   l_eink_weather_icon,    0},    
 
-    
-
-    //{ "init",           l_eink_init,            0},   
 	{ NULL,             NULL,                   0}
 };
 

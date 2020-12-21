@@ -32,8 +32,8 @@
 #include "fonts.h"
 
 // Display resolution
-#define EPD_WIDTH       128
-#define EPD_HEIGHT      296
+#define EPD_2IN9F_WIDTH       128
+#define EPD_2IN9F_HEIGHT      296
 
 // EPD2IN9 commands
 #define DRIVER_OUTPUT_CONTROL                       0x01
@@ -58,10 +58,10 @@
 #define SET_RAM_Y_ADDRESS_COUNTER                   0x4F
 #define TERMINATE_FRAME_READ_WRITE                  0xFF
 
-extern const unsigned char lut_full_update[];
-extern const unsigned char lut_partial_update[];
+static const unsigned char lut_full_update[];
+static const unsigned char lut_partial_update[];
 
-typedef struct EPD_t {
+typedef struct EPD_2IN9F_t {
   int reset_pin;
   int dc_pin;
   int cs_pin;
@@ -73,12 +73,12 @@ typedef struct EPD_t {
 
 /* Hardware operating functions */
 /* public functions */
-int  EPD_Init(EPD* epd, const unsigned char* lut);
-void EPD_SendCommand(EPD* epd, unsigned char command);
-void EPD_SendData(EPD* epd, unsigned char data);
-void EPD_WaitUntilIdle(EPD* epd);
-void EPD_Reset(EPD* epd);
-void EPD_SetFrameMemory(
+int  EPD_2IN9F_Init(EPD* epd, const unsigned char* lut);
+void EPD_2IN9F_SendCommand(EPD* epd, unsigned char command);
+void EPD_2IN9F_SendData(EPD* epd, unsigned char data);
+void EPD_2IN9F_WaitUntilIdle(EPD* epd);
+void EPD_2IN9F_Reset(EPD* epd);
+void EPD_2IN9F_SetFrameMemory(
   EPD* epd,
   const unsigned char* image_buffer,
   int x,
@@ -86,17 +86,17 @@ void EPD_SetFrameMemory(
   int image_width,
   int image_height
 );
-void EPD_ClearFrameMemory(EPD* epd, unsigned char color);
-void EPD_DisplayFrame(EPD* epd);
-void EPD_Sleep(EPD* epd);
-void EPD_DelayMs(EPD* epd, unsigned int delay_time);
-void EPD_DigitalWrite(EPD* epd, int pin, int value);
-int  EPD_DigitalRead(EPD* epd, int pin);
+void EPD_2IN9F_ClearFrameMemory(EPD* epd, unsigned char color);
+void EPD_2IN9F_DisplayFrame(EPD* epd);
+void EPD_2IN9F_Sleep(EPD* epd);
+void EPD_2IN9F_DelayMs(EPD* epd, unsigned int delay_time);
+void EPD_2IN9F_DigitalWrite(EPD* epd, int pin, int value);
+int  EPD_2IN9F_DigitalRead(EPD* epd, int pin);
 
 /* private functions */
-static void EPD_SetLut(EPD* epd, const unsigned char* lut);
-static void EPD_SetMemoryArea(EPD* epd, int x_start, int y_start, int x_end, int y_end);
-static void EPD_SetMemoryPointer(EPD* epd, int x, int y);
+static void EPD_2IN9F_SetLut(EPD* epd, const unsigned char* lut);
+static void EPD_2IN9F_SetMemoryArea(EPD* epd, int x_start, int y_start, int x_end, int y_end);
+static void EPD_2IN9F_SetMemoryPointer(EPD* epd, int x, int y);
 
 #endif /* EPD2IN9_H */
 

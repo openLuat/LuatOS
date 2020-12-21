@@ -29,10 +29,10 @@
 
 //#define CONFIG_LV_DISPLAY_ORIENTATION_PORTRAIT_INVERTED 0
 #define CONFIG_LV_DISPLAY_ORIENTATION_PORTRAIT 0
-#define EPD_WIDTH           200
-#define EPD_HEIGHT          200
-#define EPD_ROW_LEN         (EPD_HEIGHT / 8u)
-#define EPD_PARTIAL_CNT     5;
+#define EPD_1IN54F_WIDTH           200
+#define EPD_1IN54F_HEIGHT          200
+#define EPD_1IN54F_ROW_LEN         (EPD_1IN54F_HEIGHT / 8u)
+#define EPD_1IN54F_PARTIAL_CNT     5;
 
 static uint8_t partial_counter = 0;
 static const uint8_t lut_vcom_dc1[] = {
@@ -94,34 +94,34 @@ static const uint8_t lut_bb1[] = {
 
 
 
-static void EPD_load_partial_lut(EPD* epd)
+static void EPD_1IN54F_load_partial_lut(EPD* epd)
 {
-    EPD_SendCommand(epd,0x20); // LUT VCOM register
+    EPD_1IN54F_SendCommand(epd,0x20); // LUT VCOM register
     for (int i = 0; i < 56; i++)
-      EPD_SendData(epd, lut_vcom_dc1[i]);
-  //  EPD_SendData((uint8_t *)lut_vcom_dc1, sizeof(lut_vcom_dc1));
+      EPD_1IN54F_SendData(epd, lut_vcom_dc1[i]);
+  //  EPD_1IN54F_SendData((uint8_t *)lut_vcom_dc1, sizeof(lut_vcom_dc1));
 
-    EPD_SendCommand(epd,0x21); // LUT White-to-White
+    EPD_1IN54F_SendCommand(epd,0x21); // LUT White-to-White
     for (int i = 0; i < 56; i++)
-      EPD_SendData(epd, lut_ww1[i]);
-  //  EPD_SendData((uint8_t *)lut_ww1, sizeof(lut_ww1));
+      EPD_1IN54F_SendData(epd, lut_ww1[i]);
+  //  EPD_1IN54F_SendData((uint8_t *)lut_ww1, sizeof(lut_ww1));
 
-    EPD_SendCommand(epd,0x22); // LUT Black-to-White
-    //EPD_SendData((uint8_t *)lut_bw1, sizeof(lut_bw1));
+    EPD_1IN54F_SendCommand(epd,0x22); // LUT Black-to-White
+    //EPD_1IN54F_SendData((uint8_t *)lut_bw1, sizeof(lut_bw1));
     for (int i = 0; i < 56; i++)
-      EPD_SendData(epd, lut_bw1[i]);
+      EPD_1IN54F_SendData(epd, lut_bw1[i]);
 
-    EPD_SendCommand(epd,0x23); // LUT White-to-Black
-    //EPD_SendData((uint8_t *)lut_wb1,sizeof(lut_wb1));
+    EPD_1IN54F_SendCommand(epd,0x23); // LUT White-to-Black
+    //EPD_1IN54F_SendData((uint8_t *)lut_wb1,sizeof(lut_wb1));
     for (int i = 0; i < 56; i++)
-      EPD_SendData(epd, lut_wb1[i]);
+      EPD_1IN54F_SendData(epd, lut_wb1[i]);
 
-    EPD_SendCommand(epd,0x24); // LUT Black-to-Black
-    //EPD_SendData((uint8_t *)lut_bb1, sizeof(lut_bb1));
+    EPD_1IN54F_SendCommand(epd,0x24); // LUT Black-to-Black
+    //EPD_1IN54F_SendData((uint8_t *)lut_bb1, sizeof(lut_bb1));
     for (int i = 0; i < 56; i++)
-      EPD_SendData(epd, lut_bb1[i]);
+      EPD_1IN54F_SendData(epd, lut_bb1[i]);
 }
-static void EPD_partial_in(EPD* epd)
+static void EPD_1IN54F_partial_in(EPD* epd)
 {
 //    ESP_LOGD(TAG, "Partial in!");
 
@@ -133,24 +133,24 @@ static void EPD_partial_in(EPD* epd)
 #else
 #//error "Unsupported orientation - only portrait modes are supported for now"
 #endif
-    EPD_SendCommand(epd,0x00);
-   // EPD_SendData(pst_use_reg_lut, sizeof(pst_use_reg_lut));
+    EPD_1IN54F_SendCommand(epd,0x00);
+   // EPD_1IN54F_SendData(pst_use_reg_lut, sizeof(pst_use_reg_lut));
     for (int i = 0; i < 2; i++)
-      EPD_SendData(epd, pst_use_reg_lut[i]);
+      EPD_1IN54F_SendData(epd, pst_use_reg_lut[i]);
 
     // WORKAROUND: need to ignore OLD framebuffer or otherwise partial refresh won't work
     uint8_t vcom = 0xb7;
-    EPD_SendCommand(epd,0x50);
-    EPD_SendData(epd, vcom);
+    EPD_1IN54F_SendCommand(epd,0x50);
+    EPD_1IN54F_SendData(epd, vcom);
 
     // Dump LUT in
-    EPD_load_partial_lut(epd);
+    EPD_1IN54F_load_partial_lut(epd);
 
     // Go partial!
-    EPD_SendCommand(epd,0x91);
+    EPD_1IN54F_SendCommand(epd,0x91);
 }
 
-static void EPD_partial_out(EPD* epd)
+static void EPD_1IN54F_partial_out(EPD* epd)
 {
 //    ESP_LOGD(TAG, "Partial out!");
 
@@ -162,142 +162,142 @@ static void EPD_partial_out(EPD* epd)
 #else
 //#error "Unsupported orientation - only portrait modes are supported for now"
 #endif
-    EPD_SendCommand(epd,0x00);
-    //EPD_SendData(pst_use_otp_lut, sizeof(pst_use_otp_lut));
+    EPD_1IN54F_SendCommand(epd,0x00);
+    //EPD_1IN54F_SendData(pst_use_otp_lut, sizeof(pst_use_otp_lut));
     for (int i = 0; i < 2; i++)
-      EPD_SendData(epd, pst_use_otp_lut[i]);
+      EPD_1IN54F_SendData(epd, pst_use_otp_lut[i]);
 
     // WORKAROUND: re-enable OLD framebuffer to get a better full refresh
     uint8_t vcom = 0x97;
-    EPD_SendCommand(epd,0x50);
-    EPD_SendData(epd, vcom);
+    EPD_1IN54F_SendCommand(epd,0x50);
+    EPD_1IN54F_SendData(epd, vcom);
 
     // Out from partial!
-    EPD_SendCommand(epd,0x92);
+    EPD_1IN54F_SendCommand(epd,0x92);
 }
 
-int EPD_Init(EPD* epd, const unsigned char* lut) {
+int EPD_1IN54F_Init(EPD* epd, const unsigned char* lut) {
   epd->reset_pin = RST_PIN;
   epd->dc_pin = DC_PIN;
   epd->cs_pin = CS_PIN;
   epd->busy_pin = BUSY_PIN;
-  epd->width = EPD_WIDTH;
-  epd->height = EPD_HEIGHT;
+  epd->width = EPD_1IN54F_WIDTH;
+  epd->height = EPD_1IN54F_HEIGHT;
   /* this calls the peripheral hardware interface, see epdif */
   if (EpdInitCallback() != 0) {
     return -1;
   }
   /* EPD hardware init start */
-  EPD_Reset(epd);
+  EPD_1IN54F_Reset(epd);
   /*
-  EPD_SendCommand(epd, DRIVER_OUTPUT_CONTROL);
-  EPD_SendData(epd, (EPD_HEIGHT - 1) & 0xFF);
-  EPD_SendData(epd, ((EPD_HEIGHT - 1) >> 8) & 0xFF);
-  EPD_SendData(epd, 0x00);                     // GD = 0; SM = 0; TB = 0;
-  EPD_SendCommand(epd, BOOSTER_SOFT_START_CONTROL);
-  EPD_SendData(epd, 0xD7);
-  EPD_SendData(epd, 0xD6);
-  EPD_SendData(epd, 0x9D);
-  EPD_SendCommand(epd, WRITE_VCOM_REGISTER);
-  EPD_SendData(epd, 0xA8);                     // VCOM 7C
-  EPD_SendCommand(epd, SET_DUMMY_LINE_PERIOD);
-  EPD_SendData(epd, 0x1A);                     // 4 dummy lines per gate
-  EPD_SendCommand(epd, SET_GATE_TIME);
-  EPD_SendData(epd, 0x08);                     // 2us per line
-  EPD_SendCommand(epd, DATA_ENTRY_MODE_SETTING);
-  EPD_SendData(epd, 0x03);                     // X increment; Y increment
-  EPD_SetLut(epd, epd->lut);
+  EPD_1IN54F_SendCommand(epd, DRIVER_OUTPUT_CONTROL);
+  EPD_1IN54F_SendData(epd, (EPD_1IN54F_HEIGHT - 1) & 0xFF);
+  EPD_1IN54F_SendData(epd, ((EPD_1IN54F_HEIGHT - 1) >> 8) & 0xFF);
+  EPD_1IN54F_SendData(epd, 0x00);                     // GD = 0; SM = 0; TB = 0;
+  EPD_1IN54F_SendCommand(epd, BOOSTER_SOFT_START_CONTROL);
+  EPD_1IN54F_SendData(epd, 0xD7);
+  EPD_1IN54F_SendData(epd, 0xD6);
+  EPD_1IN54F_SendData(epd, 0x9D);
+  EPD_1IN54F_SendCommand(epd, WRITE_VCOM_REGISTER);
+  EPD_1IN54F_SendData(epd, 0xA8);                     // VCOM 7C
+  EPD_1IN54F_SendCommand(epd, SET_DUMMY_LINE_PERIOD);
+  EPD_1IN54F_SendData(epd, 0x1A);                     // 4 dummy lines per gate
+  EPD_1IN54F_SendCommand(epd, SET_GATE_TIME);
+  EPD_1IN54F_SendData(epd, 0x08);                     // 2us per line
+  EPD_1IN54F_SendCommand(epd, DATA_ENTRY_MODE_SETTING);
+  EPD_1IN54F_SendData(epd, 0x03);                     // X increment; Y increment
+  EPD_1IN54F_SetLut(epd, epd->lut);
   */
 ///*
-  EPD_SendCommand(epd,0x00); // panel setting
-  EPD_SendData (epd,0xdf);
-  EPD_SendData (epd,0x0e);
+  EPD_1IN54F_SendCommand(epd,0x00); // panel setting
+  EPD_1IN54F_SendData (epd,0xdf);
+  EPD_1IN54F_SendData (epd,0x0e);
 
-  EPD_SendCommand(epd,0x01); // power setting
-  EPD_SendData(epd,0x03);
-  EPD_SendData(epd,0x06); // 16V
-  EPD_SendData(epd,0x2A);//
-  EPD_SendData(epd,0x2A);//
+  EPD_1IN54F_SendCommand(epd,0x01); // power setting
+  EPD_1IN54F_SendData(epd,0x03);
+  EPD_1IN54F_SendData(epd,0x06); // 16V
+  EPD_1IN54F_SendData(epd,0x2A);//
+  EPD_1IN54F_SendData(epd,0x2A);//
 
-  EPD_SendCommand(epd,0x4D); // FITIinternal code
-  EPD_SendData (epd,0x55);
+  EPD_1IN54F_SendCommand(epd,0x4D); // FITIinternal code
+  EPD_1IN54F_SendData (epd,0x55);
 
-  EPD_SendCommand(epd,0xaa);
-  EPD_SendData (epd,0x0f);
+  EPD_1IN54F_SendCommand(epd,0xaa);
+  EPD_1IN54F_SendData (epd,0x0f);
 
-  EPD_SendCommand(epd,0xE9);
-  EPD_SendData (epd,0x02);
+  EPD_1IN54F_SendCommand(epd,0xE9);
+  EPD_1IN54F_SendData (epd,0x02);
 
-  EPD_SendCommand(epd,0xb6);
-  EPD_SendData (epd,0x11);
+  EPD_1IN54F_SendCommand(epd,0xb6);
+  EPD_1IN54F_SendData (epd,0x11);
 
-  EPD_SendCommand(epd,0xF3);
-  EPD_SendData (epd,0x0a);
+  EPD_1IN54F_SendCommand(epd,0xF3);
+  EPD_1IN54F_SendData (epd,0x0a);
 
-  EPD_SendCommand(epd,0x06); // boost soft start
-  EPD_SendData (epd,0xc7);
-  EPD_SendData (epd,0x0c);
-  EPD_SendData (epd,0x0c);
+  EPD_1IN54F_SendCommand(epd,0x06); // boost soft start
+  EPD_1IN54F_SendData (epd,0xc7);
+  EPD_1IN54F_SendData (epd,0x0c);
+  EPD_1IN54F_SendData (epd,0x0c);
 
-  EPD_SendCommand(epd,0x61); // resolution setting
-  EPD_SendData (epd,0xc8); // 200
-  EPD_SendData (epd,0x00);
-  EPD_SendData (epd,0xc8); // 200
+  EPD_1IN54F_SendCommand(epd,0x61); // resolution setting
+  EPD_1IN54F_SendData (epd,0xc8); // 200
+  EPD_1IN54F_SendData (epd,0x00);
+  EPD_1IN54F_SendData (epd,0xc8); // 200
 
-  EPD_SendCommand(epd,0x60); // Tcon setting
-  EPD_SendData (epd,0x00);
+  EPD_1IN54F_SendCommand(epd,0x60); // Tcon setting
+  EPD_1IN54F_SendData (epd,0x00);
 
-  EPD_SendCommand(epd,0x82); // VCOM DC setting
-  EPD_SendData (epd,0x12);
+  EPD_1IN54F_SendCommand(epd,0x82); // VCOM DC setting
+  EPD_1IN54F_SendData (epd,0x12);
 
-  EPD_SendCommand(epd,0x30); // PLL control
-  EPD_SendData (epd,0x3C);   // default 50Hz
+  EPD_1IN54F_SendCommand(epd,0x30); // PLL control
+  EPD_1IN54F_SendData (epd,0x3C);   // default 50Hz
 
-  EPD_SendCommand(epd,0X50); // VCOM and data interval
-  EPD_SendData(epd,0x97);//
+  EPD_1IN54F_SendCommand(epd,0X50); // VCOM and data interval
+  EPD_1IN54F_SendData(epd,0x97);//
 
-  EPD_SendCommand(epd,0XE3); // power saving register
-  EPD_SendData(epd,0x00); // default
+  EPD_1IN54F_SendCommand(epd,0XE3); // power saving register
+  EPD_1IN54F_SendData(epd,0x00); // default
 
-  EPD_SendCommand(epd,0X04);
+  EPD_1IN54F_SendCommand(epd,0X04);
 //*/
 
 /*  esp32 lib
-  EPD_SendCommand(epd,0x00); // panel setting
-  EPD_SendData (epd,0xdf);
-  EPD_SendData (epd,0x0e);
+  EPD_1IN54F_SendCommand(epd,0x00); // panel setting
+  EPD_1IN54F_SendData (epd,0xdf);
+  EPD_1IN54F_SendData (epd,0x0e);
 
-  EPD_SendCommand(epd,0x4d); // panel setting
-  EPD_SendData (epd,0x55);
+  EPD_1IN54F_SendCommand(epd,0x4d); // panel setting
+  EPD_1IN54F_SendData (epd,0x55);
 
-  EPD_SendCommand(epd,0xaa); // panel setting
-  EPD_SendData (epd,0x0f);
+  EPD_1IN54F_SendCommand(epd,0xaa); // panel setting
+  EPD_1IN54F_SendData (epd,0x0f);
 
-  EPD_SendCommand(epd,0xe9); // panel setting
-  EPD_SendData (epd,0x02);
+  EPD_1IN54F_SendCommand(epd,0xe9); // panel setting
+  EPD_1IN54F_SendData (epd,0x02);
 
-  EPD_SendCommand(epd,0xb6); // panel setting
-  EPD_SendData (epd,0x11);
+  EPD_1IN54F_SendCommand(epd,0xb6); // panel setting
+  EPD_1IN54F_SendData (epd,0x11);
 
-  EPD_SendCommand(epd,0xf3); // panel setting
-  EPD_SendData (epd,0x0a);
+  EPD_1IN54F_SendCommand(epd,0xf3); // panel setting
+  EPD_1IN54F_SendData (epd,0x0a);
 
-  EPD_SendCommand(epd,0x61); // resolution setting
-  EPD_SendData (epd,0xc8); // 200
-  EPD_SendData (epd,0x00);
-  EPD_SendData (epd,0xc8); // 200
+  EPD_1IN54F_SendCommand(epd,0x61); // resolution setting
+  EPD_1IN54F_SendData (epd,0xc8); // 200
+  EPD_1IN54F_SendData (epd,0x00);
+  EPD_1IN54F_SendData (epd,0xc8); // 200
 
-  EPD_SendCommand(epd,0x60); // panel setting
-  EPD_SendData (epd,0x00);
+  EPD_1IN54F_SendCommand(epd,0x60); // panel setting
+  EPD_1IN54F_SendData (epd,0x00);
 
-  EPD_SendCommand(epd,0x50); // panel setting
-  EPD_SendData (epd,0x97);
+  EPD_1IN54F_SendCommand(epd,0x50); // panel setting
+  EPD_1IN54F_SendData (epd,0x97);
 
-  EPD_SendCommand(epd,0xe3); // panel setting
-  EPD_SendData (epd,0x00);
+  EPD_1IN54F_SendCommand(epd,0xe3); // panel setting
+  EPD_1IN54F_SendData (epd,0x00);
 */
-  EPD_DelayMs(epd, 100);
-  EPD_WaitUntilIdle(epd);
+  EPD_1IN54F_DelayMs(epd, 100);
+  EPD_1IN54F_WaitUntilIdle(epd);
 
   /* EPD hardware init end */
   return 0;
@@ -307,7 +307,7 @@ int EPD_Init(EPD* epd, const unsigned char* lut) {
  *  @brief: this calls the corresponding function from epdif.h
  *          usually there is no need to change this function
  */
-void EPD_DigitalWrite(EPD* epd, int pin, int value) {
+void EPD_1IN54F_DigitalWrite(EPD* epd, int pin, int value) {
   EpdDigitalWriteCallback(pin, value);
 }
 
@@ -315,7 +315,7 @@ void EPD_DigitalWrite(EPD* epd, int pin, int value) {
  *  @brief: this calls the corresponding function from epdif.h
  *          usually there is no need to change this function
  */
-int EPD_DigitalRead(EPD* epd, int pin) {
+int EPD_1IN54F_DigitalRead(EPD* epd, int pin) {
   return EpdDigitalReadCallback(pin);
 }
 
@@ -323,32 +323,32 @@ int EPD_DigitalRead(EPD* epd, int pin) {
  *  @brief: this calls the corresponding function from epdif.h
  *          usually there is no need to change this function
  */
-void EPD_DelayMs(EPD* epd, unsigned int delaytime) {  // 1ms
+void EPD_1IN54F_DelayMs(EPD* epd, unsigned int delaytime) {  // 1ms
   EpdDelayMsCallback(delaytime);
 }
 
 /**
  *  @brief: basic function for sending commands
  */
-void EPD_SendCommand(EPD* epd, unsigned char command) {
-  EPD_DigitalWrite(epd, epd->dc_pin, LOW);
+void EPD_1IN54F_SendCommand(EPD* epd, unsigned char command) {
+  EPD_1IN54F_DigitalWrite(epd, epd->dc_pin, LOW);
   EpdSpiTransferCallback(command);
 }
 
 /**
  *  @brief: basic function for sending data
  */
-void EPD_SendData(EPD* epd, unsigned char data) {
-  EPD_DigitalWrite(epd, epd->dc_pin, HIGH);
+void EPD_1IN54F_SendData(EPD* epd, unsigned char data) {
+  EPD_1IN54F_DigitalWrite(epd, epd->dc_pin, HIGH);
   EpdSpiTransferCallback(data);
 }
 
 /**
  *  @brief: Wait until the busy_pin goes LOW
  */
-void EPD_WaitUntilIdle(EPD* epd) {
-  while(EPD_DigitalRead(epd, epd->busy_pin) == HIGH) {      //0: busy, 1: idle
-    EPD_DelayMs(epd, 100);
+void EPD_1IN54F_WaitUntilIdle(EPD* epd) {
+  while(EPD_1IN54F_DigitalRead(epd, epd->busy_pin) == HIGH) {      //0: busy, 1: idle
+    EPD_1IN54F_DelayMs(epd, 100);
   }      
 }
 
@@ -357,31 +357,31 @@ void EPD_WaitUntilIdle(EPD* epd) {
  *          often used to awaken the module in deep sleep,
  *          see EPD::Sleep();
  */
-void EPD_Reset(EPD* epd) {
-  EPD_DigitalWrite(epd, epd->reset_pin, LOW);                //module reset    
-  EPD_DelayMs(epd, 200);
-  EPD_DigitalWrite(epd, epd->reset_pin, HIGH);
-  EPD_DelayMs(epd, 200);    
+void EPD_1IN54F_Reset(EPD* epd) {
+  EPD_1IN54F_DigitalWrite(epd, epd->reset_pin, LOW);                //module reset    
+  EPD_1IN54F_DelayMs(epd, 200);
+  EPD_1IN54F_DigitalWrite(epd, epd->reset_pin, HIGH);
+  EPD_1IN54F_DelayMs(epd, 200);    
 }
 
 /**
  *  @brief: module Power on.
  */
-void EPD_power_on(EPD* epd) {
-  EPD_SendCommand(epd, 0x50);  
-  EPD_SendData(epd,0x97); 
+void EPD_1IN54F_power_on(EPD* epd) {
+  EPD_1IN54F_SendCommand(epd, 0x50);  
+  EPD_1IN54F_SendData(epd,0x97); 
 
-  EPD_SendCommand(epd, 0x04);     
+  EPD_1IN54F_SendCommand(epd, 0x04);     
 }
 
 /**
  *  @brief: module Power off.
  */
-void EPD_power_off(EPD* epd) {
-  EPD_SendCommand(epd, 0x50);  
-  EPD_SendData(epd,0xf7);  
+void EPD_1IN54F_power_off(EPD* epd) {
+  EPD_1IN54F_SendCommand(epd, 0x50);  
+  EPD_1IN54F_SendData(epd,0xf7);  
 
-  EPD_SendCommand(epd, 0x02);
+  EPD_1IN54F_SendCommand(epd, 0x02);
 }
 
 /**
@@ -390,7 +390,7 @@ void EPD_power_off(EPD* epd) {
  */
 
 
-void EPD_SetFrameMemory(
+void EPD_1IN54F_SetFrameMemory(
   EPD* epd,
   const unsigned char* image_buffer,
   int x,
@@ -423,22 +423,22 @@ void EPD_SetFrameMemory(
   }
 
   // 局刷还不行
-  EPD_SetMemoryArea(epd, x, y, x_end, y_end);
-  //EPD_SetMemoryPointer(epd, x, y);
-  //EPD_SendCommand(epd, WRITE_RAM);
-  EPD_SendCommand(epd, 0x10);
+  EPD_1IN54F_SetMemoryArea(epd, x, y, x_end, y_end);
+  //EPD_1IN54F_SetMemoryPointer(epd, x, y);
+  //EPD_1IN54F_SendCommand(epd, WRITE_RAM);
+  EPD_1IN54F_SendCommand(epd, 0x10);
   /* send the image data */
   for (int j = 0; j < y_end - y + 1; j++) {
     for (int i = 0; i < (x_end - x + 1) / 8; i++) {
-      EPD_SendData(epd, image_buffer[i + j * (image_width / 8)]);
+      EPD_1IN54F_SendData(epd, image_buffer[i + j * (image_width / 8)]);
     }
   }
 
-    EPD_SendCommand(epd, 0x13);
+    EPD_1IN54F_SendCommand(epd, 0x13);
   /* send the image data */
   for (int j = 0; j < y_end - y + 1; j++) {
     for (int i = 0; i < (x_end - x + 1) / 8; i++) {
-      EPD_SendData(epd, image_buffer[i + j * (image_width / 8)]);
+      EPD_1IN54F_SendData(epd, image_buffer[i + j * (image_width / 8)]);
     }
   }
 }
@@ -447,13 +447,13 @@ void EPD_SetFrameMemory(
 *  @brief: clear the frame memory with the specified color.
 *          this won't update the display.
 */
-void EPD_ClearFrameMemory(EPD* epd, unsigned char color) {
-  EPD_SetMemoryArea(epd, 0, 0, epd->width - 1, epd->height - 1);
-  EPD_SetMemoryPointer(epd, 0, 0);
-  EPD_SendCommand(epd, WRITE_RAM);
+void EPD_1IN54F_ClearFrameMemory(EPD* epd, unsigned char color) {
+  EPD_1IN54F_SetMemoryArea(epd, 0, 0, epd->width - 1, epd->height - 1);
+  EPD_1IN54F_SetMemoryPointer(epd, 0, 0);
+  EPD_1IN54F_SendCommand(epd, WRITE_RAM);
   /* send the color data */
   for (int i = 0; i < epd->width / 8 * epd->height; i++) {
-    EPD_SendData(epd, color);
+    EPD_1IN54F_SendData(epd, color);
   }
 }
 
@@ -464,37 +464,37 @@ void EPD_ClearFrameMemory(EPD* epd, unsigned char color) {
 *          the the next action of SetFrameMemory or ClearFrame will 
 *          set the other memory area.
 */
-void EPD_DisplayFrame(EPD* epd) {
-  // EPD_SendCommand(epd, DISPLAY_UPDATE_CONTROL_2);
-  // EPD_SendData(epd, 0xC4);
-  // EPD_SendCommand(epd, MASTER_ACTIVATION);
-  // EPD_SendCommand(epd, TERMINATE_FRAME_READ_WRITE);
+void EPD_1IN54F_DisplayFrame(EPD* epd) {
+  // EPD_1IN54F_SendCommand(epd, DISPLAY_UPDATE_CONTROL_2);
+  // EPD_1IN54F_SendData(epd, 0xC4);
+  // EPD_1IN54F_SendCommand(epd, MASTER_ACTIVATION);
+  // EPD_1IN54F_SendCommand(epd, TERMINATE_FRAME_READ_WRITE);
 
 
-  EPD_SendCommand(epd, 0x12);
-  EPD_WaitUntilIdle(epd);
+  EPD_1IN54F_SendCommand(epd, 0x12);
+  EPD_1IN54F_WaitUntilIdle(epd);
 }
 
 /**
  *  @brief: After this command is transmitted, the chip would enter the 
  *          deep-sleep mode to save power. 
  *          The deep sleep mode would return to standby by hardware reset. 
- *          You can use EPD_Init() to awaken
+ *          You can use EPD_1IN54F_Init() to awaken
  */
-void EPD_Sleep(EPD* epd) {
-  EPD_SendCommand(epd, DEEP_SLEEP_MODE);
-  EPD_WaitUntilIdle(epd);
+void EPD_1IN54F_Sleep(EPD* epd) {
+  EPD_1IN54F_SendCommand(epd, DEEP_SLEEP_MODE);
+  EPD_1IN54F_WaitUntilIdle(epd);
 }
 
 /**
  *  @brief: set the look-up tables
  */
-static void EPD_SetLut(EPD* epd, const unsigned char* lut) {
+static void EPD_1IN54F_SetLut(EPD* epd, const unsigned char* lut) {
   epd->lut = lut;
-  EPD_SendCommand(epd, WRITE_LUT_REGISTER);
+  EPD_1IN54F_SendCommand(epd, WRITE_LUT_REGISTER);
   /* the length of look-up table is 30 bytes */
   for (int i = 0; i < 30; i++) {
-    EPD_SendData(epd, epd->lut[i]);
+    EPD_1IN54F_SendData(epd, epd->lut[i]);
   } 
 }
 
@@ -504,49 +504,49 @@ static void EPD_SetLut(EPD* epd, const unsigned char* lut) {
 /**
  *  @brief: private function to specify the memory area for data R/W
  */
-static void EPD_SetMemoryArea(EPD* epd, int x_start, int y_start, int x_end, int y_end) {
-  // EPD_SendCommand(epd, SET_RAM_X_ADDRESS_START_END_POSITION);
+static void EPD_1IN54F_SetMemoryArea(EPD* epd, int x_start, int y_start, int x_end, int y_end) {
+  // EPD_1IN54F_SendCommand(epd, SET_RAM_X_ADDRESS_START_END_POSITION);
   // /* x point must be the multiple of 8 or the last 3 bits will be ignored */
-  // EPD_SendData(epd, (x_start >> 3) & 0xFF);
-  // EPD_SendData(epd, (x_end >> 3) & 0xFF);
-  // EPD_SendCommand(epd, SET_RAM_Y_ADDRESS_START_END_POSITION);
-  // EPD_SendData(epd, y_start & 0xFF);
-  // EPD_SendData(epd, (y_start >> 8) & 0xFF);
-  // EPD_SendData(epd, y_end & 0xFF);
-  // EPD_SendData(epd, (y_end >> 8) & 0xFF);
+  // EPD_1IN54F_SendData(epd, (x_start >> 3) & 0xFF);
+  // EPD_1IN54F_SendData(epd, (x_end >> 3) & 0xFF);
+  // EPD_1IN54F_SendCommand(epd, SET_RAM_Y_ADDRESS_START_END_POSITION);
+  // EPD_1IN54F_SendData(epd, y_start & 0xFF);
+  // EPD_1IN54F_SendData(epd, (y_start >> 8) & 0xFF);
+  // EPD_1IN54F_SendData(epd, y_end & 0xFF);
+  // EPD_1IN54F_SendData(epd, (y_end >> 8) & 0xFF);
 
   uint16_t xe = (x_start + x_end - 1) | 0x0007; // byte boundary inclusive (last byte)
   uint16_t ye = y_start + y_end - 1;
   x_start &= 0xFFF8; // byte boundary
-  EPD_SendCommand(epd,0x90); // partial window
+  EPD_1IN54F_SendCommand(epd,0x90); // partial window
   //_writeData(x / 256);
-  EPD_SendData(epd,x_start % 256);
+  EPD_1IN54F_SendData(epd,x_start % 256);
   //_writeData(xe / 256);
-  EPD_SendData(epd,xe % 256);
-  EPD_SendData(epd,y_start / 256);
-  EPD_SendData(epd,y_start % 256);
-  EPD_SendData(epd,ye / 256);
-  EPD_SendData(epd,ye % 256);
-  EPD_SendData(epd,0x01); // don't see any difference
+  EPD_1IN54F_SendData(epd,xe % 256);
+  EPD_1IN54F_SendData(epd,y_start / 256);
+  EPD_1IN54F_SendData(epd,y_start % 256);
+  EPD_1IN54F_SendData(epd,ye / 256);
+  EPD_1IN54F_SendData(epd,ye % 256);
+  EPD_1IN54F_SendData(epd,0x01); // don't see any difference
   //_writeData(0x00); // don't see any difference
 }
 
 /**
  *  @brief: private function to specify the start point for data R/W
  */
-static void EPD_SetMemoryPointer(EPD* epd, int x, int y) {
-  EPD_SendCommand(epd, SET_RAM_X_ADDRESS_COUNTER);
+static void EPD_1IN54F_SetMemoryPointer(EPD* epd, int x, int y) {
+  EPD_1IN54F_SendCommand(epd, SET_RAM_X_ADDRESS_COUNTER);
   /* x point must be the multiple of 8 or the last 3 bits will be ignored */
-  EPD_SendData(epd, (x >> 3) & 0xFF);
-  EPD_SendCommand(epd, SET_RAM_Y_ADDRESS_COUNTER);
-  EPD_SendData(epd, y & 0xFF);
-  EPD_SendData(epd, (y >> 8) & 0xFF);
-  EPD_WaitUntilIdle(epd);
+  EPD_1IN54F_SendData(epd, (x >> 3) & 0xFF);
+  EPD_1IN54F_SendCommand(epd, SET_RAM_Y_ADDRESS_COUNTER);
+  EPD_1IN54F_SendData(epd, y & 0xFF);
+  EPD_1IN54F_SendData(epd, (y >> 8) & 0xFF);
+  EPD_1IN54F_WaitUntilIdle(epd);
 }
 
 
 
-const unsigned char lut_full_update[] =
+static const unsigned char lut_full_update[] =
 {
     0x02, 0x02, 0x01, 0x11, 0x12, 0x12, 0x22, 0x22, 
     0x66, 0x69, 0x69, 0x59, 0x58, 0x99, 0x99, 0x88, 
@@ -554,7 +554,7 @@ const unsigned char lut_full_update[] =
     0x35, 0x51, 0x51, 0x19, 0x01, 0x00
 };
 
-const unsigned char lut_partial_update[] =
+static const unsigned char lut_partial_update[] =
 {
     0x10, 0x18, 0x18, 0x08, 0x18, 0x18, 0x08, 0x00, 
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
@@ -562,74 +562,74 @@ const unsigned char lut_partial_update[] =
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
 
-static void EPD_update_partial(EPD* epd,uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, uint8_t *data)
+static void EPD_1IN54F_update_partial(EPD* epd,uint8_t x1, uint8_t y1, uint8_t x2, uint8_t y2, uint8_t *data)
 {
-  EPD_power_on(epd);
-  EPD_partial_in(epd);
+  EPD_1IN54F_power_on(epd);
+  EPD_1IN54F_partial_in(epd);
 
   // Set partial window
   uint8_t ptl_setting[8] = { x1, x2, 0, y1, 0, y2, 0x01 };
   //uint8_t ptl_setting[8] = { x1, x1+x2, 0, y1, 0, y1+y2, 0x01 };
-  //EPD_SendCommand(epd,0X90); // power saving register
-  EPD_SendCommand(epd,0x90);
+  //EPD_1IN54F_SendCommand(epd,0X90); // power saving register
+  EPD_1IN54F_SendCommand(epd,0x90);
   for (int i = 0; i < 7; i++)
-    EPD_SendData(epd, ptl_setting[i]);
+    EPD_1IN54F_SendData(epd, ptl_setting[i]);
 
   //uint8_t *data_ptr = (uint8_t *)data;
 
-  EPD_SendCommand(epd,0x13);
+  EPD_1IN54F_SendCommand(epd,0x13);
   for (size_t h_idx = 0; h_idx < y2; h_idx++) {
-    //EPD_SendData(data_ptr, EPD_ROW_LEN);
+    //EPD_1IN54F_SendData(data_ptr, EPD_1IN54F_ROW_LEN);
     for (int i = 0; i < x2/8; i++)
-      EPD_SendData(epd, data[i]);
+      EPD_1IN54F_SendData(epd, data[i]);
     data += x2/8;
- //   len -= EPD_ROW_LEN;
+ //   len -= EPD_1IN54F_ROW_LEN;
   }
 
 
 
 //  ESP_LOGD(TAG, "Partial wait start");
 
-  EPD_SendCommand(epd,0x12);
-  EPD_WaitUntilIdle(epd);
+  EPD_1IN54F_SendCommand(epd,0x12);
+  EPD_1IN54F_WaitUntilIdle(epd);
 
 //  ESP_LOGD(TAG, "Partial updated");
-  EPD_partial_out(epd);
-  EPD_power_off(epd);
+  EPD_1IN54F_partial_out(epd);
+  EPD_1IN54F_power_off(epd);
 
 }
 
-void EPD_fb_full_update(EPD* epd,uint8_t *data, size_t len)
+void EPD_1IN54F_fb_full_update(EPD* epd,uint8_t *data, size_t len)
 {
-  EPD_power_on(epd);
+  EPD_1IN54F_power_on(epd);
 //    ESP_LOGD(TAG, "Performing full update, len: %u", len);
 
   uint8_t *data_ptr = data;
 
     // Fill OLD data (maybe not necessary)
-  uint8_t old_data[EPD_ROW_LEN] = { 0 };
-  EPD_SendCommand(epd,0x10);
-  for (size_t idx = 0; idx < EPD_HEIGHT; idx++) {
-      //jd79653a_spi_send_data(old_data, EPD_ROW_LEN);
-    for (int i = 0; i < EPD_ROW_LEN; i++)
-      EPD_SendData(epd, old_data[i]);
+  uint8_t old_data[EPD_1IN54F_ROW_LEN] = { 0 };
+  EPD_1IN54F_SendCommand(epd,0x10);
+  for (size_t idx = 0; idx < EPD_1IN54F_HEIGHT; idx++) {
+      //jd79653a_spi_send_data(old_data, EPD_1IN54F_ROW_LEN);
+    for (int i = 0; i < EPD_1IN54F_ROW_LEN; i++)
+      EPD_1IN54F_SendData(epd, old_data[i]);
   }
 
   // Fill NEW data
-  EPD_SendCommand(epd,0x13);
-  for (size_t h_idx = 0; h_idx < EPD_HEIGHT; h_idx++) {
-        //jd79653a_spi_send_data(data_ptr, EPD_ROW_LEN);
-    for (int i = 0; i < EPD_ROW_LEN; i++)
-      EPD_SendData(epd, data_ptr[i]);
-    data_ptr += EPD_ROW_LEN;
-      //len -= EPD_ROW_LEN;
+  EPD_1IN54F_SendCommand(epd,0x13);
+  for (size_t h_idx = 0; h_idx < EPD_1IN54F_HEIGHT; h_idx++) {
+        //jd79653a_spi_send_data(data_ptr, EPD_1IN54F_ROW_LEN);
+    for (int i = 0; i < EPD_1IN54F_ROW_LEN; i++)
+      EPD_1IN54F_SendData(epd, data_ptr[i]);
+    data_ptr += EPD_1IN54F_ROW_LEN;
+      //len -= EPD_1IN54F_ROW_LEN;
   }
     //ESP_LOGD(TAG, "Rest len: %u", len);
-  EPD_SendCommand(epd,0x12); // Issue refresh command
-  EPD_DelayMs(epd, 100);
-  EPD_WaitUntilIdle(epd);
+  EPD_1IN54F_SendCommand(epd,0x12); // Issue refresh command
+  EPD_1IN54F_DelayMs(epd, 100);
+  EPD_1IN54F_WaitUntilIdle(epd);
 
-  EPD_power_off(epd);
+  EPD_1IN54F_power_off(epd);
 }
 //void jd79653a_lv_fb_flush(lv_disp_drv_t *drv, const lv_area_t *area, lv_color_t *color_map)
 void jd79653a_lv_fb_flush(
@@ -649,14 +649,48 @@ void jd79653a_lv_fb_flush(
 
     if (partial_counter == 0) {
     //    ESP_LOGD(TAG, "Refreshing in FULL");
-        EPD_fb_full_update(epd, buf, ((EPD_HEIGHT * EPD_WIDTH) / 8));
-        partial_counter = EPD_PARTIAL_CNT; // Reset partial counter here
+        EPD_1IN54F_fb_full_update(epd, buf, ((EPD_1IN54F_HEIGHT * EPD_1IN54F_WIDTH) / 8));
+        partial_counter = EPD_1IN54F_PARTIAL_CNT; // Reset partial counter here
     } else {
-        EPD_update_partial(epd, x, y, x+image_width-1, y+image_height-1, buf);
+        EPD_1IN54F_update_partial(epd, x, y, x+image_width-1, y+image_height-1, buf);
         partial_counter -= 1;   // ...or otherwise, decrease 1
     }
 
  //   lv_disp_flush_ready(drv);
+}
+
+#define UBYTE uint8_t
+UBYTE EPD_1IN54FF_Init(void);
+void EPD_1IN54FF_Clear(void);
+void EPD_1IN54FF_Display(UBYTE *Image);
+void EPD_1IN54FF_Sleep(void);
+
+#define BUSY_Pin          (18)
+#define RST_Pin           (7)
+#define DC_Pin            (9)
+#define SPI_CS_Pin        (16)
+
+static EPD _epd;
+UBYTE EPD_1IN54FF_Init(void) {
+  _epd.busy_pin = BUSY_Pin;
+  _epd.reset_pin = RST_PIN;
+  _epd.dc_pin = DC_PIN;
+  _epd.cs_pin = SPI_CS_Pin;
+  _epd.width = EPD_1IN54F_WIDTH;
+  _epd.height = EPD_1IN54F_HEIGHT;
+
+  EPD_1IN54F_Init(&_epd, lut_full_update);
+  return 0;
+}
+void EPD_1IN54FF_Clear(void) {
+  ;
+}
+void EPD_1IN54FF_Display(UBYTE *Image) {
+  EPD_1IN54F_SetFrameMemory(&_epd, Image, 0, 0, EPD_1IN54F_WIDTH, EPD_1IN54F_HEIGHT);
+  EPD_1IN54F_DisplayFrame(&_epd);
+}
+void EPD_1IN54FF_Sleep(void) {
+  EPD_1IN54F_Sleep(&_epd);
 }
 
 /* END OF FILE */

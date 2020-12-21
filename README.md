@@ -47,6 +47,7 @@ sys.run()
 ----------------------------------------------------------------------------------
 ## 资源
 
+* [官网](https://www.luatos.com/) 官网
 * [预编译固件](https://github.com/openLuat/LuatOS/releases) 固件,示例,文档,都会一起发布
 * [Lua 5.3中文手册](https://www.runoob.com/manual/lua53doc/) 官方手册的中文版
 * [Lua 入门教程(5.1版)](https://wiki.openluat.com/doc/luaStart) 注意与5.3有语法差异
@@ -58,7 +59,6 @@ sys.run()
 * [如何编译-Wifi固件](bsp/air640w/userdoc/how_to_build.md) 自行编译wifi模块
 * [如何编译-NBIOT固件](bsp/air302/userdoc/build_from_sdk.md) 自行编译nbiot模块
 * [收发16进制数据](http://doc.openluat.com/article/583/0) 二进制数据随意收发
-* [临时官网](https://luatos.vue2.cn/) 官网域名备案中
 
 ----------------------------------------------------------------------------------
 
@@ -78,9 +78,9 @@ sys.run()
 
 ## 免费服务
 
-* [NetLab](https://netlab.luatos.io/index.html) 支持普通TCP/UDP/加密TCP, 透传调试,公网IP, HEX值收发, Tab式多客户端
-* [DevLog](udp://devlog.luatos.io:9072) 设备日志记录,格式兼容errDump.lua 查看日志请登录LuatOS官网
-* [JT808服务](tcp://jt808.luatos.io:9072) JT808-2013协议, 查看轨迹请登录LuatOS官网
+* [NetLab https://netlab.luatos.com/](https://netlab.luatos.com/) 支持普通TCP/UDP/加密TCP, 透传调试,公网IP, HEX值收发, Tab式多客户端
+* [DevLog udp://devlog.luatos.com:9072](#) 设备日志记录,格式兼容errDump.lua 查看日志请登录LuatOS官网
+* [JT808服务 tcp://jt808.luatos.com:9072](#) JT808-2013协议, 查看轨迹请登录LuatOS官网
 
 ## 更多项目
 

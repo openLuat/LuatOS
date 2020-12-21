@@ -33,6 +33,9 @@ src.remove('luat_shell.c')
 src.remove('luat_lib_lpmem.c')
 src.remove('luat_lib_pm.c')
 
+src.remove('luat_lib_eink.c')
+#src.remove('luat_lib_iconv.c')
+
 group = DefineGroup('modules', src, depend = [''], CPPPATH = CPPPATH)
 
 Return('group')

@@ -7,6 +7,7 @@ CFLAGS_INC    +=  -I $(LUATOS_DIR)/lua/include \
 				  -I $(LUATOS_DIR)/luat/packages/heap \
 				  -I $(LUATOS_DIR)/luat/packages/eink \
 				  -I $(LUATOS_DIR)/luat/packages/fonts \
+				  -I $(LUATOS_DIR)/luat/packages/epaper \
 				  -I $(LUATOS_DIR)/luat/packages/qrcode \
 				  -I $(LUATOS_DIR)/bsp/air302/include 
 
@@ -19,6 +20,7 @@ LUATOS_SRC_DIRS += $(LUATOS_DIR)/lua/src \
 					$(LUATOS_DIR)/luat/packages/minmea \
 					$(LUATOS_DIR)/luat/packages/heap \
 				    $(LUATOS_DIR)/luat/packages/eink \
+				    $(LUATOS_DIR)/luat/packages/epaper \
 				    $(LUATOS_DIR)/luat/packages/fonts \
 				    $(LUATOS_DIR)/luat/packages/qrcode \
 					$(LUATOS_DIR)/bsp/air302/src 

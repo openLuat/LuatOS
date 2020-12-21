@@ -1,4 +1,6 @@
 
+#ifndef LUAT_SPI
+#define LUAT_SPI
 #include "luat_base.h"
 
 typedef struct luat_spi
@@ -38,3 +40,5 @@ int luat_spi_transfer(int spi_id, const char* send_buf, char* recv_buf, size_t l
 int luat_spi_recv(int spi_id, char* recv_buf, size_t length);
 //发SPI数据，返回发送字节数
 int luat_spi_send(int spi_id, const char* send_buf, size_t length);
+
+#endif

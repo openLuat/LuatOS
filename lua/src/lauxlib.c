@@ -522,7 +522,7 @@ static void *newbox (lua_State *L, size_t newsize) {
 LUALIB_API char *luaL_prepbuffsize (luaL_Buffer *B, size_t sz) {
   lua_State *L = B->L;
   if (B->size - B->n < sz) {  /* not enough space? */
-    luaC_fullgc(L, 0); // add by wendal. GC before luaL_prepbuffsize
+    //luaC_fullgc(L, 0); // add by wendal. GC before luaL_prepbuffsize
     char *newbuff;
     size_t newsize = B->size * 2;  /* double buffer size */
     if (newsize - B->n < sz)  /* not big enough? */

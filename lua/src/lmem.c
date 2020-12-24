@@ -79,7 +79,7 @@ void *luaM_realloc_ (lua_State *L, void *block, size_t osize, size_t nsize) {
   global_State *g = G(L);
   size_t realosize = (block) ? osize : 0;
   lua_assert((realosize == 0) == (block == NULL));
-//#if defined(HARDMEMTESTS)
+#if defined(HARDMEMTESTS)
   if (nsize > realosize && g->gcrunning) {
     bufsize curalloc;
     bufsize totfree;
@@ -90,7 +90,7 @@ void *luaM_realloc_ (lua_State *L, void *block, size_t osize, size_t nsize) {
     if (totfree < nsize)
       luaC_fullgc(L, 1);  /* force a GC whenever possible */
   }
-//#endif
+#endif
   newblock = (*g->frealloc)(g->ud, block, osize, nsize);
   if (newblock == NULL && nsize > 0) {
     lua_assert(nsize > realosize);  /* cannot fail when shrinking a block */

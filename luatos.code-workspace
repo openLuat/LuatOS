@@ -2,6 +2,15 @@
 	"folders": [
 		{
 			"path": "."
+		},
+		{
+			"path": "..\\rt-thread"
 		}
-	]
+	],
+	"settings": {
+		"files.associations": {
+			"typeindex": "c",
+			"typeinfo": "c"
+		}
+	}
 }

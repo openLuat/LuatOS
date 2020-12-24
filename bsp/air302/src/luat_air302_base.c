@@ -2,11 +2,7 @@
 #include "luat_base.h"
 #include "luat_malloc.h"
 
-LUAMOD_API int luaopen_nbiot( lua_State *L );
-LUAMOD_API int luaopen_package_air302 (lua_State *L);
-LUAMOD_API int luaopen_libgnss( lua_State *L ) ;
-LUAMOD_API int luaopen_fatfs( lua_State *L );
-LUAMOD_API int luaopen_eink( lua_State *L);
+
 
 static const luaL_Reg loadedlibs[] = {
   {"_G", luaopen_base}, // _G
@@ -40,8 +36,8 @@ static const luaL_Reg loadedlibs[] = {
   {"adc",   luaopen_adc},              // ADC模块
   {"pwm",   luaopen_pwm},              // PWM模块
   {"crypto",luaopen_crypto},           // 加密和hash模块
-  //{"disp",  luaopen_disp},             // OLED显示模块
-  //{"fatfs", luaopen_fatfs},            // TF卡
+  {"disp",  luaopen_disp},             // OLED显示模块
+  {"fatfs", luaopen_fatfs},            // TF卡
   {"pm",    luaopen_pm},               // 低功耗模式
   {"libcoap",luaopen_libcoap},         // 处理COAP消息
   {"libgnss",luaopen_libgnss},         // 处理GNSS定位数据
@@ -49,7 +45,8 @@ static const luaL_Reg loadedlibs[] = {
   {"http",  luaopen_http},              // http库
   {"fs",    luaopen_fs},                // 文件系统库
   {"ctiot",	luaopen_ctiot},				      // ctiot库，NB专用
-  {"eink",  luaopen_eink},              // 电子墨水屏
+  //{"eink",  luaopen_eink},              // 电子墨水屏
+  //{"iconv", luaopen_iconv},             // UTF8-GB2312互转
   {NULL, NULL}
 };
 

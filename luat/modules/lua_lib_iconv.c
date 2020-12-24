@@ -33,8 +33,6 @@
 #include "lauxlib.h"
 #include <stdlib.h>
 
-#include "iconv.h"
-#include <errno.h>
 
 #include "luat_base.h"
 #include "luat_malloc.h"
@@ -42,15 +40,6 @@
 #define LIB_NAME                "iconv"
 #define LIB_VERSION             LIB_NAME " r5"
 #define ICONV_TYPENAME          "iconv_t"
-
-
-/* Compatibility between Lua 5.1+ and Lua 5.0 */
-#ifndef LUA_VERSION_NUM
-#define LUA_VERSION_NUM 0
-#endif
-#if LUA_VERSION_NUM < 501
-#define luaL_register(a, b, c) luaL_openlib((a), (b), (c), 0)
-#endif
 
 
 /* Emulates lua_(un)boxpointer from Lua 5.0 (don't exists on Lua 5.1) */
@@ -70,6 +59,8 @@
 #define ERROR_INCOMPLETE    3
 #define ERROR_UNKNOWN       4
 
+#if 0
+#include "iconv.h"
 
 static void push_iconv_t(lua_State *L, iconv_t cd) {
     boxptr(L, cd);
@@ -245,3 +236,10 @@ LUAMOD_API int luaopen_iconv(lua_State *L) {
 
     return 1;
 }
+
+#else
+static const rotable_Reg iconvMT[] = {
+    { "__gc", Liconv_close , 0},
+    { NULL, NULL, NULL}
+};
+#endif

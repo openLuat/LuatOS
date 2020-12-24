@@ -238,8 +238,8 @@ LUAMOD_API int luaopen_iconv(lua_State *L) {
 }
 
 #else
+#include "rotable.h"
 static const rotable_Reg iconvMT[] = {
-    { "__gc", Liconv_close , 0},
     { NULL, NULL, NULL}
 };
 #endif

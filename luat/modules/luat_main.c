@@ -161,6 +161,9 @@ int luat_main (void) {
     return 0; // just nop
   }
   LLOGI("LuatOS@%s %s, Build: " __DATE__ " " __TIME__, luat_os_bsp(), LUAT_VERSION);
+  #if LUAT_VERSION_BETA
+  LLOGD("This is a beta version, for testing");
+  #endif
   // 1. 初始化文件系统
   luat_fs_init();
 

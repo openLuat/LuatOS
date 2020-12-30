@@ -259,9 +259,9 @@ end
 -- 上报数据
 function mqttc:pub(topic, qos, payload)
     -- local function packPUBLISH(dup, qos, retain, packetId, topic, payload)
-    table.insert(self.outpkgs, packPUBLISH(0, qos, 0, qos and self:genId() or 0, topic, payload))
+    table.insert(self.outpkgs, packPUBLISH(0, qos, 0, qos > 0 and self:genId() or 0, topic, payload))
     sys.publish(self.ckey)
-    if qos then
+    if qos > 0 then
         return sys.waitUntil(self.ckey .. "PUBACK", 30000)
     end
 end

@@ -143,7 +143,7 @@ function mqttc:handle(netc)
                 --mclog("mqtt", "GOT DISCONNECT")
             elseif pkg.id == PUBLISH then
                 --mclog("mqtt", "GOT PUBLISH", pkg.topic, pkg.qos)
-                if pkg.packetId then
+                if pkg.packetId > 0 then
                     -- 发送PUBACK
                     --mclog("mqtt", "send back PUBACK")
                     table.insert( mc.outpkgs, packACK(PUBACK, 0, pkg.packetId))
@@ -267,7 +267,7 @@ function mqttc:pub(topic, qos, payload)
 end
 
 function mqttc:shutdown()
-    self.running = 0
+    self.running = false
     sys.publish(self.ckey)
 end
 

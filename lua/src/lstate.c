@@ -291,13 +291,21 @@ void luaE_freethread (lua_State *L, lua_State *L1) {
   luaM_free(L, l);
 }
 
+#ifdef FEATURE_STATIC_LUASTATE
+static LG LUAT_LG;
+#endif
+
 
 LUA_API lua_State *lua_newstate (lua_Alloc f, void *ud) {
   int i;
   lua_State *L;
   global_State *g;
+  #ifdef FEATURE_STATIC_LUASTATE
+  LG *l = &LUAT_LG;
+  #else
   LG *l = cast(LG *, (*f)(ud, NULL, LUA_TTHREAD, sizeof(LG)));
   if (l == NULL) return NULL;
+  #endif
   L = &l->l.l;
   g = &l->g;
   L->next = NULL;

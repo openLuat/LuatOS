@@ -27,6 +27,9 @@
 #include "epd1in54.h"
 #include "epdif.h"
 
+#define LUAT_LOG_TAG "luat.epaper"
+#include "luat_log.h"
+
 //#define CONFIG_LV_DISPLAY_ORIENTATION_PORTRAIT_INVERTED 0
 #define CONFIG_LV_DISPLAY_ORIENTATION_PORTRAIT 0
 #define EPD_1IN54F_WIDTH           200
@@ -678,7 +681,7 @@ UBYTE EPD_1IN54FF_Init(void) {
   _epd.cs_pin = SPI_CS_Pin;
   _epd.width = EPD_1IN54F_WIDTH;
   _epd.height = EPD_1IN54F_HEIGHT;
-
+  LLOGD("EPD_1IN54F_Init");
   EPD_1IN54F_Init(&_epd, lut_full_update);
   return 0;
 }

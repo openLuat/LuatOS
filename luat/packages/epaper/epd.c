@@ -2,7 +2,7 @@
 
 #include "epd.h"
 
-static UBYTE cur_model = MODEL_1in54f;
+static int cur_model = MODEL_1in54f;
 
 void EPD_Model(UBYTE model) {
     cur_model = model;

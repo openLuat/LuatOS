@@ -9,14 +9,21 @@
 
 static StaticQueue_t xStaticQueue = {0};
 static QueueHandle_t xQueue = {0};
+
+#if configSUPPORT_STATIC_ALLOCATION
 static uint8_t ucQueueStorageArea[ QUEUE_LENGTH * ITEM_SIZE ];
+#endif
 
 void luat_msgbus_init(void) {
     if (!xQueue) {
+        #if configSUPPORT_STATIC_ALLOCATION
         xQueue = xQueueCreateStatic( QUEUE_LENGTH,
                                  ITEM_SIZE,
                                  ucQueueStorageArea,
                                  &xStaticQueue );
+        #else
+        xQueue = xQueueCreate(QUEUE_LENGTH, ITEM_SIZE);
+        #endif
     }
 }
 uint32_t luat_msgbus_put(rtos_msg_t* msg, size_t timeout) {

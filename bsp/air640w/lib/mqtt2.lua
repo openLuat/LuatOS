@@ -143,7 +143,7 @@ function mqttc:handle(netc)
                 --mclog("mqtt", "GOT DISCONNECT")
             elseif pkg.id == PUBLISH then
                 --mclog("mqtt", "GOT PUBLISH", pkg.topic, pkg.qos)
-                if pkg.packetId then
+                if pkg.packetId > 0 then
                     -- 发送PUBACK
                     --mclog("mqtt", "send back PUBACK")
                     table.insert( mc.outpkgs, packACK(PUBACK, 0, pkg.packetId))
@@ -199,7 +199,7 @@ function mqttc:run()
                 end
             end)
             netc:on("recv", function(id, data)
-                mclog("mqtt", "recv", id , data:sub(1, 10):toHex())
+                --mclog("mqtt", "recv", id , data:sub(1, 10):toHex())
                 mc.buff = mc.buff .. data
                 while 1 do
                     local packet, nextpos = unpack(mc.buff)
@@ -259,15 +259,15 @@ end
 -- 上报数据
 function mqttc:pub(topic, qos, payload)
     -- local function packPUBLISH(dup, qos, retain, packetId, topic, payload)
-    table.insert(self.outpkgs, packPUBLISH(0, qos, 0, qos and self:genId() or 0, topic, payload))
+    table.insert(self.outpkgs, packPUBLISH(0, qos, 0, qos > 0 and self:genId() or 0, topic, payload))
     sys.publish(self.ckey)
-    if qos then
+    if qos > 0 then
         return sys.waitUntil(self.ckey .. "PUBACK", 30000)
     end
 end
 
 function mqttc:shutdown()
-    self.running = 0
+    self.running = false
     sys.publish(self.ckey)
 end
 

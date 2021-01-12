@@ -559,7 +559,7 @@ static const rotable_Reg reg_socket[] =
     { "tcp", luat_lib_socket_tcp, 0},
     { "udp", luat_lib_socket_udp, 0},
     { "tsend" ,  sal_tls_test , 0},
-    //{ "ntpSync", socket_ntp_sync, 0}, // TODO 改成平台无关的UDP实现?
+    { "ntpSync", socket_ntp_sync, 0}, // TODO 改成平台无关的UDP实现?
     { "isReady", l_socket_is_ready, 0},
     { "ip", l_socket_selfip, 0},
 	{ NULL, NULL , 0}

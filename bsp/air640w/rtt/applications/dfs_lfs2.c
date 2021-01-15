@@ -71,8 +71,15 @@ static struct rt_mutex _lfs_lock;
 #define lfs_dfs_lock()          rt_mutex_take(&_lfs_lock, RT_WAITING_FOREVER);
 #define lfs_dfs_unlock()        rt_mutex_release(&_lfs_lock);
 
+#if 1
 #define W600_FS_ADDR (0x00B0000)
 #define W600_FS_BCOUNT (64)
+#else
+// if enable chinese font in luat_lib_u8g2.c, use a smaller filesystem
+#define W600_FS_ADDR (0x00D0000)
+#define W600_FS_BCOUNT (44)
+#endif
+
 
 // Read a region in a block. Negative error codes are propogated
 // to the user.

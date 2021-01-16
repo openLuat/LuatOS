@@ -13,7 +13,7 @@ static const luaL_Reg loadedlibs[] = {
   {LUA_STRLIBNAME, luaopen_string},   // string库,字符串操作
   {LUA_MATHLIBNAME, luaopen_math},    // math 数值计算
 //  {LUA_UTF8LIBNAME, luaopen_utf8},
-  {LUA_DBLIBNAME, luaopen_debug},     // debug库,已精简
+//  {LUA_DBLIBNAME, luaopen_debug},     // debug库,已精简
 #if defined(LUA_COMPAT_BITLIB)
   {LUA_BITLIBNAME, luaopen_bit32},    // 不太可能启用
 #endif
@@ -42,7 +42,7 @@ static const luaL_Reg loadedlibs[] = {
   {"sensor",  luaopen_sensor},            // 传感器库,支持DS18B20
   {"disp",  luaopen_disp},              // OLED显示模块,支持SSD1306
   {"crypto",luaopen_crypto},            // 加密和hash模块
-  //{"eink",  luaopen_eink},              // 电子墨水屏,试验阶段
+  // {"eink",  luaopen_eink},              // 电子墨水屏,试验阶段
   //{"iconv", luaopen_iconv},             // 编码转换,暂不可用
 //------------------------------------------------------------------------
 // 联网及NBIOT特有的库

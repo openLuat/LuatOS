@@ -80,7 +80,7 @@ static int l_eink_setup(lua_State *L) {
     //LLOGD("spi setup>>>");
     int status = luat_spi_setup(&spi_config);
     //LLOGD("spi setup<<<");
-    EPD_Model(MODEL_1in54f);
+    //EPD_Model(MODEL_1in54f);
     //EPD_Model(MODEL_1in54_V2);
     // EPD_Model(MODEL_2in13b_V3);
     
@@ -572,6 +572,17 @@ static int l_eink_weather_icon(lua_State *L)
     return 0;
 }
 
+/**
+设置墨水屏驱动型号
+@api eink.model(m)
+@int 型号名称, 例如 eink.model(eink.MODEL_1in54_V2)
+@return nil 无返回值
+*/
+static int l_eink_model(lua_State *L) {
+    EPD_Model(luaL_checkinteger(L, 1));
+    return 0;
+}
+
 #include "rotable.h"
 static const rotable_Reg reg_eink[] =
 {
@@ -588,7 +599,26 @@ static const rotable_Reg reg_eink[] =
 
     { "qrcode",         l_eink_qrcode,          0},   
     { "bat",            l_eink_bat,             0},      
-    { "weather_icon",   l_eink_weather_icon,    0},    
+    { "weather_icon",   l_eink_weather_icon,    0},  
+
+    { "model",          l_eink_model,           0},
+
+    { "MODEL_1in02d",         NULL,                 MODEL_1in02d},
+    { "MODEL_1in54",          NULL,                 MODEL_1in54},
+    { "MODEL_1in54_V2",       NULL,                 MODEL_1in54_V2},
+    { "MODEL_1in54b",         NULL,                 MODEL_1in54b},
+    { "MODEL_1in54b_V2",      NULL,                 MODEL_1in54b_V2},
+    { "MODEL_1in54c",         NULL,                 MODEL_1in54c},
+    { "MODEL_1in54f",         NULL,                 MODEL_1in54f},
+    { "MODEL_2in54b_V3",      NULL,                 MODEL_2in13b_V3},
+    { "MODEL_2in7",           NULL,                 MODEL_2in7},
+    { "MODEL_2in7b",          NULL,                 MODEL_2in7b},
+    { "MODEL_2in9",           NULL,                 MODEL_2in9},
+    { "MODEL_2in9_V2",        NULL,                 MODEL_2in9_V2},
+    { "MODEL_2in9bc",         NULL,                 MODEL_2in9bc},
+    { "MODEL_2in9b_V3",       NULL,                 MODEL_2in9b_V3},
+    { "MODEL_2in9d",          NULL,                 MODEL_2in9d},
+    { "MODEL_2in9f",          NULL,                 MODEL_2in9f},
 
 	{ NULL,             NULL,                   0}
 };

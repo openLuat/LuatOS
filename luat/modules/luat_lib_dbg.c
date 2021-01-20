@@ -206,7 +206,8 @@ void luat_debug_hook(lua_State *L, lua_Debug *ar) {
         return; // 不会是这种状态呀
     }
 
-    if (cur_hook_state == 2) {
+    //if (cur_hook_state == 2) {
+        // 当前执行到行, 那肯定要检查是不是断点呀
         if (ar->event == LUA_HOOKLINE)
         {
             // 当前文件名
@@ -230,8 +231,8 @@ void luat_debug_hook(lua_State *L, lua_Debug *ar) {
                 }
             }
         }
-        return;
-    }
+        //return;
+    //}
 
     // stepOver == next    level 相同或减少, source相同(level相同时)
     // stepIn        任何情况, 遇到HOOKLINE就算

@@ -8,6 +8,8 @@
 #define LUAT_LOG_TAG "luat.msh"
 #include "luat_log.h"
 
+#include "luat_dbg.h"
+
 #include "rtthread.h"
 #include <rtdevice.h>
 
@@ -73,11 +75,16 @@ static void dbg(int argc, char**argv) {
             luat_dbg_set_runcb(luat_dbg_vars, (void*)0);
         }
     }
-    else if (!strcmp("break", argv[1]) && !strcmp("add", argv[2]) && argc == 5) {
-        luat_dbg_breakpoint_add(argv[3], atoi(argv[4]));
-    }
-    else if (!strcmp("break", argv[1]) && !strcmp("del", argv[2]) && argc == 4) {
-        luat_dbg_breakpoint_del(atoi(argv[3]));
+    else if (!strcmp("break", argv[1])) {
+        if (!strcmp("add", argv[2]) && argc == 5) {
+            luat_dbg_breakpoint_add(argv[3], atoi(argv[4]));
+        }
+        else if (!strcmp("del", argv[2]) && argc == 4) {
+            luat_dbg_breakpoint_del(atoi(argv[3]));
+        }
+        else if (!strcmp("clr", argv[2]) || !strcmp("clear", argv[2])) {
+            luat_dbg_breakpoint_clear();
+        }
     }
 };
 

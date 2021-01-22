@@ -61,7 +61,7 @@ static void record_last_stop(void) {
 void luat_dbg_set_hook_state(int state) {
     if (state == 3)
         record_last_stop();
-    LLOGD("[state,changed] %d to %d", cur_hook_state, state);
+    LLOGD("[state,changed,%d,%d]", cur_hook_state, state);
     cur_hook_state = state;
 }
 
@@ -94,6 +94,17 @@ void luat_dbg_breakpoint_del(size_t index) {
         }
     }
     LLOGD("[resp,break,del,fail] %d'", index);
+}
+
+// 清除断点信息
+void luat_dbg_breakpoint_clear(void) {
+    for (size_t i = 0; i < BP_LINE_COUNT; i++)
+    {
+        if (breakpoints[i].source[0] != 0) {
+            breakpoints[i].source[0] = 0;
+        }
+    }
+    LLOGD("[resp,break,clear,ok]");
 }
 
 
@@ -293,7 +304,7 @@ int l_debug_wait(lua_State *L) {
             t++;
         }
         if (cur_hook_state == 1) {
-            LLOGD("[event,waitc] timeout!!!!");
+            LLOGD("[event,waitt] timeout!!!!");
             luat_dbg_set_hook_state(0);
         }
     }

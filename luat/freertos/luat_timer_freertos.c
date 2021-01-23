@@ -6,6 +6,7 @@
 
 #include "FreeRTOS.h"
 #include "task.h"
+#include "timers.h"
 
 #define LUAT_LOG_TAG "luat.timer"
 #include "luat_log.h"
@@ -18,7 +19,7 @@ static void luat_timer_callback(TimerHandle_t xTimer) {
     rtos_msg_t msg;
     luat_timer_t *timer = (luat_timer_t*) pvTimerGetTimerID(xTimer);
     msg.handler = timer->func;
-    msg.ptr = param;
+    msg.ptr = xTimer;
     msg.arg1 = 0;
     msg.arg2 = 0;
     int re = luat_msgbus_put(&msg, 1);
@@ -36,7 +37,7 @@ static int nextTimerSlot() {
 }
 
 int luat_timer_start(luat_timer_t* timer) {
-    osTimerId_t os_timer;
+    TimerHandle_t os_timer;
     int timerIndex;
     //LLOGD(">>luat_timer_start timeout=%ld", timer->timeout);
     timerIndex = nextTimerSlot();
@@ -71,8 +72,8 @@ int luat_timer_stop(luat_timer_t* timer) {
             break;
         }
     }
-    xTimerStop(timer->os_timer);
-    xTimerDelete(timer->os_timer);
+    xTimerStop((TimerHandle_t)timer->os_timer, 10);
+    xTimerDelete((TimerHandle_t)timer->os_timer, 10);
     return 0;
 };
 

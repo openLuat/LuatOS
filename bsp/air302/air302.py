@@ -10,7 +10,7 @@ import sys
 import json
 import io
 
-BIG_VER = "V0004"
+BIG_VER = "V0005"
 TAG_PROJECT = ""
 TAG_VERSION = ""
 TAG_UPDATE_NAME = ""

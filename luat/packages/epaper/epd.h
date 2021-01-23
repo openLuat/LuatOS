@@ -13,7 +13,7 @@ void EPD_Display(UBYTE *Image, UBYTE *Image2);
 void EPD_Sleep(void);
 
 enum EPD_MODEL {
-    MODEL_1in02d,
+    MODEL_1in02d = 1,
     MODEL_1in54,
     MODEL_1in54_V2,
     MODEL_1in54b,

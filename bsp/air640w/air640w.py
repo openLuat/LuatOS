@@ -22,7 +22,7 @@ config['air640w'] = {
     "TOOLS_PATH": ".\\tools\\",
     "MAIN_LUA_DEBUG" : "false",
     "LUA_DEBUG" : "false",
-    "COM_PORT" : "COM59"
+    "COM_PORT" : "COM125"
 }
 if os.path.exists("local.ini") :
     config.read("local.ini")
@@ -154,9 +154,10 @@ def _dl(tp, _path=None):
             return serial_io.write(data)
 
         ## 适配CH340的RTS接到W600的RTS脚
-        serial_io.rts = 0
-        time.sleep(0.5)
+        ## 如果无法下载, 先尝试手动复位模块, 还是不行的话, 把rts的值从当前的 1和0 改成 0和1
         serial_io.rts = 1
+        time.sleep(0.5)
+        serial_io.rts = 0
 
         serial_io.write("reboot\r\n".encode())
 

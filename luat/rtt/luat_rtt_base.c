@@ -78,6 +78,7 @@ static const luaL_Reg loadedlibs[] = {
   {"pwm", luaopen_pwm},                //  PWM
 #endif
   {"fs",   luaopen_fs},                // 文件系统库
+  {"dbg",  luaopen_dbg},               // 调试库
   {NULL, NULL}
 };
 

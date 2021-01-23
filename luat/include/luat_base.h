@@ -7,7 +7,8 @@
 #ifndef LUAT_BASE
 #define LUAT_BASE
 /**LuatOS版本号*/
-#define LUAT_VERSION "V0004"
+#define LUAT_VERSION "V0005"
+#define LUAT_VERSION_BETA 1
 // 调试开关, 预留
 #define LUAT_DEBUG 0
 
@@ -96,6 +97,7 @@ LUAMOD_API int luaopen_nbiot( lua_State *L );
 LUAMOD_API int luaopen_libgnss( lua_State *L ) ;
 LUAMOD_API int luaopen_fatfs( lua_State *L );
 LUAMOD_API int luaopen_eink( lua_State *L);
+LUAMOD_API int luaopen_dbg( lua_State *L );
 
 /** sprintf需要支持longlong值的打印, 提供平台无关的实现*/
 int l_sprintf(char *buf, size_t size, const char *fmt, ...);

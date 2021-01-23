@@ -780,7 +780,8 @@
 ** without modifying the main part of the file.
 */
 
-
+// 是否使用静态分配的luaState, 而非通过alloc分配,从而节省少量内存
+#define FEATURE_STATIC_LUASTATE 1
 
 
 

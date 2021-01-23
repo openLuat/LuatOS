@@ -63,7 +63,7 @@ static int luat_http_cb_impl(luat_lib_http_resp_t *resp) {
 @return boolean 成功启动返回true,否则返回false.启动成功后,cb回调必然会调用一次
 @usage 
 -- GET请求
-http.req("http://www.baidu.com/", nil, functon(ret, code, headers, body)
+http.req("http://www.baidu.com/", nil, function(ret, code, headers, body)
     log.info("http", ret, code, header, body)
 end) 
 */
@@ -79,7 +79,7 @@ static int l_http_req(lua_State *L) {
 @return boolean 成功启动返回true,否则返回false.启动成功后,cb回调必然会调用一次
 @usage 
 -- GET请求
-http.get("http://www.baidu.com/", nil, functon(ret, code, headers, body)
+http.get("http://www.baidu.com/", nil, function(ret, code, headers, body)
     log.info("http", ret, code, header, body)
 end) 
 */
@@ -96,7 +96,7 @@ static int l_http_get(lua_State *L) {
 @return boolean 成功启动返回true,否则返回false.启动成功后,cb回调必然会调用一次
 @usage 
 -- POST请求
-http.post("http://www.baidu.com/", {body=json.encode(data),headers=["Content-Type","application/json"]}, functon(ret, code, headers, body)
+http.post("http://www.baidu.com/", {body=json.encode(data)}, function(ret, code, headers, body)
     log.info("http", ret, code, header, body)
 end) 
 */
@@ -112,7 +112,7 @@ static int l_http_post(lua_State *L) {
 @return boolean 成功启动返回true,否则返回false.启动成功后,cb回调必然会调用一次
 @usage 
 -- PUT请求
-http.put("http://www.baidu.com/", {body=json.encode(data),headers=["Content-Type","application/json"]}, functon(ret, code, headers, body)
+http.put("http://www.baidu.com/", {body=json.encode(data)}, function(ret, code, headers, body)
     log.info("http", ret, code, header, body)
 end) 
 */
@@ -128,7 +128,7 @@ static int l_http_put(lua_State *L) {
 @return boolean 成功启动返回true,否则返回false.启动成功后,cb回调必然会调用一次
 @usage 
 -- DELETE请求
-http.put("http://www.baidu.com/", nil, functon(ret, code, headers, body)
+http.put("http://www.baidu.com/", nil, function(ret, code, headers, body)
     log.info("http", ret, code, header, body)
 end) 
 */

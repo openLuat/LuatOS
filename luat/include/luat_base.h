@@ -75,6 +75,8 @@ LUAMOD_API int luaopen_i2c( lua_State *L );
 LUAMOD_API int luaopen_spi( lua_State *L );
 /** 加载disp库, 可选, 会依赖i2c和spi*/
 LUAMOD_API int luaopen_disp( lua_State *L );
+/** 加载u8g2库, 可选, 会依赖i2c和spi*/
+LUAMOD_API int luaopen_u8g2( lua_State *L );
 /** 加载utest库, 预留*/
 LUAMOD_API int luaopen_utest( lua_State *L );
 /** 加载mqtt库, 预留*/

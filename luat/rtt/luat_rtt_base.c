@@ -70,6 +70,7 @@ static const luaL_Reg loadedlibs[] = {
 #endif
 #ifdef PKG_USING_U8G2
   {"disp", luaopen_disp},              // 显示屏
+  {"u8g2", luaopen_u8g2},              // u8g2
 #endif
 #ifdef RT_USING_HWCRYPTO
   {"crypto", luaopen_crypto},          // 加密和hash库

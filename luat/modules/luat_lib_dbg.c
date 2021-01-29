@@ -100,7 +100,7 @@ void luat_dbg_breakpoint_del(size_t index) {
 void luat_dbg_breakpoint_clear(const char* source) {
     for (size_t i = 0; i < BP_LINE_COUNT; i++)
     {
-        if (source == NULL || strcmp(source, breakpoints[i].source[0]) != 0) {
+        if (source == NULL || strcmp(source, (const char*)breakpoints[i].source[0]) != 0) {
             breakpoints[i].source[0] = 0;
         }
     }

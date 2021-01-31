@@ -23,6 +23,8 @@
 #include "string.h"
 //-------------------------------
 
+#define USE_U8G2_WQY12_T_GB2312      //enable u8g2 chinese font
+
 //lua_State * luat_get_state();
 /**
  * LuatOS主入口函数, 从这里开始就交由LuatOS控制了.

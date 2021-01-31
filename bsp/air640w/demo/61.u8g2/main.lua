@@ -5,8 +5,7 @@
 
 local sys = require("sys")
 
---[[ 注意，使用u8g2需将 LuatOS\bsp\air640w\rtt\applications\dfs_lfs2.c
-第78处修改为小文件系统，因为全汉字字库占用极大空间，否则将无法使用 ]]
+--[[ 注意：如需使用u8g2的全中文字库需将 luat_base.h中26行#define USE_U8G2_WQY12_T_GB2312 打开]]
 
 -- 项目信息,预留
 VERSION = "1.0.0"
@@ -16,54 +15,91 @@ PRODUCT_KEY = "1234567890"
 local TAG = "main"
 local last_temp_data = "0"
 
-----------------------------------------------------------------------
--- 对接SSD1306, 当前显示一行就好了
-function display_str(str,x,y)
-    u8g2.SetFont("u8g2_font_ncenB08_tr")
-    u8g2.ClearBuffer()
-    u8g2.DrawUTF8(str, x, y)
-    u8g2.SendBuffer()
-end
-
-function display_chinese(str,x,y)
-    u8g2.SetFont("u8g2_font_wqy12_t_gb2312")
-    u8g2.ClearBuffer()
-    u8g2.DrawUTF8(str, x, y)
-    u8g2.SendBuffer()
-end
-
 -- 初始化显示屏
 log.info(TAG, "init ssd1306")
 u8g2.begin("ssd1306")
 u8g2.SetFontMode(1)
-display_chinese("启动中",1,10)
+u8g2.ClearBuffer()
+u8g2.SetFont("u8g2_font_ncenB08_tr")
+u8g2.DrawUTF8("U8g2+LuatOS", 32, 22)
+u8g2.SetFont("u8g2_font_wqy12_t_gb2312")
+u8g2.DrawUTF8("中文测试", 40, 38)
+u8g2.SendBuffer()
 
 -- 联网主流程
 sys.taskInit(function()
-    log.info("u8g2.getWidth",u8g2.GetDisplayWidth())
-    log.info("u8g2.getHeight",u8g2.GetDisplayHeight())
-    u8g2.DrawLine(0,60,128,60)
-    u8g2.DrawCircle(60,30,8,15)
-    u8g2.DrawDisc(90,30,8,15)
-    u8g2.DrawEllipse(60,50,4,6,15)
-    u8g2.DrawFilledEllipse(90,50,4,6,15)
-
-    u8g2.DrawBox(10,25,4,5)
-    u8g2.DrawFrame(10,40,4,5)
-    u8g2.DrawRBox(20,25,4,6,2)
-    u8g2.DrawRFrame(40,40,4,6,2)
-
-    u8g2.SetFont("u8g2_font_unifont_t_symbols")
-    u8g2.DrawGlyph( 112, 56, 0x2603 )
-
-    u8g2.DrawTriangle(90,5, 27,12, 5,32)
-
-    u8g2.SetBitmapMode(0)
-
+    sys.wait(2000)
+    u8g2.ClearBuffer()
+    u8g2.SetFont("u8g2_font_wqy12_t_gb2312")
+    u8g2.DrawUTF8("屏幕宽度", 20, 24)
+    u8g2.DrawUTF8("屏幕高度", 20, 42)
+    u8g2.SetFont("u8g2_font_ncenB08_tr")
+    u8g2.DrawUTF8(":"..u8g2.GetDisplayWidth(), 72, 24)
+    u8g2.DrawUTF8(":"..u8g2.GetDisplayHeight(), 72, 42)
     u8g2.SendBuffer()
-    --u8g2.clear()
+
+    sys.wait(2000)
+    u8g2.ClearBuffer()
+    u8g2.SetFont("u8g2_font_wqy12_t_gb2312")
+    u8g2.DrawUTF8("画线测试：", 30, 24)
+    for i = 0, 128, 8 do
+        u8g2.DrawLine(0,40,i,40)
+        u8g2.DrawLine(0,60,i,60)
+        u8g2.SendBuffer()
+    end
+
+    sys.wait(1000)
+    u8g2.ClearBuffer()
+    u8g2.SetFont("u8g2_font_wqy12_t_gb2312")
+    u8g2.DrawUTF8("画圆测试：", 30, 24)
+    u8g2.DrawCircle(30,50,10,15)
+    u8g2.DrawDisc(90,50,10,15)
+    u8g2.SendBuffer()
+
+    sys.wait(1000)
+    u8g2.ClearBuffer()
+    u8g2.SetFont("u8g2_font_wqy12_t_gb2312")
+    u8g2.DrawUTF8("椭圆测试：", 30, 24)
+    u8g2.DrawEllipse(30,50,6,10,15)
+    u8g2.DrawFilledEllipse(90,50,6,10,15)
+    u8g2.SendBuffer()
+
+    sys.wait(1000)
+    u8g2.ClearBuffer()
+    u8g2.SetFont("u8g2_font_wqy12_t_gb2312")
+    u8g2.DrawUTF8("方框测试：", 30, 24)
+    u8g2.DrawBox(30,40,30,24)
+    u8g2.DrawFrame(90,40,30,24)
+    u8g2.SendBuffer()
+
+    sys.wait(1000)
+    u8g2.ClearBuffer()
+    u8g2.SetFont("u8g2_font_wqy12_t_gb2312")
+    u8g2.DrawUTF8("圆角方框：", 30, 24)
+    u8g2.DrawRBox(30,40,30,24,8)
+    u8g2.DrawRFrame(90,40,30,24,8)
+    u8g2.SendBuffer()
+
+    sys.wait(1000)
+    u8g2.ClearBuffer()
+    u8g2.SetFont("u8g2_font_wqy12_t_gb2312")
+    u8g2.DrawUTF8("符号测试：", 30, 24)
+    u8g2.DrawUTF8("显示雪人", 30, 38)
+    u8g2.SetFont("u8g2_font_unifont_t_symbols")
+    u8g2.DrawGlyph( 50, 60, 0x2603 )
+    u8g2.SendBuffer()
+
+    sys.wait(1000)
+    u8g2.ClearBuffer()
+    u8g2.SetFont("u8g2_font_wqy12_t_gb2312")
+    u8g2.DrawUTF8("三角测试：", 30, 24)
+    u8g2.DrawTriangle(30,60, 60,30, 90,60)
+    u8g2.SendBuffer()
+
+    sys.wait(3000)
+    u8g2.close()
     while true do
-        sys.wait(500)
+        sys.wait(1000)
     end
 end)
 

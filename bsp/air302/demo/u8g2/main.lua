@@ -3,13 +3,15 @@
 -- @author Dozingfiretruck
 -- @release 2021.01.25
 
-local sys = require("sys")
-
 --[[ 注意：如需使用u8g2的全中文字库需将 luat_base.h中26行#define USE_U8G2_WQY12_T_GB2312 打开]]
 
--- 项目信息,预留
+-- LuaTools需要PROJECT和VERSION这两个信息
+PROJECT = "dispdemo"
 VERSION = "1.0.0"
-PRODUCT_KEY = "1234567890"
+
+-- sys库是标配
+_G.sys = require("sys")
+
 
 -- 日志TAG, 非必须
 local TAG = "main"
@@ -17,7 +19,10 @@ local last_temp_data = "0"
 
 -- 初始化显示屏
 log.info(TAG, "init ssd1306")
-u8g2.begin({mode="i2c_sw", pin0=18, pin1=19}) 
+
+u8g2.begin({mode="i2c_sw", pin0=17, pin1=18}) -- 通过GPIO17 SLK/GPIO18 SDA模拟, 也可以用硬件i2c脚
+
+--u8g2.begin("ssd1306")
 u8g2.SetFontMode(1)
 u8g2.ClearBuffer()
 u8g2.SetFont("u8g2_font_ncenB08_tr")

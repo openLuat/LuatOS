@@ -41,6 +41,7 @@ static const luaL_Reg loadedlibs[] = {
   {"fs",      luaopen_fs},                // 文件系统库,在io库之外再提供一些方法
   {"sensor",  luaopen_sensor},            // 传感器库,支持DS18B20
   {"disp",  luaopen_disp},              // OLED显示模块,支持SSD1306
+  {"u8g2", luaopen_u8g2},              // u8g2
   {"crypto",luaopen_crypto},            // 加密和hash模块
   // {"eink",  luaopen_eink},              // 电子墨水屏,试验阶段
   //{"iconv", luaopen_iconv},             // 编码转换,暂不可用

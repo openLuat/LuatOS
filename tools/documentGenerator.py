@@ -10,7 +10,6 @@ import shutil
 
 source_path = r"../luat"
 snippet_path = r"snippet.json"
-
 if len(sys.argv) >= 3:
     source_path = sys.argv[1]
     snippet_path = sys.argv[2]
@@ -180,7 +179,6 @@ for module in modules:
 s = io.open(snippet_path,"w")
 s.write(json.dumps(snippet))
 s.close()
-
 try:
     shutil.rmtree("../../luatos_wiki/api/")
     os.mkdir("../../luatos_wiki/api/")

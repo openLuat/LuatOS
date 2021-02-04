@@ -6,9 +6,10 @@ import os
 import io
 import re
 import json
+import shutil
 
-source_path = r"D:\projects\git\LuatOS\luat"
-snippet_path = r"D:\projects\git\LuatOS\tools\snippet.json"
+source_path = r".\..\luat"
+snippet_path = r".\snippet.json"
 
 if len(sys.argv) >= 3:
     source_path = sys.argv[1]
@@ -117,6 +118,7 @@ for file in file_list:
             line_now += 3
             api["args"] = []
             api["return"] = []
+            api["usage"] = ""
             arg_re = r" *@([^ ]+) +(.+) *"
             return_re = r" *@return *([^ ]+) +(.+) *"
             #匹配输入参数
@@ -141,7 +143,6 @@ for file in file_list:
                 arg = re.search(" *@usage *",lines[line_now],re.I)
                 if arg:
                     line_now+=1
-                    api["usage"] = ""
                     while lines[line_now].find("*/") < 0:
                         api["usage"] += lines[line_now]+"\n"
                         line_now+=1
@@ -179,3 +180,56 @@ for module in modules:
 s = io.open(snippet_path,"w")
 s.write(json.dumps(snippet))
 s.close()
+
+try:
+    shutil.rmtree("./../../luatos_wiki/api/")
+    os.mkdir("./../../luatos_wiki/api/")
+except:
+    pass
+
+doc = open("./../../luatos_wiki/api/index.rst", "a+",encoding='utf-8')
+doc.write("LuatOS接口文档\n")
+doc.write("==============\n\n")
+doc.write("请点击左侧列表，查看各个接口。如需搜索，请直接使用左上角的搜索框进行搜索。\n\n")
+doc.write(".. toctree::\n")
+doc.write("   :hidden:\n\n")
+
+
+for module in modules:
+    mdoc = open("./../../luatos_wiki/api/"+module["module"]+".md", "a+",encoding='utf-8')
+    mdoc.write("# "+module["module"]+"\n\n")
+    mdoc.write(module["summary"]+"\n\n")
+    doc.write("   "+module["module"]+"\n")
+    for api in module["api"]:
+        mdoc.write("## "+api["api"]+"\n\n")
+        mdoc.write(api["summary"]+"\n\n")
+
+        mdoc.write("### 参数\n\n")
+        if len(api["args"]) > 0:
+            mdoc.write("|传入值类型|解释|\n|-|-|\n")
+            for arg in api["args"]:
+                mdoc.write("|"+arg["type"].replace("|","\|")+"|"+arg["summary"].replace("|","\|")+"|\n")
+            mdoc.write("\n")
+        else:
+            mdoc.write("无\n\n")
+
+        mdoc.write("### 返回值\n\n")
+        if len(api["return"]) > 0:
+            mdoc.write("|返回值类型|解释|\n|-|-|\n")
+            for arg in api["args"]:
+                mdoc.write("|"+arg["type"].replace("|","\|")+"|"+arg["summary"].replace("|","\|")+"|\n")
+            mdoc.write("\n")
+        else:
+            mdoc.write("无\n\n")
+
+        mdoc.write("### 返回值\n\n")
+        if len(api["usage"]) == 0:
+            api["usage"] = "无"
+        mdoc.write("```lua\n"+api["usage"]+"\n```\n\n")
+
+        mdoc.write("---\n\n")
+
+    mdoc.close()
+    os.system("pandoc -o ./../../luatos_wiki/api/"+module["module"]+".rst ./../../luatos_wiki/api/"+module["module"]+".md")
+    os.remove("./../../luatos_wiki/api/"+module["module"]+".md")
+

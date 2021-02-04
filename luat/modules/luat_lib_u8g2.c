@@ -1,5 +1,6 @@
 /*
 @module  u8g2
+@summary u8g2图形处理库
 @author  Dozingfiretruck
 @version 1.0
 @date    2021.01.25
@@ -148,7 +149,7 @@ static int l_u8g2_begin(lua_State *L) {
 
 /*
 关闭显示屏
-@api u8g2.close() 
+@api u8g2.close()
 @usage
 -- 关闭disp,再次使用disp相关API的话,需要重新初始化
 u8g2.close()
@@ -472,7 +473,7 @@ static int l_u8g2_DrawRFrame(lua_State *L){
 @int 字符的Unicode值
 @usage
 u8g2.SetFont(u8g2_font_unifont_t_symbols)
-u8g2.DrawGlyph(5, 20, 0x2603)	-- dec 9731/hex 2603 Snowman 
+u8g2.DrawGlyph(5, 20, 0x2603)	-- dec 9731/hex 2603 Snowman
 */
 static int l_u8g2_DrawGlyph(lua_State *L){
     if (u8g2 == NULL) return 0;

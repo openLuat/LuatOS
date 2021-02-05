@@ -195,14 +195,13 @@ doc.write("   :hidden:\n\n")
 
 for module in modules:
     mdoc = open("../../luatos_wiki/api/"+module["module"]+".md", "a+",encoding='utf-8')
-    mdoc.write("# "+module["module"]+"\n\n")
-    mdoc.write(module["summary"]+"\n\n")
+    mdoc.write("# "+module["module"]+" - "+module["summary"]+"\n\n")
     doc.write("   "+module["module"]+"\n")
     for api in module["api"]:
         mdoc.write("## "+api["api"]+"\n\n")
         mdoc.write(api["summary"]+"\n\n")
 
-        mdoc.write("### 参数\n\n")
+        mdoc.write("**参数**\n\n")
         if len(api["args"]) > 0:
             mdoc.write("|传入值类型|解释|\n|-|-|\n")
             for arg in api["args"]:
@@ -211,16 +210,16 @@ for module in modules:
         else:
             mdoc.write("无\n\n")
 
-        mdoc.write("### 返回值\n\n")
+        mdoc.write("**返回值**\n\n")
         if len(api["return"]) > 0:
             mdoc.write("|返回值类型|解释|\n|-|-|\n")
-            for arg in api["args"]:
+            for arg in api["return"]:
                 mdoc.write("|"+arg["type"].replace("|","\|")+"|"+arg["summary"].replace("|","\|")+"|\n")
             mdoc.write("\n")
         else:
             mdoc.write("无\n\n")
 
-        mdoc.write("### 返回值\n\n")
+        mdoc.write("**例子**\n\n")
         if len(api["usage"]) == 0:
             api["usage"] = "无"
         mdoc.write("```lua\n"+api["usage"]+"\n```\n\n")

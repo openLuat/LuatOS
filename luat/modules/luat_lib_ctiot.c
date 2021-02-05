@@ -203,9 +203,9 @@ void luat_ctiot_callback(uint8_t type, uint8_t code, void *buf, uint32_t len)
 
 }
 /**
- * 初始化ctiot，在复位开机后使用一次
- * @api ctiot.init()
- * @return nil 无返回值
+初始化ctiot，在复位开机后使用一次
+@api ctiot.init()
+@return nil 无返回值
  */
 static int l_ctiot_init(lua_State *L)
 {
@@ -214,14 +214,14 @@ static int l_ctiot_init(lua_State *L)
 }
 
 /**
- * 设置和读取ctiot相关参数，有参数输入则设置，无论是否有参数输入，均输出当前参数
- * @api ctiot.param(ip, port, lifetime)
- * @string 服务器ip
- * @int 服务器端口
- * @int 生命周期,单位秒
- * @return string 服务器ip
- * @return int 服务器端口
- * @return int 生命周期,单位秒
+设置和读取ctiot相关参数，有参数输入则设置，无论是否有参数输入，均输出当前参数
+@api ctiot.param(ip, port, lifetime)
+@string 服务器ip
+@int 服务器端口
+@int 生命周期,单位秒
+@return string 服务器ip
+@return int 服务器端口
+@return int 生命周期,单位秒
  */
 static int l_ctiot_param(lua_State *L)
 {
@@ -261,10 +261,10 @@ static int l_ctiot_param(lua_State *L)
 }
 
 /**
- * 设置和读取自定义EP
- * @api ctiot.ep(val)
- * @string 自定义EP的值,默认是imei,读取的话不要填这个参数
- * @return string 当前EP值
+设置和读取自定义EP
+@api ctiot.ep(val)
+@string 自定义EP的值,默认是imei,读取的话不要填这个参数
+@return string 当前EP值
  */
 static int l_ctiot_ep(lua_State *L)
 {
@@ -290,9 +290,9 @@ static int l_ctiot_ep(lua_State *L)
 }
 
 // /**
-//  * 设置和读取ctiot相关模式，有模式输入则设置，无论是否有模式输入，均输出当前模式
-//  * @api ctiot.mode()
-//  * @return nil 当前无返回值
+//设置和读取ctiot相关模式，有模式输入则设置，无论是否有模式输入，均输出当前模式
+//@api ctiot.mode()
+//@return nil 当前无返回值
 //  */
 static int l_ctiot_mode(lua_State *L)
 {
@@ -300,9 +300,9 @@ static int l_ctiot_mode(lua_State *L)
 }
 
 /**
- * 连接CTIOT，必须在设置完参数和模式后再使用
- * @api ctiot.connect()
- * @return boolean 成功返回true,否则返回false
+连接CTIOT，必须在设置完参数和模式后再使用
+@api ctiot.connect()
+@return boolean 成功返回true,否则返回false
  */
 static int l_ctiot_connect(lua_State *L)
 {
@@ -318,9 +318,9 @@ static int l_ctiot_connect(lua_State *L)
 }
 
 /**
- * 断开ctiot
- * @api ctiot.disconnect()
- * @return nil 无返回值
+断开ctiot
+@api ctiot.disconnect()
+@return nil 无返回值
  */
 static int l_ctiot_disconnect(lua_State *L)
 {
@@ -329,13 +329,13 @@ static int l_ctiot_disconnect(lua_State *L)
 }
 
 /**
- * 发送数据给ctiot
- * @api ctiot.write(data, mode, seq)
- * @string 需要发送的数据
- * @int 模式, ctiot.CON/NON/NON_REL/CON_REL
- * @int 序号
- * @return boolean 成功返回true,否则返回false
- * @return string 成功为nil,失败返回错误描述
+发送数据给ctiot
+@api ctiot.write(data, mode, seq)
+@string 需要发送的数据
+@int 模式, ctiot.CON/NON/NON_REL/CON_REL
+@int 序号
+@return boolean 成功返回true,否则返回false
+@return string 成功为nil,失败返回错误描述
  */
 static int l_ctiot_write(lua_State *L)
 {
@@ -379,9 +379,9 @@ static int l_ctiot_write(lua_State *L)
 }
 
 // /**
-//  * 读取已经接收到的数据
-//  * @api ctiot.read()
-//  * @return nil 暂无返回值
+//读取已经接收到的数据
+//@api ctiot.read()
+//@return nil 暂无返回值
 //  */
 static int l_ctiot_read(lua_State *L)
 {
@@ -389,9 +389,9 @@ static int l_ctiot_read(lua_State *L)
 }
 
 /**
- * 是否已经就绪
- * @api ctiot.ready()
- * @return int 已经就绪返回0,否则返回错误代码
+是否已经就绪
+@api ctiot.ready()
+@return int 已经就绪返回0,否则返回错误代码
  */
 static int l_ctiot_ready(lua_State *L)
 {
@@ -400,9 +400,9 @@ static int l_ctiot_ready(lua_State *L)
 	return 1;
 }
  /**
-  * 发送更新注册信息给ctiot
-  * @api ctio.update()
-  * @return boolean 发送成功等待结果返回true,否则返回false
+发送更新注册信息给ctiot
+@api ctio.update()
+@return boolean 发送成功等待结果返回true,否则返回false
   */
 static int l_ctiot_update(lua_State *L)
 {

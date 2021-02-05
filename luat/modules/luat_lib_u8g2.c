@@ -168,8 +168,8 @@ static int l_u8g2_close(lua_State *L) {
 }
 
 /*
-清屏
-@api u8g2.ClearBuffer() 清除内存帧缓冲区中的所有像素。
+清屏，清除内存帧缓冲区中的所有像素
+@api u8g2.ClearBuffer()
 @usage
 -- 清屏
 u8g2.ClearBuffer()
@@ -181,8 +181,8 @@ static int l_u8g2_ClearBuffer(lua_State *L) {
 }
 
 /*
-将数据更新到屏幕
-@api u8g2.SendBuffer() 将存储器帧缓冲区的内容发送到显示器。
+将数据更新到屏幕，将存储器帧缓冲区的内容发送到显示器
+@api u8g2.SendBuffer()
 @usage
 -- 把显示数据更新到屏幕
 u8g2.SendBuffer()
@@ -194,8 +194,8 @@ static int l_u8g2_SendBuffer(lua_State *L) {
 }
 
 /*
-在显示屏上画一段文字
-@api u8g2.DrawUTF8(str, x, y) 在显示屏上画一段文字,要调用u8g2.SendBuffer()才会更新到屏幕
+在显示屏上画一段文字，在显示屏上画一段文字,要调用u8g2.SendBuffer()才会更新到屏幕
+@api u8g2.DrawUTF8(str, x, y)
 @string 文件内容
 @int 横坐标
 @int 竖坐标

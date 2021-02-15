@@ -48,6 +48,7 @@ sys.run()
 ## 资源
 
 * [官网](https://www.luatos.com/) 官网
+* [wiki](https://wiki.luatos.com) 知识库
 * [预编译固件](https://github.com/openLuat/LuatOS/releases) 固件,示例,文档,都会一起发布
 * [Lua 5.3中文手册](https://www.runoob.com/manual/lua53doc/) 官方手册的中文版
 * [Lua 入门教程(5.1版)](https://wiki.openluat.com/doc/luaStart) 注意与5.3有语法差异

@@ -64,7 +64,7 @@ static int l_i2c_send(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
     int addr = luaL_checkinteger(L, 2);
     size_t len;
-    int result;
+    int result = 0;
     if (lua_isstring(L, 3)) {
         const char* buff = luaL_checklstring(L, 3, &len);
         result = luat_i2c_send(id, addr, (char*)buff, len);

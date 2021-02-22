@@ -22,7 +22,10 @@ static u8g2_t* u8g2;
 static int u8g2_lua_ref;
 static uint8_t i2c_id;
 static uint8_t i2c_addr = 0x3C;
-//static uint8_t spi_id;
+static uint8_t spi_id;
+static uint8_t OLED_SPI_PIN_RES;
+static uint8_t OLED_SPI_PIN_DC;
+static uint8_t OLED_SPI_PIN_CS;
 
 /*
 u8g2显示屏初始化
@@ -119,6 +122,38 @@ static int l_u8g2_begin(lua_State *L) {
         lua_gettable(L, 1);
         if (lua_isinteger(L, -1)) {
             i2c_addr = luaL_checkinteger(L, -1);
+        }
+        lua_pop(L, 1);
+
+        lua_pushliteral(L, "spi_id");
+        lua_gettable(L, 1);
+        if (lua_isinteger(L, -1)) {
+            spi_id = luaL_checkinteger(L, -1);
+            LLOGD("spi_id=%d", spi_id);
+        }
+        lua_pop(L, 1);
+
+        lua_pushliteral(L, "OLED_SPI_PIN_RES");
+        lua_gettable(L, 1);
+        if (lua_isinteger(L, -1)) {
+            OLED_SPI_PIN_RES = luaL_checkinteger(L, -1);
+            LLOGD("OLED_SPI_PIN_RES=%d", OLED_SPI_PIN_RES);
+        }
+        lua_pop(L, 1);
+
+        lua_pushliteral(L, "OLED_SPI_PIN_DC");
+        lua_gettable(L, 1);
+        if (lua_isinteger(L, -1)) {
+            OLED_SPI_PIN_DC = luaL_checkinteger(L, -1);
+            LLOGD("OLED_SPI_PIN_DC=%d", OLED_SPI_PIN_DC);
+        }
+        lua_pop(L, 1);
+
+        lua_pushliteral(L, "OLED_SPI_PIN_CS");
+        lua_gettable(L, 1);
+        if (lua_isinteger(L, -1)) {
+            OLED_SPI_PIN_CS = luaL_checkinteger(L, -1);
+            LLOGD("OLED_SPI_PIN_CS=%d", OLED_SPI_PIN_CS);
         }
         lua_pop(L, 1);
 
@@ -266,6 +301,12 @@ static int l_u8g2_SetFont(lua_State *L) {
         u8g2_SetFont(u8g2, u8g2_font_unifont_t_symbols);
         lua_pushboolean(L, 1);
     }
+#if defined USE_U8G2_ICONIC_WEATHER_6X
+    else if (strcmp("u8g2_font_open_iconic_weather_6x_t", font) == 0) {
+        u8g2_SetFont(u8g2, u8g2_font_open_iconic_weather_6x_t);
+        lua_pushboolean(L, 1);
+    }
+#endif
     else
         lua_pushboolean(L, 0);
     return 1;
@@ -551,6 +592,7 @@ LUAMOD_API int luaopen_u8g2( lua_State *L ) {
 
 uint8_t u8x8_luat_gpio_and_delay(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr);
 uint8_t u8x8_luat_byte_hw_i2c(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr);
+uint8_t u8x8_luat_byte_4wire_hw_spi(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr);
 
 LUAT_WEAK int luat_u8g2_setup(luat_u8g2_conf_t *conf) {
     if (conf->pinType == 1) {
@@ -567,6 +609,17 @@ LUAT_WEAK int luat_u8g2_setup(luat_u8g2_conf_t *conf) {
         u8g2_t* u8g2 = (u8g2_t*)conf->ptr;
         u8g2_Setup_ssd1306_i2c_128x64_noname_f( u8g2, U8G2_R0, u8x8_luat_byte_hw_i2c, u8x8_luat_gpio_and_delay);
         LLOGD("setup disp i2c.hw");
+        u8g2_InitDisplay(u8g2);
+        u8g2_SetPowerSave(u8g2, 0);
+        return 0;
+    }
+    else if (conf->pinType == 5) {
+        u8g2_t* u8g2 = (u8g2_t*)conf->ptr;
+        u8g2_Setup_ssd1306_128x64_noname_f( u8g2, U8G2_R0, u8x8_luat_byte_4wire_hw_spi, u8x8_luat_gpio_and_delay);
+        LLOGD("setup disp spi.hw");
+        u8x8_SetPin(u8g2_GetU8x8(u8g2), U8X8_PIN_CS, OLED_SPI_PIN_CS);
+        u8x8_SetPin(u8g2_GetU8x8(u8g2), U8X8_PIN_DC, OLED_SPI_PIN_DC);
+        u8x8_SetPin(u8g2_GetU8x8(u8g2), U8X8_PIN_RESET, OLED_SPI_PIN_RES);
         u8g2_InitDisplay(u8g2);
         u8g2_SetPowerSave(u8g2, 0);
         return 0;
@@ -611,6 +664,93 @@ LUAT_WEAK uint8_t u8x8_luat_byte_hw_i2c(u8x8_t *u8x8, uint8_t msg, uint8_t arg_i
       return 0;
   }
   return 1;
+}
+
+int hw_spi_begin(uint8_t spi_mode, uint32_t max_hz, uint8_t cs_pin )
+{
+
+    luat_spi_t u8g2_spi = {0};
+    u8g2_spi.id = spi_id;
+    switch(spi_mode)
+    {
+        case 0: u8g2_spi.CPHA = 0;u8g2_spi.CPOL = 0; break;
+        case 1: u8g2_spi.CPHA = 1;u8g2_spi.CPOL = 0; break;
+        case 2: u8g2_spi.CPHA = 0;u8g2_spi.CPOL = 1; break;
+        case 3: u8g2_spi.CPHA = 1;u8g2_spi.CPOL = 1; break;
+    }
+    u8g2_spi.dataw = 8;
+    u8g2_spi.bit_dict = 1;
+    u8g2_spi.master = 1;
+    u8g2_spi.mode = 1;
+    u8g2_spi.bandrate = max_hz;
+    u8g2_spi.cs = cs_pin;
+    LLOGI("cs_pin=%d",cs_pin);
+    luat_spi_setup(&u8g2_spi);
+    return 1;
+}
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
+uint8_t u8x8_luat_byte_4wire_hw_spi(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr) {
+
+    uint8_t i;
+    uint8_t *data;
+
+    uint8_t tx[256];
+    uint8_t rx[256];
+
+    static uint8_t buf_idx;
+    static uint8_t buffer_tx[256];
+
+    switch(msg)
+    {
+        case U8X8_MSG_BYTE_SEND:
+            data = (uint8_t *)arg_ptr;
+
+            while( arg_int > 0)
+            {
+                buffer_tx[buf_idx++] = (uint8_t)*data;
+                luat_spi_send(spi_id, (uint8_t*)data, 1);
+                data++;
+                arg_int--;
+            }
+            //luat_spi_send(spi_id, (uint8_t*)data, arg_int);
+            break;
+
+        case U8X8_MSG_BYTE_INIT:
+            /* SPI mode has to be mapped to the mode of the current controller, at least Uno, Due, 101 have different SPI_MODEx values */
+            /*   0: clock active high, data out on falling edge, clock default value is zero, takover on rising edge */
+            /*   1: clock active high, data out on rising edge, clock default value is zero, takover on falling edge */
+            /*   2: clock active low, data out on rising edge */
+            /*   3: clock active low, data out on falling edge */
+            u8x8_gpio_SetCS(u8x8, u8x8->display_info->chip_disable_level);
+            hw_spi_begin(u8x8->display_info->spi_mode, u8x8->display_info->sck_clock_hz, u8x8->pins[U8X8_PIN_CS]);
+            break;
+
+        case U8X8_MSG_BYTE_SET_DC:
+            u8x8_gpio_SetDC(u8x8, arg_int);
+            break;
+
+        case U8X8_MSG_BYTE_START_TRANSFER:
+            u8x8_gpio_SetCS(u8x8, u8x8->display_info->chip_enable_level);
+            u8x8->gpio_and_delay_cb(u8x8, U8X8_MSG_DELAY_NANO, u8x8->display_info->post_chip_enable_wait_ns, NULL);
+            break;
+
+        case U8X8_MSG_BYTE_END_TRANSFER:
+            memset( tx, 0, ARRAY_SIZE(tx)*sizeof(uint8_t) );
+            memset( rx, 0, ARRAY_SIZE(rx)*sizeof(uint8_t) );
+
+            for (i = 0; i < buf_idx; ++i)
+            {
+                tx[i] = buffer_tx[i];
+            }
+            u8x8->gpio_and_delay_cb(u8x8, U8X8_MSG_DELAY_NANO, u8x8->display_info->pre_chip_disable_wait_ns, NULL);
+            u8x8_gpio_SetCS(u8x8, u8x8->display_info->chip_disable_level);
+            buf_idx = 0;
+            break;
+
+        default:
+            return 0;
+    }
+    return 1;
 }
 
 LUAT_WEAK uint8_t u8x8_luat_gpio_and_delay(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr)

@@ -23,7 +23,9 @@
 #include "string.h"
 //-------------------------------
 
-#define USE_U8G2_WQY12_T_GB2312      //enable u8g2 chinese font
+//以下是u8g2的字库，默认不开启，根据需要自行开启对应宏定义
+//#define USE_U8G2_WQY12_T_GB2312      //enable u8g2 chinese font
+//#define USE_U8G2_ICONIC_WEATHER_6X
 
 //lua_State * luat_get_state();
 /**

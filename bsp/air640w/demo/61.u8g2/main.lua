@@ -17,7 +17,9 @@ local last_temp_data = "0"
 
 -- 初始化显示屏
 log.info(TAG, "init ssd1306")
-u8g2.begin({mode="i2c_sw", pin0=18, pin1=19}) 
+--u8g2.begin({mode="i2c_sw", pin0=18, pin1=19})
+u8g2.begin({mode="i2c_hw",i2c_id=0})
+--u8g2.begin({mode="spi_hw_4pin",spi_id=1,OLED_SPI_PIN_RES=20,OLED_SPI_PIN_DC=28,OLED_SPI_PIN_CS=29})
 u8g2.SetFontMode(1)
 u8g2.ClearBuffer()
 u8g2.SetFont("u8g2_font_ncenB08_tr")

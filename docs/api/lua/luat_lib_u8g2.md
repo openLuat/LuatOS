@@ -1,16 +1,16 @@
 ***u8g2显示屏初始化***
 
-*@api u8g2.begin("ssd1306")*
+*@api u8g2.begin({mode="i2c_hw",i2c_id=0})*
 
-*@string 配置信息*
+*@table配置信息*
 
 *@return int 正常初始化1,已经初始化过2,内存不够3,初始化失败返回4*
 
 *@usage*
 
-*-- 初始化i2c1的ssd1306*
+*-- 初始化硬件i2c的ssd1306*
 
-*u8g2.begin("ssd1306")*
+*u8g2.begin({mode="i2c_hw",i2c_id=0})*
 
 
 

@@ -29,12 +29,12 @@ void luat_msgbus_init(void) {
 uint32_t luat_msgbus_put(rtos_msg_t* msg, size_t timeout) {
     if (xQueue == NULL)
         return 1;
-    return xQueueSendFromISR(xQueue, msg, NULL);
+    return xQueueSendFromISR(xQueue, msg, NULL) == pdTRUE ? 0 : 1;
 }
 uint32_t luat_msgbus_get(rtos_msg_t* msg, size_t timeout) {
     if (xQueue == NULL)
         return 1;
-    return xQueueReceive(xQueue, msg, timeout); // 要不要除portTICK_RATE_MS呢?
+    return xQueueReceive(xQueue, msg, timeout) == pdTRUE ? 0 : 1; // 要不要除portTICK_RATE_MS呢?
 }
 uint32_t luat_msgbus_freesize(void) {
     if (xQueue == NULL)

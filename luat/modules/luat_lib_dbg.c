@@ -97,10 +97,10 @@ void luat_dbg_breakpoint_del(size_t index) {
 }
 
 // 清除断点信息
-void luat_dbg_breakpoint_clear(void) {
+void luat_dbg_breakpoint_clear(const char* source) {
     for (size_t i = 0; i < BP_LINE_COUNT; i++)
     {
-        if (breakpoints[i].source[0] != 0) {
+        if (source == NULL || strcmp(source, (const char*)breakpoints[i].source[0]) != 0) {
             breakpoints[i].source[0] = 0;
         }
     }
@@ -234,7 +234,7 @@ void luat_debug_hook(lua_State *L, lua_Debug *ar) {
                         continue;
                     }
                     // 命中了!!!!
-                    LLOGD("[event,stoped,breakpoint] %s:%d", ar->short_src, ar->currentline);
+                    LLOGD("[event,stopped,breakpoint] %s:%d", ar->short_src, ar->currentline);
                     luat_dbg_set_hook_state(3); // 停止住
                     //send_msg(event_breakpoint_stop)
                     luat_dbg_waitby(3);
@@ -253,7 +253,7 @@ void luat_debug_hook(lua_State *L, lua_Debug *ar) {
             int current_level = get_current_level();
             if (last_level > current_level || (last_level == current_level && !strcmp(ar->short_src, last_source))) {
                 //send_msg(event_stepover_stop)
-                LLOGD("[event,stoped,step] %s:%d", ar->short_src, ar->currentline);
+                LLOGD("[event,stopped,step] %s:%d", ar->short_src, ar->currentline);
                 luat_dbg_set_hook_state(3); // 停止住
                 luat_dbg_waitby(3);
             }
@@ -262,7 +262,7 @@ void luat_debug_hook(lua_State *L, lua_Debug *ar) {
     else if (cur_hook_state == 5) {
         if (ar->event == LUA_HOOKLINE) {
             //send_msg(event_stepover_stop)
-            LLOGD("[event,stoped,stepIn] %s:%d", ar->short_src, ar->currentline);
+            LLOGD("[event,stopped,stepIn] %s:%d", ar->short_src, ar->currentline);
             luat_dbg_set_hook_state(3); // 停止住
             luat_dbg_waitby(3);
         }
@@ -271,7 +271,7 @@ void luat_debug_hook(lua_State *L, lua_Debug *ar) {
         if (ar->event == LUA_HOOKLINE) {
             int current_level = get_current_level();
             if (last_level == 0 || last_level > current_level) {
-                LLOGD("[event,stoped,stepOut] %s:%d", ar->short_src, ar->currentline);
+                LLOGD("[event,stopped,stepOut] %s:%d", ar->short_src, ar->currentline);
                 luat_dbg_set_hook_state(3); // 停止住
                 luat_dbg_waitby(3);
             }

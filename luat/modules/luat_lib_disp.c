@@ -217,11 +217,6 @@ static int l_disp_draw_text(lua_State *L) {
     return 0;
 }
 
-
-#if defined USE_CHINESE_WQY12_FONT
-#include "u8g2_wqy.h"
-#endif
-
 /*
 设置字体
 @api disp.setFont(fontId) 

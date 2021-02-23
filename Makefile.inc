@@ -1,10 +1,8 @@
 LUATOS_DIR      := $(LUATOS_SRC)
 CFLAGS_INC    +=  -I $(LUATOS_DIR)/lua/include \
                   -I $(LUATOS_DIR)/luat/include \
-				  -I $(LUATOS_DIR)/luat/packages/vsprintf \
 				  -I $(LUATOS_DIR)/luat/packages/u8g2 \
 				  -I $(LUATOS_DIR)/luat/packages/minmea \
-				  -I $(LUATOS_DIR)/luat/packages/heap \
 				  -I $(LUATOS_DIR)/luat/packages/eink \
 				  -I $(LUATOS_DIR)/luat/packages/fonts \
 				  -I $(LUATOS_DIR)/luat/packages/epaper \
@@ -14,11 +12,9 @@ CFLAGS_INC    +=  -I $(LUATOS_DIR)/lua/include \
 
 LUATOS_SRC_DIRS += $(LUATOS_DIR)/lua/src \
 					$(LUATOS_DIR)/luat/modules \
-					$(LUATOS_DIR)/luat/packages/vsprintf \
 					$(LUATOS_DIR)/luat/packages/lua-cjson \
 					$(LUATOS_DIR)/luat/packages/u8g2 \
 					$(LUATOS_DIR)/luat/packages/minmea \
-					$(LUATOS_DIR)/luat/packages/heap \
 				    $(LUATOS_DIR)/luat/packages/eink \
 				    $(LUATOS_DIR)/luat/packages/epaper \
 				    $(LUATOS_DIR)/luat/packages/fonts \

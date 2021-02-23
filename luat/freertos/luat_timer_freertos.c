@@ -19,10 +19,10 @@ static void luat_timer_callback(TimerHandle_t xTimer) {
     rtos_msg_t msg;
     luat_timer_t *timer = (luat_timer_t*) pvTimerGetTimerID(xTimer);
     msg.handler = timer->func;
-    msg.ptr = xTimer;
+    msg.ptr = timer;
     msg.arg1 = 0;
     msg.arg2 = 0;
-    int re = luat_msgbus_put(&msg, 1);
+    int re = luat_msgbus_put(&msg, 0);
     //LLOGD("timer msgbus re=%ld", re);
 }
 
@@ -46,20 +46,20 @@ int luat_timer_start(luat_timer_t* timer) {
         return 1; // too many timer!!
     }
     os_timer = xTimerCreate("luat_timer", timer->timeout / portTICK_RATE_MS, timer->repeat, timer, luat_timer_callback);
-    //LLOGD("timer id=%ld, osTimerNew=%08X", timerIndex, (int)timer);
+    //LLOGD("timer id=%ld, osTimerNew=%p", timerIndex, os_timer);
     if (!os_timer) {
-        return NULL;
+        return -1;
     }
     timers[timerIndex] = timer;
     
     timer->os_timer = os_timer;
     int re = xTimerStart(os_timer, 0);
     //LLOGD("timer id=%ld timeout=%ld start=%ld", timerIndex, timer->timeout, re);
-    if (re != 0) {
+    if (re != pdPASS) {
         xTimerDelete(os_timer, 0);
         timers[timerIndex] = 0;
     }
-    return re;
+    return re == pdPASS ? 0 : -1;
 }
 
 int luat_timer_stop(luat_timer_t* timer) {

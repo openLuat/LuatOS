@@ -83,7 +83,10 @@ static void dbg(int argc, char**argv) {
             luat_dbg_breakpoint_del(atoi(argv[3]));
         }
         else if (!strcmp("clr", argv[2]) || !strcmp("clear", argv[2])) {
-            luat_dbg_breakpoint_clear();
+            if (argc > 3)
+                luat_dbg_breakpoint_clear(argv[3]);
+            else
+                luat_dbg_breakpoint_clear(NULL);
         }
     }
 };

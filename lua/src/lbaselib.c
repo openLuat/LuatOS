@@ -24,6 +24,8 @@ static int luaB_print (lua_State *L) {
   int n = lua_gettop(L);  /* number of arguments */
   int i;
   lua_getglobal(L, "tostring");
+  char buff[1024] = {0};
+  int index = 0;
   for (i=1; i<=n; i++) {
     const char *s;
     size_t l;
@@ -33,11 +35,22 @@ static int luaB_print (lua_State *L) {
     s = lua_tolstring(L, -1, &l);  /* get result */
     if (s == NULL)
       return luaL_error(L, "'tostring' must return a string to 'print'");
-    if (i>1) lua_writestring("\t", 1);
-    lua_writestring((char*)s, l);
+    if (i>1) buff[index++] = '\t';
+    if (1022 - index > l) {
+      memcpy(buff + index, s, l);
+      index += l;
+    }
+    else {
+      memcpy(buff + index, s, 1022 - index);
+      index = 1022;
+      n = 10000; // 跳出循环
+    }
+    //lua_writestring((char*)s, l);
     lua_pop(L, 1);  /* pop result */
   }
-  lua_writeline();
+  buff[index++] = '\n';
+  buff[index++] = 0x00;
+  lua_writestring((char*)buff, index);
   return 0;
 }
 

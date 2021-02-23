@@ -48,6 +48,7 @@ sys.run()
 ## 资源
 
 * [官网](https://www.luatos.com/) 官网
+* [wiki](https://wiki.luatos.com) 知识库
 * [预编译固件](https://github.com/openLuat/LuatOS/releases) 固件,示例,文档,都会一起发布
 * [Lua 5.3中文手册](https://www.runoob.com/manual/lua53doc/) 官方手册的中文版
 * [Lua 入门教程(5.1版)](https://wiki.openluat.com/doc/luaStart) 注意与5.3有语法差异
@@ -59,6 +60,7 @@ sys.run()
 * [如何编译-Wifi固件](bsp/air640w/userdoc/how_to_build.md) 自行编译wifi模块
 * [如何编译-NBIOT固件](bsp/air302/userdoc/build_from_sdk.md) 自行编译nbiot模块
 * [收发16进制数据](http://doc.openluat.com/article/583/0) 二进制数据随意收发
+* [luat训练营直播回放汇总贴子(第一期)](https://yajs666.gitee.io/2021/02/03/luat%E8%AE%AD%E7%BB%83%E8%90%A5/)
 
 ----------------------------------------------------------------------------------
 

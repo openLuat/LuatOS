@@ -19,6 +19,10 @@ sys.taskInit(function()
     end
 end)
 
+sys.subscribe("NET_READY", function ()
+    log.info("net", "NET_READY Get!!!")
+end)
+
 sys.timerLoopStart(function ()
     wlan.scan()
 end, 60000)

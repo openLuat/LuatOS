@@ -35,7 +35,11 @@ sys.subscribe("NET_READY", function ()
                 end
             end)
             netc:on("recv", function(id, re)
-                log.info("recv", id, #re)
+                log.info("recv", id, #re, re)
+                if #re == 0 then
+                    --re = netc:recv(1500)
+                    log.info("recv", id, re)
+                end
             end)
             if netc:start() == 0 then
                 log.info("netc", "start ok")
@@ -45,6 +49,7 @@ sys.subscribe("NET_READY", function ()
             end
             netc:close()
             netc:clean()
+            sys.wait(60000)
         end
     end)
 end)

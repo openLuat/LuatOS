@@ -26,12 +26,13 @@ sys.subscribe("NET_READY", function ()
         while true do
             sys.wait(10000)
             local netc = socket.tcp()
-            netc:host("nutz.cn")
+            -- 模拟http请求 http://site0.cn/api/httptest/simple/date
+            netc:host("site0.cn")
             netc:port(80)
             netc:on("connect", function(id, re)
                 log.info("netc", "connect result", re)
                 if re == 1 then
-                    netc:send("GET / HTTP/1.0\r\nHost: nutz.cn\r\n\r\n")
+                    netc:send("GET /api/httptest/simple/date HTTP/1.0\r\nHost: site0.cn\r\n\r\n")
                 end
             end)
             netc:on("recv", function(id, re)

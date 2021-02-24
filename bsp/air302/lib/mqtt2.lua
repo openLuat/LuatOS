@@ -21,52 +21,8 @@ local packSUBSCRIBE = mqttcore.packSUBSCRIBE
 local packACK = mqttcore.packACK
 local packZeroData = mqttcore.packZeroData
 
-
 local mclog = log.debug
-
-local unpack = mqttcore.unpack or function(s)
-    if #s < 2 then return end
-    --mclog("mqtt", "unpack", #s, string.toHex(string.sub(s, 1, 50)))
-
-    -- read remaining length
-    local len = 0
-    local multiplier = 1
-    local pos = 2
-
-    repeat
-        if pos > #s then return end
-        local digit = string.byte(s, pos)
-        len = len + ((digit % 128) * multiplier)
-        multiplier = multiplier * 128
-        pos = pos + 1
-    until digit < 128
-
-    if #s < len + pos - 1 then return end
-
-    local header = string.byte(s, 1)
-
-    --local packet = {id = (header - (header % 16)) / 16, dup = ((header % 16) - ((header % 16) % 8)) / 8, qos = bit.band(header, 0x06) / 2, retain = bit.band(header, 0x01)}
-    local packet = {id = (header - (header % 16)) >> 4, dup = ((header % 16) - ((header % 16) % 8)) >> 3, qos = (header & 0x06) >> 1, retain = (header & 0x01)}
-    local nextpos
-
-    if packet.id == CONNACK then
-        nextpos, packet.ackFlag, packet.rc = pack.unpack(s, "bb", pos)
-    elseif packet.id == PUBLISH then
-        nextpos, packet.topic = pack.unpack(s, ">P", pos)
-        if packet.qos > 0 then
-            nextpos, packet.packetId = pack.unpack(s, ">H", nextpos)
-        end
-        packet.payload = string.sub(s, nextpos, pos + len - 1)
-    elseif packet.id ~= PINGRESP then
-        if len >= 2 then
-            nextpos, packet.packetId = pack.unpack(s, ">H", pos)
-        else
-            packet.packetId = 0
-        end
-    end
-
-    return packet, pos + len
-end
+local unpack = mqttcore.unpack
 
 local mqtt2 = {}
 

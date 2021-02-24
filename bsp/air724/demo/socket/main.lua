@@ -5,7 +5,7 @@ VERSION = "1.0.0"
 
 local sys = require "sys"
 
-pmd.ldoset(1800, pmd.LDO_VLCD)
+pmd.ldoset(3000, pmd.LDO_VLCD)
 
 sys.taskInit(function()
     local netled = gpio.setup(1, 0)

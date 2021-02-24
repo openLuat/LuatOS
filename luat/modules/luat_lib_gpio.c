@@ -197,7 +197,7 @@ gpio.setDefaultPull(1)
 */
 static int l_gpio_set_default_pull(lua_State *L) {
     int value = luaL_checkinteger(L, 1);
-    if (value >= 0 & value <= 2) {
+    if (value >= 0 && value <= 2) {
         default_gpio_pull = value;
         lua_pushboolean(L, 1);
     }

@@ -12,11 +12,18 @@
 #include "luat_gpio.h"
 #include "luat_timer.h"
 #include "luat_i2c.h"
+#include "luat_spi.h"
 
 #include "u8g2.h"
 
 #define LUAT_LOG_TAG "luat.u8g2"
 #include "luat_log.h"
+
+
+#define font_ncenB08_tr                     0
+#define font_wqy12_t_gb2312                 1
+#define font_unifont_t_symbols              2
+#define font_open_iconic_weather_6x_t       3
 
 static u8g2_t* u8g2;
 static int u8g2_lua_ref;
@@ -279,37 +286,82 @@ static int l_u8g2_SetFontMode(lua_State *L){
 -- 设置为中文字体,对之后的drawStr有效,使用中文字体需在luat_base.h开启#define USE_U8G2_WQY12_T_GB2312
 u8g2.setFont("u8g2_font_wqy12_t_gb2312")
 */
+// static int l_u8g2_SetFont(lua_State *L) {
+//     if (u8g2 == NULL) {
+//         LLOGI("disp not init yet!!!");
+//         lua_pushboolean(L, 0);
+//         return 1;
+//     }
+//     size_t len;
+//     LLOGI("lua_type:%s",lua_type(L,1));
+
+//     const char* font = luaL_checklstring(L, 1, &len);
+//     if (strcmp("u8g2_font_ncenB08_tr", font) == 0) {
+//         u8g2_SetFont(u8g2, u8g2_font_ncenB08_tr);
+//         lua_pushboolean(L, 1);
+//         }
+// #if defined USE_U8G2_WQY12_T_GB2312
+//     else if (strcmp("u8g2_font_wqy12_t_gb2312", font) == 0) {
+//         u8g2_SetFont(u8g2, u8g2_font_wqy12_t_gb2312);
+//         lua_pushboolean(L, 1);
+//     }
+// #endif
+//     else if (strcmp("u8g2_font_unifont_t_symbols", font) == 0) {
+//         u8g2_SetFont(u8g2, u8g2_font_unifont_t_symbols);
+//         lua_pushboolean(L, 1);
+//     }
+// #if defined USE_U8G2_ICONIC_WEATHER_6X
+//     else if (strcmp("u8g2_font_open_iconic_weather_6x_t", font) == 0) {
+//         u8g2_SetFont(u8g2, u8g2_font_open_iconic_weather_6x_t);
+//         lua_pushboolean(L, 1);
+//     }
+// #endif
+//     else
+//         lua_pushboolean(L, 0);
+//     return 1;
+// }
+
 static int l_u8g2_SetFont(lua_State *L) {
     if (u8g2 == NULL) {
         LLOGI("disp not init yet!!!");
         lua_pushboolean(L, 0);
         return 1;
     }
-    size_t len;
-    const char* font = luaL_checklstring(L, 1, &len);
-    if (strcmp("u8g2_font_ncenB08_tr", font) == 0) {
-        u8g2_SetFont(u8g2, u8g2_font_ncenB08_tr);
-        lua_pushboolean(L, 1);
-        }
+    int font = luaL_checkinteger(L, 1);
+    switch (font)
+        {
+        case font_ncenB08_tr:
+            LLOGI("font_ncenB08_tr");
+            u8g2_SetFont(u8g2, u8g2_font_ncenB08_tr);
+            lua_pushboolean(L, 1);
+            break;
 #if defined USE_U8G2_WQY12_T_GB2312
-    else if (strcmp("u8g2_font_wqy12_t_gb2312", font) == 0) {
-        u8g2_SetFont(u8g2, u8g2_font_wqy12_t_gb2312);
-        lua_pushboolean(L, 1);
-    }
+        case font_wqy12_t_gb2312:
+            LLOGI("font_wqy12_t_gb2312");
+            u8g2_SetFont(u8g2, u8g2_font_wqy12_t_gb2312);
+            lua_pushboolean(L, 1);
+            break;
 #endif
-    else if (strcmp("u8g2_font_unifont_t_symbols", font) == 0) {
-        u8g2_SetFont(u8g2, u8g2_font_unifont_t_symbols);
-        lua_pushboolean(L, 1);
-    }
+#if defined USE_U8G2_UNIFONT_SYMBOLS
+        case font_unifont_t_symbols:
+            LLOGI("font_wqy12_t_gb2312");
+            u8g2_SetFont(u8g2, u8g2_font_unifont_t_symbols);
+            lua_pushboolean(L, 1);
+            break;
+#endif
 #if defined USE_U8G2_ICONIC_WEATHER_6X
-    else if (strcmp("u8g2_font_open_iconic_weather_6x_t", font) == 0) {
-        u8g2_SetFont(u8g2, u8g2_font_open_iconic_weather_6x_t);
-        lua_pushboolean(L, 1);
-    }
+        case font_open_iconic_weather_6x_t:
+            LLOGI("font_wqy12_t_gb2312");
+            u8g2_SetFont(u8g2, u8g2_font_open_iconic_weather_6x_t);
+            lua_pushboolean(L, 1);
+            break;
 #endif
-    else
-        lua_pushboolean(L, 0);
-    return 1;
+        default:
+            lua_pushboolean(L, 0);
+            LLOGI("default");
+            break;
+        }
+    return 0;
 }
 
 /*
@@ -577,6 +629,10 @@ static const rotable_Reg reg_u8g2[] =
     { "DrawGlyph",    l_u8g2_DrawGlyph,    0},
     { "DrawTriangle",    l_u8g2_DrawTriangle,    0},
     { "SetBitmapMode",    l_u8g2_SetBitmapMode,    0},
+    { "font_ncenB08_tr", NULL,       font_ncenB08_tr},
+    { "font_wqy12_t_gb2312", NULL,       font_wqy12_t_gb2312},
+    { "font_unifont_t_symbols", NULL,       font_unifont_t_symbols},
+    { "font_open_iconic_weather_6x_t", NULL,       font_open_iconic_weather_6x_t},
 	{ NULL, NULL, 0}
 };
 

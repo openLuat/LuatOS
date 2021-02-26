@@ -43,7 +43,7 @@ static void luat_debug_print(int index, const char* str, size_t slen, int eof) {
   if (dbuff.offset + slen > 512) {
     dbuff.buff[dbuff.offset] = 0x00;
     luat_nprint(dbuff.buff, dbuff.offset);
-    luat_nprint(str, slen);
+    luat_nprint((char*)str, slen);
     memset(&dbuff, 0, sizeof(debug_buff_t));
   }
   else {

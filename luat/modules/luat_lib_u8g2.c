@@ -286,41 +286,6 @@ static int l_u8g2_SetFontMode(lua_State *L){
 -- 设置为中文字体,对之后的drawStr有效,使用中文字体需在luat_base.h开启#define USE_U8G2_WQY12_T_GB2312
 u8g2.setFont("u8g2_font_wqy12_t_gb2312")
 */
-// static int l_u8g2_SetFont(lua_State *L) {
-//     if (u8g2 == NULL) {
-//         LLOGI("disp not init yet!!!");
-//         lua_pushboolean(L, 0);
-//         return 1;
-//     }
-//     size_t len;
-//     LLOGI("lua_type:%s",lua_type(L,1));
-
-//     const char* font = luaL_checklstring(L, 1, &len);
-//     if (strcmp("u8g2_font_ncenB08_tr", font) == 0) {
-//         u8g2_SetFont(u8g2, u8g2_font_ncenB08_tr);
-//         lua_pushboolean(L, 1);
-//         }
-// #if defined USE_U8G2_WQY12_T_GB2312
-//     else if (strcmp("u8g2_font_wqy12_t_gb2312", font) == 0) {
-//         u8g2_SetFont(u8g2, u8g2_font_wqy12_t_gb2312);
-//         lua_pushboolean(L, 1);
-//     }
-// #endif
-//     else if (strcmp("u8g2_font_unifont_t_symbols", font) == 0) {
-//         u8g2_SetFont(u8g2, u8g2_font_unifont_t_symbols);
-//         lua_pushboolean(L, 1);
-//     }
-// #if defined USE_U8G2_ICONIC_WEATHER_6X
-//     else if (strcmp("u8g2_font_open_iconic_weather_6x_t", font) == 0) {
-//         u8g2_SetFont(u8g2, u8g2_font_open_iconic_weather_6x_t);
-//         lua_pushboolean(L, 1);
-//     }
-// #endif
-//     else
-//         lua_pushboolean(L, 0);
-//     return 1;
-// }
-
 static int l_u8g2_SetFont(lua_State *L) {
     if (u8g2 == NULL) {
         LLOGI("disp not init yet!!!");

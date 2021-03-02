@@ -8,7 +8,7 @@ else:
     RTT_ROOT = os.path.normpath(os.getcwd() + '/../..')
 
 # set RTT_ROOT
-if not os.getenv("RTT_ROOT"): 
+if not os.getenv("RTT_ROOT"):
     RTT_ROOT="rt-thread"
 
 sys.path = sys.path + [os.path.join(RTT_ROOT, 'tools')]
@@ -26,6 +26,7 @@ env = Environment(tools = ['mingw'],
     AS = rtconfig.AS, ASFLAGS = rtconfig.AFLAGS,
     CC = rtconfig.CC, CCFLAGS = rtconfig.CFLAGS,
     AR = rtconfig.AR, ARFLAGS = '-rc',
+    CXX = rtconfig.CXX, CXXFLAGS = rtconfig.CXXFLAGS,
     LINK = rtconfig.LINK, LINKFLAGS = rtconfig.LFLAGS)
 env.PrependENVPath('PATH', rtconfig.EXEC_PATH)
 

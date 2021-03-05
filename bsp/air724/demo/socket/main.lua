@@ -7,6 +7,7 @@ local sys = require "sys"
 
 pmd.ldoset(3000, pmd.LDO_VLCD)
 
+
 sys.taskInit(function()
     local netled = gpio.setup(1, 0)
     local count = 1
@@ -16,7 +17,9 @@ sys.taskInit(function()
         netled(0)
         sys.wait(1000)
         log.info("luatos", "hi", count, os.date())
+        log.info("luatos", "socket", socket.isReady())
         count = count + 1
+        --lte.switchSimSet(1)
     end
 end)
 

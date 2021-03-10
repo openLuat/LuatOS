@@ -20,7 +20,7 @@
 static u8g2_t* u8g2;
 static int u8g2_lua_ref;
 static uint8_t i2c_id;
-static uint8_t i2c_addr = 0x3C;
+//static uint8_t i2c_addr = 0x3C;
 //static uint8_t spi_id;
 
 /*
@@ -116,12 +116,12 @@ static int l_disp_init(lua_State *L) {
         }
         lua_pop(L, 1);
 
-        lua_pushliteral(L, "i2c_addr");
-        lua_gettable(L, 1);
-        if (lua_isinteger(L, -1)) {
-            i2c_addr = luaL_checkinteger(L, -1);
-        }
-        lua_pop(L, 1);
+        // lua_pushliteral(L, "i2c_addr");
+        // lua_gettable(L, 1);
+        // if (lua_isinteger(L, -1)) {
+        //     i2c_addr = luaL_checkinteger(L, -1);
+        // }
+        // lua_pop(L, 1);
 
         // lua_pushliteral(L, "spi_id");
         // lua_gettable(L, 1);

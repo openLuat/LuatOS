@@ -36,6 +36,10 @@ sys.timerLoopStart(function()
     log.info("sha1", crypto.sha1("abc"))
     log.info("hmac_sha1", crypto.hmac_sha1("abc", "1234567890"))
 
+    -- SHA256,输出结果已经hex编码
+    log.info("sha256", crypto.sha256("abc"))
+    log.info("hmac_sha256", crypto.hmac_sha256("abc", "1234567890"))
+
     -- AES加密, 未经Hex编码. AES-128-ECB 算法,待加密字符串如果超过32字节会报错,待查. by wendal 20200812
     local data_encrypt = crypto.cipher_encrypt("AES-128-ECB", "PKCS7", "12345678901234 > " .. lte.imei(), "1234567890123456")
     local data2_encrypt = crypto.cipher_encrypt("AES-128-CBC", "PKCS7", "12345678901234 > ".. lte.imei(), "1234567890123456", "1234567890666666")

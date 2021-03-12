@@ -20,12 +20,42 @@
 #include "lauxlib.h"
 #include "lualib.h"
 
+typedef struct debug_buff
+{
+  int offset;
+  char buff[512];
+  char end[2];
+}debug_buff_t;
+
+static debug_buff_t dbuff = {0};
+
+static void luat_debug_print(int index, const char* str, size_t slen, int eof) {
+  if (eof) {
+    dbuff.buff[dbuff.offset++] = '\n';
+    dbuff.buff[dbuff.offset] = 0x00;
+    luat_nprint(dbuff.buff, dbuff.offset);
+    memset(&dbuff, 0, sizeof(debug_buff_t));
+    return;
+  }
+  if (index > 1) {
+    dbuff.buff[dbuff.offset++] = '\t';
+  }
+  if (dbuff.offset + slen > 512) {
+    dbuff.buff[dbuff.offset] = 0x00;
+    luat_nprint(dbuff.buff, dbuff.offset);
+    luat_nprint((char*)str, slen);
+    memset(&dbuff, 0, sizeof(debug_buff_t));
+  }
+  else {
+    memcpy(dbuff.buff + dbuff.offset, str, slen);
+    dbuff.offset += slen;
+  }
+}
+
 static int luaB_print (lua_State *L) {
   int n = lua_gettop(L);  /* number of arguments */
   int i;
   lua_getglobal(L, "tostring");
-  char buff[1024] = {0};
-  int index = 0;
   for (i=1; i<=n; i++) {
     const char *s;
     size_t l;
@@ -35,22 +65,10 @@ static int luaB_print (lua_State *L) {
     s = lua_tolstring(L, -1, &l);  /* get result */
     if (s == NULL)
       return luaL_error(L, "'tostring' must return a string to 'print'");
-    if (i>1) buff[index++] = '\t';
-    if (1022 - index > l) {
-      memcpy(buff + index, s, l);
-      index += l;
-    }
-    else {
-      memcpy(buff + index, s, 1022 - index);
-      index = 1022;
-      n = 10000; // 跳出循环
-    }
-    //lua_writestring((char*)s, l);
+    luat_debug_print(i, s, l, 0);
     lua_pop(L, 1);  /* pop result */
   }
-  buff[index++] = '\n';
-  buff[index++] = 0x00;
-  lua_writestring((char*)buff, index);
+  luat_debug_print(0, NULL, 0, 1);
   return 0;
 }
 

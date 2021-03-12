@@ -147,7 +147,7 @@ static int32_t ds18b20_get_temperature(int pin, int32_t *val, int check_crc)
     //ds18b20_start(pin);
     w1_reset(pin);
     if (w1_connect(pin)) {
-        LLOGD("ds18b20 connect fail");
+        //LLOGD("ds18b20 connect fail");
         return -1;
     }
     w1_write_byte(pin, 0xcc);  /* skip rom */
@@ -156,8 +156,8 @@ static int32_t ds18b20_get_temperature(int pin, int32_t *val, int check_crc)
     //ds18b20_init(pin);
     w1_reset(pin);
     if (w1_connect(pin)) {
-        LLOGD("ds18b20 connect fail");
-        return -1;
+        //LLOGD("ds18b20 connect fail");
+        return -2;
     }
 
     w1_write_byte(pin, 0xcc);
@@ -166,8 +166,8 @@ static int32_t ds18b20_get_temperature(int pin, int32_t *val, int check_crc)
     data[1] = w1_read_byte(pin);
 
     if (data[0] == 0xFF || data[1] == 0xFF) {
-        LLOGD("ds18b20 bad data, skip");
-        return -1;
+        //LLOGD("ds18b20 bad data, skip");
+        return -3;
     }
 
     // 9个字节都读出来,校验CRC
@@ -181,13 +181,13 @@ static int32_t ds18b20_get_temperature(int pin, int32_t *val, int check_crc)
         {
             crc = crc8_maxim[crc ^ data[i]];
         }
-        LLOGD("ds18b20 %02X%02X%02X%02X%02X%02X%02X%02X [%02X %02X]", 
-                   data[0], data[1], data[2], data[3], 
-                   data[4], data[5], data[6], data[7], 
-                   data[8], crc);
+        // LLOGD("ds18b20 %02X%02X%02X%02X%02X%02X%02X%02X [%02X %02X]", 
+        //            data[0], data[1], data[2], data[3], 
+        //            data[4], data[5], data[6], data[7], 
+        //            data[8], crc);
         if (data[8] != crc) {
-            LLOGD("ds18b20 bad crc");
-            return -2;
+            //LLOGD("ds18b20 bad crc");
+            return -4;
         }
     }
     TL = data[0];
@@ -234,8 +234,9 @@ end
 static int l_sensor_ds18b20(lua_State *L) {
     int32_t val = 0;
     int check_crc = lua_gettop(L) > 1 ? lua_toboolean(L, 2) : 1;
+    int pin = luaL_checkinteger(L, 1);
     luat_os_entry_cri();
-    int32_t ret = ds18b20_get_temperature(luaL_checkinteger(L, 1), &val, check_crc);
+    int32_t ret = ds18b20_get_temperature(pin, &val, check_crc);
     luat_os_exit_cri();
     // -55°C ~ 125°C
     if (ret || !(val <= 1250 && val >= -550)) {

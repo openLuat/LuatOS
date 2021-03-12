@@ -7,9 +7,9 @@ src	= []
 for p in os.listdir(cwd) :
     if p.endswith(".c"):
         src += [p]
-CPPPATH = [cwd,  cwd + "/../include", 
-                 cwd + "/../packages/vsprintf", 
-                 cwd + "/../packages/minmea", 
+CPPPATH = [cwd,  cwd + "/../include",
+                 cwd + "/../packages/vsprintf",
+                 cwd + "/../packages/minmea",
                  cwd + "/../packages/lua-cjson",
                  ]
 
@@ -28,6 +28,7 @@ if not GetDepend(['RT_USING_ADC']):
     src.remove('luat_lib_adc.c')
 if not GetDepend(['PKG_USING_U8G2']):
     src.remove('luat_lib_disp.c')
+    src.remove('luat_lib_u8g2.c')
 
 src.remove('luat_shell.c')
 src.remove('luat_lib_lpmem.c')

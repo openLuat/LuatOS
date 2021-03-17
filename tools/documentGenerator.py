@@ -193,9 +193,9 @@ except:
     pass
 
 doc = open("../../luatos_wiki/api/index.rst", "a+",encoding='utf-8')
-doc.write("LuatOS接口文档\n")
+doc.write("C库接口\n")
 doc.write("==============\n\n")
-doc.write("请点击左侧列表，查看各个接口。如需搜索，请直接使用左上角的搜索框进行搜索。\n\n")
+doc.write("请点击左侧列表，查看各个接口。如需搜索，请直接使用搜索框进行搜索。\n\n")
 doc.write(".. toctree::\n")
 doc.write("   :hidden:\n\n")
 
@@ -228,8 +228,9 @@ for module in modules:
 
         mdoc.write("**例子**\n\n")
         if len(api["usage"]) == 0:
-            api["usage"] = "无"
-        mdoc.write("```lua\n"+api["usage"]+"\n```\n\n")
+            mdoc.write("无\n\n")
+        else:
+            mdoc.write("```lua\n"+api["usage"]+"\n```\n\n")
 
         mdoc.write("---\n\n")
 

@@ -300,7 +300,7 @@ static int netc_close(lua_State *L) {
 */
 static int netc_send(lua_State *L) {
     size_t len = 0;
-    
+
     netclient_t *netc;
     netc = tonetc(L);
     const char* data = luaL_checklstring(L, 2, &len);
@@ -338,8 +338,8 @@ static int netc_gc(lua_State *L) {
 static int netc_tostring(lua_State *L) {
     netclient_t *netc = tonetc(L);
     lua_pushfstring(L, "netc[%d] %s,%d,%s %s", netc->id,
-                                            netc->hostname, netc->port, 
-                                            netc->type == NETC_TYPE_TCP ? "TCP" : "UDP", 
+                                            netc->hostname, netc->port,
+                                            netc->type == NETC_TYPE_TCP ? "TCP" : "UDP",
                                             netc->closed ? "Closed" : "Not-Closed");
     return 1;
 }
@@ -441,7 +441,7 @@ static int netc_clean(lua_State *L) {
 
 /*
 设置socket的事件回调
-@api    so:port(event, func)
+@api    so:on(event, func)
 @string 事件名称
 @function 回调方法
 @return nil 无返回值

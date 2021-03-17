@@ -11,18 +11,25 @@ _G.sys = require("sys")
 sys.taskInit(function()
     while 1 do
         if socket.isReady() then
-            http.get("http://www.baidu.com/content-search.xml", nil, function(code,headers,data)
-                log.info("http", code, data)
-            end) 
+            sys.wait(2000)
+            --http.get("http://www.baidu.com/content-search.xml", nil, function(code,headers,data)
+            --    log.info("http", code, data)
+            --    sys.publish("HTTP_OK")
+            --end) 
+            -- sys.waitUntil("HTTP_OK", 15000)
             -- 返回当前毫秒数
             --http.get("http://site0.cn/api/httptest/simple/time", {}, function(code,headers,data)
             --    log.info("http", code, data)
+            --    sys.publish("HTTP_OK")
             --end)
-            sys.wait(5000)
+            -- sys.waitUntil("HTTP_OK", 15000)
              -- 返回当前毫秒数
-            http.get("http://site0.cn/api/httptest/simple/date", nil, function(code,headers,data)
+            http.post("http://site0.cn/api/httptest/simple/date", {body=string.rep("1234567890", 100)}, function(code,headers,data)
                 log.info("http", code, data)
+                sys.publish("HTTP_OK")
             end)
+            sys.waitUntil("HTTP_OK", 15000)
+
             sys.wait(60000)
         else
             sys.wait(3000)

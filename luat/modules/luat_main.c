@@ -86,7 +86,7 @@ static int panic (lua_State *L) {
 #define UPDATE_MARK "/update_mark"
 #define FLASHX_PATH "/flashx.bin"
 
-int luat_bin_unpack(const char* path);
+int luat_bin_unpack(const char* path, int writeOut);
 
 static void check_update(void) {
   // 首先, 升级文件是否存在呢?
@@ -111,12 +111,18 @@ static void check_update(void) {
     luat_fs_fclose(fd);
     // TODO 连标志文件都写入失败,怎么办?
   }
-  // 开始解包升级文件
-  if (luat_bin_unpack(UPDATE_BIN_PATH) == LUA_OK) {
-    LLOGI("update OK, remove " UPDATE_BIN_PATH);
+  // 检测升级包合法性
+  if (luat_bin_unpack(UPDATE_BIN_PATH, 0) != LUA_OK) {
+    LLOGE("%s is invaild!!", UPDATE_BIN_PATH); 
   }
   else {
-    LLOGW("update FAIL, remove " UPDATE_BIN_PATH);
+    // 开始解包升级文件
+    if (luat_bin_unpack(UPDATE_BIN_PATH, 1) == LUA_OK) {
+      LLOGI("update OK, remove " UPDATE_BIN_PATH);
+    }
+    else {
+      LLOGW("update FAIL, remove " UPDATE_BIN_PATH);
+    }
   }
   // 无论是否成功,都一定要删除升级文件, 防止升级死循环
   luat_fs_remove(UPDATE_BIN_PATH);
@@ -143,7 +149,7 @@ static void check_rollback(void) {
   // 存在原始flashx.bin
   LLOGD("found " FLASHX_PATH  ", unpack it");
   // 开始回滚操作
-  if (luat_bin_unpack(FLASHX_PATH) == LUA_OK) {
+  if (luat_bin_unpack(FLASHX_PATH, 1) == LUA_OK) {
     LLOGI("rollback complete!");
   }
   else {

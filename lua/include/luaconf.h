@@ -11,6 +11,8 @@
 #include <limits.h>
 #include <stddef.h>
 
+#include "luat_conf_bsp.h"
+#include "luat_conf_default.h"
 
 /*
 ** ===================================================================
@@ -33,9 +35,7 @@
 ** ensure that all software connected to Lua will be compiled with the
 ** same configuration.
 */
-//#ifdef __EC616
-#define LUA_32BITS
-//#endif
+/* #define LUA_32BITS */
 
 /*
 @@ LUA_USE_C89 controls the use of non-ISO-C89 features.
@@ -602,8 +602,8 @@
 // #define l_sprintf(s,sz,f,i)	((void)(sz), sprintf(s,f,i))
 // #endif
 // int l_sprintf(char *buf, size_t size, const char *fmt, ...);
-#include "printf.h"
-#define l_sprintf snprintf_
+//#include "printf.h"
+//#define l_sprintf snprintf_
 
 /*
 @@ lua_strx2number converts an hexadecimal numeric string to a number.
@@ -757,7 +757,7 @@
 //#define LUAL_BUFFERSIZE   ((int)(0x80 * sizeof(void*) * sizeof(lua_Integer)))
 //#endif
 
-#define LUAL_BUFFERSIZE 256
+//#define LUAL_BUFFERSIZE 256
 
 /* }================================================================== */
 
@@ -779,11 +779,6 @@
 ** Local configuration. You can use this space to add your redefinitions
 ** without modifying the main part of the file.
 */
-
-// 是否使用静态分配的luaState, 而非通过alloc分配,从而节省少量内存
-#define FEATURE_STATIC_LUASTATE 1
-
-
 
 #endif
 

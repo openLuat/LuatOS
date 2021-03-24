@@ -27,8 +27,16 @@ local buff = zbuff.create(1024) -- 空白的
 -- 类file的读写操作
 buff:write("123") -- 写入数据, 指针相应地往后移动
 buff:seek(0, zbuff.SEEK_SET) -- 把指针设置到指定位置
-local num = buff:read(3) -- 把刚才那3个字节读出来,内容是字符串,指针也往后移动了
-log.info("buff", num)
+local str = buff:read(3) -- 把刚才那3个字节读出来,内容是字符串,指针也往后移动了
+
+-- 按数据类型读写
+local n = buff:readInt8() -- 支持int8~int64,uint8~uint32,float32,double64
+-- buff:writeInt8(0x32)   -- 同时也支持写入上述整型/浮点数
+
+-- 支持pack/unpack操作
+local _, a, b, c = buff:unpack("IIH") -- 支持unpack解码
+-- buff:pack("IIH", 0x1234, 0x4567, 0x12) -- 也支持pack打包
+log.info("buff", str, n)
 
 -- 类数组操作
 buff:seek(0, zbuff.SEEK_SET) -- 又回到开头

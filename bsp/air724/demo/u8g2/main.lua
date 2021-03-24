@@ -18,8 +18,9 @@ pmd.ldoset(3000, pmd.LDO_VLCD)
 --pmd.ldoset(3300, pmd.LDO_VIBR)
 
 sys.taskInit(function()
-    netled = gpio.setup(1, 0)
-    netmode = gpio.setup(4, 0)
+    local netled = gpio.setup(1, 0)
+    local netmode = gpio.setup(4, 0)
+    local count = 1
     while 1 do
         netled(1)
         netmode(0)
@@ -27,7 +28,8 @@ sys.taskInit(function()
         netled(0)
         netmode(1)
         sys.wait(500)
-        log.info("luatos", "hi", os.date())
+        log.info("luatos", "hi", count, os.date())
+        count = count + 1
     end
 end)
 
@@ -36,10 +38,11 @@ function u8g2_init()
     log.info(TAG, "init ssd1306")
     -- 模拟I2C
     --u8g2.begin({mode="i2c_sw", pin0=18, pin1=19})
+    u8g2.begin({mode="i2c_sw", pin0=14, pin1=15})
     
     -- 硬件I2C
-    i2c.setup(2)
-    u8g2.begin({mode="i2c_hw", i2c_id=2})
+    --i2c.setup(1, i2c.FAST)
+    --u8g2.begin({mode="i2c_hw", i2c_id=1})
 
     -- 硬件4线SPI
     --u8g2.begin({mode="spi_hw_4pin",spi_id=1,OLED_SPI_PIN_RES=20,OLED_SPI_PIN_DC=28,OLED_SPI_PIN_CS=29})
@@ -129,7 +132,7 @@ end
 
 
 sys.taskInit(function ()
-    sys.wait(1000)
+    sys.wait(15000)
     u8g2_init()
     while true do
         sys.wait(1000)
@@ -138,5 +141,8 @@ sys.taskInit(function ()
 end)
 
 
--- 主循环, 必须加
+
+-- 用户代码已结束---------------------------------------------
+-- 结尾总是这一句
 sys.run()
+-- sys.run()之后后面不要加任何语句!!!!!

@@ -21,7 +21,7 @@ log.info("fsstat", fs.fsstat("/"))
 */
 static int l_fs_fsstat(lua_State *L) {
     const char* path = luaL_optstring(L, 1, "/");
-    luat_fs_info_t info;
+    luat_fs_info_t info = {0};
     if (luat_fs_info(path, &info) == 0) {
         lua_pushboolean(L, 1);
         lua_pushinteger(L, info.total_block);

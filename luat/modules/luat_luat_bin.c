@@ -38,7 +38,7 @@ static int fill_buff(luat_bin_buff_t* binbuff) {
 }
 
 // 解包bin文件
-int luat_bin_unpack(const char* binpath) {
+int luat_bin_unpack(const char* binpath, int writeOut) {
     FILE* fd = NULL; // 文件句柄
     luat_bin_buff_t * binbuff = NULL; // 缓冲区
     int ret = -1; // 返回值
@@ -81,6 +81,8 @@ int luat_bin_unpack(const char* binpath) {
     }
     // 跳过头部
     binbuff->offset += sizeof(luat_bin_tlv_t);
+    
+    size_t wsize = 0;
 
     // 开始解析主体
     while (1) {
@@ -141,6 +143,26 @@ int luat_bin_unpack(const char* binpath) {
             // 开始写入数据
             LLOGI("write path=%s len=%d", path, tlv->len);
             size_t dst_fsz = tlv->len;
+            if (writeOut == 0) {
+                // 仅读取文件内容,不真实写出到文件
+                LLOGD("writeOut testing...");
+                while (dst_fsz > 0) {
+                    if (binbuff->size - binbuff->offset == 0) {
+                        fill_buff(binbuff);
+                        if (binbuff->size - binbuff->offset == 0) {
+                            LLOGE("fill buff fail! reach EOF!!");
+                            ret = -7;
+                            goto _exit;
+                        }
+                    }
+                    wsize = binbuff->size - binbuff->offset;
+                    if (wsize > dst_fsz)
+                        wsize = dst_fsz;
+                    dst_fsz -= wsize;
+                    binbuff->offset += wsize;
+                }
+                continue;
+            }
             // 首先, 删除目标文件
             luat_fs_remove(path); // 鉴于Littlefs的特性, 先删除会比较省空间
             // 然后新建文件

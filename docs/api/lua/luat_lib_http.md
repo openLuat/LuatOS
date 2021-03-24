@@ -30,7 +30,7 @@ Name | Type | Description
 
 ```lua
 -- GET请求
-http.req("http://www.baidu.com/", nil, functon(ret, code, headers, body)
+http.req("http://www.baidu.com/", nil, function(ret, code, headers, body)
     log.info("http", ret, code, header, body)
 end) 
 ```
@@ -61,7 +61,7 @@ Name | Type | Description
 
 ```lua
 -- GET请求
-http.get("http://www.baidu.com/", nil, functon(ret, code, headers, body)
+http.get("http://www.baidu.com/", nil, function(ret, code, headers, body)
     log.info("http", ret, code, header, body)
 end) 
 ```
@@ -92,7 +92,7 @@ Name | Type | Description
 
 ```lua
 -- POST请求
-http.post("http://www.baidu.com/", {body=json.encode(data),headers=["Content-Type","application/json"]}, functon(ret, code, headers, body)
+http.post("http://www.baidu.com/", {body=json.encode(data)}, function(ret, code, headers, body)
     log.info("http", ret, code, header, body)
 end) 
 ```
@@ -123,7 +123,7 @@ Name | Type | Description
 
 ```lua
 -- PUT请求
-http.put("http://www.baidu.com/", {body=json.encode(data),headers=["Content-Type","application/json"]}, functon(ret, code, headers, body)
+http.put("http://www.baidu.com/", {body=json.encode(data)}, function(ret, code, headers, body)
     log.info("http", ret, code, header, body)
 end) 
 ```
@@ -154,7 +154,7 @@ Name | Type | Description
 
 ```lua
 -- DELETE请求
-http.put("http://www.baidu.com/", nil, functon(ret, code, headers, body)
+http.put("http://www.baidu.com/", nil, function(ret, code, headers, body)
     log.info("http", ret, code, header, body)
 end) 
 ```

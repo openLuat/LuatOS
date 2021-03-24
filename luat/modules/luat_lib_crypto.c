@@ -115,6 +115,103 @@ static int l_crypto_hmac_sha1(lua_State *L) {
     return 0;
 }
 
+
+/**
+计算sha256值
+@api crypto.sha256(str)
+@string 需要计算的字符串
+@return string 计算得出的sha256值的hex字符串
+@usage
+-- 计算字符串"abc"的sha256
+log.info("sha256", crypto.sha256("abc"))
+ */
+static int l_crypto_sha256(lua_State *L) {
+    size_t size = 0;
+    const char* str = luaL_checklstring(L, 1, &size);
+    char tmp[64] = {0};
+    char dst[64] = {0};
+    if (luat_crypto_sha256_simple(str, size, tmp) == 0) {
+        fixhex(tmp, dst, 32);
+        lua_pushlstring(L, dst, 64);
+        return 1;
+    }
+    return 0;
+}
+
+/**
+计算hmac_sha256值
+@api crypto.hmac_sha256(str, key)
+@string 需要计算的字符串
+@string 密钥
+@return string 计算得出的hmac_sha1值的hex字符串
+@usage
+-- 计算字符串"abc"的hmac_sha256
+log.info("hmac_sha256", crypto.hmac_sha256("abc", "1234567890"))
+ */
+static int l_crypto_hmac_sha256(lua_State *L) {
+    size_t str_size = 0;
+    size_t key_size = 0;
+    const char* str = luaL_checklstring(L, 1, &str_size);
+    const char* key = luaL_checklstring(L, 2, &key_size);
+    char tmp[64] = {0};
+    char dst[64] = {0};
+    if (luat_crypto_hmac_sha256_simple(str, str_size, key, key_size, tmp) == 0) {
+        fixhex(tmp, dst, 32);
+        lua_pushlstring(L, dst, 64);
+        return 1;
+    }
+    return 0;
+}
+
+//---
+
+/**
+计算sha512值
+@api crypto.sha512(str)
+@string 需要计算的字符串
+@return string 计算得出的sha512值的hex字符串
+@usage
+-- 计算字符串"abc"的sha512
+log.info("sha512", crypto.sha512("abc"))
+ */
+static int l_crypto_sha512(lua_State *L) {
+    size_t size = 0;
+    const char* str = luaL_checklstring(L, 1, &size);
+    char tmp[128] = {0};
+    char dst[128] = {0};
+    if (luat_crypto_sha512_simple(str, size, tmp) == 0) {
+        fixhex(tmp, dst, 64);
+        lua_pushlstring(L, dst, 128);
+        return 1;
+    }
+    return 0;
+}
+
+/**
+计算hmac_sha512值
+@api crypto.hmac_sha512(str, key)
+@string 需要计算的字符串
+@string 密钥
+@return string 计算得出的hmac_sha1值的hex字符串
+@usage
+-- 计算字符串"abc"的hmac_sha512
+log.info("hmac_sha512", crypto.hmac_sha512("abc", "1234567890"))
+ */
+static int l_crypto_hmac_sha512(lua_State *L) {
+    size_t str_size = 0;
+    size_t key_size = 0;
+    const char* str = luaL_checklstring(L, 1, &str_size);
+    const char* key = luaL_checklstring(L, 2, &key_size);
+    char tmp[128] = {0};
+    char dst[128] = {0};
+    if (luat_crypto_hmac_sha512_simple(str, str_size, key, key_size, tmp) == 0) {
+        fixhex(tmp, dst, 64);
+        lua_pushlstring(L, dst, 128);
+        return 1;
+    }
+    return 0;
+}
+
 int l_crypto_cipher_xxx(lua_State *L, uint8_t flags);
 
 /**
@@ -244,9 +341,13 @@ static int l_crypto_crc8(lua_State *L)
 static const rotable_Reg reg_crypto[] =
 {
     { "md5" ,           l_crypto_md5            ,0},
-    { "hmac_md5" ,      l_crypto_hmac_md5       ,0},
     { "sha1" ,          l_crypto_sha1           ,0},
+    { "sha256" ,        l_crypto_sha256         ,0},
+    { "sha512" ,        l_crypto_sha512         ,0},
+    { "hmac_md5" ,      l_crypto_hmac_md5       ,0},
     { "hmac_sha1" ,     l_crypto_hmac_sha1      ,0},
+    { "hmac_sha256" ,   l_crypto_hmac_sha256    ,0},
+    { "hmac_sha512" ,   l_crypto_hmac_sha512    ,0},
     { "cipher" ,        l_crypto_cipher_encrypt ,0},
     { "cipher_encrypt" ,l_crypto_cipher_encrypt ,0},
     { "cipher_decrypt" ,l_crypto_cipher_decrypt ,0},
@@ -269,3 +370,9 @@ LUAT_WEAK int luat_crypto_hmac_md5_simple(const char* str, size_t str_size, cons
 
 LUAT_WEAK int luat_crypto_sha1_simple(const char* str, size_t str_size, void* out_ptr) {return -1;}
 LUAT_WEAK int luat_crypto_hmac_sha1_simple(const char* str, size_t str_size, const char* mac, size_t mac_size, void* out_ptr) {return -1;}
+
+LUAT_WEAK int luat_crypto_sha256_simple(const char* str, size_t str_size, void* out_ptr) {return -1;}
+LUAT_WEAK int luat_crypto_hmac_sha256_simple(const char* str, size_t str_size, const char* mac, size_t mac_size, void* out_ptr) {return -1;}
+
+LUAT_WEAK int luat_crypto_sha512_simple(const char* str, size_t str_size, void* out_ptr) {return -1;}
+LUAT_WEAK int luat_crypto_hmac_sha512_simple(const char* str, size_t str_size, const char* mac, size_t mac_size, void* out_ptr) {return -1;}

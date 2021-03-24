@@ -187,21 +187,21 @@ s = io.open(snippet_path,"w")
 s.write(json.dumps(snippet))
 s.close()
 try:
-    shutil.rmtree("../../luatos_wiki/api/")
-    os.mkdir("../../luatos_wiki/api/")
+    shutil.rmtree("../../luatos-wiki/api/")
+    os.mkdir("../../luatos-wiki/api/")
 except:
     pass
 
-doc = open("../../luatos_wiki/api/index.rst", "a+",encoding='utf-8')
-doc.write("LuatOS接口文档\n")
+doc = open("../../luatos-wiki/api/index.rst", "a+",encoding='utf-8')
+doc.write("C库接口\n")
 doc.write("==============\n\n")
-doc.write("请点击左侧列表，查看各个接口。如需搜索，请直接使用左上角的搜索框进行搜索。\n\n")
+doc.write("请点击左侧列表，查看各个接口。如需搜索，请直接使用搜索框进行搜索。\n\n")
 doc.write(".. toctree::\n")
 doc.write("   :hidden:\n\n")
 
 
 for module in modules:
-    mdoc = open("../../luatos_wiki/api/"+module["module"]+".md", "a+",encoding='utf-8')
+    mdoc = open("../../luatos-wiki/api/"+module["module"]+".md", "a+",encoding='utf-8')
     mdoc.write("# "+module["module"]+" - "+module["summary"]+"\n\n")
     doc.write("   "+module["module"]+"\n")
     for api in module["api"]:
@@ -228,13 +228,14 @@ for module in modules:
 
         mdoc.write("**例子**\n\n")
         if len(api["usage"]) == 0:
-            api["usage"] = "无"
-        mdoc.write("```lua\n"+api["usage"]+"\n```\n\n")
+            mdoc.write("无\n\n")
+        else:
+            mdoc.write("```lua\n"+api["usage"]+"\n```\n\n")
 
         mdoc.write("---\n\n")
 
     mdoc.close()
-    os.system("pandoc -o ./../../luatos_wiki/api/"+module["module"]+".rst ./../../luatos_wiki/api/"+module["module"]+".md")
-    os.remove("./../../luatos_wiki/api/"+module["module"]+".md")
+    os.system("pandoc -o ./../../luatos-wiki/api/"+module["module"]+".rst ./../../luatos-wiki/api/"+module["module"]+".md")
+    os.remove("./../../luatos-wiki/api/"+module["module"]+".md")
 
 doc.close()

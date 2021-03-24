@@ -71,7 +71,7 @@ log.debug(tag, val, val2, val3, ...)
 Name | Type | Description
 -----|------|--------------
 `tag`|`string`| tag         日志标识,必须是字符串
-`val`|`any`| ...         需打印的参数
+`val`|`...`| 需打印的参数
 `val2`|`null`| *无*
 `val3`|`null`| *无*
 `...`|`null`| *无*
@@ -84,7 +84,7 @@ Name | Type | Description
 
 ```lua
 -- 日志输出 D/onenet connect ok
-log.debug("onenet", "connect ok") 
+log.debug("onenet", "connect ok")
 ```
 
 
@@ -102,7 +102,7 @@ log.info(tag, val, val2, val3, ...)
 Name | Type | Description
 -----|------|--------------
 `tag`|`string`| tag         日志标识,必须是字符串
-`val`|`any`| ...         需打印的参数
+`val`|`...`| 需打印的参数
 `val2`|`null`| *无*
 `val3`|`null`| *无*
 `...`|`null`| *无*
@@ -115,7 +115,7 @@ Name | Type | Description
 
 ```lua
 -- 日志输出 I/onenet connect ok
-log.info("onenet", "connect ok") 
+log.info("onenet", "connect ok")
 ```
 
 
@@ -133,7 +133,7 @@ log.warn(tag, val, val2, val3, ...)
 Name | Type | Description
 -----|------|--------------
 `tag`|`string`| tag         日志标识,必须是字符串
-`val`|`any`| ...         需打印的参数
+`val`|`...`| 需打印的参数
 `val2`|`null`| *无*
 `val3`|`null`| *无*
 `...`|`null`| *无*
@@ -146,7 +146,7 @@ Name | Type | Description
 
 ```lua
 -- 日志输出 W/onenet connect ok
-log.warn("onenet", "connect ok") 
+log.warn("onenet", "connect ok")
 ```
 
 
@@ -164,7 +164,7 @@ log.error(tag, val, val2, val3, ...)
 Name | Type | Description
 -----|------|--------------
 `tag`|`string`| tag         日志标识,必须是字符串
-`val`|`any`| ...         需打印的参数
+`val`|`...`| 需打印的参数
 `val2`|`null`| *无*
 `val3`|`null`| *无*
 `...`|`null`| *无*
@@ -177,7 +177,7 @@ Name | Type | Description
 
 ```lua
 -- 日志输出 E/onenet connect ok
-log.error("onenet", "connect ok") 
+log.error("onenet", "connect ok")
 ```
 
 

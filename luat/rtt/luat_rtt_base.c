@@ -105,7 +105,7 @@ void luat_os_reboot(int code) {
 
 void sys_start_standby(int ms);
 
-void luat_os_standy(int timeout) {
+RT_WEAK void luat_os_standy(int timeout) {
     #ifdef BSP_USING_WM_LIBRARIES
         #ifdef BSP_USING_STANDBY
             sys_start_standby(timeout);
@@ -113,7 +113,7 @@ void luat_os_standy(int timeout) {
     #endif
 }
 
-const char* luat_os_bsp(void) {
+RT_WEAK const char* luat_os_bsp(void) {
     #ifdef BSP_USING_WM_LIBRARIES
         return "w60x";
     #else

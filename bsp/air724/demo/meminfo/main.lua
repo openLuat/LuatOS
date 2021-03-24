@@ -4,7 +4,7 @@ VERSION = "1.0.0"
 
 local sys = require "sys"
 
-pmd.ldoset(1800, pmd.LDO_VLCD)
+pmd.ldoset(3200, pmd.LDO_VLCD)
 
 sys.taskInit(function()
     local netled = gpio.setup(1, 0)
@@ -21,4 +21,8 @@ sys.taskInit(function()
     end
 end)
 
+
+-- 用户代码已结束---------------------------------------------
+-- 结尾总是这一句
 sys.run()
+-- sys.run()之后后面不要加任何语句!!!!!

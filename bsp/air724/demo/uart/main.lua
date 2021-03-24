@@ -30,4 +30,8 @@ uart.on(2, "recv", function (id, len)
     sys.publish("UART_WRITE", id, data)
 end)
 
+
+-- 用户代码已结束---------------------------------------------
+-- 结尾总是这一句
 sys.run()
+-- sys.run()之后后面不要加任何语句!!!!!

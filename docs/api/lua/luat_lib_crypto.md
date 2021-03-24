@@ -116,6 +116,116 @@ log.info("hmac_sha1", crypto.hmac_sha1("abc", "1234567890"))
 
 
 --------------------------------------------------
+# crypto.sha256
+
+```lua
+crypto.sha256(str)
+```
+
+计算sha256值
+
+## 参数表
+
+Name | Type | Description
+-----|------|--------------
+`str`|`string`| 需要计算的字符串
+
+## 返回值
+
+> `string`: 计算得出的sha256值的hex字符串
+
+## 调用示例
+
+```lua
+-- 计算字符串"abc"的sha256
+log.info("sha256", crypto.sha256("abc"))
+```
+
+
+--------------------------------------------------
+# crypto.hmac_sha256
+
+```lua
+crypto.hmac_sha256(str, key)
+```
+
+计算hmac_sha256值
+
+## 参数表
+
+Name | Type | Description
+-----|------|--------------
+`str`|`string`| 需要计算的字符串
+`key`|`string`| 密钥
+
+## 返回值
+
+> `string`: 计算得出的hmac_sha1值的hex字符串
+
+## 调用示例
+
+```lua
+-- 计算字符串"abc"的hmac_sha256
+log.info("hmac_sha256", crypto.hmac_sha256("abc", "1234567890"))
+```
+
+
+--------------------------------------------------
+# crypto.sha512
+
+```lua
+crypto.sha512(str)
+```
+
+计算sha512值
+
+## 参数表
+
+Name | Type | Description
+-----|------|--------------
+`str`|`string`| 需要计算的字符串
+
+## 返回值
+
+> `string`: 计算得出的sha512值的hex字符串
+
+## 调用示例
+
+```lua
+-- 计算字符串"abc"的sha512
+log.info("sha512", crypto.sha512("abc"))
+```
+
+
+--------------------------------------------------
+# crypto.hmac_sha512
+
+```lua
+crypto.hmac_sha512(str, key)
+```
+
+计算hmac_sha512值
+
+## 参数表
+
+Name | Type | Description
+-----|------|--------------
+`str`|`string`| 需要计算的字符串
+`key`|`string`| 密钥
+
+## 返回值
+
+> `string`: 计算得出的hmac_sha1值的hex字符串
+
+## 调用示例
+
+```lua
+-- 计算字符串"abc"的hmac_sha512
+log.info("hmac_sha512", crypto.hmac_sha512("abc", "1234567890"))
+```
+
+
+--------------------------------------------------
 # crypto.cipher
 
 ```lua

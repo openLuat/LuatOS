@@ -348,10 +348,10 @@ Name | Type | Description
 
 
 --------------------------------------------------
-# so:port
+# so:on
 
 ```lua
-so:port(event, func)
+so:on(event, func)
 ```
 
 设置socket的事件回调

@@ -246,3 +246,39 @@ end
 ```
 
 
+--------------------------------------------------
+# i2c.readSHT30
+
+```lua
+i2c.readSHT30(id, addr)
+```
+
+从i2c总线读取DHT30的温湿度数据(由"好奇星"贡献)
+
+## 参数表
+
+Name | Type | Description
+-----|------|--------------
+`id`|`int`| 设备id, 例如i2c1的id为1, i2c2的id为2
+`addr`|`int`| 设备addr,SHT30的设备地址,默认0x44 bit7
+
+## 返回值
+
+No. | Type | Description
+----|------|--------------
+1 |`boolean`| 读取成功返回true,否则返回false
+2 |`int`| 湿度值,单位0.1%, 例如 591 代表 59.1%
+3 |`int`| 温度值,单位0.1摄氏度, 例如 292 代表 29.2摄氏度
+
+## 调用示例
+
+```lua
+-- 从i2c0读取SHT30
+i2c.setup(0)
+local re, H, T = i2c.readSHT30(0)
+if re then
+    log.info("sht30", H, T)
+end
+```
+
+

@@ -1,374 +1,605 @@
-***u8g2显示屏初始化***
+---
+module: u8g2
+summary: u8g2图形处理库
+version: 1.0
+date: 2021.01.25
+---
 
-*@api u8g2.begin({mode="i2c_hw",i2c_id=0})*
+--------------------------------------------------
+# u8g2.begin
 
-*@table配置信息*
+```lua
+u8g2.begin("ssd1306")
+```
 
-*@return int 正常初始化1,已经初始化过2,内存不够3,初始化失败返回4*
+u8g2显示屏初始化
 
-*@usage*
+## 参数表
 
-*-- 初始化硬件i2c的ssd1306*
+Name | Type | Description
+-----|------|--------------
+`"ssd1306"`|`string`| 配置信息
 
-*u8g2.begin({mode="i2c_hw",i2c_id=0})*
+## 返回值
 
+> `int`: 正常初始化1,已经初始化过2,内存不够3,初始化失败返回4
 
+## 调用示例
 
-***关闭显示屏***
-
-*@api u8g2.close()* 
-
-*@usage*
-
-*-- 关闭disp,再次使用disp相关API的话,需要重新初始化*
-
-*u8g2.close()*
-
-
-
-**清屏**
-
-*@api u8g2.ClearBuffer() 清除内存帧缓冲区中的所有像素。*
-
-*@usage*
-
-*u8g2.ClearBuffer()*
+```lua
+-- 初始化i2c1的ssd1306
+u8g2.begin("ssd1306")
+```
 
 
+--------------------------------------------------
+# u8g2.close
 
-**数据更新到屏幕**
+```lua
+u8g2.close()
+```
 
-*@api u8g2.SendBuffer() 将存储器帧缓冲区的内容发送到显示器。*
+关闭显示屏
 
-*@usage*
+## 参数表
 
-*u8g2.SendBuffer()*
+> 无参数
 
+## 返回值
 
+> *无返回值*
 
-**在显示屏上画一段文字**
+## 调用示例
 
-*@api u8g2.DrawUTF8(str, x, y)* *在显示屏上画一段文字,要调用u8g2.SendBuffer()才会更新到屏幕*
-
-*@string 文件内容*
-
-*@int 横坐标*
-
-*@int 竖坐标*
-
-*@usage*
-
-*u8g2.DrawUTF8("wifi is ready", 10, 20)*
-
+```lua
+-- 关闭disp,再次使用disp相关API的话,需要重新初始化
+u8g2.close()
+```
 
 
-***设置字体模式***
+--------------------------------------------------
+# u8g2.ClearBuffer
 
-*@api u8g2.SetFontMode(mode)*
+```lua
+u8g2.ClearBuffer()
+```
 
-*@int mode字体模式，启用（1）或禁用（0）透明模式*
+清屏，清除内存帧缓冲区中的所有像素
 
-*@usage*
+## 参数表
 
-*u8g2.SetFontMode(1)*
+> 无参数
 
+## 返回值
 
+> *无返回值*
 
-***设置字体***
+## 调用示例
 
-*@api u8g2.SetFont(font)*
-
-*@string font, "u8g2_font_ncenB08_tr"为纯英文8x8字节,"u8g2_font_wqy12_t_gb2312"为12x12全中文,"u8g2_font_unifont_t_symbols"为符号.*
-
-*@usage*
-
-*-- 设置为中文字体,对之后的drawStr有效,使用中文字体需在luat_base.h开启#define USE_U8G2_WQY12_T_GB2312*
-
-*u8g2.setFont("u8g2_font_wqy12_t_gb2312")*
-
+```lua
+-- 清屏
+u8g2.ClearBuffer()
+```
 
 
-***获取显示屏高度***
+--------------------------------------------------
+# u8g2.SendBuffer
 
-*@api u8g2.GetDisplayHeight()*
+```lua
+u8g2.SendBuffer()
+```
 
-*@return int 显示屏高度*
+将数据更新到屏幕，将存储器帧缓冲区的内容发送到显示器
 
-*@usage*
+## 参数表
 
+> 无参数
+
+## 返回值
+
+> *无返回值*
+
+## 调用示例
+
+```lua
+-- 把显示数据更新到屏幕
+u8g2.SendBuffer()
+```
+
+
+--------------------------------------------------
+# u8g2.DrawUTF8
+
+```lua
+u8g2.DrawUTF8(str, x, y)
+```
+
+在显示屏上画一段文字，在显示屏上画一段文字,要调用u8g2.SendBuffer()才会更新到屏幕
+
+## 参数表
+
+Name | Type | Description
+-----|------|--------------
+`str`|`string`| 文件内容
+`x`|`int`| 横坐标
+`y`|`int`| 竖坐标
+
+## 返回值
+
+> *无返回值*
+
+## 调用示例
+
+```lua
+-- 
+u8g2.DrawUTF8("wifi is ready", 10, 20)
+```
+
+
+--------------------------------------------------
+# u8g2.SetFontMode
+
+```lua
+u8g2.SetFontMode(mode)
+```
+
+设置字体模式
+
+## 参数表
+
+Name | Type | Description
+-----|------|--------------
+`mode`|`int`| mode字体模式，启用（1）或禁用（0）透明模式
+
+## 返回值
+
+> *无返回值*
+
+## 调用示例
+
+```lua
+-- 
+u8g2.SetFontMode(1)
+```
+
+
+--------------------------------------------------
+# u8g2.SetFont
+
+```lua
+u8g2.SetFont(font)
+```
+
+设置字体
+
+## 参数表
+
+Name | Type | Description
+-----|------|--------------
+`font`|`string`| font, "u8g2_font_ncenB08_tr"为纯英文8x8字节,"u8g2_font_wqy12_t_gb2312"为12x12全中文,"u8g2_font_unifont_t_symbols"为符号.
+
+## 返回值
+
+> *无返回值*
+
+## 调用示例
+
+```lua
+-- 设置为中文字体,对之后的drawStr有效,使用中文字体需在luat_base.h开启#define USE_U8G2_WQY12_T_GB2312
+u8g2.setFont("u8g2_font_wqy12_t_gb2312")
+```
+
+
+--------------------------------------------------
+# u8g2.GetDisplayHeight
+
+```lua
 u8g2.GetDisplayHeight()
+```
+
+获取显示屏高度
+
+## 参数表
+
+> 无参数
+
+## 返回值
+
+> `int`: 显示屏高度
+
+## 调用示例
+
+```lua
+-- 
+u8g2.GetDisplayHeight()
+```
 
 
+--------------------------------------------------
+# u8g2.GetDisplayWidth
 
-***获取显示屏宽度***
-
-*@api u8g2.GetDisplayWidth()*
-
-*@return int 显示屏宽度*
-
-*@usage*
-
+```lua
 u8g2.GetDisplayWidth()
+```
 
+获取显示屏宽度
 
+## 参数表
 
-***在两点之间画一条线.***
+> 无参数
 
-*@api u8g2.DrawLine(x0,y0,x1,y1)*
+## 返回值
 
-*@int 第一个点的X位置.*
+> `int`: 显示屏宽度
 
-*@int 第一个点的Y位置.*
+## 调用示例
 
-*@int 第二个点的X位置.*
+```lua
+-- 
+u8g2.GetDisplayWidth()
+```
 
-*@int 第二个点的Y位置.*
 
-*@usage*
+--------------------------------------------------
+# u8g2.DrawLine
 
-*u8g2.DrawLine(20, 5, 5, 32)*
+```lua
+u8g2.DrawLine(x0, y0, x1, y1)
+```
 
+在两点之间画一条线.
 
+## 参数表
 
-***在x,y位置画一个半径为rad的空心圆.***
+Name | Type | Description
+-----|------|--------------
+`x0`|`int`| 第一个点的X位置.
+`y0`|`int`| 第一个点的Y位置.
+`x1`|`int`| 第二个点的X位置.
+`y1`|`int`| 第二个点的Y位置.
 
-*@api u8g2.DrawCircle(x0,y0,rad,opt)*
+## 返回值
 
-*@int 圆心位置*
+> *无返回值*
 
-*@int 圆心位置*
+## 调用示例
 
-*@int 圆半径.*
+```lua
+-- 
+u8g2.DrawLine(20, 5, 5, 32)
+```
 
-*@int 选择圆的部分或全部.*
 
-*右上： 0x01*
+--------------------------------------------------
+# u8g2.DrawCircle
 
-*左上： 0x02*
+```lua
+u8g2.DrawCircle(x0, y0, rad, opt)
+```
 
-*左下： 0x04*
+在x,y位置画一个半径为rad的空心圆.
 
-*右下： 0x08*
+## 参数表
 
-*完整圆： (0x01|0x02|0x04|0x08)*
+Name | Type | Description
+-----|------|--------------
+`x0`|`int`| 圆心位置
+`y0`|`int`| 圆心位置
+`rad`|`int`| 圆半径.
+`opt`|`int`| 选择圆的部分或全部.
 
-*@usage*
+## 返回值
 
-*u8g2.DrawCircle(60,30,8,15)*
+> *无返回值*
 
+## 调用示例
 
+```lua
+-- 
+u8g2.DrawCircle(60,30,8,15)
+```
 
-***在x,y位置画一个半径为rad的实心圆.***
 
-*@api u8g2.DrawDisc(x0,y0,rad,opt)*
+--------------------------------------------------
+# u8g2.DrawDisc
 
-*@int 圆心位置*
+```lua
+u8g2.DrawDisc(x0, y0, rad, opt)
+```
 
-*@int 圆心位置*
+在x,y位置画一个半径为rad的实心圆.
 
-*@int 圆半径.*
+## 参数表
 
-*@int 选择圆的部分或全部.*
+Name | Type | Description
+-----|------|--------------
+`x0`|`int`| 圆心位置
+`y0`|`int`| 圆心位置
+`rad`|`int`| 圆半径.
+`opt`|`int`| 选择圆的部分或全部.
 
-*右上： 0x01*
+## 返回值
 
-*左上： 0x02*
+> *无返回值*
 
-*左下： 0x04*
+## 调用示例
 
-*右下： 0x08*
+```lua
+-- 
+u8g2.DrawDisc(60,30,8,15)
+```
 
-*完整圆： (0x01|0x02|0x04|0x08)*
 
-*@usage*
+--------------------------------------------------
+# u8g2.DrawEllipse
 
-*u8g2.DrawDisc(60,30,8,15)*
+```lua
+u8g2.DrawEllipse(x0, y0, rx, ry, opt)
+```
 
+在x,y位置画一个半径为rad的空心椭圆.
 
+## 参数表
 
-***在x,y位置画一个半径为rad的空心椭圆.***
+Name | Type | Description
+-----|------|--------------
+`x0`|`int`| 圆心位置
+`y0`|`int`| 圆心位置
+`rx`|`int`| 椭圆大小
+`ry`|`int`| 椭圆大小
+`opt`|`int`| 选择圆的部分或全部.
 
-*@api u8g2.DrawEllipse(x0,y0,rx,ry,opt)*
+## 返回值
 
-*@int 圆心位置*
+> *无返回值*
 
-*@int 圆心位置*
+## 调用示例
 
-*@int 椭圆大小*
+```lua
+-- 
+u8g2.DrawEllipse(60,30,8,15)
+```
 
-*@int 椭圆大小*
 
-*@int 选择圆的部分或全部.*
+--------------------------------------------------
+# u8g2.DrawFilledEllipse
 
-*右上： 0x01*
+```lua
+u8g2.DrawFilledEllipse(x0, y0, rx, ry, opt)
+```
 
-*左上： 0x02*
+在x,y位置画一个半径为rad的实心椭圆.
 
-*左下： 0x04*
+## 参数表
 
-*右下： 0x08*
+Name | Type | Description
+-----|------|--------------
+`x0`|`int`| 圆心位置
+`y0`|`int`| 圆心位置
+`rx`|`int`| 椭圆大小
+`ry`|`int`| 椭圆大小
+`opt`|`int`| 选择圆的部分或全部.
 
-*完整圆： (0x01|0x02|0x04|0x08)*
+## 返回值
 
-*@usage*
+> *无返回值*
 
-*u8g2.DrawEllipse(60,30,8,15)*
+## 调用示例
 
+```lua
+-- 
+u8g2.DrawFilledEllipse(60,30,8,15)
+```
 
 
-***在x,y位置画一个半径为rad的实心椭圆.***
+--------------------------------------------------
+# u8g2.DrawBox
 
-*@api u8g2.DrawFilledEllipse(x0,y0,rx,ry,opt)*
+```lua
+u8g2.DrawBox(x, y, w, h)
+```
 
-*@int 圆心位置*
+从x / y位置（左上边缘）开始绘制一个框（填充的框）.
 
-*@int 圆心位置*
+## 参数表
 
-*@int 椭圆大小*
+Name | Type | Description
+-----|------|--------------
+`x`|`int`| 左上边缘的X位置
+`y`|`int`| 左上边缘的Y位置
+`w`|`int`| 盒子的宽度
+`h`|`int`| 盒子的高度
 
-*@int 椭圆大小*
+## 返回值
 
-*@int 选择圆的部分或全部.*
+> *无返回值*
 
-*右上： 0x01*
+## 调用示例
 
-*左上： 0x02*
+```lua
+-- 
+u8g2.DrawBox(3,7,25,15)
+```
 
-*左下： 0x04*
 
-*右下： 0x08*
+--------------------------------------------------
+# u8g2.DrawFrame
 
-*完整圆： (0x01|0x02|0x04|0x08)*
+```lua
+u8g2.DrawFrame(x, y, w, h)
+```
 
-*@usage*
+从x / y位置（左上边缘）开始绘制一个框（空框）.
 
-*u8g2.DrawFilledEllipse(60,30,8,15)*
+## 参数表
 
+Name | Type | Description
+-----|------|--------------
+`x`|`int`| 左上边缘的X位置
+`y`|`int`| 左上边缘的Y位置
+`w`|`int`| 盒子的宽度
+`h`|`int`| 盒子的高度
 
+## 返回值
 
-***从x / y位置（左上边缘）开始绘制一个框（填充的框）.***
+> *无返回值*
 
-*@api u8g2.DrawBox(x,y,w,h)*
+## 调用示例
 
-*@int 左上边缘的X位置*
+```lua
+-- 
+u8g2.DrawFrame(3,7,25,15)
+```
 
-*@int 左上边缘的Y位置*
 
-*@int 盒子的宽度*
+--------------------------------------------------
+# u8g2.DrawRBox
 
-*@int 盒子的高度*
+```lua
+u8g2.DrawRBox(x, y, w, h, r)
+```
 
-*@usage*
+绘制一个从x / y位置（左上边缘）开始具有圆形边缘的填充框/框架.
 
-*u8g2.DrawBox(3,7,25,15)*
+## 参数表
 
+Name | Type | Description
+-----|------|--------------
+`x`|`int`| 左上边缘的X位置
+`y`|`int`| 左上边缘的Y位置
+`w`|`int`| 盒子的宽度
+`h`|`int`| 盒子的高度
+`r`|`int`| 四个边缘的半径
 
+## 返回值
 
-***从x / y位置（左上边缘）开始绘制一个框（空框）.***
+> *无返回值*
 
-*@api u8g2.DrawFrame(x,y,w,h)*
+## 调用示例
 
-*@int 左上边缘的X位置*
+```lua
+-- 
+u8g2.DrawRBox(3,7,25,15)
+```
 
-*@int 左上边缘的Y位置*
 
-*@int 盒子的宽度*
+--------------------------------------------------
+# u8g2.DrawRFrame
 
-*@int 盒子的高度*
+```lua
+u8g2.DrawRFrame(x, y, w, h, r)
+```
 
-*@usage*
+绘制一个从x / y位置（左上边缘）开始具有圆形边缘的空框/框架.
 
-*u8g2.DrawFrame(3,7,25,15)*
+## 参数表
 
+Name | Type | Description
+-----|------|--------------
+`x`|`int`| 左上边缘的X位置
+`y`|`int`| 左上边缘的Y位置
+`w`|`int`| 盒子的宽度
+`h`|`int`| 盒子的高度
+`r`|`int`| 四个边缘的半径
 
+## 返回值
 
-***绘制一个从x / y位置（左上边缘）开始具有圆形边缘的填充框/框架.***
+> *无返回值*
 
-*@api u8g2.DrawRBox(x,y,w,h,r)*
+## 调用示例
 
-*@int 左上边缘的X位置*
+```lua
+-- 
+u8g2.DrawRFrame(3,7,25,15)
+```
 
-*@int 左上边缘的Y位置*
 
-*@int 盒子的宽度*
+--------------------------------------------------
+# u8g2.DrawGlyph
 
-*@int 盒子的高度*
+```lua
+u8g2.DrawGlyph(x, y, encoding)
+```
 
-*@int 四个边缘的半径*
+绘制一个图形字符。字符放置在指定的像素位置x和y.
 
-*@usage*
+## 参数表
 
-*u8g2.DrawRBox(3,7,25,15)*
+Name | Type | Description
+-----|------|--------------
+`x`|`int`| 字符在显示屏上的位置
+`y`|`int`| 字符在显示屏上的位置
+`encoding`|`int`| 字符的Unicode值
 
+## 返回值
 
+> *无返回值*
 
-***绘制一个从x / y位置（左上边缘）开始具有圆形边缘的空框/框架.***
+## 调用示例
 
-*@api u8g2.DrawRFrame(x,y,w,h,r)*
+```lua
+-- 
+u8g2.SetFont(u8g2_font_unifont_t_symbols)
+u8g2.DrawGlyph(5, 20, 0x2603)	-- dec 9731/hex 2603 Snowman
+```
 
-*@int 左上边缘的X位置*
 
-*@int 左上边缘的Y位置*
+--------------------------------------------------
+# u8g2.DrawTriangle
 
-*@int 盒子的宽度*
+```lua
+u8g2.DrawTriangle(x0, y0, x1, y1, x2, y2)
+```
 
-*@int 盒子的高度*
+绘制一个三角形（实心多边形）.
 
-*@int 四个边缘的半径*
+## 参数表
 
-*@usage*
+Name | Type | Description
+-----|------|--------------
+`x0`|`int`| 点0X位置
+`y0`|`int`| 点0Y位置
+`x1`|`int`| 点1X位置
+`y1`|`int`| 点1Y位置
+`x2`|`int`| 点2X位置
+`y2`|`int`| 点2Y位置
 
-*u8g2.DrawRFrame(3,7,25,15)*
+## 返回值
 
+> *无返回值*
 
+## 调用示例
 
-***绘制一个图形字符。字符放置在指定的像素位置x和y.***
+```lua
+-- 
+u8g2.DrawTriangle(20,5, 27,50, 5,32)
+```
 
-*@api u8g2.DrawGlyph(x,y,encoding)*
 
-*@int 字符在显示屏上的位置*
+--------------------------------------------------
+# u8g2.SetBitmapMode
 
-*@int 字符在显示屏上的位置*
+```lua
+u8g2.SetBitmapMode(mode)
+```
 
-*@int 字符的Unicode值*
+定义位图函数是否将写入背景色
 
-*@usage*
+## 参数表
 
-*u8g2.SetFont(u8g2_font_unifont_t_symbols)*
+Name | Type | Description
+-----|------|--------------
+`mode`|`int`| mode字体模式，启用（1）或禁用（0）透明模式
 
-*u8g2.DrawGlyph(5, 20, 0x2603)  -- dec 9731/hex 2603 Snowman* 
+## 返回值
 
+> *无返回值*
 
+## 调用示例
 
-***绘制一个三角形（实心多边形）.***
+```lua
+-- 
+u8g2.SetBitmapMode(1)
+```
 
-*@api u8g2.DrawTriangle(x0,y0,x1,y1,x2,y2)*
-
-*@int 点0X位置*
-
-*@int 点0Y位置*
-
-*@int 点1X位置*
-
-*@int 点1Y位置*
-
-*@int 点2X位置*
-
-*@int 点2Y位置*
-
-*@usage*
-
-*u8g2.DrawTriangle(20,5, 27,50, 5,32)*
-
-
-
-***定义位图函数是否将写入背景色***
-
-*@api u8g2.SetBitmapMode(mode)*
-
-*@int mode字体模式，启用（1）或禁用（0）透明模式*
-
-*@usage*
-
-*u8g2.SetBitmapMode(1)*
 

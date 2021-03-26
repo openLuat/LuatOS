@@ -25,7 +25,7 @@ static const char *packet_names[] =
 	"PINGREQ", "PINGRESP", "DISCONNECT", "AUTH"
 };
 
-const char** MQTTClient_packet_names = packet_names;
+static const char** MQTTClient_packet_names = packet_names;
 
 
 /**
@@ -33,7 +33,7 @@ const char** MQTTClient_packet_names = packet_names;
  * @param ptype packet code
  * @return the corresponding string, or "UNKNOWN"
  */
-const char* MQTTPacket_name(int ptype)
+static const char* MQTTPacket_name(int ptype)
 {
 	return (ptype >= 0 && ptype <= AUTH) ? packet_names[ptype] : "UNKNOWN";
 }
@@ -44,7 +44,7 @@ const char* MQTTPacket_name(int ptype)
  * @param length the length to be encoded
  * @return the number of bytes written to buffer
  */
-int MQTTPacket_encode(char* buf, size_t length)
+static int MQTTPacket_encode(char* buf, size_t length)
 {
 	int rc = 0;
 

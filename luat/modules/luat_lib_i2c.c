@@ -65,7 +65,7 @@ i2c.send(1, 0x5C, string.char(0x0F, 0x2F))
 static int l_i2c_send(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
     int addr = luaL_checkinteger(L, 2);
-    size_t len;
+    size_t len = 0;
     int result = 0;
     if (lua_isstring(L, 3)) {
         const char* buff = luaL_checklstring(L, 3, &len);

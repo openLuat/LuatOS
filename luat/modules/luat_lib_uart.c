@@ -185,7 +185,7 @@ static int l_uart_close(lua_State *L)
 @function 回调方法
 @return nil 无返回值
 @usage
-uart.on("receive", function(id, len)
+uart.on(1, "receive", function(id, len)
     local data = uart.read(id, len)
     log.info("uart", id, len, data)
 end)

@@ -83,7 +83,7 @@ https://gitee.com/openLuat/vscode-luatos-debug
 高性能的C风格缓冲区库, 提供丝滑的`char[]`操作体验
 
 ```lua
-- 创建zbuff
+-- 创建zbuff
 local buff = zbuff.create(1024) -- 空白的
 -- local buff = zbuff.create(1024, "123321456654") -- 创建,并填充一个已有字符串的内容
 

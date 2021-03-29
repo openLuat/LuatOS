@@ -196,8 +196,7 @@ doc = open("../../luatos-wiki/api/index.rst", "a+",encoding='utf-8')
 doc.write("C库接口\n")
 doc.write("==============\n\n")
 doc.write("请点击左侧列表，查看各个接口。如需搜索，请直接使用搜索框进行搜索。\n\n")
-doc.write(".. toctree::\n")
-doc.write("   :hidden:\n\n")
+doc.write(".. toctree::\n\n")
 
 
 for module in modules:

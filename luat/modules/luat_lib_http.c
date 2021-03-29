@@ -55,17 +55,17 @@ static int luat_http_cb_impl(luat_lib_http_resp_t *resp) {
 }
 
 /*
-发起一个http请求,推荐用http.get/post/put/delete方法
+发起一个http get请求（推荐用http.get/post/put/delete方法）
 @api http.req(url, params, cb)
 @string 目标URL,需要是https://或者http://开头,否则将当成http://开头
 @table 可选参数. method方法,headers请求头,body数据,ca证书路径,timeout超时时长,
 @function 回调方法
 @return boolean 成功启动返回true,否则返回false.启动成功后,cb回调必然会调用一次
-@usage 
+@usage
 -- GET请求
 http.req("http://www.baidu.com/", nil, function(ret, code, headers, body)
     log.info("http", ret, code, header, body)
-end) 
+end)
 */
 static int l_http_req(lua_State *L) {
     return l_http_reqcommon(L, LUAT_HTTP_GET);
@@ -77,11 +77,11 @@ static int l_http_req(lua_State *L) {
 @table 可选参数. headers请求头,body数据,ca证书路径,timeout超时时长,
 @function 回调方法
 @return boolean 成功启动返回true,否则返回false.启动成功后,cb回调必然会调用一次
-@usage 
+@usage
 -- GET请求
 http.get("http://www.baidu.com/", nil, function(ret, code, headers, body)
     log.info("http", ret, code, header, body)
-end) 
+end)
 */
 static int l_http_get(lua_State *L) {
     return l_http_reqcommon(L, LUAT_HTTP_GET);
@@ -94,11 +94,11 @@ static int l_http_get(lua_State *L) {
 @table 可选参数. headers请求头,body数据,ca证书路径,timeout超时时长,
 @function 回调方法
 @return boolean 成功启动返回true,否则返回false.启动成功后,cb回调必然会调用一次
-@usage 
+@usage
 -- POST请求
 http.post("http://www.baidu.com/", {body=json.encode(data)}, function(ret, code, headers, body)
     log.info("http", ret, code, header, body)
-end) 
+end)
 */
 static int l_http_post(lua_State *L) {
     return l_http_reqcommon(L, LUAT_HTTP_POST);
@@ -110,11 +110,11 @@ static int l_http_post(lua_State *L) {
 @table 可选参数. headers请求头,body数据,ca证书路径,timeout超时时长,
 @function 回调方法
 @return boolean 成功启动返回true,否则返回false.启动成功后,cb回调必然会调用一次
-@usage 
+@usage
 -- PUT请求
 http.put("http://www.baidu.com/", {body=json.encode(data)}, function(ret, code, headers, body)
     log.info("http", ret, code, header, body)
-end) 
+end)
 */
 static int l_http_put(lua_State *L) {
     return l_http_reqcommon(L, LUAT_HTTP_PUT);
@@ -126,11 +126,11 @@ static int l_http_put(lua_State *L) {
 @table 可选参数. headers请求头,body数据,ca证书路径,timeout超时时长,
 @function 回调方法
 @return boolean 成功启动返回true,否则返回false.启动成功后,cb回调必然会调用一次
-@usage 
+@usage
 -- DELETE请求
-http.put("http://www.baidu.com/", nil, function(ret, code, headers, body)
+http.delete("http://www.baidu.com/", nil, function(ret, code, headers, body)
     log.info("http", ret, code, header, body)
-end) 
+end)
 */
 static int l_http_delete(lua_State *L) {
     return l_http_reqcommon(L, LUAT_HTTP_DELETE);
@@ -163,7 +163,7 @@ static int l_http_reqcommon(lua_State *L, uint8_t method) {
     memcpy(req->url, tmp, req->url_len + 1);
     LLOGD("http url=%s", req->url);
 
-    
+
     // 先取一下回调
     if (lua_isfunction(L, 3)) {
         lua_settop(L, 3);
@@ -172,14 +172,14 @@ static int l_http_reqcommon(lua_State *L, uint8_t method) {
 
     if (lua_istable(L, 2)) {
         //lua_settop(L, 2); // 移除掉其他参数
-        
+
         // 取method
         lua_pushliteral(L, "method");
         if (lua_gettable(L, 2)) {
             if (lua_isinteger(L, -1)) {
                 req->method = luaL_checkinteger(L, -1);
             }
-        }   
+        }
         lua_pop(L, 1);
 
 

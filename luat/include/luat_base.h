@@ -7,8 +7,8 @@
 #ifndef LUAT_BASE
 #define LUAT_BASE
 /**LuatOS版本号*/
-#define LUAT_VERSION "V0005"
-#define LUAT_VERSION_BETA 0
+#define LUAT_VERSION "V0006"
+#define LUAT_VERSION_BETA 1
 // 调试开关, 预留
 #define LUAT_DEBUG 0
 

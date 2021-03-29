@@ -116,3 +116,12 @@ buff[3] = 0x33 -- 直接赋值可还行
 
 
 
+## 版本列表
+
+* air302 72kb noui noctiot
+* air302 64kb disp/u8g2 ctiot
+* air302 64kb eink noctiot
+* air640w wifi
+* air640w wifi noui
+* air640w mcu
+* air724ug ALL

@@ -39,14 +39,17 @@ end)
 
 sys.subscribe("NET_READY", function ()
     log.info("net", "NET_READY Get!!!")
-    sys.taskInit(function()
-        while true do
-            sys.wait(10000)
+end)
+sys.taskInit(function()
+    while true do
+        if not socket.isReady() then
+            sys.waitUntil("NET_READY", 1000)
+        else
             local netc = socket.tcp()
             -- 请登录netlab获取你的临时tcp端口
             -- https://netlab.luatos.com
             netc:host("112.125.89.8")
-            netc:port(35523)
+            netc:port(37476)
             netc:on("connect", function(id, re)
                 log.info("netc", "connect result", re)
                 if re == 1 then
@@ -82,7 +85,7 @@ sys.subscribe("NET_READY", function ()
             netc:clean()
             sys.wait(15000)
         end
-    end)
+    end
 end)
 
 

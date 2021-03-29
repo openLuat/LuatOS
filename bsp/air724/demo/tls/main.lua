@@ -25,8 +25,12 @@ end)
 
 sys.subscribe("NET_READY", function ()
     log.info("net", "NET_READY Get!!!")
-    sys.taskInit(function()
-        while true do
+end)
+sys.taskInit(function()
+    while true do
+        if not socket.isReady() then
+            sys.waitUntil("NET_READY", 1000)
+        else
             local netc = socket.tls()
             netc:host("112.125.89.8")
             netc:port(37596)
@@ -55,7 +59,7 @@ sys.subscribe("NET_READY", function ()
             netc:clean()
             sys.wait(60000)
         end
-    end)
+    end
 end)
 
 

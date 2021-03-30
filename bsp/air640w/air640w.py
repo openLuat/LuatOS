@@ -16,13 +16,13 @@ import configparser
 config = configparser.ConfigParser()
 config['air640w'] = {
     "FTC_PATH" : ".\\",
-    "USER_PATH": ".\\demo\\73.mqtt2",
+    "USER_PATH": ".\\demo\\10.gpio_irq",
     "LIB_PATH" : ".\\lib\\",
     "DEMO_PATH": ".\\demo\\",
     "TOOLS_PATH": ".\\tools\\",
     "MAIN_LUA_DEBUG" : "false",
     "LUA_DEBUG" : "false",
-    "COM_PORT" : "COM125"
+    "COM_PORT" : "COM5"
 }
 if os.path.exists("local.ini") :
     config.read("local.ini")
@@ -34,6 +34,8 @@ MAIN_LUA_DEBUG = config["air640w"]["MAIN_LUA_DEBUG"] == "true"
 LUA_DEBUG = config["air640w"]["LUA_DEBUG"] == "true"
 COM_PORT = config["air640w"]["COM_PORT"]
 TOOLS_PATH = os.path.abspath(config["air640w"]["TOOLS_PATH"])  + os.sep
+
+#LUA_DEBUG = False
 
 # TODO 从环境变量获取上述参数
 
@@ -165,8 +167,9 @@ def _dl(tp, _path=None):
             serial_io.write("reinit\r\n".encode())
             resp = serial_io.read_until()
             try :
-                print(resp.decode(), )
-                if "DONE!" in resp.decode() :
+                line = resp.decode().strip()
+                print(line)
+                if "DONE!" in line :
                     print("格式化完成")
                     break
             except:
@@ -260,7 +263,7 @@ def _lfs(_path=None):
                     shutil.copyfileobj(f2, f, _size)
     if TAG_PROJECT != "" and TAG_VERSION != "":
         # otademo_1.2.7_LuatOS_V0003_w60x
-        TAG_NAME = "%s_%s_LuatOS_V0003_w60x.bin" % (TAG_PROJECT, TAG_VERSION)
+        TAG_NAME = "%s_%s_LuatOS_V0005_w60x.bin" % (TAG_PROJECT, TAG_VERSION)
         print("update bin --> " + TAG_NAME)
         shutil.copy("disk/flashx.bin", TAG_NAME)
 

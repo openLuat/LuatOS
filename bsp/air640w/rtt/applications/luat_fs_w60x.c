@@ -19,6 +19,8 @@
 rt_err_t wm_spi_bus_attach_device(const char *bus_name, const char *device_name, rt_uint32_t pin);
 static uint8_t fs_ok = 0;
 
+extern char luadb_inline[];
+
 int luat_fs_init(void) {
     if (fs_ok) return 0;
     fs_ok = 1;
@@ -44,6 +46,10 @@ int luat_fs_init(void) {
     else {
       LOG_I("w600 onchip lfs mount complete");
     }
+    // 尝试挂载luadb区域
+    mkdir("/lua", 0);
+    dfs_mount("onflash", "/lua", "luadb", 0, (const void *)luadb_inline);
+
     return 0;
 }
 INIT_ENV_EXPORT(luat_fs_init);

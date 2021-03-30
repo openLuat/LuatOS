@@ -7,17 +7,17 @@
 #include "luat_log.h"
 
 //---
-static int readU8(const char* ptr, int *index) {
+static uint8_t readU8(const char* ptr, int *index) {
     int val = ptr[*index];
     *index = (*index) + 1;
     return val & 0xFF;
 }
 
-static int readU16(const char* ptr, int *index) {
+static uint16_t readU16(const char* ptr, int *index) {
     return readU8(ptr,index) + (readU8(ptr,index) << 8);
 }
 
-static int readU32(const char* ptr, int *index) {
+static uint32_t readU32(const char* ptr, int *index) {
     return readU16(ptr,index) + (readU16(ptr,index) << 16);
 }
 //---
@@ -117,26 +117,34 @@ luadb_file_t * luat_luadb_stat(luadb_fs_t *fs, const char *path) {
     return NULL;
 }
 
-luadb_fs_t* luat_luadb_mount(const char* ptr) {
+luadb_fs_t* luat_luadb_mount(const char* _ptr) {
     int index = 0;
     int headok = 0;
     int dbver = 0;
     int headsize = 0;
     int filecount = 0;
 
+    const uint8_t * ptr = (const uint8_t *)_ptr;
+
+    //LLOGD("LuaDB ptr = %p", ptr);
+    uint16_t magic1 = 0;
+    uint16_t magic2 = 0;
+
     for (size_t i = 0; i < 128; i++)
     {
         int type = readU8(ptr, &index);
         int len = readU8(ptr, &index);
-        LLOGD("PTR: %d %d %d", type, len, index);
+        //LLOGD("PTR: %d %d %d", type, len, index);
         switch (type) {
             case 1: {// Magic, 肯定是4个字节
                 if (len != 4) {
                     LLOGD("Magic len != 4");
                     goto _after_head;
                 }
-                if (ptr[index++] != 0x5A || ptr[index++] != 0xA5 || ptr[index++] != 0x5A || ptr[index++] != 0xA5 ) {
-                    LLOGD("Magic not match");
+                magic1 = readU16(ptr, &index);
+                magic2 = readU16(ptr, &index);
+                if (magic1 != magic2 || magic1 != 0xA55A) {
+                    LLOGD("Magic not match 0x%04X%04X", magic1, magic2);
                     goto _after_head;
                 }
                 break;

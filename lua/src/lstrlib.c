@@ -1821,6 +1821,9 @@ static int base64_encode( unsigned char *dst, size_t dlen, size_t *olen,
 /*
  * Decode a base64-formatted buffer
  */
+#ifndef uint32_t
+#define uint32_t unsigned int
+#endif
 static int base64_decode( unsigned char *dst, size_t dlen, size_t *olen,
                    const unsigned char *src, size_t slen )
 {

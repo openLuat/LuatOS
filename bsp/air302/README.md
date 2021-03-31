@@ -30,6 +30,43 @@ LuatOS大QQ群: 1061642968
 
 Air302专属群: 972784352
 
+## 管脚映射表
+
+| 管脚编号 | 命名   | 默认功能          |
+| -------- | ------ | ----------------- |
+| 1        | GPIO1  | BOOT              |
+| 2        | GPIO16 | SPI_CS            |
+| 3        | GPIO15 | SPI_CLK           |
+| 4        | GPIO11 | SPI_MOSI          |
+| 5        | GPIO14 | SPI_MISO          |
+| 6        | GPIO9  | GPIO              |
+| 7        | GPIO7  | GPIO              |
+| 8        | GPIO12 | UART1_TX(打印Log) |
+| 9        | GPIO13 | UART1_RX(打印Log) |
+| 12       | -      | WAKEUP_IN         |
+| 13       | GPIO19 | NET_LED           |
+| 14       | ADC0   | ADC               |
+| 16       | GPIO23 | AON_GPIO_4        |
+| 17       | GPIO21 | AON_GPIO_2        |
+| 18       | GPIO18 | GPIO              |
+| 19       | GPIO17 | GPIO              |
+| 25       | GPIO4  | UART0_TX          |
+| 26       | GPIO5  | UART0_RX          |
+| 27       | GPIO2  | UART2_RX          |
+| 28       | GPIO3  | UART2_TX          |
+| 29       | GPIO8  | I2C0_SDA          |
+| 30       | GPIO10 | I2C0_SCL          |
+
+ADC
+
+| ADC编号（LuatOS） | 功能     |
+| ----------------- | -------- |
+| 0                 | CPU温度  |
+| 1                 | VBAT电压 |
+| 2                 | 模块ADC0 |
+
+
+
 ## 常用链接
 
 * [合宙官方](http://www.openluat.com)
@@ -37,11 +74,11 @@ Air302专属群: 972784352
 * [新手包(含刷机固件,文档,demo)](https://gitee.com/openLuat/LuatOS/releases)
 * [API文档](https://gitee.com/openLuat/LuatOS/blob/master/docs/api/lua/README.md)
 * [刷机说明@doc](http://doc.openluat.com/article/977/0)
-* [刷机说明@gitee](https://gitee.com/openLuat/LuatOS/blob/master/bsp/air302/userdoc/burn_guide.txt)
+* [刷机说明@gitee](https://gitee.com/openLuat/LuatOS/blob/master/bsp/air302/userdoc/burn_guide.md)
 * [硬件资源说明@doc](http://doc.openluat.com/article/978/0)
-* [硬件资源说明@gitee](https://gitee.com/openLuat/LuatOS/blob/master/bsp/air302/userdoc/hw_resources.txt)
+* [硬件资源说明@gitee](https://gitee.com/openLuat/LuatOS/blob/master/bsp/air302/userdoc/hw_resources.md)
 * [已知限制@doc](http://doc.openluat.com/article/979/0)
-* [已知限制@gitee](https://gitee.com/openLuat/LuatOS/blob/master/bsp/air302/userdoc/limits.txt)
+* [已知限制@gitee](https://gitee.com/openLuat/LuatOS/blob/master/bsp/air302/userdoc/limits.md)
 * [开发板购买@合宙商城](https://m.openluat.com)
 * [开发板购买@骑士智能](https://item.taobao.com/item.htm?id=621910075534)
 * [LuatOS源码@gitee](https://gitee.com/openLuat/LuatOS) 期待你的小星星

@@ -18,11 +18,12 @@
 创建zbuff
 @api zbuff.create()
 @int 字节数
-@string 可选参数，填充字符串
+@any 可选参数，number时为填充数据，string时为填充字符串
 @return object zbuff对象，如果创建失败会返回nil
 @usage
 -- 创建zbuff
 local buff = zbuff.create(1024) -- 空白的
+local buff = zbuff.create(1024, 0x33) --创建一个初值全为0x33的内存区域
 local buff = zbuff.create(1024, "123321456654") -- 创建，并填充一个已有字符串的内容
  */
 static int l_zbuff_create(lua_State *L)
@@ -41,10 +42,11 @@ static int l_zbuff_create(lua_State *L)
     buff->addr = (uint8_t *)luat_heap_malloc(len);
     if (buff->addr == NULL)
     {
-        return 0;
+        lua_pushnil(L);
+        lua_pushstring(L,"memory not enough");
+        return 2;
     }
 
-    memset(buff->addr, 0, len);
     buff->len = len;
     buff->cursor = 0;
 
@@ -58,6 +60,12 @@ static int l_zbuff_create(lua_State *L)
         memcpy(buff->addr, data, len);
         buff->cursor = len;
     }
+    else if(lua_isinteger(L,2)){
+        memset(buff->addr, luaL_checkinteger(L,2) % 0x100, len);
+    }
+    else{
+        memset(buff->addr, 0, len);
+    }
 
     luaL_setmetatable(L, LUAT_ZBUFF_TYPE);
     return 1;
@@ -66,31 +74,47 @@ static int l_zbuff_create(lua_State *L)
 /**
 zbuff写数据
 @api buff:write()
-@string 写入buff的数据
+@any 写入buff的数据，string时为一个参数，number时可为多个参数
 @return number 数据成功写入的长度
 @usage
 -- 类file的读写操作
 local len = buff:write("123") -- 写入数据, 指针相应地往后移动，返回写入的数据长度
+local len = buff:write(0x1a,0x30,0x31,0x32,0x00,0x01)  -- 按数值写入多个字节数据
  */
 static int l_zbuff_write(lua_State *L)
 {
-    int len;
-    char *data = luaL_checklstring(L, 2, &len);
-    luat_zbuff *buff = tozbuff(L);
-    if (buff == NULL)
-    {
-        return 0;
+    if(lua_isstring(L,2)){
+        int len;
+        char *data = luaL_checklstring(L, 2, &len);
+        luat_zbuff *buff = tozbuff(L);
+        if (buff == NULL)return 0;
+        if(len + buff->cursor > buff->len)//防止越界
+        {
+            len = buff->len - buff->cursor;
+        }
+        memcpy(buff->addr+buff->cursor, data, len);
+        buff->cursor = buff->cursor + len;
+        lua_pushinteger(L, len);
+        return 1;
     }
-    if(len + buff->cursor > buff->len)//防止越界
-    {
-        len = buff->len - buff->cursor;
+    else if(lua_isinteger(L,2)){
+        int len = 0,data;
+        luat_zbuff *buff = tozbuff(L);
+        if (buff == NULL)return 0;
+        while(lua_isinteger(L,1+len) && buff->cursor < buff->len){
+            data = luaL_checkinteger(L,2 + len);
+            buff->cursor++;
+            *(buff->addr+buff->cursor) = data % 0x100;
+            len++;
+        }
+        lua_pushinteger(L, len);
+        return 1;
     }
-    memcpy(buff->addr+buff->cursor, data, len);
+    else{
+        lua_pushinteger(L, 0);
+        return 1;
+    }
 
-    buff->cursor = buff->cursor + len;
-
-    lua_pushinteger(L, len);
-    return 1;
 }
 
 /**
@@ -112,7 +136,8 @@ static int l_zbuff_read(lua_State *L)
     }
     if(read_num <= 0)
     {
-        return 0;
+        lua_pushlstring(L, NULL, 0);
+        return 1;
     }
     char *return_str = (char *)luat_heap_malloc(read_num);
     if(return_str == NULL)
@@ -164,7 +189,6 @@ static int l_zbuff_gc(lua_State *L)
 {
     luat_zbuff *buff = tozbuff(L);
     luat_heap_free(buff->addr);
-    LLOGD("GC");
     return 0;
 }
 

@@ -3,6 +3,9 @@
 
 #include "luat_msgbus.h"
 
+#define ZBUFF_SEEK_SET 0
+#define ZBUFF_SEEK_CUR 1
+#define ZBUFF_SEEK_END 2
 typedef struct luat_zbuff {
     uint8_t* addr;      //数据存储的地址
     uint32_t len;       //数据的长度

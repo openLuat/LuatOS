@@ -1,6 +1,6 @@
 /*
 @module  zbuff
-@summary 直接指向一块内存区域,提供一系列API操作这块内存
+@summary c内存数据操作库
 @version 0.1
 @date    2021.03.31
 */
@@ -13,17 +13,6 @@
 #define LUAT_ZBUFF_TYPE "ZBUFF*"
 
 #define tozbuff(L) ((luat_zbuff *)luaL_checkudata(L, 1, LUAT_ZBUFF_TYPE))
-
-/* Fill memory block */
-static void mem_set(void *dst, int val, uint32_t cnt)
-{
-    uint8_t *d = (uint8_t *)dst;
-
-    do
-    {
-        *d++ = (uint8_t)val;
-    } while (--cnt);
-}
 
 /**
 创建zbuff
@@ -38,7 +27,6 @@ local buff = zbuff.create(1024, "123321456654") -- 创建，并填充一个已�
  */
 static int l_zbuff_create(lua_State *L)
 {
-
     int len = luaL_checkinteger(L, 1);
     if (len <= 0)
     {
@@ -46,7 +34,6 @@ static int l_zbuff_create(lua_State *L)
     }
 
     luat_zbuff *buff = (luat_zbuff *)lua_newuserdata(L, sizeof(luat_zbuff));
-
     if (buff == NULL)
     {
         return 0;
@@ -57,16 +44,18 @@ static int l_zbuff_create(lua_State *L)
         return 0;
     }
 
-    mem_set(buff->addr, 0, len);
+    memset(buff->addr, 0, len);
     buff->len = len;
     buff->cursor = 0;
 
     if (lua_isstring(L, 2))
     {
         char *data = luaL_optlstring(L, 2, "", &len);
-
+        if(len > buff->len)//防止越界
+        {
+            len = buff->len;
+        }
         memcpy(buff->addr, data, len);
-
         buff->cursor = len;
     }
 
@@ -78,10 +67,10 @@ static int l_zbuff_create(lua_State *L)
 zbuff写数据
 @api buff:write()
 @string 写入buff的数据
-@return boolean 写入结果，成功返回true，失败返回false
+@return number 数据成功写入的长度
 @usage
 -- 类file的读写操作
-buff:write("123") -- 写入数据, 指针相应地往后移动
+local len = buff:write("123") -- 写入数据, 指针相应地往后移动，返回写入的数据长度
  */
 static int l_zbuff_write(lua_State *L)
 {
@@ -90,15 +79,17 @@ static int l_zbuff_write(lua_State *L)
     luat_zbuff *buff = tozbuff(L);
     if (buff == NULL)
     {
-        lua_pushboolean(L, 0);
-        return 1;
+        return 0;
     }
-
-    memcpy(&(buff->addr[buff->cursor]), data, len);
+    if(len + buff->cursor > buff->len)//防止越界
+    {
+        len = buff->len - buff->cursor;
+    }
+    memcpy(buff->addr+buff->cursor, data, len);
 
     buff->cursor = buff->cursor + len;
 
-    lua_pushboolean(L, 1);
+    lua_pushinteger(L, len);
     return 1;
 }
 
@@ -114,12 +105,23 @@ local str = buff:read(3)
 static int l_zbuff_read(lua_State *L)
 {
     luat_zbuff *buff = tozbuff(L);
-
     int read_num = luaL_optinteger(L, 2, 0);
+    if(read_num > buff->len - buff->cursor)//防止越界
+    {
+        read_num = buff->len - buff->cursor;
+    }
+    if(read_num <= 0)
+    {
+        return 0;
+    }
     char *return_str = (char *)luat_heap_malloc(read_num);
-    memcpy(return_str, &(buff->addr[buff->cursor]), read_num);
+    if(return_str == NULL)
+    {
+        return 0;
+    }
+    memcpy(return_str, buff->addr+buff->cursor, read_num);
     lua_pushlstring(L, return_str, read_num);
-    buff->cursor = buff->cursor + read_num;
+    buff->cursor += read_num;
     return 1;
 }
 
@@ -135,22 +137,24 @@ static int l_zbuff_seek(lua_State *L)
 {
     luat_zbuff *buff = tozbuff(L);
 
-    int whence = luaL_optinteger(L, 2, 0);
-    int offset = luaL_optinteger(L, 3, 0);
+    int whence = luaL_checkinteger(L, 2);
+    int offset = luaL_checkinteger(L, 3);
     switch (whence)
     {
-    case 0:
-        buff->cursor = 0 + offset;
+    case ZBUFF_SEEK_SET:
         break;
-    case 1:
-        buff->cursor = buff->cursor + offset;
+    case ZBUFF_SEEK_CUR:
+        offset = buff->cursor + offset;
         break;
-    case 2:
-        buff->cursor = buff->len + offset;
+    case ZBUFF_SEEK_END:
+        offset = buff->len + offset;
         break;
     default:
         return 0;
     }
+    if(offset <= 0) offset = 0;
+    if(offset > buff->len) offset = buff->len;
+    buff->cursor = offset;
     lua_pushinteger(L, buff->cursor);
     return 1;
 }
@@ -184,9 +188,9 @@ static void createmeta(lua_State *L)
 static const rotable_Reg reg_zbuff[] =
     {
         {"create", l_zbuff_create, 0},
-        {"SEEK_SET", NULL, 0},
-        {"SEEK_CUR", NULL, 1},
-        {"SEEK_END", NULL, 2},
+        {"SEEK_SET", NULL, ZBUFF_SEEK_SET},
+        {"SEEK_CUR", NULL, ZBUFF_SEEK_CUR},
+        {"SEEK_END", NULL, ZBUFF_SEEK_END},
         {NULL, NULL, 0}};
 
 LUAMOD_API int luaopen_zbuff(lua_State *L)

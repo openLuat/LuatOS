@@ -20,7 +20,7 @@
 #include "epd.h"
 #include "epdpaint.h"
 #include "imagedata.h"
-#include "qrcode.h"
+#include "../qrcode/qrcode.h"
 
 #include <stdlib.h>
 
@@ -39,7 +39,7 @@
 #define LUAT_LOG_TAG "luat.eink"
 
 
-// static EPD epd; 
+// static EPD epd;
 static Paint paint;
 static unsigned char* frame_buffer;
 
@@ -83,7 +83,7 @@ static int l_eink_setup(lua_State *L) {
     //EPD_Model(MODEL_1in54f);
     //EPD_Model(MODEL_1in54_V2);
     // EPD_Model(MODEL_2in13b_V3);
-    
+
     size_t epd_w = 0;
     size_t epd_h = 0;
     if(status == 0)
@@ -97,7 +97,7 @@ static int l_eink_setup(lua_State *L) {
         if (status != 0) {
             LLOGD("e-Paper init failed");
             return 0;
-        } 
+        }
         frame_buffer = (unsigned char*)luat_heap_malloc(epd_w * epd_h / 8);
         //   Paint paint;
         Paint_Init(&paint, frame_buffer, epd_w, epd_h);
@@ -176,7 +176,7 @@ static int l_eink_print(lua_State *L)
     int x           = luaL_checkinteger(L, 1);
     int y           = luaL_checkinteger(L, 2);
     const char *str = luaL_checklstring(L, 3, &len);
-    int colored     = luaL_optinteger(L, 4, 0);    
+    int colored     = luaL_optinteger(L, 4, 0);
     int font        = luaL_optinteger(L, 5, 12);
 
 
@@ -196,7 +196,7 @@ static int l_eink_print(lua_State *L)
             break;
         case 24:
             Paint_DrawStringAt(&paint, x, y, str, &Font24, colored);
-            break;    
+            break;
         default:
             break;
     }
@@ -223,7 +223,7 @@ static int l_eink_printcn(lua_State *L)
     int x           = luaL_checkinteger(L, 1);
     int y           = luaL_checkinteger(L, 2);
     const char *str = luaL_checklstring(L, 3, &len);
-    int colored     = luaL_optinteger(L, 4, 0);    
+    int colored     = luaL_optinteger(L, 4, 0);
     int font_size        = luaL_optinteger(L, 5, 12);
 
     //LLOGD("printcn font_size %d len %d", font_size, len);
@@ -255,7 +255,7 @@ static int l_eink_printcn(lua_State *L)
         //         Paint_DrawStringAt(&paint, x, y, ch, &Font24, colored);
         //     x += font_size;
         // }
-        // else 
+        // else
         if ( e != 0x0fffe )
         {
             //delta = u8g2_DrawGlyph(u8g2, x, y, e);
@@ -291,7 +291,7 @@ static int l_eink_printcn(lua_State *L)
             {
                 x += font_size;
             }
-            
+
         }
     }
 
@@ -328,7 +328,7 @@ static int l_eink_show(lua_State *L)
 @int 终点x坐标
 @int 终点y坐标
 @return nil 无返回值
-@usage 
+@usage
 eink.line(0, 0, 10, 20, 0)
 */
 static int l_eink_line(lua_State *L)
@@ -420,7 +420,7 @@ static int l_eink_qrcode(lua_State *L)
     // Create the QR code
     QRCode qrcode;
     uint8_t qrcodeData[qrcode_getBufferSize(version)];
-    qrcode_initText(&qrcode, qrcodeData, version, 0, str);   
+    qrcode_initText(&qrcode, qrcodeData, version, 0, str);
 
     for(int i = 0; i < qrcode.size; i++)
     {
@@ -486,7 +486,7 @@ static int l_eink_weather_icon(lua_State *L)
     int y           = luaL_checkinteger(L, 2);
     int code        = luaL_checkinteger(L, 3);
     const char* str = luaL_optlstring(L, 4, "nil", &len);
-    const unsigned char * icon = gImage_999;  
+    const unsigned char * icon = gImage_999;
 
     if (strcmp(str, "xue")      == 0)code = 401;
     if (strcmp(str, "lei")      == 0)code = 302;
@@ -509,7 +509,7 @@ static int l_eink_weather_icon(lua_State *L)
     //             (gImage_103[i*8+j] << k )& 0x80 ? Paint_DrawPixel(&paint, x+j*8+k, y+i, COLORED) : Paint_DrawPixel(&paint, x+j*8+k, y+i, UNCOLORED);
     //     }
     // }
-    
+
     switch (code)
     {
         case 100:icon = gImage_100;break;
@@ -597,9 +597,9 @@ static const rotable_Reg reg_eink[] =
     { "circle",         l_eink_circle,          0},
     { "line",           l_eink_line,            0},
 
-    { "qrcode",         l_eink_qrcode,          0},   
-    { "bat",            l_eink_bat,             0},      
-    { "weather_icon",   l_eink_weather_icon,    0},  
+    { "qrcode",         l_eink_qrcode,          0},
+    { "bat",            l_eink_bat,             0},
+    { "weather_icon",   l_eink_weather_icon,    0},
 
     { "model",          l_eink_model,           0},
 

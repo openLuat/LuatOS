@@ -53,7 +53,8 @@ modules = []
 # modules = [
 #     {
 #         'module': 'adc',
-#         'summary': '数模转换'
+#         'summary': '数模转换',
+#         'url': 'https://xxxxxx',
 #         'api':[
 #             {
 #                 'api':'adc.read(id)',
@@ -94,6 +95,14 @@ for file in file_list:
         continue
 
     module = {}
+
+    file = file.replace("\\","/")
+    if file.rfind("luat/") >= 0:
+        file = file[file.rfind("luat/"):]
+        module["url"] = "https://gitee.com/openLuat/LuatOS/tree/master/"+file
+    else:
+        module["url"] = ""
+
 
     # 注释头
     r = re.search(r"/\* *\n *@module *(\w+)\n *@summary *(.+)\n",text,re.I|re.M)
@@ -202,6 +211,8 @@ doc.write(".. toctree::\n\n")
 for module in modules:
     mdoc = open("../../luatos-wiki/api/"+module["module"]+".md", "a+",encoding='utf-8')
     mdoc.write("# "+module["module"]+" - "+module["summary"]+"\n\n")
+    if len(module["url"]) > 0:
+        mdoc.write("> 本页文档由[这个文件]("+module["url"]+")自动生成。如有错误，请提交issue或帮忙修改后pr，谢谢！\n\n")
     doc.write("   "+module["module"]+"\n")
     for api in module["api"]:
         mdoc.write("## "+api["api"]+"\n\n")

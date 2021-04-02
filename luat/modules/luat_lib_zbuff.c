@@ -241,6 +241,40 @@ static int l_zbuff_unpack(lua_State *L)
     return 0;
 }
 
+/**
+以下标形式进行数据读写
+@api buff[n]
+@int 第几个数据，以0开始的下标（C标准）
+@return number 该位置的数据
+@usage
+buff[0] = 0xc8
+local data = buff[0]
+ */
+static int l_zbuff_index(lua_State *L)
+{
+    LLOGD("l_zbuff_index!");
+    luat_zbuff *buff = tozbuff(L);
+    LLOGD("buff->len %d",buff->len);
+    int o = luaL_checkinteger(L,2);
+    LLOGD("o %d",o);
+    if(o > buff->len) return 0;
+    lua_pushinteger(L,buff->addr[o]);
+    return 1;
+}
+
+static int l_zbuff_newindex(lua_State *L)
+{
+    LLOGD("l_zbuff_newindex!");
+    luat_zbuff *buff = tozbuff(L);
+    if(lua_isinteger(L,2)){
+        int o = luaL_checkinteger(L,2);
+        int n = luaL_checkinteger(L,3) % 256;
+        if(o > buff->len) return 0;
+        buff->addr[o] = n;
+    }
+    return 0;
+}
+
 // __gc
 static int l_zbuff_gc(lua_State *L)
 {
@@ -255,6 +289,8 @@ static const luaL_Reg lib_zbuff[] = {
     {"seek", l_zbuff_seek},
     {"pack", l_zbuff_pack},
     {"unpack", l_zbuff_unpack},
+    {"get", l_zbuff_index},
+    {"__newindex", l_zbuff_newindex},
     {"__gc", l_zbuff_gc},
     {NULL, NULL}};
 

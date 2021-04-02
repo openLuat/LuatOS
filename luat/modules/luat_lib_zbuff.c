@@ -16,7 +16,7 @@
 
 /**
 创建zbuff
-@api zbuff.create()
+@api zbuff.create(length,data)
 @int 字节数
 @any 可选参数，number时为填充数据，string时为填充字符串
 @return object zbuff对象，如果创建失败会返回nil
@@ -73,7 +73,7 @@ static int l_zbuff_create(lua_State *L)
 
 /**
 zbuff写数据
-@api buff:write()
+@api buff:write(para,...)
 @any 写入buff的数据，string时为一个参数，number时可为多个参数
 @return number 数据成功写入的长度
 @usage
@@ -114,12 +114,11 @@ static int l_zbuff_write(lua_State *L)
         lua_pushinteger(L, 0);
         return 1;
     }
-
 }
 
 /**
 zbuff读数据
-@api buff:read()
+@api buff:read(length)
 @int 读取buff中的字节数
 @return string 读取结果
 @usage
@@ -152,18 +151,21 @@ static int l_zbuff_read(lua_State *L)
 
 /**
 zbuff设置光标位置
-@api buff:seek()
-@int whence, 基点，基点可以是"zbuff.SEEK_SET": 基点为 0 （文件开头）；"zbuff.SEEK_CUR": 基点为当前位置；"zbuff.SEEK_END": 基点为文件尾；
+@api buff:seek(base,offset)
+@int 偏移长度
+@int whence, 基点，默认zbuff.SEEK_SET<br>zbuff.SEEK_SET: 基点为 0 （文件开头）<br>zbuff.SEEK_CUR: 基点为当前位置<br>zbuff.SEEK_END: 基点为文件尾
 @return int 设置光标后从buff开头计算起的光标的位置
 @usage
-buff:seek(zbuff.SEEK_SET, 0) -- 把光标设置到指定位置
+buff:seek(0,zbuff.SEEK_SET) -- 把光标设置到指定位置
+buff:seek(5,zbuff.SEEK_CUR)
+buff:seek(-3,zbuff.SEEK_END)
  */
 static int l_zbuff_seek(lua_State *L)
 {
     luat_zbuff *buff = tozbuff(L);
 
-    int whence = luaL_checkinteger(L, 2);
-    int offset = luaL_checkinteger(L, 3);
+    int offset = luaL_checkinteger(L, 2);
+    int whence = luaL_optinteger(L,3,ZBUFF_SEEK_SET);
     switch (whence)
     {
     case ZBUFF_SEEK_SET:
@@ -184,6 +186,50 @@ static int l_zbuff_seek(lua_State *L)
     return 1;
 }
 
+/**
+将一系列数据按照格式字符转化，并写入
+@api buff:pack(format,val1, val2,...)
+@string 后面数据的格式（符号含义见下面的例子）
+@val  传入的数据，可以为多个数据
+@return int 成功写入的数据长度
+@usage
+buff:pack(">IIH", 0x1234, 0x4567, 0x12) -- 按格式写入几个数据
+-- A：string
+-- f：float
+-- d：double
+-- n：Lua number
+-- c：char
+-- b：byte = unsigned char
+-- h：short
+-- H：unsigned short
+-- i：int
+-- I：unsigned int
+-- l：long
+-- L：unsigned long
+-- <：little endian
+-- >：big endian
+-- =：native endian
+ */
+static int l_zbuff_pack(lua_State *L)
+{
+
+    return 0;
+}
+
+/**
+将一系列数据按照格式字符读取出来
+@api buff:unpack(format)
+@string 数据的格式（符号含义见上面pack接口的例子）
+@return any 按格式读出来的数据，如果某数据读取失败，就是nil
+@usage
+local a,b,c = buff:unpack(">IIH") -- 按格式读取几个数据
+ */
+static int l_zbuff_unpack(lua_State *L)
+{
+
+    return 0;
+}
+
 // __gc
 static int l_zbuff_gc(lua_State *L)
 {
@@ -196,6 +242,8 @@ static const luaL_Reg lib_zbuff[] = {
     {"write", l_zbuff_write},
     {"read", l_zbuff_read},
     {"seek", l_zbuff_seek},
+    {"pack", l_zbuff_pack},
+    {"unpack", l_zbuff_unpack},
     {"__gc", l_zbuff_gc},
     {NULL, NULL}};
 

@@ -147,10 +147,10 @@ static int l_zbuff_read(lua_State *L)
 zbuff设置光标位置
 @api buff:seek(base,offset)
 @int 偏移长度
-@int whence, 基点，默认zbuff.SEEK_SET<br>zbuff.SEEK_SET: 基点为 0 （文件开头）<br>zbuff.SEEK_CUR: 基点为当前位置<br>zbuff.SEEK_END: 基点为文件尾
+@int whence, 基点，默认zbuff.SEEK_SET。zbuff.SEEK_SET: 基点为 0 （文件开头），zbuff.SEEK_CUR: 基点为当前位置，zbuff.SEEK_END: 基点为文件尾
 @return int 设置光标后从buff开头计算起的光标的位置
 @usage
-buff:seek(0,zbuff.SEEK_SET) -- 把光标设置到指定位置
+buff:seek(0) -- 把光标设置到指定位置
 buff:seek(5,zbuff.SEEK_CUR)
 buff:seek(-3,zbuff.SEEK_END)
  */
@@ -241,6 +241,248 @@ static int l_zbuff_unpack(lua_State *L)
     return 0;
 }
 
+
+/**
+读取一个I8数据
+@api buff:readI8()
+@return number 读取的数据，如果越界则为nil
+@usage
+local data = buff:readI8()
+*/
+static int l_zbuff_read_i8(lua_State *L)
+{
+    return 0;
+}
+
+/**
+读取一个I16数据
+@api buff:readI16()
+@return number 读取的数据，如果越界则为nil
+@usage
+local data = buff:readI16()
+*/
+static int l_zbuff_read_i16(lua_State *L)
+{
+    return 0;
+}
+
+/**
+读取一个I32数据
+@api buff:readI32()
+@return number 读取的数据，如果越界则为nil
+@usage
+local data = buff:readI32()
+*/
+static int l_zbuff_read_i32(lua_State *L)
+{
+    return 0;
+}
+
+/**
+读取一个I64数据
+@api buff:readI64()
+@return number 读取的数据，如果越界则为nil
+@usage
+local data = buff:readI64()
+*/
+static int l_zbuff_read_i64(lua_State *L)
+{
+    return 0;
+}
+
+/**
+读取一个U8数据
+@api buff:readU8()
+@return number 读取的数据，如果越界则为nil
+@usage
+local data = buff:readU8()
+*/
+static int l_zbuff_read_u8(lua_State *L)
+{
+    return 0;
+}
+
+/**
+读取一个U16数据
+@api buff:readU16()
+@return number 读取的数据，如果越界则为nil
+@usage
+local data = buff:readU16()
+*/
+static int l_zbuff_read_u16(lua_State *L)
+{
+    return 0;
+}
+
+/**
+读取一个U32数据
+@api buff:readU32()
+@return number 读取的数据，如果越界则为nil
+@usage
+local data = buff:readU32()
+*/
+static int l_zbuff_read_u32(lua_State *L)
+{
+    return 0;
+}
+
+/**
+读取一个U64数据
+@api buff:readU64()
+@return number 读取的数据，如果越界则为nil
+@usage
+local data = buff:readU64()
+*/
+static int l_zbuff_read_u64(lua_State *L)
+{
+    return 0;
+}
+
+/**
+读取一个F32数据
+@api buff:readF32()
+@return number 读取的数据，如果越界则为nil
+@usage
+local data = buff:readF32()
+*/
+static int l_zbuff_read_f32(lua_State *L)
+{
+    return 0;
+}
+
+/**
+读取一个F64数据
+@api buff:readF64()
+@return number 读取的数据，如果越界则为nil
+@usage
+local data = buff:readF64()
+*/
+static int l_zbuff_read_f64(lua_State *L)
+{
+    return 0;
+}
+
+/**
+写入一个I8数据
+@api buff:writeI8()
+@return number 写入成功的字节数
+@usage
+local len = buff:writeI8()
+*/
+static int l_zbuff_write_i8(lua_State *L)
+{
+    return 0;
+}
+
+/**
+写入一个I16数据
+@api buff:writeI16()
+@return number 写入成功的字节数
+@usage
+local len = buff:writeI16()
+*/
+static int l_zbuff_write_i16(lua_State *L)
+{
+    return 0;
+}
+
+/**
+写入一个I32数据
+@api buff:writeI32()
+@return number 写入成功的字节数
+@usage
+local len = buff:writeI32()
+*/
+static int l_zbuff_write_i32(lua_State *L)
+{
+    return 0;
+}
+
+/**
+写入一个I64数据
+@api buff:writeI64()
+@return number 写入成功的字节数
+@usage
+local len = buff:writeI64()
+*/
+static int l_zbuff_write_i64(lua_State *L)
+{
+    return 0;
+}
+
+/**
+写入一个U8数据
+@api buff:writeU8()
+@return number 写入成功的字节数
+@usage
+local len = buff:writeU8()
+*/
+static int l_zbuff_write_u8(lua_State *L)
+{
+    return 0;
+}
+
+/**
+写入一个U16数据
+@api buff:writeU16()
+@return number 写入成功的字节数
+@usage
+local len = buff:writeU16()
+*/
+static int l_zbuff_write_u16(lua_State *L)
+{
+    return 0;
+}
+
+/**
+写入一个U32数据
+@api buff:writeU32()
+@return number 写入成功的字节数
+@usage
+local len = buff:writeU32()
+*/
+static int l_zbuff_write_u32(lua_State *L)
+{
+    return 0;
+}
+
+/**
+写入一个U64数据
+@api buff:writeU64()
+@return number 写入成功的字节数
+@usage
+local len = buff:writeU64()
+*/
+static int l_zbuff_write_u64(lua_State *L)
+{
+    return 0;
+}
+
+/**
+写入一个F32数据
+@api buff:writeF32()
+@return number 写入成功的字节数
+@usage
+local len = buff:writeF32()
+*/
+static int l_zbuff_write_f32(lua_State *L)
+{
+    return 0;
+}
+
+/**
+写入一个F64数据
+@api buff:writeF64()
+@return number 写入成功的字节数
+@usage
+local len = buff:writeF64()
+*/
+static int l_zbuff_write_f64(lua_State *L)
+{
+    return 0;
+}
+
+
 /**
 以下标形式进行数据读写
 @api buff[n]
@@ -299,8 +541,26 @@ static const luaL_Reg lib_zbuff[] = {
     {"pack", l_zbuff_pack},
     {"unpack", l_zbuff_unpack},
     {"get", l_zbuff_index},
-    {"__newindex", l_zbuff_newindex},
-    {"__gc", l_zbuff_gc},
+    {"readI8", l_zbuff_read_i8},
+    {"readI16", l_zbuff_read_i16},
+    {"readI32", l_zbuff_read_i32},
+    {"readI64", l_zbuff_read_i64},
+    {"readU8", l_zbuff_read_u8},
+    {"readU16", l_zbuff_read_u16},
+    {"readU32", l_zbuff_read_u32},
+    {"readU64", l_zbuff_read_u64},
+    {"readF32", l_zbuff_read_f32},
+    {"readF64", l_zbuff_read_f64},
+    {"writeI8", l_zbuff_write_i8},
+    {"writeI16", l_zbuff_write_i16},
+    {"writeI32", l_zbuff_write_i32},
+    {"writeI64", l_zbuff_write_i64},
+    {"writeU8", l_zbuff_write_u8},
+    {"writeU16", l_zbuff_write_u16},
+    {"writeU32", l_zbuff_write_u32},
+    {"writeU64", l_zbuff_write_u64},
+    {"writeF32", l_zbuff_write_f32},
+    {"writeF64", l_zbuff_write_f64},
     {NULL, NULL}
 };
 

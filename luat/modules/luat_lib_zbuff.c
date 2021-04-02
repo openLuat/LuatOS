@@ -252,25 +252,34 @@ local data = buff[0]
  */
 static int l_zbuff_index(lua_State *L)
 {
-    LLOGD("l_zbuff_index!");
-    luat_zbuff *buff = tozbuff(L);
-    LLOGD("buff->len %d",buff->len);
-    int o = luaL_checkinteger(L,2);
-    LLOGD("o %d",o);
-    if(o > buff->len) return 0;
-    lua_pushinteger(L,buff->addr[o]);
+    luat_zbuff** pp = luaL_checkudata(L, 1, LUAT_ZBUFF_TYPE);
+    int i;
+
+    luaL_getmetatable(L, LUAT_ZBUFF_TYPE);
+    lua_pushvalue(L, 2);
+    lua_rawget(L, -2);
+
+    if ( lua_isnil(L, -1) ) {
+        /* found no method, so get value from userdata. */
+        luat_zbuff *buff = tozbuff(L);
+        int o = luaL_checkinteger(L,2);
+        if(o > buff->len) return 0;
+        lua_pushinteger(L,buff->addr[o]);
+        return 1;
+    };
     return 1;
 }
 
 static int l_zbuff_newindex(lua_State *L)
 {
-    LLOGD("l_zbuff_newindex!");
-    luat_zbuff *buff = tozbuff(L);
     if(lua_isinteger(L,2)){
-        int o = luaL_checkinteger(L,2);
-        int n = luaL_checkinteger(L,3) % 256;
-        if(o > buff->len) return 0;
-        buff->addr[o] = n;
+        luat_zbuff *buff = tozbuff(L);
+        if(lua_isinteger(L,2)){
+            int o = luaL_checkinteger(L,2);
+            int n = luaL_checkinteger(L,3) % 256;
+            if(o > buff->len) return 0;
+            buff->addr[o] = n;
+        }
     }
     return 0;
 }
@@ -292,15 +301,27 @@ static const luaL_Reg lib_zbuff[] = {
     {"get", l_zbuff_index},
     {"__newindex", l_zbuff_newindex},
     {"__gc", l_zbuff_gc},
-    {NULL, NULL}};
+    {NULL, NULL}
+};
+
+static const luaL_Reg lib_zbuff_metamethods[] = {
+    {"__index", l_zbuff_index},
+    {"__newindex", l_zbuff_newindex},
+    {"__gc", l_zbuff_gc},
+    {NULL, NULL}
+};
+
 
 static void createmeta(lua_State *L)
 {
     luaL_newmetatable(L, LUAT_ZBUFF_TYPE); /* create metatable for file handles */
-    lua_pushvalue(L, -1);                  /* push metatable */
-    lua_setfield(L, -2, "__index");        /* metatable.__index = metatable */
-    luaL_setfuncs(L, lib_zbuff, 0);        /* add file methods to new metatable */
+    // lua_pushvalue(L, -1);                  /* push metatable */
+    // lua_setfield(L, -2, "__index");        /* metatable.__index = metatable */
+    // luaL_setfuncs(L, lib_zbuff, 0);        /* add file methods to new metatable */
+    luaL_setfuncs(L, lib_zbuff_metamethods, 0);
+    luaL_setfuncs(L, lib_zbuff, 0);
     lua_pop(L, 1);                         /* pop new metatable */
+    //luaL_newlib(L, lib_zbuff);
 }
 
 #include "rotable.h"

@@ -8,8 +8,8 @@
 #define ZBUFF_SEEK_END 2
 typedef struct luat_zbuff {
     uint8_t* addr;      //数据存储的地址
-    uint32_t len;       //数据的长度
-    uint32_t cursor;    //目前的指针位置
+    size_t len;       //数据的长度
+    size_t cursor;    //目前的指针位置
 } luat_zbuff;
 
 #endif

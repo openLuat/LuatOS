@@ -28,7 +28,7 @@ local buff = zbuff.create(1024, "123321456654") -- 创建，并填充一个已�
  */
 static int l_zbuff_create(lua_State *L)
 {
-    int len = luaL_checkinteger(L, 1);
+    size_t len = luaL_checkinteger(L, 1);
     if (len <= 0)
     {
         return 0;
@@ -50,7 +50,10 @@ static int l_zbuff_create(lua_State *L)
     buff->len = len;
     buff->cursor = 0;
 
-    if (lua_isstring(L, 2))
+    if(lua_isinteger(L,2)){
+        memset(buff->addr, luaL_checkinteger(L,2) % 0x100, len);
+    }
+    else if (lua_isstring(L, 2))
     {
         char *data = luaL_optlstring(L, 2, "", &len);
         if(len > buff->len)//防止越界
@@ -59,9 +62,6 @@ static int l_zbuff_create(lua_State *L)
         }
         memcpy(buff->addr, data, len);
         buff->cursor = len;
-    }
-    else if(lua_isinteger(L,2)){
-        memset(buff->addr, luaL_checkinteger(L,2) % 0x100, len);
     }
     else{
         memset(buff->addr, 0, len);
@@ -83,11 +83,22 @@ local len = buff:write(0x1a,0x30,0x31,0x32,0x00,0x01)  -- 按数值写入多个�
  */
 static int l_zbuff_write(lua_State *L)
 {
-    if(lua_isstring(L,2)){
-        int len;
+    if(lua_isinteger(L,2)){
+        int len = 0,data;
+        luat_zbuff *buff = tozbuff(L);
+        while(lua_isinteger(L,2+len) && buff->cursor < buff->len){
+            data = luaL_checkinteger(L,2+len);
+            *(uint8_t*)(buff->addr+buff->cursor) = data % 0x100;
+            buff->cursor++;
+            len++;
+        }
+        lua_pushinteger(L, len);
+        return 1;
+    }
+    else{
+        size_t len;
         char *data = luaL_checklstring(L, 2, &len);
         luat_zbuff *buff = tozbuff(L);
-        if (buff == NULL)return 0;
         if(len + buff->cursor > buff->len)//防止越界
         {
             len = buff->len - buff->cursor;
@@ -95,23 +106,6 @@ static int l_zbuff_write(lua_State *L)
         memcpy(buff->addr+buff->cursor, data, len);
         buff->cursor = buff->cursor + len;
         lua_pushinteger(L, len);
-        return 1;
-    }
-    else if(lua_isinteger(L,2)){
-        int len = 0,data;
-        luat_zbuff *buff = tozbuff(L);
-        if (buff == NULL)return 0;
-        while(lua_isinteger(L,1+len) && buff->cursor < buff->len){
-            data = luaL_checkinteger(L,2 + len);
-            buff->cursor++;
-            *(buff->addr+buff->cursor) = data % 0x100;
-            len++;
-        }
-        lua_pushinteger(L, len);
-        return 1;
-    }
-    else{
-        lua_pushinteger(L, 0);
         return 1;
     }
 }
@@ -128,7 +122,7 @@ local str = buff:read(3)
 static int l_zbuff_read(lua_State *L)
 {
     luat_zbuff *buff = tozbuff(L);
-    int read_num = luaL_optinteger(L, 2, 0);
+    int read_num = luaL_optinteger(L, 2, 1);
     if(read_num > buff->len - buff->cursor)//防止越界
     {
         read_num = buff->len - buff->cursor;
@@ -186,6 +180,23 @@ static int l_zbuff_seek(lua_State *L)
     return 1;
 }
 
+//code from https://github.com/LuaDist/lpack/blob/master/lpack.c
+#define	OP_STRING	'A'
+#define	OP_FLOAT	'f'
+#define	OP_DOUBLE	'd'
+#define	OP_NUMBER	'n'
+#define	OP_CHAR		'c'
+#define	OP_BYTE		'b'
+#define	OP_SHORT	'h'
+#define	OP_USHORT	'H'
+#define	OP_INT		'i'
+#define	OP_UINT		'I'
+#define	OP_LONG		'l'
+#define	OP_ULONG	'L'
+#define	OP_LITTLEENDIAN	'<'
+#define	OP_BIGENDIAN	'>'
+#define	OP_NATIVE	'='
+
 /**
 将一系列数据按照格式字符转化，并写入
 @api buff:pack(format,val1, val2,...)
@@ -198,14 +209,14 @@ buff:pack(">IIH", 0x1234, 0x4567, 0x12) -- 按格式写入几个数据
 -- f：float
 -- d：double
 -- n：Lua number
--- c：char
--- b：byte = unsigned char
--- h：short
--- H：unsigned short
--- i：int
--- I：unsigned int
--- l：long
--- L：unsigned long
+-- c：char  int8
+-- b：byte  uint8
+-- h：int16
+-- H：uint16
+-- i：int32
+-- I：uint32
+-- l：int64
+-- L：uint64
 -- <：little endian
 -- >：big endian
 -- =：native endian
@@ -216,17 +227,17 @@ static int l_zbuff_pack(lua_State *L)
     return 0;
 }
 
+
 /**
 将一系列数据按照格式字符读取出来
 @api buff:unpack(format)
 @string 数据的格式（符号含义见上面pack接口的例子）
 @return any 按格式读出来的数据，如果某数据读取失败，就是nil
 @usage
-local a,b,c = buff:unpack(">IIH") -- 按格式读取几个数据
+local a,b,c,s = buff:unpack(">IIHA10") -- 按格式读取几个数据
  */
 static int l_zbuff_unpack(lua_State *L)
 {
-
     return 0;
 }
 

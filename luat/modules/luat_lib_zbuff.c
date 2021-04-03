@@ -243,244 +243,69 @@ static int l_zbuff_unpack(lua_State *L)
 
 
 /**
-读取一个I8数据
-@api buff:readI8()
+读取一个指定类型的数据
+@api buff:read类型()
+@注释 读取类型可为：I8、U8、I16、U16、I32、U32、I64、U64、F32、F64
 @return number 读取的数据，如果越界则为nil
 @usage
 local data = buff:readI8()
-*/
-static int l_zbuff_read_i8(lua_State *L)
-{
-    return 0;
-}
-
-/**
-读取一个I16数据
-@api buff:readI16()
-@return number 读取的数据，如果越界则为nil
-@usage
-local data = buff:readI16()
-*/
-static int l_zbuff_read_i16(lua_State *L)
-{
-    return 0;
-}
-
-/**
-读取一个I32数据
-@api buff:readI32()
-@return number 读取的数据，如果越界则为nil
-@usage
-local data = buff:readI32()
-*/
-static int l_zbuff_read_i32(lua_State *L)
-{
-    return 0;
-}
-
-/**
-读取一个I64数据
-@api buff:readI64()
-@return number 读取的数据，如果越界则为nil
-@usage
-local data = buff:readI64()
-*/
-static int l_zbuff_read_i64(lua_State *L)
-{
-    return 0;
-}
-
-/**
-读取一个U8数据
-@api buff:readU8()
-@return number 读取的数据，如果越界则为nil
-@usage
-local data = buff:readU8()
-*/
-static int l_zbuff_read_u8(lua_State *L)
-{
-    return 0;
-}
-
-/**
-读取一个U16数据
-@api buff:readU16()
-@return number 读取的数据，如果越界则为nil
-@usage
-local data = buff:readU16()
-*/
-static int l_zbuff_read_u16(lua_State *L)
-{
-    return 0;
-}
-
-/**
-读取一个U32数据
-@api buff:readU32()
-@return number 读取的数据，如果越界则为nil
-@usage
 local data = buff:readU32()
 */
-static int l_zbuff_read_u32(lua_State *L)
-{
-    return 0;
+#define zread(n,t,f) static int l_zbuff_read_##n##(lua_State *L)\
+{\
+    luat_zbuff *buff = tozbuff(L);\
+    if(buff->len - buff->cursor < sizeof(##t##))\
+        return 0;\
+    lua_push##f##(L,*((##t##*)(buff->addr+buff->cursor)));\
+    buff->cursor+=sizeof(##t##);\
+    return 1;\
 }
+zread(i8, int8_t,  integer)
+zread(u8, uint8_t, integer)
+zread(i16,int16_t, integer)
+zread(u16,uint16_t,integer)
+zread(i32,int32_t, integer)
+zread(u32,uint32_t,integer)
+zread(i64,int64_t, integer)
+zread(u64,uint64_t,integer)
+zread(f32,float, number)
+zread(f64,double,number)
+
+
 
 /**
-读取一个U64数据
-@api buff:readU64()
-@return number 读取的数据，如果越界则为nil
+写入一个指定类型的数据
+@api buff:write类型()
+@number 待写入的数据
+@注释 写入类型可为：I8、U8、I16、U16、I32、U32、I64、U64、F32、F64
+@return number 成功写入的长度
 @usage
-local data = buff:readU64()
+local len = buff:writeI8(10)
+local len = buff:writeU32(1024)
 */
-static int l_zbuff_read_u64(lua_State *L)
-{
-    return 0;
+#define zwrite(n,t,f) static int l_zbuff_write_##n##(lua_State *L)\
+{\
+    luat_zbuff *buff = tozbuff(L);\
+    if(buff->len - buff->cursor < sizeof(##t##))\
+    {\
+        lua_pushinteger(L,0);\
+        return 1;\
+    }\
+    *((##t##*)(buff->addr+buff->cursor)) = (##t##)luaL_check##f##(L,2);\
+    buff->cursor+=sizeof(##t##);\
+    lua_pushinteger(L,sizeof(##t##));\
+    return 1;\
 }
-
-/**
-读取一个F32数据
-@api buff:readF32()
-@return number 读取的数据，如果越界则为nil
-@usage
-local data = buff:readF32()
-*/
-static int l_zbuff_read_f32(lua_State *L)
-{
-    return 0;
-}
-
-/**
-读取一个F64数据
-@api buff:readF64()
-@return number 读取的数据，如果越界则为nil
-@usage
-local data = buff:readF64()
-*/
-static int l_zbuff_read_f64(lua_State *L)
-{
-    return 0;
-}
-
-/**
-写入一个I8数据
-@api buff:writeI8()
-@return number 写入成功的字节数
-@usage
-local len = buff:writeI8()
-*/
-static int l_zbuff_write_i8(lua_State *L)
-{
-    return 0;
-}
-
-/**
-写入一个I16数据
-@api buff:writeI16()
-@return number 写入成功的字节数
-@usage
-local len = buff:writeI16()
-*/
-static int l_zbuff_write_i16(lua_State *L)
-{
-    return 0;
-}
-
-/**
-写入一个I32数据
-@api buff:writeI32()
-@return number 写入成功的字节数
-@usage
-local len = buff:writeI32()
-*/
-static int l_zbuff_write_i32(lua_State *L)
-{
-    return 0;
-}
-
-/**
-写入一个I64数据
-@api buff:writeI64()
-@return number 写入成功的字节数
-@usage
-local len = buff:writeI64()
-*/
-static int l_zbuff_write_i64(lua_State *L)
-{
-    return 0;
-}
-
-/**
-写入一个U8数据
-@api buff:writeU8()
-@return number 写入成功的字节数
-@usage
-local len = buff:writeU8()
-*/
-static int l_zbuff_write_u8(lua_State *L)
-{
-    return 0;
-}
-
-/**
-写入一个U16数据
-@api buff:writeU16()
-@return number 写入成功的字节数
-@usage
-local len = buff:writeU16()
-*/
-static int l_zbuff_write_u16(lua_State *L)
-{
-    return 0;
-}
-
-/**
-写入一个U32数据
-@api buff:writeU32()
-@return number 写入成功的字节数
-@usage
-local len = buff:writeU32()
-*/
-static int l_zbuff_write_u32(lua_State *L)
-{
-    return 0;
-}
-
-/**
-写入一个U64数据
-@api buff:writeU64()
-@return number 写入成功的字节数
-@usage
-local len = buff:writeU64()
-*/
-static int l_zbuff_write_u64(lua_State *L)
-{
-    return 0;
-}
-
-/**
-写入一个F32数据
-@api buff:writeF32()
-@return number 写入成功的字节数
-@usage
-local len = buff:writeF32()
-*/
-static int l_zbuff_write_f32(lua_State *L)
-{
-    return 0;
-}
-
-/**
-写入一个F64数据
-@api buff:writeF64()
-@return number 写入成功的字节数
-@usage
-local len = buff:writeF64()
-*/
-static int l_zbuff_write_f64(lua_State *L)
-{
-    return 0;
-}
+zwrite(i8, int8_t,  integer)
+zwrite(u8, uint8_t, integer)
+zwrite(i16,int16_t, integer)
+zwrite(u16,uint16_t,integer)
+zwrite(i32,int32_t, integer)
+zwrite(u32,uint32_t,integer)
+zwrite(i64,int64_t, integer)
+zwrite(u64,uint64_t,integer)
+zwrite(f32,float, number)
+zwrite(f64,double,number)
 
 
 /**

@@ -179,6 +179,10 @@ void luat_ctiot_callback(uint8_t type, uint8_t code, void *buf, uint32_t len)
 	rtos_msg_t msg;
 	uint8_t *buff;
 	DBG("%d,%d,0x%08x,%u",type, code, buf, len);
+	if (type >= CTIOT_EVENT_DBG)
+	{
+		return;
+	}
 	msg.handler = luat_ctiot_msg_handler;
 	if (buf)
 	{

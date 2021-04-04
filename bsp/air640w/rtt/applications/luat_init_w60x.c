@@ -39,13 +39,13 @@ static int w60x_write_cfg(void *buff, int len) {
   }
   return 0;
 };
-
+#ifdef RT_USING_WIFI
 static struct rt_wlan_cfg_ops cfg_ops = {
   w60x_read_cfg,
   w60x_get_len,
   w60x_write_cfg
 };
-
+#endif
 
 static rt_err_t w600_bt(void *context) {
   rt_kprintf("\r\nFUCK!!\r\n");

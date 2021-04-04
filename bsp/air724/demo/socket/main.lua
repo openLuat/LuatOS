@@ -1,12 +1,11 @@
 
 
-PROJECT = "wlandemo"
+PROJECT = "socketdemo"
 VERSION = "1.0.0"
 
 local sys = require "sys"
 
 pmd.ldoset(3000, pmd.LDO_VLCD)
-
 
 sys.taskInit(function()
     local netled = gpio.setup(1, 0)
@@ -25,9 +24,18 @@ end)
 
 sys.subscribe("NET_READY", function ()
     log.info("net", "NET_READY Get!!!")
-    sys.taskInit(function()
-        while true do
-            sys.wait(10000)
+end)
+
+sys.taskInit(function()
+    sys.wait(2000)
+    while not socket.isReady() do
+        log.info("net", "wait for network ready")
+        sys.waitUntil("NET_READY", 1000)
+    end
+    while true do
+        if not socket.isReady() then
+            sys.waitUntil("NET_READY", 1000)
+        else
             local netc = socket.tcp()
             -- 模拟http请求 http://site0.cn/api/httptest/simple/date
             netc:host("site0.cn")
@@ -55,10 +63,8 @@ sys.subscribe("NET_READY", function ()
             netc:clean()
             sys.wait(60000)
         end
-    end)
+    end
 end)
-
-
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

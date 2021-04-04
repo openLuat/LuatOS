@@ -47,21 +47,21 @@ int l_gpio_handler(lua_State *L, void* ptr) {
 
 /*
 设置管脚功能
-@api gpio.setup(pin, mode, pull)
+@api gpio.setup(pin, mode, pull, irq)
 @int pin 针脚编号,必须是数值
 @any mode 输入输出模式. 数字0/1代表输出模式,nil代表输入模式,function代表中断模式
 @int pull 上拉下列模式, 可以是gpio.PULLUP 或 gpio.PULLDOWN, 需要根据实际硬件选用
-@int irq 中断触发模式, 上升沿gpio.RISING, 下降沿gpio.FALLING, 上升和下降都要gpio.BOTH.默认是RISING
+@int irq 默认gpio.BOTH。中断触发模式, 上升沿gpio.RISING, 下降沿gpio.FALLING, 上升和下降都要gpio.BOTH
 @return any 输出模式返回设置电平的闭包, 输入模式和中断模式返回获取电平的闭包
-@usage 
+@usage
 -- 设置gpio17为输入
-gpio.setup(17, nil) 
-@usage 
+gpio.setup(17, nil)
+@usage
 -- 设置gpio17为输出
-gpio.setup(17, 0) 
-@usage 
+gpio.setup(17, 0)
+@usage
 -- 设置gpio27为中断
-gpio.setup(27, function(val) print("IRQ_27") end, gpio.RISING)
+gpio.setup(27, function(val) print("IRQ_27",val) end, gpio.PULLUP)
 */
 static int l_gpio_setup(lua_State *L) {
     luat_gpio_t conf;
@@ -135,7 +135,7 @@ static int l_gpio_setup(lua_State *L) {
 @return nil 无返回值
 @usage
 -- 设置gpio17为低电平
-gpio.set(17, 0) 
+gpio.set(17, 0)
 */
 static int l_gpio_set(lua_State *L) {
     if (lua_isinteger(L, lua_upvalueindex(1)))
@@ -150,9 +150,9 @@ static int l_gpio_set(lua_State *L) {
 @api gpio.get(pin)
 @int pin 针脚编号,必须是数值
 @return value 电平, 高电平gpio.HIGH, 低电平gpio.LOW, 对应数值1和0
-@usage 
+@usage
 -- 获取gpio17的当前电平
-gpio.get(17) 
+gpio.get(17)
 */
 static int l_gpio_get(lua_State *L) {
     if (lua_isinteger(L, lua_upvalueindex(1)))

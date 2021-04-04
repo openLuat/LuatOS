@@ -1,12 +1,13 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "air302_spi_demo"
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 
 local sys = require "sys"
 
 local spiId = 0
 local cs = 16
+-- 这里注意了！！ 设备CS连接到 GPIO17, 不要接 cs脚。
 local cspin = gpio.setup(17, 1)
 
 --收发数据
@@ -45,8 +46,8 @@ sys.taskInit(function()
         log.info("spi", "chip id read ok 0xef,0x40,0x16")
     else
         log.info("spi", "chip id read error")
-        for i=1,#recv do
-            print(recv:byte(i))
+        for i=1,#chip do
+            print(chip:byte(i))
         end
         return
     end

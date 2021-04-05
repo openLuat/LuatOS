@@ -282,25 +282,25 @@ static int io_open (lua_State *L) {
   return (p->f == NULL) ? luaL_fileresult(L, 0, filename) : 1;
 }
 
+#ifdef LUA_USE_WINDOWS
+/*
+** function to close 'popen' files
+*/
+static int io_pclose (lua_State *L) {
+  LStream *p = tolstream(L);
+  return luaL_execresult(L, l_pclose(L, p->f));
+}
 
-// /*
-// ** function to close 'popen' files
-// */
-// static int io_pclose (lua_State *L) {
-//   LStream *p = tolstream(L);
-//   return luaL_execresult(L, l_pclose(L, p->f));
-// }
 
-
-// static int io_popen (lua_State *L) {
-//   const char *filename = luaL_checkstring(L, 1);
-//   const char *mode = luaL_optstring(L, 2, "r");
-//   LStream *p = newprefile(L);
-//   p->f = l_popen(L, filename, mode);
-//   p->closef = &io_pclose;
-//   return (p->f == NULL) ? luaL_fileresult(L, 0, filename) : 1;
-// }
-
+static int io_popen (lua_State *L) {
+  const char *filename = luaL_checkstring(L, 1);
+  const char *mode = luaL_optstring(L, 2, "r");
+  LStream *p = newprefile(L);
+  p->f = l_popen(L, filename, mode);
+  p->closef = &io_pclose;
+  return (p->f == NULL) ? luaL_fileresult(L, 0, filename) : 1;
+}
+#endif
 
 // static int io_tmpfile (lua_State *L) {
 //   LStream *p = newfile(L);
@@ -779,7 +779,9 @@ static const rotable_Reg iolib[] = {
   // {"lines", io_lines,  0},
   {"open", io_open,    0},
   // {"output", io_output,0},
-  // {"popen", io_popen,  0},
+#ifdef LUA_USE_WINDOWS
+  {"popen", io_popen,  0},
+#endif
   // {"read", io_read,    0},
   // {"tmpfile", io_tmpfile, 0},
   {"type", io_type,    0},

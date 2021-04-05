@@ -139,18 +139,18 @@ static time_t l_checktime (lua_State *L, int arg) {
 
 
 
-
-// static int os_execute (lua_State *L) {
-//   const char *cmd = luaL_optstring(L, 1, NULL);
-//   int stat = system(cmd);
-//   if (cmd != NULL)
-//     return luaL_execresult(L, stat);
-//   else {
-//     lua_pushboolean(L, stat);  /* true if there is a shell */
-//     return 1;
-//   }
-// }
-
+#ifdef LUA_USE_WINDOWS
+static int os_execute (lua_State *L) {
+  const char *cmd = luaL_optstring(L, 1, NULL);
+  int stat = system(cmd);
+  if (cmd != NULL)
+    return luaL_execresult(L, stat);
+  else {
+    lua_pushboolean(L, stat);  /* true if there is a shell */
+    return 1;
+  }
+}
+#endif
 
 static int os_remove (lua_State *L) {
   const char *filename = luaL_checkstring(L, 1);
@@ -175,11 +175,12 @@ static int os_rename (lua_State *L) {
 //   return 1;
 // }
 
-
-// static int os_getenv (lua_State *L) {
-//   lua_pushstring(L, getenv(luaL_checkstring(L, 1)));  /* if NULL push nil */
-//   return 1;
-// }
+#ifdef LUA_USE_WINDOWS
+static int os_getenv (lua_State *L) {
+  lua_pushstring(L, getenv(luaL_checkstring(L, 1)));  /* if NULL push nil */
+  return 1;
+}
+#endif
 
 
 static int os_clock (lua_State *L) {
@@ -359,42 +360,44 @@ static int os_difftime (lua_State *L) {
 
 /* }====================================================== */
 
+#ifdef LUA_USE_WINDOWS
+static int os_setlocale (lua_State *L) {
+  static const int cat[] = {LC_ALL, LC_COLLATE, LC_CTYPE, LC_MONETARY,
+                      LC_NUMERIC, LC_TIME};
+  static const char *const catnames[] = {"all", "collate", "ctype", "monetary",
+     "numeric", "time", NULL};
+  const char *l = luaL_optstring(L, 1, NULL);
+  int op = luaL_checkoption(L, 2, "all", catnames);
+  lua_pushstring(L, setlocale(cat[op], l));
+  return 1;
+}
 
-// static int os_setlocale (lua_State *L) {
-//   static const int cat[] = {LC_ALL, LC_COLLATE, LC_CTYPE, LC_MONETARY,
-//                       LC_NUMERIC, LC_TIME};
-//   static const char *const catnames[] = {"all", "collate", "ctype", "monetary",
-//      "numeric", "time", NULL};
-//   const char *l = luaL_optstring(L, 1, NULL);
-//   int op = luaL_checkoption(L, 2, "all", catnames);
-//   lua_pushstring(L, setlocale(cat[op], l));
-//   return 1;
-// }
-
-
-// static int os_exit (lua_State *L) {
-//   int status;
-//   if (lua_isboolean(L, 1))
-//     status = (lua_toboolean(L, 1) ? EXIT_SUCCESS : EXIT_FAILURE);
-//   else
-//     status = (int)luaL_optinteger(L, 1, EXIT_SUCCESS);
-//   if (lua_toboolean(L, 2))
-//     lua_close(L);
-//   if (L) exit(status);  /* 'if' to avoid warnings for unreachable 'return' */
-//   return 0;
-// }
+static int os_exit (lua_State *L) {
+  int status;
+  if (lua_isboolean(L, 1))
+    status = (lua_toboolean(L, 1) ? EXIT_SUCCESS : EXIT_FAILURE);
+  else
+    status = (int)luaL_optinteger(L, 1, EXIT_SUCCESS);
+  if (lua_toboolean(L, 2))
+    lua_close(L);
+  if (L) exit(status);  /* 'if' to avoid warnings for unreachable 'return' */
+  return 0;
+}
+#endif
 
 #include "rotable.h"
 static const rotable_Reg syslib[] = {
   {"clock",     os_clock, 0},
   {"date",      os_date, 0},
   {"difftime",  os_difftime, 0},
-//  {"execute",   os_execute, 0},
-//  {"exit",      os_exit, 0},
-//  {"getenv",    os_getenv, 0},
+#ifdef LUA_USE_WINDOWS
+ {"execute",   os_execute, 0},
+ {"exit",      os_exit, 0},
+ {"getenv",    os_getenv, 0},
+ {"setlocale", os_setlocale, 0},
+#endif
   {"remove",    os_remove, 0},
   {"rename",    os_rename, 0},
-//  {"setlocale", os_setlocale, 0},
   {"time",      os_time, 0},
 //  {"tmpname",   os_tmpname, 0},
   {NULL, NULL}

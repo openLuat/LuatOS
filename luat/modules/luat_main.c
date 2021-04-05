@@ -10,6 +10,11 @@
 #define LUAT_LOG_TAG "luat.main"
 #include "luat_log.h"
 
+#ifdef LUA_USE_WINDOWS
+extern int win32_argc;
+extern char** win32_argv;
+#endif
+
 static int report (lua_State *L, int status);
 
 lua_State *L;
@@ -43,8 +48,19 @@ static int pmain(lua_State *L) {
     lua_gc(L, LUA_GCSETPAUSE, 90); // 设置`垃圾收集器间歇率`要低于100%
     
     // 加载main.lua
-    //re = luaL_dofile(L, "/main.lua");
+    #ifdef LUA_USE_WINDOWS
+    if (win32_argc > 1) {
+      int slen = strlen(win32_argv[1]);
+      if (slen > 4 && !strcmp(".lua", win32_argv[1] + (slen - 4))) {
+        re = luaL_dofile(L, win32_argv[1]);
+      }
+      else {
+        re = luaL_dostring(L, "require(\"main\")");
+      }
+    }
+    #else
     re = luaL_dostring(L, "require(\"main\")");
+    #endif
 
     report(L, re);
     lua_pushboolean(L, 1);  /* signal no errors */
@@ -216,17 +232,3 @@ _exit:
   // 往下是肯定不会被执行的
   return (result && status == LUA_OK) ? 0 : 2;
 }
-
-//#include "vsprintf.h"
-// #include "printf.h"
-// __attribute__((weak)) int l_sprintf(char *buf, size_t size, const char *fmt, ...) {
-//     int32_t n;
-//     va_list args;
-
-//     va_start(args, fmt);
-//     //n = custom_vsprintf(buf, /*size,*/ fmt, args);
-//     n = vsnprintf_(buf, size, fmt, args);
-//     va_end(args);
-
-//     return n;
-// }

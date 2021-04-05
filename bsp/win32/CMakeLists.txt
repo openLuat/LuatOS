@@ -20,10 +20,12 @@ aux_source_directory(${TOPROOT}/lua/src LUA_SRCS)
 aux_source_directory(./freertos RTOS_SRCS)
 aux_source_directory(./freertos/port RTOS_PORT_SRCS)
 aux_source_directory(./freertos/portable/MSVC-MingW MM_SRCS)
+aux_source_directory(${TOPROOT}/luat/packages/lua-cjson CJSON_SRCS)
 
 add_library(freertos10 ${PORT_SRCS} ${RTOS_SRCS} ${RTOS_PORT_SRCS} ${MM_SRCS})
 add_library(lua ${LUA_SRCS})
 add_library(luatos_msys ${PORT_SRCS})
+add_library(cjson ${CJSON_SRCS})
 add_library(luat ${TOPROOT}/luat/modules/luat_main.c 
                  ${TOPROOT}/luat/modules/luat_luat_bin.c
                  ${TOPROOT}/luat/modules/luat_lib_rtos.c
@@ -35,4 +37,4 @@ add_library(luat ${TOPROOT}/luat/modules/luat_main.c
 # 指定生成目标
 add_executable(luatos src/main_win32.c)
 target_link_libraries(luat freertos10 winmm)
-target_link_libraries(luatos freertos10 lua luatos_msys luat winmm)
+target_link_libraries(luatos freertos10 lua luatos_msys luat winmm cjson)

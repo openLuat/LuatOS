@@ -25,9 +25,14 @@ BOOL WINAPI consoleHandler(DWORD signal) {
     return TRUE;
 }
 
+int win32_argc;
+char** win32_argv;
 
 // boot
 int main(int argc, char** argv) {
+    win32_argc = argc;
+    win32_argv = argv;
+    
     SetConsoleCtrlHandler(consoleHandler, TRUE);
     bpool(luavm_heap, LUAT_HEAP_SIZE);
     xTaskCreate( _luat_main, "luatos", 1024*16, NULL, 21, NULL );

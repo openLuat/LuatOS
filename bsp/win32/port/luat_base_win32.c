@@ -3,6 +3,8 @@
 #include "luat_fs.h"
 #include <stdlib.h>
 
+LUAMOD_API int luaopen_win32( lua_State *L );
+
 static const luaL_Reg loadedlibs[] = {
   {"_G", luaopen_base}, // _G
   {LUA_LOADLIBNAME, luaopen_package}, // require
@@ -21,6 +23,8 @@ static const luaL_Reg loadedlibs[] = {
   {"log", luaopen_log},               // 日志库
   {"timer", luaopen_timer},           // 延时库
   {"pack", luaopen_pack},             // pack.pack/pack.unpack
+  {"json", luaopen_cjson},             // json
+  {"win32", luaopen_win32},            // windows 32 tools
   {NULL, NULL}
 };
 

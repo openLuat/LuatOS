@@ -8,8 +8,8 @@
 // fs的默认实现, 指向poisx的stdio.h声明的方法
 
 FILE* luat_fs_fopen(const char *filename, const char *mode) {
-    LLOGD("fopen %s %s", filename+1, mode);
-    return fopen(filename+1, mode);
+    //LLOGD("fopen %s %s", filename + (filename[0] == '/' ? 1 : 0), mode);
+    return fopen(filename + (filename[0] == '/' ? 1 : 0), mode);
 }
 
 char luat_fs_getc(FILE* stream) {
@@ -40,10 +40,10 @@ size_t luat_fs_fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream) 
     return fwrite(ptr, size, nmemb, stream);
 }
 int luat_fs_remove(const char *filename) {
-    return remove(filename+1);
+    return remove(filename + (filename[0] == '/' ? 1 : 0));
 }
 int luat_fs_rename(const char *old_filename, const char *new_filename) {
-    return rename(old_filename+1, new_filename);
+    return rename(old_filename + (old_filename[0] == '/' ? 1 : 0), new_filename + (new_filename[0] == '/' ? 1 : 0));
 }
 int luat_fs_fexist(const char *filename) {
     FILE* fd = luat_fs_fopen(filename, "rb");

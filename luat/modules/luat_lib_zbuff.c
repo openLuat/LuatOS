@@ -147,10 +147,10 @@ static int l_zbuff_read(lua_State *L)
 zbuff设置光标位置
 @api buff:seek(base,offset)
 @int 偏移长度
-@int whence, 基点，默认zbuff.SEEK_SET<br>zbuff.SEEK_SET: 基点为 0 （文件开头）<br>zbuff.SEEK_CUR: 基点为当前位置<br>zbuff.SEEK_END: 基点为文件尾
+@int whence, 基点，默认zbuff.SEEK_SET。zbuff.SEEK_SET: 基点为 0 （文件开头），zbuff.SEEK_CUR: 基点为当前位置，zbuff.SEEK_END: 基点为文件尾
 @return int 设置光标后从buff开头计算起的光标的位置
 @usage
-buff:seek(0,zbuff.SEEK_SET) -- 把光标设置到指定位置
+buff:seek(0) -- 把光标设置到指定位置
 buff:seek(5,zbuff.SEEK_CUR)
 buff:seek(-3,zbuff.SEEK_END)
  */
@@ -241,6 +241,73 @@ static int l_zbuff_unpack(lua_State *L)
     return 0;
 }
 
+
+/**
+读取一个指定类型的数据
+@api buff:read类型()
+@注释 读取类型可为：I8、U8、I16、U16、I32、U32、I64、U64、F32、F64
+@return number 读取的数据，如果越界则为nil
+@usage
+local data = buff:readI8()
+local data = buff:readU32()
+*/
+#define zread(n,t,f) static int l_zbuff_read_##n##(lua_State *L)\
+{\
+    luat_zbuff *buff = tozbuff(L);\
+    if(buff->len - buff->cursor < sizeof(##t##))\
+        return 0;\
+    lua_push##f##(L,*((##t##*)(buff->addr+buff->cursor)));\
+    buff->cursor+=sizeof(##t##);\
+    return 1;\
+}
+zread(i8, int8_t,  integer)
+zread(u8, uint8_t, integer)
+zread(i16,int16_t, integer)
+zread(u16,uint16_t,integer)
+zread(i32,int32_t, integer)
+zread(u32,uint32_t,integer)
+zread(i64,int64_t, integer)
+zread(u64,uint64_t,integer)
+zread(f32,float, number)
+zread(f64,double,number)
+
+
+
+/**
+写入一个指定类型的数据
+@api buff:write类型()
+@number 待写入的数据
+@注释 写入类型可为：I8、U8、I16、U16、I32、U32、I64、U64、F32、F64
+@return number 成功写入的长度
+@usage
+local len = buff:writeI8(10)
+local len = buff:writeU32(1024)
+*/
+#define zwrite(n,t,f) static int l_zbuff_write_##n##(lua_State *L)\
+{\
+    luat_zbuff *buff = tozbuff(L);\
+    if(buff->len - buff->cursor < sizeof(##t##))\
+    {\
+        lua_pushinteger(L,0);\
+        return 1;\
+    }\
+    *((##t##*)(buff->addr+buff->cursor)) = (##t##)luaL_check##f##(L,2);\
+    buff->cursor+=sizeof(##t##);\
+    lua_pushinteger(L,sizeof(##t##));\
+    return 1;\
+}
+zwrite(i8, int8_t,  integer)
+zwrite(u8, uint8_t, integer)
+zwrite(i16,int16_t, integer)
+zwrite(u16,uint16_t,integer)
+zwrite(i32,int32_t, integer)
+zwrite(u32,uint32_t,integer)
+zwrite(i64,int64_t, integer)
+zwrite(u64,uint64_t,integer)
+zwrite(f32,float, number)
+zwrite(f64,double,number)
+
+
 /**
 以下标形式进行数据读写
 @api buff[n]
@@ -252,25 +319,34 @@ local data = buff[0]
  */
 static int l_zbuff_index(lua_State *L)
 {
-    LLOGD("l_zbuff_index!");
-    luat_zbuff *buff = tozbuff(L);
-    LLOGD("buff->len %d",buff->len);
-    int o = luaL_checkinteger(L,2);
-    LLOGD("o %d",o);
-    if(o > buff->len) return 0;
-    lua_pushinteger(L,buff->addr[o]);
+    luat_zbuff** pp = luaL_checkudata(L, 1, LUAT_ZBUFF_TYPE);
+    int i;
+
+    luaL_getmetatable(L, LUAT_ZBUFF_TYPE);
+    lua_pushvalue(L, 2);
+    lua_rawget(L, -2);
+
+    if ( lua_isnil(L, -1) ) {
+        /* found no method, so get value from userdata. */
+        luat_zbuff *buff = tozbuff(L);
+        int o = luaL_checkinteger(L,2);
+        if(o > buff->len) return 0;
+        lua_pushinteger(L,buff->addr[o]);
+        return 1;
+    };
     return 1;
 }
 
 static int l_zbuff_newindex(lua_State *L)
 {
-    LLOGD("l_zbuff_newindex!");
-    luat_zbuff *buff = tozbuff(L);
     if(lua_isinteger(L,2)){
-        int o = luaL_checkinteger(L,2);
-        int n = luaL_checkinteger(L,3) % 256;
-        if(o > buff->len) return 0;
-        buff->addr[o] = n;
+        luat_zbuff *buff = tozbuff(L);
+        if(lua_isinteger(L,2)){
+            int o = luaL_checkinteger(L,2);
+            int n = luaL_checkinteger(L,3) % 256;
+            if(o > buff->len) return 0;
+            buff->addr[o] = n;
+        }
     }
     return 0;
 }
@@ -290,17 +366,47 @@ static const luaL_Reg lib_zbuff[] = {
     {"pack", l_zbuff_pack},
     {"unpack", l_zbuff_unpack},
     {"get", l_zbuff_index},
+    {"readI8", l_zbuff_read_i8},
+    {"readI16", l_zbuff_read_i16},
+    {"readI32", l_zbuff_read_i32},
+    {"readI64", l_zbuff_read_i64},
+    {"readU8", l_zbuff_read_u8},
+    {"readU16", l_zbuff_read_u16},
+    {"readU32", l_zbuff_read_u32},
+    {"readU64", l_zbuff_read_u64},
+    {"readF32", l_zbuff_read_f32},
+    {"readF64", l_zbuff_read_f64},
+    {"writeI8", l_zbuff_write_i8},
+    {"writeI16", l_zbuff_write_i16},
+    {"writeI32", l_zbuff_write_i32},
+    {"writeI64", l_zbuff_write_i64},
+    {"writeU8", l_zbuff_write_u8},
+    {"writeU16", l_zbuff_write_u16},
+    {"writeU32", l_zbuff_write_u32},
+    {"writeU64", l_zbuff_write_u64},
+    {"writeF32", l_zbuff_write_f32},
+    {"writeF64", l_zbuff_write_f64},
+    {NULL, NULL}
+};
+
+static const luaL_Reg lib_zbuff_metamethods[] = {
+    {"__index", l_zbuff_index},
     {"__newindex", l_zbuff_newindex},
     {"__gc", l_zbuff_gc},
-    {NULL, NULL}};
+    {NULL, NULL}
+};
+
 
 static void createmeta(lua_State *L)
 {
     luaL_newmetatable(L, LUAT_ZBUFF_TYPE); /* create metatable for file handles */
-    lua_pushvalue(L, -1);                  /* push metatable */
-    lua_setfield(L, -2, "__index");        /* metatable.__index = metatable */
-    luaL_setfuncs(L, lib_zbuff, 0);        /* add file methods to new metatable */
+    // lua_pushvalue(L, -1);                  /* push metatable */
+    // lua_setfield(L, -2, "__index");        /* metatable.__index = metatable */
+    // luaL_setfuncs(L, lib_zbuff, 0);        /* add file methods to new metatable */
+    luaL_setfuncs(L, lib_zbuff_metamethods, 0);
+    luaL_setfuncs(L, lib_zbuff, 0);
     lua_pop(L, 1);                         /* pop new metatable */
+    //luaL_newlib(L, lib_zbuff);
 }
 
 #include "rotable.h"

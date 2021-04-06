@@ -6,6 +6,7 @@
 */
 #include "luat_base.h"
 #include "luat_zbuff.h"
+#include "luat_malloc.h"
 
 #define LUAT_LOG_TAG "luat.zbuff"
 #include "luat_log.h"
@@ -55,7 +56,7 @@ static int l_zbuff_create(lua_State *L)
     }
     else if (lua_isstring(L, 2))
     {
-        char *data = luaL_optlstring(L, 2, "", &len);
+        const char *data = luaL_optlstring(L, 2, "", &len);
         if(len > buff->len)//防止越界
         {
             len = buff->len;
@@ -97,7 +98,7 @@ static int l_zbuff_write(lua_State *L)
     }
     else{
         size_t len;
-        char *data = luaL_checklstring(L, 2, &len);
+        const char *data = luaL_checklstring(L, 2, &len);
         luat_zbuff *buff = tozbuff(L);
         if(len + buff->cursor > buff->len)//防止越界
         {

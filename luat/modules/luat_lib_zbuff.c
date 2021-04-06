@@ -252,13 +252,13 @@ static int l_zbuff_unpack(lua_State *L)
 local data = buff:readI8()
 local data = buff:readU32()
 */
-#define zread(n,t,f) static int l_zbuff_read_##n##(lua_State *L)\
+#define zread(n,t,f) static int l_zbuff_read_##n(lua_State *L)\
 {\
     luat_zbuff *buff = tozbuff(L);\
-    if(buff->len - buff->cursor < sizeof(##t##))\
+    if(buff->len - buff->cursor < sizeof(t))\
         return 0;\
-    lua_push##f##(L,*((##t##*)(buff->addr+buff->cursor)));\
-    buff->cursor+=sizeof(##t##);\
+    lua_push##f(L,*((t*)(buff->addr+buff->cursor)));\
+    buff->cursor+=sizeof(t);\
     return 1;\
 }
 zread(i8, int8_t,  integer)
@@ -284,17 +284,17 @@ zread(f64,double,number)
 local len = buff:writeI8(10)
 local len = buff:writeU32(1024)
 */
-#define zwrite(n,t,f) static int l_zbuff_write_##n##(lua_State *L)\
+#define zwrite(n,t,f) static int l_zbuff_write_##n(lua_State *L)\
 {\
     luat_zbuff *buff = tozbuff(L);\
-    if(buff->len - buff->cursor < sizeof(##t##))\
+    if(buff->len - buff->cursor < sizeof(t))\
     {\
         lua_pushinteger(L,0);\
         return 1;\
     }\
-    *((##t##*)(buff->addr+buff->cursor)) = (##t##)luaL_check##f##(L,2);\
-    buff->cursor+=sizeof(##t##);\
-    lua_pushinteger(L,sizeof(##t##));\
+    *((t*)(buff->addr+buff->cursor)) = (t)luaL_check##f(L,2);\
+    buff->cursor+=sizeof(t);\
+    lua_pushinteger(L,sizeof(t));\
     return 1;\
 }
 zwrite(i8, int8_t,  integer)

@@ -5,6 +5,7 @@
 
 LUAMOD_API int luaopen_win32( lua_State *L );
 int luaopen_lfs(lua_State * L);
+int luaopen_rs232_core(lua_State * L);
 
 static const luaL_Reg loadedlibs[] = {
   {"_G", luaopen_base}, // _G
@@ -30,6 +31,7 @@ static const luaL_Reg loadedlibs[] = {
   {"mqttcore", luaopen_mqttcore},      // 
   {"libcoap", luaopen_libcoap},        // 
   {"lfs", luaopen_lfs},                //
+  {"rs232.core", luaopen_rs232_core},
   {NULL, NULL}
 };
 

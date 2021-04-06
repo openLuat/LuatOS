@@ -338,6 +338,15 @@ static int l_zbuff_index(lua_State *L)
     return 1;
 }
 
+static int l_zbuff_toStr(lua_State *L)
+{
+    luat_zbuff *buff = tozbuff(L);
+    int start = luaL_optinteger(L, 2, 0);
+    int len = luaL_optinteger(L, 3, buff->len);
+    lua_pushlstring(L, buff->addr + start, len);
+    return 1;
+}
+
 static int l_zbuff_newindex(lua_State *L)
 {
     if(lua_isinteger(L,2)){
@@ -387,6 +396,7 @@ static const luaL_Reg lib_zbuff[] = {
     {"writeU64", l_zbuff_write_u64},
     {"writeF32", l_zbuff_write_f32},
     {"writeF64", l_zbuff_write_f64},
+    {"toStr",    l_zbuff_toStr},
     {NULL, NULL}
 };
 

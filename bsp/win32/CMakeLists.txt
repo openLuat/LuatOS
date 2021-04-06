@@ -37,7 +37,12 @@ add_library(luat ${TOPROOT}/luat/modules/luat_main.c
                  ${TOPROOT}/luat/modules/luat_lib_libcoap.c
             )
 
+#-----------------------
+aux_source_directory(./rock/LuaFileSystem ROCK_LFS_SRCS)
+add_library(rock_lfs ${ROCK_LFS_SRCS})
+#-----------------------
+
 # 指定生成目标
 add_executable(luatos src/main_win32.c)
 target_link_libraries(luat freertos10 winmm)
-target_link_libraries(luatos freertos10 lua luatos_msys luat winmm cjson)
+target_link_libraries(luatos freertos10 lua luatos_msys luat winmm cjson rock_lfs)

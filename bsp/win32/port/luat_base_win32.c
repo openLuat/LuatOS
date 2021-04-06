@@ -4,6 +4,7 @@
 #include <stdlib.h>
 
 LUAMOD_API int luaopen_win32( lua_State *L );
+int luaopen_lfs(lua_State * L);
 
 static const luaL_Reg loadedlibs[] = {
   {"_G", luaopen_base}, // _G
@@ -28,6 +29,7 @@ static const luaL_Reg loadedlibs[] = {
   {"zbuff", luaopen_zbuff},            // 
   {"mqttcore", luaopen_mqttcore},      // 
   {"libcoap", luaopen_libcoap},        // 
+  {"lfs", luaopen_lfs},                //
   {NULL, NULL}
 };
 

@@ -32,6 +32,9 @@ add_library(luat ${TOPROOT}/luat/modules/luat_main.c
                  ${TOPROOT}/luat/modules/luat_lib_timer.c
                  ${TOPROOT}/luat/modules/luat_lib_log.c
                  ${TOPROOT}/luat/modules/luat_lib_pack.c
+                 ${TOPROOT}/luat/modules/luat_lib_zbuff.c
+                 ${TOPROOT}/luat/modules/luat_lib_mqttcore.c
+                 ${TOPROOT}/luat/modules/luat_lib_libcoap.c
             )
 
 # 指定生成目标

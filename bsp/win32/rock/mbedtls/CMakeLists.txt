@@ -64,6 +64,7 @@ endif()
 
 set(ENABLE_PROGRAMS OFF)
 set(ENABLE_TESTING OFF)
+set(MBEDTLS_FATAL_WARNINGS OFF)
 
 # Warning string - created as a list for compatibility with CMake 2.8
 set(WARNING_BORDER "*******************************************************\n")

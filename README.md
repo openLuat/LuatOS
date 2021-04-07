@@ -1,6 +1,9 @@
 <p align="center"><a href="#" target="_blank" rel="noopener noreferrer"><img width="100" src="logo.jpg" alt="LuatOS logo"></a></p>
 
 [![license](https://img.shields.io/github/license/openLuat/LuatOS)](/LICENSE)
+[![air100st](https://github.com/openLuat/LuatOS/actions/workflows/air100st.yml/badge.svg)](https://github.com/openLuat/LuatOS/actions/workflows/air100st.yml)
+[![air640w](https://github.com/openLuat/LuatOS/actions/workflows/air640w.yml/badge.svg)](https://github.com/openLuat/LuatOS/actions/workflows/air640w.yml)
+[![win32](https://github.com/openLuat/LuatOS/actions/workflows/win32.yml/badge.svg)](https://github.com/openLuat/LuatOS/actions/workflows/win32.yml)
 
 LuatOS是运行在嵌入式硬件,用户编写lua代码就可完成各种功能
 

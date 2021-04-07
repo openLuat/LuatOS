@@ -1,0 +1,37 @@
+name: win32
+
+on:
+  push:
+    paths:
+      - '.github/workflows/win32.yml'
+      - 'lua/**'
+      - 'luat/**'
+      - 'bsp/win32/**'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+    - uses: actions/checkout@v1
+    - uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: git mingw-w64-x86_64-gcc mingw-w64-x86_64-gdb mingw-w64-x86_64-cmake mingw-w64-x86_64-make mingw-w64-x86_64-toolchain
+    - name: build
+      run: |
+        cd bsp/win32
+        cmake .
+        make -j2
+        mkdir luatos_win32/
+        mv luatos.exe luatos_win32/
+        cp lib/sys.lua luatos_win32/
+        echo -e "local sys = require 'sys'\r\n\r\nlog.info('sys', 'from win32')\r\n\r\nsys.taskInit(function ()\r\n    while true do\r\n        log.info('hi', os.date())\r\n        log.info('sys', rtos.meminfo('sys'))\r\n        log.info('lua', rtos.meminfo('lua'))\r\n        sys.wait(1000)\r\n    end\r\nend)\r\n\r\nsys.run()" > luatos_win32/main.lua
+    - name: Upload artifact
+      uses: actions/upload-artifact@v1
+      with:
+        name: luatos_win32
+        path: bsp/win32/build/luatos_win32

@@ -1,6 +1,12 @@
 name: air100st
 
-on: [push,pull_request,workflow_dispatch]
+on:
+  push:
+    paths:
+      - '.github/workflows/air100st.yml'
+      - 'lua/**'
+      - 'luat/**'
+      - 'bsp/air100st/**'
 
 jobs:
   build:

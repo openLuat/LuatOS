@@ -1,6 +1,12 @@
 name: air640w
 
-on: [push,pull_request,workflow_dispatch]
+on:
+  push:
+    paths:
+      - '.github/workflows/air640w.yml'
+      - 'lua/**'
+      - 'luat/**'
+      - 'bsp/air640w/**'
 
 jobs:
   build:

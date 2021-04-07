@@ -135,8 +135,9 @@ local function build_flashx(rootpath)
             f:close()
         end
     end
-    io.writeFile(rootpath .. "\\flashx.bin", buff:toStr(0, buff:seek(0, zbuff.SEEK_CUR)))
-    log.info("lfs", "flashx.bin is done")
+    local fdata = buff:toStr(0, buff:seek(0, zbuff.SEEK_CUR))
+    io.writeFile(rootpath .. "\\flashx.bin", fdata)
+    log.info("lfs", "flashx.bin is done", crypto.sha256(fdata))
 end
 
 cmds["lfs"] = function()
@@ -186,7 +187,27 @@ cmds["lfs"] = function()
 
 end
 
+cmds["dlfs"] = function ()
+    -- 看看disk目录在不在
+
+    -- 开始发送
+
+    -- TODO 插入晨旭老早以前写的tools.lua, 发送文件到设备去
+end
+
+cmds["dlrom"] = function ()
+    -- 检查FLS文件是否存在
+
+    -- 通过xmodem协议发送固件
+end
+
+cmds["dlfull"] = function ()
+    cmds["dlrom"]()
+    cmds["dlfs"]()
+end
+
 sys.taskInit(function()
+    sys.wait(10)
     for _, arg in ipairs(win32.args()) do
         if cmds[arg] then
             cmds[arg]()
@@ -202,6 +223,5 @@ sys.taskInit(function()
     end
     os.exit(0)
 end)
-
 
 sys.run()

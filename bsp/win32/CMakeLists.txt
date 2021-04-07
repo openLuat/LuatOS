@@ -35,6 +35,8 @@ add_library(luat ${TOPROOT}/luat/modules/luat_main.c
                  ${TOPROOT}/luat/modules/luat_lib_zbuff.c
                  ${TOPROOT}/luat/modules/luat_lib_mqttcore.c
                  ${TOPROOT}/luat/modules/luat_lib_libcoap.c
+                 ${TOPROOT}/luat/modules/luat_lib_crypto.c
+                 ${TOPROOT}/luat/modules/crc.c
             )
 
 #-----------------------
@@ -50,7 +52,13 @@ aux_source_directory(./rock/librs232/src ROCK_LIB_RS232_SRCS)
 add_library(rock_librs232 ${ROCK_LIB_RS232_SRCS} ./rock/librs232/bindings/lua/luars232.c)
 #------------------------
 
+#-----------------------
+# LuaFileSystem --> lfs
+include_directories(./rock/mbedtls/include)
+add_subdirectory(rock/mbedtls)
+#-----------------------
+
 # 指定生成目标
 add_executable(luatos src/main_win32.c)
 target_link_libraries(luat freertos10 winmm)
-target_link_libraries(luatos freertos10 lua luatos_msys luat winmm cjson rock_lfs rock_librs232)
+target_link_libraries(luatos freertos10 lua luatos_msys luat winmm cjson rock_lfs rock_librs232 mbedtls)

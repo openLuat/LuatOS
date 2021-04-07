@@ -20,14 +20,17 @@ jobs:
       with:
         msystem: MINGW64
         update: true
-        install: git mingw-w64-x86_64-gcc mingw-w64-x86_64-gdb mingw-w64-x86_64-cmake mingw-w64-x86_64-make mingw-w64-x86_64-toolchain
+        install: git mingw-w64-x86_64-gcc mingw-w64-x86_64-gdb mingw-w64-x86_64-cmake mingw-w64-x86_64-make mingw-w64-x86_64-toolchain make
     - name: build
       run: |
         cd bsp/win32
-        cmake .
+        mkdir build
+        cd build
+        /usr/bin/cmake ..
         make -j2
+        cd ..
         mkdir luatos_win32/
-        mv luatos.exe luatos_win32/
+        mv build/luatos.exe luatos_win32/
         cp lib/sys.lua luatos_win32/
         echo -e "local sys = require 'sys'\r\n\r\nlog.info('sys', 'from win32')\r\n\r\nsys.taskInit(function ()\r\n    while true do\r\n        log.info('hi', os.date())\r\n        log.info('sys', rtos.meminfo('sys'))\r\n        log.info('lua', rtos.meminfo('lua'))\r\n        sys.wait(1000)\r\n    end\r\nend)\r\n\r\nsys.run()" > luatos_win32/main.lua
     - name: Upload artifact

@@ -15,6 +15,16 @@
 
 #define tozbuff(L) ((luat_zbuff *)luaL_checkudata(L, 1, LUAT_ZBUFF_TYPE))
 
+//在buff对象后添加数据，返回增加的字节数
+int add_bytes(luat_zbuff* buff,char* source,size_t len)
+{
+    if(buff->len - buff->cursor < len)
+        len = buff->len - buff->cursor;
+    memcpy(buff->addr+buff->cursor,source,len);
+    buff->cursor += len;
+    return len;
+}
+
 /**
 创建zbuff
 @api zbuff.create(length,data)
@@ -198,6 +208,36 @@ static int l_zbuff_seek(lua_State *L)
 #define	OP_BIGENDIAN	'>'
 #define	OP_NATIVE	'='
 
+static void badcode(lua_State *L, int c)
+{
+    char s[]="bad code `?'";
+    s[sizeof(s)-3]=c;
+    luaL_argerror(L,1,s);
+}
+static int doendian(int c)
+{
+    int x=1;
+    int e=*(char*)&x;
+    if (c==OP_LITTLEENDIAN) return !e;
+    if (c==OP_BIGENDIAN) return e;
+    if (c==OP_NATIVE) return 0;
+    return 0;
+}
+static void doswap(int swap, void *p, size_t n)
+{
+    if (swap)
+    {
+        char *a = p;
+        int i, j;
+        for (i = 0, j = n - 1, n = n / 2; n--; i++, j--)
+        {
+            char t = a[i];
+            a[i] = a[j];
+            a[j] = t;
+        }
+    }
+}
+
 /**
 将一系列数据按照格式字符转化，并写入
 @api buff:pack(format,val1, val2,...)
@@ -205,43 +245,199 @@ static int l_zbuff_seek(lua_State *L)
 @val  传入的数据，可以为多个数据
 @return int 成功写入的数据长度
 @usage
-buff:pack(">IIH", 0x1234, 0x4567, 0x12) -- 按格式写入几个数据
--- A：string
--- f：float
--- d：double
--- n：Lua number
--- c：char  int8
--- b：byte  uint8
--- h：int16
--- H：uint16
--- i：int32
--- I：uint32
--- l：int64
--- L：uint64
--- <：little endian
--- >：big endian
--- =：native endian
+buff:pack(">IIHA", 0x1234, 0x4567, 0x12,"abcdefg") -- 按格式写入几个数据
+-- A string
+-- f float
+-- d double
+-- n Lua number
+-- c char
+-- b byte / unsignen char
+-- h short
+-- H unsigned short
+-- i int
+-- I unsigned int
+-- l long
+-- L unsigned long
+-- < 小端
+-- > 大端
+-- = 默认大小端
  */
+#define PACKNUMBER(OP,T)			\
+    case OP:					\
+    {						\
+        T a=(T)luaL_checknumber(L,i++);		\
+        doswap(swap,&a,sizeof(a));			\
+        write_len += add_bytes(buff, (void*)&a, sizeof(a));\
+        break;					\
+    }
 static int l_zbuff_pack(lua_State *L)
 {
-
-    return 0;
+    luat_zbuff *buff = tozbuff(L);
+    int i = 3;
+    char *f = luaL_checkstring(L, 2);
+    int swap = 0;
+    int write_len = 0; //已写入长度
+    while (*f)
+    {
+        if (buff->cursor == buff->len) //到头了
+            break;
+        int c = *f++;
+        int N = 1;
+        if (isdigit(*f))
+        {
+            N = 0;
+            while (isdigit(*f))
+                N = 10 * N + (*f++) - '0';
+        }
+        while (N--)
+        {
+            if (buff->cursor == buff->len) //到头了
+                break;
+            switch (c)
+            {
+            case OP_LITTLEENDIAN:
+            case OP_BIGENDIAN:
+            case OP_NATIVE:
+            {
+                swap = doendian(c);
+                N = 0;
+                break;
+            }
+            case OP_STRING:
+            {
+                size_t l;
+                const char *a = luaL_checklstring(L, i++, &l);
+                write_len += add_bytes(buff, a, l);
+                break;
+            }
+            PACKNUMBER(OP_NUMBER, lua_Number)
+            PACKNUMBER(OP_DOUBLE, double)
+            PACKNUMBER(OP_FLOAT, float)
+            PACKNUMBER(OP_CHAR, char)
+            PACKNUMBER(OP_BYTE, unsigned char)
+            PACKNUMBER(OP_SHORT, short)
+            PACKNUMBER(OP_USHORT, unsigned short)
+            PACKNUMBER(OP_INT, int)
+            PACKNUMBER(OP_UINT, unsigned int)
+            PACKNUMBER(OP_LONG, long)
+            PACKNUMBER(OP_ULONG, unsigned long)
+            case ' ':
+            case ',':
+                break;
+            default:
+                badcode(L, c);
+                break;
+            }
+        }
+    }
+    lua_pushinteger(L, write_len);
+    return 1;
 }
 
-
+#define UNPACKINT(OP,T)		\
+    case OP:				\
+    {					\
+        T a;				\
+        int m=sizeof(a);			\
+        if (i+m>len) goto done;		\
+        memcpy(&a,s+i,m);			\
+        i+=m;				\
+        doswap(swap,&a,m);			\
+        lua_pushinteger(L,(lua_Integer)a);	\
+        ++n;				\
+        break;				\
+    }
+#define UNPACKNUMBER(OP,T)		\
+    case OP:				\
+    {					\
+        T a;				\
+        int m=sizeof(a);			\
+        if (i+m>len) goto done;		\
+        memcpy(&a,s+i,m);			\
+        i+=m;				\
+        doswap(swap,&a,m);			\
+        lua_pushnumber(L,(lua_Number)a);	\
+        ++n;				\
+        break;				\
+    }
 /**
 将一系列数据按照格式字符读取出来
 @api buff:unpack(format)
 @string 数据的格式（符号含义见上面pack接口的例子）
-@return any 按格式读出来的数据，如果某数据读取失败，就是nil
+@return any 按格式读出来的数据，最后会多返回一个值，是读取长度
 @usage
-local a,b,c,s = buff:unpack(">IIHA10") -- 按格式读取几个数据
+local a,b,c,s,len = buff:unpack(">IIHA10") -- 按格式读取几个数据
  */
 static int l_zbuff_unpack(lua_State *L)
 {
-    return 0;
+    luat_zbuff *buff = tozbuff(L);
+    char *f = luaL_checkstring(L, 2);
+    size_t len = buff->len - buff->cursor;
+    const char *s = buff->addr+buff->cursor;
+    int i = 0;
+    int n = 0;
+    int swap = 0;
+    while (*f)
+    {
+        int c = *f++;
+        int N = 1;
+        if (isdigit(*f))
+        {
+            N = 0;
+            while (isdigit(*f))
+                N = 10 * N + (*f++) - '0';
+            if (N == 0 && c == OP_STRING)
+            {
+                lua_pushliteral(L, "");
+                ++n;
+            }
+        }
+        while (N--)
+            switch (c)
+            {
+            case OP_LITTLEENDIAN:
+            case OP_BIGENDIAN:
+            case OP_NATIVE:
+            {
+                swap = doendian(c);
+                N = 0;
+                break;
+            }
+            case OP_STRING:
+            {
+                ++N;
+                if (i + N > len)
+                    goto done;
+                lua_pushlstring(L, s + i, N);
+                i += N;
+                ++n;
+                N = 0;
+                break;
+            }
+            UNPACKNUMBER(OP_NUMBER, lua_Number)
+            UNPACKNUMBER(OP_DOUBLE, double)
+            UNPACKNUMBER(OP_FLOAT, float)
+            UNPACKINT(OP_CHAR, char)
+            UNPACKINT(OP_BYTE, unsigned char)
+            UNPACKINT(OP_SHORT, short)
+            UNPACKINT(OP_USHORT, unsigned short)
+            UNPACKINT(OP_INT, int)
+            UNPACKINT(OP_UINT, unsigned int)
+            UNPACKINT(OP_LONG, long)
+            UNPACKINT(OP_ULONG, unsigned long)
+            case ' ':
+            case ',':
+                break;
+            default:
+                badcode(L, c);
+                break;
+            }
+    }
+done:
+    buff->cursor += i;
+    lua_pushinteger(L, i);
+    return n + 1;
 }
-
 
 /**
 读取一个指定类型的数据

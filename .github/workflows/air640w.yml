@@ -21,8 +21,7 @@ jobs:
         /opt/gcc-arm-none-eabi-6-2017-q2-update/bin/arm-none-eabi-gcc --version
     - name: clone rtt
       run: |
-        cd ..
-        git clone https://github.com/RT-Thread/rt-thread.git
+        git clone https://github.com/RT-Thread/rt-thread.git ~/work/action/rt-thread
     - name: prepare packages
       run: |
         cd bsp/air640w/rtt

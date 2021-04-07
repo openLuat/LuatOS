@@ -32,6 +32,7 @@ static const luaL_Reg loadedlibs[] = {
   {"libcoap", luaopen_libcoap},        // 
   {"lfs", luaopen_lfs},                //
   {"rs232.core", luaopen_rs232_core},
+  {"crypto", luaopen_crypto},
   {NULL, NULL}
 };
 

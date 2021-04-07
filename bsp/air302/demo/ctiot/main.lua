@@ -119,16 +119,8 @@ local function task()
         --唤醒的不需要处理
         pm.request(pm.IDLE)
         log.info(TAG, "after", ctiot.ep(), ctiot.param())
-        result, error, error_code, param = sys.waitUntilExt("CTIOT_WAKEUP", 30000)
-        if not result then
-            log.info(TAG, "wakeup but ctiot not ready")
-        else
-            while ctiot.isReady() > 0 do
-                log.info(TAG, "wakeup and wait ready")
-                sys.wait(500)
-            end
-            isConnected = true
-        end
+		--一定要等待一下，否则会重启！！！
+		sys.wait(1000)
     else
         --设置自定义EP，如果不设置，则使用IMEI
         --local ep="867814046436271"
@@ -147,36 +139,33 @@ local function task()
 		log.info("net", "wait for network ready")
 		sys.waitUntil("NET_READY", 1000)
     end
-    -- 非普通上电/复位上电,那就是唤醒上电咯
-    if pm.lastReson() ~= 0 then
-        
-    else
-        --启动连接
-        ctiot.connect()
-        while true do
-            result, error, error_code, param = sys.waitUntilExt("CTIOT_REG", 60000)
-            if not result and error==nil then
-                log.info(TAG, "reg wait timeout")
-                break
-            end
-            log.info(TAG, result, error, error_code, param)
-            if not error and param > 0 then
-                log.info(TAG, "reg ok")
-                isConnected = true
-                break
-            end
-            if error then
-                log.info(TAG, "reg fail")
-                break
-            end
-        end
 
-    end
+    --无论是重启还是从深度休眠唤醒，必须重新启动连接
+	ctiot.connect()
+	while true do
+		result, error, error_code, param = sys.waitUntilExt("CTIOT_REG", 60000)
+		if not result and error==nil then
+			log.info(TAG, "reg wait timeout")
+			break
+		end
+		log.info(TAG, result, error, error_code, param)
+		if not error and param > 0 then
+			log.info(TAG, "reg ok")
+			isConnected = true
+			break
+		end
+		if error then
+			log.info(TAG, "reg fail")
+			break
+		end
+	end
+
+
     if isConnected then
         send_test()
-        -- 221.229.214.202 这个IP必须在保活时间内update一下
-        ctiot.update()
-        result, error, error_code, param = sys.waitUntilExt("CTIOT_UPDATE", 60000)
+        --凡是不进入深度休眠的，221.229.214.202 这个IP必须在保活时间内update一下
+        --ctiot.update()
+        --result, error, error_code, param = sys.waitUntilExt("CTIOT_UPDATE", 60000)
     end
     -- 30秒后唤醒,发个测试数据
     if not inSleep then

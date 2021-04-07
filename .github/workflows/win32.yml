@@ -37,4 +37,4 @@ jobs:
       uses: actions/upload-artifact@v1
       with:
         name: luatos_win32
-        path: bsp/win32/build/luatos_win32
+        path: bsp/win32/luatos_win32

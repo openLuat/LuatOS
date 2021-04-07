@@ -49,15 +49,13 @@ static int pmain(lua_State *L) {
     
     // 加载main.lua
     #ifdef LUA_USE_WINDOWS
-    if (win32_argc > 1) {
+    if (win32_argc > 1) {     
       int slen = strlen(win32_argv[1]);
-      if (slen > 4 && !strcmp(".lua", win32_argv[1] + (slen - 4))) {
-        re = luaL_dofile(L, win32_argv[1]);
-      }
-      else {
-        re = luaL_dostring(L, "require(\"main\")");
-      }
+      if (slen > 4 && !strcmp(".lua", win32_argv[1] + (slen - 4)))
+        re = luaL_dofile(L, win32_argv[1]);    
     }
+    else
+        re = luaL_dostring(L, "require(\"main\")");
     #else
     re = luaL_dostring(L, "require(\"main\")");
     #endif

@@ -365,9 +365,11 @@ static int l_zbuff_pack(lua_State *L)
 将一系列数据按照格式字符读取出来
 @api buff:unpack(format)
 @string 数据的格式（符号含义见上面pack接口的例子）
-@return any 按格式读出来的数据，最后会多返回一个值，是读取长度
+@return int 成功读取的数据字节长度
+@return any 按格式读出来的数据
 @usage
-local a,b,c,s,len = buff:unpack(">IIHA10") -- 按格式读取几个数据
+local cnt,a,b,c,s = buff:unpack(">IIHA10") -- 按格式读取几个数据
+--如果全部成功读取，cnt就是4+4+2+10=20
  */
 static int l_zbuff_unpack(lua_State *L)
 {
@@ -437,6 +439,7 @@ static int l_zbuff_unpack(lua_State *L)
 done:
     buff->cursor += i;
     lua_pushinteger(L, i);
+    lua_replace(L,-n-2);
     return n + 1;
 }
 

@@ -16,7 +16,7 @@
 #define tozbuff(L) ((luat_zbuff *)luaL_checkudata(L, 1, LUAT_ZBUFF_TYPE))
 
 //在buff对象后添加数据，返回增加的字节数
-int add_bytes(luat_zbuff* buff,char* source,size_t len)
+int add_bytes(luat_zbuff* buff,const char* source,size_t len)
 {
     if(buff->len - buff->cursor < len)
         len = buff->len - buff->cursor;
@@ -208,6 +208,7 @@ static int l_zbuff_seek(lua_State *L)
 #define	OP_BIGENDIAN	'>'
 #define	OP_NATIVE	'='
 
+#define isdigit(c) ((c) >= '0' && (c) <= '9')
 static void badcode(lua_State *L, int c)
 {
     char s[]="bad code `?'";
@@ -274,7 +275,7 @@ static int l_zbuff_pack(lua_State *L)
 {
     luat_zbuff *buff = tozbuff(L);
     int i = 3;
-    char *f = luaL_checkstring(L, 2);
+    char *f = (char*)luaL_checkstring(L, 2);
     int swap = 0;
     int write_len = 0; //已写入长度
     while (*f)
@@ -371,7 +372,7 @@ local a,b,c,s,len = buff:unpack(">IIHA10") -- 按格式读取几个数据
 static int l_zbuff_unpack(lua_State *L)
 {
     luat_zbuff *buff = tozbuff(L);
-    char *f = luaL_checkstring(L, 2);
+    char *f = (char *)luaL_checkstring(L, 2);
     size_t len = buff->len - buff->cursor;
     const char *s = buff->addr+buff->cursor;
     int i = 0;

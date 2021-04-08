@@ -24,6 +24,7 @@ _G.pm_sleep_sec = 3600
 
 --//-----------------------------------------------------
 -- 非预期唤醒监测函数, TODO 在固件内实现
+-- 如需使用ctiot, 那么lpmem的前1800字节将被ctiot使用, 请把偏移量往后移动
 function pm_enter_hib_mode(sec)
 
     lpmem.write(512, pack.pack(">HI", 0x5AA5, os.time()))

@@ -11,6 +11,7 @@
 #include "luat_log.h"
 
 #ifdef LUA_USE_WINDOWS
+#include <stdlib.h>
 extern int win32_argc;
 extern char** win32_argv;
 #endif
@@ -46,22 +47,24 @@ static int pmain(lua_State *L) {
     LLOGD("sys   %ld %ld %ld", total, used, max_used);
 
     lua_gc(L, LUA_GCSETPAUSE, 90); // 设置`垃圾收集器间歇率`要低于100%
-    
+
     // 加载main.lua
     #ifdef LUA_USE_WINDOWS
-    if (win32_argc > 1) {     
+    if (win32_argc > 1) {
       int slen = strlen(win32_argv[1]);
       if (slen > 4 && !strcmp(".lua", win32_argv[1] + (slen - 4)))
-        re = luaL_dofile(L, win32_argv[1]);    
+        re = luaL_dofile(L, win32_argv[1]);
     }
     else
         re = luaL_dostring(L, "require(\"main\")");
+    report(L, re);
+    lua_pushboolean(L, re == LUA_OK);  /* signal no errors */
     #else
     re = luaL_dostring(L, "require(\"main\")");
-    #endif
 
     report(L, re);
     lua_pushboolean(L, 1);  /* signal no errors */
+    #endif
     return 1;
 }
 
@@ -127,7 +130,7 @@ static void check_update(void) {
   }
   // 检测升级包合法性
   if (luat_bin_unpack(UPDATE_BIN_PATH, 0) != LUA_OK) {
-    LLOGE("%s is invaild!!", UPDATE_BIN_PATH); 
+    LLOGE("%s is invaild!!", UPDATE_BIN_PATH);
   }
   else {
     // 开始解包升级文件
@@ -210,6 +213,11 @@ int luat_main (void) {
   report(L, status);
   //lua_close(L);
 _exit:
+  #ifdef LUA_USE_WINDOWS
+    result = !result;
+    LLOGE("Lua VM exit!! result:%d",result);
+    exit(result);
+  #endif
   LLOGE("Lua VM exit!! reboot in 30s");
   // 既然是异常退出,那肯定出错了!!!
   // 如果升级过, 那么就写入标志文件

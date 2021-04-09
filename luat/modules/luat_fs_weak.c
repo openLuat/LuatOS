@@ -12,7 +12,7 @@ LUAT_WEAK FILE* luat_fs_fopen(const char *filename, const char *mode) {
     return fopen(filename, mode);
 }
 
-LUAT_WEAK char luat_fs_getc(FILE* stream) {
+LUAT_WEAK int luat_fs_getc(FILE* stream) {
     return getc(stream);
 }
 

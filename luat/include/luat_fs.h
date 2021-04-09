@@ -37,7 +37,7 @@ int luat_fs_umount(luat_fs_conf_t *conf);
 int luat_fs_info(const char* path, luat_fs_info_t *conf);
 
 FILE* luat_fs_fopen(const char *filename, const char *mode);
-char luat_fs_getc(FILE* stream);
+int luat_fs_getc(FILE* stream);
 int luat_fs_fseek(FILE* stream, long int offset, int origin);
 int luat_fs_ftell(FILE* stream);
 int luat_fs_fclose(FILE* stream);
@@ -73,7 +73,7 @@ int luat_fs_rmdir(char const* _DirName);
 
 struct luat_vfs_file_opts {
     FILE* (*fopen)(void* fsdata, const char *filename, const char *mode);
-    char (*getc)(void* fsdata, FILE* stream);
+    int (*getc)(void* fsdata, FILE* stream);
     int (*fseek)(void* fsdata, FILE* stream, long int offset, int origin);
     int (*ftell)(void* fsdata, FILE* stream);
     int (*fclose)(void* fsdata, FILE* stream);
@@ -126,6 +126,8 @@ typedef struct luat_vfs
 
 int luat_vfs_init(void* params);
 int luat_vfs_reg(struct luat_vfs_filesystem* fs);
+FILE* luat_vfs_add_fd(FILE* fd, luat_vfs_mount_t * mount);
+int luat_vfs_rm_fd(FILE* fd);
 #endif
 
 #endif

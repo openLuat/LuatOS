@@ -82,16 +82,16 @@ static int l_checkmode (const char *mode) {
 
 #if !defined(l_getc)		/* { */
 
-#if defined(LUA_USE_POSIX)
-#define l_getc(f)		getc_unlocked(f)
-#define l_lockfile(f)		flockfile(f)
-#define l_unlockfile(f)		funlockfile(f)
-#else
-char luat_fs_getc(FILE* stream);
+// #if defined(LUA_USE_POSIX)
+// #define l_getc(f)		getc_unlocked(f)
+// #define l_lockfile(f)		flockfile(f)
+// #define l_unlockfile(f)		funlockfile(f)
+// #else
+int luat_fs_getc(FILE* stream);
 #define l_getc(f)		luat_fs_getc(f)
 #define l_lockfile(f)		((void)0)
 #define l_unlockfile(f)		((void)0)
-#endif
+// #endif
 
 #endif				/* } */
 
@@ -288,7 +288,11 @@ static int io_open (lua_State *L) {
 */
 static int io_pclose (lua_State *L) {
   LStream *p = tolstream(L);
-  return luaL_execresult(L, l_pclose(L, p->f));
+  int ret = luaL_execresult(L, l_pclose(L, p->f));
+  #ifdef LUAT_USE_FS_VFS
+  luat_vfs_rm_fd(p->f);
+  #endif
+  return ret;
 }
 
 
@@ -298,6 +302,20 @@ static int io_popen (lua_State *L) {
   LStream *p = newprefile(L);
   p->f = l_popen(L, filename, mode);
   p->closef = &io_pclose;
+  #ifdef LUAT_USE_FS_VFS
+  if (p->f) {
+    FILE* tmp = luat_vfs_add_fd(p->f, NULL);
+    if (tmp == NULL) {
+      l_pclose(L, p->f);
+      p->f = NULL;
+      p->closef = NULL;
+    }
+    else {
+      //printf("replace p->f %p => %p\n", p->f, tmp);
+      p->f = tmp;
+    }
+  }
+  #endif
   return (p->f == NULL) ? luaL_fileresult(L, 0, filename) : 1;
 }
 #endif
@@ -550,7 +568,7 @@ static int g_read (lua_State *L, FILE *f, int first) {
   int nargs = lua_gettop(L) - 1;
   int success;
   int n;
-  clearerr(f);
+  //clearerr(f);
   if (nargs == 0) {  /* no arguments? */
     success = read_line(L, f, 1);
     n = first+1;  /* to return 1 result */

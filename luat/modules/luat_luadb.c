@@ -333,7 +333,7 @@ size_t luat_vfs_luadb_fread(void* userdata, void *ptr, size_t size, size_t nmemb
     return luat_luadb_read((luadb_fs_t*)userdata, (int)stream, ptr, size * nmemb);
 }
 
-char luat_vfs_luadb_getc(void* userdata, FILE* stream) {
+int luat_vfs_luadb_getc(void* userdata, FILE* stream) {
     char c = 0;
     luat_vfs_luadb_fread(userdata, &c, 1, 1, stream);
     return c;
@@ -373,7 +373,10 @@ int luat_vfs_luadb_mkfs(void* userdata, luat_fs_conf_t *conf) {
     return -1;
 }
 int luat_vfs_luadb_mount(void** userdata, luat_fs_conf_t *conf) {
-    //LLOGE("not support yet : mount");
+    luadb_fs_t* fs = luat_luadb_mount((const char*)conf->busname);
+    if (fs == NULL)
+        return  -1;
+    *userdata = fs;
     return 0;
 }
 int luat_vfs_luadb_umount(void* userdata, luat_fs_conf_t *conf) {

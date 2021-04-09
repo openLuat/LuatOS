@@ -63,6 +63,8 @@ const char* luat_os_bsp(void) {
 extern const struct luat_vfs_filesystem vfs_fs_posix;
 extern const struct luat_vfs_filesystem vfs_fs_luadb;
 
+extern const char luadb_inline[];
+
 int luat_fs_init(void) {
 	#ifdef LUAT_USE_FS_VFS
 	// vfs进行必要的初始化
@@ -79,7 +81,7 @@ int luat_fs_init(void) {
 	};
 	luat_fs_mount(&conf);
 	luat_fs_conf_t conf2 = {
-		.busname = "",
+		.busname = (char*)luadb_inline,
 		.type = "luadb",
 		.filesystem = "luadb",
 		.mount_point = "/luadb/",

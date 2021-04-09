@@ -14,7 +14,8 @@ FILE* luat_fs_fopen(const char *filename, const char *mode) {
     return fopen(filename + (filename[0] == '/' ? 1 : 0), mode);
 }
 
-char luat_fs_getc(FILE* stream) {
+int luat_fs_getc(FILE* stream) {
+    //LLOGD("posix_getc %p", stream);
     return getc(stream);
 }
 
@@ -36,6 +37,7 @@ int luat_fs_ferror(FILE *stream) {
     return ferror(stream);
 }
 size_t luat_fs_fread(void *ptr, size_t size, size_t nmemb, FILE *stream) {
+    //LLOGD("posix_fread %d %p", size*nmemb, stream);
     return fread(ptr, size, nmemb, stream);
 }
 size_t luat_fs_fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream) {
@@ -97,7 +99,8 @@ FILE* luat_vfs_posix_fopen(void* userdata, const char *filename, const char *mod
     return fopen(filename + (filename[0] == '/' ? 1 : 0), mode);
 }
 
-char luat_vfs_posix_getc(void* userdata, FILE* stream) {
+int luat_vfs_posix_getc(void* userdata, FILE* stream) {
+    //LLOGD("posix_getc %p", stream);
     return getc(stream);
 }
 
@@ -119,6 +122,7 @@ int luat_vfs_posix_ferror(void* userdata, FILE *stream) {
     return ferror(stream);
 }
 size_t luat_vfs_posix_fread(void* userdata, void *ptr, size_t size, size_t nmemb, FILE *stream) {
+    
     return fread(ptr, size, nmemb, stream);
 }
 size_t luat_vfs_posix_fwrite(void* userdata, const void *ptr, size_t size, size_t nmemb, FILE *stream) {

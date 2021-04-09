@@ -380,6 +380,7 @@ static int l_zbuff_unpack(lua_State *L)
     int i = 0;
     int n = 0;
     int swap = 0;
+    lua_pushnil(L);//给个数占位用的
     while (*f)
     {
         int c = *f++;

@@ -7,7 +7,7 @@ end,1)
 
 sys.timerStart(function ()
     assert(temp == 2,"timer error")
-end,100)
+end,10)
 
 local taskCheck
 sys.taskInit(function ()
@@ -17,10 +17,10 @@ end)
 
 sys.timerStart(function ()
     assert(taskCheck,"task error")
-end,100)
+end,10)
 
 sys.timerStart(function ()
     os.exit(0)
-end,500)
+end,50)
 
 sys.run()

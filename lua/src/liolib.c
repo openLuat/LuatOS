@@ -752,6 +752,7 @@ static int io_fileSize (lua_State *L) {
     return 0;
   lua_pushinteger(L,ftell(f));
   fseek(f, 0, SEEK_SET);
+  fclose(f);
   return 1;
 }
 
@@ -762,12 +763,15 @@ static int io_readFile (lua_State *L) {
   if(f == NULL)
     return 0;
   int r = fseek(f, 0, SEEK_END);
-  if(r != 0)
+  if(r != 0) {
+    fclose(f);
     return 0;
+  }
   int len = ftell(f);
   fseek(f, 0, SEEK_SET);
   char* buff = (char*)luat_heap_malloc(len);
   int read = fread(buff, 1, len, f);
+  fclose(f);
   lua_pushlstring(L, buff,len);
   luat_heap_free(buff);
   return 1;
@@ -782,6 +786,7 @@ static int io_writeFile (lua_State *L) {
   if(f == NULL)
     return 0;
   fwrite(data, 1 , len, f);
+  fclose(f);
   lua_pushboolean(L,1);
   return 1;
 }

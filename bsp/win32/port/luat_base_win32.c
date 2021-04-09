@@ -63,7 +63,9 @@ const char* luat_os_bsp(void) {
 extern const struct luat_vfs_filesystem vfs_fs_posix;
 extern const struct luat_vfs_filesystem vfs_fs_luadb;
 
+#ifdef LUAT_USE_VFS_INLINE_LIB
 extern const char luadb_inline[];
+#endif
 
 int luat_fs_init(void) {
 	#ifdef LUAT_USE_FS_VFS
@@ -80,6 +82,7 @@ int luat_fs_init(void) {
 		.mount_point = "", // window环境下, 需要支持任意路径的读取,不能强制要求必须是/
 	};
 	luat_fs_mount(&conf);
+	#ifdef LUAT_USE_VFS_INLINE_LIB
 	luat_fs_conf_t conf2 = {
 		.busname = (char*)luadb_inline,
 		.type = "luadb",
@@ -87,6 +90,7 @@ int luat_fs_init(void) {
 		.mount_point = "/luadb/",
 	};
 	luat_fs_mount(&conf2);
+	#endif
 	return 0;
 	#else
 	return 0;

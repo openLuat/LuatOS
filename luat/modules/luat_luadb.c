@@ -43,11 +43,12 @@ int luat_luadb_open(luadb_fs_t *fs, const char *path, int flags, int /*mode_t*/ 
     for (size_t i = 0; i < fs->filecount; i++)
     {
         if (!strcmp(path, fs->files[i].name)) {
-            for (size_t j = 0; j < LUAT_LUADB_MAX_OPENFILE; j++)
+            for (size_t j = 1; j < LUAT_LUADB_MAX_OPENFILE; j++)
             {
                 if (fs->fds[j].file == NULL) {
                     fs->fds[j].fd_pos = 0;
                     fs->fds[j].file = &(fs->files[i]);
+                    LLOGD("open luadb path = %s fd=%d", path, j);
                     return j;
                 }
             }
@@ -81,7 +82,7 @@ size_t luat_luadb_read(luadb_fs_t *fs, int fd, void *dst, size_t size) {
         memcpy(dst, fdt->file->ptr + fdt->fd_pos, re);
         fdt->fd_pos += re;
     }
-    LLOGD("luadb read name %s offset %d size %d ret %d", fdt->file->name, fdt->fd_pos, size, re);
+    //LLOGD("luadb read name %s offset %d size %d ret %d", fdt->file->name, fdt->fd_pos, size, re);
     return re;
 }
 
@@ -324,7 +325,10 @@ int luat_vfs_luadb_fclose(void* userdata, FILE* stream) {
     return luat_luadb_close((luadb_fs_t*)userdata, (int)stream);
 }
 int luat_vfs_luadb_feof(void* userdata, FILE* stream) {
-    return feof(stream);
+    int cur = luat_luadb_lseek((luadb_fs_t*)userdata, (int)stream, 0, SEEK_CUR);
+    int end = luat_luadb_lseek((luadb_fs_t*)userdata, (int)stream, 0, SEEK_END);
+    luat_luadb_lseek((luadb_fs_t*)userdata, (int)stream, cur, SEEK_SET);
+    return cur >= end ? 1 : 0;
 }
 int luat_vfs_luadb_ferror(void* userdata, FILE *stream) {
     return 0;

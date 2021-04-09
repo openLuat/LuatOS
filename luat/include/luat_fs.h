@@ -121,7 +121,7 @@ typedef struct luat_vfs
 {
     struct luat_vfs_filesystem* fsList[LUAT_VFS_FILESYSTEM_MAX];
     luat_vfs_mount_t mounted[LUAT_VFS_FILESYSTEM_MOUNT_MAX];
-    luat_vfs_fd_t fds[LUAT_VFS_FILESYSTEM_FD_MAX];
+    luat_vfs_fd_t fds[LUAT_VFS_FILESYSTEM_FD_MAX+1];
 }luat_vfs_t;
 
 int luat_vfs_init(void* params);

@@ -28,21 +28,21 @@ int luat_vfs_reg(struct luat_vfs_filesystem* fs) {
 }
 
 FILE* luat_vfs_add_fd(FILE* fd, luat_vfs_mount_t * mount) {
-    for (size_t i = 0; i < LUAT_VFS_FILESYSTEM_FD_MAX; i++)
+    for (size_t i = 1; i <= LUAT_VFS_FILESYSTEM_FD_MAX; i++)
     {
         if (vfs.fds[i].fsMount == NULL) {
             vfs.fds[i].fsMount = mount == NULL ? &vfs.mounted[0] : mount;
             vfs.fds[i].fd = fd;
             //LLOGD("luat_vfs_add_fd %p => %d", fd, i+1);
-            return (FILE*)(i + 1);
+            return (FILE*)i;
         }
     }
     return NULL;
 }
 
 int luat_vfs_rm_fd(FILE* fd) {
-    int _fd = ((int)fd) - 1;
-    if (_fd < 0 || _fd >= LUAT_VFS_FILESYSTEM_FD_MAX)
+    int _fd = (int)fd;
+    if (_fd <= 0 || _fd > LUAT_VFS_FILESYSTEM_FD_MAX)
         return -1;
     //LLOGD("luat_vfs_rm_fd %d => %d", (int)fd, _fd);
     vfs.fds[_fd].fd = NULL;
@@ -51,7 +51,7 @@ int luat_vfs_rm_fd(FILE* fd) {
 }
 
 luat_vfs_mount_t * getmount(const char* filename) {
-    for (size_t j = 0; j < LUAT_VFS_FILESYSTEM_MOUNT_MAX; j++) {
+    for (size_t j = LUAT_VFS_FILESYSTEM_MOUNT_MAX - 1; j >= 0; j--) {
         if (vfs.mounted[j].ok == 0)
             continue;
         if (strncmp(vfs.mounted[j].prefix, filename, strlen(vfs.mounted[j].prefix)) == 0) {
@@ -115,9 +115,9 @@ int luat_fs_info(const char* path, luat_fs_info_t *conf) {
 }
 
 static luat_vfs_fd_t* getfd(FILE* fd) {
-    int _fd = ((int)fd) - 1;
+    int _fd = (int)fd;
     //LLOGD("search for vfs.fd = %d %p", _fd, fd);
-    if (_fd < 0 || _fd >= LUAT_VFS_FILESYSTEM_FD_MAX) return NULL;
+    if (_fd <= 0 || _fd > LUAT_VFS_FILESYSTEM_FD_MAX) return NULL;
     if (vfs.fds[_fd].fsMount == NULL) {
         LLOGD("vfs.fds[%d] is nil", _fd);
         return NULL;
@@ -131,12 +131,12 @@ FILE* luat_fs_fopen(const char *filename, const char *mode) {
     if (mount == NULL || mount->fs->fopts.fopen == NULL) return NULL;
     FILE* fd = mount->fs->fopts.fopen(mount->userdata, filename + strlen(mount->prefix), mode);
     if (fd) {
-        for (size_t i = 0; i < LUAT_VFS_FILESYSTEM_FD_MAX; i++)
+        for (size_t i = 1; i <= LUAT_VFS_FILESYSTEM_FD_MAX; i++)
         {
             if (vfs.fds[i].fsMount == NULL) {
                 vfs.fds[i].fsMount = mount;
                 vfs.fds[i].fd = fd;
-                return (FILE*)(i + 1);
+                return (FILE*)i;
             }
         }
         mount->fs->fopts.fclose(mount->userdata, fd);
@@ -201,13 +201,13 @@ int luat_fs_getc(FILE* stream) {
 // int luat_fs_feof(FILE* stream);
 // int luat_fs_ferror(FILE *stream);
 int luat_fs_fclose(FILE* stream) {
-    //LLOGD("call %s %d","fclose", ((int)stream) - 1);
+    LLOGD("fclose %d", (int)stream);
     luat_vfs_fd_t* fd = getfd(stream);
     if (fd == NULL) {
         return 0;
     }
     int ret = fd->fsMount->fs->fopts.fclose(fd->fsMount->userdata, fd->fd);
-    int _fd = ((int)stream) - 1;
+    int _fd = (int)stream;
     vfs.fds[_fd].fsMount = NULL;
     vfs.fds[_fd].fd = NULL;
     return ret;

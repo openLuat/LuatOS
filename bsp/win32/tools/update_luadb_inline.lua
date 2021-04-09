@@ -18,7 +18,7 @@ local files = {}
 lsdir("lib", files, true)
 
 local buff = zbuff.create(256*1024)
-local magic = string.char(0XA5, 0x5A, 0xA5, 0x5A)
+local magic = string.char(0x5A, 0xA5, 0X5A, 0xA5)
 
 -- 先写入magic
 --buff:pack("bbbbbb", 0x01, 0x04, 0XA5, 0x5A, 0xA5, 0x5A)
@@ -43,9 +43,29 @@ buff:pack("H", 0xFFFF)
 for _, value in ipairs(files) do
     TLD(buff, 0x01, magic)
     TLD(buff, 0x02, value)
-    --TLD(buff, 0x03, pack.pack("I", io.fileSize("lib\\" .. value)))
+    TLD(buff, 0x03, pack.pack("I", io.fileSize("lib\\" .. value)))
     TLD(buff, 0xFE, string.char(0xFF, 0xFF))
-    --buff:write(io.readFile("lib\\" .. value))
+    buff:write(io.readFile("lib\\" .. value))
+end
+
+local data = buff:toStr(0, buff:seek(0, zbuff.SEEK_CUR))
+log.info("target", #data)
+
+local f = io.open("port\\luat_luadb_inline.c", "wb")
+if f then
+    f:write([[#include "luat_base.h"]])
+    f:write("\n\nconst char luadb_inline[] = {\n")
+    local index = 0
+    local max = #data
+    while index < max do
+        if index % 8 == 0 then
+            f:write("\n")
+        end
+        f:write(string.format("0x%02X, ", buff[index]))
+        index = index + 1
+    end
+    f:write("};\n")
+    f:close()
 end
 
 os.exit(0)

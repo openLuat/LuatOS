@@ -527,6 +527,13 @@ static int searcher_Lua (lua_State *L) {
     sprintf(filename, "/lfs/%s.luac", name);
     if (readable(filename)) break;
 
+    #ifdef LUAT_USE_VFS_INLINE_LIB
+    sprintf(filename, "/luadb/%s.lua", name);
+    if (readable(filename)) break;
+    sprintf(filename, "/luadb/%s.luac", name);
+    if (readable(filename)) break;
+    #endif
+
     // none found!!
     return -1;
   }

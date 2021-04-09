@@ -35,13 +35,6 @@
     #define LUAL_BUFFERSIZE LUAT_CONF_LAUX_BUFFSIZE
 #endif
 
-// 如果是windows, 默认打开LUA_COMPAT_BITLIB
-#ifdef LUA_USE_WINDOWS
-#ifndef LUA_COMPAT_BITLIB
-#define LUA_COMPAT_BITLIB 1
-#endif
-#endif
-
 //------------------------------
 // LuatOS 特性
 //-----------------------------

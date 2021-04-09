@@ -60,7 +60,36 @@ const char* luat_os_bsp(void) {
     return "win32";
 }
 
-int luat_fs_init(void) {return 0;}
+extern const struct luat_vfs_filesystem vfs_fs_posix;
+extern const struct luat_vfs_filesystem vfs_fs_luadb;
+
+int luat_fs_init(void) {
+	#ifdef LUAT_USE_FS_VFS
+	// vfs进行必要的初始化
+	luat_vfs_init(NULL);
+	// 注册vfs for posix 实现
+	luat_vfs_reg(&vfs_fs_posix);
+	luat_vfs_reg(&vfs_fs_luadb);
+
+	luat_fs_conf_t conf = {
+		.busname = "",
+		.type = "posix",
+		.filesystem = "posix",
+		.mount_point = "", // window环境下, 需要支持任意路径的读取,不能强制要求必须是/
+	};
+	luat_fs_mount(&conf);
+	luat_fs_conf_t conf2 = {
+		.busname = "",
+		.type = "luadb",
+		.filesystem = "luadb",
+		.mount_point = "/luadb/",
+	};
+	luat_fs_mount(&conf2);
+	return 0;
+	#else
+	return 0;
+	#endif
+}
 
 void vConfigureTimerForRunTimeStats( void ) {}
 

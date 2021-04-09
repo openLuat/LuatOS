@@ -3,7 +3,7 @@
 # CMake 最低版本号要求
 cmake_minimum_required (VERSION 3.12)
 
-set(CMAKE_BUILD_TYPE "Release")
+set(CMAKE_BUILD_TYPE "Debug")
 set(CMAKE_CXX_FLAGS_DEBUG "$ENV{CXXFLAGS} -O0 -Wall -g -ggdb")
 set(CMAKE_CXX_FLAGS_RELEASE "$ENV{CXXFLAGS} -O2 -Wall")
 
@@ -11,6 +11,9 @@ set(TOPROOT "../..")
 
 # 项目信息
 project (luatos)
+
+# 一定一定要先添加本地的头文件
+include_directories(./include)
 
 include_directories(${TOPROOT}/lua/include ${TOPROOT}/luat/include ./freertos/include ./freertos/portable/MSVC-MingW)
 
@@ -37,6 +40,8 @@ add_library(luat ${TOPROOT}/luat/modules/luat_main.c
                  ${TOPROOT}/luat/modules/luat_lib_libcoap.c
                  ${TOPROOT}/luat/modules/luat_lib_crypto.c
                  ${TOPROOT}/luat/modules/crc.c
+                 ${TOPROOT}/luat/modules/luat_vfs.c
+                 ${TOPROOT}/luat/modules/luat_luadb.c
             )
 
 #-----------------------

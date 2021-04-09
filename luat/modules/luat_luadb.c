@@ -2,6 +2,7 @@
 #include "luat_base.h"
 #include "luat_luadb.h"
 #include "luat_malloc.h"
+#include "luat_fs.h"
 
 #define LUAT_LOG_TAG "luadb"
 #include "luat_log.h"
@@ -303,3 +304,116 @@ _after_head:
         return NULL;
     }
 }
+
+#ifdef LUAT_USE_FS_VFS
+
+FILE* luat_vfs_luadb_fopen(void* userdata, const char *filename, const char *mode) {
+    return luat_luadb_open((luadb_fs_t*)userdata, filename, 0, 0);
+}
+
+
+int luat_vfs_luadb_fseek(void* userdata, FILE* stream, long int offset, int origin) {
+    return luat_luadb_lseek((luadb_fs_t*)userdata, (int)stream, offset, origin);
+}
+
+int luat_vfs_luadb_ftell(void* userdata, FILE* stream) {
+    return luat_luadb_lseek((luadb_fs_t*)userdata, (int)stream, 0, SEEK_CUR);
+}
+
+int luat_vfs_luadb_fclose(void* userdata, FILE* stream) {
+    return luat_luadb_close((luadb_fs_t*)userdata, (int)stream);
+}
+int luat_vfs_luadb_feof(void* userdata, FILE* stream) {
+    return feof(stream);
+}
+int luat_vfs_luadb_ferror(void* userdata, FILE *stream) {
+    return 0;
+}
+size_t luat_vfs_luadb_fread(void* userdata, void *ptr, size_t size, size_t nmemb, FILE *stream) {
+    return luat_luadb_read((luadb_fs_t*)userdata, (int)stream, ptr, size * nmemb);
+}
+
+char luat_vfs_luadb_getc(void* userdata, FILE* stream) {
+    char c = 0;
+    luat_vfs_luadb_fread(userdata, &c, 1, 1, stream);
+    return c;
+}
+size_t luat_vfs_luadb_fwrite(void* userdata, const void *ptr, size_t size, size_t nmemb, FILE *stream) {
+    return 0;
+}
+int luat_vfs_luadb_remove(void* userdata, const char *filename) {
+    return -1;
+}
+int luat_vfs_luadb_rename(void* userdata, const char *old_filename, const char *new_filename) {
+    return -1;
+}
+int luat_vfs_luadb_fexist(void* userdata, const char *filename) {
+    FILE* fd = luat_vfs_luadb_fopen(userdata, filename, "rb");
+    if (fd) {
+        luat_vfs_luadb_fclose(userdata, fd);
+        return 1;
+    }
+    return 0;
+}
+
+size_t luat_vfs_luadb_fsize(void* userdata, const char *filename) {
+    FILE *fd;
+    size_t size = 0;
+    fd = luat_vfs_luadb_fopen(userdata, filename, "rb");
+    if (fd) {
+        luat_vfs_luadb_fseek(userdata, fd, 0, SEEK_END);
+        size = luat_vfs_luadb_ftell(userdata, fd); 
+        luat_vfs_luadb_fclose(userdata, fd);
+    }
+    return size;
+}
+
+int luat_vfs_luadb_mkfs(void* userdata, luat_fs_conf_t *conf) {
+    //LLOGE("not support yet : mkfs");
+    return -1;
+}
+int luat_vfs_luadb_mount(void** userdata, luat_fs_conf_t *conf) {
+    //LLOGE("not support yet : mount");
+    return 0;
+}
+int luat_vfs_luadb_umount(void* userdata, luat_fs_conf_t *conf) {
+    //LLOGE("not support yet : umount");
+    return 0;
+}
+
+int luat_vfs_luadb_mkdir(void* userdata, char const* _DirName) {
+    //LLOGE("not support yet : mkdir");
+    return -1;
+}
+int luat_vfs_luadb_rmdir(void* userdata, char const* _DirName) {
+    //LLOGE("not support yet : rmdir");
+    return -1;
+}
+
+#define T(name) .name = luat_vfs_luadb_##name
+const struct luat_vfs_filesystem vfs_fs_luadb = {
+    .name = "luadb",
+    .opts = {
+        T(mkfs),
+        T(mount),
+        T(umount),
+        T(mkdir),
+        T(rmdir),
+        T(remove),
+        T(rename),
+        T(fsize),
+        T(fexist)
+    },
+    .fopts = {
+        T(fopen),
+        T(getc),
+        T(fseek),
+        T(ftell),
+        T(fclose),
+        T(feof),
+        T(ferror),
+        T(fread),
+        T(fwrite)
+    }
+};
+#endif

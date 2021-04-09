@@ -1926,7 +1926,7 @@ static int str_fromBase64(lua_State *L) {
   luaL_Buffer buff = {0};
   luaL_buffinitsize(L, &buff, len * 1.5 + 1);
   size_t olen = 0;
-  int re = base64_encode(buff.b, buff.size, &olen, str, len);
+  int re = base64_encode((unsigned char *)buff.b, buff.size, &olen, (const unsigned char * )str, len);
   if (re == 0) {
     luaL_pushresultsize(&buff, olen);
     return 1;
@@ -1952,7 +1952,7 @@ static int str_toBase64(lua_State *L) {
   luaL_Buffer buff = {0};
   luaL_buffinitsize(L, &buff, len + 1);
   size_t olen = 0;
-  int re = base64_decode(buff.b, buff.size, &olen, str, len);
+  int re = base64_decode((unsigned char *)buff.b, buff.size, &olen, (const unsigned char * )str, len);
   if (re == 0) {
     luaL_pushresultsize(&buff, olen);
     return 1;

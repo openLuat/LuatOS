@@ -197,7 +197,8 @@ int luat_main (void) {
   check_rollback();
 
   // 4. init Lua State
-  int status, result = 0;
+  int status = 0;
+  int result = 0;
   L = lua_newstate(luat_heap_alloc, NULL);
   if (L == NULL) {
     l_message("LUAVM", "cannot create state: not enough memory\n");

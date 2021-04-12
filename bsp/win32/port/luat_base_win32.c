@@ -30,8 +30,10 @@ static const luaL_Reg loadedlibs[] = {
   {"zbuff", luaopen_zbuff},            // 
   {"mqttcore", luaopen_mqttcore},      // 
   {"libcoap", luaopen_libcoap},        // 
+#ifdef LUA_USE_WINDOWS
   {"lfs", luaopen_lfs},                //
   {"rs232.core", luaopen_rs232_core},
+#endif
   {"crypto", luaopen_crypto},
   {NULL, NULL}
 };
@@ -57,7 +59,11 @@ void luat_os_reboot(int code) {
 }
 
 const char* luat_os_bsp(void) {
+    #ifdef LUA_USE_WINDOWS
     return "win32";
+    #else
+    return "posix";
+    #endif
 }
 
 extern const struct luat_vfs_filesystem vfs_fs_posix;
@@ -121,7 +127,11 @@ static BaseType_t xTraceRunning = pdTRUE;
 
 void vApplicationIdleHook( void )
 {
+#ifdef LUA_USE_WINDOWS
     Sleep(1);
+#else
+    usleep(1000);
+#endif
 }
 
 void vAssertCalled( unsigned long ulLine, const char * const pcFileName ) {

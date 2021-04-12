@@ -8,6 +8,8 @@
 
 #ifdef LUAT_USE_FS_VFS
 
+#undef getc
+
 static luat_vfs_t vfs= {0};
 
 int luat_vfs_init(void* params) {

@@ -87,3 +87,5 @@ debug.log
 量产文件
 
 CMakefiles
+bsp/win32/build/
+

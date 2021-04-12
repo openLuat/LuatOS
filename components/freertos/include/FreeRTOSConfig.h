@@ -39,7 +39,7 @@
  *----------------------------------------------------------*/
 
 #define configUSE_PREEMPTION					1
-#define configUSE_PORT_OPTIMISED_TASK_SELECTION	1
+#define configUSE_PORT_OPTIMISED_TASK_SELECTION	0
 #define configUSE_IDLE_HOOK						1
 #define configUSE_TICK_HOOK						0
 #define configUSE_DAEMON_TASK_STARTUP_HOOK		1

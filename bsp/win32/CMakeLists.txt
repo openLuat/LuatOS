@@ -1,7 +1,7 @@
 
 
 # CMake 最低版本号要求
-cmake_minimum_required (VERSION 3.12)
+cmake_minimum_required (VERSION 3.5)
 
 set(CMAKE_BUILD_TYPE "Debug")
 set(CMAKE_CXX_FLAGS_DEBUG "$ENV{CXXFLAGS} -O0 -Wall -g -ggdb")
@@ -25,9 +25,9 @@ IF (WIN32)
 ELSE ()
      include_directories(${TOPROOT}/components/freertos/portable/ThirdParty/GCC/Posix)
      include_directories(${TOPROOT}/components/freertos/portable/ThirdParty/GCC/Posix/utils)
-     aux_source_directory(${TOPROOT}/components/freertos/portable/ThirdParty/GCC/Posix 
-                          ${TOPROOT}/components/freertos/portable/ThirdParty/GCC/Posix/utils
-                          MM_SRCS)
+     aux_source_directory(${TOPROOT}/components/freertos/portable/ThirdParty/GCC/Posix MM_SRCS) 
+     aux_source_directory(${TOPROOT}/components/freertos/portable/ThirdParty/GCC/Posix/utils
+                          MM2_SRCS)
 ENDIF ()
 
 aux_source_directory(./port PORT_SRCS)
@@ -37,7 +37,7 @@ aux_source_directory(${TOPROOT}/components/freertos RTOS_SRCS)
 aux_source_directory(${TOPROOT}/components/freertos/port RTOS_PORT_SRCS)
 aux_source_directory(${TOPROOT}/luat/packages/lua-cjson CJSON_SRCS)
 
-add_library(freertos10 ${PORT_SRCS} ${RTOS_SRCS} ${RTOS_PORT_SRCS} ${MM_SRCS})
+add_library(freertos10 ${PORT_SRCS} ${RTOS_SRCS} ${RTOS_PORT_SRCS} ${MM_SRCS} ${MM2_SRCS})
 add_library(lua ${LUA_SRCS})
 add_library(luatos_msys ${PORT_SRCS})
 add_library(cjson ${CJSON_SRCS})
@@ -87,5 +87,5 @@ target_link_libraries(luatos freertos10 lua luatos_msys luat winmm cjson rock_lf
 ELSE ()
 add_executable(luatos src/main_posix.c)
 target_link_libraries(luat freertos10 pthread)
-target_link_libraries(luatos freertos10 lua luatos_msys luat pthread cjson mbedtls)
+target_link_libraries(luatos freertos10 lua luatos_msys luat pthread cjson mbedtls m)
 ENDIF ()

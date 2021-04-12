@@ -309,7 +309,7 @@ _after_head:
 #ifdef LUAT_USE_FS_VFS
 
 FILE* luat_vfs_luadb_fopen(void* userdata, const char *filename, const char *mode) {
-    return luat_luadb_open((luadb_fs_t*)userdata, filename, 0, 0);
+    return (FILE*)luat_luadb_open((luadb_fs_t*)userdata, filename, 0, 0);
 }
 
 

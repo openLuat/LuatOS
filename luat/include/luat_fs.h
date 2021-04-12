@@ -125,7 +125,7 @@ typedef struct luat_vfs
 }luat_vfs_t;
 
 int luat_vfs_init(void* params);
-int luat_vfs_reg(struct luat_vfs_filesystem* fs);
+int luat_vfs_reg(const struct luat_vfs_filesystem* fs);
 FILE* luat_vfs_add_fd(FILE* fd, luat_vfs_mount_t * mount);
 int luat_vfs_rm_fd(FILE* fd);
 #endif

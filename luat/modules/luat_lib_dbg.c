@@ -169,7 +169,7 @@ void luat_dbg_vars(void *params) {
                 valtype = lua_type(dbg_L, -1);
                 const char* valstr = lua_tolstring(dbg_L, -1, &valstrlen);
                 valoutlen = valstrlen > 127 ? 127 : valstrlen;
-                mempcpy(buff, valstr, valoutlen);
+                memcpy(buff, valstr, valoutlen);
                 buff[valoutlen] = 0x00;
                 // 索引号,变量名,变量类型,值的字符串长度, 值的字符串形式
                 luat_dbg_output("[resp,vars,1,%d] %s %d %d %s", index, varname, valtype, valoutlen, buff);

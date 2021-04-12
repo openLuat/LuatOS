@@ -14,11 +14,11 @@ int luat_vfs_init(void* params) {
     memset(&vfs, 0, sizeof(vfs));
 }
 
-int luat_vfs_reg(struct luat_vfs_filesystem* fs) {
+int luat_vfs_reg(const struct luat_vfs_filesystem* fs) {
     for (size_t i = 0; i < LUAT_VFS_FILESYSTEM_MAX; i++)
     {
         if (vfs.fsList[i] == NULL) {
-            vfs.fsList[i] = fs;
+            vfs.fsList[i] = (struct luat_vfs_filesystem*)fs;
             LLOGD("register fs %s", fs->name);
             return 0;
         }

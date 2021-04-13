@@ -522,6 +522,6 @@ static const rotable_Reg reg_libgnss[] =
 };
 
 LUAMOD_API int luaopen_libgnss( lua_State *L ) {
-    rotable_newlib(L, reg_libgnss);
+    luat_newlib(L, reg_libgnss);
     return 1;
 }

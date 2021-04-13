@@ -332,6 +332,6 @@ static const rotable_Reg reg_sensor[] =
 };
 
 LUAMOD_API int luaopen_sensor( lua_State *L ) {
-    rotable_newlib(L, reg_sensor);
+    luat_newlib(L, reg_sensor);
     return 1;
 }

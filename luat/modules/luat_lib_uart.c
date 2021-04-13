@@ -244,6 +244,6 @@ static const rotable_Reg reg_uart[] =
 
 LUAMOD_API int luaopen_uart(lua_State *L)
 {
-    rotable_newlib(L, reg_uart);
+    luat_newlib(L, reg_uart);
     return 1;
 }

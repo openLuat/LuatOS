@@ -493,6 +493,6 @@ static const rotable_Reg reg_fatfs[] =
 
 int luaopen_fatfs( lua_State *L )
 {
-  rotable_newlib(L, reg_fatfs);
+  luat_newlib(L, reg_fatfs);
   return 1;
 }

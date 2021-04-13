@@ -2015,7 +2015,7 @@ static void createmetatable (lua_State *L) {
 ** Open string library
 */
 LUAMOD_API int luaopen_string (lua_State *L) {
-  rotable_newlib(L, strlib);
+  luat_newlib(L, strlib);
   createmetatable(L);
   return 1;
 }

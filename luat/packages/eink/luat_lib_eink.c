@@ -624,6 +624,6 @@ static const rotable_Reg reg_eink[] =
 };
 
 LUAMOD_API int luaopen_eink( lua_State *L ){
-    rotable_newlib(L, reg_eink);
+    luat_newlib(L, reg_eink);
     return 1;
 }

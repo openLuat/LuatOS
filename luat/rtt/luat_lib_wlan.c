@@ -652,7 +652,7 @@ static const rotable_Reg reg_wlan[] =
 
 LUAMOD_API int luaopen_wlan( lua_State *L ) {
     reg_wlan_callbacks();
-    rotable_newlib(L, reg_wlan);
+    luat_newlib(L, reg_wlan);
     return 1;
 }
 

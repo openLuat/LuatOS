@@ -289,6 +289,6 @@ static const rotable_Reg reg_pack[] =
 };
 
 LUAMOD_API int luaopen_pack( lua_State *L ) {
-    rotable_newlib(L, reg_pack);
+    luat_newlib(L, reg_pack);
     return 1;
 }

@@ -162,7 +162,7 @@ static const rotable_Reg co_funcs[] = {
 
 
 LUAMOD_API int luaopen_coroutine (lua_State *L) {
-  rotable_newlib(L, co_funcs);
+  luat_newlib(L, co_funcs);
   return 1;
 }
 

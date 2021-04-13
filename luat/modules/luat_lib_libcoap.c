@@ -500,7 +500,7 @@ static const rotable_Reg reg_libcoap[] =
 };
 
 LUAMOD_API int luaopen_libcoap( lua_State *L ) {
-    rotable_newlib(L, reg_libcoap);
+    luat_newlib(L, reg_libcoap);
     createmeta(L);
     return 1;
 }

@@ -145,6 +145,6 @@ static const rotable_Reg reg_spi[] =
 };
 
 LUAMOD_API int luaopen_spi( lua_State *L ) {
-    rotable_newlib(L, reg_spi);
+    luat_newlib(L, reg_spi);
     return 1;
 }

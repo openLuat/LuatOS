@@ -168,6 +168,6 @@ static const rotable_Reg reg_log[] =
 };
 
 LUAMOD_API int luaopen_log( lua_State *L ) {
-    rotable_newlib(L, reg_log);
+    luat_newlib(L, reg_log);
     return 1;
 }

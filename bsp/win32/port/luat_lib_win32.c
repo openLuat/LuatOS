@@ -32,6 +32,6 @@ static const rotable_Reg reg_win32[] =
 };
 
 LUAMOD_API int luaopen_win32( lua_State *L ) {
-    rotable_newlib(L, reg_win32);
+    luat_newlib(L, reg_win32);
     return 1;
 }

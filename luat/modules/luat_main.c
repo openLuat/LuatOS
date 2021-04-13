@@ -239,3 +239,26 @@ _exit:
   // 往下是肯定不会被执行的
   return (result && status == LUA_OK) ? 0 : 2;
 }
+
+#include "rotable.h"
+void luat_newlib(lua_State* l, const rotable_Reg* reg) {
+  #ifdef LUAT_CONF_DISABLE_ROTABLE
+  luaL_newlibtable(l,reg);
+  int i;
+  int nup = 0;
+
+  luaL_checkstack(l, nup, "too many upvalues");
+  for (; reg->name != NULL; reg++) {  /* fill the table with given functions */
+        for (i = 0; i < nup; i++)  /* copy upvalues to the top */
+            lua_pushvalue(l, -nup);
+        if (reg->func)
+            lua_pushcclosure(l, reg->func, nup);  /* closure with those upvalues */
+        else
+            lua_pushinteger(l, reg->value);
+        lua_setfield(l, -(nup + 2), reg->name);
+    }
+    lua_pop(l, nup);  /* remove upvalues */
+  #else
+  rotable_newlib(L, reg);
+  #endif
+}

@@ -396,7 +396,7 @@ static const rotable_Reg mathlib[] = {
 ** Open math library
 */
 LUAMOD_API int luaopen_math (lua_State *L) {
-  rotable_newlib(L, mathlib);
+  luat_newlib(L, mathlib);
   // lua_pushnumber(L, PI);
   // lua_setfield(L, -2, "pi");
   // lua_pushnumber(L, (lua_Number)HUGE_VAL);

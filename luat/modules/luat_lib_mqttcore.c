@@ -509,6 +509,6 @@ static const rotable_Reg reg_mqttcore[] =
 };
 
 LUAMOD_API int luaopen_mqttcore( lua_State *L ) {
-    rotable_newlib(L, reg_mqttcore);
+    luat_newlib(L, reg_mqttcore);
     return 1;
 }

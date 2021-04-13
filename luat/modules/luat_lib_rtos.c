@@ -258,7 +258,7 @@ static const rotable_Reg reg_rtos[] =
 };
 
 LUAMOD_API int luaopen_rtos( lua_State *L ) {
-    rotable_newlib(L, reg_rtos);
+    luat_newlib(L, reg_rtos);
     return 1;
 }
 

@@ -84,6 +84,6 @@ static const rotable_Reg reg_lpmem[] =
 };
 
 LUAMOD_API int luaopen_lpmem( lua_State *L ) {
-    rotable_newlib(L, reg_lpmem);
+    luat_newlib(L, reg_lpmem);
     return 1;
 }

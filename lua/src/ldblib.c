@@ -450,7 +450,7 @@ static const rotable_Reg dblib[] = {
 
 
 LUAMOD_API int luaopen_debug (lua_State *L) {
-  rotable_newlib(L, dblib);
+  luat_newlib(L, dblib);
   return 1;
 }
 

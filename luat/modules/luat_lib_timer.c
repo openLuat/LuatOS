@@ -37,6 +37,6 @@ static const rotable_Reg reg_timer[] =
 };
 
 LUAMOD_API int luaopen_timer( lua_State *L ) {
-    rotable_newlib(L, reg_timer);
+    luat_newlib(L, reg_timer);
     return 1;
 }

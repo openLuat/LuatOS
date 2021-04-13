@@ -70,6 +70,6 @@ static const rotable_Reg reg_utest[] =
 };
 
 LUAMOD_API int luaopen_utest( lua_State *L ) {
-    rotable_newlib(L, reg_utest);
+    luat_newlib(L, reg_utest);
     return 1;
 }

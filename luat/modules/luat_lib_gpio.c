@@ -233,7 +233,7 @@ static const rotable_Reg reg_gpio[] =
 };
 
 LUAMOD_API int luaopen_gpio( lua_State *L ) {
-    rotable_newlib(L, reg_gpio);
+    luat_newlib(L, reg_gpio);
     return 1;
 }
 

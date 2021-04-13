@@ -262,7 +262,8 @@ void luat_log_log(int level, const char* tag, const char* _fmt, ...); // 4 is ER
 #endif
 /* }============================================================ */
 
-
+#include "rotable.h"
+void luat_newlib(lua_State* L, const rotable_Reg* reg);
 
 #endif
 

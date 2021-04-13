@@ -102,6 +102,6 @@ static const rotable_Reg reg_fs[] =
 };
 
 LUAMOD_API int luaopen_fs( lua_State *L ) {
-    rotable_newlib(L, reg_fs);
+    luat_newlib(L, reg_fs);
     return 1;
 }

@@ -566,7 +566,7 @@ static const rotable_Reg reg_socket[] =
 };
 
 LUAMOD_API int luaopen_socket( lua_State *L ) {
-    rotable_newlib(L, reg_socket);
+    luat_newlib(L, reg_socket);
     createmeta(L);
     return 1;
 }

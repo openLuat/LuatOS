@@ -632,7 +632,7 @@ static const rotable_Reg reg_zbuff[] =
 
 LUAMOD_API int luaopen_zbuff(lua_State *L)
 {
-    rotable_newlib(L, reg_zbuff);
+    luat_newlib(L, reg_zbuff);
     createmeta(L);
     return 1;
 }

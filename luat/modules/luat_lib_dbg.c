@@ -340,7 +340,7 @@ static const rotable_Reg reg_dbg[] =
 };
 
 LUAMOD_API int luaopen_dbg( lua_State *L ) {
-    rotable_newlib(L, reg_dbg);
+    luat_newlib(L, reg_dbg);
     return 1;
 }
 

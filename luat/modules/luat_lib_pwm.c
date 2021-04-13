@@ -54,6 +54,6 @@ static const rotable_Reg reg_pwm[] =
 };
 
 LUAMOD_API int luaopen_pwm( lua_State *L ) {
-    rotable_newlib(L, reg_pwm);
+    luat_newlib(L, reg_pwm);
     return 1;
 }

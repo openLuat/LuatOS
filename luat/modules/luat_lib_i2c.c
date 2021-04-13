@@ -327,6 +327,6 @@ static const rotable_Reg reg_i2c[] =
 };
 
 LUAMOD_API int luaopen_i2c( lua_State *L ) {
-    rotable_newlib(L, reg_i2c);
+    luat_newlib(L, reg_i2c);
     return 1;
 }

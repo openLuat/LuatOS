@@ -286,7 +286,7 @@ static const rotable_Reg reg_http[] =
 };
 
 LUAMOD_API int luaopen_http( lua_State *L ) {
-    rotable_newlib(L, reg_http);
+    luat_newlib(L, reg_http);
     return 1;
 }
 

@@ -1749,7 +1749,7 @@ static int lua_cjson_new(lua_State *l)
     // lua_pushliteral(l, CJSON_VERSION);
     // lua_setfield(l, -2, "_VERSION");
 
-    rotable_newlib(l, reg_json);
+    luat_newlib(l, reg_json);
 
     return 1;
 }

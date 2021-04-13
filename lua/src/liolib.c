@@ -875,7 +875,7 @@ static void createmeta (lua_State *L) {
 
 
 LUAMOD_API int luaopen_io (lua_State *L) {
-  rotable_newlib(L, iolib);  /* new module */
+  luat_newlib(L, iolib);  /* new module */
   createmeta(L);
   /* create (and set) default files */
   //createstdfile(L, stdin, IO_INPUT, "stdin");

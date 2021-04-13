@@ -359,7 +359,7 @@ static const rotable_Reg reg_crypto[] =
 };
 
 LUAMOD_API int luaopen_crypto( lua_State *L ) {
-    rotable_newlib(L, reg_crypto);
+    luat_newlib(L, reg_crypto);
     return 1;
 }
 

@@ -448,6 +448,6 @@ static const rotable_Reg reg_ctiot[] =
 };
 
 LUAMOD_API int luaopen_ctiot( lua_State *L ) {
-    rotable_newlib(L, reg_ctiot);
+    luat_newlib(L, reg_ctiot);
     return 1;
 }

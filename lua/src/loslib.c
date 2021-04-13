@@ -408,7 +408,7 @@ static const rotable_Reg syslib[] = {
 
 
 LUAMOD_API int luaopen_os (lua_State *L) {
-  rotable_newlib(L, syslib);
+  luat_newlib(L, syslib);
   return 1;
 }
 

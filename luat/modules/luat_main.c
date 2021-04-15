@@ -259,6 +259,6 @@ void luat_newlib(lua_State* l, const rotable_Reg* reg) {
     }
     lua_pop(l, nup);  /* remove upvalues */
   #else
-  rotable_newlib(L, reg);
+  rotable_newlib(l, reg);
   #endif
 }

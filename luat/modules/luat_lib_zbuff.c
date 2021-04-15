@@ -16,13 +16,46 @@
 #define tozbuff(L) ((luat_zbuff *)luaL_checkudata(L, 1, LUAT_ZBUFF_TYPE))
 
 //在buff对象后添加数据，返回增加的字节数
-int add_bytes(luat_zbuff* buff,const char* source,size_t len)
+int add_bytes(luat_zbuff *buff, const char *source, size_t len)
 {
-    if(buff->len - buff->cursor < len)
+    if (buff->len - buff->cursor < len)
         len = buff->len - buff->cursor;
-    memcpy(buff->addr+buff->cursor,source,len);
+    memcpy(buff->addr + buff->cursor, source, len);
     buff->cursor += len;
     return len;
+}
+
+void set_point_1(luat_zbuff *buff,uint32_t x,uint32_t y,uint8_t color)
+{
+    if(color)
+        buff->addr[(x+y*buff->width)/8] |= 1<<((x+y*buff->width)%8);
+    else
+        buff->addr[(x+y*buff->width)/8] &= ~(1<<((x+y*buff->width)%8));
+}
+void set_point_4(luat_zbuff *buff,uint32_t x,uint32_t y,uint8_t color)
+{
+    uint8_t offset = ((x+y*buff->width)%2)*4;
+    buff->addr[(x+y*buff->width)/2] &= ~(0xf<<offset);
+    buff->addr[(x+y*buff->width)/2] |= color<<offset;
+}
+void set_point_8(luat_zbuff *buff,uint32_t x,uint32_t y,uint8_t color)
+{
+    buff->addr[x+y*buff->width] = color;
+}
+
+#define SET_POINT_CASE(n) case n:\
+set_point_##n(buff,x,y,color);\
+break
+void set_point(luat_zbuff *buff,uint32_t x,uint32_t y,uint32_t color)
+{
+    switch (buff->bit)
+    {
+    SET_POINT_CASE(1);
+    SET_POINT_CASE(4);
+    SET_POINT_CASE(8);
+    default:
+        break;
+    }
 }
 
 /**
@@ -37,13 +70,36 @@ local buff = zbuff.create(1024) -- 空白的
 local buff = zbuff.create(1024, 0x33) --创建一个初值全为0x33的内存区域
 local buff = zbuff.create(1024, "123321456654") -- 创建，并填充一个已有字符串的内容
  */
+/**
+创建framebuff用的zbuff
+@api zbuff.create({width,height,bit},data)
+@table 宽度、高度、色位深度
+@int 可选参数，填充数据
+@return object zbuff对象，如果创建失败会返回nil
+@usage
+-- 创建zbuff
+local buff = zbuff.create({128,160,16})--创建一个128*160的framebuff
+local buff = zbuff.create({128,160,16},0xf800)--创建一个128*160的framebuff，初始状态红色
+ */
 static int l_zbuff_create(lua_State *L)
 {
-    size_t len = luaL_checkinteger(L, 1);
-    if (len <= 0)
+    size_t len;
+    if (lua_istable(L, 1))
     {
-        return 0;
+        lua_rawgeti(L, 1, 3);
+        lua_rawgeti(L, 1, 2);
+        lua_rawgeti(L, 1, 1);
+        uint8_t bit = luaL_checkinteger(L, -3);
+        if (bit != 1 && bit != 4 && bit != 8 && bit != 16 && bit != 24 && bit != 32)
+            return 0;
+        len = (luaL_checkinteger(L, -1) * luaL_checkinteger(L, -2) * bit - 1) / 8 + 1;
     }
+    else
+    {
+        len = luaL_checkinteger(L, 1);
+    }
+    if (len <= 0)
+        return 0;
 
     luat_zbuff *buff = (luat_zbuff *)lua_newuserdata(L, sizeof(luat_zbuff));
     if (buff == NULL)
@@ -54,28 +110,48 @@ static int l_zbuff_create(lua_State *L)
     if (buff->addr == NULL)
     {
         lua_pushnil(L);
-        lua_pushstring(L,"memory not enough");
+        lua_pushstring(L, "memory not enough");
         return 2;
     }
 
     buff->len = len;
     buff->cursor = 0;
 
-    if(lua_isinteger(L,2)){
-        memset(buff->addr, luaL_checkinteger(L,2) % 0x100, len);
-    }
-    else if (lua_isstring(L, 2))
+    if (lua_istable(L, 1))
     {
-        const char *data = luaL_optlstring(L, 2, "", &len);
-        if(len > buff->len)//防止越界
+        buff->width = luaL_checkinteger(L, -2);
+        buff->height = luaL_checkinteger(L, -3);
+        buff->bit = luaL_checkinteger(L, -4);
+        if (lua_isinteger(L, 2))
         {
-            len = buff->len;
+            LUA_INTEGER initial = luaL_checkinteger(L, 2);
+            uint32_t x, y;
+            for (x = 0; x < buff->width; x++)
+                for (y = 0; y < buff->height; y++)
+                    set_point(buff, x, y, initial);
         }
-        memcpy(buff->addr, data, len);
-        buff->cursor = len;
     }
-    else{
-        memset(buff->addr, 0, len);
+    else
+    {
+        buff->width = buff->height = buff->bit = 0;
+        if (lua_isinteger(L, 2))
+        {
+            memset(buff->addr, luaL_checkinteger(L, 2) % 0x100, len);
+        }
+        else if (lua_isstring(L, 2))
+        {
+            const char *data = luaL_optlstring(L, 2, "", &len);
+            if (len > buff->len) //防止越界
+            {
+                len = buff->len;
+            }
+            memcpy(buff->addr, data, len);
+            buff->cursor = len;
+        }
+        else
+        {
+            memset(buff->addr, 0, len);
+        }
     }
 
     luaL_setmetatable(L, LUAT_ZBUFF_TYPE);
@@ -94,27 +170,30 @@ local len = buff:write(0x1a,0x30,0x31,0x32,0x00,0x01)  -- 按数值写入多个�
  */
 static int l_zbuff_write(lua_State *L)
 {
-    if(lua_isinteger(L,2)){
-        int len = 0,data;
+    if (lua_isinteger(L, 2))
+    {
+        int len = 0, data;
         luat_zbuff *buff = tozbuff(L);
-        while(lua_isinteger(L,2+len) && buff->cursor < buff->len){
-            data = luaL_checkinteger(L,2+len);
-            *(uint8_t*)(buff->addr+buff->cursor) = data % 0x100;
+        while (lua_isinteger(L, 2 + len) && buff->cursor < buff->len)
+        {
+            data = luaL_checkinteger(L, 2 + len);
+            *(uint8_t *)(buff->addr + buff->cursor) = data % 0x100;
             buff->cursor++;
             len++;
         }
         lua_pushinteger(L, len);
         return 1;
     }
-    else{
+    else
+    {
         size_t len;
         const char *data = luaL_checklstring(L, 2, &len);
         luat_zbuff *buff = tozbuff(L);
-        if(len + buff->cursor > buff->len)//防止越界
+        if (len + buff->cursor > buff->len) //防止越界
         {
             len = buff->len - buff->cursor;
         }
-        memcpy(buff->addr+buff->cursor, data, len);
+        memcpy(buff->addr + buff->cursor, data, len);
         buff->cursor = buff->cursor + len;
         lua_pushinteger(L, len);
         return 1;
@@ -134,21 +213,21 @@ static int l_zbuff_read(lua_State *L)
 {
     luat_zbuff *buff = tozbuff(L);
     int read_num = luaL_optinteger(L, 2, 1);
-    if(read_num > buff->len - buff->cursor)//防止越界
+    if (read_num > buff->len - buff->cursor) //防止越界
     {
         read_num = buff->len - buff->cursor;
     }
-    if(read_num <= 0)
+    if (read_num <= 0)
     {
         lua_pushlstring(L, NULL, 0);
         return 1;
     }
     char *return_str = (char *)luat_heap_malloc(read_num);
-    if(return_str == NULL)
+    if (return_str == NULL)
     {
         return 0;
     }
-    memcpy(return_str, buff->addr+buff->cursor, read_num);
+    memcpy(return_str, buff->addr + buff->cursor, read_num);
     lua_pushlstring(L, return_str, read_num);
     buff->cursor += read_num;
     return 1;
@@ -170,7 +249,7 @@ static int l_zbuff_seek(lua_State *L)
     luat_zbuff *buff = tozbuff(L);
 
     int offset = luaL_checkinteger(L, 2);
-    int whence = luaL_optinteger(L,3,ZBUFF_SEEK_SET);
+    int whence = luaL_optinteger(L, 3, ZBUFF_SEEK_SET);
     switch (whence)
     {
     case ZBUFF_SEEK_SET:
@@ -184,8 +263,10 @@ static int l_zbuff_seek(lua_State *L)
     default:
         return 0;
     }
-    if(offset <= 0) offset = 0;
-    if(offset > buff->len) offset = buff->len;
+    if (offset <= 0)
+        offset = 0;
+    if (offset > buff->len)
+        offset = buff->len;
     buff->cursor = offset;
     lua_pushinteger(L, buff->cursor);
     return 1;
@@ -263,19 +344,19 @@ buff:pack(">IIHA", 0x1234, 0x4567, 0x12,"abcdefg") -- 按格式写入几个数�
 -- > 大端
 -- = 默认大小端
  */
-#define PACKNUMBER(OP,T)			\
-    case OP:					\
-    {						\
-        T a=(T)luaL_checknumber(L,i++);		\
-        doswap(swap,&a,sizeof(a));			\
-        write_len += add_bytes(buff, (void*)&a, sizeof(a));\
-        break;					\
+#define PACKNUMBER(OP, T)                                    \
+    case OP:                                                 \
+    {                                                        \
+        T a = (T)luaL_checknumber(L, i++);                   \
+        doswap(swap, &a, sizeof(a));                         \
+        write_len += add_bytes(buff, (void *)&a, sizeof(a)); \
+        break;                                               \
     }
 static int l_zbuff_pack(lua_State *L)
 {
     luat_zbuff *buff = tozbuff(L);
     int i = 3;
-    char *f = (char*)luaL_checkstring(L, 2);
+    char *f = (char *)luaL_checkstring(L, 2);
     int swap = 0;
     int write_len = 0; //已写入长度
     while (*f)
@@ -335,31 +416,33 @@ static int l_zbuff_pack(lua_State *L)
     return 1;
 }
 
-#define UNPACKINT(OP,T)		\
-    case OP:				\
-    {					\
-        T a;				\
-        int m=sizeof(a);			\
-        if (i+m>len) goto done;		\
-        memcpy(&a,s+i,m);			\
-        i+=m;				\
-        doswap(swap,&a,m);			\
-        lua_pushinteger(L,(lua_Integer)a);	\
-        ++n;				\
-        break;				\
+#define UNPACKINT(OP, T)                    \
+    case OP:                                \
+    {                                       \
+        T a;                                \
+        int m = sizeof(a);                  \
+        if (i + m > len)                    \
+            goto done;                      \
+        memcpy(&a, s + i, m);               \
+        i += m;                             \
+        doswap(swap, &a, m);                \
+        lua_pushinteger(L, (lua_Integer)a); \
+        ++n;                                \
+        break;                              \
     }
-#define UNPACKNUMBER(OP,T)		\
-    case OP:				\
-    {					\
-        T a;				\
-        int m=sizeof(a);			\
-        if (i+m>len) goto done;		\
-        memcpy(&a,s+i,m);			\
-        i+=m;				\
-        doswap(swap,&a,m);			\
-        lua_pushnumber(L,(lua_Number)a);	\
-        ++n;				\
-        break;				\
+#define UNPACKNUMBER(OP, T)               \
+    case OP:                              \
+    {                                     \
+        T a;                              \
+        int m = sizeof(a);                \
+        if (i + m > len)                  \
+            goto done;                    \
+        memcpy(&a, s + i, m);             \
+        i += m;                           \
+        doswap(swap, &a, m);              \
+        lua_pushnumber(L, (lua_Number)a); \
+        ++n;                              \
+        break;                            \
     }
 /**
 将一系列数据按照格式字符读取出来
@@ -376,11 +459,11 @@ static int l_zbuff_unpack(lua_State *L)
     luat_zbuff *buff = tozbuff(L);
     char *f = (char *)luaL_checkstring(L, 2);
     size_t len = buff->len - buff->cursor;
-    const char *s = buff->addr+buff->cursor;
+    const char *s = buff->addr + buff->cursor;
     int i = 0;
     int n = 0;
     int swap = 0;
-    lua_pushnil(L);//给个数占位用的
+    lua_pushnil(L); //给个数占位用的
     while (*f)
     {
         int c = *f++;
@@ -440,7 +523,7 @@ static int l_zbuff_unpack(lua_State *L)
 done:
     buff->cursor += i;
     lua_pushinteger(L, i);
-    lua_replace(L,-n-2);
+    lua_replace(L, -n - 2);
     return n + 1;
 }
 
@@ -453,27 +536,26 @@ done:
 local data = buff:readI8()
 local data = buff:readU32()
 */
-#define zread(n,t,f) static int l_zbuff_read_##n(lua_State *L)\
-{\
-    luat_zbuff *buff = tozbuff(L);\
-    if(buff->len - buff->cursor < sizeof(t))\
-        return 0;\
-    lua_push##f(L,*((t*)(buff->addr+buff->cursor)));\
-    buff->cursor+=sizeof(t);\
-    return 1;\
-}
-zread(i8, int8_t,  integer)
-zread(u8, uint8_t, integer)
-zread(i16,int16_t, integer)
-zread(u16,uint16_t,integer)
-zread(i32,int32_t, integer)
-zread(u32,uint32_t,integer)
-zread(i64,int64_t, integer)
-zread(u64,uint64_t,integer)
-zread(f32,float, number)
-zread(f64,double,number)
-
-
+#define zread(n, t, f)                                       \
+    static int l_zbuff_read_##n(lua_State *L)                \
+    {                                                        \
+        luat_zbuff *buff = tozbuff(L);                       \
+        if (buff->len - buff->cursor < sizeof(t))            \
+            return 0;                                        \
+        lua_push##f(L, *((t *)(buff->addr + buff->cursor))); \
+        buff->cursor += sizeof(t);                           \
+        return 1;                                            \
+    }
+zread(i8, int8_t, integer);
+zread(u8, uint8_t, integer);
+zread(i16, int16_t, integer);
+zread(u16, uint16_t, integer);
+zread(i32, int32_t, integer);
+zread(u32, uint32_t, integer);
+zread(i64, int64_t, integer);
+zread(u64, uint64_t, integer);
+zread(f32, float, number);
+zread(f64, double, number);
 
 /**
 写入一个指定类型的数据
@@ -485,30 +567,67 @@ zread(f64,double,number)
 local len = buff:writeI8(10)
 local len = buff:writeU32(1024)
 */
-#define zwrite(n,t,f) static int l_zbuff_write_##n(lua_State *L)\
-{\
-    luat_zbuff *buff = tozbuff(L);\
-    if(buff->len - buff->cursor < sizeof(t))\
-    {\
-        lua_pushinteger(L,0);\
-        return 1;\
-    }\
-    *((t*)(buff->addr+buff->cursor)) = (t)luaL_check##f(L,2);\
-    buff->cursor+=sizeof(t);\
-    lua_pushinteger(L,sizeof(t));\
-    return 1;\
-}
-zwrite(i8, int8_t,  integer)
-zwrite(u8, uint8_t, integer)
-zwrite(i16,int16_t, integer)
-zwrite(u16,uint16_t,integer)
-zwrite(i32,int32_t, integer)
-zwrite(u32,uint32_t,integer)
-zwrite(i64,int64_t, integer)
-zwrite(u64,uint64_t,integer)
-zwrite(f32,float, number)
-zwrite(f64,double,number)
+#define zwrite(n, t, f)                                               \
+    static int l_zbuff_write_##n(lua_State *L)                        \
+    {                                                                 \
+        luat_zbuff *buff = tozbuff(L);                                \
+        if (buff->len - buff->cursor < sizeof(t))                     \
+        {                                                             \
+            lua_pushinteger(L, 0);                                    \
+            return 1;                                                 \
+        }                                                             \
+        *((t *)(buff->addr + buff->cursor)) = (t)luaL_check##f(L, 2); \
+        buff->cursor += sizeof(t);                                    \
+        lua_pushinteger(L, sizeof(t));                                \
+        return 1;                                                     \
+    }
+zwrite(i8, int8_t, integer);
+zwrite(u8, uint8_t, integer);
+zwrite(i16, int16_t, integer);
+zwrite(u16, uint16_t, integer);
+zwrite(i32, int32_t, integer);
+zwrite(u32, uint32_t, integer);
+zwrite(i64, int64_t, integer);
+zwrite(u64, uint64_t, integer);
+zwrite(f32, float, number);
+zwrite(f64, double, number);
 
+/**
+按起始位置和长度取出数据
+@api buff:toStr(offset,length)
+@int 数据的起始位置（起始位置为0）
+@int 数据的长度
+@return string 读出来的数据
+@usage
+local s = buff:toStr(0,5)--读取开头的五个字节数据
+ */
+static int l_zbuff_toStr(lua_State *L)
+{
+    luat_zbuff *buff = tozbuff(L);
+    int start = luaL_optinteger(L, 2, 0);
+    if (start > buff->len)
+        start = buff->len;
+    int len = luaL_optinteger(L, 3, buff->len);
+    if (start + len > buff->len)
+        len = buff->len - start;
+    lua_pushlstring(L, buff->addr + start, len);
+    return 1;
+}
+
+/**
+获取zbuff对象的长度
+@api buff:len()
+@return zbuff对象的长度
+@usage
+len = buff:len()
+len = #buff
+ */
+static int l_zbuff_len(lua_State *L)
+{
+    luat_zbuff *buff = tozbuff(L);
+    lua_pushinteger(L, buff->len);
+    return 1;
+}
 
 /**
 以下标形式进行数据读写
@@ -521,41 +640,37 @@ local data = buff[0]
  */
 static int l_zbuff_index(lua_State *L)
 {
-    luat_zbuff** pp = luaL_checkudata(L, 1, LUAT_ZBUFF_TYPE);
+    luat_zbuff **pp = luaL_checkudata(L, 1, LUAT_ZBUFF_TYPE);
     int i;
 
     luaL_getmetatable(L, LUAT_ZBUFF_TYPE);
     lua_pushvalue(L, 2);
     lua_rawget(L, -2);
 
-    if ( lua_isnil(L, -1) ) {
+    if (lua_isnil(L, -1))
+    {
         /* found no method, so get value from userdata. */
         luat_zbuff *buff = tozbuff(L);
-        int o = luaL_checkinteger(L,2);
-        if(o > buff->len) return 0;
-        lua_pushinteger(L,buff->addr[o]);
+        int o = luaL_checkinteger(L, 2);
+        if (o > buff->len)
+            return 0;
+        lua_pushinteger(L, buff->addr[o]);
         return 1;
     };
     return 1;
 }
 
-static int l_zbuff_toStr(lua_State *L)
-{
-    luat_zbuff *buff = tozbuff(L);
-    int start = luaL_optinteger(L, 2, 0);
-    int len = luaL_optinteger(L, 3, buff->len);
-    lua_pushlstring(L, buff->addr + start, len);
-    return 1;
-}
-
 static int l_zbuff_newindex(lua_State *L)
 {
-    if(lua_isinteger(L,2)){
+    if (lua_isinteger(L, 2))
+    {
         luat_zbuff *buff = tozbuff(L);
-        if(lua_isinteger(L,2)){
-            int o = luaL_checkinteger(L,2);
-            int n = luaL_checkinteger(L,3) % 256;
-            if(o > buff->len) return 0;
+        if (lua_isinteger(L, 2))
+        {
+            int o = luaL_checkinteger(L, 2);
+            int n = luaL_checkinteger(L, 3) % 256;
+            if (o > buff->len)
+                return 0;
             buff->addr[o] = n;
         }
     }
@@ -597,17 +712,16 @@ static const luaL_Reg lib_zbuff[] = {
     {"writeU64", l_zbuff_write_u64},
     {"writeF32", l_zbuff_write_f32},
     {"writeF64", l_zbuff_write_f64},
-    {"toStr",    l_zbuff_toStr},
-    {NULL, NULL}
-};
+    {"toStr", l_zbuff_toStr},
+    {"len", l_zbuff_len},
+    {NULL, NULL}};
 
 static const luaL_Reg lib_zbuff_metamethods[] = {
     {"__index", l_zbuff_index},
+    {"__len", l_zbuff_len},
     {"__newindex", l_zbuff_newindex},
     {"__gc", l_zbuff_gc},
-    {NULL, NULL}
-};
-
+    {NULL, NULL}};
 
 static void createmeta(lua_State *L)
 {
@@ -617,7 +731,7 @@ static void createmeta(lua_State *L)
     // luaL_setfuncs(L, lib_zbuff, 0);        /* add file methods to new metatable */
     luaL_setfuncs(L, lib_zbuff_metamethods, 0);
     luaL_setfuncs(L, lib_zbuff, 0);
-    lua_pop(L, 1);                         /* pop new metatable */
+    lua_pop(L, 1); /* pop new metatable */
     //luaL_newlib(L, lib_zbuff);
 }
 

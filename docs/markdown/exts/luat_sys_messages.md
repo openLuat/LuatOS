@@ -23,7 +23,7 @@ sys.subscribe("SIM_IND", function(msg)
    	else if msg == "NIST" then
         log.info("NIST","SIM卡已移走")
     end
-end
+end)
 ```
 
 ## NET_STATUS
@@ -41,7 +41,7 @@ sys.subscribe("NET_STATUS", function(msg)
  	if msg == "NRDY" then
     	log.info("NRDY","网络已就绪")
     end
-end
+end)
 ```
 
 ## CELL_INFO_IND
@@ -53,7 +53,7 @@ end
 ```lua
 sys.subscribe("CELL_INFO_IND", function()
 	log.info("CELL_INFO_IND")
-end
+end)
 ```
 
 # WLAN
@@ -67,7 +67,7 @@ end
 ```lua
 sys.subscribe("WLAN_READY", function()
 	log.info("网络就绪")
-end
+end)
 ```
 
 ## NET_READY
@@ -79,7 +79,7 @@ end
 ```lua
 sys.subscribe("NET_READY", function()
 	log.info("网络准备好")
-end
+end)
 ```
 
 ## WLAN_SCAN_DONE
@@ -91,7 +91,7 @@ wlan扫描完成
 ```lua
 sys.subscribe("WLAN_SCAN_DONE", function()
 	log.info("wlan扫描完成")
-end
+end)
 ```
 
 ## WLAN_STA_CONNECTED
@@ -111,7 +111,7 @@ sys.subscribe("WLAN_STA_CONNECTED", function(msg)
 	elseif msg == 0 then
 		log.info("没有连上wifi路由器/热点,通常是密码错误")
 	end
-end
+end)
 ```
 
 ## WLAN_STA_DISCONNECTED
@@ -123,7 +123,7 @@ end
 ```lua
 sys.subscribe("WLAN_STA_DISCONNECTED", function()
 	log.info("从wifi路由器/热点断开了")
-end
+end)
 ```
 
 ## WLAN_AP_START
@@ -135,7 +135,7 @@ wlan ap 开启
 ```lua
 sys.subscribe("WLAN_AP_START", function()
 	log.info("ap开启")
-end
+end)
 ```
 
 ## WLAN_AP_STOP
@@ -147,7 +147,7 @@ wlan ap 关闭
 ```lua
 sys.subscribe("WLAN_AP_STOP", function()
 	log.info("ap关闭")
-end
+end)
 ```
 
 ## WLAN_AP_ASSOCIATED
@@ -159,7 +159,7 @@ ap设备接入
 ```lua
 sys.subscribe("WLAN_AP_ASSOCIATED", function()
 	log.info("设备接入")
-end
+end)
 ```
 
 ## WLAN_AP_DISASSOCIATED
@@ -171,7 +171,7 @@ ap设备断开
 ```lua
 sys.subscribe("WLAN_AP_DISASSOCIATED", function()
 	log.info("设备断开")
-end
+end)
 ```
 
 ## WLAN_PW_RE
@@ -188,7 +188,7 @@ sys.subscribe("WLAN_PW_RE", function(ssid,passwd)
 		log.info("ssid",ssid)
 		log.info("passwd",passwd)
 	end
-end
+end)
 ```
 
 # NTP
@@ -202,7 +202,6 @@ ntp更新
 ```lua
 sys.subscribe("NTP_UPDATE", function()
 	log.info("ntp更新")
-end
+end)
 ```
 
-## 

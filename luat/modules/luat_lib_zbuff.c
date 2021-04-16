@@ -40,19 +40,20 @@ int add_bytes(luat_zbuff *buff, const char *source, size_t len)
     *((uint16_t *)(buff->addr + point * 3 + 1)) = color % 0x10000;
 #define SET_POINT_32(buff, point, color) *((uint32_t *)buff->addr + point) = color
 
-#define SET_POINT_CASE(n,point, color) case n:\
-SET_POINT_##n(buff,point,color);\
-break
+#define SET_POINT_CASE(n, point, color)    \
+    case n:                                \
+        SET_POINT_##n(buff, point, color); \
+        break
 //更改某点的颜色
 #define set_framebuffer_point(buff, point, color) \
     switch (buff->bit)                            \
     {                                             \
-        SET_POINT_CASE(1, (point), (color));          \
-        SET_POINT_CASE(4, (point), (color));          \
-        SET_POINT_CASE(8, (point), (color));          \
-        SET_POINT_CASE(16, (point), (color));         \
-        SET_POINT_CASE(24, (point), (color));         \
-        SET_POINT_CASE(32, (point), (color));         \
+        SET_POINT_CASE(1, (point), (color));      \
+        SET_POINT_CASE(4, (point), (color));      \
+        SET_POINT_CASE(8, (point), (color));      \
+        SET_POINT_CASE(16, (point), (color));     \
+        SET_POINT_CASE(24, (point), (color));     \
+        SET_POINT_CASE(32, (point), (color));     \
     default:                                      \
         break;                                    \
     }
@@ -63,9 +64,10 @@ break
 #define GET_POINT_16(buff, point) return *((uint16_t *)buff->addr + point)
 #define GET_POINT_24(buff, point) return buff->addr[point * 3] * 0x10000 + *((uint16_t *)(buff->addr + point * 3 + 1))
 #define GET_POINT_32(buff, point) return *((uint32_t *)buff->addr + point)
-#define GET_POINT_CASE(n,point) case n:\
-GET_POINT_##n(buff,point);\
-break
+#define GET_POINT_CASE(n, point)    \
+    case n:                         \
+        GET_POINT_##n(buff, point); \
+        break
 //获取某点的颜色
 uint32_t get_framebuffer_point(luat_zbuff *buff,uint32_t point)
 {
@@ -717,6 +719,89 @@ static int l_zbuff_pixel(lua_State *L)
 }
 
 /**
+画一条线
+@api buff:drawLine(x1,y1,x2,y2,color)
+@int 起始坐标点与最左边的距离，范围是0~宽度-1
+@int 起始坐标点与最上边的距离，范围是0~高度-1
+@int 结束坐标点与最左边的距离，范围是0~宽度-1
+@int 结束坐标点与最上边的距离，范围是0~高度-1
+@int 可选，颜色，默认为0
+@return bool 画成功会返回true
+@usage
+rerult = buff:drawLine(0,0,2,3,0xffff)
+ */
+#define abs(n) (n>0?n:-n)
+static int l_zbuff_draw_line(lua_State *L)
+{
+    luat_zbuff *buff = tozbuff(L);
+    if(buff->width<=0) return 0;//不是framebuffer数据
+    uint32_t x0 = luaL_checkinteger(L,2);
+    uint32_t y0 = luaL_checkinteger(L,3);
+    uint32_t x1 = luaL_checkinteger(L,4);
+    uint32_t y1 = luaL_checkinteger(L,5);
+    uint32_t color = luaL_optinteger(L,6,0);
+
+	float xp, yp; //垂足点的坐标
+	float m = (float)(y1 - y0) / (float)(x1 - x0);
+
+	int x = x0, y = y0, dx = x1 - x0, dy = y1 - y0;
+	int max = (abs(dy) > abs(dx)) ? abs(dy) : abs(dx);
+	int min = (abs(dy) > abs(dx)) ? abs(dx) : abs(dy);
+	float e = 2 * min - max;
+	for (int i = 0; i < max; i++)
+	{
+		if(x>0&&y>0&&x<buff->width&&y<buff->height)
+            set_framebuffer_point(buff,x+y*buff->width,color);
+
+		//计算垂足坐标
+		xp = (y - y1 + x / m + m * x1) / (m + 1 / m);
+		yp = -1 / m * (xp - x) + y;
+
+		if (e >= 0)
+		{
+			e = e - 2 * max;
+			(abs(dy) > abs(dx)) ? (dx >= 0 ? x++ : x--) : (dy >= 0 ? y++ : y--);
+		}
+		e += 2 * min;
+		(abs(dy) > abs(dx)) ? (dy >= 0 ? y++ : y--) : (dx >= 0 ? x++ : x--);
+	}
+
+    lua_pushboolean(L,1);
+    return 1;
+}
+
+/**
+画一个矩形
+@api buff:drawRect(x1,y1,x2,y2,color)
+@int 起始坐标点与最左边的距离，范围是0~宽度-1
+@int 起始坐标点与最上边的距离，范围是0~高度-1
+@int 结束坐标点与最左边的距离，范围是0~宽度-1
+@int 结束坐标点与最上边的距离，范围是0~高度-1
+@int 可选，颜色，默认为0
+@return bool 画成功会返回true
+@usage
+rerult = buff:drawRect(0,0,2,3,0xffff)
+ */
+#define CHECK0(n,max) if(n<0)n=0;if(n>=max)n=max-1
+static int l_zbuff_draw_rectangle(lua_State *L)
+{
+    luat_zbuff *buff = tozbuff(L);
+    if(buff->width<=0) return 0;//不是framebuffer数据
+    uint32_t x1 = luaL_checkinteger(L,2);  CHECK0(x1,buff->width);
+    uint32_t y1 = luaL_checkinteger(L,3);  CHECK0(y1,buff->height);
+    uint32_t x2 = luaL_checkinteger(L,4);  CHECK0(x2,buff->width);
+    uint32_t y2 = luaL_checkinteger(L,5);  CHECK0(y2,buff->height);
+    uint32_t color = luaL_optinteger(L,6,0);
+    int x,y;
+    uint32_t xmax=x1>x2?x1:x2,xmin=x1>x2?x2:x1,ymax=y1>y2?y1:y2,ymin=y1>y2?y2:y1;
+    for(x=xmin;x<=xmax;x++)
+        for(y=ymin;y<=ymax;y++)
+            set_framebuffer_point(buff,x+y*buff->width,color);
+    lua_pushboolean(L,1);
+    return 1;
+}
+
+/**
 以下标形式进行数据读写
 @api buff[n]
 @int 第几个数据，以0开始的下标（C标准）
@@ -803,6 +888,8 @@ static const luaL_Reg lib_zbuff[] = {
     {"len", l_zbuff_len},
     {"setFrameBuffer", l_zbuff_set_frame_buffer},
     {"pixel", l_zbuff_pixel},
+    {"drawLine", l_zbuff_draw_line},
+    {"drawRect", l_zbuff_draw_rectangle},
     {NULL, NULL}};
 
 static const luaL_Reg lib_zbuff_metamethods[] = {

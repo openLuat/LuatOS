@@ -741,30 +741,23 @@ static int l_zbuff_draw_line(lua_State *L)
     uint32_t y1 = luaL_checkinteger(L,5);
     uint32_t color = luaL_optinteger(L,6,0);
 
-	float xp, yp; //垂足点的坐标
-	float m = (float)(y1 - y0) / (float)(x1 - x0);
-
-	int x = x0, y = y0, dx = x1 - x0, dy = y1 - y0;
-	int max = (abs(dy) > abs(dx)) ? abs(dy) : abs(dx);
-	int min = (abs(dy) > abs(dx)) ? abs(dx) : abs(dy);
-	float e = 2 * min - max;
-	for (int i = 0; i < max; i++)
-	{
-		if(x>0&&y>0&&x<buff->width&&y<buff->height)
+    //代码参考https://blog.csdn.net/qq_43405938/article/details/102700922
+    int x = x0, y = y0, dx = x1 - x0, dy = y1 - y0;
+    int max = (abs(dy) > abs(dx)) ? abs(dy) : abs(dx);
+    int min = (abs(dy) > abs(dx)) ? abs(dx) : abs(dy);
+    float e = 2 * min - max;
+    for (int i = 0; i < max; i++)
+    {
+        if(x>=0&&y>=0&&x<buff->width&&y<buff->height)
             set_framebuffer_point(buff,x+y*buff->width,color);
-
-		//计算垂足坐标
-		xp = (y - y1 + x / m + m * x1) / (m + 1 / m);
-		yp = -1 / m * (xp - x) + y;
-
-		if (e >= 0)
-		{
-			e = e - 2 * max;
-			(abs(dy) > abs(dx)) ? (dx >= 0 ? x++ : x--) : (dy >= 0 ? y++ : y--);
-		}
-		e += 2 * min;
-		(abs(dy) > abs(dx)) ? (dy >= 0 ? y++ : y--) : (dx >= 0 ? x++ : x--);
-	}
+        if (e >= 0)
+        {
+            e = e - 2 * max;
+            (abs(dy) > abs(dx)) ? (dx >= 0 ? x++ : x--) : (dy >= 0 ? y++ : y--);
+        }
+        e += 2 * min;
+        (abs(dy) > abs(dx)) ? (dy >= 0 ? y++ : y--) : (dx >= 0 ? x++ : x--);
+    }
 
     lua_pushboolean(L,1);
     return 1;
@@ -797,6 +790,81 @@ static int l_zbuff_draw_rectangle(lua_State *L)
     for(x=xmin;x<=xmax;x++)
         for(y=ymin;y<=ymax;y++)
             set_framebuffer_point(buff,x+y*buff->width,color);
+    lua_pushboolean(L,1);
+    return 1;
+}
+
+/**
+画一个圆形
+@api buff:drawRect(x,y,r,color,fill)
+@int 圆心标点与最左边的距离，范围是0~宽度-1
+@int 圆心标点与最上边的距离，范围是0~高度-1
+@int 周长
+@int 可选，圆的颜色，默认为0
+@bool 可选，是否在内部填充
+@return bool 画成功会返回true
+@usage
+rerult = buff:drawRect(0,0,2,3,0xffff)
+ */
+#define DRAW_CIRCLE_ALL(buff, xc, yc, x, y, c)                                \
+    {                                                                          \
+        if (x >= 0 && y >= 0 && x < buff->width && y < buff->height)           \
+            set_framebuffer_point(buff, (xc + x) + (yc + y) * buff->width, c); \
+        if (x >= 0 && y >= 0 && x < buff->width && y < buff->height)           \
+            set_framebuffer_point(buff, (xc - x) + (yc + y) * buff->width, c); \
+        if (x >= 0 && y >= 0 && x < buff->width && y < buff->height)           \
+            set_framebuffer_point(buff, (xc + x) + (yc - y) * buff->width, c); \
+        if (x >= 0 && y >= 0 && x < buff->width && y < buff->height)           \
+            set_framebuffer_point(buff, (xc - x) + (yc - y) * buff->width, c); \
+        if (x >= 0 && y >= 0 && x < buff->width && y < buff->height)           \
+            set_framebuffer_point(buff, (xc + y) + (yc + x) * buff->width, c); \
+        if (x >= 0 && y >= 0 && x < buff->width && y < buff->height)           \
+            set_framebuffer_point(buff, (xc - y) + (yc + x) * buff->width, c); \
+        if (x >= 0 && y >= 0 && x < buff->width && y < buff->height)           \
+            set_framebuffer_point(buff, (xc + y) + (yc - x) * buff->width, c); \
+        if (x >= 0 && y >= 0 && x < buff->width && y < buff->height)           \
+            set_framebuffer_point(buff, (xc - y) + (yc - x) * buff->width, c); \
+    }
+static int l_zbuff_draw_circle(lua_State *L)
+{
+    luat_zbuff *buff = tozbuff(L);
+    if(buff->width<=0) return 0;//不是framebuffer数据
+    uint32_t xc = luaL_checkinteger(L,2);
+    uint32_t yc = luaL_checkinteger(L,3);
+    uint32_t r = luaL_checkinteger(L,4);
+    uint32_t color = luaL_optinteger(L,5,0);
+    uint8_t fill = lua_toboolean(L,6);
+
+    //代码参考https://www.cnblogs.com/wlzy/p/8695226.html
+    //圆不在可见区域
+    if (xc + r < 0 || xc - r >= buff->width || yc + r < 0 || yc - r >= buff->height)
+        return 0;
+
+    int x = 0, y = r, yi, d;
+    d = 3 - 2 * r;
+
+    while (x <= y)
+    {
+        if (fill)
+        {
+            for (yi = x; yi <= y; yi++)
+                DRAW_CIRCLE_ALL(buff, xc, yc, x, yi, color);
+        }
+        else
+        {
+            DRAW_CIRCLE_ALL(buff, xc, yc, x, y, color);
+        }
+        if (d < 0)
+        {
+            d = d + 4 * x + 6;
+        }
+        else
+        {
+            d = d + 4 * (x - y) + 10;
+            y--;
+        }
+        x++;
+    }
     lua_pushboolean(L,1);
     return 1;
 }
@@ -890,6 +958,7 @@ static const luaL_Reg lib_zbuff[] = {
     {"pixel", l_zbuff_pixel},
     {"drawLine", l_zbuff_draw_line},
     {"drawRect", l_zbuff_draw_rectangle},
+    {"drawCircle", l_zbuff_draw_circle},
     {NULL, NULL}};
 
 static const luaL_Reg lib_zbuff_metamethods[] = {

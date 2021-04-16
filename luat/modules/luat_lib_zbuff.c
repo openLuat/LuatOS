@@ -796,7 +796,7 @@ static int l_zbuff_draw_rectangle(lua_State *L)
 
 /**
 画一个圆形
-@api buff:drawRect(x,y,r,color,fill)
+@api buff:drawCircle(x,y,r,color,fill)
 @int 圆心标点与最左边的距离，范围是0~宽度-1
 @int 圆心标点与最上边的距离，范围是0~高度-1
 @int 周长
@@ -804,7 +804,8 @@ static int l_zbuff_draw_rectangle(lua_State *L)
 @bool 可选，是否在内部填充
 @return bool 画成功会返回true
 @usage
-rerult = buff:drawRect(0,0,2,3,0xffff)
+rerult = buff:drawCircle(15,5,3,0xC)
+rerult = buff:drawCircle(15,5,3,0xC,true)
  */
 #define DRAW_CIRCLE_ALL(buff, xc, yc, x, y, c)                                \
     {                                                                          \

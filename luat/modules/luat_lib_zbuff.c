@@ -25,34 +25,58 @@ int add_bytes(luat_zbuff *buff, const char *source, size_t len)
     return len;
 }
 
-void set_point_1(luat_zbuff *buff,uint32_t x,uint32_t y,uint8_t color)
-{
-    if(color)
-        buff->addr[(x+y*buff->width)/8] |= 1<<((x+y*buff->width)%8);
-    else
-        buff->addr[(x+y*buff->width)/8] &= ~(1<<((x+y*buff->width)%8));
-}
-void set_point_4(luat_zbuff *buff,uint32_t x,uint32_t y,uint8_t color)
-{
-    uint8_t offset = ((x+y*buff->width)%2)*4;
-    buff->addr[(x+y*buff->width)/2] &= ~(0xf<<offset);
-    buff->addr[(x+y*buff->width)/2] |= color<<offset;
-}
-void set_point_8(luat_zbuff *buff,uint32_t x,uint32_t y,uint8_t color)
-{
-    buff->addr[x+y*buff->width] = color;
-}
+#define SET_POINT_1(buff, point, color)                \
+    if (color % 2)                                     \
+        buff->addr[point / 8] |= 1 << (7 - point % 8); \
+    else                                               \
+        buff->addr[point / 8] &= ~(1 << (7 - point % 8));
+#define SET_POINT_4(buff, point, color)                 \
+    buff->addr[point / 2] &= (point % 2) ? 0xf0 : 0x0f; \
+    buff->addr[point / 2] |= (point % 2) ? color : (color * 0x10)
+#define SET_POINT_8(buff, point, color) buff->addr[point] = color
+#define SET_POINT_16(buff, point, color) *((uint16_t *)buff->addr + point) = color
+#define SET_POINT_24(buff, point, color)     \
+    buff->addr[point * 3] = color / 0x10000; \
+    *((uint16_t *)(buff->addr + point * 3 + 1)) = color % 0x10000;
+#define SET_POINT_32(buff, point, color) *((uint32_t *)buff->addr + point) = color
 
-#define SET_POINT_CASE(n) case n:\
-set_point_##n(buff,x,y,color);\
+#define SET_POINT_CASE(n,point, color) case n:\
+SET_POINT_##n(buff,point,color);\
 break
-void set_point(luat_zbuff *buff,uint32_t x,uint32_t y,uint32_t color)
+//更改某点的颜色
+#define set_framebuffer_point(buff, point, color) \
+    switch (buff->bit)                            \
+    {                                             \
+        SET_POINT_CASE(1, (point), (color));          \
+        SET_POINT_CASE(4, (point), (color));          \
+        SET_POINT_CASE(8, (point), (color));          \
+        SET_POINT_CASE(16, (point), (color));         \
+        SET_POINT_CASE(24, (point), (color));         \
+        SET_POINT_CASE(32, (point), (color));         \
+    default:                                      \
+        break;                                    \
+    }
+
+#define GET_POINT_1(buff, point) return (buff->addr[point / 8] >> (7 - point % 8)) % 2
+#define GET_POINT_4(buff, point) return (buff->addr[point / 2] >> ((point % 2)?0:4)) % 0x10
+#define GET_POINT_8(buff, point) return buff->addr[point]
+#define GET_POINT_16(buff, point) return *((uint16_t *)buff->addr + point)
+#define GET_POINT_24(buff, point) return buff->addr[point * 3] * 0x10000 + *((uint16_t *)(buff->addr + point * 3 + 1))
+#define GET_POINT_32(buff, point) return *((uint32_t *)buff->addr + point)
+#define GET_POINT_CASE(n,point) case n:\
+GET_POINT_##n(buff,point);\
+break
+//获取某点的颜色
+uint32_t get_framebuffer_point(luat_zbuff *buff,uint32_t point)
 {
     switch (buff->bit)
     {
-    SET_POINT_CASE(1);
-    SET_POINT_CASE(4);
-    SET_POINT_CASE(8);
+        GET_POINT_CASE(1, point);
+        GET_POINT_CASE(4, point);
+        GET_POINT_CASE(8, point);
+        GET_POINT_CASE(16, point);
+        GET_POINT_CASE(24, point);
+        GET_POINT_CASE(32, point);
     default:
         break;
     }
@@ -125,10 +149,9 @@ static int l_zbuff_create(lua_State *L)
         if (lua_isinteger(L, 2))
         {
             LUA_INTEGER initial = luaL_checkinteger(L, 2);
-            uint32_t x, y;
-            for (x = 0; x < buff->width; x++)
-                for (y = 0; y < buff->height; y++)
-                    set_point(buff, x, y, initial);
+            uint32_t i;
+            for (i = 0; i < buff->width * buff->height; i++)
+                set_framebuffer_point(buff, i, initial);
         }
     }
     else
@@ -237,7 +260,7 @@ static int l_zbuff_read(lua_State *L)
 zbuff设置光标位置
 @api buff:seek(base,offset)
 @int 偏移长度
-@int whence, 基点，默认zbuff.SEEK_SET。zbuff.SEEK_SET: 基点为 0 （文件开头），zbuff.SEEK_CUR: 基点为当前位置，zbuff.SEEK_END: 基点为文件尾
+@int where, 基点，默认zbuff.SEEK_SET。zbuff.SEEK_SET: 基点为 0 （文件开头），zbuff.SEEK_CUR: 基点为当前位置，zbuff.SEEK_END: 基点为文件尾
 @return int 设置光标后从buff开头计算起的光标的位置
 @usage
 buff:seek(0) -- 把光标设置到指定位置
@@ -630,6 +653,69 @@ static int l_zbuff_len(lua_State *L)
 }
 
 /**
+设置buff对象的FrameBuffer属性
+@api buff:setFrameBuffer(width,height,bit,color)
+@int FrameBuffer的宽度
+@int FrameBuffer的高度
+@int FrameBuffer的色位深度
+@int FrameBuffer的初始颜色
+@return 设置成功会返回true
+@usage
+result = buff:setFrameBuffer(320,240,16,0xffff)
+ */
+static int l_zbuff_set_frame_buffer(lua_State *L)
+{
+    luat_zbuff *buff = tozbuff(L);
+    //检查空间够不够
+    if((luaL_checkinteger(L, 2) * luaL_checkinteger(L, 3) * luaL_checkinteger(L, 4) - 1) / 8 + 1 > buff->len)
+        return 0;
+    buff->width = luaL_checkinteger(L,2);
+    buff->height = luaL_checkinteger(L,3);
+    buff->bit = luaL_checkinteger(L,4);
+    if (lua_isinteger(L, 5))
+    {
+        LUA_INTEGER color = luaL_checkinteger(L, 5);
+        uint32_t i;
+        for (i = 0; i < buff->width * buff->height; i++)
+            set_framebuffer_point(buff, i, color);
+    }
+    lua_pushboolean(L,1);
+    return 1;
+}
+
+/**
+设置或获取FrameBuffer某个像素点的颜色
+@api buff:pixel(x,y,color)
+@int 与最左边的距离，范围是0~宽度-1
+@int 与最上边的距离，范围是0~高度-1
+@int 颜色，如果留空则表示获取该位置的颜色
+@return 设置颜色时，设置成功会返回true；读取颜色时，返回颜色的值，读取失败返回nil
+@usage
+rerult = buff:pixel(0,3,0)
+color = buff:pixel(0,3)
+ */
+static int l_zbuff_pixel(lua_State *L)
+{
+    luat_zbuff *buff = tozbuff(L);
+    uint32_t x = luaL_checkinteger(L,2);
+    uint32_t y = luaL_checkinteger(L,3);
+    if(x>=buff->width||y>=buff->height)
+        return 0;
+    if (lua_isinteger(L, 4))
+    {
+        LUA_INTEGER color = luaL_checkinteger(L, 4);
+        set_framebuffer_point(buff, x + y * buff->width, color);
+        lua_pushboolean(L,1);
+        return 1;
+    }
+    else
+    {
+        lua_pushinteger(L,get_framebuffer_point(buff,x + y * buff->width));
+        return 1;
+    }
+}
+
+/**
 以下标形式进行数据读写
 @api buff[n]
 @int 第几个数据，以0开始的下标（C标准）
@@ -714,6 +800,8 @@ static const luaL_Reg lib_zbuff[] = {
     {"writeF64", l_zbuff_write_f64},
     {"toStr", l_zbuff_toStr},
     {"len", l_zbuff_len},
+    {"setFrameBuffer", l_zbuff_set_frame_buffer},
+    {"pixel", l_zbuff_pixel},
     {NULL, NULL}};
 
 static const luaL_Reg lib_zbuff_metamethods[] = {

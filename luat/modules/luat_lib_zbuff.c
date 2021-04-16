@@ -94,6 +94,7 @@ local buff = zbuff.create(1024) -- 空白的
 local buff = zbuff.create(1024, 0x33) --创建一个初值全为0x33的内存区域
 local buff = zbuff.create(1024, "123321456654") -- 创建，并填充一个已有字符串的内容
  */
+
 /**
 创建framebuff用的zbuff
 @api zbuff.create({width,height,bit},data)
@@ -640,7 +641,7 @@ static int l_zbuff_toStr(lua_State *L)
 /**
 获取zbuff对象的长度
 @api buff:len()
-@return zbuff对象的长度
+@return int zbuff对象的长度
 @usage
 len = buff:len()
 len = #buff
@@ -659,7 +660,7 @@ static int l_zbuff_len(lua_State *L)
 @int FrameBuffer的高度
 @int FrameBuffer的色位深度
 @int FrameBuffer的初始颜色
-@return 设置成功会返回true
+@return bool 设置成功会返回true
 @usage
 result = buff:setFrameBuffer(320,240,16,0xffff)
  */
@@ -689,7 +690,7 @@ static int l_zbuff_set_frame_buffer(lua_State *L)
 @int 与最左边的距离，范围是0~宽度-1
 @int 与最上边的距离，范围是0~高度-1
 @int 颜色，如果留空则表示获取该位置的颜色
-@return 设置颜色时，设置成功会返回true；读取颜色时，返回颜色的值，读取失败返回nil
+@return any 设置颜色时，设置成功会返回true；读取颜色时，返回颜色的值，读取失败返回nil
 @usage
 rerult = buff:pixel(0,3,0)
 color = buff:pixel(0,3)

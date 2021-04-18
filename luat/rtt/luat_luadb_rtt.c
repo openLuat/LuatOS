@@ -18,7 +18,9 @@
 
 static int _dfs_luadb_open     (struct dfs_fd *fd) {
     int _fd = luat_luadb_open((luadb_fs_t*)fd->fs->data, fd->path + 1, fd->flags, 0);
-    fd->data = (void*) _fd;
+    if (_fd != 0) {
+        fd->data = (void*) _fd;
+    }
     return _fd;
 }
 static int _dfs_luadb_close    (struct dfs_fd *fd) {

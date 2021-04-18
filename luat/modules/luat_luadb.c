@@ -55,7 +55,7 @@ int luat_luadb_open(luadb_fs_t *fs, const char *path, int flags, int /*mode_t*/ 
             
         }
     }
-    return -1;
+    return 0;
 }
 
 

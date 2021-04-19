@@ -1,3 +1,9 @@
+/*
+@module  json
+@summary json生成和解析库
+@version 1.0
+@date    2020.02.18
+*/
 /* Lua CJSON - JSON support for Lua
  *
  * Copyright (c) 2010-2012  Mark Pulford <mark@kyne.com.au>
@@ -320,7 +326,7 @@ static const char*  char2escape(unsigned char c) {
     case '/' : return "\\/";
     case '\\': return "\\\\";
     case 0x7f: return "\\u007f";
-    
+
     default:
         return NULL;
     }
@@ -788,7 +794,7 @@ typedef struct {
 } json_easy_config_t;
 
 static json_easy_config_t json_easy_config = {'g',DEFAULT_ENCODE_NUMBER_PRECISION};
- 
+
 static void json_append_number(lua_State *l,
                                strbuf_t *json, int lindex)
 {
@@ -1561,12 +1567,6 @@ static int json_protect_conversion(lua_State *l)
 }
 
 /*
-
-@module json json操作库
-@since 1.0.0
-*/
-
-/*
 将对象序列化为json字符串
 @api json.encode
 @param obj 需要序列化的对象
@@ -1632,7 +1632,7 @@ static int l_json_encode_safe(lua_State *L) {
 设置encode数字精度和模式
 @api json.encode_number_precision
 @param string 浮点数精度和模式,这项不存在的时候,为默认值"7g",数字只支持"0~14",模式只支持"f/g"
-@no return 
+@no return
 @usage json.encode_number_precision()-->浮点数用%.7g的方式转换为字符串
 @usage json.encode_number_precision("2")-->浮点数用%.2g的方式转换为字符串
 @usage json.encode_number_precision("10f")-->浮点数用%.10f的方式转换为字符串
@@ -1727,7 +1727,7 @@ static const rotable_Reg reg_json[] = {
 /* Return cjson module table */
 static int lua_cjson_new(lua_State *l)
 {
-    
+
 
     /* Initialise number conversions */
     //fpconv_init();

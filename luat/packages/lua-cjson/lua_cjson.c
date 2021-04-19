@@ -1568,13 +1568,14 @@ static int json_protect_conversion(lua_State *l)
 
 /*
 将对象序列化为json字符串
-@api json.encode
-@param obj 需要序列化的对象
-@param string 浮点数精度和模式,这项不存在的时候,为默认值"7g",数字只支持"0~14",模式只支持"f/g"
-@return str 序列化后的json字符串, 失败的话返回nil
-@return err 序列化失败的报错信息
-@usage json.encode(obj)-->浮点数用%.7g的方式转换为字符串
-@usage json.encode(obj,"12f")-->浮点数用%.12f的方式转换为字符串
+@api json.encode(obj,t)
+@obj 需要序列化的对象
+@string 浮点数精度和模式,这项不存在的时候,为默认值"7g",数字只支持"0~14",模式只支持"f/g"
+@return string 序列化后的json字符串, 失败的话返回nil
+@return string 序列化失败的报错信息
+@usage
+json.encode(obj)-->浮点数用%.7g的方式转换为字符串
+json.encode(obj,"12f")-->浮点数用%.12f的方式转换为字符串
 */
 static int l_json_encode_safe(lua_State *L) {
     int top = lua_gettop(L);
@@ -1628,15 +1629,16 @@ static int l_json_encode_safe(lua_State *L) {
     }
     return 1;
 }
-/*
-设置encode数字精度和模式
-@api json.encode_number_precision
-@param string 浮点数精度和模式,这项不存在的时候,为默认值"7g",数字只支持"0~14",模式只支持"f/g"
-@no return
-@usage json.encode_number_precision()-->浮点数用%.7g的方式转换为字符串
-@usage json.encode_number_precision("2")-->浮点数用%.2g的方式转换为字符串
-@usage json.encode_number_precision("10f")-->浮点数用%.10f的方式转换为字符串
-*/
+// /*
+// 设置encode数字精度和模式
+// @api json.encode_number_precision
+// @param string 浮点数精度和模式,这项不存在的时候,为默认值"7g",数字只支持"0~14",模式只支持"f/g"
+// @return nil 无返回值
+// @usage
+// json.encode_number_precision()-->浮点数用%.7g的方式转换为字符串
+// json.encode_number_precision("2")-->浮点数用%.2g的方式转换为字符串
+// json.encode_number_precision("10f")-->浮点数用%.10f的方式转换为字符串
+// */
 // static int l_json_cfg_encode_number_precision(lua_State *L) {
 // 	int top = lua_gettop(L);
 // 	if(top <= 0)
@@ -1684,12 +1686,13 @@ static int l_json_encode_safe(lua_State *L) {
 
 /*
 将字符串反序列化为对象
-@api json.decode
-@param str 需要反序列化的json字符串
+@api json.decode(str)
+@string 需要反序列化的json字符串
 @return obj 反序列化后的对象(通常是table), 失败的话返回nil
 @return result 成功返回1,否则返回0
 @return err 反序列化失败的报错信息
-@usage json.decode("[1,2,3,4,5,6]")
+@usage
+json.decode("[1,2,3,4,5,6]")
 */
 static int l_json_decode_safe(lua_State *L) {
     int top = lua_gettop(L);

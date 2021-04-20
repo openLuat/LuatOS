@@ -26,4 +26,8 @@ sys.taskInit(function()
     os.exit(0)
 end)
 
+os.remove("T")
+io.writeFile("T", string.char(0, 0, 1, 2, 4, 0))
+assert(io.fileSize("T") == 6)
+
 sys.run()

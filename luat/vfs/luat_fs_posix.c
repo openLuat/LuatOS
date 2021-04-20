@@ -70,26 +70,24 @@ size_t luat_fs_fsize(const char *filename) {
     return size;
 }
 
-int luat_fs_mkfs(luat_fs_conf_t *conf) {
+LUAT_WEAK int luat_fs_mkfs(luat_fs_conf_t *conf) {
     LLOGE("not support yet : mkfs");
     return -1;
 }
-int luat_fs_mount(luat_fs_conf_t *conf) {
+LUAT_WEAK int luat_fs_mount(luat_fs_conf_t *conf) {
     LLOGE("not support yet : mount");
     return -1;
 }
-int luat_fs_umount(luat_fs_conf_t *conf) {
+LUAT_WEAK int luat_fs_umount(luat_fs_conf_t *conf) {
     LLOGE("not support yet : umount");
     return -1;
 }
 
 int luat_fs_mkdir(char const* _DirName) {
-    LLOGE("not support yet : mkdir");
-    return -1;
+    return mkdir(_DirName);
 }
 int luat_fs_rmdir(char const* _DirName) {
-    LLOGE("not support yet : rmdir");
-    return -1;
+    return rmdir(_DirName);
 }
 
 #else
@@ -169,12 +167,10 @@ int luat_vfs_posix_umount(void* userdata, luat_fs_conf_t *conf) {
 }
 
 int luat_vfs_posix_mkdir(void* userdata, char const* _DirName) {
-    LLOGE("not support yet : mkdir");
-    return -1;
+    return mkdir(_DirName);
 }
 int luat_vfs_posix_rmdir(void* userdata, char const* _DirName) {
-    LLOGE("not support yet : rmdir");
-    return -1;
+    return rmdir(_DirName);
 }
 
 #define T(name) .name = luat_vfs_posix_##name

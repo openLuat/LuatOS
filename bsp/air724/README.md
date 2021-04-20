@@ -7,8 +7,11 @@
 ## LuatOS为它提供哪些功能
 
 * 1024kb 的系统内存, 1526kb 的Lua专属内存
-* 刷机脚本区256kb, OTA脚本区256kb, 常规文件系统区1024kb
+* 刷机脚本区256kb, OTA脚本区256kb, 常规文件系统区1300kb
 * 基于Lua 5.3.6, 提供95%的原生库支持
 
 LuatOS大QQ群: 1061642968
 
+## 必读文档
+
+* https://wiki.luatos.com/luatos_rda8910/index.html

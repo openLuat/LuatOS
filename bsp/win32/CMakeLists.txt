@@ -52,8 +52,10 @@ add_library(luat ${TOPROOT}/luat/modules/luat_main.c
                  ${TOPROOT}/luat/modules/luat_lib_libcoap.c
                  ${TOPROOT}/luat/modules/luat_lib_crypto.c
                  ${TOPROOT}/luat/modules/crc.c
-                 ${TOPROOT}/luat/modules/luat_vfs.c
-                 ${TOPROOT}/luat/modules/luat_luadb.c
+                 ${TOPROOT}/luat/vfs/luat_vfs.c
+                 ${TOPROOT}/luat/vfs/luat_fs_luadb.c
+                 ${TOPROOT}/luat/vfs/luat_fs_posix.c
+                 ${TOPROOT}/luat/vfs/luat_luadb_inline.c
             )
 
 IF (WIN32)

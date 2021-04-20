@@ -12,6 +12,7 @@ CFLAGS_INC    +=  -I $(LUATOS_DIR)/lua/include \
 
 LUATOS_SRC_DIRS += $(LUATOS_DIR)/lua/src \
 					$(LUATOS_DIR)/luat/modules \
+					$(LUATOS_DIR)/luat/vfs \
 					$(LUATOS_DIR)/luat/packages/lua-cjson \
 					$(LUATOS_DIR)/luat/packages/u8g2 \
 					$(LUATOS_DIR)/luat/packages/minmea \

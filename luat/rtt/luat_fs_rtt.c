@@ -26,12 +26,12 @@ int luat_fs_info(const char* path, luat_fs_info_t *conf) {
     return -1;
 }
 
-int luat_fs_mkdir(char const* _DirName) {
-    return mkdir(_DirName, 0);
-}
-int luat_fs_rmdir(char const* _DirName) {
-    return rmdir(_DirName);
-}
+// int luat_fs_mkdir(char const* _DirName) {
+//     return mkdir(_DirName, 0);
+// }
+// int luat_fs_rmdir(char const* _DirName) {
+//     return rmdir(_DirName);
+// }
 
 int luat_fs_mount(luat_fs_conf_t *conf) {
     // SPI Flash, 需要SFUD支持

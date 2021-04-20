@@ -128,4 +128,6 @@ void luat_timer_us_delay(size_t us);
 
 const char* luat_version_str(void);
 
+void luat_os_print_heapinfo(const char* tag);
+
 #endif

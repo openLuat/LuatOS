@@ -40,11 +40,7 @@ static int pmain(lua_State *L) {
     // 加载内置库
     luat_openlibs(L);
 
-    size_t total; size_t used; size_t max_used;
-    luat_meminfo_luavm(&total, &used, &max_used);
-    LLOGD("luavm %ld %ld %ld", total, used, max_used);
-    luat_meminfo_sys(&total, &used, &max_used);
-    LLOGD("sys   %ld %ld %ld", total, used, max_used);
+    luat_os_print_heapinfo("boot");
 
     lua_gc(L, LUA_GCSETPAUSE, 90); // 设置`垃圾收集器间歇率`要低于100%
 
@@ -261,4 +257,12 @@ void luat_newlib(lua_State* l, const rotable_Reg* reg) {
   #else
   rotable_newlib(l, reg);
   #endif
+}
+
+void luat_os_print_heapinfo(const char* tag) {
+    size_t total; size_t used; size_t max_used;
+    luat_meminfo_luavm(&total, &used, &max_used);
+    LLOGD("%s luavm %ld %ld %ld", tag, total, used, max_used);
+    luat_meminfo_sys(&total, &used, &max_used);
+    LLOGD("%s sys   %ld %ld %ld", tag, total, used, max_used);
 }

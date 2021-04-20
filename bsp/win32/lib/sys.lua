@@ -27,35 +27,35 @@ local taskTimerPool = {}
 --消息定时器参数表
 local para = {}
 --定时器是否循环表
-local loop = {}
+--local loop = {}
 --lua脚本运行出错时，是否回退为本地烧写的版本
-local sRollBack = true
+--local sRollBack = true
 
 _G.COROUTINE_ERROR_ROLL_BACK = true
 _G.COROUTINE_ERROR_RESTART = true
 
 -- 对coroutine.resume加一个修饰器用于捕获协程错误
-local rawcoresume = coroutine.resume
-sys.coresume = function(...)
-    function wrapper(co,...)
-        local arg = {...}
-        if not arg[1] then
-            local traceBack = debug.traceback(co)
-            traceBack = (traceBack and traceBack~="") and (arg[2].."\r\n"..traceBack) or arg[2]
-            log.error("coroutine.resume",traceBack)
-            if errDump and type(errDump.appendErr)=="function" then
-                errDump.appendErr(traceBack)
-            end
-            if _G.COROUTINE_ERROR_ROLL_BACK then
-                sys.timerStart(assert,500,false,traceBack)
-            elseif _G.COROUTINE_ERROR_RESTART then
-                rtos.reboot()
-            end
-        end
-        return ...
-    end
+--local rawcoresume = coroutine.resume
+local function wrapper(co,...)
     local arg = {...}
-    return wrapper(arg[1], rawcoresume(...))
+    if not arg[1] then
+        local traceBack = debug.traceback(co)
+        traceBack = (traceBack and traceBack~="") and (arg[2].."\r\n"..traceBack) or arg[2]
+        log.error("coroutine.resume",traceBack)
+        --if errDump and type(errDump.appendErr)=="function" then
+        --    errDump.appendErr(traceBack)
+        --end
+        if _G.COROUTINE_ERROR_ROLL_BACK then
+            sys.timerStart(assert,500,false,traceBack)
+        elseif _G.COROUTINE_ERROR_RESTART then
+            rtos.reboot()
+        end
+    end
+    return ...
+end
+sys.coresume = function(...)
+    local arg = {...}
+    return wrapper(arg[1], coroutine.resume(...))
 end
 
 --- Task任务延时函数，只能用于任务函数中

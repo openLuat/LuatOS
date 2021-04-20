@@ -744,7 +744,7 @@ static int io_exists (lua_State *L) {
 
 static int io_fileSize (lua_State *L) {
   const char *filename = luaL_checkstring(L, 1);
-  FILE* f = fopen(filename, "r");
+  FILE* f = fopen(filename, "rb");
   if(f == NULL)
     return 0;
   int r = fseek(f, 0, SEEK_END);
@@ -758,7 +758,7 @@ static int io_fileSize (lua_State *L) {
 
 static int io_readFile (lua_State *L) {
   const char *filename = luaL_checkstring(L, 1);
-  const char *mode = luaL_optstring(L, 2, "r");
+  const char *mode = luaL_optstring(L, 2, "rb");
   FILE* f = fopen(filename, mode);
   if(f == NULL)
     return 0;

@@ -338,9 +338,12 @@ size_t luat_vfs_luadb_fread(void* userdata, void *ptr, size_t size, size_t nmemb
 }
 
 int luat_vfs_luadb_getc(void* userdata, FILE* stream) {
-    char c = 0;
-    luat_vfs_luadb_fread(userdata, &c, 1, 1, stream);
-    return c;
+    char c = -1;
+    size_t ret = luat_vfs_luadb_fread((luadb_fs_t*)userdata, &c, 1, 1, stream);
+    if (ret > 0) {
+        return (int)c;
+    }
+    return -1;
 }
 size_t luat_vfs_luadb_fwrite(void* userdata, const void *ptr, size_t size, size_t nmemb, FILE *stream) {
     return 0;

@@ -9,6 +9,28 @@ local function lsdir(path, files, shortname)
     end
 end
 
+
+local function oscall(cmd, quite, cwd)
+    if cwd and Base_CWD then
+        lfs.chdir(cwd)
+    end
+    if tool_debug then
+        log.info("cmd", cmd)
+    end
+    local exe = io.popen(cmd)
+    if exe then
+        for line in exe:lines() do
+            if not quite then
+                log.info("cmd", line)
+            end
+        end
+        exe:close()
+    end
+    if cwd and Base_CWD then
+        lfs.chdir(Base_CWD)
+    end
+end
+
 function TLD(buff, T, D)
     buff:pack("bb", T, D:len())
     buff:write(D)
@@ -16,6 +38,7 @@ end
 
 local files = {}
 lsdir("lib", files, true)
+oscall("mkdir tmp")
 
 local buff = zbuff.create(256*1024)
 local magic = string.char(0x5A, 0xA5, 0X5A, 0xA5)
@@ -42,16 +65,17 @@ buff:pack("H", 0xFFFF)
 
 for _, value in ipairs(files) do
     TLD(buff, 0x01, magic)
-    TLD(buff, 0x02, value)
-    TLD(buff, 0x03, pack.pack("I", io.fileSize("lib\\" .. value)))
+    TLD(buff, 0x02, value .. "c")
+    oscall("..\\air640w\\tools\\luac_536_32bits.exe -s -o tmp\\".. value .. "c lib\\" .. value)
+    TLD(buff, 0x03, pack.pack("I", io.fileSize("tmp\\" .. value .. "c")))
     TLD(buff, 0xFE, string.char(0xFF, 0xFF))
-    buff:write(io.readFile("lib\\" .. value))
+    buff:write(io.readFile("tmp\\" .. value .. "c"))
 end
 
 local data = buff:toStr(0, buff:seek(0, zbuff.SEEK_CUR))
 log.info("target", #data)
 
-local f = io.open("port\\luat_luadb_inline.c", "wb")
+local f = io.open("..\\..\\luat\\vfs\\luat_luadb_inline.c", "wb")
 if f then
     f:write([[#include "luat_base.h"]])
     f:write("\n\nconst char luadb_inline[] = {\n")

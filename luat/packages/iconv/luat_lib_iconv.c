@@ -216,7 +216,7 @@ static const rotable_Reg iconvMT[] = {
 
 
 LUAMOD_API int luaopen_iconv(lua_State *L) {
-    rotable_newlib(L, inconvFuncs);
+    luat_newlib(L, inconvFuncs);
 
     // luaL_newmetatable(L, ICONV_TYPENAME);
     // lua_pushliteral(L, "__index");

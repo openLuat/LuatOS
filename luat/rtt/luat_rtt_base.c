@@ -61,7 +61,7 @@ static const luaL_Reg loadedlibs[] = {
 #ifdef SAL_USING_POSIX
   {"socket", luaopen_socket},          // 套接字操作
   {"http", luaopen_http},              // http库
-  {"libcoap", luaopen_libcoap},        // 处理COAP数据包
+  // {"libcoap", luaopen_libcoap},        // 处理COAP数据包
 #endif
 #ifdef RT_USING_I2C
   {"i2c", luaopen_i2c},                // I2C操作
@@ -81,6 +81,7 @@ static const luaL_Reg loadedlibs[] = {
 #endif
   {"fs",   luaopen_fs},                // 文件系统库
   {"dbg",  luaopen_dbg},               // 调试库
+  // {"eink",  luaopen_eink},               // 电子墨水屏
   {NULL, NULL}
 };
 

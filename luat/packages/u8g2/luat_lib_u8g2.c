@@ -604,7 +604,7 @@ static const rotable_Reg reg_u8g2[] =
 LUAMOD_API int luaopen_u8g2( lua_State *L ) {
     u8g2_lua_ref = 0;
     u8g2 = NULL;
-    rotable_newlib(L, reg_u8g2);
+    luat_newlib(L, reg_u8g2);
     return 1;
 }
 

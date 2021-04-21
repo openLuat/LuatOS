@@ -26,9 +26,6 @@ if not GetDepend(['SAL_USING_POSIX']):
     src.remove('luat_lib_socket.c')
 if not GetDepend(['RT_USING_ADC']):
     src.remove('luat_lib_adc.c')
-if not GetDepend(['PKG_USING_U8G2']):
-    src.remove('luat_lib_disp.c')
-    src.remove('luat_lib_u8g2.c')
 
 src.remove('luat_shell.c')
 src.remove('luat_lib_lpmem.c')

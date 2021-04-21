@@ -34,11 +34,18 @@ int add_bytes(luat_zbuff *buff, const char *source, size_t len)
     buff->addr[point / 2] &= (point % 2) ? 0xf0 : 0x0f; \
     buff->addr[point / 2] |= (point % 2) ? color : (color * 0x10)
 #define SET_POINT_8(buff, point, color) buff->addr[point] = color
-#define SET_POINT_16(buff, point, color) *((uint16_t *)buff->addr + point) = color
-#define SET_POINT_24(buff, point, color)     \
-    buff->addr[point * 3] = color / 0x10000; \
-    *((uint16_t *)(buff->addr + point * 3 + 1)) = color % 0x10000;
-#define SET_POINT_32(buff, point, color) *((uint32_t *)buff->addr + point) = color
+#define SET_POINT_16(buff, point, color) \
+    buff->addr[point] = color / 0x100;   \
+    buff->addr[point + 1] = color % 0x100
+#define SET_POINT_24(buff, point, color)                              \
+    buff->addr[point * 3] = color / 0x10000;                          \
+    buff->addr[point * 3 + 1] = color % 0x10000 / 0x100; \
+    buff->addr[point * 3 + 2] = color % 0x100
+#define SET_POINT_32(buff, point, color)                 \
+    buff->addr[point] = color / 0x1000000;               \
+    buff->addr[point + 1] = color % 0x1000000 / 0x10000; \
+    buff->addr[point + 2] = color % 0x10000 / 0x100;     \
+    buff->addr[point + 3] = color % 0x100
 
 #define SET_POINT_CASE(n, point, color)    \
     case n:                                \
@@ -58,15 +65,17 @@ int add_bytes(luat_zbuff *buff, const char *source, size_t len)
         break;                                    \
     }
 
-#define GET_POINT_1(buff, point) return (buff->addr[point / 8] >> (7 - point % 8)) % 2
-#define GET_POINT_4(buff, point) return (buff->addr[point / 2] >> ((point % 2)?0:4)) % 0x10
-#define GET_POINT_8(buff, point) return buff->addr[point]
-#define GET_POINT_16(buff, point) return *((uint16_t *)buff->addr + point)
-#define GET_POINT_24(buff, point) return buff->addr[point * 3] * 0x10000 + *((uint16_t *)(buff->addr + point * 3 + 1))
-#define GET_POINT_32(buff, point) return *((uint32_t *)buff->addr + point)
-#define GET_POINT_CASE(n, point)    \
-    case n:                         \
-        GET_POINT_##n(buff, point); \
+#define GET_POINT_1(buff, point) (buff->addr[point / 8] >> (7 - point % 8)) % 2
+#define GET_POINT_4(buff, point) (buff->addr[point / 2] >> ((point % 2) ? 0 : 4)) % 0x10
+#define GET_POINT_8(buff, point) buff->addr[point]
+#define GET_POINT_16(buff, point) buff->addr[point] * 0x100 + buff->addr[point + 1]
+#define GET_POINT_24(buff, point) \
+    buff->addr[point * 3] * 0x10000 + buff->addr[point * 3 + 1] * 0x100 + buff->addr[point * 3 + 2]
+#define GET_POINT_32(buff, point) \
+    buff->addr[point] * 0x1000000 + buff->addr[point + 1] * 0x10000 + buff->addr[point + 2] * 0x100 + buff->addr[point + 3]
+#define GET_POINT_CASE(n, point)           \
+    case n:                                \
+        return GET_POINT_##n(buff, point); \
         break
 //获取某点的颜色
 uint32_t get_framebuffer_point(luat_zbuff *buff,uint32_t point)

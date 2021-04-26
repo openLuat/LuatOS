@@ -39,7 +39,7 @@ LUAT_WEAK void* luat_heap_calloc(size_t count, size_t _size) {
 //------------------------------------------------
 // ---------- 管理 LuaVM所使用的内存----------------
 LUAT_WEAK void* luat_heap_alloc(void *ud, void *ptr, size_t osize, size_t nsize) {
-    if (1) {
+    if (0) {
         if (ptr) {
             if (nsize) {
                 // 缩放内存块

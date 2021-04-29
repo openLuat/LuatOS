@@ -505,9 +505,7 @@ static const char* search_paths[] = {
   "",
 };
 
-static int searcher_Lua (lua_State *L) {
-  char filename[32];
-  const char *name = luaL_checkstring(L, 1);
+int luat_search_module(const char* name, char* filename) {
   int index = 0;
   while (1) {
     if (strlen(search_paths[index]) == 0)
@@ -520,10 +518,19 @@ static int searcher_Lua (lua_State *L) {
   if (filename[0] == 0x00) {
     return -1;
   }
-  int re = checkload(L, (luaL_loadfile(L, filename) == LUA_OK), filename);
+  return 0;
+}
+
+static int searcher_Lua (lua_State *L) {
+  char filename[32] = {0};
+  const char *name = luaL_checkstring(L, 1);
+  int re = luat_search_module(name, filename);
+  if (re == 0)
+    re = checkload(L, (luaL_loadfile(L, filename) == LUA_OK), filename);
   //rt_kprintf("searcher_Lua name=%s re=%d\n", name, re);
   return re;
 }
+
 
 
 /*
@@ -635,9 +642,12 @@ static int ll_require (lua_State *L) {
   
   // add by wendal, 替换原有的逻辑
   lua_pushstring(L, name);
+  //luat_os_print_heapinfo("go-loadfile");
   if (searcher_Lua(L) == 2) {
+    //luat_os_print_heapinfo("go-call");
     lua_pushstring(L, name);
     lua_call(L, 2, 1);
+    //luat_os_print_heapinfo("after-call");
   }
   else {
     luaL_error(L, "module '%s' not found", name);

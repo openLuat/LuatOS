@@ -188,13 +188,13 @@ log.info("nbiot", "tac", nbiot.tac())
 
 
 --------------------------------------------------
-# nbiot.tacTime
+# nbiot.tauTime
 
 ```lua
-nbiot.tacTime()
+nbiot.tauTime()
 ```
 
-读取Tac Time
+读取Tau Time
 
 ## 参数表
 
@@ -202,13 +202,13 @@ nbiot.tacTime()
 
 ## 返回值
 
-> `int`: 返回Tac Time值
+> `int`: 返回Tau Time值
 
 ## 调用示例
 
 ```lua
--- 读取Tac Time
-log.info("nbiot", "tac time", nbiot.tacTime())
+-- 读取Tau Time
+log.info("nbiot", "tau time", nbiot.tauTime())
 ```
 
 

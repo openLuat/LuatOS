@@ -31,6 +31,7 @@ lua_State * luat_get_state() {
 }
 
 int luat_search_module(const char* name, char* filename);
+void luat_os_print_heapinfo(const char* tag);
 
 static int pmain(lua_State *L) {
     int re = -2;

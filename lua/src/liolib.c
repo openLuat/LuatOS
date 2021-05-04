@@ -833,12 +833,30 @@ static const luaL_Reg flib[] = {
   {NULL, NULL}
 };
 
+static int luat_io_meta_index(lua_State *L) {
+    if (lua_isstring(L, 2)) {
+        const char* keyname = luaL_checkstring(L, 2);
+        //printf("zbuff keyname = %s\n", keyname);
+        int i = 0;
+        while (1) {
+            if (flib[i].name == NULL) break;
+            if (!strcmp(keyname, flib[i].name)) {
+                lua_pushcfunction(L, flib[i].func);
+                return 1;
+            }
+            i++;
+        }
+    }
+    return 0;
+}
+
 
 static void createmeta (lua_State *L) {
   luaL_newmetatable(L, LUA_FILEHANDLE);  /* create metatable for file handles */
-  lua_pushvalue(L, -1);  /* push metatable */
+  //lua_pushvalue(L, -1);  /* push metatable */
+  lua_pushcfunction(L, luat_io_meta_index);
   lua_setfield(L, -2, "__index");  /* metatable.__index = metatable */
-  luaL_setfuncs(L, flib, 0);  /* add file methods to new metatable */
+  //luaL_setfuncs(L, flib, 0);  /* add file methods to new metatable */
   lua_pop(L, 1);  /* pop new metatable */
   //lua_pushvalue(L, -1);
   //lua_newtable( L );

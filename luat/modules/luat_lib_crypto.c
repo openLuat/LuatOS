@@ -11,7 +11,7 @@
 #define LUAT_LOG_TAG "luat.crypto"
 #include "luat_log.h"
 
-static unsigned char hexchars[] = "0123456789ABCDEF";
+static const unsigned char hexchars[] = "0123456789ABCDEF";
 static void fixhex(const char* source, char* dst, size_t len) {
     for (size_t i = 0; i < len; i++)
     {

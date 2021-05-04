@@ -969,14 +969,31 @@ static const luaL_Reg lib_zbuff[] = {
     {"drawLine", l_zbuff_draw_line},
     {"drawRect", l_zbuff_draw_rectangle},
     {"drawCircle", l_zbuff_draw_circle},
+    //{"__index", l_zbuff_index},
+    //{"__len", l_zbuff_len},
+    //{"__newindex", l_zbuff_newindex},
+    //{"__gc", l_zbuff_gc},
     {NULL, NULL}};
 
-static const luaL_Reg lib_zbuff_metamethods[] = {
-    {"__index", l_zbuff_index},
-    {"__len", l_zbuff_len},
-    {"__newindex", l_zbuff_newindex},
-    {"__gc", l_zbuff_gc},
-    {NULL, NULL}};
+static int luat_zbuff_meta_index(lua_State *L) {
+    if (lua_isinteger(L, 2)) {
+        return l_zbuff_index(L);
+    }
+    if (lua_isstring(L, 2)) {
+        const char* keyname = luaL_checkstring(L, 2);
+        //printf("zbuff keyname = %s\n", keyname);
+        int i = 0;
+        while (1) {
+            if (lib_zbuff[i].name == NULL) break;
+            if (!strcmp(keyname, lib_zbuff[i].name)) {
+                lua_pushcfunction(L, lib_zbuff[i].func);
+                return 1;
+            }
+            i++;
+        }
+    }
+    return 0;
+}
 
 static void createmeta(lua_State *L)
 {
@@ -984,8 +1001,18 @@ static void createmeta(lua_State *L)
     // lua_pushvalue(L, -1);                  /* push metatable */
     // lua_setfield(L, -2, "__index");        /* metatable.__index = metatable */
     // luaL_setfuncs(L, lib_zbuff, 0);        /* add file methods to new metatable */
-    luaL_setfuncs(L, lib_zbuff_metamethods, 0);
-    luaL_setfuncs(L, lib_zbuff, 0);
+    //luaL_setfuncs(L, lib_zbuff_metamethods, 0);
+    //luaL_setfuncs(L, lib_zbuff, 0);
+
+    lua_pushcfunction(L, l_zbuff_len);
+    lua_setfield(L, -2, "__len");
+    lua_pushcfunction(L, l_zbuff_gc);
+    lua_setfield(L, -2, "__gc");
+    lua_pushcfunction(L, luat_zbuff_meta_index);
+    lua_setfield(L, -2, "__index");
+    lua_pushcfunction(L, l_zbuff_newindex);
+    lua_setfield(L, -2, "__newindex");
+
     lua_pop(L, 1); /* pop new metatable */
     //luaL_newlib(L, lib_zbuff);
 }

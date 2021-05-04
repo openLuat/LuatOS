@@ -626,7 +626,7 @@ static int searcher_Lua (lua_State *L) {
 // }
 
 
-static int ll_require (lua_State *L) {
+int ll_require (lua_State *L) {
   const char *name = luaL_checkstring(L, 1);
   lua_settop(L, 1);  /* LOADED table will be at index 2 */
   lua_getfield(L, LUA_REGISTRYINDEX, LUA_LOADED_TABLE);
@@ -809,9 +809,12 @@ static int ll_seeall (lua_State *L) {
 // }
 
 LUAMOD_API int luaopen_package (lua_State *L) {
+  #ifndef LUAT_MEMORY_OPT_G_FUNCS
   lua_pushcfunction(L, ll_require);
   lua_setglobal(L, "require");
-  return 0;
+  #endif
+  lua_pushnil(L);
+  return 1;
 }
 
 #if 0

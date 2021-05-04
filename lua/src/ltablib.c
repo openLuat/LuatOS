@@ -439,7 +439,7 @@ static const rotable_Reg tab_funcs[] = {
 
 
 LUAMOD_API int luaopen_table (lua_State *L) {
-  rotable_newlib(L, tab_funcs);
+  luat_newlib(L, tab_funcs);
 #if defined(LUA_COMPAT_UNPACK)
   /* _G.unpack = table.unpack */
   lua_getfield(L, -1, "unpack");

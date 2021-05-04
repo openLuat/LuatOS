@@ -39,10 +39,12 @@ static int pmain(lua_State *L) {
     //LLOGD("Lua complied with LUA_32BITS");
     #endif
 
+    luat_os_print_heapinfo("boot");
+
     // 加载内置库
     luat_openlibs(L);
 
-    luat_os_print_heapinfo("boot");
+    luat_os_print_heapinfo("loadlibs");
 
     lua_gc(L, LUA_GCSETPAUSE, 90); // 设置`垃圾收集器间歇率`要低于100%
 

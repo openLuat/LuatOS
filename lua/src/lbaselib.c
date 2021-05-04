@@ -479,6 +479,7 @@ static int luaB_tostring (lua_State *L) {
   return 1;
 }
 
+int ll_require (lua_State *L);
 
 static const luaL_Reg base_funcs[] = {
   {"assert", luaB_assert},
@@ -507,12 +508,62 @@ static const luaL_Reg base_funcs[] = {
   {"type", luaB_type},
   {"xpcall", luaB_xpcall},
   /* placeholders */
+#ifdef LUAT_MEMORY_OPT_G_FUNCS
+  {"require", ll_require},
+#else
   {"_G", NULL},
   {"_VERSION", NULL},
+#endif
   {NULL, NULL}
 };
 
+#ifdef LUAT_MEMORY_OPT_G_FUNCS
+static int luaB_index(lua_State *L) {
+  const char* keyname = luaL_checkstring(L, 2);
+  int i = 0;
+  while (1) {
+    if (base_funcs[i].name == NULL) break;
+    if (!strcmp(keyname, base_funcs[i].name)) {
+      lua_pushcfunction(L, base_funcs[i].func);
+      return 1;
+    }
+    i ++;
+  }
+  if (!strcmp(keyname, "_VERSION")) {
+    lua_pushliteral(L, LUA_VERSION);
+    return 1;
+  }
+  if (!strcmp(keyname, "_G")) {
+    lua_pushvalue(L, 1);
+    return 1;
+  }
+  lua_rawget(L, 1);
 
+  return 1;
+}
+
+static int luaB_newindex(lua_State *L) {
+  lua_rawset(L, 1);
+  return 0;
+}
+
+LUAMOD_API int luaopen_base (lua_State *L) {
+  lua_pushglobaltable(L);
+
+  lua_pushvalue(L, -1);
+  lua_setfield(L, -2, "_G");
+
+  lua_pushvalue(L, -1); // _G.metatable = _G
+  lua_setmetatable(L, -2);
+
+  lua_pushcfunction(L, luaB_index);
+  lua_setfield(L, -2, "__index");
+  lua_pushcfunction(L, luaB_newindex);
+  lua_setfield(L, -2, "__newindex");
+
+  return 0;
+}
+#else
 LUAMOD_API int luaopen_base (lua_State *L) {
   /* open lib into global table */
   lua_pushglobaltable(L);
@@ -525,4 +576,8 @@ LUAMOD_API int luaopen_base (lua_State *L) {
   lua_setfield(L, -2, "_VERSION");
   return 1;
 }
+#endif
+
+
+
 

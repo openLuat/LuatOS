@@ -543,12 +543,30 @@ static const luaL_Reg lib_netc[] = {
     {NULL, NULL}
 };
 
+static int luat_socket_meta_index(lua_State *L) {
+    if (lua_isstring(L, 2)) {
+        const char* keyname = luaL_checkstring(L, 2);
+        //printf("zbuff keyname = %s\n", keyname);
+        int i = 0;
+        while (1) {
+            if (lib_netc[i].name == NULL) break;
+            if (!strcmp(keyname, lib_netc[i].name)) {
+                lua_pushcfunction(L, lib_netc[i].func);
+                return 1;
+            }
+            i++;
+        }
+    }
+    return 0;
+}
+
 
 static void createmeta (lua_State *L) {
   luaL_newmetatable(L, LUAT_NETC_HANDLE);  /* create metatable for file handles */
-  lua_pushvalue(L, -1);  /* push metatable */
+  //lua_pushvalue(L, -1);  /* push metatable */
+  lua_pushcfunction(L, luat_socket_meta_index);
   lua_setfield(L, -2, "__index");  /* metatable.__index = metatable */
-  luaL_setfuncs(L, lib_netc, 0);  /* add file methods to new metatable */
+  //luaL_setfuncs(L, lib_netc, 0);  /* add file methods to new metatable */
   lua_pop(L, 1);  /* pop new metatable */
 }
 

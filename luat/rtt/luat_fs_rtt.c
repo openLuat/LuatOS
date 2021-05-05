@@ -8,6 +8,9 @@
 #include "rtthread.h"
 #include <dfs_fs.h>
 
+#ifdef LUAT_USE_FS_VFS
+
+#else
 
 int luat_fs_info(const char* path, luat_fs_info_t *conf) {
     struct statfs buff;
@@ -78,3 +81,4 @@ int luat_fs_mount(luat_fs_conf_t *conf) {
     return -1;
 }
 
+#endif

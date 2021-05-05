@@ -30,10 +30,10 @@ static const luaL_Reg loadedlibs[] = {
   {"zbuff", luaopen_zbuff},            // 
   {"mqttcore", luaopen_mqttcore},      // 
   {"libcoap", luaopen_libcoap},        // 
-// #ifdef LUA_USE_WINDOWS
-//   {"lfs", luaopen_lfs},                //
+#ifdef LUA_USE_WINDOWS
+  {"lfs", luaopen_lfs},                //
 //   {"rs232.core", luaopen_rs232_core},
-// #endif
+#endif
   {"crypto", luaopen_crypto},
   {NULL, NULL}
 };

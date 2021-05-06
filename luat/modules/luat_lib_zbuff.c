@@ -774,12 +774,13 @@ static int l_zbuff_draw_line(lua_State *L)
 
 /**
 画一个矩形
-@api buff:drawRect(x1,y1,x2,y2,color)
+@api buff:drawRect(x1,y1,x2,y2,color,fill)
 @int 起始坐标点与最左边的距离，范围是0~宽度-1
 @int 起始坐标点与最上边的距离，范围是0~高度-1
 @int 结束坐标点与最左边的距离，范围是0~宽度-1
 @int 结束坐标点与最上边的距离，范围是0~高度-1
 @int 可选，颜色，默认为0
+@bool 可选，是否在内部填充，默认nil
 @return bool 画成功会返回true
 @usage
 rerult = buff:drawRect(0,0,2,3,0xffff)
@@ -794,11 +795,23 @@ static int l_zbuff_draw_rectangle(lua_State *L)
     uint32_t x2 = luaL_checkinteger(L,4);  CHECK0(x2,buff->width);
     uint32_t y2 = luaL_checkinteger(L,5);  CHECK0(y2,buff->height);
     uint32_t color = luaL_optinteger(L,6,0);
+    uint8_t fill = lua_toboolean(L,7);
     int x,y;
     uint32_t xmax=x1>x2?x1:x2,xmin=x1>x2?x2:x1,ymax=y1>y2?y1:y2,ymin=y1>y2?y2:y1;
-    for(x=xmin;x<=xmax;x++)
-        for(y=ymin;y<=ymax;y++)
-            set_framebuffer_point(buff,x+y*buff->width,color);
+    if(fill){
+        for(x=xmin;x<=xmax;x++)
+            for(y=ymin;y<=ymax;y++)
+                set_framebuffer_point(buff,x+y*buff->width,color);
+    }else{
+        for(x=xmin;x<=xmax;x++){
+            set_framebuffer_point(buff,x+ymin*buff->width,color);
+            set_framebuffer_point(buff,x+ymax*buff->width,color);
+        }
+        for(y=ymin;y<=ymax;y++){
+            set_framebuffer_point(buff,xmin+y*buff->width,color);
+            set_framebuffer_point(buff,xmax+y*buff->width,color);
+        }
+    }
     lua_pushboolean(L,1);
     return 1;
 }
@@ -810,7 +823,7 @@ static int l_zbuff_draw_rectangle(lua_State *L)
 @int 圆心标点与最上边的距离，范围是0~高度-1
 @int 周长
 @int 可选，圆的颜色，默认为0
-@bool 可选，是否在内部填充
+@bool 可选，是否在内部填充，默认nil
 @return bool 画成功会返回true
 @usage
 rerult = buff:drawCircle(15,5,3,0xC)

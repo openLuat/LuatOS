@@ -58,7 +58,6 @@ int luat_gpio_setup(luat_gpio_t* gpio) {
         mode = PIN_MODE_INPUT;
         break;
     }
-    rt_pin_mode(gpio->pin, mode);
     if (gpio->mode == Luat_GPIO_IRQ) {
         int irq = 0;
         if (gpio->irq == Luat_GPIO_RISING) {
@@ -74,11 +73,12 @@ int luat_gpio_setup(luat_gpio_t* gpio) {
         if (re != RT_EOK) {
             return re;
         }
-        return rt_pin_irq_enable(gpio->pin, 1);
+        rt_pin_irq_enable(gpio->pin, 1);
     }
     else {
         rt_pin_irq_enable(gpio->pin, 0);
     }
+    rt_pin_mode(gpio->pin, mode);
     return 0;
 }
 
@@ -96,6 +96,6 @@ int luat_gpio_get(int pin) {
 
 void luat_gpio_close(int pin) {
     LOG_D("Pin Close, pin=%d", pin);
-    rt_pin_mode(pin, PIN_MODE_INPUT);
     rt_pin_irq_enable(pin, 0);
+    rt_pin_mode(pin, PIN_MODE_INPUT);
 }

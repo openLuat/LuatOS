@@ -270,6 +270,7 @@ _exit:
     LLOGE("Lua VM exit!! result:%d",result);
     exit(result);
   #endif
+  return result;
 }
 
 int luat_main (void) {

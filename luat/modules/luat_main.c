@@ -108,14 +108,84 @@ static int panic (lua_State *L) {
 #define UPDATE_MARK "/update_mark"
 #define FLASHX_PATH "/flashx.bin"
 
+#ifndef LUAT_OTA_MODE
+#define LUAT_OTA_MODE 1
+#endif
+
+#ifndef LUAT_EXIT_REBOOT_DELAY
+#define LUAT_EXIT_REBOOT_DELAY 15000
+#endif
+
 int luat_bin_unpack(const char* path, int writeOut);
 
-static void check_update(void) {
-  // 首先, 升级文件是否存在呢?
-  if (!luat_fs_fexist(UPDATE_BIN_PATH)) {
-    // 不存在, 正常启动
-    return;
+int luat_ota_need_update(void) {
+  return (luat_fs_fexist(UPDATE_BIN_PATH)) ? 1 : 0;
+}
+
+int luat_ota_need_rollback(void) {
+  return (luat_fs_fexist(ROLLBACK_MARK_PATH)) ? 1 : 0;
+}
+
+int luat_ota_mark_rollback(void) {
+  // 既然是异常退出,那肯定出错了!!!
+  // 如果升级过, 那么就写入标志文件
+  {
+    if (luat_fs_fexist(UPDATE_MARK)) {
+      FILE* fd = luat_fs_fopen("/rollback_mark", "wb");
+      if (fd) {
+        luat_fs_fclose(fd);
+      }
+    }
+    else {
+      // 没升级过, 那就是线刷, 不存在回滚
+    }
   }
+  return 0;
+}
+
+static void luat_bin_exec_update(void);
+static void luat_bin_exec_rollback(void);
+
+LUAT_WEAK void luat_ota_reboot(int timeout) {
+  if (timeout > 0)
+    luat_timer_mdelay(timeout * 1000);
+  luat_os_reboot(1);
+}
+
+void luat_ota_exec_update(void) {
+#if LUAT_OTA_MODE == 1 
+  luat_bin_exec_update();
+#elif LUAT_OTA_MODE == 2
+  luat_db_exec_update();
+#endif
+}
+
+void luat_ota_exec_rollback(void) {
+#if LUAT_OTA_MODE == 1 
+  luat_bin_exec_rollback();
+#elif LUAT_OTA_MODE == 2
+  luat_db_exec_rollback();
+#endif
+}
+
+
+int luat_ota_update_or_rollback(void) {
+  if (luat_ota_need_update()) {
+    luat_ota_exec_update();
+    LLOGW("update: reboot at 5 secs");
+    luat_ota_reboot(5);
+    return 1;
+  }
+  if (luat_ota_need_rollback()) {
+    luat_ota_exec_rollback();
+    LLOGW("rollback: reboot at 5 secs");
+    luat_ota_reboot(5);
+    return 1;
+  }
+  return 0;
+}
+
+static void luat_bin_exec_update(void) {
   // 找到了, 检查一下大小
   LLOGI("found " UPDATE_BIN_PATH " ...");
   size_t fsize = luat_fs_fsize(UPDATE_BIN_PATH);
@@ -148,17 +218,9 @@ static void check_update(void) {
   }
   // 无论是否成功,都一定要删除升级文件, 防止升级死循环
   luat_fs_remove(UPDATE_BIN_PATH);
-  // 延迟5秒,重启
-  LLOGW("update: reboot at 5 secs");
-  luat_timer_mdelay(5*1000);
-  luat_os_reboot(0); // 重启
 }
 
-static void check_rollback(void) {
-  // 首先, 查一下是否有回滚文件
-  if (!luat_fs_fexist(ROLLBACK_MARK_PATH)) {
-    return; // 没有回滚标志文件, 正常启动
-  }
+static void luat_bin_exec_rollback(void) {
   // 回滚文件存在,
   LLOGW("Found " ROLLBACK_MARK_PATH  ", check rollback");
   // 首先,移除回滚标志, 防止重复N次的回滚
@@ -184,29 +246,13 @@ static void check_rollback(void) {
   luat_os_reboot(0); // 重启
 }
 
-int luat_main (void) {
-  if (boot_mode == 0) {
-    return 0; // just nop
-  }
-  LLOGI("LuatOS@%s %s, Build: " __DATE__ " " __TIME__, luat_os_bsp(), LUAT_VERSION);
-  #if LUAT_VERSION_BETA
-  LLOGD("This is a beta version, for testing");
-  #endif
-  // 1. 初始化文件系统
-  luat_fs_init();
-
-  // 2. 是否需要升级?
-  check_update();
-
-  // 3. 是否需要回滚呢?
-  check_rollback();
-
+int luat_main_call(void) {
   // 4. init Lua State
   int status = 0;
   int result = 0;
   L = lua_newstate(luat_heap_alloc, NULL);
   if (L == NULL) {
-    l_message("LUAVM", "cannot create state: not enough memory\n");
+    l_message("lua", "cannot create state: not enough memory\n");
     goto _exit;
   }
   if (L) lua_atpanic(L, &panic);
@@ -224,25 +270,27 @@ _exit:
     LLOGE("Lua VM exit!! result:%d",result);
     exit(result);
   #endif
-  LLOGE("Lua VM exit!! reboot in 30s");
-  // 既然是异常退出,那肯定出错了!!!
-  // 如果升级过, 那么就写入标志文件
-  {
-    if (luat_fs_fexist(UPDATE_MARK)) {
-      FILE* fd = luat_fs_fopen("/rollback_mark", "wb");
-      if (fd) {
-        luat_fs_fclose(fd);
-      }
-    }
-    else {
-      // 没升级过, 那就是线刷, 不存在回滚
-    }
+}
+
+int luat_main (void) {
+  if (boot_mode == 0) {
+    return 0; // just nop
   }
-  // 等30秒,就重启吧
-  luat_timer_mdelay(30*1000);
-  luat_os_reboot(result);
+  LLOGI("LuatOS@%s %s, Build: " __DATE__ " " __TIME__, luat_os_bsp(), LUAT_VERSION);
+  #if LUAT_VERSION_BETA
+  LLOGD("This is a beta version, for testing");
+  #endif
+  // 1. 初始化文件系统
+  luat_fs_init();
+
+  // 是否需要升级或者回滚
+  luat_ota_update_or_rollback();
+
+  int result = luat_main_call();
+  LLOGE("Lua VM exit!! reboot in %dms", LUAT_EXIT_REBOOT_DELAY);
+  luat_ota_reboot(LUAT_EXIT_REBOOT_DELAY);
   // 往下是肯定不会被执行的
-  return (result && status == LUA_OK) ? 0 : 2;
+  return 0;
 }
 
 #include "rotable.h"

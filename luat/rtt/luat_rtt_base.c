@@ -119,7 +119,7 @@ RT_WEAK const char* luat_os_bsp(void) {
     #ifdef BSP_USING_WM_LIBRARIES
         return "w60x";
     #else
-        #ifdef STM32L1
+        #ifdef SOC_FAMILY_STM32
             return "stm32";
         #else
             return "_";

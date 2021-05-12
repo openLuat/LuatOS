@@ -37,6 +37,9 @@
 #include "lualib.h"
 #include "lauxlib.h"
 
+#define LUAT_LOG_TAG "pack"
+#include "luat_log.h"
+
 static void badcode(lua_State *L, int c)
 {
  char s[]="bad code `?'";
@@ -198,6 +201,15 @@ done:
     break;					\
    }
 
+#define PACKINT(OP,T)			\
+   case OP:					\
+   {						\
+    T a=(T)luaL_checkinteger(L,i++);		\
+    doswap(swap,&a,sizeof(a));			\
+    luaL_addlstring(&b,(void*)&a,sizeof(a));	\
+    break;					\
+   }
+
 #define PACKSTRING(OP,T)			\
    case OP:					\
    {						\
@@ -253,14 +265,14 @@ static int l_pack(lua_State *L) 		/** pack(f,...) */
    PACKNUMBER(OP_DOUBLE, double)
    PACKNUMBER(OP_FLOAT, float)
 #endif
-   PACKNUMBER(OP_CHAR, char)
-   PACKNUMBER(OP_BYTE, unsigned char)
-   PACKNUMBER(OP_SHORT, short)
-   PACKNUMBER(OP_USHORT, unsigned short)
-   PACKNUMBER(OP_INT, int)
-   PACKNUMBER(OP_UINT, unsigned int)
-   PACKNUMBER(OP_LONG, long)
-   PACKNUMBER(OP_ULONG, unsigned long)
+   PACKINT(OP_CHAR, char)
+   PACKINT(OP_BYTE, unsigned char)
+   PACKINT(OP_SHORT, short)
+   PACKINT(OP_USHORT, unsigned short)
+   PACKINT(OP_INT, int)
+   PACKINT(OP_UINT, unsigned int)
+   PACKINT(OP_LONG, long)
+   PACKINT(OP_ULONG, unsigned long)
    case ' ': case ',':
     break;
    default:

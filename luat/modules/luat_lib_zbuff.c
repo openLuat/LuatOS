@@ -387,6 +387,16 @@ buff:pack(">IIHA", 0x1234, 0x4567, 0x12,"abcdefg") -- 按格式写入几个数�
         write_len += add_bytes(buff, (void *)&a, sizeof(a)); \
         break;                                               \
     }
+
+#define PACKINT(OP, T)                                    \
+    case OP:                                                 \
+    {                                                        \
+        T a = (T)luaL_checknumber(L, i++);                   \
+        doswap(swap, &a, sizeof(a));                         \
+        write_len += add_bytes(buff, (void *)&a, sizeof(a)); \
+        break;                                               \
+    }
+
 static int l_zbuff_pack(lua_State *L)
 {
     luat_zbuff *buff = tozbuff(L);
@@ -430,14 +440,14 @@ static int l_zbuff_pack(lua_State *L)
             PACKNUMBER(OP_NUMBER, lua_Number)
             PACKNUMBER(OP_DOUBLE, double)
             PACKNUMBER(OP_FLOAT, float)
-            PACKNUMBER(OP_CHAR, char)
-            PACKNUMBER(OP_BYTE, unsigned char)
-            PACKNUMBER(OP_SHORT, short)
-            PACKNUMBER(OP_USHORT, unsigned short)
-            PACKNUMBER(OP_INT, int)
-            PACKNUMBER(OP_UINT, unsigned int)
-            PACKNUMBER(OP_LONG, long)
-            PACKNUMBER(OP_ULONG, unsigned long)
+            PACKINT(OP_CHAR, char)
+            PACKINT(OP_BYTE, unsigned char)
+            PACKINT(OP_SHORT, short)
+            PACKINT(OP_USHORT, unsigned short)
+            PACKINT(OP_INT, int)
+            PACKINT(OP_UINT, unsigned int)
+            PACKINT(OP_LONG, long)
+            PACKINT(OP_ULONG, unsigned long)
             case ' ':
             case ',':
                 break;

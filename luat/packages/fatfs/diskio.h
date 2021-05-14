@@ -1,5 +1,5 @@
 /*-----------------------------------------------------------------------/
-/  Low level disk interface modlue include file   (C)ChaN, 2014          /
+/  Low level disk interface modlue include file   (C)ChaN, 2019          /
 /-----------------------------------------------------------------------*/
 
 #ifndef _DISKIO_DEFINED
@@ -28,10 +28,25 @@ typedef enum {
 
 DSTATUS disk_initialize (BYTE pdrv);
 DSTATUS disk_status (BYTE pdrv);
-DRESULT disk_read (BYTE pdrv, BYTE* buff, DWORD sector, UINT count);
-DRESULT disk_write (BYTE pdrv, const BYTE* buff, DWORD sector, UINT count);
+DRESULT disk_read (BYTE pdrv, BYTE* buff, LBA_t sector, UINT count);
+DRESULT disk_write (BYTE pdrv, const BYTE* buff, LBA_t sector, UINT count);
 DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff);
 
+typedef struct block_disk_opts {
+    DSTATUS (*initialize) (void* userdata);
+	DSTATUS (*status) (void* userdata);
+	DRESULT (*read) (void* userdata, BYTE* buff, LBA_t sector, UINT count);
+	DRESULT (*write) (void* userdata, const BYTE* buff, LBA_t sector, UINT count);
+	DRESULT (*ioctl) (void* userdata, BYTE cmd, void* buff);
+}block_disk_opts_t;
+
+typedef struct block_disk {
+	void* userdata;
+	const block_disk_opts_t* opts;
+}block_disk_t;
+
+DRESULT diskio_open(BYTE pdrv, block_disk_t * disk);
+DRESULT diskio_close(BYTE pdrv);
 
 /* Disk Status Bits (DSTATUS) */
 
@@ -76,6 +91,7 @@ DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff);
 #define CT_SD2		0x04		/* SD ver 2 */
 #define CT_SDC		(CT_SD1|CT_SD2)	/* SD */
 #define CT_BLOCK	0x08		/* Block addressing */
+
 
 #ifdef __cplusplus
 }

@@ -147,14 +147,14 @@ void rcvr_mmc (
 	#endif
 	//u8* buf2 = 0x00;
 	//u8** buf = &buf2;
-	u8 tmp[bc];
+	BYTE tmp[bc];
 	
 	for(size_t i = 0; i < bc; i++)
 	{
 		tmp[i] = 0xFF;
 	}
 	
-	s32 t = luat_spi_transfer(FATFS_SPI_ID, tmp, buff, bc);
+	DWORD t = luat_spi_transfer(FATFS_SPI_ID, tmp, buff, bc);
 	//s32 t = platform_spi_recv(0, buf, bc);
 	
 	//memcpy(buff, buf2, bc);
@@ -192,7 +192,7 @@ int wait_ready (void)	/* 1:OK, 0:Timeout */
 /*-----------------------------------------------------------------------*/
 
 static
-void deselect (void)
+void spi_cs_deselect (void)
 {
 	BYTE d;
 
@@ -209,7 +209,7 @@ void deselect (void)
 /*-----------------------------------------------------------------------*/
 
 static
-int select (void)	/* 1:OK, 0:Timeout */
+int spi_cs_select (void)	/* 1:OK, 0:Timeout */
 {
 	BYTE d;
 
@@ -219,7 +219,7 @@ int select (void)	/* 1:OK, 0:Timeout */
 	rcvr_mmc(&d, 1);	/* Dummy clock (force DO enabled) */
 	if (wait_ready()) return 1;	/* Wait for card ready */
 
-	deselect();
+	spi_cs_deselect();
 	return 0;			/* Failed */
 }
 
@@ -305,8 +305,8 @@ BYTE send_cmd (		/* Returns command response (bit7==1:Send failed)*/
 
 	/* Select the card and wait for ready except to stop multiple block read */
 	if (cmd != CMD12) {
-		deselect();
-		if (!select()) return 0xFF;
+		spi_cs_deselect();
+		if (!spi_cs_select()) return 0xFF;
 	}
 
 	/* Send a command packet */
@@ -344,11 +344,11 @@ BYTE send_cmd (		/* Returns command response (bit7==1:Send failed)*/
 /* Get Disk Status                                                       */
 /*-----------------------------------------------------------------------*/
 
-DSTATUS disk_status (
-	BYTE drv			/* Drive number (always 0) */
+DSTATUS spitf_status (
+	void* userdata
 )
 {
-	if (drv) return STA_NOINIT;
+	//if (drv) return STA_NOINIT;
 
 	return Stat;
 }
@@ -359,8 +359,8 @@ DSTATUS disk_status (
 /* Initialize Disk Drive                                                 */
 /*-----------------------------------------------------------------------*/
 
-DSTATUS disk_initialize (
-	BYTE drv		/* Physical drive nmuber (0) */
+DSTATUS spitf_initialize (
+	void* userdata
 )
 {
 	BYTE n, ty, cmd, buf[4];
@@ -368,7 +368,7 @@ DSTATUS disk_initialize (
 	DSTATUS s;
 
 
-	if (drv) return RES_NOTRDY;
+	//if (drv) return RES_NOTRDY;
 
 	//dly_us(10000);			/* 10ms */
 	//CS_INIT(); CS_H();		/* Initialize port pin tied to CS */
@@ -413,7 +413,7 @@ DSTATUS disk_initialize (
 	s = ty ? 0 : STA_NOINIT;
 	Stat = s;
 
-	deselect();
+	spi_cs_deselect();
 
 	//luat_spi_close(FATFS_SPI_ID);
 	//spi.setup(id,0,0,8,400*1000,1)
@@ -428,8 +428,8 @@ DSTATUS disk_initialize (
 /* Read Sector(s)                                                        */
 /*-----------------------------------------------------------------------*/
 
-DRESULT disk_read (
-	BYTE drv,			/* Physical drive nmuber (0) */
+DRESULT spitf_read (
+	void* userdata,
 	BYTE *buff,			/* Pointer to the data buffer to store read data */
 	DWORD sector,		/* Start sector number (LBA) */
 	UINT count			/* Sector count (1..128) */
@@ -438,7 +438,7 @@ DRESULT disk_read (
 	BYTE cmd;
 
 
-	if (disk_status(drv) & STA_NOINIT) return RES_NOTRDY;
+	if (spitf_status(userdata) & STA_NOINIT) return RES_NOTRDY;
 	if (!(CardType & CT_BLOCK)) sector *= 512;	/* Convert LBA to byte address if needed */
 
 	cmd = count > 1 ? CMD18 : CMD17;			/*  READ_MULTIPLE_BLOCK : READ_SINGLE_BLOCK */
@@ -449,7 +449,7 @@ DRESULT disk_read (
 		} while (--count);
 		if (cmd == CMD18) send_cmd(CMD12, 0);	/* STOP_TRANSMISSION */
 	}
-	deselect();
+	spi_cs_deselect();
 
 	return count ? RES_ERROR : RES_OK;
 }
@@ -460,14 +460,14 @@ DRESULT disk_read (
 /* Write Sector(s)                                                       */
 /*-----------------------------------------------------------------------*/
 
-DRESULT disk_write (
-	BYTE drv,			/* Physical drive nmuber (0) */
+DRESULT spitf_write (
+	void* userdata,
 	const BYTE *buff,	/* Pointer to the data to be written */
 	DWORD sector,		/* Start sector number (LBA) */
 	UINT count			/* Sector count (1..128) */
 )
 {
-	if (disk_status(drv) & STA_NOINIT) return RES_NOTRDY;
+	if (spitf_status(userdata) & STA_NOINIT) return RES_NOTRDY;
 	if (!(CardType & CT_BLOCK)) sector *= 512;	/* Convert LBA to byte address if needed */
 
 	if (count == 1) {	/* Single block write */
@@ -486,7 +486,7 @@ DRESULT disk_write (
 				count = 1;
 		}
 	}
-	deselect();
+	spi_cs_deselect();
 
 	return count ? RES_ERROR : RES_OK;
 }
@@ -496,8 +496,8 @@ DRESULT disk_write (
 /* Miscellaneous Functions                                               */
 /*-----------------------------------------------------------------------*/
 
-DRESULT disk_ioctl (
-	BYTE drv,		/* Physical drive nmuber (0) */
+DRESULT spitf_ioctl (
+	void* userdata,
 	BYTE ctrl,		/* Control code */
 	void *buff		/* Buffer to send/receive control data */
 )
@@ -507,12 +507,12 @@ DRESULT disk_ioctl (
 	DWORD cs;
 
 
-	if (disk_status(drv) & STA_NOINIT) return RES_NOTRDY;	/* Check if card is in the socket */
+	if (spitf_status(userdata) & STA_NOINIT) return RES_NOTRDY;	/* Check if card is in the socket */
 
 	res = RES_ERROR;
 	switch (ctrl) {
 		case CTRL_SYNC :		/* Make sure that no pending write process */
-			if (select()) res = RES_OK;
+			if (spi_cs_select()) res = RES_OK;
 			break;
 
 		case GET_SECTOR_COUNT :	/* Get number of sectors on the disk (DWORD) */
@@ -538,9 +538,33 @@ DRESULT disk_ioctl (
 			res = RES_PARERR;
 	}
 
-	deselect();
+	spi_cs_deselect();
 
 	return res;
+}
+
+// DSTATUS spitf_initialize (void* userdata);
+// DSTATUS ramdisk_status (void* userdata);
+// DRESULT ramdisk_read (void* userdata, BYTE* buff, LBA_t sector, UINT count);
+// DRESULT ramdisk_write (void* userdata, const BYTE* buff, LBA_t sector, UINT count);
+// DRESULT ramdisk_ioctl (void* userdata, BYTE cmd, void* buff);
+
+const block_disk_opts_t spitf_disk_opts = {
+    .initialize = spitf_initialize,
+    .status = spitf_status,
+    .read = spitf_read,
+    .write = spitf_write,
+    .ioctl = spitf_ioctl,
+};
+
+DRESULT diskio_open_spitf(BYTE pdrv, BYTE id, BYTE cs) {
+	block_disk_t disk = {
+        .opts = &spitf_disk_opts,
+        .userdata = "spitf",
+    };
+	FATFS_SPI_ID = id;
+	FATFS_SPI_CS = cs;
+	return diskio_open(pdrv, &disk);
 }
 
 //static DWORD get_fattime() {

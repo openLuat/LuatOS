@@ -3,7 +3,7 @@
 #include "luat_spi.h"
 #include "luat_timer.h"
 #include "luat_gpio.h"
-#include "lauxlib.h"
+#include "luat_malloc.h"
 
 #include "ff.h"			/* Obtains integer types */
 #include "diskio.h"		/* Declarations of disk functions */
@@ -11,38 +11,55 @@
 #define LUAT_LOG_TAG "luat.fatfs"
 #include "luat_log.h"
 
-static FATFS fs;		/* FatFs work area needed for each volume */
+static FATFS *fs = NULL;		/* FatFs work area needed for each volume */
 extern BYTE FATFS_DEBUG; // debug log, 0 -- disable , 1 -- enable
 extern BYTE FATFS_SPI_ID; // 0 -- SPI_1, 1 -- SPI_2
 extern BYTE FATFS_SPI_CS; // GPIO 3
 
+DRESULT diskio_open_ramdisk(BYTE pdrv, size_t len);
+DRESULT diskio_open_spitf(BYTE pdrv, BYTE id, BYTE cs);
+
 static int fatfs_mount(lua_State *L)
 {
-    //int spiId = luaL_checkinteger(L, 1);    
-    //int result = platform_spi_close(spiId);
-	//if (FATFS_DEBUG)
-	//	LLOGD("fatfs_init>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\r\n");
+	if (FATFS_DEBUG)
+		LLOGD("fatfs_init>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
 
-	//DWORD fre_clust, fre_sect, tot_sect;
+	if (fs == NULL) {
+		fs = luat_heap_malloc(sizeof(FATFS));
+	}
+
 	// 挂载点
 	const char *mount_point = luaL_optstring(L, 1, "");
 	FATFS_SPI_ID = luaL_optinteger(L, 2, 0); // SPI_1
 	FATFS_SPI_CS = luaL_optinteger(L, 3, 3); // GPIO_3
 
-	DRESULT re = f_mount(&fs, mount_point, 0);
+	if (!strcmp("ramdisk", mount_point) || !strcmp("ram", mount_point)) {
+		LLOGD("init ramdisk at FatFS");
+		diskio_open_ramdisk(0, luaL_optinteger(L, 2, 64*1024));
+	} else {
+		#ifdef LUA_USE_WINDOWS
+		LLOGE("win32/posix only support ramdisk");
+		return 0;
+		#else
+		LLOGD("init sdcard at spi=%d cs=%d", FATFS_SPI_ID, FATFS_SPI_CS);
+		diskio_open_spitf(0, FATFS_SPI_ID, FATFS_SPI_CS);
+		#endif
+	}
+
+	DRESULT re = f_mount(fs, mount_point, 0);
 	
 	lua_pushinteger(L, re);
 	if (re == FR_OK) {
 		if (FATFS_DEBUG)
-			LLOGD("[FatFS]fatfs_init success\r\n");
+			LLOGD("[FatFS]fatfs_init success");
 	}
 	else {
 		if (FATFS_DEBUG)
-			LLOGD("[FatFS]fatfs_init FAIL!! re=%d\r\n", re);
+			LLOGD("[FatFS]fatfs_init FAIL!! re=%d", re);
 	}
 
-	//if (FATFS_DEBUG)
-	//	LLOGD("fatfs_init<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\r\n");
+	if (FATFS_DEBUG)
+		LLOGD("fatfs_init<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
     return 1;
 }
 
@@ -55,11 +72,25 @@ static int fatfs_unmount(lua_State *L) {
 
 static int fatfs_mkfs(lua_State *L) {
 	const char *mount_point = luaL_optstring(L, 1, "");
-	BYTE sfd = luaL_optinteger(L, 2, 0);
-	DWORD au = luaL_optinteger(L, 3, 0);
-	BYTE work[FF_MAX_SS];
-	FRESULT re = f_mkfs(mount_point, sfd, au, work, sizeof work);
+	// BYTE sfd = luaL_optinteger(L, 2, 0);
+	// DWORD au = luaL_optinteger(L, 3, 0);
+	BYTE work[FF_MAX_SS] = {0};
+	if (FATFS_DEBUG)
+		LLOGI("mkfs GO %d");
+	MKFS_PARM parm = {
+		.fmt = FM_ANY, // 暂时应付一下ramdisk
+		.au_size = 0,
+		.align = 0,
+		.n_fat = 0,
+		.n_root = 0,
+	};
+	if (!strcmp("ramdisk", mount_point) || !strcmp("ram", mount_point)) {
+		parm.fmt = FM_ANY | FM_SFD;
+	}
+	FRESULT re = f_mkfs(mount_point, &parm, work, FF_MAX_SS);
 	lua_pushinteger(L, re);
+	if (FATFS_DEBUG)
+		LLOGI("mkfs ret %d", re);
 	return 1;
 }
 
@@ -96,7 +127,7 @@ static int fatfs_getfree(lua_State *L)
 	lua_pushinteger(L, fre_sect / 2);
 	lua_settable(L, -3);
 	
-	return lua_gettop(L);
+	return 1;
 }
 
 // ------------------------------------------------
@@ -168,7 +199,7 @@ static int fatfs_lsdir(lua_State *L)
 		lua_settable(L, -3);
 	}
 	f_closedir(&dir);
-	LLOGD("[FatFS] lua_gettop=%d\r\n", lua_gettop(L));
+	LLOGD("[FatFS] lua_gettop=%d", lua_gettop(L));
     return 2;
 }
 
@@ -234,7 +265,7 @@ static int fatfs_open(lua_State *L) {
 	flag |= luaL_optinteger(L, 4, 0); // 第四个参数
 
 	if (FATFS_DEBUG)
-		LLOGD("[FatFS]open %s %0X\r\n", path, flag);
+		LLOGD("[FatFS]open %s %0X", path, flag);
 	DRESULT re = f_open(fil, path, (BYTE)flag);
 	if (re != FR_OK) {
 		lua_remove(L, -1);
@@ -292,10 +323,10 @@ static int fatfs_read(lua_State *L) {
 		return 2;
 	}
 	UINT limit = luaL_optinteger(L, 2, 512);
-	u8 buf[limit];
+	BYTE buf[limit];
 	UINT len;
 	if (FATFS_DEBUG)
-		LLOGD("[FatFS]readfile limit=%d\r\n", limit);
+		LLOGD("[FatFS]readfile limit=%d", limit);
 	FRESULT re = f_read((FIL*)lua_touserdata(L, 1), buf, limit, &len);
 	lua_pushinteger(L, re);
 	if (re != FR_OK) {
@@ -332,7 +363,7 @@ static int fatfs_write(lua_State *L) {
          re = f_write(fil, buf, len, &len);
     }
     if (FATFS_DEBUG)
-		LLOGD("[FatFS]write re=%d len=%d\r\n", re, len);
+		LLOGD("[FatFS]write re=%d len=%d", re, len);
     lua_pushinteger(L, re);
     lua_pushinteger(L, len);
     return 2;
@@ -389,16 +420,16 @@ static int fatfs_readfile(lua_State *L) {
 		return 1;
 	}
 
-	u32 limit = luaL_optinteger(L, 2, 512);
-	u32 seek = luaL_optinteger(L, 3, 0);
+	DWORD limit = luaL_optinteger(L, 2, 512);
+	DWORD seek = luaL_optinteger(L, 3, 0);
 	if (seek > 0) {
 		f_lseek(&fil, seek);
 	}
 
-	u8 buf[limit];
+	BYTE buf[limit];
 	UINT len;
 	if (FATFS_DEBUG)
-		LLOGD("[FatFS]readfile seek=%d limit=%d\r\n", seek, limit);
+		LLOGD("[FatFS]readfile seek=%d limit=%d", seek, limit);
 	FRESULT fr = f_read(&fil, buf, limit, &len);
 	if (fr != FR_OK) {
 		lua_pushinteger(L, -3);
@@ -409,7 +440,7 @@ static int fatfs_readfile(lua_State *L) {
 	lua_pushinteger(L, 0);
 	lua_pushlstring(L, buf, len);
 	if (FATFS_DEBUG)
-		LLOGD("[FatFS]readfile seek=%d limit=%d len=%d\r\n", seek, limit, len);
+		LLOGD("[FatFS]readfile seek=%d limit=%d len=%d", seek, limit, len);
 	return 2;
 }
 

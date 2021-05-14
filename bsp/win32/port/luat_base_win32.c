@@ -1,11 +1,13 @@
 #include "luat_base.h"
 #include "luat_msgbus.h"
 #include "luat_fs.h"
+#include "luat_timer.h"
 #include <stdlib.h>
 
 LUAMOD_API int luaopen_win32( lua_State *L );
 int luaopen_lfs(lua_State * L);
 int luaopen_rs232_core(lua_State * L);
+int luaopen_fatfs(lua_State * L);
 
 static const luaL_Reg loadedlibs[] = {
   {"_G", luaopen_base}, // _G
@@ -35,6 +37,7 @@ static const luaL_Reg loadedlibs[] = {
 //   {"rs232.core", luaopen_rs232_core},
 #endif
   {"crypto", luaopen_crypto},
+  {"fatfs", luaopen_fatfs},
   {NULL, NULL}
 };
 
@@ -109,6 +112,13 @@ void vConfigureTimerForRunTimeStats( void ) {}
 void luat_os_standy(int timeout) {
     return; // nop
 }
+
+void luat_ota_reboot(int timeout) {
+  if (timeout > 0)
+    luat_timer_mdelay(timeout * 1000);
+  exit(0);
+}
+
 
 //--------------------------------------------------------------------------------
 // for freertos

@@ -28,16 +28,17 @@ static block_disk_t disks[FF_VOLUMES+1] = {0};
 DSTATUS disk_initialize (BYTE pdrv) {
 	if (FATFS_DEBUG)
 		LLOGD("disk_initialize >> %d", pdrv);
-	if (pdrv >= FF_VOLUMES || disks[pdrv].userdata == NULL) {
+	if (pdrv >= FF_VOLUMES || disks[pdrv].opts == NULL) {
+		LLOGD("NOTRDY >> %d", pdrv);
 		return RES_NOTRDY;
 	}
-	return RES_OK;
+	return disks[pdrv].opts->initialize(disks[pdrv].userdata);
 }
 
 DSTATUS disk_status (BYTE pdrv) {
 	if (FATFS_DEBUG)
 		LLOGD("disk_status >> %d", pdrv);
-	if (pdrv >= FF_VOLUMES || disks[pdrv].userdata == NULL) {
+	if (pdrv >= FF_VOLUMES || disks[pdrv].opts == NULL) {
 		return RES_NOTRDY;
 	}
 	return disks[pdrv].opts->status(disks[pdrv].userdata);
@@ -46,7 +47,7 @@ DSTATUS disk_status (BYTE pdrv) {
 DRESULT disk_read (BYTE pdrv, BYTE* buff, LBA_t sector, UINT count) {
 	if (FATFS_DEBUG)
 		LLOGD("disk_read >> %d", pdrv);
-	if (pdrv >= FF_VOLUMES || disks[pdrv].userdata == NULL) {
+	if (pdrv >= FF_VOLUMES || disks[pdrv].opts == NULL) {
 		return RES_NOTRDY;
 	}
 	return disks[pdrv].opts->read(disks[pdrv].userdata, buff, sector, count);
@@ -55,7 +56,7 @@ DRESULT disk_read (BYTE pdrv, BYTE* buff, LBA_t sector, UINT count) {
 DRESULT disk_write (BYTE pdrv, const BYTE* buff, LBA_t sector, UINT count) {
 	//if (FATFS_DEBUG)
 	//	LLOGD("disk_write >> %d", pdrv);
-	if (pdrv >= FF_VOLUMES || disks[pdrv].userdata == NULL) {
+	if (pdrv >= FF_VOLUMES || disks[pdrv].opts == NULL) {
 		return RES_NOTRDY;
 	}
 	return disks[pdrv].opts->write(disks[pdrv].userdata, buff, sector, count);
@@ -64,7 +65,7 @@ DRESULT disk_write (BYTE pdrv, const BYTE* buff, LBA_t sector, UINT count) {
 DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff) {
 	if (FATFS_DEBUG)
 		LLOGD("disk_ioctl >> %d %d", pdrv, cmd);
-	if (pdrv >= FF_VOLUMES || disks[pdrv].userdata == NULL) {
+	if (pdrv >= FF_VOLUMES || disks[pdrv].opts == NULL) {
 		return RES_NOTRDY;
 	}
 	return disks[pdrv].opts->ioctl(disks[pdrv].userdata, cmd, buff);
@@ -73,7 +74,7 @@ DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff) {
 DRESULT diskio_open(BYTE pdrv, block_disk_t * disk) {
 	if (FATFS_DEBUG)
 		LLOGD("disk_open >> %d", pdrv);
-	if (pdrv >= FF_VOLUMES || disks[pdrv].userdata != NULL) {
+	if (pdrv >= FF_VOLUMES || disks[pdrv].opts != NULL) {
 		return RES_NOTRDY;
 	}
 	disks[pdrv].opts = disk->opts;
@@ -83,7 +84,7 @@ DRESULT diskio_open(BYTE pdrv, block_disk_t * disk) {
 
 #include "luat_malloc.h"
 DRESULT diskio_close(BYTE pdrv) {
-	if (pdrv >= FF_VOLUMES || disks[pdrv].userdata == NULL) {
+	if (pdrv >= FF_VOLUMES || disks[pdrv].opts == NULL) {
 		return RES_NOTRDY;
 	}
 	disks[pdrv].opts = NULL;

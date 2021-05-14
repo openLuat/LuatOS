@@ -56,9 +56,9 @@ DSTATUS Stat = STA_NOINIT;	/* Disk status */
 static
 BYTE CardType;			/* b0:MMC, b1:SDv1, b2:SDv2, b3:Block addressing */
 
-BYTE FATFS_DEBUG = 0; // debug log, 0 -- disable , 1 -- enable
-BYTE FATFS_SPI_ID = 0; // 0 -- SPI_1, 1 -- SPI_2
-BYTE FATFS_SPI_CS = 3; // GPIO 3
+extern BYTE FATFS_DEBUG; // debug log, 0 -- disable , 1 -- enable
+extern BYTE FATFS_SPI_ID; // 0 -- SPI_1, 1 -- SPI_2
+extern BYTE FATFS_SPI_CS; // GPIO 3
 
 static void dly_us(BYTE us) {
 	if (us < 1) {

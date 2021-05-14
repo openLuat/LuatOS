@@ -62,7 +62,7 @@ DRESULT ramdisk_read (void* userdata, BYTE* buff, LBA_t sector, UINT count) {
             LLOGD("ramdisk read check error");
         return RES_ERROR;
     }
-    memcpy(buff, disk->ptr + (sector) * FF_MIN_SS, FF_MIN_SS*count);
+    memcpy(buff, (char*)disk->ptr + (sector) * FF_MIN_SS, FF_MIN_SS*count);
     return RES_OK;
 };
 
@@ -74,7 +74,7 @@ DRESULT ramdisk_write (void* userdata, const BYTE* buff, LBA_t sector, UINT coun
         return RES_ERROR;
     }
     //LLOGD("write(disk->ptr == %p) at %p , len = 0x%08X", disk->ptr, disk->ptr + (sector) * FF_MIN_SS, FF_MIN_SS*count);
-    memcpy(disk->ptr + (sector) * FF_MIN_SS, buff, FF_MIN_SS*count);
+    memcpy((char*)disk->ptr + (sector) * FF_MIN_SS, (void*)buff, FF_MIN_SS*count);
     return RES_OK;
 };
 

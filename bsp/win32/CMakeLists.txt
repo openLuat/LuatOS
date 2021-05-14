@@ -37,6 +37,7 @@ aux_source_directory(${TOPROOT}/components/freertos RTOS_SRCS)
 aux_source_directory(${TOPROOT}/components/freertos/port RTOS_PORT_SRCS)
 aux_source_directory(${TOPROOT}/luat/packages/lua-cjson CJSON_SRCS)
 
+
 add_library(freertos10 ${PORT_SRCS} ${RTOS_SRCS} ${RTOS_PORT_SRCS} ${MM_SRCS} ${MM2_SRCS})
 add_library(lua ${LUA_SRCS})
 add_library(luatos_msys ${PORT_SRCS})
@@ -75,6 +76,15 @@ add_library(rock_librs232 ${ROCK_LIB_RS232_SRCS} ./rock/librs232/bindings/lua/lu
 
 ENDIF ()
 
+include_directories(${TOPROOT}/luat/packages/fatfs)
+add_library(fatfs   ${TOPROOT}/luat/packages/fatfs/ff.c
+                    ${TOPROOT}/luat/packages/fatfs/ffsystem.c
+                    ${TOPROOT}/luat/packages/fatfs/ffunicode.c
+                    ${TOPROOT}/luat/packages/fatfs/diskio_impl.c
+                    ${TOPROOT}/luat/packages/fatfs/diskio_ramdisk.c
+                    ${TOPROOT}/luat/packages/fatfs/diskio_spitf.c
+                    ${TOPROOT}/luat/packages/fatfs/luat_lib_fatfs.c)
+
 #-----------------------
 # mbedtls
 include_directories(${TOPROOT}/components/mbedtls/include)
@@ -85,10 +95,10 @@ add_subdirectory(${TOPROOT}/components/mbedtls mbedtls.out)
 IF (WIN32)
 # 指定生成目标
 add_executable(luatos src/main_win32.c)
-target_link_libraries(luat freertos10 winmm)
-target_link_libraries(luatos freertos10 lua luatos_msys luat winmm cjson rock_lfs rock_librs232 mbedtls)
+target_link_libraries(luat freertos10 winmm fatfs)
+target_link_libraries(luatos freertos10 lua luatos_msys luat winmm cjson rock_lfs rock_librs232 mbedtls fatfs)
 ELSE ()
 add_executable(luatos src/main_posix.c)
-target_link_libraries(luat freertos10 pthread)
-target_link_libraries(luatos freertos10 lua luatos_msys luat pthread cjson mbedtls m)
+target_link_libraries(luat freertos10 pthread fatfs)
+target_link_libraries(luatos freertos10 lua luatos_msys fatfs luat pthread cjson mbedtls m)
 ENDIF ()

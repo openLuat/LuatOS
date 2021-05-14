@@ -391,7 +391,7 @@ buff:pack(">IIHA", 0x1234, 0x4567, 0x12,"abcdefg") -- 按格式写入几个数�
 #define PACKINT(OP, T)                                    \
     case OP:                                                 \
     {                                                        \
-        T a = (T)luaL_checknumber(L, i++);                   \
+        T a = (T)luaL_checkinteger(L, i++);                   \
         doswap(swap, &a, sizeof(a));                         \
         write_len += add_bytes(buff, (void *)&a, sizeof(a)); \
         break;                                               \

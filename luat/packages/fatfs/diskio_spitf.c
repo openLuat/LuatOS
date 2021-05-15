@@ -379,6 +379,8 @@ DSTATUS spitf_initialize (
 	//luat_spi_close(FATFS_SPI_ID);
 	//luat_spi_setup(FATFS_SPI_ID, 400*1000/*400khz*/, 0, 0, 8, 1, 1);
 
+	spi_cs_deselect();
+
 	for (n = 10; n; n--) rcvr_mmc(buf, 1);	/* Apply 80 dummy clocks and the card gets ready to receive command */
 
 	ty = 0;

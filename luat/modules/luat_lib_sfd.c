@@ -34,8 +34,9 @@ static int l_sfd_init(lua_State *L) {
     memset(w25q, 0, sizeof(sfd_w25q_t));
     w25q->spi_id = spi_id;
     w25q->spi_cs = spi_cs;
+    w25q->opts = &sfd_w25q_opts;
 
-    int re = sfd_w25q_opts.initialize(w25q);
+    int re = w25q->opts->initialize(w25q);
     if (re == 0) {
         return 1;
     }
@@ -55,7 +56,7 @@ end
 */
 static int l_sfd_status(lua_State *L) {
     sfd_w25q_t *w25q = (sfd_w25q_t *) lua_touserdata(L, 1);
-    lua_pushinteger(L, sfd_w25q_opts.status(w25q));
+    lua_pushinteger(L, w25q->opts->status(w25q));
     return 1;
 }
 
@@ -78,7 +79,7 @@ static int l_sfd_read(lua_State *L) {
     size_t len = luaL_checkinteger(L, 3);
     luaL_Buffer buff;
     luaL_buffinitsize(L, &buff, len);
-    sfd_w25q_opts.read(w25q, buff.b, offset, len);
+    w25q->opts->read(w25q, buff.b, offset, len);
     luaL_pushresult(&buff);
     return 1;
 }
@@ -101,7 +102,7 @@ static int l_sfd_write(lua_State *L) {
     size_t offset = luaL_checkinteger(L,2);
     size_t len = 0;
     const char* buff = luaL_checklstring(L, 3, &len);
-    int re = sfd_w25q_opts.write(w25q, buff, offset, len);
+    int re = w25q->opts->write(w25q, buff, offset, len);
     lua_pushboolean(L, re == 0 ? 1 : 0);
     return 1;
 }
@@ -121,8 +122,8 @@ end
 static int l_sfd_erase(lua_State *L) {
     sfd_w25q_t *w25q = (sfd_w25q_t *) lua_touserdata(L, 1);
     size_t offset = luaL_checkinteger(L,2);
-    size_t len = luaL_checkinteger(L, 3);
-    int re = sfd_w25q_opts.erase(w25q, offset, len);
+    size_t len = luaL_optinteger(L, 3, 4096);
+    int re = w25q->opts->erase(w25q, offset, len);
     lua_pushboolean(L, re == 0 ? 1 : 0);
     return 1;
 }

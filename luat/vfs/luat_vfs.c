@@ -8,7 +8,17 @@
 
 #ifdef LUAT_USE_FS_VFS
 
+#ifdef getc
 #undef getc
+#endif
+
+#ifdef feof
+#undef feof
+#endif
+
+#ifdef ferror
+#undef ferror
+#endif
 
 static luat_vfs_t vfs= {0};
 

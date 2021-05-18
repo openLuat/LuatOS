@@ -79,7 +79,7 @@ static int sfd_w25q_init (void* userdata) {
 
     // 读设备唯一id
     luat_gpio_set(w25q->spi_cs, 0);
-    const char* chip_id_cmd = {0x4B, 0x00, 0x00, 0x00, 0x00};
+    char chip_id_cmd[] = {0x4B, 0x00, 0x00, 0x00, 0x00};
     luat_spi_send(w25q->spi_id, chip_id_cmd, 5);
     luat_spi_read(w25q->spi_id, w25q->chip_id, 8);
     luat_gpio_set(w25q->spi_cs, 1);

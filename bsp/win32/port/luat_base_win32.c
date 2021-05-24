@@ -37,6 +37,7 @@ static const luaL_Reg loadedlibs[] = {
 #endif
   {"crypto", luaopen_crypto},
   {"fatfs", luaopen_fatfs},
+  {"sfd",   luaopen_sfd},
   {"lfs2",   luaopen_lfs2},
   {NULL, NULL}
 };

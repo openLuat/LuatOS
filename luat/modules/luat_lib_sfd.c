@@ -11,8 +11,9 @@
 #define LUAT_LOG_SDF
 #include "luat_log.h"
 
-
+#ifndef LUA_USE_WINDOWS
 extern const sdf_opts_t sfd_w25q_opts;
+#endif
 extern const sdf_opts_t sfd_mem_opts;
 
 /*
@@ -56,6 +57,7 @@ static int l_sfd_init(lua_State *L) {
         drv->type = 1;
         drv->cfg.zbuff = luaL_checkudata(L, 2, "ZBUFF*");
         drv->opts = &sfd_mem_opts;
+        drv->sector_count = drv->cfg.zbuff->len / 256;
 
         int re = drv->opts->initialize(drv);
         if (re == 0) {

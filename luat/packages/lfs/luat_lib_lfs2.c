@@ -66,8 +66,8 @@ static int l_lfs2_mount(lua_State *L) {
             cfg->block_size = 4096;
             cfg->block_count = drv->sector_count / 16;
             cfg->block_cycles = 200;
-            cfg->cache_size = 16;
-            cfg->lookahead_size = 256;
+            cfg->cache_size = 256;
+            cfg->lookahead_size = 16;
 
             cfg->read_buffer = luat_heap_malloc(256);
             cfg->prog_buffer = luat_heap_malloc(256);

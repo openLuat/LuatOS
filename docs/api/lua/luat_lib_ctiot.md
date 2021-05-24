@@ -131,10 +131,10 @@ No. | Type | Description
 
 
 --------------------------------------------------
-# ctiot.ready
+# ctiot.isReady
 
 ```lua
-ctiot.ready()
+ctiot.isReady()
 ```
 
 是否已经就绪
@@ -149,10 +149,10 @@ ctiot.ready()
 
 
 --------------------------------------------------
-# ctio.update
+# ctiot.update
 
 ```lua
-ctio.update()
+ctiot.update()
 ```
 
 发送更新注册信息给ctiot

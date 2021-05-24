@@ -6,6 +6,9 @@
 #include "luat_gpio.h"
 #include "luat_malloc.h"
 
+#define LUAT_LOG_TAG "lfs2"
+#include "luat_log.h"
+
 #include "lfs.h"
 
 int lfs_sfd_read(const struct lfs_config *c, lfs_block_t block, lfs_off_t off, void *buffer, lfs_size_t size);
@@ -18,17 +21,29 @@ typedef struct lfs2_mount {
     void* userdata;
     int luaref;
     lfs_t* fs;
+    struct lfs_config* cfg;
 }lfs2_mount_t;
 
 static lfs2_mount_t mounted[2] = {0};
 
+/**
+挂载lifftefs,当前支持spi flash 和 memory 两种
+@string 挂载类型, 当前支持sfd和mem两种
+@string 挂载路径
+@userdata 挂载所需要的额外数据, 当前仅支持sfd
+@usage
+local drv = sfd.init(0, 18)
+if drv then
+  local fs = lfs2.mount("/sfd", drv)
+end
+*/
 static int l_lfs2_mount(lua_State *L) {
     const char* path = luaL_checkstring(L, 1);
-    sfd_w25q_t *w25q = lua_touserdata(L, 2);
+    sfd_drv_t *drv = lua_touserdata(L, 2);
     for (size_t i = 0; i < 2; i++)
     {
         if (mounted[i].userdata == NULL) {
-            mounted[i].userdata = w25q;
+            mounted[i].userdata = drv;
             memcpy(mounted[i].path, path, strlen(path) + 1);
             
             lua_settop(L, 2);
@@ -36,6 +51,7 @@ static int l_lfs2_mount(lua_State *L) {
             
             mounted[i].fs = luat_heap_malloc(sizeof(lfs_t));
             struct lfs_config* cfg = (struct lfs_config*)luat_heap_malloc(sizeof(struct lfs_config));
+            mounted[i].cfg = cfg;
 
             memset(cfg, 0, sizeof(struct lfs_config));
             memset(mounted[i].fs, 0, sizeof(lfs_t));
@@ -48,19 +64,19 @@ static int l_lfs2_mount(lua_State *L) {
             cfg->read_size = 256;
             cfg->prog_size = 256;
             cfg->block_size = 4096;
-            cfg->block_count = w25q->sector_count / 16;
+            cfg->block_count = drv->sector_count / 16;
             cfg->block_cycles = 200;
             cfg->cache_size = 16;
             cfg->lookahead_size = 256;
 
-            // cfg.read_buffer = lfs_read_buf,
-            // cfg.prog_buffer = lfs_prog_buf,
-            // cfg.lookahead_buffer = lfs_lookahead_buf,
+            cfg->read_buffer = luat_heap_malloc(256);
+            cfg->prog_buffer = luat_heap_malloc(256);
+            cfg->lookahead_buffer = luat_heap_malloc(256);
             cfg->name_max = 63;
             cfg->file_max = 0;
             cfg->attr_max = 0;
 
-            cfg->context = w25q;
+            cfg->context = drv;
 
             int ret = lfs_mount(mounted[i].fs, cfg);
             if (ret)
@@ -72,13 +88,42 @@ static int l_lfs2_mount(lua_State *L) {
     return 0;
 }
 
+/**
+格式化为lifftefs
+@api lfs2.mount(path)
+@string 挂载路径
+@usage
+local drv = sfd.init("spi", 0, 18)
+if drv then
+  local fs = lfs2.mount("sfd", "/sfd", drv)
+  if fs then
+    lfs2.mkfs(fs)
+  end
+end
+*/
+static int l_lfs2_mkfs(lua_State *L) {
+  const char* path = luaL_checkstring(L, 1);
+  for (size_t i = 0; i < 2; i++) {
+    if (mounted[i].userdata == NULL)
+      continue;
+    if (!strcmp(mounted[i].path, path)) {
+      int ret = lfs_format(mounted[i].fs, mounted[i].cfg);
+      LLOGD("lfs_format ret %d", ret);
+      lua_pushboolean(L, ret == 0 ? 1 : 0);
+      return 1;
+    }
+  }
+  LLOGW("not path match, ignore mkfs");
+  return 0;
+}
+
 
 #include "rotable.h"
 static const rotable_Reg reg_lfs2[] =
 { 
   { "mount",	l_lfs2_mount, 0}, //初始化,挂载
 //   { "unmount",	l_lfs2_unmount, 0}, // 取消挂载
-//   { "mkfs",		l_lfs2_mkfs, 0}, // 格式化!!!
+  { "mkfs",		l_lfs2_mkfs, 0}, // 格式化!!!
 //   //{ "test",  l_lfs2_test, 0},
 //   { "getfree",	l_lfs2_getfree, 0}, // 获取文件系统大小,剩余空间
 //   { "debug",	l_lfs2_debug_mode, 0}, // 调试模式,打印更多日志

@@ -1,7 +1,8 @@
 
 #include "luat_base.h"
 
-
+#include "luat_spi.h"
+#include "luat_zbuff.h"
 
 typedef struct sdf_opts {
     int (*initialize) (void* userdata);
@@ -12,13 +13,19 @@ typedef struct sdf_opts {
 	int (*ioctl) (void* userdata, size_t cmd, void* buff);
 }sdf_opts_t;
 
-typedef struct sfd_w25q {
+typedef struct sfd_drv {
     const sdf_opts_t* opts;
-    int spi_id;
-    int spi_cs;
+    uint8_t type;
+    union
+    {
+        struct sfd_spi {
+            int id;
+            int cs;
+        } spi;
+        luat_zbuff* zbuff;
+    } cfg;
     size_t sector_size;
     size_t sector_count;
     size_t erase_size;
     char chip_id[8];
-} sfd_w25q_t;
-
+} sfd_drv_t;

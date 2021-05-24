@@ -30,6 +30,8 @@ ELSE ()
                           MM2_SRCS)
 ENDIF ()
 
+include_directories(${TOPROOT}/luat/packages/lfs)
+
 aux_source_directory(./port PORT_SRCS)
 aux_source_directory(${TOPROOT}/lua/src LUA_SRCS)
 #aux_source_directory(${TOPROOT}/luat/freertos FTOS_T_SRCS)
@@ -53,11 +55,17 @@ add_library(luat ${TOPROOT}/luat/modules/luat_main.c
                  ${TOPROOT}/luat/modules/luat_lib_mqttcore.c
                  ${TOPROOT}/luat/modules/luat_lib_libcoap.c
                  ${TOPROOT}/luat/modules/luat_lib_crypto.c
+                 ${TOPROOT}/luat/modules/luat_lib_sfd.c
+                 ${TOPROOT}/luat/modules/luat_sfd.c
                  ${TOPROOT}/luat/modules/crc.c
                  ${TOPROOT}/luat/vfs/luat_vfs.c
                  ${TOPROOT}/luat/vfs/luat_fs_luadb.c
                  ${TOPROOT}/luat/vfs/luat_fs_posix.c
                  ${TOPROOT}/luat/vfs/luat_luadb_inline.c
+                 ${TOPROOT}/luat/packages/lfs/lfs_sfd.c
+                 ${TOPROOT}/luat/packages/lfs/lfs_util.c
+                 ${TOPROOT}/luat/packages/lfs/lfs.c
+                 ${TOPROOT}/luat/packages/lfs/luat_lib_lfs2.c
             )
 
 IF (WIN32)

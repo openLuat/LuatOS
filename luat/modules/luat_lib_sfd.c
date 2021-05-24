@@ -13,117 +13,139 @@
 
 
 extern const sdf_opts_t sfd_w25q_opts;
+extern const sdf_opts_t sfd_mem_opts;
 
 /*
 初始化spi flash
-@api    sfd.init(spi_id, spi_cs)
-@int  SPI总线的id
-@int  SPI FLASH的片选脚对应的GPIO
+@api    sfd.init(type, spi_id, spi_cs)
+@string 类型, 可以是spi, 也可以是zbuff
+@int  SPI总线的id, 或者 zbuff实例
+@int  SPI FLASH的片选脚对应的GPIO, 当类型是spi时才需要传
 @return userdata 成功返回一个数据结构,否则返回nil
 @usage
-local w25q = sfd.init(0, 17)
-if w25q then
-    log.info("sfd", "chip id", sfd.id(w25q):toHex())
+local drv = sfd.init("spi", 0, 17)
+if drv then
+    log.info("sfd", "chip id", sfd.id(drv):toHex())
 end
 */
 static int l_sfd_init(lua_State *L) {
-    int spi_id = luaL_checkinteger(L, 1);
-    int spi_cs = luaL_checkinteger(L, 2);
 
-    sfd_w25q_t *w25q = (sfd_w25q_t *)lua_newuserdata(L, sizeof(sfd_w25q_t));
-    memset(w25q, 0, sizeof(sfd_w25q_t));
-    w25q->spi_id = spi_id;
-    w25q->spi_cs = spi_cs;
-    w25q->opts = &sfd_w25q_opts;
+    const char* type = luaL_checkstring(L, 1);
+#ifndef LUA_USE_WINDOWS
+    if (!strcmp("spi", type)) {
+        
+        int spi_id = luaL_checkinteger(L, 2);
+        int spi_cs = luaL_checkinteger(L, 3);
 
-    int re = w25q->opts->initialize(w25q);
-    if (re == 0) {
-        return 1;
+        sfd_drv_t *drv = (sfd_drv_t *)lua_newuserdata(L, sizeof(sfd_drv_t));
+        memset(drv, 0, sizeof(sfd_drv_t));
+        drv->cfg.spi.id = spi_id;
+        drv->cfg.spi.cs = spi_cs;
+        drv->opts = &sfd_w25q_opts;
+        drv->type = 0;
+
+        int re = drv->opts->initialize(drv);
+        if (re == 0) {
+            return 1;
+        }
+    }
+#endif
+    if (!strcmp("zbuff", type)) {
+        sfd_drv_t *drv = (sfd_drv_t *)lua_newuserdata(L, sizeof(sfd_drv_t));
+        memset(drv, 0, sizeof(sfd_drv_t));
+        drv->type = 1;
+        drv->cfg.zbuff = luaL_checkudata(L, 2, "ZBUFF*");
+        drv->opts = &sfd_mem_opts;
+
+        int re = drv->opts->initialize(drv);
+        if (re == 0) {
+            return 1;
+        }
     }
     return 0;
 }
 
 /*
 检查spi flash状态
-@api    sfd.status(w25q)
+@api    sfd.status(drv)
 @userdata  sfd.init返回的数据结构
 @return int 状态值,0 未初始化成功,1初始化成功且空闲,2正忙
 @usage
-local w25q = sfd.init(0, 17)
-if w25q then
-    log.info("sfd", "status", sfd.status(w25q))
+local drv = sfd.init(0, 17)
+if drv then
+    log.info("sfd", "status", sfd.status(drv))
 end
 */
 static int l_sfd_status(lua_State *L) {
-    sfd_w25q_t *w25q = (sfd_w25q_t *) lua_touserdata(L, 1);
-    lua_pushinteger(L, w25q->opts->status(w25q));
+    sfd_drv_t *drv = (sfd_drv_t *) lua_touserdata(L, 1);
+    lua_pushinteger(L, drv->opts->status(drv));
     return 1;
 }
 
 /*
 读取数据
-@api    sfd.read(w25q, offset, len)
+@api    sfd.read(drv, offset, len)
 @userdata  sfd.init返回的数据结构
 @int    起始偏移量
 @int    读取长度,当前限制在256以内
 @return string 数据
 @usage
-local w25q = sfd.init(0, 17)
-if w25q then
-    log.info("sfd", "read", sfd.read(w25q, 0x100, 256))
+local drv = sfd.init(0, 17)
+if drv then
+    log.info("sfd", "read", sfd.read(drv, 0x100, 256))
 end
 */
 static int l_sfd_read(lua_State *L) {
-    sfd_w25q_t *w25q = (sfd_w25q_t *) lua_touserdata(L, 1);
+    sfd_drv_t *drv = (sfd_drv_t *) lua_touserdata(L, 1);
     size_t offset = luaL_checkinteger(L, 2);
     size_t len = luaL_checkinteger(L, 3);
     luaL_Buffer buff;
     luaL_buffinitsize(L, &buff, len);
-    w25q->opts->read(w25q, buff.b, offset, len);
+    drv->opts->read(drv, buff.b, offset, len);
     luaL_pushresult(&buff);
     return 1;
 }
 
 /*
 写入数据
-@api    sfd.write(w25q, offset, data)
+@api    sfd.write(drv, offset, data)
 @userdata  sfd.init返回的数据结构
 @int    起始偏移量
 @string    需要写入的数据,当前支持256字节及以下
 @return boolean 成功返回true,失败返回false
 @usage
-local w25q = sfd.init(0, 17)
-if w25q then
-    log.info("sfd", "write", sfd.write(w25q, 0x100, "hi,luatos"))
+local drv = sfd.init(0, 17)
+if drv then
+    log.info("sfd", "write", sfd.write(drv, 0x100, "hi,luatos"))
 end
 */
 static int l_sfd_write(lua_State *L) {
-    sfd_w25q_t *w25q = (sfd_w25q_t *) lua_touserdata(L, 1);
+    sfd_drv_t *drv = (sfd_drv_t *) lua_touserdata(L, 1);
     size_t offset = luaL_checkinteger(L,2);
     size_t len = 0;
     const char* buff = luaL_checklstring(L, 3, &len);
-    int re = w25q->opts->write(w25q, buff, offset, len);
+    int re = drv->opts->write(drv, buff, offset, len);
     lua_pushboolean(L, re == 0 ? 1 : 0);
     return 1;
 }
 
 /*
 写入数据
-@api    sfd.erase(w25q, offset)
+@api    sfd.erase(drv, offset)
 @userdata  sfd.init返回的数据结构
 @int    起始偏移量
 @return boolean 成功返回true,失败返回false
 @usage
-local w25q = sfd.init(0, 17)
-if w25q then
-    log.info("sfd", "write", sfd.erase(w25q, 0x100))
+local drv = sfd.init(0, 17)
+if drv then
+    log.info("sfd", "write", sfd.erase(drv, 0x100))
 end
 */
 static int l_sfd_erase(lua_State *L) {
-    sfd_w25q_t *w25q = (sfd_w25q_t *) lua_touserdata(L, 1);
-    size_t offset = luaL_checkinteger(L,2);
+    sfd_drv_t *drv = (sfd_drv_t *) lua_touserdata(L, 1);
+    size_t offset = luaL_checkinteger(L, 2);
     size_t len = luaL_optinteger(L, 3, 4096);
-    int re = w25q->opts->erase(w25q, offset, len);
+    int re = drv->opts->erase(drv, offset, len);
     lua_pushboolean(L, re == 0 ? 1 : 0);
     return 1;
 }
@@ -134,18 +156,18 @@ static int l_sfd_ioctl(lua_State *L) {
 
 /*
 芯片唯一id
-@api    sfd.id(w25q)
+@api    sfd.id(drv)
 @userdata  sfd.init返回的数据结构
 @return string 8字节(64bit)的芯片id
 @usage
-local w25q = sfd.init(0, 17)
-if w25q then
-    log.info("sfd", "chip id", sfd.id(w25q))
+local drv = sfd.init(0, 17)
+if drv then
+    log.info("sfd", "chip id", sfd.id(drv))
 end
 */
 static int l_sfd_id(lua_State *L) {
-    sfd_w25q_t *w25q = (sfd_w25q_t *) lua_touserdata(L, 1);
-    lua_pushlstring(L, w25q->chip_id, 8);
+    sfd_drv_t *drv = (sfd_drv_t *) lua_touserdata(L, 1);
+    lua_pushlstring(L, drv->chip_id, 8);
     return 1;
 }
 

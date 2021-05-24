@@ -12,7 +12,6 @@
 #define CS_L(pin) luat_gpio_set(pin, 0)
 
 // 针对drv的实现
-#ifndef LUA_USE_WINDOWS
 static int sfd_w25q_init (void* userdata);
 static int sfd_w25q_status (void* userdata);
 static int sfd_w25q_read (void* userdata, char* buff, size_t offset, size_t len);
@@ -81,7 +80,7 @@ static int sfd_w25q_init (void* userdata) {
     luat_gpio_set(drv->cfg.spi.cs, 0);
     char chip_id_cmd[] = {0x4B, 0x00, 0x00, 0x00, 0x00};
     luat_spi_send(drv->cfg.spi.id, chip_id_cmd, 5);
-    luat_spi_read(drv->cfg.spi.id, drv->chip_id, 8);
+    luat_spi_recv(drv->cfg.spi.id, drv->chip_id, 8);
     luat_gpio_set(drv->cfg.spi.cs, 1);
 
     return 0;
@@ -97,7 +96,7 @@ static int sfd_w25q_read (void* userdata, char* buff, size_t offset, size_t len)
     char cmd[4] = {0x03, offset >> 16, (offset >> 8) & 0xFF, offset & 0xFF};
     luat_gpio_set(drv->cfg.spi.cs, 0);
     luat_spi_send(drv->cfg.spi.id, (const char*)&cmd, 4);
-    luat_spi_read(drv->cfg.spi.id, buff, len);
+    luat_spi_recv(drv->cfg.spi.id, buff, len);
     luat_gpio_set(drv->cfg.spi.cs, 1);
     return 0;
 }
@@ -124,7 +123,6 @@ static int sfd_w25q_erase (void* userdata, size_t offset, size_t len) {
 static int sfd_w25q_ioctl (void* userdata, size_t cmd, void* buff) {
     return -1;
 }
-#endif
 
 //--------------------------------------------------------------------
 // SFD at memory ,  for test

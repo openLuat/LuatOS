@@ -11,9 +11,7 @@
 #define LUAT_LOG_SDF
 #include "luat_log.h"
 
-#ifndef LUA_USE_WINDOWS
 extern const sdf_opts_t sfd_w25q_opts;
-#endif
 extern const sdf_opts_t sfd_mem_opts;
 
 /*
@@ -32,7 +30,6 @@ end
 static int l_sfd_init(lua_State *L) {
 
     const char* type = luaL_checkstring(L, 1);
-#ifndef LUA_USE_WINDOWS
     if (!strcmp("spi", type)) {
         
         int spi_id = luaL_checkinteger(L, 2);
@@ -50,7 +47,6 @@ static int l_sfd_init(lua_State *L) {
             return 1;
         }
     }
-#endif
     if (!strcmp("zbuff", type)) {
         sfd_drv_t *drv = (sfd_drv_t *)lua_newuserdata(L, sizeof(sfd_drv_t));
         memset(drv, 0, sizeof(sfd_drv_t));

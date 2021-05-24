@@ -37,13 +37,8 @@ static int fatfs_mount(lua_State *L)
 		LLOGD("init ramdisk at FatFS");
 		diskio_open_ramdisk(0, luaL_optinteger(L, 2, 64*1024));
 	} else {
-		#ifdef LUA_USE_WINDOWS
-		LLOGE("win32/posix only support ramdisk");
-		return 0;
-		#else
 		LLOGD("init sdcard at spi=%d cs=%d", FATFS_SPI_ID, FATFS_SPI_CS);
 		diskio_open_spitf(0, FATFS_SPI_ID, FATFS_SPI_CS);
-		#endif
 	}
 
 	DRESULT re = f_mount(fs, mount_point, 0);

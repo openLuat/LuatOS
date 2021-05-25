@@ -39,7 +39,6 @@ FILE* luat_vfs_lfs2_fopen(void* userdata, const char *filename, const char *mode
             break;
         }
     }
-    
     int ret = lfs_file_open(fs, file, filename, flag);
     if (ret < 0) {
         luat_heap_free(file);
@@ -144,7 +143,7 @@ int luat_vfs_lfs2_mkfs(void* userdata, luat_fs_conf_t *conf) {
 }
 
 int luat_vfs_lfs2_mount(void** userdata, luat_fs_conf_t *conf) {
-    LLOGE("not support yet : mount");
+    *userdata = (void*)conf->busname;
     return 0;
 }
 

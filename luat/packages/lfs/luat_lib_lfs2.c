@@ -33,18 +33,20 @@ static lfs2_mount_t mounted[2] = {0};
 
 /**
 挂载lifftefs,当前支持spi flash 和 memory 两种
-@string 挂载类型, 当前支持sfd和mem两种
+@api lfs2.mount(path, drv, formatOnFail)
 @string 挂载路径
 @userdata 挂载所需要的额外数据, 当前仅支持sfd
+@bool 挂载失败时是否尝试格式化,默认为false
 @usage
 local drv = sfd.init(0, 18)
 if drv then
-  local fs = lfs2.mount("/sfd", drv)
+  local fs = lfs2.mount("/sfd", drv, true)
 end
 */
 static int l_lfs2_mount(lua_State *L) {
     const char* path = luaL_checkstring(L, 1);
     sfd_drv_t *drv = lua_touserdata(L, 2);
+    bool formatOnFail = lua_isboolean(L, 3) ? lua_toboolean(L, 3) : false;
     for (size_t i = 0; i < 2; i++)
     {
         if (mounted[i].userdata == NULL) {
@@ -84,8 +86,13 @@ static int l_lfs2_mount(lua_State *L) {
             cfg->context = drv;
 
             int ret = lfs_mount(mounted[i].fs, cfg);
-            if (ret <= 0) {
-                LLOGW("lfs_mount ret %d", ret);
+            LLOGW("lfs_mount ret %d", ret);
+            if (ret < 0 && formatOnFail) {
+              if (lfs_format(mounted[i].fs, cfg) == 0) {
+                ret = lfs_mount(mounted[i].fs, cfg);
+              }
+            }
+            if (ret < 0) {
                 luat_heap_free(cfg->lookahead_buffer);
                 luat_heap_free(cfg->prog_buffer);
                 luat_heap_free(cfg->read_buffer);
@@ -97,14 +104,14 @@ static int l_lfs2_mount(lua_State *L) {
             }
             else {
               #ifdef LUAT_USE_FS_VFS
-              char mount_point[16] = {0};
-              memcpy(mount_point, "/lfs2", strlen("/lfs2"));
-              memcpy(mount_point + strlen("/lfs2"), path, strlen(path));
+              //char mount_point[16] = {0};
+              //memcpy(mount_point, "/lfs2", strlen("/lfs2"));
+              //memcpy(mount_point + strlen("/lfs2"), path, strlen(path));
               luat_fs_conf_t conf2 = {
 		            .busname = (char*)mounted[i].fs,
 		            .type = "lfs2",
 		            .filesystem = "lfs2",
-		            .mount_point = mount_point,
+		            .mount_point = path,
 	            };
 	            luat_fs_mount(&conf2);
               #endif

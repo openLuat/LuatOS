@@ -5,11 +5,16 @@
 #include "luat_spi.h"
 #include "luat_gpio.h"
 #include "luat_malloc.h"
+#include "luat_fs.h"
 
 #define LUAT_LOG_TAG "lfs2"
 #include "luat_log.h"
 
 #include "lfs.h"
+
+#ifdef LUAT_USE_FS_VFS
+extern const struct luat_vfs_filesystem vfs_fs_lfs2;
+#endif
 
 int lfs_sfd_read(const struct lfs_config *c, lfs_block_t block, lfs_off_t off, void *buffer, lfs_size_t size);
 int lfs_sfd_prog(const struct lfs_config *c, lfs_block_t block, lfs_off_t off, const void *buffer, lfs_size_t size);
@@ -79,12 +84,36 @@ static int l_lfs2_mount(lua_State *L) {
             cfg->context = drv;
 
             int ret = lfs_mount(mounted[i].fs, cfg);
-            if (ret)
+            if (ret <= 0) {
                 LLOGW("lfs_mount ret %d", ret);
-            lua_pushboolean(L, ret == 0 ? 1 : 0);
+                luat_heap_free(cfg->lookahead_buffer);
+                luat_heap_free(cfg->prog_buffer);
+                luat_heap_free(cfg->read_buffer);
+                luat_heap_free(cfg);
+                luat_heap_free(mounted[i].fs);
+                mounted[i].fs = NULL;
+                mounted[i].cfg = NULL;
+                mounted[i].userdata = NULL;
+            }
+            else {
+              #ifdef LUAT_USE_FS_VFS
+              char mount_point[16] = {0};
+              memcpy(mount_point, "/lfs2", strlen("/lfs2"));
+              memcpy(mount_point + strlen("/lfs2"), path, strlen(path));
+              luat_fs_conf_t conf2 = {
+		            .busname = (char*)mounted[i].fs,
+		            .type = "lfs2",
+		            .filesystem = "lfs2",
+		            .mount_point = mount_point,
+	            };
+	            luat_fs_mount(&conf2);
+              #endif
+            }
+            lua_pushboolean(L, ret >= 0 ? 1 : 0);
             return 1;
         }
     }
+    LLOGW("only 2 mount is allow");
     return 0;
 }
 
@@ -151,7 +180,7 @@ int luaopen_lfs2( lua_State *L )
 {
   luat_newlib(L, reg_lfs2);
   #ifdef LUAT_USE_FS_VFS
-  
+  luat_vfs_reg(&vfs_fs_lfs2);
   #endif
   return 1;
 }

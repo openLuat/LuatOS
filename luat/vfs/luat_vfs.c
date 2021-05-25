@@ -24,6 +24,9 @@ static luat_vfs_t vfs= {0};
 
 int luat_vfs_init(void* params) {
     memset(&vfs, 0, sizeof(vfs));
+    #ifdef LUAT_VFS_USE_LUADB
+
+    #endif
 }
 
 int luat_vfs_reg(const struct luat_vfs_filesystem* fs) {
@@ -32,6 +35,9 @@ int luat_vfs_reg(const struct luat_vfs_filesystem* fs) {
         if (vfs.fsList[i] == NULL) {
             vfs.fsList[i] = (struct luat_vfs_filesystem*)fs;
             LLOGD("register fs %s", fs->name);
+            return 0;
+        }
+        if (vfs.fsList[i] == fs) {
             return 0;
         }
     }

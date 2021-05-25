@@ -150,5 +150,8 @@ static const rotable_Reg reg_lfs2[] =
 int luaopen_lfs2( lua_State *L )
 {
   luat_newlib(L, reg_lfs2);
+  #ifdef LUAT_USE_FS_VFS
+  
+  #endif
   return 1;
 }

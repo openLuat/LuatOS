@@ -98,11 +98,11 @@ struct luat_vfs_filesystem_opts {
     int (*rmdir)(void* fsdata, char const* _DirName);
 };
 
-struct luat_vfs_filesystem {
+typedef struct luat_vfs_filesystem {
     char name[16];
     struct luat_vfs_filesystem_opts opts;
     struct luat_vfs_file_opts fopts;
-};
+}luat_vfs_filesystem_t;
 
 typedef struct luat_vfs_mount {
     struct luat_vfs_filesystem *fs;

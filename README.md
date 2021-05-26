@@ -90,10 +90,11 @@ sys.run()
 ## 更多项目
 
 * [iRTU](https://gitee.com/hotdll/iRTU) 开源DTU/RTU解决方案
-* [Luat_CSDK_Air724U](https://gitee.com/openLuat/Luat_CSDK_Air724U) 市面上最畅销的4G Cat.1模块的开发包
+* [Luat_CSDK_Air724U](https://gitee.com/openLuat/Luat_CSDK_Air724U) 市面上最畅销的4G Cat.1模块的C语言开发包
+* [Luat_Lua_Air724U](https://gitee.com/openLuat/Luat_Lua_Air724U) 市面上最畅销的4G Cat.1模块的Luat固件
 * [llcom](https://github.com/chenxuuu/llcom) 可运行lua脚本的高自由度串口调试工具
 * [irtu-gps](https://gitee.com/wendal/irtu-gps) 基于iRTU项目,实现GPS数据的接收和展示
-
+* [luatos-boards](https://gitee.com/openLuat/luatos-broads) LuatOS系列开发板和扩展板
 
 ## 总体架构
 

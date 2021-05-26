@@ -88,7 +88,6 @@ static int l_spi_transfer(lua_State *L) {
         luat_zbuff *buff = ((luat_zbuff *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
         send_buff = buff->addr+buff->cursor;
         len = buff->len - buff->cursor;
-        LLOGD("buff:%d,%d,%p",buff->len,buff->cursor,buff);
     }else{
         send_buff = lua_tolstring(L, 2, &len);
     }
@@ -144,9 +143,10 @@ static int l_spi_recv(lua_State *L) {
 
 /**
 发送SPI数据
-@api spi.send(id, data)
+@api spi.send(id, data[, len])
 @int SPI号,例如0
-@string 待发送的数据
+@string/zbuff 待发送的数据，如果为zbuff数据，则会从对象所处的指针处开始读
+@int 可选。待发送数据的长度，默认为data长度
 @return int 发送结果
 @usage
 -- 初始化spi

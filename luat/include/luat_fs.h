@@ -16,7 +16,7 @@ typedef struct luat_fs_conf {
     char* busname;
     char* type;
     char* filesystem;
-    char* mount_point;
+    const char* mount_point;
 } luat_fs_conf_t;
 
 typedef struct luat_fs_info

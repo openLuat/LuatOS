@@ -23,6 +23,9 @@ typedef struct luat_uart {
     uint8_t parity;    // 奇偶校验位
     
     size_t bufsz;     // 接收数据缓冲区大小
+	uint32_t pin485;	//转换485的pin, 如果没有则是0xffffffff
+	uint32_t delay;		//延迟时间，单位us
+	uint8_t rx_level;	//接收方向的电平
     //int received;//接收回调
     //int sent;//发送成功回调
 } luat_uart_t;

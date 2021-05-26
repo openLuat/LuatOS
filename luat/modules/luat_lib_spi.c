@@ -11,6 +11,9 @@
 #include "luat_timer.h"
 #include "luat_malloc.h"
 #include "luat_spi.h"
+#include "luat_zbuff.h"
+
+#define LUAT_LOG_TAG "luat.spi"
 
 /**
 设置并启用SPI
@@ -25,6 +28,9 @@
 @int 主从设置, 默认主1, 可选从机0. 通常只支持主机模式
 @int 工作模式, 全双工1, 半双工0, 默认全双工
 @return int 成功返回0,否则返回其他值
+@usage
+-- 初始化spi
+spi.setup(0,nil,0,0,8,2000000,spi.MSB,1,1)
 */
 static int l_spi_setup(lua_State *L) {
     luat_spi_t spi_config = {0};
@@ -49,6 +55,9 @@ static int l_spi_setup(lua_State *L) {
 @api spi.close(id)
 @int SPI号,例如0
 @return int 成功返回0,否则返回其他值
+@usage
+-- 初始化spi
+spi.close(0)
 */
 static int l_spi_close(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
@@ -58,16 +67,36 @@ static int l_spi_close(lua_State *L) {
 
 /**
 传输SPI数据
-@api spi.transfer(id, send_data)
+@api spi.transfer(id, send_data[, len])
 @int SPI号,例如0
-@string 待发送的数据
+@string/zbuff 待发送的数据，如果为zbuff数据，则会从对象所处的指针处开始读
+@int 可选。待发送数据的长度，默认为data长度
 @return string 读取成功返回字符串,否则返回nil
+@usage
+-- 初始化spi
+spi.setup(0,nil,0,0,8,2000000,spi.MSB,1,1)
+local recv = spi.transfer(0, "123")--发送123,并读取数据
+
+local buff = zbuff.create(1024, 0x33) --创建一个初值全为0x33的内存区域
+local recv = spi.transfer(0, buff)--把zbuff数据从指针开始，全发出去,并读取数据
 */
 static int l_spi_transfer(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
     size_t len;
     const char* send_buff;
-    send_buff = lua_tolstring(L, 2, &len);
+    if(lua_isuserdata(L, 2)){//zbuff对象特殊处理
+        luat_zbuff *buff = ((luat_zbuff *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+        send_buff = buff->addr+buff->cursor;
+        len = buff->len - buff->cursor;
+        LLOGD("buff:%d,%d,%p",buff->len,buff->cursor,buff);
+    }else{
+        send_buff = lua_tolstring(L, 2, &len);
+    }
+    if(lua_isinteger(L,3)){//长度参数
+        size_t len_temp = luaL_checkinteger(L,3);
+        if(len_temp < len)
+            len = len_temp;
+    }
     //长度为0时，直接返回空字符串
     if(len <= 0){
         lua_pushlstring(L,NULL,0);
@@ -92,6 +121,10 @@ static int l_spi_transfer(lua_State *L) {
 @int SPI号,例如0
 @int 数据长度
 @return string 读取成功返回字符串,否则返回nil
+@usage
+-- 初始化spi
+spi.setup(0,nil,0,0,8,2000000,spi.MSB,1,1)
+local recv = spi.recv(0, 4)--接收4字节数据
 */
 static int l_spi_recv(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
@@ -115,15 +148,33 @@ static int l_spi_recv(lua_State *L) {
 @int SPI号,例如0
 @string 待发送的数据
 @return int 发送结果
+@usage
+-- 初始化spi
+spi.setup(0,nil,0,0,8,2000000,spi.MSB,1,1)
+local result = spi.send(0, "123")--发送123
+
+local buff = zbuff.create(1024, 0x33) --创建一个初值全为0x33的内存区域
+local result = spi.send(0, buff)--把zbuff数据从指针开始，全发出去
 */
 static int l_spi_send(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
     size_t len;
     const char* send_buff;
-    send_buff = lua_tolstring(L, 2, &len);
+    if(lua_isuserdata(L, 2)){//zbuff对象特殊处理
+        luat_zbuff *buff = ((luat_zbuff *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+        send_buff = buff->addr+buff->cursor;
+        len = buff->len - buff->cursor;
+    }else{
+        send_buff = lua_tolstring(L, 2, &len);
+    }
+    if(lua_isinteger(L,3)){//长度参数
+        size_t len_temp = luaL_checkinteger(L,3);
+        if(len_temp < len)
+            len = len_temp;
+    }
     //长度为0时，直接返回
     if(len <= 0){
-        lua_pushinteger(L, 0);
+        lua_pushinteger(L,0);
         return 1;
     }
     lua_pushinteger(L, luat_spi_send(id, send_buff, len));

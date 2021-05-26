@@ -11,8 +11,6 @@
 #define LUAT_LOG_TAG "luat.zbuff"
 #include "luat_log.h"
 
-#define LUAT_ZBUFF_TYPE "ZBUFF*"
-
 #define tozbuff(L) ((luat_zbuff *)luaL_checkudata(L, 1, LUAT_ZBUFF_TYPE))
 
 //在buff对象后添加数据，返回增加的字节数

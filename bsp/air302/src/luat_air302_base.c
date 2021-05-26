@@ -46,6 +46,7 @@ static const luaL_Reg loadedlibs[] = {
   // {"eink",  luaopen_eink},              // 电子墨水屏,试验阶段
   //{"iconv", luaopen_iconv},             // 编码转换,暂不可用
   //{"fatfs",   luaopen_fatfs},             // 挂载sdcard
+  {"zbuff",luaopen_zbuff},            // zbuff库
 //------------------------------------------------------------------------
 // 联网及NBIOT特有的库
   {"socket",  luaopen_socket},            // 套接字操作
@@ -74,4 +75,4 @@ const char* luat_os_bsp(void) {
 
 // 如需调整Lua VM的内存大小, 可用实现luat_air302_vmheap_size函数
 // 默认值是72kb, 总内存有100kb左右(取决于启用的库),务必留足内存给系统本身
-size_t luat_air302_vmheap_size(void); 
+size_t luat_air302_vmheap_size(void);

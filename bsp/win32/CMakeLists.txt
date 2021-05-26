@@ -94,6 +94,7 @@ add_library(fatfs   ${TOPROOT}/luat/packages/fatfs/ff.c
                     ${TOPROOT}/luat/packages/fatfs/diskio_impl.c
                     ${TOPROOT}/luat/packages/fatfs/diskio_ramdisk.c
                     ${TOPROOT}/luat/packages/fatfs/diskio_spitf.c
+                    ${TOPROOT}/luat/vfs/luat_fs_fatfs.c
                     ${TOPROOT}/luat/packages/fatfs/luat_lib_fatfs.c)
 
 #-----------------------

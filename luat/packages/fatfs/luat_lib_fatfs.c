@@ -4,6 +4,7 @@
 #include "luat_timer.h"
 #include "luat_gpio.h"
 #include "luat_malloc.h"
+#include "luat_fs.h"
 
 #include "ff.h"			/* Obtains integer types */
 #include "diskio.h"		/* Declarations of disk functions */
@@ -18,6 +19,10 @@ extern BYTE FATFS_SPI_CS; // GPIO 3
 
 DRESULT diskio_open_ramdisk(BYTE pdrv, size_t len);
 DRESULT diskio_open_spitf(BYTE pdrv, BYTE id, BYTE cs);
+
+#ifdef LUAT_USE_FS_VFS
+extern const struct luat_vfs_filesystem vfs_fs_fatfs;
+#endif
 
 static int fatfs_mount(lua_State *L)
 {
@@ -41,12 +46,21 @@ static int fatfs_mount(lua_State *L)
 		diskio_open_spitf(0, FATFS_SPI_ID, FATFS_SPI_CS);
 	}
 
-	DRESULT re = f_mount(fs, mount_point, 0);
+	FRESULT re = f_mount(fs, "", 0);
 	
 	lua_pushinteger(L, re);
 	if (re == FR_OK) {
 		if (FATFS_DEBUG)
 			LLOGD("[FatFS]fatfs_init success");
+		#ifdef LUAT_USE_FS_VFS
+              luat_fs_conf_t conf2 = {
+		            .busname = (char*)fs,
+		            .type = "fatfs",
+		            .filesystem = "fatfs",
+		            .mount_point = "/sdcard/",
+	            };
+	            luat_fs_mount(&conf2);
+		#endif
 	}
 	else {
 		if (FATFS_DEBUG)
@@ -95,7 +109,7 @@ static int fatfs_getfree(lua_State *L)
 	// 挂载点
 	const char *mount_point = luaL_optstring(L, 1, "");
 	FATFS *fs2;
-	DRESULT re2 = f_getfree(mount_point, &fre_clust, &fs2);
+	FRESULT re2 = f_getfree(mount_point, &fre_clust, &fs2);
 	if (re2) {
 		lua_pushnil(L);
 		lua_pushinteger(L, re2);
@@ -157,7 +171,7 @@ static int fatfs_lsdir(lua_State *L)
 	char dirname[len+1];
 	memcpy(dirname, buf, len);
 	dirname[len] = 0x00;
-	DRESULT re = f_opendir(&dir, dirname);
+	FRESULT re = f_opendir(&dir, dirname);
 	if (re != FR_OK) {
 		lua_pushinteger(L, re);
 		return 1;
@@ -194,7 +208,7 @@ static int fatfs_lsdir(lua_State *L)
 		lua_settable(L, -3);
 	}
 	f_closedir(&dir);
-	LLOGD("[FatFS] lua_gettop=%d", lua_gettop(L));
+	//LLOGD("[FatFS] lua_gettop=%d", lua_gettop(L));
     return 2;
 }
 
@@ -261,7 +275,7 @@ static int fatfs_open(lua_State *L) {
 
 	if (FATFS_DEBUG)
 		LLOGD("[FatFS]open %s %0X", path, flag);
-	DRESULT re = f_open(fil, path, (BYTE)flag);
+	FRESULT re = f_open(fil, path, (BYTE)flag);
 	if (re != FR_OK) {
 		lua_remove(L, -1);
 		lua_pushnil(L);
@@ -342,7 +356,7 @@ static int fatfs_write(lua_State *L) {
     luaType = lua_type( L, 2 );
     int len;
     char* buf;
-	int re = -1;
+	FRESULT re = FR_OK;
     
     if(luaType == LUA_TSTRING )
     {
@@ -409,7 +423,7 @@ static int fatfs_readfile(lua_State *L) {
 	}
 	FIL fil;
 
-	DRESULT re = f_open(&fil, lua_tostring(L, 1), FA_READ);
+	FRESULT re = f_open(&fil, lua_tostring(L, 1), FA_READ);
 	if (re != FR_OK) {
 		lua_pushinteger(L, re);
 		return 1;
@@ -520,5 +534,8 @@ static const rotable_Reg reg_fatfs[] =
 int luaopen_fatfs( lua_State *L )
 {
   luat_newlib(L, reg_fatfs);
+  #ifdef LUAT_USE_FS_VFS
+  luat_vfs_reg(&vfs_fs_fatfs);
+  #endif
   return 1;
 }

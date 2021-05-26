@@ -1,77 +1,150 @@
 
 #include "luat_base.h"
 #include "luat_fs.h"
+#include "luat_malloc.h"
 
-#ifdef LUAT_VFS_USE_FATFS
+#define LUAT_LOG_TAG "fatfs"
+#include "luat_log.h"
 
-#error "no complete yet"
-// 参考 luat_lib_fatfs 里面操作fatfs的方法, 实现vfs封装.
+#ifdef LUAT_USE_FS_VFS
 
 #include "ff.h"
 #include "diskio.h"
 
-extern FATFS *fs;
-
 FILE* luat_vfs_fatfs_fopen(void* userdata, const char *filename, const char *mode) {
-    //LLOGD("fopen %s %s", filename + (filename[0] == '/' ? 1 : 0), mode);
-    return fopen(filename + (filename[0] == '/' ? 1 : 0), mode);
+    LLOGD("f_open %s %s", filename, mode);
+    FATFS *fs = (FATFS*)userdata;
+    FIL* fp = luat_heap_malloc(sizeof(FIL));
+    int flag = 0;
+    for (size_t i = 0; i < strlen(mode); i++)
+    {
+        char m = *(mode + i);
+        switch (m)
+        {
+        case 'r':
+            flag |= FA_READ;
+            break;
+        case 'w':
+            flag |= FA_WRITE | FA_CREATE_NEW;
+            break;
+        case 'a':
+            flag |= FA_OPEN_APPEND;
+            break;
+        case '+':
+            flag |= FA_OPEN_APPEND;
+            break;
+        
+        default:
+            break;
+        }
+    }
+    FRESULT ret = f_open(fp, filename, flag);
+    if (ret != FR_OK) {
+        LLOGD("f_open %s %d", filename, ret);
+        luat_heap_free(fp);
+        return 0; 
+    }
+    return (FILE*)fp;
 }
 
 int luat_vfs_fatfs_getc(void* userdata, FILE* stream) {
-    //LLOGD("posix_getc %p", stream);
-    return getc(stream);
+    FATFS *fs = (FATFS*)userdata;
+    FIL* fp = (FIL*)stream;
+    char buff = 0;
+    UINT result = 0;
+    FRESULT ret = f_read(fp, (void*)&buff, 1, &result);
+    if (ret == FR_OK) {
+        return buff;
+    }
+    return -1;
 }
 
 int luat_vfs_fatfs_fseek(void* userdata, FILE* stream, long int offset, int origin) {
-    return fseek(stream, offset, origin);
+    FATFS *fs = (FATFS*)userdata;
+    FIL* fp = (FIL*)stream;
+    int npos = f_tell(fp);
+    if (origin == SEEK_SET) {
+        npos = offset;
+    } else if (origin == SEEK_CUR) {
+        npos += offset;
+    } else if (origin == SEEK_END) {
+        npos = f_size(fp);
+    }
+    FRESULT ret = f_lseek(fp, npos);
+    if (ret == FR_OK) {
+        return f_tell(fp);
+    }
+    return -1;
 }
 
 int luat_vfs_fatfs_ftell(void* userdata, FILE* stream) {
-    return ftell(stream);
+    FATFS *fs = (FATFS*)userdata;
+    FIL* fp = (FIL*)stream;
+    return f_tell(fp);
 }
 
 int luat_vfs_fatfs_fclose(void* userdata, FILE* stream) {
-    return fclose(stream);
+    FATFS *fs = (FATFS*)userdata;
+    FIL* fp = (FIL*)stream;
+    if (fp != NULL) {
+        f_close(fp);
+        luat_heap_free(fp);
+    }
+    return 0;
 }
 int luat_vfs_fatfs_feof(void* userdata, FILE* stream) {
-    return feof(stream);
+    FATFS *fs = (FATFS*)userdata;
+    FIL* fp = (FIL*)stream;
+    return f_eof(fp);
 }
 int luat_vfs_fatfs_ferror(void* userdata, FILE *stream) {
-    return ferror(stream);
+    FATFS *fs = (FATFS*)userdata;
+    FIL* fp = (FIL*)stream;
+    return f_error(fp);
 }
 size_t luat_vfs_fatfs_fread(void* userdata, void *ptr, size_t size, size_t nmemb, FILE *stream) {
-    
-    return fread(ptr, size, nmemb, stream);
+    FATFS *fs = (FATFS*)userdata;
+    FIL* fp = (FIL*)stream;
+    int result = 0;
+    FRESULT ret = f_read(fp, ptr, size*nmemb, &result);
+    if (ret == FR_OK) {
+        return result;
+    }
+    return 0;
 }
 size_t luat_vfs_fatfs_fwrite(void* userdata, const void *ptr, size_t size, size_t nmemb, FILE *stream) {
-    return fwrite(ptr, size, nmemb, stream);
+    FATFS *fs = (FATFS*)userdata;
+    FIL* fp = (FIL*)stream;
+    int result = 0;
+    FRESULT ret = f_write(fp, ptr, size*nmemb, &result);
+    if (ret == FR_OK) {
+        return result;
+    }
+    return 0;
 }
 int luat_vfs_fatfs_remove(void* userdata, const char *filename) {
-    return remove(filename + (filename[0] == '/' ? 1 : 0));
+    return f_unlink(filename);
 }
 int luat_vfs_fatfs_rename(void* userdata, const char *old_filename, const char *new_filename) {
-    return rename(old_filename + (old_filename[0] == '/' ? 1 : 0), new_filename + (new_filename[0] == '/' ? 1 : 0));
+    return f_rename(old_filename + (old_filename[0] == '/' ? 1 : 0), new_filename + (new_filename[0] == '/' ? 1 : 0));
 }
 
 int luat_vfs_fatfs_fexist(void* userdata, const char *filename) {
-    FILE* fd = luat_vfs_fatfs_fopen(userdata, filename, "rb");
-    if (fd) {
-        luat_vfs_fatfs_fclose(userdata, fd);
+    FILINFO fno = {0};
+    FRESULT ret = f_stat(filename, &fno);
+    if (ret == FR_OK) {
         return 1;
     }
     return 0;
 }
 
 size_t luat_vfs_fatfs_fsize(void* userdata, const char *filename) {
-    FILE *fd;
-    size_t size = 0;
-    fd = luat_vfs_fatfs_fopen(userdata, filename, "rb");
-    if (fd) {
-        luat_vfs_fatfs_fseek(userdata, fd, 0, SEEK_END);
-        size = luat_vfs_fatfs_ftell(userdata, fd); 
-        luat_vfs_fatfs_fclose(userdata, fd);
+    FILINFO fno = {0};
+    FRESULT ret = f_stat(filename, &fno);
+    if (ret == FR_OK) {
+        return fno.fsize;
     }
-    return size;
+    return 0;
 }
 
 int luat_vfs_fatfs_mkfs(void* userdata, luat_fs_conf_t *conf) {
@@ -79,7 +152,7 @@ int luat_vfs_fatfs_mkfs(void* userdata, luat_fs_conf_t *conf) {
     return -1;
 }
 int luat_vfs_fatfs_mount(void** userdata, luat_fs_conf_t *conf) {
-    //LLOGE("not support yet : mount");
+    *userdata = (void*)conf->busname;
     return 0;
 }
 int luat_vfs_fatfs_umount(void* userdata, luat_fs_conf_t *conf) {
@@ -88,10 +161,12 @@ int luat_vfs_fatfs_umount(void* userdata, luat_fs_conf_t *conf) {
 }
 
 int luat_vfs_fatfs_mkdir(void* userdata, char const* _DirName) {
-    return mkdir(_DirName);
+    LLOGE("not support yet : mkdir");
+    return -1;
 }
 int luat_vfs_fatfs_rmdir(void* userdata, char const* _DirName) {
-    return rmdir(_DirName);
+    LLOGE("not support yet : rmdir");
+    return -1;
 }
 
 #define T(name) .name = luat_vfs_fatfs_##name

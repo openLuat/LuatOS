@@ -68,6 +68,11 @@ static int l_spi_transfer(lua_State *L) {
     size_t len;
     const char* send_buff;
     send_buff = lua_tolstring(L, 2, &len);
+    //长度为0时，直接返回空字符串
+    if(len <= 0){
+        lua_pushlstring(L,NULL,0);
+        return 1;
+    }
     char* recv_buff = luat_heap_malloc(len);
     if(recv_buff == NULL)
         return 0;
@@ -116,6 +121,11 @@ static int l_spi_send(lua_State *L) {
     size_t len;
     const char* send_buff;
     send_buff = lua_tolstring(L, 2, &len);
+    //长度为0时，直接返回
+    if(len <= 0){
+        lua_pushinteger(L, 0);
+        return 1;
+    }
     lua_pushinteger(L, luat_spi_send(id, send_buff, len));
     return 1;
 }

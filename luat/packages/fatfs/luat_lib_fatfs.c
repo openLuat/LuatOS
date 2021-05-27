@@ -267,14 +267,14 @@ static int fatfs_open(lua_State *L) {
 		return 3;
 	}
 	const char *path  = lua_tostring(L, 1);
-
-	FIL* fil = (FIL*)lua_newuserdata(L, sizeof(FIL));
 	int flag = luaL_optinteger(L, 2, 1); // 第二个参数
 	flag |= luaL_optinteger(L, 3, 0); // 第三个参数
 	flag |= luaL_optinteger(L, 4, 0); // 第四个参数
 
 	if (FATFS_DEBUG)
 		LLOGD("[FatFS]open %s %0X", path, flag);
+
+	FIL* fil = (FIL*)lua_newuserdata(L, sizeof(FIL));
 	FRESULT re = f_open(fil, path, (BYTE)flag);
 	if (re != FR_OK) {
 		lua_remove(L, -1);

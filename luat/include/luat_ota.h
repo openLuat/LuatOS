@@ -18,6 +18,6 @@
 #endif
 
 int luat_ota_update_or_rollback(void);
-void luat_ota_reboot(int timeout);
+void luat_ota_reboot(int timeout_ms);
 
 #endif

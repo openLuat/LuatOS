@@ -115,9 +115,9 @@ void luat_os_standy(int timeout) {
     return; // nop
 }
 
-void luat_ota_reboot(int timeout) {
-  if (timeout > 0)
-    luat_timer_mdelay(timeout * 1000);
+void luat_ota_reboot(int timeout_ms) {
+  if (timeout_ms > 0)
+    luat_timer_mdelay(timeout_ms);
   exit(0);
 }
 

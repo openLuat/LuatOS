@@ -36,9 +36,9 @@ int luat_ota_mark_rollback(void) {
 static void luat_bin_exec_update(void);
 static void luat_bin_exec_rollback(void);
 
-LUAT_WEAK void luat_ota_reboot(int timeout) {
-  if (timeout > 0)
-    luat_timer_mdelay(timeout * 1000);
+LUAT_WEAK void luat_ota_reboot(int timeout_ms) {
+  if (timeout_ms > 0)
+    luat_timer_mdelay(timeout_ms);
   luat_os_reboot(1);
 }
 
@@ -63,13 +63,13 @@ int luat_ota_update_or_rollback(void) {
   if (luat_ota_need_update()) {
     luat_ota_exec_update();
     LLOGW("update: reboot at 5 secs");
-    luat_ota_reboot(5);
+    luat_ota_reboot(5000);
     return 1;
   }
   if (luat_ota_need_rollback()) {
     luat_ota_exec_rollback();
     LLOGW("rollback: reboot at 5 secs");
-    luat_ota_reboot(5);
+    luat_ota_reboot(5000);
     return 1;
   }
   return 0;

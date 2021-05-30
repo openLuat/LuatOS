@@ -26,6 +26,13 @@
 
 #include "luat_base.h"
 
+#ifdef LUAT_USE_SSL_MBEDTLS
+#include "mbedtls/ssl.h"
+#include "mbedtls/entropy.h"
+#include "mbedtls/ctr_drbg.h"
+#include "capi.h"
+#endif
+
 #define NETC_TYPE_TCP 0
 #define NETC_TYPE_UDP 1
 
@@ -33,7 +40,7 @@
 #define NETC_EVENT_CONNECT_FAIL 2
 #define NETC_EVENT_RECV    4
 #define NETC_EVENT_ERROR   7
-//#define NETC_EVENT_CLOSE   8
+#define NETC_EVENT_CLOSE   8
 #define NETC_EVENT_END     9
 
 
@@ -49,6 +56,22 @@ typedef int (*tpc_cb_t)(netc_ent_t* ent);
 
 typedef struct netclient
 {
+#ifdef LUAT_USE_SSL_MBEDTLS
+	//tls+++
+    mbedtls_ssl_context ssl;
+    mbedtls_entropy_context entropy;
+    mbedtls_ctr_drbg_context ctr_drbg;
+    mbedtls_ssl_config config;
+    mbedtls_x509_crt cacert;
+    mbedtls_x509_crt clicert;
+    mbedtls_pk_context pkey;
+    Buffer_Struct rx_buffer;
+    int keepalive;
+    int recvmode;
+    uint8_t is_tls;
+    uint8_t tls_init;
+	//tls---
+#endif
     int id;
     char idStr[10];
     char hostname[64];

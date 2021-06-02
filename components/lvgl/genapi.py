@@ -13,6 +13,8 @@ from pycparser import c_parser, c_ast, parse_file
 
 
 methods = {}
+miss_arg_types = set({})
+miss_ret_types = set({})
 
 class FuncDefVisitor(c_ast.NodeVisitor):
 
@@ -43,7 +45,9 @@ class FuncDefVisitor(c_ast.NodeVisitor):
                 method_name = node.type.declname
             if not method_name.startswith(self.prefix):
                 return
-            if method_name.endswith("cb_t") or method_name.endswith("_f_t"):
+            # 一些回调方法, 这些没法自动生成
+            if method_name.endswith("_cb") or method_name.endswith("cb_t") or method_name.endswith("_f_t"):
+                print("skip callback func", method_name)
                 return
             if method_name in ["lv_btnmatrix_set_map", "lv_calendar_set_month_names",
                                "lv_calendar_set_day_names", "lv_label_set_text_fmt", 
@@ -59,6 +63,9 @@ class FuncDefVisitor(c_ast.NodeVisitor):
             # 因为各种数组无法处理的方法
             if method_name in ["lv_btnmatrix_set_ctrl_map", "lv_keyboard_set_ctrl_map", "lv_calendar_set_highlighted_dates",
                                "lv_chart_set_points", "lv_chart_set_ext_array", "lv_gauge_set_needle_count"] :
+                return
+            # 这方法不太可能有人用吧,返回值是uint8_t*,很少见
+            if method_name in ["lv_font_get_glyph_bitmap"] :
                 return
             #print(method_name + "(", end="")
             method_args = []
@@ -132,6 +139,27 @@ def main():
 
     print("============================================================")
 
+    gen_all()
+
+    print_miss()
+
+    print("============================================================")
+    c = 0
+    for group in methods :
+        for prefix in methods[group] :
+            c += len(methods[group][prefix])
+    print("Method count", c)
+
+def print_miss():
+
+    for m in miss_arg_types :
+        print("MISS arg type : ", m)
+    for m in miss_ret_types :
+        print("MISS ret type : ", m)
+    pass
+
+def gen_all():
+
     if not os.path.exists("gen/") :
         os.makedirs("gen/")
     # 首先, 输出全部.h文件
@@ -178,6 +206,7 @@ def main():
                                 f.write("    " + cnt + "\n")
                                 if miss_arg_type :
                                     f.write("    // miss arg convert\n")
+                                    miss_arg_types.add(arg[1])
                                 _index += incr
                                 argnames.append(str(arg[0]))
                         else :
@@ -201,29 +230,8 @@ def main():
                         f.write(");\n")
 
                         # 处理方法的返回值
-
-                        # 无返回的
-                        if "void" == m["ret"] :
-                            f.write("    return 0;\n")
-                        elif m["ret"] == "char*":
-                            f.write("    lua_pushstring(L, ret);\n")
-                            f.write("    return 1;\n")
-                        # 返回值是指针的
-                        elif m["ret"].endswith("*") :
-                            f.write("    lua_pushlightuserdata(L, ret);\n")
-                            f.write("    return 1;\n")
-                        # 返回值是数值的
-                        elif m["ret"] == "lv_res_t":
-                            f.write("    lua_pushboolean(L, ret == 0 ? 1 : 0);\n")
-                            f.write("    lua_pushinteger(L, ret);\n")
-                            f.write("    return 2;\n")
-                        # 返回值是布尔值的
-                        elif m["ret"] == "bool" :
-                            f.write("    lua_pushboolean(L, ret);\n")
-                            f.write("    return 1;\n")
-                        # 其他的暂不支持
-                        else :
-                            f.write("    return 0;\n")
+                        gen_lua_ret(m["ret"], f)
+                        
                         f.write("}\n\n")
 
         fh.write("#endif\n")
@@ -265,6 +273,14 @@ map_lua_arg = {
     "lv_fit_t" : {"fmt": "{} {} = (lv_fit_t)luaL_checkinteger(L, {});", "incr" : 1},
 
     "char*" : {"fmt": "{} {} = (char*)luaL_checkstring(L, {});", "incr" : 1},
+
+    "lv_opa_t" : {"fmt": "{} {} = (lv_opa_t)luaL_checkinteger(L, {});", "incr" : 1}, # uint8_t
+    "lv_img_cf_t" : {"fmt": "{} {} = (lv_img_cf_t)luaL_checkinteger(L, {});", "incr" : 1}, # uint8_t
+    "lv_arc_type_t" : {"fmt": "{} {} = (lv_arc_type_t)luaL_checkinteger(L, {});", "incr" : 1}, # uint8_t
+    "lv_chart_axis_t" : {"fmt": "{} {} = (lv_chart_axis_t)luaL_checkinteger(L, {});", "incr" : 1}, # uint8_t
+    "lv_cpicker_type_t" : {"fmt": "{} {} = (lv_cpicker_type_t)luaL_checkinteger(L, {});", "incr" : 1}, # uint8_t
+    "lv_img_cf_t" : {"fmt": "{} {} = (lv_img_cf_t)luaL_checkinteger(L, {});", "incr" : 1}, # uint8_t
+    "lv_anim_value_t" : {"fmt": "{} {} = (lv_anim_value_t)luaL_checkinteger(L, {});", "incr" : 1}, # int16
 }
 
 
@@ -272,12 +288,63 @@ def gen_lua_arg(tp, name, index):
     if tp in map_lua_arg :
         fmt = map_lua_arg[tp]["fmt"]
         return fmt.format(str(tp), str(name), str(index)), map_lua_arg[tp]["incr"], False
-    if tp.endswith("*"):
-        return "{} {} = lua_touserdata(L, {});".format(str(tp), str(name), str(index)), 1, False
+    if tp in map_lv_ints :
+        return "{} {} = ({})luaL_checkinteger(L, {});".format(tp, name, tp, index), 1, False
     if tp == "lv_color_t" :
         return "%s %s = {0};\n" % (tp, name) + "    %s.full = luaL_checkinteger(L, %d);" % (name, index), 1, False
-    print("miss arg type", tp)
+    if tp.endswith("*"):
+        return "{} {} = ({})lua_touserdata(L, {});".format(str(tp), str(name), str(tp), str(index)), 1, False
+    #print("miss arg type", tp)
     return "{} {};".format(str(tp), str(name)), 1, True
+
+map_lua_ret = {
+    "void" : ["return 0;"],
+    "char*" : ["lua_pushstring(L, ret);", "return 1;"],
+    "lv_res_t" : ["lua_pushboolean(L, ret == 0 ? 1 : 0);", "lua_pushinteger(L, ret);", "return 2;"],
+    "bool" : ["lua_pushboolean(L, ret);", "return 1;"],
+    "lv_fs_res_t" :  ["lua_pushboolean(L, ret == 0 ? 1 : 0);", "lua_pushinteger(L, ret);", "return 2;"],
+    "lv_draw_mask_res_t" :  ["lua_pushboolean(L, ret == 0 ? 1 : 0);", "lua_pushinteger(L, ret);", "return 2;"],
+    "lv_color_hsv_t" : [ "lua_pushinteger(L, ret.h);",  "lua_pushinteger(L, ret.s);",  "lua_pushinteger(L, ret.v);", "return 3;"],
+    "lv_point_t" : [ "lua_pushinteger(L, ret.x);",  "lua_pushinteger(L, ret.y);",  "return 2;"],
+}
+
+# 各种命名, 但全都上int变种
+map_lv_ints = ["lv_arc_type_t", "lv_style_int_t", "lv_coord_t", "lv_spinner_dir_t", "lv_drag_dir_t",
+                    "lv_keyboard_mode_t", "int16_t", "int8_t", "int32_t", "uint8_t", "uint16_t", "uint32_t",
+                    "lv_chart_type_t", "lv_border_side_t", "lv_anim_value_t", "lv_img_src_t", "lv_text_decor_t",
+                    "lv_align_t", "lv_spinner_type_t", "lv_dropdown_dir_t", "lv_scrollbar_mode_t",
+                    "lv_label_long_mode_t", "lv_chart_axis_t", "lv_blend_mode_t", "lv_bidi_dir_t",
+                    "lv_slider_type_t", "lv_tabview_btns_pos_t",
+                    "lv_indev_type_t", "lv_disp_size_t",
+                    "lv_opa_t", "lv_label_align_t", "lv_fit_t", "lv_bar_type_t", "lv_btn_state_t",
+                    "lv_gesture_dir_t", "lv_state_t", "lv_layout_t", "lv_cpicker_color_mode_t",
+                    "lv_disp_rot_t", "lv_grad_dir_t", "lv_chart_type_t"]
+
+def gen_lua_ret(tp, f) :
+    # 数值类
+    if tp in map_lv_ints :
+        f.write("    lua_pushinteger(L, ret);\n")
+        f.write("    return 1;\n")
+    # 配好的匹配
+    elif tp in map_lua_ret :
+        for line in map_lua_ret[tp] :
+            f.write("    ")
+            f.write(line)
+            f.write("\n")
+    # lv_color_t需要特别处理一下
+    elif tp == "lv_color_t" :
+        f.write("    lua_pushinteger(L, ret.full);\n")
+        f.write("    return 1;\n")
+    # 返回值是指针的
+    elif tp.endswith("*") :
+        if tp != "lv_obj_t*":
+            miss_ret_types.add(tp)
+        f.write("    lua_pushlightuserdata(L, ret);\n")
+        f.write("    return 1;\n")
+    # 其他的暂不支持
+    else :
+        miss_ret_types.add(tp)
+        f.write("    return 0;\n")
 
 if __name__ == '__main__':
     main()

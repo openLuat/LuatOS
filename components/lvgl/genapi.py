@@ -13,6 +13,8 @@ from pycparser import c_parser, c_ast, parse_file
 
 
 methods = {}
+enums = []
+enum_names = set({})
 miss_arg_types = set({})
 miss_ret_types = set({})
 
@@ -22,6 +24,40 @@ class FuncDefVisitor(c_ast.NodeVisitor):
         self.group = group
         self.prefix = prefix
         #print("FuncDefVisitor >> " + prefix)
+
+    def visit_Enum(self, node):
+        if not node.values :
+            return
+        try :
+            _index_val = None
+            for e in node.values:
+                k = e.name
+                val = None
+                if e.value :
+                    if e.value.__class__.__name__ == "Constant" :
+                        if e.value.value.startswith("0x") :
+                            val = int(e.value.value[2:], 16)
+                        else :
+                            val = int(e.value.value)
+                        #print("add enum", e.name, val)
+                        if _index_val == None :
+                            _index_val = val + 1
+                    else :
+                        #print("skip enum ", e.name, e.value)
+                        pass
+                else:
+                    if _index_val == None :
+                        _index_val = 0
+                    val = _index_val
+                    #print("add enum", e.name, _index_val)
+                    _index_val += 1
+                if val != None and k not in enum_names :
+                    enum_names.add(k)
+                    enums.append([k, val])
+        except Exception :
+            import traceback
+            traceback.print_exc()
+            sys.exit()
 
     def visit_FuncDecl(self, node):
         try :
@@ -139,7 +175,9 @@ def main():
 
     print("============================================================")
 
-    gen_all()
+    gen_methods()
+
+    gen_enums()
 
     print_miss()
 
@@ -158,7 +196,36 @@ def print_miss():
         print("MISS ret type : ", m)
     pass
 
-def gen_all():
+def gen_enums():
+    if not os.path.exists("gen/") :
+        os.makedirs("gen/")
+
+    with open("gen/luat_lv_enum.h", "w") as fh :
+        fh.write("\r\n")
+        fh.write("#include \"luat_base.h\"\n")
+        #fh.write("#include \"lvgl.h\"\n")
+        fh.write("#ifndef LUAT_LV_ENUM\n")
+        fh.write("#define LUAT_LV_ENUM\n")
+
+        #for e in enums:
+        #    if e[0].startswith("_"):
+        #        continue
+        #    fh.write("#if (" + e[0] + " != " + str(e[1]) + ")\n")
+        #    fh.write("#error \"ERROR\"\n")
+        #    fh.write("#endif\n")
+
+        fh.write("#include \"rotable.h\"\n")
+        fh.write("#define LUAT_LV_ENMU_RLT {\"T\", NULL, 0xFF},\\\n")
+        for e in enums:
+            if e[0].startswith("_"):
+                continue
+            fh.write("    {\"%s\", NULL, %d},\\\n" % (e[0][3:], e[1]))
+
+        fh.write("\n\n")
+
+        fh.write("#endif\n")
+
+def gen_methods():
 
     if not os.path.exists("gen/") :
         os.makedirs("gen/")
@@ -178,6 +245,11 @@ def gen_all():
                 for m in methods[group][prefix] :
                     sb = "int luat_" + m["name"] + "(lua_State *L);\n"
                     fh.write(sb)
+                fh.write("\n#define LUAT_" + prefix.upper() + "_RLT ")
+                for m in methods[group][prefix] :
+                    sb = "    {\"%s\", luat_%s, 0},\\\n" % (m["name"][3:], m["name"])
+                    fh.write(sb)
+                fh.write("\n")
 
                 # 然后, 输出src文件
                 if not os.path.exists("gen/"+group+ "/") :
@@ -187,11 +259,13 @@ def gen_all():
                     f.write("#include \"luat_base.h\"\n")
                     #f.write("#include \"gen/%s/luat_%s.h\"\n" % (group, prefix))
                     f.write("#include \"lvgl.h\"\n")
+                    f.write("#include \"luat_lvgl.h\"\n")
                     f.write("\n\n")
 
                     for m in methods[group][prefix] :
                         f.write("//  " + mtostr(m) + "\n")
                         f.write("int luat_" + m["name"] + "(lua_State *L) {\n")
+                        f.write("    LV_DEBUG(\"CALL %s\", "+m["name"]+");\n");
                         argnames = []
                         if len(m["args"]) > 0:
                             _index = 1
@@ -233,6 +307,7 @@ def gen_all():
                         gen_lua_ret(m["ret"], f)
                         
                         f.write("}\n\n")
+
 
         fh.write("#endif\n")
 
@@ -300,7 +375,7 @@ def gen_lua_arg(tp, name, index):
 map_lua_ret = {
     "void" : ["return 0;"],
     "char*" : ["lua_pushstring(L, ret);", "return 1;"],
-    "lv_res_t" : ["lua_pushboolean(L, ret == 0 ? 1 : 0);", "lua_pushinteger(L, ret);", "return 2;"],
+    "lv_res_t" : ["lua_pushboolean(L, ret == LV_RES_OK ? 1 : 0);", "lua_pushinteger(L, ret);", "return 2;"],
     "bool" : ["lua_pushboolean(L, ret);", "return 1;"],
     "lv_fs_res_t" :  ["lua_pushboolean(L, ret == 0 ? 1 : 0);", "lua_pushinteger(L, ret);", "return 2;"],
     "lv_draw_mask_res_t" :  ["lua_pushboolean(L, ret == 0 ? 1 : 0);", "lua_pushinteger(L, ret);", "return 2;"],

@@ -46,8 +46,15 @@ int luat_lv_obj_clean(lua_State *L) {
 int luat_lv_obj_invalidate_area(lua_State *L) {
     LV_DEBUG("CALL %s", lv_obj_invalidate_area);
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_area_t* area = (lv_area_t*)lua_touserdata(L, 2);
-    lv_obj_invalidate_area(obj ,area);
+    lua_pushvalue(L, 2);
+    lv_area_t area = {0};
+    lua_geti(L, -1, 1); area.x1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 2); area.y1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 3); area.x2 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 4); area.y2 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_pop(L, 1);
+
+    lv_obj_invalidate_area(obj ,&area);
     return 0;
 }
 
@@ -63,9 +70,16 @@ int luat_lv_obj_invalidate(lua_State *L) {
 int luat_lv_obj_area_is_visible(lua_State *L) {
     LV_DEBUG("CALL %s", lv_obj_area_is_visible);
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_area_t* area = (lv_area_t*)lua_touserdata(L, 2);
+    lua_pushvalue(L, 2);
+    lv_area_t area = {0};
+    lua_geti(L, -1, 1); area.x1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 2); area.y1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 3); area.x2 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 4); area.y2 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_pop(L, 1);
+
     bool ret;
-    ret = lv_obj_area_is_visible(obj ,area);
+    ret = lv_obj_area_is_visible(obj ,&area);
     lua_pushboolean(L, ret);
     return 1;
 }
@@ -619,8 +633,15 @@ int luat_lv_obj_count_children_recursive(lua_State *L) {
 int luat_lv_obj_get_coords(lua_State *L) {
     LV_DEBUG("CALL %s", lv_obj_get_coords);
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_area_t* cords_p = (lv_area_t*)lua_touserdata(L, 2);
-    lv_obj_get_coords(obj ,cords_p);
+    lua_pushvalue(L, 2);
+    lv_area_t cords_p = {0};
+    lua_geti(L, -1, 1); cords_p.x1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 2); cords_p.y1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 3); cords_p.x2 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 4); cords_p.y2 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_pop(L, 1);
+
+    lv_obj_get_coords(obj ,&cords_p);
     return 0;
 }
 
@@ -628,8 +649,15 @@ int luat_lv_obj_get_coords(lua_State *L) {
 int luat_lv_obj_get_inner_coords(lua_State *L) {
     LV_DEBUG("CALL %s", lv_obj_get_inner_coords);
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_area_t* coords_p = (lv_area_t*)lua_touserdata(L, 2);
-    lv_obj_get_inner_coords(obj ,coords_p);
+    lua_pushvalue(L, 2);
+    lv_area_t coords_p = {0};
+    lua_geti(L, -1, 1); coords_p.x1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 2); coords_p.y1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 3); coords_p.x2 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 4); coords_p.y2 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_pop(L, 1);
+
+    lv_obj_get_inner_coords(obj ,&coords_p);
     return 0;
 }
 
@@ -3101,9 +3129,14 @@ int luat_lv_obj_get_state(lua_State *L) {
 int luat_lv_obj_is_point_on_coords(lua_State *L) {
     LV_DEBUG("CALL %s", lv_obj_is_point_on_coords);
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_point_t* point = (lv_point_t*)lua_touserdata(L, 2);
+    lua_pushvalue(L, 2);
+    lv_point_t point = {0};
+    lua_geti(L, -1, 1); point.x = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 2); point.y = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_pop(L, 1);
+
     bool ret;
-    ret = lv_obj_is_point_on_coords(obj ,point);
+    ret = lv_obj_is_point_on_coords(obj ,&point);
     lua_pushboolean(L, ret);
     return 1;
 }
@@ -3112,9 +3145,14 @@ int luat_lv_obj_is_point_on_coords(lua_State *L) {
 int luat_lv_obj_hittest(lua_State *L) {
     LV_DEBUG("CALL %s", lv_obj_hittest);
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_point_t* point = (lv_point_t*)lua_touserdata(L, 2);
+    lua_pushvalue(L, 2);
+    lv_point_t point = {0};
+    lua_geti(L, -1, 1); point.x = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 2); point.y = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_pop(L, 1);
+
     bool ret;
-    ret = lv_obj_hittest(obj ,point);
+    ret = lv_obj_hittest(obj ,&point);
     lua_pushboolean(L, ret);
     return 1;
 }

@@ -240,8 +240,13 @@ int luat_lv_chart_set_cursor_point(lua_State *L) {
     LV_DEBUG("CALL %s", lv_chart_set_cursor_point);
     lv_obj_t* chart = (lv_obj_t*)lua_touserdata(L, 1);
     lv_chart_cursor_t* cursor = (lv_chart_cursor_t*)lua_touserdata(L, 2);
-    lv_point_t* point = (lv_point_t*)lua_touserdata(L, 3);
-    lv_chart_set_cursor_point(chart ,cursor ,point);
+    lua_pushvalue(L, 3);
+    lv_point_t point = {0};
+    lua_geti(L, -1, 1); point.x = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 2); point.y = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_pop(L, 1);
+
+    lv_chart_set_cursor_point(chart ,cursor ,&point);
     return 0;
 }
 
@@ -302,8 +307,15 @@ int luat_lv_chart_get_series_axis(lua_State *L) {
 int luat_lv_chart_get_series_area(lua_State *L) {
     LV_DEBUG("CALL %s", lv_chart_get_series_area);
     lv_obj_t* chart = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_area_t* series_area = (lv_area_t*)lua_touserdata(L, 2);
-    lv_chart_get_series_area(chart ,series_area);
+    lua_pushvalue(L, 2);
+    lv_area_t series_area = {0};
+    lua_geti(L, -1, 1); series_area.x1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 2); series_area.y1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 3); series_area.x2 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 4); series_area.y2 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_pop(L, 1);
+
+    lv_chart_get_series_area(chart ,&series_area);
     return 0;
 }
 

@@ -126,9 +126,16 @@ int luat_lv_linemeter_get_angle_offset(lua_State *L) {
 int luat_lv_linemeter_draw_scale(lua_State *L) {
     LV_DEBUG("CALL %s", lv_linemeter_draw_scale);
     lv_obj_t* lmeter = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_area_t* clip_area = (lv_area_t*)lua_touserdata(L, 2);
+    lua_pushvalue(L, 2);
+    lv_area_t clip_area = {0};
+    lua_geti(L, -1, 1); clip_area.x1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 2); clip_area.y1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 3); clip_area.x2 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 4); clip_area.y2 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_pop(L, 1);
+
     uint8_t part = (uint8_t)luaL_checkinteger(L, 3);
-    lv_linemeter_draw_scale(lmeter ,clip_area ,part);
+    lv_linemeter_draw_scale(lmeter ,&clip_area ,part);
     return 0;
 }
 

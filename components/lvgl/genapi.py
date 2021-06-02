@@ -282,7 +282,10 @@ def gen_methods():
                                     f.write("    // miss arg convert\n")
                                     miss_arg_types.add(arg[1])
                                 _index += incr
-                                argnames.append(str(arg[0]))
+                                if arg[1] == "lv_area_t*" or arg[1] == "lv_point_t*":
+                                    argnames.append("&"+str(arg[0]))
+                                else:
+                                    argnames.append(str(arg[0]))
                         else :
                             pass
                         if "void" != m["ret"] :
@@ -365,6 +368,22 @@ def gen_lua_arg(tp, name, index):
         return fmt.format(str(tp), str(name), str(index)), map_lua_arg[tp]["incr"], False
     if tp in map_lv_ints :
         return "{} {} = ({})luaL_checkinteger(L, {});".format(tp, name, tp, index), 1, False
+    if tp == "lv_area_t*" :
+        cnt = "lua_pushvalue(L, %d);\n" % (index,)
+        cnt += "    %s %s = {0};\n" % (tp[:-1], name)
+        cnt += "    lua_geti(L, -1, 1); %s.x1 = luaL_checkinteger(L, -1); lua_pop(L, 1);\n" % (name,)
+        cnt += "    lua_geti(L, -1, 2); %s.y1 = luaL_checkinteger(L, -1); lua_pop(L, 1);\n" % (name,)
+        cnt += "    lua_geti(L, -1, 3); %s.x2 = luaL_checkinteger(L, -1); lua_pop(L, 1);\n" % (name,)
+        cnt += "    lua_geti(L, -1, 4); %s.y2 = luaL_checkinteger(L, -1); lua_pop(L, 1);\n" % (name,)
+        cnt += "    lua_pop(L, 1);\n"
+        return cnt, 1, False
+    if tp == "lv_point_t*" :
+        cnt = "lua_pushvalue(L, %d);\n" % (index,)
+        cnt += "    %s %s = {0};\n" % (tp[:-1], name)
+        cnt += "    lua_geti(L, -1, 1); %s.x = luaL_checkinteger(L, -1); lua_pop(L, 1);\n" % (name,)
+        cnt += "    lua_geti(L, -1, 2); %s.y = luaL_checkinteger(L, -1); lua_pop(L, 1);\n" % (name,)
+        cnt += "    lua_pop(L, 1);\n"
+        return cnt, 1, False
     if tp == "lv_color_t" :
         return "%s %s = {0};\n" % (tp, name) + "    %s.full = luaL_checkinteger(L, %d);" % (name, index), 1, False
     if tp.endswith("*"):

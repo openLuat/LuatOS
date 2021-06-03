@@ -6,7 +6,7 @@
 
 //  uint8_t lv_color_to1(lv_color_t color)
 int luat_lv_color_to1(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_color_to1);
+    LV_DEBUG("CALL lv_color_to1");
     lv_color_t color = {0};
     color.full = luaL_checkinteger(L, 1);
     uint8_t ret;
@@ -17,7 +17,7 @@ int luat_lv_color_to1(lua_State *L) {
 
 //  uint8_t lv_color_to8(lv_color_t color)
 int luat_lv_color_to8(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_color_to8);
+    LV_DEBUG("CALL lv_color_to8");
     lv_color_t color = {0};
     color.full = luaL_checkinteger(L, 1);
     uint8_t ret;
@@ -28,7 +28,7 @@ int luat_lv_color_to8(lua_State *L) {
 
 //  uint16_t lv_color_to16(lv_color_t color)
 int luat_lv_color_to16(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_color_to16);
+    LV_DEBUG("CALL lv_color_to16");
     lv_color_t color = {0};
     color.full = luaL_checkinteger(L, 1);
     uint16_t ret;
@@ -39,7 +39,7 @@ int luat_lv_color_to16(lua_State *L) {
 
 //  uint32_t lv_color_to32(lv_color_t color)
 int luat_lv_color_to32(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_color_to32);
+    LV_DEBUG("CALL lv_color_to32");
     lv_color_t color = {0};
     color.full = luaL_checkinteger(L, 1);
     uint32_t ret;
@@ -50,7 +50,7 @@ int luat_lv_color_to32(lua_State *L) {
 
 //  lv_color_t lv_color_mix(lv_color_t c1, lv_color_t c2, uint8_t mix)
 int luat_lv_color_mix(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_color_mix);
+    LV_DEBUG("CALL lv_color_mix");
     lv_color_t c1 = {0};
     c1.full = luaL_checkinteger(L, 1);
     lv_color_t c2 = {0};
@@ -64,7 +64,7 @@ int luat_lv_color_mix(lua_State *L) {
 
 //  void lv_color_premult(lv_color_t c, uint8_t mix, uint16_t* out)
 int luat_lv_color_premult(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_color_premult);
+    LV_DEBUG("CALL lv_color_premult");
     lv_color_t c = {0};
     c.full = luaL_checkinteger(L, 1);
     uint8_t mix = (uint8_t)luaL_checkinteger(L, 2);
@@ -75,7 +75,7 @@ int luat_lv_color_premult(lua_State *L) {
 
 //  lv_color_t lv_color_mix_premult(uint16_t* premult_c1, lv_color_t c2, uint8_t mix)
 int luat_lv_color_mix_premult(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_color_mix_premult);
+    LV_DEBUG("CALL lv_color_mix_premult");
     uint16_t* premult_c1 = (uint16_t*)lua_touserdata(L, 1);
     lv_color_t c2 = {0};
     c2.full = luaL_checkinteger(L, 2);
@@ -88,7 +88,7 @@ int luat_lv_color_mix_premult(lua_State *L) {
 
 //  void lv_color_mix_with_alpha(lv_color_t bg_color, lv_opa_t bg_opa, lv_color_t fg_color, lv_opa_t fg_opa, lv_color_t* res_color, lv_opa_t* res_opa)
 int luat_lv_color_mix_with_alpha(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_color_mix_with_alpha);
+    LV_DEBUG("CALL lv_color_mix_with_alpha");
     lv_color_t bg_color = {0};
     bg_color.full = luaL_checkinteger(L, 1);
     lv_opa_t bg_opa = (lv_opa_t)luaL_checkinteger(L, 2);
@@ -103,7 +103,7 @@ int luat_lv_color_mix_with_alpha(lua_State *L) {
 
 //  uint8_t lv_color_brightness(lv_color_t color)
 int luat_lv_color_brightness(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_color_brightness);
+    LV_DEBUG("CALL lv_color_brightness");
     lv_color_t color = {0};
     color.full = luaL_checkinteger(L, 1);
     uint8_t ret;
@@ -114,7 +114,7 @@ int luat_lv_color_brightness(lua_State *L) {
 
 //  lv_color_t lv_color_make(uint8_t r, uint8_t g, uint8_t b)
 int luat_lv_color_make(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_color_make);
+    LV_DEBUG("CALL lv_color_make");
     uint8_t r = (uint8_t)luaL_checkinteger(L, 1);
     uint8_t g = (uint8_t)luaL_checkinteger(L, 2);
     uint8_t b = (uint8_t)luaL_checkinteger(L, 3);
@@ -126,7 +126,7 @@ int luat_lv_color_make(lua_State *L) {
 
 //  lv_color_t lv_color_hex(uint32_t c)
 int luat_lv_color_hex(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_color_hex);
+    LV_DEBUG("CALL lv_color_hex");
     uint32_t c = (uint32_t)luaL_checkinteger(L, 1);
     lv_color_t ret;
     ret = lv_color_hex(c);
@@ -136,7 +136,7 @@ int luat_lv_color_hex(lua_State *L) {
 
 //  lv_color_t lv_color_hex3(uint32_t c)
 int luat_lv_color_hex3(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_color_hex3);
+    LV_DEBUG("CALL lv_color_hex3");
     uint32_t c = (uint32_t)luaL_checkinteger(L, 1);
     lv_color_t ret;
     ret = lv_color_hex3(c);
@@ -146,7 +146,7 @@ int luat_lv_color_hex3(lua_State *L) {
 
 //  void lv_color_fill(lv_color_t* buf, lv_color_t color, uint32_t px_num)
 int luat_lv_color_fill(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_color_fill);
+    LV_DEBUG("CALL lv_color_fill");
     lv_color_t* buf = (lv_color_t*)lua_touserdata(L, 1);
     lv_color_t color = {0};
     color.full = luaL_checkinteger(L, 2);
@@ -157,7 +157,7 @@ int luat_lv_color_fill(lua_State *L) {
 
 //  lv_color_t lv_color_lighten(lv_color_t c, lv_opa_t lvl)
 int luat_lv_color_lighten(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_color_lighten);
+    LV_DEBUG("CALL lv_color_lighten");
     lv_color_t c = {0};
     c.full = luaL_checkinteger(L, 1);
     lv_opa_t lvl = (lv_opa_t)luaL_checkinteger(L, 2);
@@ -169,7 +169,7 @@ int luat_lv_color_lighten(lua_State *L) {
 
 //  lv_color_t lv_color_darken(lv_color_t c, lv_opa_t lvl)
 int luat_lv_color_darken(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_color_darken);
+    LV_DEBUG("CALL lv_color_darken");
     lv_color_t c = {0};
     c.full = luaL_checkinteger(L, 1);
     lv_opa_t lvl = (lv_opa_t)luaL_checkinteger(L, 2);
@@ -181,7 +181,7 @@ int luat_lv_color_darken(lua_State *L) {
 
 //  lv_color_t lv_color_hsv_to_rgb(uint16_t h, uint8_t s, uint8_t v)
 int luat_lv_color_hsv_to_rgb(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_color_hsv_to_rgb);
+    LV_DEBUG("CALL lv_color_hsv_to_rgb");
     uint16_t h = (uint16_t)luaL_checkinteger(L, 1);
     uint8_t s = (uint8_t)luaL_checkinteger(L, 2);
     uint8_t v = (uint8_t)luaL_checkinteger(L, 3);
@@ -193,7 +193,7 @@ int luat_lv_color_hsv_to_rgb(lua_State *L) {
 
 //  lv_color_hsv_t lv_color_rgb_to_hsv(uint8_t r8, uint8_t g8, uint8_t b8)
 int luat_lv_color_rgb_to_hsv(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_color_rgb_to_hsv);
+    LV_DEBUG("CALL lv_color_rgb_to_hsv");
     uint8_t r8 = (uint8_t)luaL_checkinteger(L, 1);
     uint8_t g8 = (uint8_t)luaL_checkinteger(L, 2);
     uint8_t b8 = (uint8_t)luaL_checkinteger(L, 3);
@@ -207,7 +207,7 @@ int luat_lv_color_rgb_to_hsv(lua_State *L) {
 
 //  lv_color_hsv_t lv_color_to_hsv(lv_color_t color)
 int luat_lv_color_to_hsv(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_color_to_hsv);
+    LV_DEBUG("CALL lv_color_to_hsv");
     lv_color_t color = {0};
     color.full = luaL_checkinteger(L, 1);
     lv_color_hsv_t ret;

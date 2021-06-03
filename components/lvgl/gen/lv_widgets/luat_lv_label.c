@@ -6,7 +6,7 @@
 
 //  lv_obj_t* lv_label_create(lv_obj_t* par, lv_obj_t* copy)
 int luat_lv_label_create(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_label_create);
+    LV_DEBUG("CALL lv_label_create");
     lv_obj_t* par = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* copy = (lv_obj_t*)lua_touserdata(L, 2);
     lv_obj_t* ret = NULL;
@@ -17,7 +17,7 @@ int luat_lv_label_create(lua_State *L) {
 
 //  void lv_label_set_text(lv_obj_t* label, char* text)
 int luat_lv_label_set_text(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_label_set_text);
+    LV_DEBUG("CALL lv_label_set_text");
     lv_obj_t* label = (lv_obj_t*)lua_touserdata(L, 1);
     char* text = (char*)luaL_checkstring(L, 2);
     lv_label_set_text(label ,text);
@@ -26,7 +26,7 @@ int luat_lv_label_set_text(lua_State *L) {
 
 //  void lv_label_set_text_static(lv_obj_t* label, char* text)
 int luat_lv_label_set_text_static(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_label_set_text_static);
+    LV_DEBUG("CALL lv_label_set_text_static");
     lv_obj_t* label = (lv_obj_t*)lua_touserdata(L, 1);
     char* text = (char*)luaL_checkstring(L, 2);
     lv_label_set_text_static(label ,text);
@@ -35,7 +35,7 @@ int luat_lv_label_set_text_static(lua_State *L) {
 
 //  void lv_label_set_long_mode(lv_obj_t* label, lv_label_long_mode_t long_mode)
 int luat_lv_label_set_long_mode(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_label_set_long_mode);
+    LV_DEBUG("CALL lv_label_set_long_mode");
     lv_obj_t* label = (lv_obj_t*)lua_touserdata(L, 1);
     lv_label_long_mode_t long_mode = (lv_label_long_mode_t)luaL_checkinteger(L, 2);
     lv_label_set_long_mode(label ,long_mode);
@@ -44,7 +44,7 @@ int luat_lv_label_set_long_mode(lua_State *L) {
 
 //  void lv_label_set_align(lv_obj_t* label, lv_label_align_t align)
 int luat_lv_label_set_align(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_label_set_align);
+    LV_DEBUG("CALL lv_label_set_align");
     lv_obj_t* label = (lv_obj_t*)lua_touserdata(L, 1);
     lv_label_align_t align = (lv_label_align_t)luaL_checkinteger(L, 2);
     lv_label_set_align(label ,align);
@@ -53,7 +53,7 @@ int luat_lv_label_set_align(lua_State *L) {
 
 //  void lv_label_set_recolor(lv_obj_t* label, bool en)
 int luat_lv_label_set_recolor(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_label_set_recolor);
+    LV_DEBUG("CALL lv_label_set_recolor");
     lv_obj_t* label = (lv_obj_t*)lua_touserdata(L, 1);
     bool en = (bool)lua_toboolean(L, 2);
     lv_label_set_recolor(label ,en);
@@ -62,7 +62,7 @@ int luat_lv_label_set_recolor(lua_State *L) {
 
 //  void lv_label_set_anim_speed(lv_obj_t* label, uint16_t anim_speed)
 int luat_lv_label_set_anim_speed(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_label_set_anim_speed);
+    LV_DEBUG("CALL lv_label_set_anim_speed");
     lv_obj_t* label = (lv_obj_t*)lua_touserdata(L, 1);
     uint16_t anim_speed = (uint16_t)luaL_checkinteger(L, 2);
     lv_label_set_anim_speed(label ,anim_speed);
@@ -71,7 +71,7 @@ int luat_lv_label_set_anim_speed(lua_State *L) {
 
 //  void lv_label_set_text_sel_start(lv_obj_t* label, uint32_t index)
 int luat_lv_label_set_text_sel_start(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_label_set_text_sel_start);
+    LV_DEBUG("CALL lv_label_set_text_sel_start");
     lv_obj_t* label = (lv_obj_t*)lua_touserdata(L, 1);
     uint32_t index = (uint32_t)luaL_checkinteger(L, 2);
     lv_label_set_text_sel_start(label ,index);
@@ -80,7 +80,7 @@ int luat_lv_label_set_text_sel_start(lua_State *L) {
 
 //  void lv_label_set_text_sel_end(lv_obj_t* label, uint32_t index)
 int luat_lv_label_set_text_sel_end(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_label_set_text_sel_end);
+    LV_DEBUG("CALL lv_label_set_text_sel_end");
     lv_obj_t* label = (lv_obj_t*)lua_touserdata(L, 1);
     uint32_t index = (uint32_t)luaL_checkinteger(L, 2);
     lv_label_set_text_sel_end(label ,index);
@@ -89,7 +89,7 @@ int luat_lv_label_set_text_sel_end(lua_State *L) {
 
 //  char* lv_label_get_text(lv_obj_t* label)
 int luat_lv_label_get_text(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_label_get_text);
+    LV_DEBUG("CALL lv_label_get_text");
     lv_obj_t* label = (lv_obj_t*)lua_touserdata(L, 1);
     char* ret = NULL;
     ret = lv_label_get_text(label);
@@ -99,7 +99,7 @@ int luat_lv_label_get_text(lua_State *L) {
 
 //  lv_label_long_mode_t lv_label_get_long_mode(lv_obj_t* label)
 int luat_lv_label_get_long_mode(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_label_get_long_mode);
+    LV_DEBUG("CALL lv_label_get_long_mode");
     lv_obj_t* label = (lv_obj_t*)lua_touserdata(L, 1);
     lv_label_long_mode_t ret;
     ret = lv_label_get_long_mode(label);
@@ -109,7 +109,7 @@ int luat_lv_label_get_long_mode(lua_State *L) {
 
 //  lv_label_align_t lv_label_get_align(lv_obj_t* label)
 int luat_lv_label_get_align(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_label_get_align);
+    LV_DEBUG("CALL lv_label_get_align");
     lv_obj_t* label = (lv_obj_t*)lua_touserdata(L, 1);
     lv_label_align_t ret;
     ret = lv_label_get_align(label);
@@ -119,7 +119,7 @@ int luat_lv_label_get_align(lua_State *L) {
 
 //  bool lv_label_get_recolor(lv_obj_t* label)
 int luat_lv_label_get_recolor(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_label_get_recolor);
+    LV_DEBUG("CALL lv_label_get_recolor");
     lv_obj_t* label = (lv_obj_t*)lua_touserdata(L, 1);
     bool ret;
     ret = lv_label_get_recolor(label);
@@ -129,7 +129,7 @@ int luat_lv_label_get_recolor(lua_State *L) {
 
 //  uint16_t lv_label_get_anim_speed(lv_obj_t* label)
 int luat_lv_label_get_anim_speed(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_label_get_anim_speed);
+    LV_DEBUG("CALL lv_label_get_anim_speed");
     lv_obj_t* label = (lv_obj_t*)lua_touserdata(L, 1);
     uint16_t ret;
     ret = lv_label_get_anim_speed(label);
@@ -139,7 +139,7 @@ int luat_lv_label_get_anim_speed(lua_State *L) {
 
 //  void lv_label_get_letter_pos(lv_obj_t* label, uint32_t index, lv_point_t* pos)
 int luat_lv_label_get_letter_pos(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_label_get_letter_pos);
+    LV_DEBUG("CALL lv_label_get_letter_pos");
     lv_obj_t* label = (lv_obj_t*)lua_touserdata(L, 1);
     uint32_t index = (uint32_t)luaL_checkinteger(L, 2);
     lua_pushvalue(L, 3);
@@ -154,7 +154,7 @@ int luat_lv_label_get_letter_pos(lua_State *L) {
 
 //  uint32_t lv_label_get_letter_on(lv_obj_t* label, lv_point_t* pos)
 int luat_lv_label_get_letter_on(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_label_get_letter_on);
+    LV_DEBUG("CALL lv_label_get_letter_on");
     lv_obj_t* label = (lv_obj_t*)lua_touserdata(L, 1);
     lua_pushvalue(L, 2);
     lv_point_t pos = {0};
@@ -170,7 +170,7 @@ int luat_lv_label_get_letter_on(lua_State *L) {
 
 //  bool lv_label_is_char_under_pos(lv_obj_t* label, lv_point_t* pos)
 int luat_lv_label_is_char_under_pos(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_label_is_char_under_pos);
+    LV_DEBUG("CALL lv_label_is_char_under_pos");
     lv_obj_t* label = (lv_obj_t*)lua_touserdata(L, 1);
     lua_pushvalue(L, 2);
     lv_point_t pos = {0};
@@ -186,7 +186,7 @@ int luat_lv_label_is_char_under_pos(lua_State *L) {
 
 //  uint32_t lv_label_get_text_sel_start(lv_obj_t* label)
 int luat_lv_label_get_text_sel_start(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_label_get_text_sel_start);
+    LV_DEBUG("CALL lv_label_get_text_sel_start");
     lv_obj_t* label = (lv_obj_t*)lua_touserdata(L, 1);
     uint32_t ret;
     ret = lv_label_get_text_sel_start(label);
@@ -196,7 +196,7 @@ int luat_lv_label_get_text_sel_start(lua_State *L) {
 
 //  uint32_t lv_label_get_text_sel_end(lv_obj_t* label)
 int luat_lv_label_get_text_sel_end(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_label_get_text_sel_end);
+    LV_DEBUG("CALL lv_label_get_text_sel_end");
     lv_obj_t* label = (lv_obj_t*)lua_touserdata(L, 1);
     uint32_t ret;
     ret = lv_label_get_text_sel_end(label);
@@ -206,7 +206,7 @@ int luat_lv_label_get_text_sel_end(lua_State *L) {
 
 //  lv_style_list_t* lv_label_get_style(lv_obj_t* label, uint8_t type)
 int luat_lv_label_get_style(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_label_get_style);
+    LV_DEBUG("CALL lv_label_get_style");
     lv_obj_t* label = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t type = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_list_t* ret = NULL;
@@ -217,7 +217,7 @@ int luat_lv_label_get_style(lua_State *L) {
 
 //  void lv_label_ins_text(lv_obj_t* label, uint32_t pos, char* txt)
 int luat_lv_label_ins_text(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_label_ins_text);
+    LV_DEBUG("CALL lv_label_ins_text");
     lv_obj_t* label = (lv_obj_t*)lua_touserdata(L, 1);
     uint32_t pos = (uint32_t)luaL_checkinteger(L, 2);
     char* txt = (char*)luaL_checkstring(L, 3);
@@ -227,7 +227,7 @@ int luat_lv_label_ins_text(lua_State *L) {
 
 //  void lv_label_cut_text(lv_obj_t* label, uint32_t pos, uint32_t cnt)
 int luat_lv_label_cut_text(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_label_cut_text);
+    LV_DEBUG("CALL lv_label_cut_text");
     lv_obj_t* label = (lv_obj_t*)lua_touserdata(L, 1);
     uint32_t pos = (uint32_t)luaL_checkinteger(L, 2);
     uint32_t cnt = (uint32_t)luaL_checkinteger(L, 3);
@@ -237,7 +237,7 @@ int luat_lv_label_cut_text(lua_State *L) {
 
 //  void lv_label_refr_text(lv_obj_t* label)
 int luat_lv_label_refr_text(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_label_refr_text);
+    LV_DEBUG("CALL lv_label_refr_text");
     lv_obj_t* label = (lv_obj_t*)lua_touserdata(L, 1);
     lv_label_refr_text(label);
     return 0;

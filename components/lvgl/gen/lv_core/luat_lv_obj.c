@@ -6,7 +6,7 @@
 
 //  lv_obj_t* lv_obj_create(lv_obj_t* parent, lv_obj_t* copy)
 int luat_lv_obj_create(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_create);
+    LV_DEBUG("CALL lv_obj_create");
     lv_obj_t* parent = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* copy = (lv_obj_t*)lua_touserdata(L, 2);
     lv_obj_t* ret = NULL;
@@ -17,7 +17,7 @@ int luat_lv_obj_create(lua_State *L) {
 
 //  lv_res_t lv_obj_del(lv_obj_t* obj)
 int luat_lv_obj_del(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_del);
+    LV_DEBUG("CALL lv_obj_del");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_res_t ret;
     ret = lv_obj_del(obj);
@@ -28,7 +28,7 @@ int luat_lv_obj_del(lua_State *L) {
 
 //  void lv_obj_del_async(lv_obj_t* obj)
 int luat_lv_obj_del_async(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_del_async);
+    LV_DEBUG("CALL lv_obj_del_async");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_del_async(obj);
     return 0;
@@ -36,7 +36,7 @@ int luat_lv_obj_del_async(lua_State *L) {
 
 //  void lv_obj_clean(lv_obj_t* obj)
 int luat_lv_obj_clean(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_clean);
+    LV_DEBUG("CALL lv_obj_clean");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_clean(obj);
     return 0;
@@ -44,7 +44,7 @@ int luat_lv_obj_clean(lua_State *L) {
 
 //  void lv_obj_invalidate_area(lv_obj_t* obj, lv_area_t* area)
 int luat_lv_obj_invalidate_area(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_invalidate_area);
+    LV_DEBUG("CALL lv_obj_invalidate_area");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lua_pushvalue(L, 2);
     lv_area_t area = {0};
@@ -60,7 +60,7 @@ int luat_lv_obj_invalidate_area(lua_State *L) {
 
 //  void lv_obj_invalidate(lv_obj_t* obj)
 int luat_lv_obj_invalidate(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_invalidate);
+    LV_DEBUG("CALL lv_obj_invalidate");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_invalidate(obj);
     return 0;
@@ -68,7 +68,7 @@ int luat_lv_obj_invalidate(lua_State *L) {
 
 //  bool lv_obj_area_is_visible(lv_obj_t* obj, lv_area_t* area)
 int luat_lv_obj_area_is_visible(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_area_is_visible);
+    LV_DEBUG("CALL lv_obj_area_is_visible");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lua_pushvalue(L, 2);
     lv_area_t area = {0};
@@ -86,7 +86,7 @@ int luat_lv_obj_area_is_visible(lua_State *L) {
 
 //  bool lv_obj_is_visible(lv_obj_t* obj)
 int luat_lv_obj_is_visible(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_is_visible);
+    LV_DEBUG("CALL lv_obj_is_visible");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     bool ret;
     ret = lv_obj_is_visible(obj);
@@ -96,7 +96,7 @@ int luat_lv_obj_is_visible(lua_State *L) {
 
 //  void lv_obj_set_parent(lv_obj_t* obj, lv_obj_t* parent)
 int luat_lv_obj_set_parent(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_parent);
+    LV_DEBUG("CALL lv_obj_set_parent");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* parent = (lv_obj_t*)lua_touserdata(L, 2);
     lv_obj_set_parent(obj ,parent);
@@ -105,7 +105,7 @@ int luat_lv_obj_set_parent(lua_State *L) {
 
 //  void lv_obj_move_foreground(lv_obj_t* obj)
 int luat_lv_obj_move_foreground(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_move_foreground);
+    LV_DEBUG("CALL lv_obj_move_foreground");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_move_foreground(obj);
     return 0;
@@ -113,7 +113,7 @@ int luat_lv_obj_move_foreground(lua_State *L) {
 
 //  void lv_obj_move_background(lv_obj_t* obj)
 int luat_lv_obj_move_background(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_move_background);
+    LV_DEBUG("CALL lv_obj_move_background");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_move_background(obj);
     return 0;
@@ -121,7 +121,7 @@ int luat_lv_obj_move_background(lua_State *L) {
 
 //  void lv_obj_set_pos(lv_obj_t* obj, lv_coord_t x, lv_coord_t y)
 int luat_lv_obj_set_pos(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_pos);
+    LV_DEBUG("CALL lv_obj_set_pos");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t x = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_coord_t y = (lv_coord_t)luaL_checkinteger(L, 3);
@@ -131,7 +131,7 @@ int luat_lv_obj_set_pos(lua_State *L) {
 
 //  void lv_obj_set_x(lv_obj_t* obj, lv_coord_t x)
 int luat_lv_obj_set_x(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_x);
+    LV_DEBUG("CALL lv_obj_set_x");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t x = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_obj_set_x(obj ,x);
@@ -140,7 +140,7 @@ int luat_lv_obj_set_x(lua_State *L) {
 
 //  void lv_obj_set_y(lv_obj_t* obj, lv_coord_t y)
 int luat_lv_obj_set_y(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_y);
+    LV_DEBUG("CALL lv_obj_set_y");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t y = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_obj_set_y(obj ,y);
@@ -149,7 +149,7 @@ int luat_lv_obj_set_y(lua_State *L) {
 
 //  void lv_obj_set_size(lv_obj_t* obj, lv_coord_t w, lv_coord_t h)
 int luat_lv_obj_set_size(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_size);
+    LV_DEBUG("CALL lv_obj_set_size");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t w = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_coord_t h = (lv_coord_t)luaL_checkinteger(L, 3);
@@ -159,7 +159,7 @@ int luat_lv_obj_set_size(lua_State *L) {
 
 //  void lv_obj_set_width(lv_obj_t* obj, lv_coord_t w)
 int luat_lv_obj_set_width(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_width);
+    LV_DEBUG("CALL lv_obj_set_width");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t w = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_obj_set_width(obj ,w);
@@ -168,7 +168,7 @@ int luat_lv_obj_set_width(lua_State *L) {
 
 //  void lv_obj_set_height(lv_obj_t* obj, lv_coord_t h)
 int luat_lv_obj_set_height(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_height);
+    LV_DEBUG("CALL lv_obj_set_height");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t h = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_obj_set_height(obj ,h);
@@ -177,7 +177,7 @@ int luat_lv_obj_set_height(lua_State *L) {
 
 //  void lv_obj_set_width_fit(lv_obj_t* obj, lv_coord_t w)
 int luat_lv_obj_set_width_fit(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_width_fit);
+    LV_DEBUG("CALL lv_obj_set_width_fit");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t w = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_obj_set_width_fit(obj ,w);
@@ -186,7 +186,7 @@ int luat_lv_obj_set_width_fit(lua_State *L) {
 
 //  void lv_obj_set_height_fit(lv_obj_t* obj, lv_coord_t h)
 int luat_lv_obj_set_height_fit(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_height_fit);
+    LV_DEBUG("CALL lv_obj_set_height_fit");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t h = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_obj_set_height_fit(obj ,h);
@@ -195,7 +195,7 @@ int luat_lv_obj_set_height_fit(lua_State *L) {
 
 //  void lv_obj_set_width_margin(lv_obj_t* obj, lv_coord_t w)
 int luat_lv_obj_set_width_margin(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_width_margin);
+    LV_DEBUG("CALL lv_obj_set_width_margin");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t w = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_obj_set_width_margin(obj ,w);
@@ -204,7 +204,7 @@ int luat_lv_obj_set_width_margin(lua_State *L) {
 
 //  void lv_obj_set_height_margin(lv_obj_t* obj, lv_coord_t h)
 int luat_lv_obj_set_height_margin(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_height_margin);
+    LV_DEBUG("CALL lv_obj_set_height_margin");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t h = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_obj_set_height_margin(obj ,h);
@@ -213,7 +213,7 @@ int luat_lv_obj_set_height_margin(lua_State *L) {
 
 //  void lv_obj_align(lv_obj_t* obj, lv_obj_t* base, lv_align_t align, lv_coord_t x_ofs, lv_coord_t y_ofs)
 int luat_lv_obj_align(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_align);
+    LV_DEBUG("CALL lv_obj_align");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* base = (lv_obj_t*)lua_touserdata(L, 2);
     lv_align_t align = (lv_align_t)luaL_checkinteger(L, 3);
@@ -225,7 +225,7 @@ int luat_lv_obj_align(lua_State *L) {
 
 //  void lv_obj_align_x(lv_obj_t* obj, lv_obj_t* base, lv_align_t align, lv_coord_t x_ofs)
 int luat_lv_obj_align_x(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_align_x);
+    LV_DEBUG("CALL lv_obj_align_x");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* base = (lv_obj_t*)lua_touserdata(L, 2);
     lv_align_t align = (lv_align_t)luaL_checkinteger(L, 3);
@@ -236,7 +236,7 @@ int luat_lv_obj_align_x(lua_State *L) {
 
 //  void lv_obj_align_y(lv_obj_t* obj, lv_obj_t* base, lv_align_t align, lv_coord_t y_ofs)
 int luat_lv_obj_align_y(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_align_y);
+    LV_DEBUG("CALL lv_obj_align_y");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* base = (lv_obj_t*)lua_touserdata(L, 2);
     lv_align_t align = (lv_align_t)luaL_checkinteger(L, 3);
@@ -247,7 +247,7 @@ int luat_lv_obj_align_y(lua_State *L) {
 
 //  void lv_obj_align_mid(lv_obj_t* obj, lv_obj_t* base, lv_align_t align, lv_coord_t x_ofs, lv_coord_t y_ofs)
 int luat_lv_obj_align_mid(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_align_mid);
+    LV_DEBUG("CALL lv_obj_align_mid");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* base = (lv_obj_t*)lua_touserdata(L, 2);
     lv_align_t align = (lv_align_t)luaL_checkinteger(L, 3);
@@ -259,7 +259,7 @@ int luat_lv_obj_align_mid(lua_State *L) {
 
 //  void lv_obj_align_mid_x(lv_obj_t* obj, lv_obj_t* base, lv_align_t align, lv_coord_t x_ofs)
 int luat_lv_obj_align_mid_x(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_align_mid_x);
+    LV_DEBUG("CALL lv_obj_align_mid_x");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* base = (lv_obj_t*)lua_touserdata(L, 2);
     lv_align_t align = (lv_align_t)luaL_checkinteger(L, 3);
@@ -270,7 +270,7 @@ int luat_lv_obj_align_mid_x(lua_State *L) {
 
 //  void lv_obj_align_mid_y(lv_obj_t* obj, lv_obj_t* base, lv_align_t align, lv_coord_t y_ofs)
 int luat_lv_obj_align_mid_y(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_align_mid_y);
+    LV_DEBUG("CALL lv_obj_align_mid_y");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* base = (lv_obj_t*)lua_touserdata(L, 2);
     lv_align_t align = (lv_align_t)luaL_checkinteger(L, 3);
@@ -281,7 +281,7 @@ int luat_lv_obj_align_mid_y(lua_State *L) {
 
 //  void lv_obj_realign(lv_obj_t* obj)
 int luat_lv_obj_realign(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_realign);
+    LV_DEBUG("CALL lv_obj_realign");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_realign(obj);
     return 0;
@@ -289,7 +289,7 @@ int luat_lv_obj_realign(lua_State *L) {
 
 //  void lv_obj_set_auto_realign(lv_obj_t* obj, bool en)
 int luat_lv_obj_set_auto_realign(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_auto_realign);
+    LV_DEBUG("CALL lv_obj_set_auto_realign");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     bool en = (bool)lua_toboolean(L, 2);
     lv_obj_set_auto_realign(obj ,en);
@@ -298,7 +298,7 @@ int luat_lv_obj_set_auto_realign(lua_State *L) {
 
 //  void lv_obj_set_ext_click_area(lv_obj_t* obj, lv_coord_t left, lv_coord_t right, lv_coord_t top, lv_coord_t bottom)
 int luat_lv_obj_set_ext_click_area(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_ext_click_area);
+    LV_DEBUG("CALL lv_obj_set_ext_click_area");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t left = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_coord_t right = (lv_coord_t)luaL_checkinteger(L, 3);
@@ -310,7 +310,7 @@ int luat_lv_obj_set_ext_click_area(lua_State *L) {
 
 //  void lv_obj_add_style(lv_obj_t* obj, uint8_t part, lv_style_t* style)
 int luat_lv_obj_add_style(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_add_style);
+    LV_DEBUG("CALL lv_obj_add_style");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_t* style = (lv_style_t*)lua_touserdata(L, 3);
@@ -320,7 +320,7 @@ int luat_lv_obj_add_style(lua_State *L) {
 
 //  void lv_obj_remove_style(lv_obj_t* obj, uint8_t part, lv_style_t* style)
 int luat_lv_obj_remove_style(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_remove_style);
+    LV_DEBUG("CALL lv_obj_remove_style");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_t* style = (lv_style_t*)lua_touserdata(L, 3);
@@ -330,7 +330,7 @@ int luat_lv_obj_remove_style(lua_State *L) {
 
 //  void lv_obj_clean_style_list(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_clean_style_list(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_clean_style_list);
+    LV_DEBUG("CALL lv_obj_clean_style_list");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_obj_clean_style_list(obj ,part);
@@ -339,7 +339,7 @@ int luat_lv_obj_clean_style_list(lua_State *L) {
 
 //  void lv_obj_reset_style_list(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_reset_style_list(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_reset_style_list);
+    LV_DEBUG("CALL lv_obj_reset_style_list");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_obj_reset_style_list(obj ,part);
@@ -348,7 +348,7 @@ int luat_lv_obj_reset_style_list(lua_State *L) {
 
 //  void lv_obj_refresh_style(lv_obj_t* obj, uint8_t part, lv_style_property_t prop)
 int luat_lv_obj_refresh_style(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_refresh_style);
+    LV_DEBUG("CALL lv_obj_refresh_style");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_property_t prop = (lv_style_property_t)luaL_checkinteger(L, 3);
@@ -358,7 +358,7 @@ int luat_lv_obj_refresh_style(lua_State *L) {
 
 //  void lv_obj_report_style_mod(lv_style_t* style)
 int luat_lv_obj_report_style_mod(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_report_style_mod);
+    LV_DEBUG("CALL lv_obj_report_style_mod");
     lv_style_t* style = (lv_style_t*)lua_touserdata(L, 1);
     lv_obj_report_style_mod(style);
     return 0;
@@ -366,7 +366,7 @@ int luat_lv_obj_report_style_mod(lua_State *L) {
 
 //  bool lv_obj_remove_style_local_prop(lv_obj_t* obj, uint8_t part, lv_style_property_t prop)
 int luat_lv_obj_remove_style_local_prop(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_remove_style_local_prop);
+    LV_DEBUG("CALL lv_obj_remove_style_local_prop");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_property_t prop = (lv_style_property_t)luaL_checkinteger(L, 3);
@@ -378,7 +378,7 @@ int luat_lv_obj_remove_style_local_prop(lua_State *L) {
 
 //  void lv_obj_set_hidden(lv_obj_t* obj, bool en)
 int luat_lv_obj_set_hidden(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_hidden);
+    LV_DEBUG("CALL lv_obj_set_hidden");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     bool en = (bool)lua_toboolean(L, 2);
     lv_obj_set_hidden(obj ,en);
@@ -387,7 +387,7 @@ int luat_lv_obj_set_hidden(lua_State *L) {
 
 //  void lv_obj_set_adv_hittest(lv_obj_t* obj, bool en)
 int luat_lv_obj_set_adv_hittest(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_adv_hittest);
+    LV_DEBUG("CALL lv_obj_set_adv_hittest");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     bool en = (bool)lua_toboolean(L, 2);
     lv_obj_set_adv_hittest(obj ,en);
@@ -396,7 +396,7 @@ int luat_lv_obj_set_adv_hittest(lua_State *L) {
 
 //  void lv_obj_set_click(lv_obj_t* obj, bool en)
 int luat_lv_obj_set_click(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_click);
+    LV_DEBUG("CALL lv_obj_set_click");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     bool en = (bool)lua_toboolean(L, 2);
     lv_obj_set_click(obj ,en);
@@ -405,7 +405,7 @@ int luat_lv_obj_set_click(lua_State *L) {
 
 //  void lv_obj_set_top(lv_obj_t* obj, bool en)
 int luat_lv_obj_set_top(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_top);
+    LV_DEBUG("CALL lv_obj_set_top");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     bool en = (bool)lua_toboolean(L, 2);
     lv_obj_set_top(obj ,en);
@@ -414,7 +414,7 @@ int luat_lv_obj_set_top(lua_State *L) {
 
 //  void lv_obj_set_drag(lv_obj_t* obj, bool en)
 int luat_lv_obj_set_drag(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_drag);
+    LV_DEBUG("CALL lv_obj_set_drag");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     bool en = (bool)lua_toboolean(L, 2);
     lv_obj_set_drag(obj ,en);
@@ -423,7 +423,7 @@ int luat_lv_obj_set_drag(lua_State *L) {
 
 //  void lv_obj_set_drag_dir(lv_obj_t* obj, lv_drag_dir_t drag_dir)
 int luat_lv_obj_set_drag_dir(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_drag_dir);
+    LV_DEBUG("CALL lv_obj_set_drag_dir");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_drag_dir_t drag_dir = (lv_drag_dir_t)luaL_checkinteger(L, 2);
     lv_obj_set_drag_dir(obj ,drag_dir);
@@ -432,7 +432,7 @@ int luat_lv_obj_set_drag_dir(lua_State *L) {
 
 //  void lv_obj_set_drag_throw(lv_obj_t* obj, bool en)
 int luat_lv_obj_set_drag_throw(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_drag_throw);
+    LV_DEBUG("CALL lv_obj_set_drag_throw");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     bool en = (bool)lua_toboolean(L, 2);
     lv_obj_set_drag_throw(obj ,en);
@@ -441,7 +441,7 @@ int luat_lv_obj_set_drag_throw(lua_State *L) {
 
 //  void lv_obj_set_drag_parent(lv_obj_t* obj, bool en)
 int luat_lv_obj_set_drag_parent(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_drag_parent);
+    LV_DEBUG("CALL lv_obj_set_drag_parent");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     bool en = (bool)lua_toboolean(L, 2);
     lv_obj_set_drag_parent(obj ,en);
@@ -450,7 +450,7 @@ int luat_lv_obj_set_drag_parent(lua_State *L) {
 
 //  void lv_obj_set_focus_parent(lv_obj_t* obj, bool en)
 int luat_lv_obj_set_focus_parent(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_focus_parent);
+    LV_DEBUG("CALL lv_obj_set_focus_parent");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     bool en = (bool)lua_toboolean(L, 2);
     lv_obj_set_focus_parent(obj ,en);
@@ -459,7 +459,7 @@ int luat_lv_obj_set_focus_parent(lua_State *L) {
 
 //  void lv_obj_set_gesture_parent(lv_obj_t* obj, bool en)
 int luat_lv_obj_set_gesture_parent(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_gesture_parent);
+    LV_DEBUG("CALL lv_obj_set_gesture_parent");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     bool en = (bool)lua_toboolean(L, 2);
     lv_obj_set_gesture_parent(obj ,en);
@@ -468,7 +468,7 @@ int luat_lv_obj_set_gesture_parent(lua_State *L) {
 
 //  void lv_obj_set_parent_event(lv_obj_t* obj, bool en)
 int luat_lv_obj_set_parent_event(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_parent_event);
+    LV_DEBUG("CALL lv_obj_set_parent_event");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     bool en = (bool)lua_toboolean(L, 2);
     lv_obj_set_parent_event(obj ,en);
@@ -477,7 +477,7 @@ int luat_lv_obj_set_parent_event(lua_State *L) {
 
 //  void lv_obj_set_base_dir(lv_obj_t* obj, lv_bidi_dir_t dir)
 int luat_lv_obj_set_base_dir(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_base_dir);
+    LV_DEBUG("CALL lv_obj_set_base_dir");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_bidi_dir_t dir = (lv_bidi_dir_t)luaL_checkinteger(L, 2);
     lv_obj_set_base_dir(obj ,dir);
@@ -486,7 +486,7 @@ int luat_lv_obj_set_base_dir(lua_State *L) {
 
 //  void lv_obj_add_protect(lv_obj_t* obj, uint8_t prot)
 int luat_lv_obj_add_protect(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_add_protect);
+    LV_DEBUG("CALL lv_obj_add_protect");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t prot = (uint8_t)luaL_checkinteger(L, 2);
     lv_obj_add_protect(obj ,prot);
@@ -495,7 +495,7 @@ int luat_lv_obj_add_protect(lua_State *L) {
 
 //  void lv_obj_clear_protect(lv_obj_t* obj, uint8_t prot)
 int luat_lv_obj_clear_protect(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_clear_protect);
+    LV_DEBUG("CALL lv_obj_clear_protect");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t prot = (uint8_t)luaL_checkinteger(L, 2);
     lv_obj_clear_protect(obj ,prot);
@@ -504,7 +504,7 @@ int luat_lv_obj_clear_protect(lua_State *L) {
 
 //  void lv_obj_set_state(lv_obj_t* obj, lv_state_t state)
 int luat_lv_obj_set_state(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_state);
+    LV_DEBUG("CALL lv_obj_set_state");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 2);
     lv_obj_set_state(obj ,state);
@@ -513,7 +513,7 @@ int luat_lv_obj_set_state(lua_State *L) {
 
 //  void lv_obj_add_state(lv_obj_t* obj, lv_state_t state)
 int luat_lv_obj_add_state(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_add_state);
+    LV_DEBUG("CALL lv_obj_add_state");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 2);
     lv_obj_add_state(obj ,state);
@@ -522,7 +522,7 @@ int luat_lv_obj_add_state(lua_State *L) {
 
 //  void lv_obj_clear_state(lv_obj_t* obj, lv_state_t state)
 int luat_lv_obj_clear_state(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_clear_state);
+    LV_DEBUG("CALL lv_obj_clear_state");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 2);
     lv_obj_clear_state(obj ,state);
@@ -531,7 +531,7 @@ int luat_lv_obj_clear_state(lua_State *L) {
 
 //  void lv_obj_finish_transitions(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_finish_transitions(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_finish_transitions);
+    LV_DEBUG("CALL lv_obj_finish_transitions");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_obj_finish_transitions(obj ,part);
@@ -540,7 +540,7 @@ int luat_lv_obj_finish_transitions(lua_State *L) {
 
 //  void* lv_obj_allocate_ext_attr(lv_obj_t* obj, uint16_t ext_size)
 int luat_lv_obj_allocate_ext_attr(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_allocate_ext_attr);
+    LV_DEBUG("CALL lv_obj_allocate_ext_attr");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint16_t ext_size = (uint16_t)luaL_checkinteger(L, 2);
     void* ret = NULL;
@@ -551,7 +551,7 @@ int luat_lv_obj_allocate_ext_attr(lua_State *L) {
 
 //  void lv_obj_refresh_ext_draw_pad(lv_obj_t* obj)
 int luat_lv_obj_refresh_ext_draw_pad(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_refresh_ext_draw_pad);
+    LV_DEBUG("CALL lv_obj_refresh_ext_draw_pad");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_refresh_ext_draw_pad(obj);
     return 0;
@@ -559,7 +559,7 @@ int luat_lv_obj_refresh_ext_draw_pad(lua_State *L) {
 
 //  lv_obj_t* lv_obj_get_screen(lv_obj_t* obj)
 int luat_lv_obj_get_screen(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_screen);
+    LV_DEBUG("CALL lv_obj_get_screen");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* ret = NULL;
     ret = lv_obj_get_screen(obj);
@@ -569,7 +569,7 @@ int luat_lv_obj_get_screen(lua_State *L) {
 
 //  lv_disp_t* lv_obj_get_disp(lv_obj_t* obj)
 int luat_lv_obj_get_disp(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_disp);
+    LV_DEBUG("CALL lv_obj_get_disp");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_disp_t* ret = NULL;
     ret = lv_obj_get_disp(obj);
@@ -579,7 +579,7 @@ int luat_lv_obj_get_disp(lua_State *L) {
 
 //  lv_obj_t* lv_obj_get_parent(lv_obj_t* obj)
 int luat_lv_obj_get_parent(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_parent);
+    LV_DEBUG("CALL lv_obj_get_parent");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* ret = NULL;
     ret = lv_obj_get_parent(obj);
@@ -589,7 +589,7 @@ int luat_lv_obj_get_parent(lua_State *L) {
 
 //  lv_obj_t* lv_obj_get_child(lv_obj_t* obj, lv_obj_t* child)
 int luat_lv_obj_get_child(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_child);
+    LV_DEBUG("CALL lv_obj_get_child");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* child = (lv_obj_t*)lua_touserdata(L, 2);
     lv_obj_t* ret = NULL;
@@ -600,7 +600,7 @@ int luat_lv_obj_get_child(lua_State *L) {
 
 //  lv_obj_t* lv_obj_get_child_back(lv_obj_t* obj, lv_obj_t* child)
 int luat_lv_obj_get_child_back(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_child_back);
+    LV_DEBUG("CALL lv_obj_get_child_back");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* child = (lv_obj_t*)lua_touserdata(L, 2);
     lv_obj_t* ret = NULL;
@@ -611,7 +611,7 @@ int luat_lv_obj_get_child_back(lua_State *L) {
 
 //  uint16_t lv_obj_count_children(lv_obj_t* obj)
 int luat_lv_obj_count_children(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_count_children);
+    LV_DEBUG("CALL lv_obj_count_children");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint16_t ret;
     ret = lv_obj_count_children(obj);
@@ -621,7 +621,7 @@ int luat_lv_obj_count_children(lua_State *L) {
 
 //  uint16_t lv_obj_count_children_recursive(lv_obj_t* obj)
 int luat_lv_obj_count_children_recursive(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_count_children_recursive);
+    LV_DEBUG("CALL lv_obj_count_children_recursive");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint16_t ret;
     ret = lv_obj_count_children_recursive(obj);
@@ -631,7 +631,7 @@ int luat_lv_obj_count_children_recursive(lua_State *L) {
 
 //  void lv_obj_get_coords(lv_obj_t* obj, lv_area_t* cords_p)
 int luat_lv_obj_get_coords(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_coords);
+    LV_DEBUG("CALL lv_obj_get_coords");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lua_pushvalue(L, 2);
     lv_area_t cords_p = {0};
@@ -647,7 +647,7 @@ int luat_lv_obj_get_coords(lua_State *L) {
 
 //  void lv_obj_get_inner_coords(lv_obj_t* obj, lv_area_t* coords_p)
 int luat_lv_obj_get_inner_coords(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_inner_coords);
+    LV_DEBUG("CALL lv_obj_get_inner_coords");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lua_pushvalue(L, 2);
     lv_area_t coords_p = {0};
@@ -663,7 +663,7 @@ int luat_lv_obj_get_inner_coords(lua_State *L) {
 
 //  lv_coord_t lv_obj_get_x(lv_obj_t* obj)
 int luat_lv_obj_get_x(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_x);
+    LV_DEBUG("CALL lv_obj_get_x");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t ret;
     ret = lv_obj_get_x(obj);
@@ -673,7 +673,7 @@ int luat_lv_obj_get_x(lua_State *L) {
 
 //  lv_coord_t lv_obj_get_y(lv_obj_t* obj)
 int luat_lv_obj_get_y(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_y);
+    LV_DEBUG("CALL lv_obj_get_y");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t ret;
     ret = lv_obj_get_y(obj);
@@ -683,7 +683,7 @@ int luat_lv_obj_get_y(lua_State *L) {
 
 //  lv_coord_t lv_obj_get_width(lv_obj_t* obj)
 int luat_lv_obj_get_width(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_width);
+    LV_DEBUG("CALL lv_obj_get_width");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t ret;
     ret = lv_obj_get_width(obj);
@@ -693,7 +693,7 @@ int luat_lv_obj_get_width(lua_State *L) {
 
 //  lv_coord_t lv_obj_get_height(lv_obj_t* obj)
 int luat_lv_obj_get_height(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_height);
+    LV_DEBUG("CALL lv_obj_get_height");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t ret;
     ret = lv_obj_get_height(obj);
@@ -703,7 +703,7 @@ int luat_lv_obj_get_height(lua_State *L) {
 
 //  lv_coord_t lv_obj_get_width_fit(lv_obj_t* obj)
 int luat_lv_obj_get_width_fit(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_width_fit);
+    LV_DEBUG("CALL lv_obj_get_width_fit");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t ret;
     ret = lv_obj_get_width_fit(obj);
@@ -713,7 +713,7 @@ int luat_lv_obj_get_width_fit(lua_State *L) {
 
 //  lv_coord_t lv_obj_get_height_fit(lv_obj_t* obj)
 int luat_lv_obj_get_height_fit(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_height_fit);
+    LV_DEBUG("CALL lv_obj_get_height_fit");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t ret;
     ret = lv_obj_get_height_fit(obj);
@@ -723,7 +723,7 @@ int luat_lv_obj_get_height_fit(lua_State *L) {
 
 //  lv_coord_t lv_obj_get_height_margin(lv_obj_t* obj)
 int luat_lv_obj_get_height_margin(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_height_margin);
+    LV_DEBUG("CALL lv_obj_get_height_margin");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t ret;
     ret = lv_obj_get_height_margin(obj);
@@ -733,7 +733,7 @@ int luat_lv_obj_get_height_margin(lua_State *L) {
 
 //  lv_coord_t lv_obj_get_width_margin(lv_obj_t* obj)
 int luat_lv_obj_get_width_margin(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_width_margin);
+    LV_DEBUG("CALL lv_obj_get_width_margin");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t ret;
     ret = lv_obj_get_width_margin(obj);
@@ -743,7 +743,7 @@ int luat_lv_obj_get_width_margin(lua_State *L) {
 
 //  lv_coord_t lv_obj_get_width_grid(lv_obj_t* obj, uint8_t div, uint8_t span)
 int luat_lv_obj_get_width_grid(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_width_grid);
+    LV_DEBUG("CALL lv_obj_get_width_grid");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t div = (uint8_t)luaL_checkinteger(L, 2);
     uint8_t span = (uint8_t)luaL_checkinteger(L, 3);
@@ -755,7 +755,7 @@ int luat_lv_obj_get_width_grid(lua_State *L) {
 
 //  lv_coord_t lv_obj_get_height_grid(lv_obj_t* obj, uint8_t div, uint8_t span)
 int luat_lv_obj_get_height_grid(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_height_grid);
+    LV_DEBUG("CALL lv_obj_get_height_grid");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t div = (uint8_t)luaL_checkinteger(L, 2);
     uint8_t span = (uint8_t)luaL_checkinteger(L, 3);
@@ -767,7 +767,7 @@ int luat_lv_obj_get_height_grid(lua_State *L) {
 
 //  bool lv_obj_get_auto_realign(lv_obj_t* obj)
 int luat_lv_obj_get_auto_realign(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_auto_realign);
+    LV_DEBUG("CALL lv_obj_get_auto_realign");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     bool ret;
     ret = lv_obj_get_auto_realign(obj);
@@ -777,7 +777,7 @@ int luat_lv_obj_get_auto_realign(lua_State *L) {
 
 //  lv_coord_t lv_obj_get_ext_click_pad_left(lv_obj_t* obj)
 int luat_lv_obj_get_ext_click_pad_left(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_ext_click_pad_left);
+    LV_DEBUG("CALL lv_obj_get_ext_click_pad_left");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t ret;
     ret = lv_obj_get_ext_click_pad_left(obj);
@@ -787,7 +787,7 @@ int luat_lv_obj_get_ext_click_pad_left(lua_State *L) {
 
 //  lv_coord_t lv_obj_get_ext_click_pad_right(lv_obj_t* obj)
 int luat_lv_obj_get_ext_click_pad_right(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_ext_click_pad_right);
+    LV_DEBUG("CALL lv_obj_get_ext_click_pad_right");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t ret;
     ret = lv_obj_get_ext_click_pad_right(obj);
@@ -797,7 +797,7 @@ int luat_lv_obj_get_ext_click_pad_right(lua_State *L) {
 
 //  lv_coord_t lv_obj_get_ext_click_pad_top(lv_obj_t* obj)
 int luat_lv_obj_get_ext_click_pad_top(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_ext_click_pad_top);
+    LV_DEBUG("CALL lv_obj_get_ext_click_pad_top");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t ret;
     ret = lv_obj_get_ext_click_pad_top(obj);
@@ -807,7 +807,7 @@ int luat_lv_obj_get_ext_click_pad_top(lua_State *L) {
 
 //  lv_coord_t lv_obj_get_ext_click_pad_bottom(lv_obj_t* obj)
 int luat_lv_obj_get_ext_click_pad_bottom(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_ext_click_pad_bottom);
+    LV_DEBUG("CALL lv_obj_get_ext_click_pad_bottom");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t ret;
     ret = lv_obj_get_ext_click_pad_bottom(obj);
@@ -817,7 +817,7 @@ int luat_lv_obj_get_ext_click_pad_bottom(lua_State *L) {
 
 //  lv_coord_t lv_obj_get_ext_draw_pad(lv_obj_t* obj)
 int luat_lv_obj_get_ext_draw_pad(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_ext_draw_pad);
+    LV_DEBUG("CALL lv_obj_get_ext_draw_pad");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t ret;
     ret = lv_obj_get_ext_draw_pad(obj);
@@ -827,7 +827,7 @@ int luat_lv_obj_get_ext_draw_pad(lua_State *L) {
 
 //  lv_style_list_t* lv_obj_get_style_list(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_list(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_list);
+    LV_DEBUG("CALL lv_obj_get_style_list");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_list_t* ret = NULL;
@@ -838,7 +838,7 @@ int luat_lv_obj_get_style_list(lua_State *L) {
 
 //  lv_style_t* lv_obj_get_local_style(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_local_style(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_local_style);
+    LV_DEBUG("CALL lv_obj_get_local_style");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_t* ret = NULL;
@@ -849,7 +849,7 @@ int luat_lv_obj_get_local_style(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_radius(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_radius(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_radius);
+    LV_DEBUG("CALL lv_obj_get_style_radius");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -860,7 +860,7 @@ int luat_lv_obj_get_style_radius(lua_State *L) {
 
 //  void lv_obj_set_style_local_radius(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_radius(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_radius);
+    LV_DEBUG("CALL lv_obj_set_style_local_radius");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -871,7 +871,7 @@ int luat_lv_obj_set_style_local_radius(lua_State *L) {
 
 //  bool lv_obj_get_style_clip_corner(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_clip_corner(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_clip_corner);
+    LV_DEBUG("CALL lv_obj_get_style_clip_corner");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     bool ret;
@@ -882,7 +882,7 @@ int luat_lv_obj_get_style_clip_corner(lua_State *L) {
 
 //  void lv_obj_set_style_local_clip_corner(lv_obj_t* obj, uint8_t part, lv_state_t state, bool value)
 int luat_lv_obj_set_style_local_clip_corner(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_clip_corner);
+    LV_DEBUG("CALL lv_obj_set_style_local_clip_corner");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -893,7 +893,7 @@ int luat_lv_obj_set_style_local_clip_corner(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_size(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_size(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_size);
+    LV_DEBUG("CALL lv_obj_get_style_size");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -904,7 +904,7 @@ int luat_lv_obj_get_style_size(lua_State *L) {
 
 //  void lv_obj_set_style_local_size(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_size(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_size);
+    LV_DEBUG("CALL lv_obj_set_style_local_size");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -915,7 +915,7 @@ int luat_lv_obj_set_style_local_size(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_transform_width(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_transform_width(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_transform_width);
+    LV_DEBUG("CALL lv_obj_get_style_transform_width");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -926,7 +926,7 @@ int luat_lv_obj_get_style_transform_width(lua_State *L) {
 
 //  void lv_obj_set_style_local_transform_width(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_transform_width(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_transform_width);
+    LV_DEBUG("CALL lv_obj_set_style_local_transform_width");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -937,7 +937,7 @@ int luat_lv_obj_set_style_local_transform_width(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_transform_height(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_transform_height(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_transform_height);
+    LV_DEBUG("CALL lv_obj_get_style_transform_height");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -948,7 +948,7 @@ int luat_lv_obj_get_style_transform_height(lua_State *L) {
 
 //  void lv_obj_set_style_local_transform_height(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_transform_height(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_transform_height);
+    LV_DEBUG("CALL lv_obj_set_style_local_transform_height");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -959,7 +959,7 @@ int luat_lv_obj_set_style_local_transform_height(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_transform_angle(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_transform_angle(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_transform_angle);
+    LV_DEBUG("CALL lv_obj_get_style_transform_angle");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -970,7 +970,7 @@ int luat_lv_obj_get_style_transform_angle(lua_State *L) {
 
 //  void lv_obj_set_style_local_transform_angle(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_transform_angle(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_transform_angle);
+    LV_DEBUG("CALL lv_obj_set_style_local_transform_angle");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -981,7 +981,7 @@ int luat_lv_obj_set_style_local_transform_angle(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_transform_zoom(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_transform_zoom(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_transform_zoom);
+    LV_DEBUG("CALL lv_obj_get_style_transform_zoom");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -992,7 +992,7 @@ int luat_lv_obj_get_style_transform_zoom(lua_State *L) {
 
 //  void lv_obj_set_style_local_transform_zoom(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_transform_zoom(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_transform_zoom);
+    LV_DEBUG("CALL lv_obj_set_style_local_transform_zoom");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1003,7 +1003,7 @@ int luat_lv_obj_set_style_local_transform_zoom(lua_State *L) {
 
 //  lv_opa_t lv_obj_get_style_opa_scale(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_opa_scale(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_opa_scale);
+    LV_DEBUG("CALL lv_obj_get_style_opa_scale");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_opa_t ret;
@@ -1014,7 +1014,7 @@ int luat_lv_obj_get_style_opa_scale(lua_State *L) {
 
 //  void lv_obj_set_style_local_opa_scale(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_opa_t value)
 int luat_lv_obj_set_style_local_opa_scale(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_opa_scale);
+    LV_DEBUG("CALL lv_obj_set_style_local_opa_scale");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1025,7 +1025,7 @@ int luat_lv_obj_set_style_local_opa_scale(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_pad_top(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_pad_top(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_pad_top);
+    LV_DEBUG("CALL lv_obj_get_style_pad_top");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -1036,7 +1036,7 @@ int luat_lv_obj_get_style_pad_top(lua_State *L) {
 
 //  void lv_obj_set_style_local_pad_top(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_pad_top(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_pad_top);
+    LV_DEBUG("CALL lv_obj_set_style_local_pad_top");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1047,7 +1047,7 @@ int luat_lv_obj_set_style_local_pad_top(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_pad_bottom(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_pad_bottom(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_pad_bottom);
+    LV_DEBUG("CALL lv_obj_get_style_pad_bottom");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -1058,7 +1058,7 @@ int luat_lv_obj_get_style_pad_bottom(lua_State *L) {
 
 //  void lv_obj_set_style_local_pad_bottom(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_pad_bottom(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_pad_bottom);
+    LV_DEBUG("CALL lv_obj_set_style_local_pad_bottom");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1069,7 +1069,7 @@ int luat_lv_obj_set_style_local_pad_bottom(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_pad_left(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_pad_left(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_pad_left);
+    LV_DEBUG("CALL lv_obj_get_style_pad_left");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -1080,7 +1080,7 @@ int luat_lv_obj_get_style_pad_left(lua_State *L) {
 
 //  void lv_obj_set_style_local_pad_left(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_pad_left(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_pad_left);
+    LV_DEBUG("CALL lv_obj_set_style_local_pad_left");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1091,7 +1091,7 @@ int luat_lv_obj_set_style_local_pad_left(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_pad_right(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_pad_right(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_pad_right);
+    LV_DEBUG("CALL lv_obj_get_style_pad_right");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -1102,7 +1102,7 @@ int luat_lv_obj_get_style_pad_right(lua_State *L) {
 
 //  void lv_obj_set_style_local_pad_right(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_pad_right(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_pad_right);
+    LV_DEBUG("CALL lv_obj_set_style_local_pad_right");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1113,7 +1113,7 @@ int luat_lv_obj_set_style_local_pad_right(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_pad_inner(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_pad_inner(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_pad_inner);
+    LV_DEBUG("CALL lv_obj_get_style_pad_inner");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -1124,7 +1124,7 @@ int luat_lv_obj_get_style_pad_inner(lua_State *L) {
 
 //  void lv_obj_set_style_local_pad_inner(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_pad_inner(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_pad_inner);
+    LV_DEBUG("CALL lv_obj_set_style_local_pad_inner");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1135,7 +1135,7 @@ int luat_lv_obj_set_style_local_pad_inner(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_margin_top(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_margin_top(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_margin_top);
+    LV_DEBUG("CALL lv_obj_get_style_margin_top");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -1146,7 +1146,7 @@ int luat_lv_obj_get_style_margin_top(lua_State *L) {
 
 //  void lv_obj_set_style_local_margin_top(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_margin_top(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_margin_top);
+    LV_DEBUG("CALL lv_obj_set_style_local_margin_top");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1157,7 +1157,7 @@ int luat_lv_obj_set_style_local_margin_top(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_margin_bottom(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_margin_bottom(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_margin_bottom);
+    LV_DEBUG("CALL lv_obj_get_style_margin_bottom");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -1168,7 +1168,7 @@ int luat_lv_obj_get_style_margin_bottom(lua_State *L) {
 
 //  void lv_obj_set_style_local_margin_bottom(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_margin_bottom(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_margin_bottom);
+    LV_DEBUG("CALL lv_obj_set_style_local_margin_bottom");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1179,7 +1179,7 @@ int luat_lv_obj_set_style_local_margin_bottom(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_margin_left(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_margin_left(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_margin_left);
+    LV_DEBUG("CALL lv_obj_get_style_margin_left");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -1190,7 +1190,7 @@ int luat_lv_obj_get_style_margin_left(lua_State *L) {
 
 //  void lv_obj_set_style_local_margin_left(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_margin_left(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_margin_left);
+    LV_DEBUG("CALL lv_obj_set_style_local_margin_left");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1201,7 +1201,7 @@ int luat_lv_obj_set_style_local_margin_left(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_margin_right(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_margin_right(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_margin_right);
+    LV_DEBUG("CALL lv_obj_get_style_margin_right");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -1212,7 +1212,7 @@ int luat_lv_obj_get_style_margin_right(lua_State *L) {
 
 //  void lv_obj_set_style_local_margin_right(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_margin_right(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_margin_right);
+    LV_DEBUG("CALL lv_obj_set_style_local_margin_right");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1223,7 +1223,7 @@ int luat_lv_obj_set_style_local_margin_right(lua_State *L) {
 
 //  lv_blend_mode_t lv_obj_get_style_bg_blend_mode(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_bg_blend_mode(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_bg_blend_mode);
+    LV_DEBUG("CALL lv_obj_get_style_bg_blend_mode");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_blend_mode_t ret;
@@ -1234,7 +1234,7 @@ int luat_lv_obj_get_style_bg_blend_mode(lua_State *L) {
 
 //  void lv_obj_set_style_local_bg_blend_mode(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_blend_mode_t value)
 int luat_lv_obj_set_style_local_bg_blend_mode(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_bg_blend_mode);
+    LV_DEBUG("CALL lv_obj_set_style_local_bg_blend_mode");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1245,7 +1245,7 @@ int luat_lv_obj_set_style_local_bg_blend_mode(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_bg_main_stop(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_bg_main_stop(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_bg_main_stop);
+    LV_DEBUG("CALL lv_obj_get_style_bg_main_stop");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -1256,7 +1256,7 @@ int luat_lv_obj_get_style_bg_main_stop(lua_State *L) {
 
 //  void lv_obj_set_style_local_bg_main_stop(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_bg_main_stop(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_bg_main_stop);
+    LV_DEBUG("CALL lv_obj_set_style_local_bg_main_stop");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1267,7 +1267,7 @@ int luat_lv_obj_set_style_local_bg_main_stop(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_bg_grad_stop(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_bg_grad_stop(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_bg_grad_stop);
+    LV_DEBUG("CALL lv_obj_get_style_bg_grad_stop");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -1278,7 +1278,7 @@ int luat_lv_obj_get_style_bg_grad_stop(lua_State *L) {
 
 //  void lv_obj_set_style_local_bg_grad_stop(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_bg_grad_stop(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_bg_grad_stop);
+    LV_DEBUG("CALL lv_obj_set_style_local_bg_grad_stop");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1289,7 +1289,7 @@ int luat_lv_obj_set_style_local_bg_grad_stop(lua_State *L) {
 
 //  lv_grad_dir_t lv_obj_get_style_bg_grad_dir(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_bg_grad_dir(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_bg_grad_dir);
+    LV_DEBUG("CALL lv_obj_get_style_bg_grad_dir");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_grad_dir_t ret;
@@ -1300,7 +1300,7 @@ int luat_lv_obj_get_style_bg_grad_dir(lua_State *L) {
 
 //  void lv_obj_set_style_local_bg_grad_dir(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_grad_dir_t value)
 int luat_lv_obj_set_style_local_bg_grad_dir(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_bg_grad_dir);
+    LV_DEBUG("CALL lv_obj_set_style_local_bg_grad_dir");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1311,7 +1311,7 @@ int luat_lv_obj_set_style_local_bg_grad_dir(lua_State *L) {
 
 //  lv_color_t lv_obj_get_style_bg_color(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_bg_color(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_bg_color);
+    LV_DEBUG("CALL lv_obj_get_style_bg_color");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_color_t ret;
@@ -1322,7 +1322,7 @@ int luat_lv_obj_get_style_bg_color(lua_State *L) {
 
 //  void lv_obj_set_style_local_bg_color(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_color_t value)
 int luat_lv_obj_set_style_local_bg_color(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_bg_color);
+    LV_DEBUG("CALL lv_obj_set_style_local_bg_color");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1334,7 +1334,7 @@ int luat_lv_obj_set_style_local_bg_color(lua_State *L) {
 
 //  lv_color_t lv_obj_get_style_bg_grad_color(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_bg_grad_color(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_bg_grad_color);
+    LV_DEBUG("CALL lv_obj_get_style_bg_grad_color");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_color_t ret;
@@ -1345,7 +1345,7 @@ int luat_lv_obj_get_style_bg_grad_color(lua_State *L) {
 
 //  void lv_obj_set_style_local_bg_grad_color(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_color_t value)
 int luat_lv_obj_set_style_local_bg_grad_color(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_bg_grad_color);
+    LV_DEBUG("CALL lv_obj_set_style_local_bg_grad_color");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1357,7 +1357,7 @@ int luat_lv_obj_set_style_local_bg_grad_color(lua_State *L) {
 
 //  lv_opa_t lv_obj_get_style_bg_opa(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_bg_opa(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_bg_opa);
+    LV_DEBUG("CALL lv_obj_get_style_bg_opa");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_opa_t ret;
@@ -1368,7 +1368,7 @@ int luat_lv_obj_get_style_bg_opa(lua_State *L) {
 
 //  void lv_obj_set_style_local_bg_opa(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_opa_t value)
 int luat_lv_obj_set_style_local_bg_opa(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_bg_opa);
+    LV_DEBUG("CALL lv_obj_set_style_local_bg_opa");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1379,7 +1379,7 @@ int luat_lv_obj_set_style_local_bg_opa(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_border_width(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_border_width(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_border_width);
+    LV_DEBUG("CALL lv_obj_get_style_border_width");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -1390,7 +1390,7 @@ int luat_lv_obj_get_style_border_width(lua_State *L) {
 
 //  void lv_obj_set_style_local_border_width(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_border_width(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_border_width);
+    LV_DEBUG("CALL lv_obj_set_style_local_border_width");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1401,7 +1401,7 @@ int luat_lv_obj_set_style_local_border_width(lua_State *L) {
 
 //  lv_border_side_t lv_obj_get_style_border_side(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_border_side(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_border_side);
+    LV_DEBUG("CALL lv_obj_get_style_border_side");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_border_side_t ret;
@@ -1412,7 +1412,7 @@ int luat_lv_obj_get_style_border_side(lua_State *L) {
 
 //  void lv_obj_set_style_local_border_side(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_border_side_t value)
 int luat_lv_obj_set_style_local_border_side(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_border_side);
+    LV_DEBUG("CALL lv_obj_set_style_local_border_side");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1423,7 +1423,7 @@ int luat_lv_obj_set_style_local_border_side(lua_State *L) {
 
 //  lv_blend_mode_t lv_obj_get_style_border_blend_mode(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_border_blend_mode(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_border_blend_mode);
+    LV_DEBUG("CALL lv_obj_get_style_border_blend_mode");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_blend_mode_t ret;
@@ -1434,7 +1434,7 @@ int luat_lv_obj_get_style_border_blend_mode(lua_State *L) {
 
 //  void lv_obj_set_style_local_border_blend_mode(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_blend_mode_t value)
 int luat_lv_obj_set_style_local_border_blend_mode(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_border_blend_mode);
+    LV_DEBUG("CALL lv_obj_set_style_local_border_blend_mode");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1445,7 +1445,7 @@ int luat_lv_obj_set_style_local_border_blend_mode(lua_State *L) {
 
 //  bool lv_obj_get_style_border_post(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_border_post(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_border_post);
+    LV_DEBUG("CALL lv_obj_get_style_border_post");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     bool ret;
@@ -1456,7 +1456,7 @@ int luat_lv_obj_get_style_border_post(lua_State *L) {
 
 //  void lv_obj_set_style_local_border_post(lv_obj_t* obj, uint8_t part, lv_state_t state, bool value)
 int luat_lv_obj_set_style_local_border_post(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_border_post);
+    LV_DEBUG("CALL lv_obj_set_style_local_border_post");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1467,7 +1467,7 @@ int luat_lv_obj_set_style_local_border_post(lua_State *L) {
 
 //  lv_color_t lv_obj_get_style_border_color(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_border_color(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_border_color);
+    LV_DEBUG("CALL lv_obj_get_style_border_color");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_color_t ret;
@@ -1478,7 +1478,7 @@ int luat_lv_obj_get_style_border_color(lua_State *L) {
 
 //  void lv_obj_set_style_local_border_color(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_color_t value)
 int luat_lv_obj_set_style_local_border_color(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_border_color);
+    LV_DEBUG("CALL lv_obj_set_style_local_border_color");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1490,7 +1490,7 @@ int luat_lv_obj_set_style_local_border_color(lua_State *L) {
 
 //  lv_opa_t lv_obj_get_style_border_opa(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_border_opa(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_border_opa);
+    LV_DEBUG("CALL lv_obj_get_style_border_opa");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_opa_t ret;
@@ -1501,7 +1501,7 @@ int luat_lv_obj_get_style_border_opa(lua_State *L) {
 
 //  void lv_obj_set_style_local_border_opa(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_opa_t value)
 int luat_lv_obj_set_style_local_border_opa(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_border_opa);
+    LV_DEBUG("CALL lv_obj_set_style_local_border_opa");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1512,7 +1512,7 @@ int luat_lv_obj_set_style_local_border_opa(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_outline_width(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_outline_width(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_outline_width);
+    LV_DEBUG("CALL lv_obj_get_style_outline_width");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -1523,7 +1523,7 @@ int luat_lv_obj_get_style_outline_width(lua_State *L) {
 
 //  void lv_obj_set_style_local_outline_width(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_outline_width(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_outline_width);
+    LV_DEBUG("CALL lv_obj_set_style_local_outline_width");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1534,7 +1534,7 @@ int luat_lv_obj_set_style_local_outline_width(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_outline_pad(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_outline_pad(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_outline_pad);
+    LV_DEBUG("CALL lv_obj_get_style_outline_pad");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -1545,7 +1545,7 @@ int luat_lv_obj_get_style_outline_pad(lua_State *L) {
 
 //  void lv_obj_set_style_local_outline_pad(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_outline_pad(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_outline_pad);
+    LV_DEBUG("CALL lv_obj_set_style_local_outline_pad");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1556,7 +1556,7 @@ int luat_lv_obj_set_style_local_outline_pad(lua_State *L) {
 
 //  lv_blend_mode_t lv_obj_get_style_outline_blend_mode(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_outline_blend_mode(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_outline_blend_mode);
+    LV_DEBUG("CALL lv_obj_get_style_outline_blend_mode");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_blend_mode_t ret;
@@ -1567,7 +1567,7 @@ int luat_lv_obj_get_style_outline_blend_mode(lua_State *L) {
 
 //  void lv_obj_set_style_local_outline_blend_mode(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_blend_mode_t value)
 int luat_lv_obj_set_style_local_outline_blend_mode(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_outline_blend_mode);
+    LV_DEBUG("CALL lv_obj_set_style_local_outline_blend_mode");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1578,7 +1578,7 @@ int luat_lv_obj_set_style_local_outline_blend_mode(lua_State *L) {
 
 //  lv_color_t lv_obj_get_style_outline_color(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_outline_color(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_outline_color);
+    LV_DEBUG("CALL lv_obj_get_style_outline_color");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_color_t ret;
@@ -1589,7 +1589,7 @@ int luat_lv_obj_get_style_outline_color(lua_State *L) {
 
 //  void lv_obj_set_style_local_outline_color(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_color_t value)
 int luat_lv_obj_set_style_local_outline_color(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_outline_color);
+    LV_DEBUG("CALL lv_obj_set_style_local_outline_color");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1601,7 +1601,7 @@ int luat_lv_obj_set_style_local_outline_color(lua_State *L) {
 
 //  lv_opa_t lv_obj_get_style_outline_opa(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_outline_opa(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_outline_opa);
+    LV_DEBUG("CALL lv_obj_get_style_outline_opa");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_opa_t ret;
@@ -1612,7 +1612,7 @@ int luat_lv_obj_get_style_outline_opa(lua_State *L) {
 
 //  void lv_obj_set_style_local_outline_opa(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_opa_t value)
 int luat_lv_obj_set_style_local_outline_opa(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_outline_opa);
+    LV_DEBUG("CALL lv_obj_set_style_local_outline_opa");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1623,7 +1623,7 @@ int luat_lv_obj_set_style_local_outline_opa(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_shadow_width(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_shadow_width(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_shadow_width);
+    LV_DEBUG("CALL lv_obj_get_style_shadow_width");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -1634,7 +1634,7 @@ int luat_lv_obj_get_style_shadow_width(lua_State *L) {
 
 //  void lv_obj_set_style_local_shadow_width(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_shadow_width(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_shadow_width);
+    LV_DEBUG("CALL lv_obj_set_style_local_shadow_width");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1645,7 +1645,7 @@ int luat_lv_obj_set_style_local_shadow_width(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_shadow_ofs_x(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_shadow_ofs_x(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_shadow_ofs_x);
+    LV_DEBUG("CALL lv_obj_get_style_shadow_ofs_x");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -1656,7 +1656,7 @@ int luat_lv_obj_get_style_shadow_ofs_x(lua_State *L) {
 
 //  void lv_obj_set_style_local_shadow_ofs_x(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_shadow_ofs_x(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_shadow_ofs_x);
+    LV_DEBUG("CALL lv_obj_set_style_local_shadow_ofs_x");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1667,7 +1667,7 @@ int luat_lv_obj_set_style_local_shadow_ofs_x(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_shadow_ofs_y(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_shadow_ofs_y(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_shadow_ofs_y);
+    LV_DEBUG("CALL lv_obj_get_style_shadow_ofs_y");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -1678,7 +1678,7 @@ int luat_lv_obj_get_style_shadow_ofs_y(lua_State *L) {
 
 //  void lv_obj_set_style_local_shadow_ofs_y(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_shadow_ofs_y(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_shadow_ofs_y);
+    LV_DEBUG("CALL lv_obj_set_style_local_shadow_ofs_y");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1689,7 +1689,7 @@ int luat_lv_obj_set_style_local_shadow_ofs_y(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_shadow_spread(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_shadow_spread(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_shadow_spread);
+    LV_DEBUG("CALL lv_obj_get_style_shadow_spread");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -1700,7 +1700,7 @@ int luat_lv_obj_get_style_shadow_spread(lua_State *L) {
 
 //  void lv_obj_set_style_local_shadow_spread(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_shadow_spread(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_shadow_spread);
+    LV_DEBUG("CALL lv_obj_set_style_local_shadow_spread");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1711,7 +1711,7 @@ int luat_lv_obj_set_style_local_shadow_spread(lua_State *L) {
 
 //  lv_blend_mode_t lv_obj_get_style_shadow_blend_mode(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_shadow_blend_mode(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_shadow_blend_mode);
+    LV_DEBUG("CALL lv_obj_get_style_shadow_blend_mode");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_blend_mode_t ret;
@@ -1722,7 +1722,7 @@ int luat_lv_obj_get_style_shadow_blend_mode(lua_State *L) {
 
 //  void lv_obj_set_style_local_shadow_blend_mode(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_blend_mode_t value)
 int luat_lv_obj_set_style_local_shadow_blend_mode(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_shadow_blend_mode);
+    LV_DEBUG("CALL lv_obj_set_style_local_shadow_blend_mode");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1733,7 +1733,7 @@ int luat_lv_obj_set_style_local_shadow_blend_mode(lua_State *L) {
 
 //  lv_color_t lv_obj_get_style_shadow_color(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_shadow_color(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_shadow_color);
+    LV_DEBUG("CALL lv_obj_get_style_shadow_color");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_color_t ret;
@@ -1744,7 +1744,7 @@ int luat_lv_obj_get_style_shadow_color(lua_State *L) {
 
 //  void lv_obj_set_style_local_shadow_color(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_color_t value)
 int luat_lv_obj_set_style_local_shadow_color(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_shadow_color);
+    LV_DEBUG("CALL lv_obj_set_style_local_shadow_color");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1756,7 +1756,7 @@ int luat_lv_obj_set_style_local_shadow_color(lua_State *L) {
 
 //  lv_opa_t lv_obj_get_style_shadow_opa(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_shadow_opa(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_shadow_opa);
+    LV_DEBUG("CALL lv_obj_get_style_shadow_opa");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_opa_t ret;
@@ -1767,7 +1767,7 @@ int luat_lv_obj_get_style_shadow_opa(lua_State *L) {
 
 //  void lv_obj_set_style_local_shadow_opa(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_opa_t value)
 int luat_lv_obj_set_style_local_shadow_opa(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_shadow_opa);
+    LV_DEBUG("CALL lv_obj_set_style_local_shadow_opa");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1778,7 +1778,7 @@ int luat_lv_obj_set_style_local_shadow_opa(lua_State *L) {
 
 //  bool lv_obj_get_style_pattern_repeat(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_pattern_repeat(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_pattern_repeat);
+    LV_DEBUG("CALL lv_obj_get_style_pattern_repeat");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     bool ret;
@@ -1789,7 +1789,7 @@ int luat_lv_obj_get_style_pattern_repeat(lua_State *L) {
 
 //  void lv_obj_set_style_local_pattern_repeat(lv_obj_t* obj, uint8_t part, lv_state_t state, bool value)
 int luat_lv_obj_set_style_local_pattern_repeat(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_pattern_repeat);
+    LV_DEBUG("CALL lv_obj_set_style_local_pattern_repeat");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1800,7 +1800,7 @@ int luat_lv_obj_set_style_local_pattern_repeat(lua_State *L) {
 
 //  lv_blend_mode_t lv_obj_get_style_pattern_blend_mode(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_pattern_blend_mode(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_pattern_blend_mode);
+    LV_DEBUG("CALL lv_obj_get_style_pattern_blend_mode");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_blend_mode_t ret;
@@ -1811,7 +1811,7 @@ int luat_lv_obj_get_style_pattern_blend_mode(lua_State *L) {
 
 //  void lv_obj_set_style_local_pattern_blend_mode(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_blend_mode_t value)
 int luat_lv_obj_set_style_local_pattern_blend_mode(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_pattern_blend_mode);
+    LV_DEBUG("CALL lv_obj_set_style_local_pattern_blend_mode");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1822,7 +1822,7 @@ int luat_lv_obj_set_style_local_pattern_blend_mode(lua_State *L) {
 
 //  lv_color_t lv_obj_get_style_pattern_recolor(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_pattern_recolor(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_pattern_recolor);
+    LV_DEBUG("CALL lv_obj_get_style_pattern_recolor");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_color_t ret;
@@ -1833,7 +1833,7 @@ int luat_lv_obj_get_style_pattern_recolor(lua_State *L) {
 
 //  void lv_obj_set_style_local_pattern_recolor(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_color_t value)
 int luat_lv_obj_set_style_local_pattern_recolor(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_pattern_recolor);
+    LV_DEBUG("CALL lv_obj_set_style_local_pattern_recolor");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1845,7 +1845,7 @@ int luat_lv_obj_set_style_local_pattern_recolor(lua_State *L) {
 
 //  lv_opa_t lv_obj_get_style_pattern_opa(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_pattern_opa(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_pattern_opa);
+    LV_DEBUG("CALL lv_obj_get_style_pattern_opa");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_opa_t ret;
@@ -1856,7 +1856,7 @@ int luat_lv_obj_get_style_pattern_opa(lua_State *L) {
 
 //  void lv_obj_set_style_local_pattern_opa(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_opa_t value)
 int luat_lv_obj_set_style_local_pattern_opa(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_pattern_opa);
+    LV_DEBUG("CALL lv_obj_set_style_local_pattern_opa");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1867,7 +1867,7 @@ int luat_lv_obj_set_style_local_pattern_opa(lua_State *L) {
 
 //  lv_opa_t lv_obj_get_style_pattern_recolor_opa(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_pattern_recolor_opa(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_pattern_recolor_opa);
+    LV_DEBUG("CALL lv_obj_get_style_pattern_recolor_opa");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_opa_t ret;
@@ -1878,7 +1878,7 @@ int luat_lv_obj_get_style_pattern_recolor_opa(lua_State *L) {
 
 //  void lv_obj_set_style_local_pattern_recolor_opa(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_opa_t value)
 int luat_lv_obj_set_style_local_pattern_recolor_opa(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_pattern_recolor_opa);
+    LV_DEBUG("CALL lv_obj_set_style_local_pattern_recolor_opa");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1889,7 +1889,7 @@ int luat_lv_obj_set_style_local_pattern_recolor_opa(lua_State *L) {
 
 //  void* lv_obj_get_style_pattern_image(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_pattern_image(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_pattern_image);
+    LV_DEBUG("CALL lv_obj_get_style_pattern_image");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     void* ret = NULL;
@@ -1900,7 +1900,7 @@ int luat_lv_obj_get_style_pattern_image(lua_State *L) {
 
 //  void lv_obj_set_style_local_pattern_image(lv_obj_t* obj, uint8_t part, lv_state_t state, void* value)
 int luat_lv_obj_set_style_local_pattern_image(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_pattern_image);
+    LV_DEBUG("CALL lv_obj_set_style_local_pattern_image");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1911,7 +1911,7 @@ int luat_lv_obj_set_style_local_pattern_image(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_value_letter_space(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_value_letter_space(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_value_letter_space);
+    LV_DEBUG("CALL lv_obj_get_style_value_letter_space");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -1922,7 +1922,7 @@ int luat_lv_obj_get_style_value_letter_space(lua_State *L) {
 
 //  void lv_obj_set_style_local_value_letter_space(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_value_letter_space(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_value_letter_space);
+    LV_DEBUG("CALL lv_obj_set_style_local_value_letter_space");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1933,7 +1933,7 @@ int luat_lv_obj_set_style_local_value_letter_space(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_value_line_space(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_value_line_space(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_value_line_space);
+    LV_DEBUG("CALL lv_obj_get_style_value_line_space");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -1944,7 +1944,7 @@ int luat_lv_obj_get_style_value_line_space(lua_State *L) {
 
 //  void lv_obj_set_style_local_value_line_space(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_value_line_space(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_value_line_space);
+    LV_DEBUG("CALL lv_obj_set_style_local_value_line_space");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1955,7 +1955,7 @@ int luat_lv_obj_set_style_local_value_line_space(lua_State *L) {
 
 //  lv_blend_mode_t lv_obj_get_style_value_blend_mode(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_value_blend_mode(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_value_blend_mode);
+    LV_DEBUG("CALL lv_obj_get_style_value_blend_mode");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_blend_mode_t ret;
@@ -1966,7 +1966,7 @@ int luat_lv_obj_get_style_value_blend_mode(lua_State *L) {
 
 //  void lv_obj_set_style_local_value_blend_mode(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_blend_mode_t value)
 int luat_lv_obj_set_style_local_value_blend_mode(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_value_blend_mode);
+    LV_DEBUG("CALL lv_obj_set_style_local_value_blend_mode");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1977,7 +1977,7 @@ int luat_lv_obj_set_style_local_value_blend_mode(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_value_ofs_x(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_value_ofs_x(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_value_ofs_x);
+    LV_DEBUG("CALL lv_obj_get_style_value_ofs_x");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -1988,7 +1988,7 @@ int luat_lv_obj_get_style_value_ofs_x(lua_State *L) {
 
 //  void lv_obj_set_style_local_value_ofs_x(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_value_ofs_x(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_value_ofs_x);
+    LV_DEBUG("CALL lv_obj_set_style_local_value_ofs_x");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -1999,7 +1999,7 @@ int luat_lv_obj_set_style_local_value_ofs_x(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_value_ofs_y(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_value_ofs_y(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_value_ofs_y);
+    LV_DEBUG("CALL lv_obj_get_style_value_ofs_y");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -2010,7 +2010,7 @@ int luat_lv_obj_get_style_value_ofs_y(lua_State *L) {
 
 //  void lv_obj_set_style_local_value_ofs_y(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_value_ofs_y(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_value_ofs_y);
+    LV_DEBUG("CALL lv_obj_set_style_local_value_ofs_y");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2021,7 +2021,7 @@ int luat_lv_obj_set_style_local_value_ofs_y(lua_State *L) {
 
 //  lv_align_t lv_obj_get_style_value_align(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_value_align(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_value_align);
+    LV_DEBUG("CALL lv_obj_get_style_value_align");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_align_t ret;
@@ -2032,7 +2032,7 @@ int luat_lv_obj_get_style_value_align(lua_State *L) {
 
 //  void lv_obj_set_style_local_value_align(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_align_t value)
 int luat_lv_obj_set_style_local_value_align(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_value_align);
+    LV_DEBUG("CALL lv_obj_set_style_local_value_align");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2043,7 +2043,7 @@ int luat_lv_obj_set_style_local_value_align(lua_State *L) {
 
 //  lv_color_t lv_obj_get_style_value_color(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_value_color(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_value_color);
+    LV_DEBUG("CALL lv_obj_get_style_value_color");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_color_t ret;
@@ -2054,7 +2054,7 @@ int luat_lv_obj_get_style_value_color(lua_State *L) {
 
 //  void lv_obj_set_style_local_value_color(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_color_t value)
 int luat_lv_obj_set_style_local_value_color(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_value_color);
+    LV_DEBUG("CALL lv_obj_set_style_local_value_color");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2066,7 +2066,7 @@ int luat_lv_obj_set_style_local_value_color(lua_State *L) {
 
 //  lv_opa_t lv_obj_get_style_value_opa(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_value_opa(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_value_opa);
+    LV_DEBUG("CALL lv_obj_get_style_value_opa");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_opa_t ret;
@@ -2077,7 +2077,7 @@ int luat_lv_obj_get_style_value_opa(lua_State *L) {
 
 //  void lv_obj_set_style_local_value_opa(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_opa_t value)
 int luat_lv_obj_set_style_local_value_opa(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_value_opa);
+    LV_DEBUG("CALL lv_obj_set_style_local_value_opa");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2088,7 +2088,7 @@ int luat_lv_obj_set_style_local_value_opa(lua_State *L) {
 
 //  lv_font_t* lv_obj_get_style_value_font(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_value_font(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_value_font);
+    LV_DEBUG("CALL lv_obj_get_style_value_font");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_font_t* ret = NULL;
@@ -2099,7 +2099,7 @@ int luat_lv_obj_get_style_value_font(lua_State *L) {
 
 //  void lv_obj_set_style_local_value_font(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_font_t* value)
 int luat_lv_obj_set_style_local_value_font(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_value_font);
+    LV_DEBUG("CALL lv_obj_set_style_local_value_font");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2110,7 +2110,7 @@ int luat_lv_obj_set_style_local_value_font(lua_State *L) {
 
 //  char* lv_obj_get_style_value_str(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_value_str(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_value_str);
+    LV_DEBUG("CALL lv_obj_get_style_value_str");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     char* ret = NULL;
@@ -2121,7 +2121,7 @@ int luat_lv_obj_get_style_value_str(lua_State *L) {
 
 //  void lv_obj_set_style_local_value_str(lv_obj_t* obj, uint8_t part, lv_state_t state, char* value)
 int luat_lv_obj_set_style_local_value_str(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_value_str);
+    LV_DEBUG("CALL lv_obj_set_style_local_value_str");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2132,7 +2132,7 @@ int luat_lv_obj_set_style_local_value_str(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_text_letter_space(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_text_letter_space(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_text_letter_space);
+    LV_DEBUG("CALL lv_obj_get_style_text_letter_space");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -2143,7 +2143,7 @@ int luat_lv_obj_get_style_text_letter_space(lua_State *L) {
 
 //  void lv_obj_set_style_local_text_letter_space(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_text_letter_space(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_text_letter_space);
+    LV_DEBUG("CALL lv_obj_set_style_local_text_letter_space");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2154,7 +2154,7 @@ int luat_lv_obj_set_style_local_text_letter_space(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_text_line_space(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_text_line_space(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_text_line_space);
+    LV_DEBUG("CALL lv_obj_get_style_text_line_space");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -2165,7 +2165,7 @@ int luat_lv_obj_get_style_text_line_space(lua_State *L) {
 
 //  void lv_obj_set_style_local_text_line_space(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_text_line_space(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_text_line_space);
+    LV_DEBUG("CALL lv_obj_set_style_local_text_line_space");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2176,7 +2176,7 @@ int luat_lv_obj_set_style_local_text_line_space(lua_State *L) {
 
 //  lv_text_decor_t lv_obj_get_style_text_decor(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_text_decor(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_text_decor);
+    LV_DEBUG("CALL lv_obj_get_style_text_decor");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_text_decor_t ret;
@@ -2187,7 +2187,7 @@ int luat_lv_obj_get_style_text_decor(lua_State *L) {
 
 //  void lv_obj_set_style_local_text_decor(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_text_decor_t value)
 int luat_lv_obj_set_style_local_text_decor(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_text_decor);
+    LV_DEBUG("CALL lv_obj_set_style_local_text_decor");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2198,7 +2198,7 @@ int luat_lv_obj_set_style_local_text_decor(lua_State *L) {
 
 //  lv_blend_mode_t lv_obj_get_style_text_blend_mode(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_text_blend_mode(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_text_blend_mode);
+    LV_DEBUG("CALL lv_obj_get_style_text_blend_mode");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_blend_mode_t ret;
@@ -2209,7 +2209,7 @@ int luat_lv_obj_get_style_text_blend_mode(lua_State *L) {
 
 //  void lv_obj_set_style_local_text_blend_mode(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_blend_mode_t value)
 int luat_lv_obj_set_style_local_text_blend_mode(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_text_blend_mode);
+    LV_DEBUG("CALL lv_obj_set_style_local_text_blend_mode");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2220,7 +2220,7 @@ int luat_lv_obj_set_style_local_text_blend_mode(lua_State *L) {
 
 //  lv_color_t lv_obj_get_style_text_color(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_text_color(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_text_color);
+    LV_DEBUG("CALL lv_obj_get_style_text_color");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_color_t ret;
@@ -2231,7 +2231,7 @@ int luat_lv_obj_get_style_text_color(lua_State *L) {
 
 //  void lv_obj_set_style_local_text_color(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_color_t value)
 int luat_lv_obj_set_style_local_text_color(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_text_color);
+    LV_DEBUG("CALL lv_obj_set_style_local_text_color");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2243,7 +2243,7 @@ int luat_lv_obj_set_style_local_text_color(lua_State *L) {
 
 //  lv_color_t lv_obj_get_style_text_sel_color(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_text_sel_color(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_text_sel_color);
+    LV_DEBUG("CALL lv_obj_get_style_text_sel_color");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_color_t ret;
@@ -2254,7 +2254,7 @@ int luat_lv_obj_get_style_text_sel_color(lua_State *L) {
 
 //  void lv_obj_set_style_local_text_sel_color(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_color_t value)
 int luat_lv_obj_set_style_local_text_sel_color(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_text_sel_color);
+    LV_DEBUG("CALL lv_obj_set_style_local_text_sel_color");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2266,7 +2266,7 @@ int luat_lv_obj_set_style_local_text_sel_color(lua_State *L) {
 
 //  lv_color_t lv_obj_get_style_text_sel_bg_color(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_text_sel_bg_color(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_text_sel_bg_color);
+    LV_DEBUG("CALL lv_obj_get_style_text_sel_bg_color");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_color_t ret;
@@ -2277,7 +2277,7 @@ int luat_lv_obj_get_style_text_sel_bg_color(lua_State *L) {
 
 //  void lv_obj_set_style_local_text_sel_bg_color(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_color_t value)
 int luat_lv_obj_set_style_local_text_sel_bg_color(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_text_sel_bg_color);
+    LV_DEBUG("CALL lv_obj_set_style_local_text_sel_bg_color");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2289,7 +2289,7 @@ int luat_lv_obj_set_style_local_text_sel_bg_color(lua_State *L) {
 
 //  lv_opa_t lv_obj_get_style_text_opa(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_text_opa(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_text_opa);
+    LV_DEBUG("CALL lv_obj_get_style_text_opa");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_opa_t ret;
@@ -2300,7 +2300,7 @@ int luat_lv_obj_get_style_text_opa(lua_State *L) {
 
 //  void lv_obj_set_style_local_text_opa(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_opa_t value)
 int luat_lv_obj_set_style_local_text_opa(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_text_opa);
+    LV_DEBUG("CALL lv_obj_set_style_local_text_opa");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2311,7 +2311,7 @@ int luat_lv_obj_set_style_local_text_opa(lua_State *L) {
 
 //  lv_font_t* lv_obj_get_style_text_font(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_text_font(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_text_font);
+    LV_DEBUG("CALL lv_obj_get_style_text_font");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_font_t* ret = NULL;
@@ -2322,7 +2322,7 @@ int luat_lv_obj_get_style_text_font(lua_State *L) {
 
 //  void lv_obj_set_style_local_text_font(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_font_t* value)
 int luat_lv_obj_set_style_local_text_font(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_text_font);
+    LV_DEBUG("CALL lv_obj_set_style_local_text_font");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2333,7 +2333,7 @@ int luat_lv_obj_set_style_local_text_font(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_line_width(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_line_width(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_line_width);
+    LV_DEBUG("CALL lv_obj_get_style_line_width");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -2344,7 +2344,7 @@ int luat_lv_obj_get_style_line_width(lua_State *L) {
 
 //  void lv_obj_set_style_local_line_width(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_line_width(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_line_width);
+    LV_DEBUG("CALL lv_obj_set_style_local_line_width");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2355,7 +2355,7 @@ int luat_lv_obj_set_style_local_line_width(lua_State *L) {
 
 //  lv_blend_mode_t lv_obj_get_style_line_blend_mode(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_line_blend_mode(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_line_blend_mode);
+    LV_DEBUG("CALL lv_obj_get_style_line_blend_mode");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_blend_mode_t ret;
@@ -2366,7 +2366,7 @@ int luat_lv_obj_get_style_line_blend_mode(lua_State *L) {
 
 //  void lv_obj_set_style_local_line_blend_mode(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_blend_mode_t value)
 int luat_lv_obj_set_style_local_line_blend_mode(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_line_blend_mode);
+    LV_DEBUG("CALL lv_obj_set_style_local_line_blend_mode");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2377,7 +2377,7 @@ int luat_lv_obj_set_style_local_line_blend_mode(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_line_dash_width(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_line_dash_width(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_line_dash_width);
+    LV_DEBUG("CALL lv_obj_get_style_line_dash_width");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -2388,7 +2388,7 @@ int luat_lv_obj_get_style_line_dash_width(lua_State *L) {
 
 //  void lv_obj_set_style_local_line_dash_width(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_line_dash_width(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_line_dash_width);
+    LV_DEBUG("CALL lv_obj_set_style_local_line_dash_width");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2399,7 +2399,7 @@ int luat_lv_obj_set_style_local_line_dash_width(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_line_dash_gap(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_line_dash_gap(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_line_dash_gap);
+    LV_DEBUG("CALL lv_obj_get_style_line_dash_gap");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -2410,7 +2410,7 @@ int luat_lv_obj_get_style_line_dash_gap(lua_State *L) {
 
 //  void lv_obj_set_style_local_line_dash_gap(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_line_dash_gap(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_line_dash_gap);
+    LV_DEBUG("CALL lv_obj_set_style_local_line_dash_gap");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2421,7 +2421,7 @@ int luat_lv_obj_set_style_local_line_dash_gap(lua_State *L) {
 
 //  bool lv_obj_get_style_line_rounded(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_line_rounded(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_line_rounded);
+    LV_DEBUG("CALL lv_obj_get_style_line_rounded");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     bool ret;
@@ -2432,7 +2432,7 @@ int luat_lv_obj_get_style_line_rounded(lua_State *L) {
 
 //  void lv_obj_set_style_local_line_rounded(lv_obj_t* obj, uint8_t part, lv_state_t state, bool value)
 int luat_lv_obj_set_style_local_line_rounded(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_line_rounded);
+    LV_DEBUG("CALL lv_obj_set_style_local_line_rounded");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2443,7 +2443,7 @@ int luat_lv_obj_set_style_local_line_rounded(lua_State *L) {
 
 //  lv_color_t lv_obj_get_style_line_color(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_line_color(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_line_color);
+    LV_DEBUG("CALL lv_obj_get_style_line_color");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_color_t ret;
@@ -2454,7 +2454,7 @@ int luat_lv_obj_get_style_line_color(lua_State *L) {
 
 //  void lv_obj_set_style_local_line_color(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_color_t value)
 int luat_lv_obj_set_style_local_line_color(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_line_color);
+    LV_DEBUG("CALL lv_obj_set_style_local_line_color");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2466,7 +2466,7 @@ int luat_lv_obj_set_style_local_line_color(lua_State *L) {
 
 //  lv_opa_t lv_obj_get_style_line_opa(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_line_opa(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_line_opa);
+    LV_DEBUG("CALL lv_obj_get_style_line_opa");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_opa_t ret;
@@ -2477,7 +2477,7 @@ int luat_lv_obj_get_style_line_opa(lua_State *L) {
 
 //  void lv_obj_set_style_local_line_opa(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_opa_t value)
 int luat_lv_obj_set_style_local_line_opa(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_line_opa);
+    LV_DEBUG("CALL lv_obj_set_style_local_line_opa");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2488,7 +2488,7 @@ int luat_lv_obj_set_style_local_line_opa(lua_State *L) {
 
 //  lv_blend_mode_t lv_obj_get_style_image_blend_mode(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_image_blend_mode(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_image_blend_mode);
+    LV_DEBUG("CALL lv_obj_get_style_image_blend_mode");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_blend_mode_t ret;
@@ -2499,7 +2499,7 @@ int luat_lv_obj_get_style_image_blend_mode(lua_State *L) {
 
 //  void lv_obj_set_style_local_image_blend_mode(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_blend_mode_t value)
 int luat_lv_obj_set_style_local_image_blend_mode(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_image_blend_mode);
+    LV_DEBUG("CALL lv_obj_set_style_local_image_blend_mode");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2510,7 +2510,7 @@ int luat_lv_obj_set_style_local_image_blend_mode(lua_State *L) {
 
 //  lv_color_t lv_obj_get_style_image_recolor(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_image_recolor(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_image_recolor);
+    LV_DEBUG("CALL lv_obj_get_style_image_recolor");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_color_t ret;
@@ -2521,7 +2521,7 @@ int luat_lv_obj_get_style_image_recolor(lua_State *L) {
 
 //  void lv_obj_set_style_local_image_recolor(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_color_t value)
 int luat_lv_obj_set_style_local_image_recolor(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_image_recolor);
+    LV_DEBUG("CALL lv_obj_set_style_local_image_recolor");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2533,7 +2533,7 @@ int luat_lv_obj_set_style_local_image_recolor(lua_State *L) {
 
 //  lv_opa_t lv_obj_get_style_image_opa(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_image_opa(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_image_opa);
+    LV_DEBUG("CALL lv_obj_get_style_image_opa");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_opa_t ret;
@@ -2544,7 +2544,7 @@ int luat_lv_obj_get_style_image_opa(lua_State *L) {
 
 //  void lv_obj_set_style_local_image_opa(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_opa_t value)
 int luat_lv_obj_set_style_local_image_opa(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_image_opa);
+    LV_DEBUG("CALL lv_obj_set_style_local_image_opa");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2555,7 +2555,7 @@ int luat_lv_obj_set_style_local_image_opa(lua_State *L) {
 
 //  lv_opa_t lv_obj_get_style_image_recolor_opa(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_image_recolor_opa(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_image_recolor_opa);
+    LV_DEBUG("CALL lv_obj_get_style_image_recolor_opa");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_opa_t ret;
@@ -2566,7 +2566,7 @@ int luat_lv_obj_get_style_image_recolor_opa(lua_State *L) {
 
 //  void lv_obj_set_style_local_image_recolor_opa(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_opa_t value)
 int luat_lv_obj_set_style_local_image_recolor_opa(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_image_recolor_opa);
+    LV_DEBUG("CALL lv_obj_set_style_local_image_recolor_opa");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2577,7 +2577,7 @@ int luat_lv_obj_set_style_local_image_recolor_opa(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_transition_time(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_transition_time(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_transition_time);
+    LV_DEBUG("CALL lv_obj_get_style_transition_time");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -2588,7 +2588,7 @@ int luat_lv_obj_get_style_transition_time(lua_State *L) {
 
 //  void lv_obj_set_style_local_transition_time(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_transition_time(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_transition_time);
+    LV_DEBUG("CALL lv_obj_set_style_local_transition_time");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2599,7 +2599,7 @@ int luat_lv_obj_set_style_local_transition_time(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_transition_delay(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_transition_delay(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_transition_delay);
+    LV_DEBUG("CALL lv_obj_get_style_transition_delay");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -2610,7 +2610,7 @@ int luat_lv_obj_get_style_transition_delay(lua_State *L) {
 
 //  void lv_obj_set_style_local_transition_delay(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_transition_delay(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_transition_delay);
+    LV_DEBUG("CALL lv_obj_set_style_local_transition_delay");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2621,7 +2621,7 @@ int luat_lv_obj_set_style_local_transition_delay(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_transition_prop_1(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_transition_prop_1(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_transition_prop_1);
+    LV_DEBUG("CALL lv_obj_get_style_transition_prop_1");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -2632,7 +2632,7 @@ int luat_lv_obj_get_style_transition_prop_1(lua_State *L) {
 
 //  void lv_obj_set_style_local_transition_prop_1(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_transition_prop_1(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_transition_prop_1);
+    LV_DEBUG("CALL lv_obj_set_style_local_transition_prop_1");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2643,7 +2643,7 @@ int luat_lv_obj_set_style_local_transition_prop_1(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_transition_prop_2(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_transition_prop_2(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_transition_prop_2);
+    LV_DEBUG("CALL lv_obj_get_style_transition_prop_2");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -2654,7 +2654,7 @@ int luat_lv_obj_get_style_transition_prop_2(lua_State *L) {
 
 //  void lv_obj_set_style_local_transition_prop_2(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_transition_prop_2(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_transition_prop_2);
+    LV_DEBUG("CALL lv_obj_set_style_local_transition_prop_2");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2665,7 +2665,7 @@ int luat_lv_obj_set_style_local_transition_prop_2(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_transition_prop_3(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_transition_prop_3(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_transition_prop_3);
+    LV_DEBUG("CALL lv_obj_get_style_transition_prop_3");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -2676,7 +2676,7 @@ int luat_lv_obj_get_style_transition_prop_3(lua_State *L) {
 
 //  void lv_obj_set_style_local_transition_prop_3(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_transition_prop_3(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_transition_prop_3);
+    LV_DEBUG("CALL lv_obj_set_style_local_transition_prop_3");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2687,7 +2687,7 @@ int luat_lv_obj_set_style_local_transition_prop_3(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_transition_prop_4(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_transition_prop_4(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_transition_prop_4);
+    LV_DEBUG("CALL lv_obj_get_style_transition_prop_4");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -2698,7 +2698,7 @@ int luat_lv_obj_get_style_transition_prop_4(lua_State *L) {
 
 //  void lv_obj_set_style_local_transition_prop_4(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_transition_prop_4(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_transition_prop_4);
+    LV_DEBUG("CALL lv_obj_set_style_local_transition_prop_4");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2709,7 +2709,7 @@ int luat_lv_obj_set_style_local_transition_prop_4(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_transition_prop_5(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_transition_prop_5(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_transition_prop_5);
+    LV_DEBUG("CALL lv_obj_get_style_transition_prop_5");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -2720,7 +2720,7 @@ int luat_lv_obj_get_style_transition_prop_5(lua_State *L) {
 
 //  void lv_obj_set_style_local_transition_prop_5(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_transition_prop_5(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_transition_prop_5);
+    LV_DEBUG("CALL lv_obj_set_style_local_transition_prop_5");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2731,7 +2731,7 @@ int luat_lv_obj_set_style_local_transition_prop_5(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_transition_prop_6(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_transition_prop_6(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_transition_prop_6);
+    LV_DEBUG("CALL lv_obj_get_style_transition_prop_6");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -2742,7 +2742,7 @@ int luat_lv_obj_get_style_transition_prop_6(lua_State *L) {
 
 //  void lv_obj_set_style_local_transition_prop_6(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_transition_prop_6(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_transition_prop_6);
+    LV_DEBUG("CALL lv_obj_set_style_local_transition_prop_6");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2753,7 +2753,7 @@ int luat_lv_obj_set_style_local_transition_prop_6(lua_State *L) {
 
 //  lv_anim_path_t* lv_obj_get_style_transition_path(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_transition_path(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_transition_path);
+    LV_DEBUG("CALL lv_obj_get_style_transition_path");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_anim_path_t* ret = NULL;
@@ -2764,7 +2764,7 @@ int luat_lv_obj_get_style_transition_path(lua_State *L) {
 
 //  void lv_obj_set_style_local_transition_path(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_anim_path_t* value)
 int luat_lv_obj_set_style_local_transition_path(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_transition_path);
+    LV_DEBUG("CALL lv_obj_set_style_local_transition_path");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2775,7 +2775,7 @@ int luat_lv_obj_set_style_local_transition_path(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_scale_width(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_scale_width(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_scale_width);
+    LV_DEBUG("CALL lv_obj_get_style_scale_width");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -2786,7 +2786,7 @@ int luat_lv_obj_get_style_scale_width(lua_State *L) {
 
 //  void lv_obj_set_style_local_scale_width(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_scale_width(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_scale_width);
+    LV_DEBUG("CALL lv_obj_set_style_local_scale_width");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2797,7 +2797,7 @@ int luat_lv_obj_set_style_local_scale_width(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_scale_border_width(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_scale_border_width(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_scale_border_width);
+    LV_DEBUG("CALL lv_obj_get_style_scale_border_width");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -2808,7 +2808,7 @@ int luat_lv_obj_get_style_scale_border_width(lua_State *L) {
 
 //  void lv_obj_set_style_local_scale_border_width(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_scale_border_width(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_scale_border_width);
+    LV_DEBUG("CALL lv_obj_set_style_local_scale_border_width");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2819,7 +2819,7 @@ int luat_lv_obj_set_style_local_scale_border_width(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_scale_end_border_width(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_scale_end_border_width(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_scale_end_border_width);
+    LV_DEBUG("CALL lv_obj_get_style_scale_end_border_width");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -2830,7 +2830,7 @@ int luat_lv_obj_get_style_scale_end_border_width(lua_State *L) {
 
 //  void lv_obj_set_style_local_scale_end_border_width(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_scale_end_border_width(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_scale_end_border_width);
+    LV_DEBUG("CALL lv_obj_set_style_local_scale_end_border_width");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2841,7 +2841,7 @@ int luat_lv_obj_set_style_local_scale_end_border_width(lua_State *L) {
 
 //  lv_style_int_t lv_obj_get_style_scale_end_line_width(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_scale_end_line_width(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_scale_end_line_width);
+    LV_DEBUG("CALL lv_obj_get_style_scale_end_line_width");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_int_t ret;
@@ -2852,7 +2852,7 @@ int luat_lv_obj_get_style_scale_end_line_width(lua_State *L) {
 
 //  void lv_obj_set_style_local_scale_end_line_width(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_scale_end_line_width(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_scale_end_line_width);
+    LV_DEBUG("CALL lv_obj_set_style_local_scale_end_line_width");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2863,7 +2863,7 @@ int luat_lv_obj_set_style_local_scale_end_line_width(lua_State *L) {
 
 //  lv_color_t lv_obj_get_style_scale_grad_color(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_scale_grad_color(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_scale_grad_color);
+    LV_DEBUG("CALL lv_obj_get_style_scale_grad_color");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_color_t ret;
@@ -2874,7 +2874,7 @@ int luat_lv_obj_get_style_scale_grad_color(lua_State *L) {
 
 //  void lv_obj_set_style_local_scale_grad_color(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_color_t value)
 int luat_lv_obj_set_style_local_scale_grad_color(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_scale_grad_color);
+    LV_DEBUG("CALL lv_obj_set_style_local_scale_grad_color");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2886,7 +2886,7 @@ int luat_lv_obj_set_style_local_scale_grad_color(lua_State *L) {
 
 //  lv_color_t lv_obj_get_style_scale_end_color(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_scale_end_color(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_style_scale_end_color);
+    LV_DEBUG("CALL lv_obj_get_style_scale_end_color");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_color_t ret;
@@ -2897,7 +2897,7 @@ int luat_lv_obj_get_style_scale_end_color(lua_State *L) {
 
 //  void lv_obj_set_style_local_scale_end_color(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_color_t value)
 int luat_lv_obj_set_style_local_scale_end_color(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_scale_end_color);
+    LV_DEBUG("CALL lv_obj_set_style_local_scale_end_color");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2909,7 +2909,7 @@ int luat_lv_obj_set_style_local_scale_end_color(lua_State *L) {
 
 //  void lv_obj_set_style_local_pad_all(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_pad_all(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_pad_all);
+    LV_DEBUG("CALL lv_obj_set_style_local_pad_all");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2920,7 +2920,7 @@ int luat_lv_obj_set_style_local_pad_all(lua_State *L) {
 
 //  void lv_obj_set_style_local_pad_hor(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_pad_hor(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_pad_hor);
+    LV_DEBUG("CALL lv_obj_set_style_local_pad_hor");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2931,7 +2931,7 @@ int luat_lv_obj_set_style_local_pad_hor(lua_State *L) {
 
 //  void lv_obj_set_style_local_pad_ver(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_pad_ver(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_pad_ver);
+    LV_DEBUG("CALL lv_obj_set_style_local_pad_ver");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2942,7 +2942,7 @@ int luat_lv_obj_set_style_local_pad_ver(lua_State *L) {
 
 //  void lv_obj_set_style_local_margin_all(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_margin_all(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_margin_all);
+    LV_DEBUG("CALL lv_obj_set_style_local_margin_all");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2953,7 +2953,7 @@ int luat_lv_obj_set_style_local_margin_all(lua_State *L) {
 
 //  void lv_obj_set_style_local_margin_hor(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_margin_hor(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_margin_hor);
+    LV_DEBUG("CALL lv_obj_set_style_local_margin_hor");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2964,7 +2964,7 @@ int luat_lv_obj_set_style_local_margin_hor(lua_State *L) {
 
 //  void lv_obj_set_style_local_margin_ver(lv_obj_t* obj, uint8_t part, lv_state_t state, lv_style_int_t value)
 int luat_lv_obj_set_style_local_margin_ver(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_set_style_local_margin_ver);
+    LV_DEBUG("CALL lv_obj_set_style_local_margin_ver");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
@@ -2975,7 +2975,7 @@ int luat_lv_obj_set_style_local_margin_ver(lua_State *L) {
 
 //  bool lv_obj_get_hidden(lv_obj_t* obj)
 int luat_lv_obj_get_hidden(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_hidden);
+    LV_DEBUG("CALL lv_obj_get_hidden");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     bool ret;
     ret = lv_obj_get_hidden(obj);
@@ -2985,7 +2985,7 @@ int luat_lv_obj_get_hidden(lua_State *L) {
 
 //  bool lv_obj_get_adv_hittest(lv_obj_t* obj)
 int luat_lv_obj_get_adv_hittest(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_adv_hittest);
+    LV_DEBUG("CALL lv_obj_get_adv_hittest");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     bool ret;
     ret = lv_obj_get_adv_hittest(obj);
@@ -2995,7 +2995,7 @@ int luat_lv_obj_get_adv_hittest(lua_State *L) {
 
 //  bool lv_obj_get_click(lv_obj_t* obj)
 int luat_lv_obj_get_click(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_click);
+    LV_DEBUG("CALL lv_obj_get_click");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     bool ret;
     ret = lv_obj_get_click(obj);
@@ -3005,7 +3005,7 @@ int luat_lv_obj_get_click(lua_State *L) {
 
 //  bool lv_obj_get_top(lv_obj_t* obj)
 int luat_lv_obj_get_top(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_top);
+    LV_DEBUG("CALL lv_obj_get_top");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     bool ret;
     ret = lv_obj_get_top(obj);
@@ -3015,7 +3015,7 @@ int luat_lv_obj_get_top(lua_State *L) {
 
 //  bool lv_obj_get_drag(lv_obj_t* obj)
 int luat_lv_obj_get_drag(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_drag);
+    LV_DEBUG("CALL lv_obj_get_drag");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     bool ret;
     ret = lv_obj_get_drag(obj);
@@ -3025,7 +3025,7 @@ int luat_lv_obj_get_drag(lua_State *L) {
 
 //  lv_drag_dir_t lv_obj_get_drag_dir(lv_obj_t* obj)
 int luat_lv_obj_get_drag_dir(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_drag_dir);
+    LV_DEBUG("CALL lv_obj_get_drag_dir");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_drag_dir_t ret;
     ret = lv_obj_get_drag_dir(obj);
@@ -3035,7 +3035,7 @@ int luat_lv_obj_get_drag_dir(lua_State *L) {
 
 //  bool lv_obj_get_drag_throw(lv_obj_t* obj)
 int luat_lv_obj_get_drag_throw(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_drag_throw);
+    LV_DEBUG("CALL lv_obj_get_drag_throw");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     bool ret;
     ret = lv_obj_get_drag_throw(obj);
@@ -3045,7 +3045,7 @@ int luat_lv_obj_get_drag_throw(lua_State *L) {
 
 //  bool lv_obj_get_drag_parent(lv_obj_t* obj)
 int luat_lv_obj_get_drag_parent(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_drag_parent);
+    LV_DEBUG("CALL lv_obj_get_drag_parent");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     bool ret;
     ret = lv_obj_get_drag_parent(obj);
@@ -3055,7 +3055,7 @@ int luat_lv_obj_get_drag_parent(lua_State *L) {
 
 //  bool lv_obj_get_focus_parent(lv_obj_t* obj)
 int luat_lv_obj_get_focus_parent(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_focus_parent);
+    LV_DEBUG("CALL lv_obj_get_focus_parent");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     bool ret;
     ret = lv_obj_get_focus_parent(obj);
@@ -3065,7 +3065,7 @@ int luat_lv_obj_get_focus_parent(lua_State *L) {
 
 //  bool lv_obj_get_parent_event(lv_obj_t* obj)
 int luat_lv_obj_get_parent_event(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_parent_event);
+    LV_DEBUG("CALL lv_obj_get_parent_event");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     bool ret;
     ret = lv_obj_get_parent_event(obj);
@@ -3075,7 +3075,7 @@ int luat_lv_obj_get_parent_event(lua_State *L) {
 
 //  bool lv_obj_get_gesture_parent(lv_obj_t* obj)
 int luat_lv_obj_get_gesture_parent(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_gesture_parent);
+    LV_DEBUG("CALL lv_obj_get_gesture_parent");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     bool ret;
     ret = lv_obj_get_gesture_parent(obj);
@@ -3085,7 +3085,7 @@ int luat_lv_obj_get_gesture_parent(lua_State *L) {
 
 //  lv_bidi_dir_t lv_obj_get_base_dir(lv_obj_t* obj)
 int luat_lv_obj_get_base_dir(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_base_dir);
+    LV_DEBUG("CALL lv_obj_get_base_dir");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_bidi_dir_t ret;
     ret = lv_obj_get_base_dir(obj);
@@ -3095,7 +3095,7 @@ int luat_lv_obj_get_base_dir(lua_State *L) {
 
 //  uint8_t lv_obj_get_protect(lv_obj_t* obj)
 int luat_lv_obj_get_protect(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_protect);
+    LV_DEBUG("CALL lv_obj_get_protect");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t ret;
     ret = lv_obj_get_protect(obj);
@@ -3105,7 +3105,7 @@ int luat_lv_obj_get_protect(lua_State *L) {
 
 //  bool lv_obj_is_protected(lv_obj_t* obj, uint8_t prot)
 int luat_lv_obj_is_protected(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_is_protected);
+    LV_DEBUG("CALL lv_obj_is_protected");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t prot = (uint8_t)luaL_checkinteger(L, 2);
     bool ret;
@@ -3116,7 +3116,7 @@ int luat_lv_obj_is_protected(lua_State *L) {
 
 //  lv_state_t lv_obj_get_state(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_state(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_state);
+    LV_DEBUG("CALL lv_obj_get_state");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t ret;
@@ -3127,7 +3127,7 @@ int luat_lv_obj_get_state(lua_State *L) {
 
 //  bool lv_obj_is_point_on_coords(lv_obj_t* obj, lv_point_t* point)
 int luat_lv_obj_is_point_on_coords(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_is_point_on_coords);
+    LV_DEBUG("CALL lv_obj_is_point_on_coords");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lua_pushvalue(L, 2);
     lv_point_t point = {0};
@@ -3143,7 +3143,7 @@ int luat_lv_obj_is_point_on_coords(lua_State *L) {
 
 //  bool lv_obj_hittest(lv_obj_t* obj, lv_point_t* point)
 int luat_lv_obj_hittest(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_hittest);
+    LV_DEBUG("CALL lv_obj_hittest");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lua_pushvalue(L, 2);
     lv_point_t point = {0};
@@ -3159,7 +3159,7 @@ int luat_lv_obj_hittest(lua_State *L) {
 
 //  void* lv_obj_get_ext_attr(lv_obj_t* obj)
 int luat_lv_obj_get_ext_attr(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_ext_attr);
+    LV_DEBUG("CALL lv_obj_get_ext_attr");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     void* ret = NULL;
     ret = lv_obj_get_ext_attr(obj);
@@ -3169,7 +3169,7 @@ int luat_lv_obj_get_ext_attr(lua_State *L) {
 
 //  void lv_obj_get_type(lv_obj_t* obj, lv_obj_type_t* buf)
 int luat_lv_obj_get_type(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_type);
+    LV_DEBUG("CALL lv_obj_get_type");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_type_t* buf = (lv_obj_type_t*)lua_touserdata(L, 2);
     lv_obj_get_type(obj ,buf);
@@ -3178,7 +3178,7 @@ int luat_lv_obj_get_type(lua_State *L) {
 
 //  void* lv_obj_get_group(lv_obj_t* obj)
 int luat_lv_obj_get_group(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_group);
+    LV_DEBUG("CALL lv_obj_get_group");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     void* ret = NULL;
     ret = lv_obj_get_group(obj);
@@ -3188,7 +3188,7 @@ int luat_lv_obj_get_group(lua_State *L) {
 
 //  bool lv_obj_is_focused(lv_obj_t* obj)
 int luat_lv_obj_is_focused(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_is_focused);
+    LV_DEBUG("CALL lv_obj_is_focused");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     bool ret;
     ret = lv_obj_is_focused(obj);
@@ -3198,7 +3198,7 @@ int luat_lv_obj_is_focused(lua_State *L) {
 
 //  lv_obj_t* lv_obj_get_focused_obj(lv_obj_t* obj)
 int luat_lv_obj_get_focused_obj(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_focused_obj);
+    LV_DEBUG("CALL lv_obj_get_focused_obj");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* ret = NULL;
     ret = lv_obj_get_focused_obj(obj);
@@ -3208,7 +3208,7 @@ int luat_lv_obj_get_focused_obj(lua_State *L) {
 
 //  lv_res_t lv_obj_handle_get_type_signal(lv_obj_type_t* buf, char* name)
 int luat_lv_obj_handle_get_type_signal(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_handle_get_type_signal);
+    LV_DEBUG("CALL lv_obj_handle_get_type_signal");
     lv_obj_type_t* buf = (lv_obj_type_t*)lua_touserdata(L, 1);
     char* name = (char*)luaL_checkstring(L, 2);
     lv_res_t ret;
@@ -3220,7 +3220,7 @@ int luat_lv_obj_handle_get_type_signal(lua_State *L) {
 
 //  void lv_obj_init_draw_rect_dsc(lv_obj_t* obj, uint8_t type, lv_draw_rect_dsc_t* draw_dsc)
 int luat_lv_obj_init_draw_rect_dsc(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_init_draw_rect_dsc);
+    LV_DEBUG("CALL lv_obj_init_draw_rect_dsc");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t type = (uint8_t)luaL_checkinteger(L, 2);
     lv_draw_rect_dsc_t* draw_dsc = (lv_draw_rect_dsc_t*)lua_touserdata(L, 3);
@@ -3230,7 +3230,7 @@ int luat_lv_obj_init_draw_rect_dsc(lua_State *L) {
 
 //  void lv_obj_init_draw_label_dsc(lv_obj_t* obj, uint8_t type, lv_draw_label_dsc_t* draw_dsc)
 int luat_lv_obj_init_draw_label_dsc(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_init_draw_label_dsc);
+    LV_DEBUG("CALL lv_obj_init_draw_label_dsc");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t type = (uint8_t)luaL_checkinteger(L, 2);
     lv_draw_label_dsc_t* draw_dsc = (lv_draw_label_dsc_t*)lua_touserdata(L, 3);
@@ -3240,7 +3240,7 @@ int luat_lv_obj_init_draw_label_dsc(lua_State *L) {
 
 //  void lv_obj_init_draw_img_dsc(lv_obj_t* obj, uint8_t part, lv_draw_img_dsc_t* draw_dsc)
 int luat_lv_obj_init_draw_img_dsc(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_init_draw_img_dsc);
+    LV_DEBUG("CALL lv_obj_init_draw_img_dsc");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_draw_img_dsc_t* draw_dsc = (lv_draw_img_dsc_t*)lua_touserdata(L, 3);
@@ -3250,7 +3250,7 @@ int luat_lv_obj_init_draw_img_dsc(lua_State *L) {
 
 //  void lv_obj_init_draw_line_dsc(lv_obj_t* obj, uint8_t part, lv_draw_line_dsc_t* draw_dsc)
 int luat_lv_obj_init_draw_line_dsc(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_init_draw_line_dsc);
+    LV_DEBUG("CALL lv_obj_init_draw_line_dsc");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_draw_line_dsc_t* draw_dsc = (lv_draw_line_dsc_t*)lua_touserdata(L, 3);
@@ -3260,7 +3260,7 @@ int luat_lv_obj_init_draw_line_dsc(lua_State *L) {
 
 //  lv_coord_t lv_obj_get_draw_rect_ext_pad_size(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_draw_rect_ext_pad_size(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_get_draw_rect_ext_pad_size);
+    LV_DEBUG("CALL lv_obj_get_draw_rect_ext_pad_size");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_coord_t ret;
@@ -3271,7 +3271,7 @@ int luat_lv_obj_get_draw_rect_ext_pad_size(lua_State *L) {
 
 //  void lv_obj_fade_in(lv_obj_t* obj, uint32_t time, uint32_t delay)
 int luat_lv_obj_fade_in(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_fade_in);
+    LV_DEBUG("CALL lv_obj_fade_in");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint32_t time = (uint32_t)luaL_checkinteger(L, 2);
     uint32_t delay = (uint32_t)luaL_checkinteger(L, 3);
@@ -3281,7 +3281,7 @@ int luat_lv_obj_fade_in(lua_State *L) {
 
 //  void lv_obj_fade_out(lv_obj_t* obj, uint32_t time, uint32_t delay)
 int luat_lv_obj_fade_out(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_obj_fade_out);
+    LV_DEBUG("CALL lv_obj_fade_out");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint32_t time = (uint32_t)luaL_checkinteger(L, 2);
     uint32_t delay = (uint32_t)luaL_checkinteger(L, 3);

@@ -6,7 +6,7 @@
 
 //  int16_t lv_draw_mask_add(void* param, void* custom_id)
 int luat_lv_draw_mask_add(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_draw_mask_add);
+    LV_DEBUG("CALL lv_draw_mask_add");
     void* param = (void*)lua_touserdata(L, 1);
     void* custom_id = (void*)lua_touserdata(L, 2);
     int16_t ret;
@@ -17,7 +17,7 @@ int luat_lv_draw_mask_add(lua_State *L) {
 
 //  lv_draw_mask_res_t lv_draw_mask_apply(lv_opa_t* mask_buf, lv_coord_t abs_x, lv_coord_t abs_y, lv_coord_t len)
 int luat_lv_draw_mask_apply(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_draw_mask_apply);
+    LV_DEBUG("CALL lv_draw_mask_apply");
     lv_opa_t* mask_buf = (lv_opa_t*)lua_touserdata(L, 1);
     lv_coord_t abs_x = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_coord_t abs_y = (lv_coord_t)luaL_checkinteger(L, 3);
@@ -31,7 +31,7 @@ int luat_lv_draw_mask_apply(lua_State *L) {
 
 //  void* lv_draw_mask_remove_id(int16_t id)
 int luat_lv_draw_mask_remove_id(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_draw_mask_remove_id);
+    LV_DEBUG("CALL lv_draw_mask_remove_id");
     int16_t id = (int16_t)luaL_checkinteger(L, 1);
     void* ret = NULL;
     ret = lv_draw_mask_remove_id(id);
@@ -41,7 +41,7 @@ int luat_lv_draw_mask_remove_id(lua_State *L) {
 
 //  void* lv_draw_mask_remove_custom(void* custom_id)
 int luat_lv_draw_mask_remove_custom(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_draw_mask_remove_custom);
+    LV_DEBUG("CALL lv_draw_mask_remove_custom");
     void* custom_id = (void*)lua_touserdata(L, 1);
     void* ret = NULL;
     ret = lv_draw_mask_remove_custom(custom_id);
@@ -51,7 +51,7 @@ int luat_lv_draw_mask_remove_custom(lua_State *L) {
 
 //  uint8_t lv_draw_mask_get_cnt()
 int luat_lv_draw_mask_get_cnt(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_draw_mask_get_cnt);
+    LV_DEBUG("CALL lv_draw_mask_get_cnt");
     uint8_t ret;
     ret = lv_draw_mask_get_cnt();
     lua_pushinteger(L, ret);
@@ -60,7 +60,7 @@ int luat_lv_draw_mask_get_cnt(lua_State *L) {
 
 //  void lv_draw_mask_line_points_init(lv_draw_mask_line_param_t* param, lv_coord_t p1x, lv_coord_t p1y, lv_coord_t p2x, lv_coord_t p2y, lv_draw_mask_line_side_t side)
 int luat_lv_draw_mask_line_points_init(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_draw_mask_line_points_init);
+    LV_DEBUG("CALL lv_draw_mask_line_points_init");
     lv_draw_mask_line_param_t* param = (lv_draw_mask_line_param_t*)lua_touserdata(L, 1);
     lv_coord_t p1x = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_coord_t p1y = (lv_coord_t)luaL_checkinteger(L, 3);
@@ -74,7 +74,7 @@ int luat_lv_draw_mask_line_points_init(lua_State *L) {
 
 //  void lv_draw_mask_line_angle_init(lv_draw_mask_line_param_t* param, lv_coord_t p1x, lv_coord_t py, int16_t angle, lv_draw_mask_line_side_t side)
 int luat_lv_draw_mask_line_angle_init(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_draw_mask_line_angle_init);
+    LV_DEBUG("CALL lv_draw_mask_line_angle_init");
     lv_draw_mask_line_param_t* param = (lv_draw_mask_line_param_t*)lua_touserdata(L, 1);
     lv_coord_t p1x = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_coord_t py = (lv_coord_t)luaL_checkinteger(L, 3);
@@ -87,7 +87,7 @@ int luat_lv_draw_mask_line_angle_init(lua_State *L) {
 
 //  void lv_draw_mask_angle_init(lv_draw_mask_angle_param_t* param, lv_coord_t vertex_x, lv_coord_t vertex_y, lv_coord_t start_angle, lv_coord_t end_angle)
 int luat_lv_draw_mask_angle_init(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_draw_mask_angle_init);
+    LV_DEBUG("CALL lv_draw_mask_angle_init");
     lv_draw_mask_angle_param_t* param = (lv_draw_mask_angle_param_t*)lua_touserdata(L, 1);
     lv_coord_t vertex_x = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_coord_t vertex_y = (lv_coord_t)luaL_checkinteger(L, 3);
@@ -99,7 +99,7 @@ int luat_lv_draw_mask_angle_init(lua_State *L) {
 
 //  void lv_draw_mask_radius_init(lv_draw_mask_radius_param_t* param, lv_area_t* rect, lv_coord_t radius, bool inv)
 int luat_lv_draw_mask_radius_init(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_draw_mask_radius_init);
+    LV_DEBUG("CALL lv_draw_mask_radius_init");
     lv_draw_mask_radius_param_t* param = (lv_draw_mask_radius_param_t*)lua_touserdata(L, 1);
     lua_pushvalue(L, 2);
     lv_area_t rect = {0};
@@ -117,7 +117,7 @@ int luat_lv_draw_mask_radius_init(lua_State *L) {
 
 //  void lv_draw_mask_fade_init(lv_draw_mask_fade_param_t* param, lv_area_t* coords, lv_opa_t opa_top, lv_coord_t y_top, lv_opa_t opa_bottom, lv_coord_t y_bottom)
 int luat_lv_draw_mask_fade_init(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_draw_mask_fade_init);
+    LV_DEBUG("CALL lv_draw_mask_fade_init");
     lv_draw_mask_fade_param_t* param = (lv_draw_mask_fade_param_t*)lua_touserdata(L, 1);
     lua_pushvalue(L, 2);
     lv_area_t coords = {0};
@@ -137,7 +137,7 @@ int luat_lv_draw_mask_fade_init(lua_State *L) {
 
 //  void lv_draw_mask_map_init(lv_draw_mask_map_param_t* param, lv_area_t* coords, lv_opa_t* map)
 int luat_lv_draw_mask_map_init(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_draw_mask_map_init);
+    LV_DEBUG("CALL lv_draw_mask_map_init");
     lv_draw_mask_map_param_t* param = (lv_draw_mask_map_param_t*)lua_touserdata(L, 1);
     lua_pushvalue(L, 2);
     lv_area_t coords = {0};
@@ -154,7 +154,7 @@ int luat_lv_draw_mask_map_init(lua_State *L) {
 
 //  void lv_draw_rect_dsc_init(lv_draw_rect_dsc_t* dsc)
 int luat_lv_draw_rect_dsc_init(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_draw_rect_dsc_init);
+    LV_DEBUG("CALL lv_draw_rect_dsc_init");
     lv_draw_rect_dsc_t* dsc = (lv_draw_rect_dsc_t*)lua_touserdata(L, 1);
     lv_draw_rect_dsc_init(dsc);
     return 0;
@@ -162,7 +162,7 @@ int luat_lv_draw_rect_dsc_init(lua_State *L) {
 
 //  void lv_draw_rect(lv_area_t* coords, lv_area_t* mask, lv_draw_rect_dsc_t* dsc)
 int luat_lv_draw_rect(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_draw_rect);
+    LV_DEBUG("CALL lv_draw_rect");
     lua_pushvalue(L, 1);
     lv_area_t coords = {0};
     lua_geti(L, -1, 1); coords.x1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
@@ -186,7 +186,7 @@ int luat_lv_draw_rect(lua_State *L) {
 
 //  void lv_draw_px(lv_point_t* point, lv_area_t* clip_area, lv_style_t* style)
 int luat_lv_draw_px(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_draw_px);
+    LV_DEBUG("CALL lv_draw_px");
     lua_pushvalue(L, 1);
     lv_point_t point = {0};
     lua_geti(L, -1, 1); point.x = luaL_checkinteger(L, -1); lua_pop(L, 1);
@@ -208,7 +208,7 @@ int luat_lv_draw_px(lua_State *L) {
 
 //  void lv_draw_label_dsc_init(lv_draw_label_dsc_t* dsc)
 int luat_lv_draw_label_dsc_init(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_draw_label_dsc_init);
+    LV_DEBUG("CALL lv_draw_label_dsc_init");
     lv_draw_label_dsc_t* dsc = (lv_draw_label_dsc_t*)lua_touserdata(L, 1);
     lv_draw_label_dsc_init(dsc);
     return 0;
@@ -216,7 +216,7 @@ int luat_lv_draw_label_dsc_init(lua_State *L) {
 
 //  void lv_draw_label(lv_area_t* coords, lv_area_t* mask, lv_draw_label_dsc_t* dsc, char* txt, lv_draw_label_hint_t* hint)
 int luat_lv_draw_label(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_draw_label);
+    LV_DEBUG("CALL lv_draw_label");
     lua_pushvalue(L, 1);
     lv_area_t coords = {0};
     lua_geti(L, -1, 1); coords.x1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
@@ -242,7 +242,7 @@ int luat_lv_draw_label(lua_State *L) {
 
 //  void lv_draw_img_dsc_init(lv_draw_img_dsc_t* dsc)
 int luat_lv_draw_img_dsc_init(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_draw_img_dsc_init);
+    LV_DEBUG("CALL lv_draw_img_dsc_init");
     lv_draw_img_dsc_t* dsc = (lv_draw_img_dsc_t*)lua_touserdata(L, 1);
     lv_draw_img_dsc_init(dsc);
     return 0;
@@ -250,7 +250,7 @@ int luat_lv_draw_img_dsc_init(lua_State *L) {
 
 //  void lv_draw_img(lv_area_t* coords, lv_area_t* mask, void* src, lv_draw_img_dsc_t* dsc)
 int luat_lv_draw_img(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_draw_img);
+    LV_DEBUG("CALL lv_draw_img");
     lua_pushvalue(L, 1);
     lv_area_t coords = {0};
     lua_geti(L, -1, 1); coords.x1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
@@ -275,7 +275,7 @@ int luat_lv_draw_img(lua_State *L) {
 
 //  void lv_draw_line(lv_point_t* point1, lv_point_t* point2, lv_area_t* clip, lv_draw_line_dsc_t* dsc)
 int luat_lv_draw_line(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_draw_line);
+    LV_DEBUG("CALL lv_draw_line");
     lua_pushvalue(L, 1);
     lv_point_t point1 = {0};
     lua_geti(L, -1, 1); point1.x = luaL_checkinteger(L, -1); lua_pop(L, 1);
@@ -303,7 +303,7 @@ int luat_lv_draw_line(lua_State *L) {
 
 //  void lv_draw_line_dsc_init(lv_draw_line_dsc_t* dsc)
 int luat_lv_draw_line_dsc_init(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_draw_line_dsc_init);
+    LV_DEBUG("CALL lv_draw_line_dsc_init");
     lv_draw_line_dsc_t* dsc = (lv_draw_line_dsc_t*)lua_touserdata(L, 1);
     lv_draw_line_dsc_init(dsc);
     return 0;
@@ -311,7 +311,7 @@ int luat_lv_draw_line_dsc_init(lua_State *L) {
 
 //  void lv_draw_arc(lv_coord_t center_x, lv_coord_t center_y, uint16_t radius, uint16_t start_angle, uint16_t end_angle, lv_area_t* clip_area, lv_draw_line_dsc_t* dsc)
 int luat_lv_draw_arc(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_draw_arc);
+    LV_DEBUG("CALL lv_draw_arc");
     lv_coord_t center_x = (lv_coord_t)luaL_checkinteger(L, 1);
     lv_coord_t center_y = (lv_coord_t)luaL_checkinteger(L, 2);
     uint16_t radius = (uint16_t)luaL_checkinteger(L, 3);

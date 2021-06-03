@@ -6,7 +6,7 @@
 
 //  lv_obj_t* lv_canvas_create(lv_obj_t* par, lv_obj_t* copy)
 int luat_lv_canvas_create(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_canvas_create);
+    LV_DEBUG("CALL lv_canvas_create");
     lv_obj_t* par = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* copy = (lv_obj_t*)lua_touserdata(L, 2);
     lv_obj_t* ret = NULL;
@@ -17,7 +17,7 @@ int luat_lv_canvas_create(lua_State *L) {
 
 //  void lv_canvas_set_buffer(lv_obj_t* canvas, void* buf, lv_coord_t w, lv_coord_t h, lv_img_cf_t cf)
 int luat_lv_canvas_set_buffer(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_canvas_set_buffer);
+    LV_DEBUG("CALL lv_canvas_set_buffer");
     lv_obj_t* canvas = (lv_obj_t*)lua_touserdata(L, 1);
     void* buf = (void*)lua_touserdata(L, 2);
     lv_coord_t w = (lv_coord_t)luaL_checkinteger(L, 3);
@@ -29,7 +29,7 @@ int luat_lv_canvas_set_buffer(lua_State *L) {
 
 //  void lv_canvas_set_px(lv_obj_t* canvas, lv_coord_t x, lv_coord_t y, lv_color_t c)
 int luat_lv_canvas_set_px(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_canvas_set_px);
+    LV_DEBUG("CALL lv_canvas_set_px");
     lv_obj_t* canvas = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t x = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_coord_t y = (lv_coord_t)luaL_checkinteger(L, 3);
@@ -41,7 +41,7 @@ int luat_lv_canvas_set_px(lua_State *L) {
 
 //  void lv_canvas_set_palette(lv_obj_t* canvas, uint8_t id, lv_color_t c)
 int luat_lv_canvas_set_palette(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_canvas_set_palette);
+    LV_DEBUG("CALL lv_canvas_set_palette");
     lv_obj_t* canvas = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t id = (uint8_t)luaL_checkinteger(L, 2);
     lv_color_t c = {0};
@@ -52,7 +52,7 @@ int luat_lv_canvas_set_palette(lua_State *L) {
 
 //  lv_color_t lv_canvas_get_px(lv_obj_t* canvas, lv_coord_t x, lv_coord_t y)
 int luat_lv_canvas_get_px(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_canvas_get_px);
+    LV_DEBUG("CALL lv_canvas_get_px");
     lv_obj_t* canvas = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t x = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_coord_t y = (lv_coord_t)luaL_checkinteger(L, 3);
@@ -64,7 +64,7 @@ int luat_lv_canvas_get_px(lua_State *L) {
 
 //  lv_img_dsc_t* lv_canvas_get_img(lv_obj_t* canvas)
 int luat_lv_canvas_get_img(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_canvas_get_img);
+    LV_DEBUG("CALL lv_canvas_get_img");
     lv_obj_t* canvas = (lv_obj_t*)lua_touserdata(L, 1);
     lv_img_dsc_t* ret = NULL;
     ret = lv_canvas_get_img(canvas);
@@ -74,7 +74,7 @@ int luat_lv_canvas_get_img(lua_State *L) {
 
 //  void lv_canvas_copy_buf(lv_obj_t* canvas, void* to_copy, lv_coord_t x, lv_coord_t y, lv_coord_t w, lv_coord_t h)
 int luat_lv_canvas_copy_buf(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_canvas_copy_buf);
+    LV_DEBUG("CALL lv_canvas_copy_buf");
     lv_obj_t* canvas = (lv_obj_t*)lua_touserdata(L, 1);
     void* to_copy = (void*)lua_touserdata(L, 2);
     lv_coord_t x = (lv_coord_t)luaL_checkinteger(L, 3);
@@ -87,7 +87,7 @@ int luat_lv_canvas_copy_buf(lua_State *L) {
 
 //  void lv_canvas_transform(lv_obj_t* canvas, lv_img_dsc_t* img, int16_t angle, uint16_t zoom, lv_coord_t offset_x, lv_coord_t offset_y, int32_t pivot_x, int32_t pivot_y, bool antialias)
 int luat_lv_canvas_transform(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_canvas_transform);
+    LV_DEBUG("CALL lv_canvas_transform");
     lv_obj_t* canvas = (lv_obj_t*)lua_touserdata(L, 1);
     lv_img_dsc_t* img = (lv_img_dsc_t*)lua_touserdata(L, 2);
     int16_t angle = (int16_t)luaL_checkinteger(L, 3);
@@ -103,7 +103,7 @@ int luat_lv_canvas_transform(lua_State *L) {
 
 //  void lv_canvas_blur_hor(lv_obj_t* canvas, lv_area_t* area, uint16_t r)
 int luat_lv_canvas_blur_hor(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_canvas_blur_hor);
+    LV_DEBUG("CALL lv_canvas_blur_hor");
     lv_obj_t* canvas = (lv_obj_t*)lua_touserdata(L, 1);
     lua_pushvalue(L, 2);
     lv_area_t area = {0};
@@ -120,7 +120,7 @@ int luat_lv_canvas_blur_hor(lua_State *L) {
 
 //  void lv_canvas_blur_ver(lv_obj_t* canvas, lv_area_t* area, uint16_t r)
 int luat_lv_canvas_blur_ver(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_canvas_blur_ver);
+    LV_DEBUG("CALL lv_canvas_blur_ver");
     lv_obj_t* canvas = (lv_obj_t*)lua_touserdata(L, 1);
     lua_pushvalue(L, 2);
     lv_area_t area = {0};
@@ -137,7 +137,7 @@ int luat_lv_canvas_blur_ver(lua_State *L) {
 
 //  void lv_canvas_fill_bg(lv_obj_t* canvas, lv_color_t color, lv_opa_t opa)
 int luat_lv_canvas_fill_bg(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_canvas_fill_bg);
+    LV_DEBUG("CALL lv_canvas_fill_bg");
     lv_obj_t* canvas = (lv_obj_t*)lua_touserdata(L, 1);
     lv_color_t color = {0};
     color.full = luaL_checkinteger(L, 2);
@@ -148,7 +148,7 @@ int luat_lv_canvas_fill_bg(lua_State *L) {
 
 //  void lv_canvas_draw_rect(lv_obj_t* canvas, lv_coord_t x, lv_coord_t y, lv_coord_t w, lv_coord_t h, lv_draw_rect_dsc_t* rect_dsc)
 int luat_lv_canvas_draw_rect(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_canvas_draw_rect);
+    LV_DEBUG("CALL lv_canvas_draw_rect");
     lv_obj_t* canvas = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t x = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_coord_t y = (lv_coord_t)luaL_checkinteger(L, 3);
@@ -161,7 +161,7 @@ int luat_lv_canvas_draw_rect(lua_State *L) {
 
 //  void lv_canvas_draw_text(lv_obj_t* canvas, lv_coord_t x, lv_coord_t y, lv_coord_t max_w, lv_draw_label_dsc_t* label_draw_dsc, char* txt, lv_label_align_t align)
 int luat_lv_canvas_draw_text(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_canvas_draw_text);
+    LV_DEBUG("CALL lv_canvas_draw_text");
     lv_obj_t* canvas = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t x = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_coord_t y = (lv_coord_t)luaL_checkinteger(L, 3);
@@ -175,7 +175,7 @@ int luat_lv_canvas_draw_text(lua_State *L) {
 
 //  void lv_canvas_draw_img(lv_obj_t* canvas, lv_coord_t x, lv_coord_t y, void* src, lv_draw_img_dsc_t* img_draw_dsc)
 int luat_lv_canvas_draw_img(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_canvas_draw_img);
+    LV_DEBUG("CALL lv_canvas_draw_img");
     lv_obj_t* canvas = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t x = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_coord_t y = (lv_coord_t)luaL_checkinteger(L, 3);
@@ -187,7 +187,7 @@ int luat_lv_canvas_draw_img(lua_State *L) {
 
 //  void lv_canvas_draw_arc(lv_obj_t* canvas, lv_coord_t x, lv_coord_t y, lv_coord_t r, int32_t start_angle, int32_t end_angle, lv_draw_line_dsc_t* arc_draw_dsc)
 int luat_lv_canvas_draw_arc(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_canvas_draw_arc);
+    LV_DEBUG("CALL lv_canvas_draw_arc");
     lv_obj_t* canvas = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t x = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_coord_t y = (lv_coord_t)luaL_checkinteger(L, 3);

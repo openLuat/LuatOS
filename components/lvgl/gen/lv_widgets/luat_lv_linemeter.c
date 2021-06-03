@@ -6,7 +6,7 @@
 
 //  lv_obj_t* lv_linemeter_create(lv_obj_t* par, lv_obj_t* copy)
 int luat_lv_linemeter_create(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_linemeter_create);
+    LV_DEBUG("CALL lv_linemeter_create");
     lv_obj_t* par = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* copy = (lv_obj_t*)lua_touserdata(L, 2);
     lv_obj_t* ret = NULL;
@@ -17,7 +17,7 @@ int luat_lv_linemeter_create(lua_State *L) {
 
 //  void lv_linemeter_set_value(lv_obj_t* lmeter, int32_t value)
 int luat_lv_linemeter_set_value(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_linemeter_set_value);
+    LV_DEBUG("CALL lv_linemeter_set_value");
     lv_obj_t* lmeter = (lv_obj_t*)lua_touserdata(L, 1);
     int32_t value = (int32_t)luaL_checkinteger(L, 2);
     lv_linemeter_set_value(lmeter ,value);
@@ -26,7 +26,7 @@ int luat_lv_linemeter_set_value(lua_State *L) {
 
 //  void lv_linemeter_set_range(lv_obj_t* lmeter, int32_t min, int32_t max)
 int luat_lv_linemeter_set_range(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_linemeter_set_range);
+    LV_DEBUG("CALL lv_linemeter_set_range");
     lv_obj_t* lmeter = (lv_obj_t*)lua_touserdata(L, 1);
     int32_t min = (int32_t)luaL_checkinteger(L, 2);
     int32_t max = (int32_t)luaL_checkinteger(L, 3);
@@ -36,7 +36,7 @@ int luat_lv_linemeter_set_range(lua_State *L) {
 
 //  void lv_linemeter_set_scale(lv_obj_t* lmeter, uint16_t angle, uint16_t line_cnt)
 int luat_lv_linemeter_set_scale(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_linemeter_set_scale);
+    LV_DEBUG("CALL lv_linemeter_set_scale");
     lv_obj_t* lmeter = (lv_obj_t*)lua_touserdata(L, 1);
     uint16_t angle = (uint16_t)luaL_checkinteger(L, 2);
     uint16_t line_cnt = (uint16_t)luaL_checkinteger(L, 3);
@@ -46,7 +46,7 @@ int luat_lv_linemeter_set_scale(lua_State *L) {
 
 //  void lv_linemeter_set_angle_offset(lv_obj_t* lmeter, uint16_t angle)
 int luat_lv_linemeter_set_angle_offset(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_linemeter_set_angle_offset);
+    LV_DEBUG("CALL lv_linemeter_set_angle_offset");
     lv_obj_t* lmeter = (lv_obj_t*)lua_touserdata(L, 1);
     uint16_t angle = (uint16_t)luaL_checkinteger(L, 2);
     lv_linemeter_set_angle_offset(lmeter ,angle);
@@ -55,7 +55,7 @@ int luat_lv_linemeter_set_angle_offset(lua_State *L) {
 
 //  void lv_linemeter_set_mirror(lv_obj_t* lmeter, bool mirror)
 int luat_lv_linemeter_set_mirror(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_linemeter_set_mirror);
+    LV_DEBUG("CALL lv_linemeter_set_mirror");
     lv_obj_t* lmeter = (lv_obj_t*)lua_touserdata(L, 1);
     bool mirror = (bool)lua_toboolean(L, 2);
     lv_linemeter_set_mirror(lmeter ,mirror);
@@ -64,7 +64,7 @@ int luat_lv_linemeter_set_mirror(lua_State *L) {
 
 //  int32_t lv_linemeter_get_value(lv_obj_t* lmeter)
 int luat_lv_linemeter_get_value(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_linemeter_get_value);
+    LV_DEBUG("CALL lv_linemeter_get_value");
     lv_obj_t* lmeter = (lv_obj_t*)lua_touserdata(L, 1);
     int32_t ret;
     ret = lv_linemeter_get_value(lmeter);
@@ -74,7 +74,7 @@ int luat_lv_linemeter_get_value(lua_State *L) {
 
 //  int32_t lv_linemeter_get_min_value(lv_obj_t* lmeter)
 int luat_lv_linemeter_get_min_value(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_linemeter_get_min_value);
+    LV_DEBUG("CALL lv_linemeter_get_min_value");
     lv_obj_t* lmeter = (lv_obj_t*)lua_touserdata(L, 1);
     int32_t ret;
     ret = lv_linemeter_get_min_value(lmeter);
@@ -84,7 +84,7 @@ int luat_lv_linemeter_get_min_value(lua_State *L) {
 
 //  int32_t lv_linemeter_get_max_value(lv_obj_t* lmeter)
 int luat_lv_linemeter_get_max_value(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_linemeter_get_max_value);
+    LV_DEBUG("CALL lv_linemeter_get_max_value");
     lv_obj_t* lmeter = (lv_obj_t*)lua_touserdata(L, 1);
     int32_t ret;
     ret = lv_linemeter_get_max_value(lmeter);
@@ -94,7 +94,7 @@ int luat_lv_linemeter_get_max_value(lua_State *L) {
 
 //  uint16_t lv_linemeter_get_line_count(lv_obj_t* lmeter)
 int luat_lv_linemeter_get_line_count(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_linemeter_get_line_count);
+    LV_DEBUG("CALL lv_linemeter_get_line_count");
     lv_obj_t* lmeter = (lv_obj_t*)lua_touserdata(L, 1);
     uint16_t ret;
     ret = lv_linemeter_get_line_count(lmeter);
@@ -104,7 +104,7 @@ int luat_lv_linemeter_get_line_count(lua_State *L) {
 
 //  uint16_t lv_linemeter_get_scale_angle(lv_obj_t* lmeter)
 int luat_lv_linemeter_get_scale_angle(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_linemeter_get_scale_angle);
+    LV_DEBUG("CALL lv_linemeter_get_scale_angle");
     lv_obj_t* lmeter = (lv_obj_t*)lua_touserdata(L, 1);
     uint16_t ret;
     ret = lv_linemeter_get_scale_angle(lmeter);
@@ -114,7 +114,7 @@ int luat_lv_linemeter_get_scale_angle(lua_State *L) {
 
 //  uint16_t lv_linemeter_get_angle_offset(lv_obj_t* lmeter)
 int luat_lv_linemeter_get_angle_offset(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_linemeter_get_angle_offset);
+    LV_DEBUG("CALL lv_linemeter_get_angle_offset");
     lv_obj_t* lmeter = (lv_obj_t*)lua_touserdata(L, 1);
     uint16_t ret;
     ret = lv_linemeter_get_angle_offset(lmeter);
@@ -124,7 +124,7 @@ int luat_lv_linemeter_get_angle_offset(lua_State *L) {
 
 //  void lv_linemeter_draw_scale(lv_obj_t* lmeter, lv_area_t* clip_area, uint8_t part)
 int luat_lv_linemeter_draw_scale(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_linemeter_draw_scale);
+    LV_DEBUG("CALL lv_linemeter_draw_scale");
     lv_obj_t* lmeter = (lv_obj_t*)lua_touserdata(L, 1);
     lua_pushvalue(L, 2);
     lv_area_t clip_area = {0};
@@ -141,7 +141,7 @@ int luat_lv_linemeter_draw_scale(lua_State *L) {
 
 //  bool lv_linemeter_get_mirror(lv_obj_t* lmeter)
 int luat_lv_linemeter_get_mirror(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_linemeter_get_mirror);
+    LV_DEBUG("CALL lv_linemeter_get_mirror");
     lv_obj_t* lmeter = (lv_obj_t*)lua_touserdata(L, 1);
     bool ret;
     ret = lv_linemeter_get_mirror(lmeter);

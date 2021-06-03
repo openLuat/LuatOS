@@ -6,7 +6,7 @@
 
 //  lv_obj_t* lv_page_create(lv_obj_t* par, lv_obj_t* copy)
 int luat_lv_page_create(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_page_create);
+    LV_DEBUG("CALL lv_page_create");
     lv_obj_t* par = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* copy = (lv_obj_t*)lua_touserdata(L, 2);
     lv_obj_t* ret = NULL;
@@ -17,7 +17,7 @@ int luat_lv_page_create(lua_State *L) {
 
 //  void lv_page_clean(lv_obj_t* page)
 int luat_lv_page_clean(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_page_clean);
+    LV_DEBUG("CALL lv_page_clean");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
     lv_page_clean(page);
     return 0;
@@ -25,7 +25,7 @@ int luat_lv_page_clean(lua_State *L) {
 
 //  lv_obj_t* lv_page_get_scrollable(lv_obj_t* page)
 int luat_lv_page_get_scrollable(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_page_get_scrollable);
+    LV_DEBUG("CALL lv_page_get_scrollable");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* ret = NULL;
     ret = lv_page_get_scrollable(page);
@@ -35,7 +35,7 @@ int luat_lv_page_get_scrollable(lua_State *L) {
 
 //  uint16_t lv_page_get_anim_time(lv_obj_t* page)
 int luat_lv_page_get_anim_time(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_page_get_anim_time);
+    LV_DEBUG("CALL lv_page_get_anim_time");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
     uint16_t ret;
     ret = lv_page_get_anim_time(page);
@@ -45,7 +45,7 @@ int luat_lv_page_get_anim_time(lua_State *L) {
 
 //  void lv_page_set_scrollbar_mode(lv_obj_t* page, lv_scrollbar_mode_t sb_mode)
 int luat_lv_page_set_scrollbar_mode(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_page_set_scrollbar_mode);
+    LV_DEBUG("CALL lv_page_set_scrollbar_mode");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
     lv_scrollbar_mode_t sb_mode = (lv_scrollbar_mode_t)luaL_checkinteger(L, 2);
     lv_page_set_scrollbar_mode(page ,sb_mode);
@@ -54,7 +54,7 @@ int luat_lv_page_set_scrollbar_mode(lua_State *L) {
 
 //  void lv_page_set_anim_time(lv_obj_t* page, uint16_t anim_time)
 int luat_lv_page_set_anim_time(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_page_set_anim_time);
+    LV_DEBUG("CALL lv_page_set_anim_time");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
     uint16_t anim_time = (uint16_t)luaL_checkinteger(L, 2);
     lv_page_set_anim_time(page ,anim_time);
@@ -63,7 +63,7 @@ int luat_lv_page_set_anim_time(lua_State *L) {
 
 //  void lv_page_set_scroll_propagation(lv_obj_t* page, bool en)
 int luat_lv_page_set_scroll_propagation(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_page_set_scroll_propagation);
+    LV_DEBUG("CALL lv_page_set_scroll_propagation");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
     bool en = (bool)lua_toboolean(L, 2);
     lv_page_set_scroll_propagation(page ,en);
@@ -72,7 +72,7 @@ int luat_lv_page_set_scroll_propagation(lua_State *L) {
 
 //  void lv_page_set_edge_flash(lv_obj_t* page, bool en)
 int luat_lv_page_set_edge_flash(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_page_set_edge_flash);
+    LV_DEBUG("CALL lv_page_set_edge_flash");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
     bool en = (bool)lua_toboolean(L, 2);
     lv_page_set_edge_flash(page ,en);
@@ -81,7 +81,7 @@ int luat_lv_page_set_edge_flash(lua_State *L) {
 
 //  void lv_page_set_scrollable_fit4(lv_obj_t* page, lv_fit_t left, lv_fit_t right, lv_fit_t top, lv_fit_t bottom)
 int luat_lv_page_set_scrollable_fit4(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_page_set_scrollable_fit4);
+    LV_DEBUG("CALL lv_page_set_scrollable_fit4");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
     lv_fit_t left = (lv_fit_t)luaL_checkinteger(L, 2);
     lv_fit_t right = (lv_fit_t)luaL_checkinteger(L, 3);
@@ -93,7 +93,7 @@ int luat_lv_page_set_scrollable_fit4(lua_State *L) {
 
 //  void lv_page_set_scrollable_fit2(lv_obj_t* page, lv_fit_t hor, lv_fit_t ver)
 int luat_lv_page_set_scrollable_fit2(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_page_set_scrollable_fit2);
+    LV_DEBUG("CALL lv_page_set_scrollable_fit2");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
     lv_fit_t hor = (lv_fit_t)luaL_checkinteger(L, 2);
     lv_fit_t ver = (lv_fit_t)luaL_checkinteger(L, 3);
@@ -103,7 +103,7 @@ int luat_lv_page_set_scrollable_fit2(lua_State *L) {
 
 //  void lv_page_set_scrollable_fit(lv_obj_t* page, lv_fit_t fit)
 int luat_lv_page_set_scrollable_fit(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_page_set_scrollable_fit);
+    LV_DEBUG("CALL lv_page_set_scrollable_fit");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
     lv_fit_t fit = (lv_fit_t)luaL_checkinteger(L, 2);
     lv_page_set_scrollable_fit(page ,fit);
@@ -112,7 +112,7 @@ int luat_lv_page_set_scrollable_fit(lua_State *L) {
 
 //  void lv_page_set_scrl_width(lv_obj_t* page, lv_coord_t w)
 int luat_lv_page_set_scrl_width(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_page_set_scrl_width);
+    LV_DEBUG("CALL lv_page_set_scrl_width");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t w = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_page_set_scrl_width(page ,w);
@@ -121,7 +121,7 @@ int luat_lv_page_set_scrl_width(lua_State *L) {
 
 //  void lv_page_set_scrl_height(lv_obj_t* page, lv_coord_t h)
 int luat_lv_page_set_scrl_height(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_page_set_scrl_height);
+    LV_DEBUG("CALL lv_page_set_scrl_height");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t h = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_page_set_scrl_height(page ,h);
@@ -130,7 +130,7 @@ int luat_lv_page_set_scrl_height(lua_State *L) {
 
 //  void lv_page_set_scrl_layout(lv_obj_t* page, lv_layout_t layout)
 int luat_lv_page_set_scrl_layout(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_page_set_scrl_layout);
+    LV_DEBUG("CALL lv_page_set_scrl_layout");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
     lv_layout_t layout = (lv_layout_t)luaL_checkinteger(L, 2);
     lv_page_set_scrl_layout(page ,layout);
@@ -139,7 +139,7 @@ int luat_lv_page_set_scrl_layout(lua_State *L) {
 
 //  lv_scrollbar_mode_t lv_page_get_scrollbar_mode(lv_obj_t* page)
 int luat_lv_page_get_scrollbar_mode(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_page_get_scrollbar_mode);
+    LV_DEBUG("CALL lv_page_get_scrollbar_mode");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
     lv_scrollbar_mode_t ret;
     ret = lv_page_get_scrollbar_mode(page);
@@ -149,7 +149,7 @@ int luat_lv_page_get_scrollbar_mode(lua_State *L) {
 
 //  bool lv_page_get_scroll_propagation(lv_obj_t* page)
 int luat_lv_page_get_scroll_propagation(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_page_get_scroll_propagation);
+    LV_DEBUG("CALL lv_page_get_scroll_propagation");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
     bool ret;
     ret = lv_page_get_scroll_propagation(page);
@@ -159,7 +159,7 @@ int luat_lv_page_get_scroll_propagation(lua_State *L) {
 
 //  bool lv_page_get_edge_flash(lv_obj_t* page)
 int luat_lv_page_get_edge_flash(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_page_get_edge_flash);
+    LV_DEBUG("CALL lv_page_get_edge_flash");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
     bool ret;
     ret = lv_page_get_edge_flash(page);
@@ -169,7 +169,7 @@ int luat_lv_page_get_edge_flash(lua_State *L) {
 
 //  lv_coord_t lv_page_get_width_fit(lv_obj_t* page)
 int luat_lv_page_get_width_fit(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_page_get_width_fit);
+    LV_DEBUG("CALL lv_page_get_width_fit");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t ret;
     ret = lv_page_get_width_fit(page);
@@ -179,7 +179,7 @@ int luat_lv_page_get_width_fit(lua_State *L) {
 
 //  lv_coord_t lv_page_get_height_fit(lv_obj_t* page)
 int luat_lv_page_get_height_fit(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_page_get_height_fit);
+    LV_DEBUG("CALL lv_page_get_height_fit");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t ret;
     ret = lv_page_get_height_fit(page);
@@ -189,7 +189,7 @@ int luat_lv_page_get_height_fit(lua_State *L) {
 
 //  lv_coord_t lv_page_get_width_grid(lv_obj_t* page, uint8_t div, uint8_t span)
 int luat_lv_page_get_width_grid(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_page_get_width_grid);
+    LV_DEBUG("CALL lv_page_get_width_grid");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t div = (uint8_t)luaL_checkinteger(L, 2);
     uint8_t span = (uint8_t)luaL_checkinteger(L, 3);
@@ -201,7 +201,7 @@ int luat_lv_page_get_width_grid(lua_State *L) {
 
 //  lv_coord_t lv_page_get_height_grid(lv_obj_t* page, uint8_t div, uint8_t span)
 int luat_lv_page_get_height_grid(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_page_get_height_grid);
+    LV_DEBUG("CALL lv_page_get_height_grid");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t div = (uint8_t)luaL_checkinteger(L, 2);
     uint8_t span = (uint8_t)luaL_checkinteger(L, 3);
@@ -213,7 +213,7 @@ int luat_lv_page_get_height_grid(lua_State *L) {
 
 //  lv_coord_t lv_page_get_scrl_width(lv_obj_t* page)
 int luat_lv_page_get_scrl_width(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_page_get_scrl_width);
+    LV_DEBUG("CALL lv_page_get_scrl_width");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t ret;
     ret = lv_page_get_scrl_width(page);
@@ -223,7 +223,7 @@ int luat_lv_page_get_scrl_width(lua_State *L) {
 
 //  lv_coord_t lv_page_get_scrl_height(lv_obj_t* page)
 int luat_lv_page_get_scrl_height(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_page_get_scrl_height);
+    LV_DEBUG("CALL lv_page_get_scrl_height");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t ret;
     ret = lv_page_get_scrl_height(page);
@@ -233,7 +233,7 @@ int luat_lv_page_get_scrl_height(lua_State *L) {
 
 //  lv_layout_t lv_page_get_scrl_layout(lv_obj_t* page)
 int luat_lv_page_get_scrl_layout(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_page_get_scrl_layout);
+    LV_DEBUG("CALL lv_page_get_scrl_layout");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
     lv_layout_t ret;
     ret = lv_page_get_scrl_layout(page);
@@ -243,7 +243,7 @@ int luat_lv_page_get_scrl_layout(lua_State *L) {
 
 //  lv_fit_t lv_page_get_scrl_fit_left(lv_obj_t* page)
 int luat_lv_page_get_scrl_fit_left(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_page_get_scrl_fit_left);
+    LV_DEBUG("CALL lv_page_get_scrl_fit_left");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
     lv_fit_t ret;
     ret = lv_page_get_scrl_fit_left(page);
@@ -253,7 +253,7 @@ int luat_lv_page_get_scrl_fit_left(lua_State *L) {
 
 //  lv_fit_t lv_page_get_scrl_fit_right(lv_obj_t* page)
 int luat_lv_page_get_scrl_fit_right(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_page_get_scrl_fit_right);
+    LV_DEBUG("CALL lv_page_get_scrl_fit_right");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
     lv_fit_t ret;
     ret = lv_page_get_scrl_fit_right(page);
@@ -263,7 +263,7 @@ int luat_lv_page_get_scrl_fit_right(lua_State *L) {
 
 //  lv_fit_t lv_page_get_scrl_fit_top(lv_obj_t* page)
 int luat_lv_page_get_scrl_fit_top(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_page_get_scrl_fit_top);
+    LV_DEBUG("CALL lv_page_get_scrl_fit_top");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
     lv_fit_t ret;
     ret = lv_page_get_scrl_fit_top(page);
@@ -273,7 +273,7 @@ int luat_lv_page_get_scrl_fit_top(lua_State *L) {
 
 //  lv_fit_t lv_page_get_scrl_fit_bottom(lv_obj_t* page)
 int luat_lv_page_get_scrl_fit_bottom(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_page_get_scrl_fit_bottom);
+    LV_DEBUG("CALL lv_page_get_scrl_fit_bottom");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
     lv_fit_t ret;
     ret = lv_page_get_scrl_fit_bottom(page);
@@ -283,7 +283,7 @@ int luat_lv_page_get_scrl_fit_bottom(lua_State *L) {
 
 //  bool lv_page_on_edge(lv_obj_t* page, lv_page_edge_t edge)
 int luat_lv_page_on_edge(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_page_on_edge);
+    LV_DEBUG("CALL lv_page_on_edge");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
     lv_page_edge_t edge;
     // miss arg convert
@@ -295,7 +295,7 @@ int luat_lv_page_on_edge(lua_State *L) {
 
 //  void lv_page_glue_obj(lv_obj_t* obj, bool glue)
 int luat_lv_page_glue_obj(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_page_glue_obj);
+    LV_DEBUG("CALL lv_page_glue_obj");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     bool glue = (bool)lua_toboolean(L, 2);
     lv_page_glue_obj(obj ,glue);
@@ -304,7 +304,7 @@ int luat_lv_page_glue_obj(lua_State *L) {
 
 //  void lv_page_focus(lv_obj_t* page, lv_obj_t* obj, lv_anim_enable_t anim_en)
 int luat_lv_page_focus(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_page_focus);
+    LV_DEBUG("CALL lv_page_focus");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 2);
     lv_anim_enable_t anim_en = (lv_anim_enable_t)luaL_checkinteger(L, 3);
@@ -314,7 +314,7 @@ int luat_lv_page_focus(lua_State *L) {
 
 //  void lv_page_scroll_hor(lv_obj_t* page, lv_coord_t dist)
 int luat_lv_page_scroll_hor(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_page_scroll_hor);
+    LV_DEBUG("CALL lv_page_scroll_hor");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t dist = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_page_scroll_hor(page ,dist);
@@ -323,7 +323,7 @@ int luat_lv_page_scroll_hor(lua_State *L) {
 
 //  void lv_page_scroll_ver(lv_obj_t* page, lv_coord_t dist)
 int luat_lv_page_scroll_ver(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_page_scroll_ver);
+    LV_DEBUG("CALL lv_page_scroll_ver");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t dist = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_page_scroll_ver(page ,dist);
@@ -332,7 +332,7 @@ int luat_lv_page_scroll_ver(lua_State *L) {
 
 //  void lv_page_start_edge_flash(lv_obj_t* page, lv_page_edge_t edge)
 int luat_lv_page_start_edge_flash(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_page_start_edge_flash);
+    LV_DEBUG("CALL lv_page_start_edge_flash");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
     lv_page_edge_t edge;
     // miss arg convert

@@ -6,7 +6,7 @@
 
 //  lv_img_dsc_t* lv_img_buf_alloc(lv_coord_t w, lv_coord_t h, lv_img_cf_t cf)
 int luat_lv_img_buf_alloc(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_buf_alloc);
+    LV_DEBUG("CALL lv_img_buf_alloc");
     lv_coord_t w = (lv_coord_t)luaL_checkinteger(L, 1);
     lv_coord_t h = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_img_cf_t cf = (lv_img_cf_t)luaL_checkinteger(L, 3);
@@ -18,7 +18,7 @@ int luat_lv_img_buf_alloc(lua_State *L) {
 
 //  lv_color_t lv_img_buf_get_px_color(lv_img_dsc_t* dsc, lv_coord_t x, lv_coord_t y, lv_color_t color)
 int luat_lv_img_buf_get_px_color(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_buf_get_px_color);
+    LV_DEBUG("CALL lv_img_buf_get_px_color");
     lv_img_dsc_t* dsc = (lv_img_dsc_t*)lua_touserdata(L, 1);
     lv_coord_t x = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_coord_t y = (lv_coord_t)luaL_checkinteger(L, 3);
@@ -32,7 +32,7 @@ int luat_lv_img_buf_get_px_color(lua_State *L) {
 
 //  lv_opa_t lv_img_buf_get_px_alpha(lv_img_dsc_t* dsc, lv_coord_t x, lv_coord_t y)
 int luat_lv_img_buf_get_px_alpha(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_buf_get_px_alpha);
+    LV_DEBUG("CALL lv_img_buf_get_px_alpha");
     lv_img_dsc_t* dsc = (lv_img_dsc_t*)lua_touserdata(L, 1);
     lv_coord_t x = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_coord_t y = (lv_coord_t)luaL_checkinteger(L, 3);
@@ -44,7 +44,7 @@ int luat_lv_img_buf_get_px_alpha(lua_State *L) {
 
 //  void lv_img_buf_set_px_color(lv_img_dsc_t* dsc, lv_coord_t x, lv_coord_t y, lv_color_t c)
 int luat_lv_img_buf_set_px_color(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_buf_set_px_color);
+    LV_DEBUG("CALL lv_img_buf_set_px_color");
     lv_img_dsc_t* dsc = (lv_img_dsc_t*)lua_touserdata(L, 1);
     lv_coord_t x = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_coord_t y = (lv_coord_t)luaL_checkinteger(L, 3);
@@ -56,7 +56,7 @@ int luat_lv_img_buf_set_px_color(lua_State *L) {
 
 //  void lv_img_buf_set_px_alpha(lv_img_dsc_t* dsc, lv_coord_t x, lv_coord_t y, lv_opa_t opa)
 int luat_lv_img_buf_set_px_alpha(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_buf_set_px_alpha);
+    LV_DEBUG("CALL lv_img_buf_set_px_alpha");
     lv_img_dsc_t* dsc = (lv_img_dsc_t*)lua_touserdata(L, 1);
     lv_coord_t x = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_coord_t y = (lv_coord_t)luaL_checkinteger(L, 3);
@@ -67,7 +67,7 @@ int luat_lv_img_buf_set_px_alpha(lua_State *L) {
 
 //  void lv_img_buf_set_palette(lv_img_dsc_t* dsc, uint8_t id, lv_color_t c)
 int luat_lv_img_buf_set_palette(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_buf_set_palette);
+    LV_DEBUG("CALL lv_img_buf_set_palette");
     lv_img_dsc_t* dsc = (lv_img_dsc_t*)lua_touserdata(L, 1);
     uint8_t id = (uint8_t)luaL_checkinteger(L, 2);
     lv_color_t c = {0};
@@ -78,7 +78,7 @@ int luat_lv_img_buf_set_palette(lua_State *L) {
 
 //  void lv_img_buf_free(lv_img_dsc_t* dsc)
 int luat_lv_img_buf_free(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_buf_free);
+    LV_DEBUG("CALL lv_img_buf_free");
     lv_img_dsc_t* dsc = (lv_img_dsc_t*)lua_touserdata(L, 1);
     lv_img_buf_free(dsc);
     return 0;
@@ -86,7 +86,7 @@ int luat_lv_img_buf_free(lua_State *L) {
 
 //  uint32_t lv_img_buf_get_img_size(lv_coord_t w, lv_coord_t h, lv_img_cf_t cf)
 int luat_lv_img_buf_get_img_size(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_buf_get_img_size);
+    LV_DEBUG("CALL lv_img_buf_get_img_size");
     lv_coord_t w = (lv_coord_t)luaL_checkinteger(L, 1);
     lv_coord_t h = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_img_cf_t cf = (lv_img_cf_t)luaL_checkinteger(L, 3);
@@ -98,7 +98,7 @@ int luat_lv_img_buf_get_img_size(lua_State *L) {
 
 //  lv_res_t lv_img_decoder_get_info(char* src, lv_img_header_t* header)
 int luat_lv_img_decoder_get_info(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_decoder_get_info);
+    LV_DEBUG("CALL lv_img_decoder_get_info");
     char* src = (char*)luaL_checkstring(L, 1);
     lv_img_header_t* header = (lv_img_header_t*)lua_touserdata(L, 2);
     lv_res_t ret;
@@ -110,7 +110,7 @@ int luat_lv_img_decoder_get_info(lua_State *L) {
 
 //  lv_res_t lv_img_decoder_open(lv_img_decoder_dsc_t* dsc, void* src, lv_color_t color)
 int luat_lv_img_decoder_open(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_decoder_open);
+    LV_DEBUG("CALL lv_img_decoder_open");
     lv_img_decoder_dsc_t* dsc = (lv_img_decoder_dsc_t*)lua_touserdata(L, 1);
     void* src = (void*)lua_touserdata(L, 2);
     lv_color_t color = {0};
@@ -124,7 +124,7 @@ int luat_lv_img_decoder_open(lua_State *L) {
 
 //  lv_res_t lv_img_decoder_read_line(lv_img_decoder_dsc_t* dsc, lv_coord_t x, lv_coord_t y, lv_coord_t len, uint8_t* buf)
 int luat_lv_img_decoder_read_line(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_decoder_read_line);
+    LV_DEBUG("CALL lv_img_decoder_read_line");
     lv_img_decoder_dsc_t* dsc = (lv_img_decoder_dsc_t*)lua_touserdata(L, 1);
     lv_coord_t x = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_coord_t y = (lv_coord_t)luaL_checkinteger(L, 3);
@@ -139,7 +139,7 @@ int luat_lv_img_decoder_read_line(lua_State *L) {
 
 //  void lv_img_decoder_close(lv_img_decoder_dsc_t* dsc)
 int luat_lv_img_decoder_close(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_decoder_close);
+    LV_DEBUG("CALL lv_img_decoder_close");
     lv_img_decoder_dsc_t* dsc = (lv_img_decoder_dsc_t*)lua_touserdata(L, 1);
     lv_img_decoder_close(dsc);
     return 0;
@@ -147,7 +147,7 @@ int luat_lv_img_decoder_close(lua_State *L) {
 
 //  lv_img_decoder_t* lv_img_decoder_create()
 int luat_lv_img_decoder_create(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_decoder_create);
+    LV_DEBUG("CALL lv_img_decoder_create");
     lv_img_decoder_t* ret = NULL;
     ret = lv_img_decoder_create();
     lua_pushlightuserdata(L, ret);
@@ -156,7 +156,7 @@ int luat_lv_img_decoder_create(lua_State *L) {
 
 //  void lv_img_decoder_delete(lv_img_decoder_t* decoder)
 int luat_lv_img_decoder_delete(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_decoder_delete);
+    LV_DEBUG("CALL lv_img_decoder_delete");
     lv_img_decoder_t* decoder = (lv_img_decoder_t*)lua_touserdata(L, 1);
     lv_img_decoder_delete(decoder);
     return 0;
@@ -164,7 +164,7 @@ int luat_lv_img_decoder_delete(lua_State *L) {
 
 //  lv_res_t lv_img_decoder_built_in_info(lv_img_decoder_t* decoder, void* src, lv_img_header_t* header)
 int luat_lv_img_decoder_built_in_info(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_decoder_built_in_info);
+    LV_DEBUG("CALL lv_img_decoder_built_in_info");
     lv_img_decoder_t* decoder = (lv_img_decoder_t*)lua_touserdata(L, 1);
     void* src = (void*)lua_touserdata(L, 2);
     lv_img_header_t* header = (lv_img_header_t*)lua_touserdata(L, 3);
@@ -177,7 +177,7 @@ int luat_lv_img_decoder_built_in_info(lua_State *L) {
 
 //  lv_res_t lv_img_decoder_built_in_open(lv_img_decoder_t* decoder, lv_img_decoder_dsc_t* dsc)
 int luat_lv_img_decoder_built_in_open(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_decoder_built_in_open);
+    LV_DEBUG("CALL lv_img_decoder_built_in_open");
     lv_img_decoder_t* decoder = (lv_img_decoder_t*)lua_touserdata(L, 1);
     lv_img_decoder_dsc_t* dsc = (lv_img_decoder_dsc_t*)lua_touserdata(L, 2);
     lv_res_t ret;
@@ -189,7 +189,7 @@ int luat_lv_img_decoder_built_in_open(lua_State *L) {
 
 //  lv_res_t lv_img_decoder_built_in_read_line(lv_img_decoder_t* decoder, lv_img_decoder_dsc_t* dsc, lv_coord_t x, lv_coord_t y, lv_coord_t len, uint8_t* buf)
 int luat_lv_img_decoder_built_in_read_line(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_decoder_built_in_read_line);
+    LV_DEBUG("CALL lv_img_decoder_built_in_read_line");
     lv_img_decoder_t* decoder = (lv_img_decoder_t*)lua_touserdata(L, 1);
     lv_img_decoder_dsc_t* dsc = (lv_img_decoder_dsc_t*)lua_touserdata(L, 2);
     lv_coord_t x = (lv_coord_t)luaL_checkinteger(L, 3);
@@ -205,7 +205,7 @@ int luat_lv_img_decoder_built_in_read_line(lua_State *L) {
 
 //  void lv_img_decoder_built_in_close(lv_img_decoder_t* decoder, lv_img_decoder_dsc_t* dsc)
 int luat_lv_img_decoder_built_in_close(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_decoder_built_in_close);
+    LV_DEBUG("CALL lv_img_decoder_built_in_close");
     lv_img_decoder_t* decoder = (lv_img_decoder_t*)lua_touserdata(L, 1);
     lv_img_decoder_dsc_t* dsc = (lv_img_decoder_dsc_t*)lua_touserdata(L, 2);
     lv_img_decoder_built_in_close(decoder ,dsc);
@@ -214,7 +214,7 @@ int luat_lv_img_decoder_built_in_close(lua_State *L) {
 
 //  lv_img_src_t lv_img_src_get_type(void* src)
 int luat_lv_img_src_get_type(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_src_get_type);
+    LV_DEBUG("CALL lv_img_src_get_type");
     void* src = (void*)lua_touserdata(L, 1);
     lv_img_src_t ret;
     ret = lv_img_src_get_type(src);
@@ -224,7 +224,7 @@ int luat_lv_img_src_get_type(lua_State *L) {
 
 //  uint8_t lv_img_cf_get_px_size(lv_img_cf_t cf)
 int luat_lv_img_cf_get_px_size(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_cf_get_px_size);
+    LV_DEBUG("CALL lv_img_cf_get_px_size");
     lv_img_cf_t cf = (lv_img_cf_t)luaL_checkinteger(L, 1);
     uint8_t ret;
     ret = lv_img_cf_get_px_size(cf);
@@ -234,7 +234,7 @@ int luat_lv_img_cf_get_px_size(lua_State *L) {
 
 //  bool lv_img_cf_is_chroma_keyed(lv_img_cf_t cf)
 int luat_lv_img_cf_is_chroma_keyed(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_cf_is_chroma_keyed);
+    LV_DEBUG("CALL lv_img_cf_is_chroma_keyed");
     lv_img_cf_t cf = (lv_img_cf_t)luaL_checkinteger(L, 1);
     bool ret;
     ret = lv_img_cf_is_chroma_keyed(cf);
@@ -244,7 +244,7 @@ int luat_lv_img_cf_is_chroma_keyed(lua_State *L) {
 
 //  bool lv_img_cf_has_alpha(lv_img_cf_t cf)
 int luat_lv_img_cf_has_alpha(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_cf_has_alpha);
+    LV_DEBUG("CALL lv_img_cf_has_alpha");
     lv_img_cf_t cf = (lv_img_cf_t)luaL_checkinteger(L, 1);
     bool ret;
     ret = lv_img_cf_has_alpha(cf);
@@ -254,7 +254,7 @@ int luat_lv_img_cf_has_alpha(lua_State *L) {
 
 //  lv_obj_t* lv_img_create(lv_obj_t* par, lv_obj_t* copy)
 int luat_lv_img_create(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_create);
+    LV_DEBUG("CALL lv_img_create");
     lv_obj_t* par = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* copy = (lv_obj_t*)lua_touserdata(L, 2);
     lv_obj_t* ret = NULL;
@@ -265,7 +265,7 @@ int luat_lv_img_create(lua_State *L) {
 
 //  void lv_img_set_src(lv_obj_t* img, void* src_img)
 int luat_lv_img_set_src(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_set_src);
+    LV_DEBUG("CALL lv_img_set_src");
     lv_obj_t* img = (lv_obj_t*)lua_touserdata(L, 1);
     void* src_img = (void*)lua_touserdata(L, 2);
     lv_img_set_src(img ,src_img);
@@ -274,7 +274,7 @@ int luat_lv_img_set_src(lua_State *L) {
 
 //  void lv_img_set_auto_size(lv_obj_t* img, bool autosize_en)
 int luat_lv_img_set_auto_size(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_set_auto_size);
+    LV_DEBUG("CALL lv_img_set_auto_size");
     lv_obj_t* img = (lv_obj_t*)lua_touserdata(L, 1);
     bool autosize_en = (bool)lua_toboolean(L, 2);
     lv_img_set_auto_size(img ,autosize_en);
@@ -283,7 +283,7 @@ int luat_lv_img_set_auto_size(lua_State *L) {
 
 //  void lv_img_set_offset_x(lv_obj_t* img, lv_coord_t x)
 int luat_lv_img_set_offset_x(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_set_offset_x);
+    LV_DEBUG("CALL lv_img_set_offset_x");
     lv_obj_t* img = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t x = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_img_set_offset_x(img ,x);
@@ -292,7 +292,7 @@ int luat_lv_img_set_offset_x(lua_State *L) {
 
 //  void lv_img_set_offset_y(lv_obj_t* img, lv_coord_t y)
 int luat_lv_img_set_offset_y(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_set_offset_y);
+    LV_DEBUG("CALL lv_img_set_offset_y");
     lv_obj_t* img = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t y = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_img_set_offset_y(img ,y);
@@ -301,7 +301,7 @@ int luat_lv_img_set_offset_y(lua_State *L) {
 
 //  void lv_img_set_pivot(lv_obj_t* img, lv_coord_t pivot_x, lv_coord_t pivot_y)
 int luat_lv_img_set_pivot(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_set_pivot);
+    LV_DEBUG("CALL lv_img_set_pivot");
     lv_obj_t* img = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t pivot_x = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_coord_t pivot_y = (lv_coord_t)luaL_checkinteger(L, 3);
@@ -311,7 +311,7 @@ int luat_lv_img_set_pivot(lua_State *L) {
 
 //  void lv_img_set_angle(lv_obj_t* img, int16_t angle)
 int luat_lv_img_set_angle(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_set_angle);
+    LV_DEBUG("CALL lv_img_set_angle");
     lv_obj_t* img = (lv_obj_t*)lua_touserdata(L, 1);
     int16_t angle = (int16_t)luaL_checkinteger(L, 2);
     lv_img_set_angle(img ,angle);
@@ -320,7 +320,7 @@ int luat_lv_img_set_angle(lua_State *L) {
 
 //  void lv_img_set_zoom(lv_obj_t* img, uint16_t zoom)
 int luat_lv_img_set_zoom(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_set_zoom);
+    LV_DEBUG("CALL lv_img_set_zoom");
     lv_obj_t* img = (lv_obj_t*)lua_touserdata(L, 1);
     uint16_t zoom = (uint16_t)luaL_checkinteger(L, 2);
     lv_img_set_zoom(img ,zoom);
@@ -329,7 +329,7 @@ int luat_lv_img_set_zoom(lua_State *L) {
 
 //  void lv_img_set_antialias(lv_obj_t* img, bool antialias)
 int luat_lv_img_set_antialias(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_set_antialias);
+    LV_DEBUG("CALL lv_img_set_antialias");
     lv_obj_t* img = (lv_obj_t*)lua_touserdata(L, 1);
     bool antialias = (bool)lua_toboolean(L, 2);
     lv_img_set_antialias(img ,antialias);
@@ -338,7 +338,7 @@ int luat_lv_img_set_antialias(lua_State *L) {
 
 //  void* lv_img_get_src(lv_obj_t* img)
 int luat_lv_img_get_src(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_get_src);
+    LV_DEBUG("CALL lv_img_get_src");
     lv_obj_t* img = (lv_obj_t*)lua_touserdata(L, 1);
     void* ret = NULL;
     ret = lv_img_get_src(img);
@@ -348,7 +348,7 @@ int luat_lv_img_get_src(lua_State *L) {
 
 //  char* lv_img_get_file_name(lv_obj_t* img)
 int luat_lv_img_get_file_name(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_get_file_name);
+    LV_DEBUG("CALL lv_img_get_file_name");
     lv_obj_t* img = (lv_obj_t*)lua_touserdata(L, 1);
     char* ret = NULL;
     ret = lv_img_get_file_name(img);
@@ -358,7 +358,7 @@ int luat_lv_img_get_file_name(lua_State *L) {
 
 //  bool lv_img_get_auto_size(lv_obj_t* img)
 int luat_lv_img_get_auto_size(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_get_auto_size);
+    LV_DEBUG("CALL lv_img_get_auto_size");
     lv_obj_t* img = (lv_obj_t*)lua_touserdata(L, 1);
     bool ret;
     ret = lv_img_get_auto_size(img);
@@ -368,7 +368,7 @@ int luat_lv_img_get_auto_size(lua_State *L) {
 
 //  lv_coord_t lv_img_get_offset_x(lv_obj_t* img)
 int luat_lv_img_get_offset_x(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_get_offset_x);
+    LV_DEBUG("CALL lv_img_get_offset_x");
     lv_obj_t* img = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t ret;
     ret = lv_img_get_offset_x(img);
@@ -378,7 +378,7 @@ int luat_lv_img_get_offset_x(lua_State *L) {
 
 //  lv_coord_t lv_img_get_offset_y(lv_obj_t* img)
 int luat_lv_img_get_offset_y(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_get_offset_y);
+    LV_DEBUG("CALL lv_img_get_offset_y");
     lv_obj_t* img = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t ret;
     ret = lv_img_get_offset_y(img);
@@ -388,7 +388,7 @@ int luat_lv_img_get_offset_y(lua_State *L) {
 
 //  uint16_t lv_img_get_angle(lv_obj_t* img)
 int luat_lv_img_get_angle(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_get_angle);
+    LV_DEBUG("CALL lv_img_get_angle");
     lv_obj_t* img = (lv_obj_t*)lua_touserdata(L, 1);
     uint16_t ret;
     ret = lv_img_get_angle(img);
@@ -398,7 +398,7 @@ int luat_lv_img_get_angle(lua_State *L) {
 
 //  void lv_img_get_pivot(lv_obj_t* img, lv_point_t* center)
 int luat_lv_img_get_pivot(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_get_pivot);
+    LV_DEBUG("CALL lv_img_get_pivot");
     lv_obj_t* img = (lv_obj_t*)lua_touserdata(L, 1);
     lua_pushvalue(L, 2);
     lv_point_t center = {0};
@@ -412,7 +412,7 @@ int luat_lv_img_get_pivot(lua_State *L) {
 
 //  uint16_t lv_img_get_zoom(lv_obj_t* img)
 int luat_lv_img_get_zoom(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_get_zoom);
+    LV_DEBUG("CALL lv_img_get_zoom");
     lv_obj_t* img = (lv_obj_t*)lua_touserdata(L, 1);
     uint16_t ret;
     ret = lv_img_get_zoom(img);
@@ -422,7 +422,7 @@ int luat_lv_img_get_zoom(lua_State *L) {
 
 //  bool lv_img_get_antialias(lv_obj_t* img)
 int luat_lv_img_get_antialias(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_img_get_antialias);
+    LV_DEBUG("CALL lv_img_get_antialias");
     lv_obj_t* img = (lv_obj_t*)lua_touserdata(L, 1);
     bool ret;
     ret = lv_img_get_antialias(img);

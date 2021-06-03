@@ -6,7 +6,7 @@
 
 //  bool lv_debug_check_null(void* p)
 int luat_lv_debug_check_null(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_debug_check_null);
+    LV_DEBUG("CALL lv_debug_check_null");
     void* p = (void*)lua_touserdata(L, 1);
     bool ret;
     ret = lv_debug_check_null(p);
@@ -16,7 +16,7 @@ int luat_lv_debug_check_null(lua_State *L) {
 
 //  bool lv_debug_check_mem_integrity()
 int luat_lv_debug_check_mem_integrity(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_debug_check_mem_integrity);
+    LV_DEBUG("CALL lv_debug_check_mem_integrity");
     bool ret;
     ret = lv_debug_check_mem_integrity();
     lua_pushboolean(L, ret);
@@ -25,7 +25,7 @@ int luat_lv_debug_check_mem_integrity(lua_State *L) {
 
 //  bool lv_debug_check_str(void* str)
 int luat_lv_debug_check_str(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_debug_check_str);
+    LV_DEBUG("CALL lv_debug_check_str");
     void* str = (void*)lua_touserdata(L, 1);
     bool ret;
     ret = lv_debug_check_str(str);
@@ -35,7 +35,7 @@ int luat_lv_debug_check_str(lua_State *L) {
 
 //  void lv_debug_log_error(char* msg, uint64_t value)
 int luat_lv_debug_log_error(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_debug_log_error);
+    LV_DEBUG("CALL lv_debug_log_error");
     char* msg = (char*)luaL_checkstring(L, 1);
     uint64_t value;
     // miss arg convert

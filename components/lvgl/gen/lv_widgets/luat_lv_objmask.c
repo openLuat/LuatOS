@@ -6,7 +6,7 @@
 
 //  lv_obj_t* lv_objmask_create(lv_obj_t* par, lv_obj_t* copy)
 int luat_lv_objmask_create(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_objmask_create);
+    LV_DEBUG("CALL lv_objmask_create");
     lv_obj_t* par = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* copy = (lv_obj_t*)lua_touserdata(L, 2);
     lv_obj_t* ret = NULL;
@@ -17,7 +17,7 @@ int luat_lv_objmask_create(lua_State *L) {
 
 //  lv_objmask_mask_t* lv_objmask_add_mask(lv_obj_t* objmask, void* param)
 int luat_lv_objmask_add_mask(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_objmask_add_mask);
+    LV_DEBUG("CALL lv_objmask_add_mask");
     lv_obj_t* objmask = (lv_obj_t*)lua_touserdata(L, 1);
     void* param = (void*)lua_touserdata(L, 2);
     lv_objmask_mask_t* ret = NULL;
@@ -28,7 +28,7 @@ int luat_lv_objmask_add_mask(lua_State *L) {
 
 //  void lv_objmask_update_mask(lv_obj_t* objmask, lv_objmask_mask_t* mask, void* param)
 int luat_lv_objmask_update_mask(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_objmask_update_mask);
+    LV_DEBUG("CALL lv_objmask_update_mask");
     lv_obj_t* objmask = (lv_obj_t*)lua_touserdata(L, 1);
     lv_objmask_mask_t* mask = (lv_objmask_mask_t*)lua_touserdata(L, 2);
     void* param = (void*)lua_touserdata(L, 3);
@@ -38,7 +38,7 @@ int luat_lv_objmask_update_mask(lua_State *L) {
 
 //  void lv_objmask_remove_mask(lv_obj_t* objmask, lv_objmask_mask_t* mask)
 int luat_lv_objmask_remove_mask(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_objmask_remove_mask);
+    LV_DEBUG("CALL lv_objmask_remove_mask");
     lv_obj_t* objmask = (lv_obj_t*)lua_touserdata(L, 1);
     lv_objmask_mask_t* mask = (lv_objmask_mask_t*)lua_touserdata(L, 2);
     lv_objmask_remove_mask(objmask ,mask);

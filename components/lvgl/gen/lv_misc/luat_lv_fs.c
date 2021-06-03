@@ -6,7 +6,7 @@
 
 //  void lv_fs_drv_init(lv_fs_drv_t* drv)
 int luat_lv_fs_drv_init(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_fs_drv_init);
+    LV_DEBUG("CALL lv_fs_drv_init");
     lv_fs_drv_t* drv = (lv_fs_drv_t*)lua_touserdata(L, 1);
     lv_fs_drv_init(drv);
     return 0;
@@ -14,7 +14,7 @@ int luat_lv_fs_drv_init(lua_State *L) {
 
 //  void lv_fs_drv_register(lv_fs_drv_t* drv_p)
 int luat_lv_fs_drv_register(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_fs_drv_register);
+    LV_DEBUG("CALL lv_fs_drv_register");
     lv_fs_drv_t* drv_p = (lv_fs_drv_t*)lua_touserdata(L, 1);
     lv_fs_drv_register(drv_p);
     return 0;
@@ -22,7 +22,7 @@ int luat_lv_fs_drv_register(lua_State *L) {
 
 //  lv_fs_drv_t* lv_fs_get_drv(char letter)
 int luat_lv_fs_get_drv(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_fs_get_drv);
+    LV_DEBUG("CALL lv_fs_get_drv");
     char letter = (char)luaL_checkinteger(L, 1);
     lv_fs_drv_t* ret = NULL;
     ret = lv_fs_get_drv(letter);
@@ -32,7 +32,7 @@ int luat_lv_fs_get_drv(lua_State *L) {
 
 //  bool lv_fs_is_ready(char letter)
 int luat_lv_fs_is_ready(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_fs_is_ready);
+    LV_DEBUG("CALL lv_fs_is_ready");
     char letter = (char)luaL_checkinteger(L, 1);
     bool ret;
     ret = lv_fs_is_ready(letter);
@@ -42,7 +42,7 @@ int luat_lv_fs_is_ready(lua_State *L) {
 
 //  lv_fs_res_t lv_fs_open(lv_fs_file_t* file_p, char* path, lv_fs_mode_t mode)
 int luat_lv_fs_open(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_fs_open);
+    LV_DEBUG("CALL lv_fs_open");
     lv_fs_file_t* file_p = (lv_fs_file_t*)lua_touserdata(L, 1);
     char* path = (char*)luaL_checkstring(L, 2);
     lv_fs_mode_t mode;
@@ -56,7 +56,7 @@ int luat_lv_fs_open(lua_State *L) {
 
 //  lv_fs_res_t lv_fs_close(lv_fs_file_t* file_p)
 int luat_lv_fs_close(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_fs_close);
+    LV_DEBUG("CALL lv_fs_close");
     lv_fs_file_t* file_p = (lv_fs_file_t*)lua_touserdata(L, 1);
     lv_fs_res_t ret;
     ret = lv_fs_close(file_p);
@@ -67,7 +67,7 @@ int luat_lv_fs_close(lua_State *L) {
 
 //  lv_fs_res_t lv_fs_remove(char* path)
 int luat_lv_fs_remove(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_fs_remove);
+    LV_DEBUG("CALL lv_fs_remove");
     char* path = (char*)luaL_checkstring(L, 1);
     lv_fs_res_t ret;
     ret = lv_fs_remove(path);
@@ -78,7 +78,7 @@ int luat_lv_fs_remove(lua_State *L) {
 
 //  lv_fs_res_t lv_fs_read(lv_fs_file_t* file_p, void* buf, uint32_t btr, uint32_t* br)
 int luat_lv_fs_read(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_fs_read);
+    LV_DEBUG("CALL lv_fs_read");
     lv_fs_file_t* file_p = (lv_fs_file_t*)lua_touserdata(L, 1);
     void* buf = (void*)lua_touserdata(L, 2);
     uint32_t btr = (uint32_t)luaL_checkinteger(L, 3);
@@ -92,7 +92,7 @@ int luat_lv_fs_read(lua_State *L) {
 
 //  lv_fs_res_t lv_fs_write(lv_fs_file_t* file_p, void* buf, uint32_t btw, uint32_t* bw)
 int luat_lv_fs_write(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_fs_write);
+    LV_DEBUG("CALL lv_fs_write");
     lv_fs_file_t* file_p = (lv_fs_file_t*)lua_touserdata(L, 1);
     void* buf = (void*)lua_touserdata(L, 2);
     uint32_t btw = (uint32_t)luaL_checkinteger(L, 3);
@@ -106,7 +106,7 @@ int luat_lv_fs_write(lua_State *L) {
 
 //  lv_fs_res_t lv_fs_seek(lv_fs_file_t* file_p, uint32_t pos)
 int luat_lv_fs_seek(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_fs_seek);
+    LV_DEBUG("CALL lv_fs_seek");
     lv_fs_file_t* file_p = (lv_fs_file_t*)lua_touserdata(L, 1);
     uint32_t pos = (uint32_t)luaL_checkinteger(L, 2);
     lv_fs_res_t ret;
@@ -118,7 +118,7 @@ int luat_lv_fs_seek(lua_State *L) {
 
 //  lv_fs_res_t lv_fs_tell(lv_fs_file_t* file_p, uint32_t* pos)
 int luat_lv_fs_tell(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_fs_tell);
+    LV_DEBUG("CALL lv_fs_tell");
     lv_fs_file_t* file_p = (lv_fs_file_t*)lua_touserdata(L, 1);
     uint32_t* pos = (uint32_t*)lua_touserdata(L, 2);
     lv_fs_res_t ret;
@@ -130,7 +130,7 @@ int luat_lv_fs_tell(lua_State *L) {
 
 //  lv_fs_res_t lv_fs_trunc(lv_fs_file_t* file_p)
 int luat_lv_fs_trunc(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_fs_trunc);
+    LV_DEBUG("CALL lv_fs_trunc");
     lv_fs_file_t* file_p = (lv_fs_file_t*)lua_touserdata(L, 1);
     lv_fs_res_t ret;
     ret = lv_fs_trunc(file_p);
@@ -141,7 +141,7 @@ int luat_lv_fs_trunc(lua_State *L) {
 
 //  lv_fs_res_t lv_fs_size(lv_fs_file_t* file_p, uint32_t* size)
 int luat_lv_fs_size(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_fs_size);
+    LV_DEBUG("CALL lv_fs_size");
     lv_fs_file_t* file_p = (lv_fs_file_t*)lua_touserdata(L, 1);
     uint32_t* size = (uint32_t*)lua_touserdata(L, 2);
     lv_fs_res_t ret;
@@ -153,7 +153,7 @@ int luat_lv_fs_size(lua_State *L) {
 
 //  lv_fs_res_t lv_fs_rename(char* oldname, char* newname)
 int luat_lv_fs_rename(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_fs_rename);
+    LV_DEBUG("CALL lv_fs_rename");
     char* oldname = (char*)luaL_checkstring(L, 1);
     char* newname = (char*)luaL_checkstring(L, 2);
     lv_fs_res_t ret;
@@ -165,7 +165,7 @@ int luat_lv_fs_rename(lua_State *L) {
 
 //  lv_fs_res_t lv_fs_dir_open(lv_fs_dir_t* rddir_p, char* path)
 int luat_lv_fs_dir_open(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_fs_dir_open);
+    LV_DEBUG("CALL lv_fs_dir_open");
     lv_fs_dir_t* rddir_p = (lv_fs_dir_t*)lua_touserdata(L, 1);
     char* path = (char*)luaL_checkstring(L, 2);
     lv_fs_res_t ret;
@@ -177,7 +177,7 @@ int luat_lv_fs_dir_open(lua_State *L) {
 
 //  lv_fs_res_t lv_fs_dir_read(lv_fs_dir_t* rddir_p, char* fn)
 int luat_lv_fs_dir_read(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_fs_dir_read);
+    LV_DEBUG("CALL lv_fs_dir_read");
     lv_fs_dir_t* rddir_p = (lv_fs_dir_t*)lua_touserdata(L, 1);
     char* fn = (char*)luaL_checkstring(L, 2);
     lv_fs_res_t ret;
@@ -189,7 +189,7 @@ int luat_lv_fs_dir_read(lua_State *L) {
 
 //  lv_fs_res_t lv_fs_dir_close(lv_fs_dir_t* rddir_p)
 int luat_lv_fs_dir_close(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_fs_dir_close);
+    LV_DEBUG("CALL lv_fs_dir_close");
     lv_fs_dir_t* rddir_p = (lv_fs_dir_t*)lua_touserdata(L, 1);
     lv_fs_res_t ret;
     ret = lv_fs_dir_close(rddir_p);
@@ -200,7 +200,7 @@ int luat_lv_fs_dir_close(lua_State *L) {
 
 //  lv_fs_res_t lv_fs_free_space(char letter, uint32_t* total_p, uint32_t* free_p)
 int luat_lv_fs_free_space(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_fs_free_space);
+    LV_DEBUG("CALL lv_fs_free_space");
     char letter = (char)luaL_checkinteger(L, 1);
     uint32_t* total_p = (uint32_t*)lua_touserdata(L, 2);
     uint32_t* free_p = (uint32_t*)lua_touserdata(L, 3);
@@ -213,7 +213,7 @@ int luat_lv_fs_free_space(lua_State *L) {
 
 //  char* lv_fs_get_letters(char* buf)
 int luat_lv_fs_get_letters(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_fs_get_letters);
+    LV_DEBUG("CALL lv_fs_get_letters");
     char* buf = (char*)luaL_checkstring(L, 1);
     char* ret = NULL;
     ret = lv_fs_get_letters(buf);
@@ -223,7 +223,7 @@ int luat_lv_fs_get_letters(lua_State *L) {
 
 //  char* lv_fs_get_ext(char* fn)
 int luat_lv_fs_get_ext(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_fs_get_ext);
+    LV_DEBUG("CALL lv_fs_get_ext");
     char* fn = (char*)luaL_checkstring(L, 1);
     char* ret = NULL;
     ret = lv_fs_get_ext(fn);
@@ -233,7 +233,7 @@ int luat_lv_fs_get_ext(lua_State *L) {
 
 //  char* lv_fs_up(char* path)
 int luat_lv_fs_up(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_fs_up);
+    LV_DEBUG("CALL lv_fs_up");
     char* path = (char*)luaL_checkstring(L, 1);
     char* ret = NULL;
     ret = lv_fs_up(path);
@@ -243,7 +243,7 @@ int luat_lv_fs_up(lua_State *L) {
 
 //  char* lv_fs_get_last(char* path)
 int luat_lv_fs_get_last(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_fs_get_last);
+    LV_DEBUG("CALL lv_fs_get_last");
     char* path = (char*)luaL_checkstring(L, 1);
     char* ret = NULL;
     ret = lv_fs_get_last(path);

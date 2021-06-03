@@ -265,7 +265,7 @@ def gen_methods():
                     for m in methods[group][prefix] :
                         f.write("//  " + mtostr(m) + "\n")
                         f.write("int luat_" + m["name"] + "(lua_State *L) {\n")
-                        f.write("    LV_DEBUG(\"CALL %s\", "+m["name"]+");\n");
+                        f.write("    LV_DEBUG(\"CALL " + m["name"]+"\");\n");
                         argnames = []
                         if len(m["args"]) > 0:
                             _index = 1

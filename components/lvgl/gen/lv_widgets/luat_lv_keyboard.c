@@ -6,7 +6,7 @@
 
 //  lv_obj_t* lv_keyboard_create(lv_obj_t* par, lv_obj_t* copy)
 int luat_lv_keyboard_create(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_keyboard_create);
+    LV_DEBUG("CALL lv_keyboard_create");
     lv_obj_t* par = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* copy = (lv_obj_t*)lua_touserdata(L, 2);
     lv_obj_t* ret = NULL;
@@ -17,7 +17,7 @@ int luat_lv_keyboard_create(lua_State *L) {
 
 //  void lv_keyboard_set_textarea(lv_obj_t* kb, lv_obj_t* ta)
 int luat_lv_keyboard_set_textarea(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_keyboard_set_textarea);
+    LV_DEBUG("CALL lv_keyboard_set_textarea");
     lv_obj_t* kb = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* ta = (lv_obj_t*)lua_touserdata(L, 2);
     lv_keyboard_set_textarea(kb ,ta);
@@ -26,7 +26,7 @@ int luat_lv_keyboard_set_textarea(lua_State *L) {
 
 //  void lv_keyboard_set_mode(lv_obj_t* kb, lv_keyboard_mode_t mode)
 int luat_lv_keyboard_set_mode(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_keyboard_set_mode);
+    LV_DEBUG("CALL lv_keyboard_set_mode");
     lv_obj_t* kb = (lv_obj_t*)lua_touserdata(L, 1);
     lv_keyboard_mode_t mode = (lv_keyboard_mode_t)luaL_checkinteger(L, 2);
     lv_keyboard_set_mode(kb ,mode);
@@ -35,7 +35,7 @@ int luat_lv_keyboard_set_mode(lua_State *L) {
 
 //  void lv_keyboard_set_cursor_manage(lv_obj_t* kb, bool en)
 int luat_lv_keyboard_set_cursor_manage(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_keyboard_set_cursor_manage);
+    LV_DEBUG("CALL lv_keyboard_set_cursor_manage");
     lv_obj_t* kb = (lv_obj_t*)lua_touserdata(L, 1);
     bool en = (bool)lua_toboolean(L, 2);
     lv_keyboard_set_cursor_manage(kb ,en);
@@ -44,7 +44,7 @@ int luat_lv_keyboard_set_cursor_manage(lua_State *L) {
 
 //  lv_obj_t* lv_keyboard_get_textarea(lv_obj_t* kb)
 int luat_lv_keyboard_get_textarea(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_keyboard_get_textarea);
+    LV_DEBUG("CALL lv_keyboard_get_textarea");
     lv_obj_t* kb = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* ret = NULL;
     ret = lv_keyboard_get_textarea(kb);
@@ -54,7 +54,7 @@ int luat_lv_keyboard_get_textarea(lua_State *L) {
 
 //  lv_keyboard_mode_t lv_keyboard_get_mode(lv_obj_t* kb)
 int luat_lv_keyboard_get_mode(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_keyboard_get_mode);
+    LV_DEBUG("CALL lv_keyboard_get_mode");
     lv_obj_t* kb = (lv_obj_t*)lua_touserdata(L, 1);
     lv_keyboard_mode_t ret;
     ret = lv_keyboard_get_mode(kb);
@@ -64,7 +64,7 @@ int luat_lv_keyboard_get_mode(lua_State *L) {
 
 //  bool lv_keyboard_get_cursor_manage(lv_obj_t* kb)
 int luat_lv_keyboard_get_cursor_manage(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_keyboard_get_cursor_manage);
+    LV_DEBUG("CALL lv_keyboard_get_cursor_manage");
     lv_obj_t* kb = (lv_obj_t*)lua_touserdata(L, 1);
     bool ret;
     ret = lv_keyboard_get_cursor_manage(kb);

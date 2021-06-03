@@ -6,7 +6,7 @@
 
 //  lv_res_t lv_async_call(lv_async_cb_t async_xcb, void* user_data)
 int luat_lv_async_call(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_async_call);
+    LV_DEBUG("CALL lv_async_call");
     lv_async_cb_t async_xcb;
     // miss arg convert
     void* user_data = (void*)lua_touserdata(L, 2);

@@ -6,7 +6,7 @@
 
 //  lv_group_t* lv_group_create()
 int luat_lv_group_create(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_group_create);
+    LV_DEBUG("CALL lv_group_create");
     lv_group_t* ret = NULL;
     ret = lv_group_create();
     lua_pushlightuserdata(L, ret);
@@ -15,7 +15,7 @@ int luat_lv_group_create(lua_State *L) {
 
 //  void lv_group_del(lv_group_t* group)
 int luat_lv_group_del(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_group_del);
+    LV_DEBUG("CALL lv_group_del");
     lv_group_t* group = (lv_group_t*)lua_touserdata(L, 1);
     lv_group_del(group);
     return 0;
@@ -23,7 +23,7 @@ int luat_lv_group_del(lua_State *L) {
 
 //  void lv_group_add_obj(lv_group_t* group, lv_obj_t* obj)
 int luat_lv_group_add_obj(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_group_add_obj);
+    LV_DEBUG("CALL lv_group_add_obj");
     lv_group_t* group = (lv_group_t*)lua_touserdata(L, 1);
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 2);
     lv_group_add_obj(group ,obj);
@@ -32,7 +32,7 @@ int luat_lv_group_add_obj(lua_State *L) {
 
 //  void lv_group_remove_obj(lv_obj_t* obj)
 int luat_lv_group_remove_obj(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_group_remove_obj);
+    LV_DEBUG("CALL lv_group_remove_obj");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_group_remove_obj(obj);
     return 0;
@@ -40,7 +40,7 @@ int luat_lv_group_remove_obj(lua_State *L) {
 
 //  void lv_group_remove_all_objs(lv_group_t* group)
 int luat_lv_group_remove_all_objs(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_group_remove_all_objs);
+    LV_DEBUG("CALL lv_group_remove_all_objs");
     lv_group_t* group = (lv_group_t*)lua_touserdata(L, 1);
     lv_group_remove_all_objs(group);
     return 0;
@@ -48,7 +48,7 @@ int luat_lv_group_remove_all_objs(lua_State *L) {
 
 //  void lv_group_focus_obj(lv_obj_t* obj)
 int luat_lv_group_focus_obj(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_group_focus_obj);
+    LV_DEBUG("CALL lv_group_focus_obj");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_group_focus_obj(obj);
     return 0;
@@ -56,7 +56,7 @@ int luat_lv_group_focus_obj(lua_State *L) {
 
 //  void lv_group_focus_next(lv_group_t* group)
 int luat_lv_group_focus_next(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_group_focus_next);
+    LV_DEBUG("CALL lv_group_focus_next");
     lv_group_t* group = (lv_group_t*)lua_touserdata(L, 1);
     lv_group_focus_next(group);
     return 0;
@@ -64,7 +64,7 @@ int luat_lv_group_focus_next(lua_State *L) {
 
 //  void lv_group_focus_prev(lv_group_t* group)
 int luat_lv_group_focus_prev(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_group_focus_prev);
+    LV_DEBUG("CALL lv_group_focus_prev");
     lv_group_t* group = (lv_group_t*)lua_touserdata(L, 1);
     lv_group_focus_prev(group);
     return 0;
@@ -72,7 +72,7 @@ int luat_lv_group_focus_prev(lua_State *L) {
 
 //  void lv_group_focus_freeze(lv_group_t* group, bool en)
 int luat_lv_group_focus_freeze(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_group_focus_freeze);
+    LV_DEBUG("CALL lv_group_focus_freeze");
     lv_group_t* group = (lv_group_t*)lua_touserdata(L, 1);
     bool en = (bool)lua_toboolean(L, 2);
     lv_group_focus_freeze(group ,en);
@@ -81,7 +81,7 @@ int luat_lv_group_focus_freeze(lua_State *L) {
 
 //  lv_res_t lv_group_send_data(lv_group_t* group, uint32_t c)
 int luat_lv_group_send_data(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_group_send_data);
+    LV_DEBUG("CALL lv_group_send_data");
     lv_group_t* group = (lv_group_t*)lua_touserdata(L, 1);
     uint32_t c = (uint32_t)luaL_checkinteger(L, 2);
     lv_res_t ret;
@@ -93,7 +93,7 @@ int luat_lv_group_send_data(lua_State *L) {
 
 //  void lv_group_set_refocus_policy(lv_group_t* group, lv_group_refocus_policy_t policy)
 int luat_lv_group_set_refocus_policy(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_group_set_refocus_policy);
+    LV_DEBUG("CALL lv_group_set_refocus_policy");
     lv_group_t* group = (lv_group_t*)lua_touserdata(L, 1);
     lv_group_refocus_policy_t policy;
     // miss arg convert
@@ -103,7 +103,7 @@ int luat_lv_group_set_refocus_policy(lua_State *L) {
 
 //  void lv_group_set_editing(lv_group_t* group, bool edit)
 int luat_lv_group_set_editing(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_group_set_editing);
+    LV_DEBUG("CALL lv_group_set_editing");
     lv_group_t* group = (lv_group_t*)lua_touserdata(L, 1);
     bool edit = (bool)lua_toboolean(L, 2);
     lv_group_set_editing(group ,edit);
@@ -112,7 +112,7 @@ int luat_lv_group_set_editing(lua_State *L) {
 
 //  void lv_group_set_click_focus(lv_group_t* group, bool en)
 int luat_lv_group_set_click_focus(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_group_set_click_focus);
+    LV_DEBUG("CALL lv_group_set_click_focus");
     lv_group_t* group = (lv_group_t*)lua_touserdata(L, 1);
     bool en = (bool)lua_toboolean(L, 2);
     lv_group_set_click_focus(group ,en);
@@ -121,7 +121,7 @@ int luat_lv_group_set_click_focus(lua_State *L) {
 
 //  void lv_group_set_wrap(lv_group_t* group, bool en)
 int luat_lv_group_set_wrap(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_group_set_wrap);
+    LV_DEBUG("CALL lv_group_set_wrap");
     lv_group_t* group = (lv_group_t*)lua_touserdata(L, 1);
     bool en = (bool)lua_toboolean(L, 2);
     lv_group_set_wrap(group ,en);
@@ -130,7 +130,7 @@ int luat_lv_group_set_wrap(lua_State *L) {
 
 //  lv_obj_t* lv_group_get_focused(lv_group_t* group)
 int luat_lv_group_get_focused(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_group_get_focused);
+    LV_DEBUG("CALL lv_group_get_focused");
     lv_group_t* group = (lv_group_t*)lua_touserdata(L, 1);
     lv_obj_t* ret = NULL;
     ret = lv_group_get_focused(group);
@@ -140,7 +140,7 @@ int luat_lv_group_get_focused(lua_State *L) {
 
 //  bool lv_group_get_editing(lv_group_t* group)
 int luat_lv_group_get_editing(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_group_get_editing);
+    LV_DEBUG("CALL lv_group_get_editing");
     lv_group_t* group = (lv_group_t*)lua_touserdata(L, 1);
     bool ret;
     ret = lv_group_get_editing(group);
@@ -150,7 +150,7 @@ int luat_lv_group_get_editing(lua_State *L) {
 
 //  bool lv_group_get_click_focus(lv_group_t* group)
 int luat_lv_group_get_click_focus(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_group_get_click_focus);
+    LV_DEBUG("CALL lv_group_get_click_focus");
     lv_group_t* group = (lv_group_t*)lua_touserdata(L, 1);
     bool ret;
     ret = lv_group_get_click_focus(group);
@@ -160,7 +160,7 @@ int luat_lv_group_get_click_focus(lua_State *L) {
 
 //  bool lv_group_get_wrap(lv_group_t* group)
 int luat_lv_group_get_wrap(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_group_get_wrap);
+    LV_DEBUG("CALL lv_group_get_wrap");
     lv_group_t* group = (lv_group_t*)lua_touserdata(L, 1);
     bool ret;
     ret = lv_group_get_wrap(group);

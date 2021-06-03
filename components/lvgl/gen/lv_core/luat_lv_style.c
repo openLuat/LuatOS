@@ -6,7 +6,7 @@
 
 //  void lv_style_init(lv_style_t* style)
 int luat_lv_style_init(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_style_init);
+    LV_DEBUG("CALL lv_style_init");
     lv_style_t* style = (lv_style_t*)lua_touserdata(L, 1);
     lv_style_init(style);
     return 0;
@@ -14,7 +14,7 @@ int luat_lv_style_init(lua_State *L) {
 
 //  void lv_style_copy(lv_style_t* style_dest, lv_style_t* style_src)
 int luat_lv_style_copy(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_style_copy);
+    LV_DEBUG("CALL lv_style_copy");
     lv_style_t* style_dest = (lv_style_t*)lua_touserdata(L, 1);
     lv_style_t* style_src = (lv_style_t*)lua_touserdata(L, 2);
     lv_style_copy(style_dest ,style_src);
@@ -23,7 +23,7 @@ int luat_lv_style_copy(lua_State *L) {
 
 //  void lv_style_list_init(lv_style_list_t* list)
 int luat_lv_style_list_init(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_style_list_init);
+    LV_DEBUG("CALL lv_style_list_init");
     lv_style_list_t* list = (lv_style_list_t*)lua_touserdata(L, 1);
     lv_style_list_init(list);
     return 0;
@@ -31,7 +31,7 @@ int luat_lv_style_list_init(lua_State *L) {
 
 //  void lv_style_list_copy(lv_style_list_t* list_dest, lv_style_list_t* list_src)
 int luat_lv_style_list_copy(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_style_list_copy);
+    LV_DEBUG("CALL lv_style_list_copy");
     lv_style_list_t* list_dest = (lv_style_list_t*)lua_touserdata(L, 1);
     lv_style_list_t* list_src = (lv_style_list_t*)lua_touserdata(L, 2);
     lv_style_list_copy(list_dest ,list_src);
@@ -40,7 +40,7 @@ int luat_lv_style_list_copy(lua_State *L) {
 
 //  lv_style_t* lv_style_list_get_style(lv_style_list_t* list, uint8_t id)
 int luat_lv_style_list_get_style(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_style_list_get_style);
+    LV_DEBUG("CALL lv_style_list_get_style");
     lv_style_list_t* list = (lv_style_list_t*)lua_touserdata(L, 1);
     uint8_t id = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_t* ret = NULL;
@@ -51,7 +51,7 @@ int luat_lv_style_list_get_style(lua_State *L) {
 
 //  void lv_style_reset(lv_style_t* style)
 int luat_lv_style_reset(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_style_reset);
+    LV_DEBUG("CALL lv_style_reset");
     lv_style_t* style = (lv_style_t*)lua_touserdata(L, 1);
     lv_style_reset(style);
     return 0;
@@ -59,7 +59,7 @@ int luat_lv_style_reset(lua_State *L) {
 
 //  bool lv_style_remove_prop(lv_style_t* style, lv_style_property_t prop)
 int luat_lv_style_remove_prop(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_style_remove_prop);
+    LV_DEBUG("CALL lv_style_remove_prop");
     lv_style_t* style = (lv_style_t*)lua_touserdata(L, 1);
     lv_style_property_t prop = (lv_style_property_t)luaL_checkinteger(L, 2);
     bool ret;
@@ -70,7 +70,7 @@ int luat_lv_style_remove_prop(lua_State *L) {
 
 //  lv_style_t* lv_style_list_get_local_style(lv_style_list_t* list)
 int luat_lv_style_list_get_local_style(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_style_list_get_local_style);
+    LV_DEBUG("CALL lv_style_list_get_local_style");
     lv_style_list_t* list = (lv_style_list_t*)lua_touserdata(L, 1);
     lv_style_t* ret = NULL;
     ret = lv_style_list_get_local_style(list);

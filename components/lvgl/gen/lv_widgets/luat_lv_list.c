@@ -6,7 +6,7 @@
 
 //  lv_obj_t* lv_list_create(lv_obj_t* par, lv_obj_t* copy)
 int luat_lv_list_create(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_list_create);
+    LV_DEBUG("CALL lv_list_create");
     lv_obj_t* par = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* copy = (lv_obj_t*)lua_touserdata(L, 2);
     lv_obj_t* ret = NULL;
@@ -17,7 +17,7 @@ int luat_lv_list_create(lua_State *L) {
 
 //  void lv_list_clean(lv_obj_t* list)
 int luat_lv_list_clean(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_list_clean);
+    LV_DEBUG("CALL lv_list_clean");
     lv_obj_t* list = (lv_obj_t*)lua_touserdata(L, 1);
     lv_list_clean(list);
     return 0;
@@ -25,7 +25,7 @@ int luat_lv_list_clean(lua_State *L) {
 
 //  lv_obj_t* lv_list_add_btn(lv_obj_t* list, void* img_src, char* txt)
 int luat_lv_list_add_btn(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_list_add_btn);
+    LV_DEBUG("CALL lv_list_add_btn");
     lv_obj_t* list = (lv_obj_t*)lua_touserdata(L, 1);
     void* img_src = (void*)lua_touserdata(L, 2);
     char* txt = (char*)luaL_checkstring(L, 3);
@@ -37,7 +37,7 @@ int luat_lv_list_add_btn(lua_State *L) {
 
 //  bool lv_list_remove(lv_obj_t* list, uint16_t index)
 int luat_lv_list_remove(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_list_remove);
+    LV_DEBUG("CALL lv_list_remove");
     lv_obj_t* list = (lv_obj_t*)lua_touserdata(L, 1);
     uint16_t index = (uint16_t)luaL_checkinteger(L, 2);
     bool ret;
@@ -48,7 +48,7 @@ int luat_lv_list_remove(lua_State *L) {
 
 //  void lv_list_focus_btn(lv_obj_t* list, lv_obj_t* btn)
 int luat_lv_list_focus_btn(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_list_focus_btn);
+    LV_DEBUG("CALL lv_list_focus_btn");
     lv_obj_t* list = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* btn = (lv_obj_t*)lua_touserdata(L, 2);
     lv_list_focus_btn(list ,btn);
@@ -57,7 +57,7 @@ int luat_lv_list_focus_btn(lua_State *L) {
 
 //  void lv_list_set_scrollbar_mode(lv_obj_t* list, lv_scrollbar_mode_t mode)
 int luat_lv_list_set_scrollbar_mode(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_list_set_scrollbar_mode);
+    LV_DEBUG("CALL lv_list_set_scrollbar_mode");
     lv_obj_t* list = (lv_obj_t*)lua_touserdata(L, 1);
     lv_scrollbar_mode_t mode = (lv_scrollbar_mode_t)luaL_checkinteger(L, 2);
     lv_list_set_scrollbar_mode(list ,mode);
@@ -66,7 +66,7 @@ int luat_lv_list_set_scrollbar_mode(lua_State *L) {
 
 //  void lv_list_set_scroll_propagation(lv_obj_t* list, bool en)
 int luat_lv_list_set_scroll_propagation(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_list_set_scroll_propagation);
+    LV_DEBUG("CALL lv_list_set_scroll_propagation");
     lv_obj_t* list = (lv_obj_t*)lua_touserdata(L, 1);
     bool en = (bool)lua_toboolean(L, 2);
     lv_list_set_scroll_propagation(list ,en);
@@ -75,7 +75,7 @@ int luat_lv_list_set_scroll_propagation(lua_State *L) {
 
 //  void lv_list_set_edge_flash(lv_obj_t* list, bool en)
 int luat_lv_list_set_edge_flash(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_list_set_edge_flash);
+    LV_DEBUG("CALL lv_list_set_edge_flash");
     lv_obj_t* list = (lv_obj_t*)lua_touserdata(L, 1);
     bool en = (bool)lua_toboolean(L, 2);
     lv_list_set_edge_flash(list ,en);
@@ -84,7 +84,7 @@ int luat_lv_list_set_edge_flash(lua_State *L) {
 
 //  void lv_list_set_anim_time(lv_obj_t* list, uint16_t anim_time)
 int luat_lv_list_set_anim_time(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_list_set_anim_time);
+    LV_DEBUG("CALL lv_list_set_anim_time");
     lv_obj_t* list = (lv_obj_t*)lua_touserdata(L, 1);
     uint16_t anim_time = (uint16_t)luaL_checkinteger(L, 2);
     lv_list_set_anim_time(list ,anim_time);
@@ -93,7 +93,7 @@ int luat_lv_list_set_anim_time(lua_State *L) {
 
 //  void lv_list_set_layout(lv_obj_t* list, lv_layout_t layout)
 int luat_lv_list_set_layout(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_list_set_layout);
+    LV_DEBUG("CALL lv_list_set_layout");
     lv_obj_t* list = (lv_obj_t*)lua_touserdata(L, 1);
     lv_layout_t layout = (lv_layout_t)luaL_checkinteger(L, 2);
     lv_list_set_layout(list ,layout);
@@ -102,7 +102,7 @@ int luat_lv_list_set_layout(lua_State *L) {
 
 //  char* lv_list_get_btn_text(lv_obj_t* btn)
 int luat_lv_list_get_btn_text(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_list_get_btn_text);
+    LV_DEBUG("CALL lv_list_get_btn_text");
     lv_obj_t* btn = (lv_obj_t*)lua_touserdata(L, 1);
     char* ret = NULL;
     ret = lv_list_get_btn_text(btn);
@@ -112,7 +112,7 @@ int luat_lv_list_get_btn_text(lua_State *L) {
 
 //  lv_obj_t* lv_list_get_btn_label(lv_obj_t* btn)
 int luat_lv_list_get_btn_label(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_list_get_btn_label);
+    LV_DEBUG("CALL lv_list_get_btn_label");
     lv_obj_t* btn = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* ret = NULL;
     ret = lv_list_get_btn_label(btn);
@@ -122,7 +122,7 @@ int luat_lv_list_get_btn_label(lua_State *L) {
 
 //  lv_obj_t* lv_list_get_btn_img(lv_obj_t* btn)
 int luat_lv_list_get_btn_img(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_list_get_btn_img);
+    LV_DEBUG("CALL lv_list_get_btn_img");
     lv_obj_t* btn = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* ret = NULL;
     ret = lv_list_get_btn_img(btn);
@@ -132,7 +132,7 @@ int luat_lv_list_get_btn_img(lua_State *L) {
 
 //  lv_obj_t* lv_list_get_prev_btn(lv_obj_t* list, lv_obj_t* prev_btn)
 int luat_lv_list_get_prev_btn(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_list_get_prev_btn);
+    LV_DEBUG("CALL lv_list_get_prev_btn");
     lv_obj_t* list = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* prev_btn = (lv_obj_t*)lua_touserdata(L, 2);
     lv_obj_t* ret = NULL;
@@ -143,7 +143,7 @@ int luat_lv_list_get_prev_btn(lua_State *L) {
 
 //  lv_obj_t* lv_list_get_next_btn(lv_obj_t* list, lv_obj_t* prev_btn)
 int luat_lv_list_get_next_btn(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_list_get_next_btn);
+    LV_DEBUG("CALL lv_list_get_next_btn");
     lv_obj_t* list = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* prev_btn = (lv_obj_t*)lua_touserdata(L, 2);
     lv_obj_t* ret = NULL;
@@ -154,7 +154,7 @@ int luat_lv_list_get_next_btn(lua_State *L) {
 
 //  int32_t lv_list_get_btn_index(lv_obj_t* list, lv_obj_t* btn)
 int luat_lv_list_get_btn_index(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_list_get_btn_index);
+    LV_DEBUG("CALL lv_list_get_btn_index");
     lv_obj_t* list = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* btn = (lv_obj_t*)lua_touserdata(L, 2);
     int32_t ret;
@@ -165,7 +165,7 @@ int luat_lv_list_get_btn_index(lua_State *L) {
 
 //  uint16_t lv_list_get_size(lv_obj_t* list)
 int luat_lv_list_get_size(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_list_get_size);
+    LV_DEBUG("CALL lv_list_get_size");
     lv_obj_t* list = (lv_obj_t*)lua_touserdata(L, 1);
     uint16_t ret;
     ret = lv_list_get_size(list);
@@ -175,7 +175,7 @@ int luat_lv_list_get_size(lua_State *L) {
 
 //  lv_obj_t* lv_list_get_btn_selected(lv_obj_t* list)
 int luat_lv_list_get_btn_selected(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_list_get_btn_selected);
+    LV_DEBUG("CALL lv_list_get_btn_selected");
     lv_obj_t* list = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* ret = NULL;
     ret = lv_list_get_btn_selected(list);
@@ -185,7 +185,7 @@ int luat_lv_list_get_btn_selected(lua_State *L) {
 
 //  lv_layout_t lv_list_get_layout(lv_obj_t* list)
 int luat_lv_list_get_layout(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_list_get_layout);
+    LV_DEBUG("CALL lv_list_get_layout");
     lv_obj_t* list = (lv_obj_t*)lua_touserdata(L, 1);
     lv_layout_t ret;
     ret = lv_list_get_layout(list);
@@ -195,7 +195,7 @@ int luat_lv_list_get_layout(lua_State *L) {
 
 //  lv_scrollbar_mode_t lv_list_get_scrollbar_mode(lv_obj_t* list)
 int luat_lv_list_get_scrollbar_mode(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_list_get_scrollbar_mode);
+    LV_DEBUG("CALL lv_list_get_scrollbar_mode");
     lv_obj_t* list = (lv_obj_t*)lua_touserdata(L, 1);
     lv_scrollbar_mode_t ret;
     ret = lv_list_get_scrollbar_mode(list);
@@ -205,7 +205,7 @@ int luat_lv_list_get_scrollbar_mode(lua_State *L) {
 
 //  bool lv_list_get_scroll_propagation(lv_obj_t* list)
 int luat_lv_list_get_scroll_propagation(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_list_get_scroll_propagation);
+    LV_DEBUG("CALL lv_list_get_scroll_propagation");
     lv_obj_t* list = (lv_obj_t*)lua_touserdata(L, 1);
     bool ret;
     ret = lv_list_get_scroll_propagation(list);
@@ -215,7 +215,7 @@ int luat_lv_list_get_scroll_propagation(lua_State *L) {
 
 //  bool lv_list_get_edge_flash(lv_obj_t* list)
 int luat_lv_list_get_edge_flash(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_list_get_edge_flash);
+    LV_DEBUG("CALL lv_list_get_edge_flash");
     lv_obj_t* list = (lv_obj_t*)lua_touserdata(L, 1);
     bool ret;
     ret = lv_list_get_edge_flash(list);
@@ -225,7 +225,7 @@ int luat_lv_list_get_edge_flash(lua_State *L) {
 
 //  uint16_t lv_list_get_anim_time(lv_obj_t* list)
 int luat_lv_list_get_anim_time(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_list_get_anim_time);
+    LV_DEBUG("CALL lv_list_get_anim_time");
     lv_obj_t* list = (lv_obj_t*)lua_touserdata(L, 1);
     uint16_t ret;
     ret = lv_list_get_anim_time(list);
@@ -235,7 +235,7 @@ int luat_lv_list_get_anim_time(lua_State *L) {
 
 //  void lv_list_up(lv_obj_t* list)
 int luat_lv_list_up(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_list_up);
+    LV_DEBUG("CALL lv_list_up");
     lv_obj_t* list = (lv_obj_t*)lua_touserdata(L, 1);
     lv_list_up(list);
     return 0;
@@ -243,7 +243,7 @@ int luat_lv_list_up(lua_State *L) {
 
 //  void lv_list_down(lv_obj_t* list)
 int luat_lv_list_down(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_list_down);
+    LV_DEBUG("CALL lv_list_down");
     lv_obj_t* list = (lv_obj_t*)lua_touserdata(L, 1);
     lv_list_down(list);
     return 0;
@@ -251,7 +251,7 @@ int luat_lv_list_down(lua_State *L) {
 
 //  void lv_list_focus(lv_obj_t* btn, lv_anim_enable_t anim)
 int luat_lv_list_focus(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_list_focus);
+    LV_DEBUG("CALL lv_list_focus");
     lv_obj_t* btn = (lv_obj_t*)lua_touserdata(L, 1);
     lv_anim_enable_t anim = (lv_anim_enable_t)luaL_checkinteger(L, 2);
     lv_list_focus(btn ,anim);

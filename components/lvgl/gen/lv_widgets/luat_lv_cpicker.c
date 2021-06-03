@@ -6,7 +6,7 @@
 
 //  lv_obj_t* lv_cpicker_create(lv_obj_t* par, lv_obj_t* copy)
 int luat_lv_cpicker_create(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_cpicker_create);
+    LV_DEBUG("CALL lv_cpicker_create");
     lv_obj_t* par = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* copy = (lv_obj_t*)lua_touserdata(L, 2);
     lv_obj_t* ret = NULL;
@@ -17,7 +17,7 @@ int luat_lv_cpicker_create(lua_State *L) {
 
 //  void lv_cpicker_set_type(lv_obj_t* cpicker, lv_cpicker_type_t type)
 int luat_lv_cpicker_set_type(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_cpicker_set_type);
+    LV_DEBUG("CALL lv_cpicker_set_type");
     lv_obj_t* cpicker = (lv_obj_t*)lua_touserdata(L, 1);
     lv_cpicker_type_t type = (lv_cpicker_type_t)luaL_checkinteger(L, 2);
     lv_cpicker_set_type(cpicker ,type);
@@ -26,7 +26,7 @@ int luat_lv_cpicker_set_type(lua_State *L) {
 
 //  bool lv_cpicker_set_hue(lv_obj_t* cpicker, uint16_t hue)
 int luat_lv_cpicker_set_hue(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_cpicker_set_hue);
+    LV_DEBUG("CALL lv_cpicker_set_hue");
     lv_obj_t* cpicker = (lv_obj_t*)lua_touserdata(L, 1);
     uint16_t hue = (uint16_t)luaL_checkinteger(L, 2);
     bool ret;
@@ -37,7 +37,7 @@ int luat_lv_cpicker_set_hue(lua_State *L) {
 
 //  bool lv_cpicker_set_saturation(lv_obj_t* cpicker, uint8_t saturation)
 int luat_lv_cpicker_set_saturation(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_cpicker_set_saturation);
+    LV_DEBUG("CALL lv_cpicker_set_saturation");
     lv_obj_t* cpicker = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t saturation = (uint8_t)luaL_checkinteger(L, 2);
     bool ret;
@@ -48,7 +48,7 @@ int luat_lv_cpicker_set_saturation(lua_State *L) {
 
 //  bool lv_cpicker_set_value(lv_obj_t* cpicker, uint8_t val)
 int luat_lv_cpicker_set_value(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_cpicker_set_value);
+    LV_DEBUG("CALL lv_cpicker_set_value");
     lv_obj_t* cpicker = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t val = (uint8_t)luaL_checkinteger(L, 2);
     bool ret;
@@ -59,7 +59,7 @@ int luat_lv_cpicker_set_value(lua_State *L) {
 
 //  bool lv_cpicker_set_hsv(lv_obj_t* cpicker, lv_color_hsv_t hsv)
 int luat_lv_cpicker_set_hsv(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_cpicker_set_hsv);
+    LV_DEBUG("CALL lv_cpicker_set_hsv");
     lv_obj_t* cpicker = (lv_obj_t*)lua_touserdata(L, 1);
     lv_color_hsv_t hsv;
     // miss arg convert
@@ -71,7 +71,7 @@ int luat_lv_cpicker_set_hsv(lua_State *L) {
 
 //  bool lv_cpicker_set_color(lv_obj_t* cpicker, lv_color_t color)
 int luat_lv_cpicker_set_color(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_cpicker_set_color);
+    LV_DEBUG("CALL lv_cpicker_set_color");
     lv_obj_t* cpicker = (lv_obj_t*)lua_touserdata(L, 1);
     lv_color_t color = {0};
     color.full = luaL_checkinteger(L, 2);
@@ -83,7 +83,7 @@ int luat_lv_cpicker_set_color(lua_State *L) {
 
 //  void lv_cpicker_set_color_mode(lv_obj_t* cpicker, lv_cpicker_color_mode_t mode)
 int luat_lv_cpicker_set_color_mode(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_cpicker_set_color_mode);
+    LV_DEBUG("CALL lv_cpicker_set_color_mode");
     lv_obj_t* cpicker = (lv_obj_t*)lua_touserdata(L, 1);
     lv_cpicker_color_mode_t mode = (lv_cpicker_color_mode_t)luaL_checkinteger(L, 2);
     lv_cpicker_set_color_mode(cpicker ,mode);
@@ -92,7 +92,7 @@ int luat_lv_cpicker_set_color_mode(lua_State *L) {
 
 //  void lv_cpicker_set_color_mode_fixed(lv_obj_t* cpicker, bool fixed)
 int luat_lv_cpicker_set_color_mode_fixed(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_cpicker_set_color_mode_fixed);
+    LV_DEBUG("CALL lv_cpicker_set_color_mode_fixed");
     lv_obj_t* cpicker = (lv_obj_t*)lua_touserdata(L, 1);
     bool fixed = (bool)lua_toboolean(L, 2);
     lv_cpicker_set_color_mode_fixed(cpicker ,fixed);
@@ -101,7 +101,7 @@ int luat_lv_cpicker_set_color_mode_fixed(lua_State *L) {
 
 //  void lv_cpicker_set_knob_colored(lv_obj_t* cpicker, bool en)
 int luat_lv_cpicker_set_knob_colored(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_cpicker_set_knob_colored);
+    LV_DEBUG("CALL lv_cpicker_set_knob_colored");
     lv_obj_t* cpicker = (lv_obj_t*)lua_touserdata(L, 1);
     bool en = (bool)lua_toboolean(L, 2);
     lv_cpicker_set_knob_colored(cpicker ,en);
@@ -110,7 +110,7 @@ int luat_lv_cpicker_set_knob_colored(lua_State *L) {
 
 //  lv_cpicker_color_mode_t lv_cpicker_get_color_mode(lv_obj_t* cpicker)
 int luat_lv_cpicker_get_color_mode(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_cpicker_get_color_mode);
+    LV_DEBUG("CALL lv_cpicker_get_color_mode");
     lv_obj_t* cpicker = (lv_obj_t*)lua_touserdata(L, 1);
     lv_cpicker_color_mode_t ret;
     ret = lv_cpicker_get_color_mode(cpicker);
@@ -120,7 +120,7 @@ int luat_lv_cpicker_get_color_mode(lua_State *L) {
 
 //  bool lv_cpicker_get_color_mode_fixed(lv_obj_t* cpicker)
 int luat_lv_cpicker_get_color_mode_fixed(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_cpicker_get_color_mode_fixed);
+    LV_DEBUG("CALL lv_cpicker_get_color_mode_fixed");
     lv_obj_t* cpicker = (lv_obj_t*)lua_touserdata(L, 1);
     bool ret;
     ret = lv_cpicker_get_color_mode_fixed(cpicker);
@@ -130,7 +130,7 @@ int luat_lv_cpicker_get_color_mode_fixed(lua_State *L) {
 
 //  uint16_t lv_cpicker_get_hue(lv_obj_t* cpicker)
 int luat_lv_cpicker_get_hue(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_cpicker_get_hue);
+    LV_DEBUG("CALL lv_cpicker_get_hue");
     lv_obj_t* cpicker = (lv_obj_t*)lua_touserdata(L, 1);
     uint16_t ret;
     ret = lv_cpicker_get_hue(cpicker);
@@ -140,7 +140,7 @@ int luat_lv_cpicker_get_hue(lua_State *L) {
 
 //  uint8_t lv_cpicker_get_saturation(lv_obj_t* cpicker)
 int luat_lv_cpicker_get_saturation(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_cpicker_get_saturation);
+    LV_DEBUG("CALL lv_cpicker_get_saturation");
     lv_obj_t* cpicker = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t ret;
     ret = lv_cpicker_get_saturation(cpicker);
@@ -150,7 +150,7 @@ int luat_lv_cpicker_get_saturation(lua_State *L) {
 
 //  uint8_t lv_cpicker_get_value(lv_obj_t* cpicker)
 int luat_lv_cpicker_get_value(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_cpicker_get_value);
+    LV_DEBUG("CALL lv_cpicker_get_value");
     lv_obj_t* cpicker = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t ret;
     ret = lv_cpicker_get_value(cpicker);
@@ -160,7 +160,7 @@ int luat_lv_cpicker_get_value(lua_State *L) {
 
 //  lv_color_hsv_t lv_cpicker_get_hsv(lv_obj_t* cpicker)
 int luat_lv_cpicker_get_hsv(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_cpicker_get_hsv);
+    LV_DEBUG("CALL lv_cpicker_get_hsv");
     lv_obj_t* cpicker = (lv_obj_t*)lua_touserdata(L, 1);
     lv_color_hsv_t ret;
     ret = lv_cpicker_get_hsv(cpicker);
@@ -172,7 +172,7 @@ int luat_lv_cpicker_get_hsv(lua_State *L) {
 
 //  lv_color_t lv_cpicker_get_color(lv_obj_t* cpicker)
 int luat_lv_cpicker_get_color(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_cpicker_get_color);
+    LV_DEBUG("CALL lv_cpicker_get_color");
     lv_obj_t* cpicker = (lv_obj_t*)lua_touserdata(L, 1);
     lv_color_t ret;
     ret = lv_cpicker_get_color(cpicker);
@@ -182,7 +182,7 @@ int luat_lv_cpicker_get_color(lua_State *L) {
 
 //  bool lv_cpicker_get_knob_colored(lv_obj_t* cpicker)
 int luat_lv_cpicker_get_knob_colored(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_cpicker_get_knob_colored);
+    LV_DEBUG("CALL lv_cpicker_get_knob_colored");
     lv_obj_t* cpicker = (lv_obj_t*)lua_touserdata(L, 1);
     bool ret;
     ret = lv_cpicker_get_knob_colored(cpicker);

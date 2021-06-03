@@ -6,7 +6,7 @@
 
 //  void lv_indev_drv_init(lv_indev_drv_t* driver)
 int luat_lv_indev_drv_init(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_indev_drv_init);
+    LV_DEBUG("CALL lv_indev_drv_init");
     lv_indev_drv_t* driver = (lv_indev_drv_t*)lua_touserdata(L, 1);
     lv_indev_drv_init(driver);
     return 0;
@@ -14,7 +14,7 @@ int luat_lv_indev_drv_init(lua_State *L) {
 
 //  lv_indev_t* lv_indev_drv_register(lv_indev_drv_t* driver)
 int luat_lv_indev_drv_register(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_indev_drv_register);
+    LV_DEBUG("CALL lv_indev_drv_register");
     lv_indev_drv_t* driver = (lv_indev_drv_t*)lua_touserdata(L, 1);
     lv_indev_t* ret = NULL;
     ret = lv_indev_drv_register(driver);
@@ -24,7 +24,7 @@ int luat_lv_indev_drv_register(lua_State *L) {
 
 //  void lv_indev_drv_update(lv_indev_t* indev, lv_indev_drv_t* new_drv)
 int luat_lv_indev_drv_update(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_indev_drv_update);
+    LV_DEBUG("CALL lv_indev_drv_update");
     lv_indev_t* indev = (lv_indev_t*)lua_touserdata(L, 1);
     lv_indev_drv_t* new_drv = (lv_indev_drv_t*)lua_touserdata(L, 2);
     lv_indev_drv_update(indev ,new_drv);
@@ -33,7 +33,7 @@ int luat_lv_indev_drv_update(lua_State *L) {
 
 //  lv_indev_t* lv_indev_get_next(lv_indev_t* indev)
 int luat_lv_indev_get_next(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_indev_get_next);
+    LV_DEBUG("CALL lv_indev_get_next");
     lv_indev_t* indev = (lv_indev_t*)lua_touserdata(L, 1);
     lv_indev_t* ret = NULL;
     ret = lv_indev_get_next(indev);
@@ -43,7 +43,7 @@ int luat_lv_indev_get_next(lua_State *L) {
 
 //  lv_indev_t* lv_indev_get_act()
 int luat_lv_indev_get_act(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_indev_get_act);
+    LV_DEBUG("CALL lv_indev_get_act");
     lv_indev_t* ret = NULL;
     ret = lv_indev_get_act();
     lua_pushlightuserdata(L, ret);
@@ -52,7 +52,7 @@ int luat_lv_indev_get_act(lua_State *L) {
 
 //  lv_indev_type_t lv_indev_get_type(lv_indev_t* indev)
 int luat_lv_indev_get_type(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_indev_get_type);
+    LV_DEBUG("CALL lv_indev_get_type");
     lv_indev_t* indev = (lv_indev_t*)lua_touserdata(L, 1);
     lv_indev_type_t ret;
     ret = lv_indev_get_type(indev);
@@ -62,7 +62,7 @@ int luat_lv_indev_get_type(lua_State *L) {
 
 //  void lv_indev_reset(lv_indev_t* indev, lv_obj_t* obj)
 int luat_lv_indev_reset(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_indev_reset);
+    LV_DEBUG("CALL lv_indev_reset");
     lv_indev_t* indev = (lv_indev_t*)lua_touserdata(L, 1);
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 2);
     lv_indev_reset(indev ,obj);
@@ -71,7 +71,7 @@ int luat_lv_indev_reset(lua_State *L) {
 
 //  void lv_indev_reset_long_press(lv_indev_t* indev)
 int luat_lv_indev_reset_long_press(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_indev_reset_long_press);
+    LV_DEBUG("CALL lv_indev_reset_long_press");
     lv_indev_t* indev = (lv_indev_t*)lua_touserdata(L, 1);
     lv_indev_reset_long_press(indev);
     return 0;
@@ -79,7 +79,7 @@ int luat_lv_indev_reset_long_press(lua_State *L) {
 
 //  void lv_indev_enable(lv_indev_t* indev, bool en)
 int luat_lv_indev_enable(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_indev_enable);
+    LV_DEBUG("CALL lv_indev_enable");
     lv_indev_t* indev = (lv_indev_t*)lua_touserdata(L, 1);
     bool en = (bool)lua_toboolean(L, 2);
     lv_indev_enable(indev ,en);
@@ -88,7 +88,7 @@ int luat_lv_indev_enable(lua_State *L) {
 
 //  void lv_indev_set_cursor(lv_indev_t* indev, lv_obj_t* cur_obj)
 int luat_lv_indev_set_cursor(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_indev_set_cursor);
+    LV_DEBUG("CALL lv_indev_set_cursor");
     lv_indev_t* indev = (lv_indev_t*)lua_touserdata(L, 1);
     lv_obj_t* cur_obj = (lv_obj_t*)lua_touserdata(L, 2);
     lv_indev_set_cursor(indev ,cur_obj);
@@ -97,7 +97,7 @@ int luat_lv_indev_set_cursor(lua_State *L) {
 
 //  void lv_indev_set_group(lv_indev_t* indev, lv_group_t* group)
 int luat_lv_indev_set_group(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_indev_set_group);
+    LV_DEBUG("CALL lv_indev_set_group");
     lv_indev_t* indev = (lv_indev_t*)lua_touserdata(L, 1);
     lv_group_t* group = (lv_group_t*)lua_touserdata(L, 2);
     lv_indev_set_group(indev ,group);
@@ -106,7 +106,7 @@ int luat_lv_indev_set_group(lua_State *L) {
 
 //  void lv_indev_get_point(lv_indev_t* indev, lv_point_t* point)
 int luat_lv_indev_get_point(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_indev_get_point);
+    LV_DEBUG("CALL lv_indev_get_point");
     lv_indev_t* indev = (lv_indev_t*)lua_touserdata(L, 1);
     lua_pushvalue(L, 2);
     lv_point_t point = {0};
@@ -120,7 +120,7 @@ int luat_lv_indev_get_point(lua_State *L) {
 
 //  lv_gesture_dir_t lv_indev_get_gesture_dir(lv_indev_t* indev)
 int luat_lv_indev_get_gesture_dir(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_indev_get_gesture_dir);
+    LV_DEBUG("CALL lv_indev_get_gesture_dir");
     lv_indev_t* indev = (lv_indev_t*)lua_touserdata(L, 1);
     lv_gesture_dir_t ret;
     ret = lv_indev_get_gesture_dir(indev);
@@ -130,7 +130,7 @@ int luat_lv_indev_get_gesture_dir(lua_State *L) {
 
 //  uint32_t lv_indev_get_key(lv_indev_t* indev)
 int luat_lv_indev_get_key(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_indev_get_key);
+    LV_DEBUG("CALL lv_indev_get_key");
     lv_indev_t* indev = (lv_indev_t*)lua_touserdata(L, 1);
     uint32_t ret;
     ret = lv_indev_get_key(indev);
@@ -140,7 +140,7 @@ int luat_lv_indev_get_key(lua_State *L) {
 
 //  bool lv_indev_is_dragging(lv_indev_t* indev)
 int luat_lv_indev_is_dragging(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_indev_is_dragging);
+    LV_DEBUG("CALL lv_indev_is_dragging");
     lv_indev_t* indev = (lv_indev_t*)lua_touserdata(L, 1);
     bool ret;
     ret = lv_indev_is_dragging(indev);
@@ -150,7 +150,7 @@ int luat_lv_indev_is_dragging(lua_State *L) {
 
 //  void lv_indev_get_vect(lv_indev_t* indev, lv_point_t* point)
 int luat_lv_indev_get_vect(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_indev_get_vect);
+    LV_DEBUG("CALL lv_indev_get_vect");
     lv_indev_t* indev = (lv_indev_t*)lua_touserdata(L, 1);
     lua_pushvalue(L, 2);
     lv_point_t point = {0};
@@ -164,7 +164,7 @@ int luat_lv_indev_get_vect(lua_State *L) {
 
 //  lv_res_t lv_indev_finish_drag(lv_indev_t* indev)
 int luat_lv_indev_finish_drag(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_indev_finish_drag);
+    LV_DEBUG("CALL lv_indev_finish_drag");
     lv_indev_t* indev = (lv_indev_t*)lua_touserdata(L, 1);
     lv_res_t ret;
     ret = lv_indev_finish_drag(indev);
@@ -175,7 +175,7 @@ int luat_lv_indev_finish_drag(lua_State *L) {
 
 //  void lv_indev_wait_release(lv_indev_t* indev)
 int luat_lv_indev_wait_release(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_indev_wait_release);
+    LV_DEBUG("CALL lv_indev_wait_release");
     lv_indev_t* indev = (lv_indev_t*)lua_touserdata(L, 1);
     lv_indev_wait_release(indev);
     return 0;
@@ -183,7 +183,7 @@ int luat_lv_indev_wait_release(lua_State *L) {
 
 //  lv_obj_t* lv_indev_get_obj_act()
 int luat_lv_indev_get_obj_act(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_indev_get_obj_act);
+    LV_DEBUG("CALL lv_indev_get_obj_act");
     lv_obj_t* ret = NULL;
     ret = lv_indev_get_obj_act();
     lua_pushlightuserdata(L, ret);
@@ -192,7 +192,7 @@ int luat_lv_indev_get_obj_act(lua_State *L) {
 
 //  lv_obj_t* lv_indev_search_obj(lv_obj_t* obj, lv_point_t* point)
 int luat_lv_indev_search_obj(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_indev_search_obj);
+    LV_DEBUG("CALL lv_indev_search_obj");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lua_pushvalue(L, 2);
     lv_point_t point = {0};
@@ -208,7 +208,7 @@ int luat_lv_indev_search_obj(lua_State *L) {
 
 //  lv_task_t* lv_indev_get_read_task(lv_disp_t* indev)
 int luat_lv_indev_get_read_task(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_indev_get_read_task);
+    LV_DEBUG("CALL lv_indev_get_read_task");
     lv_disp_t* indev = (lv_disp_t*)lua_touserdata(L, 1);
     lv_task_t* ret = NULL;
     ret = lv_indev_get_read_task(indev);

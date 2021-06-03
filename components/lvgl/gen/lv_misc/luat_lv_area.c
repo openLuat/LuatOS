@@ -6,7 +6,7 @@
 
 //  void lv_area_set(lv_area_t* area_p, lv_coord_t x1, lv_coord_t y1, lv_coord_t x2, lv_coord_t y2)
 int luat_lv_area_set(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_area_set);
+    LV_DEBUG("CALL lv_area_set");
     lua_pushvalue(L, 1);
     lv_area_t area_p = {0};
     lua_geti(L, -1, 1); area_p.x1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
@@ -25,7 +25,7 @@ int luat_lv_area_set(lua_State *L) {
 
 //  void lv_area_copy(lv_area_t* dest, lv_area_t* src)
 int luat_lv_area_copy(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_area_copy);
+    LV_DEBUG("CALL lv_area_copy");
     lua_pushvalue(L, 1);
     lv_area_t dest = {0};
     lua_geti(L, -1, 1); dest.x1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
@@ -48,7 +48,7 @@ int luat_lv_area_copy(lua_State *L) {
 
 //  lv_coord_t lv_area_get_width(lv_area_t* area_p)
 int luat_lv_area_get_width(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_area_get_width);
+    LV_DEBUG("CALL lv_area_get_width");
     lua_pushvalue(L, 1);
     lv_area_t area_p = {0};
     lua_geti(L, -1, 1); area_p.x1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
@@ -65,7 +65,7 @@ int luat_lv_area_get_width(lua_State *L) {
 
 //  lv_coord_t lv_area_get_height(lv_area_t* area_p)
 int luat_lv_area_get_height(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_area_get_height);
+    LV_DEBUG("CALL lv_area_get_height");
     lua_pushvalue(L, 1);
     lv_area_t area_p = {0};
     lua_geti(L, -1, 1); area_p.x1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
@@ -82,7 +82,7 @@ int luat_lv_area_get_height(lua_State *L) {
 
 //  void lv_area_set_width(lv_area_t* area_p, lv_coord_t w)
 int luat_lv_area_set_width(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_area_set_width);
+    LV_DEBUG("CALL lv_area_set_width");
     lua_pushvalue(L, 1);
     lv_area_t area_p = {0};
     lua_geti(L, -1, 1); area_p.x1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
@@ -98,7 +98,7 @@ int luat_lv_area_set_width(lua_State *L) {
 
 //  void lv_area_set_height(lv_area_t* area_p, lv_coord_t h)
 int luat_lv_area_set_height(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_area_set_height);
+    LV_DEBUG("CALL lv_area_set_height");
     lua_pushvalue(L, 1);
     lv_area_t area_p = {0};
     lua_geti(L, -1, 1); area_p.x1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
@@ -114,7 +114,7 @@ int luat_lv_area_set_height(lua_State *L) {
 
 //  uint32_t lv_area_get_size(lv_area_t* area_p)
 int luat_lv_area_get_size(lua_State *L) {
-    LV_DEBUG("CALL %s", lv_area_get_size);
+    LV_DEBUG("CALL lv_area_get_size");
     lua_pushvalue(L, 1);
     lv_area_t area_p = {0};
     lua_geti(L, -1, 1); area_p.x1 = luaL_checkinteger(L, -1); lua_pop(L, 1);

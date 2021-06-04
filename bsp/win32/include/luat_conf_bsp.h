@@ -22,4 +22,6 @@
 
 #define LUAT_USE_LVGL 1
 
+#define LUAT_FORCE_WIN32 1
+
 #endif

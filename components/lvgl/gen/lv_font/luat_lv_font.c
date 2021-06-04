@@ -39,3 +39,12 @@ int luat_lv_font_get_line_height(lua_State *L) {
     return 1;
 }
 
+//  lv_font_t* lv_font_default()
+int luat_lv_font_default(lua_State *L) {
+    LV_DEBUG("CALL lv_font_default");
+    lv_font_t* ret = NULL;
+    ret = lv_font_default();
+    lua_pushlightuserdata(L, ret);
+    return 1;
+}
+

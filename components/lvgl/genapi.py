@@ -62,6 +62,7 @@ class FuncDefVisitor(c_ast.NodeVisitor):
     def visit_FuncDecl(self, node):
         try :
             is_ptr_return = False
+            method_name = None
             if node.type.__class__.__name__ == "PtrDecl":
                 is_ptr_return = True
                 if type(node.type.type) == c_ast.TypeDecl :
@@ -98,7 +99,7 @@ class FuncDefVisitor(c_ast.NodeVisitor):
                 return
             # 因为各种数组无法处理的方法
             if method_name in ["lv_btnmatrix_set_ctrl_map", "lv_keyboard_set_ctrl_map", "lv_calendar_set_highlighted_dates",
-                               "lv_chart_set_points", "lv_chart_set_ext_array", "lv_gauge_set_needle_count"] :
+                               "lv_chart_set_points", "lv_chart_set_ext_array", "lv_gauge_set_needle_count", "lv_style_transition_dsc_init"] :
                 return
             # 这方法不太可能有人用吧,返回值是uint8_t*,很少见
             if method_name in ["lv_font_get_glyph_bitmap"] :
@@ -108,6 +109,11 @@ class FuncDefVisitor(c_ast.NodeVisitor):
             method_return = "void"
             if type(node.type) == c_ast.TypeDecl :
                 method_return = node.type.type.names[0]
+            elif type(node.type.type.type) == c_ast.Struct :
+                if node.type.type.type.name == "_lv_obj_t":
+                    method_return = "lv_obj_t*"
+                else :
+                    method_return = "struct" + node.type.type.type.name + "*"
             else :
                 method_return = node.type.type.type.names[0] + "*"
             if node.args :
@@ -119,7 +125,13 @@ class FuncDefVisitor(c_ast.NodeVisitor):
                         # 指针类型
                         #print(arg.type.declname, "*", arg.type.type.names[0], )
                         #arg.type.show()
-                        method_args.append([arg.name, arg.type.type.type.names[0] + "*"])
+                        if arg.type.type.type.__class__.__name__ == "Struct" :
+                            if arg.type.type.type.name == "_lv_obj_t":
+                                method_args.append([arg.name, "lv_obj_t*"])
+                            else :
+                                method_args.append([arg.name, "struct "+arg.type.type.type.name+"*"])
+                        else :
+                            method_args.append([arg.name, arg.type.type.type.names[0] + "*"])
                     elif arg.type.__class__.__name__ == "TypeDecl":
                         if arg.type.type.names[0] != "void" :
                             method_args.append([arg.name, arg.type.type.names[0]])
@@ -144,6 +156,7 @@ class FuncDefVisitor(c_ast.NodeVisitor):
                 methods[self.group][self.prefix] = []
             methods[self.group][self.prefix].append({"group":self.group, "prefix":self.prefix, "name":method_name, "ret":method_return, "args":method_args})
         except  Exception:
+            print ("method_name", method_name, "error")
             import traceback
             traceback.print_exc()
             sys.exit()
@@ -152,7 +165,8 @@ def handle_groups(group, path):
     for name in os.listdir(path) :
         if not name.endswith(".h"):
             continue
-        if name in ["lv_obj_style_dec.h", "lv_theme_empty.h", "lv_theme_material.h", "lv_theme_mono.h", "lv_theme_template.h"]:
+        if name in ["lv_obj_style_gen.h", "lv_async.h", "lv_fs.h", "lv_log.h", "lv_mem.h",
+                    "lv_printf.h", "lv_style_gen.h", "lv_timer.h", "lv_indev.h", "lv_img_decoder.h", "lv_img_cache.h", "lv_img_buf.h"]:
             continue
         if name.startswith("lv_draw_") :
             continue
@@ -166,12 +180,14 @@ def handle_groups(group, path):
         #sys.exit()
 
 def main():
-    handle_groups("core", "src/lv_core/")
-    handle_groups("draw", "src/lv_draw/")
-    handle_groups("font", "src/lv_font/")
-    handle_groups("misc", "src/lv_misc/")
-    handle_groups("themes", "src/lv_themes/")
-    handle_groups("widgets", "src/lv_widgets/")
+    handle_groups("core", "src/core/")
+    handle_groups("draw", "src/draw/")
+    handle_groups("font", "src/font/")
+    handle_groups("misc", "src/misc/")
+    #handle_groups("themes", "src/extra/themes/")
+    handle_groups("widgets", "src/widgets/")
+    #handle_groups("widgets", "src/extra/widgets/")
+    #handle_groups("layout", "src/extra/layout/")
 
     print("============================================================")
 
@@ -412,7 +428,11 @@ map_lv_ints = ["lv_arc_type_t", "lv_style_int_t", "lv_coord_t", "lv_spinner_dir_
                     "lv_indev_type_t", "lv_disp_size_t",
                     "lv_opa_t", "lv_label_align_t", "lv_fit_t", "lv_bar_type_t", "lv_btn_state_t",
                     "lv_gesture_dir_t", "lv_state_t", "lv_layout_t", "lv_cpicker_color_mode_t",
-                    "lv_disp_rot_t", "lv_grad_dir_t", "lv_chart_type_t"]
+                    "lv_disp_rot_t", "lv_grad_dir_t", "lv_chart_type_t", "lv_text_align_t", "lv_arc_mode_t", "lv_table_cell_ctrl_t",
+                    "lv_scroll_snap_t", "lv_style_prop_t", "lv_draw_mask_line_side_t", "lv_obj_flag_t",
+                    "lv_roller_mode_t", "lv_slider_mode_t", "lv_arc_mode_t", "lv_text_align_t", "lv_bar_mode_t", "lv_part_t",
+                    "lv_text_flag_t", "lv_style_selector_t", "lv_dir_t", "lv_scroll_snap_t", "lv_style_prop_t", "lv_base_dir_t",
+                    "lv_slider_mode_t", "lv_arc_mode_t", "lv_text_align_t"]
 
 def gen_lua_ret(tp, f) :
     # 数值类

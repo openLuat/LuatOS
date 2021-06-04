@@ -1,2 +1,0 @@
->>>>>>>>>>>>lv_disp.h
-error>>>>>>>>>>>>lv_disp.h

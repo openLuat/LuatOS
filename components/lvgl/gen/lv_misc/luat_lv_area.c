@@ -129,3 +129,63 @@ int luat_lv_area_get_size(lua_State *L) {
     return 1;
 }
 
+//  void lv_area_increase(lv_area_t* area, lv_coord_t w_extra, lv_coord_t h_extra)
+int luat_lv_area_increase(lua_State *L) {
+    LV_DEBUG("CALL lv_area_increase");
+    lua_pushvalue(L, 1);
+    lv_area_t area = {0};
+    lua_geti(L, -1, 1); area.x1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 2); area.y1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 3); area.x2 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 4); area.y2 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_pop(L, 1);
+
+    lv_coord_t w_extra = (lv_coord_t)luaL_checkinteger(L, 2);
+    lv_coord_t h_extra = (lv_coord_t)luaL_checkinteger(L, 3);
+    lv_area_increase(&area ,w_extra ,h_extra);
+    return 0;
+}
+
+//  void lv_area_move(lv_area_t* area, lv_coord_t x_ofs, lv_coord_t y_ofs)
+int luat_lv_area_move(lua_State *L) {
+    LV_DEBUG("CALL lv_area_move");
+    lua_pushvalue(L, 1);
+    lv_area_t area = {0};
+    lua_geti(L, -1, 1); area.x1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 2); area.y1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 3); area.x2 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 4); area.y2 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_pop(L, 1);
+
+    lv_coord_t x_ofs = (lv_coord_t)luaL_checkinteger(L, 2);
+    lv_coord_t y_ofs = (lv_coord_t)luaL_checkinteger(L, 3);
+    lv_area_move(&area ,x_ofs ,y_ofs);
+    return 0;
+}
+
+//  void lv_area_align(lv_area_t* base, lv_area_t* to_align, lv_align_t align, lv_coord_t ofs_x, lv_coord_t ofs_y)
+int luat_lv_area_align(lua_State *L) {
+    LV_DEBUG("CALL lv_area_align");
+    lua_pushvalue(L, 1);
+    lv_area_t base = {0};
+    lua_geti(L, -1, 1); base.x1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 2); base.y1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 3); base.x2 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 4); base.y2 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_pop(L, 1);
+
+    lua_pushvalue(L, 2);
+    lv_area_t to_align = {0};
+    lua_geti(L, -1, 1); to_align.x1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 2); to_align.y1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 3); to_align.x2 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 4); to_align.y2 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_pop(L, 1);
+
+    lv_align_t align = (lv_align_t)luaL_checkinteger(L, 3);
+    lv_coord_t ofs_x = (lv_coord_t)luaL_checkinteger(L, 4);
+    lv_coord_t ofs_y = (lv_coord_t)luaL_checkinteger(L, 5);
+    lv_area_align(&base ,&to_align ,align ,ofs_x ,ofs_y);
+    return 0;
+}
+

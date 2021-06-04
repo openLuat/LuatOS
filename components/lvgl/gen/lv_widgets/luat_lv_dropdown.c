@@ -4,210 +4,200 @@
 #include "luat_lvgl.h"
 
 
-//  lv_obj_t* lv_dropdown_create(lv_obj_t* par, lv_obj_t* copy)
+//  lv_obj_t* lv_dropdown_create(lv_obj_t* parent)
 int luat_lv_dropdown_create(lua_State *L) {
     LV_DEBUG("CALL lv_dropdown_create");
-    lv_obj_t* par = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_obj_t* copy = (lv_obj_t*)lua_touserdata(L, 2);
+    lv_obj_t* parent = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* ret = NULL;
-    ret = lv_dropdown_create(par ,copy);
+    ret = lv_dropdown_create(parent);
     lua_pushlightuserdata(L, ret);
     return 1;
 }
 
-//  void lv_dropdown_set_text(lv_obj_t* ddlist, char* txt)
+//  void lv_dropdown_set_text(lv_obj_t* obj, char* txt)
 int luat_lv_dropdown_set_text(lua_State *L) {
     LV_DEBUG("CALL lv_dropdown_set_text");
-    lv_obj_t* ddlist = (lv_obj_t*)lua_touserdata(L, 1);
+    lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     char* txt = (char*)luaL_checkstring(L, 2);
-    lv_dropdown_set_text(ddlist ,txt);
+    lv_dropdown_set_text(obj ,txt);
     return 0;
 }
 
-//  void lv_dropdown_clear_options(lv_obj_t* ddlist)
-int luat_lv_dropdown_clear_options(lua_State *L) {
-    LV_DEBUG("CALL lv_dropdown_clear_options");
-    lv_obj_t* ddlist = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_dropdown_clear_options(ddlist);
-    return 0;
-}
-
-//  void lv_dropdown_set_options(lv_obj_t* ddlist, char* options)
+//  void lv_dropdown_set_options(lv_obj_t* obj, char* options)
 int luat_lv_dropdown_set_options(lua_State *L) {
     LV_DEBUG("CALL lv_dropdown_set_options");
-    lv_obj_t* ddlist = (lv_obj_t*)lua_touserdata(L, 1);
+    lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     char* options = (char*)luaL_checkstring(L, 2);
-    lv_dropdown_set_options(ddlist ,options);
+    lv_dropdown_set_options(obj ,options);
     return 0;
 }
 
-//  void lv_dropdown_set_options_static(lv_obj_t* ddlist, char* options)
+//  void lv_dropdown_set_options_static(lv_obj_t* obj, char* options)
 int luat_lv_dropdown_set_options_static(lua_State *L) {
     LV_DEBUG("CALL lv_dropdown_set_options_static");
-    lv_obj_t* ddlist = (lv_obj_t*)lua_touserdata(L, 1);
+    lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     char* options = (char*)luaL_checkstring(L, 2);
-    lv_dropdown_set_options_static(ddlist ,options);
+    lv_dropdown_set_options_static(obj ,options);
     return 0;
 }
 
-//  void lv_dropdown_add_option(lv_obj_t* ddlist, char* option, uint32_t pos)
+//  void lv_dropdown_add_option(lv_obj_t* obj, char* option, uint32_t pos)
 int luat_lv_dropdown_add_option(lua_State *L) {
     LV_DEBUG("CALL lv_dropdown_add_option");
-    lv_obj_t* ddlist = (lv_obj_t*)lua_touserdata(L, 1);
+    lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     char* option = (char*)luaL_checkstring(L, 2);
     uint32_t pos = (uint32_t)luaL_checkinteger(L, 3);
-    lv_dropdown_add_option(ddlist ,option ,pos);
+    lv_dropdown_add_option(obj ,option ,pos);
     return 0;
 }
 
-//  void lv_dropdown_set_selected(lv_obj_t* ddlist, uint16_t sel_opt)
+//  void lv_dropdown_clear_options(lv_obj_t* obj)
+int luat_lv_dropdown_clear_options(lua_State *L) {
+    LV_DEBUG("CALL lv_dropdown_clear_options");
+    lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
+    lv_dropdown_clear_options(obj);
+    return 0;
+}
+
+//  void lv_dropdown_set_selected(lv_obj_t* obj, uint16_t sel_opt)
 int luat_lv_dropdown_set_selected(lua_State *L) {
     LV_DEBUG("CALL lv_dropdown_set_selected");
-    lv_obj_t* ddlist = (lv_obj_t*)lua_touserdata(L, 1);
+    lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint16_t sel_opt = (uint16_t)luaL_checkinteger(L, 2);
-    lv_dropdown_set_selected(ddlist ,sel_opt);
+    lv_dropdown_set_selected(obj ,sel_opt);
     return 0;
 }
 
-//  void lv_dropdown_set_dir(lv_obj_t* ddlist, lv_dropdown_dir_t dir)
+//  void lv_dropdown_set_dir(lv_obj_t* obj, lv_dir_t dir)
 int luat_lv_dropdown_set_dir(lua_State *L) {
     LV_DEBUG("CALL lv_dropdown_set_dir");
-    lv_obj_t* ddlist = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_dropdown_dir_t dir = (lv_dropdown_dir_t)luaL_checkinteger(L, 2);
-    lv_dropdown_set_dir(ddlist ,dir);
+    lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
+    lv_dir_t dir = (lv_dir_t)luaL_checkinteger(L, 2);
+    lv_dropdown_set_dir(obj ,dir);
     return 0;
 }
 
-//  void lv_dropdown_set_max_height(lv_obj_t* ddlist, lv_coord_t h)
-int luat_lv_dropdown_set_max_height(lua_State *L) {
-    LV_DEBUG("CALL lv_dropdown_set_max_height");
-    lv_obj_t* ddlist = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_coord_t h = (lv_coord_t)luaL_checkinteger(L, 2);
-    lv_dropdown_set_max_height(ddlist ,h);
-    return 0;
-}
-
-//  void lv_dropdown_set_symbol(lv_obj_t* ddlist, char* symbol)
+//  void lv_dropdown_set_symbol(lv_obj_t* obj, void* symbol)
 int luat_lv_dropdown_set_symbol(lua_State *L) {
     LV_DEBUG("CALL lv_dropdown_set_symbol");
-    lv_obj_t* ddlist = (lv_obj_t*)lua_touserdata(L, 1);
-    char* symbol = (char*)luaL_checkstring(L, 2);
-    lv_dropdown_set_symbol(ddlist ,symbol);
+    lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
+    void* symbol = (void*)lua_touserdata(L, 2);
+    lv_dropdown_set_symbol(obj ,symbol);
     return 0;
 }
 
-//  void lv_dropdown_set_show_selected(lv_obj_t* ddlist, bool show)
-int luat_lv_dropdown_set_show_selected(lua_State *L) {
-    LV_DEBUG("CALL lv_dropdown_set_show_selected");
-    lv_obj_t* ddlist = (lv_obj_t*)lua_touserdata(L, 1);
-    bool show = (bool)lua_toboolean(L, 2);
-    lv_dropdown_set_show_selected(ddlist ,show);
+//  void lv_dropdown_set_selected_highlight(lv_obj_t* obj, bool en)
+int luat_lv_dropdown_set_selected_highlight(lua_State *L) {
+    LV_DEBUG("CALL lv_dropdown_set_selected_highlight");
+    lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
+    bool en = (bool)lua_toboolean(L, 2);
+    lv_dropdown_set_selected_highlight(obj ,en);
     return 0;
 }
 
-//  char* lv_dropdown_get_text(lv_obj_t* ddlist)
+//  lv_obj_t* lv_dropdown_get_list(lv_obj_t* obj)
+int luat_lv_dropdown_get_list(lua_State *L) {
+    LV_DEBUG("CALL lv_dropdown_get_list");
+    lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
+    lv_obj_t* ret = NULL;
+    ret = lv_dropdown_get_list(obj);
+    lua_pushlightuserdata(L, ret);
+    return 1;
+}
+
+//  char* lv_dropdown_get_text(lv_obj_t* obj)
 int luat_lv_dropdown_get_text(lua_State *L) {
     LV_DEBUG("CALL lv_dropdown_get_text");
-    lv_obj_t* ddlist = (lv_obj_t*)lua_touserdata(L, 1);
+    lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     char* ret = NULL;
-    ret = lv_dropdown_get_text(ddlist);
+    ret = lv_dropdown_get_text(obj);
     lua_pushstring(L, ret);
     return 1;
 }
 
-//  char* lv_dropdown_get_options(lv_obj_t* ddlist)
+//  char* lv_dropdown_get_options(lv_obj_t* obj)
 int luat_lv_dropdown_get_options(lua_State *L) {
     LV_DEBUG("CALL lv_dropdown_get_options");
-    lv_obj_t* ddlist = (lv_obj_t*)lua_touserdata(L, 1);
+    lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     char* ret = NULL;
-    ret = lv_dropdown_get_options(ddlist);
+    ret = lv_dropdown_get_options(obj);
     lua_pushstring(L, ret);
     return 1;
 }
 
-//  uint16_t lv_dropdown_get_selected(lv_obj_t* ddlist)
+//  uint16_t lv_dropdown_get_selected(lv_obj_t* obj)
 int luat_lv_dropdown_get_selected(lua_State *L) {
     LV_DEBUG("CALL lv_dropdown_get_selected");
-    lv_obj_t* ddlist = (lv_obj_t*)lua_touserdata(L, 1);
+    lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint16_t ret;
-    ret = lv_dropdown_get_selected(ddlist);
+    ret = lv_dropdown_get_selected(obj);
     lua_pushinteger(L, ret);
     return 1;
 }
 
-//  uint16_t lv_dropdown_get_option_cnt(lv_obj_t* ddlist)
+//  uint16_t lv_dropdown_get_option_cnt(lv_obj_t* obj)
 int luat_lv_dropdown_get_option_cnt(lua_State *L) {
     LV_DEBUG("CALL lv_dropdown_get_option_cnt");
-    lv_obj_t* ddlist = (lv_obj_t*)lua_touserdata(L, 1);
+    lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint16_t ret;
-    ret = lv_dropdown_get_option_cnt(ddlist);
+    ret = lv_dropdown_get_option_cnt(obj);
     lua_pushinteger(L, ret);
     return 1;
 }
 
-//  void lv_dropdown_get_selected_str(lv_obj_t* ddlist, char* buf, uint32_t buf_size)
+//  void lv_dropdown_get_selected_str(lv_obj_t* obj, char* buf, uint32_t buf_size)
 int luat_lv_dropdown_get_selected_str(lua_State *L) {
     LV_DEBUG("CALL lv_dropdown_get_selected_str");
-    lv_obj_t* ddlist = (lv_obj_t*)lua_touserdata(L, 1);
+    lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     char* buf = (char*)luaL_checkstring(L, 2);
     uint32_t buf_size = (uint32_t)luaL_checkinteger(L, 3);
-    lv_dropdown_get_selected_str(ddlist ,buf ,buf_size);
+    lv_dropdown_get_selected_str(obj ,buf ,buf_size);
     return 0;
 }
 
-//  lv_coord_t lv_dropdown_get_max_height(lv_obj_t* ddlist)
-int luat_lv_dropdown_get_max_height(lua_State *L) {
-    LV_DEBUG("CALL lv_dropdown_get_max_height");
-    lv_obj_t* ddlist = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_coord_t ret;
-    ret = lv_dropdown_get_max_height(ddlist);
-    lua_pushinteger(L, ret);
-    return 1;
-}
-
-//  char* lv_dropdown_get_symbol(lv_obj_t* ddlist)
+//  char* lv_dropdown_get_symbol(lv_obj_t* obj)
 int luat_lv_dropdown_get_symbol(lua_State *L) {
     LV_DEBUG("CALL lv_dropdown_get_symbol");
-    lv_obj_t* ddlist = (lv_obj_t*)lua_touserdata(L, 1);
+    lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     char* ret = NULL;
-    ret = lv_dropdown_get_symbol(ddlist);
+    ret = lv_dropdown_get_symbol(obj);
     lua_pushstring(L, ret);
     return 1;
 }
 
-//  lv_dropdown_dir_t lv_dropdown_get_dir(lv_obj_t* ddlist)
-int luat_lv_dropdown_get_dir(lua_State *L) {
-    LV_DEBUG("CALL lv_dropdown_get_dir");
-    lv_obj_t* ddlist = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_dropdown_dir_t ret;
-    ret = lv_dropdown_get_dir(ddlist);
-    lua_pushinteger(L, ret);
-    return 1;
-}
-
-//  bool lv_dropdown_get_show_selected(lv_obj_t* ddlist)
-int luat_lv_dropdown_get_show_selected(lua_State *L) {
-    LV_DEBUG("CALL lv_dropdown_get_show_selected");
-    lv_obj_t* ddlist = (lv_obj_t*)lua_touserdata(L, 1);
+//  bool lv_dropdown_get_selected_highlight(lv_obj_t* obj)
+int luat_lv_dropdown_get_selected_highlight(lua_State *L) {
+    LV_DEBUG("CALL lv_dropdown_get_selected_highlight");
+    lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     bool ret;
-    ret = lv_dropdown_get_show_selected(ddlist);
+    ret = lv_dropdown_get_selected_highlight(obj);
     lua_pushboolean(L, ret);
     return 1;
 }
 
-//  void lv_dropdown_open(lv_obj_t* ddlist)
+//  lv_dir_t lv_dropdown_get_dir(lv_obj_t* obj)
+int luat_lv_dropdown_get_dir(lua_State *L) {
+    LV_DEBUG("CALL lv_dropdown_get_dir");
+    lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
+    lv_dir_t ret;
+    ret = lv_dropdown_get_dir(obj);
+    lua_pushinteger(L, ret);
+    return 1;
+}
+
+//  void lv_dropdown_open(lv_obj_t* dropdown_obj)
 int luat_lv_dropdown_open(lua_State *L) {
     LV_DEBUG("CALL lv_dropdown_open");
-    lv_obj_t* ddlist = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_dropdown_open(ddlist);
+    lv_obj_t* dropdown_obj = (lv_obj_t*)lua_touserdata(L, 1);
+    lv_dropdown_open(dropdown_obj);
     return 0;
 }
 
-//  void lv_dropdown_close(lv_obj_t* ddlist)
+//  void lv_dropdown_close(lv_obj_t* obj)
 int luat_lv_dropdown_close(lua_State *L) {
     LV_DEBUG("CALL lv_dropdown_close");
-    lv_obj_t* ddlist = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_dropdown_close(ddlist);
+    lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
+    lv_dropdown_close(obj);
     return 0;
 }
 

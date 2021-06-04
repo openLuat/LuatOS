@@ -66,8 +66,7 @@ int luat_lv_draw_mask_line_points_init(lua_State *L) {
     lv_coord_t p1y = (lv_coord_t)luaL_checkinteger(L, 3);
     lv_coord_t p2x = (lv_coord_t)luaL_checkinteger(L, 4);
     lv_coord_t p2y = (lv_coord_t)luaL_checkinteger(L, 5);
-    lv_draw_mask_line_side_t side;
-    // miss arg convert
+    lv_draw_mask_line_side_t side = (lv_draw_mask_line_side_t)luaL_checkinteger(L, 6);
     lv_draw_mask_line_points_init(param ,p1x ,p1y ,p2x ,p2y ,side);
     return 0;
 }
@@ -79,8 +78,7 @@ int luat_lv_draw_mask_line_angle_init(lua_State *L) {
     lv_coord_t p1x = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_coord_t py = (lv_coord_t)luaL_checkinteger(L, 3);
     int16_t angle = (int16_t)luaL_checkinteger(L, 4);
-    lv_draw_mask_line_side_t side;
-    // miss arg convert
+    lv_draw_mask_line_side_t side = (lv_draw_mask_line_side_t)luaL_checkinteger(L, 5);
     lv_draw_mask_line_angle_init(param ,p1x ,py ,angle ,side);
     return 0;
 }
@@ -184,28 +182,6 @@ int luat_lv_draw_rect(lua_State *L) {
     return 0;
 }
 
-//  void lv_draw_px(lv_point_t* point, lv_area_t* clip_area, lv_style_t* style)
-int luat_lv_draw_px(lua_State *L) {
-    LV_DEBUG("CALL lv_draw_px");
-    lua_pushvalue(L, 1);
-    lv_point_t point = {0};
-    lua_geti(L, -1, 1); point.x = luaL_checkinteger(L, -1); lua_pop(L, 1);
-    lua_geti(L, -1, 2); point.y = luaL_checkinteger(L, -1); lua_pop(L, 1);
-    lua_pop(L, 1);
-
-    lua_pushvalue(L, 2);
-    lv_area_t clip_area = {0};
-    lua_geti(L, -1, 1); clip_area.x1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
-    lua_geti(L, -1, 2); clip_area.y1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
-    lua_geti(L, -1, 3); clip_area.x2 = luaL_checkinteger(L, -1); lua_pop(L, 1);
-    lua_geti(L, -1, 4); clip_area.y2 = luaL_checkinteger(L, -1); lua_pop(L, 1);
-    lua_pop(L, 1);
-
-    lv_style_t* style = (lv_style_t*)lua_touserdata(L, 3);
-    lv_draw_px(&point ,&clip_area ,style);
-    return 0;
-}
-
 //  void lv_draw_label_dsc_init(lv_draw_label_dsc_t* dsc)
 int luat_lv_draw_label_dsc_init(lua_State *L) {
     LV_DEBUG("CALL lv_draw_label_dsc_init");
@@ -237,6 +213,33 @@ int luat_lv_draw_label(lua_State *L) {
     char* txt = (char*)luaL_checkstring(L, 4);
     lv_draw_label_hint_t* hint = (lv_draw_label_hint_t*)lua_touserdata(L, 5);
     lv_draw_label(&coords ,&mask ,dsc ,txt ,hint);
+    return 0;
+}
+
+//  void lv_draw_letter(lv_point_t* pos_p, lv_area_t* clip_area, lv_font_t* font_p, uint32_t letter, lv_color_t color, lv_opa_t opa, lv_blend_mode_t blend_mode)
+int luat_lv_draw_letter(lua_State *L) {
+    LV_DEBUG("CALL lv_draw_letter");
+    lua_pushvalue(L, 1);
+    lv_point_t pos_p = {0};
+    lua_geti(L, -1, 1); pos_p.x = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 2); pos_p.y = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_pop(L, 1);
+
+    lua_pushvalue(L, 2);
+    lv_area_t clip_area = {0};
+    lua_geti(L, -1, 1); clip_area.x1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 2); clip_area.y1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 3); clip_area.x2 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 4); clip_area.y2 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_pop(L, 1);
+
+    lv_font_t* font_p = (lv_font_t*)lua_touserdata(L, 3);
+    uint32_t letter = (uint32_t)luaL_checkinteger(L, 4);
+    lv_color_t color = {0};
+    color.full = luaL_checkinteger(L, 5);
+    lv_opa_t opa = (lv_opa_t)luaL_checkinteger(L, 6);
+    lv_blend_mode_t blend_mode = (lv_blend_mode_t)luaL_checkinteger(L, 7);
+    lv_draw_letter(&pos_p ,&clip_area ,font_p ,letter ,color ,opa ,blend_mode);
     return 0;
 }
 
@@ -309,7 +312,15 @@ int luat_lv_draw_line_dsc_init(lua_State *L) {
     return 0;
 }
 
-//  void lv_draw_arc(lv_coord_t center_x, lv_coord_t center_y, uint16_t radius, uint16_t start_angle, uint16_t end_angle, lv_area_t* clip_area, lv_draw_line_dsc_t* dsc)
+//  void lv_draw_arc_dsc_init(lv_draw_arc_dsc_t* dsc)
+int luat_lv_draw_arc_dsc_init(lua_State *L) {
+    LV_DEBUG("CALL lv_draw_arc_dsc_init");
+    lv_draw_arc_dsc_t* dsc = (lv_draw_arc_dsc_t*)lua_touserdata(L, 1);
+    lv_draw_arc_dsc_init(dsc);
+    return 0;
+}
+
+//  void lv_draw_arc(lv_coord_t center_x, lv_coord_t center_y, uint16_t radius, uint16_t start_angle, uint16_t end_angle, lv_area_t* clip_area, lv_draw_arc_dsc_t* dsc)
 int luat_lv_draw_arc(lua_State *L) {
     LV_DEBUG("CALL lv_draw_arc");
     lv_coord_t center_x = (lv_coord_t)luaL_checkinteger(L, 1);
@@ -325,8 +336,30 @@ int luat_lv_draw_arc(lua_State *L) {
     lua_geti(L, -1, 4); clip_area.y2 = luaL_checkinteger(L, -1); lua_pop(L, 1);
     lua_pop(L, 1);
 
-    lv_draw_line_dsc_t* dsc = (lv_draw_line_dsc_t*)lua_touserdata(L, 7);
+    lv_draw_arc_dsc_t* dsc = (lv_draw_arc_dsc_t*)lua_touserdata(L, 7);
     lv_draw_arc(center_x ,center_y ,radius ,start_angle ,end_angle ,&clip_area ,dsc);
+    return 0;
+}
+
+//  void lv_draw_arc_get_area(lv_coord_t x, lv_coord_t y, uint16_t radius, uint16_t start_angle, uint16_t end_angle, lv_coord_t w, bool rounded, lv_area_t* area)
+int luat_lv_draw_arc_get_area(lua_State *L) {
+    LV_DEBUG("CALL lv_draw_arc_get_area");
+    lv_coord_t x = (lv_coord_t)luaL_checkinteger(L, 1);
+    lv_coord_t y = (lv_coord_t)luaL_checkinteger(L, 2);
+    uint16_t radius = (uint16_t)luaL_checkinteger(L, 3);
+    uint16_t start_angle = (uint16_t)luaL_checkinteger(L, 4);
+    uint16_t end_angle = (uint16_t)luaL_checkinteger(L, 5);
+    lv_coord_t w = (lv_coord_t)luaL_checkinteger(L, 6);
+    bool rounded = (bool)lua_toboolean(L, 7);
+    lua_pushvalue(L, 8);
+    lv_area_t area = {0};
+    lua_geti(L, -1, 1); area.x1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 2); area.y1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 3); area.x2 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_geti(L, -1, 4); area.y2 = luaL_checkinteger(L, -1); lua_pop(L, 1);
+    lua_pop(L, 1);
+
+    lv_draw_arc_get_area(x ,y ,radius ,start_angle ,end_angle ,w ,rounded ,&area);
     return 0;
 }
 

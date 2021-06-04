@@ -12,14 +12,14 @@ int luat_lv_disp_drv_init(lua_State *L) {
     return 0;
 }
 
-//  void lv_disp_buf_init(lv_disp_buf_t* disp_buf, void* buf1, void* buf2, uint32_t size_in_px_cnt)
-int luat_lv_disp_buf_init(lua_State *L) {
-    LV_DEBUG("CALL lv_disp_buf_init");
-    lv_disp_buf_t* disp_buf = (lv_disp_buf_t*)lua_touserdata(L, 1);
+//  void lv_disp_draw_buf_init(lv_disp_draw_buf_t* draw_buf, void* buf1, void* buf2, uint32_t size_in_px_cnt)
+int luat_lv_disp_draw_buf_init(lua_State *L) {
+    LV_DEBUG("CALL lv_disp_draw_buf_init");
+    lv_disp_draw_buf_t* draw_buf = (lv_disp_draw_buf_t*)lua_touserdata(L, 1);
     void* buf1 = (void*)lua_touserdata(L, 2);
     void* buf2 = (void*)lua_touserdata(L, 3);
     uint32_t size_in_px_cnt = (uint32_t)luaL_checkinteger(L, 4);
-    lv_disp_buf_init(disp_buf ,buf1 ,buf2 ,size_in_px_cnt);
+    lv_disp_draw_buf_init(draw_buf ,buf1 ,buf2 ,size_in_px_cnt);
     return 0;
 }
 
@@ -107,16 +107,6 @@ int luat_lv_disp_get_dpi(lua_State *L) {
     return 1;
 }
 
-//  lv_disp_size_t lv_disp_get_size_category(lv_disp_t* disp)
-int luat_lv_disp_get_size_category(lua_State *L) {
-    LV_DEBUG("CALL lv_disp_get_size_category");
-    lv_disp_t* disp = (lv_disp_t*)lua_touserdata(L, 1);
-    lv_disp_size_t ret;
-    ret = lv_disp_get_size_category(disp);
-    lua_pushinteger(L, ret);
-    return 1;
-}
-
 //  void lv_disp_set_rotation(lv_disp_t* disp, lv_disp_rot_t rotation)
 int luat_lv_disp_set_rotation(lua_State *L) {
     LV_DEBUG("CALL lv_disp_set_rotation");
@@ -164,43 +154,13 @@ int luat_lv_disp_get_next(lua_State *L) {
     return 1;
 }
 
-//  lv_disp_buf_t* lv_disp_get_buf(lv_disp_t* disp)
-int luat_lv_disp_get_buf(lua_State *L) {
-    LV_DEBUG("CALL lv_disp_get_buf");
+//  lv_disp_draw_buf_t* lv_disp_get_draw_buf(lv_disp_t* disp)
+int luat_lv_disp_get_draw_buf(lua_State *L) {
+    LV_DEBUG("CALL lv_disp_get_draw_buf");
     lv_disp_t* disp = (lv_disp_t*)lua_touserdata(L, 1);
-    lv_disp_buf_t* ret = NULL;
-    ret = lv_disp_get_buf(disp);
+    lv_disp_draw_buf_t* ret = NULL;
+    ret = lv_disp_get_draw_buf(disp);
     lua_pushlightuserdata(L, ret);
-    return 1;
-}
-
-//  uint16_t lv_disp_get_inv_buf_size(lv_disp_t* disp)
-int luat_lv_disp_get_inv_buf_size(lua_State *L) {
-    LV_DEBUG("CALL lv_disp_get_inv_buf_size");
-    lv_disp_t* disp = (lv_disp_t*)lua_touserdata(L, 1);
-    uint16_t ret;
-    ret = lv_disp_get_inv_buf_size(disp);
-    lua_pushinteger(L, ret);
-    return 1;
-}
-
-//  bool lv_disp_is_double_buf(lv_disp_t* disp)
-int luat_lv_disp_is_double_buf(lua_State *L) {
-    LV_DEBUG("CALL lv_disp_is_double_buf");
-    lv_disp_t* disp = (lv_disp_t*)lua_touserdata(L, 1);
-    bool ret;
-    ret = lv_disp_is_double_buf(disp);
-    lua_pushboolean(L, ret);
-    return 1;
-}
-
-//  bool lv_disp_is_true_double_buf(lv_disp_t* disp)
-int luat_lv_disp_is_true_double_buf(lua_State *L) {
-    LV_DEBUG("CALL lv_disp_is_true_double_buf");
-    lv_disp_t* disp = (lv_disp_t*)lua_touserdata(L, 1);
-    bool ret;
-    ret = lv_disp_is_true_double_buf(disp);
-    lua_pushboolean(L, ret);
     return 1;
 }
 
@@ -252,13 +212,23 @@ int luat_lv_disp_get_layer_sys(lua_State *L) {
     return 1;
 }
 
-//  void lv_disp_assign_screen(lv_disp_t* disp, lv_obj_t* scr)
-int luat_lv_disp_assign_screen(lua_State *L) {
-    LV_DEBUG("CALL lv_disp_assign_screen");
+//  void lv_disp_set_theme(lv_disp_t* disp, lv_theme_t* th)
+int luat_lv_disp_set_theme(lua_State *L) {
+    LV_DEBUG("CALL lv_disp_set_theme");
     lv_disp_t* disp = (lv_disp_t*)lua_touserdata(L, 1);
-    lv_obj_t* scr = (lv_obj_t*)lua_touserdata(L, 2);
-    lv_disp_assign_screen(disp ,scr);
+    lv_theme_t* th = (lv_theme_t*)lua_touserdata(L, 2);
+    lv_disp_set_theme(disp ,th);
     return 0;
+}
+
+//  lv_theme_t* lv_disp_get_theme(lv_disp_t* disp)
+int luat_lv_disp_get_theme(lua_State *L) {
+    LV_DEBUG("CALL lv_disp_get_theme");
+    lv_disp_t* disp = (lv_disp_t*)lua_touserdata(L, 1);
+    lv_theme_t* ret = NULL;
+    ret = lv_disp_get_theme(disp);
+    lua_pushlightuserdata(L, ret);
+    return 1;
 }
 
 //  void lv_disp_set_bg_color(lv_disp_t* disp, lv_color_t color)
@@ -313,5 +283,16 @@ int luat_lv_disp_clean_dcache(lua_State *L) {
     lv_disp_t* disp = (lv_disp_t*)lua_touserdata(L, 1);
     lv_disp_clean_dcache(disp);
     return 0;
+}
+
+//  lv_coord_t lv_disp_dpx(lv_disp_t* disp, lv_coord_t n)
+int luat_lv_disp_dpx(lua_State *L) {
+    LV_DEBUG("CALL lv_disp_dpx");
+    lv_disp_t* disp = (lv_disp_t*)lua_touserdata(L, 1);
+    lv_coord_t n = (lv_coord_t)luaL_checkinteger(L, 2);
+    lv_coord_t ret;
+    ret = lv_disp_dpx(disp ,n);
+    lua_pushinteger(L, ret);
+    return 1;
 }
 

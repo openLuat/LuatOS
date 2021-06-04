@@ -4,6 +4,7 @@
 #include "luat_msgbus.h"
 
 #define LUAT_ZBUFF_TYPE "ZBUFF*"
+#define tozbuff(L) ((luat_zbuff *)luaL_checkudata(L, 1, LUAT_ZBUFF_TYPE))
 
 #define ZBUFF_SEEK_SET 0
 #define ZBUFF_SEEK_CUR 1

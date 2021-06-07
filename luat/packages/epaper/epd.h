@@ -29,6 +29,7 @@ enum EPD_MODEL {
     MODEL_2in9b_V3,
     MODEL_2in9d,
     MODEL_2in9f,
+    MODEL_3in7,
 };
 
 
@@ -48,6 +49,7 @@ enum EPD_MODEL {
 #include "EPD_2in9b_V3.h"
 #include "EPD_2in9d.h"
 #include "EPD_2in9f.h"
+#include "EPD_3in7.h"
 
 
 #endif

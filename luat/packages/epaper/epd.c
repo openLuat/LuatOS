@@ -86,7 +86,11 @@ int EPD_Init(UBYTE mode, size_t *w, size_t *h) {
         *h = EPD_2IN9F_HEIGHT;
         EPD_2IN9D_Init();
         break;
-    
+    case MODEL_3in7:
+        *w = EPD_3IN7_WIDTH;
+        *h = EPD_3IN7_HEIGHT;
+        EPD_3IN7_1Gray_Init();
+        break;
     default:
         return -1;
     }
@@ -140,7 +144,10 @@ void EPD_Clear(void) {
     case MODEL_2in9f:
         EPD_2IN9FF_Clear();
         break;
-    
+    case MODEL_3in7:
+        EPD_3IN7_1Gray_Clear();
+        break;
+
     default:
         break;
     }
@@ -193,7 +200,10 @@ void EPD_Display(UBYTE *Image, UBYTE *Image2) {
     case MODEL_2in9f:
         EPD_2IN9FF_Display(Image);
         break;
-    
+    case MODEL_3in7:
+        EPD_3IN7_1Gray_Display(Image);
+        break;
+
     default:
         break;
     }
@@ -246,7 +256,10 @@ void EPD_Sleep(void) {
     case MODEL_2in9f:
         EPD_2IN9FF_Sleep();
         break;
-    
+    case MODEL_3in7:
+        EPD_3IN7_Sleep();
+        break;
+
     default:
         break;
     }

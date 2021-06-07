@@ -619,6 +619,7 @@ static const rotable_Reg reg_eink[] =
     { "MODEL_2in9b_V3",       NULL,                 MODEL_2in9b_V3},
     { "MODEL_2in9d",          NULL,                 MODEL_2in9d},
     { "MODEL_2in9f",          NULL,                 MODEL_2in9f},
+    { "MODEL_3in7",           NULL,                 MODEL_3in7},
 
 	{ NULL,             NULL,                   0}
 };

@@ -44,7 +44,7 @@ static const UBYTE lut_4Gray_GC[] =
 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,//9
 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,//10
 0x22,0x22,0x22,0x22,0x22
-};	
+};
 
 static const UBYTE lut_1Gray_GC[] =
 {
@@ -59,7 +59,7 @@ static const UBYTE lut_1Gray_GC[] =
 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,//9
 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,//10
 0x22,0x22,0x22,0x22,0x22
-};  
+};
 
 static const UBYTE lut_1Gray_DU[] =
 {
@@ -74,7 +74,7 @@ static const UBYTE lut_1Gray_DU[] =
 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,//9
 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
 0x22,0x22,0x22,0x22,0x22
-}; 
+};
 
 static const UBYTE lut_1Gray_A2[] =
 {
@@ -89,7 +89,7 @@ static const UBYTE lut_1Gray_A2[] =
 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, //9
 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00, //10
 0x22,0x22,0x22,0x22,0x22
-}; 
+};
 
 /******************************************************************************
 function :	Software reset
@@ -159,7 +159,7 @@ void EPD_3IN7_Load_LUT(UBYTE lut)
     else if(lut == 2)
         EPD_3IN7_SendData(lut_1Gray_DU[i]);
     else if(lut == 3)
-        EPD_3IN7_SendData(lut_1Gray_A2[i]);  
+        EPD_3IN7_SendData(lut_1Gray_A2[i]);
     else
         Debug("There is no such lut \r\n");
   }
@@ -172,17 +172,17 @@ parameter:
 void EPD_3IN7_4Gray_Init(void)
 {
     EPD_3IN7_Reset();
-    
+
     EPD_3IN7_SendCommand(0x12);
     DEV_Delay_ms(300);
-    
-    EPD_3IN7_SendCommand(0x46); 
+
+    EPD_3IN7_SendCommand(0x46);
     EPD_3IN7_SendData(0xF7);
     EPD_3IN7_ReadBusy_HIGH();
     EPD_3IN7_SendCommand(0x47);
     EPD_3IN7_SendData(0xF7);
-    EPD_3IN7_ReadBusy_HIGH(); 
-    
+    EPD_3IN7_ReadBusy_HIGH();
+
     EPD_3IN7_SendCommand(0x01); // setting gaet number
     EPD_3IN7_SendData(0xDF);
     EPD_3IN7_SendData(0x01);
@@ -199,7 +199,7 @@ void EPD_3IN7_4Gray_Init(void)
     EPD_3IN7_SendCommand(0x11); // set data entry sequence
     EPD_3IN7_SendData(0x03);
 
-    EPD_3IN7_SendCommand(0x3C); // set border 
+    EPD_3IN7_SendCommand(0x3C); // set border
     EPD_3IN7_SendData(0x00);
 
     EPD_3IN7_SendCommand(0x0C); // set booster strength
@@ -207,25 +207,25 @@ void EPD_3IN7_4Gray_Init(void)
     EPD_3IN7_SendData(0xC7);
     EPD_3IN7_SendData(0xC3);
     EPD_3IN7_SendData(0xC0);
-    EPD_3IN7_SendData(0xC0);  
+    EPD_3IN7_SendData(0xC0);
 
     EPD_3IN7_SendCommand(0x18); // set internal sensor on
     EPD_3IN7_SendData(0x80);
-     
+
     EPD_3IN7_SendCommand(0x2C); // set vcom value
     EPD_3IN7_SendData(0x44);
-    
+
     EPD_3IN7_SendCommand(0x37); // set display option, these setting turn on previous function
     EPD_3IN7_SendData(0x00);
     EPD_3IN7_SendData(0x00);
     EPD_3IN7_SendData(0x00);
     EPD_3IN7_SendData(0x00);
-    EPD_3IN7_SendData(0x00);  
     EPD_3IN7_SendData(0x00);
     EPD_3IN7_SendData(0x00);
     EPD_3IN7_SendData(0x00);
     EPD_3IN7_SendData(0x00);
-    EPD_3IN7_SendData(0x00);  
+    EPD_3IN7_SendData(0x00);
+    EPD_3IN7_SendData(0x00);
 
     EPD_3IN7_SendCommand(0x44); // setting X direction start/end position of RAM
     EPD_3IN7_SendData(0x00);
@@ -250,17 +250,17 @@ parameter:
 void EPD_3IN7_1Gray_Init(void)
 {
     EPD_3IN7_Reset();
-    
+
     EPD_3IN7_SendCommand(0x12);
     DEV_Delay_ms(300);
-    
-    EPD_3IN7_SendCommand(0x46); 
+
+    EPD_3IN7_SendCommand(0x46);
     EPD_3IN7_SendData(0xF7);
     EPD_3IN7_ReadBusy_HIGH();
     EPD_3IN7_SendCommand(0x47);
     EPD_3IN7_SendData(0xF7);
-    EPD_3IN7_ReadBusy_HIGH(); 
-    
+    EPD_3IN7_ReadBusy_HIGH();
+
     EPD_3IN7_SendCommand(0x01); // setting gaet number
     EPD_3IN7_SendData(0xDF);
     EPD_3IN7_SendData(0x01);
@@ -277,7 +277,7 @@ void EPD_3IN7_1Gray_Init(void)
     EPD_3IN7_SendCommand(0x11); // set data entry sequence
     EPD_3IN7_SendData(0x03);
 
-    EPD_3IN7_SendCommand(0x3C); // set border 
+    EPD_3IN7_SendCommand(0x3C); // set border
     EPD_3IN7_SendData(0x00);
 
     EPD_3IN7_SendCommand(0x0C); // set booster strength
@@ -285,25 +285,25 @@ void EPD_3IN7_1Gray_Init(void)
     EPD_3IN7_SendData(0xC7);
     EPD_3IN7_SendData(0xC3);
     EPD_3IN7_SendData(0xC0);
-    EPD_3IN7_SendData(0xC0);  
+    EPD_3IN7_SendData(0xC0);
 
     EPD_3IN7_SendCommand(0x18); // set internal sensor on
     EPD_3IN7_SendData(0x80);
-     
+
     EPD_3IN7_SendCommand(0x2C); // set vcom value
     EPD_3IN7_SendData(0x44);
-    
+
     EPD_3IN7_SendCommand(0x37); // set display option, these setting turn on previous function
     EPD_3IN7_SendData(0x00);     //can switch 1 gray or 4 gray
     EPD_3IN7_SendData(0xFF);
     EPD_3IN7_SendData(0xFF);
     EPD_3IN7_SendData(0xFF);
-    EPD_3IN7_SendData(0xFF);  
+    EPD_3IN7_SendData(0xFF);
     EPD_3IN7_SendData(0x4F);
     EPD_3IN7_SendData(0xFF);
     EPD_3IN7_SendData(0xFF);
     EPD_3IN7_SendData(0xFF);
-    EPD_3IN7_SendData(0xFF);  
+    EPD_3IN7_SendData(0xFF);
 
     EPD_3IN7_SendCommand(0x44); // setting X direction start/end position of RAM
     EPD_3IN7_SendData(0x00);
@@ -339,35 +339,35 @@ void EPD_3IN7_4Gray_Clear(void)
     EPD_3IN7_SendCommand(0x4F);
     EPD_3IN7_SendData(0x00);
     EPD_3IN7_SendData(0x00);
-    
+
     EPD_3IN7_SendCommand(0x24);
     for (UWORD j = 0; j < Height; j++) {
        for (UWORD i = 0; i < Width; i++) {
            EPD_3IN7_SendData(0xff);
        }
     }
-    
+
     EPD_3IN7_SendCommand(0x4E);
     EPD_3IN7_SendData(0x00);
     EPD_3IN7_SendData(0x00);
-     
+
     EPD_3IN7_SendCommand(0x4F);
     EPD_3IN7_SendData(0x00);
     EPD_3IN7_SendData(0x00);
-    
+
     EPD_3IN7_SendCommand(0x26);
     for (UWORD j = 0; j < Height; j++) {
        for (UWORD i = 0; i < Width; i++) {
            EPD_3IN7_SendData(0xff);
        }
     }
-      
+
     EPD_3IN7_Load_LUT(0);
     EPD_3IN7_SendCommand(0x22);
     EPD_3IN7_SendData(0xC7);
 
     EPD_3IN7_SendCommand(0x20);
-    EPD_3IN7_ReadBusy_HIGH();     
+    EPD_3IN7_ReadBusy_HIGH();
 }
 
 /******************************************************************************
@@ -391,11 +391,11 @@ void EPD_3IN7_1Gray_Clear(void)
   {
     EPD_3IN7_SendData(0xff);
   }
-  
-  EPD_3IN7_Load_LUT(2);
-  
+
+  EPD_3IN7_Load_LUT(1);
+
   EPD_3IN7_SendCommand(0x20);
-  EPD_3IN7_ReadBusy_HIGH();    
+  EPD_3IN7_ReadBusy_HIGH();
 }
 
 /******************************************************************************
@@ -406,20 +406,20 @@ void EPD_3IN7_4Gray_Display(const UBYTE *Image)
 {
     UDOUBLE i,j,k;
     UBYTE temp1,temp2,temp3;
-    
+
     EPD_3IN7_SendCommand(0x49);
     EPD_3IN7_SendData(0x00);
 
-    
+
     EPD_3IN7_SendCommand(0x4E);
     EPD_3IN7_SendData(0x00);
     EPD_3IN7_SendData(0x00);
-    
-    
+
+
     EPD_3IN7_SendCommand(0x4F);
     EPD_3IN7_SendData(0x00);
     EPD_3IN7_SendData(0x00);
-    
+
     EPD_3IN7_SendCommand(0x24);
     for(i=0;i<16800;i++){
         temp3=0;
@@ -460,12 +460,12 @@ void EPD_3IN7_4Gray_Display(const UBYTE *Image)
     EPD_3IN7_SendCommand(0x4E);
     EPD_3IN7_SendData(0x00);
     EPD_3IN7_SendData(0x00);
-     
-    
+
+
     EPD_3IN7_SendCommand(0x4F);
     EPD_3IN7_SendData(0x00);
     EPD_3IN7_SendData(0x00);
-    
+
     EPD_3IN7_SendCommand(0x26);
     for(i=0; i<16800; i++) {
         temp3=0;
@@ -503,13 +503,13 @@ void EPD_3IN7_4Gray_Display(const UBYTE *Image)
     }
 
     EPD_3IN7_Load_LUT(0);
-    
+
     EPD_3IN7_SendCommand(0x22);
     EPD_3IN7_SendData(0xC7);
-    
+
     EPD_3IN7_SendCommand(0x20);
-    
-    EPD_3IN7_ReadBusy_HIGH(); 
+
+    EPD_3IN7_ReadBusy_HIGH();
 }
 
 /******************************************************************************
@@ -534,9 +534,9 @@ void EPD_3IN7_1Gray_Display(const UBYTE *Image)
     EPD_3IN7_SendData(Image[i]);
   }
 
-  EPD_3IN7_Load_LUT(2);
+  EPD_3IN7_Load_LUT(1);
   EPD_3IN7_SendCommand(0x20);
-  EPD_3IN7_ReadBusy_HIGH();  
+  EPD_3IN7_ReadBusy_HIGH();
 }
 
 /******************************************************************************
@@ -565,10 +565,10 @@ void EPD_3IN7_1Gray_Display_Part(const UBYTE *Image, UWORD Xstart, UWORD Ystart,
   {
     EPD_3IN7_SendData(Image[i]);
   }
-  
+
   EPD_3IN7_Load_LUT(2);
   EPD_3IN7_SendCommand(0x20);
-  EPD_3IN7_ReadBusy_HIGH();    
+  EPD_3IN7_ReadBusy_HIGH();
 }
 
 /******************************************************************************

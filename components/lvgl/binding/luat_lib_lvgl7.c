@@ -44,11 +44,21 @@ static void disp_flush(lv_disp_drv_t * disp_drv, const lv_area_t * area, lv_colo
 }
 
 
+#ifdef LUA_USE_WINDOWS
+#include <windows.h>
+#endif
+
 int luat_lv_init(lua_State *L) {
     if (my_disp != NULL) {
         lua_pushboolean(L, 0);
         return 1;
     }
+    #ifdef LUA_USE_WINDOWS
+    HWND windrv_init(void);
+    windrv_init();
+    lua_pushboolean(L, 1);
+    return 1;
+    #else
     lv_color_t *fbuffer = NULL; 
     size_t fbuff_size = 0;
 
@@ -87,4 +97,5 @@ int luat_lv_init(lua_State *L) {
     lua_pushboolean(L, my_disp != NULL ? 1 : 0);
     //LLOGD(">>%s %d", __func__, __LINE__);
     return 1;
+    #endif
 }

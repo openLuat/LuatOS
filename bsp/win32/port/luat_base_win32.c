@@ -4,6 +4,10 @@
 #include "luat_timer.h"
 #include <stdlib.h>
 
+#ifdef LUAT_USE_LVGL
+#include "lvgl.h"
+#endif
+
 LUAMOD_API int luaopen_win32( lua_State *L );
 int luaopen_lfs(lua_State * L);
 int luaopen_rs232_core(lua_State * L);
@@ -40,6 +44,9 @@ static const luaL_Reg loadedlibs[] = {
   {"sfd",   luaopen_sfd},
   {"lfs2",   luaopen_lfs2},
   {"gpio",   luaopen_gpio},
+#ifdef LUAT_USE_LVGL
+  {"lvgl",   luaopen_lvgl},
+#endif
   {NULL, NULL}
 };
 
@@ -241,6 +248,10 @@ void vApplicationMallocFailedHook( void )
 /*-----------------------------------------------------------*/
 
 
-
+void vApplicationTickHook( void ) {
+	#ifdef LUAT_USE_LVGL
+	lv_tick_inc(1);
+	#endif
+}
 
 

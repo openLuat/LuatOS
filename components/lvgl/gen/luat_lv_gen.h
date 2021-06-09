@@ -1,0 +1,2205 @@
+
+#include "luat_base.h"
+#ifndef LUAT_LV_GEN
+#define LUAT_LV_GEN
+
+// group lv_core
+// prefix lv_core lv_disp
+int luat_lv_disp_drv_init(lua_State *L);
+int luat_lv_disp_buf_init(lua_State *L);
+int luat_lv_disp_drv_register(lua_State *L);
+int luat_lv_disp_drv_update(lua_State *L);
+int luat_lv_disp_remove(lua_State *L);
+int luat_lv_disp_set_default(lua_State *L);
+int luat_lv_disp_get_default(lua_State *L);
+int luat_lv_disp_get_hor_res(lua_State *L);
+int luat_lv_disp_get_ver_res(lua_State *L);
+int luat_lv_disp_get_antialiasing(lua_State *L);
+int luat_lv_disp_get_dpi(lua_State *L);
+int luat_lv_disp_get_size_category(lua_State *L);
+int luat_lv_disp_set_rotation(lua_State *L);
+int luat_lv_disp_get_rotation(lua_State *L);
+int luat_lv_disp_flush_ready(lua_State *L);
+int luat_lv_disp_flush_is_last(lua_State *L);
+int luat_lv_disp_get_next(lua_State *L);
+int luat_lv_disp_get_buf(lua_State *L);
+int luat_lv_disp_get_inv_buf_size(lua_State *L);
+int luat_lv_disp_is_double_buf(lua_State *L);
+int luat_lv_disp_is_true_double_buf(lua_State *L);
+int luat_lv_disp_get_scr_act(lua_State *L);
+int luat_lv_disp_get_scr_prev(lua_State *L);
+int luat_lv_disp_load_scr(lua_State *L);
+int luat_lv_disp_get_layer_top(lua_State *L);
+int luat_lv_disp_get_layer_sys(lua_State *L);
+int luat_lv_disp_assign_screen(lua_State *L);
+int luat_lv_disp_set_bg_color(lua_State *L);
+int luat_lv_disp_set_bg_image(lua_State *L);
+int luat_lv_disp_set_bg_opa(lua_State *L);
+int luat_lv_disp_get_inactive_time(lua_State *L);
+int luat_lv_disp_trig_activity(lua_State *L);
+int luat_lv_disp_clean_dcache(lua_State *L);
+
+#define LUAT_LV_DISP_RLT     {"disp_drv_init", luat_lv_disp_drv_init, 0},\
+    {"disp_buf_init", luat_lv_disp_buf_init, 0},\
+    {"disp_drv_register", luat_lv_disp_drv_register, 0},\
+    {"disp_drv_update", luat_lv_disp_drv_update, 0},\
+    {"disp_remove", luat_lv_disp_remove, 0},\
+    {"disp_set_default", luat_lv_disp_set_default, 0},\
+    {"disp_get_default", luat_lv_disp_get_default, 0},\
+    {"disp_get_hor_res", luat_lv_disp_get_hor_res, 0},\
+    {"disp_get_ver_res", luat_lv_disp_get_ver_res, 0},\
+    {"disp_get_antialiasing", luat_lv_disp_get_antialiasing, 0},\
+    {"disp_get_dpi", luat_lv_disp_get_dpi, 0},\
+    {"disp_get_size_category", luat_lv_disp_get_size_category, 0},\
+    {"disp_set_rotation", luat_lv_disp_set_rotation, 0},\
+    {"disp_get_rotation", luat_lv_disp_get_rotation, 0},\
+    {"disp_flush_ready", luat_lv_disp_flush_ready, 0},\
+    {"disp_flush_is_last", luat_lv_disp_flush_is_last, 0},\
+    {"disp_get_next", luat_lv_disp_get_next, 0},\
+    {"disp_get_buf", luat_lv_disp_get_buf, 0},\
+    {"disp_get_inv_buf_size", luat_lv_disp_get_inv_buf_size, 0},\
+    {"disp_is_double_buf", luat_lv_disp_is_double_buf, 0},\
+    {"disp_is_true_double_buf", luat_lv_disp_is_true_double_buf, 0},\
+    {"disp_get_scr_act", luat_lv_disp_get_scr_act, 0},\
+    {"disp_get_scr_prev", luat_lv_disp_get_scr_prev, 0},\
+    {"disp_load_scr", luat_lv_disp_load_scr, 0},\
+    {"disp_get_layer_top", luat_lv_disp_get_layer_top, 0},\
+    {"disp_get_layer_sys", luat_lv_disp_get_layer_sys, 0},\
+    {"disp_assign_screen", luat_lv_disp_assign_screen, 0},\
+    {"disp_set_bg_color", luat_lv_disp_set_bg_color, 0},\
+    {"disp_set_bg_image", luat_lv_disp_set_bg_image, 0},\
+    {"disp_set_bg_opa", luat_lv_disp_set_bg_opa, 0},\
+    {"disp_get_inactive_time", luat_lv_disp_get_inactive_time, 0},\
+    {"disp_trig_activity", luat_lv_disp_trig_activity, 0},\
+    {"disp_clean_dcache", luat_lv_disp_clean_dcache, 0},\
+
+// prefix lv_core lv_group
+int luat_lv_group_create(lua_State *L);
+int luat_lv_group_del(lua_State *L);
+int luat_lv_group_add_obj(lua_State *L);
+int luat_lv_group_remove_obj(lua_State *L);
+int luat_lv_group_remove_all_objs(lua_State *L);
+int luat_lv_group_focus_obj(lua_State *L);
+int luat_lv_group_focus_next(lua_State *L);
+int luat_lv_group_focus_prev(lua_State *L);
+int luat_lv_group_focus_freeze(lua_State *L);
+int luat_lv_group_send_data(lua_State *L);
+int luat_lv_group_set_refocus_policy(lua_State *L);
+int luat_lv_group_set_editing(lua_State *L);
+int luat_lv_group_set_click_focus(lua_State *L);
+int luat_lv_group_set_wrap(lua_State *L);
+int luat_lv_group_get_focused(lua_State *L);
+int luat_lv_group_get_editing(lua_State *L);
+int luat_lv_group_get_click_focus(lua_State *L);
+int luat_lv_group_get_wrap(lua_State *L);
+
+#define LUAT_LV_GROUP_RLT     {"group_create", luat_lv_group_create, 0},\
+    {"group_del", luat_lv_group_del, 0},\
+    {"group_add_obj", luat_lv_group_add_obj, 0},\
+    {"group_remove_obj", luat_lv_group_remove_obj, 0},\
+    {"group_remove_all_objs", luat_lv_group_remove_all_objs, 0},\
+    {"group_focus_obj", luat_lv_group_focus_obj, 0},\
+    {"group_focus_next", luat_lv_group_focus_next, 0},\
+    {"group_focus_prev", luat_lv_group_focus_prev, 0},\
+    {"group_focus_freeze", luat_lv_group_focus_freeze, 0},\
+    {"group_send_data", luat_lv_group_send_data, 0},\
+    {"group_set_refocus_policy", luat_lv_group_set_refocus_policy, 0},\
+    {"group_set_editing", luat_lv_group_set_editing, 0},\
+    {"group_set_click_focus", luat_lv_group_set_click_focus, 0},\
+    {"group_set_wrap", luat_lv_group_set_wrap, 0},\
+    {"group_get_focused", luat_lv_group_get_focused, 0},\
+    {"group_get_editing", luat_lv_group_get_editing, 0},\
+    {"group_get_click_focus", luat_lv_group_get_click_focus, 0},\
+    {"group_get_wrap", luat_lv_group_get_wrap, 0},\
+
+// prefix lv_core lv_obj
+int luat_lv_obj_create(lua_State *L);
+int luat_lv_obj_del(lua_State *L);
+int luat_lv_obj_del_async(lua_State *L);
+int luat_lv_obj_clean(lua_State *L);
+int luat_lv_obj_invalidate_area(lua_State *L);
+int luat_lv_obj_invalidate(lua_State *L);
+int luat_lv_obj_area_is_visible(lua_State *L);
+int luat_lv_obj_is_visible(lua_State *L);
+int luat_lv_obj_set_parent(lua_State *L);
+int luat_lv_obj_move_foreground(lua_State *L);
+int luat_lv_obj_move_background(lua_State *L);
+int luat_lv_obj_set_pos(lua_State *L);
+int luat_lv_obj_set_x(lua_State *L);
+int luat_lv_obj_set_y(lua_State *L);
+int luat_lv_obj_set_size(lua_State *L);
+int luat_lv_obj_set_width(lua_State *L);
+int luat_lv_obj_set_height(lua_State *L);
+int luat_lv_obj_set_width_fit(lua_State *L);
+int luat_lv_obj_set_height_fit(lua_State *L);
+int luat_lv_obj_set_width_margin(lua_State *L);
+int luat_lv_obj_set_height_margin(lua_State *L);
+int luat_lv_obj_align(lua_State *L);
+int luat_lv_obj_align_x(lua_State *L);
+int luat_lv_obj_align_y(lua_State *L);
+int luat_lv_obj_align_mid(lua_State *L);
+int luat_lv_obj_align_mid_x(lua_State *L);
+int luat_lv_obj_align_mid_y(lua_State *L);
+int luat_lv_obj_realign(lua_State *L);
+int luat_lv_obj_set_auto_realign(lua_State *L);
+int luat_lv_obj_set_ext_click_area(lua_State *L);
+int luat_lv_obj_add_style(lua_State *L);
+int luat_lv_obj_remove_style(lua_State *L);
+int luat_lv_obj_clean_style_list(lua_State *L);
+int luat_lv_obj_reset_style_list(lua_State *L);
+int luat_lv_obj_refresh_style(lua_State *L);
+int luat_lv_obj_report_style_mod(lua_State *L);
+int luat_lv_obj_remove_style_local_prop(lua_State *L);
+int luat_lv_obj_set_hidden(lua_State *L);
+int luat_lv_obj_set_adv_hittest(lua_State *L);
+int luat_lv_obj_set_click(lua_State *L);
+int luat_lv_obj_set_top(lua_State *L);
+int luat_lv_obj_set_drag(lua_State *L);
+int luat_lv_obj_set_drag_dir(lua_State *L);
+int luat_lv_obj_set_drag_throw(lua_State *L);
+int luat_lv_obj_set_drag_parent(lua_State *L);
+int luat_lv_obj_set_focus_parent(lua_State *L);
+int luat_lv_obj_set_gesture_parent(lua_State *L);
+int luat_lv_obj_set_parent_event(lua_State *L);
+int luat_lv_obj_set_base_dir(lua_State *L);
+int luat_lv_obj_add_protect(lua_State *L);
+int luat_lv_obj_clear_protect(lua_State *L);
+int luat_lv_obj_set_state(lua_State *L);
+int luat_lv_obj_add_state(lua_State *L);
+int luat_lv_obj_clear_state(lua_State *L);
+int luat_lv_obj_finish_transitions(lua_State *L);
+int luat_lv_obj_allocate_ext_attr(lua_State *L);
+int luat_lv_obj_refresh_ext_draw_pad(lua_State *L);
+int luat_lv_obj_get_screen(lua_State *L);
+int luat_lv_obj_get_disp(lua_State *L);
+int luat_lv_obj_get_parent(lua_State *L);
+int luat_lv_obj_get_child(lua_State *L);
+int luat_lv_obj_get_child_back(lua_State *L);
+int luat_lv_obj_count_children(lua_State *L);
+int luat_lv_obj_count_children_recursive(lua_State *L);
+int luat_lv_obj_get_coords(lua_State *L);
+int luat_lv_obj_get_inner_coords(lua_State *L);
+int luat_lv_obj_get_x(lua_State *L);
+int luat_lv_obj_get_y(lua_State *L);
+int luat_lv_obj_get_width(lua_State *L);
+int luat_lv_obj_get_height(lua_State *L);
+int luat_lv_obj_get_width_fit(lua_State *L);
+int luat_lv_obj_get_height_fit(lua_State *L);
+int luat_lv_obj_get_height_margin(lua_State *L);
+int luat_lv_obj_get_width_margin(lua_State *L);
+int luat_lv_obj_get_width_grid(lua_State *L);
+int luat_lv_obj_get_height_grid(lua_State *L);
+int luat_lv_obj_get_auto_realign(lua_State *L);
+int luat_lv_obj_get_ext_click_pad_left(lua_State *L);
+int luat_lv_obj_get_ext_click_pad_right(lua_State *L);
+int luat_lv_obj_get_ext_click_pad_top(lua_State *L);
+int luat_lv_obj_get_ext_click_pad_bottom(lua_State *L);
+int luat_lv_obj_get_ext_draw_pad(lua_State *L);
+int luat_lv_obj_get_style_list(lua_State *L);
+int luat_lv_obj_get_local_style(lua_State *L);
+int luat_lv_obj_get_style_radius(lua_State *L);
+int luat_lv_obj_set_style_local_radius(lua_State *L);
+int luat_lv_obj_get_style_clip_corner(lua_State *L);
+int luat_lv_obj_set_style_local_clip_corner(lua_State *L);
+int luat_lv_obj_get_style_size(lua_State *L);
+int luat_lv_obj_set_style_local_size(lua_State *L);
+int luat_lv_obj_get_style_transform_width(lua_State *L);
+int luat_lv_obj_set_style_local_transform_width(lua_State *L);
+int luat_lv_obj_get_style_transform_height(lua_State *L);
+int luat_lv_obj_set_style_local_transform_height(lua_State *L);
+int luat_lv_obj_get_style_transform_angle(lua_State *L);
+int luat_lv_obj_set_style_local_transform_angle(lua_State *L);
+int luat_lv_obj_get_style_transform_zoom(lua_State *L);
+int luat_lv_obj_set_style_local_transform_zoom(lua_State *L);
+int luat_lv_obj_get_style_opa_scale(lua_State *L);
+int luat_lv_obj_set_style_local_opa_scale(lua_State *L);
+int luat_lv_obj_get_style_pad_top(lua_State *L);
+int luat_lv_obj_set_style_local_pad_top(lua_State *L);
+int luat_lv_obj_get_style_pad_bottom(lua_State *L);
+int luat_lv_obj_set_style_local_pad_bottom(lua_State *L);
+int luat_lv_obj_get_style_pad_left(lua_State *L);
+int luat_lv_obj_set_style_local_pad_left(lua_State *L);
+int luat_lv_obj_get_style_pad_right(lua_State *L);
+int luat_lv_obj_set_style_local_pad_right(lua_State *L);
+int luat_lv_obj_get_style_pad_inner(lua_State *L);
+int luat_lv_obj_set_style_local_pad_inner(lua_State *L);
+int luat_lv_obj_get_style_margin_top(lua_State *L);
+int luat_lv_obj_set_style_local_margin_top(lua_State *L);
+int luat_lv_obj_get_style_margin_bottom(lua_State *L);
+int luat_lv_obj_set_style_local_margin_bottom(lua_State *L);
+int luat_lv_obj_get_style_margin_left(lua_State *L);
+int luat_lv_obj_set_style_local_margin_left(lua_State *L);
+int luat_lv_obj_get_style_margin_right(lua_State *L);
+int luat_lv_obj_set_style_local_margin_right(lua_State *L);
+int luat_lv_obj_get_style_bg_blend_mode(lua_State *L);
+int luat_lv_obj_set_style_local_bg_blend_mode(lua_State *L);
+int luat_lv_obj_get_style_bg_main_stop(lua_State *L);
+int luat_lv_obj_set_style_local_bg_main_stop(lua_State *L);
+int luat_lv_obj_get_style_bg_grad_stop(lua_State *L);
+int luat_lv_obj_set_style_local_bg_grad_stop(lua_State *L);
+int luat_lv_obj_get_style_bg_grad_dir(lua_State *L);
+int luat_lv_obj_set_style_local_bg_grad_dir(lua_State *L);
+int luat_lv_obj_get_style_bg_color(lua_State *L);
+int luat_lv_obj_set_style_local_bg_color(lua_State *L);
+int luat_lv_obj_get_style_bg_grad_color(lua_State *L);
+int luat_lv_obj_set_style_local_bg_grad_color(lua_State *L);
+int luat_lv_obj_get_style_bg_opa(lua_State *L);
+int luat_lv_obj_set_style_local_bg_opa(lua_State *L);
+int luat_lv_obj_get_style_border_width(lua_State *L);
+int luat_lv_obj_set_style_local_border_width(lua_State *L);
+int luat_lv_obj_get_style_border_side(lua_State *L);
+int luat_lv_obj_set_style_local_border_side(lua_State *L);
+int luat_lv_obj_get_style_border_blend_mode(lua_State *L);
+int luat_lv_obj_set_style_local_border_blend_mode(lua_State *L);
+int luat_lv_obj_get_style_border_post(lua_State *L);
+int luat_lv_obj_set_style_local_border_post(lua_State *L);
+int luat_lv_obj_get_style_border_color(lua_State *L);
+int luat_lv_obj_set_style_local_border_color(lua_State *L);
+int luat_lv_obj_get_style_border_opa(lua_State *L);
+int luat_lv_obj_set_style_local_border_opa(lua_State *L);
+int luat_lv_obj_get_style_outline_width(lua_State *L);
+int luat_lv_obj_set_style_local_outline_width(lua_State *L);
+int luat_lv_obj_get_style_outline_pad(lua_State *L);
+int luat_lv_obj_set_style_local_outline_pad(lua_State *L);
+int luat_lv_obj_get_style_outline_blend_mode(lua_State *L);
+int luat_lv_obj_set_style_local_outline_blend_mode(lua_State *L);
+int luat_lv_obj_get_style_outline_color(lua_State *L);
+int luat_lv_obj_set_style_local_outline_color(lua_State *L);
+int luat_lv_obj_get_style_outline_opa(lua_State *L);
+int luat_lv_obj_set_style_local_outline_opa(lua_State *L);
+int luat_lv_obj_get_style_shadow_width(lua_State *L);
+int luat_lv_obj_set_style_local_shadow_width(lua_State *L);
+int luat_lv_obj_get_style_shadow_ofs_x(lua_State *L);
+int luat_lv_obj_set_style_local_shadow_ofs_x(lua_State *L);
+int luat_lv_obj_get_style_shadow_ofs_y(lua_State *L);
+int luat_lv_obj_set_style_local_shadow_ofs_y(lua_State *L);
+int luat_lv_obj_get_style_shadow_spread(lua_State *L);
+int luat_lv_obj_set_style_local_shadow_spread(lua_State *L);
+int luat_lv_obj_get_style_shadow_blend_mode(lua_State *L);
+int luat_lv_obj_set_style_local_shadow_blend_mode(lua_State *L);
+int luat_lv_obj_get_style_shadow_color(lua_State *L);
+int luat_lv_obj_set_style_local_shadow_color(lua_State *L);
+int luat_lv_obj_get_style_shadow_opa(lua_State *L);
+int luat_lv_obj_set_style_local_shadow_opa(lua_State *L);
+int luat_lv_obj_get_style_pattern_repeat(lua_State *L);
+int luat_lv_obj_set_style_local_pattern_repeat(lua_State *L);
+int luat_lv_obj_get_style_pattern_blend_mode(lua_State *L);
+int luat_lv_obj_set_style_local_pattern_blend_mode(lua_State *L);
+int luat_lv_obj_get_style_pattern_recolor(lua_State *L);
+int luat_lv_obj_set_style_local_pattern_recolor(lua_State *L);
+int luat_lv_obj_get_style_pattern_opa(lua_State *L);
+int luat_lv_obj_set_style_local_pattern_opa(lua_State *L);
+int luat_lv_obj_get_style_pattern_recolor_opa(lua_State *L);
+int luat_lv_obj_set_style_local_pattern_recolor_opa(lua_State *L);
+int luat_lv_obj_get_style_pattern_image(lua_State *L);
+int luat_lv_obj_set_style_local_pattern_image(lua_State *L);
+int luat_lv_obj_get_style_value_letter_space(lua_State *L);
+int luat_lv_obj_set_style_local_value_letter_space(lua_State *L);
+int luat_lv_obj_get_style_value_line_space(lua_State *L);
+int luat_lv_obj_set_style_local_value_line_space(lua_State *L);
+int luat_lv_obj_get_style_value_blend_mode(lua_State *L);
+int luat_lv_obj_set_style_local_value_blend_mode(lua_State *L);
+int luat_lv_obj_get_style_value_ofs_x(lua_State *L);
+int luat_lv_obj_set_style_local_value_ofs_x(lua_State *L);
+int luat_lv_obj_get_style_value_ofs_y(lua_State *L);
+int luat_lv_obj_set_style_local_value_ofs_y(lua_State *L);
+int luat_lv_obj_get_style_value_align(lua_State *L);
+int luat_lv_obj_set_style_local_value_align(lua_State *L);
+int luat_lv_obj_get_style_value_color(lua_State *L);
+int luat_lv_obj_set_style_local_value_color(lua_State *L);
+int luat_lv_obj_get_style_value_opa(lua_State *L);
+int luat_lv_obj_set_style_local_value_opa(lua_State *L);
+int luat_lv_obj_get_style_value_font(lua_State *L);
+int luat_lv_obj_set_style_local_value_font(lua_State *L);
+int luat_lv_obj_get_style_value_str(lua_State *L);
+int luat_lv_obj_set_style_local_value_str(lua_State *L);
+int luat_lv_obj_get_style_text_letter_space(lua_State *L);
+int luat_lv_obj_set_style_local_text_letter_space(lua_State *L);
+int luat_lv_obj_get_style_text_line_space(lua_State *L);
+int luat_lv_obj_set_style_local_text_line_space(lua_State *L);
+int luat_lv_obj_get_style_text_decor(lua_State *L);
+int luat_lv_obj_set_style_local_text_decor(lua_State *L);
+int luat_lv_obj_get_style_text_blend_mode(lua_State *L);
+int luat_lv_obj_set_style_local_text_blend_mode(lua_State *L);
+int luat_lv_obj_get_style_text_color(lua_State *L);
+int luat_lv_obj_set_style_local_text_color(lua_State *L);
+int luat_lv_obj_get_style_text_sel_color(lua_State *L);
+int luat_lv_obj_set_style_local_text_sel_color(lua_State *L);
+int luat_lv_obj_get_style_text_sel_bg_color(lua_State *L);
+int luat_lv_obj_set_style_local_text_sel_bg_color(lua_State *L);
+int luat_lv_obj_get_style_text_opa(lua_State *L);
+int luat_lv_obj_set_style_local_text_opa(lua_State *L);
+int luat_lv_obj_get_style_text_font(lua_State *L);
+int luat_lv_obj_set_style_local_text_font(lua_State *L);
+int luat_lv_obj_get_style_line_width(lua_State *L);
+int luat_lv_obj_set_style_local_line_width(lua_State *L);
+int luat_lv_obj_get_style_line_blend_mode(lua_State *L);
+int luat_lv_obj_set_style_local_line_blend_mode(lua_State *L);
+int luat_lv_obj_get_style_line_dash_width(lua_State *L);
+int luat_lv_obj_set_style_local_line_dash_width(lua_State *L);
+int luat_lv_obj_get_style_line_dash_gap(lua_State *L);
+int luat_lv_obj_set_style_local_line_dash_gap(lua_State *L);
+int luat_lv_obj_get_style_line_rounded(lua_State *L);
+int luat_lv_obj_set_style_local_line_rounded(lua_State *L);
+int luat_lv_obj_get_style_line_color(lua_State *L);
+int luat_lv_obj_set_style_local_line_color(lua_State *L);
+int luat_lv_obj_get_style_line_opa(lua_State *L);
+int luat_lv_obj_set_style_local_line_opa(lua_State *L);
+int luat_lv_obj_get_style_image_blend_mode(lua_State *L);
+int luat_lv_obj_set_style_local_image_blend_mode(lua_State *L);
+int luat_lv_obj_get_style_image_recolor(lua_State *L);
+int luat_lv_obj_set_style_local_image_recolor(lua_State *L);
+int luat_lv_obj_get_style_image_opa(lua_State *L);
+int luat_lv_obj_set_style_local_image_opa(lua_State *L);
+int luat_lv_obj_get_style_image_recolor_opa(lua_State *L);
+int luat_lv_obj_set_style_local_image_recolor_opa(lua_State *L);
+int luat_lv_obj_get_style_transition_time(lua_State *L);
+int luat_lv_obj_set_style_local_transition_time(lua_State *L);
+int luat_lv_obj_get_style_transition_delay(lua_State *L);
+int luat_lv_obj_set_style_local_transition_delay(lua_State *L);
+int luat_lv_obj_get_style_transition_prop_1(lua_State *L);
+int luat_lv_obj_set_style_local_transition_prop_1(lua_State *L);
+int luat_lv_obj_get_style_transition_prop_2(lua_State *L);
+int luat_lv_obj_set_style_local_transition_prop_2(lua_State *L);
+int luat_lv_obj_get_style_transition_prop_3(lua_State *L);
+int luat_lv_obj_set_style_local_transition_prop_3(lua_State *L);
+int luat_lv_obj_get_style_transition_prop_4(lua_State *L);
+int luat_lv_obj_set_style_local_transition_prop_4(lua_State *L);
+int luat_lv_obj_get_style_transition_prop_5(lua_State *L);
+int luat_lv_obj_set_style_local_transition_prop_5(lua_State *L);
+int luat_lv_obj_get_style_transition_prop_6(lua_State *L);
+int luat_lv_obj_set_style_local_transition_prop_6(lua_State *L);
+int luat_lv_obj_get_style_transition_path(lua_State *L);
+int luat_lv_obj_set_style_local_transition_path(lua_State *L);
+int luat_lv_obj_get_style_scale_width(lua_State *L);
+int luat_lv_obj_set_style_local_scale_width(lua_State *L);
+int luat_lv_obj_get_style_scale_border_width(lua_State *L);
+int luat_lv_obj_set_style_local_scale_border_width(lua_State *L);
+int luat_lv_obj_get_style_scale_end_border_width(lua_State *L);
+int luat_lv_obj_set_style_local_scale_end_border_width(lua_State *L);
+int luat_lv_obj_get_style_scale_end_line_width(lua_State *L);
+int luat_lv_obj_set_style_local_scale_end_line_width(lua_State *L);
+int luat_lv_obj_get_style_scale_grad_color(lua_State *L);
+int luat_lv_obj_set_style_local_scale_grad_color(lua_State *L);
+int luat_lv_obj_get_style_scale_end_color(lua_State *L);
+int luat_lv_obj_set_style_local_scale_end_color(lua_State *L);
+int luat_lv_obj_set_style_local_pad_all(lua_State *L);
+int luat_lv_obj_set_style_local_pad_hor(lua_State *L);
+int luat_lv_obj_set_style_local_pad_ver(lua_State *L);
+int luat_lv_obj_set_style_local_margin_all(lua_State *L);
+int luat_lv_obj_set_style_local_margin_hor(lua_State *L);
+int luat_lv_obj_set_style_local_margin_ver(lua_State *L);
+int luat_lv_obj_get_hidden(lua_State *L);
+int luat_lv_obj_get_adv_hittest(lua_State *L);
+int luat_lv_obj_get_click(lua_State *L);
+int luat_lv_obj_get_top(lua_State *L);
+int luat_lv_obj_get_drag(lua_State *L);
+int luat_lv_obj_get_drag_dir(lua_State *L);
+int luat_lv_obj_get_drag_throw(lua_State *L);
+int luat_lv_obj_get_drag_parent(lua_State *L);
+int luat_lv_obj_get_focus_parent(lua_State *L);
+int luat_lv_obj_get_parent_event(lua_State *L);
+int luat_lv_obj_get_gesture_parent(lua_State *L);
+int luat_lv_obj_get_base_dir(lua_State *L);
+int luat_lv_obj_get_protect(lua_State *L);
+int luat_lv_obj_is_protected(lua_State *L);
+int luat_lv_obj_get_state(lua_State *L);
+int luat_lv_obj_is_point_on_coords(lua_State *L);
+int luat_lv_obj_hittest(lua_State *L);
+int luat_lv_obj_get_ext_attr(lua_State *L);
+int luat_lv_obj_get_type(lua_State *L);
+int luat_lv_obj_get_group(lua_State *L);
+int luat_lv_obj_is_focused(lua_State *L);
+int luat_lv_obj_get_focused_obj(lua_State *L);
+int luat_lv_obj_handle_get_type_signal(lua_State *L);
+int luat_lv_obj_init_draw_rect_dsc(lua_State *L);
+int luat_lv_obj_init_draw_label_dsc(lua_State *L);
+int luat_lv_obj_init_draw_img_dsc(lua_State *L);
+int luat_lv_obj_init_draw_line_dsc(lua_State *L);
+int luat_lv_obj_get_draw_rect_ext_pad_size(lua_State *L);
+int luat_lv_obj_fade_in(lua_State *L);
+int luat_lv_obj_fade_out(lua_State *L);
+
+#define LUAT_LV_OBJ_RLT     {"obj_create", luat_lv_obj_create, 0},\
+    {"obj_del", luat_lv_obj_del, 0},\
+    {"obj_del_async", luat_lv_obj_del_async, 0},\
+    {"obj_clean", luat_lv_obj_clean, 0},\
+    {"obj_invalidate_area", luat_lv_obj_invalidate_area, 0},\
+    {"obj_invalidate", luat_lv_obj_invalidate, 0},\
+    {"obj_area_is_visible", luat_lv_obj_area_is_visible, 0},\
+    {"obj_is_visible", luat_lv_obj_is_visible, 0},\
+    {"obj_set_parent", luat_lv_obj_set_parent, 0},\
+    {"obj_move_foreground", luat_lv_obj_move_foreground, 0},\
+    {"obj_move_background", luat_lv_obj_move_background, 0},\
+    {"obj_set_pos", luat_lv_obj_set_pos, 0},\
+    {"obj_set_x", luat_lv_obj_set_x, 0},\
+    {"obj_set_y", luat_lv_obj_set_y, 0},\
+    {"obj_set_size", luat_lv_obj_set_size, 0},\
+    {"obj_set_width", luat_lv_obj_set_width, 0},\
+    {"obj_set_height", luat_lv_obj_set_height, 0},\
+    {"obj_set_width_fit", luat_lv_obj_set_width_fit, 0},\
+    {"obj_set_height_fit", luat_lv_obj_set_height_fit, 0},\
+    {"obj_set_width_margin", luat_lv_obj_set_width_margin, 0},\
+    {"obj_set_height_margin", luat_lv_obj_set_height_margin, 0},\
+    {"obj_align", luat_lv_obj_align, 0},\
+    {"obj_align_x", luat_lv_obj_align_x, 0},\
+    {"obj_align_y", luat_lv_obj_align_y, 0},\
+    {"obj_align_mid", luat_lv_obj_align_mid, 0},\
+    {"obj_align_mid_x", luat_lv_obj_align_mid_x, 0},\
+    {"obj_align_mid_y", luat_lv_obj_align_mid_y, 0},\
+    {"obj_realign", luat_lv_obj_realign, 0},\
+    {"obj_set_auto_realign", luat_lv_obj_set_auto_realign, 0},\
+    {"obj_set_ext_click_area", luat_lv_obj_set_ext_click_area, 0},\
+    {"obj_add_style", luat_lv_obj_add_style, 0},\
+    {"obj_remove_style", luat_lv_obj_remove_style, 0},\
+    {"obj_clean_style_list", luat_lv_obj_clean_style_list, 0},\
+    {"obj_reset_style_list", luat_lv_obj_reset_style_list, 0},\
+    {"obj_refresh_style", luat_lv_obj_refresh_style, 0},\
+    {"obj_report_style_mod", luat_lv_obj_report_style_mod, 0},\
+    {"obj_remove_style_local_prop", luat_lv_obj_remove_style_local_prop, 0},\
+    {"obj_set_hidden", luat_lv_obj_set_hidden, 0},\
+    {"obj_set_adv_hittest", luat_lv_obj_set_adv_hittest, 0},\
+    {"obj_set_click", luat_lv_obj_set_click, 0},\
+    {"obj_set_top", luat_lv_obj_set_top, 0},\
+    {"obj_set_drag", luat_lv_obj_set_drag, 0},\
+    {"obj_set_drag_dir", luat_lv_obj_set_drag_dir, 0},\
+    {"obj_set_drag_throw", luat_lv_obj_set_drag_throw, 0},\
+    {"obj_set_drag_parent", luat_lv_obj_set_drag_parent, 0},\
+    {"obj_set_focus_parent", luat_lv_obj_set_focus_parent, 0},\
+    {"obj_set_gesture_parent", luat_lv_obj_set_gesture_parent, 0},\
+    {"obj_set_parent_event", luat_lv_obj_set_parent_event, 0},\
+    {"obj_set_base_dir", luat_lv_obj_set_base_dir, 0},\
+    {"obj_add_protect", luat_lv_obj_add_protect, 0},\
+    {"obj_clear_protect", luat_lv_obj_clear_protect, 0},\
+    {"obj_set_state", luat_lv_obj_set_state, 0},\
+    {"obj_add_state", luat_lv_obj_add_state, 0},\
+    {"obj_clear_state", luat_lv_obj_clear_state, 0},\
+    {"obj_finish_transitions", luat_lv_obj_finish_transitions, 0},\
+    {"obj_allocate_ext_attr", luat_lv_obj_allocate_ext_attr, 0},\
+    {"obj_refresh_ext_draw_pad", luat_lv_obj_refresh_ext_draw_pad, 0},\
+    {"obj_get_screen", luat_lv_obj_get_screen, 0},\
+    {"obj_get_disp", luat_lv_obj_get_disp, 0},\
+    {"obj_get_parent", luat_lv_obj_get_parent, 0},\
+    {"obj_get_child", luat_lv_obj_get_child, 0},\
+    {"obj_get_child_back", luat_lv_obj_get_child_back, 0},\
+    {"obj_count_children", luat_lv_obj_count_children, 0},\
+    {"obj_count_children_recursive", luat_lv_obj_count_children_recursive, 0},\
+    {"obj_get_coords", luat_lv_obj_get_coords, 0},\
+    {"obj_get_inner_coords", luat_lv_obj_get_inner_coords, 0},\
+    {"obj_get_x", luat_lv_obj_get_x, 0},\
+    {"obj_get_y", luat_lv_obj_get_y, 0},\
+    {"obj_get_width", luat_lv_obj_get_width, 0},\
+    {"obj_get_height", luat_lv_obj_get_height, 0},\
+    {"obj_get_width_fit", luat_lv_obj_get_width_fit, 0},\
+    {"obj_get_height_fit", luat_lv_obj_get_height_fit, 0},\
+    {"obj_get_height_margin", luat_lv_obj_get_height_margin, 0},\
+    {"obj_get_width_margin", luat_lv_obj_get_width_margin, 0},\
+    {"obj_get_width_grid", luat_lv_obj_get_width_grid, 0},\
+    {"obj_get_height_grid", luat_lv_obj_get_height_grid, 0},\
+    {"obj_get_auto_realign", luat_lv_obj_get_auto_realign, 0},\
+    {"obj_get_ext_click_pad_left", luat_lv_obj_get_ext_click_pad_left, 0},\
+    {"obj_get_ext_click_pad_right", luat_lv_obj_get_ext_click_pad_right, 0},\
+    {"obj_get_ext_click_pad_top", luat_lv_obj_get_ext_click_pad_top, 0},\
+    {"obj_get_ext_click_pad_bottom", luat_lv_obj_get_ext_click_pad_bottom, 0},\
+    {"obj_get_ext_draw_pad", luat_lv_obj_get_ext_draw_pad, 0},\
+    {"obj_get_style_list", luat_lv_obj_get_style_list, 0},\
+    {"obj_get_local_style", luat_lv_obj_get_local_style, 0},\
+    {"obj_get_style_radius", luat_lv_obj_get_style_radius, 0},\
+    {"obj_set_style_local_radius", luat_lv_obj_set_style_local_radius, 0},\
+    {"obj_get_style_clip_corner", luat_lv_obj_get_style_clip_corner, 0},\
+    {"obj_set_style_local_clip_corner", luat_lv_obj_set_style_local_clip_corner, 0},\
+    {"obj_get_style_size", luat_lv_obj_get_style_size, 0},\
+    {"obj_set_style_local_size", luat_lv_obj_set_style_local_size, 0},\
+    {"obj_get_style_transform_width", luat_lv_obj_get_style_transform_width, 0},\
+    {"obj_set_style_local_transform_width", luat_lv_obj_set_style_local_transform_width, 0},\
+    {"obj_get_style_transform_height", luat_lv_obj_get_style_transform_height, 0},\
+    {"obj_set_style_local_transform_height", luat_lv_obj_set_style_local_transform_height, 0},\
+    {"obj_get_style_transform_angle", luat_lv_obj_get_style_transform_angle, 0},\
+    {"obj_set_style_local_transform_angle", luat_lv_obj_set_style_local_transform_angle, 0},\
+    {"obj_get_style_transform_zoom", luat_lv_obj_get_style_transform_zoom, 0},\
+    {"obj_set_style_local_transform_zoom", luat_lv_obj_set_style_local_transform_zoom, 0},\
+    {"obj_get_style_opa_scale", luat_lv_obj_get_style_opa_scale, 0},\
+    {"obj_set_style_local_opa_scale", luat_lv_obj_set_style_local_opa_scale, 0},\
+    {"obj_get_style_pad_top", luat_lv_obj_get_style_pad_top, 0},\
+    {"obj_set_style_local_pad_top", luat_lv_obj_set_style_local_pad_top, 0},\
+    {"obj_get_style_pad_bottom", luat_lv_obj_get_style_pad_bottom, 0},\
+    {"obj_set_style_local_pad_bottom", luat_lv_obj_set_style_local_pad_bottom, 0},\
+    {"obj_get_style_pad_left", luat_lv_obj_get_style_pad_left, 0},\
+    {"obj_set_style_local_pad_left", luat_lv_obj_set_style_local_pad_left, 0},\
+    {"obj_get_style_pad_right", luat_lv_obj_get_style_pad_right, 0},\
+    {"obj_set_style_local_pad_right", luat_lv_obj_set_style_local_pad_right, 0},\
+    {"obj_get_style_pad_inner", luat_lv_obj_get_style_pad_inner, 0},\
+    {"obj_set_style_local_pad_inner", luat_lv_obj_set_style_local_pad_inner, 0},\
+    {"obj_get_style_margin_top", luat_lv_obj_get_style_margin_top, 0},\
+    {"obj_set_style_local_margin_top", luat_lv_obj_set_style_local_margin_top, 0},\
+    {"obj_get_style_margin_bottom", luat_lv_obj_get_style_margin_bottom, 0},\
+    {"obj_set_style_local_margin_bottom", luat_lv_obj_set_style_local_margin_bottom, 0},\
+    {"obj_get_style_margin_left", luat_lv_obj_get_style_margin_left, 0},\
+    {"obj_set_style_local_margin_left", luat_lv_obj_set_style_local_margin_left, 0},\
+    {"obj_get_style_margin_right", luat_lv_obj_get_style_margin_right, 0},\
+    {"obj_set_style_local_margin_right", luat_lv_obj_set_style_local_margin_right, 0},\
+    {"obj_get_style_bg_blend_mode", luat_lv_obj_get_style_bg_blend_mode, 0},\
+    {"obj_set_style_local_bg_blend_mode", luat_lv_obj_set_style_local_bg_blend_mode, 0},\
+    {"obj_get_style_bg_main_stop", luat_lv_obj_get_style_bg_main_stop, 0},\
+    {"obj_set_style_local_bg_main_stop", luat_lv_obj_set_style_local_bg_main_stop, 0},\
+    {"obj_get_style_bg_grad_stop", luat_lv_obj_get_style_bg_grad_stop, 0},\
+    {"obj_set_style_local_bg_grad_stop", luat_lv_obj_set_style_local_bg_grad_stop, 0},\
+    {"obj_get_style_bg_grad_dir", luat_lv_obj_get_style_bg_grad_dir, 0},\
+    {"obj_set_style_local_bg_grad_dir", luat_lv_obj_set_style_local_bg_grad_dir, 0},\
+    {"obj_get_style_bg_color", luat_lv_obj_get_style_bg_color, 0},\
+    {"obj_set_style_local_bg_color", luat_lv_obj_set_style_local_bg_color, 0},\
+    {"obj_get_style_bg_grad_color", luat_lv_obj_get_style_bg_grad_color, 0},\
+    {"obj_set_style_local_bg_grad_color", luat_lv_obj_set_style_local_bg_grad_color, 0},\
+    {"obj_get_style_bg_opa", luat_lv_obj_get_style_bg_opa, 0},\
+    {"obj_set_style_local_bg_opa", luat_lv_obj_set_style_local_bg_opa, 0},\
+    {"obj_get_style_border_width", luat_lv_obj_get_style_border_width, 0},\
+    {"obj_set_style_local_border_width", luat_lv_obj_set_style_local_border_width, 0},\
+    {"obj_get_style_border_side", luat_lv_obj_get_style_border_side, 0},\
+    {"obj_set_style_local_border_side", luat_lv_obj_set_style_local_border_side, 0},\
+    {"obj_get_style_border_blend_mode", luat_lv_obj_get_style_border_blend_mode, 0},\
+    {"obj_set_style_local_border_blend_mode", luat_lv_obj_set_style_local_border_blend_mode, 0},\
+    {"obj_get_style_border_post", luat_lv_obj_get_style_border_post, 0},\
+    {"obj_set_style_local_border_post", luat_lv_obj_set_style_local_border_post, 0},\
+    {"obj_get_style_border_color", luat_lv_obj_get_style_border_color, 0},\
+    {"obj_set_style_local_border_color", luat_lv_obj_set_style_local_border_color, 0},\
+    {"obj_get_style_border_opa", luat_lv_obj_get_style_border_opa, 0},\
+    {"obj_set_style_local_border_opa", luat_lv_obj_set_style_local_border_opa, 0},\
+    {"obj_get_style_outline_width", luat_lv_obj_get_style_outline_width, 0},\
+    {"obj_set_style_local_outline_width", luat_lv_obj_set_style_local_outline_width, 0},\
+    {"obj_get_style_outline_pad", luat_lv_obj_get_style_outline_pad, 0},\
+    {"obj_set_style_local_outline_pad", luat_lv_obj_set_style_local_outline_pad, 0},\
+    {"obj_get_style_outline_blend_mode", luat_lv_obj_get_style_outline_blend_mode, 0},\
+    {"obj_set_style_local_outline_blend_mode", luat_lv_obj_set_style_local_outline_blend_mode, 0},\
+    {"obj_get_style_outline_color", luat_lv_obj_get_style_outline_color, 0},\
+    {"obj_set_style_local_outline_color", luat_lv_obj_set_style_local_outline_color, 0},\
+    {"obj_get_style_outline_opa", luat_lv_obj_get_style_outline_opa, 0},\
+    {"obj_set_style_local_outline_opa", luat_lv_obj_set_style_local_outline_opa, 0},\
+    {"obj_get_style_shadow_width", luat_lv_obj_get_style_shadow_width, 0},\
+    {"obj_set_style_local_shadow_width", luat_lv_obj_set_style_local_shadow_width, 0},\
+    {"obj_get_style_shadow_ofs_x", luat_lv_obj_get_style_shadow_ofs_x, 0},\
+    {"obj_set_style_local_shadow_ofs_x", luat_lv_obj_set_style_local_shadow_ofs_x, 0},\
+    {"obj_get_style_shadow_ofs_y", luat_lv_obj_get_style_shadow_ofs_y, 0},\
+    {"obj_set_style_local_shadow_ofs_y", luat_lv_obj_set_style_local_shadow_ofs_y, 0},\
+    {"obj_get_style_shadow_spread", luat_lv_obj_get_style_shadow_spread, 0},\
+    {"obj_set_style_local_shadow_spread", luat_lv_obj_set_style_local_shadow_spread, 0},\
+    {"obj_get_style_shadow_blend_mode", luat_lv_obj_get_style_shadow_blend_mode, 0},\
+    {"obj_set_style_local_shadow_blend_mode", luat_lv_obj_set_style_local_shadow_blend_mode, 0},\
+    {"obj_get_style_shadow_color", luat_lv_obj_get_style_shadow_color, 0},\
+    {"obj_set_style_local_shadow_color", luat_lv_obj_set_style_local_shadow_color, 0},\
+    {"obj_get_style_shadow_opa", luat_lv_obj_get_style_shadow_opa, 0},\
+    {"obj_set_style_local_shadow_opa", luat_lv_obj_set_style_local_shadow_opa, 0},\
+    {"obj_get_style_pattern_repeat", luat_lv_obj_get_style_pattern_repeat, 0},\
+    {"obj_set_style_local_pattern_repeat", luat_lv_obj_set_style_local_pattern_repeat, 0},\
+    {"obj_get_style_pattern_blend_mode", luat_lv_obj_get_style_pattern_blend_mode, 0},\
+    {"obj_set_style_local_pattern_blend_mode", luat_lv_obj_set_style_local_pattern_blend_mode, 0},\
+    {"obj_get_style_pattern_recolor", luat_lv_obj_get_style_pattern_recolor, 0},\
+    {"obj_set_style_local_pattern_recolor", luat_lv_obj_set_style_local_pattern_recolor, 0},\
+    {"obj_get_style_pattern_opa", luat_lv_obj_get_style_pattern_opa, 0},\
+    {"obj_set_style_local_pattern_opa", luat_lv_obj_set_style_local_pattern_opa, 0},\
+    {"obj_get_style_pattern_recolor_opa", luat_lv_obj_get_style_pattern_recolor_opa, 0},\
+    {"obj_set_style_local_pattern_recolor_opa", luat_lv_obj_set_style_local_pattern_recolor_opa, 0},\
+    {"obj_get_style_pattern_image", luat_lv_obj_get_style_pattern_image, 0},\
+    {"obj_set_style_local_pattern_image", luat_lv_obj_set_style_local_pattern_image, 0},\
+    {"obj_get_style_value_letter_space", luat_lv_obj_get_style_value_letter_space, 0},\
+    {"obj_set_style_local_value_letter_space", luat_lv_obj_set_style_local_value_letter_space, 0},\
+    {"obj_get_style_value_line_space", luat_lv_obj_get_style_value_line_space, 0},\
+    {"obj_set_style_local_value_line_space", luat_lv_obj_set_style_local_value_line_space, 0},\
+    {"obj_get_style_value_blend_mode", luat_lv_obj_get_style_value_blend_mode, 0},\
+    {"obj_set_style_local_value_blend_mode", luat_lv_obj_set_style_local_value_blend_mode, 0},\
+    {"obj_get_style_value_ofs_x", luat_lv_obj_get_style_value_ofs_x, 0},\
+    {"obj_set_style_local_value_ofs_x", luat_lv_obj_set_style_local_value_ofs_x, 0},\
+    {"obj_get_style_value_ofs_y", luat_lv_obj_get_style_value_ofs_y, 0},\
+    {"obj_set_style_local_value_ofs_y", luat_lv_obj_set_style_local_value_ofs_y, 0},\
+    {"obj_get_style_value_align", luat_lv_obj_get_style_value_align, 0},\
+    {"obj_set_style_local_value_align", luat_lv_obj_set_style_local_value_align, 0},\
+    {"obj_get_style_value_color", luat_lv_obj_get_style_value_color, 0},\
+    {"obj_set_style_local_value_color", luat_lv_obj_set_style_local_value_color, 0},\
+    {"obj_get_style_value_opa", luat_lv_obj_get_style_value_opa, 0},\
+    {"obj_set_style_local_value_opa", luat_lv_obj_set_style_local_value_opa, 0},\
+    {"obj_get_style_value_font", luat_lv_obj_get_style_value_font, 0},\
+    {"obj_set_style_local_value_font", luat_lv_obj_set_style_local_value_font, 0},\
+    {"obj_get_style_value_str", luat_lv_obj_get_style_value_str, 0},\
+    {"obj_set_style_local_value_str", luat_lv_obj_set_style_local_value_str, 0},\
+    {"obj_get_style_text_letter_space", luat_lv_obj_get_style_text_letter_space, 0},\
+    {"obj_set_style_local_text_letter_space", luat_lv_obj_set_style_local_text_letter_space, 0},\
+    {"obj_get_style_text_line_space", luat_lv_obj_get_style_text_line_space, 0},\
+    {"obj_set_style_local_text_line_space", luat_lv_obj_set_style_local_text_line_space, 0},\
+    {"obj_get_style_text_decor", luat_lv_obj_get_style_text_decor, 0},\
+    {"obj_set_style_local_text_decor", luat_lv_obj_set_style_local_text_decor, 0},\
+    {"obj_get_style_text_blend_mode", luat_lv_obj_get_style_text_blend_mode, 0},\
+    {"obj_set_style_local_text_blend_mode", luat_lv_obj_set_style_local_text_blend_mode, 0},\
+    {"obj_get_style_text_color", luat_lv_obj_get_style_text_color, 0},\
+    {"obj_set_style_local_text_color", luat_lv_obj_set_style_local_text_color, 0},\
+    {"obj_get_style_text_sel_color", luat_lv_obj_get_style_text_sel_color, 0},\
+    {"obj_set_style_local_text_sel_color", luat_lv_obj_set_style_local_text_sel_color, 0},\
+    {"obj_get_style_text_sel_bg_color", luat_lv_obj_get_style_text_sel_bg_color, 0},\
+    {"obj_set_style_local_text_sel_bg_color", luat_lv_obj_set_style_local_text_sel_bg_color, 0},\
+    {"obj_get_style_text_opa", luat_lv_obj_get_style_text_opa, 0},\
+    {"obj_set_style_local_text_opa", luat_lv_obj_set_style_local_text_opa, 0},\
+    {"obj_get_style_text_font", luat_lv_obj_get_style_text_font, 0},\
+    {"obj_set_style_local_text_font", luat_lv_obj_set_style_local_text_font, 0},\
+    {"obj_get_style_line_width", luat_lv_obj_get_style_line_width, 0},\
+    {"obj_set_style_local_line_width", luat_lv_obj_set_style_local_line_width, 0},\
+    {"obj_get_style_line_blend_mode", luat_lv_obj_get_style_line_blend_mode, 0},\
+    {"obj_set_style_local_line_blend_mode", luat_lv_obj_set_style_local_line_blend_mode, 0},\
+    {"obj_get_style_line_dash_width", luat_lv_obj_get_style_line_dash_width, 0},\
+    {"obj_set_style_local_line_dash_width", luat_lv_obj_set_style_local_line_dash_width, 0},\
+    {"obj_get_style_line_dash_gap", luat_lv_obj_get_style_line_dash_gap, 0},\
+    {"obj_set_style_local_line_dash_gap", luat_lv_obj_set_style_local_line_dash_gap, 0},\
+    {"obj_get_style_line_rounded", luat_lv_obj_get_style_line_rounded, 0},\
+    {"obj_set_style_local_line_rounded", luat_lv_obj_set_style_local_line_rounded, 0},\
+    {"obj_get_style_line_color", luat_lv_obj_get_style_line_color, 0},\
+    {"obj_set_style_local_line_color", luat_lv_obj_set_style_local_line_color, 0},\
+    {"obj_get_style_line_opa", luat_lv_obj_get_style_line_opa, 0},\
+    {"obj_set_style_local_line_opa", luat_lv_obj_set_style_local_line_opa, 0},\
+    {"obj_get_style_image_blend_mode", luat_lv_obj_get_style_image_blend_mode, 0},\
+    {"obj_set_style_local_image_blend_mode", luat_lv_obj_set_style_local_image_blend_mode, 0},\
+    {"obj_get_style_image_recolor", luat_lv_obj_get_style_image_recolor, 0},\
+    {"obj_set_style_local_image_recolor", luat_lv_obj_set_style_local_image_recolor, 0},\
+    {"obj_get_style_image_opa", luat_lv_obj_get_style_image_opa, 0},\
+    {"obj_set_style_local_image_opa", luat_lv_obj_set_style_local_image_opa, 0},\
+    {"obj_get_style_image_recolor_opa", luat_lv_obj_get_style_image_recolor_opa, 0},\
+    {"obj_set_style_local_image_recolor_opa", luat_lv_obj_set_style_local_image_recolor_opa, 0},\
+    {"obj_get_style_transition_time", luat_lv_obj_get_style_transition_time, 0},\
+    {"obj_set_style_local_transition_time", luat_lv_obj_set_style_local_transition_time, 0},\
+    {"obj_get_style_transition_delay", luat_lv_obj_get_style_transition_delay, 0},\
+    {"obj_set_style_local_transition_delay", luat_lv_obj_set_style_local_transition_delay, 0},\
+    {"obj_get_style_transition_prop_1", luat_lv_obj_get_style_transition_prop_1, 0},\
+    {"obj_set_style_local_transition_prop_1", luat_lv_obj_set_style_local_transition_prop_1, 0},\
+    {"obj_get_style_transition_prop_2", luat_lv_obj_get_style_transition_prop_2, 0},\
+    {"obj_set_style_local_transition_prop_2", luat_lv_obj_set_style_local_transition_prop_2, 0},\
+    {"obj_get_style_transition_prop_3", luat_lv_obj_get_style_transition_prop_3, 0},\
+    {"obj_set_style_local_transition_prop_3", luat_lv_obj_set_style_local_transition_prop_3, 0},\
+    {"obj_get_style_transition_prop_4", luat_lv_obj_get_style_transition_prop_4, 0},\
+    {"obj_set_style_local_transition_prop_4", luat_lv_obj_set_style_local_transition_prop_4, 0},\
+    {"obj_get_style_transition_prop_5", luat_lv_obj_get_style_transition_prop_5, 0},\
+    {"obj_set_style_local_transition_prop_5", luat_lv_obj_set_style_local_transition_prop_5, 0},\
+    {"obj_get_style_transition_prop_6", luat_lv_obj_get_style_transition_prop_6, 0},\
+    {"obj_set_style_local_transition_prop_6", luat_lv_obj_set_style_local_transition_prop_6, 0},\
+    {"obj_get_style_transition_path", luat_lv_obj_get_style_transition_path, 0},\
+    {"obj_set_style_local_transition_path", luat_lv_obj_set_style_local_transition_path, 0},\
+    {"obj_get_style_scale_width", luat_lv_obj_get_style_scale_width, 0},\
+    {"obj_set_style_local_scale_width", luat_lv_obj_set_style_local_scale_width, 0},\
+    {"obj_get_style_scale_border_width", luat_lv_obj_get_style_scale_border_width, 0},\
+    {"obj_set_style_local_scale_border_width", luat_lv_obj_set_style_local_scale_border_width, 0},\
+    {"obj_get_style_scale_end_border_width", luat_lv_obj_get_style_scale_end_border_width, 0},\
+    {"obj_set_style_local_scale_end_border_width", luat_lv_obj_set_style_local_scale_end_border_width, 0},\
+    {"obj_get_style_scale_end_line_width", luat_lv_obj_get_style_scale_end_line_width, 0},\
+    {"obj_set_style_local_scale_end_line_width", luat_lv_obj_set_style_local_scale_end_line_width, 0},\
+    {"obj_get_style_scale_grad_color", luat_lv_obj_get_style_scale_grad_color, 0},\
+    {"obj_set_style_local_scale_grad_color", luat_lv_obj_set_style_local_scale_grad_color, 0},\
+    {"obj_get_style_scale_end_color", luat_lv_obj_get_style_scale_end_color, 0},\
+    {"obj_set_style_local_scale_end_color", luat_lv_obj_set_style_local_scale_end_color, 0},\
+    {"obj_set_style_local_pad_all", luat_lv_obj_set_style_local_pad_all, 0},\
+    {"obj_set_style_local_pad_hor", luat_lv_obj_set_style_local_pad_hor, 0},\
+    {"obj_set_style_local_pad_ver", luat_lv_obj_set_style_local_pad_ver, 0},\
+    {"obj_set_style_local_margin_all", luat_lv_obj_set_style_local_margin_all, 0},\
+    {"obj_set_style_local_margin_hor", luat_lv_obj_set_style_local_margin_hor, 0},\
+    {"obj_set_style_local_margin_ver", luat_lv_obj_set_style_local_margin_ver, 0},\
+    {"obj_get_hidden", luat_lv_obj_get_hidden, 0},\
+    {"obj_get_adv_hittest", luat_lv_obj_get_adv_hittest, 0},\
+    {"obj_get_click", luat_lv_obj_get_click, 0},\
+    {"obj_get_top", luat_lv_obj_get_top, 0},\
+    {"obj_get_drag", luat_lv_obj_get_drag, 0},\
+    {"obj_get_drag_dir", luat_lv_obj_get_drag_dir, 0},\
+    {"obj_get_drag_throw", luat_lv_obj_get_drag_throw, 0},\
+    {"obj_get_drag_parent", luat_lv_obj_get_drag_parent, 0},\
+    {"obj_get_focus_parent", luat_lv_obj_get_focus_parent, 0},\
+    {"obj_get_parent_event", luat_lv_obj_get_parent_event, 0},\
+    {"obj_get_gesture_parent", luat_lv_obj_get_gesture_parent, 0},\
+    {"obj_get_base_dir", luat_lv_obj_get_base_dir, 0},\
+    {"obj_get_protect", luat_lv_obj_get_protect, 0},\
+    {"obj_is_protected", luat_lv_obj_is_protected, 0},\
+    {"obj_get_state", luat_lv_obj_get_state, 0},\
+    {"obj_is_point_on_coords", luat_lv_obj_is_point_on_coords, 0},\
+    {"obj_hittest", luat_lv_obj_hittest, 0},\
+    {"obj_get_ext_attr", luat_lv_obj_get_ext_attr, 0},\
+    {"obj_get_type", luat_lv_obj_get_type, 0},\
+    {"obj_get_group", luat_lv_obj_get_group, 0},\
+    {"obj_is_focused", luat_lv_obj_is_focused, 0},\
+    {"obj_get_focused_obj", luat_lv_obj_get_focused_obj, 0},\
+    {"obj_handle_get_type_signal", luat_lv_obj_handle_get_type_signal, 0},\
+    {"obj_init_draw_rect_dsc", luat_lv_obj_init_draw_rect_dsc, 0},\
+    {"obj_init_draw_label_dsc", luat_lv_obj_init_draw_label_dsc, 0},\
+    {"obj_init_draw_img_dsc", luat_lv_obj_init_draw_img_dsc, 0},\
+    {"obj_init_draw_line_dsc", luat_lv_obj_init_draw_line_dsc, 0},\
+    {"obj_get_draw_rect_ext_pad_size", luat_lv_obj_get_draw_rect_ext_pad_size, 0},\
+    {"obj_fade_in", luat_lv_obj_fade_in, 0},\
+    {"obj_fade_out", luat_lv_obj_fade_out, 0},\
+
+// prefix lv_core lv_refr
+int luat_lv_refr_now(lua_State *L);
+
+#define LUAT_LV_REFR_RLT     {"refr_now", luat_lv_refr_now, 0},\
+
+// prefix lv_core lv_style
+int luat_lv_style_init(lua_State *L);
+int luat_lv_style_copy(lua_State *L);
+int luat_lv_style_list_init(lua_State *L);
+int luat_lv_style_list_copy(lua_State *L);
+int luat_lv_style_list_get_style(lua_State *L);
+int luat_lv_style_reset(lua_State *L);
+int luat_lv_style_remove_prop(lua_State *L);
+int luat_lv_style_list_get_local_style(lua_State *L);
+
+#define LUAT_LV_STYLE_RLT     {"style_init", luat_lv_style_init, 0},\
+    {"style_copy", luat_lv_style_copy, 0},\
+    {"style_list_init", luat_lv_style_list_init, 0},\
+    {"style_list_copy", luat_lv_style_list_copy, 0},\
+    {"style_list_get_style", luat_lv_style_list_get_style, 0},\
+    {"style_reset", luat_lv_style_reset, 0},\
+    {"style_remove_prop", luat_lv_style_remove_prop, 0},\
+    {"style_list_get_local_style", luat_lv_style_list_get_local_style, 0},\
+
+
+// group lv_draw
+// prefix lv_draw lv_draw
+int luat_lv_draw_mask_add(lua_State *L);
+int luat_lv_draw_mask_apply(lua_State *L);
+int luat_lv_draw_mask_remove_id(lua_State *L);
+int luat_lv_draw_mask_remove_custom(lua_State *L);
+int luat_lv_draw_mask_get_cnt(lua_State *L);
+int luat_lv_draw_mask_line_points_init(lua_State *L);
+int luat_lv_draw_mask_line_angle_init(lua_State *L);
+int luat_lv_draw_mask_angle_init(lua_State *L);
+int luat_lv_draw_mask_radius_init(lua_State *L);
+int luat_lv_draw_mask_fade_init(lua_State *L);
+int luat_lv_draw_mask_map_init(lua_State *L);
+int luat_lv_draw_rect_dsc_init(lua_State *L);
+int luat_lv_draw_rect(lua_State *L);
+int luat_lv_draw_px(lua_State *L);
+int luat_lv_draw_label_dsc_init(lua_State *L);
+int luat_lv_draw_label(lua_State *L);
+int luat_lv_draw_img_dsc_init(lua_State *L);
+int luat_lv_draw_img(lua_State *L);
+int luat_lv_draw_line(lua_State *L);
+int luat_lv_draw_line_dsc_init(lua_State *L);
+int luat_lv_draw_arc(lua_State *L);
+
+#define LUAT_LV_DRAW_RLT     {"draw_mask_add", luat_lv_draw_mask_add, 0},\
+    {"draw_mask_apply", luat_lv_draw_mask_apply, 0},\
+    {"draw_mask_remove_id", luat_lv_draw_mask_remove_id, 0},\
+    {"draw_mask_remove_custom", luat_lv_draw_mask_remove_custom, 0},\
+    {"draw_mask_get_cnt", luat_lv_draw_mask_get_cnt, 0},\
+    {"draw_mask_line_points_init", luat_lv_draw_mask_line_points_init, 0},\
+    {"draw_mask_line_angle_init", luat_lv_draw_mask_line_angle_init, 0},\
+    {"draw_mask_angle_init", luat_lv_draw_mask_angle_init, 0},\
+    {"draw_mask_radius_init", luat_lv_draw_mask_radius_init, 0},\
+    {"draw_mask_fade_init", luat_lv_draw_mask_fade_init, 0},\
+    {"draw_mask_map_init", luat_lv_draw_mask_map_init, 0},\
+    {"draw_rect_dsc_init", luat_lv_draw_rect_dsc_init, 0},\
+    {"draw_rect", luat_lv_draw_rect, 0},\
+    {"draw_px", luat_lv_draw_px, 0},\
+    {"draw_label_dsc_init", luat_lv_draw_label_dsc_init, 0},\
+    {"draw_label", luat_lv_draw_label, 0},\
+    {"draw_img_dsc_init", luat_lv_draw_img_dsc_init, 0},\
+    {"draw_img", luat_lv_draw_img, 0},\
+    {"draw_line", luat_lv_draw_line, 0},\
+    {"draw_line_dsc_init", luat_lv_draw_line_dsc_init, 0},\
+    {"draw_arc", luat_lv_draw_arc, 0},\
+
+
+// group lv_font
+// prefix lv_font lv_font
+int luat_lv_font_get_glyph_dsc(lua_State *L);
+int luat_lv_font_get_glyph_width(lua_State *L);
+int luat_lv_font_get_line_height(lua_State *L);
+
+#define LUAT_LV_FONT_RLT     {"font_get_glyph_dsc", luat_lv_font_get_glyph_dsc, 0},\
+    {"font_get_glyph_width", luat_lv_font_get_glyph_width, 0},\
+    {"font_get_line_height", luat_lv_font_get_line_height, 0},\
+
+
+// group lv_misc
+// prefix lv_misc lv_anim
+int luat_lv_anim_init(lua_State *L);
+int luat_lv_anim_set_var(lua_State *L);
+int luat_lv_anim_set_time(lua_State *L);
+int luat_lv_anim_set_delay(lua_State *L);
+int luat_lv_anim_set_values(lua_State *L);
+int luat_lv_anim_set_path(lua_State *L);
+int luat_lv_anim_set_playback_time(lua_State *L);
+int luat_lv_anim_set_playback_delay(lua_State *L);
+int luat_lv_anim_set_repeat_count(lua_State *L);
+int luat_lv_anim_set_repeat_delay(lua_State *L);
+int luat_lv_anim_start(lua_State *L);
+int luat_lv_anim_path_init(lua_State *L);
+int luat_lv_anim_path_set_user_data(lua_State *L);
+int luat_lv_anim_get_delay(lua_State *L);
+int luat_lv_anim_del(lua_State *L);
+int luat_lv_anim_del_all(lua_State *L);
+int luat_lv_anim_get(lua_State *L);
+int luat_lv_anim_custom_del(lua_State *L);
+int luat_lv_anim_count_running(lua_State *L);
+int luat_lv_anim_speed_to_time(lua_State *L);
+int luat_lv_anim_refr_now(lua_State *L);
+int luat_lv_anim_path_linear(lua_State *L);
+int luat_lv_anim_path_ease_in(lua_State *L);
+int luat_lv_anim_path_ease_out(lua_State *L);
+int luat_lv_anim_path_ease_in_out(lua_State *L);
+int luat_lv_anim_path_overshoot(lua_State *L);
+int luat_lv_anim_path_bounce(lua_State *L);
+int luat_lv_anim_path_step(lua_State *L);
+
+#define LUAT_LV_ANIM_RLT     {"anim_init", luat_lv_anim_init, 0},\
+    {"anim_set_var", luat_lv_anim_set_var, 0},\
+    {"anim_set_time", luat_lv_anim_set_time, 0},\
+    {"anim_set_delay", luat_lv_anim_set_delay, 0},\
+    {"anim_set_values", luat_lv_anim_set_values, 0},\
+    {"anim_set_path", luat_lv_anim_set_path, 0},\
+    {"anim_set_playback_time", luat_lv_anim_set_playback_time, 0},\
+    {"anim_set_playback_delay", luat_lv_anim_set_playback_delay, 0},\
+    {"anim_set_repeat_count", luat_lv_anim_set_repeat_count, 0},\
+    {"anim_set_repeat_delay", luat_lv_anim_set_repeat_delay, 0},\
+    {"anim_start", luat_lv_anim_start, 0},\
+    {"anim_path_init", luat_lv_anim_path_init, 0},\
+    {"anim_path_set_user_data", luat_lv_anim_path_set_user_data, 0},\
+    {"anim_get_delay", luat_lv_anim_get_delay, 0},\
+    {"anim_del", luat_lv_anim_del, 0},\
+    {"anim_del_all", luat_lv_anim_del_all, 0},\
+    {"anim_get", luat_lv_anim_get, 0},\
+    {"anim_custom_del", luat_lv_anim_custom_del, 0},\
+    {"anim_count_running", luat_lv_anim_count_running, 0},\
+    {"anim_speed_to_time", luat_lv_anim_speed_to_time, 0},\
+    {"anim_refr_now", luat_lv_anim_refr_now, 0},\
+    {"anim_path_linear", luat_lv_anim_path_linear, 0},\
+    {"anim_path_ease_in", luat_lv_anim_path_ease_in, 0},\
+    {"anim_path_ease_out", luat_lv_anim_path_ease_out, 0},\
+    {"anim_path_ease_in_out", luat_lv_anim_path_ease_in_out, 0},\
+    {"anim_path_overshoot", luat_lv_anim_path_overshoot, 0},\
+    {"anim_path_bounce", luat_lv_anim_path_bounce, 0},\
+    {"anim_path_step", luat_lv_anim_path_step, 0},\
+
+// prefix lv_misc lv_area
+int luat_lv_area_set(lua_State *L);
+int luat_lv_area_copy(lua_State *L);
+int luat_lv_area_get_width(lua_State *L);
+int luat_lv_area_get_height(lua_State *L);
+int luat_lv_area_set_width(lua_State *L);
+int luat_lv_area_set_height(lua_State *L);
+int luat_lv_area_get_size(lua_State *L);
+
+#define LUAT_LV_AREA_RLT     {"area_set", luat_lv_area_set, 0},\
+    {"area_copy", luat_lv_area_copy, 0},\
+    {"area_get_width", luat_lv_area_get_width, 0},\
+    {"area_get_height", luat_lv_area_get_height, 0},\
+    {"area_set_width", luat_lv_area_set_width, 0},\
+    {"area_set_height", luat_lv_area_set_height, 0},\
+    {"area_get_size", luat_lv_area_get_size, 0},\
+
+// prefix lv_misc lv_color
+int luat_lv_color_to1(lua_State *L);
+int luat_lv_color_to8(lua_State *L);
+int luat_lv_color_to16(lua_State *L);
+int luat_lv_color_to32(lua_State *L);
+int luat_lv_color_mix(lua_State *L);
+int luat_lv_color_premult(lua_State *L);
+int luat_lv_color_mix_premult(lua_State *L);
+int luat_lv_color_mix_with_alpha(lua_State *L);
+int luat_lv_color_brightness(lua_State *L);
+int luat_lv_color_make(lua_State *L);
+int luat_lv_color_hex(lua_State *L);
+int luat_lv_color_hex3(lua_State *L);
+int luat_lv_color_fill(lua_State *L);
+int luat_lv_color_lighten(lua_State *L);
+int luat_lv_color_darken(lua_State *L);
+int luat_lv_color_hsv_to_rgb(lua_State *L);
+int luat_lv_color_rgb_to_hsv(lua_State *L);
+int luat_lv_color_to_hsv(lua_State *L);
+
+#define LUAT_LV_COLOR_RLT     {"color_to1", luat_lv_color_to1, 0},\
+    {"color_to8", luat_lv_color_to8, 0},\
+    {"color_to16", luat_lv_color_to16, 0},\
+    {"color_to32", luat_lv_color_to32, 0},\
+    {"color_mix", luat_lv_color_mix, 0},\
+    {"color_premult", luat_lv_color_premult, 0},\
+    {"color_mix_premult", luat_lv_color_mix_premult, 0},\
+    {"color_mix_with_alpha", luat_lv_color_mix_with_alpha, 0},\
+    {"color_brightness", luat_lv_color_brightness, 0},\
+    {"color_make", luat_lv_color_make, 0},\
+    {"color_hex", luat_lv_color_hex, 0},\
+    {"color_hex3", luat_lv_color_hex3, 0},\
+    {"color_fill", luat_lv_color_fill, 0},\
+    {"color_lighten", luat_lv_color_lighten, 0},\
+    {"color_darken", luat_lv_color_darken, 0},\
+    {"color_hsv_to_rgb", luat_lv_color_hsv_to_rgb, 0},\
+    {"color_rgb_to_hsv", luat_lv_color_rgb_to_hsv, 0},\
+    {"color_to_hsv", luat_lv_color_to_hsv, 0},\
+
+// prefix lv_misc lv_debug
+int luat_lv_debug_check_null(lua_State *L);
+int luat_lv_debug_check_mem_integrity(lua_State *L);
+int luat_lv_debug_check_str(lua_State *L);
+int luat_lv_debug_log_error(lua_State *L);
+
+#define LUAT_LV_DEBUG_RLT     {"debug_check_null", luat_lv_debug_check_null, 0},\
+    {"debug_check_mem_integrity", luat_lv_debug_check_mem_integrity, 0},\
+    {"debug_check_str", luat_lv_debug_check_str, 0},\
+    {"debug_log_error", luat_lv_debug_log_error, 0},\
+
+// prefix lv_misc lv_task
+int luat_lv_task_handler(lua_State *L);
+int luat_lv_task_create_basic(lua_State *L);
+int luat_lv_task_create(lua_State *L);
+int luat_lv_task_del(lua_State *L);
+int luat_lv_task_set_prio(lua_State *L);
+int luat_lv_task_set_period(lua_State *L);
+int luat_lv_task_ready(lua_State *L);
+int luat_lv_task_set_repeat_count(lua_State *L);
+int luat_lv_task_reset(lua_State *L);
+int luat_lv_task_enable(lua_State *L);
+int luat_lv_task_get_idle(lua_State *L);
+int luat_lv_task_get_next(lua_State *L);
+
+#define LUAT_LV_TASK_RLT     {"task_handler", luat_lv_task_handler, 0},\
+    {"task_create_basic", luat_lv_task_create_basic, 0},\
+    {"task_create", luat_lv_task_create, 0},\
+    {"task_del", luat_lv_task_del, 0},\
+    {"task_set_prio", luat_lv_task_set_prio, 0},\
+    {"task_set_period", luat_lv_task_set_period, 0},\
+    {"task_ready", luat_lv_task_ready, 0},\
+    {"task_set_repeat_count", luat_lv_task_set_repeat_count, 0},\
+    {"task_reset", luat_lv_task_reset, 0},\
+    {"task_enable", luat_lv_task_enable, 0},\
+    {"task_get_idle", luat_lv_task_get_idle, 0},\
+    {"task_get_next", luat_lv_task_get_next, 0},\
+
+
+// group lv_themes
+// prefix lv_themes lv_theme
+int luat_lv_theme_set_act(lua_State *L);
+int luat_lv_theme_get_act(lua_State *L);
+int luat_lv_theme_apply(lua_State *L);
+int luat_lv_theme_copy(lua_State *L);
+int luat_lv_theme_set_base(lua_State *L);
+int luat_lv_theme_get_font_small(lua_State *L);
+int luat_lv_theme_get_font_normal(lua_State *L);
+int luat_lv_theme_get_font_subtitle(lua_State *L);
+int luat_lv_theme_get_font_title(lua_State *L);
+int luat_lv_theme_get_color_primary(lua_State *L);
+int luat_lv_theme_get_color_secondary(lua_State *L);
+int luat_lv_theme_get_flags(lua_State *L);
+int luat_lv_theme_empty_init(lua_State *L);
+int luat_lv_theme_template_init(lua_State *L);
+int luat_lv_theme_material_init(lua_State *L);
+int luat_lv_theme_mono_init(lua_State *L);
+
+#define LUAT_LV_THEME_RLT     {"theme_set_act", luat_lv_theme_set_act, 0},\
+    {"theme_get_act", luat_lv_theme_get_act, 0},\
+    {"theme_apply", luat_lv_theme_apply, 0},\
+    {"theme_copy", luat_lv_theme_copy, 0},\
+    {"theme_set_base", luat_lv_theme_set_base, 0},\
+    {"theme_get_font_small", luat_lv_theme_get_font_small, 0},\
+    {"theme_get_font_normal", luat_lv_theme_get_font_normal, 0},\
+    {"theme_get_font_subtitle", luat_lv_theme_get_font_subtitle, 0},\
+    {"theme_get_font_title", luat_lv_theme_get_font_title, 0},\
+    {"theme_get_color_primary", luat_lv_theme_get_color_primary, 0},\
+    {"theme_get_color_secondary", luat_lv_theme_get_color_secondary, 0},\
+    {"theme_get_flags", luat_lv_theme_get_flags, 0},\
+    {"theme_empty_init", luat_lv_theme_empty_init, 0},\
+    {"theme_template_init", luat_lv_theme_template_init, 0},\
+    {"theme_material_init", luat_lv_theme_material_init, 0},\
+    {"theme_mono_init", luat_lv_theme_mono_init, 0},\
+
+
+// group lv_widgets
+// prefix lv_widgets lv_arc
+int luat_lv_arc_create(lua_State *L);
+int luat_lv_arc_set_start_angle(lua_State *L);
+int luat_lv_arc_set_end_angle(lua_State *L);
+int luat_lv_arc_set_angles(lua_State *L);
+int luat_lv_arc_set_bg_start_angle(lua_State *L);
+int luat_lv_arc_set_bg_end_angle(lua_State *L);
+int luat_lv_arc_set_bg_angles(lua_State *L);
+int luat_lv_arc_set_rotation(lua_State *L);
+int luat_lv_arc_set_type(lua_State *L);
+int luat_lv_arc_set_value(lua_State *L);
+int luat_lv_arc_set_range(lua_State *L);
+int luat_lv_arc_set_chg_rate(lua_State *L);
+int luat_lv_arc_set_adjustable(lua_State *L);
+int luat_lv_arc_get_angle_start(lua_State *L);
+int luat_lv_arc_get_angle_end(lua_State *L);
+int luat_lv_arc_get_bg_angle_start(lua_State *L);
+int luat_lv_arc_get_bg_angle_end(lua_State *L);
+int luat_lv_arc_get_type(lua_State *L);
+int luat_lv_arc_get_value(lua_State *L);
+int luat_lv_arc_get_min_value(lua_State *L);
+int luat_lv_arc_get_max_value(lua_State *L);
+int luat_lv_arc_is_dragged(lua_State *L);
+int luat_lv_arc_get_adjustable(lua_State *L);
+
+#define LUAT_LV_ARC_RLT     {"arc_create", luat_lv_arc_create, 0},\
+    {"arc_set_start_angle", luat_lv_arc_set_start_angle, 0},\
+    {"arc_set_end_angle", luat_lv_arc_set_end_angle, 0},\
+    {"arc_set_angles", luat_lv_arc_set_angles, 0},\
+    {"arc_set_bg_start_angle", luat_lv_arc_set_bg_start_angle, 0},\
+    {"arc_set_bg_end_angle", luat_lv_arc_set_bg_end_angle, 0},\
+    {"arc_set_bg_angles", luat_lv_arc_set_bg_angles, 0},\
+    {"arc_set_rotation", luat_lv_arc_set_rotation, 0},\
+    {"arc_set_type", luat_lv_arc_set_type, 0},\
+    {"arc_set_value", luat_lv_arc_set_value, 0},\
+    {"arc_set_range", luat_lv_arc_set_range, 0},\
+    {"arc_set_chg_rate", luat_lv_arc_set_chg_rate, 0},\
+    {"arc_set_adjustable", luat_lv_arc_set_adjustable, 0},\
+    {"arc_get_angle_start", luat_lv_arc_get_angle_start, 0},\
+    {"arc_get_angle_end", luat_lv_arc_get_angle_end, 0},\
+    {"arc_get_bg_angle_start", luat_lv_arc_get_bg_angle_start, 0},\
+    {"arc_get_bg_angle_end", luat_lv_arc_get_bg_angle_end, 0},\
+    {"arc_get_type", luat_lv_arc_get_type, 0},\
+    {"arc_get_value", luat_lv_arc_get_value, 0},\
+    {"arc_get_min_value", luat_lv_arc_get_min_value, 0},\
+    {"arc_get_max_value", luat_lv_arc_get_max_value, 0},\
+    {"arc_is_dragged", luat_lv_arc_is_dragged, 0},\
+    {"arc_get_adjustable", luat_lv_arc_get_adjustable, 0},\
+
+// prefix lv_widgets lv_bar
+int luat_lv_bar_create(lua_State *L);
+int luat_lv_bar_set_value(lua_State *L);
+int luat_lv_bar_set_start_value(lua_State *L);
+int luat_lv_bar_set_range(lua_State *L);
+int luat_lv_bar_set_type(lua_State *L);
+int luat_lv_bar_set_anim_time(lua_State *L);
+int luat_lv_bar_get_value(lua_State *L);
+int luat_lv_bar_get_start_value(lua_State *L);
+int luat_lv_bar_get_min_value(lua_State *L);
+int luat_lv_bar_get_max_value(lua_State *L);
+int luat_lv_bar_get_type(lua_State *L);
+int luat_lv_bar_get_anim_time(lua_State *L);
+
+#define LUAT_LV_BAR_RLT     {"bar_create", luat_lv_bar_create, 0},\
+    {"bar_set_value", luat_lv_bar_set_value, 0},\
+    {"bar_set_start_value", luat_lv_bar_set_start_value, 0},\
+    {"bar_set_range", luat_lv_bar_set_range, 0},\
+    {"bar_set_type", luat_lv_bar_set_type, 0},\
+    {"bar_set_anim_time", luat_lv_bar_set_anim_time, 0},\
+    {"bar_get_value", luat_lv_bar_get_value, 0},\
+    {"bar_get_start_value", luat_lv_bar_get_start_value, 0},\
+    {"bar_get_min_value", luat_lv_bar_get_min_value, 0},\
+    {"bar_get_max_value", luat_lv_bar_get_max_value, 0},\
+    {"bar_get_type", luat_lv_bar_get_type, 0},\
+    {"bar_get_anim_time", luat_lv_bar_get_anim_time, 0},\
+
+// prefix lv_widgets lv_btn
+int luat_lv_btn_create(lua_State *L);
+int luat_lv_btn_set_checkable(lua_State *L);
+int luat_lv_btn_set_state(lua_State *L);
+int luat_lv_btn_toggle(lua_State *L);
+int luat_lv_btn_set_layout(lua_State *L);
+int luat_lv_btn_set_fit4(lua_State *L);
+int luat_lv_btn_set_fit2(lua_State *L);
+int luat_lv_btn_set_fit(lua_State *L);
+int luat_lv_btn_get_state(lua_State *L);
+int luat_lv_btn_get_checkable(lua_State *L);
+int luat_lv_btn_get_layout(lua_State *L);
+int luat_lv_btn_get_fit_left(lua_State *L);
+int luat_lv_btn_get_fit_right(lua_State *L);
+int luat_lv_btn_get_fit_top(lua_State *L);
+int luat_lv_btn_get_fit_bottom(lua_State *L);
+
+#define LUAT_LV_BTN_RLT     {"btn_create", luat_lv_btn_create, 0},\
+    {"btn_set_checkable", luat_lv_btn_set_checkable, 0},\
+    {"btn_set_state", luat_lv_btn_set_state, 0},\
+    {"btn_toggle", luat_lv_btn_toggle, 0},\
+    {"btn_set_layout", luat_lv_btn_set_layout, 0},\
+    {"btn_set_fit4", luat_lv_btn_set_fit4, 0},\
+    {"btn_set_fit2", luat_lv_btn_set_fit2, 0},\
+    {"btn_set_fit", luat_lv_btn_set_fit, 0},\
+    {"btn_get_state", luat_lv_btn_get_state, 0},\
+    {"btn_get_checkable", luat_lv_btn_get_checkable, 0},\
+    {"btn_get_layout", luat_lv_btn_get_layout, 0},\
+    {"btn_get_fit_left", luat_lv_btn_get_fit_left, 0},\
+    {"btn_get_fit_right", luat_lv_btn_get_fit_right, 0},\
+    {"btn_get_fit_top", luat_lv_btn_get_fit_top, 0},\
+    {"btn_get_fit_bottom", luat_lv_btn_get_fit_bottom, 0},\
+
+// prefix lv_widgets lv_btnmatrix
+int luat_lv_btnmatrix_create(lua_State *L);
+int luat_lv_btnmatrix_set_focused_btn(lua_State *L);
+int luat_lv_btnmatrix_set_recolor(lua_State *L);
+int luat_lv_btnmatrix_set_btn_ctrl(lua_State *L);
+int luat_lv_btnmatrix_clear_btn_ctrl(lua_State *L);
+int luat_lv_btnmatrix_set_btn_ctrl_all(lua_State *L);
+int luat_lv_btnmatrix_clear_btn_ctrl_all(lua_State *L);
+int luat_lv_btnmatrix_set_btn_width(lua_State *L);
+int luat_lv_btnmatrix_set_one_check(lua_State *L);
+int luat_lv_btnmatrix_set_align(lua_State *L);
+int luat_lv_btnmatrix_get_recolor(lua_State *L);
+int luat_lv_btnmatrix_get_active_btn(lua_State *L);
+int luat_lv_btnmatrix_get_active_btn_text(lua_State *L);
+int luat_lv_btnmatrix_get_focused_btn(lua_State *L);
+int luat_lv_btnmatrix_get_btn_text(lua_State *L);
+int luat_lv_btnmatrix_get_btn_ctrl(lua_State *L);
+int luat_lv_btnmatrix_get_one_check(lua_State *L);
+int luat_lv_btnmatrix_get_align(lua_State *L);
+
+#define LUAT_LV_BTNMATRIX_RLT     {"btnmatrix_create", luat_lv_btnmatrix_create, 0},\
+    {"btnmatrix_set_focused_btn", luat_lv_btnmatrix_set_focused_btn, 0},\
+    {"btnmatrix_set_recolor", luat_lv_btnmatrix_set_recolor, 0},\
+    {"btnmatrix_set_btn_ctrl", luat_lv_btnmatrix_set_btn_ctrl, 0},\
+    {"btnmatrix_clear_btn_ctrl", luat_lv_btnmatrix_clear_btn_ctrl, 0},\
+    {"btnmatrix_set_btn_ctrl_all", luat_lv_btnmatrix_set_btn_ctrl_all, 0},\
+    {"btnmatrix_clear_btn_ctrl_all", luat_lv_btnmatrix_clear_btn_ctrl_all, 0},\
+    {"btnmatrix_set_btn_width", luat_lv_btnmatrix_set_btn_width, 0},\
+    {"btnmatrix_set_one_check", luat_lv_btnmatrix_set_one_check, 0},\
+    {"btnmatrix_set_align", luat_lv_btnmatrix_set_align, 0},\
+    {"btnmatrix_get_recolor", luat_lv_btnmatrix_get_recolor, 0},\
+    {"btnmatrix_get_active_btn", luat_lv_btnmatrix_get_active_btn, 0},\
+    {"btnmatrix_get_active_btn_text", luat_lv_btnmatrix_get_active_btn_text, 0},\
+    {"btnmatrix_get_focused_btn", luat_lv_btnmatrix_get_focused_btn, 0},\
+    {"btnmatrix_get_btn_text", luat_lv_btnmatrix_get_btn_text, 0},\
+    {"btnmatrix_get_btn_ctrl", luat_lv_btnmatrix_get_btn_ctrl, 0},\
+    {"btnmatrix_get_one_check", luat_lv_btnmatrix_get_one_check, 0},\
+    {"btnmatrix_get_align", luat_lv_btnmatrix_get_align, 0},\
+
+// prefix lv_widgets lv_calendar
+int luat_lv_calendar_create(lua_State *L);
+int luat_lv_calendar_set_today_date(lua_State *L);
+int luat_lv_calendar_set_showed_date(lua_State *L);
+int luat_lv_calendar_get_today_date(lua_State *L);
+int luat_lv_calendar_get_showed_date(lua_State *L);
+int luat_lv_calendar_get_pressed_date(lua_State *L);
+int luat_lv_calendar_get_highlighted_dates(lua_State *L);
+int luat_lv_calendar_get_highlighted_dates_num(lua_State *L);
+int luat_lv_calendar_get_day_of_week(lua_State *L);
+
+#define LUAT_LV_CALENDAR_RLT     {"calendar_create", luat_lv_calendar_create, 0},\
+    {"calendar_set_today_date", luat_lv_calendar_set_today_date, 0},\
+    {"calendar_set_showed_date", luat_lv_calendar_set_showed_date, 0},\
+    {"calendar_get_today_date", luat_lv_calendar_get_today_date, 0},\
+    {"calendar_get_showed_date", luat_lv_calendar_get_showed_date, 0},\
+    {"calendar_get_pressed_date", luat_lv_calendar_get_pressed_date, 0},\
+    {"calendar_get_highlighted_dates", luat_lv_calendar_get_highlighted_dates, 0},\
+    {"calendar_get_highlighted_dates_num", luat_lv_calendar_get_highlighted_dates_num, 0},\
+    {"calendar_get_day_of_week", luat_lv_calendar_get_day_of_week, 0},\
+
+// prefix lv_widgets lv_canvas
+int luat_lv_canvas_create(lua_State *L);
+int luat_lv_canvas_set_buffer(lua_State *L);
+int luat_lv_canvas_set_px(lua_State *L);
+int luat_lv_canvas_set_palette(lua_State *L);
+int luat_lv_canvas_get_px(lua_State *L);
+int luat_lv_canvas_get_img(lua_State *L);
+int luat_lv_canvas_copy_buf(lua_State *L);
+int luat_lv_canvas_transform(lua_State *L);
+int luat_lv_canvas_blur_hor(lua_State *L);
+int luat_lv_canvas_blur_ver(lua_State *L);
+int luat_lv_canvas_fill_bg(lua_State *L);
+int luat_lv_canvas_draw_rect(lua_State *L);
+int luat_lv_canvas_draw_text(lua_State *L);
+int luat_lv_canvas_draw_img(lua_State *L);
+int luat_lv_canvas_draw_arc(lua_State *L);
+
+#define LUAT_LV_CANVAS_RLT     {"canvas_create", luat_lv_canvas_create, 0},\
+    {"canvas_set_buffer", luat_lv_canvas_set_buffer, 0},\
+    {"canvas_set_px", luat_lv_canvas_set_px, 0},\
+    {"canvas_set_palette", luat_lv_canvas_set_palette, 0},\
+    {"canvas_get_px", luat_lv_canvas_get_px, 0},\
+    {"canvas_get_img", luat_lv_canvas_get_img, 0},\
+    {"canvas_copy_buf", luat_lv_canvas_copy_buf, 0},\
+    {"canvas_transform", luat_lv_canvas_transform, 0},\
+    {"canvas_blur_hor", luat_lv_canvas_blur_hor, 0},\
+    {"canvas_blur_ver", luat_lv_canvas_blur_ver, 0},\
+    {"canvas_fill_bg", luat_lv_canvas_fill_bg, 0},\
+    {"canvas_draw_rect", luat_lv_canvas_draw_rect, 0},\
+    {"canvas_draw_text", luat_lv_canvas_draw_text, 0},\
+    {"canvas_draw_img", luat_lv_canvas_draw_img, 0},\
+    {"canvas_draw_arc", luat_lv_canvas_draw_arc, 0},\
+
+// prefix lv_widgets lv_chart
+int luat_lv_chart_create(lua_State *L);
+int luat_lv_chart_add_series(lua_State *L);
+int luat_lv_chart_remove_series(lua_State *L);
+int luat_lv_chart_add_cursor(lua_State *L);
+int luat_lv_chart_clear_series(lua_State *L);
+int luat_lv_chart_hide_series(lua_State *L);
+int luat_lv_chart_set_div_line_count(lua_State *L);
+int luat_lv_chart_set_y_range(lua_State *L);
+int luat_lv_chart_set_type(lua_State *L);
+int luat_lv_chart_set_point_count(lua_State *L);
+int luat_lv_chart_init_points(lua_State *L);
+int luat_lv_chart_set_next(lua_State *L);
+int luat_lv_chart_set_update_mode(lua_State *L);
+int luat_lv_chart_set_x_tick_length(lua_State *L);
+int luat_lv_chart_set_y_tick_length(lua_State *L);
+int luat_lv_chart_set_secondary_y_tick_length(lua_State *L);
+int luat_lv_chart_set_x_tick_texts(lua_State *L);
+int luat_lv_chart_set_secondary_y_tick_texts(lua_State *L);
+int luat_lv_chart_set_y_tick_texts(lua_State *L);
+int luat_lv_chart_set_x_start_point(lua_State *L);
+int luat_lv_chart_set_point_id(lua_State *L);
+int luat_lv_chart_set_series_axis(lua_State *L);
+int luat_lv_chart_set_cursor_point(lua_State *L);
+int luat_lv_chart_get_type(lua_State *L);
+int luat_lv_chart_get_point_count(lua_State *L);
+int luat_lv_chart_get_x_start_point(lua_State *L);
+int luat_lv_chart_get_point_id(lua_State *L);
+int luat_lv_chart_get_series_axis(lua_State *L);
+int luat_lv_chart_get_series_area(lua_State *L);
+int luat_lv_chart_get_cursor_point(lua_State *L);
+int luat_lv_chart_get_nearest_index_from_coord(lua_State *L);
+int luat_lv_chart_get_x_from_index(lua_State *L);
+int luat_lv_chart_get_y_from_index(lua_State *L);
+int luat_lv_chart_refresh(lua_State *L);
+
+#define LUAT_LV_CHART_RLT     {"chart_create", luat_lv_chart_create, 0},\
+    {"chart_add_series", luat_lv_chart_add_series, 0},\
+    {"chart_remove_series", luat_lv_chart_remove_series, 0},\
+    {"chart_add_cursor", luat_lv_chart_add_cursor, 0},\
+    {"chart_clear_series", luat_lv_chart_clear_series, 0},\
+    {"chart_hide_series", luat_lv_chart_hide_series, 0},\
+    {"chart_set_div_line_count", luat_lv_chart_set_div_line_count, 0},\
+    {"chart_set_y_range", luat_lv_chart_set_y_range, 0},\
+    {"chart_set_type", luat_lv_chart_set_type, 0},\
+    {"chart_set_point_count", luat_lv_chart_set_point_count, 0},\
+    {"chart_init_points", luat_lv_chart_init_points, 0},\
+    {"chart_set_next", luat_lv_chart_set_next, 0},\
+    {"chart_set_update_mode", luat_lv_chart_set_update_mode, 0},\
+    {"chart_set_x_tick_length", luat_lv_chart_set_x_tick_length, 0},\
+    {"chart_set_y_tick_length", luat_lv_chart_set_y_tick_length, 0},\
+    {"chart_set_secondary_y_tick_length", luat_lv_chart_set_secondary_y_tick_length, 0},\
+    {"chart_set_x_tick_texts", luat_lv_chart_set_x_tick_texts, 0},\
+    {"chart_set_secondary_y_tick_texts", luat_lv_chart_set_secondary_y_tick_texts, 0},\
+    {"chart_set_y_tick_texts", luat_lv_chart_set_y_tick_texts, 0},\
+    {"chart_set_x_start_point", luat_lv_chart_set_x_start_point, 0},\
+    {"chart_set_point_id", luat_lv_chart_set_point_id, 0},\
+    {"chart_set_series_axis", luat_lv_chart_set_series_axis, 0},\
+    {"chart_set_cursor_point", luat_lv_chart_set_cursor_point, 0},\
+    {"chart_get_type", luat_lv_chart_get_type, 0},\
+    {"chart_get_point_count", luat_lv_chart_get_point_count, 0},\
+    {"chart_get_x_start_point", luat_lv_chart_get_x_start_point, 0},\
+    {"chart_get_point_id", luat_lv_chart_get_point_id, 0},\
+    {"chart_get_series_axis", luat_lv_chart_get_series_axis, 0},\
+    {"chart_get_series_area", luat_lv_chart_get_series_area, 0},\
+    {"chart_get_cursor_point", luat_lv_chart_get_cursor_point, 0},\
+    {"chart_get_nearest_index_from_coord", luat_lv_chart_get_nearest_index_from_coord, 0},\
+    {"chart_get_x_from_index", luat_lv_chart_get_x_from_index, 0},\
+    {"chart_get_y_from_index", luat_lv_chart_get_y_from_index, 0},\
+    {"chart_refresh", luat_lv_chart_refresh, 0},\
+
+// prefix lv_widgets lv_checkbox
+int luat_lv_checkbox_create(lua_State *L);
+int luat_lv_checkbox_set_text(lua_State *L);
+int luat_lv_checkbox_set_text_static(lua_State *L);
+int luat_lv_checkbox_set_checked(lua_State *L);
+int luat_lv_checkbox_set_disabled(lua_State *L);
+int luat_lv_checkbox_set_state(lua_State *L);
+int luat_lv_checkbox_get_text(lua_State *L);
+int luat_lv_checkbox_is_checked(lua_State *L);
+int luat_lv_checkbox_is_inactive(lua_State *L);
+int luat_lv_checkbox_get_state(lua_State *L);
+
+#define LUAT_LV_CHECKBOX_RLT     {"checkbox_create", luat_lv_checkbox_create, 0},\
+    {"checkbox_set_text", luat_lv_checkbox_set_text, 0},\
+    {"checkbox_set_text_static", luat_lv_checkbox_set_text_static, 0},\
+    {"checkbox_set_checked", luat_lv_checkbox_set_checked, 0},\
+    {"checkbox_set_disabled", luat_lv_checkbox_set_disabled, 0},\
+    {"checkbox_set_state", luat_lv_checkbox_set_state, 0},\
+    {"checkbox_get_text", luat_lv_checkbox_get_text, 0},\
+    {"checkbox_is_checked", luat_lv_checkbox_is_checked, 0},\
+    {"checkbox_is_inactive", luat_lv_checkbox_is_inactive, 0},\
+    {"checkbox_get_state", luat_lv_checkbox_get_state, 0},\
+
+// prefix lv_widgets lv_cont
+int luat_lv_cont_create(lua_State *L);
+int luat_lv_cont_set_layout(lua_State *L);
+int luat_lv_cont_set_fit4(lua_State *L);
+int luat_lv_cont_set_fit2(lua_State *L);
+int luat_lv_cont_set_fit(lua_State *L);
+int luat_lv_cont_get_layout(lua_State *L);
+int luat_lv_cont_get_fit_left(lua_State *L);
+int luat_lv_cont_get_fit_right(lua_State *L);
+int luat_lv_cont_get_fit_top(lua_State *L);
+int luat_lv_cont_get_fit_bottom(lua_State *L);
+
+#define LUAT_LV_CONT_RLT     {"cont_create", luat_lv_cont_create, 0},\
+    {"cont_set_layout", luat_lv_cont_set_layout, 0},\
+    {"cont_set_fit4", luat_lv_cont_set_fit4, 0},\
+    {"cont_set_fit2", luat_lv_cont_set_fit2, 0},\
+    {"cont_set_fit", luat_lv_cont_set_fit, 0},\
+    {"cont_get_layout", luat_lv_cont_get_layout, 0},\
+    {"cont_get_fit_left", luat_lv_cont_get_fit_left, 0},\
+    {"cont_get_fit_right", luat_lv_cont_get_fit_right, 0},\
+    {"cont_get_fit_top", luat_lv_cont_get_fit_top, 0},\
+    {"cont_get_fit_bottom", luat_lv_cont_get_fit_bottom, 0},\
+
+// prefix lv_widgets lv_cpicker
+int luat_lv_cpicker_create(lua_State *L);
+int luat_lv_cpicker_set_type(lua_State *L);
+int luat_lv_cpicker_set_hue(lua_State *L);
+int luat_lv_cpicker_set_saturation(lua_State *L);
+int luat_lv_cpicker_set_value(lua_State *L);
+int luat_lv_cpicker_set_hsv(lua_State *L);
+int luat_lv_cpicker_set_color(lua_State *L);
+int luat_lv_cpicker_set_color_mode(lua_State *L);
+int luat_lv_cpicker_set_color_mode_fixed(lua_State *L);
+int luat_lv_cpicker_set_knob_colored(lua_State *L);
+int luat_lv_cpicker_get_color_mode(lua_State *L);
+int luat_lv_cpicker_get_color_mode_fixed(lua_State *L);
+int luat_lv_cpicker_get_hue(lua_State *L);
+int luat_lv_cpicker_get_saturation(lua_State *L);
+int luat_lv_cpicker_get_value(lua_State *L);
+int luat_lv_cpicker_get_hsv(lua_State *L);
+int luat_lv_cpicker_get_color(lua_State *L);
+int luat_lv_cpicker_get_knob_colored(lua_State *L);
+
+#define LUAT_LV_CPICKER_RLT     {"cpicker_create", luat_lv_cpicker_create, 0},\
+    {"cpicker_set_type", luat_lv_cpicker_set_type, 0},\
+    {"cpicker_set_hue", luat_lv_cpicker_set_hue, 0},\
+    {"cpicker_set_saturation", luat_lv_cpicker_set_saturation, 0},\
+    {"cpicker_set_value", luat_lv_cpicker_set_value, 0},\
+    {"cpicker_set_hsv", luat_lv_cpicker_set_hsv, 0},\
+    {"cpicker_set_color", luat_lv_cpicker_set_color, 0},\
+    {"cpicker_set_color_mode", luat_lv_cpicker_set_color_mode, 0},\
+    {"cpicker_set_color_mode_fixed", luat_lv_cpicker_set_color_mode_fixed, 0},\
+    {"cpicker_set_knob_colored", luat_lv_cpicker_set_knob_colored, 0},\
+    {"cpicker_get_color_mode", luat_lv_cpicker_get_color_mode, 0},\
+    {"cpicker_get_color_mode_fixed", luat_lv_cpicker_get_color_mode_fixed, 0},\
+    {"cpicker_get_hue", luat_lv_cpicker_get_hue, 0},\
+    {"cpicker_get_saturation", luat_lv_cpicker_get_saturation, 0},\
+    {"cpicker_get_value", luat_lv_cpicker_get_value, 0},\
+    {"cpicker_get_hsv", luat_lv_cpicker_get_hsv, 0},\
+    {"cpicker_get_color", luat_lv_cpicker_get_color, 0},\
+    {"cpicker_get_knob_colored", luat_lv_cpicker_get_knob_colored, 0},\
+
+// prefix lv_widgets lv_dropdown
+int luat_lv_dropdown_create(lua_State *L);
+int luat_lv_dropdown_set_text(lua_State *L);
+int luat_lv_dropdown_clear_options(lua_State *L);
+int luat_lv_dropdown_set_options(lua_State *L);
+int luat_lv_dropdown_set_options_static(lua_State *L);
+int luat_lv_dropdown_add_option(lua_State *L);
+int luat_lv_dropdown_set_selected(lua_State *L);
+int luat_lv_dropdown_set_dir(lua_State *L);
+int luat_lv_dropdown_set_max_height(lua_State *L);
+int luat_lv_dropdown_set_symbol(lua_State *L);
+int luat_lv_dropdown_set_show_selected(lua_State *L);
+int luat_lv_dropdown_get_text(lua_State *L);
+int luat_lv_dropdown_get_options(lua_State *L);
+int luat_lv_dropdown_get_selected(lua_State *L);
+int luat_lv_dropdown_get_option_cnt(lua_State *L);
+int luat_lv_dropdown_get_selected_str(lua_State *L);
+int luat_lv_dropdown_get_max_height(lua_State *L);
+int luat_lv_dropdown_get_symbol(lua_State *L);
+int luat_lv_dropdown_get_dir(lua_State *L);
+int luat_lv_dropdown_get_show_selected(lua_State *L);
+int luat_lv_dropdown_open(lua_State *L);
+int luat_lv_dropdown_close(lua_State *L);
+
+#define LUAT_LV_DROPDOWN_RLT     {"dropdown_create", luat_lv_dropdown_create, 0},\
+    {"dropdown_set_text", luat_lv_dropdown_set_text, 0},\
+    {"dropdown_clear_options", luat_lv_dropdown_clear_options, 0},\
+    {"dropdown_set_options", luat_lv_dropdown_set_options, 0},\
+    {"dropdown_set_options_static", luat_lv_dropdown_set_options_static, 0},\
+    {"dropdown_add_option", luat_lv_dropdown_add_option, 0},\
+    {"dropdown_set_selected", luat_lv_dropdown_set_selected, 0},\
+    {"dropdown_set_dir", luat_lv_dropdown_set_dir, 0},\
+    {"dropdown_set_max_height", luat_lv_dropdown_set_max_height, 0},\
+    {"dropdown_set_symbol", luat_lv_dropdown_set_symbol, 0},\
+    {"dropdown_set_show_selected", luat_lv_dropdown_set_show_selected, 0},\
+    {"dropdown_get_text", luat_lv_dropdown_get_text, 0},\
+    {"dropdown_get_options", luat_lv_dropdown_get_options, 0},\
+    {"dropdown_get_selected", luat_lv_dropdown_get_selected, 0},\
+    {"dropdown_get_option_cnt", luat_lv_dropdown_get_option_cnt, 0},\
+    {"dropdown_get_selected_str", luat_lv_dropdown_get_selected_str, 0},\
+    {"dropdown_get_max_height", luat_lv_dropdown_get_max_height, 0},\
+    {"dropdown_get_symbol", luat_lv_dropdown_get_symbol, 0},\
+    {"dropdown_get_dir", luat_lv_dropdown_get_dir, 0},\
+    {"dropdown_get_show_selected", luat_lv_dropdown_get_show_selected, 0},\
+    {"dropdown_open", luat_lv_dropdown_open, 0},\
+    {"dropdown_close", luat_lv_dropdown_close, 0},\
+
+// prefix lv_widgets lv_gauge
+int luat_lv_gauge_create(lua_State *L);
+int luat_lv_gauge_set_value(lua_State *L);
+int luat_lv_gauge_set_range(lua_State *L);
+int luat_lv_gauge_set_critical_value(lua_State *L);
+int luat_lv_gauge_set_scale(lua_State *L);
+int luat_lv_gauge_set_angle_offset(lua_State *L);
+int luat_lv_gauge_set_needle_img(lua_State *L);
+int luat_lv_gauge_get_value(lua_State *L);
+int luat_lv_gauge_get_needle_count(lua_State *L);
+int luat_lv_gauge_get_min_value(lua_State *L);
+int luat_lv_gauge_get_max_value(lua_State *L);
+int luat_lv_gauge_get_critical_value(lua_State *L);
+int luat_lv_gauge_get_label_count(lua_State *L);
+int luat_lv_gauge_get_line_count(lua_State *L);
+int luat_lv_gauge_get_scale_angle(lua_State *L);
+int luat_lv_gauge_get_angle_offset(lua_State *L);
+int luat_lv_gauge_get_needle_img(lua_State *L);
+int luat_lv_gauge_get_needle_img_pivot_x(lua_State *L);
+int luat_lv_gauge_get_needle_img_pivot_y(lua_State *L);
+
+#define LUAT_LV_GAUGE_RLT     {"gauge_create", luat_lv_gauge_create, 0},\
+    {"gauge_set_value", luat_lv_gauge_set_value, 0},\
+    {"gauge_set_range", luat_lv_gauge_set_range, 0},\
+    {"gauge_set_critical_value", luat_lv_gauge_set_critical_value, 0},\
+    {"gauge_set_scale", luat_lv_gauge_set_scale, 0},\
+    {"gauge_set_angle_offset", luat_lv_gauge_set_angle_offset, 0},\
+    {"gauge_set_needle_img", luat_lv_gauge_set_needle_img, 0},\
+    {"gauge_get_value", luat_lv_gauge_get_value, 0},\
+    {"gauge_get_needle_count", luat_lv_gauge_get_needle_count, 0},\
+    {"gauge_get_min_value", luat_lv_gauge_get_min_value, 0},\
+    {"gauge_get_max_value", luat_lv_gauge_get_max_value, 0},\
+    {"gauge_get_critical_value", luat_lv_gauge_get_critical_value, 0},\
+    {"gauge_get_label_count", luat_lv_gauge_get_label_count, 0},\
+    {"gauge_get_line_count", luat_lv_gauge_get_line_count, 0},\
+    {"gauge_get_scale_angle", luat_lv_gauge_get_scale_angle, 0},\
+    {"gauge_get_angle_offset", luat_lv_gauge_get_angle_offset, 0},\
+    {"gauge_get_needle_img", luat_lv_gauge_get_needle_img, 0},\
+    {"gauge_get_needle_img_pivot_x", luat_lv_gauge_get_needle_img_pivot_x, 0},\
+    {"gauge_get_needle_img_pivot_y", luat_lv_gauge_get_needle_img_pivot_y, 0},\
+
+// prefix lv_widgets lv_img
+int luat_lv_img_buf_alloc(lua_State *L);
+int luat_lv_img_buf_get_px_color(lua_State *L);
+int luat_lv_img_buf_get_px_alpha(lua_State *L);
+int luat_lv_img_buf_set_px_color(lua_State *L);
+int luat_lv_img_buf_set_px_alpha(lua_State *L);
+int luat_lv_img_buf_set_palette(lua_State *L);
+int luat_lv_img_buf_free(lua_State *L);
+int luat_lv_img_buf_get_img_size(lua_State *L);
+int luat_lv_img_decoder_get_info(lua_State *L);
+int luat_lv_img_decoder_open(lua_State *L);
+int luat_lv_img_decoder_read_line(lua_State *L);
+int luat_lv_img_decoder_close(lua_State *L);
+int luat_lv_img_decoder_create(lua_State *L);
+int luat_lv_img_decoder_delete(lua_State *L);
+int luat_lv_img_decoder_built_in_info(lua_State *L);
+int luat_lv_img_decoder_built_in_open(lua_State *L);
+int luat_lv_img_decoder_built_in_read_line(lua_State *L);
+int luat_lv_img_decoder_built_in_close(lua_State *L);
+int luat_lv_img_src_get_type(lua_State *L);
+int luat_lv_img_cf_get_px_size(lua_State *L);
+int luat_lv_img_cf_is_chroma_keyed(lua_State *L);
+int luat_lv_img_cf_has_alpha(lua_State *L);
+int luat_lv_img_create(lua_State *L);
+int luat_lv_img_set_src(lua_State *L);
+int luat_lv_img_set_auto_size(lua_State *L);
+int luat_lv_img_set_offset_x(lua_State *L);
+int luat_lv_img_set_offset_y(lua_State *L);
+int luat_lv_img_set_pivot(lua_State *L);
+int luat_lv_img_set_angle(lua_State *L);
+int luat_lv_img_set_zoom(lua_State *L);
+int luat_lv_img_set_antialias(lua_State *L);
+int luat_lv_img_get_src(lua_State *L);
+int luat_lv_img_get_file_name(lua_State *L);
+int luat_lv_img_get_auto_size(lua_State *L);
+int luat_lv_img_get_offset_x(lua_State *L);
+int luat_lv_img_get_offset_y(lua_State *L);
+int luat_lv_img_get_angle(lua_State *L);
+int luat_lv_img_get_pivot(lua_State *L);
+int luat_lv_img_get_zoom(lua_State *L);
+int luat_lv_img_get_antialias(lua_State *L);
+
+#define LUAT_LV_IMG_RLT     {"img_buf_alloc", luat_lv_img_buf_alloc, 0},\
+    {"img_buf_get_px_color", luat_lv_img_buf_get_px_color, 0},\
+    {"img_buf_get_px_alpha", luat_lv_img_buf_get_px_alpha, 0},\
+    {"img_buf_set_px_color", luat_lv_img_buf_set_px_color, 0},\
+    {"img_buf_set_px_alpha", luat_lv_img_buf_set_px_alpha, 0},\
+    {"img_buf_set_palette", luat_lv_img_buf_set_palette, 0},\
+    {"img_buf_free", luat_lv_img_buf_free, 0},\
+    {"img_buf_get_img_size", luat_lv_img_buf_get_img_size, 0},\
+    {"img_decoder_get_info", luat_lv_img_decoder_get_info, 0},\
+    {"img_decoder_open", luat_lv_img_decoder_open, 0},\
+    {"img_decoder_read_line", luat_lv_img_decoder_read_line, 0},\
+    {"img_decoder_close", luat_lv_img_decoder_close, 0},\
+    {"img_decoder_create", luat_lv_img_decoder_create, 0},\
+    {"img_decoder_delete", luat_lv_img_decoder_delete, 0},\
+    {"img_decoder_built_in_info", luat_lv_img_decoder_built_in_info, 0},\
+    {"img_decoder_built_in_open", luat_lv_img_decoder_built_in_open, 0},\
+    {"img_decoder_built_in_read_line", luat_lv_img_decoder_built_in_read_line, 0},\
+    {"img_decoder_built_in_close", luat_lv_img_decoder_built_in_close, 0},\
+    {"img_src_get_type", luat_lv_img_src_get_type, 0},\
+    {"img_cf_get_px_size", luat_lv_img_cf_get_px_size, 0},\
+    {"img_cf_is_chroma_keyed", luat_lv_img_cf_is_chroma_keyed, 0},\
+    {"img_cf_has_alpha", luat_lv_img_cf_has_alpha, 0},\
+    {"img_create", luat_lv_img_create, 0},\
+    {"img_set_src", luat_lv_img_set_src, 0},\
+    {"img_set_auto_size", luat_lv_img_set_auto_size, 0},\
+    {"img_set_offset_x", luat_lv_img_set_offset_x, 0},\
+    {"img_set_offset_y", luat_lv_img_set_offset_y, 0},\
+    {"img_set_pivot", luat_lv_img_set_pivot, 0},\
+    {"img_set_angle", luat_lv_img_set_angle, 0},\
+    {"img_set_zoom", luat_lv_img_set_zoom, 0},\
+    {"img_set_antialias", luat_lv_img_set_antialias, 0},\
+    {"img_get_src", luat_lv_img_get_src, 0},\
+    {"img_get_file_name", luat_lv_img_get_file_name, 0},\
+    {"img_get_auto_size", luat_lv_img_get_auto_size, 0},\
+    {"img_get_offset_x", luat_lv_img_get_offset_x, 0},\
+    {"img_get_offset_y", luat_lv_img_get_offset_y, 0},\
+    {"img_get_angle", luat_lv_img_get_angle, 0},\
+    {"img_get_pivot", luat_lv_img_get_pivot, 0},\
+    {"img_get_zoom", luat_lv_img_get_zoom, 0},\
+    {"img_get_antialias", luat_lv_img_get_antialias, 0},\
+
+// prefix lv_widgets lv_imgbtn
+int luat_lv_imgbtn_create(lua_State *L);
+int luat_lv_imgbtn_set_src(lua_State *L);
+int luat_lv_imgbtn_set_state(lua_State *L);
+int luat_lv_imgbtn_toggle(lua_State *L);
+int luat_lv_imgbtn_set_checkable(lua_State *L);
+int luat_lv_imgbtn_get_src(lua_State *L);
+int luat_lv_imgbtn_get_state(lua_State *L);
+int luat_lv_imgbtn_get_checkable(lua_State *L);
+
+#define LUAT_LV_IMGBTN_RLT     {"imgbtn_create", luat_lv_imgbtn_create, 0},\
+    {"imgbtn_set_src", luat_lv_imgbtn_set_src, 0},\
+    {"imgbtn_set_state", luat_lv_imgbtn_set_state, 0},\
+    {"imgbtn_toggle", luat_lv_imgbtn_toggle, 0},\
+    {"imgbtn_set_checkable", luat_lv_imgbtn_set_checkable, 0},\
+    {"imgbtn_get_src", luat_lv_imgbtn_get_src, 0},\
+    {"imgbtn_get_state", luat_lv_imgbtn_get_state, 0},\
+    {"imgbtn_get_checkable", luat_lv_imgbtn_get_checkable, 0},\
+
+// prefix lv_widgets lv_keyboard
+int luat_lv_keyboard_create(lua_State *L);
+int luat_lv_keyboard_set_textarea(lua_State *L);
+int luat_lv_keyboard_set_mode(lua_State *L);
+int luat_lv_keyboard_set_cursor_manage(lua_State *L);
+int luat_lv_keyboard_get_textarea(lua_State *L);
+int luat_lv_keyboard_get_mode(lua_State *L);
+int luat_lv_keyboard_get_cursor_manage(lua_State *L);
+
+#define LUAT_LV_KEYBOARD_RLT     {"keyboard_create", luat_lv_keyboard_create, 0},\
+    {"keyboard_set_textarea", luat_lv_keyboard_set_textarea, 0},\
+    {"keyboard_set_mode", luat_lv_keyboard_set_mode, 0},\
+    {"keyboard_set_cursor_manage", luat_lv_keyboard_set_cursor_manage, 0},\
+    {"keyboard_get_textarea", luat_lv_keyboard_get_textarea, 0},\
+    {"keyboard_get_mode", luat_lv_keyboard_get_mode, 0},\
+    {"keyboard_get_cursor_manage", luat_lv_keyboard_get_cursor_manage, 0},\
+
+// prefix lv_widgets lv_label
+int luat_lv_label_create(lua_State *L);
+int luat_lv_label_set_text(lua_State *L);
+int luat_lv_label_set_text_static(lua_State *L);
+int luat_lv_label_set_long_mode(lua_State *L);
+int luat_lv_label_set_align(lua_State *L);
+int luat_lv_label_set_recolor(lua_State *L);
+int luat_lv_label_set_anim_speed(lua_State *L);
+int luat_lv_label_set_text_sel_start(lua_State *L);
+int luat_lv_label_set_text_sel_end(lua_State *L);
+int luat_lv_label_get_text(lua_State *L);
+int luat_lv_label_get_long_mode(lua_State *L);
+int luat_lv_label_get_align(lua_State *L);
+int luat_lv_label_get_recolor(lua_State *L);
+int luat_lv_label_get_anim_speed(lua_State *L);
+int luat_lv_label_get_letter_pos(lua_State *L);
+int luat_lv_label_get_letter_on(lua_State *L);
+int luat_lv_label_is_char_under_pos(lua_State *L);
+int luat_lv_label_get_text_sel_start(lua_State *L);
+int luat_lv_label_get_text_sel_end(lua_State *L);
+int luat_lv_label_get_style(lua_State *L);
+int luat_lv_label_ins_text(lua_State *L);
+int luat_lv_label_cut_text(lua_State *L);
+int luat_lv_label_refr_text(lua_State *L);
+
+#define LUAT_LV_LABEL_RLT     {"label_create", luat_lv_label_create, 0},\
+    {"label_set_text", luat_lv_label_set_text, 0},\
+    {"label_set_text_static", luat_lv_label_set_text_static, 0},\
+    {"label_set_long_mode", luat_lv_label_set_long_mode, 0},\
+    {"label_set_align", luat_lv_label_set_align, 0},\
+    {"label_set_recolor", luat_lv_label_set_recolor, 0},\
+    {"label_set_anim_speed", luat_lv_label_set_anim_speed, 0},\
+    {"label_set_text_sel_start", luat_lv_label_set_text_sel_start, 0},\
+    {"label_set_text_sel_end", luat_lv_label_set_text_sel_end, 0},\
+    {"label_get_text", luat_lv_label_get_text, 0},\
+    {"label_get_long_mode", luat_lv_label_get_long_mode, 0},\
+    {"label_get_align", luat_lv_label_get_align, 0},\
+    {"label_get_recolor", luat_lv_label_get_recolor, 0},\
+    {"label_get_anim_speed", luat_lv_label_get_anim_speed, 0},\
+    {"label_get_letter_pos", luat_lv_label_get_letter_pos, 0},\
+    {"label_get_letter_on", luat_lv_label_get_letter_on, 0},\
+    {"label_is_char_under_pos", luat_lv_label_is_char_under_pos, 0},\
+    {"label_get_text_sel_start", luat_lv_label_get_text_sel_start, 0},\
+    {"label_get_text_sel_end", luat_lv_label_get_text_sel_end, 0},\
+    {"label_get_style", luat_lv_label_get_style, 0},\
+    {"label_ins_text", luat_lv_label_ins_text, 0},\
+    {"label_cut_text", luat_lv_label_cut_text, 0},\
+    {"label_refr_text", luat_lv_label_refr_text, 0},\
+
+// prefix lv_widgets lv_led
+int luat_lv_led_create(lua_State *L);
+int luat_lv_led_set_bright(lua_State *L);
+int luat_lv_led_on(lua_State *L);
+int luat_lv_led_off(lua_State *L);
+int luat_lv_led_toggle(lua_State *L);
+int luat_lv_led_get_bright(lua_State *L);
+
+#define LUAT_LV_LED_RLT     {"led_create", luat_lv_led_create, 0},\
+    {"led_set_bright", luat_lv_led_set_bright, 0},\
+    {"led_on", luat_lv_led_on, 0},\
+    {"led_off", luat_lv_led_off, 0},\
+    {"led_toggle", luat_lv_led_toggle, 0},\
+    {"led_get_bright", luat_lv_led_get_bright, 0},\
+
+// prefix lv_widgets lv_line
+int luat_lv_line_create(lua_State *L);
+int luat_lv_line_set_auto_size(lua_State *L);
+int luat_lv_line_set_y_invert(lua_State *L);
+int luat_lv_line_get_auto_size(lua_State *L);
+int luat_lv_line_get_y_invert(lua_State *L);
+
+#define LUAT_LV_LINE_RLT     {"line_create", luat_lv_line_create, 0},\
+    {"line_set_auto_size", luat_lv_line_set_auto_size, 0},\
+    {"line_set_y_invert", luat_lv_line_set_y_invert, 0},\
+    {"line_get_auto_size", luat_lv_line_get_auto_size, 0},\
+    {"line_get_y_invert", luat_lv_line_get_y_invert, 0},\
+
+// prefix lv_widgets lv_linemeter
+int luat_lv_linemeter_create(lua_State *L);
+int luat_lv_linemeter_set_value(lua_State *L);
+int luat_lv_linemeter_set_range(lua_State *L);
+int luat_lv_linemeter_set_scale(lua_State *L);
+int luat_lv_linemeter_set_angle_offset(lua_State *L);
+int luat_lv_linemeter_set_mirror(lua_State *L);
+int luat_lv_linemeter_get_value(lua_State *L);
+int luat_lv_linemeter_get_min_value(lua_State *L);
+int luat_lv_linemeter_get_max_value(lua_State *L);
+int luat_lv_linemeter_get_line_count(lua_State *L);
+int luat_lv_linemeter_get_scale_angle(lua_State *L);
+int luat_lv_linemeter_get_angle_offset(lua_State *L);
+int luat_lv_linemeter_draw_scale(lua_State *L);
+int luat_lv_linemeter_get_mirror(lua_State *L);
+
+#define LUAT_LV_LINEMETER_RLT     {"linemeter_create", luat_lv_linemeter_create, 0},\
+    {"linemeter_set_value", luat_lv_linemeter_set_value, 0},\
+    {"linemeter_set_range", luat_lv_linemeter_set_range, 0},\
+    {"linemeter_set_scale", luat_lv_linemeter_set_scale, 0},\
+    {"linemeter_set_angle_offset", luat_lv_linemeter_set_angle_offset, 0},\
+    {"linemeter_set_mirror", luat_lv_linemeter_set_mirror, 0},\
+    {"linemeter_get_value", luat_lv_linemeter_get_value, 0},\
+    {"linemeter_get_min_value", luat_lv_linemeter_get_min_value, 0},\
+    {"linemeter_get_max_value", luat_lv_linemeter_get_max_value, 0},\
+    {"linemeter_get_line_count", luat_lv_linemeter_get_line_count, 0},\
+    {"linemeter_get_scale_angle", luat_lv_linemeter_get_scale_angle, 0},\
+    {"linemeter_get_angle_offset", luat_lv_linemeter_get_angle_offset, 0},\
+    {"linemeter_draw_scale", luat_lv_linemeter_draw_scale, 0},\
+    {"linemeter_get_mirror", luat_lv_linemeter_get_mirror, 0},\
+
+// prefix lv_widgets lv_list
+int luat_lv_list_create(lua_State *L);
+int luat_lv_list_clean(lua_State *L);
+int luat_lv_list_add_btn(lua_State *L);
+int luat_lv_list_remove(lua_State *L);
+int luat_lv_list_focus_btn(lua_State *L);
+int luat_lv_list_set_scrollbar_mode(lua_State *L);
+int luat_lv_list_set_scroll_propagation(lua_State *L);
+int luat_lv_list_set_edge_flash(lua_State *L);
+int luat_lv_list_set_anim_time(lua_State *L);
+int luat_lv_list_set_layout(lua_State *L);
+int luat_lv_list_get_btn_text(lua_State *L);
+int luat_lv_list_get_btn_label(lua_State *L);
+int luat_lv_list_get_btn_img(lua_State *L);
+int luat_lv_list_get_prev_btn(lua_State *L);
+int luat_lv_list_get_next_btn(lua_State *L);
+int luat_lv_list_get_btn_index(lua_State *L);
+int luat_lv_list_get_size(lua_State *L);
+int luat_lv_list_get_btn_selected(lua_State *L);
+int luat_lv_list_get_layout(lua_State *L);
+int luat_lv_list_get_scrollbar_mode(lua_State *L);
+int luat_lv_list_get_scroll_propagation(lua_State *L);
+int luat_lv_list_get_edge_flash(lua_State *L);
+int luat_lv_list_get_anim_time(lua_State *L);
+int luat_lv_list_up(lua_State *L);
+int luat_lv_list_down(lua_State *L);
+int luat_lv_list_focus(lua_State *L);
+
+#define LUAT_LV_LIST_RLT     {"list_create", luat_lv_list_create, 0},\
+    {"list_clean", luat_lv_list_clean, 0},\
+    {"list_add_btn", luat_lv_list_add_btn, 0},\
+    {"list_remove", luat_lv_list_remove, 0},\
+    {"list_focus_btn", luat_lv_list_focus_btn, 0},\
+    {"list_set_scrollbar_mode", luat_lv_list_set_scrollbar_mode, 0},\
+    {"list_set_scroll_propagation", luat_lv_list_set_scroll_propagation, 0},\
+    {"list_set_edge_flash", luat_lv_list_set_edge_flash, 0},\
+    {"list_set_anim_time", luat_lv_list_set_anim_time, 0},\
+    {"list_set_layout", luat_lv_list_set_layout, 0},\
+    {"list_get_btn_text", luat_lv_list_get_btn_text, 0},\
+    {"list_get_btn_label", luat_lv_list_get_btn_label, 0},\
+    {"list_get_btn_img", luat_lv_list_get_btn_img, 0},\
+    {"list_get_prev_btn", luat_lv_list_get_prev_btn, 0},\
+    {"list_get_next_btn", luat_lv_list_get_next_btn, 0},\
+    {"list_get_btn_index", luat_lv_list_get_btn_index, 0},\
+    {"list_get_size", luat_lv_list_get_size, 0},\
+    {"list_get_btn_selected", luat_lv_list_get_btn_selected, 0},\
+    {"list_get_layout", luat_lv_list_get_layout, 0},\
+    {"list_get_scrollbar_mode", luat_lv_list_get_scrollbar_mode, 0},\
+    {"list_get_scroll_propagation", luat_lv_list_get_scroll_propagation, 0},\
+    {"list_get_edge_flash", luat_lv_list_get_edge_flash, 0},\
+    {"list_get_anim_time", luat_lv_list_get_anim_time, 0},\
+    {"list_up", luat_lv_list_up, 0},\
+    {"list_down", luat_lv_list_down, 0},\
+    {"list_focus", luat_lv_list_focus, 0},\
+
+// prefix lv_widgets lv_msgbox
+int luat_lv_msgbox_create(lua_State *L);
+int luat_lv_msgbox_set_text(lua_State *L);
+int luat_lv_msgbox_set_anim_time(lua_State *L);
+int luat_lv_msgbox_start_auto_close(lua_State *L);
+int luat_lv_msgbox_stop_auto_close(lua_State *L);
+int luat_lv_msgbox_set_recolor(lua_State *L);
+int luat_lv_msgbox_get_text(lua_State *L);
+int luat_lv_msgbox_get_active_btn(lua_State *L);
+int luat_lv_msgbox_get_active_btn_text(lua_State *L);
+int luat_lv_msgbox_get_anim_time(lua_State *L);
+int luat_lv_msgbox_get_recolor(lua_State *L);
+int luat_lv_msgbox_get_btnmatrix(lua_State *L);
+
+#define LUAT_LV_MSGBOX_RLT     {"msgbox_create", luat_lv_msgbox_create, 0},\
+    {"msgbox_set_text", luat_lv_msgbox_set_text, 0},\
+    {"msgbox_set_anim_time", luat_lv_msgbox_set_anim_time, 0},\
+    {"msgbox_start_auto_close", luat_lv_msgbox_start_auto_close, 0},\
+    {"msgbox_stop_auto_close", luat_lv_msgbox_stop_auto_close, 0},\
+    {"msgbox_set_recolor", luat_lv_msgbox_set_recolor, 0},\
+    {"msgbox_get_text", luat_lv_msgbox_get_text, 0},\
+    {"msgbox_get_active_btn", luat_lv_msgbox_get_active_btn, 0},\
+    {"msgbox_get_active_btn_text", luat_lv_msgbox_get_active_btn_text, 0},\
+    {"msgbox_get_anim_time", luat_lv_msgbox_get_anim_time, 0},\
+    {"msgbox_get_recolor", luat_lv_msgbox_get_recolor, 0},\
+    {"msgbox_get_btnmatrix", luat_lv_msgbox_get_btnmatrix, 0},\
+
+// prefix lv_widgets lv_objmask
+int luat_lv_objmask_create(lua_State *L);
+int luat_lv_objmask_add_mask(lua_State *L);
+int luat_lv_objmask_update_mask(lua_State *L);
+int luat_lv_objmask_remove_mask(lua_State *L);
+
+#define LUAT_LV_OBJMASK_RLT     {"objmask_create", luat_lv_objmask_create, 0},\
+    {"objmask_add_mask", luat_lv_objmask_add_mask, 0},\
+    {"objmask_update_mask", luat_lv_objmask_update_mask, 0},\
+    {"objmask_remove_mask", luat_lv_objmask_remove_mask, 0},\
+
+// prefix lv_widgets lv_page
+int luat_lv_page_create(lua_State *L);
+int luat_lv_page_clean(lua_State *L);
+int luat_lv_page_get_scrollable(lua_State *L);
+int luat_lv_page_get_anim_time(lua_State *L);
+int luat_lv_page_set_scrollbar_mode(lua_State *L);
+int luat_lv_page_set_anim_time(lua_State *L);
+int luat_lv_page_set_scroll_propagation(lua_State *L);
+int luat_lv_page_set_edge_flash(lua_State *L);
+int luat_lv_page_set_scrollable_fit4(lua_State *L);
+int luat_lv_page_set_scrollable_fit2(lua_State *L);
+int luat_lv_page_set_scrollable_fit(lua_State *L);
+int luat_lv_page_set_scrl_width(lua_State *L);
+int luat_lv_page_set_scrl_height(lua_State *L);
+int luat_lv_page_set_scrl_layout(lua_State *L);
+int luat_lv_page_get_scrollbar_mode(lua_State *L);
+int luat_lv_page_get_scroll_propagation(lua_State *L);
+int luat_lv_page_get_edge_flash(lua_State *L);
+int luat_lv_page_get_width_fit(lua_State *L);
+int luat_lv_page_get_height_fit(lua_State *L);
+int luat_lv_page_get_width_grid(lua_State *L);
+int luat_lv_page_get_height_grid(lua_State *L);
+int luat_lv_page_get_scrl_width(lua_State *L);
+int luat_lv_page_get_scrl_height(lua_State *L);
+int luat_lv_page_get_scrl_layout(lua_State *L);
+int luat_lv_page_get_scrl_fit_left(lua_State *L);
+int luat_lv_page_get_scrl_fit_right(lua_State *L);
+int luat_lv_page_get_scrl_fit_top(lua_State *L);
+int luat_lv_page_get_scrl_fit_bottom(lua_State *L);
+int luat_lv_page_on_edge(lua_State *L);
+int luat_lv_page_glue_obj(lua_State *L);
+int luat_lv_page_focus(lua_State *L);
+int luat_lv_page_scroll_hor(lua_State *L);
+int luat_lv_page_scroll_ver(lua_State *L);
+int luat_lv_page_start_edge_flash(lua_State *L);
+
+#define LUAT_LV_PAGE_RLT     {"page_create", luat_lv_page_create, 0},\
+    {"page_clean", luat_lv_page_clean, 0},\
+    {"page_get_scrollable", luat_lv_page_get_scrollable, 0},\
+    {"page_get_anim_time", luat_lv_page_get_anim_time, 0},\
+    {"page_set_scrollbar_mode", luat_lv_page_set_scrollbar_mode, 0},\
+    {"page_set_anim_time", luat_lv_page_set_anim_time, 0},\
+    {"page_set_scroll_propagation", luat_lv_page_set_scroll_propagation, 0},\
+    {"page_set_edge_flash", luat_lv_page_set_edge_flash, 0},\
+    {"page_set_scrollable_fit4", luat_lv_page_set_scrollable_fit4, 0},\
+    {"page_set_scrollable_fit2", luat_lv_page_set_scrollable_fit2, 0},\
+    {"page_set_scrollable_fit", luat_lv_page_set_scrollable_fit, 0},\
+    {"page_set_scrl_width", luat_lv_page_set_scrl_width, 0},\
+    {"page_set_scrl_height", luat_lv_page_set_scrl_height, 0},\
+    {"page_set_scrl_layout", luat_lv_page_set_scrl_layout, 0},\
+    {"page_get_scrollbar_mode", luat_lv_page_get_scrollbar_mode, 0},\
+    {"page_get_scroll_propagation", luat_lv_page_get_scroll_propagation, 0},\
+    {"page_get_edge_flash", luat_lv_page_get_edge_flash, 0},\
+    {"page_get_width_fit", luat_lv_page_get_width_fit, 0},\
+    {"page_get_height_fit", luat_lv_page_get_height_fit, 0},\
+    {"page_get_width_grid", luat_lv_page_get_width_grid, 0},\
+    {"page_get_height_grid", luat_lv_page_get_height_grid, 0},\
+    {"page_get_scrl_width", luat_lv_page_get_scrl_width, 0},\
+    {"page_get_scrl_height", luat_lv_page_get_scrl_height, 0},\
+    {"page_get_scrl_layout", luat_lv_page_get_scrl_layout, 0},\
+    {"page_get_scrl_fit_left", luat_lv_page_get_scrl_fit_left, 0},\
+    {"page_get_scrl_fit_right", luat_lv_page_get_scrl_fit_right, 0},\
+    {"page_get_scrl_fit_top", luat_lv_page_get_scrl_fit_top, 0},\
+    {"page_get_scrl_fit_bottom", luat_lv_page_get_scrl_fit_bottom, 0},\
+    {"page_on_edge", luat_lv_page_on_edge, 0},\
+    {"page_glue_obj", luat_lv_page_glue_obj, 0},\
+    {"page_focus", luat_lv_page_focus, 0},\
+    {"page_scroll_hor", luat_lv_page_scroll_hor, 0},\
+    {"page_scroll_ver", luat_lv_page_scroll_ver, 0},\
+    {"page_start_edge_flash", luat_lv_page_start_edge_flash, 0},\
+
+// prefix lv_widgets lv_roller
+int luat_lv_roller_create(lua_State *L);
+int luat_lv_roller_set_options(lua_State *L);
+int luat_lv_roller_set_align(lua_State *L);
+int luat_lv_roller_set_selected(lua_State *L);
+int luat_lv_roller_set_visible_row_count(lua_State *L);
+int luat_lv_roller_set_auto_fit(lua_State *L);
+int luat_lv_roller_set_anim_time(lua_State *L);
+int luat_lv_roller_get_selected(lua_State *L);
+int luat_lv_roller_get_option_cnt(lua_State *L);
+int luat_lv_roller_get_selected_str(lua_State *L);
+int luat_lv_roller_get_align(lua_State *L);
+int luat_lv_roller_get_auto_fit(lua_State *L);
+int luat_lv_roller_get_options(lua_State *L);
+int luat_lv_roller_get_anim_time(lua_State *L);
+
+#define LUAT_LV_ROLLER_RLT     {"roller_create", luat_lv_roller_create, 0},\
+    {"roller_set_options", luat_lv_roller_set_options, 0},\
+    {"roller_set_align", luat_lv_roller_set_align, 0},\
+    {"roller_set_selected", luat_lv_roller_set_selected, 0},\
+    {"roller_set_visible_row_count", luat_lv_roller_set_visible_row_count, 0},\
+    {"roller_set_auto_fit", luat_lv_roller_set_auto_fit, 0},\
+    {"roller_set_anim_time", luat_lv_roller_set_anim_time, 0},\
+    {"roller_get_selected", luat_lv_roller_get_selected, 0},\
+    {"roller_get_option_cnt", luat_lv_roller_get_option_cnt, 0},\
+    {"roller_get_selected_str", luat_lv_roller_get_selected_str, 0},\
+    {"roller_get_align", luat_lv_roller_get_align, 0},\
+    {"roller_get_auto_fit", luat_lv_roller_get_auto_fit, 0},\
+    {"roller_get_options", luat_lv_roller_get_options, 0},\
+    {"roller_get_anim_time", luat_lv_roller_get_anim_time, 0},\
+
+// prefix lv_widgets lv_slider
+int luat_lv_slider_create(lua_State *L);
+int luat_lv_slider_set_value(lua_State *L);
+int luat_lv_slider_set_left_value(lua_State *L);
+int luat_lv_slider_set_range(lua_State *L);
+int luat_lv_slider_set_anim_time(lua_State *L);
+int luat_lv_slider_set_type(lua_State *L);
+int luat_lv_slider_get_value(lua_State *L);
+int luat_lv_slider_get_left_value(lua_State *L);
+int luat_lv_slider_get_min_value(lua_State *L);
+int luat_lv_slider_get_max_value(lua_State *L);
+int luat_lv_slider_is_dragged(lua_State *L);
+int luat_lv_slider_get_anim_time(lua_State *L);
+int luat_lv_slider_get_type(lua_State *L);
+
+#define LUAT_LV_SLIDER_RLT     {"slider_create", luat_lv_slider_create, 0},\
+    {"slider_set_value", luat_lv_slider_set_value, 0},\
+    {"slider_set_left_value", luat_lv_slider_set_left_value, 0},\
+    {"slider_set_range", luat_lv_slider_set_range, 0},\
+    {"slider_set_anim_time", luat_lv_slider_set_anim_time, 0},\
+    {"slider_set_type", luat_lv_slider_set_type, 0},\
+    {"slider_get_value", luat_lv_slider_get_value, 0},\
+    {"slider_get_left_value", luat_lv_slider_get_left_value, 0},\
+    {"slider_get_min_value", luat_lv_slider_get_min_value, 0},\
+    {"slider_get_max_value", luat_lv_slider_get_max_value, 0},\
+    {"slider_is_dragged", luat_lv_slider_is_dragged, 0},\
+    {"slider_get_anim_time", luat_lv_slider_get_anim_time, 0},\
+    {"slider_get_type", luat_lv_slider_get_type, 0},\
+
+// prefix lv_widgets lv_spinbox
+int luat_lv_spinbox_create(lua_State *L);
+int luat_lv_spinbox_set_rollover(lua_State *L);
+int luat_lv_spinbox_set_value(lua_State *L);
+int luat_lv_spinbox_set_digit_format(lua_State *L);
+int luat_lv_spinbox_set_step(lua_State *L);
+int luat_lv_spinbox_set_range(lua_State *L);
+int luat_lv_spinbox_set_padding_left(lua_State *L);
+int luat_lv_spinbox_get_rollover(lua_State *L);
+int luat_lv_spinbox_get_value(lua_State *L);
+int luat_lv_spinbox_get_step(lua_State *L);
+int luat_lv_spinbox_step_next(lua_State *L);
+int luat_lv_spinbox_step_prev(lua_State *L);
+int luat_lv_spinbox_increment(lua_State *L);
+int luat_lv_spinbox_decrement(lua_State *L);
+
+#define LUAT_LV_SPINBOX_RLT     {"spinbox_create", luat_lv_spinbox_create, 0},\
+    {"spinbox_set_rollover", luat_lv_spinbox_set_rollover, 0},\
+    {"spinbox_set_value", luat_lv_spinbox_set_value, 0},\
+    {"spinbox_set_digit_format", luat_lv_spinbox_set_digit_format, 0},\
+    {"spinbox_set_step", luat_lv_spinbox_set_step, 0},\
+    {"spinbox_set_range", luat_lv_spinbox_set_range, 0},\
+    {"spinbox_set_padding_left", luat_lv_spinbox_set_padding_left, 0},\
+    {"spinbox_get_rollover", luat_lv_spinbox_get_rollover, 0},\
+    {"spinbox_get_value", luat_lv_spinbox_get_value, 0},\
+    {"spinbox_get_step", luat_lv_spinbox_get_step, 0},\
+    {"spinbox_step_next", luat_lv_spinbox_step_next, 0},\
+    {"spinbox_step_prev", luat_lv_spinbox_step_prev, 0},\
+    {"spinbox_increment", luat_lv_spinbox_increment, 0},\
+    {"spinbox_decrement", luat_lv_spinbox_decrement, 0},\
+
+// prefix lv_widgets lv_spinner
+int luat_lv_spinner_create(lua_State *L);
+int luat_lv_spinner_set_arc_length(lua_State *L);
+int luat_lv_spinner_set_spin_time(lua_State *L);
+int luat_lv_spinner_set_type(lua_State *L);
+int luat_lv_spinner_set_dir(lua_State *L);
+int luat_lv_spinner_get_arc_length(lua_State *L);
+int luat_lv_spinner_get_spin_time(lua_State *L);
+int luat_lv_spinner_get_type(lua_State *L);
+int luat_lv_spinner_get_dir(lua_State *L);
+
+#define LUAT_LV_SPINNER_RLT     {"spinner_create", luat_lv_spinner_create, 0},\
+    {"spinner_set_arc_length", luat_lv_spinner_set_arc_length, 0},\
+    {"spinner_set_spin_time", luat_lv_spinner_set_spin_time, 0},\
+    {"spinner_set_type", luat_lv_spinner_set_type, 0},\
+    {"spinner_set_dir", luat_lv_spinner_set_dir, 0},\
+    {"spinner_get_arc_length", luat_lv_spinner_get_arc_length, 0},\
+    {"spinner_get_spin_time", luat_lv_spinner_get_spin_time, 0},\
+    {"spinner_get_type", luat_lv_spinner_get_type, 0},\
+    {"spinner_get_dir", luat_lv_spinner_get_dir, 0},\
+
+// prefix lv_widgets lv_switch
+int luat_lv_switch_create(lua_State *L);
+int luat_lv_switch_on(lua_State *L);
+int luat_lv_switch_off(lua_State *L);
+int luat_lv_switch_toggle(lua_State *L);
+int luat_lv_switch_set_anim_time(lua_State *L);
+int luat_lv_switch_get_state(lua_State *L);
+int luat_lv_switch_get_anim_time(lua_State *L);
+
+#define LUAT_LV_SWITCH_RLT     {"switch_create", luat_lv_switch_create, 0},\
+    {"switch_on", luat_lv_switch_on, 0},\
+    {"switch_off", luat_lv_switch_off, 0},\
+    {"switch_toggle", luat_lv_switch_toggle, 0},\
+    {"switch_set_anim_time", luat_lv_switch_set_anim_time, 0},\
+    {"switch_get_state", luat_lv_switch_get_state, 0},\
+    {"switch_get_anim_time", luat_lv_switch_get_anim_time, 0},\
+
+// prefix lv_widgets lv_table
+int luat_lv_table_create(lua_State *L);
+int luat_lv_table_set_cell_value(lua_State *L);
+int luat_lv_table_set_row_cnt(lua_State *L);
+int luat_lv_table_set_col_cnt(lua_State *L);
+int luat_lv_table_set_col_width(lua_State *L);
+int luat_lv_table_set_cell_align(lua_State *L);
+int luat_lv_table_set_cell_type(lua_State *L);
+int luat_lv_table_set_cell_crop(lua_State *L);
+int luat_lv_table_set_cell_merge_right(lua_State *L);
+int luat_lv_table_get_cell_value(lua_State *L);
+int luat_lv_table_get_row_cnt(lua_State *L);
+int luat_lv_table_get_col_cnt(lua_State *L);
+int luat_lv_table_get_col_width(lua_State *L);
+int luat_lv_table_get_cell_align(lua_State *L);
+int luat_lv_table_get_cell_type(lua_State *L);
+int luat_lv_table_get_cell_crop(lua_State *L);
+int luat_lv_table_get_cell_merge_right(lua_State *L);
+int luat_lv_table_get_pressed_cell(lua_State *L);
+
+#define LUAT_LV_TABLE_RLT     {"table_create", luat_lv_table_create, 0},\
+    {"table_set_cell_value", luat_lv_table_set_cell_value, 0},\
+    {"table_set_row_cnt", luat_lv_table_set_row_cnt, 0},\
+    {"table_set_col_cnt", luat_lv_table_set_col_cnt, 0},\
+    {"table_set_col_width", luat_lv_table_set_col_width, 0},\
+    {"table_set_cell_align", luat_lv_table_set_cell_align, 0},\
+    {"table_set_cell_type", luat_lv_table_set_cell_type, 0},\
+    {"table_set_cell_crop", luat_lv_table_set_cell_crop, 0},\
+    {"table_set_cell_merge_right", luat_lv_table_set_cell_merge_right, 0},\
+    {"table_get_cell_value", luat_lv_table_get_cell_value, 0},\
+    {"table_get_row_cnt", luat_lv_table_get_row_cnt, 0},\
+    {"table_get_col_cnt", luat_lv_table_get_col_cnt, 0},\
+    {"table_get_col_width", luat_lv_table_get_col_width, 0},\
+    {"table_get_cell_align", luat_lv_table_get_cell_align, 0},\
+    {"table_get_cell_type", luat_lv_table_get_cell_type, 0},\
+    {"table_get_cell_crop", luat_lv_table_get_cell_crop, 0},\
+    {"table_get_cell_merge_right", luat_lv_table_get_cell_merge_right, 0},\
+    {"table_get_pressed_cell", luat_lv_table_get_pressed_cell, 0},\
+
+// prefix lv_widgets lv_tabview
+int luat_lv_tabview_create(lua_State *L);
+int luat_lv_tabview_add_tab(lua_State *L);
+int luat_lv_tabview_clean_tab(lua_State *L);
+int luat_lv_tabview_set_tab_act(lua_State *L);
+int luat_lv_tabview_set_tab_name(lua_State *L);
+int luat_lv_tabview_set_anim_time(lua_State *L);
+int luat_lv_tabview_set_btns_pos(lua_State *L);
+int luat_lv_tabview_get_tab_act(lua_State *L);
+int luat_lv_tabview_get_tab_count(lua_State *L);
+int luat_lv_tabview_get_tab(lua_State *L);
+int luat_lv_tabview_get_anim_time(lua_State *L);
+int luat_lv_tabview_get_btns_pos(lua_State *L);
+
+#define LUAT_LV_TABVIEW_RLT     {"tabview_create", luat_lv_tabview_create, 0},\
+    {"tabview_add_tab", luat_lv_tabview_add_tab, 0},\
+    {"tabview_clean_tab", luat_lv_tabview_clean_tab, 0},\
+    {"tabview_set_tab_act", luat_lv_tabview_set_tab_act, 0},\
+    {"tabview_set_tab_name", luat_lv_tabview_set_tab_name, 0},\
+    {"tabview_set_anim_time", luat_lv_tabview_set_anim_time, 0},\
+    {"tabview_set_btns_pos", luat_lv_tabview_set_btns_pos, 0},\
+    {"tabview_get_tab_act", luat_lv_tabview_get_tab_act, 0},\
+    {"tabview_get_tab_count", luat_lv_tabview_get_tab_count, 0},\
+    {"tabview_get_tab", luat_lv_tabview_get_tab, 0},\
+    {"tabview_get_anim_time", luat_lv_tabview_get_anim_time, 0},\
+    {"tabview_get_btns_pos", luat_lv_tabview_get_btns_pos, 0},\
+
+// prefix lv_widgets lv_textarea
+int luat_lv_textarea_create(lua_State *L);
+int luat_lv_textarea_add_char(lua_State *L);
+int luat_lv_textarea_add_text(lua_State *L);
+int luat_lv_textarea_del_char(lua_State *L);
+int luat_lv_textarea_del_char_forward(lua_State *L);
+int luat_lv_textarea_set_text(lua_State *L);
+int luat_lv_textarea_set_placeholder_text(lua_State *L);
+int luat_lv_textarea_set_cursor_pos(lua_State *L);
+int luat_lv_textarea_set_cursor_hidden(lua_State *L);
+int luat_lv_textarea_set_cursor_click_pos(lua_State *L);
+int luat_lv_textarea_set_pwd_mode(lua_State *L);
+int luat_lv_textarea_set_one_line(lua_State *L);
+int luat_lv_textarea_set_text_align(lua_State *L);
+int luat_lv_textarea_set_accepted_chars(lua_State *L);
+int luat_lv_textarea_set_max_length(lua_State *L);
+int luat_lv_textarea_set_insert_replace(lua_State *L);
+int luat_lv_textarea_set_scrollbar_mode(lua_State *L);
+int luat_lv_textarea_set_scroll_propagation(lua_State *L);
+int luat_lv_textarea_set_edge_flash(lua_State *L);
+int luat_lv_textarea_set_text_sel(lua_State *L);
+int luat_lv_textarea_set_pwd_show_time(lua_State *L);
+int luat_lv_textarea_set_cursor_blink_time(lua_State *L);
+int luat_lv_textarea_get_text(lua_State *L);
+int luat_lv_textarea_get_placeholder_text(lua_State *L);
+int luat_lv_textarea_get_label(lua_State *L);
+int luat_lv_textarea_get_cursor_pos(lua_State *L);
+int luat_lv_textarea_get_cursor_hidden(lua_State *L);
+int luat_lv_textarea_get_cursor_click_pos(lua_State *L);
+int luat_lv_textarea_get_pwd_mode(lua_State *L);
+int luat_lv_textarea_get_one_line(lua_State *L);
+int luat_lv_textarea_get_accepted_chars(lua_State *L);
+int luat_lv_textarea_get_max_length(lua_State *L);
+int luat_lv_textarea_get_scrollbar_mode(lua_State *L);
+int luat_lv_textarea_get_scroll_propagation(lua_State *L);
+int luat_lv_textarea_get_edge_flash(lua_State *L);
+int luat_lv_textarea_text_is_selected(lua_State *L);
+int luat_lv_textarea_get_text_sel_en(lua_State *L);
+int luat_lv_textarea_get_pwd_show_time(lua_State *L);
+int luat_lv_textarea_get_cursor_blink_time(lua_State *L);
+int luat_lv_textarea_clear_selection(lua_State *L);
+int luat_lv_textarea_cursor_right(lua_State *L);
+int luat_lv_textarea_cursor_left(lua_State *L);
+int luat_lv_textarea_cursor_down(lua_State *L);
+int luat_lv_textarea_cursor_up(lua_State *L);
+
+#define LUAT_LV_TEXTAREA_RLT     {"textarea_create", luat_lv_textarea_create, 0},\
+    {"textarea_add_char", luat_lv_textarea_add_char, 0},\
+    {"textarea_add_text", luat_lv_textarea_add_text, 0},\
+    {"textarea_del_char", luat_lv_textarea_del_char, 0},\
+    {"textarea_del_char_forward", luat_lv_textarea_del_char_forward, 0},\
+    {"textarea_set_text", luat_lv_textarea_set_text, 0},\
+    {"textarea_set_placeholder_text", luat_lv_textarea_set_placeholder_text, 0},\
+    {"textarea_set_cursor_pos", luat_lv_textarea_set_cursor_pos, 0},\
+    {"textarea_set_cursor_hidden", luat_lv_textarea_set_cursor_hidden, 0},\
+    {"textarea_set_cursor_click_pos", luat_lv_textarea_set_cursor_click_pos, 0},\
+    {"textarea_set_pwd_mode", luat_lv_textarea_set_pwd_mode, 0},\
+    {"textarea_set_one_line", luat_lv_textarea_set_one_line, 0},\
+    {"textarea_set_text_align", luat_lv_textarea_set_text_align, 0},\
+    {"textarea_set_accepted_chars", luat_lv_textarea_set_accepted_chars, 0},\
+    {"textarea_set_max_length", luat_lv_textarea_set_max_length, 0},\
+    {"textarea_set_insert_replace", luat_lv_textarea_set_insert_replace, 0},\
+    {"textarea_set_scrollbar_mode", luat_lv_textarea_set_scrollbar_mode, 0},\
+    {"textarea_set_scroll_propagation", luat_lv_textarea_set_scroll_propagation, 0},\
+    {"textarea_set_edge_flash", luat_lv_textarea_set_edge_flash, 0},\
+    {"textarea_set_text_sel", luat_lv_textarea_set_text_sel, 0},\
+    {"textarea_set_pwd_show_time", luat_lv_textarea_set_pwd_show_time, 0},\
+    {"textarea_set_cursor_blink_time", luat_lv_textarea_set_cursor_blink_time, 0},\
+    {"textarea_get_text", luat_lv_textarea_get_text, 0},\
+    {"textarea_get_placeholder_text", luat_lv_textarea_get_placeholder_text, 0},\
+    {"textarea_get_label", luat_lv_textarea_get_label, 0},\
+    {"textarea_get_cursor_pos", luat_lv_textarea_get_cursor_pos, 0},\
+    {"textarea_get_cursor_hidden", luat_lv_textarea_get_cursor_hidden, 0},\
+    {"textarea_get_cursor_click_pos", luat_lv_textarea_get_cursor_click_pos, 0},\
+    {"textarea_get_pwd_mode", luat_lv_textarea_get_pwd_mode, 0},\
+    {"textarea_get_one_line", luat_lv_textarea_get_one_line, 0},\
+    {"textarea_get_accepted_chars", luat_lv_textarea_get_accepted_chars, 0},\
+    {"textarea_get_max_length", luat_lv_textarea_get_max_length, 0},\
+    {"textarea_get_scrollbar_mode", luat_lv_textarea_get_scrollbar_mode, 0},\
+    {"textarea_get_scroll_propagation", luat_lv_textarea_get_scroll_propagation, 0},\
+    {"textarea_get_edge_flash", luat_lv_textarea_get_edge_flash, 0},\
+    {"textarea_text_is_selected", luat_lv_textarea_text_is_selected, 0},\
+    {"textarea_get_text_sel_en", luat_lv_textarea_get_text_sel_en, 0},\
+    {"textarea_get_pwd_show_time", luat_lv_textarea_get_pwd_show_time, 0},\
+    {"textarea_get_cursor_blink_time", luat_lv_textarea_get_cursor_blink_time, 0},\
+    {"textarea_clear_selection", luat_lv_textarea_clear_selection, 0},\
+    {"textarea_cursor_right", luat_lv_textarea_cursor_right, 0},\
+    {"textarea_cursor_left", luat_lv_textarea_cursor_left, 0},\
+    {"textarea_cursor_down", luat_lv_textarea_cursor_down, 0},\
+    {"textarea_cursor_up", luat_lv_textarea_cursor_up, 0},\
+
+// prefix lv_widgets lv_tileview
+int luat_lv_tileview_create(lua_State *L);
+int luat_lv_tileview_add_element(lua_State *L);
+int luat_lv_tileview_set_tile_act(lua_State *L);
+int luat_lv_tileview_set_edge_flash(lua_State *L);
+int luat_lv_tileview_set_anim_time(lua_State *L);
+int luat_lv_tileview_get_tile_act(lua_State *L);
+int luat_lv_tileview_get_edge_flash(lua_State *L);
+int luat_lv_tileview_get_anim_time(lua_State *L);
+
+#define LUAT_LV_TILEVIEW_RLT     {"tileview_create", luat_lv_tileview_create, 0},\
+    {"tileview_add_element", luat_lv_tileview_add_element, 0},\
+    {"tileview_set_tile_act", luat_lv_tileview_set_tile_act, 0},\
+    {"tileview_set_edge_flash", luat_lv_tileview_set_edge_flash, 0},\
+    {"tileview_set_anim_time", luat_lv_tileview_set_anim_time, 0},\
+    {"tileview_get_tile_act", luat_lv_tileview_get_tile_act, 0},\
+    {"tileview_get_edge_flash", luat_lv_tileview_get_edge_flash, 0},\
+    {"tileview_get_anim_time", luat_lv_tileview_get_anim_time, 0},\
+
+// prefix lv_widgets lv_win
+int luat_lv_win_create(lua_State *L);
+int luat_lv_win_clean(lua_State *L);
+int luat_lv_win_add_btn_right(lua_State *L);
+int luat_lv_win_add_btn_left(lua_State *L);
+int luat_lv_win_set_title(lua_State *L);
+int luat_lv_win_set_header_height(lua_State *L);
+int luat_lv_win_set_btn_width(lua_State *L);
+int luat_lv_win_set_content_size(lua_State *L);
+int luat_lv_win_set_layout(lua_State *L);
+int luat_lv_win_set_scrollbar_mode(lua_State *L);
+int luat_lv_win_set_anim_time(lua_State *L);
+int luat_lv_win_set_drag(lua_State *L);
+int luat_lv_win_title_set_alignment(lua_State *L);
+int luat_lv_win_get_title(lua_State *L);
+int luat_lv_win_get_content(lua_State *L);
+int luat_lv_win_get_header_height(lua_State *L);
+int luat_lv_win_get_btn_width(lua_State *L);
+int luat_lv_win_get_from_btn(lua_State *L);
+int luat_lv_win_get_layout(lua_State *L);
+int luat_lv_win_get_sb_mode(lua_State *L);
+int luat_lv_win_get_anim_time(lua_State *L);
+int luat_lv_win_get_width(lua_State *L);
+int luat_lv_win_get_drag(lua_State *L);
+int luat_lv_win_title_get_alignment(lua_State *L);
+int luat_lv_win_focus(lua_State *L);
+int luat_lv_win_scroll_hor(lua_State *L);
+int luat_lv_win_scroll_ver(lua_State *L);
+
+#define LUAT_LV_WIN_RLT     {"win_create", luat_lv_win_create, 0},\
+    {"win_clean", luat_lv_win_clean, 0},\
+    {"win_add_btn_right", luat_lv_win_add_btn_right, 0},\
+    {"win_add_btn_left", luat_lv_win_add_btn_left, 0},\
+    {"win_set_title", luat_lv_win_set_title, 0},\
+    {"win_set_header_height", luat_lv_win_set_header_height, 0},\
+    {"win_set_btn_width", luat_lv_win_set_btn_width, 0},\
+    {"win_set_content_size", luat_lv_win_set_content_size, 0},\
+    {"win_set_layout", luat_lv_win_set_layout, 0},\
+    {"win_set_scrollbar_mode", luat_lv_win_set_scrollbar_mode, 0},\
+    {"win_set_anim_time", luat_lv_win_set_anim_time, 0},\
+    {"win_set_drag", luat_lv_win_set_drag, 0},\
+    {"win_title_set_alignment", luat_lv_win_title_set_alignment, 0},\
+    {"win_get_title", luat_lv_win_get_title, 0},\
+    {"win_get_content", luat_lv_win_get_content, 0},\
+    {"win_get_header_height", luat_lv_win_get_header_height, 0},\
+    {"win_get_btn_width", luat_lv_win_get_btn_width, 0},\
+    {"win_get_from_btn", luat_lv_win_get_from_btn, 0},\
+    {"win_get_layout", luat_lv_win_get_layout, 0},\
+    {"win_get_sb_mode", luat_lv_win_get_sb_mode, 0},\
+    {"win_get_anim_time", luat_lv_win_get_anim_time, 0},\
+    {"win_get_width", luat_lv_win_get_width, 0},\
+    {"win_get_drag", luat_lv_win_get_drag, 0},\
+    {"win_title_get_alignment", luat_lv_win_title_get_alignment, 0},\
+    {"win_focus", luat_lv_win_focus, 0},\
+    {"win_scroll_hor", luat_lv_win_scroll_hor, 0},\
+    {"win_scroll_ver", luat_lv_win_scroll_ver, 0},\
+
+#endif

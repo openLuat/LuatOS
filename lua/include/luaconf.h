@@ -52,6 +52,12 @@
 #define LUA_USE_WINDOWS  /* enable goodies for regular Windows */
 #endif
 
+#ifndef LUA_USE_WINDOWS
+#ifdef LUAT_FORCE_WIN32
+#define LUA_USE_WINDOWS
+#endif
+#endif
+
 
 #if defined(LUA_USE_WINDOWS)
 #define LUA_DL_DLL	/* enable support for DLL */

@@ -3,6 +3,7 @@
 
 #include "luat_base.h"
 #include "luat_malloc.h"
+#include "luat_msgbus.h"
 
 #include "bget.h"
 
@@ -16,6 +17,23 @@ uint8_t luavm_heap[LUAT_HEAP_SIZE] = {0};
 static void _luat_main(void* args) {
     luat_main();
 }
+#ifdef LUAT_USE_LVGL
+
+#include "lvgl.h"
+static int luat_lvg_handler(lua_State* L, void* ptr) {
+    lv_task_handler();
+    return 0;
+}
+
+static void _lvgl_handler(void* args) {
+    rtos_msg_t msg = {0};
+    msg.handler = luat_lvg_handler;
+    while (1) {
+        luat_msgbus_put(&msg, 0);
+        vTaskDelay(5);
+    };
+}
+#endif
 
 BOOL WINAPI consoleHandler(DWORD signal) {
     if (signal == CTRL_C_EVENT) {
@@ -35,6 +53,11 @@ int main(int argc, char** argv) {
     
     SetConsoleCtrlHandler(consoleHandler, TRUE);
     bpool(luavm_heap, LUAT_HEAP_SIZE);
+#ifdef LUAT_USE_LVGL
+    lv_init();
+    xTaskCreate( _lvgl_handler, "lvgl", 1024*2, NULL, 21, NULL );
+#endif
+
     xTaskCreate( _luat_main, "luatos", 1024*16, NULL, 21, NULL );
     vTaskStartScheduler();
     return 0;

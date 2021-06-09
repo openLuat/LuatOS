@@ -19,4 +19,9 @@
 
 #define LUAT_MEMORY_OPT_G_FUNCS 1
 
+
+#define LUAT_USE_LVGL 1
+
+#define LUAT_FORCE_WIN32 1
+
 #endif

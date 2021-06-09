@@ -4,12 +4,13 @@
 #include "luat_lvgl.h"
 
 
-//  lv_obj_t* lv_canvas_create(lv_obj_t* parent)
+//  lv_obj_t* lv_canvas_create(lv_obj_t* par, lv_obj_t* copy)
 int luat_lv_canvas_create(lua_State *L) {
     LV_DEBUG("CALL lv_canvas_create");
-    lv_obj_t* parent = (lv_obj_t*)lua_touserdata(L, 1);
+    lv_obj_t* par = (lv_obj_t*)lua_touserdata(L, 1);
+    lv_obj_t* copy = (lv_obj_t*)lua_touserdata(L, 2);
     lv_obj_t* ret = NULL;
-    ret = lv_canvas_create(parent);
+    ret = lv_canvas_create(par ,copy);
     lua_pushlightuserdata(L, ret);
     return 1;
 }
@@ -145,7 +146,7 @@ int luat_lv_canvas_fill_bg(lua_State *L) {
     return 0;
 }
 
-//  void lv_canvas_draw_rect(lv_obj_t* canvas, lv_coord_t x, lv_coord_t y, lv_coord_t w, lv_coord_t h, lv_draw_rect_dsc_t* draw_dsc)
+//  void lv_canvas_draw_rect(lv_obj_t* canvas, lv_coord_t x, lv_coord_t y, lv_coord_t w, lv_coord_t h, lv_draw_rect_dsc_t* rect_dsc)
 int luat_lv_canvas_draw_rect(lua_State *L) {
     LV_DEBUG("CALL lv_canvas_draw_rect");
     lv_obj_t* canvas = (lv_obj_t*)lua_touserdata(L, 1);
@@ -153,37 +154,38 @@ int luat_lv_canvas_draw_rect(lua_State *L) {
     lv_coord_t y = (lv_coord_t)luaL_checkinteger(L, 3);
     lv_coord_t w = (lv_coord_t)luaL_checkinteger(L, 4);
     lv_coord_t h = (lv_coord_t)luaL_checkinteger(L, 5);
-    lv_draw_rect_dsc_t* draw_dsc = (lv_draw_rect_dsc_t*)lua_touserdata(L, 6);
-    lv_canvas_draw_rect(canvas ,x ,y ,w ,h ,draw_dsc);
+    lv_draw_rect_dsc_t* rect_dsc = (lv_draw_rect_dsc_t*)lua_touserdata(L, 6);
+    lv_canvas_draw_rect(canvas ,x ,y ,w ,h ,rect_dsc);
     return 0;
 }
 
-//  void lv_canvas_draw_text(lv_obj_t* canvas, lv_coord_t x, lv_coord_t y, lv_coord_t max_w, lv_draw_label_dsc_t* draw_dsc, char* txt)
+//  void lv_canvas_draw_text(lv_obj_t* canvas, lv_coord_t x, lv_coord_t y, lv_coord_t max_w, lv_draw_label_dsc_t* label_draw_dsc, char* txt, lv_label_align_t align)
 int luat_lv_canvas_draw_text(lua_State *L) {
     LV_DEBUG("CALL lv_canvas_draw_text");
     lv_obj_t* canvas = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t x = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_coord_t y = (lv_coord_t)luaL_checkinteger(L, 3);
     lv_coord_t max_w = (lv_coord_t)luaL_checkinteger(L, 4);
-    lv_draw_label_dsc_t* draw_dsc = (lv_draw_label_dsc_t*)lua_touserdata(L, 5);
+    lv_draw_label_dsc_t* label_draw_dsc = (lv_draw_label_dsc_t*)lua_touserdata(L, 5);
     char* txt = (char*)luaL_checkstring(L, 6);
-    lv_canvas_draw_text(canvas ,x ,y ,max_w ,draw_dsc ,txt);
+    lv_label_align_t align = (lv_label_align_t)luaL_checkinteger(L, 7);
+    lv_canvas_draw_text(canvas ,x ,y ,max_w ,label_draw_dsc ,txt ,align);
     return 0;
 }
 
-//  void lv_canvas_draw_img(lv_obj_t* canvas, lv_coord_t x, lv_coord_t y, void* src, lv_draw_img_dsc_t* draw_dsc)
+//  void lv_canvas_draw_img(lv_obj_t* canvas, lv_coord_t x, lv_coord_t y, void* src, lv_draw_img_dsc_t* img_draw_dsc)
 int luat_lv_canvas_draw_img(lua_State *L) {
     LV_DEBUG("CALL lv_canvas_draw_img");
     lv_obj_t* canvas = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t x = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_coord_t y = (lv_coord_t)luaL_checkinteger(L, 3);
     void* src = (void*)lua_touserdata(L, 4);
-    lv_draw_img_dsc_t* draw_dsc = (lv_draw_img_dsc_t*)lua_touserdata(L, 5);
-    lv_canvas_draw_img(canvas ,x ,y ,src ,draw_dsc);
+    lv_draw_img_dsc_t* img_draw_dsc = (lv_draw_img_dsc_t*)lua_touserdata(L, 5);
+    lv_canvas_draw_img(canvas ,x ,y ,src ,img_draw_dsc);
     return 0;
 }
 
-//  void lv_canvas_draw_arc(lv_obj_t* canvas, lv_coord_t x, lv_coord_t y, lv_coord_t r, int32_t start_angle, int32_t end_angle, lv_draw_arc_dsc_t* draw_dsc)
+//  void lv_canvas_draw_arc(lv_obj_t* canvas, lv_coord_t x, lv_coord_t y, lv_coord_t r, int32_t start_angle, int32_t end_angle, lv_draw_line_dsc_t* arc_draw_dsc)
 int luat_lv_canvas_draw_arc(lua_State *L) {
     LV_DEBUG("CALL lv_canvas_draw_arc");
     lv_obj_t* canvas = (lv_obj_t*)lua_touserdata(L, 1);
@@ -192,8 +194,8 @@ int luat_lv_canvas_draw_arc(lua_State *L) {
     lv_coord_t r = (lv_coord_t)luaL_checkinteger(L, 4);
     int32_t start_angle = (int32_t)luaL_checkinteger(L, 5);
     int32_t end_angle = (int32_t)luaL_checkinteger(L, 6);
-    lv_draw_arc_dsc_t* draw_dsc = (lv_draw_arc_dsc_t*)lua_touserdata(L, 7);
-    lv_canvas_draw_arc(canvas ,x ,y ,r ,start_angle ,end_angle ,draw_dsc);
+    lv_draw_line_dsc_t* arc_draw_dsc = (lv_draw_line_dsc_t*)lua_touserdata(L, 7);
+    lv_canvas_draw_arc(canvas ,x ,y ,r ,start_angle ,end_angle ,arc_draw_dsc);
     return 0;
 }
 

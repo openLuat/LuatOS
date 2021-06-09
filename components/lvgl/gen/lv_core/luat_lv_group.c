@@ -21,23 +21,6 @@ int luat_lv_group_del(lua_State *L) {
     return 0;
 }
 
-//  void lv_group_set_default(lv_group_t* group)
-int luat_lv_group_set_default(lua_State *L) {
-    LV_DEBUG("CALL lv_group_set_default");
-    lv_group_t* group = (lv_group_t*)lua_touserdata(L, 1);
-    lv_group_set_default(group);
-    return 0;
-}
-
-//  lv_group_t* lv_group_get_default()
-int luat_lv_group_get_default(lua_State *L) {
-    LV_DEBUG("CALL lv_group_get_default");
-    lv_group_t* ret = NULL;
-    ret = lv_group_get_default();
-    lua_pushlightuserdata(L, ret);
-    return 1;
-}
-
 //  void lv_group_add_obj(lv_group_t* group, lv_obj_t* obj)
 int luat_lv_group_add_obj(lua_State *L) {
     LV_DEBUG("CALL lv_group_add_obj");
@@ -127,6 +110,15 @@ int luat_lv_group_set_editing(lua_State *L) {
     return 0;
 }
 
+//  void lv_group_set_click_focus(lv_group_t* group, bool en)
+int luat_lv_group_set_click_focus(lua_State *L) {
+    LV_DEBUG("CALL lv_group_set_click_focus");
+    lv_group_t* group = (lv_group_t*)lua_touserdata(L, 1);
+    bool en = (bool)lua_toboolean(L, 2);
+    lv_group_set_click_focus(group ,en);
+    return 0;
+}
+
 //  void lv_group_set_wrap(lv_group_t* group, bool en)
 int luat_lv_group_set_wrap(lua_State *L) {
     LV_DEBUG("CALL lv_group_set_wrap");
@@ -156,6 +148,16 @@ int luat_lv_group_get_editing(lua_State *L) {
     return 1;
 }
 
+//  bool lv_group_get_click_focus(lv_group_t* group)
+int luat_lv_group_get_click_focus(lua_State *L) {
+    LV_DEBUG("CALL lv_group_get_click_focus");
+    lv_group_t* group = (lv_group_t*)lua_touserdata(L, 1);
+    bool ret;
+    ret = lv_group_get_click_focus(group);
+    lua_pushboolean(L, ret);
+    return 1;
+}
+
 //  bool lv_group_get_wrap(lv_group_t* group)
 int luat_lv_group_get_wrap(lua_State *L) {
     LV_DEBUG("CALL lv_group_get_wrap");
@@ -163,16 +165,6 @@ int luat_lv_group_get_wrap(lua_State *L) {
     bool ret;
     ret = lv_group_get_wrap(group);
     lua_pushboolean(L, ret);
-    return 1;
-}
-
-//  uint32_t lv_group_get_obj_count(lv_group_t* group)
-int luat_lv_group_get_obj_count(lua_State *L) {
-    LV_DEBUG("CALL lv_group_get_obj_count");
-    lv_group_t* group = (lv_group_t*)lua_touserdata(L, 1);
-    uint32_t ret;
-    ret = lv_group_get_obj_count(group);
-    lua_pushinteger(L, ret);
     return 1;
 }
 

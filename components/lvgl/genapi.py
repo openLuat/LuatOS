@@ -180,14 +180,12 @@ def handle_groups(group, path):
         #sys.exit()
 
 def main():
-    handle_groups("core", "src/core/")
-    handle_groups("draw", "src/draw/")
-    handle_groups("font", "src/font/")
-    handle_groups("misc", "src/misc/")
-    #handle_groups("themes", "src/extra/themes/")
-    handle_groups("widgets", "src/widgets/")
-    #handle_groups("widgets", "src/extra/widgets/")
-    #handle_groups("layout", "src/extra/layout/")
+    handle_groups("core", "src/lv_core/")
+    handle_groups("draw", "src/lv_draw/")
+    handle_groups("font", "src/lv_font/")
+    handle_groups("misc", "src/lv_misc/")
+    handle_groups("themes", "src/lv_themes/")
+    handle_groups("widgets", "src/lv_widgets/")
 
     print("============================================================")
 

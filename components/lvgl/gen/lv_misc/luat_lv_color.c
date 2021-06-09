@@ -144,16 +144,6 @@ int luat_lv_color_hex3(lua_State *L) {
     return 1;
 }
 
-//  void lv_color_filter_dsc_init(lv_color_filter_dsc_t* dsc, lv_color_filter_cb_t cb)
-int luat_lv_color_filter_dsc_init(lua_State *L) {
-    LV_DEBUG("CALL lv_color_filter_dsc_init");
-    lv_color_filter_dsc_t* dsc = (lv_color_filter_dsc_t*)lua_touserdata(L, 1);
-    lv_color_filter_cb_t cb;
-    // miss arg convert
-    lv_color_filter_dsc_init(dsc ,cb);
-    return 0;
-}
-
 //  void lv_color_fill(lv_color_t* buf, lv_color_t color, uint32_t px_num)
 int luat_lv_color_fill(lua_State *L) {
     LV_DEBUG("CALL lv_color_fill");
@@ -185,18 +175,6 @@ int luat_lv_color_darken(lua_State *L) {
     lv_opa_t lvl = (lv_opa_t)luaL_checkinteger(L, 2);
     lv_color_t ret;
     ret = lv_color_darken(c ,lvl);
-    lua_pushinteger(L, ret.full);
-    return 1;
-}
-
-//  lv_color_t lv_color_change_lightness(lv_color_t c, lv_opa_t lvl)
-int luat_lv_color_change_lightness(lua_State *L) {
-    LV_DEBUG("CALL lv_color_change_lightness");
-    lv_color_t c = {0};
-    c.full = luaL_checkinteger(L, 1);
-    lv_opa_t lvl = (lv_opa_t)luaL_checkinteger(L, 2);
-    lv_color_t ret;
-    ret = lv_color_change_lightness(c ,lvl);
     lua_pushinteger(L, ret.full);
     return 1;
 }
@@ -238,32 +216,5 @@ int luat_lv_color_to_hsv(lua_State *L) {
     lua_pushinteger(L, ret.s);
     lua_pushinteger(L, ret.v);
     return 3;
-}
-
-//  lv_color_t lv_color_chroma_key()
-int luat_lv_color_chroma_key(lua_State *L) {
-    LV_DEBUG("CALL lv_color_chroma_key");
-    lv_color_t ret;
-    ret = lv_color_chroma_key();
-    lua_pushinteger(L, ret.full);
-    return 1;
-}
-
-//  lv_color_t lv_color_white()
-int luat_lv_color_white(lua_State *L) {
-    LV_DEBUG("CALL lv_color_white");
-    lv_color_t ret;
-    ret = lv_color_white();
-    lua_pushinteger(L, ret.full);
-    return 1;
-}
-
-//  lv_color_t lv_color_black()
-int luat_lv_color_black(lua_State *L) {
-    LV_DEBUG("CALL lv_color_black");
-    lv_color_t ret;
-    ret = lv_color_black();
-    lua_pushinteger(L, ret.full);
-    return 1;
 }
 

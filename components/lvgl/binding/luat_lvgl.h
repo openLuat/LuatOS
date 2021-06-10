@@ -24,5 +24,6 @@ int luat_lv_init(lua_State *L);
 void luat_lv_fs_init(void);
 
 #include "luat_lvgl_qrcode.h"
+#include "luat_lvgl_gif.h"
 
 #endif

@@ -4,9 +4,6 @@
 #include "luat_malloc.h"
 #include "luat_zbuff.h"
 
-// #ifdef LUA_USE_WINDOWS
-// #include "libbmp.h"
-// #endif
 
 static lv_disp_t* my_disp = NULL;
 static lv_disp_buf_t my_disp_buff = {0};
@@ -16,29 +13,6 @@ static void disp_flush(lv_disp_drv_t * disp_drv, const lv_area_t * area, lv_colo
     //-----
     int32_t x;
     int32_t y;
-    // #ifdef LUA_USE_WINDOWS
-    // bmp_img img;
-	// bmp_img_init_df (&img, disp_drv->hor_res, disp_drv->ver_res);
-    // for(y = area->y1; y <= area->y2; y++) {
-    //     for(x = area->x1; x <= area->x2; x++) {
-    //         /* Put a pixel to the display. For example: */
-    //         /* put_px(x, y, *color_p)*/
-    //         bmp_pixel_init(&img.img_pixels[y][x], color_p->ch.red, color_p->ch.green, color_p->ch.blue);
-    //         color_p++;
-    //     }
-    // }
-    // bmp_img_write(&img, "test.bmp");
-    // bmp_img_free (&img);
-    // #else
-    // for(y = area->y1; y <= area->y2; y++) {
-    //     for(x = area->x1; x <= area->x2; x++) {
-    //         /* Put a pixel to the display. For example: */
-    //         /* put_px(x, y, *color_p)*/
-    //         color_p++;
-    //     }
-    // }
-    // #endif
-    // ----
     //LLOGD("CALL disp_flush (%d, %d, %d, %d)", area->x1, area->y1, area->x2, area->y2);
     lv_disp_flush_ready(disp_drv);
 }

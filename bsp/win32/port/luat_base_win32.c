@@ -6,6 +6,9 @@
 
 #ifdef LUAT_USE_LVGL
 #include "lvgl.h"
+void luat_lv_fs_init(void);
+void lv_bmp_init(void);
+void lv_png_init(void);
 #endif
 
 LUAMOD_API int luaopen_win32( lua_State *L );
@@ -109,10 +112,14 @@ int luat_fs_init(void) {
 	};
 	luat_fs_mount(&conf2);
 	#endif
-	return 0;
-	#else
-	return 0;
 	#endif
+
+	#ifdef LUAT_USE_LVGL
+	luat_lv_fs_init();
+	lv_bmp_init();
+	lv_png_init();
+	#endif
+	return 0;
 }
 
 void vConfigureTimerForRunTimeStats( void ) {}

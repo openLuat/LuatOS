@@ -1,4 +1,7 @@
 
+#ifndef LUAT_LVGL
+#define LUAT_LVGL
+
 #include "luat_base.h"
 
 #include "lvgl.h"
@@ -18,3 +21,8 @@
 #endif
 
 int luat_lv_init(lua_State *L);
+void luat_lv_fs_init(void);
+
+#include "luat_lvgl_qrcode.h"
+
+#endif

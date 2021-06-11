@@ -1,3 +1,9 @@
+/*
+@module  lvgl
+@summary LVGL图像库
+@version 1.0
+@date    2021.06.01
+*/
 
 #include "luat_base.h"
 #include "luat_msgbus.h"
@@ -7,21 +13,51 @@
 // 几个快捷方法
 //---------------------------------
 
+/*
+获取当前活跃的screen对象
+@api lvgl.scr_act()
+@return screen指针
+@usage
+local scr = lvgl.scr_act()
+
+*/
 static int luat_lv_scr_act(lua_State *L) {
     lua_pushlightuserdata(L, lv_scr_act());
     return 1;
 };
 
+/*
+获取layout_top
+@api lvgl.layout_top()
+@return layout指针
+*/
 static int luat_lv_layer_top(lua_State *L) {
     lua_pushlightuserdata(L, lv_layer_top());
     return 1;
 };
 
+/*
+获取layout_sys
+@api lvgl.layout_sys()
+@return layout指针
+*/
 static int luat_lv_layer_sys(lua_State *L) {
     lua_pushlightuserdata(L, lv_layer_sys());
     return 1;
 };
 
+/*
+载入指定的screen
+@api lvgl.scr_load(scr)
+@userdata screen指针
+@usage
+lvgl.disp_set_bg_color(nil, 0xFFFFFF)
+local scr = lvgl.obj_create(nil, nil)
+local btn = lvgl.btn_create(scr)
+lvgl.obj_align(btn, lvgl.scr_act(), lvgl.ALIGN_CENTER, 0, 0)
+lvgl.label_set_text(label, "LuatOS!")
+lvgl.scr_load(scr)
+*/
 static int luat_lv_scr_load(lua_State *L) {
     lv_scr_load(lua_touserdata(L, 1));
     return 0;

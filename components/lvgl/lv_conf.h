@@ -218,7 +218,7 @@ typedef void * lv_fs_drv_user_data_t;
 #endif
 
 /*1: Add a `user_data` to drivers and objects*/
-#define LV_USE_USER_DATA        0
+#define LV_USE_USER_DATA        1
 
 /*1: Show CPU usage and FPS count in the right bottom corner*/
 #define LV_USE_PERF_MONITOR     0
@@ -548,13 +548,13 @@ typedef void * lv_font_user_data_t;
 
 #if LV_USE_USER_DATA
 /*Declare the type of the user data of object (can be e.g. `void *`, `int`, `struct`)*/
-typedef void * lv_obj_user_data_t;
+typedef int32_t lv_obj_user_data_t;
 /*Provide a function to free user data*/
-#define LV_USE_USER_DATA_FREE 0
+#define LV_USE_USER_DATA_FREE 1
 #if LV_USE_USER_DATA_FREE
-#  define LV_USER_DATA_FREE_INCLUDE  "something.h"  /*Header for user data free function*/
-/* Function prototype : void user_data_free(lv_obj_t * obj); */
-#  define LV_USER_DATA_FREE  (user_data_free)       /*Invoking for user data free function*/
+#  define LV_USER_DATA_FREE_INCLUDE  "luat_lvgl_userdata.h"  /*Header for user data free function*/
+/* Function prototype : void luat_lv_user_data_free(lv_obj_t * obj); */
+#  define LV_USER_DATA_FREE  (luat_lv_user_data_free)       /*Invoking for user data free function*/
 #endif
 #endif
 

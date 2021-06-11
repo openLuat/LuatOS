@@ -1,6 +1,6 @@
 
 #include "luat_base.h"
-
+#include "luat_msgbus.h"
 #include "luat_lvgl.h"
 
 //---------------------------------
@@ -89,6 +89,9 @@ LUAT_LV_WIN_RLT
 LUAT_LV_QRCODE_RLT
 LUAT_LV_GIF_RLT
 
+// 回调
+LUAT_LV_CB_RLT
+
 // 常量
 LUAT_LV_ENMU_RLT
 {NULL, NULL, 0},
@@ -100,4 +103,18 @@ LUAT_LV_ENMU_RLT
 LUAMOD_API int luaopen_lvgl( lua_State *L ) {
     luat_newlib(L, reg_lvgl);
     return 1;
+}
+
+static int lv_func_unref(lua_State *L, void* ptr) {
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    luaL_unref(L, LUA_REGISTRYINDEX, msg->arg1);
+    return 0;
+}
+
+void luat_lv_user_data_free(lv_obj_t * obj) {
+    if (obj == NULL || obj->user_data == 0) return;
+    rtos_msg_t msg = {0};
+    msg.handler = lv_func_unref;
+    msg.arg1 = obj->user_data;
+    luat_msgbus_put(&msg, 0);
 }

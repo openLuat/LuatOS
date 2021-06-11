@@ -34,6 +34,10 @@ sys.taskInit(function ()
 
     lvgl.scr_load(scr)
 
+    lvgl.obj_set_event_cb(btn, function(obj, event)
+        log.info("event", obj, event)
+    end)
+
     log.info("abc", "=====================")
 
     while true do

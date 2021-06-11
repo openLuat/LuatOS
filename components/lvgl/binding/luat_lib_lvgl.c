@@ -107,14 +107,18 @@ LUAMOD_API int luaopen_lvgl( lua_State *L ) {
 
 static int lv_func_unref(lua_State *L, void* ptr) {
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
-    luaL_unref(L, LUA_REGISTRYINDEX, msg->arg1);
+    if (msg->arg1)
+        luaL_unref(L, LUA_REGISTRYINDEX, msg->arg1);
+    if (msg->arg2)
+        luaL_unref(L, LUA_REGISTRYINDEX, msg->arg2);
     return 0;
 }
 
 void luat_lv_user_data_free(lv_obj_t * obj) {
-    if (obj == NULL || obj->user_data == 0) return;
+    if (obj == NULL || (obj->user_data.event_cb_ref == 0 && obj->user_data.signal_cb_ref)) return;
     rtos_msg_t msg = {0};
     msg.handler = lv_func_unref;
-    msg.arg1 = obj->user_data;
+    msg.arg1 = obj->user_data.event_cb_ref;
+    msg.arg2 = obj->user_data.signal_cb_ref;
     luat_msgbus_put(&msg, 0);
 }

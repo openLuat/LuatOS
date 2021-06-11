@@ -548,7 +548,12 @@ typedef void * lv_font_user_data_t;
 
 #if LV_USE_USER_DATA
 /*Declare the type of the user data of object (can be e.g. `void *`, `int`, `struct`)*/
-typedef int32_t lv_obj_user_data_t;
+typedef struct luat_lv_userdata {
+    int event_cb_ref;
+    int signal_cb_ref;
+}luat_lv_userdata_t;
+
+typedef struct luat_lv_userdata lv_obj_user_data_t;
 /*Provide a function to free user data*/
 #define LV_USE_USER_DATA_FREE 1
 #if LV_USE_USER_DATA_FREE

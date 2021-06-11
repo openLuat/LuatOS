@@ -3,6 +3,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "luat_base.h"
+#include "bget.h"
 
 #define LUAT_HEAP_SIZE (64*1024)
 uint8_t luavm_heap[LUAT_HEAP_SIZE] = {0};

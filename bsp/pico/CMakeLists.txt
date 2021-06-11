@@ -2,8 +2,8 @@ cmake_minimum_required(VERSION 3.12)
 
 # initialize the SDK based on PICO_SDK_PATH
 # note: this must happen before project()
-include(pico-sdk/pico_sdk_init.cmake)
-#add_subdirectory(luatos)
+include(pico_sdk_import.cmake)
+include(${PICO_SDK_PATH}/pico_sdk_init.cmake)
 project(pico-luatos)
 
 # initialize the Pico SDK

@@ -4,8 +4,8 @@
 #include "luat_lvgl.h"
 #include "lvgl.h"
 
-#define LUAT_LOG_TAG "lvgl.cb"
-#include "luat_log.h"
+//#define LUAT_LOG_TAG "lvgl.cb"
+//#include "luat_log.h"
 
 static int l_obj_es_cb(lua_State *L, void*ptr) {
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
@@ -29,15 +29,16 @@ static void luat_lv_obj_event_cb(struct _lv_obj_t * obj, lv_event_t event) {
     luat_msgbus_put(&msg, 0);
 }
 
-static void luat_lv_obj_signal_cb(struct _lv_obj_t * obj, lv_event_t event) {
+static lv_res_t luat_lv_obj_signal_cb(struct _lv_obj_t * obj, lv_signal_t sign, void * param) {
     if (obj->user_data.signal_cb_ref == 0)
-        return;
+        return LV_RES_OK;
     rtos_msg_t msg = {0};
     msg.handler = l_obj_es_cb;
     msg.ptr = obj;
     msg.arg1 = obj->user_data.signal_cb_ref;
-    msg.arg2 = event;
+    msg.arg2 = sign;
     luat_msgbus_put(&msg, 0);
+    return LV_RES_OK;
 }
 
 /*

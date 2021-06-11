@@ -92,6 +92,9 @@ LUAT_LV_GIF_RLT
 // 回调
 LUAT_LV_CB_RLT
 
+// 额外添加的函数
+LUAT_LV_STYLE2_RLT
+
 // 常量
 LUAT_LV_ENMU_RLT
 {NULL, NULL, 0},

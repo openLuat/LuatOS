@@ -16,5 +16,7 @@ Windows下：
 
 vscode插件安装cmake，配置cmake扩展中cmake tools configuration，其中Cmake: Generator（要是用的cmake生成器）配置为NMake Makefiles
 
+在pico目录下放入pico-sdk
+
 打开Visual Studio 2019在终端输入code打开vscode（这样cmake可以自动正确配置），打开文件夹选择我们的工程目录，选择gcc 10.21.1 arm-none-eabi工具链，点击build编译
 

@@ -328,8 +328,7 @@ if mac_raw then
 end
 */
 static int l_wlan_get_mac_raw(lua_State *L) {
-    rt_uint8_t mac[6];
-    mac[0] = 0x00;
+    rt_uint8_t mac[6] = {0};
     #ifdef BSP_USING_WM_LIBRARIES
     memcpy(mac, (uint8_t*) (0x8000000 + 12), 6);
     #else
@@ -660,7 +659,7 @@ static const rotable_Reg reg_wlan[] =
 LUAMOD_API int luaopen_wlan( lua_State *L ) {
     reg_wlan_callbacks();
     luat_newlib(L, reg_wlan);
-    uint8_t* flash_addr = (uint8_t*) 0x8000000;
+    // uint8_t* flash_addr = (uint8_t*) 0x8000000;
     // LOG_HEX("FLASH", 8, flash_addr, 0x80);
     // LLOGD("mac => %02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X", 
     //             *(flash_addr+12),

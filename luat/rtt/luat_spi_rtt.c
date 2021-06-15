@@ -101,4 +101,33 @@ int luat_spi_send(int spi_id, const char* send_buf, size_t length) {
     return rt_spi_send(drv, send_buf, length);
 }
 
+#else
+
+//初始化配置SPI各项参数，并打开SPI
+//成功返回0
+int luat_spi_setup(luat_spi_t* spi) {
+    LLOGE("spi not enable/support at this device");
+    return -1;
+}
+//关闭SPI，成功返回0
+int luat_spi_close(int spi_id) {
+    LLOGE("spi not enable/support at this device");
+    return -1;
+}
+//收发SPI数据，返回接收字节数
+int luat_spi_transfer(int spi_id, const char* send_buf, char* recv_buf, size_t length) {
+    //LLOGE("spi not enable/support at this device");
+    return -1;
+}
+//收SPI数据，返回接收字节数
+int luat_spi_recv(int spi_id, char* recv_buf, size_t length) {
+    //LLOGE("spi not enable/support at this device");
+    return -1;
+}
+//发SPI数据，返回发送字节数
+int luat_spi_send(int spi_id, const char* send_buf, size_t length) {
+    //LLOGE("spi not enable/support at this device");
+    return -1;
+}
+
 #endif

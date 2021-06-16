@@ -49,6 +49,7 @@ static const luaL_Reg loadedlibs[] = {
   {"gpio",   luaopen_gpio},
 #ifdef LUAT_USE_LVGL
   {"lvgl",   luaopen_lvgl},
+  {"lcd",    luaopen_lcd},
 #endif
   {NULL, NULL}
 };

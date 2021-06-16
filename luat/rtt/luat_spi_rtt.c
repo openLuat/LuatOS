@@ -18,8 +18,8 @@
 #ifdef RT_USING_SPI
 
 static struct rt_spi_device * findDev(int id) {
-    char buff[6] = {0};
-    snprintf(buff, 6, "spi%02d", id);
+    char buff[7] = {0};
+    sprintf_(buff, "spi%02d", id);
     rt_device_t drv = rt_device_find(buff);
     if (drv == NULL) {
         return RT_NULL;
@@ -37,14 +37,14 @@ int luat_spi_exist(int id) {
 //初始化配置SPI各项参数，并打开SPI
 //成功返回0
 int luat_spi_setup(luat_spi_t* spi) {
-    char bus_name[6];
-    char device_name[6];
+    char bus_name[8] = {0};
+    char device_name[8] = {0};
     int ret = 0;
     
-    struct rt_spi_device *spi_dev;     /* SPI 设备句柄 */
+    struct rt_spi_device *spi_dev = NULL;     /* SPI 设备句柄 */
 
-    snprintf(bus_name, 6, "spi%d", spi->id / 10);
-    snprintf(device_name, 6, "spi%02d", spi->id);
+    sprintf_(bus_name, "spi%d", spi->id / 10);
+    sprintf_(device_name, "spi%02d", spi->id);
 #ifdef SOC_W60X
     wm_spi_bus_attach_device(bus_name, device_name, spi->cs);
     spi_dev = findDev(spi->id);

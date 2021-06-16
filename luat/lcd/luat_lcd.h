@@ -17,7 +17,7 @@ typedef struct luat_lcd_conf {
     uint32_t h;
 
     void* userdata;
-    struct luat_lcd_opts* opts;
+    const struct luat_lcd_opts* opts;
 } luat_lcd_conf_t;
 
 typedef struct luat_lcd_opts {

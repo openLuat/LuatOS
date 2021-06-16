@@ -22,7 +22,8 @@ config['air640w'] = {
     "TOOLS_PATH": ".\\tools\\",
     "MAIN_LUA_DEBUG" : "false",
     "LUA_DEBUG" : "false",
-    "COM_PORT" : "COM5"
+    "COM_PORT" : "COM5",
+    "FLS_PATH" : "rtt\\Bin\\rtthread_1M.FLS"
 }
 if os.path.exists("local.ini") :
     config.read("local.ini")
@@ -34,6 +35,7 @@ MAIN_LUA_DEBUG = config["air640w"]["MAIN_LUA_DEBUG"] == "true"
 LUA_DEBUG = config["air640w"]["LUA_DEBUG"] == "true"
 COM_PORT = config["air640w"]["COM_PORT"]
 TOOLS_PATH = os.path.abspath(config["air640w"]["TOOLS_PATH"])  + os.sep
+FLS_PATH = os.path.abspath(config["air640w"]["FLS_PATH"])
 
 #LUA_DEBUG = False
 
@@ -120,6 +122,7 @@ TOOLS_PATH = tools\\
 MAIN_LUA_DEBUG = false
 LUA_DEBUG = false
 COM_PORT = COM56
+FLS_PATH = luatos_air640w_v0006.fls
 ''')
 
     pkg_name = "air640w_V0004_"+_tag + ".zip"
@@ -132,37 +135,33 @@ COM_PORT = COM56
 下载底层或脚本
 '''
 def _dl(tp, _path=None):
-    if tp == "fs":
-        import serial
-        from YModem import YModem
-        serial_io = serial.Serial()
-        serial_io.port = COM_PORT
-        serial_io.baudrate = "115200"
-        serial_io.parity = "N"
-        serial_io.bytesize = 8
-        serial_io.stopbits = 1
-        serial_io.timeout = 2
-        #serial_io.rtscts = 1
+    
+    import serial
+    from YModem import YModem
+    serial_io = serial.Serial()
+    serial_io.port = COM_PORT
+    serial_io.baudrate = "115200"
+    serial_io.parity = "N"
+    serial_io.bytesize = 8
+    serial_io.stopbits = 1
+    serial_io.timeout = 2
+    #serial_io.rtscts = 1
+    try:
+        serial_io.open()
+    except Exception as e:
+        raise Exception("Failed to open serial port!")
+    def sender_getc(size):
+        return serial_io.read(size) or None
+    def sender_putc(data, timeout=15):
+        return serial_io.write(data)
+    ## 适配CH340的RTS接到W600的RTS脚
+    ## 如果无法下载, 先尝试手动复位模块, 还是不行的话, 把rts的值从当前的 1和0 改成 0和1
+    serial_io.rts = 1
+    time.sleep(0.5)
+    serial_io.rts = 0
 
-        try:
-            serial_io.open()
-        except Exception as e:
-            raise Exception("Failed to open serial port!")
-
-        def sender_getc(size):
-            return serial_io.read(size) or None
-
-        def sender_putc(data, timeout=15):
-            return serial_io.write(data)
-
-        ## 适配CH340的RTS接到W600的RTS脚
-        ## 如果无法下载, 先尝试手动复位模块, 还是不行的话, 把rts的值从当前的 1和0 改成 0和1
-        serial_io.rts = 1
-        time.sleep(0.5)
-        serial_io.rts = 0
-
+    if tp == "fs" or tp == "full":
         serial_io.write("reboot\r\n".encode())
-
         for k in range(10) :
             serial_io.write("reinit\r\n".encode())
             resp = serial_io.read_until()
@@ -191,6 +190,14 @@ def _dl(tp, _path=None):
                 sent = sender.send_file(_path, retry=1)
         #print (">>" + sent)
         serial_io.close()
+    if tp == "rom" or tp == "full":
+        if _path == None :
+            _path = FLS_PATH
+        serial_io.close()
+        cmd = "tools\\wm_tool.exe -ds 2M -ws 115200 -c %s -rs rts -dl %s -eo secboot" % (COM_PORT, _path)
+        print("CMD", cmd)
+        subprocess.check_call(cmd, shell=True)
+        print(">>> ok")
 
 '''
 生成文件系统镜像
@@ -263,7 +270,7 @@ def _lfs(_path=None):
                     shutil.copyfileobj(f2, f, _size)
     if TAG_PROJECT != "" and TAG_VERSION != "":
         # otademo_1.2.7_LuatOS_V0003_w60x
-        TAG_NAME = "%s_%s_LuatOS_V0005_w60x.bin" % (TAG_PROJECT, TAG_VERSION)
+        TAG_NAME = "%s_%s_LuatOS_V0006_w60x.bin" % (TAG_PROJECT, TAG_VERSION)
         print("update bin --> " + TAG_NAME)
         shutil.copy("disk/flashx.bin", TAG_NAME)
 
@@ -278,13 +285,13 @@ def main():
         elif sys.argv[argc] == "pkg" :
             print("Action pkg ------------------------------------")
             _pkg()
-        # elif sys.argv[argc] == "dlrom": #下载底层
-        #     print("Action download ROM ---------------------------")
-        #     if len(sys.argv) > argc + 1 and sys.argv[argc+1].startsWith("-path="):
-        #         _dl("rom", sys.argv[argc+1][6:])
-        #         argc += 1
-        #     else:
-        #         _dl("rom")
+        elif sys.argv[argc] == "dlrom": #下载底层
+            print("Action download ROM ---------------------------")
+            if len(sys.argv) > argc + 1 and sys.argv[argc+1].startsWith("-path="):
+                _dl("rom", sys.argv[argc+1][6:])
+                argc += 1
+            else:
+                _dl("rom")
         elif sys.argv[argc] == "dlfs":
             print("Action download FS  ---------------------------")
             if len(sys.argv) > argc + 1 and sys.argv[argc+1].startsWith("-path="):
@@ -292,12 +299,12 @@ def main():
                 argc += 1
             else:
                 _dl("fs")
-        # elif sys.argv[argc] == "dlfull":
-        #     if len(sys.argv) > argc + 1 and sys.argv[argc+1].startsWith("-path="):
-        #         _dl("full", sys.argv[argc+1][6:])
-        #         argc += 1
-        #     else:
-        #         _dl("full")
+        elif sys.argv[argc] == "dlfull":
+            if len(sys.argv) > argc + 1 and sys.argv[argc+1].startsWith("-path="):
+                _dl("full", sys.argv[argc+1][6:])
+                argc += 1
+            else:
+                _dl("full")
         elif sys.argv[argc] == "clean":
             if os.path.exists("tmp"):
                 shutil.rmtree("tmp")

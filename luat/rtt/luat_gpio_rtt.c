@@ -41,7 +41,7 @@ int luat_gpio_setup(luat_gpio_t* gpio) {
             switch (gpio->pull)
             {
             case Luat_GPIO_PULLUP:
-                mode = PIN_MODE_INPUT_PULLDOWN;
+                mode = PIN_MODE_INPUT_PULLUP;
                 break;
             case Luat_GPIO_PULLDOWN:
                 mode = PIN_MODE_INPUT_PULLDOWN;

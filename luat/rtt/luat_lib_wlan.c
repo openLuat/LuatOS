@@ -12,7 +12,7 @@
 #ifdef RT_USING_WIFI
 
 #define DBG_TAG           "luat.wlan"
-#define DBG_LVL           DBG_INFO
+#define DBG_LVL           DBG_LOG
 #include <rtdbg.h>
 
 #ifdef RT_WLAN_MANAGE_ENABLE
@@ -301,10 +301,13 @@ static int l_wlan_scan_get_result(lua_State *L) {
 log.info("wlan", "mac addr", wlan.get_mac())
 */
 static int l_wlan_get_mac(lua_State *L) {
-    rt_uint8_t mac[6];
-    char buff[14];
-    mac[0] = 0x00;
+    rt_uint8_t mac[6] = {0};
+    char buff[14] = {0};
+    #ifdef BSP_USING_WM_LIBRARIES
+    memcpy(mac, (uint8_t*) (0x8000000 + 12), 6);
+    #else
     rt_wlan_get_mac(mac);
+    #endif
     if (mac[0] != 0x00) {
         rt_snprintf(buff, 14, "%02X%02X%02X%02X%02X%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
         lua_pushlstring(L, buff, 12);
@@ -325,9 +328,12 @@ if mac_raw then
 end
 */
 static int l_wlan_get_mac_raw(lua_State *L) {
-    rt_uint8_t mac[6];
-    mac[0] = 0x00;
+    rt_uint8_t mac[6] = {0};
+    #ifdef BSP_USING_WM_LIBRARIES
+    memcpy(mac, (uint8_t*) (0x8000000 + 12), 6);
+    #else
     rt_wlan_get_mac(mac);
+    #endif
     if (mac[0] != 0x00) {
         lua_pushlstring(L, mac, 6);
         return 1;
@@ -653,6 +659,18 @@ static const rotable_Reg reg_wlan[] =
 LUAMOD_API int luaopen_wlan( lua_State *L ) {
     reg_wlan_callbacks();
     luat_newlib(L, reg_wlan);
+    // uint8_t* flash_addr = (uint8_t*) 0x8000000;
+    // LOG_HEX("FLASH", 8, flash_addr, 0x80);
+    // LLOGD("mac => %02X:%02X:%02X:%02X:%02X:%02X:%02X:%02X", 
+    //             *(flash_addr+12),
+    //             *(flash_addr+13),
+    //             *(flash_addr+14),
+    //             *(flash_addr+15),
+    //             *(flash_addr+16),
+    //             *(flash_addr+17),
+    //             *(flash_addr+18),
+    //             *(flash_addr+19)
+    //             );
     return 1;
 }
 

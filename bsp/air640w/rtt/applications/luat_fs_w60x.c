@@ -24,20 +24,22 @@ extern char luadb_inline[];
 extern const struct luat_vfs_filesystem vfs_fs_posix;
 extern const struct luat_vfs_filesystem vfs_fs_luadb;
 
+#define w60x_flash_devname (NULL)
+
 int luat_fs_init(void) {
     if (fs_ok) return 0;
     fs_ok = 1;
     int re;
-    re = dfs_mount("onflash", "/", "lfs2", 0, 0);
+    re = dfs_mount(w60x_flash_devname, "/", "lfs2", 0, 0);
     if (re) {
       LOG_W("w600 onchiip filesystem damage");
-      re = dfs_mkfs("lfs2", "onflash");
+      re = dfs_mkfs("lfs2", w60x_flash_devname);
       if (re) {
         LOG_E("mkfs FAIL!!!! re=%d", re);
       }
       else {
         LOG_I("mkfs complete");
-        re = dfs_mount("onflash", "/", "lfs2", 0, 0);
+        re = dfs_mount(w60x_flash_devname, "/", "lfs2", 0, 0);
         if (re) {
           LOG_E("mount FAIL!!!! re=%d", re);
         }
@@ -77,19 +79,19 @@ int luat_fs_init(void) {
   #else
   
   mkdir("/lua", 0);
-  dfs_mount("onflash", "/lua", "luadb", 0, (const void *)luadb_inline);
+  dfs_mount(w60x_flash_devname, "/lua", "luadb", 0, (const void *)luadb_inline);
   #endif
 
     return 0;
 }
 INIT_ENV_EXPORT(luat_fs_init);
 
-static int rt_hw_spi_flash_init(void)
-{
-  wm_spi_bus_attach_device(WM_SPI_BUS_NAME, "onflash", 20); // 占用PB_15了,怎么解决呢
-  return RT_EOK;
-}
-INIT_COMPONENT_EXPORT(rt_hw_spi_flash_init);
+// static int rt_hw_spi_flash_init(void)
+// {
+//   wm_spi_bus_attach_device(WM_SPI_BUS_NAME, "onflash", 20); // 占用PB_15了,怎么解决呢
+//   return RT_EOK;
+// }
+// INIT_COMPONENT_EXPORT(rt_hw_spi_flash_init);
 
 #include "wm_flash_map.h"
 static uint8_t first_reinit = 1;
@@ -104,9 +106,9 @@ static void reinit(void* params) {
     // 抹除整个分区
     //wm_flash_erase(USER_ADDR_START, USER_ADDR_END - USER_ADDR_START);
     // 重新格式化
-    dfs_mkfs("lfs2", "onflash");
+    dfs_mkfs("lfs2", w60x_flash_devname);
     // 挂载
-    dfs_mount("onflash", "/", "lfs2", 0, 0);
+    dfs_mount(w60x_flash_devname, "/", "lfs2", 0, 0);
     t_end = rt_tick_get();
     LOG_I("time use %dms", t_end - t_start);
   }

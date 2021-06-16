@@ -80,8 +80,9 @@ static const luaL_Reg loadedlibs[] = {
   {"pwm", luaopen_pwm},                //  PWM
 #endif
   {"fs",   luaopen_fs},                // 文件系统库
-  {"dbg",  luaopen_dbg},               // 调试库
+  // {"dbg",  luaopen_dbg},               // 调试库
   // {"eink",  luaopen_eink},               // 电子墨水屏
+  // {"lfs2", luaopen_lfs2},              // spi flash ==> littelfs
   {NULL, NULL}
 };
 

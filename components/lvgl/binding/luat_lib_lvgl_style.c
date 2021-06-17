@@ -25,7 +25,7 @@ int luat_lv_style_create(lua_State *L) {
 local style = lvgl.style_create()
 */
 int luat_lv_style_list_create(lua_State *L) {
-    lv_style_list_t* style_list = (lv_style_t*)luat_heap_malloc(sizeof(lv_style_list_t));
+    lv_style_list_t* style_list = (lv_style_list_t*)luat_heap_malloc(sizeof(lv_style_list_t));
     lv_style_list_init(style_list);
     lua_pushlightuserdata(L, style_list);
     return 1;

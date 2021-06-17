@@ -17,7 +17,7 @@ typedef struct luat_lcd_conf {
     uint32_t h;
 
     void* userdata;
-    const struct luat_lcd_opts* opts;
+    struct luat_lcd_opts* opts;
 } luat_lcd_conf_t;
 
 typedef struct luat_lcd_opts {
@@ -44,7 +44,10 @@ int luat_lcd_sleep(luat_lcd_conf_t* conf);
 int luat_lcd_wakeup(luat_lcd_conf_t* conf);
 int luat_lcd_display_on(luat_lcd_conf_t* conf);
 int luat_lcd_display_off(luat_lcd_conf_t* conf);
-
+int lcd_write_cmd(const uint8_t cmd, luat_lcd_conf_t* conf);
+int lcd_write_data(const uint8_t data, luat_lcd_conf_t* conf);
+int lcd_write_half_word(const uint16_t da, luat_lcd_conf_t* conf);
+void lcd_address_set(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, luat_lcd_conf_t* conf);
 
 #endif
 

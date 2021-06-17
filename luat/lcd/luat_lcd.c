@@ -3,6 +3,9 @@
 #include "luat_gpio.h"
 #include "luat_spi.h"
 
+#define LUAT_LOG_TAG "lcd"
+#include "luat_log.h"
+
 #define LUAT_LCD_CONF_COUNT (2)
 static luat_lcd_conf_t* confs[LUAT_LCD_CONF_COUNT] = {0};
 

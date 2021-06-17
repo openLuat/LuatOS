@@ -1,3 +1,4 @@
+#include "luat_base.h"
 #include "luat_lcd.h"
 #include "luat_gpio.h"
 #include "luat_spi.h"
@@ -13,20 +14,6 @@
 
 
 static int st7735_init(luat_lcd_conf_t* conf) {
-    // 配置SPI
-    luat_spi_t lcd_spi = {0};
-    lcd_spi.id = 0;
-    lcd_spi.CPHA = 0;
-    lcd_spi.CPOL = 0;
-    lcd_spi.dataw = 8;
-    lcd_spi.bit_dict = 1;
-    lcd_spi.master = 1;
-    lcd_spi.mode = 1;
-    lcd_spi.bandrate = 40 * 1000 * 1000;
-    lcd_spi.cs = conf->pin_cs;
-    LLOGI("cs_pin=%d",lcd_spi.cs);
-    luat_spi_setup(&lcd_spi);
-
     if (conf->w == 0)
         conf->w = LCD_W;
     if (conf->h == 0)
@@ -71,10 +58,10 @@ static int st7735_init(luat_lcd_conf_t* conf) {
     lcd_write_cmd(0xC2, conf);
     lcd_write_data(0x0D, conf);
     lcd_write_data(0x00, conf);
-    cd_write_cmd(0xC3, conf);
+    lcd_write_cmd(0xC3, conf);
     lcd_write_data(0x8D, conf);
     lcd_write_data(0x2A, conf);
-    cd_write_cmd(0xC4, conf);
+    lcd_write_cmd(0xC4, conf);
     lcd_write_data(0x8D, conf);
     lcd_write_data(0xEE, conf);
 	//---------------------------------End ST7735S Power Sequence-------------------------------------//

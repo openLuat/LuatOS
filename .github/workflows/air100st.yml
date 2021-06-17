@@ -29,7 +29,7 @@ jobs:
       run: |
         git clone https://github.com/RT-Thread/rt-thread.git ~/work/action/rt-thread
         cd ~/work/action/rt-thread
-        git clone v4.0.3
+        git checkout v4.0.3
     - name: prepare packages
       run: |
         cd bsp/air100st/rtt

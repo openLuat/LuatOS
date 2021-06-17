@@ -7,7 +7,7 @@ typedef struct
 {
     ES_FILE* hdis;
 	__hdle hlayer;
-	uint8_t * layer_buf[FB_CNT];    //一个图层使用2个FrameBuffer
+	uint32_t * layer_buf[FB_CNT];    //一个图层使用2个FrameBuffer
     uint32_t width;
     uint32_t height;
     uint32_t layer_buf_len;
@@ -44,7 +44,7 @@ static void disp_lcd_init(void)
     layer_para.fb.mode = DISP_MOD_INTERLEAVED;
     layer_para.fb.format = DISP_FORMAT_ARGB8888;
     layer_para.fb.br_swap = 0;
-    layer_para.fb.seq = DISP_SEQ_ARGB;
+    layer_para.fb.seq = DISP_SEQ_BGRA;
     layer_para.ck_enable = 0;
     layer_para.alpha_en = 0;
     layer_para.alpha_val = 0;
@@ -86,23 +86,45 @@ static void disp_lcd_init(void)
 static void disp_lcd_test(void)
 {
     uint32_t i;
-    uint8_t *buf;
+    uint32_t *buf;
     uint8_t next_buffer_index = (g_display.fb_index + 1) % FB_CNT;
     __disp_layer_info_t de_lyr;
+	__disp_color_t color;
     __u32 arg[3];
 
     g_display.test_color = (g_display.test_color + 1) % 3;  //R,G,B轮转测试
     buf = g_display.layer_buf[next_buffer_index];
     i = 0;
     DBG("test %x,%x,%u,%u", g_display.layer_buf[next_buffer_index], buf, g_display.test_color, next_buffer_index);
-    while(i < g_display.layer_buf_len)
+	color.alpha = 0xff;
+	color.red = 0;
+	color.green = 0;
+	color.blue = 0;
+	switch(g_display.test_color)
+	{
+	case 0:
+		color.red = 255;
+		break;
+	case 1:
+		color.green = 255;
+		break;
+	case 2:
+		color.blue = 255;
+		break;
+	}
+	for(i = 0; i < g_display.layer_buf_len / 4; i++)
+	{
+		eLIBs_memcpy(&buf[i], &color, 4);
+	}
+	#if 0
+    while(i < g_display.layer_buf_len / 4)
     {
         eLIBs_memset(&buf[i], 0, 4);
 		buf[i + 3] = 0xff;
         buf[i + g_display.test_color] = 255;
         i += 4;
     }
-
+	#endif
     arg[0] = g_display.hlayer;
     arg[1] = (__u32)&de_lyr;
     arg[2] = 0;

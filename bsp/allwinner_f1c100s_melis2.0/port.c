@@ -28,7 +28,7 @@ static void disp_lcd_init(void)
     g_display.width = eLIBs_fioctrl(g_display.hdis, DISP_CMD_SCN_GET_WIDTH, SEL_SCREEN,0); //modified by Derek,2010.12.07.15:05
 	g_display.height = eLIBs_fioctrl(g_display.hdis, DISP_CMD_SCN_GET_HEIGHT, SEL_SCREEN,0); //modified by Derek,2010.12.07.15:05
     g_display.fb_index = 0;
-    g_display.color_byte = 3;//RGB888
+    g_display.color_byte = 4;//ARGB888
     g_display.layer_buf_len = g_display.width*g_display.height*g_display.color_byte;
     g_display.layer_buf[0] = esMEMS_Palloc(( g_display.layer_buf_len + 1023 ) / 1024, 0);
     g_display.layer_buf[1] = esMEMS_Palloc(( g_display.layer_buf_len + 1023 ) / 1024, 0);
@@ -42,7 +42,7 @@ static void disp_lcd_init(void)
     layer_para.fb.size.width = g_display.width;
     layer_para.fb.size.height = g_display.height;
     layer_para.fb.mode = DISP_MOD_INTERLEAVED;
-    layer_para.fb.format = DISP_FORMAT_RGB888;
+    layer_para.fb.format = DISP_FORMAT_ARGB8888;
     layer_para.fb.br_swap = 0;
     layer_para.fb.seq = DISP_SEQ_ARGB;
     layer_para.ck_enable = 0;
@@ -94,12 +94,13 @@ static void disp_lcd_test(void)
     g_display.test_color = (g_display.test_color + 1) % 3;  //R,G,B轮转测试
     buf = g_display.layer_buf[next_buffer_index];
     i = 0;
-    DBG("test %u,%u", g_display.test_color, next_buffer_index);
+    DBG("test %x,%x,%u,%u", g_display.layer_buf[next_buffer_index], buf, g_display.test_color, next_buffer_index);
     while(i < g_display.layer_buf_len)
     {
-        eLIBs_memset(&buf[i], 0, 3);
+        eLIBs_memset(&buf[i], 0, 4);
+		buf[i + 3] = 0xff;
         buf[i + g_display.test_color] = 255;
-        i += 3;
+        i += 4;
     }
 
     arg[0] = g_display.hlayer;

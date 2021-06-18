@@ -49,6 +49,9 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 bool lv_win_exit_flag = false;
 lv_disp_t *lv_windows_disp;
 
+uint32_t WINDOW_HOR_RES = LV_HOR_RES_MAX;
+uint32_t WINDOW_VER_RES = LV_VER_RES_MAX;
+
 /**********************
  *  STATIC VARIABLES
  **********************/
@@ -151,8 +154,8 @@ static void do_register(void)
 
     /* Example for 1) */
     static lv_disp_buf_t disp_buf_1;
-    static lv_color_t buf1_1[WINDOW_HOR_RES * 10];                      /*A buffer for 10 rows*/
-    lv_disp_buf_init(&disp_buf_1, buf1_1, NULL, WINDOW_HOR_RES * 10);   /*Initialize the display buffer*/
+    static lv_color_t buf1_1[LV_HOR_RES_MAX * LV_VER_RES_MAX];                      /*A buffer for 1080p*/
+    lv_disp_buf_init(&disp_buf_1, buf1_1, NULL, WINDOW_HOR_RES * WINDOW_VER_RES);   /*Initialize the display buffer*/
 
 
     /*-----------------------------------

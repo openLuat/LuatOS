@@ -23,6 +23,8 @@ static void disp_flush(lv_disp_drv_t * disp_drv, const lv_area_t * area, lv_colo
 
 #ifdef LUA_USE_WINDOWS
 #include <windows.h>
+extern uint32_t WINDOW_HOR_RES;
+extern uint32_t WINDOW_VER_RES;
 #endif
 
 int luat_lv_init(lua_State *L) {
@@ -31,6 +33,10 @@ int luat_lv_init(lua_State *L) {
         return 1;
     }
     #ifdef LUA_USE_WINDOWS
+    if (lua_isnumber(L, 1) && lua_isnumber(L, 2)) {
+        WINDOW_HOR_RES= luaL_checkinteger(L, 1);
+        WINDOW_VER_RES = luaL_checkinteger(L, 2);
+    }
     HWND windrv_init(void);
     windrv_init();
     lua_pushboolean(L, 1);

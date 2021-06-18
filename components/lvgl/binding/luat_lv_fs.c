@@ -24,7 +24,7 @@ static lv_fs_res_t luat_lv_fs_dir_read(struct _lv_fs_drv_t * drv, void * rddir_p
 static lv_fs_res_t luat_lv_fs_dir_close(struct _lv_fs_drv_t * drv, void * rddir_p);
 
 void luat_lv_fs_init(void) {
-    static lv_fs_drv_t drv = {
+    static const lv_fs_drv_t drv = {
         .letter = 'S',
         .file_size = sizeof(FILE*),
         .rddir_size = sizeof(FILE*),

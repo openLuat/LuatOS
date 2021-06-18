@@ -12,6 +12,10 @@
 #include "../lvgl/lvgl.h"
 #endif
 
+#ifndef off_t
+#define off_t size_t
+#endif
+
 typedef struct gd_Palette {
     int size;
     uint8_t colors[0x100 * 3];

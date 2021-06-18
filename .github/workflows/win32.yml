@@ -6,6 +6,7 @@ on:
       - '.github/workflows/win32.yml'
       - 'lua/**'
       - 'luat/**'
+      - 'components/**'
       - 'bsp/win32/**'
 
 jobs:

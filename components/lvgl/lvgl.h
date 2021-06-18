@@ -10,9 +10,6 @@
 extern "C" {
 #endif
 
-#ifndef off_t
-#define off_t size_t
-#endif
 /***************************
  * CURRENT VERSION OF LVGL
  ***************************/

@@ -1,6 +1,6 @@
 #include "port.h"
 #include "stdint.h"
-
+#include "lcd_cfg.h"
 #define FB_CNT  2
 
 typedef struct
@@ -11,10 +11,19 @@ typedef struct
     uint32_t width;
     uint32_t height;
     uint32_t layer_buf_len;
+    uint32_t layer_pix;
 	uint8_t fb_index;
     uint8_t color_byte;
     uint8_t test_color;
 }display_ctrlstruct;
+
+typedef union
+{
+    __disp_color_t color;
+    uint32_t data;
+    /* data */
+}color_union;
+
 
 static display_ctrlstruct g_display;
 //初始化显示
@@ -23,13 +32,17 @@ static void disp_lcd_init(void)
 	__disp_layer_info_t     layer_para;
     __u32 arg[3];
 	g_display.hdis   = eLIBs_fopen("b:\\DISP\\DISPLAY", "r+");
-	eLIBs_fioctrl(g_display.hdis, DISP_CMD_RESERVE0, 0, NULL);    //加入这句才能开始用驱动，后续还要加入参数来动态选择LCD屏
+    arg[0] = (uint32_t)lcd_common_rgb_gpio_list;
+	arg[1] = (uint32_t)LCD_common_rbg_cfg_panel_info;
+	arg[2] = (uint32_t)LCD_common_rbg_cfg_panel_info1;
+	eLIBs_fioctrl(g_display.hdis, DISP_CMD_RESERVE0, 0, (void *)arg);    //加入这句才能开始用驱动，后续还要加入参数来动态选择LCD屏
     eLIBs_fioctrl(g_display.hdis, DISP_CMD_LCD_ON, 0, NULL);    //加入这句才能开始启动LCD
     g_display.width = eLIBs_fioctrl(g_display.hdis, DISP_CMD_SCN_GET_WIDTH, SEL_SCREEN,0); //modified by Derek,2010.12.07.15:05
 	g_display.height = eLIBs_fioctrl(g_display.hdis, DISP_CMD_SCN_GET_HEIGHT, SEL_SCREEN,0); //modified by Derek,2010.12.07.15:05
     g_display.fb_index = 0;
-    g_display.color_byte = 4;//ARGB888
+    g_display.color_byte = 4;//ARGB8888
     g_display.layer_buf_len = g_display.width*g_display.height*g_display.color_byte;
+    g_display.layer_pix = g_display.width*g_display.height;
     g_display.layer_buf[0] = esMEMS_Palloc(( g_display.layer_buf_len + 1023 ) / 1024, 0);
     g_display.layer_buf[1] = esMEMS_Palloc(( g_display.layer_buf_len + 1023 ) / 1024, 0);
     eLIBs_memset(g_display.layer_buf[0], 0, g_display.layer_buf_len);
@@ -88,51 +101,44 @@ static void disp_lcd_test(void)
     uint32_t i;
     uint32_t *buf;
     uint8_t next_buffer_index = (g_display.fb_index + 1) % FB_CNT;
-    __disp_layer_info_t de_lyr;
-	__disp_color_t color;
+    __disp_fb_t fb;  
+	color_union u_color;
     __u32 arg[3];
 
     g_display.test_color = (g_display.test_color + 1) % 3;  //R,G,B轮转测试
     buf = g_display.layer_buf[next_buffer_index];
     i = 0;
-    DBG("test %x,%x,%u,%u", g_display.layer_buf[next_buffer_index], buf, g_display.test_color, next_buffer_index);
-	color.alpha = 0xff;
-	color.red = 0;
-	color.green = 0;
-	color.blue = 0;
+    
+	u_color.data = 0;
+	u_color.color.alpha = 0xff;
 	switch(g_display.test_color)
 	{
 	case 0:
-		color.red = 255;
+		u_color.color.red = 255;
+        DBG("test red");
 		break;
 	case 1:
-		color.green = 255;
+		u_color.color.green = 255;
+        DBG("test green");
 		break;
 	case 2:
-		color.blue = 255;
+		u_color.color.blue = 255;
+        DBG("test blue");
 		break;
 	}
 	for(i = 0; i < g_display.layer_buf_len / 4; i++)
 	{
-		eLIBs_memcpy(&buf[i], &color, 4);
+		buf[i] = u_color.data;
 	}
-	#if 0
-    while(i < g_display.layer_buf_len / 4)
-    {
-        eLIBs_memset(&buf[i], 0, 4);
-		buf[i + 3] = 0xff;
-        buf[i + g_display.test_color] = 255;
-        i += 4;
-    }
-	#endif
+
     arg[0] = g_display.hlayer;
-    arg[1] = (__u32)&de_lyr;
+    arg[1] = (__u32)&fb;
     arg[2] = 0;
-    eLIBs_fioctrl(g_display.hdis, DISP_CMD_LAYER_GET_PARA, 0, arg);
+    eLIBs_fioctrl(g_display.hdis, DISP_CMD_LAYER_GET_FB, 0, arg);
 
 
-    de_lyr.fb.addr[0] = (__u32)buf;
-    eLIBs_fioctrl(g_display.hdis, DISP_CMD_LAYER_SET_PARA, 0, arg);
+    fb.addr[0] = (__u32)buf;
+    eLIBs_fioctrl(g_display.hdis, DISP_CMD_LAYER_SET_FB, 0, arg);
     g_display.fb_index = next_buffer_index;
 }
 

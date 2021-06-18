@@ -1,0 +1,42 @@
+name: pico
+
+on:
+  push:
+    paths:
+      - '.github/workflows/pico.yml'
+      - 'lua/**'
+      - 'luat/**'
+      - 'components/**'
+      - 'bsp/raspberrypi-pico/**'
+
+jobs:
+  build:
+
+    runs-on: ubuntu-18.04
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: prepare software
+      run: |
+        cd ..
+        sudo apt update
+        sudo apt install cmake gcc-arm-none-eabi libnewlib-arm-none-eabi libstdc++-arm-none-eabi-newlib gettext -y
+    - name: clone pico-sdk
+      run: |
+        git clone https://github.com/raspberrypi/pico-sdk.git ~/work/action/pico-sdk
+        cd ~/work/action/pico-sdk
+        git submodule update --init
+    - name: make
+      run: |
+        cd bsp/raspberrypi-pico
+        mkdir build
+        cd build
+        cmake ..  -DPICO_SDK_PATH=~/work/action/pico-sdk
+        make
+        mkdir target
+        mv pico-luatos* target
+    - name: Upload artifact
+      uses: actions/upload-artifact@v1
+      with:
+        name: pico-luatos
+        path: bsp/raspberrypi-pico/build/target

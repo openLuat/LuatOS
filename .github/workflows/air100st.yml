@@ -6,6 +6,7 @@ on:
       - '.github/workflows/air100st.yml'
       - 'lua/**'
       - 'luat/**'
+      - 'components/**'
       - 'bsp/air100st/**'
 
 jobs:

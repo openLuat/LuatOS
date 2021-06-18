@@ -6,6 +6,7 @@ on:
       - '.github/workflows/air640w.yml'
       - 'lua/**'
       - 'luat/**'
+      - 'components/**'
       - 'bsp/air640w/**'
 
 jobs:

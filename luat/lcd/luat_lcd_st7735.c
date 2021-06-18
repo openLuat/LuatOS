@@ -5,7 +5,7 @@
 #include "luat_malloc.h"
 #include "luat_timer.h"
 
-#define LUAT_LOG_TAG "lcd"
+#define LUAT_LOG_TAG "st7735"
 #include "luat_log.h"
 
 #define LCD_W 128

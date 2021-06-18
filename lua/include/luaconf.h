@@ -11,7 +11,7 @@
 #include <limits.h>
 #include <stddef.h>
 
-#include <luat_conf_bsp.h>
+#include "luat_conf_bsp.h"
 #include "luat_conf_default.h"
 
 /*

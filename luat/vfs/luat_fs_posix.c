@@ -18,7 +18,16 @@ FILE* luat_fs_fopen(const char *filename, const char *mode) {
 
 int luat_fs_getc(FILE* stream) {
     //LLOGD("posix_getc %p", stream);
+    #ifdef LUAT_FS_NO_POSIX_GETC
+    uint8_t buff = 0;
+    int ret = luat_fs_fread(&buff, 1, 1, stream);
+    if (ret == 1) {
+        return buff;
+    }
+    return -1;
+    #else
     return getc(stream);
+    #endif
 }
 
 int luat_fs_fseek(FILE* stream, long int offset, int origin) {
@@ -101,7 +110,16 @@ FILE* luat_vfs_posix_fopen(void* userdata, const char *filename, const char *mod
 
 int luat_vfs_posix_getc(void* userdata, FILE* stream) {
     //LLOGD("posix_getc %p", stream);
+    #ifdef LUAT_FS_NO_POSIX_GETC
+    uint8_t buff = 0;
+    int ret = luat_fs_fread(&buff, 1, 1, stream);
+    if (ret == 1) {
+        return buff;
+    }
+    return -1;
+    #else
     return getc(stream);
+    #endif
 }
 
 int luat_vfs_posix_fseek(void* userdata, FILE* stream, long int offset, int origin) {

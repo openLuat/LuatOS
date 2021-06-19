@@ -2,6 +2,18 @@
 #include "luat_base.h"
 #include "luat_malloc.h"
 #include "luat_msgbus.h"
+#include "luat_fs.h"
+#include "bget.h"
+//#include "lvgl.h"
+
+#define LUAT_HEAP_SIZE (1024*1024)
+static uint8_t luavm_heap[LUAT_HEAP_SIZE] = {0};
+void luatos_main_entry(void) {
+  bpool(luavm_heap, LUAT_HEAP_SIZE);
+  luat_fs_init();
+  //lv_init();
+  luat_main();
+}
 
 
 static const luaL_Reg loadedlibs[] = {

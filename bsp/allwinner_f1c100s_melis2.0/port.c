@@ -3,6 +3,8 @@
 #include "lcd_cfg.h"
 #define FB_CNT  2
 
+void luatos_main_entry(void);
+
 typedef struct
 {
     ES_FILE* hdis;
@@ -146,6 +148,7 @@ static void port_thread(void *arg)
 {
     disp_lcd_init();
     disp_lcd_test();
+    //luatos_main_entry();
     while(1)
     {
         esKRNL_TimeDly(1000/SYS_TICK);
@@ -161,3 +164,18 @@ int port_entry(void)
     id = esKRNL_TCreate(port_thread, NULL, 0x10000, KRNL_priolevel1);
     DBG("thread id %d!", id);
 }
+
+//==========================================
+#include <rt_misc.h>
+__value_in_regs struct __initial_stackheap __user_initial_stackheap(unsigned i0, unsigned i1, unsigned i2, unsigned i3)
+{
+   struct __initial_stackheap config;
+
+   config.heap_base = i1;
+   config.heap_limit = i1;
+   config.stack_base = i1; 
+   config.stack_limit = 0;
+
+   return config;
+}
+//==========================================

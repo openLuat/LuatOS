@@ -904,4 +904,15 @@ int dfs_lfs2_init(void)
 }
 INIT_COMPONENT_EXPORT(dfs_lfs2_init);
 
+int dfs_lfs2_fmt(void) {
+    dfs_lfs_t *dfs_lfs = (dfs_lfs_t *)rt_malloc(sizeof(dfs_lfs_t));
+    rt_memset(dfs_lfs, 0, sizeof(dfs_lfs_t));
+    _lfs_load_config(&dfs_lfs->cfg);
+
+    /* format flash device */
+    int result = lfs_format(&dfs_lfs->lfs, &dfs_lfs->cfg);
+    rt_free(dfs_lfs);
+    return result;
+}
+
 #endif

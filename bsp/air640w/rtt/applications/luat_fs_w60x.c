@@ -26,6 +26,8 @@ extern const struct luat_vfs_filesystem vfs_fs_luadb;
 
 #define w60x_flash_devname (NULL)
 
+int dfs_lfs2_fmt(void);
+
 int luat_fs_init(void) {
     if (fs_ok) return 0;
     fs_ok = 1;
@@ -33,7 +35,7 @@ int luat_fs_init(void) {
     re = dfs_mount(w60x_flash_devname, "/", "lfs2", 0, 0);
     if (re) {
       LOG_W("w600 onchiip filesystem damage");
-      re = dfs_mkfs("lfs2", w60x_flash_devname);
+      re = dfs_lfs2_fmt();
       if (re) {
         LOG_E("mkfs FAIL!!!! re=%d", re);
       }
@@ -106,7 +108,8 @@ static void reinit(void* params) {
     // 抹除整个分区
     //wm_flash_erase(USER_ADDR_START, USER_ADDR_END - USER_ADDR_START);
     // 重新格式化
-    dfs_mkfs("lfs2", w60x_flash_devname);
+    int re = dfs_lfs2_fmt();
+    LOG_I("lfs fmt ret = %d", re);
     // 挂载
     dfs_mount(w60x_flash_devname, "/", "lfs2", 0, 0);
     t_end = rt_tick_get();

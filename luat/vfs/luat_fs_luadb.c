@@ -7,6 +7,9 @@
 #define LUAT_LOG_TAG "luadb"
 #include "luat_log.h"
 
+#undef LLOGD
+#define LLOGD(...) 
+
 //---
 static uint8_t readU8(const char* ptr, int *index) {
     int val = ptr[*index];

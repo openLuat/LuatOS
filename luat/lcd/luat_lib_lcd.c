@@ -221,8 +221,8 @@ static const rotable_Reg reg_lcd[] =
 {
     { "init",      l_lcd_init,   0},
     { "close",      l_lcd_close,       0},
-    { "On",      l_lcd_display_on,       0},
-    { "Off",      l_lcd_display_off,       0},
+    { "on",      l_lcd_display_on,       0},
+    { "off",      l_lcd_display_off,       0},
     { "sleep",      l_lcd_sleep,       0},
     { "wakeup",      l_lcd_wakeup,       0},
     { "setColor",      l_lcd_set_color,       0},

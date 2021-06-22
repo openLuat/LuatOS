@@ -111,17 +111,44 @@ int luat_lcd_wakeup(luat_lcd_conf_t* conf) {
 }
 
 int luat_lcd_set_address(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2) {
-    lcd_write_cmd(conf,0x2a);
-    lcd_write_data(conf,x1 >> 8);
-    lcd_write_data(conf,x1);
-    lcd_write_data(conf,x2 >> 8);
-    lcd_write_data(conf,x2);
-    lcd_write_cmd(conf,0x2b);
-    lcd_write_data(conf,y1 >> 8);
-    lcd_write_data(conf,y1);
-    lcd_write_data(conf,y2 >> 8);
-    lcd_write_data(conf,y2);
-    lcd_write_cmd(conf,0x2C);
+    if(conf->direction==0){
+        lcd_write_cmd(conf,0x2a);
+        lcd_write_half_word(conf,x1);
+        lcd_write_half_word(conf,x2);
+        lcd_write_cmd(conf,0x2b);
+        lcd_write_half_word(conf,y1);
+        lcd_write_half_word(conf,y2);
+        lcd_write_cmd(conf,0x2C);
+    }
+    else if(conf->direction==1){
+        lcd_write_cmd(conf,0x2a);
+        lcd_write_half_word(conf,x1);
+        lcd_write_half_word(conf,x2);
+        lcd_write_cmd(conf,0x2b);
+        lcd_write_half_word(conf,y1+80);
+        lcd_write_half_word(conf,y2+80);
+        lcd_write_cmd(conf,0x2C);
+    }
+    else if(conf->direction==2){
+        lcd_write_cmd(conf,0x2a);
+        lcd_write_half_word(conf,x1);
+        lcd_write_half_word(conf,x2);
+        lcd_write_cmd(conf,0x2b);
+        lcd_write_half_word(conf,y1);
+        lcd_write_half_word(conf,y2);
+        lcd_write_cmd(conf,0x2C);
+    }
+    else{
+        lcd_write_cmd(conf,0x2a);
+        lcd_write_half_word(conf,x1+80);
+        lcd_write_half_word(conf,x2+80);
+        lcd_write_cmd(conf,0x2b);
+        lcd_write_half_word(conf,y1);
+        lcd_write_half_word(conf,y2);
+        lcd_write_cmd(conf,0x2C);
+
+
+    }
     return 0;
 }
 

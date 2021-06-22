@@ -15,9 +15,9 @@ project (luatos)
 # 一定一定要先添加本地的头文件
 include_directories(./include)
 
-include_directories(${TOPROOT}/lua/include 
-                    ${TOPROOT}/luat/include 
-                    ${TOPROOT}/components/freertos/include 
+include_directories(${TOPROOT}/lua/include
+                    ${TOPROOT}/luat/include
+                    ${TOPROOT}/components/freertos/include
                     )
 IF (WIN32)
      include_directories(${TOPROOT}/components/freertos/portable/MSVC-MingW)
@@ -25,13 +25,13 @@ IF (WIN32)
 ELSE ()
      include_directories(${TOPROOT}/components/freertos/portable/ThirdParty/GCC/Posix)
      include_directories(${TOPROOT}/components/freertos/portable/ThirdParty/GCC/Posix/utils)
-     aux_source_directory(${TOPROOT}/components/freertos/portable/ThirdParty/GCC/Posix MM_SRCS) 
+     aux_source_directory(${TOPROOT}/components/freertos/portable/ThirdParty/GCC/Posix MM_SRCS)
      aux_source_directory(${TOPROOT}/components/freertos/portable/ThirdParty/GCC/Posix/utils
                           MM2_SRCS)
 ENDIF ()
 
 include_directories(${TOPROOT}/luat/packages/lfs)
-include_directories(${TOPROOT}/luat/lcd)
+include_directories(${TOPROOT}/components/lcd)
 
 aux_source_directory(./port PORT_SRCS)
 aux_source_directory(${TOPROOT}/lua/src LUA_SRCS)
@@ -40,13 +40,13 @@ aux_source_directory(${TOPROOT}/components/freertos RTOS_SRCS)
 aux_source_directory(${TOPROOT}/components/freertos/port RTOS_PORT_SRCS)
 aux_source_directory(${TOPROOT}/luat/packages/lua-cjson CJSON_SRCS)
 
-aux_source_directory(${TOPROOT}/luat/lcd LCD_SRCS)
+aux_source_directory(${TOPROOT}/components/lcd LCD_SRCS)
 
 add_library(freertos10 ${PORT_SRCS} ${RTOS_SRCS} ${RTOS_PORT_SRCS} ${MM_SRCS} ${MM2_SRCS})
 add_library(lua ${LUA_SRCS})
 add_library(luatos_msys ${PORT_SRCS})
 add_library(cjson ${CJSON_SRCS})
-add_library(luat ${TOPROOT}/luat/modules/luat_main.c 
+add_library(luat ${TOPROOT}/luat/modules/luat_main.c
                  ${TOPROOT}/luat/modules/luat_ota.c
                  ${TOPROOT}/luat/modules/luat_luat_bin.c
                  ${TOPROOT}/luat/modules/luat_lib_rtos.c

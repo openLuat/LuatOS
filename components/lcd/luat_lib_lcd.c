@@ -65,6 +65,12 @@ static int l_lcd_init(lua_State* L) {
             };
             lua_pop(L, 1);
 
+            lua_pushstring(L, "direction");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->direction = luaL_checkinteger(L, -1);
+            };
+            lua_pop(L, 1);
+
             lua_pushstring(L, "w");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
                 conf->w = luaL_checkinteger(L, -1);

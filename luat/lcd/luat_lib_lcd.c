@@ -12,8 +12,12 @@ lcd驱动模块
 #define LUAT_LOG_TAG "lib_lcd"
 #include "luat_log.h"
 
-extern const luat_lcd_opts_t lcd_opts_st7789;
 extern const luat_lcd_opts_t lcd_opts_st7735;
+extern const luat_lcd_opts_t lcd_opts_st7789;
+extern const luat_lcd_opts_t lcd_opts_gc9a01;
+extern const luat_lcd_opts_t lcd_opts_gc9106l;
+extern const luat_lcd_opts_t lcd_opts_gc9306;
+extern const luat_lcd_opts_t lcd_opts_ili9341;
 
 /*
 初始化lcd
@@ -24,7 +28,7 @@ extern const luat_lcd_opts_t lcd_opts_st7735;
 static int l_lcd_init(lua_State* L) {
     size_t len = 0;
     const char* tp = luaL_checklstring(L, 1, &len);
-    if (!strcmp("st7789", tp) || !strcmp("st7735", tp)) {
+    if (!strcmp("st7735", tp) || !strcmp("st7789", tp) || !strcmp("gc9a01", tp) || !strcmp("gc9106l", tp) || !strcmp("gc9306", tp) || !strcmp("ili9341", tp)) {
         luat_lcd_conf_t *conf = luat_heap_malloc(sizeof(luat_lcd_conf_t));
         memset(conf, 0, sizeof(luat_lcd_conf_t)); // 填充0,保证无脏数据
 
@@ -73,10 +77,18 @@ static int l_lcd_init(lua_State* L) {
             };
             lua_pop(L, 1);
         }
-        if (!strcmp("st7789", tp))
-            conf->opts = &lcd_opts_st7789;
-        else if (!strcmp("st7735", tp))
+        if (!strcmp("st7735", tp))
             conf->opts = &lcd_opts_st7735;
+        else if (!strcmp("st7789", tp))
+            conf->opts = &lcd_opts_st7789;
+        else if (!strcmp("gc9a01", tp))
+            conf->opts = &lcd_opts_gc9a01;
+        else if (!strcmp("gc9106l", tp))
+            conf->opts = &lcd_opts_gc9106l;
+        else if (!strcmp("gc9306", tp))
+            conf->opts = &lcd_opts_gc9306;
+        else if (!strcmp("ili9341", tp))
+            conf->opts = &lcd_opts_ili9341;
         int ret = luat_lcd_init(conf);
         lua_pushboolean(L, ret == 0 ? 1 : 0);
         return 1;

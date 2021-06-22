@@ -31,7 +31,7 @@ ELSE ()
 ENDIF ()
 
 include_directories(${TOPROOT}/luat/packages/lfs)
-include_directories(${TOPROOT}/luat/packages/lcd)
+include_directories(${TOPROOT}/components/lcd)
 
 aux_source_directory(./port PORT_SRCS)
 aux_source_directory(${TOPROOT}/lua/src LUA_SRCS)
@@ -40,7 +40,7 @@ aux_source_directory(${TOPROOT}/components/freertos RTOS_SRCS)
 aux_source_directory(${TOPROOT}/components/freertos/port RTOS_PORT_SRCS)
 aux_source_directory(${TOPROOT}/luat/packages/lua-cjson CJSON_SRCS)
 
-aux_source_directory(${TOPROOT}/luat/packages/lcd LCD_SRCS)
+aux_source_directory(${TOPROOT}/components/lcd LCD_SRCS)
 
 add_library(freertos10 ${PORT_SRCS} ${RTOS_SRCS} ${RTOS_PORT_SRCS} ${MM_SRCS} ${MM2_SRCS})
 add_library(lua ${LUA_SRCS})
@@ -108,8 +108,8 @@ add_subdirectory(${TOPROOT}/components/mbedtls mbedtls.out)
 
 #-----------------------
 # lvgl
-include_directories(${TOPROOT}/luat/packages/lvgl)
-add_subdirectory(${TOPROOT}/luat/packages/lvgl lvgl.out)
+include_directories(${TOPROOT}/components/lvgl)
+add_subdirectory(${TOPROOT}/components/lvgl lvgl.out)
 #-----------------------
 
 IF (WIN32)

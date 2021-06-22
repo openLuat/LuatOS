@@ -71,5 +71,14 @@ int luat_lcd_draw_line(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t 
 int luat_lcd_draw_rectangle(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2,uint32_t color);
 int luat_lcd_draw_circle(luat_lcd_conf_t* conf,uint16_t x0, uint16_t y0, uint8_t r,uint32_t color);
 
+void luat_lcd_execute_cmds(luat_lcd_conf_t* conf, uint32_t* cmds, uint32_t count);
+
+typedef struct luat_lcd_custom {
+    uint32_t init_cmd_count;
+    uint32_t sleepcmd;
+    uint32_t wakecmd;
+    uint32_t initcmd[1]; // 实际命令长度与init_cmd_count相同
+}luat_lcd_custom_t;
+
 #endif
 

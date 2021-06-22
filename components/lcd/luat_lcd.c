@@ -11,6 +11,28 @@ uint32_t BACK_COLOR = WHITE, FORE_COLOR = BLACK;
 #define LUAT_LCD_CONF_COUNT (2)
 static luat_lcd_conf_t* confs[LUAT_LCD_CONF_COUNT] = {0};
 
+void luat_lcd_execute_cmds(luat_lcd_conf_t* conf, uint32_t* cmds, uint32_t count) {
+    uint32_t cmd = 0;
+    for (size_t i = 0; i < count; i++)
+    {
+        cmd = cmds[i];
+        switch(((cmd >> 16) & 0xFFFF)) {
+            case 0x0001 :
+                luat_timer_mdelay(cmd & 0xFF);
+                break;
+            case 0x0002 :
+                lcd_write_cmd(conf, cmd & 0xFF);
+                break;
+            case 0x0003 :
+                lcd_write_data(conf, cmd & 0xFF);
+                break;
+            default:
+                break;
+        }
+    }
+}
+
+
 int lcd_write_cmd(luat_lcd_conf_t* conf,const uint8_t cmd){
     size_t len;
     luat_gpio_set(conf->pin_dc, Luat_GPIO_LOW);

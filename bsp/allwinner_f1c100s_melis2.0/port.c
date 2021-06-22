@@ -164,18 +164,3 @@ int port_entry(void)
     id = esKRNL_TCreate(port_thread, NULL, 0x10000, KRNL_priolevel1);
     DBG("thread id %d!", id);
 }
-
-//==========================================
-#include <rt_misc.h>
-__value_in_regs struct __initial_stackheap __user_initial_stackheap(unsigned i0, unsigned i1, unsigned i2, unsigned i3)
-{
-   struct __initial_stackheap config;
-
-   config.heap_base = i1;
-   config.heap_limit = i1;
-   config.stack_base = i1; 
-   config.stack_limit = 0;
-
-   return config;
-}
-//==========================================

@@ -10,6 +10,7 @@
 
 #define LCD_W 240
 #define LCD_H 240
+#define LCD_DIRECTION 0
 
 static int gc9a01_sleep(luat_lcd_conf_t* conf) {
     luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
@@ -35,6 +36,8 @@ static int gc9a01_init(luat_lcd_conf_t* conf) {
         conf->w = LCD_W;
     if (conf->h == 0)
         conf->h = LCD_H;
+    if (conf->direction == 0)
+        conf->direction = LCD_DIRECTION;
 
     // 配置CS脚的GPIO
     luat_gpio_mode(conf->pin_cs, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 0);
@@ -99,7 +102,10 @@ static int gc9a01_init(luat_lcd_conf_t* conf) {
     lcd_write_data(conf,0x20);
 
     lcd_write_cmd(conf,0x36);
-    lcd_write_data(conf,0x08);
+    if(conf->direction==0)lcd_write_data(conf,0x08);
+    else if(conf->direction==1)lcd_write_data(conf,0xC8);
+    else if(conf->direction==2)lcd_write_data(conf,0x68);
+    else lcd_write_data(conf,0xA8);
 
     lcd_write_cmd(conf,0x3A);
     lcd_write_data(conf,0x05);

@@ -33,6 +33,7 @@ typedef struct luat_lcd_conf {
     uint8_t pin_pwr;
     uint8_t pin_rst;
 
+    uint8_t direction;//方向
     uint32_t w;
     uint32_t h;
 

@@ -22,8 +22,6 @@ extern const luat_lcd_opts_t lcd_opts_custom;
 
 static luat_lcd_conf_t *default_conf = NULL;
 
-#define COLOR_DEFAULT_32BIT (0xFFFFFFFF)
-
 /*
 初始化lcd
 @api lcd.init(tp, args)
@@ -33,8 +31,8 @@ static luat_lcd_conf_t *default_conf = NULL;
 static int l_lcd_init(lua_State* L) {
     size_t len = 0;
     const char* tp = luaL_checklstring(L, 1, &len);
-    if (!strcmp("st7735", tp) || !strcmp("st7789", tp) 
-            || !strcmp("gc9a01", tp)  || !strcmp("gc9106l", tp) 
+    if (!strcmp("st7735", tp) || !strcmp("st7789", tp)
+            || !strcmp("gc9a01", tp)  || !strcmp("gc9106l", tp)
             || !strcmp("gc9306", tp)  || !strcmp("ili9341", tp)
             || !strcmp("custom", tp)) {
         luat_lcd_conf_t *conf = luat_heap_malloc(sizeof(luat_lcd_conf_t));
@@ -106,18 +104,18 @@ static int l_lcd_init(lua_State* L) {
         else if (!strcmp("custom", tp)) {
             conf->opts = &lcd_opts_custom;
             luat_lcd_custom_t *cst = luat_heap_malloc(sizeof(luat_lcd_custom_t));
-            
+
             // 获取initcmd/sleepcmd/wakecmd
             lua_pushstring(L, "sleepcmd");
             lua_gettable(L, 2);
             cst->sleepcmd = luaL_checkinteger(L, -1);
             lua_pop(L, 1);
-            
+
             lua_pushstring(L, "wakecmd");
             lua_gettable(L, 2);
             cst->wakecmd = luaL_checkinteger(L, -1);
             lua_pop(L, 1);
-            
+
             lua_pushstring(L, "initcmd");
             lua_gettable(L, 2);
             cst->init_cmd_count = lua_rawlen(L, -1);
@@ -181,7 +179,7 @@ static int l_lcd_set_color(lua_State* L) {
 
 static int l_lcd_draw(lua_State* L) {
     uint16_t x1, y1, x2, y2;
-    uint32_t color = COLOR_DEFAULT_32BIT;
+    uint32_t color = FORE_COLOR;
     x1 = luaL_checkinteger(L, 1);
     y1 = luaL_checkinteger(L, 2);
     x2 = luaL_checkinteger(L, 3);
@@ -195,7 +193,7 @@ static int l_lcd_draw(lua_State* L) {
 
 static int l_lcd_clear(lua_State* L) {
     size_t len = 0;
-    uint32_t color = COLOR_DEFAULT_32BIT;
+    uint32_t color = FORE_COLOR;
     if (lua_gettop(L) > 0)
         color = luaL_checkinteger(L, 1);
     int ret = luat_lcd_clear(default_conf, color);
@@ -205,7 +203,7 @@ static int l_lcd_clear(lua_State* L) {
 
 static int l_lcd_draw_point(lua_State* L) {
     uint16_t x, y;
-    uint32_t color = COLOR_DEFAULT_32BIT;
+    uint32_t color = FORE_COLOR;
     x = luaL_checkinteger(L, 1);
     y = luaL_checkinteger(L, 2);
     if (lua_gettop(L) > 2)
@@ -217,7 +215,7 @@ static int l_lcd_draw_point(lua_State* L) {
 
 static int l_lcd_draw_line(lua_State* L) {
     uint16_t x1, y1, x2, y2;
-    uint32_t color = COLOR_DEFAULT_32BIT;
+    uint32_t color = FORE_COLOR;
     x1 = luaL_checkinteger(L, 1);
     y1 = luaL_checkinteger(L, 2);
     x2 = luaL_checkinteger(L, 3);
@@ -231,7 +229,7 @@ static int l_lcd_draw_line(lua_State* L) {
 
 static int l_lcd_draw_rectangle(lua_State* L) {
     uint16_t x1, y1, x2, y2;
-    uint32_t color = COLOR_DEFAULT_32BIT;
+    uint32_t color = FORE_COLOR;
     x1 = luaL_checkinteger(L, 1);
     y1 = luaL_checkinteger(L, 2);
     x2 = luaL_checkinteger(L, 3);
@@ -245,7 +243,7 @@ static int l_lcd_draw_rectangle(lua_State* L) {
 
 static int l_lcd_draw_circle(lua_State* L) {
     uint16_t x0, y0, r;
-    uint32_t color = COLOR_DEFAULT_32BIT;
+    uint32_t color = FORE_COLOR;
     x0 = luaL_checkinteger(L, 1);
     y0 = luaL_checkinteger(L, 2);
     r = luaL_checkinteger(L, 3);

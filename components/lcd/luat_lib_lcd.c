@@ -12,6 +12,8 @@ lcd驱动模块
 #define LUAT_LOG_TAG "lib_lcd"
 #include "luat_log.h"
 
+extern uint32_t BACK_COLOR , FORE_COLOR ;
+
 extern const luat_lcd_opts_t lcd_opts_st7735;
 extern const luat_lcd_opts_t lcd_opts_st7789;
 extern const luat_lcd_opts_t lcd_opts_gc9a01;

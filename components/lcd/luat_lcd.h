@@ -23,9 +23,6 @@
 #define GRAY187          0XBDD7
 #define GRAY240          0XF79E
 
-uint32_t BACK_COLOR;
-uint32_t FORE_COLOR;
-
 struct luat_lcd_opts;
 
 typedef struct luat_lcd_conf {

@@ -6,7 +6,6 @@
 
 #define TAG "luat.fs"
 
-#include <unistd.h>
 
 // fs的默认实现, 指向poisx的stdio.h声明的方法
 #ifndef LUAT_USE_FS_VFS

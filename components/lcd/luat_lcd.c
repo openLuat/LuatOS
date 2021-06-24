@@ -2,6 +2,8 @@
 #include "luat_lcd.h"
 #include "luat_gpio.h"
 #include "luat_spi.h"
+#include "luat_malloc.h"
+#include "luat_timer.h"
 
 #define LUAT_LOG_TAG "lcd"
 #include "luat_log.h"
@@ -255,7 +257,7 @@ int luat_lcd_draw_line(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t 
         }
         luat_gpio_set(conf->pin_dc, Luat_GPIO_HIGH);
         luat_spi_send(conf->port, line_buf, (x2 - x1) * 2);
-        return ;
+        return 0;
     }
 
     delta_x = x2 - x1;

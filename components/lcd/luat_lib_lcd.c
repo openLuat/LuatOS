@@ -92,19 +92,19 @@ static int l_lcd_init(lua_State* L) {
             lua_pop(L, 1);
         }
         if (!strcmp("st7735", tp))
-            conf->opts = &lcd_opts_st7735;
+            conf->opts = (luat_lcd_opts_t*)&lcd_opts_st7735;
         else if (!strcmp("st7789", tp))
-            conf->opts = &lcd_opts_st7789;
+            conf->opts = (luat_lcd_opts_t*)&lcd_opts_st7789;
         else if (!strcmp("gc9a01", tp))
-            conf->opts = &lcd_opts_gc9a01;
+            conf->opts = (luat_lcd_opts_t*)&lcd_opts_gc9a01;
         else if (!strcmp("gc9106l", tp))
-            conf->opts = &lcd_opts_gc9106l;
+            conf->opts = (luat_lcd_opts_t*)&lcd_opts_gc9106l;
         else if (!strcmp("gc9306", tp))
-            conf->opts = &lcd_opts_gc9306;
+            conf->opts = (luat_lcd_opts_t*)&lcd_opts_gc9306;
         else if (!strcmp("ili9341", tp))
-            conf->opts = &lcd_opts_ili9341;
+            conf->opts = (luat_lcd_opts_t*)&lcd_opts_ili9341;
         else if (!strcmp("custom", tp)) {
-            conf->opts = &lcd_opts_custom;
+            conf->opts = (luat_lcd_opts_t*)&lcd_opts_custom;
             luat_lcd_custom_t *cst = luat_heap_malloc(sizeof(luat_lcd_custom_t));
             
             // 获取initcmd/sleepcmd/wakecmd
@@ -181,13 +181,12 @@ static int l_lcd_set_color(lua_State* L) {
 
 static int l_lcd_draw(lua_State* L) {
     uint16_t x1, y1, x2, y2;
-    uint32_t color = COLOR_DEFAULT_32BIT;
+    uint32_t* color = NULL;
     x1 = luaL_checkinteger(L, 1);
     y1 = luaL_checkinteger(L, 2);
     x2 = luaL_checkinteger(L, 3);
     y2 = luaL_checkinteger(L, 4);
-    if (lua_gettop(L) > 4)
-        color = luaL_checkinteger(L, 5);
+    color = (uint32_t*)luaL_checkstring(L, 5);
     int ret = luat_lcd_draw(default_conf, x1, y1, x2, y2, color);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 0;

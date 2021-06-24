@@ -27,13 +27,16 @@ typedef struct
 {
     __krnl_event_t  *psys_msg_queue;				// msg 消息队列
     __event_t tp_event_buf[TP_EVENT_CNT];
+	__event_t mou_event_buf[TP_EVENT_CNT];
     __event_t key_event_buf[KEY_EVENT_CNT];
     __event_t srv_event_buf[SRV_EVENT_CNT];
     volatile uint32_t tp_event_pos;
+	volatile uint32_t mou_event_pos;
     volatile uint32_t key_event_pos;
     volatile uint32_t srv_event_pos;
 	__hdle  		h_tpGraber;
 	__hdle  		h_keyGraber;
+	__hdle  		h_mouseGraber;
     __s32		    last_touch_action;
     __u8			msg_srv_tid;
     __u8 			ksrv_th_id;
@@ -82,7 +85,6 @@ static __s32 tp_msg_cb(void *msg)
 	__input_event_t        pEvent_y;
 	__input_event_t        pEvent_speed_dir;
 	__input_event_t        pEvent_speed_val;
-	DBG("!");
 	if (msg == NULL)
 	{
 		DBG("invalid argument for call back");
@@ -202,6 +204,96 @@ static __s32 tp_msg_cb(void *msg)
 	}
     pmsg->lock = 1;
     prv_kernel.tp_event_pos++;
+	esKRNL_QPost(prv_kernel.psys_msg_queue, pmsg);
+
+	return EPDK_TRUE;
+}
+
+/**
+ * 通过回调函数的方式取鼠标消息
+ */
+static __s32 mouse_msg_cb(void *msg)
+{
+	__event_t	*pmsg;
+	__u8 error;
+
+	__u32 i;
+	__input_event_packet_t *pPacket;
+	__input_event_t        *pEventFrame;
+	__input_event_t        pEvent_type;
+	__input_event_t        pEvent_x;
+	__input_event_t        pEvent_y;
+	__input_event_t        pEvent_speed_dir;
+	__input_event_t        pEvent_speed_val;
+
+	if (msg == NULL)
+	{
+		DBG("invalid argument for call back");
+		return EPDK_FAIL;
+	}
+
+	/* dump packet events */
+	pPacket = (__input_event_packet_t *)msg;
+	if (pPacket->event_cnt <= 0 || pPacket->event_cnt > INPUT_MAX_EVENT_NR)
+	{
+		DBG("invalid event count number");
+		return EPDK_FAIL;
+	}
+	//__inf("\n------------------------------------------------\n");
+	for (i = 0; i < pPacket->event_cnt; i++)
+	{
+		pEventFrame = &(pPacket->events[i]);
+		/*__inf("Event %d: type = %d, code = %d, value = %d\n", i + 1,
+																 pEventFrame->type,
+																 pEventFrame->code,
+																 pEventFrame->value
+																 );*/
+		if(pEventFrame->type == EV_ABS)
+		{
+			if(pEventFrame->code == ABS_MISC)
+			{
+				eLIBs_memcpy(&pEvent_type, pEventFrame, sizeof(__input_event_t));
+			}
+			else if(pEventFrame->code == ABS_X)
+			{
+				eLIBs_memcpy(&pEvent_x, pEventFrame, sizeof(__input_event_t));
+			}
+			else if(pEventFrame->code == ABS_Y)
+			{
+				eLIBs_memcpy(&pEvent_y, pEventFrame, sizeof(__input_event_t));
+			}
+			else if(pEventFrame->code == ABS_RUDDER)
+			{
+				eLIBs_memcpy(&pEvent_speed_dir, pEventFrame, sizeof(__input_event_t));
+			}
+			else if(pEventFrame->code == ABS_BRAKE)
+			{
+				eLIBs_memcpy(&pEvent_speed_val, pEventFrame, sizeof(__input_event_t));
+			}
+		}
+		else if(pEventFrame->type == EV_SYN)
+		{
+			break;
+		}
+	}
+	//__inf("\n------------------------------------------------\n");
+    if (prv_kernel.mou_event_pos >= TP_EVENT_CNT)
+    {
+        prv_kernel.mou_event_pos = 0;
+    }
+    pmsg = &prv_kernel.tp_event_buf[prv_kernel.mou_event_pos];
+    if (pmsg->lock)
+    {
+        DBG("mouse event overload");
+		return EPDK_FAIL;
+    }
+	pmsg->event_id 	= 0x1000;
+	pmsg->param1 	= (pEvent_y.value<<16) + pEvent_x.value;
+	pmsg->param2 = (pEvent_speed_dir.value<<16) + pEvent_speed_val.value;
+	pmsg->param3 = pEvent_type.value;
+    
+    pmsg->lock = 1;
+    prv_kernel.mou_event_pos++;
 	esKRNL_QPost(prv_kernel.psys_msg_queue, pmsg);
 
 	return EPDK_TRUE;
@@ -368,7 +460,7 @@ static void ksrv_msg_thread(void *arg)
 				break;
 			esKRNL_TimeDly(2);
 		}
-		DBG("!");
+		DBG("0x%x", usrmsg);
         if (prv_kernel.srv_event_pos >= SRV_EVENT_CNT)
         {
             prv_kernel.srv_event_pos = 0;
@@ -598,13 +690,10 @@ static void app_init(void)
     __s32  LdevID;
 	__s32 ret;
     ret = esDEV_Plugin("\\drv\\audio.drv", 0, 0, 1);
-	DBG("%d", ret);
     ret = esDEV_Plugin("\\drv\\matrixkey.drv", 0, 0, 1);
-	DBG("%d", ret);
 	ret = esDEV_Plugin("\\drv\\ir.drv", 0, 0, 1);
-	DBG("%d", ret);
     pHwsc = eLIBs_fopen("b:\\HWSC\\hwsc", "rb+");
-	DBG("%d", pHwsc);
+	
     if(pHwsc)
     {
         eLIBs_fioctrl(pHwsc, DEV_IOC_USR_HWSC_ENABLE_MONITOR, 0, NULL);
@@ -618,7 +707,7 @@ static void app_init(void)
     prv_kernel.psys_msg_queue  = esKRNL_QCreate(TP_EVENT_CNT + KEY_EVENT_CNT + SRV_EVENT_CNT);
     prv_kernel.h_tpGraber = esINPUT_LdevGrab(INPUT_LTS_DEV_NAME, (__pCBK_t)tp_msg_cb, 0, 0);
     prv_kernel.h_keyGraber = esINPUT_LdevGrab(INPUT_LKEYBOARD_DEV_NAME, (__pCBK_t)key_msg_cb, 0, 0);
-	DBG("0x%x, 0x%x, 0x%x", prv_kernel.psys_msg_queue, prv_kernel.h_tpGraber, prv_kernel.h_keyGraber);
+	prv_kernel.h_mouseGraber = esINPUT_LdevGrab(INPUT_LMOUSE_DEV_NAME, (__pCBK_t)mouse_msg_cb, 0, 0);
     LdevID = esINPUT_GetLdevID(prv_kernel.h_keyGraber);
 	if (LdevID != -1)
 	{

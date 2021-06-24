@@ -82,7 +82,7 @@ static __s32 tp_msg_cb(void *msg)
 	__input_event_t        pEvent_y;
 	__input_event_t        pEvent_speed_dir;
 	__input_event_t        pEvent_speed_val;
-
+	DBG("!");
 	if (msg == NULL)
 	{
 		DBG("invalid argument for call back");
@@ -215,7 +215,7 @@ static __s32 key_msg_cb(void *msg)
 	__u32 i;
 	__input_event_packet_t *pPacket;
 	__input_event_t        *pEventFrame;
-
+	DBG("!");
 	if (msg == NULL)
 	{
 		DBG("invalid argument for call back");
@@ -368,6 +368,7 @@ static void ksrv_msg_thread(void *arg)
 				break;
 			esKRNL_TimeDly(2);
 		}
+		DBG("!");
         if (prv_kernel.srv_event_pos >= SRV_EVENT_CNT)
         {
             prv_kernel.srv_event_pos = 0;
@@ -595,12 +596,15 @@ static void app_init(void)
 {
     ES_FILE 	*pHwsc;
     __s32  LdevID;
-    esDEV_Plugin("\\drv\\audio.drv", 0, 0, 1);
-    esDEV_Plugin("\\drv\\matrixkey.drv", 0, 0, 1);
-	esDEV_Plugin("\\drv\\ir.drv", 0, 0, 1);
-    esDEV_Plugin("\\drv\\touchpanel.drv", 0, 0, 1);
-
+	__s32 ret;
+    ret = esDEV_Plugin("\\drv\\audio.drv", 0, 0, 1);
+	DBG("%d", ret);
+    ret = esDEV_Plugin("\\drv\\matrixkey.drv", 0, 0, 1);
+	DBG("%d", ret);
+	ret = esDEV_Plugin("\\drv\\ir.drv", 0, 0, 1);
+	DBG("%d", ret);
     pHwsc = eLIBs_fopen("b:\\HWSC\\hwsc", "rb+");
+	DBG("%d", pHwsc);
     if(pHwsc)
     {
         eLIBs_fioctrl(pHwsc, DEV_IOC_USR_HWSC_ENABLE_MONITOR, 0, NULL);
@@ -614,14 +618,18 @@ static void app_init(void)
     prv_kernel.psys_msg_queue  = esKRNL_QCreate(TP_EVENT_CNT + KEY_EVENT_CNT + SRV_EVENT_CNT);
     prv_kernel.h_tpGraber = esINPUT_LdevGrab(INPUT_LTS_DEV_NAME, (__pCBK_t)tp_msg_cb, 0, 0);
     prv_kernel.h_keyGraber = esINPUT_LdevGrab(INPUT_LKEYBOARD_DEV_NAME, (__pCBK_t)key_msg_cb, 0, 0);
-
+	DBG("0x%x, 0x%x, 0x%x", prv_kernel.psys_msg_queue, prv_kernel.h_tpGraber, prv_kernel.h_keyGraber);
     LdevID = esINPUT_GetLdevID(prv_kernel.h_keyGraber);
 	if (LdevID != -1)
 	{
         if (esINPUT_LdevCtl(LdevID, INPUT_SET_REP_PERIOD, 200, NULL) != EPDK_OK)
         {
-            DBG("logical device ioctl failed\n");
+            DBG("key device ioctl failed\n");
         }
+	}
+	else
+	{
+		DBG("key device ioctl failed\n");
 	}
     prv_kernel.ksrv_th_id = esKRNL_TCreate(ksrv_msg_thread, (void *)&prv_kernel, 0x400, KRNL_priolevel3);
 }

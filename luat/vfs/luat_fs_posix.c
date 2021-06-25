@@ -6,7 +6,6 @@
 
 #define TAG "luat.fs"
 
-#include <unistd.h>
 
 // fs的默认实现, 指向poisx的stdio.h声明的方法
 #ifndef LUAT_USE_FS_VFS
@@ -95,10 +94,12 @@ LUAT_WEAK int luat_fs_umount(luat_fs_conf_t *conf) {
 }
 
 int luat_fs_mkdir(char const* _DirName) {
-    return mkdir(_DirName);
+    //return mkdir(_DirName);
+    return -1;
 }
 int luat_fs_rmdir(char const* _DirName) {
-    return rmdir(_DirName);
+    //return rmdir(_DirName);
+    return -1;
 }
 
 #else
@@ -187,10 +188,12 @@ int luat_vfs_posix_umount(void* userdata, luat_fs_conf_t *conf) {
 }
 
 int luat_vfs_posix_mkdir(void* userdata, char const* _DirName) {
-    return mkdir(_DirName);
+    //return mkdir(_DirName);
+    return -1;
 }
 int luat_vfs_posix_rmdir(void* userdata, char const* _DirName) {
-    return rmdir(_DirName);
+    //return rmdir(_DirName);
+    return -1;
 }
 
 #define T(name) .name = luat_vfs_posix_##name

@@ -66,8 +66,16 @@ function sys.wait(ms)
     -- 参数检测，参数不能为负值
     --assert(ms > 0, "The wait time cannot be negative!")
     -- 选一个未使用的定时器ID给该任务线程
-    if taskTimerId >= TASK_TIMER_ID_MAX then taskTimerId = 0 end
-    taskTimerId = taskTimerId + 1
+    while true do
+        if taskTimerId >= TASK_TIMER_ID_MAX - 1 then
+            taskTimerId = 0
+        else
+            taskTimerId = taskTimerId + 1
+        end
+        if taskTimerPool[taskTimerId] == nil then
+            break
+        end
+    end
     local timerid = taskTimerId
     taskTimerPool[coroutine.running()] = timerid
     timerPool[timerid] = coroutine.running()
@@ -379,7 +387,7 @@ end
 -- @return 无
 -- @usage sys.run()
 function sys.run()
-    local result, err
+    --local result, err
     while true do
         --if sRollBack then
             safeRun()

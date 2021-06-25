@@ -23,7 +23,6 @@
 #define GRAY187          0XBDD7
 #define GRAY240          0XF79E
 
-
 struct luat_lcd_opts;
 
 typedef struct luat_lcd_conf {

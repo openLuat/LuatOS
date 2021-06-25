@@ -187,10 +187,6 @@ int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, 
 }
 
 int luat_lcd_clear(luat_lcd_conf_t* conf,uint32_t color){
-    if (color == NULL)
-    {
-       color = FORE_COLOR;
-    }
     uint16_t i, j;
     uint8_t data[2] = {0};
     uint8_t *buf = NULL;
@@ -227,20 +223,12 @@ int luat_lcd_clear(luat_lcd_conf_t* conf,uint32_t color){
 }
 
 int luat_lcd_draw_point(luat_lcd_conf_t* conf, uint16_t x, uint16_t y, uint32_t color) {
-    if (color == NULL)
-    {
-       color = FORE_COLOR;
-    }
     luat_lcd_set_address(conf,x, y, x, y);
     lcd_write_half_word(conf,color);
     return 0;
 }
 
 int luat_lcd_draw_line(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2,uint32_t color){
-    if (color == NULL)
-    {
-       color = FORE_COLOR;
-    }
     uint16_t t;
     uint32_t i = 0;
     int xerr = 0, yerr = 0, delta_x, delta_y, distance;
@@ -300,10 +288,6 @@ int luat_lcd_draw_line(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t 
 }
 
 int luat_lcd_draw_rectangle(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2,uint32_t color){
-    if (color == NULL)
-    {
-       color = FORE_COLOR;
-    }
     luat_lcd_draw_line(conf,x1, y1, x2, y1,color);
     luat_lcd_draw_line(conf,x1, y1, x1, y2,color);
     luat_lcd_draw_line(conf,x1, y2, x2, y2,color);
@@ -312,10 +296,6 @@ int luat_lcd_draw_rectangle(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint
 }
 
 int luat_lcd_draw_circle(luat_lcd_conf_t* conf,uint16_t x0, uint16_t y0, uint8_t r,uint32_t color){
-    if (color == NULL)
-    {
-       color = FORE_COLOR;
-    }
     int a, b;
     int di;
     a = 0;

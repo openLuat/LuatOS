@@ -236,7 +236,8 @@ lcd颜色填充
 @int 绘画颜色
 @usage
 -- lcd颜色填充
-lcd.draw(0xFFFF,0x0000)
+buff:writeInt32(0x001F)
+lcd.draw(20,30,220,30,buff)
 */
 static int l_lcd_draw(lua_State* L) {
     uint16_t x1, y1, x2, y2;
@@ -245,7 +246,7 @@ static int l_lcd_draw(lua_State* L) {
     y1 = luaL_checkinteger(L, 2);
     x2 = luaL_checkinteger(L, 3);
     y2 = luaL_checkinteger(L, 4);
-    *color = (uint32_t)luaL_checkinteger(L, 5);
+    color = (uint32_t*)lua_touserdata(L, 5);
     int ret = luat_lcd_draw(default_conf, x1, y1, x2, y2, color);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 0;
@@ -320,8 +321,8 @@ static int l_lcd_draw_line(lua_State* L) {
 @api lcd.drawRectangle(x0,y0,x1,y1,color)
 @int 左上边缘的X位置.
 @int 左上边缘的Y位置.
-@int 右上边缘的X位置.
-@int 右上边缘的Y位置.
+@int 右下边缘的X位置.
+@int 右下边缘的Y位置.
 @int 绘画颜色 可选参数,默认前景色
 @usage
 lcd.drawRectangle(20,40,220,80,0x001F)
@@ -342,7 +343,7 @@ static int l_lcd_draw_rectangle(lua_State* L) {
 
 /*
 从x / y位置（圆心）开始绘制一个圆
-@api lcd.drawCircle(x0,y0,x1,y1,color)
+@api lcd.drawCircle(x0,y0,r,color)
 @int 圆心的X位置.
 @int 圆心的Y位置.
 @int 半径.

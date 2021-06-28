@@ -172,8 +172,8 @@ static int l_lcd_wakeup(lua_State* L) {
 
 static int l_lcd_set_color(lua_State* L) {
     uint32_t back,fore;
-    back = luaL_checkinteger(L, 1);
-    fore = luaL_checkinteger(L, 2);
+    back = (uint32_t)luaL_checkinteger(L, 1);
+    fore = (uint32_t)luaL_checkinteger(L, 2);
     int ret = luat_lcd_set_color(back, fore);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 0;
@@ -197,7 +197,7 @@ static int l_lcd_clear(lua_State* L) {
     size_t len = 0;
     uint32_t color = FORE_COLOR;
     if (lua_gettop(L) > 0)
-        color = luaL_checkinteger(L, 1);
+        color = (uint32_t)luaL_checkinteger(L, 1);
     int ret = luat_lcd_clear(default_conf, color);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 0;
@@ -209,7 +209,7 @@ static int l_lcd_draw_point(lua_State* L) {
     x = luaL_checkinteger(L, 1);
     y = luaL_checkinteger(L, 2);
     if (lua_gettop(L) > 2)
-        color = luaL_checkinteger(L, 3);
+        color = (uint32_t)luaL_checkinteger(L, 3);
     int ret = luat_lcd_draw_point(default_conf, x, y, color);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 0;
@@ -223,7 +223,7 @@ static int l_lcd_draw_line(lua_State* L) {
     x2 = luaL_checkinteger(L, 3);
     y2 = luaL_checkinteger(L, 4);
     if (lua_gettop(L) > 4)
-        color = luaL_checkinteger(L, 5);
+        color = (uint32_t)luaL_checkinteger(L, 5);
     int ret = luat_lcd_draw_line(default_conf, x1,  y1,  x2,  y2, color);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 0;
@@ -237,7 +237,7 @@ static int l_lcd_draw_rectangle(lua_State* L) {
     x2 = luaL_checkinteger(L, 3);
     y2 = luaL_checkinteger(L, 4);
     if (lua_gettop(L) > 4)
-        color = luaL_checkinteger(L, 5);
+        color = (uint32_t)luaL_checkinteger(L, 5);
     int ret = luat_lcd_draw_rectangle(default_conf, x1,  y1,  x2,  y2, color);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 0;
@@ -250,7 +250,7 @@ static int l_lcd_draw_circle(lua_State* L) {
     y0 = luaL_checkinteger(L, 2);
     r = luaL_checkinteger(L, 3);
     if (lua_gettop(L) > 3)
-        color = luaL_checkinteger(L, 4);
+        color = (uint32_t)luaL_checkinteger(L, 4);
     int ret = luat_lcd_draw_circle(default_conf, x0,  y0,  r, color);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 0;

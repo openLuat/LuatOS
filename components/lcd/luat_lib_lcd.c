@@ -181,13 +181,12 @@ static int l_lcd_set_color(lua_State* L) {
 
 static int l_lcd_draw(lua_State* L) {
     uint16_t x1, y1, x2, y2;
-    uint32_t *color = FORE_COLOR;
+    uint32_t *color = NULL;
     x1 = luaL_checkinteger(L, 1);
     y1 = luaL_checkinteger(L, 2);
     x2 = luaL_checkinteger(L, 3);
     y2 = luaL_checkinteger(L, 4);
-    if (lua_gettop(L) > 4)
-        color = (uint32_t *)luaL_checkinteger(L, 5);
+    color = (uint32_t *)luaL_checkinteger(L, 5);
     int ret = luat_lcd_draw(default_conf, x1, y1, x2, y2, color);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 0;

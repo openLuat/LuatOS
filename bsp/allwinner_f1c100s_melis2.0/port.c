@@ -2,6 +2,7 @@
 #include "stdint.h"
 #include "lcd_cfg.h"
 #define FB_CNT  2
+#define DEV_EVENT_CNT	(128)
 #define TP_EVENT_CNT    (128)
 #define KEY_EVENT_CNT   (128)
 #define SRV_EVENT_CNT   (128)
@@ -25,18 +26,23 @@ typedef struct
 
 typedef struct
 {
+	__uart_para_t uart_param[3];
     __krnl_event_t  *psys_msg_queue;				// msg 消息队列
+	__event_t uart_event_buf[DEV_EVENT_CNT];
     __event_t tp_event_buf[TP_EVENT_CNT];
 	__event_t mou_event_buf[TP_EVENT_CNT];
     __event_t key_event_buf[KEY_EVENT_CNT];
     __event_t srv_event_buf[SRV_EVENT_CNT];
+	volatile uint32_t uart_event_pos;
     volatile uint32_t tp_event_pos;
 	volatile uint32_t mou_event_pos;
     volatile uint32_t key_event_pos;
     volatile uint32_t srv_event_pos;
+	uint32_t 		uart_br[3];
 	__hdle  		h_tpGraber;
 	__hdle  		h_keyGraber;
 	__hdle  		h_mouseGraber;
+	ES_FILE 		*pUart;
     __s32		    last_touch_action;
     __u8			msg_srv_tid;
     __u8 			ksrv_th_id;
@@ -287,7 +293,7 @@ static __s32 mouse_msg_cb(void *msg)
         DBG("mouse event overload");
 		return EPDK_FAIL;
     }
-	pmsg->event_id 	= 0x1000;
+	pmsg->event_id 	= 0x10000;
 	pmsg->param1 	= (pEvent_y.value<<16) + pEvent_x.value;
 	pmsg->param2 = (pEvent_speed_dir.value<<16) + pEvent_speed_val.value;
 	pmsg->param3 = pEvent_type.value;
@@ -683,6 +689,26 @@ static void ksrv_msg_thread(void *arg)
 	}
 }
 
+static void app_uart_cb(uint32_t id, uint32_t event, uint32_t param)
+{
+	__event_t	*pmsg;
+	if (prv_kernel.uart_event_pos >= DEV_EVENT_CNT)
+    {
+        prv_kernel.uart_event_pos = 0;
+    }
+    pmsg = &prv_kernel.uart_event_buf[prv_kernel.uart_event_pos];
+    if (pmsg->lock)
+    {
+        DBG("uart event overload");
+		return ;
+    }
+	pmsg->event_id = UART_MSG_INT_CALLBACK;
+	pmsg->param1 = event;
+	pmsg->param2 = param;
+	pmsg->lock = 1;
+	prv_kernel.srv_event_pos++;
+	esKRNL_QPost(prv_kernel.psys_msg_queue, pmsg);
+}
 
 static void app_init(void)
 {
@@ -692,6 +718,7 @@ static void app_init(void)
     ret = esDEV_Plugin("\\drv\\audio.drv", 0, 0, 1);
     ret = esDEV_Plugin("\\drv\\matrixkey.drv", 0, 0, 1);
 	ret = esDEV_Plugin("\\drv\\ir.drv", 0, 0, 1);
+	ret = esDEV_Plugin("\\drv\\uart.drv", 2, 0, 1);
     pHwsc = eLIBs_fopen("b:\\HWSC\\hwsc", "rb+");
 	
     if(pHwsc)
@@ -703,7 +730,18 @@ static void app_init(void)
     {
         __err("try to open b:\\HWSC\\hwsc failed!\n");
     }
+
     eLIBs_memset(&prv_kernel, 0, sizeof(prv_kernel));
+	prv_kernel.pUart = eLIBs_fopen("b:\\BUS\\UART2", "rb+");
+	prv_kernel.uart_param[2].nDataLen = (8 - 5);
+	prv_kernel.uart_param[2].nStopBit = (1 - 1);
+	prv_kernel.uart_param[2].nParityEnable = 0;
+	prv_kernel.uart_param[2].nEvenParity = 0;
+	eLIBs_fioctrl(prv_kernel.pUart, UART_CMD_SET_PARA, 0, &prv_kernel.uart_param[2]);
+	prv_kernel.uart_br[2] = 921600;
+	eLIBs_fioctrl(prv_kernel.pUart, UART_CMD_SET_BAUDRATE, 0, &prv_kernel.uart_br[2]);
+	eLIBs_fioctrl(prv_kernel.pUart, UART_CMD_SET_CB, 0, (void *)app_uart_cb);
+	eLIBs_fwrite("hello world!\r\n", 15, 1, prv_kernel.pUart);
     prv_kernel.psys_msg_queue  = esKRNL_QCreate(TP_EVENT_CNT + KEY_EVENT_CNT + SRV_EVENT_CNT);
     prv_kernel.h_tpGraber = esINPUT_LdevGrab(INPUT_LTS_DEV_NAME, (__pCBK_t)tp_msg_cb, 0, 0);
     prv_kernel.h_keyGraber = esINPUT_LdevGrab(INPUT_LKEYBOARD_DEV_NAME, (__pCBK_t)key_msg_cb, 0, 0);
@@ -844,6 +882,8 @@ static void port_thread(void *arg)
     __u8 error;
     app_init();
     disp_lcd_init();
+	u8 *temp_data;
+	int32_t rx_len;
     //disp_lcd_test();
     //luatos_main_entry();
     while(1)
@@ -854,6 +894,28 @@ static void port_thread(void *arg)
         {
             tmp->lock = 0;
             DBG("%d,%x,%x,%x", tmp->event_id, tmp->param1, tmp->param2, tmp->param3);
+			if (tmp->event_id >= USER_MSG_ID_START)
+			{
+				if (tmp->event_id >= UART_MSG_ID_START)
+				{
+					switch (tmp->event_id)
+					{
+					case UART_MSG_INT_CALLBACK:
+						temp_data = eLIBs_malloc(1024);
+						do 
+						{
+							rx_len = eLIBs_fread(temp_data, 1024, 1, prv_kernel.pUart);
+							if (rx_len > 0)
+							{
+								eLIBs_fwrite(temp_data, rx_len, 1, prv_kernel.pUart);
+							}
+						}
+						while(rx_len > 0);
+						eLIBs_free(temp_data);
+						break;
+					}
+				}
+			}
         }
     }
 }

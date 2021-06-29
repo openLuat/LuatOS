@@ -25,10 +25,13 @@ extern const luat_lcd_opts_t lcd_opts_custom;
 static luat_lcd_conf_t *default_conf = NULL;
 
 /*
-初始化lcd
+lcd显示屏初始化
 @api lcd.init(tp, args)
 @string lcd类型, 当前支持st7789/st7735/gc9a01/gc9106l/gc9306/ili9341/custom
 @table 附加参数,与具体设备有关
+@usage
+-- 初始化spi0的st7789 注意:lcd初始化之前需要先初始化spi
+lcd.init("st7789",{port = 0,pin_cs = 20,pin_dc = 23, pin_pwr = 7,pin_rst = 22,direction = 0,w = 240,h = 320})
 */
 static int l_lcd_init(lua_State* L) {
     size_t len = 0;
@@ -140,36 +143,80 @@ static int l_lcd_init(lua_State* L) {
     return 0;
 }
 
+/*
+关闭lcd显示屏
+@api lcd.close()
+@usage
+-- 关闭lcd
+lcd.close()
+*/
 static int l_lcd_close(lua_State* L) {
     int ret = luat_lcd_close(default_conf);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 0;
 }
 
+/*
+开启lcd显示屏背光
+@api lcd.on()
+@usage
+-- 开启lcd显示屏背光
+lcd.on()
+*/
 static int l_lcd_display_on(lua_State* L) {
     int ret = luat_lcd_display_on(default_conf);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 0;
 }
 
+/*
+关闭lcd显示屏背光
+@api lcd.off()
+@usage
+-- 关闭lcd显示屏背光
+lcd.off()
+*/
 static int l_lcd_display_off(lua_State* L) {
     int ret = luat_lcd_display_off(default_conf);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 0;
 }
 
+/*
+lcd睡眠
+@api lcd.sleep()
+@usage
+-- lcd睡眠
+lcd.sleep()
+*/
 static int l_lcd_sleep(lua_State* L) {
     int ret = luat_lcd_sleep(default_conf);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 0;
 }
 
+/*
+lcd唤醒
+@api lcd.wakeup()
+@usage
+-- lcd唤醒
+lcd.wakeup()
+*/
 static int l_lcd_wakeup(lua_State* L) {
     int ret = luat_lcd_wakeup(default_conf);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 0;
 }
 
+/*
+lcd颜色设置
+@api lcd.setColor(back,fore)
+@int 背景色
+@int 前景色
+@usage
+-- lcd颜色设置
+lcd.setColor(0xFFFF,0x0000)
+*/
 static int l_lcd_set_color(lua_State* L) {
     uint32_t back,fore;
     back = (uint32_t)luaL_checkinteger(L, 1);
@@ -179,6 +226,19 @@ static int l_lcd_set_color(lua_State* L) {
     return 0;
 }
 
+/*
+lcd颜色填充
+@api lcd.draw(x1, y1, x2, y2,color)
+@int 左上边缘的X位置.
+@int 左上边缘的Y位置.
+@int 右上边缘的X位置.
+@int 右上边缘的Y位置.
+@int 绘画颜色
+@usage
+-- lcd颜色填充
+buff:writeInt32(0x001F)
+lcd.draw(20,30,220,30,buff)
+*/
 static int l_lcd_draw(lua_State* L) {
     uint16_t x1, y1, x2, y2;
     uint32_t *color = NULL;
@@ -186,15 +246,23 @@ static int l_lcd_draw(lua_State* L) {
     y1 = luaL_checkinteger(L, 2);
     x2 = luaL_checkinteger(L, 3);
     y2 = luaL_checkinteger(L, 4);
-    color = (uint32_t *)luaL_checkinteger(L, 5);
+    color = (uint32_t*)lua_touserdata(L, 5);
     int ret = luat_lcd_draw(default_conf, x1, y1, x2, y2, color);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 0;
 }
 
+/*
+lcd清屏
+@api lcd.clear(color)
+@int 屏幕颜色 可选参数,默认背景色
+@usage
+-- lcd清屏
+lcd.clear()
+*/
 static int l_lcd_clear(lua_State* L) {
     size_t len = 0;
-    uint32_t color = FORE_COLOR;
+    uint32_t color = BACK_COLOR;
     if (lua_gettop(L) > 0)
         color = (uint32_t)luaL_checkinteger(L, 1);
     int ret = luat_lcd_clear(default_conf, color);
@@ -202,6 +270,15 @@ static int l_lcd_clear(lua_State* L) {
     return 0;
 }
 
+/*
+画一个点.
+@api lcd.drawPoint(x0,y0,color)
+@int 点的X位置.
+@int 点的Y位置.
+@int 绘画颜色 可选参数,默认前景色
+@usage
+lcd.drawPoint(20,30,0x001F)
+*/
 static int l_lcd_draw_point(lua_State* L) {
     uint16_t x, y;
     uint32_t color = FORE_COLOR;
@@ -214,6 +291,17 @@ static int l_lcd_draw_point(lua_State* L) {
     return 0;
 }
 
+/*
+在两点之间画一条线.
+@api lcd.drawLine(x0,y0,x1,y1,color)
+@int 第一个点的X位置.
+@int 第一个点的Y位置.
+@int 第二个点的X位置.
+@int 第二个点的Y位置.
+@int 绘画颜色 可选参数,默认前景色
+@usage
+lcd.drawLine(20,30,220,30,0x001F)
+*/
 static int l_lcd_draw_line(lua_State* L) {
     uint16_t x1, y1, x2, y2;
     uint32_t color = FORE_COLOR;
@@ -228,6 +316,17 @@ static int l_lcd_draw_line(lua_State* L) {
     return 0;
 }
 
+/*
+从x / y位置（左上边缘）开始绘制一个框
+@api lcd.drawRectangle(x0,y0,x1,y1,color)
+@int 左上边缘的X位置.
+@int 左上边缘的Y位置.
+@int 右下边缘的X位置.
+@int 右下边缘的Y位置.
+@int 绘画颜色 可选参数,默认前景色
+@usage
+lcd.drawRectangle(20,40,220,80,0x001F)
+*/
 static int l_lcd_draw_rectangle(lua_State* L) {
     uint16_t x1, y1, x2, y2;
     uint32_t color = FORE_COLOR;
@@ -242,6 +341,16 @@ static int l_lcd_draw_rectangle(lua_State* L) {
     return 0;
 }
 
+/*
+从x / y位置（圆心）开始绘制一个圆
+@api lcd.drawCircle(x0,y0,r,color)
+@int 圆心的X位置.
+@int 圆心的Y位置.
+@int 半径.
+@int 绘画颜色 可选参数,默认前景色
+@usage
+lcd.drawCircle(120,120,20,0x001F)
+*/
 static int l_lcd_draw_circle(lua_State* L) {
     uint16_t x0, y0, r;
     uint32_t color = FORE_COLOR;

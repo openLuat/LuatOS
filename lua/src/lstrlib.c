@@ -1,4 +1,8 @@
 /*
+@module  string
+@summary 额外添加了一些字符串操作函数
+*/
+/*
 ** $Id: lstrlib.c,v 1.254.1.1 2017/04/19 17:29:57 roberto Exp $
 ** Standard library for string operations and pattern-matching
 ** See Copyright Notice in lua.h
@@ -1537,6 +1541,18 @@ static int str_unpack (lua_State *L) {
 }
 
 /* }====================================================== */
+
+/*
+将字符串转成HEX
+@api string.toHex(str)
+@string 需要转换的字符串
+@return string HEX字符串
+@return number HEX字符串的长度
+@usage
+string.toHex("\1\2\3") --> "010203" 3
+string.toHex("123abc") --> "313233616263" 6
+string.toHex("123abc"," ") --> "31 32 33 61 62 63 " 6
+*/
 static unsigned char hexchars[] = "0123456789ABCDEF";
 static int str_toHex (lua_State *L) {
   size_t len;
@@ -1553,6 +1569,15 @@ static int str_toHex (lua_State *L) {
   lua_pushinteger(L, len*2);
   return 2;
 }
+/*
+将HEX转成字符串
+@api string.fromHex(hex)
+@string hex,16进制组成的串
+@return string 字符串
+@usage
+string.fromHex("010203")       -->  "\1\2\3"
+string.fromHex("313233616263") -->  "123abc"
+*/
 static int str_fromHex (lua_State *L) {
   size_t len;
   const char *str = luaL_checklstring(L, 1, &len);
@@ -1575,6 +1600,16 @@ static int str_fromHex (lua_State *L) {
   luaL_pushresult(&buff);
   return 1;
 }
+
+/*
+按照指定分隔符分割字符串
+@api string.split(str, delimiter)
+@string 输入字符串
+@string 分隔符
+@return table 分割后的字符串表
+@usage
+("123,456,789"):split(',') --> {'123','456','789'}
+*/
 static int str_split (lua_State *L) {
   size_t len = 0;
   const char *str = luaL_checkstring(L, 1);
@@ -1594,6 +1629,16 @@ static int str_split (lua_State *L) {
   return count;
 }
 
+/*
+返回字符串tonumber的转义字符串(用来支持超过31位整数的转换)
+@api string.toValue(str)
+@string 输入字符串
+@return string 转换后的二进制字符串
+@return number 转换了多少个字符
+@usage
+string.toValue("123456") --> "\1\2\3\4\5\6"  6
+string.toValue("123abc") --> "\1\2\3\a\b\c"  6
+*/
 static int str_toValue (lua_State *L) {
   size_t len = 0,i;
   const char *s = luaL_checklstring(L, 1, &len);
@@ -1633,9 +1678,9 @@ static int str_toValue (lua_State *L) {
   @usage
   -- 将字符串进行url编码转换
   log.info(string.urlEncode("123 abc+/"))			-->> "123+abc%2B%2F"
-  
+
   log.info(string.urlEncode("123 abc+/",1))			-->> "123%20abc%2B%2F"
-  
+
   log.info(string.urlEncode("123 abc+/",-1,1,"/"))	-->> "123%20abc%2B/"
   log.info(string.urlEncode("123 abc+/",-1,0,"/"))	-->> "123+abc%2B/"
   log.info(string.urlEncode("123 abc+/",-1,0,"/ "))	-->> "123 abc%2B/"
@@ -1650,7 +1695,7 @@ static int str_urlEncode (lua_State *L) {
   const char *str = luaL_checklstring(L, 1, &len);
   if(argc == 1)
   {
-  	mode = 0;	
+  	mode = 0;
   }
   else{
   	mode = luaL_checkinteger(L, 2);

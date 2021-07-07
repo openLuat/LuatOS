@@ -14,7 +14,7 @@ int luat_lv_style_set_radius(lua_State *L){
 int luat_lv_style_set_clip_corner(lua_State *L){
     lv_style_t* _style = (lv_style_t*)lua_touserdata(L, 1);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 2);
-    bool _int = (bool)luaL_checkinteger(L, 3);
+    bool _int = (bool)lua_toboolean(L, 3);
     lv_style_set_clip_corner(_style, state, _int);
     return 0;
 }
@@ -224,7 +224,7 @@ int luat_lv_style_set_border_blend_mode(lua_State *L){
 int luat_lv_style_set_border_post(lua_State *L){
     lv_style_t* _style = (lv_style_t*)lua_touserdata(L, 1);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 2);
-    bool _int = (bool)luaL_checkinteger(L, 3);
+    bool _int = (bool)lua_toboolean(L, 3);
     lv_style_set_border_post(_style, state, _int);
     return 0;
 }
@@ -347,7 +347,7 @@ int luat_lv_style_set_shadow_opa(lua_State *L){
 int luat_lv_style_set_pattern_repeat(lua_State *L){
     lv_style_t* _style = (lv_style_t*)lua_touserdata(L, 1);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 2);
-    bool _int = (bool)luaL_checkinteger(L, 3);
+    bool _int = (bool)lua_toboolean(L, 3);
     lv_style_set_pattern_repeat(_style, state, _int);
     return 0;
 }
@@ -587,7 +587,7 @@ int luat_lv_style_set_line_dash_gap(lua_State *L){
 int luat_lv_style_set_line_rounded(lua_State *L){
     lv_style_t* _style = (lv_style_t*)lua_touserdata(L, 1);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 2);
-    bool _int = (bool)luaL_checkinteger(L, 3);
+    bool _int = (bool)lua_toboolean(L, 3);
     lv_style_set_line_rounded(_style, state, _int);
     return 0;
 }

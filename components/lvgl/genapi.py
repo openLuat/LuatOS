@@ -242,8 +242,11 @@ def make_style_dec():
             f.write("int luat_lv_style_set_%s(lua_State *L){\n" % (dec[1], ))
             f.write("    lv_style_t* _style = (lv_style_t*)lua_touserdata(L, 1);\n")
             f.write("    lv_state_t state = (lv_state_t)luaL_checkinteger(L, 2);\n")
-            if dec[2] in map_lv_ints or dec[2] == "bool":
+            if dec[2] in map_lv_ints:
                 f.write("    %s %s = (%s)luaL_checkinteger(L, 3);\n" % (dec[2], dec[3], dec[2]))
+                f.write("    lv_style_set_%s(_style, state, %s);\n" % (dec[1], dec[3]))
+            elif dec[2] == "bool" :
+                f.write("    %s %s = (%s)lua_toboolean(L, 3);\n" % (dec[2], dec[3], dec[2]))
                 f.write("    lv_style_set_%s(_style, state, %s);\n" % (dec[1], dec[3]))
             elif dec[2] == "lv_color_t" :
                 f.write("    %s %s;\n" % (dec[2], dec[3]))

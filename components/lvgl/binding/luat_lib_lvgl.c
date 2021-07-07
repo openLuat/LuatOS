@@ -128,6 +128,9 @@ LUAT_LV_GIF_RLT
 // 回调
 LUAT_LV_CB_RLT
 
+// 添加STYLE_DEC那一百多个函数
+LUAT_LV_STYLE_DEC_RLT
+
 // 额外添加的函数
 LUAT_LV_STYLE2_RLT
 

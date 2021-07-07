@@ -18,6 +18,23 @@ enum_names = set({})
 miss_arg_types = set({})
 miss_ret_types = set({})
 
+
+# 各种命名, 但全都上int变种
+map_lv_ints = ["lv_arc_type_t", "lv_style_int_t", "lv_coord_t", "lv_spinner_dir_t", "lv_drag_dir_t",
+                    "lv_keyboard_mode_t", "int16_t", "int8_t", "int32_t", "uint8_t", "uint16_t", "uint32_t",
+                    "lv_chart_type_t", "lv_border_side_t", "lv_anim_value_t", "lv_img_src_t", "lv_text_decor_t",
+                    "lv_align_t", "lv_spinner_type_t", "lv_dropdown_dir_t", "lv_scrollbar_mode_t",
+                    "lv_label_long_mode_t", "lv_chart_axis_t", "lv_blend_mode_t", "lv_bidi_dir_t",
+                    "lv_slider_type_t", "lv_tabview_btns_pos_t",
+                    "lv_indev_type_t", "lv_disp_size_t",
+                    "lv_opa_t", "lv_label_align_t", "lv_fit_t", "lv_bar_type_t", "lv_btn_state_t",
+                    "lv_gesture_dir_t", "lv_state_t", "lv_layout_t", "lv_cpicker_color_mode_t",
+                    "lv_disp_rot_t", "lv_grad_dir_t", "lv_chart_type_t", "lv_text_align_t", "lv_arc_mode_t", "lv_table_cell_ctrl_t",
+                    "lv_scroll_snap_t", "lv_style_prop_t", "lv_draw_mask_line_side_t", "lv_obj_flag_t",
+                    "lv_roller_mode_t", "lv_slider_mode_t", "lv_arc_mode_t", "lv_text_align_t", "lv_bar_mode_t", "lv_part_t",
+                    "lv_text_flag_t", "lv_style_selector_t", "lv_dir_t", "lv_scroll_snap_t", "lv_style_prop_t", "lv_base_dir_t",
+                    "lv_slider_mode_t", "lv_arc_mode_t", "lv_text_align_t"]
+
 class FuncDefVisitor(c_ast.NodeVisitor):
 
     def __init__(self, group, prefix):
@@ -179,28 +196,119 @@ def handle_groups(group, path):
             print("error>>>>>>>>>>>>" + name)
         #sys.exit()
 
+def make_style_dec():
+
+    import json
+
+    defines = []
+
+    with open("src/lv_core/lv_obj_style_dec.h") as f :
+        for line in f.readlines():
+            if line.startswith("_LV_OBJ_STYLE_SET_GET_DECLARE") :
+                desc = line[len("_LV_OBJ_STYLE_SET_GET_DECLARE")+1:-2].strip()
+                vals = desc.split(", ")
+                if vals[1] == "transition_path":
+                    continue
+                defines.append(vals)
+
+    with open("binding/luat_lvgl_style_dec.h", "w") as f :
+        f.write('''#include "luat_base.h"
+#include "luat_msgbus.h"
+#include "luat_lvgl.h"
+#include "lvgl.h"
+        
+''')
+        RTL = []
+        for dec in defines :
+            # 添加 set和get
+            f.write("int luat_lv_style_set_%s(lua_State *L);\n" % (dec[1], ))
+            f.write("int luat_lv_style_get_%s(lua_State *L);\n" % (dec[1], ))
+            RTL.append("{\"style_set_%s\", luat_lv_style_set_%s, 0}," % (dec[1],dec[1],))
+            #RTL.append("{\"style_get_%s\", luat_lv_style_get_%s, 0}," % (dec[1],dec[1],))
+        f.write("\n")
+        f.write("#define LUAT_LV_STYLE_DEC_RLT ")
+        f.write("\\\n".join(RTL))
+        f.write("\n")
+
+    with open("binding/luat_lib_lvgl_style_dec.c", "w") as f :
+        f.write('''#include "luat_base.h"
+#include "luat_msgbus.h"
+#include "luat_lvgl.h"
+#include "lvgl.h"
+        
+''')    
+        for dec in defines :
+            # 先添加set方法
+            f.write("int luat_lv_style_set_%s(lua_State *L){\n" % (dec[1], ))
+            f.write("    lv_style_t* _style = (lv_style_t*)lua_touserdata(L, 1);\n")
+            f.write("    lv_state_t state = (lv_state_t)luaL_checkinteger(L, 2);\n")
+            if dec[2] in map_lv_ints or dec[2] == "bool":
+                f.write("    %s %s = (%s)luaL_checkinteger(L, 3);\n" % (dec[2], dec[3], dec[2]))
+                f.write("    lv_style_set_%s(_style, state, %s);\n" % (dec[1], dec[3]))
+            elif dec[2] == "lv_color_t" :
+                f.write("    %s %s;\n" % (dec[2], dec[3]))
+                f.write("    %s.full = luaL_checkinteger(L, 3);\n" % (dec[3],))
+                f.write("    lv_style_set_%s(_style, state, %s);\n" % (dec[1], dec[3]))
+            elif dec[2] == "const char *":
+                f.write("    %s %s = (%s)luaL_checkstring(L, 3);\n" % (dec[2], dec[3], dec[2]))
+                f.write("    lv_style_set_%s(_style, state, %s);\n" % (dec[1], dec[3]))
+            else :
+                f.write("    %s %s;\n" % (dec[2], dec[3]))
+                f.write("    // TODO %s %s\n" % (dec[2], dec[3]))
+                f.write("    lv_style_set_%s(_style, state, %s);\n" % (dec[1], dec[3]))
+                print("what? " + dec[2] + " " + dec[1])
+            f.write("    return 0;\n")
+            f.write("}\n\n")
+
+            # 然后添加get方法
+            # f.write("int luat_lv_style_get_%s(lua_State *L){\n" % (dec[1], ))
+            # f.write("    lv_style_t* _style = (lv_style_t*)lua_touserdata(L, 1);\n")
+            # f.write("    lv_state_t state = (lv_state_t)luaL_checkinteger(L, 2);\n")
+            # if dec[2] in map_lv_ints or dec[2] == "bool":
+            #     f.write("    %s %s;\n" % (dec[2], dec[3]))
+            #     f.write("    lv_style_get_%s(_style, state, &%s);\n" % (dec[1], dec[3]))
+            #     f.write("    lua_pushinteger(L, %s);\n" % (dec[3], ))
+            # elif dec[2] == "lv_color_t" :
+            #     f.write("    %s %s;\n" % (dec[2], dec[3]))
+            #     f.write("    lv_style_get_%s(_style, state, &%s);\n" % (dec[1], dec[3]))
+            #     f.write("    lua_pushinteger(L, %s.full);\n" % (dec[3], ))
+            # elif dec[2] == "const char *":
+            #     f.write("    %s %s = (%s)luaL_checkstring(L, 3);\n" % (dec[2], dec[3], dec[2]))
+            #     f.write("    lv_style_get_%s(_style, state, %s);\n" % (dec[1], dec[3]))
+            #     f.write("    lua_pushstring(L, %s);\n" % (dec[3], ))
+            # else :
+            #     f.write("    %s %s;\n" % (dec[2], dec[3]))
+            #     f.write("    // TODO %s %s\n" % (dec[2], dec[3]))
+            #     f.write("    lv_style_get_%s(_style, state, %s);\n" % (dec[1], dec[3]))
+            #     f.write("    lua_pushlightuserdata(L, %s);\n" % (dec[3], ))
+            #     print("what? " + dec[2] + " " + dec[1])
+            # f.write("    return 1;\n")
+            # f.write("}\n\n")
+
 def main():
-    handle_groups("core", "src/lv_core/")
-    handle_groups("draw", "src/lv_draw/")
-    handle_groups("font", "src/lv_font/")
-    handle_groups("misc", "src/lv_misc/")
-    handle_groups("themes", "src/lv_themes/")
-    handle_groups("widgets", "src/lv_widgets/")
+    # handle_groups("core", "src/lv_core/")
+    # handle_groups("draw", "src/lv_draw/")
+    # handle_groups("font", "src/lv_font/")
+    # handle_groups("misc", "src/lv_misc/")
+    # handle_groups("themes", "src/lv_themes/")
+    # handle_groups("widgets", "src/lv_widgets/")
 
-    print("============================================================")
+    # print("============================================================")
 
-    gen_methods()
+    # gen_methods()
 
-    gen_enums()
+    # gen_enums()
 
-    print_miss()
+    # print_miss()
 
-    print("============================================================")
-    c = 0
-    for group in methods :
-        for prefix in methods[group] :
-            c += len(methods[group][prefix])
-    print("Method count", c)
+    # print("============================================================")
+    # c = 0
+    # for group in methods :
+    #     for prefix in methods[group] :
+    #         c += len(methods[group][prefix])
+    # print("Method count", c)
+
+    make_style_dec()
 
 def print_miss():
 
@@ -416,21 +524,6 @@ map_lua_ret = {
     "lv_point_t" : [ "lua_pushinteger(L, ret.x);",  "lua_pushinteger(L, ret.y);",  "return 2;"],
 }
 
-# 各种命名, 但全都上int变种
-map_lv_ints = ["lv_arc_type_t", "lv_style_int_t", "lv_coord_t", "lv_spinner_dir_t", "lv_drag_dir_t",
-                    "lv_keyboard_mode_t", "int16_t", "int8_t", "int32_t", "uint8_t", "uint16_t", "uint32_t",
-                    "lv_chart_type_t", "lv_border_side_t", "lv_anim_value_t", "lv_img_src_t", "lv_text_decor_t",
-                    "lv_align_t", "lv_spinner_type_t", "lv_dropdown_dir_t", "lv_scrollbar_mode_t",
-                    "lv_label_long_mode_t", "lv_chart_axis_t", "lv_blend_mode_t", "lv_bidi_dir_t",
-                    "lv_slider_type_t", "lv_tabview_btns_pos_t",
-                    "lv_indev_type_t", "lv_disp_size_t",
-                    "lv_opa_t", "lv_label_align_t", "lv_fit_t", "lv_bar_type_t", "lv_btn_state_t",
-                    "lv_gesture_dir_t", "lv_state_t", "lv_layout_t", "lv_cpicker_color_mode_t",
-                    "lv_disp_rot_t", "lv_grad_dir_t", "lv_chart_type_t", "lv_text_align_t", "lv_arc_mode_t", "lv_table_cell_ctrl_t",
-                    "lv_scroll_snap_t", "lv_style_prop_t", "lv_draw_mask_line_side_t", "lv_obj_flag_t",
-                    "lv_roller_mode_t", "lv_slider_mode_t", "lv_arc_mode_t", "lv_text_align_t", "lv_bar_mode_t", "lv_part_t",
-                    "lv_text_flag_t", "lv_style_selector_t", "lv_dir_t", "lv_scroll_snap_t", "lv_style_prop_t", "lv_base_dir_t",
-                    "lv_slider_mode_t", "lv_arc_mode_t", "lv_text_align_t"]
 
 def gen_lua_ret(tp, f) :
     # 数值类

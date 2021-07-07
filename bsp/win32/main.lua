@@ -28,7 +28,7 @@ sys.taskInit(function ()
     lvgl.obj_align(qrcode, lvgl.scr_act(), lvgl.ALIGN_CENTER, -100, -100)
 
     -- gif 加载测试
-    local gif = lvgl.gif_create(scr, "S/example.gif")
+    local gif = lvgl.gif_create(scr, "/example.gif")
     if gif then
         lvgl.obj_align(gif, lvgl.scr_act(), lvgl.ALIGN_CENTER, 100, -100)
     end

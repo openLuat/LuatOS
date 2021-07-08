@@ -141,9 +141,12 @@ static luat_vfs_fd_t* getfd(FILE* fd) {
 }
 
 FILE* luat_fs_fopen(const char *filename, const char *mode) {
-    LLOGD("fopen %s %s", filename, mode);
+    
     luat_vfs_mount_t *mount = getmount(filename);
-    if (mount == NULL || mount->fs->fopts.fopen == NULL) return NULL;
+    if (mount == NULL || mount->fs->fopts.fopen == NULL) {
+        LLOGD("fopen %s %s NOT matched mount", filename, mode);
+        return NULL;
+    }
     FILE* fd = mount->fs->fopts.fopen(mount->userdata, filename + strlen(mount->prefix), mode);
     if (fd) {
         for (size_t i = 1; i <= LUAT_VFS_FILESYSTEM_FD_MAX; i++)
@@ -151,12 +154,14 @@ FILE* luat_fs_fopen(const char *filename, const char *mode) {
             if (vfs.fds[i].fsMount == NULL) {
                 vfs.fds[i].fsMount = mount;
                 vfs.fds[i].fd = fd;
+                LLOGD("fopen %s %s vfd=%ld fd=%ld", filename, mode, i, fd);
                 return (FILE*)i;
             }
         }
         mount->fs->fopts.fclose(mount->userdata, fd);
-        LLOGE("too many open file!!!");
+        LLOGE("fopen %s %s too many open file!!!", filename, mode);
     }
+    LLOGD("fopen %s %s not found", filename, mode);
     return NULL;
 }
 

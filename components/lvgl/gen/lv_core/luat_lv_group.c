@@ -138,6 +138,16 @@ int luat_lv_group_get_focused(lua_State *L) {
     return 1;
 }
 
+//  lv_group_user_data_t* lv_group_get_user_data(lv_group_t* group)
+int luat_lv_group_get_user_data(lua_State *L) {
+    LV_DEBUG("CALL lv_group_get_user_data");
+    lv_group_t* group = (lv_group_t*)lua_touserdata(L, 1);
+    lv_group_user_data_t* ret = NULL;
+    ret = lv_group_get_user_data(group);
+    lua_pushlightuserdata(L, ret);
+    return 1;
+}
+
 //  bool lv_group_get_editing(lv_group_t* group)
 int luat_lv_group_get_editing(lua_State *L) {
     LV_DEBUG("CALL lv_group_get_editing");

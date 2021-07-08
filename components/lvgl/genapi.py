@@ -8,6 +8,7 @@
 import sys
 import subprocess
 import os
+import traceback
 
 from pycparser import c_parser, c_ast, parse_file
 
@@ -34,6 +35,8 @@ map_lv_ints = ["lv_arc_type_t", "lv_style_int_t", "lv_coord_t", "lv_spinner_dir_
                     "lv_roller_mode_t", "lv_slider_mode_t", "lv_arc_mode_t", "lv_text_align_t", "lv_bar_mode_t", "lv_part_t",
                     "lv_text_flag_t", "lv_style_selector_t", "lv_dir_t", "lv_scroll_snap_t", "lv_style_prop_t", "lv_base_dir_t",
                     "lv_slider_mode_t", "lv_arc_mode_t", "lv_text_align_t"]
+
+custom_method_names = ["lv_img_set_src"]
 
 class FuncDefVisitor(c_ast.NodeVisitor):
 
@@ -121,6 +124,8 @@ class FuncDefVisitor(c_ast.NodeVisitor):
             # 这方法不太可能有人用吧,返回值是uint8_t*,很少见
             if method_name in ["lv_font_get_glyph_bitmap"] :
                 return
+            if method_name in custom_method_names :
+                return
             #print(method_name + "(", end="")
             method_args = []
             method_return = "void"
@@ -189,11 +194,12 @@ def handle_groups(group, path):
             continue
         try :
             #print(">>>>>>>>>>>>" + name)
-            ast = parse_file(os.path.join(path, name), use_cpp=True, cpp_path="clang", cpp_args=['-E', '-I../../../pycparser/utils/fake_libc_include', '-I.', '-I../../lua/include', '-I../../luat/include'])
+            ast = parse_file(os.path.join(path, name), use_cpp=True, cpp_path='''C:/msys32/mingw32/bin/cpp.exe''', cpp_args=['-E', '-I../../../pycparser/utils/fake_libc_include', '-I.', '-I../../lua/include', '-I../../luat/include'])
             v = FuncDefVisitor("lv_" + group, name[:-2])
             v.visit(ast)
         except  Exception :
             print("error>>>>>>>>>>>>" + name)
+            traceback.print_exc()
         #sys.exit()
 
 def make_style_dec():
@@ -289,27 +295,27 @@ def make_style_dec():
             # f.write("}\n\n")
 
 def main():
-    # handle_groups("core", "src/lv_core/")
-    # handle_groups("draw", "src/lv_draw/")
-    # handle_groups("font", "src/lv_font/")
-    # handle_groups("misc", "src/lv_misc/")
-    # handle_groups("themes", "src/lv_themes/")
-    # handle_groups("widgets", "src/lv_widgets/")
+    handle_groups("core", "src/lv_core/")
+    handle_groups("draw", "src/lv_draw/")
+    handle_groups("font", "src/lv_font/")
+    handle_groups("misc", "src/lv_misc/")
+    handle_groups("themes", "src/lv_themes/")
+    handle_groups("widgets", "src/lv_widgets/")
 
-    # print("============================================================")
+    print("============================================================")
 
-    # gen_methods()
+    gen_methods()
 
-    # gen_enums()
+    gen_enums()
 
-    # print_miss()
+    print_miss()
 
-    # print("============================================================")
-    # c = 0
-    # for group in methods :
-    #     for prefix in methods[group] :
-    #         c += len(methods[group][prefix])
-    # print("Method count", c)
+    print("============================================================")
+    c = 0
+    for group in methods :
+        for prefix in methods[group] :
+            c += len(methods[group][prefix])
+    print("Method count", c)
 
     make_style_dec()
 

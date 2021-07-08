@@ -3176,6 +3176,35 @@ int luat_lv_obj_get_type(lua_State *L) {
     return 0;
 }
 
+//  lv_obj_user_data_t lv_obj_get_user_data(lv_obj_t* obj)
+int luat_lv_obj_get_user_data(lua_State *L) {
+    LV_DEBUG("CALL lv_obj_get_user_data");
+    lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
+    lv_obj_user_data_t ret;
+    ret = lv_obj_get_user_data(obj);
+    return 0;
+}
+
+//  lv_obj_user_data_t* lv_obj_get_user_data_ptr(lv_obj_t* obj)
+int luat_lv_obj_get_user_data_ptr(lua_State *L) {
+    LV_DEBUG("CALL lv_obj_get_user_data_ptr");
+    lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
+    lv_obj_user_data_t* ret = NULL;
+    ret = lv_obj_get_user_data_ptr(obj);
+    lua_pushlightuserdata(L, ret);
+    return 1;
+}
+
+//  void lv_obj_set_user_data(lv_obj_t* obj, lv_obj_user_data_t data)
+int luat_lv_obj_set_user_data(lua_State *L) {
+    LV_DEBUG("CALL lv_obj_set_user_data");
+    lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
+    lv_obj_user_data_t data;
+    // miss arg convert
+    lv_obj_set_user_data(obj ,data);
+    return 0;
+}
+
 //  void* lv_obj_get_group(lv_obj_t* obj)
 int luat_lv_obj_get_group(lua_State *L) {
     LV_DEBUG("CALL lv_obj_get_group");

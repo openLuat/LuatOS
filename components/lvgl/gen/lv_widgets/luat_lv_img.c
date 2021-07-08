@@ -263,15 +263,6 @@ int luat_lv_img_create(lua_State *L) {
     return 1;
 }
 
-//  void lv_img_set_src(lv_obj_t* img, void* src_img)
-int luat_lv_img_set_src(lua_State *L) {
-    LV_DEBUG("CALL lv_img_set_src");
-    lv_obj_t* img = (lv_obj_t*)lua_touserdata(L, 1);
-    void* src_img = (void*)lua_touserdata(L, 2);
-    lv_img_set_src(img ,src_img);
-    return 0;
-}
-
 //  void lv_img_set_auto_size(lv_obj_t* img, bool autosize_en)
 int luat_lv_img_set_auto_size(lua_State *L) {
     LV_DEBUG("CALL lv_img_set_auto_size");

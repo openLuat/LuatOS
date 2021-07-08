@@ -89,6 +89,7 @@ int luat_lv_group_set_editing(lua_State *L);
 int luat_lv_group_set_click_focus(lua_State *L);
 int luat_lv_group_set_wrap(lua_State *L);
 int luat_lv_group_get_focused(lua_State *L);
+int luat_lv_group_get_user_data(lua_State *L);
 int luat_lv_group_get_editing(lua_State *L);
 int luat_lv_group_get_click_focus(lua_State *L);
 int luat_lv_group_get_wrap(lua_State *L);
@@ -108,6 +109,7 @@ int luat_lv_group_get_wrap(lua_State *L);
     {"group_set_click_focus", luat_lv_group_set_click_focus, 0},\
     {"group_set_wrap", luat_lv_group_set_wrap, 0},\
     {"group_get_focused", luat_lv_group_get_focused, 0},\
+    {"group_get_user_data", luat_lv_group_get_user_data, 0},\
     {"group_get_editing", luat_lv_group_get_editing, 0},\
     {"group_get_click_focus", luat_lv_group_get_click_focus, 0},\
     {"group_get_wrap", luat_lv_group_get_wrap, 0},\
@@ -408,6 +410,9 @@ int luat_lv_obj_is_point_on_coords(lua_State *L);
 int luat_lv_obj_hittest(lua_State *L);
 int luat_lv_obj_get_ext_attr(lua_State *L);
 int luat_lv_obj_get_type(lua_State *L);
+int luat_lv_obj_get_user_data(lua_State *L);
+int luat_lv_obj_get_user_data_ptr(lua_State *L);
+int luat_lv_obj_set_user_data(lua_State *L);
 int luat_lv_obj_get_group(lua_State *L);
 int luat_lv_obj_is_focused(lua_State *L);
 int luat_lv_obj_get_focused_obj(lua_State *L);
@@ -715,6 +720,9 @@ int luat_lv_obj_fade_out(lua_State *L);
     {"obj_hittest", luat_lv_obj_hittest, 0},\
     {"obj_get_ext_attr", luat_lv_obj_get_ext_attr, 0},\
     {"obj_get_type", luat_lv_obj_get_type, 0},\
+    {"obj_get_user_data", luat_lv_obj_get_user_data, 0},\
+    {"obj_get_user_data_ptr", luat_lv_obj_get_user_data_ptr, 0},\
+    {"obj_set_user_data", luat_lv_obj_set_user_data, 0},\
     {"obj_get_group", luat_lv_obj_get_group, 0},\
     {"obj_is_focused", luat_lv_obj_is_focused, 0},\
     {"obj_get_focused_obj", luat_lv_obj_get_focused_obj, 0},\
@@ -1473,7 +1481,6 @@ int luat_lv_img_cf_get_px_size(lua_State *L);
 int luat_lv_img_cf_is_chroma_keyed(lua_State *L);
 int luat_lv_img_cf_has_alpha(lua_State *L);
 int luat_lv_img_create(lua_State *L);
-int luat_lv_img_set_src(lua_State *L);
 int luat_lv_img_set_auto_size(lua_State *L);
 int luat_lv_img_set_offset_x(lua_State *L);
 int luat_lv_img_set_offset_y(lua_State *L);
@@ -1514,7 +1521,6 @@ int luat_lv_img_get_antialias(lua_State *L);
     {"img_cf_is_chroma_keyed", luat_lv_img_cf_is_chroma_keyed, 0},\
     {"img_cf_has_alpha", luat_lv_img_cf_has_alpha, 0},\
     {"img_create", luat_lv_img_create, 0},\
-    {"img_set_src", luat_lv_img_set_src, 0},\
     {"img_set_auto_size", luat_lv_img_set_auto_size, 0},\
     {"img_set_offset_x", luat_lv_img_set_offset_x, 0},\
     {"img_set_offset_y", luat_lv_img_set_offset_y, 0},\

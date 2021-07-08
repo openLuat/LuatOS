@@ -28,5 +28,6 @@ void luat_lv_fs_init(void);
 #include "luat_lvgl_cb.h"
 #include "luat_lvgl_style.h"
 #include "luat_lvgl_style_dec.h"
+#include "luat_lvgl_img_ext.h"
 
 #endif

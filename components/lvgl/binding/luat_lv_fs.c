@@ -3,6 +3,9 @@
 #include "lvgl.h"
 #include "luat_fs.h"
 
+#define LUAT_LOG_TAG "lvgl.fs"
+#include "luat_log.h"
+
 typedef  FILE * file_t;
 
 static bool luat_lv_fs_ready(struct _lv_fs_drv_t * drv);
@@ -83,7 +86,8 @@ static lv_fs_res_t luat_lv_fs_remove(struct _lv_fs_drv_t * drv, const char * fn)
 
 static lv_fs_res_t luat_lv_fs_read(struct _lv_fs_drv_t * drv, void * file_p, void * buf, uint32_t btr, uint32_t * br) {
     file_t* fp = file_p;
-    *br = luat_fs_fread(buf, btr, 1, *fp);
+    *br = luat_fs_fread(buf, 1, btr, *fp);
+    //LLOGD("luat_fs_fread expect %ld act %ld", btr, *br);
     if (*br > 0)
         return LV_FS_RES_OK;
     return LV_FS_RES_FS_ERR;
@@ -122,10 +126,10 @@ static lv_fs_res_t luat_lv_fs_trunc(struct _lv_fs_drv_t * drv, void * file_p) {
 
 static lv_fs_res_t luat_lv_fs_size(struct _lv_fs_drv_t * drv, void * file_p, uint32_t * size_p) {
     file_t* fp = file_p;
-    int curr = luat_fs_fseek(*fp, 0, SEEK_CUR);
-    int end = luat_fs_fseek(*fp, 0, SEEK_END);
+    int curr = luat_fs_ftell(*fp);
+    luat_fs_fseek(*fp, 0, SEEK_END);
+    *size_p = luat_fs_ftell(*fp);
     luat_fs_fseek(*fp, curr, SEEK_SET);
-    *size_p = end;
     return LV_FS_RES_OK;
 }
 

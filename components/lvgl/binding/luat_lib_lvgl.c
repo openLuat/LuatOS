@@ -151,6 +151,21 @@ LUAT_LV_IMG_EXT_RTL
 #ifdef USE_LVGL_SIMSUN_12
     {"font_simsun_12", NULL, (int32_t)&lv_font_simsun_12},
 #endif
+#ifdef USE_LVGL_SIMSUN_14
+    {"font_simsun_14", NULL, (int32_t)&lv_font_simsun_14},
+#endif
+#ifdef USE_LVGL_SIMSUN_16
+    {"font_simsun_16", NULL, (int32_t)&lv_font_simsun_16},
+#endif
+#ifdef USE_LVGL_SIMSUN_18
+    {"font_simsun_18", NULL, (int32_t)&lv_font_simsun_18},
+#endif
+#ifdef USE_LVGL_SIMSUN_20
+    {"font_simsun_20", NULL, (int32_t)&lv_font_simsun_20},
+#endif
+#ifdef USE_LVGL_SIMSUN_22
+    {"font_simsun_22", NULL, (int32_t)&lv_font_simsun_22},
+#endif
 #ifdef USE_LVGL_SIMSUN_48
     {"font_simsun_48", NULL, (int32_t)&lv_font_simsun_48},
 #endif

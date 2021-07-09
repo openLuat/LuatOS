@@ -15,16 +15,6 @@ int luat_lv_imgbtn_create(lua_State *L) {
     return 1;
 }
 
-//  void lv_imgbtn_set_src(lv_obj_t* imgbtn, lv_btn_state_t state, void* src)
-int luat_lv_imgbtn_set_src(lua_State *L) {
-    LV_DEBUG("CALL lv_imgbtn_set_src");
-    lv_obj_t* imgbtn = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_btn_state_t state = (lv_btn_state_t)luaL_checkinteger(L, 2);
-    void* src = (void*)lua_touserdata(L, 3);
-    lv_imgbtn_set_src(imgbtn ,state ,src);
-    return 0;
-}
-
 //  void lv_imgbtn_set_state(lv_obj_t* imgbtn, lv_btn_state_t state)
 int luat_lv_imgbtn_set_state(lua_State *L) {
     LV_DEBUG("CALL lv_imgbtn_set_state");

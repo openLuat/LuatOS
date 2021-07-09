@@ -1540,7 +1540,6 @@ int luat_lv_img_get_antialias(lua_State *L);
 
 // prefix lv_widgets lv_imgbtn
 int luat_lv_imgbtn_create(lua_State *L);
-int luat_lv_imgbtn_set_src(lua_State *L);
 int luat_lv_imgbtn_set_state(lua_State *L);
 int luat_lv_imgbtn_toggle(lua_State *L);
 int luat_lv_imgbtn_set_checkable(lua_State *L);
@@ -1549,7 +1548,6 @@ int luat_lv_imgbtn_get_state(lua_State *L);
 int luat_lv_imgbtn_get_checkable(lua_State *L);
 
 #define LUAT_LV_IMGBTN_RLT     {"imgbtn_create", luat_lv_imgbtn_create, 0},\
-    {"imgbtn_set_src", luat_lv_imgbtn_set_src, 0},\
     {"imgbtn_set_state", luat_lv_imgbtn_set_state, 0},\
     {"imgbtn_toggle", luat_lv_imgbtn_toggle, 0},\
     {"imgbtn_set_checkable", luat_lv_imgbtn_set_checkable, 0},\

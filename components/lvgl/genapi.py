@@ -36,7 +36,7 @@ map_lv_ints = ["lv_arc_type_t", "lv_style_int_t", "lv_coord_t", "lv_spinner_dir_
                     "lv_text_flag_t", "lv_style_selector_t", "lv_dir_t", "lv_scroll_snap_t", "lv_style_prop_t", "lv_base_dir_t",
                     "lv_slider_mode_t", "lv_arc_mode_t", "lv_text_align_t"]
 
-custom_method_names = ["lv_img_set_src"]
+custom_method_names = ["lv_img_set_src", "lv_imgbtn_set_src"]
 
 class FuncDefVisitor(c_ast.NodeVisitor):
 
@@ -52,7 +52,8 @@ class FuncDefVisitor(c_ast.NodeVisitor):
             _index_val = None
             for e in node.values:
                 k = e.name
-                val = None
+                val = e.name
+                '''
                 if e.value :
                     if e.value.__class__.__name__ == "Constant" :
                         if e.value.value.startswith("0x") :
@@ -63,7 +64,7 @@ class FuncDefVisitor(c_ast.NodeVisitor):
                         if _index_val == None :
                             _index_val = val + 1
                     else :
-                        #print("skip enum ", e.name, e.value)
+                        print("skip enum ", e.name, e.value)
                         pass
                 else:
                     if _index_val == None :
@@ -71,6 +72,7 @@ class FuncDefVisitor(c_ast.NodeVisitor):
                     val = _index_val
                     #print("add enum", e.name, _index_val)
                     _index_val += 1
+                '''
                 if val != None and k not in enum_names :
                     enum_names.add(k)
                     enums.append([k, val])
@@ -353,7 +355,7 @@ def gen_enums():
         for e in enums:
             if e[0].startswith("_"):
                 continue
-            fh.write("    {\"%s\", NULL, %d},\\\n" % (e[0][3:], e[1]))
+            fh.write("    {\"%s\", NULL, %s},\\\n" % (e[0][3:], e[1]))
 
         fh.write("\n\n")
 

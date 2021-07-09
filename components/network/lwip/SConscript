@@ -1,0 +1,10 @@
+Import('RTT_ROOT')
+Import('rtconfig')
+from building import *
+
+cwd = GetCurrentDir()
+src	= Glob('binding/*.c')
+
+group = DefineGroup('lwip_lua', src, depend = ['RT_USING_LWIP'])
+
+Return('group')

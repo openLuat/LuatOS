@@ -35,6 +35,13 @@ static void _lvgl_handler(void* args) {
 }
 #endif
 
+#ifdef LUAT_USE_LWIP
+int lwip_init_main(void);
+static void _lwip_init(void* arg) {
+    lwip_init_main();
+}
+#endif
+
 BOOL WINAPI consoleHandler(DWORD signal) {
     if (signal == CTRL_C_EVENT) {
         printf("Ctrl-C handled\n"); // do cleanup
@@ -55,7 +62,11 @@ int main(int argc, char** argv) {
     bpool(luavm_heap, LUAT_HEAP_SIZE);
 #ifdef LUAT_USE_LVGL
     lv_init();
-    xTaskCreate( _lvgl_handler, "lvgl", 1024*2, NULL, 21, NULL );
+    xTaskCreate( _lvgl_handler, "lvgl", 1024*2, NULL, 23, NULL );
+#endif
+
+#ifdef LUAT_USE_LWIP
+    //xTaskCreate( _lwip_init, "lwip", 1024*2, NULL, 22, NULL );
 #endif
 
     xTaskCreate( _luat_main, "luatos", 1024*16, NULL, 21, NULL );

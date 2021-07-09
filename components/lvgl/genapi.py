@@ -199,7 +199,7 @@ def handle_groups(group, path):
             v.visit(ast)
         except  Exception :
             print("error>>>>>>>>>>>>" + name)
-            traceback.print_exc()
+            #traceback.print_exc()
         #sys.exit()
 
 def make_style_dec():
@@ -217,7 +217,7 @@ def make_style_dec():
                     continue
                 defines.append(vals)
 
-    with open("binding/luat_lvgl_style_dec.h", "w") as f :
+    with open("gen/luat_lv_style_dec.h", "w") as f :
         f.write('''#include "luat_base.h"
 #include "luat_msgbus.h"
 #include "luat_lvgl.h"
@@ -236,7 +236,7 @@ def make_style_dec():
         f.write("\\\n".join(RTL))
         f.write("\n")
 
-    with open("binding/luat_lib_lvgl_style_dec.c", "w") as f :
+    with open("gen/lv_core/luat_lv_style_dec.c", "w") as f :
         f.write('''#include "luat_base.h"
 #include "luat_msgbus.h"
 #include "luat_lvgl.h"
@@ -260,6 +260,9 @@ def make_style_dec():
                 f.write("    lv_style_set_%s(_style, state, %s);\n" % (dec[1], dec[3]))
             elif dec[2] == "const char *":
                 f.write("    %s %s = (%s)luaL_checkstring(L, 3);\n" % (dec[2], dec[3], dec[2]))
+                f.write("    lv_style_set_%s(_style, state, %s);\n" % (dec[1], dec[3]))
+            elif dec[2] == "const lv_font_t *":
+                f.write("    %s %s = (%s)luaL_checkinteger(L, 3);\n" % (dec[2], dec[3], dec[2]))
                 f.write("    lv_style_set_%s(_style, state, %s);\n" % (dec[1], dec[3]))
             else :
                 f.write("    %s %s;\n" % (dec[2], dec[3]))

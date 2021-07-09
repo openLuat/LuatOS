@@ -1,5 +1,4 @@
-
-
+
 #include "luat_base.h"
 #include "lvgl.h"
 #include "luat_lvgl.h"
@@ -315,7 +314,6 @@ int luat_lv_obj_add_style(lua_State *L) {
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_t* style = (lv_style_t*)lua_touserdata(L, 3);
-    printf("obj_add_style------------- %p %d %p\n", obj, part, style);
     lv_obj_add_style(obj ,part ,style);
     return 0;
 }

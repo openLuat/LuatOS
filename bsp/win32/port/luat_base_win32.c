@@ -51,6 +51,9 @@ static const luaL_Reg loadedlibs[] = {
   {"lvgl",   luaopen_lvgl},
   {"lcd",    luaopen_lcd},
 #endif
+#ifdef LUAT_USE_LWIP
+  {"lwip",   luaopen_lwip},
+#endif
   {NULL, NULL}
 };
 

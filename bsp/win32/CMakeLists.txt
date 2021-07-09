@@ -112,11 +112,20 @@ include_directories(${TOPROOT}/components/lvgl)
 add_subdirectory(${TOPROOT}/components/lvgl lvgl.out)
 #-----------------------
 
+#-----------------------
+# lwip
+include_directories(${TOPROOT}/components/network/lwip)
+add_subdirectory(${TOPROOT}/components/network/lwip lwip.out)
+#-----------------------
+
 IF (WIN32)
 # 指定生成目标
 add_executable(luatos src/main_win32.c)
-target_link_libraries(luat freertos10 winmm fatfs lvgl)
-target_link_libraries(luatos freertos10 lua luatos_msys luat winmm cjson rock_lfs rock_librs232 mbedtls fatfs lvgl)
+target_link_libraries(luat freertos10 winmm fatfs lvgl lwip)
+target_link_libraries(luatos freertos10 lua luatos_msys luat winmm cjson
+                      rock_lfs rock_librs232 mbedtls fatfs lvgl lwip
+                      lwipcontribexamples lwipcontribapps lwipcontribaddons 
+                      lwipallapps lwipcore lwipcontribportwindows lwipmbedtls)
 ELSE ()
 add_executable(luatos src/main_posix.c)
 target_link_libraries(luat freertos10 pthread fatfs lvgl)

@@ -135,6 +135,26 @@ LUAT_LV_STYLE_DEC_RLT
 LUAT_LV_STYLE2_RLT
 LUAT_LV_IMG_EXT_RTL
 
+// 字体
+#if LV_FONT_MONTSERRAT_14
+    {"font_montserrat_14", NULL, (int32_t)&lv_font_montserrat_14},
+#endif
+#ifdef USE_LVGL_REGULAR_12
+    {"font_regular_12", NULL, (int32_t)&lv_font_regular_12},
+#endif
+#ifdef USE_LVGL_REGULAR_14
+    {"font_regular_14", NULL, (int32_t)&lv_font_regular_14},
+#endif
+#ifdef USE_LVGL_REGULAR_16
+    {"font_regular_16", NULL, (int32_t)&lv_font_regular_16},
+#endif
+#ifdef USE_LVGL_SIMSUN_12
+    {"font_simsun_12", NULL, (int32_t)&lv_font_simsun_12},
+#endif
+#ifdef USE_LVGL_SIMSUN_48
+    {"font_simsun_48", NULL, (int32_t)&lv_font_simsun_48},
+#endif
+
 // 常量
 LUAT_LV_ENMU_RLT
 {NULL, NULL, 0},

@@ -9,7 +9,7 @@ local ui = {}
 local function screen_slider0event_handler(obj, event)
     if event == lvgl.EVENT_VALUE_CHANGED then
             local slider_value = lvgl.slider_get_value(ui.screen_slider0)
-            -- lvgl.obj_set_style_local_image_opa(ui.screen_img2, lvgl.IMG_PART_MAIN, lvgl.STATE_DEFAULT,  slider_value * 2.5)
+            lvgl.obj_set_style_local_image_opa(ui.screen_img2, lvgl.IMG_PART_MAIN, lvgl.STATE_DEFAULT,  slider_value * 2.5)
             lvgl.label_set_text(ui.screen_label4, slider_value)
     end
 end
@@ -97,7 +97,7 @@ sys.taskInit(function ()
 	--Write codes screen_label3
 	ui.screen_label3 = lvgl.label_create(ui.screen, nil)
 	lvgl.label_set_text(ui.screen_label3, "Please slide")
-	-- lvgl.label_set_text(ui.screen_label3, "中文测试")
+	--lvgl.label_set_text(ui.screen_label3, "中文测试")
 	lvgl.label_set_long_mode(ui.screen_label3, lvgl.LABEL_LONG_BREAK)
 	lvgl.label_set_align(ui.screen_label3, lvgl.LABEL_ALIGN_CENTER)
 
@@ -119,7 +119,7 @@ sys.taskInit(function ()
 	lvgl.style_set_pad_right(style_screen_label3_main, lvgl.STATE_DEFAULT, 0)
 	lvgl.style_set_pad_top(style_screen_label3_main, lvgl.STATE_DEFAULT, 0)
 	lvgl.style_set_pad_bottom(style_screen_label3_main, lvgl.STATE_DEFAULT, 0)
-	-- lvgl.obj_add_style(ui.screen_label3, lvgl.LABEL_PART_MAIN, style_screen_label3_main)
+	lvgl.obj_add_style(ui.screen_label3, lvgl.LABEL_PART_MAIN, style_screen_label3_main)
 	lvgl.obj_set_pos(ui.screen_label3, 58, 174)
 	lvgl.obj_set_size(ui.screen_label3, 100, 0)
 
@@ -147,7 +147,7 @@ sys.taskInit(function ()
 	lvgl.style_set_pad_right(style_screen_label4_main, lvgl.STATE_DEFAULT, 0)
 	lvgl.style_set_pad_top(style_screen_label4_main, lvgl.STATE_DEFAULT, 0)
 	lvgl.style_set_pad_bottom(style_screen_label4_main, lvgl.STATE_DEFAULT, 0)
-	-- lvgl.obj_add_style(ui.screen_label4, lvgl.LABEL_PART_MAIN, style_screen_label4_main)
+	lvgl.obj_add_style(ui.screen_label4, lvgl.LABEL_PART_MAIN, style_screen_label4_main)
 	lvgl.obj_set_pos(ui.screen_label4, 55, 43)
 	lvgl.obj_set_size(ui.screen_label4, 100, 0)
 

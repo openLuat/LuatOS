@@ -141,7 +141,7 @@ int luat_lv_canvas_fill_bg(lua_State *L) {
     lv_obj_t* canvas = (lv_obj_t*)lua_touserdata(L, 1);
     lv_color_t color = {0};
     color.full = luaL_checkinteger(L, 2);
-    lv_opa_t opa = (lv_opa_t)luaL_checkinteger(L, 3);
+    lv_opa_t opa = (lv_opa_t)luaL_checknumber(L, 3);
     lv_canvas_fill_bg(canvas ,color ,opa);
     return 0;
 }

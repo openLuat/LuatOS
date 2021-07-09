@@ -60,7 +60,7 @@ int luat_lv_img_buf_set_px_alpha(lua_State *L) {
     lv_img_dsc_t* dsc = (lv_img_dsc_t*)lua_touserdata(L, 1);
     lv_coord_t x = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_coord_t y = (lv_coord_t)luaL_checkinteger(L, 3);
-    lv_opa_t opa = (lv_opa_t)luaL_checkinteger(L, 4);
+    lv_opa_t opa = (lv_opa_t)luaL_checknumber(L, 4);
     lv_img_buf_set_px_alpha(dsc ,x ,y ,opa);
     return 0;
 }

@@ -91,10 +91,10 @@ int luat_lv_color_mix_with_alpha(lua_State *L) {
     LV_DEBUG("CALL lv_color_mix_with_alpha");
     lv_color_t bg_color = {0};
     bg_color.full = luaL_checkinteger(L, 1);
-    lv_opa_t bg_opa = (lv_opa_t)luaL_checkinteger(L, 2);
+    lv_opa_t bg_opa = (lv_opa_t)luaL_checknumber(L, 2);
     lv_color_t fg_color = {0};
     fg_color.full = luaL_checkinteger(L, 3);
-    lv_opa_t fg_opa = (lv_opa_t)luaL_checkinteger(L, 4);
+    lv_opa_t fg_opa = (lv_opa_t)luaL_checknumber(L, 4);
     lv_color_t* res_color = (lv_color_t*)lua_touserdata(L, 5);
     lv_opa_t* res_opa = (lv_opa_t*)lua_touserdata(L, 6);
     lv_color_mix_with_alpha(bg_color ,bg_opa ,fg_color ,fg_opa ,res_color ,res_opa);
@@ -160,7 +160,7 @@ int luat_lv_color_lighten(lua_State *L) {
     LV_DEBUG("CALL lv_color_lighten");
     lv_color_t c = {0};
     c.full = luaL_checkinteger(L, 1);
-    lv_opa_t lvl = (lv_opa_t)luaL_checkinteger(L, 2);
+    lv_opa_t lvl = (lv_opa_t)luaL_checknumber(L, 2);
     lv_color_t ret;
     ret = lv_color_lighten(c ,lvl);
     lua_pushinteger(L, ret.full);
@@ -172,7 +172,7 @@ int luat_lv_color_darken(lua_State *L) {
     LV_DEBUG("CALL lv_color_darken");
     lv_color_t c = {0};
     c.full = luaL_checkinteger(L, 1);
-    lv_opa_t lvl = (lv_opa_t)luaL_checkinteger(L, 2);
+    lv_opa_t lvl = (lv_opa_t)luaL_checknumber(L, 2);
     lv_color_t ret;
     ret = lv_color_darken(c ,lvl);
     lua_pushinteger(L, ret.full);

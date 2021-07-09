@@ -284,7 +284,7 @@ int luat_lv_disp_set_bg_image(lua_State *L) {
 int luat_lv_disp_set_bg_opa(lua_State *L) {
     LV_DEBUG("CALL lv_disp_set_bg_opa");
     lv_disp_t* disp = (lv_disp_t*)lua_touserdata(L, 1);
-    lv_opa_t opa = (lv_opa_t)luaL_checkinteger(L, 2);
+    lv_opa_t opa = (lv_opa_t)luaL_checknumber(L, 2);
     lv_disp_set_bg_opa(disp ,opa);
     return 0;
 }

@@ -1,4 +1,5 @@
-
+
+
 #include "luat_base.h"
 #include "lvgl.h"
 #include "luat_lvgl.h"
@@ -314,6 +315,7 @@ int luat_lv_obj_add_style(lua_State *L) {
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_t* style = (lv_style_t*)lua_touserdata(L, 3);
+    printf("obj_add_style------------- %p %d %p\n", obj, part, style);
     lv_obj_add_style(obj ,part ,style);
     return 0;
 }
@@ -1018,7 +1020,7 @@ int luat_lv_obj_set_style_local_opa_scale(lua_State *L) {
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
-    lv_opa_t value = (lv_opa_t)luaL_checkinteger(L, 4);
+    lv_opa_t value = (lv_opa_t)luaL_checknumber(L, 4);
     lv_obj_set_style_local_opa_scale(obj ,part ,state ,value);
     return 0;
 }
@@ -1372,7 +1374,7 @@ int luat_lv_obj_set_style_local_bg_opa(lua_State *L) {
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
-    lv_opa_t value = (lv_opa_t)luaL_checkinteger(L, 4);
+    lv_opa_t value = (lv_opa_t)luaL_checknumber(L, 4);
     lv_obj_set_style_local_bg_opa(obj ,part ,state ,value);
     return 0;
 }
@@ -1505,7 +1507,7 @@ int luat_lv_obj_set_style_local_border_opa(lua_State *L) {
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
-    lv_opa_t value = (lv_opa_t)luaL_checkinteger(L, 4);
+    lv_opa_t value = (lv_opa_t)luaL_checknumber(L, 4);
     lv_obj_set_style_local_border_opa(obj ,part ,state ,value);
     return 0;
 }
@@ -1616,7 +1618,7 @@ int luat_lv_obj_set_style_local_outline_opa(lua_State *L) {
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
-    lv_opa_t value = (lv_opa_t)luaL_checkinteger(L, 4);
+    lv_opa_t value = (lv_opa_t)luaL_checknumber(L, 4);
     lv_obj_set_style_local_outline_opa(obj ,part ,state ,value);
     return 0;
 }
@@ -1771,7 +1773,7 @@ int luat_lv_obj_set_style_local_shadow_opa(lua_State *L) {
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
-    lv_opa_t value = (lv_opa_t)luaL_checkinteger(L, 4);
+    lv_opa_t value = (lv_opa_t)luaL_checknumber(L, 4);
     lv_obj_set_style_local_shadow_opa(obj ,part ,state ,value);
     return 0;
 }
@@ -1860,7 +1862,7 @@ int luat_lv_obj_set_style_local_pattern_opa(lua_State *L) {
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
-    lv_opa_t value = (lv_opa_t)luaL_checkinteger(L, 4);
+    lv_opa_t value = (lv_opa_t)luaL_checknumber(L, 4);
     lv_obj_set_style_local_pattern_opa(obj ,part ,state ,value);
     return 0;
 }
@@ -1882,7 +1884,7 @@ int luat_lv_obj_set_style_local_pattern_recolor_opa(lua_State *L) {
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
-    lv_opa_t value = (lv_opa_t)luaL_checkinteger(L, 4);
+    lv_opa_t value = (lv_opa_t)luaL_checknumber(L, 4);
     lv_obj_set_style_local_pattern_recolor_opa(obj ,part ,state ,value);
     return 0;
 }
@@ -2081,7 +2083,7 @@ int luat_lv_obj_set_style_local_value_opa(lua_State *L) {
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
-    lv_opa_t value = (lv_opa_t)luaL_checkinteger(L, 4);
+    lv_opa_t value = (lv_opa_t)luaL_checknumber(L, 4);
     lv_obj_set_style_local_value_opa(obj ,part ,state ,value);
     return 0;
 }
@@ -2304,7 +2306,7 @@ int luat_lv_obj_set_style_local_text_opa(lua_State *L) {
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
-    lv_opa_t value = (lv_opa_t)luaL_checkinteger(L, 4);
+    lv_opa_t value = (lv_opa_t)luaL_checknumber(L, 4);
     lv_obj_set_style_local_text_opa(obj ,part ,state ,value);
     return 0;
 }
@@ -2481,7 +2483,7 @@ int luat_lv_obj_set_style_local_line_opa(lua_State *L) {
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
-    lv_opa_t value = (lv_opa_t)luaL_checkinteger(L, 4);
+    lv_opa_t value = (lv_opa_t)luaL_checknumber(L, 4);
     lv_obj_set_style_local_line_opa(obj ,part ,state ,value);
     return 0;
 }
@@ -2548,7 +2550,7 @@ int luat_lv_obj_set_style_local_image_opa(lua_State *L) {
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
-    lv_opa_t value = (lv_opa_t)luaL_checkinteger(L, 4);
+    lv_opa_t value = (lv_opa_t)luaL_checknumber(L, 4);
     lv_obj_set_style_local_image_opa(obj ,part ,state ,value);
     return 0;
 }
@@ -2570,7 +2572,7 @@ int luat_lv_obj_set_style_local_image_recolor_opa(lua_State *L) {
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
-    lv_opa_t value = (lv_opa_t)luaL_checkinteger(L, 4);
+    lv_opa_t value = (lv_opa_t)luaL_checknumber(L, 4);
     lv_obj_set_style_local_image_recolor_opa(obj ,part ,state ,value);
     return 0;
 }

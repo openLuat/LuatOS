@@ -483,7 +483,7 @@ map_lua_arg = {
 
     "char*" : {"fmt": "{} {} = (char*)luaL_checkstring(L, {});", "incr" : 1},
 
-    "lv_opa_t" : {"fmt": "{} {} = (lv_opa_t)luaL_checkinteger(L, {});", "incr" : 1}, # uint8_t
+    "lv_opa_t" : {"fmt": "{} {} = (lv_opa_t)luaL_checknumber(L, {});", "incr" : 1}, # uint8_t
     "lv_img_cf_t" : {"fmt": "{} {} = (lv_img_cf_t)luaL_checkinteger(L, {});", "incr" : 1}, # uint8_t
     "lv_arc_type_t" : {"fmt": "{} {} = (lv_arc_type_t)luaL_checkinteger(L, {});", "incr" : 1}, # uint8_t
     "lv_chart_axis_t" : {"fmt": "{} {} = (lv_chart_axis_t)luaL_checkinteger(L, {});", "incr" : 1}, # uint8_t

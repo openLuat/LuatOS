@@ -125,9 +125,9 @@ int luat_lv_draw_mask_fade_init(lua_State *L) {
     lua_geti(L, -1, 4); coords.y2 = luaL_checkinteger(L, -1); lua_pop(L, 1);
     lua_pop(L, 1);
 
-    lv_opa_t opa_top = (lv_opa_t)luaL_checkinteger(L, 3);
+    lv_opa_t opa_top = (lv_opa_t)luaL_checknumber(L, 3);
     lv_coord_t y_top = (lv_coord_t)luaL_checkinteger(L, 4);
-    lv_opa_t opa_bottom = (lv_opa_t)luaL_checkinteger(L, 5);
+    lv_opa_t opa_bottom = (lv_opa_t)luaL_checknumber(L, 5);
     lv_coord_t y_bottom = (lv_coord_t)luaL_checkinteger(L, 6);
     lv_draw_mask_fade_init(param ,&coords ,opa_top ,y_top ,opa_bottom ,y_bottom);
     return 0;

@@ -2,7 +2,13 @@
 #include "luat_msgbus.h"
 #include "luat_lvgl.h"
 #include "lvgl.h"
-        
+
+#define font_regular_12                 0
+#define font_regular_14                 1
+#define font_regular_16                 2
+#define font_simsun_12                  3
+#define font_simsun_48                  4
+
 int luat_lv_style_set_radius(lua_State *L);
 int luat_lv_style_get_radius(lua_State *L);
 int luat_lv_style_set_clip_corner(lua_State *L);
@@ -279,4 +285,9 @@ int luat_lv_style_get_scale_end_color(lua_State *L);
 {"style_set_scale_end_border_width", luat_lv_style_set_scale_end_border_width, 0},\
 {"style_set_scale_end_line_width", luat_lv_style_set_scale_end_line_width, 0},\
 {"style_set_scale_grad_color", luat_lv_style_set_scale_grad_color, 0},\
-{"style_set_scale_end_color", luat_lv_style_set_scale_end_color, 0},
+{"style_set_scale_end_color", luat_lv_style_set_scale_end_color, 0},\
+{ "font_regular_12", NULL,       font_regular_12},\
+{ "font_regular_14", NULL,       font_regular_14},\
+{ "font_regular_16", NULL,       font_regular_16},\
+{ "font_simsun_12", NULL,       font_simsun_12},\
+{ "font_simsun_48", NULL,       font_simsun_48},

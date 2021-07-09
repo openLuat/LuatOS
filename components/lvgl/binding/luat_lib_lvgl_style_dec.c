@@ -2,7 +2,8 @@
 #include "luat_msgbus.h"
 #include "luat_lvgl.h"
 #include "lvgl.h"
-        
+#include "luat_lib_fonts.h"
+
 int luat_lv_style_set_radius(lua_State *L){
     lv_style_t* _style = (lv_style_t*)lua_touserdata(L, 1);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 2);
@@ -462,9 +463,41 @@ int luat_lv_style_set_value_opa(lua_State *L){
 int luat_lv_style_set_value_font(lua_State *L){
     lv_style_t* _style = (lv_style_t*)lua_touserdata(L, 1);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 2);
-    const lv_font_t * _ptr;
+    int font = luaL_checkinteger(L, 3);
+    switch (font)
+    {
+#if defined USE_LVGL_REGULAR_12
+    case font_regular_12:
+        lv_style_set_value_font(_style, state, &lv_font_regular_12);
+        break;
+#endif
+#if defined USE_LVGL_REGULAR_14
+    case font_regular_14:
+        lv_style_set_value_font(_style, state, &lv_font_regular_14);
+        break;
+#endif
+#if defined USE_LVGL_REGULAR_16
+    case font_regular_16:
+        lv_style_set_value_font(_style, state, &lv_font_regular_16);
+        break;
+#endif
+#if defined USE_LVGL_SIMSUN_12
+    case font_simsun_12:
+        lv_style_set_value_font(_style, state, &lv_font_simsun_12);
+        break;
+#endif
+#if defined USE_LVGL_SIMSUN_48
+    case font_simsun_48:
+        lv_style_set_value_font(_style, state, &lv_font_simsun_48);
+        break;
+#endif
+    default:
+        break;
+    }
+    // const lv_font_t * _ptr;
+    // const lv_font_t * _ptr = (const lv_font_t *)luaL_checkinteger(L, 3);
     // TODO const lv_font_t * _ptr
-    lv_style_set_value_font(_style, state, _ptr);
+    // lv_style_set_value_font(_style, state, _ptr);
     return 0;
 }
 
@@ -546,9 +579,37 @@ int luat_lv_style_set_text_opa(lua_State *L){
 int luat_lv_style_set_text_font(lua_State *L){
     lv_style_t* _style = (lv_style_t*)lua_touserdata(L, 1);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 2);
-    const lv_font_t * _ptr;
-    // TODO const lv_font_t * _ptr
-    lv_style_set_text_font(_style, state, _ptr);
+    int font = luaL_checkinteger(L, 3);
+    switch (font)
+    {
+#if defined USE_LVGL_REGULAR_12
+    case font_regular_12:
+        lv_style_set_text_font(_style, state, &lv_font_regular_12);
+        break;
+#endif
+#if defined USE_LVGL_REGULAR_14
+    case font_regular_14:
+        lv_style_set_text_font(_style, state, &lv_font_regular_14);
+        break;
+#endif
+#if defined USE_LVGL_REGULAR_16
+    case font_regular_16:
+        lv_style_set_text_font(_style, state, &lv_font_regular_16);
+        break;
+#endif
+#if defined USE_LVGL_SIMSUN_12
+    case font_simsun_12:
+        lv_style_set_text_font(_style, state, &lv_font_simsun_12);
+        break;
+#endif
+#if defined USE_LVGL_SIMSUN_48
+    case font_simsun_48:
+        lv_style_set_text_font(_style, state, &lv_font_simsun_48);
+        break;
+#endif
+    default:
+        break;
+    }
     return 0;
 }
 

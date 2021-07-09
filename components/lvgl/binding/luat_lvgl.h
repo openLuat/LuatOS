@@ -17,7 +17,7 @@
 #if (LUAT_LV_DEBUG == 1)
 #define LV_DEBUG LLOGD
 #else
-#define LV_DEBUG 
+#define LV_DEBUG
 #endif
 
 int luat_lv_init(lua_State *L);

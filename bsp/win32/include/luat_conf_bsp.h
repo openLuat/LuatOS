@@ -24,4 +24,10 @@
 
 #define LUAT_FORCE_WIN32 1
 
+#define USE_LVGL_REGULAR_12
+#define USE_LVGL_REGULAR_14
+#define USE_LVGL_REGULAR_16
+#define USE_LVGL_SIMSUN_12
+#define USE_LVGL_SIMSUN_48
+
 #endif

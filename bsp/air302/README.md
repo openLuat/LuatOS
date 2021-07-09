@@ -78,7 +78,6 @@ ADC
 * [已知限制@doc](http://doc.openluat.com/article/979/0)
 * [已知限制@gitee](https://gitee.com/openLuat/LuatOS/blob/master/bsp/air302/userdoc/limits.md)
 * [开发板购买@合宙商城](https://m.openluat.com)
-* [开发板购买@骑士智能](https://item.taobao.com/item.htm?id=621910075534)
 * [LuatOS源码@gitee](https://gitee.com/openLuat/LuatOS) 期待你的小星星
 * [LuatOS源码@github](https://github.com/openLuat/LuatOS) 期待你的小星星
 * [demo,长期更新](https://gitee.com/openLuat/LuatOS/tree/master/bsp/air302/demo)

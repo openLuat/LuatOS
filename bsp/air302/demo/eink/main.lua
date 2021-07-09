@@ -33,7 +33,7 @@ function eink154_update()
     eink.printcn(16, 64+32, "中日きんぎょ混排", 0, 16)
     eink.printcn(16, 64+16+32, "中俄советский", 0, 16)
 
-    eink.printcn(16, 128, "骑士智能", 0, 24)
+    eink.printcn(16, 128, "物联网", 0, 24)
     eink.printcn(16, 128+24, "好记星", 0, 24)
     eink.printcn(16, 128+24+24, "嫦娥五号 いっぽん", 0, 24)
 

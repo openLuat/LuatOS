@@ -263,7 +263,7 @@ def make_style_dec():
             elif dec[2] == "const char *":
                 f.write("    %s %s = (%s)luaL_checkstring(L, 3);\n" % (dec[2], dec[3], dec[2]))
                 f.write("    lv_style_set_%s(_style, state, %s);\n" % (dec[1], dec[3]))
-            elif dec[2] == "const lv_font_t *":
+            elif dec[2] == "const lv_font_t *" or dec[2] == "lv_font_t*":
                 f.write("    %s %s = (%s)luaL_checkinteger(L, 3);\n" % (dec[2], dec[3], dec[2]))
                 f.write("    lv_style_set_%s(_style, state, %s);\n" % (dec[1], dec[3]))
             else :
@@ -520,6 +520,8 @@ def gen_lua_arg(tp, name, index):
         cnt += "    lua_geti(L, -1, 2); %s.y = luaL_checkinteger(L, -1); lua_pop(L, 1);\n" % (name,)
         cnt += "    lua_pop(L, 1);\n"
         return cnt, 1, False
+    if tp == "lv_font_t*":
+        return "{} {} = ({})lua_checkinteger(L, {});".format(str(tp), str(name), str(tp), str(index)), 1, False
     if tp == "lv_color_t" :
         return "%s %s = {0};\n" % (tp, name) + "    %s.full = luaL_checkinteger(L, %d);" % (name, index), 1, False
     if tp.endswith("*"):

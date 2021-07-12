@@ -9,6 +9,7 @@ extern "C" {
 #endif
 #include "../src/lv_font/lv_font.h"
 
+LV_FONT_DECLARE(lv_font_simsun_10)
 LV_FONT_DECLARE(lv_font_simsun_12)
 LV_FONT_DECLARE(lv_font_simsun_14)
 LV_FONT_DECLARE(lv_font_simsun_16)

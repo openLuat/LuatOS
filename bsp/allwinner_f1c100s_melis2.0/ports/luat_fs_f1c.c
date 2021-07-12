@@ -11,11 +11,11 @@ int luat_fs_info(const char* path, luat_fs_info_t *conf) {
 }
 
 int luat_fs_getc(FILE* stream) {
-    uint8_t buff = 0;
-    int ret = luat_fs_fread(&buff, 1, 1, stream);
-    if (ret == 1) {
-        return buff;
-    }
+    // uint8_t buff = 0;
+    // int ret = luat_fs_fread(&buff, 1, 1, stream);
+    // if (ret == 1) {
+    //     return buff;
+    // }
     return -1;
 }
 

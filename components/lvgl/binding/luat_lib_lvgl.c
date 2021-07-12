@@ -149,6 +149,9 @@ LUAT_LV_IMGBTN2_RTL
 #ifdef USE_LVGL_REGULAR_16
     {"font_regular_16", NULL, (int32_t)&lv_font_regular_16},
 #endif
+#ifdef USE_LVGL_SIMSUN_10
+    {"font_simsun_10", NULL, (int32_t)&lv_font_simsun_10},
+#endif
 #ifdef USE_LVGL_SIMSUN_12
     {"font_simsun_12", NULL, (int32_t)&lv_font_simsun_12},
 #endif

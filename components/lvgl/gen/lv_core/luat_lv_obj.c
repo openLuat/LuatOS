@@ -1,4 +1,5 @@
-
+
+
 #include "luat_base.h"
 #include "lvgl.h"
 #include "luat_lvgl.h"
@@ -2326,7 +2327,8 @@ int luat_lv_obj_set_style_local_text_font(lua_State *L) {
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 3);
-    lv_font_t* value = (lv_font_t*)lua_touserdata(L, 4);
+    // lv_font_t* value = (lv_font_t*)lua_touserdata(L, 4);
+    lv_font_t* value = (lv_font_t*)luaL_checkinteger(L, 4);
     lv_obj_set_style_local_text_font(obj ,part ,state ,value);
     return 0;
 }

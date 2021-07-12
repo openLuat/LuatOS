@@ -137,38 +137,20 @@ LUAT_LV_IMG_EXT_RTL
 LUAT_LV_IMGBTN2_RTL
 
 // 字体
-#if LV_FONT_MONTSERRAT_14
-    {"font_montserrat_14", NULL, (int32_t)&lv_font_montserrat_14},
+#ifdef LV_FONT_OPPOSANS_M_10
+    {"font_opposans_m_10", NULL, (int32_t)&lv_font_opposans_m_10},
 #endif
-#ifdef USE_LVGL_REGULAR_12
-    {"font_regular_12", NULL, (int32_t)&lv_font_regular_12},
+#ifdef LV_FONT_OPPOSANS_M_12
+    {"font_opposans_m_12", NULL, (int32_t)&lv_font_opposans_m_12},
 #endif
-#ifdef USE_LVGL_REGULAR_14
-    {"font_regular_14", NULL, (int32_t)&lv_font_regular_14},
+#ifdef LV_FONT_OPPOSANS_M_14
+    {"font_opposans_m_14", NULL, (int32_t)&lv_font_opposans_m_14},
 #endif
-#ifdef USE_LVGL_REGULAR_16
-    {"font_regular_16", NULL, (int32_t)&lv_font_regular_16},
+#ifdef LV_FONT_OPPOSANS_M_16
+    {"font_opposans_m_16", NULL, (int32_t)&lv_font_opposans_m_16},
 #endif
-#ifdef USE_LVGL_SIMSUN_10
-    {"font_simsun_10", NULL, (int32_t)&lv_font_simsun_10},
-#endif
-#ifdef USE_LVGL_SIMSUN_12
-    {"font_simsun_12", NULL, (int32_t)&lv_font_simsun_12},
-#endif
-#ifdef USE_LVGL_SIMSUN_14
-    {"font_simsun_14", NULL, (int32_t)&lv_font_simsun_14},
-#endif
-#ifdef USE_LVGL_SIMSUN_16
-    {"font_simsun_16", NULL, (int32_t)&lv_font_simsun_16},
-#endif
-#ifdef USE_LVGL_SIMSUN_18
-    {"font_simsun_18", NULL, (int32_t)&lv_font_simsun_18},
-#endif
-#ifdef USE_LVGL_SIMSUN_20
-    {"font_simsun_20", NULL, (int32_t)&lv_font_simsun_20},
-#endif
-#ifdef USE_LVGL_SIMSUN_22
-    {"font_simsun_22", NULL, (int32_t)&lv_font_simsun_22},
+#ifdef LV_FONT_OPPOSANS_M_18
+    {"font_opposans_m_18", NULL, (int32_t)&lv_font_opposans_m_18},
 #endif
 #ifdef USE_LVGL_SIMSUN_48
     {"font_simsun_48", NULL, (int32_t)&lv_font_simsun_48},

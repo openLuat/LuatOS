@@ -144,10 +144,51 @@ static void disp_lcd_test(void)
     g_display.fb_index = next_buffer_index;
 }
 
+//---------------------
+//#include "lvgl.h"
+//---------------------
+
+// static lv_disp_buf_t my_disp_buff = {0};
+
+// 执行渲染或者触摸屏输入等操作
+// 真正的移植会发消息到msgbug,然后在luatos主线程内执行渲染
+// static void lvgl_task_thread(void *arg) {
+//     lv_task_handler();
+// }
+
+// 每5ms为lvgl的时钟添加5
+// static void lvgl_timer_thread(void *arg) {
+//     while (1) {
+        //    timer_sleep(5); // 5ms
+        //    lv_timer_incr(5);   
+//     }
+// }
+// // 绘制buff到显示区域
+// static void disp_flush(lv_disp_drv_t * disp_drv, const lv_area_t * area, lv_color_t * color_p) {
+//     //-----
+//     LLOGD("CALL disp_flush (%d, %d, %d, %d)", area->x1, area->y1, area->x2, area->y2);
+//     lv_disp_flush_ready(disp_drv);
+// }
+
 static void port_thread(void *arg)
 {
     disp_lcd_init();
     disp_lcd_test();
+    // lv_init();
+    // lv_color_t *fbuffer = NULL;
+    // fbuffer = luat_heap_malloc(fbuff_size * sizeof(lv_color_t));
+    // lv_disp_buf_init(&my_disp_buff, fbuffer, NULL, fbuff_size);
+
+    // lv_disp_drv_t my_disp_drv;
+    // lv_disp_drv_init(&my_disp_drv);
+
+    // my_disp_drv.flush_cb = disp_flush;
+
+    // my_disp_drv.hor_res = 1280;
+    // my_disp_drv.ver_res = 720;
+    // my_disp_drv.buffer = &my_disp_buff;
+    //LLOGD(">>%s %d", __func__, __LINE__);
+    // lv_disp_drv_register(&my_disp_drv);
     //luatos_main_entry();
     while(1)
     {
@@ -163,6 +204,9 @@ int port_entry(void)
     DBG("entry luatos app!");
     id = esKRNL_TCreate(port_thread, NULL, 0x10000, KRNL_priolevel1);
     DBG("thread id %d!", id);
+
+    // esKRNL_TCreate(lvgl_task_thread, NULL, 0x10000, KRNL_priolevel1);
+    // esKRNL_TCreate(lvgl_timer_thread, NULL, 0x10000, KRNL_priolevel1);
 }
 
 //==========================================

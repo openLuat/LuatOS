@@ -462,7 +462,7 @@ int luat_lv_style_set_value_opa(lua_State *L){
 int luat_lv_style_set_value_font(lua_State *L){
     lv_style_t* _style = (lv_style_t*)lua_touserdata(L, 1);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 2);
-    const lv_font_t * _ptr = (const lv_font_t *)luaL_checkinteger(L, 3);
+    const lv_font_t * _ptr = (const lv_font_t *)lua_touserdata(L, 3);
     lv_style_set_value_font(_style, state, _ptr);
     return 0;
 }
@@ -545,7 +545,7 @@ int luat_lv_style_set_text_opa(lua_State *L){
 int luat_lv_style_set_text_font(lua_State *L){
     lv_style_t* _style = (lv_style_t*)lua_touserdata(L, 1);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 2);
-    const lv_font_t * _ptr = (const lv_font_t *)luaL_checkinteger(L, 3);
+    const lv_font_t * _ptr = (const lv_font_t *)lua_touserdata(L, 3);
     lv_style_set_text_font(_style, state, _ptr);
     return 0;
 }

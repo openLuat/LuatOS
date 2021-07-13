@@ -1,7 +1,7 @@
 #include "luat_base.h"
 #include "luat_lvgl.h"
 #include "lvgl.h"
-#include "../src/lv_gif/lv_gif.h"
+#include "../exts/lv_gif/lv_gif.h"
 
 /*
 创建gif组件

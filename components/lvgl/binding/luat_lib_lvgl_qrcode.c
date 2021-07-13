@@ -2,7 +2,7 @@
 #include "luat_base.h"
 #include "luat_lvgl.h"
 #include "lvgl.h"
-#include "../src/lv_qrcode/lv_qrcode.h"
+#include "../exts/lv_qrcode/lv_qrcode.h"
 
 /**
 创建qrcode组件

@@ -137,25 +137,8 @@ LUAT_LV_STYLE2_RLT
 LUAT_LV_IMG_EXT_RTL
 LUAT_LV_IMGBTN2_RTL
 
-// 字体
-#ifdef LV_FONT_OPPOSANS_M_10
-    {"font_opposans_m_10", NULL, (int32_t)&lv_font_opposans_m_10},
-#endif
-#ifdef LV_FONT_OPPOSANS_M_12
-    {"font_opposans_m_12", NULL, (int32_t)&lv_font_opposans_m_12},
-#endif
-#ifdef LV_FONT_OPPOSANS_M_14
-    {"font_opposans_m_14", NULL, (int32_t)&lv_font_opposans_m_14},
-#endif
-#ifdef LV_FONT_OPPOSANS_M_16
-    {"font_opposans_m_16", NULL, (int32_t)&lv_font_opposans_m_16},
-#endif
-#ifdef LV_FONT_OPPOSANS_M_18
-    {"font_opposans_m_18", NULL, (int32_t)&lv_font_opposans_m_18},
-#endif
-#ifdef USE_LVGL_SIMSUN_48
-    {"font_simsun_48", NULL, (int32_t)&lv_font_simsun_48},
-#endif
+// 字体API
+LUAT_LV_FONT2_RLT
 
 // 常量
 LUAT_LV_ENMU_RLT

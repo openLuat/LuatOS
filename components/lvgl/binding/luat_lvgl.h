@@ -34,5 +34,6 @@ void luat_lv_fs_init(void);
 #include "luat_lvgl_imgbtn.h"
 
 #include "luat_lvgl_fonts.h"
+#include "luat_lvgl_font.h"
 
 #endif

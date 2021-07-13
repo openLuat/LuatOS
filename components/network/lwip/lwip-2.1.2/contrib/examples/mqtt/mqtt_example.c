@@ -94,8 +94,6 @@ mqtt_connection_cb(mqtt_client_t *client, void *arg, mqtt_connection_status_t st
   const struct mqtt_connect_client_info_t* client_info = (const struct mqtt_connect_client_info_t*)arg;
   LWIP_UNUSED_ARG(client);
 
-  printf("MQTT client \"%s\" connection cb: status %d\n", client_info->client_id, (int)status);
-
   if (status == MQTT_CONNECT_ACCEPTED) {
     mqtt_sub_unsub(client,
             "/sys/req/XXXYYYZZZ", 1,
@@ -122,10 +120,9 @@ mqtt_example_init(void)
           mqtt_incoming_data_cb,
           LWIP_CONST_CAST(void*, &mqtt_client_info));
 
-  int ret = mqtt_client_connect(mqtt_client,
+  mqtt_client_connect(mqtt_client,
           &mqtt_ip, 1884,
           mqtt_connection_cb, LWIP_CONST_CAST(void*, &mqtt_client_info),
           &mqtt_client_info);
-  printf("ret = %ld\n", ret);
 #endif /* LWIP_TCP */
 }

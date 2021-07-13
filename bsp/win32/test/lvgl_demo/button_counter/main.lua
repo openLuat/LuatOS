@@ -16,7 +16,7 @@ local counter = 0
 local function screen_plusevent_handler(obj, event)
 	if event == lvgl.EVENT_CLICKED then
 		counter = counter+1
-		lvgl.obj_set_style_local_text_font(ui.screen_counter, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, lvgl.font_simsun_48)
+		lvgl.obj_set_style_local_text_font(ui.screen_counter, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, lvgl.font_get("simsun_48"))
 		lvgl.label_set_text(ui.screen_counter, string.format("%d",counter))
 	end
 end
@@ -24,7 +24,7 @@ end
 local function screen_minusevent_handler(obj, event)
 	if event == lvgl.EVENT_CLICKED then
 		if counter>0 then counter = counter-1 end
-		lvgl.obj_set_style_local_text_font(ui.screen_counter, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, lvgl.font_simsun_48)
+		lvgl.obj_set_style_local_text_font(ui.screen_counter, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, lvgl.font_get("simsun_48"))
 		lvgl.label_set_text(ui.screen_counter, string.format("%d",counter))
 	end
 end
@@ -55,7 +55,7 @@ sys.taskInit(function ()
 	lvgl.style_set_bg_grad_dir(style_screen_counter_main, lvgl.STATE_DEFAULT, lvgl.GRAD_DIR_VER)
 	lvgl.style_set_bg_opa(style_screen_counter_main, lvgl.STATE_DEFAULT, 0)
 	lvgl.style_set_text_color(style_screen_counter_main, lvgl.STATE_DEFAULT, lvgl.color_make(0x00, 0x00, 0x00))
-	lvgl.style_set_text_font(style_screen_counter_main, lvgl.STATE_DEFAULT, lvgl.font_simsun_48)
+	lvgl.style_set_text_font(style_screen_counter_main, lvgl.STATE_DEFAULT, lvgl.font_get("simsun_48"))
 	lvgl.style_set_text_letter_space(style_screen_counter_main, lvgl.STATE_DEFAULT, 2)
 	lvgl.style_set_pad_left(style_screen_counter_main, lvgl.STATE_DEFAULT, 0)
 	lvgl.style_set_pad_right(style_screen_counter_main, lvgl.STATE_DEFAULT, 0)
@@ -126,7 +126,7 @@ sys.taskInit(function ()
 	ui.screen_plus_label = lvgl.label_create(ui.screen_plus, nil)
 	lvgl.label_set_text(ui.screen_plus_label, "Plus")
 	lvgl.obj_set_style_local_text_color(ui.screen_plus_label, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, lvgl.color_make(0x00, 0x00, 0x00))
-	lvgl.obj_set_style_local_text_font(ui.screen_plus_label, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, lvgl.font_opposans_m_16)
+	lvgl.obj_set_style_local_text_font(ui.screen_plus_label, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, lvgl.font_get("opposans_m_16"))
 
 	--Write codes screen_minus
 	ui.screen_minus = lvgl.btn_create(ui.screen, nil)
@@ -189,7 +189,7 @@ sys.taskInit(function ()
 	ui.screen_minus_label = lvgl.label_create(ui.screen_minus, nil)
 	lvgl.label_set_text(ui.screen_minus_label, "Minus")
 	lvgl.obj_set_style_local_text_color(ui.screen_minus_label, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, lvgl.color_make(0x00, 0x00, 0x00))
-	lvgl.obj_set_style_local_text_font(ui.screen_minus_label, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, lvgl.font_opposans_m_16)
+	lvgl.obj_set_style_local_text_font(ui.screen_minus_label, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, lvgl.font_get("opposans_m_16"))
 
 
 	lvgl.obj_set_event_cb(ui.screen_plus, screen_plusevent_handler)

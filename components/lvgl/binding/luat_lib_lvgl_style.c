@@ -18,6 +18,17 @@ int luat_lv_style_create(lua_State *L) {
 }
 
 /*
+创建一个style
+@api lvgl.style_t()
+@return userdata style指针
+@usage
+local style = lvgl.style_t()
+*/
+int luat_lv_style_t(lua_State *L) {
+    return luat_lv_style_create(L);
+}
+
+/*
 创建一个style_list
 @api lvgl.style_list_create()
 @return userdata style指针
@@ -29,6 +40,17 @@ int luat_lv_style_list_create(lua_State *L) {
     lv_style_list_init(style_list);
     lua_pushlightuserdata(L, style_list);
     return 1;
+}
+
+/*
+创建一个style_list
+@api lvgl.style_list_t()
+@return userdata style指针
+@usage
+local style = lvgl.style_list_t()
+*/
+int luat_lv_style_list_t(lua_State *L) {
+    return luat_lv_style_list_create(L);
 }
 
 /*

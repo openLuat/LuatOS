@@ -11,7 +11,7 @@ int luat_lv_obj_create(lua_State *L) {
     lv_obj_t* copy = (lv_obj_t*)lua_touserdata(L, 2);
     lv_obj_t* ret = NULL;
     ret = lv_obj_create(parent ,copy);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -545,7 +545,7 @@ int luat_lv_obj_allocate_ext_attr(lua_State *L) {
     uint16_t ext_size = (uint16_t)luaL_checkinteger(L, 2);
     void* ret = NULL;
     ret = lv_obj_allocate_ext_attr(obj ,ext_size);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -563,7 +563,7 @@ int luat_lv_obj_get_screen(lua_State *L) {
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* ret = NULL;
     ret = lv_obj_get_screen(obj);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -573,7 +573,7 @@ int luat_lv_obj_get_disp(lua_State *L) {
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_disp_t* ret = NULL;
     ret = lv_obj_get_disp(obj);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -583,7 +583,7 @@ int luat_lv_obj_get_parent(lua_State *L) {
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* ret = NULL;
     ret = lv_obj_get_parent(obj);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -594,7 +594,7 @@ int luat_lv_obj_get_child(lua_State *L) {
     lv_obj_t* child = (lv_obj_t*)lua_touserdata(L, 2);
     lv_obj_t* ret = NULL;
     ret = lv_obj_get_child(obj ,child);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -605,7 +605,7 @@ int luat_lv_obj_get_child_back(lua_State *L) {
     lv_obj_t* child = (lv_obj_t*)lua_touserdata(L, 2);
     lv_obj_t* ret = NULL;
     ret = lv_obj_get_child_back(obj ,child);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -832,7 +832,7 @@ int luat_lv_obj_get_style_list(lua_State *L) {
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_list_t* ret = NULL;
     ret = lv_obj_get_style_list(obj ,part);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -843,7 +843,7 @@ int luat_lv_obj_get_local_style(lua_State *L) {
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_t* ret = NULL;
     ret = lv_obj_get_local_style(obj ,part);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -1894,7 +1894,7 @@ int luat_lv_obj_get_style_pattern_image(lua_State *L) {
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     void* ret = NULL;
     ret = lv_obj_get_style_pattern_image(obj ,part);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -2093,7 +2093,7 @@ int luat_lv_obj_get_style_value_font(lua_State *L) {
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_font_t* ret = NULL;
     ret = lv_obj_get_style_value_font(obj ,part);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -2316,7 +2316,7 @@ int luat_lv_obj_get_style_text_font(lua_State *L) {
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_font_t* ret = NULL;
     ret = lv_obj_get_style_text_font(obj ,part);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -2758,7 +2758,7 @@ int luat_lv_obj_get_style_transition_path(lua_State *L) {
     uint8_t part = (uint8_t)luaL_checkinteger(L, 2);
     lv_anim_path_t* ret = NULL;
     ret = lv_obj_get_style_transition_path(obj ,part);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -3163,7 +3163,7 @@ int luat_lv_obj_get_ext_attr(lua_State *L) {
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     void* ret = NULL;
     ret = lv_obj_get_ext_attr(obj);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -3191,7 +3191,7 @@ int luat_lv_obj_get_user_data_ptr(lua_State *L) {
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_user_data_t* ret = NULL;
     ret = lv_obj_get_user_data_ptr(obj);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -3211,7 +3211,7 @@ int luat_lv_obj_get_group(lua_State *L) {
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     void* ret = NULL;
     ret = lv_obj_get_group(obj);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -3231,7 +3231,7 @@ int luat_lv_obj_get_focused_obj(lua_State *L) {
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* ret = NULL;
     ret = lv_obj_get_focused_obj(obj);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 

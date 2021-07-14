@@ -45,7 +45,7 @@ int luat_lv_style_list_get_style(lua_State *L) {
     uint8_t id = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_t* ret = NULL;
     ret = lv_style_list_get_style(list ,id);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -74,7 +74,7 @@ int luat_lv_style_list_get_local_style(lua_State *L) {
     lv_style_list_t* list = (lv_style_list_t*)lua_touserdata(L, 1);
     lv_style_t* ret = NULL;
     ret = lv_style_list_get_local_style(list);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 

@@ -11,7 +11,7 @@ int luat_lv_imgbtn_create(lua_State *L) {
     lv_obj_t* copy = (lv_obj_t*)lua_touserdata(L, 2);
     lv_obj_t* ret = NULL;
     ret = lv_imgbtn_create(par ,copy);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -48,7 +48,7 @@ int luat_lv_imgbtn_get_src(lua_State *L) {
     lv_btn_state_t state = (lv_btn_state_t)luaL_checkinteger(L, 2);
     void* ret = NULL;
     ret = lv_imgbtn_get_src(imgbtn ,state);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 

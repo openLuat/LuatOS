@@ -560,7 +560,7 @@ def gen_lua_ret(tp, f) :
     elif tp.endswith("*") :
         if tp != "lv_obj_t*":
             miss_ret_types.add(tp)
-        f.write("    lua_pushlightuserdata(L, ret);\n")
+        f.write("    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);\n")
         f.write("    return 1;\n")
     # 其他的暂不支持
     else :

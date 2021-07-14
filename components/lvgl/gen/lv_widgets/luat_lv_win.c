@@ -11,7 +11,7 @@ int luat_lv_win_create(lua_State *L) {
     lv_obj_t* copy = (lv_obj_t*)lua_touserdata(L, 2);
     lv_obj_t* ret = NULL;
     ret = lv_win_create(par ,copy);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -30,7 +30,7 @@ int luat_lv_win_add_btn_right(lua_State *L) {
     void* img_src = (void*)lua_touserdata(L, 2);
     lv_obj_t* ret = NULL;
     ret = lv_win_add_btn_right(win ,img_src);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -41,7 +41,7 @@ int luat_lv_win_add_btn_left(lua_State *L) {
     void* img_src = (void*)lua_touserdata(L, 2);
     lv_obj_t* ret = NULL;
     ret = lv_win_add_btn_left(win ,img_src);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -143,7 +143,7 @@ int luat_lv_win_get_content(lua_State *L) {
     lv_obj_t* win = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* ret = NULL;
     ret = lv_win_get_content(win);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -173,7 +173,7 @@ int luat_lv_win_get_from_btn(lua_State *L) {
     lv_obj_t* ctrl_btn = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* ret = NULL;
     ret = lv_win_get_from_btn(ctrl_btn);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 

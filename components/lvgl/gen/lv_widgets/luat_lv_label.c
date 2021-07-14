@@ -11,7 +11,7 @@ int luat_lv_label_create(lua_State *L) {
     lv_obj_t* copy = (lv_obj_t*)lua_touserdata(L, 2);
     lv_obj_t* ret = NULL;
     ret = lv_label_create(par ,copy);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -211,7 +211,7 @@ int luat_lv_label_get_style(lua_State *L) {
     uint8_t type = (uint8_t)luaL_checkinteger(L, 2);
     lv_style_list_t* ret = NULL;
     ret = lv_label_get_style(label ,type);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 

@@ -11,7 +11,7 @@ int luat_lv_chart_create(lua_State *L) {
     lv_obj_t* copy = (lv_obj_t*)lua_touserdata(L, 2);
     lv_obj_t* ret = NULL;
     ret = lv_chart_create(par ,copy);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -23,7 +23,7 @@ int luat_lv_chart_add_series(lua_State *L) {
     color.full = luaL_checkinteger(L, 2);
     lv_chart_series_t* ret = NULL;
     ret = lv_chart_add_series(chart ,color);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -46,7 +46,7 @@ int luat_lv_chart_add_cursor(lua_State *L) {
     // miss arg convert
     lv_chart_cursor_t* ret = NULL;
     ret = lv_chart_add_cursor(chart ,color ,dir);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 

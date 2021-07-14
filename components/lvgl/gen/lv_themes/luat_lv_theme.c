@@ -17,7 +17,7 @@ int luat_lv_theme_get_act(lua_State *L) {
     LV_DEBUG("CALL lv_theme_get_act");
     lv_theme_t* ret = NULL;
     ret = lv_theme_get_act();
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -54,7 +54,7 @@ int luat_lv_theme_get_font_small(lua_State *L) {
     LV_DEBUG("CALL lv_theme_get_font_small");
     lv_font_t* ret = NULL;
     ret = lv_theme_get_font_small();
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -63,7 +63,7 @@ int luat_lv_theme_get_font_normal(lua_State *L) {
     LV_DEBUG("CALL lv_theme_get_font_normal");
     lv_font_t* ret = NULL;
     ret = lv_theme_get_font_normal();
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -72,7 +72,7 @@ int luat_lv_theme_get_font_subtitle(lua_State *L) {
     LV_DEBUG("CALL lv_theme_get_font_subtitle");
     lv_font_t* ret = NULL;
     ret = lv_theme_get_font_subtitle();
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -81,7 +81,7 @@ int luat_lv_theme_get_font_title(lua_State *L) {
     LV_DEBUG("CALL lv_theme_get_font_title");
     lv_font_t* ret = NULL;
     ret = lv_theme_get_font_title();
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -126,7 +126,7 @@ int luat_lv_theme_empty_init(lua_State *L) {
     lv_font_t* font_title = (lv_font_t*)lua_touserdata(L, 7);
     lv_theme_t* ret = NULL;
     ret = lv_theme_empty_init(color_primary ,color_secondary ,flags ,font_small ,font_normal ,font_subtitle ,font_title);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -144,7 +144,7 @@ int luat_lv_theme_template_init(lua_State *L) {
     lv_font_t* font_title = (lv_font_t*)lua_touserdata(L, 7);
     lv_theme_t* ret = NULL;
     ret = lv_theme_template_init(color_primary ,color_secondary ,flags ,font_small ,font_normal ,font_subtitle ,font_title);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -162,7 +162,7 @@ int luat_lv_theme_material_init(lua_State *L) {
     lv_font_t* font_title = (lv_font_t*)lua_touserdata(L, 7);
     lv_theme_t* ret = NULL;
     ret = lv_theme_material_init(color_primary ,color_secondary ,flags ,font_small ,font_normal ,font_subtitle ,font_title);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -180,7 +180,7 @@ int luat_lv_theme_mono_init(lua_State *L) {
     lv_font_t* font_title = (lv_font_t*)lua_touserdata(L, 7);
     lv_theme_t* ret = NULL;
     ret = lv_theme_mono_init(color_primary ,color_secondary ,flags ,font_small ,font_normal ,font_subtitle ,font_title);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 

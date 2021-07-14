@@ -11,7 +11,7 @@ int luat_lv_list_create(lua_State *L) {
     lv_obj_t* copy = (lv_obj_t*)lua_touserdata(L, 2);
     lv_obj_t* ret = NULL;
     ret = lv_list_create(par ,copy);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -31,7 +31,7 @@ int luat_lv_list_add_btn(lua_State *L) {
     char* txt = (char*)luaL_checkstring(L, 3);
     lv_obj_t* ret = NULL;
     ret = lv_list_add_btn(list ,img_src ,txt);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -116,7 +116,7 @@ int luat_lv_list_get_btn_label(lua_State *L) {
     lv_obj_t* btn = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* ret = NULL;
     ret = lv_list_get_btn_label(btn);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -126,7 +126,7 @@ int luat_lv_list_get_btn_img(lua_State *L) {
     lv_obj_t* btn = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* ret = NULL;
     ret = lv_list_get_btn_img(btn);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -137,7 +137,7 @@ int luat_lv_list_get_prev_btn(lua_State *L) {
     lv_obj_t* prev_btn = (lv_obj_t*)lua_touserdata(L, 2);
     lv_obj_t* ret = NULL;
     ret = lv_list_get_prev_btn(list ,prev_btn);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -148,7 +148,7 @@ int luat_lv_list_get_next_btn(lua_State *L) {
     lv_obj_t* prev_btn = (lv_obj_t*)lua_touserdata(L, 2);
     lv_obj_t* ret = NULL;
     ret = lv_list_get_next_btn(list ,prev_btn);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -179,7 +179,7 @@ int luat_lv_list_get_btn_selected(lua_State *L) {
     lv_obj_t* list = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* ret = NULL;
     ret = lv_list_get_btn_selected(list);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 

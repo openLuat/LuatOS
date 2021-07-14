@@ -156,7 +156,7 @@ int luat_lv_anim_get(lua_State *L) {
     // miss arg convert
     lv_anim_t* ret = NULL;
     ret = lv_anim_get(var ,exec_cb);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 

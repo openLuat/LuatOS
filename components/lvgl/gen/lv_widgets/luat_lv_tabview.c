@@ -11,7 +11,7 @@ int luat_lv_tabview_create(lua_State *L) {
     lv_obj_t* copy = (lv_obj_t*)lua_touserdata(L, 2);
     lv_obj_t* ret = NULL;
     ret = lv_tabview_create(par ,copy);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -22,7 +22,7 @@ int luat_lv_tabview_add_tab(lua_State *L) {
     char* name = (char*)luaL_checkstring(L, 2);
     lv_obj_t* ret = NULL;
     ret = lv_tabview_add_tab(tabview ,name);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -99,7 +99,7 @@ int luat_lv_tabview_get_tab(lua_State *L) {
     uint16_t id = (uint16_t)luaL_checkinteger(L, 2);
     lv_obj_t* ret = NULL;
     ret = lv_tabview_get_tab(tabview ,id);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 

@@ -11,7 +11,7 @@ int luat_lv_calendar_create(lua_State *L) {
     lv_obj_t* copy = (lv_obj_t*)lua_touserdata(L, 2);
     lv_obj_t* ret = NULL;
     ret = lv_calendar_create(par ,copy);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -39,7 +39,7 @@ int luat_lv_calendar_get_today_date(lua_State *L) {
     lv_obj_t* calendar = (lv_obj_t*)lua_touserdata(L, 1);
     lv_calendar_date_t* ret = NULL;
     ret = lv_calendar_get_today_date(calendar);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -49,7 +49,7 @@ int luat_lv_calendar_get_showed_date(lua_State *L) {
     lv_obj_t* calendar = (lv_obj_t*)lua_touserdata(L, 1);
     lv_calendar_date_t* ret = NULL;
     ret = lv_calendar_get_showed_date(calendar);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -59,7 +59,7 @@ int luat_lv_calendar_get_pressed_date(lua_State *L) {
     lv_obj_t* calendar = (lv_obj_t*)lua_touserdata(L, 1);
     lv_calendar_date_t* ret = NULL;
     ret = lv_calendar_get_pressed_date(calendar);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -69,7 +69,7 @@ int luat_lv_calendar_get_highlighted_dates(lua_State *L) {
     lv_obj_t* calendar = (lv_obj_t*)lua_touserdata(L, 1);
     lv_calendar_date_t* ret = NULL;
     ret = lv_calendar_get_highlighted_dates(calendar);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 

@@ -35,7 +35,7 @@ int luat_lv_draw_mask_remove_id(lua_State *L) {
     int16_t id = (int16_t)luaL_checkinteger(L, 1);
     void* ret = NULL;
     ret = lv_draw_mask_remove_id(id);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -45,7 +45,7 @@ int luat_lv_draw_mask_remove_custom(lua_State *L) {
     void* custom_id = (void*)lua_touserdata(L, 1);
     void* ret = NULL;
     ret = lv_draw_mask_remove_custom(custom_id);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 

@@ -29,7 +29,7 @@ int luat_lv_disp_drv_register(lua_State *L) {
     lv_disp_drv_t* driver = (lv_disp_drv_t*)lua_touserdata(L, 1);
     lv_disp_t* ret = NULL;
     ret = lv_disp_drv_register(driver);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -63,7 +63,7 @@ int luat_lv_disp_get_default(lua_State *L) {
     LV_DEBUG("CALL lv_disp_get_default");
     lv_disp_t* ret = NULL;
     ret = lv_disp_get_default();
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -160,7 +160,7 @@ int luat_lv_disp_get_next(lua_State *L) {
     lv_disp_t* disp = (lv_disp_t*)lua_touserdata(L, 1);
     lv_disp_t* ret = NULL;
     ret = lv_disp_get_next(disp);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -170,7 +170,7 @@ int luat_lv_disp_get_buf(lua_State *L) {
     lv_disp_t* disp = (lv_disp_t*)lua_touserdata(L, 1);
     lv_disp_buf_t* ret = NULL;
     ret = lv_disp_get_buf(disp);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -210,7 +210,7 @@ int luat_lv_disp_get_scr_act(lua_State *L) {
     lv_disp_t* disp = (lv_disp_t*)lua_touserdata(L, 1);
     lv_obj_t* ret = NULL;
     ret = lv_disp_get_scr_act(disp);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -220,7 +220,7 @@ int luat_lv_disp_get_scr_prev(lua_State *L) {
     lv_disp_t* disp = (lv_disp_t*)lua_touserdata(L, 1);
     lv_obj_t* ret = NULL;
     ret = lv_disp_get_scr_prev(disp);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -238,7 +238,7 @@ int luat_lv_disp_get_layer_top(lua_State *L) {
     lv_disp_t* disp = (lv_disp_t*)lua_touserdata(L, 1);
     lv_obj_t* ret = NULL;
     ret = lv_disp_get_layer_top(disp);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -248,7 +248,7 @@ int luat_lv_disp_get_layer_sys(lua_State *L) {
     lv_disp_t* disp = (lv_disp_t*)lua_touserdata(L, 1);
     lv_obj_t* ret = NULL;
     ret = lv_disp_get_layer_sys(disp);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 

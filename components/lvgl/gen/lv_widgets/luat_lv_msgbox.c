@@ -11,7 +11,7 @@ int luat_lv_msgbox_create(lua_State *L) {
     lv_obj_t* copy = (lv_obj_t*)lua_touserdata(L, 2);
     lv_obj_t* ret = NULL;
     ret = lv_msgbox_create(par ,copy);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -115,7 +115,7 @@ int luat_lv_msgbox_get_btnmatrix(lua_State *L) {
     lv_obj_t* mbox = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* ret = NULL;
     ret = lv_msgbox_get_btnmatrix(mbox);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 

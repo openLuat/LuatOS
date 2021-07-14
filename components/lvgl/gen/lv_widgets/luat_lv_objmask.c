@@ -11,7 +11,7 @@ int luat_lv_objmask_create(lua_State *L) {
     lv_obj_t* copy = (lv_obj_t*)lua_touserdata(L, 2);
     lv_obj_t* ret = NULL;
     ret = lv_objmask_create(par ,copy);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -22,7 +22,7 @@ int luat_lv_objmask_add_mask(lua_State *L) {
     void* param = (void*)lua_touserdata(L, 2);
     lv_objmask_mask_t* ret = NULL;
     ret = lv_objmask_add_mask(objmask ,param);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 

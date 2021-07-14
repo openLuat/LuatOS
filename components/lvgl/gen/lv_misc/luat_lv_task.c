@@ -18,7 +18,7 @@ int luat_lv_task_create_basic(lua_State *L) {
     LV_DEBUG("CALL lv_task_create_basic");
     lv_task_t* ret = NULL;
     ret = lv_task_create_basic();
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -33,7 +33,7 @@ int luat_lv_task_create(lua_State *L) {
     void* user_data = (void*)lua_touserdata(L, 4);
     lv_task_t* ret = NULL;
     ret = lv_task_create(task_xcb ,period ,prio ,user_data);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -112,7 +112,7 @@ int luat_lv_task_get_next(lua_State *L) {
     lv_task_t* task = (lv_task_t*)lua_touserdata(L, 1);
     lv_task_t* ret = NULL;
     ret = lv_task_get_next(task);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 

@@ -9,7 +9,7 @@ int luat_lv_group_create(lua_State *L) {
     LV_DEBUG("CALL lv_group_create");
     lv_group_t* ret = NULL;
     ret = lv_group_create();
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -134,7 +134,7 @@ int luat_lv_group_get_focused(lua_State *L) {
     lv_group_t* group = (lv_group_t*)lua_touserdata(L, 1);
     lv_obj_t* ret = NULL;
     ret = lv_group_get_focused(group);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 
@@ -144,7 +144,7 @@ int luat_lv_group_get_user_data(lua_State *L) {
     lv_group_t* group = (lv_group_t*)lua_touserdata(L, 1);
     lv_group_user_data_t* ret = NULL;
     ret = lv_group_get_user_data(group);
-    lua_pushlightuserdata(L, ret);
+    if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
 }
 

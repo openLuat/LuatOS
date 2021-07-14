@@ -41,6 +41,17 @@ static lv_res_t luat_lv_obj_signal_cb(struct _lv_obj_t * obj, lv_signal_t sign, 
     return LV_RES_OK;
 }
 
+static void luat_lv_anim_exec_cb(struct _lv_anim_t * anim, lv_coord_t value) {
+    if (anim->user_data == 0)
+        return;
+    rtos_msg_t msg = {0};
+    msg.handler = l_obj_es_cb;
+    msg.ptr = anim;
+    msg.arg1 = anim->user_data;
+    msg.arg2 = value;
+    luat_msgbus_put(&msg, 0);
+}
+
 /*
 设置组件的事件回调
 @api lvgl.obj_set_event_cb(obj, func)
@@ -97,3 +108,32 @@ int luat_lv_obj_set_signal_cb(lua_State *L) {
     }
     return 0;
 }
+
+/*
+设置动画回调
+@api lvgl.anim_set_exec_cb(obj, func)
+@userdata lvgl组件指针
+@func lua函数, 参数有2个 (anim, value), 其中obj是当前对象, signal是信号类型, 为整型
+@return nil 无返回值
+*/
+int luat_lv_anim_set_exec_cb(lua_State *L) {
+    lv_anim_t* anim = lua_touserdata(L, 1);
+    if (anim == NULL) {
+        LLOGW("obj is NULL when set event cb");
+        return 0;
+    }
+    if (anim->user_data != 0) {
+        luaL_unref(L, LUA_REGISTRYINDEX, anim->user_data);
+    }
+    if (lua_isfunction(L, 2)) {
+        lua_settop(L, 2);
+        anim->user_data = luaL_ref(L, LUA_REGISTRYINDEX);
+        lv_anim_set_exec_cb(anim, luat_lv_anim_exec_cb);
+    }
+    else {
+        anim->user_data = 0;
+        lv_anim_set_exec_cb(anim, NULL);
+    }
+    return 0;
+}
+

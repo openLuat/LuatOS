@@ -11,7 +11,7 @@
 #include "task.h"
 #include "windows.h"
 
-#define LUAT_HEAP_SIZE (1024*1024)
+#define LUAT_HEAP_SIZE (4096*1024)
 uint8_t luavm_heap[LUAT_HEAP_SIZE] = {0};
 
 static void _luat_main(void* args) {
@@ -57,7 +57,7 @@ char** win32_argv;
 int main(int argc, char** argv) {
     win32_argc = argc;
     win32_argv = argv;
-    
+
     SetConsoleCtrlHandler(consoleHandler, TRUE);
     bpool(luavm_heap, LUAT_HEAP_SIZE);
 #ifdef LUAT_USE_LVGL

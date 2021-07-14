@@ -41,16 +41,7 @@ static lv_res_t luat_lv_obj_signal_cb(struct _lv_obj_t * obj, lv_signal_t sign, 
     return LV_RES_OK;
 }
 
-static void luat_lv_anim_exec_cb(struct _lv_anim_t * anim, lv_coord_t value) {
-    if (anim->user_data == 0)
-        return;
-    rtos_msg_t msg = {0};
-    msg.handler = l_obj_es_cb;
-    msg.ptr = anim;
-    msg.arg1 = anim->user_data;
-    msg.arg2 = value;
-    luat_msgbus_put(&msg, 0);
-}
+
 
 /*
 设置组件的事件回调
@@ -109,9 +100,35 @@ int luat_lv_obj_set_signal_cb(lua_State *L) {
     return 0;
 }
 
+//========================================================================
+
+static int l_obj_anim_cb(lua_State *L, void*ptr) {
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    struct _lv_anim_t * anim = (struct _lv_anim_t *)ptr;
+    lua_geti(L, LUA_REGISTRYINDEX, msg->arg1);
+    if (lua_isfunction(L, -1)) {
+        lua_pushlightuserdata(L, anim->user_data.obj);
+        lua_pushinteger(L, msg->arg2);
+        lua_call(L, 2, 0);
+    }
+    return 0;
+}
+
+static void luat_lv_anim_exec_cb(struct _lv_anim_t * anim, lv_coord_t value) {
+    if (anim->user_data.exec_cb_ref == 0)
+        return;
+    rtos_msg_t msg = {0};
+    msg.handler = l_obj_anim_cb;
+    msg.ptr = anim;
+    msg.arg1 = anim->user_data.exec_cb_ref;
+    msg.arg2 = value;
+    luat_msgbus_put(&msg, 0);
+}
+
 /*
 设置动画回调
-@api lvgl.anim_set_exec_cb(obj, func)
+@api lvgl.anim_set_exec_cb(anim, obj, func)
+@userdata 动画指针
 @userdata lvgl组件指针
 @func lua函数, 参数有2个 (anim, value), 其中obj是当前对象, signal是信号类型, 为整型
 @return nil 无返回值
@@ -122,17 +139,20 @@ int luat_lv_anim_set_exec_cb(lua_State *L) {
         LLOGW("obj is NULL when set event cb");
         return 0;
     }
-    if (anim->user_data != 0) {
-        luaL_unref(L, LUA_REGISTRYINDEX, anim->user_data);
+    lv_obj_t* obj = lua_touserdata(L, 2);
+    anim->user_data.obj = obj;
+
+    if (anim->user_data.exec_cb_ref != 0) {
+        luaL_unref(L, LUA_REGISTRYINDEX, anim->user_data.exec_cb_ref);
     }
-    if (lua_isfunction(L, 2)) {
-        lua_settop(L, 2);
-        anim->user_data = luaL_ref(L, LUA_REGISTRYINDEX);
-        lv_anim_set_exec_cb(anim, luat_lv_anim_exec_cb);
+    if (lua_isfunction(L, 3)) {
+        lua_settop(L, 3);
+        anim->user_data.exec_cb_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+        lv_anim_set_custom_exec_cb(anim, luat_lv_anim_exec_cb);
     }
     else {
-        anim->user_data = 0;
-        lv_anim_set_exec_cb(anim, NULL);
+        anim->user_data.exec_cb_ref = 0;
+        lv_anim_set_custom_exec_cb(anim, NULL);
     }
     return 0;
 }

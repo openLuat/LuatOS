@@ -152,7 +152,11 @@ typedef int16_t lv_coord_t;
 #if LV_USE_ANIMATION
 
 /*Declare the type of the user data of animations (can be e.g. `void *`, `int`, `struct`)*/
-typedef void * lv_anim_user_data_t;
+typedef struct lv_anim_mydata {
+  int exec_cb_ref;
+  void* obj;
+}lv_anim_mydata_t;
+typedef lv_anim_mydata_t lv_anim_user_data_t;
 
 #endif
 

@@ -737,8 +737,10 @@ int luat_lv_obj_fade_out(lua_State *L);
 
 // prefix lv_core lv_refr
 int luat_lv_refr_now(lua_State *L);
+int luat_lv_refr_get_fps_avg(lua_State *L);
 
 #define LUAT_LV_REFR_RLT     {"refr_now", luat_lv_refr_now, 0},\
+    {"refr_get_fps_avg", luat_lv_refr_get_fps_avg, 0},\
 
 // prefix lv_core lv_style
 int luat_lv_style_init(lua_State *L);

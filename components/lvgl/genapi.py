@@ -411,7 +411,7 @@ def gen_methods():
                                 #    f.write("    %s %s = NULL;\n" % (str(arg[1]), str(arg[0])))
                                 #else :
                                 #    f.write("    %s %s;\n" % (str(arg[1]), str(arg[0])))
-                                cnt, incr, miss_arg_type = gen_lua_arg(arg[1], arg[0], _index)
+                                cnt, incr, miss_arg_type = gen_lua_arg(arg[1], arg[0], _index, prefix)
                                 _miss_arg_type = _miss_arg_type or miss_arg_type
                                 f.write("    " + cnt + "\n")
                                 if miss_arg_type :
@@ -498,7 +498,10 @@ map_lua_arg = {
 }
 
 
-def gen_lua_arg(tp, name, index):
+def gen_lua_arg(tp, name, index, prefix=None):
+    if prefix == "lv_arc" :
+        if name == "start" or name == "end" or "uint16_t" == tp or "int16_t" == tp :
+            return "{} {} = ({})luaL_checknumber(L, {});".format(tp, name, tp, index), 1, False
     if tp in map_lua_arg :
         fmt = map_lua_arg[tp]["fmt"]
         return fmt.format(str(tp), str(name), str(index)), map_lua_arg[tp]["incr"], False

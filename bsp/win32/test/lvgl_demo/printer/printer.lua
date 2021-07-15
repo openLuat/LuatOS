@@ -206,8 +206,8 @@ function printer.guider_load_screen(scr_id)
 			printer.events_init_home(_G.guider_ui)
             scr = _G.guider_ui.home
 			home_event_init()
-			-- lvgl.anim_set_var(ani_en_btn_click, _G.guider_ui.home_imgbtncopy)
-			-- lvgl.anim_start(ani_en_btn_click)
+			lvgl.anim_set_var(ani_en_btn_click, _G.guider_ui.home_imgbtncopy)
+			lvgl.anim_start(ani_en_btn_click)
 			print("load home\n")
 		-- end
     elseif(scr_id == SCR_COPY_HOME) then
@@ -464,10 +464,10 @@ function printer.custom_init(ui)
 	--Init events for screen
 	printer.events_init_home(ui)
 
-	-- printer.event_cb();
-	-- home_event_init();
-	-- lvgl.anim_set_var(ani_en_btn_click, _G.guider_ui.home_imgbtncopy);
-    -- lvgl.anim_start(ani_en_btn_click);
+	printer.event_cb();
+	home_event_init();
+	lvgl.anim_set_var(ani_en_btn_click, _G.guider_ui.home_imgbtncopy);
+    lvgl.anim_start(ani_en_btn_click);
 	cur_scr = SCR_HOME;
 	ui.copyhome = nil;
 	ui.copynext = nil;

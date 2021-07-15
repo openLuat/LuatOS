@@ -107,7 +107,7 @@ function copyhome.setup_scr_copyhome(ui)
 	lvgl.obj_set_pos(ui.copyhome_img3, 27, 75);
 	lvgl.obj_set_size(ui.copyhome_img3, 300, 172);
 	lvgl.obj_set_click(ui.copyhome_img3, true);
-	lvgl.img_set_src(ui.copyhome_img3,_example_alpha_300x172);
+	lvgl.img_set_src(ui.copyhome_img3,"/images/example_alpha_300x172.png");
 	lvgl.img_set_pivot(ui.copyhome_img3, 0,0);
 	lvgl.img_set_angle(ui.copyhome_img3, 0);
 

@@ -178,3 +178,51 @@ int luat_lv_anim_set_exec_cb(lua_State *L) {
     return 0;
 }
 
+static int l_anim_ready_cb(lua_State *L, void*ptr) {
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    lua_geti(L, LUA_REGISTRYINDEX, msg->arg1);
+    if (lua_isfunction(L, -1)) {
+        lua_pushlightuserdata(L, msg->ptr);
+        lua_call(L, 1, 0);
+    }
+    return 0;
+}
+
+static void luat_lv_anim_ready_cb(lv_anim_t* anim) {
+    if (anim->user_data.ready_cb_ref == 0)
+        return;
+    rtos_msg_t msg = {0};
+    msg.handler = l_anim_ready_cb;
+    msg.ptr = anim;
+    msg.arg1 = anim->user_data.ready_cb_ref;
+    luat_msgbus_put(&msg, 0);
+}
+/*
+设置动画回调
+@api lvgl.anim_set_ready_cb(anim, func)
+@userdata 动画指针
+@userdata lvgl组件指针
+@func lua函数, 参数有1个 (anim), 其中anim是当前对象
+@return nil 无返回值
+*/
+int luat_lv_anim_set_ready_cb(lua_State *L) {
+    lv_anim_t* anim = lua_touserdata(L, 1);
+    if (anim == NULL) {
+        LLOGW("anim is NULL when set event cb");
+        return 0;
+    }
+    if (anim->user_data.ready_cb_ref != 0) {
+        luaL_unref(L, LUA_REGISTRYINDEX, anim->user_data.ready_cb_ref);
+    }
+    if (lua_isfunction(L, 2)) {
+        lua_settop(L, 2);
+        anim->user_data.ready_cb_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+        lv_anim_set_ready_cb(anim, luat_lv_anim_ready_cb);
+    }
+    else {
+        anim->user_data.ready_cb_ref = 0;
+        lv_anim_set_ready_cb(anim, NULL);
+    }
+    return 0;
+}
+

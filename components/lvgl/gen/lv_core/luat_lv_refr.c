@@ -12,12 +12,3 @@ int luat_lv_refr_now(lua_State *L) {
     return 0;
 }
 
-//  uint32_t lv_refr_get_fps_avg()
-int luat_lv_refr_get_fps_avg(lua_State *L) {
-    LV_DEBUG("CALL lv_refr_get_fps_avg");
-    uint32_t ret;
-    ret = lv_refr_get_fps_avg();
-    lua_pushinteger(L, ret);
-    return 1;
-}
-

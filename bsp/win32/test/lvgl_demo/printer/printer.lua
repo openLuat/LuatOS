@@ -104,6 +104,7 @@ local function loader_anim_cb(arc, v)
 end
 
 local function add_loader(end_cb)
+    print("add_loader\r\n")
     -- lvgl.anim_t a
 	lvgl.arc_set_angles(_G.guider_ui.loader_loadarc, 270, 270)
     -- lvgl.anim_init(a)
@@ -324,81 +325,83 @@ function printer.guider_load_screen(scr_id)
 		-- if( _G.guider_ui.home==nil) then
             home.setup_scr_home(_G.guider_ui)
 			printer.events_init_home(_G.guider_ui)
-            scr = _G.guider_ui.home
 			home_event_init()
+            scr = _G.guider_ui.home
 			lvgl.anim_set_var(ani_en_btn_click, _G.guider_ui.home_imgbtncopy)
 			lvgl.anim_start(ani_en_btn_click)
 			print("load home\n")
 		-- end
     elseif(scr_id == SCR_COPY_HOME) then
 		-- if(_G.guider_ui.copyhome==nil) then
-			scr = _G.guider_ui.copyhome
-			copyhome.setup_scr_copyhome()
+			copyhome.setup_scr_copyhome(_G.guider_ui)
 			copy_home_event_init()
+            scr = _G.guider_ui.copyhome
 			lvgl.anim_set_var(ani_en_btn_click, _G.guider_ui.copyhome_btncopyback)
 			lvgl.anim_start(ani_en_btn_click)
             print("load copy home\n")
 		-- end
     elseif(scr_id == _G.SCR_COPY_NEXT) then
 		-- if(_G.guider_ui.copynext==nil) then
-			scr = _G.guider_ui.copynext
-			copynext.setup_scr_copynext()
+			copynext.setup_scr_copynext(_G.guider_ui)
 			copy_next_event_init()
+            scr = _G.guider_ui.copynext
             print("load copy next\n")
 		-- end
     elseif(scr_id == _G.SCR_SCAN_HOME) then
 		-- if(_G.guider_ui.scanhome==nil) then
 			scanhome.setup_scr_scanhome(_G.guider_ui)
-            scr = _G.guider_ui.scanhome
 			scan_home_event_init()
+            scr = _G.guider_ui.scanhome
             print("load scan home\n")
 		-- end
     elseif(scr_id == SCR_PRT_HOME) then
 		-- if(_G.guider_ui.prthome==nil) then
-			scr = _G.guider_ui.prthome
 			prthome.setup_scr_prthome(_G.guider_ui)
 			prt_home_event_init()
+            scr = _G.guider_ui.prthome
             print("load prt home\n")
 		-- end
     elseif(scr_id == SCR_PRT_USB) then
 		-- if(_G.guider_ui.prtusb==nil) then
-			scr = _G.guider_ui.prtusb
 			prtusb.setup_scr_prtusb(_G.guider_ui)
 			prt_usb_event_init()
+            scr = _G.guider_ui.prtusb
             print("load prt usb\n")
 		-- end
     elseif(scr_id == SCR_PRT_MB) then
 		-- if(_G.guider_ui.prtmb==nil) then
-			prtmb.setup_scr_prtmb(_G.guider_ui)
-            scr = _G.guider_ui.prtmb
+            prtmb.setup_scr_prtmb(_G.guider_ui)
 			prt_mb_event_init()
+            scr = _G.guider_ui.prtmb
             print("load prt mb\n")
 		-- end
     elseif(scr_id == SCR_PRT_IT) then
 		-- if(_G.guider_ui.printit==nil) then
 			printit.setup_scr_printit(_G.guider_ui)
-            scr = _G.guider_ui.printit
 			prtit_event_init()
+            scr = _G.guider_ui.printit
             print("load prt it\n")
 		-- end
     elseif(scr_id == SCR_SETUP) then
 		-- if(_G.guider_ui.setup==nil) then
 			setup.setup_scr_setup(_G.guider_ui)
-			scr = _G.guider_ui.setup
 			setup_event_init()
+            scr = _G.guider_ui.setup
 			print("load setup\n")
 		-- end
     elseif(scr_id == SCR_LOADER) then
 		-- if(_G.guider_ui.loader==nil) then
 			loader.setup_scr_loader(_G.guider_ui)
-            scr = _G.guider_ui.loader
 			loader_event_init()
+            scr = _G.guider_ui.loader
+            print("load loader\n")
 		-- end
     elseif(scr_id == SCR_SAVED) then
 		-- if(_G.guider_ui.saved==nil) then
-			scr = _G.guider_ui.saved
 			saved.setup_scr_saved(_G.guider_ui)
 			saved_event_init()
+            scr = _G.guider_ui.saved
+            print("load saved\n")
 		-- end
 	end
 
@@ -430,6 +433,7 @@ end
 
 local function home_imgbtncopyevent_handler( obj, event)
 	if event == lvgl.EVENT_PRESSED then
+        print("home_imgbtncopyevent_handler\r\n")
 		printer.guider_load_screen(SCR_LOADER)
 		add_loader(load_copy)
 	end

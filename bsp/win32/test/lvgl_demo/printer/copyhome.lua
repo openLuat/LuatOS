@@ -200,7 +200,7 @@ function copyhome.setup_scr_copyhome(ui)
 	ui.copyhome_btncopynext_label = lvgl.label_create(ui.copyhome_btncopynext, nil);
 	lvgl.label_set_text(ui.copyhome_btncopynext_label, "NEXT");
 	lvgl.obj_set_style_local_text_color(ui.copyhome_btncopynext_label, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, lvgl.color_make(0xff, 0xff, 0xff));
-	lvgl.obj_set_style_local_text_font(ui.copyhome_btncopynext_label, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, lvgl.font_simsun_12);
+	lvgl.obj_set_style_local_text_font(ui.copyhome_btncopynext_label, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, lvgl.font_get("opposans_m_12"));
 
 	--Write codes copyhome_sliderhue
 	ui.copyhome_sliderhue = lvgl.slider_create(ui.copyhome, nil);

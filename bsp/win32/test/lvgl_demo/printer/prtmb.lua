@@ -96,7 +96,7 @@ function prtmb.setup_scr_prtmb(ui)
 	ui.prtmb_btnback_label = lvgl.label_create(ui.prtmb_btnback, nil);
 	lvgl.label_set_text(ui.prtmb_btnback_label, "BACK");
 	lvgl.obj_set_style_local_text_color(ui.prtmb_btnback_label, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, lvgl.color_make(0xff, 0xff, 0xff));
-	lvgl.obj_set_style_local_text_font(ui.prtmb_btnback_label, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, lvgl.font_simsun_12);
+	lvgl.obj_set_style_local_text_font(ui.prtmb_btnback_label, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, lvgl.font_get("opposans_m_12"));
 
 	--Write codes prtmb_label2
 	ui.prtmb_label2 = lvgl.label_create(ui.prtmb, nil);
@@ -116,7 +116,7 @@ function prtmb.setup_scr_prtmb(ui)
 	lvgl.style_set_bg_grad_dir(style_prtmb_label2_main, lvgl.STATE_DEFAULT, lvgl.GRAD_DIR_VER);
 	lvgl.style_set_bg_opa(style_prtmb_label2_main, lvgl.STATE_DEFAULT, 255);
 	lvgl.style_set_text_color(style_prtmb_label2_main, lvgl.STATE_DEFAULT, lvgl.color_make(0xff, 0xff, 0xff));
-	lvgl.style_set_text_font(style_prtmb_label2_main, lvgl.STATE_DEFAULT, lvgl.font_simsun_16);
+	lvgl.style_set_text_font(style_prtmb_label2_main, lvgl.STATE_DEFAULT, lvgl.font_get("opposans_m_16"));
 	lvgl.style_set_text_letter_space(style_prtmb_label2_main, lvgl.STATE_DEFAULT, 2);
 	lvgl.style_set_pad_left(style_prtmb_label2_main, lvgl.STATE_DEFAULT, 0);
 	lvgl.style_set_pad_right(style_prtmb_label2_main, lvgl.STATE_DEFAULT, 0);

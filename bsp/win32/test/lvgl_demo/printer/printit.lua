@@ -96,7 +96,7 @@ function printit.setup_scr_printit(ui)
 	ui.printit_btnprtitback_label = lvgl.label_create(ui.printit_btnprtitback, nil);
 	lvgl.label_set_text(ui.printit_btnprtitback_label, "BACK");
 	lvgl.obj_set_style_local_text_color(ui.printit_btnprtitback_label, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, lvgl.color_make(0xff, 0xff, 0xff));
-	lvgl.obj_set_style_local_text_font(ui.printit_btnprtitback_label, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, lvgl.font_simsun_12);
+	lvgl.obj_set_style_local_text_font(ui.printit_btnprtitback_label, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, lvgl.font_get("opposans_m_12"));
 
 	--Write codes printit_label2
 	ui.printit_label2 = lvgl.label_create(ui.printit, nil);

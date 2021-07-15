@@ -91,7 +91,7 @@ function loader.setup_scr_loader(ui)
 	lvgl.style_set_bg_grad_dir(style_loader_loadlabel_main, lvgl.STATE_DEFAULT, lvgl.GRAD_DIR_VER);
 	lvgl.style_set_bg_opa(style_loader_loadlabel_main, lvgl.STATE_DEFAULT, 0);
 	lvgl.style_set_text_color(style_loader_loadlabel_main, lvgl.STATE_DEFAULT, lvgl.color_make(0xff, 0xff, 0xff));
-	lvgl.style_set_text_font(style_loader_loadlabel_main, lvgl.STATE_DEFAULT, lvgl.font_simsun_16);
+	lvgl.style_set_text_font(style_loader_loadlabel_main, lvgl.STATE_DEFAULT, lvgl.font_get("opposans_m_16"));
 	lvgl.style_set_text_letter_space(style_loader_loadlabel_main, lvgl.STATE_DEFAULT, 2);
 	lvgl.style_set_pad_left(style_loader_loadlabel_main, lvgl.STATE_DEFAULT, 0);
 	lvgl.style_set_pad_right(style_loader_loadlabel_main, lvgl.STATE_DEFAULT, 0);

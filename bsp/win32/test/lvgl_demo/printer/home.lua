@@ -708,7 +708,7 @@ function home.setup_scr_home(ui)
 	lvgl.img_set_angle(ui.home_imgset, 0)
 
 	--Init events for screen
-	events.events_init_home(ui)
+	-- events.events_init_home(ui)
 end
 
 return home

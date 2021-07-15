@@ -41,8 +41,6 @@ static lv_res_t luat_lv_obj_signal_cb(struct _lv_obj_t * obj, lv_signal_t sign, 
     return LV_RES_OK;
 }
 
-
-
 /*
 设置组件的事件回调
 @api lvgl.obj_set_event_cb(obj, func)
@@ -130,6 +128,7 @@ static void luat_lv_anim_exec_cb(void* var, lv_coord_t value) {
         LLOGW("lv_anim_get return NULL!!!");
         return;
     }
+    //LLOGD(">>>>>>>>>>>>>>>>>>>");
     if (anim->user_data.exec_cb_ref == 0)
         return;
     rtos_msg_t msg = {0};
@@ -138,6 +137,12 @@ static void luat_lv_anim_exec_cb(void* var, lv_coord_t value) {
     msg.arg1 = anim->user_data.exec_cb_ref;
     msg.arg2 = value;
     luat_msgbus_put(&msg, 0);
+    // lua_geti(_L, LUA_REGISTRYINDEX, anim->user_data.exec_cb_ref);
+    // if (lua_isfunction(_L, -1)) {
+    //     lua_pushlightuserdata(_L, var);
+    //     lua_pushinteger(_L, value);
+    //     lua_call(_L, 2, 0);
+    // }
 }
 
 
@@ -164,11 +169,11 @@ int luat_lv_anim_set_exec_cb(lua_State *L) {
     if (lua_isfunction(L, 2)) {
         lua_settop(L, 2);
         anim->user_data.exec_cb_ref = luaL_ref(L, LUA_REGISTRYINDEX);
-        lv_anim_set_custom_exec_cb(anim, luat_lv_anim_exec_cb);
+        lv_anim_set_exec_cb(anim, luat_lv_anim_exec_cb);
     }
     else {
         anim->user_data.exec_cb_ref = 0;
-        lv_anim_set_custom_exec_cb(anim, NULL);
+        lv_anim_set_exec_cb(anim, NULL);
     }
     return 0;
 }

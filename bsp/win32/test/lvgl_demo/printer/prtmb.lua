@@ -142,7 +142,7 @@ function prtmb.setup_scr_prtmb(ui)
 	lvgl.obj_set_pos(ui.prtmb_printer, 154, 70);
 	lvgl.obj_set_size(ui.prtmb_printer, 60, 55);
 	lvgl.obj_set_click(ui.prtmb_printer, true);
-	lvgl.img_set_src(ui.prtmb_printer,_printer2_alpha_60x55);
+	lvgl.img_set_src(ui.prtmb_printer,"/images/printer2_alpha_60x55.png");
 	lvgl.img_set_pivot(ui.prtmb_printer, 0,0);
 	lvgl.img_set_angle(ui.prtmb_printer, 0);
 
@@ -162,7 +162,7 @@ function prtmb.setup_scr_prtmb(ui)
 	lvgl.obj_set_pos(ui.prtmb_img, 235, 83);
 	lvgl.obj_set_size(ui.prtmb_img, 25, 25);
 	lvgl.obj_set_click(ui.prtmb_img, true);
-	lvgl.img_set_src(ui.prtmb_img,_wave_alpha_25x25);
+	lvgl.img_set_src(ui.prtmb_img,"/images/wave_alpha_25x25png");
 	lvgl.img_set_pivot(ui.prtmb_img, 0,0);
 	lvgl.img_set_angle(ui.prtmb_img, 0);
 
@@ -182,7 +182,7 @@ function prtmb.setup_scr_prtmb(ui)
 	lvgl.obj_set_pos(ui.prtmb_cloud, 280, 72);
 	lvgl.obj_set_size(ui.prtmb_cloud, 45, 55);
 	lvgl.obj_set_click(ui.prtmb_cloud, true);
-	lvgl.img_set_src(ui.prtmb_cloud,_phone_alpha_45x55);
+	lvgl.img_set_src(ui.prtmb_cloud,"/images/phone_alpha_45x55.png");
 	lvgl.img_set_pivot(ui.prtmb_cloud, 0,0);
 	lvgl.img_set_angle(ui.prtmb_cloud, 0);
 end

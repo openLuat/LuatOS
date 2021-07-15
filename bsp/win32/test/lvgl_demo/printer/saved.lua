@@ -142,7 +142,7 @@ function saved.setup_scr_saved(ui)
 	lvgl.obj_set_pos(ui.saved_img1, 185, 40);
 	lvgl.obj_set_size(ui.saved_img1, 100, 100);
 	lvgl.obj_set_click(ui.saved_img1, true);
-	lvgl.img_set_src(ui.saved_img1,"ready_alpha_100x100.png");
+	lvgl.img_set_src(ui.saved_img1,"/images/ready_alpha_100x100.png");
 	lvgl.img_set_pivot(ui.saved_img1, 0,0);
 	lvgl.img_set_angle(ui.saved_img1, 0);
 end

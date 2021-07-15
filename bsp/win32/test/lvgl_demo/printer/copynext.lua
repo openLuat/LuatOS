@@ -107,7 +107,7 @@ function copynext.setup_scr_copynext(ui)
 	lvgl.obj_set_pos(ui.copynext_img3, 27, 75);
 	lvgl.obj_set_size(ui.copynext_img3, 250, 150);
 	lvgl.obj_set_click(ui.copynext_img3, true);
-	lvgl.img_set_src(ui.copynext_img3,_example_alpha_250x150);
+	lvgl.img_set_src(ui.copynext_img3,"/images/example_alpha_250x150.png");
 	lvgl.img_set_pivot(ui.copynext_img3, 0,0);
 	lvgl.img_set_angle(ui.copynext_img3, 0);
 

@@ -142,7 +142,7 @@ function printit.setup_scr_printit(ui)
 	lvgl.obj_set_pos(ui.printit_printer, 154, 70);
 	lvgl.obj_set_size(ui.printit_printer, 60, 55);
 	lvgl.obj_set_click(ui.printit_printer, true);
-	lvgl.img_set_src(ui.printit_printer,_printer2_alpha_60x55);
+	lvgl.img_set_src(ui.printit_printer,"/images/printer2_alpha_60x55.png");
 	lvgl.img_set_pivot(ui.printit_printer, 0,0);
 	lvgl.img_set_angle(ui.printit_printer, 0);
 
@@ -162,7 +162,7 @@ function printit.setup_scr_printit(ui)
 	lvgl.obj_set_pos(ui.printit_imgnotit, 217, 62);
 	lvgl.obj_set_size(ui.printit_imgnotit, 25, 25);
 	lvgl.obj_set_click(ui.printit_imgnotit, true);
-	lvgl.img_set_src(ui.printit_imgnotit,_no_internet_alpha_25x25);
+	lvgl.img_set_src(ui.printit_imgnotit,"/images/no_internet_alpha_25x25.png");
 	lvgl.img_set_pivot(ui.printit_imgnotit, 0,0);
 	lvgl.img_set_angle(ui.printit_imgnotit, 0);
 
@@ -182,7 +182,7 @@ function printit.setup_scr_printit(ui)
 	lvgl.obj_set_pos(ui.printit_cloud, 258, 30);
 	lvgl.obj_set_size(ui.printit_cloud, 55, 40);
 	lvgl.obj_set_click(ui.printit_cloud, true);
-	lvgl.img_set_src(ui.printit_cloud,_cloud_alpha_55x40);
+	lvgl.img_set_src(ui.printit_cloud,"/images/cloud_alpha_55x40.png");
 	lvgl.img_set_pivot(ui.printit_cloud, 0,0);
 	lvgl.img_set_angle(ui.printit_cloud, 0);
 end

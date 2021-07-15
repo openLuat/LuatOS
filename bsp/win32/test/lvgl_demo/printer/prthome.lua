@@ -69,7 +69,7 @@ function prthome.setup_scr_prthome(ui)
 	--Write style lvgl.CONT_PART_MAIN for prthome_cont1
 	-- local style_prthome_cont1_main;
 	-- lvgl.style_init(style_prthome_cont1_main);
-	local style_prthome_cstyle_prthome_cont1_mainont0_main = lvgl.style_create()
+	local style_prthome_cont1_main = lvgl.style_create()
 
 	--Write style state: lvgl.STATE_DEFAULT for style_prthome_cont1_main
 	lvgl.style_set_radius(style_prthome_cont1_main, lvgl.STATE_DEFAULT, 10);
@@ -145,10 +145,10 @@ function prthome.setup_scr_prthome(ui)
 	lvgl.obj_add_style(ui.prthome_imgbtnit, lvgl.IMGBTN_PART_MAIN, style_prthome_imgbtnit_main);
 	lvgl.obj_set_pos(ui.prthome_imgbtnit, 325, 60);
 	lvgl.obj_set_size(ui.prthome_imgbtnit, 115, 140);
-	lvgl.imgbtn_set_src(ui.prthome_imgbtnit,lvgl.BTN_STATE_RELEASED,_btn4_alpha_115x140);
-	lvgl.imgbtn_set_src(ui.prthome_imgbtnit,lvgl.BTN_STATE_PRESSED,_btn4_alpha_115x140);
-	lvgl.imgbtn_set_src(ui.prthome_imgbtnit,lvgl.BTN_STATE_CHECKED_RELEASED,_btn4_alpha_115x140);
-	lvgl.imgbtn_set_src(ui.prthome_imgbtnit,lvgl.BTN_STATE_CHECKED_PRESSED,_btn4_alpha_115x140);
+	lvgl.imgbtn_set_src(ui.prthome_imgbtnit,lvgl.BTN_STATE_RELEASED,"/images/btn4_alpha_115x140.png");
+	lvgl.imgbtn_set_src(ui.prthome_imgbtnit,lvgl.BTN_STATE_PRESSED,"/images/btn4_alpha_115x140.png");
+	lvgl.imgbtn_set_src(ui.prthome_imgbtnit,lvgl.BTN_STATE_CHECKED_RELEASED,"/images/btn4_alpha_115x140.png");
+	lvgl.imgbtn_set_src(ui.prthome_imgbtnit,lvgl.BTN_STATE_CHECKED_PRESSED,"/images/btn4_alpha_115x140.png");
 
 	--Write codes prthome_imgbtnusb
 	ui.prthome_imgbtnusb = lvgl.imgbtn_create(ui.prthome, nil);
@@ -176,10 +176,10 @@ function prthome.setup_scr_prthome(ui)
 	lvgl.obj_add_style(ui.prthome_imgbtnusb, lvgl.IMGBTN_PART_MAIN, style_prthome_imgbtnusb_main);
 	lvgl.obj_set_pos(ui.prthome_imgbtnusb, 40, 60);
 	lvgl.obj_set_size(ui.prthome_imgbtnusb, 115, 140);
-	lvgl.imgbtn_set_src(ui.prthome_imgbtnusb,lvgl.BTN_STATE_RELEASED,_btn2_alpha_115x140);
-	lvgl.imgbtn_set_src(ui.prthome_imgbtnusb,lvgl.BTN_STATE_PRESSED,_btn2_alpha_115x140);
-	lvgl.imgbtn_set_src(ui.prthome_imgbtnusb,lvgl.BTN_STATE_CHECKED_RELEASED,_btn2_alpha_115x140);
-	lvgl.imgbtn_set_src(ui.prthome_imgbtnusb,lvgl.BTN_STATE_CHECKED_PRESSED,_btn2_alpha_115x140);
+	lvgl.imgbtn_set_src(ui.prthome_imgbtnusb,lvgl.BTN_STATE_RELEASED,"/images/btn2_alpha_115x140.png");
+	lvgl.imgbtn_set_src(ui.prthome_imgbtnusb,lvgl.BTN_STATE_PRESSED,"/images/btn2_alpha_115x140.png");
+	lvgl.imgbtn_set_src(ui.prthome_imgbtnusb,lvgl.BTN_STATE_CHECKED_RELEASED,"/images/btn2_alpha_115x140.png");
+	lvgl.imgbtn_set_src(ui.prthome_imgbtnusb,lvgl.BTN_STATE_CHECKED_PRESSED,"/images/btn2_alpha_115x140.png");
 
 	--Write codes prthome_imgbtnmobile
 	ui.prthome_imgbtnmobile = lvgl.imgbtn_create(ui.prthome, nil);
@@ -207,10 +207,10 @@ function prthome.setup_scr_prthome(ui)
 	lvgl.obj_add_style(ui.prthome_imgbtnmobile, lvgl.IMGBTN_PART_MAIN, style_prthome_imgbtnmobile_main);
 	lvgl.obj_set_pos(ui.prthome_imgbtnmobile, 183, 60);
 	lvgl.obj_set_size(ui.prthome_imgbtnmobile, 115, 140);
-	lvgl.imgbtn_set_src(ui.prthome_imgbtnmobile,lvgl.BTN_STATE_RELEASED,_btn3_alpha_115x140);
-	lvgl.imgbtn_set_src(ui.prthome_imgbtnmobile,lvgl.BTN_STATE_PRESSED,_btn3_alpha_115x140);
-	lvgl.imgbtn_set_src(ui.prthome_imgbtnmobile,lvgl.BTN_STATE_CHECKED_RELEASED,_btn3_alpha_115x140);
-	lvgl.imgbtn_set_src(ui.prthome_imgbtnmobile,lvgl.BTN_STATE_CHECKED_PRESSED,_btn3_alpha_115x140);
+	lvgl.imgbtn_set_src(ui.prthome_imgbtnmobile,lvgl.BTN_STATE_RELEASED,"/images/btn3_alpha_115x140.png");
+	lvgl.imgbtn_set_src(ui.prthome_imgbtnmobile,lvgl.BTN_STATE_PRESSED,"/images/btn3_alpha_115x140.png");
+	lvgl.imgbtn_set_src(ui.prthome_imgbtnmobile,lvgl.BTN_STATE_CHECKED_RELEASED,"/images/btn3_alpha_115x140.png");
+	lvgl.imgbtn_set_src(ui.prthome_imgbtnmobile,lvgl.BTN_STATE_CHECKED_PRESSED,"/images/btn3_alpha_115x140.png");
 
 	--Write codes prthome_labelusb
 	ui.prthome_labelusb = lvgl.label_create(ui.prthome, nil);
@@ -340,7 +340,7 @@ function prthome.setup_scr_prthome(ui)
 	lvgl.obj_set_pos(ui.prthome_usb, 100, 85);
 	lvgl.obj_set_size(ui.prthome_usb, 30, 30);
 	lvgl.obj_set_click(ui.prthome_usb, true);
-	lvgl.img_set_src(ui.prthome_usb,_usb_alpha_30x30);
+	lvgl.img_set_src(ui.prthome_usb,"/images/usb_alpha_30x30.png");
 	lvgl.img_set_pivot(ui.prthome_usb, 0,0);
 	lvgl.img_set_angle(ui.prthome_usb, 0);
 
@@ -360,7 +360,7 @@ function prthome.setup_scr_prthome(ui)
 	lvgl.obj_set_pos(ui.prthome_mobile, 242, 85);
 	lvgl.obj_set_size(ui.prthome_mobile, 30, 30);
 	lvgl.obj_set_click(ui.prthome_mobile, true);
-	lvgl.img_set_src(ui.prthome_mobile,_mobile_alpha_30x30);
+	lvgl.img_set_src(ui.prthome_mobile,"/images/mobile_alpha_30x30.png");
 	lvgl.img_set_pivot(ui.prthome_mobile, 0,0);
 	lvgl.img_set_angle(ui.prthome_mobile, 0);
 
@@ -380,7 +380,7 @@ function prthome.setup_scr_prthome(ui)
 	lvgl.obj_set_pos(ui.prthome_internet, 383, 85);
 	lvgl.obj_set_size(ui.prthome_internet, 30, 30);
 	lvgl.obj_set_click(ui.prthome_internet, true);
-	lvgl.img_set_src(ui.prthome_internet,_internet_alpha_30x30);
+	lvgl.img_set_src(ui.prthome_internet,"/images/internet_alpha_30x30.png");
 	lvgl.img_set_pivot(ui.prthome_internet, 0,0);
 	lvgl.img_set_angle(ui.prthome_internet, 0);
 

@@ -322,7 +322,7 @@ function copyhome.setup_scr_copyhome(ui)
 	lvgl.obj_set_pos(ui.copyhome_bright, 372, 82);
 	lvgl.obj_set_size(ui.copyhome_bright, 24, 24);
 	lvgl.obj_set_click(ui.copyhome_bright, true);
-	lvgl.img_set_src(ui.copyhome_bright,_bright_alpha_24x24);
+	lvgl.img_set_src(ui.copyhome_bright,"/images/bright_alpha_24x24.png");
 	lvgl.img_set_pivot(ui.copyhome_bright, 0,0);
 	lvgl.img_set_angle(ui.copyhome_bright, 0);
 
@@ -342,7 +342,7 @@ function copyhome.setup_scr_copyhome(ui)
 	lvgl.obj_set_pos(ui.copyhome_hue, 413, 83);
 	lvgl.obj_set_size(ui.copyhome_hue, 21, 21);
 	lvgl.obj_set_click(ui.copyhome_hue, true);
-	lvgl.img_set_src(ui.copyhome_hue,_hue_alpha_21x21);
+	lvgl.img_set_src(ui.copyhome_hue,"/images/hue_alpha_21x21.png");
 	lvgl.img_set_pivot(ui.copyhome_hue, 0,0);
 	lvgl.img_set_angle(ui.copyhome_hue, 0);
 

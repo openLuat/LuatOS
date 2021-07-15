@@ -8,6 +8,7 @@ local prthome = require "prthome"
 local prtmb = require "prtmb"
 local prtusb = require "prtusb"
 local scanhome = require "scanhome"
+local saved = require "saved"
 local symbol = require "symbol"
 local printer = {}
 
@@ -39,7 +40,37 @@ local style_upbtn;
 local style_downbtn;
 local arc_style;
 
-function printer.demo_printer_anim_in_all(obj,delay)
+local function cnt_event_cb(obj,event)
+    if (event == lvgl.EVENT_PRESSED) then
+        if(_G.guider_ui.copynext == lvgl.scr_act()) then
+            if (obj == _G.guider_ui.copynext_up) then
+                if (copynextcnt < 200)then
+                    copynextcnt = copynextcnt+1;
+				end
+                lvgl.label_set_text(_G.guider_ui.copynext_labelcnt, string.format("%d",copynextcnt));
+            else
+                if (copynextcnt > 1)then
+                    copynextcnt = copynextcnt-1
+				end
+                lvgl.label_set_text(_G.guider_ui.copynext_labelcnt, string.format("%d",copynextcnt));
+            end
+        elseif (_G.guider_ui.prtusb == lvgl.scr_act()) then
+            if (obj == _G.guider_ui.prtusb_up) then
+                if (printusbcnt < 200)then
+                    printusbcnt = printusbcnt+1;
+				end
+                lvgl.label_set_text(_G.guider_ui.prtusb_labelcnt, string.format("%d",printusbcnt));
+            else
+                if (printusbcnt > 1)then
+                    printusbcnt = printusbcnt-1;
+				end
+                lvgl.label_set_text(_G.guider_ui.prtusb_labelcnt, string.format("%d",printusbcnt));
+            end
+        end
+    end
+end
+
+local function demo_printer_anim_in_all(obj,delay)
 	local y
     local child = lvgl.obj_get_child_back(obj, nil);
     while(child) do
@@ -112,6 +143,48 @@ local function get_scr_by_id(scr_id)
     return nil;
 end
 
+local function load_save(a)
+    printer.guider_load_screen(SCR_SAVED);
+    if (save_src == 1) then
+        lvgl.obj_set_x(_G.guider_ui.saved_label2, 187);
+        lvgl.label_set_text(_G.guider_ui.saved_label2, "File saved");
+    elseif (save_src == 2) then
+        lvgl.obj_set_x(_G.guider_ui.saved_label2, 157);
+        lvgl.label_set_text(_G.guider_ui.saved_label2, "Printing finished");
+    else
+        lvgl.obj_set_x(_G.guider_ui.saved_label2, 187);
+        lvgl.label_set_text(_G.guider_ui.saved_label2, "File saved");
+    end
+    demo_printer_anim_in_all(_G.guider_ui.saved, 200);
+end
+
+local function load_save_cb(obj,event)
+    if (event == lvgl.EVENT_PRESSED) then
+        printer.guider_load_screen(SCR_LOADER);
+        save_src = 1;
+        add_loader(load_save);
+    end
+end
+local function load_print_usb_cb(obj,event)
+ 	if (event == lvgl.EVENT_PRESSED) then
+        printer.guider_load_screen(SCR_PRT_USB);
+        demo_printer_anim_in_all(_G.guider_ui.prtusb, 200);
+    end
+end
+local function load_print_mobile_cb(obj,event)
+ 	if (event == lvgl.EVENT_PRESSED) then
+        printer.guider_load_screen(SCR_PRT_MB);
+        demo_printer_anim_in_all(_G.guider_ui.prtmb, 200);
+    end
+end
+local function load_print_it_cb(obj,event)
+ 	if (event == lvgl.EVENT_PRESSED) then
+        printer.guider_load_screen(SCR_PRT_IT);
+        demo_printer_anim_in_all(_G.guider_ui.printit, 200);
+    end
+end
+local c;
+
 local function scan_img_color_refr()
     local light = lightness_act - 80;
     print("adjust image\n");
@@ -141,11 +214,19 @@ end
 local function load_copy_next_cb(obj,event)
     if (event == lvgl.EVENT_PRESSED) then
         printer.guider_load_screen(SCR_COPY_NEXT);
-        lvgl.demo_printer_anim_in_all(_G.guider_ui.copynext, 200);
+        demo_printer_anim_in_all(_G.guider_ui.copynext, 200);
         lvgl.anim_set_var(ani_en_btn_click, _G.guider_ui.copynext_print);
         lvgl.anim_start(ani_en_btn_click);
     end
 end
+local function load_print_finish_cb(obj,event)
+ 	if (event == lvgl.EVENT_PRESSED) then
+        save_src = 2;
+        printer.guider_load_screen(SCR_LOADER);
+        add_loader(load_save);
+    end
+end
+
 local function hue_slider_event_cb(obj,event)
     if (event == lvgl.EVENT_VALUE_CHANGED)then
         hue_act = lvgl.slider_get_value(obj);
@@ -158,15 +239,29 @@ local function lightness_slider_event_cb(obj,event)
         scan_img_color_refr()
     end
 end
+
+local function prt_mb_event_init()
+    lvgl.obj_set_event_cb(_G.guider_ui.prtmb_btnback, load_disbtn_home_cb);
+end
+local function prtit_event_init()
+    lvgl.obj_set_event_cb(_G.guider_ui.printit_btnprtitback, load_disbtn_home_cb);
+end
 local function setup_event_init()
     lvgl.obj_set_event_cb(_G.guider_ui.setup_btnsetback, load_disbtn_home_cb);
 end
+local function loader_event_init()
+    lvgl.obj_add_style(_G.guider_ui.loader_loadarc, lvgl.STATE_DEFAULT, arc_style);
+end
+local function saved_event_init()
+    lvgl.obj_set_event_cb(_G.guider_ui.saved_btnsavecontinue, load_disbtn_home_cb);
+end
+
 local function home_event_init()
     lvgl.obj_set_click(_G.guider_ui.home_imgbtnscan, false);
     lvgl.obj_set_click(_G.guider_ui.home_imgbtnprt, false);
     lvgl.obj_set_click(_G.guider_ui.home_imgbtnset, false);
     lvgl.obj_set_click(_G.guider_ui.home_imgbtncopy, false);
-    printer.demo_printer_anim_in_all(_G.guider_ui.home, 200);
+    demo_printer_anim_in_all(_G.guider_ui.home, 200);
 end
 
 local function copy_home_event_init()
@@ -180,28 +275,53 @@ local function copy_home_event_init()
     lvgl.obj_set_style_local_image_recolor_opa(_G.guider_ui.copyhome_img3, lvgl.IMG_PART_MAIN, lvgl.STATE_DEFAULT, 80);
 end
 
--- local function copy_next_event_init()
---     lvgl.obj_add_style(_G.guider_ui.copynext_btncopyback, lvgl.BTN_PART_MAIN, style_backbtn);
---     lvgl.obj_set_click(_G.guider_ui.copynext_print, false);
---     lvgl.obj_set_event_cb(_G.guider_ui.copynext_up, cnt_event_cb);
---     lvgl.obj_add_style(_G.guider_ui.copynext_up, lvgl.BTN_PART_MAIN, style_upbtn);
---     lvgl.obj_set_event_cb(_G.guider_ui.copynext_down, cnt_event_cb);
---     lvgl.obj_add_style(_G.guider_ui.copynext_down, lvgl.BTN_PART_MAIN, style_downbtn);
---     lvgl.obj_set_event_cb(_G.guider_ui.copynext_print, load_print_finish_cb);
---     lvgl.obj_set_event_cb(_G.guider_ui.copynext_btncopyback, load_disbtn_home_cb);
---     lvgl.obj_set_style_local_radius(_G.guider_ui.copynext_img3, lvgl.IMG_PART_MAIN, lvgl.STATE_DEFAULT, 5);
---     lvgl.obj_set_style_local_clip_corner(_G.guider_ui.copynext_img3, lvgl.IMG_PART_MAIN, lvgl.STATE_DEFAULT, true);
---     lvgl.obj_set_style_local_image_recolor_opa(_G.guider_ui.copynext_img3, lvgl.IMG_PART_MAIN, lvgl.STATE_DEFAULT, 80);
---     lvgl.obj_set_style_local_image_recolor(_G.guider_ui.copynext_img3, lvgl.IMG_PART_MAIN, lvgl.STATE_DEFAULT, c);
--- end
+local function copy_next_event_init()
+    lvgl.obj_add_style(_G.guider_ui.copynext_btncopyback, lvgl.BTN_PART_MAIN, style_backbtn);
+    lvgl.obj_set_click(_G.guider_ui.copynext_print, false);
+    lvgl.obj_set_event_cb(_G.guider_ui.copynext_up, cnt_event_cb);
+    lvgl.obj_add_style(_G.guider_ui.copynext_up, lvgl.BTN_PART_MAIN, style_upbtn);
+    lvgl.obj_set_event_cb(_G.guider_ui.copynext_down, cnt_event_cb);
+    lvgl.obj_add_style(_G.guider_ui.copynext_down, lvgl.BTN_PART_MAIN, style_downbtn);
+    lvgl.obj_set_event_cb(_G.guider_ui.copynext_print, load_print_finish_cb);
+    lvgl.obj_set_event_cb(_G.guider_ui.copynext_btncopyback, load_disbtn_home_cb);
+    lvgl.obj_set_style_local_radius(_G.guider_ui.copynext_img3, lvgl.IMG_PART_MAIN, lvgl.STATE_DEFAULT, 5);
+    lvgl.obj_set_style_local_clip_corner(_G.guider_ui.copynext_img3, lvgl.IMG_PART_MAIN, lvgl.STATE_DEFAULT, true);
+    lvgl.obj_set_style_local_image_recolor_opa(_G.guider_ui.copynext_img3, lvgl.IMG_PART_MAIN, lvgl.STATE_DEFAULT, 80);
+    lvgl.obj_set_style_local_image_recolor(_G.guider_ui.copynext_img3, lvgl.IMG_PART_MAIN, lvgl.STATE_DEFAULT, c);
+end
+
+local function scan_home_event_init()
+    lvgl.obj_set_event_cb(_G.guider_ui.scanhome_btnscanback, load_disbtn_home_cb);
+    lvgl.obj_add_style(_G.guider_ui.scanhome_btnscanback, lvgl.BTN_PART_MAIN, style_backbtn);
+    lvgl.obj_set_event_cb(_G.guider_ui.scanhome_btnscansave, load_save_cb);
+    lvgl.obj_set_event_cb(_G.guider_ui.scanhome_sliderhue, hue_slider_event_cb);
+    lvgl.obj_set_event_cb(_G.guider_ui.scanhome_sliderbright, lightness_slider_event_cb);
+    lvgl.obj_set_style_local_radius(_G.guider_ui.scanhome_img3, lvgl.IMG_PART_MAIN, lvgl.STATE_DEFAULT, 8);
+    lvgl.obj_set_style_local_clip_corner(_G.guider_ui.scanhome_img3, lvgl.IMG_PART_MAIN, lvgl.STATE_DEFAULT, true);
+    lvgl.obj_set_style_local_image_recolor_opa(_G.guider_ui.scanhome_img3, lvgl.IMG_PART_MAIN, lvgl.STATE_DEFAULT, 80);
+end
+local function prt_home_event_init()
+    lvgl.obj_set_event_cb(_G.guider_ui.prthome_imgbtnusb, load_print_usb_cb);
+    lvgl.obj_set_event_cb(_G.guider_ui.prthome_imgbtnmobile, load_print_mobile_cb);
+    lvgl.obj_set_event_cb(_G.guider_ui.prthome_imgbtnit, load_print_it_cb);
+    lvgl.obj_set_event_cb(_G.guider_ui.prthome_btnprintback, load_disbtn_home_cb);
+    lvgl.obj_add_style(_G.guider_ui.prthome_btnprintback, lvgl.BTN_PART_MAIN, style_backbtn);
+end
+local function prt_usb_event_init()
+    lvgl.obj_add_style(_G.guider_ui.prtusb_back, lvgl.BTN_PART_MAIN, style_backbtn);
+    lvgl.obj_set_event_cb(_G.guider_ui.prtusb_back, load_disbtn_home_cb);
+    lvgl.obj_set_event_cb(_G.guider_ui.prtusb_btnprint, load_print_finish_cb);
+    lvgl.obj_set_event_cb(_G.guider_ui.prtusb_up, cnt_event_cb);
+    lvgl.obj_add_style(_G.guider_ui.prtusb_up, lvgl.BTN_PART_MAIN, style_upbtn);
+    lvgl.obj_set_event_cb(_G.guider_ui.prtusb_down, cnt_event_cb);
+    lvgl.obj_add_style(_G.guider_ui.prtusb_down, lvgl.BTN_PART_MAIN, style_downbtn);
+end
 
 function printer.guider_load_screen(scr_id)
     local scr = nil;
     local old_scr = nil;
 	if(scr_id == SCR_HOME) then
-		print("guider_load_screen-SCR_HOME\r\n")
 		-- if( _G.guider_ui.home==nil) then
-			print("guider_load_screen-SCR_HOME-nil\r\n")
             home.setup_scr_home(_G.guider_ui);
 			printer.events_init_home(_G.guider_ui)
             scr = _G.guider_ui.home
@@ -223,7 +343,7 @@ function printer.guider_load_screen(scr_id)
 		-- if(_G.guider_ui.copynext==nil) then
 			scr = _G.guider_ui.copynext;
 			copynext.setup_scr_copynext();
-			-- copy_next_event_init();
+			copy_next_event_init();
             print("load copy next\n");
 		-- end
     elseif(scr_id == _G.SCR_SCAN_HOME) then
@@ -237,28 +357,28 @@ function printer.guider_load_screen(scr_id)
 		-- if(_G.guider_ui.prthome==nil) then
 			scr = _G.guider_ui.prthome;
 			prthome.setup_scr_prthome(_G.guider_ui);
-			-- prt_home_event_init();
+			prt_home_event_init();
             print("load prt home\n");
 		-- end
     elseif(scr_id == SCR_PRT_USB) then
 		-- if(_G.guider_ui.prtusb==nil) then
 			scr = _G.guider_ui.prtusb;
 			prtusb.setup_scr_prtusb(_G.guider_ui);
-			-- prt_usb_event_init();
+			prt_usb_event_init();
             print("load prt usb\n");
 		-- end
     elseif(scr_id == SCR_PRT_MB) then
 		-- if(_G.guider_ui.prtmb==nil) then
 			prtmb.setup_scr_prtmb(_G.guider_ui);
             scr = _G.guider_ui.prtmb;
-			-- prt_mb_event_init();
+			prt_mb_event_init();
             print("load prt mb\n");
 		-- end
     elseif(scr_id == SCR_PRT_IT) then
 		-- if(_G.guider_ui.printit==nil) then
 			printit.setup_scr_printit(_G.guider_ui);
             scr = _G.guider_ui.printit;
-			-- prtit_event_init();
+			prtit_event_init();
             print("load prt it\n");
 		-- end
     elseif(scr_id == SCR_SETUP) then
@@ -272,13 +392,13 @@ function printer.guider_load_screen(scr_id)
 		-- if(_G.guider_ui.loader==nil) then
 			loader.setup_scr_loader(_G.guider_ui);
             scr = _G.guider_ui.loader;
-			-- loader_event_init();
+			loader_event_init();
 		-- end
     elseif(scr_id == SCR_SAVED) then
 		-- if(_G.guider_ui.saved==nil) then
 			scr = _G.guider_ui.saved;
-			-- setup_scr_saved(ui);
-			-- saved_event_init();
+			saved.setup_scr_saved(_G.guider_ui);
+			saved_event_init();
 		-- end
 	end
 
@@ -293,19 +413,19 @@ end
 
 local function load_print(a)
     printer.guider_load_screen(SCR_PRT_HOME);
-    lvgl.demo_printer_anim_in_all(_G.guider_ui.prthome, 200);
+    demo_printer_anim_in_all(_G.guider_ui.prthome, 200);
 end
 local function load_copy(a)
     printer.guider_load_screen(SCR_COPY_HOME);
-    lvgl.demo_printer_anim_in_all(_G.guider_ui.copyhome, 200);
+    demo_printer_anim_in_all(_G.guider_ui.copyhome, 200);
 end
 local function load_setup(a)
     printer.guider_load_screen(SCR_SETUP);
-    lvgl.demo_printer_anim_in_all(_G.guider_ui.setup, 200);
+    demo_printer_anim_in_all(_G.guider_ui.setup, 200);
 end
 local function load_scan(a)
     printer.guider_load_screen(SCR_SCAN_HOME);
-    lvgl.demo_printer_anim_in_all(_G.guider_ui.scanhome, 200);
+    demo_printer_anim_in_all(_G.guider_ui.scanhome, 200);
 end
 
 local function home_imgbtncopyevent_handler( obj, event)
@@ -316,9 +436,8 @@ local function home_imgbtncopyevent_handler( obj, event)
 end
 local function home_imgbtnsetevent_handler( obj, event)
 	if event == lvgl.EVENT_PRESSED then
-		print("home_imgbtnsetevent_handler\r\n")
 		printer.guider_load_screen(SCR_SETUP)
-		printer.demo_printer_anim_in_all(_G.guider_ui.setup, 200)
+		demo_printer_anim_in_all(_G.guider_ui.setup, 200)
 	end
 end
 local function home_imgbtnscanevent_handler( obj,  event)
@@ -335,10 +454,10 @@ local function home_imgbtnprtevent_handler( obj, event)
 end
 
 function printer.events_init_home(ui)
-	-- lvgl.obj_set_event_cb(ui.home_imgbtncopy, home_imgbtncopyevent_handler)
+	lvgl.obj_set_event_cb(ui.home_imgbtncopy, home_imgbtncopyevent_handler)
 	lvgl.obj_set_event_cb(ui.home_imgbtnset, home_imgbtnsetevent_handler)
 	lvgl.obj_set_event_cb(ui.home_imgbtnscan, home_imgbtnscanevent_handler)
-	-- lvgl.obj_set_event_cb(ui.home_imgbtnprt, home_imgbtnprtevent_handler)
+	lvgl.obj_set_event_cb(ui.home_imgbtnprt, home_imgbtnprtevent_handler)
 end
 
 local function en_click_anim_cb(btn,v)
@@ -363,31 +482,6 @@ local function en_click_anim_cb(btn,v)
 		end
     end
 end
-
-local function load_save(a)
-    printer.guider_load_screen(SCR_SAVED);
-    if (save_src == 1) then
-        lvgl.obj_set_x(_G.guider_ui.saved_label2, 187);
-        lvgl.label_set_text(_G.guider_ui.saved_label2, "File saved");
-    elseif (save_src == 2) then
-        lvgl.obj_set_x(_G.guider_ui.saved_label2, 157);
-        lvgl.label_set_text(_G.guider_ui.saved_label2, "Printing finished");
-    else
-        lvgl.obj_set_x(_G.guider_ui.saved_label2, 187);
-        lvgl.label_set_text(_G.guider_ui.saved_label2, "File saved");
-    end
-    lvgl.demo_printer_anim_in_all(_G.guider_ui.saved, 200);
-end
-
-local function load_save_cb(obj,event)
-    if (event == lvgl.EVENT_PRESSED) then
-        printer.guider_load_screen(SCR_LOADER);
-        save_src = 1;
-        add_loader(load_save);
-    end
-end
-
-
 
 local function hue_slider_event_cb(obj,event)
     if (event == lvgl.EVENT_VALUE_CHANGED)then

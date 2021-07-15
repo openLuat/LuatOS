@@ -1,9 +1,12 @@
 local home = require "home"
 local setup = require "setup"
 local loader = require "loader"
+local copyhome = require "copyhome"
+local copynext = require "copynext"
 local printit = require "printit"
 local prthome = require "prthome"
 local prtmb = require "prtmb"
+local prtusb = require "prtusb"
 local scanhome = require "scanhome"
 local symbol = require "symbol"
 local printer = {}
@@ -109,12 +112,52 @@ local function get_scr_by_id(scr_id)
     return nil;
 end
 
+local function scan_img_color_refr()
+    local light = lightness_act - 80;
+    print("adjust image\n");
+    if(_G.guider_ui.scanhome == lvgl.scr_act()) then
+        print("adjust scan home image\n");
+		local s , v
+		if s == light > 0 then s = 100 - light else s = 100 end
+		if v == light < 0 then s = 100 + light else s = 100 end
+        local c = lvgl.color_hsv_to_rgb(hue_act, s, v);
+        lvgl.obj_set_style_local_image_recolor(_G.guider_ui.scanhome_img3, lvgl.IMG_PART_MAIN, lvgl.STATE_DEFAULT, c);
+    elseif (_G.guider_ui.copyhome == lvgl.scr_act()) then
+        print("adjust copy home image\n");
+		local s , v
+		if s == light > 0 then s = 100 - light else s = 100 end
+		if v == light < 0 then s = 100 + light else s = 100 end
+        local c = lvgl.color_hsv_to_rgb(hue_act, s, v);
+        lvgl.obj_set_style_local_image_recolor(_G.guider_ui.copyhome_img3, lvgl.IMG_PART_MAIN, lvgl.STATE_DEFAULT, c);
+    end
+end
+
 local function load_disbtn_home_cb(obj,event)
 	if (event == lvgl.EVENT_PRESSED) then
         printer.guider_load_screen(SCR_HOME)
    end
 end
 
+local function load_copy_next_cb(obj,event)
+    if (event == lvgl.EVENT_PRESSED) then
+        printer.guider_load_screen(SCR_COPY_NEXT);
+        lvgl.demo_printer_anim_in_all(_G.guider_ui.copynext, 200);
+        lvgl.anim_set_var(ani_en_btn_click, _G.guider_ui.copynext_print);
+        lvgl.anim_start(ani_en_btn_click);
+    end
+end
+local function hue_slider_event_cb(obj,event)
+    if (event == lvgl.EVENT_VALUE_CHANGED)then
+        hue_act = lvgl.slider_get_value(obj);
+        scan_img_color_refr()
+    end
+end
+local function lightness_slider_event_cb(obj,event)
+    if (event == lvgl.EVENT_VALUE_CHANGED)then
+        lightness_act = lvgl.slider_get_value(obj);
+        scan_img_color_refr()
+    end
+end
 local function setup_event_init()
     lvgl.obj_set_event_cb(_G.guider_ui.setup_btnsetback, load_disbtn_home_cb);
 end
@@ -126,89 +169,117 @@ local function home_event_init()
     printer.demo_printer_anim_in_all(_G.guider_ui.home, 200);
 end
 
+local function copy_home_event_init()
+    lvgl.obj_set_event_cb(_G.guider_ui.copyhome_btncopyback, load_disbtn_home_cb);
+    lvgl.obj_add_style(_G.guider_ui.copyhome_btncopyback, lvgl.BTN_PART_MAIN, style_backbtn);
+    lvgl.obj_set_event_cb(_G.guider_ui.copyhome_btncopynext, load_copy_next_cb);
+    lvgl.obj_set_event_cb(_G.guider_ui.copyhome_sliderhue, hue_slider_event_cb);
+    lvgl.obj_set_event_cb(_G.guider_ui.copyhome_sliderbright, lightness_slider_event_cb);
+    lvgl.obj_set_style_local_radius(_G.guider_ui.copyhome_img3, lvgl.IMG_PART_MAIN, lvgl.STATE_DEFAULT, 8);
+    lvgl.obj_set_style_local_clip_corner(_G.guider_ui.copyhome_img3, lvgl.IMG_PART_MAIN, lvgl.STATE_DEFAULT, true);
+    lvgl.obj_set_style_local_image_recolor_opa(_G.guider_ui.copyhome_img3, lvgl.IMG_PART_MAIN, lvgl.STATE_DEFAULT, 80);
+end
+
+-- local function copy_next_event_init()
+--     lvgl.obj_add_style(_G.guider_ui.copynext_btncopyback, lvgl.BTN_PART_MAIN, style_backbtn);
+--     lvgl.obj_set_click(_G.guider_ui.copynext_print, false);
+--     lvgl.obj_set_event_cb(_G.guider_ui.copynext_up, cnt_event_cb);
+--     lvgl.obj_add_style(_G.guider_ui.copynext_up, lvgl.BTN_PART_MAIN, style_upbtn);
+--     lvgl.obj_set_event_cb(_G.guider_ui.copynext_down, cnt_event_cb);
+--     lvgl.obj_add_style(_G.guider_ui.copynext_down, lvgl.BTN_PART_MAIN, style_downbtn);
+--     lvgl.obj_set_event_cb(_G.guider_ui.copynext_print, load_print_finish_cb);
+--     lvgl.obj_set_event_cb(_G.guider_ui.copynext_btncopyback, load_disbtn_home_cb);
+--     lvgl.obj_set_style_local_radius(_G.guider_ui.copynext_img3, lvgl.IMG_PART_MAIN, lvgl.STATE_DEFAULT, 5);
+--     lvgl.obj_set_style_local_clip_corner(_G.guider_ui.copynext_img3, lvgl.IMG_PART_MAIN, lvgl.STATE_DEFAULT, true);
+--     lvgl.obj_set_style_local_image_recolor_opa(_G.guider_ui.copynext_img3, lvgl.IMG_PART_MAIN, lvgl.STATE_DEFAULT, 80);
+--     lvgl.obj_set_style_local_image_recolor(_G.guider_ui.copynext_img3, lvgl.IMG_PART_MAIN, lvgl.STATE_DEFAULT, c);
+-- end
+
 function printer.guider_load_screen(scr_id)
     local scr = nil;
     local old_scr = nil;
 	if(scr_id == SCR_HOME) then
-		if( _G.guider_ui.home==nil) then
+		print("guider_load_screen-SCR_HOME\r\n")
+		-- if( _G.guider_ui.home==nil) then
+			print("guider_load_screen-SCR_HOME-nil\r\n")
             home.setup_scr_home(_G.guider_ui);
 			printer.events_init_home(_G.guider_ui)
             scr = _G.guider_ui.home
 			home_event_init()
-			lvgl.anim_set_var(ani_en_btn_click, _G.guider_ui.home_imgbtncopy)
-			lvgl.anim_start(ani_en_btn_click)
+			-- lvgl.anim_set_var(ani_en_btn_click, _G.guider_ui.home_imgbtncopy)
+			-- lvgl.anim_start(ani_en_btn_click)
 			print("load home\n")
-		end
+		-- end
     elseif(scr_id == SCR_COPY_HOME) then
-		if(_G.guider_ui.copyhome~=nil) then
+		-- if(_G.guider_ui.copyhome==nil) then
 			scr = _G.guider_ui.copyhome;
-			-- setup_scr_copyhome();
-			-- copy_home_event_init();
-			-- lvgl.anim_set_var(ani_en_btn_click, ui.copyhome_btncopyback);
-			-- lvgl.anim_start(ani_en_btn_click);
+			copyhome.setup_scr_copyhome();
+			copy_home_event_init();
+			lvgl.anim_set_var(ani_en_btn_click, _G.guider_ui.copyhome_btncopyback);
+			lvgl.anim_start(ani_en_btn_click);
             print("load copy home\n");
-		end
+		-- end
     elseif(scr_id == _G.SCR_COPY_NEXT) then
-		if(_G.guider_ui.copynext~=nil) then
+		-- if(_G.guider_ui.copynext==nil) then
 			scr = _G.guider_ui.copynext;
-			-- setup_scr_copynext();
+			copynext.setup_scr_copynext();
 			-- copy_next_event_init();
             print("load copy next\n");
-		end
+		-- end
     elseif(scr_id == _G.SCR_SCAN_HOME) then
-		if(_G.guider_ui.scanhome==nil) then
+		-- if(_G.guider_ui.scanhome==nil) then
 			scanhome.setup_scr_scanhome(_G.guider_ui);
             scr = _G.guider_ui.scanhome;
 			printer.scan_home_event_init();
             print("load scan home\n");
-		end
+		-- end
     elseif(scr_id == SCR_PRT_HOME) then
-		if(_G.guider_ui.prthome~=nil) then
+		-- if(_G.guider_ui.prthome==nil) then
 			scr = _G.guider_ui.prthome;
 			prthome.setup_scr_prthome(_G.guider_ui);
 			-- prt_home_event_init();
             print("load prt home\n");
-		end
+		-- end
     elseif(scr_id == SCR_PRT_USB) then
-		if(_G.guider_ui.prtusb==nil) then
+		-- if(_G.guider_ui.prtusb==nil) then
 			scr = _G.guider_ui.prtusb;
 			prtusb.setup_scr_prtusb(_G.guider_ui);
 			-- prt_usb_event_init();
             print("load prt usb\n");
-		end
+		-- end
     elseif(scr_id == SCR_PRT_MB) then
-		if(_G.guider_ui.prtmb==nil) then
+		-- if(_G.guider_ui.prtmb==nil) then
 			prtmb.setup_scr_prtmb(_G.guider_ui);
             scr = _G.guider_ui.prtmb;
 			-- prt_mb_event_init();
             print("load prt mb\n");
-		end
+		-- end
     elseif(scr_id == SCR_PRT_IT) then
-		if(_G.guider_ui.printit==nil) then
+		-- if(_G.guider_ui.printit==nil) then
 			printit.setup_scr_printit(_G.guider_ui);
             scr = _G.guider_ui.printit;
 			-- prtit_event_init();
             print("load prt it\n");
-		end
+		-- end
     elseif(scr_id == SCR_SETUP) then
-		if(_G.guider_ui.setup==nil) then
+		-- if(_G.guider_ui.setup==nil) then
 			setup.setup_scr_setup(_G.guider_ui);
 			scr = _G.guider_ui.setup;
 			setup_event_init();
 			print("load setup\n");
-		end
+		-- end
     elseif(scr_id == SCR_LOADER) then
-		if(_G.guider_ui.loader==nil) then
+		-- if(_G.guider_ui.loader==nil) then
 			loader.setup_scr_loader(_G.guider_ui);
             scr = _G.guider_ui.loader;
 			-- loader_event_init();
-		end
+		-- end
     elseif(scr_id == SCR_SAVED) then
-		if(_G.guider_ui.saved==nil) then
+		-- if(_G.guider_ui.saved==nil) then
 			scr = _G.guider_ui.saved;
 			-- setup_scr_saved(ui);
 			-- saved_event_init();
-		end
+		-- end
 	end
 
     lvgl.scr_load(scr);
@@ -220,14 +291,32 @@ function printer.guider_load_screen(scr_id)
     cur_scr = scr_id;
 end
 
+local function load_print(a)
+    printer.guider_load_screen(SCR_PRT_HOME);
+    lvgl.demo_printer_anim_in_all(_G.guider_ui.prthome, 200);
+end
+local function load_copy(a)
+    printer.guider_load_screen(SCR_COPY_HOME);
+    lvgl.demo_printer_anim_in_all(_G.guider_ui.copyhome, 200);
+end
+local function load_setup(a)
+    printer.guider_load_screen(SCR_SETUP);
+    lvgl.demo_printer_anim_in_all(_G.guider_ui.setup, 200);
+end
+local function load_scan(a)
+    printer.guider_load_screen(SCR_SCAN_HOME);
+    lvgl.demo_printer_anim_in_all(_G.guider_ui.scanhome, 200);
+end
+
 local function home_imgbtncopyevent_handler( obj, event)
 	if event == lvgl.EVENT_PRESSED then
-		guider_load_screen(SCR_LOADER)
+		printer.guider_load_screen(SCR_LOADER)
 		add_loader(load_copy)
 	end
 end
 local function home_imgbtnsetevent_handler( obj, event)
 	if event == lvgl.EVENT_PRESSED then
+		print("home_imgbtnsetevent_handler\r\n")
 		printer.guider_load_screen(SCR_SETUP)
 		printer.demo_printer_anim_in_all(_G.guider_ui.setup, 200)
 	end
@@ -235,13 +324,13 @@ end
 local function home_imgbtnscanevent_handler( obj,  event)
 	if event == lvgl.EVENT_PRESSED then
 		printer.guider_load_screen(SCR_LOADER)
-		-- add_loader(load_scan)
+		add_loader(load_scan)
 	end
 end
 local function home_imgbtnprtevent_handler( obj, event)
 	if event == lvgl.EVENT_PRESSED then
-		custom.guider_load_screen(SCR_LOADER)
-		custom.add_loader(custom.load_print)
+		printer.guider_load_screen(SCR_LOADER)
+		add_loader(load_print)
 	end
 end
 
@@ -298,25 +387,7 @@ local function load_save_cb(obj,event)
     end
 end
 
-local function scan_img_color_refr()
-    local light = lightness_act - 80;
-    print("adjust image\n");
-    if(_G.guider_ui.scanhome == lvgl.scr_act()) then
-        print("adjust scan home image\n");
-		local s , v
-		if s == light > 0 then s = 100 - light else s = 100 end
-		if v == light < 0 then s = 100 + light else s = 100 end
-        local c = lvgl.color_hsv_to_rgb(hue_act, s, v);
-        lvgl.obj_set_style_local_image_recolor(_G.guider_ui.scanhome_img3, lvgl.IMG_PART_MAIN, lvgl.STATE_DEFAULT, c);
-    elseif (_G.guider_ui.copyhome == lvgl.scr_act()) then
-        print("adjust copy home image\n");
-		local s , v
-		if s == light > 0 then s = 100 - light else s = 100 end
-		if v == light < 0 then s = 100 + light else s = 100 end
-        local c = lvgl.color_hsv_to_rgb(hue_act, s, v);
-        lvgl.obj_set_style_local_image_recolor(_G.guider_ui.copyhome_img3, lvgl.IMG_PART_MAIN, lvgl.STATE_DEFAULT, c);
-    end
-end
+
 
 local function hue_slider_event_cb(obj,event)
     if (event == lvgl.EVENT_VALUE_CHANGED)then
@@ -378,6 +449,7 @@ end
 
 function printer.setup_ui(ui)
 	home.setup_scr_home(ui)
+	--Init events for screen
 	printer.events_init_home(ui)
 	lvgl.scr_load(ui.home)
 end
@@ -387,6 +459,15 @@ function printer.events_init(ui)
 end
 
 function printer.custom_init(ui)
+
+    home.setup_scr_home(ui);
+	--Init events for screen
+	printer.events_init_home(ui)
+
+	-- printer.event_cb();
+	-- home_event_init();
+	-- lvgl.anim_set_var(ani_en_btn_click, _G.guider_ui.home_imgbtncopy);
+    -- lvgl.anim_start(ani_en_btn_click);
 	cur_scr = SCR_HOME;
 	ui.copyhome = nil;
 	ui.copynext = nil;
@@ -398,13 +479,6 @@ function printer.custom_init(ui)
 	ui.setup = nil;
 	ui.loader = nil;
 	ui.saved = nil;
-
-    home.setup_scr_home(ui);
-	printer.event_cb();
-	home_event_init();
-	lvgl.anim_set_var(ani_en_btn_click, _G.guider_ui.home_imgbtncopy);
-    lvgl.anim_start(ani_en_btn_click);
-
 	lvgl.scr_load(ui.home);
 end
 

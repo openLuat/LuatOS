@@ -1,5 +1,4 @@
 
-local events = require "events"
 local home = {}
 
 function home.setup_scr_home(ui)
@@ -706,9 +705,6 @@ function home.setup_scr_home(ui)
 	lvgl.img_set_src(ui.home_imgset,"/images/setup_alpha_29x29.png")
 	lvgl.img_set_pivot(ui.home_imgset, 0,0)
 	lvgl.img_set_angle(ui.home_imgset, 0)
-
-	--Init events for screen
-	-- events.events_init_home(ui)
 end
 
 return home

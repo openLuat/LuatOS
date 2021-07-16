@@ -23,6 +23,18 @@
 #define GRAY187          0XBDD7
 #define GRAY240          0XF79E
 
+#define LUAT_LCD_COLOR_DEPTH 32
+
+#if (LUAT_LCD_COLOR_DEPTH == 32) 
+#define luat_color_t uint32_t
+#elif (LUAT_LCD_COLOR_DEPTH == 16)
+#define luat_color_t uint16_t
+#elif (LUAT_LCD_COLOR_DEPTH == 8)
+#define luat_color_t uint8_t
+#else
+#error "no supprt color depth"
+#endif
+
 struct luat_lcd_opts;
 
 typedef struct luat_lcd_conf {
@@ -44,7 +56,7 @@ typedef struct luat_lcd_opts {
     const char* name;
     int (*init)(luat_lcd_conf_t* conf);
     int (*close)(luat_lcd_conf_t* conf);
-    int (*draw)(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint32_t* color);
+    int (*draw)(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, luat_color_t* color);
     int (*sleep)(luat_lcd_conf_t* conf);
     int (*wakeup)(luat_lcd_conf_t* conf);
 } luat_lcd_opts_t;
@@ -63,12 +75,12 @@ int luat_lcd_sleep(luat_lcd_conf_t* conf);
 int luat_lcd_wakeup(luat_lcd_conf_t* conf);
 int luat_lcd_set_address(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2);
 int luat_lcd_set_color(uint32_t back, uint32_t fore);
-int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint32_t* color);
+int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, luat_color_t* color);
 int luat_lcd_clear(luat_lcd_conf_t* conf,uint32_t color);
 int luat_lcd_draw_point(luat_lcd_conf_t* conf, uint16_t x, uint16_t y, uint32_t color);
-int luat_lcd_draw_line(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2,uint32_t color);
-int luat_lcd_draw_rectangle(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2,uint32_t color);
-int luat_lcd_draw_circle(luat_lcd_conf_t* conf,uint16_t x0, uint16_t y0, uint8_t r,uint32_t color);
+int luat_lcd_draw_line(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint32_t color);
+int luat_lcd_draw_rectangle(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint32_t color);
+int luat_lcd_draw_circle(luat_lcd_conf_t* conf,uint16_t x0, uint16_t y0, uint8_t r, uint32_t color);
 
 void luat_lcd_execute_cmds(luat_lcd_conf_t* conf, uint32_t* cmds, uint32_t count);
 

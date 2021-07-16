@@ -37,6 +37,9 @@ int luat_lv_font_get(lua_State *L) {
 #ifdef LV_FONT_OPPOSANS_M_20
     else if (!strcmp("opposans_m_20", fontname)) { font = &lv_font_opposans_m_20;}
 #endif
+#ifdef LV_FONT_OPPOSANS_M_22
+    else if (!strcmp("opposans_m_22", fontname)) { font = &lv_font_opposans_m_22;}
+#endif
 #ifdef USE_LVGL_SIMSUN_48
     else if (!strcmp("simsun_48", fontname)) { font = &lv_font_simsun_48;}
 #endif

@@ -192,16 +192,16 @@ local function scan_img_color_refr()
     if(_G.guider_ui.scanhome == lvgl.scr_act()) then
         print("adjust scan home image\n")
 		local s , v
-		if s == light > 0 then s = 100 - light else s = 100 end
-		if v == light < 0 then s = 100 + light else s = 100 end
+		if light > 0 then s = 100 - light else s = 100 end
+		if light < 0 then v = 100 + light else v = 100 end
         local c = lvgl.color_hsv_to_rgb(hue_act, s, v)
         lvgl.obj_set_style_local_image_recolor(_G.guider_ui.scanhome_img3, lvgl.IMG_PART_MAIN, lvgl.STATE_DEFAULT, c)
     elseif (_G.guider_ui.copyhome == lvgl.scr_act()) then
         print("adjust copy home image\n")
 		local s , v
-		if s == light > 0 then s = 100 - light else s = 100 end
-		if v == light < 0 then s = 100 + light else s = 100 end
-        local c = lvgl.color_hsv_to_rgb(hue_act, s, v)
+		if light > 0 then s = 100 - light else s = 100 end
+		if light < 0 then v = 100 + light else v = 100 end
+        c = lvgl.color_hsv_to_rgb(hue_act, s, v)
         lvgl.obj_set_style_local_image_recolor(_G.guider_ui.copyhome_img3, lvgl.IMG_PART_MAIN, lvgl.STATE_DEFAULT, c)
     end
 end
@@ -277,6 +277,7 @@ local function copy_home_event_init()
 end
 
 local function copy_next_event_init()
+    local c=100
     lvgl.obj_add_style(_G.guider_ui.copynext_btncopyback, lvgl.BTN_PART_MAIN, style_backbtn)
     lvgl.obj_set_click(_G.guider_ui.copynext_print, false)
     lvgl.obj_set_event_cb(_G.guider_ui.copynext_up, cnt_event_cb)
@@ -340,14 +341,14 @@ function printer.guider_load_screen(scr_id)
 			lvgl.anim_start(ani_en_btn_click)
             print("load copy home\n")
 		-- end
-    elseif(scr_id == _G.SCR_COPY_NEXT) then
+    elseif(scr_id == SCR_COPY_NEXT) then
 		-- if(_G.guider_ui.copynext==nil) then
 			copynext.setup_scr_copynext(_G.guider_ui)
 			copy_next_event_init()
             scr = _G.guider_ui.copynext
             print("load copy next\n")
 		-- end
-    elseif(scr_id == _G.SCR_SCAN_HOME) then
+    elseif(scr_id == SCR_SCAN_HOME) then
 		-- if(_G.guider_ui.scanhome==nil) then
 			scanhome.setup_scr_scanhome(_G.guider_ui)
 			scan_home_event_init()

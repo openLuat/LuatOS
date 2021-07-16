@@ -154,7 +154,7 @@ FILE* luat_fs_fopen(const char *filename, const char *mode) {
             if (vfs.fds[i].fsMount == NULL) {
                 vfs.fds[i].fsMount = mount;
                 vfs.fds[i].fd = fd;
-                LLOGD("fopen %s %s vfd=%ld fd=%ld", filename, mode, i, fd);
+                //LLOGD("fopen %s %s vfd=%ld fd=%ld", filename, mode, i, fd);
                 return (FILE*)i;
             }
         }
@@ -221,7 +221,7 @@ int luat_fs_getc(FILE* stream) {
 // int luat_fs_feof(FILE* stream);
 // int luat_fs_ferror(FILE *stream);
 int luat_fs_fclose(FILE* stream) {
-    LLOGD("fclose %d", (int)stream);
+    //LLOGD("fclose %d", (int)stream);
     luat_vfs_fd_t* fd = getfd(stream);
     if (fd == NULL) {
         return 0;

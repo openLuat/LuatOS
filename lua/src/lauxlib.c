@@ -726,7 +726,8 @@ LUALIB_API int luaL_loadfilex (lua_State *L, const char *filename,
   int fnameindex = lua_gettop(L) + 1;  /* index of filename on the stack */
   if (filename == NULL) {
     lua_pushliteral(L, "=stdin");
-    lf.f = stdin;
+    //lf.f = stdin;
+    return errfile(L, "open", fnameindex);
   }
   else {
     lua_pushfstring(L, "@%s", filename);
@@ -1028,28 +1029,29 @@ LUALIB_API const char *luaL_gsub (lua_State *L, const char *s, const char *p,
 }
 
 
-static void *l_alloc (void *ud, void *ptr, size_t osize, size_t nsize) {
-  (void)ud; (void)osize;  /* not used */
-  if (nsize == 0) {
-    free(ptr);
-    return NULL;
-  }
-  else
-    return realloc(ptr, nsize);
-}
+// static void *l_alloc (void *ud, void *ptr, size_t osize, size_t nsize) {
+  // (void)ud; (void)osize;  /* not used */
+  // if (nsize == 0) {
+  //   free(ptr);
+  //   return NULL;
+  // }
+  // else
+  //   return realloc(ptr, nsize);
+// }
 
 
-static int panic (lua_State *L) {
-  lua_writestringerror("PANIC: unprotected error in call to Lua API (%s)\n",
-                        lua_tostring(L, -1));
-  return 0;  /* return to Lua to abort */
-}
+// static int panic (lua_State *L) {
+//   lua_writestringerror("PANIC: unprotected error in call to Lua API (%s)\n",
+//                         lua_tostring(L, -1));
+//   return 0;  /* return to Lua to abort */
+// }
 
 
 LUALIB_API lua_State *luaL_newstate (void) {
-  lua_State *L = lua_newstate(l_alloc, NULL);
-  if (L) lua_atpanic(L, &panic);
-  return L;
+  // lua_State *L = lua_newstate(l_alloc, NULL);
+  // if (L) lua_atpanic(L, &panic);
+  // return L;
+  return NULL;
 }
 
 

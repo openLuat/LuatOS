@@ -15,6 +15,8 @@ RT_WEAK void luat_timer_us_delay(size_t us) {
     rt_hw_us_delay(us);
 }
 
+int luaopen_lwip(lua_State *L);
+
 // fix for mled加密库
 // rtt的方法名称变了. rt_hwcrypto_dev_dufault --> rt_hwcrypto_dev_default
 #ifdef RT_USING_HWCRYPTO
@@ -83,6 +85,7 @@ static const luaL_Reg loadedlibs[] = {
   // {"dbg",  luaopen_dbg},               // 调试库
   // {"eink",  luaopen_eink},               // 电子墨水屏
   // {"lfs2", luaopen_lfs2},              // spi flash ==> littelfs
+  // {"lwip", luaopen_lwip},              // lwip
   {NULL, NULL}
 };
 

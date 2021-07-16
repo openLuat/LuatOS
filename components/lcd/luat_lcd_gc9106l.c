@@ -119,7 +119,7 @@ static int gc9106l_init(luat_lcd_conf_t* conf) {
 };
 
 // TODO 这里的color是ARGB, 需要转为lcd所需要的格式
-static int gc9106l_draw(luat_lcd_conf_t* conf, uint16_t x_start, uint16_t y_start, uint16_t x_end, uint16_t y_end, uint32_t* color) {
+static int gc9106l_draw(luat_lcd_conf_t* conf, uint16_t x_start, uint16_t y_start, uint16_t x_end, uint16_t y_end, luat_color_t* color) {
     uint16_t i = 0, j = 0;
     uint32_t size = 0, size_remain = 0;
     uint8_t *fill_buf = NULL;

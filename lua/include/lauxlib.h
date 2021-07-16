@@ -230,7 +230,7 @@ void luat_log_log(int level, const char* tag, const char* _fmt, ...); // 4 is ER
 
 /* print a newline and flush the output */
 #if !defined(lua_writeline)
-#define lua_writeline()        (lua_writestring("\n", 1), fflush(stdout))
+#define lua_writeline()        (lua_writestring("\n", 1))
 #endif
 
 /* print an error message */

@@ -1,3 +1,4 @@
+local sys = require "sys"
 local home = require "home"
 local setup = require "setup"
 local loader = require "loader"
@@ -75,7 +76,7 @@ local function demo_printer_anim_in_all(obj,delay)
     local child = lvgl.obj_get_child_back(obj, nil)
     while(child) do
         y = lvgl.obj_get_y(child)
-        if (child ~= lvgl.scr_act() and child ~= _G.guider_ui.saved_img1) then
+        if (child ~= lvgl.scr_act() and child ~= _G.guider_ui.saved_img1 and child ~= _G.guider_ui.home_imgbtncopy) then
             -- lvgl.anim_t a
             -- lvgl.anim_init(a)
 			local a = lvgl.anim_create()
@@ -90,6 +91,7 @@ local function demo_printer_anim_in_all(obj,delay)
                 lvgl.anim_set_values(a, 0, y)
 			end
             lvgl.anim_start(a)
+            lvgl.anim_free(a)
 
             lvgl.obj_fade_in(child, 100, delay)
         end
@@ -115,6 +117,7 @@ local function add_loader(end_cb)
     lvgl.anim_set_time(a, 1000)
     lvgl.anim_set_var(a, _G.guider_ui.loader_loadarc)
     lvgl.anim_start(a)
+    lvgl.anim_free(a)
 end
 
 local function get_scr_by_id(scr_id)
@@ -423,10 +426,6 @@ local function load_copy(a)
     printer.guider_load_screen(SCR_COPY_HOME)
     demo_printer_anim_in_all(_G.guider_ui.copyhome, 200)
 end
-local function load_setup(a)
-    printer.guider_load_screen(SCR_SETUP)
-    demo_printer_anim_in_all(_G.guider_ui.setup, 200)
-end
 local function load_scan(a)
     printer.guider_load_screen(SCR_SCAN_HOME)
     demo_printer_anim_in_all(_G.guider_ui.scanhome, 200)
@@ -434,7 +433,6 @@ end
 
 local function home_imgbtncopyevent_handler( obj, event)
 	if event == lvgl.EVENT_PRESSED then
-        print("home_imgbtncopyevent_handler\r\n")
 		printer.guider_load_screen(SCR_LOADER)
 		add_loader(load_copy)
 	end
@@ -489,7 +487,7 @@ local function en_click_anim_cb(btn,v)
 end
 
 
-function printer.event_cb()
+local function event_cb()
     -- lvgl.style_init(style_backbtn)
 	style_backbtn = lvgl.style_create()
     lvgl.style_set_value_str(style_backbtn, lvgl.STATE_DEFAULT, _G.LV_SYMBOL_LEFT)
@@ -541,10 +539,12 @@ function printer.custom_init(ui)
 	--Init events for screen
 	printer.events_init_home(ui)
 
-	printer.event_cb()
+	event_cb()
 	home_event_init()
+
 	lvgl.anim_set_var(ani_en_btn_click, _G.guider_ui.home_imgbtncopy)
     lvgl.anim_start(ani_en_btn_click)
+
 	cur_scr = SCR_HOME
 	ui.copyhome = nil
 	ui.copynext = nil

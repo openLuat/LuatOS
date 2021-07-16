@@ -94,13 +94,13 @@ function saved.setup_scr_saved(ui)
 	lvgl.obj_set_pos(ui.saved_btnsavecontinue, 168, 195);
 	lvgl.obj_set_size(ui.saved_btnsavecontinue, 140, 40);
 	ui.saved_btnsavecontinue_label = lvgl.label_create(ui.saved_btnsavecontinue, nil);
-	lvgl.label_set_text(ui.saved_btnsavecontinue_label, "CONTINUE");
+	lvgl.label_set_text(ui.saved_btnsavecontinue_label, "继续");
 	lvgl.obj_set_style_local_text_color(ui.saved_btnsavecontinue_label, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, lvgl.color_make(0xff, 0xff, 0xff));
-	lvgl.obj_set_style_local_text_font(ui.saved_btnsavecontinue_label, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, lvgl.font_get("opposans_m_18"));
+	lvgl.obj_set_style_local_text_font(ui.saved_btnsavecontinue_label, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, lvgl.font_get("opposans_m_20"));
 
 	--Write codes saved_label2
 	ui.saved_label2 = lvgl.label_create(ui.saved, nil);
-	lvgl.label_set_text(ui.saved_label2, "File saved");
+	lvgl.label_set_text(ui.saved_label2, "文件已保存");
 	lvgl.label_set_long_mode(ui.saved_label2, lvgl.LABEL_LONG_BREAK);
 	lvgl.label_set_align(ui.saved_label2, lvgl.LABEL_ALIGN_LEFT);
 
@@ -116,7 +116,7 @@ function saved.setup_scr_saved(ui)
 	lvgl.style_set_bg_grad_dir(style_saved_label2_main, lvgl.STATE_DEFAULT, lvgl.GRAD_DIR_VER);
 	lvgl.style_set_bg_opa(style_saved_label2_main, lvgl.STATE_DEFAULT, 255);
 	lvgl.style_set_text_color(style_saved_label2_main, lvgl.STATE_DEFAULT, lvgl.color_make(0xff, 0xff, 0xff));
-	lvgl.style_set_text_font(style_saved_label2_main, lvgl.STATE_DEFAULT,  lvgl.font_get("opposans_m_16"));
+	lvgl.style_set_text_font(style_saved_label2_main, lvgl.STATE_DEFAULT,  lvgl.font_get("opposans_m_18"));
 	lvgl.style_set_text_letter_space(style_saved_label2_main, lvgl.STATE_DEFAULT, 2);
 	lvgl.style_set_pad_left(style_saved_label2_main, lvgl.STATE_DEFAULT, 0);
 	lvgl.style_set_pad_right(style_saved_label2_main, lvgl.STATE_DEFAULT, 0);

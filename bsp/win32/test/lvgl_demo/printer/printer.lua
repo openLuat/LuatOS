@@ -151,13 +151,13 @@ local function load_save(a)
     printer.guider_load_screen(SCR_SAVED)
     if (save_src == 1) then
         lvgl.obj_set_x(_G.guider_ui.saved_label2, 187)
-        lvgl.label_set_text(_G.guider_ui.saved_label2, "File saved")
+        lvgl.label_set_text(_G.guider_ui.saved_label2, "文件已保存")
     elseif (save_src == 2) then
-        lvgl.obj_set_x(_G.guider_ui.saved_label2, 157)
-        lvgl.label_set_text(_G.guider_ui.saved_label2, "Printing finished")
+        lvgl.obj_set_x(_G.guider_ui.saved_label2, 200)
+        lvgl.label_set_text(_G.guider_ui.saved_label2, "打印完成")
     else
         lvgl.obj_set_x(_G.guider_ui.saved_label2, 187)
-        lvgl.label_set_text(_G.guider_ui.saved_label2, "File saved")
+        lvgl.label_set_text(_G.guider_ui.saved_label2, "文件已保存")
     end
     demo_printer_anim_in_all(_G.guider_ui.saved, 200)
 end

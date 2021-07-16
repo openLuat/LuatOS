@@ -253,7 +253,7 @@ int luat_lv_list_down(lua_State *L) {
 int luat_lv_list_focus(lua_State *L) {
     LV_DEBUG("CALL lv_list_focus");
     lv_obj_t* btn = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_anim_enable_t anim = (lv_anim_enable_t)luaL_checkinteger(L, 2);
+    lv_anim_enable_t anim = (lv_anim_enable_t)lua_toboolean(L, 2);
     lv_list_focus(btn ,anim);
     return 0;
 }

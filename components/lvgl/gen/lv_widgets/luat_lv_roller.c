@@ -39,7 +39,7 @@ int luat_lv_roller_set_selected(lua_State *L) {
     LV_DEBUG("CALL lv_roller_set_selected");
     lv_obj_t* roller = (lv_obj_t*)lua_touserdata(L, 1);
     uint16_t sel_opt = (uint16_t)luaL_checkinteger(L, 2);
-    lv_anim_enable_t anim = (lv_anim_enable_t)luaL_checkinteger(L, 3);
+    lv_anim_enable_t anim = (lv_anim_enable_t)lua_toboolean(L, 3);
     lv_roller_set_selected(roller ,sel_opt ,anim);
     return 0;
 }

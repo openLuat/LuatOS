@@ -307,7 +307,7 @@ int luat_lv_page_focus(lua_State *L) {
     LV_DEBUG("CALL lv_page_focus");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 2);
-    lv_anim_enable_t anim_en = (lv_anim_enable_t)luaL_checkinteger(L, 3);
+    lv_anim_enable_t anim_en = (lv_anim_enable_t)lua_toboolean(L, 3);
     lv_page_focus(page ,obj ,anim_en);
     return 0;
 }

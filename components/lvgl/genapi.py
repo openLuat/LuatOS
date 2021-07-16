@@ -471,7 +471,7 @@ map_lua_arg = {
     "size_t" : {"fmt": "{} {} = (size_t)luaL_checkinteger(L, {});", "incr" : 1},
     "char" : {"fmt": "{} {} = (char)luaL_checkinteger(L, {});", "incr" : 1},
 
-    "lv_anim_enable_t" : {"fmt": "{} {} = (lv_anim_enable_t)luaL_checkinteger(L, {});", "incr" : 1},# 与uint8等价
+    "lv_anim_enable_t" : {"fmt": "{} {} = (lv_anim_enable_t)lua_toboolean(L, {});", "incr" : 1},# 与uint8等价
     "lv_scrollbar_mode_t" :  {"fmt": "{} {} = (lv_scrollbar_mode_t)luaL_checkinteger(L, {});", "incr" : 1},# 与uint8等价
     "lv_layout_t" : {"fmt": "{} {} = (lv_layout_t)luaL_checkinteger(L, {});", "incr" : 1},# 与uint8等价
 

@@ -30,7 +30,7 @@ int luat_lv_tileview_set_tile_act(lua_State *L) {
     lv_obj_t* tileview = (lv_obj_t*)lua_touserdata(L, 1);
     lv_coord_t x = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_coord_t y = (lv_coord_t)luaL_checkinteger(L, 3);
-    lv_anim_enable_t anim = (lv_anim_enable_t)luaL_checkinteger(L, 4);
+    lv_anim_enable_t anim = (lv_anim_enable_t)lua_toboolean(L, 4);
     lv_tileview_set_tile_act(tileview ,x ,y ,anim);
     return 0;
 }

@@ -39,7 +39,7 @@ int luat_lv_tabview_set_tab_act(lua_State *L) {
     LV_DEBUG("CALL lv_tabview_set_tab_act");
     lv_obj_t* tabview = (lv_obj_t*)lua_touserdata(L, 1);
     uint16_t id = (uint16_t)luaL_checkinteger(L, 2);
-    lv_anim_enable_t anim = (lv_anim_enable_t)luaL_checkinteger(L, 3);
+    lv_anim_enable_t anim = (lv_anim_enable_t)lua_toboolean(L, 3);
     lv_tabview_set_tab_act(tabview ,id ,anim);
     return 0;
 }

@@ -20,7 +20,7 @@ int luat_lv_slider_set_value(lua_State *L) {
     LV_DEBUG("CALL lv_slider_set_value");
     lv_obj_t* slider = (lv_obj_t*)lua_touserdata(L, 1);
     int16_t value = (int16_t)luaL_checkinteger(L, 2);
-    lv_anim_enable_t anim = (lv_anim_enable_t)luaL_checkinteger(L, 3);
+    lv_anim_enable_t anim = (lv_anim_enable_t)lua_toboolean(L, 3);
     lv_slider_set_value(slider ,value ,anim);
     return 0;
 }
@@ -30,7 +30,7 @@ int luat_lv_slider_set_left_value(lua_State *L) {
     LV_DEBUG("CALL lv_slider_set_left_value");
     lv_obj_t* slider = (lv_obj_t*)lua_touserdata(L, 1);
     int16_t left_value = (int16_t)luaL_checkinteger(L, 2);
-    lv_anim_enable_t anim = (lv_anim_enable_t)luaL_checkinteger(L, 3);
+    lv_anim_enable_t anim = (lv_anim_enable_t)lua_toboolean(L, 3);
     lv_slider_set_left_value(slider ,left_value ,anim);
     return 0;
 }

@@ -19,7 +19,7 @@ int luat_lv_switch_create(lua_State *L) {
 int luat_lv_switch_on(lua_State *L) {
     LV_DEBUG("CALL lv_switch_on");
     lv_obj_t* sw = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_anim_enable_t anim = (lv_anim_enable_t)luaL_checkinteger(L, 2);
+    lv_anim_enable_t anim = (lv_anim_enable_t)lua_toboolean(L, 2);
     lv_switch_on(sw ,anim);
     return 0;
 }
@@ -28,7 +28,7 @@ int luat_lv_switch_on(lua_State *L) {
 int luat_lv_switch_off(lua_State *L) {
     LV_DEBUG("CALL lv_switch_off");
     lv_obj_t* sw = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_anim_enable_t anim = (lv_anim_enable_t)luaL_checkinteger(L, 2);
+    lv_anim_enable_t anim = (lv_anim_enable_t)lua_toboolean(L, 2);
     lv_switch_off(sw ,anim);
     return 0;
 }
@@ -37,7 +37,7 @@ int luat_lv_switch_off(lua_State *L) {
 int luat_lv_switch_toggle(lua_State *L) {
     LV_DEBUG("CALL lv_switch_toggle");
     lv_obj_t* sw = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_anim_enable_t anim = (lv_anim_enable_t)luaL_checkinteger(L, 2);
+    lv_anim_enable_t anim = (lv_anim_enable_t)lua_toboolean(L, 2);
     bool ret;
     ret = lv_switch_toggle(sw ,anim);
     lua_pushboolean(L, ret);

@@ -20,7 +20,7 @@ int luat_lv_bar_set_value(lua_State *L) {
     LV_DEBUG("CALL lv_bar_set_value");
     lv_obj_t* bar = (lv_obj_t*)lua_touserdata(L, 1);
     int16_t value = (int16_t)luaL_checkinteger(L, 2);
-    lv_anim_enable_t anim = (lv_anim_enable_t)luaL_checkinteger(L, 3);
+    lv_anim_enable_t anim = (lv_anim_enable_t)lua_toboolean(L, 3);
     lv_bar_set_value(bar ,value ,anim);
     return 0;
 }
@@ -30,7 +30,7 @@ int luat_lv_bar_set_start_value(lua_State *L) {
     LV_DEBUG("CALL lv_bar_set_start_value");
     lv_obj_t* bar = (lv_obj_t*)lua_touserdata(L, 1);
     int16_t start_value = (int16_t)luaL_checkinteger(L, 2);
-    lv_anim_enable_t anim = (lv_anim_enable_t)luaL_checkinteger(L, 3);
+    lv_anim_enable_t anim = (lv_anim_enable_t)lua_toboolean(L, 3);
     lv_bar_set_start_value(bar ,start_value ,anim);
     return 0;
 }

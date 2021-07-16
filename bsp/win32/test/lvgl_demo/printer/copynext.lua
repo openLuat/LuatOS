@@ -558,8 +558,9 @@ function copynext.setup_scr_copynext(ui)
 	lvgl.obj_add_style(ui.copynext_swvert, lvgl.SWITCH_PART_BG, style_copynext_swvert_bg);
 
 	--Write style lvgl.SWITCH_PART_INDIC for copynext_swvert
-	local style_copynext_swvert_indic;
-	lvgl.style_init(style_copynext_swvert_indic);
+	-- local style_copynext_swvert_indic;
+	-- lvgl.style_init(style_copynext_swvert_indic);
+	local style_copynext_swvert_indic = lvgl.style_create()
 
 	--Write style state: lvgl.STATE_DEFAULT for style_copynext_swvert_indic
 	lvgl.style_set_radius(style_copynext_swvert_indic, lvgl.STATE_DEFAULT, 100);

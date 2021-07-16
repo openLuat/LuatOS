@@ -322,7 +322,7 @@ function scanhome.setup_scr_scanhome(ui)
 	lvgl.obj_set_pos(ui.scanhome_bright, 372, 82);
 	lvgl.obj_set_size(ui.scanhome_bright, 24, 24);
 	lvgl.obj_set_click(ui.scanhome_bright, true);
-	lvgl.img_set_src(ui.scanhome_bright,"/imagesbright_alpha_24x24.png");
+	lvgl.img_set_src(ui.scanhome_bright,"/images/bright_alpha_24x24.png");
 	lvgl.img_set_pivot(ui.scanhome_bright, 0,0);
 	lvgl.img_set_angle(ui.scanhome_bright, 0);
 
@@ -342,7 +342,7 @@ function scanhome.setup_scr_scanhome(ui)
 	lvgl.obj_set_pos(ui.scanhome_hue, 413, 83);
 	lvgl.obj_set_size(ui.scanhome_hue, 21, 21);
 	lvgl.obj_set_click(ui.scanhome_hue, true);
-	lvgl.img_set_src(ui.scanhome_hue,"/imageshue_alpha_21x21.png");
+	lvgl.img_set_src(ui.scanhome_hue,"/images/hue_alpha_21x21.png");
 	lvgl.img_set_pivot(ui.scanhome_hue, 0,0);
 	lvgl.img_set_angle(ui.scanhome_hue, 0);
 

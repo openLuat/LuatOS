@@ -98,7 +98,7 @@ sys.taskInit(function ()
 	lvgl.obj_set_pos(ui.screen_slider0, 29, 144)
 	lvgl.obj_set_size(ui.screen_slider0, 160, 8)
 	lvgl.slider_set_range(ui.screen_slider0,0, 100)
-	lvgl.slider_set_value(ui.screen_slider0,50,0)
+	lvgl.slider_set_value(ui.screen_slider0,50,false)
 
 	--Write codes screen_label3
 	ui.screen_label3 = lvgl.label_create(ui.screen, nil)

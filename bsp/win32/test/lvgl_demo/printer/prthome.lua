@@ -230,7 +230,7 @@ function prthome.setup_scr_prthome(ui)
 	lvgl.style_set_bg_grad_dir(style_prthome_labelusb_main, lvgl.STATE_DEFAULT, lvgl.GRAD_DIR_VER);
 	lvgl.style_set_bg_opa(style_prthome_labelusb_main, lvgl.STATE_DEFAULT, 0);
 	lvgl.style_set_text_color(style_prthome_labelusb_main, lvgl.STATE_DEFAULT, lvgl.color_make(0xff, 0xff, 0xff));
-	lvgl.style_set_text_font(style_prthome_labelusb_main, lvgl.STATE_DEFAULT, lvgl.font_get("opposans_m_16"));
+	lvgl.style_set_text_font(style_prthome_labelusb_main, lvgl.STATE_DEFAULT, lvgl.font_get("opposans_m_14"));
 	lvgl.style_set_text_letter_space(style_prthome_labelusb_main, lvgl.STATE_DEFAULT, 2);
 	lvgl.style_set_pad_left(style_prthome_labelusb_main, lvgl.STATE_DEFAULT, 0);
 	lvgl.style_set_pad_right(style_prthome_labelusb_main, lvgl.STATE_DEFAULT, 0);
@@ -258,7 +258,7 @@ function prthome.setup_scr_prthome(ui)
 	lvgl.style_set_bg_grad_dir(style_prthome_labelmobile_main, lvgl.STATE_DEFAULT, lvgl.GRAD_DIR_VER);
 	lvgl.style_set_bg_opa(style_prthome_labelmobile_main, lvgl.STATE_DEFAULT, 0);
 	lvgl.style_set_text_color(style_prthome_labelmobile_main, lvgl.STATE_DEFAULT, lvgl.color_make(0xff, 0xff, 0xff));
-	lvgl.style_set_text_font(style_prthome_labelmobile_main, lvgl.STATE_DEFAULT, lvgl.font_get("opposans_m_16"));
+	lvgl.style_set_text_font(style_prthome_labelmobile_main, lvgl.STATE_DEFAULT, lvgl.font_get("opposans_m_14"));
 	lvgl.style_set_text_letter_space(style_prthome_labelmobile_main, lvgl.STATE_DEFAULT, 2);
 	lvgl.style_set_pad_left(style_prthome_labelmobile_main, lvgl.STATE_DEFAULT, 0);
 	lvgl.style_set_pad_right(style_prthome_labelmobile_main, lvgl.STATE_DEFAULT, 0);
@@ -286,7 +286,7 @@ function prthome.setup_scr_prthome(ui)
 	lvgl.style_set_bg_grad_dir(style_prthome_labelit_main, lvgl.STATE_DEFAULT, lvgl.GRAD_DIR_VER);
 	lvgl.style_set_bg_opa(style_prthome_labelit_main, lvgl.STATE_DEFAULT, 0);
 	lvgl.style_set_text_color(style_prthome_labelit_main, lvgl.STATE_DEFAULT, lvgl.color_make(0xff, 0xff, 0xff));
-	lvgl.style_set_text_font(style_prthome_labelit_main, lvgl.STATE_DEFAULT, lvgl.font_get("opposans_m_16"));
+	lvgl.style_set_text_font(style_prthome_labelit_main, lvgl.STATE_DEFAULT, lvgl.font_get("opposans_m_14"));
 	lvgl.style_set_text_letter_space(style_prthome_labelit_main, lvgl.STATE_DEFAULT, 2);
 	lvgl.style_set_pad_left(style_prthome_labelit_main, lvgl.STATE_DEFAULT, 0);
 	lvgl.style_set_pad_right(style_prthome_labelit_main, lvgl.STATE_DEFAULT, 0);

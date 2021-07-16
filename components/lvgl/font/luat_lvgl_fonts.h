@@ -14,6 +14,7 @@ LV_FONT_DECLARE(lv_font_opposans_m_12)
 LV_FONT_DECLARE(lv_font_opposans_m_14)
 LV_FONT_DECLARE(lv_font_opposans_m_16)
 LV_FONT_DECLARE(lv_font_opposans_m_18)
+LV_FONT_DECLARE(lv_font_opposans_m_20)
 LV_FONT_DECLARE(lv_font_simsun_48)
 
 #ifdef __cplusplus

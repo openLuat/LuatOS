@@ -29,6 +29,7 @@
 #define LV_FONT_OPPOSANS_M_14
 #define LV_FONT_OPPOSANS_M_16
 #define LV_FONT_OPPOSANS_M_18
+#define LV_FONT_OPPOSANS_M_20
 #define USE_LVGL_SIMSUN_48
 
 #endif

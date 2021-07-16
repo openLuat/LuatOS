@@ -34,12 +34,13 @@ aux_source_directory(${LUATOS_ROOT}/lua/src LUA_SRCS)
 aux_source_directory(${LUATOS_ROOT}/luat/packages/lua-cjson CJSON_SRCS)
 aux_source_directory(${LUATOS_ROOT}/luat/packages/lfs LFS_SRCS)
 aux_source_directory(${LUATOS_ROOT}/luat/modules MODULES_SRCS)
+aux_source_directory(${LUATOS_ROOT}/luat/weak WEAK_SRCS)
 
 add_library(port ${PORT_SRCS})
 add_library(lua ${LUA_SRCS})
 add_library(cjson ${CJSON_SRCS})
 add_library(lfs ${LFS_SRCS})
-add_library(luat ${MODULES_SRCS}
+add_library(luat ${MODULES_SRCS} ${WEAK_SRCS}
                 ${LUATOS_ROOT}/luat/packages/lfs/lfs_sfd.c
                 ${LUATOS_ROOT}/luat/packages/lfs/lfs_util.c
                 ${LUATOS_ROOT}/luat/packages/lfs/lfs.c

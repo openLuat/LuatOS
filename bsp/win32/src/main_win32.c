@@ -15,6 +15,8 @@
 #define LUAT_HEAP_SIZE (4096*1024)
 uint8_t luavm_heap[LUAT_HEAP_SIZE] = {0};
 
+void luat_log_init_win32(void);
+
 static void _luat_main(void* args) {
     luat_main();
 }
@@ -67,6 +69,8 @@ int main(int argc, char** argv) {
             }
         }
     }
+
+    luat_log_init_win32();
 
     SetConsoleCtrlHandler(consoleHandler, TRUE);
     bpool(luavm_heap, LUAT_HEAP_SIZE);

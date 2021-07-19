@@ -9,6 +9,7 @@
 void luat_lv_fs_init(void);
 void lv_bmp_init(void);
 void lv_png_init(void);
+void lv_split_jpeg_init(void);
 #endif
 
 LUAMOD_API int luaopen_win32( lua_State *L );
@@ -122,6 +123,7 @@ int luat_fs_init(void) {
 	luat_lv_fs_init();
 	lv_bmp_init();
 	lv_png_init();
+	lv_split_jpeg_init();
 	#endif
 	return 0;
 }

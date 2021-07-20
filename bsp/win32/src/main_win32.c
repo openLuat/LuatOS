@@ -12,7 +12,7 @@
 #include "windows.h"
 #include <unistd.h>
 
-#define LUAT_HEAP_SIZE (4096*1024)
+#define LUAT_HEAP_SIZE (1024*1024)
 uint8_t luavm_heap[LUAT_HEAP_SIZE] = {0};
 
 void luat_log_init_win32(void);

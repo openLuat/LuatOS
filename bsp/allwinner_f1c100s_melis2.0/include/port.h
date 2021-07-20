@@ -2,6 +2,7 @@
 #define __PORT_H__
 #include  "epdk.h"
 #include "mod_orange.h"
+#include "mod_cedar.h"
 #include "gui_core.h"
 #include "bsp_display.h"
 #include "bsp_uart.h"

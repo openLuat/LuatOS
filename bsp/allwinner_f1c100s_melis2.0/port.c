@@ -44,10 +44,18 @@ typedef struct
 	__hdle  		h_mouseGraber;
 	ES_FILE 		*pUart;
     __s32		    last_touch_action;
-    __u8			msg_srv_tid;
-    __u8 			ksrv_th_id;
+
+    uint8_t			msg_srv_tid;
+    uint8_t 			ksrv_th_id;
 }kernel_ctrlstruct;
 
+typedef struct port
+{
+	volatile  __mp *robin_hced;
+	volatile  ES_FILE *p_dac;
+	__hdle          h_media_lay;
+	volatile uint8_t mid_ced;
+}media_ctrlstruct;
 
 typedef struct
 {
@@ -73,7 +81,7 @@ typedef union
 
 static display_ctrlstruct g_display;
 static kernel_ctrlstruct prv_kernel;
-
+static media_ctrlstruct prv_media;
 
 /**
  * 通过回调函数的方式取触摸屏消息
@@ -720,7 +728,9 @@ static void app_init(void)
 	ret = esDEV_Plugin("\\drv\\ir.drv", 0, 0, 1);
 	ret = esDEV_Plugin("\\drv\\uart.drv", 2, 0, 1);
     pHwsc = eLIBs_fopen("b:\\HWSC\\hwsc", "rb+");
-	
+	prv_media.p_dac = eLIBs_fopen("b:\\AUDIO\\CTRL", "r+");
+	prv_media.mid_ced = esMODS_MInstall( "d:\\mod\\cedar.mod", 0 );
+	prv_media.robin_hced = esMODS_MOpen(prv_media.mid_ced, 0);
     if(pHwsc)
     {
         eLIBs_fioctrl(pHwsc, DEV_IOC_USR_HWSC_ENABLE_MONITOR, 0, NULL);
@@ -830,6 +840,118 @@ static void disp_lcd_init(void)
     eLIBs_fioctrl(g_display.hdis, DISP_CMD_LAYER_OPEN, 0, (void*)arg);
 }
 
+static void media_lcd_init(const RECT *rect_p, uint32_t pipe, uint32_t prio)
+{
+	__disp_layer_info_t     image_layer_info = {0};
+	__disp_fb_t             image_fb_para = {0};
+	RECT                    image_win;
+
+	__u32 arg[3];
+
+	if( rect_p == NULL )
+		return ;
+
+	image_fb_para.size.height      	= 0;                   // DONT'T CARE
+	image_fb_para.size.width       	= 0;                   // DONT'T CARE
+	image_fb_para.addr[0]          	= NULL;
+	image_fb_para.format         	= DISP_FORMAT_RGB565;         // DONT'T CARE
+	image_fb_para.seq     			= DISP_SEQ_ARGB;  	  // DONT'T CARE
+	image_fb_para.mode      		= 0;                   // DONT'T CARE
+	image_fb_para.br_swap       	= 0;                // DONT'T CARE
+	image_fb_para.cs_mode 			= NULL;
+
+	image_layer_info.mode			= DISP_LAYER_WORK_MODE_NORMAL;
+    image_layer_info.pipe			= pipe;
+    image_layer_info.prio			= prio;
+    image_layer_info.alpha_en		= 0;
+    image_layer_info.alpha_val		= 255;
+    image_layer_info.ck_enable		= 0;
+    image_layer_info.src_win.x      = 0;
+	image_layer_info.src_win.y      = 0;
+	image_layer_info.src_win.width  = rect_p->width ;
+	image_layer_info.src_win.height = rect_p->height;
+    image_layer_info.scn_win.x      = rect_p->x     ;
+	image_layer_info.scn_win.y      = rect_p->y     ;
+	image_layer_info.scn_win.width  = rect_p->width ;
+	image_layer_info.scn_win.height = rect_p->height;
+    image_layer_info.fb				= image_fb_para;
+
+	arg[0] = DISP_LAYER_WORK_MODE_NORMAL;
+	arg[1] = 0;
+	arg[2] = 0;
+	prv_media.h_media_lay = eLIBs_fioctrl( g_display.hdis, DISP_CMD_LAYER_REQUEST, 0, (void *)arg );
+
+	if( prv_media.h_media_lay == NULL )
+	{
+		DBG("Error in applying for the video layer");
+		goto error;
+	}
+
+	arg[0] = prv_media.h_media_lay;
+	arg[1] = (__u32)&image_layer_info;
+	arg[2] = 0;
+	eLIBs_fioctrl( g_display.hdis, DISP_CMD_LAYER_SET_PARA, 0, (void *)arg );
+
+	image_win.x      = rect_p->x;
+    image_win.y      = rect_p->y;
+    image_win.width  = rect_p->width ;
+    image_win.height = rect_p->height;
+
+	if(esMODS_MIoctrl(prv_media.robin_hced, CEDAR_CMD_SET_VID_LAYERHDL, 0, (void *)prv_media.h_media_lay) != EPDK_OK)
+    {
+        DBG("Fail in setting video layer handle to cedar!");
+        goto error;
+    }
+    //set video window information to cedar
+    if(esMODS_MIoctrl(prv_media.robin_hced, CEDAR_CMD_SET_VID_WINDOW, 0, &image_win) != EPDK_OK)
+    {
+        DBG("Fail in setting video window information to cedar!");
+        goto error;
+    }
+
+	return ;
+
+error:
+	if( prv_media.h_media_lay != NULL )
+	{
+		arg[0] = prv_media.h_media_lay;
+		arg[1] = 0;
+		arg[2] = 0;
+		eLIBs_fioctrl( g_display.hdis, DISP_CMD_LAYER_RELEASE, 0, (void *)arg );
+		prv_media.h_media_lay = NULL;
+	}
+	return ;
+}
+
+static void media_test(char* path)
+{
+	__s32 ret;
+	__cedar_media_file_inf*  file_info;
+
+	file_info = (__cedar_media_file_inf*)esMEMS_Malloc(0, sizeof(__cedar_media_file_inf));
+
+	eLIBs_strcpy(file_info->file_path, path);
+	file_info->tag_inf_validflag = 0;
+
+	/* set new media file to be played */
+	ret = esMODS_MIoctrl( prv_media.robin_hced, CEDAR_CMD_SET_MEDIAFILE, 0, file_info );
+	DBG("CEDAR_CMD_SET_MEDIAFILE:%d", ret);
+
+	/* send play command */
+	ret = esMODS_MIoctrl( prv_media.robin_hced, CEDAR_CMD_PLAY, 0, NULL );
+	if( ret != EPDK_OK )
+	{
+		DBG("Fail in setting play cmd.%d", ret);
+		return ;
+	}
+	else
+	{
+		DBG("play ok.%d", ret);
+	}
+
+	return;
+}
+
 static void disp_lcd_test(void)
 {
     uint32_t i;
@@ -880,12 +1002,17 @@ static void port_thread(void *arg)
 {
     __event_t *tmp;
     __u8 error;
-    app_init();
-    disp_lcd_init();
+	RECT rect;
 	u8 *temp_data;
 	int32_t rx_len;
+	app_init();
+    disp_lcd_init();
+	rect.x      = 0;
+	rect.y      = 0;
+	rect.width  = g_display.width;
+	rect.height = g_display.height;
+	media_lcd_init(&rect, 1, 0xff);
     //disp_lcd_test();
-    //luatos_main_entry();
     while(1)
     {
         tmp = (__event_t *)esKRNL_QPend( prv_kernel.psys_msg_queue, 0, &error);

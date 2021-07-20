@@ -127,6 +127,7 @@ for file in file_list:
         if modules[mstep]["module"] == module["module"]:
             module["api"] = modules[mstep]["api"]
             del modules[mstep]
+            module["url"] = ""
 
     #后面的数据
     lines = text.splitlines()

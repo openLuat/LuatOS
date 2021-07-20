@@ -29,6 +29,11 @@ for home, dirs, files in os.walk(source_path+"/../lua"):
         if filename.endswith(".c"):
             file_list.append(os.path.join(home, filename))
 
+for home, dirs, files in os.walk(source_path+"/../components"):
+    for filename in files:
+        if filename.endswith(".c"):
+            file_list.append(os.path.join(home, filename))
+
 #注释的格式：
 # /*
 # @module  模块的调用名
@@ -117,6 +122,11 @@ for file in file_list:
         module["api"] = []
     else:
         continue
+
+    for mstep in range(len(modules)-1,-1,-1):
+        if modules[mstep]["module"] == module["module"]:
+            module["api"] = modules[mstep]["api"]
+            del modules[mstep]
 
     #后面的数据
     lines = text.splitlines()

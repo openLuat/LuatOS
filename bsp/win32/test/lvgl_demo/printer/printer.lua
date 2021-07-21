@@ -76,7 +76,7 @@ local function demo_printer_anim_in_all(obj,delay)
     local child = lvgl.obj_get_child_back(obj, nil)
     while(child) do
         y = lvgl.obj_get_y(child)
-        if (child ~= lvgl.scr_act() and child ~= _G.guider_ui.saved_img1 and child ~= _G.guider_ui.home_imgbtncopy) then
+        if (child ~= lvgl.scr_act()) then
             -- lvgl.anim_t a
             -- lvgl.anim_init(a)
 			local a = lvgl.anim_create()
@@ -219,8 +219,9 @@ local function load_copy_next_cb(obj,event)
     if (event == lvgl.EVENT_PRESSED) then
         printer.guider_load_screen(SCR_COPY_NEXT)
         demo_printer_anim_in_all(_G.guider_ui.copynext, 200)
-        lvgl.anim_set_var(ani_en_btn_click, _G.guider_ui.copynext_print)
-        lvgl.anim_start(ani_en_btn_click)
+        --lvgl.anim_set_var(ani_en_btn_click, _G.guider_ui.copynext_print)
+        --lvgl.anim_start(ani_en_btn_click)
+        sys.timerStart(en_click_anim_cb, 150, nil, 150)
     end
 end
 local function load_print_finish_cb(obj,event)
@@ -331,8 +332,9 @@ function printer.guider_load_screen(scr_id)
 			printer.events_init_home(_G.guider_ui)
 			home_event_init()
             scr = _G.guider_ui.home
-			lvgl.anim_set_var(ani_en_btn_click, _G.guider_ui.home_imgbtncopy)
-			lvgl.anim_start(ani_en_btn_click)
+			--lvgl.anim_set_var(ani_en_btn_click, _G.guider_ui.home_imgbtncopy)
+			--lvgl.anim_start(ani_en_btn_click)
+            sys.timerStart(en_click_anim_cb, 150, nil, 150)
 			print("load home\n")
 		-- end
     elseif(scr_id == SCR_COPY_HOME) then
@@ -340,8 +342,9 @@ function printer.guider_load_screen(scr_id)
 			copyhome.setup_scr_copyhome(_G.guider_ui)
 			copy_home_event_init()
             scr = _G.guider_ui.copyhome
-			lvgl.anim_set_var(ani_en_btn_click, _G.guider_ui.copyhome_btncopyback)
-			lvgl.anim_start(ani_en_btn_click)
+			--lvgl.anim_set_var(ani_en_btn_click, _G.guider_ui.copyhome_btncopyback)
+			--lvgl.anim_start(ani_en_btn_click)
+            sys.timerStart(en_click_anim_cb, 150, nil, 150)
             print("load copy home\n")
 		-- end
     elseif(scr_id == SCR_COPY_NEXT) then
@@ -463,7 +466,7 @@ function printer.events_init_home(ui)
 	lvgl.obj_set_event_cb(ui.home_imgbtnprt, home_imgbtnprtevent_handler)
 end
 
-local function en_click_anim_cb(btn,v)
+_G.en_click_anim_cb = function (btn,v)
     if(v >= 150) then
 		if cur_scr==SCR_HOME then
 			lvgl.obj_set_click(_G.guider_ui.home_imgbtncopy, true)
@@ -516,10 +519,10 @@ local function event_cb()
     hue_act = 180
 
     -- lvgl.anim_init(ani_en_btn_click)
-	ani_en_btn_click = lvgl.anim_create()
-    lvgl.anim_set_exec_cb(ani_en_btn_click, en_click_anim_cb)
-    lvgl.anim_set_values(ani_en_btn_click, 0, 150)
-    lvgl.anim_set_time(ani_en_btn_click, 150)
+	--ani_en_btn_click = lvgl.anim_create()
+    --lvgl.anim_set_exec_cb(ani_en_btn_click, en_click_anim_cb)
+    --lvgl.anim_set_values(ani_en_btn_click, 0, 150)
+    --lvgl.anim_set_time(ani_en_btn_click, 150)
 end
 
 function printer.setup_ui(ui)
@@ -542,8 +545,9 @@ function printer.custom_init(ui)
 	event_cb()
 	home_event_init()
 
-	lvgl.anim_set_var(ani_en_btn_click, _G.guider_ui.home_imgbtncopy)
-    lvgl.anim_start(ani_en_btn_click)
+	--lvgl.anim_set_var(ani_en_btn_click, _G.guider_ui.home_imgbtncopy)
+    --lvgl.anim_start(ani_en_btn_click)
+    sys.timerStart(en_click_anim_cb, 150, nil, 150)
 
 	cur_scr = SCR_HOME
 	ui.copyhome = nil

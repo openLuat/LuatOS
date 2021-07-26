@@ -1,4 +1,10 @@
-
+--[[
+@module  lvgl
+@summary button_counter_demo
+@author  Dozingfiretruck
+@version 1.0
+@date    2021.07.26
+]]
 
 local sys = require "sys"
 local setup = require "setup_scr_screen"

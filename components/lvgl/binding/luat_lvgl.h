@@ -33,6 +33,7 @@ void luat_lv_fs_init(void);
 #include "luat_lvgl_img_ext.h"
 #include "luat_lvgl_imgbtn.h"
 #include "luat_lvgl_map.h"
+#include "luat_lvgl_gauge_ex.h"
 
 #include "luat_lvgl_fonts.h"
 #include "luat_lvgl_font.h"

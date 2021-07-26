@@ -178,6 +178,7 @@ function setup.setup_scr_screen(ui)
 	-- local lvgl.color_t needle_colors_screen_gauge2[1]
 	-- needle_colors_screen_gauge2[0] = lvgl.color_make(0xff, 0x00, 0x00)
 	-- lvgl.gauge_set_needle_count(ui.screen_gauge2, 1, needle_colors_screen_gauge2)
+	lvgl.gauge_set_needle_count(ui.screen_gauge2, 1, lvgl.color_make(0xff, 0x00, 0x00))
 	lvgl.gauge_set_critical_value(ui.screen_gauge2, 120)
 	lvgl.gauge_set_value(ui.screen_gauge2, 0, 0)
 

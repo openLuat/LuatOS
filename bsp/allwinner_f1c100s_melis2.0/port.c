@@ -24,6 +24,13 @@ typedef struct
     volatile uint32_t event_pos;
 }__event_queue_t;
 
+typedef struct _robin_msg_t
+{
+	__u32  id;
+	__u32  data;
+	__cedar_media_file_inf  file_info;
+}robin_msg_t;
+
 typedef struct
 {
 	__uart_para_t uart_param[3];
@@ -33,11 +40,13 @@ typedef struct
 	__event_t mou_event_buf[TP_EVENT_CNT];
     __event_t key_event_buf[KEY_EVENT_CNT];
     __event_t srv_event_buf[SRV_EVENT_CNT];
+	__event_t cedar_event_buf[DEV_EVENT_CNT];
 	volatile uint32_t uart_event_pos;
     volatile uint32_t tp_event_pos;
 	volatile uint32_t mou_event_pos;
     volatile uint32_t key_event_pos;
     volatile uint32_t srv_event_pos;
+	volatile uint32_t cedar_event_pos;
 	uint32_t 		uart_br[3];
 	__hdle  		h_tpGraber;
 	__hdle  		h_keyGraber;
@@ -46,7 +55,8 @@ typedef struct
     __s32		    last_touch_action;
 
     uint8_t			msg_srv_tid;
-    uint8_t 			ksrv_th_id;
+    uint8_t 		ksrv_th_id;
+	uint8_t			cedar_task_id;
 }kernel_ctrlstruct;
 
 typedef struct port
@@ -54,6 +64,7 @@ typedef struct port
 	volatile  __mp *robin_hced;
 	volatile  ES_FILE *p_dac;
 	__hdle          h_media_lay;
+	volatile  __krnl_event_t *cedar_msgQ;
 	volatile uint8_t mid_ced;
 }media_ctrlstruct;
 
@@ -697,6 +708,23 @@ static void ksrv_msg_thread(void *arg)
 	}
 }
 
+static void cedar_msg_thread(void *arg)
+{
+	__event_t	*pmsg;
+	__u8 error;
+    __s32  msg;
+           
+	while(1)
+	{
+		msg = (__s32)esKRNL_QPend( prv_media.cedar_msgQ, 0, &error );
+		if (msg != CEDAR_ERROR_NOP && msg != CEDAR_FEDBAK_NO_ERROR)
+		{
+			DBG("%d", msg);
+		}
+	}
+}
+
+
 static void app_uart_cb(uint32_t id, uint32_t event, uint32_t param)
 {
 	__event_t	*pmsg;
@@ -731,6 +759,7 @@ static void app_init(void)
 	prv_media.p_dac = eLIBs_fopen("b:\\AUDIO\\CTRL", "r+");
 	prv_media.mid_ced = esMODS_MInstall( "d:\\mod\\cedar.mod", 0 );
 	prv_media.robin_hced = esMODS_MOpen(prv_media.mid_ced, 0);
+	prv_media.cedar_msgQ = (__krnl_event_t *)esMODS_MIoctrl( prv_media.robin_hced, CEDAR_CMD_GET_MESSAGE_CHN, 0, NULL );
     if(pHwsc)
     {
         eLIBs_fioctrl(pHwsc, DEV_IOC_USR_HWSC_ENABLE_MONITOR, 0, NULL);
@@ -769,6 +798,7 @@ static void app_init(void)
 		DBG("key device ioctl failed\n");
 	}
     prv_kernel.ksrv_th_id = esKRNL_TCreate(ksrv_msg_thread, (void *)&prv_kernel, 0x400, KRNL_priolevel3);
+	prv_kernel.cedar_task_id = esKRNL_TCreate(cedar_msg_thread, (void *)&prv_kernel, 0x2000, (EPOS_curid << 8) | KRNL_priolevel3);
 }
 //初始化显示
 static void disp_lcd_init(void)
@@ -908,7 +938,11 @@ static void media_lcd_init(const RECT *rect_p, uint32_t pipe, uint32_t prio)
         DBG("Fail in setting video window information to cedar!");
         goto error;
     }
-
+	if(esMODS_MIoctrl(prv_media.robin_hced, CEDAR_CMD_SET_RESERVED_MEM_SIZE, 512 * 1024, NULL ) != EPDK_OK)
+    {
+		DBG("Error in set reserved memory !");
+        goto error;
+	}
 	return ;
 
 error:
@@ -998,6 +1032,16 @@ static void disp_lcd_test(void)
     g_display.fb_index = next_buffer_index;
 }
 
+static void test_thread(void *arg)
+{
+	esKRNL_TimeDly(500);
+	media_test("D:\\test.mp4");
+	while(1)
+	{
+		esKRNL_TimeDly(500);
+	}
+}
+
 static void port_thread(void *arg)
 {
     __event_t *tmp;
@@ -1012,6 +1056,7 @@ static void port_thread(void *arg)
 	rect.width  = g_display.width;
 	rect.height = g_display.height;
 	media_lcd_init(&rect, 1, 0xff);
+
     //disp_lcd_test();
     while(1)
     {
@@ -1054,4 +1099,5 @@ int port_entry(void)
     DBG("entry luatos app!");
     id = esKRNL_TCreate(port_thread, NULL, 0x10000, KRNL_priolevel1);
     DBG("thread id %d!", id);
+	esKRNL_TCreate(test_thread, NULL, 0x400, KRNL_priolevel7);
 }

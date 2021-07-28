@@ -93,7 +93,7 @@ typedef union
 static display_ctrlstruct g_display;
 static kernel_ctrlstruct prv_kernel;
 static media_ctrlstruct prv_media;
-
+static void test_thread(void *arg);
 /**
  * 通过回调函数的方式取触摸屏消息
  */
@@ -799,6 +799,7 @@ static void app_init(void)
 	}
     prv_kernel.ksrv_th_id = esKRNL_TCreate(ksrv_msg_thread, (void *)&prv_kernel, 0x400, KRNL_priolevel3);
 	prv_kernel.cedar_task_id = esKRNL_TCreate(cedar_msg_thread, (void *)&prv_kernel, 0x2000, (EPOS_curid << 8) | KRNL_priolevel3);
+	DBG("%d", esKRNL_TCreate(test_thread, NULL, 0x4000, KRNL_priolevel2));
 }
 //初始化显示
 static void disp_lcd_init(void)
@@ -1034,6 +1035,7 @@ static void disp_lcd_test(void)
 
 static void test_thread(void *arg)
 {
+	DBG("!");
 	esKRNL_TimeDly(500);
 	media_test("D:\\test.mp4");
 	while(1)
@@ -1099,5 +1101,5 @@ int port_entry(void)
     DBG("entry luatos app!");
     id = esKRNL_TCreate(port_thread, NULL, 0x10000, KRNL_priolevel1);
     DBG("thread id %d!", id);
-	esKRNL_TCreate(test_thread, NULL, 0x400, KRNL_priolevel7);
+
 }

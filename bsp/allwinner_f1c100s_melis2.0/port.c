@@ -98,7 +98,7 @@ static void test_thread(void *arg);
 const uint8_t ByteToAsciiTable[16] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
 
 
-static dump(uint8_t *Data, uint32_t Len)
+static void dump(uint8_t *Data, uint32_t Len)
 {
 	uint8_t *buf = esMEMS_Malloc(0, Len * 3 + 4);
 	uint32_t i = 0;

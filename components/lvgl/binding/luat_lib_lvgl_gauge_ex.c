@@ -15,7 +15,7 @@ int luat_lv_gauge_set_needle_count(lua_State *L) {
     lv_obj_t* gauge = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t needle_cnt = (lv_coord_t)luaL_checkinteger(L, 2);
     lv_color_t *colors;
-    colors = (lv_color_t*)luat_heap_calloc((needle_cnt+1),sizeof(lv_color_t));
+    colors = (lv_color_t*)luat_heap_calloc(needle_cnt,sizeof(lv_color_t));
     for(int i=0; i<needle_cnt; i++){
         lv_color_t _color;
         _color.full = luaL_checkinteger(L, i+3);

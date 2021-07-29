@@ -94,6 +94,30 @@ static display_ctrlstruct g_display;
 static kernel_ctrlstruct prv_kernel;
 static media_ctrlstruct prv_media;
 static void test_thread(void *arg);
+
+const uint8_t ByteToAsciiTable[16] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
+
+
+static dump(uint8_t *Data, uint32_t Len)
+{
+	uint8_t *buf = esMEMS_Malloc(0, Len * 3 + 4);
+	uint32_t i = 0;
+	uint32_t j = 0;
+	eLIBs_memset(buf, 0, Len * 3 + 4);
+	while (i < Len)
+	{
+		buf[j++] = ByteToAsciiTable[(Data[i] & 0xf0) >> 4];
+		buf[j++] = ByteToAsciiTable[Data[i++] & 0x0f];
+		buf[j++] = ' ';
+	}
+	buf[j++] = '\r';
+	buf[j++] = '\n';
+	__log(buf);
+	esMEMS_Mfree(0, buf);
+
+}
+
+
 /**
  * 通过回调函数的方式取触摸屏消息
  */
@@ -1035,9 +1059,22 @@ static void disp_lcd_test(void)
 
 static void test_thread(void *arg)
 {
-	DBG("!");
+	ES_FILE *h_file;
+	uint8_t head[32];
 	esKRNL_TimeDly(500);
-	media_test("D:\\test.mp4");
+	h_file = eLIBs_fopen("D:\\test.mp4", "rb") ;
+	if(h_file == 0)
+	{
+		DBG("test file cannot open");
+	}
+	else
+	{
+		eLIBs_fread(head, 1, sizeof(head), h_file) ;
+		eLIBs_fclose(h_file);
+		DBG("file head info:");
+		dump(head, sizeof(head));
+		media_test("D:\\test.mp4");
+	}
 	while(1)
 	{
 		esKRNL_TimeDly(500);

@@ -12,6 +12,20 @@
 
 /*
 创建一个style
+@api lvgl.style_t()
+@return userdata style指针
+@usage
+local style = lvgl.style_t()
+lvgl.style_init(style)
+*/
+int luat_lv_style_t(lua_State *L) {
+    lv_style_t* style = (lv_style_t*)luat_heap_malloc(sizeof(lv_style_t));
+    lua_pushlightuserdata(L, style);
+    return 1;
+}
+
+/*
+创建一个style并初始化
 @api lvgl.style_create()
 @return userdata style指针
 @usage

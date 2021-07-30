@@ -40,9 +40,9 @@ sys.taskInit(function ()
 	lvgl.dropdown_set_max_height(ui.screen_ddlist1, 90)
 
 	--Write style lvgl.DROPDOWN_PART_MAIN for screen_ddlist1
-	-- local style_screen_ddlist1_main
-	-- lvgl.style_init(style_screen_ddlist1_main)
-	local style_screen_ddlist1_main = lvgl.style_create()
+	local style_screen_ddlist1_main = lvgl.style_t()
+	lvgl.style_init(style_screen_ddlist1_main)
+	-- local style_screen_ddlist1_main = lvgl.style_create()
 
 	--Write style state: lvgl.STATE_DEFAULT for style_screen_ddlist1_main
 	lvgl.style_set_radius(style_screen_ddlist1_main, lvgl.STATE_DEFAULT, 3)

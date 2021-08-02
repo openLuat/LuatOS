@@ -1,4 +1,10 @@
 
+/*
+@module  fs
+@summary 文件系统额外操作
+@version 1.0
+@date    2021.03.30
+*/
 #include "luat_base.h"
 #include "luat_fs.h"
 #include "luat_malloc.h"
@@ -50,6 +56,7 @@ static int l_fs_fsize(lua_State *L) {
     return 1;
 }
 
+//---- 其他API尚不完善,暂不注释
 
 static int l_fs_mkdir(lua_State *L) {
     const char* path = luaL_checkstring(L, 1);

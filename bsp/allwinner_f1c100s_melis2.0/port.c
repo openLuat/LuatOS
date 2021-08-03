@@ -745,6 +745,12 @@ static void cedar_msg_thread(void *arg)
 		{
 			DBG("%d", msg);
 		}
+		switch(msg)
+		{
+		case CEDAR_FEDBAK_PLAY_END:
+			esMODS_MIoctrl( prv_media.robin_hced, CEDAR_CMD_STOP, 0, NULL );
+			break;
+		}
 	}
 }
 
@@ -931,7 +937,7 @@ static void media_lcd_init(const RECT *rect_p, uint32_t pipe, uint32_t prio)
 	image_layer_info.scn_win.height = rect_p->height;
     image_layer_info.fb				= image_fb_para;
 
-	arg[0] = DISP_LAYER_WORK_MODE_NORMAL;
+	arg[0] = DISP_LAYER_WORK_MODE_SCALER;
 	arg[1] = 0;
 	arg[2] = 0;
 	prv_media.h_media_lay = eLIBs_fioctrl( g_display.hdis, DISP_CMD_LAYER_REQUEST, 0, (void *)arg );
@@ -968,6 +974,7 @@ static void media_lcd_init(const RECT *rect_p, uint32_t pipe, uint32_t prio)
 		DBG("Error in set reserved memory !");
         goto error;
 	}
+
 	return ;
 
 error:
@@ -986,7 +993,7 @@ static void media_test(char* path)
 {
 	__s32 ret;
 	__cedar_media_file_inf*  file_info;
-
+	__u32 arg[3];
 	file_info = (__cedar_media_file_inf*)esMEMS_Malloc(0, sizeof(__cedar_media_file_inf));
 
 	eLIBs_strcpy(file_info->file_path, path);
@@ -995,9 +1002,17 @@ static void media_test(char* path)
 	/* set new media file to be played */
 	ret = esMODS_MIoctrl( prv_media.robin_hced, CEDAR_CMD_SET_MEDIAFILE, 0, file_info );
 	DBG("CEDAR_CMD_SET_MEDIAFILE:%d", ret);
-
+	arg[0] = prv_media.h_media_lay;
+	arg[1] = 0;
+	arg[2] = 0;
+	eLIBs_fioctrl(g_display.hdis, DISP_CMD_LAYER_TOP, 0, (void *)arg);
+	arg[0] = g_display.hlayer;
+	arg[1] = 0;
+	arg[2] = 0;
+	eLIBs_fioctrl(g_display.hdis, DISP_CMD_LAYER_BOTTOM, 0, (void *)arg);
 	/* send play command */
 	ret = esMODS_MIoctrl( prv_media.robin_hced, CEDAR_CMD_PLAY, 0, NULL );
+	esMEMS_Mfree(0, file_info);
 	if( ret != EPDK_OK )
 	{
 		DBG("Fail in setting play cmd.%d", ret);
@@ -1094,7 +1109,7 @@ static void port_thread(void *arg)
 	rect.y      = 0;
 	rect.width  = g_display.width;
 	rect.height = g_display.height;
-	media_lcd_init(&rect, 1, 0xff);
+	media_lcd_init(&rect, 0, 0xff);
 
     //disp_lcd_test();
     while(1)

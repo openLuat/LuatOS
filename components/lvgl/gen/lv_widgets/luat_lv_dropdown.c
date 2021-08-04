@@ -82,7 +82,7 @@ int luat_lv_dropdown_set_dir(lua_State *L) {
 int luat_lv_dropdown_set_max_height(lua_State *L) {
     LV_DEBUG("CALL lv_dropdown_set_max_height");
     lv_obj_t* ddlist = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_coord_t h = (lv_coord_t)luaL_checkinteger(L, 2);
+    lv_coord_t h = (lv_coord_t)luaL_checknumber(L, 2);
     lv_dropdown_set_max_height(ddlist ,h);
     return 0;
 }

@@ -28,8 +28,8 @@ int luat_lv_tileview_add_element(lua_State *L) {
 int luat_lv_tileview_set_tile_act(lua_State *L) {
     LV_DEBUG("CALL lv_tileview_set_tile_act");
     lv_obj_t* tileview = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_coord_t x = (lv_coord_t)luaL_checkinteger(L, 2);
-    lv_coord_t y = (lv_coord_t)luaL_checkinteger(L, 3);
+    lv_coord_t x = (lv_coord_t)luaL_checknumber(L, 2);
+    lv_coord_t y = (lv_coord_t)luaL_checknumber(L, 3);
     lv_anim_enable_t anim = (lv_anim_enable_t)lua_toboolean(L, 4);
     lv_tileview_set_tile_act(tileview ,x ,y ,anim);
     return 0;

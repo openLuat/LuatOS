@@ -196,7 +196,7 @@ def handle_groups(group, path):
             continue
         try :
             #print(">>>>>>>>>>>>" + name)
-            ast = parse_file(os.path.join(path, name), use_cpp=True, cpp_path='''C:/msys32/mingw32/bin/cpp.exe''', cpp_args=['-E', '-I../../../pycparser/utils/fake_libc_include', '-I.', '-I../../lua/include', '-I../../luat/include'])
+            ast = parse_file(os.path.join(path, name), use_cpp=True, cpp_path='''C:/msys32/mingw32/bin/cpp.exe''', cpp_args=['-E', '-Imock', '-I../../../pycparser/utils/fake_libc_include', '-I.', '-I../../lua/include', '-I../../luat/include'])
             v = FuncDefVisitor("lv_" + group, name[:-2])
             v.visit(ast)
         except  Exception :
@@ -460,7 +460,7 @@ def mtostr(m) :
     return sb
 
 map_lua_arg = {
-    "lv_coord_t" : {"fmt": "{} {} = (lv_coord_t)luaL_checkinteger(L, {});", "incr" : 1},
+    "lv_coord_t" : {"fmt": "{} {} = (lv_coord_t)luaL_checknumber(L, {});", "incr" : 1},
     "int16_t" : {"fmt": "{} {} = (int16_t)luaL_checkinteger(L, {});", "incr" : 1},
     "int8_t" : {"fmt": "{} {} = (int8_t)luaL_checkinteger(L, {});", "incr" : 1},
     "int32_t" : {"fmt": "{} {} = (int32_t)luaL_checkinteger(L, {});", "incr" : 1},

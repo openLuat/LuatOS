@@ -15,10 +15,10 @@ int luat_lv_area_set(lua_State *L) {
     lua_geti(L, -1, 4); area_p.y2 = luaL_checkinteger(L, -1); lua_pop(L, 1);
     lua_pop(L, 1);
 
-    lv_coord_t x1 = (lv_coord_t)luaL_checkinteger(L, 2);
-    lv_coord_t y1 = (lv_coord_t)luaL_checkinteger(L, 3);
-    lv_coord_t x2 = (lv_coord_t)luaL_checkinteger(L, 4);
-    lv_coord_t y2 = (lv_coord_t)luaL_checkinteger(L, 5);
+    lv_coord_t x1 = (lv_coord_t)luaL_checknumber(L, 2);
+    lv_coord_t y1 = (lv_coord_t)luaL_checknumber(L, 3);
+    lv_coord_t x2 = (lv_coord_t)luaL_checknumber(L, 4);
+    lv_coord_t y2 = (lv_coord_t)luaL_checknumber(L, 5);
     lv_area_set(&area_p ,x1 ,y1 ,x2 ,y2);
     return 0;
 }
@@ -91,7 +91,7 @@ int luat_lv_area_set_width(lua_State *L) {
     lua_geti(L, -1, 4); area_p.y2 = luaL_checkinteger(L, -1); lua_pop(L, 1);
     lua_pop(L, 1);
 
-    lv_coord_t w = (lv_coord_t)luaL_checkinteger(L, 2);
+    lv_coord_t w = (lv_coord_t)luaL_checknumber(L, 2);
     lv_area_set_width(&area_p ,w);
     return 0;
 }
@@ -107,7 +107,7 @@ int luat_lv_area_set_height(lua_State *L) {
     lua_geti(L, -1, 4); area_p.y2 = luaL_checkinteger(L, -1); lua_pop(L, 1);
     lua_pop(L, 1);
 
-    lv_coord_t h = (lv_coord_t)luaL_checkinteger(L, 2);
+    lv_coord_t h = (lv_coord_t)luaL_checknumber(L, 2);
     lv_area_set_height(&area_p ,h);
     return 0;
 }

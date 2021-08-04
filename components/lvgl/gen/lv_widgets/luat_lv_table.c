@@ -49,7 +49,7 @@ int luat_lv_table_set_col_width(lua_State *L) {
     LV_DEBUG("CALL lv_table_set_col_width");
     lv_obj_t* table = (lv_obj_t*)lua_touserdata(L, 1);
     uint16_t col_id = (uint16_t)luaL_checkinteger(L, 2);
-    lv_coord_t w = (lv_coord_t)luaL_checkinteger(L, 3);
+    lv_coord_t w = (lv_coord_t)luaL_checknumber(L, 3);
     lv_table_set_col_width(table ,col_id ,w);
     return 0;
 }

@@ -136,56 +136,11 @@ static int st7789_init(luat_lcd_conf_t* conf) {
     return 0;
 };
 
-// TODO 这里的color是ARGB, 需要转为lcd所需要的格式
 static int st7789_draw(luat_lcd_conf_t* conf, uint16_t x_start, uint16_t y_start, uint16_t x_end, uint16_t y_end, luat_color_t* color) {
-    uint16_t i = 0, j = 0;
-    uint32_t size = 0, size_remain = 0;
-    uint8_t *fill_buf = NULL;
-    size = (x_end - x_start+1) * (y_end - y_start+1) * 2;
-    if (size > conf->w*conf->h/10)
-    {
-        /* the number of remaining to be filled */
-        size_remain = size - conf->w*conf->h/10;
-        size = conf->w*conf->h/10;
-    }
+    uint32_t size = size = (x_end - x_start+1) * (y_end - y_start+1) * 2;
     luat_lcd_set_address(conf,x_start, y_start, x_end, y_end);
-    fill_buf = (uint8_t *)luat_heap_malloc(size);
-    if (fill_buf)
-    {
-        /* fast fill */
-        while (1)
-        {
-            for (i = 0; i < size / 2; i++)
-            {
-                fill_buf[2 * i] = color[i]>>8;
-                //color >> 8;
-                fill_buf[2 * i + 1] = color[i];
-            }
-            luat_gpio_set(conf->pin_dc, Luat_GPIO_HIGH);
-            luat_spi_send(conf->port, fill_buf, size);
-            /* Fill completed */
-            if (size_remain == 0)
-                break;
-            /* calculate the number of fill next time */
-            if (size_remain > conf->w*conf->h/10)
-            {
-                size_remain = size_remain - conf->w*conf->h/10;
-            }
-            else
-            {
-                size = size_remain;
-                size_remain = 0;
-            }
-        }
-        luat_heap_free(fill_buf);
-    }
-    else
-    {
-        for (i = y_start; i <= y_end; i++)
-        {
-            for (j = x_start; j <= x_end; j++)lcd_write_half_word(conf,color[i]);
-        }
-    }
+    luat_gpio_set(conf->pin_dc, Luat_GPIO_HIGH);
+    luat_spi_send(conf->port, color, size);
     return 0;
 }
 

@@ -16,7 +16,7 @@ static void disp_flush(lv_disp_drv_t * disp_drv, const lv_area_t * area, lv_colo
     if (conf != NULL) {
         conf->opts->draw(conf, area->x1, area->y1, area->x2, area->y2, color_p);
     }
-    LLOGD("CALL disp_flush (%d, %d, %d, %d)", area->x1, area->y1, area->x2, area->y2);
+    // LLOGD("CALL disp_flush (%d, %d, %d, %d)", area->x1, area->y1, area->x2, area->y2);
     lv_disp_flush_ready(disp_drv);
 }
 
@@ -51,7 +51,7 @@ int luat_lv_init(lua_State *L) {
     #ifdef LUA_USE_WINDOWS
     fbuff_size = w * h;
     #else
-    fbuff_size = w * 10;
+    fbuff_size = w * h / 10;
     #endif
 
     LLOGD("w %d h %d buff %d", w, h, fbuff_size);

@@ -36,6 +36,7 @@ void luat_lv_fs_init(void);
 #include "luat_lvgl_gauge_ex.h"
 #include "luat_lvgl_btnmatrix_ex.h"
 #include "luat_lvgl_calendar_ex.h"
+#include "luat_lvgl_ex.h"
 
 #include "luat_lvgl_fonts.h"
 #include "luat_lvgl_font.h"

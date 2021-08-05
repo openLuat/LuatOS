@@ -62,3 +62,10 @@ int luat_lv_obj_align_origo_y(lua_State *L) {
     return 1;
 }
 
+int luat_lv_win_add_btn(lua_State *L) {
+    lv_obj_t * win = lua_touserdata(L, 1);
+    const char* img_src = luaL_checkstring(L, 2);
+    lv_obj_t *btn = lv_win_add_btn(win, img_src);
+    lua_pushlightuserdata(L, btn);
+    return 1;
+}

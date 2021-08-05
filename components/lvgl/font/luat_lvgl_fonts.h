@@ -9,6 +9,7 @@ extern "C" {
 #endif
 #include "../src/lv_font/lv_font.h"
 
+LV_FONT_DECLARE(lv_font_opposans_m_8)
 LV_FONT_DECLARE(lv_font_opposans_m_10)
 LV_FONT_DECLARE(lv_font_opposans_m_12)
 LV_FONT_DECLARE(lv_font_opposans_m_14)

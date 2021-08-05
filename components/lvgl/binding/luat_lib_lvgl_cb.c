@@ -76,6 +76,26 @@ int luat_lv_obj_set_event_cb(lua_State *L) {
     return 0;
 }
 
+int luat_lv_keyboard_def_event_cb(lua_State *L) {
+    lv_obj_t* kb = lua_touserdata(L, 1);
+    if (kb == NULL) {
+        LLOGW("kb is NULL when set event cb");
+        return 0;
+    }
+    if (kb->user_data.event_cb_ref != 0) {
+        luaL_unref(L, LUA_REGISTRYINDEX, kb->user_data.event_cb_ref);
+    }
+    if (lua_isfunction(L, 2)) {
+        lua_settop(L, 2);
+        kb->user_data.event_cb_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+        lv_keyboard_def_event_cb(kb, luat_lv_obj_event_cb);
+    }
+    else {
+        kb->user_data.event_cb_ref = 0;
+        lv_keyboard_def_event_cb(kb, NULL);
+    }
+    return 0;
+}
 
 /*
 设置组件的信号回调

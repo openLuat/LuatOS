@@ -26,6 +26,9 @@ int luat_lv_font_get(lua_State *L) {
     const char* fontname = luaL_checkstring(L, 1);
     if (!strcmp("", fontname)) {
     }
+#ifdef LV_FONT_MONTSERRAT_14
+    else if (!strcmp("montserrat_14", fontname)) { font = &lv_font_montserrat_14;}
+#endif
 #ifdef LV_FONT_OPPOSANS_M_8
     else if (!strcmp("opposans_m_8", fontname)) { font = &lv_font_opposans_m_8;}
 #endif

@@ -12,7 +12,9 @@
 #define LUAT_LOG_TAG "lvgl"
 #include "luat_log.h"
 
+#ifndef LUAT_LV_DEBUG
 #define LUAT_LV_DEBUG 1
+#endif
 
 #if (LUAT_LV_DEBUG == 1)
 #define LV_DEBUG LLOGD

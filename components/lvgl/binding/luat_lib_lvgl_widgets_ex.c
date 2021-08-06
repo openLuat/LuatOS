@@ -21,7 +21,7 @@ int luat_lv_msgbox_add_btns(lua_State *L) {
             lua_pushnumber(L, i+1);
             if (LUA_TSTRING == lua_gettable(L, 2)) {
                 char* btn_mapaction_str = luaL_checkstring(L, -1);
-                printf("%d: %s\r\n",i,btn_mapaction_str);
+                LV_LOG_INFO("%d: %s",i,btn_mapaction_str);
                 btn_mapaction[i] =luat_heap_calloc(1,strlen(btn_mapaction_str)+1);
                 memcpy(btn_mapaction[i],btn_mapaction_str,strlen(btn_mapaction_str)+1);
                 };

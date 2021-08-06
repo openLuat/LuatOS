@@ -150,7 +150,7 @@ static lv_res_t decoder_open(lv_img_decoder_t * decoder, lv_img_decoder_dsc_t * 
 
             error = lodepng_load_file(&png_data, &png_data_size, fn);   /*Load the file*/
             if(error) {
-                printf("error %u: %s\n", error, lodepng_error_text(error));
+                LV_LOG_ERROR("error %u: %s", error, lodepng_error_text(error));
                 return LV_RES_INV;
             }
 
@@ -162,7 +162,7 @@ static lv_res_t decoder_open(lv_img_decoder_t * decoder, lv_img_decoder_dsc_t * 
             error = lodepng_decode32(&img_data, &png_width, &png_height, png_data, png_data_size);
             free(png_data); /*Free the loaded file*/
             if(error) {
-                printf("error %u: %s\n", error, lodepng_error_text(error));
+                LV_LOG_ERROR("error %u: %s", error, lodepng_error_text(error));
                 return LV_RES_INV;
             }
 

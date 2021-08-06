@@ -105,7 +105,7 @@ static lv_fs_res_t luat_lv_fs_write(struct _lv_fs_drv_t * drv, void * file_p, co
 static lv_fs_res_t luat_lv_fs_seek(struct _lv_fs_drv_t * drv, void * file_p, uint32_t pos) {
     file_t* fp = file_p;
     int ret = luat_fs_fseek(*fp, pos, SEEK_SET);
-    if (ret == pos)
+    if (ret == 0)
         return LV_FS_RES_OK;
     return LV_FS_RES_FS_ERR;
 }

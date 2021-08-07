@@ -1956,12 +1956,12 @@ static int base64_decode( unsigned char *dst, size_t dlen, size_t *olen,
 }
 
 /*
-将字符串进行base64解码
-@api string.fromBase64(str)
+将字符串进行base64编码
+@api string.toBase64(str)
 @string 需要转换的字符串
 @return string 解码后的字符串,如果解码失败会返回空字符串
 */
-static int str_fromBase64(lua_State *L) {
+static int str_toBase64(lua_State *L) {
   size_t len = 0;
   const char* str = luaL_checklstring(L, 1, &len);
   if (len == 0) {
@@ -1980,14 +1980,13 @@ static int str_fromBase64(lua_State *L) {
   lua_pushstring(L, "");
   return 1;
 }
-
 /*
-将字符串进行base64编码
-@api string.toBase64(str)
+将字符串进行base64解码
+@api string.fromBase64(str)
 @string 需要转换的字符串
 @return string 解码后的字符串,如果解码失败会返回空字符串
 */
-static int str_toBase64(lua_State *L) {
+static int str_fromBase64(lua_State *L) {
   size_t len = 0;
   const char* str = luaL_checklstring(L, 1, &len);
   if (len == 0) {

@@ -161,10 +161,17 @@ int luat_main (void) {
   if (boot_mode == 0) {
     return 0; // just nop
   }
+  #ifdef LUAT_BSP_VERSION
+  LLOGI("LuatOS@%s core %s bsp %s", luat_os_bsp(), LUAT_VERSION, LUAT_BSP_VERSION);
+  LLOGI("ROM Build: " __DATE__ " " __TIME__);
+  #else
   LLOGI("LuatOS@%s %s, Build: " __DATE__ " " __TIME__, luat_os_bsp(), LUAT_VERSION);
   #if LUAT_VERSION_BETA
   LLOGD("This is a beta version, for testing");
   #endif
+  #endif
+  
+
   // 1. 初始化文件系统
   luat_fs_init();
 

@@ -48,7 +48,9 @@ static struct rt_wlan_cfg_ops cfg_ops = {
 #endif
 
 static rt_err_t w600_bt(void *context) {
-  rt_kprintf("\r\nFUCK!!\r\n");
+  rt_kprintf("\r\nwatchdog irq!!!!\r\n");
+  extern void tls_sys_reset(void);
+  tls_sys_reset();
   return 0;
 } 
 static int rtt_w60x_init() {

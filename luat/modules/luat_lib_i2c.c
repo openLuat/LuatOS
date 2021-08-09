@@ -312,8 +312,11 @@ static const rotable_Reg reg_i2c[] =
 {
     { "exist", l_i2c_exist, 0},
     { "setup", l_i2c_setup, 0},
+#ifdef __F1C100S__
+#else
     { "send", l_i2c_send, 0},
     { "recv", l_i2c_recv, 0},
+#endif
     { "writeReg", l_i2c_write_reg, 0},
     { "readReg", l_i2c_read_reg, 0},
     { "close", l_i2c_close, 0},

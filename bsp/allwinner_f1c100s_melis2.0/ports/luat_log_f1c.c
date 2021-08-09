@@ -3,7 +3,7 @@
 #include "luat_log.h"
 #include "luat_uart.h"
 #include "printf.h"
-
+#include "port.h"
 static uint8_t luat_log_uart_port = 0;
 static uint8_t luat_log_level_cur = LUAT_LOG_DEBUG;
 
@@ -16,7 +16,8 @@ LUAT_WEAK void luat_print(const char* _str) {
 }
 
 LUAT_WEAK void luat_nprint(char *s, size_t l) {
-    luat_uart_write(luat_log_uart_port, s, l);
+    //luat_uart_write(luat_log_uart_port, s, l);
+    __log(s);
 }
 
 LUAT_WEAK void luat_log_set_level(int level) {

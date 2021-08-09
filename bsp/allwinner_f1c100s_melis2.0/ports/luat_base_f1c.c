@@ -7,12 +7,12 @@
 //#include "lvgl.h"
 
 #define LUAT_HEAP_SIZE (1024*1024)
-// static uint8_t luavm_heap[LUAT_HEAP_SIZE] = {0};
+static uint8_t luavm_heap[LUAT_HEAP_SIZE] = {0};
 void luatos_main_entry(void) {
-  // bpool(luavm_heap, LUAT_HEAP_SIZE);
-  // luat_fs_init();
+  bpool(luavm_heap, LUAT_HEAP_SIZE);
+  luat_fs_init();
   //lv_init();
-  // luat_main();
+  luat_main();
 }
 
 

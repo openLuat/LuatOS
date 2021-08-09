@@ -113,8 +113,8 @@ static gd_GIF * gif_open(gd_GIF * gif_base)
     gif = lv_mem_alloc(sizeof(gd_GIF) + 3 * width * height);
 #endif
 
-    memcpy(gif, gif_base, sizeof(gd_GIF));
     if (!gif) goto fail;
+    memcpy(gif, gif_base, sizeof(gd_GIF));
     gif->width  = width;
     gif->height = height;
     gif->depth  = depth;

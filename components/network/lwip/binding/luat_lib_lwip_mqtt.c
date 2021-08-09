@@ -8,9 +8,12 @@
 #include "lwip/opt.h"
 #include "lwip/stats.h"
 #include "lwip/err.h"
+#include "lwip/tcpip.h"
 #include "arch/sys_arch.h"
 #include "lwip/apps/mqtt.h"
+#if (LWIP_VERSION_MAJOR  == 2 && LWIP_VERSION_MINOR == 2 )
 #include "lwip/apps/mqtt_priv.h"
+#endif
 
 #define LUAT_LOG_TAG "lwip"
 #include "luat_log.h"
@@ -77,36 +80,36 @@ static void luat_lwip_mqtt_connection_cb(mqtt_client_t *client, void *arg, mqtt_
 }
 
 static void luat_lwip_mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t flags) {
-    // luat_lwip_mqtt_t *mqtt = (luat_lwip_mqtt_t*)arg;
-    // mqtt_pub_t* inpub_tmp = mqtt->pub;
-    // rtos_msg_t msg = {0};
-    // if (inpub_tmp == NULL) {
-    //     LLOGE("inpub_tmp is NULL");
-    //     return;
-    // }
-    // mempcpy(inpub_tmp->buff + inpub_tmp->offset, data, len);
-    // inpub_tmp->offset += len;
-    // if (flags & MQTT_DATA_FLAG_LAST) {
-    //     msg.handler = l_inpub_cb;
-    //     msg.ptr = inpub_tmp;
-    //     msg.arg1 = mqtt->inpub_cb;
-    //     msg.arg2 = 0;
-    //     luat_msgbus_put(&msg, 0);
-    //     mqtt->pub = NULL;
-    // }
-    //LLOGD("incoming_data %s %d %d", inpub_tmp->topic, len, flags);
+    luat_lwip_mqtt_t *mqtt = (luat_lwip_mqtt_t*)arg;
+    mqtt_pub_t* inpub_tmp = mqtt->pub;
+    rtos_msg_t msg = {0};
+    if (inpub_tmp == NULL) {
+        LLOGE("inpub_tmp is NULL");
+        return;
+    }
+    mempcpy(inpub_tmp->buff + inpub_tmp->offset, data, len);
+    inpub_tmp->offset += len;
+    if (flags & MQTT_DATA_FLAG_LAST) {
+        msg.handler = l_inpub_cb;
+        msg.ptr = inpub_tmp;
+        msg.arg1 = mqtt->inpub_cb;
+        msg.arg2 = 0;
+        luat_msgbus_put(&msg, 0);
+        mqtt->pub = NULL;
+    }
+    LLOGD("incoming_data %s %d %d", inpub_tmp->topic, len, flags);
 }
 
 static void luat_lwip_mqtt_incoming_publish_cb(void *arg, const char *topic, u32_t tot_len) {
-    //LLOGD("inpub %s %ld", topic, tot_len);
-    // luat_lwip_mqtt_t *mqtt = (luat_lwip_mqtt_t*)arg;
-    // mqtt->pub = luat_heap_malloc(sizeof(mqtt_pub_t));
-    // mqtt_pub_t* inpub_tmp = mqtt->pub;
-    // inpub_tmp->tot_len = tot_len;
-    // inpub_tmp->offset = 0;
-    // inpub_tmp->buff = (char*)luat_heap_malloc(tot_len);
-    // inpub_tmp->topic = (char*)luat_heap_malloc(strlen(topic)+1);
-    // memcpy(inpub_tmp->topic, topic, strlen(topic)+1);
+    LLOGD("inpub %s %ld", topic, tot_len);
+    luat_lwip_mqtt_t *mqtt = (luat_lwip_mqtt_t*)arg;
+    mqtt->pub = luat_heap_malloc(sizeof(mqtt_pub_t));
+    mqtt_pub_t* inpub_tmp = mqtt->pub;
+    inpub_tmp->tot_len = tot_len;
+    inpub_tmp->offset = 0;
+    inpub_tmp->buff = (char*)luat_heap_malloc(tot_len);
+    inpub_tmp->topic = (char*)luat_heap_malloc(strlen(topic)+1);
+    memcpy(inpub_tmp->topic, topic, strlen(topic)+1);
 }
 
 static void luat_lwip_mqtt_request_cb(void *arg, err_t err) {

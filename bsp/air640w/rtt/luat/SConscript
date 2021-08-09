@@ -5,5 +5,6 @@ Import('RTT_ROOT')
 cwd = str(Dir('#'))
 objs = SConscript(os.path.join(cwd, '../../../lua/SConscript'))
 objs = objs + SConscript(os.path.join(cwd, '../../../luat/SConscript'))
+objs = objs + SConscript(os.path.join(cwd, '../../../components/network/lwip/SConscript'))
 
 Return('objs')

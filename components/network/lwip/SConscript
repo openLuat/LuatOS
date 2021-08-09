@@ -3,7 +3,12 @@ Import('rtconfig')
 from building import *
 
 cwd = GetCurrentDir()
-src	= Glob('binding/*.c')
+src = Split('''
+        binding/luat_lib_lwip.c
+        binding/luat_lib_lwip_tcp.c
+        binding/luat_lib_lwip_udp.c
+        binding/luat_lib_lwip_mqtt.c
+        ''')
 
 group = DefineGroup('lwip_lua', src, depend = ['RT_USING_LWIP'])
 

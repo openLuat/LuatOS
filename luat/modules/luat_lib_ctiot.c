@@ -344,9 +344,9 @@ static int l_ctiot_disconnect(lua_State *L)
 static int l_ctiot_write(lua_State *L)
 {
 	const char *data;
-	uint8_t mode;
-	uint8_t seq;
-	size_t len;
+	uint8_t mode = 0;
+	uint8_t seq = 0;
+	size_t len = 0;
 	data = lua_tolstring(L, 1, &len);
 	if (!len)
 	{

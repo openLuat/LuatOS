@@ -4,6 +4,7 @@
 #include "luat_msgbus.h"
 #include "luat_timer.h"
 
+#include "lwip/init.h"
 #include "lwip/sys.h"
 #include "lwip/opt.h"
 #include "lwip/stats.h"
@@ -11,7 +12,7 @@
 #include "lwip/tcpip.h"
 #include "arch/sys_arch.h"
 #include "lwip/apps/mqtt.h"
-#if (LWIP_VERSION_MAJOR  == 2 && LWIP_VERSION_MINOR == 2 )
+#if (LWIP_VERSION_MAJOR  == 2 && LWIP_VERSION_MINOR > 0 )
 #include "lwip/apps/mqtt_priv.h"
 #endif
 

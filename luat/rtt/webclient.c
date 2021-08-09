@@ -520,12 +520,12 @@ int webclient_header_fields_add(struct webclient_session *session, const char *f
     va_start(args, fmt);
     length = rt_vsnprintf(session->header->buffer + session->header->length,
             session->header->size - session->header->length, fmt, args);
+    va_end(args);
     if (length < 0)
     {
         LOG_E("add fields header data failed, return length(%d) error.", length);
         return -WEBCLIENT_ERROR;
     }
-    va_end(args);
 
     session->header->length += length;
 

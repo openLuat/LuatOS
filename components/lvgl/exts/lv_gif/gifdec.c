@@ -76,7 +76,7 @@ static gd_GIF * gif_open(gd_GIF * gif_base)
     /* Header */
     f_gif_read(gif_base, sigver, 3);
     if (memcmp(sigver, "GIF", 3) != 0) {
-        fprintf(stderr, "invalid signature\n");
+        //fprintf(stderr, "invalid signature\n");
         goto fail;
     }
     /* Version */

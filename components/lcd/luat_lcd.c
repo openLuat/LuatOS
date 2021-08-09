@@ -182,7 +182,7 @@ int luat_lcd_set_color(uint32_t back, uint32_t fore){
     return 0;
 }
 
-int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint32_t* color) {
+int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, luat_color_t* color) {
     return conf->opts->draw(conf, x1, y1, x2, y2, color);
 }
 

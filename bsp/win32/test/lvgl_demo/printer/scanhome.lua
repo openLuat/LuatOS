@@ -37,7 +37,7 @@ function scanhome.setup_scr_scanhome(ui)
 
 	--Write codes scanhome_label1
 	ui.scanhome_label1 = lvgl.label_create(ui.scanhome, nil);
-	lvgl.label_set_text(ui.scanhome_label1, "ADJUST IMAGE");
+	lvgl.label_set_text(ui.scanhome_label1, "调整图像");
 	lvgl.label_set_long_mode(ui.scanhome_label1, lvgl.LABEL_LONG_BREAK);
 	lvgl.label_set_align(ui.scanhome_label1, lvgl.LABEL_ALIGN_CENTER);
 
@@ -198,9 +198,9 @@ function scanhome.setup_scr_scanhome(ui)
 	lvgl.obj_set_pos(ui.scanhome_btnscansave, 368, 221);
 	lvgl.obj_set_size(ui.scanhome_btnscansave, 80, 40);
 	ui.scanhome_btnscansave_label = lvgl.label_create(ui.scanhome_btnscansave, nil);
-	lvgl.label_set_text(ui.scanhome_btnscansave_label, "SAVE");
+	lvgl.label_set_text(ui.scanhome_btnscansave_label, "保存");
 	lvgl.obj_set_style_local_text_color(ui.scanhome_btnscansave_label, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, lvgl.color_make(0x00, 0x00, 0x00));
-	lvgl.obj_set_style_local_text_font(ui.scanhome_btnscansave_label, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, lvgl.font_get("opposans_m_12"));
+	lvgl.obj_set_style_local_text_font(ui.scanhome_btnscansave_label, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, lvgl.font_get("opposans_m_14"));
 
 	--Write codes scanhome_sliderhue
 	ui.scanhome_sliderhue = lvgl.slider_create(ui.scanhome, nil);

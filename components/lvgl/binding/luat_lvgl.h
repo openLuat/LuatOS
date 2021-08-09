@@ -12,7 +12,9 @@
 #define LUAT_LOG_TAG "lvgl"
 #include "luat_log.h"
 
+#ifndef LUAT_LV_DEBUG
 #define LUAT_LV_DEBUG 1
+#endif
 
 #if (LUAT_LV_DEBUG == 1)
 #define LV_DEBUG LLOGD
@@ -32,6 +34,13 @@ void luat_lv_fs_init(void);
 #include "luat_lv_style_dec.h"
 #include "luat_lvgl_img_ext.h"
 #include "luat_lvgl_imgbtn.h"
+#include "luat_lvgl_map.h"
+#include "luat_lvgl_gauge_ex.h"
+#include "luat_lvgl_btnmatrix_ex.h"
+#include "luat_lvgl_calendar_ex.h"
+#include "luat_lvgl_ex.h"
+#include "luat_lvgl_line_ex.h"
+#include "luat_lvgl_widgets_ex.h"
 
 #include "luat_lvgl_fonts.h"
 #include "luat_lvgl_font.h"

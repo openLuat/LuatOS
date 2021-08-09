@@ -93,7 +93,7 @@ function prthome.setup_scr_prthome(ui)
 
 	--Write codes prthome_label4
 	ui.prthome_label4 = lvgl.label_create(ui.prthome, nil);
-	lvgl.label_set_text(ui.prthome_label4, "PRINT MENU");
+	lvgl.label_set_text(ui.prthome_label4, "打印菜单");
 	lvgl.label_set_long_mode(ui.prthome_label4, lvgl.LABEL_LONG_BREAK);
 	lvgl.label_set_align(ui.prthome_label4, lvgl.LABEL_ALIGN_CENTER);
 
@@ -109,7 +109,7 @@ function prthome.setup_scr_prthome(ui)
 	lvgl.style_set_bg_grad_dir(style_prthome_label4_main, lvgl.STATE_DEFAULT, lvgl.GRAD_DIR_VER);
 	lvgl.style_set_bg_opa(style_prthome_label4_main, lvgl.STATE_DEFAULT, 255);
 	lvgl.style_set_text_color(style_prthome_label4_main, lvgl.STATE_DEFAULT, lvgl.color_make(0xff, 0xff, 0xff));
-	lvgl.style_set_text_font(style_prthome_label4_main, lvgl.STATE_DEFAULT, lvgl.font_get("opposans_m_18"));
+	lvgl.style_set_text_font(style_prthome_label4_main, lvgl.STATE_DEFAULT, lvgl.font_get("opposans_m_20"));
 	lvgl.style_set_text_letter_space(style_prthome_label4_main, lvgl.STATE_DEFAULT, 2);
 	lvgl.style_set_pad_left(style_prthome_label4_main, lvgl.STATE_DEFAULT, 0);
 	lvgl.style_set_pad_right(style_prthome_label4_main, lvgl.STATE_DEFAULT, 0);
@@ -242,7 +242,7 @@ function prthome.setup_scr_prthome(ui)
 
 	--Write codes prthome_labelmobile
 	ui.prthome_labelmobile = lvgl.label_create(ui.prthome, nil);
-	lvgl.label_set_text(ui.prthome_labelmobile, "MOBILE");
+	lvgl.label_set_text(ui.prthome_labelmobile, "手机");
 	lvgl.label_set_long_mode(ui.prthome_labelmobile, lvgl.LABEL_LONG_BREAK);
 	lvgl.label_set_align(ui.prthome_labelmobile, lvgl.LABEL_ALIGN_LEFT);
 
@@ -258,7 +258,7 @@ function prthome.setup_scr_prthome(ui)
 	lvgl.style_set_bg_grad_dir(style_prthome_labelmobile_main, lvgl.STATE_DEFAULT, lvgl.GRAD_DIR_VER);
 	lvgl.style_set_bg_opa(style_prthome_labelmobile_main, lvgl.STATE_DEFAULT, 0);
 	lvgl.style_set_text_color(style_prthome_labelmobile_main, lvgl.STATE_DEFAULT, lvgl.color_make(0xff, 0xff, 0xff));
-	lvgl.style_set_text_font(style_prthome_labelmobile_main, lvgl.STATE_DEFAULT, lvgl.font_get("opposans_m_14"));
+	lvgl.style_set_text_font(style_prthome_labelmobile_main, lvgl.STATE_DEFAULT, lvgl.font_get("opposans_m_16"));
 	lvgl.style_set_text_letter_space(style_prthome_labelmobile_main, lvgl.STATE_DEFAULT, 2);
 	lvgl.style_set_pad_left(style_prthome_labelmobile_main, lvgl.STATE_DEFAULT, 0);
 	lvgl.style_set_pad_right(style_prthome_labelmobile_main, lvgl.STATE_DEFAULT, 0);
@@ -270,7 +270,7 @@ function prthome.setup_scr_prthome(ui)
 
 	--Write codes prthome_labelit
 	ui.prthome_labelit = lvgl.label_create(ui.prthome, nil);
-	lvgl.label_set_text(ui.prthome_labelit, "INTERNET");
+	lvgl.label_set_text(ui.prthome_labelit, "网络");
 	lvgl.label_set_long_mode(ui.prthome_labelit, lvgl.LABEL_LONG_BREAK);
 	lvgl.label_set_align(ui.prthome_labelit, lvgl.LABEL_ALIGN_LEFT);
 
@@ -286,7 +286,7 @@ function prthome.setup_scr_prthome(ui)
 	lvgl.style_set_bg_grad_dir(style_prthome_labelit_main, lvgl.STATE_DEFAULT, lvgl.GRAD_DIR_VER);
 	lvgl.style_set_bg_opa(style_prthome_labelit_main, lvgl.STATE_DEFAULT, 0);
 	lvgl.style_set_text_color(style_prthome_labelit_main, lvgl.STATE_DEFAULT, lvgl.color_make(0xff, 0xff, 0xff));
-	lvgl.style_set_text_font(style_prthome_labelit_main, lvgl.STATE_DEFAULT, lvgl.font_get("opposans_m_14"));
+	lvgl.style_set_text_font(style_prthome_labelit_main, lvgl.STATE_DEFAULT, lvgl.font_get("opposans_m_16"));
 	lvgl.style_set_text_letter_space(style_prthome_labelit_main, lvgl.STATE_DEFAULT, 2);
 	lvgl.style_set_pad_left(style_prthome_labelit_main, lvgl.STATE_DEFAULT, 0);
 	lvgl.style_set_pad_right(style_prthome_labelit_main, lvgl.STATE_DEFAULT, 0);
@@ -298,7 +298,7 @@ function prthome.setup_scr_prthome(ui)
 
 	--Write codes prthome_label2
 	ui.prthome_label2 = lvgl.label_create(ui.prthome, nil);
-	lvgl.label_set_text(ui.prthome_label2, "From where do you want to print ?");
+	lvgl.label_set_text(ui.prthome_label2, "您想从哪里打印?");
 	lvgl.label_set_long_mode(ui.prthome_label2, lvgl.LABEL_LONG_BREAK);
 	lvgl.label_set_align(ui.prthome_label2, lvgl.LABEL_ALIGN_CENTER);
 
@@ -314,7 +314,7 @@ function prthome.setup_scr_prthome(ui)
 	lvgl.style_set_bg_grad_dir(style_prthome_label2_main, lvgl.STATE_DEFAULT, lvgl.GRAD_DIR_VER);
 	lvgl.style_set_bg_opa(style_prthome_label2_main, lvgl.STATE_DEFAULT, 0);
 	lvgl.style_set_text_color(style_prthome_label2_main, lvgl.STATE_DEFAULT, lvgl.color_make(0x00, 0x00, 0x00));
-	lvgl.style_set_text_font(style_prthome_label2_main, lvgl.STATE_DEFAULT, lvgl.font_get("opposans_m_20"));
+	lvgl.style_set_text_font(style_prthome_label2_main, lvgl.STATE_DEFAULT, lvgl.font_get("opposans_m_22"));
 	lvgl.style_set_text_letter_space(style_prthome_label2_main, lvgl.STATE_DEFAULT, 2);
 	lvgl.style_set_pad_left(style_prthome_label2_main, lvgl.STATE_DEFAULT, 0);
 	lvgl.style_set_pad_right(style_prthome_label2_main, lvgl.STATE_DEFAULT, 0);

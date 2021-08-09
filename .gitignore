@@ -88,4 +88,6 @@ debug.log
 
 CMakefiles
 bsp/win32/build/
+bsp/win32/release/
 bsp/pico/build/
+

@@ -35,6 +35,22 @@ void stopboot(void) {
 int luat_search_module(const char* name, char* filename);
 void luat_os_print_heapinfo(const char* tag);
 
+int luat_main_demo() { // 这是验证LuatVM最基础的消息/定时器/Task机制是否正常
+  return luaL_dostring(L, "local sys = require \"sys\"\n"
+                          "log.info(\"main\", os.date())\n"
+                          "led = gpio.setup(19, 0)"
+                          "sys.taskInit(function ()\n"
+                          "  while true do\n"
+                          "    log.info(\"hi\", rtos.meminfo())\n"
+                          "    sys.wait(500)\n"
+                          "    led(1)\n"
+                          "    sys.wait(500)\n"
+                          "    led(0)\n"
+                          "  end\n"
+                          "end)\n"
+                          "sys.run()\n");
+}
+
 static int pmain(lua_State *L) {
     int re = -2;
 
@@ -56,6 +72,7 @@ static int pmain(lua_State *L) {
     }
     #endif
     if (re == -2) {
+      #ifndef LUAT_MAIN_DEMO
       char filename[32] = {0};
       if (luat_search_module("main", filename) == 0) {
         re = luaL_dofile(L, filename);
@@ -64,6 +81,9 @@ static int pmain(lua_State *L) {
         re = -1;
         luaL_error(L, "module '%s' not found", "main");
       }
+      #else
+      re = luat_main_demo();
+      #endif
     }
         
     report(L, re);

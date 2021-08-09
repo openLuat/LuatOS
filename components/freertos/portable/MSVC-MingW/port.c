@@ -277,7 +277,7 @@ SYSTEM_INFO xSystemInfo;
 
 		/* The highest priority class is used to [try to] prevent other Windows
 		activity interfering with FreeRTOS timing too much. */
-		if( SetPriorityClass( GetCurrentProcess(), REALTIME_PRIORITY_CLASS ) == 0 )
+		if( SetPriorityClass( GetCurrentProcess(), NORMAL_PRIORITY_CLASS ) == 0 )
 		{
 			printf( "SetPriorityClass() failed\r\n" );
 		}

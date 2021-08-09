@@ -65,7 +65,7 @@ function prtusb.setup_scr_prtusb(ui)
 
 	--Write codes prtusb_labeltitle
 	ui.prtusb_labeltitle = lvgl.label_create(ui.prtusb, nil);
-	lvgl.label_set_text(ui.prtusb_labeltitle, "PRINTING FROM USB");
+	lvgl.label_set_text(ui.prtusb_labeltitle, "从USB打印");
 	lvgl.label_set_long_mode(ui.prtusb_labeltitle, lvgl.LABEL_LONG_BREAK);
 	lvgl.label_set_align(ui.prtusb_labeltitle, lvgl.LABEL_ALIGN_CENTER);
 
@@ -178,9 +178,9 @@ function prtusb.setup_scr_prtusb(ui)
 	lvgl.obj_set_pos(ui.prtusb_btnprint, 320, 223);
 	lvgl.obj_set_size(ui.prtusb_btnprint, 118, 40);
 	ui.prtusb_btnprint_label = lvgl.label_create(ui.prtusb_btnprint, nil);
-	lvgl.label_set_text(ui.prtusb_btnprint_label, "PRINT");
+	lvgl.label_set_text(ui.prtusb_btnprint_label, "打印");
 	lvgl.obj_set_style_local_text_color(ui.prtusb_btnprint_label, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, lvgl.color_make(0xff, 0xff, 0xff));
-	lvgl.obj_set_style_local_text_font(ui.prtusb_btnprint_label, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, lvgl.font_get("opposans_m_12"));
+	lvgl.obj_set_style_local_text_font(ui.prtusb_btnprint_label, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, lvgl.font_get("opposans_m_14"));
 
 	--Write codes prtusb_back
 	ui.prtusb_back = lvgl.btn_create(ui.prtusb, nil);
@@ -291,7 +291,7 @@ function prtusb.setup_scr_prtusb(ui)
 
 	--Write codes prtusb_labelcopy
 	ui.prtusb_labelcopy = lvgl.label_create(ui.prtusb, nil);
-	lvgl.label_set_text(ui.prtusb_labelcopy, "Copies");
+	lvgl.label_set_text(ui.prtusb_labelcopy, "份数");
 	lvgl.label_set_long_mode(ui.prtusb_labelcopy, lvgl.LABEL_LONG_BREAK);
 	lvgl.label_set_align(ui.prtusb_labelcopy, lvgl.LABEL_ALIGN_CENTER);
 
@@ -633,7 +633,7 @@ function prtusb.setup_scr_prtusb(ui)
 
 	--Write codes prtusb_ddlist1
 	ui.prtusb_ddlist1 = lvgl.dropdown_create(ui.prtusb, nil);
-	lvgl.dropdown_set_options(ui.prtusb_ddlist1, "Best\nNormal\nDraft");
+	lvgl.dropdown_set_options(ui.prtusb_ddlist1, "最好\n通常\n一般");
 	lvgl.dropdown_set_max_height(ui.prtusb_ddlist1, 90);
 
 	--Write style lvgl.DROPDOWN_PART_MAIN for prtusb_ddlist1

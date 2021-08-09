@@ -58,7 +58,7 @@ int luat_lv_win_set_title(lua_State *L) {
 int luat_lv_win_set_header_height(lua_State *L) {
     LV_DEBUG("CALL lv_win_set_header_height");
     lv_obj_t* win = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_coord_t size = (lv_coord_t)luaL_checkinteger(L, 2);
+    lv_coord_t size = (lv_coord_t)luaL_checknumber(L, 2);
     lv_win_set_header_height(win ,size);
     return 0;
 }
@@ -67,7 +67,7 @@ int luat_lv_win_set_header_height(lua_State *L) {
 int luat_lv_win_set_btn_width(lua_State *L) {
     LV_DEBUG("CALL lv_win_set_btn_width");
     lv_obj_t* win = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_coord_t width = (lv_coord_t)luaL_checkinteger(L, 2);
+    lv_coord_t width = (lv_coord_t)luaL_checknumber(L, 2);
     lv_win_set_btn_width(win ,width);
     return 0;
 }
@@ -76,8 +76,8 @@ int luat_lv_win_set_btn_width(lua_State *L) {
 int luat_lv_win_set_content_size(lua_State *L) {
     LV_DEBUG("CALL lv_win_set_content_size");
     lv_obj_t* win = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_coord_t w = (lv_coord_t)luaL_checkinteger(L, 2);
-    lv_coord_t h = (lv_coord_t)luaL_checkinteger(L, 3);
+    lv_coord_t w = (lv_coord_t)luaL_checknumber(L, 2);
+    lv_coord_t h = (lv_coord_t)luaL_checknumber(L, 3);
     lv_win_set_content_size(win ,w ,h);
     return 0;
 }
@@ -251,7 +251,7 @@ int luat_lv_win_focus(lua_State *L) {
 int luat_lv_win_scroll_hor(lua_State *L) {
     LV_DEBUG("CALL lv_win_scroll_hor");
     lv_obj_t* win = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_coord_t dist = (lv_coord_t)luaL_checkinteger(L, 2);
+    lv_coord_t dist = (lv_coord_t)luaL_checknumber(L, 2);
     lv_win_scroll_hor(win ,dist);
     return 0;
 }
@@ -260,7 +260,7 @@ int luat_lv_win_scroll_hor(lua_State *L) {
 int luat_lv_win_scroll_ver(lua_State *L) {
     LV_DEBUG("CALL lv_win_scroll_ver");
     lv_obj_t* win = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_coord_t dist = (lv_coord_t)luaL_checkinteger(L, 2);
+    lv_coord_t dist = (lv_coord_t)luaL_checknumber(L, 2);
     lv_win_scroll_ver(win ,dist);
     return 0;
 }

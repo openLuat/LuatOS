@@ -69,8 +69,8 @@ int luat_lv_gauge_set_needle_img(lua_State *L) {
     LV_DEBUG("CALL lv_gauge_set_needle_img");
     lv_obj_t* gauge = (lv_obj_t*)lua_touserdata(L, 1);
     void* img = (void*)lua_touserdata(L, 2);
-    lv_coord_t pivot_x = (lv_coord_t)luaL_checkinteger(L, 3);
-    lv_coord_t pivot_y = (lv_coord_t)luaL_checkinteger(L, 4);
+    lv_coord_t pivot_x = (lv_coord_t)luaL_checknumber(L, 3);
+    lv_coord_t pivot_y = (lv_coord_t)luaL_checknumber(L, 4);
     lv_gauge_set_needle_img(gauge ,img ,pivot_x ,pivot_y);
     return 0;
 }

@@ -27,7 +27,7 @@ static lv_fs_res_t luat_lv_fs_dir_read(struct _lv_fs_drv_t * drv, void * rddir_p
 static lv_fs_res_t luat_lv_fs_dir_close(struct _lv_fs_drv_t * drv, void * rddir_p);
 
 void luat_lv_fs_init(void) {
-    static lv_fs_drv_t drv = {
+    lv_fs_drv_t fs_drv = {
         .letter = '/',
         .file_size = sizeof(FILE*),
         .rddir_size = sizeof(FILE*),
@@ -48,7 +48,7 @@ void luat_lv_fs_init(void) {
         .dir_read_cb = luat_lv_fs_dir_read,
         .dir_close_cb = luat_lv_fs_dir_close,
     };
-    lv_fs_drv_register(&drv);
+    lv_fs_drv_register(&fs_drv);
 };
 
 static bool luat_lv_fs_ready(struct _lv_fs_drv_t * drv) {
@@ -105,7 +105,7 @@ static lv_fs_res_t luat_lv_fs_write(struct _lv_fs_drv_t * drv, void * file_p, co
 static lv_fs_res_t luat_lv_fs_seek(struct _lv_fs_drv_t * drv, void * file_p, uint32_t pos) {
     file_t* fp = file_p;
     int ret = luat_fs_fseek(*fp, pos, SEEK_SET);
-    if (ret == pos)
+    if (ret == 0)
         return LV_FS_RES_OK;
     return LV_FS_RES_FS_ERR;
 }

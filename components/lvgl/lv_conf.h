@@ -14,14 +14,17 @@
 /* clang-format off */
 
 #include <stdint.h>
+#include "luat_conf_bsp.h"
 
 /*====================
    Graphical settings
  *====================*/
 
 /* Maximal horizontal and vertical resolution to support by the library.*/
+#ifndef LV_HOR_RES_MAX
 #define LV_HOR_RES_MAX          (1280)
 #define LV_VER_RES_MAX          (720)
+#endif
 
 /* Color depth:
  * - 1:  1 byte per pixel
@@ -29,11 +32,15 @@
  * - 16: RGB565
  * - 32: ARGB8888
  */
+#ifndef LV_COLOR_DEPTH
 #define LV_COLOR_DEPTH     32
+#endif
 
 /* Swap the 2 bytes of RGB565 color.
  * Useful if the display has a 8 bit interface (e.g. SPI)*/
+#ifndef LV_COLOR_16_SWAP
 #define LV_COLOR_16_SWAP   0
+#endif
 
 /* 1: Enable screen transparency.
  * Useful for OSD or other overlapping GUIs.

@@ -6,6 +6,7 @@ cmake_minimum_required (VERSION 3.5)
 set(CMAKE_BUILD_TYPE "Debug")
 set(CMAKE_CXX_FLAGS_DEBUG "$ENV{CXXFLAGS} -O0 -Wall -g -ggdb")
 set(CMAKE_CXX_FLAGS_RELEASE "$ENV{CXXFLAGS} -O2 -Wall")
+set(CMAKE_EXE_LINKER_FLAGS "-Wl,-Map=luatos.map")
 
 set(TOPROOT "../..")
 

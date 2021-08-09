@@ -94,13 +94,13 @@ function printit.setup_scr_printit(ui)
 	lvgl.obj_set_pos(ui.printit_btnprtitback, 179, 205);
 	lvgl.obj_set_size(ui.printit_btnprtitback, 134, 39);
 	ui.printit_btnprtitback_label = lvgl.label_create(ui.printit_btnprtitback, nil);
-	lvgl.label_set_text(ui.printit_btnprtitback_label, "BACK");
+	lvgl.label_set_text(ui.printit_btnprtitback_label, "返回");
 	lvgl.obj_set_style_local_text_color(ui.printit_btnprtitback_label, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, lvgl.color_make(0xff, 0xff, 0xff));
-	lvgl.obj_set_style_local_text_font(ui.printit_btnprtitback_label, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, lvgl.font_get("opposans_m_12"));
+	lvgl.obj_set_style_local_text_font(ui.printit_btnprtitback_label, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, lvgl.font_get("opposans_m_14"));
 
 	--Write codes printit_label2
 	ui.printit_label2 = lvgl.label_create(ui.printit, nil);
-	lvgl.label_set_text(ui.printit_label2, "No internet connection");
+	lvgl.label_set_text(ui.printit_label2, "无互联网连接");
 	lvgl.label_set_long_mode(ui.printit_label2, lvgl.LABEL_LONG_BREAK);
 	lvgl.label_set_align(ui.printit_label2, lvgl.LABEL_ALIGN_CENTER);
 
@@ -116,7 +116,7 @@ function printit.setup_scr_printit(ui)
 	lvgl.style_set_bg_grad_dir(style_printit_label2_main, lvgl.STATE_DEFAULT, lvgl.GRAD_DIR_VER);
 	lvgl.style_set_bg_opa(style_printit_label2_main, lvgl.STATE_DEFAULT, 255);
 	lvgl.style_set_text_color(style_printit_label2_main, lvgl.STATE_DEFAULT, lvgl.color_make(0xff, 0xff, 0xff));
-	lvgl.style_set_text_font(style_printit_label2_main, lvgl.STATE_DEFAULT, lvgl.font_simsun_16);
+	lvgl.style_set_text_font(style_printit_label2_main, lvgl.STATE_DEFAULT, lvgl.font_get("opposans_m_18"));
 	lvgl.style_set_text_letter_space(style_printit_label2_main, lvgl.STATE_DEFAULT, 2);
 	lvgl.style_set_pad_left(style_printit_label2_main, lvgl.STATE_DEFAULT, 0);
 	lvgl.style_set_pad_right(style_printit_label2_main, lvgl.STATE_DEFAULT, 0);

@@ -13,6 +13,8 @@
 #define LUAT_HEAP_SIZE (1024*1024)
 uint8_t luavm_heap[LUAT_HEAP_SIZE] = {0};
 
+void luat_log_init_win32(void);
+
 static void _luat_main(void* args) {
     luat_main();
 }
@@ -51,6 +53,8 @@ int main(int argc, char** argv) {
     win32_argv = argv;
     
     bpool(luavm_heap, LUAT_HEAP_SIZE);
+
+    luat_log_init_win32();
 
 #ifdef LUAT_USE_LVGL
     lv_init();

@@ -161,6 +161,7 @@
 /* Socket abstraction layer */
 
 #define RT_USING_SAL
+#define SAL_INTERNET_CHECK
 
 /* protocol stack implement */
 
@@ -262,6 +263,7 @@
 #define NETUTILS_NTP_HOSTNAME2 "ntp.rt-thread.org"
 #define NETUTILS_NTP_HOSTNAME3 "edu.ntp.org.cn"
 #define PKG_USING_NETUTILS_V110
+#define PKG_NETUTILS_VER_NUM 0x10100
 
 /* IoT Cloud */
 
@@ -281,6 +283,8 @@
 
 
 /* system packages */
+
+/* acceleration: Assembly language or algorithmic acceleration packages */
 
 
 /* Micrium: Micrium software products porting for RT-Thread */
@@ -304,10 +308,16 @@
 #define PKG_USING_WM_LIBRARIES
 #define PKG_USING_WM_LIBRARIES_LATEST_VERSION
 
+/* AI packages */
+
+
 /* miscellaneous packages */
 
 
 /* samples: kernel and components samples */
+
+
+/* entertainment: terminal games and other interesting software packages */
 
 
 /* Env config */

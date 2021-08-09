@@ -232,6 +232,14 @@ int main(int argc, char **argv) {
     char *dst = "disk.fs";   // Destination image
 	int err = 0;
 	int fs_size = LFS_BLOCK_DEVICE_TOTOAL_SIZE;
+	if (argc > 1 && !strcmp("-size", argv[1])) {
+		fs_size = atoi(argv[2]) * 1024;
+	}
+	for (size_t i = 0; i < argc; i++)
+	{
+		//printf("argv[%d] %s\n", i, argv[i]);
+	}
+	
 
     // Mount the file system
     cfg.read  = lfs_read;
@@ -242,7 +250,7 @@ int main(int argc, char **argv) {
     cfg.read_size = LFS_BLOCK_DEVICE_READ_SIZE;
     cfg.prog_size = LFS_BLOCK_DEVICE_PROG_SIZE;
     cfg.block_size = LFS_BLOCK_DEVICE_ERASE_SIZE;
-    cfg.block_count = LFS_BLOCK_DEVICE_TOTOAL_SIZE / LFS_BLOCK_DEVICE_ERASE_SIZE;
+    cfg.block_count = fs_size / LFS_BLOCK_DEVICE_ERASE_SIZE;
     cfg.block_cycles = 200;
     cfg.cache_size = LFS_BLOCK_DEVICE_CACHE_SIZE;
     cfg.lookahead_size = LFS_BLOCK_DEVICE_LOOK_AHEAD;

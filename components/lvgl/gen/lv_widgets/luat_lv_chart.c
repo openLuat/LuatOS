@@ -84,8 +84,8 @@ int luat_lv_chart_set_y_range(lua_State *L) {
     LV_DEBUG("CALL lv_chart_set_y_range");
     lv_obj_t* chart = (lv_obj_t*)lua_touserdata(L, 1);
     lv_chart_axis_t axis = (lv_chart_axis_t)luaL_checkinteger(L, 2);
-    lv_coord_t ymin = (lv_coord_t)luaL_checkinteger(L, 3);
-    lv_coord_t ymax = (lv_coord_t)luaL_checkinteger(L, 4);
+    lv_coord_t ymin = (lv_coord_t)luaL_checknumber(L, 3);
+    lv_coord_t ymax = (lv_coord_t)luaL_checknumber(L, 4);
     lv_chart_set_y_range(chart ,axis ,ymin ,ymax);
     return 0;
 }
@@ -113,7 +113,7 @@ int luat_lv_chart_init_points(lua_State *L) {
     LV_DEBUG("CALL lv_chart_init_points");
     lv_obj_t* chart = (lv_obj_t*)lua_touserdata(L, 1);
     lv_chart_series_t* ser = (lv_chart_series_t*)lua_touserdata(L, 2);
-    lv_coord_t y = (lv_coord_t)luaL_checkinteger(L, 3);
+    lv_coord_t y = (lv_coord_t)luaL_checknumber(L, 3);
     lv_chart_init_points(chart ,ser ,y);
     return 0;
 }
@@ -123,7 +123,7 @@ int luat_lv_chart_set_next(lua_State *L) {
     LV_DEBUG("CALL lv_chart_set_next");
     lv_obj_t* chart = (lv_obj_t*)lua_touserdata(L, 1);
     lv_chart_series_t* ser = (lv_chart_series_t*)lua_touserdata(L, 2);
-    lv_coord_t y = (lv_coord_t)luaL_checkinteger(L, 3);
+    lv_coord_t y = (lv_coord_t)luaL_checknumber(L, 3);
     lv_chart_set_next(chart ,ser ,y);
     return 0;
 }
@@ -219,7 +219,7 @@ int luat_lv_chart_set_point_id(lua_State *L) {
     LV_DEBUG("CALL lv_chart_set_point_id");
     lv_obj_t* chart = (lv_obj_t*)lua_touserdata(L, 1);
     lv_chart_series_t* ser = (lv_chart_series_t*)lua_touserdata(L, 2);
-    lv_coord_t value = (lv_coord_t)luaL_checkinteger(L, 3);
+    lv_coord_t value = (lv_coord_t)luaL_checknumber(L, 3);
     uint16_t id = (uint16_t)luaL_checkinteger(L, 4);
     lv_chart_set_point_id(chart ,ser ,value ,id);
     return 0;
@@ -335,7 +335,7 @@ int luat_lv_chart_get_cursor_point(lua_State *L) {
 int luat_lv_chart_get_nearest_index_from_coord(lua_State *L) {
     LV_DEBUG("CALL lv_chart_get_nearest_index_from_coord");
     lv_obj_t* chart = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_coord_t x = (lv_coord_t)luaL_checkinteger(L, 2);
+    lv_coord_t x = (lv_coord_t)luaL_checknumber(L, 2);
     uint16_t ret;
     ret = lv_chart_get_nearest_index_from_coord(chart ,x);
     lua_pushinteger(L, ret);

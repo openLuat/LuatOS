@@ -1,19 +1,20 @@
 <p align="center"><a href="#" target="_blank" rel="noopener noreferrer"><img width="100" src="logo.jpg" alt="LuatOS logo"></a></p>
 
+[![star](https://gitee.com/openLuat/LuatOS/badge/star.svg?theme=gvp)](https://gitee.com/openLuat/LuatOS/stargazers)
+[![fork](https://gitee.com/openLuat/LuatOS/badge/fork.svg?theme=gvp)](https://gitee.com/openLuat/LuatOS/members)
 [![license](https://img.shields.io/github/license/openLuat/LuatOS)](/LICENSE)
 [![air100st](https://github.com/openLuat/LuatOS/actions/workflows/air100st.yml/badge.svg)](https://github.com/openLuat/LuatOS/actions/workflows/air100st.yml)
 [![air640w](https://github.com/openLuat/LuatOS/actions/workflows/air640w.yml/badge.svg)](https://github.com/openLuat/LuatOS/actions/workflows/air640w.yml)
 [![win32](https://github.com/openLuat/LuatOS/actions/workflows/win32.yml/badge.svg)](https://github.com/openLuat/LuatOS/actions/workflows/win32.yml)
 [![pico](https://github.com/openLuat/LuatOS/actions/workflows/pico.yml/badge.svg)](https://github.com/openLuat/LuatOS/actions/workflows/pico.yml)
 
-LuatOS是运行在嵌入式硬件,用户编写lua代码就可完成各种功能
+LuatOS-SoC是一款实时操作系统,用户编写Lua代码就可完成各种功能, 仅需极少的内存和Flash空间
 
-1. 基于Lua 5.3.x
-2. 低内存需求, 最低32kb, 96kb flash空间
-3. 硬件抽象层兼容M3/arm/risc-v/win32等
-4. 可测试,可模拟(qemu)
-5. 在线升级
-6. 可裁剪,可扩展
+1. 基于Lua 5.3.x脚本编程,无需编译,把Lua文本文件下载到设备即可完成开发
+2. 低内存需求, 最低32kb ram, 96kb flash空间
+3. 硬件抽象层兼容M3/armv7/risc-v/win32/posix等等,具有强大的扩展性
+4. 可测试,可模拟,可裁剪,可扩展, 提供高效的开发效率
+5. 基于合宙深耕的Lua-Task编程模型,实现异步/同步无缝切换
 
 ----------------------------------------------------------------------------------
 
@@ -27,12 +28,12 @@ local sys = require("sys")
 -- 把GPIO19设置为输出模式,上拉,初始电平为低电平(0代表低电平,1代表高电平)
 local netled = gpio.setup(19, 0, gpio.PULLUP)
 
-sys.taskInit(function()
+sys.taskInit(function() --(LuaTask的task模式,对应协程)
     while 1 do
         netled(1) -- 输出高电平
-        sys.wait(500) -- 等待500ms
+        sys.wait(500) -- 等待500ms(LuaTask异步休眠)
         netled(0) -- 输出低电平
-        sys.wait(500) -- 等待500ms
+        sys.wait(500) -- 等待500ms(LuaTask异步休眠)
     end
 end)
 
@@ -40,7 +41,7 @@ end)
 sys.run()
 ```
 
-## 如何使用LuatOS
+## 如何使用LuatOS-SoC
 
 1. 首先, 购买开发板([Wifi](https://item.taobao.com/item.htm?id=590724913462) / [NB-IOT](https://item.taobao.com/item.htm?id=625893281770&ns=1))
 2. 然后, 下载[固件包](https://gitee.com/openLuat/LuatOS/releases),按压缩包里的文档进行刷机
@@ -53,8 +54,8 @@ sys.run()
 ----------------------------------------------------------------------------------
 ## 资源
 
-* [官网](https://www.luatos.com/) 官网
-* [wiki](https://wiki.luatos.com) 知识库
+* [LuatOS-SoC官网](https://www.luatos.com/) 官网及IoT平台
+* [wiki](https://wiki.luatos.com) 知识库,有你想要的文档
 * [预编译固件](https://github.com/openLuat/LuatOS/releases) 固件,示例,文档,都会一起发布
 * [Lua 5.3中文手册](https://www.runoob.com/manual/lua53doc/) 官方手册的中文版
 * [Lua 入门教程(5.1版)](https://wiki.openluat.com/doc/luaStart) 注意与5.3有语法差异

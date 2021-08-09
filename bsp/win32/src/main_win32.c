@@ -10,9 +10,12 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "windows.h"
+#include <unistd.h>
 
-#define LUAT_HEAP_SIZE (4096*1024)
+#define LUAT_HEAP_SIZE (1024*1024)
 uint8_t luavm_heap[LUAT_HEAP_SIZE] = {0};
+
+void luat_log_init_win32(void);
 
 static void _luat_main(void* args) {
     luat_main();
@@ -57,6 +60,17 @@ char** win32_argv;
 int main(int argc, char** argv) {
     win32_argc = argc;
     win32_argv = argv;
+    if (win32_argc > 1) {
+        size_t len = strlen(argv[1]);
+        if (argv[1][0] != '-') {
+            if (argv[1][len - 1] == '/' || argv[1][len - 1] == '\\') {
+                printf("chdir %s %d\n", argv[1], chdir(argv[1]));
+                win32_argc = 1;
+            }
+        }
+    }
+
+    luat_log_init_win32();
 
     SetConsoleCtrlHandler(consoleHandler, TRUE);
     bpool(luavm_heap, LUAT_HEAP_SIZE);

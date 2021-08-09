@@ -114,7 +114,7 @@ int luat_lv_page_set_scrollable_fit(lua_State *L) {
 int luat_lv_page_set_scrl_width(lua_State *L) {
     LV_DEBUG("CALL lv_page_set_scrl_width");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_coord_t w = (lv_coord_t)luaL_checkinteger(L, 2);
+    lv_coord_t w = (lv_coord_t)luaL_checknumber(L, 2);
     lv_page_set_scrl_width(page ,w);
     return 0;
 }
@@ -123,7 +123,7 @@ int luat_lv_page_set_scrl_width(lua_State *L) {
 int luat_lv_page_set_scrl_height(lua_State *L) {
     LV_DEBUG("CALL lv_page_set_scrl_height");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_coord_t h = (lv_coord_t)luaL_checkinteger(L, 2);
+    lv_coord_t h = (lv_coord_t)luaL_checknumber(L, 2);
     lv_page_set_scrl_height(page ,h);
     return 0;
 }
@@ -316,7 +316,7 @@ int luat_lv_page_focus(lua_State *L) {
 int luat_lv_page_scroll_hor(lua_State *L) {
     LV_DEBUG("CALL lv_page_scroll_hor");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_coord_t dist = (lv_coord_t)luaL_checkinteger(L, 2);
+    lv_coord_t dist = (lv_coord_t)luaL_checknumber(L, 2);
     lv_page_scroll_hor(page ,dist);
     return 0;
 }
@@ -325,7 +325,7 @@ int luat_lv_page_scroll_hor(lua_State *L) {
 int luat_lv_page_scroll_ver(lua_State *L) {
     LV_DEBUG("CALL lv_page_scroll_ver");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_coord_t dist = (lv_coord_t)luaL_checkinteger(L, 2);
+    lv_coord_t dist = (lv_coord_t)luaL_checknumber(L, 2);
     lv_page_scroll_ver(page ,dist);
     return 0;
 }

@@ -65,7 +65,7 @@ function copynext.setup_scr_copynext(ui)
 
 	--Write codes copynext_label1
 	ui.copynext_label1 = lvgl.label_create(ui.copynext, nil);
-	lvgl.label_set_text(ui.copynext_label1, "ADJUST IMAGE");
+	lvgl.label_set_text(ui.copynext_label1, "调整图像");
 	lvgl.label_set_long_mode(ui.copynext_label1, lvgl.LABEL_LONG_BREAK);
 	lvgl.label_set_align(ui.copynext_label1, lvgl.LABEL_ALIGN_CENTER);
 
@@ -307,7 +307,7 @@ function copynext.setup_scr_copynext(ui)
 
 	--Write codes copynext_labelcopy
 	ui.copynext_labelcopy = lvgl.label_create(ui.copynext, nil);
-	lvgl.label_set_text(ui.copynext_labelcopy, "Copies");
+	lvgl.label_set_text(ui.copynext_labelcopy, "份数");
 	lvgl.label_set_long_mode(ui.copynext_labelcopy, lvgl.LABEL_LONG_BREAK);
 	lvgl.label_set_align(ui.copynext_labelcopy, lvgl.LABEL_ALIGN_CENTER);
 
@@ -588,7 +588,7 @@ function copynext.setup_scr_copynext(ui)
 
 	--Write codes copynext_ddlist1
 	ui.copynext_ddlist1 = lvgl.dropdown_create(ui.copynext, nil);
-	lvgl.dropdown_set_options(ui.copynext_ddlist1, "Best\nNormal\nDraft");
+	lvgl.dropdown_set_options(ui.copynext_ddlist1, "最好\n通常\n一般");
 	lvgl.dropdown_set_max_height(ui.copynext_ddlist1, 90);
 
 	--Write style lvgl.DROPDOWN_PART_MAIN for copynext_ddlist1
@@ -704,9 +704,9 @@ function copynext.setup_scr_copynext(ui)
 	lvgl.obj_set_pos(ui.copynext_print, 320, 223);
 	lvgl.obj_set_size(ui.copynext_print, 118, 40);
 	ui.copynext_print_label = lvgl.label_create(ui.copynext_print, nil);
-	lvgl.label_set_text(ui.copynext_print_label, "PRINT");
+	lvgl.label_set_text(ui.copynext_print_label, "打印");
 	lvgl.obj_set_style_local_text_color(ui.copynext_print_label, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, lvgl.color_make(0xff, 0xff, 0xff));
-	lvgl.obj_set_style_local_text_font(ui.copynext_print_label, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, lvgl.font_get("opposans_m_12"));
+	lvgl.obj_set_style_local_text_font(ui.copynext_print_label, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, lvgl.font_get("opposans_m_14"));
 end
 
 return copynext

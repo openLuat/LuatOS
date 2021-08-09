@@ -65,7 +65,7 @@ function copyhome.setup_scr_copyhome(ui)
 
 	--Write codes copyhome_label1
 	ui.copyhome_label1 = lvgl.label_create(ui.copyhome, nil);
-	lvgl.label_set_text(ui.copyhome_label1, "ADJUST IMAGE");
+	lvgl.label_set_text(ui.copyhome_label1, "调整图像");
 	lvgl.label_set_long_mode(ui.copyhome_label1, lvgl.LABEL_LONG_BREAK);
 	lvgl.label_set_align(ui.copyhome_label1, lvgl.LABEL_ALIGN_CENTER);
 
@@ -81,7 +81,7 @@ function copyhome.setup_scr_copyhome(ui)
 	lvgl.style_set_bg_grad_dir(style_copyhome_label1_main, lvgl.STATE_DEFAULT, lvgl.GRAD_DIR_VER);
 	lvgl.style_set_bg_opa(style_copyhome_label1_main, lvgl.STATE_DEFAULT, 255);
 	lvgl.style_set_text_color(style_copyhome_label1_main, lvgl.STATE_DEFAULT, lvgl.color_make(0xff, 0xff, 0xff));
-	lvgl.style_set_text_font(style_copyhome_label1_main, lvgl.STATE_DEFAULT, lvgl.font_simsun_22);
+	lvgl.style_set_text_font(style_copyhome_label1_main, lvgl.STATE_DEFAULT, lvgl.font_get("opposans_m_22"));
 	lvgl.style_set_text_letter_space(style_copyhome_label1_main, lvgl.STATE_DEFAULT, 2);
 	lvgl.style_set_pad_left(style_copyhome_label1_main, lvgl.STATE_DEFAULT, 0);
 	lvgl.style_set_pad_right(style_copyhome_label1_main, lvgl.STATE_DEFAULT, 0);
@@ -198,9 +198,9 @@ function copyhome.setup_scr_copyhome(ui)
 	lvgl.obj_set_pos(ui.copyhome_btncopynext, 368, 221);
 	lvgl.obj_set_size(ui.copyhome_btncopynext, 80, 40);
 	ui.copyhome_btncopynext_label = lvgl.label_create(ui.copyhome_btncopynext, nil);
-	lvgl.label_set_text(ui.copyhome_btncopynext_label, "NEXT");
+	lvgl.label_set_text(ui.copyhome_btncopynext_label, "下一步");
 	lvgl.obj_set_style_local_text_color(ui.copyhome_btncopynext_label, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, lvgl.color_make(0xff, 0xff, 0xff));
-	lvgl.obj_set_style_local_text_font(ui.copyhome_btncopynext_label, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, lvgl.font_get("opposans_m_12"));
+	lvgl.obj_set_style_local_text_font(ui.copyhome_btncopynext_label, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, lvgl.font_get("opposans_m_14"));
 
 	--Write codes copyhome_sliderhue
 	ui.copyhome_sliderhue = lvgl.slider_create(ui.copyhome, nil);

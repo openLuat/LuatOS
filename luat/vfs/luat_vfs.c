@@ -66,7 +66,7 @@ int luat_vfs_rm_fd(FILE* fd) {
 }
 
 luat_vfs_mount_t * getmount(const char* filename) {
-    for (size_t j = LUAT_VFS_FILESYSTEM_MOUNT_MAX - 1; j >= 0; j--) {
+    for (int j = LUAT_VFS_FILESYSTEM_MOUNT_MAX - 1; j >= 0; j--) {
         if (vfs.mounted[j].ok == 0)
             continue;
         if (strncmp(vfs.mounted[j].prefix, filename, strlen(vfs.mounted[j].prefix)) == 0) {

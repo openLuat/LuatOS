@@ -127,18 +127,18 @@ void luat_lvgl_struct_init(lua_State *L) {
     // lv_anim*
     luaL_newmetatable(L, META_LV_ANIM);
     lua_pushcfunction(L, _lvgl_struct_anim_t_newindex);
-    lua_setfield( L, -1, "__newindex" );
+    lua_setfield( L, -2, "__newindex" );
     lua_pop(L, 1);
 
     // lv_area
     luaL_newmetatable(L, META_LV_AREA);
     lua_pushcfunction(L, _lvgl_struct_area_t_newindex);
-    lua_setfield( L, -1, "__newindex" );
+    lua_setfield( L, -2, "__newindex" );
     lua_pop(L, 1);
 
     // lv_calendar_date_t
     luaL_newmetatable(L, META_LV_CALENDAR_DATE_T);
     lua_pushcfunction(L, _lvgl_struct_calendar_date_t_newindex);
-    lua_setfield( L, -1, "__newindex" );
+    lua_setfield( L, -2, "__newindex" );
     lua_pop(L, 1);
 }

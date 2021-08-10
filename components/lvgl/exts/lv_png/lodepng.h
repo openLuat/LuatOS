@@ -29,6 +29,7 @@ freely, subject to the following restrictions:
 #include <string.h> /*for size_t*/
 
 #define LV_LVGL_H_INCLUDE_SIMPLE
+#define LODEPNG_NO_COMPILE_ALLOCATORS
 
 #ifndef LV_PNG_USE_LV_FILESYSTEM
 #define LV_PNG_USE_LV_FILESYSTEM 1

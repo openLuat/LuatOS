@@ -18,10 +18,10 @@ function calendar_demo.demo()
 
     --Set today's date
     -- lvgl.calendar_date_t today;
-    -- local today = lvgl.calendar_date_t()
-    -- today.year = 2018;
-    -- today.month = 10;
-    -- today.day = 23;
+    local today = lvgl.calendar_date_t()
+    today.year = 2018;
+    today.month = 10;
+    today.day = 23;
 
     -- lvgl.calendar_set_today_date(calendar, today);
     -- lvgl.calendar_set_showed_date(calendar, today);

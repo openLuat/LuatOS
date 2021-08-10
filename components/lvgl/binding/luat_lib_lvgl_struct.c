@@ -5,7 +5,7 @@
 
 #define META_LV_ANIM "LV_ANIM*"
 #define META_LV_AREA "LV_AREA*"
-
+#define META_LV_CALENDAR_DATE_T "LV_CALENDAR_DATE_T*"
 
 //---------------------------------------------
 /*
@@ -91,7 +91,34 @@ static int _lvgl_struct_area_t_newindex(lua_State *L) {
     return 0;
 }
 
+//---------------------------------------------
+/*
+创建一个calendar_date_t
+@api lvgl.calendar_date_t()
+@return userdata calendar_date_t指针
+@usage
+local today = lvgl.calendar_date_t()
+*/
+int luat_lv_calendar_date_t(lua_State *L){
+    lua_newuserdata(L, sizeof(lv_calendar_date_t));
+    luaL_setmetatable(L, META_LV_CALENDAR_DATE_T);
+    return 1;
+}
 
+static int _lvgl_struct_calendar_date_t_newindex(lua_State *L) {
+    lv_calendar_date_t* date_t = (lv_calendar_date_t*)lua_touserdata(L, 1);
+    const char* key = luaL_checkstring(L, 2);
+    if (!strcmp("year", key)) {
+        date_t->year = luaL_optinteger(L, 3, 0);
+    }
+    else if (!strcmp("month", key)) {
+        date_t->month = luaL_optinteger(L, 3, 0);
+    }
+    else if (!strcmp("day", key)) {
+        date_t->day = luaL_optinteger(L, 3, 0);
+    }
+    return 0;
+}
 //--------------------------------------------
 
 
@@ -106,6 +133,12 @@ static void luat_lvgl_struct_init(lua_State *L) {
     // lv_area
     luaL_newmetatable(L, META_LV_AREA);
     lua_pushcfunction(L, _lvgl_struct_area_t_newindex);
+    lua_setfield( L, -1, "__newindex" );
+    lua_pop(L, 1);
+
+    // lv_calendar_date_t
+    luaL_newmetatable(L, META_LV_CALENDAR_DATE_T);
+    lua_pushcfunction(L, _lvgl_struct_calendar_date_t_newindex);
     lua_setfield( L, -1, "__newindex" );
     lua_pop(L, 1);
 }

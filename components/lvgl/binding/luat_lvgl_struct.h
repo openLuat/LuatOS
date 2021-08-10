@@ -7,8 +7,10 @@
 
 int luat_lv_struct_anim_t(lua_State *L);
 int luat_lv_struct_area_t(lua_State *L);
+int luat_lv_calendar_date_t(lua_State *L);
 
 #define LUAT_LV_STRUCT_RLT {"anim_t", luat_lv_struct_anim_t, 0},\
-{"area_t", luat_lv_struct_area_t, 0},
+{"area_t", luat_lv_struct_area_t, 0},\
+{"calendar_date_t", luat_lv_calendar_date_t, 0},\
 
 #endif

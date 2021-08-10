@@ -17,30 +17,31 @@ function calendar_demo.demo()
     lvgl.obj_set_style_local_text_font(calendar, lvgl.CALENDAR_PART_DATE, lvgl.STATE_DEFAULT, lvgl.theme_get_font_small());
 
     --Set today's date
-    -- lvgl.calendar_date_t today;
     local today = lvgl.calendar_date_t()
     today.year = 2018;
     today.month = 10;
     today.day = 23;
 
-    -- lvgl.calendar_set_today_date(calendar, today);
-    -- lvgl.calendar_set_showed_date(calendar, today);
+    lvgl.calendar_set_today_date(calendar, today);
+    lvgl.calendar_set_showed_date(calendar, today);
 
-    -- --Highlight a few days
-    -- static lvgl.calendar_date_t highlighted_days[3];       --Only its pointer will be saved so should be static
-    -- highlighted_days[0].year = 2018;
-    -- highlighted_days[0].month = 10;
-    -- highlighted_days[0].day = 6;
+    local highlighted_days1 = lvgl.calendar_date_t()
+    highlighted_days1.year = 2018;
+    highlighted_days1.month = 10;
+    highlighted_days1.day = 6;
 
-    -- highlighted_days[1].year = 2018;
-    -- highlighted_days[1].month = 10;
-    -- highlighted_days[1].day = 11;
+    local highlighted_days2 = lvgl.calendar_date_t()
+    highlighted_days2.year = 2018;
+    highlighted_days2.month = 10;
+    highlighted_days2.day = 11;
 
-    -- highlighted_days[2].year = 2018;
-    -- highlighted_days[2].month = 11;
-    -- highlighted_days[2].day = 22;
+    local highlighted_days3 = lvgl.calendar_date_t()
+    highlighted_days3.year = 2018;
+    highlighted_days3.month = 10;
+    highlighted_days3.day = 12;
 
-    -- lvgl.calendar_set_highlighted_dates(calendar, highlighted_days, 3);
+    local highlighted_days = {highlighted_days1,highlighted_days2,highlighted_days3}
+    lvgl.calendar_set_highlighted_dates(calendar, highlighted_days, 3);
 end
 
 return calendar_demo

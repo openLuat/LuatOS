@@ -391,13 +391,8 @@ int luat_lv_img_get_angle(lua_State *L) {
 int luat_lv_img_get_pivot(lua_State *L) {
     LV_DEBUG("CALL lv_img_get_pivot");
     lv_obj_t* img = (lv_obj_t*)lua_touserdata(L, 1);
-    lua_pushvalue(L, 2);
-    lv_point_t center = {0};
-    lua_geti(L, -1, 1); center.x = luaL_checkinteger(L, -1); lua_pop(L, 1);
-    lua_geti(L, -1, 2); center.y = luaL_checkinteger(L, -1); lua_pop(L, 1);
-    lua_pop(L, 1);
-
-    lv_img_get_pivot(img ,&center);
+    lv_point_t* center = (lv_point_t*)lua_touserdata(L, 2);
+    lv_img_get_pivot(img ,center);
     return 0;
 }
 

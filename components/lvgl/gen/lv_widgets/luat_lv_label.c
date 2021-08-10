@@ -142,13 +142,8 @@ int luat_lv_label_get_letter_pos(lua_State *L) {
     LV_DEBUG("CALL lv_label_get_letter_pos");
     lv_obj_t* label = (lv_obj_t*)lua_touserdata(L, 1);
     uint32_t index = (uint32_t)luaL_checkinteger(L, 2);
-    lua_pushvalue(L, 3);
-    lv_point_t pos = {0};
-    lua_geti(L, -1, 1); pos.x = luaL_checkinteger(L, -1); lua_pop(L, 1);
-    lua_geti(L, -1, 2); pos.y = luaL_checkinteger(L, -1); lua_pop(L, 1);
-    lua_pop(L, 1);
-
-    lv_label_get_letter_pos(label ,index ,&pos);
+    lv_point_t* pos = (lv_point_t*)lua_touserdata(L, 3);
+    lv_label_get_letter_pos(label ,index ,pos);
     return 0;
 }
 
@@ -156,14 +151,9 @@ int luat_lv_label_get_letter_pos(lua_State *L) {
 int luat_lv_label_get_letter_on(lua_State *L) {
     LV_DEBUG("CALL lv_label_get_letter_on");
     lv_obj_t* label = (lv_obj_t*)lua_touserdata(L, 1);
-    lua_pushvalue(L, 2);
-    lv_point_t pos = {0};
-    lua_geti(L, -1, 1); pos.x = luaL_checkinteger(L, -1); lua_pop(L, 1);
-    lua_geti(L, -1, 2); pos.y = luaL_checkinteger(L, -1); lua_pop(L, 1);
-    lua_pop(L, 1);
-
+    lv_point_t* pos = (lv_point_t*)lua_touserdata(L, 2);
     uint32_t ret;
-    ret = lv_label_get_letter_on(label ,&pos);
+    ret = lv_label_get_letter_on(label ,pos);
     lua_pushinteger(L, ret);
     return 1;
 }
@@ -172,14 +162,9 @@ int luat_lv_label_get_letter_on(lua_State *L) {
 int luat_lv_label_is_char_under_pos(lua_State *L) {
     LV_DEBUG("CALL lv_label_is_char_under_pos");
     lv_obj_t* label = (lv_obj_t*)lua_touserdata(L, 1);
-    lua_pushvalue(L, 2);
-    lv_point_t pos = {0};
-    lua_geti(L, -1, 1); pos.x = luaL_checkinteger(L, -1); lua_pop(L, 1);
-    lua_geti(L, -1, 2); pos.y = luaL_checkinteger(L, -1); lua_pop(L, 1);
-    lua_pop(L, 1);
-
+    lv_point_t* pos = (lv_point_t*)lua_touserdata(L, 2);
     bool ret;
-    ret = lv_label_is_char_under_pos(label ,&pos);
+    ret = lv_label_is_char_under_pos(label ,pos);
     lua_pushboolean(L, ret);
     return 1;
 }

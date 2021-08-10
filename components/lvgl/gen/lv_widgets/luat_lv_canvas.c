@@ -105,16 +105,9 @@ int luat_lv_canvas_transform(lua_State *L) {
 int luat_lv_canvas_blur_hor(lua_State *L) {
     LV_DEBUG("CALL lv_canvas_blur_hor");
     lv_obj_t* canvas = (lv_obj_t*)lua_touserdata(L, 1);
-    lua_pushvalue(L, 2);
-    lv_area_t area = {0};
-    lua_geti(L, -1, 1); area.x1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
-    lua_geti(L, -1, 2); area.y1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
-    lua_geti(L, -1, 3); area.x2 = luaL_checkinteger(L, -1); lua_pop(L, 1);
-    lua_geti(L, -1, 4); area.y2 = luaL_checkinteger(L, -1); lua_pop(L, 1);
-    lua_pop(L, 1);
-
+    lv_area_t* area = (lv_area_t*)lua_touserdata(L, 2);
     uint16_t r = (uint16_t)luaL_checkinteger(L, 3);
-    lv_canvas_blur_hor(canvas ,&area ,r);
+    lv_canvas_blur_hor(canvas ,area ,r);
     return 0;
 }
 
@@ -122,16 +115,9 @@ int luat_lv_canvas_blur_hor(lua_State *L) {
 int luat_lv_canvas_blur_ver(lua_State *L) {
     LV_DEBUG("CALL lv_canvas_blur_ver");
     lv_obj_t* canvas = (lv_obj_t*)lua_touserdata(L, 1);
-    lua_pushvalue(L, 2);
-    lv_area_t area = {0};
-    lua_geti(L, -1, 1); area.x1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
-    lua_geti(L, -1, 2); area.y1 = luaL_checkinteger(L, -1); lua_pop(L, 1);
-    lua_geti(L, -1, 3); area.x2 = luaL_checkinteger(L, -1); lua_pop(L, 1);
-    lua_geti(L, -1, 4); area.y2 = luaL_checkinteger(L, -1); lua_pop(L, 1);
-    lua_pop(L, 1);
-
+    lv_area_t* area = (lv_area_t*)lua_touserdata(L, 2);
     uint16_t r = (uint16_t)luaL_checkinteger(L, 3);
-    lv_canvas_blur_ver(canvas ,&area ,r);
+    lv_canvas_blur_ver(canvas ,area ,r);
     return 0;
 }
 

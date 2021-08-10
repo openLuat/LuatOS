@@ -18,6 +18,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#include "luat_base.h"
+#include "luat_malloc.h"
+
 /*********************
  *      DEFINES
  *********************/
@@ -160,7 +163,7 @@ static lv_res_t decoder_open(lv_img_decoder_t * decoder, lv_img_decoder_dsc_t * 
 
             /*Decode the loaded image in ARGB8888 */
             error = lodepng_decode32(&img_data, &png_width, &png_height, png_data, png_data_size);
-            free(png_data); /*Free the loaded file*/
+            luat_heap_free(png_data); /*Free the loaded file*/
             if(error) {
                 LV_LOG_ERROR("error %u: %s", error, lodepng_error_text(error));
                 return LV_RES_INV;
@@ -201,7 +204,7 @@ static lv_res_t decoder_open(lv_img_decoder_t * decoder, lv_img_decoder_dsc_t * 
 static void decoder_close(lv_img_decoder_t * decoder, lv_img_decoder_dsc_t * dsc)
 {
     (void) decoder; /*Unused*/
-    if(dsc->img_data) free((uint8_t *)dsc->img_data);
+    if(dsc->img_data) luat_heap_free((uint8_t *)dsc->img_data);
 }
 
 /**

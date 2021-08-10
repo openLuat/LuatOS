@@ -160,6 +160,7 @@ LUAT_LV_ENMU_RLT
 
 LUAMOD_API int luaopen_lvgl( lua_State *L ) {
     luat_newlib(L, reg_lvgl);
+    luat_lvgl_struct_init(L);
     return 1;
 }
 

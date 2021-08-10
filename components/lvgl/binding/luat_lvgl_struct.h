@@ -5,6 +5,8 @@
 #include "luat_base.h"
 #include "lvgl.h"
 
+void luat_lvgl_struct_init(lua_State *L);
+
 int luat_lv_struct_anim_t(lua_State *L);
 int luat_lv_struct_area_t(lua_State *L);
 int luat_lv_calendar_date_t(lua_State *L);

@@ -22,7 +22,7 @@ int luat_lv_struct_anim_t(lua_State *L) {
 }
 
 
-static int _lvgl_struct_anim_t_newindex(lua_State *L) {
+int _lvgl_struct_anim_t_newindex(lua_State *L) {
     lv_anim_t* anim = (lv_anim_t*)lua_touserdata(L, 1);
     const char* key = luaL_checkstring(L, 2);
     if (!strcmp("start", key)) {
@@ -73,7 +73,7 @@ int luat_lv_struct_area_t(lua_State *L) {
 }
 
 
-static int _lvgl_struct_area_t_newindex(lua_State *L) {
+int _lvgl_struct_area_t_newindex(lua_State *L) {
     lv_area_t* area = (lv_area_t*)lua_touserdata(L, 1);
     const char* key = luaL_checkstring(L, 2);
     if (!strcmp("x1", key)) {
@@ -105,7 +105,7 @@ int luat_lv_calendar_date_t(lua_State *L){
     return 1;
 }
 
-static int _lvgl_struct_calendar_date_t_newindex(lua_State *L) {
+int _lvgl_struct_calendar_date_t_newindex(lua_State *L) {
     lv_calendar_date_t* date_t = (lv_calendar_date_t*)lua_touserdata(L, 1);
     const char* key = luaL_checkstring(L, 2);
     if (!strcmp("year", key)) {
@@ -122,7 +122,7 @@ static int _lvgl_struct_calendar_date_t_newindex(lua_State *L) {
 //--------------------------------------------
 
 
-static void luat_lvgl_struct_init(lua_State *L) {
+void luat_lvgl_struct_init(lua_State *L) {
 
     // lv_anim*
     luaL_newmetatable(L, META_LV_ANIM);

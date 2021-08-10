@@ -4,12 +4,14 @@
 #include "luat_msgbus.h"
 #include "luat_fs.h"
 #include "bget.h"
+#include "port.h"
 //#include "lvgl.h"
 
 #define LUAT_HEAP_SIZE (1024*1024)
 // static uint8_t luavm_heap[LUAT_HEAP_SIZE] = {0};
 void luatos_main_entry(void) {
-  uint8_t *luavm_heap = esMEMS_Palloc(1024, 0) ;
+  uint8_t *luavm_heap = (uint8_t *)esMEMS_Malloc(0, LUAT_HEAP_SIZE);
+  DBG("%x", luavm_heap);
   bpool(luavm_heap, LUAT_HEAP_SIZE);
   luat_fs_init();
   //lv_init();

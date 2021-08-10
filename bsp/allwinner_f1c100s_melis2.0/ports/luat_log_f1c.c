@@ -17,7 +17,7 @@ LUAT_WEAK void luat_print(const char* _str) {
 
 LUAT_WEAK void luat_nprint(char *s, size_t l) {
     //luat_uart_write(luat_log_uart_port, s, l);
-    __log(s);
+    __log("%.*s", l, s);
 }
 
 LUAT_WEAK void luat_log_set_level(int level) {

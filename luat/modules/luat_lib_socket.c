@@ -232,7 +232,7 @@ static int luat_lib_socket_new(lua_State* L, int netc_type) {
 @api    so:start(host, port)
 @string 服务器域名或ip,如果已经使用so:host和so:port配置,就不需要传参数了
 @port 服务器端口,如果已经使用so:host和so:port配置,就不需要传参数了
-@return int 成功返回1,失败返回0
+@return int 成功返回0,失败返回1
 @usage
 -- 参考socket.tcp的说明, 并查阅demo
 */

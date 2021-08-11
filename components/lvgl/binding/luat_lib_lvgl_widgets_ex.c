@@ -29,15 +29,14 @@ int luat_lv_msgbox_add_btns(lua_State *L) {
         }  
     }
     lv_msgbox_add_btns(mbox,btn_mapaction);
-    return 1;
+    return 0;
 }
 
 int luat_lv_tileview_set_valid_positions(lua_State *L) {
     LV_DEBUG("CALL lv_tileview_set_valid_positions");
     lv_obj_t* tileview = (lv_obj_t*)lua_touserdata(L, 1);
     uint16_t valid_pos_cnt = (uint16_t)luaL_checkinteger(L, 3);
-    lv_point_t *valid_pos;
-    valid_pos = (lv_point_t*)luat_heap_calloc(valid_pos_cnt,sizeof(lv_point_t));
+    lv_point_t *valid_pos = (lv_point_t*)luat_heap_calloc(valid_pos_cnt,sizeof(lv_point_t));
     if (lua_istable(L,2)){
         for (int m = 0; m < valid_pos_cnt; m++) {  
             lua_pushinteger(L, m+1);
@@ -54,16 +53,14 @@ int luat_lv_tileview_set_valid_positions(lua_State *L) {
     }
     lv_tileview_set_valid_positions(tileview,valid_pos,valid_pos_cnt);
     luat_heap_free(valid_pos);
-    return 1;
+    return 0;
 }
 
 int luat_lv_calendar_set_highlighted_dates(lua_State *L) {
     LV_DEBUG("CALL lv_calendar_set_highlighted_dates");
     lv_obj_t* calendar = (lv_obj_t*)lua_touserdata(L, 1);
     uint16_t date_num = (uint16_t)luaL_checkinteger(L, 3);
-
-    lv_calendar_date_t *highlighted;
-    highlighted = (lv_calendar_date_t*)luat_heap_calloc(date_num,sizeof(lv_calendar_date_t));
+    lv_calendar_date_t *highlighted = (lv_calendar_date_t*)luat_heap_calloc(date_num,sizeof(lv_calendar_date_t));
     if (lua_istable(L,2)){
         for (int m = 0; m < date_num; m++) {  
             lua_pushinteger(L, m+1);   
@@ -78,7 +75,7 @@ int luat_lv_calendar_set_highlighted_dates(lua_State *L) {
     }
     lv_calendar_set_highlighted_dates(calendar,highlighted,date_num);
     luat_heap_free(highlighted);
-    return 1;
+    return 0;
 }
 
 /*line*/
@@ -86,8 +83,7 @@ int luat_lv_line_set_points(lua_State *L) {
     LV_DEBUG("CALL lv_line_set_points");
     lv_obj_t* line = (lv_obj_t*)lua_touserdata(L, 1);
     uint16_t point_num = (uint16_t)luaL_checkinteger(L, 3);
-    lv_point_t *point_a;
-    point_a = (lv_point_t*)luat_heap_calloc(point_num,sizeof(lv_point_t));
+    lv_point_t *point_a = (lv_point_t*)luat_heap_calloc(point_num,sizeof(lv_point_t));
     if (lua_istable(L,2)){
         for (int m = 0; m < point_num; m++) {  
             lua_pushinteger(L, m+1);
@@ -104,16 +100,15 @@ int luat_lv_line_set_points(lua_State *L) {
     }
     lv_line_set_points(line,point_a,point_num);
     luat_heap_free(point_a);
-    return 1;
+    return 0;
 }
 
 /*gauge*/
 int luat_lv_gauge_set_needle_count(lua_State *L) {
     LV_DEBUG("CALL lv_gauge_set_needle_count");
     lv_obj_t* gauge = (lv_obj_t*)lua_touserdata(L, 1);
-    uint8_t needle_cnt = (lv_coord_t)luaL_checkinteger(L, 2);
-    lv_color_t *colors;
-    colors = (lv_color_t*)luat_heap_calloc(needle_cnt,sizeof(lv_color_t));
+    uint8_t needle_cnt = (uint8_t)luaL_checkinteger(L, 2);
+    lv_color_t *colors = (lv_color_t*)luat_heap_calloc(needle_cnt,sizeof(lv_color_t));
     for(int i=0; i<needle_cnt; i++){
         lv_color_t _color;
         _color.full = luaL_checkinteger(L, i+3);
@@ -121,7 +116,7 @@ int luat_lv_gauge_set_needle_count(lua_State *L) {
     }
     lv_gauge_set_needle_count(gauge, needle_cnt,colors);
     luat_heap_free(colors);
-    return 1;
+    return 0;
 }
 
 /*btnmatrix*/
@@ -152,5 +147,29 @@ int luat_lv_btnmatrix_set_map(lua_State *L) {
     //                                 "Action1", "Action2", ""};
     lv_btnmatrix_set_map(btnm,map);
     // luat_heap_free(map);
+    return 0;
+}
+
+/*dropdown*/
+int luat_lv_dropdown_get_selected_str(lua_State *L) {
+    LV_DEBUG("CALL lv_dropdown_get_selected_str");
+    lv_obj_t* ddlist = (lv_obj_t*)lua_touserdata(L, 1);
+    uint32_t buf_size = (uint32_t)luaL_checkinteger(L, 2);
+    char *buf = (char*)luat_heap_calloc(buf_size,sizeof(char));
+    lv_dropdown_get_selected_str(ddlist, buf, buf_size);
+    lua_pushstring(L, buf);
+    luat_heap_free(buf);
+    return 1;
+}
+
+/*roller*/
+int luat_lv_roller_get_selected_str(lua_State *L) {
+    LV_DEBUG("CALL lv_roller_get_selected_str");
+    lv_obj_t* roller = (lv_obj_t*)lua_touserdata(L, 1);
+    uint32_t buf_size = (uint32_t)luaL_checkinteger(L, 2);
+    char *buf = (char*)luat_heap_calloc(buf_size,sizeof(char));
+    lv_roller_get_selected_str(roller, buf, buf_size);
+    lua_pushstring(L, buf);
+    luat_heap_free(buf);
     return 1;
 }

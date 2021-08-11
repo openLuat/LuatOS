@@ -25,10 +25,9 @@ int luat_lv_draw_mask_radius_param_t(lua_State *L) {
 
 /*
 释放一个lv_draw_mask_radius_param_t
-@api lvgl.draw_mask_radius_param_t(radius)
-@return userdata lv_draw_mask_radius_param_t指针
+@api lvgl.draw_mask_radius_param_t_free(radius)
 @usage
-local lvgl.draw_mask_radius_param_t(radius)
+local lvgl.draw_mask_radius_param_t_free(radius)
 */
 int luat_lv_draw_mask_radius_param_t_free(lua_State *L) {
     lv_draw_mask_radius_param_t* radius = (lv_draw_mask_radius_param_t*)lua_touserdata(L, 1);
@@ -53,10 +52,9 @@ int luat_lv_draw_mask_line_param_t(lua_State *L) {
 
 /*
 释放一个lv_draw_mask_line_param_t
-@api lvgl.draw_mask_line_param_t(line)
-@return userdata lv_draw_mask_line_param_t指针
+@api lvgl.draw_mask_line_param_t_free(line)
 @usage
-local lvgl.draw_mask_line_param_t(line)
+local lvgl.draw_mask_line_param_t_free(line)
 */
 int luat_lv_draw_mask_line_param_t_free(lua_State *L) {
     lv_draw_mask_line_param_t* line = (lv_draw_mask_line_param_t*)lua_touserdata(L, 1);
@@ -81,10 +79,9 @@ int luat_lv_draw_mask_fade_param_t(lua_State *L) {
 
 /*
 释放一个lv_draw_mask_fade_param_t
-@api lvgl.draw_mask_fade_param_t(fade)
-@return userdata lv_draw_mask_fade_param_t指针
+@api lvgl.draw_mask_fade_param_t_free(fade)
 @usage
-local lvgl.draw_mask_fade_param_t(fade)
+local lvgl.draw_mask_fade_param_t_free(fade)
 */
 int luat_lv_draw_mask_fade_param_t_free(lua_State *L) {
     lv_draw_mask_fade_param_t* fade = (lv_draw_mask_fade_param_t*)lua_touserdata(L, 1);
@@ -93,4 +90,5 @@ int luat_lv_draw_mask_fade_param_t_free(lua_State *L) {
     }
     return 0;
 }
+
 

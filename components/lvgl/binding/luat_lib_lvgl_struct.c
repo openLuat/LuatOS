@@ -7,6 +7,8 @@
 #define META_LV_AREA "LV_AREA*"
 #define META_LV_CALENDAR_DATE_T "LV_CALENDAR_DATE_T*"
 #define META_LV_DRAW_RECT_DSC_T "LV_DRAW_RECT_DSC_T*"
+#define META_LV_DRAW_LABEL_DSC_T "LV_DRAW_LABEL_DSC_T*"
+#define META_LV_DRAW_IMG_DSC_T "LV_DRAW_IMG_DSC_T*"
 
 //---------------------------------------------
 /*
@@ -276,6 +278,112 @@ int _lvgl_struct_draw_rect_dsc_t_newindex(lua_State *L) {
     return 0;
 }
 
+//---------------------------------------------
+/*
+创建一个lv_draw_label_dsc_t
+@api lvgl.draw_label_dsc_t()
+@return userdata lv_draw_label_dsc_t指针
+@usage
+local rect_dsc = lvgl.draw_label_dsc_t()
+*/
+int luat_lv_draw_label_dsc_t(lua_State *L){
+    lua_newuserdata(L, sizeof(lv_draw_label_dsc_t));
+    luaL_setmetatable(L, META_LV_DRAW_LABEL_DSC_T);
+    return 1;
+}
+
+int _lvgl_struct_draw_label_dsc_t_newindex(lua_State *L) {
+    lv_draw_label_dsc_t* label_dsc = (lv_draw_label_dsc_t*)lua_touserdata(L, 1);
+    const char* key = luaL_checkstring(L, 2);
+    if (!strcmp("color", key)) {
+        label_dsc->color.full = luaL_optinteger(L, 3, 0);
+    }
+    else if (!strcmp("sel_color", key)) {
+        label_dsc->sel_color.full = luaL_optinteger(L, 3, 0);
+    }
+    else if (!strcmp("sel_bg_color", key)) {
+        label_dsc->sel_bg_color.full = luaL_optinteger(L, 3, 0);
+    }
+    else if (!strcmp("font", key)) {
+        label_dsc->font = luaL_optstring(L, 3, NULL);
+    }
+    else if (!strcmp("opa", key)) {
+        label_dsc->opa = luaL_optinteger(L, 3, 0);
+    }
+    else if (!strcmp("line_space", key)) {
+        label_dsc->line_space = luaL_optinteger(L, 3, 0);
+    }
+    else if (!strcmp("letter_space", key)) {
+        label_dsc->letter_space = luaL_optinteger(L, 3, 0);
+    }
+    else if (!strcmp("sel_start", key)) {
+        label_dsc->sel_start = luaL_optinteger(L, 3, 0);
+    }
+    else if (!strcmp("sel_end", key)) {
+        label_dsc->sel_end = luaL_optinteger(L, 3, 0);
+    }
+    else if (!strcmp("ofs_x", key)) {
+        label_dsc->ofs_x = luaL_optinteger(L, 3, 0);
+    }
+    else if (!strcmp("ofs_y", key)) {
+        label_dsc->ofs_y = luaL_optinteger(L, 3, 0);
+    }
+    else if (!strcmp("bidi_dir", key)) {
+        label_dsc->bidi_dir = luaL_optinteger(L, 3, 0);
+    }
+    else if (!strcmp("flag", key)) {
+        label_dsc->flag = luaL_optinteger(L, 3, 0);
+    }
+    else if (!strcmp("decor", key)) {
+        label_dsc->decor = luaL_optinteger(L, 3, 0);
+    }
+    else if (!strcmp("blend_mode", key)) {
+        label_dsc->blend_mode = luaL_optinteger(L, 3, 0);
+    }
+    return 0;
+}
+
+//---------------------------------------------
+/*
+创建一个lv_draw_img_dsc_t
+@api lvgl.draw_img_dsc_t()
+@return userdata lv_draw_img_dsc_t指针
+@usage
+local today = lvgl.draw_img_dsc_t()
+*/
+int luat_lv_draw_img_dsc_t(lua_State *L){
+    lua_newuserdata(L, sizeof(lv_draw_img_dsc_t));
+    luaL_setmetatable(L, META_LV_DRAW_IMG_DSC_T);
+    return 1;
+}
+
+int _lvgl_struct_draw_img_dsc_t_newindex(lua_State *L) {
+    lv_draw_img_dsc_t* img_dsc_t = (lv_draw_img_dsc_t*)lua_touserdata(L, 1);
+    const char* key = luaL_checkstring(L, 2);
+    if (!strcmp("opa", key)) {
+        img_dsc_t->opa = luaL_optinteger(L, 3, 0);
+    }
+    else if (!strcmp("angle", key)) {
+        img_dsc_t->angle = luaL_optinteger(L, 3, 0);
+    }
+    // else if (!strcmp("pivot", key)) {
+    //     img_dsc_t->pivot = (lv_point_t)luaL_optinteger(L, 3, 0);
+    // }
+    else if (!strcmp("zoom", key)) {
+        img_dsc_t->zoom = luaL_optinteger(L, 3, 0);
+    }
+    else if (!strcmp("recolor", key)) {
+        img_dsc_t->recolor.full = luaL_optinteger(L, 3, 0);
+    }
+    else if (!strcmp("blend_mode", key)) {
+        img_dsc_t->blend_mode = luaL_optinteger(L, 3, 0);
+    }
+    else if (!strcmp("antialias", key)) {
+        img_dsc_t->antialias = luaL_optinteger(L, 3, 1);
+    }
+    return 0;
+}
+
 //--------------------------------------------
 
 
@@ -302,6 +410,18 @@ void luat_lvgl_struct_init(lua_State *L) {
     // lv_draw_rect_dsc_t
     luaL_newmetatable(L, META_LV_DRAW_RECT_DSC_T);
     lua_pushcfunction(L, _lvgl_struct_draw_rect_dsc_t_newindex);
+    lua_setfield( L, -2, "__newindex" );
+    lua_pop(L, 1);
+
+    // draw_label_dsc_t
+    luaL_newmetatable(L, META_LV_DRAW_LABEL_DSC_T);
+    lua_pushcfunction(L, _lvgl_struct_draw_label_dsc_t_newindex);
+    lua_setfield( L, -2, "__newindex" );
+    lua_pop(L, 1);
+
+    // lv_draw_img_dsc_t
+    luaL_newmetatable(L, META_LV_DRAW_IMG_DSC_T);
+    lua_pushcfunction(L, _lvgl_struct_draw_img_dsc_t_newindex);
     lua_setfield( L, -2, "__newindex" );
     lua_pop(L, 1);
 }

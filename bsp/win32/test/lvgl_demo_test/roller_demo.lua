@@ -1,15 +1,14 @@
-local roller = {}
+local roller_demo = {}
 
 local function event_handler(obj, event)
     if(event == lvgl.EVENT_VALUE_CHANGED) then
-        -- char buf[32];
-        -- lvgl.roller_get_selected_str(obj, buf, sizeof(buf));
-        -- printf("Selected month: %s\n", buf);
-        -- print(string.format("Clicked: %s\n", lvgl.list_get_btn_text(obj)));
+        local buf = lvgl.roller_get_selected_str(obj, 20);
+        print(string.format("Selected month: %s\n", buf))
+        print(string.format("Clicked: %s\n", lvgl.list_get_btn_text(obj)));
     end
 end
 
-function roller.demo()
+function roller_demo.demo()
     local roller1 = lvgl.roller_create(lvgl.scr_act(), nil);
     lvgl.roller_set_options(roller1,
 [[January
@@ -31,4 +30,4 @@ lvgl.ROLLER_MODE_INFINITE);
     lvgl.obj_set_event_cb(roller1, event_handler);
 end
 
-return roller
+return roller_demo

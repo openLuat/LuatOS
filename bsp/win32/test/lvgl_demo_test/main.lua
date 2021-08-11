@@ -5,12 +5,12 @@ local bar_demo = require "bar_demo"
 local btn_demo = require "btn_demo"
 local btnmatrix_demo = require "btnmatrix_demo"
 local calendar_demo = require "calendar_demo"
-local canvas = require "canvas"
+local canvas_demo = require "canvas_demo"
 local checkbox_demo = require "checkbox_demo"
 local chart_demo = require "chart_demo"
 local cont_demo = require "cont_demo"
 local cpicker_demo = require "cpicker_demo"
-local dropdown = require "dropdown"
+local dropdown_demo = require "dropdown_demo"
 local gauge_demo = require "gauge_demo"
 local img_demo = require "img_demo"
 local imgbtn_demo = require "imgbtn_demo"
@@ -23,7 +23,7 @@ local lmeter_demo = require "lmeter_demo"
 local msdbox_demo = require "msdbox_demo"
 local objmask_demo = require "objmask_demo"
 local page_demo = require "page_demo"
-local roller = require "roller"
+local roller_demo = require "roller_demo"
 local slider_demo = require "slider_demo"
 local spinbox_demo = require "spinbox_demo"
 local spinner_demo = require "spinner_demo"
@@ -44,12 +44,12 @@ sys.taskInit(function ()
     -- btn_demo.demo()
     -- btnmatrix_demo.demo()
     -- calendar_demo.demo()
-    -- canvas.demo()
+    canvas_demo.demo()
     -- checkbox_demo.demo()
     -- chart_demo.demo()
     -- cont_demo.demo()
     -- cpicker_demo.demo()
-    -- dropdown.demo()
+    -- dropdown_demo.demo()
     -- gauge_demo.demo()
     -- img_demo.demo()
     -- imgbtn_demo.demo()
@@ -60,9 +60,9 @@ sys.taskInit(function ()
     -- list_demo.demo()
     -- lmeter_demo.demo()
     -- msdbox_demo.demo()
-    objmask_demo.demo()
+    -- objmask_demo.demo()
     -- page_demo.demo()
-    -- roller.demo()
+    -- roller_demo.demo()
     -- slider_demo.demo()
     -- spinbox_demo.demo()
     -- spinner_demo.demo()

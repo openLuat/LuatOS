@@ -1,14 +1,13 @@
-local dropdown = {}
+local dropdown_demo = {}
 
 local function event_handler(obj, event)
     if(event == lvgl.EVENT_VALUE_CHANGED) then
-        -- local buf;
-        -- lvgl.dropdown_get_selected_str(obj, buf, sizeof(buf));
-        -- printf("Option: %s\n", buf);
+        local buf = lvgl.dropdown_get_selected_str(obj, 20);
+        print(string.format("Option: %s\n", buf))
     end
 end
 
-function dropdown.demo()
+function dropdown_demo.demo()
     --Create a normal drop down list
     local ddlist = lvgl.dropdown_create(lvgl.scr_act(), nil);
     lvgl.dropdown_set_options(ddlist, 
@@ -23,4 +22,4 @@ Raspberry]]);
     lvgl.obj_set_event_cb(ddlist, event_handler);
 end
 
-return dropdown
+return dropdown_demo

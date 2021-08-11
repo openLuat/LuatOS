@@ -145,16 +145,6 @@ int luat_lv_dropdown_get_option_cnt(lua_State *L) {
     return 1;
 }
 
-//  void lv_dropdown_get_selected_str(lv_obj_t* ddlist, char* buf, uint32_t buf_size)
-int luat_lv_dropdown_get_selected_str(lua_State *L) {
-    LV_DEBUG("CALL lv_dropdown_get_selected_str");
-    lv_obj_t* ddlist = (lv_obj_t*)lua_touserdata(L, 1);
-    char* buf = (char*)luaL_checkstring(L, 2);
-    uint32_t buf_size = (uint32_t)luaL_checkinteger(L, 3);
-    lv_dropdown_get_selected_str(ddlist ,buf ,buf_size);
-    return 0;
-}
-
 //  lv_coord_t lv_dropdown_get_max_height(lv_obj_t* ddlist)
 int luat_lv_dropdown_get_max_height(lua_State *L) {
     LV_DEBUG("CALL lv_dropdown_get_max_height");

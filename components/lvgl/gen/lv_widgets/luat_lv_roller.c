@@ -91,16 +91,6 @@ int luat_lv_roller_get_option_cnt(lua_State *L) {
     return 1;
 }
 
-//  void lv_roller_get_selected_str(lv_obj_t* roller, char* buf, uint32_t buf_size)
-int luat_lv_roller_get_selected_str(lua_State *L) {
-    LV_DEBUG("CALL lv_roller_get_selected_str");
-    lv_obj_t* roller = (lv_obj_t*)lua_touserdata(L, 1);
-    char* buf = (char*)luaL_checkstring(L, 2);
-    uint32_t buf_size = (uint32_t)luaL_checkinteger(L, 3);
-    lv_roller_get_selected_str(roller ,buf ,buf_size);
-    return 0;
-}
-
 //  lv_label_align_t lv_roller_get_align(lv_obj_t* roller)
 int luat_lv_roller_get_align(lua_State *L) {
     LV_DEBUG("CALL lv_roller_get_align");

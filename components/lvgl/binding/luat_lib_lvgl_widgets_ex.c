@@ -81,3 +81,76 @@ int luat_lv_calendar_set_highlighted_dates(lua_State *L) {
     return 1;
 }
 
+/*line*/
+int luat_lv_line_set_points(lua_State *L) {
+    LV_DEBUG("CALL lv_line_set_points");
+    lv_obj_t* line = (lv_obj_t*)lua_touserdata(L, 1);
+    uint16_t point_num = (uint16_t)luaL_checkinteger(L, 3);
+    lv_point_t *point_a;
+    point_a = (lv_point_t*)luat_heap_calloc(point_num,sizeof(lv_point_t));
+    if (lua_istable(L,2)){
+        for (int m = 0; m < point_num; m++) {  
+            lua_pushinteger(L, m+1);
+            if (LUA_TTABLE == lua_gettable(L, 2)) {
+                    lua_geti(L,-1,1);
+                    point_a[m].x=luaL_checkinteger(L,-1);
+                    lua_pop(L, 1);
+                    lua_geti(L,-1,2);
+                    point_a[m].y=luaL_checkinteger(L,-1);
+                    lua_pop(L, 1);
+            }
+            lua_pop(L, 1);
+        }
+    }
+    lv_line_set_points(line,point_a,point_num);
+    luat_heap_free(point_a);
+    return 1;
+}
+
+/*gauge*/
+int luat_lv_gauge_set_needle_count(lua_State *L) {
+    LV_DEBUG("CALL lv_gauge_set_needle_count");
+    lv_obj_t* gauge = (lv_obj_t*)lua_touserdata(L, 1);
+    uint8_t needle_cnt = (lv_coord_t)luaL_checkinteger(L, 2);
+    lv_color_t *colors;
+    colors = (lv_color_t*)luat_heap_calloc(needle_cnt,sizeof(lv_color_t));
+    for(int i=0; i<needle_cnt; i++){
+        lv_color_t _color;
+        _color.full = luaL_checkinteger(L, i+3);
+        colors[i]=_color;
+    }
+    lv_gauge_set_needle_count(gauge, needle_cnt,colors);
+    luat_heap_free(colors);
+    return 1;
+}
+
+/*btnmatrix*/
+int luat_lv_btnmatrix_set_map(lua_State *L) {
+    LV_DEBUG("CALL lv_btnmatrix_set_map");
+    lv_obj_t* btnm = (lv_obj_t*)lua_touserdata(L, 1);
+    char **map;
+    if (lua_istable(L,2)){
+        int n = luaL_len(L, 2);
+        map = (char**)luat_heap_calloc(n,sizeof(char*));
+        for (int i = 0; i < n; i++) {  
+            lua_pushnumber(L, i+1);
+            if (LUA_TSTRING == lua_gettable(L, 2)) {
+                char* map_str = luaL_checkstring(L, -1);
+                LV_LOG_INFO("%d: %s\r\n",i,map_str);
+                map[i] =luat_heap_calloc(1,strlen(map_str)+1);
+                memcpy(map[i],map_str,strlen(map_str)+1);
+                };
+            lua_pop(L, 1);
+        }  
+    }
+    // for (size_t i = 0; i < 15; i++)
+    // {
+    //     printf("%d: %s\r\n",i,map[i]);
+    // }
+    // static const char * map[] = {"1", "2", "3", "4", "5", "\n",
+    //                                 "6", "7", "8", "9", "0", "\n",
+    //                                 "Action1", "Action2", ""};
+    lv_btnmatrix_set_map(btnm,map);
+    // luat_heap_free(map);
+    return 1;
+}

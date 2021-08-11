@@ -21,7 +21,7 @@ local line_demo = require "line_demo"
 local list_demo = require "list_demo"
 local lmeter_demo = require "lmeter_demo"
 local msdbox_demo = require "msdbox_demo"
-local objmask = require "objmask"
+local objmask_demo = require "objmask_demo"
 local page_demo = require "page_demo"
 local roller = require "roller"
 local slider_demo = require "slider_demo"
@@ -43,7 +43,7 @@ sys.taskInit(function ()
     -- bar_demo.demo()
     -- btn_demo.demo()
     -- btnmatrix_demo.demo()
-    calendar_demo.demo()
+    -- calendar_demo.demo()
     -- canvas.demo()
     -- checkbox_demo.demo()
     -- chart_demo.demo()
@@ -60,7 +60,7 @@ sys.taskInit(function ()
     -- list_demo.demo()
     -- lmeter_demo.demo()
     -- msdbox_demo.demo()
-    -- objmask.demo()
+    objmask_demo.demo()
     -- page_demo.demo()
     -- roller.demo()
     -- slider_demo.demo()

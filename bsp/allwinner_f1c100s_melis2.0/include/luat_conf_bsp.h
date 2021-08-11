@@ -24,4 +24,6 @@
 
 #define LUAT_FS_NO_POSIX_GETC
 
+
+#define luai_makeseed(x)    (0x12345678)
 #endif

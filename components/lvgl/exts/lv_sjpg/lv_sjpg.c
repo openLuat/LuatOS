@@ -132,6 +132,8 @@ static lv_res_t decoder_info( lv_img_decoder_t * decoder, const void * src, lv_i
   if(src_type == LV_IMG_SRC_VARIABLE) {
       uint8_t *raw_sjpeg_data = (uint8_t *)((lv_img_dsc_t * )src)->data;
 
+      if (raw_sjpeg_data == NULL) return LV_RES_INV;
+
       if(!strncmp((char *)raw_sjpeg_data, "_SJPG__", strlen("_SJPG__") )) {
 
         raw_sjpeg_data += 14; //seek to res info ... refer sjpeg format

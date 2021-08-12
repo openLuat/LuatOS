@@ -163,6 +163,18 @@ int luat_lv_dropdown_get_selected_str(lua_State *L) {
     return 1;
 }
 
+int luat_lv_dropdown_set_symbol(lua_State *L) {
+    LV_DEBUG("CALL lv_dropdown_set_symbol");
+    lv_obj_t* ddlist = (lv_obj_t*)lua_touserdata(L, 1);
+    if(lua_isstring(L, 2)){
+        char* symbol = (char*)luaL_checkstring(L, 2);
+        lv_dropdown_set_symbol(ddlist ,symbol);
+    }
+    else
+        lv_dropdown_set_symbol(ddlist ,NULL);
+    return 1;
+}
+
 /*roller*/
 int luat_lv_roller_get_selected_str(lua_State *L) {
     LV_DEBUG("CALL lv_roller_get_selected_str");

@@ -31,7 +31,7 @@ function canvas_demo.demo()
     lvgl.canvas_set_buffer(canvas, cbuf, CANVAS_WIDTH, CANVAS_HEIGHT, lvgl.IMG_CF_TRUE_COLOR);
     lvgl.obj_align(canvas, nil, lvgl.ALIGN_CENTER, 0, 0);
     -- lvgl.canvas_fill_bg(canvas, lvgl.COLOR_SILVER, lvgl.OPA_COVER);
-    lvgl.canvas_fill_bg(canvas, lvgl.color_make(0xC0, 0xC0, 0xC0), lvgl.OPA_COVER);
+    -- lvgl.canvas_fill_bg(canvas, lvgl.color_make(0xC0, 0xC0, 0xC0), lvgl.OPA_COVER);
     lvgl.canvas_draw_rect(canvas, 70, 60, 100, 70, rect_dsc);
 
     lvgl.canvas_draw_text(canvas, 40, 20, 100, label_dsc, "Some text on text canvas", lvgl.LABEL_ALIGN_LEFT);
@@ -39,17 +39,22 @@ function canvas_demo.demo()
     -- /* Test the rotation. It requires an other buffer where the orignal image is stored.
     --     * So copy the current image to buffer and rotate it to the canvas */
     -- static lvgl.color_t cbuf_tmp[CANVAS_WIDTH * CANVAS_HEIGHT];
+    local cbuf_tmp = zbuff.create({CANVAS_WIDTH,CANVAS_HEIGHT,32})
     -- memcpy(cbuf_tmp, cbuf, sizeof(cbuf_tmp));
     -- lvgl.img_dsc_t img;
-    -- local img = lvgl.img_dsc_t()
+    local img = lvgl.img_dsc_t()
     -- img.data = (void *)cbuf_tmp;
+    img.data = cbuf_tmp;
     -- img.header.cf = lvgl.IMG_CF_TRUE_COLOR;
     -- img.header.w = CANVAS_WIDTH;
     -- img.header.h = CANVAS_HEIGHT;
+    img.header_w = CANVAS_WIDTH;
+    img.header_h = CANVAS_HEIGHT;
 
     -- lvgl.canvas_fill_bg(canvas, lvgl.COLOR_SILVER, lvgl.OPA_COVER);
-    -- lvgl.canvas_fill_bg(canvas, lvgl.color_make(0xC0, 0xC0, 0xC0), lvgl.OPA_COVER);
+    lvgl.canvas_fill_bg(canvas, lvgl.color_make(0xC0, 0xC0, 0xC0), lvgl.OPA_COVER);
     -- lvgl.canvas_transform(canvas, img, 30, lvgl.IMG_ZOOM_NONE, 0, 0, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, true);
+    lvgl.canvas_transform(canvas, img, 30, 256, 0, 0, CANVAS_WIDTH / 2, CANVAS_HEIGHT / 2, true);
     lvgl.scr_load(obj)
 end
 

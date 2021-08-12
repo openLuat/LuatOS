@@ -1,20 +1,16 @@
 _G.sys = require "sys"
 
 local arc_demo = require "arc_demo"
-local arc_demo1 = require "arc_demo1"
 local bar_demo = require "bar_demo"
 local btn_demo = require "btn_demo"
-local btn_demo1 = require "btn_demo1"
 local btnmatrix_demo = require "btnmatrix_demo"
 local calendar_demo = require "calendar_demo"
 local canvas_demo = require "canvas_demo"
 local checkbox_demo = require "checkbox_demo"
 local chart_demo = require "chart_demo"
-local chart_demo1 = require "chart_demo1"
 local cont_demo = require "cont_demo"
 local cpicker_demo = require "cpicker_demo"
 local dropdown_demo = require "dropdown_demo"
-local dropdown_demo1 = require "dropdown_demo1"
 local gauge_demo = require "gauge_demo"
 local img_demo = require "img_demo"
 local imgbtn_demo = require "imgbtn_demo"
@@ -43,23 +39,25 @@ _G.symbol = require "symbol"
 sys.taskInit(function ()
     log.info("lvgl", lvgl.init(480,320))
 
-    -- arc_demo.demo()
-    -- arc_demo1.demo()
+    -- arc_demo.demo1()
+    -- arc_demo.demo2()
     -- bar_demo.demo()
-    -- btn_demo.demo()
-    -- btn_demo1.demo()
+    -- btn_demo.demo1()
+    -- btn_demo.demo2()
     -- btnmatrix_demo.demo()
     -- calendar_demo.demo()
-    -- canvas_demo.demo()
+    canvas_demo.demo()
     -- checkbox_demo.demo()
-    -- chart_demo.demo()
-    -- chart_demo1.demo()
+    -- chart_demo.demo1()
+    -- chart_demo.demo2()
     -- cont_demo.demo()
     -- cpicker_demo.demo()
-    -- dropdown_demo.demo()
-    dropdown_demo1.demo()
-    -- gauge_demo.demo()
-    -- img_demo.demo()
+    -- dropdown_demo.demo1()
+    -- dropdown_demo.demo2()
+    -- gauge_demo.demo1()
+    -- gauge_demo.demo2()
+    -- img_demo.demo1()
+    -- img_demo.demo2()
     -- imgbtn_demo.demo()
     -- keyboard.demo()
     -- label_demo.demo()

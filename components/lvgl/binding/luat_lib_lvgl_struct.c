@@ -1,6 +1,6 @@
 #include "luat_base.h"
 #include "luat_lvgl.h"
-
+#include "luat_zbuff.h"
 #include "lvgl.h"
 
 #define META_LV_ANIM "LV_ANIM*"
@@ -9,6 +9,7 @@
 #define META_LV_DRAW_RECT_DSC_T "LV_DRAW_RECT_DSC_T*"
 #define META_LV_DRAW_LABEL_DSC_T "LV_DRAW_LABEL_DSC_T*"
 #define META_LV_DRAW_IMG_DSC_T "LV_DRAW_IMG_DSC_T*"
+#define META_LV_IMG_DSC_T "LV_IMG_DSC_T*"
 
 //---------------------------------------------
 /*
@@ -349,7 +350,7 @@ int _lvgl_struct_draw_label_dsc_t_newindex(lua_State *L) {
 @api lvgl.draw_img_dsc_t()
 @return userdata lv_draw_img_dsc_t指针
 @usage
-local today = lvgl.draw_img_dsc_t()
+local draw_img_dsc_t = lvgl.draw_img_dsc_t()
 */
 int luat_lv_draw_img_dsc_t(lua_State *L){
     lua_newuserdata(L, sizeof(lv_draw_img_dsc_t));
@@ -358,28 +359,64 @@ int luat_lv_draw_img_dsc_t(lua_State *L){
 }
 
 int _lvgl_struct_draw_img_dsc_t_newindex(lua_State *L) {
-    lv_draw_img_dsc_t* img_dsc_t = (lv_draw_img_dsc_t*)lua_touserdata(L, 1);
+    lv_draw_img_dsc_t* draw_img_dsc_t = (lv_draw_img_dsc_t*)lua_touserdata(L, 1);
     const char* key = luaL_checkstring(L, 2);
     if (!strcmp("opa", key)) {
-        img_dsc_t->opa = luaL_optinteger(L, 3, 0);
+        draw_img_dsc_t->opa = luaL_optinteger(L, 3, 0);
     }
     else if (!strcmp("angle", key)) {
-        img_dsc_t->angle = luaL_optinteger(L, 3, 0);
+        draw_img_dsc_t->angle = luaL_optinteger(L, 3, 0);
     }
     // else if (!strcmp("pivot", key)) {
     //     img_dsc_t->pivot = (lv_point_t)luaL_optinteger(L, 3, 0);
     // }
     else if (!strcmp("zoom", key)) {
-        img_dsc_t->zoom = luaL_optinteger(L, 3, 0);
+        draw_img_dsc_t->zoom = luaL_optinteger(L, 3, 0);
     }
     else if (!strcmp("recolor", key)) {
-        img_dsc_t->recolor.full = luaL_optinteger(L, 3, 0);
+        draw_img_dsc_t->recolor.full = luaL_optinteger(L, 3, 0);
     }
     else if (!strcmp("blend_mode", key)) {
-        img_dsc_t->blend_mode = luaL_optinteger(L, 3, 0);
+        draw_img_dsc_t->blend_mode = luaL_optinteger(L, 3, 0);
     }
     else if (!strcmp("antialias", key)) {
-        img_dsc_t->antialias = luaL_optinteger(L, 3, 1);
+        draw_img_dsc_t->antialias = luaL_optinteger(L, 3, 1);
+    }
+    return 0;
+}
+
+//---------------------------------------------
+/*
+创建一个lv_img_dsc_t
+@api lvgl.draw_img_dsc_t()
+@return userdata lv_img_dsc_t指针
+@usage
+local img_dsc_t = lvgl.img_dsc_t()
+*/
+int luat_lv_img_dsc_t(lua_State *L){
+    lua_newuserdata(L, sizeof(lv_img_dsc_t));
+    luaL_setmetatable(L, META_LV_IMG_DSC_T);
+    return 1;
+}
+
+int _lvgl_struct_img_dsc_t_newindex(lua_State *L) {
+    lv_img_dsc_t* img_dsc_t = (lv_img_dsc_t*)lua_touserdata(L, 1);
+    const char* key = luaL_checkstring(L, 2);
+    if (!strcmp("header", key)) {
+        // img_dsc_t->header = luaL_optinteger(L, 3, 0);
+    }
+    else if (!strcmp("data_size", key)) {
+        img_dsc_t->data_size = luaL_optinteger(L, 3, 0);
+    }
+    else if (!strcmp("data", key)) {
+        luat_zbuff* cbuff = (luat_zbuff *)luaL_checkudata(L, 3, "ZBUFF*");
+        img_dsc_t->data = cbuff->addr;
+    }
+    else if (!strcmp("header_w", key)) {
+        img_dsc_t->header.w = luaL_optinteger(L, 3, 0);
+    }
+    else if (!strcmp("header_h", key)) {
+        img_dsc_t->header.h = luaL_optinteger(L, 3, 0);
     }
     return 0;
 }
@@ -422,6 +459,12 @@ void luat_lvgl_struct_init(lua_State *L) {
     // lv_draw_img_dsc_t
     luaL_newmetatable(L, META_LV_DRAW_IMG_DSC_T);
     lua_pushcfunction(L, _lvgl_struct_draw_img_dsc_t_newindex);
+    lua_setfield( L, -2, "__newindex" );
+    lua_pop(L, 1);
+
+    // lv_img_dsc_t
+    luaL_newmetatable(L, META_LV_IMG_DSC_T);
+    lua_pushcfunction(L, _lvgl_struct_img_dsc_t_newindex);
     lua_setfield( L, -2, "__newindex" );
     lua_pop(L, 1);
 }

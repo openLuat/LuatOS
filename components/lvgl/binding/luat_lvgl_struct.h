@@ -13,6 +13,7 @@ int luat_lv_calendar_date_t(lua_State *L);
 int luat_lv_draw_rect_dsc_t(lua_State *L);
 int luat_lv_draw_label_dsc_t(lua_State *L);
 int luat_lv_draw_img_dsc_t(lua_State *L);
+int luat_lv_img_dsc_t(lua_State *L);
 
 #define LUAT_LV_STRUCT_RLT {"anim_t", luat_lv_struct_anim_t, 0},\
 {"area_t", luat_lv_struct_area_t, 0},\
@@ -20,5 +21,6 @@ int luat_lv_draw_img_dsc_t(lua_State *L);
 {"draw_rect_dsc_t", luat_lv_draw_rect_dsc_t, 0},\
 {"draw_label_dsc_t", luat_lv_draw_label_dsc_t, 0},\
 {"draw_img_dsc_t", luat_lv_draw_img_dsc_t, 0},\
+{"img_dsc_t", luat_lv_img_dsc_t, 0},\
 
 #endif

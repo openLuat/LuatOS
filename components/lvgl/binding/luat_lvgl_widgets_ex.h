@@ -16,6 +16,7 @@ int luat_lv_gauge_set_needle_count(lua_State *L);
 int luat_lv_btnmatrix_set_map(lua_State *L);
 /*dropdown*/
 int luat_lv_dropdown_get_selected_str(lua_State *L);
+int luat_lv_dropdown_set_symbol(lua_State *L);
 /*roller*/
 int luat_lv_roller_get_selected_str(lua_State *L);
 /*canvas*/
@@ -28,6 +29,7 @@ int luat_lv_canvas_set_buffer(lua_State *L);
 {"gauge_set_needle_count", luat_lv_gauge_set_needle_count, 0},\
 {"btnmatrix_set_map", luat_lv_btnmatrix_set_map, 0},\
 {"dropdown_get_selected_str", luat_lv_dropdown_get_selected_str, 0},\
+{"dropdown_set_symbol", luat_lv_dropdown_set_symbol, 0},\
 {"roller_get_selected_str", luat_lv_roller_get_selected_str, 0},\
 {"canvas_set_buffer", luat_lv_canvas_set_buffer, 0},\
 

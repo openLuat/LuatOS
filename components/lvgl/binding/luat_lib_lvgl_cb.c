@@ -287,18 +287,31 @@ int luat_lv_anim_path_set_cb(lua_State *L) {
         LLOGW("path is NULL when set event cb");
         return 0;
     }
-    if (path->user_data != 0) {
-        luaL_unref(L, LUA_REGISTRYINDEX, path->user_data);
+    const char* tp = luaL_checkstring(L, 2);
+    if (!strcmp("linear", tp)) {
+        lv_anim_path_set_cb(path, lv_anim_path_linear);
     }
-    if (lua_isfunction(L, 2)) {
-        lua_settop(L, 2);
-        path->user_data = luaL_ref(L, LUA_REGISTRYINDEX);
-        lv_anim_path_set_cb(path, luat_lv_anim_path_cb);
+    else if (!strcmp("ease_in", tp)) {
+        lv_anim_path_set_cb(path, lv_anim_path_ease_in);
+    }
+    else if (!strcmp("ease_out", tp)) {
+        lv_anim_path_set_cb(path, lv_anim_path_ease_out);
+    }
+    else if (!strcmp("ease_in_out", tp)) {
+        lv_anim_path_set_cb(path, lv_anim_path_ease_in_out);
+    }
+    else if (!strcmp("overshoot", tp)) {
+        lv_anim_path_set_cb(path, lv_anim_path_overshoot);
+    }
+    else if (!strcmp("bounce", tp)) {
+        lv_anim_path_set_cb(path, lv_anim_path_bounce);
+    }
+    else if (!strcmp("step", tp)) {
+        lv_anim_path_set_cb(path, lv_anim_path_step);
     }
     else {
-        path->user_data = 0;
-        lv_anim_path_set_cb(path, NULL);
+        //lv_anim_path_set_cb(&path, NULL);
+        return 0;
     }
     return 0;
 }
-

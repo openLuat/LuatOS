@@ -4,15 +4,15 @@ function btn_demo1.demo()
 
 	local path_overshoot = lvgl.anim_path_t()
 	lvgl.anim_path_init(path_overshoot);
-	lvgl.anim_path_set_cb(path_overshoot, lvgl.anim_path_overshoot);
+	lvgl.anim_path_set_cb(path_overshoot, "overshoot");
 
 	local path_ease_out = lvgl.anim_path_t()
 	lvgl.anim_path_init(path_ease_out);
-	lvgl.anim_path_set_cb(path_ease_out, lvgl.anim_path_ease_out);
+	lvgl.anim_path_set_cb(path_ease_out, "ease_out");
 
 	local path_ease_in_out = lvgl.anim_path_t()
 	lvgl.anim_path_init(path_ease_in_out);
-	lvgl.anim_path_set_cb(path_ease_in_out, lvgl.anim_path_ease_in_out);
+	lvgl.anim_path_set_cb(path_ease_in_out, "ease_in_out");
 
 	--Gum-like button
 	local style_gum = lvgl.style_t()

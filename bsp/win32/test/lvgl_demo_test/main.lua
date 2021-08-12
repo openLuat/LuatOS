@@ -10,9 +10,11 @@ local calendar_demo = require "calendar_demo"
 local canvas_demo = require "canvas_demo"
 local checkbox_demo = require "checkbox_demo"
 local chart_demo = require "chart_demo"
+local chart_demo1 = require "chart_demo1"
 local cont_demo = require "cont_demo"
 local cpicker_demo = require "cpicker_demo"
 local dropdown_demo = require "dropdown_demo"
+local dropdown_demo1 = require "dropdown_demo1"
 local gauge_demo = require "gauge_demo"
 local img_demo = require "img_demo"
 local imgbtn_demo = require "imgbtn_demo"
@@ -45,15 +47,17 @@ sys.taskInit(function ()
     -- arc_demo1.demo()
     -- bar_demo.demo()
     -- btn_demo.demo()
-    btn_demo1.demo()
+    -- btn_demo1.demo()
     -- btnmatrix_demo.demo()
     -- calendar_demo.demo()
     -- canvas_demo.demo()
     -- checkbox_demo.demo()
     -- chart_demo.demo()
+    -- chart_demo1.demo()
     -- cont_demo.demo()
     -- cpicker_demo.demo()
     -- dropdown_demo.demo()
+    dropdown_demo1.demo()
     -- gauge_demo.demo()
     -- img_demo.demo()
     -- imgbtn_demo.demo()

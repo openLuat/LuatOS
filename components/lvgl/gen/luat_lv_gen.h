@@ -1377,7 +1377,6 @@ int luat_lv_dropdown_add_option(lua_State *L);
 int luat_lv_dropdown_set_selected(lua_State *L);
 int luat_lv_dropdown_set_dir(lua_State *L);
 int luat_lv_dropdown_set_max_height(lua_State *L);
-int luat_lv_dropdown_set_symbol(lua_State *L);
 int luat_lv_dropdown_set_show_selected(lua_State *L);
 int luat_lv_dropdown_get_text(lua_State *L);
 int luat_lv_dropdown_get_options(lua_State *L);
@@ -1399,7 +1398,6 @@ int luat_lv_dropdown_close(lua_State *L);
     {"dropdown_set_selected", luat_lv_dropdown_set_selected, 0},\
     {"dropdown_set_dir", luat_lv_dropdown_set_dir, 0},\
     {"dropdown_set_max_height", luat_lv_dropdown_set_max_height, 0},\
-    {"dropdown_set_symbol", luat_lv_dropdown_set_symbol, 0},\
     {"dropdown_set_show_selected", luat_lv_dropdown_set_show_selected, 0},\
     {"dropdown_get_text", luat_lv_dropdown_get_text, 0},\
     {"dropdown_get_options", luat_lv_dropdown_get_options, 0},\

@@ -113,7 +113,7 @@ class FuncDefVisitor(c_ast.NodeVisitor):
                                "lv_msgbox_add_btns", "lv_msgbox_set_text_fmt", 
                                "lv_table_set_cell_value_fmt", "lv_keyboard_set_map", 
                                "lv_dropdown_get_selected_str", "lv_roller_get_selected_str",
-                               "lv_canvas_set_buffer"] :
+                               "lv_canvas_set_buffer", "lv_dropdown_set_symbol"] :
                 return
             # 因为 points[] 无法处理的方法
             if method_name in ["lv_indev_set_button_points", "lv_draw_triangle",

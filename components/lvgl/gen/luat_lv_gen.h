@@ -1,5 +1,4 @@
-
-
+
 #include "luat_base.h"
 #ifndef LUAT_LV_GEN
 #define LUAT_LV_GEN

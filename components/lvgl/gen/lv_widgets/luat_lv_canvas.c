@@ -1,4 +1,5 @@
-
+
+
 #include "luat_base.h"
 #include "lvgl.h"
 #include "luat_lvgl.h"
@@ -10,21 +11,9 @@ int luat_lv_canvas_create(lua_State *L) {
     lv_obj_t* par = (lv_obj_t*)lua_touserdata(L, 1);
     lv_obj_t* copy = (lv_obj_t*)lua_touserdata(L, 2);
     lv_obj_t* ret = NULL;
-    ret = lv_canvas_create(par ,copy);
+    // ret = lv_canvas_create(par ,copy);
     if (ret) lua_pushlightuserdata(L, ret); else lua_pushnil(L);
     return 1;
-}
-
-//  void lv_canvas_set_buffer(lv_obj_t* canvas, void* buf, lv_coord_t w, lv_coord_t h, lv_img_cf_t cf)
-int luat_lv_canvas_set_buffer(lua_State *L) {
-    LV_DEBUG("CALL lv_canvas_set_buffer");
-    lv_obj_t* canvas = (lv_obj_t*)lua_touserdata(L, 1);
-    void* buf = (void*)lua_touserdata(L, 2);
-    lv_coord_t w = (lv_coord_t)luaL_checknumber(L, 3);
-    lv_coord_t h = (lv_coord_t)luaL_checknumber(L, 4);
-    lv_img_cf_t cf = (lv_img_cf_t)luaL_checkinteger(L, 5);
-    lv_canvas_set_buffer(canvas ,buf ,w ,h ,cf);
-    return 0;
 }
 
 //  void lv_canvas_set_px(lv_obj_t* canvas, lv_coord_t x, lv_coord_t y, lv_color_t c)

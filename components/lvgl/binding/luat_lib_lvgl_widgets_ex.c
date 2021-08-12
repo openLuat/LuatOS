@@ -9,6 +9,7 @@
 #include "lvgl.h"
 #include "luat_lvgl.h"
 #include "luat_malloc.h"
+#include "luat_zbuff.h"
 
 int luat_lv_msgbox_add_btns(lua_State *L) {
     LV_DEBUG("CALL lv_msgbox_add_btns");
@@ -172,4 +173,22 @@ int luat_lv_roller_get_selected_str(lua_State *L) {
     lua_pushstring(L, buf);
     luat_heap_free(buf);
     return 1;
+}
+
+/*canvas*/
+//  void lv_canvas_set_buffer(lv_obj_t* canvas, void* buf, lv_coord_t w, lv_coord_t h, lv_img_cf_t cf)
+int luat_lv_canvas_set_buffer(lua_State *L) {
+    LV_DEBUG("CALL lv_canvas_set_buffer");
+    lv_obj_t* canvas = (lv_obj_t*)lua_touserdata(L, 1);
+    void *buf = NULL;
+     if (lua_isuserdata(L, 2)) {
+        luat_zbuff* cbuff = (luat_zbuff *)luaL_checkudata(L, 2, "ZBUFF*");
+        printf("cbuff_len: %d\r\n",cbuff->len);
+        buf = cbuff->addr;
+    }
+    lv_coord_t w = (lv_coord_t)luaL_checknumber(L, 3);
+    lv_coord_t h = (lv_coord_t)luaL_checknumber(L, 4);
+    lv_img_cf_t cf = (lv_img_cf_t)luaL_checkinteger(L, 5);
+    lv_canvas_set_buffer(canvas ,buf ,w ,h ,cf);
+    return 0;
 }

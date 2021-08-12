@@ -1,8 +1,10 @@
 _G.sys = require "sys"
 
 local arc_demo = require "arc_demo"
+local arc_demo1 = require "arc_demo1"
 local bar_demo = require "bar_demo"
 local btn_demo = require "btn_demo"
+local btn_demo1 = require "btn_demo1"
 local btnmatrix_demo = require "btnmatrix_demo"
 local calendar_demo = require "calendar_demo"
 local canvas_demo = require "canvas_demo"
@@ -40,11 +42,13 @@ sys.taskInit(function ()
     log.info("lvgl", lvgl.init(480,320))
 
     -- arc_demo.demo()
+    -- arc_demo1.demo()
     -- bar_demo.demo()
     -- btn_demo.demo()
+    btn_demo1.demo()
     -- btnmatrix_demo.demo()
     -- calendar_demo.demo()
-    canvas_demo.demo()
+    -- canvas_demo.demo()
     -- checkbox_demo.demo()
     -- chart_demo.demo()
     -- cont_demo.demo()

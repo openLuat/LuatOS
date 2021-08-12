@@ -11,7 +11,7 @@
 #include "luat_malloc.h"
 
 /*
-创建一个anim
+创建并初始化一个anim
 @api lvgl.anim_create()
 @return userdata anim指针
 @usage
@@ -27,7 +27,6 @@ int luat_lv_anim_create(lua_State *L) {
 /*
 释放一个anim
 @api lvgl.anim_free(anim)
-@return userdata anim指针
 @usage
 local lvgl.anim_free(anim)
 */
@@ -39,6 +38,32 @@ int luat_lv_anim_free(lua_State *L) {
     return 0;
 }
 
+/*
+创建一个lv_anim_path_t
+@api lvgl.anim_path_t()
+@return userdata lv_anim_path_t指针
+@usage
+local anim_path_t = lvgl.anim_path_t()
+*/
+int luat_lv_anim_path_t(lua_State *L) {
+    lv_anim_path_t* anim_path_t = (lv_anim_path_t*)luat_heap_malloc(sizeof(lv_anim_path_t));
+    lua_pushlightuserdata(L, anim_path_t);
+    return 1;
+}
+
+/*
+释放一个lv_anim_path_t
+@api lvgl.anim_path_t_free(anim_path_t)
+@usage
+local lvgl.anim_path_t_free(anim_path_t)
+*/
+int luat_lv_anim_path_t_free(lua_State *L) {
+    lv_anim_path_t* anim_path_t = (lv_anim_path_t*)lua_touserdata(L, 1);
+    if (anim_path_t != NULL) {
+        luat_heap_free(anim_path_t);
+    }
+    return 0;
+}
 
 /*
 设置动画路径方式

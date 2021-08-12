@@ -1,4 +1,5 @@
-
+
+
 #include "luat_base.h"
 #ifndef LUAT_LV_GEN
 #define LUAT_LV_GEN
@@ -1182,7 +1183,6 @@ int luat_lv_calendar_get_day_of_week(lua_State *L);
 
 // prefix lv_widgets lv_canvas
 int luat_lv_canvas_create(lua_State *L);
-int luat_lv_canvas_set_buffer(lua_State *L);
 int luat_lv_canvas_set_px(lua_State *L);
 int luat_lv_canvas_set_palette(lua_State *L);
 int luat_lv_canvas_get_px(lua_State *L);
@@ -1198,7 +1198,6 @@ int luat_lv_canvas_draw_img(lua_State *L);
 int luat_lv_canvas_draw_arc(lua_State *L);
 
 #define LUAT_LV_CANVAS_RLT     {"canvas_create", luat_lv_canvas_create, 0},\
-    {"canvas_set_buffer", luat_lv_canvas_set_buffer, 0},\
     {"canvas_set_px", luat_lv_canvas_set_px, 0},\
     {"canvas_set_palette", luat_lv_canvas_set_palette, 0},\
     {"canvas_get_px", luat_lv_canvas_get_px, 0},\

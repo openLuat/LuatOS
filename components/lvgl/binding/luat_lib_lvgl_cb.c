@@ -253,3 +253,52 @@ int luat_lv_anim_set_ready_cb(lua_State *L) {
     return 0;
 }
 
+static int l_anim_path_cb(lua_State *L, void*ptr) {
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    lua_geti(L, LUA_REGISTRYINDEX, msg->arg1);
+    if (lua_isfunction(L, -1)) {
+        lua_pushlightuserdata(L, msg->ptr);
+        lua_call(L, 1, 0);
+    }
+    return 0;
+}
+
+static void luat_lv_anim_path_cb(lv_anim_path_t* path) {
+    if (path->user_data == 0)
+        return;
+    rtos_msg_t msg = {0};
+    msg.handler = l_anim_path_cb;
+    msg.ptr = path;
+    msg.arg1 = path->user_data;
+    luat_msgbus_put(&msg, 0);
+}
+
+/*
+设置动画回调
+@api lvgl.anim_path_set_cb(anim, func)
+@userdata 动画指针
+@userdata lvgl组件指针
+@func lua函数, 参数有1个 (anim), 其中anim是当前对象
+@return nil 无返回值
+*/
+int luat_lv_anim_path_set_cb(lua_State *L) {
+    lv_anim_path_t* path = lua_touserdata(L, 1);
+    if (path == NULL) {
+        LLOGW("path is NULL when set event cb");
+        return 0;
+    }
+    if (path->user_data != 0) {
+        luaL_unref(L, LUA_REGISTRYINDEX, path->user_data);
+    }
+    if (lua_isfunction(L, 2)) {
+        lua_settop(L, 2);
+        path->user_data = luaL_ref(L, LUA_REGISTRYINDEX);
+        lv_anim_path_set_cb(path, luat_lv_anim_path_cb);
+    }
+    else {
+        path->user_data = 0;
+        lv_anim_path_set_cb(path, NULL);
+    }
+    return 0;
+}
+

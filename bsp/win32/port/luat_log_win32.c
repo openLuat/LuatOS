@@ -45,6 +45,7 @@ void luat_print(const char* _str) {
 
 void luat_nprint(char *s, size_t l) {
     //luat_uart_write(luat_log_uart_port, s, l);
+#if LUAT_USE_LOG_ASYNC_THREAD
     char* buff = luat_heap_malloc(l + 1);
     if (buff == NULL)
         return;
@@ -54,6 +55,9 @@ void luat_nprint(char *s, size_t l) {
         .buff = buff
     };
     xQueueSendFromISR(xQueue, &msg, NULL);
+#else
+    printf("%s", s);
+#endif
 }
 
 void luat_log_set_level(int level) {

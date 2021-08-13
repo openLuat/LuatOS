@@ -245,6 +245,8 @@ static void msg_handler(void *param)
  */
 static void win_drv_flush(lv_disp_t *drv, lv_area_t *area, const lv_color_t * color_p)
 {
+    if (lv_win_exit_flag)
+        return;
     win_drv_map(area->x1, area->y1, area->x2, area->y2, color_p);
     lv_disp_flush_ready(drv);
 }

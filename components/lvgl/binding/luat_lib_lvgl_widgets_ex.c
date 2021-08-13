@@ -132,12 +132,14 @@ int luat_lv_btnmatrix_set_map(lua_State *L) {
             lua_pushnumber(L, i+1);
             if (LUA_TSTRING == lua_gettable(L, 2)) {
                 char* map_str = luaL_checkstring(L, -1);
-                LV_LOG_INFO("%d: %s\r\n",i,map_str);
+                LV_LOG_INFO("%d: [%s]", i, map_str);
                 map[i] =luat_heap_calloc(1,strlen(map_str)+1);
                 memcpy(map[i],map_str,strlen(map_str)+1);
-                };
+            };
             lua_pop(L, 1);
         }  
+    } else {
+        return 0;
     }
     // for (size_t i = 0; i < 15; i++)
     // {
@@ -179,11 +181,10 @@ int luat_lv_dropdown_set_symbol(lua_State *L) {
 int luat_lv_roller_get_selected_str(lua_State *L) {
     LV_DEBUG("CALL lv_roller_get_selected_str");
     lv_obj_t* roller = (lv_obj_t*)lua_touserdata(L, 1);
-    uint32_t buf_size = (uint32_t)luaL_checkinteger(L, 2);
-    char *buf = (char*)luat_heap_calloc(buf_size,sizeof(char));
-    lv_roller_get_selected_str(roller, buf, buf_size);
-    lua_pushlstring(L, buf, buf_size);
-    luat_heap_free(buf);
+    char buf[32] = {0};
+    lv_roller_get_selected_str(roller, buf, 32);
+    buf[31] = 0x00;
+    lua_pushlstring(L, buf, strlen(buf));
     return 1;
 }
 

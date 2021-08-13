@@ -1,24 +1,17 @@
 local textarea = {}
 
 local ta1;
-
+local i = 1;
 local function event_handler(obj, event)
     if(event == lvgl.EVENT_VALUE_CHANGED) then
         print(string.format("Value: %s\n", lvgl.textarea_get_text(obj)));
     elseif (event == lvgl.EVENT_LONG_PRESSED_REPEAT) then
         --For simple test: Long press the Text are to add the text below
         local txt = "\n\nYou can scroll it if the text is long enough.\n";
-        local i = 1;
-
-        if(txt.sub(i,i) ~= '\0') then
-            print(txt.sub(i,i))
-            lvgl.textarea_add_char(ta1, txt.sub(i,i+1));
+        if(i <= #txt) then
+            lvgl.textarea_add_char(ta1, txt:byte(i));
             i=i+1;
         end
-        -- if(txt[i] ~= '\0') then
-        --     lvgl.textarea_add_char(ta1, txt[i]);
-        --     i=i+1;
-        -- end
     end
 end
 

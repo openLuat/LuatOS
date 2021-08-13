@@ -110,10 +110,14 @@ int luat_lv_gauge_set_needle_count(lua_State *L) {
     lv_obj_t* gauge = (lv_obj_t*)lua_touserdata(L, 1);
     uint8_t needle_cnt = (uint8_t)luaL_checkinteger(L, 2);
     lv_color_t *colors = (lv_color_t*)luat_heap_calloc(needle_cnt,sizeof(lv_color_t));
-    for(int i=0; i<needle_cnt; i++){
-        lv_color_t _color;
-        _color.full = luaL_checkinteger(L, i+3);
-        colors[i]=_color;
+    if (lua_istable(L,3)){
+        for (int i = 0; i < needle_cnt; i++) {  
+            lua_pushinteger(L, i+1);   
+            if (LUA_TNUMBER == lua_gettable(L, 3)) {
+                colors[i].full = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+        }
     }
     lv_gauge_set_needle_count(gauge, needle_cnt,colors);
     //luat_heap_free(colors);

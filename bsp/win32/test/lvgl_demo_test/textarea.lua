@@ -9,8 +9,7 @@ local function event_handler(obj, event)
         --For simple test: Long press the Text are to add the text below
         local txt = "\n\nYou can scroll it if the text is long enough.\n";
         if(i <= #txt) then
-            print(txt:sub(i,i))
-            lvgl.textarea_add_char(ta1, txt.sub(i,i+1));
+            lvgl.textarea_add_char(ta1, txt:byte(i));
             i=i+1;
         end
     end

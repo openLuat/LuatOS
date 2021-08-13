@@ -192,20 +192,29 @@ int luat_lv_roller_get_selected_str(lua_State *L) {
     return 1;
 }
 
+static lv_res_t _canvas_gc(struct _lv_obj_t * obj, lv_signal_t sign, void * param) {
+    if (sign == LV_SIGNAL_CLEANUP) {
+        lv_canvas_ext_t * ext = lv_obj_get_ext_attr(obj);
+        if (ext != NULL && ext->dsc.data != NULL) {
+            luat_heap_free(ext->dsc.data);
+        }
+    }
+    return LV_RES_OK;
+}
+
 /*canvas*/
 //  void lv_canvas_set_buffer(lv_obj_t* canvas, void* buf, lv_coord_t w, lv_coord_t h, lv_img_cf_t cf)
 int luat_lv_canvas_set_buffer(lua_State *L) {
     LV_DEBUG("CALL lv_canvas_set_buffer");
     lv_obj_t* canvas = (lv_obj_t*)lua_touserdata(L, 1);
     void *buf = NULL;
-     if (lua_isuserdata(L, 2)) {
-        luat_zbuff* cbuff = (luat_zbuff *)luaL_checkudata(L, 2, "ZBUFF*");
-        //printf("cbuff_len: %d\r\n",cbuff->len);
-        buf = cbuff->addr;
-    }
     lv_coord_t w = (lv_coord_t)luaL_checknumber(L, 3);
     lv_coord_t h = (lv_coord_t)luaL_checknumber(L, 4);
     lv_img_cf_t cf = (lv_img_cf_t)luaL_checkinteger(L, 5);
+    buf = luat_heap_malloc((lv_img_cf_get_px_size(cf) * w * h) / 8);
+    if (buf == NULL)
+        return 0;
     lv_canvas_set_buffer(canvas ,buf ,w ,h ,cf);
+    lv_obj_set_signal_cb(canvas, _canvas_gc);
     return 0;
 }

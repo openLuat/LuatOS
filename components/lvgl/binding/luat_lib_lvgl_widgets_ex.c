@@ -53,7 +53,7 @@ int luat_lv_tileview_set_valid_positions(lua_State *L) {
         }
     }
     lv_tileview_set_valid_positions(tileview,valid_pos,valid_pos_cnt);
-    luat_heap_free(valid_pos);
+    //luat_heap_free(valid_pos);
     return 0;
 }
 
@@ -75,7 +75,7 @@ int luat_lv_calendar_set_highlighted_dates(lua_State *L) {
         }
     }
     lv_calendar_set_highlighted_dates(calendar,highlighted,date_num);
-    luat_heap_free(highlighted);
+    //luat_heap_free(highlighted);
     return 0;
 }
 
@@ -100,7 +100,7 @@ int luat_lv_line_set_points(lua_State *L) {
         }
     }
     lv_line_set_points(line,point_a,point_num);
-    luat_heap_free(point_a);
+    //luat_heap_free(point_a);
     return 0;
 }
 
@@ -116,7 +116,7 @@ int luat_lv_gauge_set_needle_count(lua_State *L) {
         colors[i]=_color;
     }
     lv_gauge_set_needle_count(gauge, needle_cnt,colors);
-    luat_heap_free(colors);
+    //luat_heap_free(colors);
     return 0;
 }
 
@@ -182,7 +182,7 @@ int luat_lv_roller_get_selected_str(lua_State *L) {
     uint32_t buf_size = (uint32_t)luaL_checkinteger(L, 2);
     char *buf = (char*)luat_heap_calloc(buf_size,sizeof(char));
     lv_roller_get_selected_str(roller, buf, buf_size);
-    lua_pushstring(L, buf);
+    lua_pushlstring(L, buf, buf_size);
     luat_heap_free(buf);
     return 1;
 }
@@ -195,7 +195,7 @@ int luat_lv_canvas_set_buffer(lua_State *L) {
     void *buf = NULL;
      if (lua_isuserdata(L, 2)) {
         luat_zbuff* cbuff = (luat_zbuff *)luaL_checkudata(L, 2, "ZBUFF*");
-        printf("cbuff_len: %d\r\n",cbuff->len);
+        //printf("cbuff_len: %d\r\n",cbuff->len);
         buf = cbuff->addr;
     }
     lv_coord_t w = (lv_coord_t)luaL_checknumber(L, 3);

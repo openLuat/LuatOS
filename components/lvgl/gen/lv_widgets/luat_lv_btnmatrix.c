@@ -38,8 +38,7 @@ int luat_lv_btnmatrix_set_btn_ctrl(lua_State *L) {
     LV_DEBUG("CALL lv_btnmatrix_set_btn_ctrl");
     lv_obj_t* btnm = (lv_obj_t*)lua_touserdata(L, 1);
     uint16_t btn_id = (uint16_t)luaL_checkinteger(L, 2);
-    lv_btnmatrix_ctrl_t ctrl;
-    // miss arg convert
+    lv_btnmatrix_ctrl_t ctrl = (lv_btnmatrix_ctrl_t)luaL_checkinteger(L, 3);
     lv_btnmatrix_set_btn_ctrl(btnm ,btn_id ,ctrl);
     return 0;
 }
@@ -49,8 +48,7 @@ int luat_lv_btnmatrix_clear_btn_ctrl(lua_State *L) {
     LV_DEBUG("CALL lv_btnmatrix_clear_btn_ctrl");
     lv_obj_t* btnm = (lv_obj_t*)lua_touserdata(L, 1);
     uint16_t btn_id = (uint16_t)luaL_checkinteger(L, 2);
-    lv_btnmatrix_ctrl_t ctrl;
-    // miss arg convert
+    lv_btnmatrix_ctrl_t ctrl = (lv_btnmatrix_ctrl_t)luaL_checkinteger(L, 3);
     lv_btnmatrix_clear_btn_ctrl(btnm ,btn_id ,ctrl);
     return 0;
 }
@@ -59,8 +57,7 @@ int luat_lv_btnmatrix_clear_btn_ctrl(lua_State *L) {
 int luat_lv_btnmatrix_set_btn_ctrl_all(lua_State *L) {
     LV_DEBUG("CALL lv_btnmatrix_set_btn_ctrl_all");
     lv_obj_t* btnm = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_btnmatrix_ctrl_t ctrl;
-    // miss arg convert
+    lv_btnmatrix_ctrl_t ctrl = (lv_btnmatrix_ctrl_t)luaL_checkinteger(L, 2);
     lv_btnmatrix_set_btn_ctrl_all(btnm ,ctrl);
     return 0;
 }
@@ -69,8 +66,7 @@ int luat_lv_btnmatrix_set_btn_ctrl_all(lua_State *L) {
 int luat_lv_btnmatrix_clear_btn_ctrl_all(lua_State *L) {
     LV_DEBUG("CALL lv_btnmatrix_clear_btn_ctrl_all");
     lv_obj_t* btnm = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_btnmatrix_ctrl_t ctrl;
-    // miss arg convert
+    lv_btnmatrix_ctrl_t ctrl = (lv_btnmatrix_ctrl_t)luaL_checkinteger(L, 2);
     lv_btnmatrix_clear_btn_ctrl_all(btnm ,ctrl);
     return 0;
 }
@@ -159,8 +155,7 @@ int luat_lv_btnmatrix_get_btn_ctrl(lua_State *L) {
     LV_DEBUG("CALL lv_btnmatrix_get_btn_ctrl");
     lv_obj_t* btnm = (lv_obj_t*)lua_touserdata(L, 1);
     uint16_t btn_id = (uint16_t)luaL_checkinteger(L, 2);
-    lv_btnmatrix_ctrl_t ctrl;
-    // miss arg convert
+    lv_btnmatrix_ctrl_t ctrl = (lv_btnmatrix_ctrl_t)luaL_checkinteger(L, 3);
     bool ret;
     ret = lv_btnmatrix_get_btn_ctrl(btnm ,btn_id ,ctrl);
     lua_pushboolean(L, ret);

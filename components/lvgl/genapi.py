@@ -34,7 +34,7 @@ map_lv_ints = ["lv_arc_type_t", "lv_style_int_t", "lv_coord_t", "lv_spinner_dir_
                     "lv_scroll_snap_t", "lv_style_prop_t", "lv_draw_mask_line_side_t", "lv_obj_flag_t",
                     "lv_roller_mode_t", "lv_slider_mode_t", "lv_arc_mode_t", "lv_text_align_t", "lv_bar_mode_t", "lv_part_t",
                     "lv_text_flag_t", "lv_style_selector_t", "lv_dir_t", "lv_scroll_snap_t", "lv_style_prop_t", "lv_base_dir_t",
-                    "lv_slider_mode_t", "lv_arc_mode_t", "lv_text_align_t"]
+                    "lv_slider_mode_t", "lv_arc_mode_t", "lv_text_align_t", "lv_btnmatrix_ctrl_t"]
 
 custom_method_names = ["lv_img_set_src", "lv_imgbtn_set_src"]
 

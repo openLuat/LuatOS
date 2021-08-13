@@ -1,14 +1,16 @@
 local keyboard = {}
 
-local  kb;
-local  ta;
+local  kb
+local  ta
 
 local function kb_event_cb(keyboard, e)
+    log.info("kb_event_cb", e, e == lvgl.EVENT_CANCEL)
     lvgl.keyboard_def_event_cb(kb, e);
     if(e == lvgl.EVENT_CANCEL) then
+        log.info("kb_event_cb", "obj_del")
         lvgl.keyboard_set_textarea(kb, nil);
         lvgl.obj_del(kb);
-        kb = nil;
+        kb = nil
     end
 end
 
@@ -20,8 +22,9 @@ local function kb_create()
 end
 
 local function ta_event_cb(ta_local, e)
+    log.info("ta_event_cb", e, e == lvgl.EVENT_CLICKED)
     if(e == lvgl.EVENT_CLICKED and kb == nil) then
-        kb_create();
+        kb_create()
     end
 end
 
@@ -35,7 +38,7 @@ function keyboard.demo()
     local max_h = LV_VER_RES / 2 - lvgl.DPI / 8;
     if(lvgl.obj_get_height(ta) > max_h) then lvgl.obj_set_height(ta, max_h)end;
 
-    kb_create();
+    --kb_create();
 end
 
 return keyboard

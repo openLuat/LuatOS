@@ -96,8 +96,8 @@ static int pmain(lua_State *L) {
 ** (if present)
 */
 static void l_message (const char *pname, const char *msg) {
-  if (pname) lua_writestringerror("%s: ", pname);
-  lua_writestringerror("%s\n", msg);
+  if (pname) LLOGE("%s: ", pname);
+  LLOGE("%s\n", msg);
 }
 
 
@@ -116,7 +116,7 @@ static int report (lua_State *L, int status) {
 }
 
 static int panic (lua_State *L) {
-  lua_writestringerror("PANIC: unprotected error in call to Lua API (%s)\n",
+  LLOGE("PANIC: unprotected error in call to Lua API (%s)\n",
                         lua_tostring(L, -1));
   return 0;  /* return to Lua to abort */
 }

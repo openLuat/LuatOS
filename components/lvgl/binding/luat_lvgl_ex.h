@@ -8,6 +8,7 @@
 void luat_lvgl_ex_libs(lua_State *L);
 
 #define LUAT_LV_EX_RLT {"DPI", NULL, LV_DPI},\
+{"IMG_ZOOM_NONE", NULL, LV_IMG_ZOOM_NONE},\
 {"COLOR_WHITE", NULL, 0xFFFFFFFF},\
 {"COLOR_SILVER", NULL, 0xFFC0C0C0},\
 {"COLOR_GRAY", NULL, 0xFF808080},\

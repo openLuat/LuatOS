@@ -412,11 +412,14 @@ int _lvgl_struct_img_dsc_t_newindex(lua_State *L) {
         luat_zbuff* cbuff = (luat_zbuff *)luaL_checkudata(L, 3, "ZBUFF*");
         img_dsc_t->data = cbuff->addr;
     }
+    else if (!strcmp("header_cf", key)) {
+        img_dsc_t->header.cf = luaL_optinteger(L, 3, 5);
+    }
     else if (!strcmp("header_w", key)) {
-        img_dsc_t->header.w = luaL_optinteger(L, 3, 0);
+        img_dsc_t->header.w = luaL_optinteger(L, 3, 11);
     }
     else if (!strcmp("header_h", key)) {
-        img_dsc_t->header.h = luaL_optinteger(L, 3, 0);
+        img_dsc_t->header.h = luaL_optinteger(L, 3, 11);
     }
     return 0;
 }

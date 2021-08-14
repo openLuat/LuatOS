@@ -4,7 +4,6 @@ local function event_handler(obj, event)
     if(event == lvgl.EVENT_VALUE_CHANGED) then
         local buf = lvgl.roller_get_selected_str(obj, 20);
         print(string.format("Selected month: %s\n", buf))
-        print(string.format("Clicked: %s\n", lvgl.list_get_btn_text(obj)));
     end
 end
 

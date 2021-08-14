@@ -1,9 +1,10 @@
 local tileview_demo = {}
 
-local LV_VER_RES = lvgl.disp_get_ver_res(lvgl.disp_get_default())
-local LV_HOR_RES = lvgl.disp_get_hor_res(lvgl.disp_get_default())
-
 function tileview_demo.demo()
+
+    local LV_VER_RES = lvgl.disp_get_ver_res(lvgl.disp_get_default())
+    local LV_HOR_RES = lvgl.disp_get_hor_res(lvgl.disp_get_default())
+
     local valid_pos = {{0,0}, {0, 1}, {1,1}};
     local tileview;
     tileview = lvgl.tileview_create(lvgl.scr_act(), nil);

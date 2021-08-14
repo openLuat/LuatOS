@@ -145,13 +145,6 @@ int luat_lv_btnmatrix_set_map(lua_State *L) {
     } else {
         return 0;
     }
-    // for (size_t i = 0; i < 15; i++)
-    // {
-    //     printf("%d: %s\r\n",i,map[i]);
-    // }
-    // static const char * map[] = {"1", "2", "3", "4", "5", "\n",
-    //                                 "6", "7", "8", "9", "0", "\n",
-    //                                 "Action1", "Action2", ""};
     lv_btnmatrix_set_map(btnm,map);
     // luat_heap_free(map);
     return 0;

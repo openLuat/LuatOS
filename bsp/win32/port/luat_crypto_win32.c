@@ -328,8 +328,8 @@ void luat_crypto_HmacSha512(const unsigned char *input, int ilen, unsigned char 
     unsigned char k_ipad[ALI_SHA512_KEY_IOPAD_SIZE] = {0};
     unsigned char k_opad[ALI_SHA512_KEY_IOPAD_SIZE] = {0};
 
-    memset(k_ipad, 0x36, 64);
-    memset(k_opad, 0x5C, 64);
+    memset(k_ipad, 0x36, ALI_SHA512_KEY_IOPAD_SIZE);
+    memset(k_opad, 0x5C, ALI_SHA512_KEY_IOPAD_SIZE);
 
     if ((NULL == input) || (NULL == key) || (NULL == output)) {
         return;

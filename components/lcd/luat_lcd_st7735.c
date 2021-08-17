@@ -95,9 +95,9 @@ static int st7735_init(luat_lcd_conf_t* conf) {
     lcd_write_data(conf,0x1A);
 
     lcd_write_cmd(conf,0x36);
-    if(conf->direction==0)lcd_write_data(conf,0x00);
-    else if(conf->direction==1)lcd_write_data(conf,0xC0);
-    else if(conf->direction==2)lcd_write_data(conf,0x70);
+    if(conf->direction==0)lcd_write_data(conf,0xC0);
+    else if(conf->direction==1)lcd_write_data(conf,0x70);
+    else if(conf->direction==2)lcd_write_data(conf,0x00);
     else lcd_write_data(conf,0xA0);
 	//------------------------------------ST7735S Gamma Sequence---------------------------------//
 	lcd_write_cmd(conf,0xE0);

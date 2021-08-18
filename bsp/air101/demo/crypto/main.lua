@@ -24,21 +24,8 @@ sys.timerLoopStart(function()
 
     -- SHA512,输出结果已经hex编码
     log.info("sha512", crypto.sha512("abc"))
-    -- log.info("hmac_sha512", crypto.hmac_sha512("abc", "1234567890"))
+    log.info("hmac_sha512", crypto.hmac_sha512("abc", "1234567890"))
 
-    
-    -- -- AES加密, 未经Hex编码. AES-128-ECB 算法,待加密字符串如果超过32字节会报错,待查. by wendal 20200812
-    -- local data_encrypt = crypto.cipher_encrypt("AES-128-ECB", "PKCS7", "12345678901234 > " .. "805", "1234567890123456")
-    -- local data2_encrypt = crypto.cipher_encrypt("AES-128-CBC", "PKCS7", "12345678901234 > ".. "805", "1234567890123456", "1234567890666666")
-    -- log.info("AES", data_encrypt:toHex())
-    -- log.info("AES", data2_encrypt:toHex())
-
-    -- -- AES解密, 未经Hex编码
-    -- local data_decrypt = crypto.cipher_decrypt("AES-128-ECB", "PKCS7", data_encrypt, "1234567890123456")
-    -- local data2_decrypt = crypto.cipher_decrypt("AES-128-CBC", "PKCS7", data2_encrypt, "1234567890123456", "1234567890666666")
-    -- log.info("AES", data_decrypt)
-    -- log.info("AES", data2_decrypt)
-    -- log.info("mem", rtos.meminfo("sys"))
 
 end, 2000)
 

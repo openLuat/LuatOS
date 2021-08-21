@@ -11,7 +11,7 @@
 #include "luat_pm.h"
 #include "luat_msgbus.h"
 
-static int lua_event_cb = 0;
+// static int lua_event_cb = 0;
 
 /**
 请求进入指定的休眠模式
@@ -130,18 +130,18 @@ static int l_pm_dtimer_wakeup_id(lua_State *L) {
     return 1;
 }
 
-static int l_pm_on(lua_State *L) {
-    if (lua_isfunction(L, 1)) {
-        if (lua_event_cb != 0) {
-            luaL_unref(L, LUA_REGISTRYINDEX, lua_event_cb);
-        }
-        lua_event_cb = luaL_ref(L, LUA_REGISTRYINDEX);
-    }
-    else if (lua_event_cb != 0) {
-        luaL_unref(L, LUA_REGISTRYINDEX, lua_event_cb);
-    }
-    return 0;
-}
+// static int l_pm_on(lua_State *L) {
+//     if (lua_isfunction(L, 1)) {
+//         if (lua_event_cb != 0) {
+//             luaL_unref(L, LUA_REGISTRYINDEX, lua_event_cb);
+//         }
+//         lua_event_cb = luaL_ref(L, LUA_REGISTRYINDEX);
+//     }
+//     else if (lua_event_cb != 0) {
+//         luaL_unref(L, LUA_REGISTRYINDEX, lua_event_cb);
+//     }
+//     return 0;
+// }
 
 /**
 开机原因,用于判断是从休眠模块开机,还是电源/复位开机
@@ -198,30 +198,30 @@ static int l_pm_check(lua_State *L) {
 
 
 
-static int luat_pm_msg_handler(lua_State *L, void* ptr) {
-    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
-    if (lua_event_cb == 0) {
-        return 0;
-    }
-    lua_geti(L, LUA_REGISTRYINDEX, lua_event_cb);
-    if (lua_isfunction(L, -1)) {
-        lua_pushinteger(L, msg->arg1);
-        lua_pushinteger(L, msg->arg2);
-        lua_call(L, 2, 0);
-    }
-    return 0;
-}
+// static int luat_pm_msg_handler(lua_State *L, void* ptr) {
+//     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+//     if (lua_event_cb == 0) {
+//         return 0;
+//     }
+//     lua_geti(L, LUA_REGISTRYINDEX, lua_event_cb);
+//     if (lua_isfunction(L, -1)) {
+//         lua_pushinteger(L, msg->arg1);
+//         lua_pushinteger(L, msg->arg2);
+//         lua_call(L, 2, 0);
+//     }
+//     return 0;
+// }
 
-void luat_pm_cb(int event, int arg, void* args) {
-    if (lua_event_cb != 0) {
-        rtos_msg_t msg;
-        msg.handler = luat_pm_msg_handler;
-        msg.arg1 = event;
-        msg.arg2 = arg;
-        msg.ptr = NULL;
-        luat_msgbus_put(&msg, 0);
-    }
-}
+// void luat_pm_cb(int event, int arg, void* args) {
+//     if (lua_event_cb != 0) {
+//         rtos_msg_t msg;
+//         msg.handler = luat_pm_msg_handler;
+//         msg.arg1 = event;
+//         msg.arg2 = arg;
+//         msg.ptr = NULL;
+//         luat_msgbus_put(&msg, 0);
+//     }
+// }
 
 #include "rotable.h"
 static const rotable_Reg reg_pm[] =

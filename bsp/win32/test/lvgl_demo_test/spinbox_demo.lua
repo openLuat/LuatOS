@@ -30,8 +30,7 @@ function spinbox_demo.demo()
     lvgl.obj_set_style_local_value_str(btn, lvgl.BTN_PART_MAIN, lvgl.STATE_DEFAULT, LV_SYMBOL_PLUS);
     lvgl.obj_set_event_cb(btn, lv_spinbox_increment_event_cb);
 
-    -- btn = lvgl.btn_create(lvgl.scr_act(), btn);
-    btn = lvgl.btn_create(lvgl.scr_act(), nil);
+    btn = lvgl.btn_create(lvgl.scr_act(), btn);
     lvgl.obj_align(btn, spinbox, lvgl.ALIGN_OUT_LEFT_MID, -5, 0);
     lvgl.obj_set_event_cb(btn, lv_spinbox_decrement_event_cb);
     lvgl.obj_set_style_local_value_str(btn, lvgl.BTN_PART_MAIN, lvgl.STATE_DEFAULT, LV_SYMBOL_MINUS);

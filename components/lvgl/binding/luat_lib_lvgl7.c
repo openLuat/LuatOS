@@ -40,6 +40,10 @@ int luat_lv_init(lua_State *L) {
     windrv_init();
     lua_pushboolean(L, 1);
     return 1;
+    #elif defined(LUA_USE_LINUX)
+    lvgl_linux_init();
+    lua_pushboolean(L, 1);
+    return 1;
     #else
     conf = luat_lcd_get_default();
     lv_color_t *fbuffer = NULL;
@@ -48,11 +52,7 @@ int luat_lv_init(lua_State *L) {
     int w = luaL_optinteger(L, 1, conf->w);
     int h = luaL_optinteger(L, 2, conf->h);
 
-    #ifdef LUA_USE_WINDOWS
-    fbuff_size = w * h;
-    #else
     fbuff_size = w * h / 10;
-    #endif
 
     LLOGD("w %d h %d buff %d", w, h, fbuff_size);
 

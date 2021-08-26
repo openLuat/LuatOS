@@ -14,7 +14,7 @@ static luat_lcd_conf_t* lcd_conf;
 static void disp_flush(lv_disp_drv_t * disp_drv, const lv_area_t * area, lv_color_t * color_p) {
     //-----
     if (lcd_conf != NULL) {
-        lcd_conf->opts->draw(conf, area->x1, area->y1, area->x2, area->y2, color_p);
+        lcd_conf->opts->draw(lcd_conf, area->x1, area->y1, area->x2, area->y2, color_p);
     }
     // LLOGD("CALL disp_flush (%d, %d, %d, %d)", area->x1, area->y1, area->x2, area->y2);
     lv_disp_flush_ready(disp_drv);

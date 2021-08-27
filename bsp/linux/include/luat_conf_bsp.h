@@ -17,6 +17,12 @@
 #define LUAT_USE_LVGL 1
 #define USE_GTK 1
 
+#define LV_TICK_CUSTOM     1
+#if LV_TICK_CUSTOM == 1
+#define LV_TICK_CUSTOM_INCLUDE  "exts/lv_drivers/gtkdrv/gtkdrv.h"       /*Header for the sys time function*/
+#define LV_TICK_CUSTOM_SYS_TIME_EXPR (gtkdrv_tick_get())     /*Expression evaluating to current systime in ms*/
+#endif   /*LV_TICK_CUSTOM*/
+
 #define LV_FONT_OPPOSANS_M_8
 #define LV_FONT_OPPOSANS_M_10
 #define LV_FONT_OPPOSANS_M_12

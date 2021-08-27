@@ -41,7 +41,7 @@ int luat_lv_init(lua_State *L) {
     lua_pushboolean(L, 1);
     return 1;
     #elif defined(LUA_USE_LINUX)
-    lvgl_linux_init();
+    //lvgl_linux_init();
     lua_pushboolean(L, 1);
     return 1;
     #else

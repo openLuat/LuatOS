@@ -13,11 +13,11 @@ extern "C" {
 /*********************
  *      INCLUDES
  *********************/
-#include "lv_drv_conf.h"
+#include "src/lv_drv_conf.h"
 
 #if USE_GTK
 
-#include "lvgl/lvgl.h"
+#include "lvgl.h"
 
 
 /*********************

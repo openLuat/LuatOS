@@ -59,7 +59,8 @@ int main(int argc, char** argv) {
 
 #ifdef LUAT_USE_LVGL
     lv_init();
-
+    void lvgl_linux_init(void);
+    lvgl_linux_init();
     xTaskCreate( _lvgl_handler, "lvgl", 1024*2, NULL, 23, NULL );
 #endif
 

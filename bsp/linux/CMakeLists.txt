@@ -123,7 +123,7 @@ add_subdirectory(${TOPROOT}/components/lvgl lvgl.out)
 
 add_executable(luatos src/main.c)
 target_link_libraries(luat freertos10 pthread fatfs lvgl)
-target_link_libraries(luatos freertos10 lua luatos_msys fatfs luat pthread cjson mbedtls lvgl m
+target_link_libraries(luatos freertos10 lua luatos_msys fatfs luat pthread cjson mbedtls lvgl m dl
 gtk-3 gdk-3 pangocairo-1.0 pango-1.0 atk-1.0 cairo-gobject cairo gdk_pixbuf-2.0 gio-2.0 gobject-2.0 glib-2.0
 )
 

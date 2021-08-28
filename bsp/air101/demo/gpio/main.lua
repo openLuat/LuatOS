@@ -6,21 +6,30 @@ VERSION = "1.0.0"
 -- sys库是标配
 _G.sys = require("sys")
 
-local LED = gpio.setup(7, 0, gpio.PULLUP) -- PB1输出模式
-
-local G1 = gpio.setup(1, function() -- 中断模式, 下降沿，需要将PB1和PA1连在一起
-    log.info("PA1", "BOOT button release")
-end, gpio.PULLUP,gpio.FALLING)
+local LEDA = gpio.setup(24, 0, gpio.PULLUP) -- PB1输出模式
+local LEDB = gpio.setup(25, 0, gpio.PULLUP) -- PB1输出模式
+local LEDC = gpio.setup(26, 0, gpio.PULLUP) -- PB1输出模式
 
 sys.taskInit(function()
+    local count = 0
     while 1 do
         -- 一闪一闪亮晶晶
-        LED(0)
-        log.info("gpio", "1", G1())
+        if (count % 3) == 0 then
+            LEDA(1)
+            LEDB(0)
+            LEDC(0)
+        elseif (count % 3) == 1 then
+            LEDA(0)
+            LEDB(1)
+            LEDC(0)
+        else
+            LEDA(0)
+            LEDB(0)
+            LEDC(1)
+        end
+        log.info("gpio", "Go Go Go")
         sys.wait(500)
-        LED(1)
-        sys.wait(500)
-        log.info("gpio", "1", G1())
+        count = count + 1
     end
 end)
 

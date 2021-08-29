@@ -56,8 +56,12 @@ ADC
 
 ## 刷机工具
 
-使用Luatools下载, 版本 2.1.14 以上
+使用Luatools下载, 版本 2.1.28 以上, 越新越好
 
 ## 模块购买
 
-即将上线
+手机访问: m.openluat.com
+
+## 开发板PinOut
+![](images/air101_evb_pinout.png)
+

@@ -54,7 +54,7 @@ int luat_lv_init(lua_State *L) {
     int w = luaL_optinteger(L, 1, lcd_conf->w);
     int h = luaL_optinteger(L, 2, lcd_conf->h);
 
-    fbuff_size = w * h / 10;
+    fbuff_size = w * 10;
 
     LLOGD("w %d h %d buff %d", w, h, fbuff_size);
 

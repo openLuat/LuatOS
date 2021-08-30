@@ -25,7 +25,7 @@
 
 #define LUAT_LCD_COLOR_DEPTH 32
 
-#if (LUAT_LCD_COLOR_DEPTH == 32) 
+#if (LUAT_LCD_COLOR_DEPTH == 32)
 #define luat_color_t uint32_t
 #elif (LUAT_LCD_COLOR_DEPTH == 16)
 #define luat_color_t uint16_t
@@ -46,6 +46,9 @@ typedef struct luat_lcd_conf {
     uint8_t direction;//方向
     uint32_t w;
     uint32_t h;
+
+    uint8_t xoffset;//偏移
+    uint8_t yoffset;//偏移
 
     void* userdata;
     struct luat_lcd_opts* opts;

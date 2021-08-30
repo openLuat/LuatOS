@@ -15,6 +15,7 @@
 extern uint32_t BACK_COLOR , FORE_COLOR ;
 
 extern const luat_lcd_opts_t lcd_opts_st7735;
+extern const luat_lcd_opts_t lcd_opts_st7735s;
 extern const luat_lcd_opts_t lcd_opts_st7789;
 extern const luat_lcd_opts_t lcd_opts_gc9a01;
 extern const luat_lcd_opts_t lcd_opts_gc9106l;
@@ -27,16 +28,16 @@ static luat_lcd_conf_t *default_conf = NULL;
 /*
 lcd显示屏初始化
 @api lcd.init(tp, args)
-@string lcd类型, 当前支持st7789/st7735/gc9a01/gc9106l/gc9306/ili9341/custom
+@string lcd类型, 当前支持st7789/st7735/st7735s/gc9a01/gc9106l/gc9306/ili9341/custom
 @table 附加参数,与具体设备有关
 @usage
 -- 初始化spi0的st7789 注意:lcd初始化之前需要先初始化spi
-lcd.init("st7789",{port = 0,pin_dc = 23, pin_pwr = 7,pin_rst = 22,direction = 0,w = 240,h = 320})
+lcd.init("st7789",{port = 0,pin_dc = 23, pin_pwr = 7,pin_rst = 22,direction = 0,w = 240,h = 320,xoffset = 0,yoffset = 0})
 */
 static int l_lcd_init(lua_State* L) {
     size_t len = 0;
     const char* tp = luaL_checklstring(L, 1, &len);
-    if (!strcmp("st7735", tp) || !strcmp("st7789", tp)
+    if (!strcmp("st7735", tp) || !strcmp("st7789", tp) || !strcmp("st7735s", tp)
             || !strcmp("gc9a01", tp)  || !strcmp("gc9106l", tp)
             || !strcmp("gc9306", tp)  || !strcmp("ili9341", tp)
             || !strcmp("custom", tp)) {
@@ -49,47 +50,61 @@ static int l_lcd_init(lua_State* L) {
             lua_pushstring(L, "port");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
                 conf->port = luaL_checkinteger(L, -1);
-            };
+            }
             lua_pop(L, 1);
 
             lua_pushstring(L, "pin_dc");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
                 conf->pin_dc = luaL_checkinteger(L, -1);
-            };
+            }
             lua_pop(L, 1);
 
             lua_pushstring(L, "pin_pwr");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
                 conf->pin_pwr = luaL_checkinteger(L, -1);
-            };
+            }
             lua_pop(L, 1);
 
             lua_pushstring(L, "pin_rst");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
                 conf->pin_rst = luaL_checkinteger(L, -1);
-            };
+            }
             lua_pop(L, 1);
 
             lua_pushstring(L, "direction");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
                 conf->direction = luaL_checkinteger(L, -1);
-            };
+            }
             lua_pop(L, 1);
 
             lua_pushstring(L, "w");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
                 conf->w = luaL_checkinteger(L, -1);
-            };
+            }
             lua_pop(L, 1);
 
             lua_pushstring(L, "h");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
                 conf->h = luaL_checkinteger(L, -1);
-            };
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "xoffset");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->xoffset = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
+            lua_pushstring(L, "yoffset");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->yoffset = luaL_checkinteger(L, -1);
+            }
             lua_pop(L, 1);
         }
         if (!strcmp("st7735", tp))
             conf->opts = (luat_lcd_opts_t*)&lcd_opts_st7735;
+        else if (!strcmp("st7735s", tp))
+            conf->opts = (luat_lcd_opts_t*)&lcd_opts_st7735s;
         else if (!strcmp("st7789", tp))
             conf->opts = (luat_lcd_opts_t*)&lcd_opts_st7789;
         else if (!strcmp("gc9a01", tp))

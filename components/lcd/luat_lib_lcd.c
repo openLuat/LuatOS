@@ -31,7 +31,7 @@ lcd显示屏初始化
 @table 附加参数,与具体设备有关
 @usage
 -- 初始化spi0的st7789 注意:lcd初始化之前需要先初始化spi
-lcd.init("st7789",{port = 0,pin_cs = 20,pin_dc = 23, pin_pwr = 7,pin_rst = 22,direction = 0,w = 240,h = 320})
+lcd.init("st7789",{port = 0,pin_dc = 23, pin_pwr = 7,pin_rst = 22,direction = 0,w = 240,h = 320})
 */
 static int l_lcd_init(lua_State* L) {
     size_t len = 0;
@@ -49,12 +49,6 @@ static int l_lcd_init(lua_State* L) {
             lua_pushstring(L, "port");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
                 conf->port = luaL_checkinteger(L, -1);
-            };
-            lua_pop(L, 1);
-
-            lua_pushstring(L, "pin_cs");
-            if (LUA_TNUMBER == lua_gettable(L, 2)) {
-                conf->pin_cs = luaL_checkinteger(L, -1);
             };
             lua_pop(L, 1);
 

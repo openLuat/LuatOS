@@ -39,7 +39,6 @@ struct luat_lcd_opts;
 
 typedef struct luat_lcd_conf {
     uint8_t port;
-    uint8_t pin_cs;
     uint8_t pin_dc;
     uint8_t pin_pwr;
     uint8_t pin_rst;

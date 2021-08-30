@@ -39,8 +39,6 @@ static int gc9a01_init(luat_lcd_conf_t* conf) {
     if (conf->direction == 0)
         conf->direction = LCD_DIRECTION;
 
-    // 配置CS脚的GPIO
-    luat_gpio_mode(conf->pin_cs, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 0);
     luat_gpio_mode(conf->pin_dc, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 0); // DC
     luat_gpio_mode(conf->pin_pwr, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 0); // POWER
     luat_gpio_mode(conf->pin_rst, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 0); // RST

@@ -59,12 +59,28 @@ static int l_mcu_unique_id(lua_State* L) {
     return 1;
 }
 
+/*
+获取启动后的tick数,注意会出现溢出会出现负数
+@api mcu.ticks()
+@return int 当前tick值
+@usage
+local tick = mcu.ticks()
+print("ticks", tick)
+*/
+static int l_mcu_ticks(lua_State* L) {
+    long tick = luat_mcu_ticks();
+    lua_pushinteger(L, tick);
+    return 1;
+}
+
+
 #include "rotable.h"
 static const rotable_Reg reg_mcu[] =
 {
     { "setClk" ,        l_mcu_set_clk, 0},
     { "getClk",         l_mcu_get_clk,  0},
     { "unique_id",      l_mcu_unique_id, 0},
+    { "ticks",          l_mcu_ticks, 0},
 	{ NULL,          NULL ,       0}
 };
 

@@ -5,3 +5,4 @@ int luat_mcu_get_clk(void);
 
 const char* luat_mcu_unique_id(size_t* t);
 
+long luat_mcu_ticks(void);

@@ -1,9 +1,9 @@
 
 /*
-lcd驱动模块
-@module lcd
-@since 2021.06.16
-
+@module  lcd
+@summary lcd驱动模块
+@version 1.0
+@date    2021.06.16
 */
 #include "luat_base.h"
 #include "luat_lcd.h"

@@ -225,11 +225,11 @@ static int32_t ds18b20_get_temperature(int pin, int32_t *val, int check_crc)
 @api    sensor.ds18b20(pin)
 @int    gpio端口号
 @boolean 是否校验crc值,默认为true. 不校验crc值能提高读取成功的概率,但可能会读取到错误的值
-@return int 温度数据,单位0.1摄氏度
+@return int 温度数据,单位0.1摄氏度，读取失败时返回错误码
 @return boolean 成功返回true,否则返回false
---  如果读取失败,会返回nil
-while 1 do 
-    sys.wait(5000) 
+@usage
+while 1 do
+    sys.wait(5000)
     local val,result = sensor.ds18b20(17, true) -- GPIO17且校验CRC值
     -- val 301 == 30.1摄氏度
     -- result true 读取成功
@@ -248,7 +248,7 @@ static int l_sensor_ds18b20(lua_State *L)
   if (ret || !(val <= 1250 && val >= -550))
   {
     LLOGI("ds18b20 read fail");
-    lua_pushinteger(L, 0);
+    lua_pushinteger(L, ret);
     lua_pushboolean(L, 0);
     return 2;
   }
@@ -367,6 +367,7 @@ unsigned long ReadCount(int date,int clk) //增益128
 @int    数据的gpio端口号
 @int    时钟的gpio端口号
 @return int hx711读到的数据
+@usage
 --  如果设备不存在会卡在读取接口
 sys.taskInit(
     function()

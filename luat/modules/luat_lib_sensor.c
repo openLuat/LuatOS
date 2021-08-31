@@ -9,6 +9,7 @@
 #include "luat_timer.h"
 #include "luat_malloc.h"
 #include "luat_gpio.h"
+#include "luat_zbuff.h"
 
 #define LUAT_LOG_TAG "luat.sensor"
 #include "luat_log.h"
@@ -398,6 +399,78 @@ static int l_sensor_hx711(lua_State *L)
 
   return 1;
 }
+
+
+/*
+设置ws2812b输出
+@api    sensor.ws2812b(pin,data,T0H,T0L,T1H,T1L)
+@int    ws2812b的gpio端口号
+@string/zbuff    待发送的数据（如果为zbuff数据，则会无视指针位置始终从0偏移开始）
+@int    T0H时间，表示延时多少个nop，每个型号不一样，自己调
+@int    T0L时间，表示延时多少个nop
+@int    T1H时间，表示延时多少个nop
+@int    T1L时间，表示延时多少个nop
+@usage
+local buff = zbuff.create({8,8,24})
+buff:drawLine(1,2,5,6,0x00ffff)
+sensor.ws2812b(7,buff,300,700,700,700)
+*/
+#define WS2812B_BIT_0() \
+  t0h_temp = t0h; t0l_temp = t0l; \
+  luat_gpio_set(pin, Luat_GPIO_HIGH); \
+  while(t0h_temp--); \
+  luat_gpio_set(pin, Luat_GPIO_LOW); \
+  while(t0l_temp--)
+#define WS2812B_BIT_1() \
+  t1h_temp = t1h; t1l_temp = t1l; \
+  luat_gpio_set(pin, Luat_GPIO_HIGH); \
+  while(t1h_temp--); \
+  luat_gpio_set(pin, Luat_GPIO_LOW); \
+  while(t1l_temp--)
+static int l_sensor_ws2812b(lua_State *L)
+{
+  unsigned char j;
+  size_t len,i;
+  const char *send_buff;
+  int pin = luaL_checkinteger(L, 1);
+  if (lua_isuserdata(L, 2))
+  {
+    luat_zbuff *buff = ((luat_zbuff *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+    send_buff = buff->addr;
+    len = buff->len;
+  }
+  else
+  {
+    send_buff = lua_tolstring(L, 2, &len);
+  }
+  uint32_t t0h_temp,t0h = luaL_checkinteger(L, 3);
+  uint32_t t0l_temp,t0l = luaL_checkinteger(L, 4);
+  uint32_t t1h_temp,t1h = luaL_checkinteger(L, 5);
+  uint32_t t1l_temp,t1l = luaL_checkinteger(L, 6);
+
+  luat_os_entry_cri();
+  luat_gpio_mode(pin, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 1);
+  luat_gpio_set(pin, Luat_GPIO_LOW);
+  luat_timer_us_delay(1);
+  //luat_gpio_set(pin, Luat_GPIO_HIGH);
+  for(i=0;i<len;i++)
+  {
+    for(j=7;j>=0;j--)
+    {
+      if(send_buff[i]>>j&0x01)
+      {
+        WS2812B_BIT_1();
+      }
+      else
+      {
+        WS2812B_BIT_0();
+      }
+    }
+  }
+  luat_os_exit_cri();
+  return 0;
+}
+
 #include "rotable.h"
 static const rotable_Reg reg_sensor[] =
     {
@@ -407,6 +480,7 @@ static const rotable_Reg reg_sensor[] =
         {"w1_read", l_w1_read_byte, 0},
         {"ds18b20", l_sensor_ds18b20, 0},
         {"hx711", l_sensor_hx711, 0},
+        {"ws2812b", l_sensor_ws2812b, 0},
         {NULL, NULL, 0}};
 
 LUAMOD_API int luaopen_sensor(lua_State *L)

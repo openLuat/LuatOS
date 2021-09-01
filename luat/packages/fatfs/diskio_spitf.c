@@ -147,15 +147,16 @@ void rcvr_mmc (
 	#endif
 	//u8* buf2 = 0x00;
 	//u8** buf = &buf2;
-	BYTE tmp[bc];
+	// BYTE tmp[bc];
 	
-	for(size_t i = 0; i < bc; i++)
-	{
-		tmp[i] = 0xFF;
-	}
+	// for(size_t i = 0; i < bc; i++)
+	// {
+	// 	tmp[i] = 0xFF;
+	// }
 	
-	DWORD t = luat_spi_transfer(FATFS_SPI_ID, tmp, buff, bc);
+	//DWORD t = luat_spi_transfer(FATFS_SPI_ID, tmp, buff, bc);
 	//s32 t = platform_spi_recv(0, buf, bc);
+	luat_spi_recv(FATFS_SPI_ID, buff, bc);
 	
 	//memcpy(buff, buf2, bc);
 	//if (FATFS_DEBUG)

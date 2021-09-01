@@ -30,7 +30,7 @@ static int l_rtc_set(lua_State *L){
     lua_pushstring(L, "year");
     lua_gettable(L, 1);
     if (lua_isnumber(L, -1)) {
-        tblock.tm_year = luaL_checkinteger(L, -1);
+        tblock.tm_year = luaL_checkinteger(L, -1) - 1900;
     }
     else {
         LLOGW("rtc time miss year");
@@ -40,7 +40,7 @@ static int l_rtc_set(lua_State *L){
     lua_pushstring(L, "mon");
     lua_gettable(L, 1);
     if (lua_isnumber(L, -1)) {
-        tblock.tm_mon = luaL_checkinteger(L, -1);
+        tblock.tm_mon = luaL_checkinteger(L, -1) - 1;
     }
     else {
         LLOGW("rtc time miss mon");
@@ -111,11 +111,11 @@ static int l_rtc_get(lua_State *L){
     lua_newtable(L);
 
     lua_pushstring(L, "year");
-    lua_pushinteger(L, tblock.tm_year);
+    lua_pushinteger(L, tblock.tm_year + 1900);
     lua_settable(L, -3);
 
     lua_pushstring(L, "mon");
-    lua_pushinteger(L, tblock.tm_mon);
+    lua_pushinteger(L, tblock.tm_mon + 1);
     lua_settable(L, -3);
 
     lua_pushstring(L, "day");
@@ -162,7 +162,7 @@ static int l_rtc_timer_start(lua_State *L){
     lua_pushstring(L, "year");
     lua_gettable(L, 2);
     if (lua_isnumber(L, -1)) {
-        tblock.tm_year = luaL_checkinteger(L, -1);
+        tblock.tm_year = luaL_checkinteger(L, -1) - 1900;
     }
     else {
         LLOGW("rtc time miss year");
@@ -172,7 +172,7 @@ static int l_rtc_timer_start(lua_State *L){
     lua_pushstring(L, "mon");
     lua_gettable(L, 2);
     if (lua_isnumber(L, -1)) {
-        tblock.tm_mon = luaL_checkinteger(L, -1);
+        tblock.tm_mon = luaL_checkinteger(L, -1) - 1;
     }
     else {
         LLOGW("rtc time miss mon");

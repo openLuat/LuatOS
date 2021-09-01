@@ -60,7 +60,9 @@
 /* Dot Per Inch: used to initialize default sizes.
  * E.g. a button with width = LV_DPI / 2 -> half inch wide
  * (Not so important, you can adjust it to modify default sizes and spaces)*/
+#ifndef LV_DPI
 #define LV_DPI              130     /*[px]*/
+#endif
 
 /* The the real width of the display changes some default values:
  * default object sizes, layout of examples, etc.
@@ -277,14 +279,14 @@ typedef void * lv_img_decoder_user_data_t;
 #define LV_ATTRIBUTE_FLUSH_READY
 
 /* Required alignment size for buffers */
-#define LV_ATTRIBUTE_MEM_ALIGN_SIZE
+#define LV_ATTRIBUTE_MEM_ALIGN_SIZE 4
 
 /* With size optimization (-Os) the compiler might not align data to
  * 4 or 8 byte boundary. Some HW may need even 32 or 64 bytes.
  * This alignment will be explicitly applied where needed.
  * LV_ATTRIBUTE_MEM_ALIGN_SIZE should be used to specify required align size.
  * E.g. __attribute__((aligned(LV_ATTRIBUTE_MEM_ALIGN_SIZE))) */
-#define LV_ATTRIBUTE_MEM_ALIGN
+#define LV_ATTRIBUTE_MEM_ALIGN __attribute__((aligned(LV_ATTRIBUTE_MEM_ALIGN_SIZE)))
 
 /* Attribute to mark large constant arrays for example
  * font's bitmaps */
@@ -292,7 +294,9 @@ typedef void * lv_img_decoder_user_data_t;
 
 /* Prefix performance critical functions to place them into a faster memory (e.g RAM)
  * Uses 15-20 kB extra memory */
+#ifndef LV_ATTRIBUTE_FAST_MEM
 #define LV_ATTRIBUTE_FAST_MEM
+#endif
 
 /* Export integer constant to binding.
  * This macro is used with constants in the form of LV_<CONST> that

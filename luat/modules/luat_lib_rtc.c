@@ -97,7 +97,7 @@ static int l_rtc_set(lua_State *L){
 @api rtc.get()
 @return table 时钟参数,见示例
 @usage
-local t = rtc.set()
+local t = rtc.get()
 -- {year=2021,mon=8,day=31,hour=17,min=8,sec=43}
 log.info("rtc", json.encode(t))
 */
@@ -226,7 +226,7 @@ static int l_rtc_timer_start(lua_State *L){
 
 /*
 取消RTC唤醒时间
-@api rtc.timerStart(id, tab)
+@api rtc.timerStop(id, tab)
 @int 时钟id,通常只支持0
 @return bool 成功返回true,否则返回nil或false
 @usage

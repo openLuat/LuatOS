@@ -518,15 +518,27 @@ if re then
 end
 */
 static int l_i2c_readSHT30(lua_State *L){
-    int id = luaL_checkinteger(L, 1);
+    int id = 0;
+    if(!lua_isuserdata(L, 1)){
+        id = luaL_checkinteger(L, 1);
+    }
     int addr = luaL_optinteger(L, 2, 0x44);
-    char buff[7] = {0x2c, 0x06};
-    char temp = 0x00;
-    char hum = 0x00;
+    char buff[7] = {0x2c, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00};
+    float temp = 0x00;
+    float hum = 0x00;
 
     luat_i2c_send(id, addr, &buff, 2);
-    luat_timer_us_delay(1000);
-    int result = luat_i2c_recv(id, addr, buff, 6);
+    luat_timer_mdelay(1);
+    int result;
+    if(lua_isuserdata(L, 1))
+    {
+        luat_ei2c* ei2c = toei2c(L);
+        result = i2c_soft_recv(ei2c, addr, buff, 6);
+    }
+    else
+    {
+        luat_i2c_recv(id, addr, buff, 6);
+    }
     if (result) {
         lua_pushboolean(L, 0);
         return 1;
@@ -540,8 +552,8 @@ static int l_i2c_readSHT30(lua_State *L){
         // 检查crc值
         //LLOGD("SHT30 DATA %02X %02X %02X %02X %02X %02X", buff[0], buff[1], buff[2], buff[3], buff[4], buff[5]);
 
-        temp = ((((buff[0] * 256) + buff[1]) * 175) / 65535) - 45;
-        hum = ((((buff[3] * 256) + buff[4]) * 100) / 65535);
+        temp = ((((buff[0] * 256) + buff[1]) * 175) / 65535.0) - 45;
+        hum = ((((buff[3] * 256) + buff[4]) * 100) / 65535.0);
 
         //LLOGD("\r\n SHT30  %d deg  %d Hum ", temp, hum);
         // 跳过CRC
@@ -556,8 +568,8 @@ static int l_i2c_readSHT30(lua_State *L){
 
         // Convert the data
         lua_pushboolean(L, 1);
-        lua_pushinteger(L, (int)hum);
-        lua_pushinteger(L, (int)temp);
+        lua_pushinteger(L, (int)hum * 10);
+        lua_pushinteger(L, (int)temp * 10);
 
         return 3;
         // 华氏度

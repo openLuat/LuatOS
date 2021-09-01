@@ -10,6 +10,8 @@
 #define LUAT_LOG_TAG "rtc"
 #include "luat_log.h"
 
+int Base_year = 1900;
+
 /*
 设置时钟
 @api rtc.set(tab)
@@ -242,6 +244,18 @@ static int l_rtc_timer_stop(lua_State *L){
     return 1;
 }
 
+/*
+设置RTC基准年
+@api rtc.setBase_year(Base_year)
+@int 基准年Base_year,通常1900
+@usage
+rtc.setBase_year(1900)
+*/
+static int l_rtc_setBase_year(lua_State *L){
+    Base_year = luaL_checkinteger(L, 1);
+    return 0;
+}
+
 #include "rotable.h"
 static const rotable_Reg reg_rtc[] =
 {
@@ -249,6 +263,7 @@ static const rotable_Reg reg_rtc[] =
     { "get", l_rtc_get, 0},
     { "timerStart", l_rtc_timer_start, 0},
     { "timerStop", l_rtc_timer_stop, 0},
+    { "setBase_year", l_rtc_setBase_year, 0},
 	{ NULL, NULL , 0}
 };
 

@@ -11,6 +11,8 @@
 #define LUAT_CRYPTO_AES_PAD_5 2
 #define LUAT_CRYPTO_AES_PAD_7 3
 
+int luat_crypto_trng(char* buff, size_t len);
+
 int luat_crypto_md5_simple(const char* str, size_t str_size, void* out_ptr);
 int luat_crypto_hmac_md5_simple(const char* str, size_t str_size, const char* mac, size_t mac_size, void* out_ptr);
 

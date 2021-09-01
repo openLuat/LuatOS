@@ -337,6 +337,29 @@ static int l_crypto_crc8(lua_State *L)
     return 1;
 }
 
+/**
+生成真随机数
+@api crypto.trng(len)
+@int 数据长度
+@return string 指定随机数字符串
+@usage
+-- 生成32位随机数ir
+local r = crypto.trng(4)
+local _, ir = pack.unpack(r, "I")
+ */
+static int l_crypto_trng(lua_State *L) {
+    size_t len = luaL_checkinteger(L, 1);
+    if (len < 1) {
+        return 0;
+    }
+    if (len > 128)
+        len = 128;
+    char buff[128];
+    luat_crypto_trng(buff, len);
+    lua_pushlstring(L, buff, len);
+    return 1;
+}
+
 #include "rotable.h"
 static const rotable_Reg reg_crypto[] =
 {
@@ -355,6 +378,7 @@ static const rotable_Reg reg_crypto[] =
     { "crc16_modbus",   l_crypto_crc16_modbus   ,0},
     { "crc32",          l_crypto_crc32          ,0},
     { "crc8",           l_crypto_crc8           ,0},
+    { "trng",           l_crypto_trng           ,0},
 	{ NULL,             NULL                    ,0}
 };
 
@@ -376,3 +400,8 @@ LUAT_WEAK int luat_crypto_hmac_sha256_simple(const char* str, size_t str_size, c
 
 LUAT_WEAK int luat_crypto_sha512_simple(const char* str, size_t str_size, void* out_ptr) {return -1;}
 LUAT_WEAK int luat_crypto_hmac_sha512_simple(const char* str, size_t str_size, const char* mac, size_t mac_size, void* out_ptr) {return -1;}
+
+LUAT_WEAK int luat_crypto_trng(char* buff, size_t len) {
+    memset(buff, 0, len);
+    return 0;
+}

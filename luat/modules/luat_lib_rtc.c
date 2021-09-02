@@ -246,12 +246,12 @@ static int l_rtc_timer_stop(lua_State *L){
 
 /*
 设置RTC基准年
-@api rtc.setBase_year(Base_year)
+@api rtc.setBaseYear(Base_year)
 @int 基准年Base_year,通常1900
 @usage
-rtc.setBase_year(1900)
+rtc.setBaseYear(1900)
 */
-static int l_rtc_setBase_year(lua_State *L){
+static int l_rtc_set_base_year(lua_State *L){
     Base_year = luaL_checkinteger(L, 1);
     return 0;
 }
@@ -263,7 +263,7 @@ static const rotable_Reg reg_rtc[] =
     { "get", l_rtc_get, 0},
     { "timerStart", l_rtc_timer_start, 0},
     { "timerStop", l_rtc_timer_stop, 0},
-    { "setBase_year", l_rtc_setBase_year, 0},
+    { "setBaseYear", l_rtc_setBase_year, 0},
 	{ NULL, NULL , 0}
 };
 

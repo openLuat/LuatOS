@@ -160,6 +160,16 @@ int luat_vfs_lfs2_rmdir(void* userdata, char const* _DirName) {
     return -1;
 }
 
+int luat_vfs_lfs2_info(void* userdata, const char* path, luat_fs_info_t *conf) {
+    lfs_t* fs = (lfs_t*)userdata;
+    memcpy(conf->filesystem, "lfs", strlen("lfs")+1);
+    conf->type = 0;
+    conf->total_block = fs->cfg->block_count;
+    conf->block_used = lfs_fs_size(fs);
+    conf->block_size = fs->cfg->block_size;
+    return 0;
+}
+
 #define T(name) .name = luat_vfs_lfs2_##name
 
 const struct luat_vfs_filesystem vfs_fs_lfs2 = {
@@ -173,7 +183,8 @@ const struct luat_vfs_filesystem vfs_fs_lfs2 = {
         T(remove),
         T(rename),
         T(fsize),
-        T(fexist)
+        T(fexist),
+        T(info)
     },
     .fopts = {
         T(fopen),

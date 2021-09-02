@@ -195,6 +195,15 @@ int luat_vfs_posix_rmdir(void* userdata, char const* _DirName) {
     //return rmdir(_DirName);
     return -1;
 }
+int luat_vfs_posix_info(void* userdata, const char* path, luat_fs_info_t *conf) {
+
+    memcpy(conf->filesystem, "posix", strlen("posix")+1);
+    conf->type = 0;
+    conf->total_block = 0;
+    conf->block_used = 0;
+    conf->block_size = 512;
+    return 0;
+}
 
 #define T(name) .name = luat_vfs_posix_##name
 const struct luat_vfs_filesystem vfs_fs_posix = {
@@ -208,7 +217,8 @@ const struct luat_vfs_filesystem vfs_fs_posix = {
         T(remove),
         T(rename),
         T(fsize),
-        T(fexist)
+        T(fexist),
+        T(info)
     },
     .fopts = {
         T(fopen),

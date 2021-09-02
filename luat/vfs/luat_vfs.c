@@ -122,7 +122,7 @@ int luat_fs_info(const char* path, luat_fs_info_t *conf) {
         if (vfs.mounted[j].ok == 0)
             continue;
         if (strcmp(vfs.mounted[j].prefix, path) == 0) {
-            return vfs.mounted[j].fs->opts.info(vfs.mounted[j].userdata, path, conf);
+            return vfs.mounted[j].fs->opts.info(vfs.mounted[j].userdata, ((char*)path) + strlen(vfs.mounted[j].prefix), conf);
         }
     }
     LLOGE("no such mount point %s", path);

@@ -402,6 +402,14 @@ int luat_vfs_luadb_rmdir(void* userdata, char const* _DirName) {
     //LLOGE("not support yet : rmdir");
     return -1;
 }
+int luat_vfs_luadb_info(void* userdata, const char* path, luat_fs_info_t *conf) {
+    memcpy(conf->filesystem, "luadb", strlen("luadb")+1);
+    conf->type = 0;
+    conf->total_block = 0;
+    conf->block_used = 0;
+    conf->block_size = 512;
+    return 0;
+}
 
 #define T(name) .name = luat_vfs_luadb_##name
 const struct luat_vfs_filesystem vfs_fs_luadb = {
@@ -415,7 +423,8 @@ const struct luat_vfs_filesystem vfs_fs_luadb = {
         T(remove),
         T(rename),
         T(fsize),
-        T(fexist)
+        T(fexist),
+        T(info)
     },
     .fopts = {
         T(fopen),

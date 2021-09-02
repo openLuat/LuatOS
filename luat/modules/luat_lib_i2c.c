@@ -53,6 +53,7 @@ static unsigned char i2c_soft_wait_ack(luat_ei2c *ei2c)
             luat_gpio_set(ei2c->scl, Luat_GPIO_LOW);
             return 1;
         }
+        luat_timer_us_delay(1);
     }
     i2c_soft_stop(ei2c);
     return 0;
@@ -248,11 +249,11 @@ static int l_i2c_send(lua_State *L) {
         if(lua_isuserdata(L, 1))
         {
             luat_ei2c* ei2c = toei2c(L);
-            result = i2c_soft_send(ei2c, addr, buff, len);
+            result = i2c_soft_send(ei2c, addr, (char*)buff, len);
         }
         else
         {
-            result = luat_i2c_send(id, addr, buff, len);
+            result = luat_i2c_send(id, addr, (char*)buff, len);
         }
     }
     else if (lua_isinteger(L, 3)) {
@@ -448,7 +449,7 @@ static int l_i2c_readDHT12(lua_State *L) {
     int addr = luaL_optinteger(L, 2, 0x5C);
     char buff[5] = {0};
     char temp = 0x00;
-    int result;
+    int result = -1;
     if(lua_isuserdata(L, 1))
     {
         luat_ei2c* ei2c = toei2c(L);
@@ -458,7 +459,7 @@ static int l_i2c_readDHT12(lua_State *L) {
     {
         result = luat_i2c_send(id, addr, &temp, 1);
     }
-    if (result) {
+    if (result!=0) {
         LLOGD("DHT12 i2c bus write fail");
         lua_pushboolean(L, 0);
         return 1;
@@ -472,7 +473,7 @@ static int l_i2c_readDHT12(lua_State *L) {
     {
         result = luat_i2c_recv(id, addr, buff, 5);
     }
-    if (result) {
+    if (result!=0) {
         lua_pushboolean(L, 0);
         return 1;
     }
@@ -529,7 +530,7 @@ static int l_i2c_readSHT30(lua_State *L){
 
     luat_i2c_send(id, addr, &buff, 2);
     luat_timer_mdelay(1);
-    int result;
+    int result = -1;
     if(lua_isuserdata(L, 1))
     {
         luat_ei2c* ei2c = toei2c(L);
@@ -537,9 +538,9 @@ static int l_i2c_readSHT30(lua_State *L){
     }
     else
     {
-        luat_i2c_recv(id, addr, buff, 6);
+        result = luat_i2c_recv(id, addr, buff, 6);
     }
-    if (result) {
+    if (result!=0) {
         lua_pushboolean(L, 0);
         return 1;
     }

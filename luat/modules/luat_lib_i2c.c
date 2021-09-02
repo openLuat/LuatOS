@@ -53,6 +53,7 @@ static unsigned char i2c_soft_wait_ack(luat_ei2c *ei2c)
             luat_gpio_set(ei2c->scl, Luat_GPIO_LOW);
             return 1;
         }
+        luat_timer_us_delay(1);
     }
     i2c_soft_stop(ei2c);
     return 0;

@@ -168,6 +168,20 @@ int luat_vfs_fatfs_rmdir(void* userdata, char const* _DirName) {
     LLOGE("not support yet : rmdir");
     return -1;
 }
+int luat_vfs_fatfs_info(void* userdata, const char* path, luat_fs_info_t *conf) {
+    DWORD fre_clust, fre_sect, tot_sect;
+    FATFS *fs = (FATFS*)userdata;
+
+    tot_sect = (fs->n_fatent - 2) * fs->csize;
+    fre_sect = fre_clust * fs->csize;
+
+    memcpy(conf->filesystem, "fatfs", strlen("fatfs")+1);
+    conf->type = 0;
+    conf->total_block = tot_sect;
+    conf->block_used = tot_sect - fre_sect;
+    conf->block_size = fs->csize;
+    return 0;
+}
 
 #define T(name) .name = luat_vfs_fatfs_##name
 const struct luat_vfs_filesystem vfs_fs_fatfs = {
@@ -181,7 +195,8 @@ const struct luat_vfs_filesystem vfs_fs_fatfs = {
         T(remove),
         T(rename),
         T(fsize),
-        T(fexist)
+        T(fexist),
+        T(info)
     },
     .fopts = {
         T(fopen),

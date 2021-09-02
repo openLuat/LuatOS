@@ -263,7 +263,7 @@ static const rotable_Reg reg_rtc[] =
     { "get", l_rtc_get, 0},
     { "timerStart", l_rtc_timer_start, 0},
     { "timerStop", l_rtc_timer_stop, 0},
-    { "setBaseYear", l_rtc_setBase_year, 0},
+    { "setBaseYear", l_rtc_set_base_year, 0},
 	{ NULL, NULL , 0}
 };
 

@@ -538,7 +538,7 @@ static int l_i2c_readSHT30(lua_State *L){
     }
     else
     {
-        luat_i2c_recv(id, addr, buff, 6);
+        result = luat_i2c_recv(id, addr, buff, 6);
     }
     if (result!=0) {
         lua_pushboolean(L, 0);

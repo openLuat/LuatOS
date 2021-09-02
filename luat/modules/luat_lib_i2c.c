@@ -553,8 +553,8 @@ static int l_i2c_readSHT30(lua_State *L){
         // 检查crc值
         //LLOGD("SHT30 DATA %02X %02X %02X %02X %02X %02X", buff[0], buff[1], buff[2], buff[3], buff[4], buff[5]);
 
-        temp = ((((buff[0] * 256) + buff[1]) * 175) / 65535.0) - 45;
-        hum = ((((buff[3] * 256) + buff[4]) * 100) / 65535.0);
+        temp = ((((buff[0] * 256) + buff[1]) * 175) / 6553.5) - 450;
+        hum = ((((buff[3] * 256) + buff[4]) * 100) / 6553.5);
 
         //LLOGD("\r\n SHT30  %d deg  %d Hum ", temp, hum);
         // 跳过CRC
@@ -569,8 +569,8 @@ static int l_i2c_readSHT30(lua_State *L){
 
         // Convert the data
         lua_pushboolean(L, 1);
-        lua_pushinteger(L, (int)hum * 10);
-        lua_pushinteger(L, (int)temp * 10);
+        lua_pushinteger(L, (int)hum);
+        lua_pushinteger(L, (int)temp);
 
         return 3;
         // 华氏度

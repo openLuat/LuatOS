@@ -17,7 +17,7 @@ extern const sdf_opts_t sfd_mem_opts;
 /*
 初始化spi flash
 @api    sfd.init(type, spi_id, spi_cs)
-@string 类型, 可以是spi, 也可以是zbuff
+@string 类型, 可以是"spi", 也可以是"zbuff"
 @int  SPI总线的id, 或者 zbuff实例
 @int  SPI FLASH的片选脚对应的GPIO, 当类型是spi时才需要传
 @return userdata 成功返回一个数据结构,否则返回nil
@@ -67,9 +67,9 @@ static int l_sfd_init(lua_State *L) {
 检查spi flash状态
 @api    sfd.status(drv)
 @userdata  sfd.init返回的数据结构
-@return int 状态值,0 未初始化成功,1初始化成功且空闲,2正忙
+@return int 状态值, 0 未初始化成功,1初始化成功且空闲,2正忙
 @usage
-local drv = sfd.init(0, 17)
+local drv = sfd.init("spi", 0, 17)
 if drv then
     log.info("sfd", "status", sfd.status(drv))
 end
@@ -88,7 +88,7 @@ static int l_sfd_status(lua_State *L) {
 @int    读取长度,当前限制在256以内
 @return string 数据
 @usage
-local drv = sfd.init(0, 17)
+local drv = sfd.init("spi", 0, 17)
 if drv then
     log.info("sfd", "read", sfd.read(drv, 0x100, 256))
 end
@@ -112,7 +112,7 @@ static int l_sfd_read(lua_State *L) {
 @string    需要写入的数据,当前支持256字节及以下
 @return boolean 成功返回true,失败返回false
 @usage
-local drv = sfd.init(0, 17)
+local drv = sfd.init("spi", 0, 17)
 if drv then
     log.info("sfd", "write", sfd.write(drv, 0x100, "hi,luatos"))
 end
@@ -134,7 +134,7 @@ static int l_sfd_write(lua_State *L) {
 @int    起始偏移量
 @return boolean 成功返回true,失败返回false
 @usage
-local drv = sfd.init(0, 17)
+local drv = sfd.init("spi", 0, 17)
 if drv then
     log.info("sfd", "write", sfd.erase(drv, 0x100))
 end
@@ -158,7 +158,7 @@ static int l_sfd_ioctl(lua_State *L) {
 @userdata  sfd.init返回的数据结构
 @return string 8字节(64bit)的芯片id
 @usage
-local drv = sfd.init(0, 17)
+local drv = sfd.init("spi", 0, 17)
 if drv then
     log.info("sfd", "chip id", sfd.id(drv))
 end

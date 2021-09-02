@@ -55,23 +55,34 @@ static int l_sdio_write(lua_State *L) {
     if(recv_buff == NULL)
         return 0;
     if (ret > 0) {
-        lua_pushlstring(L, recv_buff, ret);
-        luat_heap_free(recv_buff);
-        return 1;
+        lua_pushboolean(L, 1);
     }
-    luat_heap_free(recv_buff);
-    return 0;
+    lua_pushboolean(L, 0);
+    return 1;
 }
 
 
 static int l_sdio_sd_mount(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
-    sdio_t[id].id=id;
-    int auto_format = luaL_checkinteger(L, 2);
-    luat_sdio_sd_mount(id, sdio_t[id].rca, auto_format);
+    char* path = luaL_checkstring(L, 2);
+    int auto_format = luaL_checkinteger(L, 3);
+    luat_sdio_sd_mount(id, sdio_t[id].rca, path,auto_format);
     return 0;
 }
 
+static int l_sdio_sd_umount(lua_State *L) {
+    int id = luaL_checkinteger(L, 1);
+    int auto_format = luaL_checkinteger(L, 2);
+    luat_sdio_sd_unmount(id, sdio_t[id].rca);
+    return 0;
+}
+
+static int l_sdio_sd_format(lua_State *L) {
+    int id = luaL_checkinteger(L, 1);
+    int auto_format = luaL_checkinteger(L, 2);
+    luat_sdio_sd_format(id, sdio_t[id].rca);
+    return 0;
+}
 
 #include "rotable.h"
 static const rotable_Reg reg_sdio[] =
@@ -80,6 +91,8 @@ static const rotable_Reg reg_sdio[] =
     { "read" ,       l_sdio_read , 0},
     { "write" ,      l_sdio_write, 0},
     { "mount" ,      l_sdio_sd_mount, 0},
+    { "umount" ,     l_sdio_sd_umount, 0},
+    { "format" ,     l_sdio_sd_format, 0},
 	{ NULL,          NULL ,       0}
 };
 

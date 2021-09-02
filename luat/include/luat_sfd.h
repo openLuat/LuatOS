@@ -29,3 +29,11 @@ typedef struct sfd_drv {
     size_t erase_size;
     char chip_id[8];
 } sfd_drv_t;
+
+typedef struct sfd_onchip {
+    char name[8];
+    size_t addr;
+    size_t block_count;
+    size_t block_size;
+    //const sdf_opts_t* opts;
+}sfd_onchip_t;

@@ -51,6 +51,9 @@ static int l_sdio_write(lua_State *L) {
     send_buff = lua_tolstring(L, 2, &len);
     int offset = luaL_checkinteger(L, 3);
     int ret = luat_sdio_sd_write(id, sdio_t[id].rca, send_buff, offset, len);
+    char* recv_buff = luat_heap_malloc(len);
+    if(recv_buff == NULL)
+        return 0;
     if (ret > 0) {
         lua_pushlstring(L, recv_buff, ret);
         luat_heap_free(recv_buff);

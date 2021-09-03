@@ -25,14 +25,14 @@ int add_bytes(luat_zbuff_t *buff, const char *source, size_t len)
     if (color % 2)                                     \
         buff->addr[point / 8] |= 1 << (7 - point % 8); \
     else                                               \
-        buff->addr[point / 8] &= ~(1 << (7 - point % 8));
+        buff->addr[point / 8] &= ~(1 << (7 - point % 8))
 #define SET_POINT_4(buff, point, color)                 \
     buff->addr[point / 2] &= (point % 2) ? 0xf0 : 0x0f; \
     buff->addr[point / 2] |= (point % 2) ? color : (color * 0x10)
 #define SET_POINT_8(buff, point, color) buff->addr[point] = color
 #define SET_POINT_16(buff, point, color) \
-    buff->addr[point] = color / 0x100;   \
-    buff->addr[point + 1] = color % 0x100
+    buff->addr[point * 2] = color / 0x100;   \
+    buff->addr[point * 2 + 1] = color % 0x100
 #define SET_POINT_24(buff, point, color)                              \
     buff->addr[point * 3] = color / 0x10000;                          \
     buff->addr[point * 3 + 1] = color % 0x10000 / 0x100; \
@@ -64,7 +64,7 @@ int add_bytes(luat_zbuff_t *buff, const char *source, size_t len)
 #define GET_POINT_1(buff, point) (buff->addr[point / 8] >> (7 - point % 8)) % 2
 #define GET_POINT_4(buff, point) (buff->addr[point / 2] >> ((point % 2) ? 0 : 4)) % 0x10
 #define GET_POINT_8(buff, point) buff->addr[point]
-#define GET_POINT_16(buff, point) buff->addr[point] * 0x100 + buff->addr[point + 1]
+#define GET_POINT_16(buff, point) buff->addr[point * 2] * 0x100 + buff->addr[point * 2 + 1]
 #define GET_POINT_24(buff, point) \
     buff->addr[point * 3] * 0x10000 + buff->addr[point * 3 + 1] * 0x100 + buff->addr[point * 3 + 2]
 #define GET_POINT_32(buff, point) \
@@ -159,8 +159,11 @@ static int l_zbuff_create(lua_State *L)
         {
             LUA_INTEGER initial = luaL_checkinteger(L, 2);
             uint32_t i;
+            LLOGD("%d", buff->width * buff->height);
             for (i = 0; i < buff->width * buff->height; i++)
+            {
                 set_framebuffer_point(buff, i, initial);
+            }
         }
     }
     else
@@ -264,6 +267,22 @@ static int l_zbuff_read(lua_State *L)
     lua_pushlstring(L, return_str, read_num);
     buff->cursor += read_num;
     return 1;
+}
+
+/**
+zbuff清空数据
+@api buff:clear(num)
+@int 可选，默认为0。要设置为的值，不会改变buff指针位置
+@usage
+-- 全部初始化为0
+buff:clear(0)
+ */
+static int l_zbuff_clear(lua_State *L)
+{
+    luat_zbuff_t *buff = tozbuff(L);
+    int num = luaL_optinteger(L, 2, 0);
+    memset(buff->addr, num % 0x100, buff->len);
+    return 0;
 }
 
 /**
@@ -959,6 +978,7 @@ static int l_zbuff_gc(lua_State *L)
 static const luaL_Reg lib_zbuff[] = {
     {"write", l_zbuff_write},
     {"read", l_zbuff_read},
+    {"clear", l_zbuff_clear},
     {"seek", l_zbuff_seek},
     {"pack", l_zbuff_pack},
     {"unpack", l_zbuff_unpack},

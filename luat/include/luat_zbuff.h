@@ -4,7 +4,7 @@
 #include "luat_msgbus.h"
 
 #define LUAT_ZBUFF_TYPE "ZBUFF*"
-#define tozbuff(L) ((luat_zbuff *)luaL_checkudata(L, 1, LUAT_ZBUFF_TYPE))
+#define tozbuff(L) ((luat_zbuff_t *)luaL_checkudata(L, 1, LUAT_ZBUFF_TYPE))
 
 #define ZBUFF_SEEK_SET 0
 #define ZBUFF_SEEK_CUR 1
@@ -16,6 +16,6 @@ typedef struct luat_zbuff {
     uint32_t width; //宽度
     uint32_t height;//高度
     uint8_t bit;    //色深度
-} luat_zbuff;
+} luat_zbuff_t;
 
 #endif

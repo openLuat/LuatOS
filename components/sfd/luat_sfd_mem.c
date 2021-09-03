@@ -34,7 +34,7 @@ static int sfd_mem_init (void* userdata) {
         return -1;
     }
     sfd_drv_t *drv = (sfd_drv_t*)userdata;
-    luat_zbuff* zbuff = drv->cfg.zbuff;
+    luat_zbuff_t* zbuff = drv->cfg.zbuff;
     if (zbuff->len < 16*1024) {
         LLOGE("zbuff for sfd_mem is too small");
         return -1;
@@ -54,7 +54,7 @@ static int sfd_mem_read (void* userdata, char* buff, size_t offset, size_t len) 
         return -1;
     }
     sfd_drv_t *drv = (sfd_drv_t*)userdata;
-    luat_zbuff* zbuff = drv->cfg.zbuff;
+    luat_zbuff_t* zbuff = drv->cfg.zbuff;
     if (offset > zbuff->len) {
         // LLOGD("over read");
         return 0;
@@ -73,7 +73,7 @@ static int sfd_mem_write (void* userdata, const char* buff, size_t offset, size_
         return -1;
     }
     sfd_drv_t *drv = (sfd_drv_t*)userdata;
-    luat_zbuff* zbuff = drv->cfg.zbuff;
+    luat_zbuff_t* zbuff = drv->cfg.zbuff;
     if (offset > zbuff->len) {
         // LLOGD("over read");
         return 0;
@@ -92,7 +92,7 @@ static int sfd_mem_erase (void* userdata, size_t offset, size_t len) {
         return -1;
     }
     sfd_drv_t *drv = (sfd_drv_t*)userdata;
-    luat_zbuff* zbuff = drv->cfg.zbuff;
+    luat_zbuff_t* zbuff = drv->cfg.zbuff;
     if (offset > zbuff->len) {
         // LLOGD("over read");
         return 0;

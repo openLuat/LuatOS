@@ -435,7 +435,7 @@ static int l_sensor_ws2812b(lua_State *L)
   int pin = luaL_checkinteger(L, 1);
   if (lua_isuserdata(L, 2))
   {
-    luat_zbuff *buff = ((luat_zbuff *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+    luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
     send_buff = buff->addr;
     len = buff->len;
   }

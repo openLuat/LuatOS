@@ -795,6 +795,55 @@ static int io_writeFile (lua_State *L) {
   return 1;
 }
 
+#ifdef LUAT_USE_ZBUFF
+#include "luat_zbuff.h"
+/*
+读取文件并填充到zbuff内
+@api io.fill(buff, offset, len)
+@userdata zbuff实体
+@int 写入的位置,默认是0
+@int 写入的长度,默认是zbuff的len减去offset
+@return 成功返回true,否则返回false
+@usage
+local buff = zbuff.create(1024)
+local f = io.open("/sd/test.txt")
+if f then
+  f:fill(buff)
+end
+*/
+static int f_fill(lua_State *L) {
+  FILE* f = tofile(L);
+  luat_zbuff_t* buff;
+  int offset;
+  int len;
+  if (!lua_isuserdata(L, 2)) {
+    return 0;
+  }
+  if (f == NULL)
+    return 0;
+  buff = luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE);
+  if (lua_isinteger(L, 3)) {
+    offset = luaL_checkinteger(L, 3);
+  }
+  else {
+    offset = 0;
+  }
+  if (lua_isinteger(L, 4)) {
+    len = luaL_checkinteger(L, 4);
+    if (len > buff->len)
+      len = buff->len;
+    if (offset + len > buff->len)
+      len = len - offset;
+  }
+  else {
+    len = buff->len - offset;
+  }
+  len = fread(buff->addr + offset, 1, len, f);
+  lua_pushboolean(L, len >= 0 ? 1 : 0);
+  return 1;
+}
+#endif
+
 /*
 ** functions for 'io' library
 */

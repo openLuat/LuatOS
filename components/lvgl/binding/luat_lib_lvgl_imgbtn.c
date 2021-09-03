@@ -14,7 +14,7 @@ int luat_lv_imgbtn_set_src(lua_State *L) {
     if (lua_isstring(L, 3))
         src = (void*)luaL_checkstring(L, 3);
     else if (lua_isuserdata(L, 3)) {
-        luat_zbuff* buff = (luat_zbuff *)luaL_checkudata(L, 1, "ZBUFF*");
+        luat_zbuff_t* buff = (luat_zbuff_t *)luaL_checkudata(L, 1, "ZBUFF*");
         src = buff->addr;
     }
     else {

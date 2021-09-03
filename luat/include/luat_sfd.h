@@ -22,7 +22,7 @@ typedef struct sfd_drv {
             int id;
             int cs;
         } spi;
-        luat_zbuff* zbuff;
+        luat_zbuff_t* zbuff;
     } cfg;
     size_t sector_size;
     size_t sector_count;

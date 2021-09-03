@@ -59,7 +59,7 @@ int luat_lv_init(lua_State *L) {
     LLOGD("w %d h %d buff %d", w, h, fbuff_size);
 
     if (lua_isuserdata(L, 3)) {
-        luat_zbuff *zbuff = tozbuff(L);
+        luat_zbuff_t *zbuff = tozbuff(L);
         fbuffer = (lv_color_t *)zbuff->addr;
         fbuff_size = zbuff->len / sizeof(lv_color_t);
     }

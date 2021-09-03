@@ -12,7 +12,7 @@ int luat_lv_img_set_src(lua_State *L) {
     if (lua_isstring(L, 2))
         src_img = (void*)luaL_checkstring(L, 2);
     else if (lua_isuserdata(L, 2)) {
-        luat_zbuff* buff = (luat_zbuff *)luaL_checkudata(L, 1, "ZBUFF*");
+        luat_zbuff_t* buff = (luat_zbuff_t *)luaL_checkudata(L, 1, "ZBUFF*");
         src_img = buff->addr;
     }
     else {

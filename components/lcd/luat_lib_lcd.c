@@ -8,8 +8,9 @@
 #include "luat_base.h"
 #include "luat_lcd.h"
 #include "luat_malloc.h"
+#include "luat_zbuff.h"
 
-#define LUAT_LOG_TAG "lib_lcd"
+#define LUAT_LOG_TAG "lcd"
 #include "luat_log.h"
 
 extern uint32_t BACK_COLOR , FORE_COLOR ;
@@ -162,7 +163,7 @@ lcd.close()
 static int l_lcd_close(lua_State* L) {
     int ret = luat_lcd_close(default_conf);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
-    return 0;
+    return 1;
 }
 
 /*
@@ -175,7 +176,7 @@ lcd.on()
 static int l_lcd_display_on(lua_State* L) {
     int ret = luat_lcd_display_on(default_conf);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
-    return 0;
+    return 1;
 }
 
 /*
@@ -188,7 +189,7 @@ lcd.off()
 static int l_lcd_display_off(lua_State* L) {
     int ret = luat_lcd_display_off(default_conf);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
-    return 0;
+    return 1;
 }
 
 /*
@@ -201,7 +202,7 @@ lcd.sleep()
 static int l_lcd_sleep(lua_State* L) {
     int ret = luat_lcd_sleep(default_conf);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
-    return 0;
+    return 1;
 }
 
 /*
@@ -214,7 +215,7 @@ lcd.wakeup()
 static int l_lcd_wakeup(lua_State* L) {
     int ret = luat_lcd_wakeup(default_conf);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
-    return 0;
+    return 1;
 }
 
 /*
@@ -232,7 +233,7 @@ static int l_lcd_set_color(lua_State* L) {
     fore = (uint32_t)luaL_checkinteger(L, 2);
     int ret = luat_lcd_set_color(back, fore);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
-    return 0;
+    return 1;
 }
 
 /*
@@ -242,7 +243,7 @@ lcd颜色填充
 @int 左上边缘的Y位置.
 @int 右上边缘的X位置.
 @int 右上边缘的Y位置.
-@int 绘画颜色
+@string 字符串或zbuff对象
 @usage
 -- lcd颜色填充
 buff:writeInt32(0x001F)
@@ -250,15 +251,25 @@ lcd.draw(20,30,220,30,buff)
 */
 static int l_lcd_draw(lua_State* L) {
     uint16_t x1, y1, x2, y2;
-    uint32_t *color = NULL;
+    luat_color_t *color = NULL;
+    luat_zbuff_t *buff;
     x1 = luaL_checkinteger(L, 1);
     y1 = luaL_checkinteger(L, 2);
     x2 = luaL_checkinteger(L, 3);
     y2 = luaL_checkinteger(L, 4);
-    color = (uint32_t*)lua_touserdata(L, 5);
+    if (lua_isstring(L, 5)) {
+        color = (luat_color_t *)luaL_checkstring(L, 5);
+    }
+    else if (lua_isuserdata(L, 5)) {
+        buff = luaL_checkudata(L, 5, LUAT_ZBUFF_TYPE);
+        color = (luat_color_t *)buff->addr;
+    }
+    else {
+        return 0;
+    }
     int ret = luat_lcd_draw(default_conf, x1, y1, x2, y2, color);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
-    return 0;
+    return 1;
 }
 
 /*
@@ -270,13 +281,13 @@ lcd清屏
 lcd.clear()
 */
 static int l_lcd_clear(lua_State* L) {
-    size_t len = 0;
+    //size_t len = 0;
     uint32_t color = BACK_COLOR;
     if (lua_gettop(L) > 0)
         color = (uint32_t)luaL_checkinteger(L, 1);
     int ret = luat_lcd_clear(default_conf, color);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
-    return 0;
+    return 1;
 }
 
 /*
@@ -297,7 +308,7 @@ static int l_lcd_draw_point(lua_State* L) {
         color = (uint32_t)luaL_checkinteger(L, 3);
     int ret = luat_lcd_draw_point(default_conf, x, y, color);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
-    return 0;
+    return 1;
 }
 
 /*
@@ -322,7 +333,7 @@ static int l_lcd_draw_line(lua_State* L) {
         color = (uint32_t)luaL_checkinteger(L, 5);
     int ret = luat_lcd_draw_line(default_conf, x1,  y1,  x2,  y2, color);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
-    return 0;
+    return 1;
 }
 
 /*
@@ -347,7 +358,7 @@ static int l_lcd_draw_rectangle(lua_State* L) {
         color = (uint32_t)luaL_checkinteger(L, 5);
     int ret = luat_lcd_draw_rectangle(default_conf, x1,  y1,  x2,  y2, color);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
-    return 0;
+    return 1;
 }
 
 /*
@@ -370,7 +381,7 @@ static int l_lcd_draw_circle(lua_State* L) {
         color = (uint32_t)luaL_checkinteger(L, 4);
     int ret = luat_lcd_draw_circle(default_conf, x0,  y0,  r, color);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
-    return 0;
+    return 1;
 }
 
 static int l_lcd_set_default(lua_State *L) {
@@ -379,7 +390,7 @@ static int l_lcd_set_default(lua_State *L) {
         lua_pushboolean(L, 1);
         return 1;
     }
-    return 0;
+    return 1;
 }
 
 #include "rotable.h"

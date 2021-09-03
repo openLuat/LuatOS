@@ -85,7 +85,7 @@ static int l_spi_transfer(lua_State *L) {
     size_t len;
     const char* send_buff;
     if(lua_isuserdata(L, 2)){//zbuff对象特殊处理
-        luat_zbuff *buff = ((luat_zbuff *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+        luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
         send_buff = buff->addr+buff->cursor;
         len = buff->len - buff->cursor;
     }else{
@@ -161,7 +161,7 @@ static int l_spi_send(lua_State *L) {
     size_t len;
     const char* send_buff;
     if(lua_isuserdata(L, 2)){//zbuff对象特殊处理
-        luat_zbuff *buff = ((luat_zbuff *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+        luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
         send_buff = buff->addr+buff->cursor;
         len = buff->len - buff->cursor;
     }else{

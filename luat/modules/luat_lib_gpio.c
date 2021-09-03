@@ -96,7 +96,7 @@ static int l_gpio_setup(lua_State *L) {
                     flag = 0;
                     break;
                 }
-                if (irq_cbs[i].pin == 0) {
+                if (irq_cbs[i].pin == -1) {
                     irq_cbs[i].pin = conf.pin;
                     irq_cbs[i].lua_ref = conf.lua_ref;
                     flag = 0;
@@ -176,7 +176,7 @@ static int l_gpio_close(lua_State *L) {
     luat_gpio_close(pin);
     for (size_t i = 0; i < GPIO_IRQ_COUNT; i++) {
         if (irq_cbs[i].pin == pin) {
-            irq_cbs[i].pin = 0;
+            irq_cbs[i].pin = -1;
             if (irq_cbs[i].lua_ref) {
                 luaL_unref(L, LUA_REGISTRYINDEX, irq_cbs[i].lua_ref);
                 irq_cbs[i].lua_ref = 0;
@@ -233,6 +233,10 @@ static const rotable_Reg reg_gpio[] =
 };
 
 LUAMOD_API int luaopen_gpio( lua_State *L ) {
+    int i;
+    for (size_t i = 0; i < GPIO_IRQ_COUNT; i++) {
+        irq_cbs[i].pin = -1;
+    }
     luat_newlib(L, reg_gpio);
     return 1;
 }

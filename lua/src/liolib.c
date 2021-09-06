@@ -881,6 +881,9 @@ static const luaL_Reg flib[] = {
   {"seek", f_seek},
   {"setvbuf", f_setvbuf},
   {"write", f_write},
+#ifdef LUAT_USE_ZBUFF
+  {"fill", f_fill},
+#endif
   {"__gc", f_gc},
   {"__tostring", f_tostring},
   {NULL, NULL}

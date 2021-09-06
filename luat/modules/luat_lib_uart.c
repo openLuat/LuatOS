@@ -10,6 +10,7 @@
 #include "luat_msgbus.h"
 #include "luat_fs.h"
 #include "string.h"
+#include "luat_zbuff.h"
 
 #define LUAT_LOG_TAG "luat.uart"
 #include "luat_log.h"
@@ -130,8 +131,8 @@ static int l_uart_write(lua_State *L)
 @api    uart.read(id, len)
 @int 串口id, uart0写0, uart1写1
 @int 读取长度
-@int 文件句柄(可选)
-@return string 读取到的数据
+@file/zbuff 可选：文件句柄或zbuff对象
+@return string 读取到的数据 / 传入zbuff时，返回读到的长度
 @usage
 uart.read(1, 16)
 */
@@ -142,7 +143,19 @@ static int l_uart_read(lua_State *L)
     if (length > 4096) {
         length = 4096;
     }
-    void *recv = luat_heap_malloc(length);
+    if(lua_isuserdata(L, 3)){//zbuff对象特殊处理
+        luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 3, LUAT_ZBUFF_TYPE));
+        uint8_t* recv = buff->addr+buff->cursor;
+        if(length > buff->len - buff->cursor)
+            length = buff->len - buff->cursor;
+        int result = luat_uart_read(id, recv, length);
+        if(result < 0)
+            result = 0;
+        buff->cursor += result;
+        lua_pushinteger(L, result);
+        return 1;
+    }
+    void* recv = luat_heap_malloc(length);
     if (recv == NULL) {
         LLOGE("system is out of memory!!!");
         lua_pushstring(L, "");
@@ -158,7 +171,7 @@ static int l_uart_read(lua_State *L)
         else {
             lua_pushlstring(L, (const char*)recv, result);
         }
-        
+
     }
     else
     {

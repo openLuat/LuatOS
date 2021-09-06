@@ -159,7 +159,6 @@ static int l_zbuff_create(lua_State *L)
         {
             LUA_INTEGER initial = luaL_checkinteger(L, 2);
             uint32_t i;
-            LLOGD("%d", buff->width * buff->height);
             for (i = 0; i < buff->width * buff->height; i++)
             {
                 set_framebuffer_point(buff, i, initial);
@@ -266,6 +265,7 @@ static int l_zbuff_read(lua_State *L)
     memcpy(return_str, buff->addr + buff->cursor, read_num);
     lua_pushlstring(L, return_str, read_num);
     buff->cursor += read_num;
+    luat_heap_free(return_str);
     return 1;
 }
 

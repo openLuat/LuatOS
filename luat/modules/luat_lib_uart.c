@@ -109,7 +109,8 @@ static int l_uart_setup(lua_State *L)
 写串口
 @api    uart.write(id, data)
 @int 串口id, uart0写0, uart1写1
-@string 待写入的数据
+@string/zbuff 待写入的数据，如果是zbuff会从指针起始位置开始读
+@int 可选，要发送的数据长度，默认全发
 @return int 成功的数据长度
 @usage
 uart.write(1, "rdy\r\n")
@@ -119,9 +120,22 @@ static int l_uart_write(lua_State *L)
     size_t len;
     const char *buf;
     uint8_t id = luaL_checkinteger(L, 1);
-    buf = lua_tolstring(L, 2, &len);//取出字符串数据
-    //uint32_t length = len;
-    uint8_t result = luat_uart_write(id, (char*)buf, len);
+    if(lua_isuserdata(L, 2))
+    {
+        luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+        len = buff->len - buff->cursor;
+    }
+    else
+    {
+        buf = lua_tolstring(L, 2, &len);//取出字符串数据
+    }
+    if(lua_isinteger(L, 3))
+    {
+        size_t l = luaL_checkinteger(L, 3);
+        if(len > l)
+            len = l;
+    }
+    int result = luat_uart_write(id, (char*)buf, len);
     lua_pushinteger(L, result);
     return 1;
 }
@@ -132,7 +146,7 @@ static int l_uart_write(lua_State *L)
 @int 串口id, uart0写0, uart1写1
 @int 读取长度
 @file/zbuff 可选：文件句柄或zbuff对象
-@return string 读取到的数据 / 传入zbuff时，返回读到的长度
+@return string 读取到的数据 / 传入zbuff时，返回读到的长度，并把zbuff指针后移
 @usage
 uart.read(1, 16)
 */

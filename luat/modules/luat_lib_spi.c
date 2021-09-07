@@ -19,7 +19,7 @@
 设置并启用SPI
 @api spi.setup(id, cs, CPHA, CPOL, dataw, bandrate, bitdict, ms, mode)
 @int SPI号,例如0
-@int CS 片选脚,暂不可用,请填nil
+@int CS 片选脚,在w600不可用请填nil
 @int CPHA 默认0,可选0/1
 @int CPOL 默认0,可选0/1
 @int 数据宽度,默认8bit
@@ -30,7 +30,7 @@
 @return int 成功返回0,否则返回其他值
 @usage
 -- 初始化spi
-spi.setup(0,nil,0,0,8,2000000,spi.MSB,1,1)
+spi.setup(0,20,0,0,8,2000000,spi.MSB,1,1)
 */
 static int l_spi_setup(lua_State *L) {
     luat_spi_t spi_config = {0};

@@ -46,7 +46,7 @@ static int fatfs_mount(lua_State *L)
 		diskio_open_spitf(0, FATFS_SPI_ID, FATFS_SPI_CS);
 	}
 
-	FRESULT re = f_mount(fs, "", 0);
+	FRESULT re = f_mount(fs, "/", 0);
 	
 	lua_pushinteger(L, re);
 	if (re == FR_OK) {
@@ -57,7 +57,7 @@ static int fatfs_mount(lua_State *L)
 		            .busname = (char*)fs,
 		            .type = "fatfs",
 		            .filesystem = "fatfs",
-		            .mount_point = "/sdcard/",
+		            .mount_point = "/sdcard",
 	            };
 	            luat_fs_mount(&conf2);
 		#endif

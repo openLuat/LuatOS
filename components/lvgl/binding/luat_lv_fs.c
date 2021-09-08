@@ -36,17 +36,17 @@ void luat_lv_fs_init(void) {
         .close_cb = luat_lv_fs_close,
         .remove_cb = luat_lv_fs_remove,
         .read_cb = luat_lv_fs_read,
-        .write_cb = luat_lv_fs_write,
+        .write_cb = NULL,
         .seek_cb = luat_lv_fs_seek,
         .tell_cb = luat_lv_fs_tell,
-        .trunc_cb = luat_lv_fs_trunc,
+        .trunc_cb = NULL,
         .size_cb = luat_lv_fs_size,
-        .rename_cb = luat_lv_fs_rename,
-        .free_space_cb = luat_lv_fs_free_space,
+        .rename_cb = NULL,
+        .free_space_cb = NULL,
     
-        .dir_open_cb = luat_lv_fs_dir_open,
-        .dir_read_cb = luat_lv_fs_dir_read,
-        .dir_close_cb = luat_lv_fs_dir_close,
+        .dir_open_cb = NULL,
+        .dir_read_cb = NULL,
+        .dir_close_cb = NULL,
     };
     lv_fs_drv_register(&fs_drv);
 };
@@ -56,12 +56,18 @@ static bool luat_lv_fs_ready(struct _lv_fs_drv_t * drv) {
 }
 
 static lv_fs_res_t luat_lv_fs_open(struct _lv_fs_drv_t * drv, void * file_p, const char * path, lv_fs_mode_t mode) {
-    
+    char rpath[128] = {0};
+    if (*path != '/') {
+        rpath[0] = '/';
+        memcpy(rpath + 1, path, strlen(path) + 1);
+    }
+    else
+        memcpy(rpath, path, strlen(path) + 1);
     FILE* fd = NULL;
     if (mode == LV_FS_MODE_WR)
-        fd = luat_fs_fopen(path, "wb");
+        fd = luat_fs_fopen(rpath, "wb");
     else
-        fd = luat_fs_fopen(path, "rb");
+        fd = luat_fs_fopen(rpath, "rb");
     if (fd == NULL) {
         return LV_FS_RES_NOT_EX;
     };
@@ -94,13 +100,13 @@ static lv_fs_res_t luat_lv_fs_read(struct _lv_fs_drv_t * drv, void * file_p, voi
 }
 
 
-static lv_fs_res_t luat_lv_fs_write(struct _lv_fs_drv_t * drv, void * file_p, const void * buf, uint32_t btw, uint32_t * bw) {
-    file_t* fp = file_p;
-    *bw = luat_fs_fwrite(buf, btw, 1, *fp);
-    if (*bw > 0)
-        return LV_FS_RES_OK;
-    return LV_FS_RES_FS_ERR;
-}
+// static lv_fs_res_t luat_lv_fs_write(struct _lv_fs_drv_t * drv, void * file_p, const void * buf, uint32_t btw, uint32_t * bw) {
+//     file_t* fp = file_p;
+//     *bw = luat_fs_fwrite(buf, btw, 1, *fp);
+//     if (*bw > 0)
+//         return LV_FS_RES_OK;
+//     return LV_FS_RES_FS_ERR;
+// }
 
 static lv_fs_res_t luat_lv_fs_seek(struct _lv_fs_drv_t * drv, void * file_p, uint32_t pos) {
     file_t* fp = file_p;
@@ -120,9 +126,9 @@ static lv_fs_res_t luat_lv_fs_tell(struct _lv_fs_drv_t * drv, void * file_p, uin
     return LV_FS_RES_FS_ERR;
 }
 
-static lv_fs_res_t luat_lv_fs_trunc(struct _lv_fs_drv_t * drv, void * file_p) {
-    return LV_FS_RES_NOT_IMP;
-}
+// static lv_fs_res_t luat_lv_fs_trunc(struct _lv_fs_drv_t * drv, void * file_p) {
+//     return LV_FS_RES_NOT_IMP;
+// }
 
 static lv_fs_res_t luat_lv_fs_size(struct _lv_fs_drv_t * drv, void * file_p, uint32_t * size_p) {
     file_t* fp = file_p;
@@ -133,26 +139,26 @@ static lv_fs_res_t luat_lv_fs_size(struct _lv_fs_drv_t * drv, void * file_p, uin
     return LV_FS_RES_OK;
 }
 
-static lv_fs_res_t luat_lv_fs_rename(struct _lv_fs_drv_t * drv, const char * oldname, const char * newname) {
-    int ret = luat_fs_rename(oldname, newname);
-    if (ret == 0)
-        return LV_FS_RES_OK;
-    return LV_FS_RES_FS_ERR;
-}
+// static lv_fs_res_t luat_lv_fs_rename(struct _lv_fs_drv_t * drv, const char * oldname, const char * newname) {
+//     int ret = luat_fs_rename(oldname, newname);
+//     if (ret == 0)
+//         return LV_FS_RES_OK;
+//     return LV_FS_RES_FS_ERR;
+// }
 
-static lv_fs_res_t luat_lv_fs_free_space(struct _lv_fs_drv_t * drv, uint32_t * total_p, uint32_t * free_p) {
-    return LV_FS_RES_NOT_IMP;
-}
+// static lv_fs_res_t luat_lv_fs_free_space(struct _lv_fs_drv_t * drv, uint32_t * total_p, uint32_t * free_p) {
+//     return LV_FS_RES_NOT_IMP;
+// }
 
-static lv_fs_res_t luat_lv_fs_dir_open(struct _lv_fs_drv_t * drv, void * rddir_p, const char * path) {
-    return LV_FS_RES_NOT_IMP;
-}
+// static lv_fs_res_t luat_lv_fs_dir_open(struct _lv_fs_drv_t * drv, void * rddir_p, const char * path) {
+//     return LV_FS_RES_NOT_IMP;
+// }
 
-static lv_fs_res_t luat_lv_fs_dir_read(struct _lv_fs_drv_t * drv, void * rddir_p, char * fn) {
-    return LV_FS_RES_NOT_IMP;
-}
+// static lv_fs_res_t luat_lv_fs_dir_read(struct _lv_fs_drv_t * drv, void * rddir_p, char * fn) {
+//     return LV_FS_RES_NOT_IMP;
+// }
 
-static lv_fs_res_t luat_lv_fs_dir_close(struct _lv_fs_drv_t * drv, void * rddir_p) {
-    return LV_FS_RES_NOT_IMP;
-}
+// static lv_fs_res_t luat_lv_fs_dir_close(struct _lv_fs_drv_t * drv, void * rddir_p) {
+//     return LV_FS_RES_NOT_IMP;
+// }
 

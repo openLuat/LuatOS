@@ -317,7 +317,10 @@ FILE* luat_vfs_luadb_fopen(void* userdata, const char *filename, const char *mod
 
 
 int luat_vfs_luadb_fseek(void* userdata, FILE* stream, long int offset, int origin) {
-    return luat_luadb_lseek((luadb_fs_t*)userdata, (int)stream, offset, origin);
+    int ret = luat_luadb_lseek((luadb_fs_t*)userdata, (int)stream, offset, origin);
+    if (ret < 0)
+        return -1;
+    return 0;
 }
 
 int luat_vfs_luadb_ftell(void* userdata, FILE* stream) {

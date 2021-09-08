@@ -62,7 +62,7 @@ int luat_vfs_lfs2_fseek(void* userdata, FILE* stream, long int offset, int origi
     lfs_t* fs = (lfs_t*)userdata;
     lfs_file_t* file = (lfs_file_t*)stream;
     int ret = lfs_file_seek(fs, file, offset, origin);
-    return ret < 0 ? -1 : ret;
+    return ret < 0 ? -1 : 0;
 }
 
 int luat_vfs_lfs2_ftell(void* userdata, FILE* stream) {

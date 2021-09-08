@@ -237,7 +237,7 @@ int luat_fs_fseek(FILE* stream, long int offset, int origin) {
     //LLOGD("call %s %d","fseek", ((int)stream) - 1);
     luat_vfs_fd_t* fd = getfd(stream);
     if (fd == NULL || fd->fsMount->fs->fopts.fseek == NULL) 
-        return 0;
+        return -1;
     return fd->fsMount->fs->fopts.fseek(fd->fsMount->userdata, fd->fd, offset, origin);
 }
 

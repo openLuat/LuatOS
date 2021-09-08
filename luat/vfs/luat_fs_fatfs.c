@@ -72,7 +72,7 @@ int luat_vfs_fatfs_fseek(void* userdata, FILE* stream, long int offset, int orig
     }
     FRESULT ret = f_lseek(fp, npos);
     if (ret == FR_OK) {
-        return f_tell(fp);
+        return 0;
     }
     return -1;
 }

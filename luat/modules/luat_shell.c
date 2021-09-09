@@ -33,7 +33,11 @@ static int luat_shell_msg_handler(lua_State *L, void* ptr) {
         // 查询版本号
         if (strncmp("ATI", uart_buff, 3) == 0 || strncmp("ati", uart_buff, 3) == 0) {
             char buff[128] = {0};
-            sprintf(buff, "LuatOS_%s_%s\r\n", luat_os_bsp(), luat_version_str());
+            #ifdef LUAT_BSP_VERSION
+            sprintf(buff, "LuatOS-SoC_%s_%s\r\n", luat_os_bsp(), LUAT_BSP_VERSION);
+            #else
+            sprintf(buff, "LuatOS-SoC_%s_%s\r\n", luat_os_bsp(), luat_version_str());
+            #endif
             luat_shell_print(buff);
         }
         // 重启
@@ -62,7 +66,7 @@ static int luat_shell_msg_handler(lua_State *L, void* ptr) {
             size_t total, used, max_used = 0;
             char buff[128] = {0};
             luat_meminfo_luavm(&total, &used, &max_used);
-            sprintf(buff, "luavm total=%ld used=%ld max_used=%ld\r\n", total, used, max_used);
+            sprintf(buff, "lua total=%ld used=%ld max_used=%ld\r\n", total, used, max_used);
             luat_shell_print(buff);
             
             luat_meminfo_sys(&total, &used, &max_used);

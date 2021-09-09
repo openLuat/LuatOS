@@ -14,21 +14,11 @@ sys.taskInit(function()
     local count = 0
     while 1 do
         -- 一闪一闪亮晶晶
-        if (count % 3) == 0 then
-            LEDA(1)
-            LEDB(0)
-            LEDC(0)
-        elseif (count % 3) == 1 then
-            LEDA(0)
-            LEDB(1)
-            LEDC(0)
-        else
-            LEDA(0)
-            LEDB(0)
-            LEDC(1)
-        end
-        log.info("gpio", "Go Go Go")
-        sys.wait(500)
+        LEDA(count & 0x01 == 0x01 and 1 or 0)
+        LEDB(count & 0x02 == 0x02 and 1 or 0)
+        LEDC(count & 0x03 == 0x03 and 1 or 0)
+        log.info("gpio", "Go Go Go", mcu.unique_id())
+        sys.wait(1000)
         count = count + 1
     end
 end)

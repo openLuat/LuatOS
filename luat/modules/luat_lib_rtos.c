@@ -232,6 +232,36 @@ static int l_rtos_firmware(lua_State *L) {
     return 1;
 }
 
+extern char custom_search_paths[4][24];
+
+/*
+设置自定义lua脚本搜索路径,优先级高于内置路径
+@api    rtos.setPaths(pathA, pathB, pathC, pathD)
+@string 路径A, 例如 "/sdcard/%s.luac",若不传值,将默认为"",另外,最大长度不能超过23字节
+@string 路径B, 例如 "/sdcard/%s.lua"
+@string 路径C, 例如 "/lfs2/%s.luac"
+@string 路径D, 例如 "/lfs2/%s.lua"
+@usage
+-- 挂载sd卡或者spiflash后
+rtos.setPaths("/sdcard/user/%s.luac", "/sdcard/user/%s.lua")
+require("sd_user_main") -- 将搜索并加载 /sdcard/user/sd_user_main.luac 和 /sdcard/user/sd_user_main.lua
+*/
+static int l_rtos_set_paths(lua_State *L) {
+    size_t len = 0;
+    const char* str = NULL;
+    for (size_t i = 0; i < 4; i++)
+    {
+        if (lua_isstring(L, i +1)) {
+            str = luaL_checklstring(L, i+1, &len);
+            memcpy(custom_search_paths[i], str, len + 1);
+        }
+        else {
+            custom_search_paths[i][0] = 0x00;
+        }
+    }
+    return 0;
+}
+
 //------------------------------------------------------------------
 #include "rotable.h"
 static const rotable_Reg reg_rtos[] =
@@ -247,6 +277,7 @@ static const rotable_Reg reg_rtos[] =
     { "version",           l_rtos_version,     0},
     { "meminfo",           l_rtos_meminfo,     0},
     { "firmware",          l_rtos_firmware,    0},
+    { "setPaths",          l_rtos_set_paths,   0},
 
     { "INF_TIMEOUT",        NULL,              -1},
 

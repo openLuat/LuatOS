@@ -6,7 +6,7 @@
 
 #include "ff.h"
 #include "luat_base.h"
-#include "luat_malloc."
+#include "luat_malloc.h"
 
 
 #if FF_USE_LFN == 3	/* Dynamic memory allocation */

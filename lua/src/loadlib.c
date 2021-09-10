@@ -505,20 +505,27 @@ static const char* search_paths[] = {
   "",
 };
 
+char custom_search_paths[4][24] = {0};
+
 int luat_search_module(const char* name, char* filename) {
   int index = 0;
+  for (size_t i = 0; i < 4; i++)
+  {
+    if (strlen(custom_search_paths[i]) == 0)
+      continue;
+    sprintf(filename, custom_search_paths[i], name);
+    if (readable(filename)) return 0;
+    filename[0] = 0x00;
+  }
   while (1) {
     if (strlen(search_paths[index]) == 0)
       break;
     sprintf(filename, search_paths[index], name);
-    if (readable(filename)) break;
+    if (readable(filename)) return 0;
     index ++;
     filename[0] = 0x00;
   }
-  if (filename[0] == 0x00) {
-    return -1;
-  }
-  return 0;
+  return -1;
 }
 
 static int searcher_Lua (lua_State *L) {

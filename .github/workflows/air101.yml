@@ -1,0 +1,47 @@
+name: air101
+
+on:
+  push:
+    paths:
+      - '.github/workflows/air101.yml'
+      - 'lua/**'
+      - 'luat/**'
+      - 'components/**'
+      - 'bsp/air101/**'
+
+jobs:
+  build:
+
+    runs-on: ubuntu-20.04
+
+    steps:
+    - uses: actions/checkout@v1
+    - name: prepare software
+      run: |
+        sudo apt-get update
+        sudo apt-get install git gcc-multilib libc6 libgcc1 libstdc++5 libstdc++6 libsdl-dev p7zip-full -y
+        sudo apt-get install libncurses5-dev -y
+        sudo add-apt-repository ppa:xmake-io/xmake -y
+        sudo apt update
+        sudo apt install xmake
+        wget -q https://github.com/openLuat/LuatOS/releases/download/v0.0.1/csky-elfabiv2-tools-x86_64-minilibc-20210423.tar.gz
+        sudo mkdir /opt/csky-elfabiv2-tools
+        sudo tar zxvf csky-elfabiv2-tools-x86_64-minilibc-20210423.tar.gz -C /opt/csky-elfabiv2-tools
+        rm csky-elfabiv2-tools-x86_64-minilibc-20210423.tar.gz
+    - name: clone 101
+      env:
+        PASSWORD: ${{ secrets.AIR101REPO }}
+      run: |
+        cd ..
+        git clone ${AIR101REPO} air101
+    - name: make
+      run: |
+        cd air101
+        chmod +x tools/w800/wm_tool
+        xmake
+        mv build/out/LuatOS-SoC_V0001_Air101.soc ../LuatOS/
+    - name: Upload artifact
+      uses: actions/upload-artifact@v1
+      with:
+        name: air101
+        path: LuatOS-SoC_V0001_Air101.soc

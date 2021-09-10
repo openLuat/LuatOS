@@ -30,7 +30,7 @@ jobs:
         rm csky-elfabiv2-tools-x86_64-minilibc-20210423.tar.gz
     - name: clone 101
       env:
-        PASSWORD: ${{ secrets.AIR101REPO }}
+        AIR101REPO: ${{ secrets.AIR101REPO }}
       run: |
         cd ..
         git clone ${AIR101REPO} air101

@@ -33,10 +33,10 @@ jobs:
         AIR101REPO: ${{ secrets.AIR101REPO }}
       run: |
         cd ..
-        git clone ${AIR101REPO} air101
+        git -q --depth=1 --branch=master clone ${AIR101REPO} air101
     - name: make
       run: |
-        cd air101
+        cd ../air101
         chmod +x tools/w800/wm_tool
         xmake
         mv build/out/LuatOS-SoC_V0001_Air101.soc ../LuatOS/

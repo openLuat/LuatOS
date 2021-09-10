@@ -519,27 +519,29 @@ if re then
 end
 */
 static int l_i2c_readSHT30(lua_State *L){
-    int id = 0;
-    if(!lua_isuserdata(L, 1)){
-        id = luaL_checkinteger(L, 1);
-    }
-    int addr = luaL_optinteger(L, 2, 0x44);
     char buff[7] = {0x2c, 0x06, 0x00, 0x00, 0x00, 0x00, 0x00};
     float temp = 0x00;
     float hum = 0x00;
 
-    luat_i2c_send(id, addr, &buff, 2);
-    luat_timer_mdelay(1);
     int result = -1;
     if(lua_isuserdata(L, 1))
     {
         luat_ei2c* ei2c = toei2c(L);
-        result = i2c_soft_recv(ei2c, addr, buff, 6);
+        i2c_soft_send(ei2c, ei2c->addr, buff, 2);
+        luat_timer_mdelay(13);
+
+        result = i2c_soft_recv(ei2c, ei2c->addr, buff, 6);
     }
     else
     {
+        int id = luaL_optinteger(L, 1, 0);
+        int addr = luaL_optinteger(L, 2, 0x44);
+
+        luat_i2c_send(id, addr, &buff, 2);
+        luat_timer_mdelay(1);
         result = luat_i2c_recv(id, addr, buff, 6);
     }
+    
     if (result!=0) {
         lua_pushboolean(L, 0);
         return 1;

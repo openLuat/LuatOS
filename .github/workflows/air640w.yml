@@ -8,6 +8,7 @@ on:
       - 'luat/**'
       - 'components/**'
       - 'bsp/air640w/**'
+  workflow_dispatch:
 
 jobs:
   build:

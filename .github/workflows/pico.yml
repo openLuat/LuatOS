@@ -8,6 +8,7 @@ on:
       - 'luat/**'
       - 'components/**'
       - 'bsp/raspberrypi-pico/**'
+  workflow_dispatch:
 
 jobs:
   build:

@@ -8,6 +8,7 @@ on:
       - 'luat/**'
       - 'components/**'
       - 'bsp/air100st/**'
+  workflow_dispatch:
 
 jobs:
   build:

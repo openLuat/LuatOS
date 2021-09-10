@@ -8,12 +8,11 @@ on:
       - 'luat/**'
       - 'components/**'
       - 'bsp/air101/**'
+  workflow_dispatch:
 
 jobs:
   build:
-
     runs-on: ubuntu-20.04
-
     steps:
     - uses: actions/checkout@v1
     - name: prepare software
@@ -33,7 +32,7 @@ jobs:
         AIR101REPO: ${{ secrets.AIR101REPO }}
       run: |
         cd ..
-        git -q --depth=1 --branch=master clone ${AIR101REPO} air101
+        git clone -q --depth=1 --branch=master ${AIR101REPO} air101
     - name: make
       run: |
         cd ../air101

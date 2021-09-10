@@ -8,6 +8,7 @@ on:
       - 'luat/**'
       - 'components/**'
       - 'bsp/win32/**'
+  workflow_dispatch:
 
 jobs:
   build:

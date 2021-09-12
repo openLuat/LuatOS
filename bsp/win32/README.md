@@ -6,6 +6,8 @@
 * 文件系统,win32原生文件系统,以工作目录为基点
 * 默认luavm和rtos内存分配均为 1MByte
 
+下载[预编译好的luatos.exe](https://nightly.link/openLuat/LuatOS/workflows/win32/master)
+
 ## 简易编译说明
 
 * 下载msys环境, 并安装好gcc和make
@@ -21,7 +23,6 @@ https://www.thinbug.com/q/37524839
 ## 简单用法
 
 * 新建一个目录, 将 `luatos.exe` 拷贝进去(可选,执行时使用全路径也可以)
-* 拷贝sys.lua到目录内
 * 在目录内新建main.lua, 写入以下内容
 
 ```lua
@@ -41,6 +42,8 @@ end)
 sys.run()
 
 ```
+
+双击luatos.exe启动即可. 默认带LVGL库, 可参考 `test/`目录下的例子.
 
 
 

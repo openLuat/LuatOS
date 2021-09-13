@@ -216,7 +216,7 @@ int l_crypto_cipher_xxx(lua_State *L, uint8_t flags);
 
 /**
 对称加密
-@api crypto.cipher(type, padding, str, key, iv)
+@api crypto.cipher_encrypt(type, padding, str, key, iv)
 @string 算法名称, 例如 AES-128-ECB/AES-128-CBC, 可查阅mbedtls的cipher_wrap.c
 @string 对齐方式, 当前仅支持PKCS7
 @string 需要加密的数据
@@ -233,7 +233,7 @@ int l_crypto_cipher_encrypt(lua_State *L) {
 }
 /**
 对称解密
-@api crypto.cipher(type, padding, str, key, iv)
+@api crypto.cipher_decrypt(type, padding, str, key, iv)
 @string 算法名称, 例如 AES-128-ECB/AES-128-CBC, 可查阅mbedtls的cipher_wrap.c
 @string 对齐方式, 当前仅支持PKCS7
 @string 需要解密的数据
@@ -243,7 +243,7 @@ int l_crypto_cipher_encrypt(lua_State *L) {
 @usage
 -- 用AES加密,然后用AES解密
 local data = crypto.cipher_encrypt("AES-128-ECB", "PKCS7", "1234567890123456", "1234567890123456")
-local data2 = crypto.cipher_encrypt("AES-128-ECB", "PKCS7", data, "1234567890123456")
+local data2 = crypto.cipher_decrypt("AES-128-ECB", "PKCS7", data, "1234567890123456")
 -- data的hex为 757CCD0CDC5C90EADBEEECF638DD0000
 -- data2的值为 1234567890123456
  */

@@ -21,17 +21,17 @@ sys.taskInit(function()
 
         adc.open(0) -- 模块上的ADC0脚-PA1, 0~2.4v,不要超过范围使用!!!
         adc.open(1) -- 模块上的ADC1脚-PA4, 0~2.4v,不要超过范围使用!!!
-        adc.open(3) -- CPU温度
+        adc.open(10) -- CPU温度
         --sys.wait(50)
 
         log.debug("adc", "adc0", adc.read(0))
         log.debug("adc", "adc1", adc.read(1))
-        log.debug("adc", "adc3", adc.read(3))
+        log.debug("adc", "adc_temp", adc.read(10))
 
         -- 使用完毕后关闭,可以使得休眠电流更低.
         adc.close(0)
         adc.close(1)
-        adc.close(3)
+        adc.close(10)
     end
     
 end)

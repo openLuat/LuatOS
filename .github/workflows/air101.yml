@@ -32,15 +32,16 @@ jobs:
         AIR101REPO: ${{ secrets.AIR101REPO }}
       run: |
         cd ..
-        git clone -q --depth=1 --branch=master ${AIR101REPO} air101
+        git clone --depth=1 --branch=master ${AIR101REPO} air101
     - name: make
       run: |
         cd ../air101
         chmod +x tools/w800/wm_tool
         xmake
-        mv build/out/LuatOS-SoC_V0001_Air101.soc ../LuatOS/
+        mkdir ../LuatOS/luatosfw
+        mv build/out/*.soc ../LuatOS/luatosfw
     - name: Upload artifact
       uses: actions/upload-artifact@v1
       with:
         name: air101
-        path: LuatOS-SoC_V0001_Air101.soc
+        path: luatosfw

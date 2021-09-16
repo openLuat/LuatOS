@@ -11,7 +11,7 @@ VERSION = "1.0.0"
 _G.sys = require("sys")
 
 log.info("hello luatos")
-spi.setup(0, 20, 0, 0, 8, 40 * 1000 * 1000, spi.MSB, 1, 1)
+spi.setup(0, 20, 0, 0, 8, 20 * 1000 * 1000, spi.MSB, 1, 1)
 -- log.info("lcd.init", lcd.init("st7789",{port = 0,pin_cs = 20,pin_dc = 23, pin_pwr = 7,pin_rst = 22,direction = 0,w = 240,h = 320}))
 log.info("lcd.init", lcd.init("st7735",{port = 0,pin_cs = 20,pin_dc = 23, pin_pwr = 7,pin_rst = 22,direction = 0,w = 128,h = 160}))
 log.info("lvgl", lvgl.init())

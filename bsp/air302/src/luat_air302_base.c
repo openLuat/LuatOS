@@ -45,8 +45,11 @@ static const luaL_Reg loadedlibs[] = {
   {"crypto",luaopen_crypto},            // 加密和hash模块
   // {"eink",  luaopen_eink},              // 电子墨水屏,试验阶段
   //{"iconv", luaopen_iconv},             // 编码转换,暂不可用
-  //{"fatfs",   luaopen_fatfs},             // 挂载sdcard
-  {"zbuff",luaopen_zbuff},            // zbuff库
+  // {"fatfs",   luaopen_fatfs},             // 挂载sdcard
+  //{"sfd",   luaopen_sfd},             // 挂载与sfd配合, 挂载spi flash
+  //{"lfs2",   luaopen_lfs2},             // 挂载与sfd配合, 挂载spi flash
+  //{"zbuff",luaopen_zbuff},            // zbuff库
+  // {"lcd",luaopen_lcd},            // zbuff库
 //------------------------------------------------------------------------
 // 联网及NBIOT特有的库
   {"socket",  luaopen_socket},            // 套接字操作
@@ -54,7 +57,7 @@ static const luaL_Reg loadedlibs[] = {
   {"nbiot",   luaopen_nbiot},             // NBIOT专属模块
   {"pm",      luaopen_pm},                // 低功耗模式
   {"http",  luaopen_http},              // http库
-  {"ctiot",	luaopen_ctiot},				      // ctiot库，中国电信ctwing平台
+  // {"ctiot",	luaopen_ctiot},				      // ctiot库，中国电信ctwing平台
   {NULL, NULL}
 };
 

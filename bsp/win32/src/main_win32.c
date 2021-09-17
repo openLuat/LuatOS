@@ -53,19 +53,19 @@ BOOL WINAPI consoleHandler(DWORD signal) {
     return TRUE;
 }
 
-int win32_argc;
-char** win32_argv;
+int cmdline_argc;
+char** cmdline_argv;
 
 // boot
 int main(int argc, char** argv) {
-    win32_argc = argc;
-    win32_argv = argv;
-    if (win32_argc > 1) {
-        size_t len = strlen(argv[1]);
-        if (argv[1][0] != '-') {
-            if (argv[1][len - 1] == '/' || argv[1][len - 1] == '\\') {
-                printf("chdir %s %d\n", argv[1], chdir(argv[1]));
-                win32_argc = 1;
+    cmdline_argc = argc;
+    cmdline_argv = argv;
+    if (cmdline_argc > 1) {
+        size_t len = strlen(cmdline_argv[1]);
+        if (cmdline_argv[1][0] != '-') {
+            if (cmdline_argv[1][len - 1] == '/' || cmdline_argv[1][len - 1] == '\\') {
+                printf("chdir %s %d\n", cmdline_argv[1], chdir(cmdline_argv[1]));
+                cmdline_argc = 1;
             }
         }
     }

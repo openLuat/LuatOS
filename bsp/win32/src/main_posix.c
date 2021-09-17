@@ -44,13 +44,13 @@ static void _lwip_init(void* arg) {
 }
 #endif
 
-int win32_argc;
-char** win32_argv;
+int cmdline_argc;
+char** cmdline_argv;
 
 // boot
 int main(int argc, char** argv) {
-    win32_argc = argc;
-    win32_argv = argv;
+    cmdline_argc = argc;
+    cmdline_argv = argv;
     
     bpool(luavm_heap, LUAT_HEAP_SIZE);
 

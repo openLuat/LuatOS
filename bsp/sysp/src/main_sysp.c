@@ -17,8 +17,8 @@ int luat_sysp_loop(void);
 #define LUAT_HEAP_SIZE (1024*1024)
 uint8_t luavm_heap[LUAT_HEAP_SIZE] = {0};
 
-int win32_argc;
-char** win32_argv;
+int cmdline_argc;
+char** cmdline_argv;
 
 // 务必先看看文档 https://emscripten.org/docs/porting/guidelines/api_limitations.html
 
@@ -39,8 +39,8 @@ uint8_t luat_wasm_check(double time, void* userData) {
 
 // 下面的方法只是演示在wasm中的类似调用逻辑
 int main(int argc, char** argv) {
-    //win32_argc = argc;
-    //win32_argv = argv;
+    //cmdline_argc = argc;
+    //cmdline_argv = argv;
     
     bpool(luavm_heap, LUAT_HEAP_SIZE);
     luat_sysp_init();

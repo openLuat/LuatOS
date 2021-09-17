@@ -102,7 +102,7 @@ static int l_rtos_timer_start(lua_State *L) {
 @return nil            无返回值
 @usage
 -- 用户代码请使用sys.timerStop
-rtos.timer_stop(100000)
+rtos.timer_stop(id)
 */
 static int l_rtos_timer_stop(lua_State *L) {
     luat_timer_t *timer = NULL;
@@ -151,7 +151,7 @@ static int l_rtos_build_date(lua_State *L) {
 @api    rtos.bsp()
 @return string 硬件bsp型号
 @usage
--- 获取编译日期
+-- 获取硬件bsp型号
 local bsp = rtos.bsp()
 */
 static int l_rtos_bsp(lua_State *L) {
@@ -178,8 +178,8 @@ static int l_rtos_version(lua_State *L) {
 @int    休眠时长,单位毫秒     
 @return nil  无返回值
 @usage
--- 读取版本号
-local luatos_version = rtos.version()
+-- 进入待机模式
+rtos.standby(5000)
 */
 static int l_rtos_standy(lua_State *L) {
     int timeout = luaL_checkinteger(L, 1);
@@ -294,5 +294,9 @@ LUAMOD_API int luaopen_rtos( lua_State *L ) {
 }
 
 LUAT_WEAK const char* luat_version_str(void) {
+    #ifdef LUAT_BSP_VERSION
+    return LUAT_BSP_VERSION;
+    #else
     return LUAT_VERSION;
+    #endif
 }

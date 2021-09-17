@@ -20,32 +20,32 @@ include_directories(${TOPROOT}/lua/include
                     ${TOPROOT}/luat/include
                     ${TOPROOT}/components/freertos/include
                     )
-
-include_directories(
-/usr/include/gtk-3.0 
-/usr/include/at-spi2-atk/2.0 
-/usr/include/at-spi-2.0 
-/usr/include/dbus-1.0 
-/usr/lib/arm-linux-gnueabihf/dbus-1.0/include 
-/usr/include/gtk-3.0 
-/usr/include/gio-unix-2.0 
-/usr/include/cairo 
-/usr/include/pango-1.0 
-/usr/include/harfbuzz 
-/usr/include/pango-1.0 
-/usr/include/fribidi 
-/usr/include/atk-1.0 
-/usr/include/cairo 
-/usr/include/pixman-1 
-/usr/include/freetype2 
-/usr/include/libpng16 
-/usr/include/gdk-pixbuf-2.0 
-/usr/include/libmount 
-/usr/include/blkid 
-/usr/include/uuid 
-/usr/include/glib-2.0 
-/usr/lib/arm-linux-gnueabihf/glib-2.0/include
-)
+# 
+# include_directories(
+# /usr/include/gtk-3.0 
+# /usr/include/at-spi2-atk/2.0 
+# /usr/include/at-spi-2.0 
+# /usr/include/dbus-1.0 
+# /usr/lib/arm-linux-gnueabihf/dbus-1.0/include 
+# /usr/include/gtk-3.0 
+# /usr/include/gio-unix-2.0 
+# /usr/include/cairo 
+# /usr/include/pango-1.0 
+# /usr/include/harfbuzz 
+# /usr/include/pango-1.0 
+# /usr/include/fribidi 
+# /usr/include/atk-1.0 
+# /usr/include/cairo 
+# /usr/include/pixman-1 
+# /usr/include/freetype2 
+# /usr/include/libpng16 
+# /usr/include/gdk-pixbuf-2.0 
+# /usr/include/libmount 
+# /usr/include/blkid 
+# /usr/include/uuid 
+# /usr/include/glib-2.0 
+# /usr/lib/arm-linux-gnueabihf/glib-2.0/include
+# )
 
 include_directories(${TOPROOT}/components/freertos/portable/ThirdParty/GCC/Posix)
 include_directories(${TOPROOT}/components/freertos/portable/ThirdParty/GCC/Posix/utils)
@@ -115,15 +115,17 @@ add_subdirectory(${TOPROOT}/components/mbedtls mbedtls.out)
 
 #-----------------------
 # lvgl
-include_directories(${TOPROOT}/components/lvgl)
-add_subdirectory(${TOPROOT}/components/lvgl lvgl.out)
+# include_directories(${TOPROOT}/components/lvgl)
+# add_subdirectory(${TOPROOT}/components/lvgl lvgl.out)
 #-----------------------
 
 
 
 add_executable(luatos src/main.c)
-target_link_libraries(luat freertos10 pthread fatfs lvgl)
-target_link_libraries(luatos freertos10 lua luatos_msys fatfs luat pthread cjson mbedtls lvgl m dl
-gtk-3 gdk-3 pangocairo-1.0 pango-1.0 atk-1.0 cairo-gobject cairo gdk_pixbuf-2.0 gio-2.0 gobject-2.0 glib-2.0
-)
+# target_link_libraries(luat freertos10 pthread fatfs lvgl)
+# target_link_libraries(luatos freertos10 lua luatos_msys fatfs luat pthread cjson mbedtls lvgl m dl
+# gtk-3 gdk-3 pangocairo-1.0 pango-1.0 atk-1.0 cairo-gobject cairo gdk_pixbuf-2.0 gio-2.0 gobject-2.0 glib-2.0
+#)
 
+target_link_libraries(luat freertos10 pthread fatfs)
+target_link_libraries(luatos freertos10 lua luatos_msys fatfs luat pthread cjson mbedtls m dl)

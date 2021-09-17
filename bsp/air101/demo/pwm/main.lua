@@ -12,7 +12,6 @@ _G.sys = require("sys")
 -- PWM1 --> PB1-17
 -- PWM0 --> PB0-16
 
--- gpio.setup(19, 0)
 sys.taskInit(function()
     while 1 do
         -- 仿呼吸灯效果

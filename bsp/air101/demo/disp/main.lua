@@ -20,7 +20,7 @@ function ui_update()
 
     disp.drawStr(os.date("%Y-%m-%d %H:%M:%S"), 1, 12) -- 写日期
 
-    disp.drawStr("Luat@Air805" .. " " .. _VERSION, 1, 24) -- 写版本号
+    disp.drawStr("Luat@Air101" .. " " .. _VERSION, 1, 24) -- 写版本号
 
     disp.update()
 end

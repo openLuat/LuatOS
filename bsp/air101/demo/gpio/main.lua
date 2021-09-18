@@ -12,12 +12,13 @@ local LEDC = gpio.setup(26, 0, gpio.PULLUP) -- PB1输出模式
 
 sys.taskInit(function()
     local count = 0
+    local uid = mcu.unique_id() or ""
     while 1 do
         -- 一闪一闪亮晶晶
         LEDA(count & 0x01 == 0x01 and 1 or 0)
         LEDB(count & 0x02 == 0x02 and 1 or 0)
         LEDC(count & 0x03 == 0x03 and 1 or 0)
-        log.info("gpio", "Go Go Go", mcu.unique_id())
+        log.info("gpio", "Go Go Go", uid:toHex(), count)
         sys.wait(1000)
         count = count + 1
     end

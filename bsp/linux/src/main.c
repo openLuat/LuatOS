@@ -45,13 +45,13 @@ static void _lwip_init(void* arg) {
 }
 #endif
 
-int win32_argc;
-char** win32_argv;
+int cmdline_argc;
+char** cmdline_argv;
 
 // boot
 int main(int argc, char** argv) {
-    win32_argc = argc;
-    win32_argv = argv;
+    cmdline_argc = argc;
+    cmdline_argv = argv;
     
     bpool(luavm_heap, LUAT_HEAP_SIZE);
 
@@ -73,6 +73,7 @@ int main(int argc, char** argv) {
     return 0;
 }
 
+#ifdef LUAT_USE_LVGL
 void lvgl_linux_init(void) {
     gtkdrv_init();
     static lv_disp_buf_t disp_buf1;
@@ -97,3 +98,4 @@ void lvgl_linux_init(void) {
 //   indev_drv_kb.read_cb = lv_keyboard_read_cb;
 //   lv_indev_drv_register(&indev_drv_kb);
 }
+#endif

@@ -5,18 +5,18 @@
 #define LUAT_LOG_TAG "win32"
 #include "luat_log.h"
 
-extern int win32_argc;
-extern char** win32_argv;
+extern int cmdline_argc;
+extern char** cmdline_argv;
 
 static int l_win32_args(lua_State *L) {
     int index = luaL_optinteger(L, 1, 2);
     lua_newtable(L);
-    if (win32_argc > index) {
-        for (size_t i = index; i < win32_argc; i++)
+    if (cmdline_argc > index) {
+        for (size_t i = index; i < cmdline_argc; i++)
         {
             //printf("args[%d] %s\n", i, win32_argv[i]);
             lua_pushinteger(L, i + 1 - index);
-            lua_pushstring(L, win32_argv[i]);
+            lua_pushstring(L, cmdline_argv[i]);
             lua_settable(L, -3);
         }
     }

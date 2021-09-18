@@ -3,7 +3,7 @@
 #define LUAT_CONF_BSP
 
 #define LUAT_BSP_VERSION "V0007"
-
+#define LUAT_USE_CMDLINE_ARGS 1
 // 启用64位虚拟机
 // #define LUAT_CONF_VM_64bit
 

@@ -6,16 +6,16 @@
 #define LUA_USE_LINUX 1
 
 #define LUAT_BSP_VERSION "V0001"
-
+#define LUAT_USE_CMDLINE_ARGS 1
 #define LUAT_CONF_LAUX_BUFFSIZE 1024
 
 #define LUAT_USE_FS_VFS 1
-#define LUAT_USE_VFS_INLINE_LIB 1
+//#define LUAT_USE_VFS_INLINE_LIB 1
 
 #define LUAT_USE_LOG_ASYNC_THREAD 0
 
-#define LUAT_USE_LVGL 1
-#define USE_GTK 1
+//#define LUAT_USE_LVGL 1
+//#define USE_GTK 1
 
 #define LV_TICK_CUSTOM     1
 #if LV_TICK_CUSTOM == 1

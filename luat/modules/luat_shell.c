@@ -11,6 +11,7 @@ LuatOS Shell -- LuatOS 控制台
 #include "luat_log.h"
 
 #include "luat_shell.h"
+#include "luat_str.h"
 
 static uint8_t echo_enable = 1;
 
@@ -20,6 +21,8 @@ void luat_shell_print(const char* str) {
 
 static int luat_shell_msg_handler(lua_State *L, void* ptr) {
 
+    char buff[128] = {0};
+    
     lua_settop(L, 0); //重置虚拟堆栈
 
     size_t rcount = 0;
@@ -64,7 +67,6 @@ static int luat_shell_msg_handler(lua_State *L, void* ptr) {
         // 查询内存状态
         else if (strncmp("free", uart_buff, 4) == 0) {
             size_t total, used, max_used = 0;
-            char buff[128] = {0};
             luat_meminfo_luavm(&total, &used, &max_used);
             sprintf(buff, "lua total=%ld used=%ld max_used=%ld\r\n", total, used, max_used);
             luat_shell_print(buff);
@@ -73,6 +75,15 @@ static int luat_shell_msg_handler(lua_State *L, void* ptr) {
             sprintf(buff, "sys total=%ld used=%ld max_used=%ld\r\n", total, used, max_used);
             luat_shell_print(buff);
         }
+        #ifdef LUAT_USE_MCU
+        else if (strncmp("AT+CGSN", uart_buff, 7) == 0) {
+            size_t len = 0;
+            memcpy(buff, "+CGSN=", 6);
+            const char* _id = luat_mcu_unique_id(&len);
+            luat_str_tohex(_id, len, buff+6);
+            luat_shell_write(buff, 6+len*2+1);
+        }
+        #endif
         // // 枚举根目录
         // else if (strncmp("ls\r", uart_buff, 3) == 0 || strncmp("ls\r\n", uart_buff, 4) == 0) {
         //     lfs_dir_t dir;

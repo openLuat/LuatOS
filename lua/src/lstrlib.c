@@ -1542,6 +1542,27 @@ static int str_unpack (lua_State *L) {
 
 /* }====================================================== */
 
+static unsigned char hexchars[] = "0123456789ABCDEF";
+void luat_str_tohex(char* str, size_t len, char* buff) {
+  for (size_t i = 0; i < len; i++)
+  {
+    char ch = *(str+i);
+    buff[i*2] = hexchars[(unsigned char)ch >> 4];
+    buff[i*2+1] = hexchars[(unsigned char)ch & 0xF];
+  }
+}
+void luat_str_fromhex(char* str, size_t len, char* buff) {
+  for (size_t i = 0; i < len/2; i++)
+  {
+    char a = *(str + i*2);
+    char b = *(str + i*2 + 1);
+    printf("%d %c %c\r\n", i, a, b);
+    a = (a <= '9') ? a - '0' : (a & 0x7) + 9;
+    b = (b <= '9') ? b - '0' : (b & 0x7) + 9;
+    if (a >=0 && b >= 0)
+      buff[i] = (a << 4) + b;
+  }
+}
 /*
 将字符串转成HEX
 @api string.toHex(str)
@@ -1553,18 +1574,13 @@ string.toHex("\1\2\3") --> "010203" 3
 string.toHex("123abc") --> "313233616263" 6
 string.toHex("123abc"," ") --> "31 32 33 61 62 63 " 6
 */
-static unsigned char hexchars[] = "0123456789ABCDEF";
 static int str_toHex (lua_State *L) {
   size_t len;
   const char *str = luaL_checklstring(L, 1, &len);
   luaL_Buffer buff;
   luaL_buffinitsize(L, &buff, 2*len);
-  for (size_t i = 0; i < len; i++)
-  {
-    char ch = *(str+i);
-    luaL_addchar(&buff, hexchars[(unsigned char)ch >> 4]);
-    luaL_addchar(&buff, hexchars[(unsigned char)ch & 0xF]);
-  }
+  luat_str_tohex((char*)str, len, buff.b);
+  buff.n = len * 2;
   luaL_pushresult(&buff);
   lua_pushinteger(L, len*2);
   return 2;
@@ -1583,20 +1599,8 @@ static int str_fromHex (lua_State *L) {
   const char *str = luaL_checklstring(L, 1, &len);
   luaL_Buffer buff;
   luaL_buffinitsize(L, &buff, len / 2);
-  for (size_t i = 0; i < len / 2; i++)
-  {
-    char a = *(str + i*2);
-    char b = *(str + i*2 + 1);
-    a = (a <= '9') ? a - '0' : (a & 0x7) + 9;
-    b = (b <= '9') ? b - '0' : (b & 0x7) + 9;
-    if (a >= 0 && b >= 0) {
-      luaL_addchar(&buff, (a << 4) + b);
-    }
-    else {
-      // 非法字符串直接跳过
-      // luaL_addchar(&buff, 0);
-    }
-  }
+  luat_str_fromhex((char*)str, len, buff.b);
+  buff.n = len / 2;
   luaL_pushresult(&buff);
   return 1;
 }
@@ -1799,7 +1803,7 @@ static const unsigned char base64_dec_map[128] =
 /*
  * Encode a buffer into base64 format
  */
-static int base64_encode( unsigned char *dst, size_t dlen, size_t *olen,
+int luat_str_base64_encode( unsigned char *dst, size_t dlen, size_t *olen,
                    const unsigned char *src, size_t slen )
 {
     size_t i, n;
@@ -1869,7 +1873,7 @@ static int base64_encode( unsigned char *dst, size_t dlen, size_t *olen,
 #ifndef uint32_t
 #define uint32_t unsigned int
 #endif
-static int base64_decode( unsigned char *dst, size_t dlen, size_t *olen,
+int luat_str_base64_decode( unsigned char *dst, size_t dlen, size_t *olen,
                    const unsigned char *src, size_t slen )
 {
     size_t i, n;
@@ -1971,7 +1975,7 @@ static int str_toBase64(lua_State *L) {
   luaL_Buffer buff = {0};
   luaL_buffinitsize(L, &buff, len * 1.5 + 1);
   size_t olen = 0;
-  int re = base64_encode((unsigned char *)buff.b, buff.size, &olen, (const unsigned char * )str, len);
+  int re = luat_str_base64_encode((unsigned char *)buff.b, buff.size, &olen, (const unsigned char * )str, len);
   if (re == 0) {
     luaL_pushresultsize(&buff, olen);
     return 1;
@@ -1996,7 +2000,7 @@ static int str_fromBase64(lua_State *L) {
   luaL_Buffer buff = {0};
   luaL_buffinitsize(L, &buff, len + 1);
   size_t olen = 0;
-  int re = base64_decode((unsigned char *)buff.b, buff.size, &olen, (const unsigned char * )str, len);
+  int re = luat_str_base64_decode((unsigned char *)buff.b, buff.size, &olen, (const unsigned char * )str, len);
   if (re == 0) {
     luaL_pushresultsize(&buff, olen);
     return 1;

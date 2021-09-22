@@ -8,7 +8,7 @@
 
 * 基于Lua 5.3.6, 提供95%的原生库支持
 * 适配LuaTask,提供极为友好的`sys.lua`
-* 文件系统大小112kb,格式littlefs 2.1
+* 文件系统大小112kb,格式littlefs 2.1,将来会扩大.
 * `gpio` GPIO管脚控制功能(映射表后面有提供)
 * `uart` 串口输入输出功能,支持uart0(芯片日志/调试/刷机)/uart1~4(用户可用)
 * `i2c` iic总线master功能,并自带多种温湿度传感器驱动
@@ -26,6 +26,8 @@
 * `pm` 功耗管理,可进入低功耗模式并定时唤醒
 * `hwtimer` 硬件定时器(开发中)
 * `rtc` 实时时钟(开发中)
+* `sdio` 通过SDIO硬件接口读写TF卡
+* `mcu` 主频调节,最低可到2M(需调低uart波特率)
 
 LuatOS大QQ群: 1061642968
 
@@ -60,16 +62,20 @@ LuatOS大QQ群: 1061642968
 | ----------------- | ------------ |
 | 0                 | 模块ADC0-PA1 |
 | 1                 | 模块ADC1-PA4 |
-| 3                 | CPU温度(*可能变更)|
+| 10                | CPU温度|
 
 ## 刷机工具
 
-使用Luatools下载, 版本 2.1.28 以上, 越新越好
+使用Luatools下载, 版本 2.1.32 以上, 越新越好
 
 ## 模块购买
 
-手机访问: m.openluat.com
+手机访问: mall.m.openluat.com
 
 ## 开发板PinOut
+
 ![](images/air101_evb_pinout.png)
 
+## 芯片PinOut
+
+![](images/air101_chip_pinout.png)

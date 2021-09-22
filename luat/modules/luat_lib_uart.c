@@ -169,23 +169,34 @@ static int l_uart_read(lua_State *L)
         lua_pushinteger(L, result);
         return 1;
     }
-    void* recv = luat_heap_malloc(length);
+    uint8_t* recv = luat_heap_malloc(length);
     if (recv == NULL) {
         LLOGE("system is out of memory!!!");
         lua_pushstring(L, "");
         return 1;
     }
-    int result = luat_uart_read(id, recv, length);
-    //lua_gc(L, LUA_GCCOLLECT, 0);
-    if (result > 0) {
+
+    uint32_t read_length = 0;
+    while(read_length < length)//循环读完
+    {
+        int result = luat_uart_read(id, (void*)(recv + read_length), length - read_length);
+        if (result > 0) {
+            read_length += result;
+        }
+        else
+        {
+            break;
+        }
+    }
+    if(read_length > 0)
+    {
         if (lua_isinteger(L, 3)) {
             uint32_t fd = luaL_checkinteger(L, 3);
-            luat_fs_fwrite(recv, 1, result, (FILE*)fd);
+            luat_fs_fwrite(recv, 1, read_length, (FILE*)fd);
         }
         else {
-            lua_pushlstring(L, (const char*)recv, result);
+            lua_pushlstring(L, (const char*)recv, read_length);
         }
-
     }
     else
     {

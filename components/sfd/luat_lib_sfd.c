@@ -128,7 +128,7 @@ static int l_sfd_write(lua_State *L) {
 }
 
 /*
-写入数据
+擦除数据
 @api    sfd.erase(drv, offset)
 @userdata  sfd.init返回的数据结构
 @int    起始偏移量

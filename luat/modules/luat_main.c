@@ -63,7 +63,7 @@ int luat_main_demo() { // 这是验证LuatVM最基础的消息/定时器/Task机
 static int pmain(lua_State *L) {
     int re = -2;
 
-    luat_os_print_heapinfo("boot");
+    //luat_os_print_heapinfo("boot");
 
     // 加载内置库
     luat_openlibs(L);

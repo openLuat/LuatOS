@@ -184,6 +184,7 @@ static int l_sfud_erase_write(lua_State *L){
     return 1;
 }
 
+#ifdef LUAT_USE_FS_VFS
 #include "luat_fs.h"
 #include "lfs.h"
 lfs_t* flash_lfs_sfud(sfud_flash* flash);
@@ -206,6 +207,7 @@ static int l_sfud_mount(lua_State *L) {
     }
     return 1;
 }
+#endif
 
 #include "rotable.h"
 static const rotable_Reg reg_sfud[] =
@@ -219,6 +221,9 @@ static const rotable_Reg reg_sfud[] =
     { "read",       l_sfud_read,        0},
     { "write",       l_sfud_write,        0},
     { "erase_write",       l_sfud_erase_write,        0},
+#ifdef LUAT_USE_FS_VFS
+    { "mount",       l_sfud_mount,        0},
+#endif
 	{ NULL, NULL, 0}
 };
 

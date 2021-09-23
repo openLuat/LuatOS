@@ -184,9 +184,22 @@ static int l_sfud_erase_write(lua_State *L){
     return 1;
 }
 
+#ifdef LUAT_USE_FS_VFS
 #include "luat_fs.h"
 #include "lfs.h"
-lfs_t* flash_lfs_sfud(sfud_flash* flash);
+extern lfs_t* flash_lfs_sfud(sfud_flash* flash);
+
+/*
+挂载sfud lfs文件系统
+@api  sfud.mount(flash, mount_point)
+@userdata flash Flash 设备对象 sfud.get_device_table()返回的数据结构
+@string mount_point 挂载目录名
+@return bool 成功返回true
+@usage
+log.info("sfud.mount",sfud.mount(sfud_device,"/sfud"))
+log.info("fsstat", fs.fsstat("/"))
+log.info("fsstat", fs.fsstat("/sfud"))
+*/
 static int l_sfud_mount(lua_State *L) {
     const sfud_flash *flash = lua_touserdata(L, 1);
     const char* mount_point = luaL_checkstring(L, 2);
@@ -206,6 +219,7 @@ static int l_sfud_mount(lua_State *L) {
     }
     return 1;
 }
+#endif
 
 #include "rotable.h"
 static const rotable_Reg reg_sfud[] =
@@ -219,6 +233,9 @@ static const rotable_Reg reg_sfud[] =
     { "read",       l_sfud_read,        0},
     { "write",       l_sfud_write,        0},
     { "erase_write",       l_sfud_erase_write,        0},
+#ifdef LUAT_USE_FS_VFS
+    { "mount",       l_sfud_mount,        0},
+#endif
 	{ NULL, NULL, 0}
 };
 

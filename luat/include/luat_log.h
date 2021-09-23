@@ -35,6 +35,11 @@ void luat_log_log(int level, const char* tag, const char* _fmt, ...);
 #define LLOGI(format, ...) luat_log_log(LUAT_LOG_INFO, LUAT_LOG_TAG, format, ##__VA_ARGS__)
 #define LLOGD(format, ...) luat_log_log(LUAT_LOG_DEBUG, LUAT_LOG_TAG, format, ##__VA_ARGS__)
 
+#define luat_log_error(XTAG, format, ...)   luat_log_log(LUAT_LOG_ERROR, XTAG, format, ##__VA_ARGS__)
+#define luat_log_warn(XTAG, format, ...)    luat_log_log(LUAT_LOG_WARN, XTAG, format, ##__VA_ARGS__)
+#define luat_log_info(XTAG, format, ...)    luat_log_log(LUAT_LOG_INFO, XTAG, format, ##__VA_ARGS__)
+#define luat_log_debug(XTAG, format, ...)   luat_log_log(LUAT_LOG_DEBUG, XTAG, format, ##__VA_ARGS__)
+
 #endif
 
 #endif

@@ -2,7 +2,6 @@
 #define GIFDEC_H
 
 #include <stdint.h>
-#include <sys/types.h>
 
 #define LV_LVGL_H_INCLUDE_SIMPLE 1
 
@@ -10,10 +9,6 @@
 #include "lvgl.h"
 #else
 #include "../lvgl/lvgl.h"
-#endif
-
-#ifndef off_t
-#define off_t size_t
 #endif
 
 typedef struct gd_Palette {
@@ -36,7 +31,7 @@ typedef struct gd_GIF {
 
     const char * data;
     uint32_t f_rw_p;
-    off_t anim_start;
+    size_t anim_start;
     uint16_t width, height;
     uint16_t depth;
     uint16_t loop_count;

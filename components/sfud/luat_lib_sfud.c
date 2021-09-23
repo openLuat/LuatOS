@@ -188,6 +188,18 @@ static int l_sfud_erase_write(lua_State *L){
 #include "luat_fs.h"
 #include "lfs.h"
 extern lfs_t* flash_lfs_sfud(sfud_flash* flash);
+
+/*
+挂载sfud lfs文件系统
+@api  sfud.mount(flash, mount_point)
+@userdata flash Flash 设备对象 sfud.get_device_table()返回的数据结构
+@string mount_point 挂载目录名
+@return bool 成功返回true
+@usage
+log.info("sfud.mount",sfud.mount(sfud_device,"/sfud"))
+log.info("fsstat", fs.fsstat("/"))
+log.info("fsstat", fs.fsstat("/sfud"))
+*/
 static int l_sfud_mount(lua_State *L) {
     const sfud_flash *flash = lua_touserdata(L, 1);
     const char* mount_point = luaL_checkstring(L, 2);

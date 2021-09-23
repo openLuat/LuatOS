@@ -29,7 +29,7 @@
 #ifndef _SFUD_CFG_H_
 #define _SFUD_CFG_H_
 
-// #define SFUD_DEBUG_MODE
+#define SFUD_DEBUG_MODE
 
 #define SFUD_USING_SFDP
 

@@ -17,13 +17,13 @@
 // Read a block
 static int block_device_read(const struct lfs_config *cfg, lfs_block_t block, lfs_off_t off, void *buffer, lfs_size_t size) {
     sfud_flash* flash = (sfud_flash*)cfg->context;
-    sfud_read(flash, buffer, block * LFS_BLOCK_SIZE + off, size);
+    sfud_read(flash, block * LFS_BLOCK_SIZE + off, size, buffer);
     return LFS_ERR_OK;
 }
 
 static int block_device_prog(const struct lfs_config *cfg, lfs_block_t block, lfs_off_t off, const void *buffer, lfs_size_t size) {
     sfud_flash* flash = (sfud_flash*)cfg->context;
-    sfud_write(flash, buffer, block * LFS_BLOCK_SIZE + off, size);
+    sfud_write(flash, block * LFS_BLOCK_SIZE + off, size, buffer);
     return LFS_ERR_OK;
 }
 

@@ -101,15 +101,15 @@ lfs_t* onchip_lfs_sfd(sfd_onchip_t* onchip) {
     lfs_cfg->attr_max = 0;
 
     // ------
-    int err = lfs_mount(&lfs, &lfs_cfg);
+    int err = lfs_mount(lfs, lfs_cfg);
     LLOGD("lfs_mount %d",err);
     if (err)
     {
-        err = lfs_format(&lfs, &lfs_cfg);
+        err = lfs_format(lfs, lfs_cfg);
         LLOGD("lfs_format %d",err);
         if(err)
             goto fail;
-        err = lfs_mount(&lfs, &lfs_cfg);
+        err = lfs_mount(lfs, lfs_cfg);
         LLOGD("lfs_mount %d",err);
         if(err)
             goto fail;

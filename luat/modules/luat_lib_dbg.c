@@ -26,6 +26,7 @@ static luat_dbg_cb runcb = NULL;
 static void* runcb_params = NULL;
 
 // 如果其他平台有更特殊的输出方式, 定义luat_dbg_output方法吧
+// TODO 写入cmux通道
 #ifndef luat_dbg_output
 #define luat_dbg_output LLOGD
 #endif

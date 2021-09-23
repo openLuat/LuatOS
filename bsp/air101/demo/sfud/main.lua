@@ -11,6 +11,8 @@ sys.taskInit(function()
     local sfud_device = sfud.get_device_table()
     log.info("sfud.write",sfud.write(sfud_device,1024,"sfud"))
     log.info("sfud.read",sfud.read(sfud_device,1024,4))
+    log.info("sfud.mount",sfud.mount(sfud_device,"/sfud"))
+    log.info("fsstat", fs.fsstat("/sfud"))
     while 1 do
         sys.wait(1000)
     end

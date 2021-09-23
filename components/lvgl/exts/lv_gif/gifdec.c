@@ -178,7 +178,7 @@ read_plain_text_ext(gd_GIF *gif)
     if (gif->plain_text) {
         uint16_t tx, ty, tw, th;
         uint8_t cw, ch, fg, bg;
-        off_t sub_block;
+        size_t sub_block;
         f_gif_seek(gif, 1, SEEK_CUR); /* block size = 12 */
         tx = read_num(gif);
         ty = read_num(gif);
@@ -220,7 +220,7 @@ static void
 read_comment_ext(gd_GIF *gif)
 {
     if (gif->comment) {
-        off_t sub_block = f_gif_seek(gif, 0, SEEK_CUR);
+        size_t sub_block = f_gif_seek(gif, 0, SEEK_CUR);
         gif->comment(gif);
         f_gif_seek(gif, sub_block, SEEK_SET);
     }
@@ -247,7 +247,7 @@ read_application_ext(gd_GIF *gif)
         /* Skip block terminator. */
         f_gif_seek(gif, 1, SEEK_CUR);
     } else if (gif->application) {
-        off_t sub_block = f_gif_seek(gif, 0, SEEK_CUR);
+        size_t sub_block = f_gif_seek(gif, 0, SEEK_CUR);
         gif->application(gif, app_id, app_auth_code);
         f_gif_seek(gif, sub_block, SEEK_SET);
         discard_sub_blocks(gif);
@@ -381,7 +381,7 @@ read_image_data(gd_GIF *gif, int interlace)
     int ret;
     Table *table;
     Entry entry;
-    off_t start, end;
+    size_t start, end;
 
     f_gif_read(gif, &byte, 1);
     key_size = (int) byte;

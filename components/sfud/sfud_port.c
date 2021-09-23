@@ -31,6 +31,9 @@
 
 #include "luat_spi.h"
 
+#define LUAT_LOG_TAG "luat.sfud"
+#include "luat_log.h"
+
 static char log_buf[256];
 
 void sfud_log_debug(const char *file, const long line, const char *format, ...);
@@ -117,10 +120,11 @@ void sfud_log_debug(const char *file, const long line, const char *format, ...) 
 
     /* args point to the first variable parameter */
     va_start(args, format);
-    printf("[SFUD](%s:%ld) ", file, line);
+    // printf("[SFUD](%s:%ld) ", file, line);
     /* must use vprintf to print */
     vsnprintf(log_buf, sizeof(log_buf), format, args);
-    printf("%s\n", log_buf);
+    // printf("%s\n", log_buf);
+    LLOGD("%s ", log_buf);
     va_end(args);
 }
 
@@ -135,9 +139,10 @@ void sfud_log_info(const char *format, ...) {
 
     /* args point to the first variable parameter */
     va_start(args, format);
-    printf("[SFUD]");
+    // printf("[SFUD]");
     /* must use vprintf to print */
     vsnprintf(log_buf, sizeof(log_buf), format, args);
-    printf("%s\n", log_buf);
+    // printf("%s\n", log_buf);
+    LLOGD("%s ", log_buf);
     va_end(args);
 }

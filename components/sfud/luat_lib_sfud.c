@@ -184,6 +184,29 @@ static int l_sfud_erase_write(lua_State *L){
     return 1;
 }
 
+#include "luat_fs.h"
+#include "lfs.h"
+lfs_t* flash_lfs_sfud(sfud_flash* flash);
+static int l_sfud_mount(lua_State *L) {
+    const sfud_flash *flash = lua_touserdata(L, 1);
+    const char* mount_point = luaL_checkstring(L, 2);
+    lfs_t* lfs = flash_lfs_sfud(flash);
+    if (lfs) {
+	    luat_fs_conf_t conf = {
+		    .busname = (char*)lfs,
+		    .type = "lfs2",
+		    .filesystem = "lfs2",
+		    .mount_point = mount_point,
+	    };
+	    luat_fs_mount(&conf);
+        lua_pushboolean(L, 1);
+    }
+    else {
+        lua_pushboolean(L, 0);
+    }
+    return 1;
+}
+
 #include "rotable.h"
 static const rotable_Reg reg_sfud[] =
 {

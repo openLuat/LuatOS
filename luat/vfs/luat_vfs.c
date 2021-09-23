@@ -24,6 +24,7 @@ static luat_vfs_t vfs= {0};
 
 int luat_vfs_init(void* params) {
     memset(&vfs, 0, sizeof(vfs));
+    return 0;
 }
 
 int luat_vfs_reg(const struct luat_vfs_filesystem* fs) {

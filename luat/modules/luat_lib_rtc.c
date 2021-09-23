@@ -228,7 +228,7 @@ static int l_rtc_timer_start(lua_State *L){
 
 /*
 取消RTC唤醒时间
-@api rtc.timerStop(id, tab)
+@api rtc.timerStop(id)
 @int 时钟id,通常只支持0
 @return bool 成功返回true,否则返回nil或false
 @usage

@@ -60,13 +60,14 @@ extern BYTE FATFS_DEBUG; // debug log, 0 -- disable , 1 -- enable
 extern BYTE FATFS_SPI_ID; // 0 -- SPI_1, 1 -- SPI_2
 extern BYTE FATFS_SPI_CS; // GPIO 3
 
-static void dly_us(BYTE us) {
-	if (us < 1) {
-		return;
-	}
-	us += 999;
-	luat_timer_mdelay(us/1000);
-}
+// static void dly_us(BYTE us) {
+// 	if (us < 1) {
+// 		return;
+// 	}
+// 	us += 999;
+// 	luat_timer_mdelay(us/1000);
+// }
+#define dly_us luat_timer_us_delay
 
 /*-----------------------------------------------------------------------*/
 /* Transmit bytes to the card (bitbanging)                               */

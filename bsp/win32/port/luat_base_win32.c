@@ -141,6 +141,13 @@ void luat_ota_reboot(int timeout_ms) {
   exit(0);
 }
 
+#include <unistd.h>
+
+void luat_timer_us_delay(size_t us) {
+    if (us)
+        usleep(us);
+    return;
+}
 
 //--------------------------------------------------------------------------------
 // for freertos

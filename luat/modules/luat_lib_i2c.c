@@ -283,7 +283,7 @@ i2c接收数据
 @api i2c.recv(id, addr, len)
 @int 设备id, 例如i2c1的id为1, i2c2的id为2
 @int I2C子设备的地址, 7位地址
-@int 手机数据的长度
+@int 接收数据的长度
 @return string 收到的数据
 @usage
 -- 从i2c1读取2个字节的数据

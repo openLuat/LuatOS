@@ -187,7 +187,7 @@ static int l_sfud_erase_write(lua_State *L){
 #ifdef LUAT_USE_FS_VFS
 #include "luat_fs.h"
 #include "lfs.h"
-lfs_t* flash_lfs_sfud(sfud_flash* flash);
+extern lfs_t* flash_lfs_sfud(sfud_flash* flash);
 static int l_sfud_mount(lua_State *L) {
     const sfud_flash *flash = lua_touserdata(L, 1);
     const char* mount_point = luaL_checkstring(L, 2);

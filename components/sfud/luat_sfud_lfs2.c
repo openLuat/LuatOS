@@ -18,25 +18,25 @@
 #define LFS_BLOCK_DEVICE_LOOK_AHEAD (16)
 
 // Read a block
-static int block_device_read(const struct lfs_config *cfg, lfs_block_t block, lfs_off_t off, void *buffer, lfs_size_t size) {
+static int sfud_block_device_read(const struct lfs_config *cfg, lfs_block_t block, lfs_off_t off, void *buffer, lfs_size_t size) {
     sfud_flash* flash = (sfud_flash*)cfg->context;
-    sfud_read(flash, block * LFS_BLOCK_SIZE + off, size, buffer);
+    int re = sfud_read(flash, block * LFS_BLOCK_SIZE + off, size, buffer);
     return LFS_ERR_OK;
 }
 
-static int block_device_prog(const struct lfs_config *cfg, lfs_block_t block, lfs_off_t off, const void *buffer, lfs_size_t size) {
+static int sfud_block_device_prog(const struct lfs_config *cfg, lfs_block_t block, lfs_off_t off, const void *buffer, lfs_size_t size) {
     sfud_flash* flash = (sfud_flash*)cfg->context;
-    sfud_write(flash, block * LFS_BLOCK_SIZE + off, size, buffer);
+    int re = sfud_write(flash, block * LFS_BLOCK_SIZE + off, size, buffer);
     return LFS_ERR_OK;
 }
 
-static int block_device_erase(const struct lfs_config *cfg, lfs_block_t block) {
+static int sfud_block_device_erase(const struct lfs_config *cfg, lfs_block_t block) {
     sfud_flash* flash = (sfud_flash*)cfg->context;
-    sfud_erase(flash, block * LFS_BLOCK_SIZE, LFS_BLOCK_SIZE);
+    int re = sfud_erase(flash, block * LFS_BLOCK_SIZE, LFS_BLOCK_SIZE);
     return LFS_ERR_OK;
 }
 
-static int block_device_sync(const struct lfs_config *cfg) {
+static int sfud_block_device_sync(const struct lfs_config *cfg) {
     return LFS_ERR_OK;
 }
 
@@ -58,10 +58,10 @@ lfs_t* flash_lfs_sfud(sfud_flash* flash) {
 
     lfs_cfg->context = flash,
     // block device operations
-    lfs_cfg->read = block_device_read;
-    lfs_cfg->prog = block_device_prog;
-    lfs_cfg->erase = block_device_erase;
-    lfs_cfg->sync = block_device_sync;
+    lfs_cfg->read = sfud_block_device_read;
+    lfs_cfg->prog = sfud_block_device_prog;
+    lfs_cfg->erase = sfud_block_device_erase;
+    lfs_cfg->sync = sfud_block_device_sync;
 
     // block device configuration
     lfs_cfg->read_size = LFS_BLOCK_DEVICE_READ_SIZE;
@@ -80,15 +80,15 @@ lfs_t* flash_lfs_sfud(sfud_flash* flash) {
     lfs_cfg->attr_max = 0;
 
     // ------
-    int err = lfs_mount(&lfs, &lfs_cfg);
+    int err = lfs_mount(lfs, lfs_cfg);
     LLOGD("lfs_mount %d",err);
     if (err)
     {
-        err = lfs_format(&lfs, &lfs_cfg);
+        err = lfs_format(lfs, lfs_cfg);
         LLOGD("lfs_format %d",err);
         if(err)
             goto fail;
-        err = lfs_mount(&lfs, &lfs_cfg);
+        err = lfs_mount(lfs, lfs_cfg);
         LLOGD("lfs_mount %d",err);
         if(err)
             goto fail;

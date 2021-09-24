@@ -30,6 +30,7 @@
 #include <stdarg.h>
 
 #include "luat_spi.h"
+#include "luat_gpio.h"
 
 #define LUAT_LOG_TAG "luat.sfud"
 #include "luat_log.h"
@@ -52,19 +53,18 @@ static sfud_err spi_write_read(const sfud_spi *spi, const uint8_t *write_buf, si
         SFUD_ASSERT(read_buf);
     }
 
-    if (write_size && read_size) {
-        if (luat_spi_transfer(spi_flash -> id, write_buf, read_buf, read_size) <= 0) {
-            result = SFUD_ERR_TIMEOUT;
-        }
-    } else if (write_size) {
+    luat_gpio_set(spi_flash->cs,0);
+    if (write_size) {
         if (luat_spi_send(spi_flash -> id,  write_buf, write_size) <= 0) {
             result = SFUD_ERR_WRITE;
         }
-    } else {
+    }
+    if (read_size) {
         if (luat_spi_recv(spi_flash -> id, read_buf, read_size) <= 0) {
             result = SFUD_ERR_READ;
         }
     }
+    luat_gpio_set(spi_flash->cs,1);
 
     return result;
 }
@@ -95,6 +95,12 @@ sfud_err sfud_spi_port_init(sfud_flash *flash) {
     sfud_err result = SFUD_SUCCESS;
 
     extern luat_spi_t sfud_spi_flash;
+    luat_gpio_t cs;
+    cs.pin = sfud_spi_flash.cs;
+    cs.mode = Luat_GPIO_OUTPUT;
+    cs.pull = Luat_GPIO_HIGH;
+    luat_gpio_setup(&cs);
+    luat_gpio_set(sfud_spi_flash.cs,1);
     /* port SPI device interface */
     flash->spi.wr = spi_write_read;
     // flash->spi.user_data = flash;

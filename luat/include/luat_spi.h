@@ -17,6 +17,13 @@ typedef struct luat_spi
     int cs;      // cs控制引脚
 } luat_spi_t;
 
+typedef struct luat_spi_device
+{
+    uint8_t cs;
+    uint8_t  bus_id;
+    void* user_data;
+} luat_spi_device_t;
+
 /**
     spiId,--串口id
     cs,
@@ -40,5 +47,16 @@ int luat_spi_transfer(int spi_id, const char* send_buf, char* recv_buf, size_t l
 int luat_spi_recv(int spi_id, char* recv_buf, size_t length);
 //发SPI数据，返回发送字节数
 int luat_spi_send(int spi_id, const char* send_buf, size_t length);
+
+// 配置设备
+int luat_spi_device_setup(luat_spi_device_t* spi_dev);
+//关闭SPI设备，成功返回0
+int luat_spi_device_close(luat_spi_device_t* spi_dev);
+//收发SPI数据，返回接收字节数
+int luat_spi_device_transfer(luat_spi_device_t* spi_dev, const char* send_buf, char* recv_buf, size_t length);
+//收SPI数据，返回接收字节数
+int luat_spi_device_recv(luat_spi_device_t* spi_dev, char* recv_buf, size_t length);
+//发SPI数据，返回发送字节数
+int luat_spi_device_send(luat_spi_device_t* spi_dev, const char* send_buf, size_t length);
 
 #endif

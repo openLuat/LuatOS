@@ -18,7 +18,7 @@
 
 /**
 设置并启用SPI设备
-@api spi_v2.device_setup(bus_id, cs, CPHA, CPOL, dataw, bandrate, bitdict, ms, mode)
+@api spiv2.setup(bus_id, cs, CPHA, CPOL, dataw, bandrate, bitdict, ms, mode)
 @int SPI总线id,例如0
 @int CS 片选脚
 @int CPHA 默认0,可选0/1
@@ -31,7 +31,7 @@
 @return int 成功返回dev_id,否则返回-1
 @usage
 -- 初始化spi设备
-spiv2.setup(0,0,20,0,0,8,2000000,spi.MSB,1,1)
+local dev_id = spiv2.setup(0,0,20,0,0,8,2000000,spi.MSB,1,1)
 */
 static int l_spiv2_setup(lua_State *L) {
     luat_spiv2_t spi_config = {0};

@@ -7,12 +7,13 @@
 
 #include "luat_base.h"
 #include "luat_spi.h"
+#include "luat_spiv2.h"
 #include "sfud.h"
 
 #define LUAT_LOG_TAG "luat.sfud"
 #include "luat_log.h"
 
-luat_spi_t sfud_spi_flash;
+luat_sfud_flash_t luat_sfud;
 
 /*
 初始化sfud
@@ -25,21 +26,38 @@ luat_spi_t sfud_spi_flash;
 log.info("sfud.init",sfud.init(0,20,20 * 1000 * 1000))
 */
 static int l_sfud_init(lua_State *L){
-
-    sfud_spi_flash.id = luaL_checkinteger(L, 1);
-    sfud_spi_flash.cs = luaL_checkinteger(L, 2);
-    sfud_spi_flash.bandrate = luaL_checkinteger(L, 3);
-    // sfud_spi_flash.id = 0;
-    // sfud_spi_flash.cs = 20; // 默认无
-    sfud_spi_flash.CPHA = 1; // CPHA0
-    sfud_spi_flash.CPOL = 1; // CPOL0
-    sfud_spi_flash.dataw = 8; // 8bit
-    // sfud_spi_flash.bandrate = 20 * 1000 * 1000; // 2000000U
-    sfud_spi_flash.bit_dict = 1; // MSB=1, LSB=0
-    sfud_spi_flash.master = 1; // master=1,slave=0
-    sfud_spi_flash.mode = 1; // FULL=1, half=0
-    luat_spi_setup(&sfud_spi_flash);
-
+    static luat_spi_t sfud_spi_flash;
+    static luat_spiv2_t sfud_spiv2_flash;
+    const char* type = luaL_checkstring(L, 1);
+    luat_sfud.luat_spi = type;
+    if (!strcmp("spi", type)) {
+        sfud_spi_flash.id = luaL_checkinteger(L, 2);
+        sfud_spi_flash.cs = luaL_checkinteger(L, 3);
+        sfud_spi_flash.bandrate = luaL_checkinteger(L, 4);
+        sfud_spi_flash.CPHA = 1; // CPHA0
+        sfud_spi_flash.CPOL = 1; // CPOL0
+        sfud_spi_flash.dataw = 8; // 8bit
+        sfud_spi_flash.bit_dict = 1; // MSB=1, LSB=0
+        sfud_spi_flash.master = 1; // master=1,slave=0
+        sfud_spi_flash.mode = 1; // FULL=1, half=0
+        luat_spi_setup(&sfud_spi_flash);
+        luat_sfud.user_data = &sfud_spi_flash;
+    }
+    if (!strcmp("spiv2", type)) {
+        sfud_spiv2_flash.dev_id = luaL_checkinteger(L, 2);
+        sfud_spiv2_flash.cs = luaL_checkinteger(L, 3);
+        sfud_spiv2_flash.bandrate = luaL_checkinteger(L, 4);
+        sfud_spiv2_flash.bus_id = luaL_checkinteger(L, 5);
+        sfud_spiv2_flash.CPHA = 1; // CPHA0
+        sfud_spiv2_flash.CPOL = 1; // CPOL0
+        sfud_spiv2_flash.dataw = 8; // 8bit
+        sfud_spiv2_flash.bit_dict = 1; // MSB=1, LSB=0
+        sfud_spiv2_flash.master = 1; // master=1,slave=0
+        sfud_spiv2_flash.mode = 1; // FULL=1, half=0
+        luat_spiv2_bus_setup(sfud_spiv2_flash.bus_id);
+        luat_spiv2_device_setup(&sfud_spiv2_flash);
+        luat_sfud.user_data = &sfud_spiv2_flash;
+    }
     int re = sfud_init();
     lua_pushboolean(L, re == 0 ? 1 : 0);
     return 1;

@@ -30,7 +30,7 @@
 #include <stdarg.h>
 
 #include "luat_spi.h"
-#include "luat_gpio.h"
+#include "luat_spiv2.h"
 
 #define LUAT_LOG_TAG "luat.sfud"
 #include "luat_log.h"
@@ -45,26 +45,46 @@ void sfud_log_debug(const char *file, const long line, const char *format, ...);
 static sfud_err spi_write_read(const sfud_spi *spi, const uint8_t *write_buf, size_t write_size, uint8_t *read_buf,
         size_t read_size) {
     sfud_err result = SFUD_SUCCESS;
-    luat_spi_t* spi_flash = (luat_spi_t*) (spi->user_data);
     if (write_size) {
         SFUD_ASSERT(write_buf);
     }
     if (read_size) {
         SFUD_ASSERT(read_buf);
     }
+    const char* type = (*(luat_sfud_flash_t*)(spi->user_data)).luat_spi;
+    if (!strcmp("spi", type)) {
+        luat_spi_t* spi_flash = (luat_spi_t*) ((*(luat_sfud_flash_t*)(spi->user_data)).user_data);
+        if (write_size && read_size) {
+            if (luat_spi_transfer(spi_flash -> id, write_buf, read_buf, read_size) <= 0) {
+                result = SFUD_ERR_TIMEOUT;
+            }
+        } else if (write_size) {
+            if (luat_spi_send(spi_flash -> id,  write_buf, write_size) <= 0) {
+                result = SFUD_ERR_WRITE;
+            }
+        } else {
+            if (luat_spi_recv(spi_flash -> id, read_buf, read_size) <= 0) {
+                result = SFUD_ERR_READ;
+            }
+        }
+    }
+    else if (!strcmp("spiv2", type)) {
+        luat_spiv2_t* spi_flash = (luat_spiv2_t*) ((*(luat_sfud_flash_t*)(spi->user_data)).user_data);
+        if (write_size && read_size) {
+            if (luat_spiv2_transfer(spi_flash -> dev_id, write_buf, read_buf, read_size) <= 0) {
+                result = SFUD_ERR_TIMEOUT;
+            }
+        } else if (write_size) {
+            if (luat_spiv2_send(spi_flash -> dev_id,  write_buf, write_size) <= 0) {
+                result = SFUD_ERR_WRITE;
+            }
+        } else {
+            if (luat_spiv2_recv(spi_flash -> dev_id, read_buf, read_size) <= 0) {
+                result = SFUD_ERR_READ;
+            }
+        }
+    }
 
-    luat_gpio_set(spi_flash->cs,0);
-    if (write_size) {
-        if (luat_spi_send(spi_flash -> id,  write_buf, write_size) <= 0) {
-            result = SFUD_ERR_WRITE;
-        }
-    }
-    if (read_size) {
-        if (luat_spi_recv(spi_flash -> id, read_buf, read_size) <= 0) {
-            result = SFUD_ERR_READ;
-        }
-    }
-    luat_gpio_set(spi_flash->cs,1);
 
     return result;
 }
@@ -94,17 +114,11 @@ static void retry_delay_100us(void) {
 sfud_err sfud_spi_port_init(sfud_flash *flash) {
     sfud_err result = SFUD_SUCCESS;
 
-    extern luat_spi_t sfud_spi_flash;
-    luat_gpio_t cs;
-    cs.pin = sfud_spi_flash.cs;
-    cs.mode = Luat_GPIO_OUTPUT;
-    cs.pull = Luat_GPIO_HIGH;
-    luat_gpio_setup(&cs);
-    luat_gpio_set(sfud_spi_flash.cs,1);
+    extern luat_sfud_flash_t luat_sfud;
     /* port SPI device interface */
     flash->spi.wr = spi_write_read;
     // flash->spi.user_data = flash;
-    flash->spi.user_data = &sfud_spi_flash;
+    flash->spi.user_data = &luat_sfud;
     /* 100 microsecond delay */
     flash->retry.delay = retry_delay_100us;
     /* 60 seconds timeout */

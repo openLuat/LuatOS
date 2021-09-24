@@ -33,6 +33,8 @@ end
 fatfs_test() -- 每次开机,把记录的数值+1
 
 sys.taskInit(function()
+    wdt.init(15000)
+    sys.timerLoopStart(wdt.feed, 10000)
     while 1 do
         sys.wait(500)
     end

@@ -11,6 +11,9 @@ VERSION = "1.0.1"
 _G.sys = require("sys")
 
 sys.taskInit(function()
+    wdt.init(15000)
+    sys.timerLoopStart(wdt.feed, 10000)
+
     sdio.init(0)
     sdio.sd_mount(0,"/sd",0)
     spi.setup(0, 20, 0, 0, 8, 40 * 1000 * 1000, spi.MSB, 1, 1)

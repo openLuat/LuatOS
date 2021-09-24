@@ -32,6 +32,8 @@ disp.setFont(1) -- 启用中文字体,文泉驿点阵宋体 12x12
 display_str("启动中 ...")
 
 sys.taskInit(function()
+    wdt.init(15000)
+    sys.timerLoopStart(wdt.feed, 10000)
     while 1 do
         sys.wait(1000)
         log.info("disp", "ui update", rtos.meminfo()) -- rtos是也是内置库

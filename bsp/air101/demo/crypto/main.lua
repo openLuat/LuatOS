@@ -29,6 +29,14 @@ sys.timerLoopStart(function()
 
 end, 2000)
 
+sys.taskInit(function()
+    wdt.init(15000)
+    sys.timerLoopStart(wdt.feed, 10000)
+    while 1 do
+        sys.wait(500)
+    end
+end)
+
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()

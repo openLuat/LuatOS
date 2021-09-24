@@ -11,6 +11,9 @@ VERSION = "1.0.1"
 _G.sys = require("sys")
 
 sys.taskInit(function()
+    wdt.init(15000)
+    sys.timerLoopStart(wdt.feed, 10000)
+    
     log.info("os.date()", os.date())
     local t = rtc.get()
     log.info("rtc", json.encode(t))

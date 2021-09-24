@@ -6,6 +6,9 @@ VERSION = "1.0.0"
 local sys = require "sys"
 
 sys.taskInit(function()
+    wdt.init(15000)
+    sys.timerLoopStart(wdt.feed, 10000)
+    
     log.info("sfud.init",sfud.init(0,20,20 * 1000 * 1000))
     log.info("sfud.get_device_num",sfud.get_device_num())
     local sfud_device = sfud.get_device_table()

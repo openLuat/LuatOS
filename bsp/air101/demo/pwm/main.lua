@@ -13,6 +13,8 @@ _G.sys = require("sys")
 -- PWM0 --> PB0-16
 
 sys.taskInit(function()
+    wdt.init(15000)
+    sys.timerLoopStart(wdt.feed, 10000)
     while 1 do
         -- 仿呼吸灯效果
         log.info("pwm", ">>>>>")

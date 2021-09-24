@@ -11,6 +11,8 @@ local LEDB = gpio.setup(25, 0, gpio.PULLUP) -- PB1输出模式
 local LEDC = gpio.setup(26, 0, gpio.PULLUP) -- PB1输出模式
 
 sys.taskInit(function()
+    wdt.init(15000)
+    sys.timerLoopStart(wdt.feed, 10000)
     local count = 0
     local uid = mcu.unique_id() or ""
     while 1 do

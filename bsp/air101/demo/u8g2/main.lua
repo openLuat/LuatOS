@@ -12,6 +12,9 @@ VERSION = "1.0.1"
 -- sys库是标配
 _G.sys = require("sys")
 
+--添加硬狗防止程序卡死
+wdt.init(15000)--初始化watchdog设置为15s
+sys.timerLoopStart(wdt.feed, 10000)--10s喂一次狗
 
 -- 日志TAG, 非必须
 local TAG = "main"

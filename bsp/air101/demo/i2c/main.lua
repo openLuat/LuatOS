@@ -5,6 +5,11 @@ VERSION = "1.0.0"
 
 -- 一定要添加sys.lua !!!!
 local sys = require "sys"
+
+--添加硬狗防止程序卡死
+wdt.init(15000)--初始化watchdog设置为15s
+sys.timerLoopStart(wdt.feed, 10000)--10s喂一次狗
+
 --初始化i2c，air101使用id为1
 if i2c.setup(0, i2c.FAST, 0x44) == 1 then
     log.info("存在 i2c0")

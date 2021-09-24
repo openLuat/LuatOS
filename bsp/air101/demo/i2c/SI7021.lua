@@ -5,6 +5,10 @@ local i2cId = 0
 -- 一定要添加sys.lua !!!!
 local sys = require "sys"
 
+--添加硬狗防止程序卡死
+wdt.init(15000)--初始化watchdog设置为15s
+sys.timerLoopStart(wdt.feed, 10000)--10s喂一次狗
+
 sys.taskInit(function()
     sys.wait(5000)
     if i2c.setup(i2cId, i2c.FAST, 0x40) == 1 then

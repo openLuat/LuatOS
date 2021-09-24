@@ -6,6 +6,10 @@ VERSION = "1.0.0"
 -- 一定要添加sys.lua !!!!
 local sys = require "sys"
 
+--添加硬狗防止程序卡死
+wdt.init(15000)--初始化watchdog设置为15s
+sys.timerLoopStart(wdt.feed, 10000)--10s喂一次狗
+
 --灯 PB1,
 local NETLED = gpio.setup(17, 0)     -- 初始化PB1, 并设置为低电平
 

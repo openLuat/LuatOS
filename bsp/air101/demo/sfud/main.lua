@@ -10,6 +10,9 @@ wdt.init(15000)--初始化watchdog设置为15s
 sys.timerLoopStart(wdt.feed, 10000)--10s喂一次狗
 
 sys.taskInit(function()
+    wdt.init(15000)
+    sys.timerLoopStart(wdt.feed, 10000)
+    
     log.info("sfud.init",sfud.init(0,20,20 * 1000 * 1000))
     log.info("sfud.get_device_num",sfud.get_device_num())
     local sfud_device = sfud.get_device_table()

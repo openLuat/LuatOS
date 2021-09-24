@@ -10,6 +10,8 @@ wdt.init(15000)--初始化watchdog设置为15s
 sys.timerLoopStart(wdt.feed, 10000)--10s喂一次狗
 
 sys.taskInit(function()
+    wdt.init(15000)
+    sys.timerLoopStart(wdt.feed, 10000)
     sys.wait(5000)
     if i2c.setup(i2cId, i2c.FAST, 0x40) == 1 then
         log.info("存在 i2c0")

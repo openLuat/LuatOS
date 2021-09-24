@@ -16,6 +16,8 @@ local NETLED = gpio.setup(17, 0)     -- 初始化PB1, 并设置为低电平
 
 
 sys.taskInit(function()
+    wdt.init(15000)
+    sys.timerLoopStart(wdt.feed, 10000)
     while 1 do
         log.info("LED", "Go Go Go")
         NETLED(0) -- 低电平,熄灭

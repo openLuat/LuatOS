@@ -32,6 +32,8 @@ lvgl.label_set_text(label2, "Hi")
 lvgl.scr_load(scr)
 
 sys.taskInit(function()
+    wdt.init(15000)
+    sys.timerLoopStart(wdt.feed, 10000)
     while 1 do
         sys.wait(500)
     end

@@ -21,6 +21,8 @@ log.info("lcd.drawRectangle", lcd.drawRectangle(20,40,220,80,0x001F))
 log.info("lcd.drawCircle", lcd.drawCircle(120,120,20,0x001F))
 
 sys.taskInit(function()
+    wdt.init(15000)
+    sys.timerLoopStart(wdt.feed, 10000)
     while 1 do
         sys.wait(500)
     end

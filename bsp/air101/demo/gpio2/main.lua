@@ -15,6 +15,8 @@ gpio.setup(7, function()
 end, gpio.PULLDOWN)
 
 sys.taskInit(function()
+    wdt.init(15000)
+    sys.timerLoopStart(wdt.feed, 10000)
     while 1 do
         sys.wait(500)
     end

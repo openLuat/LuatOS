@@ -69,17 +69,17 @@ static sfud_err spi_write_read(const sfud_spi *spi, const uint8_t *write_buf, si
         }
     }
     else if (!strcmp("spiv2", type)) {
-        luat_spiv2_t* spi_flash = (luat_spiv2_t*) ((*(luat_sfud_flash_t*)(spi->user_data)).user_data);
+        int* spi_dev = (int*) ((*(luat_sfud_flash_t*)(spi->user_data)).user_data);
         if (write_size && read_size) {
-            if (luat_spiv2_transfer(spi_flash -> dev_id, write_buf, read_buf, read_size) <= 0) {
+            if (luat_spiv2_transfer(*spi_dev , write_buf, read_buf, read_size) <= 0) {
                 result = SFUD_ERR_TIMEOUT;
             }
         } else if (write_size) {
-            if (luat_spiv2_send(spi_flash -> dev_id,  write_buf, write_size) <= 0) {
+            if (luat_spiv2_send(*spi_dev ,  write_buf, write_size) <= 0) {
                 result = SFUD_ERR_WRITE;
             }
         } else {
-            if (luat_spiv2_recv(spi_flash -> dev_id, read_buf, read_size) <= 0) {
+            if (luat_spiv2_recv(*spi_dev , read_buf, read_size) <= 0) {
                 result = SFUD_ERR_READ;
             }
         }

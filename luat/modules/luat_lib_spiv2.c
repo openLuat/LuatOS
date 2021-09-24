@@ -15,53 +15,36 @@
 #include "luat_log.h"
 #define LUAT_LOG_TAG "luat.spiv2"
 
-/**
-设置并启用SPI总线
-@api spiv2.bus_setup(id)
-@int SPI总线ID,例如0
-@return int 成功返回0,否则返回其他值
-@usage
--- 初始化spi总线
-spiv2.bus_setup(0)
-*/
-static int l_spiv2_bus_setup(lua_State *L) {
-    int bus_id = luaL_checkinteger(L, 1);
-    lua_pushinteger(L, luat_spiv2_bus_setup(bus_id));
-    return 1;
-}
 
 /**
 设置并启用SPI设备
-@api spi_v2.device_setup(bus,id, cs, CPHA, CPOL, dataw, bandrate, bitdict, ms, mode)
-@int SPI号,例如0
+@api spi_v2.device_setup(bus_id, cs, CPHA, CPOL, dataw, bandrate, bitdict, ms, mode)
+@int SPI总线id,例如0
 @int CS 片选脚
 @int CPHA 默认0,可选0/1
 @int CPOL 默认0,可选0/1
 @int 数据宽度,默认8bit
-@int 波特率,默认2M=2000000
+@int 频率,默认20M=20000000
 @int 大小端, 默认spi.MSB, 可选spi.LSB
 @int 主从设置, 默认主1, 可选从机0. 通常只支持主机模式
 @int 工作模式, 全双工1, 半双工0, 默认全双工
-@return int 成功返回0,否则返回其他值
+@return int 成功返回dev_id,否则返回-1
 @usage
 -- 初始化spi设备
-spi_v2.device_setup(0,0,20,0,0,8,2000000,spi.MSB,1,1)
+spiv2.setup(0,0,20,0,0,8,2000000,spi.MSB,1,1)
 */
-static int l_spiv2_device_setup(lua_State *L) {
+static int l_spiv2_setup(lua_State *L) {
     luat_spiv2_t spi_config = {0};
     spi_config.bus_id = luaL_checkinteger(L, 1);
-    spi_config.dev_id = luaL_checkinteger(L, 2);
-    spi_config.cs = luaL_optinteger(L, 3, 255); // 默认无
-    spi_config.CPHA = luaL_optinteger(L, 4, 0); // CPHA0
-    spi_config.CPOL = luaL_optinteger(L, 5, 0); // CPOL0
-    spi_config.dataw = luaL_optinteger(L, 6, 8); // 8bit
-    spi_config.bandrate = luaL_optinteger(L, 7, 2000000U); // 2000000U
-    spi_config.bit_dict = luaL_optinteger(L, 8, 1); // MSB=1, LSB=0
-    spi_config.master = luaL_optinteger(L, 9, 1); // master=1,slave=0
-    spi_config.mode = luaL_optinteger(L, 10, 1); // FULL=1, half=0
-
-    lua_pushinteger(L, luat_spiv2_device_setup(&spi_config));
-
+    spi_config.cs = luaL_optinteger(L, 2, 255); // 默认无
+    spi_config.CPHA = luaL_optinteger(L, 3, 0); // CPHA0
+    spi_config.CPOL = luaL_optinteger(L, 4, 0); // CPOL0
+    spi_config.dataw = luaL_optinteger(L, 5, 8); // 8bit
+    spi_config.bandrate = luaL_optinteger(L, 6, 20000000U); // 20000000U
+    spi_config.bit_dict = luaL_optinteger(L, 7, 1); // MSB=1, LSB=0
+    spi_config.master = luaL_optinteger(L, 8, 1); // master=1,slave=0
+    spi_config.mode = luaL_optinteger(L, 9, 1); // FULL=1, half=0
+    lua_pushinteger(L, luat_spiv2_setup(&spi_config));
     return 1;
 }
 
@@ -216,9 +199,8 @@ static int l_spiv2_send(lua_State *L) {
 #include "rotable.h"
 static const rotable_Reg reg_spiv2[] =
 {
-    { "bus_setup" ,       l_spiv2_bus_setup,         0},
+    { "setup",        l_spiv2_setup,         0},
     { "bus_close",        l_spiv2_bus_close,         0},
-    { "device_setup" ,    l_spiv2_device_setup,      0},
     { "device_close",     l_spiv2_device_close,      0},
     { "transfer",         l_spiv2_transfer,      0},
     { "recv",             l_spiv2_recv,         0},

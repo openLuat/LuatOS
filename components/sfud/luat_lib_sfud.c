@@ -17,20 +17,20 @@ luat_sfud_flash_t luat_sfud;
 
 /*
 初始化sfud
-@api  sfud.init(type,spi_id, spi_cs, spi_bandrate,bus_id)
+@api  sfud.init(type,spi_id, spi_cs, spi_bandrate)
 @string  type "spi"或"spiv2"
 @int  spi_id SPI的ID
 @int  spi_cs SPI的片选
 @int  spi_bandrate SPI的频率
-@int  bus_id SPI总线id(spiv2使用)
 @return bool 成功返回true,否则返回false
 @usage
 log.info("sfud.init",sfud.init("spi",0,20,20 * 1000 * 1000))--spi
-log.info("sfud.init",sfud.init("spiv2",0,20,20 * 1000 * 1000,0))--spiv2
+log.info("sfud.init",sfud.init("spiv2",0,20,20 * 1000 * 1000))--spiv2
 */
 static int l_sfud_init(lua_State *L){
     static luat_spi_t sfud_spi_flash;
     static luat_spiv2_t sfud_spiv2_flash;
+    static int spi_dev;
     const char* type = luaL_checkstring(L, 1);
     luat_sfud.luat_spi = type;
     if (!strcmp("spi", type)) {
@@ -47,19 +47,17 @@ static int l_sfud_init(lua_State *L){
         luat_sfud.user_data = &sfud_spi_flash;
     }
     if (!strcmp("spiv2", type)) {
-        sfud_spiv2_flash.dev_id = luaL_checkinteger(L, 2);
+        sfud_spiv2_flash.bus_id = luaL_checkinteger(L, 2);
         sfud_spiv2_flash.cs = luaL_checkinteger(L, 3);
         sfud_spiv2_flash.bandrate = luaL_checkinteger(L, 4);
-        sfud_spiv2_flash.bus_id = luaL_checkinteger(L, 5);
         sfud_spiv2_flash.CPHA = 1; // CPHA0
         sfud_spiv2_flash.CPOL = 1; // CPOL0
         sfud_spiv2_flash.dataw = 8; // 8bit
         sfud_spiv2_flash.bit_dict = 1; // MSB=1, LSB=0
         sfud_spiv2_flash.master = 1; // master=1,slave=0
         sfud_spiv2_flash.mode = 1; // FULL=1, half=0
-        luat_spiv2_bus_setup(sfud_spiv2_flash.bus_id);
-        luat_spiv2_device_setup(&sfud_spiv2_flash);
-        luat_sfud.user_data = &sfud_spiv2_flash;
+        spi_dev = luat_spiv2_setup(&sfud_spiv2_flash);
+        luat_sfud.user_data = &spi_dev;
     }
     int re = sfud_init();
     lua_pushboolean(L, re == 0 ? 1 : 0);

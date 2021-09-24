@@ -7,7 +7,6 @@ typedef struct luat_spiv2
 {
     /* data */
     int  bus_id;     // bus
-    int  dev_id;      // id
     int  CPHA;    // CPHA
     int  CPOL;    // CPOL
     int  dataw;   // 数据宽度
@@ -19,12 +18,8 @@ typedef struct luat_spiv2
     void *user_data;// some user data
 } luat_spiv2_t;
 
-
-//初始化SPI总线，成功返回0
-int luat_spiv2_bus_setup(int bus_id);
 /**
     busId,
-    spiId,
     cs,
     0,--CPHA
     0,--CPOL
@@ -35,8 +30,8 @@ int luat_spiv2_bus_setup(int bus_id);
     spi.full,--全双工       可选，默认全双工
 */
 //初始化配置SPI设备各项参数，并打开SPI
-//成功返回0
-int luat_spiv2_device_setup(luat_spiv2_t* spi_dev);
+//成功返回dev_id,失败返回-1
+int luat_spiv2_setup(luat_spiv2_t* spi_dev);
 //关闭SPI总线，成功返回0
 int luat_spiv2_bus_close(int bus_id);
 //关闭SPI设备，成功返回0

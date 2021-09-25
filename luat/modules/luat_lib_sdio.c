@@ -96,6 +96,7 @@ static int l_sdio_write(lua_State *L) {
 @string 挂载路径, 默认"/sd", 不允许以"/"结尾
 @bool 是否自动格式化,默认是true
 @return bool 挂载成功返回true,否则返回false
+@return int 底层返回的具体结果码,用于调试
 */
 static int l_sdio_sd_mount(lua_State *L) {
     int id = luaL_optinteger(L, 1, 0);
@@ -103,7 +104,8 @@ static int l_sdio_sd_mount(lua_State *L) {
     int auto_format = luaL_optinteger(L, 3, 1);
     int ret = luat_sdio_sd_mount(id, &sdio_t[id].rca, (char*)path, auto_format);
     lua_pushboolean(L, ret == 0 ? 1: 0);
-    return 1;
+    lua_pushinteger(L, ret);
+    return 2;
 }
 
 /*

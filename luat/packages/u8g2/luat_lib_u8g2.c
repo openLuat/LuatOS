@@ -317,14 +317,14 @@ static int l_u8g2_SetFont(lua_State *L) {
 #endif
 #if defined USE_U8G2_UNIFONT_SYMBOLS
         case font_unifont_t_symbols:
-            LLOGI("font_wqy12_t_gb2312");
+            LLOGI("font_unifont_t_symbols");
             u8g2_SetFont(u8g2, u8g2_font_unifont_t_symbols);
             lua_pushboolean(L, 1);
             break;
 #endif
 #if defined USE_U8G2_ICONIC_WEATHER_6X
         case font_open_iconic_weather_6x_t:
-            LLOGI("font_wqy12_t_gb2312");
+            LLOGI("font_open_iconic_weather_6x_t");
             u8g2_SetFont(u8g2, u8g2_font_open_iconic_weather_6x_t);
             lua_pushboolean(L, 1);
             break;

@@ -7,7 +7,6 @@
 
 #include "luat_base.h"
 #include "luat_spi.h"
-#include "luat_spiv2.h"
 #include "sfud.h"
 
 #define LUAT_LOG_TAG "luat.sfud"

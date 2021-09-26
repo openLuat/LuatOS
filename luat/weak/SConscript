@@ -1,12 +1,13 @@
 from building import *
 
 cwd = GetCurrentDir()
-src	= []
-for p in os.listdir(cwd) :
-    if p.endswith(".c"):
-        src += [p]
+src = Glob('*.c')
+# src	= []
+# for p in os.listdir(cwd) :
+#     if p.endswith(".c"):
+#         src += [p]
         
-src.remove('luat_spi_device.c')
+# src.remove('luat_spi_device.c')
 
 CPPPATH = [cwd]
 

@@ -17,15 +17,17 @@ luat_sfud_flash_t luat_sfud;
 
 /*
 初始化sfud
-@api  sfud.init(type,spi_id, spi_cs, spi_bandrate)
-@string  type "spi"或"spiv2"
-@int  spi_id SPI的ID
+@api  sfud.init(spi_id, spi_cs, spi_bandrate)/sfud.init(spi_device)
+@int  spi_id SPI的ID/userdata spi_device
 @int  spi_cs SPI的片选
 @int  spi_bandrate SPI的频率
 @return bool 成功返回true,否则返回false
 @usage
-log.info("sfud.init",sfud.init(0,20,20 * 1000 * 1000))--spi
-log.info("sfud.init",sfud.init(0,20,20 * 1000 * 1000))--spiv2
+--spi
+log.info("sfud.init",sfud.init(0,20,20 * 1000 * 1000))
+--spi_device
+local spi_device = spi.device_setup(0,17,0,0,8,2000000,spi.MSB,1,1)
+log.info("sfud.init",sfud.init(spi_device))
 */
 static int l_sfud_init(lua_State *L){
     static luat_spi_t sfud_spi_flash;

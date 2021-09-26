@@ -4,22 +4,9 @@
 
 typedef struct luat_statm_op {
     uint8_t tp;
-    typedef union luat_statem_op_arg
-    {
-        struct {
-            uint8_t arg1;
-            uint8_t arg2;
-            uint8_t arg3;
-        }Arg888;
-        struct {
-            uint8_t arg1;
-            uint16_t arg2;
-        }Arg816;
-        struct {
-            uint16_t arg1;
-            uint8_t arg2;
-        }Arg168;
-    } arg;
+    uint8_t arg1;
+    uint8_t arg2;
+    uint8_t arg3;
 }luat_statm_op_t;
 
 typedef struct luat_statem

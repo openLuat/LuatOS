@@ -6,9 +6,9 @@ void luat_statem_init(luat_statem_t* sm) {
 
 void luat_statem_addop(luat_statem_t* sm, uint8_t tp, uint8_t arg1, uint8_t arg2, uint8_t arg3) {
     sm->op_list[sm->pc].tp = tp;
-    sm->op_list[sm->pc].arg.Arg888.arg1 = arg1;
-    sm->op_list[sm->pc].arg.Arg888.arg2 = arg2;
-    sm->op_list[sm->pc].arg.Arg888.arg3 = arg3;
+    sm->op_list[sm->pc].arg1 = arg1;
+    sm->op_list[sm->pc].arg2 = arg2;
+    sm->op_list[sm->pc].arg3 = arg3;
     sm->pc ++;
 }
 
@@ -24,10 +24,10 @@ void luat_statem_exec(luat_statem_t* sm) {
         switch (op->tp)
         {
         case LUAT_SM_OP_USLEEP:
-            luat_timer_us_delay(op->arg.Arg888.arg1);
+            luat_timer_us_delay(op->arg1);
             break;
         case LUAT_SM_OP_GPIO_GET:
-            value = luat_gpio_get(op->arg.Arg888.arg1);
+            value = luat_gpio_get(op->arg1);
             if (sm->gpio_input_offset < 256) {
                 if (value) {
                     sm->gpio_inputs[(sm->gpio_input_offset) /32] |= 1 << (sm->gpio_input_offset & 0x1F);
@@ -36,7 +36,7 @@ void luat_statem_exec(luat_statem_t* sm) {
             }
             break;
         case LUAT_SM_OP_GPIO_SET:
-            luat_gpio_set(op->arg.Arg888.arg1, op->arg.Arg888.arg2);
+            luat_gpio_set(op->arg1, op->arg2);
             break;
         default:
             break;

@@ -53,3 +53,13 @@ jobs:
       with:
         name: air640w
         path: bsp/air640w/rtt/Bin
+    - name: report if failure
+      if: always()
+      env:
+        STATUS: ${{ job.status }}
+        MQTTADDR: ${{ secrets.MQTTADDR }}
+        MQTTPORT: ${{ secrets.MQTTPORT }}
+        MQTTTOPIC: ${{ secrets.MQTTTOPIC }}
+      run: |
+        cd tools
+        if [ "$STATUS" = "failure" ];then sudo pip3 install paho_mqtt; python3 ciNotify.py $MQTTADDR $MQTTPORT $MQTTTOPIC air640w; fi

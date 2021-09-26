@@ -45,3 +45,13 @@ jobs:
       with:
         name: luatos_win32
         path: bsp/win32/luatos_win32
+    - name: report if failure
+      if: always()
+      env:
+        STATUS: ${{ job.status }}
+        MQTTADDR: ${{ secrets.MQTTADDR }}
+        MQTTPORT: ${{ secrets.MQTTPORT }}
+        MQTTTOPIC: ${{ secrets.MQTTTOPIC }}
+      run: |
+        cd tools
+        if [ "$STATUS" = "failure" ];then sudo pip3 install paho_mqtt; python3 ciNotify.py $MQTTADDR $MQTTPORT $MQTTTOPIC win32; fi

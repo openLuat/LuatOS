@@ -184,6 +184,23 @@ static int l_spi_send(lua_State *L) {
     return 1;
 }
 
+/**
+设置并启用SPI(对象方式)
+@api spi.device_setup(id, cs, CPHA, CPOL, dataw, bandrate, bitdict, ms, mode)
+@int SPI号,例如0
+@int CS 片选脚,在w600不可用请填nil
+@int CPHA 默认0,可选0/1
+@int CPOL 默认0,可选0/1
+@int 数据宽度,默认8bit
+@int 波特率,默认20M=20000000
+@int 大小端, 默认spi.MSB, 可选spi.LSB
+@int 主从设置, 默认主1, 可选从机0. 通常只支持主机模式
+@int 工作模式, 全双工1, 半双工0, 默认全双工
+@return userdata spi_device
+@usage
+-- 初始化spi
+local spi_device = spi.device_setup(0,17,0,0,8,2000000,spi.MSB,1,1)
+*/
 static int l_spi_device_setup(lua_State *L) {
     luat_spi_device_t* spi_device = lua_newuserdata(L, sizeof(luat_spi_device_t));
     if (spi_device == NULL)
@@ -205,6 +222,15 @@ static int l_spi_device_setup(lua_State *L) {
     return 1;
 }
 
+/**
+关闭指定的SPI(对象方式)
+@api spi_device:close()
+@userdata spi_device
+@return int 成功返回0,否则返回其他值
+@usage
+-- 初始化spi
+spi_device.close()
+*/
 static int l_spi_device_close(lua_State *L) {
     luat_spi_device_t* spi_device = (luat_spi_device_t*)lua_touserdata(L, 1);
     int ret = luat_spi_device_close(spi_device);
@@ -212,6 +238,21 @@ static int l_spi_device_close(lua_State *L) {
     return 1;
 }
 
+/**
+传输SPI数据(对象方式)
+@api spi_device:transfer(send_data[, len])
+@userdata spi_device
+@string/zbuff 待发送的数据，如果为zbuff数据，则会从对象所处的指针处开始读
+@int 可选。待发送数据的长度，默认为data长度
+@return string 读取成功返回字符串,否则返回nil
+@usage
+-- 初始化spi
+local spi_device = spi.device_setup(0,17,0,0,8,2000000,spi.MSB,1,1)
+local recv = spi_device:transfer("123")--发送123,并读取数据
+
+local buff = zbuff.create(1024, 0x33) --创建一个初值全为0x33的内存区域
+local recv = spi_device:transfer(buff)--把zbuff数据从指针开始，全发出去,并读取数据
+*/
 static int l_spi_device_transfer(lua_State *L) {
     luat_spi_device_t* spi_device = (luat_spi_device_t*)lua_touserdata(L, 1);
     size_t len;
@@ -246,6 +287,21 @@ static int l_spi_device_transfer(lua_State *L) {
     return 0;
 }
 
+/**
+发送SPI数据(对象方式)
+@api spi_device:send(data[, len])
+@userdata spi_device
+@string/zbuff 待发送的数据，如果为zbuff数据，则会从对象所处的指针处开始读
+@int 可选。待发送数据的长度，默认为data长度
+@return int 发送结果
+@usage
+-- 初始化spi
+local spi_device = spi.device_setup(0,17,0,0,8,2000000,spi.MSB,1,1)
+local result = spi_device:send("123")--发送123
+
+local buff = zbuff.create(1024, 0x33) --创建一个初值全为0x33的内存区域
+local result = spi_device:send(buff)--把zbuff数据从指针开始，全发出去
+*/
 static int l_spi_device_send(lua_State *L) {
     luat_spi_device_t* spi_device = (luat_spi_device_t*)lua_touserdata(L, 1);
     size_t len;
@@ -271,6 +327,17 @@ static int l_spi_device_send(lua_State *L) {
     return 1;
 }
 
+/**
+接收指定长度的SPI数据(对象方式)
+@api spi_device:recv(size)
+@userdata spi_device
+@int 数据长度
+@return string 读取成功返回字符串,否则返回nil
+@usage
+-- 初始化spi
+local spi_device = spi.device_setup(0,17,0,0,8,2000000,spi.MSB,1,1)
+local recv = spi_device:recv(4)--接收4字节数据
+*/
 static int l_spi_device_recv(lua_State *L) {
     luat_spi_device_t* spi_device = (luat_spi_device_t*)lua_touserdata(L, 1);
     int len = luaL_checkinteger(L, 2);

@@ -19,8 +19,8 @@ typedef struct luat_spi
 
 typedef struct luat_spi_device
 {
-    uint8_t cs;
     uint8_t  bus_id;
+    luat_spi_t spi_config;
     void* user_data;
 } luat_spi_device_t;
 
@@ -48,8 +48,12 @@ int luat_spi_recv(int spi_id, char* recv_buf, size_t length);
 //发SPI数据，返回发送字节数
 int luat_spi_send(int spi_id, const char* send_buf, size_t length);
 
-// 配置设备
+// 初始化总线
+int luat_spi_bus_setup(luat_spi_device_t* spi_dev);
+// 初始化设备
 int luat_spi_device_setup(luat_spi_device_t* spi_dev);
+// 配置设备
+int luat_spi_device_config(luat_spi_device_t* spi_dev);
 //关闭SPI设备，成功返回0
 int luat_spi_device_close(luat_spi_device_t* spi_dev);
 //收发SPI数据，返回接收字节数

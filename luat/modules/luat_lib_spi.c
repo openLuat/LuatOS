@@ -15,6 +15,9 @@
 
 #define LUAT_LOG_TAG "luat.spi"
 
+#define META_SPI "SPI*"
+
+
 /**
 设置并启用SPI
 @api spi.setup(id, cs, CPHA, CPOL, dataw, bandrate, bitdict, ms, mode)
@@ -181,6 +184,135 @@ static int l_spi_send(lua_State *L) {
     return 1;
 }
 
+static int l_spi_device_setup(lua_State *L) {
+    luat_spi_device_t* spi_device = lua_newuserdata(L, sizeof(luat_spi_device_t));
+    if (spi_device == NULL)
+    {
+        return 0;
+    }
+    memset(spi_device, 0, sizeof(luat_spi_device_t));
+    spi_device->bus_id = luaL_checkinteger(L, 1);
+    spi_device->spi_config.cs = luaL_optinteger(L, 2, 255); // 默认无
+    spi_device->spi_config.CPHA = luaL_optinteger(L, 3, 0); // CPHA0
+    spi_device->spi_config.CPOL = luaL_optinteger(L, 4, 0); // CPOL0
+    spi_device->spi_config.dataw = luaL_optinteger(L, 5, 8); // 8bit
+    spi_device->spi_config.bandrate = luaL_optinteger(L, 6, 20000000U); // 20000000U
+    spi_device->spi_config.bit_dict = luaL_optinteger(L, 7, 1); // MSB=1, LSB=0
+    spi_device->spi_config.master = luaL_optinteger(L, 8, 1); // master=1,slave=0
+    spi_device->spi_config.mode = luaL_optinteger(L, 9, 1); // FULL=1, half=0
+    luat_spi_device_setup(spi_device);
+    luaL_setmetatable(L, META_SPI);
+    return 1;
+}
+
+static int l_spi_device_close(lua_State *L) {
+    luat_spi_device_t* spi_device = (luat_spi_device_t*)lua_touserdata(L, 1);
+    int ret = luat_spi_device_close(spi_device);
+    lua_pushboolean(L, ret == 0 ? 1 : 0);
+    return 1;
+}
+
+static int l_spi_device_transfer(lua_State *L) {
+    luat_spi_device_t* spi_device = (luat_spi_device_t*)lua_touserdata(L, 1);
+    size_t len;
+    const char* send_buff;
+    if(lua_isuserdata(L, 2)){//zbuff对象特殊处理
+        luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+        send_buff = buff->addr+buff->cursor;
+        len = buff->len - buff->cursor;
+    }else{
+        send_buff = lua_tolstring(L, 2, &len);
+    }
+    if(lua_isinteger(L,3)){//长度参数
+        size_t len_temp = luaL_checkinteger(L,3);
+        if(len_temp < len)
+            len = len_temp;
+    }
+    //长度为0时，直接返回空字符串
+    if(len <= 0){
+        lua_pushlstring(L,NULL,0);
+        return 1;
+    }
+    char* recv_buff = luat_heap_malloc(len);
+    if(recv_buff == NULL)
+        return 0;
+    int ret = luat_spi_device_transfer(spi_device, send_buff, recv_buff, len);
+    if (ret > 0) {
+        lua_pushlstring(L, recv_buff, ret);
+        luat_heap_free(recv_buff);
+        return 1;
+    }
+    luat_heap_free(recv_buff);
+    return 0;
+}
+
+static int l_spi_device_send(lua_State *L) {
+    luat_spi_device_t* spi_device = (luat_spi_device_t*)lua_touserdata(L, 1);
+    size_t len;
+    const char* send_buff;
+    if(lua_isuserdata(L, 2)){//zbuff对象特殊处理
+        luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+        send_buff = buff->addr+buff->cursor;
+        len = buff->len - buff->cursor;
+    }else{
+        send_buff = lua_tolstring(L, 2, &len);
+    }
+    if(lua_isinteger(L,3)){//长度参数
+        size_t len_temp = luaL_checkinteger(L,3);
+        if(len_temp < len)
+            len = len_temp;
+    }
+    //长度为0时，直接返回
+    if(len <= 0){
+        lua_pushinteger(L,0);
+        return 1;
+    }
+    lua_pushinteger(L, luat_spi_device_send(spi_device, send_buff, len));
+    return 1;
+}
+
+static int l_spi_device_recv(lua_State *L) {
+    luat_spi_device_t* spi_device = (luat_spi_device_t*)lua_touserdata(L, 1);
+    int len = luaL_checkinteger(L, 2);
+    char* recv_buff = luat_heap_malloc(len);
+    if(recv_buff == NULL) return 0;
+    int ret = luat_spi_device_recv(spi_device, recv_buff, len);
+    if (ret > 0) {
+        lua_pushlstring(L, recv_buff, ret);
+        luat_heap_free(recv_buff);
+        return 1;
+    }
+    luat_heap_free(recv_buff);
+    return 0;
+}
+
+int _spi_struct_newindex(lua_State *L) {
+    const char* key = luaL_checkstring(L, 2);
+    if (!strcmp("close", key)) {
+        lua_pushcfunction(L, l_spi_device_close);
+        return 1;
+    }
+    else if (!strcmp("transfer", key)) {
+        lua_pushcfunction(L, l_spi_device_transfer);
+        return 1;
+    }
+    else if (!strcmp("send", key)) {
+        lua_pushcfunction(L, l_spi_device_send);
+        return 1;
+    }
+    else if (!strcmp("recv", key)) {
+        lua_pushcfunction(L, l_spi_device_recv);
+        return 1;
+    }
+    return 0;
+}
+
+void luat_spi_struct_init(lua_State *L) {
+    luaL_newmetatable(L, META_SPI);
+    lua_pushcfunction(L, _spi_struct_newindex);
+    lua_setfield( L, -2, "__index" );
+    lua_pop(L, 1);
+}
 
 //------------------------------------------------------------------
 #include "rotable.h"
@@ -189,8 +321,9 @@ static const rotable_Reg reg_spi[] =
     { "setup" ,           l_spi_setup,         0},
     { "close",            l_spi_close,         0},
     { "transfer",         l_spi_transfer,      0},
-    { "recv",             l_spi_recv,         0},
-    { "send",             l_spi_send,         0},
+    { "recv",             l_spi_recv,          0},
+    { "send",             l_spi_send,          0},
+    { "device_setup",     l_spi_device_setup,  0},
 
     { "MSB",               0,                  1},
     { "LSB",               0,                  2},
@@ -207,5 +340,6 @@ static const rotable_Reg reg_spi[] =
 
 LUAMOD_API int luaopen_spi( lua_State *L ) {
     luat_newlib(L, reg_spi);
+    luat_spi_struct_init(L);
     return 1;
 }

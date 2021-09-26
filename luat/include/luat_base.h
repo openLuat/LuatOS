@@ -77,8 +77,6 @@ LUAMOD_API int luaopen_cjson( lua_State *L );
 LUAMOD_API int luaopen_i2c( lua_State *L );
 /** 加载spi库, 可选*/
 LUAMOD_API int luaopen_spi( lua_State *L );
-/** 加载spiv2库, 可选*/
-LUAMOD_API int luaopen_spiv2( lua_State *L );
 /** 加载disp库, 可选, 会依赖i2c和spi*/
 LUAMOD_API int luaopen_disp( lua_State *L );
 /** 加载u8g2库, 可选, 会依赖i2c和spi*/

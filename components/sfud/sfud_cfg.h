@@ -29,9 +29,12 @@
 #ifndef _SFUD_CFG_H_
 #define _SFUD_CFG_H_
 
+#define LUAT_TYPE_SPI           0
+#define LUAT_TYPE_SPI_DEVICE    1
+
 typedef struct luat_sfud_flash
 {
-    char* luat_spi;     // bus
+    int luat_spi;     // bus
     void *user_data;// some user data
 } luat_sfud_flash_t;
 

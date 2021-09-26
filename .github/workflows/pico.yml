@@ -49,5 +49,6 @@ jobs:
         MQTTPORT: ${{ secrets.MQTTPORT }}
         MQTTTOPIC: ${{ secrets.MQTTTOPIC }}
       run: |
+        sudo pip3 install paho_mqtt
         cd tools
-        if [ "$STATUS" = "failure" ];then sudo pip3 install paho_mqtt; python3 ciNotify.py $MQTTADDR $MQTTPORT $MQTTTOPIC pico; fi
+        if [ "$STATUS" = "failure" ];then python3 ciNotify.py $MQTTADDR $MQTTPORT $MQTTTOPIC pico; fi

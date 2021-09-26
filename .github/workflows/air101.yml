@@ -46,3 +46,14 @@ jobs:
       with:
         name: air101
         path: luatosfw
+    - name: report if failure
+      if: always()
+      env:
+        STATUS: ${{ job.status }}
+        MQTTADDR: ${{ secrets.MQTTADDR }}
+        MQTTPORT: ${{ secrets.MQTTPORT }}
+        MQTTTOPIC: ${{ secrets.MQTTTOPIC }}
+      run: |
+        sudo pip3 install paho_mqtt
+        cd tools
+        if [ "$STATUS" = "failure" ];then python3 ciNotify.py $MQTTADDR $MQTTPORT $MQTTTOPIC air101; fi

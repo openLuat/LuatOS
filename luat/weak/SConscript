@@ -3,6 +3,8 @@ from building import *
 cwd = GetCurrentDir()
 src = Glob('*.c')
 
+src.remove('luat_spi_device.c')
+
 CPPPATH = [cwd]
 
 group = DefineGroup('luat_weak', src, depend = [], CPPPATH = CPPPATH)

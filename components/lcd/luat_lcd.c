@@ -38,14 +38,15 @@ void luat_lcd_execute_cmds(luat_lcd_conf_t* conf, uint32_t* cmds, uint32_t count
 int lcd_write_cmd(luat_lcd_conf_t* conf,const uint8_t cmd){
     size_t len;
     luat_gpio_set(conf->pin_dc, Luat_GPIO_LOW);
-    len = luat_spi_send(conf->port, &cmd, 1);
-    if (len != 1)
-    {
+    if (conf->port == LUAT_LCD_SPI_DEVICE){
+        len = luat_spi_device_send((luat_spi_device_t*)(conf->userdata), &cmd, 1);
+    }else{
+        len = luat_spi_send(conf->port, &cmd, 1);
+    }
+    if (len != 1){
         LLOGI("lcd_write_cmd error. %d", len);
         return -1;
-    }
-    else
-    {
+    }else{
         return 0;
     }
 }
@@ -53,14 +54,15 @@ int lcd_write_cmd(luat_lcd_conf_t* conf,const uint8_t cmd){
 int lcd_write_data(luat_lcd_conf_t* conf,const uint8_t data){
     size_t len;
     luat_gpio_set(conf->pin_dc, Luat_GPIO_HIGH);
-    len = luat_spi_send(conf->port, &data, 1);
-    if (len != 1)
-    {
+    if (conf->port == LUAT_LCD_SPI_DEVICE){
+        len = luat_spi_device_send((luat_spi_device_t*)(conf->userdata), &data, 1);
+    }else{
+        len = luat_spi_send(conf->port, &data, 1);
+    }
+    if (len != 1){
         LLOGI("lcd_write_data error. %d", len);
         return -1;
-    }
-    else
-    {
+    }else{
         return 0;
     }
 }
@@ -71,21 +73,21 @@ int lcd_write_half_word(luat_lcd_conf_t* conf,const uint16_t da){
     data[0] = da >> 8;
     data[1] = da;
     luat_gpio_set(conf->pin_dc, Luat_GPIO_HIGH);
-    len = luat_spi_send(conf->port, data, 2);
-    if (len != 2)
-    {
+    if (conf->port == LUAT_LCD_SPI_DEVICE){
+        len = luat_spi_device_send((luat_spi_device_t*)(conf->userdata), data, 2);
+    }else{
+        len = luat_spi_send(conf->port, data, 2);
+    }
+    if (len != 2){
         LLOGI("lcd_write_half_word error. %d", len);
         return -1;
-    }
-    else
-    {
+    }else{
         return 0;
     }
 }
 
 luat_lcd_conf_t* luat_lcd_get_default(void) {
-    for (size_t i = 0; i < LUAT_LCD_CONF_COUNT; i++)
-    {
+    for (size_t i = 0; i < LUAT_LCD_CONF_COUNT; i++){
         if (confs[i] != NULL) {
             return confs[i];
         }
@@ -204,7 +206,11 @@ int luat_lcd_clear(luat_lcd_conf_t* conf,uint32_t color){
         luat_gpio_set(conf->pin_dc, Luat_GPIO_HIGH);
         for (i = 0; i < 20; i++)
         {
-            luat_spi_send(conf->port, buf, conf->w*conf->h/10);
+            if (conf->port == LUAT_LCD_SPI_DEVICE){
+                luat_spi_device_send((luat_spi_device_t*)(conf->userdata), buf, conf->w*conf->h/10);
+            }else{
+                    luat_spi_send(conf->port, buf, conf->w*conf->h/10);
+            }
         }
         luat_heap_free(buf);
     }
@@ -215,7 +221,11 @@ int luat_lcd_clear(luat_lcd_conf_t* conf,uint32_t color){
         {
             for (j = 0; j < conf->h; j++)
             {
-                luat_spi_send(conf->port, data, 2);
+                if (conf->port == LUAT_LCD_SPI_DEVICE){
+                    luat_spi_device_send((luat_spi_device_t*)(conf->userdata), data, 2);
+                }else{
+                    luat_spi_send(conf->port, data, 2);
+                }
             }
         }
     }
@@ -244,7 +254,11 @@ int luat_lcd_draw_line(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t 
             line_buf[2 * i + 1] = color;
         }
         luat_gpio_set(conf->pin_dc, Luat_GPIO_HIGH);
-        luat_spi_send(conf->port, line_buf, (x2 - x1) * 2);
+        if (conf->port == LUAT_LCD_SPI_DEVICE){
+            luat_spi_device_send((luat_spi_device_t*)(conf->userdata), line_buf, (x2 - x1) * 2);
+        }else{
+            luat_spi_send(conf->port, line_buf, (x2 - x1) * 2);
+        }
         return 0;
     }
 

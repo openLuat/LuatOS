@@ -22,7 +22,7 @@ jobs:
       with:
         msystem: MINGW64
         update: true
-        install: git mingw-w64-x86_64-gcc mingw-w64-x86_64-gdb mingw-w64-x86_64-cmake mingw-w64-x86_64-make mingw-w64-x86_64-toolchain python python-setuptools python-pip
+        install: git mingw-w64-x86_64-gcc mingw-w64-x86_64-gdb mingw-w64-x86_64-cmake mingw-w64-x86_64-make mingw-w64-x86_64-toolchain python3 python-pip3
     - name: build
       run: |
         cd bsp/win32
@@ -53,6 +53,6 @@ jobs:
         MQTTPORT: ${{ secrets.MQTTPORT }}
         MQTTTOPIC: ${{ secrets.MQTTTOPIC }}
       run: |
-        pip install paho_mqtt
+        pip3 install paho_mqtt
         cd tools
-        if [ "$STATUS" = "failure" ];then python ciNotify.py $MQTTADDR $MQTTPORT $MQTTTOPIC win32; fi
+        if [ "$STATUS" = "failure" ];then python3 ciNotify.py $MQTTADDR $MQTTPORT $MQTTTOPIC win32; fi

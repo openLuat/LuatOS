@@ -41,7 +41,7 @@ aux_source_directory(${TOPROOT}/components/freertos RTOS_SRCS)
 aux_source_directory(${TOPROOT}/components/freertos/port RTOS_PORT_SRCS)
 aux_source_directory(${TOPROOT}/luat/packages/lua-cjson CJSON_SRCS)
 
-aux_source_directory(${TOPROOT}/components/lcd LCD_SRCS)
+# aux_source_directory(${TOPROOT}/components/lcd LCD_SRCS)
 
 add_library(freertos10 ${PORT_SRCS} ${RTOS_SRCS} ${RTOS_PORT_SRCS} ${MM_SRCS} ${MM2_SRCS})
 add_library(lua ${LUA_SRCS})
@@ -73,7 +73,7 @@ add_library(luat ${TOPROOT}/luat/modules/luat_main.c
                  ${TOPROOT}/luat/packages/lfs/lfs_util.c
                  ${TOPROOT}/luat/packages/lfs/lfs.c
                  ${TOPROOT}/luat/packages/lfs/luat_lib_lfs2.c
-                 ${LCD_SRCS}
+               #   ${LCD_SRCS}
             )
 
 IF (WIN32)

@@ -5,6 +5,7 @@
 #include "luat_base.h"
 
 int luat_pwm_open(int channel, size_t period, size_t pulse);
+int luat_pwm_capture(int channel);
 int luat_pwm_close(int channel);
 
 #endif

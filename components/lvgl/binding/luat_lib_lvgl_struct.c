@@ -65,7 +65,7 @@ int _lvgl_struct_anim_t_newindex(lua_State *L) {
 //---------------------------------------------
 /*
 创建一个area
-@api lvgl.anim_t()
+@api lvgl.area_t()
 @return userdata area指针
 @usage
 local area = lvgl.area_t()

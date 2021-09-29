@@ -35,6 +35,8 @@
 #error "no supprt color depth"
 #endif
 
+#define LUAT_LCD_SPI_DEVICE 255
+
 struct luat_lcd_opts;
 
 typedef struct luat_lcd_conf {

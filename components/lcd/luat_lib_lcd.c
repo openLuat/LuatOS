@@ -9,6 +9,7 @@
 #include "luat_lcd.h"
 #include "luat_malloc.h"
 #include "luat_zbuff.h"
+#include "luat_spi.h"
 
 #define LUAT_LOG_TAG "lcd"
 #include "luat_log.h"
@@ -37,20 +38,27 @@ lcd.init("st7789",{port = 0,pin_dc = 23, pin_pwr = 7,pin_rst = 22,direction = 0,
 */
 static int l_lcd_init(lua_State* L) {
     size_t len = 0;
+    luat_lcd_conf_t *conf = luat_heap_malloc(sizeof(luat_lcd_conf_t));
+    memset(conf, 0, sizeof(luat_lcd_conf_t)); // 填充0,保证无脏数据
+    if (lua_type(L, 3) == LUA_TUSERDATA)
+    {
+        conf->userdata = (luat_spi_device_t*)lua_touserdata(L, 3);
+    }
     const char* tp = luaL_checklstring(L, 1, &len);
     if (!strcmp("st7735", tp) || !strcmp("st7789", tp) || !strcmp("st7735s", tp)
             || !strcmp("gc9a01", tp)  || !strcmp("gc9106l", tp)
             || !strcmp("gc9306", tp)  || !strcmp("ili9341", tp)
             || !strcmp("custom", tp)) {
-        luat_lcd_conf_t *conf = luat_heap_malloc(sizeof(luat_lcd_conf_t));
-        memset(conf, 0, sizeof(luat_lcd_conf_t)); // 填充0,保证无脏数据
-
         if (lua_gettop(L) > 1) {
             lua_settop(L, 2); // 丢弃多余的参数
 
             lua_pushstring(L, "port");
-            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+            int port = lua_gettable(L, 2);
+            if (LUA_TNUMBER == port) {
                 conf->port = luaL_checkinteger(L, -1);
+            }
+            else if (LUA_TSTRING == port){
+                conf->port = LUAT_LCD_SPI_DEVICE;
             }
             lua_pop(L, 1);
 
@@ -150,6 +158,7 @@ static int l_lcd_init(lua_State* L) {
         lua_pushlightuserdata(L, conf);
         return 2;
     }
+    luat_heap_free(conf);
     return 0;
 }
 

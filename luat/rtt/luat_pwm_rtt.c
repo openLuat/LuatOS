@@ -86,6 +86,12 @@ int luat_pwm_open(int channel, size_t period, size_t pulse) {
     return 0;
 }
 
+int luat_pwm_capture(int channel) {
+    int pulse = -1;
+    return pulse;
+}
+
+
 // @return -1 关闭失败。 0 关闭成功
 int luat_pwm_close(int channel) {
     int i = channel / 10;

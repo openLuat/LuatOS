@@ -45,11 +45,27 @@ static int l_pwm_close(lua_State *L) {
     return 0;
 }
 
+/**
+PWM捕获
+@api pwm.capture(channel)
+@int PWM通道
+@return int 成功返回占空比,失败返回-1
+@usage
+-- PWM0捕获
+log.info("pwm.get(0)",pwm.capture(0))
+ */
+static int l_pwm_capture(lua_State *L) {
+    int pulse = luat_pwm_capture(luaL_checkinteger(L, 1));
+    lua_pushnumber(L,pulse);
+    return 1;
+}
+
 #include "rotable.h"
 static const rotable_Reg reg_pwm[] =
 {
     { "open" ,       l_pwm_open , 0},
     { "close" ,      l_pwm_close, 0},
+    { "capture" ,      l_pwm_capture, 0},
 	{ NULL,          NULL ,       0}
 };
 

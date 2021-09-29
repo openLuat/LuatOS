@@ -30,7 +30,6 @@
 #include <stdarg.h>
 
 #include "luat_spi.h"
-#include "luat_spiv2.h"
 
 #define LUAT_LOG_TAG "luat.sfud"
 #include "luat_log.h"

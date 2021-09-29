@@ -2,8 +2,12 @@ from building import *
 
 cwd = GetCurrentDir()
 src = Glob('*.c')
-
-src -= ['luat_spi_device.c']
+# src	= []
+# for p in os.listdir(cwd) :
+#     if p.endswith(".c"):
+#         src += [p]
+        
+# src.remove('luat_spi_device.c')
 
 CPPPATH = [cwd]
 

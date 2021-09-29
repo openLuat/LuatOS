@@ -34,6 +34,14 @@ int luat_spi_exist(int id) {
     return findDev(id) == RT_NULL ? 0 : 1;
 }
 
+int luat_spi_device_config(luat_spi_device_t* spi_dev) {
+    return 0;
+}
+
+int luat_spi_bus_setup(luat_spi_device_t* spi_dev){
+    return 0;
+}
+
 //初始化配置SPI各项参数，并打开SPI
 //成功返回0
 int luat_spi_setup(luat_spi_t* spi) {

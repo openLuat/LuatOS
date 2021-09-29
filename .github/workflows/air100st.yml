@@ -37,7 +37,6 @@ jobs:
         export RTT_ROOT=~/work/action/rt-thread
         echo | scons --menuconfig
         source ~/.env/env.sh
-        pkgs --upgrade
         pkgs --update
     - name: make
       run: |

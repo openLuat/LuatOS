@@ -205,7 +205,7 @@ static int l_i2c_setup(lua_State *L) {
 @int i2c SCL引脚编号
 @int i2c SDA引脚编号
 @int 从设备地址（7位）, 例如0x38
-@return 软件I2C对象，可当作i2c的id使用
+@return 软件I2C对象 可当作i2c的id使用
 @usage
 -- 注意！这个接口是软件模拟i2c，速度可能会比硬件的慢
 -- 不需要调用i2c.close接口
@@ -541,7 +541,7 @@ static int l_i2c_readSHT30(lua_State *L){
         luat_timer_mdelay(1);
         result = luat_i2c_recv(id, addr, buff, 6);
     }
-    
+
     if (result!=0) {
         lua_pushboolean(L, 0);
         return 1;

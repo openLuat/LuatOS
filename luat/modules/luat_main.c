@@ -72,6 +72,10 @@ static int pmain(lua_State *L) {
 
     lua_gc(L, LUA_GCSETPAUSE, 90); // 设置`垃圾收集器间歇率`要低于100%
 
+#ifdef LUAT_HAS_CUSTOM_LIB_INIT
+    luat_custom_init(lua_State *L);
+#endif
+
     // 加载main.lua
     #ifdef LUAT_USE_CMDLINE_ARGS
     if (cmdline_argc > 1) {

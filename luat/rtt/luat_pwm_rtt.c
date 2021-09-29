@@ -86,7 +86,7 @@ int luat_pwm_open(int channel, size_t period, size_t pulse) {
     return 0;
 }
 
-int luat_pwm_capture(int channel) {
+int luat_pwm_capture(int channel,int freq,int*pwmH,int*pwmL) {
     int pulse = -1;
     return pulse;
 }

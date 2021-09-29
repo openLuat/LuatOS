@@ -58,7 +58,6 @@ log.info("pwm.get(0)",pwm.capture(0))
 static int l_pwm_capture(lua_State *L) {
     int pwmH,pwmL;
     int pulse = luat_pwm_capture(luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),&pwmH,&pwmL);
-    printf("pwmH %d,pwmL %d\n",pwmH,pwmL);
     lua_pushnumber(L,pulse);
     return 1;
 }

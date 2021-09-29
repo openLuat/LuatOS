@@ -261,7 +261,5 @@ for module in modules:
         mdoc.write("---\n\n")
 
     mdoc.close()
-    os.system("pandoc -o ./../../luatos-wiki/api/"+module["module"]+".rst ./../../luatos-wiki/api/"+module["module"]+".md")
-    os.remove("./../../luatos-wiki/api/"+module["module"]+".md")
 
 doc.close()

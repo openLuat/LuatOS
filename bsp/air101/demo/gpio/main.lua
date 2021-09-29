@@ -10,9 +10,13 @@ _G.sys = require("sys")
 wdt.init(15000)--初始化watchdog设置为15s
 sys.timerLoopStart(wdt.feed, 10000)--10s喂一次狗
 
-local LEDA = gpio.setup(24, 0, gpio.PULLUP) -- PB1输出模式
-local LEDB = gpio.setup(25, 0, gpio.PULLUP) -- PB1输出模式
-local LEDC = gpio.setup(26, 0, gpio.PULLUP) -- PB1输出模式
+local LEDA = gpio.setup(24, 0, gpio.PULLUP) -- PB8输出模式
+local LEDB = gpio.setup(25, 0, gpio.PULLUP) -- PB9输出模式
+local LEDC = gpio.setup(26, 0, gpio.PULLUP) -- PB10输出模式
+
+-- local LEDA = gpio.setup(16, 0, gpio.PULLUP) -- PB0输出模式
+-- local LEDB = gpio.setup(17, 0, gpio.PULLUP) -- PB1输出模式
+-- local LEDC = gpio.setup(18, 0, gpio.PULLUP) -- PB2输出模式
 
 sys.taskInit(function()
     wdt.init(15000)

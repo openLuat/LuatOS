@@ -67,4 +67,7 @@ const char* luat_version_str(void);
 
 void luat_os_print_heapinfo(const char* tag);
 
+// 自定义扩展库的初始化入口, 可以自行注册lua库, 或其他初始化操作.
+void luat_custom_init(lua_State *L);
+
 #endif

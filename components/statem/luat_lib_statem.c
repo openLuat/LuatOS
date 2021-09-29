@@ -73,8 +73,6 @@ static int _statem_usleep(lua_State *L) {
 
 static int _statem_end(lua_State *L) {
     luat_statem_t* sm = luaL_checkudata(L, 1, "SM*");
-    int gpio_pin = luaL_checkinteger(L, 2);
-    int gpio_val = luaL_checkinteger(L, 3);
     luat_statem_addop(sm, LUAT_SM_OP_END, (uint8_t)0, (uint8_t)0, (uint8_t)0);
     return 0;
 }

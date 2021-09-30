@@ -19,7 +19,7 @@ jobs:
       run: |
         cd ..
         sudo apt-get update
-        sudo apt-get install git gcc-multilib libc6 libgcc1 libstdc++5 libstdc++6 libsdl-dev scons -y
+        sudo apt-get install git gcc-multilib libc6 libgcc1 libstdc++5 libstdc++6 libsdl-dev scons p7zip-full -y
         sudo apt-get install libncurses5-dev -y
         sudo pip install requests
         wget -q https://github.com/openLuat/LuatOS/releases/download/v0.0.1/gcc-arm-none-eabi-6-2017-q2-update-linux.tar.bz2
@@ -37,7 +37,8 @@ jobs:
         export RTT_ROOT=~/work/action/rt-thread
         echo | scons --menuconfig
         source ~/.env/env.sh
-        pkgs --update
+        wget https://github.com/openLuat/LuatOS/releases/download/v0.0.1/packages-640w.7z
+        7z x packages-640w.7z
         chmod 755 -R packages/wm_libraries-latest/Tools/
     - name: make
       run: |

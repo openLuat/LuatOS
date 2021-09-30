@@ -13,21 +13,22 @@
 @int PWM通道
 @int 频率, 1-1000000hz
 @int 占空比 0-100
+@int 输出周期 0为持续输出
 @return boolean 处理结果,成功返回true,失败返回false
 @usage
 -- 打开PWM5, 频率1kHz, 占空比50%
 pwm.open(5, 1000, 50)
  */
 static int l_pwm_open(lua_State *L) {
+    int pnum = 0;
     int channel = luaL_checkinteger(L, 1);
     size_t period = luaL_checkinteger(L, 2);
     size_t pulse = luaL_checkinteger(L, 3);
-    if (luat_pwm_open(channel, period, pulse) == 0) {
-        lua_pushboolean(L, 1);
+    if (lua_type(L, 4) == LUA_TNUMBER){
+        pnum = luaL_checkinteger(L, 4);
     }
-    else {
-        lua_pushboolean(L, 0);
-    }
+    int ret = luat_pwm_open(channel, period, pulse,pnum);
+    lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
 
@@ -50,15 +51,15 @@ PWM捕获
 @api pwm.capture(channel)
 @int PWM通道
 @int 捕获频率
-@return int 成功返回占空比,失败返回-1
+@return boolean 处理结果,成功返回true,失败返回false
 @usage
 -- PWM0捕获
-log.info("pwm.get(0)",pwm.capture(0))
+log.info("pwm.get(0)",pwm.capture(0,1000))
+log.info("PWM_CAPTURE",sys.waitUntil("PWM_CAPTURE", 2000))
  */
 static int l_pwm_capture(lua_State *L) {
-    int pwmH,pwmL;
-    int pulse = luat_pwm_capture(luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),&pwmH,&pwmL);
-    lua_pushnumber(L,pulse);
+    int ret = luat_pwm_capture(luaL_checkinteger(L, 1),luaL_checkinteger(L, 2));
+    lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
 

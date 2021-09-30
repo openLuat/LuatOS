@@ -62,7 +62,7 @@ INIT_COMPONENT_EXPORT(luat_pwm_rtt_init);
 //  - I: 十位
 //  - N: 个位
 // @return -1 打开失败。 0 打开成功
-int luat_pwm_open(int channel, size_t period, size_t pulse) {
+int luat_pwm_open(int channel, size_t period, size_t pulse,int pnum) {
     int i = channel / 10;
     int n = channel - (i * 10);
     if (i < 0 || i >= DEVICE_ID_MAX )
@@ -86,9 +86,8 @@ int luat_pwm_open(int channel, size_t period, size_t pulse) {
     return 0;
 }
 
-int luat_pwm_capture(int channel,int freq,int*pwmH,int*pwmL) {
-    int pulse = -1;
-    return pulse;
+int luat_pwm_capture(int channel,int freq) {
+    return -1;
 }
 
 

@@ -37,12 +37,12 @@ static uint8_t OLED_SPI_PIN_CS;
 
 /*
 u8g2显示屏初始化
-@api u8g2.begin("ssd1306")
-@string 配置信息
+@api u8g2.begin(conf)
+@table conf 配置信息
 @return int 正常初始化1,已经初始化过2,内存不够3,初始化失败返回4
 @usage
 -- 初始化i2c1的ssd1306
-u8g2.begin("ssd1306")
+u8g2.begin({ic = "SSD1306",mode="i2c_hw",i2c_id=0})
 */
 static int l_u8g2_begin(lua_State *L) {
     if (u8g2 != NULL) {
@@ -62,6 +62,14 @@ static int l_u8g2_begin(lua_State *L) {
     conf.ptr = u8g2;
     if (lua_istable(L, 1)) {
         // 参数解析
+        lua_pushliteral(L, "ic");
+        lua_gettable(L, 1);
+        if (lua_isstring(L, -1)) {
+            conf.cname = luaL_checkstring(L, -1);
+            LLOGD("using ic: %s",conf.cname);
+        }
+        lua_pop(L, 1);
+
         lua_pushliteral(L, "mode");
         lua_gettable(L, 1);
         if (lua_isstring(L, -1)) {
@@ -626,7 +634,15 @@ uint8_t u8x8_luat_byte_4wire_hw_spi(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, 
 LUAT_WEAK int luat_u8g2_setup(luat_u8g2_conf_t *conf) {
     if (conf->pinType == 1) {
         u8g2_t* u8g2 = (u8g2_t*)conf->ptr;
-        u8g2_Setup_ssd1306_i2c_128x64_noname_f( u8g2, U8G2_R0, u8x8_byte_sw_i2c, u8x8_luat_gpio_and_delay);
+        if (strncmp("ssd1306", conf->cname, 7) == 0 || strncmp("SSD1306", conf->cname, 7) == 0){
+            u8g2_Setup_ssd1306_i2c_128x64_noname_f( u8g2, U8G2_R0, u8x8_byte_sw_i2c, u8x8_luat_gpio_and_delay);
+#ifdef U8G2_USE_SH1106
+        }else if (strncmp("sh1106", conf->cname, 6) == 0 || strncmp("SH1106", conf->cname, 6) == 0){
+            u8g2_Setup_sh1106_i2c_128x64_noname_f( u8g2, U8G2_R0, u8x8_byte_sw_i2c, u8x8_luat_gpio_and_delay);
+#endif
+        }else{
+            u8g2_Setup_ssd1306_i2c_128x64_noname_f( u8g2, U8G2_R0, u8x8_byte_sw_i2c, u8x8_luat_gpio_and_delay);
+        }
         u8g2->u8x8.pins[U8X8_PIN_I2C_CLOCK] = conf->pin0;
         u8g2->u8x8.pins[U8X8_PIN_I2C_DATA] = conf->pin1;
         LLOGD("setup disp i2c.sw SCL=%ld SDA=%ld", conf->pin0, conf->pin1);
@@ -636,7 +652,13 @@ LUAT_WEAK int luat_u8g2_setup(luat_u8g2_conf_t *conf) {
     }
     else if (conf->pinType == 2) {
         u8g2_t* u8g2 = (u8g2_t*)conf->ptr;
-        u8g2_Setup_ssd1306_i2c_128x64_noname_f( u8g2, U8G2_R0, u8x8_luat_byte_hw_i2c, u8x8_luat_gpio_and_delay);
+        if (strncmp("ssd1306", conf->cname, 7) == 0 || strncmp("SSD1306", conf->cname, 7) == 0){
+            u8g2_Setup_ssd1306_i2c_128x64_noname_f( u8g2, U8G2_R0, u8x8_luat_byte_hw_i2c, u8x8_luat_gpio_and_delay);
+        }else if (strncmp("sh1106", conf->cname, 6) == 0 || strncmp("SH1106", conf->cname, 6) == 0){
+            u8g2_Setup_sh1106_i2c_128x64_noname_f( u8g2, U8G2_R0, u8x8_luat_byte_hw_i2c, u8x8_luat_gpio_and_delay);
+        }else{
+            u8g2_Setup_ssd1306_i2c_128x64_noname_f( u8g2, U8G2_R0, u8x8_luat_byte_hw_i2c, u8x8_luat_gpio_and_delay);
+        }
         LLOGD("setup disp i2c.hw");
         u8g2_InitDisplay(u8g2);
         u8g2_SetPowerSave(u8g2, 0);
@@ -644,7 +666,13 @@ LUAT_WEAK int luat_u8g2_setup(luat_u8g2_conf_t *conf) {
     }
     else if (conf->pinType == 5) {
         u8g2_t* u8g2 = (u8g2_t*)conf->ptr;
-        u8g2_Setup_ssd1306_128x64_noname_f( u8g2, U8G2_R0, u8x8_luat_byte_4wire_hw_spi, u8x8_luat_gpio_and_delay);
+        if (strncmp("ssd1306", conf->cname, 7) == 0 || strncmp("SSD1306", conf->cname, 7) == 0){
+            u8g2_Setup_ssd1306_128x64_noname_f( u8g2, U8G2_R0, u8x8_luat_byte_4wire_hw_spi, u8x8_luat_gpio_and_delay);
+        }else if (strncmp("sh1106", conf->cname, 6) == 0 || strncmp("SH1106", conf->cname, 6) == 0){
+            u8g2_Setup_sh1106_128x64_noname_f( u8g2, U8G2_R0, u8x8_luat_byte_4wire_hw_spi, u8x8_luat_gpio_and_delay);
+        }else{
+            u8g2_Setup_ssd1306_128x64_noname_f( u8g2, U8G2_R0, u8x8_luat_byte_4wire_hw_spi, u8x8_luat_gpio_and_delay);
+        }
         LLOGD("setup disp spi.hw");
         u8x8_SetPin(u8g2_GetU8x8(u8g2), U8X8_PIN_CS, OLED_SPI_PIN_CS);
         u8x8_SetPin(u8g2_GetU8x8(u8g2), U8X8_PIN_DC, OLED_SPI_PIN_DC);

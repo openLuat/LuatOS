@@ -17,9 +17,13 @@ sys.timerLoopStart(wdt.feed, 10000)--10s喂一次狗
 sys.taskInit(function()
     sdio.init(0)
     sdio.sd_mount(0,"/sd",0)
-    spi.setup(0, 20, 0, 0, 8, 40 * 1000 * 1000, spi.MSB, 1, 1)
+    -- spi.setup(0, 20, 0, 0, 8, 40 * 1000 * 1000, spi.MSB, 1, 1)--此方法spi总线无法挂载多设备
+    -- log.info("lcd.init",
+    -- lcd.init("st7735s",{port = 0,pin_dc = 17, pin_pwr = 7,pin_rst = 19,direction = 1,w = 160,h = 80,xoffset = 1,yoffset = -54}))
+
+    local spi_lcd = spi.device_setup(0,20,0,0,8,2000000,spi.MSB,1,1)
     log.info("lcd.init",
-    lcd.init("st7789",{port = 0,pin_dc = 4, pin_pwr = 7,pin_rst = 1,direction = 1,w = 240,h = 240,xoffset = 0,yoffset = 0}))
+    lcd.init("st7735s",{port = "device",pin_dc = 17, pin_pwr = 7,pin_rst = 19,direction = 1,w = 160,h = 80,xoffset = 1,yoffset = -54},spi_lcd))
     
     -- 使用ffmpeg.exe将视频转成字节流文件video2.rgb放入TF卡
     local file_size = fs.fsize("/sd/video2.rgb")

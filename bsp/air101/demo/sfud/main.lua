@@ -10,7 +10,9 @@ wdt.init(15000)--初始化watchdog设置为15s
 sys.timerLoopStart(wdt.feed, 10000)--10s喂一次狗
 
 sys.taskInit(function()
-    log.info("sfud.init",sfud.init(0,20,20 * 1000 * 1000))
+    -- log.info("sfud.init",sfud.init(0,20,20 * 1000 * 1000))--此方法spi总线无法挂载多设备
+    local spi_flash = spi.device_setup(0,22,0,0,8,2000000,spi.MSB,1,1)--PB6
+    log.info("sfud.init",sfud.init(spi_flash))
     log.info("sfud.get_device_num",sfud.get_device_num())
     local sfud_device = sfud.get_device_table()
     log.info("sfud.write",sfud.write(sfud_device,1024,"sfud"))

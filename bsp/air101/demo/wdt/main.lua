@@ -6,9 +6,10 @@ VERSION = "1.0.0"
 -- sys库是标配
 _G.sys = require("sys")
 
+wdt.init(10000)
+sys.timerLoopStart(wdt.feed, 3000)
+
 sys.taskInit(function()
-    wdt.init(10000)
-    sys.timerLoopStart(wdt.feed, 3000)
     sys.wait(5000)
     sys.setTimeout(5000)
     while 1 do

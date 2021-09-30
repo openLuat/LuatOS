@@ -15,14 +15,13 @@ wdt.init(15000)--初始化watchdog设置为15s
 sys.timerLoopStart(wdt.feed, 10000)--10s喂一次狗
 
 spi.setup(0, 20, 0, 0, 8, 40 * 1000 * 1000, spi.MSB, 1, 1)
-log.info("lcd.init", lcd.init("st7789",{port = 0,pin_cs = 20,pin_dc = 23, pin_pwr = 7,pin_rst = 22,direction = 0,w = 240,h = 320}))
-log.info("lcd.drawLine", lcd.drawLine(20,30,220,30,0x001F))
-log.info("lcd.drawRectangle", lcd.drawRectangle(20,40,220,80,0x001F))
-log.info("lcd.drawCircle", lcd.drawCircle(120,120,20,0x001F))
+log.info("lcd.init",
+lcd.init("st7735s",{port = 0,pin_dc = 17, pin_pwr = 7,pin_rst = 19,direction = 1,w = 160,h = 80,xoffset = 1,yoffset = -54}))
+log.info("lcd.drawLine", lcd.drawLine(20,20,150,20,0x001F))
+log.info("lcd.drawRectangle", lcd.drawRectangle(20,40,120,70,0xF800))
+log.info("lcd.drawCircle", lcd.drawCircle(50,50,20,0x0CE0))
 
 sys.taskInit(function()
-    wdt.init(15000)
-    sys.timerLoopStart(wdt.feed, 10000)
     while 1 do
         sys.wait(500)
     end

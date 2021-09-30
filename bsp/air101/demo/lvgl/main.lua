@@ -15,25 +15,19 @@ wdt.init(15000)--初始化watchdog设置为15s
 sys.timerLoopStart(wdt.feed, 10000)--10s喂一次狗
 
 log.info("hello luatos")
-spi.setup(0, 20, 0, 0, 8, 20 * 1000 * 1000, spi.MSB, 1, 1)
--- log.info("lcd.init", lcd.init("st7789",{port = 0,pin_cs = 20,pin_dc = 23, pin_pwr = 7,pin_rst = 22,direction = 0,w = 240,h = 320}))
-log.info("lcd.init", lcd.init("st7735",{port = 0,pin_cs = 20,pin_dc = 23, pin_pwr = 7,pin_rst = 22,direction = 0,w = 128,h = 160}))
+spi.setup(0, 20, 0, 0, 8, 40 * 1000 * 1000, spi.MSB, 1, 1)
+log.info("lcd.init",
+lcd.init("st7735s",{port = 0,pin_dc = 17, pin_pwr = 7,pin_rst = 19,direction = 1,w = 160,h = 80,xoffset = 1,yoffset = -54}))
 log.info("lvgl", lvgl.init())
 lvgl.disp_set_bg_color(nil, 0xFFFFFF)
 local scr = lvgl.obj_create(nil, nil)
 local btn = lvgl.btn_create(scr)
-local btn2 = lvgl.btn_create(scr)
 lvgl.obj_align(btn, lvgl.scr_act(), lvgl.ALIGN_CENTER, 0, 0)
-lvgl.obj_align(btn2, lvgl.scr_act(), lvgl.ALIGN_CENTER, 0, 50)
 local label = lvgl.label_create(btn)
-local label2 = lvgl.label_create(btn2)
 lvgl.label_set_text(label, "LuatOS!")
-lvgl.label_set_text(label2, "Hi")
 lvgl.scr_load(scr)
 
 sys.taskInit(function()
-    wdt.init(15000)
-    sys.timerLoopStart(wdt.feed, 10000)
     while 1 do
         sys.wait(500)
     end

@@ -17,8 +17,6 @@ else
     i2c.close(0) -- 关掉
 end
 sys.taskInit(function()
-    wdt.init(15000)
-    sys.timerLoopStart(wdt.feed, 10000)
     while 1 do
         local w = i2c.send(0, 0x44, string.char(0x2c, 0x06)) -- 发送单次采集命令
         sys.wait(10) -- 等待采集

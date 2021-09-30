@@ -36,9 +36,6 @@ u8g2.SendBuffer()
 
 -- 联网主流程
 sys.taskInit(function()
-    wdt.init(15000)
-    sys.timerLoopStart(wdt.feed, 10000)
-    
     sys.wait(2000)
     u8g2.ClearBuffer()
     u8g2.SetFont(u8g2.font_wqy12_t_gb2312)

@@ -15,9 +15,6 @@ wdt.init(15000)--初始化watchdog设置为15s
 sys.timerLoopStart(wdt.feed, 10000)--10s喂一次狗
 
 sys.taskInit(function()
-    wdt.init(15000)
-    sys.timerLoopStart(wdt.feed, 10000)
-    
     log.info("os.date()", os.date())
     local t = rtc.get()
     log.info("rtc", json.encode(t))

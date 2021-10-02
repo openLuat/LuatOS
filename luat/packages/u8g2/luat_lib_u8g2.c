@@ -448,7 +448,7 @@ u8g2.DrawEllipse(60,30,8,15)
 static int l_u8g2_DrawEllipse(lua_State *L){
     if (u8g2 == NULL) return 0;
     u8g2_DrawEllipse(u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_checkinteger(L, 4),luaL_checkinteger(L, 5));
-    return 1;
+    return 0;
 }
 
 /*
@@ -470,7 +470,7 @@ u8g2.DrawFilledEllipse(60,30,8,15)
 static int l_u8g2_DrawFilledEllipse(lua_State *L){
     if (u8g2 == NULL) return 0;
     u8g2_DrawFilledEllipse(u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_checkinteger(L, 4),luaL_checkinteger(L, 5));
-    return 1;
+    return 0;
 }
 
 /*
@@ -486,7 +486,7 @@ u8g2.DrawBox(3,7,25,15)
 static int l_u8g2_DrawBox(lua_State *L){
     if (u8g2 == NULL) return 0;
     u8g2_DrawBox(u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_checkinteger(L, 4));
-    return 1;
+    return 0;
 }
 
 /*
@@ -502,7 +502,7 @@ u8g2.DrawFrame(3,7,25,15)
 static int l_u8g2_DrawFrame(lua_State *L){
     if (u8g2 == NULL) return 0;
     u8g2_DrawFrame(u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_checkinteger(L, 4));
-    return 1;
+    return 0;
 }
 
 /*
@@ -519,7 +519,7 @@ u8g2.DrawRBox(3,7,25,15)
 static int l_u8g2_DrawRBox(lua_State *L){
     if (u8g2 == NULL) return 0;
     u8g2_DrawRBox(u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_checkinteger(L, 4),luaL_checkinteger(L, 5));
-    return 1;
+    return 0;
 }
 
 /*
@@ -536,7 +536,7 @@ u8g2.DrawRFrame(3,7,25,15)
 static int l_u8g2_DrawRFrame(lua_State *L){
     if (u8g2 == NULL) return 0;
     u8g2_DrawRFrame(u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_checkinteger(L, 4),luaL_checkinteger(L, 5));
-    return 1;
+    return 0;
 }
 
 /*
@@ -552,7 +552,7 @@ u8g2.DrawGlyph(5, 20, 0x2603)	-- dec 9731/hex 2603 Snowman
 static int l_u8g2_DrawGlyph(lua_State *L){
     if (u8g2 == NULL) return 0;
     u8g2_DrawGlyph(u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3));
-    return 1;
+    return 0;
 }
 
 /*
@@ -570,7 +570,7 @@ u8g2.DrawTriangle(20,5, 27,50, 5,32)
 static int l_u8g2_DrawTriangle(lua_State *L){
     if (u8g2 == NULL) return 0;
     u8g2_DrawTriangle(u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_checkinteger(L, 4),luaL_checkinteger(L, 5),luaL_checkinteger(L, 6));
-    return 1;
+    return 0;
 }
 
 /*
@@ -583,6 +583,32 @@ u8g2.SetBitmapMode(1)
 static int l_u8g2_SetBitmapMode(lua_State *L){
     if (u8g2 == NULL) return 0;
     u8g2_SetBitmapMode(u8g2,luaL_checkinteger(L, 1));
+    return 0;
+}
+
+/*
+绘制位图
+@api u8g2.DrawBitmap(x, y, h, data)
+@int X坐标
+@int y坐标
+@int 行数
+@int 位图数据,每一位代表一个字节
+@usage
+-- 在(10,10)为左上角,绘制 10x4 的位图
+u8g2.DrawBitmapMode(10, 10, 10, string.char(0x20, 0xFF, 0xFF, 0xAF, 0xDE))
+*/
+static int l_u8g2_DrawBitmap(lua_State *L){
+    if (u8g2 == NULL) return 0;
+    int x = luaL_checkinteger(L, 1);
+    int y = luaL_checkinteger(L, 2);
+    int h = luaL_checkinteger(L, 3);
+    size_t len = 0;
+    const char* data = luaL_checklstring(L, 4, &len);
+    if (h < 1) return 0; // 行数必须大于0
+    if (len < h) return 0; // 起码要填满一行
+    //if (len % h != 0) return 0; // 必须是行数的整数倍
+    u8g2_DrawBitmap(u8g2, x, y, len, h, (const uint8_t*)data);
+    lua_pushboolean(L, 1);
     return 1;
 }
 
@@ -610,6 +636,7 @@ static const rotable_Reg reg_u8g2[] =
     { "DrawGlyph",    l_u8g2_DrawGlyph,    0},
     { "DrawTriangle",    l_u8g2_DrawTriangle,    0},
     { "SetBitmapMode",    l_u8g2_SetBitmapMode,    0},
+    { "DrawBitmap",       l_u8g2_DrawBitmap, 0},
     { "font_ncenB08_tr", NULL,       font_ncenB08_tr},
     { "font_wqy12_t_gb2312", NULL,       font_wqy12_t_gb2312},
     { "font_unifont_t_symbols", NULL,       font_unifont_t_symbols},

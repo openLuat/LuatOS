@@ -17,6 +17,10 @@
 @int 重复执行的次数, 0 代表不重复, 正整数代表具体重复执行的次数. 暂不支持永续执行
 @return 若成功,返回状态机指针,否则返回nil
 @usage
+gpio.setup(7, 0, gpio.PULLUP) 
+gpio.setup(12, 0, gpio.PULLUP) 
+gpio.setup(13, 0, gpio.PULLUP) 
+gpio.setup(14, 0, gpio.PULLUP) 
 local sm = statem.create()
 sm:gpio_set(7, 0) -- gpio设置为低电平
 sm:usleep(10)     -- 休眠10us
@@ -27,7 +31,7 @@ sm:gpio_set(13, 1) -- gpio设置为高电平
 sm:gpio_set(14, 1) -- gpio设置为高电平
 sm:usleep(40)      -- 休眠40us
 sm:gpio_set(7, 0) -- gpio设置为低电平
-sm:end
+sm:finish()
 
 -- 执行之,后续会支持后台执行
 sm:exec()
@@ -71,7 +75,7 @@ static int _statem_usleep(lua_State *L) {
     return 1;
 }
 
-static int _statem_end(lua_State *L) {
+static int _finish_end(lua_State *L) {
     luat_statem_t* sm = luaL_checkudata(L, 1, "SM*");
     luat_statem_addop(sm, LUAT_SM_OP_END, (uint8_t)0, (uint8_t)0, (uint8_t)0);
     return 0;
@@ -115,8 +119,8 @@ static int _statem_struct_newindex(lua_State *L) {
         lua_pushcfunction(L, _statem_gpio_get);
         return 1;
     }
-    else if (!strcmp("end", key)) {
-        lua_pushcfunction(L, _statem_end);
+    else if (!strcmp("finish", key)) {
+        lua_pushcfunction(L, _finish_end);
         return 1;
     }
     else if (!strcmp("usleep", key)) {

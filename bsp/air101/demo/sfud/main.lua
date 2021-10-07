@@ -3,6 +3,8 @@
 PROJECT = "sfuddemo"
 VERSION = "1.0.0"
 
+log.info("main", PROJECT, VERSION)
+
 local sys = require "sys"
 
 --添加硬狗防止程序卡死

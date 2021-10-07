@@ -1,7 +1,9 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "gpiodemo"
+PROJECT = "pmdemo"
 VERSION = "1.0.0"
+
+log.info("main", PROJECT, VERSION)
 
 -- sys库是标配
 _G.sys = require("sys")

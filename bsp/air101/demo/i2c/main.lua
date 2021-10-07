@@ -3,6 +3,8 @@
 PROJECT = "i2cdemo"
 VERSION = "1.0.0"
 
+log.info("main", PROJECT, VERSION)
+
 -- 一定要添加sys.lua !!!!
 local sys = require "sys"
 

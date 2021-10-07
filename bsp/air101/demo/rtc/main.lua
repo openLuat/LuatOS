@@ -7,6 +7,8 @@
 PROJECT = "rtcdemo"
 VERSION = "1.0.1"
 
+log.info("main", PROJECT, VERSION)
+
 -- sys库是标配
 _G.sys = require("sys")
 

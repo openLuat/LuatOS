@@ -2,6 +2,8 @@
 PROJECT = "uart_irq"
 VERSION = "1.0.0"
 
+log.info("main", PROJECT, VERSION)
+
 -- 引入必要的库文件(lua编写), 内部库不需要require
 local sys = require "sys"
 

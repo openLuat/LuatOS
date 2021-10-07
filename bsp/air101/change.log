@@ -1,0 +1,6 @@
+LuatOS-SoC@Air101 V0003
+1，新增对象方式spi（支持多spi设备）
+2，新增sfud库
+3，新增pwm捕获
+4，新增state库
+5，u8g2支持sh1106

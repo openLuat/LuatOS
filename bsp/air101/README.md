@@ -1,5 +1,7 @@
 # Air101@LuatOS
 
+[Air101 资料汇总](https://luatos.com/t/air101)
+
 ## Air101是什么?
 
 合宙Air101是一款QFN32 封装，4mm x 4mm 大小的mcu
@@ -79,3 +81,4 @@ LuatOS大QQ群: 1061642968
 ## 芯片PinOut
 
 ![](images/air101_chip_pinout.png)
+

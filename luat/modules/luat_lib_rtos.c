@@ -262,6 +262,9 @@ static int l_rtos_set_paths(lua_State *L) {
     return 0;
 }
 
+static int l_rtos_nop(lua_State *L) {
+    return 0;
+}
 //------------------------------------------------------------------
 #include "rotable.h"
 static const rotable_Reg reg_rtos[] =
@@ -278,6 +281,7 @@ static const rotable_Reg reg_rtos[] =
     { "meminfo",           l_rtos_meminfo,     0},
     { "firmware",          l_rtos_firmware,    0},
     { "setPaths",          l_rtos_set_paths,   0},
+    { "nop",               l_rtos_nop,   0},
 
     { "INF_TIMEOUT",        NULL,              -1},
 

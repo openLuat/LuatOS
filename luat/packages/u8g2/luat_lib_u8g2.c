@@ -65,7 +65,7 @@ static int l_u8g2_begin(lua_State *L) {
         lua_pushliteral(L, "ic");
         lua_gettable(L, 1);
         if (lua_isstring(L, -1)) {
-            conf.cname = luaL_checkstring(L, -1);
+            conf.cname = (char*)luaL_checkstring(L, -1);
             LLOGD("using ic: %s",conf.cname);
         }
         lua_pop(L, 1);

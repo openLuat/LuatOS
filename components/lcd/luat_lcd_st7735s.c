@@ -128,9 +128,9 @@ static int st7735s_init(luat_lcd_conf_t* conf) {
 	lcd_write_cmd(conf,0x3A);
 	lcd_write_data(conf,0x05);
 	lcd_write_cmd(conf,0x36);
-    if(conf->direction==0)lcd_write_data(conf,0xC8);
-    else if(conf->direction==1)lcd_write_data(conf,0x78);
-    else if(conf->direction==2)lcd_write_data(conf,0x08);
+    if(conf->direction==0)lcd_write_data(conf,0x08);
+    else if(conf->direction==1)lcd_write_data(conf,0xC8);
+    else if(conf->direction==2)lcd_write_data(conf,0x78);
     else lcd_write_data(conf,0xA8);
 	lcd_write_cmd(conf,0x21);     //Display inversion
 	lcd_write_cmd(conf,0x29);     //Display on
@@ -154,7 +154,7 @@ static int st7735s_init(luat_lcd_conf_t* conf) {
 
 static int st7735s_draw(luat_lcd_conf_t* conf, uint16_t x_start, uint16_t y_start, uint16_t x_end, uint16_t y_end, luat_color_t* color) {
     uint32_t size = (x_end - x_start+1) * (y_end - y_start+1) * 2;
-    luat_lcd_set_address(conf,x_start+conf->xoffset, y_start+conf->yoffset, x_end+conf->xoffset, y_end+conf->yoffset);
+    luat_lcd_set_address(conf,x_start, y_start, x_end, y_end);
     luat_gpio_set(conf->pin_dc, Luat_GPIO_HIGH);
 	if (conf->port == LUAT_LCD_SPI_DEVICE){
 		luat_spi_device_send((luat_spi_device_t*)(conf->userdata), (const char*)color, size);

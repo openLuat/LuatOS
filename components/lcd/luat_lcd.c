@@ -139,41 +139,39 @@ int luat_lcd_wakeup(luat_lcd_conf_t* conf) {
 int luat_lcd_set_address(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2) {
     if(conf->direction==0){
         lcd_write_cmd(conf,0x2a);
-        lcd_write_half_word(conf,x1);
-        lcd_write_half_word(conf,x2);
+        lcd_write_half_word(conf,x1+conf->xoffset);
+        lcd_write_half_word(conf,x2+conf->xoffset);
         lcd_write_cmd(conf,0x2b);
-        lcd_write_half_word(conf,y1);
-        lcd_write_half_word(conf,y2);
+        lcd_write_half_word(conf,y1+conf->yoffset);
+        lcd_write_half_word(conf,y2+conf->yoffset);
         lcd_write_cmd(conf,0x2C);
     }
     else if(conf->direction==1){
         lcd_write_cmd(conf,0x2a);
-        lcd_write_half_word(conf,x1);
-        lcd_write_half_word(conf,x2);
+        lcd_write_half_word(conf,x1+conf->xoffset);
+        lcd_write_half_word(conf,x2+conf->xoffset);
         lcd_write_cmd(conf,0x2b);
-        lcd_write_half_word(conf,y1+80);
-        lcd_write_half_word(conf,y2+80);
+        lcd_write_half_word(conf,y1+conf->yoffset);
+        lcd_write_half_word(conf,y2+conf->yoffset);
         lcd_write_cmd(conf,0x2C);
     }
     else if(conf->direction==2){
         lcd_write_cmd(conf,0x2a);
-        lcd_write_half_word(conf,x1);
-        lcd_write_half_word(conf,x2);
+        lcd_write_half_word(conf,x1+conf->xoffset);
+        lcd_write_half_word(conf,x2+conf->xoffset);
         lcd_write_cmd(conf,0x2b);
-        lcd_write_half_word(conf,y1);
-        lcd_write_half_word(conf,y2);
+        lcd_write_half_word(conf,y1+conf->yoffset);
+        lcd_write_half_word(conf,y2+conf->yoffset);
         lcd_write_cmd(conf,0x2C);
     }
     else{
         lcd_write_cmd(conf,0x2a);
-        lcd_write_half_word(conf,x1+80);
-        lcd_write_half_word(conf,x2+80);
+        lcd_write_half_word(conf,x1+conf->xoffset);
+        lcd_write_half_word(conf,x2+conf->xoffset);
         lcd_write_cmd(conf,0x2b);
-        lcd_write_half_word(conf,y1);
-        lcd_write_half_word(conf,y2);
+        lcd_write_half_word(conf,y1+conf->yoffset);
+        lcd_write_half_word(conf,y2+conf->yoffset);
         lcd_write_cmd(conf,0x2C);
-
-
     }
     return 0;
 }
@@ -194,7 +192,7 @@ int luat_lcd_clear(luat_lcd_conf_t* conf,uint32_t color){
     uint8_t *buf = NULL;
     data[0] = color >> 8;
     data[1] = color;
-    luat_lcd_set_address(conf,conf->xoffset, conf->yoffset, conf->w + conf->xoffset - 1, conf->h + conf->yoffset - 1);
+    luat_lcd_set_address(conf,0, 0, conf->w - 1, conf->h - 1);
     buf = luat_heap_malloc(conf->w*conf->h/10);
     if (buf)
     {
@@ -233,7 +231,7 @@ int luat_lcd_clear(luat_lcd_conf_t* conf,uint32_t color){
 }
 
 int luat_lcd_draw_point(luat_lcd_conf_t* conf, uint16_t x, uint16_t y, uint32_t color) {
-    luat_lcd_set_address(conf,x+conf->xoffset, y+conf->yoffset, x+conf->xoffset, y+conf->yoffset);
+    luat_lcd_set_address(conf,x, y, x, y);
     lcd_write_half_word(conf,color);
     return 0;
 }
@@ -246,7 +244,7 @@ int luat_lcd_draw_line(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t 
     if (y1 == y2)
     {
         /* fast draw transverse line */
-        luat_lcd_set_address(conf,x1+conf->xoffset, y1+conf->yoffset, x2+conf->xoffset, y2+conf->yoffset);
+        luat_lcd_set_address(conf,x1, y1, x2, y2);
         uint8_t line_buf[480] = {0};
         for (i = 0; i < x2 - x1; i++)
         {

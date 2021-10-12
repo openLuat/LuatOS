@@ -50,16 +50,17 @@ static int st7789_init(luat_lcd_conf_t* conf) {
     luat_timer_mdelay(100);
     luat_gpio_set(conf->pin_rst, Luat_GPIO_HIGH);
     // 发送初始化命令
-
+    lcd_write_cmd(conf,0x11);
+    luat_timer_mdelay(120);
     /* Memory Data Access Control */
     lcd_write_cmd(conf,0x36);
     if(conf->direction==0)lcd_write_data(conf,0x00);
     else if(conf->direction==1)lcd_write_data(conf,0xC0);
     else if(conf->direction==2)lcd_write_data(conf,0x70);
-    else lcd_write_data(conf,0xA0);
+    else if(conf->direction==3)lcd_write_data(conf,0xA0);
     /* RGB 5-6-5-bit  */
     lcd_write_cmd(conf,0x3A);
-    lcd_write_data(conf,0x65);
+    lcd_write_data(conf,0x05);
     /* Porch Setting */
     lcd_write_cmd(conf,0xB2);
     lcd_write_data(conf,0x0C);
@@ -72,16 +73,16 @@ static int st7789_init(luat_lcd_conf_t* conf) {
     lcd_write_data(conf,0x35);
     /* VCOM Setting */
     lcd_write_cmd(conf,0xBB);
-    lcd_write_data(conf,0x19);
+    lcd_write_data(conf,0x32);
     /* LCM Control */
-    lcd_write_cmd(conf,0xC0);
-    lcd_write_data(conf,0x2C);
+    // lcd_write_cmd(conf,0xC0);
+    // lcd_write_data(conf,0x2C);
     /* VDV and VRH Command Enable */
     lcd_write_cmd(conf,0xC2);
     lcd_write_data(conf,0x01);
     /* VRH Set */
     lcd_write_cmd(conf,0xC3);
-    lcd_write_data(conf,0x12);
+    lcd_write_data(conf,0x15);
     /* VDV Set */
     lcd_write_cmd(conf,0xC4);
     lcd_write_data(conf,0x20);
@@ -95,35 +96,35 @@ static int st7789_init(luat_lcd_conf_t* conf) {
     /* Positive Voltage Gamma Control */
     lcd_write_cmd(conf,0xE0);
     lcd_write_data(conf,0xD0);
-    lcd_write_data(conf,0x04);
-    lcd_write_data(conf,0x0D);
-    lcd_write_data(conf,0x11);
-    lcd_write_data(conf,0x13);
-    lcd_write_data(conf,0x2B);
-    lcd_write_data(conf,0x3F);
-    lcd_write_data(conf,0x54);
-    lcd_write_data(conf,0x4C);
-    lcd_write_data(conf,0x18);
-    lcd_write_data(conf,0x0D);
-    lcd_write_data(conf,0x0B);
-    lcd_write_data(conf,0x1F);
-    lcd_write_data(conf,0x23);
+    lcd_write_data(conf,0x08);
+    lcd_write_data(conf,0x0E);
+    lcd_write_data(conf,0x09);
+    lcd_write_data(conf,0x09);
+    lcd_write_data(conf,0x05);
+    lcd_write_data(conf,0x31);
+    lcd_write_data(conf,0x33);
+    lcd_write_data(conf,0x48);
+    lcd_write_data(conf,0x17);
+    lcd_write_data(conf,0x14);
+    lcd_write_data(conf,0x15);
+    lcd_write_data(conf,0x31);
+    lcd_write_data(conf,0x34);
     /* Negative Voltage Gamma Control */
     lcd_write_cmd(conf,0xE1);
     lcd_write_data(conf,0xD0);
-    lcd_write_data(conf,0x04);
-    lcd_write_data(conf,0x0C);
-    lcd_write_data(conf,0x11);
-    lcd_write_data(conf,0x13);
-    lcd_write_data(conf,0x2C);
-    lcd_write_data(conf,0x3F);
-    lcd_write_data(conf,0x44);
-    lcd_write_data(conf,0x51);
-    lcd_write_data(conf,0x2F);
-    lcd_write_data(conf,0x1F);
-    lcd_write_data(conf,0x1F);
-    lcd_write_data(conf,0x20);
-    lcd_write_data(conf,0x23);
+    lcd_write_data(conf,0x08);
+    lcd_write_data(conf,0x0E);
+    lcd_write_data(conf,0x09);
+    lcd_write_data(conf,0x09);
+    lcd_write_data(conf,0x15);
+    lcd_write_data(conf,0x31);
+    lcd_write_data(conf,0x33);
+    lcd_write_data(conf,0x48);
+    lcd_write_data(conf,0x17);
+    lcd_write_data(conf,0x14);
+    lcd_write_data(conf,0x15);
+    lcd_write_data(conf,0x31);
+    lcd_write_data(conf,0x34);
     /* Display Inversion On */
     lcd_write_cmd(conf,0x21);
     /* Sleep Out */
@@ -138,7 +139,7 @@ static int st7789_init(luat_lcd_conf_t* conf) {
 
 static int st7789_draw(luat_lcd_conf_t* conf, uint16_t x_start, uint16_t y_start, uint16_t x_end, uint16_t y_end, luat_color_t* color) {
     uint32_t size = size = (x_end - x_start+1) * (y_end - y_start+1) * 2;
-    luat_lcd_set_address(conf,x_start+conf->xoffset, y_start+conf->yoffset, x_end+conf->xoffset, y_end+conf->yoffset);
+    luat_lcd_set_address(conf,x_start, y_start, x_end, y_end);
     luat_gpio_set(conf->pin_dc, Luat_GPIO_HIGH);
     if (conf->port == LUAT_LCD_SPI_DEVICE){
 		luat_spi_device_send((luat_spi_device_t*)(conf->userdata), (const char*)color, size);

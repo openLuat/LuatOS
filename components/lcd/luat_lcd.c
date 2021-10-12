@@ -183,7 +183,15 @@ int luat_lcd_set_color(uint32_t back, uint32_t fore){
 }
 
 int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, luat_color_t* color) {
-    return conf->opts->draw(conf, x1, y1, x2, y2, color);
+    uint32_t size = (x2 - x1 + 1) * (y2 - y1 + 1) * 2;
+    luat_lcd_set_address(conf,x1, y1, x2, y2);
+    luat_gpio_set(conf->pin_dc, Luat_GPIO_HIGH);
+	if (conf->port == LUAT_LCD_SPI_DEVICE){
+		luat_spi_device_send((luat_spi_device_t*)(conf->userdata), (const char*)color, size);
+	}else{
+		luat_spi_send(conf->port, (const char*)color, size);
+	}
+    return 0;
 }
 
 int luat_lcd_clear(luat_lcd_conf_t* conf,uint32_t color){

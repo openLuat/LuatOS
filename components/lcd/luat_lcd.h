@@ -60,7 +60,6 @@ typedef struct luat_lcd_opts {
     const char* name;
     int (*init)(luat_lcd_conf_t* conf);
     int (*close)(luat_lcd_conf_t* conf);
-    int (*draw)(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, luat_color_t* color);
     int (*sleep)(luat_lcd_conf_t* conf);
     int (*wakeup)(luat_lcd_conf_t* conf);
 } luat_lcd_opts_t;

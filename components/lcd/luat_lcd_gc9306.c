@@ -184,23 +184,10 @@ static int gc9306_init(luat_lcd_conf_t* conf) {
     return 0;
 };
 
-static int gc9306_draw(luat_lcd_conf_t* conf, uint16_t x_start, uint16_t y_start, uint16_t x_end, uint16_t y_end, luat_color_t* color) {
-    uint32_t size = size = (x_end - x_start+1) * (y_end - y_start+1) * 2;
-    luat_lcd_set_address(conf,x_start, y_start, x_end, y_end);
-    luat_gpio_set(conf->pin_dc, Luat_GPIO_HIGH);
-	if (conf->port == LUAT_LCD_SPI_DEVICE){
-		luat_spi_device_send((luat_spi_device_t*)(conf->userdata), (const char*)color, size);
-	}else{
-		luat_spi_send(conf->port, (const char*)color, size);
-	}
-    return 0;
-}
-
 const luat_lcd_opts_t lcd_opts_gc9306 = {
     .name = "gc9306",
     .init = gc9306_init,
     .close = gc9306_close,
-    .draw = gc9306_draw,
     .sleep = gc9306_sleep,
     .wakeup = gc9306_wakeup,
 };

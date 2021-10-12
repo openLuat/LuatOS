@@ -21,7 +21,7 @@ _G.sys = require("sys")
 --         return
 --     end
 
-    
+
 --     log.info("DHT12 HEX data: ", data:toHex())
 --     -- 分别是湿度整数,湿度小数,温度整数,温度湿度
 --     local _, h_H, h_L, t_H, t_L,crc = pack.unpack(data, 'b5')
@@ -41,11 +41,11 @@ _G.sys = require("sys")
 -- end
 
 sys.taskInit(function()
-    local id = 0
+    local id = 0--i2c的id，请按需更改
     while 1 do
         sys.wait(5000) -- 5秒读取一次
         i2c.setup(id, i2c.SLOW)
-        --log.info("dht12", read_dht12(0)) -- 传统方式读取,请取消read_dht12方法的注释
+        --log.info("dht12", read_dht12(0)) -- 如果想用传统方式读取,请取消read_dht12方法的注释
         log.info("dht12", i2c.readDHT12(id))
         i2c.close(id)
     end

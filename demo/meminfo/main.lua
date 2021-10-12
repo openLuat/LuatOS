@@ -1,13 +1,17 @@
 
-PROJECT = "hi"
+PROJECT = "memdemo"
 VERSION = "1.0.0"
 
 local sys = require "sys"
 
 sys.taskInit(function()
+    local count = 1
     while 1 do
-        log.info("luatos", "hi", os.date())
         sys.wait(1000)
+        log.info("luatos", "hi", count, os.date())
+        log.info("luatos", rtos.meminfo())
+        log.info("luatos", rtos.meminfo("sys"))
+        count = count + 1
     end
 end)
 

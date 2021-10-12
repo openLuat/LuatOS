@@ -3,30 +3,18 @@
 PROJECT = "cryptodemo"
 VERSION = "1.0.0"
 
+log.info("main", PROJECT, VERSION)
+
 -- sys库是标配
 _G.sys = require("sys")
 
--- 日志TAG, 非必须
-local NETLED = gpio.setup(19, 0)
-
-sys.taskInit(function()
-    while 1 do
-        if socket.isReady() then
-            NETLED(1)
-            sys.wait(100)
-            NETLED(0)
-            sys.wait(1900)
-        else
-            NETLED(1)
-            sys.wait(500)
-            NETLED(0)
-            sys.wait(500)
-        end
-    end
-end)
+if wdt.init then
+    --添加硬狗防止程序卡死，在支持的设备上启用这个功能
+    wdt.init(15000)--初始化watchdog设置为15s
+    sys.timerLoopStart(wdt.feed, 10000)--10s喂一次狗
+end
 
 sys.timerLoopStart(function()
-    --sys.wait(3000) -- 开机后展示crypto功能
 
     -- MD5,输出结果已经hex编码
     log.info("md5", crypto.md5("abc"))
@@ -36,9 +24,17 @@ sys.timerLoopStart(function()
     log.info("sha1", crypto.sha1("abc"))
     log.info("hmac_sha1", crypto.hmac_sha1("abc", "1234567890"))
 
+    -- SHA256,输出结果已经hex编码
+    log.info("sha256", crypto.sha256("abc"))
+    log.info("hmac_sha256", crypto.hmac_sha256("abc", "1234567890"))
+
+    -- SHA512,输出结果已经hex编码
+    log.info("sha512", crypto.sha512("abc"))
+    log.info("hmac_sha512", crypto.hmac_sha512("abc", "1234567890"))
+
     -- AES加密, 未经Hex编码. AES-128-ECB 算法,待加密字符串如果超过32字节会报错,待查. by wendal 20200812
-    local data_encrypt = crypto.cipher_encrypt("AES-128-ECB", "PKCS7", "12345678901234 > " .. nbiot.imei(), "1234567890123456")
-    local data2_encrypt = crypto.cipher_encrypt("AES-128-CBC", "PKCS7", "12345678901234 > ".. nbiot.imei(), "1234567890123456", "1234567890666666")
+    local data_encrypt = crypto.cipher_encrypt("AES-128-ECB", "PKCS7", "12345678901234 > 123456", "1234567890123456")
+    local data2_encrypt = crypto.cipher_encrypt("AES-128-CBC", "PKCS7", "12345678901234 > 123456", "1234567890123456", "1234567890666666")
     log.info("AES", data_encrypt:toHex())
     log.info("AES", data2_encrypt:toHex())
 
@@ -48,7 +44,14 @@ sys.timerLoopStart(function()
     log.info("AES", data_decrypt)
     log.info("AES", data2_decrypt)
     log.info("mem", rtos.meminfo("sys"))
+
 end, 2000)
+
+sys.taskInit(function()
+    while 1 do
+        sys.wait(500)
+    end
+end)
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

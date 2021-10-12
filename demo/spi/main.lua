@@ -1,14 +1,15 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "air302_spi_demo"
+PROJECT = "w25q_spi_demo"
 VERSION = "1.0.1"
 
 local sys = require "sys"
 
+--spi编号，请按实际情况修改！
 local spiId = 0
-local cs = 16
--- 这里注意了！！ 设备CS连接到 GPIO17, 不要接 cs脚。
-local cspin = gpio.setup(17, 1)
+--cs脚，请按需修改！
+local cs = 17
+local cspin = gpio.setup(cs, 1)
 
 --收发数据
 local function sendRecv(data,len)

@@ -22,7 +22,7 @@ sys.taskInit(function()
 
     -- sht30的默认i2c地址
     local addr = 0x44
-    -- 当前仅支持i2c0哦
+    -- 按实际修改哦
     local id = 0
 
     log.info("i2c", "initial",i2c.setup(0))

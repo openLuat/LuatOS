@@ -25,7 +25,7 @@ sys.taskInit(function()
 
     --1010 000x
     local addr = 0x40
-    -- 当前仅支持i2c0哦
+    -- 按实际修改哦
     local id = 0
 
     log.info("i2c", "initial",i2c.setup(0))

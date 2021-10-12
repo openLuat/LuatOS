@@ -7,8 +7,9 @@ VERSION = "1.0.0"
 local sys = require "sys"
 
 --1010 000x
+--7bit地址，不包含最后一位读写位
 local addr = 0x50
--- 当前仅支持i2c0哦
+-- 按照实际芯片更改编号哦
 local i2cid = 0
 
 sys.taskInit(function()

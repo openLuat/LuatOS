@@ -34,7 +34,9 @@ lcd显示屏初始化
 @table 附加参数,与具体设备有关
 @usage
 -- 初始化spi0的st7789 注意:lcd初始化之前需要先初始化spi
-lcd.init("st7789",{port = 0,pin_dc = 23, pin_pwr = 7,pin_rst = 22,direction = 0,w = 240,h = 320,xoffset = 0,yoffset = 0})
+local spi_lcd = spi.device_setup(0,20,0,0,8,2000000,spi.MSB,1,1)
+log.info("lcd.init",
+lcd.init("st7735s",{port = "device",pin_dc = 17, pin_pwr = 7,pin_rst = 19,direction = 2,w = 160,h = 80,xoffset = 1,yoffset = 26},spi_lcd))
 */
 static int l_lcd_init(lua_State* L) {
     size_t len = 0;

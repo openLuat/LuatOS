@@ -31,9 +31,7 @@ uart.on(UART_ID, "receive", function(uid, length)
     local s
     while true do--保证读完不能丢包
         s = uart.read(uid, length)
-        if not s or #s == 0 then
-            break
-        end
+        if #s == 0 then break end
         table.insert(sendQueue, s)
     end
     sys.timerStart(sys.publish, uartimeout, recvReady)

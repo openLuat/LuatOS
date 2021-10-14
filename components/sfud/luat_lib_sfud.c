@@ -28,7 +28,7 @@ log.info("sfud.init",sfud.init(0,20,20 * 1000 * 1000))
 local spi_device = spi.device_setup(0,17,0,0,8,2000000,spi.MSB,1,1)
 log.info("sfud.init",sfud.init(spi_device))
 */
-static int l_sfud_init(lua_State *L){
+static int luat_sfud_init(lua_State *L){
     static luat_spi_t sfud_spi_flash;
     static luat_spi_device_t* sfud_spi_device_flash = NULL;
     if (lua_type(L, 1) == LUA_TNUMBER){
@@ -62,7 +62,7 @@ static int l_sfud_init(lua_State *L){
 @usage
 log.info("sfud.get_device_num",sfud.get_device_num())
 */
-static int l_sfud_get_device_num(lua_State *L){
+static int luat_sfud_get_device_num(lua_State *L){
     int re = sfud_get_device_num();
     lua_pushinteger(L, re);
     return 1;
@@ -76,7 +76,7 @@ static int l_sfud_get_device_num(lua_State *L){
 @usage
 local sfud_device = sfud.get_device(1)
 */
-static int l_sfud_get_device(lua_State *L){
+static int luat_sfud_get_device(lua_State *L){
     sfud_flash *flash = sfud_get_device(luaL_checkinteger(L, 1));
     lua_pushlightuserdata(L, flash);
     return 1;
@@ -89,7 +89,7 @@ static int l_sfud_get_device(lua_State *L){
 @usage
 local sfud_device = sfud.get_device_table()
 */
-static int l_sfud_get_device_table(lua_State *L){
+static int luat_sfud_get_device_table(lua_State *L){
     sfud_flash *flash = sfud_get_device_table();
     lua_pushlightuserdata(L, flash);
     return 1;
@@ -103,7 +103,7 @@ static int l_sfud_get_device_table(lua_State *L){
 @usage
 sfud.chip_erase(flash)
 */
-static int l_sfud_chip_erase(lua_State *L){
+static int luat_sfud_chip_erase(lua_State *L){
     const sfud_flash *flash = lua_touserdata(L, 1);
     sfud_err re = sfud_chip_erase(flash);
     lua_pushinteger(L, re);
@@ -118,7 +118,7 @@ static int l_sfud_chip_erase(lua_State *L){
 @usage
 sfud.chip_erase(flash)
 */
-static int l_sfud_erase(lua_State *L){
+static int luat_sfud_erase(lua_State *L){
     const sfud_flash *flash = lua_touserdata(L, 1);
     uint32_t addr = luaL_checkinteger(L, 2);
     size_t size = luaL_checkinteger(L, 3);
@@ -137,7 +137,7 @@ static int l_sfud_erase(lua_State *L){
 @usage
 log.info("sfud.read",sfud.read(sfud_device,1024,4))
 */
-static int l_sfud_read(lua_State *L){
+static int luat_sfud_read(lua_State *L){
     const sfud_flash *flash = lua_touserdata(L, 1);
     uint32_t addr = luaL_checkinteger(L, 2);
     size_t size = luaL_checkinteger(L, 3);
@@ -163,7 +163,7 @@ static int l_sfud_read(lua_State *L){
 @usage
 log.info("sfud.write",sfud.write(sfud_device,1024,"sfud"))
 */
-static int l_sfud_write(lua_State *L){
+static int luat_sfud_write(lua_State *L){
     const sfud_flash *flash = lua_touserdata(L, 1);
     uint32_t addr = luaL_checkinteger(L, 2);
     size_t size = 0;
@@ -184,7 +184,7 @@ static int l_sfud_write(lua_State *L){
 @usage
 log.info("sfud.erase_write",sfud.erase_write(sfud_device,1024,"sfud"))
 */
-static int l_sfud_erase_write(lua_State *L){
+static int luat_sfud_erase_write(lua_State *L){
     const sfud_flash *flash = lua_touserdata(L, 1);
     uint32_t addr = luaL_checkinteger(L, 2);
     size_t size = 0;
@@ -210,7 +210,7 @@ log.info("sfud.mount",sfud.mount(sfud_device,"/sfud"))
 log.info("fsstat", fs.fsstat("/"))
 log.info("fsstat", fs.fsstat("/sfud"))
 */
-static int l_sfud_mount(lua_State *L) {
+static int luat_sfud_mount(lua_State *L) {
     const sfud_flash *flash = lua_touserdata(L, 1);
     const char* mount_point = luaL_checkstring(L, 2);
     lfs_t* lfs = flash_lfs_sfud(flash);
@@ -234,17 +234,17 @@ static int l_sfud_mount(lua_State *L) {
 #include "rotable.h"
 static const rotable_Reg reg_sfud[] =
 {
-    { "init",       l_sfud_init,        0},
-    { "get_device_num",       l_sfud_get_device_num,        0},
-    { "get_device",       l_sfud_get_device,        0},
-    { "get_device_table",       l_sfud_get_device_table,        0},
-    { "erase",       l_sfud_erase,        0},
-    { "chip_erase",       l_sfud_chip_erase,        0},
-    { "read",       l_sfud_read,        0},
-    { "write",       l_sfud_write,        0},
-    { "erase_write",       l_sfud_erase_write,        0},
+    { "init",           luat_sfud_init,             0},
+    { "getDeviceNum",   luat_sfud_get_device_num,   0},
+    { "getDevice",      luat_sfud_get_device,       0},
+    { "getDeviceTable", luat_sfud_get_device_table, 0},
+    { "erase",          luat_sfud_erase,            0},
+    { "chipErase",      luat_sfud_chip_erase,       0},
+    { "read",           luat_sfud_read,             0},
+    { "write",          luat_sfud_write,            0},
+    { "eraseWrite",     luat_sfud_erase_write,      0},
 #ifdef LUAT_USE_FS_VFS
-    { "mount",       l_sfud_mount,        0},
+    { "mount",          luat_sfud_mount,            0},
 #endif
 	{ NULL, NULL, 0}
 };

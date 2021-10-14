@@ -186,7 +186,7 @@ static int l_spi_send(lua_State *L) {
 
 /**
 设置并启用SPI(对象方式)
-@api spi.device_setup(id, cs, CPHA, CPOL, dataw, bandrate, bitdict, ms, mode)
+@api spi.deviceSetup(id, cs, CPHA, CPOL, dataw, bandrate, bitdict, ms, mode)
 @int SPI号,例如0
 @int CS 片选脚,在w600不可用请填nil
 @int CPHA 默认0,可选0/1
@@ -199,7 +199,7 @@ static int l_spi_send(lua_State *L) {
 @return userdata spi_device
 @usage
 -- 初始化spi
-local spi_device = spi.device_setup(0,17,0,0,8,2000000,spi.MSB,1,1)
+local spi_device = spi.deviceSetup(0,17,0,0,8,2000000,spi.MSB,1,1)
 */
 static int l_spi_device_setup(lua_State *L) {
     luat_spi_device_t* spi_device = lua_newuserdata(L, sizeof(luat_spi_device_t));
@@ -390,7 +390,7 @@ static const rotable_Reg reg_spi[] =
     { "transfer",         l_spi_transfer,      0},
     { "recv",             l_spi_recv,          0},
     { "send",             l_spi_send,          0},
-    { "device_setup",     l_spi_device_setup,  0},
+    { "deviceSetup",      l_spi_device_setup,  0},
 
     { "MSB",               0,                  1},
     { "LSB",               0,                  2},

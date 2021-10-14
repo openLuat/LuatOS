@@ -20,7 +20,7 @@ sys.taskInit(function()
     sdio.init(0)
     sdio.sd_mount(0,"/sd",0)
 
-    local spi_lcd = spi.device_setup(0,20,0,0,8,2000000,spi.MSB,1,1)
+    local spi_lcd = spi.deviceSetup(0,20,0,0,8,2000000,spi.MSB,1,1)
     log.info("lcd.init",
     lcd.init("st7735s",{port = "device",pin_dc = 17, pin_pwr = 7,pin_rst = 19,direction = 2,w = 160,h = 80,xoffset = 1,yoffset = 26},spi_lcd))
     

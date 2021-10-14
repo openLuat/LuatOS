@@ -13,7 +13,7 @@ sys.timerLoopStart(wdt.feed, 10000)--10s喂一次狗
 
 sys.taskInit(function()
     -- log.info("sfud.init",sfud.init(0,20,20 * 1000 * 1000))--此方法spi总线无法挂载多设备
-    local spi_flash = spi.device_setup(0,22,0,0,8,2000000,spi.MSB,1,1)--PB6
+    local spi_flash = spi.deviceSetup(0,22,0,0,8,2000000,spi.MSB,1,1)--PB6
     log.info("sfud.init",sfud.init(spi_flash))
     log.info("sfud.getDeviceNum",sfud.getDeviceNum())
     local sfud_device = sfud.getDeviceTable()

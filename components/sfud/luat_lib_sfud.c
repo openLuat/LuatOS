@@ -57,10 +57,10 @@ static int luat_sfud_init(lua_State *L){
 
 /*
 获取flash设备信息表中的设备总数
-@api  sfud.get_device_num()
+@api  sfud.getDeviceNum()
 @return int  返回设备总数
 @usage
-log.info("sfud.get_device_num",sfud.get_device_num())
+log.info("sfud.getDeviceNum",sfud.getDeviceNum())
 */
 static int luat_sfud_get_device_num(lua_State *L){
     int re = sfud_get_device_num();
@@ -70,11 +70,11 @@ static int luat_sfud_get_device_num(lua_State *L){
 
 /*
 通过flash信息表中的索引获取flash设备
-@api  sfud.get_device(index)
+@api  sfud.getDevice(index)
 @int  index flash信息表中的索引
 @return userdata 成功返回一个数据结构,否则返回nil
 @usage
-local sfud_device = sfud.get_device(1)
+local sfud_device = sfud.getDevice(1)
 */
 static int luat_sfud_get_device(lua_State *L){
     sfud_flash *flash = sfud_get_device(luaL_checkinteger(L, 1));
@@ -84,10 +84,10 @@ static int luat_sfud_get_device(lua_State *L){
 
 /*
 获取flash设备信息表
-@api  sfud.get_device_table()
+@api  sfud.getDeviceTable()
 @return userdata 成功返回一个数据结构,否则返回nil
 @usage
-local sfud_device = sfud.get_device_table()
+local sfud_device = sfud.getDeviceTable()
 */
 static int luat_sfud_get_device_table(lua_State *L){
     sfud_flash *flash = sfud_get_device_table();
@@ -97,11 +97,11 @@ static int luat_sfud_get_device_table(lua_State *L){
 
 /*
 擦除 Flash 全部数据
-@api  sfud.chip_erase(flash)
+@api  sfud.chipErase(flash)
 @userdata flash Flash 设备对象 sfud.get_device_table()返回的数据结构
 @return int 成功返回0
 @usage
-sfud.chip_erase(flash)
+sfud.chipErase(flash)
 */
 static int luat_sfud_chip_erase(lua_State *L){
     const sfud_flash *flash = lua_touserdata(L, 1);
@@ -175,14 +175,14 @@ static int luat_sfud_write(lua_State *L){
 
 /*
 先擦除再往 Flash 写数据
-@api  sfud.erase_write(flash, addr, size,data)
+@api  sfud.eraseWrite(flash, addr, size,data)
 @userdata flash Flash 设备对象 sfud.get_device_table()返回的数据结构
 @int addr 起始地址
 @int size 从起始地址开始读取数据的总大小
 @string data 待写入的数据
 @return int 成功返回0
 @usage
-log.info("sfud.erase_write",sfud.erase_write(sfud_device,1024,"sfud"))
+log.info("sfud.eraseWrite",sfud.eraseWrite(sfud_device,1024,"sfud"))
 */
 static int luat_sfud_erase_write(lua_State *L){
     const sfud_flash *flash = lua_touserdata(L, 1);

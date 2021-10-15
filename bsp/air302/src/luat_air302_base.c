@@ -57,7 +57,7 @@ static const luaL_Reg loadedlibs[] = {
   {"nbiot",   luaopen_nbiot},             // NBIOT专属模块
   {"pm",      luaopen_pm},                // 低功耗模式
   {"http",  luaopen_http},              // http库
-  // {"ctiot",	luaopen_ctiot},				      // ctiot库，中国电信ctwing平台
+  {"ctiot",	luaopen_ctiot},				      // ctiot库，中国电信ctwing平台
   {NULL, NULL}
 };
 

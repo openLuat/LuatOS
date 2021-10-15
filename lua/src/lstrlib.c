@@ -190,17 +190,17 @@ static int writer (lua_State *L, const void *b, size_t size, void *B) {
 }
 
 
-static int str_dump (lua_State *L) {
-  luaL_Buffer b;
-  int strip = lua_toboolean(L, 2);
-  luaL_checktype(L, 1, LUA_TFUNCTION);
-  lua_settop(L, 1);
-  luaL_buffinit(L,&b);
-  if (lua_dump(L, writer, &b, strip) != 0)
-    return luaL_error(L, "unable to dump given function");
-  luaL_pushresult(&b);
-  return 1;
-}
+// static int str_dump (lua_State *L) {
+//   luaL_Buffer b;
+//   int strip = lua_toboolean(L, 2);
+//   luaL_checktype(L, 1, LUA_TFUNCTION);
+//   lua_settop(L, 1);
+//   luaL_buffinit(L,&b);
+//   if (lua_dump(L, writer, &b, strip) != 0)
+//     return luaL_error(L, "unable to dump given function");
+//   luaL_pushresult(&b);
+//   return 1;
+// }
 
 
 
@@ -1556,7 +1556,7 @@ void luat_str_fromhex(char* str, size_t len, char* buff) {
   {
     char a = *(str + i*2);
     char b = *(str + i*2 + 1);
-    printf("%d %c %c\r\n", i, a, b);
+    //printf("%d %c %c\r\n", i, a, b);
     a = (a <= '9') ? a - '0' : (a & 0x7) + 9;
     b = (b <= '9') ? b - '0' : (b & 0x7) + 9;
     if (a >=0 && b >= 0)

@@ -271,8 +271,8 @@ local crc = crypto.crc16("")
 static int l_crypto_crc16(lua_State *L)
 {   
     size_t inputLen;
-    const char  *inputmethod = luaL_checkstring(L, 1);
-    const char *inputData = lua_tolstring(L,2,&inputLen);
+    const unsigned char  *inputmethod = (const unsigned char*)luaL_checkstring(L, 1);
+    const unsigned char *inputData = (const unsigned char*)lua_tolstring(L,2,&inputLen);
     uint16_t poly = luaL_optnumber(L,3,0x0000);
     uint16_t initial = luaL_optnumber(L,4,0x0000);
     uint16_t finally = luaL_optnumber(L,5,0x0000);
@@ -295,7 +295,7 @@ local crc = crypto.crc16_modbus(data)
 static int l_crypto_crc16_modbus(lua_State *L)
 {
     size_t len = 0;
-    const char *inputData = luaL_checklstring(L, 1, &len);
+    const unsigned char *inputData = (const unsigned char*)luaL_checklstring(L, 1, &len);
 
     lua_pushinteger(L, calcCRC16_modbus(inputData, len));
     return 1;
@@ -313,7 +313,7 @@ local crc = crypto.crc32(data)
 static int l_crypto_crc32(lua_State *L)
 {
     size_t len = 0;
-    const char *inputData = luaL_checklstring(L, 1, &len);
+    const unsigned char *inputData = (const unsigned char*)luaL_checklstring(L, 1, &len);
 
     lua_pushinteger(L, calcCRC32(inputData, len));
     return 1;
@@ -331,7 +331,7 @@ local crc = crypto.crc8(data)
 static int l_crypto_crc8(lua_State *L)
 {
     size_t len = 0;
-    const char *inputData = luaL_checklstring(L, 1, &len);
+    const unsigned char *inputData = (const unsigned char*)luaL_checklstring(L, 1, &len);
 
     lua_pushinteger(L, calcCRC8(inputData, len));
     return 1;

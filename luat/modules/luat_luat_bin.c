@@ -44,6 +44,7 @@ int luat_bin_unpack(const char* binpath, int writeOut) {
     int ret = -1; // 返回值
     luat_bin_tlv_t* tlv = NULL; // TLV结构
     char path[64] = {0}; // 路径
+    size_t wsize = 0;
 
     size_t fsize = luat_fs_fsize(binpath);
     LLOGI("unpack path=%s size=%d", binpath, fsize);
@@ -81,8 +82,6 @@ int luat_bin_unpack(const char* binpath, int writeOut) {
     }
     // 跳过头部
     binbuff->offset += sizeof(luat_bin_tlv_t);
-    
-    size_t wsize = 0;
 
     // 开始解析主体
     while (1) {

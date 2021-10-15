@@ -85,11 +85,11 @@ local recv = spi.transfer(0, buff)--把zbuff数据从指针开始，全发出去
 */
 static int l_spi_transfer(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
-    size_t len;
-    const char* send_buff;
+    size_t len = 0;
+    const char* send_buff = NULL;
     if(lua_isuserdata(L, 2)){//zbuff对象特殊处理
         luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
-        send_buff = buff->addr+buff->cursor;
+        send_buff = (const char*)(buff->addr+buff->cursor);
         len = buff->len - buff->cursor;
     }else{
         send_buff = lua_tolstring(L, 2, &len);
@@ -161,11 +161,11 @@ local result = spi.send(0, buff)--把zbuff数据从指针开始，全发出去
 */
 static int l_spi_send(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
-    size_t len;
-    const char* send_buff;
+    size_t len = 0;
+    const char* send_buff = NULL;
     if(lua_isuserdata(L, 2)){//zbuff对象特殊处理
-        luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
-        send_buff = buff->addr+buff->cursor;
+        luat_zbuff_t *buff = (luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE);
+        send_buff = (const char*)(buff->addr+buff->cursor);
         len = buff->len - buff->cursor;
     }else{
         send_buff = lua_tolstring(L, 2, &len);
@@ -255,11 +255,11 @@ local recv = spi_device:transfer(buff)--把zbuff数据从指针开始，全发�
 */
 static int l_spi_device_transfer(lua_State *L) {
     luat_spi_device_t* spi_device = (luat_spi_device_t*)lua_touserdata(L, 1);
-    size_t len;
-    const char* send_buff;
+    size_t len = 0;
+    const char* send_buff = NULL;
     if(lua_isuserdata(L, 2)){//zbuff对象特殊处理
-        luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
-        send_buff = buff->addr+buff->cursor;
+        luat_zbuff_t *buff = (luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE);
+        send_buff = (const char*)(buff->addr+buff->cursor);
         len = buff->len - buff->cursor;
     }else{
         send_buff = lua_tolstring(L, 2, &len);
@@ -304,11 +304,11 @@ local result = spi_device:send(buff)--把zbuff数据从指针开始，全发出�
 */
 static int l_spi_device_send(lua_State *L) {
     luat_spi_device_t* spi_device = (luat_spi_device_t*)lua_touserdata(L, 1);
-    size_t len;
-    const char* send_buff;
+    size_t len = 0;
+    const char* send_buff = NULL;
     if(lua_isuserdata(L, 2)){//zbuff对象特殊处理
-        luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
-        send_buff = buff->addr+buff->cursor;
+        luat_zbuff_t *buff = (luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE);
+        send_buff = (const char*)(buff->addr+buff->cursor);
         len = buff->len - buff->cursor;
     }else{
         send_buff = lua_tolstring(L, 2, &len);

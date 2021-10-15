@@ -429,14 +429,14 @@ sensor.ws2812b(7,buff,300,700,700,700)
   while(t1l_temp--)
 static int l_sensor_ws2812b(lua_State *L)
 {
-  unsigned char j;
+  int j;
   size_t len,i;
-  const char *send_buff;
+  const char *send_buff = NULL;
   int pin = luaL_checkinteger(L, 1);
   if (lua_isuserdata(L, 2))
   {
     luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
-    send_buff = buff->addr;
+    send_buff = (const char*)buff->addr;
     len = buff->len;
   }
   else

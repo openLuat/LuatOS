@@ -43,7 +43,7 @@ static int luat_ctiot_msg_handler(lua_State *L, void* ptr)
 		case CTIOT_TX_ACK:
 		case CTIOT_TX_DONE:
 			goto LUAT_CTIOT_MSG_HANDLER_DONE;
-			break;
+			//break;
 		default:
 			error = 1;
 			error_code = code;
@@ -74,7 +74,7 @@ static int luat_ctiot_msg_handler(lua_State *L, void* ptr)
 		{
 		case CTIOT_AIR_NON_SEND_START:
 			goto LUAT_CTIOT_MSG_HANDLER_DONE;
-			break;
+			//break;
 		default:
 			error = 0;
 			error_code = 0;
@@ -203,7 +203,7 @@ void luat_ctiot_callback(uint8_t type, uint8_t code, void *buf, uint32_t len)
 			memcpy(buff + 6, buf, len);
 		}
 	}
-	luat_msgbus_put(&msg, -1);
+	luat_msgbus_put(&msg, 0);
 
 }
 /**

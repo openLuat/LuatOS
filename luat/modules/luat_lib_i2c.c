@@ -98,7 +98,7 @@ static void i2c_soft_send_byte(luat_ei2c *ei2c,unsigned char data)
         luat_timer_us_delay(5);
     }
 }
-static unsigned char i2c_soft_recv_byte(luat_ei2c *ei2c)
+static char i2c_soft_recv_byte(luat_ei2c *ei2c)
 {
     unsigned char i = 8;
     unsigned char data = 0;
@@ -117,7 +117,7 @@ static unsigned char i2c_soft_recv_byte(luat_ei2c *ei2c)
     luat_gpio_set(ei2c->scl, Luat_GPIO_LOW);
     return(data);
 }
-static unsigned char i2c_soft_recv(luat_ei2c *ei2c,unsigned char addr, char *buff, size_t len)
+static char i2c_soft_recv(luat_ei2c *ei2c,unsigned char addr, char *buff, size_t len)
 {
     size_t i;
     i2c_soft_start(ei2c);
@@ -138,7 +138,7 @@ static unsigned char i2c_soft_recv(luat_ei2c *ei2c,unsigned char addr, char *buf
     i2c_soft_stop(ei2c);
     return 0;
 }
-static unsigned char i2c_soft_send(luat_ei2c *ei2c,unsigned char addr,char *data, size_t len)
+static char i2c_soft_send(luat_ei2c *ei2c,unsigned char addr,char *data, size_t len)
 {
     size_t i;
     i2c_soft_start(ei2c);

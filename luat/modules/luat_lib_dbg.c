@@ -15,7 +15,7 @@
  * 5 , wait for step in
  */
 static int cur_hook_state = 0;
-static int cur_run_state = 0;
+// static int cur_run_state = 0;
 static lua_State *dbg_L = NULL;
 static lua_Debug *dbg_ar = NULL;
 static line_bp_t breakpoints[BP_LINE_COUNT] = {0};

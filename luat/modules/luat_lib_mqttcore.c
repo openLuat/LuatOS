@@ -18,14 +18,14 @@ enum msgTypes
 	PUBCOMP, SUBSCRIBE, SUBACK, UNSUBSCRIBE, UNSUBACK,
 	PINGREQ, PINGRESP, DISCONNECT, AUTH
 };
-static const char *packet_names[] =
-{
-	"RESERVED", "CONNECT", "CONNACK", "PUBLISH", "PUBACK", "PUBREC", "PUBREL",
-	"PUBCOMP", "SUBSCRIBE", "SUBACK", "UNSUBSCRIBE", "UNSUBACK",
-	"PINGREQ", "PINGRESP", "DISCONNECT", "AUTH"
-};
+// static const char *packet_names[] =
+// {
+// 	"RESERVED", "CONNECT", "CONNACK", "PUBLISH", "PUBACK", "PUBREC", "PUBREL",
+// 	"PUBCOMP", "SUBSCRIBE", "SUBACK", "UNSUBSCRIBE", "UNSUBACK",
+// 	"PINGREQ", "PINGRESP", "DISCONNECT", "AUTH"
+// };
 
-static const char** MQTTClient_packet_names = packet_names;
+// static const char** MQTTClient_packet_names = packet_names;
 
 
 /**
@@ -33,10 +33,10 @@ static const char** MQTTClient_packet_names = packet_names;
  * @param ptype packet code
  * @return the corresponding string, or "UNKNOWN"
  */
-static const char* MQTTPacket_name(int ptype)
-{
-	return (ptype >= 0 && ptype <= AUTH) ? packet_names[ptype] : "UNKNOWN";
-}
+// static const char* MQTTPacket_name(int ptype)
+// {
+// 	return (ptype >= 0 && ptype <= AUTH) ? packet_names[ptype] : "UNKNOWN";
+// }
 
 /**
  * Encodes the message length according to the MQTT algorithm

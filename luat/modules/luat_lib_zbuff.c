@@ -72,7 +72,7 @@ int add_bytes(luat_zbuff_t *buff, const char *source, size_t len)
 #define GET_POINT_CASE(n, point)           \
     case n:                                \
         return GET_POINT_##n(buff, point); \
-        break
+
 //获取某点的颜色
 uint32_t get_framebuffer_point(luat_zbuff_t *buff,uint32_t point)
 {
@@ -521,7 +521,7 @@ static int l_zbuff_unpack(lua_State *L)
     luat_zbuff_t *buff = tozbuff(L);
     char *f = (char *)luaL_checkstring(L, 2);
     size_t len = buff->len - buff->cursor;
-    const char *s = buff->addr + buff->cursor;
+    const char *s = (const char*)(buff->addr + buff->cursor);
     int i = 0;
     int n = 0;
     int swap = 0;
@@ -672,7 +672,7 @@ static int l_zbuff_toStr(lua_State *L)
     int len = luaL_optinteger(L, 3, buff->len);
     if (start + len > buff->len)
         len = buff->len - start;
-    lua_pushlstring(L, buff->addr + start, len);
+    lua_pushlstring(L, (const char*)(buff->addr + start), len);
     return 1;
 }
 
@@ -817,14 +817,14 @@ static int l_zbuff_draw_rectangle(lua_State *L)
 {
     luat_zbuff_t *buff = tozbuff(L);
     if(buff->width<=0) return 0;//不是framebuffer数据
-    uint32_t x1 = luaL_checkinteger(L,2);  CHECK0(x1,buff->width);
-    uint32_t y1 = luaL_checkinteger(L,3);  CHECK0(y1,buff->height);
-    uint32_t x2 = luaL_checkinteger(L,4);  CHECK0(x2,buff->width);
-    uint32_t y2 = luaL_checkinteger(L,5);  CHECK0(y2,buff->height);
-    uint32_t color = luaL_optinteger(L,6,0);
+    int32_t x1 = (int32_t)luaL_checkinteger(L,2);  CHECK0(x1,buff->width);
+    int32_t y1 = (int32_t)luaL_checkinteger(L,3);  CHECK0(y1,buff->height);
+    int32_t x2 = (int32_t)luaL_checkinteger(L,4);  CHECK0(x2,buff->width);
+    int32_t y2 = (int32_t)luaL_checkinteger(L,5);  CHECK0(y2,buff->height);
+    int32_t color = (int32_t)luaL_optinteger(L,6,0);
     uint8_t fill = lua_toboolean(L,7);
     int x,y;
-    uint32_t xmax=x1>x2?x1:x2,xmin=x1>x2?x2:x1,ymax=y1>y2?y1:y2,ymin=y1>y2?y2:y1;
+    int32_t xmax=x1>x2?x1:x2,xmin=x1>x2?x2:x1,ymax=y1>y2?y1:y2,ymin=y1>y2?y2:y1;
     if(fill){
         for(x=xmin;x<=xmax;x++)
             for(y=ymin;y<=ymax;y++)
@@ -879,10 +879,10 @@ static int l_zbuff_draw_circle(lua_State *L)
 {
     luat_zbuff_t *buff = tozbuff(L);
     if(buff->width<=0) return 0;//不是framebuffer数据
-    uint32_t xc = luaL_checkinteger(L,2);
-    uint32_t yc = luaL_checkinteger(L,3);
-    uint32_t r = luaL_checkinteger(L,4);
-    uint32_t color = luaL_optinteger(L,5,0);
+    int32_t xc = luaL_checkinteger(L,2);
+    int32_t yc = luaL_checkinteger(L,3);
+    int32_t r = luaL_checkinteger(L,4);
+    int32_t color = luaL_optinteger(L,5,0);
     uint8_t fill = lua_toboolean(L,6);
 
     //代码参考https://www.cnblogs.com/wlzy/p/8695226.html
@@ -931,7 +931,7 @@ local data = buff[0]
 static int l_zbuff_index(lua_State *L)
 {
     luat_zbuff_t **pp = luaL_checkudata(L, 1, LUAT_ZBUFF_TYPE);
-    int i;
+    // int i;
 
     luaL_getmetatable(L, LUAT_ZBUFF_TYPE);
     lua_pushvalue(L, 2);

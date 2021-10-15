@@ -233,7 +233,7 @@ static const rotable_Reg reg_gpio[] =
 };
 
 LUAMOD_API int luaopen_gpio( lua_State *L ) {
-    int i;
+    // int i;
     for (size_t i = 0; i < GPIO_IRQ_COUNT; i++) {
         irq_cbs[i].pin = -1;
     }

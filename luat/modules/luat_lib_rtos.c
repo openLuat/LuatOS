@@ -40,12 +40,13 @@ static int l_rtos_receive(lua_State *L) {
 //------------------------------------------------------------------
 static int l_timer_handler(lua_State *L, void* ptr) {
     luat_timer_t *timer = (luat_timer_t *)ptr;
-    // LLOGD(("l_timer_handler id=%ld\n", timer->id);
+    // LLOGD("l_timer_handler id=%ld\n", timer->id);
     lua_pushinteger(L, MSG_TIMER);
     lua_pushinteger(L, timer->id);
     lua_pushinteger(L, timer->repeat);
     //lua_pushinteger(L, timer->timeout);
     if (timer->repeat == 0) {
+        // LLOGD("l_timer_handler stop id=%ld\n", timer->id);
         luat_timer_stop(timer);
         luat_heap_free(timer);
     }

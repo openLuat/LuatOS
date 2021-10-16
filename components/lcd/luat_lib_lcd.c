@@ -395,6 +395,20 @@ static int l_lcd_draw_circle(lua_State* L) {
     return 1;
 }
 
+// static int l_lcd_draw_str(lua_State* L) {
+//     int x, y;
+//     int sz;
+//     const uint8_t* data;
+//     uint32_t color = FORE_COLOR;
+//     x = luaL_checkinteger(L, 1);
+//     y = luaL_checkinteger(L, 2);
+//     data = (const uint8_t*)luaL_checklstring(L, 3, &sz);
+//     if (lua_gettop(L) > 3)
+//         color = (uint32_t)luaL_checkinteger(L, 4);
+//     if (sz == 0)
+//         return 0;
+// }
+
 static int l_lcd_set_default(lua_State *L) {
     if (lua_gettop(L) == 1) {
         default_conf = lua_touserdata(L, 1);
@@ -402,6 +416,106 @@ static int l_lcd_set_default(lua_State *L) {
         return 1;
     }
     return 1;
+}
+
+#include "u8g2.h"
+// void u8g2_read_font_info(u8g2_font_info_t *font_info, const uint8_t *font);
+uint8_t luat_u8x8_gpio_and_delay(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr);
+const uint8_t *u8g2_font_get_glyph_data(u8g2_t *u8g2, uint16_t encoding);
+uint8_t * font_pix_find(uint16_t e, int font_pix_find);
+/**
+绘制字符串,支持中文
+@api eink.printcn(x, y, str, colored, font)
+@int x坐标
+@int y坐标
+@string 字符串
+@int 默认是0
+@font 字体大小,默认12
+@return nil 无返回值
+*/
+static int l_lcd_draw_str(lua_State *L)
+{
+    size_t len;
+    int x           = luaL_checkinteger(L, 1);
+    int y           = luaL_checkinteger(L, 2);
+    const char *str = luaL_checklstring(L, 3, &len);
+    int colored     = luaL_optinteger(L, 4, 0);
+    int font_size        = luaL_optinteger(L, 5, 12);
+
+    //LLOGD("printcn font_size %d len %d", font_size, len);
+
+    // 解码数据 TODO 使用无u8g2的方案
+    u8g2_t *u8g2 = luat_heap_malloc(sizeof(u8g2_t));
+    u8g2_Setup_ssd1306_i2c_128x64_noname_f( u8g2, U8G2_R0, u8x8_byte_sw_i2c, luat_u8x8_gpio_and_delay);
+    u8g2_InitDisplay(u8g2);
+    u8g2_SetPowerSave(u8g2, 0);
+    u8g2->u8x8.next_cb = u8x8_utf8_next;
+
+    uint16_t e;
+    //u8g2_uint_t delta, sum;
+    u8x8_utf8_init(u8g2_GetU8x8(u8g2));
+    //sum = 0;
+    uint8_t* str2 = (uint8_t*)str;
+    for(;;)
+    {
+        e = u8g2->u8x8.next_cb(u8g2_GetU8x8(u8g2), (uint8_t)*str2);
+        //LLOGD("chinese >> 0x%04X", e);
+        if ( e == 0x0ffff )
+            break;
+        str2++;
+        // if (e != 0x0fffe && e < 0x007e) {
+        //     char ch[2] = {e, 0};
+        //     if (font_size == 16)
+        //         Paint_DrawStringAt(&paint, x, y, ch, &Font16, colored);
+        //     else if (font_size == 24)
+        //         Paint_DrawStringAt(&paint, x, y, ch, &Font24, colored);
+        //     x += font_size;
+        // }
+        // else
+        if ( e != 0x0fffe )
+        {
+            //delta = u8g2_DrawGlyph(u8g2, x, y, e);
+            uint8_t * f = font_pix_find(e, font_size);
+            if (f != NULL) {
+                // 当前仅支持16p和24p
+                int datalen = font_size == 16 ? 32 : 72;
+                int xlen = font_size == 16 ? 2 : 3;
+                //luat_lcd_draw(default_conf, x, y, x + font_size, y + font_size, );
+                //LLOGD("found FONT DATA 0x%04X datalen=%d xlen=%d", e, datalen, xlen);
+                // TODO 使用内存块的方式绘制,但背景透明怎么解决呢?直接使用bgcolor?
+                for (size_t i = 0; i < datalen; )
+                {
+                    for (size_t k = 0; k < xlen; k++)
+                    {
+                        uint8_t pix = f[i];
+                        //LLOGD("pix data %02X   x+j=%d y+j/2=%d", pix, x, y+i/2);
+                        for (size_t j = 0; j < 8; j++)
+                        {
+                            if ((pix >> (7-j)) & 0x01) {
+                                luat_lcd_draw_point(default_conf, x+j+k*8, y+i/xlen, colored);
+                            }
+                        }
+                        i++;
+                    }
+                }
+            }
+            else {
+                LLOGD("NOT found FONT DATA 0x%04X", e);
+            }
+
+            if (e <= 0x7E)
+                x += font_size / 2;
+            else
+            {
+                x += font_size;
+            }
+
+        }
+    }
+
+    luat_heap_free(u8g2);
+
+    return 0;
 }
 
 #include "rotable.h"
@@ -420,6 +534,7 @@ static const rotable_Reg reg_lcd[] =
     { "drawLine",      l_lcd_draw_line,       0},
     { "drawRectangle",      l_lcd_draw_rectangle,       0},
     { "drawCircle",      l_lcd_draw_circle,       0},
+    { "drawStr",      l_lcd_draw_str,       0},
     { "setDefault", l_lcd_set_default, 0},
 	{ NULL,        NULL,   0}
 };

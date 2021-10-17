@@ -88,14 +88,14 @@
 ** Returns the library; in case of error, returns NULL plus an
 ** error string in the stack.
 */
-static void *lsys_load (lua_State *L, const char *path, int seeglb);
+// static void *lsys_load (lua_State *L, const char *path, int seeglb);
 
 /*
 ** Try to find a function named 'sym' in library 'lib'.
 ** Returns the function; in case of error, returns NULL plus an
 ** error string in the stack.
 */
-static lua_CFunction lsys_sym (lua_State *L, void *lib, const char *sym);
+// static lua_CFunction lsys_sym (lua_State *L, void *lib, const char *sym);
 
 
 

@@ -13,7 +13,7 @@
 
 FILE* luat_vfs_fatfs_fopen(void* userdata, const char *filename, const char *mode) {
     LLOGD("f_open %s %s", filename, mode);
-    FATFS *fs = (FATFS*)userdata;
+    //FATFS *fs = (FATFS*)userdata;
     FIL* fp = luat_heap_malloc(sizeof(FIL));
     int flag = 0;
     for (size_t i = 0; i < strlen(mode); i++)
@@ -48,7 +48,7 @@ FILE* luat_vfs_fatfs_fopen(void* userdata, const char *filename, const char *mod
 }
 
 int luat_vfs_fatfs_getc(void* userdata, FILE* stream) {
-    FATFS *fs = (FATFS*)userdata;
+    //FATFS *fs = (FATFS*)userdata;
     FIL* fp = (FIL*)stream;
     char buff = 0;
     UINT result = 0;
@@ -60,7 +60,7 @@ int luat_vfs_fatfs_getc(void* userdata, FILE* stream) {
 }
 
 int luat_vfs_fatfs_fseek(void* userdata, FILE* stream, long int offset, int origin) {
-    FATFS *fs = (FATFS*)userdata;
+    //FATFS *fs = (FATFS*)userdata;
     FIL* fp = (FIL*)stream;
     int npos = f_tell(fp);
     if (origin == SEEK_SET) {
@@ -78,13 +78,13 @@ int luat_vfs_fatfs_fseek(void* userdata, FILE* stream, long int offset, int orig
 }
 
 int luat_vfs_fatfs_ftell(void* userdata, FILE* stream) {
-    FATFS *fs = (FATFS*)userdata;
+    //FATFS *fs = (FATFS*)userdata;
     FIL* fp = (FIL*)stream;
     return f_tell(fp);
 }
 
 int luat_vfs_fatfs_fclose(void* userdata, FILE* stream) {
-    FATFS *fs = (FATFS*)userdata;
+    //FATFS *fs = (FATFS*)userdata;
     FIL* fp = (FIL*)stream;
     if (fp != NULL) {
         f_close(fp);
@@ -93,19 +93,19 @@ int luat_vfs_fatfs_fclose(void* userdata, FILE* stream) {
     return 0;
 }
 int luat_vfs_fatfs_feof(void* userdata, FILE* stream) {
-    FATFS *fs = (FATFS*)userdata;
+    //FATFS *fs = (FATFS*)userdata;
     FIL* fp = (FIL*)stream;
     return f_eof(fp);
 }
 int luat_vfs_fatfs_ferror(void* userdata, FILE *stream) {
-    FATFS *fs = (FATFS*)userdata;
+    //FATFS *fs = (FATFS*)userdata;
     FIL* fp = (FIL*)stream;
     return f_error(fp);
 }
 size_t luat_vfs_fatfs_fread(void* userdata, void *ptr, size_t size, size_t nmemb, FILE *stream) {
-    FATFS *fs = (FATFS*)userdata;
+    //FATFS *fs = (FATFS*)userdata;
     FIL* fp = (FIL*)stream;
-    int result = 0;
+    UINT result = 0;
     FRESULT ret = f_read(fp, ptr, size*nmemb, &result);
     if (ret == FR_OK) {
         return result;
@@ -113,9 +113,9 @@ size_t luat_vfs_fatfs_fread(void* userdata, void *ptr, size_t size, size_t nmemb
     return 0;
 }
 size_t luat_vfs_fatfs_fwrite(void* userdata, const void *ptr, size_t size, size_t nmemb, FILE *stream) {
-    FATFS *fs = (FATFS*)userdata;
+    //FATFS *fs = (FATFS*)userdata;
     FIL* fp = (FIL*)stream;
-    int result = 0;
+    UINT result = 0;
     FRESULT ret = f_write(fp, ptr, size*nmemb, &result);
     if (ret == FR_OK) {
         return result;

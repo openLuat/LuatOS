@@ -274,7 +274,7 @@ int luat_fs_rename(const char *old_filename, const char *new_filename) {
 }
 size_t luat_fs_fsize(const char *filename) {
     luat_vfs_mount_t *mount = getmount(filename);
-    if (mount == NULL || mount->fs->opts.fsize == NULL) return -1;
+    if (mount == NULL || mount->fs->opts.fsize == NULL) return 0;
     return mount->fs->opts.fsize(mount->userdata, filename + strlen(mount->prefix));
 }
 int luat_fs_fexist(const char *filename) {

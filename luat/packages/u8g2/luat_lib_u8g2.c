@@ -29,7 +29,7 @@ static u8g2_t* u8g2;
 static int u8g2_lua_ref;
 static uint8_t i2c_id;
 static uint8_t i2c_speed;
-static uint8_t i2c_addr = 0x3C;
+// static uint8_t i2c_addr = 0x3C;
 static uint8_t spi_id;
 static uint8_t OLED_SPI_PIN_RES;
 static uint8_t OLED_SPI_PIN_DC;
@@ -141,12 +141,12 @@ static int l_u8g2_begin(lua_State *L) {
         }
         lua_pop(L, 1);
 
-        lua_pushliteral(L, "i2c_addr");
-        lua_gettable(L, 1);
-        if (lua_isinteger(L, -1)) {
-            i2c_addr = luaL_checkinteger(L, -1);
-        }
-        lua_pop(L, 1);
+        // lua_pushliteral(L, "i2c_addr");
+        // lua_gettable(L, 1);
+        // if (lua_isinteger(L, -1)) {
+        //     i2c_addr = luaL_checkinteger(L, -1);
+        // }
+        // lua_pop(L, 1);
 
         lua_pushliteral(L, "spi_id");
         lua_gettable(L, 1);
@@ -793,7 +793,7 @@ uint8_t u8x8_luat_byte_4wire_hw_spi(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, 
             while( arg_int > 0)
             {
                 buffer_tx[buf_idx++] = (uint8_t)*data;
-                luat_spi_send(spi_id, (uint8_t*)data, 1);
+                luat_spi_send(spi_id, (const char*)data, 1);
                 data++;
                 arg_int--;
             }

@@ -129,7 +129,7 @@ luadb_fs_t* luat_luadb_mount(const char* _ptr) {
     int headsize = 0;
     int filecount = 0;
 
-    const uint8_t * ptr = (const uint8_t *)_ptr;
+    const char * ptr = (const char *)_ptr;
 
     //LLOGD("LuaDB ptr = %p", ptr);
     uint16_t magic1 = 0;
@@ -292,7 +292,7 @@ _after_head:
         // 校验码就跳过吧
         index += len;
         
-        fs->files[i].ptr = index + ptr; // 绝对地址
+        fs->files[i].ptr = (const char*)(index + ptr); // 绝对地址
         index += fs->files[i].size;
 
         LLOGD("LuaDB: %s %d", fs->files[i].name, fs->files[i].size);
@@ -344,7 +344,7 @@ size_t luat_vfs_luadb_fread(void* userdata, void *ptr, size_t size, size_t nmemb
 }
 
 int luat_vfs_luadb_getc(void* userdata, FILE* stream) {
-    char c = -1;
+    char c = 0;
     size_t ret = luat_vfs_luadb_fread((luadb_fs_t*)userdata, &c, 1, 1, stream);
     if (ret > 0) {
         return (int)c;

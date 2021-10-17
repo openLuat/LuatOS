@@ -65,18 +65,29 @@
 #define UWORD   uint16_t
 #define UDOUBLE uint32_t
 
-#define Pin_BUSY        (18)
-#define Pin_RES         (7)
-#define Pin_DC          (9)
-#define Pin_CS          (16)
+// #define Pin_BUSY        (18)
+// #define Pin_RES         (7)
+// #define Pin_DC          (9)
+// #define Pin_CS          (16)
+
+typedef struct eink_conf {
+    uint8_t spi_id;
+    uint8_t busy_pin;
+    uint8_t res_pin;
+    uint8_t dc_pin;
+    uint8_t cs_pin;
+    uint8_t full_mode;
+}eink_conf_t;
+
+extern eink_conf_t econf;
 
 /**
  * e-Paper GPIO
 **/
-#define EPD_RST_PIN     (7)
-#define EPD_DC_PIN      (9)
-#define EPD_CS_PIN      (16)
-#define EPD_BUSY_PIN    (18)
+#define EPD_RST_PIN     (econf.res_pin)
+#define EPD_DC_PIN      (econf.dc_pin)
+#define EPD_CS_PIN      (econf.cs_pin)
+#define EPD_BUSY_PIN    (econf.busy_pin)
 
 /**
  * GPIO read and write

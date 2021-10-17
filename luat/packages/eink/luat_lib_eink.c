@@ -26,13 +26,6 @@
 
 #include "u8g2.h"
 
-#define Pin_BUSY        (18)
-#define Pin_RES         (7)
-#define Pin_DC          (9)
-#define Pin_CS          (16)
-
-#define SPI_ID          (0)
-
 #define COLORED      0
 #define UNCOLORED    1
 
@@ -41,7 +34,21 @@
 
 // static EPD epd;
 static Paint paint;
-static unsigned char* frame_buffer;
+static unsigned char* frame_buffer = NULL;
+
+// #ifdef econf
+// #undef econf
+// #endif
+
+eink_conf_t econf = {0};
+
+#define Pin_BUSY        (econf.busy_pin)
+#define Pin_RES         (econf.res_pin)
+#define Pin_DC          (econf.dc_pin)
+#define Pin_CS          (econf.cs_pin)
+
+#define SPI_ID          (econf.spi_id)
+
 
 /**
 初始化eink
@@ -51,8 +58,13 @@ static unsigned char* frame_buffer;
 @return boolean 成功返回true,否则返回false
 */
 static int l_eink_setup(lua_State *L) {
-    int num = luaL_optinteger(L, 1, 1);
-    int spi_id = luaL_optinteger(L, 2, 0);
+    econf.full_mode = luaL_optinteger(L, 1, 1);
+    econf.spi_id = luaL_optinteger(L, 2, 0);
+
+    econf.busy_pin = luaL_optinteger(L, 3, 18);
+    econf.res_pin  = luaL_optinteger(L, 4, 7);
+    econf.dc_pin = luaL_optinteger(L, 5, 9);
+    econf.cs_pin = luaL_optinteger(L, 6, 16);
 
     if (frame_buffer != NULL) {
         lua_pushboolean(L, 1);
@@ -61,7 +73,7 @@ static int l_eink_setup(lua_State *L) {
 
     luat_spi_t spi_config = {0};
     spi_config.bandrate = 2000000U;//luaL_optinteger(L, 1, 2000000U); // 2000000U
-    spi_config.id = spi_id;
+    spi_config.id = SPI_ID;
     spi_config.cs = 255; // 默认无
     spi_config.CPHA = 0; // CPHA0
     spi_config.CPOL = 0; // CPOL0
@@ -71,25 +83,19 @@ static int l_eink_setup(lua_State *L) {
     spi_config.mode = 1; // FULL=1, half=0
 
     //LLOGD("setup GPIO for epd");
-    // TODO 事实上无法配置
-    luat_gpio_mode(luaL_optinteger(L, 3, Pin_BUSY), Luat_GPIO_INPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
-    luat_gpio_mode(luaL_optinteger(L, 4, Pin_RES), Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
-    luat_gpio_mode(luaL_optinteger(L, 5, Pin_DC), Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
-    luat_gpio_mode(luaL_optinteger(L, 6, Pin_CS), Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
+    luat_gpio_mode(Pin_BUSY, Luat_GPIO_INPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
+    luat_gpio_mode(Pin_RES, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
+    luat_gpio_mode(Pin_DC, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
+    luat_gpio_mode(Pin_CS, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
 
-    //LLOGD("spi setup>>>");
     int status = luat_spi_setup(&spi_config);
-    //LLOGD("spi setup<<<");
-    //EPD_Model(MODEL_1in54f);
-    //EPD_Model(MODEL_1in54_V2);
-    // EPD_Model(MODEL_2in13b_V3);
 
     size_t epd_w = 0;
     size_t epd_h = 0;
     if(status == 0)
     {
         LLOGD("spi setup complete, now setup epd");
-        if(num)
+        if(econf.full_mode)
             status = EPD_Init(1, &epd_w, &epd_h);
         else
             status = EPD_Init(0, &epd_w, &epd_h);
@@ -107,7 +113,6 @@ static int l_eink_setup(lua_State *L) {
     lua_pushboolean(L, 1);
     return 1;
 }
-
 
 /**
 清除绘图缓冲区

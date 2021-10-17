@@ -37,7 +37,7 @@
 void DEV_SPI_WriteByte(UBYTE value)
 {
     //HAL_SPI_Transmit(&hspi1, &value, 1, 1000);
-    luat_spi_send(0, (const char*)&value, 1);
+    luat_spi_send(econf.spi_id, (const char*)&value, 1);
 }
 
 int DEV_Module_Init(void)

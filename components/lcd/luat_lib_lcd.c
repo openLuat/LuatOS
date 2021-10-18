@@ -31,7 +31,7 @@ static luat_lcd_conf_t *default_conf = NULL;
 lcd显示屏初始化
 @api lcd.init(tp, args)
 @string lcd类型, 当前支持st7789/st7735/st7735s/gc9a01/gc9106l/gc9306/ili9341/custom
-@table 附加参数,与具体设备有关
+@table 附加参数,与具体设备有关,pin_pwr为可选项,可不设置
 @usage
 -- 初始化spi0的st7789 注意:lcd初始化之前需要先初始化spi
 local spi_lcd = spi.device_setup(0,20,0,0,8,2000000,spi.MSB,1,1)

@@ -42,8 +42,8 @@ static int l_lcd_init(lua_State* L) {
     size_t len = 0;
     luat_lcd_conf_t *conf = luat_heap_malloc(sizeof(luat_lcd_conf_t));
     memset(conf, 0, sizeof(luat_lcd_conf_t)); // 填充0,保证无脏数据
-    if (lua_type(L, 3) == LUA_TUSERDATA)
-    {
+    conf->pin_pwr = 255;
+    if (lua_type(L, 3) == LUA_TUSERDATA){
         conf->userdata = (luat_spi_device_t*)lua_touserdata(L, 3);
     }
     const char* tp = luaL_checklstring(L, 1, &len);

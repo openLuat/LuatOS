@@ -13,7 +13,8 @@
 #define LCD_DIRECTION 0
 
 static int custom_sleep(luat_lcd_conf_t* conf) {
-    luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
+    if (conf->pin_pwr != 255)
+        luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
     luat_timer_mdelay(5);
     luat_lcd_custom_t * cst = (luat_lcd_custom_t *)conf->userdata;
     luat_lcd_execute_cmds(conf, &cst->sleepcmd, 1);
@@ -21,7 +22,8 @@ static int custom_sleep(luat_lcd_conf_t* conf) {
 }
 
 static int custom_wakeup(luat_lcd_conf_t* conf) {
-    luat_gpio_set(conf->pin_pwr, Luat_GPIO_HIGH);
+    if (conf->pin_pwr != 255)
+        luat_gpio_set(conf->pin_pwr, Luat_GPIO_HIGH);
     luat_timer_mdelay(5);
     luat_lcd_custom_t * cst = (luat_lcd_custom_t *)conf->userdata;
     luat_lcd_execute_cmds(conf, &cst->wakecmd, 1);
@@ -29,7 +31,8 @@ static int custom_wakeup(luat_lcd_conf_t* conf) {
 }
 
 static int custom_close(luat_lcd_conf_t* conf) {
-    luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
+    if (conf->pin_pwr != 255)
+        luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
     return 0;
 }
 
@@ -39,11 +42,14 @@ static int custom_init(luat_lcd_conf_t* conf) {
         conf->h = LCD_H;
     if (conf->direction == 0)
         conf->direction = LCD_DIRECTION;
+        
+    if (conf->pin_pwr != 255)
+        luat_gpio_mode(conf->pin_pwr, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW); // POWER
     luat_gpio_mode(conf->pin_dc, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_HIGH); // DC
-    luat_gpio_mode(conf->pin_pwr, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW); // POWER
     luat_gpio_mode(conf->pin_rst, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW); // RST
 
-    luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
+    if (conf->pin_pwr != 255)
+        luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
     luat_gpio_set(conf->pin_rst, Luat_GPIO_LOW);
     luat_timer_mdelay(100);
     luat_gpio_set(conf->pin_rst, Luat_GPIO_HIGH);

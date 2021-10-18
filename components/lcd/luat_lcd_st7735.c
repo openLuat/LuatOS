@@ -13,14 +13,16 @@
 #define LCD_DIRECTION 0
 
 static int st7735_sleep(luat_lcd_conf_t* conf) {
-    luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
+    if (conf->pin_pwr != 255)
+        luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
     luat_timer_mdelay(5);
     lcd_write_cmd(conf,0x10);
     return 0;
 }
 
 static int st7735_wakeup(luat_lcd_conf_t* conf) {
-    luat_gpio_set(conf->pin_pwr, Luat_GPIO_HIGH);
+    if (conf->pin_pwr != 255)
+        luat_gpio_set(conf->pin_pwr, Luat_GPIO_HIGH);
     luat_timer_mdelay(5);
     lcd_write_cmd(conf,0x11);
     //luat_timer_mdelay(120); // 外部休眠就好了吧
@@ -28,7 +30,8 @@ static int st7735_wakeup(luat_lcd_conf_t* conf) {
 }
 
 static int st7735_close(luat_lcd_conf_t* conf) {
-    luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
+    if (conf->pin_pwr != 255)
+        luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
     return 0;
 }
 static int st7735_init(luat_lcd_conf_t* conf) {
@@ -39,14 +42,12 @@ static int st7735_init(luat_lcd_conf_t* conf) {
     if (conf->direction == 0)
         conf->direction = LCD_DIRECTION;
 
-    luat_gpio_mode(conf->pin_dc, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 0); // DC
-    luat_gpio_mode(conf->pin_pwr, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 0); // POWER
-    luat_gpio_mode(conf->pin_rst, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 0); // RST
-
+    if (conf->pin_pwr != 255)
+        luat_gpio_mode(conf->pin_pwr, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW); // POWER
     luat_gpio_mode(conf->pin_dc, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_HIGH); // DC
-    luat_gpio_mode(conf->pin_pwr, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW); // POWER
     luat_gpio_mode(conf->pin_rst, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW); // RST
 
+    if (conf->pin_pwr != 255)
     luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
     luat_gpio_set(conf->pin_rst, Luat_GPIO_LOW);
     luat_timer_mdelay(100);

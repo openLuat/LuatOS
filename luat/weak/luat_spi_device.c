@@ -10,12 +10,7 @@
 // luat_spi_device_t* 在lua层看到的是一个userdata
 LUAT_WEAK int luat_spi_device_setup(luat_spi_device_t* spi_dev) {
     luat_spi_bus_setup(spi_dev);
-    luat_gpio_t gpio = {
-        .mode = Luat_GPIO_OUTPUT,
-        .irq = Luat_GPIO_HIGH,
-        .pin = spi_dev->spi_config.cs
-    };
-    luat_gpio_setup(&gpio);
+    luat_gpio_mode(spi_dev->spi_config.cs, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_HIGH); // CS
     return 0;
 }
 

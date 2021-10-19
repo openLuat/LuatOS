@@ -31,7 +31,7 @@ sys.timerLoopStart(uart.write,1000,uartid,"test")
 uart.on(uartid, "receive", function(id, len)
     local s
     while true do--保证读完不然可能丢包
-        s = uart.read(uid, length)
+        s = uart.read(id, length)
         if #s == 0 then break end
         log.info("uart", "receive", id, len, s)
     end

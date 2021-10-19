@@ -27,15 +27,17 @@ local result = uart.setup(
 
 
 --循环发数据
-sys.timerLoopStart(uart.write,1000,uartid,"test")
+sys.timerLoopStart(uart.write,1000, uartid, "test")
 uart.on(uartid, "receive", function(id, len)
-    local s
-    while true do--保证读完不然可能丢包
-        s = uart.read(id, length)
-        if #s == 0 then break end
-        log.info("uart", "receive", id, len, s)
-    end
+    local s = ""
+    repeat
+        s = uart.read(id, len)
+        if #s > 0 then 
+            log.info("uart", "receive", id, len, s)
+        end
+    until s == ""
 end)
+
 uart.on(uartid, "sent", function(id)
     log.info("uart", "sent", id)
 end)

@@ -1,6 +1,6 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "pmdemo"
+PROJECT = "gpiodemo"
 VERSION = "1.0.0"
 
 log.info("main", PROJECT, VERSION)
@@ -21,13 +21,18 @@ local LEDC = gpio.setup(26, 0, gpio.PULLUP) -- PB10输出模式
 
 sys.taskInit(function()
     local count = 0
-    local uid = mcu.unique_id and mcu.unique_id() or ""
+    local uid = ""
+    if mcu then
+        uid = mcu.unique_id():toHex()
+    elseif nbiot then
+        uid = nbiot.imei()
+    end
     while 1 do
         -- 一闪一闪亮晶晶
         LEDA(count & 0x01 == 0x01 and 1 or 0)
         LEDB(count & 0x02 == 0x02 and 1 or 0)
         LEDC(count & 0x03 == 0x03 and 1 or 0)
-        log.info("gpio", "Go Go Go", uid:toHex(), count)
+        log.info("gpio", "Go Go Go", uid, count)
         sys.wait(1000)
         count = count + 1
     end

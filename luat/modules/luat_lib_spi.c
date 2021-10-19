@@ -74,6 +74,7 @@ static int l_spi_close(lua_State *L) {
 @int SPI号,例如0
 @string/zbuff 待发送的数据，如果为zbuff数据，则会从对象所处的指针处开始读
 @int 可选。待发送数据的长度，默认为data长度
+@int 可选。读取数据的长度，默认为1
 @return string 读取成功返回字符串,否则返回nil
 @usage
 -- 初始化spi
@@ -94,7 +95,10 @@ static int l_spi_transfer(lua_State *L) {
     }else{
         send_buff = lua_tolstring(L, 2, &send_length);
     }
-    size_t recv_length = luaL_optinteger(L,3,1);
+    size_t length = luaL_optinteger(L,3,1);
+    if(length <= send_length)
+        send_length = length;
+    size_t recv_length = luaL_optinteger(L,4,1);
     //长度为0时，直接返回空字符串
     if(send_length <= 0){
         lua_pushlstring(L,NULL,0);
@@ -240,6 +244,7 @@ static int l_spi_device_close(lua_State *L) {
 @userdata spi_device
 @string/zbuff 待发送的数据，如果为zbuff数据，则会从对象所处的指针处开始读
 @int 可选。待发送数据的长度，默认为data长度
+@int 可选。读取数据的长度，默认为1
 @return string 读取成功返回字符串,否则返回nil
 @usage
 -- 初始化spi
@@ -260,7 +265,10 @@ static int l_spi_device_transfer(lua_State *L) {
     }else{
         send_buff = lua_tolstring(L, 2, &send_length);
     }
-    size_t recv_length = luaL_optinteger(L,3,1);
+    size_t length = luaL_optinteger(L,3,1);
+    if(length <= send_length)
+        send_length = length;
+    size_t recv_length = luaL_optinteger(L,4,1);
     //长度为0时，直接返回空字符串
     if(recv_length <= 0){
         lua_pushlstring(L,NULL,0);

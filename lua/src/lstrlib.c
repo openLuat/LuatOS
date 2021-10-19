@@ -1624,13 +1624,16 @@ static int str_split (lua_State *L) {
   char *token;
   size_t count = 0;
   token = strtok((char *)str, delimiters);
+  lua_newtable(L);
   while( token != NULL ) {
+    lua_pushnumber(L,count+1);
     lua_pushstring(L, token);
-    //printf("%s - %ld\n", token, count);
+    lua_settable(L,-3);
+    // printf("%s - %ld\n", token, count);
     count ++;
     token = strtok(NULL, delimiters);
   }
-  return count;
+  return 1;
 }
 
 /*

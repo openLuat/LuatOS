@@ -9,7 +9,7 @@
 #include "stdint.h"
 #include "luat_msgbus.h"
 
-typedef void (*luat_gpio_irq_cb)(int pin);
+typedef void (*luat_gpio_irq_cb)(int pin, void* args);
 
 #define Luat_GPIO_LOW                 0x00
 #define Luat_GPIO_HIGH                0x01
@@ -34,6 +34,7 @@ typedef struct luat_gpio
     int irq;
     int lua_ref;
     luat_gpio_irq_cb irq_cb;
+    void* irq_args;
 } luat_gpio_t;
 
 
@@ -45,6 +46,6 @@ void luat_gpio_close(int pin);
 
 int l_gpio_handler(lua_State *L, void* ptr);
 
-int luat_gpio_set_irq_cb(int pin, luat_gpio_irq_cb cb);
+int luat_gpio_set_irq_cb(int pin, luat_gpio_irq_cb cb, void* args);
 
 #endif

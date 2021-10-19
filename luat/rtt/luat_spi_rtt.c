@@ -88,11 +88,11 @@ int luat_spi_close(int spi_id) {
     return 0;
 }
 //收发SPI数据，返回接收字节数
-int luat_spi_transfer(int spi_id, const char* send_buf, char* recv_buf, size_t length) {
+int luat_spi_transfer(int spi_id, const char* send_buf, size_t send_length, char* recv_buf, size_t recv_length) {
     struct rt_spi_device * drv = findDev(spi_id);
     if (drv == NULL)
         return -1;
-    return rt_spi_transfer(drv, send_buf, recv_buf, length);
+    return rt_spi_send_then_recv(drv, send_buf, send_length, recv_buf, recv_length);
 }
 //收SPI数据，返回接收字节数
 int luat_spi_recv(int spi_id, char* recv_buf, size_t length) {
@@ -123,7 +123,7 @@ int luat_spi_close(int spi_id) {
     return -1;
 }
 //收发SPI数据，返回接收字节数
-int luat_spi_transfer(int spi_id, const char* send_buf, char* recv_buf, size_t length) {
+int luat_spi_transfer(int spi_id, const char* send_buf, size_t send_length, char* recv_buf, size_t recv_length) {
     //LLOGE("spi not enable/support at this device");
     return -1;
 }

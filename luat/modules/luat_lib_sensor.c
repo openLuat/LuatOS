@@ -347,7 +347,7 @@ unsigned long ReadCount(int date,int clk) //增益128
   luat_timer_us_delay(1);
   count = 0;
   while (luat_gpio_get(date))
-    ;
+    ; // TODO 用tick或者us_delay统计timeout
   for (i = 0; i < 24; i++)
   {
     luat_gpio_set(clk, Luat_GPIO_HIGH);
@@ -390,8 +390,8 @@ static int l_sensor_hx711(lua_State *L)
   unsigned long hx711_dat;
   int date = luaL_checkinteger(L, 1);
   int clk = luaL_checkinteger(L, 2);
-  for (j = 0; j < 5; j++)
-    luat_timer_us_delay(5000);
+  //for (j = 0; j < 5; j++)
+  //  luat_timer_us_delay(5000);
   hx711_dat = ReadCount(date,clk);                //HX711AD转换数据处理
   temp = (unsigned int)(hx711_dat / 100); //缩放long数据为int型，方便处理
   //LLOGI("hx711:%d",temp);

@@ -69,12 +69,12 @@ int l_uart_handler(lua_State *L, void* ptr) {
 配置串口参数
 @api    uart.setup(id, baud_rate, data_bits, stop_bits, partiy, bit_order, buff_size)
 @int 串口id, uart0写0, uart1写1
-@int 波特率 9600~115200
-@int 数据位 7或8, 一般是8
-@int 停止位 1或0, 一般是1
-@int 校验位, 可选 uart.None/uart.Even/uart.Odd
-@int 大小端, 默认小端 uart.LSB, 可选 uart.MSB
-@int 缓冲区大小, 默认值1024
+@int 波特率
+@int 数据位，默认为8
+@int 停止位，默认为1
+@int 校验位，可选 uart.None/uart.Even/uart.Odd
+@int 大小端，默认小端 uart.LSB, 可选 uart.MSB
+@int 缓冲区大小，默认值1024
 @int 485模式下的转换GPIO, 默认值0xffffffff
 @int 485模式下的rx方向GPIO的电平, 默认值0
 @int 485模式下tx向rx转换的延迟时间，默认值12bit的时间，单位us
@@ -86,22 +86,29 @@ uart.setup(1, 115200, 8, 1, uart.NONE)
 */
 static int l_uart_setup(lua_State *L)
 {
-    luat_uart_t *uart_config = (luat_uart_t *)luat_heap_malloc(sizeof(luat_uart_t));
-    uart_config->id = luaL_checkinteger(L, 1);
-    uart_config->baud_rate = luaL_optinteger(L, 2, 115200);
-    uart_config->data_bits = luaL_optinteger(L, 3, 8);
-    uart_config->stop_bits = luaL_optinteger(L, 4, 1);
-    uart_config->parity = luaL_optinteger(L, 5, LUAT_PARITY_NONE);
-    uart_config->bit_order = luaL_optinteger(L, 6, LUAT_BIT_ORDER_LSB);
-    uart_config->bufsz = luaL_optinteger(L, 7, 1024);
-    uart_config->pin485 = luaL_optinteger(L, 8, 0xffffffff);
-    uart_config->rx_level = luaL_optinteger(L, 9, 0);
-    uart_config->delay = luaL_optinteger(L, 10, 12000000/uart_config->baud_rate);
+    lua_Number stop_bits = luaL_optnumber(L, 4, 1);
+    luat_uart_t uart_config = {
+        .id = luaL_checkinteger(L, 1),
+        .baud_rate = luaL_optinteger(L, 2, 115200),
+        .data_bits = luaL_optinteger(L, 3, 8),
+        .parity = luaL_optinteger(L, 5, LUAT_PARITY_NONE),
+        .bit_order = luaL_optinteger(L, 6, LUAT_BIT_ORDER_LSB),
+        .bufsz = luaL_optinteger(L, 7, 1024),
+        .pin485 = luaL_optinteger(L, 8, 0xffffffff),
+        .rx_level = luaL_optinteger(L, 9, 0),
+    };
+    if(stop_bits == 0.5)
+        uart_config.stop_bits = LUAT_0_5_STOP_BITS;
+    else if(stop_bits == 1.5)
+        uart_config.stop_bits = LUAT_1_5_STOP_BITS;
+    else
+        uart_config.stop_bits = (uint8_t)stop_bits;
 
-    int result = luat_uart_setup(uart_config);
+    uart_config.delay = luaL_optinteger(L, 10, 12000000/uart_config.baud_rate);
+
+    int result = luat_uart_setup(&uart_config);
     lua_pushinteger(L, result);
 
-    luat_heap_free(uart_config);
     return 1;
 }
 

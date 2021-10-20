@@ -7,7 +7,7 @@ log.info("main", PROJECT, VERSION)
 -- 引入必要的库文件(lua编写), 内部库不需要require
 local sys = require "sys"
 
-if wdt.init then
+if wdt then
     --添加硬狗防止程序卡死，在支持的设备上启用这个功能
     wdt.init(15000)--初始化watchdog设置为15s
     sys.timerLoopStart(wdt.feed, 10000)--10s喂一次狗
@@ -32,7 +32,7 @@ uart.on(uartid, "receive", function(id, len)
     local s = ""
     repeat
         s = uart.read(id, len)
-        if #s > 0 then 
+        if #s > 0 then
             log.info("uart", "receive", id, len, s)
         end
     until s == ""

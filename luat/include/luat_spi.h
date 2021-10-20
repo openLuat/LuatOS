@@ -42,7 +42,7 @@ int luat_spi_setup(luat_spi_t* spi);
 //关闭SPI，成功返回0
 int luat_spi_close(int spi_id);
 //收发SPI数据，返回接收字节数
-int luat_spi_transfer(int spi_id, const char* send_buf, char* recv_buf, size_t length);
+int luat_spi_transfer(int spi_id, const char* send_buf, size_t send_length, char* recv_buf, size_t recv_length);
 //收SPI数据，返回接收字节数
 int luat_spi_recv(int spi_id, char* recv_buf, size_t length);
 //发SPI数据，返回发送字节数
@@ -57,7 +57,7 @@ int luat_spi_device_config(luat_spi_device_t* spi_dev);
 //关闭SPI设备，成功返回0
 int luat_spi_device_close(luat_spi_device_t* spi_dev);
 //收发SPI数据，返回接收字节数
-int luat_spi_device_transfer(luat_spi_device_t* spi_dev, const char* send_buf, char* recv_buf, size_t length);
+int luat_spi_device_transfer(luat_spi_device_t* spi_dev, const char* send_buf, size_t send_length, char* recv_buf, size_t recv_length);
 //收SPI数据，返回接收字节数
 int luat_spi_device_recv(luat_spi_device_t* spi_dev, char* recv_buf, size_t length);
 //发SPI数据，返回发送字节数

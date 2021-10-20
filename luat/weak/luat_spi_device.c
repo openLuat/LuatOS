@@ -20,10 +20,10 @@ LUAT_WEAK int luat_spi_device_close(luat_spi_device_t* spi_dev) {
 }
 
 //收发SPI数据，返回接收字节数
-LUAT_WEAK int luat_spi_device_transfer(luat_spi_device_t* spi_dev, const char* send_buf, char* recv_buf, size_t length) {
+LUAT_WEAK int luat_spi_device_transfer(luat_spi_device_t* spi_dev, const char* send_buf, size_t send_length, char* recv_buf, size_t recv_length) {
     luat_spi_device_config(spi_dev);
     luat_gpio_set(spi_dev->spi_config.cs, LUAT_SPI_CS_SELECT);
-    int ret = luat_spi_transfer(spi_dev->bus_id, send_buf, recv_buf, length);
+    int ret = luat_spi_transfer(spi_dev->bus_id, send_buf, send_length, recv_buf, recv_length);
     luat_gpio_set(spi_dev->spi_config.cs, LUAT_SPI_CS_CLEAR);
     return ret;
 }

@@ -74,6 +74,7 @@ static int l_spi_close(lua_State *L) {
 @int SPI号,例如0
 @string/zbuff 待发送的数据，如果为zbuff数据，则会从对象所处的指针处开始读
 @int 可选。待发送数据的长度，默认为data长度
+@int 可选。读取数据的长度，默认为1
 @return string 读取成功返回字符串,否则返回nil
 @usage
 -- 初始化spi
@@ -85,29 +86,28 @@ local recv = spi.transfer(0, buff)--把zbuff数据从指针开始，全发出去
 */
 static int l_spi_transfer(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
-    size_t len = 0;
+    size_t send_length = 0;
     const char* send_buff = NULL;
     if(lua_isuserdata(L, 2)){//zbuff对象特殊处理
         luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
         send_buff = (const char*)(buff->addr+buff->cursor);
-        len = buff->len - buff->cursor;
+        send_length = buff->len - buff->cursor;
     }else{
-        send_buff = lua_tolstring(L, 2, &len);
+        send_buff = lua_tolstring(L, 2, &send_length);
     }
-    if(lua_isinteger(L,3)){//长度参数
-        size_t len_temp = luaL_checkinteger(L,3);
-        if(len_temp < len)
-            len = len_temp;
-    }
+    size_t length = luaL_optinteger(L,3,1);
+    if(length <= send_length)
+        send_length = length;
+    size_t recv_length = luaL_optinteger(L,4,1);
     //长度为0时，直接返回空字符串
-    if(len <= 0){
+    if(send_length <= 0){
         lua_pushlstring(L,NULL,0);
         return 1;
     }
-    char* recv_buff = luat_heap_malloc(len);
+    char* recv_buff = luat_heap_malloc(recv_length);
     if(recv_buff == NULL)
         return 0;
-    int ret = luat_spi_transfer(id, send_buff, recv_buff, len);
+    int ret = luat_spi_transfer(id, send_buff, send_length, recv_buff, recv_length);
     if (ret > 0) {
         lua_pushlstring(L, recv_buff, ret);
         luat_heap_free(recv_buff);
@@ -244,6 +244,7 @@ static int l_spi_device_close(lua_State *L) {
 @userdata spi_device
 @string/zbuff 待发送的数据，如果为zbuff数据，则会从对象所处的指针处开始读
 @int 可选。待发送数据的长度，默认为data长度
+@int 可选。读取数据的长度，默认为1
 @return string 读取成功返回字符串,否则返回nil
 @usage
 -- 初始化spi
@@ -255,29 +256,28 @@ local recv = spi_device:transfer(buff)--把zbuff数据从指针开始，全发�
 */
 static int l_spi_device_transfer(lua_State *L) {
     luat_spi_device_t* spi_device = (luat_spi_device_t*)lua_touserdata(L, 1);
-    size_t len = 0;
+    size_t send_length = 0;
     const char* send_buff = NULL;
     if(lua_isuserdata(L, 2)){//zbuff对象特殊处理
         luat_zbuff_t *buff = (luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE);
         send_buff = (const char*)(buff->addr+buff->cursor);
-        len = buff->len - buff->cursor;
+        send_length = buff->len - buff->cursor;
     }else{
-        send_buff = lua_tolstring(L, 2, &len);
+        send_buff = lua_tolstring(L, 2, &send_length);
     }
-    if(lua_isinteger(L,3)){//长度参数
-        size_t len_temp = luaL_checkinteger(L,3);
-        if(len_temp < len)
-            len = len_temp;
-    }
+    size_t length = luaL_optinteger(L,3,1);
+    if(length <= send_length)
+        send_length = length;
+    size_t recv_length = luaL_optinteger(L,4,1);
     //长度为0时，直接返回空字符串
-    if(len <= 0){
+    if(recv_length <= 0){
         lua_pushlstring(L,NULL,0);
         return 1;
     }
-    char* recv_buff = luat_heap_malloc(len);
+    char* recv_buff = luat_heap_malloc(recv_length);
     if(recv_buff == NULL)
         return 0;
-    int ret = luat_spi_device_transfer(spi_device, send_buff, recv_buff, len);
+    int ret = luat_spi_device_transfer(spi_device, send_buff, send_length, recv_buff, recv_length);
     if (ret > 0) {
         lua_pushlstring(L, recv_buff, ret);
         luat_heap_free(recv_buff);

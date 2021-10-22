@@ -84,4 +84,6 @@ LUAMOD_API int luaopen_rtc( lua_State *L );
 LUAMOD_API int luaopen_sdio( lua_State *L );
 
 LUAMOD_API int luaopen_statem( lua_State *L );
+LUAMOD_API int luaopen_vmx( lua_State *L );
+LUAMOD_API int luaopen_lcdseg( lua_State *L );
 

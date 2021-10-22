@@ -36,7 +36,7 @@ jobs:
         retry 'git clone --depth=1 --branch=master ${AIR105REPO} air105'
     - name: make
       run: |
-        cd ../air105/xmake
+        cd ../air105/core
         xmake
         mkdir ../LuatOS/luatosfw
         mv build/out/*.soc ../LuatOS/luatosfw

@@ -38,8 +38,8 @@ jobs:
       run: |
         cd ../air105/core
         xmake
-        mkdir ../LuatOS/luatosfw
-        mv build/out/*.soc ../LuatOS/luatosfw
+        mkdir ../../LuatOS/luatosfw
+        mv build/out/*.soc ../../LuatOS/luatosfw
     - name: Upload artifact
       uses: actions/upload-artifact@v1
       with:

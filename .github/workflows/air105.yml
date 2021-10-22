@@ -1,0 +1,58 @@
+name: air105
+
+on:
+  push:
+    paths:
+      - '.github/workflows/air105.yml'
+      - 'lua/**'
+      - 'luat/**'
+      - 'components/**'
+      - 'bsp/air105/**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v1
+    - name: prepare software
+      run: |
+        sudo apt-get update
+        sudo apt-get install git gcc-multilib libc6 libgcc1 libstdc++5 libstdc++6 libsdl-dev p7zip-full -y
+        sudo apt-get install libncurses5-dev -y
+        sudo add-apt-repository ppa:xmake-io/xmake -y
+        sudo apt update
+        sudo apt install xmake
+        wget -q https://github.com/openLuat/LuatOS/releases/download/v0.0.1/gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2
+        sudo tar xjf gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2 -C /opt
+        /opt/gcc-arm-none-eabi-10.3-2021.10/bin/arm-none-eabi-gcc --version
+        rm gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2
+    - name: clone 105
+      env:
+        AIR105REPO: ${{ secrets.AIR105REPO }}
+      run: |
+        sudo sh -c "curl https://raw.githubusercontent.com/kadwanev/retry/master/retry -o /usr/local/bin/retry && chmod +x /usr/local/bin/retry"
+        cd ..
+        retry 'git clone --depth=1 --branch=master ${AIR105REPO} air105'
+    - name: make
+      run: |
+        cd ../air105/xmake
+        xmake
+        mkdir ../LuatOS/luatosfw
+        mv build/out/*.soc ../LuatOS/luatosfw
+    - name: Upload artifact
+      uses: actions/upload-artifact@v1
+      with:
+        name: air105
+        path: luatosfw
+    - name: report if failure
+      if: always()
+      env:
+        STATUS: ${{ job.status }}
+        MQTTADDR: ${{ secrets.MQTTADDR }}
+        MQTTPORT: ${{ secrets.MQTTPORT }}
+        MQTTTOPIC: ${{ secrets.MQTTTOPIC }}
+      run: |
+        sudo pip3 install paho_mqtt
+        cd tools
+        if [ "$STATUS" = "failure" ];then python3 ciNotify.py $MQTTADDR $MQTTPORT $MQTTTOPIC air105; fi

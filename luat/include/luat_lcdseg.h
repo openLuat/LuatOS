@@ -12,6 +12,8 @@ typedef struct luat_lcd_options
 	uint8_t	com_number;
 	/** Fresh rate configuration */
 	uint16_t fresh_rate;
+	uint32_t com_mark;
+	uint32_t seg_mark;
 } luat_lcd_options_t;
 
 int luat_lcdseg_setup(luat_lcd_options_t *opts);

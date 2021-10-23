@@ -425,7 +425,7 @@ const uint8_t *u8g2_font_get_glyph_data(u8g2_t *u8g2, uint16_t encoding);
 uint8_t * font_pix_find(uint16_t e, int font_pix_find);
 /**
 绘制字符串,支持中文
-@api eink.printcn(x, y, str, colored, font)
+@api lcd.printcn(x, y, str, colored, font)
 @int x坐标
 @int y坐标
 @string 字符串

@@ -32,7 +32,7 @@ ELSE ()
 ENDIF ()
 
 include_directories(${TOPROOT}/luat/packages/lfs)
-include_directories(${TOPROOT}/components/lcd)
+# include_directories(${TOPROOT}/components/lcd)
 
 aux_source_directory(./port PORT_SRCS)
 aux_source_directory(${TOPROOT}/lua/src LUA_SRCS)

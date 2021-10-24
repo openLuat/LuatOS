@@ -3,7 +3,6 @@
 #include "luat_lvgl.h"
 #include "luat_malloc.h"
 #include "luat_zbuff.h"
-#include "luat_lcd.h"
 
 
 static lv_disp_t* my_disp = NULL;
@@ -11,6 +10,8 @@ static lv_disp_buf_t my_disp_buff = {0};
 //static lv_disp_drv_t my_disp_drv;
 
 #if !defined (LUA_USE_WINDOWS) && !defined (LUA_USE_LINUX)
+#include "luat_lcd.h"
+
 static luat_lcd_conf_t* lcd_conf;
 
 static void disp_flush(lv_disp_drv_t * disp_drv, const lv_area_t * area, lv_color_t * color_p) {

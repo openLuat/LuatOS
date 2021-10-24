@@ -14,6 +14,16 @@
 #define LUAT_LOG_TAG "lcd"
 #include "luat_log.h"
 
+#define font_ncenB08_tr                     0
+#define font_ncenB12_tr                     1
+#define font_logisoso16_tr                  2
+#define font_logisoso20_tr                  3
+#define font_logisoso24_tr                  4
+#define font_wqy12_t_gb2312                 5
+#define font_wqy16_t_gb2312                 6
+#define font_unifont_t_symbols              7
+#define font_open_iconic_weather_6x_t       8
+
 extern uint32_t BACK_COLOR , FORE_COLOR ;
 
 extern const luat_lcd_opts_t lcd_opts_st7735;
@@ -158,6 +168,8 @@ static int l_lcd_init(lua_State* L) {
         lua_pushboolean(L, ret == 0 ? 1 : 0);
         if (ret == 0)
             default_conf = conf;
+        u8g2_SetFontMode(&(default_conf->luat_lcd_u8g2), 0);
+        u8g2_SetFontDirection(&(default_conf->luat_lcd_u8g2), 0);
         lua_pushlightuserdata(L, conf);
         return 2;
     }
@@ -630,6 +642,99 @@ static int16_t u8g2_font_draw_glyph(u8g2_t *u8g2, int16_t x, int16_t y, uint16_t
   return dx;
 }
 
+/*
+设置字体
+@api lcd.setFont(font)
+@string font
+@usage
+-- 设置为中文字体,对之后的drawStr有效,使用中文字体需在luat_conf_bsp.h.h开启#define USE_U8G2_WQY16_T_GB2312
+lcd.setFont(lcd.font_ncenB12_tr)
+lcd.drawStr(40,10,"drawStr")
+sys.wait(2000)
+lcd.setFont(lcd.font_wqy16_t_gb2312)
+lcd.drawStr(40,40,"drawStr测试")
+*/
+static int l_lcd_set_font(lua_State *L) {
+    int font = luaL_checkinteger(L, 1);
+    switch (font)
+        {
+        case font_ncenB08_tr:
+            LLOGI("font_ncenB08_tr");
+            u8g2_SetFont(&(default_conf->luat_lcd_u8g2), u8g2_font_ncenB08_tr);
+            lua_pushboolean(L, 1);
+            break;
+        case font_ncenB12_tr:
+            LLOGI("font_ncenB12_tr");
+            u8g2_SetFont(&(default_conf->luat_lcd_u8g2), u8g2_font_ncenB12_tr);
+            lua_pushboolean(L, 1);
+            break;
+        case font_logisoso16_tr:
+            LLOGI("font_logisoso16_tr");
+            u8g2_SetFont(&(default_conf->luat_lcd_u8g2), u8g2_font_logisoso16_tr);
+            lua_pushboolean(L, 1);
+            break;
+        case font_logisoso20_tr:
+            LLOGI("font_logisoso20_tr");
+            u8g2_SetFont(&(default_conf->luat_lcd_u8g2), u8g2_font_logisoso20_tr);
+            lua_pushboolean(L, 1);
+            break;
+        case font_logisoso24_tr:
+            LLOGI("font_logisoso24_tr");
+            u8g2_SetFont(&(default_conf->luat_lcd_u8g2), u8g2_font_logisoso24_tr);
+            lua_pushboolean(L, 1);
+            break;
+#if defined USE_U8G2_WQY12_T_GB2312
+        case font_wqy12_t_gb2312:
+            LLOGI("font_wqy12_t_gb2312");
+            u8g2_SetFont(&(default_conf->luat_lcd_u8g2), u8g2_font_wqy12_t_gb2312);
+            lua_pushboolean(L, 1);
+            break;
+#endif
+#if defined USE_U8G2_WQY16_T_GB2312
+        case font_wqy16_t_gb2312:
+            LLOGI("font_wqy16_t_gb2312");
+            u8g2_SetFont(&(default_conf->luat_lcd_u8g2), u8g2_font_wqy16_t_gb2312);
+            lua_pushboolean(L, 1);
+            break;
+#endif
+#if defined USE_U8G2_UNIFONT_SYMBOLS
+        case font_unifont_t_symbols:
+            LLOGI("font_unifont_t_symbols");
+            u8g2_SetFont(&(default_conf->luat_lcd_u8g2), u8g2_font_unifont_t_symbols);
+            lua_pushboolean(L, 1);
+            break;
+#endif
+#if defined USE_U8G2_ICONIC_WEATHER_6X
+        case font_open_iconic_weather_6x_t:
+            LLOGI("font_open_iconic_weather_6x_t");
+            u8g2_SetFont(&(default_conf->luat_lcd_u8g2), u8g2_font_open_iconic_weather_6x_t);
+            lua_pushboolean(L, 1);
+            break;
+#endif
+        default:
+            lua_pushboolean(L, 0);
+            LLOGI("no font");
+            break;
+        }
+    return 1;
+}
+
+/*
+显示字符串
+@api lcd.drawStr(x,y,str,fg_color,bg_color)
+@int x 横坐标
+@int y 竖坐标
+@string str 文件内容
+@int fg_color str颜色
+@int bg_color str背景颜色
+@usage
+-- 显示之前先设置为中文字体,对之后的drawStr有效,使用中文字体需在luat_conf_bsp.h.h开启#define USE_U8G2_WQY16_T_GB2312
+lcd.setFont(lcd.font_ncenB12_tr)
+lcd.drawStr(40,10,"drawStr")
+sys.wait(2000)
+lcd.setFont(lcd.font_wqy16_t_gb2312)
+lcd.drawStr(40,40,"drawStr测试")
+*/
 static int l_lcd_draw_str(lua_State* L) {
     int x, y;
     int sz;
@@ -642,9 +747,6 @@ static int l_lcd_draw_str(lua_State* L) {
     lcd_str_bg_color = (uint32_t)luaL_optinteger(L, 5,BACK_COLOR);
     if (sz == 0)
         return 0;
-    u8g2_SetFontMode(&(default_conf->luat_lcd_u8g2), 0);
-    u8g2_SetFontDirection(&(default_conf->luat_lcd_u8g2), 0);
-    u8g2_SetFont(&(default_conf->luat_lcd_u8g2), u8g2_font_wqy16_t_gb2312);
     uint16_t e;
     int16_t delta, sum;
     utf8_state = 0;
@@ -802,7 +904,17 @@ static const rotable_Reg reg_lcd[] =
     { "drawRectangle",      l_lcd_draw_rectangle,       0},
     { "drawCircle",      l_lcd_draw_circle,       0},
     { "drawStr",      l_lcd_draw_str,       0},
+    { "setFont", l_lcd_set_font, 0},
     { "setDefault", l_lcd_set_default, 0},
+    { "font_ncenB08_tr", NULL,       font_ncenB08_tr},
+    { "font_ncenB12_tr", NULL,       font_ncenB12_tr},
+    { "font_logisoso16_tr", NULL,       font_logisoso16_tr},
+    { "font_logisoso20_tr", NULL,       font_logisoso20_tr},
+    { "font_logisoso24_tr", NULL,       font_logisoso24_tr},
+    { "font_wqy12_t_gb2312", NULL,       font_wqy12_t_gb2312},
+    { "font_wqy16_t_gb2312", NULL,       font_wqy16_t_gb2312},
+    { "font_unifont_t_symbols", NULL,       font_unifont_t_symbols},
+    { "font_open_iconic_weather_6x_t", NULL,       font_open_iconic_weather_6x_t},
 	{ NULL,        NULL,   0}
 };
 

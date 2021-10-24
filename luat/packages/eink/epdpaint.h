@@ -36,6 +36,7 @@
 // Color inverse. 1 or 0 = set or reset a bit if set a colored pixel
 #define IF_INVERT_COLOR     1
 
+#include "u8g2.h"
 #include "fonts.h"
 
 typedef struct Paint_t {
@@ -43,6 +44,7 @@ typedef struct Paint_t {
     int width;
     int height;
     int rotate;
+    u8g2_t luat_eink_u8g2 ;
 } Paint;
 
 void Paint_Init(Paint* paint, unsigned char* image, int width, int height);

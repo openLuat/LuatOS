@@ -27,6 +27,7 @@ extern const luat_lcd_opts_t lcd_opts_custom;
 
 static luat_lcd_conf_t *default_conf = NULL;
 
+static uint32_t lcd_str_fg_color,lcd_str_bg_color;
 /*
 lcd显示屏初始化
 @api lcd.init(tp, args)
@@ -395,19 +396,285 @@ static int l_lcd_draw_circle(lua_State* L) {
     return 1;
 }
 
-// static int l_lcd_draw_str(lua_State* L) {
-//     int x, y;
-//     int sz;
-//     const uint8_t* data;
-//     uint32_t color = FORE_COLOR;
-//     x = luaL_checkinteger(L, 1);
-//     y = luaL_checkinteger(L, 2);
-//     data = (const uint8_t*)luaL_checklstring(L, 3, &sz);
-//     if (lua_gettop(L) > 3)
-//         color = (uint32_t)luaL_checkinteger(L, 4);
-//     if (sz == 0)
-//         return 0;
-// }
+static uint8_t utf8_state;
+static uint16_t encoding;
+static uint16_t utf8_next(uint8_t b)
+{
+  if ( b == 0 )  /* '\n' terminates the string to support the string list procedures */
+    return 0x0ffff; /* end of string detected, pending UTF8 is discarded */
+  if ( utf8_state == 0 )
+  {
+    if ( b >= 0xfc )  /* 6 byte sequence */
+    {
+      utf8_state = 5;
+      b &= 1;
+    }
+    else if ( b >= 0xf8 )
+    {
+      utf8_state = 4;
+      b &= 3;
+    }
+    else if ( b >= 0xf0 )
+    {
+      utf8_state = 3;
+      b &= 7;      
+    }
+    else if ( b >= 0xe0 )
+    {
+      utf8_state = 2;
+      b &= 15;
+    }
+    else if ( b >= 0xc0 )
+    {
+      utf8_state = 1;
+      b &= 0x01f;
+    }
+    else
+    {
+      /* do nothing, just use the value as encoding */
+      return b;
+    }
+    encoding = b;
+    return 0x0fffe;
+  }
+  else
+  {
+    utf8_state--;
+    /* The case b < 0x080 (an illegal UTF8 encoding) is not checked here. */
+    encoding<<=6;
+    b &= 0x03f;
+    encoding |= b;
+    if ( utf8_state != 0 )
+      return 0x0fffe; /* nothing to do yet */
+  }
+  return encoding;
+}
+
+static void drawFastHLine(luat_lcd_conf_t* conf,int16_t x, int16_t y, int16_t len, uint16_t color){
+    luat_lcd_draw_line(conf,x, y, x+len,y,color);
+}
+static void drawFastVLine(luat_lcd_conf_t* conf,int16_t x, int16_t y, int16_t len, uint16_t color){
+    luat_lcd_draw_line(conf,x, y, x+len,y,color);
+}
+
+static void u8g2_draw_hv_line(u8g2_t *u8g2, int16_t x, int16_t y, int16_t len, uint8_t dir, uint16_t color){
+  switch(dir)
+  {
+    case 0:
+      drawFastHLine(default_conf,x,y,len,color);
+      break;
+    case 1:
+        drawFastVLine(default_conf,x,y,len,color);
+      break;
+    case 2:
+        drawFastHLine(default_conf,x-len+1,y,len,color);
+      break;
+    case 3:
+        drawFastVLine(default_conf,x,y-len+1,len,color);
+      break;
+  }
+}
+static int16_t u8g2_add_vector_x(int16_t dx, int8_t x, int8_t y, uint8_t dir) U8X8_NOINLINE;
+static int16_t u8g2_add_vector_x(int16_t dx, int8_t x, int8_t y, uint8_t dir)
+{
+  switch(dir)
+  {
+    case 0:
+      dx += x;
+      break;
+    case 1:
+      dx -= y;
+      break;
+    case 2:
+      dx -= x;
+      break;
+    default:
+      dx += y;
+      break;      
+  }
+  return dx;
+}
+static int16_t u8g2_add_vector_y(int16_t dy, int8_t x, int8_t y, uint8_t dir) U8X8_NOINLINE;
+static int16_t u8g2_add_vector_y(int16_t dy, int8_t x, int8_t y, uint8_t dir)
+{
+  switch(dir)
+  {
+    case 0:
+      dy += y;
+      break;
+    case 1:
+      dy += x;
+      break;
+    case 2:
+      dy -= y;
+      break;
+    default:
+      dy -= x;
+      break;      
+  }
+  return dy;
+}
+static void u8g2_font_decode_len(u8g2_t *u8g2, uint8_t len, uint8_t is_foreground){
+  uint8_t cnt;  /* total number of remaining pixels, which have to be drawn */
+  uint8_t rem;  /* remaining pixel to the right edge of the glyph */
+  uint8_t current;  /* number of pixels, which need to be drawn for the draw procedure */
+    /* current is either equal to cnt or equal to rem */
+  /* local coordinates of the glyph */
+  uint8_t lx,ly;
+  /* target position on the screen */
+  int16_t x, y;
+  u8g2_font_decode_t *decode = &(u8g2->font_decode);
+  cnt = len;
+  /* get the local position */
+  lx = decode->x;
+  ly = decode->y;
+  for(;;){
+    /* calculate the number of pixel to the right edge of the glyph */
+    rem = decode->glyph_width;
+    rem -= lx;
+    /* calculate how many pixel to draw. This is either to the right edge */
+    /* or lesser, if not enough pixel are left */
+    current = rem;
+    if ( cnt < rem )
+      current = cnt;
+    /* now draw the line, but apply the rotation around the glyph target position */
+    //u8g2_font_decode_draw_pixel(u8g2, lx,ly,current, is_foreground);
+    /* get target position */
+    x = decode->target_x;
+    y = decode->target_y;
+    /* apply rotation */
+    x = u8g2_add_vector_x(x, lx, ly, decode->dir);
+    y = u8g2_add_vector_y(y, lx, ly, decode->dir);
+    /* draw foreground and background (if required) */
+    if ( current > 0 )		/* avoid drawing zero length lines, issue #4 */
+    {
+      if ( is_foreground )
+      {
+	    u8g2_draw_hv_line(u8g2, x, y, current, decode->dir, lcd_str_fg_color);
+      }
+      else if ( decode->is_transparent == 0 )    
+      {
+	    u8g2_draw_hv_line(u8g2, x, y, current, decode->dir, lcd_str_bg_color);
+      }
+    }
+    /* check, whether the end of the run length code has been reached */
+    if ( cnt < rem )
+      break;
+    cnt -= rem;
+    lx = 0;
+    ly++;
+  }
+  lx += cnt;
+  decode->x = lx;
+  decode->y = ly;
+}
+static void u8g2_font_setup_decode(u8g2_t *u8g2, const uint8_t *glyph_data)
+{
+  u8g2_font_decode_t *decode = &(u8g2->font_decode);
+  decode->decode_ptr = glyph_data;
+  decode->decode_bit_pos = 0;
+  
+  /* 8 Nov 2015, this is already done in the glyph data search procedure */
+  /*
+  decode->decode_ptr += 1;
+  decode->decode_ptr += 1;
+  */
+  
+  decode->glyph_width = u8g2_font_decode_get_unsigned_bits(decode, u8g2->font_info.bits_per_char_width);
+  decode->glyph_height = u8g2_font_decode_get_unsigned_bits(decode,u8g2->font_info.bits_per_char_height);
+  
+}
+static int8_t u8g2_font_decode_glyph(u8g2_t *u8g2, const uint8_t *glyph_data){
+  uint8_t a, b;
+  int8_t x, y;
+  int8_t d;
+  int8_t h;
+  u8g2_font_decode_t *decode = &(u8g2->font_decode);
+  u8g2_font_setup_decode(u8g2, glyph_data);
+  h = u8g2->font_decode.glyph_height;
+  x = u8g2_font_decode_get_signed_bits(decode, u8g2->font_info.bits_per_char_x);
+  y = u8g2_font_decode_get_signed_bits(decode, u8g2->font_info.bits_per_char_y);
+  d = u8g2_font_decode_get_signed_bits(decode, u8g2->font_info.bits_per_delta_x);
+  
+  if ( decode->glyph_width > 0 )
+  {
+    decode->target_x = u8g2_add_vector_x(decode->target_x, x, -(h+y), decode->dir);
+    decode->target_y = u8g2_add_vector_y(decode->target_y, x, -(h+y), decode->dir);
+    //u8g2_add_vector(&(decode->target_x), &(decode->target_y), x, -(h+y), decode->dir);
+    /* reset local x/y position */
+    decode->x = 0;
+    decode->y = 0;
+    /* decode glyph */
+    for(;;){
+      a = u8g2_font_decode_get_unsigned_bits(decode, u8g2->font_info.bits_per_0);
+      b = u8g2_font_decode_get_unsigned_bits(decode, u8g2->font_info.bits_per_1);
+      do{
+        u8g2_font_decode_len(u8g2, a, 0);
+        u8g2_font_decode_len(u8g2, b, 1);
+      } while( u8g2_font_decode_get_unsigned_bits(decode, 1) != 0 );
+      if ( decode->y >= h )
+        break;
+    }
+  }
+  return d;
+}
+const uint8_t *u8g2_font_get_glyph_data(u8g2_t *u8g2, uint16_t encoding);
+static int16_t u8g2_font_draw_glyph(u8g2_t *u8g2, int16_t x, int16_t y, uint16_t encoding){
+  int16_t dx = 0;
+  u8g2->font_decode.target_x = x;
+  u8g2->font_decode.target_y = y;
+  const uint8_t *glyph_data = u8g2_font_get_glyph_data(u8g2, encoding);
+  if ( glyph_data != NULL ){
+    dx = u8g2_font_decode_glyph(u8g2, glyph_data);
+  }
+  return dx;
+}
+
+static int l_lcd_draw_str(lua_State* L) {
+    int x, y;
+    int sz;
+    const uint8_t* data;
+    uint32_t color = FORE_COLOR;
+    x = luaL_checkinteger(L, 1);
+    y = luaL_checkinteger(L, 2);
+    data = (const uint8_t*)luaL_checklstring(L, 3, &sz);
+    lcd_str_fg_color = (uint32_t)luaL_optinteger(L, 4,FORE_COLOR);
+    lcd_str_bg_color = (uint32_t)luaL_optinteger(L, 5,BACK_COLOR);
+    if (sz == 0)
+        return 0;
+    u8g2_SetFontMode(&(default_conf->luat_lcd_u8g2), 0);
+    u8g2_SetFontDirection(&(default_conf->luat_lcd_u8g2), 0);
+    u8g2_SetFont(&(default_conf->luat_lcd_u8g2), u8g2_font_wqy16_t_gb2312);
+    uint16_t e;
+    int16_t delta, sum;
+    utf8_state = 0;
+    sum = 0;
+    for(;;){
+        e = utf8_next((uint8_t)*data);
+        if ( e == 0x0ffff )
+        break;
+        data++;
+        if ( e != 0x0fffe ){
+        delta = u8g2_font_draw_glyph(&(default_conf->luat_lcd_u8g2), x, y, e);
+        switch(default_conf->luat_lcd_u8g2.font_decode.dir){
+            case 0:
+            x += delta;
+            break;
+            case 1:
+            y += delta;
+            break;
+            case 2:
+            x -= delta;
+            break;
+            case 3:
+            y -= delta;
+            break;
+        }
+        sum += delta;    
+        }
+    }
+    return 0;
+}
 
 static int l_lcd_set_default(lua_State *L) {
     if (lua_gettop(L) == 1) {
@@ -418,105 +685,105 @@ static int l_lcd_set_default(lua_State *L) {
     return 1;
 }
 
-#include "u8g2.h"
-// void u8g2_read_font_info(u8g2_font_info_t *font_info, const uint8_t *font);
-uint8_t luat_u8x8_gpio_and_delay(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr);
-const uint8_t *u8g2_font_get_glyph_data(u8g2_t *u8g2, uint16_t encoding);
-uint8_t * font_pix_find(uint16_t e, int font_pix_find);
-/**
-绘制字符串,支持中文
-@api lcd.printcn(x, y, str, colored, font)
-@int x坐标
-@int y坐标
-@string 字符串
-@int 默认是0
-@font 字体大小,默认12
-@return nil 无返回值
-*/
-static int l_lcd_draw_str(lua_State *L)
-{
-    size_t len;
-    int x           = luaL_checkinteger(L, 1);
-    int y           = luaL_checkinteger(L, 2);
-    const char *str = luaL_checklstring(L, 3, &len);
-    int colored     = luaL_optinteger(L, 4, 0);
-    int font_size        = luaL_optinteger(L, 5, 12);
+// #include "u8g2.h"
+// // void u8g2_read_font_info(u8g2_font_info_t *font_info, const uint8_t *font);
+// uint8_t luat_u8x8_gpio_and_delay(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr);
+// const uint8_t *u8g2_font_get_glyph_data(u8g2_t *u8g2, uint16_t encoding);
+// uint8_t * font_pix_find(uint16_t e, int font_pix_find);
+// /**
+// 绘制字符串,支持中文
+// @api lcd.printcn(x, y, str, colored, font)
+// @int x坐标
+// @int y坐标
+// @string 字符串
+// @int 默认是0
+// @font 字体大小,默认12
+// @return nil 无返回值
+// */
+// static int l_lcd_draw_str(lua_State *L)
+// {
+//     size_t len;
+//     int x           = luaL_checkinteger(L, 1);
+//     int y           = luaL_checkinteger(L, 2);
+//     const char *str = luaL_checklstring(L, 3, &len);
+//     int colored     = luaL_optinteger(L, 4, 0);
+//     int font_size        = luaL_optinteger(L, 5, 12);
 
-    //LLOGD("printcn font_size %d len %d", font_size, len);
+//     //LLOGD("printcn font_size %d len %d", font_size, len);
 
-    // 解码数据 TODO 使用无u8g2的方案
-    u8g2_t *u8g2 = luat_heap_malloc(sizeof(u8g2_t));
-    u8g2_Setup_ssd1306_i2c_128x64_noname_f( u8g2, U8G2_R0, u8x8_byte_sw_i2c, luat_u8x8_gpio_and_delay);
-    u8g2_InitDisplay(u8g2);
-    u8g2_SetPowerSave(u8g2, 0);
-    u8g2->u8x8.next_cb = u8x8_utf8_next;
+//     // 解码数据 TODO 使用无u8g2的方案
+//     u8g2_t *u8g2 = luat_heap_malloc(sizeof(u8g2_t));
+//     u8g2_Setup_ssd1306_i2c_128x64_noname_f( u8g2, U8G2_R0, u8x8_byte_sw_i2c, luat_u8x8_gpio_and_delay);
+//     u8g2_InitDisplay(u8g2);
+//     u8g2_SetPowerSave(u8g2, 0);
+//     u8g2->u8x8.next_cb = u8x8_utf8_next;
 
-    uint16_t e;
-    //u8g2_uint_t delta, sum;
-    u8x8_utf8_init(u8g2_GetU8x8(u8g2));
-    //sum = 0;
-    uint8_t* str2 = (uint8_t*)str;
-    for(;;)
-    {
-        e = u8g2->u8x8.next_cb(u8g2_GetU8x8(u8g2), (uint8_t)*str2);
-        //LLOGD("chinese >> 0x%04X", e);
-        if ( e == 0x0ffff )
-            break;
-        str2++;
-        // if (e != 0x0fffe && e < 0x007e) {
-        //     char ch[2] = {e, 0};
-        //     if (font_size == 16)
-        //         Paint_DrawStringAt(&paint, x, y, ch, &Font16, colored);
-        //     else if (font_size == 24)
-        //         Paint_DrawStringAt(&paint, x, y, ch, &Font24, colored);
-        //     x += font_size;
-        // }
-        // else
-        if ( e != 0x0fffe )
-        {
-            //delta = u8g2_DrawGlyph(u8g2, x, y, e);
-            uint8_t * f = font_pix_find(e, font_size);
-            if (f != NULL) {
-                // 当前仅支持16p和24p
-                int datalen = font_size == 16 ? 32 : 72;
-                int xlen = font_size == 16 ? 2 : 3;
-                //luat_lcd_draw(default_conf, x, y, x + font_size, y + font_size, );
-                //LLOGD("found FONT DATA 0x%04X datalen=%d xlen=%d", e, datalen, xlen);
-                // TODO 使用内存块的方式绘制,但背景透明怎么解决呢?直接使用bgcolor?
-                for (size_t i = 0; i < datalen; )
-                {
-                    for (size_t k = 0; k < xlen; k++)
-                    {
-                        uint8_t pix = f[i];
-                        //LLOGD("pix data %02X   x+j=%d y+j/2=%d", pix, x, y+i/2);
-                        for (size_t j = 0; j < 8; j++)
-                        {
-                            if ((pix >> (7-j)) & 0x01) {
-                                luat_lcd_draw_point(default_conf, x+j+k*8, y+i/xlen, colored);
-                            }
-                        }
-                        i++;
-                    }
-                }
-            }
-            else {
-                LLOGD("NOT found FONT DATA 0x%04X", e);
-            }
+//     uint16_t e;
+//     //u8g2_uint_t delta, sum;
+//     u8x8_utf8_init(u8g2_GetU8x8(u8g2));
+//     //sum = 0;
+//     uint8_t* str2 = (uint8_t*)str;
+//     for(;;)
+//     {
+//         e = u8g2->u8x8.next_cb(u8g2_GetU8x8(u8g2), (uint8_t)*str2);
+//         //LLOGD("chinese >> 0x%04X", e);
+//         if ( e == 0x0ffff )
+//             break;
+//         str2++;
+//         // if (e != 0x0fffe && e < 0x007e) {
+//         //     char ch[2] = {e, 0};
+//         //     if (font_size == 16)
+//         //         Paint_DrawStringAt(&paint, x, y, ch, &Font16, colored);
+//         //     else if (font_size == 24)
+//         //         Paint_DrawStringAt(&paint, x, y, ch, &Font24, colored);
+//         //     x += font_size;
+//         // }
+//         // else
+//         if ( e != 0x0fffe )
+//         {
+//             //delta = u8g2_DrawGlyph(u8g2, x, y, e);
+//             uint8_t * f = font_pix_find(e, font_size);
+//             if (f != NULL) {
+//                 // 当前仅支持16p和24p
+//                 int datalen = font_size == 16 ? 32 : 72;
+//                 int xlen = font_size == 16 ? 2 : 3;
+//                 //luat_lcd_draw(default_conf, x, y, x + font_size, y + font_size, );
+//                 //LLOGD("found FONT DATA 0x%04X datalen=%d xlen=%d", e, datalen, xlen);
+//                 // TODO 使用内存块的方式绘制,但背景透明怎么解决呢?直接使用bgcolor?
+//                 for (size_t i = 0; i < datalen; )
+//                 {
+//                     for (size_t k = 0; k < xlen; k++)
+//                     {
+//                         uint8_t pix = f[i];
+//                         //LLOGD("pix data %02X   x+j=%d y+j/2=%d", pix, x, y+i/2);
+//                         for (size_t j = 0; j < 8; j++)
+//                         {
+//                             if ((pix >> (7-j)) & 0x01) {
+//                                 luat_lcd_draw_point(default_conf, x+j+k*8, y+i/xlen, colored);
+//                             }
+//                         }
+//                         i++;
+//                     }
+//                 }
+//             }
+//             else {
+//                 LLOGD("NOT found FONT DATA 0x%04X", e);
+//             }
 
-            if (e <= 0x7E)
-                x += font_size / 2;
-            else
-            {
-                x += font_size;
-            }
+//             if (e <= 0x7E)
+//                 x += font_size / 2;
+//             else
+//             {
+//                 x += font_size;
+//             }
 
-        }
-    }
+//         }
+//     }
 
-    luat_heap_free(u8g2);
+//     luat_heap_free(u8g2);
 
-    return 0;
-}
+//     return 0;
+// }
 
 #include "rotable.h"
 static const rotable_Reg reg_lcd[] =

@@ -3,6 +3,7 @@
 #define LUAT_LCD
 
 #include "luat_base.h"
+#include "u8g2.h"
 
 #define WHITE            0xFFFF
 #define BLACK            0x0000
@@ -52,6 +53,7 @@ typedef struct luat_lcd_conf {
     uint8_t xoffset;//偏移
     uint8_t yoffset;//偏移
 
+    u8g2_t luat_lcd_u8g2 ;
     void* userdata;
     struct luat_lcd_opts* opts;
 } luat_lcd_conf_t;

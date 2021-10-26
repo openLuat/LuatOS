@@ -161,9 +161,6 @@ static int l_uart_read(lua_State *L)
 {
     uint8_t id = luaL_checkinteger(L, 1);
     uint32_t length = luaL_optinteger(L, 2, 1024);
-    if (length > 4096) {
-        length = 4096;
-    }
     if(lua_isuserdata(L, 3)){//zbuff对象特殊处理
         luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 3, LUAT_ZBUFF_TYPE));
         uint8_t* recv = buff->addr+buff->cursor;

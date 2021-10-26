@@ -73,6 +73,9 @@ LUAMOD_API int luaopen_sfd( lua_State *L );
 LUAMOD_API int luaopen_lfs2( lua_State *L );
 LUAMOD_API int luaopen_lvgl( lua_State *L );
 
+/** 加载ir库, 依赖gpio库, 可选*/
+LUAMOD_API int luaopen_ir( lua_State *L );
+
 LUAMOD_API int luaopen_lcd( lua_State *L );
 LUAMOD_API int luaopen_lwip( lua_State *L );
 

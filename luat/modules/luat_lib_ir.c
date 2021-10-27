@@ -60,11 +60,11 @@ static void ir_nec_pwm_send(int pin, uint8_t code)
 #define IR_NEC_SEND_0(pin)  luat_gpio_set(pin, Luat_GPIO_HIGH); \
                             luat_timer_us_delay(560); \
                             luat_gpio_set(pin, Luat_GPIO_LOW); \
-                            luat_timer_us_delay(1690)
+                            luat_timer_us_delay(560)
 #define IR_NEC_SEND_1(pin)  luat_gpio_set(pin, Luat_GPIO_HIGH); \
                             luat_timer_us_delay(560); \
                             luat_gpio_set(pin, Luat_GPIO_LOW); \
-                            luat_timer_us_delay(560)
+                            luat_timer_us_delay(1690)
 static void ir_nec_send(int pin, uint8_t code)
 {
     uint8_t c = 8;

@@ -19,11 +19,14 @@
 #define LUAT_LOG_TAG "luat.u8g2"
 #include "luat_log.h"
 
+enum
+{
+	font_opposansm8,
+	font_opposansm12_chinese,
+	font_unifont_t_symbols,
+	font_open_iconic_weather_6x_t,
+};
 
-#define font_ncenB08_tr                     0
-#define font_wqy12_t_gb2312                 1
-#define font_unifont_t_symbols              2
-#define font_open_iconic_weather_6x_t       3
 
 static u8g2_t* u8g2;
 static int u8g2_lua_ref;
@@ -311,15 +314,15 @@ static int l_u8g2_SetFont(lua_State *L) {
     int font = luaL_checkinteger(L, 1);
     switch (font)
         {
-        case font_ncenB08_tr:
-            LLOGI("font_ncenB08_tr");
-            u8g2_SetFont(u8g2, u8g2_font_ncenB08_tr);
+        case font_opposansm8:
+            LLOGI("font_opposansm8");
+            u8g2_SetFont(u8g2, u8g2_font_opposansm8);
             lua_pushboolean(L, 1);
             break;
-#if defined USE_U8G2_WQY12_T_GB2312
-        case font_wqy12_t_gb2312:
-            LLOGI("font_wqy12_t_gb2312");
-            u8g2_SetFont(u8g2, u8g2_font_wqy12_t_gb2312);
+#if defined USE_U8G2_OPPOSANSM12_CHINESE
+        case font_opposansm12_chinese:
+            LLOGI("font_opposansm12_chinese");
+            u8g2_SetFont(u8g2, u8g2_font_opposansm12_chinese);
             lua_pushboolean(L, 1);
             break;
 #endif
@@ -637,8 +640,8 @@ static const rotable_Reg reg_u8g2[] =
     { "DrawTriangle",    l_u8g2_DrawTriangle,    0},
     { "SetBitmapMode",    l_u8g2_SetBitmapMode,    0},
     { "DrawBitmap",       l_u8g2_DrawBitmap, 0},
-    { "font_ncenB08_tr", NULL,       font_ncenB08_tr},
-    { "font_wqy12_t_gb2312", NULL,       font_wqy12_t_gb2312},
+    { "font_opposansm8", NULL,       font_opposansm8},
+    { "font_opposansm12_chinese", NULL,       font_opposansm12_chinese},
     { "font_unifont_t_symbols", NULL,       font_unifont_t_symbols},
     { "font_open_iconic_weather_6x_t", NULL,       font_open_iconic_weather_6x_t},
 	{ NULL, NULL, 0}

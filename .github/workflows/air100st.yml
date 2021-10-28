@@ -64,4 +64,4 @@ jobs:
       run: |
         sudo pip3 install paho_mqtt
         cd tools
-        if [ "$STATUS" = "failure" ];then python3 ciNotify.py $MQTTADDR $MQTTPORT $MQTTTOPIC air100st; fi
+        if [ "$STATUS" = "failure" ];then python3 ciNotify.py $MQTTADDR $MQTTPORT $MQTTTOPIC "air100st https://github.com/openLuat/LuatOS/actions/runs/$GITHUB_RUN_ID"; fi

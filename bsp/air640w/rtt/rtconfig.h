@@ -270,13 +270,16 @@
 
 /* security packages */
 
-#define PKG_USING_YD_CRYPTO
-#define PKG_USING_YD_CRYPTO_LATEST_VERSION
 
 /* language packages */
 
 
 /* multimedia packages */
+
+/* LVGL: powerful and easy-to-use embedded GUI library */
+
+
+/* u8g2: a monochrome graphic library */
 
 
 /* tools packages */
@@ -292,19 +295,6 @@
 
 /* peripheral libraries and drivers */
 
-#define PKG_USING_U8G2
-#define U8G2_USE_HW_I2C
-#define U8G2_I2C_DEVICE_NAME "i2c1soft"
-
-/* U8G2 Examples */
-
-#define PKG_USING_U8G2_C_LATEST_VERSION
-
-/* C   version: v1.x.x */
-
-/* C++ version: v2.x.x */
-
-#define PKG_U8G2_VER_NUM 0x19999
 #define PKG_USING_WM_LIBRARIES
 #define PKG_USING_WM_LIBRARIES_LATEST_VERSION
 
@@ -312,7 +302,6 @@
 
 
 /* miscellaneous packages */
-
 
 /* samples: kernel and components samples */
 

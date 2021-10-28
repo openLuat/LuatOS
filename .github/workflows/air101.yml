@@ -37,7 +37,7 @@ jobs:
     - name: make
       run: |
         cd ../air101
-        chmod +x tools/w800/wm_tool
+        chmod +x tools/xt804/wm_tool
         xmake
         mkdir ../LuatOS/luatosfw
         mv build/out/*.soc ../LuatOS/luatosfw

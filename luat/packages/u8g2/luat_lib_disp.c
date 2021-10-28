@@ -242,9 +242,9 @@ static int l_disp_set_font(lua_State *L) {
             u8g2_SetFont(u8g2, u8g2_font_ncenB08_tr);
             lua_pushboolean(L, 1);
             break;
-        #if defined USE_CHINESE_WQY12_FONT
+        #if defined USE_U8G2_OPPOSANSM12_CHINESE
         case 1:
-            u8g2_SetFont(u8g2, u8g2_font_wqy12_t_gb2312);
+            u8g2_SetFont(u8g2, u8g2_font_opposansm12_chinese);
             lua_pushboolean(L, 1);
             break;
         #endif

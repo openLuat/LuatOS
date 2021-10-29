@@ -31,6 +31,24 @@
 
 #define LUAT_LOG_TAG "luat.eink"
 
+enum
+{
+	font_opposansm8,
+	font_opposansm10,
+	font_opposansm12,
+	font_opposansm16,
+	font_opposansm18,
+	font_opposansm20,
+	font_opposansm22,
+	font_opposansm24,
+	font_opposansm32,
+  font_opposansm12_chinese,
+	font_opposansm16_chinese,
+  font_opposansm24_chinese,
+  font_opposansm32_chinese,
+};
+
+static uint32_t eink_str_color;
 
 // static EPD epd;
 static Paint paint;
@@ -109,6 +127,8 @@ static int l_eink_setup(lua_State *L) {
         Paint_Init(&paint, frame_buffer, epd_w, epd_h);
         Paint_Clear(&paint, UNCOLORED);
     }
+    u8g2_SetFontMode(&(paint.luat_eink_u8g2), 0);
+    u8g2_SetFontDirection(&(paint.luat_eink_u8g2), 0);
     //LLOGD("epd init complete");
     lua_pushboolean(L, 1);
     return 1;
@@ -163,49 +183,6 @@ static int l_eink_getWin(lua_State *L)
     lua_pushinteger(L, height);
     lua_pushinteger(L, rotate);
     return 3;
-}
-
-/**
-绘制字符串(仅ASCII)
-@api eink.print(x, y, str, colored, font)
-@int x坐标
-@int y坐标
-@string 字符串
-@int 默认是0
-@font 字体大小,默认12
-@return nil 无返回值
-*/
-static int l_eink_print(lua_State *L)
-{
-    size_t len;
-    int x           = luaL_checkinteger(L, 1);
-    int y           = luaL_checkinteger(L, 2);
-    const char *str = luaL_checklstring(L, 3, &len);
-    int colored     = luaL_optinteger(L, 4, 0);
-    int font        = luaL_optinteger(L, 5, 12);
-
-
-    switch (font)
-    {
-        case 8:
-            Paint_DrawStringAt(&paint, x, y, str, &Font8, colored);
-            break;
-        case 12:
-            Paint_DrawStringAt(&paint, x, y, str, &Font12, colored);
-            break;
-        case 16:
-            Paint_DrawStringAt(&paint, x, y, str, &Font16, colored);
-            break;
-        case 20:
-            Paint_DrawStringAt(&paint, x, y, str, &Font20, colored);
-            break;
-        case 24:
-            Paint_DrawStringAt(&paint, x, y, str, &Font24, colored);
-            break;
-        default:
-            break;
-    }
-    return 0;
 }
 
 static uint8_t utf8_state;
@@ -263,10 +240,10 @@ static uint16_t utf8_next(uint8_t b)
 }
 
 static void drawFastHLine(Paint* conf,int16_t x, int16_t y, int16_t len, uint16_t color){
-    Paint_DrawLine(conf,x, y, x+len,y,color);
+    Paint_DrawHorizontalLine(conf,x, y, len,color);
 }
 static void drawFastVLine(Paint* conf,int16_t x, int16_t y, int16_t len, uint16_t color){
-    Paint_DrawLine(conf,x, y, x+len,y,color);
+    Paint_DrawVerticalLine(conf,x, y, len,color);
 }
 
 static void u8g2_draw_hv_line(u8g2_t *u8g2, int16_t x, int16_t y, int16_t len, uint8_t dir, uint16_t color){
@@ -362,7 +339,7 @@ static void u8g2_font_decode_len(u8g2_t *u8g2, uint8_t len, uint8_t is_foregroun
     {
       if ( is_foreground )
       {
-	    u8g2_draw_hv_line(u8g2, x, y, current, decode->dir, decode->fg_color);
+	    u8g2_draw_hv_line(u8g2, x, y, current, decode->dir, eink_str_color);
       }
       else if ( decode->is_transparent == 0 )    
       {
@@ -442,13 +419,10 @@ static int16_t u8g2_font_draw_glyph(u8g2_t *u8g2, int16_t x, int16_t y, uint16_t
   return dx;
 }
 
-// // void u8g2_read_font_info(u8g2_font_info_t *font_info, const uint8_t *font);
-// uint8_t luat_u8x8_gpio_and_delay(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr);
-// const uint8_t *u8g2_font_get_glyph_data(u8g2_t *u8g2, uint16_t encoding);
-// uint8_t * font_pix_find(uint16_t e, int font_pix_find);
+
 /**
-绘制字符串,支持中文
-@api eink.printcn(x, y, str, colored, font)
+绘制字符串
+@api eink.print(x, y, str, colored, font)
 @int x坐标
 @int y坐标
 @string 字符串
@@ -456,106 +430,103 @@ static int16_t u8g2_font_draw_glyph(u8g2_t *u8g2, int16_t x, int16_t y, uint16_t
 @font 字体大小,默认12
 @return nil 无返回值
 */
-static int l_eink_printcn(lua_State *L)
+static int l_eink_print(lua_State *L)
 {
-    // size_t len;
-    // int x           = luaL_checkinteger(L, 1);
-    // int y           = luaL_checkinteger(L, 2);
-    // const char *str = luaL_checklstring(L, 3, &len);
-    // int colored     = luaL_optinteger(L, 4, 0);
-    // int font_size        = luaL_optinteger(L, 5, 12);
-
-    // //LLOGD("printcn font_size %d len %d", font_size, len);
-
-    // // 解码数据 TODO 使用无u8g2的方案
-    // u8g2_t *u8g2 = luat_heap_malloc(sizeof(u8g2_t));
-    // u8g2_Setup_ssd1306_i2c_128x64_noname_f( u8g2, U8G2_R0, u8x8_byte_sw_i2c, luat_u8x8_gpio_and_delay);
-    // u8g2_InitDisplay(u8g2);
-    // u8g2_SetPowerSave(u8g2, 0);
-    // u8g2->u8x8.next_cb = u8x8_utf8_next;
-
-    // uint16_t e;
-    // //u8g2_uint_t delta, sum;
-    // u8x8_utf8_init(u8g2_GetU8x8(u8g2));
-    // //sum = 0;
-    // uint8_t* str2 = (uint8_t*)str;
-    // for(;;)
-    // {
-    //     e = u8g2->u8x8.next_cb(u8g2_GetU8x8(u8g2), (uint8_t)*str2);
-    //     //LLOGD("chinese >> 0x%04X", e);
-    //     if ( e == 0x0ffff )
-    //         break;
-    //     str2++;
-    //     // if (e != 0x0fffe && e < 0x007e) {
-    //     //     char ch[2] = {e, 0};
-    //     //     if (font_size == 16)
-    //     //         Paint_DrawStringAt(&paint, x, y, ch, &Font16, colored);
-    //     //     else if (font_size == 24)
-    //     //         Paint_DrawStringAt(&paint, x, y, ch, &Font24, colored);
-    //     //     x += font_size;
-    //     // }
-    //     // else
-    //     if ( e != 0x0fffe )
-    //     {
-    //         //delta = u8g2_DrawGlyph(u8g2, x, y, e);
-    //         uint8_t * f = font_pix_find(e, font_size);
-    //         if (f != NULL) {
-    //             // 当前仅支持16p和24p
-    //             int datalen = font_size == 16 ? 32 : 72;
-    //             int xlen = font_size == 16 ? 2 : 3;
-    //             //LLOGD("found FONT DATA 0x%04X datalen=%d xlen=%d", e, datalen, xlen);
-    //             for (size_t i = 0; i < datalen; )
-    //             {
-    //                 for (size_t k = 0; k < xlen; k++)
-    //                 {
-    //                     uint8_t pix = f[i];
-    //                     //LLOGD("pix data %02X   x+j=%d y+j/2=%d", pix, x, y+i/2);
-    //                     for (size_t j = 0; j < 8; j++)
-    //                     {
-    //                         if ((pix >> (7-j)) & 0x01) {
-    //                             Paint_DrawPixel(&paint, x+j+k*8, y+i/xlen, colored);
-    //                         }
-    //                     }
-    //                     i++;
-    //                 }
-    //             }
-    //         }
-    //         else {
-    //             LLOGD("NOT found FONT DATA 0x%04X", e);
-    //         }
-
-    //         if (e <= 0x7E)
-    //             x += font_size / 2;
-    //         else
-    //         {
-    //             x += font_size;
-    //         }
-
-    //     }
-    // }
-
-    // luat_heap_free(u8g2);
-    int x, y;
-    int sz;
-    const uint8_t* data;
-    // uint32_t color = FORE_COLOR;
-    x = luaL_checkinteger(L, 1);
-    y = luaL_checkinteger(L, 2);
-    data = (const uint8_t*)luaL_checklstring(L, 3, &sz);
-    if (sz == 0)
-        return 0;
-    u8g2_SetFontMode(&(paint.luat_eink_u8g2), 0);
-    u8g2_SetFontDirection(&(paint.luat_eink_u8g2), 0);
-    u8g2_SetFont(&(paint.luat_eink_u8g2), u8g2_font_wqy16_t_gb2312);
-    uint16_t e;
+    size_t len;
+    int x           = luaL_checkinteger(L, 1);
+    int y           = luaL_checkinteger(L, 2);
+    const char *str = luaL_checklstring(L, 3, &len);
+    eink_str_color  = luaL_optinteger(L, 4, 0);
+    int font        = luaL_optinteger(L, 5, 12);
+switch (font)
+        {
+        case font_opposansm8:
+            LLOGI("font_opposansm8");
+            u8g2_SetFont(&(paint.luat_eink_u8g2), u8g2_font_opposansm8);
+            lua_pushboolean(L, 1);
+            break;
+        case font_opposansm10:
+            LLOGI("font_opposansm10");
+            u8g2_SetFont(&(paint.luat_eink_u8g2), u8g2_font_opposansm10);
+            lua_pushboolean(L, 1);
+            break;
+        case font_opposansm12:
+            LLOGI("font_opposansm12");
+            u8g2_SetFont(&(paint.luat_eink_u8g2), u8g2_font_opposansm12);
+            lua_pushboolean(L, 1);
+            break;
+        case font_opposansm16:
+            LLOGI("font_opposansm16");
+            u8g2_SetFont(&(paint.luat_eink_u8g2), u8g2_font_opposansm16);
+            lua_pushboolean(L, 1);
+            break;
+        case font_opposansm18:
+            LLOGI("font_opposansm18");
+            u8g2_SetFont(&(paint.luat_eink_u8g2), u8g2_font_opposansm18);
+            lua_pushboolean(L, 1);
+            break;
+        case font_opposansm20:
+            LLOGI("font_opposansm20");
+            u8g2_SetFont(&(paint.luat_eink_u8g2), u8g2_font_opposansm20);
+            lua_pushboolean(L, 1);
+            break;
+        case font_opposansm22:
+            LLOGI("font_opposansm22");
+            u8g2_SetFont(&(paint.luat_eink_u8g2), u8g2_font_opposansm22);
+            lua_pushboolean(L, 1);
+            break;
+        case font_opposansm24:
+            LLOGI("font_opposansm24");
+            u8g2_SetFont(&(paint.luat_eink_u8g2), u8g2_font_opposansm24);
+            lua_pushboolean(L, 1);
+            break;
+        case font_opposansm32:
+            LLOGI("font_opposansm32");
+            u8g2_SetFont(&(paint.luat_eink_u8g2), u8g2_font_opposansm32);
+            lua_pushboolean(L, 1);
+            break;
+#if defined USE_U8G2_OPPOSANSM12_CHINESE
+        case font_opposansm12_chinese:
+            LLOGI("font_opposansm12_chinese");
+            u8g2_SetFont(&(paint.luat_eink_u8g2), u8g2_font_opposansm12_chinese);
+            lua_pushboolean(L, 1);
+            break;
+#endif
+#if defined USE_U8G2_OPPOSANSM16_CHINESE
+        case font_opposansm16_chinese:
+            LLOGI("font_opposansm16_chinese");
+            u8g2_SetFont(&(paint.luat_eink_u8g2), u8g2_font_opposansm16_chinese);
+            lua_pushboolean(L, 1);
+            break;
+#endif
+#if defined USE_U8G2_OPPOSANSM24_CHINESE
+        case font_opposansm24_chinese:
+            LLOGI("font_opposansm24_chinese");
+            u8g2_SetFont(&(paint.luat_eink_u8g2), u8g2_font_opposansm24_chinese);
+            lua_pushboolean(L, 1);
+            break;
+#endif
+#if defined USE_U8G2_OPPOSANSM32_CHINESE
+        case font_opposansm32_chinese:
+            LLOGI("font_opposansm32_chinese");
+            u8g2_SetFont(&(paint.luat_eink_u8g2), u8g2_font_opposansm32_chinese);
+            lua_pushboolean(L, 1);
+            break;
+#endif
+        default:
+            lua_pushboolean(L, 0);
+            LLOGI("no font");
+            break;
+        }
+uint16_t e;
     int16_t delta, sum;
     utf8_state = 0;
     sum = 0;
     for(;;){
-        e = utf8_next((uint8_t)*data);
+        e = utf8_next((uint8_t)*str);
         if ( e == 0x0ffff )
         break;
-        data++;
+        str++;
         if ( e != 0x0fffe ){
         delta = u8g2_font_draw_glyph(&(paint.luat_eink_u8g2), x, y, e);
         switch(paint.luat_eink_u8g2.font_decode.dir){
@@ -869,7 +840,6 @@ static const rotable_Reg reg_eink[] =
     { "setWin",         l_eink_setWin,          0},
     { "getWin",         l_eink_getWin,          0},
     { "print",          l_eink_print,           0},
-    { "printcn",        l_eink_printcn,         0},
     { "show",           l_eink_show,            0},
     { "rect",           l_eink_rect,            0},
     { "circle",         l_eink_circle,          0},
@@ -898,6 +868,19 @@ static const rotable_Reg reg_eink[] =
     { "MODEL_2in9d",          NULL,                 MODEL_2in9d},
     { "MODEL_2in9f",          NULL,                 MODEL_2in9f},
     { "MODEL_3in7",           NULL,                 MODEL_3in7},
+    { "font_opposansm8", NULL,       font_opposansm8},
+    { "font_opposansm10", NULL,       font_opposansm10},
+    { "font_opposansm12", NULL,       font_opposansm12},
+    { "font_opposansm16", NULL,       font_opposansm16},
+    { "font_opposansm18", NULL,       font_opposansm18},
+    { "font_opposansm20", NULL,       font_opposansm20},
+    { "font_opposansm22", NULL,       font_opposansm22},
+    { "font_opposansm24", NULL,       font_opposansm24},
+    { "font_opposansm32", NULL,       font_opposansm32},
+    { "font_opposansm12_chinese", NULL,       font_opposansm12_chinese},
+    { "font_opposansm16_chinese", NULL,       font_opposansm16_chinese},
+    { "font_opposansm24_chinese", NULL,       font_opposansm24_chinese},
+    { "font_opposansm32_chinese", NULL,       font_opposansm32_chinese},
 
 	{ NULL,             NULL,                   0}
 };

@@ -29,7 +29,11 @@
 #ifndef EPD2IN9_H
 #define EPD2IN9_H
 
-#include "fonts.h"
+#ifndef uint8_t
+#define uint8_t  unsigned char
+#define uint16_t unsigned short
+#define uint32_t unsigned int
+#endif 
 
 // Display resolution
 #define EPD_2IN9F_WIDTH       128

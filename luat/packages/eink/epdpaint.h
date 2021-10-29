@@ -37,7 +37,6 @@
 #define IF_INVERT_COLOR     1
 
 #include "u8g2.h"
-#include "fonts.h"
 
 typedef struct Paint_t {
     unsigned char* image;
@@ -58,9 +57,6 @@ void Paint_SetRotate(Paint* paint, int rotate);
 unsigned char* Paint_GetImage(Paint* paint);
 void Paint_DrawAbsolutePixel(Paint* paint, int x, int y, int colored);
 void Paint_DrawPixel(Paint* paint, int x, int y, int colored);
-void Paint_DrawCharAt(Paint* paint, int x, int y, char ascii_char, sFONT* font, int colored);
-void Paint_DrawStringAt(Paint* paint, int x, int y, const char* text, sFONT* font, int colored);
-void Paint_DrawStringCN(Paint* paint, int xsta, int ysta, const char* text, cFONT* font, int colored);
 void Paint_DrawLine(Paint* paint, int x0, int y0, int x1, int y1, int colored);
 void Paint_DrawHorizontalLine(Paint* paint, int x, int y, int width, int colored);
 void Paint_DrawVerticalLine(Paint* paint, int x, int y, int height, int colored);

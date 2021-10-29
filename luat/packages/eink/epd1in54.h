@@ -27,7 +27,11 @@
 #ifndef EPD1IN54_H
 #define EPD1IN54_H
 
-#include "fonts.h"
+#ifndef uint8_t
+#define uint8_t  unsigned char
+#define uint16_t unsigned short
+#define uint32_t unsigned int
+#endif 
 
 // Display resolution
 #define EPD_1IN54F_WIDTH       200

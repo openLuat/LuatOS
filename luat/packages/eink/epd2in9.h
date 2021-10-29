@@ -30,9 +30,10 @@
 #define EPD2IN9_H
 
 #ifndef uint8_t
-#define uint8_t  unsigned char
-#define uint16_t unsigned short
-#define uint32_t unsigned int
+typedef unsigned char      uint8_t;
+#endif 
+#ifndef uint16_t
+typedef unsigned short     uint16_t;
 #endif 
 
 // Display resolution

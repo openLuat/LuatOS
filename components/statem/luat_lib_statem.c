@@ -1,6 +1,6 @@
 
 /*
-@module  statme
+@module  statem
 @summary SM状态机
 @version 1.0
 @date    2021.09.26

@@ -17,21 +17,21 @@
 @int 重复执行的次数, 0 代表不重复, 正整数代表具体重复执行的次数. 暂不支持永续执行
 @return 若成功,返回状态机指针,否则返回nil
 @usage
-gpio.setup(7, 0, gpio.PULLUP) 
-gpio.setup(12, 0, gpio.PULLUP) 
-gpio.setup(13, 0, gpio.PULLUP) 
-gpio.setup(14, 0, gpio.PULLUP) 
-local sm = statem.create()
-sm:gpio_set(7, 0) -- gpio设置为低电平
-sm:usleep(10)     -- 休眠10us
-sm:gpio_set(7, 1) -- gpio设置为高电平
-sm:usleep(40)     -- 休眠40us
-sm:gpio_set(12, 1) -- gpio设置为高电平
-sm:gpio_set(13, 1) -- gpio设置为高电平
-sm:gpio_set(14, 1) -- gpio设置为高电平
-sm:usleep(40)      -- 休眠40us
-sm:gpio_set(7, 0) -- gpio设置为低电平
-sm:finish()
+gpio.setup(7, 0, gpio.PULLUP)
+gpio.setup(12, 0, gpio.PULLUP)
+gpio.setup(13, 0, gpio.PULLUP)
+gpio.setup(14, 0, gpio.PULLUP)
+local sm =  statem.create()
+            :gpio_set(7, 0) -- gpio设置为低电平
+            :usleep(10)     -- 休眠10us
+            :gpio_set(7, 1) -- gpio设置为高电平
+            :usleep(40)     -- 休眠40us
+            :gpio_set(12, 1) -- gpio设置为高电平
+            :gpio_set(13, 1) -- gpio设置为高电平
+            :gpio_set(14, 1) -- gpio设置为高电平
+            :usleep(40)      -- 休眠40us
+            :gpio_set(7, 0) -- gpio设置为低电平
+            :finish()
 
 -- 执行之,后续会支持后台执行
 sm:exec()
@@ -43,11 +43,11 @@ static int l_statem_create(lua_State *L) {
     int repeat = luaL_optinteger(L, 2, 0);
     if (repeat < 0)
         return 0;
-    luat_statem_t* sm = (luat_statem_t*)lua_newuserdata(L, sizeof(luat_statem_t) + 4*count);
+    luat_statem_t* sm = (luat_statem_t*)lua_newuserdata(L, sizeof(luat_statem_t) + sizeof(luat_statm_op_t)*count);
     if (sm == NULL) {
         return 0;
     }
-    memset(sm, 0, sizeof(luat_statem_t) + 4 * count);
+    memset(sm, 0, sizeof(luat_statem_t) + sizeof(luat_statm_op_t) * count);
     sm->op_count = count;
     luaL_setmetatable(L, "SM*");
     return 1;
@@ -58,27 +58,31 @@ static int _statem_gpio_set(lua_State *L) {
     int gpio_pin = luaL_checkinteger(L, 2);
     int gpio_val = luaL_checkinteger(L, 3);
     luat_statem_addop(sm, LUAT_SM_OP_GPIO_SET, (uint8_t)gpio_pin, (uint8_t)gpio_val, (uint8_t)0);
-    return 0;
+    lua_settop(L, 1);
+    return 1;
 }
 
 static int _statem_gpio_get(lua_State *L) {
     luat_statem_t* sm = luaL_checkudata(L, 1, "SM*");
     int gpio_pin = luaL_checkinteger(L, 2);
     luat_statem_addop(sm, LUAT_SM_OP_GPIO_GET, (uint8_t)gpio_pin, (uint8_t)0, (uint8_t)0);
-    return 0;
+    lua_settop(L, 1);
+    return 1;
 }
 
 static int _statem_usleep(lua_State *L) {
     luat_statem_t* sm = luaL_checkudata(L, 1, "SM*");
     int usleep = luaL_checkinteger(L, 2);
     luat_statem_addop(sm, LUAT_SM_OP_USLEEP, (uint8_t)usleep, (uint8_t)0, (uint8_t)0);
+    lua_settop(L, 1);
     return 1;
 }
 
 static int _finish_end(lua_State *L) {
     luat_statem_t* sm = luaL_checkudata(L, 1, "SM*");
     luat_statem_addop(sm, LUAT_SM_OP_END, (uint8_t)0, (uint8_t)0, (uint8_t)0);
-    return 0;
+    lua_settop(L, 1);
+    return 1;
 }
 static int _statem_exec(lua_State *L) {
     luat_statem_t* sm = luaL_checkudata(L, 1, "SM*");
@@ -89,13 +93,14 @@ static int _statem_exec(lua_State *L) {
     else {
         luat_statem_exec(sm);
     }
-    return 0;
+    return 1;
 }
 
 static int _statem_clear(lua_State *L) {
     luat_statem_t* sm = luaL_checkudata(L, 1, "SM*");
     memset(sm, 0, sizeof(luat_statem_t) + sm->op_count*4);
-    return 0;
+    lua_settop(L, 1);
+    return 1;
 }
 
 static int _statem_result(lua_State *L) {

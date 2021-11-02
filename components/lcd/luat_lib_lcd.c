@@ -50,9 +50,19 @@ lcd显示屏初始化
 @api lcd.init(tp, args)
 @string lcd类型, 当前支持st7789/st7735/st7735s/gc9a01/gc9106l/gc9306/ili9341/custom
 @table 附加参数,与具体设备有关,pin_pwr为可选项,可不设置
+        port:spi端口,例如0,1,2...如果为device方式则为"device"
+        pin_dc:lcd数据/命令选择引脚
+        pin_rst:lcd复位引脚
+        pin_pwr:lcd背光引脚 可选项,可不设置
+        direction:lcd屏幕方向 0:0° 1:180° 2:270° 3:90°
+        w:lcd 水平分辨率
+        h:lcd 竖直分辨率
+        xoffset:x偏移(不同屏幕ic 不同屏幕方向会有差异)
+        yoffset:y偏移(不同屏幕ic 不同屏幕方向会有差异)
+@userdata spi设备,当port = "device"时有效
 @usage
 -- 初始化spi0的st7789 注意:lcd初始化之前需要先初始化spi
-local spi_lcd = spi.device_setup(0,20,0,0,8,2000000,spi.MSB,1,1)
+local spi_lcd = spi.deviceSetup(0,20,0,0,8,2000000,spi.MSB,1,1)
 log.info("lcd.init",
 lcd.init("st7735s",{port = "device",pin_dc = 17, pin_pwr = 7,pin_rst = 19,direction = 2,w = 160,h = 80,xoffset = 1,yoffset = 26},spi_lcd))
 */

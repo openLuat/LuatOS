@@ -34,9 +34,9 @@ static uint8_t i2c_id;
 static uint8_t i2c_speed;
 // static uint8_t i2c_addr = 0x3C;
 static uint8_t spi_id;
-static uint8_t OLED_SPI_PIN_RES;
-static uint8_t OLED_SPI_PIN_DC;
-static uint8_t OLED_SPI_PIN_CS;
+static uint8_t spi_res;
+static uint8_t spi_dc;
+static uint8_t spi_cs;
 
 /*
 u8g2显示屏初始化
@@ -59,7 +59,7 @@ static int l_u8g2_begin(lua_State *L) {
         lua_pushinteger(L, 3);
         return 1;
     }
-    // TODO: 暂时只支持SSD1306 12864, I2C接口-> i2c1soft, 软件模拟
+
     luat_u8g2_conf_t conf = {0};
     conf.pinType = 2; // I2C 硬件(或者是个假硬件)
     conf.ptr = u8g2;
@@ -159,27 +159,27 @@ static int l_u8g2_begin(lua_State *L) {
         }
         lua_pop(L, 1);
 
-        lua_pushliteral(L, "OLED_SPI_PIN_RES");
+        lua_pushliteral(L, "spi_res");
         lua_gettable(L, 1);
         if (lua_isinteger(L, -1)) {
-            OLED_SPI_PIN_RES = luaL_checkinteger(L, -1);
-            LLOGD("OLED_SPI_PIN_RES=%d", OLED_SPI_PIN_RES);
+            spi_res = luaL_checkinteger(L, -1);
+            LLOGD("spi_res=%d", spi_res);
         }
         lua_pop(L, 1);
 
-        lua_pushliteral(L, "OLED_SPI_PIN_DC");
+        lua_pushliteral(L, "spi_dc");
         lua_gettable(L, 1);
         if (lua_isinteger(L, -1)) {
-            OLED_SPI_PIN_DC = luaL_checkinteger(L, -1);
-            LLOGD("OLED_SPI_PIN_DC=%d", OLED_SPI_PIN_DC);
+            spi_dc = luaL_checkinteger(L, -1);
+            LLOGD("spi_dc=%d", spi_dc);
         }
         lua_pop(L, 1);
 
-        lua_pushliteral(L, "OLED_SPI_PIN_CS");
+        lua_pushliteral(L, "spi_cs");
         lua_gettable(L, 1);
         if (lua_isinteger(L, -1)) {
-            OLED_SPI_PIN_CS = luaL_checkinteger(L, -1);
-            LLOGD("OLED_SPI_PIN_CS=%d", OLED_SPI_PIN_CS);
+            spi_cs = luaL_checkinteger(L, -1);
+            LLOGD("spi_cs=%d", spi_cs);
         }
         lua_pop(L, 1);
 
@@ -684,8 +684,10 @@ LUAT_WEAK int luat_u8g2_setup(luat_u8g2_conf_t *conf) {
         u8g2_t* u8g2 = (u8g2_t*)conf->ptr;
         if (strncmp("ssd1306", conf->cname, 7) == 0 || strncmp("SSD1306", conf->cname, 7) == 0){
             u8g2_Setup_ssd1306_i2c_128x64_noname_f( u8g2, U8G2_R0, u8x8_luat_byte_hw_i2c, u8x8_luat_gpio_and_delay);
+#ifdef U8G2_USE_SH1106
         }else if (strncmp("sh1106", conf->cname, 6) == 0 || strncmp("SH1106", conf->cname, 6) == 0){
             u8g2_Setup_sh1106_i2c_128x64_noname_f( u8g2, U8G2_R0, u8x8_luat_byte_hw_i2c, u8x8_luat_gpio_and_delay);
+#endif
         }else{
             u8g2_Setup_ssd1306_i2c_128x64_noname_f( u8g2, U8G2_R0, u8x8_luat_byte_hw_i2c, u8x8_luat_gpio_and_delay);
         }
@@ -698,15 +700,21 @@ LUAT_WEAK int luat_u8g2_setup(luat_u8g2_conf_t *conf) {
         u8g2_t* u8g2 = (u8g2_t*)conf->ptr;
         if (strncmp("ssd1306", conf->cname, 7) == 0 || strncmp("SSD1306", conf->cname, 7) == 0){
             u8g2_Setup_ssd1306_128x64_noname_f( u8g2, U8G2_R0, u8x8_luat_byte_4wire_hw_spi, u8x8_luat_gpio_and_delay);
+#ifdef U8G2_USE_SH1106
         }else if (strncmp("sh1106", conf->cname, 6) == 0 || strncmp("SH1106", conf->cname, 6) == 0){
             u8g2_Setup_sh1106_128x64_noname_f( u8g2, U8G2_R0, u8x8_luat_byte_4wire_hw_spi, u8x8_luat_gpio_and_delay);
+#endif
+#ifdef U8G2_USE_ST7567
+        }else if (strncmp("st7567", conf->cname, 6) == 0 || strncmp("ST7567", conf->cname, 6) == 0){
+            u8g2_Setup_st7567_jlx12864_f( u8g2, U8G2_R0, u8x8_luat_byte_4wire_hw_spi, u8x8_luat_gpio_and_delay);
+#endif
         }else{
             u8g2_Setup_ssd1306_128x64_noname_f( u8g2, U8G2_R0, u8x8_luat_byte_4wire_hw_spi, u8x8_luat_gpio_and_delay);
         }
         LLOGD("setup disp spi.hw");
-        u8x8_SetPin(u8g2_GetU8x8(u8g2), U8X8_PIN_CS, OLED_SPI_PIN_CS);
-        u8x8_SetPin(u8g2_GetU8x8(u8g2), U8X8_PIN_DC, OLED_SPI_PIN_DC);
-        u8x8_SetPin(u8g2_GetU8x8(u8g2), U8X8_PIN_RESET, OLED_SPI_PIN_RES);
+        u8x8_SetPin(u8g2_GetU8x8(u8g2), U8X8_PIN_CS, spi_cs);
+        u8x8_SetPin(u8g2_GetU8x8(u8g2), U8X8_PIN_DC, spi_dc);
+        u8x8_SetPin(u8g2_GetU8x8(u8g2), U8X8_PIN_RESET, spi_res);
         u8g2_InitDisplay(u8g2);
         u8g2_SetPowerSave(u8g2, 0);
         return 0;

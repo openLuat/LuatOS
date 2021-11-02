@@ -38,6 +38,7 @@ void luat_lcd_execute_cmds(luat_lcd_conf_t* conf, uint32_t* cmds, uint32_t count
 int lcd_write_cmd(luat_lcd_conf_t* conf,const uint8_t cmd){
     size_t len;
     luat_gpio_set(conf->pin_dc, Luat_GPIO_LOW);
+    luat_timer_us_delay(5);
     if (conf->port == LUAT_LCD_SPI_DEVICE){
         len = luat_spi_device_send((luat_spi_device_t*)(conf->userdata), &cmd, 1);
     }else{
@@ -47,6 +48,7 @@ int lcd_write_cmd(luat_lcd_conf_t* conf,const uint8_t cmd){
         LLOGI("lcd_write_cmd error. %d", len);
         return -1;
     }else{
+        luat_timer_us_delay(5);
         return 0;
     }
 }

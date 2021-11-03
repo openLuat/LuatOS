@@ -479,27 +479,20 @@ static uint16_t utf8_next(uint8_t b)
   return encoding;
 }
 
-static void drawFastHLine(luat_lcd_conf_t* conf,int16_t x, int16_t y, int16_t len, uint16_t color){
-    luat_lcd_draw_line(conf,x, y, x+len,y,color);
-}
-static void drawFastVLine(luat_lcd_conf_t* conf,int16_t x, int16_t y, int16_t len, uint16_t color){
-    luat_lcd_draw_line(conf,x, y, x+len,y,color);
-}
-
 static void u8g2_draw_hv_line(u8g2_t *u8g2, int16_t x, int16_t y, int16_t len, uint8_t dir, uint16_t color){
   switch(dir)
   {
     case 0:
-      drawFastHLine(default_conf,x,y,len,color);
+      luat_lcd_draw_hline(default_conf,x,y,len,color);
       break;
     case 1:
-        drawFastVLine(default_conf,x,y,len,color);
+      luat_lcd_draw_vline(default_conf,x,y,len,color);
       break;
     case 2:
-        drawFastHLine(default_conf,x-len+1,y,len,color);
+        luat_lcd_draw_hline(default_conf,x-len+1,y,len,color);
       break;
     case 3:
-        drawFastVLine(default_conf,x,y-len+1,len,color);
+      luat_lcd_draw_vline(default_conf,x,y-len+1,len,color);
       break;
   }
 }

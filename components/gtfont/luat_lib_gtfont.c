@@ -81,7 +81,9 @@ static int l_gtfont_init(lua_State* L) {
     if (gt_spi_dev == NULL) {
         gt_spi_dev = lua_touserdata(L, 1);
     }
-    lcd_conf = luat_lcd_get_default();
+
+	luat_spi_device_send(gt_spi_dev, 0xff, 1);
+    // lcd_conf = luat_lcd_get_default();
     return 0;
 }
 
@@ -99,7 +101,7 @@ static int l_gtfont_test(lua_State* L) {
     LLOGD("get_font_st ret %d", ret);
     // unsigned char zk_buff[256]; //自定义点阵数据空间大小
 	// gt_16_GetData(0xb0, 0xa1, zk_buff);	//获取点阵数据
-	DisZK_DZ_W(0, 0, 32, 32, BLACK, WHITE, buf, 1);	//显示函数
+	// DisZK_DZ_W(0, 0, 32, 32, BLACK, WHITE, buf, 1);	//显示函数
     // TODO 按位显示出来
     // show_char(jtwb,0,0);
     return 0;

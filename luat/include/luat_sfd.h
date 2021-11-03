@@ -1,4 +1,7 @@
 
+#ifndef LUAT_SFD
+#define LUAT_SFD
+
 #include "luat_base.h"
 
 #include "luat_spi.h"
@@ -37,3 +40,5 @@ typedef struct sfd_onchip {
     size_t block_size;
     //const sdf_opts_t* opts;
 }sfd_onchip_t;
+
+#endif

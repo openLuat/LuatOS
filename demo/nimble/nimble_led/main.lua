@@ -66,6 +66,12 @@ if nimble then
         if data:len() == 0 then
             return
         end
+        -- led,a,on 对应hex值 6c65642c612c6f6e
+        -- led,b,on 对应hex值 6c65642c622c6f6e
+        -- led,c,on 对应hex值 6c65642c632c6f6e
+        -- led,a,off 对应 6c65642c612c6f6666
+        -- led,b,off 对应 6c65642c622c6f6666
+        -- led,c,off 对应 6c65642c632c6f6666
         local cmd = data:split(",")
         if cmd[1] and cmds[cmd[1]] then
             cmds[cmd[1]](table.unpack(cmd, 2))

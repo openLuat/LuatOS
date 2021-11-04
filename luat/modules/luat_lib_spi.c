@@ -202,21 +202,27 @@ static int l_spi_send(lua_State *L) {
 local spi_device = spi.deviceSetup(0,17,0,0,8,2000000,spi.MSB,1,1)
 */
 static int l_spi_device_setup(lua_State *L) {
+    int bus_id = luaL_checkinteger(L, 1);
+    int cs = luaL_optinteger(L, 2, 255); // 默认无
+    int CPHA = luaL_optinteger(L, 3, 0); // CPHA0
+    int CPOL = luaL_optinteger(L, 4, 0); // CPOL0
+    int dataw = luaL_optinteger(L, 5, 8); // 8bit
+    int bandrate = luaL_optinteger(L, 6, 20000000U); // 20000000U
+    int bit_dict = luaL_optinteger(L, 7, 1); // MSB=1, LSB=0
+    int master = luaL_optinteger(L, 8, 1); // master=1,slave=0
+    int mode = luaL_optinteger(L, 9, 1); // FULL=1, half=0
     luat_spi_device_t* spi_device = lua_newuserdata(L, sizeof(luat_spi_device_t));
-    if (spi_device == NULL)
-    {
-        return 0;
-    }
+    if (spi_device == NULL)return 0;
     memset(spi_device, 0, sizeof(luat_spi_device_t));
-    spi_device->bus_id = luaL_checkinteger(L, 1);
-    spi_device->spi_config.cs = luaL_optinteger(L, 2, 255); // 默认无
-    spi_device->spi_config.CPHA = luaL_optinteger(L, 3, 0); // CPHA0
-    spi_device->spi_config.CPOL = luaL_optinteger(L, 4, 0); // CPOL0
-    spi_device->spi_config.dataw = luaL_optinteger(L, 5, 8); // 8bit
-    spi_device->spi_config.bandrate = luaL_optinteger(L, 6, 20000000U); // 20000000U
-    spi_device->spi_config.bit_dict = luaL_optinteger(L, 7, 1); // MSB=1, LSB=0
-    spi_device->spi_config.master = luaL_optinteger(L, 8, 1); // master=1,slave=0
-    spi_device->spi_config.mode = luaL_optinteger(L, 9, 1); // FULL=1, half=0
+    spi_device->bus_id = bus_id;
+    spi_device->spi_config.cs = cs;
+    spi_device->spi_config.CPHA = CPHA; 
+    spi_device->spi_config.CPOL = CPOL;
+    spi_device->spi_config.dataw = dataw;
+    spi_device->spi_config.bandrate = bandrate; 
+    spi_device->spi_config.bit_dict = bit_dict; 
+    spi_device->spi_config.master = master; 
+    spi_device->spi_config.mode = mode;
     luat_spi_device_setup(spi_device);
     luaL_setmetatable(L, META_SPI);
     return 1;

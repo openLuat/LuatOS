@@ -19,11 +19,21 @@ sys.taskInit(function()
 
     -- 初始化kv数据库
     fdb.kvdb_init("onchip_flash")
-    if not fdb.kv_get("goods") then
-        log.info("fdb", "first set goods")
-        fdb.kv_set("goods", "apple")
-    end
-    log.info("fdb", "goods", fdb.kv_get("goods"))
+    -- 先放入一堆值
+    fdb.kv_set("my_bool", true)
+    fdb.kv_set("my_int", 123)
+    fdb.kv_set("my_number", 1.23)
+    fdb.kv_set("my_str", "luatos")
+    fdb.kv_set("my_table", {name="wendal",age=18})
+    fdb.kv_set("my_nil", nil) -- 会提示失败,不支持空值
+
+
+    log.info("fdb", "my_bool",      type(fdb.kv_get("my_bool")),    fdb.kv_get("my_bool"))
+    log.info("fdb", "my_int",       type(fdb.kv_get("my_int")),     fdb.kv_get("my_int"))
+    log.info("fdb", "my_number",    type(fdb.kv_get("my_number")),  fdb.kv_get("my_number"))
+    log.info("fdb", "my_str",       type(fdb.kv_get("my_str")),     fdb.kv_get("my_str"))
+    log.info("fdb", "my_table",     type(fdb.kv_get("my_table")),   json.encode(fdb.kv_get("my_table")))
+
 end)
 
 -- 用户代码已结束---------------------------------------------

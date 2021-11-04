@@ -13,6 +13,7 @@
 
 static struct fdb_kvdb kvdb;
 
+#define LUA_TINTEGER 21
 /**
 初始化kv数据库
 @api fdb.kvdb_init(name, partition)
@@ -47,7 +48,7 @@ static int l_fdb_kvdb_deinit(lua_State *L) {
 设置一对kv数据
 @api fdb.kv_set(key, value)
 @string key的名称,必填,不能空字符串
-@string 用户数据,必填,不能空字符串,长度不超过512字节
+@string 用户数据,必填,不能nil, 支持字符串/数值/table/布尔值
 @return boolean 成功返回true,否则返回false
 @usage
 if fdb.kvdb_init("env", "onchip_fdb") then
@@ -57,10 +58,61 @@ end
 static int l_fdb_kv_set(lua_State *L) {
     size_t len;
     struct fdb_blob blob = {0};
+    luaL_Buffer buff;
+    luaL_buffinit(L, &buff);
     const char* key = luaL_checkstring(L, 1);
-    const char* val = luaL_checklstring(L, 2, &len);
-    blob.buf = val;
-    blob.size = len;
+    //luaL_addchar(&buff, 0xA5);
+    if (lua_isboolean(L, 2)) {
+        luaL_addchar(&buff, LUA_TBOOLEAN);
+        bool val = lua_toboolean(L, 2);
+        luaL_addlstring(&buff, (const char*)&val, sizeof(val));
+    }
+    else if (lua_isinteger(L, 2)) {
+        luaL_addchar(&buff, LUA_TINTEGER); // 自定义类型
+        lua_Integer val = luaL_checkinteger(L, 2);
+        luaL_addlstring(&buff, (const char*)&val, sizeof(val));
+    }
+    else if (lua_isnumber(L, 2)) {
+        luaL_addchar(&buff, LUA_TNUMBER);
+        lua_Number val = luaL_checknumber(L, 2);
+        luaL_addlstring(&buff, (const char*)&val, sizeof(val));
+    }
+    else if (lua_isstring(L, 2)) {
+        luaL_addchar(&buff, LUA_TSTRING);
+        const char* val = luaL_checklstring(L, 2, &len);
+        luaL_addlstring(&buff, val, len);
+    }
+    else if (lua_istable(L, 2)) {
+        lua_settop(L, 2);
+        lua_getglobal(L, "json");
+        lua_getfield(L, -1, "encode");
+        if (lua_isfunction(L, -1)) {
+            lua_pushvalue(L, 2);
+            lua_call(L, 1, 1);
+            if (lua_isstring(L, -1)) {
+                luaL_addchar(&buff, LUA_TTABLE);
+                const char* val = luaL_checklstring(L, -1, &len);
+                luaL_addlstring(&buff, val, len);
+            }
+            else {
+                LLOGW("json.encode(val) report error");
+                lua_pushboolean(L, 0);
+                return 1;
+            }
+        }
+        else {
+            LLOGW("miss json lib, not support table value");
+            lua_pushboolean(L, 0);
+            return 1;
+        }
+    }
+    else {
+        LLOGW("function/userdata/nil/thread isn't allow");
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    blob.buf = buff.b;
+    blob.size = buff.n;
     fdb_err_t ret = fdb_kv_set_blob(&kvdb, key, &blob);
     lua_pushboolean(L, ret == FDB_NO_ERR ? 1 : 0);
     return 1;
@@ -70,7 +122,7 @@ static int l_fdb_kv_set(lua_State *L) {
 根据key获取对应的数据
 @api fdb.kv_get(key)
 @string key的名称,必填,不能空字符串
-@return string 存在则返回数据,否则返回nil
+@return any 存在则返回数据,否则返回nil
 @usage
 if fdb.kvdb_init("env", "onchip_fdb") then
     log.info("fdb", fdb.kv_get("wendal"))
@@ -85,12 +137,40 @@ static int l_fdb_kv_get(lua_State *L) {
     blob.buf = buff.b;
     blob.size = buff.size;
     size_t read_len = fdb_kv_get_blob(&kvdb, key, &blob);
-    //LLOGD("fdb_kv_get_blob ret=%d", read_len);
+    
+    lua_Integer *intVal;
+    lua_Number *numVal;
+
     if (read_len) {
-        luaL_pushresultsize(&buff, read_len);
-        return 1;
+        //LLOGD("KV value T=%02X", buff.b[0]);
+        switch(buff.b[0]) {
+        case LUA_TBOOLEAN:
+            lua_pushboolean(L, buff.b[1]);
+            break;
+        case LUA_TNUMBER:
+            numVal = (lua_Number*)(&buff.b[1]);
+            lua_pushnumber(L, *numVal);
+            break;
+        case LUA_TINTEGER:
+            intVal = (lua_Integer*)(&buff.b[1]);
+            lua_pushinteger(L, *intVal);
+            break;
+        case LUA_TSTRING:
+            lua_pushlstring(L, (const char*)(buff.b + 1), read_len - 1);
+            break;
+        case LUA_TTABLE:
+            lua_getglobal(L, "json");
+            lua_getfield(L, -1, "decode");
+            lua_pushlstring(L, (const char*)(buff.b + 1), read_len - 1);
+            lua_call(L, 1, 1);
+            break;
+        default :
+            LLOGW("bad value prefix %02X", buff.b[0]);
+            lua_pushnil(L);
+            break;
+        }
     }
-    return 0;
+    return 1;
 }
 
 /**
@@ -109,6 +189,7 @@ static int l_fdb_kv_del(lua_State *L) {
     lua_pushboolean(L, ret == FDB_NO_ERR ? 1 : 0);
     return 1;
 }
+
 
 #include "rotable.h"
 static const rotable_Reg reg_fdb[] =

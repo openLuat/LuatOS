@@ -18,33 +18,8 @@ LuatOS Shell -- LuatOS 控制台
 #include "luat_str.h"
 #include "luat_cmux.h"
 
-typedef struct luat_shell
-{
-    uint8_t echo_enable;
-    uint8_t cmux_enable;
-}luat_shell_t;
-
-static luat_shell_t sht = {.echo_enable=1};
-
-void luat_cmux_write(uint8_t ch, char* buff, size_t len) {
-    char prot[3] = {0};
-    prot[0] = 0xF9; // 起始帧
-    prot[1] = ch;   // 通道帧
-    prot[2] = 0;    // 控制帧
-    luat_shell_write(prot, 3);
-    luat_shell_write(buff, len); // TODO 还得分包
-    // 计算校验值
-    //prot[0] = crc;
-    prot[1] = 0xF9;
-    luat_shell_write(prot, 2);
-}
-
-void luat_shell_output(char* buff, size_t len) {
-    if (sht.cmux_enable)
-        luat_cmux_write(LUAT_CMUX_CH_MAIN, buff, len);
-    else
-        luat_shell_write(buff, len);
-}
+uint8_t echo_enable = 0;
+uint8_t cmux_state = 0;
 
 static int luat_shell_msg_handler(lua_State *L, void* ptr) {
 
@@ -58,80 +33,83 @@ static int luat_shell_msg_handler(lua_State *L, void* ptr) {
     int ret = 0;
     int len = 0;
     if (rcount) {
-        // 是不是ATI命令呢?
-        if (sht.echo_enable)
-            luat_shell_output(uart_buff, rcount);
-        // 查询版本号
-        if (strncmp("ATI", uart_buff, 3) == 0 || strncmp("ati", uart_buff, 3) == 0) {
-            char buff[128] = {0};
-            #ifdef LUAT_BSP_VERSION
-            len = sprintf(buff, "LuatOS-SoC_%s_%s\r\n", luat_os_bsp(), LUAT_BSP_VERSION);
-            #else
-            len = sprintf(buff, "LuatOS-SoC_%s_%s\r\n", luat_os_bsp(), luat_version_str());
+        if (cmux_state == 1){
+            luat_cmux_read(uart_buff,rcount);
+        }else{
+            // 是不是ATI命令呢?
+            if (echo_enable)
+            luat_shell_write(uart_buff, rcount);
+            // 查询版本号
+            if (strncmp("ATI", uart_buff, 3) == 0 || strncmp("ati", uart_buff, 3) == 0) {
+                char buff[128] = {0};
+                #ifdef LUAT_BSP_VERSION
+                len = sprintf(buff, "LuatOS-SoC_%s_%s\r\n", luat_os_bsp(), LUAT_BSP_VERSION);
+                #else
+                len = sprintf(buff, "LuatOS-SoC_%s_%s\r\n", luat_os_bsp(), luat_version_str());
+                #endif
+                luat_shell_write(buff, len);
+            }
+            // 重启
+            else if (strncmp("AT+RESET", uart_buff, 8) == 0 
+                || strncmp("at+ecrst", uart_buff, 8) == 0
+                || strncmp("AT+ECRST", uart_buff, 8) == 0) {
+                luat_shell_write("OK\n", 3);
+                luat_os_reboot(0);
+            }
+            // AT测试
+            else if (strncmp("AT\r", uart_buff, 3) == 0 || strncmp("AT\r\n", uart_buff, 4) == 0) {
+                luat_shell_write("OK\n", 3);
+            }
+            // 回显关闭
+            else if (strncmp("ATE0\r", uart_buff, 4) == 0 || strncmp("ATE0\r\n", uart_buff, 5) == 0) {
+                echo_enable = 0;
+                luat_shell_write("OK\n", 3);
+            }
+            // 回显开启
+            else if (strncmp("ATE1\r", uart_buff, 4) == 0 || strncmp("ATE1\r\n", uart_buff, 5) == 0) {
+                echo_enable = 1;
+                luat_shell_write("OK\n", 3);
+            }
+            // 查询内存状态
+            else if (strncmp("free", uart_buff, 4) == 0) {
+                size_t total, used, max_used = 0;
+                luat_meminfo_luavm(&total, &used, &max_used);
+                len = sprintf(buff, "lua total=%d used=%d max_used=%d\r\n", total, used, max_used);
+                luat_shell_write(buff, len);
+                
+                luat_meminfo_sys(&total, &used, &max_used);
+                len = sprintf(buff, "sys total=%d used=%d max_used=%d\r\n", total, used, max_used);
+                luat_shell_write(buff, len);
+            }
+            #ifdef LUAT_USE_MCU
+            else if (strncmp("AT+CGSN", uart_buff, 7) == 0) {
+                memcpy(buff, "+CGSN=", 6);
+                char* _id = (char*)luat_mcu_unique_id(&len);
+                luat_str_tohex(_id, len, buff+6);
+                buff[6+len*2] = '\n';
+                luat_shell_write(buff, 6+len*2+1);
+            }
             #endif
-            luat_shell_output(buff, len);
-        }
-        // 重启
-        else if (strncmp("AT+RESET", uart_buff, 8) == 0 
-              || strncmp("at+ecrst", uart_buff, 8) == 0
-              || strncmp("AT+ECRST", uart_buff, 8) == 0) {
-            luat_shell_output("OK\n", 3);
-            luat_os_reboot(0);
-        }
-        // AT测试
-        else if (strncmp("AT\r", uart_buff, 3) == 0 || strncmp("AT\r\n", uart_buff, 4) == 0) {
-            luat_shell_output("OK\n", 3);
-        }
-        // 回显关闭
-        else if (strncmp("ATE0\r", uart_buff, 4) == 0 || strncmp("ATE0\r\n", uart_buff, 5) == 0) {
-            sht.echo_enable = 0;
-            luat_shell_output("OK\n", 3);
-        }
-        // 回显开启
-        else if (strncmp("ATE1\r", uart_buff, 4) == 0 || strncmp("ATE1\r\n", uart_buff, 5) == 0) {
-            sht.echo_enable = 1;
-            luat_shell_output("OK\n", 3);
-        }
-        // 查询内存状态
-        else if (strncmp("free", uart_buff, 4) == 0) {
-            size_t total, used, max_used = 0;
-            luat_meminfo_luavm(&total, &used, &max_used);
-            len = sprintf(buff, "lua total=%d used=%d max_used=%d\r\n", total, used, max_used);
-            luat_shell_output(buff, len);
-            
-            luat_meminfo_sys(&total, &used, &max_used);
-            len = sprintf(buff, "sys total=%d used=%d max_used=%d\r\n", total, used, max_used);
-            luat_shell_output(buff, len);
-        }
-        #ifdef LUAT_USE_MCU
-        else if (strncmp("AT+CGSN", uart_buff, 7) == 0) {
-            memcpy(buff, "+CGSN=", 6);
-            char* _id = (char*)luat_mcu_unique_id(&len);
-            luat_str_tohex(_id, len, buff+6);
-            buff[6+len*2] = '\n';
-            luat_shell_output(buff, 6+len*2+1);
-        }
-        #endif
-        else if (!strncmp(LUAT_CMUX_CMD_INIT, uart_buff, strlen(LUAT_CMUX_CMD_INIT))) {
-            sht.cmux_enable = 1;
-            luat_shell_output("OK\n", 3);
-        }
-        // 执行脚本
-        else if (strncmp("loadstr ", uart_buff, strlen("loadstr ")) == 0) {
-            char * tmp = (char*)uart_buff + strlen("loadstr ");
-            ret = luaL_loadbuffer(L, tmp, strlen(uart_buff) - strlen("loadstr "), 0);
-            if (ret == LUA_OK) {
-                lua_pcall(L, 0, 0, 0);
+            else if (!strncmp(LUAT_CMUX_CMD_INIT, uart_buff, strlen(LUAT_CMUX_CMD_INIT))) {
+                luat_shell_write("OK\n", 3);
+                cmux_state = 1;
+            }
+            // 执行脚本
+            else if (strncmp("loadstr ", uart_buff, strlen("loadstr ")) == 0) {
+                char * tmp = (char*)uart_buff + strlen("loadstr ");
+                ret = luaL_loadbuffer(L, tmp, strlen(uart_buff) - strlen("loadstr "), 0);
+                if (ret == LUA_OK) {
+                    lua_pcall(L, 0, 0, 0);
+                }
+                else {
+                    LLOGW("loadstr %s", lua_tostring(L, -1));
+                }
             }
             else {
-                LLOGW("loadstr %s", lua_tostring(L, -1));
+                luat_shell_write("ERR\n", 4);
             }
         }
-        else {
-            luat_shell_output("ERR\n", 4);
-        }
     }
-
     luat_shell_notify_recv();
     return 0;
 }

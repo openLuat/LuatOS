@@ -8,7 +8,54 @@
 #define LUAT_CMUX_CH_LOG  1
 #define LUAT_CMUX_CH_DBG  2
 
-void luat_cmux_write(uint8_t ch, char* buff, size_t len);
+#define CMUX_HEAD_FLAG_BASIC (unsigned char)0xF9
+#define CMUX_HEAD_FLAG_ADV (unsigned char)0x7E
+
+#define CMUX_CONTROL_PF 16
+#define CMUX_ADDRESS_CR 2
+#define CMUX_ADDRESS_EA 1
+
+#define CMUX_FRAME_SABM 47
+#define CMUX_FRAME_UA 99
+#define CMUX_FRAME_DM 15
+#define CMUX_FRAME_DISC 67
+#define CMUX_FRAME_UIH 239
+#define CMUX_FRAME_UI 3
+
+#define CMUX_DHCL_MASK       63         /* DLCI number is port number, 63 is the mask of DLCI; C/R bit is 1 when we send data */
+#define CMUX_DATA_MASK       127        /* when data length is out of 127( 0111 1111 ), we must use two bytes to describe data length in the cmux frame */
+#define CMUX_HIGH_DATA_MASK  32640      /* 32640 (‭ 0111 1111 1000 0000 ‬), the mask of high data bits */
+
+#define CMUX_ADDRESS(buff) (buff[1])
+#define CMUX_ADDRESS_DLC(buff) (buff[1]>>2)
+#define CMUX_CONTROL(buff) (buff[2])
+
+#define CMUX_CONTROL_ISSABM(buff) (buff[2]==CMUX_FRAME_SABM & ~CMUX_CONTROL_PF)
+#define CMUX_CONTROL_ISUA(buff) (buff[2]==CMUX_FRAME_UA & ~CMUX_CONTROL_PF)
+#define CMUX_CONTROL_ISDM(buff) (buff[2]==CMUX_FRAME_DM & ~CMUX_CONTROL_PF)
+#define CMUX_CONTROL_ISDISC(buff) (buff[2]==CMUX_FRAME_DISC & ~CMUX_CONTROL_PF)
+#define CMUX_CONTROL_ISUIH(buff) (buff[2]==CMUX_FRAME_UIH & ~CMUX_CONTROL_PF)
+#define CMUX_CONTROL_ISUI(buff) (buff[2]==CMUX_FRAME_UI & ~CMUX_CONTROL_PF)
+
+
+
+
+// struct cmux
+// {
+//     // struct rt_device *dev;                                /* device object */
+//     // const struct cmux_ops *ops;                           /* cmux device ops interface */
+//     // struct cmux_buffer *buffer;                           /* cmux buffer */
+//     // struct cmux_frame *frame;                             /* cmux frame point */
+//     // rt_thread_t recv_tid;                                 /* receive thread point */
+//     // uint8_t vcom_num;                                  /* the cmux port number */
+//     // struct cmux_vcoms *vcoms;                             /* array */
+//     // struct rt_event *event;                               /* internal communication */
+//     // rt_slist_t list;                                      /* cmux list */
+//     // void *user_data;                                      /* reserve */
+// };
+
+void luat_cmux_write(int port, uint8_t control,char* buff, size_t len);
+void luat_cmux_read(char* buff,size_t len);
 
 #define LUAT_CMUX_CMD_INIT "AT+CMUX=1,0,5"
 #define LUAT_CMUX_RESP_OK "OK"

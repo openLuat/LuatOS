@@ -4,20 +4,20 @@
 
 ## Air103是什么?
 
-合宙Air103是一款QFN56 封装，6mm x 6mm 大小的mcu, 与Air101内核一样, Flash减半.
+合宙Air103是一款QFN56 封装，6mm x 6mm 大小的mcu
 
 ## LuatOS为它提供哪些功能
 
 * 基于Lua 5.3.6, 提供95%的原生库支持
 * 适配LuaTask,提供极为友好的`sys.lua`
-* 文件系统大小112kb,格式littlefs 2.1,将来会扩大.
+* 文件系统大小112kb,格式littlefs 2.1
 * Flash 总大小1M
 
 LuatOS大QQ群: 1061642968
 
 ## 管脚映射表
 
-请查阅硬件设计手机
+请查阅硬件设计手册
 
 开机时仅配置了`BOOT`和`UART0_TX/RX`, 其他数字脚均为GPIO脚, 状态为输入高阻.
 

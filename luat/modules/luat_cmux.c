@@ -97,7 +97,17 @@ void luat_cmux_read(char* buff,size_t len){
                 }
             }
         }else if (CMUX_ADDRESS_DLC(buff)==LUAT_CMUX_CH_LOG){
+            if (CMUX_CONTROL_ISSABM(buff)){
+                luat_cmux_write(LUAT_CMUX_CH_LOG,  CMUX_FRAME_UA & ~ CMUX_CONTROL_PF,NULL, 0);
+            }else if(CMUX_CONTROL_ISDISC(buff)){
+                luat_cmux_write(LUAT_CMUX_CH_LOG,  CMUX_FRAME_DM & ~ CMUX_CONTROL_PF,NULL, 0);
+            }
         }else if (CMUX_ADDRESS_DLC(buff)==LUAT_CMUX_CH_DBG){
+            if (CMUX_CONTROL_ISSABM(buff)){
+                luat_cmux_write(LUAT_CMUX_CH_DBG,  CMUX_FRAME_UA & ~ CMUX_CONTROL_PF,NULL, 0);
+            }else if(CMUX_CONTROL_ISDISC(buff)){
+                luat_cmux_write(LUAT_CMUX_CH_DBG,  CMUX_FRAME_DM & ~ CMUX_CONTROL_PF,NULL, 0);
+            }
         }
     }
     else if (buff[0]==CMUX_HEAD_FLAG_ADV && buff[len-1]==CMUX_HEAD_FLAG_ADV && cmux_frame_check(buff+1,len-3)==buff[len-2]){

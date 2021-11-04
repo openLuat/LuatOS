@@ -46,7 +46,7 @@ sys.run()
 
 ## 如何使用LuatOS-SoC
 
-1. 首先, 购买开发板([Wifi](https://item.taobao.com/item.htm?id=590724913462) / [NB-IOT](https://item.taobao.com/item.htm?id=625893281770&ns=1))
+1. 首先, 购买开发板([Air101](https://item.taobao.com/item.htm?id=655594061844)/[Wifi](https://item.taobao.com/item.htm?id=590724913462) / [NB-IOT](https://item.taobao.com/item.htm?id=625893281770&ns=1))
 2. 然后, 下载[固件包](https://gitee.com/openLuat/LuatOS/releases),按压缩包里的文档进行刷机
 3. 开始愉快地玩耍(或者放着积灰...)
 
@@ -57,16 +57,17 @@ sys.run()
 ----------------------------------------------------------------------------------
 ## 资源
 
+* [Air101资料汇总](https://luatos.com/t/air101)
+* [Air103资料汇总](https://luatos.com/t/air103)
 * [LuatOS-SoC官网](https://www.luatos.com/) 官网及IoT平台
 * [wiki](https://wiki.luatos.com) 知识库,有你想要的文档
+* [Lua API文档](https://wiki.luatos.com)) LuatOS的Lua API文档
 * [预编译固件](https://github.com/openLuat/LuatOS/releases) 固件,示例,文档,都会一起发布
 * [Lua 5.3中文手册](https://www.runoob.com/manual/lua53doc/) 官方手册的中文版
-* [Lua 入门教程(5.1版)](https://wiki.openluat.com/doc/luaStart) 注意与5.3有语法差异
 * [合宙官网](http://www.openluat.com) 一家有理想的物联网公司
-* [合宙商城](http://m.openluat.com) 合宙官方商城
+* [合宙商城](http://mall.m.openluat.com) 合宙官方商城(微信)
 * [联盛德W600/合宙Air640W专属说明](bsp/air640w/README.md) wifi模块,便宜,耐操
 * [合宙Air302专属说明](bsp/air302/README.md) NB-IOT模块,二次开发的首选
-* [Lua API文档](docs/api/lua/README.md) LuatOS的Lua API文档
 * [如何编译-Wifi固件](bsp/air640w/userdoc/how_to_build.md) 自行编译wifi模块
 * [如何编译-NBIOT固件](bsp/air302/userdoc/build_from_sdk.md) 自行编译nbiot模块
 * [收发16进制数据](http://doc.openluat.com/article/583/0) 二进制数据随意收发
@@ -94,6 +95,7 @@ sys.run()
 * [NetLab https://netlab.luatos.com/](https://netlab.luatos.com/) 支持普通TCP/UDP/加密TCP, 透传调试,公网IP, HEX值收发, Tab式多客户端
 * [DevLog udp://devlog.luatos.com:9072](#) 设备日志记录,格式兼容errDump.lua 查看日志请登录LuatOS官网
 * [JT808服务 tcp://jt808.luatos.com:8868](#) JT808-2013协议, 查看轨迹请登录LuatOS官网
+* [SoC固件云编译](https://www.luatos.com) 使用ERP账号(手机号)登录,默认密码888888
 
 ## 更多项目
 

@@ -37,28 +37,8 @@
 #define CMUX_CONTROL_ISUIH(buff) (buff[2]==CMUX_FRAME_UIH & ~CMUX_CONTROL_PF)
 #define CMUX_CONTROL_ISUI(buff) (buff[2]==CMUX_FRAME_UI & ~CMUX_CONTROL_PF)
 
-
-
-
-// struct cmux
-// {
-//     // struct rt_device *dev;                                /* device object */
-//     // const struct cmux_ops *ops;                           /* cmux device ops interface */
-//     // struct cmux_buffer *buffer;                           /* cmux buffer */
-//     // struct cmux_frame *frame;                             /* cmux frame point */
-//     // rt_thread_t recv_tid;                                 /* receive thread point */
-//     // uint8_t vcom_num;                                  /* the cmux port number */
-//     // struct cmux_vcoms *vcoms;                             /* array */
-//     // struct rt_event *event;                               /* internal communication */
-//     // rt_slist_t list;                                      /* cmux list */
-//     // void *user_data;                                      /* reserve */
-// };
-
 void luat_cmux_write(int port, uint8_t control,char* buff, size_t len);
 void luat_cmux_read(char* buff,size_t len);
-
-#define LUAT_CMUX_CMD_INIT "AT+CMUX=1,0,5"
-#define LUAT_CMUX_RESP_OK "OK"
 
 #endif
 

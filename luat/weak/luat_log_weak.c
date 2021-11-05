@@ -71,9 +71,11 @@ LUAT_WEAK void luat_log_log(int level, const char* tag, const char* _fmt, ...) {
     if (len > 0) {
         len += 2 + strlen(tag) + 1;
         log_printf_buff[len] = '\n';
+#if defined(AIR101) || defined(AIR103)
         if (cmux_state == 1){
             luat_cmux_write(LUAT_CMUX_CH_LOG,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,log_printf_buff, len+1);
         }else
+#endif
             luat_log_write(log_printf_buff, len+1);
     }
 }

@@ -30,15 +30,15 @@
 #define CMUX_ADDRESS_DLC(buff) (buff[1]>>2)
 #define CMUX_CONTROL(buff) (buff[2])
 
-#define CMUX_CONTROL_ISSABM(buff) (buff[2]==CMUX_FRAME_SABM & ~CMUX_CONTROL_PF)
-#define CMUX_CONTROL_ISUA(buff) (buff[2]==CMUX_FRAME_UA & ~CMUX_CONTROL_PF)
-#define CMUX_CONTROL_ISDM(buff) (buff[2]==CMUX_FRAME_DM & ~CMUX_CONTROL_PF)
-#define CMUX_CONTROL_ISDISC(buff) (buff[2]==CMUX_FRAME_DISC & ~CMUX_CONTROL_PF)
-#define CMUX_CONTROL_ISUIH(buff) (buff[2]==CMUX_FRAME_UIH & ~CMUX_CONTROL_PF)
-#define CMUX_CONTROL_ISUI(buff) (buff[2]==CMUX_FRAME_UI & ~CMUX_CONTROL_PF)
+#define CMUX_CONTROL_ISSABM(buff) (buff[2]==(CMUX_FRAME_SABM | CMUX_CONTROL_PF))
+#define CMUX_CONTROL_ISUA(buff) (buff[2]==(CMUX_FRAME_UA & ~CMUX_CONTROL_PF))
+#define CMUX_CONTROL_ISDM(buff) (buff[2]==(CMUX_FRAME_DM & ~CMUX_CONTROL_PF))
+#define CMUX_CONTROL_ISDISC(buff) (buff[2]==(CMUX_FRAME_DISC | CMUX_CONTROL_PF))
+#define CMUX_CONTROL_ISUIH(buff) (buff[2]==(CMUX_FRAME_UIH & ~CMUX_CONTROL_PF))
+#define CMUX_CONTROL_ISUI(buff) (buff[2]==(CMUX_FRAME_UI & ~CMUX_CONTROL_PF))
 
 void luat_cmux_write(int port, uint8_t control,char* buff, size_t len);
-void luat_cmux_read(char* buff,size_t len);
+void luat_cmux_read(unsigned char* buff,size_t len);
 
 #endif
 

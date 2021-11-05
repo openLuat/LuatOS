@@ -18,6 +18,8 @@ LuatOS cmux
 #include "luat_str.h"
 #include "luat_cmux.h"
 
+extern uint8_t cmux_state;
+
 const uint8_t cmux_crctable[256] = {
     0x00, 0x91, 0xE3, 0x72, 0x07, 0x96, 0xE4, 0x75,
     0x0E, 0x9F, 0xED, 0x7C, 0x09, 0x98, 0xEA, 0x7B,
@@ -80,33 +82,31 @@ void luat_cmux_write(int port, uint8_t control,char* buff, size_t len) {
     if (len > 0)luat_shell_write(buff, len);
     luat_shell_write(postfix, 2);
 }
-void luat_cmux_read(char* buff,size_t len){
+void luat_cmux_read(unsigned char* buff,size_t len){
     if (buff[0]==CMUX_HEAD_FLAG_BASIC && buff[len-1]==CMUX_HEAD_FLAG_BASIC && cmux_frame_check(buff+1,len-3)==buff[len-2]){
         if (CMUX_ADDRESS_DLC(buff)==LUAT_CMUX_CH_MAIN){
             if (CMUX_CONTROL_ISSABM(buff)){
                 luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_UA & ~ CMUX_CONTROL_PF,NULL, 0);
             }else if(CMUX_CONTROL_ISDISC(buff)){
-                luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_DM & ~ CMUX_CONTROL_PF,NULL, 0);
+                luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_UA | CMUX_CONTROL_PF,NULL, 0);
+                cmux_state = 0;
             }else if(CMUX_CONTROL_ISUIH(buff)){
-                unsigned char *data = (unsigned char *)malloc(buff[3]>>1);
+                unsigned char *data = (unsigned char *)luat_heap_malloc(buff[3]>>1);
                 memcpy(data, buff+4, buff[3]>>1);
                 if (strcmp("AT\r", data) == 0){
                     luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r", 3);
                 }else if (strcmp("ATI\r", data) == 0){
                     luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r", 3);
                 }
+                luat_heap_free(data);
             }
         }else if (CMUX_ADDRESS_DLC(buff)==LUAT_CMUX_CH_LOG){
             if (CMUX_CONTROL_ISSABM(buff)){
                 luat_cmux_write(LUAT_CMUX_CH_LOG,  CMUX_FRAME_UA & ~ CMUX_CONTROL_PF,NULL, 0);
-            }else if(CMUX_CONTROL_ISDISC(buff)){
-                luat_cmux_write(LUAT_CMUX_CH_LOG,  CMUX_FRAME_DM & ~ CMUX_CONTROL_PF,NULL, 0);
             }
         }else if (CMUX_ADDRESS_DLC(buff)==LUAT_CMUX_CH_DBG){
             if (CMUX_CONTROL_ISSABM(buff)){
                 luat_cmux_write(LUAT_CMUX_CH_DBG,  CMUX_FRAME_UA & ~ CMUX_CONTROL_PF,NULL, 0);
-            }else if(CMUX_CONTROL_ISDISC(buff)){
-                luat_cmux_write(LUAT_CMUX_CH_DBG,  CMUX_FRAME_DM & ~ CMUX_CONTROL_PF,NULL, 0);
             }
         }
     }

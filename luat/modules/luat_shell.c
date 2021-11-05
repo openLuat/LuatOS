@@ -34,7 +34,7 @@ static int luat_shell_msg_handler(lua_State *L, void* ptr) {
     int len = 0;
     if (rcount) {
         if (cmux_state == 1){
-            luat_cmux_read(uart_buff,rcount);
+            luat_cmux_read((unsigned char *)uart_buff,rcount);
         }else{
             // 是不是ATI命令呢?
             if (echo_enable)

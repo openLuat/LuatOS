@@ -30,6 +30,15 @@ else
     log.info("gpio", "pls add gpio.setup for you board")
 end
 
+local count = true
+local function led_bulingbuling()
+    leds["a"](count == true and 1 or 0)
+    leds["b"](count == true and 1 or 0)
+    leds["c"](count == true and 1 or 0)
+    count = not count
+end
+local bulingbuling = sys.timerLoopStart(led_bulingbuling, 1000)
+
 if lcd then
     spi_lcd = spi.deviceSetup(0,20,0,0,8,20*1000*1000,spi.MSB,1,1)
     lcd.setColor(0x0000,0xFFFF)
@@ -88,6 +97,7 @@ if nimble then
     
     -- 监听GATT服务器的WRITE_CHR事件
     sys.subscribe("BLE_GATT_WRITE_CHR", function(info, data)
+        sys.timerStop(bulingbuling)
         -- info 是个table, 但当前没有数据
         log.info("ble", "data got!!", data:toHex())
         if data:len() == 0 then

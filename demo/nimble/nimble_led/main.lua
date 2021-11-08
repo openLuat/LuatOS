@@ -43,11 +43,11 @@ else
     log.info("lcd", "lcd not found, display is off")
 end
 
-gpio.setup(0, function(val) print("PA0 L",val) lcd.fill(0,40,160,80) if lcd and val == 0 then lcd.drawStr(50,60,"L按下",0x07E0) end end, gpio.PULLUP)--PA0 L
-gpio.setup(7, function(val) print("PA7 U",val) lcd.fill(0,40,160,80) if lcd and val == 0 then lcd.drawStr(50,60,"U按下",0x07E0) end end, gpio.PULLUP)--PA7 U
-gpio.setup(4, function(val) print("PA4 C",val) lcd.fill(0,40,160,80) if lcd and val == 0 then lcd.drawStr(50,60,"C按下",0x07E0) end end, gpio.PULLUP)--PA4 C
-gpio.setup(1, function(val) print("PA1 D",val) lcd.fill(0,40,160,80) if lcd and val == 0 then lcd.drawStr(50,60,"D按下",0x07E0) end end, gpio.PULLUP)--PA1 D
-gpio.setup(27, function(val) print("PB11 R",val) lcd.fill(0,40,160,80) if lcd and val == 0 then lcd.drawStr(50,60,"R按下",0x07E0) end end, gpio.PULLUP)--PB11 R
+gpio.setup(0, function(val) print("PA0 R",val) if lcd then lcd.fill(0,40,160,80) if val == 0 then lcd.drawStr(50,60,"R down",0x07E0) end end end, gpio.PULLUP)
+gpio.setup(7, function(val) print("PA7 U",val) if lcd then lcd.fill(0,40,160,80) if  val == 0 then lcd.drawStr(50,60,"U down",0x07E0) end end end, gpio.PULLUP)
+gpio.setup(4, function(val) print("PA4 C",val) if lcd then lcd.fill(0,40,160,80) if  val == 0 then lcd.drawStr(50,60,"C down",0x07E0) end end end, gpio.PULLUP)
+gpio.setup(1, function(val) print("PA1 L",val) if lcd then lcd.fill(0,40,160,80) if  val == 0 then lcd.drawStr(50,60,"L down",0x07E0) end end end, gpio.PULLUP)
+gpio.setup(27, function(val) print("PB11 D",val) if lcd then lcd.fill(0,40,160,80) if  val == 0 then lcd.drawStr(50,60,"D down",0x07E0) end end end, gpio.PULLUP)
 
 
 -- 注册一个命令列表

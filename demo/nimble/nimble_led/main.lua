@@ -28,7 +28,7 @@ elseif rtos.bsp() == "air103" then -- 与w806等价
     leds["b"] = gpio.setup(17, 0, gpio.PULLUP) -- PB1,输出模式
     leds["c"] = gpio.setup(18, 0, gpio.PULLUP) -- PB2,输出模式
 end
-
+local ble_display = nil
 -- 注册一个命令列表
 cmds = {
     led = function(id, val)
@@ -43,6 +43,19 @@ cmds = {
             sys.wait(5000)
             rtos.reboot()
         end)
+    end,
+    display = function()
+        if lcd then
+            ble_display = 1
+            spi_lcd = spi.deviceSetup(0,20,0,0,8,20*1000*1000,spi.MSB,1,1)
+            lcd.setColor(0x0000,0xFFFF)
+            log.info("lcd.init",
+            lcd.init("st7735s",{port = "device",pin_dc = 17, pin_pwr = 7,pin_rst = 19,direction = 2,w = 160,h = 80,xoffset = 1,yoffset = 26},spi_lcd))
+            lcd.clear()
+            lcd.setFont(lcd.font_opposansm12_chinese)
+            lcd.drawStr(30,15,"nimbledemo",0X07FF)
+            lcd.drawStr(50,35,"监听中",0x001F)
+        end
     end,
 }
 
@@ -72,11 +85,16 @@ if nimble then
         -- led,a,off 对应 6c65642c612c6f6666
         -- led,b,off 对应 6c65642c622c6f6666
         -- led,c,off 对应 6c65642c632c6f6666
+        -- display 对应 646973706C6179
         local cmd = data:split(",")
         if cmd[1] and cmds[cmd[1]] then
             cmds[cmd[1]](table.unpack(cmd, 2))
         else
             log.info("ble", "unkown cmd", json.encode(cmd))
+        end
+        if ble_display then
+            lcd.fill(0,40,160,80)
+            lcd.drawStr(10,60,"接收数据:"..data:toHex(),0x07E0)
         end
     end)
 

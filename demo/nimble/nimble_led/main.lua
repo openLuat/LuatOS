@@ -17,7 +17,6 @@ else
 end
 
 
-
 leds = {}
 if rtos.bsp() == "air101" then -- 与w800/805等价
     leds["a"] = gpio.setup(24, 0, gpio.PULLUP) -- PB_08,输出模式
@@ -44,6 +43,13 @@ else
     log.info("lcd", "lcd not found, display is off")
 end
 
+gpio.setup(0, function(val) print("PA0 L",val) lcd.fill(0,40,160,80) if lcd and val == 0 then lcd.drawStr(50,60,"L按下",0x07E0) end end, gpio.PULLUP)--PA0 L
+gpio.setup(7, function(val) print("PA7 U",val) lcd.fill(0,40,160,80) if lcd and val == 0 then lcd.drawStr(50,60,"U按下",0x07E0) end end, gpio.PULLUP)--PA7 U
+gpio.setup(4, function(val) print("PA4 C",val) lcd.fill(0,40,160,80) if lcd and val == 0 then lcd.drawStr(50,60,"C按下",0x07E0) end end, gpio.PULLUP)--PA4 C
+gpio.setup(1, function(val) print("PA1 D",val) lcd.fill(0,40,160,80) if lcd and val == 0 then lcd.drawStr(50,60,"D按下",0x07E0) end end, gpio.PULLUP)--PA1 D
+gpio.setup(27, function(val) print("PB11 R",val) lcd.fill(0,40,160,80) if lcd and val == 0 then lcd.drawStr(50,60,"R按下",0x07E0) end end, gpio.PULLUP)--PB11 R
+
+
 -- 注册一个命令列表
 cmds = {
     -- 控制led的命令
@@ -63,8 +69,7 @@ cmds = {
     end,
     -- 显示屏输出内容的命令
     display = function(text)
-        -- TODO 清空第二行
-        -- lcd.fill(50, 35, 12, 160, 0x07FF)
+        lcd.fill(0, 20, 160, 36)
         lcd.drawStr(50 , 35, text ,0x001F)
     end,
 }
@@ -100,10 +105,6 @@ if nimble then
             cmds[cmd[1]](table.unpack(cmd, 2))
         else
             log.info("ble", "unkown cmd", json.encode(cmd))
-        end
-        if ble_display then
-            lcd.fill(0,40,160,80)
-            lcd.drawStr(10,60,"接收数据:"..data:toHex(),0x07E0)
         end
     end)
 

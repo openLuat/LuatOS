@@ -283,23 +283,27 @@ lcd.draw(20,30,220,30,buff)
 */
 static int l_lcd_draw(lua_State* L) {
     uint16_t x1, y1, x2, y2;
-    luat_color_t *color = NULL;
+    int ret;
+    // luat_color_t *color = NULL;
     luat_zbuff_t *buff;
     x1 = luaL_checkinteger(L, 1);
     y1 = luaL_checkinteger(L, 2);
     x2 = luaL_checkinteger(L, 3);
     y2 = luaL_checkinteger(L, 4);
-    if (lua_isstring(L, 5)) {
-        color = (luat_color_t *)luaL_checkstring(L, 5);
+    if (lua_isinteger(L, 5)) {
+        // color = (luat_color_t *)luaL_checkstring(L, 5);
+        uint32_t color = (uint32_t)luaL_checkinteger(L, 1);
+        ret = luat_lcd_draw(default_conf, x1, y1, x2, y2, &color);
     }
     else if (lua_isuserdata(L, 5)) {
         buff = luaL_checkudata(L, 5, LUAT_ZBUFF_TYPE);
-        color = (luat_color_t *)buff->addr;
+        luat_color_t *color = (luat_color_t *)buff->addr;
+        ret = luat_lcd_draw(default_conf, x1, y1, x2, y2, color);
     }
     else {
         return 0;
     }
-    int ret = luat_lcd_draw(default_conf, x1, y1, x2, y2, color);
+    // int ret = luat_lcd_draw(default_conf, x1, y1, x2, y2, color);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -318,6 +322,20 @@ static int l_lcd_clear(lua_State* L) {
     if (lua_gettop(L) > 0)
         color = (uint32_t)luaL_checkinteger(L, 1);
     int ret = luat_lcd_clear(default_conf, color);
+    lua_pushboolean(L, ret == 0 ? 1 : 0);
+    return 1;
+}
+
+static int l_lcd_draw_fill(lua_State* L) {
+    uint16_t x1, y1, x2, y2;
+    uint32_t color = BACK_COLOR;
+    x1 = luaL_checkinteger(L, 1);
+    y1 = luaL_checkinteger(L, 2);
+    x2 = luaL_checkinteger(L, 3);
+    y2 = luaL_checkinteger(L, 4);
+    if (lua_gettop(L) > 4)
+        color = (uint32_t)luaL_checkinteger(L, 5);
+    int ret = luat_lcd_draw_fill(default_conf, x1,  y1,  x2,  y2, color);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -820,6 +838,7 @@ static const rotable_Reg reg_lcd[] =
     { "setColor",      l_lcd_set_color,       0},
     { "draw",      l_lcd_draw,       0},
     { "clear",      l_lcd_clear,       0},
+    { "fill",      l_lcd_draw_fill,       0},
     { "drawPoint",      l_lcd_draw_point,       0},
     { "drawLine",      l_lcd_draw_line,       0},
     { "drawRectangle",      l_lcd_draw_rectangle,       0},

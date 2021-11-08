@@ -242,6 +242,19 @@ int luat_lcd_clear(luat_lcd_conf_t* conf,uint32_t color){
     return 0;
 }
 
+int luat_lcd_draw_fill(luat_lcd_conf_t* conf,uint16_t x1,uint16_t y1,uint16_t x2,uint16_t y2,uint32_t color){          
+	uint16_t i,j; 
+	luat_lcd_set_address(conf,x1,y1,x2-1,y2-1);//设置显示范围
+	for(i=y1;i<y2;i++)
+	{													   	 	
+		for(j=x1;j<x2;j++)
+		{
+			lcd_write_half_word(conf,color);
+		}
+	}
+    return 0;			  	    
+}
+
 int luat_lcd_draw_point(luat_lcd_conf_t* conf, uint16_t x, uint16_t y, uint32_t color) {
     luat_lcd_set_address(conf,x, y, x, y);
     lcd_write_half_word(conf,color);

@@ -271,7 +271,7 @@ local crc = crypto.crc16("")
 static int l_crypto_crc16(lua_State *L)
 {   
     size_t inputLen;
-    const unsigned char  *inputmethod = (const unsigned char*)luaL_checkstring(L, 1);
+    const char  *inputmethod = (const char*)luaL_checkstring(L, 1);
     const unsigned char *inputData = (const unsigned char*)lua_tolstring(L,2,&inputLen);
     uint16_t poly = luaL_optnumber(L,3,0x0000);
     uint16_t initial = luaL_optnumber(L,4,0x0000);

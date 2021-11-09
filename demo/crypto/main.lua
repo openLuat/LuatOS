@@ -35,14 +35,14 @@ sys.timerLoopStart(function()
     -- AES加密, 未经Hex编码. AES-128-ECB 算法,待加密字符串如果超过32字节会报错,待查. by wendal 20200812
     local data_encrypt = crypto.cipher_encrypt("AES-128-ECB", "PKCS7", "12345678901234 > 123456", "1234567890123456")
     local data2_encrypt = crypto.cipher_encrypt("AES-128-CBC", "PKCS7", "12345678901234 > 123456", "1234567890123456", "1234567890666666")
-    log.info("AES", data_encrypt:toHex())
-    log.info("AES", data2_encrypt:toHex())
+    log.info("AES", "aes-128-ecb", data_encrypt:toHex())
+    log.info("AES", "aes-128-cbc", data2_encrypt:toHex())
 
     -- AES解密, 未经Hex编码
     local data_decrypt = crypto.cipher_decrypt("AES-128-ECB", "PKCS7", data_encrypt, "1234567890123456")
     local data2_decrypt = crypto.cipher_decrypt("AES-128-CBC", "PKCS7", data2_encrypt, "1234567890123456", "1234567890666666")
-    log.info("AES", data_decrypt)
-    log.info("AES", data2_decrypt)
+    log.info("AES", "aes-128-ecb", data_decrypt)
+    log.info("AES", "aes-128-cbc", data2_decrypt)
     log.info("mem", rtos.meminfo("sys"))
 
 end, 2000)

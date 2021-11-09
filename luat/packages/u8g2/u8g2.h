@@ -59,7 +59,7 @@
 #define _U8G2_H
 
 #include "u8x8.h"
-
+#include "luat_conf_bsp.h"
 
 /*
   The following macro enables 16 Bit mode. 
@@ -69,7 +69,9 @@
   Use 16 Bit mode for any display with more than 240 pixel in one 
   direction.
 */
-//#define U8G2_16BIT
+#ifdef LUAT_USE_LCD
+#define U8G2_16BIT
+#endif
 
 
 /*

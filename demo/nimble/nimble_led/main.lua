@@ -1,5 +1,6 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
+-- 本demo适合Air101/Air103
 PROJECT = "nimbledemo"
 VERSION = "1.0.0"
 
@@ -132,27 +133,7 @@ if nimble then
     end)
 else
     -- 没有nimble, 那就闪灯吧
-    sys.taskInit(function()
-        if not leds["a"] then
-            return
-        end
-        local count = 0
-        local uid = ""
-        if mcu then
-            uid = mcu.unique_id():toHex()
-        elseif nbiot then
-            uid = nbiot.imei()
-        end
-        log.warn("ble", "no nimble found, just led")
-        while true do
-            leds["a"](count & 0x01 == 0x01 and 1 or 0)
-            leds["b"](count & 0x02 == 0x02 and 1 or 0)
-            leds["c"](count & 0x03 == 0x03 and 1 or 0)
-            log.info("gpio", "Go Go Go", uid, count)
-            sys.wait(1000)
-            count = count + 1
-        end
-    end)
+    log.info("gpio", "no nimble, just leds")
 end
 
 

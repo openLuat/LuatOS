@@ -9,7 +9,7 @@
 
 /**
 开启指定的PWM通道
-@api pwm.open(channel, period, pulse)
+@api pwm.open(channel, period, pulse,pnum)
 @int PWM通道
 @int 频率, 1-1000000hz
 @int 占空比 0-100
@@ -23,7 +23,7 @@ static int l_pwm_open(lua_State *L) {
     int pnum = 0;
     int channel = luaL_checkinteger(L, 1);
     size_t period = luaL_checkinteger(L, 2);
-    size_t pulse = luaL_checkinteger(L, 3);
+    size_t pulse = luaL_optnumber(L, 3,0);
     if (lua_type(L, 4) == LUA_TNUMBER){
         pnum = luaL_checkinteger(L, 4);
     }

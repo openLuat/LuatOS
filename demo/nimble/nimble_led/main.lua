@@ -23,9 +23,9 @@ if rtos.bsp() == "air101" then -- 与w800/805等价
     leds["b"] = gpio.setup(25, 0, gpio.PULLUP) -- PB_09,输出模式
     leds["c"] = gpio.setup(26, 0, gpio.PULLUP) -- PB_10,输出模式
 elseif rtos.bsp() == "air103" then -- 与w806等价
-    leds["a"] = gpio.setup(16, 0, gpio.PULLUP) -- PB0,输出模式
-    leds["b"] = gpio.setup(17, 0, gpio.PULLUP) -- PB1,输出模式
-    leds["c"] = gpio.setup(18, 0, gpio.PULLUP) -- PB2,输出模式
+    leds["a"] = gpio.setup(40, 0, gpio.PULLUP) -- PB_24,输出模式
+    leds["b"] = gpio.setup(41, 0, gpio.PULLUP) -- PB_25,输出模式
+    leds["c"] = gpio.setup(42, 0, gpio.PULLUP) -- PB_26,输出模式
 else
     log.info("gpio", "pls add gpio.setup for you board")
 end

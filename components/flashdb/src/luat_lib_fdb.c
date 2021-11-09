@@ -74,8 +74,20 @@ static int l_fdb_kv_set(lua_State *L) {
     }
     else if (lua_isnumber(L, 2)) {
         luaL_addchar(&buff, LUA_TNUMBER);
-        lua_Number val = luaL_checknumber(L, 2);
-        luaL_addlstring(&buff, (const char*)&val, sizeof(val));
+        lua_getglobal(L, "pack");
+        if (lua_isnil(L, -1)) {
+            LLOGW("float number need pack lib");
+            lua_pushboolean(L, 0);
+            return 1;
+        }
+        lua_getfield(L, -1, "pack");
+        lua_pushstring(L, ">f");
+        lua_pushvalue(L, 2);
+        lua_call(L, 2, 1);
+        if (lua_isstring(L, -1)) {
+            const char* val = luaL_checklstring(L, -1, &len);
+            luaL_addlstring(&buff, val, len);
+        }
     }
     else if (lua_isstring(L, 2)) {
         luaL_addchar(&buff, LUA_TSTRING);
@@ -148,8 +160,12 @@ static int l_fdb_kv_get(lua_State *L) {
             lua_pushboolean(L, buff.b[1]);
             break;
         case LUA_TNUMBER:
-            numVal = (lua_Number*)(&buff.b[1]);
-            lua_pushnumber(L, *numVal);
+            lua_getglobal(L, "pack");
+            lua_getfield(L, -1, "unpack");
+            lua_pushlstring(L, (char*)(buff.b + 1), read_len - 1);
+            lua_pushstring(L, ">f");
+            lua_call(L, 2, 2);
+            // _, val = pack.unpack(data, ">f")
             break;
         case LUA_TINTEGER:
             intVal = (lua_Integer*)(&buff.b[1]);

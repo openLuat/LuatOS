@@ -62,6 +62,9 @@ static int l_lcd_init(lua_State* L) {
     luat_lcd_conf_t *conf = luat_heap_malloc(sizeof(luat_lcd_conf_t));
     memset(conf, 0, sizeof(luat_lcd_conf_t)); // 填充0,保证无脏数据
     conf->pin_pwr = 255;
+    if (lua_type(L, 3) == LUA_TUSERDATA){
+        conf->userdata = (luat_spi_device_t*)lua_touserdata(L, 3);
+    }
     const char* tp = luaL_checklstring(L, 1, &len);
     if (!strcmp("st7735", tp) || !strcmp("st7789", tp) || !strcmp("st7735s", tp)
             || !strcmp("gc9a01", tp)  || !strcmp("gc9106l", tp)
@@ -169,27 +172,17 @@ static int l_lcd_init(lua_State* L) {
             }
             lua_pop(L, 1);
         }
-        if (conf->port == LUAT_LCD_SPI_DEVICE){
-          if (lua_type(L, 3) == LUA_TUSERDATA){
-            conf->userdata = (luat_spi_device_t*)lua_touserdata(L, 3);
-          }else{
-            LLOGE("port is device but not find luat_spi_device_t");
-            goto end;
-          }
-        }
         int ret = luat_lcd_init(conf);
         lua_pushboolean(L, ret == 0 ? 1 : 0);
         if (ret == 0)
             default_conf = conf;
         u8g2_SetFontMode(&(default_conf->luat_lcd_u8g2), 0);
         u8g2_SetFontDirection(&(default_conf->luat_lcd_u8g2), 0);
-        // lua_pushlightuserdata(L, conf);
-        return 1;
+        lua_pushlightuserdata(L, conf);
+        return 2;
     }
-end:
-    lua_pushboolean(L, 0);
     luat_heap_free(conf);
-    return 1;
+    return 0;
 }
 
 /*

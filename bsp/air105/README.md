@@ -3,7 +3,7 @@
 ## Air105是什么?
 
 合宙Air105是一款QFN88 封装，10mm x 10mm 大小的MCU, 
-不仅提供UART/GPIO/I2C/ADC/SPI等基础外设，更提供DAC/USB/DCMI/QSPI/LCDI/KCU等高级外设接口，
+不仅提供UART/GPIO/I2C/ADC/SPI等基础外设，更提供DAC/USB/DCMI/HSPI/LCDI/KCU等高级外设接口，
 内置充电功能，自带5v转3.3V的LDO，4M字节Flash，640K字节RAM。
 
 * UART*4, 其中U0是下载和日志口，其余3个供用户使用

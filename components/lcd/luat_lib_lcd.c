@@ -62,9 +62,6 @@ static int l_lcd_init(lua_State* L) {
     luat_lcd_conf_t *conf = luat_heap_malloc(sizeof(luat_lcd_conf_t));
     memset(conf, 0, sizeof(luat_lcd_conf_t)); // 填充0,保证无脏数据
     conf->pin_pwr = 255;
-    if (lua_type(L, 3) == LUA_TUSERDATA){
-        conf->userdata = (luat_spi_device_t*)lua_touserdata(L, 3);
-    }
     const char* tp = luaL_checklstring(L, 1, &len);
     if (!strcmp("st7735", tp) || !strcmp("st7789", tp) || !strcmp("st7735s", tp)
             || !strcmp("gc9a01", tp)  || !strcmp("gc9106l", tp)
@@ -172,17 +169,27 @@ static int l_lcd_init(lua_State* L) {
             }
             lua_pop(L, 1);
         }
+        if (conf->port == LUAT_LCD_SPI_DEVICE){
+          if (lua_type(L, 3) == LUA_TUSERDATA){
+            conf->userdata = (luat_spi_device_t*)lua_touserdata(L, 3);
+          }else{
+            LLOGE("port is device but not find luat_spi_device_t");
+            goto end;
+          }
+        }
         int ret = luat_lcd_init(conf);
         lua_pushboolean(L, ret == 0 ? 1 : 0);
         if (ret == 0)
             default_conf = conf;
         u8g2_SetFontMode(&(default_conf->luat_lcd_u8g2), 0);
         u8g2_SetFontDirection(&(default_conf->luat_lcd_u8g2), 0);
-        lua_pushlightuserdata(L, conf);
-        return 2;
+        // lua_pushlightuserdata(L, conf);
+        return 1;
     }
+end:
+    lua_pushboolean(L, 0);
     luat_heap_free(conf);
-    return 0;
+    return 1;
 }
 
 /*
@@ -780,10 +787,10 @@ static int l_lcd_set_font(lua_State *L) {
 @int bg_color str背景颜色
 @usage
 -- 显示之前先设置为中文字体,对之后的drawStr有效,使用中文字体需在luat_conf_bsp.h.h开启#define USE_U8G2_WQY16_T_GB2312
-lcd.setFont(lcd.font_ncenB12_tr)
+lcd.setFont(lcd.font_opposansm12)
 lcd.drawStr(40,10,"drawStr")
 sys.wait(2000)
-lcd.setFont(lcd.font_wqy16_t_gb2312)
+lcd.setFont(lcd.font_opposansm16_chinese)
 lcd.drawStr(40,40,"drawStr测试")
 */
 static int l_lcd_draw_str(lua_State* L) {

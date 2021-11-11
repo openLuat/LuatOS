@@ -286,7 +286,7 @@ lcd颜色填充
 @string 字符串或zbuff对象
 @usage
 -- lcd颜色填充
-buff:writeInt32(0x001F)
+local buff = zbuff.create({201,1,16},0x001F)
 lcd.draw(20,30,220,30,buff)
 */
 static int l_lcd_draw(lua_State* L) {
@@ -306,6 +306,10 @@ static int l_lcd_draw(lua_State* L) {
     else if (lua_isuserdata(L, 5)) {
         buff = luaL_checkudata(L, 5, LUAT_ZBUFF_TYPE);
         luat_color_t *color = (luat_color_t *)buff->addr;
+        ret = luat_lcd_draw(default_conf, x1, y1, x2, y2, color);
+    }
+    else if(lua_isstring(L, 5)) {
+        luat_color_t *color = (luat_color_t *)luaL_checkstring(L, 5);
         ret = luat_lcd_draw(default_conf, x1, y1, x2, y2, color);
     }
     else {
@@ -475,7 +479,7 @@ static uint16_t utf8_next(uint8_t b)
     else if ( b >= 0xf0 )
     {
       utf8_state = 3;
-      b &= 7;      
+      b &= 7;
     }
     else if ( b >= 0xe0 )
     {
@@ -541,7 +545,7 @@ static int16_t u8g2_add_vector_x(int16_t dx, int8_t x, int8_t y, uint8_t dir)
       break;
     default:
       dx += y;
-      break;      
+      break;
   }
   return dx;
 }
@@ -561,7 +565,7 @@ static int16_t u8g2_add_vector_y(int16_t dy, int8_t x, int8_t y, uint8_t dir)
       break;
     default:
       dy -= x;
-      break;      
+      break;
   }
   return dy;
 }
@@ -603,7 +607,7 @@ static void u8g2_font_decode_len(u8g2_t *u8g2, uint8_t len, uint8_t is_foregroun
       {
 	    u8g2_draw_hv_line(u8g2, x, y, current, decode->dir, lcd_str_fg_color);
       }
-      else if ( decode->is_transparent == 0 )    
+      else if ( decode->is_transparent == 0 )
       {
 	    u8g2_draw_hv_line(u8g2, x, y, current, decode->dir, lcd_str_bg_color);
       }
@@ -624,16 +628,16 @@ static void u8g2_font_setup_decode(u8g2_t *u8g2, const uint8_t *glyph_data)
   u8g2_font_decode_t *decode = &(u8g2->font_decode);
   decode->decode_ptr = glyph_data;
   decode->decode_bit_pos = 0;
-  
+
   /* 8 Nov 2015, this is already done in the glyph data search procedure */
   /*
   decode->decode_ptr += 1;
   decode->decode_ptr += 1;
   */
-  
+
   decode->glyph_width = u8g2_font_decode_get_unsigned_bits(decode, u8g2->font_info.bits_per_char_width);
   decode->glyph_height = u8g2_font_decode_get_unsigned_bits(decode,u8g2->font_info.bits_per_char_height);
-  
+
 }
 static int8_t u8g2_font_decode_glyph(u8g2_t *u8g2, const uint8_t *glyph_data){
   uint8_t a, b;
@@ -646,7 +650,7 @@ static int8_t u8g2_font_decode_glyph(u8g2_t *u8g2, const uint8_t *glyph_data){
   x = u8g2_font_decode_get_signed_bits(decode, u8g2->font_info.bits_per_char_x);
   y = u8g2_font_decode_get_signed_bits(decode, u8g2->font_info.bits_per_char_y);
   d = u8g2_font_decode_get_signed_bits(decode, u8g2->font_info.bits_per_delta_x);
-  
+
   if ( decode->glyph_width > 0 )
   {
     decode->target_x = u8g2_add_vector_x(decode->target_x, x, -(h+y), decode->dir);
@@ -831,7 +835,7 @@ static int l_lcd_draw_str(lua_State* L) {
             y -= delta;
             break;
         }
-        sum += delta;    
+        sum += delta;
         }
     }
     return 0;

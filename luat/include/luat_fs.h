@@ -68,7 +68,7 @@ int luat_fs_rmdir(char const* _DirName);
 #endif
 
 #ifndef LUAT_VFS_FILESYSTEM_FD_MAX
-#define LUAT_VFS_FILESYSTEM_FD_MAX 4
+#define LUAT_VFS_FILESYSTEM_FD_MAX 16
 #endif
 
 struct luat_vfs_file_opts {

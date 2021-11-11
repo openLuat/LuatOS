@@ -162,9 +162,17 @@ static int rotable_iter( lua_State* L ) {
     // }
   } else
     q = p;
-  if( q->func ) {
+  if (q == NULL) {
+
+  }
+  else if( q->func ) {
     lua_pushstring( L, q->name );
     lua_pushcfunction( L, q->func );
+    return 2;
+  }
+  else {
+    lua_pushstring( L, q->name );
+    lua_pushinteger( L, q->value );
     return 2;
   }
   return 0;

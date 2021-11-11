@@ -1,6 +1,7 @@
 #include "luat_base.h"
 #include "luat_spi.h"
 #include "luat_lcd.h"
+#include "luat_malloc.h"
 
 #include "GT5SLCD2E_1A.h"
 #define LUAT_LOG_TAG "gt"
@@ -9,71 +10,193 @@
 extern luat_spi_device_t* gt_spi_dev;
 static luat_lcd_conf_t* lcd_conf;
 
-/*横置横排打点函数 -----------------------------------------------------------------*/
-void WriteData( uint16_t Xpos, uint16_t Ypos, uint8_t data, uint16_t charColor, uint16_t bkColor,uint8_t sizeType)
-{
-		uint16_t j,i;
-		unsigned char count=0;
-		for( j=0; j<8; j++ )
-		{
-				if( ((data >> (7-j))&0x01)== 0x01 ){
-						for(count=0;count<sizeType;count++){
-							for(i=0;i<sizeType;i++){
-								// LCD_SetPoint( Xpos + sizeType*j+count, Ypos+i, charColor );	//修改此函数
-                                luat_lcd_draw_point(lcd_conf, Xpos + sizeType*j+count, Ypos+i, charColor);
-							}
-						}
+//横置横排显示
+void Display_W(unsigned char *pBits,unsigned int x,unsigned int y,unsigned int widt,unsigned int high){
+	unsigned int i,j,k,n;
+	unsigned char temp;
+	n = 0;
+	for( i = 0;i < high; i++){
+		for( j = 0;j < ((widt+7)>> 3);j++){
+			temp = pBits[n++];
+			for(k = 0;k < 8;k++){
+				if(((temp << k)& 0x80) == 0 ){
+					/* 显示一个像素点 */
+					luat_lcd_draw_point(lcd_conf, x+k+(j*8), y+i, 0xFFFF);
+				}else{
+					/* 显示一个像素点 */
+					luat_lcd_draw_point(lcd_conf, x+k+(j*8), y+i, 0x0000);
 				}
-				else{
-						for(count=0;count<sizeType;count++){
-							for(i=0;i<sizeType;i++){
-								// LCD_SetPoint( Xpos + sizeType*j+count, Ypos+i, bkColor );	//修改此函数
-                                // luat_lcd_draw_point(lcd_conf, Xpos + sizeType*j+count, Ypos+i, bkColor);
-							}
-						}    
-				}
+			}
 		}
-}
-
-/********º横置横排显示函数************/
-void DisZK_DZ_W(uint16_t Xpos, uint16_t Ypos, uint16_t W,uint16_t H, uint16_t charColor, uint16_t bkColor,uint8_t*DZ_Data,uint8_t sizeType)
-{
-	static uint16_t Vertical,Horizontal;
-	uint32_t bit=0;
-	Vertical=Ypos;
-    Horizontal=Xpos; 
-	for(bit=0;bit<((W+7)/8*H);bit++) //data sizeof (byte)
-	{
-				if((bit%((W+7)/8)==0)&&(bit>0))//W/8 sizeof
-				{
-						Vertical+=sizeType;
-						Horizontal=Xpos;
-				}
-				else if(bit>0)
-					Horizontal+=sizeType*8; 
-				
-				WriteData(Horizontal,Vertical,DZ_Data[bit],charColor,bkColor,sizeType);
 	}
 }
 
-unsigned char pBits[512];
-
-void show_char(unsigned char *text,unsigned int x,unsigned int y)
+/*----------------------------------------------------------------------------------------
+ * 灰度数据显示函数 1阶灰度/2阶灰度/4阶灰度
+ * 参数 ：
+ * data灰度数据;  x,y=显示起始坐标 ; w 宽度, h 高度,grade 灰度阶级[1阶/2阶/4阶]
+ * HB_par	1 白底黑字	0 黑底白字
+ *------------------------------------------------------------------------------------------*/
+void Gray_Display_hz(unsigned char *data,unsigned short x,unsigned short y,
+	unsigned short w ,unsigned short h,unsigned char grade, unsigned char HB_par)
 {
-	while(*text!='\0')//判断是否是结尾
+	unsigned int temp=0,gray,x_temp=x;
+	unsigned int i=0,j=0,k=0,t;
+	unsigned char c,c2,*p;
+	unsigned long color8bit,color4bit,color3bit[8],color2bit,color;
+	t=(w+7)/8*grade;//
+	p=data;
+	#if DISMODE
+	LCD_Set_Window(x,y,(((w+7)/8)*8),h);	//设置窗口
+	LCD_WriteRAM_Prepare();		//开始写入GRAM
+	#endif
+	if(grade==2)	//2bits
 	{
-		if(*text<0x80){  //ASCII 码 *text是ASCII码
-			// ASCII_GetData(*text, ASCII_8X16_A, pBits);	//示例, 按实际函数名进行修改
-			DisZK_DZ_W(x,y,8,16, BLACK, WHITE,pBits,1);  //显示8X16点ASCII函数
-			x=x+8;
-		}else{  //汉字编码*text是汉字编码的高位，*(text+1)是汉字编码的低位
-			// gt_16_GetData(*text, *(text+1),pBits);	//示例, 按实际函数名进行修改
-            get_font(pBits, 1, *text, 32, 32, 32);
-			DisZK_DZ_W(x,y,16,16, BLACK, WHITE,pBits,1);  //显示汉字
-			x=x+16;
-			text++;
+		for(i=0;i<t*h;i++)
+		{
+			c=*p++;
+			for(j=0;j<4;j++)
+			{
+				color2bit=(c>>6);//获取像素点的2bit颜色值
+				if(HB_par==1)
+					color2bit= (3-color2bit)*250/3;//白底黑字
+				else
+					color2bit= color2bit*250/3;//黑底白字
+				gray=color2bit/8;
+				color=(0x001f&gray)<<11;							//r-5
+				color=color|(((0x003f)&(gray*2))<<5);	//g-6
+				color=color|(0x001f&gray);						//b-5
+				temp=color;
+				temp=temp;
+				c<<=2;
+				#if DISMODE
+				//写16位数据
+				LCD_WriteRAM(temp);
+				#else
+				//打点
+				if(x<(x_temp+w))
+				{
+					// Gui_DrawPoint(x,y,temp);
+					luat_lcd_draw_point(lcd_conf, x,y,temp);
+				}
+				x++;
+				if(x>=x_temp+(w+7)/8*8) {x=x_temp; y++;}
+				#endif
+			}
 		}
-		text++;
+	}
+	else if(grade==3)//3bits
+	{
+		for(i=0;i<t*h;i+=3)
+		{
+			c=*p; c2=*(p+1);
+			color3bit[0]=(c>>5)&0x07;
+			color3bit[1]=(c>>2)&0x07;
+			color3bit[2]=((c<<1)|(c2>>7))&0x07;
+			p++;
+			c=*p; c2=*(p+1);
+			color3bit[3]=(c>>4)&0x07;
+			color3bit[4]=(c>>1)&0x07;
+			color3bit[5]=((c<<2)|(c2>>6))&0x07;
+			p++;
+			c=*p;
+			color3bit[6]=(c>>3)&0x07;
+			color3bit[7]=(c>>0)&0x07;
+			p++;
+			for(j=0;j<8;j++)
+			{
+				if(HB_par==1)
+				color3bit[j]= (7-color3bit[j])*255/7;//白底黑字
+				else
+				color3bit[j]=color3bit[j]*255/7;//黑底白字
+				gray =color3bit[j]/8;
+				color=(0x001f&gray)<<11;							//r-5
+				color=color|(((0x003f)&(gray*2))<<5);	//g-6
+				color=color|(0x001f&gray);						//b-5
+				temp =color;
+				#if DISMODE
+				//写16位数据
+				LCD_WriteRAM(temp);
+				#else
+				//打点
+				if(x<(x_temp+w))
+				{
+					// Gui_DrawPoint(x,y,temp);
+					luat_lcd_draw_point(lcd_conf, x,y,temp);
+				}
+				x++;
+				if(x>=x_temp+(w+7)/8*8) {x=x_temp; y++;}
+				#endif
+			}
+		}
+	}
+	else if(grade==4)	//4bits
+	{
+		for(i=0;i<t*h;i++)
+		{
+			c=*p++;
+			for(j=0;j<2;j++)
+			{
+				color4bit=(c>>4);
+				if(HB_par==1)
+					color4bit= (15-color4bit)*255/15;//白底黑字
+				else
+					color4bit= color4bit*255/15;//黑底白字
+				gray=color4bit/8;
+				color=(0x001f&gray)<<11;				//r-5
+				color=color|(((0x003f)&(gray*2))<<5);	//g-6
+				color=color|(0x001f&gray);				//b-5
+				temp=color;
+				c<<=4;
+				#if DISMODE
+				//写16位数据
+				LCD_WriteRAM(temp);
+				#else
+				//打点
+				if(x<(x_temp+w)){
+					// Gui_DrawPoint(x,y,temp);
+					luat_lcd_draw_point(lcd_conf, x,y,temp);
+				}
+				x++;
+				if(x>=x_temp+(w+7)/8*8) {x=x_temp; y++;}
+				#endif
+			}
+		}
+	}
+	else	//1bits
+	{
+		for(i=0;i<t*h;i++)
+		{
+			c=*p++;
+			for(j=0;j<8;j++)
+			{
+				if(c&0x80) color=0x0000;
+				else color=0xffff;
+				c<<=1;
+
+				#if DISMODE
+				//写16位数据
+				LCD_WriteRAM(color);
+				#else
+				//打点
+				if(x<(x_temp+w))
+				{
+					if(color == 0x0000 && HB_par == 1)
+					{
+						// Gui_DrawPoint(x,y,color);	//打点
+						luat_lcd_draw_point(lcd_conf, x,y,color);
+					}
+					else if(HB_par == 0 && color == 0x0000)
+					{
+						// Gui_DrawPoint(x,y,~color);	//打点
+						luat_lcd_draw_point(lcd_conf, x,y,~color);
+					}
+				}
+				x++;
+				if(x>=x_temp+(w+7)/8*8) {x=x_temp; y++;}
+				#endif
+			}
+		}
 	}
 }
 
@@ -83,36 +206,54 @@ static int l_gtfont_init(lua_State* L) {
     }
 
 	luat_spi_device_send(gt_spi_dev, 0xff, 1);
-    // lcd_conf = luat_lcd_get_default();
+    lcd_conf = luat_lcd_get_default();
     return 0;
 }
 
-static VECFONT_ST fst;
-unsigned char jtwb[128]="收款退款交易查询终端管理";	//每个中文字符实际由两个字节组成, 对应GBK等编码
-
 static int l_gtfont_test(lua_State* L) {
-    size_t len;
+    int len,ret;
     unsigned char *fontCode = luaL_checklstring(L, 1,&len);
     unsigned char size = luaL_checkinteger(L, 2);
     unsigned char thick = luaL_checkinteger(L, 3);
+	int x = luaL_checkinteger(L, 4);
+	int y = luaL_checkinteger(L, 5);
     LLOGD("fontCode %04x size %d thick %d", *fontCode, size, thick);
-    unsigned char buf[128];
-    int ret = get_font(buf, 1, 0xb0a1, size, size, thick);
+    unsigned char buf[2048];
+    ret = get_font(buf, 1, 0xb0a1, size, size, thick);
     LLOGD("get_font_st ret %d", ret);
-    // unsigned char zk_buff[256]; //自定义点阵数据空间大小
-	// gt_16_GetData(0xb0, 0xa1, zk_buff);	//获取点阵数据
-	// DisZK_DZ_W(0, 0, 32, 32, BLACK, WHITE, buf, 1);	//显示函数
-    // TODO 按位显示出来
-    // show_char(jtwb,0,0);
+	Display_W(buf , x ,y , ret , 32);
     return 0;
 }
 
+static int l_gtfont_display(lua_State* L) {
+	unsigned char buf[128];
+	unsigned long fontCode = luaL_checkinteger(L, 1);
+    unsigned char size = luaL_checkinteger(L, 2);
+	int x = luaL_checkinteger(L, 3);
+	int y = luaL_checkinteger(L, 4);
+    int ret = get_font(buf, 1, fontCode, size, size, size);
+	Display_W(buf , x ,y , size , size);
+    return 0;
+}
 
+static int l_gtfont_display_gray(lua_State* L) {
+	unsigned char buf[2048];
+	unsigned long fontCode = luaL_checkinteger(L, 1);
+    unsigned char size = luaL_checkinteger(L, 2);
+	unsigned char font_g = luaL_checkinteger(L, 3);
+	int x = luaL_checkinteger(L, 4);
+	int y = luaL_checkinteger(L, 5);
+    get_font(buf, 1, fontCode, size*font_g, size*font_g, size*font_g);
+	Gray_Display_hz(buf, x, y, size , size, font_g,  1);
+    return 0;
+}
 
 #include "rotable.h"
 static const rotable_Reg reg_gtfont[] =
 {
     { "init" ,          l_gtfont_init , 0},
+	{ "display" ,          l_gtfont_display , 0},
+	{ "display_gray" ,          l_gtfont_display_gray , 0},
     { "test" ,          l_gtfont_test , 0},
 	{ NULL,             NULL ,        0}
 };

@@ -210,41 +210,161 @@ static int l_gtfont_init(lua_State* L) {
     return 0;
 }
 
-static int l_gtfont_test(lua_State* L) {
-    int len,ret;
-    unsigned char *fontCode = luaL_checklstring(L, 1,&len);
-    unsigned char size = luaL_checkinteger(L, 2);
-    unsigned char thick = luaL_checkinteger(L, 3);
-	int x = luaL_checkinteger(L, 4);
-	int y = luaL_checkinteger(L, 5);
-    LLOGD("fontCode %04x size %d thick %d", *fontCode, size, thick);
-    unsigned char buf[2048];
-    ret = get_font(buf, 1, 0xb0a1, size, size, thick);
-    LLOGD("get_font_st ret %d", ret);
-	Display_W(buf , x ,y , ret , 32);
-    return 0;
-}
 
-static int l_gtfont_display(lua_State* L) {
+static uint8_t utf8_state;
+static uint16_t encoding;
+static uint16_t utf8_next(uint8_t b)
+{
+  if ( b == 0 )  /* '\n' terminates the string to support the string list procedures */
+    return 0x0ffff; /* end of string detected, pending UTF8 is discarded */
+  if ( utf8_state == 0 )
+  {
+    if ( b >= 0xfc )  /* 6 byte sequence */
+    {
+      utf8_state = 5;
+      b &= 1;
+    }
+    else if ( b >= 0xf8 )
+    {
+      utf8_state = 4;
+      b &= 3;
+    }
+    else if ( b >= 0xf0 )
+    {
+      utf8_state = 3;
+      b &= 7;      
+    }
+    else if ( b >= 0xe0 )
+    {
+      utf8_state = 2;
+      b &= 15;
+    }
+    else if ( b >= 0xc0 )
+    {
+      utf8_state = 1;
+      b &= 0x01f;
+    }
+    else
+    {
+      /* do nothing, just use the value as encoding */
+      return b;
+    }
+    encoding = b;
+    return 0x0fffe;
+  }
+  else
+  {
+    utf8_state--;
+    /* The case b < 0x080 (an illegal UTF8 encoding) is not checked here. */
+    encoding<<=6;
+    b &= 0x03f;
+    encoding |= b;
+    if ( utf8_state != 0 )
+      return 0x0fffe; /* nothing to do yet */
+  }
+  return encoding;
+}
+extern unsigned short unicodetogb2312 ( unsigned short	chr);
+
+static int l_gtfont_gb2312_display(lua_State* L) {
 	unsigned char buf[128];
-	unsigned long fontCode = luaL_checkinteger(L, 1);
+	int len;
+	int i = 0;
+	uint8_t strhigh,strlow ;
+	uint16_t str;
+    const char *fontCode = luaL_checklstring(L, 1,&len);
     unsigned char size = luaL_checkinteger(L, 2);
 	int x = luaL_checkinteger(L, 3);
 	int y = luaL_checkinteger(L, 4);
-    int ret = get_font(buf, 1, fontCode, size, size, size);
-	Display_W(buf , x ,y , size , size);
+	while ( i < len){
+		strhigh = *fontCode;
+		fontCode++;
+		strlow = *fontCode;
+		str = (strhigh<<8)|strlow;
+		fontCode++;
+		get_font(buf, 1, str, size, size, size);
+		Display_W(buf , x ,y , size , 32);
+		x+=size;
+		i+=2;
+	}
     return 0;
 }
 
-static int l_gtfont_display_gray(lua_State* L) {
+static int l_gtfont_gb2312_display_gray(lua_State* L) {
 	unsigned char buf[2048];
-	unsigned long fontCode = luaL_checkinteger(L, 1);
+	int len;
+	int i = 0;
+	uint8_t strhigh,strlow ;
+	uint16_t str;
+    const char *fontCode = luaL_checklstring(L, 1,&len);
     unsigned char size = luaL_checkinteger(L, 2);
 	unsigned char font_g = luaL_checkinteger(L, 3);
 	int x = luaL_checkinteger(L, 4);
 	int y = luaL_checkinteger(L, 5);
-    get_font(buf, 1, fontCode, size*font_g, size*font_g, size*font_g);
-	Gray_Display_hz(buf, x, y, size , size, font_g,  1);
+	while ( i < len){
+		strhigh = *fontCode;
+		fontCode++;
+		strlow = *fontCode;
+		str = (strhigh<<8)|strlow;
+		fontCode++;
+		get_font(buf, 1, str, size*font_g, size*font_g, size*font_g);
+		Gray_Process(buf,size,size,font_g);
+		Gray_Display_hz(buf, x, y, size , size, font_g,  1);
+		x+=size;
+		i+=2;
+	}
+    return 0;
+}
+
+static int l_gtfont_utf8_display(lua_State* L) {
+	unsigned char buf[128];
+	int len;
+	int i = 0;
+	uint8_t strhigh,strlow ;
+	uint16_t e,str;
+    const char *fontCode = luaL_checklstring(L, 1,&len);
+    unsigned char size = luaL_checkinteger(L, 2);
+	int x = luaL_checkinteger(L, 3);
+	int y = luaL_checkinteger(L, 4);
+	for(;;){
+        e = utf8_next((uint8_t)*fontCode);
+        if ( e == 0x0ffff )
+        break;
+        fontCode++;
+        if ( e != 0x0fffe ){
+			uint16_t str = unicodetogb2312(e);
+			get_font(buf, 1, str, size, size, size);
+			Display_W(buf , x ,y , size , 32);
+        	x+=size;    
+        }
+    }
+    return 0;
+}
+
+static int l_gtfont_utf8_display_gray(lua_State* L) {
+	unsigned char buf[2048];
+	int len;
+	int i = 0;
+	uint8_t strhigh,strlow ;
+	uint16_t e,str;
+    const char *fontCode = luaL_checklstring(L, 1,&len);
+    unsigned char size = luaL_checkinteger(L, 2);
+	unsigned char font_g = luaL_checkinteger(L, 3);
+	int x = luaL_checkinteger(L, 4);
+	int y = luaL_checkinteger(L, 5);
+	for(;;){
+        e = utf8_next((uint8_t)*fontCode);
+        if ( e == 0x0ffff )
+        break;
+        fontCode++;
+        if ( e != 0x0fffe ){
+			uint16_t str = unicodetogb2312(e);
+			get_font(buf, 1, str, size*font_g, size*font_g, size*font_g);
+			Gray_Process(buf,size,size,font_g);
+			Gray_Display_hz(buf, x, y, size , size, font_g,  1);
+        	x+=size;    
+        }
+    }
     return 0;
 }
 
@@ -252,9 +372,10 @@ static int l_gtfont_display_gray(lua_State* L) {
 static const rotable_Reg reg_gtfont[] =
 {
     { "init" ,          l_gtfont_init , 0},
-	{ "display" ,          l_gtfont_display , 0},
-	{ "display_gray" ,          l_gtfont_display_gray , 0},
-    { "test" ,          l_gtfont_test , 0},
+	{ "gb2312_display" ,          l_gtfont_gb2312_display , 0},
+	{ "gb2312_display_gray" ,          l_gtfont_gb2312_display_gray , 0},
+	{ "utf8_display" ,          l_gtfont_utf8_display , 0},
+	{ "utf8_display_gray" ,          l_gtfont_utf8_display_gray , 0},
 	{ NULL,             NULL ,        0}
 };
 

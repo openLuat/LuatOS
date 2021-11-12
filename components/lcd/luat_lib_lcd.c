@@ -841,6 +841,120 @@ static int l_lcd_draw_str(lua_State* L) {
     return 0;
 }
 
+#ifdef LUAT_USE_GTFONT
+
+#include "GT5SLCD2E_1A.h"
+extern void gtfont_draw_w(unsigned char *pBits,unsigned int x,unsigned int y,unsigned int widt,unsigned int high,int(*point)(void*),void* userdata,int mode);
+extern void gtfont_draw_gray_hz(unsigned char *data,unsigned short x,unsigned short y,unsigned short w ,unsigned short h,unsigned char grade, unsigned char HB_par,int(*point)(void*,uint16_t, uint16_t, uint32_t),void* userdata,int mode);
+
+static int l_lcd_draw_gtfont_gb2312(lua_State *L) {
+    unsigned char buf[128];
+	int len;
+	int i = 0;
+	uint8_t strhigh,strlow ;
+	uint16_t str;
+  const char *fontCode = luaL_checklstring(L, 1,&len);
+  unsigned char size = luaL_checkinteger(L, 2);
+	int x = luaL_checkinteger(L, 3);
+	int y = luaL_checkinteger(L, 4);
+	while ( i < len){
+		strhigh = *fontCode;
+		fontCode++;
+		strlow = *fontCode;
+		str = (strhigh<<8)|strlow;
+		fontCode++;
+		get_font(buf, 1, str, size, size, size);
+		gtfont_draw_w(buf , x ,y , size , size,luat_lcd_draw_point,default_conf,0);
+		x+=size;
+		i+=2;
+	}
+    return 0;
+}
+
+static int l_lcd_draw_gtfont_gb2312_gray(lua_State* L) {
+	unsigned char buf[2048];
+	int len;
+	int i = 0;
+	uint8_t strhigh,strlow ;
+	uint16_t str;
+    const char *fontCode = luaL_checklstring(L, 1,&len);
+    unsigned char size = luaL_checkinteger(L, 2);
+	unsigned char font_g = luaL_checkinteger(L, 3);
+	int x = luaL_checkinteger(L, 4);
+	int y = luaL_checkinteger(L, 5);
+	while ( i < len){
+		strhigh = *fontCode;
+		fontCode++;
+		strlow = *fontCode;
+		str = (strhigh<<8)|strlow;
+		fontCode++;
+		get_font(buf, 1, str, size*font_g, size*font_g, size*font_g);
+		Gray_Process(buf,size,size,font_g);
+		gtfont_draw_gray_hz(buf, x, y, size , size, font_g, 1,luat_lcd_draw_point,default_conf,0);
+		x+=size;
+		i+=2;
+	}
+    return 0;
+}
+
+#ifdef LUAT_USE_GTFONT_UTF8
+extern unsigned short unicodetogb2312 ( unsigned short	chr);
+static int l_lcd_draw_gtfont_utf8(lua_State *L) {
+    unsigned char buf[128];
+    int len;
+    int i = 0;
+    uint8_t strhigh,strlow ;
+    uint16_t e,str;
+    const char *fontCode = luaL_checklstring(L, 1,&len);
+    unsigned char size = luaL_checkinteger(L, 2);
+    int x = luaL_checkinteger(L, 3);
+    int y = luaL_checkinteger(L, 4);
+    for(;;){
+      e = utf8_next((uint8_t)*fontCode);
+      if ( e == 0x0ffff )
+      break;
+      fontCode++;
+      if ( e != 0x0fffe ){
+        uint16_t str = unicodetogb2312(e);
+        get_font(buf, 1, str, size, size, size);
+        gtfont_draw_w(buf , x ,y , size , size,luat_lcd_draw_point,default_conf,0);
+        x+=size;    
+      }
+    }
+    return 0;
+}
+
+static int l_lcd_draw_gtfont_utf8_gray(lua_State* L) {
+	unsigned char buf[2048];
+	int len;
+	int i = 0;
+	uint8_t strhigh,strlow ;
+	uint16_t e,str;
+  const char *fontCode = luaL_checklstring(L, 1,&len);
+  unsigned char size = luaL_checkinteger(L, 2);
+	unsigned char font_g = luaL_checkinteger(L, 3);
+	int x = luaL_checkinteger(L, 4);
+	int y = luaL_checkinteger(L, 5);
+	for(;;){
+        e = utf8_next((uint8_t)*fontCode);
+        if ( e == 0x0ffff )
+        break;
+        fontCode++;
+        if ( e != 0x0fffe ){
+			uint16_t str = unicodetogb2312(e);
+			get_font(buf, 1, str, size*font_g, size*font_g, size*font_g);
+			Gray_Process(buf,size,size,font_g);
+      gtfont_draw_gray_hz(buf, x, y, size , size, font_g, 1,luat_lcd_draw_point,default_conf,0);
+        	x+=size;    
+        }
+    }
+    return 0;
+}
+
+#endif // LUAT_USE_GTFONT_UTF8
+
+#endif // LUAT_USE_GTFONT
+
 static int l_lcd_set_default(lua_State *L) {
     if (lua_gettop(L) == 1) {
         default_conf = lua_touserdata(L, 1);
@@ -870,6 +984,14 @@ static const rotable_Reg reg_lcd[] =
     { "drawStr",      l_lcd_draw_str,       0},
     { "setFont", l_lcd_set_font, 0},
     { "setDefault", l_lcd_set_default, 0},
+#ifdef LUAT_USE_GTFONT
+    { "drawGtfontGb2312", l_lcd_draw_gtfont_gb2312, 0},
+    { "drawGtfontGb2312Gray", l_lcd_draw_gtfont_gb2312_gray, 0},
+#ifdef LUAT_USE_GTFONT_UTF8
+    { "drawGtfontUtf8", l_lcd_draw_gtfont_utf8, 0},
+    { "drawGtfontUtf8Gray", l_lcd_draw_gtfont_utf8_gray, 0},
+#endif // LUAT_USE_GTFONT_UTF8
+#endif // LUAT_USE_GTFONT
     { "font_opposansm8", NULL,       font_opposansm8},
     { "font_opposansm10", NULL,       font_opposansm10},
     { "font_opposansm12", NULL,       font_opposansm12},

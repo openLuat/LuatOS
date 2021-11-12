@@ -375,6 +375,20 @@ static int l_u8g2_GetDisplayWidth(lua_State *L){
 }
 
 /*
+画一个点.
+@api u8g2.DrawPixel(x,y)
+@int X位置.
+@int Y位置.
+@usage
+u8g2.DrawPixel(20, 5)
+*/
+static int l_u8g2_DrawPixel(lua_State *L){
+    if (u8g2 == NULL) return 0;
+    u8g2_DrawPixel(u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2));
+    return 1;
+}
+
+/*
 在两点之间画一条线.
 @api u8g2.DrawLine(x0,y0,x1,y1)
 @int 第一个点的X位置.
@@ -627,6 +641,7 @@ static const rotable_Reg reg_u8g2[] =
     { "SetFont",    l_u8g2_SetFont,    0},
     { "GetDisplayHeight",    l_u8g2_GetDisplayHeight,    0},
     { "GetDisplayWidth",    l_u8g2_GetDisplayWidth,    0},
+    { "DrawPixel",    l_u8g2_DrawPixel,    0},
     { "DrawLine",    l_u8g2_DrawLine,    0},
     { "DrawCircle",    l_u8g2_DrawCircle,    0},
     { "DrawDisc",    l_u8g2_DrawDisc,    0},

@@ -91,7 +91,9 @@ typedef int16_t lv_coord_t;
  * The graphical objects and other related data are stored here. */
 
 /* 1: use custom malloc/free, 0: use the built-in `lv_mem_alloc` and `lv_mem_free` */
+#ifndef LV_MEM_CUSTOM
 #define LV_MEM_CUSTOM      1
+#endif
 #if LV_MEM_CUSTOM == 0
 /* Size of the memory used by `lv_mem_alloc` in bytes (>= 2kB)*/
 #  define LV_MEM_SIZE    (32U * 1024U)
@@ -109,6 +111,10 @@ typedef int16_t lv_coord_t;
 #  define LV_MEM_CUSTOM_INCLUDE "luat_malloc.h"   /*Header for the dynamic memory function*/
 #  define LV_MEM_CUSTOM_ALLOC   luat_heap_malloc       /*Wrapper to malloc*/
 #  define LV_MEM_CUSTOM_FREE    luat_heap_free         /*Wrapper to free*/
+// TODO 启用luat_lvgl_mem  和 LV_ENABLE_GC
+// #  define LV_MEM_CUSTOM_INCLUDE "luat_lvgl_mem.h"   /*Header for the dynamic memory function*/
+// #  define LV_MEM_CUSTOM_ALLOC   luat_lvgl_malloc       /*Wrapper to malloc*/
+// #  define LV_MEM_CUSTOM_FREE    luat_lvgl_free         /*Wrapper to free*/
 #endif     /*LV_MEM_CUSTOM*/
 
 /* Use the standard memcpy and memset instead of LVGL's own functions.
@@ -119,9 +125,9 @@ typedef int16_t lv_coord_t;
  * Used if lvgl is binded to higher level language and the memory is managed by that language */
 #define LV_ENABLE_GC 0
 #if LV_ENABLE_GC != 0
-#  define LV_GC_INCLUDE "gc.h"                           /*Include Garbage Collector related things*/
-#  define LV_MEM_CUSTOM_REALLOC   your_realloc           /*Wrapper to realloc*/
-#  define LV_MEM_CUSTOM_GET_SIZE  your_mem_get_size      /*Wrapper to lv_mem_get_size*/
+#  define LV_GC_INCLUDE "luat_lvgl_mem.h"                  /*Include Garbage Collector related things*/
+#  define LV_MEM_CUSTOM_REALLOC   luat_lvgl_realloc           /*Wrapper to realloc*/
+#  define LV_MEM_CUSTOM_GET_SIZE  luat_lvgl_mem_get_size      /*Wrapper to lv_mem_get_size*/
 #endif /* LV_ENABLE_GC */
 
 /*=======================

@@ -5,6 +5,7 @@
 #include "luat_base.h"
 #include "lvgl.h"
 
+#if LV_USE_ANIMATION
 int luat_lv_anim_create(lua_State *L);
 int luat_lv_anim_free(lua_State *L);
 int luat_lv_anim_path_t(lua_State *L);
@@ -16,5 +17,9 @@ int luat_lv_anim_set_path_str(lua_State *L);
 {"anim_path_t", luat_lv_anim_path_t, 0},\
 {"anim_path_t_free", luat_lv_anim_path_t_free, 0},\
 {"anim_set_path_str", luat_lv_anim_set_path_str, 0},\
+
+#else
+#define LUAT_LV_ANIM_EX_RLT 
+#endif
 
 #endif

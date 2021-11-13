@@ -1,4 +1,5 @@
-
+
+
 #include "luat_base.h"
 #include "lvgl.h"
 #include "luat_lvgl.h"
@@ -2723,6 +2724,7 @@ int luat_lv_obj_set_style_local_transition_prop_6(lua_State *L) {
     return 0;
 }
 
+#if LV_USE_ANIMATION
 //  lv_anim_path_t* lv_obj_get_style_transition_path(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_transition_path(lua_State *L) {
     LV_DEBUG("CALL lv_obj_get_style_transition_path");
@@ -2744,6 +2746,7 @@ int luat_lv_obj_set_style_local_transition_path(lua_State *L) {
     lv_obj_set_style_local_transition_path(obj ,part ,state ,value);
     return 0;
 }
+#endif
 
 //  lv_style_int_t lv_obj_get_style_scale_width(lv_obj_t* obj, uint8_t part)
 int luat_lv_obj_get_style_scale_width(lua_State *L) {

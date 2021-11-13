@@ -10,6 +10,8 @@
 #include "lvgl.h"
 #include "luat_malloc.h"
 
+#if LV_USE_ANIMATION
+
 /*
 创建并初始化一个anim
 @api lvgl.anim_create()
@@ -110,3 +112,4 @@ int luat_lv_anim_set_path_str(lua_State *L) {
     return 0;
 }
 
+#endif

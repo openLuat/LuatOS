@@ -1,8 +1,10 @@
-
+
+
 #include "luat_base.h"
 #include "lvgl.h"
 #include "luat_lvgl.h"
 
+#if LV_USE_SPINNER
 
 //  lv_obj_t* lv_spinner_create(lv_obj_t* par, lv_obj_t* copy)
 int luat_lv_spinner_create(lua_State *L) {
@@ -90,4 +92,6 @@ int luat_lv_spinner_get_dir(lua_State *L) {
     lua_pushinteger(L, ret);
     return 1;
 }
+
+#endif
 

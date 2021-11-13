@@ -1,4 +1,5 @@
-
+
+
 #include "luat_base.h"
 #ifndef LUAT_LV_GEN
 #define LUAT_LV_GEN
@@ -479,7 +480,6 @@ int luat_lv_obj_fade_out(lua_State *L);
     {"obj_set_state", luat_lv_obj_set_state, 0},\
     {"obj_add_state", luat_lv_obj_add_state, 0},\
     {"obj_clear_state", luat_lv_obj_clear_state, 0},\
-    {"obj_finish_transitions", luat_lv_obj_finish_transitions, 0},\
     {"obj_allocate_ext_attr", luat_lv_obj_allocate_ext_attr, 0},\
     {"obj_refresh_ext_draw_pad", luat_lv_obj_refresh_ext_draw_pad, 0},\
     {"obj_get_screen", luat_lv_obj_get_screen, 0},\
@@ -681,8 +681,6 @@ int luat_lv_obj_fade_out(lua_State *L);
     {"obj_set_style_local_transition_prop_5", luat_lv_obj_set_style_local_transition_prop_5, 0},\
     {"obj_get_style_transition_prop_6", luat_lv_obj_get_style_transition_prop_6, 0},\
     {"obj_set_style_local_transition_prop_6", luat_lv_obj_set_style_local_transition_prop_6, 0},\
-    {"obj_get_style_transition_path", luat_lv_obj_get_style_transition_path, 0},\
-    {"obj_set_style_local_transition_path", luat_lv_obj_set_style_local_transition_path, 0},\
     {"obj_get_style_scale_width", luat_lv_obj_get_style_scale_width, 0},\
     {"obj_set_style_local_scale_width", luat_lv_obj_set_style_local_scale_width, 0},\
     {"obj_get_style_scale_border_width", luat_lv_obj_get_style_scale_border_width, 0},\
@@ -734,6 +732,9 @@ int luat_lv_obj_fade_out(lua_State *L);
     {"obj_get_draw_rect_ext_pad_size", luat_lv_obj_get_draw_rect_ext_pad_size, 0},\
     {"obj_fade_in", luat_lv_obj_fade_in, 0},\
     {"obj_fade_out", luat_lv_obj_fade_out, 0},\
+    //{"obj_set_style_local_transition_path", luat_lv_obj_set_style_local_transition_path, 0},\
+    //{"obj_get_style_transition_path", luat_lv_obj_get_style_transition_path, 0},\
+    // {"obj_finish_transitions", luat_lv_obj_finish_transitions, 0},\
 
 // prefix lv_core lv_refr
 int luat_lv_refr_now(lua_State *L);

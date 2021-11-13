@@ -165,7 +165,13 @@ typedef int16_t lv_coord_t;
  *==================*/
 
 /*1: Enable the Animations */
+#ifndef LV_USE_ANIMATION
+#if defined(LUAT_USE_LVGL_ANIMATION) || defined(LUAT_USE_LVGL_SPINNER)
 #define LV_USE_ANIMATION        1
+#else
+#define LV_USE_ANIMATION        0
+#endif
+#endif
 #if LV_USE_ANIMATION
 
 /*Declare the type of the user data of animations (can be e.g. `void *`, `int`, `struct`)*/
@@ -726,7 +732,14 @@ typedef struct luat_lv_userdata lv_obj_user_data_t;
 #endif
 
 /*Preload (dependencies: lv_arc, lv_anim)*/
+#ifndef LV_USE_SPINNER
+#ifdef LUAT_USE_LVGL_SPINNER
 #define LV_USE_SPINNER      1
+#else
+#define LV_USE_SPINNER      0
+#endif
+#endif
+
 #if LV_USE_SPINNER != 0
 #  define LV_SPINNER_DEF_ARC_LENGTH   60      /*[deg]*/
 #  define LV_SPINNER_DEF_SPIN_TIME    1000    /*[ms]*/

@@ -15,6 +15,8 @@ int luat_lv_draw_label_dsc_t(lua_State *L);
 int luat_lv_draw_img_dsc_t(lua_State *L);
 int luat_lv_img_dsc_t(lua_State *L);
 
+#if LV_USE_ANIMATION
+
 #define LUAT_LV_STRUCT_RLT {"anim_t", luat_lv_struct_anim_t, 0},\
 {"area_t", luat_lv_struct_area_t, 0},\
 {"calendar_date_t", luat_lv_calendar_date_t, 0},\
@@ -22,5 +24,16 @@ int luat_lv_img_dsc_t(lua_State *L);
 {"draw_label_dsc_t", luat_lv_draw_label_dsc_t, 0},\
 {"draw_img_dsc_t", luat_lv_draw_img_dsc_t, 0},\
 {"img_dsc_t", luat_lv_img_dsc_t, 0},\
+
+#else
+
+#define LUAT_LV_STRUCT_RLT {"area_t", luat_lv_struct_area_t, 0},\
+{"calendar_date_t", luat_lv_calendar_date_t, 0},\
+{"draw_rect_dsc_t", luat_lv_draw_rect_dsc_t, 0},\
+{"draw_label_dsc_t", luat_lv_draw_label_dsc_t, 0},\
+{"draw_img_dsc_t", luat_lv_draw_img_dsc_t, 0},\
+{"img_dsc_t", luat_lv_img_dsc_t, 0},\
+
+#endif
 
 #endif

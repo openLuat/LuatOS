@@ -1,8 +1,9 @@
-
+
+
 #include "luat_base.h"
 #include "lvgl.h"
 #include "luat_lvgl.h"
-
+#if LV_USE_ANIMATION
 
 //  void lv_anim_init(lv_anim_t* a)
 int luat_lv_anim_init(lua_State *L) {
@@ -277,3 +278,4 @@ int luat_lv_anim_path_step(lua_State *L) {
     return 1;
 }
 
+#endif

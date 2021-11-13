@@ -11,6 +11,7 @@
 #define META_LV_DRAW_IMG_DSC_T "LV_DRAW_IMG_DSC_T*"
 #define META_LV_IMG_DSC_T "LV_IMG_DSC_T*"
 
+#if LV_USE_ANIMATION
 //---------------------------------------------
 /*
 创建一个anim
@@ -61,6 +62,7 @@ int _lvgl_struct_anim_t_newindex(lua_State *L) {
     }
     return 0;
 }
+#endif
 
 //---------------------------------------------
 /*
@@ -428,12 +430,13 @@ int _lvgl_struct_img_dsc_t_newindex(lua_State *L) {
 
 
 void luat_lvgl_struct_init(lua_State *L) {
-
+#if LV_USE_ANIMATION
     // lv_anim*
     luaL_newmetatable(L, META_LV_ANIM);
     lua_pushcfunction(L, _lvgl_struct_anim_t_newindex);
     lua_setfield( L, -2, "__newindex" );
     lua_pop(L, 1);
+#endif
 
     // lv_area
     luaL_newmetatable(L, META_LV_AREA);

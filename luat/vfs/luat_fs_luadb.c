@@ -200,23 +200,23 @@ luadb_fs_t* luat_luadb_mount(const char* _ptr) {
 _after_head:
 
     if (headok == 0) {
-        LLOGD("Bad LuaDB");
+        LLOGW("Bad LuaDB");
         return NULL;
     }
     if (dbver == 0) {
-        LLOGD("miss DB version");
+        LLOGW("miss DB version");
         return NULL;
     }
     if (headsize == 0) {
-        LLOGD("miss DB headsize");
+        LLOGW("miss DB headsize");
         return NULL;
     }
     if (filecount == 0) {
-        LLOGD("miss DB filecount");
+        LLOGW("miss DB filecount");
         return NULL;
     }
     if (filecount > 256) {
-        LLOGD("too many file in LuaDB");
+        LLOGW("too many file in LuaDB");
         return NULL;
     }
 

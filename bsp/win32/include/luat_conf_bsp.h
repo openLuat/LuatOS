@@ -23,10 +23,10 @@
 
 #define LUAT_USE_LOG_ASYNC_THREAD 0
 
-#define LUAT_USE_LVGL 1
-
 #define LUAT_FORCE_WIN32 1
 
+#define LUAT_USE_LVGL 1
+#define LV_MEM_CUSTOM 1
 #define LUAT_USE_LVGL_INDEV 1
 
 #define LUAT_USE_LVGL_ARC   //圆弧 无依赖

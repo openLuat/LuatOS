@@ -96,14 +96,18 @@ typedef int16_t lv_coord_t;
 #endif
 #if LV_MEM_CUSTOM == 0
 /* Size of the memory used by `lv_mem_alloc` in bytes (>= 2kB)*/
+#ifndef LV_MEM_SIZE
 #  define LV_MEM_SIZE    (32U * 1024U)
-
+#endif
 /* Compiler prefix for a big array declaration */
+#ifndef LV_MEM_ATTR
 #  define LV_MEM_ATTR
-
+#endif
 /* Set an address for the memory pool instead of allocating it as an array.
  * Can be in external SRAM too. */
+#ifndef LV_MEM_ADR
 #  define LV_MEM_ADR          0
+#endif
 
 /* Automatically defrag. on free. Defrag. means joining the adjacent free cells. */
 #  define LV_MEM_AUTO_DEFRAG  1

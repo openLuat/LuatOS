@@ -236,14 +236,16 @@ _after_head:
     //fs->ptrpos = initpos;
 
     int fail = 0;
+    uint8_t type = 0;
+    uint32_t len = 0;
     // 读取每个文件的头部
     for (size_t i = 0; i < filecount; i++)
     {
         
         LLOGD("LuaDB check files .... %d", i+1);
         
-        int type = ptr[index++];
-        int len = ptr[index++];
+        type = ptr[index++];
+        len = ptr[index++];
         if (type != 1 || len != 4) {
             LLOGD("bad file data 1 : %d %d %d", type, len, index);
             fail = 1;

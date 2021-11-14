@@ -94,10 +94,10 @@ static void lodepng_free(void* ptr) {
 // void* lodepng_malloc(size_t size);
 // void* lodepng_realloc(void* ptr, size_t new_size);
 // void lodepng_free(void* ptr);
-#include "luat_malloc.h"
-#define lodepng_malloc luat_heap_malloc
-#define lodepng_realloc luat_heap_realloc
-#define lodepng_free luat_heap_free
+#include "lvgl.h"
+#define lodepng_malloc lv_mem_alloc
+#define lodepng_realloc lv_mem_realloc
+#define lodepng_free lv_mem_free
 #endif /*LODEPNG_COMPILE_ALLOCATORS*/
 
 /* convince the compiler to inline a function, for use when this measurably improves performance */

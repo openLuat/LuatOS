@@ -964,6 +964,40 @@ static int l_lcd_set_default(lua_State *L) {
     return 1;
 }
 
+static int l_lcd_get_default(lua_State *L) {
+    if (default_conf == NULL)
+      return 0;
+    lua_pushlightuserdata(L, default_conf);
+    return 1;
+}
+
+/*
+获取屏幕尺寸
+@api lcd.getSize()
+@return int 宽, 如果未初始化会返回0
+@return int 高, 如果未初始化会返回0
+@usage
+log.info("lcd", "size", lcd.getSize())
+*/
+static int l_lcd_get_size(lua_State *L) {
+  if (lua_gettop(L) == 1) {
+    luat_lcd_conf_t * conf = lua_touserdata(L, 1);
+    if (conf) {
+      lua_pushinteger(L, conf->w);
+      lua_pushinteger(L, conf->h);
+    }
+  }
+  if (default_conf == NULL) {
+    lua_pushinteger(L, 0);
+    lua_pushinteger(L, 0);
+  }
+  else {
+    lua_pushinteger(L, default_conf->w);
+    lua_pushinteger(L, default_conf->h);
+  }
+  return 2;
+}
+
 #include "rotable.h"
 static const rotable_Reg reg_lcd[] =
 {
@@ -984,6 +1018,8 @@ static const rotable_Reg reg_lcd[] =
     { "drawStr",      l_lcd_draw_str,       0},
     { "setFont", l_lcd_set_font, 0},
     { "setDefault", l_lcd_set_default, 0},
+    { "getDefault", l_lcd_get_default, 0},
+    { "getSize",    l_lcd_get_size, 0},
 #ifdef LUAT_USE_GTFONT
     { "drawGtfontGb2312", l_lcd_draw_gtfont_gb2312, 0},
     { "drawGtfontGb2312Gray", l_lcd_draw_gtfont_gb2312_gray, 0},

@@ -10,6 +10,12 @@ _G.sys = require("sys")
 显示屏为佳显 1.54寸v2,200x200,快刷屏
 硬件接线
 显示屏SPI          --> Air101 SPI0
+
+SPI0
+SPI0_SCK               (PB2)
+SPI0_MISO              (PB3)
+SPI0_MOSI              (PB5)
+
 显示屏 Pin_BUSY        (PB1)
 显示屏 Pin_RES         (PA1)
 显示屏 Pin_DC          (PA4)

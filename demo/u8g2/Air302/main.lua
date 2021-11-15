@@ -12,6 +12,11 @@ VERSION = "1.0.1"
 -- sys库是标配
 _G.sys = require("sys")
 
+--[[
+I2C0
+I2C0_SCL               (PA1)
+I2C0_SDA               (PA4)
+]]
 
 -- 日志TAG, 非必须
 local TAG = "main"

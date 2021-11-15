@@ -7,6 +7,12 @@ VERSION = "1.0.0"
 -- sys库是标配
 _G.sys = require("sys")
 
+--[[
+I2C0
+I2C0_SCL               (PA1)
+I2C0_SDA               (PA4)
+]]
+
 -- 网络灯
 local NETLED = gpio.setup(19, 0)
 

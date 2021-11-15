@@ -12,6 +12,13 @@ log.info("main", PROJECT, VERSION)
 -- sys库是标配
 _G.sys = require("sys")
 
+--[[
+SPI0
+SPI0_SCK               (PB2)
+SPI0_MISO              (PB3)
+SPI0_MOSI              (PB5)
+]]
+
 --添加硬狗防止程序卡死
 wdt.init(15000)--初始化watchdog设置为15s
 sys.timerLoopStart(wdt.feed, 10000)--10s喂一次狗

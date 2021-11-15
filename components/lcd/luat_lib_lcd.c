@@ -847,6 +847,16 @@ static int l_lcd_draw_str(lua_State* L) {
 extern void gtfont_draw_w(unsigned char *pBits,unsigned int x,unsigned int y,unsigned int widt,unsigned int high,int(*point)(void*),void* userdata,int mode);
 extern void gtfont_draw_gray_hz(unsigned char *data,unsigned short x,unsigned short y,unsigned short w ,unsigned short h,unsigned char grade, unsigned char HB_par,int(*point)(void*,uint16_t, uint16_t, uint32_t),void* userdata,int mode);
 
+/*
+使用gtfont显示gb2312字符串
+@api eink.drawGtfontGb2312(str,size,x,y)
+@string str 显示字符串
+@int size 字体大小
+@int x 横坐标
+@int y 竖坐标
+@usage
+eink.drawGtfontGb2312("啊啊啊",32,0,0)
+*/
 static int l_lcd_draw_gtfont_gb2312(lua_State *L) {
     unsigned char buf[128];
 	int len;
@@ -871,6 +881,17 @@ static int l_lcd_draw_gtfont_gb2312(lua_State *L) {
     return 0;
 }
 
+/*
+使用gtfont灰度显示gb2312字符串
+@api eink.drawGtfontGb2312Gray(str,size,gray,x,y)
+@string str 显示字符串
+@int size 字体大小
+@int gray 灰度[1阶/2阶/3阶/4阶]
+@int x 横坐标
+@int y 竖坐标
+@usage
+eink.drawGtfontGb2312Gray("啊啊啊",32,4,0,40)
+*/
 static int l_lcd_draw_gtfont_gb2312_gray(lua_State* L) {
 	unsigned char buf[2048];
 	int len;
@@ -899,6 +920,17 @@ static int l_lcd_draw_gtfont_gb2312_gray(lua_State* L) {
 
 #ifdef LUAT_USE_GTFONT_UTF8
 extern unsigned short unicodetogb2312 ( unsigned short	chr);
+
+/*
+使用gtfont显示UTF8字符串
+@api eink.drawGtfontUtf8(str,size,x,y)
+@string str 显示字符串
+@int size 字体大小
+@int x 横坐标
+@int y 竖坐标
+@usage
+eink.drawGtfontUtf8("啊啊啊",32,0,0)
+*/
 static int l_lcd_draw_gtfont_utf8(lua_State *L) {
     unsigned char buf[128];
     int len;
@@ -924,6 +956,17 @@ static int l_lcd_draw_gtfont_utf8(lua_State *L) {
     return 0;
 }
 
+/*
+使用gtfont灰度显示UTF8字符串
+@api eink.drawGtfontUtf8Gray(str,size,gray,x,y)
+@string str 显示字符串
+@int size 字体大小
+@int gray 灰度[1阶/2阶/3阶/4阶]
+@int x 横坐标
+@int y 竖坐标
+@usage
+eink.drawGtfontUtf8Gray("啊啊啊",32,4,0,40)
+*/
 static int l_lcd_draw_gtfont_utf8_gray(lua_State* L) {
 	unsigned char buf[2048];
 	int len;

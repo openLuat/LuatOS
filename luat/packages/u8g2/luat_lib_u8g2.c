@@ -629,6 +629,148 @@ static int l_u8g2_DrawBitmap(lua_State *L){
     return 1;
 }
 
+
+#ifdef LUAT_USE_GTFONT
+
+#include "GT5SLCD2E_1A.h"
+extern void gtfont_draw_w(unsigned char *pBits,unsigned int x,unsigned int y,unsigned int widt,unsigned int high,int(*point)(void*),void* userdata,int mode);
+extern void gtfont_draw_gray_hz(unsigned char *data,unsigned short x,unsigned short y,unsigned short w ,unsigned short h,unsigned char grade, unsigned char HB_par,int(*point)(void*,uint16_t, uint16_t, uint32_t),void* userdata,int mode);
+
+static int gtfont_u8g2_DrawPixel(u8g2_t *u8g2, uint16_t x, uint16_t y,uint32_t color){
+    u8g2_DrawPixel(u8g2,x, y);
+    return 1;
+}
+
+
+/*
+使用gtfont显示gb2312字符串
+@api u8g2.drawGtfontGb2312(str,size,x,y)
+@string str 显示字符串
+@int size 字体大小
+@int x 横坐标
+@int y 竖坐标
+@usage
+u8g2.drawGtfontGb2312("啊啊啊",32,0,0)
+*/
+static int l_u8g2_draw_gtfont_gb2312(lua_State *L) {
+    unsigned char buf[128];
+	int len;
+	int i = 0;
+	uint8_t strhigh,strlow ;
+	uint16_t str;
+    const char *fontCode = luaL_checklstring(L, 1,&len);
+    unsigned char size = luaL_checkinteger(L, 2);
+	int x = luaL_checkinteger(L, 3);
+	int y = luaL_checkinteger(L, 4);
+	while ( i < len){
+		strhigh = *fontCode;
+		fontCode++;
+		strlow = *fontCode;
+		str = (strhigh<<8)|strlow;
+		fontCode++;
+		get_font(buf, 1, str, size, size, size);
+		gtfont_draw_w(buf , x ,y , size , size,gtfont_u8g2_DrawPixel,u8g2,2);
+		x+=size;
+		i+=2;
+	}
+    return 0;
+}
+
+#ifdef LUAT_USE_GTFONT_UTF8
+extern unsigned short unicodetogb2312 ( unsigned short	chr);
+
+static uint8_t utf8_state;
+static uint16_t encoding;
+static uint16_t utf8_next(uint8_t b)
+{
+  if ( b == 0 )  /* '\n' terminates the string to support the string list procedures */
+    return 0x0ffff; /* end of string detected, pending UTF8 is discarded */
+  if ( utf8_state == 0 )
+  {
+    if ( b >= 0xfc )  /* 6 byte sequence */
+    {
+      utf8_state = 5;
+      b &= 1;
+    }
+    else if ( b >= 0xf8 )
+    {
+      utf8_state = 4;
+      b &= 3;
+    }
+    else if ( b >= 0xf0 )
+    {
+      utf8_state = 3;
+      b &= 7;
+    }
+    else if ( b >= 0xe0 )
+    {
+      utf8_state = 2;
+      b &= 15;
+    }
+    else if ( b >= 0xc0 )
+    {
+      utf8_state = 1;
+      b &= 0x01f;
+    }
+    else
+    {
+      /* do nothing, just use the value as encoding */
+      return b;
+    }
+    encoding = b;
+    return 0x0fffe;
+  }
+  else
+  {
+    utf8_state--;
+    /* The case b < 0x080 (an illegal UTF8 encoding) is not checked here. */
+    encoding<<=6;
+    b &= 0x03f;
+    encoding |= b;
+    if ( utf8_state != 0 )
+      return 0x0fffe; /* nothing to do yet */
+  }
+  return encoding;
+}
+/*
+使用gtfont显示UTF8字符串
+@api u8g2.drawGtfontUtf8(str,size,x,y)
+@string str 显示字符串
+@int size 字体大小
+@int x 横坐标
+@int y 竖坐标
+@usage
+u8g2.drawGtfontUtf8("啊啊啊",32,0,0)
+*/
+static int l_u8g2_draw_gtfont_utf8(lua_State *L) {
+    unsigned char buf[128];
+    int len;
+    int i = 0;
+    uint8_t strhigh,strlow ;
+    uint16_t e,str;
+    const char *fontCode = luaL_checklstring(L, 1,&len);
+    unsigned char size = luaL_checkinteger(L, 2);
+    int x = luaL_checkinteger(L, 3);
+    int y = luaL_checkinteger(L, 4);
+    for(;;){
+        e = utf8_next((uint8_t)*fontCode);
+        if ( e == 0x0ffff )
+        break;
+        fontCode++;
+        if ( e != 0x0fffe ){
+            uint16_t str = unicodetogb2312(e);
+            get_font(buf, 1, str, size, size, size);
+            gtfont_draw_w(buf , x ,y , size , size,gtfont_u8g2_DrawPixel,u8g2,2);
+            x+=size;    
+        }
+    }
+    return 0;
+}
+
+#endif // LUAT_USE_GTFONT_UTF8
+
+#endif // LUAT_USE_GTFONT
+
 #include "rotable.h"
 static const rotable_Reg reg_u8g2[] =
 {
@@ -655,6 +797,12 @@ static const rotable_Reg reg_u8g2[] =
     { "DrawTriangle",    l_u8g2_DrawTriangle,    0},
     { "SetBitmapMode",    l_u8g2_SetBitmapMode,    0},
     { "DrawBitmap",       l_u8g2_DrawBitmap, 0},
+#ifdef LUAT_USE_GTFONT
+    { "drawGtfontGb2312", l_u8g2_draw_gtfont_gb2312, 0},
+#ifdef LUAT_USE_GTFONT_UTF8
+    { "drawGtfontUtf8", l_u8g2_draw_gtfont_utf8, 0},
+#endif // LUAT_USE_GTFONT_UTF8
+#endif // LUAT_USE_GTFONT
     { "font_opposansm8", NULL,       font_opposansm8},
     { "font_opposansm12_chinese", NULL,       font_opposansm12_chinese},
     { "font_unifont_t_symbols", NULL,       font_unifont_t_symbols},

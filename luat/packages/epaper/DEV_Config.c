@@ -37,7 +37,12 @@
 void DEV_SPI_WriteByte(UBYTE value)
 {
     //HAL_SPI_Transmit(&hspi1, &value, 1, 1000);
-    luat_spi_send(econf.spi_id, (const char*)&value, 1);
+    if (econf.port == LUAT_EINK_SPI_DEVICE){
+      luat_spi_device_send((luat_spi_device_t*)(econf.userdata), (const char *)&value, 1);
+    }else{
+        luat_spi_send(econf.spi_id, (const char*)&value, 1);
+    }
+    
 }
 
 int DEV_Module_Init(void)

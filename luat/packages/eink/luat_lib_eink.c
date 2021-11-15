@@ -76,6 +76,7 @@ eink_conf_t econf = {0};
 @return boolean 成功返回true,否则返回false
 */
 static int l_eink_setup(lua_State *L) {
+    int status;
     econf.full_mode = luaL_optinteger(L, 1, 1);
     econf.spi_id = luaL_optinteger(L, 2, 0);
 
@@ -88,25 +89,36 @@ static int l_eink_setup(lua_State *L) {
         lua_pushboolean(L, 1);
         return 0;
     }
+    if (lua_type(L, 7) == LUA_TUSERDATA){
+        LLOGD("luat_spi_device_send");
+        econf.userdata = (luat_spi_device_t*)lua_touserdata(L, 3);
+        econf.port = LUAT_EINK_SPI_DEVICE;
+        luat_gpio_mode(Pin_BUSY, Luat_GPIO_INPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
+        luat_gpio_mode(Pin_RES, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
+        luat_gpio_mode(Pin_DC, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
+        status = 0;
+    }else{
+        LLOGD("luat_spi_send");
+        luat_spi_t spi_config = {0};
+        spi_config.bandrate = 2000000U;//luaL_optinteger(L, 1, 2000000U); // 2000000U
+        spi_config.id = SPI_ID;
+        spi_config.cs = 255; // 默认无
+        spi_config.CPHA = 0; // CPHA0
+        spi_config.CPOL = 0; // CPOL0
+        spi_config.dataw = 8; // 8bit
+        spi_config.bit_dict = 1; // MSB=1, LSB=0
+        spi_config.master = 1; // master=1,slave=0
+        spi_config.mode = 1; // FULL=1, half=0
 
-    luat_spi_t spi_config = {0};
-    spi_config.bandrate = 2000000U;//luaL_optinteger(L, 1, 2000000U); // 2000000U
-    spi_config.id = SPI_ID;
-    spi_config.cs = 255; // 默认无
-    spi_config.CPHA = 0; // CPHA0
-    spi_config.CPOL = 0; // CPOL0
-    spi_config.dataw = 8; // 8bit
-    spi_config.bit_dict = 1; // MSB=1, LSB=0
-    spi_config.master = 1; // master=1,slave=0
-    spi_config.mode = 1; // FULL=1, half=0
+        //LLOGD("setup GPIO for epd");
+        luat_gpio_mode(Pin_BUSY, Luat_GPIO_INPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
+        luat_gpio_mode(Pin_RES, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
+        luat_gpio_mode(Pin_DC, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
+        luat_gpio_mode(Pin_CS, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
 
-    //LLOGD("setup GPIO for epd");
-    luat_gpio_mode(Pin_BUSY, Luat_GPIO_INPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
-    luat_gpio_mode(Pin_RES, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
-    luat_gpio_mode(Pin_DC, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
-    luat_gpio_mode(Pin_CS, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
-
-    int status = luat_spi_setup(&spi_config);
+        status = luat_spi_setup(&spi_config);
+    }
+    
 
     size_t epd_w = 0;
     size_t epd_h = 0;

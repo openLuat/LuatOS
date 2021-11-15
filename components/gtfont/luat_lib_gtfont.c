@@ -10,6 +10,8 @@
 #include "luat_lcd.h"
 #include "luat_malloc.h"
 
+#include "epdpaint.h"
+
 #include "GT5SLCD2E_1A.h"
 #define LUAT_LOG_TAG "gt"
 #include "luat_log.h"
@@ -29,9 +31,11 @@ void gtfont_draw_w(unsigned char *pBits,unsigned int x,unsigned int y,unsigned i
 				if(((temp << k)& 0x80) == 0 ){
 					/* 显示一个像素点 */
 					if (mode == 0)point((luat_lcd_conf_t *)userdata, x+k+(j*8), y+i, 0xFFFF);
+					if (mode == 1)point((Paint *)userdata, x+k+(j*8), y+i, 0xFFFF);
 				}else{
 					/* 显示一个像素点 */
 					if (mode == 0)point((luat_lcd_conf_t *)userdata, x+k+(j*8), y+i, 0x0000);
+					if (mode == 1)point((Paint *)userdata, x+k+(j*8), y+i, 0x0000);
 				}
 			}
 		}
@@ -67,6 +71,7 @@ void gtfont_draw_gray_hz (unsigned char *data,unsigned short x,unsigned short y,
 				c<<=2;
 				if(x<(x_temp+w)){
 					if (mode == 0)point((luat_lcd_conf_t *)userdata,x,y,temp);
+					if (mode == 1)point((Paint *)userdata, x,y,temp);
 				}
 				x++;
 				if(x>=x_temp+(w+7)/8*8) {x=x_temp; y++;}
@@ -99,6 +104,7 @@ void gtfont_draw_gray_hz (unsigned char *data,unsigned short x,unsigned short y,
 				temp =color;
 				if(x<(x_temp+w)){
 					if (mode == 0)point((luat_lcd_conf_t *)userdata,x,y,temp);
+					if (mode == 1)point((Paint *)userdata, x,y,temp);
 				}
 				x++;
 				if(x>=x_temp+(w+7)/8*8) {x=x_temp; y++;}
@@ -120,6 +126,7 @@ void gtfont_draw_gray_hz (unsigned char *data,unsigned short x,unsigned short y,
 				c<<=4;
 				if(x<(x_temp+w)){
 					if (mode == 0)point((luat_lcd_conf_t *)userdata,x,y,temp);
+					if (mode == 1)point((Paint *)userdata, x,y,temp);
 				}
 				x++;
 				if(x>=x_temp+(w+7)/8*8) {x=x_temp; y++;}
@@ -136,8 +143,10 @@ void gtfont_draw_gray_hz (unsigned char *data,unsigned short x,unsigned short y,
 				if(x<(x_temp+w)){
 					if(color == 0x0000 && HB_par == 1){
 						if (mode == 0)point((luat_lcd_conf_t *)userdata,x,y,color);
+						if (mode == 1)point((Paint *)userdata, x,y,color);
 					}else if(HB_par == 0 && color == 0x0000){
 						if (mode == 0)point((luat_lcd_conf_t *)userdata,x,y,~color);
+						if (mode == 1)point((Paint *)userdata, x,y,~color);
 					}
 				}
 				x++;

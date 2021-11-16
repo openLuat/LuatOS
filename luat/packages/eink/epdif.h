@@ -35,14 +35,40 @@
 #define DC_PIN           2
 #define BUSY_PIN         3
 
+#ifndef uint8_t
+typedef unsigned char      uint8_t;
+#endif 
+#ifndef uint16_t
+typedef unsigned short     uint16_t;
+#endif 
+
+typedef struct eink_conf {
+    uint8_t spi_id;
+    uint8_t busy_pin;
+    uint8_t res_pin;
+    uint8_t dc_pin;
+    uint8_t cs_pin;
+    uint8_t full_mode;
+}eink_conf_t;
+
+extern eink_conf_t econf;
+
+/**
+ * e-Paper GPIO
+**/
+#define EPD_RST_PIN     (econf.res_pin)
+#define EPD_DC_PIN      (econf.dc_pin)
+#define EPD_CS_PIN      (econf.cs_pin)
+#define EPD_BUSY_PIN    (econf.busy_pin)
+#define EPD_SPI_ID      (econf.spi_id)
+
 // Pin level definition
 #define LOW             0
 #define HIGH            1
 
 typedef struct {
 //  GPIO_TypeDef* port;
-  int port;
-  int pin;
+  uint8_t port;
 } EPD_Pin;
 
 int  EpdInitCallback(void);

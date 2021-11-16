@@ -69,6 +69,7 @@
 // #define Pin_RES         (7)
 // #define Pin_DC          (9)
 // #define Pin_CS          (16)
+#define LUAT_EINK_SPI_DEVICE 255
 
 typedef struct eink_conf {
     uint8_t spi_id;
@@ -77,6 +78,8 @@ typedef struct eink_conf {
     uint8_t dc_pin;
     uint8_t cs_pin;
     uint8_t full_mode;
+    uint8_t port;
+    void* userdata;
 }eink_conf_t;
 
 extern eink_conf_t econf;

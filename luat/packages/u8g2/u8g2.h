@@ -69,10 +69,7 @@
   Use 16 Bit mode for any display with more than 240 pixel in one 
   direction.
 */
-#ifdef LUAT_USE_LCD
 #define U8G2_16BIT
-#endif
-
 
 /*
   The following macro enables a special check and optimization

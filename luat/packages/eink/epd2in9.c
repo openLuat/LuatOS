@@ -30,10 +30,10 @@
 #include "epdif.h"
 
 int EPD_2IN9F_Init(EPD* epd, const unsigned char* lut) {
-  epd->reset_pin = RST_PIN;
-  epd->dc_pin = DC_PIN;
-  epd->cs_pin = CS_PIN;
-  epd->busy_pin = BUSY_PIN;
+  epd->reset_pin = EPD_RST_PIN;
+  epd->dc_pin = EPD_DC_PIN;
+  epd->cs_pin = EPD_CS_PIN;
+  epd->busy_pin = EPD_BUSY_PIN;
   epd->width = EPD_2IN9F_WIDTH;
   epd->height = EPD_2IN9F_HEIGHT;
   /* this calls the peripheral hardware interface, see epdif */

@@ -180,10 +180,10 @@ static void EPD_1IN54F_partial_out(EPD* epd)
 }
 
 int EPD_1IN54F_Init(EPD* epd, const unsigned char* lut) {
-  epd->reset_pin = RST_PIN;
-  epd->dc_pin = DC_PIN;
-  epd->cs_pin = CS_PIN;
-  epd->busy_pin = BUSY_PIN;
+  epd->reset_pin = EPD_RST_PIN;
+  epd->dc_pin = EPD_DC_PIN;
+  epd->cs_pin = EPD_CS_PIN;
+  epd->busy_pin = EPD_BUSY_PIN;
   epd->width = EPD_1IN54F_WIDTH;
   epd->height = EPD_1IN54F_HEIGHT;
   /* this calls the peripheral hardware interface, see epdif */
@@ -675,10 +675,10 @@ void EPD_1IN54FF_Sleep(void);
 
 static EPD _epd;
 UBYTE EPD_1IN54FF_Init(void) {
-  _epd.busy_pin = BUSY_Pin;
-  _epd.reset_pin = RST_PIN;
-  _epd.dc_pin = DC_PIN;
-  _epd.cs_pin = SPI_CS_Pin;
+  _epd.busy_pin = EPD_BUSY_PIN;
+  _epd.reset_pin = EPD_RST_PIN;
+  _epd.dc_pin = EPD_DC_PIN;
+  _epd.cs_pin = EPD_CS_PIN;
   _epd.width = EPD_1IN54F_WIDTH;
   _epd.height = EPD_1IN54F_HEIGHT;
   LLOGD("EPD_1IN54F_Init");

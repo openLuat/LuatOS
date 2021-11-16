@@ -68,7 +68,7 @@ typedef struct luat_lcd_opts {
 
 int lcd_write_cmd(luat_lcd_conf_t* conf,const uint8_t cmd);
 int lcd_write_data(luat_lcd_conf_t* conf,const uint8_t data);
-int lcd_write_half_word(luat_lcd_conf_t* conf,const uint16_t da);
+int lcd_write_half_word(luat_lcd_conf_t* conf,const uint32_t da);
 
 luat_lcd_conf_t* luat_lcd_get_default(void);
 const char* luat_lcd_name(luat_lcd_conf_t* conf);

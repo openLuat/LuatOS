@@ -44,6 +44,7 @@ int lcd_write_cmd(luat_lcd_conf_t* conf,const uint8_t cmd){
     }else{
         len = luat_spi_send(conf->port, &cmd, 1);
     }
+    luat_gpio_set(conf->pin_dc, Luat_GPIO_HIGH);
     if (len != 1){
         LLOGI("lcd_write_cmd error. %d", len);
         return -1;
@@ -55,7 +56,6 @@ int lcd_write_cmd(luat_lcd_conf_t* conf,const uint8_t cmd){
 
 int lcd_write_data(luat_lcd_conf_t* conf,const uint8_t data){
     size_t len;
-    luat_gpio_set(conf->pin_dc, Luat_GPIO_HIGH);
     if (conf->port == LUAT_LCD_SPI_DEVICE){
         len = luat_spi_device_send((luat_spi_device_t*)(conf->userdata), &data, 1);
     }else{
@@ -69,18 +69,17 @@ int lcd_write_data(luat_lcd_conf_t* conf,const uint8_t data){
     }
 }
 
-int lcd_write_half_word(luat_lcd_conf_t* conf,const uint16_t da){
+int lcd_write_half_word(luat_lcd_conf_t* conf,const uint32_t da){
     size_t len = 0;
-    char data[2] = {0};
-    data[0] = da >> 8;
-    data[1] = da;
-    luat_gpio_set(conf->pin_dc, Luat_GPIO_HIGH);
     if (conf->port == LUAT_LCD_SPI_DEVICE){
-        len = luat_spi_device_send((luat_spi_device_t*)(conf->userdata), data, 2);
+        // len = luat_spi_device_send((luat_spi_device_t*)(conf->userdata), da >> 16, 1);
+        len = luat_spi_device_send((luat_spi_device_t*)(conf->userdata), da >> 8, 1);
+        len = luat_spi_device_send((luat_spi_device_t*)(conf->userdata), da, 1);
     }else{
-        len = luat_spi_send(conf->port, data, 2);
+        len = luat_spi_send(conf->port, da >> 8, 1);
+        len = luat_spi_send(conf->port, da, 1);
     }
-    if (len != 2){
+    if (len != 1){
         LLOGI("lcd_write_half_word error. %d", len);
         return -1;
     }else{
@@ -141,42 +140,17 @@ int luat_lcd_wakeup(luat_lcd_conf_t* conf) {
 }
 
 int luat_lcd_set_address(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2) {
-    if(conf->direction==0){
         lcd_write_cmd(conf,0x2a);
-        lcd_write_half_word(conf,x1+conf->xoffset);
-        lcd_write_half_word(conf,x2+conf->xoffset);
+        lcd_write_data(conf,(x1+conf->xoffset)>>8);
+        lcd_write_data(conf,x1+conf->xoffset);
+        lcd_write_data(conf,(x2+conf->xoffset)>>8);
+        lcd_write_data(conf,x2+conf->xoffset);
         lcd_write_cmd(conf,0x2b);
-        lcd_write_half_word(conf,y1+conf->yoffset);
-        lcd_write_half_word(conf,y2+conf->yoffset);
+        lcd_write_data(conf,(y1+conf->yoffset)>>8);
+        lcd_write_data(conf,y1+conf->yoffset);
+        lcd_write_data(conf,(y2+conf->yoffset)>>8);
+        lcd_write_data(conf,y2+conf->yoffset);
         lcd_write_cmd(conf,0x2C);
-    }
-    else if(conf->direction==1){
-        lcd_write_cmd(conf,0x2a);
-        lcd_write_half_word(conf,x1+conf->xoffset);
-        lcd_write_half_word(conf,x2+conf->xoffset);
-        lcd_write_cmd(conf,0x2b);
-        lcd_write_half_word(conf,y1+conf->yoffset);
-        lcd_write_half_word(conf,y2+conf->yoffset);
-        lcd_write_cmd(conf,0x2C);
-    }
-    else if(conf->direction==2){
-        lcd_write_cmd(conf,0x2a);
-        lcd_write_half_word(conf,x1+conf->xoffset);
-        lcd_write_half_word(conf,x2+conf->xoffset);
-        lcd_write_cmd(conf,0x2b);
-        lcd_write_half_word(conf,y1+conf->yoffset);
-        lcd_write_half_word(conf,y2+conf->yoffset);
-        lcd_write_cmd(conf,0x2C);
-    }
-    else{
-        lcd_write_cmd(conf,0x2a);
-        lcd_write_half_word(conf,x1+conf->xoffset);
-        lcd_write_half_word(conf,x2+conf->xoffset);
-        lcd_write_cmd(conf,0x2b);
-        lcd_write_half_word(conf,y1+conf->yoffset);
-        lcd_write_half_word(conf,y2+conf->yoffset);
-        lcd_write_cmd(conf,0x2C);
-    }
     return 0;
 }
 

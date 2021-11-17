@@ -29,7 +29,8 @@ LuatOS大QQ群: 1061642968
 
 使用Luatools下载, 版本 2.1.37 以上, 越新越好
 
-## 模块购买
+## 样品购买
 
 手机访问: mall.m.openluat.com
+淘宝: openluat.taobao.com
 

@@ -60,6 +60,11 @@ gpio.setup(1, function(val) print("PA1 L",val) if lcd then lcd.fill(0,40,160,80)
 gpio.setup(27, function(val) print("PB11 D",val) if lcd then lcd.fill(0,40,160,80) if  val == 0 then lcd.drawStr(50,60,"D down",0x07E0) end end end, gpio.PULLUP)
 
 
+function decodeURI(s)
+    s = string.gsub(s, '%%(%x%x)', function(h) return string.char(tonumber(h, 16)) end)
+    return s
+end
+
 -- 注册一个命令列表
 cmds = {
     -- 控制led的命令
@@ -80,7 +85,7 @@ cmds = {
     -- 显示屏输出内容的命令
     display = function(text)
         lcd.fill(0, 20, 160, 36)
-        lcd.drawStr(50 , 35, text ,0x001F)
+        lcd.drawStr(50 , 35, decodeURI(text) ,0x001F)
     end,
 }
 

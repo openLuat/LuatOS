@@ -71,15 +71,15 @@ int lcd_write_data(luat_lcd_conf_t* conf,const uint8_t data){
 
 int lcd_write_half_word(luat_lcd_conf_t* conf,const uint32_t da){
     size_t len = 0;
+    char data[2] = {0};
+    data[0] = da >> 8;
+    data[1] = da;
     if (conf->port == LUAT_LCD_SPI_DEVICE){
-        // len = luat_spi_device_send((luat_spi_device_t*)(conf->userdata), da >> 16, 1);
-        len = luat_spi_device_send((luat_spi_device_t*)(conf->userdata), da >> 8, 1);
-        len = luat_spi_device_send((luat_spi_device_t*)(conf->userdata), da, 1);
+        len = luat_spi_device_send((luat_spi_device_t*)(conf->userdata), data, 2);
     }else{
-        len = luat_spi_send(conf->port, da >> 8, 1);
-        len = luat_spi_send(conf->port, da, 1);
+        len = luat_spi_send(conf->port, data, 2);
     }
-    if (len != 1){
+    if (len != 2){
         LLOGI("lcd_write_half_word error. %d", len);
         return -1;
     }else{

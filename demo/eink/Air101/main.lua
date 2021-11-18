@@ -37,6 +37,7 @@ function eink154_update()
     eink.show()
 end
 
+sys.taskInit(function()
     eink.model(eink.MODEL_1in54_V2)
     eink.setup(1, 0,17,1,4,20)
     eink.setWin(200, 200, 0)
@@ -49,5 +50,6 @@ end
         log.info("e-paper 1.54", "Testing End\r\n")
         sys.wait(5000) -- 3秒刷新一次
     end
+end)
 
 sys.run()

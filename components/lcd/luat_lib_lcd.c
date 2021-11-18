@@ -40,6 +40,7 @@ extern const luat_lcd_opts_t lcd_opts_gc9a01;
 extern const luat_lcd_opts_t lcd_opts_gc9106l;
 extern const luat_lcd_opts_t lcd_opts_gc9306;
 extern const luat_lcd_opts_t lcd_opts_ili9341;
+extern const luat_lcd_opts_t lcd_opts_ili9488;
 extern const luat_lcd_opts_t lcd_opts_custom;
 
 static luat_lcd_conf_t *default_conf = NULL;
@@ -69,8 +70,9 @@ static int l_lcd_init(lua_State* L) {
     const char* tp = luaL_checklstring(L, 1, &len);
     if (!strcmp("st7735", tp) || !strcmp("st7789", tp) || !strcmp("st7735s", tp)
             || !strcmp("gc9a01", tp)  || !strcmp("gc9106l", tp)
-            || !strcmp("gc9306", tp)  || !strcmp("ili9341", tp)
+            || !strcmp("gc9306", tp)  || !strcmp("ili9341", tp)  || !strcmp("ili9488", tp)
             || !strcmp("custom", tp)) {
+              LLOGD("ic support: %s",tp);
         if (lua_gettop(L) > 1) {
             lua_settop(L, 2); // 丢弃多余的参数
 
@@ -151,6 +153,8 @@ static int l_lcd_init(lua_State* L) {
             conf->opts = (luat_lcd_opts_t*)&lcd_opts_gc9306;
         else if (!strcmp("ili9341", tp))
             conf->opts = (luat_lcd_opts_t*)&lcd_opts_ili9341;
+        else if (!strcmp("ili9488", tp))
+            conf->opts = (luat_lcd_opts_t*)&lcd_opts_ili9488;
         else if (!strcmp("custom", tp)) {
             conf->opts = (luat_lcd_opts_t*)&lcd_opts_custom;
             luat_lcd_custom_t *cst = luat_heap_malloc(sizeof(luat_lcd_custom_t));
@@ -187,6 +191,7 @@ static int l_lcd_init(lua_State* L) {
         // lua_pushlightuserdata(L, conf);
         return 1;
     }
+    LLOGE("ic not support: %s",tp);
 end:
     lua_pushboolean(L, 0);
     luat_heap_free(conf);
@@ -849,13 +854,13 @@ extern void gtfont_draw_gray_hz(unsigned char *data,unsigned short x,unsigned sh
 
 /*
 使用gtfont显示gb2312字符串
-@api eink.drawGtfontGb2312(str,size,x,y)
+@api lcd.drawGtfontGb2312(str,size,x,y)
 @string str 显示字符串
 @int size 字体大小
 @int x 横坐标
 @int y 竖坐标
 @usage
-eink.drawGtfontGb2312("啊啊啊",32,0,0)
+lcd.drawGtfontGb2312("啊啊啊",32,0,0)
 */
 static int l_lcd_draw_gtfont_gb2312(lua_State *L) {
     unsigned char buf[128];
@@ -883,14 +888,14 @@ static int l_lcd_draw_gtfont_gb2312(lua_State *L) {
 
 /*
 使用gtfont灰度显示gb2312字符串
-@api eink.drawGtfontGb2312Gray(str,size,gray,x,y)
+@api lcd.drawGtfontGb2312Gray(str,size,gray,x,y)
 @string str 显示字符串
 @int size 字体大小
 @int gray 灰度[1阶/2阶/3阶/4阶]
 @int x 横坐标
 @int y 竖坐标
 @usage
-eink.drawGtfontGb2312Gray("啊啊啊",32,4,0,40)
+lcd.drawGtfontGb2312Gray("啊啊啊",32,4,0,40)
 */
 static int l_lcd_draw_gtfont_gb2312_gray(lua_State* L) {
 	unsigned char buf[2048];
@@ -923,13 +928,13 @@ extern unsigned short unicodetogb2312 ( unsigned short	chr);
 
 /*
 使用gtfont显示UTF8字符串
-@api eink.drawGtfontUtf8(str,size,x,y)
+@api lcd.drawGtfontUtf8(str,size,x,y)
 @string str 显示字符串
 @int size 字体大小
 @int x 横坐标
 @int y 竖坐标
 @usage
-eink.drawGtfontUtf8("啊啊啊",32,0,0)
+lcd.drawGtfontUtf8("啊啊啊",32,0,0)
 */
 static int l_lcd_draw_gtfont_utf8(lua_State *L) {
     unsigned char buf[128];
@@ -958,14 +963,14 @@ static int l_lcd_draw_gtfont_utf8(lua_State *L) {
 
 /*
 使用gtfont灰度显示UTF8字符串
-@api eink.drawGtfontUtf8Gray(str,size,gray,x,y)
+@api lcd.drawGtfontUtf8Gray(str,size,gray,x,y)
 @string str 显示字符串
 @int size 字体大小
 @int gray 灰度[1阶/2阶/3阶/4阶]
 @int x 横坐标
 @int y 竖坐标
 @usage
-eink.drawGtfontUtf8Gray("啊啊啊",32,4,0,40)
+lcd.drawGtfontUtf8Gray("啊啊啊",32,4,0,40)
 */
 static int l_lcd_draw_gtfont_utf8_gray(lua_State* L) {
 	unsigned char buf[2048];

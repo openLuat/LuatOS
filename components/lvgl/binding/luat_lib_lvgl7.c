@@ -4,9 +4,14 @@
 #include "luat_malloc.h"
 #include "luat_zbuff.h"
 
+typedef struct luat_lv {
+    lv_disp_t* disp;
+    lv_disp_buf_t disp_buf;
+    int buff_ref;
+    int buff2_ref;
+}luat_lv_t;
 
-static lv_disp_t* my_disp = NULL;
-static lv_disp_buf_t my_disp_buff = {0};
+static luat_lv_t LV = {0};
 //static lv_disp_drv_t my_disp_drv;
 
 #if !defined (LUA_USE_WINDOWS) && !defined (LUA_USE_LINUX)
@@ -30,8 +35,18 @@ extern uint32_t WINDOW_HOR_RES;
 extern uint32_t WINDOW_VER_RES;
 #endif
 
+/**
+初始化LVGL
+@api lvgl.init(w, h, lcd, buff_mode)
+@int 屏幕宽,可选,默认从lcd取
+@int 屏幕高,可选,默认从lcd取
+@userdata lcd指针,可选,lcd初始化后有默认值,预留的多屏入口
+@int 缓冲区大小,默认宽*10, 不含色深.
+@int 缓冲模式,默认0, 单buff模式, 可选1,双buff模式
+@return bool 成功返回true,否则返回false
+ */
 int luat_lv_init(lua_State *L) {
-    if (my_disp != NULL) {
+    if (LV.disp != NULL) {
         lua_pushboolean(L, 0);
         return 1;
     }
@@ -49,28 +64,60 @@ int luat_lv_init(lua_State *L) {
     lua_pushboolean(L, 1);
     return 1;
     #else
-    lcd_conf = luat_lcd_get_default();
-    if (lcd_conf == NULL)
+    
+    if (lua_isuserdata(L, 3)) {
+        lcd_conf = lua_touserdata(L, 3);
+    }
+    else {
+        lcd_conf = luat_lcd_get_default();
+    }
+    if (lcd_conf == NULL) {
+        LLOGE("setup lcd first!!");
         return 0;
+    }
     lv_color_t *fbuffer = NULL;
+    lv_color_t *fbuffer2 = NULL;
     size_t fbuff_size = 0;
+    bool buffmode = 0;
 
     int w = luaL_optinteger(L, 1, lcd_conf->w);
     int h = luaL_optinteger(L, 2, lcd_conf->h);
 
-    fbuff_size = w * 10;
-
-    LLOGD("w %d h %d buff %d", w, h, fbuff_size);
-
-    if (lua_isuserdata(L, 3)) {
-        luat_zbuff_t *zbuff = tozbuff(L);
-        fbuffer = (lv_color_t *)zbuff->addr;
-        fbuff_size = zbuff->len / sizeof(lv_color_t);
+    if (lua_isinteger(L, 4)) {
+        fbuff_size = luaL_checkinteger(L, 4);
+        if (fbuff_size < w*10)
+            fbuff_size = w * 10;
     }
     else {
-        fbuffer = luat_heap_malloc(fbuff_size * sizeof(lv_color_t));
+        fbuff_size = w * 10;
     }
-    lv_disp_buf_init(&my_disp_buff, fbuffer, NULL, fbuff_size);
+
+    if (lua_isinteger(L, 5)) {
+        buffmode = luaL_checkinteger(L, 5);
+        if (buffmode < 0)
+            buffmode == 0;
+    }
+
+    LLOGD("w %d h %d buff %d mode %d", w, h, fbuff_size, buffmode);
+
+    fbuffer = lua_newuserdata(L, fbuff_size * sizeof(lv_color_t));
+    if (fbuffer == NULL) {
+        LLOGD("not enough memory");
+        return 0;
+    }
+    if (buffmode & 0x01) {
+        fbuffer2 = lua_newuserdata(L, fbuff_size * sizeof(lv_color_t));
+        if (fbuffer2 == NULL) {
+            LLOGD("not enough memory");
+            return 0;
+        }
+    }
+    // 引用即弹出
+    if (fbuffer2)
+        LV.buff2_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    LV.buff_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+
+    lv_disp_buf_init(&LV.disp_buf, fbuffer, fbuffer2, fbuff_size);
 
     lv_disp_drv_t my_disp_drv;
     lv_disp_drv_init(&my_disp_drv);
@@ -79,11 +126,11 @@ int luat_lv_init(lua_State *L) {
 
     my_disp_drv.hor_res = w;
     my_disp_drv.ver_res = h;
-    my_disp_drv.buffer = &my_disp_buff;
+    my_disp_drv.buffer = &LV.disp_buf;
     //LLOGD(">>%s %d", __func__, __LINE__);
-    my_disp = lv_disp_drv_register(&my_disp_drv);
+    LV.disp = lv_disp_drv_register(&my_disp_drv);
     //LLOGD(">>%s %d", __func__, __LINE__);
-    lua_pushboolean(L, my_disp != NULL ? 1 : 0);
+    lua_pushboolean(L, LV.disp != NULL ? 1 : 0);
     //LLOGD(">>%s %d", __func__, __LINE__);
     return 1;
     #endif

@@ -646,7 +646,7 @@ static int gtfont_u8g2_DrawPixel(u8g2_t *u8g2, uint16_t x, uint16_t y,uint32_t c
 使用gtfont显示gb2312字符串
 @api u8g2.drawGtfontGb2312(str,size,x,y)
 @string str 显示字符串
-@int size 字体大小
+@int size 字体大小 (支持16-192号大小字体)
 @int x 横坐标
 @int y 竖坐标
 @usage
@@ -736,7 +736,7 @@ static uint16_t utf8_next(uint8_t b)
 使用gtfont显示UTF8字符串
 @api u8g2.drawGtfontUtf8(str,size,x,y)
 @string str 显示字符串
-@int size 字体大小
+@int size 字体大小 (支持16-192号大小字体)
 @int x 横坐标
 @int y 竖坐标
 @usage

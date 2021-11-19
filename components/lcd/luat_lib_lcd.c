@@ -856,7 +856,7 @@ extern void gtfont_draw_gray_hz(unsigned char *data,unsigned short x,unsigned sh
 使用gtfont显示gb2312字符串
 @api lcd.drawGtfontGb2312(str,size,x,y)
 @string str 显示字符串
-@int size 字体大小
+@int size 字体大小 (支持16-192号大小字体)
 @int x 横坐标
 @int y 竖坐标
 @usage
@@ -890,7 +890,7 @@ static int l_lcd_draw_gtfont_gb2312(lua_State *L) {
 使用gtfont灰度显示gb2312字符串
 @api lcd.drawGtfontGb2312Gray(str,size,gray,x,y)
 @string str 显示字符串
-@int size 字体大小
+@int size 字体大小 (支持16-192号大小字体)
 @int gray 灰度[1阶/2阶/3阶/4阶]
 @int x 横坐标
 @int y 竖坐标
@@ -930,7 +930,7 @@ extern unsigned short unicodetogb2312 ( unsigned short	chr);
 使用gtfont显示UTF8字符串
 @api lcd.drawGtfontUtf8(str,size,x,y)
 @string str 显示字符串
-@int size 字体大小
+@int size 字体大小 (支持16-192号大小字体)
 @int x 横坐标
 @int y 竖坐标
 @usage
@@ -965,7 +965,7 @@ static int l_lcd_draw_gtfont_utf8(lua_State *L) {
 使用gtfont灰度显示UTF8字符串
 @api lcd.drawGtfontUtf8Gray(str,size,gray,x,y)
 @string str 显示字符串
-@int size 字体大小
+@int size 字体大小 (支持16-192号大小字体)
 @int gray 灰度[1阶/2阶/3阶/4阶]
 @int x 横坐标
 @int y 竖坐标

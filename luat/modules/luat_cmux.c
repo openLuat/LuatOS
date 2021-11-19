@@ -106,9 +106,11 @@ void luat_cmux_read(unsigned char* buff,size_t len){
                     luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,send_buff, strlen(send_buff));
                     luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r", 3);
                 }else if (strncmp("AT+LUAFLASHSIZE?", data,16) == 0){
-                    sprintf(send_buff, "+LUAFLASHSIZE: 0X%x\r",FLASH_FS_REGION_SIZE);
-                    luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,send_buff, strlen(send_buff));
-                    luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r", 3);
+                    #ifdef FLASH_FS_REGION_SIZE
+                        sprintf(send_buff, "+LUAFLASHSIZE: 0X%x\r",FLASH_FS_REGION_SIZE);
+                        luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,send_buff, strlen(send_buff));
+                        luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r", 3);
+                    #endif
                 }else if (strncmp("AT+RESET", data,8) == 0){
                     luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r", 3);
                     luat_os_reboot(0);

@@ -22,8 +22,8 @@
 
 /* Maximal horizontal and vertical resolution to support by the library.*/
 #ifndef LV_HOR_RES_MAX
-#define LV_HOR_RES_MAX          (1280)
-#define LV_VER_RES_MAX          (720)
+#define LV_HOR_RES_MAX          (1024)
+#define LV_VER_RES_MAX          (600)
 #endif
 
 /* Color depth:
@@ -346,7 +346,7 @@ typedef void * lv_indev_drv_user_data_t;            /*Type of user data in the i
  *===============*/
 
 /*1: Enable the log module*/
-#define LV_USE_LOG      0
+#define LV_USE_LOG      1
 #if LV_USE_LOG
 /* How important log should be added:
  * LV_LOG_LEVEL_TRACE       A lot of logs to give detailed information

@@ -9,6 +9,9 @@
 #include "luat_msgbus.h"
 #include "luat_lvgl.h"
 
+#define LUAT_LOG_TAG "lvgl"
+#include "luat_log.h"
+
 //---------------------------------
 // 几个快捷方法
 //---------------------------------
@@ -235,10 +238,33 @@ LUAT_LV_ENMU_RLT
 {NULL, NULL, 0},
 };
 
-
-
+#if (LV_USE_LOG && LV_LOG_PRINTF == 0)
+static void lv_log_print(lv_log_level_t level, const char * file, uint32_t lineno, const char * func, const char * desc) {
+    switch (level)
+    {
+    case LV_LOG_LEVEL_TRACE:
+        LLOGD("%s:%d - %s - %s", file, lineno, func, desc);
+        break;
+    case LV_LOG_LEVEL_INFO:
+        LLOGI("%s:%d - %s - %s", file, lineno, func, desc);
+        break;
+    case LV_LOG_LEVEL_WARN:
+        LLOGW("%s:%d - %s - %s", file, lineno, func, desc);
+        break;
+    case LV_LOG_LEVEL_ERROR:
+        LLOGE("%s:%d - %s - %s", file, lineno, func, desc);
+        break;
+    default:
+        LLOGD("%s:%d - %s - %s", file, lineno, func, desc);
+        break;
+    }
+};
+#endif
 
 LUAMOD_API int luaopen_lvgl( lua_State *L ) {
+    #if (LV_USE_LOG && LV_LOG_PRINTF == 0)
+    lv_log_register_print_cb(lv_log_print);
+    #endif
     luat_newlib(L, reg_lvgl);
     luat_lvgl_struct_init(L);
     return 1;

@@ -127,6 +127,42 @@ void luat_cmux_read(unsigned char* buff,size_t len){
         }else if (CMUX_ADDRESS_DLC(buff)==LUAT_CMUX_CH_DBG){
             if (CMUX_CONTROL_ISSABM(buff)){
                 luat_cmux_write(LUAT_CMUX_CH_DBG,  CMUX_FRAME_UA & ~ CMUX_CONTROL_PF,NULL, 0);
+            }else if(CMUX_CONTROL_ISUIH(buff)){
+                char send_buff[128] = {0};
+                unsigned char *data = (unsigned char *)luat_heap_malloc(buff[3]>>1);
+                memcpy(data, buff+4, buff[3]>>1);
+                if (strcmp("dbg",strtok(data, " ")) == 0){
+                    char *command = strtok(NULL, " ");
+                    if (strcmp("start",command) == 0){
+
+                    }else if(strcmp("continue",command) == 0){
+                        
+                    }else if(strcmp("next",command) == 0){
+                        
+                    }else if(strcmp("stepIn",command) == 0){
+                        
+                    }else if(strcmp("stepOut",command) == 0){
+                        
+                    }else if(strcmp("bt",command) == 0){
+                        
+                    }else if(strcmp("vars",command) == 0){
+                        
+                    }else if(strcmp("gvars",command) == 0){
+                        
+                    }else if(strcmp("break",command) == 0){
+                        char *sub_command = strtok(NULL, " ");
+                        if (strcmp("clr",sub_command) == 0){
+                            luat_dbg_breakpoint_clear(strtok(NULL, " "));
+                        }else if (strcmp("add",sub_command) == 0){
+                            luat_dbg_breakpoint_add(strtok(NULL, " "),strtok(NULL, " "));
+                        }else if (strcmp("del",sub_command) == 0){
+                            luat_dbg_breakpoint_clear(strtok(NULL, " "),strtok(NULL, " "));
+                        }
+                    }else {
+
+                    }
+                }
+                luat_heap_free(data);
             }
         }
     }

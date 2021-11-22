@@ -18,6 +18,8 @@ LuatOS cmux
 #include "luat_str.h"
 #include "luat_cmux.h"
 
+#include "luat_dbg.h"
+
 extern uint8_t cmux_state;
 
 const uint8_t cmux_crctable[256] = {
@@ -134,19 +136,29 @@ void luat_cmux_read(unsigned char* buff,size_t len){
                 if (strcmp("dbg",strtok(data, " ")) == 0){
                     char *command = strtok(NULL, " ");
                     if (strcmp("start",command) == 0){
-
+                        luat_dbg_set_hook_state(2);
                     }else if(strcmp("continue",command) == 0){
-                        
-                    }else if(strcmp("next",command) == 0){
-                        
-                    }else if(strcmp("stepIn",command) == 0){
-                        
-                    }else if(strcmp("stepOut",command) == 0){
-                        
+                        luat_dbg_set_hook_state(2);
+                    }else if(strcmp("next",command) == 0 || strcmp("step",command) == 0){
+                        luat_dbg_set_hook_state(4);
+                    }else if(strcmp("stepIn",command) == 0 || strcmp("stepin",command) == 0){
+                        luat_dbg_set_hook_state(5);
+                    }else if(strcmp("stepOut",command) == 0 || strcmp("stepout",command) == 0){
+                        luat_dbg_set_hook_state(6);
                     }else if(strcmp("bt",command) == 0){
-                        
+                        char *params = strtok(NULL, " ");
+                        if (params != NULL){
+                            luat_dbg_set_runcb(luat_dbg_backtrace, (void*)atoi(params));
+                        }else{
+                            luat_dbg_set_runcb(luat_dbg_backtrace, (void*)-1);
+                        }
                     }else if(strcmp("vars",command) == 0){
-                        
+                        char *params = strtok(NULL, " ");
+                        if (params != NULL){
+                            luat_dbg_set_runcb(luat_dbg_vars, (void*)atoi(params));
+                        }else{
+                            luat_dbg_set_runcb(luat_dbg_vars, (void*)0);
+                        }
                     }else if(strcmp("gvars",command) == 0){
                         
                     }else if(strcmp("break",command) == 0){
@@ -154,9 +166,14 @@ void luat_cmux_read(unsigned char* buff,size_t len){
                         if (strcmp("clr",sub_command) == 0){
                             luat_dbg_breakpoint_clear(strtok(NULL, " "));
                         }else if (strcmp("add",sub_command) == 0){
-                            luat_dbg_breakpoint_add(strtok(NULL, " "),strtok(NULL, " "));
+                            luat_dbg_breakpoint_add(strtok(NULL, " "),atoi(strtok(NULL, " ")));
                         }else if (strcmp("del",sub_command) == 0){
-                            luat_dbg_breakpoint_clear(strtok(NULL, " "),strtok(NULL, " "));
+                            char *params = strtok(NULL, " ");
+                            if (params != NULL){
+                                luat_dbg_breakpoint_clear(params);
+                            }else{
+                                luat_dbg_breakpoint_clear(NULL);
+                            }
                         }
                     }else {
 

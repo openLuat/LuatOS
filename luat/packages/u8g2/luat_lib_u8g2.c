@@ -609,7 +609,7 @@ static int l_u8g2_SetBitmapMode(lua_State *L){
 @int X坐标
 @int y坐标
 @int 行数
-@int 位图数据,每一位代表一个字节
+@int 位图数据,每一位代表一个像素
 @usage
 -- 在(10,10)为左上角,绘制 10x4 的位图
 u8g2.DrawBitmapMode(10, 10, 10, string.char(0x20, 0xFF, 0xFF, 0xAF, 0xDE))

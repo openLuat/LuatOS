@@ -57,8 +57,8 @@ sys.run()
 ----------------------------------------------------------------------------------
 ## 资源
 
-* [Air101资料汇总](https://luatos.com/t/air101)
-* [Air103资料汇总](https://luatos.com/t/air103)
+* [Air101资料汇总](https://luatos.com/t/air101) 合宙Air101, 4mm*4mm的MCU
+* [Air103资料汇总](https://luatos.com/t/air103) 合宙Air103, 6mm*6mm的MCU
 * [LuatOS-SoC官网](https://www.luatos.com/) 官网及IoT平台
 * [wiki](https://wiki.luatos.com) 知识库,有你想要的文档
 * [Lua API文档](https://wiki.luatos.com)) LuatOS的Lua API文档
@@ -66,12 +66,14 @@ sys.run()
 * [Lua 5.3中文手册](https://www.runoob.com/manual/lua53doc/) 官方手册的中文版
 * [合宙官网](http://www.openluat.com) 一家有理想的物联网公司
 * [合宙商城](http://mall.m.openluat.com) 合宙官方商城(微信)
+* [合宙商城](http://openluat.taobao.com) 合宙官方商城(淘宝)
 * [联盛德W600/合宙Air640W专属说明](bsp/air640w/README.md) wifi模块,便宜,耐操
 * [合宙Air302专属说明](bsp/air302/README.md) NB-IOT模块,二次开发的首选
 * [如何编译-Wifi固件](bsp/air640w/userdoc/how_to_build.md) 自行编译wifi模块
 * [如何编译-NBIOT固件](bsp/air302/userdoc/build_from_sdk.md) 自行编译nbiot模块
 * [收发16进制数据](http://doc.openluat.com/article/583/0) 二进制数据随意收发
 * [luat训练营直播回放汇总贴子(第一期)](https://yajs666.gitee.io/2021/02/03/luat%E8%AE%AD%E7%BB%83%E8%90%A5/)
+* [Kicad封装库](https://gitee.com/openLuat/kicad-symbols-libraries)
 
 ----------------------------------------------------------------------------------
 
@@ -100,7 +102,6 @@ sys.run()
 ## 更多项目
 
 * [iRTU](https://gitee.com/hotdll/iRTU) 开源DTU/RTU解决方案
-* [Luat_CSDK_Air724U](https://gitee.com/openLuat/Luat_CSDK_Air724U) 市面上最畅销的4G Cat.1模块的C语言开发包
 * [Luat_Lua_Air724U](https://gitee.com/openLuat/Luat_Lua_Air724U) 市面上最畅销的4G Cat.1模块的Luat固件
 * [llcom](https://github.com/chenxuuu/llcom) 可运行lua脚本的高自由度串口调试工具
 * [irtu-gps](https://gitee.com/wendal/irtu-gps) 基于iRTU项目,实现GPS数据的接收和展示

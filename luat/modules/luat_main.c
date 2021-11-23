@@ -43,7 +43,10 @@ void stopboot(void) {
 
 int luat_search_module(const char* name, char* filename);
 void luat_os_print_heapinfo(const char* tag);
-
+void luat_force_gc_all(void)
+{
+	lua_gc(L, LUA_GCCOLLECT, 0);
+}
 int luat_main_demo() { // 这是验证LuatVM最基础的消息/定时器/Task机制是否正常
   return luaL_dostring(L, "local sys = require \"sys\"\n"
                           "log.info(\"main\", os.date())\n"

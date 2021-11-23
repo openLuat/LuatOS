@@ -192,13 +192,14 @@ def handle_groups(group, path):
         if not name.endswith(".h"):
             continue
         if name in ["lv_obj_style_gen.h", "lv_async.h", "lv_fs.h", "lv_log.h", "lv_mem.h",
-                    "lv_printf.h", "lv_style_gen.h", "lv_timer.h", "lv_indev.h", "lv_img_decoder.h", "lv_img_cache.h", "lv_img_buf.h"]:
+                    "lv_printf.h", "lv_style_gen.h", "lv_timer.h", "lv_indev.h", "lv_img_decoder.h", "lv_img_cache.h", "lv_img_buf.h",
+                    "lv_task.h", "lv_debug.h"]:
             continue
         if name.startswith("lv_draw_") :
             continue
         try :
             #print(">>>>>>>>>>>>" + name)
-            ast = parse_file(os.path.join(path, name), use_cpp=True, cpp_path='''C:/msys32/mingw32/bin/cpp.exe''', cpp_args=['-E', '-Imock', '-I../../../pycparser/utils/fake_libc_include', '-I.', '-I../../lua/include', '-I../../luat/include'])
+            ast = parse_file(os.path.join(path, name), use_cpp=True, cpp_path='''C:/msys64/mingw32/bin/cpp.exe''', cpp_args=['-E', '-Imock', '-I../../../pycparser/utils/fake_libc_include', '-I.', '-I../../lua/include', '-I../../luat/include'])
             v = FuncDefVisitor("lv_" + group, name[:-2])
             v.visit(ast)
         except  Exception :

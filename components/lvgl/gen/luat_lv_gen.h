@@ -934,44 +934,6 @@ int luat_lv_color_to_hsv(lua_State *L);
     {"color_rgb_to_hsv", luat_lv_color_rgb_to_hsv, 0},\
     {"color_to_hsv", luat_lv_color_to_hsv, 0},\
 
-// prefix lv_misc lv_debug
-int luat_lv_debug_check_null(lua_State *L);
-int luat_lv_debug_check_mem_integrity(lua_State *L);
-int luat_lv_debug_check_str(lua_State *L);
-int luat_lv_debug_log_error(lua_State *L);
-
-#define LUAT_LV_DEBUG_RLT     {"debug_check_null", luat_lv_debug_check_null, 0},\
-    {"debug_check_mem_integrity", luat_lv_debug_check_mem_integrity, 0},\
-    {"debug_check_str", luat_lv_debug_check_str, 0},\
-    {"debug_log_error", luat_lv_debug_log_error, 0},\
-
-// prefix lv_misc lv_task
-int luat_lv_task_handler(lua_State *L);
-int luat_lv_task_create_basic(lua_State *L);
-int luat_lv_task_create(lua_State *L);
-int luat_lv_task_del(lua_State *L);
-int luat_lv_task_set_prio(lua_State *L);
-int luat_lv_task_set_period(lua_State *L);
-int luat_lv_task_ready(lua_State *L);
-int luat_lv_task_set_repeat_count(lua_State *L);
-int luat_lv_task_reset(lua_State *L);
-int luat_lv_task_enable(lua_State *L);
-int luat_lv_task_get_idle(lua_State *L);
-int luat_lv_task_get_next(lua_State *L);
-
-#define LUAT_LV_TASK_RLT     {"task_handler", luat_lv_task_handler, 0},\
-    {"task_create_basic", luat_lv_task_create_basic, 0},\
-    {"task_create", luat_lv_task_create, 0},\
-    {"task_del", luat_lv_task_del, 0},\
-    {"task_set_prio", luat_lv_task_set_prio, 0},\
-    {"task_set_period", luat_lv_task_set_period, 0},\
-    {"task_ready", luat_lv_task_ready, 0},\
-    {"task_set_repeat_count", luat_lv_task_set_repeat_count, 0},\
-    {"task_reset", luat_lv_task_reset, 0},\
-    {"task_enable", luat_lv_task_enable, 0},\
-    {"task_get_idle", luat_lv_task_get_idle, 0},\
-    {"task_get_next", luat_lv_task_get_next, 0},\
-
 
 // group lv_themes
 // prefix lv_themes lv_theme

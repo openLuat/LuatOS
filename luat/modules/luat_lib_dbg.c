@@ -2,10 +2,13 @@
 #include "luat_base.h"
 #include "luat_timer.h"
 #include "luat_dbg.h"
+#include "luat_cmux.h"
+#include "luat_conf_bsp.h"
 
 #define LUAT_LOG_TAG "dbg"
 #include "luat_log.h"
 
+extern uint8_t cmux_state;
 /**
  * 0 , disabled
  * 1 , wait for connect
@@ -27,9 +30,27 @@ static void* runcb_params = NULL;
 
 // 如果其他平台有更特殊的输出方式, 定义luat_dbg_output方法吧
 // TODO 写入cmux通道
-#ifndef luat_dbg_output
-#define luat_dbg_output LLOGD
+// #ifndef luat_dbg_output
+// #define luat_dbg_output LLOGD
+// #endif
+#define DBGLOG_SIZE 1024
+static char dbg_printf_buff[DBGLOG_SIZE]  = {0};
+
+void luat_dbg_output(const char* _fmt, ...) {
+    size_t len;
+    va_list args;
+    va_start(args, _fmt);
+    len = vsnprintf_(dbg_printf_buff, DBGLOG_SIZE, _fmt, args);
+    va_end(args);
+    if (len > 0) {
+#ifdef LUAT_USE_SHELL
+        if (cmux_state == 1){
+            luat_cmux_write(LUAT_CMUX_CH_DBG,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,dbg_printf_buff, len);
+        }else
 #endif
+        luat_log_write(dbg_printf_buff, len);
+    }
+}
 
 void luat_dbg_set_runcb(luat_dbg_cb cb, void* params) {
     runcb_params = params;
@@ -187,6 +208,10 @@ void luat_dbg_vars(void *params) {
     if (level != 0) {
         lua_getstack(dbg_L, 0, dbg_ar);
     }
+}
+
+void luat_dbg_gvars(void *params) {
+    // lua_getglobal(L, "_G");
 }
 
 // 等待钩子状态变化

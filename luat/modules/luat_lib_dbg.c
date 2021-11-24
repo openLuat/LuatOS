@@ -173,7 +173,9 @@ void luat_dbg_vars(void *params) {
                 memcpy(buff, valstr, valoutlen);
                 buff[valoutlen] = 0x00;
                 // 索引号,变量名,变量类型,值的字符串长度, 值的字符串形式
-                luat_dbg_output("[resp,vars,1,%d] %s %d %d %s", index, varname, valtype, valoutlen, buff);
+                // TODO LuatIDE把这里改成了json输出, 需要改造一下
+                // 构建个table,然后json.encode?
+                luat_dbg_output("[resp,vars,%d] %s %d %d %s", index, varname, valtype, valoutlen, buff);
                 lua_pop(dbg_L, 1);
             }
             else {
@@ -181,12 +183,60 @@ void luat_dbg_vars(void *params) {
             }
             index ++;
         }
-        luat_dbg_output("[resp,vars,1,-1]");
+        luat_dbg_output("[resp,vars,0]");
     }
     // 还原Debug_ar的数据
     if (level != 0) {
         lua_getstack(dbg_L, 0, dbg_ar);
     }
+}
+
+void luat_dbg_gvars(void *params) {
+    lua_pushglobaltable(dbg_L);
+    lua_pushnil(dbg_L);
+    char buff[128];
+    size_t len;
+    const char* varname = NULL;
+    while (lua_next(dbg_L, -2) != 0) {
+       if (lua_isstring(dbg_L, -2)) {
+           varname = luaL_checkstring(dbg_L, -2);
+           len = snprintf(buff, 127, "{\"type\":\"%s\", \"name\":\"%s\", \"data\":\"%s\"}", 
+                    lua_typename(dbg_L, lua_type(dbg_L, -1)), varname, lua_tostring(dbg_L, -1));
+           luat_dbg_output("[resp,gvars,%d]\r\n%s\r\n", len, buff);
+       }
+       lua_pop(dbg_L, 1);
+    }
+    luat_dbg_output("[resp,gvars,0]\r\n");
+    lua_pop(dbg_L, 1); // 把_G弹出去
+}
+
+void luat_dbg_jvars(void *params) {
+    size_t len = 0;
+    const char* value = NULL;
+    size_t top = 0;
+
+    top = lua_gettop(dbg_L);
+
+    lua_pushglobaltable(dbg_L);
+    lua_pushstring(dbg_L, (const char*)params);
+    if (lua_istable(dbg_L, -1)) {
+        lua_getglobal(dbg_L, "json");
+        lua_getfield(dbg_L, -1, "encode");
+        lua_pushvalue(dbg_L, -3);
+        if (LUA_OK == lua_pcall(dbg_L, 1, 2, 0)) {
+            if (lua_isnil(dbg_L, -1))
+                lua_pop(dbg_L, -1); // 如果没有报错信息,就弹出
+        }
+    }
+    // 非table已经tostring, 而table会json.encode
+    // 如果json.encode执行成功, 要么是json字符串,要么是报错信息
+    // 如果执行失败, 那栈顶会是报错信息
+    value = lua_tolstring(dbg_L, -1, &len);
+    luat_dbg_output("[resp,jvars,%d]\r\n%s\r\n", len, value);
+    //lua_pop(dbg_L, 1); // 弹出栈顶的元素,减少内存
+    
+    luat_dbg_output("[resp,jvars,0]\r\n");
+    lua_settop(dbg_L, top); // 把栈还原
 }
 
 // 等待钩子状态变化
@@ -322,7 +372,7 @@ int l_debug_wait(lua_State *L) {
 
 /**
  * 结束调试,一般不需要调用
- * @api dbg.stop()
+ * @api dbg.close()
  * @return nil 无返回值
  * 
 */
@@ -337,6 +387,7 @@ static const rotable_Reg reg_dbg[] =
 {
 	{ "wait",  l_debug_wait, 0},
     { "close",  l_debug_close, 0},
+    { "stop",  l_debug_close, 0},
 	{ NULL, NULL , 0}
 };
 

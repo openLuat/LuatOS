@@ -37,7 +37,7 @@ static void* runcb_params = NULL;
 static char dbg_printf_buff[DBGLOG_SIZE]  = {0};
 
 void luat_dbg_output(const char* _fmt, ...) {
-    size_t len;
+    int len;
     va_list args;
     va_start(args, _fmt);
     len = vsnprintf_(dbg_printf_buff, DBGLOG_SIZE, _fmt, args);
@@ -88,7 +88,7 @@ static void record_last_stop(void) {
 void luat_dbg_set_hook_state(int state) {
     if (state == 3)
         record_last_stop();
-    luat_dbg_output("[state,changed,%d,%d]", cur_hook_state, state);
+    luat_dbg_output("[state,changed,%d,%d]\r\n", cur_hook_state, state);
     cur_hook_state = state;
 }
 
@@ -102,25 +102,25 @@ void luat_dbg_breakpoint_add(const char* source, int linenumber) {
     for (size_t i = 0; i < BP_LINE_COUNT; i++)
     {
         if (breakpoints[i].source[0] == 0) {
-            luat_dbg_output("[resp,break,add,ok] %s:%d -> %d", source, linenumber, i);
+            luat_dbg_output("[resp,break,add,ok] %s:%d -> %d\r\n", source, linenumber, i);
             breakpoints[i].linenumber = linenumber;
             memcpy(breakpoints[i].source, source, strlen(source)+1);
             return;
         }
     }
-    luat_dbg_output("[resp,break,add,fail] %s:%d", source, linenumber);
+    luat_dbg_output("[resp,break,add,fail] %s:%d\r\n", source, linenumber);
 }
 
 // 删除断点信息
 void luat_dbg_breakpoint_del(size_t index) {
     if (index < BP_LINE_COUNT) {
         if (breakpoints[index].source[0] != 0) {
-            luat_dbg_output("[resp,break,del,ok] %s:%d -> %d", breakpoints[index].source, breakpoints[index].linenumber, index);
+            luat_dbg_output("[resp,break,del,ok] %s:%d -> %d\r\n", breakpoints[index].source, breakpoints[index].linenumber, index);
             breakpoints[index].source[0] = 0x00;
             return;
         }
     }
-    luat_dbg_output("[resp,break,del,fail] %d'", index);
+    luat_dbg_output("[resp,break,del,fail] %d\r\n", index);
 }
 
 // 清除断点信息
@@ -131,7 +131,7 @@ void luat_dbg_breakpoint_clear(const char* source) {
             breakpoints[i].source[0] = 0;
         }
     }
-    luat_dbg_output("[resp,break,clear,ok]");
+    luat_dbg_output("[resp,break,clear,ok]\r\n");
 }
 
 
@@ -142,10 +142,10 @@ static int luat_dbg_backtrace_print(lua_State *L, lua_Debug *ar, int level) {
     if (ret == 1) {
         lua_getinfo(L, "Sl", ar);
         // resp,stack,线程号,深度
-        luat_dbg_output("[resp,stack,1,%d] %s:%d", level, ar->short_src, ar->currentline);
+        luat_dbg_output("[resp,stack,1,%d] %s:%d\r\n", level, ar->short_src, ar->currentline);
     }
     else {
-        luat_dbg_output("[resp,stack,1,-1] -");
+        luat_dbg_output("[resp,stack,1,-1] -\r\n");
     }
     return ret;
 }
@@ -174,6 +174,15 @@ void luat_dbg_backtrace(void *params) {
     }
 }
 
+//-------------------
+// TODO 将栈顶的table转为dbg协议所需要的json字符串形式
+// 鉴于mcu的内存有限, 需要限制最大深度
+// 可能要引入cjson(非lua-cjson)来配好, 走sys内存
+static int table_to_dbg_json(lua_State* L, char* buff, size_t *len, int max_deep) {
+    return -1;
+}
+//-------------------
+
 void luat_dbg_vars(void *params) {
     if (dbg_L == NULL || dbg_ar == NULL) return;
     
@@ -196,7 +205,7 @@ void luat_dbg_vars(void *params) {
                 // 索引号,变量名,变量类型,值的字符串长度, 值的字符串形式
                 // TODO LuatIDE把这里改成了json输出, 需要改造一下
                 // 构建个table,然后json.encode?
-                luat_dbg_output("[resp,vars,%d] %s %d %d %s", index, varname, valtype, valoutlen, buff);
+                luat_dbg_output("[resp,vars,%d] %s %d %d %s\r\n", index, varname, valtype, valoutlen, buff);
                 lua_pop(dbg_L, 1);
             }
             else {
@@ -204,7 +213,7 @@ void luat_dbg_vars(void *params) {
             }
             index ++;
         }
-        luat_dbg_output("[resp,vars,0]");
+        luat_dbg_output("[resp,vars,0]\r\n");
     }
     // 还原Debug_ar的数据
     if (level != 0) {
@@ -311,7 +320,7 @@ void luat_debug_hook(lua_State *L, lua_Debug *ar) {
                         continue;
                     }
                     // 命中了!!!!
-                    luat_dbg_output("[event,stopped,breakpoint] %s:%d", ar->short_src, ar->currentline);
+                    luat_dbg_output("[event,stopped,breakpoint] %s:%d\r\n", ar->short_src, ar->currentline);
                     luat_dbg_set_hook_state(3); // 停止住
                     //send_msg(event_breakpoint_stop)
                     luat_dbg_waitby(3);
@@ -330,7 +339,7 @@ void luat_debug_hook(lua_State *L, lua_Debug *ar) {
             int current_level = get_current_level();
             if (last_level > current_level || (last_level == current_level && !strcmp(ar->short_src, last_source))) {
                 //send_msg(event_stepover_stop)
-                luat_dbg_output("[event,stopped,step] %s:%d", ar->short_src, ar->currentline);
+                luat_dbg_output("[event,stopped,step] %s:%d\r\n", ar->short_src, ar->currentline);
                 luat_dbg_set_hook_state(3); // 停止住
                 luat_dbg_waitby(3);
             }
@@ -339,7 +348,7 @@ void luat_debug_hook(lua_State *L, lua_Debug *ar) {
     else if (cur_hook_state == 5) {
         if (ar->event == LUA_HOOKLINE) {
             //send_msg(event_stepover_stop)
-            luat_dbg_output("[event,stopped,stepIn] %s:%d", ar->short_src, ar->currentline);
+            luat_dbg_output("[event,stopped,stepIn] %s:%d\r\n", ar->short_src, ar->currentline);
             luat_dbg_set_hook_state(3); // 停止住
             luat_dbg_waitby(3);
         }
@@ -348,7 +357,7 @@ void luat_debug_hook(lua_State *L, lua_Debug *ar) {
         if (ar->event == LUA_HOOKLINE) {
             int current_level = get_current_level();
             if (last_level == 0 || last_level > current_level) {
-                luat_dbg_output("[event,stopped,stepOut] %s:%d", ar->short_src, ar->currentline);
+                luat_dbg_output("[event,stopped,stepOut] %s:%d\r\n", ar->short_src, ar->currentline);
                 luat_dbg_set_hook_state(3); // 停止住
                 luat_dbg_waitby(3);
             }
@@ -376,17 +385,17 @@ int l_debug_wait(lua_State *L) {
             timeout -= 5;
             luat_timer_mdelay(5);
             if ((t*5)%1000 == 0) {
-                luat_dbg_output("[event,waitc] waiting for debugger");
+                luat_dbg_output("[event,waitc] waiting for debugger\r\n");
             }
             t++;
         }
         if (cur_hook_state == 1) {
-            luat_dbg_output("[event,waitt] timeout!!!!");
+            luat_dbg_output("[event,waitt] timeout!!!!\r\n");
             luat_dbg_set_hook_state(0);
         }
     }
     else {
-        luat_dbg_output("debugger is running, only one wait is allow!!!");
+        LLOGD("debugger is running, only one wait is allow!!!\r\n");
     }
     return 0;
 }

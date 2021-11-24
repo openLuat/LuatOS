@@ -34,6 +34,7 @@ enum
 extern uint32_t BACK_COLOR , FORE_COLOR ;
 
 extern const luat_lcd_opts_t lcd_opts_st7735;
+extern const luat_lcd_opts_t lcd_opts_st7735v;
 extern const luat_lcd_opts_t lcd_opts_st7735s;
 extern const luat_lcd_opts_t lcd_opts_st7789;
 extern const luat_lcd_opts_t lcd_opts_gc9a01;
@@ -49,7 +50,7 @@ static uint32_t lcd_str_fg_color,lcd_str_bg_color;
 /*
 lcd显示屏初始化
 @api lcd.init(tp, args)
-@string lcd类型, 当前支持st7789/st7735/st7735s/gc9a01/gc9106l/gc9306/ili9341/custom
+@string lcd类型, 当前支持st7789/st7735/st7735v/st7735s/gc9a01/gc9106l/gc9306/ili9341/custom
 @table 附加参数,与具体设备有关,pin_pwr为可选项,可不设置port:spi端口,例如0,1,2...如果为device方式则为"device";pin_dc:lcd数据/命令选择引脚;pin_rst:lcd复位引脚;pin_pwr:lcd背光引脚 可选项,可不设置;direction:lcd屏幕方向 0:0° 1:180° 2:270° 3:90°;w:lcd 水平分辨率;h:lcd 竖直分辨率;xoffset:x偏移(不同屏幕ic 不同屏幕方向会有差异);yoffset:y偏移(不同屏幕ic 不同屏幕方向会有差异)
 @userdata spi设备,当port = "device"时有效
 @usage
@@ -68,7 +69,7 @@ static int l_lcd_init(lua_State* L) {
         conf->port = LUAT_LCD_SPI_DEVICE;
     }
     const char* tp = luaL_checklstring(L, 1, &len);
-    if (!strcmp("st7735", tp) || !strcmp("st7789", tp) || !strcmp("st7735s", tp)
+    if (!strcmp("st7735", tp) || !strcmp("st7735v", tp) || !strcmp("st7789", tp) || !strcmp("st7735s", tp)
             || !strcmp("gc9a01", tp)  || !strcmp("gc9106l", tp)
             || !strcmp("gc9306", tp)  || !strcmp("ili9341", tp)  || !strcmp("ili9488", tp)
             || !strcmp("custom", tp)) {
@@ -141,6 +142,8 @@ static int l_lcd_init(lua_State* L) {
         }
         if (!strcmp("st7735", tp))
             conf->opts = (luat_lcd_opts_t*)&lcd_opts_st7735;
+        else if (!strcmp("st7735v", tp))
+            conf->opts = (luat_lcd_opts_t*)&lcd_opts_st7735v;
         else if (!strcmp("st7735s", tp))
             conf->opts = (luat_lcd_opts_t*)&lcd_opts_st7735s;
         else if (!strcmp("st7789", tp))
@@ -955,7 +958,7 @@ static int l_lcd_draw_gtfont_utf8(lua_State *L) {
         uint16_t str = unicodetogb2312(e);
         get_font(buf, 1, str, size, size, size);
         gtfont_draw_w(buf , x ,y , size , size,luat_lcd_draw_point,default_conf,0);
-        x+=size;    
+        x+=size;
       }
     }
     return 0;
@@ -993,7 +996,7 @@ static int l_lcd_draw_gtfont_utf8_gray(lua_State* L) {
 			get_font(buf, 1, str, size*font_g, size*font_g, size*font_g);
 			Gray_Process(buf,size,size,font_g);
       gtfont_draw_gray_hz(buf, x, y, size , size, font_g, 1,luat_lcd_draw_point,default_conf,0);
-        	x+=size;    
+        	x+=size;
         }
     }
     return 0;

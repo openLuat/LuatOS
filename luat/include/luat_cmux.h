@@ -7,6 +7,7 @@
 #define LUAT_CMUX_CH_MAIN 0
 #define LUAT_CMUX_CH_LOG  1
 #define LUAT_CMUX_CH_DBG  2
+#define LUAT_CMUX_CH_DOWNLOAD  3
 
 #define CMUX_HEAD_FLAG_BASIC (unsigned char)0xF9
 #define CMUX_HEAD_FLAG_ADV (unsigned char)0x7E

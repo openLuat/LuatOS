@@ -160,7 +160,9 @@ void luat_cmux_read(unsigned char* buff,size_t len){
                             luat_dbg_set_runcb(luat_dbg_vars, (void*)0);
                         }
                     }else if(strcmp("gvars",command) == 0){
-                        
+                        luat_dbg_gvars((void*)0);
+                    }else if(strcmp("jvars",command) == 0){
+                        luat_dbg_jvars(strtok(NULL, " "));
                     }else if(strcmp("break",command) == 0){
                         char *sub_command = strtok(NULL, " ");
                         if (strcmp("clr",sub_command) == 0){

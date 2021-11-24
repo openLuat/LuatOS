@@ -71,7 +71,7 @@ eink_conf_t econf = {0};
 /**
 初始化eink
 @api eink.setup(full, spiid)
-@int 全屏刷新1,局部刷新0,默认是全屏刷新
+@int 全屏刷新0,局部刷新1,默认是全屏刷新
 @int 所在的spi,默认是0
 @return boolean 成功返回true,否则返回false
 */

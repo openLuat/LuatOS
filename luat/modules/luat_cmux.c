@@ -25,6 +25,15 @@ uint8_t cmux_main_state = 0;
 uint8_t cmux_log_state = 0;
 uint8_t cmux_dbg_state = 0;
 
+typedef struct   
+{
+    uint8_t Fcs;
+    uint8_t Len;
+    unsigned char data[20];
+}cmux_data;
+
+static cmux_data cmux_read_data;
+
 const uint8_t cmux_crctable[256] = {
     0x00, 0x91, 0xE3, 0x72, 0x07, 0x96, 0xE4, 0x75,
     0x0E, 0x9F, 0xED, 0x7C, 0x09, 0x98, 0xEA, 0x7B,
@@ -68,6 +77,131 @@ uint8_t cmux_frame_check(const uint8_t *input, int length){
     return (0xFF - fcs);
 }
 
+void uih_main_manage(unsigned char*buff){
+    char send_buff[128] = {0};
+    unsigned char *data = (unsigned char *)luat_heap_malloc(buff[3]>>1);
+    memcpy(data, buff+4, buff[3]>>1);
+    if (strncmp("AT\r", data,3) == 0){
+        luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_UIH | CMUX_CONTROL_PF,"OK\r", 3);
+    }else if (strncmp("ATI", data,3) == 0){
+        #ifdef LUAT_BSP_VERSION
+            sprintf(send_buff, "LuatOS-SoC_%s_%s\r\n", luat_os_bsp(), LUAT_BSP_VERSION);
+        #else
+            sprintf(send_buff, "LuatOS-SoC_%s_%s\r\n", luat_os_bsp(), luat_version_str());
+        #endif
+        luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_UIH | CMUX_CONTROL_PF,send_buff, strlen(send_buff));
+        luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_UIH | CMUX_CONTROL_PF,"OK\r", 3);
+    }else if (strncmp("AT+LUAFLASHSIZE?", data,16) == 0){
+        #ifdef FLASH_FS_REGION_SIZE
+            sprintf(send_buff, "+LUAFLASHSIZE: 0X%x\r",FLASH_FS_REGION_SIZE);
+            luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_UIH | CMUX_CONTROL_PF,send_buff, strlen(send_buff));
+            luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_UIH | CMUX_CONTROL_PF,"OK\r", 3);
+        #endif
+    }else if (strncmp("AT+LUACHECKSUM=", data,15) == 0){
+        luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_UIH | CMUX_CONTROL_PF,"+LUAFLASHSIZE: 0\r", 17);
+        luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_UIH | CMUX_CONTROL_PF,"OK\r", 3);
+    }else if (strncmp("AT+RESET", data,8) == 0){
+        luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_UIH | CMUX_CONTROL_PF,"OK\r", 3);
+        luat_os_reboot(0);
+    }
+    luat_heap_free(data);
+}
+
+void uih_dbg_manage(unsigned char*buff){
+    char send_buff[128] = {0};
+    unsigned char *data = (unsigned char *)luat_heap_malloc(buff[3]>>1);
+    memcpy(data, buff+4, buff[3]>>1);
+    if (strcmp("dbg",strtok(data, " ")) == 0){
+        char *command = strtok(NULL, " ");
+        if (strcmp("start",command) == 0){
+            luat_dbg_set_hook_state(2);
+        }else if(strcmp("continue",command) == 0){
+            luat_dbg_set_hook_state(2);
+        }else if(strcmp("next",command) == 0 || strcmp("step",command) == 0){
+            luat_dbg_set_hook_state(4);
+        }else if(strcmp("stepIn",command) == 0 || strcmp("stepin",command) == 0){
+            luat_dbg_set_hook_state(5);
+        }else if(strcmp("stepOut",command) == 0 || strcmp("stepout",command) == 0){
+            luat_dbg_set_hook_state(6);
+        }else if(strcmp("bt",command) == 0){
+            char *params = strtok(NULL, " ");
+            if (params != NULL){
+                luat_dbg_set_runcb(luat_dbg_backtrace, (void*)atoi(params));
+            }else{
+                luat_dbg_set_runcb(luat_dbg_backtrace, (void*)-1);
+            }
+        }else if(strcmp("vars",command) == 0){
+            char *params = strtok(NULL, " ");
+            if (params != NULL){
+                luat_dbg_set_runcb(luat_dbg_vars, (void*)atoi(params));
+            }else{
+                luat_dbg_set_runcb(luat_dbg_vars, (void*)0);
+            }
+        }else if(strcmp("gvars",command) == 0){
+            luat_dbg_gvars((void*)0);
+        }else if(strcmp("jvars",command) == 0){
+            luat_dbg_jvars(strtok(NULL, " "));
+        }else if(strcmp("break",command) == 0){
+            char *sub_command = strtok(NULL, " ");
+            if (strcmp("clr",sub_command) == 0){
+                luat_dbg_breakpoint_clear(strtok(NULL, " "));
+            }else if (strcmp("add",sub_command) == 0){
+                luat_dbg_breakpoint_add(strtok(NULL, " "),atoi(strtok(NULL, " ")));
+            }else if (strcmp("del",sub_command) == 0){
+                char *params = strtok(NULL, " ");
+                if (params != NULL){
+                    luat_dbg_breakpoint_clear(params);
+                }else{
+                    luat_dbg_breakpoint_clear(NULL);
+                }
+            }
+        }else {
+        }
+    }
+    luat_heap_free(data);
+}
+
+void cmux_frame_manage(unsigned char*buff){
+    if (CMUX_ADDRESS_DLC(buff)==LUAT_CMUX_CH_MAIN){
+        if (CMUX_CONTROL_ISSABM(buff)){
+            cmux_main_state = 1;
+            luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_UA | CMUX_CONTROL_PF,NULL, 0);
+        }else if(CMUX_CONTROL_ISDISC(buff)){
+            cmux_state = 0;
+            cmux_main_state = 0;
+            cmux_log_state = 0;
+            cmux_dbg_state = 0;
+            luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_UA | CMUX_CONTROL_PF,NULL, 0);
+        }else if(CMUX_CONTROL_ISUIH(buff) && cmux_main_state == 1){
+            uih_main_manage(buff);
+        }
+    }else if (CMUX_ADDRESS_DLC(buff)==LUAT_CMUX_CH_LOG){
+        if (CMUX_CONTROL_ISSABM(buff)){
+            cmux_log_state = 1;
+            luat_cmux_write(LUAT_CMUX_CH_LOG,  CMUX_FRAME_UA | CMUX_CONTROL_PF,NULL, 0);
+        }else if(CMUX_CONTROL_ISDISC(buff)){
+            cmux_log_state = 0;
+            luat_cmux_write(LUAT_CMUX_CH_LOG,  CMUX_FRAME_UA | CMUX_CONTROL_PF,NULL, 0);
+        }
+    }else if (CMUX_ADDRESS_DLC(buff)==LUAT_CMUX_CH_DBG){
+        if (CMUX_CONTROL_ISSABM(buff)){
+            cmux_dbg_state = 1;
+            luat_cmux_write(LUAT_CMUX_CH_DBG,  CMUX_FRAME_UA | CMUX_CONTROL_PF,NULL, 0);
+        }else if(CMUX_CONTROL_ISDISC(buff)){
+            cmux_dbg_state = 0;
+            luat_cmux_write(LUAT_CMUX_CH_DBG,  CMUX_FRAME_UA | CMUX_CONTROL_PF,NULL, 0);
+        }else if(CMUX_CONTROL_ISUIH(buff) && cmux_dbg_state == 1){
+            uih_dbg_manage(buff);
+        }
+    }else if (CMUX_ADDRESS_DLC(buff)==LUAT_CMUX_CH_DOWNLOAD){
+        if (CMUX_CONTROL_ISSABM(buff)){
+            luat_cmux_write(LUAT_CMUX_CH_DOWNLOAD,  CMUX_FRAME_UA | CMUX_CONTROL_PF,NULL, 0);
+        }else if(CMUX_CONTROL_ISDISC(buff)){
+            luat_cmux_write(LUAT_CMUX_CH_DOWNLOAD,  CMUX_FRAME_UA | CMUX_CONTROL_PF,NULL, 0);
+        }
+    }
+}
+
 void luat_cmux_write(int port, uint8_t control,char* buff, size_t len) {
     char prefix[5] = {CMUX_HEAD_FLAG_BASIC, CMUX_ADDRESS_EA | CMUX_ADDRESS_CR, 0, 0, 0};
     char postfix[2] = {0xFF, CMUX_HEAD_FLAG_BASIC};
@@ -89,119 +223,15 @@ void luat_cmux_write(int port, uint8_t control,char* buff, size_t len) {
 }
 void luat_cmux_read(unsigned char* buff,size_t len){
     // if (buff[0]==CMUX_HEAD_FLAG_BASIC && buff[len-1]==CMUX_HEAD_FLAG_BASIC && cmux_frame_check(buff+1,len-3)==buff[len-2]){
-    if (buff[0]==CMUX_HEAD_FLAG_BASIC && buff[len-1]==CMUX_HEAD_FLAG_BASIC){
-        if (CMUX_ADDRESS_DLC(buff)==LUAT_CMUX_CH_MAIN){
-            if (CMUX_CONTROL_ISSABM(buff)){
-                cmux_main_state = 1;
-                luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_UA | CMUX_CONTROL_PF,NULL, 0);
-            }else if(CMUX_CONTROL_ISDISC(buff)){
-                cmux_state = 0;
-                cmux_main_state = 0;
-                cmux_log_state = 0;
-                cmux_dbg_state = 0;
-                luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_UA | CMUX_CONTROL_PF,NULL, 0);
-            }else if(CMUX_CONTROL_ISUIH(buff) && cmux_main_state == 1){
-                char send_buff[128] = {0};
-                unsigned char *data = (unsigned char *)luat_heap_malloc(buff[3]>>1);
-                memcpy(data, buff+4, buff[3]>>1);
-                if (strncmp("AT\r", data,3) == 0){
-                    luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_UIH | CMUX_CONTROL_PF,"OK\r", 3);
-                }else if (strncmp("ATI", data,3) == 0){
-                    #ifdef LUAT_BSP_VERSION
-                        sprintf(send_buff, "LuatOS-SoC_%s_%s\r\n", luat_os_bsp(), LUAT_BSP_VERSION);
-                    #else
-                        sprintf(send_buff, "LuatOS-SoC_%s_%s\r\n", luat_os_bsp(), luat_version_str());
-                    #endif
-                    luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_UIH | CMUX_CONTROL_PF,send_buff, strlen(send_buff));
-                    luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_UIH | CMUX_CONTROL_PF,"OK\r", 3);
-                }else if (strncmp("AT+LUAFLASHSIZE?", data,16) == 0){
-                    #ifdef FLASH_FS_REGION_SIZE
-                        sprintf(send_buff, "+LUAFLASHSIZE: 0X%x\r",FLASH_FS_REGION_SIZE);
-                        luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_UIH | CMUX_CONTROL_PF,send_buff, strlen(send_buff));
-                        luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_UIH | CMUX_CONTROL_PF,"OK\r", 3);
-                    #endif
-                }else if (strncmp("AT+LUACHECKSUM=", data,15) == 0){
-                    luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_UIH | CMUX_CONTROL_PF,"+LUAFLASHSIZE: 0\r", 17);
-                    luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_UIH | CMUX_CONTROL_PF,"OK\r", 3);
-                }else if (strncmp("AT+RESET", data,8) == 0){
-                    luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_UIH | CMUX_CONTROL_PF,"OK\r", 3);
-                    luat_os_reboot(0);
-                }
-                luat_heap_free(data);
-            }
-        }else if (CMUX_ADDRESS_DLC(buff)==LUAT_CMUX_CH_LOG){
-            if (CMUX_CONTROL_ISSABM(buff)){
-                cmux_log_state = 1;
-                luat_cmux_write(LUAT_CMUX_CH_LOG,  CMUX_FRAME_UA | CMUX_CONTROL_PF,NULL, 0);
-            }else if(CMUX_CONTROL_ISDISC(buff)){
-                cmux_log_state = 0;
-                luat_cmux_write(LUAT_CMUX_CH_LOG,  CMUX_FRAME_UA | CMUX_CONTROL_PF,NULL, 0);
-            }
-        }else if (CMUX_ADDRESS_DLC(buff)==LUAT_CMUX_CH_DBG){
-            if (CMUX_CONTROL_ISSABM(buff)){
-                cmux_dbg_state = 1;
-                luat_cmux_write(LUAT_CMUX_CH_DBG,  CMUX_FRAME_UA | CMUX_CONTROL_PF,NULL, 0);
-            }else if(CMUX_CONTROL_ISDISC(buff)){
-                cmux_dbg_state = 0;
-                luat_cmux_write(LUAT_CMUX_CH_DBG,  CMUX_FRAME_UA | CMUX_CONTROL_PF,NULL, 0);
-            }else if(CMUX_CONTROL_ISUIH(buff) && cmux_dbg_state == 1){
-                char send_buff[128] = {0};
-                unsigned char *data = (unsigned char *)luat_heap_malloc(buff[3]>>1);
-                memcpy(data, buff+4, buff[3]>>1);
-                if (strcmp("dbg",strtok(data, " ")) == 0){
-                    char *command = strtok(NULL, " ");
-                    if (strcmp("start",command) == 0){
-                        luat_dbg_set_hook_state(2);
-                    }else if(strcmp("continue",command) == 0){
-                        luat_dbg_set_hook_state(2);
-                    }else if(strcmp("next",command) == 0 || strcmp("step",command) == 0){
-                        luat_dbg_set_hook_state(4);
-                    }else if(strcmp("stepIn",command) == 0 || strcmp("stepin",command) == 0){
-                        luat_dbg_set_hook_state(5);
-                    }else if(strcmp("stepOut",command) == 0 || strcmp("stepout",command) == 0){
-                        luat_dbg_set_hook_state(6);
-                    }else if(strcmp("bt",command) == 0){
-                        char *params = strtok(NULL, " ");
-                        if (params != NULL){
-                            luat_dbg_set_runcb(luat_dbg_backtrace, (void*)atoi(params));
-                        }else{
-                            luat_dbg_set_runcb(luat_dbg_backtrace, (void*)-1);
-                        }
-                    }else if(strcmp("vars",command) == 0){
-                        char *params = strtok(NULL, " ");
-                        if (params != NULL){
-                            luat_dbg_set_runcb(luat_dbg_vars, (void*)atoi(params));
-                        }else{
-                            luat_dbg_set_runcb(luat_dbg_vars, (void*)0);
-                        }
-                    }else if(strcmp("gvars",command) == 0){
-                        luat_dbg_gvars((void*)0);
-                    }else if(strcmp("jvars",command) == 0){
-                        luat_dbg_jvars(strtok(NULL, " "));
-                    }else if(strcmp("break",command) == 0){
-                        char *sub_command = strtok(NULL, " ");
-                        if (strcmp("clr",sub_command) == 0){
-                            luat_dbg_breakpoint_clear(strtok(NULL, " "));
-                        }else if (strcmp("add",sub_command) == 0){
-                            luat_dbg_breakpoint_add(strtok(NULL, " "),atoi(strtok(NULL, " ")));
-                        }else if (strcmp("del",sub_command) == 0){
-                            char *params = strtok(NULL, " ");
-                            if (params != NULL){
-                                luat_dbg_breakpoint_clear(params);
-                            }else{
-                                luat_dbg_breakpoint_clear(NULL);
-                            }
-                        }
-                    }else {
-
-                    }
-                }
-                luat_heap_free(data);
-            }
+    if (buff[0]==CMUX_HEAD_FLAG_BASIC){
+        memset(cmux_read_data.data, 0, 20);
+        memmove(cmux_read_data.data,  buff, len);
+        cmux_read_data.Len = len;
+        cmux_read_data.Fcs = cmux_frame_check(buff+1,len-1);
+    }else if (buff[1]==CMUX_HEAD_FLAG_BASIC){
+        if (buff[0]==cmux_read_data.Fcs){
+            cmux_frame_manage(cmux_read_data.data);
+            memset(cmux_read_data.data, 0, 20);
         }
-    }
-    else if (buff[0]==CMUX_HEAD_FLAG_ADV && buff[len-1]==CMUX_HEAD_FLAG_ADV && cmux_frame_check(buff+1,len-3)==buff[len-2]){
-    }
-    else{
     }
 }

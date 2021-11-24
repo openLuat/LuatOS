@@ -21,6 +21,7 @@ LuatOS cmux
 #include "luat_dbg.h"
 
 extern uint8_t cmux_state;
+uint8_t cmux_main_state = 0;
 uint8_t cmux_log_state = 0;
 uint8_t cmux_dbg_state = 0;
 
@@ -91,11 +92,15 @@ void luat_cmux_read(unsigned char* buff,size_t len){
     if (buff[0]==CMUX_HEAD_FLAG_BASIC && buff[len-1]==CMUX_HEAD_FLAG_BASIC){
         if (CMUX_ADDRESS_DLC(buff)==LUAT_CMUX_CH_MAIN){
             if (CMUX_CONTROL_ISSABM(buff)){
+                cmux_main_state = 1;
                 luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_UA | CMUX_CONTROL_PF,NULL, 0);
             }else if(CMUX_CONTROL_ISDISC(buff)){
                 cmux_state = 0;
+                cmux_main_state = 0;
+                cmux_log_state = 0;
+                cmux_dbg_state = 0;
                 luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_UA | CMUX_CONTROL_PF,NULL, 0);
-            }else if(CMUX_CONTROL_ISUIH(buff)){
+            }else if(CMUX_CONTROL_ISUIH(buff) && cmux_main_state == 1){
                 char send_buff[128] = {0};
                 unsigned char *data = (unsigned char *)luat_heap_malloc(buff[3]>>1);
                 memcpy(data, buff+4, buff[3]>>1);
@@ -139,7 +144,7 @@ void luat_cmux_read(unsigned char* buff,size_t len){
             }else if(CMUX_CONTROL_ISDISC(buff)){
                 cmux_dbg_state = 0;
                 luat_cmux_write(LUAT_CMUX_CH_DBG,  CMUX_FRAME_UA | CMUX_CONTROL_PF,NULL, 0);
-            }else if(CMUX_CONTROL_ISUIH(buff)){
+            }else if(CMUX_CONTROL_ISUIH(buff) && cmux_dbg_state == 1){
                 char send_buff[128] = {0};
                 unsigned char *data = (unsigned char *)luat_heap_malloc(buff[3]>>1);
                 memcpy(data, buff+4, buff[3]>>1);

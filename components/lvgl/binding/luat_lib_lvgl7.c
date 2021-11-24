@@ -68,7 +68,12 @@ int luat_lv_init(lua_State *L) {
     lua_pushboolean(L, 1);
     return 1;
     #else
-    
+
+    lv_color_t *fbuffer = NULL;
+    lv_color_t *fbuffer2 = NULL;
+    size_t fbuff_size = 0;
+    bool buffmode = 0;
+
     if (lua_isuserdata(L, 3)) {
         lcd_conf = lua_touserdata(L, 3);
     }
@@ -79,13 +84,13 @@ int luat_lv_init(lua_State *L) {
         LLOGE("setup lcd first!!");
         return 0;
     }
-    lv_color_t *fbuffer = NULL;
-    lv_color_t *fbuffer2 = NULL;
-    size_t fbuff_size = 0;
-    bool buffmode = 0;
 
-    int w = luaL_optinteger(L, 1, lcd_conf->w);
-    int h = luaL_optinteger(L, 2, lcd_conf->h);
+    int w = lcd_conf->w;
+    int h = lcd_conf->h; 
+    if (lua_isinteger(L, 1))
+        w = luaL_checkinteger(L, 1);
+    if (lua_isinteger(L, 2))
+        h = luaL_checkinteger(L, 2);
 
     if (lua_isinteger(L, 4)) {
         fbuff_size = luaL_checkinteger(L, 4);
@@ -99,27 +104,45 @@ int luat_lv_init(lua_State *L) {
     if (lua_isinteger(L, 5)) {
         buffmode = luaL_checkinteger(L, 5);
         if (buffmode < 0)
-            buffmode == 0;
+            buffmode =0;
     }
+
 
     LLOGD("w %d h %d buff %d mode %d", w, h, fbuff_size, buffmode);
 
-    fbuffer = lua_newuserdata(L, fbuff_size * sizeof(lv_color_t));
-    if (fbuffer == NULL) {
-        LLOGD("not enough memory");
-        return 0;
-    }
-    if (buffmode & 0x01) {
-        fbuffer2 = lua_newuserdata(L, fbuff_size * sizeof(lv_color_t));
-        if (fbuffer2 == NULL) {
+    if (buffmode & 0x02) {
+        fbuffer = luat_heap_malloc(fbuff_size * sizeof(lv_color_t));
+        if (fbuffer == NULL) {
             LLOGD("not enough memory");
             return 0;
         }
+        if (buffmode & 0x01) {
+            fbuffer2 = luat_heap_malloc(fbuff_size * sizeof(lv_color_t));
+            if (fbuffer2 == NULL) {
+                luat_heap_free(fbuffer);
+                LLOGD("not enough memory");
+                return 0;
+            }
+        }
     }
-    // 引用即弹出
-    if (fbuffer2)
-        LV.buff2_ref = luaL_ref(L, LUA_REGISTRYINDEX);
-    LV.buff_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    else {
+        fbuffer = lua_newuserdata(L, fbuff_size * sizeof(lv_color_t));
+        if (fbuffer == NULL) {
+            LLOGD("not enough memory");
+            return 0;
+        }
+        if (buffmode & 0x01) {
+            fbuffer2 = lua_newuserdata(L, fbuff_size * sizeof(lv_color_t));
+            if (fbuffer2 == NULL) {
+                LLOGD("not enough memory");
+                return 0;
+            }
+        }
+        // 引用即弹出
+        if (fbuffer2)
+            LV.buff2_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+        LV.buff_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    }
 
     lv_disp_buf_init(&LV.disp_buf, fbuffer, fbuffer2, fbuff_size);
 

@@ -6,7 +6,7 @@
 #include "luat_cmux.h"
 #include "luat_conf_bsp.h"
 extern uint8_t cmux_state;
-
+extern uint8_t cmux_log_state;
 static uint8_t luat_log_uart_port = 0;
 static uint8_t luat_log_level_cur = LUAT_LOG_DEBUG;
 
@@ -19,8 +19,8 @@ LUAT_WEAK void luat_log_set_uart_port(int port) {
 
 LUAT_WEAK void luat_nprint(char *s, size_t l) {
 #ifdef LUAT_USE_SHELL
-    if (cmux_state == 1){
-        luat_cmux_write(LUAT_CMUX_CH_LOG,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,s, l);
+    if (cmux_state == 1 && cmux_log_state ==1){
+        luat_cmux_write(LUAT_CMUX_CH_LOG,  CMUX_FRAME_UIH | CMUX_CONTROL_PF,s, l);
     }else
 #endif
     luat_uart_write(luat_log_uart_port, s, l);
@@ -28,8 +28,8 @@ LUAT_WEAK void luat_nprint(char *s, size_t l) {
 
 LUAT_WEAK void luat_log_write(char *s, size_t l) {
 #ifdef LUAT_USE_SHELL
-    if (cmux_state == 1){
-        luat_cmux_write(LUAT_CMUX_CH_LOG,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,s, l);
+    if (cmux_state == 1 && cmux_log_state ==1){
+        luat_cmux_write(LUAT_CMUX_CH_LOG,  CMUX_FRAME_UIH | CMUX_CONTROL_PF,s, l);
     }else
 #endif
     luat_uart_write(luat_log_uart_port, s, l);

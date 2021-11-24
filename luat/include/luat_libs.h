@@ -93,3 +93,4 @@ LUAMOD_API int luaopen_lcdseg( lua_State *L );
 LUAMOD_API int luaopen_fdb( lua_State *L );
 
 LUAMOD_API int luaopen_keyboard( lua_State *L );
+LUAMOD_API int luaopen_coremark( lua_State *L );

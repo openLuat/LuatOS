@@ -92,6 +92,7 @@ sys.run()
 * [elua](http://www.eluaproject.net/) eLua 虽然已经停更多年,但精神犹在
 * [FlashDB](https://gitee.com/Armink/FlashDB) 一款支持 KV 数据和时序数据的超轻量级数据库
 * [cJSON](https://github.com/DaveGamble/cJSON) Ultralightweight JSON parser in ANSI C
+* [coremark](https://github.com/eembc/coremark) MCU性能测试(跑分)
 
 ## 免费服务
 

@@ -24,7 +24,9 @@
 
 #include <stdlib.h>
 
-// #include "u8g2.h"
+#include "u8g2.h"
+int8_t u8g2_font_decode_get_signed_bits(u8g2_font_decode_t *f, uint8_t cnt);
+uint8_t u8g2_font_decode_get_unsigned_bits(u8g2_font_decode_t *f, uint8_t cnt);
 
 #define COLORED      0
 #define UNCOLORED    1

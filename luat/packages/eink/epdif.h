@@ -49,6 +49,8 @@ typedef struct eink_conf {
     uint8_t dc_pin;
     uint8_t cs_pin;
     uint8_t full_mode;
+    uint8_t port;
+    void* userdata;
 }eink_conf_t;
 
 extern eink_conf_t econf;

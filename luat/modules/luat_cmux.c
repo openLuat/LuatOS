@@ -22,6 +22,7 @@ LuatOS cmux
 
 extern uint8_t cmux_state;
 uint8_t cmux_log_state = 0;
+uint8_t cmux_dbg_state = 0;
 
 const uint8_t cmux_crctable[256] = {
     0x00, 0x91, 0xE3, 0x72, 0x07, 0x96, 0xE4, 0x75,
@@ -92,8 +93,8 @@ void luat_cmux_read(unsigned char* buff,size_t len){
             if (CMUX_CONTROL_ISSABM(buff)){
                 luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_UA | CMUX_CONTROL_PF,NULL, 0);
             }else if(CMUX_CONTROL_ISDISC(buff)){
-                luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_UA | CMUX_CONTROL_PF,NULL, 0);
                 cmux_state = 0;
+                luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_UA | CMUX_CONTROL_PF,NULL, 0);
             }else if(CMUX_CONTROL_ISUIH(buff)){
                 char send_buff[128] = {0};
                 unsigned char *data = (unsigned char *)luat_heap_malloc(buff[3]>>1);
@@ -127,9 +128,16 @@ void luat_cmux_read(unsigned char* buff,size_t len){
             if (CMUX_CONTROL_ISSABM(buff)){
                 cmux_log_state = 1;
                 luat_cmux_write(LUAT_CMUX_CH_LOG,  CMUX_FRAME_UA | CMUX_CONTROL_PF,NULL, 0);
+            }else if(CMUX_CONTROL_ISDISC(buff)){
+                cmux_log_state = 0;
+                luat_cmux_write(LUAT_CMUX_CH_LOG,  CMUX_FRAME_UA | CMUX_CONTROL_PF,NULL, 0);
             }
         }else if (CMUX_ADDRESS_DLC(buff)==LUAT_CMUX_CH_DBG){
             if (CMUX_CONTROL_ISSABM(buff)){
+                cmux_dbg_state = 1;
+                luat_cmux_write(LUAT_CMUX_CH_DBG,  CMUX_FRAME_UA | CMUX_CONTROL_PF,NULL, 0);
+            }else if(CMUX_CONTROL_ISDISC(buff)){
+                cmux_dbg_state = 0;
                 luat_cmux_write(LUAT_CMUX_CH_DBG,  CMUX_FRAME_UA | CMUX_CONTROL_PF,NULL, 0);
             }else if(CMUX_CONTROL_ISUIH(buff)){
                 char send_buff[128] = {0};

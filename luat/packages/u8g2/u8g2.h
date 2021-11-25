@@ -73,7 +73,7 @@
 
 /* always enable U8G2_16BIT on 32bit environments, see issue https://github.com/olikraus/u8g2/issues/1222 */
 #ifndef U8G2_16BIT
-#if defined(unix) || defined(__unix__) || defined(__arm__) || defined(__xtensa__) || defined(xtensa) || defined(__arc__) || defined(ESP8266) || defined(ESP_PLATFORM) || defined(USE_LUATOS)
+#if defined(unix) || defined(__unix__) || defined(__arm__) || defined(__xtensa__) || defined(xtensa) || defined(__arc__) || defined(ESP8266) || defined(ESP_PLATFORM) || defined(__LUATOS__)
 #define U8G2_16BIT
 #endif
 #endif
@@ -86,6 +86,10 @@
  */
 //#define U8G2_USE_DYNAMIC_ALLOC
 
+/*
+  U8G2 uses the same static array
+ */
+#define U8G2_USE_ONE_STATIC_BUFF
 
 /* U8g2 feature selection, see also https://github.com/olikraus/u8g2/wiki/u8g2optimization */
 
@@ -191,7 +195,7 @@
 
 /* the macro U8G2_USE_LARGE_FONTS enables large fonts (>32K) */
 /* it can be enabled for those uC supporting larger arrays */
-#if defined(unix) || defined(__unix__) || defined(__arm__) || defined(__arc__) || defined(ESP8266) || defined(ESP_PLATFORM) || defined(USE_LUATOS)
+#if defined(unix) || defined(__unix__) || defined(__arm__) || defined(__arc__) || defined(ESP8266) || defined(ESP_PLATFORM) || defined(__LUATOS__)
 #ifndef U8G2_USE_LARGE_FONTS
 #define U8G2_USE_LARGE_FONTS
 #endif 
@@ -3396,19 +3400,6 @@ extern const uint8_t u8g2_font_px437wyse700b_tn[] U8G2_FONT_SECTION("u8g2_font_p
 extern const uint8_t u8g2_font_px437wyse700b_mf[] U8G2_FONT_SECTION("u8g2_font_px437wyse700b_mf");
 extern const uint8_t u8g2_font_px437wyse700b_mr[] U8G2_FONT_SECTION("u8g2_font_px437wyse700b_mr");
 extern const uint8_t u8g2_font_px437wyse700b_mn[] U8G2_FONT_SECTION("u8g2_font_px437wyse700b_mn");
-extern const uint8_t u8g2_font_opposansm8[] U8G2_FONT_SECTION("u8g2_font_opposansm8");
-extern const uint8_t u8g2_font_opposansm10[] U8G2_FONT_SECTION("u8g2_font_opposansm10");
-extern const uint8_t u8g2_font_opposansm12[] U8G2_FONT_SECTION("u8g2_font_opposansm12");
-extern const uint8_t u8g2_font_opposansm16[] U8G2_FONT_SECTION("u8g2_font_opposansm16");
-extern const uint8_t u8g2_font_opposansm18[] U8G2_FONT_SECTION("u8g2_font_opposansm18");
-extern const uint8_t u8g2_font_opposansm20[] U8G2_FONT_SECTION("u8g2_font_opposansm20");
-extern const uint8_t u8g2_font_opposansm22[] U8G2_FONT_SECTION("u8g2_font_opposansm22");
-extern const uint8_t u8g2_font_opposansm24[] U8G2_FONT_SECTION("u8g2_font_opposansm24");
-extern const uint8_t u8g2_font_opposansm32[] U8G2_FONT_SECTION("u8g2_font_opposansm32");
-extern const uint8_t u8g2_font_opposansm12_chinese[] U8G2_FONT_SECTION("u8g2_font_opposansm12_chinese");
-extern const uint8_t u8g2_font_opposansm16_chinese[] U8G2_FONT_SECTION("u8g2_font_opposansm16_chinese");
-extern const uint8_t u8g2_font_opposansm24_chinese[] U8G2_FONT_SECTION("u8g2_font_opposansm24_chinese");
-extern const uint8_t u8g2_font_opposansm32_chinese[] U8G2_FONT_SECTION("u8g2_font_opposansm32_chinese");
 
 /* end font list */
 

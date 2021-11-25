@@ -15,6 +15,7 @@
 #include "luat_spi.h"
 
 #include "u8g2.h"
+#include "u8g2_luat_fonts.h"
 
 #define LUAT_LOG_TAG "luat.u8g2"
 #include "luat_log.h"

@@ -4,7 +4,7 @@ import paho.mqtt.publish as publish
 from git import Repo
 
 client = mqtt.Client()
-repo = Repo("./")
+repo = Repo("../")
 try:
     #服务器请自行修改，需要传入参数
     client.connect(sys.argv[1], int(sys.argv[2]), 60)

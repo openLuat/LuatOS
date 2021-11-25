@@ -413,12 +413,24 @@ int l_debug_close(lua_State *L) {
     return 0;
 }
 
+#ifdef LUAT_USE_SHELL
+// 供dbg_init.lua判断cmux状态
+int l_debug_cmux_state(lua_State *L) {
+    lua_pushinteger(L, cmux_state);
+    lua_pushinteger(L, cmux_dbg_state);
+    return 2;
+}
+#endif
+
 #include "rotable.h"
 static const rotable_Reg reg_dbg[] =
 {
 	{ "wait",  l_debug_wait, 0},
     { "close",  l_debug_close, 0},
     { "stop",  l_debug_close, 0},
+#ifdef LUAT_USE_SHELL
+    { "cmux_state", l_debug_cmux_state, 0},
+#endif
 	{ NULL, NULL , 0}
 };
 

@@ -65,6 +65,7 @@ int luat_main_demo() { // 这是验证LuatVM最基础的消息/定时器/Task机
 
 static int pmain(lua_State *L) {
     int re = -2;
+    char filename[32] = {0};
 
     //luat_os_print_heapinfo("boot");
 
@@ -79,6 +80,15 @@ static int pmain(lua_State *L) {
     luat_custom_init(lua_State *L);
 #endif
 
+#ifdef LUAT_USE_DBG
+    //extern void luat_debug_hook(lua_State *L, lua_Debug *ar);
+    //lua_sethook(L, luat_debug_hook, LUA_MASKCALL | LUA_MASKRET | LUA_MASKLINE, 0);
+    // 寻找dbg_init.lua, 里面有初始化代码
+    if (luat_search_module("dbg_init", filename) == 0) {
+        luaL_dofile(L, filename);
+    }
+#endif
+
     // 加载main.lua
     #ifdef LUAT_USE_CMDLINE_ARGS
     if (cmdline_argc > 1) {
@@ -89,7 +99,6 @@ static int pmain(lua_State *L) {
     #endif
     if (re == -2) {
       #ifndef LUAT_MAIN_DEMO
-      char filename[32] = {0};
       if (luat_search_module("main", filename) == 0) {
         re = luaL_dofile(L, filename);
       }
@@ -186,7 +195,6 @@ int luat_main (void) {
   LLOGD("This is a beta version, for testing");
   #endif
   #endif
-  
 
   // 1. 初始化文件系统
   luat_fs_init();

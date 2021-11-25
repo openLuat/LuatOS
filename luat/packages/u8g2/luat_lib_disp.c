@@ -13,6 +13,7 @@
 #include "luat_i2c.h"
 
 #include "u8g2.h"
+#include "u8g2_luat_fonts.h"
 
 #define LUAT_LOG_TAG "luat.disp"
 #include "luat_log.h"

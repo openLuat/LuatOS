@@ -277,46 +277,7 @@ static void u8g2_draw_hv_line(u8g2_t *u8g2, int16_t x, int16_t y, int16_t len, u
       break;
   }
 }
-static int16_t u8g2_add_vector_x(int16_t dx, int8_t x, int8_t y, uint8_t dir) U8X8_NOINLINE;
-static int16_t u8g2_add_vector_x(int16_t dx, int8_t x, int8_t y, uint8_t dir)
-{
-  switch(dir)
-  {
-    case 0:
-      dx += x;
-      break;
-    case 1:
-      dx -= y;
-      break;
-    case 2:
-      dx -= x;
-      break;
-    default:
-      dx += y;
-      break;      
-  }
-  return dx;
-}
-static int16_t u8g2_add_vector_y(int16_t dy, int8_t x, int8_t y, uint8_t dir) U8X8_NOINLINE;
-static int16_t u8g2_add_vector_y(int16_t dy, int8_t x, int8_t y, uint8_t dir)
-{
-  switch(dir)
-  {
-    case 0:
-      dy += y;
-      break;
-    case 1:
-      dy += x;
-      break;
-    case 2:
-      dy -= y;
-      break;
-    default:
-      dy -= x;
-      break;      
-  }
-  return dy;
-}
+
 static void u8g2_font_decode_len(u8g2_t *u8g2, uint8_t len, uint8_t is_foreground){
   uint8_t cnt;  /* total number of remaining pixels, which have to be drawn */
   uint8_t rem;  /* remaining pixel to the right edge of the glyph */

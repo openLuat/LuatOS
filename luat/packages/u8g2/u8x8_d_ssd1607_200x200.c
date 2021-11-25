@@ -75,7 +75,7 @@ static const u8x8_display_info_t u8x8_ssd1607_200x200_display_info =
   /* sda_setup_time_ns = */ 50,		/* SSD1606: */
   /* sck_pulse_width_ns = */ 100,	/* SSD1606: 100ns */
   /* sck_clock_hz = */ 4000000UL,	/* since Arduino 1.6.0, the SPI bus speed in Hz. Should be  1000000000/sck_pulse_width_ns */
-  /* spi_mode = */ 2,		/* active high, rising edge */
+  /* spi_mode = */ 0,		/* active high, rising edge */
   /* i2c_bus_clock_100kHz = */ 4,
   /* data_setup_time_ns = */ 40,
   /* write_pulse_width_ns = */ 150,	
@@ -163,10 +163,12 @@ static void u8x8_d_ssd1607_draw_tile(u8x8_t *u8x8, uint8_t arg_int, void *arg_pt
   x = ((u8x8_tile_t *)arg_ptr)->x_pos;
   x *= 8;
   x += u8x8->x_offset;
+  
+  
 
   u8x8_cad_SendCmd(u8x8, 0x045 );	/* window start column */
-  u8x8_cad_SendArg(u8x8, 0);
-  u8x8_cad_SendArg(u8x8, 0);
+  u8x8_cad_SendArg(u8x8, x&255);
+  u8x8_cad_SendArg(u8x8, x>>8);
   u8x8_cad_SendArg(u8x8, 199);		/* end of display */
   u8x8_cad_SendArg(u8x8, 0);
 
@@ -538,30 +540,38 @@ measured 1240 ms with IL3830 196x128
 
   U8X8_C(0x32),	/* write LUT register*/
 
+/*
   U8X8_A(0x50), U8X8_A(0xAA), U8X8_A(0x55), U8X8_A(0xAA), U8X8_A(0x11), 
   U8X8_A(0x00), U8X8_A(0x00), U8X8_A(0x00), U8X8_A(0x00), U8X8_A(0x00), 
   U8X8_A(0x00), U8X8_A(0x00), U8X8_A(0x00), U8X8_A(0x00), U8X8_A(0x00), 
   U8X8_A(0x00), U8X8_A(0x00), U8X8_A(0x00), U8X8_A(0x00), U8X8_A(0x00), 
   
   U8X8_A(0xFF), U8X8_A(0xFF), U8X8_A(0x1F), U8X8_A(0x00), U8X8_A(0x00), 
+  U8X8_A(0x00), U8X8_A(0x00), U8X8_A(0x00), U8X8_A(0x00), U8X8_A(0x00), 
+*/
+  U8X8_A(0x10), U8X8_A(0x18), U8X8_A(0x18), U8X8_A(0x08), U8X8_A(0x18),   // numbers based on Waveshare demo code
+  U8X8_A(0x18), U8X8_A(0x08), U8X8_A(0x00), U8X8_A(0x00), U8X8_A(0x00), 
+  U8X8_A(0x00), U8X8_A(0x00), U8X8_A(0x00), U8X8_A(0x00), U8X8_A(0x00), 
+  U8X8_A(0x00), U8X8_A(0x00), U8X8_A(0x00), U8X8_A(0x00), U8X8_A(0x00), 
+  
+  U8X8_A(0x13), U8X8_A(0x14), U8X8_A(0x44), U8X8_A(0x12), U8X8_A(0x00), 
   U8X8_A(0x00), U8X8_A(0x00), U8X8_A(0x00), U8X8_A(0x00), U8X8_A(0x00),
 
-  U8X8_CA(0x22, 0x04),	/* display update seq. option: clk -> CP -> LUT -> initial display -> pattern display */
+  U8X8_CA(0x22, 0xc4),	/* display update seq. option: clk -> CP -> LUT -> initial display -> pattern display */
   U8X8_C(0x20),	/* execute sequence */
   
   U8X8_DLY(250),	/* delay for 1500ms. The current sequence takes 1300ms */
   U8X8_DLY(250),
   U8X8_DLY(250),
-  U8X8_DLY(250),
+//  U8X8_DLY(250),
   
-  U8X8_DLY(250),
-  U8X8_DLY(250),
+//  U8X8_DLY(250),
+//  U8X8_DLY(250),
   
   
   U8X8_END_TRANSFER(),             	/* disable chip */
   U8X8_END()             			/* end of sequence */
 };
-
 
 uint8_t u8x8_d_ssd1607_gd_200x200(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr)
 {
@@ -595,3 +605,114 @@ uint8_t u8x8_d_ssd1607_gd_200x200(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, vo
   }
   return 1;
 }
+
+
+
+/*=================================================*/
+
+static const uint8_t u8x8_d_ssd1607_ws_to_display_seq[] = {
+  U8X8_START_TRANSFER(),             	/* enable chip, delay is part of the transfer start */
+
+
+  U8X8_C(0x32),	/* write LUT register*/
+
+  U8X8_A(0x10), U8X8_A(0x18), U8X8_A(0x18), U8X8_A(0x08), U8X8_A(0x18),   // numbers based on Waveshare demo code
+  U8X8_A(0x18), U8X8_A(0x08), U8X8_A(0x00), U8X8_A(0x00), U8X8_A(0x00), 
+  U8X8_A(0x00), U8X8_A(0x00), U8X8_A(0x00), U8X8_A(0x00), U8X8_A(0x00), 
+  U8X8_A(0x00), U8X8_A(0x00), U8X8_A(0x00), U8X8_A(0x00), U8X8_A(0x00), 
+  
+  U8X8_A(0x13), U8X8_A(0x14), U8X8_A(0x44), U8X8_A(0x12), U8X8_A(0x00), 
+  U8X8_A(0x00), U8X8_A(0x00), U8X8_A(0x00), U8X8_A(0x00), U8X8_A(0x00),
+
+  U8X8_CA(0x22, 0xc4),	/* display update seq. option: clk -> CP -> LUT -> initial display -> pattern display */
+  U8X8_C(0x20),	/* execute sequence */
+  
+  U8X8_DLY(250),	/* delay for 1250ms.  */
+  U8X8_DLY(250),
+  U8X8_DLY(250),
+  U8X8_DLY(250),
+  U8X8_DLY(250),
+  
+  
+  U8X8_END_TRANSFER(),             	/* disable chip */
+  U8X8_END()             			/* end of sequence */
+};
+
+
+static const uint8_t u8x8_d_ssd1607_ws_to_refresh_seq[] = {
+  U8X8_START_TRANSFER(),             	/* enable chip, delay is part of the transfer start */
+
+
+  U8X8_CA(0x22, 0x04),	/* display update seq. option: clk -> CP -> LUT -> initial display -> pattern display */
+  U8X8_C(0x20),	/* execute sequence */
+  
+//  U8X8_DLY(250),
+//  U8X8_DLY(250),
+  
+  
+  U8X8_END_TRANSFER(),             	/* disable chip */
+  U8X8_END()             			/* end of sequence */
+};
+
+
+/* waveshare 200x200 */
+static const uint8_t u8x8_d_ssd1607_ws_200x200_init_seq[] = {    
+  // suggested code from https://github.com/olikraus/u8g2/issues/637
+  
+  U8X8_START_TRANSFER(),             	/* enable chip, delay is part of the transfer start */
+ 
+  U8X8_C(0x01), /* DRIVER_OUTPUT_CONTROL: LO(EPD_HEIGHT-1), HI(EPD_HEIGHT-1). GD = 0; SM = 0; TB = 0; */
+  U8X8_A(199),U8X8_A(0),U8X8_A(0),
+  
+  U8X8_C(0x0C), /* BOOSTER_SOFT_START_CONTROL */
+  U8X8_A(0xd7),U8X8_A(0xd6),U8X8_A(0x9d),
+  
+  U8X8_CA(0x2c, 0xa8), /* WRITE_VCOM_REGISTER: VCOM 7C */
+  U8X8_CA(0x3a, 0x1a), /* SET_DUMMY_LINE_PERIOD: 4 dummy lines per gate */
+  U8X8_CA(0x3b, 0x08), /* SET_GATE_TIME: 2us per line */
+  U8X8_CA(0x11, 0x03), /* DATA_ENTRY_MODE_SETTING: X increment; Y increment */
+  U8X8_CAA(0x44, 0, 24), /* SET_RAM_X_ADDRESS_START_END_POSITION: LO(x >> 3), LO((w-1) >> 3) */
+  U8X8_CAAAA(0x45, 0, 0, 199&255, 199>>8), /* SET_RAM_Y_ADDRESS_START_END_POSITION: LO(y), HI(y), LO(h - 1), HI(h - 1) */
+  U8X8_CA(0x4e, 0), /* LO(x >> 3) */
+  U8X8_CAA(0x4f, 0, 0), /* LO(y), HI(y >> 8) */
+  
+  U8X8_END_TRANSFER(),             	/* disable chip */
+  U8X8_END()             			/* end of sequence */  
+  
+};
+
+
+uint8_t u8x8_d_ssd1607_ws_200x200(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr)
+{
+  switch(msg)
+  {
+    case U8X8_MSG_DISPLAY_SETUP_MEMORY:
+      u8x8_d_helper_display_setup_memory(u8x8, &u8x8_ssd1607_200x200_display_info);
+      break;
+    case U8X8_MSG_DISPLAY_INIT:
+      u8x8_d_helper_display_init(u8x8);
+      u8x8_cad_SendSequence(u8x8, u8x8_d_ssd1607_ws_200x200_init_seq);    
+      u8x8_cad_SendSequence(u8x8, u8x8_d_ssd1607_200x200_powersave0_seq);
+      u8x8_d_ssd1607_200x200_first_init(u8x8);
+      u8x8_cad_SendSequence(u8x8, u8x8_d_ssd1607_ws_to_display_seq);; // to setup LUT
+      break;
+    case U8X8_MSG_DISPLAY_SET_POWER_SAVE:
+      if ( arg_int == 0 )
+	u8x8_cad_SendSequence(u8x8, u8x8_d_ssd1607_200x200_powersave0_seq);
+      else
+	u8x8_cad_SendSequence(u8x8, u8x8_d_ssd1607_200x200_powersave1_seq);
+      break;
+    case U8X8_MSG_DISPLAY_SET_FLIP_MODE:
+      break;
+    case U8X8_MSG_DISPLAY_DRAW_TILE:
+      u8x8_d_ssd1607_draw_tile(u8x8, arg_int, arg_ptr);
+      break;
+    case U8X8_MSG_DISPLAY_REFRESH:
+      u8x8_cad_SendSequence(u8x8, u8x8_d_ssd1607_ws_to_refresh_seq);
+      break;
+    default:
+      return 0;
+  }
+  return 1;
+}
+

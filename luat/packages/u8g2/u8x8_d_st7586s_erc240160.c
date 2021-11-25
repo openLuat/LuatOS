@@ -1,7 +1,13 @@
 /*
   u8x8_d_st7586s_erc240160.c
+
+  Display: 240x160 pixel
+  ST7586s: 384 x 160 x 2
+
   Universal 8bit Graphics Library (https://github.com/olikraus/u8g2/)
+  
   Copyright (c) 2018, olikraus@gmail.com
+  
   All rights reserved.
   Redistribution and use in source and binary forms, with or without modification, 
   are permitted provided that the following conditions are met:
@@ -76,6 +82,7 @@ static const uint8_t u8x8_d_st7586s_erc240160_flip1_seq[] = {
 };
 
 static const uint8_t u8x8_d_st7586s_erc240160_init_seq[] = {
+  U8X8_START_TRANSFER(),/* enable chip */
   U8X8_END_TRANSFER(),/* disable chip */
  // U8G_ESC_RST(1), /* hardware reset */
   U8X8_DLY(60),   /* Delay 60 ms */
@@ -129,6 +136,7 @@ static const uint8_t u8x8_d_st7586s_erc240160_init_seq[] = {
   U8X8_A(0x09F), // 160 pixels
 
   U8X8_C(0x029), // Display ON
+  U8X8_END_TRANSFER(),/* disable chip */
   U8X8_END()  /* end of sequence */
 };
 
@@ -194,7 +202,7 @@ uint8_t u8x8_d_st7586s_erc240160(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, voi
           if (input & 0x80)          // if bit 7
             byte = byte | 0x18;  //set pixel 1
           if (input & 0x40)          // if bit 6
-            byte = byte | 0x03;  //set pixel 2
+            byte = byte | 0x3;  //set pixel 2
         }
         if (u8x8->x_offset ==1){
           if (input & 0x80)          // if bit 7

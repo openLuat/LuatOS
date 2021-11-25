@@ -293,6 +293,7 @@ static int l_u8g2_SetFontMode(lua_State *L){
         lua_pushboolean(L, 0);
     }
     u8g2_SetFontMode(u8g2, font_mode);
+    u8g2_SetFontDirection(u8g2, 0);
     lua_pushboolean(L, 1);
     return 1;
 }

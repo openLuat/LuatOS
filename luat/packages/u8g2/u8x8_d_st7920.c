@@ -71,6 +71,9 @@ static const uint8_t u8x8_d_st7920_powersave1_seq[] = {
   U8X8_START_TRANSFER(),             	/* enable chip, delay is part of the transfer start */
   U8X8_C(0x038),            			/* 8 Bit interface (DL=1), basic instruction set (RE=0) */
   U8X8_C(0x008),		                /* display off */
+  U8X8_C(0x034), /* 8 Bit interface (DL=1), extended instruction set (RE=1) */
+  U8X8_C(0x001), /* Standby mode */
+    
   U8X8_END_TRANSFER(),             	/* disable chip */
   U8X8_END()             			/* end of sequence */
 };
@@ -222,6 +225,48 @@ uint8_t u8x8_d_st7920_128x64(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *a
       break;
     default:
       return u8x8_d_st7920_common(u8x8, msg, arg_int, arg_ptr);
+  }
+  return 1;
+}
+
+/* https://github.com/olikraus/u8g2/issues/1593 */
+
+static const u8x8_display_info_t u8x8_st7920_256x32_display_info =
+{
+  /* chip_enable_level = */ 1,
+  /* chip_disable_level = */ 0,
+
+  /* post_chip_enable_wait_ns = */ 5,
+  /* pre_chip_disable_wait_ns = */ 5,
+  /* reset_pulse_width_ms = */ 1,
+  /* post_reset_wait_ms = */ 6,
+  /* sda_setup_time_ns = */ 20,
+  /* sck_pulse_width_ns = */  140,	/* datasheet ST7920 */
+  /* sck_clock_hz = */ 1000000UL,	/* since Arduino 1.6.0, the SPI bus speed in Hz. Should be  1000000000/sck_pulse_width_ns */
+  /* ST7920+Due work with 1MHz but not with 2MHz, ST7920+Uno works with 2MHz */
+  /* spi_mode = */ 3,		/* active high, rising edge, 18 Aug 16: changed from 1 to 3 which works for 101  */
+  /* in theory mode 3 should be correct  */
+  /* i2c_bus_clock_100kHz = */ 4,
+  /* data_setup_time_ns = */ 30,
+  /* write_pulse_width_ns = */ 40,
+  /* tile_width = */ 32,
+  /* tile_hight = */ 4,
+  /* default_x_offset = */ 0,
+  /* flipmode_x_offset = */ 0,
+  /* pixel_width = */ 256,
+  /* pixel_height = */ 32
+};
+  
+
+uint8_t u8x8_d_st7920_256x32(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr)
+{
+  switch(msg)
+  {
+	case U8X8_MSG_DISPLAY_SETUP_MEMORY:
+	  u8x8_d_helper_display_setup_memory(u8x8, &u8x8_st7920_256x32_display_info);
+	  break;
+	default:
+	  return u8x8_d_st7920_common(u8x8, msg, arg_int, arg_ptr);
   }
   return 1;
 }

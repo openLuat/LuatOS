@@ -35,6 +35,33 @@
 
 #include "u8g2.h"
 #include <string.h>
+#include <assert.h>
+
+
+/*============================================*/
+
+
+#ifdef U8G2_WITH_CLIP_WINDOW_SUPPORT
+
+void u8g2_SetMaxClipWindow(u8g2_t *u8g2)
+{
+  u8g2->clip_x0 = 0;
+  u8g2->clip_y0 = 0;
+  u8g2->clip_x1 = (u8g2_uint_t)~(u8g2_uint_t)0;
+  u8g2->clip_y1 = (u8g2_uint_t)~(u8g2_uint_t)0;
+  
+  u8g2->cb->update_page_win(u8g2);
+}
+
+void u8g2_SetClipWindow(u8g2_t *u8g2, u8g2_uint_t clip_x0, u8g2_uint_t clip_y0, u8g2_uint_t clip_x1, u8g2_uint_t clip_y1 )
+{
+  u8g2->clip_x0 = clip_x0;
+  u8g2->clip_y0 = clip_y0;
+  u8g2->clip_x1 = clip_x1;
+  u8g2->clip_y1 = clip_y1;
+  u8g2->cb->update_page_win(u8g2);
+}
+#endif
 
 /*============================================*/
 /*
@@ -62,7 +89,12 @@ void u8g2_SetupBuffer(u8g2_t *u8g2, uint8_t *buf, uint8_t tile_buf_height, u8g2_
   u8g2->is_auto_page_clear = 1;
   
   u8g2->cb = u8g2_cb;
-  u8g2->cb->update(u8g2);
+  u8g2->cb->update_dimension(u8g2);
+#ifdef U8G2_WITH_CLIP_WINDOW_SUPPORT
+  u8g2_SetMaxClipWindow(u8g2);		/* assign a clip window and call the update() procedure */
+#else
+  u8g2->cb->update_page_win(u8g2);
+#endif
 
   u8g2_SetFontPosBaseline(u8g2);  /* issue 195 */
   
@@ -78,7 +110,18 @@ void u8g2_SetupBuffer(u8g2_t *u8g2, uint8_t *buf, uint8_t tile_buf_height, u8g2_
 void u8g2_SetDisplayRotation(u8g2_t *u8g2, const u8g2_cb_t *u8g2_cb)
 {
   u8g2->cb = u8g2_cb;
-  u8g2->cb->update(u8g2);
+  u8g2->cb->update_dimension(u8g2);
+  u8g2->cb->update_page_win(u8g2);
+}
+
+/*============================================*/
+
+void u8g2_SendF(u8g2_t * u8g2, const char *fmt, ...)
+{
+  va_list va;
+  va_start(va, fmt);
+  u8x8_cad_vsendf(u8g2_GetU8x8(u8g2), fmt, va);
+  va_end(va);
 }
 
 
@@ -94,13 +137,14 @@ void u8g2_SetDisplayRotation(u8g2_t *u8g2, const u8g2_cb_t *u8g2_cb)
 
 static void u8g2_update_dimension_common(u8g2_t *u8g2)
 {
+  const u8x8_display_info_t *display_info = u8g2_GetU8x8(u8g2)->display_info;
   u8g2_uint_t t;
   
   t = u8g2->tile_buf_height;
   t *= 8;
   u8g2->pixel_buf_height = t;
   
-  t = u8g2_GetU8x8(u8g2)->display_info->tile_width;
+  t = display_info->tile_width;
 #ifndef U8G2_16BIT
   if ( t >= 32 )
     t = 31;
@@ -114,8 +158,8 @@ static void u8g2_update_dimension_common(u8g2_t *u8g2)
   
   t = u8g2->tile_buf_height;
   /* handle the case, where the buffer is larger than the (remaining) part of the display */
-  if ( t + u8g2->tile_curr_row > u8g2_GetU8x8(u8g2)->display_info->tile_height )
-    t = u8g2_GetU8x8(u8g2)->display_info->tile_height - u8g2->tile_curr_row;
+  if ( t + u8g2->tile_curr_row > display_info->tile_height )
+    t = display_info->tile_height - u8g2->tile_curr_row;
   t *= 8;
   
   u8g2->buf_y0 = u8g2->pixel_curr_row;   
@@ -124,30 +168,65 @@ static void u8g2_update_dimension_common(u8g2_t *u8g2)
 
   
 #ifdef U8G2_16BIT
-  u8g2->width = u8g2_GetU8x8(u8g2)->display_info->pixel_width;
-  u8g2->height = u8g2_GetU8x8(u8g2)->display_info->pixel_height;
+  u8g2->width = display_info->pixel_width;
+  u8g2->height = display_info->pixel_height;
 #else
   u8g2->width = 240;
-  if ( u8g2_GetU8x8(u8g2)->display_info->pixel_width <= 240 )
-    u8g2->width = u8g2_GetU8x8(u8g2)->display_info->pixel_width;
-  u8g2->height = u8g2_GetU8x8(u8g2)->display_info->pixel_height;
+  if ( display_info->pixel_width <= 240 )
+    u8g2->width = display_info->pixel_width;
+  u8g2->height = display_info->pixel_height;
 #endif
 
 }
 
+/*==========================================================*/
+/* apply clip window */
+
+#ifdef U8G2_WITH_CLIP_WINDOW_SUPPORT
+static void u8g2_apply_clip_window(u8g2_t *u8g2)
+{
+  /* check aganst the current user_??? window */
+  if ( u8g2_IsIntersection(u8g2, u8g2->clip_x0, u8g2->clip_y0, u8g2->clip_x1, u8g2->clip_y1) == 0 ) 
+  {
+    u8g2->is_page_clip_window_intersection = 0;
+  }
+  else
+  {
+    u8g2->is_page_clip_window_intersection = 1;
+
+    if ( u8g2->user_x0 < u8g2->clip_x0 )
+      u8g2->user_x0 = u8g2->clip_x0;
+    if ( u8g2->user_x1 > u8g2->clip_x1 )
+      u8g2->user_x1 = u8g2->clip_x1;
+    if ( u8g2->user_y0 < u8g2->clip_y0 )
+      u8g2->user_y0 = u8g2->clip_y0;
+    if ( u8g2->user_y1 > u8g2->clip_y1 )
+      u8g2->user_y1 = u8g2->clip_y1;
+  }
+}
+#endif /* U8G2_WITH_CLIP_WINDOW_SUPPORT */
+
+/*==========================================================*/
+
+
 void u8g2_update_dimension_r0(u8g2_t *u8g2)
 {
-  u8g2_update_dimension_common(u8g2);
+  u8g2_update_dimension_common(u8g2);  
+}
 
+void u8g2_update_page_win_r0(u8g2_t *u8g2)
+{
   u8g2->user_x0 = 0;
-  u8g2->user_x1 = u8g2->pixel_buf_width;	/* pixel_buf_width replaced with width */
+  u8g2->user_x1 = u8g2->width;			/* pixel_buf_width replaced with width */
   
   u8g2->user_y0 = u8g2->buf_y0;
   u8g2->user_y1 = u8g2->buf_y1;
   
-//  printf("x0=%d x1=%d y0=%d y1=%d\n", 
-//      u8g2->user_x0, u8g2->user_x1, u8g2->user_y0, u8g2->user_y1);
+#ifdef U8G2_WITH_CLIP_WINDOW_SUPPORT
+  u8g2_apply_clip_window(u8g2);
+#endif /* U8G2_WITH_CLIP_WINDOW_SUPPORT */
 }
+
 
 void u8g2_update_dimension_r1(u8g2_t *u8g2)
 {
@@ -156,20 +235,28 @@ void u8g2_update_dimension_r1(u8g2_t *u8g2)
   u8g2->height = u8g2_GetU8x8(u8g2)->display_info->pixel_width;
   u8g2->width = u8g2_GetU8x8(u8g2)->display_info->pixel_height;
   
+}
+
+void u8g2_update_page_win_r1(u8g2_t *u8g2)
+{
   u8g2->user_x0 = u8g2->buf_y0;
   u8g2->user_x1 = u8g2->buf_y1;
   
   u8g2->user_y0 = 0;
   u8g2->user_y1 = u8g2->height;	/* pixel_buf_width replaced with height (which is the real pixel width) */
   
-  //printf("x0=%d x1=%d y0=%d y1=%d\n", 
-   //   u8g2->user_x0, u8g2->user_x1, u8g2->user_y0, u8g2->user_y1);
+#ifdef U8G2_WITH_CLIP_WINDOW_SUPPORT
+  u8g2_apply_clip_window(u8g2);
+#endif /* U8G2_WITH_CLIP_WINDOW_SUPPORT */
 }
 
 void u8g2_update_dimension_r2(u8g2_t *u8g2)
 {
   u8g2_update_dimension_common(u8g2);
+}
 
+void u8g2_update_page_win_r2(u8g2_t *u8g2)
+{
   u8g2->user_x0 = 0;
   u8g2->user_x1 = u8g2->width;	/* pixel_buf_width replaced with width */
   
@@ -180,9 +267,11 @@ void u8g2_update_dimension_r2(u8g2_t *u8g2)
     u8g2->user_y0 = u8g2->height - u8g2->buf_y1;
   u8g2->user_y1 = u8g2->height - u8g2->buf_y0;
 
-//  printf("x0=%d x1=%d y0=%d y1=%d\n", 
-//      u8g2->user_x0, u8g2->user_x1, u8g2->user_y0, u8g2->user_y1);
+#ifdef U8G2_WITH_CLIP_WINDOW_SUPPORT
+  u8g2_apply_clip_window(u8g2);
+#endif /* U8G2_WITH_CLIP_WINDOW_SUPPORT */
 }
+
 
 void u8g2_update_dimension_r3(u8g2_t *u8g2)
 {
@@ -191,6 +280,10 @@ void u8g2_update_dimension_r3(u8g2_t *u8g2)
   u8g2->height = u8g2_GetU8x8(u8g2)->display_info->pixel_width;
   u8g2->width = u8g2_GetU8x8(u8g2)->display_info->pixel_height;
 
+}
+
+void u8g2_update_page_win_r3(u8g2_t *u8g2)
+{
   /* there are ases where the height is not a multiple of 8. */
   /* in such a case u8g2->buf_y1 might be heigher than u8g2->width */
   u8g2->user_x0 = 0;
@@ -201,17 +294,22 @@ void u8g2_update_dimension_r3(u8g2_t *u8g2)
   u8g2->user_y0 = 0;
   u8g2->user_y1 = u8g2->height;	/* pixel_buf_width replaced with height (pixel_width) */
 
-//  printf("x0=%d x1=%d y0=%d y1=%d\n", 
-//      u8g2->user_x0, u8g2->user_x1, u8g2->user_y0, u8g2->user_y1);
+#ifdef U8G2_WITH_CLIP_WINDOW_SUPPORT
+  u8g2_apply_clip_window(u8g2);
+#endif /* U8G2_WITH_CLIP_WINDOW_SUPPORT */
 }
 
+
 /*============================================*/
-extern void u8g2_draw_hv_line_4dir(u8g2_t *u8g2, u8g2_uint_t x, u8g2_uint_t y, u8g2_uint_t len, uint8_t dir);
+extern void u8g2_draw_hv_line_2dir(u8g2_t *u8g2, u8g2_uint_t x, u8g2_uint_t y, u8g2_uint_t len, uint8_t dir);
 
 
 void u8g2_draw_l90_r0(u8g2_t *u8g2, u8g2_uint_t x, u8g2_uint_t y, u8g2_uint_t len, uint8_t dir)
 {
-  u8g2_draw_hv_line_4dir(u8g2, x, y, len, dir);
+#ifdef __unix
+  assert( dir <= 1 );
+#endif
+  u8g2_draw_hv_line_2dir(u8g2, x, y, len, dir);
 }
 
 void u8g2_draw_l90_mirrorr_r0(u8g2_t *u8g2, u8g2_uint_t x, u8g2_uint_t y, u8g2_uint_t len, uint8_t dir)
@@ -227,14 +325,33 @@ void u8g2_draw_l90_mirrorr_r0(u8g2_t *u8g2, u8g2_uint_t x, u8g2_uint_t y, u8g2_u
   {
     xx--;
   }
-  u8g2_draw_hv_line_4dir(u8g2, xx, y, len, dir);
+  u8g2_draw_hv_line_2dir(u8g2, xx, y, len, dir);
 }
 
+void u8g2_draw_mirror_vertical_r0(u8g2_t *u8g2, u8g2_uint_t x, u8g2_uint_t y, u8g2_uint_t len, uint8_t dir)
+{
+  u8g2_uint_t yy;
+  yy = u8g2->height;
+  yy -= y;
+  if ( (dir & 1) == 1 )
+  {
+    yy -= len;
+  }
+  else
+  {
+    yy--;
+  }
+  u8g2_draw_hv_line_2dir(u8g2, x, yy, len, dir);
+}
 
-
+/* dir = 0 or 1 */
 void u8g2_draw_l90_r1(u8g2_t *u8g2, u8g2_uint_t x, u8g2_uint_t y, u8g2_uint_t len, uint8_t dir)
 {
   u8g2_uint_t xx, yy;
+
+#ifdef __unix
+  assert( dir <= 1 );
+#endif
   
   yy = x;
   
@@ -243,14 +360,21 @@ void u8g2_draw_l90_r1(u8g2_t *u8g2, u8g2_uint_t x, u8g2_uint_t y, u8g2_uint_t le
   xx--;
   
   dir ++;
-  dir &= 3;
-  u8g2_draw_hv_line_4dir(u8g2, xx, yy, len, dir);
+  if ( dir == 2 )
+  {
+    xx -= len;
+    xx++;
+    dir = 0;
+  }
+  
+  u8g2_draw_hv_line_2dir(u8g2, xx, yy, len, dir);
 }
 
 void u8g2_draw_l90_r2(u8g2_t *u8g2, u8g2_uint_t x, u8g2_uint_t y, u8g2_uint_t len, uint8_t dir)
 {
   u8g2_uint_t xx, yy;
 
+  /*
   yy = u8g2->height;
   yy -= y;
   yy--;
@@ -259,9 +383,36 @@ void u8g2_draw_l90_r2(u8g2_t *u8g2, u8g2_uint_t x, u8g2_uint_t y, u8g2_uint_t le
   xx -= x;
   xx--;
   
-  dir +=2;
-  dir &= 3;
-  u8g2_draw_hv_line_4dir(u8g2, xx, yy, len, dir);
+  if ( dir == 0 )
+  {
+    xx -= len;
+    xx++;
+  }
+  else if ( dir == 1 )
+  {
+    yy -= len;
+    yy++;
+  }
+  */
+
+  yy = u8g2->height;
+  yy -= y;
+  
+  xx = u8g2->width;
+  xx -= x;
+  
+  if ( dir == 0 )
+  {
+    yy--;
+    xx -= len;
+  }
+  else if ( dir == 1 )
+  {
+    xx--;
+    yy -= len;
+  }
+
+  u8g2_draw_hv_line_2dir(u8g2, xx, yy, len, dir);
 }
 
 void u8g2_draw_l90_r3(u8g2_t *u8g2, u8g2_uint_t x, u8g2_uint_t y, u8g2_uint_t len, uint8_t dir)
@@ -272,22 +423,34 @@ void u8g2_draw_l90_r3(u8g2_t *u8g2, u8g2_uint_t x, u8g2_uint_t y, u8g2_uint_t le
   
   yy = u8g2->width;
   yy -= x;
-  yy--;
   
-  dir +=3;
-  dir &= 3;
-  u8g2_draw_hv_line_4dir(u8g2, xx, yy, len, dir);
+  if ( dir == 0 )
+  {
+    yy--;
+    yy -= len;
+    yy++;
+    dir = 1;
+  }
+  else
+  {
+    yy--;
+    dir = 0;
+  }
+  
+  
+  u8g2_draw_hv_line_2dir(u8g2, xx, yy, len, dir);
 }
 
 
 
 /*============================================*/
-const u8g2_cb_t u8g2_cb_r0 = { u8g2_update_dimension_r0, u8g2_draw_l90_r0 };
-const u8g2_cb_t u8g2_cb_r1 = { u8g2_update_dimension_r1, u8g2_draw_l90_r1 };
-const u8g2_cb_t u8g2_cb_r2 = { u8g2_update_dimension_r2, u8g2_draw_l90_r2 };
-const u8g2_cb_t u8g2_cb_r3 = { u8g2_update_dimension_r3, u8g2_draw_l90_r3 };
+const u8g2_cb_t u8g2_cb_r0 = { u8g2_update_dimension_r0, u8g2_update_page_win_r0, u8g2_draw_l90_r0 };
+const u8g2_cb_t u8g2_cb_r1 = { u8g2_update_dimension_r1, u8g2_update_page_win_r1, u8g2_draw_l90_r1 };
+const u8g2_cb_t u8g2_cb_r2 = { u8g2_update_dimension_r2, u8g2_update_page_win_r2, u8g2_draw_l90_r2 };
+const u8g2_cb_t u8g2_cb_r3 = { u8g2_update_dimension_r3, u8g2_update_page_win_r3, u8g2_draw_l90_r3 };
   
-const u8g2_cb_t u8g2_cb_mirror = { u8g2_update_dimension_r0, u8g2_draw_l90_mirrorr_r0 };
+const u8g2_cb_t u8g2_cb_mirror = { u8g2_update_dimension_r0, u8g2_update_page_win_r0, u8g2_draw_l90_mirrorr_r0 };
+const u8g2_cb_t u8g2_cb_mirror_vertical = { u8g2_update_dimension_r0, u8g2_update_page_win_r0, u8g2_draw_mirror_vertical_r0 };
   
 /*============================================*/
 /* setup for the null device */
@@ -299,3 +462,7 @@ void u8g2_Setup_null(u8g2_t *u8g2, const u8g2_cb_t *rotation, u8x8_msg_cb byte_c
   u8g2_SetupDisplay(u8g2, u8x8_d_null_cb, u8x8_cad_empty, byte_cb, gpio_and_delay_cb);
   u8g2_SetupBuffer(u8g2, buf, 1, u8g2_ll_hvline_vertical_top_lsb, rotation);
 }
+
+
+  
+  

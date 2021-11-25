@@ -160,30 +160,31 @@ typedef struct internal_hooks
     void *(CJSON_CDECL *reallocate)(void *pointer, size_t size);
 } internal_hooks;
 
-#if defined(_MSC_VER)
-/* work around MSVC error C2322: '...' address of dllimport '...' is not static */
-static void * CJSON_CDECL internal_malloc(size_t size)
-{
-    return malloc(size);
-}
-static void CJSON_CDECL internal_free(void *pointer)
-{
-    free(pointer);
-}
-static void * CJSON_CDECL internal_realloc(void *pointer, size_t size)
-{
-    return realloc(pointer, size);
-}
-#else
-#define internal_malloc malloc
-#define internal_free free
-#define internal_realloc realloc
-#endif
+// #if defined(_MSC_VER)
+// /* work around MSVC error C2322: '...' address of dllimport '...' is not static */
+// static void * CJSON_CDECL internal_malloc(size_t size)
+// {
+//     return malloc(size);
+// }
+// static void CJSON_CDECL internal_free(void *pointer)
+// {
+//     free(pointer);
+// }
+// static void * CJSON_CDECL internal_realloc(void *pointer, size_t size)
+// {
+//     return realloc(pointer, size);
+// }
+// #else
+#include "luat_malloc.h"
+#define internal_malloc luat_heap_malloc
+#define internal_free luat_heap_free
+#define internal_realloc luat_heap_realloc
+// #endif
 
 /* strlen of character literals resolved at compile time */
 #define static_strlen(string_literal) (sizeof(string_literal) - sizeof(""))
 
-static internal_hooks global_hooks = { internal_malloc, internal_free, internal_realloc };
+static const internal_hooks global_hooks = { internal_malloc, internal_free, internal_realloc };
 
 static unsigned char* cJSON_strdup(const unsigned char* string, const internal_hooks * const hooks)
 {
@@ -206,36 +207,36 @@ static unsigned char* cJSON_strdup(const unsigned char* string, const internal_h
     return copy;
 }
 
-CJSON_PUBLIC(void) cJSON_InitHooks(cJSON_Hooks* hooks)
-{
-    if (hooks == NULL)
-    {
-        /* Reset hooks */
-        global_hooks.allocate = malloc;
-        global_hooks.deallocate = free;
-        global_hooks.reallocate = realloc;
-        return;
-    }
+// CJSON_PUBLIC(void) cJSON_InitHooks(cJSON_Hooks* hooks)
+// {
+//     if (hooks == NULL)
+//     {
+//         /* Reset hooks */
+//         global_hooks.allocate = malloc;
+//         global_hooks.deallocate = free;
+//         global_hooks.reallocate = realloc;
+//         return;
+//     }
 
-    global_hooks.allocate = malloc;
-    if (hooks->malloc_fn != NULL)
-    {
-        global_hooks.allocate = hooks->malloc_fn;
-    }
+//     global_hooks.allocate = malloc;
+//     if (hooks->malloc_fn != NULL)
+//     {
+//         global_hooks.allocate = hooks->malloc_fn;
+//     }
 
-    global_hooks.deallocate = free;
-    if (hooks->free_fn != NULL)
-    {
-        global_hooks.deallocate = hooks->free_fn;
-    }
+//     global_hooks.deallocate = free;
+//     if (hooks->free_fn != NULL)
+//     {
+//         global_hooks.deallocate = hooks->free_fn;
+//     }
 
-    /* use realloc only if both free and malloc are used */
-    global_hooks.reallocate = NULL;
-    if ((global_hooks.allocate == malloc) && (global_hooks.deallocate == free))
-    {
-        global_hooks.reallocate = realloc;
-    }
-}
+//     /* use realloc only if both free and malloc are used */
+//     global_hooks.reallocate = NULL;
+//     if ((global_hooks.allocate == malloc) && (global_hooks.deallocate == free))
+//     {
+//         global_hooks.reallocate = realloc;
+//     }
+// }
 
 /* Internal constructor. */
 static cJSON *cJSON_New_Item(const internal_hooks * const hooks)

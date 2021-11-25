@@ -60,6 +60,6 @@ jobs:
         MQTTPORT: ${{ secrets.MQTTPORT }}
         MQTTTOPIC: ${{ secrets.MQTTTOPIC }}
       run: |
-        sudo pip3 install paho_mqtt
+        sudo pip3 install paho_mqtt gitpython
         cd tools
         if [ "$STATUS" = "failure" ];then python3 ciNotify.py $MQTTADDR $MQTTPORT $MQTTTOPIC "air640w https://github.com/openLuat/LuatOS/actions/runs/$GITHUB_RUN_ID"; fi

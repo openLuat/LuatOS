@@ -217,11 +217,11 @@ static int value_to_dbg_json(lua_State* L, const char* name, char** buff, size_t
         break;
     }
     char* str = cJSON_Print(cj);
-    size_t len = strlen(str);
-    *buff = luat_heap_malloc(len);
+    size_t slen = strlen(str);
+    *buff = luat_heap_malloc(slen);
     if (*buff == NULL)
         return -2;
-    memcpy(*buff, str, len);
+    memcpy(*buff, str, slen);
     cJSON_Delete(cj);
     return 0;
 #else

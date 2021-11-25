@@ -7,6 +7,9 @@
 
 #define LUAT_LOG_TAG "dbg"
 #include "luat_log.h"
+#ifdef LUAT_USE_DBG
+#include "cJSON.h"
+#endif
 
 extern uint8_t cmux_state;
 extern uint8_t cmux_dbg_state;
@@ -176,11 +179,54 @@ void luat_dbg_backtrace(void *params) {
 }
 
 //-------------------
-// TODO 将栈顶的table转为dbg协议所需要的json字符串形式
+// TODO 将栈顶的元素转为dbg协议所需要的json字符串形式
 // 鉴于mcu的内存有限, 需要限制最大深度
 // 可能要引入cjson(非lua-cjson)来配好, 走sys内存
-static int table_to_dbg_json(lua_State* L, char* buff, size_t *len, int max_deep) {
+static int value_to_dbg_json(lua_State* L, const char* name, char** buff, size_t *len, int max_deep) {
+    int ltype = lua_type(L, -1);
+    if (ltype == -1)
+        return -1;
+#ifdef LUAT_USE_DBG
+    cJSON *cj = cJSON_CreateObject();
+
+    cJSON_AddStringToObject(cj, "name", name);
+    cJSON_AddStringToObject(cj, "type", lua_typename(L, -1));
+
+    switch (ltype)
+    {
+    case LUA_TNIL:
+        cJSON_AddNullToObject(cj, "value");
+        break;
+    case LUA_TBOOLEAN:
+        cJSON_AddBoolToObject(cj, "value", lua_toboolean(L, -1));
+        break;
+    case LUA_TNUMBER:
+        cJSON_AddNumberToObhject(cj, "value", lua_tonumber(L, -1));
+        break;
+    case LUA_TTABLE:
+        // TODO 递归之
+        cJSON_AddStringToObhject(cj, "value", lua_tostring(L, -1));
+        break;
+    case LUA_TSTRING:
+    case LUA_TLIGHTUSERDATA:
+    case LUA_TUSERDATA:
+    case LUA_TFUNCTION:
+    case LUA_TTHREAD:
+    default:
+        cJSON_AddStringToObhject(cj, "value", lua_tostring(L, -1));
+        break;
+    }
+    char* str = cJSON_Print(cj);
+    size_t len = strlen(str);
+    *buff = luat_heap_malloc(len);
+    if (*buff == NULL)
+        return -2;
+    memcpy(*buff, str, len);
+    cJSON_Delete(cj);
+    return 0;
+#else
     return -1;
+#endif
 }
 //-------------------
 
@@ -192,21 +238,19 @@ void luat_dbg_vars(void *params) {
     if (lua_getstack(dbg_L, level, dbg_ar) == 1) {
         int index = 1;
         int valtype = 0;
-        char buff[128] = {0};
+        char *buff;
+        int ret;
         size_t valstrlen = 0;
         size_t valoutlen = 0;
         while (1) {
             const char* varname = lua_getlocal(dbg_L, dbg_ar, index);
             if (varname) {
-                valtype = lua_type(dbg_L, -1);
-                const char* valstr = lua_tolstring(dbg_L, -1, &valstrlen);
-                valoutlen = valstrlen > 127 ? 127 : valstrlen;
-                memcpy(buff, valstr, valoutlen);
-                buff[valoutlen] = 0x00;
+                ret = value_to_dbg_json(dbg_L, varname, &buff, &valstrlen, 10);
                 // 索引号,变量名,变量类型,值的字符串长度, 值的字符串形式
                 // TODO LuatIDE把这里改成了json输出, 需要改造一下
                 // 构建个table,然后json.encode?
-                luat_dbg_output("[resp,vars,%d] %s %d %d %s\r\n", index, varname, valtype, valoutlen, buff);
+                if (ret == 0)
+                    luat_dbg_output("[resp,vars,%d]\r\n%s\r\n", valstrlen, buff);
                 lua_pop(dbg_L, 1);
             }
             else {
@@ -242,28 +286,20 @@ void luat_dbg_gvars(void *params) {
 }
 
 void luat_dbg_jvars(void *params) {
-    size_t len = 0;
-    const char* value = NULL;
+    size_t valstrlen = 0;
+    char* buff = NULL;
     size_t top = 0;
 
     top = lua_gettop(dbg_L);
+    const char* varname = (const char*)params;
 
-    lua_pushglobaltable(dbg_L);
-    lua_pushstring(dbg_L, (const char*)params);
-    if (lua_istable(dbg_L, -1)) {
-        lua_getglobal(dbg_L, "json");
-        lua_getfield(dbg_L, -1, "encode");
-        lua_pushvalue(dbg_L, -3);
-        if (LUA_OK == lua_pcall(dbg_L, 1, 2, 0)) {
-            if (lua_isnil(dbg_L, -1))
-                lua_pop(dbg_L, -1); // 如果没有报错信息,就弹出
-        }
-    }
-    // 非table已经tostring, 而table会json.encode
-    // 如果json.encode执行成功, 要么是json字符串,要么是报错信息
-    // 如果执行失败, 那栈顶会是报错信息
-    value = lua_tolstring(dbg_L, -1, &len);
-    luat_dbg_output("[resp,jvars,%d]\r\n%s\r\n", len, value);
+    //lua_pushglobaltable(dbg_L);
+    //lua_pushstring(dbg_L, (const char*)params);
+    lua_getglobal(dbg_L, varname);
+    int ret = value_to_dbg_json(dbg_L, varname, &buff, &valstrlen, 10);
+    if (ret == 0)
+        luat_dbg_output("[resp,jvars,%d]\r\n%s\r\n", valstrlen, buff);
+    //luat_dbg_output("[resp,jvars,%d]\r\n%s\r\n", len, value);
     //lua_pop(dbg_L, 1); // 弹出栈顶的元素,减少内存
     
     luat_dbg_output("[resp,jvars,0]\r\n");

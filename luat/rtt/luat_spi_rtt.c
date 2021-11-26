@@ -37,20 +37,20 @@ int luat_spi_exist(int id) {
 int luat_spi_device_config(luat_spi_device_t* spi_dev) {
     int ret = 0;
     struct rt_spi_configuration cfg;
-    cfg.data_width = spi->dataw;
-    if(spi->master == 1)
+    cfg.data_width = spi_dev->spi_config.dataw;
+    if(spi_dev->spi_config.master == 1)
         cfg.mode |= RT_SPI_MASTER;
     else
         cfg.mode |= RT_SPI_SLAVE;
-    if(spi->bit_dict == 1)
+    if(spi_dev->spi_config.bit_dict == 1)
         cfg.mode |= RT_SPI_MSB;
     else
         cfg.mode |= RT_SPI_LSB;
-    if(spi->CPHA)
+    if(spi_dev->spi_config.CPHA)
         cfg.mode |= RT_SPI_CPHA;
-    if(spi->CPOL)
+    if(spi_dev->spi_config.CPOL)
         cfg.mode |= RT_SPI_CPOL;
-    cfg.max_hz = spi->bandrate;
+    cfg.max_hz = spi_dev->spi_config.bandrate;
     ret = rt_spi_configure(spi_dev, &cfg);
     return ret;
 }
@@ -62,11 +62,11 @@ int luat_spi_bus_setup(luat_spi_device_t* spi_dev){
     
     struct rt_spi_device *spi_dev = NULL;     /* SPI 设备句柄 */
 
-    sprintf_(bus_name, "spi%d", spi->id / 10);
-    sprintf_(device_name, "spi%02d", spi->id);
+    sprintf_(bus_name, "spi%d", spi_dev->spi_config.id / 10);
+    sprintf_(device_name, "spi%02d", spi_dev->spi_config.id);
 #ifdef SOC_W60X
-    wm_spi_bus_attach_device(bus_name, device_name, spi->cs);
-    spi_dev = findDev(spi->id);
+    wm_spi_bus_attach_device(bus_name, device_name, spi_dev->spi_config.cs);
+    spi_dev = findDev(spi_dev->spi_config.id);
 #else
     spi_dev = (struct rt_spi_device *)rt_malloc(sizeof(struct rt_spi_device));
     ret = rt_spi_bus_attach_device(spi_dev, bus_name, device_name, NULL);

@@ -60,18 +60,18 @@ int luat_spi_bus_setup(luat_spi_device_t* spi_dev){
     char device_name[8] = {0};
     int ret = 0;
     
-    struct rt_spi_device *spi_dev = NULL;     /* SPI 设备句柄 */
+    struct rt_spi_device *spi_device = NULL;     /* SPI 设备句柄 */
 
     sprintf_(bus_name, "spi%d", spi_dev->spi_config.id / 10);
     sprintf_(device_name, "spi%02d", spi_dev->spi_config.id);
 #ifdef SOC_W60X
     wm_spi_bus_attach_device(bus_name, device_name, spi_dev->spi_config.cs);
-    spi_dev = findDev(spi_dev->spi_config.id);
+    spi_device = findDev(spi_dev->spi_config.id);
 #else
-    spi_dev = (struct rt_spi_device *)rt_malloc(sizeof(struct rt_spi_device));
-    ret = rt_spi_bus_attach_device(spi_dev, bus_name, device_name, NULL);
+    spi_device = (struct rt_spi_device *)rt_malloc(sizeof(struct rt_spi_device));
+    ret = rt_spi_bus_attach_device(spi_device, bus_name, device_name, NULL);
     if (ret) {
-        rt_free(spi_dev);
+        rt_free(spi_device);
         LLOGE("fail to attach_device %s", device_name);
         return ret;
     }

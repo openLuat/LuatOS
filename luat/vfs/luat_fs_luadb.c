@@ -10,6 +10,9 @@
 #undef LLOGD
 #define LLOGD(...) 
 
+extern const uint32_t luat_inline_sys_size;
+extern const char luat_inline_sys[];
+
 //---
 static uint8_t readU8(const char* ptr, int *index) {
     int val = ptr[*index];
@@ -221,6 +224,8 @@ _after_head:
     }
 
     LLOGD("LuaDB head seem ok");
+
+    // 由于luadb_fs_t带了一个luadb_file_t元素的,所以多出一个luadb_file_t, 方便存放sys.luac
     size_t msize = sizeof(luadb_fs_t) + filecount*sizeof(luadb_file_t);
     LLOGD("malloc fo luadb fs size=%d", msize);
     luadb_fs_t *fs = (luadb_fs_t*)luat_heap_malloc(msize);
@@ -238,6 +243,7 @@ _after_head:
     int fail = 0;
     uint8_t type = 0;
     uint32_t len = 0;
+    int hasSys = 0;
     // 读取每个文件的头部
     for (size_t i = 0; i < filecount; i++)
     {
@@ -297,7 +303,18 @@ _after_head:
         fs->files[i].ptr = (const char*)(index + ptr); // 绝对地址
         index += fs->files[i].size;
 
+        if (hasSys == 0) {
+            if (0 != strcmp("sys.lua", fs->files[i].name) || 0 != strcmp("sys.luac", fs->files[i].name))
+                hasSys = 1;
+        }
         LLOGD("LuaDB: %s %d", fs->files[i].name, fs->files[i].size);
+    }
+
+    if (fail == 0 && hasSys == 0) {
+        memcpy(fs->files[filecount].name, "sys.luac", strlen("sys.luac")+1);
+        fs->files[filecount].size = luat_inline_sys_size;
+        fs->files[filecount].ptr = luat_inline_sys;
+        fs->filecount ++;
     }
 
     if (fail == 0) {

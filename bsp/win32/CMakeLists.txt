@@ -69,6 +69,8 @@ add_library(luat ${TOPROOT}/luat/modules/luat_main.c
                  ${TOPROOT}/luat/vfs/luat_fs_posix.c
                  ${TOPROOT}/luat/vfs/luat_fs_lfs2.c
                  ${TOPROOT}/luat/vfs/luat_luadb_inline.c
+                 ${TOPROOT}/luat/vfs/luat_luadb_inline_sys.c
+                 ${TOPROOT}/luat/vfs/luat_inline_sys.c
                  ${TOPROOT}/luat/packages/lfs/lfs_sfd.c
                  ${TOPROOT}/luat/packages/lfs/lfs_util.c
                  ${TOPROOT}/luat/packages/lfs/lfs.c

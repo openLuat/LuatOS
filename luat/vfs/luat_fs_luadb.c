@@ -304,7 +304,7 @@ _after_head:
         index += fs->files[i].size;
 
         if (hasSys == 0) {
-            if (0 != strcmp("sys.lua", fs->files[i].name) || 0 != strcmp("sys.luac", fs->files[i].name))
+            if (!strcmp("sys.lua", fs->files[i].name) || !strcmp("sys.luac", fs->files[i].name))
                 hasSys = 1;
         }
         LLOGD("LuaDB: %s %d", fs->files[i].name, fs->files[i].size);

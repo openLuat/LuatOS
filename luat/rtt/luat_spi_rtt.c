@@ -35,11 +35,48 @@ int luat_spi_exist(int id) {
 }
 
 int luat_spi_device_config(luat_spi_device_t* spi_dev) {
-    return 0;
+    int ret = 0;
+    struct rt_spi_configuration cfg;
+    cfg.data_width = spi->dataw;
+    if(spi->master == 1)
+        cfg.mode |= RT_SPI_MASTER;
+    else
+        cfg.mode |= RT_SPI_SLAVE;
+    if(spi->bit_dict == 1)
+        cfg.mode |= RT_SPI_MSB;
+    else
+        cfg.mode |= RT_SPI_LSB;
+    if(spi->CPHA)
+        cfg.mode |= RT_SPI_CPHA;
+    if(spi->CPOL)
+        cfg.mode |= RT_SPI_CPOL;
+    cfg.max_hz = spi->bandrate;
+    ret = rt_spi_configure(spi_dev, &cfg);
+    return ret;
 }
 
 int luat_spi_bus_setup(luat_spi_device_t* spi_dev){
-    return 0;
+        char bus_name[8] = {0};
+    char device_name[8] = {0};
+    int ret = 0;
+    
+    struct rt_spi_device *spi_dev = NULL;     /* SPI 设备句柄 */
+
+    sprintf_(bus_name, "spi%d", spi->id / 10);
+    sprintf_(device_name, "spi%02d", spi->id);
+#ifdef SOC_W60X
+    wm_spi_bus_attach_device(bus_name, device_name, spi->cs);
+    spi_dev = findDev(spi->id);
+#else
+    spi_dev = (struct rt_spi_device *)rt_malloc(sizeof(struct rt_spi_device));
+    ret = rt_spi_bus_attach_device(spi_dev, bus_name, device_name, NULL);
+    if (ret) {
+        rt_free(spi_dev);
+        LLOGE("fail to attach_device %s", device_name);
+        return ret;
+    }
+#endif
+    return ret;
 }
 
 //初始化配置SPI各项参数，并打开SPI

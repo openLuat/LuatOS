@@ -17,6 +17,8 @@
 #include "u8g2.h"
 #include "u8g2_luat_fonts.h"
 
+#include "../qrcode/qrcode.h"
+
 int8_t u8g2_font_decode_get_signed_bits(u8g2_font_decode_t *f, uint8_t cnt);
 uint8_t u8g2_font_decode_get_unsigned_bits(u8g2_font_decode_t *f, uint8_t cnt);
 
@@ -471,6 +473,37 @@ static int l_lcd_draw_circle(lua_State* L) {
     int ret = luat_lcd_draw_circle(default_conf, x0,  y0,  r, color);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
+}
+
+/**
+缓冲区绘制QRCode
+@api lcd.drawDrcode(x, y, str, version)
+@int x坐标
+@int y坐标
+@string 二维码的内容
+@int 二维码版本号
+@return nil 无返回值
+*/
+static int l_lcd_drawDrcode(lua_State *L)
+{
+    size_t len;
+    int x           = luaL_checkinteger(L, 1);
+    int y           = luaL_checkinteger(L, 2);
+    const char* str = luaL_checklstring(L, 3, &len);
+    int version     = luaL_checkinteger(L, 4);
+    // Create the QR code
+    QRCode qrcode;
+    uint8_t qrcodeData[qrcode_getBufferSize(version)];
+    qrcode_initText(&qrcode, qrcodeData, version, 0, str);
+
+    for(int i = 0; i < qrcode.size; i++)
+    {
+        for (int j = 0; j < qrcode.size; j++)
+        {
+            qrcode_getModule(&qrcode, j, i) ? luat_lcd_draw_point(default_conf, x+j, y+i, FORE_COLOR) : luat_lcd_draw_point(default_conf, x+j, y+i, BACK_COLOR);
+        }
+    }
+    return 0;
 }
 
 static uint8_t utf8_state;
@@ -1034,6 +1067,7 @@ static const rotable_Reg reg_lcd[] =
     { "drawLine",      l_lcd_draw_line,       0},
     { "drawRectangle",      l_lcd_draw_rectangle,       0},
     { "drawCircle",      l_lcd_draw_circle,       0},
+    { "drawDrcode",    l_lcd_drawDrcode, 0},
     { "drawStr",      l_lcd_draw_str,       0},
     { "setFont", l_lcd_set_font, 0},
     { "setDefault", l_lcd_set_default, 0},

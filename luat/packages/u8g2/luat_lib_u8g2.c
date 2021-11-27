@@ -17,6 +17,8 @@
 #include "u8g2.h"
 #include "u8g2_luat_fonts.h"
 
+#include "../qrcode/qrcode.h"
+
 #define LUAT_LOG_TAG "luat.u8g2"
 #include "luat_log.h"
 
@@ -631,6 +633,36 @@ static int l_u8g2_DrawBitmap(lua_State *L){
     return 1;
 }
 
+/**
+缓冲区绘制QRCode
+@api u8g2.DrawDrcode(x, y, str, version)
+@int x坐标
+@int y坐标
+@string 二维码的内容
+@int 二维码版本号
+@return nil 无返回值
+*/
+static int l_u8g2_DrawDrcode(lua_State *L)
+{
+    size_t len;
+    int x           = luaL_checkinteger(L, 1);
+    int y           = luaL_checkinteger(L, 2);
+    const char* str = luaL_checklstring(L, 3, &len);
+    int version     = luaL_checkinteger(L, 4);
+    // Create the QR code
+    QRCode qrcode;
+    uint8_t qrcodeData[qrcode_getBufferSize(version)];
+    qrcode_initText(&qrcode, qrcodeData, version, 0, str);
+
+    for(int i = 0; i < qrcode.size; i++)
+    {
+        for (int j = 0; j < qrcode.size; j++)
+        {
+            if(qrcode_getModule(&qrcode, j, i)) u8g2_DrawPixel(u8g2, x+j, y+i);
+        }
+    }
+    return 0;
+}
 
 #ifdef LUAT_USE_GTFONT
 
@@ -799,6 +831,7 @@ static const rotable_Reg reg_u8g2[] =
     { "DrawTriangle",    l_u8g2_DrawTriangle,    0},
     { "SetBitmapMode",    l_u8g2_SetBitmapMode,    0},
     { "DrawBitmap",       l_u8g2_DrawBitmap, 0},
+    { "DrawDrcode",       l_u8g2_DrawDrcode, 0},
 #ifdef LUAT_USE_GTFONT
     { "drawGtfontGb2312", l_u8g2_draw_gtfont_gb2312, 0},
 #ifdef LUAT_USE_GTFONT_UTF8

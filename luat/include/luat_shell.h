@@ -10,4 +10,7 @@ char* luat_shell_read(size_t *len);
 void luat_shell_notify_recv(void);
 void luat_shell_notify_read(void);
 
+// new shell
+void luat_shell_push(char* uart_buff, size_t rcount);
+
 #endif

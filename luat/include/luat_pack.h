@@ -1,6 +1,6 @@
 
-#ifndef LUAT_PACK
-#define LUAT_PACK
+#ifndef LUAT_PACK_H
+#define LUAT_PACK_H
 
 #include "lua.h"
 

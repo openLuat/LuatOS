@@ -1,8 +1,8 @@
 
 #include "luat_base.h"
 
-#ifndef LUAT_OTA
-#define LUAT_OTA
+#ifndef LUAT_OTA_H
+#define LUAT_OTA_H
 
 #define UPDATE_BIN_PATH "/update.bin"
 #define ROLLBACK_MARK_PATH "/rollback_mark"

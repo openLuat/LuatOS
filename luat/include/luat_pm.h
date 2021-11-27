@@ -1,4 +1,6 @@
 
+#ifndef LUAT_PM_H
+#define LUAT_PM_H
 #include "luat_base.h"
 
 #define LUAT_PM_SLEEP_MODE_NONE     0	//系统处于活跃状态，未采取任何的降低功耗状态
@@ -30,3 +32,4 @@ int luat_pm_dtimer_list(size_t* count, size_t* list);
 
 int luat_pm_dtimer_wakeup_id(int* id);
 
+#endif

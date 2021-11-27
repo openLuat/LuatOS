@@ -1,5 +1,5 @@
-#ifndef LUAT_I2C
-#define LUAT_I2C
+#ifndef LUAT_I2C_H
+#define LUAT_I2C_H
 
 #include "luat_base.h"
 

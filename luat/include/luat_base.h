@@ -4,8 +4,8 @@
  *  @since 0.0.1
  *****************************************************************************/
 
-#ifndef LUAT_BASE
-#define LUAT_BASE
+#ifndef LUAT_BASE_H
+#define LUAT_BASE_H
 /**LuatOS版本号*/
 #define LUAT_VERSION "V0007"
 #define LUAT_VERSION_BETA 1

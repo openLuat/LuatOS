@@ -1,6 +1,6 @@
 
-#ifndef LUAT_DBG
-#define LUAT_DBG
+#ifndef LUAT_DBG_H
+#define LUAT_DBG_H
 #include "luat_base.h"
 
 

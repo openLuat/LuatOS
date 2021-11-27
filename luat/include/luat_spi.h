@@ -1,6 +1,6 @@
 
-#ifndef LUAT_SPI
-#define LUAT_SPI
+#ifndef LUAT_SPI_H
+#define LUAT_SPI_H
 #include "luat_base.h"
 
 typedef struct luat_spi

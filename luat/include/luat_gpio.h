@@ -1,6 +1,6 @@
 
-#ifndef LUAT_GPIO
-#define LUAT_GPIO
+#ifndef LUAT_GPIO_H
+#define LUAT_GPIO_H
 
 
 #include "lua.h"

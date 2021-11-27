@@ -1,6 +1,6 @@
 
-#ifndef LUAT_LUADB
-#define LUAT_LUADB
+#ifndef LUAT_LUADB_H
+#define LUAT_LUADB_H
 
 // LuaDB只读文件系统
 

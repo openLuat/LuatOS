@@ -1,5 +1,5 @@
-#ifndef LUAT_ZBUFF
-#define LUAT_ZBUFF
+#ifndef LUAT_ZBUFF_H
+#define LUAT_ZBUFF_H
 
 #include "luat_msgbus.h"
 

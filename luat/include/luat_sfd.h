@@ -1,6 +1,6 @@
 
-#ifndef LUAT_SFD
-#define LUAT_SFD
+#ifndef LUAT_SFD_H
+#define LUAT_SFD_H
 
 #include "luat_base.h"
 

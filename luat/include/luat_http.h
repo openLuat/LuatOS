@@ -1,4 +1,6 @@
 
+#ifndef LUAT_HTTP_H
+#define LUAT_HTTP_H
 #include "luat_base.h"
 
 #define LUAT_HTTP_GET 0
@@ -51,3 +53,5 @@ int luat_http_req(luat_lib_http_req_t *req);
 
 void luat_http_req_gc(luat_lib_http_req_t *req);
 void luat_http_resp_gc(luat_lib_http_resp_t *req);
+
+#endif

@@ -1,3 +1,6 @@
+
+#ifndef LUAT_LCDSEG_H
+#define LUAT_LCDSEG_H
 #include "luat_base.h"
 
 typedef struct luat_lcd_options
@@ -24,4 +27,4 @@ int luat_lcdseg_power(uint8_t enable);
 
 int luat_lcdseg_seg_set(uint8_t com, uint32_t seg, uint8_t val);
 
-
+#endif

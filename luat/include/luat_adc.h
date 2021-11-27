@@ -3,8 +3,8 @@
  *  @author wendal
  *  @since 0.1.5
  *****************************************************************************/
-#ifndef Luat_ADC
-#define Luat_ADC
+#ifndef Luat_ADC_H
+#define Luat_ADC_H
 
 #include "luat_base.h"
 

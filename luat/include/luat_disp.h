@@ -1,4 +1,6 @@
 
+#ifndef LUAT_DISP_H
+#define LUAT_DISP_H
 #include "luat_base.h"
 
 typedef struct luat_disp_conf
@@ -22,3 +24,4 @@ int luat_disp_setup(luat_disp_conf_t *conf);
 
 int luat_disp_close(luat_disp_conf_t *conf);
 
+#endif

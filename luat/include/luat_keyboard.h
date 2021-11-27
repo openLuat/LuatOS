@@ -1,5 +1,6 @@
+#ifndef LUAT_KEYBOARD_H
+#define LUAT_KEYBOARD_H
 #include "luat_base.h"
-
 
 typedef struct luat_keyboard_ctx
 {
@@ -22,6 +23,5 @@ typedef struct luat_keyboard_conf {
 
 int luat_keyboard_init(luat_keyboard_conf_t *conf);
 
-
-
 int luat_keyboard_deinit(luat_keyboard_conf_t *conf);
+#endif

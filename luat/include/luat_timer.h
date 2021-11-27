@@ -1,5 +1,5 @@
-#ifndef LUAT_TIMER
-#define LUAT_TIMER
+#ifndef LUAT_TIMER_H
+#define LUAT_TIMER_H
 
 #include "luat_base.h"
 #include "luat_msgbus.h"

@@ -3,8 +3,8 @@
  *  @author wendal
  *  @since 0.1.5
  *****************************************************************************/
-#ifndef Luat_FS
-#define Luat_FS
+#ifndef LUAT_FS_H
+#define LUAT_FS_H
 //#include "luat_base.h"
 #include "stdio.h"
 

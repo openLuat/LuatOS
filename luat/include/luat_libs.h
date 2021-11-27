@@ -1,4 +1,6 @@
 
+#ifndef LUAT_LIBS_H
+#define LUAT_LIBS_H
 #include "lua.h"
 #include "lauxlib.h"
 
@@ -94,3 +96,5 @@ LUAMOD_API int luaopen_fdb( lua_State *L );
 
 LUAMOD_API int luaopen_keyboard( lua_State *L );
 LUAMOD_API int luaopen_coremark( lua_State *L );
+
+#endif

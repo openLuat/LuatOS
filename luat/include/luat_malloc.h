@@ -5,9 +5,8 @@
  * 
 */
 
-#ifndef LUAT_MALLOC
-
-#define LUAT_MALLOC
+#ifndef LUAT_MALLOC_H
+#define LUAT_MALLOC_H
 
 //----------------
 // 这部分是使用系统内存
@@ -25,4 +24,3 @@ void luat_meminfo_luavm(size_t* total, size_t* used, size_t* max_used);
 void luat_meminfo_sys(size_t* total, size_t* used, size_t* max_used);
 
 #endif
-

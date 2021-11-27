@@ -1,8 +1,7 @@
 
+#ifndef LUAT_CMUX_H
+#define LUAT_CMUX_H
 #include "luat_base.h"
-
-#ifndef LUAT_CMUX
-#define LUAT_CMUX
 
 #define LUAT_CMUX_CH_MAIN 0
 #define LUAT_CMUX_CH_SHELL 1

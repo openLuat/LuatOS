@@ -1,6 +1,6 @@
 
-#ifndef Luat_PWM
-#define Luat_PWM
+#ifndef Luat_PWM_H
+#define Luat_PWM_H
 
 #include "luat_base.h"
 

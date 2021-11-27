@@ -19,7 +19,7 @@ static luat_lv_t LV = {0};
 
 static luat_lcd_conf_t* lcd_conf;
 
-static void disp_flush(lv_disp_drv_t * disp_drv, const lv_area_t * area, lv_color_t * color_p) {
+LUAT_WEAK luat_lv_disp_flush(lv_disp_drv_t * disp_drv, const lv_area_t * area, lv_color_t * color_p) {
     //-----
     if (lcd_conf != NULL) {
 #ifdef LV_NO_BLOCK_FLUSH
@@ -149,7 +149,7 @@ int luat_lv_init(lua_State *L) {
     lv_disp_drv_t my_disp_drv;
     lv_disp_drv_init(&my_disp_drv);
 
-    my_disp_drv.flush_cb = disp_flush;
+    my_disp_drv.flush_cb = luat_lv_disp_flush;
 
     my_disp_drv.hor_res = w;
     my_disp_drv.ver_res = h;

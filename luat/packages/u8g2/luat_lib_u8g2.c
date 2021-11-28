@@ -609,26 +609,28 @@ static int l_u8g2_SetBitmapMode(lua_State *L){
 
 /*
 绘制位图
-@api u8g2.DrawBitmap(x, y, h, data)
+@api u8g2.DrawXBM(x, y, h, data)
 @int X坐标
 @int y坐标
-@int 行数
+@int 位图宽
+@int 位图高
 @int 位图数据,每一位代表一个像素
 @usage
 -- 在(10,10)为左上角,绘制 10x4 的位图
-u8g2.DrawBitmapMode(10, 10, 10, string.char(0x20, 0xFF, 0xFF, 0xAF, 0xDE))
+u8g2.DrawXBM(10, 10, 10,4， string.char(0x20, 0xFF, 0xFF, 0xAF, 0xDE))
 */
-static int l_u8g2_DrawBitmap(lua_State *L){
+static int l_u8g2_DrawXBM(lua_State *L){
     if (u8g2 == NULL) return 0;
     int x = luaL_checkinteger(L, 1);
     int y = luaL_checkinteger(L, 2);
-    int h = luaL_checkinteger(L, 3);
+    int w = luaL_checkinteger(L, 3);
+    int h = luaL_checkinteger(L, 4);
     size_t len = 0;
-    const char* data = luaL_checklstring(L, 4, &len);
+    const char* data = luaL_checklstring(L, 5, &len);
     if (h < 1) return 0; // 行数必须大于0
-    if (len < h) return 0; // 起码要填满一行
+    if (w < h) return 0; // 起码要填满一行
     //if (len % h != 0) return 0; // 必须是行数的整数倍
-    u8g2_DrawBitmap(u8g2, x, y, len, h, (const uint8_t*)data);
+    u8g2_DrawXBM(u8g2, x, y, w, h, (const uint8_t*)data);
     lua_pushboolean(L, 1);
     return 1;
 }
@@ -830,7 +832,7 @@ static const rotable_Reg reg_u8g2[] =
     { "DrawGlyph",    l_u8g2_DrawGlyph,    0},
     { "DrawTriangle",    l_u8g2_DrawTriangle,    0},
     { "SetBitmapMode",    l_u8g2_SetBitmapMode,    0},
-    { "DrawBitmap",       l_u8g2_DrawBitmap, 0},
+    { "DrawXBM",       l_u8g2_DrawXBM, 0},
     { "DrawDrcode",       l_u8g2_DrawDrcode, 0},
 #ifdef LUAT_USE_GTFONT
     { "drawGtfontGb2312", l_u8g2_draw_gtfont_gb2312, 0},

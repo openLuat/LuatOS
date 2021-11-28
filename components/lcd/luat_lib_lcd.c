@@ -494,7 +494,7 @@ static int l_lcd_drawDrcode(lua_State *L)
     // Create the QR code
     QRCode qrcode;
     uint8_t qrcodeData[qrcode_getBufferSize(version)];
-    qrcode_initText(&qrcode, qrcodeData, version, 0, str);
+    qrcode_initText(&qrcode, qrcodeData, version, ECC_LOW, str);
 
     for(int i = 0; i < qrcode.size; i++)
     {

@@ -49,7 +49,7 @@ typedef struct luat_lcd_conf {
     uint8_t direction;//方向
     uint32_t w;
     uint32_t h;
-
+    uint32_t buffer_size;
     uint8_t xoffset;//偏移
     uint8_t yoffset;//偏移
 

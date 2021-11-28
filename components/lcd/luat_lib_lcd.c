@@ -136,7 +136,7 @@ static int l_lcd_init(lua_State* L) {
                 conf->h = luaL_checkinteger(L, -1);
             }
             lua_pop(L, 1);
-
+            conf->buffer_size = (conf->w * conf->h) * 2;
             lua_pushstring(L, "xoffset");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
                 conf->xoffset = luaL_checkinteger(L, -1);

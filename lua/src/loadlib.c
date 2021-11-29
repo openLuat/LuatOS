@@ -499,12 +499,14 @@ static int checkload (lua_State *L, int stat, const char *filename) {
                           lua_tostring(L, 1), filename, lua_tostring(L, -1));
 }
 
-
-static const char* search_paths[] = {
-  "/%s.luac", "/%s.lua",
-  "/lua/%s.luac", "/lua/%s.lua",
-  "/luadb/%s.luac", "/luadb/%s.lua",
+#ifndef LUAT_MODULE_SEARCH_PATH
+#define LUAT_MODULE_SEARCH_PATH   "/%s.luac", "/%s.lua", \
+  "/lua/%s.luac", "/lua/%s.lua",\
+  "/luadb/%s.luac", "/luadb/%s.lua",\
   "",
+#endif
+static const char* search_paths[] = {
+  LUAT_MODULE_SEARCH_PATH
 };
 
 char custom_search_paths[4][24] = {0};

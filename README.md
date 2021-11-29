@@ -108,6 +108,9 @@ sys.run()
 * [llcom](https://github.com/chenxuuu/llcom) 可运行lua脚本的高自由度串口调试工具
 * [irtu-gps](https://gitee.com/wendal/irtu-gps) 基于iRTU项目,实现GPS数据的接收和展示
 * [luatos-boards](https://gitee.com/openLuat/luatos-broads) LuatOS系列开发板和扩展板
+* [LuatOS系列小程序](https://gitee.com/openLuat/luatos-miniapps)
+
+![](images/miniapp_ble.jpg)
 
 ## 总体架构
 

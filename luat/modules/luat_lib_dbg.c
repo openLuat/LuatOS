@@ -49,7 +49,7 @@ void luat_dbg_output(const char* _fmt, ...) {
     if (len > 0) {
 #ifdef LUAT_USE_SHELL
         if (cmux_state == 1 && cmux_dbg_state ==1){
-            luat_cmux_write(LUAT_CMUX_CH_DBG,  CMUX_FRAME_UIH | CMUX_CONTROL_PF,dbg_printf_buff, len);
+            luat_cmux_write(LUAT_CMUX_CH_DBG,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,dbg_printf_buff, len);
         }else
 #endif
         luat_log_write(dbg_printf_buff, len);

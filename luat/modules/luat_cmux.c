@@ -87,26 +87,26 @@ void uih_shell_manage(unsigned char*buff){
     unsigned char *data = (unsigned char *)luat_heap_malloc(buff[3]>>1);
     memcpy(data, buff+4, buff[3]>>1);
     if (strncmp("AT\r", data,3) == 0){
-        luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH | CMUX_CONTROL_PF,"OK\r", 3);
+        luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r", 3);
     }else if (strncmp("ATI", data,3) == 0){
         #ifdef LUAT_BSP_VERSION
             sprintf(send_buff, "LuatOS-SoC_%s_%s\r\n", luat_os_bsp(), LUAT_BSP_VERSION);
         #else
             sprintf(send_buff, "LuatOS-SoC_%s_%s\r\n", luat_os_bsp(), luat_version_str());
         #endif
-        luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH | CMUX_CONTROL_PF,send_buff, strlen(send_buff));
-        luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH | CMUX_CONTROL_PF,"OK\r", 3);
+        luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,send_buff, strlen(send_buff));
+        luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r", 3);
     }else if (strncmp("AT+LUAFLASHSIZE?", data,16) == 0){
         #ifdef FLASH_FS_REGION_SIZE
             sprintf(send_buff, "+LUAFLASHSIZE: 0X%x\r",FLASH_FS_REGION_SIZE);
-            luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH | CMUX_CONTROL_PF,send_buff, strlen(send_buff));
-            luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH | CMUX_CONTROL_PF,"OK\r", 3);
+            luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,send_buff, strlen(send_buff));
+            luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r", 3);
         #endif
     }else if (strncmp("AT+LUACHECKSUM=", data,15) == 0){
-        luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH | CMUX_CONTROL_PF,"+LUAFLASHSIZE: 0\r", 17);
-        luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH | CMUX_CONTROL_PF,"OK\r", 3);
+        luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"+LUAFLASHSIZE: 0\r", 17);
+        luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r", 3);
     }else if (strncmp("AT+RESET", data,8) == 0){
-        luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH | CMUX_CONTROL_PF,"OK\r", 3);
+        luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r", 3);
         luat_os_reboot(0);
     }
     luat_heap_free(data);

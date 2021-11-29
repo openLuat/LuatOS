@@ -923,43 +923,59 @@ static int l_eink_draw_gtfont_utf8_gray(lua_State* L) {
 
 #endif // LUAT_USE_GTFONT
 
+static void eink_DrawHXBM(uint16_t x, uint16_t y, uint16_t len, const uint8_t *b){
+  uint8_t mask;
+  mask = 1;
+  while(len > 0) {
+    if ( *b & mask ) drawFastHLine(&paint, x, y, 1,COLORED);
+    else drawFastVLine(&paint, x, y, 1,UNCOLORED);
+    x++;
+    mask <<= 1;
+    if ( mask == 0 ){
+      mask = 1;
+      b++;
+    }
+    len--;
+  }
+}
+
 /*
 绘制位图
-@api eink.bitmap(x, y, h, data, mode)
+@api eink.drawXbm(x, y, w, h, data)
 @int X坐标
 @int y坐标
-@int 行数
+@int 位图宽
+@int 位图高
 @int 位图数据,每一位代表一个像素
-@int 模式, 0值是否写入. mode=1代表写入, mode=0代表不写入, 默认mode=0
 @usage
--- 在(10,10)为左上角,绘制 10x4 的位图
-eink.bitmap(10, 10, 10, string.char(0x20, 0xFF, 0xFF, 0xAF, 0xDE), 1)
+-- 取模使用PCtoLCD2002软件即可
+-- 在(0,0)为左上角,绘制 16x16 "今" 的位图
+eink.drawXbm(0, 0, 16,16, string.char(
+    0x80,0x00,0x80,0x00,0x40,0x01,0x20,0x02,0x10,0x04,0x48,0x08,0x84,0x10,0x83,0x60,
+    0x00,0x00,0xF8,0x0F,0x00,0x08,0x00,0x04,0x00,0x04,0x00,0x02,0x00,0x01,0x80,0x00
+))
 */
-static int l_eink_bitmap(lua_State *L) {
-  int x = luaL_checkinteger(L, 1);
-  int y = luaL_checkinteger(L, 2);
-  int row = luaL_checkinteger(L, 3);
-  size_t len;
-  const char* data = luaL_checklstring(L, 4, &len);
-  int mode = luaL_optinteger(L, 5, 0);
-
-  int w = len * 8 / row; // 算出每行的bit数量
-  uint8_t c = 0;
-  for (size_t i = 0; i < row; i++) // 行
-  {
-    for (size_t j = 0; j < w; j++) // 列
-    {
-      c = data[(w*i + j)/8];
-      if (c & ((1 << ((w*i + j)%8)))) {
-        Paint_DrawPixel(&paint, x + j, y + row, 1);
-      }
-      else if (mode)
-        Paint_DrawPixel(&paint, x + j, y + row, 0);
+static int l_eink_drawXbm(lua_State *L){
+    int x = luaL_checkinteger(L, 1);
+    int y = luaL_checkinteger(L, 2);
+    int w = luaL_checkinteger(L, 3);
+    int h = luaL_checkinteger(L, 4);
+    size_t len = 0;
+    const char* data = luaL_checklstring(L, 5, &len);
+    if (h < 1) return 0; // 行数必须大于0
+    if (w < h) return 0; // 起码要填满一行
+    uint8_t blen;
+    blen = w;
+    blen += 7;
+    blen >>= 3;
+    while( h > 0 ){
+      eink_DrawHXBM(x, y, w, (const uint8_t*)data);
+      data += blen;
+      y++;
+      h--;
     }
-    return 0;
-  }
-  
-
+    lua_pushboolean(L, 1);
+    return 1;
 }
 
 #include "rotable.h"
@@ -980,7 +996,7 @@ static const rotable_Reg reg_eink[] =
     { "weather_icon",   l_eink_weather_icon,    0},
 
     { "model",          l_eink_model,           0},
-    { "bitmap",         l_eink_bitmap,           0},
+    { "drawXbm",         l_eink_drawXbm,           0},
 #ifdef LUAT_USE_GTFONT
     { "drawGtfontGb2312", l_eink_draw_gtfont_gb2312, 0},
     { "drawGtfontGb2312Gray", l_eink_draw_gtfont_gb2312_gray, 0},

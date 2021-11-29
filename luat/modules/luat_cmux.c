@@ -30,7 +30,7 @@ typedef struct
 {
     uint8_t Fcs;
     uint8_t Len;
-    unsigned char data[20];
+    unsigned char data[40];
 }cmux_data;
 
 static cmux_data cmux_read_data;
@@ -113,7 +113,6 @@ void uih_shell_manage(unsigned char*buff){
 }
 
 void uih_dbg_manage(unsigned char*buff){
-    //char send_buff[128] = {0};
     char *data = (char *)luat_heap_malloc(buff[3]>>1);
     memcpy(data, buff+4, buff[3]>>1);
     if (strcmp("dbg",strtok(data, " ")) == 0){

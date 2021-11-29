@@ -81,8 +81,8 @@ static int pmain(lua_State *L) {
 #endif
 
 #ifdef LUAT_USE_DBG
-    //extern void luat_debug_hook(lua_State *L, lua_Debug *ar);
-    //lua_sethook(L, luat_debug_hook, LUA_MASKCALL | LUA_MASKRET | LUA_MASKLINE, 0);
+    extern void luat_debug_hook(lua_State *L, lua_Debug *ar);
+    lua_sethook(L, luat_debug_hook, LUA_MASKCALL | LUA_MASKRET | LUA_MASKLINE, 0);
     // 寻找dbg_init.lua, 里面有初始化代码
     if (luat_search_module("dbg_init", filename) == 0) {
         luaL_dofile(L, filename);

@@ -190,7 +190,7 @@ static int value_to_dbg_json(lua_State* L, const char* name, char** buff, size_t
     cJSON *cj = cJSON_CreateObject();
 
     cJSON_AddStringToObject(cj, "name", name);
-    cJSON_AddStringToObject(cj, "type", lua_typename(L, lua_type(L, -1)));
+    cJSON_AddStringToObject(cj, "type", lua_typename(L, -1));
 
     switch (ltype)
     {
@@ -218,10 +218,10 @@ static int value_to_dbg_json(lua_State* L, const char* name, char** buff, size_t
     }
     char* str = cJSON_Print(cj);
     size_t slen = strlen(str);
-    *buff = luat_heap_malloc(slen);
+    *buff = luat_heap_malloc(slen+1);
     if (*buff == NULL)
         return -2;
-    memcpy(*buff, str, slen);
+    memcpy(*buff, str, slen+1);
     cJSON_Delete(cj);
     return 0;
 #else

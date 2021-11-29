@@ -6,7 +6,7 @@ typedef struct luat_keyboard_ctx
 {
     uint16_t port;      // 为多keyboard预留,默认为0
     uint16_t pin_data;  // pin数据, 需要根据pin_map反推按键
-    uint16_t state;     // 1 pressed, 0 release
+    uint32_t state;     // 1 pressed, 0 release
     void* userdata;
 }luat_keyboard_ctx_t;
 

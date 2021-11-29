@@ -131,6 +131,7 @@ static int l_uart_write(lua_State *L)
     {
         luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
         len = buff->len - buff->cursor;
+        buf = (const char *)(buff->addr + buff->cursor);
     }
     else
     {

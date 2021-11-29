@@ -237,7 +237,7 @@ i2c发送数据
 i2c.send(1, 0x5C, string.char(0x0F, 0x2F))
 */
 static int l_i2c_send(lua_State *L) {
-    int id;
+    int id = 0;
     if(!lua_isuserdata(L, 1)){
         id = luaL_checkinteger(L, 1);
     }
@@ -290,7 +290,7 @@ i2c接收数据
 local data = i2c.recv(1, 0x5C, 2)
 */
 static int l_i2c_recv(lua_State *L) {
-    int id;
+    int id = 0;
     if(!lua_isuserdata(L, 1)){
         id = luaL_checkinteger(L, 1);
     }
@@ -329,7 +329,7 @@ i2c写寄存器数据
 i2c.writeReg(1, 0x5C, 0x01, string.char(0x00, 0xF2))
 */
 static int l_i2c_write_reg(lua_State *L) {
-    int id;
+    int id = 0;
     if(!lua_isuserdata(L, 1)){
         id = luaL_checkinteger(L, 1);
     }
@@ -368,7 +368,7 @@ i2c读寄存器数据
 i2c.readReg(1, 0x5C, 0x01, 2)
 */
 static int l_i2c_read_reg(lua_State *L) {
-    int id;
+    int id = 0;
     if(!lua_isuserdata(L, 1)){
         id = luaL_checkinteger(L, 1);
     }
@@ -442,7 +442,7 @@ if re then
 end
 */
 static int l_i2c_readDHT12(lua_State *L) {
-    int id;
+    int id = 0;
     if(!lua_isuserdata(L, 1)){
         id = luaL_checkinteger(L, 1);
     }

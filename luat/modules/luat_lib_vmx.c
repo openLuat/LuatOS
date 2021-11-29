@@ -134,7 +134,7 @@ static int vm2vm_copy(int index, lua_State *Lsrc, lua_State *Ldst) {
         lua_pushnumber(Ldst, lua_tonumber(Lsrc, index));
     }
     else if (lua_isstring(Lsrc, index)) {
-        int str_len = 0;
+        size_t str_len = 0;
         const char* tmp = luaL_checklstring(Lsrc, index, &str_len);
         lua_pushlstring(Ldst, tmp, str_len);
     }

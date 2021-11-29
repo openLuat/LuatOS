@@ -237,11 +237,11 @@ void luat_dbg_vars(void *params) {
 
     if (lua_getstack(dbg_L, level, dbg_ar) == 1) {
         int index = 1;
-        int valtype = 0;
+        //int valtype = 0;
         char *buff;
         int ret;
         size_t valstrlen = 0;
-        size_t valoutlen = 0;
+        //size_t valoutlen = 0;
         while (1) {
             const char* varname = lua_getlocal(dbg_L, dbg_ar, index);
             if (varname) {

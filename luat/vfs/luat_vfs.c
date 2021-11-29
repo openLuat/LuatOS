@@ -166,19 +166,6 @@ FILE* luat_fs_fopen(const char *filename, const char *mode) {
     return NULL;
 }
 
-// #define vfs_fopt(name, ...) luat_fs_##name(FILE* stream) {\
-//     luat_vfs_fd_t* fd = getfd(stream);\
-//     if (fd == NULL || fd->fsMount->fs->fopts.name == NULL) \
-//         return 0;\
-//     return fd->fsMount->fs->fopts.name(fd->fsMount->userdata, fd->fd);\
-// }
-
-// int  vfs_fopt(getc)
-// int  vfs_fopt(ftell)
-// int  vfs_fopt(fclose)
-// int  vfs_fopt(feof)
-// int  vfs_fopt(ferror)
-
 int luat_fs_feof(FILE* stream) {
     //LLOGD("call %s %d","feof", ((int)stream) - 1);
     luat_vfs_fd_t* fd = getfd(stream);

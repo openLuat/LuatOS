@@ -86,9 +86,9 @@ void uih_shell_manage(unsigned char*buff){
     char send_buff[128] = {0};
     unsigned char *data = (unsigned char *)luat_heap_malloc(buff[3]>>1);
     memcpy(data, buff+4, buff[3]>>1);
-    if (strncmp("AT\r", data,3) == 0){
+    if (memcpy("AT\r", data, 3) == 0){
         luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r", 3);
-    }else if (strncmp("ATI", data,3) == 0){
+    }else if (memcpy("ATI", data, 3) == 0){
         #ifdef LUAT_BSP_VERSION
             sprintf(send_buff, "LuatOS-SoC_%s_%s\r\n", luat_os_bsp(), LUAT_BSP_VERSION);
         #else
@@ -96,16 +96,16 @@ void uih_shell_manage(unsigned char*buff){
         #endif
         luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,send_buff, strlen(send_buff));
         luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r", 3);
-    }else if (strncmp("AT+LUAFLASHSIZE?", data,16) == 0){
+    }else if (memcpy("AT+LUAFLASHSIZE?", data, 16) == 0){
         #ifdef FLASH_FS_REGION_SIZE
             sprintf(send_buff, "+LUAFLASHSIZE: 0X%x\r",FLASH_FS_REGION_SIZE);
             luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,send_buff, strlen(send_buff));
             luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r", 3);
         #endif
-    }else if (strncmp("AT+LUACHECKSUM=", data,15) == 0){
+    }else if (memcpy("AT+LUACHECKSUM=", data, 15) == 0){
         luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"+LUAFLASHSIZE: 0\r", 17);
         luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r", 3);
-    }else if (strncmp("AT+RESET", data,8) == 0){
+    }else if (memcpy("AT+RESET", data, 8) == 0){
         luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r", 3);
         luat_os_reboot(0);
     }
@@ -113,8 +113,8 @@ void uih_shell_manage(unsigned char*buff){
 }
 
 void uih_dbg_manage(unsigned char*buff){
-    char send_buff[128] = {0};
-    unsigned char *data = (unsigned char *)luat_heap_malloc(buff[3]>>1);
+    //char send_buff[128] = {0};
+    char *data = (char *)luat_heap_malloc(buff[3]>>1);
     memcpy(data, buff+4, buff[3]>>1);
     if (strcmp("dbg",strtok(data, " ")) == 0){
         char *command = strtok(NULL, " ");
@@ -232,7 +232,7 @@ void luat_cmux_write(int port, uint8_t control,char* buff, size_t len) {
         prefix[3] = 1 | (len << 1);
     }
     luat_shell_write(prefix, prefix_length);
-    postfix[0] = cmux_frame_check(prefix+1, prefix_length - 1);
+    postfix[0] = cmux_frame_check((const uint8_t*)(prefix+1), prefix_length - 1);
     if (len > 0)luat_shell_write(buff, len);
     luat_shell_write(postfix, 2);
 }

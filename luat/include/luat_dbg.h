@@ -28,5 +28,6 @@ void luat_dbg_set_runcb(luat_dbg_cb cb, void* params);
 void luat_dbg_backtrace(void* params);
 void luat_dbg_vars(void* params);
 void luat_dbg_gvars(void* params);
+void luat_dbg_jvars(void *params);
 
 #endif

@@ -139,7 +139,7 @@ static int luat_shell_loadstr(lua_State *L, void* ptr) {
 }
 
 void luat_shell_push(char* uart_buff, size_t rcount) {
-    int ret = 0;
+    //int ret = 0;
     int len = 0;
     char buff[128] = {0};
     if (rcount) {
@@ -225,5 +225,5 @@ void luat_shell_push(char* uart_buff, size_t rcount) {
             }
         }
     }
-    return 0;
+    return;
 }

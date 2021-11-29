@@ -391,6 +391,9 @@ static size_t _mqtt_unpack_P(lua_State *L, char* ptr) {
 
 static int l_mqttcore_unpack(lua_State *L) {
 	size_t slen = 0;
+	size_t nextpos = 0;
+	uint32_t packetId = 0;
+
 	char* data = (char*)luaL_checklstring(L, 1, &slen);
 	if (slen < 2) {
 		return 0;
@@ -451,7 +454,7 @@ static int l_mqttcore_unpack(lua_State *L) {
 	lua_pushinteger(L, retain);
 	lua_settable(L, -3);
 
-	size_t nextpos = poffset+1;
+	nextpos = poffset+1;
 
 	switch(id) {
 	case CONNACK:
@@ -470,7 +473,10 @@ static int l_mqttcore_unpack(lua_State *L) {
 			lua_settable(L, -3);
 			if (qos > 0) {
 				lua_pushliteral(L, "packetId");
-				lua_pushinteger(L, (0xFF & data[nextpos++]) * 256 + (0xFF & data[nextpos++]));
+				packetId = 0xFF & data[nextpos++];
+				packetId = packetId * 256;
+				packetId = packetId + (0xFF & data[nextpos++]);
+				lua_pushinteger(L, packetId);
 				lua_settable(L, -3);
 				//LLOGD("nextpos %d after packetId", nextpos);
 			}
@@ -483,7 +489,10 @@ static int l_mqttcore_unpack(lua_State *L) {
 	case PINGRESP:
 			if (dlen) {
 				lua_pushliteral(L, "packetId");
-				lua_pushinteger(L, (0xFF & data[nextpos++]) * 256 + (0xFF & data[nextpos++]));
+				packetId = 0xFF & data[nextpos++];
+				packetId = packetId * 256;
+				packetId = packetId + (0xFF & data[nextpos++]);
+				lua_pushinteger(L, packetId);
 				lua_settable(L, -3);
 			}
 			break;
@@ -505,7 +514,7 @@ static const rotable_Reg reg_mqttcore[] =
 	{ "packZeroData",   l_mqttcore_packZeroData,0},
 	{ "packUNSUBSCRIBE",l_mqttcore_packUNSUBSCRIBE,0},
 	{ "unpack",  		l_mqttcore_unpack, 0},
-	{ NULL, NULL }
+	{ NULL, NULL , 0}
 };
 
 LUAMOD_API int luaopen_mqttcore( lua_State *L ) {

@@ -143,12 +143,12 @@ static int luat_sfud_read(lua_State *L){
     uint32_t addr = luaL_checkinteger(L, 2);
     size_t size = luaL_checkinteger(L, 3);
     uint8_t* data = (uint8_t*)luat_heap_malloc(size);
-    sfud_err re = sfud_read(flash, addr, size,data);
+    sfud_err re = sfud_read(flash, addr, size, data);
     if(re != SFUD_SUCCESS){
         size = 0;
         LLOGD("sfud_read re %d", re);
     }
-    lua_pushlstring(L, data, size);
+    lua_pushlstring(L, (const char*)data, size);
     luat_heap_free(data);
     return 1;
 }
@@ -168,7 +168,7 @@ static int luat_sfud_write(lua_State *L){
     uint32_t addr = luaL_checkinteger(L, 2);
     size_t size = 0;
     const char* data = luaL_checklstring(L, 3, &size);
-    sfud_err re = sfud_write(flash, addr, size,data);
+    sfud_err re = sfud_write(flash, addr, size, (const uint8_t*)data);
     lua_pushinteger(L, re);
     return 1;
 }
@@ -189,7 +189,7 @@ static int luat_sfud_erase_write(lua_State *L){
     uint32_t addr = luaL_checkinteger(L, 2);
     size_t size = 0;
     const char* data = luaL_checklstring(L, 3, &size);
-    sfud_err re = sfud_erase_write(flash, addr, size,data);
+    sfud_err re = sfud_erase_write(flash, addr, size, (const uint8_t*)data);
     lua_pushinteger(L, re);
     return 1;
 }

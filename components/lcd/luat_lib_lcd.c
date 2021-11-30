@@ -809,7 +809,7 @@ lcd.drawStr(40,40,"drawStr测试")
 */
 static int l_lcd_draw_str(lua_State* L) {
     int x, y;
-    int sz;
+    size_t sz;
     const uint8_t* data;
     uint32_t color = FORE_COLOR;
     x = luaL_checkinteger(L, 1);
@@ -868,7 +868,7 @@ lcd.drawGtfontGb2312("啊啊啊",32,0,0)
 */
 static int l_lcd_draw_gtfont_gb2312(lua_State *L) {
     unsigned char buf[128];
-	int len;
+	size_t len;
 	int i = 0;
 	uint8_t strhigh,strlow ;
 	uint16_t str;
@@ -903,7 +903,7 @@ lcd.drawGtfontGb2312Gray("啊啊啊",32,4,0,40)
 */
 static int l_lcd_draw_gtfont_gb2312_gray(lua_State* L) {
 	unsigned char buf[2048];
-	int len;
+	size_t len;
 	int i = 0;
 	uint8_t strhigh,strlow ;
 	uint16_t str;
@@ -942,7 +942,7 @@ lcd.drawGtfontUtf8("啊啊啊",32,0,0)
 */
 static int l_lcd_draw_gtfont_utf8(lua_State *L) {
     unsigned char buf[128];
-    int len;
+    size_t len;
     int i = 0;
     uint8_t strhigh,strlow ;
     uint16_t e,str;
@@ -978,7 +978,7 @@ lcd.drawGtfontUtf8Gray("啊啊啊",32,4,0,40)
 */
 static int l_lcd_draw_gtfont_utf8_gray(lua_State* L) {
 	unsigned char buf[2048];
-	int len;
+	size_t len;
 	int i = 0;
 	uint8_t strhigh,strlow ;
 	uint16_t e,str;

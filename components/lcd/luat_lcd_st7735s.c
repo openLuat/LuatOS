@@ -35,10 +35,12 @@ static int st7735s_close(luat_lcd_conf_t* conf) {
     return 0;
 }
 static int st7735s_init(luat_lcd_conf_t* conf) {
-    if (conf->w == 0)
+    if (conf->w == 0) {
         conf->w = LCD_W;
-    if (conf->h == 0)
+	}
+    if (conf->h == 0) {
         conf->h = LCD_H;
+	}
 
 	if (conf->pin_pwr != 255)
     	luat_gpio_mode(conf->pin_pwr, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW); // POWER

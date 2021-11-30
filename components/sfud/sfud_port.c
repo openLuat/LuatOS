@@ -54,15 +54,15 @@ static sfud_err spi_write_read(const sfud_spi *spi, const uint8_t *write_buf, si
     if ( type == 0 ) {
         luat_spi_t* spi_flash = (luat_spi_t*) ((*(luat_sfud_flash_t*)(spi->user_data)).user_data);
         if (write_size && read_size) {
-            if (luat_spi_transfer(spi_flash -> id, write_buf, write_size, read_buf, read_size) <= 0) {
+            if (luat_spi_transfer(spi_flash -> id, (const char*)write_buf, write_size, (char*)read_buf, read_size) <= 0) {
                 result = SFUD_ERR_TIMEOUT;
             }
         } else if (write_size) {
-            if (luat_spi_send(spi_flash -> id,  write_buf, write_size) <= 0) {
+            if (luat_spi_send(spi_flash -> id,  (const char*)write_buf, write_size) <= 0) {
                 result = SFUD_ERR_WRITE;
             }
         } else {
-            if (luat_spi_recv(spi_flash -> id, read_buf, read_size) <= 0) {
+            if (luat_spi_recv(spi_flash -> id, (char*)read_buf, read_size) <= 0) {
                 result = SFUD_ERR_READ;
             }
         }
@@ -70,15 +70,15 @@ static sfud_err spi_write_read(const sfud_spi *spi, const uint8_t *write_buf, si
     else if ( type == 1 ) {
         luat_spi_device_t* spi_dev = (luat_spi_device_t*) ((*(luat_sfud_flash_t*)(spi->user_data)).user_data);
         if (write_size && read_size) {
-            if (luat_spi_device_transfer(spi_dev , write_buf, write_size, read_buf, read_size) <= 0) {
+            if (luat_spi_device_transfer(spi_dev , (const char*)write_buf, write_size, (char*)read_buf, read_size) <= 0) {
                 result = SFUD_ERR_TIMEOUT;
             }
         } else if (write_size) {
-            if (luat_spi_device_send(spi_dev ,  write_buf, write_size) <= 0) {
+            if (luat_spi_device_send(spi_dev ,  (const char*)write_buf, write_size) <= 0) {
                 result = SFUD_ERR_WRITE;
             }
         } else {
-            if (luat_spi_device_recv(spi_dev , read_buf, read_size) <= 0) {
+            if (luat_spi_device_recv(spi_dev , (char*)read_buf, read_size) <= 0) {
                 result = SFUD_ERR_READ;
             }
         }

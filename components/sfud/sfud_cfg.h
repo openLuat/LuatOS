@@ -46,14 +46,16 @@ typedef struct luat_sfud_flash
 
 #define SFUD_FLASH_DEVICE_TABLE {0}
 
-// enum {
-//     SFUD_XXXX_DEVICE_INDEX = 0,
-// };
+/*
+enum {
+    SFUD_XXXX_DEVICE_INDEX = 0,
+};
 
-// #define SFUD_FLASH_DEVICE_TABLE                                                \
-// {                                                                              \
-//     [SFUD_XXXX_DEVICE_INDEX] = {.name = "XXXX", .spi.name = "SPIX"},           \
-// }
+ #define SFUD_FLASH_DEVICE_TABLE                                                \
+ {                                                                              \
+     [SFUD_XXXX_DEVICE_INDEX] = {.name = "XXXX", .spi.name = "SPIX"},           \
+}
+*/
 
 // #define SFUD_USING_QSPI
 

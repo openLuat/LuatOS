@@ -168,17 +168,20 @@ int luat_vfs_fatfs_rmdir(void* userdata, char const* _DirName) {
     LLOGE("not support yet : rmdir");
     return -1;
 }
+
 int luat_vfs_fatfs_info(void* userdata, const char* path, luat_fs_info_t *conf) {
-    DWORD fre_clust, fre_sect, tot_sect;
+    // DWORD fre_clust = 0;
+    // DWORD fre_sect = 0
+    // DWORD tot_sect = 0;
     FATFS *fs = (FATFS*)userdata;
 
-    tot_sect = (fs->n_fatent - 2) * fs->csize;
-    fre_sect = fre_clust * fs->csize;
+    // tot_sect = (fs->n_fatent - 2) * fs->csize;
+    // fre_sect = (fs->free_clst) * fs->csize;
 
     memcpy(conf->filesystem, "fatfs", strlen("fatfs")+1);
     conf->type = 0;
-    conf->total_block = tot_sect;
-    conf->block_used = tot_sect - fre_sect;
+    conf->total_block = (fs->n_fatent - 2);
+    conf->block_used = fs->free_clst;
     conf->block_size = fs->csize;
     return 0;
 }

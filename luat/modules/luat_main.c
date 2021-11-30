@@ -59,6 +59,7 @@ int luat_main_demo() { // 这是验证LuatVM最基础的消息/定时器/Task机
                           "    led(1)\n"
                           "    sys.wait(500)\n"
                           "    led(0)\n"
+                          "    log.info(\"main\", os.date())\n"
                           "  end\n"
                           "end)\n"
                           "sys.run()\n");

@@ -1,6 +1,7 @@
 
 #include "luat_base.h"
 #include "luat_fs.h"
+#include "luat_malloc.h"
 
 #define LUAT_LOG_TAG "luat.sfud"
 #include "luat_log.h"

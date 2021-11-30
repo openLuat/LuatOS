@@ -449,6 +449,13 @@ int l_debug_close(lua_State *L) {
     return 0;
 }
 
+int luat_dbg_init(lua_State *L) {
+    lua_sethook(L, luat_debug_hook, LUA_MASKCALL | LUA_MASKRET | LUA_MASKLINE, 0);
+    if (dbg_L == NULL)
+        dbg_L = L;
+    return 0;
+}
+
 #ifdef LUAT_USE_SHELL
 // 供dbg_init.lua判断cmux状态
 int l_debug_cmux_state(lua_State *L) {

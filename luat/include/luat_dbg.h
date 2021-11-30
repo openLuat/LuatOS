@@ -16,6 +16,8 @@ typedef struct line_bp
 
 typedef void (*luat_dbg_cb) (void* params);
 
+int luat_dbg_init(lua_State *L);
+
 void luat_dbg_set_hook_state(int state);
 int luat_dbg_get_hook_state(void);
 

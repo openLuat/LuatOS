@@ -251,7 +251,7 @@ void luat_cmux_read(unsigned char* buff,size_t len){
             memset(cmux_read_data.data, 0, 40);
         }
     }else if (cmux_read_data.Fcs && cmux_read_data.Len){
-        strcat(cmux_read_data.data, buff);
+        strcat((char*)cmux_read_data.data, (const char*)buff);
     }else{
         memset(cmux_read_data.data, 0, 40);
     }

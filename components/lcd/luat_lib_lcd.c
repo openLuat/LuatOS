@@ -477,14 +477,14 @@ static int l_lcd_draw_circle(lua_State* L) {
 
 /**
 缓冲区绘制QRCode
-@api lcd.drawDrcode(x, y, str, version)
+@api lcd.drawQrcode(x, y, str, version)
 @int x坐标
 @int y坐标
 @string 二维码的内容
 @int 二维码版本号
 @return nil 无返回值
 */
-static int l_lcd_drawDrcode(lua_State *L)
+static int l_lcd_drawQrcode(lua_State *L)
 {
     size_t len;
     int x           = luaL_checkinteger(L, 1);
@@ -1067,7 +1067,7 @@ static const rotable_Reg reg_lcd[] =
     { "drawLine",      l_lcd_draw_line,       0},
     { "drawRectangle",      l_lcd_draw_rectangle,       0},
     { "drawCircle",      l_lcd_draw_circle,       0},
-    { "drawDrcode",    l_lcd_drawDrcode, 0},
+    { "drawQrcode",    l_lcd_drawQrcode, 0},
     { "drawStr",      l_lcd_draw_str,       0},
     { "setFont", l_lcd_set_font, 0},
     { "setDefault", l_lcd_set_default, 0},

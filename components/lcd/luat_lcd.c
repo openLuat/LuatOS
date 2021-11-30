@@ -251,21 +251,22 @@ int luat_lcd_draw_line(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t 
     uint32_t i = 0;
     int xerr = 0, yerr = 0, delta_x, delta_y, distance;
     int incx, incy, row, col;
-    if (y1 == y2)
+    if (x1 == x2 || y1 == y2)
     {
         /* fast draw transverse line */
         luat_lcd_set_address(conf,x1, y1, x2, y2);
-        uint8_t* line_buf = (uint8_t*)luat_heap_malloc((x2 - x1 + 1) * 2);
-        for (i = 0; i < x2 - x1 + 1; i++)
+        size_t dots = (x2 - x1 + 1) * (y2 - y1 + 1);//点数量
+        uint8_t* line_buf = (uint8_t*)luat_heap_malloc(dots * 2);
+        for (i = 0; i < dots; i++)
         {
             line_buf[2 * i] = color >> 8;
             line_buf[2 * i + 1] = color;
         }
         luat_gpio_set(conf->pin_dc, Luat_GPIO_HIGH);
         if (conf->port == LUAT_LCD_SPI_DEVICE){
-            luat_spi_device_send((luat_spi_device_t*)(conf->userdata), line_buf, (x2 - x1 + 1) * 2);
+            luat_spi_device_send((luat_spi_device_t*)(conf->userdata), line_buf, dots * 2);
         }else{
-            luat_spi_send(conf->port, line_buf, (x2 - x1 + 1) * 2);
+            luat_spi_send(conf->port, line_buf, dots * 2);
         }
         luat_heap_free(line_buf);
         return 0;

@@ -84,29 +84,29 @@ static const uint8_t u8x8_d_st75256_256x128_powersave1_seq[] = {
   U8X8_END()             			/* end of sequence */
 };
 
-static const uint8_t u8x8_d_st75256_jlx256128_flip0_seq[] = {
-  U8X8_START_TRANSFER(),             	/* enable chip, delay is part of the transfer start */
-  U8X8_C( 0x030 ),				/* select 00 commands */
-  U8X8_CA( 0xbc, 0x00 ),			/* data scan dir */
-  U8X8_A( 0xa6 ),				/* ??? */
+// static const uint8_t u8x8_d_st75256_jlx256128_flip0_seq[] = {
+//   U8X8_START_TRANSFER(),             	/* enable chip, delay is part of the transfer start */
+//   U8X8_C( 0x030 ),				/* select 00 commands */
+//   U8X8_CA( 0xbc, 0x00 ),			/* data scan dir */
+//   U8X8_A( 0xa6 ),				/* ??? */
 
-  //U8X8_C( 0x030 ),				/* select 00 commands */
-  U8X8_C( 0x00c ),				/* data format LSB top */
-  U8X8_END_TRANSFER(),             	/* disable chip */
-  U8X8_END()             			/* end of sequence */
-};
+//   //U8X8_C( 0x030 ),				/* select 00 commands */
+//   U8X8_C( 0x00c ),				/* data format LSB top */
+//   U8X8_END_TRANSFER(),             	/* disable chip */
+//   U8X8_END()             			/* end of sequence */
+// };
 
-static const uint8_t u8x8_d_st75256_jlx256128_flip1_seq[] = {
-  U8X8_START_TRANSFER(),             	/* enable chip, delay is part of the transfer start */
-  U8X8_C( 0x030 ),				/* select 00 commands */
-  U8X8_CA( 0xbc, 0x03 ),			/* data scan dir */
-  U8X8_A( 0xa6 ),				/* ??? */
+// static const uint8_t u8x8_d_st75256_jlx256128_flip1_seq[] = {
+//   U8X8_START_TRANSFER(),             	/* enable chip, delay is part of the transfer start */
+//   U8X8_C( 0x030 ),				/* select 00 commands */
+//   U8X8_CA( 0xbc, 0x03 ),			/* data scan dir */
+//   U8X8_A( 0xa6 ),				/* ??? */
 
-  //U8X8_C( 0x030 ),				/* select 00 commands */
-  U8X8_C( 0x008 ),				/* data format MSB top */
-  U8X8_END_TRANSFER(),             	/* disable chip */
-  U8X8_END()             			/* end of sequence */
-};
+//   //U8X8_C( 0x030 ),				/* select 00 commands */
+//   U8X8_C( 0x008 ),				/* data format MSB top */
+//   U8X8_END_TRANSFER(),             	/* disable chip */
+//   U8X8_END()             			/* end of sequence */
+// };
 
 static const uint8_t u8x8_d_st75256_jlx172104_flip0_seq[] = {
   U8X8_START_TRANSFER(),             	/* enable chip, delay is part of the transfer start */
@@ -132,29 +132,29 @@ static const uint8_t u8x8_d_st75256_jlx172104_flip1_seq[] = {
   U8X8_END()             			/* end of sequence */
 };
 
-static const uint8_t u8x8_d_st75256_jlx256160_flip0_seq[] = {
-  U8X8_START_TRANSFER(),             	/* enable chip, delay is part of the transfer start */
-  U8X8_C( 0x030 ),				/* select 00 commands */
-  U8X8_CA( 0xbc, 0x00 ),			/* data scan dir */
-  U8X8_A( 0xa6 ),				/* ??? */
+// static const uint8_t u8x8_d_st75256_jlx256160_flip0_seq[] = {
+//   U8X8_START_TRANSFER(),             	/* enable chip, delay is part of the transfer start */
+//   U8X8_C( 0x030 ),				/* select 00 commands */
+//   U8X8_CA( 0xbc, 0x00 ),			/* data scan dir */
+//   U8X8_A( 0xa6 ),				/* ??? */
 
-  //U8X8_C( 0x030 ),				/* select 00 commands */
-  U8X8_C( 0x00c ),				/* data format LSB top */
-  U8X8_END_TRANSFER(),             	/* disable chip */
-  U8X8_END()             			/* end of sequence */
-};
+//   //U8X8_C( 0x030 ),				/* select 00 commands */
+//   U8X8_C( 0x00c ),				/* data format LSB top */
+//   U8X8_END_TRANSFER(),             	/* disable chip */
+//   U8X8_END()             			/* end of sequence */
+// };
 
-static const uint8_t u8x8_d_st75256_jlx256160_flip1_seq[] = {
-  U8X8_START_TRANSFER(),             	/* enable chip, delay is part of the transfer start */
-  U8X8_C( 0x030 ),				/* select 00 commands */
-  U8X8_CA( 0xbc, 0x03 ),			/* data scan dir */
-  U8X8_A( 0xa6 ),				/* ??? */
+// static const uint8_t u8x8_d_st75256_jlx256160_flip1_seq[] = {
+//   U8X8_START_TRANSFER(),             	/* enable chip, delay is part of the transfer start */
+//   U8X8_C( 0x030 ),				/* select 00 commands */
+//   U8X8_CA( 0xbc, 0x03 ),			/* data scan dir */
+//   U8X8_A( 0xa6 ),				/* ??? */
 
-  //U8X8_C( 0x030 ),				/* select 00 commands */
-  U8X8_C( 0x008 ),				/* data format MSB top */
-  U8X8_END_TRANSFER(),             	/* disable chip */
-  U8X8_END()             			/* end of sequence */
-};
+//   //U8X8_C( 0x030 ),				/* select 00 commands */
+//   U8X8_C( 0x008 ),				/* data format MSB top */
+//   U8X8_END_TRANSFER(),             	/* disable chip */
+//   U8X8_END()             			/* end of sequence */
+// };
 
 
 

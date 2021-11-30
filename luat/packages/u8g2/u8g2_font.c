@@ -1185,8 +1185,9 @@ static void u8g2_GetGlyphHorizontalProperties(u8g2_t *u8g2, uint16_t requested_e
 /* u8g compatible GetStrX function */
 int8_t u8g2_GetStrX(u8g2_t *u8g2, const char *s)
 {
-  uint8_t w;
-  int8_t ox, dx;
+  uint8_t w = 0;
+  int8_t ox = 0;
+  int8_t dx = 0;
   u8g2_GetGlyphHorizontalProperties(u8g2, *s, &w, &ox, &dx);
   return ox;
 }

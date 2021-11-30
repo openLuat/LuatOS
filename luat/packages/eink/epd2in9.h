@@ -64,7 +64,7 @@ typedef unsigned short     uint16_t;
 #define TERMINATE_FRAME_READ_WRITE                  0xFF
 
 static const unsigned char lut_full_update[];
-static const unsigned char lut_partial_update[];
+// static const unsigned char lut_partial_update[];
 
 typedef struct EPD_2IN9F_t {
   int reset_pin;

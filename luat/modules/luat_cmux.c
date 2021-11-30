@@ -117,41 +117,41 @@ void uih_dbg_manage(unsigned char*buff){
     memcpy(data, buff+4, (buff[3]>>1)+1);
     if (strcmp("dbg",strtok(data, " ")) == 0){
         char *command = strtok(NULL, " ");
-        if (strcmp("start",command) == 0){
+        if (memcmp("start", command, 5) == 0){
             luat_dbg_set_hook_state(2);
-        }else if(strcmp("continue",command) == 0){
+        }else if(memcmp("continue",command,8) == 0){
             luat_dbg_set_hook_state(2);
-        }else if(strcmp("next",command) == 0 || strcmp("step",command) == 0){
+        }else if(memcmp("next",command,4) == 0 || memcmp("step",command,4) == 0){
             luat_dbg_set_hook_state(4);
-        }else if(strcmp("stepIn",command) == 0 || strcmp("stepin",command) == 0){
+        }else if(memcmp("stepIn",command,6) == 0 || memcmp("stepin",command,6) == 0){
             luat_dbg_set_hook_state(5);
-        }else if(strcmp("stepOut",command) == 0 || strcmp("stepout",command) == 0){
+        }else if(memcmp("stepOut",command,7) == 0 || memcmp("stepout",command,7) == 0){
             luat_dbg_set_hook_state(6);
-        }else if(strcmp("bt",command) == 0){
+        }else if(memcmp("bt",command,2) == 0){
             char *params = strtok(NULL, " ");
             if (params != NULL){
                 luat_dbg_set_runcb(luat_dbg_backtrace, (void*)atoi(params));
             }else{
                 luat_dbg_set_runcb(luat_dbg_backtrace, (void*)-1);
             }
-        }else if(strcmp("vars",command) == 0){
+        }else if(memcmp("vars",command,4) == 0){
             char *params = strtok(NULL, " ");
             if (params != NULL){
                 luat_dbg_set_runcb(luat_dbg_vars, (void*)atoi(params));
             }else{
                 luat_dbg_set_runcb(luat_dbg_vars, (void*)0);
             }
-        }else if(strcmp("gvars",command) == 0){
+        }else if(memcmp("gvars",command,5) == 0){
             luat_dbg_gvars((void*)0);
-        }else if(strcmp("jvars",command) == 0){
+        }else if(memcmp("jvars",command,5) == 0){
             luat_dbg_jvars(strtok(NULL, " "));
-        }else if(strcmp("break",command) == 0){
+        }else if(memcmp("break",command,5) == 0){
             char *sub_command = strtok(NULL, " ");
-            if (strcmp("clr",sub_command) == 0){
+            if (memcmp("clr",sub_command,3) == 0){
                 luat_dbg_breakpoint_clear(strtok(NULL, " "));
-            }else if (strcmp("add",sub_command) == 0){
+            }else if (memcmp("add",sub_command,3) == 0){
                 luat_dbg_breakpoint_add(strtok(NULL, " "),atoi(strtok(NULL, " ")));
-            }else if (strcmp("del",sub_command) == 0){
+            }else if (memcmp("del",sub_command,3) == 0){
                 char *params = strtok(NULL, " ");
                 if (params != NULL){
                     luat_dbg_breakpoint_clear(params);

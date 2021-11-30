@@ -30,7 +30,7 @@ typedef struct
 {
     uint8_t Fcs;
     uint8_t Len;
-    unsigned char data[40];
+    unsigned char data[128];
 }cmux_data;
 
 static cmux_data cmux_read_data;
@@ -113,8 +113,8 @@ void uih_shell_manage(unsigned char*buff){
 }
 
 void uih_dbg_manage(unsigned char*buff){
-    char *data = (char *)luat_heap_malloc(buff[3]>>1);
-    memcpy(data, buff+4, buff[3]>>1);
+    char *data = (char *)luat_heap_malloc((buff[3]>>1)+1);
+    memcpy(data, buff+4, (buff[3]>>1)+1);
     if (strcmp("dbg",strtok(data, " ")) == 0){
         char *command = strtok(NULL, " ");
         if (strcmp("start",command) == 0){
@@ -241,18 +241,19 @@ void luat_cmux_read(unsigned char* buff,size_t len){
     //     LLOGD("buff[%d]:%02X",i,buff[i]);
     // }
     if (buff[0]==CMUX_HEAD_FLAG_BASIC && len==4){
-        memset(cmux_read_data.data, 0, 40);
+        memset(cmux_read_data.data, 0, 128);
         memmove(cmux_read_data.data,  buff, len);
         cmux_read_data.Len = len;
         cmux_read_data.Fcs = cmux_frame_check(buff+1,len-1);
     }else if (buff[0]==cmux_read_data.Fcs && buff[1]==CMUX_HEAD_FLAG_BASIC && len==2){
-        if (buff[0]==cmux_read_data.Fcs){
+        if (buff[0]==cmux_read_data.Fcs)
             cmux_frame_manage(cmux_read_data.data);
-            memset(cmux_read_data.data, 0, 40);
-        }
+        memset(cmux_read_data.data, 0, 128);
+        cmux_read_data.Fcs = 0;
     }else if (cmux_read_data.Fcs && cmux_read_data.Len){
         strcat((char*)cmux_read_data.data, (const char*)buff);
     }else{
-        memset(cmux_read_data.data, 0, 40);
+        memset(cmux_read_data.data, 0, 128);
+        cmux_read_data.Fcs = 0;
     }
 }

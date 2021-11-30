@@ -6,7 +6,7 @@ for p in os.listdir(cwd) :
     if p.endswith(".c"):
         src += [p]
 
-src.remove('GUI_Paint.c')
+#src.remove('GUI_Paint.c')
 
 CPPPATH = [cwd]
 

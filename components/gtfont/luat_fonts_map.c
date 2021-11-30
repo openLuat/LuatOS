@@ -10935,9 +10935,63 @@ static unsigned short convert (	unsigned short chr,unsigned int dir	){
 	return c;
 }
 
-unsigned short unicodetogb2312 ( unsigned short	chr){
-	return convert(chr,0);
+unsigned short luat_font_unicode_gb2312 ( unsigned short	chr){
+	int dir = 0;
+	const unsigned short *p;
+	unsigned short c;
+	int i, n, li, hi;
+	if (chr < 0x80) {	
+		c = chr;
+	} else {
+		if (dir) {		
+			p = oem2uni;
+			hi = sizeof oem2uni / 4 - 1;
+		} else {		
+			p = uni2oem;
+			hi = sizeof uni2oem / 4 - 1;
+		}
+		li = 0;
+		for (n = 16; n; n--) {
+			i = li + (hi - li) / 2;
+			if (chr == p[i * 2]) break;
+			if (chr > p[i * 2])
+				li = i;
+			else
+				hi = i;
+		}
+		c = n ? p[i * 2 + 1] : 0;
+	}
+	return c;
 }
-unsigned short gb2312tounicode ( unsigned short	chr){
-	return convert(chr,1);
+unsigned short luat_font_gb2312_unicode ( unsigned short	chr){
+	int dir = 1;
+	const unsigned short *p;
+	unsigned short c;
+	int i, n, li, hi;
+	if (chr < 0x80) {	
+		c = chr;
+	} else {
+		if (dir) {		
+			p = oem2uni;
+			hi = sizeof oem2uni / 4 - 1;
+		} else {		
+			p = uni2oem;
+			hi = sizeof uni2oem / 4 - 1;
+		}
+		li = 0;
+		for (n = 16; n; n--) {
+			i = li + (hi - li) / 2;
+			if (chr == p[i * 2]) break;
+			if (chr > p[i * 2])
+				li = i;
+			else
+				hi = i;
+		}
+		c = n ? p[i * 2 + 1] : 0;
+	}
+	return c;
+}
+
+unsigned short unicodetogb2312 ( unsigned short	chr) {
+	return luat_font_unicode_gb2312(chr);
 }

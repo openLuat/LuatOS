@@ -33,7 +33,7 @@ jobs:
       run: |
         sudo sh -c "curl https://raw.githubusercontent.com/kadwanev/retry/master/retry -o /usr/local/bin/retry && chmod +x /usr/local/bin/retry"
         cd ..
-        retry 'git clone --depth=1 --branch=master ${AIR105REPO} air105'
+        retry 'git clone --depth=1 --branch=develop ${AIR105REPO} air105'
     - name: make
       run: |
         cd ../air105/core

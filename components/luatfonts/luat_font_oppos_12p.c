@@ -1,6 +1,9 @@
-#include "luat_base.h"
-#include "luat_fonts.h"
-const uint8_t luat_fonts_oppos_12p[6768][18] = {
+#include "luat_base.h"
+
+#include "luat_fonts.h"
+
+const uint8_t luat_fonts_oppos_12p[6768][18] = {
+
 {0x00,0x00,0x00,}, // zone 16 zpos 1
 {0x00,0x00,0x00,}, // zone 16 zpos 2
 {0x08,0x00,0x00,}, // zone 16 zpos 3
@@ -6769,5 +6772,6 @@ const uint8_t luat_fonts_oppos_12p[6768][18] = {
 {0x4E,0x64,0x00,}, // zone 87 zpos 92
 {0x6C,0xC4,0x00,}, // zone 87 zpos 93
 {0xCF,0xE4,0x00,}, // zone 87 zpos 94
-};
-const luat_fonts_t luat_fonts_12 = {const_gb2312_font_loader, 12, luat_fonts_oppos_12p};
+};
+
+const luat_fonts_t luat_fonts_12p = {const_gb2312_font_loader, 12, luat_fonts_oppos_12p};

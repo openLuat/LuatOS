@@ -1,0 +1,55 @@
+name: esp32c3
+
+on:
+  push:
+    paths:
+      - '.github/workflows/esp32c3.yml'
+      - 'lua/**'
+      - 'luat/**'
+      - 'components/**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v1
+    - name: prepare software
+      run: |
+        sudo apt-get update
+        sudo apt-get install git gcc-multilib libc6 libgcc1 libstdc++5 libstdc++6 libsdl-dev p7zip-full -y
+        sudo apt-get install libncurses5-dev -y
+        mkdir -p ~/esp
+        cd ~/esp
+        git clone --recursive https://github.com/espressif/esp-idf.git
+        cd ~/esp/esp-idf
+        ./install.sh esp32c3
+    - name: clone LuatOS-ESP32
+      run: |
+        sudo sh -c "curl https://raw.githubusercontent.com/kadwanev/retry/master/retry -o /usr/local/bin/retry && chmod +x /usr/local/bin/retry"
+        cd ..
+        retry 'git clone --branch=luatos_repo https://gitee.com/dreamcmi/LuatOS-ESP32'
+    - name: build
+      run: |
+        mkdir luatosfw
+        cd ../LuatOS-ESP32
+        . ~/esp/esp-idf/export.sh
+        idf.py set-target esp32c3
+        idf.py build
+        mv build/*.bin ../LuatOS/luatosfw
+    - name: Upload artifact
+      uses: actions/upload-artifact@v1
+      with:
+        name: esp32c3
+        path: luatosfw
+    - name: report if failure
+      if: always()
+      env:
+        STATUS: ${{ job.status }}
+        MQTTADDR: ${{ secrets.MQTTADDR }}
+        MQTTPORT: ${{ secrets.MQTTPORT }}
+        MQTTTOPIC: ${{ secrets.MQTTTOPIC }}
+      run: |
+        sudo pip3 install paho_mqtt gitpython
+        cd tools
+        if [ "$STATUS" = "failure" ];then python3 ciNotify.py $MQTTADDR $MQTTPORT $MQTTTOPIC "esp32c3 https://github.com/openLuat/LuatOS/actions/runs/$GITHUB_RUN_ID"; fi

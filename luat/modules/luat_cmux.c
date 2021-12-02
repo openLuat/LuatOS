@@ -20,6 +20,7 @@ LuatOS cmux
 
 #include "luat_dbg.h"
 
+extern uint8_t echo_enable;
 extern uint8_t cmux_state;
 uint8_t cmux_main_state = 0;
 uint8_t cmux_shell_state = 0;
@@ -86,8 +87,12 @@ void uih_shell_manage(unsigned char*buff){
     char send_buff[128] = {0};
     unsigned char *data = (unsigned char *)luat_heap_malloc(buff[3]>>1);
     memcpy(data, buff+4, buff[3]>>1);
+    if (echo_enable)
+        sprintf(send_buff, "%s\r\n", data);
+        luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,send_buff, strlen(send_buff));
+        memset(send_buff, 0, 128);
     if (memcmp("AT\r", data, 3) == 0){
-        luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r", 3);
+        luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r\n", 4);
     }else if (memcmp("ATI", data, 3) == 0){
         #ifdef LUAT_BSP_VERSION
             sprintf(send_buff, "LuatOS-SoC_%s_%s\r\n", luat_os_bsp(), LUAT_BSP_VERSION);
@@ -95,19 +100,27 @@ void uih_shell_manage(unsigned char*buff){
             sprintf(send_buff, "LuatOS-SoC_%s_%s\r\n", luat_os_bsp(), luat_version_str());
         #endif
         luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,send_buff, strlen(send_buff));
-        luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r", 3);
+        luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r\n", 4);
     }else if (memcmp("AT+LUAFLASHSIZE?", data, 16) == 0){
         #ifdef FLASH_FS_REGION_SIZE
-            sprintf(send_buff, "+LUAFLASHSIZE: 0X%x\r",FLASH_FS_REGION_SIZE);
+            sprintf(send_buff, "+LUAFLASHSIZE: 0X%x\r\n",FLASH_FS_REGION_SIZE);
             luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,send_buff, strlen(send_buff));
-            luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r", 3);
+            luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r\n", 4);
         #endif
     }else if (memcmp("AT+LUACHECKSUM=", data, 15) == 0){
-        luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"+LUAFLASHSIZE: 0\r", 17);
-        luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r", 3);
+        luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"+LUAFLASHSIZE: 0\r\n", 18);
+        luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r\n", 4);
     }else if (memcmp("AT+RESET", data, 8) == 0){
-        luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r", 3);
+        luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r\n", 4);
         luat_os_reboot(0);
+    }else if (strncmp("ATE0\r", data, 5) == 0 || strncmp("ate1\r", data, 5) == 0) {
+        echo_enable = 0;
+        luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r\n", 4);
+    }
+    // 回显开启
+    else if (strncmp("ATE1\r", data, 5) == 0 || strncmp("ate1\r", data, 5) == 0) {
+        echo_enable = 1;
+        luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r\n", 4);
     }
     luat_heap_free(data);
 }

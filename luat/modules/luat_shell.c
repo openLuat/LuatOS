@@ -21,6 +21,58 @@ LuatOS Shell -- LuatOS 控制台
 uint8_t echo_enable = 0;
 uint8_t cmux_state = 0;
 
+#include "luat_dbg.h"
+void dbg_manage(unsigned char*data){
+    if (strcmp("dbg",strtok(data, " ")) == 0){
+        char *command = strtok(NULL, " ");
+        if (strcmp("start",command) == 0){
+            luat_dbg_set_hook_state(2);
+        }else if(strcmp("continue",command) == 0){
+            luat_dbg_set_hook_state(2);
+        }else if(strcmp("next",command) == 0 || strcmp("step",command) == 0){
+            luat_dbg_set_hook_state(4);
+        }else if(strcmp("stepIn",command) == 0 || strcmp("stepin",command) == 0){
+            luat_dbg_set_hook_state(5);
+        }else if(strcmp("stepOut",command) == 0 || strcmp("stepout",command) == 0){
+            luat_dbg_set_hook_state(6);
+        }else if(strcmp("bt",command) == 0){
+            char *params = strtok(NULL, " ");
+            if (params != NULL){
+                luat_dbg_set_runcb(luat_dbg_backtrace, (void*)atoi(params));
+            }else{
+                luat_dbg_set_runcb(luat_dbg_backtrace, (void*)-1);
+            }
+        }else if(strcmp("vars",command) == 0){
+            char *params = strtok(NULL, " ");
+            if (params != NULL){
+                luat_dbg_set_runcb(luat_dbg_vars, (void*)atoi(params));
+            }else{
+                luat_dbg_set_runcb(luat_dbg_vars, (void*)0);
+            }
+        }else if(strcmp("gvars",command) == 0){
+            luat_dbg_gvars((void*)0);
+        }else if(strcmp("jvars",command) == 0){
+            luat_dbg_jvars(strtok(NULL, " "));
+        }else if(strcmp("break",command) == 0){
+            char *sub_command = strtok(NULL, " ");
+            if (strcmp("clr",sub_command) == 0){
+                luat_dbg_breakpoint_clear(strtok(NULL, " "));
+            }else if (strcmp("add",sub_command) == 0){
+                luat_dbg_breakpoint_add(strtok(NULL, " "),atoi(strtok(NULL, " ")));
+            }else if (strcmp("del",sub_command) == 0){
+                char *params = strtok(NULL, " ");
+                if (params != NULL){
+                    luat_dbg_breakpoint_clear(params);
+                }else{
+                    luat_dbg_breakpoint_clear(NULL);
+                }
+            }
+        }else {
+        }
+    }
+}
+
+
 static int luat_shell_msg_handler(lua_State *L, void* ptr) {
 
     char buff[128] = {0};
@@ -53,22 +105,22 @@ static int luat_shell_msg_handler(lua_State *L, void* ptr) {
             else if (strncmp("AT+RESET", uart_buff, 8) == 0 
                 || strncmp("at+ecrst", uart_buff, 8) == 0
                 || strncmp("AT+ECRST", uart_buff, 8) == 0) {
-                luat_shell_write("OK\n", 3);
+                luat_shell_write("OK\r\n", 4);
                 luat_os_reboot(0);
             }
             // AT测试
             else if (strncmp("AT\r", uart_buff, 3) == 0 || strncmp("AT\r\n", uart_buff, 4) == 0) {
-                luat_shell_write("OK\n", 3);
+                luat_shell_write("OK\r\n", 4);
             }
             // 回显关闭
             else if (strncmp("ATE0\r", uart_buff, 4) == 0 || strncmp("ATE0\r\n", uart_buff, 5) == 0) {
                 echo_enable = 0;
-                luat_shell_write("OK\n", 3);
+                luat_shell_write("OK\r\n", 4);
             }
             // 回显开启
             else if (strncmp("ATE1\r", uart_buff, 4) == 0 || strncmp("ATE1\r\n", uart_buff, 5) == 0) {
                 echo_enable = 1;
-                luat_shell_write("OK\n", 3);
+                luat_shell_write("OK\r\n", 4);
             }
             // 查询内存状态
             else if (strncmp("free", uart_buff, 4) == 0) {
@@ -106,7 +158,7 @@ static int luat_shell_msg_handler(lua_State *L, void* ptr) {
                 }
             }
             else {
-                luat_shell_write("ERR\n", 4);
+                luat_shell_write("ERR\r\n", 5);
             }
         }
     }
@@ -162,22 +214,22 @@ void luat_shell_push(char* uart_buff, size_t rcount) {
             else if (strncmp("AT+RESET", uart_buff, 8) == 0 
                 || strncmp("at+ecrst", uart_buff, 8) == 0
                 || strncmp("AT+ECRST", uart_buff, 8) == 0) {
-                luat_shell_write("OK\n", 3);
+                luat_shell_write("OK\r\n", 4);
                 luat_os_reboot(0);
             }
             // AT测试
             else if (strncmp("AT\r", uart_buff, 3) == 0 || strncmp("AT\r\n", uart_buff, 4) == 0) {
-                luat_shell_write("OK\n", 3);
+                luat_shell_write("OK\r\n", 4);
             }
             // 回显关闭
             else if (strncmp("ATE0\r", uart_buff, 4) == 0 || strncmp("ATE0\r\n", uart_buff, 5) == 0) {
                 echo_enable = 0;
-                luat_shell_write("OK\n", 3);
+                luat_shell_write("OK\r\n", 4);
             }
             // 回显开启
             else if (strncmp("ATE1\r", uart_buff, 4) == 0 || strncmp("ATE1\r\n", uart_buff, 5) == 0) {
                 echo_enable = 1;
-                luat_shell_write("OK\n", 3);
+                luat_shell_write("OK\r\n", 4);
             }
             // 查询内存状态
             else if (strncmp("free", uart_buff, 4) == 0) {
@@ -201,7 +253,7 @@ void luat_shell_push(char* uart_buff, size_t rcount) {
             }
             #endif
             else if (!strncmp(LUAT_CMUX_CMD_INIT, uart_buff, strlen(LUAT_CMUX_CMD_INIT))) {
-                luat_shell_write("OK\n", 3);
+                luat_shell_write("OK\r\n", 4);
                 cmux_state = 1;
             }
             // 执行脚本
@@ -221,7 +273,8 @@ void luat_shell_push(char* uart_buff, size_t rcount) {
                 }
             }
             else {
-                luat_shell_write("ERR\n", 4);
+                dbg_manage(uart_buff);
+                // luat_shell_write("ERR\r\n", 5);
             }
         }
     }

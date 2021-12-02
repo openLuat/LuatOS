@@ -6,6 +6,7 @@
 
 [![air101](https://github.com/openLuat/LuatOS/actions/workflows/air101.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/air101/master)
 [![air105](https://github.com/openLuat/LuatOS/actions/workflows/air105.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/air105/master)
+[![esp32c3](https://github.com/openLuat/LuatOS/actions/workflows/esp32c3.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/esp32c3/master)
 [![air100st](https://github.com/openLuat/LuatOS/actions/workflows/air100st.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/air100st/master)
 [![air640w](https://github.com/openLuat/LuatOS/actions/workflows/air640w.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/air640w/master)
 [![win32](https://github.com/openLuat/LuatOS/actions/workflows/win32.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/win32/master)

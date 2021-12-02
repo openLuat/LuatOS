@@ -1050,6 +1050,61 @@ static int l_lcd_get_size(lua_State *L) {
   return 2;
 }
 
+static void lcd_DrawHXBM(uint16_t x, uint16_t y, uint16_t len, const uint8_t *b){
+  uint8_t mask;
+  mask = 1;
+  while(len > 0) {
+    if ( *b & mask ) luat_lcd_draw_hline(default_conf, x, y, 1,FORE_COLOR);
+    else luat_lcd_draw_vline(default_conf, x, y, 1,BACK_COLOR);
+    x++;
+    mask <<= 1;
+    if ( mask == 0 ){
+      mask = 1;
+      b++;
+    }
+    len--;
+  }
+}
+
+/*
+绘制位图
+@api lcd.drawXbm(x, y, w, h, data)
+@int X坐标
+@int y坐标
+@int 位图宽
+@int 位图高
+@int 位图数据,每一位代表一个像素
+@usage
+-- 取模使用PCtoLCD2002软件即可
+-- 在(0,0)为左上角,绘制 16x16 "今" 的位图
+lcd.drawXbm(0, 0, 16,16, string.char(
+    0x80,0x00,0x80,0x00,0x40,0x01,0x20,0x02,0x10,0x04,0x48,0x08,0x84,0x10,0x83,0x60,
+    0x00,0x00,0xF8,0x0F,0x00,0x08,0x00,0x04,0x00,0x04,0x00,0x02,0x00,0x01,0x80,0x00
+))
+*/
+static int l_lcd_drawxbm(lua_State *L){
+    int x = luaL_checkinteger(L, 1);
+    int y = luaL_checkinteger(L, 2);
+    int w = luaL_checkinteger(L, 3);
+    int h = luaL_checkinteger(L, 4);
+    size_t len = 0;
+    const char* data = luaL_checklstring(L, 5, &len);
+    if (h < 1) return 0; // 行数必须大于0
+    if (w < h) return 0; // 起码要填满一行
+    uint8_t blen;
+    blen = w;
+    blen += 7;
+    blen >>= 3;
+    while( h > 0 ){
+      lcd_DrawHXBM(x, y, w, (const uint8_t*)data);
+      data += blen;
+      y++;
+      h--;
+    }
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
 #include "rotable.h"
 static const rotable_Reg reg_lcd[] =
 {
@@ -1073,6 +1128,7 @@ static const rotable_Reg reg_lcd[] =
     { "setDefault", l_lcd_set_default, 0},
     { "getDefault", l_lcd_get_default, 0},
     { "getSize",    l_lcd_get_size, 0},
+    { "drawXbm",    l_lcd_drawxbm, 0},
 #ifdef LUAT_USE_GTFONT
     { "drawGtfontGb2312", l_lcd_draw_gtfont_gb2312, 0},
     { "drawGtfontGb2312Gray", l_lcd_draw_gtfont_gb2312_gray, 0},

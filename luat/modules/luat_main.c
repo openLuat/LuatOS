@@ -51,14 +51,24 @@ void luat_force_gc_all(void)
 int luat_main_demo() { // 这是验证LuatVM最基础的消息/定时器/Task机制是否正常
   return luaL_dostring(L, "local sys = require \"sys\"\n"
                           "log.info(\"main\", os.date())\n"
-                          "led = gpio.setup(19, 0)"
+                          "leda = gpio.setup(3, 0)"
+                          "ledb = gpio.setup(4, 0)"
+                          "ledc = gpio.setup(5, 0)"
                           "sys.taskInit(function ()\n"
                           "  while true do\n"
                           "    log.info(\"hi\", rtos.meminfo())\n"
                           "    sys.wait(500)\n"
-                          "    led(1)\n"
+                          "    leda(1)\n"
+                          "    ledb(0)\n"
+                          "    ledc(0)\n"
                           "    sys.wait(500)\n"
-                          "    led(0)\n"
+                          "    leda(0)\n"
+                          "    ledb(1)\n"
+                          "    ledc(0)\n"
+                          "    sys.wait(500)\n"
+                          "    leda(0)\n"
+                          "    ledb(0)\n"
+                          "    ledc(1)\n"
                           "    log.info(\"main\", os.date())\n"
                           "  end\n"
                           "end)\n"
@@ -79,7 +89,7 @@ static int pmain(lua_State *L) {
     lua_gc(L, LUA_GCSETPAUSE, 90); // 设置`垃圾收集器间歇率`要低于100%
 
 #ifdef LUAT_HAS_CUSTOM_LIB_INIT
-    luat_custom_init(lua_State *L);
+    luat_custom_init(L);
 #endif
 
 #ifdef LUAT_USE_DBG

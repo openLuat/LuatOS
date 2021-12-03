@@ -115,12 +115,12 @@ void uih_shell_manage(unsigned char*buff){
     }else if (memcmp("AT+RESET", data, 8) == 0){
         luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r\n", 4);
         luat_os_reboot(0);
-    }else if (strncmp("ATE0\r", data, 5) == 0 || strncmp("ate1\r", data, 5) == 0) {
+    }else if (memcmp("ATE0\r", data, 5) == 0 || memcmp("ate1\r", data, 5) == 0) {
         echo_enable = 0;
         luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r\n", 4);
     }
     // 回显开启
-    else if (strncmp("ATE1\r", data, 5) == 0 || strncmp("ate1\r", data, 5) == 0) {
+    else if (memcmp("ATE1\r", data, 5) == 0 || memcmp("ate1\r", data, 5) == 0) {
         echo_enable = 1;
         luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r\n", 4);
     }

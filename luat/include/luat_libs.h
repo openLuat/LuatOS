@@ -100,5 +100,6 @@ LUAMOD_API int luaopen_coremark( lua_State *L );
 LUAMOD_API int luaopen_fonts( lua_State *L );
 
 LUAMOD_API int luaopen_pin( lua_State *L );
+LUAMOD_API int luaopen_dac( lua_State *L );
 
 #endif

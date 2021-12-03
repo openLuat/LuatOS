@@ -22,7 +22,7 @@ uint8_t echo_enable = 0;
 uint8_t cmux_state = 0;
 
 #include "luat_dbg.h"
-void dbg_manage(unsigned char*data){
+void dbg_manage(char*data){
     if (strcmp("dbg",strtok(data, " ")) == 0){
         char *command = strtok(NULL, " ");
         if (strcmp("start",command) == 0){

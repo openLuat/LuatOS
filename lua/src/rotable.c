@@ -123,6 +123,7 @@ static int rotable_udata_index( lua_State* L ) {
   rotable_Reg const* p = 0;
   lua_getuservalue( L, 1 );
   p = (rotable_Reg const*)lua_touserdata( L, -1 );
+  rotable_Reg const* p2 = p;
 #endif
   p = find_key( p, t->n, s );
   if( p ) {
@@ -131,8 +132,16 @@ static int rotable_udata_index( lua_State* L ) {
     else
       lua_pushinteger(L, p->value);
   }
-  else
+  else {
+    // 看看第一个方法是不是__index, 如果是的话, 调用之
+    if (p2->name != NULL && !strcmp("__index", p->name)) {
+      lua_pushcfunction(L, p2->func);
+      lua_pushvalue(L, 2);
+      lua_call(L, 1, 1);
+      return 1;
+    }
     lua_pushnil( L );
+  }
   return 1;
 }
 

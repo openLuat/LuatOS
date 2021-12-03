@@ -91,6 +91,7 @@ static rotable_Reg const* find_key( rotable_Reg const* p, int n,
 static int rotable_func_index( lua_State* L ) {
   char const* s = lua_tostring( L, 2 );
   rotable_Reg const* p = (rotable_Reg const*)lua_touserdata( L, lua_upvalueindex( 1 ) );
+  rotable_Reg const* p2 = p;
   int n = lua_tointeger( L, lua_upvalueindex( 2 ) );
   p = find_key( p, n, s );
   if( p ) {
@@ -99,8 +100,16 @@ static int rotable_func_index( lua_State* L ) {
     else
       lua_pushinteger(L, p->value);
   }
-  else
+  else {
+    // 看看第一个方法是不是__index, 如果是的话, 调用之
+    if (p2->name != NULL && !strcmp("__index", p->name)) {
+      lua_pushcfunction(L, p2->func);
+      lua_pushvalue(L, 2);
+      lua_call(L, 1, 1);
+      return 1;
+    }
     lua_pushnil( L );
+  }
   return 1;
 }
 

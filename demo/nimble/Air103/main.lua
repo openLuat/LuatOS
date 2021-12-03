@@ -32,9 +32,10 @@ end)
 
 -- TODO 支持传数据(read)和推送数据(notify)
 
--- 配合微信小程序 "BLE蓝牙开发助手"
+-- 配合微信小程序 "LuatOS蓝牙调试"
 -- 1. 若开发板无天线, 将手机尽量靠近芯片也能搜到
--- 2. 该小程序是开源的, 每次write会自动分包为16字节
+-- 2. 该小程序是开源的, 每次write会自动分包
+-- https://gitee.com/openLuat/luatos-miniapps
 
 sys.taskInit(function()
     sys.wait(2000)

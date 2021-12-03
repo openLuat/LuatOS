@@ -85,12 +85,14 @@ void uih_main_manage(unsigned char*buff){
 
 void uih_shell_manage(unsigned char*buff){
     char send_buff[128] = {0};
-    unsigned char *data = (unsigned char *)luat_heap_malloc(buff[3]>>1);
+    char *data = (char *)luat_heap_malloc(buff[3]>>1);
     memcpy(data, buff+4, buff[3]>>1);
     if (echo_enable)
+    {
         sprintf(send_buff, "%s\r\n", data);
         luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,send_buff, strlen(send_buff));
         memset(send_buff, 0, 128);
+    }
     if (memcmp("AT\r", data, 3) == 0){
         luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r\n", 4);
     }else if (memcmp("ATI", data, 3) == 0){
@@ -113,12 +115,12 @@ void uih_shell_manage(unsigned char*buff){
     }else if (memcmp("AT+RESET", data, 8) == 0){
         luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r\n", 4);
         luat_os_reboot(0);
-    }else if (strncmp("ATE0\r", data, 5) == 0 || strncmp("ate1\r", data, 5) == 0) {
+    }else if (memcmp("ATE0\r", data, 5) == 0 || memcmp("ate1\r", data, 5) == 0) {
         echo_enable = 0;
         luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r\n", 4);
     }
     // 回显开启
-    else if (strncmp("ATE1\r", data, 5) == 0 || strncmp("ate1\r", data, 5) == 0) {
+    else if (memcmp("ATE1\r", data, 5) == 0 || memcmp("ate1\r", data, 5) == 0) {
         echo_enable = 1;
         luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r\n", 4);
     }

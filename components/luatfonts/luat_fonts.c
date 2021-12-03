@@ -45,7 +45,7 @@ int luat_font_get(int font_id, const uint32_t chr, luat_font_data_t* data) {
         {
             if (const_fonts[i] == NULL)
                 break;
-            return const_fonts[i]->loader(chr, data, const_fonts[i]->font_size, const_fonts[i]->userdata);
+            return const_fonts[i]->loader(chr, data, const_fonts[i]->font_size, const_fonts[i]);
         }
         return -1;
     }
@@ -72,6 +72,7 @@ int luat_font_register(luat_font_loader_get loader, void* ptr) {
 }
 
 int const_gb2312_font_loader(const uint32_t chr, luat_font_data_t* data, size_t font_size, void* ptr) {
+    const luat_fonts_t* font = (const luat_fonts_t*)ptr;
     // 当前仅支持UNICODE, TODO 在这里做UTF转UNICODE
     //uint16_t unicode = (uint16_t)chr; 
 
@@ -80,6 +81,8 @@ int const_gb2312_font_loader(const uint32_t chr, luat_font_data_t* data, size_t 
 
     // 直接输入gb2312, 测试一下可行性
     uint16_t gb2312 = (uint16_t)chr;
+
+    font_size = font->font_size; // 固定大小, 需要覆盖掉
 
     // 检查是否合法
 
@@ -115,7 +118,7 @@ int const_gb2312_font_loader(const uint32_t chr, luat_font_data_t* data, size_t 
         zone -= 6; // 汉字区, 16区~87区, 往前对齐到11区
     }
 #else
-    zone = zone - (0xB0 - 1); // 仅汉字.
+    zone = zone - (0x10 - 1); // 仅汉字.
 #endif
 
     // 所以, 区/位均以1开始, 而偏移量从0开始,所以总的偏移量
@@ -130,6 +133,8 @@ int const_gb2312_font_loader(const uint32_t chr, luat_font_data_t* data, size_t 
     data->w = font_size;
     data->len = font_size*font_size/8;
 
-    memcpy(data->buff, (uint8_t*)(((uint8_t*)ptr) + pos), font_size);
+    LLOGD("gb2312 pos 0x%04X w %d len %d font_size %d", pos, data->w, data->len, font_size);
+
+    memcpy(data->buff, (uint8_t*)(((uint8_t*)font->userdata) + pos), data->len);
     return 0;
 }

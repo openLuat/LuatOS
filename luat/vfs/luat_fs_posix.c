@@ -62,7 +62,7 @@ size_t luat_fs_fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream) 
 int luat_fs_remove(const char *filename) {
     return remove(filename + FILENAME_OFFSET);
 }
-int luat_fs_rename(const char *filename, const char *new_filename) {
+int luat_fs_rename(const char *old_filename, const char *new_filename) {
 #if LUA_USE_VFS_FILENAME_OFFSET
     return rename(old_filename + (old_filename[0] == '/' ? 1 : 0), new_filename + (new_filename[0] == '/' ? 1 : 0));
 #else

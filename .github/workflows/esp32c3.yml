@@ -28,7 +28,7 @@ jobs:
       run: |
         sudo sh -c "curl https://raw.githubusercontent.com/kadwanev/retry/master/retry -o /usr/local/bin/retry && chmod +x /usr/local/bin/retry"
         cd ..
-        retry 'git clone --branch=luatos_repo https://gitee.com/dreamcmi/LuatOS-ESP32'
+        retry 'git clone --branch=master https://gitee.com/dreamcmi/LuatOS-ESP32'
     - name: build
       run: |
         mkdir luatosfw

@@ -15,6 +15,8 @@
 
 //#define LUAT_CONF_DISABLE_ROTABLE
 
+#define LUA_USE_VFS_FILENAME_OFFSET 1
+
 #define LUAT_USE_FS_VFS 1
 
 #define LUAT_USE_VFS_INLINE_LIB 1
@@ -26,7 +28,8 @@
 #define LUAT_FORCE_WIN32 1
 
 #define LUAT_USE_LVGL 1
-#define LV_MEM_CUSTOM 1
+#define LV_MEM_CUSTOM 0
+#define LUAT_LV_DEBUG 0
 #define LUAT_USE_LVGL_INDEV 1
 
 #define LUAT_USE_LVGL_ARC   //圆弧 无依赖

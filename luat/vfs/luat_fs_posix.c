@@ -6,13 +6,19 @@
 
 #define TAG "luat.fs"
 
+#ifdef LUA_USE_VFS_FILENAME_OFFSET
+#define FILENAME_OFFSET (filename[0] == '/' ? 1 : 0)
+#else
+#define FILENAME_OFFSET 0
+#endif
+
 
 // fs的默认实现, 指向poisx的stdio.h声明的方法
 #ifndef LUAT_USE_FS_VFS
 
 FILE* luat_fs_fopen(const char *filename, const char *mode) {
-    //LLOGD("fopen %s %s", filename + (filename[0] == '/' ? 1 : 0), mode);
-    return fopen(filename + (filename[0] == '/' ? 1 : 0), mode);
+    //LLOGD("fopen %s %s", filename + FILENAME_OFFSET, mode);
+    return fopen(filename + FILENAME_OFFSET, mode);
 }
 
 int luat_fs_getc(FILE* stream) {
@@ -54,10 +60,14 @@ size_t luat_fs_fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream) 
     return fwrite(ptr, size, nmemb, stream);
 }
 int luat_fs_remove(const char *filename) {
-    return remove(filename + (filename[0] == '/' ? 1 : 0));
+    return remove(filename + FILENAME_OFFSET);
 }
-int luat_fs_rename(const char *old_filename, const char *new_filename) {
+int luat_fs_rename(const char *filename, const char *new_filename) {
+#if LUA_USE_VFS_FILENAME_OFFSET
     return rename(old_filename + (old_filename[0] == '/' ? 1 : 0), new_filename + (new_filename[0] == '/' ? 1 : 0));
+#else
+    return rename(old_filename, new_filename);
+#endif
 }
 int luat_fs_fexist(const char *filename) {
     FILE* fd = luat_fs_fopen(filename, "rb");
@@ -105,8 +115,8 @@ int luat_fs_rmdir(char const* _DirName) {
 #else
 
 FILE* luat_vfs_posix_fopen(void* userdata, const char *filename, const char *mode) {
-    //LLOGD("fopen %s %s", filename + (filename[0] == '/' ? 1 : 0), mode);
-    return fopen(filename + (filename[0] == '/' ? 1 : 0), mode);
+    //LLOGD("fopen %s %s", filename + FILENAME_OFFSET, mode);
+    return fopen(filename + FILENAME_OFFSET, mode);
 }
 
 int luat_vfs_posix_getc(void* userdata, FILE* stream) {
@@ -148,10 +158,14 @@ size_t luat_vfs_posix_fwrite(void* userdata, const void *ptr, size_t size, size_
     return fwrite(ptr, size, nmemb, stream);
 }
 int luat_vfs_posix_remove(void* userdata, const char *filename) {
-    return remove(filename + (filename[0] == '/' ? 1 : 0));
+    return remove(filename + FILENAME_OFFSET);
 }
 int luat_vfs_posix_rename(void* userdata, const char *old_filename, const char *new_filename) {
+#if LUA_USE_VFS_FILENAME_OFFSET
     return rename(old_filename + (old_filename[0] == '/' ? 1 : 0), new_filename + (new_filename[0] == '/' ? 1 : 0));
+#else
+    return rename(old_filename, new_filename);
+#endif
 }
 int luat_vfs_posix_fexist(void* userdata, const char *filename) {
     FILE* fd = luat_vfs_posix_fopen(userdata, filename, "rb");

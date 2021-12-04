@@ -97,9 +97,9 @@ void uih_shell_manage(unsigned char*buff){
         luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r\n", 4);
     }else if (memcmp("ATI", data, 3) == 0){
         #ifdef LUAT_BSP_VERSION
-            sprintf(send_buff, "LuatOS-SoC_%s_%s\r\n", luat_os_bsp(), LUAT_BSP_VERSION);
+            sprintf(send_buff, "LuatOS-SoC_%s_%s\r\n", LUAT_BSP_VERSION, luat_os_bsp());
         #else
-            sprintf(send_buff, "LuatOS-SoC_%s_%s\r\n", luat_os_bsp(), luat_version_str());
+            sprintf(send_buff, "LuatOS-SoC_%s_%s\r\n", luat_version_str(), luat_os_bsp());
         #endif
         luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,send_buff, strlen(send_buff));
         luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r\n", 4);

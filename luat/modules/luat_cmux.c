@@ -255,14 +255,44 @@ void luat_cmux_read(unsigned char* buff,size_t len){
     // for (size_t i = 0; i < len; i++){
     //     LLOGD("buff[%d]:%02X",i,buff[i]);
     // }
-    if (buff[0]==CMUX_HEAD_FLAG_BASIC && len==4){
+    // if (buff[0]==CMUX_HEAD_FLAG_BASIC && len==4){
+    //     memset(cmux_read_data.data, 0, 128);
+    //     memmove(cmux_read_data.data,  buff, len);
+    //     cmux_read_data.Len = len;
+    //     cmux_read_data.Fcs = cmux_frame_check(buff+1,len-1);
+    // }else if (buff[0]==cmux_read_data.Fcs && buff[1]==CMUX_HEAD_FLAG_BASIC && len==2){
+    //     if (cmux_read_data.Fcs != 0 ){
+    //         // luat_os_entry_cri();
+    //         luat_os_irq_disable(16);
+    //         cmux_frame_manage(cmux_read_data.data);
+    //         luat_os_irq_enable(16);
+    //         // luat_os_exit_cri();
+    //     }
+    //     memset(cmux_read_data.data, 0, 128);
+    //     cmux_read_data.Fcs = 0;
+    // }else 
+    if (buff[0]==CMUX_HEAD_FLAG_BASIC && buff[len-1]==CMUX_HEAD_FLAG_BASIC){
+        if (cmux_frame_check(buff+1,3) == buff[len-2] ){
+            memset(cmux_read_data.data, 0, 128);
+            memmove(cmux_read_data.data,  buff, len);
+            luat_os_irq_disable(16);
+            cmux_frame_manage(cmux_read_data.data);
+            luat_os_irq_enable(16);
+        }
+        memset(cmux_read_data.data, 0, 128);
+        cmux_read_data.Fcs = 0;
+    }else if (buff[0]==CMUX_HEAD_FLAG_BASIC ){
         memset(cmux_read_data.data, 0, 128);
         memmove(cmux_read_data.data,  buff, len);
         cmux_read_data.Len = len;
-        cmux_read_data.Fcs = cmux_frame_check(buff+1,len-1);
-    }else if (buff[0]==cmux_read_data.Fcs && buff[1]==CMUX_HEAD_FLAG_BASIC && len==2){
-        if (buff[0]==cmux_read_data.Fcs)
+        cmux_read_data.Fcs = cmux_frame_check(buff+1,3);
+    }else if (buff[len-2]==cmux_read_data.Fcs && buff[len-1]==CMUX_HEAD_FLAG_BASIC){
+        if (cmux_read_data.Fcs != 0 ){
+            strcat((char*)cmux_read_data.data, (const char*)buff);
+            luat_os_irq_disable(16);
             cmux_frame_manage(cmux_read_data.data);
+            luat_os_irq_enable(16);
+        }
         memset(cmux_read_data.data, 0, 128);
         cmux_read_data.Fcs = 0;
     }else if (cmux_read_data.Fcs && cmux_read_data.Len){

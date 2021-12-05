@@ -58,6 +58,10 @@ void luat_os_entry_cri(void);
 
 void luat_os_exit_cri(void);
 
+void luat_os_irq_disable(uint8_t IRQ_Type);
+
+void luat_os_irq_enable(uint8_t IRQ_Type);
+
 /** 停止启动,当前仅rt-thread实现有这个设置*/
 void stopboot(void);
 

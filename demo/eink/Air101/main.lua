@@ -39,7 +39,7 @@ end
 
 sys.taskInit(function()
     eink.model(eink.MODEL_1in54_V2)
-    eink.setup(1, 0,17,1,4,20)
+    eink.setup(1, 0,pin.PB01,pin.PA01,pin.PA04,pin.PB04)
     eink.setWin(200, 200, 0)
     log.info("eink", "end setup")
     -- 稍微等一会,免得墨水屏没初始化完成

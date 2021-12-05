@@ -15,9 +15,9 @@ if wdt then
 end
 
 --下面的GPIO引脚编号，请根据实际需要进行更改！
-local LEDA = gpio.setup(24, 0, gpio.PULLUP) -- PB8输出模式
-local LEDB = gpio.setup(25, 0, gpio.PULLUP) -- PB9输出模式
-local LEDC = gpio.setup(26, 0, gpio.PULLUP) -- PB10输出模式
+local LEDA = gpio.setup(pin.PB08, 0, gpio.PULLUP) -- PB8输出模式
+local LEDB = gpio.setup(pin.PB09, 0, gpio.PULLUP) -- PB9输出模式
+local LEDC = gpio.setup(pin.PB10, 0, gpio.PULLUP) -- PB10输出模式
 
 sys.taskInit(function()
     local count = 0

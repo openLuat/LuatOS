@@ -20,10 +20,10 @@ sys.taskInit(function()
     sdio.init(0)
     sdio.sd_mount(0,"/sd",0)
 
-    local spi_lcd = spi.deviceSetup(0,20,0,0,8,2000000,spi.MSB,1,1)
+    local spi_lcd = spi.deviceSetup(0,pin.PB04,0,0,8,2000000,spi.MSB,1,1)
     log.info("lcd.init",
-    lcd.init("st7735s",{port = "device",pin_dc = 17, pin_pwr = 7,pin_rst = 19,direction = 2,w = 160,h = 80,xoffset = 1,yoffset = 26},spi_lcd))
-    
+    lcd.init("st7735s",{port = "device",pin_dc = pin.PB01, pin_pwr = pin.PB00,pin_rst = pin.PB03,direction = 2,w = 160,h = 80,xoffset = 1,yoffset = 26},spi_lcd))
+
     -- 使用ffmpeg.exe将视频转成字节流文件video2.rgb放入TF卡
     local file_size = fs.fsize("/sd/video2.rgb")
     print("/sd/video2.rgb file_size",file_size)

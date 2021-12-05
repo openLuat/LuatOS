@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.nutz</groupId>
   <artifactId>luatos</artifactId>
-  <version>1.r.68-SNAPSHOT</version>
+  <version>1.r.68.v20201205</version>
   <name>LuatOSTool</name>
   <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

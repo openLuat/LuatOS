@@ -5,7 +5,6 @@
 @date    2021.12.05
 */
 
-#include "wm_gpio_afsel.h"
 #include "luat_base.h"
 
 #define LUAT_LOG_TAG "pin"

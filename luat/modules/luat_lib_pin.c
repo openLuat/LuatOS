@@ -6,6 +6,7 @@
 */
 
 #include "luat_base.h"
+#include "luat_pin.h"
 
 #define LUAT_LOG_TAG "pin"
 #include "luat_log.h"

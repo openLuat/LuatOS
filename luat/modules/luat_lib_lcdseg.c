@@ -72,7 +72,7 @@ static int l_lcdseg_power(lua_State* L) {
 设置具体一个段码的状态
 @api lcdseg.seg_set(com, seg, en)
 @int COM号
-@int seg号
+@int seg号 要更改的字段的位索引
 @int 1启用,0禁用
 @return bool 成功与否
  */

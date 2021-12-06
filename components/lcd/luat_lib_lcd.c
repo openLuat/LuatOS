@@ -53,6 +53,33 @@ extern const luat_lcd_opts_t lcd_opts_ili9341;
 extern const luat_lcd_opts_t lcd_opts_ili9488;
 extern const luat_lcd_opts_t lcd_opts_custom;
 
+//注意！这里的顺序要和下面的lcd_name保持一致，否则会出错
+const luat_lcd_opts_t *lcd_opts[] = {
+  &lcd_opts_custom,   //0 固定为第零个
+  &lcd_opts_st7735,   //1
+  &lcd_opts_st7735v,  //2
+  &lcd_opts_st7735s,  //3
+  &lcd_opts_st7789,   //4
+  &lcd_opts_gc9a01,   //5
+  &lcd_opts_gc9106l,  //6
+  &lcd_opts_gc9306,   //7
+  &lcd_opts_ili9341,  //8
+  &lcd_opts_ili9488,  //9
+};
+const char *lcd_name[] = {
+  "custom",   //0
+  "st7735",   //1
+  "st7735v",  //2
+  "st7735s",  //3
+  "st7789",   //4
+  "gc9a01",   //5
+  "gc9106l",  //6
+  "gc9306",   //7
+  "ili9341",  //8
+  "ili9488",  //9
+};
+
+
 static luat_lcd_conf_t *default_conf = NULL;
 
 static uint32_t lcd_str_fg_color,lcd_str_bg_color;
@@ -78,11 +105,15 @@ static int l_lcd_init(lua_State* L) {
         conf->port = LUAT_LCD_SPI_DEVICE;
     }
     const char* tp = luaL_checklstring(L, 1, &len);
-    if (!strcmp("st7735", tp) || !strcmp("st7735v", tp) || !strcmp("st7789", tp) || !strcmp("st7735s", tp)
-            || !strcmp("gc9a01", tp)  || !strcmp("gc9106l", tp)
-            || !strcmp("gc9306", tp)  || !strcmp("ili9341", tp)  || !strcmp("ili9488", tp)
-            || !strcmp("custom", tp)) {
-              LLOGD("ic support: %s",tp);
+    int16_t s_index = -1;//第几个屏幕，-1表示没匹配到
+    for(int i = 0; i < sizeof(lcd_name)/sizeof(lcd_name[0]); i++){
+        if(strcmp(lcd_name[i],tp) == 0){
+            s_index = i;
+            break;
+        }
+    }
+    if (s_index == -1) {
+        LLOGD("ic support: %s",tp);
         if (lua_gettop(L) > 1) {
             lua_settop(L, 2); // 丢弃多余的参数
 
@@ -149,26 +180,8 @@ static int l_lcd_init(lua_State* L) {
             }
             lua_pop(L, 1);
         }
-        if (!strcmp("st7735", tp))
-            conf->opts = (luat_lcd_opts_t*)&lcd_opts_st7735;
-        else if (!strcmp("st7735v", tp))
-            conf->opts = (luat_lcd_opts_t*)&lcd_opts_st7735v;
-        else if (!strcmp("st7735s", tp))
-            conf->opts = (luat_lcd_opts_t*)&lcd_opts_st7735s;
-        else if (!strcmp("st7789", tp))
-            conf->opts = (luat_lcd_opts_t*)&lcd_opts_st7789;
-        else if (!strcmp("gc9a01", tp))
-            conf->opts = (luat_lcd_opts_t*)&lcd_opts_gc9a01;
-        else if (!strcmp("gc9106l", tp))
-            conf->opts = (luat_lcd_opts_t*)&lcd_opts_gc9106l;
-        else if (!strcmp("gc9306", tp))
-            conf->opts = (luat_lcd_opts_t*)&lcd_opts_gc9306;
-        else if (!strcmp("ili9341", tp))
-            conf->opts = (luat_lcd_opts_t*)&lcd_opts_ili9341;
-        else if (!strcmp("ili9488", tp))
-            conf->opts = (luat_lcd_opts_t*)&lcd_opts_ili9488;
-        else if (!strcmp("custom", tp)) {
-            conf->opts = (luat_lcd_opts_t*)&lcd_opts_custom;
+        conf->opts = lcd_opts[s_index];
+        if (s_index == 0){
             luat_lcd_custom_t *cst = luat_heap_malloc(sizeof(luat_lcd_custom_t));
 
             // 获取initcmd/sleepcmd/wakecmd

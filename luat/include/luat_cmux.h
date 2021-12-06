@@ -38,6 +38,8 @@
 #define CMUX_CONTROL_ISUIH(buff) (buff[2]==(CMUX_FRAME_UIH & ~CMUX_CONTROL_PF))
 #define CMUX_CONTROL_ISUI(buff) (buff[2]==(CMUX_FRAME_UI & ~CMUX_CONTROL_PF))
 
+#define CMUX_BUFFER_SIZE   1024
+
 void luat_cmux_write(int port, uint8_t control,char* buff, size_t len);
 void luat_cmux_read(unsigned char* buff,size_t len);
 

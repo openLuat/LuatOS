@@ -518,14 +518,14 @@ int luat_search_module(const char* name, char* filename) {
     if (strlen(custom_search_paths[i]) == 0)
       continue;
     sprintf(filename, custom_search_paths[i], name);
-    if (readable(filename)) return 0;
+    if (luat_fs_fexist(filename)) return 0;
     filename[0] = 0x00;
   }
   while (1) {
     if (strlen(search_paths[index]) == 0)
       break;
     sprintf(filename, search_paths[index], name);
-    if (readable(filename)) return 0;
+    if (luat_fs_fexist(filename)) return 0;
     index ++;
     filename[0] = 0x00;
   }

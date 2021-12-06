@@ -275,9 +275,11 @@ void luat_cmux_read(unsigned char* buff,size_t len){
         if (cmux_frame_check(buff+1,3) == buff[len-2] ){
             memset(cmux_read_data.data, 0, 128);
             memmove(cmux_read_data.data,  buff, len);
-            luat_os_irq_disable(16);
+            // luat_os_irq_disable(16);
+            // luat_os_entry_cri();
             cmux_frame_manage(cmux_read_data.data);
-            luat_os_irq_enable(16);
+            // luat_os_exit_cri();
+            // luat_os_irq_enable(16);
         }
         memset(cmux_read_data.data, 0, 128);
         cmux_read_data.Fcs = 0;
@@ -289,9 +291,11 @@ void luat_cmux_read(unsigned char* buff,size_t len){
     }else if (buff[len-2]==cmux_read_data.Fcs && buff[len-1]==CMUX_HEAD_FLAG_BASIC){
         if (cmux_read_data.Fcs != 0 ){
             strcat((char*)cmux_read_data.data, (const char*)buff);
-            luat_os_irq_disable(16);
+            // luat_os_irq_disable(16);
+            // luat_os_entry_cri();
             cmux_frame_manage(cmux_read_data.data);
-            luat_os_irq_enable(16);
+            // luat_os_exit_cri();
+            // luat_os_irq_enable(16);
         }
         memset(cmux_read_data.data, 0, 128);
         cmux_read_data.Fcs = 0;
@@ -302,3 +306,194 @@ void luat_cmux_read(unsigned char* buff,size_t len){
         cmux_read_data.Fcs = 0;
     }
 }
+
+// #define min(a, b) ((a) <= (b) ? (a) : (b))
+
+// /* increases buffer pointer by one and wraps around if necessary */
+// #define INC_BUF_POINTER(buf, p)  \
+//     (p)++;                       \
+//     if ((p) == (buf)->end_point) \
+//         (p) = (buf)->data;
+
+// /* Tells, how many chars are saved into the buffer */
+// #define cmux_buffer_length(buff) (((buff)->read_point > (buff)->write_point) ? (CMUX_BUFFER_SIZE - ((buff)->read_point - (buff)->write_point)) : ((buff)->write_point - (buff)->read_point))
+
+// /* Tells, how much free space there is in the buffer */
+// #define cmux_buffer_free(buff) (((buff)->read_point > (buff)->write_point) ? ((buff)->read_point - (buff)->write_point) : (CMUX_BUFFER_SIZE - ((buff)->write_point - (buff)->read_point)))
+
+
+// size_t cmux_buffer_write(struct cmux_buffer *buff, uint8_t *input, size_t count)
+// {
+//     int c = buff->end_point - buff->write_point;
+//     count = min(count, cmux_buffer_free(buff));
+//     if (count > c)
+//     {
+//         memcpy(buff->write_point, input, c);
+//         memcpy(buff->data, input + c, count - c);
+//         buff->write_point = buff->data + (count - c);
+//     }
+//     else
+//     {
+//         memcpy(buff->write_point, input, count);
+//         buff->write_point += count;
+//         if (buff->write_point == buff->end_point)
+//             buff->write_point = buff->data;
+//     }
+//     return count;
+// }
+
+// static struct cmux_frame *cmux_frame_parse(struct cmux_buffer *buffer)
+// {
+//     int end;
+//     int length_needed = 5; /* channel, type, length, fcs, flag */
+//     uint8_t *data = NULL;
+//     uint8_t fcs = 0xFF;
+//     struct cmux_frame *frame = NULL;
+//     extern uint8_t cmux_crctable[256];
+//     /* Find start flag */
+//     while (!buffer->flag_found && cmux_buffer_length(buffer) > 0)
+//     {
+//         if (*buffer->read_point == CMUX_HEAD_FLAG)
+//             buffer->flag_found = 1;
+//         INC_BUF_POINTER(buffer, buffer->read_point);
+//     }
+//     if (!buffer->flag_found) /* no frame started */
+//         return NULL;
+//     /* skip empty frames (this causes troubles if we're using DLC 62) */
+//     while (cmux_buffer_length(buffer) > 0 && (*buffer->read_point == CMUX_HEAD_FLAG))
+//     {
+//         INC_BUF_POINTER(buffer, buffer->read_point);
+//     }
+//     if (cmux_buffer_length(buffer) >= length_needed)
+//     {
+//         data = buffer->read_point;
+//         frame = (struct cmux_frame *)rt_malloc(sizeof(struct cmux_frame));
+//         frame->data = NULL;
+//         frame->channel = ((*data & 252) >> 2);
+//         fcs = cmux_crctable[fcs ^ *data];
+//         INC_BUF_POINTER(buffer, data);
+//         frame->control = *data;
+//         fcs = cmux_crctable[fcs ^ *data];
+//         INC_BUF_POINTER(buffer, data);
+//         frame->data_length = (*data & 254) >> 1;
+//         fcs = cmux_crctable[fcs ^ *data];
+//         /* frame data length more than 127 bytes */
+//         if ((*data & 1) == 0)
+//         {
+//             INC_BUF_POINTER(buffer,data);
+//             frame->data_length += (*data*128);
+//             fcs = cmux_crctable[fcs^*data];
+//             length_needed++;
+//             LOG_D("len_need: %d, frame_data_len: %d.", length_needed, frame->data_length);
+//         }
+//         length_needed += frame->data_length;
+//         if (!(cmux_buffer_length(buffer) >= length_needed))
+//         {
+//             cmux_frame_destroy(frame);
+//             return NULL;
+//         }
+//         INC_BUF_POINTER(buffer, data);
+//         /* extract data */
+//         if (frame->data_length > 0)
+//         {
+//             frame->data = (unsigned char *)rt_malloc(frame->data_length);
+//             if (frame->data != NULL)
+//             {
+//                 end = buffer->end_point - data;
+//                 if (frame->data_length > end)
+//                 {
+//                     rt_memcpy(frame->data, data, end);
+//                     rt_memcpy(frame->data + end, buffer->data, frame->data_length - end);
+//                     data = buffer->data + (frame->data_length - end);
+//                 }
+//                 else
+//                 {
+//                     rt_memcpy(frame->data, data, frame->data_length);
+//                     data += frame->data_length;
+//                     if (data == buffer->end_point)
+//                         data = buffer->data;
+//                 }
+//                 if (CMUX_FRAME_IS(CMUX_FRAME_UI, frame))
+//                 {
+//                     for (end = 0; end < frame->data_length; end++)
+//                         fcs = cmux_crctable[fcs ^ (frame->data[end])];
+//                 }
+//             }
+//             else
+//             {
+//                 LOG_E("Out of memory, when allocating space for frame data.");
+//                 frame->data_length = 0;
+//             }
+//         }
+//         /* check FCS */
+//         if (cmux_crctable[fcs ^ (*data)] != 0xCF)
+//         {
+//             LOG_W("Dropping frame: FCS doesn't match.");
+//             cmux_frame_destroy(frame);
+//             buffer->flag_found = 0;
+//             buffer->read_point = data;
+//             return cmux_frame_parse(buffer);
+//         }
+//         else
+//         {
+//             /* check end flag */
+//             INC_BUF_POINTER(buffer, data);
+//             if (*data != CMUX_HEAD_FLAG)
+//             {
+//                 LOG_W("Dropping frame: End flag not found. Instead: %d.", *data);
+//                 cmux_frame_destroy(frame);
+//                 buffer->flag_found = 0;
+//                 buffer->read_point = data;
+//                 return cmux_frame_parse(buffer);
+//             }
+//             else
+//             {
+//             }
+//             INC_BUF_POINTER(buffer, data);
+//         }
+//         buffer->read_point = data;
+//     }
+//     return frame;
+// }
+
+// static void cmux_recv_processdata(struct cmux *cmux, uint8_t *buf, size_t len){
+//     size_t count = len;
+//     struct cmux_frame *frame = NULL;
+//     cmux_buffer_write(cmux->buffer, buf, count);
+//     frame = cmux_frame_parse(cmux->buffer);
+//     if (frame != NULL){
+//         /* distribute different data */
+//         if ((CMUX_FRAME_IS(CMUX_FRAME_UI, frame) || CMUX_FRAME_IS(CMUX_FRAME_UIH, frame))){
+//             LLOGD("this is UI or UIH frame from channel(%d).", frame->channel);
+//             if (frame->channel > 0){
+//                 /* receive data from logical channel, distribution them */
+//                 cmux_frame_push(cmux, frame->channel, frame);
+//                 cmux_vcom_isr(cmux, frame->channel, frame->data_length);
+//             }else{
+//                 /* control channel command */
+//                 LOG_W("control channel command haven't support.");
+//                 cmux_frame_destroy(frame);
+//             }
+//         }else{
+//             switch ((frame->control & ~CMUX_CONTROL_PF)){
+//             case CMUX_FRAME_UA:
+//                 LLOGD("This is UA frame for channel(%d).", frame->channel);
+//                 break;
+//             case CMUX_FRAME_DM:
+//                 LLOGD("This is DM frame for channel(%d).", frame->channel);
+//                 break;
+//             case CMUX_FRAME_SABM:
+//                 LLOGD("This is SABM frame for channel(%d).", frame->channel);
+//                 break;
+//             case CMUX_FRAME_DISC:
+//                 LLOGD("This is DISC frame for channel(%d).", frame->channel);
+//                 break;
+//             }
+//             cmux_frame_destroy(frame);
+//         }
+//     }
+// }
+
+// void luat_cmux_analysis(unsigned char* buff,size_t len){
+
+// }

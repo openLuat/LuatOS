@@ -930,7 +930,7 @@ local data = buff[0]
  */
 static int l_zbuff_index(lua_State *L)
 {
-    luat_zbuff_t **pp = luaL_checkudata(L, 1, LUAT_ZBUFF_TYPE);
+    //luat_zbuff_t **pp = luaL_checkudata(L, 1, LUAT_ZBUFF_TYPE);
     // int i;
 
     luaL_getmetatable(L, LUAT_ZBUFF_TYPE);

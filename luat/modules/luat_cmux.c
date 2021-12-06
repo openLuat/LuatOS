@@ -309,16 +309,16 @@ void luat_cmux_read(unsigned char* buff,size_t len){
 
 // #define min(a, b) ((a) <= (b) ? (a) : (b))
 
-// /* increases buffer pointer by one and wraps around if necessary */
-// #define INC_BUF_POINTER(buf, p)  \
-//     (p)++;                       \
-//     if ((p) == (buf)->end_point) \
-//         (p) = (buf)->data;
+/* increases buffer pointer by one and wraps around if necessary */
+#define INC_BUF_POINTER(buf, p)  \
+    (p)++;                       \
+    if ((p) == (buf)->end_point) \
+        (p) = (buf)->data;
 
-// /* Tells, how many chars are saved into the buffer */
+/* Tells, how many chars are saved into the buffer */
 // #define cmux_buffer_length(buff) (((buff)->read_point > (buff)->write_point) ? (CMUX_BUFFER_SIZE - ((buff)->read_point - (buff)->write_point)) : ((buff)->write_point - (buff)->read_point))
 
-// /* Tells, how much free space there is in the buffer */
+/* Tells, how much free space there is in the buffer */
 // #define cmux_buffer_free(buff) (((buff)->read_point > (buff)->write_point) ? ((buff)->read_point - (buff)->write_point) : (CMUX_BUFFER_SIZE - ((buff)->write_point - (buff)->read_point)))
 
 

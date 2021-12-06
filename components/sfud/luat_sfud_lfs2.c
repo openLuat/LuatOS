@@ -3,7 +3,7 @@
 #include "luat_fs.h"
 #include "luat_malloc.h"
 
-#define LUAT_LOG_TAG "luat.sfud"
+#define LUAT_LOG_TAG "sfud"
 #include "luat_log.h"
 
 #ifdef LUAT_USE_SFUD

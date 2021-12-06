@@ -1,6 +1,6 @@
 
 #include "luat_fs.h"
-#define LUAT_LOG_TAG "luat.fs"
+#define LUAT_LOG_TAG "fs"
 #include "luat_log.h"
 
 #define TAG "luat.fs"

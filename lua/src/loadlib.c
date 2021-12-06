@@ -29,7 +29,7 @@
 #define fopen luat_fs_fopen
 #define fclose luat_fs_fclose
 
-#define LUAT_LOG_TAG "luat.loadlib"
+#define LUAT_LOG_TAG "loadlib"
 #include "luat_log.h"
 
 /*

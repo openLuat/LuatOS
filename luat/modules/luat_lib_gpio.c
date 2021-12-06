@@ -9,7 +9,7 @@
 #include "luat_gpio.h"
 #include "luat_malloc.h"
 
-#define LUAT_LOG_TAG "luat.gpio"
+#define LUAT_LOG_TAG "gpio"
 #include "luat_log.h"
 
 static int l_gpio_set(lua_State *L);

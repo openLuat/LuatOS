@@ -10,7 +10,7 @@
 #include "luat_msgbus.h"
 #include "luat_malloc.h"
 
-#define LUAT_LOG_TAG "luat.http"
+#define LUAT_LOG_TAG "http"
 #include "luat_log.h"
 
 static int l_http_reqcommon(lua_State *L, uint8_t method);

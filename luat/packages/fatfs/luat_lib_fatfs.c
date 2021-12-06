@@ -9,7 +9,7 @@
 #include "ff.h"			/* Obtains integer types */
 #include "diskio.h"		/* Declarations of disk functions */
 
-#define LUAT_LOG_TAG "luat.fatfs"
+#define LUAT_LOG_TAG "fatfs"
 #include "luat_log.h"
 
 static FATFS *fs = NULL;		/* FatFs work area needed for each volume */

@@ -3,7 +3,7 @@
 #include "luat_base.h"
 #include "luat_fs.h"
 
-#define LUAT_LOG_TAG "luat.vfs"
+#define LUAT_LOG_TAG "vfs"
 #include "luat_log.h"
 
 #ifdef LUAT_USE_FS_VFS
@@ -32,7 +32,7 @@ int luat_vfs_reg(const struct luat_vfs_filesystem* fs) {
     {
         if (vfs.fsList[i] == NULL) {
             vfs.fsList[i] = (struct luat_vfs_filesystem*)fs;
-            LLOGD("register fs %s", fs->name);
+            //LLOGD("register fs %s", fs->name);
             return 0;
         }
         if (vfs.fsList[i] == fs) {
@@ -83,7 +83,7 @@ int luat_fs_mkfs(luat_fs_conf_t *conf) {
 }
 
 int luat_fs_mount(luat_fs_conf_t *conf) {
-    LLOGD("mount %s %s", conf->filesystem, conf->mount_point);
+    //LLOGD("mount %s %s", conf->filesystem, conf->mount_point);
     for (int i = 0; i < LUAT_VFS_FILESYSTEM_MAX; i++) {
         if (vfs.fsList[i] != NULL && strcmp(vfs.fsList[i]->name, conf->filesystem) == 0) {
             for (size_t j = 0; j < LUAT_VFS_FILESYSTEM_MOUNT_MAX; j++)
@@ -95,7 +95,8 @@ int luat_fs_mount(luat_fs_conf_t *conf) {
                         vfs.mounted[j].ok = 1;
                         memcpy(vfs.mounted[j].prefix, conf->mount_point, strlen(conf->mount_point) + 1);
                     }
-                    //LLOGD("mount ret %d", ret);
+                    else
+                        LLOGD("mount error ret %d", ret);
                     return ret;
                 }
             }

@@ -10,7 +10,7 @@
 #include "luat_msgbus.h"
 #include "luat_socket.h"
 
-#define LUAT_LOG_TAG "luat.socket"
+#define LUAT_LOG_TAG "socket"
 #include "luat_log.h"
 
 #define LUAT_NETC_HANDLE "NETC*"

@@ -9,7 +9,7 @@
 #include "luat_malloc.h"
 #include "luat_msgbus.h"
 #include "luat_ctiot.h"
-#define LUAT_LOG_TAG "luat.ctiot"
+#define LUAT_LOG_TAG "ctiot"
 #include "luat_log.h"
 //---------------------------
 #ifdef AIR302

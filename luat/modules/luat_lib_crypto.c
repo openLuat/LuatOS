@@ -8,7 +8,7 @@
 #include "luat_base.h"
 #include "luat_crypto.h"
 
-#define LUAT_LOG_TAG "luat.crypto"
+#define LUAT_LOG_TAG "crypto"
 #include "luat_log.h"
 
 static const unsigned char hexchars[] = "0123456789ABCDEF";

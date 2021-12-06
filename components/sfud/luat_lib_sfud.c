@@ -10,7 +10,7 @@
 #include "luat_malloc.h"
 #include "sfud.h"
 
-#define LUAT_LOG_TAG "luat.sfud"
+#define LUAT_LOG_TAG "sfud"
 #include "luat_log.h"
 
 luat_sfud_flash_t luat_sfud;

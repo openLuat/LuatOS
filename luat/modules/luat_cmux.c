@@ -7,7 +7,7 @@ LuatOS cmux
 #include "luat_msgbus.h"
 #include "luat_malloc.h"
 
-#define LUAT_LOG_TAG "luat.cmux"
+#define LUAT_LOG_TAG "cmux"
 #include "luat_log.h"
 
 #ifdef LUAT_USE_MCU

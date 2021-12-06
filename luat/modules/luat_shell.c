@@ -7,7 +7,7 @@ LuatOS Shell -- LuatOS 控制台
 #include "luat_msgbus.h"
 #include "luat_malloc.h"
 
-#define LUAT_LOG_TAG "luat.shell"
+#define LUAT_LOG_TAG "shell"
 #include "luat_log.h"
 
 #ifdef LUAT_USE_MCU

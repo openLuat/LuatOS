@@ -12,7 +12,7 @@
 #include "string.h"
 #include "luat_zbuff.h"
 
-#define LUAT_LOG_TAG "luat.uart"
+#define LUAT_LOG_TAG "uart"
 #include "luat_log.h"
 
 #define MAX_DEVICE_COUNT 10

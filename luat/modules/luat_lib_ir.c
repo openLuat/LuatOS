@@ -8,7 +8,7 @@
 #include "luat_base.h"
 #include "luat_gpio.h"
 
-#define LUAT_LOG_TAG "luat.ir"
+#define LUAT_LOG_TAG "ir"
 #include "luat_log.h"
 
 //发送指定数量脉冲，当pwm来用

@@ -15,7 +15,7 @@
 #include "u8g2.h"
 #include "u8g2_luat_fonts.h"
 
-#define LUAT_LOG_TAG "luat.disp"
+#define LUAT_LOG_TAG "disp"
 #include "luat_log.h"
 
 static u8g2_t* u8g2;

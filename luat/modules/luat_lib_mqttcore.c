@@ -9,7 +9,7 @@
 #include "luat_msgbus.h"
 #include "luat_pack.h"
 
-#define LUAT_LOG_TAG "luat.mqttcore"
+#define LUAT_LOG_TAG "mqttcore"
 #include "luat_log.h"
 
 enum msgTypes

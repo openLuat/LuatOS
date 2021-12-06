@@ -11,7 +11,7 @@
 #include "luat_gpio.h"
 #include "luat_zbuff.h"
 
-#define LUAT_LOG_TAG "luat.sensor"
+#define LUAT_LOG_TAG "sensor"
 #include "luat_log.h"
 
 #define CONNECT_SUCCESS 0

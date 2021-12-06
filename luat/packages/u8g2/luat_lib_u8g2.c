@@ -19,7 +19,7 @@
 
 #include "../qrcode/qrcode.h"
 
-#define LUAT_LOG_TAG "luat.u8g2"
+#define LUAT_LOG_TAG "u8g2"
 #include "luat_log.h"
 
 enum

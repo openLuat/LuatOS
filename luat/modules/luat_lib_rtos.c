@@ -10,7 +10,7 @@
 #include "luat_timer.h"
 #include "luat_malloc.h"
 
-#define LUAT_LOG_TAG "luat.rtos"
+#define LUAT_LOG_TAG "rtos"
 #include "luat_log.h"
 
 /*

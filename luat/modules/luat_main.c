@@ -9,7 +9,7 @@
 
 #include "luat_ota.h"
 
-#define LUAT_LOG_TAG "luat.main"
+#define LUAT_LOG_TAG "main"
 #include "luat_log.h"
 #include "luat_dbg.h"
 

@@ -13,7 +13,7 @@
 #include "luat_spi.h"
 #include "luat_zbuff.h"
 
-#define LUAT_LOG_TAG "luat.spi"
+#define LUAT_LOG_TAG "spi"
 
 #define META_SPI "SPI*"
 

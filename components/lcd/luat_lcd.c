@@ -197,7 +197,7 @@ int luat_lcd_clear(luat_lcd_conf_t* conf,uint32_t color){
             if (conf->port == LUAT_LCD_SPI_DEVICE){
                 luat_spi_device_send((luat_spi_device_t*)(conf->userdata),  (const char*)buf, conf->w*conf->h/10);
             }else{
-                    luat_spi_send(conf->port,  (const char*)buf, conf->w*conf->h/10);
+                luat_spi_send(conf->port,  (const char*)buf, conf->w*conf->h/10);
             }
         }
         luat_heap_free(buf);

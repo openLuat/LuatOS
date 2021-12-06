@@ -9,7 +9,7 @@
 #include "luat_malloc.h"
 #include "luat_msgbus.h"
 
-#define LUAT_LOG_TAG "luat.libcoap"
+#define LUAT_LOG_TAG "libcoap"
 #include "luat_log.h"
 
 //---------------------------

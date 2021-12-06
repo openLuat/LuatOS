@@ -12,7 +12,7 @@
 #include "luat_i2c.h"
 #include "luat_gpio.h"
 
-#define LUAT_LOG_TAG "luat.i2c"
+#define LUAT_LOG_TAG "i2c"
 #include "luat_log.h"
 
 static void i2c_soft_start(luat_ei2c *ei2c)

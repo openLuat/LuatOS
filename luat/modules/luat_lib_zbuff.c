@@ -8,7 +8,7 @@
 #include "luat_zbuff.h"
 #include "luat_malloc.h"
 
-#define LUAT_LOG_TAG "luat.zbuff"
+#define LUAT_LOG_TAG "zbuff"
 #include "luat_log.h"
 
 //在buff对象后添加数据，返回增加的字节数

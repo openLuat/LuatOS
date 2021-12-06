@@ -95,9 +95,9 @@ static int luat_shell_msg_handler(lua_State *L, void* ptr) {
             if (strncmp("ATI", uart_buff, 3) == 0 || strncmp("ati", uart_buff, 3) == 0) {
                 char buff[128] = {0};
                 #ifdef LUAT_BSP_VERSION
-                len = sprintf(buff, "LuatOS-SoC_%s_%s\r\n", luat_os_bsp(), LUAT_BSP_VERSION);
+                len = sprintf(buff, "LuatOS-SoC_%s_%s\r\n", LUAT_BSP_VERSION, luat_os_bsp());
                 #else
-                len = sprintf(buff, "LuatOS-SoC_%s_%s\r\n", luat_os_bsp(), luat_version_str());
+                len = sprintf(buff, "LuatOS-SoC_%s_%s\r\n", luat_version_str(), luat_os_bsp());
                 #endif
                 luat_shell_write(buff, len);
             }
@@ -204,9 +204,9 @@ void luat_shell_push(char* uart_buff, size_t rcount) {
             // 查询版本号
             if (strncmp("ATI", uart_buff, 3) == 0 || strncmp("ati", uart_buff, 3) == 0) {
                 #ifdef LUAT_BSP_VERSION
-                len = sprintf(buff, "LuatOS-SoC_%s_%s\r\n", luat_os_bsp(), LUAT_BSP_VERSION);
+                len = sprintf(buff, "LuatOS-SoC_%s_%s\r\n", LUAT_BSP_VERSION, luat_os_bsp());
                 #else
-                len = sprintf(buff, "LuatOS-SoC_%s_%s\r\n", luat_os_bsp(), luat_version_str());
+                len = sprintf(buff, "LuatOS-SoC_%s_%s\r\n", luat_version_str(), luat_os_bsp());
                 #endif
                 luat_shell_write(buff, len);
             }

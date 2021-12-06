@@ -654,10 +654,10 @@ int ll_require (lua_State *L) {
   // add by wendal, 替换原有的逻辑
   lua_pushstring(L, name);
   //luat_os_print_heapinfo("go-loadfile");
-  LLOGD("module %s , searching......",name);
+  // LLOGD("module %s , searching......",name);
   if (searcher_Lua(L) == 2) {
     //luat_os_print_heapinfo("go-call");
-    LLOGD("module %s , found OK!!!",name);
+    //LLOGD("module %s , found OK!!!",name);
     lua_pushstring(L, name);
     lua_call(L, 2, 1);
     //luat_os_print_heapinfo("after-call");

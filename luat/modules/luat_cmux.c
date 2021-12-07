@@ -78,11 +78,11 @@ uint8_t cmux_frame_check(const uint8_t *input, int length){
     return (0xFF - fcs);
 }
 
-void uih_main_manage(unsigned char*buff){
+void uih_main_manage(unsigned char*buff,size_t len){
     
 }
 
-void uih_shell_manage(unsigned char*buff){
+void uih_shell_manage(unsigned char*buff,size_t len){
     char send_buff[128] = {0};
     char *data = (char *)luat_heap_malloc(buff[3]>>1);
     memcpy(data, buff+4, buff[3]>>1);
@@ -126,10 +126,10 @@ void uih_shell_manage(unsigned char*buff){
     luat_heap_free(data);
 }
 
-void uih_dbg_manage(unsigned char*buff){
-    char *data = (char *)luat_heap_malloc((buff[3]>>1)+1);
-    memset(data, 0, (buff[3]>>1)+1); // 确保填充为0
-    memcpy(data, buff+4, (buff[3]>>1)+1);
+void uih_dbg_manage(unsigned char*buff,size_t len){
+    char *data = (char *)luat_heap_malloc(len-3);
+    memset(data, 0, len-3); // 确保填充为0
+    memcpy(data, buff+4, len-4);
     if (strcmp("dbg",strtok(data, " ")) == 0){
         char *command = strtok(NULL, " ");
         if (memcmp("start", command, 5) == 0){
@@ -180,7 +180,7 @@ void uih_dbg_manage(unsigned char*buff){
     luat_heap_free(data);
 }
 
-void cmux_frame_manage(unsigned char*buff){
+void cmux_frame_manage(unsigned char*buff,size_t len){
     // for (size_t i = 0; i < 20; i++){
     //     LLOGD("buff[%d]:%02X",i,buff[i]);
     // }
@@ -195,7 +195,7 @@ void cmux_frame_manage(unsigned char*buff){
             cmux_dbg_state = 0;
             luat_cmux_write(LUAT_CMUX_CH_MAIN,  CMUX_FRAME_UA | CMUX_CONTROL_PF,NULL, 0);
         }else if(CMUX_CONTROL_ISUIH(buff) && cmux_main_state == 1){
-            uih_main_manage(buff);
+            uih_main_manage(buff,len);
         }
     }else if (CMUX_ADDRESS_DLC(buff)==LUAT_CMUX_CH_SHELL){
         if (CMUX_CONTROL_ISSABM(buff)){
@@ -205,7 +205,7 @@ void cmux_frame_manage(unsigned char*buff){
             cmux_shell_state = 0;
             luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UA | CMUX_CONTROL_PF,NULL, 0);
         }else if(CMUX_CONTROL_ISUIH(buff) && cmux_shell_state == 1){
-            uih_shell_manage(buff);
+            uih_shell_manage(buff,len);
         }
     }else if (CMUX_ADDRESS_DLC(buff)==LUAT_CMUX_CH_LOG){
         if (CMUX_CONTROL_ISSABM(buff)){
@@ -223,7 +223,7 @@ void cmux_frame_manage(unsigned char*buff){
             cmux_dbg_state = 0;
             luat_cmux_write(LUAT_CMUX_CH_DBG,  CMUX_FRAME_UA | CMUX_CONTROL_PF,NULL, 0);
         }else if(CMUX_CONTROL_ISUIH(buff) && cmux_dbg_state == 1){
-            uih_dbg_manage(buff);
+            uih_dbg_manage(buff,len);
         }
     }else if (CMUX_ADDRESS_DLC(buff)==LUAT_CMUX_CH_DOWNLOAD){
         if (CMUX_CONTROL_ISSABM(buff)){
@@ -316,10 +316,11 @@ void luat_cmux_read(unsigned char* buff,size_t len){
             // 读取ok, 是完整的一帧, 让luat_cmux_exec按帧格式进行执行
             // 把luat_cmux_read2 当exec用
             // luat_cmux_read2(cmux_buff + start, end+1 - start);
-            unsigned char* sendcmux_frame_buf = (unsigned char*)luat_heap_malloc(end+1-start-2);
-            memmove(sendcmux_frame_buf, cmux_buff + start, end+1-start-2);
-            cmux_frame_manage(sendcmux_frame_buf);
-            luat_heap_free(sendcmux_frame_buf);
+            // unsigned char* sendcmux_frame_buf = (unsigned char*)luat_heap_malloc(end+1-start-2);
+            // memmove(sendcmux_frame_buf, cmux_buff + start, end+1-start-2);
+            // cmux_frame_manage(sendcmux_frame_buf,end+1-start-2);
+            // luat_heap_free(sendcmux_frame_buf);
+            cmux_frame_manage(cmux_buff + start,end+1-start-2);
             // LLOGD("end %d cmux_buff_offset %d",end,cmux_buff_offset);
             if (end+1<cmux_buff_offset){
                 char* transfer_buff = (char*)luat_heap_malloc(cmux_buff_offset-end);
@@ -356,63 +357,63 @@ void luat_cmux_read(unsigned char* buff,size_t len){
     cmux_buff_offset =  0;
 }
 
-void luat_cmux_read2(unsigned char* buff,size_t len){
-    //if(len<2)return;
-    // unsigned char buff[512];
-    // memcpy(buff, buff2, len);
-    // printf("buff >> %p %d\r\n", buff2, len);
-    // if (buff[0]==CMUX_HEAD_FLAG_BASIC && buff[len-1]==CMUX_HEAD_FLAG_BASIC && cmux_frame_check(buff+1,len-3)==buff[len-2]){
-    // for (size_t i = 0; i < len; i++){
-    //     LLOGD("buff[%d]:%02X",i,buff[i]);
-    // }
-    // if (buff[0]==CMUX_HEAD_FLAG_BASIC && len==4){
-    //     memset(cmux_read_data.data, 0, 128);
-    //     memmove(cmux_read_data.data,  buff, len);
-    //     cmux_read_data.Len = len;
-    //     cmux_read_data.Fcs = cmux_frame_check(buff+1,len-1);
-    // }else if (buff[0]==cmux_read_data.Fcs && buff[1]==CMUX_HEAD_FLAG_BASIC && len==2){
-    //     if (cmux_read_data.Fcs != 0 ){
-    //         // luat_os_entry_cri();
-    //         luat_os_irq_disable(16);
-    //         cmux_frame_manage(cmux_read_data.data);
-    //         luat_os_irq_enable(16);
-    //         // luat_os_exit_cri();
-    //     }
-    //     memset(cmux_read_data.data, 0, 128);
-    //     cmux_read_data.Fcs = 0;
-    // }else 
-    if (buff[0]==CMUX_HEAD_FLAG_BASIC && buff[len-1]==CMUX_HEAD_FLAG_BASIC){
-        if (cmux_frame_check(buff+1,3) == buff[len-2] ){
-            memset(cmux_read_data.data, 0, 128);
-            memmove(cmux_read_data.data,  buff, len);
-            // luat_os_irq_disable(16);
-            // luat_os_entry_cri();
-            cmux_frame_manage(cmux_read_data.data);
-            // luat_os_exit_cri();
-            // luat_os_irq_enable(16);
-        }
-        memset(cmux_read_data.data, 0, 128);
-        cmux_read_data.Fcs = 0;
-    }else if (buff[0]==CMUX_HEAD_FLAG_BASIC ){
-        memset(cmux_read_data.data, 0, 128);
-        memmove(cmux_read_data.data,  buff, len);
-        cmux_read_data.Len = len;
-        cmux_read_data.Fcs = cmux_frame_check(buff+1,3);
-    }else if (buff[len-2]==cmux_read_data.Fcs && buff[len-1]==CMUX_HEAD_FLAG_BASIC){
-        if (cmux_read_data.Fcs != 0 ){
-            strcat((char*)cmux_read_data.data, (const char*)buff);
-            // luat_os_irq_disable(16);
-            // luat_os_entry_cri();
-            cmux_frame_manage(cmux_read_data.data);
-            // luat_os_exit_cri();
-            // luat_os_irq_enable(16);
-        }
-        memset(cmux_read_data.data, 0, 128);
-        cmux_read_data.Fcs = 0;
-    }else if (cmux_read_data.Fcs && cmux_read_data.Len){
-        strcat((char*)cmux_read_data.data, (const char*)buff);
-    }else{
-        memset(cmux_read_data.data, 0, 128);
-        cmux_read_data.Fcs = 0;
-    }
-}
+// void luat_cmux_read2(unsigned char* buff,size_t len){
+//     //if(len<2)return;
+//     // unsigned char buff[512];
+//     // memcpy(buff, buff2, len);
+//     // printf("buff >> %p %d\r\n", buff2, len);
+//     // if (buff[0]==CMUX_HEAD_FLAG_BASIC && buff[len-1]==CMUX_HEAD_FLAG_BASIC && cmux_frame_check(buff+1,len-3)==buff[len-2]){
+//     // for (size_t i = 0; i < len; i++){
+//     //     LLOGD("buff[%d]:%02X",i,buff[i]);
+//     // }
+//     // if (buff[0]==CMUX_HEAD_FLAG_BASIC && len==4){
+//     //     memset(cmux_read_data.data, 0, 128);
+//     //     memmove(cmux_read_data.data,  buff, len);
+//     //     cmux_read_data.Len = len;
+//     //     cmux_read_data.Fcs = cmux_frame_check(buff+1,len-1);
+//     // }else if (buff[0]==cmux_read_data.Fcs && buff[1]==CMUX_HEAD_FLAG_BASIC && len==2){
+//     //     if (cmux_read_data.Fcs != 0 ){
+//     //         // luat_os_entry_cri();
+//     //         luat_os_irq_disable(16);
+//     //         cmux_frame_manage(cmux_read_data.data);
+//     //         luat_os_irq_enable(16);
+//     //         // luat_os_exit_cri();
+//     //     }
+//     //     memset(cmux_read_data.data, 0, 128);
+//     //     cmux_read_data.Fcs = 0;
+//     // }else 
+//     if (buff[0]==CMUX_HEAD_FLAG_BASIC && buff[len-1]==CMUX_HEAD_FLAG_BASIC){
+//         if (cmux_frame_check(buff+1,3) == buff[len-2] ){
+//             memset(cmux_read_data.data, 0, 128);
+//             memmove(cmux_read_data.data,  buff, len);
+//             // luat_os_irq_disable(16);
+//             // luat_os_entry_cri();
+//             cmux_frame_manage(cmux_read_data.data);
+//             // luat_os_exit_cri();
+//             // luat_os_irq_enable(16);
+//         }
+//         memset(cmux_read_data.data, 0, 128);
+//         cmux_read_data.Fcs = 0;
+//     }else if (buff[0]==CMUX_HEAD_FLAG_BASIC ){
+//         memset(cmux_read_data.data, 0, 128);
+//         memmove(cmux_read_data.data,  buff, len);
+//         cmux_read_data.Len = len;
+//         cmux_read_data.Fcs = cmux_frame_check(buff+1,3);
+//     }else if (buff[len-2]==cmux_read_data.Fcs && buff[len-1]==CMUX_HEAD_FLAG_BASIC){
+//         if (cmux_read_data.Fcs != 0 ){
+//             strcat((char*)cmux_read_data.data, (const char*)buff);
+//             // luat_os_irq_disable(16);
+//             // luat_os_entry_cri();
+//             cmux_frame_manage(cmux_read_data.data);
+//             // luat_os_exit_cri();
+//             // luat_os_irq_enable(16);
+//         }
+//         memset(cmux_read_data.data, 0, 128);
+//         cmux_read_data.Fcs = 0;
+//     }else if (cmux_read_data.Fcs && cmux_read_data.Len){
+//         strcat((char*)cmux_read_data.data, (const char*)buff);
+//     }else{
+//         memset(cmux_read_data.data, 0, 128);
+//         cmux_read_data.Fcs = 0;
+//     }
+// }

@@ -81,6 +81,7 @@ const char *lcd_name[] = {
 
 
 static luat_lcd_conf_t *default_conf = NULL;
+static int dft_conf_lua_ref = 0;
 
 static uint32_t lcd_str_fg_color,lcd_str_bg_color;
 /*
@@ -91,13 +92,17 @@ lcd显示屏初始化
 @userdata spi设备,当port = "device"时有效
 @usage
 -- 初始化spi0的st7789 注意:lcd初始化之前需要先初始化spi
-local spi_lcd = spi.deviceSetup(0,20,0,0,8,2000000,spi.MSB,1,1)
+spi_lcd = spi.deviceSetup(0,20,0,0,8,2000000,spi.MSB,1,1)
 log.info("lcd.init",
 lcd.init("st7735s",{port = "device",pin_dc = 17, pin_pwr = 7,pin_rst = 19,direction = 2,w = 160,h = 80,xoffset = 1,yoffset = 26},spi_lcd))
 */
 static int l_lcd_init(lua_State* L) {
     size_t len = 0;
     luat_lcd_conf_t *conf = luat_heap_malloc(sizeof(luat_lcd_conf_t));
+    if (conf == NULL) {
+      LLOGE("out of system memory!!!");
+      return 0;
+    }
     memset(conf, 0, sizeof(luat_lcd_conf_t)); // 填充0,保证无脏数据
     conf->pin_pwr = 255;
     if (lua_type(L, 3) == LUA_TUSERDATA){
@@ -208,11 +213,16 @@ static int l_lcd_init(lua_State* L) {
             lua_pop(L, 1);
         }
         int ret = luat_lcd_init(conf);
-        lua_pushboolean(L, ret == 0 ? 1 : 0);
-        if (ret == 0)
+        if (ret == 0) {
+            if (dft_conf_lua_ref) {
+              luaL_unref(L, LUA_REGISTRYINDEX, dft_conf_lua_ref);
+            }
             default_conf = conf;
-        u8g2_SetFontMode(&(default_conf->luat_lcd_u8g2), 0);
-        u8g2_SetFontDirection(&(default_conf->luat_lcd_u8g2), 0);
+            dft_conf_lua_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+        }
+        u8g2_SetFontMode(&(conf->luat_lcd_u8g2), 0);
+        u8g2_SetFontDirection(&(conf->luat_lcd_u8g2), 0);
+        lua_pushboolean(L, ret == 0 ? 1 : 0);
         // lua_pushlightuserdata(L, conf);
         return 1;
     }

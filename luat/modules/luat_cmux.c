@@ -128,7 +128,7 @@ void uih_shell_manage(unsigned char*buff){
 
 void uih_dbg_manage(unsigned char*buff){
     char *data = (char *)luat_heap_malloc((buff[3]>>1)+1);
-    memset(data, 0, 256); // 确保填充为0
+    memset(data, 0, (buff[3]>>1)+1); // 确保填充为0
     memcpy(data, buff+4, (buff[3]>>1)+1);
     if (strcmp("dbg",strtok(data, " ")) == 0){
         char *command = strtok(NULL, " ");

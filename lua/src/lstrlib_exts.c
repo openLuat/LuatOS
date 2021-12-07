@@ -3,8 +3,12 @@
 @summary 字符串操作函数
 */
 #include "luat_base.h"
+#include "luat_malloc.h"
 #include "lua.h"
 #include "lauxlib.h"
+
+#define LUAT_LOG_TAG "str"
+#include "luat_log.h"
 
 /* }====================================================== */
 
@@ -82,14 +86,31 @@ int l_str_fromHex (lua_State *L) {
 */
 int l_str_split (lua_State *L) {
   size_t len = 0;
-  const char *str = luaL_checkstring(L, 1);
+  const char *tmp = luaL_checklstring(L, 1, &len);
+  if (len == 0) {
+    lua_newtable(L);
+    return 1;
+  }
+
   const char *delimiters = luaL_checklstring(L, 2, &len);
   if (len < 1) {
     delimiters = ",";
   }
+
+  // 因为strtok会修改字符串, 所以需要把str临时拷贝一份
+  char* str = (char*)luat_heap_malloc(len + 1);
+  char* ptr = str;
+  if (str == NULL) {
+    lua_newtable(L);
+    LLOGW("out of memory when split");
+    return 1;
+  }
+  memset(str, 0, len + 1);
+  memcpy(str, tmp, len);
+
   char *token;
   size_t count = 0;
-  token = strtok((char *)str, delimiters);
+  token = strtok(str, delimiters);
   lua_newtable(L);
   while( token != NULL ) {
     lua_pushnumber(L,count+1);
@@ -99,6 +120,7 @@ int l_str_split (lua_State *L) {
     count ++;
     token = strtok(NULL, delimiters);
   }
+  luat_heap_free(ptr);
   return 1;
 }
 

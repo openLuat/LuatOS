@@ -22,7 +22,12 @@ uint8_t echo_enable = 0;
 uint8_t cmux_state = 0;
 
 #include "luat_dbg.h"
-void dbg_manage(char*data){
+void dbg_manage(char* buff, size_t max_len) {
+    // 准备好数据, 原数据不保证有\0结尾
+    char data[256];
+    memset(data, 0, 256); // 确保填充为0
+    memcpy(data, buff, max_len > 255 ? 255 : max_len); // 最多支持255字节, 以后再考虑扩充吧
+
     if (strcmp("dbg",strtok(data, " ")) == 0){
         char *command = strtok(NULL, " ");
         if (strcmp("start",command) == 0){
@@ -67,11 +72,14 @@ void dbg_manage(char*data){
                     luat_dbg_breakpoint_clear(NULL);
                 }
             }
+            else {
+                // TODO 未支持的命令, 打个日志?
+            }
         }else {
+            // TODO 未支持的命令, 打个日志?
         }
     }
 }
-
 
 static int luat_shell_msg_handler(lua_State *L, void* ptr) {
 
@@ -258,12 +266,14 @@ void luat_shell_push(char* uart_buff, size_t rcount) {
             }
             // 执行脚本
             else if (strncmp("loadstr ", uart_buff, strlen("loadstr ")) == 0) {
-                size_t slen =  rcount = strlen("loadstr ");
+                size_t slen =  rcount - strlen("loadstr ") + 1;
                 char* tmp = luat_heap_malloc(slen);
                 if (tmp == NULL) {
                     LLOGW("loadstr out of memory");
                 }
                 else {
+                    memset(tmp, 0, slen);
+                    memcpy(tmp, uart_buff, slen - 1);
                     rtos_msg_t msg = {
                         .handler = luat_shell_loadstr,
                         .ptr = tmp,
@@ -273,7 +283,7 @@ void luat_shell_push(char* uart_buff, size_t rcount) {
                 }
             }
             else {
-                dbg_manage(uart_buff);
+                dbg_manage(uart_buff, rcount);
                 // luat_shell_write("ERR\r\n", 5);
             }
         }

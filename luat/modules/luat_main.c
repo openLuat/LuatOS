@@ -92,15 +92,15 @@ static int pmain(lua_State *L) {
     luat_custom_init(L);
 #endif
 
-#ifdef LUAT_USE_DBG
-    //extern void luat_debug_hook(lua_State *L, lua_Debug *ar);
-    //lua_sethook(L, luat_debug_hook, LUA_MASKCALL | LUA_MASKRET | LUA_MASKLINE, 0);
-    luat_dbg_init(L);
-    // 寻找dbg_init.lua, 里面有初始化代码
-    if (luat_search_module("dbg_init", filename) == 0) {
-        luaL_dofile(L, filename);
-    }
-#endif
+// #ifdef LUAT_USE_DBG
+//     //extern void luat_debug_hook(lua_State *L, lua_Debug *ar);
+//     //lua_sethook(L, luat_debug_hook, LUA_MASKCALL | LUA_MASKRET | LUA_MASKLINE, 0);
+//     luat_dbg_init(L);
+//     // 寻找dbg_init.lua, 里面有初始化代码
+//     if (luat_search_module("dbg_init", filename) == 0) {
+//         luaL_dofile(L, filename);
+//     }
+// #endif
 
     // 加载main.lua
     #ifdef LUAT_USE_CMDLINE_ARGS

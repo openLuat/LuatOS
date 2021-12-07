@@ -258,7 +258,7 @@ static int luat_cmux_parse(unsigned char* cmux_buff, int* start, int* end, int c
     // LLOGD("luat_cmux_parse start %d",*start);
     int length_needed = 5; /* channel, type, length, fcs, flag */
     if (cmux_buff[*start]==CMUX_HEAD_FLAG_BASIC&&cmux_buff[*start+1]==CMUX_HEAD_FLAG_BASIC){
-        *start ++ ;
+        (*start)++;
     }
     if(cmux_buff[*start]==CMUX_HEAD_FLAG_BASIC ){
         uint8_t len = (cmux_buff[*start+3]& 254) >> 1;
@@ -315,16 +315,17 @@ void luat_cmux_read(unsigned char* buff,size_t len){
             // 读取ok, 是完整的一帧, 让luat_cmux_exec按帧格式进行执行
             // 把luat_cmux_read2 当exec用
             // luat_cmux_read2(cmux_buff + start, end+1 - start);
-            char* sendcmux_frame_buf = (char*)luat_heap_malloc(end+1-start-2);
+            unsigned char* sendcmux_frame_buf = (unsigned char*)luat_heap_malloc(end+1-start-2);
             memmove(sendcmux_frame_buf, cmux_buff + start, end+1-start-2);
             cmux_frame_manage(sendcmux_frame_buf);
             luat_heap_free(sendcmux_frame_buf);
             // LLOGD("end %d cmux_buff_offset %d",end,cmux_buff_offset);
             if (end+1<cmux_buff_offset){
-                char* transfer_buff;
+                char* transfer_buff = (char*)luat_heap_malloc(cmux_buff_offset-end);
                 memmove(transfer_buff, cmux_buff + end, cmux_buff_offset-end);
                 memset(cmux_buff,0,CMUX_BUFFER_SIZE);
                 memmove(cmux_buff, transfer_buff, cmux_buff_offset-end);
+                luat_heap_free(transfer_buff);
                 return;
             }
             break;

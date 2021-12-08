@@ -69,7 +69,7 @@ static int l_otp_read(lua_State *L) {
 static int l_otp_write(lua_State *L) {
     int zone;
     int offset;
-    int len;
+    size_t len;
     const char* data;
 
     zone = luaL_checkinteger(L, 1);
@@ -82,13 +82,13 @@ static int l_otp_write(lua_State *L) {
     if (offset < 0 || offset > 4*1024) {
         return 0;
     }
-    if (len < 0 || len > 4*1024) {
+    if (len > 4*1024) {
         return 0;
     }
     if (offset + len > 4*1024) {
         return 0;
     }
-    int ret = luat_otp_write(zone, data, (size_t)offset, (size_t)len);
+    int ret = luat_otp_write(zone, data, (size_t)offset, len);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 };

@@ -7,7 +7,7 @@
 #include "bget.h"
 #include "luat_malloc.h"
 
-#define LUAT_LOG_TAG "luat.vmheap"
+#define LUAT_LOG_TAG "vmheap"
 #include "luat_log.h"
 
 #define LUAT_WEAK                     __attribute__((weak))

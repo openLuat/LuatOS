@@ -7,7 +7,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
-#define LUAT_LOG_TAG "luat.timer"
+#define LUAT_LOG_TAG "timer"
 #include "luat_log.h"
 
 #define FREERTOS_TIMER_COUNT 32

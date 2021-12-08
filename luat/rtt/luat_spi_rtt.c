@@ -12,7 +12,7 @@
 #include "drv_gpio.h"
 #endif
 
-#define LUAT_LOG_TAG "luat.spi"
+#define LUAT_LOG_TAG "spi"
 #include "luat_log.h"
 
 #ifdef RT_USING_SPI

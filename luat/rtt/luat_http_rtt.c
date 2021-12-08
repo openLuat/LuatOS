@@ -2,7 +2,7 @@
 #include "luat_base.h"
 #include "luat_http.h"
 #include "luat_malloc.h"
-#define LUAT_LOG_TAG "luat.http"
+#define LUAT_LOG_TAG "http"
 #include "luat_log.h"
 
 #include "rtthread.h"

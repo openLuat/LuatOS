@@ -5,7 +5,7 @@
 #include "luat_timer.h"
 #include "luat_gpio.h"
 
-#define LUAT_LOG_TAG "luat.msh"
+#define LUAT_LOG_TAG "msh"
 #include "luat_log.h"
 
 #include "luat_dbg.h"

@@ -5,7 +5,7 @@
 #ifdef PKG_USING_U8G2
 #include "u8g2_port.h"
 
-#define LUAT_LOG_TAG "luat.disp"
+#define LUAT_LOG_TAG "disp"
 #include "luat_log.h"
 
 uint8_t luat_u8x8_gpio_and_delay(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr);

@@ -4,7 +4,7 @@
 
 #include "rtthread.h"
 
-#define LUAT_LOG_TAG "luat.crypto"
+#define LUAT_LOG_TAG "crypto"
 #include "luat_log.h"
 
 #ifdef RT_USING_HWCRYPTO
@@ -287,7 +287,7 @@ _exit:
 #endif
 #include "mbedtls/md5.h"
 
-#define LUAT_LOG_TAG "luat.crypto"
+#define LUAT_LOG_TAG "crypto"
 #include "luat_log.h"
 
 void luat_crypto_HmacSha1(const unsigned char *input, int ilen, unsigned char *output,const unsigned char *key, int keylen);

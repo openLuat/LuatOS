@@ -2,6 +2,7 @@
 /*
 @module  gpio
 @summary GPIO操作
+@catalog 外设API
 @version 1.0
 @date    2020.03.30
 */

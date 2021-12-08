@@ -37,7 +37,7 @@
 #include "netclient.h"
 #include "luat_malloc.h"
 
-#define LUAT_LOG_TAG "luat.netc"
+#define LUAT_LOG_TAG "netc"
 #include "luat_log.h"
 
 #define BUFF_SIZE (1024)

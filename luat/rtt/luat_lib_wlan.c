@@ -25,7 +25,7 @@
 #include "oneshot.h"
 #endif
 
-#define LUAT_LOG_TAG "luat.wlan"
+#define LUAT_LOG_TAG "wlan"
 #include "luat_log.h"
 
 /*

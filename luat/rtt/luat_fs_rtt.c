@@ -2,7 +2,7 @@
 #include "luat_base.h"
 #include "luat_fs.h"
 
-#define LUAT_LOG_TAG "luat.fs.LFS"
+#define LUAT_LOG_TAG "fs.LFS"
 #include "luat_log.h"
 
 #include "rtthread.h"

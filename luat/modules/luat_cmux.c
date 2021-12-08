@@ -17,8 +17,6 @@ LuatOS cmux
 #include "luat_str.h"
 #include "luat_cmux.h"
 
-#include "luat_dbg.h"
-
 extern uint8_t echo_enable;
 extern uint8_t cmux_state;
 uint8_t cmux_main_state = 0;
@@ -127,9 +125,11 @@ void uih_shell_manage(unsigned char*buff,size_t len){
 }
 
 void uih_dbg_manage(unsigned char*buff,size_t len){
-    char *data = (char *)luat_heap_malloc(len-3);
-    memset(data, 0, len-3); // 确保填充为0
-    memcpy(data, buff+4, len-4);
+    // char *data = (char *)luat_heap_malloc(len-3);
+    // memset(data, 0, len-3); // 确保填充为0
+    // memcpy(data, buff+4, len-4);
+    char data[128] = {0};
+    memcpy(data, buff+4, len-4); 
     if (strcmp("dbg",strtok(data, " ")) == 0){
         char *command = strtok(NULL, " ");
         if (memcmp("start", command, 5) == 0){
@@ -177,7 +177,7 @@ void uih_dbg_manage(unsigned char*buff,size_t len){
         }else {
         }
     }
-    luat_heap_free(data);
+    // luat_heap_free(data);
 }
 
 void cmux_frame_manage(unsigned char*buff,size_t len){

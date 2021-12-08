@@ -21,66 +21,6 @@ LuatOS Shell -- LuatOS 控制台
 uint8_t echo_enable = 0;
 uint8_t cmux_state = 0;
 
-#include "luat_dbg.h"
-void dbg_manage(char* buff, size_t max_len) {
-    // 准备好数据, 原数据不保证有\0结尾
-    char data[256];
-    memset(data, 0, 256); // 确保填充为0
-    memcpy(data, buff, max_len > 255 ? 255 : max_len); // 最多支持255字节, 以后再考虑扩充吧
-
-    if (strcmp("dbg",strtok(data, " ")) == 0){
-        char *command = strtok(NULL, " ");
-        if (strcmp("start",command) == 0){
-            luat_dbg_set_hook_state(2);
-        }else if(strcmp("continue",command) == 0){
-            luat_dbg_set_hook_state(2);
-        }else if(strcmp("next",command) == 0 || strcmp("step",command) == 0){
-            luat_dbg_set_hook_state(4);
-        }else if(strcmp("stepIn",command) == 0 || strcmp("stepin",command) == 0){
-            luat_dbg_set_hook_state(5);
-        }else if(strcmp("stepOut",command) == 0 || strcmp("stepout",command) == 0){
-            luat_dbg_set_hook_state(6);
-        }else if(strcmp("bt",command) == 0){
-            char *params = strtok(NULL, " ");
-            if (params != NULL){
-                luat_dbg_set_runcb(luat_dbg_backtrace, (void*)atoi(params));
-            }else{
-                luat_dbg_set_runcb(luat_dbg_backtrace, (void*)-1);
-            }
-        }else if(strcmp("vars",command) == 0){
-            char *params = strtok(NULL, " ");
-            if (params != NULL){
-                luat_dbg_set_runcb(luat_dbg_vars, (void*)atoi(params));
-            }else{
-                luat_dbg_set_runcb(luat_dbg_vars, (void*)0);
-            }
-        }else if(strcmp("gvars",command) == 0){
-            luat_dbg_gvars((void*)0);
-        }else if(strcmp("jvars",command) == 0){
-            luat_dbg_jvars(strtok(NULL, " "));
-        }else if(strcmp("break",command) == 0){
-            char *sub_command = strtok(NULL, " ");
-            if (strcmp("clr",sub_command) == 0){
-                luat_dbg_breakpoint_clear(strtok(NULL, " "));
-            }else if (strcmp("add",sub_command) == 0){
-                luat_dbg_breakpoint_add(strtok(NULL, " "),atoi(strtok(NULL, " ")));
-            }else if (strcmp("del",sub_command) == 0){
-                char *params = strtok(NULL, " ");
-                if (params != NULL){
-                    luat_dbg_breakpoint_clear(params);
-                }else{
-                    luat_dbg_breakpoint_clear(NULL);
-                }
-            }
-            else {
-                // TODO 未支持的命令, 打个日志?
-            }
-        }else {
-            // TODO 未支持的命令, 打个日志?
-        }
-    }
-}
-
 static int luat_shell_msg_handler(lua_State *L, void* ptr) {
 
     char buff[128] = {0};
@@ -283,8 +223,8 @@ void luat_shell_push(char* uart_buff, size_t rcount) {
                 }
             }
             else {
-                dbg_manage(uart_buff, rcount);
-                // luat_shell_write("ERR\r\n", 5);
+                // uih_dbg_manage(uart_buff, rcount > 128 ? 128 : rcount);
+                luat_shell_write("ERR\r\n", 5);
             }
         }
     }

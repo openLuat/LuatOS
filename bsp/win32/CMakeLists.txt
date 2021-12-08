@@ -78,22 +78,6 @@ add_library(luat ${TOPROOT}/luat/modules/luat_main.c
                #   ${LCD_SRCS}
             )
 
-IF (WIN32)
-#-----------------------
-# LuaFileSystem --> lfs
-aux_source_directory(./rock/LuaFileSystem ROCK_LFS_SRCS)
-add_library(rock_lfs ${ROCK_LFS_SRCS})
-#-----------------------
-
-#------------------------
-# librs232 -> rs232
-include_directories(./rock/librs232/include)
-aux_source_directory(./rock/librs232/src ROCK_LIB_RS232_SRCS)
-add_library(rock_librs232 ${ROCK_LIB_RS232_SRCS} ./rock/librs232/bindings/lua/luars232.c)
-#------------------------
-
-ENDIF ()
-
 include_directories(${TOPROOT}/luat/packages/fatfs)
 add_library(fatfs   ${TOPROOT}/luat/packages/fatfs/ff.c
                     ${TOPROOT}/luat/packages/fatfs/ffsystem.c
@@ -122,20 +106,11 @@ add_subdirectory(${TOPROOT}/components/lvgl lvgl.out)
 # add_subdirectory(${TOPROOT}/components/network/lwip lwip.out)
 #-----------------------
 
-IF (WIN32)
+
 # 指定生成目标
 add_executable(luatos src/main_win32.c)
-target_link_libraries(luat freertos10 winmm fatfs lvgl 
-                    # lwip
+target_link_libraries(luat freertos10 winmm fatfs lvgl
 )
 target_link_libraries(luatos freertos10 lua luatos_msys luat winmm cjson
-                      rock_lfs rock_librs232 mbedtls fatfs lvgl 
-                    #   lwip
-                    #   lwipcontribexamples lwipcontribapps lwipcontribaddons 
-                    #   lwipallapps lwipcore lwipcontribportwindows lwipmbedtls
+                      mbedtls fatfs lvgl 
                       )
-ELSE ()
-add_executable(luatos src/main_posix.c)
-target_link_libraries(luat freertos10 pthread fatfs lvgl)
-target_link_libraries(luatos freertos10 lua luatos_msys fatfs luat pthread cjson mbedtls lvgl m)
-ENDIF ()

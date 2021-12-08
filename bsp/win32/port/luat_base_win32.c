@@ -37,12 +37,12 @@ static const luaL_Reg loadedlibs[] = {
   {"json", luaopen_cjson},             // json
   {"win32", luaopen_win32},            // windows 32 tools
   {"zbuff", luaopen_zbuff},            // 
-  {"mqttcore", luaopen_mqttcore},      // 
-  {"libcoap", luaopen_libcoap},        // 
-#ifdef LUA_USE_WINDOWS
-  {"lfs", luaopen_lfs},                //
-//   {"rs232.core", luaopen_rs232_core},
-#endif
+//   {"mqttcore", luaopen_mqttcore},      // 
+//   {"libcoap", luaopen_libcoap},        // 
+// #ifdef LUA_USE_WINDOWS
+//   {"lfs", luaopen_lfs},                //
+// //   {"rs232.core", luaopen_rs232_core},
+// #endif
   {"crypto", luaopen_crypto},
   {"fatfs", luaopen_fatfs},
   {"sfd",   luaopen_sfd},
@@ -52,9 +52,9 @@ static const luaL_Reg loadedlibs[] = {
   {"lvgl",   luaopen_lvgl},
 //   {"lcd",    luaopen_lcd},
 #endif
-#ifdef LUAT_USE_LWIP
-  {"lwip",   luaopen_lwip},
-#endif
+// #ifdef LUAT_USE_LWIP
+//   {"lwip",   luaopen_lwip},
+// #endif
   {NULL, NULL}
 };
 
@@ -90,7 +90,7 @@ extern const struct luat_vfs_filesystem vfs_fs_posix;
 extern const struct luat_vfs_filesystem vfs_fs_luadb;
 
 #ifdef LUAT_USE_VFS_INLINE_LIB
-extern const char luadb_inline[];
+extern const char luadb_inline_sys[];
 #endif
 
 int luat_fs_init(void) {
@@ -110,7 +110,7 @@ int luat_fs_init(void) {
 	luat_fs_mount(&conf);
 	#ifdef LUAT_USE_VFS_INLINE_LIB
 	luat_fs_conf_t conf2 = {
-		.busname = (char*)luadb_inline,
+		.busname = (char*)luadb_inline_sys,
 		.type = "luadb",
 		.filesystem = "luadb",
 		.mount_point = "/luadb/",

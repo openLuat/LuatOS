@@ -174,6 +174,8 @@ static int l_uart_read(lua_State *L)
         lua_pushinteger(L, result);
         return 1;
     }
+    if (length < 512)
+        length = 512;
     uint8_t* recv = luat_heap_malloc(length);
     if (recv == NULL) {
         LLOGE("system is out of memory!!!");

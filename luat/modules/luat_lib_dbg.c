@@ -133,6 +133,7 @@ void luat_dbg_breakpoint_clear(const char* source) {
     {
         if (source == NULL || strcmp(source, (char*)breakpoints[i].source) != 0) {
             breakpoints[i].source[0] = 0;
+            breakpoints[i].linenumber = 0;
         }
     }
     luat_dbg_output("D/dbg [resp,break,clear,ok]\r\n");
@@ -347,22 +348,26 @@ void luat_debug_hook(lua_State *L, lua_Debug *ar) {
             // 当前文件名
             for (size_t i = 0; i < BP_LINE_COUNT; i++)
             {
-                // 文件名对上了, 那行数呢?
-                //luat_dbg_output("check breakpoint %s %d <==> %s %d", breakpoints[i].source, breakpoints[i].linenumber, ar->source, ar->currentline);
-                if (strcmp(breakpoints[i].source, ar->short_src))
+                // 对比行数
+                if (breakpoints[i].linenumber != ar->currentline) {
                     continue;
-                for (size_t j = 0; j < BP_LINE_COUNT; j++)
-                {
-                    if (breakpoints[i].linenumber != ar->currentline) {
-                        continue;
-                    }
-                    // 命中了!!!!
-                    luat_dbg_output("D/dbg [event,stopped,breakpoint] %s:%d\r\n", ar->short_src, ar->currentline);
-                    luat_dbg_set_hook_state(3); // 停止住
-                    //send_msg(event_breakpoint_stop)
-                    luat_dbg_waitby(3);
-                    return;
                 }
+                // 那文件名呢?
+                //luat_dbg_output("check breakpoint %s %d <==> %s %d", breakpoints[i].source, breakpoints[i].linenumber, ar->source, ar->currentline);
+                //luat_dbg_output("check breakpoint %c %c %c", breakpoints[i].source[0], ar->source[0], ar->source[1]);
+                if (
+                    strcmp(breakpoints[i].source, ar->short_src + 0) != 0 && 
+                    strcmp(breakpoints[i].source, ar->short_src + 1) != 0 &&
+                    strcmp(breakpoints[i].source, ar->short_src + 2) != 0
+                    ) {
+                    continue;
+                }
+                // 命中了!!!!
+                luat_dbg_output("D/dbg [event,stopped,breakpoint] %s:%d\r\n", ar->short_src, ar->currentline);
+                luat_dbg_set_hook_state(3); // 停止住
+                //send_msg(event_breakpoint_stop)
+                luat_dbg_waitby(3);
+                return;
             }
         }
         //return;

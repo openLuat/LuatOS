@@ -24,15 +24,6 @@ uint8_t cmux_shell_state = 0;
 uint8_t cmux_log_state = 0;
 uint8_t cmux_dbg_state = 0;
 
-typedef struct   
-{
-    uint8_t Fcs;
-    uint8_t Len;
-    unsigned char data[128];
-}cmux_data;
-
-static cmux_data cmux_read_data;
-
 const uint8_t cmux_crctable[256] = {
     0x00, 0x91, 0xE3, 0x72, 0x07, 0x96, 0xE4, 0x75,
     0x0E, 0x9F, 0xED, 0x7C, 0x09, 0x98, 0xEA, 0x7B,
@@ -129,7 +120,10 @@ void uih_dbg_manage(unsigned char*buff,size_t len){
     // memset(data, 0, len-3); // 确保填充为0
     // memcpy(data, buff+4, len-4);
     char data[128] = {0};
-    memcpy(data, buff+4, len-4); 
+    if(cmux_dbg_state == 1)
+        memcpy(data, buff+4, len-4); 
+    else
+        memcpy(data, buff, len); 
     if (strcmp("dbg",strtok(data, " ")) == 0){
         char *command = strtok(NULL, " ");
         if (memcmp("start", command, 5) == 0){
@@ -356,64 +350,3 @@ void luat_cmux_read(unsigned char* buff,size_t len){
     memset(cmux_buff,0,CMUX_BUFFER_SIZE);
     cmux_buff_offset =  0;
 }
-
-// void luat_cmux_read2(unsigned char* buff,size_t len){
-//     //if(len<2)return;
-//     // unsigned char buff[512];
-//     // memcpy(buff, buff2, len);
-//     // printf("buff >> %p %d\r\n", buff2, len);
-//     // if (buff[0]==CMUX_HEAD_FLAG_BASIC && buff[len-1]==CMUX_HEAD_FLAG_BASIC && cmux_frame_check(buff+1,len-3)==buff[len-2]){
-//     // for (size_t i = 0; i < len; i++){
-//     //     LLOGD("buff[%d]:%02X",i,buff[i]);
-//     // }
-//     // if (buff[0]==CMUX_HEAD_FLAG_BASIC && len==4){
-//     //     memset(cmux_read_data.data, 0, 128);
-//     //     memmove(cmux_read_data.data,  buff, len);
-//     //     cmux_read_data.Len = len;
-//     //     cmux_read_data.Fcs = cmux_frame_check(buff+1,len-1);
-//     // }else if (buff[0]==cmux_read_data.Fcs && buff[1]==CMUX_HEAD_FLAG_BASIC && len==2){
-//     //     if (cmux_read_data.Fcs != 0 ){
-//     //         // luat_os_entry_cri();
-//     //         luat_os_irq_disable(16);
-//     //         cmux_frame_manage(cmux_read_data.data);
-//     //         luat_os_irq_enable(16);
-//     //         // luat_os_exit_cri();
-//     //     }
-//     //     memset(cmux_read_data.data, 0, 128);
-//     //     cmux_read_data.Fcs = 0;
-//     // }else 
-//     if (buff[0]==CMUX_HEAD_FLAG_BASIC && buff[len-1]==CMUX_HEAD_FLAG_BASIC){
-//         if (cmux_frame_check(buff+1,3) == buff[len-2] ){
-//             memset(cmux_read_data.data, 0, 128);
-//             memmove(cmux_read_data.data,  buff, len);
-//             // luat_os_irq_disable(16);
-//             // luat_os_entry_cri();
-//             cmux_frame_manage(cmux_read_data.data);
-//             // luat_os_exit_cri();
-//             // luat_os_irq_enable(16);
-//         }
-//         memset(cmux_read_data.data, 0, 128);
-//         cmux_read_data.Fcs = 0;
-//     }else if (buff[0]==CMUX_HEAD_FLAG_BASIC ){
-//         memset(cmux_read_data.data, 0, 128);
-//         memmove(cmux_read_data.data,  buff, len);
-//         cmux_read_data.Len = len;
-//         cmux_read_data.Fcs = cmux_frame_check(buff+1,3);
-//     }else if (buff[len-2]==cmux_read_data.Fcs && buff[len-1]==CMUX_HEAD_FLAG_BASIC){
-//         if (cmux_read_data.Fcs != 0 ){
-//             strcat((char*)cmux_read_data.data, (const char*)buff);
-//             // luat_os_irq_disable(16);
-//             // luat_os_entry_cri();
-//             cmux_frame_manage(cmux_read_data.data);
-//             // luat_os_exit_cri();
-//             // luat_os_irq_enable(16);
-//         }
-//         memset(cmux_read_data.data, 0, 128);
-//         cmux_read_data.Fcs = 0;
-//     }else if (cmux_read_data.Fcs && cmux_read_data.Len){
-//         strcat((char*)cmux_read_data.data, (const char*)buff);
-//     }else{
-//         memset(cmux_read_data.data, 0, 128);
-//         cmux_read_data.Fcs = 0;
-//     }
-// }

@@ -70,8 +70,8 @@ sys.taskInit(function()
     
     local i = 0
     while 1 do
-        local start = mcu.ticks()
         lcd.clear(0)
+        local start = mcu.ticks()
         local data = fonts.get_data(0, 0xB0A1 + i)
         local gtime = mcu.ticks() - start
         log.info("fonts", data:toHex())

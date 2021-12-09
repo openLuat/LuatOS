@@ -234,9 +234,9 @@ def _lfs(_path=None):
                         if line :
                             line = line.strip()
                             if line.startswith("PROJECT =") :
-                                TAG_PROJECT = line[line.index("\"") + 1:][:-1]
+                                TAG_PROJECT = line[line.index("\"") + 1:line.index("\"",line.index("\"")+1)]
                             elif line.startswith("VERSION =") :
-                                TAG_VERSION = line[line.index("\"") + 1:][:-1]
+                                TAG_VERSION = line[line.index("\"") + 1:line.index("\"",line.index("\"")+1)]
             elif not LUA_DEBUG :
                 cmd += ["-s"]
             else:

@@ -77,6 +77,10 @@ eink_conf_t econf = {0};
 @api eink.setup(full, spiid)
 @int 全屏刷新0,局部刷新1,默认是全屏刷新
 @int 所在的spi,默认是0
+@int Busy 忙信号管脚
+@int Reset 复位管脚
+@int DC 数据命令选择管脚
+@int CS 使能管脚
 @return boolean 成功返回true,否则返回false
 */
 static int l_eink_setup(lua_State *L) {

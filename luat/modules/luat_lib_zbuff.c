@@ -846,9 +846,9 @@ static int l_zbuff_draw_rectangle(lua_State *L)
 /**
 画一个圆形
 @api buff:drawCircle(x,y,r,color,fill)
-@int 圆心标点与最左边的距离，范围是0~宽度-1
-@int 圆心标点与最上边的距离，范围是0~高度-1
-@int 周长
+@int **圆心**与最左边的距离，范围是0~宽度-1
+@int **圆心**与最上边的距离，范围是0~高度-1
+@int 圆的半径
 @int 可选，圆的颜色，默认为0
 @bool 可选，是否在内部填充，默认nil
 @return bool 画成功会返回true

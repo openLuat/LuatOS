@@ -25,6 +25,7 @@ LuatOS-SoC是一款实时操作系统,用户编写Lua代码就可完成各种功
 
 * [详细介绍](README_FULL.md)
 * [wiki@luatos](https://wiki.luatos.com)
+* [设备支持情况](supported.md)
 
 ## 授权协议
 

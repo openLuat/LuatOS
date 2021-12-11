@@ -11,6 +11,7 @@
 #include <rtthread.h>
 #include <rtdevice.h>
 #include "luat_base.h"
+#include "wm_regs.h"
 
 static void _main(void* param) {
     rt_thread_mdelay(100); // 故意延后100ms
@@ -21,6 +22,9 @@ static void _main(void* param) {
 
 int main(void)
 {
+#ifndef RT_USING_WIFI
+    //tls_reg_write32(HR_CLK_BBP_CLT_CTRL, 0x0F);
+#endif
     rt_thread_t t = rt_thread_create("luat", _main, RT_NULL, 8*1024, 15, 20);
     rt_thread_startup(t);
     //luat_main(NULL, NULL, NULL);

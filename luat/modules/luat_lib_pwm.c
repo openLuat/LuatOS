@@ -12,22 +12,31 @@
 @api pwm.open(channel, period, pulse,pnum)
 @int PWM通道
 @int 频率, 1-1000000hz
-@int 占空比 0-100
+@int 占空比 0-分频精度
 @int 输出周期 0为持续输出
+@int 分频精度, 100 ~ 4096, 默认为100
 @return boolean 处理结果,成功返回true,失败返回false
 @usage
 -- 打开PWM5, 频率1kHz, 占空比50%
 pwm.open(5, 1000, 50)
+-- 打开PWM5, 频率10kHz, 分频为 31/256
+pwm.open(5, 10000, 31, 0, 256)
  */
 static int l_pwm_open(lua_State *L) {
-    int pnum = 0;
-    int channel = luaL_checkinteger(L, 1);
-    size_t period = luaL_checkinteger(L, 2);
-    size_t pulse = luaL_optnumber(L, 3,0);
-    if (lua_type(L, 4) == LUA_TNUMBER){
-        pnum = luaL_checkinteger(L, 4);
+    luat_pwm_conf_t conf = {
+        .pnum = 0,
+        .precision = 100
+    };
+    conf.channel = luaL_checkinteger(L, 1);
+    conf.period = luaL_checkinteger(L, 2);
+    conf.pulse = luaL_optnumber(L, 3,0);
+    if (lua_isnumber(L, 4) || lua_isinteger(L, 4)){
+        conf.pnum = luaL_checkinteger(L, 4);
     }
-    int ret = luat_pwm_open(channel, period, pulse,pnum);
+    if (lua_isnumber(L, 5) || lua_isinteger(L, 5)){
+        conf.precision = luaL_checkinteger(L, 5);
+    }
+    int ret = luat_pwm_setup(&conf);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }

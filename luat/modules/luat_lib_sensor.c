@@ -449,8 +449,8 @@ static int l_sensor_ws2812b(lua_State *L)
   uint32_t t1l_temp,t1l = luaL_checkinteger(L, 6);
 
   luat_os_entry_cri();
-  luat_gpio_mode(pin, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 1);
-  luat_gpio_set(pin, Luat_GPIO_LOW);
+  luat_gpio_mode(pin, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
+  //luat_gpio_set(pin, Luat_GPIO_LOW);
   luat_timer_us_delay(1);
   //luat_gpio_set(pin, Luat_GPIO_HIGH);
   for(i=0;i<len;i++)

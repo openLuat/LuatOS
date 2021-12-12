@@ -348,6 +348,7 @@ local r = crypto.trng(4)
 local _, ir = pack.unpack(r, "I")
  */
 static int l_crypto_trng(lua_State *L) {
+    int ret = 0;
     size_t len = luaL_checkinteger(L, 1);
     if (len < 1) {
         return 0;
@@ -355,9 +356,12 @@ static int l_crypto_trng(lua_State *L) {
     if (len > 128)
         len = 128;
     char buff[128];
-    luat_crypto_trng(buff, len);
-    lua_pushlstring(L, buff, len);
-    return 1;
+    ret = luat_crypto_trng(buff, len);
+    if(ret ==0){
+        lua_pushlstring(L, buff, len);
+        return 1;
+    }
+    return 0;
 }
 
 #include "rotable.h"

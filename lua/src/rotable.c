@@ -134,7 +134,7 @@ static int rotable_udata_index( lua_State* L ) {
   }
   else {
     // 看看第一个方法是不是__index, 如果是的话, 调用之
-    if (p2->name != NULL && !strcmp("__index", p->name)) {
+    if (p2->name != NULL && !strcmp("__index", p2->name)) {
       lua_pushcfunction(L, p2->func);
       lua_pushvalue(L, 2);
       lua_call(L, 1, 1);

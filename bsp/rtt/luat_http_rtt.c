@@ -9,7 +9,7 @@
 
 #ifdef SAL_USING_POSIX
 #include "webclient.h"
-
+#include "fcntl.h"
 
 #undef WEBCLIENT_HEADER_BUFSZ
 #undef WEBCLIENT_RESPONSE_BUFSZ

@@ -19,6 +19,10 @@
 #define RT_USING_TIMER_SOFT
 #define RT_TIMER_THREAD_PRIO 4
 #define RT_TIMER_THREAD_STACK_SIZE 512
+
+/* kservice optimization */
+
+#define RT_PRINTF_LONGLONG
 #define RT_DEBUG
 
 /* Inter-Thread communication */
@@ -43,7 +47,7 @@
 #define RT_USING_CONSOLE
 #define RT_CONSOLEBUF_SIZE 512
 #define RT_CONSOLE_DEVICE_NAME "uart0"
-#define RT_VER_NUM 0x40003
+#define RT_VER_NUM 0x40100
 
 /* RT-Thread Components */
 
@@ -58,22 +62,23 @@
 /* Command shell */
 
 #define RT_USING_FINSH
+#define RT_USING_MSH
+#define FINSH_USING_MSH
 #define FINSH_THREAD_NAME "tshell"
+#define FINSH_THREAD_PRIORITY 20
+#define FINSH_THREAD_STACK_SIZE 8192
 #define FINSH_USING_HISTORY
 #define FINSH_HISTORY_LINES 5
 #define FINSH_USING_SYMTAB
-#define FINSH_USING_DESCRIPTION
-#define FINSH_THREAD_PRIORITY 20
-#define FINSH_THREAD_STACK_SIZE 8192
 #define FINSH_CMD_SIZE 80
-#define FINSH_USING_MSH
-#define FINSH_USING_MSH_DEFAULT
-#define FINSH_USING_MSH_ONLY
+#define MSH_USING_BUILT_IN_COMMANDS
+#define FINSH_USING_DESCRIPTION
 #define FINSH_ARG_MAX 10
 
 /* Device virtual file system */
 
 #define RT_USING_DFS
+#define DFS_USING_POSIX
 #define DFS_USING_WORKDIR
 #define DFS_FILESYSTEMS_MAX 4
 #define DFS_FILESYSTEM_TYPES_MAX 4
@@ -88,6 +93,7 @@
 #define RT_SYSTEM_WORKQUEUE_STACKSIZE 2048
 #define RT_SYSTEM_WORKQUEUE_PRIORITY 23
 #define RT_USING_SERIAL
+#define RT_USING_SERIAL_V1
 #define RT_SERIAL_USING_DMA
 #define RT_SERIAL_RB_BUFSZ 512
 #define RT_USING_HWTIMER
@@ -96,6 +102,7 @@
 #define RT_USING_PIN
 #define RT_USING_PWM
 #define RT_USING_RTC
+#define RT_USING_SOFT_RTC
 #define RT_USING_SPI
 #define RT_USING_WDT
 #define RT_USING_HWCRYPTO
@@ -154,7 +161,14 @@
 /* POSIX layer and C standard library */
 
 #define RT_USING_LIBC
-#define RT_USING_POSIX
+#define RT_LIBC_USING_TIME
+#define RT_LIBC_DEFAULT_TIMEZONE 8
+
+/* POSIX (Portable Operating System Interface) layer */
+
+#define RT_USING_POSIX_FS
+#define RT_USING_POSIX_POLL
+#define RT_USING_POSIX_SELECT
 
 /* Network */
 
@@ -244,6 +258,9 @@
 #define ULOG_OUTPUT_TAG
 #define ULOG_BACKEND_USING_CONSOLE
 
+/* RT-Thread Utestcases */
+
+
 /* RT-Thread online packages */
 
 /* IoT - internet of things */
@@ -258,12 +275,14 @@
 
 #define PKG_USING_NETUTILS
 #define PKG_NETUTILS_NTP
-#define NETUTILS_NTP_TIMEZONE 8
+#define NTP_USING_AUTO_SYNC
+#define NTP_AUTO_SYNC_FIRST_DELAY 30
+#define NTP_AUTO_SYNC_PERIOD 3600
 #define NETUTILS_NTP_HOSTNAME "cn.ntp.org.cn"
 #define NETUTILS_NTP_HOSTNAME2 "ntp.rt-thread.org"
 #define NETUTILS_NTP_HOSTNAME3 "edu.ntp.org.cn"
-#define PKG_USING_NETUTILS_V110
-#define PKG_NETUTILS_VER_NUM 0x10100
+#define PKG_USING_NETUTILS_V131
+#define PKG_NETUTILS_VER_NUM 0x10301
 
 /* IoT Cloud */
 
@@ -311,6 +330,7 @@
 
 /* Env config */
 
+#define SYS_AUTO_UPDATE_PKGS
 #define SYS_PKGS_DOWNLOAD_ACCELERATE
 #define BSP_USING_WM_LIBRARIES
 
@@ -339,18 +359,16 @@
 #define WM_PWM_CH4_PIN -1
 #define USING_PWM_CH5
 #define WM_PWM_CH5_PIN -1
-#define BSP_USING_SOFT_I2C
-#define BSP_USING_SOFT_I2C1
+#define BSP_USING_I2C
+#define WM_HW_I2C_FREQ 200000
 #define BSP_USING_SPI
 #define WM_SPI_BUS_NAME "spi0"
 #define BSP_USING_WDT
-#define BSP_USING_RTC
 #define BSP_USING_CRYPTO
 #define BSP_USING_STANDBY
 
 /* External Libraries */
 
 #define SOC_W60X
-#define RT_PRINTF_LONGLONG
 
 #endif

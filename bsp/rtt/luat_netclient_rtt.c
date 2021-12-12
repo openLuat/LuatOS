@@ -36,6 +36,7 @@
 #include <stdlib.h>
 #include "netclient.h"
 #include "luat_malloc.h"
+#include "fcntl.h"
 
 #define LUAT_LOG_TAG "netc"
 #include "luat_log.h"

@@ -17,6 +17,9 @@
 #define RT_IDLE_HOOK_LIST_SIZE 4
 #define IDLE_THREAD_STACK_SIZE 1024
 
+/* kservice optimization */
+
+
 /* Inter-Thread communication */
 
 #define RT_USING_SEMAPHORE
@@ -38,7 +41,7 @@
 #define RT_USING_CONSOLE
 #define RT_CONSOLEBUF_SIZE 512
 #define RT_CONSOLE_DEVICE_NAME "uart1"
-#define RT_VER_NUM 0x40003
+#define RT_VER_NUM 0x40100
 #define ARCH_ARM
 #define RT_USING_CPU_FFS
 #define ARCH_ARM_CORTEX_M
@@ -57,21 +60,23 @@
 /* Command shell */
 
 #define RT_USING_FINSH
+#define RT_USING_MSH
+#define FINSH_USING_MSH
 #define FINSH_THREAD_NAME "tshell"
+#define FINSH_THREAD_PRIORITY 20
+#define FINSH_THREAD_STACK_SIZE 4096
 #define FINSH_USING_HISTORY
 #define FINSH_HISTORY_LINES 5
 #define FINSH_USING_SYMTAB
-#define FINSH_USING_DESCRIPTION
-#define FINSH_THREAD_PRIORITY 20
-#define FINSH_THREAD_STACK_SIZE 4096
 #define FINSH_CMD_SIZE 80
-#define FINSH_USING_MSH
-#define FINSH_USING_MSH_DEFAULT
+#define MSH_USING_BUILT_IN_COMMANDS
+#define FINSH_USING_DESCRIPTION
 #define FINSH_ARG_MAX 10
 
 /* Device virtual file system */
 
 #define RT_USING_DFS
+#define DFS_USING_POSIX
 #define DFS_USING_WORKDIR
 #define DFS_FILESYSTEMS_MAX 2
 #define DFS_FILESYSTEM_TYPES_MAX 2
@@ -84,10 +89,13 @@
 #define RT_DFS_ELM_WORD_ACCESS
 #define RT_DFS_ELM_USE_LFN_3
 #define RT_DFS_ELM_USE_LFN 3
+#define RT_DFS_ELM_LFN_UNICODE_0
+#define RT_DFS_ELM_LFN_UNICODE 0
 #define RT_DFS_ELM_MAX_LFN 255
 #define RT_DFS_ELM_DRIVES 2
 #define RT_DFS_ELM_MAX_SECTOR_SIZE 1024
 #define RT_DFS_ELM_REENTRANT
+#define RT_DFS_ELM_MUTEX_TIMEOUT 3000
 #define RT_USING_DFS_DEVFS
 
 /* Device Drivers */
@@ -95,6 +103,7 @@
 #define RT_USING_DEVICE_IPC
 #define RT_PIPE_BUFSZ 512
 #define RT_USING_SERIAL
+#define RT_USING_SERIAL_V1
 #define RT_SERIAL_USING_DMA
 #define RT_SERIAL_RB_BUFSZ 64
 #define RT_USING_PIN
@@ -118,18 +127,15 @@
 
 /* Using USB */
 
-#define RT_USING_USB_DEVICE
-#define RT_USBD_THREAD_STACK_SZ 4096
-#define USB_VENDOR_ID 0x0FFE
-#define USB_PRODUCT_ID 0x0001
-#define _RT_USB_DEVICE_MSTORAGE
-#define RT_USB_DEVICE_MSTORAGE
-#define RT_USB_MSTORAGE_DISK_NAME "flash0"
 
 /* POSIX layer and C standard library */
 
 #define RT_USING_LIBC
-#define RT_USING_POSIX
+#define RT_LIBC_USING_TIME
+#define RT_LIBC_DEFAULT_TIMEZONE 8
+
+/* POSIX (Portable Operating System Interface) layer */
+
 
 /* Network */
 
@@ -167,6 +173,9 @@
 #define ULOG_OUTPUT_TAG
 #define ULOG_BACKEND_USING_CONSOLE
 
+/* RT-Thread Utestcases */
+
+
 /* RT-Thread online packages */
 
 /* IoT - internet of things */
@@ -191,20 +200,29 @@
 
 /* multimedia packages */
 
+/* LVGL: powerful and easy-to-use embedded GUI library */
+
+
+/* u8g2: a monochrome graphic library */
+
 
 /* tools packages */
 
 
 /* system packages */
 
+/* acceleration: Assembly language or algorithmic acceleration packages */
+
+
+/* Micrium: Micrium software products porting for RT-Thread */
+
 #define PKG_USING_FAL
-#define FAL_DEBUG_CONFIG
-#define FAL_DEBUG 1
+#define FAL_DEBUG 0
 #define FAL_PART_HAS_TABLE_CFG
 #define FAL_USING_SFUD_PORT
 #define FAL_USING_NOR_FLASH_DEV_NAME "W25Q16JV"
-#define PKG_USING_FAL_V00500
-#define PKG_FAL_VER_NUM 0x00500
+#define PKG_USING_FAL_LATEST_VERSION
+#define PKG_FAL_VER_NUM 0x99999
 #define PKG_USING_LITTLEFS
 #define PKG_USING_LITTLEFS_V205
 #define LFS_READ_SIZE 256
@@ -212,16 +230,21 @@
 #define LFS_BLOCK_SIZE 4096
 #define LFS_CACHE_SIZE 256
 #define LFS_BLOCK_CYCLES 100
+#define LFS_THREADSAFE
 #define LFS_LOOKAHEAD_MAX 128
 
 /* peripheral libraries and drivers */
 
-#define SDIO_MAX_FREQ 1000000
+
+/* AI packages */
+
 
 /* miscellaneous packages */
 
-
 /* samples: kernel and components samples */
+
+
+/* entertainment: terminal games and other interesting software packages */
 
 #define SOC_FAMILY_STM32
 #define SOC_SERIES_STM32F4
@@ -235,7 +258,6 @@
 #define BSP_USING_USB_TO_USART
 #define BSP_USING_COM3
 #define BSP_USING_SPI_FLASH
-#define BSP_USING_SDCARD
 
 /* On-chip Peripheral Drivers */
 
@@ -247,7 +269,6 @@
 #define BSP_USING_SPI
 #define BSP_USING_SPI1
 #define BSP_USING_SDIO
-#define BSP_USING_UDID
 
 /* Board extended module Drivers */
 

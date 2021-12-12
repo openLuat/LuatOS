@@ -25,7 +25,7 @@
 
 #ifdef __cplusplus
 extern "C" {
-#endif   
+#endif
 
 #ifndef web_malloc
 #define web_malloc                     rt_malloc
@@ -47,8 +47,8 @@ extern "C" {
 #define web_strdup                     rt_strdup
 #endif
 
-#define WEBCLIENT_SW_VERSION           "2.1.2"
-#define WEBCLIENT_SW_VERSION_NUM       0x20102
+#define WEBCLIENT_SW_VERSION           "2.2.0"
+#define WEBCLIENT_SW_VERSION_NUM       0x20200
 
 #define WEBCLIENT_HEADER_BUFSZ         4096
 #define WEBCLIENT_RESPONSE_BUFSZ       4096
@@ -71,6 +71,7 @@ enum WEBCLIENT_METHOD
     WEBCLIENT_USER_METHOD,
     WEBCLIENT_GET,
     WEBCLIENT_POST,
+    WEBCLIENT_HEAD
 };
 
 struct  webclient_header
@@ -95,6 +96,7 @@ struct webclient_session
 
     int content_length;
     size_t content_remainder;           /* remainder of content length */
+    int (*handle_function)(char *buffer, int size); /* handle function */
 
     rt_bool_t is_tls;                   /* HTTPS connect */
 #ifdef WEBCLIENT_USING_MBED_TLS
@@ -107,10 +109,16 @@ struct webclient_session *webclient_session_create(size_t header_sz);
 
 /* send HTTP GET request */
 int webclient_get(struct webclient_session *session, const char *URI);
-int webclient_get_position(struct webclient_session *session, const char *URI, int position);
+
+/* send HTTP HEAD request */
+int webclient_shard_head_function(struct webclient_session *session, const char *URI, int *length);
+
+/* send HTTP Range parameter, shard download */
+int webclient_shard_position_function(struct webclient_session *session, const char *URI, int start, int length, int mem_size);
+int *webclient_register_shard_position_function(struct webclient_session *session, int (*handle_function)(char *buffer, int size));
 
 /* send HTTP POST request */
-int webclient_post(struct webclient_session *session, const char *URI, const char *post_data);
+int webclient_post(struct webclient_session *session, const char *URI, const void *post_data, size_t data_len);
 
 /* close and release wenclient session */
 int webclient_close(struct webclient_session *session);
@@ -118,16 +126,16 @@ int webclient_close(struct webclient_session *session);
 int webclient_set_timeout(struct webclient_session *session, int millisecond);
 
 /* send or receive data from server */
-int webclient_read(struct webclient_session *session, unsigned char *buffer, size_t size);
-int webclient_write(struct webclient_session *session, const unsigned char *buffer, size_t size);
+int webclient_read(struct webclient_session *session, void *buffer, size_t size);
+int webclient_write(struct webclient_session *session, const void *buffer, size_t size);
 
 /* webclient GET/POST header buffer operate by the header fields */
 int webclient_header_fields_add(struct webclient_session *session, const char *fmt, ...);
 const char *webclient_header_fields_get(struct webclient_session *session, const char *fields);
 
 /* send HTTP POST/GET request, and get response data */
-int webclient_response(struct webclient_session *session, unsigned char **response);
-int webclient_request(const char *URI, const char *header, const char *post_data, unsigned char **response);
+int webclient_response(struct webclient_session *session, void **response, size_t *resp_len);
+int webclient_request(const char *URI, const char *header, const void *post_data, size_t data_len, void **response, size_t *resp_len);
 int webclient_request_header_add(char **request_header, const char *fmt, ...);
 int webclient_resp_status_get(struct webclient_session *session);
 int webclient_content_length_get(struct webclient_session *session);
@@ -137,9 +145,6 @@ int webclient_content_length_get(struct webclient_session *session);
 int webclient_get_file(const char *URI, const char *filename);
 int webclient_post_file(const char *URI, const char *filename, const char *form_data);
 #endif
-
-int webclient_connect(struct webclient_session *session, const char *URI);
-int webclient_send_header(struct webclient_session *session, int method);
 
 #ifdef  __cplusplus
     }

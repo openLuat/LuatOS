@@ -12,6 +12,7 @@
  * 2018-01-04     aozima       add ipv6 address support.
  * 2018-07-26     chenyong     modify log information
  * 2018-08-07     chenyong     modify header processing
+ * 2021-06-09     xiangxistu   add shard download function
  */
 
 #include <stdio.h>
@@ -19,9 +20,10 @@
 #include <string.h>
 #include <ctype.h>
 
-#include <sys/time.h>
-
 #include <webclient.h>
+
+#include <sys/errno.h>
+#include <sys/time.h>
 
 /* support both enable and disable "SAL_USING_POSIX" */
 #if defined(RT_USING_SAL)
@@ -30,6 +32,7 @@
 // #else
 // #include <lwip/netdb.h>
 // #include <lwip/sockets.h>
+// #endif /* RT_USING_SAL */
 
 #define DBG_ENABLE
 #define DBG_SECTION_NAME               "web"
@@ -78,7 +81,7 @@ static const char *webclient_strstri(const char* str, const char* subStr)
     return RT_NULL;
 }
 
-static int webclient_send(struct webclient_session* session, const unsigned char *buffer, size_t len, int flag)
+static int webclient_send(struct webclient_session* session, const void *buffer, size_t len, int flag)
 {
 #ifdef WEBCLIENT_USING_MBED_TLS
     if (session->tls_session)
@@ -90,7 +93,7 @@ static int webclient_send(struct webclient_session* session, const unsigned char
     return send(session->socket, buffer, len, flag);
 }
 
-static int webclient_recv(struct webclient_session* session, unsigned char *buffer, size_t len, int flag)
+static int webclient_recv(struct webclient_session* session, void *buffer, size_t len, int flag)
 {
 #ifdef WEBCLIENT_USING_MBED_TLS
     if (session->tls_session)
@@ -211,12 +214,22 @@ static int webclient_resolve_address(struct webclient_session *session, struct a
 
     /* resolve port */
     port_ptr = rt_strstr(host_addr + host_addr_len, ":");
-    if (port_ptr && path_ptr && (port_ptr < path_ptr))
+    if (port_ptr && (!path_ptr || (port_ptr < path_ptr)))
     {
-        int port_len = path_ptr - port_ptr - 1;
-
-        rt_strncpy(port_str, port_ptr + 1, port_len);
-        port_str[port_len] = '\0';
+        if (!path_ptr) 
+        {
+            rt_strncpy(port_str, port_ptr + 1, 6);
+        }
+        else 
+        {
+            int port_len = path_ptr - port_ptr - 1;
+            rt_strncpy(port_str, port_ptr + 1, port_len);
+            port_str[port_len] = '\0';
+        }
+    }
+    else
+    {
+        port_ptr = RT_NULL;
     }
 
     if (port_ptr && (!path_ptr))
@@ -559,7 +572,7 @@ const char *webclient_header_fields_get(struct webclient_session *session, const
     resp_buf = session->header->buffer;
     while (resp_buf_len < session->header->length)
     {
-        if (webclient_strstri(resp_buf, fields))
+        if (webclient_strstri(resp_buf, fields) == resp_buf)
         {
             char *mime_ptr = RT_NULL;
 
@@ -623,7 +636,7 @@ int webclient_send_header(struct webclient_session *session, int method)
 
     header = session->header->buffer;
 
-    if (session->header->length == 0)
+    if (session->header->length == 0 && method <= WEBCLIENT_GET)
     {
         /* use default header data */
         if (webclient_header_fields_add(session, "GET %s HTTP/1.1\r\n", session->req_url) < 0)
@@ -660,6 +673,9 @@ int webclient_send_header(struct webclient_session *session, int method)
                 else if (method == WEBCLIENT_POST)
                     length = rt_snprintf(session->header->buffer, session->header->size, "POST %s HTTP/1.1\r\n%s",
                             session->req_url ? session->req_url : "/", header_buffer);
+                else if (method == WEBCLIENT_HEAD)
+                    length = rt_snprintf(session->header->buffer, session->header->size, "HEAD %s HTTP/1.1\r\n%s",
+                            session->req_url ? session->req_url : "/", header_buffer);
                 session->header->length = length;
 
                 web_free(header_buffer);
@@ -684,7 +700,7 @@ int webclient_send_header(struct webclient_session *session, int method)
             }
 
             /* header data end */
-            rt_snprintf(session->header->buffer + session->header->length, session->header->size, "\r\n");
+            rt_snprintf(session->header->buffer + session->header->length, session->header->size - session->header->length, "\r\n");
             session->header->length += 2;
 
             /* check header size */
@@ -960,76 +976,204 @@ int webclient_get(struct webclient_session *session, const char *URI)
 }
 
 /**
- *  http breakpoint resume.
+ *  register a handle function for http breakpoint resume and shard download.
+ *
+ * @param function
+ *
+ * @return the pointer
+ */
+int *webclient_register_shard_position_function(struct webclient_session *session, int (*handle_function)(char *buffer, int size))
+{
+    session->handle_function = handle_function;
+
+    return (int *)session->handle_function;
+}
+
+/**
+ *  http breakpoint resume and shard download.
  *
  * @param session webclient session
  * @param URI input server URI address
- * @param position last downloaded position
+ * @param length the length of point
  *
  * @return <0: send GET request failed
  *         >0: response http status code
  */
-int webclient_get_position(struct webclient_session *session, const char *URI, int position)
+int webclient_shard_head_function(struct webclient_session *session, const char *URI, int *length)
 {
-    int rc = WEBCLIENT_OK;
-    int resp_status = 0;
-
     RT_ASSERT(session);
     RT_ASSERT(URI);
 
-    rc = webclient_connect(session, URI);
-    if (rc != WEBCLIENT_OK)
+    int rc = WEBCLIENT_OK;
+    int resp_status = 0;
+
+    if(session->socket == -1)
     {
-        return rc;
-    }
-
-    /* splice header*/
-    if (webclient_header_fields_add(session, "Range: bytes=%d-\r\n", position) <= 0)
-    {
-        rc = -WEBCLIENT_ERROR;
-        return rc;
-    }
-
-    rc = webclient_send_header(session, WEBCLIENT_GET);
-    if (rc != WEBCLIENT_OK)
-    {
-        return rc;
-    }
-
-    /* handle the response header of webclient server */
-    resp_status = webclient_handle_response(session);
-
-    LOG_D("get position handle response(%d).", resp_status);
-
-    if (resp_status > 0)
-    {
-        const char *location = webclient_header_fields_get(session, "Location");
-
-        /* relocation */
-        if ((resp_status == 302 || resp_status == 301) && location)
+        rc = webclient_connect(session, URI);
+        if (rc != WEBCLIENT_OK)
         {
-            char *new_url;
-
-            new_url = web_strdup(location);
-            if (new_url == RT_NULL)
-            {
-                return -WEBCLIENT_NOMEM;
-            }
-
-            /* clean webclient session */
-            webclient_clean(session);
-            /* clean webclient session header */
-            session->header->length = 0;
-            rt_memset(session->header->buffer, 0, session->header->size);
-
-            rc = webclient_get_position(session, new_url, position);
-
-            web_free(new_url);
             return rc;
         }
     }
 
-    return resp_status;
+    /* clean header buffer and size */
+    rt_memset(session->header->buffer, 0x00, session->header->size);
+    session->header->length = 0;
+
+    rc = webclient_send_header(session, WEBCLIENT_HEAD);
+    if (rc != WEBCLIENT_OK)
+    {
+        return rc;
+    }
+
+    /* handle the response header of webclient server by HEAD request */
+    resp_status = webclient_handle_response(session);
+    if(resp_status >= 0)
+    {
+        *length = webclient_content_length_get(session);
+        LOG_D("The length[%04d] of real data of URI.", *length);
+    }
+
+    return rc;
+}
+
+/**
+ *  http breakpoint resume and shard download.
+ *
+ * @param session webclient session
+ * @param URI input server URI address
+ * @param start the position of you want to receive
+ * @param length the length of data length from "webclient_shard_head_function"
+ * @param mem_size the buffer size that you alloc
+ *
+ * @return <0: send GET request failed
+ *         >0: response http status code
+ */
+int webclient_shard_position_function(struct webclient_session *session, const char *URI, int start, int length, int mem_size)
+{
+    int rc = WEBCLIENT_OK;
+    int result = RT_EOK;
+    int resp_status = 0;
+    int resp_len = 0;
+    char *buffer = RT_NULL;
+    int start_position, end_position = 0;
+    int total_len = 0;
+
+    RT_ASSERT(session);
+    RT_ASSERT(URI);
+    RT_ASSERT(mem_size);
+
+    /* set the offset of "Range" and "total_len"  */
+    end_position = start;
+    total_len = start + length;
+
+    /* clean header buffer and size */
+    rt_memset(session->header->buffer, 0x00, session->header->size);
+    session->header->length = 0;
+
+    for(start_position = end_position; total_len != end_position + 1;)
+    {
+        RT_ASSERT(start_position <= total_len);
+        int data_len = 0;
+
+        end_position = start_position + mem_size - 1;
+        if(end_position >= total_len)
+        {
+            end_position = total_len - 1;
+        }
+
+        /* splice header and send header */
+        LOG_D("Range: [%04d -> %04d]", start_position, end_position);
+        webclient_header_fields_add(session, "Range: bytes=%d-%d\r\n", start_position, end_position);
+        rc = webclient_send_header(session, WEBCLIENT_GET);
+        if (rc != WEBCLIENT_OK)
+        {
+            return rc;
+        }
+
+        /* handle the response header of webclient server */
+        resp_status = webclient_handle_response(session);
+        LOG_D("get position handle response(%d).", resp_status);
+        if (resp_status == 206)
+        {
+            /* normal resp_status */
+        }
+        else if(resp_status > 0)
+        {
+            const char *location = webclient_header_fields_get(session, "Location");
+
+            /* relocation */
+            if ((resp_status == 302 || resp_status == 301) && location)
+            {
+                char *new_url;
+
+                new_url = web_strdup(location);
+                if (new_url == RT_NULL)
+                {
+                    return -WEBCLIENT_NOMEM;
+                }
+
+                /* clean webclient session */
+                webclient_clean(session);
+                /* clean webclient session header */
+                session->header->length = 0;
+                rt_memset(session->header->buffer, 0, session->header->size);
+
+                rc = webclient_shard_position_function(session, new_url, start, length, mem_size);
+
+                web_free(new_url);
+                return rc;
+            }
+        }
+        else
+        {
+            if(resp_status == -WEBCLIENT_ERROR)
+            {
+                if(session->socket == -WEBCLIENT_ERROR)
+                {
+                    /* clean webclient session */
+                    webclient_clean(session);
+                    if(webclient_connect(session, URI) == WEBCLIENT_OK)
+                    {
+                        LOG_D("webclient reconnect success, retry at [%06d]", end_position);
+                        continue;
+                    }
+                    else
+                    {
+                        LOG_E("webclient reconnect failed. Please retry by yourself.");
+                        return -WEBCLIENT_ERROR;
+                    }
+                }
+            }
+        }
+
+        /* receive the incoming data */
+        data_len = webclient_response(session, (void **)&buffer, &resp_len);
+        if(data_len > 0)
+        {
+            start_position += mem_size;
+            result = session->handle_function(buffer, data_len);
+            if(result != RT_EOK)
+            {
+                return -WEBCLIENT_ERROR;
+            }
+        }
+        else
+        {
+            /* clean webclient session */
+            webclient_clean(session);
+            if(session->socket == -WEBCLIENT_ERROR)
+            {
+                webclient_connect(session, URI);
+            }
+        }
+
+        /* clean header buffer and size */
+        rt_memset(session->header->buffer, 0x00, session->header->size);
+        session->header->length = 0;
+    }
+
+    return rc;
 }
 
 /**
@@ -1038,21 +1182,28 @@ int webclient_get_position(struct webclient_session *session, const char *URI, i
  * @param session webclient session
  * @param URI input server URI address
  * @param header POST request header, can't be empty
- * @param post_data data sent to the server
+ * @param post_data data send to the server
  *                = NULL: just connect server and send header
  *               != NULL: send header and body data, resolve response data
+ * @param data_len the length of send data
  *
  * @return <0: send POST request failed
  *         =0: send POST header success
  *         >0: response http status code
  */
-int webclient_post(struct webclient_session *session, const char *URI, const char *post_data)
+int webclient_post(struct webclient_session *session, const char *URI, const void *post_data, size_t data_len)
 {
     int rc = WEBCLIENT_OK;
     int resp_status = 0;
 
     RT_ASSERT(session);
     RT_ASSERT(URI);
+
+    if ((post_data != RT_NULL) && (data_len == 0))
+    {
+        LOG_E("input post data length failed");
+        return -WEBCLIENT_ERROR;
+    }
 
     rc = webclient_connect(session, URI);
     if (rc != WEBCLIENT_OK)
@@ -1068,9 +1219,9 @@ int webclient_post(struct webclient_session *session, const char *URI, const cha
         return rc;
     }
 
-    if (post_data)
+    if (post_data && (data_len > 0))
     {
-        webclient_write(session, (unsigned char *) post_data, rt_strlen(post_data));
+        webclient_write(session, post_data, data_len);
 
         /* resolve response data, get http status code */
         resp_status = webclient_handle_response(session);
@@ -1163,7 +1314,7 @@ static int webclient_next_chunk(struct webclient_session *session)
  *         =0: http server disconnect
  *         >0: successfully read data length
  */
-int webclient_read(struct webclient_session *session, unsigned char *buffer, size_t length)
+int webclient_read(struct webclient_session *session, void *buffer, size_t length)
 {
     int bytes_read = 0;
     int total_read = 0;
@@ -1240,7 +1391,7 @@ int webclient_read(struct webclient_session *session, unsigned char *buffer, siz
     left = length;
     do
     {
-        bytes_read = webclient_recv(session, buffer + total_read, left, 0);
+        bytes_read = webclient_recv(session, (void *)((char *)buffer + total_read), left, 0);
         if (bytes_read <= 0)
         {
 #if defined(WEBCLIENT_USING_SAL_TLS) || defined(WEBCLIENT_USING_MBED_TLS)
@@ -1298,7 +1449,7 @@ int webclient_read(struct webclient_session *session, unsigned char *buffer, siz
  *         =0: http server disconnect
  *         >0: successfully write data length
  */
-int webclient_write(struct webclient_session *session, const unsigned char *buffer, size_t length)
+int webclient_write(struct webclient_session *session, const void *buffer, size_t length)
 {
     int bytes_write = 0;
     int total_write = 0;
@@ -1319,7 +1470,7 @@ int webclient_write(struct webclient_session *session, const unsigned char *buff
     /* send all of data on the buffer. */
     do
     {
-        bytes_write = webclient_send(session, buffer + total_write, left, 0);
+        bytes_write = webclient_send(session, (void *)((char *)buffer + total_write), left, 0);
         if (bytes_write <= 0)
         {
 #if defined(WEBCLIENT_USING_SAL_TLS) || defined(WEBCLIENT_USING_MBED_TLS)
@@ -1388,11 +1539,13 @@ static int webclient_clean(struct webclient_session *session)
     if (session->host)
     {
         web_free(session->host);
+        session->host = RT_NULL;
     }
 
     if (session->req_url)
     {
         web_free(session->req_url);
+        session->req_url = RT_NULL;
     }
 
     session->content_length = -1;
@@ -1437,10 +1590,11 @@ int webclient_close(struct webclient_session *session)
  *
  * @param session wenclient session
  * @param response response buffer address
+ * @param resp_len response buffer length
  *
  * @return response data size
  */
-int webclient_response(struct webclient_session *session, unsigned char **response)
+int webclient_response(struct webclient_session *session, void **response, size_t *resp_len)
 {
     unsigned char *buf_ptr;
     unsigned char *response_buf = 0;
@@ -1512,8 +1666,9 @@ int webclient_response(struct webclient_session *session, unsigned char **respon
 
     if (response_buf)
     {
-        *response = response_buf;
+        *response = (void *)response_buf;
         *(response_buf + total_read) = '\0';
+        *resp_len = total_read;
     }
 
     return total_read;
@@ -1582,12 +1737,14 @@ int webclient_request_header_add(char **request_header, const char *fmt, ...)
  * @param post_data data sent to the server
  *             = NULL: it is GET request
  *            != NULL: it is POST request
+ * @param data_len send data length
  * @param response response buffer address
+ * @param resp_len response buffer length
  *
  * @return <0: request failed
  *        >=0: response buffer size
  */
-int webclient_request(const char *URI, const char *header, const char *post_data, unsigned char **response)
+int webclient_request(const char *URI, const char *header, const void *post_data, size_t data_len, void **response, size_t *resp_len)
 {
     struct webclient_session *session = RT_NULL;
     int rc = WEBCLIENT_OK;
@@ -1598,6 +1755,19 @@ int webclient_request(const char *URI, const char *header, const char *post_data
     if (post_data == RT_NULL && response == RT_NULL)
     {
         LOG_E("request get failed, get response data cannot be empty.");
+        return -WEBCLIENT_ERROR;
+    }
+
+    if ((post_data != RT_NULL) && (data_len == 0))
+    {
+        LOG_E("input post data length failed");
+        return -WEBCLIENT_ERROR;
+    }
+
+    if ((response != RT_NULL && resp_len == RT_NULL) ||
+        (response == RT_NULL && resp_len != RT_NULL))
+    {
+        LOG_E("input response data or length failed");
         return -WEBCLIENT_ERROR;
     }
 
@@ -1630,7 +1800,7 @@ int webclient_request(const char *URI, const char *header, const char *post_data
             goto __exit;
         }
 
-        totle_length = webclient_response(session, response);
+        totle_length = webclient_response(session, response, resp_len);
         if (totle_length <= 0)
         {
             rc = -WEBCLIENT_ERROR;
@@ -1670,13 +1840,13 @@ int webclient_request(const char *URI, const char *header, const char *post_data
             webclient_header_fields_add(session, "Content-Type: application/octet-stream\r\n");
         }
 
-        if (webclient_post(session, URI, post_data) != 200)
+        if (webclient_post(session, URI, post_data, data_len) != 200)
         {
             rc = -WEBCLIENT_ERROR;
             goto __exit;
         }
 
-        totle_length = webclient_response(session, response);
+        totle_length = webclient_response(session, response, resp_len);
         if (totle_length <= 0)
         {
             rc = -WEBCLIENT_ERROR;
@@ -1699,6 +1869,4 @@ __exit:
     return totle_length;
 }
 
-#endif /* RT_USING_SAL */
-
-
+#endif

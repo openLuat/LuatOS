@@ -86,6 +86,36 @@ int luat_pwm_open(int channel, size_t period, size_t pulse,int pnum) {
     return 0;
 }
 
+int luat_pwm_setup(luat_pwm_conf_t* conf) {
+    int channel = conf->channel;
+	size_t period = conf->period;
+	size_t pulse = conf->pulse;
+	size_t pnum = conf->pnum;
+	size_t precision = conf->precision;
+
+    int i = channel / 10;
+    int n = channel - (i * 10);
+    if (i < 0 || i >= DEVICE_ID_MAX )
+        return -1;
+    if (period < 1 || period > 1000000)
+        return -1;
+    if (pulse > precision)
+        pulse = precision;
+
+    struct rt_device_pwm *dev = pwm_devs[i];
+    if(RT_NULL == dev)
+        return -1;
+
+    // 与Luat的定义不同, rtt的period和pulse是按时长作为单位的,单位是ns,即1/1000000000秒
+    // rt_period = 1000000000 / luat_period
+    // rt_pulse = (1000000000 / luat_period) * pulse / 100
+    
+    rt_pwm_set(dev, n, 1000000000 / period, (1000000000 / period) * pulse / precision);
+    rt_pwm_enable(dev, n);
+
+    return 0;
+}
+
 int luat_pwm_capture(int channel,int freq) {
     return -1;
 }

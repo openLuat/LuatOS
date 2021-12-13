@@ -256,7 +256,7 @@ int l_crypto_cipher_decrypt(lua_State *L) {
 /**
 计算CRC16
 @api crypto.crc16(method, data, poly, initial, finally, inReversem outReverse)
-@string 输入模式
+@string CRC16模式（"IBM","MAXIM","USB","MODBUS","CCITT","CCITT-FALSE","X25","XMODEM","DNP","USER-DEFINED"）
 @string 字符串
 @int poly值
 @int initial值

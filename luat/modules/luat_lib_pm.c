@@ -150,7 +150,7 @@ static int l_pm_dtimer_wakeup_id(lua_State *L) {
 @return int 0-普通开机(上电/复位),3-深睡眠开机,4-休眠开机
 @usage
 -- 是哪种方式开机呢
-log.info("pm", "last power reson", pm.lastReson)
+log.info("pm", "last power reson", pm.lastReson())
  */
 static int l_pm_last_reson(lua_State *L) {
     int lastState = 0;

@@ -25,12 +25,12 @@ sys.timerLoopStart(wdt.feed, 10000)--10s喂一次狗
 
 log.info("hello luatos")
 
-spi_lcd = spi.deviceSetup(0,20,0,0,8,2000000,spi.MSB,1,1)
+spi_lcd = spi.deviceSetup(0,20,0,0,8,20*1000*1000,spi.MSB,1,1)
 log.info("lcd.init",
 lcd.init("st7735s",{port = "device",pin_dc = 17, pin_pwr = 7,pin_rst = 19,direction = 2,w = 160,h = 80,xoffset = 1,yoffset = 26},spi_lcd))
 
 --[[-- v0006及以后版本可用pin方式
-spi_lcd = spi.deviceSetup(0,pin.PB04,0,0,8,2000000,spi.MSB,1,1)
+spi_lcd = spi.deviceSetup(0,pin.PB04,0,0,8,20*1000*1000,spi.MSB,1,1)
 log.info("lcd.init",
 lcd.init("st7735s",{port = "device",pin_dc = pin.PB01, pin_pwr = pin.PB00,pin_rst = pin.PB03,direction = 2,w = 160,h = 80,xoffset = 1,yoffset = 26},spi_lcd))
 ]]

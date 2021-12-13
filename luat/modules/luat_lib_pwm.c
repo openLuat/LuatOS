@@ -9,12 +9,12 @@
 
 /**
 开启指定的PWM通道
-@api pwm.open(channel, period, pulse,pnum)
+@api pwm.open(channel, period, pulse, pnum, precision)
 @int PWM通道
 @int 频率, 1-1000000hz
 @int 占空比 0-分频精度
-@int 输出周期 0为持续输出
-@int 分频精度, 100 ~ 4096, 默认为100
+@int 输出周期 0为持续输出, 1为单次输出
+@int 分频精度, 100/256/1000, 默认为100, 若设备不支持会有日志提示
 @return boolean 处理结果,成功返回true,失败返回false
 @usage
 -- 打开PWM5, 频率1kHz, 占空比50%

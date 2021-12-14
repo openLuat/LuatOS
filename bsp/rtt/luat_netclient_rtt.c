@@ -207,7 +207,7 @@ static rt_int32_t pipe_init(netclient_t *thiz)
 
     snprintf(thiz->pipe_name, sizeof(thiz->pipe_name), "p%06X", thiz->id);
 
-    pipe = rt_pipe_create(thiz->pipe_name, PIPE_BUFSZ);
+    pipe = rt_pipe_create(thiz->pipe_name, RT_PIPE_BUFSZ);
     if (pipe == RT_NULL)
     {
         thiz->pipe_name[0] = 0x00;

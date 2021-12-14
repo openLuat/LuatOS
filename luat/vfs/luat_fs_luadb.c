@@ -433,6 +433,17 @@ int luat_vfs_luadb_info(void* userdata, const char* path, luat_fs_info_t *conf) 
     return 0;
 }
 
+const char* luat_vfs_luadb_mmap(void* userdata, int fd) {
+    luadb_fs_t* fs = (luadb_fs_t*)userdata;
+    if (fd < 0 || fd >= LUAT_LUADB_MAX_OPENFILE || fs->fds[fd].file == NULL)
+        return 0;
+    luadb_fd_t *fdt = &fs->fds[fd];
+    if (fdt != NULL) {
+        return fdt->file->ptr;
+    }
+    return NULL;
+}
+
 #define T(name) .name = luat_vfs_luadb_##name
 const struct luat_vfs_filesystem vfs_fs_luadb = {
     .name = "luadb",

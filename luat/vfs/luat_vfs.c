@@ -285,4 +285,18 @@ int luat_fs_rmdir(char const* _DirName) {
     if (mount == NULL) return 0;
     return mount->fs->opts.rmdir(mount->userdata,  _DirName + strlen(mount->prefix));
 }
+
+extern const struct luat_vfs_filesystem vfs_fs_luadb;
+const char* luat_vfs_luadb_mmap(void* userdata, int fd);
+
+const char* luat_vfs_mmap(FILE* stream) {
+    luat_vfs_fd_t* fd = getfd(stream);
+    if (fd == NULL)
+        return NULL;
+    if (fd->fsMount->fs == &vfs_fs_luadb) {
+        return luat_vfs_luadb_mmap(fd->fsMount->userdata, fd->fd);
+    }
+    return NULL;
+}
+
 #endif

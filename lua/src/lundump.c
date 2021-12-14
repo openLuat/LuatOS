@@ -23,11 +23,33 @@
 #include "lundump.h"
 #include "lzio.h"
 
+#include "luat_base.h"
+#include "luat_fs.h"
+
+#define LUAT_LOG_TAG "undump"
+#include "luat_log.h"
+
+#define LUAT_UNDUMP_DEBUG 0
+
+// 未开启VFS就不能使用mmap
+#ifndef LUAT_USE_FS_VFS
+#ifdef LUAT_USE_MEMORY_OPTIMIZATION_CODE_MMAP
+#undef LUAT_USE_MEMORY_OPTIMIZATION_CODE_MMAP
+#endif
+#endif
+
 
 #if !defined(luai_verifycode)
 #define luai_verifycode(L,b,f)  /* empty */
 #endif
 
+
+
+size_t code_size = 0;
+size_t const_size = 0;
+size_t debug_size = 0;
+size_t str_size = 0;
+size_t ptr_offset = 0;
 
 typedef struct {
   lua_State *L;
@@ -49,6 +71,7 @@ static l_noret error(LoadState *S, const char *why) {
 #define LoadVector(S,b,n)	LoadBlock(S,b,(n)*sizeof((b)[0]))
 
 static void LoadBlock (LoadState *S, void *b, size_t size) {
+  ptr_offset += size;
   if (luaZ_read(S->Z, b, size) != 0)
     error(S, "truncated");
 }
@@ -102,15 +125,46 @@ static TString *LoadString (LoadState *S, Proto *p) {
     LoadVector(S, getstr(ts), size);  /* load directly in final place */
   }
   luaC_objbarrier(S->L, p, ts);
+  str_size+= size + sizeof(TString);
   return ts;
 }
 
+#ifndef LoadF
+typedef struct LoadF {
+  int n;  /* number of pre-read characters */
+  FILE *f;  /* file being read */
+  char buff[BUFSIZ];  /* area for reading file */
+} LoadF;
+#endif
 
 static void LoadCode (LoadState *S, Proto *f) {
   int n = LoadInt(S);
-  f->code = luaM_newvector(S->L, n, Instruction);
   f->sizecode = n;
+#ifdef LUAT_USE_MEMORY_OPTIMIZATION_CODE_MMAP
+  #if LUAT_UNDUMP_DEBUG
+  LLOGD("try mmap %p %p %p", S, S->Z, S->Z->data);
+  #endif
+  char* ptr = (char*)luat_vfs_mmap(((LoadF*)S->Z->data)->f);
+  Instruction inst[1];
+  if (ptr) {
+    f->code = ptr + ptr_offset;
+    for (size_t i = 0; i < n; i++)
+    {
+      LoadVector(S, &inst, 1);
+    }
+    #if LUAT_UNDUMP_DEBUG
+    LLOGD("code in rom");
+    #endif
+    return;
+  }
+#endif
+  // 调试时务必打开
+#if LUAT_UNDUMP_DEBUG
+  LLOGD("code in ram");
+#endif
+  f->code = luaM_newvector(S->L, n, Instruction);
   LoadVector(S, f->code, n);
+  code_size += n * sizeof(Instruction);
 }
 
 
@@ -148,6 +202,7 @@ static void LoadConstants (LoadState *S, Proto *f) {
       lua_assert(0);
     }
   }
+  const_size += n * sizeof(TValue);
 }
 
 
@@ -199,6 +254,9 @@ static void LoadDebug (LoadState *S, Proto *f) {
   n = LoadInt(S);
   for (i = 0; i < n; i++)
     f->upvalues[i].name = LoadString(S, f);
+
+  debug_size += f->sizelineinfo * sizeof(int);
+  debug_size += f->sizelocvars * sizeof(LocVar);
 }
 
 
@@ -254,6 +312,7 @@ static void checkHeader (LoadState *S) {
     error(S, "float format mismatch in");
 }
 
+extern void luat_os_print_heapinfo(const char* tag);
 
 /*
 ** load precompiled chunk
@@ -261,6 +320,11 @@ static void checkHeader (LoadState *S) {
 LClosure *luaU_undump(lua_State *L, ZIO *Z, const char *name) {
   LoadState S;
   LClosure *cl;
+
+  // 复位偏移量数据
+  ptr_offset = 0;
+  ptr_offset ++; // 之前的方法已经读取了一个字节
+
   if (*name == '@' || *name == '=')
     S.name = name + 1;
   else if (*name == LUA_SIGNATURE[0])
@@ -278,6 +342,17 @@ LClosure *luaU_undump(lua_State *L, ZIO *Z, const char *name) {
   LoadFunction(&S, cl->p, NULL);
   lua_assert(cl->nupvalues == cl->p->sizeupvalues);
   luai_verifycode(L, buff, cl->p);
+
+  // 打印各部分的内存消耗
+#if LUAT_UNDUMP_DEBUG
+  LLOGD("str_size %d", str_size);
+  LLOGD("debug_size %d", debug_size);
+  LLOGD("const_size now %d", const_size);
+  LLOGD("code_size now %d", code_size);
+  LLOGD("ptr_offset %d", ptr_offset);
+  luat_os_print_heapinfo("func");
+#endif
+
   return cl;
 }
 

@@ -88,7 +88,7 @@ static int l_otp_write(lua_State *L) {
     if (offset + len > 4*1024) {
         return 0;
     }
-    int ret = luat_otp_write(zone, data, (size_t)offset, len);
+    int ret = luat_otp_write(zone, (char*)data, (size_t)offset, len);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 };

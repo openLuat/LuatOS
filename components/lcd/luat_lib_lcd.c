@@ -120,7 +120,7 @@ static int l_lcd_init(lua_State* L) {
     if (s_index != -1) {
         LLOGD("ic support: %s",tp);
         if (lua_gettop(L) > 1) {
-            conf->opts = lcd_opts[s_index];
+            conf->opts = (struct luat_lcd_opts *)lcd_opts[s_index];
             lua_settop(L, 2); // 丢弃多余的参数
 
             lua_pushstring(L, "port");

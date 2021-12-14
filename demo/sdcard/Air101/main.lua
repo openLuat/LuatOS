@@ -9,13 +9,18 @@ log.info("main", PROJECT, VERSION)
 _G.sys = require("sys")
 
 --添加硬狗防止程序卡死
---wdt.init(15000)--初始化watchdog设置为15s
---sys.timerLoopStart(wdt.feed, 10000)--10s喂一次狗
+if wdt then
+    wdt.init(15000)--初始化watchdog设置为15s
+    sys.timerLoopStart(wdt.feed, 10000)--10s喂一次狗
+end
+
+-- 特别提醒, 由于FAT32是DOS时代的产物, 文件名超过8个字节是需要额外支持的(需要更大的ROM)
+-- 例如 /sd/boottime 是合法文件名, 而/sd/boot_time就不是合法文件名, 需要启用长文件名支持.
 
 local function fatfs_test()
     sdio.init(0)
     sdio.sd_mount(0, "/sd")
-    local f = io.open("/sd/boot_time", "rb")
+    local f = io.open("/sd/boottime", "rb")
     local c = 0
     if f then
         local data = f:read("*a")
@@ -25,11 +30,14 @@ local function fatfs_test()
     end
     log.info("fs", "boot count", c)
     c = c + 1
-    f = io.open("/sd/boot_time", "wb")
-    --if f ~= nil then
-    log.info("fs", "write c to file", c, tostring(c))
-    f:write(tostring(c))
-    f:close()
+    f = io.open("/sd/boottime", "wb")
+    if f ~= nil then
+        log.info("fs", "write c to file", c, tostring(c))
+        f:write(tostring(c))
+        f:close()
+    else
+        log.warn("sdio", "mount not good?!")
+    end
     if fs then
         log.info("fsstat", fs.fsstat("/"))
         log.info("fsstat", fs.fsstat("/sd"))

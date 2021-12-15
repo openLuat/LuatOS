@@ -15,8 +15,17 @@ uint8_t luavm_heap[LUAT_HEAP_SIZE] = {0};
 
 void luat_log_init_win32(void);
 
+
+int cmdline_argc;
+char** cmdline_argv;
+
+int lua_main (int argc, char **argv);
+
 static void _luat_main(void* args) {
-    luat_main();
+    //luat_main();
+    luat_fs_init();
+    lua_main(cmdline_argc, cmdline_argv);
+    exit(0);
 }
 
 #ifdef LUAT_USE_LVGL
@@ -45,8 +54,6 @@ static void _lwip_init(void* arg) {
 }
 #endif
 
-int cmdline_argc;
-char** cmdline_argv;
 
 // boot
 int main(int argc, char** argv) {

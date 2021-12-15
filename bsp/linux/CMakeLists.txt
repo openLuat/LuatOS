@@ -102,16 +102,6 @@ add_library(luat ${TOPROOT}/luat/modules/luat_main.c
                  ${U8G2_SRCS}
             )
 
-#include_directories(${TOPROOT}/luat/packages/fatfs)
-#add_library(fatfs   ${TOPROOT}/luat/packages/fatfs/ff.c
-#                    ${TOPROOT}/luat/packages/fatfs/ffsystem.c
-#                    ${TOPROOT}/luat/packages/fatfs/ffunicode.c
-#                    ${TOPROOT}/luat/packages/fatfs/diskio_impl.c
-#                    ${TOPROOT}/luat/packages/fatfs/diskio_ramdisk.c
-#                    ${TOPROOT}/luat/packages/fatfs/diskio_spitf.c
-#                    ${TOPROOT}/luat/vfs/luat_fs_fatfs.c
-#                    ${TOPROOT}/luat/packages/fatfs/luat_lib_fatfs.c)
-
 #-----------------------
 # mbedtls
 include_directories(${TOPROOT}/components/mbedtls/include)
@@ -126,7 +116,7 @@ add_subdirectory(${TOPROOT}/components/mbedtls mbedtls.out)
 
 
 
-add_executable(luatos src/main.c)
+add_executable(luatos src/main.c src/lua.c)
 
 target_link_libraries(luat freertos10 pthread )
-target_link_libraries(luatos freertos10 lua luatos_msys luat pthread cjson mbedtls m dl)
+target_link_libraries(luatos freertos10 lua luatos_msys luat pthread cjson mbedtls m dl readline)

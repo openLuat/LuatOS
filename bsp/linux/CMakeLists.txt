@@ -54,6 +54,7 @@ aux_source_directory(${TOPROOT}/components/freertos/portable/ThirdParty/GCC/Posi
 
 include_directories(${TOPROOT}/luat/packages/lfs)
 include_directories(${TOPROOT}/components/lcd)
+include_directories(${TOPROOT}/luat/packages/u8g2)
 
 aux_source_directory(./port PORT_SRCS)
 aux_source_directory(${TOPROOT}/lua/src LUA_SRCS)
@@ -63,6 +64,7 @@ aux_source_directory(${TOPROOT}/components/freertos/port RTOS_PORT_SRCS)
 aux_source_directory(${TOPROOT}/luat/packages/lua-cjson CJSON_SRCS)
 
 aux_source_directory(${TOPROOT}/components/lcd LCD_SRCS)
+aux_source_directory(${TOPROOT}/components/u8g2 U8G2_SRCS)
 
 add_library(freertos10 ${PORT_SRCS} ${RTOS_SRCS} ${RTOS_PORT_SRCS} ${MM_SRCS} ${MM2_SRCS})
 add_library(lua ${LUA_SRCS})
@@ -90,22 +92,25 @@ add_library(luat ${TOPROOT}/luat/modules/luat_main.c
                  ${TOPROOT}/luat/vfs/luat_fs_posix.c
                  ${TOPROOT}/luat/vfs/luat_fs_lfs2.c
                  ${TOPROOT}/luat/vfs/luat_luadb_inline.c
+                 ${TOPROOT}/luat/vfs/luat_luadb_inline_sys.c
+                 ${TOPROOT}/luat/vfs/luat_inline_sys.c
                  ${TOPROOT}/luat/packages/lfs/lfs_sfd.c
                  ${TOPROOT}/luat/packages/lfs/lfs_util.c
                  ${TOPROOT}/luat/packages/lfs/lfs.c
                  ${TOPROOT}/luat/packages/lfs/luat_lib_lfs2.c
                  ${LCD_SRCS}
+                 ${U8G2_SRCS}
             )
 
-include_directories(${TOPROOT}/luat/packages/fatfs)
-add_library(fatfs   ${TOPROOT}/luat/packages/fatfs/ff.c
-                    ${TOPROOT}/luat/packages/fatfs/ffsystem.c
-                    ${TOPROOT}/luat/packages/fatfs/ffunicode.c
-                    ${TOPROOT}/luat/packages/fatfs/diskio_impl.c
-                    ${TOPROOT}/luat/packages/fatfs/diskio_ramdisk.c
-                    ${TOPROOT}/luat/packages/fatfs/diskio_spitf.c
-                    ${TOPROOT}/luat/vfs/luat_fs_fatfs.c
-                    ${TOPROOT}/luat/packages/fatfs/luat_lib_fatfs.c)
+#include_directories(${TOPROOT}/luat/packages/fatfs)
+#add_library(fatfs   ${TOPROOT}/luat/packages/fatfs/ff.c
+#                    ${TOPROOT}/luat/packages/fatfs/ffsystem.c
+#                    ${TOPROOT}/luat/packages/fatfs/ffunicode.c
+#                    ${TOPROOT}/luat/packages/fatfs/diskio_impl.c
+#                    ${TOPROOT}/luat/packages/fatfs/diskio_ramdisk.c
+#                    ${TOPROOT}/luat/packages/fatfs/diskio_spitf.c
+#                    ${TOPROOT}/luat/vfs/luat_fs_fatfs.c
+#                    ${TOPROOT}/luat/packages/fatfs/luat_lib_fatfs.c)
 
 #-----------------------
 # mbedtls
@@ -122,10 +127,6 @@ add_subdirectory(${TOPROOT}/components/mbedtls mbedtls.out)
 
 
 add_executable(luatos src/main.c)
-# target_link_libraries(luat freertos10 pthread fatfs lvgl)
-# target_link_libraries(luatos freertos10 lua luatos_msys fatfs luat pthread cjson mbedtls lvgl m dl
-# gtk-3 gdk-3 pangocairo-1.0 pango-1.0 atk-1.0 cairo-gobject cairo gdk_pixbuf-2.0 gio-2.0 gobject-2.0 glib-2.0
-#)
 
-target_link_libraries(luat freertos10 pthread fatfs)
-target_link_libraries(luatos freertos10 lua luatos_msys fatfs luat pthread cjson mbedtls m dl)
+target_link_libraries(luat freertos10 pthread )
+target_link_libraries(luatos freertos10 lua luatos_msys luat pthread cjson mbedtls m dl)

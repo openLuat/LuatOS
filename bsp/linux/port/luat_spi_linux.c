@@ -33,14 +33,14 @@ int luat_spi_close(int spi_id) {
     return 0;
 }
 //收发SPI数据，返回接收字节数
-int luat_spi_transfer(int spi_id, const char* send_buf, char* recv_buf, size_t length) {
+int luat_spi_transfer(int spi_id, const char* send_buf, size_t send_length, char* recv_buf, size_t recv_length) {
     if (spi_id < 0 || spi_id >= LUAT_WIN32_SPI_COUNT) {
         return -1;
     }
     if (win32spis[spi_id].open == 0)
         return -1;
-    memset(recv_buf, 0, length);
-    return length;
+    memset(recv_buf, 0, recv_length);
+    return recv_length;
 }
 //收SPI数据，返回接收字节数
 int luat_spi_recv(int spi_id, char* recv_buf, size_t length) {

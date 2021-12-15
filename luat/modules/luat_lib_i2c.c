@@ -465,7 +465,7 @@ i2c.close(1)
 static int l_i2c_close(lua_State *L)
 {
     int id = luaL_checkinteger(L, 1);
-    luat_ic2_close(id);
+    luat_i2c_close(id);
     return 0;
 }
 

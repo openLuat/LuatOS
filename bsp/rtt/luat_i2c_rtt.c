@@ -104,7 +104,7 @@ int luat_i2c_setup(int id, int speed, int slaveaddr) {
     rt_device_open(&i2c_devs[id]->parent, 0);
     return 0;
 }
-int luat_ic2_close(int id) {
+int luat_i2c_close(int id) {
     if (!luat_i2c_exist(id)) return 1;
     // 无事可做
     rt_device_close(&i2c_devs[id]->parent);

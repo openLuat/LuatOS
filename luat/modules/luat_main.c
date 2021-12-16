@@ -11,22 +11,6 @@
 
 #define LUAT_LOG_TAG "main"
 #include "luat_log.h"
-#include "luat_dbg.h"
-
-#ifndef LUAT_USE_CMDLINE_ARGS
-#ifdef LUA_USE_WINDOWS
-#define LUAT_USE_CMDLINE_ARGS 1
-#endif
-#ifdef LUA_USE_LINUX
-#define LUAT_USE_CMDLINE_ARGS 1
-#endif
-#endif
-
-#ifdef LUAT_USE_CMDLINE_ARGS
-#include <stdlib.h>
-extern int cmdline_argc;
-extern char** cmdline_argv;
-#endif
 
 static int report (lua_State *L, int status);
 
@@ -52,23 +36,13 @@ int luat_main_demo() { // 这是验证LuatVM最基础的消息/定时器/Task机
   return luaL_dostring(L, "local sys = require \"sys\"\n"
                           "log.info(\"main\", os.date())\n"
                           "leda = gpio.setup(3, 0)"
-                          "ledb = gpio.setup(4, 0)"
-                          "ledc = gpio.setup(5, 0)"
                           "sys.taskInit(function ()\n"
                           "  while true do\n"
                           "    log.info(\"hi\", rtos.meminfo())\n"
                           "    sys.wait(500)\n"
                           "    leda(1)\n"
-                          "    ledb(0)\n"
-                          "    ledc(0)\n"
                           "    sys.wait(500)\n"
                           "    leda(0)\n"
-                          "    ledb(1)\n"
-                          "    ledc(0)\n"
-                          "    sys.wait(500)\n"
-                          "    leda(0)\n"
-                          "    ledb(0)\n"
-                          "    ledc(1)\n"
                           "    log.info(\"main\", os.date())\n"
                           "  end\n"
                           "end)\n"
@@ -92,24 +66,6 @@ static int pmain(lua_State *L) {
     luat_custom_init(L);
 #endif
 
-// #ifdef LUAT_USE_DBG
-//     //extern void luat_debug_hook(lua_State *L, lua_Debug *ar);
-//     //lua_sethook(L, luat_debug_hook, LUA_MASKCALL | LUA_MASKRET | LUA_MASKLINE, 0);
-//     luat_dbg_init(L);
-//     // 寻找dbg_init.lua, 里面有初始化代码
-//     if (luat_search_module("dbg_init", filename) == 0) {
-//         luaL_dofile(L, filename);
-//     }
-// #endif
-
-    // 加载main.lua
-    #ifdef LUAT_USE_CMDLINE_ARGS
-    if (cmdline_argc > 1) {
-      int slen = strlen(cmdline_argv[1]);
-      if (slen > 4 && !strcmp(".lua", cmdline_argv[1] + (slen - 4)))
-        re = luaL_dofile(L, cmdline_argv[1]);
-    }
-    #endif
     if (re == -2) {
       #ifndef LUAT_MAIN_DEMO
       if (luat_search_module("main", filename) == 0) {
@@ -179,11 +135,6 @@ int luat_main_call(void) {
   report(L, status);
   //lua_close(L);
 _exit:
-  #ifdef LUAT_USE_CMDLINE_ARGS
-    result = !result;
-    LLOGE("Lua VM exit!! result:%d",result);
-    exit(result);
-  #endif
   return result;
 }
 
@@ -202,6 +153,9 @@ int luat_main (void) {
   #ifdef LUAT_BSP_VERSION
   LLOGI("LuatOS@%s core %s bsp %s", luat_os_bsp(), LUAT_VERSION, LUAT_BSP_VERSION);
   LLOGI("ROM Build: " __DATE__ " " __TIME__);
+  // #if LUAT_VERSION_BETA
+  // LLOGD("This is a beta/snapshot version, for testing");
+  // #endif
   #else
   LLOGI("LuatOS@%s %s, Build: " __DATE__ " " __TIME__, luat_os_bsp(), LUAT_VERSION);
   #if LUAT_VERSION_BETA

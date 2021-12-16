@@ -139,7 +139,7 @@ static time_t l_checktime (lua_State *L, int arg) {
 
 
 
-#ifdef LUAT_USE_CMDLINE_ARGS
+#if defined(LUA_USE_LINUX) || defined(LUA_USE_WINDOWS) || defined(LUA_USE_MACOSX)
 static int os_execute (lua_State *L) {
   const char *cmd = luaL_optstring(L, 1, NULL);
   int stat = system(cmd);
@@ -165,17 +165,17 @@ static int os_rename (lua_State *L) {
 }
 
 
-// static int os_tmpname (lua_State *L) {
-//   char buff[LUA_TMPNAMBUFSIZE];
-//   int err;
-//   lua_tmpnam(buff, err);
-//   if (err)
-//     return luaL_error(L, "unable to generate a unique filename");
-//   lua_pushstring(L, buff);
-//   return 1;
-// }
+#if defined(LUA_USE_LINUX) || defined(LUA_USE_WINDOWS) || defined(LUA_USE_MACOSX)
+static int os_tmpname (lua_State *L) {
+  char buff[LUA_TMPNAMBUFSIZE];
+  int err;
+  lua_tmpnam(buff, err);
+  if (err)
+    return luaL_error(L, "unable to generate a unique filename");
+  lua_pushstring(L, buff);
+  return 1;
+}
 
-#ifdef LUAT_USE_CMDLINE_ARGS
 static int os_getenv (lua_State *L) {
   lua_pushstring(L, getenv(luaL_checkstring(L, 1)));  /* if NULL push nil */
   return 1;
@@ -360,7 +360,7 @@ static int os_difftime (lua_State *L) {
 
 /* }====================================================== */
 
-#ifdef LUAT_USE_CMDLINE_ARGS
+#if defined(LUA_USE_LINUX) || defined(LUA_USE_WINDOWS) || defined(LUA_USE_MACOSX)
 static int os_setlocale (lua_State *L) {
   static const int cat[] = {LC_ALL, LC_COLLATE, LC_CTYPE, LC_MONETARY,
                       LC_NUMERIC, LC_TIME};
@@ -390,16 +390,16 @@ static const rotable_Reg syslib[] = {
   {"clock",     os_clock, 0},
   {"date",      os_date, 0},
   {"difftime",  os_difftime, 0},
-#ifdef LUAT_USE_CMDLINE_ARGS
+#if defined(LUA_USE_LINUX) || defined(LUA_USE_WINDOWS) || defined(LUA_USE_MACOSX)
  {"execute",   os_execute, 0},
  {"exit",      os_exit, 0},
  {"getenv",    os_getenv, 0},
  {"setlocale", os_setlocale, 0},
+ {"tmpname",   os_tmpname, 0},
 #endif
   {"remove",    os_remove, 0},
   {"rename",    os_rename, 0},
   {"time",      os_time, 0},
-//  {"tmpname",   os_tmpname, 0},
   {NULL, NULL}
 };
 

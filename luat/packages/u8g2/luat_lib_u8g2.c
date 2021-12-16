@@ -35,6 +35,8 @@ static u8g2_t* u8g2;
 static int u8g2_lua_ref;
 static uint8_t i2c_id;
 static uint8_t i2c_speed;
+static uint8_t i2c_scl;
+static uint8_t i2c_sda;
 // static uint8_t i2c_addr = 0x3C;
 static uint8_t spi_id;
 static uint8_t spi_res;
@@ -47,8 +49,12 @@ u8g2显示屏初始化
 @table conf 配置信息
 @return int 正常初始化1,已经初始化过2,内存不够3,初始化失败返回4
 @usage
--- 初始化i2c1的ssd1306
-u8g2.begin({ic = "SSD1306",mode="i2c_hw",i2c_id=0})
+-- 初始化硬件i2c的ssd1306
+u8g2.begin({ic = "ssd1306",mode="i2c_hw",i2c_id=0})
+-- 初始化软件i2c的ssd1306
+u8g2.begin({ic = "ssd1306",mode="i2c_sw", i2c_scl=1, i2c_sda=4}) -- 通过PA1 SCL / PA4 SDA模拟
+-- 初始化硬件spi的st7567
+--u8g2.begin({ic ="st7567",mode="spi_hw_4pin",spi_id=1,spi_res=19,spi_dc=17,spi_cs=20})
 */
 static int l_u8g2_begin(lua_State *L) {
     if (u8g2 != NULL) {
@@ -104,32 +110,17 @@ static int l_u8g2_begin(lua_State *L) {
         }
         lua_pop(L, 1);
 
-        // 解析pin0 ~ pin7
-        lua_pushliteral(L, "pin0");
+        lua_pushliteral(L, "i2c_scl");
         lua_gettable(L, 1);
         if (lua_isinteger(L, -1)) {
-            conf.pin0 = luaL_checkinteger(L, -1);
+            i2c_scl = luaL_checkinteger(L, -1);
         }
         lua_pop(L, 1);
 
-        lua_pushliteral(L, "pin1");
+        lua_pushliteral(L, "i2c_sda");
         lua_gettable(L, 1);
         if (lua_isinteger(L, -1)) {
-            conf.pin1 = luaL_checkinteger(L, -1);
-        }
-        lua_pop(L, 1);
-
-        lua_pushliteral(L, "pin2");
-        lua_gettable(L, 1);
-        if (lua_isinteger(L, -1)) {
-            conf.pin2 = luaL_checkinteger(L, -1);
-        }
-        lua_pop(L, 1);
-
-        lua_pushliteral(L, "pin3");
-        lua_gettable(L, 1);
-        if (lua_isinteger(L, -1)) {
-            conf.pin3 = luaL_checkinteger(L, -1);
+            i2c_sda = luaL_checkinteger(L, -1);
         }
         lua_pop(L, 1);
 
@@ -146,13 +137,6 @@ static int l_u8g2_begin(lua_State *L) {
             i2c_speed = luaL_checkinteger(L, -1);
         }
         lua_pop(L, 1);
-
-        // lua_pushliteral(L, "i2c_addr");
-        // lua_gettable(L, 1);
-        // if (lua_isinteger(L, -1)) {
-        //     i2c_addr = luaL_checkinteger(L, -1);
-        // }
-        // lua_pop(L, 1);
 
         lua_pushliteral(L, "spi_id");
         lua_gettable(L, 1);
@@ -617,7 +601,7 @@ static int l_u8g2_SetBitmapMode(lua_State *L){
 @int 位图数据,每一位代表一个像素
 @usage
 -- 取模使用PCtoLCD2002软件即可
--- 在(0,0)为左上角,绘制 16x16 "今" 的位图 
+-- 在(0,0)为左上角,绘制 16x16 "今" 的位图
 u8g2.DrawXBM(0, 0, 16,16, string.char(
     0x80,0x00,0x80,0x00,0x40,0x01,0x20,0x02,0x10,0x04,0x48,0x08,0x84,0x10,0x83,0x60,
     0x00,0x00,0xF8,0x0F,0x00,0x08,0x00,0x04,0x00,0x04,0x00,0x02,0x00,0x01,0x80,0x00
@@ -801,7 +785,7 @@ static int l_u8g2_draw_gtfont_utf8(lua_State *L) {
             uint16_t str = unicodetogb2312(e);
             get_font(buf, 1, str, size, size, size);
             gtfont_draw_w(buf , x ,y , size , size,gtfont_u8g2_DrawPixel,u8g2,2);
-            x+=size;    
+            x+=size;
         }
     }
     return 0;
@@ -877,9 +861,8 @@ LUAT_WEAK int luat_u8g2_setup(luat_u8g2_conf_t *conf) {
         }else{
             u8g2_Setup_ssd1306_i2c_128x64_noname_f( u8g2, U8G2_R0, u8x8_byte_sw_i2c, u8x8_luat_gpio_and_delay);
         }
-        u8g2->u8x8.pins[U8X8_PIN_I2C_CLOCK] = conf->pin0;
-        u8g2->u8x8.pins[U8X8_PIN_I2C_DATA] = conf->pin1;
-        LLOGD("setup disp i2c.sw SCL=%ld SDA=%ld", conf->pin0, conf->pin1);
+        u8g2->u8x8.pins[U8X8_PIN_I2C_CLOCK] = i2c_scl;
+        u8g2->u8x8.pins[U8X8_PIN_I2C_DATA] = i2c_sda;
         u8g2_InitDisplay(u8g2);
         u8g2_SetPowerSave(u8g2, 0);
         return 0;

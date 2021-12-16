@@ -31,7 +31,7 @@
 
 #include "luat_spi.h"
 
-#define LUAT_LOG_TAG "luat.sfud"
+#define LUAT_LOG_TAG "sfud"
 #include "luat_log.h"
 
 static char log_buf[256];
@@ -120,6 +120,8 @@ sfud_err sfud_spi_port_init(sfud_flash *flash) {
     flash->retry.delay = retry_delay_100us;
     /* 60 seconds timeout */
     flash->retry.times = 60 * 10000;
+
+    flash->name = "LuatOS-sfud";
 
     return result;
 }

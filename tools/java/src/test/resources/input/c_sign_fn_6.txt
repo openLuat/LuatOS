@@ -1,1 +1,0 @@
- static uint8_t u8x8_d_lc7981_common(u8x8_t *u8x8, uint8_t msg, U8X8_UNUSED uint8_t arg_int, void *arg_ptr)

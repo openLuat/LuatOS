@@ -1,4 +1,0 @@
-open upvalues point to values in a thread, so those values should
-be marked when the thread is traversed except in the atomic phase
-(because then the value cannot be changed by the thread and the
-thread may not be traversed again)

@@ -1,6 +1,0 @@
-{
-  "module"  : "rtos",
-  "summary" : "RTOS底层操作库",
-  "version" : "1.0",
-  "date"    : "2020.03.30"
-}

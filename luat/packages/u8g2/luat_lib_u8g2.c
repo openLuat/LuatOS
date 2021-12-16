@@ -54,7 +54,7 @@ u8g2.begin({ic = "ssd1306",mode="i2c_hw",i2c_id=0})
 -- 初始化软件i2c的ssd1306
 u8g2.begin({ic = "ssd1306",mode="i2c_sw", i2c_scl=1, i2c_sda=4}) -- 通过PA1 SCL / PA4 SDA模拟
 -- 初始化硬件spi的st7567
---u8g2.begin({ic ="st7567",mode="spi_hw_4pin",spi_id=1,spi_res=19,spi_dc=17,spi_cs=20})
+u8g2.begin({ic ="st7567",mode="spi_hw_4pin",spi_id=1,spi_res=19,spi_dc=17,spi_cs=20})
 */
 static int l_u8g2_begin(lua_State *L) {
     if (u8g2 != NULL) {

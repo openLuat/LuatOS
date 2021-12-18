@@ -29,22 +29,23 @@ sys.taskInit(function()
     log.info("lcd.init",
     lcd.init("st7735s",{port = "device",pin_dc = pin.PB01, pin_pwr = pin.PB00,pin_rst = pin.PB03,direction = 2,w = 160,h = 80,xoffset = 1,yoffset = 26},spi_lcd))
 ]]
-    -- 使用ffmpeg.exe将视频转成字节流文件video2.rgb放入TF卡
-    local file_size = fs.fsize("/sd/video2.rgb")
-    print("/sd/video2.rgb file_size",file_size)
-    local file = io.open("/sd/video2.rgb", "rb")
+    -- 使用ffmpeg.exe将视频转成字节流文件sxd.rgb放入TF卡
+    local rgb_file = "sxd.rgb"
+    local file_size = fs.fsize("/sd/"..rgb_file)
+    print("/sd/"..rgb_file.." file_size",file_size)
+    local file = io.open("/sd/"..rgb_file, "rb")
     if file then
         local file_cnt = 0
         local buff = zbuff.create(25600)--分辨率160*80 160*80*2=25600
         repeat
             if file:fill(buff) then
                 file_cnt = file_cnt + 25600
-                lcd.draw(40, 80, 199, 159, buff)
+                lcd.draw(0, 0, 159, 79, buff)
                 sys.wait(20)
             end
         until( file_size - file_cnt < 25600 )
         local temp_data = file:fill(buff,0,file_size - file_cnt)
-        lcd.draw(40, 80, 199, 159, buff)
+        lcd.draw(0, 0, 159, 79, buff)
         sys.wait(30)
         file:close()
     end

@@ -10,6 +10,7 @@
 #include "luat_malloc.h"
 
 static lv_indev_data_t point_emulator_data = {0};
+static lv_indev_data_t keyboard_emulator_data = {0};
 
 bool point_input_read(lv_indev_drv_t * drv, lv_indev_data_t*data) {
     memcpy(data, drv->user_data, sizeof(lv_indev_data_t));
@@ -33,9 +34,10 @@ int luat_lv_indev_drv_register(lua_State* L) {
     lv_indev_drv_init(&indev_drv);
     const char* type = luaL_checkstring(L, 1);
     int ok = 0;
+    const char* dtype;
     if (!strcmp("pointer", type)) {
         indev_drv.type = LV_INDEV_TYPE_POINTER;
-        const char* dtype = luaL_checkstring(L, 2);
+        dtype = luaL_checkstring(L, 2);
         if (!strcmp("emulator", dtype)) {
             indev_drv.user_data = &point_emulator_data;
             memset(indev_drv.user_data, 0, sizeof(lv_indev_data_t));
@@ -46,6 +48,17 @@ int luat_lv_indev_drv_register(lua_State* L) {
         //else if(!strcmp("xpt2046", type)) {
         //    // TODO 支持xpt2046?
         //}
+    }
+    else if (!strcmp("keyboard", type)) {
+        indev_drv.type = LV_INDEV_TYPE_POINTER;
+        dtype = luaL_checkstring(L, 2);
+        if (!strcmp("emulator", dtype)) {
+            indev_drv.user_data = &keyboard_emulator_data;
+            memset(indev_drv.user_data, 0, sizeof(lv_indev_data_t));
+            indev_drv.read_cb = point_input_read;
+            lv_indev_drv_register(&indev_drv);
+            ok = 1;
+        }
     }
     lua_pushboolean(L, ok);
     return 1;

@@ -216,7 +216,9 @@ LUAT_LV_WIN_RLT
 
 // 图像库
 LUAT_LV_QRCODE_RLT
+#if defined(LUA_USE_LINUX) || defined(LUA_USE_WINDOWS) || defined(LUA_USE_MACOSX)
 LUAT_LV_GIF_RLT
+#endif
 
 // 回调
 LUAT_LV_CB_RLT

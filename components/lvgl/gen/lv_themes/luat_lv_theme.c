@@ -1,4 +1,5 @@
-
+
+
 #include "luat_base.h"
 #include "lvgl.h"
 #include "luat_lvgl.h"
@@ -25,7 +26,7 @@ int luat_lv_theme_get_act(lua_State *L) {
 int luat_lv_theme_apply(lua_State *L) {
     LV_DEBUG("CALL lv_theme_apply");
     lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_theme_style_t name;
+    lv_theme_style_t name = luaL_checkinteger(L, 2);
     // miss arg convert
     lv_theme_apply(obj ,name);
     return 0;

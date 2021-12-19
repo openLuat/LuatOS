@@ -1,4 +1,5 @@
-
+
+
 #include "luat_base.h"
 #include "lvgl.h"
 #include "luat_lvgl.h"
@@ -133,7 +134,7 @@ int luat_lv_anim_get_delay(lua_State *L) {
 int luat_lv_anim_del(lua_State *L) {
     LV_DEBUG("CALL lv_anim_del");
     void* var = (void*)lua_touserdata(L, 1);
-    lv_anim_exec_xcb_t exec_cb;
+    lv_anim_exec_xcb_t exec_cb = NULL;
     // miss arg convert
     bool ret;
     ret = lv_anim_del(var ,exec_cb);
@@ -152,7 +153,7 @@ int luat_lv_anim_del_all(lua_State *L) {
 int luat_lv_anim_get(lua_State *L) {
     LV_DEBUG("CALL lv_anim_get");
     void* var = (void*)lua_touserdata(L, 1);
-    lv_anim_exec_xcb_t exec_cb;
+    lv_anim_exec_xcb_t exec_cb = NULL;
     // miss arg convert
     lv_anim_t* ret = NULL;
     ret = lv_anim_get(var ,exec_cb);
@@ -164,7 +165,7 @@ int luat_lv_anim_get(lua_State *L) {
 int luat_lv_anim_custom_del(lua_State *L) {
     LV_DEBUG("CALL lv_anim_custom_del");
     lv_anim_t* a = (lv_anim_t*)lua_touserdata(L, 1);
-    lv_anim_custom_exec_cb_t exec_cb;
+    lv_anim_custom_exec_cb_t exec_cb = NULL;
     // miss arg convert
     bool ret;
     ret = lv_anim_custom_del(a ,exec_cb);

@@ -386,11 +386,11 @@ int luat_lv_style_set_pattern_recolor_opa(lua_State *L){
 }
 
 int luat_lv_style_set_pattern_image(lua_State *L){
-    lv_style_t* _style = (lv_style_t*)lua_touserdata(L, 1);
-    lv_state_t state = (lv_state_t)luaL_checkinteger(L, 2);
-    const void * _ptr;
+    // lv_style_t* _style = (lv_style_t*)lua_touserdata(L, 1);
+    // lv_state_t state = (lv_state_t)luaL_checkinteger(L, 2);
+    // const void * _ptr;
     // TODO const void * _ptr
-    lv_style_set_pattern_image(_style, state, _ptr);
+    // lv_style_set_pattern_image(_style, state, _ptr);
     return 0;
 }
 

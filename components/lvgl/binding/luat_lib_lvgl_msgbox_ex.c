@@ -14,7 +14,7 @@
 int luat_lv_msgbox_add_btns(lua_State *L) {
     LV_DEBUG("CALL lv_msgbox_add_btns");
     lv_obj_t* mbox = (lv_obj_t*)lua_touserdata(L, 1);
-    char **btn_mapaction;
+    char **btn_mapaction = NULL;
     if (lua_istable(L,2)){
         int n = luaL_len(L, 2);
         btn_mapaction = (char**)luat_heap_calloc(n,sizeof(char*));
@@ -29,7 +29,9 @@ int luat_lv_msgbox_add_btns(lua_State *L) {
             lua_pop(L, 1);
         }  
     }
-    lv_msgbox_add_btns(mbox,btn_mapaction);
+    if (btn_mapaction == NULL)
+        return 0;
+    lv_msgbox_add_btns(mbox, btn_mapaction);
     return 0;
 }
 

@@ -1,4 +1,5 @@
-
+
+
 #include "luat_base.h"
 #include "lvgl.h"
 #include "luat_lvgl.h"
@@ -59,14 +60,15 @@ int luat_lv_cpicker_set_value(lua_State *L) {
 
 //  bool lv_cpicker_set_hsv(lv_obj_t* cpicker, lv_color_hsv_t hsv)
 int luat_lv_cpicker_set_hsv(lua_State *L) {
-    LV_DEBUG("CALL lv_cpicker_set_hsv");
-    lv_obj_t* cpicker = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_color_hsv_t hsv;
-    // miss arg convert
-    bool ret;
-    ret = lv_cpicker_set_hsv(cpicker ,hsv);
-    lua_pushboolean(L, ret);
-    return 1;
+    // LV_DEBUG("CALL lv_cpicker_set_hsv");
+    // lv_obj_t* cpicker = (lv_obj_t*)lua_touserdata(L, 1);
+    // lv_color_hsv_t hsv = luaL_checkinteger(L, 2);
+    // // miss arg convert
+    // bool ret;
+    // ret = lv_cpicker_set_hsv(cpicker ,hsv);
+    // lua_pushboolean(L, ret);
+    // return 1;
+    return 0;
 }
 
 //  bool lv_cpicker_set_color(lv_obj_t* cpicker, lv_color_t color)

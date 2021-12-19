@@ -19,7 +19,7 @@ static luat_lv_t LV = {0};
 
 static luat_lcd_conf_t* lcd_conf;
 
-LUAT_WEAK luat_lv_disp_flush(lv_disp_drv_t * disp_drv, const lv_area_t * area, lv_color_t * color_p) {
+LUAT_WEAK void luat_lv_disp_flush(lv_disp_drv_t * disp_drv, const lv_area_t * area, lv_color_t * color_p) {
     //-----
     if (lcd_conf != NULL) {
 #ifdef LV_NO_BLOCK_FLUSH
@@ -72,7 +72,7 @@ int luat_lv_init(lua_State *L) {
     lv_color_t *fbuffer = NULL;
     lv_color_t *fbuffer2 = NULL;
     size_t fbuff_size = 0;
-    bool buffmode = 0;
+    size_t buffmode = 0;
 
     if (lua_isuserdata(L, 3)) {
         lcd_conf = lua_touserdata(L, 3);
@@ -103,8 +103,6 @@ int luat_lv_init(lua_State *L) {
 
     if (lua_isinteger(L, 5)) {
         buffmode = luaL_checkinteger(L, 5);
-        if (buffmode < 0)
-            buffmode =0;
     }
 
 

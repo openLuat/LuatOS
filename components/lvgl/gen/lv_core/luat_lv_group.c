@@ -1,4 +1,4 @@
-
+
 #include "luat_base.h"
 #include "lvgl.h"
 #include "luat_lvgl.h"
@@ -95,7 +95,7 @@ int luat_lv_group_send_data(lua_State *L) {
 int luat_lv_group_set_refocus_policy(lua_State *L) {
     LV_DEBUG("CALL lv_group_set_refocus_policy");
     lv_group_t* group = (lv_group_t*)lua_touserdata(L, 1);
-    lv_group_refocus_policy_t policy;
+    lv_group_refocus_policy_t policy = luaL_checkinteger(L, 2);
     // miss arg convert
     lv_group_set_refocus_policy(group ,policy);
     return 0;
@@ -177,4 +177,3 @@ int luat_lv_group_get_wrap(lua_State *L) {
     lua_pushboolean(L, ret);
     return 1;
 }
-

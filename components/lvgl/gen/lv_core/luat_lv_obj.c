@@ -1,4 +1,5 @@
-
+
+
 #include "luat_base.h"
 #include "lvgl.h"
 #include "luat_lvgl.h"
@@ -3159,11 +3160,11 @@ int luat_lv_obj_get_user_data_ptr(lua_State *L) {
 
 //  void lv_obj_set_user_data(lv_obj_t* obj, lv_obj_user_data_t data)
 int luat_lv_obj_set_user_data(lua_State *L) {
-    LV_DEBUG("CALL lv_obj_set_user_data");
-    lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_obj_user_data_t data;
+    // LV_DEBUG("CALL lv_obj_set_user_data");
+    // lv_obj_t* obj = (lv_obj_t*)lua_touserdata(L, 1);
+    // lv_obj_user_data_t data;
     // miss arg convert
-    lv_obj_set_user_data(obj ,data);
+    // lv_obj_set_user_data(obj ,data);
     return 0;
 }
 

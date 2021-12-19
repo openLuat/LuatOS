@@ -1,4 +1,5 @@
-
+
+
 #include "luat_base.h"
 #include "lvgl.h"
 #include "luat_lvgl.h"
@@ -42,7 +43,7 @@ int luat_lv_chart_add_cursor(lua_State *L) {
     lv_obj_t* chart = (lv_obj_t*)lua_touserdata(L, 1);
     lv_color_t color = {0};
     color.full = luaL_checkinteger(L, 2);
-    lv_cursor_direction_t dir;
+    lv_cursor_direction_t dir = luaL_checkinteger(L, 3);
     // miss arg convert
     lv_chart_cursor_t* ret = NULL;
     ret = lv_chart_add_cursor(chart ,color ,dir);
@@ -132,7 +133,7 @@ int luat_lv_chart_set_next(lua_State *L) {
 int luat_lv_chart_set_update_mode(lua_State *L) {
     LV_DEBUG("CALL lv_chart_set_update_mode");
     lv_obj_t* chart = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_chart_update_mode_t update_mode;
+    lv_chart_update_mode_t update_mode = luaL_checkinteger(L, 2);
     // miss arg convert
     lv_chart_set_update_mode(chart ,update_mode);
     return 0;
@@ -174,7 +175,7 @@ int luat_lv_chart_set_x_tick_texts(lua_State *L) {
     lv_obj_t* chart = (lv_obj_t*)lua_touserdata(L, 1);
     char* list_of_values = (char*)luaL_checkstring(L, 2);
     uint8_t num_tick_marks = (uint8_t)luaL_checkinteger(L, 3);
-    lv_chart_axis_options_t options;
+    lv_chart_axis_options_t options = luaL_checkinteger(L, 4);
     // miss arg convert
     lv_chart_set_x_tick_texts(chart ,list_of_values ,num_tick_marks ,options);
     return 0;
@@ -186,7 +187,7 @@ int luat_lv_chart_set_secondary_y_tick_texts(lua_State *L) {
     lv_obj_t* chart = (lv_obj_t*)lua_touserdata(L, 1);
     char* list_of_values = (char*)luaL_checkstring(L, 2);
     uint8_t num_tick_marks = (uint8_t)luaL_checkinteger(L, 3);
-    lv_chart_axis_options_t options;
+    lv_chart_axis_options_t options  = luaL_checkinteger(L, 4);
     // miss arg convert
     lv_chart_set_secondary_y_tick_texts(chart ,list_of_values ,num_tick_marks ,options);
     return 0;
@@ -198,7 +199,7 @@ int luat_lv_chart_set_y_tick_texts(lua_State *L) {
     lv_obj_t* chart = (lv_obj_t*)lua_touserdata(L, 1);
     char* list_of_values = (char*)luaL_checkstring(L, 2);
     uint8_t num_tick_marks = (uint8_t)luaL_checkinteger(L, 3);
-    lv_chart_axis_options_t options;
+    lv_chart_axis_options_t options  = luaL_checkinteger(L, 4);
     // miss arg convert
     lv_chart_set_y_tick_texts(chart ,list_of_values ,num_tick_marks ,options);
     return 0;

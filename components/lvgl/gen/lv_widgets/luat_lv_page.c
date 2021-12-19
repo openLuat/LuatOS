@@ -1,4 +1,5 @@
-
+
+
 #include "luat_base.h"
 #include "lvgl.h"
 #include "luat_lvgl.h"
@@ -285,7 +286,7 @@ int luat_lv_page_get_scrl_fit_bottom(lua_State *L) {
 int luat_lv_page_on_edge(lua_State *L) {
     LV_DEBUG("CALL lv_page_on_edge");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_page_edge_t edge;
+    lv_page_edge_t edge = luaL_checkinteger(L, 2);
     // miss arg convert
     bool ret;
     ret = lv_page_on_edge(page ,edge);
@@ -334,7 +335,7 @@ int luat_lv_page_scroll_ver(lua_State *L) {
 int luat_lv_page_start_edge_flash(lua_State *L) {
     LV_DEBUG("CALL lv_page_start_edge_flash");
     lv_obj_t* page = (lv_obj_t*)lua_touserdata(L, 1);
-    lv_page_edge_t edge;
+    lv_page_edge_t edge = luaL_checkinteger(L, 2);
     // miss arg convert
     lv_page_start_edge_flash(page ,edge);
     return 0;

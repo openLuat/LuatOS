@@ -33,6 +33,7 @@ void* luat_lvgl_free(void* ptr) {
     else {
         LLOGW("bad lv_mem_block %p %d %d", block, block->magic, block->ZERO);
     }
+    return NULL;
 }
 
 void* luat_lvgl_realloc(void* ptr, int _new) {

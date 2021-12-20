@@ -92,8 +92,9 @@ int l_str_split (lua_State *L) {
     return 1;
   }
 
-  const char *delimiters = luaL_checklstring(L, 2, &len);
-  if (len < 1) {
+  size_t dlen = 0;
+  const char *delimiters = luaL_checklstring(L, 2, &dlen);
+  if (dlen < 1) {
     delimiters = ",";
   }
 

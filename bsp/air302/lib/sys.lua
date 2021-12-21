@@ -297,6 +297,7 @@ function sys.unsubscribe(id, callback)
     end
     if subscribers[id] then subscribers[id][callback] = nil end
     -- 判断消息是否无其他订阅
+    log.info("abc", ">>>>>>>>>>>>>>>>>>")
     for k, _ in pairs(subscribers[id]) do
         return
     end

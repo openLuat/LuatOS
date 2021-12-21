@@ -27,8 +27,8 @@ jobs:
         cd build
         cmake ..
         make
-        mkdir ../../luatosfw
-        mv luatos ../../luatosfw/
+        mkdir ../../../luatosfw
+        mv luatos ../../../luatosfw/
     - name: Upload artifact
       uses: actions/upload-artifact@v1
       with:

@@ -5,18 +5,6 @@
 @date    2021.12.20
 */
 
-/*
-* lpack.c
-* a Lua library for packing and unpacking binary data
-* Luiz Henrique de Figueiredo <lhf@tecgraf.puc-rio.br>
-* 29 Jun 2007 19:27:20
-* This code is hereby placed in the public domain.
-* with contributions from Ignacio Castano <castanyo@yahoo.es> and
-* Roberto Ierusalimschy <roberto@inf.puc-rio.br>.
-*
-* Modified by BogdanM for eLua
-*/
-
 #define	OP_ZSTRING	      'z'		/* zero-terminated string */
 #define	OP_BSTRING	      'p'		/* string preceded by length byte */
 #define	OP_WSTRING	      'P'		/* string preceded by length word */
@@ -123,16 +111,16 @@ static void doswap(int swap, void *p, size_t n)
 
 /*
 解包字符串
-@api pack.unpack( string, format,[ init ] )
-@string string 需解包的字符串
-@string format 格式化符号 '<':设为小端编码 '>':设为大端编码 '=':大小端遵循本地设置 'z':空字符串 'p':byte字符串 'P':word字符串 'a':size_t字符串 'A':指定长度字符串 'f':float 'd':double 'n':Lua number 'c':char 'b':byte = unsigned char 'h':short 'H':unsigned short 'i':int 'I':unsigned int 'l':long 'L':unsigned long
-@number init[opt=1] 默认值为1，标记解包开始的位置
-@return number 字符串标记的位置
-@return number 第一个解包的值
+@api pack.unpack( string, format, init)
+@string 需解包的字符串
+@string 格式化符号 '<':设为小端编码 '>':设为大端编码 '=':大小端遵循本地设置 'z':空字符串 'p':byte字符串 'P':word字符串 'a':size_t字符串 'A':指定长度字符串 'f':float 'd':double 'n':Lua number 'c':char 'b':byte = unsigned char 'h':short 'H':unsigned short 'i':int 'I':unsigned int 'l':long 'L':unsigned long
+@int 默认值为1，标记解包开始的位置
+@return int 字符串标记的位置
+@return any 第一个解包的值, 根据format值,可能有N个返回值
 @usage
 local _,a = pack.unpack(x,">h") --解包成short (2字节)
 */
-static int l_unpack(lua_State *L) 		/** unpack(s,f,[init]) */
+static int l_unpack(lua_State *L) 
 {
  size_t len;
  const char *s=luaL_checklstring(L,1,&len);
@@ -242,17 +230,18 @@ done:
 
 /*
 打包字符串的值
-@api pack.pack( format, val1, val2, ..., valn )
+@api pack.pack( format, val1, val2, val3, valn )
 @string format 格式化符号 '<':设为小端编码 '>':设为大端编码 '=':大小端遵循本地设置 'z':空字符串 'p':byte字符串 'P':word字符串 'a':size_t字符串 'A':指定长度字符串 'f':float 'd':double 'n':Lua number 'c':char 'b':byte = unsigned char 'h':short 'H':unsigned short 'i':int 'I':unsigned int 'l':long 'L':unsigned long
-@number val1 第一个需打包的值
-@number val2 第二个需打包的值
-@number ...
-@number valn 第n个需打包的值
+@any 第一个需打包的值
+@any 第二个需打包的值
+@any 第二个需打包的值
+@any 第n个需打包的值
 @return string 一个包含所有格式化变量的字符串
 @usage
-pack.pack('<h', crypto.crc16("MODBUS",data))
+local data = pack.pack('<h', crypto.crc16("MODBUS", val))
+log.info("data", data, data:toHex())
 */
-static int l_pack(lua_State *L) 		/** pack(f,...) */
+static int l_pack(lua_State *L)
 {
  int i=2;
  const char *f=luaL_checkstring(L,1);

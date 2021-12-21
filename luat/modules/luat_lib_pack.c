@@ -1,4 +1,11 @@
 /*
+@module  pack
+@summary 打包和解包格式串
+@version 1.0
+@date    2021.12.20
+*/
+
+/*
 * lpack.c
 * a Lua library for packing and unpacking binary data
 * Luiz Henrique de Figueiredo <lhf@tecgraf.puc-rio.br>
@@ -10,25 +17,25 @@
 * Modified by BogdanM for eLua
 */
 
-#define	OP_ZSTRING	'z'		/* zero-terminated string */
-#define	OP_BSTRING	'p'		/* string preceded by length byte */
-#define	OP_WSTRING	'P'		/* string preceded by length word */
-#define	OP_SSTRING	'a'		/* string preceded by length size_t */
-#define	OP_STRING	'A'		/* string */
-#define	OP_FLOAT	'f'		/* float */
-#define	OP_DOUBLE	'd'		/* double */
-#define	OP_NUMBER	'n'		/* Lua number */
-#define	OP_CHAR		'c'		/* char */
-#define	OP_BYTE		'b'		/* byte = unsigned char */
-#define	OP_SHORT	'h'		/* short */
-#define	OP_USHORT	'H'		/* unsigned short */
-#define	OP_INT		'i'		/* int */
-#define	OP_UINT		'I'		/* unsigned int */
-#define	OP_LONG		'l'		/* long */
-#define	OP_ULONG	'L'		/* unsigned long */
+#define	OP_ZSTRING	      'z'		/* zero-terminated string */
+#define	OP_BSTRING	      'p'		/* string preceded by length byte */
+#define	OP_WSTRING	      'P'		/* string preceded by length word */
+#define	OP_SSTRING	      'a'		/* string preceded by length size_t */
+#define	OP_STRING	      'A'		/* string */
+#define	OP_FLOAT	         'f'		/* float */
+#define	OP_DOUBLE	      'd'		/* double */
+#define	OP_NUMBER	      'n'		/* Lua number */
+#define	OP_CHAR		      'c'		/* char */
+#define	OP_BYTE		      'b'		/* byte = unsigned char */
+#define	OP_SHORT	         'h'		/* short */
+#define	OP_USHORT	      'H'		/* unsigned short */
+#define	OP_INT		      'i'		/* int */
+#define	OP_UINT		      'I'		/* unsigned int */
+#define	OP_LONG		      'l'		/* long */
+#define	OP_ULONG	         'L'		/* unsigned long */
 #define	OP_LITTLEENDIAN	'<'		/* little endian */
-#define	OP_BIGENDIAN	'>'		/* big endian */
-#define	OP_NATIVE	'='		/* native endian */
+#define	OP_BIGENDIAN	   '>'		/* big endian */
+#define	OP_NATIVE	      '='		/* native endian */
 
 #include <ctype.h>
 #include <string.h>
@@ -114,6 +121,17 @@ static void doswap(int swap, void *p, size_t n)
     break;				\
    }
 
+/*
+解包字符串
+@api pack.unpack( string, format,[ init ] )
+@string string 需解包的字符串
+@string format 格式化符号 '<':设为小端编码 '>':设为大端编码 '=':大小端遵循本地设置 'z':空字符串 'p':byte字符串 'P':word字符串 'a':size_t字符串 'A':指定长度字符串 'f':float 'd':double 'n':Lua number 'c':char 'b':byte = unsigned char 'h':short 'H':unsigned short 'i':int 'I':unsigned int 'l':long 'L':unsigned long
+@number init[opt=1] 默认值为1，标记解包开始的位置
+@return number 字符串标记的位置
+@return number 第一个解包的值
+@usage
+local _,a = pack.unpack(x,">h") --解包成short (2字节)
+*/
 static int l_unpack(lua_State *L) 		/** unpack(s,f,[init]) */
 {
  size_t len;
@@ -222,7 +240,18 @@ done:
     break;					\
    }
 
-
+/*
+打包字符串的值
+@api pack.pack( format, val1, val2, ..., valn )
+@string format 格式化符号 '<':设为小端编码 '>':设为大端编码 '=':大小端遵循本地设置 'z':空字符串 'p':byte字符串 'P':word字符串 'a':size_t字符串 'A':指定长度字符串 'f':float 'd':double 'n':Lua number 'c':char 'b':byte = unsigned char 'h':short 'H':unsigned short 'i':int 'I':unsigned int 'l':long 'L':unsigned long
+@number val1 第一个需打包的值
+@number val2 第二个需打包的值
+@number ...
+@number valn 第n个需打包的值
+@return string 一个包含所有格式化变量的字符串
+@usage
+pack.pack('<h', crypto.crc16("MODBUS",data))
+*/
 static int l_pack(lua_State *L) 		/** pack(f,...) */
 {
  int i=2;

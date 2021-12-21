@@ -908,7 +908,7 @@ static int l_lcd_draw_gtfont_gb2312(lua_State *L) {
 		int font_size = get_font(buf, 1, str, size, size, size);
     if(font_size != size){
       LLOGW("get gtfont error");
-      return -1;
+      return 0;
     }
 		gtfont_draw_w(buf , x ,y , size , size,luat_lcd_draw_point,default_conf,0);
 		x+=size;
@@ -948,7 +948,7 @@ static int l_lcd_draw_gtfont_gb2312_gray(lua_State* L) {
 		int font_size = get_font(buf, 1, str, size*font_g, size*font_g, size*font_g);
     if(font_size != size*font_g){
       LLOGW("get gtfont error");
-      return -1;
+      return 0;
     }
 		Gray_Process(buf,size,size,font_g);
 		gtfont_draw_gray_hz(buf, x, y, size , size, font_g, 1,luat_lcd_draw_point,default_conf,0);
@@ -991,7 +991,7 @@ static int l_lcd_draw_gtfont_utf8(lua_State *L) {
         int font_size = get_font(buf, 1, str, size, size, size);
         if(font_size != size){
           LLOGW("get gtfont error");
-          return -1;
+          return 0;
         }
         gtfont_draw_w(buf , x ,y , size , size,luat_lcd_draw_point,default_conf,0);
         x+=size;
@@ -1032,7 +1032,7 @@ static int l_lcd_draw_gtfont_utf8_gray(lua_State* L) {
 			int font_size = get_font(buf, 1, str, size*font_g, size*font_g, size*font_g);
       if(font_size != size*font_g){
         LLOGW("get gtfont error");
-        return -1;
+        return 0;
       }
 			Gray_Process(buf,size,size,font_g);
       gtfont_draw_gray_hz(buf, x, y, size , size, font_g, 1,luat_lcd_draw_point,default_conf,0);

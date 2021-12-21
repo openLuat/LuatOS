@@ -42,11 +42,30 @@ local function fatfs_test()
         log.info("fsstat", fs.fsstat("/"))
         log.info("fsstat", fs.fsstat("/sd"))
     end
+
+    -- 测试一下追加, fix in 2021.12.21
+    os.remove("/sd/test_a")
+    sys.wait(50)
+    f = io.open("/sd/test_a", "w")
+    if f then
+        f:write("ABC")
+        f:close()
+    end
+    f = io.open("/sd/test_a", "a+")
+    if f then
+        f:write("def")
+        f:close()
+    end
+    f = io.open("/sd/test_a", "r")
+    if  f then
+        local data = f:read("*a")
+        log.info("data", data, data == "ABCdef")
+    end
 end
 
-fatfs_test() -- 每次开机,把记录的数值+1
 
 sys.taskInit(function()
+    fatfs_test() -- 每次开机,把记录的数值+1
     while 1 do
         sys.wait(500)
     end

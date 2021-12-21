@@ -1,0 +1,47 @@
+name: linux
+
+on:
+  push:
+    paths:
+      - '.github/workflows/linux.yml'
+      - 'lua/**'
+      - 'luat/**'
+      - 'components/**'
+      - 'bsp/linux/**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v1
+    - name: prepare software
+      run: |
+        sudo apt-get update
+        sudo apt install git gcc-multilib libc6 libgcc1 libstdc++5 libstdc++6 libsdl-dev p7zip-full -y
+        sudo apt install libncurses5-dev cmake -y
+    - name: make
+      run: |
+        cd bsp/linux
+        mkdir build
+        cd build
+        cmake ..
+        make
+        mkdir ../../luatosfw
+        mv luatos ../../luatosfw/
+    - name: Upload artifact
+      uses: actions/upload-artifact@v1
+      with:
+        name: linux
+        path: luatosfw
+    - name: report if failure
+      if: always()
+      env:
+        STATUS: ${{ job.status }}
+        MQTTADDR: ${{ secrets.MQTTADDR }}
+        MQTTPORT: ${{ secrets.MQTTPORT }}
+        MQTTTOPIC: ${{ secrets.MQTTTOPIC }}
+      run: |
+        sudo pip3 install paho_mqtt gitpython
+        cd tools
+        if [ "$STATUS" = "failure" ];then python3 ciNotify.py $MQTTADDR $MQTTPORT $MQTTTOPIC "linux https://github.com/openLuat/LuatOS/actions/runs/$GITHUB_RUN_ID"; fi

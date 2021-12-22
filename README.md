@@ -11,7 +11,9 @@
 [![air640w](https://github.com/openLuat/LuatOS/actions/workflows/air640w.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/air640w/master)
 [![win32](https://github.com/openLuat/LuatOS/actions/workflows/win32.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/win32/master)
 
-LuatOS-SoC是一款实时操作系统,用户编写Lua代码就可完成各种功能, 仅需极少的内存和Flash空间
+LuatOS : Powerful embedded Lua Engine for IoT devices, with many components and low memory requirements (16K RAM, 128K Flash)
+
+强大的Lua引擎, 为mcu和物联网设备高度优化, 支持众多组件, 非常低的内存需求(最低16K RAM, 128K Flash).
 
 ## 快速入门
 

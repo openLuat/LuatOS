@@ -250,7 +250,7 @@ void luat_dbg_vars(void *params) {
                 // 索引号,变量名,变量类型,值的字符串长度, 值的字符串形式
                 // TODO LuatIDE把这里改成了json输出, 需要改造一下
                 // 构建个table,然后json.encode?
-                if (ret == 0)
+                if (ret == 0 && (strcmp(buff,"\x0e") != 0))
                     luat_dbg_output("D/dbg [resp,vars,%d]\r\n%s\r\n", strlen(buff), buff);
                 lua_pop(dbg_L, 1);
             }

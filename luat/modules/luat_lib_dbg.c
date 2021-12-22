@@ -273,12 +273,18 @@ void luat_dbg_gvars(void *params) {
     char buff[128];
     size_t len;
     const char* varname = NULL;
+    const char* vartype = NULL;
+    const char* vardata = NULL;
     while (lua_next(dbg_L, -2) != 0) {
        if (lua_isstring(dbg_L, -2)) {
            varname = luaL_checkstring(dbg_L, -2);
-           len = snprintf(buff, 127, "{\"type\":\"%s\", \"name\":\"%s\", \"data\":\"%s\"}", 
-                    lua_typename(dbg_L, lua_type(dbg_L, -1)), varname, lua_tostring(dbg_L, -1));
-           luat_dbg_output("D/dbg [resp,gvars,%d]\r\n%s\r\n", len, buff);
+           vartype = lua_typename(dbg_L, lua_type(dbg_L, -1));
+           vardata = lua_tostring(dbg_L, -1);
+           if(strcmp(vardata,"\x0e") != 0)
+            {
+                len = snprintf(buff, 127, "{\"type\":\"%s\", \"name\":\"%s\", \"data\":\"%s\"}", vartype, varname, vardata);
+                luat_dbg_output("D/dbg [resp,gvars,%d]\r\n%s\r\n", len, buff);
+            }
        }
        lua_pop(dbg_L, 1);
     }

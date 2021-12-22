@@ -251,7 +251,7 @@ void luat_dbg_vars(void *params) {
                 // TODO LuatIDE把这里改成了json输出, 需要改造一下
                 // 构建个table,然后json.encode?
                 if (ret == 0)
-                    luat_dbg_output("D/dbg [resp,vars,%d]\r\n%s\r\n", valstrlen, buff);
+                    luat_dbg_output("D/dbg [resp,vars,%d]\r\n%s\r\n", strlen(buff), buff);
                 lua_pop(dbg_L, 1);
             }
             else {

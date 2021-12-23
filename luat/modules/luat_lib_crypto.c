@@ -392,7 +392,7 @@ LUAMOD_API int luaopen_crypto( lua_State *L ) {
 }
 
 // 添加几个默认实现
-
+#ifndef LUAT_COMPILER_NOWEAK
 LUAT_WEAK int luat_crypto_md5_simple(const char* str, size_t str_size, void* out_ptr) {return -1;}
 LUAT_WEAK int luat_crypto_hmac_md5_simple(const char* str, size_t str_size, const char* mac, size_t mac_size, void* out_ptr) {return -1;}
 
@@ -409,3 +409,5 @@ LUAT_WEAK int luat_crypto_trng(char* buff, size_t len) {
     memset(buff, 0, len);
     return 0;
 }
+
+#endif

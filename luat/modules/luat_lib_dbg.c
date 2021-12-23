@@ -250,8 +250,8 @@ void luat_dbg_vars(void *params) {
                 // 索引号,变量名,变量类型,值的字符串长度, 值的字符串形式
                 // TODO LuatIDE把这里改成了json输出, 需要改造一下
                 // 构建个table,然后json.encode?
-                if (ret == 0)
-                    luat_dbg_output("D/dbg [resp,vars,%d]\r\n%s\r\n", valstrlen, buff);
+                if (ret == 0 && (strcmp(buff,"\x0e") != 0))
+                    luat_dbg_output("D/dbg [resp,vars,%d]\r\n%s\r\n", strlen(buff), buff);
                 lua_pop(dbg_L, 1);
             }
             else {
@@ -273,12 +273,18 @@ void luat_dbg_gvars(void *params) {
     char buff[128];
     size_t len;
     const char* varname = NULL;
+    const char* vartype = NULL;
+    const char* vardata = NULL;
     while (lua_next(dbg_L, -2) != 0) {
        if (lua_isstring(dbg_L, -2)) {
            varname = luaL_checkstring(dbg_L, -2);
-           len = snprintf(buff, 127, "{\"type\":\"%s\", \"name\":\"%s\", \"data\":\"%s\"}", 
-                    lua_typename(dbg_L, lua_type(dbg_L, -1)), varname, lua_tostring(dbg_L, -1));
-           luat_dbg_output("D/dbg [resp,gvars,%d]\r\n%s\r\n", len, buff);
+           vartype = lua_typename(dbg_L, lua_type(dbg_L, -1));
+           vardata = lua_tostring(dbg_L, -1);
+           if(strcmp(vardata,"\x0e") != 0)
+            {
+                len = snprintf(buff, 127, "{\"type\":\"%s\", \"name\":\"%s\", \"data\":\"%s\"}", vartype, varname, vardata);
+                luat_dbg_output("D/dbg [resp,gvars,%d]\r\n%s\r\n", len, buff);
+            }
        }
        lua_pop(dbg_L, 1);
     }

@@ -10,6 +10,6 @@ for p in os.listdir(cwd) :
 
 CPPPATH = [cwd]
 
-group = DefineGroup('epaper', src, depend = [], CPPPATH = CPPPATH)
+group = DefineGroup('epaper', src, depend = ['PKG_USING_LUATOS_SOC_EINK'], CPPPATH = CPPPATH)
 
 Return('group')

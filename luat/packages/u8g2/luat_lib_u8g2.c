@@ -53,8 +53,7 @@ u8g2显示屏初始化
 u8g2.begin({ic = "ssd1306",mode="i2c_hw",i2c_id=0})
 -- 初始化软件i2c的ssd1306
 u8g2.begin({ic = "ssd1306",mode="i2c_sw", i2c_scl=1, i2c_sda=4}) -- 通过PA1 SCL / PA4 SDA模拟
--- 初始化硬件spi的st7567
-u8g2.begin({ic ="st7567",mode="spi_hw_4pin",spi_id=1,spi_res=19,spi_dc=17,spi_cs=20})
+
 */
 static int l_u8g2_begin(lua_State *L) {
     if (u8g2 != NULL) {
@@ -170,14 +169,6 @@ static int l_u8g2_begin(lua_State *L) {
         }
         lua_pop(L, 1);
 
-        // lua_pushliteral(L, "spi_id");
-        // lua_gettable(L, 1);
-        // if (lua_isinteger(L, -1)) {
-        //     spi_id = luaL_checkinteger(L, -1);
-        // }
-        // lua_pop(L, 1);
-
-        // pin4 ~ pin7暂时用不到,先不设置了
     }
     LLOGD("pinType=%d", conf.pinType);
     if (luat_u8g2_setup(&conf)) {
@@ -967,35 +958,16 @@ int hw_spi_begin(uint8_t spi_mode, uint32_t max_hz, uint8_t cs_pin )
     u8g2_spi.mode = 1;
     u8g2_spi.bandrate = max_hz;
     u8g2_spi.cs = cs_pin;
-    LLOGI("cs_pin=%d",cs_pin);
+    // LLOGI("cs_pin=%d",cs_pin);
     luat_spi_setup(&u8g2_spi);
     return 1;
 }
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 uint8_t u8x8_luat_byte_4wire_hw_spi(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr) {
-
-    uint8_t i;
-    uint8_t *data;
-
-    uint8_t tx[256];
-    uint8_t rx[256];
-
-    static uint8_t buf_idx;
-    static uint8_t buffer_tx[256];
-
     switch(msg)
     {
         case U8X8_MSG_BYTE_SEND:
-            data = (uint8_t *)arg_ptr;
-
-            while( arg_int > 0)
-            {
-                buffer_tx[buf_idx++] = (uint8_t)*data;
-                luat_spi_send(spi_id, (const char*)data, 1);
-                data++;
-                arg_int--;
-            }
-            //luat_spi_send(spi_id, (uint8_t*)data, arg_int);
+            luat_spi_send(spi_id, (uint8_t*)arg_ptr, arg_int);
             break;
 
         case U8X8_MSG_BYTE_INIT:
@@ -1018,16 +990,8 @@ uint8_t u8x8_luat_byte_4wire_hw_spi(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, 
             break;
 
         case U8X8_MSG_BYTE_END_TRANSFER:
-            memset( tx, 0, ARRAY_SIZE(tx)*sizeof(uint8_t) );
-            memset( rx, 0, ARRAY_SIZE(rx)*sizeof(uint8_t) );
-
-            for (i = 0; i < buf_idx; ++i)
-            {
-                tx[i] = buffer_tx[i];
-            }
             u8x8->gpio_and_delay_cb(u8x8, U8X8_MSG_DELAY_NANO, u8x8->display_info->pre_chip_disable_wait_ns, NULL);
             u8x8_gpio_SetCS(u8x8, u8x8->display_info->chip_disable_level);
-            buf_idx = 0;
             break;
 
         default:

@@ -504,7 +504,7 @@ static int l_lcd_draw_circle(lua_State* L) {
 @int x坐标
 @int y坐标
 @string 二维码的内容
-@int 二维码版本号
+@int 二维码版本号 可选1_40 对应21*21到177*177
 @return nil 无返回值
 */
 static int l_lcd_drawQrcode(lua_State *L)

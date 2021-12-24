@@ -31,8 +31,8 @@ if not GetDepend(['FINSH_USING_MSH']):
 
 if not GetDepend(['RT_USING_WIFI']):
     src.remove('luat_lib_wlan.c')
-    if GetDepend(['RT_WLAN_MANAGE_ENABLE']):
-        src.remove('rtt_airkiss.c')
+if not GetDepend(['RT_WLAN_MANAGE_ENABLE']):
+    src.remove('rtt_airkiss.c')
 
 if not GetDepend(['RT_USING_SAL']):
     src.remove('webclient.c')

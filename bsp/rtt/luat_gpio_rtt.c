@@ -83,19 +83,19 @@ int luat_gpio_setup(luat_gpio_t* gpio) {
 }
 
 int luat_gpio_set(int pin, int level) {
-    LOG_D("Pin set pin=%d level=%d", pin, level);
+    //LOG_D("Pin set pin=%d level=%d", pin, level);
     rt_pin_write(pin, level);
     return 0;
 }
 
 int luat_gpio_get(int pin) {
     int re = rt_pin_read(pin);
-    LOG_D("Pin get pin=%d value=%d", pin, re);
+    //LOG_D("Pin get pin=%d value=%d", pin, re);
     return re;
 }
 
 void luat_gpio_close(int pin) {
-    LOG_D("Pin Close, pin=%d", pin);
+    //LOG_D("Pin Close, pin=%d", pin);
     rt_pin_irq_enable(pin, 0);
     rt_pin_mode(pin, PIN_MODE_INPUT);
 }

@@ -132,7 +132,7 @@ void doc_sys_subscribe(void){};
 
 /*
 取消订阅topic通道
-@api sys.subscribe(topic, func)
+@api sys.unsubscribe(topic, func)
 @string topic的值
 @function 回调函数, 注意, 不能直接使用sys.waitXXX
 @return nil 无返回值

@@ -1,7 +1,7 @@
 
 /*
 @module  fdb
-@summary 基于FlashDB的kv数据库和时序数据库
+@summary kv数据库(基于FlashDB)
 @version 1.0
 @date    2021.11.03
 */

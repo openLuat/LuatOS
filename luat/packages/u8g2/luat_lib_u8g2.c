@@ -967,7 +967,7 @@ uint8_t u8x8_luat_byte_4wire_hw_spi(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, 
     switch(msg)
     {
         case U8X8_MSG_BYTE_SEND:
-            luat_spi_send(spi_id, (uint8_t*)arg_ptr, arg_int);
+            luat_spi_send(spi_id, (const char*)arg_ptr, arg_int);
             break;
 
         case U8X8_MSG_BYTE_INIT:

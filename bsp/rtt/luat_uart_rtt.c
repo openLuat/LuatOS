@@ -18,6 +18,7 @@
 static rt_device_t serials[MAX_DEVICE_COUNT];
 static uint8_t serials_marks[MAX_DEVICE_COUNT];
 static uint8_t uart_init_complete = 0;
+rt_device_t luat_log_uart_device;
 
 int luat_uart_rtt_init() {
     if (uart_init_complete) return 0;
@@ -35,6 +36,7 @@ int luat_uart_rtt_init() {
         serials[i] = rt_device_find(name);
         //LOG_I("uart device dev=0x%08X uart.id=%ld", serials[i], i);
     }
+    luat_log_uart_device = rt_device_find(RT_CONSOLE_DEVICE_NAME);
     uart_init_complete = 1;
     return 0;
 }

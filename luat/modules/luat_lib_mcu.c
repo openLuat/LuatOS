@@ -45,7 +45,7 @@ static int l_mcu_get_clk(lua_State* L) {
 }
 
 /*
-获取设备唯一id. 注意,可能包含不可字符,如需查看建议toHex()后打印
+获取设备唯一id. 注意,可能包含不可见字符,如需查看建议toHex()后打印
 @api mcu.unique_id()
 @return string 设备唯一id.若不支持, 会返回空字符串.
 @usage

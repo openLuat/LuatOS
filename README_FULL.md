@@ -10,6 +10,7 @@
 [![air100st](https://github.com/openLuat/LuatOS/actions/workflows/air100st.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/air100st/master)
 [![air640w](https://github.com/openLuat/LuatOS/actions/workflows/air640w.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/air640w/master)
 [![win32](https://github.com/openLuat/LuatOS/actions/workflows/win32.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/win32/master)
+[![linux](https://github.com/openLuat/LuatOS/actions/workflows/linux.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/linux/master)
 
 LuatOS-SoC是一款实时操作系统,用户编写Lua代码就可完成各种功能, 仅需极少的内存和Flash空间
 

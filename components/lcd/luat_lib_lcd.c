@@ -720,9 +720,10 @@ static int16_t u8g2_font_draw_glyph(u8g2_t *u8g2, int16_t x, int16_t y, uint16_t
 /*
 设置字体
 @api lcd.setFont(font)
-@string font
+@int font lcd.font_opposansm8 lcd.font_opposansm10 lcd.font_opposansm16  lcd.font_opposansm18  lcd.font_opposansm20  lcd.font_opposansm22  lcd.font_opposansm24 lcd.font_opposansm32 lcd.font_opposansm12_chinese lcd.font_opposansm16_chinese lcd.font_opposansm24_chinese lcd.font_opposansm32_chinese 
 @usage
--- 设置为中文字体,对之后的drawStr有效,使用中文字体需在luat_conf_bsp.h.h开启#define USE_U8G2_OPPOSANSM12_CHINESE
+-- 设置为字体,对之后的drawStr有效,调用lcd.drawStr前一定要先设置
+-- 使用中文字体需在luat_conf_bsp.h中开启相对应的宏
 lcd.setFont(lcd.font_opposansm12)
 lcd.drawStr(40,10,"drawStr")
 sys.wait(2000)

@@ -22,6 +22,7 @@
 #include "lstring.h"
 #include "lundump.h"
 #include "lzio.h"
+#include "ltable.h"
 
 #include "luat_base.h"
 #include "luat_fs.h"
@@ -69,13 +70,13 @@ static void LoadBlock (LoadState *S, void *b, size_t size) {
 
 static void* DistBlock (LoadState *S, size_t size) {
   char b = 0;
-  void* p = S->Z->p;
+  const char* p = S->Z->p;
   for (size_t i = 0; i < size; i++)
   {
     if (luaZ_read(S->Z, &b, 1) != 0)
       error(S, "truncated");
   }
-  return p;
+  return (void*)p;
 }
 
 
@@ -114,7 +115,7 @@ static TString *LoadString (LoadState *S, Proto *p) {
   lu_byte t = LoadByte(S);
   if (t == 0)
     return NULL;
-  TString * ts = S->Z->p;
+  TString * ts = (TString*)S->Z->p;
   // LLOGD("LoadString >> %d %p", tsslen(ts), ts);
   DistBlock(S, sizeof(TString) + tsslen(ts) + 1);
   // LLOGD("LoadString >> %s", getstr(ts));
@@ -172,6 +173,9 @@ static void LoadUpvalues (LoadState *S, Proto *f) {
   f->sizeupvalues = n;
   // LLOGD("LoadUpvalues %d %d", n, sizeof(Upvaldesc) * n);
   f->upvalues = DistBlock(S, sizeof(Upvaldesc) * n);
+  // char* tmp = luaM_newvector(S->L, n, Upvaldesc);
+  // memcpy(tmp, f->upvalues, sizeof(Upvaldesc) * n);
+  // f->upvalues = tmp;
   // 跳过字符串段
   n = LoadInt(S);
   // LLOGD("LoadUpvalues skip Strings %d", n);
@@ -285,6 +289,20 @@ LClosure *luat_luf_undump(lua_State *L, ZIO *Z, const char *name) {
   LoadFunction(&S, cl->p, NULL);
   lua_assert(cl->nupvalues == cl->p->sizeupvalues);
   luai_verifycode(L, buff, cl->p);
+  luaF_initupvals(L, cl);
+
+  //-----------------
+  // from lua_load
+  LClosure *f = cl;
+    if (f->nupvalues >= 1) {  /* does it have an upvalue? */
+      /* get global table from registry */
+      Table *reg = hvalue(&G(L)->l_registry);
+      const TValue *gt = luaH_getint(reg, LUA_RIDX_GLOBALS);
+      /* set global table as 1st upvalue of 'f' (may be LUA_ENV) */
+      setobj(L, f->upvals[0]->v, gt);
+      luaC_upvalbarrier(L, f->upvals[0]);
+    }
+  //-----------------
   return cl;
 }
 

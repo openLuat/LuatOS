@@ -21,9 +21,13 @@
 #include "lstate.h"
 #include "lundump.h"
 #include "lstring.h"
+#include "lgc.h"
 
 #define LUAT_LOG_TAG "dump"
 #include "luat_log.h"
+
+#define white2gray(x)	resetbits(x->marked, WHITEBITS)
+#define black2gray(x)	resetbit(x->marked, BLACKBIT)
 
 static size_t fd_offset;
 
@@ -99,6 +103,7 @@ static void DumpString (const TString *s, DumpState *D) {
     ts.extra = 1;
     ts.tt = LUA_TLNGSTR;
   }
+  white2gray((&ts));
   //LLOGD("B>DumpString %d %d", fslen(s), fd_offset);
   DumpBlock(&ts, sizeof(TString), D);
   DumpBlock(getstr(s), tsslen(s)+1, D);

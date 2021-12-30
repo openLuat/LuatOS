@@ -31,6 +31,8 @@
 
 static size_t fd_offset;
 
+#define LUF_SIGNATURE "\x1cLUF"
+
 typedef struct {
   lua_State *L;
   lua_Writer writer;
@@ -258,7 +260,7 @@ static void DumpFunction (const Proto *f, TString *psource, DumpState *D) {
 
 
 static void DumpHeader (DumpState *D) {
-  DumpLiteral(LUA_SIGNATURE, D);
+  DumpLiteral(LUF_SIGNATURE, D);
   DumpByte(LUAC_VERSION, D);
   DumpByte(LUAC_FORMAT + 1, D);
   DumpLiteral(LUAC_DATA, D);

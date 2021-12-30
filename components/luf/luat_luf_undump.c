@@ -30,14 +30,7 @@
 #define LUAT_LOG_TAG "undump"
 #include "luat_log.h"
 
-#define LUAT_UNDUMP_DEBUG 0
-
-// 未开启VFS就不能使用mmap
-#ifndef LUAT_USE_FS_VFS
-#ifdef LUAT_USE_MEMORY_OPTIMIZATION_CODE_MMAP
-#undef LUAT_USE_MEMORY_OPTIMIZATION_CODE_MMAP
-#endif
-#endif
+#define LUF_SIGNATURE "\x1cLUF"
 
 
 #if !defined(luai_verifycode)
@@ -250,7 +243,7 @@ static void fchecksize (LoadState *S, size_t size, const char *tname) {
 #define checksize(S,t)	fchecksize(S,sizeof(t),#t)
 
 static void checkHeader (LoadState *S) {
-  checkliteral(S, LUA_SIGNATURE + 1, "not a");  /* 1st char already checked */
+  checkliteral(S, LUF_SIGNATURE + 1, "not a");  /* 1st char already checked */
   if (LoadByte(S) != LUAC_VERSION)
     error(S, "version mismatch in");
   if (LoadByte(S) != 1)
@@ -303,6 +296,7 @@ LClosure *luat_luf_undump(lua_State *L, ZIO *Z, const char *name) {
       luaC_upvalbarrier(L, f->upvals[0]);
     }
   //-----------------
+  sizeof(LClosure) + sizeof(Proto) + sizeof(UpVal);
   return cl;
 }
 

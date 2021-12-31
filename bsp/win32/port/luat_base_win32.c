@@ -25,7 +25,7 @@ static const luaL_Reg loadedlibs[] = {
   {LUA_OSLIBNAME, luaopen_os},        // os库,已精简
   {LUA_STRLIBNAME, luaopen_string},   // string库,字符串操作
   {LUA_MATHLIBNAME, luaopen_math},    // math 数值计算
-//  {LUA_UTF8LIBNAME, luaopen_utf8},
+  {LUA_UTF8LIBNAME, luaopen_utf8},
   {LUA_DBLIBNAME, luaopen_debug},     // debug库,已精简
 #if defined(LUA_COMPAT_BITLIB)
   {LUA_BITLIBNAME, luaopen_bit32},    // 不太可能启用
@@ -39,22 +39,15 @@ static const luaL_Reg loadedlibs[] = {
   {"zbuff", luaopen_zbuff},            // 
 //   {"mqttcore", luaopen_mqttcore},      // 
 //   {"libcoap", luaopen_libcoap},        // 
-// #ifdef LUA_USE_WINDOWS
-//   {"lfs", luaopen_lfs},                //
-// //   {"rs232.core", luaopen_rs232_core},
-// #endif
   {"crypto", luaopen_crypto},
   {"fatfs", luaopen_fatfs},
   {"sfd",   luaopen_sfd},
   {"lfs2",   luaopen_lfs2},
   {"gpio",   luaopen_gpio},
+  {"luf",    luaopen_luf},
 #ifdef LUAT_USE_LVGL
   {"lvgl",   luaopen_lvgl},
-//   {"lcd",    luaopen_lcd},
 #endif
-// #ifdef LUAT_USE_LWIP
-//   {"lwip",   luaopen_lwip},
-// #endif
   {NULL, NULL}
 };
 

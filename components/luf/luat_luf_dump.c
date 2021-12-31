@@ -288,8 +288,8 @@ int luf_dump(lua_State *L, const Proto *f, lua_Writer w, void *data,
 
   fd_offset = ptroffset + 1;
 
-  LLOGD("sizeof(Upvaldesc) %d", sizeof(Upvaldesc));
-  LLOGD("sizeof(LocVar) %d", sizeof(LocVar));
+  // LLOGD("sizeof(Upvaldesc) %d", sizeof(Upvaldesc));
+  // LLOGD("sizeof(LocVar) %d", sizeof(LocVar));
 
   DumpHeader(&D);
   DumpByte(f->sizeupvalues, &D);

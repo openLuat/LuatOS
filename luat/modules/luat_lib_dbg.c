@@ -326,6 +326,8 @@ static void luat_dbg_waitby(int origin) {
 
 // 供Lua VM调用的钩子函数
 void luat_debug_hook(lua_State *L, lua_Debug *ar) {
+    // luat_dbg_output("D/dbg [state][print] event:%d | short_src: %s | line:%d | currentState:%d | currentHookState:%d\r\n", ar->event, ar->short_src, ar->currentline, cur_hook_state, cur_hook_state);
+
     if (cur_hook_state == 0) {
         return; // hook 已经关掉了哦
     }
@@ -335,7 +337,7 @@ void luat_debug_hook(lua_State *L, lua_Debug *ar) {
 
     lua_getinfo(L, "Sl", ar);
 
-    //luat_dbg_output("D/dbg [state][print] event:%d | short_src: %s | line:%d | currentState:%d | currentHookState:%d", ar->event, ar->short_src, ar->currentline, cur_run_state, cur_hook_state);
+
 
     // 不是lua文件, 就没调试价值
     if (ar->source[0] != '@') {
@@ -364,7 +366,8 @@ void luat_debug_hook(lua_State *L, lua_Debug *ar) {
                 if (
                     strcmp(breakpoints[i].source, ar->short_src + 0) != 0 && 
                     strcmp(breakpoints[i].source, ar->short_src + 1) != 0 &&
-                    strcmp(breakpoints[i].source, ar->short_src + 2) != 0
+                    strcmp(breakpoints[i].source, ar->short_src + 2) != 0 &&
+                    strcmp(breakpoints[i].source, ar->short_src + 7) != 0
                     ) {
                     continue;
                 }
@@ -424,7 +427,7 @@ void luat_debug_hook(lua_State *L, lua_Debug *ar) {
 */
 int l_debug_wait(lua_State *L) {
     if (cur_hook_state == 0) {
-        //luat_dbg_output("setup hook for debgger");
+        // luat_dbg_output("setup hook for debgger\r\n");
         lua_sethook(L, luat_debug_hook, LUA_MASKCALL | LUA_MASKRET | LUA_MASKLINE, 0);
         luat_dbg_set_hook_state(1);
         int timeout = luaL_optinteger(L, 1, 120) * 1000;

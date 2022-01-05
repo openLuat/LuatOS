@@ -196,17 +196,17 @@ static int value_to_dbg_json(lua_State* L, const char* name, char** buff, size_t
     switch (ltype)
     {
     case LUA_TNIL:
-        cJSON_AddNullToObject(cj, "value");
+        cJSON_AddNullToObject(cj, "data");
         break;
     case LUA_TBOOLEAN:
-        cJSON_AddBoolToObject(cj, "value", lua_toboolean(L, -1));
+        cJSON_AddBoolToObject(cj, "data", lua_toboolean(L, -1));
         break;
     case LUA_TNUMBER:
-        cJSON_AddNumberToObject(cj, "value", lua_tonumber(L, -1));
+        cJSON_AddStringToObject(cj, "data", lua_tostring(L, -1));
         break;
     case LUA_TTABLE:
         // TODO 递归之
-        cJSON_AddStringToObject(cj, "value", lua_tostring(L, -1));
+        cJSON_AddStringToObject(cj, "data", lua_tostring(L, -1));
         break;
     case LUA_TSTRING:
     case LUA_TLIGHTUSERDATA:
@@ -214,7 +214,7 @@ static int value_to_dbg_json(lua_State* L, const char* name, char** buff, size_t
     case LUA_TFUNCTION:
     case LUA_TTHREAD:
     default:
-        cJSON_AddStringToObject(cj, "value", lua_tostring(L, -1));
+        cJSON_AddStringToObject(cj, "data", lua_tostring(L, -1));
         break;
     }
     char* str = cJSON_Print(cj);
@@ -246,6 +246,10 @@ void luat_dbg_vars(void *params) {
         while (1) {
             const char* varname = lua_getlocal(dbg_L, dbg_ar, index);
             if (varname) {
+                if(strcmp(varname,"(*temporary)") == 0)
+                {
+                    break;
+                }
                 ret = value_to_dbg_json(dbg_L, varname, &buff, &valstrlen, 10);
                 // 索引号,变量名,变量类型,值的字符串长度, 值的字符串形式
                 // TODO LuatIDE把这里改成了json输出, 需要改造一下

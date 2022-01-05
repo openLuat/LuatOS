@@ -246,6 +246,10 @@ void luat_dbg_vars(void *params) {
         while (1) {
             const char* varname = lua_getlocal(dbg_L, dbg_ar, index);
             if (varname) {
+                if(strcmp(varname,"(*temporary)") == 0)
+                {
+                    break;
+                }
                 ret = value_to_dbg_json(dbg_L, varname, &buff, &valstrlen, 10);
                 // 索引号,变量名,变量类型,值的字符串长度, 值的字符串形式
                 // TODO LuatIDE把这里改成了json输出, 需要改造一下

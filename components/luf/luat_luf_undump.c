@@ -43,9 +43,18 @@ typedef struct {
   const char *name;
 } LoadState;
 
+static void dumpHex(const char* tag, void* ptr, size_t len) {
+  uint8_t* c = (uint8_t*)ptr;
+  for (size_t i = 0; i < len / 8; i++)
+  {
+    LLOGD("%s %p %02X %02X %02X %02X %02X %02X %02X %02X", tag, &c[i*8], c[i*8], c[i*8+1], c[i*8+2], c[i*8+3],
+                                                                         c[i*8+4], c[i*8+5], c[i*8+6], c[i*8+7]);
+  }
+}
+
 
 static l_noret error(LoadState *S, const char *why) {
-  luaO_pushfstring(S->L, "%s: %s precompiled chunk", S->name, why);
+  luaO_pushfstring(S->L, "luf %s: %s precompiled chunk", S->name, why);
   luaD_throw(S->L, LUA_ERRSYNTAX);
 }
 
@@ -104,16 +113,16 @@ static lua_Integer LoadInteger (LoadState *S) {
 }
 
 
-static TString *LoadString (LoadState *S, Proto *p) {
-  lu_byte t = LoadByte(S);
-  if (t == 0)
-    return NULL;
-  TString * ts = (TString*)S->Z->p;
-  // LLOGD("LoadString >> %d %p", tsslen(ts), ts);
-  DistBlock(S, sizeof(TString) + tsslen(ts) + 1);
-  // LLOGD("LoadString >> %s", getstr(ts));
-  return ts;
-}
+// static TString *LoadString (LoadState *S, Proto *p) {
+//   lu_byte t = LoadByte(S);
+//   if (t == 0)
+//     return NULL;
+//   TString * ts = (TString*)S->Z->p;
+//   // LLOGD("LoadString >> %d %p", tsslen(ts), ts);
+//   DistBlock(S, sizeof(TString) + tsslen(ts) + 1);
+//   // LLOGD("LoadString >> %s", getstr(ts));
+//   return ts;
+// }
 
 static void LoadCode (LoadState *S, Proto *f) {
   // int n = LoadInt(S);
@@ -134,6 +143,9 @@ static void LoadConstants (LoadState *S, Proto *f) {
   // 指向常数数组
   f->k = DistBlock(S, sizeof(TValue) * f->sizek);
   // 跳过字符串段
+
+
+  
   
   // LLOGD("1>>LoadConstants %02X %02X %02X %02X", *(S->Z->p), *(S->Z->p + 1), *(S->Z->p + 2), *(S->Z->p + 3));
   // n = LoadInt(S);
@@ -198,10 +210,10 @@ static void LoadFunction (LoadState *S, Proto *f, TString *psource) {
   //LLOGD(">> %02X %02X %02X %02X", *(S->Z->p), *(S->Z->p + 1), *(S->Z->p + 2), *(S->Z->p + 3));
   f->source = psource;  /* reuse parent's source */
 
-  // if (f->source)
-  //   LLOGI("%s %d source %s", __FILE__, __LINE__, getstr(f->source));
-  // else
-  //   LLOGD("no source ?");
+  if (f->source)
+    LLOGI("%s %d source %s", __FILE__, __LINE__, getstr(f->source));
+  else
+    LLOGD("no source ?");
 
   f->linedefined = LoadInt(S);
   f->lastlinedefined = LoadInt(S);
@@ -210,11 +222,11 @@ static void LoadFunction (LoadState *S, Proto *f, TString *psource) {
   f->maxstacksize = LoadByte(S);
   LoadByte(S); // f->source != NULL ?
 
-  LLOGD("linedefined %d", f->linedefined);
-  LLOGD("lastlinedefined %d", f->lastlinedefined);
-  LLOGD("numparams %d", f->numparams);
-  LLOGD("is_vararg %d", f->is_vararg);
-  LLOGD("maxstacksize %d", f->maxstacksize);
+  // LLOGD("linedefined %d", f->linedefined);
+  // LLOGD("lastlinedefined %d", f->lastlinedefined);
+  // LLOGD("numparams %d", f->numparams);
+  // LLOGD("is_vararg %d", f->is_vararg);
+  // LLOGD("maxstacksize %d", f->maxstacksize);
 
   f->sizecode = LoadInt(S);
   f->sizek = LoadInt(S);
@@ -223,25 +235,54 @@ static void LoadFunction (LoadState *S, Proto *f, TString *psource) {
   f->sizelineinfo = LoadInt(S);
   f->sizelocvars = LoadInt(S);
 
-  LLOGD("sizecode %d", f->sizecode);
-  LLOGD("sizek %d", f->sizek);
-  LLOGD("sizeupvalues %d", f->sizeupvalues);
-  LLOGD("sizep %d", f->sizep);
-  LLOGD("sizelineinfo %d", f->sizelineinfo);
-  LLOGD("sizelocvars %d", f->sizelocvars);
+  // LLOGD("sizecode %d", f->sizecode);
+  // LLOGD("sizek %d", f->sizek);
+  // LLOGD("sizeupvalues %d", f->sizeupvalues);
+  // LLOGD("sizep %d", f->sizep);
+  // LLOGD("sizelineinfo %d", f->sizelineinfo);
+  // LLOGD("sizelocvars %d", f->sizelocvars);
 
   LoadCode(S, f);
   LoadConstants(S, f);
   LoadUpvalues(S, f);
   LoadProtos(S, f);
   LoadDebug(S, f);
+
+  // for (size_t i = 0; i < f->sizelineinfo; i++)
+  // {
+  //   LLOGD("lineinfo %d %p", f->lineinfo[i], &f->lineinfo[i]);
+  // }
+  // for (size_t i = 0; i < f->sizek; i++)
+  // {
+  //   switch (f->k[i].tt_)
+  //   {
+  //   case LUA_TSHRSTR:
+  //   case LUA_TLNGSTR:
+  //     // LLOGD("const string %s", getstr(tsvalue(&f->k[i])));
+  //     LLOGD("const string %s", getstr(tsvalue(&f->k[i])));
+  //     break;
+  //   }
+  // }
+  // for (size_t i = 0; i < f->sizelocvars; i++)
+  // {
+  //   LLOGD("locval string %s", getstr(f->locvars[i].varname));
+  // }
+  LLOGD("f->upvalues %p %08X", f->upvalues, (uint32_t)f->upvalues);
+  for (size_t i = 0; i < f->sizeupvalues; i++)
+  {
+    // LLOGD("upval string %s", getstr(f->upvalues[i].name));
+    LLOGD("upval string %p", f->upvalues[i].name);
+  }
 }
 
 
 static void checkliteral (LoadState *S, const char *s, const char *msg) {
   char buff[sizeof(LUA_SIGNATURE) + sizeof(LUAC_DATA)]; /* larger than both */
   size_t len = strlen(s);
+  // buff[len] = 0;
   LoadVector(S, buff, len);
+  // LLOGD("buff>> %02X %02X %02X %02X", buff[0], buff[1], buff[2], buff[3]);
+  // LLOGD("s>>    %02X %02X %02X %02X", s[0], s[1], s[2], s[3]);
   if (memcmp(s, buff, len) != 0)
     error(S, msg);
 }
@@ -275,16 +316,39 @@ static void checkHeader (LoadState *S) {
 
 extern void luat_os_print_heapinfo(const char* tag);
 
+typedef struct LoadS {
+  const char *s;
+  size_t size;
+} LoadS;
+
+
+static const char *getS (lua_State *L, void *ud, size_t *size) {
+  LoadS *ls = (LoadS *)ud;
+  (void)L;  /* not used */
+  if (ls->size == 0) return NULL;
+  *size = ls->size;
+  ls->size = 0;
+  return ls->s;
+}
+
 /*
 ** load precompiled chunk
 */
-LClosure *luat_luf_undump(lua_State *L, ZIO *Z, const char *name) {
+LClosure *luat_luf_undump(lua_State *L, const char* ptr, size_t len, const char *name) {
   LoadState S;
   LClosure *cl;
 
+  ZIO z;
+  LoadS ls;
+  ls.s = ptr;
+  ls.size = len;
+  luaZ_init(L, &z, getS, &ls);
+
+  zgetc(&z);
+
   S.name = name;
   S.L = L;
-  S.Z = Z;
+  S.Z = &z;
   checkHeader(&S);
   cl = luaF_newLclosure(L, LoadByte(&S));
   setclLvalue(L, L->top, cl);
@@ -310,7 +374,61 @@ LClosure *luat_luf_undump(lua_State *L, ZIO *Z, const char *name) {
       luaC_upvalbarrier(L, f->upvals[0]);
     }
   //-----------------
-  sizeof(LClosure) + sizeof(Proto) + sizeof(UpVal);
+  //sizeof(LClosure) + sizeof(Proto) + sizeof(UpVal);
   return cl;
 }
 
+#ifndef LoadF
+typedef struct LoadF {
+  int n;  /* number of pre-read characters */
+  FILE *f;  /* file being read */
+  char buff[BUFSIZ];  /* area for reading file */
+} LoadF;
+#endif
+
+LClosure *luat_luf_undump2(lua_State *L, ZIO *Z, const char *name) {
+  LoadState S;
+  LClosure *cl;
+
+  S.name = name;
+  S.L = L;
+  S.Z = Z;
+
+#ifdef LUAT_USE_FS_VFS
+  LLOGD("try mmap");
+  char* ptr = (char*)luat_vfs_mmap(((LoadF*)Z->data)->f);
+  if (ptr != NULL) {
+    LLOGD("found mmap %p", ptr);
+    ZIO z;
+    LoadS ls;
+    ls.s = ptr;
+    ls.size = 64*1024;
+    luaZ_init(L, &z, getS, &ls);
+    zgetc(&z);
+    S.Z = &z;
+    // LLOGD(">> %02X %02X %02X %02X", S.Z->p[0], S.Z->p[1], S.Z->p[2], S.Z->p[3]);
+    // LLOGD(">> %02X %02X %02X %02X", S.Z->p[4], S.Z->p[5], S.Z->p[6], S.Z->p[7]);
+    // LLOGD(">> %02X %02X %02X %02X", S.Z->p[8], S.Z->p[9], S.Z->p[10], S.Z->p[11]);
+  }
+#endif
+
+  // LLOGD("LClosure %d Proto %d Upvaldesc %d LocVal %d", 
+  //     sizeof(LClosure), sizeof(Proto), sizeof(Upvaldesc), sizeof(LocVar));
+
+  checkHeader(&S);
+  cl = luaF_newLclosure(L, LoadByte(&S));
+  setclLvalue(L, L->top, cl);
+  luaD_inctop(L);
+  cl->p = luaF_newproto(L);
+  // LLOGD("sizeupvalues %d", cl->nupvalues);
+  luaC_objbarrier(L, cl, cl->p); // add by wendal, refer: https://github.com/lua/lua/commit/f5eb809d3f1da13683cd02184042e67228206205
+  size_t s = LoadInt(&S);
+  LoadFunction(&S, cl->p, (TString*)s);
+  lua_assert(cl->nupvalues == cl->p->sizeupvalues);
+  luai_verifycode(L, buff, cl->p);
+
+  //dumpHex("lineinfo", cl->p->lineinfo, 8);
+  //LLOGD("lineinfo %d %d", cl->p->lineinfo[0], cl->p->lineinfo[1]);
+
+  return cl;
+}

@@ -292,7 +292,7 @@ static void DumpUpvalues (const Proto *f, DumpState *D) {
   // size_t i_offset = init_offset;
   Upvaldesc desc;
   for (i = 0; i < n; i++) {
-    desc.name = spool_add(f->upvalues[i].name);;
+    desc.name = spool_add(f->upvalues[i].name);
     desc.idx = f->upvalues[i].idx;
     desc.instack = f->upvalues[i].instack;
 
@@ -341,7 +341,7 @@ static void DumpDebug (const Proto *f, DumpState *D) {
 
 static void DumpFunction (const Proto *f, TString *psource, DumpState *D) {
   //DumpString(f->source, D);
-  LLOGD("<<<<<<<<< DumpFunction");
+  // LLOGD("<<<<<<<<< DumpFunction");
 
   DumpInt(f->linedefined, D);
   DumpInt(f->lastlinedefined, D);
@@ -376,7 +376,7 @@ static void DumpFunction (const Proto *f, TString *psource, DumpState *D) {
   DumpProtos(f, D);
   DumpDebug(f, D);
 
-  LLOGD(">>>>>>>>>>>>> DumpFunction");
+  // LLOGD(">>>>>>>>>>>>> DumpFunction");
 
   //if (f->source)
   //  DumpString((const TString*)f->source, D);
@@ -422,14 +422,18 @@ int luf_dump(lua_State *L, const Proto *f, lua_Writer w, void *data,
   spool_init();
   str_offset = fd_offset + tcount;
   // LLOGD("sizeupvalues %d", f->sizeupvalues);
+  LLOGD("str_offset %08X", str_offset);
   DumpInt(f->source == NULL ? 0 : str_offset, &D);
-  spool_add(f->source);
+  TString* tmp = spool_add(f->source);
+  LLOGD("source tmp %p", tmp);
   DumpFunction(f, NULL, &D);
-  LLOGD("after DumpFunction <");
+  // LLOGD("after DumpFunction <");
   spool_dump(&D);
-  LLOGD("spool_dump <");
+  // LLOGD("spool_dump <");
   spool_deinit();
-  LLOGD("spool_deinit <");
+  // LLOGD("spool_deinit <");
+  LLOGD("LClosure %d Proto %d Upvaldesc %d LocVal %d", 
+      sizeof(LClosure), sizeof(Proto), sizeof(Upvaldesc), sizeof(LocVar));
   return D.status;
 }
 

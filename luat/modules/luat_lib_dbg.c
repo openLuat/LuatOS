@@ -202,7 +202,7 @@ static int value_to_dbg_json(lua_State* L, const char* name, char** buff, size_t
         cJSON_AddBoolToObject(cj, "data", lua_toboolean(L, -1));
         break;
     case LUA_TNUMBER:
-        cJSON_AddNumberToObject(cj, "data", lua_tonumber(L, -1));
+        cJSON_AddStringToObject(cj, "data", lua_tostring(L, -1));
         break;
     case LUA_TTABLE:
         // TODO 递归之

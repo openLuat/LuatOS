@@ -196,17 +196,17 @@ static int value_to_dbg_json(lua_State* L, const char* name, char** buff, size_t
     switch (ltype)
     {
     case LUA_TNIL:
-        cJSON_AddNullToObject(cj, "value");
+        cJSON_AddNullToObject(cj, "data");
         break;
     case LUA_TBOOLEAN:
-        cJSON_AddBoolToObject(cj, "value", lua_toboolean(L, -1));
+        cJSON_AddBoolToObject(cj, "data", lua_toboolean(L, -1));
         break;
     case LUA_TNUMBER:
-        cJSON_AddNumberToObject(cj, "value", lua_tonumber(L, -1));
+        cJSON_AddNumberToObject(cj, "data", lua_tonumber(L, -1));
         break;
     case LUA_TTABLE:
         // TODO 递归之
-        cJSON_AddStringToObject(cj, "value", lua_tostring(L, -1));
+        cJSON_AddStringToObject(cj, "data", lua_tostring(L, -1));
         break;
     case LUA_TSTRING:
     case LUA_TLIGHTUSERDATA:
@@ -214,7 +214,7 @@ static int value_to_dbg_json(lua_State* L, const char* name, char** buff, size_t
     case LUA_TFUNCTION:
     case LUA_TTHREAD:
     default:
-        cJSON_AddStringToObject(cj, "value", lua_tostring(L, -1));
+        cJSON_AddStringToObject(cj, "data", lua_tostring(L, -1));
         break;
     }
     char* str = cJSON_Print(cj);

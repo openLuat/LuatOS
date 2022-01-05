@@ -1,0 +1,1 @@
+wm_tool.exe -b disk.bin -it 1 -fc 0 -ih 20008000 -ra 80E0000 -ua 0 -nh 0  -un 0 -o script

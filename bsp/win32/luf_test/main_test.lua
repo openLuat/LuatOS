@@ -3,10 +3,11 @@ log.info("main", "hi")
 
 local func = loadfile("abc.lua")
 log.info("func", func)
-buff = zbuff.create(16*1024)
+buff = zbuff.create(32*1024)
 data = luf.dump(func, false, buff)
 
 buff:write(data)
+buff:seek(0, zbuff.SEEK_SET)
 
 log.info("data", #data)
 -- print(data:toHex())
@@ -37,5 +38,7 @@ if func2 then
 else
     log.info("func", "nil!!!")
 end
+
+log.info("change?", buff:toStr(0, #data) == data)
 
 os.exit(0)

@@ -16,7 +16,7 @@
 
 int luf_dump(lua_State *L, const Proto *f, lua_Writer w, void *data, int strip, int ptroffset);
 
-LClosure *luat_luf_undump(lua_State *L, ZIO *Z, const char *name);
+LClosure *luat_luf_undump(lua_State *L, const char* ptr, size_t len, const char *name);
 
 void luat_luf_cmp(lua_State *L, const Proto* p1, const Proto *p2);
 
@@ -56,30 +56,10 @@ static int l_luf_dump(lua_State* L) {
   return 1;
 }
 
-typedef struct LoadS {
-  const char *s;
-  size_t size;
-} LoadS;
-
-
-static const char *getS (lua_State *L, void *ud, size_t *size) {
-  LoadS *ls = (LoadS *)ud;
-  (void)L;  /* not used */
-  if (ls->size == 0) return NULL;
-  *size = ls->size;
-  ls->size = 0;
-  return ls->s;
-}
-
 static int l_luf_undump(lua_State* L) {
-  ZIO z;
-  LoadS ls;
-  ls.s = luaL_checklstring(L, 1, &ls.size);
-  luaZ_init(L, &z, getS, &ls);
-
-  zgetc(&z);
-
-  luat_luf_undump(L, &z, NULL);
+  size_t len;
+  const char* data = luaL_checklstring(L, 1, &len);
+  luat_luf_undump(L, data, len, NULL);
   return 1;
 }
 

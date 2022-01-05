@@ -205,6 +205,7 @@ void luat_shell_push(char* uart_buff, size_t rcount) {
                 cmux_state = 1;
             }
             // 执行脚本
+            #ifdef LUAT_USE_LOADSTR
             else if (strncmp("loadstr ", uart_buff, strlen("loadstr ")) == 0) {
                 size_t slen =  rcount - strlen("loadstr ") + 1;
                 char* tmp = luat_heap_malloc(slen);
@@ -222,6 +223,7 @@ void luat_shell_push(char* uart_buff, size_t rcount) {
                     luat_msgbus_put(&msg, 0);
                 }
             }
+            #endif
             else {
                 // uih_dbg_manage(uart_buff, rcount > 128 ? 128 : rcount);
                 luat_shell_write("ERR\r\n", 5);

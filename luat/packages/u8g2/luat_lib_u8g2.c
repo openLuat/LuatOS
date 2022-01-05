@@ -50,9 +50,9 @@ u8g2显示屏初始化
 @return int 正常初始化1,已经初始化过2,内存不够3,初始化失败返回4
 @usage
 -- 初始化硬件i2c的ssd1306
-u8g2.begin({ic = "ssd1306",mode="i2c_hw",i2c_id=0})
+u8g2.begin({ic = "ssd1306",direction = 0,mode="i2c_hw",i2c_id=0}) -- direction 可选0 90 180 270
 -- 初始化软件i2c的ssd1306
-u8g2.begin({ic = "ssd1306",mode="i2c_sw", i2c_scl=1, i2c_sda=4}) -- 通过PA1 SCL / PA4 SDA模拟
+u8g2.begin({ic = "ssd1306",direction = 0,mode="i2c_sw", i2c_scl=1, i2c_sda=4}) -- 通过PA1 SCL / PA4 SDA模拟
 
 */
 static int l_u8g2_begin(lua_State *L) {
@@ -78,6 +78,32 @@ static int l_u8g2_begin(lua_State *L) {
         if (lua_isstring(L, -1)) {
             conf.cname = (char*)luaL_checkstring(L, -1);
             LLOGD("using ic: %s",conf.cname);
+        }
+        lua_pop(L, 1);
+
+        lua_pushliteral(L, "direction");
+        lua_gettable(L, 1);
+        if (lua_isinteger(L, -1)) {
+            int direction = luaL_checkinteger(L, -1);
+            switch (direction)
+            {
+            case 0:
+                conf.direction = U8G2_R0;
+                break;
+            case 90:
+                conf.direction = U8G2_R1;
+                break;
+            case 180:
+                conf.direction = U8G2_R2;
+                break;
+            case 270:
+                conf.direction = U8G2_R3;
+                break;
+            
+            default:
+                conf.direction = U8G2_R0;
+                break;
+            }
         }
         lua_pop(L, 1);
 
@@ -844,13 +870,13 @@ LUAT_WEAK int luat_u8g2_setup(luat_u8g2_conf_t *conf) {
     if (conf->pinType == 1) {
         u8g2_t* u8g2 = (u8g2_t*)conf->ptr;
         if (strncmp("ssd1306", conf->cname, 7) == 0 || strncmp("SSD1306", conf->cname, 7) == 0){
-            u8g2_Setup_ssd1306_i2c_128x64_noname_f( u8g2, U8G2_R0, u8x8_byte_sw_i2c, u8x8_luat_gpio_and_delay);
+            u8g2_Setup_ssd1306_i2c_128x64_noname_f( u8g2, conf->direction, u8x8_byte_sw_i2c, u8x8_luat_gpio_and_delay);
 #ifdef U8G2_USE_SH1106
         }else if (strncmp("sh1106", conf->cname, 6) == 0 || strncmp("SH1106", conf->cname, 6) == 0){
-            u8g2_Setup_sh1106_i2c_128x64_noname_f( u8g2, U8G2_R0, u8x8_byte_sw_i2c, u8x8_luat_gpio_and_delay);
+            u8g2_Setup_sh1106_i2c_128x64_noname_f( u8g2, conf->direction, u8x8_byte_sw_i2c, u8x8_luat_gpio_and_delay);
 #endif
         }else{
-            u8g2_Setup_ssd1306_i2c_128x64_noname_f( u8g2, U8G2_R0, u8x8_byte_sw_i2c, u8x8_luat_gpio_and_delay);
+            u8g2_Setup_ssd1306_i2c_128x64_noname_f( u8g2, conf->direction, u8x8_byte_sw_i2c, u8x8_luat_gpio_and_delay);
         }
         u8g2->u8x8.pins[U8X8_PIN_I2C_CLOCK] = i2c_scl;
         u8g2->u8x8.pins[U8X8_PIN_I2C_DATA] = i2c_sda;
@@ -861,13 +887,13 @@ LUAT_WEAK int luat_u8g2_setup(luat_u8g2_conf_t *conf) {
     else if (conf->pinType == 2) {
         u8g2_t* u8g2 = (u8g2_t*)conf->ptr;
         if (strncmp("ssd1306", conf->cname, 7) == 0 || strncmp("SSD1306", conf->cname, 7) == 0){
-            u8g2_Setup_ssd1306_i2c_128x64_noname_f( u8g2, U8G2_R0, u8x8_luat_byte_hw_i2c, u8x8_luat_gpio_and_delay);
+            u8g2_Setup_ssd1306_i2c_128x64_noname_f( u8g2, conf->direction, u8x8_luat_byte_hw_i2c, u8x8_luat_gpio_and_delay);
 #ifdef U8G2_USE_SH1106
         }else if (strncmp("sh1106", conf->cname, 6) == 0 || strncmp("SH1106", conf->cname, 6) == 0){
-            u8g2_Setup_sh1106_i2c_128x64_noname_f( u8g2, U8G2_R0, u8x8_luat_byte_hw_i2c, u8x8_luat_gpio_and_delay);
+            u8g2_Setup_sh1106_i2c_128x64_noname_f( u8g2, conf->direction, u8x8_luat_byte_hw_i2c, u8x8_luat_gpio_and_delay);
 #endif
         }else{
-            u8g2_Setup_ssd1306_i2c_128x64_noname_f( u8g2, U8G2_R0, u8x8_luat_byte_hw_i2c, u8x8_luat_gpio_and_delay);
+            u8g2_Setup_ssd1306_i2c_128x64_noname_f( u8g2, conf->direction, u8x8_luat_byte_hw_i2c, u8x8_luat_gpio_and_delay);
         }
         LLOGD("setup disp i2c.hw");
         u8g2_InitDisplay(u8g2);
@@ -877,17 +903,17 @@ LUAT_WEAK int luat_u8g2_setup(luat_u8g2_conf_t *conf) {
     else if (conf->pinType == 5) {
         u8g2_t* u8g2 = (u8g2_t*)conf->ptr;
         if (strncmp("ssd1306", conf->cname, 7) == 0 || strncmp("SSD1306", conf->cname, 7) == 0){
-            u8g2_Setup_ssd1306_128x64_noname_f( u8g2, U8G2_R0, u8x8_luat_byte_4wire_hw_spi, u8x8_luat_gpio_and_delay);
+            u8g2_Setup_ssd1306_128x64_noname_f( u8g2, conf->direction, u8x8_luat_byte_4wire_hw_spi, u8x8_luat_gpio_and_delay);
 #ifdef U8G2_USE_SH1106
         }else if (strncmp("sh1106", conf->cname, 6) == 0 || strncmp("SH1106", conf->cname, 6) == 0){
-            u8g2_Setup_sh1106_128x64_noname_f( u8g2, U8G2_R0, u8x8_luat_byte_4wire_hw_spi, u8x8_luat_gpio_and_delay);
+            u8g2_Setup_sh1106_128x64_noname_f( u8g2, conf->direction, u8x8_luat_byte_4wire_hw_spi, u8x8_luat_gpio_and_delay);
 #endif
 #ifdef U8G2_USE_ST7567
         }else if (strncmp("st7567", conf->cname, 6) == 0 || strncmp("ST7567", conf->cname, 6) == 0){
-            u8g2_Setup_st7567_jlx12864_f( u8g2, U8G2_R0, u8x8_luat_byte_4wire_hw_spi, u8x8_luat_gpio_and_delay);
+            u8g2_Setup_st7567_jlx12864_f( u8g2, conf->direction, u8x8_luat_byte_4wire_hw_spi, u8x8_luat_gpio_and_delay);
 #endif
         }else{
-            u8g2_Setup_ssd1306_128x64_noname_f( u8g2, U8G2_R0, u8x8_luat_byte_4wire_hw_spi, u8x8_luat_gpio_and_delay);
+            u8g2_Setup_ssd1306_128x64_noname_f( u8g2, conf->direction, u8x8_luat_byte_4wire_hw_spi, u8x8_luat_gpio_and_delay);
         }
         LLOGD("setup disp spi.hw");
         u8x8_SetPin(u8g2_GetU8x8(u8g2), U8X8_PIN_CS, spi_cs);

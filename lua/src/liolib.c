@@ -785,7 +785,7 @@ static int io_writeFile (lua_State *L) {
   const char *filename = luaL_checkstring(L, 1);
   size_t len;
   const char *data = luaL_checklstring(L, 2, &len);
-  const char *mode = luaL_optstring(L, 3, "w+");
+  const char *mode = luaL_optstring(L, 3, "wb+");
   FILE* f = fopen(filename, mode);
   if(f == NULL)
     return 0;

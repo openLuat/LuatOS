@@ -92,7 +92,7 @@ int luat_fs_init(void) {
 		.busname = "",
 		.type = "posix",
 		.filesystem = "posix",
-		.mount_point = "/", // window环境下, 需要支持任意路径的读取,不能强制要求必须是/
+		.mount_point = "", // window环境下, 需要支持任意路径的读取,不能强制要求必须是/
 	};
 	luat_fs_mount(&conf);
 	#ifdef LUAT_USE_VFS_INLINE_LIB

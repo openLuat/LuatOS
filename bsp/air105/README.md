@@ -7,7 +7,8 @@
 内置充电功能，自带5v转3.3V的LDO，4M字节Flash，640K字节RAM。
 
 * UART*4, 其中U0是下载和日志口，其余3个供用户使用
-* GPIO*54
+* GPIO*56
+* 更多资料请访问 wiki.luatos.com
 
 ## LuatOS为它提供哪些功能
 

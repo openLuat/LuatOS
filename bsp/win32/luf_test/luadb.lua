@@ -60,7 +60,7 @@ TLD(buff, 0x02, string.char(0x00, 0x02))
 
 -- head长度
 buff:write(string.char(0x03, 0x04))
-buff:pack("I", 0x12)
+buff:pack("I", 0x18)
 
 -- 文件数量
 buff:write(string.char(0x04, 0x02))
@@ -86,9 +86,11 @@ for _, value in ipairs(files) do
             -- io.writeFile(tname, string.dump(func))
         -- else
             -- io.writeFile("tmp\\" .. tname, luf.dump(func, false, 0x80E0000 + buff:seek(0, zbuff.SEEK_CUR) + 3*2 + tname:len() + 4 + 2))
-            --log.info(">> pos", string.format("%08X", 0x80E0000 + buff:seek(0, zbuff.SEEK_CUR) + 3*2 + tname:len() + 4 + 2 + 64))
-            --data = luf.dump(func, false, 0x80E0000 + buff:seek(0, zbuff.SEEK_CUR) + 3*2 + tname:len() + 4 + 2)
-            data = luf.dump(func, false, 0x080E0036)
+            -- log.info("what pos", buff:seek(0, zbuff.SEEK_CUR))
+            -- log.info(">> pos", string.format("%08X", 0x080E0000 + buff:seek(0, zbuff.SEEK_CUR) + 3*2 + tname:len() + 4 + 2 + 64))
+            -- data = luf.dump(func, false, 0x80E0000 + buff:seek(0, zbuff.SEEK_CUR) + 3*2 + tname:len() + 4 + 2)
+            data = luf.dump(func, false, 0x080E0033)
+            log.info("iowrite", tname, #data)
             io.writeFile(tname, data)
         -- end
     else
@@ -98,7 +100,7 @@ for _, value in ipairs(files) do
     TLD(buff, 0x02, tname)
     TLD(buff, 0x03, pack.pack("I", #data))
     TLD(buff, 0xFE, string.char(0xFF, 0xFF))
-    --log.info("luadb2", tname, #data, buff:seek(0, zbuff.SEEK_CUR))
+    log.info("luadb2", tname, #data, buff:seek(0, zbuff.SEEK_CUR), string.format("%02X", buff:seek(0, zbuff.SEEK_CUR)))
     -- log.info(">> pos", string.format("%08X", 0x80E0000 + buff:seek(0, zbuff.SEEK_CUR)))
     buff:write(data)
     log.info("luadb3", tname, #data, buff:seek(0, zbuff.SEEK_CUR))

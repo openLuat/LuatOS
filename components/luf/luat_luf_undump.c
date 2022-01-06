@@ -420,13 +420,18 @@ LClosure *luat_luf_undump2(lua_State *L, ZIO *Z, const char *name) {
   setclLvalue(L, L->top, cl);
   luaD_inctop(L);
   cl->p = luaF_newproto(L);
-  // LLOGD("sizeupvalues %d", cl->nupvalues);
   luaC_objbarrier(L, cl, cl->p); // add by wendal, refer: https://github.com/lua/lua/commit/f5eb809d3f1da13683cd02184042e67228206205
   size_t s = LoadInt(&S);
   LoadFunction(&S, cl->p, (TString*)s);
   lua_assert(cl->nupvalues == cl->p->sizeupvalues);
   luai_verifycode(L, buff, cl->p);
 
+  dumpHex("& upvalues", &cl->p->upvalues[0], 8);
+  dumpHex("& upvalues[0].name", &cl->p->upvalues[0].name, 8);
+  dumpHex("> upvalues[0].name", cl->p->upvalues[0].name, 8);
+  LLOGD("> getstr(upvalues[0].name) %p", getstr(cl->p->upvalues[0].name));
+  LLOGD("> getstr(upvalues[0].name) %s", getstr(cl->p->upvalues[0].name));
+  dumpHex("head",     (char*)0x080E0000, 8);
   //dumpHex("lineinfo", cl->p->lineinfo, 8);
   //LLOGD("lineinfo %d %d", cl->p->lineinfo[0], cl->p->lineinfo[1]);
 

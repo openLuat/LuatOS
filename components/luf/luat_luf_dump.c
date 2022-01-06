@@ -385,16 +385,16 @@ static void DumpFunction (const Proto *f, TString *psource, DumpState *D) {
 
 static void DumpHeader (DumpState *D) { // 15+12
   DumpLiteral(LUF_SIGNATURE, D); // 4
-  DumpByte(LUAC_VERSION, D); // 1
-  DumpByte(LUAC_FORMAT + 1, D); // 1
-  DumpLiteral(LUAC_DATA, D); // 6
-  DumpByte(sizeof(int), D); // 1
-  DumpByte(sizeof(size_t), D); // 1
-  DumpByte(sizeof(Instruction), D); // 1
-  DumpByte(sizeof(lua_Integer), D); // 1
-  DumpByte(sizeof(lua_Number), D); // 1
-  DumpInteger(LUAC_INT, D); // 4
-  DumpNumber(LUAC_NUM, D);  // 4
+  DumpByte(LUAC_VERSION, D); // 1, 5
+  DumpByte(LUAC_FORMAT + 1, D); // 1, 6
+  DumpLiteral(LUAC_DATA, D); // 6, 12
+  DumpByte(sizeof(int), D); // 1, 13
+  DumpByte(sizeof(size_t), D); // 1, 14
+  DumpByte(sizeof(Instruction), D); // 1, 15
+  DumpByte(sizeof(lua_Integer), D); // 1, 16
+  DumpByte(sizeof(lua_Number), D); // 1, 17
+  DumpInteger(LUAC_INT, D); // 4, 21
+  DumpNumber(LUAC_NUM, D);  // 4, 25
 }
 
 
@@ -410,19 +410,23 @@ int luf_dump(lua_State *L, const Proto *f, lua_Writer w, void *data,
   D.strip = strip;
   D.status = 0;
 
-  fd_offset = ptroffset + 1;
+  fd_offset = ptroffset;
+  LLOGD("fd_offset %08X  ptroffset %08X", fd_offset, ptroffset);
 
   // LLOGD("sizeof(Upvaldesc) %d", sizeof(Upvaldesc));
   // LLOGD("sizeof(LocVar) %d", sizeof(LocVar));
 
-  DumpHeader(&D); // 27
-  DumpByte(f->sizeupvalues, &D); // 1
+  DumpHeader(&D); // 25
+  DumpByte(f->sizeupvalues, &D); // 1, 26
+
+  LLOGD("after header + sizeupvalues, fd_offset %08X", fd_offset);
 
   size_t tcount = countProtoDumpSize(f);
   spool_init();
-  str_offset = fd_offset + tcount;
+  str_offset = fd_offset + tcount + 4;
   // LLOGD("sizeupvalues %d", f->sizeupvalues);
   LLOGD("str_offset %08X", str_offset);
+  LLOGD("tcount %08X  ptroffset %08X", tcount, ptroffset);
   DumpInt(f->source == NULL ? 0 : str_offset, &D);
   TString* tmp = spool_add(f->source);
   LLOGD("source tmp %p", tmp);

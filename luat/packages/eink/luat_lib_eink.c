@@ -119,12 +119,12 @@ static int l_eink_setup(lua_State *L) {
         spi_config.mode = 1; // FULL=1, half=0
 
         //LLOGD("setup GPIO for epd");
+        status = luat_spi_setup(&spi_config);
+
         luat_gpio_mode(Pin_BUSY, Luat_GPIO_INPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
         luat_gpio_mode(Pin_RES, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
         luat_gpio_mode(Pin_DC, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
         luat_gpio_mode(Pin_CS, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
-
-        status = luat_spi_setup(&spi_config);
     }
     
 

@@ -1,8 +1,8 @@
 /*
-@module  sfud
-@summary SPI FLASH sfud软件包
+@module  zlib
+@summary zlib压缩/解压缩
 @version 1.0
-@date    2021.09.23
+@date    2022.01.06
 */
 
 #include "luat_base.h"
@@ -22,13 +22,7 @@
 static char in[CHUNK];
 static char out[CHUNK];
 
-/* Compress from file source to file dest until EOF on source.
-   def() returns Z_OK on success, Z_MEM_ERROR if memory could not be
-   allocated for processing, Z_STREAM_ERROR if an invalid compression
-   level is supplied, Z_VERSION_ERROR if the version of zlib.h and the
-   version of the library linked do not match, or Z_ERRNO if there is
-   an error reading or writing the files. */
-int def(FILE *source, FILE *dest, int level)
+static int zlib_compress(FILE *source, FILE *dest, int level)
 {
     int ret, flush;
     unsigned have;
@@ -76,13 +70,7 @@ int def(FILE *source, FILE *dest, int level)
     return Z_OK;
 }
 
-/* Decompress from file source to file dest until stream ends or EOF.
-   inf() returns Z_OK on success, Z_MEM_ERROR if memory could not be
-   allocated for processing, Z_DATA_ERROR if the deflate data is
-   invalid or incomplete, Z_VERSION_ERROR if the version of zlib.h and
-   the version of the library linked do not match, or Z_ERRNO if there
-   is an error reading or writing the files. */
-int inf(FILE *source, FILE *dest)
+static int zlib_decompress(FILE *source, FILE *dest)
 {
     int ret;
     unsigned have;
@@ -139,7 +127,7 @@ int inf(FILE *source, FILE *dest)
 }
 
 /* report a zlib or i/o error */
-void zerr(int ret)
+static void zerr(int ret)
 {
     fputs("zpipe: ", stderr);
     switch (ret) {
@@ -163,6 +151,16 @@ void zerr(int ret)
     }
 }
 
+/*
+zlib压缩(需要大约270k内存，大部分mcu不支持)
+@api zlib.c(input_file,output_file)
+@string input_file  输入文件
+@string output_file 输出文件
+@return bool 正常返回 ture  失败返回 false
+@usage
+zlib.c("/sd/1.txt","/sd/zlib")
+*/
+
 static int luat_zlib_compress(lua_State *L){
     FILE *fd_in, *fd_out;
     int ret  = 0;
@@ -182,12 +180,14 @@ static int luat_zlib_compress(lua_State *L){
         ret = -1;
         goto _exit;
     }
-    ret = def(fd_in, fd_out, Z_BEST_COMPRESSION);
+    ret = zlib_compress(fd_in, fd_out, Z_BEST_COMPRESSION);
     if (ret != Z_OK){
         zerr(ret);
         LLOGE("[zlib] compress file error!\n");
         return ret;
     }
+    luat_fs_fclose(fd_in);
+    luat_fs_fclose(fd_out);
     lua_pushboolean(L, 1);
     return 1;
 
@@ -202,7 +202,16 @@ _exit:
     return 1;
 }
 
-static int luat_zlib_dcompress(lua_State *L){
+/*
+zlib解压缩(需要大约18k内存，大部分mcu都支持)
+@api zlib.d(input_file,output_file)
+@string input_file  输入文件
+@string output_file 输出文件
+@return bool 正常返回 ture  失败返回 false
+@usage
+zlib.d("/sd/zlib","/sd/1.txt")
+*/
+static int luat_zlib_decompress(lua_State *L){
     FILE *fd_in, *fd_out;
     int ret  = 0;
     size_t size = 0;
@@ -221,13 +230,15 @@ static int luat_zlib_dcompress(lua_State *L){
         ret = -1;
         goto _exit;
     }
-    ret = inf(fd_in, fd_out);
+    ret = zlib_decompress(fd_in, fd_out);
     if (ret != Z_OK)
     {
         zerr(ret);
         LLOGE("[zlib] decompress file error!");
         return ret;
     }
+    luat_fs_fclose(fd_in);
+    luat_fs_fclose(fd_out);
     lua_pushboolean(L, 1);
     return 1;
 
@@ -246,7 +257,7 @@ _exit:
 static const rotable_Reg reg_zlib[] =
 {
     { "c",      luat_zlib_compress,    0},
-    { "d",      luat_zlib_dcompress,   0},
+    { "d",      luat_zlib_decompress,   0},
 	{ NULL, NULL, 0}
 };
 

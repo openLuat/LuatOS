@@ -102,5 +102,7 @@ LUAMOD_API int luaopen_fonts( lua_State *L );
 LUAMOD_API int luaopen_pin( lua_State *L );
 LUAMOD_API int luaopen_dac( lua_State *L );
 LUAMOD_API int luaopen_otp( lua_State *L );
+LUAMOD_API int luaopen_mlx90640( lua_State *L );
+LUAMOD_API int luaopen_zlib( lua_State *L );
 
 #endif

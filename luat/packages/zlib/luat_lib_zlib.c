@@ -44,12 +44,12 @@ int def(FILE *source, FILE *dest, int level)
 
     /* compress until end of file */
     do {
-        strm.avail_in = fread(in, 1, CHUNK, source);
-        if (ferror(source)) {
+        strm.avail_in = luat_fs_fread(in, 1, CHUNK, source);
+        if (luat_fs_ferror(source)) {
             (void)deflateEnd(&strm);
             return Z_ERRNO;
         }
-        flush = feof(source) ? Z_FINISH : Z_NO_FLUSH;
+        flush = luat_fs_feof(source) ? Z_FINISH : Z_NO_FLUSH;
         strm.next_in = in;
 
         /* run deflate() on input until output buffer not full, finish
@@ -60,7 +60,7 @@ int def(FILE *source, FILE *dest, int level)
             ret = deflate(&strm, flush);    /* no bad return value */
             assert(ret != Z_STREAM_ERROR);  /* state not clobbered */
             have = CHUNK - strm.avail_out;
-            if (fwrite(out, 1, have, dest) != have || ferror(dest)) {
+            if (luat_fs_fwrite(out, 1, have, dest) != have || luat_fs_ferror(dest)) {
                 (void)deflateEnd(&strm);
                 return Z_ERRNO;
             }
@@ -100,8 +100,8 @@ int inf(FILE *source, FILE *dest)
 
     /* decompress until deflate stream ends or end of file */
     do {
-        strm.avail_in = fread(in, 1, CHUNK, source);
-        if (ferror(source)) {
+        strm.avail_in = luat_fs_fread(in, 1, CHUNK, source);
+        if (luat_fs_ferror(source)) {
             (void)inflateEnd(&strm);
             return Z_ERRNO;
         }
@@ -124,7 +124,7 @@ int inf(FILE *source, FILE *dest)
                 return ret;
             }
             have = CHUNK - strm.avail_out;
-            if (fwrite(out, 1, have, dest) != have || ferror(dest)) {
+            if (luat_fs_fwrite(out, 1, have, dest) != have || luat_fs_ferror(dest)) {
                 (void)inflateEnd(&strm);
                 return Z_ERRNO;
             }
@@ -144,9 +144,9 @@ void zerr(int ret)
     fputs("zpipe: ", stderr);
     switch (ret) {
     case Z_ERRNO:
-        if (ferror(stdin))
+        if (luat_fs_ferror(stdin))
             fputs("error reading stdin\n", stderr);
-        if (ferror(stdout))
+        if (luat_fs_ferror(stdout))
             fputs("error writing stdout\n", stderr);
         break;
     case Z_STREAM_ERROR:
@@ -170,13 +170,13 @@ static int luat_zlib_compress(lua_State *L){
     const char* input_file = luaL_checklstring(L, 1, &size);
     const char* output_file = luaL_checklstring(L, 2, &size);
 
-    fd_in = fopen(input_file, "r");
+    fd_in = luat_fs_fopen(input_file, "r");
     if (fd_in == NULL){
         LLOGE("[zlib] open the input file : %s error!", input_file);
         ret = -1;
         goto _exit;
     }
-    fd_out = fopen(output_file, "w+");
+    fd_out = luat_fs_fopen(output_file, "w+");
     if (fd_out == NULL){
         LLOGE("[zlib] open the output file : %s error!", output_file);
         ret = -1;
@@ -193,10 +193,10 @@ static int luat_zlib_compress(lua_State *L){
 
 _exit:
     if(fd_in != NULL){
-        fclose(fd_in);
+        luat_fs_fclose(fd_in);
     }
     if(fd_out != NULL){
-        fclose(fd_out);
+        luat_fs_fclose(fd_out);
     }
     lua_pushboolean(L, 0);
     return 1;
@@ -209,13 +209,13 @@ static int luat_zlib_dcompress(lua_State *L){
     const char* input_file = luaL_checklstring(L, 1, &size);
     const char* output_file = luaL_checklstring(L, 2, &size);
 
-    fd_in = fopen(input_file, "r");
+    fd_in = luat_fs_fopen(input_file, "r");
     if (fd_in == NULL){
         LLOGE("[zlib] open the input file : %s error!", input_file);
         ret = -1;
         goto _exit;
     }
-    fd_out = fopen(output_file, "w+");
+    fd_out = luat_fs_fopen(output_file, "w+");
     if (fd_out == NULL){
         LLOGE("[zlib] open the output file : %s error!", output_file);
         ret = -1;
@@ -233,10 +233,10 @@ static int luat_zlib_dcompress(lua_State *L){
 
 _exit:
     if(fd_in != NULL){
-        fclose(fd_in);
+        luat_fs_fclose(fd_in);
     }
     if(fd_out != NULL){
-        fclose(fd_out);
+        luat_fs_fclose(fd_out);
     }
     lua_pushboolean(L, 0);
     return 1;

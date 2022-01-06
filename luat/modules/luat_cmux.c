@@ -174,6 +174,9 @@ void uih_dbg_manage(unsigned char*buff,size_t len){
     // luat_heap_free(data);
 }
 
+LUAT_WEAK void luat_cmux_log_set(uint8_t state) {
+}
+
 void cmux_frame_manage(unsigned char*buff,size_t len){
     // for (size_t i = 0; i < 20; i++){
     //     LLOGD("buff[%d]:%02X",i,buff[i]);
@@ -204,9 +207,11 @@ void cmux_frame_manage(unsigned char*buff,size_t len){
     }else if (CMUX_ADDRESS_DLC(buff)==LUAT_CMUX_CH_LOG){
         if (CMUX_CONTROL_ISSABM(buff)){
             cmux_log_state = 1;
+            luat_cmux_log_set(cmux_log_state);
             luat_cmux_write(LUAT_CMUX_CH_LOG,  CMUX_FRAME_UA | CMUX_CONTROL_PF,NULL, 0);
         }else if(CMUX_CONTROL_ISDISC(buff)){
             cmux_log_state = 0;
+            luat_cmux_log_set(cmux_log_state);
             luat_cmux_write(LUAT_CMUX_CH_LOG,  CMUX_FRAME_UA | CMUX_CONTROL_PF,NULL, 0);
         }
     }else if (CMUX_ADDRESS_DLC(buff)==LUAT_CMUX_CH_DBG){

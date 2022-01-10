@@ -626,6 +626,7 @@ static void u8g2_font_decode_len(u8g2_t *u8g2, uint8_t len, uint8_t is_foregroun
       current = cnt;
     /* now draw the line, but apply the rotation around the glyph target position */
     //u8g2_font_decode_draw_pixel(u8g2, lx,ly,current, is_foreground);
+    // printf("lx:%d,ly:%d,current:%d, is_foreground:%d \r\n",lx,ly,current, is_foreground);
     /* get target position */
     x = decode->target_x;
     y = decode->target_y;
@@ -639,10 +640,10 @@ static void u8g2_font_decode_len(u8g2_t *u8g2, uint8_t len, uint8_t is_foregroun
       {
 	    u8g2_draw_hv_line(u8g2, x, y, current, decode->dir, lcd_str_fg_color);
       }
-      else if ( decode->is_transparent == 0 )
-      {
-	    u8g2_draw_hv_line(u8g2, x, y, current, decode->dir, lcd_str_bg_color);
-      }
+      // else if ( decode->is_transparent == 0 )
+      // {
+	    // u8g2_draw_hv_line(u8g2, x, y, current, decode->dir, lcd_str_bg_color);
+      // }
     }
     /* check, whether the end of the run length code has been reached */
     if ( cnt < rem )
@@ -817,14 +818,13 @@ static int l_lcd_set_font(lua_State *L) {
 
 /*
 显示字符串
-@api lcd.drawStr(x,y,str,fg_color,bg_color)
+@api lcd.drawStr(x,y,str,fg_color)
 @int x 横坐标
-@int y 竖坐标
+@int y 竖坐标  注意:此(x,y)为左下起始坐标
 @string str 文件内容
 @int fg_color str颜色
-@int bg_color str背景颜色
 @usage
--- 显示之前先设置为中文字体,对之后的drawStr有效,使用中文字体需在luat_conf_bsp.h.h开启#define USE_U8G2_WQY16_T_GB2312
+-- 显示之前先设置为中文字体,对之后的drawStr有效,使用中文字体需在luat_conf_bsp.h.h开启#define USE_U8G2_OPPOSANSMxx_CHINESE xx代表字号
 lcd.setFont(lcd.font_opposansm12)
 lcd.drawStr(40,10,"drawStr")
 sys.wait(2000)
@@ -835,18 +835,17 @@ static int l_lcd_draw_str(lua_State* L) {
     int x, y;
     size_t sz;
     const uint8_t* data;
-    uint32_t color = FORE_COLOR;
     x = luaL_checkinteger(L, 1);
     y = luaL_checkinteger(L, 2);
     data = (const uint8_t*)luaL_checklstring(L, 3, &sz);
     lcd_str_fg_color = (uint32_t)luaL_optinteger(L, 4,FORE_COLOR);
-    lcd_str_bg_color = (uint32_t)luaL_optinteger(L, 5,BACK_COLOR);
+    // lcd_str_bg_color = (uint32_t)luaL_optinteger(L, 5,BACK_COLOR);
     if (sz == 0)
         return 0;
     uint16_t e;
-    int16_t delta, sum;
+    int16_t delta;
     utf8_state = 0;
-    sum = 0;
+    
     for(;;){
         e = utf8_next((uint8_t)*data);
         if ( e == 0x0ffff )
@@ -868,7 +867,6 @@ static int l_lcd_draw_str(lua_State* L) {
             y -= delta;
             break;
         }
-        sum += delta;
         }
     }
     return 0;

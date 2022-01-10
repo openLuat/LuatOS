@@ -549,7 +549,7 @@ int l_str_endsWith(lua_State *L) {
   const char* str = luaL_checklstring(L, 1, &str_len);
   const char* suffix = luaL_checklstring(L, 2, &suffix_len);
 
-  LLOGD("%s %d : %s %d", str, str_len, suffix, suffix_len);
+  // LLOGD("%s %d : %s %d", str, str_len, suffix, suffix_len);
 
   if (str_len < suffix_len) {
     lua_pushboolean(L, 0);
@@ -561,4 +561,86 @@ int l_str_endsWith(lua_State *L) {
     lua_pushboolean(L, 0);
   }
   return 1;
+}
+
+#include "lstate.h"
+
+int l_str_strs(lua_State *L) {
+  for (size_t i = 0; i < STRCACHE_N; i++)
+  {
+    TString **p = G(L)->strcache[i];
+    for (size_t j = 0; j < STRCACHE_M; j++) {
+      if (p[j]->tt == LUA_TSHRSTR)
+        LLOGD(">> %s", getstr(p[j]));
+    }
+  }
+  return 0;
+}
+
+int l_str_trim_impl(lua_State *L, int ltrim, int rtrim) {
+  size_t str_len = 0;
+  const char* str = luaL_checklstring(L, 1, &str_len);
+  if (str_len == 0) {
+    lua_pushvalue(L, 1);
+    return 1;
+  }
+  int begin = 0;
+  int end = str_len;
+  if (ltrim) {
+    for (; begin <= end; begin++)
+    {
+      //LLOGD("ltrim %02X %d %d", str[begin], begin, end);
+      if(str[begin] != ' '  && 
+         str[begin] != '\t' && 
+         str[begin] != '\n' && 
+         str[begin] != '\r')
+      {
+        break;
+      }
+    }
+  }
+  if (rtrim) {
+    for (; begin < end; end--)
+    {
+      //LLOGD("rtrim %02X %d %d", str[end], begin, end);
+      if(str[end - 1] != ' '  && 
+         str[end - 1] != '\t' &&  
+         str[end - 1] != '\n' &&  
+         str[end - 1] != '\r')
+      {
+        break;
+      }
+    }
+  }
+  if (begin == end) {
+    lua_pushliteral(L, "");
+  }
+  else {
+    lua_pushlstring(L, str + begin, end - begin);
+  }
+  return 1;
+}
+
+/*
+裁剪字符串,去除头尾的空格
+@api string.trim(str, ltrim, rtrim)
+@string 需要处理的字符串
+@bool 清理前缀,默认为true
+@bool 清理后缀,默认为true
+@return string 清理后的字符串
+@usage
+local str = "\r\nabc\r\n"
+log.info("str", string.trim(str)) -- 打印 "abc"
+log.info("str", str:trim())       -- 打印 "abc"
+log.info("str", #string.trim(str, false, true)) -- 仅裁剪后缀,所以长度是5
+*/
+int l_str_trim(lua_State *L) {
+  int ltrim = 1;
+  int rtrim = 1;
+  if (lua_isboolean(L, 2))
+    ltrim = lua_toboolean(L, 2);
+  if (lua_isboolean(L, 3))
+    rtrim = lua_toboolean(L, 3);
+
+  return l_str_trim_impl(L, ltrim, rtrim);
 }

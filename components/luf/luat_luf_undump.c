@@ -71,7 +71,7 @@ static void LoadBlock (LoadState *S, void *b, size_t size) {
 }
 
 static void* DistBlock (LoadState *S, size_t size) {
-  char b = 0;
+  uint8_t b = 0;
   const char* p = S->Z->p;
   for (size_t i = 0; i < size; i++)
   {
@@ -128,7 +128,16 @@ static void LoadCode (LoadState *S, Proto *f) {
   // int n = LoadInt(S);
   // LLOGD("LoadCode %d %d", n, sizeof(Instruction) * n);
   // f->sizecode = n;
+  // f->code = luat_heap_malloc(sizeof(Instruction) * f->sizecode);
+  // memcpy(f->code, S->Z->p, sizeof(Instruction) * f->sizecode);
   f->code = DistBlock(S, sizeof(Instruction) * f->sizecode);
+  //f->code = ((uint8_t*)f->code) + 2;
+  LLOGD("f->code %p", f->code);
+  for (size_t i = 0; i < f->sizecode; i++)
+  {
+    LLOGD("Code %02X -> %08X", i, f->code[i]);
+  }
+  
 }
 
 
@@ -143,7 +152,20 @@ static void LoadConstants (LoadState *S, Proto *f) {
   // 指向常数数组
   f->k = DistBlock(S, sizeof(TValue) * f->sizek);
   // 跳过字符串段
-
+  for (size_t i = 0; i < f->sizek; i++)
+  {
+    TValue *t = &f->k[i];
+    switch (ttype(t))
+    {
+    case LUA_TSHRSTR:
+    case LUA_TLNGSTR:
+      LLOGD("const string %p %s", tsvalue(t), getstr(tsvalue(t)));
+      break;
+    default:
+      break;
+    }
+  }
+  
 
   
   
@@ -417,6 +439,16 @@ LClosure *luat_luf_undump2(lua_State *L, ZIO *Z, const char *name) {
 
   checkHeader(&S);
   cl = luaF_newLclosure(L, LoadByte(&S));
+  // 有几个对齐用的字节
+  size_t fd_offset = (size_t)S.Z->p;
+  if (fd_offset % 0x04 != 0) {
+    LLOGD("skip %d 0x00", fd_offset % 0x04);
+    for (size_t i = 0; i < (4 - (fd_offset % 0x04)); i++)
+    {
+      LoadByte(&S);
+    }
+  }
+  //
   setclLvalue(L, L->top, cl);
   luaD_inctop(L);
   cl->p = luaF_newproto(L);
@@ -426,12 +458,12 @@ LClosure *luat_luf_undump2(lua_State *L, ZIO *Z, const char *name) {
   lua_assert(cl->nupvalues == cl->p->sizeupvalues);
   luai_verifycode(L, buff, cl->p);
 
-  dumpHex("& upvalues", &cl->p->upvalues[0], 8);
-  dumpHex("& upvalues[0].name", &cl->p->upvalues[0].name, 8);
-  dumpHex("> upvalues[0].name", cl->p->upvalues[0].name, 8);
-  LLOGD("> getstr(upvalues[0].name) %p", getstr(cl->p->upvalues[0].name));
-  LLOGD("> getstr(upvalues[0].name) %s", getstr(cl->p->upvalues[0].name));
-  dumpHex("head",     (char*)0x080E0000, 8);
+  // dumpHex("& upvalues", &cl->p->upvalues[0], 8);
+  // dumpHex("& upvalues[0].name", &cl->p->upvalues[0].name, 8);
+  // dumpHex("> upvalues[0].name", cl->p->upvalues[0].name, 8);
+  // LLOGD("> getstr(upvalues[0].name) %p", getstr(cl->p->upvalues[0].name));
+  // LLOGD("> getstr(upvalues[0].name) %s", getstr(cl->p->upvalues[0].name));
+  // dumpHex("head",     (char*)0x080E0000, 8);
   //dumpHex("lineinfo", cl->p->lineinfo, 8);
   //LLOGD("lineinfo %d %d", cl->p->lineinfo[0], cl->p->lineinfo[1]);
 

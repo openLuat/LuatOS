@@ -29,8 +29,14 @@
 #define white2gray(x)	resetbits(x->marked, WHITEBITS)
 #define black2gray(x)	resetbit(x->marked, BLACKBIT)
 
-#define fslen(s) (sizeof(TString) + tsslen(s) + 1)
-
+// #define fslen(s) (sizeof(TString) + tsslen(s) + 1)
+static size_t fslen(TString *ts) {
+  size_t t = sizeof(TString) + tsslen(ts) + 1;
+  if (t % 0x04 != 0) {
+    t += (4 - (t % 0x04));
+  }
+  return t;
+}
 
 #define LUF_SIGNATURE "\x1cLUF"
 
@@ -94,9 +100,12 @@ static TString* spool_add(TString* ts) {
         tmp->ts[i] = ts;
         tmp->ptr[i] = (void*)(str_offset);
         str_offset += fslen(ts);
+
+        LLOGD("spool_add new %s %p", getstr(ts), tmp->ptr[i]);
         return tmp->ptr[i];
       }
       if (!strcmp(getstr(ts), getstr(tmp->ts[i]))) {
+        LLOGD("spool_add match %s %p", getstr(ts), tmp->ptr[i]);
         return tmp->ptr[i];
       }
     }
@@ -110,6 +119,7 @@ static TString* spool_add(TString* ts) {
   tmp->ts[0] = ts;
   tmp->ptr[0] = (void*)(str_offset);
   str_offset += fslen(ts);
+  LLOGD("spool_add new %s %p", getstr(ts), tmp->ptr[0]);
   return tmp->ptr[0];
 }
 
@@ -209,21 +219,31 @@ static void DumpString (const TString *s, DumpState *D) {
   ts.next = NULL;
   if (ts.tt == LUA_TSHRSTR) {
     ts.u.hnext = NULL;
-    ts.u.lnglen = ts.shrlen;
-    ts.hash = (getstr(s), ts.shrlen, 0);
+    // ts.u.lnglen = ts.shrlen;
+    // ts.hash = (getstr(s), ts.shrlen, 0);
     ts.extra = 1;
-    ts.tt = LUA_TLNGSTR;
+    // ts.tt = LUA_TLNGSTR;
   }
   white2gray((&ts));
   //LLOGD("B>DumpString %d %d", fslen(s), fd_offset);
   DumpBlock(&ts, sizeof(TString), D);
   DumpBlock(getstr(s), tsslen(s)+1, D);
+  if ((tsslen(s) + 1) % 0x04 != 0) {
+    for (size_t i = 0; i < (4-((tsslen(s) + 1) % 0x04)); i++)
+    {
+      DumpByte(0, D);
+    }
+  }
   //LLOGD("A>DumpString %d %d", fslen(s), fd_offset);
 }
 
 static void DumpCode (const Proto *f, DumpState *D) {
   //DumpInt(f->sizecode, D);
   DumpVector(f->code, f->sizecode, D);
+  for (size_t i = 0; i < f->sizecode; i++)
+  {
+    LLOGD("Code %02X -> %08X", i, f->code[i]);
+  }
 }
 
 
@@ -239,14 +259,20 @@ static void DumpConstants (const Proto *f, DumpState *D) {
   //size_t init_offset = fd_offset + sizeof(TValue) * n + sizeof(int);
   //size_t i_offset = init_offset;
   TValue tmp;
+  TString* ts;
   for (i = 0; i < n; i++) {
     const TValue *o = &f->k[i];
     switch (ttype(o)) {
       case LUA_TSHRSTR:
       case LUA_TLNGSTR:
       // {
-        memcpy(&tmp, o, sizeof(TValue));
-        tmp.value_.gc = spool_add(tsvalue(o));
+        //memcpy(&tmp, o, sizeof(TValue));
+        ts = spool_add(tsvalue(o));
+        tmp.value_.gc = ts;
+        tmp.tt_ = ttype(o);
+        // tmp.tt_ = LUA_TLNGSTR;
+        DumpBlock(&tmp, sizeof(TValue), D);
+        break;
       //   o = &tmp;
       //  init_offset += fslen(tsvalue(o)) + 1;
       //   //break;
@@ -418,6 +444,16 @@ int luf_dump(lua_State *L, const Proto *f, lua_Writer w, void *data,
 
   DumpHeader(&D); // 25
   DumpByte(f->sizeupvalues, &D); // 1, 26
+
+  size_t fill_offset = fd_offset % 0x04;
+  LLOGD("fix %d 0x00", fill_offset);
+  if (fill_offset != 0) {
+    for (size_t i = 0; i < (4 - fill_offset); i++)
+    {
+      DumpByte(0, &D);
+    }
+  }
+  
 
   LLOGD("after header + sizeupvalues, fd_offset %08X", fd_offset);
 

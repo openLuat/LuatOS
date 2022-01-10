@@ -476,6 +476,7 @@ int l_str_toBase64(lua_State *L) {
   lua_pushstring(L, "");
   return 1;
 }
+
 /*
 将字符串进行base64解码
 @api string.fromBase64(str)
@@ -499,5 +500,65 @@ int l_str_fromBase64(lua_State *L) {
   }
   // 编码失败,返回空字符串, 可能性应该是0吧
   lua_pushstring(L, "");
+  return 1;
+}
+
+/*
+判断字符串前缀
+@api string.startsWith(str, prefix)
+@string 需要检查的字符串
+@string 前缀字符串
+@return bool 真为true, 假为false
+@usage
+local str = "abc"
+log.info("str", str:startsWith("a"))
+log.info("str", str:startsWith("b"))
+*/
+int l_str_startsWith(lua_State *L) {
+  size_t str_len = 0;
+  size_t prefix_len = 0;
+  const char* str = luaL_checklstring(L, 1, &str_len);
+  const char* prefix = luaL_checklstring(L, 2, &prefix_len);
+
+  if (str_len < prefix_len) {
+    lua_pushboolean(L, 0);
+  }
+  else if (memcmp(str, prefix, prefix_len) == 0) {
+    lua_pushboolean(L, 1);
+  }
+  else {
+    lua_pushboolean(L, 0);
+  }
+  return 1;
+}
+
+/*
+判断字符串后缀
+@api string.startsWith(str, suffix)
+@string 需要检查的字符串
+@string 后缀字符串
+@return bool 真为true, 假为false
+@usage
+local str = "abc"
+log.info("str", str:endsWith("c"))
+log.info("str", str:endsWith("b"))
+*/
+int l_str_endsWith(lua_State *L) {
+  size_t str_len = 0;
+  size_t suffix_len = 0;
+  const char* str = luaL_checklstring(L, 1, &str_len);
+  const char* suffix = luaL_checklstring(L, 2, &suffix_len);
+
+  LLOGD("%s %d : %s %d", str, str_len, suffix, suffix_len);
+
+  if (str_len < suffix_len) {
+    lua_pushboolean(L, 0);
+  }
+  else if (memcmp(str + (str_len - suffix_len), suffix, suffix_len) == 0) {
+    lua_pushboolean(L, 1);
+  }
+  else {
+    lua_pushboolean(L, 0);
+  }
   return 1;
 }

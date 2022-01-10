@@ -1543,6 +1543,8 @@ int l_str_toValue (lua_State *L);
 int l_str_urlEncode (lua_State *L);
 int l_str_toBase64(lua_State *L);
 int l_str_fromBase64(lua_State *L);
+int l_str_startsWith(lua_State *L);
+int l_str_endsWith(lua_State *L);
 //-----------------------------------------------------------
 
 #include "rotable.h"
@@ -1575,6 +1577,9 @@ static const rotable_Reg strlib[] = {
   {"urlEncode", l_str_urlEncode, 0},
   {"fromBase64", l_str_fromBase64, 0},
   {"toBase64", l_str_toBase64, 0},
+
+  {"startsWith", l_str_startsWith, 0},
+  {"endsWith", l_str_endsWith, 0},
 
   //{"urlDecode", str_urlDecode},
   //-----------------------------

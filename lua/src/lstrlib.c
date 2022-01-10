@@ -178,26 +178,26 @@ static int str_char (lua_State *L) {
   return 1;
 }
 
+#if defined(LUA_USE_LINUX) || defined(LUA_USE_WINDOWS) || defined(LUA_USE_MACOSX)
+static int writer (lua_State *L, const void *b, size_t size, void *B) {
+  (void)L;
+  luaL_addlstring((luaL_Buffer *) B, (const char *)b, size);
+  return 0;
+}
 
-// static int writer (lua_State *L, const void *b, size_t size, void *B) {
-//   (void)L;
-//   luaL_addlstring((luaL_Buffer *) B, (const char *)b, size);
-//   return 0;
-// }
 
-
-// static int str_dump (lua_State *L) {
-//   luaL_Buffer b;
-//   int strip = lua_toboolean(L, 2);
-//   luaL_checktype(L, 1, LUA_TFUNCTION);
-//   lua_settop(L, 1);
-//   luaL_buffinit(L,&b);
-//   if (lua_dump(L, writer, &b, strip) != 0)
-//     return luaL_error(L, "unable to dump given function");
-//   luaL_pushresult(&b);
-//   return 1;
-// }
-
+static int str_dump (lua_State *L) {
+  luaL_Buffer b;
+  int strip = lua_toboolean(L, 2);
+  luaL_checktype(L, 1, LUA_TFUNCTION);
+  lua_settop(L, 1);
+  luaL_buffinit(L,&b);
+  if (lua_dump(L, writer, &b, strip) != 0)
+    return luaL_error(L, "unable to dump given function");
+  luaL_pushresult(&b);
+  return 1;
+}
+#endif
 
 
 /*
@@ -1549,7 +1549,9 @@ int l_str_fromBase64(lua_State *L);
 static const rotable_Reg strlib[] = {
   {"byte", str_byte, 0},
   {"char", str_char, 0},
-  //{"dump", str_dump, 0},
+#if defined(LUA_USE_LINUX) || defined(LUA_USE_WINDOWS) || defined(LUA_USE_MACOSX)
+  {"dump", str_dump, 0},
+#endif
   {"find", str_find, 0},
   {"format", str_format, 0},
   {"gmatch", gmatch, 0},

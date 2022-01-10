@@ -1,0 +1,1 @@
+wm_tool.exe -dl script.img -ds 115200 -ws 115200 -c COM83 -rs rts

@@ -18,7 +18,7 @@ LuatOS : Powerful embedded Lua Engine for IoT devices, with many components and 
 
 ## 快速入门
 
-1. 使用或购买支持的开发板 - [Air101](https://item.taobao.com/item.htm?id=655145668811)/[Air103](https://item.taobao.com/item.htm?id=662164666516)
+1. 使用或购买支持的开发板 - [Air101](https://item.taobao.com/item.htm?id=655145668811)/[Air103](https://item.taobao.com/item.htm?id=662164666516)/[Air105](https://item.taobao.com/item.htm?id=665811924219)
 2. 掌握[刷机](https://wiki.luatos.com/boardGuide/flash.html)
 3. 尝试[各种demo](https://gitee.com/openLuat/LuatOS/tree/master/demo), 浏览[API](https://wiki.luatos.com/api/index.html), [30分钟入门lua语法(视频)](https://www.bilibili.com/video/BV1vf4y1L7Rb?spm_id_from=333.999.0.0)
 4. 愉快地写业务代码, 或者铺灰^_^

@@ -772,9 +772,11 @@ static void f_parser (lua_State *L, void *ud) {
     checkmode(L, p->mode, "binary");
     cl = luaU_undump(L, p->z, p->name);
   }
+#ifdef LUAT_USE_LUF
   else if (c == 0x1C) {
     cl = luat_luf_undump2(L, p->z, p->name);
   }
+#endif
   else {
     checkmode(L, p->mode, "text");
     cl = luaY_parser(L, p->z, &p->buff, &p->dyd, p->name, c);

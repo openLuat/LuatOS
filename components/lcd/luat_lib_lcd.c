@@ -822,7 +822,7 @@ static int l_lcd_set_font(lua_State *L) {
 @int x 横坐标
 @int y 竖坐标  注意:此(x,y)为左下起始坐标
 @string str 文件内容
-@int fg_color str颜色
+@int fg_color str颜色 注意:此参数可选，如不填写则使用之前设置的颜色，绘制只会绘制字体部分，背景需要自己清除
 @usage
 -- 显示之前先设置为中文字体,对之后的drawStr有效,使用中文字体需在luat_conf_bsp.h.h开启#define USE_U8G2_OPPOSANSMxx_CHINESE xx代表字号
 lcd.setFont(lcd.font_opposansm12)

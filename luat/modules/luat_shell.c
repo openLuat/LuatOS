@@ -140,7 +140,7 @@ static int luat_shell_loadstr(lua_State *L, void* ptr) {
 
 void luat_shell_push(char* uart_buff, size_t rcount) {
     //int ret = 0;
-    int len = 0;
+    size_t len = 0;
     char buff[128] = {0};
     if (rcount) {
         if (cmux_state == 1){
@@ -148,7 +148,7 @@ void luat_shell_push(char* uart_buff, size_t rcount) {
         }else{
             // 是不是ATI命令呢?
             if (echo_enable)
-            luat_shell_write(uart_buff, rcount);
+                luat_shell_write(uart_buff, rcount);
             // 查询版本号
             if (strncmp("ATI", uart_buff, 3) == 0 || strncmp("ati", uart_buff, 3) == 0) {
                 #ifdef LUAT_BSP_VERSION

@@ -56,7 +56,10 @@ void luat_nprint(char *s, size_t l) {
     };
     xQueueSendFromISR(xQueue, &msg, NULL);
 #else
-    printf("%s", s);
+    char buff[4*1024];
+    memcpy(buff, s, l);
+    buff[l] = 0;
+    printf("%s", buff);
 #endif
 }
 

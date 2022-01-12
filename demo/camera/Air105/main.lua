@@ -22,6 +22,11 @@ local GC032A_InitReg =
 	zbar_scan = 0,
     i2c_id = 0,
 	i2c_addr = 0x21,
+    pwm_id = 5;
+    pwm_period  = 12*1000*1000,
+    pwm_pulse = 0,
+    camera_pwdn = pin.PD06,
+    camera_rst = pin.PD07,
 	sensor_width = 640,
 	sensor_height = 480,
     color_bit = 16,
@@ -319,6 +324,11 @@ local GC032A_InitReg_Gray =
 	zbar_scan = 1,
     i2c_id = 0,
 	i2c_addr = 0x21,
+    pwm_id = 5;
+    pwm_period  = 24*1000*1000,
+    pwm_pulse = 0,
+    camera_pwdn = pin.PD06,
+    camera_rst = pin.PD07,
 	sensor_width = 640,
 	sensor_height = 480,
     color_bit = 16,
@@ -610,7 +620,7 @@ local GC032A_InitReg_Gray =
         0x46,0x0f,
 	}
 }
-
+--注册摄像头事件回调
 camera.on(0, "scanned", function(id, str)
     print(id, str)
 end)
@@ -618,10 +628,7 @@ end)
 sys.taskInit(function()
     camera.init(GC032A_InitReg)--屏幕输出rgb图像
     -- camera.init(GC032A_InitReg_Gray)--屏幕输出灰度图像并扫码
-    
     while 1 do
-        -- local result, uart_id,data = sys.waitUntil("USB_UART_INC", 30000)
-        -- print(result, uart_id,data)
         sys.wait(500)
     end
 end)

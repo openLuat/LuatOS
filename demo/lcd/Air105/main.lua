@@ -17,12 +17,12 @@ _G.sys = require("sys")
 LCD管脚       Air105管脚
 GND          GND
 VCC          3.3V
-SCL          (PC15/SPI0_SCK)
-SDA          (PC13/SPI0_MOSI)
-RES          (PC05)
-DC           (PC12)
-CS           (PC14)
-BL           (PC04)
+SCL          (PC15/HSPI_SCK)
+SDA          (PC13/HSPI_MOSI)
+RES          (PC12/HSPI_MISO)
+DC           (PE08) --开发板上的U3_RX
+CS           (PC14/HSPI_CS)
+BL           (PE09) --开发板上的U3_TX
 
 
 提示:
@@ -40,25 +40,17 @@ end
 spi_lcd = spi.deviceSetup(5,pin.PC14,0,0,8,96*1000*1000,spi.MSB,1,1)
 
 -- log.info("lcd.init",
--- lcd.init("gc9a01",{port = "device",pin_dc = pin.PC12,pin_rst = pin.PC05,pin_pwr = pin.PC04,direction = 0,w = 240,h = 320,xoffset = 0,yoffset = 0},spi_lcd))
+-- lcd.init("st7735s",{port = "device",pin_dc = pin.PE08 ,pin_rst = pin.PC12,pin_pwr = pin.PE09,direction = 2,w = 160,h = 80,xoffset = 1,yoffset = 26},spi_lcd))
+
 -- log.info("lcd.init",
--- lcd.init("st7789",{port = "device",pin_dc = pin.PC12, pin_rst = pin.PC05,pin_pwr = pin.PC04,direction = 0,w = 240,h = 240,xoffset = 0,yoffset = 0},spi_lcd))
+-- lcd.init("st7789",{port = "device",pin_dc = pin.PE08 ,pin_rst = pin.PC12,pin_pwr = pin.PE09,direction = 0,w = 240,h = 320,xoffset = 0,yoffset = 0},spi_lcd))
+
 -- log.info("lcd.init",
--- lcd.init("st7789",{port = "device",pin_dc = pin.PC12, pin_rst = pin.PC05,pin_pwr = pin.PC04,direction = 3,w = 240,h = 240,xoffset = 80,yoffset = 0},spi_lcd))
--- log.info("lcd.init",
--- lcd.init("st7789",{port = "device",pin_dc = pin.PC12, pin_rst = pin.PC05,pin_pwr = pin.PC04,direction = 3,w = 320,h = 240,xoffset = 0,yoffset = 0},spi_lcd))
--- log.info("lcd.init",
--- lcd.init("st7789",{port = "device",pin_dc = pin.PC12, pin_rst = pin.PC05,pin_pwr = pin.PC04,direction = 0,w = 240,h = 320,xoffset = 0,yoffset = 0},spi_lcd))
--- log.info("lcd.init",
--- lcd.init("st7735",{port = "device",pin_dc = pin.PC12, pin_rst = pin.PC05,pin_pwr = pin.PC04,direction = 0,w = 128,h = 160,xoffset = 2,yoffset = 1},spi_lcd))
--- log.info("lcd.init",
--- lcd.init("st7735v",{port = "device",pin_dc = pin.PC12,pin_rst = pin.PC05,pin_pwr = pin.PC04,direction = 1,w = 160,h = 80,xoffset = 0,yoffset = 24},spi_lcd))
--- log.info("lcd.init",
--- lcd.init("st7735s",{port = "device",pin_dc = pin.PC12,pin_rst = pin.PC05,pin_pwr = pin.PC04,direction = 2,w = 160,h = 80,xoffset = 1,yoffset = 26},spi_lcd))
+-- lcd.init("st7735",{port = "device",pin_dc = pin.PE08 ,pin_rst = pin.PC12,pin_pwr = pin.PE09,direction = 0,w = 128,h = 160,xoffset = 2,yoffset = 1},spi_lcd))
+
 log.info("lcd.init",
-lcd.init("gc9306",{port = "device",pin_dc = pin.PC12,pin_rst = pin.PC05,pin_pwr = pin.PC04,direction = 0,w = 240,h = 320,xoffset = 0,yoffset = 0},spi_lcd))
--- log.info("lcd.init",
--- lcd.init("ili9341",{port = "device",pin_dc = pin.PC12, pin_rst = pin.PC05,pin_pwr = pin.PC04,direction = 0,w = 240,h = 320,xoffset = 0,yoffset = 0},spi_lcd))
+lcd.init("gc9306",{port = "device",pin_dc = pin.PE08 ,pin_rst = pin.PC12,pin_pwr = pin.PE09,direction = 0,w = 240,h = 320,xoffset = 0,yoffset = 0},spi_lcd))
+
 
 sys.taskInit(function()
     -- sys.wait(1000)

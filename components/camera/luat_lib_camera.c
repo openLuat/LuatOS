@@ -45,6 +45,12 @@ static int l_camera_init(lua_State *L){
             conf.zbar_scan = luaL_checkinteger(L, -1);
         }
         lua_pop(L, 1);
+        lua_pushliteral(L, "draw_lcd");
+        lua_gettable(L, 1);
+        if (lua_isinteger(L, -1)) {
+            conf.draw_lcd = luaL_checkinteger(L, -1);
+        }
+        lua_pop(L, 1);
         lua_pushliteral(L, "i2c_id");
         lua_gettable(L, 1);
         if (lua_isinteger(L, -1)) {
@@ -73,18 +79,6 @@ static int l_camera_init(lua_State *L){
         lua_gettable(L, 1);
         if (lua_isinteger(L, -1)) {
             conf.pwm_pulse = luaL_checkinteger(L, -1);
-        }
-        lua_pop(L, 1);
-        lua_pushliteral(L, "camera_pwdn");
-        lua_gettable(L, 1);
-        if (lua_isinteger(L, -1)) {
-            conf.camera_pwdn = luaL_checkinteger(L, -1);
-        }
-        lua_pop(L, 1);
-        lua_pushliteral(L, "camera_rst");
-        lua_gettable(L, 1);
-        if (lua_isinteger(L, -1)) {
-            conf.camera_rst = luaL_checkinteger(L, -1);
         }
         lua_pop(L, 1);
         lua_pushliteral(L, "sensor_width");

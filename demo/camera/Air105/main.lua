@@ -10,8 +10,13 @@ if wdt then
     sys.timerLoopStart(wdt.feed, 10000)--10s喂一次狗
 end
 
--- v0006及以后版本可用pin方式, 请升级到最新固件 https://gitee.com/openLuat/LuatOS/releases
 spi_lcd = spi.deviceSetup(5,pin.PC14,0,0,8,48*1000*1000,spi.MSB,1,1)
+
+-- log.info("lcd.init",
+-- lcd.init("st7735s",{port = "device",pin_dc = pin.PE08 ,pin_rst = pin.PC12,pin_pwr = pin.PE09,direction = 2,w = 160,h = 80,xoffset = 1,yoffset = 26},spi_lcd))
+
+-- log.info("lcd.init",
+-- lcd.init("st7789",{port = "device",pin_dc = pin.PE08 ,pin_rst = pin.PC12,pin_pwr = pin.PE09,direction = 0,w = 240,h = 320,xoffset = 0,yoffset = 0},spi_lcd))
 
 log.info("lcd.init",
 lcd.init("gc9306",{port = "device",pin_dc = pin.PE08 ,pin_rst = pin.PC12,pin_pwr = pin.PE09,direction = 0,w = 240,h = 320,xoffset = 0,yoffset = 0},spi_lcd))
@@ -19,14 +24,13 @@ lcd.init("gc9306",{port = "device",pin_dc = pin.PE08 ,pin_rst = pin.PC12,pin_pwr
 --GC032A输出rgb图像初始化命令
 local GC032A_InitReg =
 {
-	zbar_scan = 0,
+	zbar_scan = 0,--是否为扫码
+    draw_lcd = 1,--是否向lcd输出
     i2c_id = 0,
 	i2c_addr = 0x21,
     pwm_id = 5;
     pwm_period  = 12*1000*1000,
     pwm_pulse = 0,
-    camera_pwdn = pin.PD06,
-    camera_rst = pin.PD07,
 	sensor_width = 640,
 	sensor_height = 480,
     color_bit = 16,
@@ -318,17 +322,17 @@ local GC032A_InitReg =
         0x46,0x0f,
 	}
 }
+
 --GC032A输出灰度图像初始化命令
 local GC032A_InitReg_Gray =
 {
-	zbar_scan = 1,
+	zbar_scan = 1,--是否为扫码
+    draw_lcd = 1,--是否向lcd输出
     i2c_id = 0,
 	i2c_addr = 0x21,
     pwm_id = 5;
     pwm_period  = 24*1000*1000,
     pwm_pulse = 0,
-    camera_pwdn = pin.PD06,
-    camera_rst = pin.PD07,
 	sensor_width = 640,
 	sensor_height = 480,
     color_bit = 16,
@@ -625,7 +629,12 @@ camera.on(0, "scanned", function(id, str)
     print(id, str)
 end)
 
+local camera_pwdn = gpio.setup(pin.PD06, 1, gpio.PULLUP) -- PB9输出模式,内部上拉
+local camera_rst = gpio.setup(pin.PD07, 1, gpio.PULLUP) -- PB10输出模式,内部上拉
+
 sys.taskInit(function()
+    camera_rst(0)
+
     camera.init(GC032A_InitReg)--屏幕输出rgb图像
     -- camera.init(GC032A_InitReg_Gray)--屏幕输出灰度图像并扫码
     while 1 do

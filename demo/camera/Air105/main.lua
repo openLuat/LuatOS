@@ -16,6 +16,7 @@ spi_lcd = spi.deviceSetup(5,pin.PC14,0,0,8,48*1000*1000,spi.MSB,1,1)
 log.info("lcd.init",
 lcd.init("gc9306",{port = "device",pin_dc = pin.PE08 ,pin_rst = pin.PC12,pin_pwr = pin.PE09,direction = 0,w = 240,h = 320,xoffset = 0,yoffset = 0},spi_lcd))
 
+--GC032A输出rgb图像初始化命令
 local GC032A_InitReg =
 {
 	zbar_scan = 0,
@@ -312,7 +313,7 @@ local GC032A_InitReg =
         0x46,0x0f,
 	}
 }
-
+--GC032A输出灰度图像初始化命令
 local GC032A_InitReg_Gray =
 {
 	zbar_scan = 1,
@@ -615,8 +616,8 @@ camera.on(0, "scanned", function(id, str)
 end)
 
 sys.taskInit(function()
-    camera.init(GC032A_InitReg)
-    -- camera.init(GC032A_InitReg_Gray)
+    camera.init(GC032A_InitReg)--屏幕输出rgb图像
+    -- camera.init(GC032A_InitReg_Gray)--屏幕输出灰度图像并扫码
     
     while 1 do
         -- local result, uart_id,data = sys.waitUntil("USB_UART_INC", 30000)

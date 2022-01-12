@@ -39,7 +39,9 @@ int lcd_write_cmd(luat_lcd_conf_t* conf, const uint8_t cmd){
     size_t len;
     luat_gpio_set(conf->pin_dc, Luat_GPIO_LOW);
 #ifdef LUAT_LCD_CMD_DELAY_US
-    luat_timer_us_delay(LUAT_LCD_CMD_DELAY_US);
+    if (conf->dc_delay_us){
+    	luat_timer_us_delay(conf->dc_delay_us);
+    }
 #endif
     if (conf->port == LUAT_LCD_SPI_DEVICE){
         len = luat_spi_device_send((luat_spi_device_t*)(conf->userdata),  (const char*)&cmd, 1);

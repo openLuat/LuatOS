@@ -50,6 +50,7 @@ typedef struct luat_lcd_conf {
     uint32_t w;
     uint32_t h;
     uint32_t buffer_size;
+    uint32_t dc_delay_us;
     uint8_t xoffset;//偏移
     uint8_t yoffset;//偏移
 

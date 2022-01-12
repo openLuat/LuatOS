@@ -15,6 +15,11 @@ typedef struct luat_camera_conf
     uint8_t zbar_scan;
     uint8_t i2c_id;
     uint8_t i2c_addr;
+    uint8_t pwm_id;
+    size_t pwm_period;
+    uint8_t pwm_pulse;
+    uint8_t camera_pwdn;
+    uint8_t camera_rst;
     uint16_t sensor_width;
     uint16_t sensor_height;
     uint8_t color_bit;

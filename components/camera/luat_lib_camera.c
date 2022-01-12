@@ -57,6 +57,36 @@ static int l_camera_init(lua_State *L){
             conf.i2c_addr = luaL_checkinteger(L, -1);
         }
         lua_pop(L, 1);
+        lua_pushliteral(L, "pwm_id");
+        lua_gettable(L, 1);
+        if (lua_isinteger(L, -1)) {
+            conf.pwm_id = luaL_checkinteger(L, -1);
+        }
+        lua_pop(L, 1);
+        lua_pushliteral(L, "pwm_period");
+        lua_gettable(L, 1);
+        if (lua_isinteger(L, -1)) {
+            conf.pwm_period = luaL_checkinteger(L, -1);
+        }
+        lua_pop(L, 1);
+        lua_pushliteral(L, "pwm_pulse");
+        lua_gettable(L, 1);
+        if (lua_isinteger(L, -1)) {
+            conf.pwm_pulse = luaL_checkinteger(L, -1);
+        }
+        lua_pop(L, 1);
+        lua_pushliteral(L, "camera_pwdn");
+        lua_gettable(L, 1);
+        if (lua_isinteger(L, -1)) {
+            conf.camera_pwdn = luaL_checkinteger(L, -1);
+        }
+        lua_pop(L, 1);
+        lua_pushliteral(L, "camera_rst");
+        lua_gettable(L, 1);
+        if (lua_isinteger(L, -1)) {
+            conf.camera_rst = luaL_checkinteger(L, -1);
+        }
+        lua_pop(L, 1);
         lua_pushliteral(L, "sensor_width");
         lua_gettable(L, 1);
         if (lua_isinteger(L, -1)) {

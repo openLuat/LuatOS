@@ -35,6 +35,15 @@ int l_camera_handler(lua_State *L, void* ptr) {
     return 1;
 }
 
+/*
+初始化摄像头
+@api    camera.init(InitReg)
+@table InitReg camera初始化命令 见demo/camera/AIR105 注意:如扫码 camera初始化时需设置为灰度输出
+@return nil 无返回值
+@usage
+camera.init(GC032A_InitReg)--屏幕输出rgb图像
+*/
+
 static int l_camera_init(lua_State *L){
     luat_camera_conf_t conf = {0};
     conf.lcd_conf = luat_lcd_get_default();

@@ -39,9 +39,9 @@ int l_camera_handler(lua_State *L, void* ptr) {
 初始化摄像头
 @api    camera.init(InitReg)
 @table InitReg camera初始化命令 见demo/camera/AIR105 注意:如扫码 camera初始化时需设置为灰度输出
-@return nil 无返回值
+@return int camera_id
 @usage
-camera.init(GC032A_InitReg)--屏幕输出rgb图像
+camera_id = camera.init(GC032A_InitReg)--屏幕输出rgb图像
 */
 
 static int l_camera_init(lua_State *L){
@@ -133,8 +133,8 @@ static int l_camera_init(lua_State *L){
         }
         lua_pop(L, 1);
     }
-    luat_camera_init(&conf);
-    return 0;
+    lua_pushinteger(L, luat_camera_init(&conf));
+    return 1;
 }
 
 /*
@@ -165,10 +165,40 @@ static int l_camera_on(lua_State *L) {
     return 0;
 }
 
+/**
+开始指定的camera
+@api camera.start(id)
+@int camera id,例如0
+@return boolean 成功返回true,否则返回false
+@usage
+camera.start(0)
+*/
+static int l_camera_start(lua_State *L) {
+    int id = luaL_checkinteger(L, 1);
+    lua_pushboolean(L, luat_camera_start(id) == 0 ? 1 : 0);
+    return 1;
+}
+
+/**
+停止指定的camera
+@api camera.stop(id)
+@int camera id,例如0
+@return boolean 成功返回true,否则返回false
+@usage
+camera.stop(0)
+*/
+static int l_camera_stop(lua_State *L) {
+    int id = luaL_checkinteger(L, 1);
+    lua_pushboolean(L, luat_camera_stop(id) == 0 ? 1 : 0);
+    return 1;
+}
+
 #include "rotable.h"
 static const rotable_Reg reg_camera[] =
 {
     { "init" ,       l_camera_init , 0},
+    { "start" ,       l_camera_start , 0},
+    { "stop" ,      l_camera_stop, 0},
     // { "open" ,       l_camera_open , 0},
     // { "close" ,      l_camera_close, 0},
     { "on",     l_camera_on, 0},

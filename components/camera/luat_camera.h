@@ -26,11 +26,13 @@ typedef struct luat_camera_conf
 	uint8_t id_value;
     size_t init_cmd_size;
     uint8_t *init_cmd;
-    luat_lcd_conf_t* lcd_conf
+    luat_lcd_conf_t* lcd_conf;
 } luat_camera_conf_t;
 
 int l_camera_handler(lua_State *L, void* ptr);
 int luat_camera_init(luat_camera_conf_t *conf);
+int luat_camera_start(int id);
+int luat_camera_stop(int id);
 int luat_camera_close(int id);
 
 #endif

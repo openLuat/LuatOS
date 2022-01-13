@@ -659,7 +659,7 @@ sys.taskInit(function()
     --下面两行只开一行！一个是屏幕输出rgb图像,一个是屏幕输出灰度图像并扫码
     local camera_id = camera.init(GC032A_InitReg)--屏幕输出rgb图像
     -- local camera_id = camera.init(GC032A_InitReg_Gray)--屏幕输出灰度图像并扫码
-    
+    camera.start(camera_id)--开始指定的camera
     sys.wait(5000)
     camera.stop(camera_id)--停止指定的camera
     sys.wait(5000)

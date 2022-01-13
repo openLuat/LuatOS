@@ -1,3 +1,3 @@
 # LuatOS API
 
-请到 https://wiki.luatos.com/api 查阅
+请到 https://wiki.luatos.com/api/index.html查阅

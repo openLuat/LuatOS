@@ -28,7 +28,7 @@ static void l_keyboard_irq_cb(luat_keyboard_ctx_t* ctx) {
     rtos_msg_t msg = {0};
     msg.handler = l_keyboard_handler;
     msg.arg1 = ctx->port;
-    msg.arg2 = ctx->pin_data & ((ctx->state & 0x1) << 15);
+    msg.arg2 = ctx->pin_data;
     msg.ptr = (void*)ctx->state;
     luat_msgbus_put(&msg, 0);
 }

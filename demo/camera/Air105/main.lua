@@ -656,8 +656,15 @@ local camera_rst = gpio.setup(pin.PD07, 1, gpio.PULLUP) -- PB10输出模式,内�
 sys.taskInit(function()
     camera_rst(0)
 
-    camera.init(GC032A_InitReg)--屏幕输出rgb图像
-    -- camera.init(GC032A_InitReg_Gray)--屏幕输出灰度图像并扫码
+    --下面两行只开一行！一个是屏幕输出rgb图像,一个是屏幕输出灰度图像并扫码
+    local camera_id = camera.init(GC032A_InitReg)--屏幕输出rgb图像
+    -- local camera_id = camera.init(GC032A_InitReg_Gray)--屏幕输出灰度图像并扫码
+    
+    sys.wait(5000)
+    camera.stop(camera_id)--停止指定的camera
+    sys.wait(5000)
+    camera.start(camera_id)--开始指定的camera
+
     while 1 do
         sys.wait(500)
     end

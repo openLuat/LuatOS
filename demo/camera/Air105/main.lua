@@ -650,8 +650,8 @@ camera.on(0, "scanned", function(id, str)
     print(id, str)
 end)
 
-local camera_pwdn = gpio.setup(pin.PD06, 1, gpio.PULLUP) -- PB9输出模式,内部上拉
-local camera_rst = gpio.setup(pin.PD07, 1, gpio.PULLUP) -- PB10输出模式,内部上拉
+local camera_pwdn = gpio.setup(pin.PD06, 1, gpio.PULLUP) -- PD06 camera_pwdn引脚
+local camera_rst = gpio.setup(pin.PD07, 1, gpio.PULLUP) -- PD07 camera_rst引脚
 
 sys.taskInit(function()
     camera_rst(0)
@@ -659,7 +659,7 @@ sys.taskInit(function()
     --下面两行只开一行！一个是屏幕输出rgb图像,一个是屏幕输出灰度图像并扫码
     local camera_id = camera.init(GC032A_InitReg)--屏幕输出rgb图像
     -- local camera_id = camera.init(GC032A_InitReg_Gray)--屏幕输出灰度图像并扫码
-    
+    camera.start(camera_id)--开始指定的camera
     sys.wait(5000)
     camera.stop(camera_id)--停止指定的camera
     sys.wait(5000)

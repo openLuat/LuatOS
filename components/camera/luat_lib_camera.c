@@ -42,6 +42,8 @@ int l_camera_handler(lua_State *L, void* ptr) {
 @return int camera_id
 @usage
 camera_id = camera.init(GC032A_InitReg)--屏幕输出rgb图像
+--初始化后需要start才开始输出/扫码
+camera.start(camera_id)--开始指定的camera
 */
 
 static int l_camera_init(lua_State *L){

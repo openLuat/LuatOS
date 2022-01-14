@@ -650,8 +650,8 @@ camera.on(0, "scanned", function(id, str)
     print(id, str)
 end)
 
-local camera_pwdn = gpio.setup(pin.PD06, 1, gpio.PULLUP) -- PB9输出模式,内部上拉
-local camera_rst = gpio.setup(pin.PD07, 1, gpio.PULLUP) -- PB10输出模式,内部上拉
+local camera_pwdn = gpio.setup(pin.PD06, 1, gpio.PULLUP) -- PD06 camera_pwdn引脚
+local camera_rst = gpio.setup(pin.PD07, 1, gpio.PULLUP) -- PD07 camera_rst引脚
 
 sys.taskInit(function()
     camera_rst(0)

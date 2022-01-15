@@ -71,6 +71,7 @@ static int l_u8g2_begin(lua_State *L) {
     luat_u8g2_conf_t conf = {0};
     conf.pinType = 2; // I2C 硬件(或者是个假硬件)
     conf.ptr = u8g2;
+    conf.direction = U8G2_R0;
     if (lua_istable(L, 1)) {
         // 参数解析
         lua_pushliteral(L, "ic");

@@ -308,7 +308,7 @@ static int l_u8g2_SetFontMode(lua_State *L){
 @api u8g2.SetFont(font)
 @int font, u8g2.font_ncenB08_tr为纯英文8x8字节,u8g2.font_opposansm12_chinese 为12x12全中文,u8g2.font_unifont_t_symbols 为符号.
 @usage
--- 设置为中文字体,对之后的drawStr有效,使用中文字体需在luat_base.h开启#define USE_U8G2_OPPOSANSM12_CHINESE
+-- 设置为中文字体,对之后的drawStr有效,使用中文字体需在 luat_conf_bsp.h开启#define USE_U8G2_OPPOSANSM12_CHINESE
 u8g2.setFont(u8g2.font_wqy12_t_gb2312)
 */
 static int l_u8g2_SetFont(lua_State *L) {

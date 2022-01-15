@@ -3,8 +3,6 @@
 -- @author Dozingfiretruck
 -- @release 2021.01.25
 
---[[ 注意：如需使用u8g2的全中文字库需将 luat_base.h中26行#define USE_U8G2_WQY12_T_GB2312 打开]]
-
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "u8g2demo"
 VERSION = "1.0.1"
@@ -31,9 +29,9 @@ local TAG = "main"
 log.info(TAG, "init ssd1306")
 
 -- 初始化硬件i2c的ssd1306
-u8g2.begin({ic = "ssd1306",mode="i2c_hw",i2c_id=0,i2c_speed = i2c.FAST})
+u8g2.begin({ic = "ssd1306",direction = 0,mode="i2c_hw",i2c_id=0,i2c_speed = i2c.FAST}) -- direction 可选0 90 180 270
 -- 初始化软件i2c的ssd1306
--- u8g2.begin({ic = "ssd1306",mode="i2c_sw", i2c_scl=1, i2c_sda=4}) -- 通过PA1 SCL / PA4 SDA模拟
+-- u8g2.begin({ic = "ssd1306",direction = 0,mode="i2c_sw", i2c_scl=1, i2c_sda=4}) -- 通过PA1 SCL / PA4 SDA模拟
 
 u8g2.SetFontMode(1)
 u8g2.ClearBuffer()

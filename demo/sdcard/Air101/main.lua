@@ -18,7 +18,9 @@ end
 -- 例如 /sd/boottime 是合法文件名, 而/sd/boot_time就不是合法文件名, 需要启用长文件名支持.
 
 local function fatfs_test()
+    log.info("sdio", "call sdio.init")
     sdio.init(0)
+    log.info("sdio", "call sdio.sd_mount")
     sdio.sd_mount(0, "/sd")
     local f = io.open("/sd/boottime", "rb")
     local c = 0
@@ -60,6 +62,24 @@ local function fatfs_test()
     if  f then
         local data = f:read("*a")
         log.info("data", data, data == "ABCdef")
+        f:close()
+    end
+
+    -- 测试一下按行读取, fix in 2022-01-16
+    f = io.open("/sd/testline", "w")
+    if f then
+        f:write("abc\n")
+        f:write("123\n")
+        f:write("wendal\n")
+        f:close()
+    end
+    sys.wait(100)
+    f = io.open("/sd/testline", "r")
+    if f then
+        log.info("sdio", "line1", f:read("*l"))
+        log.info("sdio", "line2", f:read("*l"))
+        log.info("sdio", "line3", f:read("*l"))
+        f:close()
     end
 end
 

@@ -53,7 +53,7 @@ int luat_vfs_fatfs_getc(void* userdata, FILE* stream) {
     char buff = 0;
     UINT result = 0;
     FRESULT ret = f_read(fp, (void*)&buff, 1, &result);
-    if (ret == FR_OK) {
+    if (ret == FR_OK && result == 1) {
         return buff;
     }
     return -1;

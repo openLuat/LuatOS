@@ -47,7 +47,7 @@ extern uint32_t WINDOW_VER_RES;
 
 /**
 初始化LVGL
-@api lvgl.init(w, h, lcd, buff_mode)
+@api lvgl.init(w, h, lcd, buff_size, buff_mode)
 @int 屏幕宽,可选,默认从lcd取
 @int 屏幕高,可选,默认从lcd取
 @userdata lcd指针,可选,lcd初始化后有默认值,预留的多屏入口

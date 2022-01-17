@@ -57,7 +57,7 @@ static int fatfs_mount(lua_State *L)
 		            .busname = (char*)fs,
 		            .type = "fatfs",
 		            .filesystem = "fatfs",
-		            .mount_point = "/sdcard",
+		            .mount_point = "/sd",
 	            };
 	            luat_fs_mount(&conf2);
 		#endif

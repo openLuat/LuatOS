@@ -15,6 +15,14 @@ end
 
 log.info("main", "uart demo")
 
+-- USB驱动下载 https://doc.openluat.com/wiki/21?wiki_page_id=2070
+-- USB驱动与 合宙Cat.1的USB驱动是一致的
+
+if usbapp then
+    usbapp.start(0)
+end
+
+
 local uartid = 4 -- 根据实际设备选取不同的uartid
 
 --初始化

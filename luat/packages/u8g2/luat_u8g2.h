@@ -17,7 +17,7 @@ typedef struct luat_u8g2_conf
     size_t pin7;
     char* cname; // 控制器名称, 例如SSD1306
     void* ptr;
-    u8g2_cb_t* direction;//方向 
+    const u8g2_cb_t* direction;//方向 
 } luat_u8g2_conf_t;
 
 int luat_u8g2_setup(luat_u8g2_conf_t *conf);

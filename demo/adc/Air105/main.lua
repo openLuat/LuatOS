@@ -18,24 +18,12 @@ sys.taskInit(function()
     while 1 do
         adc.open(0) -- 模块上的ADC0脚-PA1, 0~2.4v,不要超过范围使用!!!
         adc.open(1) -- 模块上的ADC1脚-PA4, 0~2.4v,不要超过范围使用!!!
-        adc.open(2) -- 模块上的ADC0脚-PA2, 0~2.4v,不要超过范围使用!!! 仅air103
-        adc.open(3) -- 模块上的ADC1脚-PA3, 0~2.4v,不要超过范围使用!!! 仅air103
-        adc.open(10) -- CPU温度
-        adc.open(11) -- VBAT电压,最新代码才支持
         sys.wait(500)
         log.debug("adc", "adc0", adc.read(0))
         log.debug("adc", "adc1", adc.read(1))
-        log.debug("adc", "adc1", adc.read(2))
-        log.debug("adc", "adc1", adc.read(3))
-        log.debug("adc", "adc_temp", adc.read(10))
-        log.debug("adc", "vbat", adc.read(11))
         -- 使用完毕后关闭,可以使得休眠电流更低.
         adc.close(0)
         adc.close(1)
-        adc.close(2)
-        adc.close(3)
-        adc.close(10)
-        adc.close(11)
         sys.wait(500)
     end
     

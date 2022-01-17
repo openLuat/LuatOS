@@ -2,6 +2,8 @@
 #ifndef LUAT_CONF_BSP
 #define LUAT_CONF_BSP
 
+#define AIR302 1
+
 #define LUAT_BSP_VERSION "V0010"
 
 // 启用64位虚拟机

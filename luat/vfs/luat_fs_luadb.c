@@ -477,11 +477,22 @@ const struct luat_vfs_filesystem vfs_fs_luadb = {
 
 int luat_luadb_checkfile(const char* path) {
     size_t binsize = luat_fs_fsize(path);
-    uint8_t* binbuff = (uint8_t*)luat_heap_malloc(binsize * sizeof(uint8_t));
-    memset(binbuff, 0, binsize);
+    if (binsize < 1024 || binsize > 1024*1024) {
+        LLOGD("%s is too small/big %d", path, binsize);
+        return -1;
+    } 
+    uint8_t* binbuff = NULL;
     FILE * fd = luat_fs_fopen(path, "rb");
     int res = -1;
     if (fd) {
+
+        binbuff = (uint8_t*)luat_heap_malloc(binsize * sizeof(uint8_t));
+        if (binbuff == NULL) {
+            LLOGD("update.bin is TOO BIG, not OK");
+            goto _close;
+        }
+        memset(binbuff, 0, binsize);
+
         luat_fs_fread(binbuff, sizeof(uint8_t), binsize, fd);
         //做一下校验
         if (binbuff[0] != 0x01 || binbuff[1] != 0x04 || binbuff[2]+(binbuff[3]<<8) != 0xA55A || binbuff[4]+(binbuff[5]<<8) != 0xA55A){

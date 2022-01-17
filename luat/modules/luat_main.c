@@ -166,10 +166,10 @@ int luat_main (void) {
   // 1. 初始化文件系统
   luat_fs_init();
   //只有302启用老版OTA
-  if (strcmp(luat_os_bsp(),"ec616")==0){
+#ifdef AIR302
     // 是否需要升级或者回滚
     luat_ota_update_or_rollback();
-  }
+#endif
 
   int result = luat_main_call();
   LLOGE("Lua VM exit!! reboot in %dms", LUAT_EXIT_REBOOT_DELAY);

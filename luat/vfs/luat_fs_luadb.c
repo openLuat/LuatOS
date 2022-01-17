@@ -558,7 +558,7 @@ int luat_luadb_checkfile(const char* path) {
                 }
                 index += len;
                 uint8_t md5data[16];
-                luat_crypto_md5_simple(binbuff, index, md5data);
+                luat_crypto_md5_simple((const char*)binbuff, index, md5data);
                 for (size_t i = 0; i < 16; i++){
                     if (md5data[i]!=binbuff[index++]){
                         LLOGD("md5data error");

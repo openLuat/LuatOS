@@ -472,3 +472,46 @@ const struct luat_vfs_filesystem vfs_fs_luadb = {
     }
 };
 #endif
+
+int luat_luadb_checkfile(const char* path) {
+    #define LUADB_HEAD_MAX_SIZE (128)
+    uint8_t binbuff[LUADB_HEAD_MAX_SIZE];
+    memset(binbuff, 0, LUADB_HEAD_MAX_SIZE);
+    FILE * fd = luat_fs_fopen(path, "rb");
+    int res = -1;
+    if (fd) {
+        luat_fs_fread(binbuff, sizeof(uint8_t), LUADB_HEAD_MAX_SIZE, fd);
+        //做一下校验
+        if (binbuff[0] != 0x01 || binbuff[1] != 0x04 || binbuff[2]+(binbuff[3]<<8) != 0xA55A || binbuff[4]+(binbuff[5]<<8) != 0xA55A){
+            LLOGI("Magic error");
+            goto _close;
+        }
+        LLOGI("Magic OK");
+        if (binbuff[6] != 0x02 || binbuff[7] != 0x02 || binbuff[8] != 0x02 || binbuff[9] != 0x00){
+            LLOGI("Version error");
+            goto _close;
+        }
+        LLOGI("Version OK");
+        if (binbuff[10] != 0x03 || binbuff[11] != 0x04){
+            LLOGI("Header error");
+            goto _close;
+        }
+        uint32_t headsize = binbuff[12]+(binbuff[13]<<8)+(binbuff[14]<<16)+(binbuff[15]<<24);
+        LLOGI("Header OK headers:%08x",headsize);
+        if (binbuff[16] != 0x04 || binbuff[17] != 0x02){
+            LLOGI("file count error");
+            goto _close;
+        }
+        uint16_t filecount = binbuff[18]+(binbuff[19]<<8);
+        LLOGI("file count:%04x",filecount);
+        if (binbuff[20] != 0xFE || binbuff[21] != 0x02){
+            LLOGI("CRC16 error");
+            goto _close;
+        }
+        // 计算md5, 然后校验MD5
+        res = 0;
+_close:
+        luat_fs_fclose(fd);
+    }
+    return res;
+}

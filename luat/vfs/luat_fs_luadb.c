@@ -473,6 +473,8 @@ const struct luat_vfs_filesystem vfs_fs_luadb = {
 };
 #endif
 
+#include "luat_crypto.h"
+
 int luat_luadb_checkfile(const char* path) {
     size_t binsize = luat_fs_fsize(path);
     uint8_t* binbuff = (uint8_t*)luat_heap_malloc(binsize * sizeof(uint8_t));

@@ -20,7 +20,7 @@
 
 #define CHUNK 4096
 
-static int zlib_compress(FILE *source, FILE *dest, int level){
+int zlib_compress(FILE *source, FILE *dest, int level){
     int ret, flush;
     unsigned have;
     z_stream strm;
@@ -70,7 +70,7 @@ static int zlib_compress(FILE *source, FILE *dest, int level){
     return Z_OK;
 }
 
-static int zlib_decompress(FILE *source, FILE *dest){
+int zlib_decompress(FILE *source, FILE *dest){
     int ret;
     unsigned have;
     z_stream strm;

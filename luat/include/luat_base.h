@@ -19,6 +19,7 @@
 #include "lua.h"
 #include "lualib.h"
 #include "lauxlib.h"
+#include "lstate.h"
 #include "stdint.h"
 #include "string.h"
 

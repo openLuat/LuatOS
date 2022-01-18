@@ -102,6 +102,11 @@ add_subdirectory(${TOPROOT}/components/mbedtls mbedtls.out)
 # lvgl
 include_directories(${TOPROOT}/components/lvgl)
 add_subdirectory(${TOPROOT}/components/lvgl lvgl.out)
+
+#-----------------------
+# lvgl v8
+# include_directories(${TOPROOT}/components/lvgl_v8)
+# add_subdirectory(${TOPROOT}/components/lvgl_v8 lvgl.out)
 #-----------------------
 
 #-----------------------

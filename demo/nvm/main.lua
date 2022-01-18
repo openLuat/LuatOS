@@ -17,8 +17,8 @@ log.info("nvm","get a",nvm.get("a"))
 log.info("nvm","get b",nvm.get("b"))
 
 --改一下看看，下次开机就会是这个值
-nvm.set('a',233)
-nvm.set('b',666)
+nvm.set('a',nvm.get("a") + 1)
+nvm.set('b',nvm.get("b") + 1)
 
 --看看改之后的数据
 log.info("nvm","get a",nvm.get("a"))

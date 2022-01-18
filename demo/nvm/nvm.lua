@@ -11,7 +11,7 @@ local nvm = {}
 --para：实时参数表
 --config：默认参数表
 paraname, paranamebak = "/nvm_para.lua", "/nvm_para_bak.lua"
-local para, libdftconfig, configname, cconfigname, econfigname = {}
+local para, libdftconfig, configname = {}
 
 --[[
 函数名：serialize
@@ -159,8 +159,17 @@ end
 -- nvm.init("config.lua")
 function nvm.init(defaultCfgFile)
     local f
-    f, libdftconfig = safePcall(defaultCfgFile:match("(.+)%.lua"))
-    configname, cconfigname, econfigname = "/"..defaultCfgFile, "/"..defaultCfgFile .. "c", "/"..defaultCfgFile .. "e"
+    local fname = defaultCfgFile:match("(.+)%.lua")
+    f, libdftconfig = safePcall(fname)
+    local LUAT_MODULE_SEARCH_PATH = {"/%s.luac", "/%s.lua", "/lua/%s.luac", "/lua/%s.lua","/luadb/%s.luac", "/luadb/%s.lua"}
+    for _,j in pairs(LUAT_MODULE_SEARCH_PATH) do
+        local tf = io.open(string.format(j,fname), "rb")
+        if tf then
+            tf:close()
+            configname = string.format(j,fname)
+            break
+        end
+    end
 
     --初始化配置文件，从文件中把参数读取到内存中
     load()
@@ -266,8 +275,6 @@ function nvm.restore()
     os.remove(paraname)
     os.remove(paranamebak)
     local fpara, fconfig = io.open(paraname, "wb"), io.open(configname, "rb")
-    if not fconfig then fconfig = io.open(cconfigname, "rb") end
-    if not fconfig then fconfig = io.open(econfigname, "rb") end
     fpara:write(fconfig:read("*a"))
     fpara:close()
     fconfig:close()

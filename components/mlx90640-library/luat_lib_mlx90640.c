@@ -1,8 +1,15 @@
 
+/*
+@module  mlx90640
+@summary 红外测温(MLX90640)
+@version 1.0
+@date    2022.1.20
+*/
+
+#include "luat_base.h"
 #include <MLX90640_I2C_Driver.h>
 #include <MLX90640_API.h>
 #include <math.h>
-#include "luat_base.h"
 #include "luat_lcd.h"
 #define LUAT_LOG_TAG "mlx90640"
 #include "luat_log.h"
@@ -21,9 +28,9 @@ static luat_lcd_conf_t* lcd_conf;
 
 static uint16_t eeMLX90640[832];  
 static float mlx90640To[768];
-uint16_t frame[834];
-float emissivity=0.95;
-int status;
+static uint16_t frame[834];
+static float emissivity=0.95;
+static int status;
 
 const uint16_t camColors[] = {0x480F,
 0x400F,0x400F,0x400F,0x4010,0x3810,0x3810,0x3810,0x3810,0x3010,0x3010,
@@ -57,11 +64,34 @@ uint8_t tempto255(float temp){
     return (uint8_t)round((temp+40)*255/340);
 }
 
-static int mlx90640_init(lua_State *L){
-    paramsMLX90640 mlx90640;
+static paramsMLX90640 mlx90640;
+
+/*
+初始化MLX90640传感器
+@api mlx90640.init(i2c_id)
+@int 传感器所在的i2c总线id,默认为0
+@return bool 成功返回true, 否则返回nil或者false
+@usage
+
+i2c.setup(0)
+
+if mlx90640.init(0) then
+    log.info("mlx90640", "init ok")
+    sys.wait(500) -- 稍等片刻
+    while 1 do
+        mlx90640.feed() -- 取一帧数据
+        mlx90640.draw2lcd(0, 0) -- 需提前把lcd初始化好
+        sys.wait(250) -- 默认是4HZ
+    end
+else
+    log.info("mlx90640", "init fail")
+end
+
+*/
+static int l_mlx90640_init(lua_State *L){
     lcd_conf = luat_lcd_get_default();
-    MLX90640_I2CInit();
-    luat_timer_mdelay(50);
+    // MLX90640_I2CInit();
+    // luat_timer_mdelay(50);
     MLX90640_SetRefreshRate(MLX90640_ADDR, RefreshRate);//测量速率1Hz(0~7对应0.5,1,2,4,8,16,32,64Hz)
     MLX90640_SetChessMode(MLX90640_ADDR); 
 	status = MLX90640_DumpEE(MLX90640_ADDR, eeMLX90640);  //读取像素校正参数 
@@ -74,55 +104,123 @@ static int mlx90640_init(lua_State *L){
         LLOGW("Parameter extraction failed with error code:%d",status);
         return 0;
     }
-    while (1){
-        luat_timer_mdelay(10);
-        int status = MLX90640_GetFrameData(MLX90640_ADDR, frame);  //读取一帧原始数据
-        if (status < 0){
-            LLOGD("GetFrame Error: %d",status);
-        }
-        float vdd = MLX90640_GetVdd(frame, &mlx90640);  //计算 Vdd（这句可有可无）
-        float Ta = MLX90640_GetTa(frame, &mlx90640);    //计算实时外壳温度
-        //计算环境温度用于温度补偿
-        float tr = Ta - TA_SHIFT; //Reflected temperature based on the sensor ambient temperature
-        //手册上说的环境温度可以用外壳温度-8℃
-        // LLOGD("vdd:  %f Tr: %f",vdd,tr);
-        MLX90640_CalculateTo(frame, &mlx90640, emissivity , tr, mlx90640To);            //计算像素点温度
-        MLX90640_BadPixelsCorrection(mlx90640.brokenPixels, mlx90640To, 1, &mlx90640);  //坏点处理
-        MLX90640_BadPixelsCorrection(mlx90640.outlierPixels, mlx90640To, 1, &mlx90640); //坏点处理
+    lua_pushboolean(L, 1);
+    return 1;
+    // while (1){
+    //     luat_timer_mdelay(10);
         
-        int x,y = 0;
-        // uint8_t mul = 3;
-        for(int i = 0; i < 768; i++){
-            if(i%32 == 0 && i != 0){
-                x = 0;
-                // y+=mul;
-                y++;
-                // printf("\n");
-            }
+        
+    //     int x,y = 0;
+    //     // uint8_t mul = 3;
+    //     for(int i = 0; i < 768; i++){
+    //         if(i%32 == 0 && i != 0){
+    //             x = 0;
+    //             // y+=mul;
+    //             y++;
+    //             // printf("\n");
+    //         }
             
-            // uint8_t mul_size = mul*mul;
-            // uint16_t draw_data[mul_size];
-            // for (size_t m = 0; m < mul_size; m++){
-            //     draw_data[m] = camColors[tempto255(mlx90640To[i])];
-            // }
-            // luat_lcd_draw(lcd_conf,x, y, x+mul-1, y+mul-1, draw_data);
-            // x+=mul;
+    //         // uint8_t mul_size = mul*mul;
+    //         // uint16_t draw_data[mul_size];
+    //         // for (size_t m = 0; m < mul_size; m++){
+    //         //     draw_data[m] = camColors[tempto255(mlx90640To[i])];
+    //         // }
+    //         // luat_lcd_draw(lcd_conf,x, y, x+mul-1, y+mul-1, draw_data);
+    //         // x+=mul;
 
-            luat_lcd_draw(lcd_conf,x, y, x, y, &(camColors[tempto255(mlx90640To[i])]));
+    //         luat_lcd_draw(lcd_conf,x, y, x, y, &(camColors[tempto255(mlx90640To[i])]));
 
-            x++;
-        }
+    //         x++;
+    //     }
+    // }
+}
+
+static int l_mlx90640_feed(lua_State *L) {
+    int status = MLX90640_GetFrameData(MLX90640_ADDR, frame);  //读取一帧原始数据
+    if (status < 0){
+        LLOGD("GetFrame Error: %d",status);
+        return 0;
     }
+    float vdd = MLX90640_GetVdd(frame, &mlx90640);  //计算 Vdd（这句可有可无）
+    float Ta = MLX90640_GetTa(frame, &mlx90640);    //计算实时外壳温度
+    //计算环境温度用于温度补偿
+    float tr = Ta - TA_SHIFT; //Reflected temperature based on the sensor ambient temperature
+    //手册上说的环境温度可以用外壳温度-8℃
+    // LLOGD("vdd:  %f Tr: %f",vdd,tr);
+    MLX90640_CalculateTo(frame, &mlx90640, emissivity , tr, mlx90640To);            //计算像素点温度
+    MLX90640_BadPixelsCorrection(mlx90640.brokenPixels, mlx90640To, 1, &mlx90640);  //坏点处理
+    MLX90640_BadPixelsCorrection(mlx90640.outlierPixels, mlx90640To, 1, &mlx90640); //坏点处理
+    lua_pushboolean(L, 1);
+    return 0;
+}
+
+/*
+获取底层裸数据,浮点数矩阵
+@api mlx90640.raw_data()
+@return table 浮点数数据,768个像素对应的温度值
+*/
+static int l_mlx90640_raw_data(lua_State *L) {
+    lua_createtable(L, 768, 0);
+    for (size_t i = 0; i < 768; i++)
+    {
+        lua_pushnumber(L, mlx90640To[i]);
+        lua_seti(L, -2, i + 1);
+    }
+    return 1;
+}
+
+/*
+获取单一点数据
+@api mlx90640.raw_point(index)
+@int 索引值(0-767)
+@return number 单点温度值
+*/
+static int l_mlx90640_raw_point(lua_State *L) {
+    lua_pushnumber(L, mlx90640To[luaL_checkinteger(L, 1)]);
+    return 1;
+}
+
+/*
+绘制到lcd
+@api mlx90640.draw2lcd(x, y, w, h)
+@int 左上角x坐标
+@int 左上角y坐标
+@int 显示尺寸的宽,需要是32的倍数, 若大于32会进行插值
+@int 显示尺寸的高,需要是16的倍数, 若大于16会进行插值
+@return bool 成功返回true,否则返回false
+*/
+static int l_mlx90640_draw2lcd(lua_State *L) {
+    luat_color_t line[32];
+    // TODO 还得插值
+
+    if (lcd_conf == NULL) {
+        LLOGW("init lcd first!!!");
+        return 0;
+    }
+
+    for (size_t y = 0; y < 768/32; y++)
+    {
+        for (size_t x = 0; x < 32; x++)
+        {
+            int i = y*32 + x;
+            line[x] = &(camColors[tempto255(mlx90640To[i])]);
+        }
+        luat_lcd_draw(lcd_conf, 0, y, 31, y, line);
+    }
+    return 0;
 }
 
 #include "rotable.h"
-static const rotable_Reg mlx90640[] =
+static const rotable_Reg reg_mlx90640[] =
 {
-    {"init", mlx90640_init, 0},
+    {"init", l_mlx90640_init, 0},
+    {"feed", l_mlx90640_feed, 0},
+    {"raw_data", l_mlx90640_raw_data, 0},
+    {"raw_point", l_mlx90640_raw_point, 0},
 	{ NULL, NULL , 0}
 };
 
 LUAMOD_API int luaopen_mlx90640( lua_State *L ) {
-    luat_newlib(L, mlx90640);
+    luat_newlib(L, reg_mlx90640);
     return 1;
 }

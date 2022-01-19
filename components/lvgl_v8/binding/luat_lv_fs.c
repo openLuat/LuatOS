@@ -15,7 +15,7 @@ static lv_fs_res_t luat_lv_fs_close(struct _lv_fs_drv_t * drv, void * file_p);
 static lv_fs_res_t luat_lv_fs_remove(struct _lv_fs_drv_t * drv, const char * fn);
 static lv_fs_res_t luat_lv_fs_read(struct _lv_fs_drv_t * drv, void * file_p, void * buf, uint32_t btr, uint32_t * br);
 static lv_fs_res_t luat_lv_fs_write(struct _lv_fs_drv_t * drv, void * file_p, const void * buf, uint32_t btw, uint32_t * bw);
-static lv_fs_res_t luat_lv_fs_seek(struct _lv_fs_drv_t * drv, void * file_p, uint32_t pos);
+static lv_fs_res_t luat_lv_fs_seek(struct _lv_fs_drv_t * drv, void * file_p, uint32_t pos, lv_fs_whence_t whence);
 static lv_fs_res_t luat_lv_fs_tell(struct _lv_fs_drv_t * drv, void * file_p, uint32_t * pos_p);
 static lv_fs_res_t luat_lv_fs_trunc(struct _lv_fs_drv_t * drv, void * file_p);
 static lv_fs_res_t luat_lv_fs_size(struct _lv_fs_drv_t * drv, void * file_p, uint32_t * size_p);
@@ -27,7 +27,7 @@ static lv_fs_res_t luat_lv_fs_dir_read(struct _lv_fs_drv_t * drv, void * rddir_p
 static lv_fs_res_t luat_lv_fs_dir_close(struct _lv_fs_drv_t * drv, void * rddir_p);
 
 void luat_lv_fs_init(void) {
-    lv_fs_drv_t fs_drv = {
+    static lv_fs_drv_t fs_drv = {
         .letter = '/',
         .ready_cb = luat_lv_fs_ready,
         .open_cb = luat_lv_fs_open,
@@ -61,19 +61,13 @@ static void *luat_lv_fs_open(struct _lv_fs_drv_t * drv, const char * path, lv_fs
         fd = luat_fs_fopen(rpath, "wb");
     else
         fd = luat_fs_fopen(rpath, "rb");
-    if (fd == NULL) {
-        return LV_FS_RES_NOT_EX;
-    };
-    file_t* fp = lv_mem_alloc(sizeof(file_t));
-    *fp = fd;
-    return LV_FS_RES_OK;
+
+    return fd;
 }
 
 static lv_fs_res_t luat_lv_fs_close(struct _lv_fs_drv_t * drv, void * file_p) {
     if (file_p != NULL) {
-        file_t* fp = file_p;
-        luat_fs_fclose(*fp);
-        lv_mem_free(fp);
+        luat_fs_fclose(file_p);
         return LV_FS_RES_OK;
     }
     return LV_FS_RES_NOT_EX;
@@ -85,8 +79,7 @@ static lv_fs_res_t luat_lv_fs_remove(struct _lv_fs_drv_t * drv, const char * fn)
 }
 
 static lv_fs_res_t luat_lv_fs_read(struct _lv_fs_drv_t * drv, void * file_p, void * buf, uint32_t btr, uint32_t * br) {
-    file_t* fp = file_p;
-    *br = luat_fs_fread(buf, 1, btr, *fp);
+    *br = luat_fs_fread(buf, 1, btr, file_p);
     //LLOGD("luat_fs_fread expect %ld act %ld", btr, *br);
     if (*br > 0)
         return LV_FS_RES_OK;
@@ -102,17 +95,15 @@ static lv_fs_res_t luat_lv_fs_read(struct _lv_fs_drv_t * drv, void * file_p, voi
 //     return LV_FS_RES_FS_ERR;
 // }
 
-static lv_fs_res_t luat_lv_fs_seek(struct _lv_fs_drv_t * drv, void * file_p, uint32_t pos) {
-    file_t* fp = file_p;
-    int ret = luat_fs_fseek(*fp, pos, SEEK_SET);
+static lv_fs_res_t luat_lv_fs_seek(struct _lv_fs_drv_t * drv, void * file_p, uint32_t pos, lv_fs_whence_t whence) {
+    int ret = luat_fs_fseek(file_p, pos, whence);
     if (ret == 0)
         return LV_FS_RES_OK;
     return LV_FS_RES_FS_ERR;
 }
 
 static lv_fs_res_t luat_lv_fs_tell(struct _lv_fs_drv_t * drv, void * file_p, uint32_t * pos_p) {
-    file_t* fp = file_p;
-    int ret = luat_fs_ftell(*fp);
+    int ret = luat_fs_ftell(file_p);
     if (ret >= 0) {
         *pos_p = ret;
         return LV_FS_RES_OK;
@@ -125,11 +116,10 @@ static lv_fs_res_t luat_lv_fs_tell(struct _lv_fs_drv_t * drv, void * file_p, uin
 // }
 
 static lv_fs_res_t luat_lv_fs_size(struct _lv_fs_drv_t * drv, void * file_p, uint32_t * size_p) {
-    file_t* fp = file_p;
-    int curr = luat_fs_ftell(*fp);
-    luat_fs_fseek(*fp, 0, SEEK_END);
-    *size_p = luat_fs_ftell(*fp);
-    luat_fs_fseek(*fp, curr, SEEK_SET);
+    int curr = luat_fs_ftell(file_p);
+    luat_fs_fseek(file_p, 0, SEEK_END);
+    *size_p = luat_fs_ftell(file_p);
+    luat_fs_fseek(file_p, curr, SEEK_SET);
     return LV_FS_RES_OK;
 }
 

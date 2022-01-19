@@ -135,7 +135,7 @@ int tls_uart_dma_write(char *buf, u16 writesize, void (*cmpl_callback) (void *p)
 int luat_uart_write(int uartid, void* data, size_t length)
 {
     if(!luat_uart_exist(uartid)) {
-        LOG_W("uart id=%d not exist", uartid);
+        LOG_W("luat_uart_write uart id=%d not exist", uartid);
         return -1;
     }
     if (serials[uartid]->open_flag == 0) {

@@ -12,8 +12,6 @@
 #define DBG_LVL           DBG_WARN
 #include <rtdbg.h>
 
-#ifdef RT_USING_I2C
-
 #define I2C_DEVICE_ID_MAX 3
 static struct rt_i2c_bus_device* i2c_devs[I2C_DEVICE_ID_MAX + 1];
 
@@ -171,4 +169,3 @@ int luat_i2c_read_reg(int id,  int addr, int reg, uint16_t* value) {
     return 0;
 }
 
-#endif

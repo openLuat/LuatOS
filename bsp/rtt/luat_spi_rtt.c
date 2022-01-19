@@ -3,6 +3,7 @@
 #include "luat_base.h"
 #include "luat_spi.h"
 #include "luat_log.h"
+#include "luat_gpio.h"
 
 #include "rtthread.h"
 #include "rthw.h"
@@ -15,7 +16,11 @@
 #define LUAT_LOG_TAG "spi"
 #include "luat_log.h"
 
-#ifdef RT_USING_SPI
+
+#define MAX_DEVICE_COUNT 10
+
+static struct rt_spi_device* luat_spi_device[MAX_DEVICE_COUNT];
+
 
 static struct rt_spi_device * findDev(int id) {
     char buff[7] = {0};
@@ -34,8 +39,34 @@ int luat_spi_exist(int id) {
     return findDev(id) == RT_NULL ? 0 : 1;
 }
 
-int luat_spi_device_config(luat_spi_device_t* spi_dev) {
+int luat_spi_device_setup(luat_spi_device_t* spi_dev) {
+    char bus_name[8] = {0};
+    char device_name[8] = {0};
     int ret = 0;
+    size_t i = 0;
+    struct rt_spi_device *spi_device = RT_NULL;     /* SPI 设备句柄 */
+    spi_device = (struct rt_spi_device *)rt_malloc(sizeof(struct rt_spi_device));
+    RT_ASSERT(spi_device != RT_NULL);
+
+    sprintf_(bus_name, "spi%d", spi_dev->bus_id);
+    for ( i = 0; i < MAX_DEVICE_COUNT; i++){
+        if (luat_spi_device[i] == RT_NULL){
+            sprintf_(device_name, "spi%02d", spi_dev->bus_id*10+i);
+            break;
+        }
+    }
+
+    ret = rt_spi_bus_attach_device(spi_device, device_name,bus_name, NULL);
+    if (ret != RT_EOK) {
+        rt_free(spi_device);
+        LLOGE("fail to attach_device %s", device_name);
+        return ret;
+    }
+
+    spi_dev->user_data = spi_device;
+    spi_dev->spi_config.id=i;
+    luat_spi_device[i] = spi_device;
+
     struct rt_spi_configuration cfg;
     cfg.data_width = spi_dev->spi_config.dataw;
     if(spi_dev->spi_config.master == 1)
@@ -51,31 +82,66 @@ int luat_spi_device_config(luat_spi_device_t* spi_dev) {
     if(spi_dev->spi_config.CPOL)
         cfg.mode |= RT_SPI_CPOL;
     cfg.max_hz = spi_dev->spi_config.bandrate;
-    ret = rt_spi_configure(spi_dev, &cfg);
+    ret = rt_spi_configure(spi_device, &cfg);
+
+    luat_gpio_mode(spi_dev->spi_config.cs, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_HIGH); // CS
     return ret;
 }
 
+//关闭SPI设备，成功返回0
+int luat_spi_device_close(luat_spi_device_t* spi_dev) {
+    luat_spi_device[spi_dev->spi_config.id] = NULL;
+    rt_free((struct rt_spi_device*)(spi_dev->user_data));
+    return rt_spi_release((struct rt_spi_device*)(spi_dev->user_data));
+}
+
+//收发SPI数据，返回接收字节数
+int luat_spi_device_transfer(luat_spi_device_t* spi_dev, const char* send_buf, size_t send_length, char* recv_buf, size_t recv_length) {
+    luat_gpio_set(spi_dev->spi_config.cs, Luat_GPIO_LOW);
+    int ret = rt_spi_send_then_recv((struct rt_spi_device*)(spi_dev->user_data), send_buf, send_length, recv_buf, recv_length);
+    luat_gpio_set(spi_dev->spi_config.cs, Luat_GPIO_HIGH);
+    return ret;
+}
+
+//收SPI数据，返回接收字节数
+int luat_spi_device_recv(luat_spi_device_t* spi_dev, char* recv_buf, size_t length) {
+    luat_gpio_set(spi_dev->spi_config.cs, Luat_GPIO_LOW);
+    int ret = rt_spi_recv((struct rt_spi_device*)(spi_dev->user_data), recv_buf, length);
+    luat_gpio_set(spi_dev->spi_config.cs, Luat_GPIO_HIGH);
+    return ret;
+}
+
+//发SPI数据，返回发送字节数
+int luat_spi_device_send(luat_spi_device_t* spi_dev, const char* send_buf, size_t length) {
+    luat_gpio_set(spi_dev->spi_config.cs, Luat_GPIO_LOW);
+    int ret = rt_spi_send((struct rt_spi_device*)(spi_dev->user_data), send_buf, length);
+    luat_gpio_set(spi_dev->spi_config.cs, Luat_GPIO_HIGH);
+    return ret;
+}
+
+
 int luat_spi_bus_setup(luat_spi_device_t* spi_dev){
-        char bus_name[8] = {0};
+    char bus_name[8] = {0};
     char device_name[8] = {0};
     int ret = 0;
     
     struct rt_spi_device *spi_device = NULL;     /* SPI 设备句柄 */
 
-    sprintf_(bus_name, "spi%d", spi_dev->spi_config.id / 10);
-    sprintf_(device_name, "spi%02d", spi_dev->spi_config.id);
+    sprintf_(bus_name, "spi%d", spi_dev->bus_id);
+    sprintf_(device_name, "spi%02d", spi_dev->bus_id);
 #ifdef SOC_W60X
     wm_spi_bus_attach_device(bus_name, device_name, spi_dev->spi_config.cs);
-    spi_device = findDev(spi_dev->spi_config.id);
+    spi_device = findDev(spi_dev->bus_id);
 #else
     spi_device = (struct rt_spi_device *)rt_malloc(sizeof(struct rt_spi_device));
-    ret = rt_spi_bus_attach_device(spi_device, bus_name, device_name, NULL);
-    if (ret) {
+    ret = rt_spi_bus_attach_device(spi_device, device_name,bus_name, NULL);
+    if (ret != RT_EOK) {
         rt_free(spi_device);
         LLOGE("fail to attach_device %s", device_name);
         return ret;
     }
 #endif
+// rt_hw_spi_device_attach("spi3", "spi30", GPIOD, GPIO_PIN_7);
     return ret;
 }
 
@@ -88,15 +154,16 @@ int luat_spi_setup(luat_spi_t* spi) {
     
     struct rt_spi_device *spi_dev = NULL;     /* SPI 设备句柄 */
 
-    sprintf_(bus_name, "spi%d", spi->id / 10);
+    sprintf_(bus_name, "spi%d", spi->id);
     sprintf_(device_name, "spi%02d", spi->id);
 #ifdef SOC_W60X
     wm_spi_bus_attach_device(bus_name, device_name, spi->cs);
     spi_dev = findDev(spi->id);
 #else
     spi_dev = (struct rt_spi_device *)rt_malloc(sizeof(struct rt_spi_device));
-    ret = rt_spi_bus_attach_device(spi_dev, bus_name, device_name, NULL);
-    if (ret) {
+    RT_ASSERT(spi_dev != RT_NULL);
+    ret = rt_spi_bus_attach_device(spi_dev, device_name, bus_name, NULL);
+    if (ret != RT_EOK) {
         rt_free(spi_dev);
         LLOGE("fail to attach_device %s", device_name);
         return ret;
@@ -129,6 +196,7 @@ int luat_spi_transfer(int spi_id, const char* send_buf, size_t send_length, char
     struct rt_spi_device * drv = findDev(spi_id);
     if (drv == NULL)
         return -1;
+    drv = (struct rt_spi_device *)rt_device_find("spi30");
     return rt_spi_send_then_recv(drv, send_buf, send_length, recv_buf, recv_length);
 }
 //收SPI数据，返回接收字节数
@@ -136,43 +204,17 @@ int luat_spi_recv(int spi_id, char* recv_buf, size_t length) {
     struct rt_spi_device * drv = findDev(spi_id);
     if (drv == NULL)
         return -1;
+    drv = (struct rt_spi_device *)rt_device_find("spi30");
     return rt_spi_recv(drv, recv_buf, length);
 }
 //发SPI数据，返回发送字节数
 int luat_spi_send(int spi_id, const char* send_buf, size_t length) {
-    struct rt_spi_device * drv = findDev(spi_id);
-    if (drv == NULL)
-        return -1;
-    return rt_spi_send(drv, send_buf, length);
+    // struct rt_spi_device * drv = findDev(spi_id);
+    // if (drv == NULL)
+    //     return -1;
+    struct rt_spi_device * drv = (struct rt_spi_device *)rt_device_find("spi30");
+    int a = rt_spi_send(drv, send_buf, length);
+    // rt_kprintf("luat_spi_send spi_id:%d send_buf:%s length:%d return:%d \r\n", spi_id,send_buf, length,a);
+    return a;
 }
 
-#else
-
-//初始化配置SPI各项参数，并打开SPI
-//成功返回0
-int luat_spi_setup(luat_spi_t* spi) {
-    LLOGE("spi not enable/support at this device");
-    return -1;
-}
-//关闭SPI，成功返回0
-int luat_spi_close(int spi_id) {
-    LLOGE("spi not enable/support at this device");
-    return -1;
-}
-//收发SPI数据，返回接收字节数
-int luat_spi_transfer(int spi_id, const char* send_buf, size_t send_length, char* recv_buf, size_t recv_length) {
-    //LLOGE("spi not enable/support at this device");
-    return -1;
-}
-//收SPI数据，返回接收字节数
-int luat_spi_recv(int spi_id, char* recv_buf, size_t length) {
-    //LLOGE("spi not enable/support at this device");
-    return -1;
-}
-//发SPI数据，返回发送字节数
-int luat_spi_send(int spi_id, const char* send_buf, size_t length) {
-    //LLOGE("spi not enable/support at this device");
-    return -1;
-}
-
-#endif

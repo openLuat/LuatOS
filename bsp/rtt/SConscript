@@ -9,7 +9,7 @@ for p in os.listdir(cwd) :
         src += [p]
 
 if not GetDepend(['RT_USING_PIN']):
-    src.remove['luat_gpio_rtt.c']
+    src.remove(['luat_gpio_rtt.c'])
 
 if not GetDepend(['BSP_USING_ADC']):
     src.remove('luat_adc_rtt.c')

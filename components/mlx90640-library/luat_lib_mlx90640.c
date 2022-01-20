@@ -31,6 +31,8 @@ static float mlx90640To[768];
 static uint16_t frame[834];
 static float emissivity=0.95;
 static int status;
+static float vdd;
+static float Ta;
 
 const uint16_t camColors[] = {0x480F,
 0x400F,0x400F,0x400F,0x4010,0x3810,0x3810,0x3810,0x3810,0x3010,0x3010,
@@ -145,13 +147,9 @@ static int l_mlx90640_feed(lua_State *L) {
         LLOGD("GetFrame Error: %d",status);
         return 0;
     }
-    float vdd = MLX90640_GetVdd(frame, &mlx90640);  //计算 Vdd（这句可有可无）
-    float Ta = MLX90640_GetTa(frame, &mlx90640);    //计算实时外壳温度
-    //计算环境温度用于温度补偿
-    float tr = Ta - TA_SHIFT; //Reflected temperature based on the sensor ambient temperature
-    //手册上说的环境温度可以用外壳温度-8℃
-    // LLOGD("vdd:  %f Tr: %f",vdd,tr);
-    MLX90640_CalculateTo(frame, &mlx90640, emissivity , tr, mlx90640To);            //计算像素点温度
+    vdd = MLX90640_GetVdd(frame, &mlx90640);  //计算 Vdd（这句可有可无）
+    Ta = MLX90640_GetTa(frame, &mlx90640);    //计算实时外壳温度
+    MLX90640_CalculateTo(frame, &mlx90640, emissivity , Ta - TA_SHIFT, mlx90640To);            //计算像素点温度
     MLX90640_BadPixelsCorrection(mlx90640.brokenPixels, mlx90640To, 1, &mlx90640);  //坏点处理
     MLX90640_BadPixelsCorrection(mlx90640.outlierPixels, mlx90640To, 1, &mlx90640); //坏点处理
     lua_pushboolean(L, 1);
@@ -181,6 +179,26 @@ static int l_mlx90640_raw_data(lua_State *L) {
 */
 static int l_mlx90640_raw_point(lua_State *L) {
     lua_pushnumber(L, mlx90640To[luaL_checkinteger(L, 1)]);
+    return 1;
+}
+
+/*
+获取外壳温度
+@api mlx90640.get_temp()
+@return number 外壳温度
+*/
+static int l_mlx90640_get_temp(lua_State *L) {
+    lua_pushnumber(L, Ta);
+    return 1;
+}
+
+/*
+获取vdd
+@api mlx90640.get_vdd()
+@return number vdd
+*/
+static int l_mlx90640_get_vdd(lua_State *L) {
+    lua_pushnumber(L, vdd);
     return 1;
 }
 
@@ -222,6 +240,8 @@ static const rotable_Reg reg_mlx90640[] =
     {"raw_data", l_mlx90640_raw_data, 0},
     {"raw_point", l_mlx90640_raw_point, 0},
     {"draw2lcd", l_mlx90640_draw2lcd, 0},
+    {"get_temp", l_mlx90640_get_temp, 0},
+    {"get_vdd", l_mlx90640_get_vdd, 0},
 	{ NULL, NULL , 0}
 };
 

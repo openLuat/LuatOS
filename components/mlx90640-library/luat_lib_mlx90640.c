@@ -222,6 +222,29 @@ static int l_mlx90640_get_vdd(lua_State *L) {
     return 1;
 }
 
+// 实验性插值
+#if defined(AIR101) || defined(AIR103)
+#include "csky_math.h"
+
+// src[32][24]
+// dst[160][120] , 即放大25倍
+int luat_interpolation(float *src, float *dst) {
+    csky_bilinear_interp_instance_f32 fif;
+    fif.pData = src;
+    fif.numRows = 24;
+    fif.numCols = 32;
+    for (size_t i = 0; i < 120; i++)
+    {
+        for (size_t j = 0; j < 160; j++)
+        {
+            dst[i*160 + j] = csky_bilinear_interp_f32(&fif, (160.0 -j)/160*32, (120 - i)/120*24);
+        }
+    }
+    return 0;
+}
+
+#endif
+
 /*
 绘制到lcd
 @api mlx90640.draw2lcd(x, y, w, h)
@@ -239,7 +262,22 @@ static int l_mlx90640_draw2lcd(lua_State *L) {
         LLOGW("init lcd first!!!");
         return 0;
     }
+#if defined(AIR101) || defined(AIR103)
+//#if 0
+    float *dst = lua_newuserdata(L, 160*120*sizeof(float));
+    // 插值, 试试air101的dsp函数
+    luat_interpolation(mlx90640To, dst);
 
+    for (size_t y = 0; y < 120; y++)
+    {
+        for (size_t x = 0; x < 160; x++)
+        {
+            int i = y*120 + x;
+            line[x] = camColors[tempto255(dst[i])];
+        }
+        luat_lcd_draw(lcd_conf, 0, y, 159, y, line);
+    }
+#else
     for (size_t y = 0; y < 768/32; y++)
     {
         for (size_t x = 0; x < 32; x++)
@@ -249,6 +287,7 @@ static int l_mlx90640_draw2lcd(lua_State *L) {
         }
         luat_lcd_draw(lcd_conf, 0, y, 31, y, line);
     }
+#endif
     return 0;
 }
 

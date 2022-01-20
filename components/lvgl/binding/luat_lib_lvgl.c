@@ -54,12 +54,13 @@ static int luat_lv_layer_sys(lua_State *L) {
 @api lvgl.scr_load(scr)
 @userdata screen指针
 @usage
-lvgl.disp_set_bg_color(nil, 0xFFFFFF)
-local scr = lvgl.obj_create(nil, nil)
-local btn = lvgl.btn_create(scr)
-lvgl.obj_align(btn, lvgl.scr_act(), lvgl.ALIGN_CENTER, 0, 0)
-lvgl.label_set_text(label, "LuatOS!")
-lvgl.scr_load(scr)
+    lvgl.disp_set_bg_color(nil, lvgl.color_make(0x3F, 0x3F, 0x3F))
+    local scr = lvgl.obj_create(nil, nil)
+    local btn = lvgl.btn_create(scr)
+    lvgl.obj_align(btn, lvgl.scr_act(), lvgl.ALIGN_CENTER, 0, 0)
+    local label = lvgl.label_create(btn)
+    lvgl.label_set_text(label, "LuatOS!")
+    lvgl.scr_load(scr)
 */
 static int luat_lv_scr_load(lua_State *L) {
     lv_scr_load(lua_touserdata(L, 1));

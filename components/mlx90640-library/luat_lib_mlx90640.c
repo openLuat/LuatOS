@@ -80,12 +80,12 @@ static uint8_t mlx90640_refresh_rate;
 @return bool 成功返回true, 否则返回nil或者false
 @usage
 
-if mlx90640.init(0,i2c.FAST,mlx90640.4HZ) then
+if mlx90640.init(0,i2c.FAST,mlx90640.FPS4HZ) then
     log.info("mlx90640", "init ok")
     sys.wait(500) -- 稍等片刻
     while 1 do
         mlx90640.feed() -- 取一帧数据
-        mlx90640.draw2lcd(0, 0) -- 需提前把lcd初始化好
+        mlx90640.draw2lcd(0, 0 ,32 ,24)-- 需提前把lcd初始化好
         sys.wait(250) -- 默认是4HZ
     end
 else
@@ -262,6 +262,14 @@ static int l_mlx90640_draw2lcd(lua_State *L) {
         LLOGW("init lcd first!!!");
         return 0;
     }
+    uint16_t lcd_x = luaL_optinteger(L, 1 , 0);
+    uint16_t lcd_y = luaL_optinteger(L, 2 , 0);
+    uint16_t lcd_w = luaL_optinteger(L, 3 , 32);
+    uint16_t lcd_h = luaL_optinteger(L, 4 , 24);
+    if (lcd_w%32||lcd_h%24){
+        LLOGW("lcd_w or lcd_h set error !!!");
+        return 0;
+    }
 #if defined(AIR101) || defined(AIR103)
 //#if 0
     float *dst = lua_newuserdata(L, 160*120*sizeof(float));
@@ -302,13 +310,13 @@ static const rotable_Reg reg_mlx90640[] =
     {"get_temp", l_mlx90640_get_temp, 0},
     {"get_vdd", l_mlx90640_get_vdd, 0},
 
-    { "1HZ",  NULL, FPS1HZ},
-    { "2HZ",  NULL, FPS2HZ},
-    { "4HZ",  NULL, FPS4HZ},
-    { "8HZ",  NULL, FPS8HZ},
-    { "16HZ",  NULL, FPS16HZ},
-    { "32HZ",  NULL, FPS32HZ},
-    { "64HZ",  NULL, FPS64HZ},
+    { "FPS1HZ",  NULL, FPS1HZ},
+    { "FPS2HZ",  NULL, FPS2HZ},
+    { "FPS4HZ",  NULL, FPS4HZ},
+    { "FPS8HZ",  NULL, FPS8HZ},
+    { "FPS16HZ",  NULL, FPS16HZ},
+    { "FPS32HZ",  NULL, FPS32HZ},
+    { "FPS64HZ",  NULL, FPS64HZ},
 	{ NULL, NULL , 0}
 };
 

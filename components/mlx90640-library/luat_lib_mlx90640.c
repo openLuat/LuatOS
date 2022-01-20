@@ -16,14 +16,15 @@
 
 static luat_lcd_conf_t* lcd_conf;
 
+#define  FPS1HZ   0x01
 #define  FPS2HZ   0x02
-#define  FPS4HZ   0x03
-#define  FPS8HZ   0x04
-#define  FPS16HZ  0x05
-#define  FPS32HZ  0x06
+#define  FPS4HZ   0x04
+#define  FPS8HZ   0x08
+#define  FPS16HZ  0x10
+#define  FPS32HZ  0x20
+#define  FPS64HZ  0x40
 
 #define  MLX90640_ADDR 0x33
-#define	 RefreshRate FPS4HZ 
 #define  TA_SHIFT 8 //Default shift for MLX90640 in open air
 
 static uint16_t eeMLX90640[832];  
@@ -69,16 +70,17 @@ uint8_t tempto255(float temp){
 static paramsMLX90640 mlx90640;
 uint8_t mlx90640_i2c_id;
 uint8_t mlx90640_i2c_speed;
-
+static uint8_t mlx90640_refresh_rate;
 /*
 初始化MLX90640传感器
 @api mlx90640.init(i2c_id)
 @int 传感器所在的i2c总线id,默认为0
 @int 传感器所在的i2c总线速度,默认为i2c.FAST
+@int 传感器的测量速率,默认为4Hz
 @return bool 成功返回true, 否则返回nil或者false
 @usage
 
-if mlx90640.init(0,i2c.FAST) then
+if mlx90640.init(0,i2c.FAST,mlx90640.4HZ) then
     log.info("mlx90640", "init ok")
     sys.wait(500) -- 稍等片刻
     while 1 do
@@ -92,20 +94,20 @@ end
 
 */
 static int l_mlx90640_init(lua_State *L){
-    mlx90640_i2c_id = luaL_checkinteger(L, 1);
+    mlx90640_i2c_id = luaL_optinteger(L, 1 , 0);
     mlx90640_i2c_speed = luaL_optinteger(L, 2 , 1);
-
+    mlx90640_refresh_rate = luaL_optinteger(L, 3 , 3);
     lcd_conf = luat_lcd_get_default();
     MLX90640_I2CInit();
     // luat_timer_mdelay(50);
-    MLX90640_SetRefreshRate(MLX90640_ADDR, RefreshRate);//测量速率1Hz(0~7对应0.5,1,2,4,8,16,32,64Hz)
+    MLX90640_SetRefreshRate(MLX90640_ADDR, mlx90640_refresh_rate);
     MLX90640_SetChessMode(MLX90640_ADDR); 
-	status = MLX90640_DumpEE(MLX90640_ADDR, eeMLX90640);  //读取像素校正参数 
+	status = MLX90640_DumpEE(MLX90640_ADDR, eeMLX90640);
 	if (status != 0){
         LLOGW("load system parameters error with code:%d",status);
         return 0;
     } 
-	status = MLX90640_ExtractParameters(eeMLX90640, &mlx90640);  //解析校正参数（计算温度时需要）
+	status = MLX90640_ExtractParameters(eeMLX90640, &mlx90640);
 	if (status != 0) {
         LLOGW("Parameter extraction failed with error code:%d",status);
         return 0;
@@ -242,6 +244,14 @@ static const rotable_Reg reg_mlx90640[] =
     {"draw2lcd", l_mlx90640_draw2lcd, 0},
     {"get_temp", l_mlx90640_get_temp, 0},
     {"get_vdd", l_mlx90640_get_vdd, 0},
+
+    { "1HZ",  NULL, FPS1HZ},
+    { "2HZ",  NULL, FPS2HZ},
+    { "4HZ",  NULL, FPS4HZ},
+    { "8HZ",  NULL, FPS8HZ},
+    { "16HZ",  NULL, FPS16HZ},
+    { "32HZ",  NULL, FPS32HZ},
+    { "64HZ",  NULL, FPS64HZ},
 	{ NULL, NULL , 0}
 };
 

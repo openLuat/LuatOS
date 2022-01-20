@@ -140,6 +140,8 @@ static int parse_nmea(const char* line, lua_State *L) {
                 //--------------------------------------
             }
         } break;
+        default:
+        break;
     }
     return 0;
 }

@@ -73,7 +73,7 @@ uint8_t mlx90640_i2c_speed;
 static uint8_t mlx90640_refresh_rate;
 /*
 初始化MLX90640传感器
-@api mlx90640.init(i2c_id)
+@api mlx90640.init(i2c_id,i2c_speed,refresh_rate)
 @int 传感器所在的i2c总线id,默认为0
 @int 传感器所在的i2c总线速度,默认为i2c.FAST
 @int 传感器的测量速率,默认为4Hz
@@ -112,7 +112,20 @@ static int l_mlx90640_init(lua_State *L){
         LLOGW("Parameter extraction failed with error code:%d",status);
         return 0;
     }
-    lua_pushboolean(L, 1);
+    //初始化后此处先读两帧，去掉初始化后一些错误数据
+    for (size_t i = 0; i < 2; i++){
+        int status = MLX90640_GetFrameData(MLX90640_ADDR, frame);
+        if (status < 0){
+            LLOGD("GetFrame Error: %d",status);
+            return 0;
+        }
+        vdd = MLX90640_GetVdd(frame, &mlx90640);
+        Ta = MLX90640_GetTa(frame, &mlx90640);
+        MLX90640_CalculateTo(frame, &mlx90640, emissivity , Ta - TA_SHIFT, mlx90640To);
+        MLX90640_BadPixelsCorrection(mlx90640.brokenPixels, mlx90640To, 1, &mlx90640);
+        MLX90640_BadPixelsCorrection(mlx90640.outlierPixels, mlx90640To, 1, &mlx90640);
+        lua_pushboolean(L, 1);
+    }
     return 1;
     // while (1){
     //     luat_timer_mdelay(10);
@@ -144,16 +157,16 @@ static int l_mlx90640_init(lua_State *L){
 }
 
 static int l_mlx90640_feed(lua_State *L) {
-    int status = MLX90640_GetFrameData(MLX90640_ADDR, frame);  //读取一帧原始数据
+    int status = MLX90640_GetFrameData(MLX90640_ADDR, frame);
     if (status < 0){
         LLOGD("GetFrame Error: %d",status);
         return 0;
     }
-    vdd = MLX90640_GetVdd(frame, &mlx90640);  //计算 Vdd（这句可有可无）
-    Ta = MLX90640_GetTa(frame, &mlx90640);    //计算实时外壳温度
-    MLX90640_CalculateTo(frame, &mlx90640, emissivity , Ta - TA_SHIFT, mlx90640To);            //计算像素点温度
-    MLX90640_BadPixelsCorrection(mlx90640.brokenPixels, mlx90640To, 1, &mlx90640);  //坏点处理
-    MLX90640_BadPixelsCorrection(mlx90640.outlierPixels, mlx90640To, 1, &mlx90640); //坏点处理
+    vdd = MLX90640_GetVdd(frame, &mlx90640);
+    Ta = MLX90640_GetTa(frame, &mlx90640); 
+    MLX90640_CalculateTo(frame, &mlx90640, emissivity , Ta - TA_SHIFT, mlx90640To);
+    MLX90640_BadPixelsCorrection(mlx90640.brokenPixels, mlx90640To, 1, &mlx90640);
+    MLX90640_BadPixelsCorrection(mlx90640.outlierPixels, mlx90640To, 1, &mlx90640);
     lua_pushboolean(L, 1);
     return 0;
 }

@@ -47,8 +47,18 @@ lcd.init("st7735",{port = "device",pin_dc = pin.PB01, pin_pwr = pin.PB00,pin_rst
 sys.taskInit(function()
     sys.wait(100)
     log.info("lvgl", lvgl.init())
-    lvgl.disp_set_bg_color(nil, lvgl.color_hex(0x3A3B3C))
-    local scr = lvgl.obj_create(nil, nil)
+    -- lvgl.disp_set_bg_color(nil, lvgl.color_hex(0x999999))
+    if lvgl.theme_set_act then
+        -- 切换主题
+        -- lvgl.theme_set_act("default")
+        -- lvgl.theme_set_act("mono")
+        lvgl.theme_set_act("empty")
+        -- lvgl.theme_set_act("material_light")
+        -- lvgl.theme_set_act("material_dark")
+        -- lvgl.theme_set_act("material_no_transition")
+        -- lvgl.theme_set_act("material_no_focus")
+    end
+    local scr = lvgl.obj_create()
     local btn = lvgl.btn_create(scr)
     lvgl.obj_align(btn, lvgl.scr_act(), lvgl.ALIGN_CENTER, 0, 0)
     local label = lvgl.label_create(btn)

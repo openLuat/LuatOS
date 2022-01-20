@@ -228,7 +228,7 @@ static int l_mlx90640_get_vdd(lua_State *L) {
 @int 左上角x坐标
 @int 左上角y坐标
 @int 显示尺寸的宽,需要是32的倍数, 若大于32会进行插值
-@int 显示尺寸的高,需要是16的倍数, 若大于16会进行插值
+@int 显示尺寸的高,需要是24的倍数, 若大于24会进行插值
 @return bool 成功返回true,否则返回false
 */
 static int l_mlx90640_draw2lcd(lua_State *L) {
@@ -245,7 +245,7 @@ static int l_mlx90640_draw2lcd(lua_State *L) {
         for (size_t x = 0; x < 32; x++)
         {
             int i = y*32 + x;
-            line[x] = &(camColors[tempto255(mlx90640To[i])]);
+            line[x] = camColors[tempto255(mlx90640To[i])];
         }
         luat_lcd_draw(lcd_conf, 0, y, 31, y, line);
     }

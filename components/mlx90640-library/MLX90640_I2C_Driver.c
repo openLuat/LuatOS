@@ -18,11 +18,12 @@
 #include "luat_i2c.h"
 #include "MLX90640_I2C_Driver.h"
 
-uint8_t mlx90640_i2c_id = 0;
+extern uint8_t mlx90640_i2c_id;
+extern uint8_t mlx90640_i2c_speed;
 
 void MLX90640_I2CInit()
 {   
-    //luat_i2c_setup(0, 1, NULL);
+    luat_i2c_setup(mlx90640_i2c_id, mlx90640_i2c_speed, NULL);
 }
 
 int MLX90640_I2CRead(uint8_t slaveAddr, uint16_t startAddress, uint16_t nMemAddressRead, uint16_t *data)

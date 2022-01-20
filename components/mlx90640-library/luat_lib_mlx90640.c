@@ -65,17 +65,18 @@ uint8_t tempto255(float temp){
 }
 
 static paramsMLX90640 mlx90640;
+uint8_t mlx90640_i2c_id;
+uint8_t mlx90640_i2c_speed;
 
 /*
 初始化MLX90640传感器
 @api mlx90640.init(i2c_id)
 @int 传感器所在的i2c总线id,默认为0
+@int 传感器所在的i2c总线速度,默认为i2c.FAST
 @return bool 成功返回true, 否则返回nil或者false
 @usage
 
-i2c.setup(0)
-
-if mlx90640.init(0) then
+if mlx90640.init(0,i2c.FAST) then
     log.info("mlx90640", "init ok")
     sys.wait(500) -- 稍等片刻
     while 1 do
@@ -89,8 +90,11 @@ end
 
 */
 static int l_mlx90640_init(lua_State *L){
+    mlx90640_i2c_id = luaL_checkinteger(L, 1);
+    mlx90640_i2c_speed = luaL_optinteger(L, 2 , 1);
+
     lcd_conf = luat_lcd_get_default();
-    // MLX90640_I2CInit();
+    MLX90640_I2CInit();
     // luat_timer_mdelay(50);
     MLX90640_SetRefreshRate(MLX90640_ADDR, RefreshRate);//测量速率1Hz(0~7对应0.5,1,2,4,8,16,32,64Hz)
     MLX90640_SetChessMode(MLX90640_ADDR); 
@@ -217,6 +221,7 @@ static const rotable_Reg reg_mlx90640[] =
     {"feed", l_mlx90640_feed, 0},
     {"raw_data", l_mlx90640_raw_data, 0},
     {"raw_point", l_mlx90640_raw_point, 0},
+    {"draw2lcd", l_mlx90640_draw2lcd, 0},
 	{ NULL, NULL , 0}
 };
 

@@ -156,6 +156,11 @@ static int l_mlx90640_init(lua_State *L){
     // }
 }
 
+/*
+取一帧数据
+@api mlx90640.feed()
+@return nil
+*/
 static int l_mlx90640_feed(lua_State *L) {
     int status = MLX90640_GetFrameData(MLX90640_ADDR, frame);
     if (status < 0){

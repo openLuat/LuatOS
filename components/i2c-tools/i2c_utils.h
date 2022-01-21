@@ -6,13 +6,6 @@
 
 #define I2C_TOOLS_BUFFER_SIZE 64
 
-#define ARG_CMD_POS             1
-
-#define ARG_BUS_NAME_POS    2
-#define ARG_ADDR_POS        3
-#define ARG_DATA_POS        4
-#define ARG_READ_MAX        6
-
 uint8_t strtonum(const char* str);
 
 void i2c_help(void);

@@ -30,9 +30,9 @@ static int luat_lv_scr_act(lua_State *L) {
 };
 
 /*
-获取layout_top
-@api lvgl.layout_top()
-@return layout指针
+获取layer_top
+@api lvgl.layer_top()
+@return layer指针
 */
 static int luat_lv_layer_top(lua_State *L) {
     lua_pushlightuserdata(L, lv_layer_top());
@@ -40,9 +40,9 @@ static int luat_lv_layer_top(lua_State *L) {
 };
 
 /*
-获取layout_sys
-@api lvgl.layout_sys()
-@return layout指针
+获取layer_sys
+@api lvgl.layer_sys()
+@return layer指针
 */
 static int luat_lv_layer_sys(lua_State *L) {
     lua_pushlightuserdata(L, lv_layer_sys());
@@ -54,17 +54,89 @@ static int luat_lv_layer_sys(lua_State *L) {
 @api lvgl.scr_load(scr)
 @userdata screen指针
 @usage
-lvgl.disp_set_bg_color(nil, 0xFFFFFF)
-local scr = lvgl.obj_create(nil, nil)
-local btn = lvgl.btn_create(scr)
-lvgl.obj_align(btn, lvgl.scr_act(), lvgl.ALIGN_CENTER, 0, 0)
-lvgl.label_set_text(label, "LuatOS!")
-lvgl.scr_load(scr)
+    local scr = lvgl.obj_create(nil, nil)
+    local btn = lvgl.btn_create(scr)
+    lvgl.obj_align(btn, lvgl.scr_act(), lvgl.ALIGN_CENTER, 0, 0)
+    local label = lvgl.label_create(btn)
+    lvgl.label_set_text(label, "LuatOS!")
+    lvgl.scr_load(scr)
 */
 static int luat_lv_scr_load(lua_State *L) {
     lv_scr_load(lua_touserdata(L, 1));
     return 0;
 };
+
+/*
+设置主题
+@api lvgl.theme_set_act(name)
+@string 主题名称,可选值有 default/mono/empty/material_light/material_dark/material_no_transition/material_no_focus
+@return bool 成功返回true,否则返回nil
+@usage
+-- 黑白主题
+lvgl.theme_set_act("mono")
+-- 空白主题
+lvgl.theme_set_act("empty")
+*/
+static int l_lv_theme_set_act(lua_State *L) {
+    const char* name = luaL_checkstring(L, 1);
+    lv_theme_t * th = NULL;
+    if (!strcmp("default", name)) {
+        th = LV_THEME_DEFAULT_INIT(LV_THEME_DEFAULT_COLOR_PRIMARY, LV_THEME_DEFAULT_COLOR_SECONDARY,
+                            LV_THEME_DEFAULT_FLAG,
+                            LV_THEME_DEFAULT_FONT_SMALL, LV_THEME_DEFAULT_FONT_NORMAL, 
+                            LV_THEME_DEFAULT_FONT_SUBTITLE, LV_THEME_DEFAULT_FONT_TITLE);
+    }
+#if LV_USE_THEME_MONO
+    else if (!strcmp("mono", name)) {
+        th = lv_theme_mono_init(LV_THEME_DEFAULT_COLOR_PRIMARY, LV_THEME_DEFAULT_COLOR_SECONDARY,
+                            LV_THEME_DEFAULT_FLAG,
+                            LV_THEME_DEFAULT_FONT_SMALL, LV_THEME_DEFAULT_FONT_NORMAL, 
+                            LV_THEME_DEFAULT_FONT_SUBTITLE, LV_THEME_DEFAULT_FONT_TITLE);
+    }
+#endif
+#if LV_USE_THEME_EMPTY
+    else if (!strcmp("empty", name)) {
+        th = lv_theme_empty_init(LV_THEME_DEFAULT_COLOR_PRIMARY, LV_THEME_DEFAULT_COLOR_SECONDARY,
+                            LV_THEME_DEFAULT_FLAG,
+                            LV_THEME_DEFAULT_FONT_SMALL, LV_THEME_DEFAULT_FONT_NORMAL, 
+                            LV_THEME_DEFAULT_FONT_SUBTITLE, LV_THEME_DEFAULT_FONT_TITLE);
+    }
+#endif
+#if LV_USE_THEME_MATERIAL
+    else if (!strcmp("material_light", name)) {
+        th = lv_theme_material_init(LV_THEME_DEFAULT_COLOR_PRIMARY, LV_THEME_DEFAULT_COLOR_SECONDARY,
+                            LV_THEME_MATERIAL_FLAG_LIGHT,
+                            LV_THEME_DEFAULT_FONT_SMALL, LV_THEME_DEFAULT_FONT_NORMAL, 
+                            LV_THEME_DEFAULT_FONT_SUBTITLE, LV_THEME_DEFAULT_FONT_TITLE);
+    }
+    else if (!strcmp("material_dark", name)) {
+        th = lv_theme_material_init(LV_THEME_DEFAULT_COLOR_PRIMARY, LV_THEME_DEFAULT_COLOR_SECONDARY,
+                            LV_THEME_MATERIAL_FLAG_DARK,
+                            LV_THEME_DEFAULT_FONT_SMALL, LV_THEME_DEFAULT_FONT_NORMAL, 
+                            LV_THEME_DEFAULT_FONT_SUBTITLE, LV_THEME_DEFAULT_FONT_TITLE);
+    }
+    else if (!strcmp("material_no_transition", name)) {
+        th = lv_theme_material_init(LV_THEME_DEFAULT_COLOR_PRIMARY, LV_THEME_DEFAULT_COLOR_SECONDARY,
+                            LV_THEME_MATERIAL_FLAG_NO_TRANSITION,
+                            LV_THEME_DEFAULT_FONT_SMALL, LV_THEME_DEFAULT_FONT_NORMAL, 
+                            LV_THEME_DEFAULT_FONT_SUBTITLE, LV_THEME_DEFAULT_FONT_TITLE);
+    }
+    else if (!strcmp("material_no_focus", name)) {
+        th = lv_theme_material_init(LV_THEME_DEFAULT_COLOR_PRIMARY, LV_THEME_DEFAULT_COLOR_SECONDARY,
+                            LV_THEME_MATERIAL_FLAG_NO_FOCUS,
+                            LV_THEME_DEFAULT_FONT_SMALL, LV_THEME_DEFAULT_FONT_NORMAL, 
+                            LV_THEME_DEFAULT_FONT_SUBTITLE, LV_THEME_DEFAULT_FONT_TITLE);
+    }
+#endif
+    else {
+        LLOGW("no such theme %s", name);
+        return 0;
+    }
+    LLOGD("theme_set_act %s", name);
+    lv_theme_set_act(th);
+    lua_pushboolean(L, 1);
+    return 1;
+}
 
 // 函数注册
 static const rotable_Reg reg_lvgl[] = {
@@ -74,6 +146,7 @@ static const rotable_Reg reg_lvgl[] = {
 {"layer_top", luat_lv_layer_top, 0},
 {"layer_sys", luat_lv_layer_sys, 0},
 {"scr_load", luat_lv_scr_load, 0},
+{"theme_set_act", l_lv_theme_set_act, 0},
 
 // 兼容性命名
 {"sw_create", luat_lv_switch_create, 0},
@@ -94,7 +167,7 @@ LUAT_LV_ANIM_RLT
 LUAT_LV_ANIM_EX_RLT
 LUAT_LV_AREA_RLT
 LUAT_LV_COLOR_RLT
-LUAT_LV_THEME_RLT
+// LUAT_LV_THEME_RLT
 LUAT_LV_MAP_RLT
 
 // 输入设备

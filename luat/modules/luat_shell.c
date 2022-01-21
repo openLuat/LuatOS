@@ -14,6 +14,11 @@ LuatOS Shell -- LuatOS 控制台
 #include "luat_mcu.h"
 #endif
 
+#ifdef LUAT_USE_I2CTOOLS
+#include "i2c_utils.h"
+extern void i2c_tools(const char * data,size_t len);
+#endif
+
 #include "luat_shell.h"
 #include "luat_str.h"
 #include "luat_cmux.h"
@@ -204,6 +209,11 @@ void luat_shell_push(char* uart_buff, size_t rcount) {
                 luat_shell_write("OK\r\n", 4);
                 cmux_state = 1;
             }
+            #ifdef LUAT_USE_I2CTOOLS
+            else if (strncmp("i2c tools", uart_buff, 9) == 0) {
+                i2c_tools(uart_buff,rcount);
+            }
+            #endif
             // 执行脚本
             #ifdef LUAT_USE_LOADSTR
             else if (strncmp("loadstr ", uart_buff, strlen("loadstr ")) == 0) {

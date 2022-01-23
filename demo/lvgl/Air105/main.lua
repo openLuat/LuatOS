@@ -64,11 +64,24 @@ log.info("lvgl", lvgl.init())
 lvgl.disp_set_bg_color(nil, 0xFFFFFF)
 local scr = lvgl.obj_create(nil, nil)
 local btn = lvgl.btn_create(scr)
+
+local font = lvgl.font_get("opposans_m_16") --根据你自己的固件编译了哪个字体就用哪个字体
+
+
 lvgl.obj_align(btn, lvgl.scr_act(), lvgl.ALIGN_CENTER, 0, 0)
 local label = lvgl.label_create(btn)
-lvgl.label_set_text(label, "LuatOS!")
-lvgl.scr_load(scr)
 
+--有中文字体的才能显示中文
+--lvgl.label_set_text(label, "LuatOS!")
+lvgl.label_set_text(label, "你好!")
+lvgl.scr_load(scr)
+--以下是加载字体方法，二选一
+--方法一
+lvgl.obj_set_style_local_text_font(lvgl.scr_act(), lvgl.OBJ_PART_MAIN, lvgl.STATE_DEFAULT, font)
+--方法二
+--local style = lvgl.style_create()
+--lvgl.style_set_text_font(style, lvgl.STATE_DEFAULT, font)
+--lvgl.obj_add_style(lvgl.scr_act(),lvgl.OBJ_PART_MAIN, style)
 sys.taskInit(function()
     while 1 do
         sys.wait(500)

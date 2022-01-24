@@ -199,26 +199,27 @@ static int b_replace (lua_State *L) {
 }
 
 
-static const luaL_Reg bitlib[] = {
-  {"arshift", b_arshift},
-  {"band", b_and},
-  {"bnot", b_not},
-  {"bor", b_or},
-  {"bxor", b_xor},
-  {"btest", b_test},
-  {"extract", b_extract},
-  {"lrotate", b_lrot},
-  {"lshift", b_lshift},
-  {"replace", b_replace},
-  {"rrotate", b_rrot},
-  {"rshift", b_rshift},
-  {NULL, NULL}
+#include "rotable.h"
+static const rotable_Reg  bitlib[] = {
+  {"arshift", b_arshift, 0},
+  {"band", b_and, 0},
+  {"bnot", b_not, 0},
+  {"bor", b_or, 0},
+  {"bxor", b_xor, 0},
+  {"btest", b_test, 0},
+  {"extract", b_extract, 0},
+  {"lrotate", b_lrot, 0},
+  {"lshift", b_lshift, 0},
+  {"replace", b_replace, 0},
+  {"rrotate", b_rrot, 0},
+  {"rshift", b_rshift, 0},
+  {NULL, NULL, 0}
 };
 
 
 
 LUAMOD_API int luaopen_bit32 (lua_State *L) {
-  luaL_newlib(L, bitlib);
+  luat_newlib(L, bitlib);
   return 1;
 }
 

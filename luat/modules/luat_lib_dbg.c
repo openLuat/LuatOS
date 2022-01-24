@@ -437,9 +437,9 @@ int l_debug_wait(lua_State *L) {
         int timeout = luaL_optinteger(L, 1, 120) * 1000;
         int t = 0;
         while (timeout > 0 && cur_hook_state == 1) {
-            timeout -= 5;
-            luat_timer_mdelay(5);
-            if ((t*5)%1000 == 0) {
+            timeout -= 10;
+            luat_timer_mdelay(10);
+            if ((t*10)%1000 == 0) {
                 luat_dbg_output("D/dbg [event,waitc] waiting for debugger\r\n");
             }
             t++;

@@ -208,6 +208,10 @@ void luat_shell_push(char* uart_buff, size_t rcount) {
             else if (!strncmp(LUAT_CMUX_CMD_INIT, uart_buff, strlen(LUAT_CMUX_CMD_INIT))) {
                 luat_shell_write("OK\r\n", 4);
                 cmux_state = 1;
+                #ifdef __AIR105_BSP__
+                    extern uint8_t gMainWDTEnable;
+                    gMainWDTEnable = 1;
+                #endif
             }
             #ifdef LUAT_USE_I2CTOOLS
             else if (strncmp("i2c tools", uart_buff, 9) == 0) {

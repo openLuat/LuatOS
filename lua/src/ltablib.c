@@ -426,7 +426,7 @@ static int sort (lua_State *L) {
 static const rotable_Reg tab_funcs[] = {
   {"concat", tconcat, 0},
 #if defined(LUA_COMPAT_MAXN)
-  {"maxn", maxn, NULL},
+  {"maxn", maxn, 0},
 #endif
   {"insert", tinsert, 0},
   {"pack", pack, 0},

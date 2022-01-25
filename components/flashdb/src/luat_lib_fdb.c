@@ -154,7 +154,7 @@ static int l_fdb_kv_get(lua_State *L) {
     lua_Number *numVal;
 
     if (read_len) {
-        //LLOGD("KV value T=%02X", buff.b[0]);
+        // LLOGD("KV value T=%02X", buff.b[0]);
         switch(buff.b[0]) {
         case LUA_TBOOLEAN:
             lua_pushboolean(L, buff.b[1]);
@@ -185,7 +185,9 @@ static int l_fdb_kv_get(lua_State *L) {
             lua_pushnil(L);
             break;
         }
+        return 1;
     }
+    lua_pushboolean(L, 0);
     return 1;
 }
 

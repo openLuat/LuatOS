@@ -1,6 +1,7 @@
 
 #include "luat_base.h"
 #include "luat_timer.h"
+#include "luat_malloc.h"
 #include "luat_dbg.h"
 #include "luat_cmux.h"
 #include "luat_conf_bsp.h"

@@ -137,9 +137,6 @@ static void luat_bin_exec_rollback(void) {
   luat_os_reboot(0); // 重启
 }
 
-#define UPDATE_TGZ_PATH "/update.tgz"
-#define UPDATE_BIN_PATH "/update.bin"
-
 extern int zlib_decompress(FILE *source, FILE *dest);
 extern int luat_luadb_checkfile(const char* path);
 

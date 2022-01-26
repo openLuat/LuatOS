@@ -9,6 +9,9 @@
 #define UPDATE_MARK "/update_mark"
 #define FLASHX_PATH "/flashx.bin"
 
+#define UPDATE_TGZ_PATH "/update.tgz"
+#define UPDATE_BIN_PATH "/update.bin"
+
 #ifndef LUAT_OTA_MODE
 #define LUAT_OTA_MODE 1
 #endif

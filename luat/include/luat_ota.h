@@ -20,4 +20,7 @@
 int luat_ota_update_or_rollback(void);
 void luat_ota_reboot(int timeout_ms);
 
+int luat_ota(uint32_t luadb_addr);
+int luat_flash_write(uint32_t addr, uint8_t * buf, uint32_t len);
+
 #endif

@@ -137,6 +137,8 @@ static void luat_bin_exec_rollback(void) {
   luat_os_reboot(0); // 重启
 }
 
+#ifdef LUAT_USE_OTA
+
 extern int zlib_decompress(FILE *source, FILE *dest);
 extern int luat_luadb_checkfile(const char* path);
 
@@ -189,7 +191,6 @@ _close_decompress:
                     if (len < 1)
                         break;
                     luat_flash_write(luadb_addr + offset, buff, len);
-                    // tls_fls_write(luadb_addr + offset, buff, len);
                     offset += len;
                 }
             }
@@ -202,3 +203,5 @@ _close_decompress:
     }
     return ret;
 }
+
+#endif

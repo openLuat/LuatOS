@@ -138,29 +138,27 @@ static void luat_bin_exec_rollback(void) {
 }
 
 #ifdef LUAT_USE_OTA
-
-extern int zlib_decompress(FILE *source, FILE *dest);
 extern int luat_luadb_checkfile(const char* path);
 
 int luat_ota(uint32_t luadb_addr){
-    int ret  = 0;
+    
+#ifdef LUAT_USE_ZLIB 
+    extern int zlib_decompress(FILE *source, FILE *dest);
     //检测是否有压缩升级文件
     if(luat_fs_fexist(UPDATE_TGZ_PATH)){
         LLOGI("found update.tgz, decompress ...");
         FILE *fd_in = luat_fs_fopen(UPDATE_TGZ_PATH, "r");
         if (fd_in == NULL){
             LLOGE("open the input file : %s error!", UPDATE_TGZ_PATH);
-            ret = -1;
             goto _close_decompress;
         }
         luat_fs_remove(UPDATE_BIN_PATH);
         FILE *fd_out = luat_fs_fopen(UPDATE_BIN_PATH, "w+");
         if (fd_out == NULL){
             LLOGE("open the output file : %s error!", UPDATE_BIN_PATH);
-            ret = -1;
             goto _close_decompress;
         }
-        ret = zlib_decompress(fd_in, fd_out);
+        int ret = zlib_decompress(fd_in, fd_out);
         if (ret != 0){
             LLOGE("decompress file error!");
         }
@@ -174,14 +172,16 @@ _close_decompress:
         //不论成功与否都删掉避免每次启动都执行一遍
         luat_fs_remove(UPDATE_TGZ_PATH);
     }
+#endif
 
+    int ret  = -1;
     //检测是否有升级文件
     if(luat_fs_fexist(UPDATE_BIN_PATH)){
         LLOGI("found update.bin, checking");
         if (luat_luadb_checkfile(UPDATE_BIN_PATH) == 0) {
             LLOGI("update.bin ok, updating...");
             #define UPDATE_BUFF_SIZE 4096
-            char* buff = luat_heap_malloc(UPDATE_BUFF_SIZE);
+            unsigned char* buff = luat_heap_malloc(UPDATE_BUFF_SIZE);
             int len = 0;
             int offset = 0;
             if (buff != NULL) {
@@ -193,6 +193,7 @@ _close_decompress:
                     luat_flash_write(luadb_addr + offset, buff, len);
                     offset += len;
                 }
+                ret = 0;
             }
         }
         else {
@@ -203,5 +204,4 @@ _close_decompress:
     }
     return ret;
 }
-
 #endif

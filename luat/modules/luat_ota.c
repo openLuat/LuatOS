@@ -181,7 +181,7 @@ _close_decompress:
         LLOGI("found update.bin, checking");
         if (luat_luadb_checkfile(UPDATE_BIN_PATH) == 0) {
             LLOGI("update.bin ok, updating...");
-            #define UPDATE_BUFF_SIZE 1024
+            #define UPDATE_BUFF_SIZE 4096
             uint8_t* buff = luat_heap_malloc(UPDATE_BUFF_SIZE);
             int len = 0;
             int offset = 0;
@@ -193,7 +193,7 @@ _close_decompress:
                   len = luat_fs_fread(buff, sizeof(uint8_t), UPDATE_BUFF_SIZE, fd);
                   if (len < 1)
                       break;
-                  luat_flash_write(luadb_addr + offset, buff, len);
+                  luat_flash_write(luadb_addr + offset, buff, UPDATE_BUFF_SIZE);
                   offset += len;
                 }
               }else{

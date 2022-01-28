@@ -39,7 +39,7 @@ jobs:
         cd ../air101
         gcc -o tools/xt804/wm_tool tools/xt804/wm_tool.c -pthread
         chmod +x tools/xt804/wm_tool
-        xmake
+        xmake -y
         mkdir ../LuatOS/luatosfw
         mv build/out/*.soc ../LuatOS/luatosfw
     - name: Upload artifact

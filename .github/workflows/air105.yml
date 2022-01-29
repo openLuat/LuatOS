@@ -37,7 +37,7 @@ jobs:
     - name: make
       run: |
         cd ../air105/core
-        xmake
+        xmake -y
         mkdir ../../LuatOS/luatosfw
         mv build/out/*.soc ../../LuatOS/luatosfw
     - name: Upload artifact

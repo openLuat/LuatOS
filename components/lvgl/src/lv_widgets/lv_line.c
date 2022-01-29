@@ -119,6 +119,14 @@ void lv_line_set_points(lv_obj_t * line, const lv_point_t point_a[], uint16_t po
     LV_ASSERT_OBJ(line, LV_OBJX_NAME);
 
     lv_line_ext_t * ext = lv_obj_get_ext_attr(line);
+#ifdef __LUATOS__
+	if (ext->point_array)
+	{
+		luat_heap_free(ext->point_array);
+		ext->point_array = NULL;
+		ext->point_num = 0;
+	}
+#endif
     ext->point_array    = point_a;
     ext->point_num      = point_num;
 
@@ -276,7 +284,17 @@ static lv_design_res_t lv_line_design(lv_obj_t * line, const lv_area_t * clip_ar
 static lv_res_t lv_line_signal(lv_obj_t * line, lv_signal_t sign, void * param)
 {
     lv_res_t res;
-
+#ifdef __LUATOS__
+    if(sign == LV_SIGNAL_CLEANUP) {
+    	lv_line_ext_t * ext = lv_obj_get_ext_attr(line);
+    	if (ext->point_array)
+    	{
+    		luat_heap_free(ext->point_array);
+    		ext->point_array = NULL;
+    		ext->point_num = 0;
+    	}
+    }
+#endif
     /* Include the ancient signal function */
     res = ancestor_signal(line, sign, param);
     if(res != LV_RES_OK) return res;

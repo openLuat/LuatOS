@@ -92,7 +92,13 @@ lv_obj_t * lv_line_create(lv_obj_t * par, const lv_obj_t * copy)
         lv_line_set_auto_size(line, lv_line_get_auto_size(copy));
         lv_line_set_y_invert(line, lv_line_get_y_invert(copy));
         lv_line_set_auto_size(line, lv_line_get_auto_size(copy));
+#ifdef __LUATOS__
+        lv_point_t *point_a = (lv_point_t*)luat_heap_calloc(copy_ext->point_num,sizeof(lv_point_t));
+        memcpy(point_a, copy_ext->point_array, sizeof(lv_point_t) * copy_ext->point_num);
+        lv_line_set_points(line, point_a, copy_ext->point_num);
+#else
         lv_line_set_points(line, copy_ext->point_array, copy_ext->point_num);
+#endif
 
         /*Refresh the style with new signal function*/
         lv_obj_refresh_style(line, LV_OBJ_PART_ALL, LV_STYLE_PROP_ALL);
@@ -120,16 +126,21 @@ void lv_line_set_points(lv_obj_t * line, const lv_point_t point_a[], uint16_t po
 
     lv_line_ext_t * ext = lv_obj_get_ext_attr(line);
 #ifdef __LUATOS__
-	if (ext->point_array)
+	if (ext->point_array && point_a && point_num)
 	{
 		luat_heap_free(ext->point_array);
 		ext->point_array = NULL;
 		ext->point_num = 0;
 	}
-#endif
+	if (point_a && point_num)
+	{
+	    ext->point_array    = point_a;
+	    ext->point_num      = point_num;
+	}
+#else
     ext->point_array    = point_a;
     ext->point_num      = point_num;
-
+#endif
     if(point_num > 0 && ext->auto_size != 0) {
         uint16_t i;
         lv_coord_t xmax = LV_COORD_MIN;
@@ -162,7 +173,11 @@ void lv_line_set_auto_size(lv_obj_t * line, bool en)
     ext->auto_size = en == false ? 0 : 1;
 
     /*Refresh the object*/
+#ifdef __LUATOS__
+    if(en) lv_line_set_points(line, NULL, 0);
+#else
     if(en) lv_line_set_points(line, ext->point_array, ext->point_num);
+#endif
 }
 
 /**

@@ -15,6 +15,6 @@ typedef struct luat_thread
     void* userdata;
 }luat_thread_t;
 
-int luat_thread_start(luat_thread_t thread);
+int luat_thread_start(luat_thread_t* thread);
 
 #endif

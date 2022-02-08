@@ -26,7 +26,7 @@ typedef struct luat_sem{
 
 int luat_sem_create(luat_sem_t* semaphore);
 int luat_sem_delete(luat_sem_t* semaphore);
-int luat_sem_take(luat_sem_t* semaphore,int32_t timeout);
+int luat_sem_take(luat_sem_t* semaphore,uint32_t timeout);
 int luat_sem_release(luat_sem_t* semaphore);
 
 #endif

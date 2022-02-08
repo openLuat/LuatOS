@@ -60,6 +60,7 @@ add_library(luat ${TOPROOT}/luat/modules/luat_main.c
                  ${TOPROOT}/luat/modules/luat_lib_mqttcore.c
                  ${TOPROOT}/luat/modules/luat_lib_libcoap.c
                  ${TOPROOT}/luat/modules/luat_lib_crypto.c
+                 ${TOPROOT}/luat/modules/luat_lib_vmx.c
                  ${TOPROOT}/components/sfd/luat_lib_sfd.c
                  ${TOPROOT}/components/sfd/luat_sfd_mem.c
                  ${TOPROOT}/components/sfd/luat_sfd_w25q.c
@@ -116,10 +117,10 @@ add_subdirectory(${TOPROOT}/components/lvgl lvgl.out)
 #-----------------------
 
 
+
 # 指定生成目标
 add_executable(luatos src/main_win32.c src/lua.c)
-target_link_libraries(luat freertos10 winmm fatfs lvgl
-)
+target_link_libraries(luat freertos10 winmm fatfs lvgl lua)
 target_link_libraries(luatos freertos10 lua luatos_msys luat winmm cjson
                       mbedtls fatfs lvgl 
                       )

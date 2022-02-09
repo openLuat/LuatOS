@@ -368,28 +368,82 @@ static int l_wlan_handler(lua_State* L, void* ptr) {
     switch (event)
     {
     case RT_WLAN_EVT_READY: // 网络就绪
+/*
+@sys_pub
+WIFI就绪
+WLAN_READY
+@usage
+sys.taskInit(function()
+    sys.waitUntil("WLAN_READY")
+end)
+*/
         lua_pushstring(L, "WLAN_READY");
         lua_call(L, 1, 0);
         // 额外发送一个通用事件 NET_READY
         lua_getglobal(L, "sys_pub");
+/*
+@sys_pub
+网络就绪
+NET_READY
+@usage
+sys.taskInit(function()
+    sys.waitUntil("NET_READY")
+end)
+*/
         lua_pushstring(L, "NET_READY");
         lua_call(L, 1, 0);
         break;
     case RT_WLAN_EVT_SCAN_DONE: // 扫描完成
+/*
+@sys_pub
+WIFI扫描结束
+WLAN_SCAN_DONE
+@usage
+sys.taskInit(function()
+    sys.waitUntil("WLAN_SCAN_DONE")
+end)
+*/
         lua_pushstring(L, "WLAN_SCAN_DONE");
         lua_call(L, 1, 0);
         break;
     case RT_WLAN_EVT_STA_CONNECTED: // 连上wifi路由器/热点,但还没拿到ip
+/*
+@sys_pub
+连上wifi路由器/热点,但还没拿到ip
+WLAN_STA_CONNECTED
+@usage
+sys.taskInit(function()
+    sys.waitUntil("WLAN_STA_CONNECTED")
+end)
+*/
         lua_pushstring(L, "WLAN_STA_CONNECTED");
         lua_pushinteger(L, 1);
         lua_call(L, 2, 0);
         break;
     case RT_WLAN_EVT_STA_CONNECTED_FAIL: // 没有连上wifi路由器/热点,通常是密码错误
-        lua_pushstring(L, "WLAN_STA_CONNECTED");
+/*
+@sys_pub
+没有连上wifi路由器/热点,通常是密码错误
+WLAN_STA_CONNECTED_FAIL
+@usage
+sys.taskInit(function()
+    sys.waitUntil("WLAN_STA_CONNECTED_FAIL")
+end)
+*/
+        lua_pushstring(L, "WLAN_STA_CONNECTED_FAIL");
         lua_pushinteger(L, 0);
         lua_call(L, 2, 0);
         break;
     case RT_WLAN_EVT_STA_DISCONNECTED: // 从wifi路由器/热点断开了
+/*
+@sys_pub
+从wifi路由器/热点断开了
+WLAN_STA_DISCONNECTED
+@usage
+sys.taskInit(function()
+    sys.waitUntil("WLAN_STA_DISCONNECTED")
+end)
+*/
         lua_pushstring(L, "WLAN_STA_DISCONNECTED");
         lua_call(L, 1, 0);
         break;

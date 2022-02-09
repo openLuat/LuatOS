@@ -29,13 +29,13 @@ jobs:
         retry 'git clone --branch=master https://gitee.com/openLuat/luatos-soc-air105.git air105'
     - name: make
       run: |
-        cd ../air105/core
+        cd ../air105
         mkdir /home/runner/toolchains
         wget -q https://github.com/openLuat/LuatOS/releases/download/v0.0.1/gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2 -O /home/runner/toolchains/gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2
         xmake g --pkg_searchdirs=/home/runner/toolchains
         xmake -y
-        mkdir ../../LuatOS/luatosfw
-        mv build/out/*.soc ../../LuatOS/luatosfw
+        mkdir ../LuatOS/luatosfw
+        mv build/out/*.soc ../LuatOS/luatosfw
     - name: Upload artifact
       uses: actions/upload-artifact@v1
       with:

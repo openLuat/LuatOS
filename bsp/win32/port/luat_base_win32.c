@@ -44,6 +44,7 @@ static const luaL_Reg loadedlibs[] = {
   {"sfd",   luaopen_sfd},
   {"lfs2",   luaopen_lfs2},
   {"gpio",   luaopen_gpio},
+  {"vmx",    luaopen_vmx},
 #ifdef LUAT_USE_LUF
   {"luf",    luaopen_luf},
 #endif

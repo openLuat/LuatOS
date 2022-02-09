@@ -224,6 +224,7 @@ static const rotable_Reg reg_vmx[] =
 {
     { "create" ,         l_vmx_create, 0},
     { "bind" ,           l_vmx_bind, 0},
+    { "exec",            l_vmx_exec, 0},
     { "close" ,          l_vmx_close, 0},
     { "count" ,          l_vmx_count, 0},
 };

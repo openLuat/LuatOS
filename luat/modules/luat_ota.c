@@ -2,6 +2,7 @@
 #include "luat_ota.h"
 #include "luat_fs.h"
 #include "luat_timer.h"
+#include "luat_malloc.h"
 
 #define LUAT_LOG_TAG "ota"
 #include "luat_log.h"
@@ -136,3 +137,78 @@ static void luat_bin_exec_rollback(void) {
   luat_timer_mdelay(5*1000);
   luat_os_reboot(0); // 重启
 }
+
+#ifdef LUAT_USE_OTA
+extern int luat_luadb_checkfile(const char* path);
+
+int luat_ota(uint32_t luadb_addr){
+    
+#ifdef LUAT_USE_ZLIB 
+    extern int zlib_decompress(FILE *source, FILE *dest);
+    //检测是否有压缩升级文件
+    if(luat_fs_fexist(UPDATE_TGZ_PATH)){
+        LLOGI("found update.tgz, decompress ...");
+        FILE *fd_in = luat_fs_fopen(UPDATE_TGZ_PATH, "r");
+        if (fd_in == NULL){
+            LLOGE("open the input file : %s error!", UPDATE_TGZ_PATH);
+            goto _close_decompress;
+        }
+        luat_fs_remove(UPDATE_BIN_PATH);
+        FILE *fd_out = luat_fs_fopen(UPDATE_BIN_PATH, "w+");
+        if (fd_out == NULL){
+            LLOGE("open the output file : %s error!", UPDATE_BIN_PATH);
+            goto _close_decompress;
+        }
+        int ret = zlib_decompress(fd_in, fd_out);
+        if (ret != 0){
+            LLOGE("decompress file error!");
+        }
+_close_decompress:
+        if(fd_in != NULL){
+            luat_fs_fclose(fd_in);
+        }
+        if(fd_out != NULL){
+            luat_fs_fclose(fd_out);
+        }
+        //不论成功与否都删掉避免每次启动都执行一遍
+        luat_fs_remove(UPDATE_TGZ_PATH);
+    }
+#endif
+
+    int ret  = -1;
+    //检测是否有升级文件
+    if(luat_fs_fexist(UPDATE_BIN_PATH)){
+        LLOGI("found update.bin, checking");
+        if (luat_luadb_checkfile(UPDATE_BIN_PATH) == 0) {
+            LLOGI("update.bin ok, updating...");
+            #define UPDATE_BUFF_SIZE 4096
+            uint8_t* buff = luat_heap_malloc(UPDATE_BUFF_SIZE);
+            int len = 0;
+            int offset = 0;
+            if (buff != NULL) {
+              FILE* fd = luat_fs_fopen(UPDATE_BIN_PATH, "rb");
+              if (fd){
+                while (1) {
+                  memset(buff, 0, UPDATE_BUFF_SIZE);
+                  len = luat_fs_fread(buff, sizeof(uint8_t), UPDATE_BUFF_SIZE, fd);
+                  if (len < 1)
+                      break;
+                  luat_flash_write(luadb_addr + offset, buff, UPDATE_BUFF_SIZE);
+                  offset += len;
+                }
+              }else{
+                ret = -1;
+                LLOGW("update.bin open error");
+              }
+              ret = 0;
+            }
+        }
+        else {
+            ret = -1;
+            LLOGW("update.bin NOT ok, skip");
+        }
+        luat_fs_remove(UPDATE_BIN_PATH);
+    }
+    return ret;
+}
+#endif

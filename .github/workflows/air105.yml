@@ -34,7 +34,7 @@ jobs:
       run: |
         cd ../air105/core
         mkdir ~/toolchains
-        wget -q https://github.com/openLuat/LuatOS/releases/download/v0.0.1/gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2 -O -O ~/toolchains/gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2
+        wget -q https://github.com/openLuat/LuatOS/releases/download/v0.0.1/gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2 -O ~/toolchains/gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2
         xmake g --pkg_searchdirs=-O ~/toolchains
         xmake -y
         mkdir ../../LuatOS/luatosfw

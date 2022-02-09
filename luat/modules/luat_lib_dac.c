@@ -8,6 +8,11 @@
 
 #include "luat_base.h"
 #include "luat_dac.h"
+#include "luat_fs.h"
+#include "luat_malloc.h"
+
+#define LUAT_LOG_TAG "dac"
+#include "luat_log.h"
 
 /*
 打开DAC通道,并配置参数
@@ -72,6 +77,57 @@ static int l_dac_write(lua_State *L) {
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     lua_pushinteger(L, ret);
     return 2;
+}
+
+/*
+从指定DAC通道输出一段波形,数据从文件读取
+@api dac.writeFile(ch, fd)
+@int 通道编号,例如0
+@string 文件路径
+@return true 成功返回true,否则返回false
+@return int 底层返回值,调试用
+
+if dac.open(0, 44000) then
+    log.info("dac", "dac ch0 is opened")
+    dac.writeFile(0, "/luadb/test.wav")
+end
+dac.close(0)
+*/
+static int l_dac_write_file(lua_State *L) {
+    uint16_t* buff;
+    int ch;
+    size_t buff_size = 4096;
+    size_t len;
+
+    ch = luaL_checkinteger(L, 1);
+    const char* path = luaL_checkstring(L, 2);
+    FILE* fd = luat_fs_fopen(path, "rb");
+    if (fd == NULL) {
+        LLOGD("file not exist %s", path);
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    if (lua_isinteger(L, 3)) {
+        buff_size = luaL_checkinteger(L, 3);
+    }
+    buff = luat_heap_malloc(buff_size);
+    if (buff == NULL) {
+        luat_fs_fclose(fd);
+        LLOGW("buff size too big? %d", buff_size);
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    while (1) {
+        len = luat_fs_fread(buff, buff_size, 1, fd);
+        if (len == 0) {
+            break;
+        }
+        luat_dac_write(ch, buff, len);
+    }
+    luat_heap_free(buff);
+    luat_fs_fclose(fd);
+    lua_pushboolean(L, 1);
+    return 1;
 }
 
 /*

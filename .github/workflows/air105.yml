@@ -21,21 +21,18 @@ jobs:
         sudo apt-get install git gcc-multilib libc6 libgcc1 libstdc++5 libstdc++6 libsdl-dev p7zip-full -y
         sudo apt-get install libncurses5-dev -y
         sudo add-apt-repository ppa:xmake-io/xmake -y
-        sudo apt update
-        sudo apt install xmake
+        sudo apt install xmake -y
     - name: clone 105
-      env:
-        AIR105REPO: ${{ secrets.AIR105REPO }}
       run: |
         sudo sh -c "curl https://raw.githubusercontent.com/kadwanev/retry/master/retry -o /usr/local/bin/retry && chmod +x /usr/local/bin/retry"
         cd ..
-        retry 'git clone --depth=1 --branch=develop ${AIR105REPO} air105'
+        retry 'git clone --branch=master https://gitee.com/openLuat/luatos-soc-air105.git air105'
     - name: make
       run: |
         cd ../air105/core
-        mkdir ~/toolchains
-        wget -q https://github.com/openLuat/LuatOS/releases/download/v0.0.1/gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2 -O ~/toolchains/gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2
-        xmake g --pkg_searchdirs=~/toolchains
+        mkdir /home/runner/toolchains
+        wget -q https://github.com/openLuat/LuatOS/releases/download/v0.0.1/gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2 -O /home/runner/toolchains/gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2
+        xmake g --pkg_searchdirs=/home/runner/toolchains
         xmake -y
         mkdir ../../LuatOS/luatosfw
         mv build/out/*.soc ../../LuatOS/luatosfw

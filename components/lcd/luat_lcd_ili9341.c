@@ -41,7 +41,11 @@ static int ili9341_init(luat_lcd_conf_t* conf) {
         conf->h = LCD_H;
     if (conf->direction == 0)
         conf->direction = LCD_DIRECTION;
+#ifdef LUAT_LCD_CMD_DELAY_US
     conf->dc_delay_us = LUAT_LCD_CMD_DELAY_US;
+#else
+    conf->dc_delay_us = 7;
+#endif
     if (conf->pin_pwr != 255)
         luat_gpio_mode(conf->pin_pwr, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW); // POWER
     luat_gpio_mode(conf->pin_dc, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_HIGH); // DC

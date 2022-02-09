@@ -23,10 +23,6 @@ jobs:
         sudo add-apt-repository ppa:xmake-io/xmake -y
         sudo apt update
         sudo apt install xmake
-        wget -q https://github.com/openLuat/LuatOS/releases/download/v0.0.1/csky-elfabiv2-tools-x86_64-minilibc-20210423.tar.gz
-        sudo mkdir /opt/csky-elfabiv2-tools
-        sudo tar zxvf csky-elfabiv2-tools-x86_64-minilibc-20210423.tar.gz -C /opt/csky-elfabiv2-tools
-        rm csky-elfabiv2-tools-x86_64-minilibc-20210423.tar.gz
     - name: clone 101
       env:
         AIR101REPO: ${{ secrets.AIR101REPO }}
@@ -39,6 +35,9 @@ jobs:
         cd ../air101
         gcc -o tools/xt804/wm_tool tools/xt804/wm_tool.c -pthread
         chmod +x tools/xt804/wm_tool
+        mkdir ~/toolchains
+        wget -q https://github.com/openLuat/LuatOS/releases/download/v0.0.1/csky-elfabiv2-tools-x86_64-minilibc-20210423.tar.gz -O ~/toolchains/csky-elfabiv2-tools-x86_64-minilibc-20210423.tar.gz
+        xmake g --pkg_searchdirs=~/toolchains
         xmake -y
         mkdir ../LuatOS/luatosfw
         mv build/out/*.soc ../LuatOS/luatosfw

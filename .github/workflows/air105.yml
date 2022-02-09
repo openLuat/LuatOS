@@ -23,10 +23,6 @@ jobs:
         sudo add-apt-repository ppa:xmake-io/xmake -y
         sudo apt update
         sudo apt install xmake
-        wget -q https://github.com/openLuat/LuatOS/releases/download/v0.0.1/gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2
-        sudo tar xjf gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2 -C /opt
-        /opt/gcc-arm-none-eabi-10.3-2021.10/bin/arm-none-eabi-gcc --version
-        rm gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2
     - name: clone 105
       env:
         AIR105REPO: ${{ secrets.AIR105REPO }}
@@ -37,6 +33,9 @@ jobs:
     - name: make
       run: |
         cd ../air105/core
+        mkdir ~/toolchains
+        wget -q https://github.com/openLuat/LuatOS/releases/download/v0.0.1/gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2 -O -O ~/toolchains/gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2
+        xmake g --pkg_searchdirs=-O ~/toolchains
         xmake -y
         mkdir ../../LuatOS/luatosfw
         mv build/out/*.soc ../../LuatOS/luatosfw

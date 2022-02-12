@@ -84,7 +84,7 @@ static int l_gpio_setup(lua_State *L) {
         conf.mode = Luat_GPIO_INPUT;
     }
     conf.pull = luaL_optinteger(L, 3, default_gpio_pull);
-    conf.irq_cb = NULL;
+    conf.irq_cb = 0;
     int re = luat_gpio_setup(&conf);
     if (re == 0) {
         if (conf.mode == Luat_GPIO_IRQ) {
@@ -252,7 +252,7 @@ void luat_gpio_mode(int pin, int mode, int pull, int initOutput) {
     conf.pull = pull;
     conf.irq = initOutput;
     conf.lua_ref = 0;
-    conf.irq_cb = NULL;
+    conf.irq_cb = 0;
     luat_gpio_setup(&conf);
     if (conf.mode == Luat_GPIO_OUTPUT)
         luat_gpio_set(pin, initOutput);

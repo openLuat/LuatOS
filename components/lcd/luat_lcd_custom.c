@@ -38,7 +38,9 @@ static int custom_close(luat_lcd_conf_t* conf) {
 
 static int custom_init(luat_lcd_conf_t* conf) {
 
-    if (conf->w == 0 || conf->h == 0)
+    if (conf->w == 0)
+        conf->w = LCD_W;
+    if (conf->h == 0)
         conf->h = LCD_H;
     if (conf->direction == 0)
         conf->direction = LCD_DIRECTION;
@@ -54,9 +56,18 @@ static int custom_init(luat_lcd_conf_t* conf) {
     luat_timer_mdelay(100);
     luat_gpio_set(conf->pin_rst, Luat_GPIO_HIGH);
 
+    custom_wakeup(conf);
+    luat_timer_mdelay(120);
     // 发送初始化命令
     luat_lcd_custom_t * cst = (luat_lcd_custom_t *)conf->userdata;
     luat_lcd_execute_cmds(conf, cst->initcmd, cst->init_cmd_count);
+    
+    custom_wakeup(conf);
+    /* wait for power stability */
+    luat_timer_mdelay(100);
+    luat_lcd_clear(conf,WHITE);
+    /* display on */
+    luat_lcd_display_on(conf);
     return 0;
 };
 

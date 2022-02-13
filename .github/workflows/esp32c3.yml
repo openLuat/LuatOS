@@ -21,7 +21,7 @@ jobs:
         sudo apt-get install libncurses5-dev -y
         mkdir -p ~/esp
         cd ~/esp
-        git clone --recursive https://github.com/espressif/esp-idf.git
+        git clone --recursive --branch=release/v4.4 https://github.com/espressif/esp-idf.git
         cd ~/esp/esp-idf
         ./install.sh esp32c3
     - name: clone LuatOS-ESP32

@@ -203,14 +203,15 @@ static int l_lcd_init(lua_State* L) {
             lua_pushstring(L, "initcmd");
             lua_gettable(L, 2);
             cst->init_cmd_count = lua_rawlen(L, -1);
-            luat_heap_realloc(cst, sizeof(luat_lcd_custom_t) + cst->init_cmd_count * 4);
-            for (size_t i = 1; i <= cst->init_cmd_count; i++)
-            {
+            
+            cst->initcmd = luat_heap_malloc(cst->init_cmd_count * sizeof(uint32_t));
+            for (size_t i = 1; i <= cst->init_cmd_count; i++){
                 lua_geti(L, -1, i);
                 cst->initcmd[i-1] = luaL_checkinteger(L, -1);
                 lua_pop(L, 1);
             }
             lua_pop(L, 1);
+            conf->userdata = cst;
         }
         int ret = luat_lcd_init(conf);
         if (ret == 0) {

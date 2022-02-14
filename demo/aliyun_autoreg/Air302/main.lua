@@ -113,7 +113,7 @@ sys.taskInit(function()
         while c > 0 and deviceSecret == nil do
             sys.wait(2000) -- 稍等一会
             c = c - 1
-            local tmpl = "http://regproxy.vue2.cn:8384/reg/aliyun?dev=%s&key=%s&sign=%s"
+            local tmpl = "http://regproxy.luatos.com/reg/aliyun?dev=%s&key=%s&sign=%s"
             local url = string.format(tmpl, deviceName,productKey, crypto.md5(deviceName .. productKey .. "123"))
             http.get(url, nil, function(code,headers,body)
                 log.info("http", code, body)

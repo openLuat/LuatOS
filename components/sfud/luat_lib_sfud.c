@@ -175,10 +175,9 @@ static int luat_sfud_write(lua_State *L){
 
 /*
 先擦除再往 Flash 写数据
-@api  sfud.eraseWrite(flash, addr, size,data)
+@api  sfud.eraseWrite(flash, addr,data)
 @userdata flash Flash 设备对象 sfud.get_device_table()返回的数据结构
 @int addr 起始地址
-@int size 从起始地址开始读取数据的总大小
 @string data 待写入的数据
 @return int 成功返回0
 @usage

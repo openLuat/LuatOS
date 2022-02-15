@@ -155,6 +155,17 @@ static int l_eink_setup(lua_State *L) {
 }
 
 /**
+进入休眠模式，再次使用时需要重新初始化
+@api eink.sleep()
+@return nil
+*/
+static int l_eink_sleep(lua_State *L)
+{
+    EPD_Sleep();
+    return 0;
+}
+
+/**
 清除绘图缓冲区
 @api eink.clear()
 @return nil 无返回值,不会马上刷新到设备
@@ -986,6 +997,7 @@ static int l_eink_drawXbm(lua_State *L){
 static const rotable_Reg reg_eink[] =
 {
     { "setup",          l_eink_setup,           0},
+    { "sleep",          l_eink_sleep,           0},
     { "clear",          l_eink_clear,           0},
     { "setWin",         l_eink_setWin,          0},
     { "getWin",         l_eink_getWin,          0},

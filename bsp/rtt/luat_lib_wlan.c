@@ -395,7 +395,7 @@ end)
         break;
     case RT_WLAN_EVT_SCAN_DONE: // 扫描完成
 /*
-@sys_pub
+@sys_pub wlan
 WIFI扫描结束
 WLAN_SCAN_DONE
 @usage
@@ -408,7 +408,7 @@ end)
         break;
     case RT_WLAN_EVT_STA_CONNECTED: // 连上wifi路由器/热点,但还没拿到ip
 /*
-@sys_pub
+@sys_pub wlan
 连上wifi路由器/热点,但还没拿到ip
 WLAN_STA_CONNECTED
 @usage
@@ -422,7 +422,7 @@ end)
         break;
     case RT_WLAN_EVT_STA_CONNECTED_FAIL: // 没有连上wifi路由器/热点,通常是密码错误
 /*
-@sys_pub
+@sys_pub wlan
 没有连上wifi路由器/热点,通常是密码错误
 WLAN_STA_CONNECTED_FAIL
 @usage
@@ -436,7 +436,7 @@ end)
         break;
     case RT_WLAN_EVT_STA_DISCONNECTED: // 从wifi路由器/热点断开了
 /*
-@sys_pub
+@sys_pub wlan
 从wifi路由器/热点断开了
 WLAN_STA_DISCONNECTED
 @usage

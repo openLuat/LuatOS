@@ -28,9 +28,9 @@ sys.taskInit(function()
     while 1 do
         sys.wait(500)
         -- 一闪一闪亮晶晶
-        LEDA(count & 0x01 == 0x01 and 1 or 0)
-        LEDB(count & 0x02 == 0x02 and 1 or 0)
-        LEDC(count & 0x03 == 0x03 and 1 or 0)
+        LEDA(count % 3 == 0 and 1 or 0)
+        LEDB(count % 3 == 1 and 1 or 0)
+        LEDC(count % 3 == 2 and 1 or 0)
         log.info("gpio", "Go Go Go", count, rtos.bsp())
         count = count + 1
     end

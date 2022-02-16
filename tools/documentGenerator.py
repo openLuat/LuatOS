@@ -34,6 +34,11 @@ for home, dirs, files in os.walk(source_path+"/../components"):
         if filename.endswith(".c"):
             file_list.append(os.path.join(home, filename))
 
+for home, dirs, files in os.walk(source_path+"/../bsp/rtt"):
+    for filename in files:
+        if filename.endswith(".c"):
+            file_list.append(os.path.join(home, filename))
+
 #注释的格式：
 # /*
 # @module  模块的调用名
@@ -135,6 +140,8 @@ for file in file_list:
     while line_now<len(lines)-3:
         #匹配api完整名称行
         name = re.search(r" *@api *(.+) *",lines[line_now+2],re.I)
+        if not name:
+            name = re.search(r" *@function *(.+) *",lines[line_now+2],re.I)
         if lines[line_now].startswith("/*") and name:
             api = {}
             api["api"] = name.group(1)

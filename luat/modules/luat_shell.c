@@ -146,7 +146,7 @@ static int luat_shell_loadstr(lua_State *L, void* ptr) {
 void luat_shell_push(char* uart_buff, size_t rcount) {
     //int ret = 0;
     size_t len = 0;
-    char buff[128] = {0};
+    char buff[256] = {0};
     if (rcount) {
         if (cmux_state == 1){
             luat_cmux_read((unsigned char *)uart_buff,rcount);

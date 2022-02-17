@@ -10,7 +10,7 @@
 #define META_LV_DRAW_LABEL_DSC_T "LV_DRAW_LABEL_DSC_T*"
 #define META_LV_DRAW_IMG_DSC_T "LV_DRAW_IMG_DSC_T*"
 #define META_LV_IMG_DSC_T "LV_IMG_DSC_T*"
-
+#define META_LV_LINE_DSC_T "LV_LINE_DSC_T*"
 //---------------------------------------------
 /*
 创建一个anim
@@ -281,6 +281,54 @@ int _lvgl_struct_draw_rect_dsc_t_newindex(lua_State *L) {
 
 //---------------------------------------------
 /*
+创建一个lv_draw_line_dsc_t
+@api lvgl.draw_line_dsc_t()
+@return userdata lv_draw_line_dsc_t指针
+@usage
+local rect_dsc = lvgl.draw_line_dsc_t()
+*/
+int luat_lv_draw_line_dsc_t(lua_State *L){
+    lua_newuserdata(L, sizeof(lv_draw_line_dsc_t));
+    luaL_setmetatable(L, META_LV_LINE_DSC_T);
+    return 1;
+}
+
+int _lvgl_struct_draw_line_dsc_t_newindex(lua_State *L) {
+    lv_draw_line_dsc_t* line_dsc = (lv_draw_line_dsc_t*)lua_touserdata(L, 1);
+    const char* key = luaL_checkstring(L, 2);
+    if (!strcmp("color", key)) {
+        line_dsc->color.full = luaL_optinteger(L, 3, 0);
+    }
+    else if (!strcmp("width", key)) {
+        line_dsc->width = luaL_optinteger(L, 3, 0);
+    }
+    else if (!strcmp("dash_width", key)) {
+        line_dsc->dash_width = luaL_optinteger(L, 3, 0);
+    }
+    else if (!strcmp("dash_gap", key)) {
+        line_dsc->dash_gap = luaL_optinteger(L, 3, 0);
+    }
+    else if (!strcmp("opa", key)) {
+        line_dsc->opa = luaL_optinteger(L, 3, 0);
+    }
+    else if (!strcmp("blend_mode", key)) {
+        line_dsc->blend_mode = luaL_optinteger(L, 3, 0);
+    }
+    else if (!strcmp("round_start", key)) {
+        line_dsc->round_start = luaL_optinteger(L, 3, 0);
+    }
+    else if (!strcmp("round_end", key)) {
+        line_dsc->round_end = luaL_optinteger(L, 3, 0);
+    }
+    else if (!strcmp("raw_end", key)) {
+        line_dsc->raw_end = luaL_optinteger(L, 3, 0);
+    }
+    return 0;
+}
+
+
+//---------------------------------------------
+/*
 创建一个lv_draw_label_dsc_t
 @api lvgl.draw_label_dsc_t()
 @return userdata lv_draw_label_dsc_t指针
@@ -468,6 +516,11 @@ void luat_lvgl_struct_init(lua_State *L) {
     // lv_img_dsc_t
     luaL_newmetatable(L, META_LV_IMG_DSC_T);
     lua_pushcfunction(L, _lvgl_struct_img_dsc_t_newindex);
+    lua_setfield( L, -2, "__newindex" );
+    lua_pop(L, 1);
+
+    luaL_newmetatable(L, META_LV_LINE_DSC_T);
+    lua_pushcfunction(L, _lvgl_struct_draw_line_dsc_t_newindex);
     lua_setfield( L, -2, "__newindex" );
     lua_pop(L, 1);
 }

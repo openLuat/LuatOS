@@ -645,9 +645,17 @@ local GC032A_InitReg_Gray =
         0x46,0x0f,
 	}
 }
+
+
+
 --注册摄像头事件回调
 camera.on(0, "scanned", function(id, str)
-    print(id, str)
+    if type(str) == 'string' then
+        log.info("扫码结果", str)
+    else
+        log.info("拍照结果", str)
+
+    end
 end)
 
 local camera_pwdn = gpio.setup(pin.PD06, 1, gpio.PULLUP) -- PD06 camera_pwdn引脚
@@ -658,13 +666,37 @@ sys.taskInit(function()
 
     --下面两行只开一行！一个是屏幕输出rgb图像,一个是屏幕输出灰度图像并扫码
     local camera_id = camera.init(GC032A_InitReg)--屏幕输出rgb图像
-    -- local camera_id = camera.init(GC032A_InitReg_Gray)--屏幕输出灰度图像并扫码
+    --local camera_id = camera.init(GC032A_InitReg_Gray)--屏幕输出灰度图像并扫码
+    log.info("摄像头启动")
     camera.start(camera_id)--开始指定的camera
-    sys.wait(5000)
+    sys.wait(2000)
+    log.info("摄像头停止")
     camera.stop(camera_id)--停止指定的camera
-    sys.wait(5000)
+    sys.wait(2000)
+    log.info("摄像头启动")
     camera.start(camera_id)--开始指定的camera
+    sys.wait(2000)
+    --下面的功能必须有支持拍照的固件才能打开
+    -- log.debug("摄像头捕获图像")
+    -- camera.capture(camera_id, "/temp.jpg", 1)
+    -- sys.wait(2000)
+    -- local f = io.open("/temp.jpg", "r")
+    -- local data
+    -- if f then
+    --     data = f:read("*a")
+    --     log.info("fs", #data)
+    --     f:close()
+    -- end
+    -- local uartid = 2 -- 根据实际设备选取不同的uartid
 
+    -- --初始化
+    -- local result = uart.setup(
+    --     uartid,--串口id
+    --     115200,--波特率
+    --     8,--数据位
+    --     1--停止位
+    -- )
+    -- uart.write(uartid, data)
     while 1 do
         sys.wait(500)
     end

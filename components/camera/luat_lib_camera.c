@@ -27,7 +27,14 @@ int l_camera_handler(lua_State *L, void* ptr) {
         lua_geti(L, LUA_REGISTRYINDEX, camera_cbs[camera_id].scanned);
         if (lua_isfunction(L, -1)) {
             lua_pushinteger(L, camera_id);
-            lua_pushlstring(L, (char *)msg->ptr,msg->arg2);
+            if (msg->ptr)
+            {
+                lua_pushlstring(L, (char *)msg->ptr,msg->arg2);
+            }
+            else
+            {
+            	lua_pushboolean(L, msg->arg2);
+            }
             lua_call(L, 2, 0);
         }
     }
@@ -195,12 +202,31 @@ static int l_camera_stop(lua_State *L) {
     return 1;
 }
 
+/**
+拍一张照片
+@api camera.capture(id)
+@int camera id,例如0
+@string save_path,文件保存路径，空则写在上次路径里，默认是/capture.jpg
+@int quality, jpeg压缩质量，1最差，占用空间小，3最高，占用空间最大而且费时间，默认1
+@return boolean 成功返回true,否则返回false
+@usage
+camera.stop(0)
+*/
+static int l_camera_capture(lua_State *L) {
+    int id = luaL_checkinteger(L, 1);
+    const char* save_path = luaL_checkstring(L, 2);
+    int quality = luaL_optinteger(L, 3, 1);
+    luat_camera_capture(id, quality, save_path);
+    return 0;
+}
+
 #include "rotable.h"
 static const rotable_Reg reg_camera[] =
 {
     { "init" ,       l_camera_init , 0},
     { "start" ,       l_camera_start , 0},
     { "stop" ,      l_camera_stop, 0},
+	{ "capture" ,	l_camera_capture, 0},
     // { "open" ,       l_camera_open , 0},
     // { "close" ,      l_camera_close, 0},
     { "on",     l_camera_on, 0},

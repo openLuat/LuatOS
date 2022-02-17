@@ -22,6 +22,15 @@
 static int socket_ntp_handler(lua_State *L, void* ptr) {
     lua_getglobal(L, "sys_pub");
     if (!lua_isnil(L, -1)) {
+/*
+@sys_pub ntp
+NTP更新
+NTP_UPDATE
+@usage
+sys.taskInit(function()
+    sys.waitUntil("NTP_UPDATE")
+end)
+*/
         lua_pushstring(L, "NTP_UPDATE");
         lua_call(L, 1, 0);
     }

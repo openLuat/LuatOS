@@ -369,7 +369,7 @@ static int l_wlan_handler(lua_State* L, void* ptr) {
     {
     case RT_WLAN_EVT_READY: // 网络就绪
 /*
-@sys_pub
+@sys_pub wlan
 WIFI就绪
 WLAN_READY
 @usage
@@ -382,7 +382,7 @@ end)
         // 额外发送一个通用事件 NET_READY
         lua_getglobal(L, "sys_pub");
 /*
-@sys_pub
+@sys_pub wlan
 网络就绪
 NET_READY
 @usage
@@ -396,7 +396,7 @@ end)
     case RT_WLAN_EVT_SCAN_DONE: // 扫描完成
 /*
 @sys_pub wlan
-WIFI扫描结束
+扫描完成
 WLAN_SCAN_DONE
 @usage
 sys.taskInit(function()
@@ -409,7 +409,7 @@ end)
     case RT_WLAN_EVT_STA_CONNECTED: // 连上wifi路由器/热点,但还没拿到ip
 /*
 @sys_pub wlan
-连上wifi路由器/热点,但还没拿到ip
+连接成功,但还没拿到ip
 WLAN_STA_CONNECTED
 @usage
 sys.taskInit(function()
@@ -423,7 +423,7 @@ end)
     case RT_WLAN_EVT_STA_CONNECTED_FAIL: // 没有连上wifi路由器/热点,通常是密码错误
 /*
 @sys_pub wlan
-没有连上wifi路由器/热点,通常是密码错误
+连接失败,通常是密码错误
 WLAN_STA_CONNECTED_FAIL
 @usage
 sys.taskInit(function()
@@ -437,7 +437,7 @@ end)
     case RT_WLAN_EVT_STA_DISCONNECTED: // 从wifi路由器/热点断开了
 /*
 @sys_pub wlan
-从wifi路由器/热点断开了
+断开连接
 WLAN_STA_DISCONNECTED
 @usage
 sys.taskInit(function()
@@ -448,18 +448,54 @@ end)
         lua_call(L, 1, 0);
         break;
     case RT_WLAN_EVT_AP_START:
+/*
+@sys_pub wlan
+热点启动
+WLAN_AP_START
+@usage
+sys.taskInit(function()
+    sys.waitUntil("WLAN_AP_START")
+end)
+*/
         lua_pushstring(L, "WLAN_AP_START");
         lua_call(L, 1, 0);
         break;
     case RT_WLAN_EVT_AP_STOP:
+/*
+@sys_pub wlan
+热点停止
+WLAN_AP_STOP
+@usage
+sys.taskInit(function()
+    sys.waitUntil("WLAN_AP_STOP")
+end)
+*/
         lua_pushstring(L, "WLAN_AP_STOP");
         lua_call(L, 1, 0);
         break;
     case RT_WLAN_EVT_AP_ASSOCIATED:
+/*
+@sys_pub wlan
+STA 接入
+WLAN_AP_ASSOCIATED
+@usage
+sys.taskInit(function()
+    sys.waitUntil("WLAN_AP_ASSOCIATED")
+end)
+*/
         lua_pushstring(L, "WLAN_AP_ASSOCIATED");
         lua_call(L, 1, 0);
         break;
     case RT_WLAN_EVT_AP_DISASSOCIATED:
+/*
+@sys_pub wlan
+STA 断开
+WLAN_AP_DISASSOCIATED
+@usage
+sys.taskInit(function()
+    sys.waitUntil("WLAN_AP_DISASSOCIATED")
+end)
+*/
         lua_pushstring(L, "WLAN_AP_DISASSOCIATED");
         lua_call(L, 1, 0);
         break;
@@ -504,6 +540,15 @@ static void reg_wlan_callbacks(void) {
 static int luat_PW_msghandler(lua_State *L, void* ptr) {
     lua_getglobal(L, "sys_pub");
     if (!lua_isnil(L, -1)) {
+/*
+@sys_pub wlan
+配网结束
+WLAN_PW_RE
+@usage
+sys.taskInit(function()
+    sys.waitUntil("WLAN_PW_RE")
+end)
+*/
         lua_pushstring(L, "WLAN_PW_RE");
         if (ptr == RT_NULL) {
             lua_call(L, 1, 0);

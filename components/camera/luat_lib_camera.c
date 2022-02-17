@@ -204,19 +204,21 @@ static int l_camera_stop(lua_State *L) {
 
 /**
 拍一张照片
-@api camera.capture(id)
+@api camera.capture(id, )
 @int camera id,例如0
+@int y_diff,Y分量校准量，默认是-128，越小越暗，0最亮，默认-128
 @string save_path,文件保存路径，空则写在上次路径里，默认是/capture.jpg
 @int quality, jpeg压缩质量，1最差，占用空间小，3最高，占用空间最大而且费时间，默认1
 @return boolean 成功返回true,否则返回false
 @usage
-camera.stop(0)
+camera.capture(0)
 */
 static int l_camera_capture(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
-    const char* save_path = luaL_checkstring(L, 2);
-    int quality = luaL_optinteger(L, 3, 1);
-    luat_camera_capture(id, quality, save_path);
+    int y_diff = luaL_optinteger(L, 2, -128);
+    const char* save_path = luaL_checkstring(L, 3);
+    int quality = luaL_optinteger(L, 4, 1);
+    luat_camera_capture(id, y_diff, quality, save_path);
     return 0;
 }
 

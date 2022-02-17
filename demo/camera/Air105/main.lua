@@ -678,7 +678,7 @@ sys.taskInit(function()
     sys.wait(2000)
     --下面的功能必须有支持拍照的固件才能打开
     -- log.debug("摄像头捕获图像")
-    -- camera.capture(camera_id, "/temp.jpg", 1)
+    -- camera.capture(camera_id, 0, "/temp.jpg", 1)
     -- sys.wait(2000)
     -- local f = io.open("/temp.jpg", "r")
     -- local data

@@ -195,14 +195,31 @@ static int l_camera_stop(lua_State *L) {
     return 1;
 }
 
+/**
+camera拍照
+@api camera.capture(id, quality, path)
+@int camera id,例如0
+@int 图像资料, 通常设置为80就可以了
+@string 存储路径
+@return boolean 成功返回true,否则返回false
+@usage
+camera.capture(0, 80, "/sd/camera.jpg")
+*/
+static int l_camera_capture(lua_State *L) {
+    int id = luaL_checkinteger(L, 1);
+    int quality = luaL_checkinteger(L, 2);
+    const char* path = luaL_checkstring(L, 3);
+    lua_pushboolean(L, luat_camera_capture(id, quality, path) == 0 ? 1 : 0);
+    return 1;
+}
+
 #include "rotable.h"
 static const rotable_Reg reg_camera[] =
 {
-    { "init" ,       l_camera_init , 0},
+    { "init" ,        l_camera_init , 0},
     { "start" ,       l_camera_start , 0},
-    { "stop" ,      l_camera_stop, 0},
-    // { "open" ,       l_camera_open , 0},
-    // { "close" ,      l_camera_close, 0},
+    { "stop" ,        l_camera_stop, 0},
+    { "capture",      l_camera_capture, 0},
     { "on",     l_camera_on, 0},
 	{ NULL,          NULL ,       0}
 };

@@ -87,6 +87,16 @@ static int luat_lib_netc_msg_handler(lua_State* L, void* ptr) {
             sprintf(buff, "NETC_END_%x", ent->netc_id);
             //LLOGD("FUCK [%s]", buff);
             lua_pushstring(L, buff);
+/*
+@sys_pub socket
+连接断开
+NETC_END_xx
+@usage
+sys.taskInit(function()
+    sys.waitUntil("NETC_END_".. id, 30000)
+    log.info("GET NETC_END or timeout")
+end)
+*/
             lua_call(L, 1, 0);
         }
         if (ent->lua_ref) {

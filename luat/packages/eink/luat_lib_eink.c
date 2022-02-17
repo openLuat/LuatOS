@@ -166,14 +166,18 @@ static int l_eink_sleep(lua_State *L)
 }
 
 /**
-清除绘图缓冲区
-@api eink.clear()
-@return nil 无返回值,不会马上刷新到设备
+清除绘图缓冲区，默认不会马上刷新到设备
+@api eink.clear(color, force)
+@number color 可选，默认1。刷屏颜色
+@bool force 可选，默认false。如果为true则马上清屏
+@return nil 无返回值
 */
 static int l_eink_clear(lua_State *L)
 {
     int colored = luaL_optinteger(L, 1, 1);
     Paint_Clear(&paint, colored);
+    if(lua_isboolean(L, 2))
+      EPD_Clear();
     return 0;
 }
 
@@ -543,19 +547,22 @@ uint16_t e;
 
 /**
 将缓冲区图像输出到屏幕
-@api eink.show(x, y)
+@api eink.show(x, y, noClear)
 @int x 输出的x坐标,默认0
 @int y 输出的y坐标,默认0
+@bool noClear 可选，默认false。如果为true则不进行清屏，直接刷上新内容
 @return nil 无返回值
 */
 static int l_eink_show(lua_State *L)
 {
     int x     = luaL_optinteger(L, 1, 0);
     int y     = luaL_optinteger(L, 2, 0);
+    int no_clear     = lua_toboolean(L, 3);
     /* Display the frame_buffer */
     //EPD_SetFrameMemory(&epd, frame_buffer, x, y, Paint_GetWidth(&paint), Paint_GetHeight(&paint));
     //EPD_DisplayFrame(&epd);
-    EPD_Clear();
+    if(!no_clear)
+      EPD_Clear();
     EPD_Display(frame_buffer, NULL);
     return 0;
 }

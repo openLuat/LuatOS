@@ -89,7 +89,7 @@ static int luat_shell_msg_handler(lua_State *L, void* ptr) {
             #ifdef LUAT_USE_MCU
             else if (strncmp("AT+CGSN", uart_buff, 7) == 0) {
                 memcpy(buff, "+CGSN=", 6);
-                char* _id = (char*)luat_mcu_unique_id(&len);
+                char* _id = (char*)luat_mcu_unique_id((size_t *)&len);
                 luat_str_tohex(_id, len, buff+6);
                 buff[6+len*2] = '\n';
                 luat_shell_write(buff, 6+len*2+1);
@@ -146,7 +146,7 @@ static int luat_shell_loadstr(lua_State *L, void* ptr) {
 void luat_shell_push(char* uart_buff, size_t rcount) {
     //int ret = 0;
     size_t len = 0;
-    char buff[128] = {0};
+    char buff[256] = {0};
     if (rcount) {
         if (cmux_state == 1){
             luat_cmux_read((unsigned char *)uart_buff,rcount);

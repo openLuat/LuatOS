@@ -202,11 +202,16 @@ static int l_camera_stop(lua_State *L) {
     return 1;
 }
 
+LUAT_WEAK luat_camera_capture(int id, int y_diff, uint8_t quality, const char *path) {
+    LLOGD("not support yet");
+    return -1;
+}
+
 /**
-拍一张照片
-@api camera.capture(id, )
+camera拍照
+@api camera.capture(id, y_diff, save_path, quality)
 @int camera id,例如0
-@int y_diff,Y分量校准量，默认是-128，越小越暗，0最亮，默认-128
+@int y_diff,Y分量校准量，默认是-128，越小越暗，根据实际情况修改，GC032A测试下来需要填0
 @string save_path,文件保存路径，空则写在上次路径里，默认是/capture.jpg
 @int quality, jpeg压缩质量，1最差，占用空间小，3最高，占用空间最大而且费时间，默认1
 @return boolean 成功返回true,否则返回false
@@ -225,12 +230,10 @@ static int l_camera_capture(lua_State *L) {
 #include "rotable.h"
 static const rotable_Reg reg_camera[] =
 {
-    { "init" ,       l_camera_init , 0},
+    { "init" ,        l_camera_init , 0},
     { "start" ,       l_camera_start , 0},
-    { "stop" ,      l_camera_stop, 0},
-	{ "capture" ,	l_camera_capture, 0},
-    // { "open" ,       l_camera_open , 0},
-    // { "close" ,      l_camera_close, 0},
+    { "stop" ,        l_camera_stop, 0},
+    { "capture",      l_camera_capture, 0},
     { "on",     l_camera_on, 0},
 	{ NULL,          NULL ,       0}
 };

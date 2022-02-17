@@ -195,6 +195,11 @@ static int l_camera_stop(lua_State *L) {
     return 1;
 }
 
+LUAT_WEAK luat_camera_capture(int id, uint8_t quality, const char *path) {
+    LLOGD("not support yet");
+    return -1;
+}
+
 /**
 camera拍照
 @api camera.capture(id, quality, path)

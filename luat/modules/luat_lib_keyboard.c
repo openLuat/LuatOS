@@ -16,6 +16,21 @@
 static int l_keyboard_handler(lua_State *L, void* ptr) {
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     lua_getglobal(L, "sys_pub");
+/*
+@sys_pub keyboard
+键盘矩阵消息
+KB_INC
+@number port, keyboard id 当前固定为0, 可以无视
+@number data, keyboard 按键 需要配合init的map进行解析
+@number state, 按键状态 1 为按下, 0 为 释放
+@usage
+sys.subscribe("KB_INC", function(port, data, state)
+    -- port 当前固定为0, 可以无视
+    -- data, 需要配合init的map进行解析
+    -- state, 1 为按下, 0 为 释放
+    log.info("keyboard", port, data, state)
+end)
+*/
     lua_pushstring(L, "KB_INC");
     lua_pushinteger(L, msg->arg1);
     lua_pushinteger(L, msg->arg2);

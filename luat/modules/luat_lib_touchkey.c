@@ -59,6 +59,19 @@ int l_touchkey_handler(lua_State *L, void* ptr) {
         lua_pushinteger(L, 0);
         return 1;
     }
+/*
+@sys_pub touchkey
+触摸按键消息
+TOUCHKEY_INC
+@number port, 传感器id
+@number state, 计数器,触摸次数统计
+@usage
+sys.subscribe("TOUCHKEY_INC", function(id, count)
+    -- 传感器id
+    -- 计数器,触摸次数统计
+    log.info("touchkey", id, count)
+end)
+*/
     lua_pushliteral(L, "TOUCHKEY_INC");
     lua_pushinteger(L, msg->arg1);
     lua_pushinteger(L, msg->arg2);

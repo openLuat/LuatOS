@@ -35,7 +35,7 @@ static int l_adc_open(lua_State *L) {
 @api adc.read(id)
 @int 通道id,与具体设备有关,通常从0开始
 @return int 原始值
-@return int 计算后的值
+@return int 从原始值换算得出的电压值，通常单位是mV
 @usage
 -- 打开adc通道2,并读取
 if adc.open(2) then

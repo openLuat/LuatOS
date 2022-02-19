@@ -226,16 +226,32 @@ uint64_t luat_pushcwait(lua_State *L) {
         return 0;
     }
     c_wait_id++;
-    lua_pushlstring(L,(char *)(&c_wait_id),sizeof(uint64_t));
+    char* topic = (char*)luat_heap_malloc(1 + sizeof(uint64_t));
+    topic[0] = 0x01;//前缀用一个不可见字符，防止和用户用的重复
+    memcpy(topic + 1,&c_wait_id,sizeof(uint64_t));
+    lua_pushlstring(L,topic,1 + sizeof(uint64_t));
+    luat_heap_free(topic);
     lua_call(L,1,1);
     return c_wait_id;
 }
 
+/*
+@sys_pub sys
+用于luatos内部的系统消息传递
+以0x01为第一个字节开头
+@args 返回的数据
+@usage
+--此为系统内部使用的消息，请勿在外部使用
+*/
 static int luat_cbcwait_cb(lua_State *L, void* ptr) {
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     if(lua_getglobal(L, "sys_pub") != LUA_TFUNCTION)
         return 0;
-    lua_pushlstring(L,(char *)msg->ptr,sizeof(uint64_t));
+    char* topic = (char*)luat_heap_malloc(1 + sizeof(uint64_t));
+    topic[0] = 0x01;
+    memcpy(topic + 1,msg->ptr,sizeof(uint64_t));
+    lua_pushlstring(L,topic,1 + sizeof(uint64_t));
+    luat_heap_free(topic);
     luat_heap_free(msg->ptr);
     lua_call(L, 1, 0);
     return 0;

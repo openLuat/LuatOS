@@ -75,4 +75,9 @@ void luat_os_print_heapinfo(const char* tag);
 // 自定义扩展库的初始化入口, 可以自行注册lua库, 或其他初始化操作.
 void luat_custom_init(lua_State *L);
 
+//c等待接口
+uint64_t luat_pushcwait(lua_State *L);
+//c等待接口的回调
+void luat_cbcwait_noarg(uint64_t id);
+
 #endif

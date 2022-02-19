@@ -210,3 +210,46 @@ void luat_os_print_heapinfo(const char* tag) {
     luat_meminfo_sys(&total, &used, &max_used);
     LLOGD("%s sys   %ld %ld %ld", tag, total, used, max_used);
 }
+
+
+//唯一c等待接口使用的id
+uint64_t c_wait_id = 0;
+//c等待接口
+//获取一个消息等待的唯一id
+//并向栈中推入一个可等待对象
+//返回值为0时，表示用户没有启用sys库，无法使用该功能
+//[-0, +1, –]
+uint64_t luat_pushcwait(lua_State *L) {
+    if(lua_getglobal(L, "sys_cw") != LUA_TFUNCTION)
+    {
+        LLOGE("sys lib not found!");
+        return 0;
+    }
+    c_wait_id++;
+    lua_pushlstring(L,(char *)(&c_wait_id),sizeof(uint64_t));
+    lua_call(L,1,1);
+    return c_wait_id;
+}
+
+static int luat_cbcwait_cb(lua_State *L, void* ptr) {
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    if(lua_getglobal(L, "sys_pub") != LUA_TFUNCTION)
+        return 0;
+    lua_pushlstring(L,(char *)msg->ptr,sizeof(uint64_t));
+    luat_heap_free(msg->ptr);
+    lua_call(L, 1, 0);
+    return 0;
+}
+
+//c等待接口的回调，最简单的无参数的回调
+//要返回参数的话，参考上面自己写一个
+void luat_cbcwait_noarg(uint64_t id) {
+    if(id == 0)
+        return;
+    rtos_msg_t msg = {0};
+    msg.handler = luat_cbcwait_cb;
+    uint64_t* idp = (uint64_t*)luat_heap_malloc(sizeof(uint64_t));
+    memcpy(idp, &id, sizeof(uint64_t));
+    msg.ptr = (void*)idp;
+    luat_msgbus_put(&msg, 0);
+}

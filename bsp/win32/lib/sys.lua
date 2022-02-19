@@ -400,5 +400,20 @@ end
 
 _G.sys_pub = sys.publish
 
+--提供给异步c接口使用
+sys.cwaitMt = {}
+sys.cwaitMt.__index = function(t,i)
+    if i == "wait" then
+        return function() sys.waitUntilExt(rawget(t,"w")) end
+    else
+        rawget(t,i)
+    end
+end
+_G.sys_cw = function (w)
+    local t = {w=w}
+    setmetatable(t,sys.cwaitMt)
+    return t
+end
+
 return sys
 ----------------------------

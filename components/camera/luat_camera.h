@@ -34,6 +34,6 @@ int luat_camera_init(luat_camera_conf_t *conf);
 int luat_camera_start(int id);
 int luat_camera_stop(int id);
 int luat_camera_close(int id);
-int luat_camera_capture(int id, int y_diff, uint8_t quality, const char *path);
+int luat_camera_capture(int id, uint8_t quality, const char *path);
 
 #endif

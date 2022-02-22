@@ -1031,7 +1031,21 @@ sys.taskInit(function()
     log.info("摄像头启动")
     camera.start(camera_id)--开始指定的camera
     sys.wait(2000)
+    log.info("摄像头关闭")
+    camera_rst(1)
+    camera.close(camera_id)
+    --下面的功能必须有支持camera.close的固件才能打开
+    -- log.info("摄像头重新初始化")
+    -- camera_rst(0)
+    -- camera_id = camera.init(GC032A_InitReg_Gray)--屏幕输出灰度图像并扫码
+    -- log.info("摄像头启动")
+    -- camera.start(camera_id)--开始指定的camera
     --下面的功能必须有支持拍照的固件才能打开
+    -- camera_rst(0)
+    -- camera_id = camera.init(GC032A_InitReg)--屏幕输出灰度图像并扫码
+    -- log.info("摄像头启动")
+    -- camera.start(camera_id)--开始指定的camera
+    -- sys.wait(2000)
     -- log.debug("摄像头捕获图像")
     -- camera.capture(camera_id, "/temp.jpg", 1)
     -- sys.wait(2000)

@@ -202,6 +202,20 @@ static int l_camera_stop(lua_State *L) {
     return 1;
 }
 
+/**
+关闭指定的camera，释放相应的IO资源
+@api camera.close(id)
+@int camera id,例如0
+@return boolean 成功返回true,否则返回false
+@usage
+camera.close(0)
+*/
+static int l_camera_close(lua_State *L) {
+    int id = luaL_checkinteger(L, 1);
+    lua_pushboolean(L, luat_camera_close(id) == 0 ? 1 : 0);
+    return 1;
+}
+
 LUAT_WEAK luat_camera_capture(int id, uint8_t quality, const char *path) {
     LLOGD("not support yet");
     return -1;
@@ -233,6 +247,7 @@ static const rotable_Reg reg_camera[] =
     { "start" ,       l_camera_start , 0},
     { "stop" ,        l_camera_stop, 0},
     { "capture",      l_camera_capture, 0},
+	{ "close",		l_camera_close, 0},
     { "on",     l_camera_on, 0},
 	{ NULL,          NULL ,       0}
 };

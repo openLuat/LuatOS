@@ -4,6 +4,14 @@
 ** See Copyright Notice in lua.h
 */
 
+/*
+
+@module  io
+@summary io操作(扩展)
+@version 1.0
+@date    2020.07.03
+*/
+
 #define liolib_c
 #define LUA_LIB
 
@@ -737,6 +745,14 @@ static int f_flush (lua_State *L) {
 
 #include "luat_malloc.h"
 
+/*
+判断文件是否存在
+@api io.exists(path)
+@string 文件路径
+@return bool 存在返回true,否则返回false
+@usage
+log.info("io", "file exists", io.exists("/boottime")) 
+ */
 static int io_exists (lua_State *L) {
   const char *filename = luaL_checkstring(L, 1);
   FILE* f = fopen(filename, "r");
@@ -746,20 +762,39 @@ static int io_exists (lua_State *L) {
   return 1;
 }
 
+/*
+获取文件大小
+@api io.fileSize(path)
+@string 文件路径
+@return int 文件数据,若文件不存在会返回nil
+@usage
+local fsize = io.fileSize("/bootime")
+if fsize and fsize > 1024 then
+  log.info("io", "file size", fsize)
+end
+ */
 static int io_fileSize (lua_State *L) {
   const char *filename = luaL_checkstring(L, 1);
   FILE* f = fopen(filename, "rb");
-  if(f == NULL)
-    return 0;
-  int r = fseek(f, 0, SEEK_END);
-  if(r != 0)
-    return 0;
-  lua_pushinteger(L,ftell(f));
-  fseek(f, 0, SEEK_SET);
-  fclose(f);
+  if(f == NULL) {
+    lua_pushinteger(L, 0); 
+  }
+  else {
+    fseek(f, 0, SEEK_END);
+    lua_pushinteger(L,ftell(f));
+    fclose(f);
+  }
   return 1;
 }
 
+/**
+读取整个文件,请注意内存消耗
+@api io.readFile(path)
+@string 文件路径
+@return string 文件数据,若文件不存在会返回nil
+@usage
+local data = io.readFile("/bootime")
+ */
 static int io_readFile (lua_State *L) {
   const char *filename = luaL_checkstring(L, 1);
   const char *mode = luaL_optstring(L, 2, "rb");
@@ -781,6 +816,15 @@ static int io_readFile (lua_State *L) {
   return 1;
 }
 
+/**
+将数据写入文件
+@api io.writeFile(path, data)
+@string 文件路径
+@string 数据
+@return boolean 成功返回true, 否则返回false
+@usage
+io.writeFile("/bootime", "1")
+ */
 static int io_writeFile (lua_State *L) {
   const char *filename = luaL_checkstring(L, 1);
   size_t len;

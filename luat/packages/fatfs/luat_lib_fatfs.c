@@ -166,7 +166,7 @@ static int fatfs_lsdir(lua_State *L)
 		return 2;
 	}
 	//u8 *buf;
-	int len;
+	size_t len;
 	const char *buf = lua_tolstring( L, 1, &len );
 	char dirname[len+1];
 	memcpy(dirname, buf, len);
@@ -341,7 +341,7 @@ static int fatfs_read(lua_State *L) {
 	if (re != FR_OK) {
 		return 1;
 	}
-	lua_pushlstring(L, buf, len);
+	lua_pushlstring(L, (const char*)buf, len);
 	return 2;
 }
 
@@ -354,7 +354,7 @@ static int fatfs_write(lua_State *L) {
 	}
 	FIL* fil = (FIL*)lua_touserdata(L, 1);
     luaType = lua_type( L, 2 );
-    int len;
+    size_t len;
     char* buf;
 	FRESULT re = FR_OK;
     
@@ -436,7 +436,7 @@ static int fatfs_readfile(lua_State *L) {
 	}
 
 	BYTE buf[limit];
-	UINT len;
+	size_t len;
 	if (FATFS_DEBUG)
 		LLOGD("[FatFS]readfile seek=%d limit=%d", seek, limit);
 	FRESULT fr = f_read(&fil, buf, limit, &len);
@@ -447,7 +447,7 @@ static int fatfs_readfile(lua_State *L) {
 	}
 	f_close(&fil);
 	lua_pushinteger(L, 0);
-	lua_pushlstring(L, buf, len);
+	lua_pushlstring(L, (const char*)buf, len);
 	if (FATFS_DEBUG)
 		LLOGD("[FatFS]readfile seek=%d limit=%d len=%d", seek, limit, len);
 	return 2;

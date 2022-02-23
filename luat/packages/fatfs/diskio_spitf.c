@@ -105,7 +105,7 @@ void xmit_mmc (
 	#endif
 	if (FATFS_DEBUG)
 		LLOGD("[FatFS]xmit_mmc bc=%d\r\n", bc);
-	luat_spi_send(FATFS_SPI_ID, buff, bc);
+	luat_spi_send(FATFS_SPI_ID, (const char*)buff, bc);
 }
 
 
@@ -157,7 +157,7 @@ void rcvr_mmc (
 	
 	//DWORD t = luat_spi_transfer(FATFS_SPI_ID, tmp, buff, bc);
 	//s32 t = platform_spi_recv(0, buf, bc);
-	luat_spi_recv(FATFS_SPI_ID, buff, bc);
+	luat_spi_recv(FATFS_SPI_ID, (char*)buff, bc);
 	
 	//memcpy(buff, buf2, bc);
 	//if (FATFS_DEBUG)

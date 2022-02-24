@@ -43,7 +43,7 @@ int luat_lv_style_create(lua_State *L) {
 @api lvgl.style_list_create()
 @return userdata style指针
 @usage
-local style = lvgl.style_create()
+local style_list = lvgl.style_list_create()
 */
 int luat_lv_style_list_create(lua_State *L) {
     lv_style_list_t* style_list = (lv_style_list_t*)luat_heap_malloc(sizeof(lv_style_list_t));
@@ -83,7 +83,7 @@ int luat_lv_style_delete(lua_State *L) {
 
 /*
 删除style_list,慎用,通常不会执行删除操作
-@api lvgl.style_delete(style)
+@api lvgl.style_list_delete(style)
 @userdata style指针
 @usage
 local style_list = lvgl.style_list_create()

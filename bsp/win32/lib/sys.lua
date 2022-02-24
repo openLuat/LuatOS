@@ -401,10 +401,22 @@ end
 _G.sys_pub = sys.publish
 
 --提供给异步c接口使用
-sys.cwaitMt = {}
+sys.cwaitMt = {
+    wait = function(t)
+        return function() sys.waitUntilExt(t) end
+    end,
+    cb = function(t)
+        return function(f)
+            if type(f) ~= "function" then return end
+            sys.taskInit(function ()
+                f(sys.waitUntilExt(t))
+            end)
+        end
+    end,
+}
 sys.cwaitMt.__index = function(t,i)
-    if i == "wait" then
-        return function() sys.waitUntilExt(rawget(t,"w")) end
+    if sys.cwaitMt[i] then
+        return sys.cwaitMt[i](rawget(t,"w"))
     else
         rawget(t,i)
     end

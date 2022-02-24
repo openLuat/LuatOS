@@ -3,6 +3,7 @@
 #define LUAT_LCD
 
 #include "luat_base.h"
+#include "luat_spi.h"
 #include "u8g2.h"
 
 #define WHITE            0xFFFF
@@ -56,6 +57,7 @@ typedef struct luat_lcd_conf {
 
     u8g2_t luat_lcd_u8g2 ;
     struct luat_lcd_opts* opts;
+    luat_spi_device_t* lcd_spi_device;
     void* userdata;
 } luat_lcd_conf_t;
 
@@ -95,8 +97,8 @@ int luat_lcd_draw_circle(luat_lcd_conf_t* conf,uint16_t x0, uint16_t y0, uint8_t
 void luat_lcd_execute_cmds(luat_lcd_conf_t* conf, uint32_t* cmds, uint32_t count);
 
 typedef struct luat_lcd_custom {
-    uint32_t sleepcmd;
-    uint32_t wakecmd;
+    uint8_t sleepcmd;
+    uint8_t wakecmd;
     size_t init_cmd_count;
     uint32_t *initcmd; // 实际命令长度与init_cmd_count相同
 }luat_lcd_custom_t;

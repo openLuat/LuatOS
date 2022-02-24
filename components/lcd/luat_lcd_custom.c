@@ -17,7 +17,7 @@ static int custom_sleep(luat_lcd_conf_t* conf) {
         luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
     luat_timer_mdelay(5);
     luat_lcd_custom_t * cst = (luat_lcd_custom_t *)conf->userdata;
-    luat_lcd_execute_cmds(conf, &cst->sleepcmd, 1);
+    lcd_write_cmd(conf, cst->sleepcmd);
     return 0;
 }
 
@@ -26,7 +26,7 @@ static int custom_wakeup(luat_lcd_conf_t* conf) {
         luat_gpio_set(conf->pin_pwr, Luat_GPIO_HIGH);
     luat_timer_mdelay(5);
     luat_lcd_custom_t * cst = (luat_lcd_custom_t *)conf->userdata;
-    luat_lcd_execute_cmds(conf, &cst->wakecmd, 1);
+    lcd_write_cmd(conf, cst->wakecmd);
     return 0;
 }
 

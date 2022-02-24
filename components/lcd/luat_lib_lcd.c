@@ -9,7 +9,6 @@
 #include "luat_lcd.h"
 #include "luat_malloc.h"
 #include "luat_zbuff.h"
-#include "luat_spi.h"
 
 #define LUAT_LOG_TAG "lcd"
 #include "luat_log.h"
@@ -106,7 +105,7 @@ static int l_lcd_init(lua_State* L) {
     memset(conf, 0, sizeof(luat_lcd_conf_t)); // 填充0,保证无脏数据
     conf->pin_pwr = 255;
     if (lua_type(L, 3) == LUA_TUSERDATA){
-        conf->userdata = (luat_spi_device_t*)lua_touserdata(L, 3);
+        conf->lcd_spi_device = (luat_spi_device_t*)lua_touserdata(L, 3);
         conf->port = LUAT_LCD_SPI_DEVICE;
     }
     const char* tp = luaL_checklstring(L, 1, &len);

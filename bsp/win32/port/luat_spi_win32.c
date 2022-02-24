@@ -16,6 +16,20 @@ typedef struct win32spi {
 
 win32spi_t win32spis[LUAT_WIN32_SPI_COUNT] = {0};
 
+int luat_spi_device_config(luat_spi_device_t* spi_dev){
+    return 0;
+}
+
+int luat_spi_bus_setup(luat_spi_device_t* spi_dev){
+    int bus_id = spi_dev->bus_id;
+    if (bus_id < 0 || bus_id >= LUAT_WIN32_SPI_COUNT) {
+        return -1;
+    }
+    memcpy(&win32spis[bus_id].spi, &(spi_dev->spi_config), sizeof(luat_spi_t));
+    win32spis[bus_id].open = 1;
+    return 0;
+}
+
 int luat_spi_setup(luat_spi_t* spi) {
     if (spi->id < 0 || spi->id >= LUAT_WIN32_SPI_COUNT) {
         return -1;
@@ -61,3 +75,8 @@ int luat_spi_send(int spi_id, const char* send_buf, size_t length) {
         return -1;
     return length;
 }
+
+
+
+
+

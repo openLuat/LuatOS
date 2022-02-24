@@ -28,7 +28,7 @@
 #define LUAT_FORCE_WIN32 1
 
 #define LUAT_USE_LVGL 1
-#define LV_MEM_CUSTOM 0
+#define LV_MEM_CUSTOM 1
 #define LUAT_LV_DEBUG 0
 #define LUAT_USE_LVGL_INDEV 1
 

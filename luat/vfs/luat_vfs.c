@@ -294,7 +294,7 @@ const char* luat_vfs_mmap(FILE* stream) {
     if (fd == NULL)
         return NULL;
     if (fd->fsMount->fs == &vfs_fs_luadb) {
-        return luat_vfs_luadb_mmap(fd->fsMount->userdata, fd->fd);
+        return luat_vfs_luadb_mmap(fd->fsMount->userdata, (int)fd->fd);
     }
     return NULL;
 }

@@ -20,8 +20,6 @@
 #include "luat_log.h"
 
 BYTE FATFS_DEBUG = 0; // debug log, 0 -- disable , 1 -- enable
-BYTE FATFS_SPI_ID = 0; // 0 -- SPI_1, 1 -- SPI_2
-BYTE FATFS_SPI_CS = 3; // GPIO 3
 
 static block_disk_t disks[FF_VOLUMES+1] = {0};
 

@@ -19,6 +19,11 @@
 #define LUAT_LOG_TAG "luat.fatfs"
 #include "luat_log.h"
 
+BYTE FATFS_SPI_ID = 0; // 0 -- SPI_1, 1 -- SPI_2
+BYTE FATFS_SPI_CS = 3; // GPIO 3
+
+luat_spi_device_t* fatfs_spi_device = NULL;
+uint8_t fatfs_spi_port = 0;
 
 /*--------------------------------------------------------------------------
 
@@ -105,7 +110,12 @@ void xmit_mmc (
 	#endif
 	if (FATFS_DEBUG)
 		LLOGD("[FatFS]xmit_mmc bc=%d\r\n", bc);
-	luat_spi_send(FATFS_SPI_ID, (const char*)buff, bc);
+	if(fatfs_spi_port == 1){
+		luat_spi_device_send(fatfs_spi_device, (char*)buff, bc);
+	}else{
+		luat_spi_send(FATFS_SPI_ID, (const char*)buff, bc);
+	}
+	
 }
 
 
@@ -157,8 +167,12 @@ void rcvr_mmc (
 	
 	//DWORD t = luat_spi_transfer(FATFS_SPI_ID, tmp, buff, bc);
 	//s32 t = platform_spi_recv(0, buf, bc);
-	luat_spi_recv(FATFS_SPI_ID, (char*)buff, bc);
-	
+	if(fatfs_spi_port == 1){
+		luat_spi_device_recv(fatfs_spi_device, (char*)buff, bc);
+	}else{
+		luat_spi_recv(FATFS_SPI_ID, (char*)buff, bc);
+	}
+		
 	//memcpy(buff, buf2, bc);
 	//if (FATFS_DEBUG)
 	//	LLOGD("[FatFS]rcvr_mmc first resp byte=%02X, t=%d\r\n", buf2[0], t);
@@ -200,8 +214,13 @@ void spi_cs_deselect (void)
 
 	//CS_H();				/* Set CS# high */
 	//platform_pio_op(0, 1 << FATFS_SPI_CS, 0);
-	luat_gpio_set(FATFS_SPI_CS, 1);
-	rcvr_mmc(&d, 1);	/* Dummy clock (force DO hi-z for multiple slave SPI) */
+	if(fatfs_spi_port == 1){
+		// rcvr_mmc(&d, 1);
+	}else{
+		luat_gpio_set(FATFS_SPI_CS, 1);
+		rcvr_mmc(&d, 1);	/* Dummy clock (force DO hi-z for multiple slave SPI) */
+	}
+	
 }
 
 
@@ -217,8 +236,13 @@ int spi_cs_select (void)	/* 1:OK, 0:Timeout */
 
 	//CS_L();				/* Set CS# low */
 	//platform_pio_op(0, 1 << FATFS_SPI_CS, 1);
-	luat_gpio_set(FATFS_SPI_CS, 0);
-	rcvr_mmc(&d, 1);	/* Dummy clock (force DO enabled) */
+	if(fatfs_spi_port == 1){
+		rcvr_mmc(&d, 1);
+	}else{
+		luat_gpio_set(FATFS_SPI_CS, 0);
+		rcvr_mmc(&d, 1);	/* Dummy clock (force DO enabled) */
+	}
+	
 	if (wait_ready()) return 1;	/* Wait for card ready */
 
 	spi_cs_deselect();

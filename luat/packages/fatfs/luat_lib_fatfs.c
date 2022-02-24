@@ -17,6 +17,9 @@ extern BYTE FATFS_DEBUG; // debug log, 0 -- disable , 1 -- enable
 extern BYTE FATFS_SPI_ID; // 0 -- SPI_1, 1 -- SPI_2
 extern BYTE FATFS_SPI_CS; // GPIO 3
 
+extern luat_spi_device_t* fatfs_spi_device;
+extern uint8_t fatfs_spi_port;
+
 DRESULT diskio_open_ramdisk(BYTE pdrv, size_t len);
 DRESULT diskio_open_spitf(BYTE pdrv, BYTE id, BYTE cs);
 
@@ -35,17 +38,25 @@ static int fatfs_mount(lua_State *L)
 
 	// 挂载点
 	const char *mount_point = luaL_optstring(L, 1, "");
-	FATFS_SPI_ID = luaL_optinteger(L, 2, 0); // SPI_1
-	FATFS_SPI_CS = luaL_optinteger(L, 3, 3); // GPIO_3
-
-	if (!strcmp("ramdisk", mount_point) || !strcmp("ram", mount_point)) {
-		LLOGD("init ramdisk at FatFS");
-		diskio_open_ramdisk(0, luaL_optinteger(L, 2, 64*1024));
-	} else {
-		LLOGD("init sdcard at spi=%d cs=%d", FATFS_SPI_ID, FATFS_SPI_CS);
-		diskio_open_spitf(0, FATFS_SPI_ID, FATFS_SPI_CS);
+	
+	if (lua_type(L, 2) == LUA_TUSERDATA){
+		fatfs_spi_device = luat_heap_malloc(sizeof(luat_spi_device_t));
+		memset(fatfs_spi_device, 0, sizeof(fatfs_spi_device)); 
+		fatfs_spi_device = (luat_spi_device_t*)lua_touserdata(L, 2);
+        fatfs_spi_port = 1;
+	}else{
+		FATFS_SPI_ID = luaL_optinteger(L, 2, 0); // SPI_1
+		FATFS_SPI_CS = luaL_optinteger(L, 3, 3); // GPIO_3
+		if (!strcmp("ramdisk", mount_point) || !strcmp("ram", mount_point)) {
+			LLOGD("init ramdisk at FatFS");
+			diskio_open_ramdisk(0, luaL_optinteger(L, 2, 64*1024));
+		} else {
+			LLOGD("init sdcard at spi=%d cs=%d", FATFS_SPI_ID, FATFS_SPI_CS);
+			diskio_open_spitf(0, FATFS_SPI_ID, FATFS_SPI_CS);
+		}
 	}
-
+	
+	
 	FRESULT re = f_mount(fs, "/", 0);
 	
 	lua_pushinteger(L, re);

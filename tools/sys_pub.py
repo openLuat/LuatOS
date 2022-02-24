@@ -142,6 +142,9 @@ doc.write("\n\n")
 
 for _, (name,module) in enumerate(modules.items()):
     doc.write("## "+name+"\n\n")
+    doc.write("\n\n")
+    doc.write("["+name+"接口文档页](https://wiki.luatos.com/api/"+name+".html)\n\n")
+    doc.write("\n\n")
     for pub in module:
         doc.write("### "+pub["topic"]+"\n\n")
         doc.write(pub["summary"]+"\n\n")

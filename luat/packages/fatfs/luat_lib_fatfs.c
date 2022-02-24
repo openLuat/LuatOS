@@ -41,7 +41,7 @@ static int fatfs_mount(lua_State *L)
 	
 	if (lua_type(L, 2) == LUA_TUSERDATA){
 		fatfs_spi_device = luat_heap_malloc(sizeof(luat_spi_device_t));
-		memset(fatfs_spi_device, 0, sizeof(fatfs_spi_device)); 
+		memset(fatfs_spi_device, 0, sizeof(luat_spi_device_t)); 
 		fatfs_spi_device = (luat_spi_device_t*)lua_touserdata(L, 2);
         fatfs_spi_port = 1;
 	}else{

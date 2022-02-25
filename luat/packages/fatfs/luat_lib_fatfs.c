@@ -12,17 +12,28 @@
 #define LUAT_LOG_TAG "fatfs"
 #include "luat_log.h"
 
+// 与 diskio_spitf.c 对齐
+typedef struct luat_fatfs_spi
+{
+	uint8_t type;
+	uint8_t spi_id;
+	uint8_t spi_cs;
+	uint8_t nop;
+	luat_spi_device_t * spi_device;
+}luat_fatfs_spi_t;
+
+
 static FATFS *fs = NULL;		/* FatFs work area needed for each volume */
 extern BYTE FATFS_DEBUG; // debug log, 0 -- disable , 1 -- enable
-extern BYTE FATFS_SPI_ID;
-extern BYTE FATFS_SPI_TYPE;
-extern BYTE FATFS_SPI_CS; // GPIO 3
+// extern BYTE FATFS_SPI_ID;
+// extern BYTE FATFS_SPI_TYPE;
+// extern BYTE FATFS_SPI_CS; // GPIO 3
 
-extern luat_spi_device_t* fatfs_spi_device;
+// extern luat_spi_device_t* fatfs_spi_device;
 // extern uint8_t fatfs_spi_port;
 
 DRESULT diskio_open_ramdisk(BYTE pdrv, size_t len);
-DRESULT diskio_open_spitf(BYTE pdrv, BYTE id, BYTE cs);
+DRESULT diskio_open_spitf(BYTE pdrv, void* userdata);
 
 #ifdef LUAT_USE_FS_VFS
 extern const struct luat_vfs_filesystem vfs_fs_fatfs;
@@ -35,33 +46,47 @@ static int fatfs_mount(lua_State *L)
 
 	if (fs == NULL) {
 		fs = luat_heap_malloc(sizeof(FATFS));
+		if (fs == NULL) {
+			lua_pushboolean(L, 0);
+			LLOGD("out of memory when malloc FATFS");
+			lua_pushstring(L, "out of memory when malloc FATFS");
+			return 2;
+		}
 	}
 
 	// 挂载点
 	const char *mount_point = luaL_optstring(L, 1, "");
+
+	luat_fatfs_spi_t *spit = luat_heap_malloc(sizeof(luat_fatfs_spi_t));
+	if (spit == NULL) {
+		lua_pushboolean(L, 0);
+			LLOGD("out of memory when malloc luat_fatfs_spi_t");
+		lua_pushstring(L, "out of memory when malloc luat_fatfs_spi_t");
+		return 2;
+	}
+	memset(spit, 0, sizeof(luat_fatfs_spi_t));
 	
 	if (lua_type(L, 2) == LUA_TUSERDATA){
-		fatfs_spi_device = luat_heap_malloc(sizeof(luat_spi_device_t));
-		memset(fatfs_spi_device, 0, sizeof(luat_spi_device_t)); 
-		fatfs_spi_device = (luat_spi_device_t*)lua_touserdata(L, 2);
-        FATFS_SPI_TYPE = 1;
-		diskio_open_spitf(0, 0, 0);
-	}else{
-		FATFS_SPI_TYPE = 0;
-		FATFS_SPI_ID = luaL_optinteger(L, 2, 0); // SPI_1
-		FATFS_SPI_CS = luaL_optinteger(L, 3, 3); // GPIO_3
+		spit->spi_device = (luat_spi_device_t*)lua_touserdata(L, 2);
+        spit->type = 1;
+		diskio_open_spitf(0, (void*)spit);
+	} else {
+		spit->type = 0;
+		spit->spi_id = luaL_optinteger(L, 2, 0); // SPI_1
+		spit->spi_cs = luaL_optinteger(L, 3, 3); // GPIO_3
 		if (!strcmp("ramdisk", mount_point) || !strcmp("ram", mount_point)) {
 			LLOGD("init ramdisk at FatFS");
 			diskio_open_ramdisk(0, luaL_optinteger(L, 2, 64*1024));
 		} else {
-			LLOGD("init sdcard at spi=%d cs=%d", FATFS_SPI_ID, FATFS_SPI_CS);
-			diskio_open_spitf(0, FATFS_SPI_ID, FATFS_SPI_CS);
+			LLOGD("init sdcard at spi=%d cs=%d", spit->spi_id, spit->spi_cs);
+			diskio_open_spitf(0, (void*)spit);
 		}
 	}
 	
 	
 	FRESULT re = f_mount(fs, "/", 0);
 	
+	lua_pushboolean(L, re == 0);
 	lua_pushinteger(L, re);
 	if (re == FR_OK) {
 		if (FATFS_DEBUG)
@@ -83,7 +108,7 @@ static int fatfs_mount(lua_State *L)
 
 	if (FATFS_DEBUG)
 		LLOGD("fatfs_init<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
-    return 1;
+    return 2;
 }
 
 static int fatfs_unmount(lua_State *L) {

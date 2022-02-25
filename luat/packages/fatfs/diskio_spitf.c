@@ -19,11 +19,12 @@
 #define LUAT_LOG_TAG "luat.fatfs"
 #include "luat_log.h"
 
+extern BYTE FATFS_DEBUG; // debug log, 0 -- disable , 1 -- enable
 BYTE FATFS_SPI_ID = 0; // 0 -- SPI_1, 1 -- SPI_2
 BYTE FATFS_SPI_CS = 3; // GPIO 3
+BYTE FATFS_SPI_TYPE; // 传统SPI = 0, SPI Device模式 = 1
 
 luat_spi_device_t* fatfs_spi_device = NULL;
-uint8_t fatfs_spi_port = 0;
 
 /*--------------------------------------------------------------------------
 
@@ -61,9 +62,6 @@ DSTATUS Stat = STA_NOINIT;	/* Disk status */
 static
 BYTE CardType;			/* b0:MMC, b1:SDv1, b2:SDv2, b3:Block addressing */
 
-extern BYTE FATFS_DEBUG; // debug log, 0 -- disable , 1 -- enable
-extern BYTE FATFS_SPI_ID; // 0 -- SPI_1, 1 -- SPI_2
-extern BYTE FATFS_SPI_CS; // GPIO 3
 
 // static void dly_us(BYTE us) {
 // 	if (us < 1) {
@@ -110,7 +108,7 @@ void xmit_mmc (
 	#endif
 	if (FATFS_DEBUG)
 		LLOGD("[FatFS]xmit_mmc bc=%d\r\n", bc);
-	if(fatfs_spi_port == 1){
+	if(FATFS_SPI_TYPE == 1){
 		luat_spi_device_send(fatfs_spi_device, (char*)buff, bc);
 	}else{
 		luat_spi_send(FATFS_SPI_ID, (const char*)buff, bc);
@@ -167,7 +165,7 @@ void rcvr_mmc (
 	
 	//DWORD t = luat_spi_transfer(FATFS_SPI_ID, tmp, buff, bc);
 	//s32 t = platform_spi_recv(0, buf, bc);
-	if(fatfs_spi_port == 1){
+	if(FATFS_SPI_TYPE == 1){
 		luat_spi_device_recv(fatfs_spi_device, (char*)buff, bc);
 	}else{
 		luat_spi_recv(FATFS_SPI_ID, (char*)buff, bc);
@@ -214,7 +212,7 @@ void spi_cs_deselect (void)
 
 	//CS_H();				/* Set CS# high */
 	//platform_pio_op(0, 1 << FATFS_SPI_CS, 0);
-	if(fatfs_spi_port == 1){
+	if(FATFS_SPI_TYPE == 1){
 		// rcvr_mmc(&d, 1);
 	}else{
 		luat_gpio_set(FATFS_SPI_CS, 1);
@@ -236,7 +234,7 @@ int spi_cs_select (void)	/* 1:OK, 0:Timeout */
 
 	//CS_L();				/* Set CS# low */
 	//platform_pio_op(0, 1 << FATFS_SPI_CS, 1);
-	if(fatfs_spi_port == 1){
+	if(FATFS_SPI_TYPE == 1){
 		rcvr_mmc(&d, 1);
 	}else{
 		luat_gpio_set(FATFS_SPI_CS, 0);
@@ -586,7 +584,8 @@ const block_disk_opts_t spitf_disk_opts = {
 };
 
 DRESULT diskio_open_spitf(BYTE pdrv, BYTE id, BYTE cs) {
-	block_disk_t disk = {
+	// TODO 使用真正的userdata
+	static const block_disk_t disk = {
         .opts = &spitf_disk_opts,
         .userdata = "spitf",
     };

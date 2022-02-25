@@ -38,7 +38,7 @@ spi_lcd = spi.deviceSetup(0,pin.PB04,0,0,8,20*1000*1000,spi.MSB,1,1)
 -- log.info("lcd.init",
 -- lcd.init("st7789",{port = "device",pin_dc = pin.PB01, pin_pwr = pin.PB00,pin_rst = pin.PB03,direction = 3,w = 320,h = 240,xoffset = 0,yoffset = 0},spi_lcd))
 log.info("lcd.init",
-lcd.init("st7735",{port = "device",pin_dc = pin.PB01, pin_pwr = pin.PB00,pin_rst = pin.PB03,direction = 0,w = 128,h = 160,xoffset = 2,yoffset = 1},spi_lcd))
+lcd.init("st7735",{port = "device",pin_dc = pin.PB01, pin_pwr = pin.PB00,pin_rst = pin.PB03,direction = 0,w = 128,h = 160,xoffset = 0,yoffset = 0},spi_lcd))
 -- log.info("lcd.init",
 -- lcd.init("st7735v",{port = "device",pin_dc = pin.PB01, pin_pwr = pin.PB00,pin_rst = pin.PB03,direction = 1,w = 160,h = 80,xoffset = 0,yoffset = 24},spi_lcd))
 -- log.info("lcd.init",
@@ -63,7 +63,20 @@ sys.taskInit(function()
     lvgl.obj_align(btn, lvgl.scr_act(), lvgl.ALIGN_CENTER, 0, 0)
     local label = lvgl.label_create(btn)
     lvgl.label_set_text(label, "LuatOS!")
+    local font = lvgl.font_load("/luadb/16_test_fonts.bin")
+    lvgl.obj_set_style_local_text_font(scr, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, font)
+
     lvgl.scr_load(scr)
+    while 1 do
+        sys.wait(1000)
+        lvgl.font_free(font)
+        local font = lvgl.font_load("/luadb/20_test_fonts.bin")
+        lvgl.obj_set_style_local_text_font(scr, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, font)
+        sys.wait(1000)
+        lvgl.font_free(font)
+        local font = lvgl.font_load("/luadb/16_test_fonts.bin")
+        lvgl.obj_set_style_local_text_font(scr, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, font)
+    end
 end)
 
 -- sys.taskInit(function()

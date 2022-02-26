@@ -439,6 +439,19 @@ LV_ATTRIBUTE_FAST_MEM static void lv_draw_letter(const lv_point_t * pos_p, const
         return;
     }
 
+#ifdef LUAT_USE_LVGL_GT_FONT
+    extern uint8_t *gt_font_get_glyph_bitmap(const struct _lv_font_struct *font, uint32_t letter);
+    if (font_p->get_glyph_bitmap == gt_font_get_glyph_bitmap)
+    {
+        lv_font_get_glyph_dsc(font_p, &g, letter, '\0');
+
+        /*If the letter is completely out of mask don't draw it */
+        if(pos_x + g.box_w < clip_area->x1)  {
+            return;
+        }
+    }
+#endif
+
     if(font_p->subpx) {
         draw_letter_subpx(pos_x, pos_y, &g, clip_area, map_p, color, opa, blend_mode);
     }

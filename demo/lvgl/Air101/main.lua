@@ -79,6 +79,45 @@ sys.taskInit(function()
     end
 end)
 
+sys.taskInit(function()
+    uart.setup(1, 115200)
+    uart.on (1, "receive", function(id, len)
+        local data = uart.read(id, 512)
+        if data then
+            log.info("uart", "recv", #data, data:toHex())
+            -- 演示一下回显
+            uart.write(1, data)
+        end
+    end)
+    -- 演示定时发送数据
+    while 1 do
+        log.info("uart", "repeat uart write OK")
+        sys.wait(500)
+        uart.write(1, "OK\r\n")
+    end
+end)
+
+-- 演示通过topic接收需要发送的数据
+sys.subscribe("UART1_WRITE", function (data)
+    uart.write(1, data)
+end)
+
+-- 演示fdb的使用
+if fdb then
+    sys.taskInit(function()
+        fdb.kvdb_init("onchip_flash")
+        local count = 1
+        while 1 do
+            sys.wait(1000)
+            fdb.kv_set("my_int", count)
+            count = count + 1
+            log.info("fdb", "my_int", fdb.kv_get("my_int"))
+        end
+    end)
+else
+    log.info("fdb", "fdb lib not found")
+end
+
 -- sys.taskInit(function()
 --     while 1 do
 --         log.info("help", "https://wiki.luatos.com")

@@ -63,19 +63,38 @@ sys.taskInit(function()
     lvgl.obj_align(btn, lvgl.scr_act(), lvgl.ALIGN_CENTER, 0, 0)
     local label = lvgl.label_create(btn)
     lvgl.label_set_text(label, "LuatOS!")
-    local font = lvgl.font_load("/luadb/16_test_fonts.bin")
-    lvgl.obj_set_style_local_text_font(scr, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, font)
+    local font_16 = lvgl.font_load("/luadb/16_test_fonts.bin")
+    local font_20 = lvgl.font_load("/luadb/20_test_fonts.bin")
+    if font_16 == nil or font_20 == nil then
+        log.warn("lvgl", "pls add font bins")
+        return
+    end
+    lvgl.obj_set_style_local_text_font(scr, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, font_16)
+
+    local qrcode = nil
+    if lvgl.qrcode_create then
+        qrcode = lvgl.qrcode_create(scr, 100)
+    else
+        log.warn("lvgl", "no qrcode for lvgl found")
+    end
 
     lvgl.scr_load(scr)
+
+    local qrcode_count = 1
+    local qrcode_cnt = "https://qq.com/" .. tostring(qrcode_count)
+
     while 1 do
+        qrcode_count = 1
         sys.wait(1000)
-        lvgl.font_free(font)
-        local font = lvgl.font_load("/luadb/20_test_fonts.bin")
-        lvgl.obj_set_style_local_text_font(scr, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, font)
+        lvgl.obj_set_style_local_text_font(scr, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, font_20)
         sys.wait(1000)
-        lvgl.font_free(font)
-        local font = lvgl.font_load("/luadb/16_test_fonts.bin")
-        lvgl.obj_set_style_local_text_font(scr, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, font)
+        lvgl.obj_set_style_local_text_font(scr, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, font_16)
+        sys.wait(1000)
+        if qrcode then
+            qrcode_cnt = "https://qq.com/" .. tostring(qrcode_count)
+            --lvgl.qrcode_update(qrcode, qrcode_cnt)
+        end
+        log.info("lvgl", "update complete")
     end
 end)
 

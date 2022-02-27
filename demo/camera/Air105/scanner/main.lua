@@ -345,26 +345,32 @@ local GC032A_InitReg_Gray =
 }
 
 --注册摄像头事件回调
+local tick_scan = 0
 camera.on(0, "scanned", function(id, str)
     if type(str) == 'string' then
         log.info("扫码结果", str)
+        -- air105每次扫码仅需200ms, 当目标一维码或二维码持续被识别, 本函数会反复触发
+        -- 鉴于某些场景需要间隔时间输出, 下列代码就是演示间隔输出
+        -- if mcu.ticks() - tick < 1000 then
+        --     return
+        -- end
+        -- tick_scan = mcu.ticks()
+        -- 输出内容可以经过加工后输出, 例如带上换行(回车键)
         usbapp.vhid_upload(0, str.."\r\n")
     end
 end)
 
 local camera_pwdn = gpio.setup(pin.PD06, 1, gpio.PULLUP) -- PD06 camera_pwdn引脚
 local camera_rst = gpio.setup(pin.PD07, 1, gpio.PULLUP) -- PD07 camera_rst引脚
+
 usbapp.start(0)
+
 sys.taskInit(function()
     camera_rst(0)
     local camera_id = camera.init(GC032A_InitReg_Gray)--屏幕输出灰度图像并扫码
     
     log.info("摄像头启动")
     camera.start(camera_id)--开始指定的camera
-
-    while 1 do
-        sys.wait(500)
-    end
 end)
 
 -- 用户代码已结束---------------------------------------------

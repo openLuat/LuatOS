@@ -6,7 +6,7 @@ VERSION = "1.0.0"
 local sys = require "sys"
 
 --[[
--- LCD接法示例, 以Air105开发板的HSPI为例
+-- LCD接法示例, 以Air105开发板的HSPI(SPI5)为例
 LCD管脚       Air105管脚
 GND          GND
 VCC          3.3V
@@ -409,7 +409,7 @@ local camera_rst = gpio.setup(pin.PD07, 1, gpio.PULLUP) -- PD07 camera_rst引脚
 
 camera_rst(0)
 
---下面两行只开一行！一个是屏幕输出rgb图像,一个是屏幕输出灰度图像并扫码
+-- 拍照, 自然就是RGB输出了
 local camera_id = camera.init(GC032A_InitReg)--屏幕输出rgb图像
 
 log.info("摄像头启动")
@@ -435,7 +435,7 @@ sys.taskInit(function()
                 f:close()
             end
         
-            uart.write(uartid, data) --找个能保存数据的串口工具保存成文件就能在电脑上看了
+            uart.write(uartid, data) --找个能保存数据的串口工具保存成文件就能在电脑上看了, 格式为JPG
         end
     end
     

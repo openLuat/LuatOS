@@ -20,14 +20,7 @@
 #include "luat_log.h"
 
 // 与 diskio_spitf.c 对齐
-typedef struct luat_fatfs_spi
-{
-	uint8_t type;
-	uint8_t spi_id;
-	uint8_t spi_cs;
-	uint8_t nop;
-	luat_spi_device_t * spi_device;
-}luat_fatfs_spi_t;
+
 
 extern BYTE FATFS_DEBUG; // debug log, 0 -- disable , 1 -- enable
 
@@ -593,12 +586,19 @@ const block_disk_opts_t spitf_disk_opts = {
     .ioctl = spitf_ioctl,
 };
 
+__attribute__((weak)) void luat_spi_set_sdhc_ctrl(
+		block_disk_t *disk)
+{
+
+}
+
 static block_disk_t disk = {0};
 
 DRESULT diskio_open_spitf(BYTE pdrv, luat_fatfs_spi_t* userdata) {
 	// 暂时只支持单个fatfs实例
 	disk.opts = &spitf_disk_opts;
     disk.userdata = userdata;
+    luat_spi_set_sdhc_ctrl(&disk);
 	return diskio_open(pdrv, &disk);
 }
 

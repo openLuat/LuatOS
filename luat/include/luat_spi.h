@@ -24,6 +24,16 @@ typedef struct luat_spi_device
     void* user_data;
 } luat_spi_device_t;
 
+typedef struct luat_fatfs_spi
+{
+	uint8_t type;
+	uint8_t spi_id;
+	uint8_t spi_cs;
+	uint8_t nop;
+	uint32_t fast_speed;
+	luat_spi_device_t * spi_device;
+}luat_fatfs_spi_t;
+
 /**
     spiId,--串口id
     cs,

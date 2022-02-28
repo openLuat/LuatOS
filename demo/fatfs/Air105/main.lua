@@ -20,7 +20,7 @@ GND                  GND
 ]]
 
 sys.taskInit(function()
-    sys.wait(1000) -- 启动延时
+    --sys.wait(1000) -- 启动延时
     local spiId = 0
     local result = spi.setup(
         spiId,--串口id
@@ -33,7 +33,7 @@ sys.taskInit(function()
     local TF_CS = pin.PC9
     gpio.setup(TF_CS, 1)
     --fatfs.debug(1) -- 若挂载失败,可以尝试打开调试信息,查找原因
-    fatfs.mount("SD", 0, TF_CS)
+    fatfs.mount("SD", 0, TF_CS, 24000000)
     local data, err = fatfs.getfree("SD")
     if data then
         log.info("fatfs", "getfree", json.encode(data))
@@ -42,9 +42,9 @@ sys.taskInit(function()
     end
 
     -- 重新设置spi,使用更高速率
-    spi.close(0)
-    sys.wait(100)
-    spi.setup(spiId, 255, 0, 0, 8, 10*1000*1000)
+    -- spi.close(0)
+    -- sys.wait(100)
+    -- spi.setup(spiId, 255, 0, 0, 8, 24*1000*1000)
 
     -- #################################################
     -- 文件操作测试

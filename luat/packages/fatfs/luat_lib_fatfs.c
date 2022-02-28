@@ -12,16 +12,6 @@
 #define LUAT_LOG_TAG "fatfs"
 #include "luat_log.h"
 
-// 与 diskio_spitf.c 对齐
-typedef struct luat_fatfs_spi
-{
-	uint8_t type;
-	uint8_t spi_id;
-	uint8_t spi_cs;
-	uint8_t nop;
-	luat_spi_device_t * spi_device;
-}luat_fatfs_spi_t;
-
 
 static FATFS *fs = NULL;		/* FatFs work area needed for each volume */
 extern BYTE FATFS_DEBUG; // debug log, 0 -- disable , 1 -- enable
@@ -68,12 +58,14 @@ static int fatfs_mount(lua_State *L)
 	
 	if (lua_type(L, 2) == LUA_TUSERDATA){
 		spit->spi_device = (luat_spi_device_t*)lua_touserdata(L, 2);
+		spit->fast_speed = luaL_optinteger(L, 4, 10000000);
         spit->type = 1;
 		diskio_open_spitf(0, (void*)spit);
 	} else {
 		spit->type = 0;
 		spit->spi_id = luaL_optinteger(L, 2, 0); // SPI_1
 		spit->spi_cs = luaL_optinteger(L, 3, 3); // GPIO_3
+		spit->fast_speed = luaL_optinteger(L, 4, 10000000);
 		if (!strcmp("ramdisk", mount_point) || !strcmp("ram", mount_point)) {
 			LLOGD("init ramdisk at FatFS");
 			diskio_open_ramdisk(0, luaL_optinteger(L, 2, 64*1024));

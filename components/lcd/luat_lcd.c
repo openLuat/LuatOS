@@ -156,6 +156,16 @@ int luat_lcd_wakeup(luat_lcd_conf_t* conf) {
     return 0;
 }
 
+int luat_lcd_inv_off(luat_lcd_conf_t* conf) {
+    lcd_write_cmd(conf,0x20);
+    return 0;
+}
+
+int luat_lcd_inv_on(luat_lcd_conf_t* conf) {
+    lcd_write_cmd(conf,0x21);
+    return 0;
+}
+
 int luat_lcd_set_address(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2) {
         lcd_write_cmd(conf,0x2a);
         lcd_write_data(conf,(x1+conf->xoffset)>>8);

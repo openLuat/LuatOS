@@ -288,6 +288,32 @@ static int l_lcd_wakeup(lua_State* L) {
 }
 
 /*
+lcd反显
+@api lcd.invon()
+@usage
+-- lcd反显
+lcd.invon()
+*/
+static int l_lcd_inv_on(lua_State* L) {
+    int ret = luat_lcd_inv_on(default_conf);
+    lua_pushboolean(L, ret == 0 ? 1 : 0);
+    return 1;
+}
+
+/*
+lcd反显关闭
+@api lcd.invoff()
+@usage
+-- lcd反显关闭
+lcd.invoff()
+*/
+static int l_lcd_inv_off(lua_State* L) {
+    int ret = luat_lcd_inv_off(default_conf);
+    lua_pushboolean(L, ret == 0 ? 1 : 0);
+    return 1;
+}
+
+/*
 lcd颜色设置
 @api lcd.setColor(back,fore)
 @int 背景色
@@ -1141,6 +1167,8 @@ static const rotable_Reg reg_lcd[] =
     { "off",      l_lcd_display_off,       0},
     { "sleep",      l_lcd_sleep,       0},
     { "wakeup",      l_lcd_wakeup,       0},
+    { "invon",      l_lcd_inv_on,       0},
+    { "invoff",      l_lcd_inv_off,       0},
     { "setColor",      l_lcd_set_color,       0},
     { "draw",      l_lcd_draw,       0},
     { "clear",      l_lcd_clear,       0},

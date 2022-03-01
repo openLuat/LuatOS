@@ -55,9 +55,9 @@ lcd.init("gc9306",{port = "device",pin_dc = pin.PE08 ,pin_rst = pin.PC12,pin_pwr
 -- log.info("lcd.init",
 -- lcd.init("custom",{
 --     port = "device",
---     pin_dc = pin.PB01, 
---     pin_pwr = pin.PB00,
---     pin_rst = pin.PB03,
+--     pin_dc = pin.PE08, 
+--     pin_pwr = pin.PE09,
+--     pin_rst = pin.PC12,
 --     direction = 0,
 --     w = 128,
 --     h = 160,
@@ -96,6 +96,37 @@ lcd.init("gc9306",{port = "device",pin_dc = pin.PE08 ,pin_rst = pin.PC12,pin_pwr
 --     },
 --     spi_lcd))
 
+--此示例为st7789
+-- log.info("lcd.init",
+-- lcd.init("custom",{
+--     port = "device",
+--     pin_dc = pin.PE08, 
+--     pin_pwr = pin.PE09,
+--     pin_rst = pin.PC12,
+--     direction = 0,
+--     w = 240,
+--     h = 320,
+--     xoffset = 0,
+--     yoffset = 0,
+--     sleepcmd = 0x10,
+--     wakecmd = 0x11,
+--     initcmd = {--0001 delay  0002 cmd  0003 data
+--         0x00020036, 0x00030000, 0x0002003A, 0x00030005, 0x000200B2,
+--         0x0003000C, 0x0003000C, 0x00030000, 0x00030033, 0x00030033,
+--         0x000200B7, 0x00030035, 0x000200BB, 0x00030032,
+--         0x000200C2, 0x00030001, 0x000200C3, 0x00030015,
+--         0x000200C4, 0x00030020, 0x000200C6, 0x0003000F, 0x000200D0,
+--         0x000300A4, 0x000300A1, 0x000200E0, 0x000300D0, 0x00030008,
+--         0x0003000E, 0x00030009, 0x00030009, 0x00030005, 0x00030031,
+--         0x00030033, 0x00030048, 0x00030017, 0x00030014, 0x00030015,
+--         0x00030031, 0x00030034, 0x000200E1, 0x000300D0, 0x00030008,
+--         0x0003000E, 0x00030009, 0x00030009, 0x00030015, 0x00030031,
+--         0x00030033, 0x00030048, 0x00030017, 0x00030014, 0x00030015,
+--         0x00030031, 0x00030034,
+--         0x00020021, -- 如果发现屏幕反色，注释掉此行
+--     },
+--     },
+--     spi_lcd))
 
 sys.taskInit(function()
     -- sys.wait(1000)

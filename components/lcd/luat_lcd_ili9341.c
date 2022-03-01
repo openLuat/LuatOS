@@ -12,28 +12,6 @@
 #define LCD_H 320
 #define LCD_DIRECTION 0
 
-static int ili9341_sleep(luat_lcd_conf_t* conf) {
-    if (conf->pin_pwr != 255)
-        luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
-    luat_timer_mdelay(5);
-    lcd_write_cmd(conf,0x10);
-    return 0;
-}
-
-static int ili9341_wakeup(luat_lcd_conf_t* conf) {
-    if (conf->pin_pwr != 255)
-        luat_gpio_set(conf->pin_pwr, Luat_GPIO_HIGH);
-    luat_timer_mdelay(5);
-    lcd_write_cmd(conf,0x11);
-    //luat_timer_mdelay(120); // 外部休眠就好了吧
-    return 0;
-}
-
-static int ili9341_close(luat_lcd_conf_t* conf) {
-    if (conf->pin_pwr != 255)
-        luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
-    return 0;
-}
 static int ili9341_init(luat_lcd_conf_t* conf) {
     if (conf->w == 0)
         conf->w = LCD_W;
@@ -168,8 +146,5 @@ static int ili9341_init(luat_lcd_conf_t* conf) {
 const luat_lcd_opts_t lcd_opts_ili9341 = {
     .name = "ili9341",
     .init = ili9341_init,
-    .close = ili9341_close,
-    .sleep = ili9341_sleep,
-    .wakeup = ili9341_wakeup,
 };
 

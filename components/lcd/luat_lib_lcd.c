@@ -188,17 +188,6 @@ static int l_lcd_init(lua_State* L) {
         if (s_index == 0){
             luat_lcd_custom_t *cst = luat_heap_malloc(sizeof(luat_lcd_custom_t));
 
-            // 获取initcmd/sleepcmd/wakecmd
-            lua_pushstring(L, "sleepcmd");
-            lua_gettable(L, 2);
-            cst->sleepcmd = luaL_checkinteger(L, -1);
-            lua_pop(L, 1);
-
-            lua_pushstring(L, "wakecmd");
-            lua_gettable(L, 2);
-            cst->wakecmd = luaL_checkinteger(L, -1);
-            lua_pop(L, 1);
-
             lua_pushstring(L, "initcmd");
             lua_gettable(L, 2);
             cst->init_cmd_count = lua_rawlen(L, -1);

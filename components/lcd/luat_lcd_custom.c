@@ -12,30 +12,6 @@
 #define LCD_H 320
 #define LCD_DIRECTION 0
 
-static int custom_sleep(luat_lcd_conf_t* conf) {
-    if (conf->pin_pwr != 255)
-        luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
-    luat_timer_mdelay(5);
-    luat_lcd_custom_t * cst = (luat_lcd_custom_t *)conf->userdata;
-    lcd_write_cmd(conf, cst->sleepcmd);
-    return 0;
-}
-
-static int custom_wakeup(luat_lcd_conf_t* conf) {
-    if (conf->pin_pwr != 255)
-        luat_gpio_set(conf->pin_pwr, Luat_GPIO_HIGH);
-    luat_timer_mdelay(5);
-    luat_lcd_custom_t * cst = (luat_lcd_custom_t *)conf->userdata;
-    lcd_write_cmd(conf, cst->wakecmd);
-    return 0;
-}
-
-static int custom_close(luat_lcd_conf_t* conf) {
-    if (conf->pin_pwr != 255)
-        luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
-    return 0;
-}
-
 static int custom_init(luat_lcd_conf_t* conf) {
 
     if (conf->w == 0)
@@ -56,13 +32,13 @@ static int custom_init(luat_lcd_conf_t* conf) {
     luat_timer_mdelay(100);
     luat_gpio_set(conf->pin_rst, Luat_GPIO_HIGH);
 
-    custom_wakeup(conf);
+    luat_lcd_wakeup(conf);
     luat_timer_mdelay(120);
     // 发送初始化命令
     luat_lcd_custom_t * cst = (luat_lcd_custom_t *)conf->userdata;
     luat_lcd_execute_cmds(conf, cst->initcmd, cst->init_cmd_count);
     
-    custom_wakeup(conf);
+    luat_lcd_wakeup(conf);
     /* wait for power stability */
     luat_timer_mdelay(100);
     luat_lcd_clear(conf,WHITE);
@@ -74,8 +50,5 @@ static int custom_init(luat_lcd_conf_t* conf) {
 const luat_lcd_opts_t lcd_opts_custom = {
     .name = "custom",
     .init = custom_init,
-    .close = custom_close,
-    .sleep = custom_sleep,
-    .wakeup = custom_wakeup,
 };
 

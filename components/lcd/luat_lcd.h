@@ -64,9 +64,6 @@ typedef struct luat_lcd_conf {
 typedef struct luat_lcd_opts {
     const char* name;
     int (*init)(luat_lcd_conf_t* conf);
-    int (*close)(luat_lcd_conf_t* conf);
-    int (*sleep)(luat_lcd_conf_t* conf);
-    int (*wakeup)(luat_lcd_conf_t* conf);
 } luat_lcd_opts_t;
 
 int lcd_write_cmd(luat_lcd_conf_t* conf,const uint8_t cmd);
@@ -97,8 +94,6 @@ int luat_lcd_draw_circle(luat_lcd_conf_t* conf,uint16_t x0, uint16_t y0, uint8_t
 void luat_lcd_execute_cmds(luat_lcd_conf_t* conf, uint32_t* cmds, uint32_t count);
 
 typedef struct luat_lcd_custom {
-    uint8_t sleepcmd;
-    uint8_t wakecmd;
     size_t init_cmd_count;
     uint32_t *initcmd; // 实际命令长度与init_cmd_count相同
 }luat_lcd_custom_t;

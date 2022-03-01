@@ -54,4 +54,4 @@ jobs:
       run: |
         sudo pip3 install paho_mqtt gitpython
         cd tools
-        if [ "$STATUS" = "failure" ];then python3 ciNotify.py $MQTTADDR $MQTTPORT $MQTTTOPIC "air105 https://github.com/openLuat/LuatOS/actions/runs/$GITHUB_RUN_ID"; fi
+        if [ "$STATUS" = "failure" ];then python3 ciNotify.py $MQTTADDR $MQTTPORT $MQTTTOPIC "air105 https://github.com/openLuat/LuatOS/actions/runs/$GITHUB_RUN_ID" "air105"; fi

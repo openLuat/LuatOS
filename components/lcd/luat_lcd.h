@@ -78,6 +78,8 @@ int luat_lcd_display_on(luat_lcd_conf_t* conf);
 int luat_lcd_display_off(luat_lcd_conf_t* conf);
 int luat_lcd_sleep(luat_lcd_conf_t* conf);
 int luat_lcd_wakeup(luat_lcd_conf_t* conf);
+int luat_lcd_inv_off(luat_lcd_conf_t* conf);
+int luat_lcd_inv_on(luat_lcd_conf_t* conf);
 int luat_lcd_set_address(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2);
 int luat_lcd_set_color(uint32_t back, uint32_t fore);
 int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, luat_color_t* color);

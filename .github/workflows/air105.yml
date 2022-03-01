@@ -9,6 +9,9 @@ on:
       - 'components/**'
       - 'bsp/air105/**'
   workflow_dispatch:
+  repository_dispatch:
+    types:
+      - webhook-105-action
 
 jobs:
   build:

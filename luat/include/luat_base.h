@@ -22,13 +22,8 @@
 #include "lstate.h"
 #include "stdint.h"
 #include "string.h"
+#include "luat_types.h"
 
-//以下是u8g2的字库，默认不开启，根据需要自行开启对应宏定义
-//#define USE_U8G2_WQY12_T_GB2312      //enable u8g2 chinese font
-//#define USE_U8G2_UNIFONT_SYMBOLS
-//#define USE_U8G2_ICONIC_WEATHER_6X
-
-//lua_State * luat_get_state();
 /**
  * LuatOS主入口函数, 从这里开始就交由LuatOS控制了.
  * 集成时,该函数应在独立的thread/task中启动

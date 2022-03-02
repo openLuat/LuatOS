@@ -9,6 +9,9 @@ on:
       - 'components/**'
       - 'bsp/air101/**'
   workflow_dispatch:
+  repository_dispatch:
+    types:
+      - webhook-101-action
 
 jobs:
   build:
@@ -54,4 +57,4 @@ jobs:
       run: |
         sudo pip3 install paho_mqtt gitpython
         cd tools
-        if [ "$STATUS" = "failure" ];then python3 ciNotify.py $MQTTADDR $MQTTPORT $MQTTTOPIC "air101 https://github.com/openLuat/LuatOS/actions/runs/$GITHUB_RUN_ID"; fi
+        if [ "$STATUS" = "failure" ];then python3 ciNotify.py $MQTTADDR $MQTTPORT $MQTTTOPIC "air101 https://github.com/openLuat/LuatOS/actions/runs/$GITHUB_RUN_ID" "air101"; fi

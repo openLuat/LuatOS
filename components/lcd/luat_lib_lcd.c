@@ -188,17 +188,6 @@ static int l_lcd_init(lua_State* L) {
         if (s_index == 0){
             luat_lcd_custom_t *cst = luat_heap_malloc(sizeof(luat_lcd_custom_t));
 
-            // 获取initcmd/sleepcmd/wakecmd
-            lua_pushstring(L, "sleepcmd");
-            lua_gettable(L, 2);
-            cst->sleepcmd = luaL_checkinteger(L, -1);
-            lua_pop(L, 1);
-
-            lua_pushstring(L, "wakecmd");
-            lua_gettable(L, 2);
-            cst->wakecmd = luaL_checkinteger(L, -1);
-            lua_pop(L, 1);
-
             lua_pushstring(L, "initcmd");
             lua_gettable(L, 2);
             cst->init_cmd_count = lua_rawlen(L, -1);
@@ -294,6 +283,60 @@ lcd.wakeup()
 */
 static int l_lcd_wakeup(lua_State* L) {
     int ret = luat_lcd_wakeup(default_conf);
+    lua_pushboolean(L, ret == 0 ? 1 : 0);
+    return 1;
+}
+
+/*
+lcd反显
+@api lcd.invon()
+@usage
+-- lcd反显
+lcd.invon()
+*/
+static int l_lcd_inv_on(lua_State* L) {
+    int ret = luat_lcd_inv_on(default_conf);
+    lua_pushboolean(L, ret == 0 ? 1 : 0);
+    return 1;
+}
+
+/*
+lcd反显关闭
+@api lcd.invoff()
+@usage
+-- lcd反显关闭
+lcd.invoff()
+*/
+static int l_lcd_inv_off(lua_State* L) {
+    int ret = luat_lcd_inv_off(default_conf);
+    lua_pushboolean(L, ret == 0 ? 1 : 0);
+    return 1;
+}
+
+/*
+lcd命令
+@api lcd.cmd(cmd)
+@int cmd
+@usage
+-- lcd命令
+lcd.cmd(0x21)
+*/
+static int l_lcd_write_cmd(lua_State* L) {
+    int ret = lcd_write_cmd(default_conf,(const uint8_t)luaL_checkinteger(L, 1));
+    lua_pushboolean(L, ret == 0 ? 1 : 0);
+    return 1;
+}
+
+/*
+lcd数据
+@api lcd.data(data)
+@int data
+@usage
+-- lcd数据
+lcd.data(0x21)
+*/
+static int l_lcd_write_data(lua_State* L) {
+    int ret = lcd_write_data(default_conf,(const uint8_t)luaL_checkinteger(L, 1));
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -1152,6 +1195,10 @@ static const rotable_Reg reg_lcd[] =
     { "off",      l_lcd_display_off,       0},
     { "sleep",      l_lcd_sleep,       0},
     { "wakeup",      l_lcd_wakeup,       0},
+    { "invon",      l_lcd_inv_on,       0},
+    { "invoff",      l_lcd_inv_off,       0},
+    { "cmd",      l_lcd_write_cmd,       0},
+    { "data",      l_lcd_write_data,       0},
     { "setColor",      l_lcd_set_color,       0},
     { "draw",      l_lcd_draw,       0},
     { "clear",      l_lcd_clear,       0},

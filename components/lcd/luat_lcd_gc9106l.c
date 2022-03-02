@@ -12,28 +12,6 @@
 #define LCD_H 160
 #define LCD_DIRECTION 0
 
-static int gc9106l_sleep(luat_lcd_conf_t* conf) {
-    if (conf->pin_pwr != 255)
-        luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
-    luat_timer_mdelay(5);
-    lcd_write_cmd(conf,0x10);
-    return 0;
-}
-
-static int gc9106l_wakeup(luat_lcd_conf_t* conf) {
-    if (conf->pin_pwr != 255)
-        luat_gpio_set(conf->pin_pwr, Luat_GPIO_HIGH);
-    luat_timer_mdelay(5);
-    lcd_write_cmd(conf,0x11);
-    //luat_timer_mdelay(120); // 外部休眠就好了吧
-    return 0;
-}
-
-static int gc9106l_close(luat_lcd_conf_t* conf) {
-    if (conf->pin_pwr != 255)
-        luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
-    return 0;
-}
 static int gc9106l_init(luat_lcd_conf_t* conf) {
     if (conf->w == 0)
         conf->w = LCD_W;
@@ -120,8 +98,5 @@ static int gc9106l_init(luat_lcd_conf_t* conf) {
 const luat_lcd_opts_t lcd_opts_gc9106l = {
     .name = "gc9106l",
     .init = gc9106l_init,
-    .close = gc9106l_close,
-    .sleep = gc9106l_sleep,
-    .wakeup = gc9106l_wakeup,
 };
 

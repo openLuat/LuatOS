@@ -121,7 +121,16 @@ int luat_lcd_init(luat_lcd_conf_t* conf) {
 }
 
 int luat_lcd_close(luat_lcd_conf_t* conf) {
-    return conf->opts->close(conf);
+    if (conf->pin_pwr != 255)
+        luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
+    return 0;
+}
+
+int luat_lcd_display_off(luat_lcd_conf_t* conf) {
+    if (conf->pin_pwr != 255)
+        luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
+    lcd_write_cmd(conf,0x28);
+    return 0;
 }
 
 int luat_lcd_display_on(luat_lcd_conf_t* conf) {
@@ -131,18 +140,30 @@ int luat_lcd_display_on(luat_lcd_conf_t* conf) {
     return 0;
 }
 
-int luat_lcd_display_off(luat_lcd_conf_t* conf) {
+int luat_lcd_sleep(luat_lcd_conf_t* conf) {
     if (conf->pin_pwr != 255)
         luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
+    luat_timer_mdelay(5);
+    lcd_write_cmd(conf,0x10);
     return 0;
 }
 
-int luat_lcd_sleep(luat_lcd_conf_t* conf) {
-    return conf->opts->sleep(conf);
+int luat_lcd_wakeup(luat_lcd_conf_t* conf) {
+    if (conf->pin_pwr != 255)
+        luat_gpio_set(conf->pin_pwr, Luat_GPIO_HIGH);
+    luat_timer_mdelay(5);
+    lcd_write_cmd(conf,0x11);
+    return 0;
 }
 
-int luat_lcd_wakeup(luat_lcd_conf_t* conf) {
-    return conf->opts->wakeup(conf);
+int luat_lcd_inv_off(luat_lcd_conf_t* conf) {
+    lcd_write_cmd(conf,0x20);
+    return 0;
+}
+
+int luat_lcd_inv_on(luat_lcd_conf_t* conf) {
+    lcd_write_cmd(conf,0x21);
+    return 0;
 }
 
 int luat_lcd_set_address(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2) {

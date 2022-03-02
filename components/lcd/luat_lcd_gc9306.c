@@ -12,33 +12,6 @@
 #define LCD_H 320
 #define LCD_DIRECTION 0
 
-static int gc9306_sleep(luat_lcd_conf_t* conf) {
-    if (conf->pin_pwr != 255)
-        luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
-    lcd_write_cmd(conf,0xfe);
-    lcd_write_cmd(conf,0xef);
-    lcd_write_cmd(conf,0x28);
-    luat_timer_mdelay(120);
-    lcd_write_cmd(conf,0x10);
-    return 0;
-}
-
-static int gc9306_wakeup(luat_lcd_conf_t* conf) {
-    if (conf->pin_pwr != 255)
-        luat_gpio_set(conf->pin_pwr, Luat_GPIO_HIGH);
-    lcd_write_cmd(conf,0xfe);
-    lcd_write_cmd(conf,0xef);
-    lcd_write_cmd(conf,0x11);
-    luat_timer_mdelay(120);
-    lcd_write_cmd(conf,0x29);
-    return 0;
-}
-
-static int gc9306_close(luat_lcd_conf_t* conf) {
-    if (conf->pin_pwr != 255)
-        luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
-    return 0;
-}
 static int gc9306_init(luat_lcd_conf_t* conf) {
     if (conf->w == 0)
         conf->w = LCD_W;
@@ -199,8 +172,5 @@ static int gc9306_init(luat_lcd_conf_t* conf) {
 const luat_lcd_opts_t lcd_opts_gc9306 = {
     .name = "gc9306",
     .init = gc9306_init,
-    .close = gc9306_close,
-    .sleep = gc9306_sleep,
-    .wakeup = gc9306_wakeup,
 };
 

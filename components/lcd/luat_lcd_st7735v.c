@@ -12,28 +12,6 @@
 #define LCD_H 160
 #define LCD_DIRECTION 0
 
-static int st7735v_sleep(luat_lcd_conf_t* conf) {
-    if (conf->pin_pwr != 255)
-        luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
-    luat_timer_mdelay(5);
-    lcd_write_cmd(conf,0x10);
-    return 0;
-}
-
-static int st7735v_wakeup(luat_lcd_conf_t* conf) {
-    if (conf->pin_pwr != 255)
-        luat_gpio_set(conf->pin_pwr, Luat_GPIO_HIGH);
-    luat_timer_mdelay(5);
-    lcd_write_cmd(conf,0x11);
-    //luat_timer_mdelay(120); // 外部休眠就好了吧
-    return 0;
-}
-
-static int st7735v_close(luat_lcd_conf_t* conf) {
-    if (conf->pin_pwr != 255)
-        luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
-    return 0;
-}
 static int st7735v_init(luat_lcd_conf_t* conf) {
     if (conf->w == 0)
         conf->w = LCD_W;
@@ -167,8 +145,5 @@ static int st7735v_init(luat_lcd_conf_t* conf) {
 const luat_lcd_opts_t lcd_opts_st7735v = {
     .name = "st7735v",
     .init = st7735v_init,
-    .close = st7735v_close,
-    .sleep = st7735v_sleep,
-    .wakeup = st7735v_wakeup,
 };
 

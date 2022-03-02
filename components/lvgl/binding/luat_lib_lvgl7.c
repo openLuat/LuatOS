@@ -163,6 +163,9 @@ int luat_lv_init(lua_State *L) {
     //LLOGD(">>%s %d", __func__, __LINE__);
     lua_pushboolean(L, LV.disp != NULL ? 1 : 0);
     //LLOGD(">>%s %d", __func__, __LINE__);
+#ifdef __LVGL_SLEEP_ENABLE__
+    luat_lvgl_tick_sleep(0);
+#endif
     return 1;
     #endif
 }

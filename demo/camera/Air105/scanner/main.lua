@@ -357,6 +357,8 @@ camera.on(0, "scanned", function(id, str)
         -- tick_scan = mcu.ticks()
         -- 输出内容可以经过加工后输出, 例如带上换行(回车键)
         usbapp.vhid_upload(0, str.."\r\n")
+    elseif str == false then
+        log.error("摄像头没有数据")
     end
 end)
 

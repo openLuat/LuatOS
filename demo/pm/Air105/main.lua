@@ -17,6 +17,8 @@ sys.taskInit(function()
         pm.dtimerStart(0, 60000)
         -- air105air105仅支持pm.DEEP, 为暂停模式, 唤醒后不复位, 代码继续运行，可以被下降沿中断，RTC中断，硬件键盘中断唤醒
         pm.request(pm.DEEP)
+        sys.wait(100)
+        pm.request(pm.IDLE)
         -- air105唤醒后不复位, 代码继续运行, 下面的代码在唤醒后执行
         log.info("pm", "系统被唤醒", "代码继续执行")
         sys.publish("SYS_WAKEUP")

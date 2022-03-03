@@ -127,7 +127,8 @@ static int l_fdb_kv_set(lua_State *L) {
     blob.size = buff.n;
     fdb_err_t ret = fdb_kv_set_blob(&kvdb, key, &blob);
     lua_pushboolean(L, ret == FDB_NO_ERR ? 1 : 0);
-    return 1;
+    lua_pushinteger(L, ret);
+    return 2;
 }
 
 /**

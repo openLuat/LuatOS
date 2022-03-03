@@ -30,7 +30,7 @@ const struct fal_flash_dev onchip_flash = {
     .len = 64*1024, // TODO 改成选配置
     .blk_size = 4096,
     .addr = 0,
-    .write_gran = 8,
+    .write_gran = 32,
     .ops = {onchip_flash_init, onchip_flash_read, onchip_flash_write, onchip_flash_erase}
 };
 

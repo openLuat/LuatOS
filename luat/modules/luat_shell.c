@@ -42,8 +42,10 @@ static int luat_shell_msg_handler(lua_State *L, void* ptr) {
             //luat_cmux_read((unsigned char *)uart_buff,rcount);
         }else{
             // 是不是ATI命令呢?
-            if (echo_enable)
+            if (echo_enable){
                 luat_shell_write(uart_buff, rcount);
+                luat_shell_write("\r\n", 2);
+            }
             // 查询版本号
             if (strncmp("ATI", uart_buff, 3) == 0 || strncmp("ati", uart_buff, 3) == 0) {
                 char buff[128] = {0};
@@ -152,8 +154,10 @@ void luat_shell_push(char* uart_buff, size_t rcount) {
             luat_cmux_read((unsigned char *)uart_buff,rcount);
         }else{
             // 是不是ATI命令呢?
-            if (echo_enable)
+            if (echo_enable){
                 luat_shell_write(uart_buff, rcount);
+                luat_shell_write("\r\n", 2);
+            }
             // 查询版本号
             if (strncmp("ATI", uart_buff, 3) == 0 || strncmp("ati", uart_buff, 3) == 0) {
                 #ifdef LUAT_BSP_VERSION

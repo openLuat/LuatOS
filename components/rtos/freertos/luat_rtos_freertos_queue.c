@@ -43,7 +43,7 @@ LUAT_RET luat_queue_reset(luat_rtos_queue_t*   queue) {
 
 LUAT_RET luat_queue_delete(luat_rtos_queue_t*   queue) {
     if (queue->userdata) {
-        xQueueDelete((QueueHandle_t)queue->userdata);
+        vQueueDelete((QueueHandle_t)queue->userdata);
     }
     queue->userdata = NULL;
     return LUAT_ERR_OK;

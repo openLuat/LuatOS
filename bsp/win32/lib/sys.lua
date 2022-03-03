@@ -104,6 +104,14 @@ function sys.waitUntil(id, ms)
     return message[1] ~= nil, unpack(message, 2, #message)
 end
 
+--- 同上，但不返回等待结果
+function sys.waitUntilMsg(id)
+    sys.subscribe(id, coroutine.running())
+    local message = {coroutine.yield()}
+    sys.unsubscribe(id, coroutine.running())
+    return unpack(message, 2, #message)
+end
+
 --- Task任务的条件等待函数扩展（包括事件消息和定时器消息等条件），只能用于任务函数中。
 -- @param id 消息ID
 -- @number ms 等待超时时间，单位ms，最大等待126322567毫秒
@@ -407,7 +415,7 @@ sys.cwaitMt = {
             if r and type(r) == "table" then--新建等待失败的返回
                 return table.unpack(r)
             end
-            sys.waitUntilExt(t)
+            return sys.waitUntilMsg(t)
         end
     end,
     cb = function(t,r)
@@ -419,7 +427,7 @@ sys.cwaitMt = {
                     f(table.unpack(r))
                     return
                 end
-                f(sys.waitUntilExt(t))
+                f(sys.waitUntilMsg(t))
             end)
         end
     end,

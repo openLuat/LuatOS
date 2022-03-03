@@ -28,8 +28,18 @@ static int l_win32_args(lua_State *L) {
 static int timer_handler(lua_State *L, void* ptr) {
     luat_timer_t *timer = (luat_timer_t *)ptr;
     uint64_t* idp = (uint64_t*)timer->id;
-    luat_cbcwait_noarg(*idp);
+
+    if(lua_getglobal(L, "sys_pub") != LUA_TFUNCTION)
+        return 0;
+    char* topic = (char*)luat_heap_malloc(1 + sizeof(uint64_t));
+    topic[0] = 0x01;
+    memcpy(topic + 1,idp,sizeof(uint64_t));
+    lua_pushlstring(L,topic,1 + sizeof(uint64_t));
+    lua_pushboolean(L,1);
+    luat_heap_free(topic);
     luat_heap_free(idp);
+    lua_call(L, 2, 0);
+
     return 0;
 }
 

@@ -17,8 +17,8 @@ LuatOS cmux
 #include "luat_str.h"
 #include "luat_cmux.h"
 
-extern uint8_t echo_enable;
-extern uint8_t cmux_state;
+uint8_t echo_enable = 0;
+uint8_t cmux_state = 0;
 uint8_t cmux_main_state = 0;
 uint8_t cmux_shell_state = 0;
 uint8_t cmux_log_state = 0;

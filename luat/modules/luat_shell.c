@@ -23,9 +23,6 @@ extern void i2c_tools(const char * data,size_t len);
 #include "luat_str.h"
 #include "luat_cmux.h"
 
-uint8_t echo_enable = 0;
-uint8_t cmux_state = 0;
-
 static int luat_shell_msg_handler(lua_State *L, void* ptr) {
 
     char buff[128] = {0};

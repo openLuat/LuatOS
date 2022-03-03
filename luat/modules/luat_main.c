@@ -235,6 +235,22 @@ uint64_t luat_pushcwait(lua_State *L) {
     return c_wait_id;
 }
 
+//c等待接口，直接向用户返回错误的对象
+//使用时推入需要返回的所有参数
+//该函数会向栈中推入一个可等待对象，但该对象会直接返回结果，无需等待
+//用户没有启用sys库，不会进行任何操作（[-0, +0, –]）
+//[-arg_num, +1, –]
+void luat_pushcwait_error(lua_State *L, int arg_num) {
+    if(lua_getglobal(L, "sys_cw") != LUA_TFUNCTION)
+    {
+        LLOGE("sys lib not found!");
+        return;
+    }
+    lua_pushnil(L);
+    lua_rotate(L,-arg_num-2,2);
+    lua_call(L,arg_num+1,1);
+}
+
 /*
 @sys_pub sys
 用于luatos内部的系统消息传递

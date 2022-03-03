@@ -402,13 +402,23 @@ _G.sys_pub = sys.publish
 
 --提供给异步c接口使用
 sys.cwaitMt = {
-    wait = function(t)
-        return function() sys.waitUntilExt(t) end
+    wait = function(t,r)
+        return function()
+            if r and type(r) == "table" then--新建等待失败的返回
+                return table.unpack(r)
+            end
+            sys.waitUntilExt(t)
+        end
     end,
-    cb = function(t)
+    cb = function(t,r)
         return function(f)
             if type(f) ~= "function" then return end
             sys.taskInit(function ()
+                if r and type(r) == "table" then
+                    --sys.wait(1)--如果回调里调用了sys.publish，直接调用回调，会触发不了下一行的吧。。。
+                    f(table.unpack(r))
+                    return
+                end
                 f(sys.waitUntilExt(t))
             end)
         end
@@ -416,13 +426,14 @@ sys.cwaitMt = {
 }
 sys.cwaitMt.__index = function(t,i)
     if sys.cwaitMt[i] then
-        return sys.cwaitMt[i](rawget(t,"w"))
+        return sys.cwaitMt[i](rawget(t,"w"),rawget(t,"r"))
     else
         rawget(t,i)
     end
 end
-_G.sys_cw = function (w)
-    local t = {w=w}
+_G.sys_cw = function (w,...)
+    local r = {...}
+    local t = {w=w,r=(#r > 0 and r or nil)}
     setmetatable(t,sys.cwaitMt)
     return t
 end

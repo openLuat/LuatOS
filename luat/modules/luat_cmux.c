@@ -309,7 +309,7 @@ void luat_cmux_read(unsigned char* buff,size_t len){
     cmux_buff_offset = cmux_buff_offset + len;
     cmux_buff[cmux_buff_offset] = 0x00;
     // int offset = 0;
-next:
+next_parse:
     start = 0;
     end = 0;
     // LLOGD("cmux_buff_offset %d",cmux_buff_offset);
@@ -330,12 +330,15 @@ next:
             // LLOGD("end %d cmux_buff_offset %d",end,cmux_buff_offset);
             if (end+1<cmux_buff_offset){
                 char* transfer_buff = (char*)luat_heap_malloc(cmux_buff_offset-end);
-                memmove(transfer_buff, cmux_buff + end, cmux_buff_offset-end);
+                memmove(transfer_buff, cmux_buff + end+1, cmux_buff_offset-end);
                 memset(cmux_buff,0,CMUX_BUFFER_SIZE);
                 memmove(cmux_buff, transfer_buff, cmux_buff_offset-end);
                 cmux_buff_offset = cmux_buff_offset-end;
                 luat_heap_free(transfer_buff);
-                goto next;
+                // for (size_t i = 0; i < cmux_buff_offset; i++){
+                //     LLOGD("uart_buff[%d]:0x%02X",i,cmux_buff[i]);
+                // }
+                goto next_parse;
                 // return;
             }
             break;

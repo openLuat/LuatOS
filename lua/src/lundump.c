@@ -43,13 +43,16 @@
 #define luai_verifycode(L,b,f)  /* empty */
 #endif
 
-
-
+size_t ptr_offset = 0;
+#ifdef LUAT_UNDUMP_DEBUG
 size_t code_size = 0;
+size_t code_max = 0;
+size_t proto_size = 0;
 size_t const_size = 0;
 size_t debug_size = 0;
 size_t str_size = 0;
-size_t ptr_offset = 0;
+size_t max_pc = 0;
+#endif
 
 typedef struct {
   lua_State *L;
@@ -107,12 +110,103 @@ static lua_Integer LoadInteger (LoadState *S) {
   return x;
 }
 
+#ifndef LoadF
+typedef struct LoadF {
+  int n;  /* number of pre-read characters */
+  FILE *f;  /* file being read */
+  char buff[BUFSIZ];  /* area for reading file */
+} LoadF;
+#endif
+
+#if defined(__LUATOS_SMALL_RAM__) && defined(__LUATOS_SCRIPT_BASE__)
+/*
+** creates a new string object
+*/
+static TString *static_createstrobj (lua_State *L, size_t l, int tag, unsigned int h) {
+  TString *ts;
+  GCObject *o;
+  o = luaC_newobj(L, tag, sizeof(TString) + l);
+  ts = gco2ts(o);
+  ts->hash = h;
+  ts->extra = 0;
+  return ts;
+}
+
+/*
+** checks whether short string exists and reuses it or creates a new one
+*/
+static TString *static_internshrstr (lua_State *L, const char *str, size_t l) {
+  TString *ts;
+  global_State *g = G(L);
+  unsigned int h = luaS_hash(str, l, g->seed);
+  TString **list = &g->strt.hash[lmod(h, g->strt.size)];
+  lua_assert(str != NULL);  /* otherwise 'memcmp'/'memcpy' are undefined */
+  for (ts = *list; ts != NULL; ts = ts->u.hnext) {
+    if (l == ts->shrlen &&
+        (memcmp(str, getstr(ts), l * sizeof(char)) == 0)) {
+      /* found! */
+      if (isdead(g, ts))  /* dead (but not collected yet)? */
+        changewhite(ts);  /* resurrect it */
+      return ts;
+    }
+  }
+  if (g->strt.nuse >= g->strt.size && g->strt.size <= MAX_INT/2) {
+    luaS_resize(L, g->strt.size * 2);
+    list = &g->strt.hash[lmod(h, g->strt.size)];  /* recompute with new size */
+  }
+  ts = static_createstrobj(L, 4, LUA_TSHRSTR, h);
+  ts->static_flag = 1;
+  memcpy(cast(char *, (ts)) + sizeof(UTString), &str, 4);
+  ts->shrlen = cast_byte(l);
+  ts->u.hnext = *list;
+  *list = ts;
+  g->strt.nuse++;
+  return ts;
+}
+#endif
 
 static TString *LoadString (LoadState *S, Proto *p) {
   size_t size = LoadByte(S);
   TString *ts;
   if (size == 0xFF)
     LoadVar(S, size);
+#if defined(__LUATOS_SMALL_RAM__) && defined(__LUATOS_SCRIPT_BASE__)
+  char* ptr = (char*)luat_vfs_mmap(((LoadF*)S->Z->data)->f);
+  uint32_t offset;
+  if (ptr && size) {
+	  offset = (uint32_t)ptr + ptr_offset - __LUATOS_SCRIPT_BASE__;
+	  char temp[128];
+	  uint32_t done_len = size;
+	  do {
+		  if (done_len > sizeof(temp)){
+			  LoadVector(S, temp, sizeof(temp));
+			  done_len -= sizeof(temp);
+		  } else {
+			  LoadVector(S, temp, done_len);
+			  done_len = 0;
+		  }
+	  }while(done_len);
+	  if (--size <= LUAI_MAXSHORTLEN) {  /* short string? */
+		  ts = static_internshrstr(S->L, offset + __LUATOS_SCRIPT_BASE__, size);
+#ifdef LUAT_UNDUMP_DEBUG
+		  str_size+= (4 + sizeof(TString) + (8 - 1)) & (~(8 - 1));
+#endif
+	  }
+	  else {  /* long string */
+		  ts = static_createstrobj(S->L, 0, LUA_TLNGSTR, G(S->L)->seed);
+		  ts->static_flag = (offset >> 15) + 1;
+		  ts->u.static_offset = offset & 0x00007fff;
+		  ts->u.lnglen = size;
+#ifdef LUAT_UNDUMP_DEBUG
+		  str_size+= (sizeof(TString) + (8 - 1)) & (~(8 - 1));
+#endif
+	  }
+
+  } else {
+	return NULL;
+  }
+  size = 0;
+#else
   if (size == 0)
     return NULL;
   else if (--size <= LUAI_MAXSHORTLEN) {  /* short string? */
@@ -124,25 +218,27 @@ static TString *LoadString (LoadState *S, Proto *p) {
     ts = luaS_createlngstrobj(S->L, size);
     LoadVector(S, getstr(ts), size);  /* load directly in final place */
   }
+#ifdef LUAT_UNDUMP_DEBUG
+  str_size+= (size + sizeof(TString) + (8 - 1)) & (~(8 - 1));
+#endif
+#endif
   luaC_objbarrier(S->L, p, ts);
-  str_size+= size + sizeof(TString);
+
+
   return ts;
 }
 
-#ifndef LoadF
-typedef struct LoadF {
-  int n;  /* number of pre-read characters */
-  FILE *f;  /* file being read */
-  char buff[BUFSIZ];  /* area for reading file */
-} LoadF;
-#endif
+
 
 static void LoadCode (LoadState *S, Proto *f) {
   int n = LoadInt(S);
   f->sizecode = n;
+#ifdef LUAT_UNDUMP_DEBUG
+  code_max += n * sizeof(Instruction);
+#endif
 #ifdef LUAT_USE_MEMORY_OPTIMIZATION_CODE_MMAP
   #if LUAT_UNDUMP_DEBUG
-  LLOGD("try mmap %p %p %p", S, S->Z, S->Z->data);
+//  LLOGD("try mmap %p %p %p", S, S->Z, S->Z->data);
   #endif
   char* ptr = (char*)luat_vfs_mmap(((LoadF*)S->Z->data)->f);
   Instruction inst[1];
@@ -161,10 +257,11 @@ static void LoadCode (LoadState *S, Proto *f) {
   // 调试时务必打开
 #if LUAT_UNDUMP_DEBUG
   LLOGD("code in ram");
+  code_size += ((n * sizeof(Instruction)) + (8 - 1)) & (~(8 - 1));
 #endif
   f->code = luaM_newvector(S->L, n, Instruction);
   LoadVector(S, f->code, n);
-  code_size += n * sizeof(Instruction);
+
 }
 
 
@@ -202,7 +299,9 @@ static void LoadConstants (LoadState *S, Proto *f) {
       lua_assert(0);
     }
   }
-  const_size += n * sizeof(TValue);
+#ifdef LUAT_UNDUMP_DEBUG
+  const_size += (n * sizeof(TValue) + (8 - 1)) & (~(8 - 1));
+#endif
 }
 
 
@@ -218,6 +317,9 @@ static void LoadProtos (LoadState *S, Proto *f) {
     luaC_objbarrier(S->L, f, f->p[i]);
     LoadFunction(S, f->p[i], f->source);
   }
+#ifdef LUAT_UNDUMP_DEBUG
+  proto_size += (sizeof(Proto) + (8 - 1)) & (~(8 - 1));
+#endif
 }
 
 
@@ -238,9 +340,24 @@ static void LoadUpvalues (LoadState *S, Proto *f) {
 static void LoadDebug (LoadState *S, Proto *f) {
   int i, n;
   n = LoadInt(S);
+#ifdef LUAT_USE_MEMORY_OPTIMIZATION_CODE_MMAP
+  char* ptr = (char*)luat_vfs_mmap(((LoadF*)S->Z->data)->f);
+  int inst[1];
+  if (ptr) {
+	f->lineinfo = ptr + ptr_offset;
+    for (size_t i = 0; i < n; i++)
+    {
+      LoadVector(S, &inst, 1);
+    }
+  }
+#else
   f->lineinfo = luaM_newvector(S->L, n, int);
   f->sizelineinfo = n;
   LoadVector(S, f->lineinfo, n);
+#ifdef LUAT_UNDUMP_DEBUG
+  debug_size += (f->sizelineinfo * sizeof(int) + (8 - 1)) & (~(8 - 1));
+#endif
+#endif
   n = LoadInt(S);
   f->locvars = luaM_newvector(S->L, n, LocVar);
   f->sizelocvars = n;
@@ -250,13 +367,24 @@ static void LoadDebug (LoadState *S, Proto *f) {
     f->locvars[i].varname = LoadString(S, f);
     f->locvars[i].startpc = LoadInt(S);
     f->locvars[i].endpc = LoadInt(S);
+#ifdef LUAT_UNDUMP_DEBUG
+    if (f->locvars[i].startpc > max_pc)
+    {
+    	max_pc = f->locvars[i].startpc;
+    }
+    if (f->locvars[i].endpc > max_pc)
+    {
+    	max_pc = f->locvars[i].endpc;
+    }
+#endif
   }
   n = LoadInt(S);
   for (i = 0; i < n; i++)
     f->upvalues[i].name = LoadString(S, f);
 
-  debug_size += f->sizelineinfo * sizeof(int);
-  debug_size += f->sizelocvars * sizeof(LocVar);
+#ifdef LUAT_UNDUMP_DEBUG
+  debug_size += f->sizelocvars * (sizeof(LocVar) + (8 - 1)) & (~(8 - 1));
+#endif
 }
 
 
@@ -324,7 +452,6 @@ LClosure *luaU_undump(lua_State *L, ZIO *Z, const char *name) {
   // 复位偏移量数据
   ptr_offset = 0;
   ptr_offset ++; // 之前的方法已经读取了一个字节
-
   if (*name == '@' || *name == '=')
     S.name = name + 1;
   else if (*name == LUA_SIGNATURE[0])
@@ -349,7 +476,10 @@ LClosure *luaU_undump(lua_State *L, ZIO *Z, const char *name) {
   LLOGD("debug_size %d", debug_size);
   LLOGD("const_size now %d", const_size);
   LLOGD("code_size now %d", code_size);
+  LLOGD("code max now %d", code_max);
   LLOGD("ptr_offset %d", ptr_offset);
+  LLOGD("proto size now %d", proto_size);
+  LLOGD("max pc %d", max_pc);
   luat_os_print_heapinfo("func");
 #endif
 

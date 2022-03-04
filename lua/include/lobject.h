@@ -302,6 +302,24 @@ typedef TValue *StkId;  /* index to stack elements */
 */
 typedef struct TString {
   CommonHeader;
+#if defined(__LUATOS_SMALL_RAM__) && defined(__LUATOS_SCRIPT_BASE__)
+  struct
+  {
+	uint16_t extra:5;
+	uint16_t shrlen:6;
+	uint16_t static_flag:5;
+  };
+  unsigned int hash;
+  union {
+	struct
+	{
+	  uint32_t lnglen:17;/* length for long strings */
+	  uint32_t static_offset:15;
+	};
+    struct TString *hnext;  /* linked list for hash table */
+
+  } u;
+#else
   lu_byte extra;  /* reserved words for short strings; "has hash" for longs */
   lu_byte shrlen;  /* length for short strings */
   unsigned int hash;
@@ -309,6 +327,7 @@ typedef struct TString {
     size_t lnglen;  /* length for long strings */
     struct TString *hnext;  /* linked list for hash table */
   } u;
+#endif
 } TString;
 
 
@@ -325,9 +344,12 @@ typedef union UTString {
 ** Get the actual string (array of bytes) from a 'TString'.
 ** (Access to 'extra' ensures that value is really a 'TString'.)
 */
+#if defined(__LUATOS_SMALL_RAM__) && defined(__LUATOS_SCRIPT_BASE__)
+char *getstr(TString *ts);
+#else
 #define getstr(ts)  \
   check_exp(sizeof((ts)->extra), cast(char *, (ts)) + sizeof(UTString))
-
+#endif
 
 /* get the actual string (array of bytes) from a Lua value */
 #define svalue(o)       getstr(tsvalue(o))
@@ -396,8 +418,13 @@ typedef struct Upvaldesc {
 */
 typedef struct LocVar {
   TString *varname;
+#ifdef __LUATOS_SMALL_RAM__
+  uint16_t startpc;
+  uint16_t endpc;
+#else
   int startpc;  /* first point where variable is active */
   int endpc;    /* first point where variable is dead */
+#endif
 } LocVar;
 
 
@@ -409,6 +436,16 @@ typedef struct Proto {
   lu_byte numparams;  /* number of fixed parameters */
   lu_byte is_vararg;
   lu_byte maxstacksize;  /* number of registers needed by this function */
+#ifdef __LUATOS_SMALL_RAM__
+  uint16_t sizeupvalues;  /* size of 'upvalues' */
+  uint16_t sizek;  /* size of 'k' */
+  uint16_t sizecode;
+  uint16_t sizelineinfo;
+  uint16_t sizep;  /* size of 'p' */
+  uint16_t sizelocvars;
+  uint16_t linedefined;
+  uint16_t lastlinedefined;
+#else
   int sizeupvalues;  /* size of 'upvalues' */
   int sizek;  /* size of 'k' */
   int sizecode;
@@ -417,6 +454,7 @@ typedef struct Proto {
   int sizelocvars;
   int linedefined;  /* debug information  */
   int lastlinedefined;  /* debug information  */
+#endif
   TValue *k;  /* constants used by the function */
   Instruction *code;  /* opcodes */
   struct Proto **p;  /* functions defined inside the function */

@@ -520,3 +520,22 @@ void luaO_chunkid (char *out, const char *source, size_t bufflen) {
   }
 }
 
+#if defined(__LUATOS_SMALL_RAM__) && defined(__LUATOS_SCRIPT_BASE__)
+char *getstr(TString *ts) {
+	uint32_t offset;
+	if (ts->static_flag) {
+		if (!ts->shrlen)
+		{
+			offset = (ts->static_flag - 1);
+			offset = (offset << 15) + ts->u.static_offset + __LUATOS_SCRIPT_BASE__;
+		}
+		else
+		{
+			memcpy(&offset, cast(char *, (ts)) + sizeof(UTString), 4);
+		}
+		return (char *)(offset);
+	} else {
+		return cast(char *, (ts)) + sizeof(UTString);
+	}
+}
+#endif

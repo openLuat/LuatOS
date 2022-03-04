@@ -826,7 +826,16 @@ LUAMOD_API int luaopen_package (lua_State *L) {
   lua_pushcfunction(L, ll_require);
   lua_setglobal(L, "require");
   #endif
+#if defined(LUA_COMPAT_MODULE)
+  // 兼容LuatOS-Air
+  lua_pushcfunction(L, ll_module);
+  lua_setglobal(L, "module");
+  lua_newtable(L);
+  lua_pushcfunction(L, ll_seeall);
+  lua_setfield(L, -2, "seeall");
+#else
   lua_pushnil(L);
+#endif
   return 1;
 }
 

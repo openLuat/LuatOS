@@ -251,6 +251,25 @@ void luat_pushcwait_error(lua_State *L, int arg_num) {
     lua_call(L,arg_num+1,1);
 }
 
+//c等待接口，对指定id进行回调响应
+//使用时推入需要返回的所有参数
+//调用时传入消息id和参数个数
+//该函数会调用sys_pub代为发送消息事件
+//用户没有启用sys库，不会进行任何操作（[-0, +0, –]），并返回0
+//[-arg_num, +0, –] 成功返回1
+int luat_cbcwait(lua_State *L, uint64_t id, int arg_num) {
+    if(lua_getglobal(L, "sys_pub") != LUA_TFUNCTION)
+        return 0;
+    char* topic = (char*)luat_heap_malloc(1 + sizeof(uint64_t));
+    topic[0] = 0x01;
+    memcpy(topic + 1,&id,sizeof(uint64_t));
+    lua_pushlstring(L,topic,1 + sizeof(uint64_t));
+    luat_heap_free(topic);
+    lua_rotate(L,-arg_num-2,2);
+    lua_call(L, arg_num + 1, 0);
+    return 1;
+}
+
 /*
 @sys_pub sys
 用于luatos内部的系统消息传递
@@ -273,8 +292,7 @@ static int luat_cbcwait_cb(lua_State *L, void* ptr) {
     return 0;
 }
 
-//c等待接口的回调，最简单的无参数的回调
-//要返回参数的话，参考上面自己写一个
+//c等待接口，无参数的回调，可不传入lua栈
 void luat_cbcwait_noarg(uint64_t id) {
     if(id == 0)
         return;

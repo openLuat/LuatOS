@@ -220,6 +220,8 @@ static const rotable_Reg  bitlib[] = {
 
 LUAMOD_API int luaopen_bit32 (lua_State *L) {
   luat_newlib(L, bitlib);
+  lua_pushvalue(L, -1);
+  lua_setglobal(L, "bit"); // 兼容LuatOS-Air
   return 1;
 }
 

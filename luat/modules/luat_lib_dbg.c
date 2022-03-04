@@ -12,8 +12,6 @@
 #include "cJSON.h"
 #endif
 
-extern uint8_t cmux_state;
-extern uint8_t cmux_dbg_state;
 /**
  * 0 , disabled
  * 1 , wait for connect

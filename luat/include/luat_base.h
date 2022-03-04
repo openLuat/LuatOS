@@ -72,7 +72,11 @@ void luat_custom_init(lua_State *L);
 
 //c等待接口
 uint64_t luat_pushcwait(lua_State *L);
-//c等待接口的回调
+//c等待接口，直接向用户返回错误的对象
+void luat_pushcwait_error(lua_State *L, int arg_num);
+//c等待接口，对指定id进行回调响应，并携带返回参数
+int luat_cbcwait(lua_State *L, uint64_t id, int arg_num);
+//c等待接口，无参数的回调，可不传入lua栈
 void luat_cbcwait_noarg(uint64_t id);
 
 #endif

@@ -39,7 +39,7 @@ typedef struct luat_rtos_queue {
 
 LUAT_RET luat_queue_create(luat_rtos_queue_t* queue, size_t msgcount, size_t msgsize);
 LUAT_RET luat_queue_send(luat_rtos_queue_t*   queue, void* msg,  size_t msg_size, size_t timeout);
-LUAT_RET luat_queue_recv(luat_rtos_queue_t*   queue, void** msg, size_t msg_size, size_t timeout);
+LUAT_RET luat_queue_recv(luat_rtos_queue_t*   queue, void* msg, size_t msg_size, size_t timeout);
 LUAT_RET luat_queue_free(luat_rtos_queue_t*   queue);
 
 #endif

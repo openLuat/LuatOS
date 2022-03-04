@@ -104,6 +104,14 @@ function sys.waitUntil(id, ms)
     return message[1] ~= nil, unpack(message, 2, #message)
 end
 
+--- 同上，但不返回等待结果
+function sys.waitUntilMsg(id)
+    sys.subscribe(id, coroutine.running())
+    local message = {coroutine.yield()}
+    sys.unsubscribe(id, coroutine.running())
+    return unpack(message, 2, #message)
+end
+
 --- Task任务的条件等待函数扩展（包括事件消息和定时器消息等条件），只能用于任务函数中。
 -- @param id 消息ID
 -- @number ms 等待超时时间，单位ms，最大等待126322567毫秒
@@ -402,27 +410,38 @@ _G.sys_pub = sys.publish
 
 --提供给异步c接口使用
 sys.cwaitMt = {
-    wait = function(t)
-        return function() sys.waitUntilExt(t) end
+    wait = function(t,r)
+        return function()
+            if r and type(r) == "table" then--新建等待失败的返回
+                return table.unpack(r)
+            end
+            return sys.waitUntilMsg(t)
+        end
     end,
-    cb = function(t)
+    cb = function(t,r)
         return function(f)
             if type(f) ~= "function" then return end
             sys.taskInit(function ()
-                f(sys.waitUntilExt(t))
+                if r and type(r) == "table" then
+                    --sys.wait(1)--如果回调里调用了sys.publish，直接调用回调，会触发不了下一行的吧。。。
+                    f(table.unpack(r))
+                    return
+                end
+                f(sys.waitUntilMsg(t))
             end)
         end
     end,
 }
 sys.cwaitMt.__index = function(t,i)
     if sys.cwaitMt[i] then
-        return sys.cwaitMt[i](rawget(t,"w"))
+        return sys.cwaitMt[i](rawget(t,"w"),rawget(t,"r"))
     else
         rawget(t,i)
     end
 end
-_G.sys_cw = function (w)
-    local t = {w=w}
+_G.sys_cw = function (w,...)
+    local r = {...}
+    local t = {w=w,r=(#r > 0 and r or nil)}
     setmetatable(t,sys.cwaitMt)
     return t
 end

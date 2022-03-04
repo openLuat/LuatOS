@@ -97,6 +97,11 @@ static int l_fdb_kv_set(lua_State *L) {
     else if (lua_istable(L, 2)) {
         lua_settop(L, 2);
         lua_getglobal(L, "json");
+        if (lua_isnil(L, -1)) {
+            LLOGW("miss json lib, not support table value");
+            lua_pushboolean(L, 0);
+            return 1;
+        }
         lua_getfield(L, -1, "encode");
         if (lua_isfunction(L, -1)) {
             lua_pushvalue(L, 2);
@@ -113,7 +118,7 @@ static int l_fdb_kv_set(lua_State *L) {
             }
         }
         else {
-            LLOGW("miss json lib, not support table value");
+            LLOGW("miss json.encode, not support table value");
             lua_pushboolean(L, 0);
             return 1;
         }
@@ -127,7 +132,8 @@ static int l_fdb_kv_set(lua_State *L) {
     blob.size = buff.n;
     fdb_err_t ret = fdb_kv_set_blob(&kvdb, key, &blob);
     lua_pushboolean(L, ret == FDB_NO_ERR ? 1 : 0);
-    return 1;
+    lua_pushinteger(L, ret);
+    return 2;
 }
 
 /**

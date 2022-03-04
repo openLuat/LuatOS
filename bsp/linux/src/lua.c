@@ -212,7 +212,7 @@ static int docall (lua_State *L, int narg, int nres) {
 static void print_version (void) {
   lua_writestring(LUA_COPYRIGHT, strlen(LUA_COPYRIGHT));
   lua_writeline();
-  lua_writestring("Enhance by LuatOS", strlen("Enhance by LuatOS"));
+  lua_writestring("Enhance by LuatOS. call os.exit() for quit", strlen("Enhance by LuatOS. call os.exit() for quit"));
   lua_writeline();
 }
 

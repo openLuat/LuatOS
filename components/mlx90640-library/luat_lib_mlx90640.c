@@ -270,8 +270,8 @@ static int l_mlx90640_draw2lcd(lua_State *L) {
         LLOGW("lcd_w or lcd_h set error !!!");
         return 0;
     }
-#if defined(AIR101) || defined(AIR103)
-//#if 0
+// #if defined(AIR101) || defined(AIR103)
+#if 0
     float *dst = lua_newuserdata(L, 160*120*sizeof(float));
     // 插值, 试试air101的dsp函数
     luat_interpolation(mlx90640To, dst);

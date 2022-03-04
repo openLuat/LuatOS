@@ -17,8 +17,8 @@ LuatOS cmux
 #include "luat_str.h"
 #include "luat_cmux.h"
 
-extern uint8_t echo_enable;
-extern uint8_t cmux_state;
+uint8_t echo_enable = 0;
+uint8_t cmux_state = 0;
 uint8_t cmux_main_state = 0;
 uint8_t cmux_shell_state = 0;
 uint8_t cmux_log_state = 0;
@@ -178,7 +178,7 @@ LUAT_WEAK void luat_cmux_log_set(uint8_t state) {
 }
 
 void cmux_frame_manage(unsigned char*buff,size_t len){
-    // for (size_t i = 0; i < 20; i++){
+    // for (size_t i = 0; i < 10; i++){
     //     LLOGD("buff[%d]:%02X",i,buff[i]);
     // }
     if (CMUX_ADDRESS_DLC(buff)==LUAT_CMUX_CH_MAIN){
@@ -258,7 +258,9 @@ static int luat_cmux_parse(unsigned char* cmux_buff, int* start, int* end, int c
     // LLOGD("luat_cmux_parse start %d",*start);
     int length_needed = 5; /* channel, type, length, fcs, flag */
     if (cmux_buff[*start]==CMUX_HEAD_FLAG_BASIC&&cmux_buff[*start+1]==CMUX_HEAD_FLAG_BASIC){
-        (*start)++;
+        if (cmux_buff[*start+2]>>2!=LUAT_CMUX_CH_MAIN && cmux_buff[*start+2]>>2!=LUAT_CMUX_CH_SHELL && cmux_buff[*start+2]>>2!=LUAT_CMUX_CH_LOG && cmux_buff[*start+2]>>2!=LUAT_CMUX_CH_DBG && cmux_buff[*start+2]>>2!=LUAT_CMUX_CH_DOWNLOAD ){
+            (*start)++;
+        }
     }
     if(cmux_buff[*start]==CMUX_HEAD_FLAG_BASIC ){
         uint8_t len = (cmux_buff[*start+3]& 254) >> 1;
@@ -294,17 +296,22 @@ static unsigned char cmux_buff[CMUX_BUFFER_SIZE];
 static int cmux_buff_offset = 0;
 
 void luat_cmux_read(unsigned char* buff,size_t len){
+    // for (size_t i = 0; i < len; i++){
+    //     LLOGD("uart_buff[%d]:0x%02X",i,buff[i]);
+    // }
+    int start,end;
     if (cmux_buff_offset + len >= CMUX_BUFFER_SIZE) {
         printf("cmux overflow!!!\r\n");
         cmux_buff_offset = 0;
         return;
     }
     memcpy(cmux_buff + cmux_buff_offset, buff, len);
-    cmux_buff_offset += len;
+    cmux_buff_offset = cmux_buff_offset + len;
     cmux_buff[cmux_buff_offset] = 0x00;
     // int offset = 0;
-    int start = 0;
-    int end = 0;
+next_parse:
+    start = 0;
+    end = 0;
     // LLOGD("cmux_buff_offset %d",cmux_buff_offset);
     while (start < cmux_buff_offset) {
         // 解析
@@ -323,11 +330,16 @@ void luat_cmux_read(unsigned char* buff,size_t len){
             // LLOGD("end %d cmux_buff_offset %d",end,cmux_buff_offset);
             if (end+1<cmux_buff_offset){
                 char* transfer_buff = (char*)luat_heap_malloc(cmux_buff_offset-end);
-                memmove(transfer_buff, cmux_buff + end, cmux_buff_offset-end);
+                memmove(transfer_buff, cmux_buff + end+1, cmux_buff_offset-end);
                 memset(cmux_buff,0,CMUX_BUFFER_SIZE);
                 memmove(cmux_buff, transfer_buff, cmux_buff_offset-end);
+                cmux_buff_offset = cmux_buff_offset-end;
                 luat_heap_free(transfer_buff);
-                return;
+                // for (size_t i = 0; i < cmux_buff_offset; i++){
+                //     LLOGD("uart_buff[%d]:0x%02X",i,cmux_buff[i]);
+                // }
+                goto next_parse;
+                // return;
             }
             break;
         }

@@ -114,9 +114,24 @@ add_subdirectory(${TOPROOT}/components/mbedtls mbedtls.out)
 # add_subdirectory(${TOPROOT}/components/lvgl lvgl.out)
 #-----------------------
 
+#-----------------------
+# luat_rtos
+include_directories(${TOPROOT}/components/rtos/freertos/include)
+aux_source_directory(${TOPROOT}/components/rtos/freertos RTOS_FREERTOS_SRCS)
+add_library(luat_rtos ${RTOS_FREERTOS_SRCS})
+#-----------------------
+
+#-----------------------
+# luat_network_libtcpip
+include_directories(${TOPROOT}/components/network/libtcpip/)
+include_directories(${TOPROOT}/components/network/libtcpip/protocol/mqtt)
+aux_source_directory(${TOPROOT}/components/network/libtcpip/port LIBTCPIP_SRCS)
+aux_source_directory(${TOPROOT}/components/network/libtcpip/protocol/mqtt LIBTCPIP_SRCS2)
+add_library(luat_network_libtcpip ${LIBTCPIP_SRCS} ${LIBTCPIP_SRCS2})
+#-----------------------
 
 
 add_executable(luatos src/main.c src/lua.c)
 
-target_link_libraries(luat freertos10 pthread )
-target_link_libraries(luatos freertos10 lua luatos_msys luat pthread cjson mbedtls m dl readline)
+target_link_libraries(luat freertos10 pthread luat_rtos luat_network_libtcpip)
+target_link_libraries(luatos freertos10 lua luatos_msys luat pthread cjson mbedtls m dl readline luat_rtos luat_network_libtcpip)

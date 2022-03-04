@@ -384,8 +384,8 @@ static const rotable_Reg mathlib[] = {
   {"log10", math_log10, 0},
 #endif
   /* placeholders */
-  // {"pi", NULL},
-  // {"huge", NULL, LUA_MAXINTEGER},
+  // {"pi", NULL, PI},
+  {"huge", NULL, HUGE_VAL},
   {"maxinteger", NULL, LUA_MAXINTEGER},
   {"mininteger", NULL, LUA_MININTEGER},
   {NULL, NULL, 0}

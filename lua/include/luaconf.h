@@ -298,7 +298,8 @@
 ** You can define it to get all options, or change specific options
 ** to fit your specific needs.
 */
-//#define LUA_COMPAT_5_1
+#define LUA_COMPAT_5_1
+#define LUA_COMPAT_5_2
 
 #if defined(LUA_COMPAT_5_2)	/* { */
 

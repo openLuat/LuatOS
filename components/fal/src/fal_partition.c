@@ -419,6 +419,9 @@ int fal_partition_write(const struct fal_partition *part, uint32_t addr, const u
     assert(part);
     assert(buf);
 
+    if (size == 0)
+        return 0;
+
     if (addr + size > part->len)
     {
         log_e("Partition write error! Partition address out of bound. %08X %04X", addr, size);
@@ -435,7 +438,7 @@ int fal_partition_write(const struct fal_partition *part, uint32_t addr, const u
     ret = flash_dev->ops.write(part->offset + addr, buf, size);
     if (ret < 0)
     {
-        log_e("Partition write error! Flash device(%s) write error! %08X %04X", part->flash_name, addr, size);
+        log_e("Partition write error! Flash device(%s) write error! %08X %04X ret %d", part->flash_name, addr, size, ret);
     }
 
     return ret;

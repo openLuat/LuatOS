@@ -19,7 +19,7 @@ typedef struct luat_libgnss
 {
     uint8_t debug;
     uint8_t prev_fixed;
-    int lua_ref;
+    // int lua_ref;
     struct minmea_sentence_rmc frame_rmc;
     struct minmea_sentence_gga frame_gga;
     struct minmea_sentence_gsv frame_gsv[3];
@@ -28,19 +28,27 @@ typedef struct luat_libgnss
 } luat_libgnss_t;
 
 static luat_libgnss_t *gnss = NULL;
+static luat_libgnss_t *gnsstmp = NULL;
 
 static int luat_libgnss_init(lua_State *L) {
     if (gnss == NULL) {
-        gnss = lua_newuserdata(L, sizeof(luat_libgnss_t));
+        gnss = luat_heap_malloc(sizeof(luat_libgnss_t));
         if (gnss == NULL) {
-            LLOGW("luavm out of memory for libgnss data parse");
-            return -1;
+            LLOGW("out of memory for libgnss data parse");
+            return 0;
         }
-        gnss->lua_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+        gnsstmp = luat_heap_malloc(sizeof(luat_libgnss_t)); 
+        if (gnsstmp == NULL) {
+            luat_heap_free(gnss);
+            LLOGW("out of memory for libgnss data parse");
+            return 0;
+        }
+        // gnss->lua_ref = luaL_ref(L, LUA_REGISTRYINDEX);
         memset(gnss, 0, sizeof(luat_libgnss_t));
-        lua_pop(L, 1); // 弹出userdata, 由luaL_ref确保不会被回收
+        memset(gnsstmp, 0, sizeof(luat_libgnss_t));
     }
-    return 0;
+    lua_pushboolean(L, 1);
+    return 1;
 }
 
 static int parse_nmea(const char* line, lua_State *L) {
@@ -53,18 +61,17 @@ static int parse_nmea(const char* line, lua_State *L) {
     
     switch (minmea_sentence_id(line, false)) {
         case MINMEA_SENTENCE_RMC: {
-            struct minmea_sentence_rmc frame_rmc;
-            if (minmea_parse_rmc(&(frame_rmc), line)) {
-                if (frame_rmc.valid) {
-                    memcpy(&(gnss->frame_rmc), &frame_rmc, sizeof(struct minmea_sentence_rmc));
+            if (minmea_parse_rmc(&(gnsstmp->frame_rmc), line)) {
+                if (gnsstmp->frame_rmc.valid) {
+                    memcpy(&(gnss->frame_rmc), &gnsstmp->frame_rmc, sizeof(struct minmea_sentence_rmc));
                 }
                 else {
                     gnss->frame_rmc.valid = 0;
-                    if (frame_rmc.date.year > 0) {
-                        memcpy(&(gnss->frame_rmc.date), &(frame_rmc.date), sizeof(struct minmea_date));
+                    if (gnsstmp->frame_rmc.date.year > 0) {
+                        memcpy(&(gnss->frame_rmc.date), &(gnsstmp->frame_rmc.date), sizeof(struct minmea_date));
                     }
-                    if (frame_rmc.time.hours > 0) {
-                        memcpy(&(gnss->frame_rmc.time), &(frame_rmc.time), sizeof(struct minmea_time));
+                    if (gnsstmp->frame_rmc.time.hours > 0) {
+                        memcpy(&(gnss->frame_rmc.time), &(gnsstmp->frame_rmc.time), sizeof(struct minmea_time));
                     }
                 }
                 //memcpy(&(gnss->frame_rmc), &frame_rmc, sizeof(struct minmea_sentence_rmc));
@@ -87,22 +94,21 @@ static int parse_nmea(const char* line, lua_State *L) {
 
         case MINMEA_SENTENCE_GGA: {
             //struct minmea_sentence_gga frame_gga;
-            if (minmea_parse_gga(&(gnss->frame_gga), line)) {
-                //memcpy(&(gnss->frame_gga), &frame_gga, sizeof(struct minmea_sentence_gga));
+            if (minmea_parse_gga(&gnsstmp->frame_gga, line)) {
+                memcpy(&(gnss->frame_gga), &gnsstmp->frame_gga, sizeof(struct minmea_sentence_gga));
                 //LLOGD("$GGA: fix quality: %d", frame_gga.fix_quality);
             }
         } break;
 
         case MINMEA_SENTENCE_GSV: {
-            struct minmea_sentence_gsv frame_gsv;
-            if (minmea_parse_gsv(&frame_gsv, line)) {
-                switch (frame_gsv.msg_nr)
+            if (minmea_parse_gsv(&gnsstmp->frame_gsv, line)) {
+                switch (gnsstmp->frame_gsv[0].msg_nr)
                 {
                 case 1:
                     memset(&(gnss->frame_gsv), 0, sizeof(struct minmea_sentence_gsv) * 3);
                 case 2:
                 case 3:
-                    memcpy(&(gnss->frame_gsv[frame_gsv.msg_nr - 1]), &frame_gsv, sizeof(struct minmea_sentence_gsv));
+                    memcpy(&(gnss->frame_gsv[gnsstmp->frame_gsv[0].msg_nr - 1]), &gnsstmp->frame_gsv, sizeof(struct minmea_sentence_gsv));
                     break;
                 default:
                     break;
@@ -125,8 +131,8 @@ static int parse_nmea(const char* line, lua_State *L) {
         } break;
         case MINMEA_SENTENCE_VTG: {
             //struct minmea_sentence_vtg frame_vtg;
-            if (minmea_parse_vtg(&(gnss->frame_vtg), line)) {
-                //memcpy(&(gnss->frame_vtg), &frame_vtg, sizeof(struct minmea_sentence_vtg));
+            if (minmea_parse_vtg(&(gnsstmp->frame_vtg), line)) {
+                memcpy(&(gnss->frame_vtg), &gnsstmp->frame_vtg, sizeof(struct minmea_sentence_vtg));
                 //--------------------------------------
                 // 暂时不发GPS_MSG_REPORT
                 // lua_getglobal(L, "sys_pub");
@@ -502,6 +508,46 @@ static int l_libgnss_air530_setbandrate(lua_State *L) {
     return 0;
 }
 
+static int l_libgnss_get_gga(lua_State* L) {
+    if (gnss == NULL)
+        return 0;
+    lua_newtable(L);
+
+    lua_pushstring(L, "altitude");
+    lua_pushinteger(L, gnss->frame_gga.altitude.value);
+    lua_settable(L, -3);
+
+    lua_pushstring(L, "latitude");
+    lua_pushinteger(L, gnss->frame_gga.latitude.value);
+    lua_settable(L, -3);
+
+    lua_pushstring(L, "longitude");
+    lua_pushinteger(L, gnss->frame_gga.longitude.value);
+    lua_settable(L, -3);
+
+    lua_pushstring(L, "fix_quality");
+    lua_pushinteger(L, gnss->frame_gga.fix_quality);
+    lua_settable(L, -3);
+
+    lua_pushstring(L, "satellites_tracked");
+    lua_pushinteger(L, gnss->frame_gga.satellites_tracked);
+    lua_settable(L, -3);
+
+    lua_pushstring(L, "hdop");
+    lua_pushinteger(L, gnss->frame_gga.hdop.value);
+    lua_settable(L, -3);
+
+    lua_pushstring(L, "height");
+    lua_pushinteger(L, gnss->frame_gga.height.value);
+    lua_settable(L, -3);
+
+    lua_pushstring(L, "dgps_age");
+    lua_pushinteger(L, gnss->frame_gga.dgps_age.value);
+    lua_settable(L, -3);
+
+    return 1;
+}
+
 
 #include "rotable.h"
 static const rotable_Reg reg_libgnss[] =
@@ -513,6 +559,7 @@ static const rotable_Reg reg_libgnss[] =
     { "getGsv", l_libgnss_get_gsv, 0},
     { "getGsa", l_libgnss_get_gsa, 0},
     { "getVtg", l_libgnss_get_vtg, 0},
+    { "getGga", l_libgnss_get_gga, 0},
     { "debug",  l_libgnss_debug,   0},
 
     //-----------------------------------------

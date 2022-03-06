@@ -27,7 +27,7 @@ sys.taskInit(function()
             sys.wait(200 + i*10)
         end
         for i = 10,1,-1 do 
-            pwm.open(4, 1000, 100 - i*9)
+            pwm.open(1, 1000, 100 - i*9)
             sys.wait(200 + i*10)
         end
         sys.wait(5000)

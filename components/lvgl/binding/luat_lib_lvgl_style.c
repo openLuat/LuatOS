@@ -20,6 +20,10 @@ lvgl.style_init(style)
 */
 int luat_lv_style_t(lua_State *L) {
     lv_style_t* style = (lv_style_t*)luat_heap_malloc(sizeof(lv_style_t));
+    if (style == NULL) {
+        LLOGE("out of memory when create lv_style_t");
+        return 0;
+    }
     lua_pushlightuserdata(L, style);
     return 1;
 }
@@ -33,6 +37,10 @@ local style = lvgl.style_create()
 */
 int luat_lv_style_create(lua_State *L) {
     lv_style_t* style = (lv_style_t*)luat_heap_malloc(sizeof(lv_style_t));
+    if (style == NULL) {
+        LLOGE("out of memory when create lv_style_t");
+        return 0;
+    }
     lv_style_init(style);
     lua_pushlightuserdata(L, style);
     return 1;
@@ -47,6 +55,10 @@ local style_list = lvgl.style_list_create()
 */
 int luat_lv_style_list_create(lua_State *L) {
     lv_style_list_t* style_list = (lv_style_list_t*)luat_heap_malloc(sizeof(lv_style_list_t));
+    if (style_list == NULL) {
+        LLOGE("out of memory when create lv_style_list_t");
+        return 0;
+    }
     lv_style_list_init(style_list);
     lua_pushlightuserdata(L, style_list);
     return 1;

@@ -187,7 +187,6 @@ static int l_wlan_connected(lua_State *L) {
 @usage 
 -- 查询自动连接的设置
 wlan.autoreconnect()
-@usage
 -- 设置自动连接
 wlan.autoreconnect(1)
 */
@@ -604,13 +603,10 @@ static int32_t oneshot_re;
 @usage 
 -- UDP配网,需要下载联德盛测试APP,2.0版本
 wlan.oneShotStart(0)
-@usage 
 -- SOCKET配网,需要下载联德盛测试APP,2.0版本
 wlan.oneShotStart(1)
-@usage 
 -- AP网页配网,手机搜索wifi "W600APWEB", 密码12345678. 连上之后,保持wifi连接,浏览器访问 192.168.168.1, 按提示输入.
 wlan.oneShotStart(2, "W600APWEB", "12345678")
-@usage
 -- 监听配网信息
 sys.subscribe("WLAN_PW_RE", function(ssid, passwd)
     if ssid then
@@ -703,7 +699,6 @@ static int l_wlan_rssi(lua_State* L) {
 @usage 
 -- 启动airkiss配网
 wlan.airkiss_start()
-@usage
 -- 监听配网信息
 sys.subscribe("WLAN_PW_RE", function(ssid, passwd)
     if ssid then

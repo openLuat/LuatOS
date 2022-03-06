@@ -57,10 +57,8 @@ int l_gpio_handler(lua_State *L, void* ptr) {
 @usage
 -- 设置gpio17为输入
 gpio.setup(17, nil)
-@usage
 -- 设置gpio17为输出
 gpio.setup(17, 0)
-@usage
 -- 设置gpio27为中断
 gpio.setup(27, function(val) print("IRQ_27",val) end, gpio.PULLUP)
 */

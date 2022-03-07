@@ -62,39 +62,52 @@ static int l_fdb_kv_set(lua_State *L) {
     luaL_buffinit(L, &buff);
     const char* key = luaL_checkstring(L, 1);
     //luaL_addchar(&buff, 0xA5);
-    if (lua_isboolean(L, 2)) {
+    int type = lua_type(L, 2);
+    switch (type)
+    {
+    case LUA_TBOOLEAN:
         luaL_addchar(&buff, LUA_TBOOLEAN);
         bool val = lua_toboolean(L, 2);
         luaL_addlstring(&buff, (const char*)&val, sizeof(val));
-    }
-    else if (lua_isinteger(L, 2)) {
-        luaL_addchar(&buff, LUA_TINTEGER); // 自定义类型
-        lua_Integer val = luaL_checkinteger(L, 2);
-        luaL_addlstring(&buff, (const char*)&val, sizeof(val));
-    }
-    else if (lua_isnumber(L, 2)) {
-        luaL_addchar(&buff, LUA_TNUMBER);
-        lua_getglobal(L, "pack");
-        if (lua_isnil(L, -1)) {
-            LLOGW("float number need pack lib");
-            lua_pushboolean(L, 0);
-            return 1;
+        break;
+    case LUA_TNUMBER:
+        if (lua_isinteger(L, 2)) {
+            luaL_addchar(&buff, LUA_TINTEGER); // 自定义类型
+            lua_Integer val = luaL_checkinteger(L, 2);
+            luaL_addlstring(&buff, (const char*)&val, sizeof(val));
         }
-        lua_getfield(L, -1, "pack");
-        lua_pushstring(L, ">f");
-        lua_pushvalue(L, 2);
-        lua_call(L, 2, 1);
-        if (lua_isstring(L, -1)) {
-            const char* val = luaL_checklstring(L, -1, &len);
-            luaL_addlstring(&buff, val, len);
+        else {
+            luaL_addchar(&buff, LUA_TNUMBER);
+            lua_getglobal(L, "pack");
+            if (lua_isnil(L, -1)) {
+                LLOGW("float number need pack lib");
+                lua_pushboolean(L, 0);
+                return 1;
+            }
+            lua_getfield(L, -1, "pack");
+            lua_pushstring(L, ">f");
+            lua_pushvalue(L, 2);
+            lua_call(L, 2, 1);
+            if (lua_isstring(L, -1)) {
+                const char* val = luaL_checklstring(L, -1, &len);
+                luaL_addlstring(&buff, val, len);
+            }
+            else {
+                LLOGW("kdb store number fail!!");
+                lua_pushboolean(L, 0);
+                return 1;
+            }
         }
-    }
-    else if (lua_isstring(L, 2)) {
+        break;
+    case LUA_TSTRING:
+    {
         luaL_addchar(&buff, LUA_TSTRING);
         const char* val = luaL_checklstring(L, 2, &len);
         luaL_addlstring(&buff, val, len);
+        break;
     }
-    else if (lua_istable(L, 2)) {
+    case LUA_TTABLE:
+    {
         lua_settop(L, 2);
         lua_getglobal(L, "json");
         if (lua_isnil(L, -1)) {
@@ -122,11 +135,14 @@ static int l_fdb_kv_set(lua_State *L) {
             lua_pushboolean(L, 0);
             return 1;
         }
+        break;
     }
-    else {
+    default:
+    {
         LLOGW("function/userdata/nil/thread isn't allow");
         lua_pushboolean(L, 0);
         return 1;
+    }
     }
     blob.buf = buff.b;
     blob.size = buff.n;

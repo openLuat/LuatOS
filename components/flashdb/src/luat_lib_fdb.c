@@ -230,6 +230,21 @@ static int l_fdb_kv_del(lua_State *L) {
     return 1;
 }
 
+/**
+清空整个kv数据库
+@api fdb.kv_clr()
+@return bool 成功返回true,否则返回false
+@usage
+-- 清空
+fdb.kv_clr()
+ */
+static int l_fdb_kv_clr(lua_State *L) {
+    fdb_err_t ret = fdb_kv_set_default(&kvdb);
+    lua_pushboolean(L, ret == FDB_NO_ERR ? 1 : 0);
+    lua_pushinteger(L, ret);
+    return 2;
+}
+
 
 #include "rotable.h"
 static const rotable_Reg reg_fdb[] =
@@ -239,6 +254,7 @@ static const rotable_Reg reg_fdb[] =
     { "kv_set",             l_fdb_kv_set, 0},
     { "kv_get",             l_fdb_kv_get, 0},
     { "kv_del",             l_fdb_kv_del, 0},
+    { "kv_clr",             l_fdb_kv_clr, 0},
 };
 
 LUAMOD_API int luaopen_fdb( lua_State *L ) {

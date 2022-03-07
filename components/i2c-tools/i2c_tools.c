@@ -31,8 +31,7 @@ void i2c_tools(const char * data,size_t len){
         uint8_t address = strtonum(strtok(NULL, " "));
         uint8_t reg = strtonum(strtok(NULL, " "));
         uint8_t len = atoi(strtok(NULL, " "));
-        if (len == 0)
-            len == 1;
+        if (len == 0)len = 1;
         uint8_t *buffer = (uint8_t *)luat_heap_malloc(len);
         memset(buffer, 0, len); // 确保填充为0
         if( i2c_read(address, reg,buffer,len)!=1){
@@ -45,6 +44,7 @@ void i2c_tools(const char * data,size_t len){
             }
             printf(" ]\n");
         }
+        luat_heap_free(buffer);
     }else if(memcmp("scan",command,4) == 0){
         int i2c_id = atoi(strtok(NULL, " "));
         i2c_init(i2c_id);

@@ -19,6 +19,7 @@ sys.taskInit(function()
 
     -- 初始化kv数据库
     fdb.kvdb_init("onchip_flash")
+    log.info("fdb", "init complete")
     -- 先放入一堆值
     local bootime = fdb.kv_get("boottime")
     if bootime == nil or type(bootime) ~= "number" then

@@ -47,8 +47,8 @@ static int l_timer_handler(lua_State *L, void* ptr) {
     //lua_pushinteger(L, timer->timeout);
     if (timer->repeat == 0) {
         // LLOGD("l_timer_handler stop id=%ld\n", timer->id);
-        luat_timer_stop(timer);
-        luat_heap_free(timer);
+        //luat_timer_stop(timer);
+        //luat_heap_free(timer);
     }
     else if (timer->repeat > 0) {
         timer->repeat --;
@@ -91,6 +91,7 @@ static int l_rtos_timer_start(lua_State *L) {
         lua_pushinteger(L, 1);
     }
     else {
+        LLOGD("start timer fail, free timer %p", timer);
         luat_heap_free(timer);
         lua_pushinteger(L, 0);
     }
@@ -115,6 +116,7 @@ static int l_rtos_timer_stop(lua_State *L) {
         timer = luat_timer_get(lua_tointeger(L, 1));
     }
     if (timer != NULL) {
+        //LLOGD("timer stop, free timer %p", timer);
         luat_timer_stop(timer);
         luat_heap_free(timer);
     }

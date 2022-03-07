@@ -83,8 +83,8 @@ function sys.wait(ms)
     if 1 ~= rtos.timer_start(timerid, ms) then log.debug("rtos.timer_start error") return end
     -- 挂起调用的任务线程
     local message = {coroutine.yield()}
+    rtos.timer_stop(timerid)
     if #message ~= 0 then
-        rtos.timer_stop(timerid)
         taskTimerPool[coroutine.running()] = nil
         timerPool[timerid] = nil
         return unpack(message)

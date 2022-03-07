@@ -91,6 +91,7 @@ static int l_rtos_timer_start(lua_State *L) {
         lua_pushinteger(L, 1);
     }
     else {
+        luat_heap_free(timer);
         lua_pushinteger(L, 0);
     }
     return 1;

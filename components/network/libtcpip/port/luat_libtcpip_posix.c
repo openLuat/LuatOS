@@ -7,7 +7,11 @@
 #include "time.h"
 
 #include "luat_libtcpip.h"
-#include "sys/socket.h"
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
 
 #define LUAT_LOG_TAG "posix"
 #include "luat_log.h"
@@ -58,7 +62,7 @@ static int luat_libtcpip_select_posix(int maxfdp1, fd_set *readset, fd_set *writ
 
 static int luat_libtcpip_close_posix(int s) {
     // return close(s);
-    return closesocket(s);
+    return close(s);
 }
 
 static int luat_libtcpip_connect_posix(int s, const char *hostname, uint16_t port) {

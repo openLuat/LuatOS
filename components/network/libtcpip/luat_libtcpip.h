@@ -1,5 +1,8 @@
 #include "luat_base.h"
 
+#ifndef LUAT_LIBTCPIP_H
+#define LUAT_LIBTCPIP_H
+
 #define LUAT_SOCK_STREAM 1
 #define LUAT_AF_INET 2
 #define LUAT_PF_INET LUAT_AF_INET
@@ -32,3 +35,4 @@ typedef struct luat_libtcpip_opts
     luat_libtcpip_setsockopt      _setsockopt;
 }luat_libtcpip_opts_t;
 
+#endif

@@ -12,7 +12,11 @@
 static void task_proxy(void* params) {
     luat_thread_t* thread = (luat_thread_t*)params;
     thread->thread(thread->userdata);
+#ifdef xTaskDelete
     xTaskDelete(NULL); // 代理删除自身
+#else
+    vTaskDelete(NULL);
+#endif
     
     LLOGD("impossible %s %d", __FILE__, __LINE__);
     // 不可能到这里

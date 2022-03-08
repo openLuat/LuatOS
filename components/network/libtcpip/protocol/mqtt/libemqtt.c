@@ -1,3 +1,5 @@
+#include "luat_base.h"
+#include "luat_malloc.h"
 #include <string.h>
 #include <libemqtt.h>
 
@@ -244,7 +246,7 @@ int mqtt_connect(mqtt_broker_handle_t* broker)
         fixedHeaderSize++;          // add an additional byte for Remaining Length
     }
     
-    fixed_header = (uint8_t*)tls_mem_alloc( fixedHeaderSize );
+    fixed_header = (uint8_t*)luat_heap_malloc( fixedHeaderSize );
     if( fixed_header==NULL )
     {
         return -1;
@@ -264,10 +266,10 @@ int mqtt_connect(mqtt_broker_handle_t* broker)
         fixed_header[2] = remainLen / 128;
     }
 	
-    packet = (uint8_t*)tls_mem_alloc( fixed_headerLen+sizeof(var_header)+payload_len );
+    packet = (uint8_t*)luat_heap_malloc( fixed_headerLen+sizeof(var_header)+payload_len );
     if( packet==NULL )
     {
-        tls_mem_free(fixed_header);
+        luat_heap_free(fixed_header);
         return -2;
     }
     packetLen = fixed_headerLen+sizeof(var_header)+payload_len ;
@@ -300,12 +302,12 @@ int mqtt_connect(mqtt_broker_handle_t* broker)
 
     ret = broker->mqttsend(broker->socketid, packet, packetLen);
     if(ret < packetLen) {      
-        tls_mem_free(fixed_header);
-        tls_mem_free(packet);
+        luat_heap_free(fixed_header);
+        luat_heap_free(packet);
         return -3;
     } 
-    tls_mem_free(fixed_header);
-    tls_mem_free(packet);
+    luat_heap_free(fixed_header);
+    luat_heap_free(packet);
     return 0;
 }
 
@@ -374,7 +376,7 @@ int mqtt_publish_with_qos(mqtt_broker_handle_t* broker,
     }
 /************************add by alex*******************************/
     // Variable header
-    var_header = ( uint8_t* )tls_mem_alloc( topiclen+2+qos_size );
+    var_header = ( uint8_t* )luat_heap_malloc( topiclen+2+qos_size );
     
     if( var_header==NULL )
     {
@@ -410,10 +412,10 @@ int mqtt_publish_with_qos(mqtt_broker_handle_t* broker,
 
     /***********************add by alex *******************/
     fixed_headerLen = fixedHeaderSize;
-    fixed_header = (uint8_t *)tls_mem_alloc( fixed_headerLen );
+    fixed_header = (uint8_t *)luat_heap_malloc( fixed_headerLen );
     if( fixed_header==NULL )
     {
-        tls_mem_free( var_header );
+        luat_heap_free( var_header );
         return -1;
     }
     /******************************************************/
@@ -436,11 +438,11 @@ int mqtt_publish_with_qos(mqtt_broker_handle_t* broker,
     /**********************add by alex******************************/
     packetLen = fixed_headerLen+var_headerLen+msgLen;
     //uint8_t packet[packetLen];
-    uint8_t *packet = tls_mem_alloc(packetLen);
+    uint8_t *packet = luat_heap_malloc(packetLen);
     if (!packet)
     {
-        tls_mem_free(var_header);
-        tls_mem_free( fixed_header );
+        luat_heap_free(var_header);
+        luat_heap_free( fixed_header );
         return -1;
     }
     memset(packet, 0, packetLen);
@@ -450,14 +452,14 @@ int mqtt_publish_with_qos(mqtt_broker_handle_t* broker,
 
     // Send the packet
     if(broker->mqttsend(broker->socketid, packet, packetLen ) < packetLen) {
-        tls_mem_free(var_header);
-        tls_mem_free( fixed_header );
-        tls_mem_free(packet);
+        luat_heap_free(var_header);
+        luat_heap_free( fixed_header );
+        luat_heap_free(packet);
         return -1;
     }
-    tls_mem_free( fixed_header );
-    tls_mem_free(var_header);
-    tls_mem_free(packet);
+    luat_heap_free( fixed_header );
+    luat_heap_free(var_header);
+    luat_heap_free(packet);
     return 1;
 }
 
@@ -504,7 +506,7 @@ int mqtt_subscribe(mqtt_broker_handle_t* broker, const char* topic, uint16_t* me
     /*******************add by alex**************************/
     // utf topic
     //uint8_t utf_topic[topiclen+3]; // Topic size (2 bytes), utf-encoded topic, QoS byte
-    utf_topic = ( uint8_t*)tls_mem_alloc( topiclen+3 );
+    utf_topic = ( uint8_t*)luat_heap_malloc( topiclen+3 );
     if( utf_topic==NULL )
     {
         return -1;
@@ -524,10 +526,10 @@ int mqtt_subscribe(mqtt_broker_handle_t* broker, const char* topic, uint16_t* me
 	
     /***********************add by alex********************/		
     packetLen = sizeof(var_header)+sizeof(fixed_header)+utf_topicLen;
-    packet = (uint8_t*)tls_mem_alloc( packetLen );
+    packet = (uint8_t*)luat_heap_malloc( packetLen );
     if( packet==NULL )
     {
-        tls_mem_free(utf_topic);
+        luat_heap_free(utf_topic);
         return -1;
     }
     memset(packet, 0, packetLen);
@@ -537,13 +539,13 @@ int mqtt_subscribe(mqtt_broker_handle_t* broker, const char* topic, uint16_t* me
 
     // Send the packet
     if(broker->mqttsend(broker->socketid, packet, packetLen) < packetLen) {
-        tls_mem_free(utf_topic);
-        tls_mem_free(packet);
+        luat_heap_free(utf_topic);
+        luat_heap_free(packet);
         return -1;
     }
     /*******************************************************/
-    tls_mem_free(utf_topic);
-    tls_mem_free(packet);
+    luat_heap_free(utf_topic);
+    luat_heap_free(packet);
     return 1;
 }
 
@@ -569,7 +571,7 @@ int mqtt_unsubscribe(mqtt_broker_handle_t* broker, const char* topic, uint16_t* 
     broker->seq++;
     /******************add by alex**********************************/
     // utf topic	
-    utf_topic = (uint8_t*)tls_mem_alloc( topiclen+2 );
+    utf_topic = (uint8_t*)luat_heap_malloc( topiclen+2 );
     if( utf_topic==NULL )
     {
         return -1;
@@ -587,10 +589,10 @@ int mqtt_unsubscribe(mqtt_broker_handle_t* broker, const char* topic, uint16_t* 
     fixed_header[1] = sizeof(var_header)+utf_topicLen;
 
     packetLen = sizeof(var_header)+sizeof(fixed_header)+utf_topicLen;
-    packet = (uint8_t*)tls_mem_alloc( packetLen );
+    packet = (uint8_t*)luat_heap_malloc( packetLen );
     if( packet==NULL )
     {
-        tls_mem_free(utf_topic);
+        luat_heap_free(utf_topic);
         return -1;
     }
     memset(packet, 0, packetLen);
@@ -600,13 +602,13 @@ int mqtt_unsubscribe(mqtt_broker_handle_t* broker, const char* topic, uint16_t* 
 
     // Send the packet
     if(broker->mqttsend(broker->socketid, packet, packetLen) < packetLen) {
-        tls_mem_free(utf_topic);
-        tls_mem_free(packet);
+        luat_heap_free(utf_topic);
+        luat_heap_free(packet);
         return -1;
     }
     /***************************************************************/
-    tls_mem_free(utf_topic);
-    tls_mem_free(packet);
+    luat_heap_free(utf_topic);
+    luat_heap_free(packet);
     return 1;
 }
 

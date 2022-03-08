@@ -1,4 +1,5 @@
 #include "luat_base.h"
+#include "luat_malloc.h"
 
 #include "string.h"
 
@@ -10,6 +11,12 @@
 #include "mbedtls/entropy.h"
 #include "mbedtls/ctr_drbg.h"
 #include "mbedtls/debug.h"
+
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
 
 #include "luat_libtcpip.h"
 
@@ -32,7 +39,7 @@ typedef struct luat_libtcpip_mbedtls_ssl_ctx
 static int luat_libtcpip_socket_mbedtls_ssl(int domain, int type, int protocol) {
     int ret = 0;
     const char *pers = "ssl_client1";
-    luat_libtcpip_mbedtls_ssl_ctx_t* ctx = malloc(sizeof(luat_libtcpip_mbedtls_ssl_ctx_t));
+    luat_libtcpip_mbedtls_ssl_ctx_t* ctx = luat_heap_malloc(sizeof(luat_libtcpip_mbedtls_ssl_ctx_t));
     if (ctx == NULL)
         return 0;
     mbedtls_net_init( &ctx->server_fd );
@@ -63,7 +70,7 @@ static int luat_libtcpip_socket_mbedtls_ssl(int domain, int type, int protocol) 
     return (int)ctx;
 
 fail:
-    free(ctx);
+    luat_heap_free(ctx);
     return 0;
 
 }
@@ -123,7 +130,7 @@ static int luat_libtcpip_close_mbedtls_ssl(int s) {
     mbedtls_ssl_config_free( &ctx->conf );
     mbedtls_ctr_drbg_free( &ctx->ctr_drbg );
     mbedtls_entropy_free( &ctx->entropy );
-    free(ctx);
+    luat_heap_free(ctx);
     return 0;
 }
 

@@ -404,7 +404,7 @@ LUAT_WEAK int luat_crypto_hmac_sha256_simple(const char* str, size_t str_size, c
 
 LUAT_WEAK int luat_crypto_sha512_simple(const char* str, size_t str_size, void* out_ptr) {return -1;}
 LUAT_WEAK int luat_crypto_hmac_sha512_simple(const char* str, size_t str_size, const char* mac, size_t mac_size, void* out_ptr) {return -1;}
-
+LUAT_WEAK int l_crypto_cipher_xxx(lua_State *L, uint8_t flags) {return -1;}
 LUAT_WEAK int luat_crypto_trng(char* buff, size_t len) {
     memset(buff, 0, len);
     return 0;

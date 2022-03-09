@@ -198,6 +198,56 @@ static int b_replace (lua_State *L) {
   return 1;
 }
 
+// Lua: res = bit( position )
+static int b_bit( lua_State* L )
+{
+  lua_pushinteger( L, ( lua_Integer )( 1 << (lua_Unsigned)luaL_checknumber( L, 1 ) ) );
+  return 1;
+}
+
+// Lua: res = set( value, pos1, pos2, ... )
+static int b_set( lua_State* L )
+{ 
+  lua_Unsigned val = (lua_Unsigned)luaL_checknumber( L, 1 );
+  unsigned total = lua_gettop( L ), i;
+  
+  for( i = 2; i <= total; i ++ )
+    val |= 1 << ( unsigned )luaL_checkinteger( L, i );
+  lua_pushinteger( L, ( lua_Integer )val );
+  return 1;
+}
+
+// Lua: res = clear( value, pos1, pos2, ... )
+static int b_clear( lua_State* L )
+{
+  lua_Unsigned val = (lua_Unsigned)luaL_checknumber( L, 1 );
+  unsigned total = lua_gettop( L ), i;
+  
+  for( i = 2; i <= total; i ++ )
+    val &= ~( 1 << ( unsigned )luaL_checkinteger( L, i ) );
+  lua_pushinteger( L, ( lua_Integer )val );
+  return 1; 
+}
+
+// Lua: res = isset( value, position )
+static int b_isset( lua_State* L )
+{
+  lua_Unsigned val = (lua_Unsigned)luaL_checknumber( L, 1 );
+  unsigned pos = ( unsigned )luaL_checkinteger( L, 2 );
+  
+  lua_pushboolean( L, val & ( 1 << pos ) ? 1 : 0 );
+  return 1;
+}
+
+// Lua: res = isclear( value, position )
+static int b_isclear( lua_State* L )
+{
+  lua_Unsigned val = (lua_Unsigned)luaL_checknumber( L, 1 );
+  unsigned pos = ( unsigned )luaL_checkinteger( L, 2 );
+  
+  lua_pushboolean( L, val & ( 1 << pos ) ? 0 : 1 );
+  return 1;
+}
 
 #include "rotable.h"
 static const rotable_Reg  bitlib[] = {
@@ -213,10 +263,13 @@ static const rotable_Reg  bitlib[] = {
   {"replace", b_replace, 0},
   {"rrotate", b_rrot, 0},
   {"rshift", b_rshift, 0},
+  {"bit", b_bit, 0},
+  {"set", b_set, 0},
+  {"clear", b_clear, 0},
+  {"isset", b_isset, 0},
+  {"isclear", b_isclear, 0},
   {NULL, NULL, 0}
 };
-
-
 
 LUAMOD_API int luaopen_bit32 (lua_State *L) {
   luat_newlib(L, bitlib);

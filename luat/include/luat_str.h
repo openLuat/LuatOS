@@ -11,4 +11,7 @@ int luat_str_base64_encode( unsigned char *dst, size_t dlen, size_t *olen,
 int luat_str_base64_decode( unsigned char *dst, size_t dlen, size_t *olen,
                    const unsigned char *src, size_t slen );
 
+int luat_str_base32_decode(const uint8_t *encoded, uint8_t *result, int bufSize);
+int luat_str_base32_encode(const uint8_t *data, int length, uint8_t *result,int bufSize);
+
 #endif

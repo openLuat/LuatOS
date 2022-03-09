@@ -7,6 +7,7 @@
 */
 #include "luat_base.h"
 #include "luat_crypto.h"
+#include "luat_malloc.h"
 
 #define LUAT_LOG_TAG "crypto"
 #include "luat_log.h"
@@ -364,6 +365,43 @@ static int l_crypto_trng(lua_State *L) {
     return 0;
 }
 
+/**
+计算TOTP动态密码的结果
+@api crypto.totp(secret,time)
+@string 网站提供的密钥（就是BASE32编码后的结果）
+@int 可选，时间戳，默认当前时间
+@return int 计算得出的六位数结果 计算失败返回nil
+@usage
+--使用当前系统时间计算
+local otp = crypto.totp("asdfassdfasdfass")
+ */
+static int l_crypto_totp(lua_State *L) {
+    size_t len = 0;
+    char* secret_base32 = luaL_checklstring(L,1,&len);
+
+    char * secret = (char *)luat_heap_malloc(len+1);
+    len = luat_str_base32_decode((const uint8_t * )secret_base32,(uint8_t*)secret,len+1);
+
+    uint64_t t = luaL_optinteger(L,2,time(NULL))/30;
+    uint8_t data[sizeof(t)] = {0};
+    for(int i=0;i<sizeof(t);i++)
+        data[sizeof(t)-1-i] = *(((uint8_t*)&t)+i);
+    uint8_t hmac[20] = {0};
+    if(luat_crypto_hmac_sha1_simple((const char *)data, sizeof(data), (const char *)secret, len, hmac) == 0)
+    {
+        uint8_t offset = hmac[19] & 0x0f;
+        uint32_t r = (
+                        ((uint32_t)((hmac[offset + 0] & 0x7f)) << 24) |
+                        ((uint32_t)((hmac[offset + 1] & 0xff)) << 16) |
+                        ((uint32_t)((hmac[offset + 2] & 0xff)) << 8) |
+                        ((uint32_t)(hmac[offset + 3] & 0xff))
+                    ) % 1000000;
+        lua_pushinteger(L,r);
+        return 1;
+    }
+    return 0;
+}
+
 #include "rotable.h"
 static const rotable_Reg reg_crypto[] =
 {
@@ -383,6 +421,7 @@ static const rotable_Reg reg_crypto[] =
     { "crc32",          l_crypto_crc32          ,0},
     { "crc8",           l_crypto_crc8           ,0},
     { "trng",           l_crypto_trng           ,0},
+    { "totp",           l_crypto_totp           ,0},
 	{ NULL,             NULL                    ,0}
 };
 

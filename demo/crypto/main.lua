@@ -45,6 +45,18 @@ sys.timerLoopStart(function()
     log.info("AES", "aes-128-cbc", data2_decrypt)
     log.info("mem", rtos.meminfo("sys"))
 
+
+    --totp的密钥
+    local secret = "VK54ZXPO74ISEM2E"
+    --写死时间戳用来测试
+    local ts = 1646796576
+    --生成十分钟的动态码验证下
+    for i=1,600,30 do
+        local r = crypto.totp(secret,ts+i)
+        local time = os.date("*t",ts+i + 8*3600)--东八区
+        log.info("totp",r,time.hour,time.min,time.sec)
+    end
+
 end, 2000)
 
 sys.taskInit(function()

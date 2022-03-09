@@ -101,7 +101,7 @@ static int parse_nmea(const char* line, lua_State *L) {
         } break;
 
         case MINMEA_SENTENCE_GSV: {
-            if (minmea_parse_gsv(&gnsstmp->frame_gsv, line)) {
+            if (minmea_parse_gsv(&gnsstmp->frame_gsv[0], line)) {
                 switch (gnsstmp->frame_gsv[0].msg_nr)
                 {
                 case 1:

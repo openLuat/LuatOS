@@ -602,7 +602,7 @@ int l_str_toBase32(lua_State *L) {
   }
   luaL_Buffer buff = {0};
   luaL_buffinitsize(L, &buff, len * 2);
-  int rl = luat_str_base32_encode((const uint8_t * )str,len,buff.b,buff.size);
+  int rl = luat_str_base32_encode((const uint8_t * )str,len,(uint8_t *)buff.b,buff.size);
   luaL_pushresultsize(&buff, rl);
   return 1;
 }
@@ -622,7 +622,7 @@ int l_str_fromBase32(lua_State *L) {
   }
   luaL_Buffer buff = {0};
   luaL_buffinitsize(L, &buff, len + 1);
-  int rl = luat_str_base32_decode((const uint8_t * )str,buff.b,buff.size);
+  int rl = luat_str_base32_decode((const uint8_t * )str,(uint8_t *)buff.b,buff.size);
   luaL_pushresultsize(&buff, rl);
   return 1;
 }

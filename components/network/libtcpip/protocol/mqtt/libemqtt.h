@@ -159,8 +159,8 @@ uint16_t mqtt_parse_pub_msg_ptr(const uint8_t* buf, const uint8_t** msg_ptr);
 
 
 typedef struct {
-	int socketid;    
-	int (*mqttsend)(int socket_info, const void* buf, unsigned int count);
+	void* userdata;    
+	int (*mqttsend)(void* userdata, const void* buf, unsigned int count);
 	// Connection info
 	char clientid[192];
 	// Auth fields

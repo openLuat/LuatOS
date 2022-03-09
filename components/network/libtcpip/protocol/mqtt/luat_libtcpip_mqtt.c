@@ -8,6 +8,10 @@
 #include "luat_libtcpip_mqtt.h"
 
 #include "libemqtt.h"
+#include <sys/socket.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/ip.h> /* superset of previous */
 
 #define PUB_MSG_MAGIC (0x1314)
 
@@ -36,16 +40,18 @@ static void app_mqtt_heart_timer(void *ptmr, void *parg)
 
 static int app_mqtt_close_socket(app_mqtt_ctx_t* ctx)
 {
-    int fd = ctx->broker.socketid;
+    int fd = ctx->socket_fd;
     ctx->conack_ready = LUAT_FALSE;
     // XXX 替换原有posix的API调用
     // return closesocket(fd);
     return ctx->tcp_opts->_close(fd);
 }
 
-static int app_mqtt_send_packet(int socketfd, const void *buf, unsigned int count)
+static int app_mqtt_send_packet(void* userdata, const void *buf, unsigned int count)
 {
-    app_mqtt_ctx_t* ctx = (app_mqtt_ctx_t*)socketfd;
+    app_mqtt_ctx_t* ctx = (app_mqtt_ctx_t*)userdata;
+    LLOGD("ctx %p", ctx);
+    LLOGD("send fd %d len %d", ctx->socket_fd, count);
     return ctx->tcp_opts->_send(ctx->socket_fd, buf, count, 0);
 }
 
@@ -124,12 +130,15 @@ static int app_mqtt_init_socket(app_mqtt_ctx_t* ctx)
     // Create the socket
     // XXX 替换原有posix的API调用
     // if((app_mqtt_socket_id = socket(PF_INET, SOCK_STREAM, 0)) < 0)
-    if((ctx->socket_fd = ctx->tcp_opts->_socket(LUAT_PF_INET, LUAT_SOCK_STREAM, 0)) < 0)
+    if((ctx->socket_fd = ctx->tcp_opts->_socket(PF_INET, SOCK_STREAM, 0)) < 0) {
+        LLOGE("socket create error %d", ctx->socket_fd);
         return -1;
+    }
     // Disable Nagle Algorithm
     // XXX 替换原有posix的API调用
     // if (setsockopt(app_mqtt_socket_id, IPPROTO_TCP, 0x01, (char *)&flag, sizeof(flag)) < 0)
-    if (ctx->tcp_opts->_setsockopt(ctx->socket_fd, LUAT_IPPROTO_TCP, 0x01, (char *)&flag, sizeof(flag)) < 0){
+    if (ctx->tcp_opts->_setsockopt(ctx->socket_fd, IPPROTO_TCP, 0x01, (char *)&flag, sizeof(flag)) < 0){
+        LLOGE("socket setsockopt error");
         app_mqtt_close_socket(ctx);
         return -2;
     }
@@ -138,12 +147,13 @@ static int app_mqtt_init_socket(app_mqtt_ctx_t* ctx)
     // if((connect(app_mqtt_socket_id, (struct sockaddr *)&socket_address, sizeof(socket_address))) < 0)
     // if((tcp_opts->_connect(app_mqtt_socket_id, (struct sockaddr *)&socket_address, sizeof(socket_address))) < 0)
     if(ctx->tcp_opts->_connect(ctx->socket_fd, ctx->host, ctx->port) < 0){
+        LLOGE("socket connect error");
         app_mqtt_close_socket(ctx);
-        return -1;
+        return -3;
     }
     // MQTT stuffs
     mqtt_set_alive(&ctx->broker, ctx->keepalive > 0 ? ctx->keepalive : 240);
-    ctx->broker.socketid = ctx->socket_fd;
+    ctx->broker.userdata = ctx;
     ctx->broker.mqttsend = app_mqtt_send_packet;
     //LLOGD("socket id = %d", app_mqtt_socket_id);
     return 0;
@@ -154,6 +164,7 @@ static int app_mqtt_init_inner(app_mqtt_ctx_t* ctx)
     int packet_length, ret = 0;
 
     // 将SUBACK的状态设置为未收到
+    ctx->connect_ready = LUAT_FALSE;
     ctx->conack_ready = LUAT_FALSE;
 
     // uint16_t msg_id, msg_id_rcv;
@@ -180,7 +191,8 @@ static int app_mqtt_init_inner(app_mqtt_ctx_t* ctx)
         LLOGD("mqtt_connect ret=%d", ret);
         return -5;
     }
-    LLOGD("step5: start the Heart-beat preservation timer");
+    ctx->connect_ready = LUAT_TRUE;
+    // LLOGD("step5: start the Heart-beat preservation timer");
     // ret = tls_os_timer_create(&app_mqtt_heartbeat_timer,
     //                           app_mqtt_heart_timer,
     //                           NULL, (APP_MQTT_KEEPALIVE / 3 * HZ), TRUE, NULL);
@@ -319,31 +331,14 @@ void app_mqtt_task(void *p)
     uint32_t retry_time = 2;
     app_mqtt_ctx_t* ctx = (app_mqtt_ctx_t*)p;
 
+    msg = &MQTT_QUEUE_MSG_LOOP;
+
     while (1)
     {
-        if (ctx->conack_ready == LUAT_FALSE)
+        if (ctx->connect_ready == LUAT_FALSE)
         {
             // 固定延迟2秒再启动
-            luat_timer_mdelay(2 * 1000);
-
-            // while(LUAT_TRUE != isNetworkOk())
-            // {
-            //     luat_timer_mdelay(1000);
-            // }
-
-            #ifdef USE_OTA
-            app_ota_http();
-            #endif
-
-            // while (1) {
-            //     ret = app_mqtt_authentication_get(ctx);
-            //     if (ret == 0)
-            //         break;
-            //     if (retry_time > 63)
-            //         retry_time = 2;
-            //     luat_timer_mdelay(retry_time * 1000);
-            //     retry_time = retry_time * 2;
-            // }
+            //luat_timer_mdelay(2 * 1000);
 
             ret = app_mqtt_init_inner(ctx);
             if (ret) {

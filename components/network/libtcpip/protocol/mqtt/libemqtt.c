@@ -300,7 +300,7 @@ int mqtt_connect(mqtt_broker_handle_t* broker)
         offset += passwordlen;
     }	
 
-    ret = broker->mqttsend(broker->socketid, packet, packetLen);
+    ret = broker->mqttsend(broker->userdata, packet, packetLen);
     if(ret < packetLen) {      
         luat_heap_free(fixed_header);
         luat_heap_free(packet);
@@ -319,7 +319,7 @@ int mqtt_disconnect(mqtt_broker_handle_t* broker) {
     };
 
     // Send the packet
-    if(broker->mqttsend(broker->socketid, packet, sizeof(packet)) < sizeof(packet)) {
+    if(broker->mqttsend(broker->userdata, packet, sizeof(packet)) < sizeof(packet)) {
         return -1;
     }
 
@@ -333,7 +333,7 @@ int mqtt_ping(mqtt_broker_handle_t* broker) {
     };
 
     // Send the packet
-    if(broker->mqttsend(broker->socketid, packet, sizeof(packet)) < sizeof(packet)) {
+    if(broker->mqttsend(broker->userdata, packet, sizeof(packet)) < sizeof(packet)) {
         return -1;
     }
 
@@ -451,7 +451,7 @@ int mqtt_publish_with_qos(mqtt_broker_handle_t* broker,
     memcpy(packet+fixed_headerLen+var_headerLen, msg, msgLen);
 
     // Send the packet
-    if(broker->mqttsend(broker->socketid, packet, packetLen ) < packetLen) {
+    if(broker->mqttsend(broker->userdata, packet, packetLen ) < packetLen) {
         luat_heap_free(var_header);
         luat_heap_free( fixed_header );
         luat_heap_free(packet);
@@ -475,7 +475,7 @@ int mqtt_pubrel(mqtt_broker_handle_t* broker, uint16_t message_id) {
     packet[3] = message_id&0xFF;
     /****************************************/
     // Send the packet
-    if(broker->mqttsend(broker->socketid, packet, sizeof(packet)) < sizeof(packet)) {
+    if(broker->mqttsend(broker->userdata, packet, sizeof(packet)) < sizeof(packet)) {
         return -1;
     }
 
@@ -538,7 +538,7 @@ int mqtt_subscribe(mqtt_broker_handle_t* broker, const char* topic, uint16_t* me
     memcpy(packet+sizeof(fixed_header)+sizeof(var_header), utf_topic, utf_topicLen);
 
     // Send the packet
-    if(broker->mqttsend(broker->socketid, packet, packetLen) < packetLen) {
+    if(broker->mqttsend(broker->userdata, packet, packetLen) < packetLen) {
         luat_heap_free(utf_topic);
         luat_heap_free(packet);
         return -1;
@@ -601,7 +601,7 @@ int mqtt_unsubscribe(mqtt_broker_handle_t* broker, const char* topic, uint16_t* 
     memcpy(packet+sizeof(fixed_header)+sizeof(var_header), utf_topic, utf_topicLen);
 
     // Send the packet
-    if(broker->mqttsend(broker->socketid, packet, packetLen) < packetLen) {
+    if(broker->mqttsend(broker->userdata, packet, packetLen) < packetLen) {
         luat_heap_free(utf_topic);
         luat_heap_free(packet);
         return -1;

@@ -8,6 +8,8 @@
 #include "luat_base.h"
 #include "luat_crypto.h"
 #include "luat_malloc.h"
+#include "luat_str.h"
+#include <time.h>
 
 #define LUAT_LOG_TAG "crypto"
 #include "luat_log.h"
@@ -377,12 +379,12 @@ local otp = crypto.totp("asdfassdfasdfass")
  */
 static int l_crypto_totp(lua_State *L) {
     size_t len = 0;
-    char* secret_base32 = luaL_checklstring(L,1,&len);
+    const char* secret_base32 = luaL_checklstring(L,1,&len);
 
     char * secret = (char *)luat_heap_malloc(len+1);
-    len = luat_str_base32_decode((const uint8_t * )secret_base32,(uint8_t*)secret,len+1);
+    len = (size_t)luat_str_base32_decode((const uint8_t * )secret_base32,(uint8_t*)secret,len+1);
 
-    uint64_t t = luaL_optinteger(L,2,time(NULL))/30;
+    uint64_t t = (uint64_t)(luaL_optinteger(L,2,(lua_Integer)time(NULL))/30);
     uint8_t data[sizeof(t)] = {0};
     for(int i=0;i<sizeof(t);i++)
         data[sizeof(t)-1-i] = *(((uint8_t*)&t)+i);

@@ -610,7 +610,7 @@ fdb_kv_t fdb_kv_get_obj(fdb_kvdb_t db, const char *key, fdb_kv_t kv)
     bool find_ok = false;
 
     if (!db_init_ok(db)) {
-        FDB_INFO("Error: KV (%s) isn't initialize OK.\n", db_name(db));
+        FDB_INFO("Error: KV (%s) isn't initialize OK.", db_name(db));
         return 0;
     }
 
@@ -1643,7 +1643,7 @@ fdb_err_t fdb_kvdb_init(fdb_kvdb_t db, const char *name, const char *path, struc
     }
 #endif /* FDB_KV_USING_CACHE */
 
-    FDB_DEBUG("KVDB size is %u bytes.\n", db_max_size(db));
+    FDB_DEBUG("KVDB size is %u bytes.", db_max_size(db));
 
     result = _fdb_kv_load(db);
 

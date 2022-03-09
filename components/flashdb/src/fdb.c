@@ -86,8 +86,8 @@ void _fdb_init_finish(fdb_db_t db, fdb_err_t result)
     if (result == FDB_NO_ERR) {
         db->init_ok = true;
         if (!log_is_show) {
-            FDB_INFO("FlashDB V%s is initialize success.\n", FDB_SW_VERSION);
-            FDB_INFO("You can get the latest version on https://github.com/armink/FlashDB .\n");
+            FDB_INFO("FlashDB V%s is initialize success.", FDB_SW_VERSION);
+            FDB_INFO("You can get the latest version on https://github.com/armink/FlashDB .");
             log_is_show = true;
         }
     } else if (!db->not_formatable) {

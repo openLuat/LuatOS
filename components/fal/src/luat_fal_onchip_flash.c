@@ -1,6 +1,9 @@
 #include "luat_base.h"
 #include "luat_sfd.h"
 
+#define LUAT_LOG_TAG "fal"
+#include "luat_log.h"
+
 #include "fal.h"
 
 static sfd_onchip_t onchip;
@@ -16,12 +19,15 @@ static int (onchip_flash_init)(void) {
     return sfd_onchip_init(&onchip);
 }
 static int (onchip_flash_read)(long offset, uint8_t *buf, size_t size) {
-    return sfd_onchip_read(&onchip, buf, offset, size);
+    //LLOGD("onchip_flash_read %08X %04X", offset, size);
+    return sfd_onchip_read(&onchip, (char*)buf, offset, size);
 }
 static int (onchip_flash_write)(long offset, const uint8_t *buf, size_t size) {
-    return sfd_onchip_write(&onchip, buf, offset, size);
+    //LLOGD("onchip_flash_write %08X %04X", offset, size);
+    return sfd_onchip_write(&onchip, (char*)buf, offset, size);
 }
 static int (onchip_flash_erase)(long offset, size_t size) {
+    //LLOGD("onchip_flash_write %08X %04X", offset, size);
     return sfd_onchip_erase(&onchip, offset, size);
 }
 

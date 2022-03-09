@@ -62,14 +62,17 @@ extern "C" {
 /* routine print function. Must be implement by user. */
 #define FDB_INFO(...)                  FDB_PRINT(__VA_ARGS__)
 /* assert for developer. */
-// #define FDB_ASSERT(EXPR)                                                      \
-// if (!(EXPR))                                                                  \
-// {                                                                             \
-//     FDB_DEBUG("(%s) has assert failed at %s.\n", #EXPR, __FUNCTION__);        \
-//     while (1);                                                                \
-// }
+#if 0
+#define FDB_ASSERT(EXPR)                                                      \
+if (!(EXPR))                                                                  \
+{                                                                             \
+    FDB_DEBUG("(%s) has assert failed at %s.\n", #EXPR, __FUNCTION__);        \
+    while (1);                                                                \
+}
+#else
 
 #define FDB_ASSERT(EXPR) 
+#endif
 
 #define FDB_KVDB_CTRL_SET_SEC_SIZE     0x00             /**< set sector size control command, this change MUST before database initialization */
 #define FDB_KVDB_CTRL_GET_SEC_SIZE     0x01             /**< get sector size control command */

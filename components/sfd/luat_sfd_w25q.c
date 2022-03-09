@@ -104,7 +104,7 @@ static int sfd_w25q_read (void* userdata, char* buff, size_t offset, size_t len)
 void sfd_w25q_write_enable(sfd_drv_t *drv) {
     luat_gpio_set(drv->cfg.spi.cs, 0);
     uint8_t cmd = 0x06;
-    luat_spi_send(drv->cfg.spi.id, &cmd, sizeof(cmd));
+    luat_spi_send(drv->cfg.spi.id, (const char*)&cmd, sizeof(cmd));
     luat_gpio_set(drv->cfg.spi.cs, 1);
 }
 

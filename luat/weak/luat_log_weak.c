@@ -5,8 +5,7 @@
 #include "printf.h"
 #include "luat_cmux.h"
 #include "luat_conf_bsp.h"
-extern uint8_t cmux_state;
-extern uint8_t cmux_log_state;
+
 static uint8_t luat_log_uart_port = 0;
 static uint8_t luat_log_level_cur = LUAT_LOG_DEBUG;
 

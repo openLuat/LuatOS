@@ -12,11 +12,13 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <errno.h>
 
 #define LUAT_LOG_TAG "posix"
 #include "luat_log.h"
 
 static int luat_libtcpip_socket_posix(int domain, int type, int protocol) {
+    LLOGD("create socket %d %d %d", domain, type, protocol);
     return socket(domain, type, protocol);
 }
 
@@ -68,6 +70,7 @@ static int luat_libtcpip_close_posix(int s) {
 static int luat_libtcpip_connect_posix(int s, const char *hostname, uint16_t port) {
     struct sockaddr_in socket_address;
     struct hostent *hp;
+    char tmp[32];
 
     hp = gethostbyname(hostname);
     if (hp == NULL )
@@ -75,13 +78,25 @@ static int luat_libtcpip_connect_posix(int s, const char *hostname, uint16_t por
         LLOGW("DNS Query Fail %s", hostname);
         return -2;
     }
+    else {
+        inet_ntop(hp->h_addrtype, hp->h_addr_list[0], tmp, sizeof(tmp));
+        LLOGW("DNS Query OK %s %s", hostname, tmp);
+    }
 
     memset(&socket_address, 0, sizeof(struct sockaddr_in));
     socket_address.sin_family = AF_INET;
     socket_address.sin_port = htons(port);
     memcpy(&(socket_address.sin_addr), hp->h_addr, hp->h_length);
 
-    return connect(s, &socket_address, sizeof(socket_address));
+    LLOGD("socket fd %d", s);
+
+    LLOGD("connect %s %s %d", hostname, tmp, port);
+    int ret = connect(s, &socket_address, sizeof(socket_address));
+    if (ret == -1) {
+        LLOGD("connect errno %d", errno);
+    }
+    //LLOGD("connect %s %s %d ret %d", hostname, tmp, port, ret);
+    return ret;
 }
 
 static struct hostent* luat_libtcpip_gethostbyname_posix(const char* name) {

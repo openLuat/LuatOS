@@ -38,7 +38,8 @@ typedef struct app_mqtt_ctx
     mqtt_broker_handle_t broker;
     luat_libtcpip_opts_t* tcp_opts;
     uint8_t packet_buffer[MQTT_RECV_BUF_LEN_MAX];
-    int conack_ready; // 判断是否已经连接成功
+    int conack_ready; // 判断是否收到CONACK
+    int connect_ready; // 判断连接是否已经就绪
     int socket_fd;
     int keepalive_mark;
     mqtt_publish_cb publish_cb;

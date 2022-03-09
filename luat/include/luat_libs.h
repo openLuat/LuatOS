@@ -108,5 +108,6 @@ LUAMOD_API int luaopen_camera( lua_State *L );
 LUAMOD_API int luaopen_luf( lua_State *L );
 
 LUAMOD_API int luaopen_touchkey(lua_State *L);
-
+LUAMOD_API int luaopen_softkb( lua_State *L );
+LUAMOD_API int luaopen_nes( lua_State *L );
 #endif

@@ -10,14 +10,15 @@
 #include "luat_softkeyboard.h"
 #include "luat_msgbus.h"
 
-//----------------------
+#define MAX_DEVICE_COUNT 2
+static luat_softkeyboard_conf_t softkb_conf[MAX_DEVICE_COUNT];
 
 int l_softkeyboard_handler(lua_State *L, void* ptr) {
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     lua_getglobal(L, "sys_pub");
 /*
 @sys_pub softkeyboard
-键盘矩阵消息
+软件键盘矩阵消息
 SOFT_KB_INC
 @number port, keyboard id 当前固定为0, 可以无视
 @number data, keyboard 按键 需要配合init的map进行解析
@@ -57,27 +58,27 @@ sys.subscribe("SOFT_KB_INC", function(port, data, state)
 end)
  */
 int l_softkb_init(lua_State* L) {
-    luat_softkeyboard_conf_t conf = {0};
-    conf.port = luaL_checkinteger(L,1);
+    uint8_t softkb_port = luaL_checkinteger(L,1);
+    softkb_conf[softkb_port].port = softkb_port;
     if (lua_istable(L, 2)) {
-        conf.inio_num = lua_rawlen(L, 2);
-        conf.inio = (uint8_t*)luat_heap_calloc(conf.inio_num,sizeof(uint8_t));
-        for (size_t i = 0; i < conf.inio_num; i++){
+        softkb_conf[softkb_port].inio_num = lua_rawlen(L, 2);
+        softkb_conf[softkb_port].inio = (uint8_t*)luat_heap_calloc(softkb_conf[softkb_port].inio_num,sizeof(uint8_t));
+        for (size_t i = 0; i < softkb_conf[softkb_port].inio_num; i++){
             lua_geti(L,2,i+1);
-            conf.inio[i] = luaL_checkinteger(L,-1);
+            softkb_conf[softkb_port].inio[i] = luaL_checkinteger(L,-1);
             lua_pop(L, 1);
         }
     }
     if (lua_istable(L, 3)) {
-        conf.outio_num = lua_rawlen(L, 3);
-        conf.outio = (uint8_t*)luat_heap_calloc(conf.outio_num,sizeof(uint8_t));
-        for (size_t i = 0; i < conf.outio_num; i++){
+        softkb_conf[softkb_port].outio_num = lua_rawlen(L, 3);
+        softkb_conf[softkb_port].outio = (uint8_t*)luat_heap_calloc(softkb_conf[softkb_port].outio_num,sizeof(uint8_t));
+        for (size_t i = 0; i < softkb_conf[softkb_port].outio_num; i++){
             lua_geti(L,3,i+1);
-            conf.outio[i] = luaL_checkinteger(L,-1);
+            softkb_conf[softkb_port].outio[i] = luaL_checkinteger(L,-1);
             lua_pop(L, 1);
         }
     }
-    int ret = luat_softkeyboard_init(&conf);
+    int ret = luat_softkeyboard_init(&softkb_conf[softkb_port]);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -92,9 +93,9 @@ int l_softkb_init(lua_State* L) {
 int l_softkb_deinit(lua_State* L) {
     luat_softkeyboard_conf_t conf = {0};
     uint8_t softkb_port = luaL_checkinteger(L,1);
-    int ret = luat_softkeyboard_deinit(&conf);
-    luat_heap_free(conf.inio);
-    luat_heap_free(conf.outio);
+    int ret = luat_softkeyboard_deinit(&softkb_conf[softkb_port]);
+    luat_heap_free(softkb_conf[softkb_port].inio);
+    luat_heap_free(softkb_conf[softkb_port].outio);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }

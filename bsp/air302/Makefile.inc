@@ -11,6 +11,9 @@ CFLAGS_INC    +=  -I $(LUATOS_DIR)/bsp/air302/include \
 				  -I $(LUATOS_DIR)/luat/packages/fatfs \
 				  -I $(LUATOS_DIR)/luat/packages/lfs \
 				  -I $(LUATOS_DIR)/components/lcd \
+				  -I $(LUATOS_DIR)/components/fal/inc \
+				  -I $(LUATOS_DIR)/components/flashdb/inc \
+				  -I $(LUATOS_DIR)/components/sfd \
 
 
 
@@ -28,6 +31,9 @@ LUATOS_SRC_DIRS += $(LUATOS_DIR)/lua/src \
 				    $(LUATOS_DIR)/luat/packages/fatfs \
 				    $(LUATOS_DIR)/luat/packages/lfs \
 					$(LUATOS_DIR)/components/lcd \
+				    $(LUATOS_DIR)/components/fal/src \
+				    $(LUATOS_DIR)/components/flashdb/src \
+				    $(LUATOS_DIR)/components/sfd \
 					$(LUATOS_DIR)/bsp/air302/src 
 
 

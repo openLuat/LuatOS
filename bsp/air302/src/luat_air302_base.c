@@ -56,8 +56,11 @@ static const luaL_Reg loadedlibs[] = {
   {"lpmem",   luaopen_lpmem},             // 低功耗时仍工作的内存块
   {"nbiot",   luaopen_nbiot},             // NBIOT专属模块
   {"pm",      luaopen_pm},                // 低功耗模式
-  {"http",  luaopen_http},              // http库
+  {"http",    luaopen_http},              // http库
   // {"ctiot",	luaopen_ctiot},				      // ctiot库，中国电信ctwing平台
+#ifdef LUAT_USE_FDB
+  {"fdb",     luaopen_fdb},              // kv数据库
+#endif
   {NULL, NULL}
 };
 

@@ -23,4 +23,6 @@
 
 #define LUAT_MEMORY_OPT_G_FUNCS 1
 
+#define LUAT_USE_FDB 1
+
 #endif

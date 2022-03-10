@@ -88,7 +88,22 @@ static void doswap(int swap, void *p, size_t n)
     memcpy(&a,s+i,m);			\
     i+=m;				\
     doswap(swap,&a,m);			\
-    lua_pushinteger(L,(lua_Number)a);	\
+    lua_pushinteger(L,(lua_Integer)a);	\
+    ++n;				\
+    break;				\
+   }
+
+#define UNPACKINT8(OP,T)		\
+   case OP:				\
+   {					\
+    T a;				\
+    int m=sizeof(a);			\
+    if (i+m>len) goto done;		\
+    memcpy(&a,s+i,m);			\
+    i+=m;				\
+    doswap(swap,&a,m);			\
+    int t = (a & 0x80)?(0xffffff00+a):a;\
+    lua_pushinteger(L,(lua_Integer)t);	\
     ++n;				\
     break;				\
    }
@@ -177,7 +192,7 @@ static int l_unpack(lua_State *L)
    UNPACKNUMBER(OP_DOUBLE, double)
    UNPACKNUMBER(OP_FLOAT, float)
 #endif   
-   UNPACKINT(OP_CHAR, char)
+   UNPACKINT8(OP_CHAR, char)
    UNPACKINT(OP_BYTE, unsigned char)
    UNPACKINT(OP_SHORT, short)
    UNPACKINT(OP_USHORT, unsigned short)

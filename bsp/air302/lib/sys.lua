@@ -35,27 +35,27 @@ _G.COROUTINE_ERROR_ROLL_BACK = true
 _G.COROUTINE_ERROR_RESTART = true
 
 -- 对coroutine.resume加一个修饰器用于捕获协程错误
-local rawcoresume = coroutine.resume
-sys.coresume = function(...)
-    function wrapper(co,...)
-        local arg = {...}
-        if not arg[1] then
-            local traceBack = debug.traceback(co)
-            traceBack = (traceBack and traceBack~="") and (arg[2].."\r\n"..traceBack) or arg[2]
-            log.error("coroutine.resume",traceBack)
-            if errDump and type(errDump.appendErr)=="function" then
-                errDump.appendErr(traceBack)
-            end
-            if _G.COROUTINE_ERROR_ROLL_BACK then
-                sys.timerStart(assert,500,false,traceBack)
-            elseif _G.COROUTINE_ERROR_RESTART then
-                rtos.reboot()
-            end
-        end
-        return ...
-    end
+--local rawcoresume = coroutine.resume
+local function wrapper(co,...)
     local arg = {...}
-    return wrapper(arg[1], rawcoresume(...))
+    if not arg[1] then
+        local traceBack = debug.traceback(co)
+        traceBack = (traceBack and traceBack~="") and (arg[2].."\r\n"..traceBack) or arg[2]
+        log.error("coroutine.resume",traceBack)
+        --if errDump and type(errDump.appendErr)=="function" then
+        --    errDump.appendErr(traceBack)
+        --end
+        if _G.COROUTINE_ERROR_ROLL_BACK then
+            sys.timerStart(assert,500,false,traceBack)
+        elseif _G.COROUTINE_ERROR_RESTART then
+            rtos.reboot()
+        end
+    end
+    return ...
+end
+sys.coresume = function(...)
+    local arg = {...}
+    return wrapper(arg[1], coroutine.resume(...))
 end
 
 --- Task任务延时函数，只能用于任务函数中
@@ -83,8 +83,8 @@ function sys.wait(ms)
     if 1 ~= rtos.timer_start(timerid, ms) then log.debug("rtos.timer_start error") return end
     -- 挂起调用的任务线程
     local message = {coroutine.yield()}
+    rtos.timer_stop(timerid)
     if #message ~= 0 then
-        rtos.timer_stop(timerid)
         taskTimerPool[coroutine.running()] = nil
         timerPool[timerid] = nil
         return unpack(message)
@@ -102,6 +102,14 @@ function sys.waitUntil(id, ms)
     local message = ms and {sys.wait(ms)} or {coroutine.yield()}
     sys.unsubscribe(id, coroutine.running())
     return message[1] ~= nil, unpack(message, 2, #message)
+end
+
+--- 同上，但不返回等待结果
+function sys.waitUntilMsg(id)
+    sys.subscribe(id, coroutine.running())
+    local message = {coroutine.yield()}
+    sys.unsubscribe(id, coroutine.running())
+    return unpack(message, 2, #message)
 end
 
 --- Task任务的条件等待函数扩展（包括事件消息和定时器消息等条件），只能用于任务函数中。
@@ -297,7 +305,6 @@ function sys.unsubscribe(id, callback)
     end
     if subscribers[id] then subscribers[id][callback] = nil end
     -- 判断消息是否无其他订阅
-    log.info("abc", ">>>>>>>>>>>>>>>>>>")
     for k, _ in pairs(subscribers[id]) do
         return
     end
@@ -400,6 +407,44 @@ function sys.run()
 end
 
 _G.sys_pub = sys.publish
+
+--提供给异步c接口使用
+sys.cwaitMt = {
+    wait = function(t,r)
+        return function()
+            if r and type(r) == "table" then--新建等待失败的返回
+                return table.unpack(r)
+            end
+            return sys.waitUntilMsg(t)
+        end
+    end,
+    cb = function(t,r)
+        return function(f)
+            if type(f) ~= "function" then return end
+            sys.taskInit(function ()
+                if r and type(r) == "table" then
+                    --sys.wait(1)--如果回调里调用了sys.publish，直接调用回调，会触发不了下一行的吧。。。
+                    f(table.unpack(r))
+                    return
+                end
+                f(sys.waitUntilMsg(t))
+            end)
+        end
+    end,
+}
+sys.cwaitMt.__index = function(t,i)
+    if sys.cwaitMt[i] then
+        return sys.cwaitMt[i](rawget(t,"w"),rawget(t,"r"))
+    else
+        rawget(t,i)
+    end
+end
+_G.sys_cw = function (w,...)
+    local r = {...}
+    local t = {w=w,r=(#r > 0 and r or nil)}
+    setmetatable(t,sys.cwaitMt)
+    return t
+end
 
 return sys
 ----------------------------

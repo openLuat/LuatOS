@@ -270,7 +270,7 @@ static int l_zbuff_read(lua_State *L)
 }
 
 /**
-zbuff清空数据
+zbuff清空数据，类似于memset
 @api buff:clear(num)
 @int 可选，默认为0。要设置为的值，不会改变buff指针位置
 @usage
@@ -492,6 +492,22 @@ static int l_zbuff_pack(lua_State *L)
         ++n;                                \
         break;                              \
     }
+
+#define UNPACKINT8(OP,T)		\
+	case OP:				\
+	{					\
+		T a;				\
+		int m=sizeof(a);			\
+		if (i+m>len) goto done;		\
+		memcpy(&a,s+i,m);			\
+		i+=m;				\
+		doswap(swap,&a,m);			\
+		int t = (a & 0x80)?(0xffffff00+a):a;\
+		lua_pushinteger(L,(lua_Integer)t);	\
+		++n;				\
+		break;				\
+	}
+
 #define UNPACKNUMBER(OP, T)               \
     case OP:                              \
     {                                     \
@@ -566,7 +582,7 @@ static int l_zbuff_unpack(lua_State *L)
             UNPACKNUMBER(OP_NUMBER, lua_Number)
             UNPACKNUMBER(OP_DOUBLE, double)
             UNPACKNUMBER(OP_FLOAT, float)
-            UNPACKINT(OP_CHAR, char)
+			UNPACKINT8(OP_CHAR, char)
             UNPACKINT(OP_BYTE, unsigned char)
             UNPACKINT(OP_SHORT, short)
             UNPACKINT(OP_USHORT, unsigned short)
@@ -975,6 +991,336 @@ static int l_zbuff_gc(lua_State *L)
     return 0;
 }
 
+static int __zbuff_resize(luat_zbuff_t *buff, uint32_t new_size)
+{
+	void *p = luat_heap_malloc(new_size);
+	if (p)
+	{
+		memcpy(p, buff->addr, (new_size > buff->cursor)?buff->cursor:new_size);
+		luat_heap_free(buff->addr);
+		buff->addr = p;
+		buff->len = new_size;
+		return 0;
+	}
+	else
+	{
+		return -1;
+	}
+}
+
+/**
+调整zbuff的大小
+@api buff:resize(n)
+@int 新空间大小
+@return 无
+@usage
+buff:resize(20)
+ */
+static int l_zbuff_resize(lua_State *L)
+{
+	luat_zbuff_t *buff = tozbuff(L);
+	if (lua_isinteger(L, 2))
+	{
+		uint32_t n = luaL_checkinteger(L, 2);
+		__zbuff_resize(buff, n);
+	}
+	return 0;
+}
+
+/**
+zbuff动态写数据，类似于memcpy效果，当原有空间不足时动态扩大空间
+@api buff:copy(cursor, para,...)
+@int 写入buff的起始位置，如果不为数字，则为buff的cursor，如果小于0，则从cursor往前数，-1 = cursor - 1
+@any 写入buff的数据，string或zbuff者时为一个参数，number时可为多个参数
+@return number 数据成功写入的长度
+@usage
+local len = buff:copy(nil, "123") -- 从buff当前指针位置开始写入数据, 指针相应地往后移动，返回写入的数据长度
+local len = buff:copy(0, "123") -- 从位置0写入数据, 返回写入的数据长度
+local len = buff:copy(2, 0x1a,0x30,0x31,0x32,0x00,0x01)  -- 从位置2开始，按数值写入多个字节数据
+local len = buff:copy(9, buff2)  -- 从位置9开始，合并入buff2里内容
+ */ int l_zbuff_copy(lua_State *L)
+{
+	luat_zbuff_t *buff = tozbuff(L);
+	int temp_cursor = luaL_optinteger(L, 2, buff->cursor);
+	if (temp_cursor < 0)
+	{
+		temp_cursor = buff->cursor + temp_cursor;
+		if (temp_cursor < 0)
+		{
+			lua_pushinteger(L, 0);
+			return 1;
+		}
+	}
+    if (lua_isinteger(L, 3))
+    {
+        int len = 0;
+        int data = 0;
+        while (lua_isinteger(L, 3 + len))
+        {
+        	if (temp_cursor > buff->len)
+        	{
+        		if (__zbuff_resize(buff, temp_cursor * 2))
+        		{
+        	        lua_pushinteger(L, len);
+        	        return 1;
+        		}
+        	}
+            data = luaL_checkinteger(L, 3 + len);
+            *(uint8_t *)(buff->addr + temp_cursor) = data % 0x100;
+            temp_cursor++;
+            len++;
+        }
+        buff->cursor = (temp_cursor > buff->cursor)?temp_cursor:buff->cursor;
+        lua_pushinteger(L, len);
+        return 1;
+    }
+    else if (lua_isstring(L, 3))
+    {
+        size_t len;
+        const char *data = luaL_checklstring(L, 3, &len);
+        if (len + temp_cursor > buff->len) //防止越界
+        {
+        	if (__zbuff_resize(buff, buff->len + len + temp_cursor))
+        	{
+    	        lua_pushinteger(L, 0);
+    	        return 1;
+        	}
+        }
+        memcpy(buff->addr + temp_cursor, data, len);
+        temp_cursor = temp_cursor + len;
+        buff->cursor = (temp_cursor > buff->cursor)?temp_cursor:buff->cursor;
+        lua_pushinteger(L, len);
+        return 1;
+    }
+    else if (lua_isuserdata(L, 3))
+    {
+        luat_zbuff_t *copy_buff = ((luat_zbuff_t *)luaL_checkudata(L, 3, LUAT_ZBUFF_TYPE));
+        if (copy_buff->cursor + temp_cursor > buff->len) //防止越界
+        {
+        	if (__zbuff_resize(buff, buff->len + copy_buff->cursor + temp_cursor))
+        	{
+    	        lua_pushinteger(L, 0);
+    	        return 1;
+        	}
+        }
+        memcpy(buff->addr + temp_cursor, copy_buff->addr, copy_buff->cursor);
+        buff->cursor = buff->cursor + copy_buff->cursor;
+        buff->cursor = (temp_cursor > buff->cursor)?temp_cursor:buff->cursor;
+        lua_pushinteger(L, copy_buff->cursor);
+        return 1;
+    }
+    lua_pushinteger(L, 0);
+    return 1;
+}
+
+/**
+获取zbuff的实际数据量大小
+@api buff:size()
+@return zbuff的实际数据量大小
+@usage
+buff:size()
+*/
+static int l_zbuff_size(lua_State *L)
+{
+	luat_zbuff_t *buff = tozbuff(L);
+    lua_pushinteger(L, buff->cursor);
+    return 1;
+}
+
+/**
+删除zbuff 0~cursor范围内的一段数据，
+@api buff:del(offset,length)
+@int 起始位置, 默认0，如果<0则从cursor往前数，-1 = cursor - 1
+@int 长度，默认为cursor
+@return 无
+@usage
+buff:del(1,4)	--从位置1开始删除4个字节数据
+*/
+static int l_zbuff_del(lua_State *L)
+{
+    luat_zbuff_t *buff = tozbuff(L);
+    int start = luaL_optinteger(L, 2, 0);
+    if (start >= buff->cursor)
+        return 0;
+    if (start < 0)
+    {
+    	start += buff->cursor;
+    	if (start < 0)
+    	{
+    		return 0;
+    	}
+    }
+    uint32_t len = luaL_optinteger(L, 3, buff->cursor);
+    if (start + len > buff->cursor)
+        len = buff->cursor - start;
+    if (!len)
+    {
+    	return 0;
+    }
+    if ((start + len) == buff->cursor)
+    {
+    	buff->cursor = start;
+    }
+    else
+    {
+		uint32_t rest = buff->cursor - len;
+		memmove(buff->addr + start, buff->addr + start + len, rest);
+		buff->cursor = rest;
+    }
+
+    return 0;
+}
+
+static uint32_t BytesGetBe32(const void *ptr)
+{
+    const uint8_t *p = (const uint8_t *)ptr;
+    return (p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3];
+}
+
+static uint32_t BytesGetLe32(const void *ptr)
+{
+    const uint8_t *p = (const uint8_t *)ptr;
+    return p[0] | (p[1] << 8) | (p[2] << 16) | (p[3] << 24);
+}
+
+/**
+按起始位置和长度0~cursor范围内取出数据，如果是1,2,4,8字节，根据后续参数转换成浮点或者整形
+@api buff:query(offset,length,isbigend,issigned,isfloat)
+@int 数据的起始位置（起始位置为0）
+@int 数据的长度
+@boolean 是否是大端格式，如果为nil，则不会转换，直接字节流输出
+@boolean 是否是有符号的，默认为false
+@boolean 是否是浮点型，默认为false
+@return string 读出来的数据
+@usage
+local s = buff:query(0,5)--读取开头的五个字节数据
+ */
+static int l_zbuff_query(lua_State *L)
+{
+    luat_zbuff_t *buff = tozbuff(L);
+    int start = luaL_optinteger(L, 2, 0);
+    if (start < 0)
+    {
+    	start += buff->cursor;
+    	if (start < 0)
+    	{
+    		lua_pushnil(L);
+    		return 1;
+    	}
+    }
+    if (start > buff->cursor)
+        start = buff->cursor;
+    uint32_t len = luaL_optinteger(L, 3, buff->cursor);
+    if (start + len > buff->cursor)
+        len = buff->cursor - start;
+    if (!len)
+    {
+		lua_pushnil(L);
+		return 1;
+    }
+    if (lua_isboolean(L, 4) && (len <= 8))
+    {
+    	int is_bigend = lua_toboolean(L, 4);
+    	int is_float = 0;
+    	int is_signed = 0;
+    	if (lua_isboolean(L, 5))
+    	{
+    		is_signed = lua_toboolean(L, 5);
+    	}
+    	if (lua_isboolean(L, 6))
+    	{
+    		is_float = lua_toboolean(L, 6);
+    	}
+    	uint8_t *p = buff->addr + start;
+    	uint8_t uc;
+    	int16_t s;
+    	uint16_t us;
+    	int32_t i;
+    	uint32_t ui;
+    	int64_t l;
+    	float f;
+    	double d;
+    	switch(len)
+    	{
+    	case 1:
+    		if (is_signed)
+    		{
+    			i = (p[0] & 0x80)?(p[0] + 0xffffff00):p[0];
+    			lua_pushinteger(L, i);
+    		}
+    		else
+    		{
+    			uc = p[0];
+    			lua_pushinteger(L, uc);
+    		}
+    		break;
+    	case 2:
+    		if (is_bigend)
+    		{
+    			us = (p[0] << 8) | p[1];
+    		}
+    		else
+    		{
+    			us = (p[1] << 8) | p[0];
+    		}
+    		if (is_signed)
+    		{
+    			s = us;
+    			lua_pushinteger(L, s);
+    		}
+    		else
+    		{
+    			lua_pushinteger(L, us);
+    		}
+    		break;
+    	case 4:
+    		if (is_float)
+    		{
+    			memcpy(&f, p, len);
+    			lua_pushnumber(L, f);
+    		}
+    		else
+    		{
+        		if (is_bigend)
+        		{
+        			i = BytesGetBe32(p);
+        		}
+        		else
+        		{
+        			i = BytesGetLe32(p);
+        		}
+        		lua_pushinteger(L, i);
+    		}
+
+    		break;
+    	case 8:
+    		if (is_float)
+    		{
+    			memcpy(&d, p, len);
+    			lua_pushnumber(L, d);
+    		}
+    		else
+    		{
+        		if (is_bigend)
+        		{
+        			l = BytesGetBe32(p + 4) | ((int64_t)BytesGetBe32(p) << 32);
+        		}
+        		else
+        		{
+        			l = BytesGetLe32(p) | ((int64_t)BytesGetLe32(p + 4) << 32);
+        		}
+        		lua_pushinteger(L, l);
+    		}
+    		break;
+    	default:
+    		lua_pushnil(L);
+    	}
+    	return 1;
+    }
+    lua_pushlstring(L, (const char*)(buff->addr + start), len);
+    return 1;
+}
+
 static const luaL_Reg lib_zbuff[] = {
     {"write", l_zbuff_write},
     {"read", l_zbuff_read},
@@ -1014,6 +1360,12 @@ static const luaL_Reg lib_zbuff[] = {
     //{"__len", l_zbuff_len},
     //{"__newindex", l_zbuff_newindex},
     //{"__gc", l_zbuff_gc},
+
+	{"copy", l_zbuff_copy},
+	{"query",l_zbuff_query},
+	{"del", l_zbuff_del},
+	{"resize", l_zbuff_resize},
+	{"size", l_zbuff_size},
     {NULL, NULL}};
 
 static int luat_zbuff_meta_index(lua_State *L) {

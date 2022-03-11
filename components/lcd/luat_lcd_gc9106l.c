@@ -40,8 +40,8 @@ static int gc9106l_init(luat_lcd_conf_t* conf) {
 
     lcd_write_cmd(conf,0x21);
     lcd_write_cmd(conf,0x36);
-    if(conf->direction==0)lcd_write_data(conf,0x08);
-    else if(conf->direction==1)lcd_write_data(conf,0xC8);
+    if(conf->direction==0)lcd_write_data(conf,0xC8);
+    else if(conf->direction==1)lcd_write_data(conf,0x08);
     else if(conf->direction==2)lcd_write_data(conf,0x68);
     else lcd_write_data(conf,0xA8);
 

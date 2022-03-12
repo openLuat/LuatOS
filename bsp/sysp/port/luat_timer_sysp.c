@@ -5,7 +5,7 @@
 #include "luat_msgbus.h"
 
 
-#define LUAT_LOG_TAG "luat.timer"
+#define LUAT_LOG_TAG "timer"
 #include "luat_log.h"
 
 #define TIMER_COUNT 32

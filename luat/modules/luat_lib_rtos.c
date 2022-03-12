@@ -47,8 +47,8 @@ static int l_timer_handler(lua_State *L, void* ptr) {
     //lua_pushinteger(L, timer->timeout);
     if (timer->repeat == 0) {
         // LLOGD("l_timer_handler stop id=%ld\n", timer->id);
-        //luat_timer_stop(timer);
-        //luat_heap_free(timer);
+        luat_timer_stop(timer);
+        luat_heap_free(timer);
     }
     else if (timer->repeat > 0) {
         timer->repeat --;

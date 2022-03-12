@@ -107,6 +107,7 @@ LUAMOD_API int luaopen_zlib( lua_State *L );
 LUAMOD_API int luaopen_camera( lua_State *L );
 LUAMOD_API int luaopen_multimedia_audio( lua_State *L );
 LUAMOD_API int luaopen_multimedia_video( lua_State *L );
+LUAMOD_API int luaopen_multimedia_decode( lua_State *L );
 LUAMOD_API int luaopen_luf( lua_State *L );
 
 LUAMOD_API int luaopen_touchkey(lua_State *L);

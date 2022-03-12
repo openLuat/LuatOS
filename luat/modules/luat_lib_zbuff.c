@@ -991,7 +991,7 @@ static int l_zbuff_gc(lua_State *L)
     return 0;
 }
 
-static int __zbuff_resize(luat_zbuff_t *buff, uint32_t new_size)
+int __zbuff_resize(luat_zbuff_t *buff, uint32_t new_size)
 {
 	void *p = luat_heap_malloc(new_size);
 	if (p)

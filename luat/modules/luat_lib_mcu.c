@@ -73,6 +73,20 @@ static int l_mcu_ticks(lua_State* L) {
     return 1;
 }
 
+/*
+获取每秒的tick数量
+@api mcu.hz()
+@return int 每秒的tick数量
+@usage
+local tick = mcu.hz()
+print("mcu.hz", hz)
+*/
+static int l_mcu_hz(lua_State* L) {
+    uint32_t hz = luat_mcu_hz();
+    lua_pushinteger(L, hz);
+    return 1;
+}
+
 
 #include "rotable.h"
 static const rotable_Reg reg_mcu[] =
@@ -81,6 +95,7 @@ static const rotable_Reg reg_mcu[] =
     { "getClk",         l_mcu_get_clk,  0},
     { "unique_id",      l_mcu_unique_id, 0},
     { "ticks",          l_mcu_ticks, 0},
+    { "hz",             l_mcu_hz, 0},
 	{ NULL,          NULL ,       0}
 };
 

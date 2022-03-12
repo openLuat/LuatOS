@@ -19,6 +19,9 @@ void luat_lcd_execute_cmds(luat_lcd_conf_t* conf, uint32_t* cmds, uint32_t count
     {
         cmd = cmds[i];
         switch(((cmd >> 16) & 0xFFFF)) {
+            case 0x0000 :
+                lcd_write_cmd(conf, (const uint8_t)(cmd & 0xFF));
+                break;
             case 0x0001 :
                 luat_timer_mdelay(cmd & 0xFF);
                 break;

@@ -162,7 +162,7 @@ function prtmb.setup_scr_prtmb(ui)
 	lvgl.obj_set_pos(ui.prtmb_img, 235, 83);
 	lvgl.obj_set_size(ui.prtmb_img, 25, 25);
 	lvgl.obj_set_click(ui.prtmb_img, true);
-	lvgl.img_set_src(ui.prtmb_img,"/images/wave_alpha_25x25png");
+	lvgl.img_set_src(ui.prtmb_img,"/images/wave_alpha_25x25.png");
 	lvgl.img_set_pivot(ui.prtmb_img, 0,0);
 	lvgl.img_set_angle(ui.prtmb_img, 0);
 

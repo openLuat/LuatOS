@@ -74,7 +74,20 @@ static int l_mcu_ticks(lua_State* L) {
 }
 
 /*
-获取启动后的真实tick
+获取每秒的tick数量
+@api mcu.hz()
+@return int 每秒的tick数量
+@usage
+local tick = mcu.hz()
+print("mcu.hz", hz)
+*/
+static int l_mcu_hz(lua_State* L) {
+    uint32_t hz = luat_mcu_hz();
+    lua_pushinteger(L, hz);
+    return 1;
+}
+/*
+获取启动后的高精度tick
 @api mcu.tick64()
 @return string 当前tick值，8个字节的uint64
 @return int tick的频率，0表示未知
@@ -82,7 +95,7 @@ static int l_mcu_ticks(lua_State* L) {
 local tick_str, tick_per = mcu.tick64()
 print("ticks", tick)
 */
-static int l_mcu_tick64(lua_State* L) {
+static int l_mcu_hw_tick64(lua_State* L) {
 #ifdef __LUATOS_TICK_64BIT__
     uint64_t tick = luat_mcu_tick64();
     uint32_t tick_period = luat_mcu_tick_period();
@@ -95,6 +108,7 @@ static int l_mcu_tick64(lua_State* L) {
     return 2;
 }
 
+
 #include "rotable.h"
 static const rotable_Reg reg_mcu[] =
 {
@@ -102,7 +116,8 @@ static const rotable_Reg reg_mcu[] =
     { "getClk",         l_mcu_get_clk,  0},
     { "unique_id",      l_mcu_unique_id, 0},
     { "ticks",          l_mcu_ticks, 0},
-	{ "tick64",			l_mcu_tick64, 0},
+    { "hz",             l_mcu_hz, 0},
+	{ "tick64",			l_mcu_hw_tick64, 0},
 	{ NULL,          NULL ,       0}
 };
 

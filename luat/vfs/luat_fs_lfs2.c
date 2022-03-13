@@ -17,27 +17,35 @@ FILE* luat_vfs_lfs2_fopen(void* userdata, const char *filename, const char *mode
     lfs_t* fs = (lfs_t*)userdata;
     lfs_file_t *file = (lfs_file_t*)luat_heap_malloc(sizeof(lfs_file_t));
     int flag = 0;
-    for (size_t i = 0; i < strlen(mode); i++)
-    {
-        char m = *(mode + i);
-        switch (m)
-        {
-        case 'r':
-            flag |= LFS_O_RDONLY;
-            break;
-        case 'w':
-            flag |= LFS_O_RDWR | LFS_O_CREAT | LFS_O_TRUNC;
-            break;
-        case 'a':
-            flag |= LFS_O_APPEND;
-            break;
-        case '+':
-            flag |= LFS_O_APPEND;
-            break;
-        
-        default:
-            break;
-        }
+/*
+"r": 读模式（默认）；
+"w": 写模式；
+"a": 追加模式；
+"r+": 更新模式，所有之前的数据都保留；
+"w+": 更新模式，所有之前的数据都删除；
+"a+": 追加更新模式，所有之前的数据都保留，只允许在文件尾部做写入。
+*/
+    if (!strcmp("r+", mode) || !strcmp("r+b", mode)) {
+        flag = LFS_O_RDWR | LFS_O_CREAT;
+    }
+    else if(!strcmp("w+", mode) || !strcmp("w+b", mode)) {
+        flag = LFS_O_RDWR | LFS_O_CREAT | LFS_O_TRUNC;
+    }
+    else if(!strcmp("a+", mode) || !strcmp("a+b", mode)) {
+        flag = LFS_O_APPEND | LFS_O_CREAT;
+    }
+    else if(!strcmp("w", mode) || !strcmp("wb", mode)) {
+        flag = LFS_O_RDWR | LFS_O_CREAT | LFS_O_TRUNC;
+    }
+    else if(!strcmp("r", mode) || !strcmp("rb", mode)) {
+        flag = LFS_O_RDONLY;
+    }
+    else if(!strcmp("a", mode) || !strcmp("ab", mode)) {
+        flag = LFS_O_APPEND | LFS_O_CREAT;
+    }
+    else {
+        LLOGW("bad file open mode %s, fallback to 'r'", mode);
+        flag = LFS_O_RDONLY;
     }
     int ret = lfs_file_open(fs, file, filename, flag);
     if (ret < 0) {

@@ -156,7 +156,7 @@ static const rotable_Reg reg_dac[] =
 {
     { "open" ,       l_dac_open , 0},
     { "write" ,      l_dac_write , 0},
-    { "writeFile",   l_dac_write_file,0},
+//    { "writeFile",   l_dac_write_file,0},
     { "close" ,      l_dac_close, 0},
 	{ NULL,          NULL ,       0}
 };

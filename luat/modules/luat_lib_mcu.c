@@ -73,6 +73,27 @@ static int l_mcu_ticks(lua_State* L) {
     return 1;
 }
 
+/*
+获取启动后的真实tick
+@api mcu.tick64()
+@return string 当前tick值，8个字节的uint64
+@return int tick的频率，0表示未知
+@usage
+local tick_str, tick_per = mcu.tick64()
+print("ticks", tick)
+*/
+static int l_mcu_tick64(lua_State* L) {
+#ifdef __LUATOS_TICK_64BIT__
+    uint64_t tick = luat_mcu_tick64();
+    uint32_t tick_period = luat_mcu_tick_period();
+#else
+    uint64_t tick = luat_mcu_ticks();
+    uint32_t tick_period = 0;
+#endif
+    lua_pushlstring(L, &tick, 8);
+    lua_pushinteger(L, tick_period);
+    return 2;
+}
 
 #include "rotable.h"
 static const rotable_Reg reg_mcu[] =
@@ -81,6 +102,7 @@ static const rotable_Reg reg_mcu[] =
     { "getClk",         l_mcu_get_clk,  0},
     { "unique_id",      l_mcu_unique_id, 0},
     { "ticks",          l_mcu_ticks, 0},
+	{ "tick64",			l_mcu_tick64, 0},
 	{ NULL,          NULL ,       0}
 };
 

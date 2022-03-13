@@ -49,6 +49,14 @@ sys.taskInit(function()
     log.info("fdb", "my_str_int",     type(fdb.kv_get("my_str_int")),   fdb.kv_get("my_str_int"))
     log.info("fdb", "1 byte key",     type(fdb.kv_get("1")),   json.encode(fdb.kv_get("1")))
 
+    -- 删除测试
+    fdb.kv_del("my_bool")
+    log.info("fdb", "my_bool",      type(fdb.kv_get("my_bool")),    fdb.kv_get("my_bool"))
+
+    while true do
+        sys.wait(100)
+    end
+
 end)
 
 -- 用户代码已结束---------------------------------------------

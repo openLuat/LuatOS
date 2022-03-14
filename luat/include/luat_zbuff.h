@@ -12,7 +12,11 @@
 typedef struct luat_zbuff {
     uint8_t* addr;      //数据存储的地址
     size_t len;       //数据的长度
-    size_t cursor;    //目前的指针位置
+    union {
+    	size_t cursor;    //目前的指针位置
+    	size_t used;	//已经保存的数据量
+    };
+
     uint32_t width; //宽度
     uint32_t height;//高度
     uint8_t bit;    //色深度

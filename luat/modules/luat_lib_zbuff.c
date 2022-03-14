@@ -996,10 +996,11 @@ int __zbuff_resize(luat_zbuff_t *buff, uint32_t new_size)
 	void *p = luat_heap_malloc(new_size);
 	if (p)
 	{
-		memcpy(p, buff->addr, (new_size > buff->cursor)?buff->cursor:new_size);
+		memcpy(p, buff->addr, (new_size > buff->used)?buff->used:new_size);
 		luat_heap_free(buff->addr);
 		buff->addr = p;
 		buff->len = new_size;
+		buff->used = (buff->len > buff->used)?buff->used:buff->len;
 		return 0;
 	}
 	else
@@ -1029,8 +1030,8 @@ static int l_zbuff_resize(lua_State *L)
 
 /**
 zbuff动态写数据，类似于memcpy效果，当原有空间不足时动态扩大空间
-@api buff:copy(cursor, para,...)
-@int 写入buff的起始位置，如果不为数字，则为buff的cursor，如果小于0，则从cursor往前数，-1 = cursor - 1
+@api buff:copy(start, para,...)
+@int 写入buff的起始位置，如果不为数字，则为buff的used，如果小于0，则从used往前数，-1 = used - 1
 @any 写入buff的数据，string或zbuff者时为一个参数，number时可为多个参数
 @return number 数据成功写入的长度
 @usage
@@ -1038,13 +1039,14 @@ local len = buff:copy(nil, "123") -- 从buff当前指针位置开始写入数据
 local len = buff:copy(0, "123") -- 从位置0写入数据, 返回写入的数据长度
 local len = buff:copy(2, 0x1a,0x30,0x31,0x32,0x00,0x01)  -- 从位置2开始，按数值写入多个字节数据
 local len = buff:copy(9, buff2)  -- 从位置9开始，合并入buff2里内容
- */ int l_zbuff_copy(lua_State *L)
+ */
+static int l_zbuff_copy(lua_State *L)
 {
 	luat_zbuff_t *buff = tozbuff(L);
-	int temp_cursor = luaL_optinteger(L, 2, buff->cursor);
+	int temp_cursor = luaL_optinteger(L, 2, buff->used);
 	if (temp_cursor < 0)
 	{
-		temp_cursor = buff->cursor + temp_cursor;
+		temp_cursor = buff->used + temp_cursor;
 		if (temp_cursor < 0)
 		{
 			lua_pushinteger(L, 0);
@@ -1070,7 +1072,7 @@ local len = buff:copy(9, buff2)  -- 从位置9开始，合并入buff2里内容
             temp_cursor++;
             len++;
         }
-        buff->cursor = (temp_cursor > buff->cursor)?temp_cursor:buff->cursor;
+        buff->used = (temp_cursor > buff->used)?temp_cursor:buff->used;
         lua_pushinteger(L, len);
         return 1;
     }
@@ -1088,25 +1090,25 @@ local len = buff:copy(9, buff2)  -- 从位置9开始，合并入buff2里内容
         }
         memcpy(buff->addr + temp_cursor, data, len);
         temp_cursor = temp_cursor + len;
-        buff->cursor = (temp_cursor > buff->cursor)?temp_cursor:buff->cursor;
+        buff->used = (temp_cursor > buff->used)?temp_cursor:buff->used;
         lua_pushinteger(L, len);
         return 1;
     }
     else if (lua_isuserdata(L, 3))
     {
         luat_zbuff_t *copy_buff = ((luat_zbuff_t *)luaL_checkudata(L, 3, LUAT_ZBUFF_TYPE));
-        if (copy_buff->cursor + temp_cursor > buff->len) //防止越界
+        if (copy_buff->used + temp_cursor > buff->len) //防止越界
         {
-        	if (__zbuff_resize(buff, buff->len + copy_buff->cursor + temp_cursor))
+        	if (__zbuff_resize(buff, buff->len + copy_buff->used + temp_cursor))
         	{
     	        lua_pushinteger(L, 0);
     	        return 1;
         	}
         }
-        memcpy(buff->addr + temp_cursor, copy_buff->addr, copy_buff->cursor);
-        buff->cursor = buff->cursor + copy_buff->cursor;
-        buff->cursor = (temp_cursor > buff->cursor)?temp_cursor:buff->cursor;
-        lua_pushinteger(L, copy_buff->cursor);
+        memcpy(buff->addr + temp_cursor, copy_buff->addr, copy_buff->used);
+        temp_cursor += copy_buff->used;
+        buff->used = (temp_cursor > buff->used)?temp_cursor:buff->used;
+        lua_pushinteger(L, copy_buff->used);
         return 1;
     }
     lua_pushinteger(L, 0);
@@ -1115,22 +1117,22 @@ local len = buff:copy(9, buff2)  -- 从位置9开始，合并入buff2里内容
 
 /**
 获取zbuff的实际数据量大小
-@api buff:size()
+@api buff:used()
 @return zbuff的实际数据量大小
 @usage
-buff:size()
+buff:used()
 */
-static int l_zbuff_size(lua_State *L)
+static int l_zbuff_used(lua_State *L)
 {
 	luat_zbuff_t *buff = tozbuff(L);
-    lua_pushinteger(L, buff->cursor);
+    lua_pushinteger(L, buff->used);
     return 1;
 }
 
 /**
-删除zbuff 0~cursor范围内的一段数据，
+删除zbuff 0~used范围内的一段数据，
 @api buff:del(offset,length)
-@int 起始位置, 默认0，如果<0则从cursor往前数，-1 = cursor - 1
+@int 起始位置, 默认0，如果<0则从used往前数，-1 = used - 1
 @int 长度，默认为cursor
 @return 无
 @usage
@@ -1140,32 +1142,32 @@ static int l_zbuff_del(lua_State *L)
 {
     luat_zbuff_t *buff = tozbuff(L);
     int start = luaL_optinteger(L, 2, 0);
-    if (start >= buff->cursor)
+    if (start >= buff->used)
         return 0;
     if (start < 0)
     {
-    	start += buff->cursor;
+    	start += buff->used;
     	if (start < 0)
     	{
     		return 0;
     	}
     }
-    uint32_t len = luaL_optinteger(L, 3, buff->cursor);
-    if (start + len > buff->cursor)
-        len = buff->cursor - start;
+    uint32_t len = luaL_optinteger(L, 3, buff->used);
+    if (start + len > buff->used)
+        len = buff->used - start;
     if (!len)
     {
     	return 0;
     }
-    if ((start + len) == buff->cursor)
+    if ((start + len) == buff->used)
     {
-    	buff->cursor = start;
+    	buff->used = start;
     }
     else
     {
-		uint32_t rest = buff->cursor - len;
+		uint32_t rest = buff->used - len;
 		memmove(buff->addr + start, buff->addr + start + len, rest);
-		buff->cursor = rest;
+		buff->used = rest;
     }
 
     return 0;
@@ -1184,7 +1186,7 @@ static uint32_t BytesGetLe32(const void *ptr)
 }
 
 /**
-按起始位置和长度0~cursor范围内取出数据，如果是1,2,4,8字节，根据后续参数转换成浮点或者整形
+按起始位置和长度0~used范围内取出数据，如果是1,2,4,8字节，根据后续参数转换成浮点或者整形
 @api buff:query(offset,length,isbigend,issigned,isfloat)
 @int 数据的起始位置（起始位置为0）
 @int 数据的长度
@@ -1201,18 +1203,18 @@ static int l_zbuff_query(lua_State *L)
     int start = luaL_optinteger(L, 2, 0);
     if (start < 0)
     {
-    	start += buff->cursor;
+    	start += buff->used;
     	if (start < 0)
     	{
     		lua_pushnil(L);
     		return 1;
     	}
     }
-    if (start > buff->cursor)
-        start = buff->cursor;
-    uint32_t len = luaL_optinteger(L, 3, buff->cursor);
-    if (start + len > buff->cursor)
-        len = buff->cursor - start;
+    if (start > buff->used)
+        start = buff->used;
+    uint32_t len = luaL_optinteger(L, 3, buff->used);
+    if (start + len > buff->used)
+        len = buff->used - start;
     if (!len)
     {
 		lua_pushnil(L);
@@ -1360,12 +1362,12 @@ static const luaL_Reg lib_zbuff[] = {
     //{"__len", l_zbuff_len},
     //{"__newindex", l_zbuff_newindex},
     //{"__gc", l_zbuff_gc},
-
+	//以下为扩展用法，数据的增减操作尽量和上面的read,write一起使用
 	{"copy", l_zbuff_copy},
 	{"query",l_zbuff_query},
 	{"del", l_zbuff_del},
 	{"resize", l_zbuff_resize},
-	{"size", l_zbuff_size},
+	{"used", l_zbuff_used},
     {NULL, NULL}};
 
 static int luat_zbuff_meta_index(lua_State *L) {

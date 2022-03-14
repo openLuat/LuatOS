@@ -52,30 +52,24 @@ extern const luat_lcd_opts_t lcd_opts_ili9341;
 extern const luat_lcd_opts_t lcd_opts_ili9488;
 extern const luat_lcd_opts_t lcd_opts_custom;
 
-//注意！这里的顺序要和下面的lcd_name保持一致，否则会出错
-const luat_lcd_opts_t *lcd_opts[] = {
-  &lcd_opts_custom,   //0 固定为第零个
-  &lcd_opts_st7735,   //1
-  &lcd_opts_st7735v,  //2
-  &lcd_opts_st7735s,  //3
-  &lcd_opts_st7789,   //4
-  &lcd_opts_gc9a01,   //5
-  &lcd_opts_gc9106l,  //6
-  &lcd_opts_gc9306x,   //7
-  &lcd_opts_ili9341,  //8
-  &lcd_opts_ili9488,  //9
-};
-const char *lcd_name[] = {
-  "custom",   //0
-  "st7735",   //1
-  "st7735v",  //2
-  "st7735s",  //3
-  "st7789",   //4
-  "gc9a01",   //5
-  "gc9106l",  //6
-  "gc9306x",   //7
-  "ili9341",  //8
-  "ili9488",  //9
+typedef struct lcd_reg {
+  const char *name;
+  const luat_lcd_opts_t *lcd_opts;
+}lcd_reg_t;
+
+static const lcd_reg_t lcd_regs[] = {
+  {"custom",  &lcd_opts_custom},   //0 固定为第零个
+  {"st7735",  &lcd_opts_st7735},   //1
+  {"st7735v", &lcd_opts_st7735v},  //2
+  {"st7735s", &lcd_opts_st7735s},  //3
+  {"st7789",  &lcd_opts_st7789},   //4
+  {"gc9a01",  &lcd_opts_gc9a01},   //5
+  {"gc9106l", &lcd_opts_gc9106l},  //6
+  {"gc9306x", &lcd_opts_gc9306x},   //7
+  {"gc9306",  &lcd_opts_gc9306x},   //gc9306是gc9306x的别名
+  {"ili9341", &lcd_opts_ili9341},  //8
+  {"ili9488", &lcd_opts_ili9488},  //9
+  {"", NULL} // 最后一个必须是空字符串
 };
 
 
@@ -110,8 +104,10 @@ static int l_lcd_init(lua_State* L) {
     }
     const char* tp = luaL_checklstring(L, 1, &len);
     int16_t s_index = -1;//第几个屏幕，-1表示没匹配到
-    for(int i = 0; i < sizeof(lcd_name)/sizeof(lcd_name[0]); i++){
-        if(strcmp(lcd_name[i],tp) == 0){
+    for(int i = 0; i < 100; i++){
+        if (strlen(lcd_regs[i].name) == 0)
+          break;
+        if(strcmp(lcd_regs[i].name,tp) == 0){
             s_index = i;
             break;
         }
@@ -119,7 +115,7 @@ static int l_lcd_init(lua_State* L) {
     if (s_index != -1) {
         LLOGD("ic support: %s",tp);
         if (lua_gettop(L) > 1) {
-            conf->opts = (struct luat_lcd_opts *)lcd_opts[s_index];
+            conf->opts = (struct luat_lcd_opts *)lcd_regs[s_index].lcd_opts;
             lua_settop(L, 2); // 丢弃多余的参数
 
             lua_pushstring(L, "port");

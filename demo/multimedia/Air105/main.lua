@@ -72,7 +72,7 @@ sys.taskInit(function()
                 data = f:read(4096)
             end
             sys.waitUntil("playover", 2000)           
-            decode.release(decode)
+            decode.release(decoder)
             f:close()
             audio.stop(0)
         end

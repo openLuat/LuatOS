@@ -86,28 +86,48 @@ static int l_mcu_hz(lua_State* L) {
     lua_pushinteger(L, hz);
     return 1;
 }
+
+#ifdef __LUATOS_TICK_64BIT__
 /*
 获取启动后的高精度tick
 @api mcu.tick64()
 @return string 当前tick值，8个字节的uint64
-@return int tick的频率，0表示未知
+@return int 1us有几个tick，0表示未知
 @usage
 local tick_str, tick_per = mcu.tick64()
 print("ticks", tick)
 */
 static int l_mcu_hw_tick64(lua_State* L) {
-#ifdef __LUATOS_TICK_64BIT__
+
     uint64_t tick = luat_mcu_tick64();
-    uint32_t tick_period = luat_mcu_tick_period();
-#else
-    uint64_t tick = luat_mcu_ticks();
-    uint32_t tick_period = 0;
-#endif
+    uint32_t us_period = luat_mcu_us_period();
     lua_pushlstring(L, &tick, 8);
-    lua_pushinteger(L, tick_period);
+    lua_pushinteger(L, us_period);
     return 2;
 }
 
+/*
+计算2个64bit tick的差值
+@api mcu.dtick(tick1, tick2)
+@string tick1
+@string tick2
+@return int 差值tick1 - tick2
+@usage
+local diff_tick = mcu.dtick64(tick1, tick2)
+print("ticks", tick)
+*/
+static int l_mcu_hw_diff_tick64(lua_State* L) {
+	uint64_t tick1, tick2;
+    size_t len1;
+    const char *data1 = luaL_checklstring(L, 1, &len1);
+    size_t len2;
+    const char *data2 = luaL_checklstring(L, 2, &len2);
+    memcpy(&tick1, data1, len1);
+    memcpy(&tick2, data2, len2);
+    lua_pushinteger(L, (tick1 - tick2));
+    return 1;
+}
+#endif
 
 #include "rotable.h"
 static const rotable_Reg reg_mcu[] =
@@ -117,7 +137,10 @@ static const rotable_Reg reg_mcu[] =
     { "unique_id",      l_mcu_unique_id, 0},
     { "ticks",          l_mcu_ticks, 0},
     { "hz",             l_mcu_hz, 0},
+#ifdef __LUATOS_TICK_64BIT__
 	{ "tick64",			l_mcu_hw_tick64, 0},
+	{ "dtick64",		l_mcu_hw_diff_tick64, 0},
+#endif
 	{ NULL,          NULL ,       0}
 };
 

@@ -24,7 +24,8 @@ typedef struct
 		mp3dec_t *mp3_decoder;
 	};
 	uint8_t type;
-}luat_multimedia_decode_t;
+	uint8_t is_decoder;
+}luat_multimedia_codec_t;
 
 #define MAX_DEVICE_COUNT 2
 
@@ -80,7 +81,7 @@ static int l_audio_start_raw(lua_State *L){
 /**
 往一个多媒体通道写入音频数据
 @api audio.write(id, data)
-@string 音频数据
+@string or zbuff 音频数据
 @return boolean 成功返回true,否则返回false
 @usage
 audio.write(0, "xxxxxx")
@@ -92,7 +93,7 @@ static int l_audio_write_raw(lua_State *L) {
     if(lua_isuserdata(L, 2))
     {
         luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
-        len = buff->cursor;
+        len = buff->used;
         buf = (const char *)(buff->addr);
     }
     else
@@ -120,7 +121,7 @@ static int l_audio_stop_raw(lua_State *L) {
 暂停/恢复指定的多媒体通道
 @api audio.pause(id, pause)
 @int audio id,例如0
-@boolean
+@boolean onoff true 暂停，false 恢复
 @return boolean 成功返回true,否则返回false
 @usage
 audio.pause(0, true) --暂停通道0
@@ -158,34 +159,47 @@ static int l_audio_raw_on(lua_State *L) {
 
 
 /**
-创建解码用的decoder
-@api decode.create(decode.MP3)
-@int 解码类型，目前支持decode.MP3
+创建编解码用的codec
+@api codec.create(codec.MP3)
+@int 多媒体类型，目前支持decode.MP3
+@boolean 是否是编码器，默认true，是解码器
 @return userdata 成功返回一个数据结构,否则返回nil
 @usage
 -- 创建decoder
-local decoder = decode.create(decode.MP3)--创建一个mp3的decoder
+local decoder = codec.create(codec.MP3)--创建一个mp3的decoder
  */
-static int l_decode_create(lua_State *L) {
+static int l_codec_create(lua_State *L) {
     uint8_t type = luaL_optinteger(L, 1, MULTIMEDIA_DATA_TYPE_MP3);
-    luat_multimedia_decode_t *decoder = (luat_multimedia_decode_t *)lua_newuserdata(L, sizeof(luat_multimedia_decode_t));
-    if (decoder == NULL) {
+    uint8_t is_decoder = 1;
+    if (lua_isboolean(L, 2)) {
+    	is_decoder = lua_toboolean(L, 2);
+    }
+    luat_multimedia_codec_t *coder = (luat_multimedia_codec_t *)lua_newuserdata(L, sizeof(luat_multimedia_codec_t));
+    if (coder == NULL) {
     	lua_pushnil(L);
     } else {
-    	decoder->mp3_decoder = luat_heap_malloc(sizeof(mp3dec_t));
-    	if (!decoder->mp3_decoder)
+    	coder->type = type;
+    	coder->is_decoder = is_decoder;
+    	if (is_decoder)
     	{
-    		lua_pushnil(L);
+        	switch (type) {
+        	case MULTIMEDIA_DATA_TYPE_MP3:
+            	coder->mp3_decoder = luat_heap_malloc(sizeof(mp3dec_t));
+            	if (!coder->mp3_decoder) {
+            		lua_pushnil(L);
+            	}
+            	break;
+        	}
     	}
-    	decoder->type = type;
+
     }
     return 1;
 }
 
 /**
 decoder从文件数据中解析出音频信息
-@api decode.get_audio_info(decoder, data)
-@decoder 解码用的decoder
+@api codec.get_audio_info(decoder, data)
+@coder 解码用的decoder
 @string 文件数据，必须是开头的数据
 @return
 @boolean 是否成功解析
@@ -195,10 +209,10 @@ decoder从文件数据中解析出音频信息
 @int 采样位数
 @boolean 是否有符号
 @usage
-local result, audio_format, num_channels, sample_rate, bits_per_sample, is_signed= decode.get_audio_info(decoder, "xxx")
+local result, audio_format, num_channels, sample_rate, bits_per_sample, is_signed= codec.get_audio_info(coder, "xxx")
  */
-static int l_decode_get_audio_info(lua_State *L) {
-	luat_multimedia_decode_t *decoder = (luat_multimedia_decode_t *)lua_touserdata(L, 1);
+static int l_codec_get_audio_info(lua_State *L) {
+	luat_multimedia_codec_t *coder = (luat_multimedia_codec_t *)lua_touserdata(L, 1);
 	int result = 0;
 	int audio_format;
 	int num_channels;
@@ -208,16 +222,16 @@ static int l_decode_get_audio_info(lua_State *L) {
     size_t len;
     mp3dec_frame_info_t info;
     const char *data = luaL_checklstring(L, 2, &len);
-	if (decoder)
+	if (coder)
     {
 
-		switch(decoder->type)
+		switch(coder->type)
 		{
 		case MULTIMEDIA_DATA_TYPE_MP3:
-			mp3dec_init(decoder->mp3_decoder);
+			mp3dec_init(coder->mp3_decoder);
 
-			result = mp3dec_decode_frame(decoder->mp3_decoder, data, len, NULL, &info);
-			memset(decoder->mp3_decoder, 0, sizeof(mp3dec_t));
+			result = mp3dec_decode_frame(coder->mp3_decoder, data, len, NULL, &info);
+			memset(coder->mp3_decoder, 0, sizeof(mp3dec_t));
 			audio_format = MULTIMEDIA_DATA_TYPE_PCM;
 			num_channels = info.channels;
 			sample_rate = info.hz;
@@ -238,51 +252,51 @@ static int l_decode_get_audio_info(lua_State *L) {
 
 /**
 decoder从文件数据中解析出音频数据
-@api decode.get_audio_data(decoder, in_buff, out_buff)
-@decoder 解码用的decoder
+@api codec.get_audio_data(decoder, in_buff, out_buff)
+@coder 解码用的decoder
 @zbuff 存放输入数据的zbuff
 @zbuff 存放输出数据的zbuff，空间必须不少于16KB
 @return
 @boolean 是否成功解析
 @usage
-local result = decode.get_audio_data(decoder, "xxx", zbuff)
+local result = codec.get_audio_data(coder, "xxx", zbuff)
  */
-static int l_decode_get_audio_data(lua_State *L) {
-	luat_multimedia_decode_t *decoder = (luat_multimedia_decode_t *)lua_touserdata(L, 1);
+static int l_codec_get_audio_data(lua_State *L) {
+	luat_multimedia_codec_t *coder = (luat_multimedia_codec_t *)lua_touserdata(L, 1);
 	uint32_t pos = 0;
 	int result;
 	luat_zbuff_t *in_buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
 	luat_zbuff_t *out_buff = ((luat_zbuff_t *)luaL_checkudata(L, 3, LUAT_ZBUFF_TYPE));
 	mp3dec_frame_info_t info;
-	out_buff->cursor = 0;
-	if (decoder)
+	out_buff->used = 0;
+	if (coder)
     {
-		switch(decoder->type)
+		switch(coder->type)
 		{
 		case MULTIMEDIA_DATA_TYPE_MP3:
 			do
 			{
-				result = mp3dec_decode_frame(decoder->mp3_decoder, in_buff->addr + pos, in_buff->cursor - pos, out_buff->addr + out_buff->cursor, &info);
-//				LLOGD("result %u,%u,%u,%u", result, info.frame_bytes, pos, decoder->mp3_decoder->reserv);
-				out_buff->cursor += (result * info.channels);
+				result = mp3dec_decode_frame(coder->mp3_decoder, in_buff->addr + pos, in_buff->used - pos, out_buff->addr + out_buff->used, &info);
+//				LLOGD("result %u,%u,%u,%u", result, info.frame_bytes, pos, coder->mp3_decoder->reserv);
+				out_buff->used += (result * info.channels);
 				if (result)
 				{
 					pos += info.frame_bytes;
 				}
-				if ((out_buff->len - out_buff->cursor) < MINIMP3_MAX_SAMPLES_PER_FRAME)
+				if ((out_buff->len - out_buff->used) < MINIMP3_MAX_SAMPLES_PER_FRAME)
 				{
 					__zbuff_resize(out_buff, out_buff->len * 2);
 				}
-			} while ((result > 0) && ((in_buff->cursor - pos) >= info.frame_bytes));
-//			LLOGD("result %u,%u,%u", result, in_buff->cursor - pos, info.frame_bytes);
-			if (pos >= in_buff->cursor)
+			} while ((result > 0) && ((in_buff->used - pos) >= info.frame_bytes));
+//			LLOGD("result %u,%u,%u", result, in_buff->used - pos, info.frame_bytes);
+			if (pos >= in_buff->used)
 			{
-				in_buff->cursor = 0;
+				in_buff->used = 0;
 			}
 			else
 			{
-				memmove(in_buff->addr, in_buff->addr + pos, in_buff->cursor - pos);
-				in_buff->cursor -= pos;
+				memmove(in_buff->addr, in_buff->addr + pos, in_buff->used - pos);
+				in_buff->used -= pos;
 			}
 			break;
 		default:
@@ -295,17 +309,18 @@ static int l_decode_get_audio_data(lua_State *L) {
 }
 
 /**
-释放解码用的decoder
-@api decode.release(decoder)
+释放编解码用的coder
+@api codec.release(coder)
 @return
-decode.release(decoder)
+codec.release(coder)
  */
-static int l_decode_release(lua_State *L) {
-	luat_multimedia_decode_t *decoder = (luat_multimedia_decode_t *)lua_touserdata(L, 1);
-	switch(decoder->type)
-	{
+static int l_codec_release(lua_State *L) {
+	luat_multimedia_codec_t *coder = (luat_multimedia_codec_t *)lua_touserdata(L, 1);
+	switch(coder->type) {
 	case MULTIMEDIA_DATA_TYPE_MP3:
-		luat_heap_free(decoder->mp3_decoder);
+		if (coder->is_decoder) {
+			luat_heap_free(coder->mp3_decoder);
+		}
 		break;
 	}
     return 0;
@@ -325,12 +340,12 @@ static const rotable_Reg reg_audio[] =
 	{ NULL,          NULL ,       0}
 };
 
-static const rotable_Reg reg_decode[] =
+static const rotable_Reg reg_codec[] =
 {
-    { "create" ,       l_decode_create , 0},
-    { "get_audio_info" ,        l_decode_get_audio_info, 0},
-    { "get_audio_data",      l_decode_get_audio_data, 0},
-    { "release",     l_decode_release, 0},
+    { "create" ,       l_codec_create , 0},
+    { "get_audio_info" ,        l_codec_get_audio_info, 0},
+    { "get_audio_data",      l_codec_get_audio_data, 0},
+    { "release",     l_codec_release, 0},
 
 	{ "MP3",            NULL,           MULTIMEDIA_DATA_TYPE_MP3},
 
@@ -342,8 +357,8 @@ LUAMOD_API int luaopen_multimedia_audio( lua_State *L ) {
     return 1;
 }
 
-LUAMOD_API int luaopen_multimedia_decode( lua_State *L ) {
-    luat_newlib(L, reg_decode);
+LUAMOD_API int luaopen_multimedia_codec( lua_State *L ) {
+    luat_newlib(L, reg_codec);
     return 1;
 }
 

@@ -48,33 +48,33 @@ sys.taskInit(function()
     local in_buff = zbuff.create(8 * 1024)
     if data then
         log.info("fatfs", "getfree", json.encode(data))
-
         f = io.open("/sd/music/test1.mp3", "rb")
         if f then
             log.debug("find mp3")
             data = f:read(4096)
-            decoder = decode.create(decode.MP3)
-            local result, AudioFormat, NumChannels, SampleRate, BitsPerSample, is_signed = decode.get_audio_info(decoder, data)
+            codecr = codec.create(codec.MP3)
+            local result, AudioFormat, NumChannels, SampleRate, BitsPerSample, is_signed = codec.get_audio_info(codecr, data)
             buff:resize(SampleRate)
             in_buff:copy(nil, data)
-            result = decode.get_audio_data(decoder, in_buff, buff)
+            result = codec.get_audio_data(codecr, in_buff, buff)
             log.debug("start", audio.start(0, AudioFormat, NumChannels, SampleRate, BitsPerSample, is_signed))
             audio.write(0, buff)
             in_buff:copy(nil, f:read(4096)) 
-            result = decode.get_audio_data(decoder, in_buff, buff)
+            result = codec.get_audio_data(codecr, in_buff, buff)
             audio.write(0, buff)
             data = f:read(4096)
             while data and #data > 0 do
                 sys.waitUntil("moredata", 2000)
                 in_buff:copy(nil, data) 
-                result = decode.get_audio_data(decoder, in_buff, buff)
+                result = codec.get_audio_data(codecr, in_buff, buff)
                 audio.write(0, buff)
                 data = f:read(4096)
             end
-            sys.waitUntil("playover", 2000)           
-            decode.release(decoder)
+            sys.waitUntil("playover", 2000)    
+            codec.release(codecr)
             f:close()
             audio.stop(0)
+
         end
         data = nil
         f = io.open("/sd/music/test.wav", "rb")
@@ -95,7 +95,7 @@ sys.taskInit(function()
                         buff:copy(0, f:read(8))
                     end
                     log.debug("start", audio.start(0, AudioFormat, NumChannels, SampleRate, BitsPerSample))
-                    ByteRate = ByteRate >> 1
+                    ByteRate = ByteRate / 3
                     data = f:read(ByteRate)
                     audio.write(0, data)
                     data = f:read(ByteRate)

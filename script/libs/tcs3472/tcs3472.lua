@@ -14,7 +14,7 @@ sys.taskInit(function()
     i2c.setup(i2cid,i2c_speed)
     tcs3472.init(i2cid)--初始化,传入i2c_id
     while 1 do
-        local rgb_date = tcs3472.get_rgb_data()
+        local rgb_date = tcs3472.get_rgb()
         log.info("rgb_date.R:",rgb_date.R)
         log.info("rgb_date.G:",rgb_date.G)
         log.info("rgb_date.B:",rgb_date.B)
@@ -248,10 +248,13 @@ local function tcs3472_check()
     return true
 end
 
---[[ 
-器件初始化
-@number i2c_id 
-@return bool,成功返回true,否则返回false
+--[[
+tcs3472初始化
+@api tcs3472.init(i2c_id)
+@number i2c_id i2c_id
+@return bool   成功返回true
+@usage
+tcs3472.init(0)
 ]]
 function tcs3472.init(i2c_id)
     i2cid = i2c_id
@@ -273,17 +276,18 @@ function tcs3472.init(i2c_id)
     return false
 end
 
---[[ 
+--[[
 获取RGB的数据
-@return table,table类型rgb_date,格式如下
-        {
-            R=nil, 
-            G=nil, 
-            B=nil, 
-            C=nil  
-        } 
+@api tcs3472.get_rgb()
+@return table tcs3472 rgb数据
+@usage
+local rgb_date = tcs3472.get_rgb()
+log.info("rgb_date.R:",rgb_date.R)
+log.info("rgb_date.G:",rgb_date.G)
+log.info("rgb_date.B:",rgb_date.B)
+log.info("rgb_date.C:",rgb_date.C)
 ]]
-function tcs3472.get_rgb_data()
+function tcs3472.get_rgb()
     local status = TCS3472_STATUS_AVALID;
     local rgb_date={R=nil,G=nil,B=nil,C=nil}
     status = tcs3472_readbyte(TCS3472_CDATAL)
@@ -310,10 +314,14 @@ function tcs3472.get_rgb_data()
     return rgb_date
 end
 
---[[ 
+--[[
 获取lux的数据
-@table  table tcs3472.get_rgb_data()获取RGB的数据
-@return number,number类型lux
+@api tcs3472.get_lux()
+@table  rgb_data rgb数据
+@return number lux数据
+@usage
+local lux_date = tcs3472.get_lux(rgb_date)
+log.info("lux_date:",lux_date)
 ]]
 function tcs3472.get_lux(rgb)
     local lux,cpl,atime_ms

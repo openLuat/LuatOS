@@ -67,10 +67,13 @@ local PRESSURE_OF_SEA			    =   101325	-- 参考海平面压强
 
 local AC1,AC2,AC3,AC4,AC5,AC6,B1,B2,MB,MC,MD
 
---[[ 
-器件初始化
-@number i2c_id 
-@return bool,成功返回true,否则返回false
+--[[
+bmp180初始化
+@api bmp180.init(i2c_id)
+@number i2c_id i2c_id
+@return bool   成功返回true
+@usage
+bmp180.init(0)
 ]]
 function bmp180.init(i2c_id)
     i2cid = i2c_id
@@ -133,14 +136,15 @@ local function bmp180_get_pressure_raw()
     return pressure_raw or 0
 end
 
---[[ 
+--[[
 获取bmp180数据
-@return table,table类型bmp180_data,格式如下
-        {
-            temp=nil, --温度
-            press=nil,--气压
-            high=nil  --海拔
-        } 
+@api bmp180.get_data()
+@return table bmp180数据
+@usage
+local bmp180_data = bmp180.get_data()
+log.info("bmp180_data.temp:"..(bmp180_data.temp).."℃")
+log.info("bmp180_data.press:"..(bmp180_data.press).."hPa")
+log.info("bmp180_data.high:"..(bmp180_data.high).."m")
 ]]
 function bmp180.get_data()
     local bmp180_data={temp=nil,press=nil,high=nil}

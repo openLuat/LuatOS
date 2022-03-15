@@ -17,11 +17,11 @@ sys.taskInit(function()
     while 1 do
         sys.wait(100)
         local temp = mpu6xxx.get_temp()--获取温度
-            log.info("6050temp", temp)
+        log.info("6050temp", temp)
         local accel = mpu6xxx.get_accel()--获取加速度
-            log.info("6050accel", "accel.x",accel.x,"accel.y",accel.y,"accel.z",accel.z)
+        log.info("6050accel", "accel.x",accel.x,"accel.y",accel.y,"accel.z",accel.z)
         local gyro = mpu6xxx.get_gyro()--获取陀螺仪
-            log.info("6050gyro", "gyro.x",gyro.x,"gyro.y",gyro.y,"gyro.z",gyro.z)
+        log.info("6050gyro", "gyro.x",gyro.x,"gyro.y",gyro.y,"gyro.z",gyro.z)
     end
 end)
 ]]
@@ -124,10 +124,13 @@ local function mpu6xxx_check()
     return true
 end
 
---[[ 
-器件初始化
-@number i2c_id 
-@return bool,成功返回true,否则返回false
+--[[
+mpu6xxx初始化
+@api mpu6xxx.init(i2c_id)
+@number i2c_id i2c_id
+@return bool   成功返回true
+@usage
+mpu6xxx.init(0)
 ]]
 function mpu6xxx.init(i2c_id)
     i2cid = i2c_id
@@ -187,9 +190,13 @@ local function mpu6xxx_get_gyro_raw()
     return gyro or 0
 end
 
---[[ 
-获取温度的数据
-@return number,number类型temp,温度数据 
+--[[
+获取温度数据
+@api mpu6xxx.get_temp()
+@return number 温度数据
+@usage
+local temp = mpu6xxx.get_temp()--获取温度
+log.info("6050temp", temp)
 ]]
 function mpu6xxx.get_temp()
     local temp=nil
@@ -202,14 +209,13 @@ function mpu6xxx.get_temp()
     return temp
 end
 
---[[ 
-获取加速度计的数据，单位: mg
-@return table,table类型accel,格式如下
-        {
-            x=nil, 
-            y=nil, 
-            z=nil  
-        } 
+--[[
+获取加速度计的数据,单位: mg
+@api mpu6xxx.get_accel()
+@return table 加速度数据
+@usage
+local accel = mpu6xxx.get_accel()--获取加速度
+log.info("6050accel", "accel.x",accel.x,"accel.y",accel.y,"accel.z",accel.z)
 ]]
 function mpu6xxx.get_accel()
     local accel={x=nil,y=nil,z=nil}
@@ -220,14 +226,13 @@ function mpu6xxx.get_accel()
     return accel
 end
 
---[[ 
+--[[
 获取陀螺仪的数据，单位: deg / 10s
-@return table,table类型gyro,格式如下
-        {
-            x=nil, 
-            y=nil, 
-            z=nil  
-        } 
+@api mpu6xxx.get_gyro()
+@return table 陀螺仪数据
+@usage
+local gyro = mpu6xxx.get_gyro()--获取陀螺仪
+log.info("6050gyro", "gyro.x",gyro.x,"gyro.y",gyro.y,"gyro.z",gyro.z)
 ]]
 function mpu6xxx.get_gyro()
     local gyro={x=nil,y=nil,z=nil}

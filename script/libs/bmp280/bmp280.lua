@@ -151,10 +151,13 @@ local function bmp280_check()
     return true
 end
 
---[[ 
-器件初始化
-@number i2c_id 
-@return bool,成功返回true,否则返回false
+--[[
+bmp280初始化
+@api bmp280.init(i2c_id)
+@number i2c_id i2c_id
+@return bool   成功返回true
+@usage
+bmp280.init(0)
 ]]
 function bmp280.init(i2c_id)
     i2cid = i2c_id
@@ -217,14 +220,16 @@ local function bmp280_get_pressure_raw()
     local pressure_raw = bit.bor(bit.lshift(MSB,12), bit.lshift(LSB, 4), bit.rshift(XLSB, 4))
     return pressure_raw or 0
 end
---[[ 
+
+--[[
 获取bmp280数据
-@return table,table类型bmp280_data,格式如下
-        {
-            temp=nil, --温度
-            press=nil,--气压
-            high=nil  --海拔
-        } 
+@api bmp280.get_data()
+@return table bmp280数据
+@usage
+local bmp280_data = bmp280.get_data()
+log.info("bmp280_data.temp:"..(bmp280_data.temp).."℃")
+log.info("bmp280_data.press:"..(bmp280_data.press).."hPa")
+log.info("bmp280_data.high:"..(bmp280_data.high).."m")
 ]]
 function bmp280.get_data()
     local bmp280_data={temp=nil,press=nil,high=nil}

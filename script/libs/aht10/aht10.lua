@@ -35,10 +35,13 @@ local AHT10_SOFT_RESET            =   0xBA --软复位命令,软复位所需时�
 
 local AHT10_STATE                 =   0x71 --状态字.
 
---[[ 
-器件初始化
-@number i2c_id 
-@return bool,成功返回true
+--[[
+aht10初始化
+@api aht10.init(i2c_id)
+@number i2c_id i2c_id
+@return bool   成功返回true
+@usage
+aht10.init(0)
 ]]
 function aht10.init(i2c_id)
     i2cid = i2c_id
@@ -73,13 +76,13 @@ local function aht10_get_raw_data()
     return raw_data or 0
 end
 
---[[ 
+--[[
 获取aht10数据
-@return table,table类型aht10_data,格式如下
-        {
-            RH=nil, --湿度
-            T=nil   --温度
-        } 
+@api aht10.get_data()
+@return table aht10数据
+@usage
+local aht10_data = aht10.get_data()
+log.info("aht10_data", "aht10_data.RH:"..(aht10_data.RH*100).."%","aht10_data.T"..(aht10_data.T).."℃")
 ]]
 function aht10.get_data()
     local aht10_data={RH=nil,T=nil}

@@ -1,6 +1,6 @@
 
 /*
-@module  io_queue
+@module  ioqueue
 @summary io序列操作，配合硬件定时器力求达到us级，甚至更高
 @version 1.0
 @date    2022.03.13

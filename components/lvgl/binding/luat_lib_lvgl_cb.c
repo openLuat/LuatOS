@@ -281,3 +281,24 @@ int luat_lv_anim_path_set_cb(lua_State *L) {
     }
     return 0;
 }
+
+/*
+发送事件给组件
+@api lvgl.event_send(obj, ent)
+@userdata 组件指针
+@int      事件id, 例如 lvgl.EVENT_PRESSED
+@return bool 成功返回true, 对象已被删除的话返回false或者nil
+@return int 底层返回值,如果obj为nil就返回nil
+*/
+int luat_lv_event_send(lua_State *L) {
+    lv_obj_t* obj = lua_touserdata(L, 1);
+    if (obj == NULL) {
+        LLOGW("obj is NULL when event_send");
+        return 0;
+    }
+    lv_event_t event = luaL_checkinteger(L, 2);
+    lv_res_t ret = lv_event_send(obj, event, NULL);
+    lua_pushboolean(L, ret == LV_RES_OK ? 1 : 0);
+    lua_pushinteger(L, ret);
+    return 2;
+}

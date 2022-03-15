@@ -1,6 +1,6 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "fatfsdemo"
+PROJECT = "sdiodemo"
 VERSION = "1.0.0"
 
 log.info("main", PROJECT, VERSION)

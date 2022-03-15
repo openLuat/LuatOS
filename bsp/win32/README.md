@@ -43,7 +43,20 @@ sys.run()
 
 ```
 
-双击luatos.exe启动即可. 默认带LVGL库, 可参考 `test/`目录下的例子.
+### 启动方式1,命令行参数
 
+进入cmd或ps命令行后, cd到main.lua所在目录, 确保luatos.exe 也在同一目录下或者在PATH内
 
+```
+luatos.exe main.lua
+```
+
+### 启动方式1,交互模式
+
+1. 双击luatos.exe启动
+2. 输入 `load("main.lua")()`
+
+## 更多调用示例
+
+参考 https://gitee.com/openLuat/LuatOS/tree/master/demo/lvgl/win32
 

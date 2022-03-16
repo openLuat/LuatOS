@@ -316,12 +316,16 @@ codec.release(coder)
  */
 static int l_codec_release(lua_State *L) {
 	luat_multimedia_codec_t *coder = (luat_multimedia_codec_t *)lua_touserdata(L, 1);
-	switch(coder->type) {
-	case MULTIMEDIA_DATA_TYPE_MP3:
-		if (coder->is_decoder) {
-			luat_heap_free(coder->mp3_decoder);
+	if (coder) {
+		switch(coder->type) {
+		case MULTIMEDIA_DATA_TYPE_MP3:
+			if (coder->is_decoder) {
+				luat_heap_free(coder->mp3_decoder);
+			}
+			break;
 		}
-		break;
+	} else {
+		luaL_error(L, "no codec");
 	}
     return 0;
 }

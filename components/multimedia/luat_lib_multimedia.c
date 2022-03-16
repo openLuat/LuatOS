@@ -278,7 +278,7 @@ static int l_codec_get_audio_data(lua_State *L) {
 			{
 				result = mp3dec_decode_frame(coder->mp3_decoder, in_buff->addr + pos, in_buff->used - pos, out_buff->addr + out_buff->used, &info);
 //				LLOGD("result %u,%u,%u,%u", result, info.frame_bytes, pos, coder->mp3_decoder->reserv);
-				out_buff->used += (result * info.channels);
+				out_buff->used += (result * info.channels * 2);
 				if (result)
 				{
 					pos += info.frame_bytes;

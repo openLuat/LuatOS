@@ -23,7 +23,7 @@ bool point_input_read(lv_indev_drv_t * drv, lv_indev_data_t*data) {
 /*
 注册输入设备驱动
 @api lvgl.indev_drv_register(tp, dtp)
-@string 设备类型，当前支持"pointer",指针类/触摸类均可
+@string 设备类型，当前支持"pointer",指针类/触摸类均可，"keyboard",键盘类型
 @string 设备型号，当前支持"emulator",模拟器类型
 @return bool 成功返回true,否则返回false
 @usage
@@ -50,9 +50,10 @@ int luat_lv_indev_drv_register(lua_State* L) {
         //}
     }
     else if (!strcmp("keyboard", type)) {
-        indev_drv.type = LV_INDEV_TYPE_POINTER;
-        dtype = luaL_checkstring(L, 2);
-        if (!strcmp("emulator", dtype)) {
+        indev_drv.type = LV_INDEV_TYPE_KEYPAD;
+        //dtype = luaL_checkstring(L, 2);
+        //if (!strcmp("emulator", dtype)) {
+        {
             indev_drv.user_data = &keyboard_emulator_data;
             memset(indev_drv.user_data, 0, sizeof(lv_indev_data_t));
             indev_drv.read_cb = point_input_read;
@@ -86,5 +87,19 @@ int luat_lv_indev_point_emulator_update(lua_State* L) {
     point_emulator_data.point.x = x;
     point_emulator_data.point.y = y;
     point_emulator_data.state = state;
+    return 0;
+}
+
+
+/*
+更新键盘输入设备的按键值
+@api lvgl.indev_kb_update(key)
+@int 按键值，默认为0，按键抬起
+@return nil 无返回值
+@usage
+*/
+int luat_lv_indev_keyboard_update(lua_State* L) {
+    int key = luaL_optinteger(L, 1, 0);
+    keyboard_emulator_data.key = key;
     return 0;
 }

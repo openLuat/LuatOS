@@ -45,36 +45,40 @@ sys.taskInit(function()
     fatfs.mount("SD", 0, TF_CS, 24000000)
     local data, err = fatfs.getfree("SD")
     local buff = zbuff.create(1024)
-    local in_buff = zbuff.create(8 * 1024)
+    local in_buff = zbuff.create(8 * 1024 + 512)
     if data then
         log.info("fatfs", "getfree", json.encode(data))
         f = io.open("/sd/music/test1.mp3", "rb")
         if f then
             log.debug("find mp3")
-            data = f:read(4096)
+            data = f:read(8192)
             codecr = codec.create(codec.MP3)
             local result, AudioFormat, NumChannels, SampleRate, BitsPerSample, is_signed = codec.get_audio_info(codecr, data)
-            buff:resize(SampleRate)
-            in_buff:copy(nil, data)
-            result = codec.get_audio_data(codecr, in_buff, buff)
-            log.debug("start", audio.start(0, AudioFormat, NumChannels, SampleRate, BitsPerSample, is_signed))
-            audio.write(0, buff)
-            in_buff:copy(nil, f:read(4096)) 
-            result = codec.get_audio_data(codecr, in_buff, buff)
-            audio.write(0, buff)
-            data = f:read(4096)
-            while data and #data > 0 do
-                sys.waitUntil("moredata", 2000)
+            if result then
+                buff:resize(SampleRate * 2)
+                in_buff:copy(nil, data)
+                result = codec.get_audio_data(codecr, in_buff, buff)
+                log.debug("start", audio.start(0, AudioFormat, NumChannels, SampleRate, BitsPerSample, is_signed))
+                audio.write(0, buff)
+                data = f:read(8192)
                 in_buff:copy(nil, data) 
                 result = codec.get_audio_data(codecr, in_buff, buff)
                 audio.write(0, buff)
-                data = f:read(4096)
+                data = f:read(8192)
+                while data and #data > 0 do
+                    sys.waitUntil("moredata", 2000)
+                    in_buff:copy(nil, data) 
+                    result = codec.get_audio_data(codecr, in_buff, buff)
+                    audio.write(0, buff)
+                    data = f:read(8192)
+                end
+                sys.waitUntil("playover", 2000)    
+                codec.release(codecr)
+                audio.stop(0)
+            else
+                log.debug("mp3无法解码")
             end
-            sys.waitUntil("playover", 2000)    
-            codec.release(codecr)
             f:close()
-            audio.stop(0)
-
         end
         data = nil
         f = io.open("/sd/music/test.wav", "rb")
@@ -95,7 +99,7 @@ sys.taskInit(function()
                         buff:copy(0, f:read(8))
                     end
                     log.debug("start", audio.start(0, AudioFormat, NumChannels, SampleRate, BitsPerSample))
-                    ByteRate = ByteRate / 3
+                    ByteRate = SampleRate * BlockAlign
                     data = f:read(ByteRate)
                     audio.write(0, data)
                     data = f:read(ByteRate)

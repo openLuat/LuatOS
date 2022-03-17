@@ -427,30 +427,30 @@ static int db_traceback (lua_State *L) {
   return 1;
 }
 
-#include "rotable.h"
-static const rotable_Reg dblib[] = {
-  // {"debug", db_debug, 0},
-  {"getuservalue", db_getuservalue, 0},
-  {"gethook", db_gethook, 0},
-  {"getinfo", db_getinfo, 0},
-  {"getlocal", db_getlocal, 0},
-  {"getregistry", db_getregistry, 0},
-  {"getmetatable", db_getmetatable, 0},
-  {"getupvalue", db_getupvalue, 0},
-  {"upvaluejoin", db_upvaluejoin, 0},
-  {"upvalueid", db_upvalueid, 0},
-  {"setuservalue", db_setuservalue, 0},
-  {"sethook", db_sethook, 0},
-  {"setlocal", db_setlocal, 0},
-  {"setmetatable", db_setmetatable, 0},
-  {"setupvalue", db_setupvalue, 0},
-  {"traceback", db_traceback, 0},
-  {NULL, NULL, 0}
+#include "rotable2.h"
+static const rotable_Reg_t dblib[] = {
+  // {"debug", ROREG_FUNC(db_debug)},
+  {"getuservalue", ROREG_FUNC(db_getuservalue)},
+  {"gethook",      ROREG_FUNC(db_gethook)},
+  {"getinfo",      ROREG_FUNC(db_getinfo)},
+  {"getlocal",     ROREG_FUNC(db_getlocal)},
+  {"getregistry",  ROREG_FUNC(db_getregistry)},
+  {"getmetatable", ROREG_FUNC(db_getmetatable)},
+  {"getupvalue",   ROREG_FUNC(db_getupvalue)},
+  {"upvaluejoin",  ROREG_FUNC(db_upvaluejoin)},
+  {"upvalueid",    ROREG_FUNC(db_upvalueid)},
+  {"setuservalue", ROREG_FUNC(db_setuservalue)},
+  {"sethook",      ROREG_FUNC(db_sethook)},
+  {"setlocal",     ROREG_FUNC(db_setlocal)},
+  {"setmetatable", ROREG_FUNC(db_setmetatable)},
+  {"setupvalue",   ROREG_FUNC(db_setupvalue)},
+  {"traceback",    ROREG_FUNC(db_traceback)},
+  {NULL, {}}
 };
 
 
 LUAMOD_API int luaopen_debug (lua_State *L) {
-  luat_newlib(L, dblib);
+  luat_newlib2(L, dblib);
   return 1;
 }
 

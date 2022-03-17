@@ -43,7 +43,7 @@
 */
 #if !defined(luai_makeseed)
 #include <time.h>
-#define luai_makeseed()		cast(unsigned int, time(NULL))
+#define luai_makeseed()		cast(unsigned int, ~0)
 #endif
 
 
@@ -292,7 +292,8 @@ void luaE_freethread (lua_State *L, lua_State *L1) {
 }
 
 #ifdef FEATURE_STATIC_LUASTATE
-static LG LUAT_LG;
+#undef FEATURE_STATIC_LUASTATE
+//static LG LUAT_LG;
 #endif
 
 

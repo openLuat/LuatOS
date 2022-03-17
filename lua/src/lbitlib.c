@@ -249,30 +249,30 @@ static int b_isclear( lua_State* L )
   return 1;
 }
 
-#include "rotable.h"
-static const rotable_Reg  bitlib[] = {
-  {"arshift", b_arshift, 0},
-  {"band", b_and, 0},
-  {"bnot", b_not, 0},
-  {"bor", b_or, 0},
-  {"bxor", b_xor, 0},
-  {"btest", b_test, 0},
-  {"extract", b_extract, 0},
-  {"lrotate", b_lrot, 0},
-  {"lshift", b_lshift, 0},
-  {"replace", b_replace, 0},
-  {"rrotate", b_rrot, 0},
-  {"rshift", b_rshift, 0},
-  {"bit", b_bit, 0},
-  {"set", b_set, 0},
-  {"clear", b_clear, 0},
-  {"isset", b_isset, 0},
-  {"isclear", b_isclear, 0},
-  {NULL, NULL, 0}
+#include "rotable2.h"
+static const rotable_Reg_t  bitlib[] = {
+  {"arshift", ROREG_FUNC(b_arshift)},
+  {"band",    ROREG_FUNC(b_and)},
+  {"bnot",    ROREG_FUNC(b_not)},
+  {"bor",     ROREG_FUNC(b_or)},
+  {"bxor",    ROREG_FUNC(b_xor)},
+  {"btest",   ROREG_FUNC(b_test)},
+  {"extract", ROREG_FUNC(b_extract)},
+  {"lrotate", ROREG_FUNC(b_lrot)},
+  {"lshift",  ROREG_FUNC(b_lshift)},
+  {"replace", ROREG_FUNC(b_replace)},
+  {"rrotate", ROREG_FUNC(b_rrot)},
+  {"rshift",  ROREG_FUNC(b_rshift)},
+  {"bit",     ROREG_FUNC(b_bit)},
+  {"set",     ROREG_FUNC(b_set)},
+  {"clear",   ROREG_FUNC(b_clear)},
+  {"isset",   ROREG_FUNC(b_isset)},
+  {"isclear", ROREG_FUNC(b_isclear)},
+  {NULL,      {}}
 };
 
 LUAMOD_API int luaopen_bit32 (lua_State *L) {
-  luat_newlib(L, bitlib);
+  luat_newlib2(L, bitlib);
   lua_pushvalue(L, -1);
   lua_setglobal(L, "bit"); // 兼容LuatOS-Air
   return 1;

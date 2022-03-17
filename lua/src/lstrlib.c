@@ -1551,48 +1551,48 @@ int l_str_strs(lua_State *L);
 int l_str_trim(lua_State *L);
 //-----------------------------------------------------------
 
-#include "rotable.h"
-static const rotable_Reg strlib[] = {
-  {"byte", str_byte, 0},
-  {"char", str_char, 0},
+#include "rotable2.h"
+static const rotable_Reg_t strlib[] = {
+  {"byte", ROREG_FUNC(str_byte)},
+  {"char", ROREG_FUNC(str_char)},
 #if defined(LUA_USE_LINUX) || defined(LUA_USE_WINDOWS) || defined(LUA_USE_MACOSX)
-  {"dump", str_dump, 0},
+  {"dump", ROREG_FUNC(str_dump)},
 #endif
-  {"find", str_find, 0},
-  {"format", str_format, 0},
-  {"gmatch", gmatch, 0},
-  {"gsub", str_gsub, 0},
-  {"len", str_len, 0},
-  {"lower", str_lower, 0},
-  {"match", str_match, 0},
-  {"rep", str_rep, 0},
-  {"reverse", str_reverse, 0},
-  {"sub", str_sub, 0},
-  {"upper", str_upper, 0},
-  {"pack", str_pack, 0},
-  {"packsize", str_packsize, 0},
-  {"unpack", str_unpack, 0},
+  {"find", ROREG_FUNC(str_find)},
+  {"format", ROREG_FUNC(str_format)},
+  {"gmatch", ROREG_FUNC(gmatch)},
+  {"gsub", ROREG_FUNC(str_gsub)},
+  {"len", ROREG_FUNC(str_len)},
+  {"lower", ROREG_FUNC(str_lower)},
+  {"match", ROREG_FUNC(str_match)},
+  {"rep", ROREG_FUNC(str_rep)},
+  {"reverse", ROREG_FUNC(str_reverse)},
+  {"sub", ROREG_FUNC(str_sub)},
+  {"upper", ROREG_FUNC(str_upper)},
+  {"pack", ROREG_FUNC(str_pack)},
+  {"packsize", ROREG_FUNC(str_packsize)},
+  {"unpack", ROREG_FUNC(str_unpack)},
   //-----------------------------
   // 添加几个常用的方法
-  {"toHex", l_str_toHex, 0},
-  {"fromHex", l_str_fromHex, 0},
-  {"split", l_str_split, 0},
-  {"toValue", l_str_toValue, 0},
-  {"urlEncode", l_str_urlEncode, 0},
-  {"fromBase64", l_str_fromBase64, 0},
-  {"toBase64", l_str_toBase64, 0},
-  {"fromBase32", l_str_fromBase32, 0},
-  {"toBase32", l_str_toBase32, 0},
+  {"toHex", ROREG_FUNC(l_str_toHex)},
+  {"fromHex", ROREG_FUNC(l_str_fromHex)},
+  {"split", ROREG_FUNC(l_str_split)},
+  {"toValue", ROREG_FUNC(l_str_toValue)},
+  {"urlEncode", ROREG_FUNC(l_str_urlEncode)},
+  {"fromBase64", ROREG_FUNC(l_str_fromBase64)},
+  {"toBase64", ROREG_FUNC(l_str_toBase64)},
+  {"fromBase32", ROREG_FUNC(l_str_fromBase32)},
+  {"toBase32", ROREG_FUNC(l_str_toBase32)},
 
-  {"startsWith", l_str_startsWith, 0},
-  {"endsWith", l_str_endsWith, 0},
-  {"trim",     l_str_trim, 0},
+  {"startsWith", ROREG_FUNC(l_str_startsWith)},
+  {"endsWith", ROREG_FUNC(l_str_endsWith)},
+  {"trim",     ROREG_FUNC(l_str_trim)},
 #if defined(LUA_USE_LINUX) || defined(LUA_USE_WINDOWS) || defined(LUA_USE_MACOSX)
-  {"strs", l_str_strs, 0},
+  {"strs", ROREG_FUNC(l_str_strs)},
 #endif
   //{"urlDecode", str_urlDecode},
   //-----------------------------
-  {NULL, NULL, 0}
+  {NULL, {}}
 };
 
 
@@ -1602,7 +1602,7 @@ static void createmetatable (lua_State *L) {
   lua_pushvalue(L, -2);  /* copy table */
   lua_setmetatable(L, -2);  /* set table as metatable for strings */
   lua_pop(L, 1);  /* pop dummy string */
-  rotable_newidx(L, strlib);
+  rotable2_newidx(L, strlib);
   lua_setfield(L, -2, "__index");  /* metatable.__index = string */
   lua_pop(L, 1);  /* pop metatable */
 }

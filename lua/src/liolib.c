@@ -802,9 +802,9 @@ static int io_readFile (lua_State *L) {
   int len = ftell(f);
   fseek(f, 0, SEEK_SET);
   char* buff = (char*)luat_heap_malloc(len);
-  int read = fread(buff, 1, len, f);
+  fread(buff, 1, len, f);
   fclose(f);
-  lua_pushlstring(L, buff,len);
+  lua_pushlstring(L, buff, len);
   luat_heap_free(buff);
   return 1;
 }
@@ -884,26 +884,26 @@ static int f_fill(lua_State *L) {
 /*
 ** functions for 'io' library
 */
-#include "rotable.h"
-static const rotable_Reg iolib[] = {
+#include "rotable2.h"
+static const rotable_Reg_t iolib[] = {
   // {"close", io_close,  0},
   // {"flush", io_flush,  0},
   // {"input", io_input,  0},
   // {"lines", io_lines,  0},
-  {"open", io_open,    0},
+  {"open", ROREG_FUNC(io_open)},
   // {"output", io_output,0},
 #ifdef LUA_USE_WINDOWS
-  {"popen", io_popen,  0},
+  {"popen", ROREG_FUNC(io_popen)},
 #endif
   // {"read", io_read,    0},
   // {"tmpfile", io_tmpfile, 0},
-  {"type", io_type,    0},
+  {"type", ROREG_FUNC(io_type)},
   // {"write", io_write,  0},
-  {"exists", io_exists,  0},
-  {"fileSize", io_fileSize,  0},
-  {"readFile", io_readFile,  0},
-  {"writeFile", io_writeFile,  0},
-  {NULL, NULL,         0}
+  {"exists", ROREG_FUNC(io_exists)},
+  {"fileSize", ROREG_FUNC(io_fileSize)},
+  {"readFile", ROREG_FUNC(io_readFile)},
+  {"writeFile", ROREG_FUNC(io_writeFile)},
+  {NULL, {}}
 };
 
 
@@ -986,7 +986,7 @@ static void createmeta (lua_State *L) {
 
 
 LUAMOD_API int luaopen_io (lua_State *L) {
-  luat_newlib(L, iolib);  /* new module */
+  luat_newlib2(L, iolib);  /* new module */
   createmeta(L);
   /* create (and set) default files */
   //createstdfile(L, stdin, IO_INPUT, "stdin");

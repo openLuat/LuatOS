@@ -203,6 +203,29 @@ void luat_newlib(lua_State* l, const rotable_Reg* reg) {
   #endif
 }
 
+#include "rotable2.h"
+void luat_newlib2(lua_State* l, const rotable_Reg_t* reg) {
+  #ifdef LUAT_CONF_DISABLE_ROTABLE
+  luaL_newlibtable(l,reg);
+  int i;
+  int nup = 0;
+
+  luaL_checkstack(l, nup, "too many upvalues");
+  for (; reg->name != NULL; reg++) {  /* fill the table with given functions */
+        for (i = 0; i < nup; i++)  /* copy upvalues to the top */
+            lua_pushvalue(l, -nup);
+        if (reg->func)
+            lua_pushcclosure(l, reg->func, nup);  /* closure with those upvalues */
+        else
+            lua_pushinteger(l, reg->value);
+        lua_setfield(l, -(nup + 2), reg->name);
+    }
+    lua_pop(l, nup);  /* remove upvalues */
+  #else
+  rotable2_newlib(l, reg);
+  #endif
+}
+
 void luat_os_print_heapinfo(const char* tag) {
     size_t total; size_t used; size_t max_used;
     luat_meminfo_luavm(&total, &used, &max_used);

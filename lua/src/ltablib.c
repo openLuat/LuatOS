@@ -422,24 +422,24 @@ static int sort (lua_State *L) {
 
 /* }====================================================== */
 
-#include "rotable.h"
-static const rotable_Reg tab_funcs[] = {
-  {"concat", tconcat, 0},
+#include "rotable2.h"
+static const rotable_Reg_t tab_funcs[] = {
+  {"concat", ROREG_FUNC(tconcat)},
 #if defined(LUA_COMPAT_MAXN)
-  {"maxn", maxn, 0},
+  {"maxn", ROREG_FUNC(maxn)},
 #endif
-  {"insert", tinsert, 0},
-  {"pack", pack, 0},
-  {"unpack", unpack, 0},
-  {"remove", tremove, 0},
-  {"move", tmove, 0},
-  {"sort", sort, 0},
-  {NULL, NULL, 0}
+  {"insert", ROREG_FUNC(tinsert)},
+  {"pack", ROREG_FUNC(pack)},
+  {"unpack", ROREG_FUNC(unpack)},
+  {"remove", ROREG_FUNC(tremove)},
+  {"move", ROREG_FUNC(tmove)},
+  {"sort", ROREG_FUNC(sort)},
+  {NULL, {}}
 };
 
 
 LUAMOD_API int luaopen_table (lua_State *L) {
-  luat_newlib(L, tab_funcs);
+  luat_newlib2(L, tab_funcs);
 #if defined(LUA_COMPAT_UNPACK)
   /* _G.unpack = table.unpack */
   lua_getfield(L, -1, "unpack");

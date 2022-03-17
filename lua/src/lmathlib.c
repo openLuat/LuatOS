@@ -348,47 +348,47 @@ static int math_log10 (lua_State *L) {
 /* }================================================================== */
 
 
-#include "rotable.h"
-static const rotable_Reg mathlib[] = {
-  {"abs",   math_abs, 0},
-  {"acos",  math_acos, 0},
-  {"asin",  math_asin, 0},
-  {"atan",  math_atan, 0},
-  {"ceil",  math_ceil, 0},
-  {"cos",   math_cos, 0},
-  {"deg",   math_deg, 0},
-  {"exp",   math_exp, 0},
-  {"tointeger", math_toint, 0},
-  {"floor", math_floor, 0},
-  {"fmod",   math_fmod, 0},
-  {"ult",   math_ult, 0},
-  {"log",   math_log, 0},
-  {"max",   math_max, 0},
-  {"min",   math_min, 0},
-  {"modf",   math_modf, 0},
-  {"rad",   math_rad, 0},
-  {"random",     math_random, 0},
-  {"randomseed", math_randomseed, 0},
-  {"sin",   math_sin, 0},
-  {"sqrt",  math_sqrt, 0},
-  {"tan",   math_tan, 0},
-  {"type", math_type, 0},
+#include "rotable2.h"
+static const rotable_Reg_t mathlib[] = {
+  {"abs",   ROREG_FUNC(math_abs)},
+  {"acos",  ROREG_FUNC(math_acos)},
+  {"asin",  ROREG_FUNC(math_asin)},
+  {"atan",  ROREG_FUNC( math_atan)},
+  {"ceil",  ROREG_FUNC(math_ceil)},
+  {"cos",   ROREG_FUNC(math_cos)},
+  {"deg",   ROREG_FUNC(math_deg)},
+  {"exp",   ROREG_FUNC(math_exp)},
+  {"tointeger", ROREG_FUNC(math_toint)},
+  {"floor", ROREG_FUNC(math_floor)},
+  {"fmod",   ROREG_FUNC(math_fmod)},
+  {"ult",   ROREG_FUNC(math_ult)},
+  {"log",   ROREG_FUNC(math_log)},
+  {"max",   ROREG_FUNC(math_max)},
+  {"min",   ROREG_FUNC(math_min)},
+  {"modf",   ROREG_FUNC(math_modf)},
+  {"rad",   ROREG_FUNC(math_rad)},
+  {"random",     ROREG_FUNC(math_random)},
+  {"randomseed", ROREG_FUNC(math_randomseed)},
+  {"sin",   ROREG_FUNC(math_sin)},
+  {"sqrt",  ROREG_FUNC(math_sqrt)},
+  {"tan",   ROREG_FUNC(math_tan)},
+  {"type",  ROREG_FUNC(math_type)},
 #if defined(LUA_COMPAT_MATHLIB)
-  {"atan2", math_atan, 0},
-  {"cosh",   math_cosh, 0},
-  {"sinh",   math_sinh, 0},
-  {"tanh",   math_tanh, 0},
-  {"pow",   math_pow, 0},
-  {"frexp", math_frexp, 0},
-  {"ldexp", math_ldexp, 0},
-  {"log10", math_log10, 0},
+  {"atan2", ROREG_FUNC(math_atan)},
+  {"cosh",   ROREG_FUNC(math_cosh)},
+  {"sinh",   ROREG_FUNC(math_sinh)},
+  {"tanh",   ROREG_FUNC(math_tanh)},
+  {"pow",   ROREG_FUNC(math_pow)},
+  {"frexp", ROREG_FUNC(math_frexp)},
+  {"ldexp", ROREG_FUNC(math_ldexp)},
+  {"log10", ROREG_FUNC(math_log10)},
 #endif
   /* placeholders */
-  // {"pi", NULL, PI},
-  //{"huge", NULL, HUGE_VAL},
-  {"maxinteger", NULL, LUA_MAXINTEGER},
-  {"mininteger", NULL, LUA_MININTEGER},
-  {NULL, NULL, 0}
+  {"pi", ROREG_NUM(PI)},
+  {"huge", ROREG_NUM(HUGE_VAL)},
+  {"maxinteger", ROREG_INT(LUA_MAXINTEGER)},
+  {"mininteger", ROREG_INT(LUA_MININTEGER)},
+  {NULL, {}}
 };
 
 
@@ -396,7 +396,7 @@ static const rotable_Reg mathlib[] = {
 ** Open math library
 */
 LUAMOD_API int luaopen_math (lua_State *L) {
-  luat_newlib(L, mathlib);
+  luat_newlib2(L, mathlib);
   // lua_pushnumber(L, PI);
   // lua_setfield(L, -2, "pi");
   // lua_pushnumber(L, (lua_Number)HUGE_VAL);

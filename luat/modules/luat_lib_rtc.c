@@ -256,18 +256,18 @@ static int l_rtc_set_base_year(lua_State *L){
     return 0;
 }
 
-#include "rotable.h"
-static const rotable_Reg reg_rtc[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_rtc[] =
 {
-    { "set", l_rtc_set, 0},
-    { "get", l_rtc_get, 0},
-    { "timerStart", l_rtc_timer_start, 0},
-    { "timerStop", l_rtc_timer_stop, 0},
-    { "setBaseYear", l_rtc_set_base_year, 0},
-	{ NULL, NULL , 0}
+    { "set",        ROREG_FUNC(l_rtc_set)},
+    { "get",        ROREG_FUNC(l_rtc_get)},
+    { "timerStart", ROREG_FUNC(l_rtc_timer_start)},
+    { "timerStop",  ROREG_FUNC(l_rtc_timer_stop)},
+    { "setBaseYear", ROREG_FUNC(l_rtc_set_base_year)},
+	{ NULL,         {}}
 };
 
 LUAMOD_API int luaopen_rtc( lua_State *L ) {
-    luat_newlib(L, reg_rtc);
+    luat_newlib2(L, reg_rtc);
     return 1;
 }

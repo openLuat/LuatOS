@@ -272,29 +272,29 @@ static int l_uart_on(lua_State *L) {
     return 0;
 }
 
-#include "rotable.h"
-static const rotable_Reg reg_uart[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_uart[] =
 {
-    { "setup",  l_uart_setup,0},
-    { "close",  l_uart_close,0},
-    { "write",  l_uart_write,0},
-    { "read",   l_uart_read,0},
-    { "on",     l_uart_on, 0},
+    { "setup",      ROREG_FUNC(l_uart_setup)},
+    { "close",      ROREG_FUNC(l_uart_close)},
+    { "write",      ROREG_FUNC(l_uart_write)},
+    { "read",       ROREG_FUNC(l_uart_read)},
+    { "on",         ROREG_FUNC(l_uart_on)},
     //校验位
-    { "Odd",            NULL,           LUAT_PARITY_ODD},
-    { "Even",           NULL,           LUAT_PARITY_EVEN},
-    { "None",           NULL,           LUAT_PARITY_NONE},
-    { "ODD",            NULL,           LUAT_PARITY_ODD},
-    { "EVEN",           NULL,           LUAT_PARITY_EVEN},
-    { "NONE",           NULL,           LUAT_PARITY_NONE},
+    { "Odd",        ROREG_INT(LUAT_PARITY_ODD)},
+    { "Even",       ROREG_INT(LUAT_PARITY_EVEN)},
+    { "None",       ROREG_INT(LUAT_PARITY_NONE)},
+    { "ODD",        ROREG_INT(LUAT_PARITY_ODD)},
+    { "EVEN",       ROREG_INT(LUAT_PARITY_EVEN)},
+    { "NONE",       ROREG_INT(LUAT_PARITY_NONE)},
     //高低位顺序
-    { "LSB",            NULL,           LUAT_BIT_ORDER_LSB},
-    { "MSB",            NULL,           LUAT_BIT_ORDER_MSB},
-    { NULL,             NULL ,          0}
+    { "LSB",        ROREG_INT(LUAT_BIT_ORDER_LSB)},
+    { "MSB",        ROREG_INT(LUAT_BIT_ORDER_MSB)},
+    { NULL,         {}}
 };
 
 LUAMOD_API int luaopen_uart(lua_State *L)
 {
-    luat_newlib(L, reg_uart);
+    luat_newlib2(L, reg_uart);
     return 1;
 }

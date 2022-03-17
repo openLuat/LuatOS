@@ -404,31 +404,31 @@ static int l_crypto_totp(lua_State *L) {
     return 0;
 }
 
-#include "rotable.h"
-static const rotable_Reg reg_crypto[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_crypto[] =
 {
-    { "md5" ,           l_crypto_md5            ,0},
-    { "sha1" ,          l_crypto_sha1           ,0},
-    { "sha256" ,        l_crypto_sha256         ,0},
-    { "sha512" ,        l_crypto_sha512         ,0},
-    { "hmac_md5" ,      l_crypto_hmac_md5       ,0},
-    { "hmac_sha1" ,     l_crypto_hmac_sha1      ,0},
-    { "hmac_sha256" ,   l_crypto_hmac_sha256    ,0},
-    { "hmac_sha512" ,   l_crypto_hmac_sha512    ,0},
-    { "cipher" ,        l_crypto_cipher_encrypt ,0},
-    { "cipher_encrypt" ,l_crypto_cipher_encrypt ,0},
-    { "cipher_decrypt" ,l_crypto_cipher_decrypt ,0},
-    { "crc16",          l_crypto_crc16          ,0},
-    { "crc16_modbus",   l_crypto_crc16_modbus   ,0},
-    { "crc32",          l_crypto_crc32          ,0},
-    { "crc8",           l_crypto_crc8           ,0},
-    { "trng",           l_crypto_trng           ,0},
-    { "totp",           l_crypto_totp           ,0},
-	{ NULL,             NULL                    ,0}
+    { "md5" ,           ROREG_FUNC(l_crypto_md5            )},
+    { "sha1" ,          ROREG_FUNC(l_crypto_sha1           )},
+    { "sha256" ,        ROREG_FUNC(l_crypto_sha256         )},
+    { "sha512" ,        ROREG_FUNC(l_crypto_sha512         )},
+    { "hmac_md5" ,      ROREG_FUNC(l_crypto_hmac_md5       )},
+    { "hmac_sha1" ,     ROREG_FUNC(l_crypto_hmac_sha1      )},
+    { "hmac_sha256" ,   ROREG_FUNC(l_crypto_hmac_sha256    )},
+    { "hmac_sha512" ,   ROREG_FUNC(l_crypto_hmac_sha512    )},
+    { "cipher" ,        ROREG_FUNC(l_crypto_cipher_encrypt )},
+    { "cipher_encrypt" ,ROREG_FUNC(l_crypto_cipher_encrypt )},
+    { "cipher_decrypt" ,ROREG_FUNC(l_crypto_cipher_decrypt )},
+    { "crc16",          ROREG_FUNC(l_crypto_crc16          )},
+    { "crc16_modbus",   ROREG_FUNC(l_crypto_crc16_modbus   )},
+    { "crc32",          ROREG_FUNC(l_crypto_crc32          )},
+    { "crc8",           ROREG_FUNC(l_crypto_crc8           )},
+    { "trng",           ROREG_FUNC(l_crypto_trng           )},
+    { "totp",           ROREG_FUNC(l_crypto_totp           )},
+	{ NULL,             {}}
 };
 
 LUAMOD_API int luaopen_crypto( lua_State *L ) {
-    luat_newlib(L, reg_crypto);
+    luat_newlib2(L, reg_crypto);
     return 1;
 }
 

@@ -388,31 +388,34 @@ void luat_spi_struct_init(lua_State *L) {
 }
 
 //------------------------------------------------------------------
-#include "rotable.h"
-static const rotable_Reg reg_spi[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_spi[] =
 {
-    { "setup" ,           l_spi_setup,         0},
-    { "close",            l_spi_close,         0},
-    { "transfer",         l_spi_transfer,      0},
-    { "recv",             l_spi_recv,          0},
-    { "send",             l_spi_send,          0},
-    { "deviceSetup",      l_spi_device_setup,  0},
+    { "setup" ,           ROREG_FUNC(l_spi_setup)},
+    { "close",            ROREG_FUNC(l_spi_close)},
+    { "transfer",         ROREG_FUNC(l_spi_transfer)},
+    { "recv",             ROREG_FUNC(l_spi_recv)},
+    { "send",             ROREG_FUNC(l_spi_send)},
+    { "deviceSetup",      ROREG_FUNC(l_spi_device_setup)},
 
-    { "MSB",               0,                  1},
-    { "LSB",               0,                  2},
-    { "master",            0,                  1},
-    { "slave",             0,                  2},
-    { "full",              0,                  1},
-    { "half",              0,                  2},
+    { "MSB",               ROREG_FUNC(1)},
+    { "LSB",               ROREG_FUNC(2)},
+    { "master",            ROREG_FUNC(1)},
+    { "slave",             ROREG_FUNC(2)},
+    { "full",              ROREG_FUNC(1)},
+    { "half",              ROREG_FUNC(2)},
 
-    { "SPI_0",             0,                  0},
-    { "SPI_1",             0,                  1},
-    { "SPI_2",             0,                  2},
-	{ NULL,                 NULL,              0}
+    { "SPI_0",             ROREG_FUNC(0)},
+    { "SPI_1",             ROREG_FUNC(1)},
+    { "SPI_2",             ROREG_FUNC(2)},
+    { "SPI_3",             ROREG_FUNC(3)},
+    { "SPI_4",             ROREG_FUNC(4)},
+    { "SPI_5",             ROREG_FUNC(5)},
+	{ NULL,                {}}
 };
 
 LUAMOD_API int luaopen_spi( lua_State *L ) {
-    luat_newlib(L, reg_spi);
+    luat_newlib2(L, reg_spi);
     luat_spi_struct_init(L);
     return 1;
 }

@@ -77,16 +77,16 @@ static int l_pwm_capture(lua_State *L) {
     return 1;
 }
 
-#include "rotable.h"
-static const rotable_Reg reg_pwm[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_pwm[] =
 {
-    { "open" ,       l_pwm_open , 0},
-    { "close" ,      l_pwm_close, 0},
-    { "capture" ,      l_pwm_capture, 0},
-	{ NULL,          NULL ,       0}
+    { "open" ,       ROREG_FUNC(l_pwm_open )},
+    { "close" ,      ROREG_FUNC(l_pwm_close)},
+    { "capture" ,    ROREG_FUNC(l_pwm_capture)},
+	{ NULL,          {}}
 };
 
 LUAMOD_API int luaopen_pwm( lua_State *L ) {
-    luat_newlib(L, reg_pwm);
+    luat_newlib2(L, reg_pwm);
     return 1;
 }

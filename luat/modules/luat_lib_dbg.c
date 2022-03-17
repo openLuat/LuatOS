@@ -482,20 +482,20 @@ int l_debug_cmux_state(lua_State *L) {
 }
 #endif
 
-#include "rotable.h"
-static const rotable_Reg reg_dbg[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_dbg[] =
 {
-	{ "wait",  l_debug_wait, 0},
-    { "close",  l_debug_close, 0},
-    { "stop",  l_debug_close, 0},
+	{ "wait",  ROREG_FUNC(l_debug_wait)},
+    { "close", ROREG_FUNC(l_debug_close)},
+    { "stop",  ROREG_FUNC(l_debug_close)},
 #ifdef LUAT_USE_SHELL
-    { "cmux_state", l_debug_cmux_state, 0},
+    { "cmux_state", ROREG_FUNC(l_debug_cmux_state), 0},
 #endif
-	{ NULL, NULL , 0}
+	{ NULL,     {}}
 };
 
 LUAMOD_API int luaopen_dbg( lua_State *L ) {
-    luat_newlib(L, reg_dbg);
+    luat_newlib2(L, reg_dbg);
     return 1;
 }
 

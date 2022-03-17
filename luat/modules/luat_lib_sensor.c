@@ -471,20 +471,21 @@ static int l_sensor_ws2812b(lua_State *L)
   return 0;
 }
 
-#include "rotable.h"
-static const rotable_Reg reg_sensor[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_sensor[] =
     {
-        {"w1_reset", l_w1_reset, 0},
-        {"w1_connect", l_w1_connect, 0},
-        {"w1_write", l_w1_write_byte, 0},
-        {"w1_read", l_w1_read_byte, 0},
-        {"ds18b20", l_sensor_ds18b20, 0},
-        {"hx711", l_sensor_hx711, 0},
-        {"ws2812b", l_sensor_ws2812b, 0},
-        {NULL, NULL, 0}};
+        {"w1_reset",    ROREG_FUNC(l_w1_reset)},
+        {"w1_connect",  ROREG_FUNC(l_w1_connect)},
+        {"w1_write",    ROREG_FUNC(l_w1_write_byte)},
+        {"w1_read",     ROREG_FUNC(l_w1_read_byte)},
+        {"ds18b20",     ROREG_FUNC(l_sensor_ds18b20)},
+        {"hx711",       ROREG_FUNC(l_sensor_hx711)},
+        {"ws2812b",     ROREG_FUNC(l_sensor_ws2812b)},
+        {NULL,          {}}
+};
 
 LUAMOD_API int luaopen_sensor(lua_State *L)
 {
-  luat_newlib(L, reg_sensor);
+  luat_newlib2(L, reg_sensor);
   return 1;
 }

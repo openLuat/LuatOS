@@ -223,28 +223,28 @@ static int l_pm_check(lua_State *L) {
 //     }
 // }
 
-#include "rotable.h"
-static const rotable_Reg reg_pm[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_pm[] =
 {
-    { "request" ,       l_pm_request , 0},
-    // { "release" ,       l_pm_release,  0},
-    { "dtimerStart",    l_pm_dtimer_start,0},
-    { "dtimerStop" ,    l_pm_dtimer_stop, 0},
-	{ "dtimerCheck" ,   l_pm_dtimer_check, 0},
-    { "dtimerList",     l_pm_dtimer_list, 0 },
-    { "dtimerWkId",     l_pm_dtimer_wakeup_id, 0},
-    //{ "on",             l_pm_on,   0},
-    { "force",          l_pm_force, 0},
-    { "check",          l_pm_check, 0},
-    { "lastReson",      l_pm_last_reson, 0},
-    { "IDLE",           NULL, LUAT_PM_SLEEP_MODE_IDLE},
-    { "LIGHT",          NULL, LUAT_PM_SLEEP_MODE_LIGHT},
-    { "DEEP",           NULL, LUAT_PM_SLEEP_MODE_DEEP},
-    { "HIB",            NULL, LUAT_PM_SLEEP_MODE_STANDBY},
-	{ NULL,          NULL ,       0}
+    { "request" ,       ROREG_FUNC(l_pm_request )},
+    // { "release" ,    ROREG_FUNC(   l_pm_release)},
+    { "dtimerStart",    ROREG_FUNC(l_pm_dtimer_start)},
+    { "dtimerStop" ,    ROREG_FUNC(l_pm_dtimer_stop)},
+	{ "dtimerCheck" ,   ROREG_FUNC(l_pm_dtimer_check)},
+    { "dtimerList",     ROREG_FUNC(l_pm_dtimer_list)},
+    { "dtimerWkId",     ROREG_FUNC(l_pm_dtimer_wakeup_id)},
+    //{ "on",           ROREG_FUNC(l_pm_on)},
+    { "force",          ROREG_FUNC(l_pm_force)},
+    { "check",          ROREG_FUNC(l_pm_check)},
+    { "lastReson",      ROREG_FUNC(l_pm_last_reson)},
+    { "IDLE",           ROREG_INT(LUAT_PM_SLEEP_MODE_IDLE)},
+    { "LIGHT",          ROREG_INT(LUAT_PM_SLEEP_MODE_LIGHT)},
+    { "DEEP",           ROREG_INT(LUAT_PM_SLEEP_MODE_DEEP)},
+    { "HIB",            ROREG_INT(LUAT_PM_SLEEP_MODE_STANDBY)},
+	{ NULL,             {}}
 };
 
 LUAMOD_API int luaopen_pm( lua_State *L ) {
-    luat_newlib(L, reg_pm);
+    luat_newlib2(L, reg_pm);
     return 1;
 }

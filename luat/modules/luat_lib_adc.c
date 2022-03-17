@@ -73,16 +73,16 @@ static int l_adc_close(lua_State *L) {
     return 0;
 }
 
-#include "rotable.h"
-static const rotable_Reg reg_adc[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_adc[] =
 {
-    { "open" ,       l_adc_open , 0},
-    { "read" ,       l_adc_read , 0},
-    { "close" ,      l_adc_close, 0},
-	{ NULL,          NULL ,       0}
+    { "open" ,       ROREG_FUNC(l_adc_open)},
+    { "read" ,       ROREG_FUNC(l_adc_read)},
+    { "close" ,      ROREG_FUNC(l_adc_close)},
+	{ NULL,          {}}
 };
 
 LUAMOD_API int luaopen_adc( lua_State *L ) {
-    luat_newlib(L, reg_adc);
+    luat_newlib2(L, reg_adc);
     return 1;
 }

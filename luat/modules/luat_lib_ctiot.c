@@ -512,30 +512,30 @@ static int l_ctiot_update(lua_State *L)
 #endif
 
 
-#include "rotable.h"
-static const rotable_Reg reg_ctiot[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_ctiot[] =
 {
 #ifdef AIR302
-    { "init", l_ctiot_init, 0},
-    { "param", l_ctiot_param, 0},
-	{ "ep", l_ctiot_ep, 0},
-	{ "isReady", l_ctiot_ready, 0},
-//	{ "mode", l_ctiot_mode, 0},
-	{ "connect", l_ctiot_connect, 0},
-	{ "disconnect", l_ctiot_disconnect, 0},
-	{ "write", l_ctiot_write, 0},
-//	{ "read", l_ctiot_read, 0},
-	{ "update", l_ctiot_update, 0},
+    { "init", ROREG_FUNC(l_ctiot_init)},
+    { "param", ROREG_FUNC(l_ctiot_param)},
+	{ "ep", ROREG_FUNC(l_ctiot_ep)},
+	{ "isReady", ROREG_FUNC(l_ctiot_ready)},
+//	{ "mode", ROREG_FUNC(l_ctiot_mode)},
+	{ "connect", ROREG_FUNC(l_ctiot_connect)},
+	{ "disconnect", ROREG_FUNC(l_ctiot_disconnect)},
+	{ "write", ROREG_FUNC(l_ctiot_write)},
+//	{ "read", ROREG_FUNC(l_ctiot_read)},
+	{ "update", ROREG_FUNC(l_ctiot_update)},
     // ----- 类型常量
-	{ "CON", NULL, 0},
-	{ "NON", NULL, 1},
-	{ "NON_REL", NULL, 2},
-	{ "CON_REL", NULL, 3},
+	{ "CON", ROREG_INT(0)},
+	{ "NON", ROREG_INT(1)},
+	{ "NON_REL", ROREG_INT(2)},
+	{ "CON_REL", ROREG_INT(3)},
 #endif
-	{ NULL, NULL , 0}
+	{ NULL, {}}
 };
 
 LUAMOD_API int luaopen_ctiot( lua_State *L ) {
-    luat_newlib(L, reg_ctiot);
+    luat_newlib2(L, reg_ctiot);
     return 1;
 }

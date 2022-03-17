@@ -452,25 +452,25 @@ static void createmeta (lua_State *L) {
 }
 
 
-#include "rotable.h"
+#include "rotable2.h"
 #define CODE(H,L) (H << 5 + L)
-static const rotable_Reg reg_libcoap[] =
+static const rotable_Reg_t reg_libcoap[] =
 {
-    { "new", l_libcoap_new, 0},
-    { "parse", l_libcoap_parse, 0},
+    { "new",   ROREG_FUNC(l_libcoap_new)},
+    { "parse", ROREG_FUNC(l_libcoap_parse)},
 
     // ----- 类型常量
-    { "CON",        NULL,   0},
-    { "NON",        NULL,   1},
-    { "ACK",        NULL,   2},
-    { "RST",        NULL,   3},
+    { "CON",        ROREG_INT(0)},
+    { "NON",        ROREG_INT(1)},
+    { "ACK",        ROREG_INT(2)},
+    { "RST",        ROREG_INT(3)},
 
-    // 请求类
-    { "NONE",       NULL,   0},
-    { "GET",        NULL,   1},
-    { "POST",       NULL,   2},
-    { "PUT",        NULL,   3},
-    { "DELETE",     NULL,   4},
+    // 请求类)
+    { "NONE",       ROREG_INT(0)},
+    { "GET",        ROREG_INT(1)},
+    { "POST",       ROREG_INT(2)},
+    { "PUT",        ROREG_INT(3)},
+    { "DELETE",     ROREG_INT(4)},
 
     // 响应类
     // { "Created",    NULL,   CODE(2,1)},
@@ -496,11 +496,11 @@ static const rotable_Reg reg_libcoap[] =
     // { "Service Unavailable",    NULL,   CODE(5,3)},
     // { "Gateway Timeout",    NULL,   CODE(5,4)},
     // { "Proxying Not Supported",    NULL,   CODE(5,5)},
-	{ NULL, NULL , 0}
+	{ NULL,  {}}
 };
 
 LUAMOD_API int luaopen_libcoap( lua_State *L ) {
-    luat_newlib(L, reg_libcoap);
+    luat_newlib2(L, reg_libcoap);
     createmeta(L);
     return 1;
 }

@@ -119,17 +119,17 @@ static int l_otp_lock(lua_State *L) {
 };
 
 
-#include "rotable.h"
-static const rotable_Reg reg_otp[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_otp[] =
 {
-    {"read", l_otp_read, 0},
-    {"write", l_otp_write, 0},
-    {"erase", l_otp_erase, 0},
-    {"lock", l_otp_lock, 0},
-	{ NULL, NULL , 0}
+    {"read",    ROREG_FUNC(l_otp_read)},
+    {"write",   ROREG_FUNC(l_otp_write)},
+    {"erase",   ROREG_FUNC(l_otp_erase)},
+    {"lock",    ROREG_FUNC(l_otp_lock)},
+	{ NULL,     {}}
 };
 
 LUAMOD_API int luaopen_otp( lua_State *L ) {
-    luat_newlib(L, reg_otp);
+    luat_newlib2(L, reg_otp);
     return 1;
 }

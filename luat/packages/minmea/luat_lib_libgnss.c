@@ -567,7 +567,7 @@ static const rotable_Reg_t reg_libgnss[] =
     // { "air530z_saveconf", ROREG_FUNC(l_libgnss_air530_saveconf)},
     // { "air530z_setbandrate", ROREG_FUNC(l_libgnss_air530_setbandrate)},
 
-	{ NULL, NULL , 0}
+	{ NULL,      {}}
 };
 
 LUAMOD_API int luaopen_libgnss( lua_State *L ) {

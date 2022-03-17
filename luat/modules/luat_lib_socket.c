@@ -581,20 +581,20 @@ static void createmeta (lua_State *L) {
 }
 
 
-#include "rotable.h"
-static const rotable_Reg reg_socket[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_socket[] =
 {
-    { "tcp", luat_lib_socket_tcp, 0},
-    { "udp", luat_lib_socket_udp, 0},
-    { "tsend" ,  sal_tls_test , 0},
-    { "ntpSync", socket_ntp_sync, 0}, // TODO 改成平台无关的UDP实现?
-    { "isReady", l_socket_is_ready, 0},
-    { "ip", l_socket_selfip, 0},
-	{ NULL, NULL , 0}
+    { "tcp",        ROREG_FUNC(luat_lib_socket_tcp)},
+    { "udp",        ROREG_FUNC(luat_lib_socket_udp)},
+    { "tsend" ,     ROREG_FUNC(sal_tls_test )},
+    { "ntpSync",    ROREG_FUNC(socket_ntp_sync)}, // TODO 改成平台无关的UDP实现?
+    { "isReady",    ROREG_FUNC(l_socket_is_ready)},
+    { "ip",         ROREG_FUNC(l_socket_selfip)},
+	{ NULL,         {}}
 };
 
 LUAMOD_API int luaopen_socket( lua_State *L ) {
-    luat_newlib(L, reg_socket);
+    luat_newlib2(L, reg_socket);
     createmeta(L);
     return 1;
 }

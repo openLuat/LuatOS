@@ -57,6 +57,9 @@ static int rotable_push_rovalue(lua_State *L, const rotable_Reg_t* q) {
   case LUA_TNUMBER:
     lua_pushstring( L, q->value.value.strvalue );
     break;
+  case LUA_TLIGHTUSERDATA:
+    lua_pushlightuserdata(L, q->value.value.ptr);
+    break;
   default:
     return 0;
   }

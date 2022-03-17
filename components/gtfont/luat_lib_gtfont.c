@@ -173,6 +173,6 @@ static const rotable_Reg_t reg_gtfont[] =
 };
 
 LUAMOD_API int luaopen_gtfont( lua_State *L ) {
-    luat_newlib(L, reg_gtfont);
+    luat_newlib2(L, reg_gtfont);
     return 1;
 }

@@ -11,6 +11,7 @@ typedef struct rotable_Reg_Value {
     lua_Number numvalue;
     const char* strvalue;
     lua_Integer intvalue;
+    void*       ptr;
   } value;
 }rotable_Reg_Value_t;
 
@@ -28,6 +29,7 @@ typedef struct rotable_Reg2 {
 #define ROREG_NUM(fvalue)  {.type=LUA_TNUMBER,   .value={.numvalue=fvalue}}
 #define ROREG_INT(fvalue)  {.type=LUA_TINTEGER,  .value={.intvalue=fvalue}}
 #define ROREG_STR(fvalue)  {.type=LUA_TSTRING,   .value={.strvalue=fvalue}}
+#define ROREG_PTR(fvalue)  {.type=LUA_TLIGHTUSERDATA,   .value={.ptr=fvalue}}
 
 #ifndef ROTABLE_EXPORT
 #  define ROTABLE_EXPORT extern

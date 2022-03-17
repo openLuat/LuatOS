@@ -635,32 +635,32 @@ static int l_i2c_readSHT30(lua_State *L)
     }
 }
 
-#include "rotable.h"
-static const rotable_Reg reg_i2c[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_i2c[] =
 {
-    { "exist", l_i2c_exist, 0},
-    { "setup", l_i2c_setup, 0},
-    { "createSoft", l_i2c_soft, 0},
+    { "exist",      ROREG_FUNC(l_i2c_exist)},
+    { "setup",      ROREG_FUNC(l_i2c_setup)},
+    { "createSoft", ROREG_FUNC(l_i2c_soft)},
 #ifdef __F1C100S__
 #else
-    { "send", l_i2c_send, 0},
-    { "recv", l_i2c_recv, 0},
+    { "send",       ROREG_FUNC(l_i2c_send)},
+    { "recv",       ROREG_FUNC(l_i2c_recv)},
 #endif
-    { "writeReg", l_i2c_write_reg, 0},
-    { "readReg", l_i2c_read_reg, 0},
-    { "close", l_i2c_close, 0},
+    { "writeReg",   ROREG_FUNC(l_i2c_write_reg)},
+    { "readReg",    ROREG_FUNC(l_i2c_read_reg)},
+    { "close",      ROREG_FUNC(l_i2c_close)},
 
-    { "readDHT12", l_i2c_readDHT12, 0},
-    { "readSHT30", l_i2c_readSHT30, 0},
+    { "readDHT12",  ROREG_FUNC(l_i2c_readDHT12)},
+    { "readSHT30",  ROREG_FUNC(l_i2c_readSHT30)},
 
-    { "FAST",  NULL, 1},
-    { "SLOW",  NULL, 0},
-	{ NULL, NULL, 0}
+    { "FAST",       ROREG_INT(1)},
+    { "SLOW",       ROREG_INT(0)},
+	{ NULL,         {}}
 };
 
 LUAMOD_API int luaopen_i2c(lua_State *L)
 {
-    luat_newlib(L, reg_i2c);
+    luat_newlib2(L, reg_i2c);
     luaL_newmetatable(L, LUAT_EI2C_TYPE);
     lua_pop(L, 1);
     return 1;

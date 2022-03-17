@@ -80,16 +80,16 @@ end)
 }
 
 
-#include "rotable.h"
-static const rotable_Reg reg_touchkey[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_touchkey[] =
 {
-    { "setup",  l_touchkey_setup,0},
-    { "close",  l_touchkey_close,0},
-    { NULL,             NULL ,          0}
+    { "setup",  ROREG_FUNC(l_touchkey_setup)},
+    { "close",  ROREG_FUNC(l_touchkey_close)},
+    { NULL,     {}}
 };
 
 LUAMOD_API int luaopen_touchkey(lua_State *L)
 {
-    luat_newlib(L, reg_touchkey);
+    luat_newlib2(L, reg_touchkey);
     return 1;
 }

@@ -502,22 +502,22 @@ static int l_mqttcore_unpack(lua_State *L) {
 	return 2;
 }
 
-#include "rotable.h"
-static const rotable_Reg reg_mqttcore[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_mqttcore[] =
 {
-    { "encodeLen", 		l_mqttcore_encodeLen, 0},
-    { "encodeUTF8",		l_mqttcore_encodeUTF8,0},
-	{ "packCONNECT", 	l_mqttcore_packCONNECT,0},
-	{ "packSUBSCRIBE", 	l_mqttcore_packSUBSCRIBE, 0},
-	{ "packPUBLISH",	l_mqttcore_packPUBLISH,	0},
-	{ "packACK",		l_mqttcore_packACK,		0},
-	{ "packZeroData",   l_mqttcore_packZeroData,0},
-	{ "packUNSUBSCRIBE",l_mqttcore_packUNSUBSCRIBE,0},
-	{ "unpack",  		l_mqttcore_unpack, 0},
-	{ NULL, NULL , 0}
+    { "encodeLen", 		ROREG_FUNC(l_mqttcore_encodeLen)},
+    { "encodeUTF8",		ROREG_FUNC(l_mqttcore_encodeUTF8)},
+	{ "packCONNECT", 	ROREG_FUNC(l_mqttcore_packCONNECT)},
+	{ "packSUBSCRIBE", 	ROREG_FUNC(l_mqttcore_packSUBSCRIBE)},
+	{ "packPUBLISH",	ROREG_FUNC(l_mqttcore_packPUBLISH)},
+	{ "packACK",		ROREG_FUNC(l_mqttcore_packACK)},
+	{ "packZeroData",   ROREG_FUNC(l_mqttcore_packZeroData)},
+	{ "packUNSUBSCRIBE",ROREG_FUNC(l_mqttcore_packUNSUBSCRIBE)},
+	{ "unpack",  		ROREG_FUNC(l_mqttcore_unpack)},
+	{ NULL,             {}}
 };
 
 LUAMOD_API int luaopen_mqttcore( lua_State *L ) {
-    luat_newlib(L, reg_mqttcore);
+    luat_newlib2(L, reg_mqttcore);
     return 1;
 }

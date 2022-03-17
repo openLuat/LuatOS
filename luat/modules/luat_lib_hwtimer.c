@@ -48,19 +48,19 @@ static int l_hwtimer_destroy(lua_State* L) {
     return 1;
 }
 
-#include "rotable.h"
-static const rotable_Reg reg_hwtimer[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_hwtimer[] =
 {
-    { "create" ,        l_hwtimer_create, 0},
-    { "start",          l_hwtimer_start,  0},
-    { "stop",           l_hwtimer_stop,   0},
-    { "read",           l_hwtimer_read,   0},
-    { "change",         l_hwtimer_change, 0},
-    { "destroy",        l_hwtimer_destroy,0},
-	{ NULL,          NULL ,       0}
+    { "create" ,        ROREG_FUNC(l_hwtimer_create)},
+    { "start",          ROREG_FUNC(l_hwtimer_start)},
+    { "stop",           ROREG_FUNC(l_hwtimer_stop)},
+    { "read",           ROREG_FUNC(l_hwtimer_read)},
+    { "change",         ROREG_FUNC(l_hwtimer_change)},
+    { "destroy",        ROREG_FUNC(l_hwtimer_destroy)},
+	{ NULL,             {}}
 };
 
 LUAMOD_API int luaopen_hwtimer( lua_State *L ) {
-    luat_newlib(L, reg_hwtimer);
+    luat_newlib2(L, reg_hwtimer);
     return 1;
 }

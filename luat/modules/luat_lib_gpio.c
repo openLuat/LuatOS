@@ -207,29 +207,29 @@ static int l_gpio_set_default_pull(lua_State *L) {
     return 1;
 }
 
-#include "rotable.h"
-static const rotable_Reg reg_gpio[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_gpio[] =
 {
-    { "setup" ,         l_gpio_setup ,0},
-    { "set" ,           l_gpio_set,   0},
-    { "get" ,           l_gpio_get,   0 },
-    { "close" ,         l_gpio_close, 0 },
-    { "setDefaultPull", l_gpio_set_default_pull, 0},
+    { "setup" ,         ROREG_FUNC(l_gpio_setup )},
+    { "set" ,           ROREG_FUNC(l_gpio_set)},
+    { "get" ,           ROREG_FUNC(l_gpio_get)},
+    { "close" ,         ROREG_FUNC(l_gpio_close)},
+    { "setDefaultPull", ROREG_FUNC(l_gpio_set_default_pull)},
 
-    { "LOW",            NULL,         Luat_GPIO_LOW},
-    { "HIGH",           NULL,         Luat_GPIO_HIGH},
+    { "LOW",            ROREG_INT(Luat_GPIO_LOW)},
+    { "HIGH",           ROREG_INT(Luat_GPIO_HIGH)},
 
-    { "OUTPUT",         NULL,         Luat_GPIO_OUTPUT},
-    { "INPUT",          NULL,         Luat_GPIO_INPUT},
-    { "IRQ",            NULL,         Luat_GPIO_IRQ},
+    { "OUTPUT",         ROREG_INT(Luat_GPIO_OUTPUT)},
+    { "INPUT",          ROREG_INT(Luat_GPIO_INPUT)},
+    { "IRQ",            ROREG_INT(Luat_GPIO_IRQ)},
 
-    { "PULLUP",         NULL,         Luat_GPIO_PULLUP},
-    { "PULLDOWN",       NULL,         Luat_GPIO_PULLDOWN},
+    { "PULLUP",         ROREG_INT(Luat_GPIO_PULLUP)},
+    { "PULLDOWN",       ROREG_INT(Luat_GPIO_PULLDOWN)},
 
-    { "RISING",         NULL,         Luat_GPIO_RISING},
-    { "FALLING",        NULL,         Luat_GPIO_FALLING},
-    { "BOTH",           NULL,         Luat_GPIO_BOTH},
-	{ NULL,             NULL ,        0}
+    { "RISING",         ROREG_INT(Luat_GPIO_RISING)},
+    { "FALLING",        ROREG_INT(Luat_GPIO_FALLING)},
+    { "BOTH",           ROREG_INT(Luat_GPIO_BOTH)},
+	{ NULL,             {}}
 };
 
 LUAMOD_API int luaopen_gpio( lua_State *L ) {
@@ -237,7 +237,7 @@ LUAMOD_API int luaopen_gpio( lua_State *L ) {
     for (size_t i = 0; i < GPIO_IRQ_COUNT; i++) {
         irq_cbs[i].pin = -1;
     }
-    luat_newlib(L, reg_gpio);
+    luat_newlib2(L, reg_gpio);
     return 1;
 }
 

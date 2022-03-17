@@ -219,17 +219,18 @@ static int l_vmx_count(lua_State *L) {
     return 1;
 }
 
-#include "rotable.h"
-static const rotable_Reg reg_vmx[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_vmx[] =
 {
-    { "create" ,         l_vmx_create, 0},
-    { "bind" ,           l_vmx_bind, 0},
-    { "exec",            l_vmx_exec, 0},
-    { "close" ,          l_vmx_close, 0},
-    { "count" ,          l_vmx_count, 0},
+    { "create" ,         ROREG_FUNC(l_vmx_create)},
+    { "bind" ,           ROREG_FUNC(l_vmx_bind)},
+    { "exec",            ROREG_FUNC(l_vmx_exec)},
+    { "close" ,          ROREG_FUNC(l_vmx_close)},
+    { "count" ,          ROREG_FUNC(l_vmx_count)},
+    { NULL,              {}}
 };
 
 LUAMOD_API int luaopen_vmx( lua_State *L ) {
-    luat_newlib(L, reg_vmx);
+    luat_newlib2(L, reg_vmx);
     return 1;
 }

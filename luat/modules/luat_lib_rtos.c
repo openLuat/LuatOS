@@ -270,34 +270,34 @@ static int l_rtos_nop(lua_State *L) {
     return 0;
 }
 //------------------------------------------------------------------
-#include "rotable.h"
-static const rotable_Reg reg_rtos[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_rtos[] =
 {
-    { "timer_start" ,      l_rtos_timer_start, 0},
-    { "timer_stop",        l_rtos_timer_stop,  0},
-    { "receive",           l_rtos_receive,     0},
-    { "reboot",            l_rtos_reboot,      0},
-    { "standy",            l_rtos_standy,      0},
+    { "timer_start" ,      ROREG_FUNC(l_rtos_timer_start)},
+    { "timer_stop",        ROREG_FUNC(l_rtos_timer_stop)},
+    { "receive",           ROREG_FUNC(l_rtos_receive)},
+    { "reboot",            ROREG_FUNC(l_rtos_reboot)},
+    { "standy",            ROREG_FUNC(l_rtos_standy)},
 
-    { "buildDate",         l_rtos_build_date,  0},
-    { "bsp",               l_rtos_bsp,         0},
-    { "version",           l_rtos_version,     0},
-    { "meminfo",           l_rtos_meminfo,     0},
-    { "firmware",          l_rtos_firmware,    0},
-    { "setPaths",          l_rtos_set_paths,   0},
-    { "nop",               l_rtos_nop,   0},
+    { "buildDate",         ROREG_FUNC(l_rtos_build_date)},
+    { "bsp",               ROREG_FUNC(l_rtos_bsp)},
+    { "version",           ROREG_FUNC(l_rtos_version)},
+    { "meminfo",           ROREG_FUNC(l_rtos_meminfo)},
+    { "firmware",          ROREG_FUNC(l_rtos_firmware)},
+    { "setPaths",          ROREG_FUNC(l_rtos_set_paths)},
+    { "nop",               ROREG_FUNC(l_rtos_nop)},
 
-    { "INF_TIMEOUT",        NULL,              -1},
+    { "INF_TIMEOUT",       ROREG_INT(-1)},
 
-    { "MSG_TIMER",          NULL,              MSG_TIMER},
+    { "MSG_TIMER",         ROREG_INT(MSG_TIMER)},
     // { "MSG_GPIO",           NULL,              MSG_GPIO},
     // { "MSG_UART_RX",        NULL,              MSG_UART_RX},
     // { "MSG_UART_TXDONE",    NULL,              MSG_UART_TXDONE},
-	{ NULL,                 NULL,              0}
+	{ NULL,                {}}
 };
 
 LUAMOD_API int luaopen_rtos( lua_State *L ) {
-    luat_newlib(L, reg_rtos);
+    luat_newlib2(L, reg_rtos);
     return 1;
 }
 

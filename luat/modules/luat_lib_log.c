@@ -147,27 +147,27 @@ static int l_log_error(lua_State *L) {
     return l_log_2_log(L);
 }
 
-#include "rotable.h"
-static const rotable_Reg reg_log[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_log[] =
 {
-    { "setLevel" , l_log_set_level, 0},
-    { "getLevel" , l_log_get_level, 0},
-    { "debug" , l_log_debug, 0},
-    { "info" , l_log_info, 0},
-    { "warn" , l_log_warn, 0},
-    { "error" , l_log_error, 0},
-    { "fatal" , l_log_error, 0}, // 以error对待
-    { "_log" , l_log_2_log, 0},
+    { "setLevel" ,  ROREG_FUNC(l_log_set_level)},
+    { "getLevel" ,  ROREG_FUNC(l_log_get_level)},
+    { "debug" ,     ROREG_FUNC(l_log_debug)},
+    { "info" ,      ROREG_FUNC(l_log_info)},
+    { "warn" ,      ROREG_FUNC(l_log_warn)},
+    { "error" ,     ROREG_FUNC(l_log_error)},
+    { "fatal" ,     ROREG_FUNC(l_log_error)}, // 以error对待
+    { "_log" ,      ROREG_FUNC(l_log_2_log)},
 
-    { "LOG_SILENT", NULL, LUAT_LOG_CLOSE},
-    { "LOG_DEBUG",  NULL, LUAT_LOG_DEBUG},
-    { "LOG_INFO",   NULL, LUAT_LOG_INFO},
-    { "LOG_WARN",   NULL, LUAT_LOG_WARN},
-    { "LOG_ERROR",  NULL, LUAT_LOG_ERROR},
-	{ NULL, NULL, 0}
+    { "LOG_SILENT", ROREG_INT(LUAT_LOG_CLOSE)},
+    { "LOG_DEBUG",  ROREG_INT(LUAT_LOG_DEBUG)},
+    { "LOG_INFO",   ROREG_INT(LUAT_LOG_INFO)},
+    { "LOG_WARN",   ROREG_INT(LUAT_LOG_WARN)},
+    { "LOG_ERROR",  ROREG_INT(LUAT_LOG_ERROR)},
+	{ NULL,         {}}
 };
 
 LUAMOD_API int luaopen_log( lua_State *L ) {
-    luat_newlib(L, reg_log);
+    luat_newlib2(L, reg_log);
     return 1;
 }

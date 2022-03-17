@@ -29,14 +29,14 @@ static int l_timer_mdelay(lua_State *L) {
 
 //TODO 支持hwtimer
 
-#include "rotable.h"
-static const rotable_Reg reg_timer[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_timer[] =
 {
-    { "mdelay", l_timer_mdelay, 0},
-	{ NULL, NULL, 0}
+    { "mdelay", ROREG_FUNC(l_timer_mdelay)},
+	{ NULL,     {}}
 };
 
 LUAMOD_API int luaopen_timer( lua_State *L ) {
-    luat_newlib(L, reg_timer);
+    luat_newlib2(L, reg_timer);
     return 1;
 }

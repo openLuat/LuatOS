@@ -151,17 +151,17 @@ static int l_dac_close(lua_State *L) {
     return 2;
 }
 
-#include "rotable.h"
-static const rotable_Reg reg_dac[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_dac[] =
 {
-    { "open" ,       l_dac_open , 0},
-    { "write" ,      l_dac_write , 0},
-//    { "writeFile",   l_dac_write_file,0},
-    { "close" ,      l_dac_close, 0},
-	{ NULL,          NULL ,       0}
+    { "open" ,       ROREG_FUNC(l_dac_open)},
+    { "write" ,      ROREG_FUNC(l_dac_write)},
+//    { "writeFile",   ROREG_FUNC(l_dac_write_file)},
+    { "close" ,      ROREG_FUNC(l_dac_close)},
+	{ NULL,          {}}
 };
 
 LUAMOD_API int luaopen_dac( lua_State *L ) {
-    luat_newlib(L, reg_dac);
+    luat_newlib2(L, reg_dac);
     return 1;
 }

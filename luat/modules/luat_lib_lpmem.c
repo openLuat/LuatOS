@@ -74,16 +74,16 @@ static int l_lpmem_size(lua_State *L) {
     return 1;
 }
 
-#include "rotable.h"
-static const rotable_Reg reg_lpmem[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_lpmem[] =
 {
-    { "read" ,         l_lpmem_read , 0},
-    { "write" ,        l_lpmem_write, 0},
-    { "size",          l_lpmem_size,  0},
-	{ NULL,             NULL ,        0}
+    { "read" ,         ROREG_FUNC(l_lpmem_read)},
+    { "write" ,        ROREG_FUNC(l_lpmem_write)},
+    { "size",          ROREG_FUNC(l_lpmem_size)},
+	{ NULL,            {}}
 };
 
 LUAMOD_API int luaopen_lpmem( lua_State *L ) {
-    luat_newlib(L, reg_lpmem);
+    luat_newlib2(L, reg_lpmem);
     return 1;
 }

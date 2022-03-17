@@ -325,15 +325,15 @@ int luat_unpack(lua_State *L) {
    return l_unpack(L);
 }
 
-#include "rotable.h"
-static const rotable_Reg reg_pack[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_pack[] =
 {
-	{"pack",	l_pack, 0},
-	{"unpack",	l_unpack, 0},
-	{NULL,	NULL, 0}
+	{"pack",	   ROREG_FUNC(l_pack)},
+	{"unpack",	ROREG_FUNC(l_unpack)},
+	{NULL,	   {}}
 };
 
 LUAMOD_API int luaopen_pack( lua_State *L ) {
-    luat_newlib(L, reg_pack);
+    luat_newlib2(L, reg_pack);
     return 1;
 }

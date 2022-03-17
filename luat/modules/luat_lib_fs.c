@@ -95,20 +95,20 @@ static int l_fs_umount(lua_State *L) {
     return 1;
 }
 
-#include "rotable.h"
-static const rotable_Reg reg_fs[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_fs[] =
 {
-    { "fsstat",      l_fs_fsstat,   0},
-    { "fsize",       l_fs_fsize,    0},
-    { "mkdir",       l_fs_mkdir,    0},
-    { "rmdir",       l_fs_rmdir,    0},
-    { "mkfs",        l_fs_mkfs,     0},
-    { "mount",       l_fs_mount,    0},
-    { "umount",      l_fs_umount,   0},
-	{ NULL,                 NULL,   0}
+    { "fsstat",      ROREG_FUNC(l_fs_fsstat   )},
+    { "fsize",       ROREG_FUNC(l_fs_fsize    )},
+    { "mkdir",       ROREG_FUNC(l_fs_mkdir    )},
+    { "rmdir",       ROREG_FUNC(l_fs_rmdir    )},
+    { "mkfs",        ROREG_FUNC(l_fs_mkfs     )},
+    { "mount",       ROREG_FUNC(l_fs_mount    )},
+    { "umount",      ROREG_FUNC(l_fs_umount   )},
+	{ NULL,          {}}
 };
 
 LUAMOD_API int luaopen_fs( lua_State *L ) {
-    luat_newlib(L, reg_fs);
+    luat_newlib2(L, reg_fs);
     return 1;
 }

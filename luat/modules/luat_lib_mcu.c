@@ -129,22 +129,22 @@ static int l_mcu_hw_diff_tick64(lua_State* L) {
 }
 #endif
 
-#include "rotable.h"
-static const rotable_Reg reg_mcu[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_mcu[] =
 {
-    { "setClk" ,        l_mcu_set_clk, 0},
-    { "getClk",         l_mcu_get_clk,  0},
-    { "unique_id",      l_mcu_unique_id, 0},
-    { "ticks",          l_mcu_ticks, 0},
-    { "hz",             l_mcu_hz, 0},
+    { "setClk" ,        ROREG_FUNC(l_mcu_set_clk)},
+    { "getClk",         ROREG_FUNC(l_mcu_get_clk)},
+    { "unique_id",      ROREG_FUNC(l_mcu_unique_id)},
+    { "ticks",          ROREG_FUNC(l_mcu_ticks)},
+    { "hz",             ROREG_FUNC(l_mcu_hz)},
 #ifdef __LUATOS_TICK_64BIT__
-	{ "tick64",			l_mcu_hw_tick64, 0},
-	{ "dtick64",		l_mcu_hw_diff_tick64, 0},
+	{ "tick64",			ROREG_FUNC(l_mcu_hw_tick64)},
+	{ "dtick64",		ROREG_FUNC(l_mcu_hw_diff_tick64)},
 #endif
-	{ NULL,          NULL ,       0}
+	{ NULL,             {}}
 };
 
 LUAMOD_API int luaopen_mcu( lua_State *L ) {
-    luat_newlib(L, reg_mcu);
+    luat_newlib2(L, reg_mcu);
     return 1;
 }

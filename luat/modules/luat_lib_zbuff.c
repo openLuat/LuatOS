@@ -1412,18 +1412,20 @@ static void createmeta(lua_State *L)
     //luaL_newlib(L, lib_zbuff);
 }
 
-#include "rotable.h"
-static const rotable_Reg reg_zbuff[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_zbuff[] =
     {
-        {"create", l_zbuff_create, 0},
-        {"SEEK_SET", NULL, ZBUFF_SEEK_SET},
-        {"SEEK_CUR", NULL, ZBUFF_SEEK_CUR},
-        {"SEEK_END", NULL, ZBUFF_SEEK_END},
-        {NULL, NULL, 0}};
+        {"create",  ROREG_FUNC(l_zbuff_create)},
+        {"SEEK_SET", ROREG_INT(ZBUFF_SEEK_SET)},
+        {"SEEK_CUR", ROREG_INT(ZBUFF_SEEK_CUR)},
+        {"SEEK_END", ROREG_INT(ZBUFF_SEEK_END)},
+        {NULL,       {}
+    }
+};
 
 LUAMOD_API int luaopen_zbuff(lua_State *L)
 {
-    luat_newlib(L, reg_zbuff);
+    luat_newlib2(L, reg_zbuff);
     createmeta(L);
     return 1;
 }

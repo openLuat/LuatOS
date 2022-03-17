@@ -330,39 +330,37 @@ static int l_codec_release(lua_State *L) {
     return 0;
 }
 
-#include "rotable.h"
-static const rotable_Reg reg_audio[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_audio[] =
 {
-    { "start" ,       l_audio_start_raw , 0},
-    { "write" ,        l_audio_write_raw, 0},
-    { "pause",      l_audio_pause_raw, 0},
-	{ "stop",		l_audio_stop_raw, 0},
-    { "on",     l_audio_raw_on, 0},
-    { "PCM",            NULL,           MULTIMEDIA_DATA_TYPE_PCM},
-	{ "MORE_DATA",            NULL,           MULTIMEDIA_CB_AUDIO_NEED_DATA},
-	{ "DONE",            NULL,           MULTIMEDIA_CB_AUDIO_DONE},
-	{ NULL,          NULL ,       0}
+    { "start" ,        ROREG_FUNC(l_audio_start_raw)},
+    { "write" ,        ROREG_FUNC(l_audio_write_raw)},
+    { "pause",         ROREG_FUNC(l_audio_pause_raw)},
+	{ "stop",		   ROREG_FUNC(l_audio_stop_raw)},
+    { "on",            ROREG_FUNC(l_audio_raw_on)},
+    { "PCM",           ROREG_INT(MULTIMEDIA_DATA_TYPE_PCM)},
+	{ "MORE_DATA",     ROREG_INT(MULTIMEDIA_CB_AUDIO_NEED_DATA)},
+	{ "DONE",          ROREG_INT(MULTIMEDIA_CB_AUDIO_DONE)},
+	{ NULL,            {}}
 };
 
-static const rotable_Reg reg_codec[] =
+static const rotable_Reg_t reg_codec[] =
 {
-    { "create" ,       l_codec_create , 0},
-    { "get_audio_info" ,        l_codec_get_audio_info, 0},
-    { "get_audio_data",      l_codec_get_audio_data, 0},
-    { "release",     l_codec_release, 0},
-
-	{ "MP3",            NULL,           MULTIMEDIA_DATA_TYPE_MP3},
-
-	{ NULL,          NULL ,       0}
+    { "create" ,         ROREG_FUNC(l_codec_create)},
+    { "get_audio_info" , ROREG_FUNC(l_codec_get_audio_info)},
+    { "get_audio_data",  ROREG_FUNC(l_codec_get_audio_data)},
+    { "release",         ROREG_FUNC(l_codec_release)},
+	{ "MP3",             ROREG_INT(MULTIMEDIA_DATA_TYPE_MP3)},
+	{ NULL,              {}}
 };
 
 LUAMOD_API int luaopen_multimedia_audio( lua_State *L ) {
-    luat_newlib(L, reg_audio);
+    luat_newlib2(L, reg_audio);
     return 1;
 }
 
 LUAMOD_API int luaopen_multimedia_codec( lua_State *L ) {
-    luat_newlib(L, reg_codec);
+    luat_newlib2(L, reg_codec);
     return 1;
 }
 

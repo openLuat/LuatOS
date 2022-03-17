@@ -84,31 +84,31 @@ static int l_lcdseg_seg_set(lua_State* L) {
     return 1;
 }
 
-#include "rotable.h"
-static const rotable_Reg reg_lcdseg[] = {
-    { "setup", l_lcdseg_setup, 0},
-    { "enable", l_lcdseg_enable, 0},
-    { "power", l_lcdseg_power, 0},
-    { "seg_set", l_lcdseg_seg_set, 0},
+#include "rotable2.h"
+static const rotable_Reg_t reg_lcdseg[] = {
+    { "setup",      ROREG_FUNC(l_lcdseg_setup)},
+    { "enable",     ROREG_FUNC(l_lcdseg_enable)},
+    { "power",      ROREG_FUNC(l_lcdseg_power)},
+    { "seg_set",    ROREG_FUNC(l_lcdseg_seg_set)},
 
-    { "BIAS_STATIC", NULL,    0},
-    { "BIAS_ONEHALF", NULL,   2},
-    { "BIAS_ONETHIRD", NULL,  3},
-    { "BIAS_ONEFOURTH", NULL, 4},
+    { "BIAS_STATIC",    ROREG_INT(0)},
+    { "BIAS_ONEHALF",   ROREG_INT(2)},
+    { "BIAS_ONETHIRD",  ROREG_INT(3)},
+    { "BIAS_ONEFOURTH", ROREG_INT(4)},
 
-    
-    { "DUTY_STATIC", NULL,    0},
-    { "DUTY_ONEHALF", NULL,   2},
-    { "DUTY_ONETHIRD", NULL,  3},
-    { "DUTY_ONEFOURTH", NULL, 4},
-    { "DUTY_ONEFIFTH", NULL,  5},
-    { "DUTY_ONESIXTH", NULL,  6},
-    { "DUTY_ONESEVENTH", NULL,7},
-    { "DUTY_ONEEIGHTH", NULL, 8},
+
+    { "DUTY_STATIC",    ROREG_INT(0)},
+    { "DUTY_ONEHALF",   ROREG_INT(2)},
+    { "DUTY_ONETHIRD",  ROREG_INT(3)},
+    { "DUTY_ONEFOURTH", ROREG_INT(4)},
+    { "DUTY_ONEFIFTH",  ROREG_INT(5)},
+    { "DUTY_ONESIXTH",  ROREG_INT(6)},
+    { "DUTY_ONESEVENTH", ROREG_INT(7)},
+    { "DUTY_ONEEIGHTH", ROREG_INT(8)},
 };
 
 LUAMOD_API int luaopen_lcdseg( lua_State *L ) {
-    luat_newlib(L, reg_lcdseg);
+    luat_newlib2(L, reg_lcdseg);
     return 1;
 }
 

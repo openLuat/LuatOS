@@ -137,19 +137,19 @@ static int l_sdio_sd_format(lua_State *L) {
     return 1;
 }
 
-#include "rotable.h"
-static const rotable_Reg reg_sdio[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_sdio[] =
 {
-    { "init" ,       l_sdio_init , 0},
-    { "sd_read" ,       l_sdio_read , 0},
-    { "sd_write" ,      l_sdio_write, 0},
-    { "sd_mount" ,      l_sdio_sd_mount, 0},
-    { "sd_umount" ,     l_sdio_sd_umount, 0},
-    { "sd_format" ,     l_sdio_sd_format, 0},
-	{ NULL,          NULL ,       0}
+    { "init" ,          ROREG_FUNC(l_sdio_init )},
+    { "sd_read" ,       ROREG_FUNC(l_sdio_read )},
+    { "sd_write" ,      ROREG_FUNC(l_sdio_write)},
+    { "sd_mount" ,      ROREG_FUNC(l_sdio_sd_mount)},
+    { "sd_umount" ,     ROREG_FUNC(l_sdio_sd_umount)},
+    { "sd_format" ,     ROREG_FUNC(l_sdio_sd_format)},
+	{ NULL,             {}}
 };
 
 LUAMOD_API int luaopen_sdio( lua_State *L ) {
-    luat_newlib(L, reg_sdio);
+    luat_newlib2(L, reg_sdio);
     return 1;
 }

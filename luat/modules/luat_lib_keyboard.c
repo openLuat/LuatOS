@@ -101,15 +101,15 @@ static int l_keyboard_deinit(lua_State *L) {
     return 1;
 }
 
-#include "rotable.h"
-static const rotable_Reg reg_keyboard[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_keyboard[] =
 {
-    { "init" ,         l_keyboard_init ,0},
-    { "deinit" ,       l_keyboard_deinit,   0 },
-	{ NULL,             NULL ,        0}
+    { "init" ,         ROREG_FUNC(l_keyboard_init)},
+    { "deinit" ,       ROREG_FUNC(l_keyboard_deinit)},
+	{ NULL,            {}}
 };
 
 LUAMOD_API int luaopen_keyboard( lua_State *L ) {
-    luat_newlib(L, reg_keyboard);
+    luat_newlib2(L, reg_keyboard);
     return 1;
 }

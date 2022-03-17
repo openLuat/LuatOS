@@ -11,7 +11,7 @@
 #include <sys/socket.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <netinet/ip.h> /* superset of previous */
+// #include <netinet/ip.h> /* superset of previous */
 
 #define PUB_MSG_MAGIC (0x1314)
 
@@ -26,17 +26,17 @@
 
 // static const mqtt_queue_msg_t MQTT_QUEUE_MSG_START = {MQTT_CMD_START};
 static const mqtt_queue_msg_t MQTT_QUEUE_MSG_LOOP =  {MQTT_CMD_LOOP};
-static const mqtt_queue_msg_t MQTT_QUEUE_MSG_HEART = {MQTT_CMD_HEART};
+// static const mqtt_queue_msg_t MQTT_QUEUE_MSG_HEART = {MQTT_CMD_HEART};
 
 
 LUAT_RET app_mqtt_ready(app_mqtt_ctx_t* ctx) {
     return ctx->conack_ready;
 }
 
-static void app_mqtt_heart_timer(void *ptmr, void *parg)
-{
-    //tls_os_queue_send(app_mqtt_task_queue, (void *)&MQTT_QUEUE_MSG_HEART, 0);
-}
+// static void app_mqtt_heart_timer(void *ptmr, void *parg)
+// {
+//     //tls_os_queue_send(app_mqtt_task_queue, (void *)&MQTT_QUEUE_MSG_HEART, 0);
+// }
 
 static int app_mqtt_close_socket(app_mqtt_ctx_t* ctx)
 {
@@ -57,7 +57,7 @@ static int app_mqtt_send_packet(void* userdata, const void *buf, unsigned int co
 
 static int app_mqtt_read_packet(app_mqtt_ctx_t* ctx)
 {
-    int ret = 0;
+    // int ret = 0;
     int total_bytes = 0, bytes_rcvd, packet_length;
     int socket_fd = ctx->socket_fd;
     uint8_t* packet_buff = ctx->packet_buffer;
@@ -161,7 +161,7 @@ static int app_mqtt_init_socket(app_mqtt_ctx_t* ctx)
 
 static int app_mqtt_init_inner(app_mqtt_ctx_t* ctx)
 {
-    int packet_length, ret = 0;
+    int ret = 0;
 
     // 将SUBACK的状态设置为未收到
     ctx->connect_ready = LUAT_FALSE;
@@ -230,7 +230,7 @@ static int app_mqtt_msg_cb(app_mqtt_ctx_t* ctx) {
                 break;
             #endif
 
-            ctx->publish_cb(ctx, topic, topic_len, payload, payload_len);
+            ctx->publish_cb(ctx, (char*)topic, topic_len, (char*)payload, payload_len);
             // LLOGD("recvd: %s >>> %d %d", topic,);
             // TODO 禁用下面的回显
             // mqtt_publish(&app_mqtt_mqtt_broker, (const char *)mqtt_iot_pub_topic, (const char *)msg, len, 0);
@@ -325,7 +325,7 @@ extern int app_mqtt_authentication_get(app_mqtt_ctx_t* ctx);
 
 void app_mqtt_task(void *p)
 {
-    int ret;
+    int ret = 0;
     mqtt_queue_msg_t *msg;
 	app_mqtt_pub_data_t* pmsg;
     uint32_t retry_time = 2;

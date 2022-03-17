@@ -63,8 +63,13 @@ PWM捕获
 @return boolean 处理结果,成功返回true,失败返回false
 @usage
 -- PWM0捕获
-log.info("pwm.get(0)",pwm.capture(0,1000))
-log.info("PWM_CAPTURE",sys.waitUntil("PWM_CAPTURE", 2000))
+while 1 do
+    pwm.capture(0,1000)
+    local ret,channel,pulse,pwmH,pwmL  = sys.waitUntil("PWM_CAPTURE", 2000)
+    if ret then
+        log.info("PWM_CAPTURE","channel"..channel,"pulse"..pulse,"pwmH"..pwmH,"pwmL"..pwmL)
+    end
+end
  */
 static int l_pwm_capture(lua_State *L) {
     int ret = luat_pwm_capture(luaL_checkinteger(L, 1),luaL_checkinteger(L, 2));

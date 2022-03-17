@@ -46,7 +46,7 @@ static int rotable_push_rovalue(lua_State *L, const rotable_Reg_t* q) {
     switch (q->value.type)
   {
   case LUA_TFUNCTION:
-    lua_pushinteger( L, q->value.value.func );
+    lua_pushcfunction( L, q->value.value.func );
     break;
   case LUA_TINTEGER:
     lua_pushinteger( L, q->value.value.intvalue );
@@ -55,7 +55,7 @@ static int rotable_push_rovalue(lua_State *L, const rotable_Reg_t* q) {
     lua_pushstring( L, q->value.value.strvalue );
     break;
   case LUA_TNUMBER:
-    lua_pushstring( L, q->value.value.strvalue );
+    lua_pushnumber( L, q->value.value.numvalue );
     break;
   case LUA_TLIGHTUSERDATA:
     lua_pushlightuserdata(L, q->value.value.ptr);
@@ -151,6 +151,7 @@ static int rotable_udata_index( lua_State* L ) {
     if (rotable_push_rovalue(L, p)) {
       return 1;
     }
+    return 0;
   }
   else {
     // 看看第一个方法是不是__index, 如果是的话, 调用之

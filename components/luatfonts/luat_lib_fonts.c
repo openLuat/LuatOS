@@ -29,16 +29,16 @@ static int l_fonts_load_font(lua_State *L) {
     
 // }
 
-#include "rotable.h"
-static const rotable_Reg reg_fonts[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_fonts[] =
 {
-    { "get_data" ,       l_fonts_get_data , 0},
-    { "load_font" ,      l_fonts_load_font , 0},
-    //{ "close_font" ,     l_fonts_close_font, 0},
-	{ NULL,          NULL ,       0}
+    { "get_data" ,       ROREG_FUNC(l_fonts_get_data)},
+    { "load_font" ,      ROREG_FUNC(l_fonts_load_font)},
+    //{ "close_font" ,   ROREG_FUNC(l_fonts_close_font)},
+	{ NULL,              {}}
 };
 
 LUAMOD_API int luaopen_fonts( lua_State *L ) {
-    luat_newlib(L, reg_fonts);
+    luat_newlib2(L, reg_fonts);
     return 1;
 }

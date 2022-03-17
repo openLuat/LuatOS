@@ -83,16 +83,16 @@ static int l_luf_cmp(lua_State* L) {
   return 0;
 }
 
-#include "rotable.h"
-static const rotable_Reg reg_luf[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_luf[] =
 {
-    { "dump" ,        l_luf_dump , 0},
-    { "undump" ,      l_luf_undump , 0},
-    { "cmp",          l_luf_cmp,   0},
-	{ NULL,          NULL ,       0}
+    { "dump" ,        ROREG_FUNC(l_luf_dump)},
+    { "undump" ,      ROREG_FUNC(l_luf_undump)},
+    { "cmp",          ROREG_FUNC(l_luf_cmp)},
+	  { NULL,           {}}
 };
 
 LUAMOD_API int luaopen_luf( lua_State *L ) {
-    luat_newlib(L, reg_luf);
+    luat_newlib2(L, reg_luf);
     return 1;
 }

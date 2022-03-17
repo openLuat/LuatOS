@@ -336,29 +336,29 @@ static int l_io_queue_exti(lua_State *L) {
 	return 0;
 }
 
-#include "rotable.h"
-static const rotable_Reg reg_io_queue[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_io_queue[] =
 {
-    { "init" ,       l_io_queue_init , 0},
-    { "setdelay" ,        l_io_queue_set_delay, 0},
-	{ "delay" ,        l_io_queue_delay, 0},
-	{ "setgpio",	l_io_queue_set_gpio, 0},
-	{ "input",		l_io_queue_gpio_input, 0},
-	{ "output",      l_io_queue_gpio_output,           0},
-	{ "set_cap",      l_io_queue_set_capture,           0},
-	{ "capture",      l_io_queue_capture_pin,           0},
-	{ "cap_done",      l_io_queue_capture_end,           0},
-	{ "clear",		l_io_queue_clear, 0},
-    { "start",     l_io_queue_start, 0},
-    { "stop",            l_io_queue_stop,           0},
-	{ "done",            l_io_queue_is_done,           0},
-	{ "get",      l_io_queue_get, 0},
-	{ "release",            l_io_queue_release,           0},
-	{ "exti",            l_io_queue_exti,           0},
-	{ NULL,          NULL ,       0}
+    { "init" ,       ROREG_FUNC(l_io_queue_init)},
+    { "setdelay" ,   ROREG_FUNC(l_io_queue_set_delay)},
+	{ "delay" ,      ROREG_FUNC(l_io_queue_delay)},
+	{ "setgpio",	 ROREG_FUNC(l_io_queue_set_gpio)},
+	{ "input",		 ROREG_FUNC(l_io_queue_gpio_input)},
+	{ "output",      ROREG_FUNC(l_io_queue_gpio_output)},
+	{ "set_cap",     ROREG_FUNC(l_io_queue_set_capture)},
+	{ "capture",     ROREG_FUNC(l_io_queue_capture_pin)},
+	{ "cap_done",    ROREG_FUNC(l_io_queue_capture_end)},
+	{ "clear",	     ROREG_FUNC(l_io_queue_clear)},
+    { "start",       ROREG_FUNC(l_io_queue_start)},
+    { "stop",        ROREG_FUNC(l_io_queue_stop)},
+	{ "done",        ROREG_FUNC(l_io_queue_is_done)},
+	{ "get",         ROREG_FUNC(l_io_queue_get)},
+	{ "release",     ROREG_FUNC(l_io_queue_release)},
+	{ "exti",        ROREG_FUNC(l_io_queue_exti)},
+	{ NULL,          {}}
 };
 
 LUAMOD_API int luaopen_io_queue( lua_State *L ) {
-    luat_newlib(L, reg_io_queue);
+    luat_newlib2(L, reg_io_queue);
     return 1;
 }

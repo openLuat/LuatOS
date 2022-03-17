@@ -169,19 +169,20 @@ static int l_sfd_id(lua_State *L) {
     return 1;
 }
 
-#include "rotable.h"
-static const rotable_Reg reg_sfd[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_sfd[] =
 {
-    { "init" ,             l_sfd_init,           0},
-    { "status",            l_sfd_status,         0},
-    { "read",              l_sfd_read,           0},
-    { "write",             l_sfd_write,          0},
-    { "erase",             l_sfd_erase,          0},
-    { "ioctl",             l_sfd_ioctl,          0},
-    { "id",                l_sfd_id,             0},
+    { "init" ,             ROREG_FUNC(l_sfd_init)},
+    { "status",            ROREG_FUNC(l_sfd_status)},
+    { "read",              ROREG_FUNC(l_sfd_read)},
+    { "write",             ROREG_FUNC(l_sfd_write)},
+    { "erase",             ROREG_FUNC(l_sfd_erase)},
+    { "ioctl",             ROREG_FUNC(l_sfd_ioctl)},
+    { "id",                ROREG_FUNC(l_sfd_id)},
+    { NULL,                {}}
 };
 
 LUAMOD_API int luaopen_sfd( lua_State *L ) {
-    luat_newlib(L, reg_sfd);
+    luat_newlib2(L, reg_sfd);
     return 1;
 }

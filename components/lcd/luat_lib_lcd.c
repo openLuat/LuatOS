@@ -1182,59 +1182,59 @@ static int l_lcd_drawxbm(lua_State *L){
     return 1;
 }
 
-#include "rotable.h"
-static const rotable_Reg reg_lcd[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_lcd[] =
 {
-    { "init",      l_lcd_init,   0},
-    { "close",      l_lcd_close,       0},
-    { "on",      l_lcd_display_on,       0},
-    { "off",      l_lcd_display_off,       0},
-    { "sleep",      l_lcd_sleep,       0},
-    { "wakeup",      l_lcd_wakeup,       0},
-    { "invon",      l_lcd_inv_on,       0},
-    { "invoff",      l_lcd_inv_off,       0},
-    { "cmd",      l_lcd_write_cmd,       0},
-    { "data",      l_lcd_write_data,       0},
-    { "setColor",      l_lcd_set_color,       0},
-    { "draw",      l_lcd_draw,       0},
-    { "clear",      l_lcd_clear,       0},
-    { "fill",      l_lcd_draw_fill,       0},
-    { "drawPoint",      l_lcd_draw_point,       0},
-    { "drawLine",      l_lcd_draw_line,       0},
-    { "drawRectangle",      l_lcd_draw_rectangle,       0},
-    { "drawCircle",      l_lcd_draw_circle,       0},
-    { "drawQrcode",    l_lcd_drawQrcode, 0},
-    { "drawStr",      l_lcd_draw_str,       0},
-    { "setFont", l_lcd_set_font, 0},
-    { "setDefault", l_lcd_set_default, 0},
-    { "getDefault", l_lcd_get_default, 0},
-    { "getSize",    l_lcd_get_size, 0},
-    { "drawXbm",    l_lcd_drawxbm, 0},
+    { "init",       ROREG_FUNC(l_lcd_init)},
+    { "close",      ROREG_FUNC(l_lcd_close)},
+    { "on",         ROREG_FUNC(l_lcd_display_on)},
+    { "off",        ROREG_FUNC(l_lcd_display_off)},
+    { "sleep",      ROREG_FUNC(l_lcd_sleep)},
+    { "wakeup",     ROREG_FUNC(l_lcd_wakeup)},
+    { "invon",      ROREG_FUNC(l_lcd_inv_on)},
+    { "invoff",     ROREG_FUNC(l_lcd_inv_off)},
+    { "cmd",        ROREG_FUNC(l_lcd_write_cmd)},
+    { "data",       ROREG_FUNC(l_lcd_write_data)},
+    { "setColor",   ROREG_FUNC(l_lcd_set_color)},
+    { "draw",       ROREG_FUNC(l_lcd_draw)},
+    { "clear",      ROREG_FUNC(l_lcd_clear)},
+    { "fill",       ROREG_FUNC(l_lcd_draw_fill)},
+    { "drawPoint",  ROREG_FUNC(l_lcd_draw_point)},
+    { "drawLine",   ROREG_FUNC(l_lcd_draw_line)},
+    { "drawRectangle",   ROREG_FUNC(l_lcd_draw_rectangle)},
+    { "drawCircle", ROREG_FUNC(l_lcd_draw_circle)},
+    { "drawQrcode", ROREG_FUNC(l_lcd_drawQrcode)},
+    { "drawStr",    ROREG_FUNC(l_lcd_draw_str)},
+    { "setFont",    ROREG_FUNC(l_lcd_set_font)},
+    { "setDefault", ROREG_FUNC(l_lcd_set_default)},
+    { "getDefault", ROREG_FUNC(l_lcd_get_default)},
+    { "getSize",    ROREG_FUNC(l_lcd_get_size)},
+    { "drawXbm",    ROREG_FUNC(l_lcd_drawxbm)},
 #ifdef LUAT_USE_GTFONT
-    { "drawGtfontGb2312", l_lcd_draw_gtfont_gb2312, 0},
-    { "drawGtfontGb2312Gray", l_lcd_draw_gtfont_gb2312_gray, 0},
+    { "drawGtfontGb2312", ROREG_FUNC(l_lcd_draw_gtfont_gb2312)},
+    { "drawGtfontGb2312Gray", ROREG_FUNC(l_lcd_draw_gtfont_gb2312_gray)},
 #ifdef LUAT_USE_GTFONT_UTF8
-    { "drawGtfontUtf8", l_lcd_draw_gtfont_utf8, 0},
-    { "drawGtfontUtf8Gray", l_lcd_draw_gtfont_utf8_gray, 0},
+    { "drawGtfontUtf8", ROREG_FUNC(l_lcd_draw_gtfont_utf8)},
+    { "drawGtfontUtf8Gray", ROREG_FUNC(l_lcd_draw_gtfont_utf8_gray)},
 #endif // LUAT_USE_GTFONT_UTF8
 #endif // LUAT_USE_GTFONT
-    { "font_opposansm8", NULL,       font_opposansm8},
-    { "font_opposansm10", NULL,       font_opposansm10},
-    { "font_opposansm12", NULL,       font_opposansm12},
-    { "font_opposansm16", NULL,       font_opposansm16},
-    { "font_opposansm18", NULL,       font_opposansm18},
-    { "font_opposansm20", NULL,       font_opposansm20},
-    { "font_opposansm22", NULL,       font_opposansm22},
-    { "font_opposansm24", NULL,       font_opposansm24},
-    { "font_opposansm32", NULL,       font_opposansm32},
-    { "font_opposansm12_chinese", NULL,       font_opposansm12_chinese},
-    { "font_opposansm16_chinese", NULL,       font_opposansm16_chinese},
-    { "font_opposansm24_chinese", NULL,       font_opposansm24_chinese},
-    { "font_opposansm32_chinese", NULL,       font_opposansm32_chinese},
-	{ NULL,        NULL,   0}
+    { "font_opposansm8", ROREG_INT(font_opposansm8)},
+    { "font_opposansm10", ROREG_INT(font_opposansm10)},
+    { "font_opposansm12", ROREG_INT(font_opposansm12)},
+    { "font_opposansm16", ROREG_INT(font_opposansm16)},
+    { "font_opposansm18", ROREG_INT(font_opposansm18)},
+    { "font_opposansm20", ROREG_INT(font_opposansm20)},
+    { "font_opposansm22", ROREG_INT(font_opposansm22)},
+    { "font_opposansm24", ROREG_INT(font_opposansm24)},
+    { "font_opposansm32", ROREG_INT(font_opposansm32)},
+    { "font_opposansm12_chinese", ROREG_INT(font_opposansm12_chinese)},
+    { "font_opposansm16_chinese", ROREG_INT(font_opposansm16_chinese)},
+    { "font_opposansm24_chinese", ROREG_INT(font_opposansm24_chinese)},
+    { "font_opposansm32_chinese", ROREG_INT(font_opposansm32_chinese)},
+	  {NULL, {}}
 };
 
 LUAMOD_API int luaopen_lcd( lua_State *L ) {
-    luat_newlib(L, reg_lcd);
+    luat_newlib2(L, reg_lcd);
     return 1;
 }

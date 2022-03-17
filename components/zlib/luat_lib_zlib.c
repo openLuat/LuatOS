@@ -255,15 +255,15 @@ _exit:
     return 1;
 }
 
-#include "rotable.h"
-static const rotable_Reg reg_zlib[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_zlib[] =
 {
-    { "c",      luat_zlib_compress,    0},
-    { "d",      luat_zlib_decompress,   0},
-	{ NULL, NULL, 0}
+    { "c",      ROREG_FUNC(luat_zlib_compress)},
+    { "d",      ROREG_FUNC(luat_zlib_decompress)},
+	{ NULL,     {}}
 };
 
 LUAMOD_API int luaopen_zlib( lua_State *L ) {
-    luat_newlib(L, reg_zlib);
+    luat_newlib2(L, reg_zlib);
     return 1;
 }

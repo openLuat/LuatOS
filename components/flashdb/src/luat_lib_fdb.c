@@ -246,18 +246,19 @@ static int l_fdb_kv_clr(lua_State *L) {
 }
 
 
-#include "rotable.h"
-static const rotable_Reg reg_fdb[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_fdb[] =
 {
-    { "kvdb_init" ,         l_fdb_kvdb_init ,     0},
-    { "kvdb_deinit" ,       l_fdb_kvdb_deinit,    0},
-    { "kv_set",             l_fdb_kv_set, 0},
-    { "kv_get",             l_fdb_kv_get, 0},
-    { "kv_del",             l_fdb_kv_del, 0},
-    { "kv_clr",             l_fdb_kv_clr, 0},
+    { "kvdb_init" ,         ROREG_FUNC(l_fdb_kvdb_init)},
+    { "kvdb_deinit" ,       ROREG_FUNC(l_fdb_kvdb_deinit)},
+    { "kv_set",             ROREG_FUNC(l_fdb_kv_set)},
+    { "kv_get",             ROREG_FUNC(l_fdb_kv_get)},
+    { "kv_del",             ROREG_FUNC(l_fdb_kv_del)},
+    { "kv_clr",             ROREG_FUNC(l_fdb_kv_clr)},
+    { NULL,                 {}}
 };
 
 LUAMOD_API int luaopen_fdb( lua_State *L ) {
-    luat_newlib(L, reg_fdb);
+    luat_newlib2(L, reg_fdb);
     return 1;
 }

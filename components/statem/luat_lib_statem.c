@@ -148,11 +148,11 @@ static int _statem_struct_newindex(lua_State *L) {
 }
 
 
-#include "rotable.h"
-static const rotable_Reg reg_statem[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_statem[] =
 {
-    { "create",      l_statem_create,   0},
-	{ NULL,                 NULL,   0}
+    { "create",      ROREG_FUNC(l_statem_create)},
+	{ NULL,          {}}
 };
 
 static void luat_statem_struct_init(lua_State *L) {
@@ -163,7 +163,7 @@ static void luat_statem_struct_init(lua_State *L) {
 }
 
 LUAMOD_API int luaopen_statem( lua_State *L ) {
-    luat_newlib(L, reg_statem);
+    luat_newlib2(L, reg_statem);
     luat_statem_struct_init(L);
     return 1;
 }

@@ -101,16 +101,15 @@ int l_softkb_deinit(lua_State* L) {
 }
 
 
-#include "rotable.h"
-static const rotable_Reg reg_softkb[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_softkb[] =
 {
-    { "init",        l_softkb_init,          0},
-    { "deinit",        l_softkb_deinit,          0},
-
-	{ NULL,        NULL,   0}
+    { "init",          ROREG_FUNC(l_softkb_init)},
+    { "deinit",        ROREG_FUNC(l_softkb_deinit)},
+	{ NULL,            {}}
 };
 
 LUAMOD_API int luaopen_softkb( lua_State *L ) {
-    luat_newlib(L, reg_softkb);
+    luat_newlib2(L, reg_softkb);
     return 1;
 }

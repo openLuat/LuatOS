@@ -28,14 +28,14 @@ static int l_coremark_run(lua_State *L) {
     return 0;
 }
 
-#include "rotable.h"
-static const rotable_Reg reg_coremark[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_coremark[] =
 {
-    { "run" ,         l_coremark_run ,0},
-    { NULL,             NULL ,        0}
+    { "run" ,         ROREG_FUNC(l_coremark_run)},
+    { NULL,           {}}
 };
 
 LUAMOD_API int luaopen_coremark( lua_State *L ) {
-    luat_newlib(L, reg_coremark);
+    luat_newlib2(L, reg_coremark);
     return 1;
 }

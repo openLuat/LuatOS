@@ -240,20 +240,20 @@ static int l_camera_capture(lua_State *L) {
     return 0;
 }
 
-#include "rotable.h"
-static const rotable_Reg reg_camera[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_camera[] =
 {
-    { "init" ,        l_camera_init , 0},
-    { "start" ,       l_camera_start , 0},
-    { "stop" ,        l_camera_stop, 0},
-    { "capture",      l_camera_capture, 0},
-	{ "close",		l_camera_close, 0},
-    { "on",     l_camera_on, 0},
-	{ NULL,          NULL ,       0}
+    { "init" ,       ROREG_FUNC(l_camera_init )},
+    { "start" ,      ROREG_FUNC(l_camera_start )},
+    { "stop" ,       ROREG_FUNC(l_camera_stop)},
+    { "capture",     ROREG_FUNC(l_camera_capture)},
+	{ "close",		 ROREG_FUNC(l_camera_close)},
+    { "on",          ROREG_FUNC(l_camera_on)},
+	{ NULL,          {}}
 };
 
 LUAMOD_API int luaopen_camera( lua_State *L ) {
-    luat_newlib(L, reg_camera);
+    luat_newlib2(L, reg_camera);
     return 1;
 }
 

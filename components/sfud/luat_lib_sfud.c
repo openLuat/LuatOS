@@ -230,25 +230,25 @@ static int luat_sfud_mount(lua_State *L) {
 }
 #endif
 
-#include "rotable.h"
-static const rotable_Reg reg_sfud[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_sfud[] =
 {
-    { "init",           luat_sfud_init,             0},
-    { "getDeviceNum",   luat_sfud_get_device_num,   0},
-    { "getDevice",      luat_sfud_get_device,       0},
-    { "getDeviceTable", luat_sfud_get_device_table, 0},
-    { "erase",          luat_sfud_erase,            0},
-    { "chipErase",      luat_sfud_chip_erase,       0},
-    { "read",           luat_sfud_read,             0},
-    { "write",          luat_sfud_write,            0},
-    { "eraseWrite",     luat_sfud_erase_write,      0},
+    { "init",           ROREG_FUNC(luat_sfud_init)},
+    { "getDeviceNum",   ROREG_FUNC(luat_sfud_get_device_num)},
+    { "getDevice",      ROREG_FUNC(luat_sfud_get_device)},
+    { "getDeviceTable", ROREG_FUNC(luat_sfud_get_device_table)},
+    { "erase",          ROREG_FUNC(luat_sfud_erase)},
+    { "chipErase",      ROREG_FUNC(luat_sfud_chip_erase)},
+    { "read",           ROREG_FUNC(luat_sfud_read)},
+    { "write",          ROREG_FUNC(luat_sfud_write)},
+    { "eraseWrite",     ROREG_FUNC(luat_sfud_erase_write)},
 #ifdef LUAT_USE_FS_VFS
-    { "mount",          luat_sfud_mount,            0},
+    { "mount",          ROREG_FUNC(luat_sfud_mount)},
 #endif
-	{ NULL, NULL, 0}
+	{ NULL,             {}}
 };
 
 LUAMOD_API int luaopen_sfud( lua_State *L ) {
-    luat_newlib(L, reg_sfud);
+    luat_newlib2(L, reg_sfud);
     return 1;
 }

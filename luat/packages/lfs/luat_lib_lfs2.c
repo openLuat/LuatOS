@@ -154,38 +154,18 @@ static int l_lfs2_mkfs(lua_State *L) {
 }
 
 
-#include "rotable.h"
-static const rotable_Reg reg_lfs2[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_lfs2[] =
 { 
-  { "mount",	l_lfs2_mount, 0}, //初始化,挂载
-//   { "unmount",	l_lfs2_unmount, 0}, // 取消挂载
-  { "mkfs",		l_lfs2_mkfs, 0}, // 格式化!!!
-//   //{ "test",  l_lfs2_test, 0},
-//   { "getfree",	l_lfs2_getfree, 0}, // 获取文件系统大小,剩余空间
-//   { "debug",	l_lfs2_debug_mode, 0}, // 调试模式,打印更多日志
-
-//   { "lsdir",	l_lfs2_lsdir, 0}, // 列举目录下的文件,名称,大小,日期,属性
-//   { "mkdir",	l_lfs2_mkdir, 0}, // 列举目录下的文件,名称,大小,日期,属性
-
-//   { "stat",		l_lfs2_stat, 0}, // 查询文件信息
-//   { "open",		l_lfs2_open, 0}, // 打开一个文件句柄
-//   { "close",	l_lfs2_close, 0}, // 关闭一个文件句柄
-//   { "seek",		l_lfs2_seek, 0}, // 移动句柄的当前位置
-//   { "truncate",	l_lfs2_truncate, 0}, // 缩减文件尺寸到当前seek位置
-//   { "read",		l_lfs2_read, 0}, // 读取数据
-//   { "write",	l_lfs2_write, 0}, // 写入数据
-//   { "remove",	l_lfs2_remove, 0}, // 删除文件,别名方法
-//   { "unlink",	l_lfs2_remove, 0}, // 删除文件
-//   { "rename",	l_lfs2_rename, 0}, // 文件改名
-
-//   { "readfile",	l_lfs2_readfile, 0}, // 读取文件的简易方法
-//   { "playmp3",	l_lfs2_playmp3, 0}, // 读取文件的简易方法
-  { NULL,		NULL,	0 }
+  { "mount",	ROREG_FUNC(l_lfs2_mount)}, //初始化,挂载
+//   { "unmount",	ROREG_FUNC(l_lfs2_unmount)}, // 取消挂载
+  { "mkfs",		ROREG_FUNC(l_lfs2_mkfs)}, // 格式化!!!
+  { NULL,		  {}}
 };
 
 int luaopen_lfs2( lua_State *L )
 {
-  luat_newlib(L, reg_lfs2);
+  luat_newlib2(L, reg_lfs2);
   #ifdef LUAT_USE_FS_VFS
   luat_vfs_reg(&vfs_fs_lfs2);
   #endif

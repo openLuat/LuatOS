@@ -549,28 +549,28 @@ static int l_libgnss_get_gga(lua_State* L) {
 }
 
 
-#include "rotable.h"
-static const rotable_Reg reg_libgnss[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_libgnss[] =
 {
-    { "parse", l_libgnss_parse, 0},
-    { "isFix", l_libgnss_is_fix, 0},
-    { "getIntLocation", l_libgnss_get_int_location, 0},
-    { "getRmc", l_libgnss_get_rmc, 0},
-    { "getGsv", l_libgnss_get_gsv, 0},
-    { "getGsa", l_libgnss_get_gsa, 0},
-    { "getVtg", l_libgnss_get_vtg, 0},
-    { "getGga", l_libgnss_get_gga, 0},
-    { "debug",  l_libgnss_debug,   0},
+    { "parse", ROREG_FUNC(l_libgnss_parse)},
+    { "isFix", ROREG_FUNC(l_libgnss_is_fix)},
+    { "getIntLocation", ROREG_FUNC(l_libgnss_get_int_location)},
+    { "getRmc", ROREG_FUNC(l_libgnss_get_rmc)},
+    { "getGsv", ROREG_FUNC(l_libgnss_get_gsv)},
+    { "getGsa", ROREG_FUNC(l_libgnss_get_gsa)},
+    { "getVtg", ROREG_FUNC(l_libgnss_get_vtg)},
+    { "getGga", ROREG_FUNC(l_libgnss_get_gga)},
+    { "debug",  ROREG_FUNC(l_libgnss_debug)},
 
     //-----------------------------------------
-    { "air530z_setup", l_libgnss_air530_setup, 0},
-    { "air530z_saveconf", l_libgnss_air530_saveconf, 0},
-    { "air530z_setbandrate", l_libgnss_air530_setbandrate, 0},
+    // { "air530z_setup", ROREG_FUNC(l_libgnss_air530_setup)},
+    // { "air530z_saveconf", ROREG_FUNC(l_libgnss_air530_saveconf)},
+    // { "air530z_setbandrate", ROREG_FUNC(l_libgnss_air530_setbandrate)},
 
 	{ NULL, NULL , 0}
 };
 
 LUAMOD_API int luaopen_libgnss( lua_State *L ) {
-    luat_newlib(L, reg_libgnss);
+    luat_newlib2(L, reg_libgnss);
     return 1;
 }

@@ -1000,69 +1000,69 @@ static int l_eink_drawXbm(lua_State *L){
     return 1;
 }
 
-#include "rotable.h"
-static const rotable_Reg reg_eink[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_eink[] =
 {
-    { "setup",          l_eink_setup,           0},
-    { "sleep",          l_eink_sleep,           0},
-    { "clear",          l_eink_clear,           0},
-    { "setWin",         l_eink_setWin,          0},
-    { "getWin",         l_eink_getWin,          0},
-    { "print",          l_eink_print,           0},
-    { "show",           l_eink_show,            0},
-    { "rect",           l_eink_rect,            0},
-    { "circle",         l_eink_circle,          0},
-    { "line",           l_eink_line,            0},
+    { "setup",          ROREG_FUNC(l_eink_setup)},
+    { "sleep",          ROREG_FUNC(l_eink_sleep)},
+    { "clear",          ROREG_FUNC(l_eink_clear)},
+    { "setWin",         ROREG_FUNC(l_eink_setWin)},
+    { "getWin",         ROREG_FUNC(l_eink_getWin)},
+    { "print",          ROREG_FUNC(l_eink_print)},
+    { "show",           ROREG_FUNC(l_eink_show)},
+    { "rect",           ROREG_FUNC(l_eink_rect)},
+    { "circle",         ROREG_FUNC(l_eink_circle)},
+    { "line",           ROREG_FUNC(l_eink_line)},
 
-    { "qrcode",         l_eink_qrcode,          0},
-    { "bat",            l_eink_bat,             0},
-    { "weather_icon",   l_eink_weather_icon,    0},
+    { "qrcode",         ROREG_FUNC(l_eink_qrcode)},
+    { "bat",            ROREG_FUNC(l_eink_bat)},
+    { "weather_icon",   ROREG_FUNC(l_eink_weather_icon)},
 
-    { "model",          l_eink_model,           0},
-    { "drawXbm",         l_eink_drawXbm,           0},
+    { "model",          ROREG_FUNC(l_eink_model)},
+    { "drawXbm",        ROREG_FUNC(l_eink_drawXbm)},
 #ifdef LUAT_USE_GTFONT
-    { "drawGtfontGb2312", l_eink_draw_gtfont_gb2312, 0},
-    { "drawGtfontGb2312Gray", l_eink_draw_gtfont_gb2312_gray, 0},
+    { "drawGtfontGb2312", ROREG_FUNC(l_eink_draw_gtfont_gb2312)},
+    { "drawGtfontGb2312Gray", ROREG_FUNC(l_eink_draw_gtfont_gb2312_gray)},
 #ifdef LUAT_USE_GTFONT_UTF8
-    { "drawGtfontUtf8", l_eink_draw_gtfont_utf8, 0},
-    { "drawGtfontUtf8Gray", l_eink_draw_gtfont_utf8_gray, 0},
+    { "drawGtfontUtf8", ROREG_FUNC(l_eink_draw_gtfont_utf8)},
+    { "drawGtfontUtf8Gray", ROREG_FUNC(l_eink_draw_gtfont_utf8_gray)},
 #endif // LUAT_USE_GTFONT_UTF8
 #endif // LUAT_USE_GTFONT
-    { "MODEL_1in02d",         NULL,                 MODEL_1in02d},
-    { "MODEL_1in54",          NULL,                 MODEL_1in54},
-    { "MODEL_1in54_V2",       NULL,                 MODEL_1in54_V2},
-    { "MODEL_1in54b",         NULL,                 MODEL_1in54b},
-    { "MODEL_1in54b_V2",      NULL,                 MODEL_1in54b_V2},
-    { "MODEL_1in54c",         NULL,                 MODEL_1in54c},
-    { "MODEL_1in54f",         NULL,                 MODEL_1in54f},
-    { "MODEL_2in54b_V3",      NULL,                 MODEL_2in13b_V3},
-    { "MODEL_2in7",           NULL,                 MODEL_2in7},
-    { "MODEL_2in7b",          NULL,                 MODEL_2in7b},
-    { "MODEL_2in9",           NULL,                 MODEL_2in9},
-    { "MODEL_2in9_V2",        NULL,                 MODEL_2in9_V2},
-    { "MODEL_2in9bc",         NULL,                 MODEL_2in9bc},
-    { "MODEL_2in9b_V3",       NULL,                 MODEL_2in9b_V3},
-    { "MODEL_2in9d",          NULL,                 MODEL_2in9d},
-    { "MODEL_2in9f",          NULL,                 MODEL_2in9f},
-    { "MODEL_3in7",           NULL,                 MODEL_3in7},
-    { "font_opposansm8", NULL,       font_opposansm8},
-    { "font_opposansm10", NULL,       font_opposansm10},
-    { "font_opposansm12", NULL,       font_opposansm12},
-    { "font_opposansm16", NULL,       font_opposansm16},
-    { "font_opposansm18", NULL,       font_opposansm18},
-    { "font_opposansm20", NULL,       font_opposansm20},
-    { "font_opposansm22", NULL,       font_opposansm22},
-    { "font_opposansm24", NULL,       font_opposansm24},
-    { "font_opposansm32", NULL,       font_opposansm32},
-    { "font_opposansm12_chinese", NULL,       font_opposansm12_chinese},
-    { "font_opposansm16_chinese", NULL,       font_opposansm16_chinese},
-    { "font_opposansm24_chinese", NULL,       font_opposansm24_chinese},
-    { "font_opposansm32_chinese", NULL,       font_opposansm32_chinese},
+    { "MODEL_1in02d",         ROREG_INT(MODEL_1in02d)},
+    { "MODEL_1in54",          ROREG_INT(MODEL_1in54)},
+    { "MODEL_1in54_V2",       ROREG_INT(MODEL_1in54_V2)},
+    { "MODEL_1in54b",         ROREG_INT(MODEL_1in54b)},
+    { "MODEL_1in54b_V2",      ROREG_INT(MODEL_1in54b_V2)},
+    { "MODEL_1in54c",         ROREG_INT(MODEL_1in54c)},
+    { "MODEL_1in54f",         ROREG_INT(MODEL_1in54f)},
+    { "MODEL_2in54b_V3",      ROREG_INT(MODEL_2in13b_V3)},
+    { "MODEL_2in7",           ROREG_INT(MODEL_2in7)},
+    { "MODEL_2in7b",          ROREG_INT(MODEL_2in7b)},
+    { "MODEL_2in9",           ROREG_INT(MODEL_2in9)},
+    { "MODEL_2in9_V2",        ROREG_INT(MODEL_2in9_V2)},
+    { "MODEL_2in9bc",         ROREG_INT(MODEL_2in9bc)},
+    { "MODEL_2in9b_V3",       ROREG_INT(MODEL_2in9b_V3)},
+    { "MODEL_2in9d",          ROREG_INT(MODEL_2in9d)},
+    { "MODEL_2in9f",          ROREG_INT(MODEL_2in9f)},
+    { "MODEL_3in7",           ROREG_INT(MODEL_3in7)},
+    { "font_opposansm8",      ROREG_INT(font_opposansm8)},
+    { "font_opposansm10",     ROREG_INT(font_opposansm10)},
+    { "font_opposansm12",     ROREG_INT(font_opposansm12)},
+    { "font_opposansm16",     ROREG_INT(font_opposansm16)},
+    { "font_opposansm18",     ROREG_INT(font_opposansm18)},
+    { "font_opposansm20",     ROREG_INT(font_opposansm20)},
+    { "font_opposansm22",     ROREG_INT(font_opposansm22)},
+    { "font_opposansm24",     ROREG_INT(font_opposansm24)},
+    { "font_opposansm32",     ROREG_INT(font_opposansm32)},
+    { "font_opposansm12_chinese", ROREG_INT(font_opposansm12_chinese)},
+    { "font_opposansm16_chinese", ROREG_INT(font_opposansm16_chinese)},
+    { "font_opposansm24_chinese", ROREG_INT(font_opposansm24_chinese)},
+    { "font_opposansm32_chinese", ROREG_INT(font_opposansm32_chinese)},
 
-	{ NULL,             NULL,                   0}
+	  { NULL,                    {}}
 };
 
 LUAMOD_API int luaopen_eink( lua_State *L ){
-    luat_newlib(L, reg_eink);
+    luat_newlib2(L, reg_eink);
     return 1;
 }

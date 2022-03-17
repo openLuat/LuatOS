@@ -1715,10 +1715,10 @@ static int l_json_decode_safe(lua_State *L) {
     }
 }
 
-#include "rotable.h"
-static const rotable_Reg reg_json[] = {
-        { "encode", l_json_encode_safe , 0},
-        { "decode", l_json_decode_safe , 0},
+#include "rotable2.h"
+static const rotable_Reg_t reg_json[] = {
+        { "encode", ROREG_FUNC(l_json_encode_safe)},
+        { "decode", ROREG_FUNC(l_json_decode_safe)},
         // { "encode_sparse_array", json_cfg_encode_sparse_array },
         // { "encode_max_depth", json_cfg_encode_max_depth },
         // { "decode_max_depth", json_cfg_decode_max_depth },
@@ -1727,7 +1727,7 @@ static const rotable_Reg reg_json[] = {
         // { "encode_invalid_numbers", json_cfg_encode_invalid_numbers },
         // { "decode_invalid_numbers", json_cfg_decode_invalid_numbers },
         // { "new", lua_cjson_new },
-        { NULL, NULL , 0}
+        { NULL, {}}
     };
 
 /* Return cjson module table */
@@ -1755,7 +1755,7 @@ static int lua_cjson_new(lua_State *l)
     // lua_pushliteral(l, CJSON_VERSION);
     // lua_setfield(l, -2, "_VERSION");
 
-    luat_newlib(l, reg_json);
+    luat_newlib2(l, reg_json);
 
     return 1;
 }

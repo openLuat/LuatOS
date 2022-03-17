@@ -813,50 +813,50 @@ static int l_u8g2_draw_gtfont_utf8(lua_State *L) {
 
 #endif // LUAT_USE_GTFONT
 
-#include "rotable.h"
-static const rotable_Reg reg_u8g2[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_u8g2[] =
 {
-    { "begin",       l_u8g2_begin,        0},
-    { "close",      l_u8g2_close,       0},
-    { "ClearBuffer",      l_u8g2_ClearBuffer,       0},
-    { "SendBuffer",     l_u8g2_SendBuffer,      0},
-    { "DrawUTF8",    l_u8g2_DrawUTF8,   0},
-    { "SetFontMode",    l_u8g2_SetFontMode,    0},
-    { "SetFont",    l_u8g2_SetFont,    0},
-    { "GetDisplayHeight",    l_u8g2_GetDisplayHeight,    0},
-    { "GetDisplayWidth",    l_u8g2_GetDisplayWidth,    0},
-    { "DrawPixel",    l_u8g2_DrawPixel,    0},
-    { "DrawLine",    l_u8g2_DrawLine,    0},
-    { "DrawCircle",    l_u8g2_DrawCircle,    0},
-    { "DrawDisc",    l_u8g2_DrawDisc,    0},
-    { "DrawEllipse",    l_u8g2_DrawEllipse,    0},
-    { "DrawFilledEllipse",    l_u8g2_DrawFilledEllipse,    0},
-    { "DrawBox",    l_u8g2_DrawBox,    0},
-    { "DrawFrame",    l_u8g2_DrawFrame,    0},
-    { "DrawRBox",    l_u8g2_DrawRBox,    0},
-    { "DrawRFrame",    l_u8g2_DrawRFrame,    0},
-    { "DrawGlyph",    l_u8g2_DrawGlyph,    0},
-    { "DrawTriangle",    l_u8g2_DrawTriangle,    0},
-    { "SetBitmapMode",    l_u8g2_SetBitmapMode,    0},
-    { "DrawXBM",       l_u8g2_DrawXBM, 0},
-    { "DrawDrcode",       l_u8g2_DrawDrcode, 0},
+    { "begin",       ROREG_FUNC(l_u8g2_begin)},
+    { "close",       ROREG_FUNC(l_u8g2_close)},
+    { "ClearBuffer", ROREG_FUNC(l_u8g2_ClearBuffer)},
+    { "SendBuffer",  ROREG_FUNC(l_u8g2_SendBuffer)},
+    { "DrawUTF8",    ROREG_FUNC(l_u8g2_DrawUTF8)},
+    { "SetFontMode", ROREG_FUNC(l_u8g2_SetFontMode)},
+    { "SetFont",     ROREG_FUNC(l_u8g2_SetFont)},
+    { "GetDisplayHeight",   ROREG_FUNC(l_u8g2_GetDisplayHeight)},
+    { "GetDisplayWidth",    ROREG_FUNC(l_u8g2_GetDisplayWidth)},
+    { "DrawPixel",   ROREG_FUNC(l_u8g2_DrawPixel)},
+    { "DrawLine",    ROREG_FUNC(l_u8g2_DrawLine)},
+    { "DrawCircle",  ROREG_FUNC(l_u8g2_DrawCircle)},
+    { "DrawDisc",    ROREG_FUNC(l_u8g2_DrawDisc)},
+    { "DrawEllipse", ROREG_FUNC(l_u8g2_DrawEllipse)},
+    { "DrawFilledEllipse",  ROREG_FUNC(l_u8g2_DrawFilledEllipse)},
+    { "DrawBox",     ROREG_FUNC(l_u8g2_DrawBox)},
+    { "DrawFrame",   ROREG_FUNC(l_u8g2_DrawFrame)},
+    { "DrawRBox",    ROREG_FUNC(l_u8g2_DrawRBox)},
+    { "DrawRFrame",  ROREG_FUNC(l_u8g2_DrawRFrame)},
+    { "DrawGlyph",   ROREG_FUNC(l_u8g2_DrawGlyph)},
+    { "DrawTriangle", ROREG_FUNC(l_u8g2_DrawTriangle)},
+    { "SetBitmapMode",ROREG_FUNC(l_u8g2_SetBitmapMode)},
+    { "DrawXBM",      ROREG_FUNC(l_u8g2_DrawXBM)},
+    { "DrawDrcode",   ROREG_FUNC(l_u8g2_DrawDrcode)},
 #ifdef LUAT_USE_GTFONT
-    { "drawGtfontGb2312", l_u8g2_draw_gtfont_gb2312, 0},
+    { "drawGtfontGb2312", ROREG_FUNC(l_u8g2_draw_gtfont_gb2312)},
 #ifdef LUAT_USE_GTFONT_UTF8
-    { "drawGtfontUtf8", l_u8g2_draw_gtfont_utf8, 0},
+    { "drawGtfontUtf8", ROREG_FUNC(l_u8g2_draw_gtfont_utf8)},
 #endif // LUAT_USE_GTFONT_UTF8
 #endif // LUAT_USE_GTFONT
-    { "font_opposansm8", NULL,       font_opposansm8},
-    { "font_opposansm12_chinese", NULL,       font_opposansm12_chinese},
-    { "font_unifont_t_symbols", NULL,       font_unifont_t_symbols},
-    { "font_open_iconic_weather_6x_t", NULL,       font_open_iconic_weather_6x_t},
-	{ NULL, NULL, 0}
+    { "font_opposansm8",          ROREG_INT(font_opposansm8)},
+    { "font_opposansm12_chinese", ROREG_INT(font_opposansm12_chinese)},
+    { "font_unifont_t_symbols",   ROREG_INT(font_unifont_t_symbols)},
+    { "font_open_iconic_weather_6x_t", ROREG_INT(font_open_iconic_weather_6x_t)},
+	{ NULL,  {}}
 };
 
 LUAMOD_API int luaopen_u8g2( lua_State *L ) {
     u8g2_lua_ref = 0;
     u8g2 = NULL;
-    luat_newlib(L, reg_u8g2);
+    luat_newlib2(L, reg_u8g2);
     return 1;
 }
 

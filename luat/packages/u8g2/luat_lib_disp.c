@@ -263,22 +263,22 @@ static int l_disp_set_font(lua_State *L) {
     return 1;
 }
 
-#include "rotable.h"
-static const rotable_Reg reg_disp[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_disp[] =
 {
-    { "init",       l_disp_init,        0},
-    { "close",      l_disp_close,       0},
-    { "clear",      l_disp_clear,       0},
-    { "update",     l_disp_update,      0},
-    { "drawStr",    l_disp_draw_text,   0},
-    { "setFont",    l_disp_set_font,    0},
-	{ NULL, NULL, 0}
+    { "init",       ROREG_FUNC(l_disp_init)},
+    { "close",      ROREG_FUNC(l_disp_close)},
+    { "clear",      ROREG_FUNC(l_disp_clear)},
+    { "update",     ROREG_FUNC(l_disp_update)},
+    { "drawStr",    ROREG_FUNC(l_disp_draw_text)},
+    { "setFont",    ROREG_FUNC(l_disp_set_font)},
+	{ NULL,         {}}
 };
 
 LUAMOD_API int luaopen_disp( lua_State *L ) {
     u8g2_lua_ref = 0;
     u8g2 = NULL;
-    luat_newlib(L, reg_disp);
+    luat_newlib2(L, reg_disp);
     return 1;
 }
 

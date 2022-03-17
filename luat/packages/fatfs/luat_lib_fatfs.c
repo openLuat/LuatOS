@@ -532,39 +532,38 @@ static int fatfs_debug_mode(lua_State *L) {
 }
 
 // Module function map
-#include "rotable.h"
-static const rotable_Reg reg_fatfs[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_fatfs[] =
 { 
-  { "init",		fatfs_mount, 0}, //初始化,挂载, 别名方法
-  { "mount",	fatfs_mount, 0}, //初始化,挂载
-  { "unmount",	fatfs_unmount, 0}, // 取消挂载
-  { "mkfs",		fatfs_mkfs, 0}, // 格式化!!!
-  //{ "test",  fatfs_test, 0},
-  { "getfree",	fatfs_getfree, 0}, // 获取文件系统大小,剩余空间
-  { "debug",	fatfs_debug_mode, 0}, // 调试模式,打印更多日志
+  { "init",		ROREG_FUNC(fatfs_mount)}, //初始化,挂载, 别名方法
+  { "mount",	ROREG_FUNC(fatfs_mount)}, //初始化,挂载
+  { "unmount",	ROREG_FUNC(fatfs_unmount)}, // 取消挂载
+  { "mkfs",		ROREG_FUNC(fatfs_mkfs)}, // 格式化!!!
+  //{ "test",  fatfs_test)},
+  { "getfree",	ROREG_FUNC(fatfs_getfree)}, // 获取文件系统大小,剩余空间
+  { "debug",	ROREG_FUNC(fatfs_debug_mode)}, // 调试模式,打印更多日志
 
-  { "lsdir",	fatfs_lsdir, 0}, // 列举目录下的文件,名称,大小,日期,属性
-  { "mkdir",	fatfs_mkdir, 0}, // 列举目录下的文件,名称,大小,日期,属性
+  { "lsdir",	ROREG_FUNC(fatfs_lsdir)}, // 列举目录下的文件,名称,大小,日期,属性
+  { "mkdir",	ROREG_FUNC(fatfs_mkdir)}, // 列举目录下的文件,名称,大小,日期,属性
 
-  { "stat",		fatfs_stat, 0}, // 查询文件信息
-  { "open",		fatfs_open, 0}, // 打开一个文件句柄
-  { "close",	fatfs_close, 0}, // 关闭一个文件句柄
-  { "seek",		fatfs_seek, 0}, // 移动句柄的当前位置
-  { "truncate",	fatfs_truncate, 0}, // 缩减文件尺寸到当前seek位置
-  { "read",		fatfs_read, 0}, // 读取数据
-  { "write",	fatfs_write, 0}, // 写入数据
-  { "remove",	fatfs_remove, 0}, // 删除文件,别名方法
-  { "unlink",	fatfs_remove, 0}, // 删除文件
-  { "rename",	fatfs_rename, 0}, // 文件改名
+  { "stat",		ROREG_FUNC(fatfs_stat)}, // 查询文件信息
+  { "open",		ROREG_FUNC(fatfs_open)}, // 打开一个文件句柄
+  { "close",	ROREG_FUNC(fatfs_close)}, // 关闭一个文件句柄
+  { "seek",		ROREG_FUNC(fatfs_seek)}, // 移动句柄的当前位置
+  { "truncate",	ROREG_FUNC(fatfs_truncate)}, // 缩减文件尺寸到当前seek位置
+  { "read",		ROREG_FUNC(fatfs_read)}, // 读取数据
+  { "write",	ROREG_FUNC(fatfs_write)}, // 写入数据
+  { "remove",	ROREG_FUNC(fatfs_remove)}, // 删除文件,别名方法
+  { "unlink",	ROREG_FUNC(fatfs_remove)}, // 删除文件
+  { "rename",	ROREG_FUNC(fatfs_rename)}, // 文件改名
 
-  { "readfile",	fatfs_readfile, 0}, // 读取文件的简易方法
-//   { "playmp3",	fatfs_playmp3, 0}, // 读取文件的简易方法
-  { NULL,		NULL,	0 }
+  { "readfile",	ROREG_FUNC(fatfs_readfile)}, // 读取文件的简易方法
+  { NULL,		{}}
 };
 
 int luaopen_fatfs( lua_State *L )
 {
-  luat_newlib(L, reg_fatfs);
+  luat_newlib2(L, reg_fatfs);
   #ifdef LUAT_USE_FS_VFS
   luat_vfs_reg(&vfs_fs_fatfs);
   #endif

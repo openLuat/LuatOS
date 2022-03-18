@@ -6,7 +6,7 @@
 #include "luat_cmux.h"
 #include "luat_conf_bsp.h"
 
-uint8_t luat_log_uart_port = 0;
+static uint8_t luat_log_uart_port = 0;
 static uint8_t luat_log_level_cur = LUAT_LOG_DEBUG;
 
 #define LOGLOG_SIZE 1024
@@ -14,6 +14,10 @@ static char log_printf_buff[LOGLOG_SIZE]  = {0};
 
 LUAT_WEAK void luat_log_set_uart_port(int port) {
     luat_log_uart_port = port;
+}
+
+LUAT_WEAK uint8_t luat_log_get_uart_port(void) {
+    return luat_log_uart_port;
 }
 
 LUAT_WEAK void luat_nprint(char *s, size_t l) {

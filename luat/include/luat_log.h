@@ -10,6 +10,8 @@
 #define LUAT_LOG_ERROR 4
 #define LUAT_LOG_CLOSE 7
 
+extern uint8_t luat_log_uart_port;
+
 // void luat_print(const char* _str);
 void luat_nprint(char *s, size_t l);
 void luat_log_write(char *s, size_t l);

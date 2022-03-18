@@ -950,7 +950,7 @@ LUAT_WEAK uint8_t u8x8_luat_byte_hw_i2c(u8x8_t *u8x8, uint8_t msg, uint8_t arg_i
       break;
     case U8X8_MSG_BYTE_INIT:
       //i2c_init(u8x8);			/* init i2c communication */
-      luat_i2c_setup(i2c_id,i2c_speed,NULL);
+      luat_i2c_setup(i2c_id,i2c_speed, 0);
       break;
     case U8X8_MSG_BYTE_SET_DC:
       /* ignored for i2c */

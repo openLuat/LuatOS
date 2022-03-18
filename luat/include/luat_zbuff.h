@@ -22,4 +22,7 @@ typedef struct luat_zbuff {
     uint8_t bit;    //色深度
 } luat_zbuff_t;
 
+
+int __zbuff_resize(luat_zbuff_t *buff, uint32_t new_size);
+
 #endif

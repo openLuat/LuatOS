@@ -42,7 +42,7 @@ int lfs_sfd_erase(const struct lfs_config *c, lfs_block_t block) {
     // Sync the state of the underlying block device. Negative error codes
     // are propogated to the user.
 int lfs_sfd_sync(const struct lfs_config *c) {
-    sfd_drv_t *drv = (sfd_drv_t *)c->context;
+    // sfd_drv_t *drv = (sfd_drv_t *)c->context;
     //drv->opts->ioctl(drv, ???);
     return 0;
 }

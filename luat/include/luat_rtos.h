@@ -10,6 +10,7 @@ typedef struct luat_thread{
     thread_entry entry;
     const char *name;
     uint32_t stack_size;
+    uint32_t* task_stk;
     uint32_t priority;
     char* stack_buff;
     void* userdata;

@@ -1,8 +1,10 @@
 #include "luat_base.h"
 #include "luat_sfd.h"
 
+#ifndef LUAT_LOG_TAG
 #define LUAT_LOG_TAG "fal"
 #include "luat_log.h"
+#endif
 
 #include "fal.h"
 

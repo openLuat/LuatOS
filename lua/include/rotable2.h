@@ -23,8 +23,6 @@ typedef struct rotable_Reg2 {
   rotable_Reg_Value_t value;
 } rotable_Reg_t;
 
-#define LUA_TINTEGER 11
-
 #define ROREG_FUNC(fvalue) {.type=LUA_TFUNCTION, .value={.func=fvalue}}
 #define ROREG_NUM(fvalue)  {.type=LUA_TNUMBER,   .value={.numvalue=fvalue}}
 #define ROREG_INT(fvalue)  {.type=LUA_TINTEGER,  .value={.intvalue=fvalue}}

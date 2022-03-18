@@ -13,8 +13,10 @@
 #define _FDB_CFG_H_
 
 #include "luat_base.h"
+#ifndef LUAT_LOG_TAG
 #define LUAT_LOG_TAG "flashdb"
 #include "luat_log.h"
+#endif
 
 /* using KVDB feature */
 #define FDB_USING_KVDB

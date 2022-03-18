@@ -13,7 +13,6 @@
 
 static struct fdb_kvdb kvdb;
 
-#define LUA_TINTEGER 21
 /**
 初始化kv数据库
 @api fdb.kvdb_init(name, partition)
@@ -163,7 +162,7 @@ if fdb.kvdb_init("env", "onchip_fdb") then
 end
  */
 static int l_fdb_kv_get(lua_State *L) {
-    size_t len;
+    // size_t len;
     luaL_Buffer buff;
     struct fdb_blob blob = {0};
     const char* key = luaL_checkstring(L, 1);
@@ -173,7 +172,7 @@ static int l_fdb_kv_get(lua_State *L) {
     size_t read_len = fdb_kv_get_blob(&kvdb, key, &blob);
     
     lua_Integer *intVal;
-    lua_Number *numVal;
+    // lua_Number *numVal;
 
     if (read_len) {
         // LLOGD("KV value T=%02X", buff.b[0]);

@@ -72,6 +72,8 @@ typedef struct lua_State lua_State;
 #define LUA_TTHREAD		8
 
 #define LUA_NUMTAGS		9
+// add by wendal @ LuatOS
+#define LUA_TINTEGER 21
 
 
 

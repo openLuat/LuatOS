@@ -137,7 +137,7 @@ int luat_ymodem_receive(void *handler, uint8_t *data, uint32_t len, uint8_t *ack
 						return 0;
 					}
 					NameEnd = NULL;
-					for(i = XMODEM_DATA_POS; i++; i < (XMODEM_SOH_DATA_LEN + 5))
+					for(i = XMODEM_DATA_POS; i < (XMODEM_SOH_DATA_LEN + 5); i++)
 					{
 						if (!ctrl->packet_data[i])
 						{
@@ -151,7 +151,7 @@ int luat_ymodem_receive(void *handler, uint8_t *data, uint32_t len, uint8_t *ack
 						goto DATA_RECIEVE_ERROR;
 					}
 					LenEnd = NULL;
-					for(i = (NameEnd + 1); i++; i < (XMODEM_SOH_DATA_LEN + 5))
+					for(i = (NameEnd + 1); i < (XMODEM_SOH_DATA_LEN + 5); i++)
 					{
 						if (!ctrl->packet_data[i])
 						{
@@ -165,7 +165,7 @@ int luat_ymodem_receive(void *handler, uint8_t *data, uint32_t len, uint8_t *ack
 						goto DATA_RECIEVE_ERROR;
 					}
 
-					ctrl->file_size = strtol(&ctrl->packet_data[NameEnd + 1], NULL, 10);
+					ctrl->file_size = strtol((const char*)&ctrl->packet_data[NameEnd + 1], NULL, 10);
 					ctrl->write_size = 0;
 					if (ctrl->force_save_path)
 					{

@@ -83,7 +83,7 @@ static int l_ymodem_receive(lua_State *L){
 			data = NULL;
 			len = 0;
 		}
-		result = luat_ymodem_receive(handler->ctrl, data, len, &ack, &flag, &file_ok, &all_done);
+		result = luat_ymodem_receive(handler->ctrl, (uint8_t*)data, len, &ack, &flag, &file_ok, &all_done);
 		lua_pushboolean(L, !result);
 		lua_pushinteger(L, ack);
 		lua_pushinteger(L, flag);

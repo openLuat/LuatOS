@@ -489,7 +489,7 @@ static const rotable_Reg_t reg_dbg[] =
     { "close", ROREG_FUNC(l_debug_close)},
     { "stop",  ROREG_FUNC(l_debug_close)},
 #ifdef LUAT_USE_SHELL
-    { "cmux_state", ROREG_FUNC(l_debug_cmux_state), 0},
+    { "cmux_state", ROREG_FUNC(l_debug_cmux_state)},
 #endif
 	{ NULL,     {}}
 };

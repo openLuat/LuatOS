@@ -383,6 +383,8 @@ static const rotable_Reg_t reg_uart[] =
     { "tx",      ROREG_FUNC(l_uart_tx)},
     { "rx",       ROREG_FUNC(l_uart_rx)},
 	{ "rx_size",	ROREG_FUNC(l_uart_rx_size)},
+
+	{ "VUART_0",        ROREG_INT(0xf0)},
     { NULL,         {}}
 };
 

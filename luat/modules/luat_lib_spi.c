@@ -410,7 +410,7 @@ static const rotable_Reg_t reg_spi[] =
     { "SPI_2",             ROREG_INT(2)},
     { "SPI_3",             ROREG_INT(3)},
     { "SPI_4",             ROREG_INT(4)},
-    { "SPI_5",             ROREG_INT(5)},
+	{ "HSPI_0",             ROREG_INT(5)},
 	{ NULL,                {}}
 };
 

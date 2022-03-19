@@ -12,6 +12,8 @@
 #include "cJSON.h"
 #endif
 
+extern luat_cmux_t cmux_ctx;
+
 /**
  * 0 , disabled
  * 1 , wait for connect
@@ -47,7 +49,7 @@ void luat_dbg_output(const char* _fmt, ...) {
     va_end(args);
     if (len > 0) {
 #ifdef LUAT_USE_SHELL
-        if (cmux_state == 1 && cmux_dbg_state ==1){
+        if (cmux_ctx.state == 1 && cmux_ctx.dbg_state ==1){
             luat_cmux_write(LUAT_CMUX_CH_DBG,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,dbg_printf_buff, len);
         }else
 #endif
@@ -476,8 +478,8 @@ int luat_dbg_init(lua_State *L) {
 #ifdef LUAT_USE_SHELL
 // 供dbg_init.lua判断cmux状态
 int l_debug_cmux_state(lua_State *L) {
-    lua_pushinteger(L, cmux_state);
-    lua_pushinteger(L, cmux_dbg_state);
+    lua_pushinteger(L, cmux_ctx.state);
+    lua_pushinteger(L, cmux_ctx.dbg_state);
     return 2;
 }
 #endif

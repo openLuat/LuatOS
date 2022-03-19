@@ -47,6 +47,7 @@ extern uint8_t cmux_main_state;
 extern uint8_t cmux_shell_state;
 extern uint8_t cmux_log_state;
 extern uint8_t cmux_dbg_state;
+extern uint8_t cmux_download_state;
 
 void luat_cmux_write(int port, uint8_t control,char* buff, size_t len);
 void luat_cmux_read(unsigned char* buff,size_t len);

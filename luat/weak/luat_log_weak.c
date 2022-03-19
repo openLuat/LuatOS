@@ -16,6 +16,10 @@ LUAT_WEAK void luat_log_set_uart_port(int port) {
     luat_log_uart_port = port;
 }
 
+LUAT_WEAK uint8_t luat_log_get_uart_port(void) {
+    return luat_log_uart_port;
+}
+
 LUAT_WEAK void luat_nprint(char *s, size_t l) {
 #ifdef LUAT_USE_SHELL
     if (cmux_state == 1 && cmux_log_state ==1){

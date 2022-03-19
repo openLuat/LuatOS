@@ -1238,7 +1238,7 @@ static int l_zbuff_query(lua_State *L)
     	int16_t s;
     	uint16_t us;
     	int32_t i;
-    	uint32_t ui;
+    	// uint32_t ui;
     	int64_t l;
     	float f;
     	double d;

@@ -162,7 +162,7 @@ uart.tx(1, buf)
 static int l_uart_tx(lua_State *L)
 {
     size_t start, len;
-    const char *buf;
+    // const char *buf;
     luat_zbuff_t *buff;
     uint8_t id = luaL_checkinteger(L, 1);
     if(lua_isuserdata(L, 2))

@@ -31,8 +31,11 @@
 #include "luat_base.h"
 #include "luat_malloc.h"
 
+#ifndef LUAT_LOG_TAG
 #define LUAT_LOG_TAG "fal"
 #include "luat_log.h"
+#endif
+
 #define FAL_PRINTF LLOGD
 
 #define FAL_SW_VERSION                 "0.5.0"

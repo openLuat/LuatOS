@@ -15,7 +15,7 @@ void luat_nprint(char *s, size_t l);
 void luat_log_write(char *s, size_t l);
 // #define luat_nprint luat_log_write
 void luat_log_set_uart_port(int port);
-
+uint8_t luat_log_get_uart_port(void);
 void luat_log_set_level(int level);
 int luat_log_get_level(void);
 

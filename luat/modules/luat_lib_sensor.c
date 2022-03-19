@@ -386,7 +386,7 @@ sys.taskInit(
 */
 static int l_sensor_hx711(lua_State *L)
 {
-  unsigned int j;
+  // unsigned int j;
   unsigned long hx711_dat;
   int date = luaL_checkinteger(L, 1);
   int clk = luaL_checkinteger(L, 2);

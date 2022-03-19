@@ -23,6 +23,7 @@ uint8_t cmux_main_state = 0;
 uint8_t cmux_shell_state = 0;
 uint8_t cmux_log_state = 0;
 uint8_t cmux_dbg_state = 0;
+uint8_t cmux_download_state = 0;
 
 const uint8_t cmux_crctable[256] = {
     0x00, 0x91, 0xE3, 0x72, 0x07, 0x96, 0xE4, 0x75,

@@ -23,7 +23,7 @@ LUALIB_API void luat_openlibs (lua_State *L);
 
 // disable readline
 #if defined(LUA_USE_READLINE)
-#undef LUA_USE_READLINE
+// #undef LUA_USE_READLINE
 #endif
 
 #if !defined(LUA_PROMPT)

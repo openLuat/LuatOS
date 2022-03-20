@@ -71,6 +71,7 @@ add_library(lua ${LUA_SRCS})
 add_library(luatos_msys ${PORT_SRCS})
 add_library(cjson ${CJSON_SRCS})
 add_library(luat ${TOPROOT}/luat/modules/luat_main.c
+                 ${TOPROOT}/luat/modules/luat_base.c
                  ${TOPROOT}/luat/modules/luat_ota.c
                  ${TOPROOT}/luat/modules/luat_luat_bin.c
                  ${TOPROOT}/luat/modules/luat_lib_rtos.c
@@ -116,9 +117,9 @@ add_subdirectory(${TOPROOT}/components/mbedtls mbedtls.out)
 
 #-----------------------
 # luat_rtos
-include_directories(${TOPROOT}/components/rtos/freertos/include)
-aux_source_directory(${TOPROOT}/components/rtos/freertos RTOS_FREERTOS_SRCS)
-add_library(luat_rtos ${RTOS_FREERTOS_SRCS})
+include_directories(${TOPROOT}/components/rtos/posix/include)
+aux_source_directory(${TOPROOT}/components/rtos/posix RTOS_POSIX_SRCS)
+add_library(luat_rtos ${RTOS_POSIX_SRCS})
 #-----------------------
 
 #-----------------------
@@ -133,5 +134,5 @@ add_library(luat_network_libtcpip ${LIBTCPIP_SRCS} ${LIBTCPIP_SRCS2})
 
 add_executable(luatos src/main.c src/lua.c)
 
-target_link_libraries(luat freertos10 pthread luat_rtos luat_network_libtcpip)
+target_link_libraries(luat freertos10 pthread luat_rtos luat_network_libtcpip lua)
 target_link_libraries(luatos freertos10 lua luatos_msys luat pthread cjson mbedtls m dl readline luat_rtos luat_network_libtcpip)

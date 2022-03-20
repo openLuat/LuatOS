@@ -127,6 +127,30 @@ static int l_mcu_hw_diff_tick64(lua_State* L) {
     lua_pushinteger(L, (tick1 - tick2));
     return 1;
 }
+
+/*
+选择时钟源
+@api mcu.setXTAL(source_main, source_32k)
+@boolean 高速时钟是否使用外部时钟源，如果为空则不改变
+@boolean 低速32K是否使用外部时钟源，如果为空则不改变
+@int PLL稳定时间，在切换高速时钟的时候，根据硬件环境，需要delay一段时间等待PLL稳定，默认是1200，建议不小于1024
+@return 无
+@usage
+mcu.setXTAL(true, true, 1248)	--高速时钟使用外部时钟，低速32K使用外部晶振, delay1248
+*/
+static int l_mcu_set_xtal(lua_State* L) {
+	int source_main = 255;
+	int source_32k = 255;
+	int delay = luaL_optinteger(L, 3, 1200);
+	if (lua_isboolean(L, 1)) {
+		source_main = lua_toboolean(L, 1);
+	}
+	if (lua_isboolean(L, 2)) {
+		source_32k = lua_toboolean(L, 2);
+	}
+	luat_mcu_set_clk_source(source_main, source_32k, delay);
+    return 0;
+}
 #endif
 
 #include "rotable2.h"
@@ -140,6 +164,7 @@ static const rotable_Reg_t reg_mcu[] =
 #ifdef __LUATOS_TICK_64BIT__
 	{ "tick64",			ROREG_FUNC(l_mcu_hw_tick64)},
 	{ "dtick64",		ROREG_FUNC(l_mcu_hw_diff_tick64)},
+	{ "setXTAL",		ROREG_FUNC(l_mcu_set_xtal)},
 #endif
 	{ NULL,             {}}
 };

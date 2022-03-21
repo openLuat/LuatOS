@@ -7,6 +7,6 @@
 
 int luat_lv_line_set_points(lua_State *L);
 
-#define LUAT_LV_LINE_EX_RLT {"line_set_points", luat_lv_line_set_points, 0},\
+#define LUAT_LV_LINE_EX_RLT {"line_set_points", ROREG_FUNC(luat_lv_line_set_points)},\
 
 #endif

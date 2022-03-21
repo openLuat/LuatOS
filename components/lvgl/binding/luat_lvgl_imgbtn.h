@@ -4,6 +4,6 @@
 
 int luat_lv_imgbtn_set_src(lua_State *L);
 
-#define LUAT_LV_IMGBTN_EX_RTL {"imgbtn_set_src", luat_lv_imgbtn_set_src, 0},\
+#define LUAT_LV_IMGBTN_EX_RTL {"imgbtn_set_src", ROREG_FUNC(luat_lv_imgbtn_set_src)},\
 
 

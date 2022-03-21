@@ -7,6 +7,6 @@
 
 int luat_lv_calendar_set_highlighted_dates(lua_State *L);
 
-#define LUAT_LV_CALENDAR_EX_RLT {"calendar_set_highlighted_dates", luat_lv_calendar_set_highlighted_dates, 0},\
+#define LUAT_LV_CALENDAR_EX_RLT {"calendar_set_highlighted_dates", ROREG_FUNC(luat_lv_calendar_set_highlighted_dates)},\
 
 #endif

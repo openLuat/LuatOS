@@ -139,17 +139,18 @@ static int l_lv_theme_set_act(lua_State *L) {
 }
 
 // 函数注册
-static const rotable_Reg reg_lvgl[] = {
+#include "rotable2.h"
+static const rotable_Reg_t reg_lvgl[] = {
 
-{"init", luat_lv_init, 0},
-{"scr_act", luat_lv_scr_act, 0},
-{"layer_top", luat_lv_layer_top, 0},
-{"layer_sys", luat_lv_layer_sys, 0},
-{"scr_load", luat_lv_scr_load, 0},
-{"theme_set_act", l_lv_theme_set_act, 0},
+{"init",        ROREG_FUNC(luat_lv_init)},
+{"scr_act",     ROREG_FUNC(luat_lv_scr_act)},
+{"layer_top",   ROREG_FUNC(luat_lv_layer_top)},
+{"layer_sys",   ROREG_FUNC(luat_lv_layer_sys)},
+{"scr_load",    ROREG_FUNC(luat_lv_scr_load)},
+{"theme_set_act", ROREG_FUNC(l_lv_theme_set_act)},
 
 // 兼容性命名
-{"sw_create", luat_lv_switch_create, 0},
+{"sw_create", ROREG_FUNC(luat_lv_switch_create)},
 
 LUAT_LV_DISP_RLT
 LUAT_LV_GROUP_RLT
@@ -308,8 +309,8 @@ LUAT_LV_STRUCT_RLT
 // 常量
 LUAT_LV_ENMU_RLT
 
-{"ROLLER_MODE_INIFINITE", NULL, LV_ROLLER_MODE_INIFINITE},
-{NULL, NULL, 0},
+{"ROLLER_MODE_INIFINITE", ROREG_INT(LV_ROLLER_MODE_INIFINITE)},
+{NULL, {}},
 };
 
 #if (LV_USE_LOG && LV_LOG_PRINTF == 0)
@@ -339,7 +340,7 @@ LUAMOD_API int luaopen_lvgl( lua_State *L ) {
     #if (LV_USE_LOG && LV_LOG_PRINTF == 0)
     lv_log_register_print_cb(lv_log_print);
     #endif
-    luat_newlib(L, reg_lvgl);
+    luat_newlib2(L, reg_lvgl);
     luat_lvgl_struct_init(L);
     return 1;
 }

@@ -7,6 +7,6 @@
 
 int luat_lv_msgbox_add_btns(lua_State *L);
 
-#define LUAT_LV_MSGBOX_EX_RLT {"msgbox_add_btns", luat_lv_msgbox_add_btns, 0},\
+#define LUAT_LV_MSGBOX_EX_RLT {"msgbox_add_btns", ROREG_FUNC(luat_lv_msgbox_add_btns)},\
 
 #endif

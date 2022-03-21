@@ -51,5 +51,6 @@ void luat_lv_fs_init(void);
 #include "luat_lvgl_font.h"
 #include "luat_lvgl_struct.h"
 #include "luat_lvgl_indev.h"
+#include "luat_lvgl_symbol.h"
 
 #endif

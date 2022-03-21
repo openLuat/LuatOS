@@ -41,6 +41,15 @@ sys.taskInit(function()
     sys.wait(2000)
     nimble.debug(6)
     nimble.init()
+
+    if nimble.send_msg then
+        while 1 do
+            sys.wait(3000)
+            nimble.send_msg(1, 0, string.char(0x5A, 0xA5, 0x12, 0x34, 0x56))
+        end
+    else
+        log.info("nimble", "no send_msg")
+    end
 end)
 
 

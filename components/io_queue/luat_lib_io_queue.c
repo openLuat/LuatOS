@@ -23,11 +23,19 @@ int l_io_queue_done_handler(lua_State *L, void* ptr)
 
 int l_io_queue_capture_handler(lua_State *L, void* ptr)
 {
+	volatile uint64_t tick;
+	uint32_t pin;
+	uint32_t val;
 	rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
 	lua_getglobal(L, "sys_pub");
-	LLOGD("%d", msg->arg1);
-	lua_pushfstring(L, "IO_QUEUE_DONE_%d", msg->arg1);
-	lua_call(L, 1, 0);
+	pin = ((uint32_t)msg->ptr >> 8) & 0x000000ff;
+	val = (uint32_t)msg->ptr & 0x00000001;
+	tick = ((uint64_t)msg->arg1 << 32) | (uint32_t)msg->arg2;
+//	LLOGD("%u, %x,%x, %llu",pin, msg->arg1, msg->arg2, tick);
+	lua_pushfstring(L, "IO_QUEUE_EXTI_%d", pin);
+	lua_pushinteger(L, val);
+	lua_pushlstring(L, &tick, 8);
+	lua_call(L, 3, 0);
 	return 1;
 }
 

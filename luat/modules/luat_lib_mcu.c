@@ -7,7 +7,8 @@
 */
 #include "luat_base.h"
 #include "luat_mcu.h"
-
+#define LUAT_LOG_TAG "mcu"
+#include "luat_log.h"
 /*
 设置主频,单位MHZ. 请注意,主频与外设主频有关联性, 例如主频2M时SPI的最高只能1M
 @api mcu.setClk(mhz)
@@ -108,24 +109,33 @@ static int l_mcu_hw_tick64(lua_State* L) {
 
 /*
 计算2个64bit tick的差值
-@api mcu.dtick(tick1, tick2)
+@api mcu.dtick(tick1, tick2, check_value)
 @string tick1
 @string tick2
-@return int 差值tick1 - tick2
+@int 参考值，可选项，如果为0，则返回结果中第一个项目为true
+@return
+boolean 与参考值比较，如果大于等于为true，反之为false
+int 差值tick1 - tick2，如果超过了0x7fffffff，结果可能是错的
 @usage
 local diff_tick = mcu.dtick64(tick1, tick2)
 print("ticks", tick)
 */
 static int l_mcu_hw_diff_tick64(lua_State* L) {
 	uint64_t tick1, tick2;
+	int64_t diff;
+	int check_value = 0;
     size_t len1;
     const char *data1 = luaL_checklstring(L, 1, &len1);
     size_t len2;
     const char *data2 = luaL_checklstring(L, 2, &len2);
+    check_value = luaL_optinteger(L, 3, 0);
+
     memcpy(&tick1, data1, len1);
     memcpy(&tick2, data2, len2);
-    lua_pushinteger(L, (tick1 - tick2));
-    return 1;
+    diff = tick1 - tick2;
+    lua_pushboolean(L, (diff >= (int64_t)check_value)?1:0);
+    lua_pushinteger(L, diff);
+    return 2;
 }
 
 /*

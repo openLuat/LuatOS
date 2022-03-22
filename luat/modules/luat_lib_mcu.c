@@ -90,13 +90,13 @@ static int l_mcu_hz(lua_State* L) {
 
 #ifdef __LUATOS_TICK_64BIT__
 /*
-获取启动后的高精度tick
+获取启动后的高精度tick，目前只有105能用
 @api mcu.tick64()
 @return string 当前tick值，8个字节的uint64
 @return int 1us有几个tick，0表示未知
 @usage
 local tick_str, tick_per = mcu.tick64()
-print("ticks", tick)
+print("ticks", tick_str, tick_per)
 */
 static int l_mcu_hw_tick64(lua_State* L) {
 
@@ -108,17 +108,17 @@ static int l_mcu_hw_tick64(lua_State* L) {
 }
 
 /*
-计算2个64bit tick的差值
+计算2个64bit tick的差值，目前只有105能用
 @api mcu.dtick(tick1, tick2, check_value)
-@string tick1
-@string tick2
+@string tick1, 64bit的string
+@string tick2, 64bit的string
 @int 参考值，可选项，如果为0，则返回结果中第一个项目为true
 @return
 boolean 与参考值比较，如果大于等于为true，反之为false
 int 差值tick1 - tick2，如果超过了0x7fffffff，结果可能是错的
 @usage
-local diff_tick = mcu.dtick64(tick1, tick2)
-print("ticks", tick)
+local result, diff_tick = mcu.dtick64(tick1, tick2)
+print("ticks", result, diff_tick)
 */
 static int l_mcu_hw_diff_tick64(lua_State* L) {
 	uint64_t tick1, tick2;
@@ -140,7 +140,7 @@ static int l_mcu_hw_diff_tick64(lua_State* L) {
 
 /*
 选择时钟源
-@api mcu.setXTAL(source_main, source_32k)
+@api mcu.setXTAL(source_main, source_32k)，目前只有105能用
 @boolean 高速时钟是否使用外部时钟源，如果为空则不改变
 @boolean 低速32K是否使用外部时钟源，如果为空则不改变
 @int PLL稳定时间，在切换高速时钟的时候，根据硬件环境，需要delay一段时间等待PLL稳定，默认是1200，建议不小于1024

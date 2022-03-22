@@ -34,6 +34,23 @@ typedef struct luat_fatfs_spi
 	luat_spi_device_t * spi_device;
 }luat_fatfs_spi_t;
 
+// 软件spi
+typedef struct luat_espi {
+    int cs;
+    int mosi;
+    int miso;
+    int clk;
+    int CPHA;
+    int CPOL;
+    int dataw;
+    int bit_dict;
+    int master;
+    int mode;
+} luat_espi_t;
+
+#define LUAT_ESPI_TYPE "ESPI*"
+#define toespi(L) ((luat_espi_t *)luaL_checkudata(L, 1, LUAT_ESPI_TYPE))
+
 /**
     spiId,--串口id
     cs,

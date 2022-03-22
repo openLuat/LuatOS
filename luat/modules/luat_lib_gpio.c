@@ -16,8 +16,11 @@
 static int l_gpio_set(lua_State *L);
 static int l_gpio_get(lua_State *L);
 static int l_gpio_close(lua_State *L);
-
+#ifdef LUAT_GPIO_NUMS
+#define GPIO_IRQ_COUNT LUAT_GPIO_NUMS
+#else
 #define GPIO_IRQ_COUNT 16
+#endif
 typedef struct luat_lib_gpio_cb
 {
     int pin;

@@ -20,15 +20,6 @@ end
 
 leds = {}
 if rtos.bsp() == "air101" then -- 与w800/805等价
-    leds["a"] = gpio.setup(24, 0, gpio.PULLUP) -- PB_08,输出模式
-    leds["b"] = gpio.setup(25, 0, gpio.PULLUP) -- PB_09,输出模式
-    leds["c"] = gpio.setup(26, 0, gpio.PULLUP) -- PB_10,输出模式
-elseif rtos.bsp() == "air103" then -- 与w806等价
-    leds["a"] = gpio.setup(40, 0, gpio.PULLUP) -- PB_24,输出模式
-    leds["b"] = gpio.setup(41, 0, gpio.PULLUP) -- PB_25,输出模式
-    leds["c"] = gpio.setup(42, 0, gpio.PULLUP) -- PB_26,输出模式
-
---[[-- v0006及以后版本可用pin方式
     leds["a"] = gpio.setup(pin.PB08, 0, gpio.PULLUP) -- PB_08,输出模式
     leds["b"] = gpio.setup(pin.PB09, 0, gpio.PULLUP) -- PB_09,输出模式
     leds["c"] = gpio.setup(pin.PB10, 0, gpio.PULLUP) -- PB_10,输出模式
@@ -36,7 +27,6 @@ elseif rtos.bsp() == "air103" then -- 与w806等价
     leds["a"] = gpio.setup(pin.PB24, 0, gpio.PULLUP) -- PB_24,输出模式
     leds["b"] = gpio.setup(pin.PB25, 0, gpio.PULLUP) -- PB_25,输出模式
     leds["c"] = gpio.setup(pin.PB26, 0, gpio.PULLUP) -- PB_26,输出模式
-]]
 else
     log.info("gpio", "pls add gpio.setup for you board")
 end
@@ -47,6 +37,7 @@ local function led_bulingbuling()
     leds["b"](count == true and 1 or 0)
     leds["c"](count == true and 1 or 0)
     count = not count
+    nimble.send_msg(1, 0, "led_bulingbuling")
 end
 local bulingbuling = sys.timerLoopStart(led_bulingbuling, 1000)
 
@@ -63,18 +54,12 @@ else
     log.info("lcd", "lcd not found, display is off")
 end
 
-gpio.setup(0, function(val) print("PA0 R",val) if lcd then lcd.fill(0,40,160,80) if val == 0 then lcd.drawStr(50,60,"R down",0x07E0) end end end, gpio.PULLUP)
-gpio.setup(7, function(val) print("PA7 U",val) if lcd then lcd.fill(0,40,160,80) if  val == 0 then lcd.drawStr(50,60,"U down",0x07E0) end end end, gpio.PULLUP)
-gpio.setup(4, function(val) print("PA4 C",val) if lcd then lcd.fill(0,40,160,80) if  val == 0 then lcd.drawStr(50,60,"C down",0x07E0) end end end, gpio.PULLUP)
-gpio.setup(1, function(val) print("PA1 L",val) if lcd then lcd.fill(0,40,160,80) if  val == 0 then lcd.drawStr(50,60,"L down",0x07E0) end end end, gpio.PULLUP)
-gpio.setup(27, function(val) print("PB11 D",val) if lcd then lcd.fill(0,40,160,80) if  val == 0 then lcd.drawStr(50,60,"D down",0x07E0) end end end, gpio.PULLUP)
---[[-- v0006及以后版本可用pin方式
 gpio.setup(pin.PA00, function(val) print("PA0 R",val) if lcd then lcd.fill(0,40,160,80) if val == 0 then lcd.drawStr(50,60,"R down",0x07E0) end end end, gpio.PULLUP)
 gpio.setup(pin.PA07, function(val) print("PA7 U",val) if lcd then lcd.fill(0,40,160,80) if  val == 0 then lcd.drawStr(50,60,"U down",0x07E0) end end end, gpio.PULLUP)
 gpio.setup(pin.PA04, function(val) print("PA4 C",val) if lcd then lcd.fill(0,40,160,80) if  val == 0 then lcd.drawStr(50,60,"C down",0x07E0) end end end, gpio.PULLUP)
 gpio.setup(pin.PA01, function(val) print("PA1 L",val) if lcd then lcd.fill(0,40,160,80) if  val == 0 then lcd.drawStr(50,60,"L down",0x07E0) end end end, gpio.PULLUP)
 gpio.setup(pin.PB11, function(val) print("PB11 D",val) if lcd then lcd.fill(0,40,160,80) if  val == 0 then lcd.drawStr(50,60,"D down",0x07E0) end end end, gpio.PULLUP)
-]]
+
 
 function decodeURI(s)
     s = string.gsub(s, '%%(%x%x)', function(h) return string.char(tonumber(h, 16)) end)
@@ -132,6 +117,7 @@ if nimble then
         -- led,b,off 对应 6c65642c622c6f6666
         -- led,c,off 对应 6c65642c632c6f6666
         -- display,xxx 对应 646973706C6179xxx, 支持中文
+        
         local cmd = data:split(",")
         if cmd[1] and cmds[cmd[1]] then
             cmds[cmd[1]](table.unpack(cmd, 2))

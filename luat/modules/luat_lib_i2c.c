@@ -307,7 +307,18 @@ static int l_i2c_send(lua_State *L)
         }
         luat_heap_free(buff);
     }
-
+    else
+    {
+        if (lua_isuserdata(L, 1))
+        {
+            luat_ei2c *ei2c = toei2c(L);
+            result = i2c_soft_send(ei2c, addr, NULL, 0);
+        }
+        else
+        {
+            result = luat_i2c_send(id, addr, NULL, 0);
+        }
+    }
     lua_pushboolean(L, result == 0);
     return 1;
 }

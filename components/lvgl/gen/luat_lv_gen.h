@@ -39,39 +39,39 @@ int luat_lv_disp_get_inactive_time(lua_State *L);
 int luat_lv_disp_trig_activity(lua_State *L);
 int luat_lv_disp_clean_dcache(lua_State *L);
 
-#define LUAT_LV_DISP_RLT     {"disp_drv_init", luat_lv_disp_drv_init, 0},\
-    {"disp_buf_init", luat_lv_disp_buf_init, 0},\
-    {"disp_drv_register", luat_lv_disp_drv_register, 0},\
-    {"disp_drv_update", luat_lv_disp_drv_update, 0},\
-    {"disp_remove", luat_lv_disp_remove, 0},\
-    {"disp_set_default", luat_lv_disp_set_default, 0},\
-    {"disp_get_default", luat_lv_disp_get_default, 0},\
-    {"disp_get_hor_res", luat_lv_disp_get_hor_res, 0},\
-    {"disp_get_ver_res", luat_lv_disp_get_ver_res, 0},\
-    {"disp_get_antialiasing", luat_lv_disp_get_antialiasing, 0},\
-    {"disp_get_dpi", luat_lv_disp_get_dpi, 0},\
-    {"disp_get_size_category", luat_lv_disp_get_size_category, 0},\
-    {"disp_set_rotation", luat_lv_disp_set_rotation, 0},\
-    {"disp_get_rotation", luat_lv_disp_get_rotation, 0},\
-    {"disp_flush_ready", luat_lv_disp_flush_ready, 0},\
-    {"disp_flush_is_last", luat_lv_disp_flush_is_last, 0},\
-    {"disp_get_next", luat_lv_disp_get_next, 0},\
-    {"disp_get_buf", luat_lv_disp_get_buf, 0},\
-    {"disp_get_inv_buf_size", luat_lv_disp_get_inv_buf_size, 0},\
-    {"disp_is_double_buf", luat_lv_disp_is_double_buf, 0},\
-    {"disp_is_true_double_buf", luat_lv_disp_is_true_double_buf, 0},\
-    {"disp_get_scr_act", luat_lv_disp_get_scr_act, 0},\
-    {"disp_get_scr_prev", luat_lv_disp_get_scr_prev, 0},\
-    {"disp_load_scr", luat_lv_disp_load_scr, 0},\
-    {"disp_get_layer_top", luat_lv_disp_get_layer_top, 0},\
-    {"disp_get_layer_sys", luat_lv_disp_get_layer_sys, 0},\
-    {"disp_assign_screen", luat_lv_disp_assign_screen, 0},\
-    {"disp_set_bg_color", luat_lv_disp_set_bg_color, 0},\
-    {"disp_set_bg_image", luat_lv_disp_set_bg_image, 0},\
-    {"disp_set_bg_opa", luat_lv_disp_set_bg_opa, 0},\
-    {"disp_get_inactive_time", luat_lv_disp_get_inactive_time, 0},\
-    {"disp_trig_activity", luat_lv_disp_trig_activity, 0},\
-    {"disp_clean_dcache", luat_lv_disp_clean_dcache, 0},\
+#define LUAT_LV_DISP_RLT     {"disp_drv_init", ROREG_FUNC(luat_lv_disp_drv_init)},\
+    {"disp_buf_init", ROREG_FUNC(luat_lv_disp_buf_init)},\
+    {"disp_drv_register", ROREG_FUNC(luat_lv_disp_drv_register)},\
+    {"disp_drv_update", ROREG_FUNC(luat_lv_disp_drv_update)},\
+    {"disp_remove", ROREG_FUNC(luat_lv_disp_remove)},\
+    {"disp_set_default", ROREG_FUNC(luat_lv_disp_set_default)},\
+    {"disp_get_default", ROREG_FUNC(luat_lv_disp_get_default)},\
+    {"disp_get_hor_res", ROREG_FUNC(luat_lv_disp_get_hor_res)},\
+    {"disp_get_ver_res", ROREG_FUNC(luat_lv_disp_get_ver_res)},\
+    {"disp_get_antialiasing", ROREG_FUNC(luat_lv_disp_get_antialiasing)},\
+    {"disp_get_dpi", ROREG_FUNC(luat_lv_disp_get_dpi)},\
+    {"disp_get_size_category", ROREG_FUNC(luat_lv_disp_get_size_category)},\
+    {"disp_set_rotation", ROREG_FUNC(luat_lv_disp_set_rotation)},\
+    {"disp_get_rotation", ROREG_FUNC(luat_lv_disp_get_rotation)},\
+    {"disp_flush_ready", ROREG_FUNC(luat_lv_disp_flush_ready)},\
+    {"disp_flush_is_last", ROREG_FUNC(luat_lv_disp_flush_is_last)},\
+    {"disp_get_next", ROREG_FUNC(luat_lv_disp_get_next)},\
+    {"disp_get_buf", ROREG_FUNC(luat_lv_disp_get_buf)},\
+    {"disp_get_inv_buf_size", ROREG_FUNC(luat_lv_disp_get_inv_buf_size)},\
+    {"disp_is_double_buf", ROREG_FUNC(luat_lv_disp_is_double_buf)},\
+    {"disp_is_true_double_buf", ROREG_FUNC(luat_lv_disp_is_true_double_buf)},\
+    {"disp_get_scr_act", ROREG_FUNC(luat_lv_disp_get_scr_act)},\
+    {"disp_get_scr_prev", ROREG_FUNC(luat_lv_disp_get_scr_prev)},\
+    {"disp_load_scr", ROREG_FUNC(luat_lv_disp_load_scr)},\
+    {"disp_get_layer_top", ROREG_FUNC(luat_lv_disp_get_layer_top)},\
+    {"disp_get_layer_sys", ROREG_FUNC(luat_lv_disp_get_layer_sys)},\
+    {"disp_assign_screen", ROREG_FUNC(luat_lv_disp_assign_screen)},\
+    {"disp_set_bg_color", ROREG_FUNC(luat_lv_disp_set_bg_color)},\
+    {"disp_set_bg_image", ROREG_FUNC(luat_lv_disp_set_bg_image)},\
+    {"disp_set_bg_opa", ROREG_FUNC(luat_lv_disp_set_bg_opa)},\
+    {"disp_get_inactive_time", ROREG_FUNC(luat_lv_disp_get_inactive_time)},\
+    {"disp_trig_activity", ROREG_FUNC(luat_lv_disp_trig_activity)},\
+    {"disp_clean_dcache", ROREG_FUNC(luat_lv_disp_clean_dcache)},\
 
 // prefix lv_core lv_group
 int luat_lv_group_create(lua_State *L);
@@ -94,25 +94,25 @@ int luat_lv_group_get_editing(lua_State *L);
 int luat_lv_group_get_click_focus(lua_State *L);
 int luat_lv_group_get_wrap(lua_State *L);
 
-#define LUAT_LV_GROUP_RLT     {"group_create", luat_lv_group_create, 0},\
-    {"group_del", luat_lv_group_del, 0},\
-    {"group_add_obj", luat_lv_group_add_obj, 0},\
-    {"group_remove_obj", luat_lv_group_remove_obj, 0},\
-    {"group_remove_all_objs", luat_lv_group_remove_all_objs, 0},\
-    {"group_focus_obj", luat_lv_group_focus_obj, 0},\
-    {"group_focus_next", luat_lv_group_focus_next, 0},\
-    {"group_focus_prev", luat_lv_group_focus_prev, 0},\
-    {"group_focus_freeze", luat_lv_group_focus_freeze, 0},\
-    {"group_send_data", luat_lv_group_send_data, 0},\
-    {"group_set_refocus_policy", luat_lv_group_set_refocus_policy, 0},\
-    {"group_set_editing", luat_lv_group_set_editing, 0},\
-    {"group_set_click_focus", luat_lv_group_set_click_focus, 0},\
-    {"group_set_wrap", luat_lv_group_set_wrap, 0},\
-    {"group_get_focused", luat_lv_group_get_focused, 0},\
-    {"group_get_user_data", luat_lv_group_get_user_data, 0},\
-    {"group_get_editing", luat_lv_group_get_editing, 0},\
-    {"group_get_click_focus", luat_lv_group_get_click_focus, 0},\
-    {"group_get_wrap", luat_lv_group_get_wrap, 0},\
+#define LUAT_LV_GROUP_RLT     {"group_create", ROREG_FUNC(luat_lv_group_create)},\
+    {"group_del", ROREG_FUNC(luat_lv_group_del)},\
+    {"group_add_obj", ROREG_FUNC(luat_lv_group_add_obj)},\
+    {"group_remove_obj", ROREG_FUNC(luat_lv_group_remove_obj)},\
+    {"group_remove_all_objs", ROREG_FUNC(luat_lv_group_remove_all_objs)},\
+    {"group_focus_obj", ROREG_FUNC(luat_lv_group_focus_obj)},\
+    {"group_focus_next", ROREG_FUNC(luat_lv_group_focus_next)},\
+    {"group_focus_prev", ROREG_FUNC(luat_lv_group_focus_prev)},\
+    {"group_focus_freeze", ROREG_FUNC(luat_lv_group_focus_freeze)},\
+    {"group_send_data", ROREG_FUNC(luat_lv_group_send_data)},\
+    {"group_set_refocus_policy", ROREG_FUNC(luat_lv_group_set_refocus_policy)},\
+    {"group_set_editing", ROREG_FUNC(luat_lv_group_set_editing)},\
+    {"group_set_click_focus", ROREG_FUNC(luat_lv_group_set_click_focus)},\
+    {"group_set_wrap", ROREG_FUNC(luat_lv_group_set_wrap)},\
+    {"group_get_focused", ROREG_FUNC(luat_lv_group_get_focused)},\
+    {"group_get_user_data", ROREG_FUNC(luat_lv_group_get_user_data)},\
+    {"group_get_editing", ROREG_FUNC(luat_lv_group_get_editing)},\
+    {"group_get_click_focus", ROREG_FUNC(luat_lv_group_get_click_focus)},\
+    {"group_get_wrap", ROREG_FUNC(luat_lv_group_get_wrap)},\
 
 // prefix lv_core lv_obj
 int luat_lv_obj_create(lua_State *L);
@@ -425,320 +425,320 @@ int luat_lv_obj_get_draw_rect_ext_pad_size(lua_State *L);
 int luat_lv_obj_fade_in(lua_State *L);
 int luat_lv_obj_fade_out(lua_State *L);
 
-#define LUAT_LV_OBJ_RLT     {"obj_create", luat_lv_obj_create, 0},\
-    {"obj_del", luat_lv_obj_del, 0},\
-    {"obj_del_async", luat_lv_obj_del_async, 0},\
-    {"obj_clean", luat_lv_obj_clean, 0},\
-    {"obj_invalidate_area", luat_lv_obj_invalidate_area, 0},\
-    {"obj_invalidate", luat_lv_obj_invalidate, 0},\
-    {"obj_area_is_visible", luat_lv_obj_area_is_visible, 0},\
-    {"obj_is_visible", luat_lv_obj_is_visible, 0},\
-    {"obj_set_parent", luat_lv_obj_set_parent, 0},\
-    {"obj_move_foreground", luat_lv_obj_move_foreground, 0},\
-    {"obj_move_background", luat_lv_obj_move_background, 0},\
-    {"obj_set_pos", luat_lv_obj_set_pos, 0},\
-    {"obj_set_x", luat_lv_obj_set_x, 0},\
-    {"obj_set_y", luat_lv_obj_set_y, 0},\
-    {"obj_set_size", luat_lv_obj_set_size, 0},\
-    {"obj_set_width", luat_lv_obj_set_width, 0},\
-    {"obj_set_height", luat_lv_obj_set_height, 0},\
-    {"obj_set_width_fit", luat_lv_obj_set_width_fit, 0},\
-    {"obj_set_height_fit", luat_lv_obj_set_height_fit, 0},\
-    {"obj_set_width_margin", luat_lv_obj_set_width_margin, 0},\
-    {"obj_set_height_margin", luat_lv_obj_set_height_margin, 0},\
-    {"obj_align", luat_lv_obj_align, 0},\
-    {"obj_align_x", luat_lv_obj_align_x, 0},\
-    {"obj_align_y", luat_lv_obj_align_y, 0},\
-    {"obj_align_mid", luat_lv_obj_align_mid, 0},\
-    {"obj_align_mid_x", luat_lv_obj_align_mid_x, 0},\
-    {"obj_align_mid_y", luat_lv_obj_align_mid_y, 0},\
-    {"obj_realign", luat_lv_obj_realign, 0},\
-    {"obj_set_auto_realign", luat_lv_obj_set_auto_realign, 0},\
-    {"obj_set_ext_click_area", luat_lv_obj_set_ext_click_area, 0},\
-    {"obj_add_style", luat_lv_obj_add_style, 0},\
-    {"obj_remove_style", luat_lv_obj_remove_style, 0},\
-    {"obj_clean_style_list", luat_lv_obj_clean_style_list, 0},\
-    {"obj_reset_style_list", luat_lv_obj_reset_style_list, 0},\
-    {"obj_refresh_style", luat_lv_obj_refresh_style, 0},\
-    {"obj_report_style_mod", luat_lv_obj_report_style_mod, 0},\
-    {"obj_remove_style_local_prop", luat_lv_obj_remove_style_local_prop, 0},\
-    {"obj_set_hidden", luat_lv_obj_set_hidden, 0},\
-    {"obj_set_adv_hittest", luat_lv_obj_set_adv_hittest, 0},\
-    {"obj_set_click", luat_lv_obj_set_click, 0},\
-    {"obj_set_top", luat_lv_obj_set_top, 0},\
-    {"obj_set_drag", luat_lv_obj_set_drag, 0},\
-    {"obj_set_drag_dir", luat_lv_obj_set_drag_dir, 0},\
-    {"obj_set_drag_throw", luat_lv_obj_set_drag_throw, 0},\
-    {"obj_set_drag_parent", luat_lv_obj_set_drag_parent, 0},\
-    {"obj_set_focus_parent", luat_lv_obj_set_focus_parent, 0},\
-    {"obj_set_gesture_parent", luat_lv_obj_set_gesture_parent, 0},\
-    {"obj_set_parent_event", luat_lv_obj_set_parent_event, 0},\
-    {"obj_set_base_dir", luat_lv_obj_set_base_dir, 0},\
-    {"obj_add_protect", luat_lv_obj_add_protect, 0},\
-    {"obj_clear_protect", luat_lv_obj_clear_protect, 0},\
-    {"obj_set_state", luat_lv_obj_set_state, 0},\
-    {"obj_add_state", luat_lv_obj_add_state, 0},\
-    {"obj_clear_state", luat_lv_obj_clear_state, 0},\
-    {"obj_finish_transitions", luat_lv_obj_finish_transitions, 0},\
-    {"obj_allocate_ext_attr", luat_lv_obj_allocate_ext_attr, 0},\
-    {"obj_refresh_ext_draw_pad", luat_lv_obj_refresh_ext_draw_pad, 0},\
-    {"obj_get_screen", luat_lv_obj_get_screen, 0},\
-    {"obj_get_disp", luat_lv_obj_get_disp, 0},\
-    {"obj_get_parent", luat_lv_obj_get_parent, 0},\
-    {"obj_get_child", luat_lv_obj_get_child, 0},\
-    {"obj_get_child_back", luat_lv_obj_get_child_back, 0},\
-    {"obj_count_children", luat_lv_obj_count_children, 0},\
-    {"obj_count_children_recursive", luat_lv_obj_count_children_recursive, 0},\
-    {"obj_get_coords", luat_lv_obj_get_coords, 0},\
-    {"obj_get_inner_coords", luat_lv_obj_get_inner_coords, 0},\
-    {"obj_get_x", luat_lv_obj_get_x, 0},\
-    {"obj_get_y", luat_lv_obj_get_y, 0},\
-    {"obj_get_width", luat_lv_obj_get_width, 0},\
-    {"obj_get_height", luat_lv_obj_get_height, 0},\
-    {"obj_get_width_fit", luat_lv_obj_get_width_fit, 0},\
-    {"obj_get_height_fit", luat_lv_obj_get_height_fit, 0},\
-    {"obj_get_height_margin", luat_lv_obj_get_height_margin, 0},\
-    {"obj_get_width_margin", luat_lv_obj_get_width_margin, 0},\
-    {"obj_get_width_grid", luat_lv_obj_get_width_grid, 0},\
-    {"obj_get_height_grid", luat_lv_obj_get_height_grid, 0},\
-    {"obj_get_auto_realign", luat_lv_obj_get_auto_realign, 0},\
-    {"obj_get_ext_click_pad_left", luat_lv_obj_get_ext_click_pad_left, 0},\
-    {"obj_get_ext_click_pad_right", luat_lv_obj_get_ext_click_pad_right, 0},\
-    {"obj_get_ext_click_pad_top", luat_lv_obj_get_ext_click_pad_top, 0},\
-    {"obj_get_ext_click_pad_bottom", luat_lv_obj_get_ext_click_pad_bottom, 0},\
-    {"obj_get_ext_draw_pad", luat_lv_obj_get_ext_draw_pad, 0},\
-    {"obj_get_style_list", luat_lv_obj_get_style_list, 0},\
-    {"obj_get_local_style", luat_lv_obj_get_local_style, 0},\
-    {"obj_get_style_radius", luat_lv_obj_get_style_radius, 0},\
-    {"obj_set_style_local_radius", luat_lv_obj_set_style_local_radius, 0},\
-    {"obj_get_style_clip_corner", luat_lv_obj_get_style_clip_corner, 0},\
-    {"obj_set_style_local_clip_corner", luat_lv_obj_set_style_local_clip_corner, 0},\
-    {"obj_get_style_size", luat_lv_obj_get_style_size, 0},\
-    {"obj_set_style_local_size", luat_lv_obj_set_style_local_size, 0},\
-    {"obj_get_style_transform_width", luat_lv_obj_get_style_transform_width, 0},\
-    {"obj_set_style_local_transform_width", luat_lv_obj_set_style_local_transform_width, 0},\
-    {"obj_get_style_transform_height", luat_lv_obj_get_style_transform_height, 0},\
-    {"obj_set_style_local_transform_height", luat_lv_obj_set_style_local_transform_height, 0},\
-    {"obj_get_style_transform_angle", luat_lv_obj_get_style_transform_angle, 0},\
-    {"obj_set_style_local_transform_angle", luat_lv_obj_set_style_local_transform_angle, 0},\
-    {"obj_get_style_transform_zoom", luat_lv_obj_get_style_transform_zoom, 0},\
-    {"obj_set_style_local_transform_zoom", luat_lv_obj_set_style_local_transform_zoom, 0},\
-    {"obj_get_style_opa_scale", luat_lv_obj_get_style_opa_scale, 0},\
-    {"obj_set_style_local_opa_scale", luat_lv_obj_set_style_local_opa_scale, 0},\
-    {"obj_get_style_pad_top", luat_lv_obj_get_style_pad_top, 0},\
-    {"obj_set_style_local_pad_top", luat_lv_obj_set_style_local_pad_top, 0},\
-    {"obj_get_style_pad_bottom", luat_lv_obj_get_style_pad_bottom, 0},\
-    {"obj_set_style_local_pad_bottom", luat_lv_obj_set_style_local_pad_bottom, 0},\
-    {"obj_get_style_pad_left", luat_lv_obj_get_style_pad_left, 0},\
-    {"obj_set_style_local_pad_left", luat_lv_obj_set_style_local_pad_left, 0},\
-    {"obj_get_style_pad_right", luat_lv_obj_get_style_pad_right, 0},\
-    {"obj_set_style_local_pad_right", luat_lv_obj_set_style_local_pad_right, 0},\
-    {"obj_get_style_pad_inner", luat_lv_obj_get_style_pad_inner, 0},\
-    {"obj_set_style_local_pad_inner", luat_lv_obj_set_style_local_pad_inner, 0},\
-    {"obj_get_style_margin_top", luat_lv_obj_get_style_margin_top, 0},\
-    {"obj_set_style_local_margin_top", luat_lv_obj_set_style_local_margin_top, 0},\
-    {"obj_get_style_margin_bottom", luat_lv_obj_get_style_margin_bottom, 0},\
-    {"obj_set_style_local_margin_bottom", luat_lv_obj_set_style_local_margin_bottom, 0},\
-    {"obj_get_style_margin_left", luat_lv_obj_get_style_margin_left, 0},\
-    {"obj_set_style_local_margin_left", luat_lv_obj_set_style_local_margin_left, 0},\
-    {"obj_get_style_margin_right", luat_lv_obj_get_style_margin_right, 0},\
-    {"obj_set_style_local_margin_right", luat_lv_obj_set_style_local_margin_right, 0},\
-    {"obj_get_style_bg_blend_mode", luat_lv_obj_get_style_bg_blend_mode, 0},\
-    {"obj_set_style_local_bg_blend_mode", luat_lv_obj_set_style_local_bg_blend_mode, 0},\
-    {"obj_get_style_bg_main_stop", luat_lv_obj_get_style_bg_main_stop, 0},\
-    {"obj_set_style_local_bg_main_stop", luat_lv_obj_set_style_local_bg_main_stop, 0},\
-    {"obj_get_style_bg_grad_stop", luat_lv_obj_get_style_bg_grad_stop, 0},\
-    {"obj_set_style_local_bg_grad_stop", luat_lv_obj_set_style_local_bg_grad_stop, 0},\
-    {"obj_get_style_bg_grad_dir", luat_lv_obj_get_style_bg_grad_dir, 0},\
-    {"obj_set_style_local_bg_grad_dir", luat_lv_obj_set_style_local_bg_grad_dir, 0},\
-    {"obj_get_style_bg_color", luat_lv_obj_get_style_bg_color, 0},\
-    {"obj_set_style_local_bg_color", luat_lv_obj_set_style_local_bg_color, 0},\
-    {"obj_get_style_bg_grad_color", luat_lv_obj_get_style_bg_grad_color, 0},\
-    {"obj_set_style_local_bg_grad_color", luat_lv_obj_set_style_local_bg_grad_color, 0},\
-    {"obj_get_style_bg_opa", luat_lv_obj_get_style_bg_opa, 0},\
-    {"obj_set_style_local_bg_opa", luat_lv_obj_set_style_local_bg_opa, 0},\
-    {"obj_get_style_border_width", luat_lv_obj_get_style_border_width, 0},\
-    {"obj_set_style_local_border_width", luat_lv_obj_set_style_local_border_width, 0},\
-    {"obj_get_style_border_side", luat_lv_obj_get_style_border_side, 0},\
-    {"obj_set_style_local_border_side", luat_lv_obj_set_style_local_border_side, 0},\
-    {"obj_get_style_border_blend_mode", luat_lv_obj_get_style_border_blend_mode, 0},\
-    {"obj_set_style_local_border_blend_mode", luat_lv_obj_set_style_local_border_blend_mode, 0},\
-    {"obj_get_style_border_post", luat_lv_obj_get_style_border_post, 0},\
-    {"obj_set_style_local_border_post", luat_lv_obj_set_style_local_border_post, 0},\
-    {"obj_get_style_border_color", luat_lv_obj_get_style_border_color, 0},\
-    {"obj_set_style_local_border_color", luat_lv_obj_set_style_local_border_color, 0},\
-    {"obj_get_style_border_opa", luat_lv_obj_get_style_border_opa, 0},\
-    {"obj_set_style_local_border_opa", luat_lv_obj_set_style_local_border_opa, 0},\
-    {"obj_get_style_outline_width", luat_lv_obj_get_style_outline_width, 0},\
-    {"obj_set_style_local_outline_width", luat_lv_obj_set_style_local_outline_width, 0},\
-    {"obj_get_style_outline_pad", luat_lv_obj_get_style_outline_pad, 0},\
-    {"obj_set_style_local_outline_pad", luat_lv_obj_set_style_local_outline_pad, 0},\
-    {"obj_get_style_outline_blend_mode", luat_lv_obj_get_style_outline_blend_mode, 0},\
-    {"obj_set_style_local_outline_blend_mode", luat_lv_obj_set_style_local_outline_blend_mode, 0},\
-    {"obj_get_style_outline_color", luat_lv_obj_get_style_outline_color, 0},\
-    {"obj_set_style_local_outline_color", luat_lv_obj_set_style_local_outline_color, 0},\
-    {"obj_get_style_outline_opa", luat_lv_obj_get_style_outline_opa, 0},\
-    {"obj_set_style_local_outline_opa", luat_lv_obj_set_style_local_outline_opa, 0},\
-    {"obj_get_style_shadow_width", luat_lv_obj_get_style_shadow_width, 0},\
-    {"obj_set_style_local_shadow_width", luat_lv_obj_set_style_local_shadow_width, 0},\
-    {"obj_get_style_shadow_ofs_x", luat_lv_obj_get_style_shadow_ofs_x, 0},\
-    {"obj_set_style_local_shadow_ofs_x", luat_lv_obj_set_style_local_shadow_ofs_x, 0},\
-    {"obj_get_style_shadow_ofs_y", luat_lv_obj_get_style_shadow_ofs_y, 0},\
-    {"obj_set_style_local_shadow_ofs_y", luat_lv_obj_set_style_local_shadow_ofs_y, 0},\
-    {"obj_get_style_shadow_spread", luat_lv_obj_get_style_shadow_spread, 0},\
-    {"obj_set_style_local_shadow_spread", luat_lv_obj_set_style_local_shadow_spread, 0},\
-    {"obj_get_style_shadow_blend_mode", luat_lv_obj_get_style_shadow_blend_mode, 0},\
-    {"obj_set_style_local_shadow_blend_mode", luat_lv_obj_set_style_local_shadow_blend_mode, 0},\
-    {"obj_get_style_shadow_color", luat_lv_obj_get_style_shadow_color, 0},\
-    {"obj_set_style_local_shadow_color", luat_lv_obj_set_style_local_shadow_color, 0},\
-    {"obj_get_style_shadow_opa", luat_lv_obj_get_style_shadow_opa, 0},\
-    {"obj_set_style_local_shadow_opa", luat_lv_obj_set_style_local_shadow_opa, 0},\
-    {"obj_get_style_pattern_repeat", luat_lv_obj_get_style_pattern_repeat, 0},\
-    {"obj_set_style_local_pattern_repeat", luat_lv_obj_set_style_local_pattern_repeat, 0},\
-    {"obj_get_style_pattern_blend_mode", luat_lv_obj_get_style_pattern_blend_mode, 0},\
-    {"obj_set_style_local_pattern_blend_mode", luat_lv_obj_set_style_local_pattern_blend_mode, 0},\
-    {"obj_get_style_pattern_recolor", luat_lv_obj_get_style_pattern_recolor, 0},\
-    {"obj_set_style_local_pattern_recolor", luat_lv_obj_set_style_local_pattern_recolor, 0},\
-    {"obj_get_style_pattern_opa", luat_lv_obj_get_style_pattern_opa, 0},\
-    {"obj_set_style_local_pattern_opa", luat_lv_obj_set_style_local_pattern_opa, 0},\
-    {"obj_get_style_pattern_recolor_opa", luat_lv_obj_get_style_pattern_recolor_opa, 0},\
-    {"obj_set_style_local_pattern_recolor_opa", luat_lv_obj_set_style_local_pattern_recolor_opa, 0},\
-    {"obj_get_style_pattern_image", luat_lv_obj_get_style_pattern_image, 0},\
-    {"obj_set_style_local_pattern_image", luat_lv_obj_set_style_local_pattern_image, 0},\
-    {"obj_get_style_value_letter_space", luat_lv_obj_get_style_value_letter_space, 0},\
-    {"obj_set_style_local_value_letter_space", luat_lv_obj_set_style_local_value_letter_space, 0},\
-    {"obj_get_style_value_line_space", luat_lv_obj_get_style_value_line_space, 0},\
-    {"obj_set_style_local_value_line_space", luat_lv_obj_set_style_local_value_line_space, 0},\
-    {"obj_get_style_value_blend_mode", luat_lv_obj_get_style_value_blend_mode, 0},\
-    {"obj_set_style_local_value_blend_mode", luat_lv_obj_set_style_local_value_blend_mode, 0},\
-    {"obj_get_style_value_ofs_x", luat_lv_obj_get_style_value_ofs_x, 0},\
-    {"obj_set_style_local_value_ofs_x", luat_lv_obj_set_style_local_value_ofs_x, 0},\
-    {"obj_get_style_value_ofs_y", luat_lv_obj_get_style_value_ofs_y, 0},\
-    {"obj_set_style_local_value_ofs_y", luat_lv_obj_set_style_local_value_ofs_y, 0},\
-    {"obj_get_style_value_align", luat_lv_obj_get_style_value_align, 0},\
-    {"obj_set_style_local_value_align", luat_lv_obj_set_style_local_value_align, 0},\
-    {"obj_get_style_value_color", luat_lv_obj_get_style_value_color, 0},\
-    {"obj_set_style_local_value_color", luat_lv_obj_set_style_local_value_color, 0},\
-    {"obj_get_style_value_opa", luat_lv_obj_get_style_value_opa, 0},\
-    {"obj_set_style_local_value_opa", luat_lv_obj_set_style_local_value_opa, 0},\
-    {"obj_get_style_value_font", luat_lv_obj_get_style_value_font, 0},\
-    {"obj_set_style_local_value_font", luat_lv_obj_set_style_local_value_font, 0},\
-    {"obj_get_style_value_str", luat_lv_obj_get_style_value_str, 0},\
-    {"obj_set_style_local_value_str", luat_lv_obj_set_style_local_value_str, 0},\
-    {"obj_get_style_text_letter_space", luat_lv_obj_get_style_text_letter_space, 0},\
-    {"obj_set_style_local_text_letter_space", luat_lv_obj_set_style_local_text_letter_space, 0},\
-    {"obj_get_style_text_line_space", luat_lv_obj_get_style_text_line_space, 0},\
-    {"obj_set_style_local_text_line_space", luat_lv_obj_set_style_local_text_line_space, 0},\
-    {"obj_get_style_text_decor", luat_lv_obj_get_style_text_decor, 0},\
-    {"obj_set_style_local_text_decor", luat_lv_obj_set_style_local_text_decor, 0},\
-    {"obj_get_style_text_blend_mode", luat_lv_obj_get_style_text_blend_mode, 0},\
-    {"obj_set_style_local_text_blend_mode", luat_lv_obj_set_style_local_text_blend_mode, 0},\
-    {"obj_get_style_text_color", luat_lv_obj_get_style_text_color, 0},\
-    {"obj_set_style_local_text_color", luat_lv_obj_set_style_local_text_color, 0},\
-    {"obj_get_style_text_sel_color", luat_lv_obj_get_style_text_sel_color, 0},\
-    {"obj_set_style_local_text_sel_color", luat_lv_obj_set_style_local_text_sel_color, 0},\
-    {"obj_get_style_text_sel_bg_color", luat_lv_obj_get_style_text_sel_bg_color, 0},\
-    {"obj_set_style_local_text_sel_bg_color", luat_lv_obj_set_style_local_text_sel_bg_color, 0},\
-    {"obj_get_style_text_opa", luat_lv_obj_get_style_text_opa, 0},\
-    {"obj_set_style_local_text_opa", luat_lv_obj_set_style_local_text_opa, 0},\
-    {"obj_get_style_text_font", luat_lv_obj_get_style_text_font, 0},\
-    {"obj_set_style_local_text_font", luat_lv_obj_set_style_local_text_font, 0},\
-    {"obj_get_style_line_width", luat_lv_obj_get_style_line_width, 0},\
-    {"obj_set_style_local_line_width", luat_lv_obj_set_style_local_line_width, 0},\
-    {"obj_get_style_line_blend_mode", luat_lv_obj_get_style_line_blend_mode, 0},\
-    {"obj_set_style_local_line_blend_mode", luat_lv_obj_set_style_local_line_blend_mode, 0},\
-    {"obj_get_style_line_dash_width", luat_lv_obj_get_style_line_dash_width, 0},\
-    {"obj_set_style_local_line_dash_width", luat_lv_obj_set_style_local_line_dash_width, 0},\
-    {"obj_get_style_line_dash_gap", luat_lv_obj_get_style_line_dash_gap, 0},\
-    {"obj_set_style_local_line_dash_gap", luat_lv_obj_set_style_local_line_dash_gap, 0},\
-    {"obj_get_style_line_rounded", luat_lv_obj_get_style_line_rounded, 0},\
-    {"obj_set_style_local_line_rounded", luat_lv_obj_set_style_local_line_rounded, 0},\
-    {"obj_get_style_line_color", luat_lv_obj_get_style_line_color, 0},\
-    {"obj_set_style_local_line_color", luat_lv_obj_set_style_local_line_color, 0},\
-    {"obj_get_style_line_opa", luat_lv_obj_get_style_line_opa, 0},\
-    {"obj_set_style_local_line_opa", luat_lv_obj_set_style_local_line_opa, 0},\
-    {"obj_get_style_image_blend_mode", luat_lv_obj_get_style_image_blend_mode, 0},\
-    {"obj_set_style_local_image_blend_mode", luat_lv_obj_set_style_local_image_blend_mode, 0},\
-    {"obj_get_style_image_recolor", luat_lv_obj_get_style_image_recolor, 0},\
-    {"obj_set_style_local_image_recolor", luat_lv_obj_set_style_local_image_recolor, 0},\
-    {"obj_get_style_image_opa", luat_lv_obj_get_style_image_opa, 0},\
-    {"obj_set_style_local_image_opa", luat_lv_obj_set_style_local_image_opa, 0},\
-    {"obj_get_style_image_recolor_opa", luat_lv_obj_get_style_image_recolor_opa, 0},\
-    {"obj_set_style_local_image_recolor_opa", luat_lv_obj_set_style_local_image_recolor_opa, 0},\
-    {"obj_get_style_transition_time", luat_lv_obj_get_style_transition_time, 0},\
-    {"obj_set_style_local_transition_time", luat_lv_obj_set_style_local_transition_time, 0},\
-    {"obj_get_style_transition_delay", luat_lv_obj_get_style_transition_delay, 0},\
-    {"obj_set_style_local_transition_delay", luat_lv_obj_set_style_local_transition_delay, 0},\
-    {"obj_get_style_transition_prop_1", luat_lv_obj_get_style_transition_prop_1, 0},\
-    {"obj_set_style_local_transition_prop_1", luat_lv_obj_set_style_local_transition_prop_1, 0},\
-    {"obj_get_style_transition_prop_2", luat_lv_obj_get_style_transition_prop_2, 0},\
-    {"obj_set_style_local_transition_prop_2", luat_lv_obj_set_style_local_transition_prop_2, 0},\
-    {"obj_get_style_transition_prop_3", luat_lv_obj_get_style_transition_prop_3, 0},\
-    {"obj_set_style_local_transition_prop_3", luat_lv_obj_set_style_local_transition_prop_3, 0},\
-    {"obj_get_style_transition_prop_4", luat_lv_obj_get_style_transition_prop_4, 0},\
-    {"obj_set_style_local_transition_prop_4", luat_lv_obj_set_style_local_transition_prop_4, 0},\
-    {"obj_get_style_transition_prop_5", luat_lv_obj_get_style_transition_prop_5, 0},\
-    {"obj_set_style_local_transition_prop_5", luat_lv_obj_set_style_local_transition_prop_5, 0},\
-    {"obj_get_style_transition_prop_6", luat_lv_obj_get_style_transition_prop_6, 0},\
-    {"obj_set_style_local_transition_prop_6", luat_lv_obj_set_style_local_transition_prop_6, 0},\
-    {"obj_get_style_transition_path", luat_lv_obj_get_style_transition_path, 0},\
-    {"obj_set_style_local_transition_path", luat_lv_obj_set_style_local_transition_path, 0},\
-    {"obj_get_style_scale_width", luat_lv_obj_get_style_scale_width, 0},\
-    {"obj_set_style_local_scale_width", luat_lv_obj_set_style_local_scale_width, 0},\
-    {"obj_get_style_scale_border_width", luat_lv_obj_get_style_scale_border_width, 0},\
-    {"obj_set_style_local_scale_border_width", luat_lv_obj_set_style_local_scale_border_width, 0},\
-    {"obj_get_style_scale_end_border_width", luat_lv_obj_get_style_scale_end_border_width, 0},\
-    {"obj_set_style_local_scale_end_border_width", luat_lv_obj_set_style_local_scale_end_border_width, 0},\
-    {"obj_get_style_scale_end_line_width", luat_lv_obj_get_style_scale_end_line_width, 0},\
-    {"obj_set_style_local_scale_end_line_width", luat_lv_obj_set_style_local_scale_end_line_width, 0},\
-    {"obj_get_style_scale_grad_color", luat_lv_obj_get_style_scale_grad_color, 0},\
-    {"obj_set_style_local_scale_grad_color", luat_lv_obj_set_style_local_scale_grad_color, 0},\
-    {"obj_get_style_scale_end_color", luat_lv_obj_get_style_scale_end_color, 0},\
-    {"obj_set_style_local_scale_end_color", luat_lv_obj_set_style_local_scale_end_color, 0},\
-    {"obj_set_style_local_pad_all", luat_lv_obj_set_style_local_pad_all, 0},\
-    {"obj_set_style_local_pad_hor", luat_lv_obj_set_style_local_pad_hor, 0},\
-    {"obj_set_style_local_pad_ver", luat_lv_obj_set_style_local_pad_ver, 0},\
-    {"obj_set_style_local_margin_all", luat_lv_obj_set_style_local_margin_all, 0},\
-    {"obj_set_style_local_margin_hor", luat_lv_obj_set_style_local_margin_hor, 0},\
-    {"obj_set_style_local_margin_ver", luat_lv_obj_set_style_local_margin_ver, 0},\
-    {"obj_get_hidden", luat_lv_obj_get_hidden, 0},\
-    {"obj_get_adv_hittest", luat_lv_obj_get_adv_hittest, 0},\
-    {"obj_get_click", luat_lv_obj_get_click, 0},\
-    {"obj_get_top", luat_lv_obj_get_top, 0},\
-    {"obj_get_drag", luat_lv_obj_get_drag, 0},\
-    {"obj_get_drag_dir", luat_lv_obj_get_drag_dir, 0},\
-    {"obj_get_drag_throw", luat_lv_obj_get_drag_throw, 0},\
-    {"obj_get_drag_parent", luat_lv_obj_get_drag_parent, 0},\
-    {"obj_get_focus_parent", luat_lv_obj_get_focus_parent, 0},\
-    {"obj_get_parent_event", luat_lv_obj_get_parent_event, 0},\
-    {"obj_get_gesture_parent", luat_lv_obj_get_gesture_parent, 0},\
-    {"obj_get_base_dir", luat_lv_obj_get_base_dir, 0},\
-    {"obj_get_protect", luat_lv_obj_get_protect, 0},\
-    {"obj_is_protected", luat_lv_obj_is_protected, 0},\
-    {"obj_get_state", luat_lv_obj_get_state, 0},\
-    {"obj_is_point_on_coords", luat_lv_obj_is_point_on_coords, 0},\
-    {"obj_hittest", luat_lv_obj_hittest, 0},\
-    {"obj_get_ext_attr", luat_lv_obj_get_ext_attr, 0},\
-    {"obj_get_type", luat_lv_obj_get_type, 0},\
-    {"obj_get_user_data", luat_lv_obj_get_user_data, 0},\
-    {"obj_get_user_data_ptr", luat_lv_obj_get_user_data_ptr, 0},\
-    {"obj_set_user_data", luat_lv_obj_set_user_data, 0},\
-    {"obj_get_group", luat_lv_obj_get_group, 0},\
-    {"obj_is_focused", luat_lv_obj_is_focused, 0},\
-    {"obj_get_focused_obj", luat_lv_obj_get_focused_obj, 0},\
-    {"obj_handle_get_type_signal", luat_lv_obj_handle_get_type_signal, 0},\
-    {"obj_init_draw_rect_dsc", luat_lv_obj_init_draw_rect_dsc, 0},\
-    {"obj_init_draw_label_dsc", luat_lv_obj_init_draw_label_dsc, 0},\
-    {"obj_init_draw_img_dsc", luat_lv_obj_init_draw_img_dsc, 0},\
-    {"obj_init_draw_line_dsc", luat_lv_obj_init_draw_line_dsc, 0},\
-    {"obj_get_draw_rect_ext_pad_size", luat_lv_obj_get_draw_rect_ext_pad_size, 0},\
-    {"obj_fade_in", luat_lv_obj_fade_in, 0},\
-    {"obj_fade_out", luat_lv_obj_fade_out, 0},\
+#define LUAT_LV_OBJ_RLT     {"obj_create", ROREG_FUNC(luat_lv_obj_create)},\
+    {"obj_del", ROREG_FUNC(luat_lv_obj_del)},\
+    {"obj_del_async", ROREG_FUNC(luat_lv_obj_del_async)},\
+    {"obj_clean", ROREG_FUNC(luat_lv_obj_clean)},\
+    {"obj_invalidate_area", ROREG_FUNC(luat_lv_obj_invalidate_area)},\
+    {"obj_invalidate", ROREG_FUNC(luat_lv_obj_invalidate)},\
+    {"obj_area_is_visible", ROREG_FUNC(luat_lv_obj_area_is_visible)},\
+    {"obj_is_visible", ROREG_FUNC(luat_lv_obj_is_visible)},\
+    {"obj_set_parent", ROREG_FUNC(luat_lv_obj_set_parent)},\
+    {"obj_move_foreground", ROREG_FUNC(luat_lv_obj_move_foreground)},\
+    {"obj_move_background", ROREG_FUNC(luat_lv_obj_move_background)},\
+    {"obj_set_pos", ROREG_FUNC(luat_lv_obj_set_pos)},\
+    {"obj_set_x", ROREG_FUNC(luat_lv_obj_set_x)},\
+    {"obj_set_y", ROREG_FUNC(luat_lv_obj_set_y)},\
+    {"obj_set_size", ROREG_FUNC(luat_lv_obj_set_size)},\
+    {"obj_set_width", ROREG_FUNC(luat_lv_obj_set_width)},\
+    {"obj_set_height", ROREG_FUNC(luat_lv_obj_set_height)},\
+    {"obj_set_width_fit", ROREG_FUNC(luat_lv_obj_set_width_fit)},\
+    {"obj_set_height_fit", ROREG_FUNC(luat_lv_obj_set_height_fit)},\
+    {"obj_set_width_margin", ROREG_FUNC(luat_lv_obj_set_width_margin)},\
+    {"obj_set_height_margin", ROREG_FUNC(luat_lv_obj_set_height_margin)},\
+    {"obj_align", ROREG_FUNC(luat_lv_obj_align)},\
+    {"obj_align_x", ROREG_FUNC(luat_lv_obj_align_x)},\
+    {"obj_align_y", ROREG_FUNC(luat_lv_obj_align_y)},\
+    {"obj_align_mid", ROREG_FUNC(luat_lv_obj_align_mid)},\
+    {"obj_align_mid_x", ROREG_FUNC(luat_lv_obj_align_mid_x)},\
+    {"obj_align_mid_y", ROREG_FUNC(luat_lv_obj_align_mid_y)},\
+    {"obj_realign", ROREG_FUNC(luat_lv_obj_realign)},\
+    {"obj_set_auto_realign", ROREG_FUNC(luat_lv_obj_set_auto_realign)},\
+    {"obj_set_ext_click_area", ROREG_FUNC(luat_lv_obj_set_ext_click_area)},\
+    {"obj_add_style", ROREG_FUNC(luat_lv_obj_add_style)},\
+    {"obj_remove_style", ROREG_FUNC(luat_lv_obj_remove_style)},\
+    {"obj_clean_style_list", ROREG_FUNC(luat_lv_obj_clean_style_list)},\
+    {"obj_reset_style_list", ROREG_FUNC(luat_lv_obj_reset_style_list)},\
+    {"obj_refresh_style", ROREG_FUNC(luat_lv_obj_refresh_style)},\
+    {"obj_report_style_mod", ROREG_FUNC(luat_lv_obj_report_style_mod)},\
+    {"obj_remove_style_local_prop", ROREG_FUNC(luat_lv_obj_remove_style_local_prop)},\
+    {"obj_set_hidden", ROREG_FUNC(luat_lv_obj_set_hidden)},\
+    {"obj_set_adv_hittest", ROREG_FUNC(luat_lv_obj_set_adv_hittest)},\
+    {"obj_set_click", ROREG_FUNC(luat_lv_obj_set_click)},\
+    {"obj_set_top", ROREG_FUNC(luat_lv_obj_set_top)},\
+    {"obj_set_drag", ROREG_FUNC(luat_lv_obj_set_drag)},\
+    {"obj_set_drag_dir", ROREG_FUNC(luat_lv_obj_set_drag_dir)},\
+    {"obj_set_drag_throw", ROREG_FUNC(luat_lv_obj_set_drag_throw)},\
+    {"obj_set_drag_parent", ROREG_FUNC(luat_lv_obj_set_drag_parent)},\
+    {"obj_set_focus_parent", ROREG_FUNC(luat_lv_obj_set_focus_parent)},\
+    {"obj_set_gesture_parent", ROREG_FUNC(luat_lv_obj_set_gesture_parent)},\
+    {"obj_set_parent_event", ROREG_FUNC(luat_lv_obj_set_parent_event)},\
+    {"obj_set_base_dir", ROREG_FUNC(luat_lv_obj_set_base_dir)},\
+    {"obj_add_protect", ROREG_FUNC(luat_lv_obj_add_protect)},\
+    {"obj_clear_protect", ROREG_FUNC(luat_lv_obj_clear_protect)},\
+    {"obj_set_state", ROREG_FUNC(luat_lv_obj_set_state)},\
+    {"obj_add_state", ROREG_FUNC(luat_lv_obj_add_state)},\
+    {"obj_clear_state", ROREG_FUNC(luat_lv_obj_clear_state)},\
+    {"obj_finish_transitions", ROREG_FUNC(luat_lv_obj_finish_transitions)},\
+    {"obj_allocate_ext_attr", ROREG_FUNC(luat_lv_obj_allocate_ext_attr)},\
+    {"obj_refresh_ext_draw_pad", ROREG_FUNC(luat_lv_obj_refresh_ext_draw_pad)},\
+    {"obj_get_screen", ROREG_FUNC(luat_lv_obj_get_screen)},\
+    {"obj_get_disp", ROREG_FUNC(luat_lv_obj_get_disp)},\
+    {"obj_get_parent", ROREG_FUNC(luat_lv_obj_get_parent)},\
+    {"obj_get_child", ROREG_FUNC(luat_lv_obj_get_child)},\
+    {"obj_get_child_back", ROREG_FUNC(luat_lv_obj_get_child_back)},\
+    {"obj_count_children", ROREG_FUNC(luat_lv_obj_count_children)},\
+    {"obj_count_children_recursive", ROREG_FUNC(luat_lv_obj_count_children_recursive)},\
+    {"obj_get_coords", ROREG_FUNC(luat_lv_obj_get_coords)},\
+    {"obj_get_inner_coords", ROREG_FUNC(luat_lv_obj_get_inner_coords)},\
+    {"obj_get_x", ROREG_FUNC(luat_lv_obj_get_x)},\
+    {"obj_get_y", ROREG_FUNC(luat_lv_obj_get_y)},\
+    {"obj_get_width", ROREG_FUNC(luat_lv_obj_get_width)},\
+    {"obj_get_height", ROREG_FUNC(luat_lv_obj_get_height)},\
+    {"obj_get_width_fit", ROREG_FUNC(luat_lv_obj_get_width_fit)},\
+    {"obj_get_height_fit", ROREG_FUNC(luat_lv_obj_get_height_fit)},\
+    {"obj_get_height_margin", ROREG_FUNC(luat_lv_obj_get_height_margin)},\
+    {"obj_get_width_margin", ROREG_FUNC(luat_lv_obj_get_width_margin)},\
+    {"obj_get_width_grid", ROREG_FUNC(luat_lv_obj_get_width_grid)},\
+    {"obj_get_height_grid", ROREG_FUNC(luat_lv_obj_get_height_grid)},\
+    {"obj_get_auto_realign", ROREG_FUNC(luat_lv_obj_get_auto_realign)},\
+    {"obj_get_ext_click_pad_left", ROREG_FUNC(luat_lv_obj_get_ext_click_pad_left)},\
+    {"obj_get_ext_click_pad_right", ROREG_FUNC(luat_lv_obj_get_ext_click_pad_right)},\
+    {"obj_get_ext_click_pad_top", ROREG_FUNC(luat_lv_obj_get_ext_click_pad_top)},\
+    {"obj_get_ext_click_pad_bottom", ROREG_FUNC(luat_lv_obj_get_ext_click_pad_bottom)},\
+    {"obj_get_ext_draw_pad", ROREG_FUNC(luat_lv_obj_get_ext_draw_pad)},\
+    {"obj_get_style_list", ROREG_FUNC(luat_lv_obj_get_style_list)},\
+    {"obj_get_local_style", ROREG_FUNC(luat_lv_obj_get_local_style)},\
+    {"obj_get_style_radius", ROREG_FUNC(luat_lv_obj_get_style_radius)},\
+    {"obj_set_style_local_radius", ROREG_FUNC(luat_lv_obj_set_style_local_radius)},\
+    {"obj_get_style_clip_corner", ROREG_FUNC(luat_lv_obj_get_style_clip_corner)},\
+    {"obj_set_style_local_clip_corner", ROREG_FUNC(luat_lv_obj_set_style_local_clip_corner)},\
+    {"obj_get_style_size", ROREG_FUNC(luat_lv_obj_get_style_size)},\
+    {"obj_set_style_local_size", ROREG_FUNC(luat_lv_obj_set_style_local_size)},\
+    {"obj_get_style_transform_width", ROREG_FUNC(luat_lv_obj_get_style_transform_width)},\
+    {"obj_set_style_local_transform_width", ROREG_FUNC(luat_lv_obj_set_style_local_transform_width)},\
+    {"obj_get_style_transform_height", ROREG_FUNC(luat_lv_obj_get_style_transform_height)},\
+    {"obj_set_style_local_transform_height", ROREG_FUNC(luat_lv_obj_set_style_local_transform_height)},\
+    {"obj_get_style_transform_angle", ROREG_FUNC(luat_lv_obj_get_style_transform_angle)},\
+    {"obj_set_style_local_transform_angle", ROREG_FUNC(luat_lv_obj_set_style_local_transform_angle)},\
+    {"obj_get_style_transform_zoom", ROREG_FUNC(luat_lv_obj_get_style_transform_zoom)},\
+    {"obj_set_style_local_transform_zoom", ROREG_FUNC(luat_lv_obj_set_style_local_transform_zoom)},\
+    {"obj_get_style_opa_scale", ROREG_FUNC(luat_lv_obj_get_style_opa_scale)},\
+    {"obj_set_style_local_opa_scale", ROREG_FUNC(luat_lv_obj_set_style_local_opa_scale)},\
+    {"obj_get_style_pad_top", ROREG_FUNC(luat_lv_obj_get_style_pad_top)},\
+    {"obj_set_style_local_pad_top", ROREG_FUNC(luat_lv_obj_set_style_local_pad_top)},\
+    {"obj_get_style_pad_bottom", ROREG_FUNC(luat_lv_obj_get_style_pad_bottom)},\
+    {"obj_set_style_local_pad_bottom", ROREG_FUNC(luat_lv_obj_set_style_local_pad_bottom)},\
+    {"obj_get_style_pad_left", ROREG_FUNC(luat_lv_obj_get_style_pad_left)},\
+    {"obj_set_style_local_pad_left", ROREG_FUNC(luat_lv_obj_set_style_local_pad_left)},\
+    {"obj_get_style_pad_right", ROREG_FUNC(luat_lv_obj_get_style_pad_right)},\
+    {"obj_set_style_local_pad_right", ROREG_FUNC(luat_lv_obj_set_style_local_pad_right)},\
+    {"obj_get_style_pad_inner", ROREG_FUNC(luat_lv_obj_get_style_pad_inner)},\
+    {"obj_set_style_local_pad_inner", ROREG_FUNC(luat_lv_obj_set_style_local_pad_inner)},\
+    {"obj_get_style_margin_top", ROREG_FUNC(luat_lv_obj_get_style_margin_top)},\
+    {"obj_set_style_local_margin_top", ROREG_FUNC(luat_lv_obj_set_style_local_margin_top)},\
+    {"obj_get_style_margin_bottom", ROREG_FUNC(luat_lv_obj_get_style_margin_bottom)},\
+    {"obj_set_style_local_margin_bottom", ROREG_FUNC(luat_lv_obj_set_style_local_margin_bottom)},\
+    {"obj_get_style_margin_left", ROREG_FUNC(luat_lv_obj_get_style_margin_left)},\
+    {"obj_set_style_local_margin_left", ROREG_FUNC(luat_lv_obj_set_style_local_margin_left)},\
+    {"obj_get_style_margin_right", ROREG_FUNC(luat_lv_obj_get_style_margin_right)},\
+    {"obj_set_style_local_margin_right", ROREG_FUNC(luat_lv_obj_set_style_local_margin_right)},\
+    {"obj_get_style_bg_blend_mode", ROREG_FUNC(luat_lv_obj_get_style_bg_blend_mode)},\
+    {"obj_set_style_local_bg_blend_mode", ROREG_FUNC(luat_lv_obj_set_style_local_bg_blend_mode)},\
+    {"obj_get_style_bg_main_stop", ROREG_FUNC(luat_lv_obj_get_style_bg_main_stop)},\
+    {"obj_set_style_local_bg_main_stop", ROREG_FUNC(luat_lv_obj_set_style_local_bg_main_stop)},\
+    {"obj_get_style_bg_grad_stop", ROREG_FUNC(luat_lv_obj_get_style_bg_grad_stop)},\
+    {"obj_set_style_local_bg_grad_stop", ROREG_FUNC(luat_lv_obj_set_style_local_bg_grad_stop)},\
+    {"obj_get_style_bg_grad_dir", ROREG_FUNC(luat_lv_obj_get_style_bg_grad_dir)},\
+    {"obj_set_style_local_bg_grad_dir", ROREG_FUNC(luat_lv_obj_set_style_local_bg_grad_dir)},\
+    {"obj_get_style_bg_color", ROREG_FUNC(luat_lv_obj_get_style_bg_color)},\
+    {"obj_set_style_local_bg_color", ROREG_FUNC(luat_lv_obj_set_style_local_bg_color)},\
+    {"obj_get_style_bg_grad_color", ROREG_FUNC(luat_lv_obj_get_style_bg_grad_color)},\
+    {"obj_set_style_local_bg_grad_color", ROREG_FUNC(luat_lv_obj_set_style_local_bg_grad_color)},\
+    {"obj_get_style_bg_opa", ROREG_FUNC(luat_lv_obj_get_style_bg_opa)},\
+    {"obj_set_style_local_bg_opa", ROREG_FUNC(luat_lv_obj_set_style_local_bg_opa)},\
+    {"obj_get_style_border_width", ROREG_FUNC(luat_lv_obj_get_style_border_width)},\
+    {"obj_set_style_local_border_width", ROREG_FUNC(luat_lv_obj_set_style_local_border_width)},\
+    {"obj_get_style_border_side", ROREG_FUNC(luat_lv_obj_get_style_border_side)},\
+    {"obj_set_style_local_border_side", ROREG_FUNC(luat_lv_obj_set_style_local_border_side)},\
+    {"obj_get_style_border_blend_mode", ROREG_FUNC(luat_lv_obj_get_style_border_blend_mode)},\
+    {"obj_set_style_local_border_blend_mode", ROREG_FUNC(luat_lv_obj_set_style_local_border_blend_mode)},\
+    {"obj_get_style_border_post", ROREG_FUNC(luat_lv_obj_get_style_border_post)},\
+    {"obj_set_style_local_border_post", ROREG_FUNC(luat_lv_obj_set_style_local_border_post)},\
+    {"obj_get_style_border_color", ROREG_FUNC(luat_lv_obj_get_style_border_color)},\
+    {"obj_set_style_local_border_color", ROREG_FUNC(luat_lv_obj_set_style_local_border_color)},\
+    {"obj_get_style_border_opa", ROREG_FUNC(luat_lv_obj_get_style_border_opa)},\
+    {"obj_set_style_local_border_opa", ROREG_FUNC(luat_lv_obj_set_style_local_border_opa)},\
+    {"obj_get_style_outline_width", ROREG_FUNC(luat_lv_obj_get_style_outline_width)},\
+    {"obj_set_style_local_outline_width", ROREG_FUNC(luat_lv_obj_set_style_local_outline_width)},\
+    {"obj_get_style_outline_pad", ROREG_FUNC(luat_lv_obj_get_style_outline_pad)},\
+    {"obj_set_style_local_outline_pad", ROREG_FUNC(luat_lv_obj_set_style_local_outline_pad)},\
+    {"obj_get_style_outline_blend_mode", ROREG_FUNC(luat_lv_obj_get_style_outline_blend_mode)},\
+    {"obj_set_style_local_outline_blend_mode", ROREG_FUNC(luat_lv_obj_set_style_local_outline_blend_mode)},\
+    {"obj_get_style_outline_color", ROREG_FUNC(luat_lv_obj_get_style_outline_color)},\
+    {"obj_set_style_local_outline_color", ROREG_FUNC(luat_lv_obj_set_style_local_outline_color)},\
+    {"obj_get_style_outline_opa", ROREG_FUNC(luat_lv_obj_get_style_outline_opa)},\
+    {"obj_set_style_local_outline_opa", ROREG_FUNC(luat_lv_obj_set_style_local_outline_opa)},\
+    {"obj_get_style_shadow_width", ROREG_FUNC(luat_lv_obj_get_style_shadow_width)},\
+    {"obj_set_style_local_shadow_width", ROREG_FUNC(luat_lv_obj_set_style_local_shadow_width)},\
+    {"obj_get_style_shadow_ofs_x", ROREG_FUNC(luat_lv_obj_get_style_shadow_ofs_x)},\
+    {"obj_set_style_local_shadow_ofs_x", ROREG_FUNC(luat_lv_obj_set_style_local_shadow_ofs_x)},\
+    {"obj_get_style_shadow_ofs_y", ROREG_FUNC(luat_lv_obj_get_style_shadow_ofs_y)},\
+    {"obj_set_style_local_shadow_ofs_y", ROREG_FUNC(luat_lv_obj_set_style_local_shadow_ofs_y)},\
+    {"obj_get_style_shadow_spread", ROREG_FUNC(luat_lv_obj_get_style_shadow_spread)},\
+    {"obj_set_style_local_shadow_spread", ROREG_FUNC(luat_lv_obj_set_style_local_shadow_spread)},\
+    {"obj_get_style_shadow_blend_mode", ROREG_FUNC(luat_lv_obj_get_style_shadow_blend_mode)},\
+    {"obj_set_style_local_shadow_blend_mode", ROREG_FUNC(luat_lv_obj_set_style_local_shadow_blend_mode)},\
+    {"obj_get_style_shadow_color", ROREG_FUNC(luat_lv_obj_get_style_shadow_color)},\
+    {"obj_set_style_local_shadow_color", ROREG_FUNC(luat_lv_obj_set_style_local_shadow_color)},\
+    {"obj_get_style_shadow_opa", ROREG_FUNC(luat_lv_obj_get_style_shadow_opa)},\
+    {"obj_set_style_local_shadow_opa", ROREG_FUNC(luat_lv_obj_set_style_local_shadow_opa)},\
+    {"obj_get_style_pattern_repeat", ROREG_FUNC(luat_lv_obj_get_style_pattern_repeat)},\
+    {"obj_set_style_local_pattern_repeat", ROREG_FUNC(luat_lv_obj_set_style_local_pattern_repeat)},\
+    {"obj_get_style_pattern_blend_mode", ROREG_FUNC(luat_lv_obj_get_style_pattern_blend_mode)},\
+    {"obj_set_style_local_pattern_blend_mode", ROREG_FUNC(luat_lv_obj_set_style_local_pattern_blend_mode)},\
+    {"obj_get_style_pattern_recolor", ROREG_FUNC(luat_lv_obj_get_style_pattern_recolor)},\
+    {"obj_set_style_local_pattern_recolor", ROREG_FUNC(luat_lv_obj_set_style_local_pattern_recolor)},\
+    {"obj_get_style_pattern_opa", ROREG_FUNC(luat_lv_obj_get_style_pattern_opa)},\
+    {"obj_set_style_local_pattern_opa", ROREG_FUNC(luat_lv_obj_set_style_local_pattern_opa)},\
+    {"obj_get_style_pattern_recolor_opa", ROREG_FUNC(luat_lv_obj_get_style_pattern_recolor_opa)},\
+    {"obj_set_style_local_pattern_recolor_opa", ROREG_FUNC(luat_lv_obj_set_style_local_pattern_recolor_opa)},\
+    {"obj_get_style_pattern_image", ROREG_FUNC(luat_lv_obj_get_style_pattern_image)},\
+    {"obj_set_style_local_pattern_image", ROREG_FUNC(luat_lv_obj_set_style_local_pattern_image)},\
+    {"obj_get_style_value_letter_space", ROREG_FUNC(luat_lv_obj_get_style_value_letter_space)},\
+    {"obj_set_style_local_value_letter_space", ROREG_FUNC(luat_lv_obj_set_style_local_value_letter_space)},\
+    {"obj_get_style_value_line_space", ROREG_FUNC(luat_lv_obj_get_style_value_line_space)},\
+    {"obj_set_style_local_value_line_space", ROREG_FUNC(luat_lv_obj_set_style_local_value_line_space)},\
+    {"obj_get_style_value_blend_mode", ROREG_FUNC(luat_lv_obj_get_style_value_blend_mode)},\
+    {"obj_set_style_local_value_blend_mode", ROREG_FUNC(luat_lv_obj_set_style_local_value_blend_mode)},\
+    {"obj_get_style_value_ofs_x", ROREG_FUNC(luat_lv_obj_get_style_value_ofs_x)},\
+    {"obj_set_style_local_value_ofs_x", ROREG_FUNC(luat_lv_obj_set_style_local_value_ofs_x)},\
+    {"obj_get_style_value_ofs_y", ROREG_FUNC(luat_lv_obj_get_style_value_ofs_y)},\
+    {"obj_set_style_local_value_ofs_y", ROREG_FUNC(luat_lv_obj_set_style_local_value_ofs_y)},\
+    {"obj_get_style_value_align", ROREG_FUNC(luat_lv_obj_get_style_value_align)},\
+    {"obj_set_style_local_value_align", ROREG_FUNC(luat_lv_obj_set_style_local_value_align)},\
+    {"obj_get_style_value_color", ROREG_FUNC(luat_lv_obj_get_style_value_color)},\
+    {"obj_set_style_local_value_color", ROREG_FUNC(luat_lv_obj_set_style_local_value_color)},\
+    {"obj_get_style_value_opa", ROREG_FUNC(luat_lv_obj_get_style_value_opa)},\
+    {"obj_set_style_local_value_opa", ROREG_FUNC(luat_lv_obj_set_style_local_value_opa)},\
+    {"obj_get_style_value_font", ROREG_FUNC(luat_lv_obj_get_style_value_font)},\
+    {"obj_set_style_local_value_font", ROREG_FUNC(luat_lv_obj_set_style_local_value_font)},\
+    {"obj_get_style_value_str", ROREG_FUNC(luat_lv_obj_get_style_value_str)},\
+    {"obj_set_style_local_value_str", ROREG_FUNC(luat_lv_obj_set_style_local_value_str)},\
+    {"obj_get_style_text_letter_space", ROREG_FUNC(luat_lv_obj_get_style_text_letter_space)},\
+    {"obj_set_style_local_text_letter_space", ROREG_FUNC(luat_lv_obj_set_style_local_text_letter_space)},\
+    {"obj_get_style_text_line_space", ROREG_FUNC(luat_lv_obj_get_style_text_line_space)},\
+    {"obj_set_style_local_text_line_space", ROREG_FUNC(luat_lv_obj_set_style_local_text_line_space)},\
+    {"obj_get_style_text_decor", ROREG_FUNC(luat_lv_obj_get_style_text_decor)},\
+    {"obj_set_style_local_text_decor", ROREG_FUNC(luat_lv_obj_set_style_local_text_decor)},\
+    {"obj_get_style_text_blend_mode", ROREG_FUNC(luat_lv_obj_get_style_text_blend_mode)},\
+    {"obj_set_style_local_text_blend_mode", ROREG_FUNC(luat_lv_obj_set_style_local_text_blend_mode)},\
+    {"obj_get_style_text_color", ROREG_FUNC(luat_lv_obj_get_style_text_color)},\
+    {"obj_set_style_local_text_color", ROREG_FUNC(luat_lv_obj_set_style_local_text_color)},\
+    {"obj_get_style_text_sel_color", ROREG_FUNC(luat_lv_obj_get_style_text_sel_color)},\
+    {"obj_set_style_local_text_sel_color", ROREG_FUNC(luat_lv_obj_set_style_local_text_sel_color)},\
+    {"obj_get_style_text_sel_bg_color", ROREG_FUNC(luat_lv_obj_get_style_text_sel_bg_color)},\
+    {"obj_set_style_local_text_sel_bg_color", ROREG_FUNC(luat_lv_obj_set_style_local_text_sel_bg_color)},\
+    {"obj_get_style_text_opa", ROREG_FUNC(luat_lv_obj_get_style_text_opa)},\
+    {"obj_set_style_local_text_opa", ROREG_FUNC(luat_lv_obj_set_style_local_text_opa)},\
+    {"obj_get_style_text_font", ROREG_FUNC(luat_lv_obj_get_style_text_font)},\
+    {"obj_set_style_local_text_font", ROREG_FUNC(luat_lv_obj_set_style_local_text_font)},\
+    {"obj_get_style_line_width", ROREG_FUNC(luat_lv_obj_get_style_line_width)},\
+    {"obj_set_style_local_line_width", ROREG_FUNC(luat_lv_obj_set_style_local_line_width)},\
+    {"obj_get_style_line_blend_mode", ROREG_FUNC(luat_lv_obj_get_style_line_blend_mode)},\
+    {"obj_set_style_local_line_blend_mode", ROREG_FUNC(luat_lv_obj_set_style_local_line_blend_mode)},\
+    {"obj_get_style_line_dash_width", ROREG_FUNC(luat_lv_obj_get_style_line_dash_width)},\
+    {"obj_set_style_local_line_dash_width", ROREG_FUNC(luat_lv_obj_set_style_local_line_dash_width)},\
+    {"obj_get_style_line_dash_gap", ROREG_FUNC(luat_lv_obj_get_style_line_dash_gap)},\
+    {"obj_set_style_local_line_dash_gap", ROREG_FUNC(luat_lv_obj_set_style_local_line_dash_gap)},\
+    {"obj_get_style_line_rounded", ROREG_FUNC(luat_lv_obj_get_style_line_rounded)},\
+    {"obj_set_style_local_line_rounded", ROREG_FUNC(luat_lv_obj_set_style_local_line_rounded)},\
+    {"obj_get_style_line_color", ROREG_FUNC(luat_lv_obj_get_style_line_color)},\
+    {"obj_set_style_local_line_color", ROREG_FUNC(luat_lv_obj_set_style_local_line_color)},\
+    {"obj_get_style_line_opa", ROREG_FUNC(luat_lv_obj_get_style_line_opa)},\
+    {"obj_set_style_local_line_opa", ROREG_FUNC(luat_lv_obj_set_style_local_line_opa)},\
+    {"obj_get_style_image_blend_mode", ROREG_FUNC(luat_lv_obj_get_style_image_blend_mode)},\
+    {"obj_set_style_local_image_blend_mode", ROREG_FUNC(luat_lv_obj_set_style_local_image_blend_mode)},\
+    {"obj_get_style_image_recolor", ROREG_FUNC(luat_lv_obj_get_style_image_recolor)},\
+    {"obj_set_style_local_image_recolor", ROREG_FUNC(luat_lv_obj_set_style_local_image_recolor)},\
+    {"obj_get_style_image_opa", ROREG_FUNC(luat_lv_obj_get_style_image_opa)},\
+    {"obj_set_style_local_image_opa", ROREG_FUNC(luat_lv_obj_set_style_local_image_opa)},\
+    {"obj_get_style_image_recolor_opa", ROREG_FUNC(luat_lv_obj_get_style_image_recolor_opa)},\
+    {"obj_set_style_local_image_recolor_opa", ROREG_FUNC(luat_lv_obj_set_style_local_image_recolor_opa)},\
+    {"obj_get_style_transition_time", ROREG_FUNC(luat_lv_obj_get_style_transition_time)},\
+    {"obj_set_style_local_transition_time", ROREG_FUNC(luat_lv_obj_set_style_local_transition_time)},\
+    {"obj_get_style_transition_delay", ROREG_FUNC(luat_lv_obj_get_style_transition_delay)},\
+    {"obj_set_style_local_transition_delay", ROREG_FUNC(luat_lv_obj_set_style_local_transition_delay)},\
+    {"obj_get_style_transition_prop_1", ROREG_FUNC(luat_lv_obj_get_style_transition_prop_1)},\
+    {"obj_set_style_local_transition_prop_1", ROREG_FUNC(luat_lv_obj_set_style_local_transition_prop_1)},\
+    {"obj_get_style_transition_prop_2", ROREG_FUNC(luat_lv_obj_get_style_transition_prop_2)},\
+    {"obj_set_style_local_transition_prop_2", ROREG_FUNC(luat_lv_obj_set_style_local_transition_prop_2)},\
+    {"obj_get_style_transition_prop_3", ROREG_FUNC(luat_lv_obj_get_style_transition_prop_3)},\
+    {"obj_set_style_local_transition_prop_3", ROREG_FUNC(luat_lv_obj_set_style_local_transition_prop_3)},\
+    {"obj_get_style_transition_prop_4", ROREG_FUNC(luat_lv_obj_get_style_transition_prop_4)},\
+    {"obj_set_style_local_transition_prop_4", ROREG_FUNC(luat_lv_obj_set_style_local_transition_prop_4)},\
+    {"obj_get_style_transition_prop_5", ROREG_FUNC(luat_lv_obj_get_style_transition_prop_5)},\
+    {"obj_set_style_local_transition_prop_5", ROREG_FUNC(luat_lv_obj_set_style_local_transition_prop_5)},\
+    {"obj_get_style_transition_prop_6", ROREG_FUNC(luat_lv_obj_get_style_transition_prop_6)},\
+    {"obj_set_style_local_transition_prop_6", ROREG_FUNC(luat_lv_obj_set_style_local_transition_prop_6)},\
+    {"obj_get_style_transition_path", ROREG_FUNC(luat_lv_obj_get_style_transition_path)},\
+    {"obj_set_style_local_transition_path", ROREG_FUNC(luat_lv_obj_set_style_local_transition_path)},\
+    {"obj_get_style_scale_width", ROREG_FUNC(luat_lv_obj_get_style_scale_width)},\
+    {"obj_set_style_local_scale_width", ROREG_FUNC(luat_lv_obj_set_style_local_scale_width)},\
+    {"obj_get_style_scale_border_width", ROREG_FUNC(luat_lv_obj_get_style_scale_border_width)},\
+    {"obj_set_style_local_scale_border_width", ROREG_FUNC(luat_lv_obj_set_style_local_scale_border_width)},\
+    {"obj_get_style_scale_end_border_width", ROREG_FUNC(luat_lv_obj_get_style_scale_end_border_width)},\
+    {"obj_set_style_local_scale_end_border_width", ROREG_FUNC(luat_lv_obj_set_style_local_scale_end_border_width)},\
+    {"obj_get_style_scale_end_line_width", ROREG_FUNC(luat_lv_obj_get_style_scale_end_line_width)},\
+    {"obj_set_style_local_scale_end_line_width", ROREG_FUNC(luat_lv_obj_set_style_local_scale_end_line_width)},\
+    {"obj_get_style_scale_grad_color", ROREG_FUNC(luat_lv_obj_get_style_scale_grad_color)},\
+    {"obj_set_style_local_scale_grad_color", ROREG_FUNC(luat_lv_obj_set_style_local_scale_grad_color)},\
+    {"obj_get_style_scale_end_color", ROREG_FUNC(luat_lv_obj_get_style_scale_end_color)},\
+    {"obj_set_style_local_scale_end_color", ROREG_FUNC(luat_lv_obj_set_style_local_scale_end_color)},\
+    {"obj_set_style_local_pad_all", ROREG_FUNC(luat_lv_obj_set_style_local_pad_all)},\
+    {"obj_set_style_local_pad_hor", ROREG_FUNC(luat_lv_obj_set_style_local_pad_hor)},\
+    {"obj_set_style_local_pad_ver", ROREG_FUNC(luat_lv_obj_set_style_local_pad_ver)},\
+    {"obj_set_style_local_margin_all", ROREG_FUNC(luat_lv_obj_set_style_local_margin_all)},\
+    {"obj_set_style_local_margin_hor", ROREG_FUNC(luat_lv_obj_set_style_local_margin_hor)},\
+    {"obj_set_style_local_margin_ver", ROREG_FUNC(luat_lv_obj_set_style_local_margin_ver)},\
+    {"obj_get_hidden", ROREG_FUNC(luat_lv_obj_get_hidden)},\
+    {"obj_get_adv_hittest", ROREG_FUNC(luat_lv_obj_get_adv_hittest)},\
+    {"obj_get_click", ROREG_FUNC(luat_lv_obj_get_click)},\
+    {"obj_get_top", ROREG_FUNC(luat_lv_obj_get_top)},\
+    {"obj_get_drag", ROREG_FUNC(luat_lv_obj_get_drag)},\
+    {"obj_get_drag_dir", ROREG_FUNC(luat_lv_obj_get_drag_dir)},\
+    {"obj_get_drag_throw", ROREG_FUNC(luat_lv_obj_get_drag_throw)},\
+    {"obj_get_drag_parent", ROREG_FUNC(luat_lv_obj_get_drag_parent)},\
+    {"obj_get_focus_parent", ROREG_FUNC(luat_lv_obj_get_focus_parent)},\
+    {"obj_get_parent_event", ROREG_FUNC(luat_lv_obj_get_parent_event)},\
+    {"obj_get_gesture_parent", ROREG_FUNC(luat_lv_obj_get_gesture_parent)},\
+    {"obj_get_base_dir", ROREG_FUNC(luat_lv_obj_get_base_dir)},\
+    {"obj_get_protect", ROREG_FUNC(luat_lv_obj_get_protect)},\
+    {"obj_is_protected", ROREG_FUNC(luat_lv_obj_is_protected)},\
+    {"obj_get_state", ROREG_FUNC(luat_lv_obj_get_state)},\
+    {"obj_is_point_on_coords", ROREG_FUNC(luat_lv_obj_is_point_on_coords)},\
+    {"obj_hittest", ROREG_FUNC(luat_lv_obj_hittest)},\
+    {"obj_get_ext_attr", ROREG_FUNC(luat_lv_obj_get_ext_attr)},\
+    {"obj_get_type", ROREG_FUNC(luat_lv_obj_get_type)},\
+    {"obj_get_user_data", ROREG_FUNC(luat_lv_obj_get_user_data)},\
+    {"obj_get_user_data_ptr", ROREG_FUNC(luat_lv_obj_get_user_data_ptr)},\
+    {"obj_set_user_data", ROREG_FUNC(luat_lv_obj_set_user_data)},\
+    {"obj_get_group", ROREG_FUNC(luat_lv_obj_get_group)},\
+    {"obj_is_focused", ROREG_FUNC(luat_lv_obj_is_focused)},\
+    {"obj_get_focused_obj", ROREG_FUNC(luat_lv_obj_get_focused_obj)},\
+    {"obj_handle_get_type_signal", ROREG_FUNC(luat_lv_obj_handle_get_type_signal)},\
+    {"obj_init_draw_rect_dsc", ROREG_FUNC(luat_lv_obj_init_draw_rect_dsc)},\
+    {"obj_init_draw_label_dsc", ROREG_FUNC(luat_lv_obj_init_draw_label_dsc)},\
+    {"obj_init_draw_img_dsc", ROREG_FUNC(luat_lv_obj_init_draw_img_dsc)},\
+    {"obj_init_draw_line_dsc", ROREG_FUNC(luat_lv_obj_init_draw_line_dsc)},\
+    {"obj_get_draw_rect_ext_pad_size", ROREG_FUNC(luat_lv_obj_get_draw_rect_ext_pad_size)},\
+    {"obj_fade_in", ROREG_FUNC(luat_lv_obj_fade_in)},\
+    {"obj_fade_out", ROREG_FUNC(luat_lv_obj_fade_out)},\
 
 // prefix lv_core lv_refr
 int luat_lv_refr_now(lua_State *L);
 
-#define LUAT_LV_REFR_RLT     {"refr_now", luat_lv_refr_now, 0},\
+#define LUAT_LV_REFR_RLT     {"refr_now", ROREG_FUNC(luat_lv_refr_now)},\
 
 // prefix lv_core lv_style
 int luat_lv_style_init(lua_State *L);
@@ -750,14 +750,14 @@ int luat_lv_style_reset(lua_State *L);
 int luat_lv_style_remove_prop(lua_State *L);
 int luat_lv_style_list_get_local_style(lua_State *L);
 
-#define LUAT_LV_STYLE_RLT     {"style_init", luat_lv_style_init, 0},\
-    {"style_copy", luat_lv_style_copy, 0},\
-    {"style_list_init", luat_lv_style_list_init, 0},\
-    {"style_list_copy", luat_lv_style_list_copy, 0},\
-    {"style_list_get_style", luat_lv_style_list_get_style, 0},\
-    {"style_reset", luat_lv_style_reset, 0},\
-    {"style_remove_prop", luat_lv_style_remove_prop, 0},\
-    {"style_list_get_local_style", luat_lv_style_list_get_local_style, 0},\
+#define LUAT_LV_STYLE_RLT     {"style_init", ROREG_FUNC(luat_lv_style_init)},\
+    {"style_copy", ROREG_FUNC(luat_lv_style_copy)},\
+    {"style_list_init", ROREG_FUNC(luat_lv_style_list_init)},\
+    {"style_list_copy", ROREG_FUNC(luat_lv_style_list_copy)},\
+    {"style_list_get_style", ROREG_FUNC(luat_lv_style_list_get_style)},\
+    {"style_reset", ROREG_FUNC(luat_lv_style_reset)},\
+    {"style_remove_prop", ROREG_FUNC(luat_lv_style_remove_prop)},\
+    {"style_list_get_local_style", ROREG_FUNC(luat_lv_style_list_get_local_style)},\
 
 
 // group lv_draw
@@ -784,27 +784,27 @@ int luat_lv_draw_line(lua_State *L);
 int luat_lv_draw_line_dsc_init(lua_State *L);
 int luat_lv_draw_arc(lua_State *L);
 
-#define LUAT_LV_DRAW_RLT     {"draw_mask_add", luat_lv_draw_mask_add, 0},\
-    {"draw_mask_apply", luat_lv_draw_mask_apply, 0},\
-    {"draw_mask_remove_id", luat_lv_draw_mask_remove_id, 0},\
-    {"draw_mask_remove_custom", luat_lv_draw_mask_remove_custom, 0},\
-    {"draw_mask_get_cnt", luat_lv_draw_mask_get_cnt, 0},\
-    {"draw_mask_line_points_init", luat_lv_draw_mask_line_points_init, 0},\
-    {"draw_mask_line_angle_init", luat_lv_draw_mask_line_angle_init, 0},\
-    {"draw_mask_angle_init", luat_lv_draw_mask_angle_init, 0},\
-    {"draw_mask_radius_init", luat_lv_draw_mask_radius_init, 0},\
-    {"draw_mask_fade_init", luat_lv_draw_mask_fade_init, 0},\
-    {"draw_mask_map_init", luat_lv_draw_mask_map_init, 0},\
-    {"draw_rect_dsc_init", luat_lv_draw_rect_dsc_init, 0},\
-    {"draw_rect", luat_lv_draw_rect, 0},\
-    {"draw_px", luat_lv_draw_px, 0},\
-    {"draw_label_dsc_init", luat_lv_draw_label_dsc_init, 0},\
-    {"draw_label", luat_lv_draw_label, 0},\
-    {"draw_img_dsc_init", luat_lv_draw_img_dsc_init, 0},\
-    {"draw_img", luat_lv_draw_img, 0},\
-    {"draw_line", luat_lv_draw_line, 0},\
-    {"draw_line_dsc_init", luat_lv_draw_line_dsc_init, 0},\
-    {"draw_arc", luat_lv_draw_arc, 0},\
+#define LUAT_LV_DRAW_RLT     {"draw_mask_add", ROREG_FUNC(luat_lv_draw_mask_add)},\
+    {"draw_mask_apply", ROREG_FUNC(luat_lv_draw_mask_apply)},\
+    {"draw_mask_remove_id", ROREG_FUNC(luat_lv_draw_mask_remove_id)},\
+    {"draw_mask_remove_custom", ROREG_FUNC(luat_lv_draw_mask_remove_custom)},\
+    {"draw_mask_get_cnt", ROREG_FUNC(luat_lv_draw_mask_get_cnt)},\
+    {"draw_mask_line_points_init", ROREG_FUNC(luat_lv_draw_mask_line_points_init)},\
+    {"draw_mask_line_angle_init", ROREG_FUNC(luat_lv_draw_mask_line_angle_init)},\
+    {"draw_mask_angle_init", ROREG_FUNC(luat_lv_draw_mask_angle_init)},\
+    {"draw_mask_radius_init", ROREG_FUNC(luat_lv_draw_mask_radius_init)},\
+    {"draw_mask_fade_init", ROREG_FUNC(luat_lv_draw_mask_fade_init)},\
+    {"draw_mask_map_init", ROREG_FUNC(luat_lv_draw_mask_map_init)},\
+    {"draw_rect_dsc_init", ROREG_FUNC(luat_lv_draw_rect_dsc_init)},\
+    {"draw_rect", ROREG_FUNC(luat_lv_draw_rect)},\
+    {"draw_px", ROREG_FUNC(luat_lv_draw_px)},\
+    {"draw_label_dsc_init", ROREG_FUNC(luat_lv_draw_label_dsc_init)},\
+    {"draw_label", ROREG_FUNC(luat_lv_draw_label)},\
+    {"draw_img_dsc_init", ROREG_FUNC(luat_lv_draw_img_dsc_init)},\
+    {"draw_img", ROREG_FUNC(luat_lv_draw_img)},\
+    {"draw_line", ROREG_FUNC(luat_lv_draw_line)},\
+    {"draw_line_dsc_init", ROREG_FUNC(luat_lv_draw_line_dsc_init)},\
+    {"draw_arc", ROREG_FUNC(luat_lv_draw_arc)},\
 
 
 // group lv_font
@@ -813,9 +813,9 @@ int luat_lv_font_get_glyph_dsc(lua_State *L);
 int luat_lv_font_get_glyph_width(lua_State *L);
 int luat_lv_font_get_line_height(lua_State *L);
 
-#define LUAT_LV_FONT_RLT     {"font_get_glyph_dsc", luat_lv_font_get_glyph_dsc, 0},\
-    {"font_get_glyph_width", luat_lv_font_get_glyph_width, 0},\
-    {"font_get_line_height", luat_lv_font_get_line_height, 0},\
+#define LUAT_LV_FONT_RLT     {"font_get_glyph_dsc", ROREG_FUNC(luat_lv_font_get_glyph_dsc)},\
+    {"font_get_glyph_width", ROREG_FUNC(luat_lv_font_get_glyph_width)},\
+    {"font_get_line_height", ROREG_FUNC(luat_lv_font_get_line_height)},\
 
 
 // group lv_misc
@@ -849,34 +849,34 @@ int luat_lv_anim_path_overshoot(lua_State *L);
 int luat_lv_anim_path_bounce(lua_State *L);
 int luat_lv_anim_path_step(lua_State *L);
 
-#define LUAT_LV_ANIM_RLT     {"anim_init", luat_lv_anim_init, 0},\
-    {"anim_set_var", luat_lv_anim_set_var, 0},\
-    {"anim_set_time", luat_lv_anim_set_time, 0},\
-    {"anim_set_delay", luat_lv_anim_set_delay, 0},\
-    {"anim_set_values", luat_lv_anim_set_values, 0},\
-    {"anim_set_path", luat_lv_anim_set_path, 0},\
-    {"anim_set_playback_time", luat_lv_anim_set_playback_time, 0},\
-    {"anim_set_playback_delay", luat_lv_anim_set_playback_delay, 0},\
-    {"anim_set_repeat_count", luat_lv_anim_set_repeat_count, 0},\
-    {"anim_set_repeat_delay", luat_lv_anim_set_repeat_delay, 0},\
-    {"anim_start", luat_lv_anim_start, 0},\
-    {"anim_path_init", luat_lv_anim_path_init, 0},\
-    {"anim_path_set_user_data", luat_lv_anim_path_set_user_data, 0},\
-    {"anim_get_delay", luat_lv_anim_get_delay, 0},\
-    {"anim_del", luat_lv_anim_del, 0},\
-    {"anim_del_all", luat_lv_anim_del_all, 0},\
-    {"anim_get", luat_lv_anim_get, 0},\
-    {"anim_custom_del", luat_lv_anim_custom_del, 0},\
-    {"anim_count_running", luat_lv_anim_count_running, 0},\
-    {"anim_speed_to_time", luat_lv_anim_speed_to_time, 0},\
-    {"anim_refr_now", luat_lv_anim_refr_now, 0},\
-    {"anim_path_linear", luat_lv_anim_path_linear, 0},\
-    {"anim_path_ease_in", luat_lv_anim_path_ease_in, 0},\
-    {"anim_path_ease_out", luat_lv_anim_path_ease_out, 0},\
-    {"anim_path_ease_in_out", luat_lv_anim_path_ease_in_out, 0},\
-    {"anim_path_overshoot", luat_lv_anim_path_overshoot, 0},\
-    {"anim_path_bounce", luat_lv_anim_path_bounce, 0},\
-    {"anim_path_step", luat_lv_anim_path_step, 0},\
+#define LUAT_LV_ANIM_RLT     {"anim_init", ROREG_FUNC(luat_lv_anim_init)},\
+    {"anim_set_var", ROREG_FUNC(luat_lv_anim_set_var)},\
+    {"anim_set_time", ROREG_FUNC(luat_lv_anim_set_time)},\
+    {"anim_set_delay", ROREG_FUNC(luat_lv_anim_set_delay)},\
+    {"anim_set_values", ROREG_FUNC(luat_lv_anim_set_values)},\
+    {"anim_set_path", ROREG_FUNC(luat_lv_anim_set_path)},\
+    {"anim_set_playback_time", ROREG_FUNC(luat_lv_anim_set_playback_time)},\
+    {"anim_set_playback_delay", ROREG_FUNC(luat_lv_anim_set_playback_delay)},\
+    {"anim_set_repeat_count", ROREG_FUNC(luat_lv_anim_set_repeat_count)},\
+    {"anim_set_repeat_delay", ROREG_FUNC(luat_lv_anim_set_repeat_delay)},\
+    {"anim_start", ROREG_FUNC(luat_lv_anim_start)},\
+    {"anim_path_init", ROREG_FUNC(luat_lv_anim_path_init)},\
+    {"anim_path_set_user_data", ROREG_FUNC(luat_lv_anim_path_set_user_data)},\
+    {"anim_get_delay", ROREG_FUNC(luat_lv_anim_get_delay)},\
+    {"anim_del", ROREG_FUNC(luat_lv_anim_del)},\
+    {"anim_del_all", ROREG_FUNC(luat_lv_anim_del_all)},\
+    {"anim_get", ROREG_FUNC(luat_lv_anim_get)},\
+    {"anim_custom_del", ROREG_FUNC(luat_lv_anim_custom_del)},\
+    {"anim_count_running", ROREG_FUNC(luat_lv_anim_count_running)},\
+    {"anim_speed_to_time", ROREG_FUNC(luat_lv_anim_speed_to_time)},\
+    {"anim_refr_now", ROREG_FUNC(luat_lv_anim_refr_now)},\
+    {"anim_path_linear", ROREG_FUNC(luat_lv_anim_path_linear)},\
+    {"anim_path_ease_in", ROREG_FUNC(luat_lv_anim_path_ease_in)},\
+    {"anim_path_ease_out", ROREG_FUNC(luat_lv_anim_path_ease_out)},\
+    {"anim_path_ease_in_out", ROREG_FUNC(luat_lv_anim_path_ease_in_out)},\
+    {"anim_path_overshoot", ROREG_FUNC(luat_lv_anim_path_overshoot)},\
+    {"anim_path_bounce", ROREG_FUNC(luat_lv_anim_path_bounce)},\
+    {"anim_path_step", ROREG_FUNC(luat_lv_anim_path_step)},\
 
 // prefix lv_misc lv_area
 int luat_lv_area_set(lua_State *L);
@@ -887,13 +887,13 @@ int luat_lv_area_set_width(lua_State *L);
 int luat_lv_area_set_height(lua_State *L);
 int luat_lv_area_get_size(lua_State *L);
 
-#define LUAT_LV_AREA_RLT     {"area_set", luat_lv_area_set, 0},\
-    {"area_copy", luat_lv_area_copy, 0},\
-    {"area_get_width", luat_lv_area_get_width, 0},\
-    {"area_get_height", luat_lv_area_get_height, 0},\
-    {"area_set_width", luat_lv_area_set_width, 0},\
-    {"area_set_height", luat_lv_area_set_height, 0},\
-    {"area_get_size", luat_lv_area_get_size, 0},\
+#define LUAT_LV_AREA_RLT     {"area_set", ROREG_FUNC(luat_lv_area_set)},\
+    {"area_copy", ROREG_FUNC(luat_lv_area_copy)},\
+    {"area_get_width", ROREG_FUNC(luat_lv_area_get_width)},\
+    {"area_get_height", ROREG_FUNC(luat_lv_area_get_height)},\
+    {"area_set_width", ROREG_FUNC(luat_lv_area_set_width)},\
+    {"area_set_height", ROREG_FUNC(luat_lv_area_set_height)},\
+    {"area_get_size", ROREG_FUNC(luat_lv_area_get_size)},\
 
 // prefix lv_misc lv_color
 int luat_lv_color_to1(lua_State *L);
@@ -915,24 +915,24 @@ int luat_lv_color_hsv_to_rgb(lua_State *L);
 int luat_lv_color_rgb_to_hsv(lua_State *L);
 int luat_lv_color_to_hsv(lua_State *L);
 
-#define LUAT_LV_COLOR_RLT     {"color_to1", luat_lv_color_to1, 0},\
-    {"color_to8", luat_lv_color_to8, 0},\
-    {"color_to16", luat_lv_color_to16, 0},\
-    {"color_to32", luat_lv_color_to32, 0},\
-    {"color_mix", luat_lv_color_mix, 0},\
-    {"color_premult", luat_lv_color_premult, 0},\
-    {"color_mix_premult", luat_lv_color_mix_premult, 0},\
-    {"color_mix_with_alpha", luat_lv_color_mix_with_alpha, 0},\
-    {"color_brightness", luat_lv_color_brightness, 0},\
-    {"color_make", luat_lv_color_make, 0},\
-    {"color_hex", luat_lv_color_hex, 0},\
-    {"color_hex3", luat_lv_color_hex3, 0},\
-    {"color_fill", luat_lv_color_fill, 0},\
-    {"color_lighten", luat_lv_color_lighten, 0},\
-    {"color_darken", luat_lv_color_darken, 0},\
-    {"color_hsv_to_rgb", luat_lv_color_hsv_to_rgb, 0},\
-    {"color_rgb_to_hsv", luat_lv_color_rgb_to_hsv, 0},\
-    {"color_to_hsv", luat_lv_color_to_hsv, 0},\
+#define LUAT_LV_COLOR_RLT     {"color_to1", ROREG_FUNC(luat_lv_color_to1)},\
+    {"color_to8", ROREG_FUNC(luat_lv_color_to8)},\
+    {"color_to16", ROREG_FUNC(luat_lv_color_to16)},\
+    {"color_to32", ROREG_FUNC(luat_lv_color_to32)},\
+    {"color_mix", ROREG_FUNC(luat_lv_color_mix)},\
+    {"color_premult", ROREG_FUNC(luat_lv_color_premult)},\
+    {"color_mix_premult", ROREG_FUNC(luat_lv_color_mix_premult)},\
+    {"color_mix_with_alpha", ROREG_FUNC(luat_lv_color_mix_with_alpha)},\
+    {"color_brightness", ROREG_FUNC(luat_lv_color_brightness)},\
+    {"color_make", ROREG_FUNC(luat_lv_color_make)},\
+    {"color_hex", ROREG_FUNC(luat_lv_color_hex)},\
+    {"color_hex3", ROREG_FUNC(luat_lv_color_hex3)},\
+    {"color_fill", ROREG_FUNC(luat_lv_color_fill)},\
+    {"color_lighten", ROREG_FUNC(luat_lv_color_lighten)},\
+    {"color_darken", ROREG_FUNC(luat_lv_color_darken)},\
+    {"color_hsv_to_rgb", ROREG_FUNC(luat_lv_color_hsv_to_rgb)},\
+    {"color_rgb_to_hsv", ROREG_FUNC(luat_lv_color_rgb_to_hsv)},\
+    {"color_to_hsv", ROREG_FUNC(luat_lv_color_to_hsv)},\
 
 
 // group lv_themes
@@ -954,22 +954,22 @@ int luat_lv_theme_template_init(lua_State *L);
 int luat_lv_theme_material_init(lua_State *L);
 int luat_lv_theme_mono_init(lua_State *L);
 
-#define LUAT_LV_THEME_RLT     {"theme_set_act", luat_lv_theme_set_act, 0},\
-    {"theme_get_act", luat_lv_theme_get_act, 0},\
-    {"theme_apply", luat_lv_theme_apply, 0},\
-    {"theme_copy", luat_lv_theme_copy, 0},\
-    {"theme_set_base", luat_lv_theme_set_base, 0},\
-    {"theme_get_font_small", luat_lv_theme_get_font_small, 0},\
-    {"theme_get_font_normal", luat_lv_theme_get_font_normal, 0},\
-    {"theme_get_font_subtitle", luat_lv_theme_get_font_subtitle, 0},\
-    {"theme_get_font_title", luat_lv_theme_get_font_title, 0},\
-    {"theme_get_color_primary", luat_lv_theme_get_color_primary, 0},\
-    {"theme_get_color_secondary", luat_lv_theme_get_color_secondary, 0},\
-    {"theme_get_flags", luat_lv_theme_get_flags, 0},\
-    {"theme_empty_init", luat_lv_theme_empty_init, 0},\
-    {"theme_template_init", luat_lv_theme_template_init, 0},\
-    {"theme_material_init", luat_lv_theme_material_init, 0},\
-    {"theme_mono_init", luat_lv_theme_mono_init, 0},\
+#define LUAT_LV_THEME_RLT     {"theme_set_act", ROREG_FUNC(luat_lv_theme_set_act)},\
+    {"theme_get_act", ROREG_FUNC(luat_lv_theme_get_act)},\
+    {"theme_apply", ROREG_FUNC(luat_lv_theme_apply)},\
+    {"theme_copy", ROREG_FUNC(luat_lv_theme_copy)},\
+    {"theme_set_base", ROREG_FUNC(luat_lv_theme_set_base)},\
+    {"theme_get_font_small", ROREG_FUNC(luat_lv_theme_get_font_small)},\
+    {"theme_get_font_normal", ROREG_FUNC(luat_lv_theme_get_font_normal)},\
+    {"theme_get_font_subtitle", ROREG_FUNC(luat_lv_theme_get_font_subtitle)},\
+    {"theme_get_font_title", ROREG_FUNC(luat_lv_theme_get_font_title)},\
+    {"theme_get_color_primary", ROREG_FUNC(luat_lv_theme_get_color_primary)},\
+    {"theme_get_color_secondary", ROREG_FUNC(luat_lv_theme_get_color_secondary)},\
+    {"theme_get_flags", ROREG_FUNC(luat_lv_theme_get_flags)},\
+    {"theme_empty_init", ROREG_FUNC(luat_lv_theme_empty_init)},\
+    {"theme_template_init", ROREG_FUNC(luat_lv_theme_template_init)},\
+    {"theme_material_init", ROREG_FUNC(luat_lv_theme_material_init)},\
+    {"theme_mono_init", ROREG_FUNC(luat_lv_theme_mono_init)},\
 
 
 // group lv_widgets
@@ -998,29 +998,29 @@ int luat_lv_arc_get_max_value(lua_State *L);
 int luat_lv_arc_is_dragged(lua_State *L);
 int luat_lv_arc_get_adjustable(lua_State *L);
 
-#define LUAT_LV_ARC_RLT     {"arc_create", luat_lv_arc_create, 0},\
-    {"arc_set_start_angle", luat_lv_arc_set_start_angle, 0},\
-    {"arc_set_end_angle", luat_lv_arc_set_end_angle, 0},\
-    {"arc_set_angles", luat_lv_arc_set_angles, 0},\
-    {"arc_set_bg_start_angle", luat_lv_arc_set_bg_start_angle, 0},\
-    {"arc_set_bg_end_angle", luat_lv_arc_set_bg_end_angle, 0},\
-    {"arc_set_bg_angles", luat_lv_arc_set_bg_angles, 0},\
-    {"arc_set_rotation", luat_lv_arc_set_rotation, 0},\
-    {"arc_set_type", luat_lv_arc_set_type, 0},\
-    {"arc_set_value", luat_lv_arc_set_value, 0},\
-    {"arc_set_range", luat_lv_arc_set_range, 0},\
-    {"arc_set_chg_rate", luat_lv_arc_set_chg_rate, 0},\
-    {"arc_set_adjustable", luat_lv_arc_set_adjustable, 0},\
-    {"arc_get_angle_start", luat_lv_arc_get_angle_start, 0},\
-    {"arc_get_angle_end", luat_lv_arc_get_angle_end, 0},\
-    {"arc_get_bg_angle_start", luat_lv_arc_get_bg_angle_start, 0},\
-    {"arc_get_bg_angle_end", luat_lv_arc_get_bg_angle_end, 0},\
-    {"arc_get_type", luat_lv_arc_get_type, 0},\
-    {"arc_get_value", luat_lv_arc_get_value, 0},\
-    {"arc_get_min_value", luat_lv_arc_get_min_value, 0},\
-    {"arc_get_max_value", luat_lv_arc_get_max_value, 0},\
-    {"arc_is_dragged", luat_lv_arc_is_dragged, 0},\
-    {"arc_get_adjustable", luat_lv_arc_get_adjustable, 0},\
+#define LUAT_LV_ARC_RLT     {"arc_create", ROREG_FUNC(luat_lv_arc_create)},\
+    {"arc_set_start_angle", ROREG_FUNC(luat_lv_arc_set_start_angle)},\
+    {"arc_set_end_angle", ROREG_FUNC(luat_lv_arc_set_end_angle)},\
+    {"arc_set_angles", ROREG_FUNC(luat_lv_arc_set_angles)},\
+    {"arc_set_bg_start_angle", ROREG_FUNC(luat_lv_arc_set_bg_start_angle)},\
+    {"arc_set_bg_end_angle", ROREG_FUNC(luat_lv_arc_set_bg_end_angle)},\
+    {"arc_set_bg_angles", ROREG_FUNC(luat_lv_arc_set_bg_angles)},\
+    {"arc_set_rotation", ROREG_FUNC(luat_lv_arc_set_rotation)},\
+    {"arc_set_type", ROREG_FUNC(luat_lv_arc_set_type)},\
+    {"arc_set_value", ROREG_FUNC(luat_lv_arc_set_value)},\
+    {"arc_set_range", ROREG_FUNC(luat_lv_arc_set_range)},\
+    {"arc_set_chg_rate", ROREG_FUNC(luat_lv_arc_set_chg_rate)},\
+    {"arc_set_adjustable", ROREG_FUNC(luat_lv_arc_set_adjustable)},\
+    {"arc_get_angle_start", ROREG_FUNC(luat_lv_arc_get_angle_start)},\
+    {"arc_get_angle_end", ROREG_FUNC(luat_lv_arc_get_angle_end)},\
+    {"arc_get_bg_angle_start", ROREG_FUNC(luat_lv_arc_get_bg_angle_start)},\
+    {"arc_get_bg_angle_end", ROREG_FUNC(luat_lv_arc_get_bg_angle_end)},\
+    {"arc_get_type", ROREG_FUNC(luat_lv_arc_get_type)},\
+    {"arc_get_value", ROREG_FUNC(luat_lv_arc_get_value)},\
+    {"arc_get_min_value", ROREG_FUNC(luat_lv_arc_get_min_value)},\
+    {"arc_get_max_value", ROREG_FUNC(luat_lv_arc_get_max_value)},\
+    {"arc_is_dragged", ROREG_FUNC(luat_lv_arc_is_dragged)},\
+    {"arc_get_adjustable", ROREG_FUNC(luat_lv_arc_get_adjustable)},\
 
 // prefix lv_widgets lv_bar
 int luat_lv_bar_create(lua_State *L);
@@ -1036,18 +1036,18 @@ int luat_lv_bar_get_max_value(lua_State *L);
 int luat_lv_bar_get_type(lua_State *L);
 int luat_lv_bar_get_anim_time(lua_State *L);
 
-#define LUAT_LV_BAR_RLT     {"bar_create", luat_lv_bar_create, 0},\
-    {"bar_set_value", luat_lv_bar_set_value, 0},\
-    {"bar_set_start_value", luat_lv_bar_set_start_value, 0},\
-    {"bar_set_range", luat_lv_bar_set_range, 0},\
-    {"bar_set_type", luat_lv_bar_set_type, 0},\
-    {"bar_set_anim_time", luat_lv_bar_set_anim_time, 0},\
-    {"bar_get_value", luat_lv_bar_get_value, 0},\
-    {"bar_get_start_value", luat_lv_bar_get_start_value, 0},\
-    {"bar_get_min_value", luat_lv_bar_get_min_value, 0},\
-    {"bar_get_max_value", luat_lv_bar_get_max_value, 0},\
-    {"bar_get_type", luat_lv_bar_get_type, 0},\
-    {"bar_get_anim_time", luat_lv_bar_get_anim_time, 0},\
+#define LUAT_LV_BAR_RLT     {"bar_create", ROREG_FUNC(luat_lv_bar_create)},\
+    {"bar_set_value", ROREG_FUNC(luat_lv_bar_set_value)},\
+    {"bar_set_start_value", ROREG_FUNC(luat_lv_bar_set_start_value)},\
+    {"bar_set_range", ROREG_FUNC(luat_lv_bar_set_range)},\
+    {"bar_set_type", ROREG_FUNC(luat_lv_bar_set_type)},\
+    {"bar_set_anim_time", ROREG_FUNC(luat_lv_bar_set_anim_time)},\
+    {"bar_get_value", ROREG_FUNC(luat_lv_bar_get_value)},\
+    {"bar_get_start_value", ROREG_FUNC(luat_lv_bar_get_start_value)},\
+    {"bar_get_min_value", ROREG_FUNC(luat_lv_bar_get_min_value)},\
+    {"bar_get_max_value", ROREG_FUNC(luat_lv_bar_get_max_value)},\
+    {"bar_get_type", ROREG_FUNC(luat_lv_bar_get_type)},\
+    {"bar_get_anim_time", ROREG_FUNC(luat_lv_bar_get_anim_time)},\
 
 // prefix lv_widgets lv_btn
 int luat_lv_btn_create(lua_State *L);
@@ -1066,21 +1066,21 @@ int luat_lv_btn_get_fit_right(lua_State *L);
 int luat_lv_btn_get_fit_top(lua_State *L);
 int luat_lv_btn_get_fit_bottom(lua_State *L);
 
-#define LUAT_LV_BTN_RLT     {"btn_create", luat_lv_btn_create, 0},\
-    {"btn_set_checkable", luat_lv_btn_set_checkable, 0},\
-    {"btn_set_state", luat_lv_btn_set_state, 0},\
-    {"btn_toggle", luat_lv_btn_toggle, 0},\
-    {"btn_set_layout", luat_lv_btn_set_layout, 0},\
-    {"btn_set_fit4", luat_lv_btn_set_fit4, 0},\
-    {"btn_set_fit2", luat_lv_btn_set_fit2, 0},\
-    {"btn_set_fit", luat_lv_btn_set_fit, 0},\
-    {"btn_get_state", luat_lv_btn_get_state, 0},\
-    {"btn_get_checkable", luat_lv_btn_get_checkable, 0},\
-    {"btn_get_layout", luat_lv_btn_get_layout, 0},\
-    {"btn_get_fit_left", luat_lv_btn_get_fit_left, 0},\
-    {"btn_get_fit_right", luat_lv_btn_get_fit_right, 0},\
-    {"btn_get_fit_top", luat_lv_btn_get_fit_top, 0},\
-    {"btn_get_fit_bottom", luat_lv_btn_get_fit_bottom, 0},\
+#define LUAT_LV_BTN_RLT     {"btn_create", ROREG_FUNC(luat_lv_btn_create)},\
+    {"btn_set_checkable", ROREG_FUNC(luat_lv_btn_set_checkable)},\
+    {"btn_set_state", ROREG_FUNC(luat_lv_btn_set_state)},\
+    {"btn_toggle", ROREG_FUNC(luat_lv_btn_toggle)},\
+    {"btn_set_layout", ROREG_FUNC(luat_lv_btn_set_layout)},\
+    {"btn_set_fit4", ROREG_FUNC(luat_lv_btn_set_fit4)},\
+    {"btn_set_fit2", ROREG_FUNC(luat_lv_btn_set_fit2)},\
+    {"btn_set_fit", ROREG_FUNC(luat_lv_btn_set_fit)},\
+    {"btn_get_state", ROREG_FUNC(luat_lv_btn_get_state)},\
+    {"btn_get_checkable", ROREG_FUNC(luat_lv_btn_get_checkable)},\
+    {"btn_get_layout", ROREG_FUNC(luat_lv_btn_get_layout)},\
+    {"btn_get_fit_left", ROREG_FUNC(luat_lv_btn_get_fit_left)},\
+    {"btn_get_fit_right", ROREG_FUNC(luat_lv_btn_get_fit_right)},\
+    {"btn_get_fit_top", ROREG_FUNC(luat_lv_btn_get_fit_top)},\
+    {"btn_get_fit_bottom", ROREG_FUNC(luat_lv_btn_get_fit_bottom)},\
 
 // prefix lv_widgets lv_btnmatrix
 int luat_lv_btnmatrix_create(lua_State *L);
@@ -1102,24 +1102,24 @@ int luat_lv_btnmatrix_get_btn_ctrl(lua_State *L);
 int luat_lv_btnmatrix_get_one_check(lua_State *L);
 int luat_lv_btnmatrix_get_align(lua_State *L);
 
-#define LUAT_LV_BTNMATRIX_RLT     {"btnmatrix_create", luat_lv_btnmatrix_create, 0},\
-    {"btnmatrix_set_focused_btn", luat_lv_btnmatrix_set_focused_btn, 0},\
-    {"btnmatrix_set_recolor", luat_lv_btnmatrix_set_recolor, 0},\
-    {"btnmatrix_set_btn_ctrl", luat_lv_btnmatrix_set_btn_ctrl, 0},\
-    {"btnmatrix_clear_btn_ctrl", luat_lv_btnmatrix_clear_btn_ctrl, 0},\
-    {"btnmatrix_set_btn_ctrl_all", luat_lv_btnmatrix_set_btn_ctrl_all, 0},\
-    {"btnmatrix_clear_btn_ctrl_all", luat_lv_btnmatrix_clear_btn_ctrl_all, 0},\
-    {"btnmatrix_set_btn_width", luat_lv_btnmatrix_set_btn_width, 0},\
-    {"btnmatrix_set_one_check", luat_lv_btnmatrix_set_one_check, 0},\
-    {"btnmatrix_set_align", luat_lv_btnmatrix_set_align, 0},\
-    {"btnmatrix_get_recolor", luat_lv_btnmatrix_get_recolor, 0},\
-    {"btnmatrix_get_active_btn", luat_lv_btnmatrix_get_active_btn, 0},\
-    {"btnmatrix_get_active_btn_text", luat_lv_btnmatrix_get_active_btn_text, 0},\
-    {"btnmatrix_get_focused_btn", luat_lv_btnmatrix_get_focused_btn, 0},\
-    {"btnmatrix_get_btn_text", luat_lv_btnmatrix_get_btn_text, 0},\
-    {"btnmatrix_get_btn_ctrl", luat_lv_btnmatrix_get_btn_ctrl, 0},\
-    {"btnmatrix_get_one_check", luat_lv_btnmatrix_get_one_check, 0},\
-    {"btnmatrix_get_align", luat_lv_btnmatrix_get_align, 0},\
+#define LUAT_LV_BTNMATRIX_RLT     {"btnmatrix_create", ROREG_FUNC(luat_lv_btnmatrix_create)},\
+    {"btnmatrix_set_focused_btn", ROREG_FUNC(luat_lv_btnmatrix_set_focused_btn)},\
+    {"btnmatrix_set_recolor", ROREG_FUNC(luat_lv_btnmatrix_set_recolor)},\
+    {"btnmatrix_set_btn_ctrl", ROREG_FUNC(luat_lv_btnmatrix_set_btn_ctrl)},\
+    {"btnmatrix_clear_btn_ctrl", ROREG_FUNC(luat_lv_btnmatrix_clear_btn_ctrl)},\
+    {"btnmatrix_set_btn_ctrl_all", ROREG_FUNC(luat_lv_btnmatrix_set_btn_ctrl_all)},\
+    {"btnmatrix_clear_btn_ctrl_all", ROREG_FUNC(luat_lv_btnmatrix_clear_btn_ctrl_all)},\
+    {"btnmatrix_set_btn_width", ROREG_FUNC(luat_lv_btnmatrix_set_btn_width)},\
+    {"btnmatrix_set_one_check", ROREG_FUNC(luat_lv_btnmatrix_set_one_check)},\
+    {"btnmatrix_set_align", ROREG_FUNC(luat_lv_btnmatrix_set_align)},\
+    {"btnmatrix_get_recolor", ROREG_FUNC(luat_lv_btnmatrix_get_recolor)},\
+    {"btnmatrix_get_active_btn", ROREG_FUNC(luat_lv_btnmatrix_get_active_btn)},\
+    {"btnmatrix_get_active_btn_text", ROREG_FUNC(luat_lv_btnmatrix_get_active_btn_text)},\
+    {"btnmatrix_get_focused_btn", ROREG_FUNC(luat_lv_btnmatrix_get_focused_btn)},\
+    {"btnmatrix_get_btn_text", ROREG_FUNC(luat_lv_btnmatrix_get_btn_text)},\
+    {"btnmatrix_get_btn_ctrl", ROREG_FUNC(luat_lv_btnmatrix_get_btn_ctrl)},\
+    {"btnmatrix_get_one_check", ROREG_FUNC(luat_lv_btnmatrix_get_one_check)},\
+    {"btnmatrix_get_align", ROREG_FUNC(luat_lv_btnmatrix_get_align)},\
 
 // prefix lv_widgets lv_calendar
 int luat_lv_calendar_create(lua_State *L);
@@ -1132,15 +1132,15 @@ int luat_lv_calendar_get_highlighted_dates(lua_State *L);
 int luat_lv_calendar_get_highlighted_dates_num(lua_State *L);
 int luat_lv_calendar_get_day_of_week(lua_State *L);
 
-#define LUAT_LV_CALENDAR_RLT     {"calendar_create", luat_lv_calendar_create, 0},\
-    {"calendar_set_today_date", luat_lv_calendar_set_today_date, 0},\
-    {"calendar_set_showed_date", luat_lv_calendar_set_showed_date, 0},\
-    {"calendar_get_today_date", luat_lv_calendar_get_today_date, 0},\
-    {"calendar_get_showed_date", luat_lv_calendar_get_showed_date, 0},\
-    {"calendar_get_pressed_date", luat_lv_calendar_get_pressed_date, 0},\
-    {"calendar_get_highlighted_dates", luat_lv_calendar_get_highlighted_dates, 0},\
-    {"calendar_get_highlighted_dates_num", luat_lv_calendar_get_highlighted_dates_num, 0},\
-    {"calendar_get_day_of_week", luat_lv_calendar_get_day_of_week, 0},\
+#define LUAT_LV_CALENDAR_RLT     {"calendar_create", ROREG_FUNC(luat_lv_calendar_create)},\
+    {"calendar_set_today_date", ROREG_FUNC(luat_lv_calendar_set_today_date)},\
+    {"calendar_set_showed_date", ROREG_FUNC(luat_lv_calendar_set_showed_date)},\
+    {"calendar_get_today_date", ROREG_FUNC(luat_lv_calendar_get_today_date)},\
+    {"calendar_get_showed_date", ROREG_FUNC(luat_lv_calendar_get_showed_date)},\
+    {"calendar_get_pressed_date", ROREG_FUNC(luat_lv_calendar_get_pressed_date)},\
+    {"calendar_get_highlighted_dates", ROREG_FUNC(luat_lv_calendar_get_highlighted_dates)},\
+    {"calendar_get_highlighted_dates_num", ROREG_FUNC(luat_lv_calendar_get_highlighted_dates_num)},\
+    {"calendar_get_day_of_week", ROREG_FUNC(luat_lv_calendar_get_day_of_week)},\
 
 // prefix lv_widgets lv_canvas
 int luat_lv_canvas_create(lua_State *L);
@@ -1158,20 +1158,20 @@ int luat_lv_canvas_draw_text(lua_State *L);
 int luat_lv_canvas_draw_img(lua_State *L);
 int luat_lv_canvas_draw_arc(lua_State *L);
 
-#define LUAT_LV_CANVAS_RLT     {"canvas_create", luat_lv_canvas_create, 0},\
-    {"canvas_set_px", luat_lv_canvas_set_px, 0},\
-    {"canvas_set_palette", luat_lv_canvas_set_palette, 0},\
-    {"canvas_get_px", luat_lv_canvas_get_px, 0},\
-    {"canvas_get_img", luat_lv_canvas_get_img, 0},\
-    {"canvas_copy_buf", luat_lv_canvas_copy_buf, 0},\
-    {"canvas_transform", luat_lv_canvas_transform, 0},\
-    {"canvas_blur_hor", luat_lv_canvas_blur_hor, 0},\
-    {"canvas_blur_ver", luat_lv_canvas_blur_ver, 0},\
-    {"canvas_fill_bg", luat_lv_canvas_fill_bg, 0},\
-    {"canvas_draw_rect", luat_lv_canvas_draw_rect, 0},\
-    {"canvas_draw_text", luat_lv_canvas_draw_text, 0},\
-    {"canvas_draw_img", luat_lv_canvas_draw_img, 0},\
-    {"canvas_draw_arc", luat_lv_canvas_draw_arc, 0},\
+#define LUAT_LV_CANVAS_RLT     {"canvas_create", ROREG_FUNC(luat_lv_canvas_create)},\
+    {"canvas_set_px", ROREG_FUNC(luat_lv_canvas_set_px)},\
+    {"canvas_set_palette", ROREG_FUNC(luat_lv_canvas_set_palette)},\
+    {"canvas_get_px", ROREG_FUNC(luat_lv_canvas_get_px)},\
+    {"canvas_get_img", ROREG_FUNC(luat_lv_canvas_get_img)},\
+    {"canvas_copy_buf", ROREG_FUNC(luat_lv_canvas_copy_buf)},\
+    {"canvas_transform", ROREG_FUNC(luat_lv_canvas_transform)},\
+    {"canvas_blur_hor", ROREG_FUNC(luat_lv_canvas_blur_hor)},\
+    {"canvas_blur_ver", ROREG_FUNC(luat_lv_canvas_blur_ver)},\
+    {"canvas_fill_bg", ROREG_FUNC(luat_lv_canvas_fill_bg)},\
+    {"canvas_draw_rect", ROREG_FUNC(luat_lv_canvas_draw_rect)},\
+    {"canvas_draw_text", ROREG_FUNC(luat_lv_canvas_draw_text)},\
+    {"canvas_draw_img", ROREG_FUNC(luat_lv_canvas_draw_img)},\
+    {"canvas_draw_arc", ROREG_FUNC(luat_lv_canvas_draw_arc)},\
 
 // prefix lv_widgets lv_chart
 int luat_lv_chart_create(lua_State *L);
@@ -1209,40 +1209,40 @@ int luat_lv_chart_get_x_from_index(lua_State *L);
 int luat_lv_chart_get_y_from_index(lua_State *L);
 int luat_lv_chart_refresh(lua_State *L);
 
-#define LUAT_LV_CHART_RLT     {"chart_create", luat_lv_chart_create, 0},\
-    {"chart_add_series", luat_lv_chart_add_series, 0},\
-    {"chart_remove_series", luat_lv_chart_remove_series, 0},\
-    {"chart_add_cursor", luat_lv_chart_add_cursor, 0},\
-    {"chart_clear_series", luat_lv_chart_clear_series, 0},\
-    {"chart_hide_series", luat_lv_chart_hide_series, 0},\
-    {"chart_set_div_line_count", luat_lv_chart_set_div_line_count, 0},\
-    {"chart_set_y_range", luat_lv_chart_set_y_range, 0},\
-    {"chart_set_type", luat_lv_chart_set_type, 0},\
-    {"chart_set_point_count", luat_lv_chart_set_point_count, 0},\
-    {"chart_init_points", luat_lv_chart_init_points, 0},\
-    {"chart_set_next", luat_lv_chart_set_next, 0},\
-    {"chart_set_update_mode", luat_lv_chart_set_update_mode, 0},\
-    {"chart_set_x_tick_length", luat_lv_chart_set_x_tick_length, 0},\
-    {"chart_set_y_tick_length", luat_lv_chart_set_y_tick_length, 0},\
-    {"chart_set_secondary_y_tick_length", luat_lv_chart_set_secondary_y_tick_length, 0},\
-    {"chart_set_x_tick_texts", luat_lv_chart_set_x_tick_texts, 0},\
-    {"chart_set_secondary_y_tick_texts", luat_lv_chart_set_secondary_y_tick_texts, 0},\
-    {"chart_set_y_tick_texts", luat_lv_chart_set_y_tick_texts, 0},\
-    {"chart_set_x_start_point", luat_lv_chart_set_x_start_point, 0},\
-    {"chart_set_point_id", luat_lv_chart_set_point_id, 0},\
-    {"chart_set_series_axis", luat_lv_chart_set_series_axis, 0},\
-    {"chart_set_cursor_point", luat_lv_chart_set_cursor_point, 0},\
-    {"chart_get_type", luat_lv_chart_get_type, 0},\
-    {"chart_get_point_count", luat_lv_chart_get_point_count, 0},\
-    {"chart_get_x_start_point", luat_lv_chart_get_x_start_point, 0},\
-    {"chart_get_point_id", luat_lv_chart_get_point_id, 0},\
-    {"chart_get_series_axis", luat_lv_chart_get_series_axis, 0},\
-    {"chart_get_series_area", luat_lv_chart_get_series_area, 0},\
-    {"chart_get_cursor_point", luat_lv_chart_get_cursor_point, 0},\
-    {"chart_get_nearest_index_from_coord", luat_lv_chart_get_nearest_index_from_coord, 0},\
-    {"chart_get_x_from_index", luat_lv_chart_get_x_from_index, 0},\
-    {"chart_get_y_from_index", luat_lv_chart_get_y_from_index, 0},\
-    {"chart_refresh", luat_lv_chart_refresh, 0},\
+#define LUAT_LV_CHART_RLT     {"chart_create", ROREG_FUNC(luat_lv_chart_create)},\
+    {"chart_add_series", ROREG_FUNC(luat_lv_chart_add_series)},\
+    {"chart_remove_series", ROREG_FUNC(luat_lv_chart_remove_series)},\
+    {"chart_add_cursor", ROREG_FUNC(luat_lv_chart_add_cursor)},\
+    {"chart_clear_series", ROREG_FUNC(luat_lv_chart_clear_series)},\
+    {"chart_hide_series", ROREG_FUNC(luat_lv_chart_hide_series)},\
+    {"chart_set_div_line_count", ROREG_FUNC(luat_lv_chart_set_div_line_count)},\
+    {"chart_set_y_range", ROREG_FUNC(luat_lv_chart_set_y_range)},\
+    {"chart_set_type", ROREG_FUNC(luat_lv_chart_set_type)},\
+    {"chart_set_point_count", ROREG_FUNC(luat_lv_chart_set_point_count)},\
+    {"chart_init_points", ROREG_FUNC(luat_lv_chart_init_points)},\
+    {"chart_set_next", ROREG_FUNC(luat_lv_chart_set_next)},\
+    {"chart_set_update_mode", ROREG_FUNC(luat_lv_chart_set_update_mode)},\
+    {"chart_set_x_tick_length", ROREG_FUNC(luat_lv_chart_set_x_tick_length)},\
+    {"chart_set_y_tick_length", ROREG_FUNC(luat_lv_chart_set_y_tick_length)},\
+    {"chart_set_secondary_y_tick_length", ROREG_FUNC(luat_lv_chart_set_secondary_y_tick_length)},\
+    {"chart_set_x_tick_texts", ROREG_FUNC(luat_lv_chart_set_x_tick_texts)},\
+    {"chart_set_secondary_y_tick_texts", ROREG_FUNC(luat_lv_chart_set_secondary_y_tick_texts)},\
+    {"chart_set_y_tick_texts", ROREG_FUNC(luat_lv_chart_set_y_tick_texts)},\
+    {"chart_set_x_start_point", ROREG_FUNC(luat_lv_chart_set_x_start_point)},\
+    {"chart_set_point_id", ROREG_FUNC(luat_lv_chart_set_point_id)},\
+    {"chart_set_series_axis", ROREG_FUNC(luat_lv_chart_set_series_axis)},\
+    {"chart_set_cursor_point", ROREG_FUNC(luat_lv_chart_set_cursor_point)},\
+    {"chart_get_type", ROREG_FUNC(luat_lv_chart_get_type)},\
+    {"chart_get_point_count", ROREG_FUNC(luat_lv_chart_get_point_count)},\
+    {"chart_get_x_start_point", ROREG_FUNC(luat_lv_chart_get_x_start_point)},\
+    {"chart_get_point_id", ROREG_FUNC(luat_lv_chart_get_point_id)},\
+    {"chart_get_series_axis", ROREG_FUNC(luat_lv_chart_get_series_axis)},\
+    {"chart_get_series_area", ROREG_FUNC(luat_lv_chart_get_series_area)},\
+    {"chart_get_cursor_point", ROREG_FUNC(luat_lv_chart_get_cursor_point)},\
+    {"chart_get_nearest_index_from_coord", ROREG_FUNC(luat_lv_chart_get_nearest_index_from_coord)},\
+    {"chart_get_x_from_index", ROREG_FUNC(luat_lv_chart_get_x_from_index)},\
+    {"chart_get_y_from_index", ROREG_FUNC(luat_lv_chart_get_y_from_index)},\
+    {"chart_refresh", ROREG_FUNC(luat_lv_chart_refresh)},\
 
 // prefix lv_widgets lv_checkbox
 int luat_lv_checkbox_create(lua_State *L);
@@ -1256,16 +1256,16 @@ int luat_lv_checkbox_is_checked(lua_State *L);
 int luat_lv_checkbox_is_inactive(lua_State *L);
 int luat_lv_checkbox_get_state(lua_State *L);
 
-#define LUAT_LV_CHECKBOX_RLT     {"checkbox_create", luat_lv_checkbox_create, 0},\
-    {"checkbox_set_text", luat_lv_checkbox_set_text, 0},\
-    {"checkbox_set_text_static", luat_lv_checkbox_set_text_static, 0},\
-    {"checkbox_set_checked", luat_lv_checkbox_set_checked, 0},\
-    {"checkbox_set_disabled", luat_lv_checkbox_set_disabled, 0},\
-    {"checkbox_set_state", luat_lv_checkbox_set_state, 0},\
-    {"checkbox_get_text", luat_lv_checkbox_get_text, 0},\
-    {"checkbox_is_checked", luat_lv_checkbox_is_checked, 0},\
-    {"checkbox_is_inactive", luat_lv_checkbox_is_inactive, 0},\
-    {"checkbox_get_state", luat_lv_checkbox_get_state, 0},\
+#define LUAT_LV_CHECKBOX_RLT     {"checkbox_create", ROREG_FUNC(luat_lv_checkbox_create)},\
+    {"checkbox_set_text", ROREG_FUNC(luat_lv_checkbox_set_text)},\
+    {"checkbox_set_text_static", ROREG_FUNC(luat_lv_checkbox_set_text_static)},\
+    {"checkbox_set_checked", ROREG_FUNC(luat_lv_checkbox_set_checked)},\
+    {"checkbox_set_disabled", ROREG_FUNC(luat_lv_checkbox_set_disabled)},\
+    {"checkbox_set_state", ROREG_FUNC(luat_lv_checkbox_set_state)},\
+    {"checkbox_get_text", ROREG_FUNC(luat_lv_checkbox_get_text)},\
+    {"checkbox_is_checked", ROREG_FUNC(luat_lv_checkbox_is_checked)},\
+    {"checkbox_is_inactive", ROREG_FUNC(luat_lv_checkbox_is_inactive)},\
+    {"checkbox_get_state", ROREG_FUNC(luat_lv_checkbox_get_state)},\
 
 // prefix lv_widgets lv_cont
 int luat_lv_cont_create(lua_State *L);
@@ -1279,16 +1279,16 @@ int luat_lv_cont_get_fit_right(lua_State *L);
 int luat_lv_cont_get_fit_top(lua_State *L);
 int luat_lv_cont_get_fit_bottom(lua_State *L);
 
-#define LUAT_LV_CONT_RLT     {"cont_create", luat_lv_cont_create, 0},\
-    {"cont_set_layout", luat_lv_cont_set_layout, 0},\
-    {"cont_set_fit4", luat_lv_cont_set_fit4, 0},\
-    {"cont_set_fit2", luat_lv_cont_set_fit2, 0},\
-    {"cont_set_fit", luat_lv_cont_set_fit, 0},\
-    {"cont_get_layout", luat_lv_cont_get_layout, 0},\
-    {"cont_get_fit_left", luat_lv_cont_get_fit_left, 0},\
-    {"cont_get_fit_right", luat_lv_cont_get_fit_right, 0},\
-    {"cont_get_fit_top", luat_lv_cont_get_fit_top, 0},\
-    {"cont_get_fit_bottom", luat_lv_cont_get_fit_bottom, 0},\
+#define LUAT_LV_CONT_RLT     {"cont_create", ROREG_FUNC(luat_lv_cont_create)},\
+    {"cont_set_layout", ROREG_FUNC(luat_lv_cont_set_layout)},\
+    {"cont_set_fit4", ROREG_FUNC(luat_lv_cont_set_fit4)},\
+    {"cont_set_fit2", ROREG_FUNC(luat_lv_cont_set_fit2)},\
+    {"cont_set_fit", ROREG_FUNC(luat_lv_cont_set_fit)},\
+    {"cont_get_layout", ROREG_FUNC(luat_lv_cont_get_layout)},\
+    {"cont_get_fit_left", ROREG_FUNC(luat_lv_cont_get_fit_left)},\
+    {"cont_get_fit_right", ROREG_FUNC(luat_lv_cont_get_fit_right)},\
+    {"cont_get_fit_top", ROREG_FUNC(luat_lv_cont_get_fit_top)},\
+    {"cont_get_fit_bottom", ROREG_FUNC(luat_lv_cont_get_fit_bottom)},\
 
 // prefix lv_widgets lv_cpicker
 int luat_lv_cpicker_create(lua_State *L);
@@ -1310,24 +1310,24 @@ int luat_lv_cpicker_get_hsv(lua_State *L);
 int luat_lv_cpicker_get_color(lua_State *L);
 int luat_lv_cpicker_get_knob_colored(lua_State *L);
 
-#define LUAT_LV_CPICKER_RLT     {"cpicker_create", luat_lv_cpicker_create, 0},\
-    {"cpicker_set_type", luat_lv_cpicker_set_type, 0},\
-    {"cpicker_set_hue", luat_lv_cpicker_set_hue, 0},\
-    {"cpicker_set_saturation", luat_lv_cpicker_set_saturation, 0},\
-    {"cpicker_set_value", luat_lv_cpicker_set_value, 0},\
-    {"cpicker_set_hsv", luat_lv_cpicker_set_hsv, 0},\
-    {"cpicker_set_color", luat_lv_cpicker_set_color, 0},\
-    {"cpicker_set_color_mode", luat_lv_cpicker_set_color_mode, 0},\
-    {"cpicker_set_color_mode_fixed", luat_lv_cpicker_set_color_mode_fixed, 0},\
-    {"cpicker_set_knob_colored", luat_lv_cpicker_set_knob_colored, 0},\
-    {"cpicker_get_color_mode", luat_lv_cpicker_get_color_mode, 0},\
-    {"cpicker_get_color_mode_fixed", luat_lv_cpicker_get_color_mode_fixed, 0},\
-    {"cpicker_get_hue", luat_lv_cpicker_get_hue, 0},\
-    {"cpicker_get_saturation", luat_lv_cpicker_get_saturation, 0},\
-    {"cpicker_get_value", luat_lv_cpicker_get_value, 0},\
-    {"cpicker_get_hsv", luat_lv_cpicker_get_hsv, 0},\
-    {"cpicker_get_color", luat_lv_cpicker_get_color, 0},\
-    {"cpicker_get_knob_colored", luat_lv_cpicker_get_knob_colored, 0},\
+#define LUAT_LV_CPICKER_RLT     {"cpicker_create", ROREG_FUNC(luat_lv_cpicker_create)},\
+    {"cpicker_set_type", ROREG_FUNC(luat_lv_cpicker_set_type)},\
+    {"cpicker_set_hue", ROREG_FUNC(luat_lv_cpicker_set_hue)},\
+    {"cpicker_set_saturation", ROREG_FUNC(luat_lv_cpicker_set_saturation)},\
+    {"cpicker_set_value", ROREG_FUNC(luat_lv_cpicker_set_value)},\
+    {"cpicker_set_hsv", ROREG_FUNC(luat_lv_cpicker_set_hsv)},\
+    {"cpicker_set_color", ROREG_FUNC(luat_lv_cpicker_set_color)},\
+    {"cpicker_set_color_mode", ROREG_FUNC(luat_lv_cpicker_set_color_mode)},\
+    {"cpicker_set_color_mode_fixed", ROREG_FUNC(luat_lv_cpicker_set_color_mode_fixed)},\
+    {"cpicker_set_knob_colored", ROREG_FUNC(luat_lv_cpicker_set_knob_colored)},\
+    {"cpicker_get_color_mode", ROREG_FUNC(luat_lv_cpicker_get_color_mode)},\
+    {"cpicker_get_color_mode_fixed", ROREG_FUNC(luat_lv_cpicker_get_color_mode_fixed)},\
+    {"cpicker_get_hue", ROREG_FUNC(luat_lv_cpicker_get_hue)},\
+    {"cpicker_get_saturation", ROREG_FUNC(luat_lv_cpicker_get_saturation)},\
+    {"cpicker_get_value", ROREG_FUNC(luat_lv_cpicker_get_value)},\
+    {"cpicker_get_hsv", ROREG_FUNC(luat_lv_cpicker_get_hsv)},\
+    {"cpicker_get_color", ROREG_FUNC(luat_lv_cpicker_get_color)},\
+    {"cpicker_get_knob_colored", ROREG_FUNC(luat_lv_cpicker_get_knob_colored)},\
 
 // prefix lv_widgets lv_dropdown
 int luat_lv_dropdown_create(lua_State *L);
@@ -1351,26 +1351,26 @@ int luat_lv_dropdown_get_show_selected(lua_State *L);
 int luat_lv_dropdown_open(lua_State *L);
 int luat_lv_dropdown_close(lua_State *L);
 
-#define LUAT_LV_DROPDOWN_RLT     {"dropdown_create", luat_lv_dropdown_create, 0},\
-    {"dropdown_set_text", luat_lv_dropdown_set_text, 0},\
-    {"dropdown_clear_options", luat_lv_dropdown_clear_options, 0},\
-    {"dropdown_set_options", luat_lv_dropdown_set_options, 0},\
-    {"dropdown_set_options_static", luat_lv_dropdown_set_options_static, 0},\
-    {"dropdown_add_option", luat_lv_dropdown_add_option, 0},\
-    {"dropdown_set_selected", luat_lv_dropdown_set_selected, 0},\
-    {"dropdown_set_dir", luat_lv_dropdown_set_dir, 0},\
-    {"dropdown_set_max_height", luat_lv_dropdown_set_max_height, 0},\
-    {"dropdown_set_show_selected", luat_lv_dropdown_set_show_selected, 0},\
-    {"dropdown_get_text", luat_lv_dropdown_get_text, 0},\
-    {"dropdown_get_options", luat_lv_dropdown_get_options, 0},\
-    {"dropdown_get_selected", luat_lv_dropdown_get_selected, 0},\
-    {"dropdown_get_option_cnt", luat_lv_dropdown_get_option_cnt, 0},\
-    {"dropdown_get_max_height", luat_lv_dropdown_get_max_height, 0},\
-    {"dropdown_get_symbol", luat_lv_dropdown_get_symbol, 0},\
-    {"dropdown_get_dir", luat_lv_dropdown_get_dir, 0},\
-    {"dropdown_get_show_selected", luat_lv_dropdown_get_show_selected, 0},\
-    {"dropdown_open", luat_lv_dropdown_open, 0},\
-    {"dropdown_close", luat_lv_dropdown_close, 0},\
+#define LUAT_LV_DROPDOWN_RLT     {"dropdown_create", ROREG_FUNC(luat_lv_dropdown_create)},\
+    {"dropdown_set_text", ROREG_FUNC(luat_lv_dropdown_set_text)},\
+    {"dropdown_clear_options", ROREG_FUNC(luat_lv_dropdown_clear_options)},\
+    {"dropdown_set_options", ROREG_FUNC(luat_lv_dropdown_set_options)},\
+    {"dropdown_set_options_static", ROREG_FUNC(luat_lv_dropdown_set_options_static)},\
+    {"dropdown_add_option", ROREG_FUNC(luat_lv_dropdown_add_option)},\
+    {"dropdown_set_selected", ROREG_FUNC(luat_lv_dropdown_set_selected)},\
+    {"dropdown_set_dir", ROREG_FUNC(luat_lv_dropdown_set_dir)},\
+    {"dropdown_set_max_height", ROREG_FUNC(luat_lv_dropdown_set_max_height)},\
+    {"dropdown_set_show_selected", ROREG_FUNC(luat_lv_dropdown_set_show_selected)},\
+    {"dropdown_get_text", ROREG_FUNC(luat_lv_dropdown_get_text)},\
+    {"dropdown_get_options", ROREG_FUNC(luat_lv_dropdown_get_options)},\
+    {"dropdown_get_selected", ROREG_FUNC(luat_lv_dropdown_get_selected)},\
+    {"dropdown_get_option_cnt", ROREG_FUNC(luat_lv_dropdown_get_option_cnt)},\
+    {"dropdown_get_max_height", ROREG_FUNC(luat_lv_dropdown_get_max_height)},\
+    {"dropdown_get_symbol", ROREG_FUNC(luat_lv_dropdown_get_symbol)},\
+    {"dropdown_get_dir", ROREG_FUNC(luat_lv_dropdown_get_dir)},\
+    {"dropdown_get_show_selected", ROREG_FUNC(luat_lv_dropdown_get_show_selected)},\
+    {"dropdown_open", ROREG_FUNC(luat_lv_dropdown_open)},\
+    {"dropdown_close", ROREG_FUNC(luat_lv_dropdown_close)},\
 
 // prefix lv_widgets lv_gauge
 int luat_lv_gauge_create(lua_State *L);
@@ -1393,25 +1393,25 @@ int luat_lv_gauge_get_needle_img(lua_State *L);
 int luat_lv_gauge_get_needle_img_pivot_x(lua_State *L);
 int luat_lv_gauge_get_needle_img_pivot_y(lua_State *L);
 
-#define LUAT_LV_GAUGE_RLT     {"gauge_create", luat_lv_gauge_create, 0},\
-    {"gauge_set_value", luat_lv_gauge_set_value, 0},\
-    {"gauge_set_range", luat_lv_gauge_set_range, 0},\
-    {"gauge_set_critical_value", luat_lv_gauge_set_critical_value, 0},\
-    {"gauge_set_scale", luat_lv_gauge_set_scale, 0},\
-    {"gauge_set_angle_offset", luat_lv_gauge_set_angle_offset, 0},\
-    {"gauge_set_needle_img", luat_lv_gauge_set_needle_img, 0},\
-    {"gauge_get_value", luat_lv_gauge_get_value, 0},\
-    {"gauge_get_needle_count", luat_lv_gauge_get_needle_count, 0},\
-    {"gauge_get_min_value", luat_lv_gauge_get_min_value, 0},\
-    {"gauge_get_max_value", luat_lv_gauge_get_max_value, 0},\
-    {"gauge_get_critical_value", luat_lv_gauge_get_critical_value, 0},\
-    {"gauge_get_label_count", luat_lv_gauge_get_label_count, 0},\
-    {"gauge_get_line_count", luat_lv_gauge_get_line_count, 0},\
-    {"gauge_get_scale_angle", luat_lv_gauge_get_scale_angle, 0},\
-    {"gauge_get_angle_offset", luat_lv_gauge_get_angle_offset, 0},\
-    {"gauge_get_needle_img", luat_lv_gauge_get_needle_img, 0},\
-    {"gauge_get_needle_img_pivot_x", luat_lv_gauge_get_needle_img_pivot_x, 0},\
-    {"gauge_get_needle_img_pivot_y", luat_lv_gauge_get_needle_img_pivot_y, 0},\
+#define LUAT_LV_GAUGE_RLT     {"gauge_create", ROREG_FUNC(luat_lv_gauge_create)},\
+    {"gauge_set_value", ROREG_FUNC(luat_lv_gauge_set_value)},\
+    {"gauge_set_range", ROREG_FUNC(luat_lv_gauge_set_range)},\
+    {"gauge_set_critical_value", ROREG_FUNC(luat_lv_gauge_set_critical_value)},\
+    {"gauge_set_scale", ROREG_FUNC(luat_lv_gauge_set_scale)},\
+    {"gauge_set_angle_offset", ROREG_FUNC(luat_lv_gauge_set_angle_offset)},\
+    {"gauge_set_needle_img", ROREG_FUNC(luat_lv_gauge_set_needle_img)},\
+    {"gauge_get_value", ROREG_FUNC(luat_lv_gauge_get_value)},\
+    {"gauge_get_needle_count", ROREG_FUNC(luat_lv_gauge_get_needle_count)},\
+    {"gauge_get_min_value", ROREG_FUNC(luat_lv_gauge_get_min_value)},\
+    {"gauge_get_max_value", ROREG_FUNC(luat_lv_gauge_get_max_value)},\
+    {"gauge_get_critical_value", ROREG_FUNC(luat_lv_gauge_get_critical_value)},\
+    {"gauge_get_label_count", ROREG_FUNC(luat_lv_gauge_get_label_count)},\
+    {"gauge_get_line_count", ROREG_FUNC(luat_lv_gauge_get_line_count)},\
+    {"gauge_get_scale_angle", ROREG_FUNC(luat_lv_gauge_get_scale_angle)},\
+    {"gauge_get_angle_offset", ROREG_FUNC(luat_lv_gauge_get_angle_offset)},\
+    {"gauge_get_needle_img", ROREG_FUNC(luat_lv_gauge_get_needle_img)},\
+    {"gauge_get_needle_img_pivot_x", ROREG_FUNC(luat_lv_gauge_get_needle_img_pivot_x)},\
+    {"gauge_get_needle_img_pivot_y", ROREG_FUNC(luat_lv_gauge_get_needle_img_pivot_y)},\
 
 // prefix lv_widgets lv_img
 int luat_lv_img_buf_alloc(lua_State *L);
@@ -1454,45 +1454,45 @@ int luat_lv_img_get_pivot(lua_State *L);
 int luat_lv_img_get_zoom(lua_State *L);
 int luat_lv_img_get_antialias(lua_State *L);
 
-#define LUAT_LV_IMG_RLT     {"img_buf_alloc", luat_lv_img_buf_alloc, 0},\
-    {"img_buf_get_px_color", luat_lv_img_buf_get_px_color, 0},\
-    {"img_buf_get_px_alpha", luat_lv_img_buf_get_px_alpha, 0},\
-    {"img_buf_set_px_color", luat_lv_img_buf_set_px_color, 0},\
-    {"img_buf_set_px_alpha", luat_lv_img_buf_set_px_alpha, 0},\
-    {"img_buf_set_palette", luat_lv_img_buf_set_palette, 0},\
-    {"img_buf_free", luat_lv_img_buf_free, 0},\
-    {"img_buf_get_img_size", luat_lv_img_buf_get_img_size, 0},\
-    {"img_decoder_get_info", luat_lv_img_decoder_get_info, 0},\
-    {"img_decoder_open", luat_lv_img_decoder_open, 0},\
-    {"img_decoder_read_line", luat_lv_img_decoder_read_line, 0},\
-    {"img_decoder_close", luat_lv_img_decoder_close, 0},\
-    {"img_decoder_create", luat_lv_img_decoder_create, 0},\
-    {"img_decoder_delete", luat_lv_img_decoder_delete, 0},\
-    {"img_decoder_built_in_info", luat_lv_img_decoder_built_in_info, 0},\
-    {"img_decoder_built_in_open", luat_lv_img_decoder_built_in_open, 0},\
-    {"img_decoder_built_in_read_line", luat_lv_img_decoder_built_in_read_line, 0},\
-    {"img_decoder_built_in_close", luat_lv_img_decoder_built_in_close, 0},\
-    {"img_src_get_type", luat_lv_img_src_get_type, 0},\
-    {"img_cf_get_px_size", luat_lv_img_cf_get_px_size, 0},\
-    {"img_cf_is_chroma_keyed", luat_lv_img_cf_is_chroma_keyed, 0},\
-    {"img_cf_has_alpha", luat_lv_img_cf_has_alpha, 0},\
-    {"img_create", luat_lv_img_create, 0},\
-    {"img_set_auto_size", luat_lv_img_set_auto_size, 0},\
-    {"img_set_offset_x", luat_lv_img_set_offset_x, 0},\
-    {"img_set_offset_y", luat_lv_img_set_offset_y, 0},\
-    {"img_set_pivot", luat_lv_img_set_pivot, 0},\
-    {"img_set_angle", luat_lv_img_set_angle, 0},\
-    {"img_set_zoom", luat_lv_img_set_zoom, 0},\
-    {"img_set_antialias", luat_lv_img_set_antialias, 0},\
-    {"img_get_src", luat_lv_img_get_src, 0},\
-    {"img_get_file_name", luat_lv_img_get_file_name, 0},\
-    {"img_get_auto_size", luat_lv_img_get_auto_size, 0},\
-    {"img_get_offset_x", luat_lv_img_get_offset_x, 0},\
-    {"img_get_offset_y", luat_lv_img_get_offset_y, 0},\
-    {"img_get_angle", luat_lv_img_get_angle, 0},\
-    {"img_get_pivot", luat_lv_img_get_pivot, 0},\
-    {"img_get_zoom", luat_lv_img_get_zoom, 0},\
-    {"img_get_antialias", luat_lv_img_get_antialias, 0},\
+#define LUAT_LV_IMG_RLT     {"img_buf_alloc", ROREG_FUNC(luat_lv_img_buf_alloc)},\
+    {"img_buf_get_px_color", ROREG_FUNC(luat_lv_img_buf_get_px_color)},\
+    {"img_buf_get_px_alpha", ROREG_FUNC(luat_lv_img_buf_get_px_alpha)},\
+    {"img_buf_set_px_color", ROREG_FUNC(luat_lv_img_buf_set_px_color)},\
+    {"img_buf_set_px_alpha", ROREG_FUNC(luat_lv_img_buf_set_px_alpha)},\
+    {"img_buf_set_palette", ROREG_FUNC(luat_lv_img_buf_set_palette)},\
+    {"img_buf_free", ROREG_FUNC(luat_lv_img_buf_free)},\
+    {"img_buf_get_img_size", ROREG_FUNC(luat_lv_img_buf_get_img_size)},\
+    {"img_decoder_get_info", ROREG_FUNC(luat_lv_img_decoder_get_info)},\
+    {"img_decoder_open", ROREG_FUNC(luat_lv_img_decoder_open)},\
+    {"img_decoder_read_line", ROREG_FUNC(luat_lv_img_decoder_read_line)},\
+    {"img_decoder_close", ROREG_FUNC(luat_lv_img_decoder_close)},\
+    {"img_decoder_create", ROREG_FUNC(luat_lv_img_decoder_create)},\
+    {"img_decoder_delete", ROREG_FUNC(luat_lv_img_decoder_delete)},\
+    {"img_decoder_built_in_info", ROREG_FUNC(luat_lv_img_decoder_built_in_info)},\
+    {"img_decoder_built_in_open", ROREG_FUNC(luat_lv_img_decoder_built_in_open)},\
+    {"img_decoder_built_in_read_line", ROREG_FUNC(luat_lv_img_decoder_built_in_read_line)},\
+    {"img_decoder_built_in_close", ROREG_FUNC(luat_lv_img_decoder_built_in_close)},\
+    {"img_src_get_type", ROREG_FUNC(luat_lv_img_src_get_type)},\
+    {"img_cf_get_px_size", ROREG_FUNC(luat_lv_img_cf_get_px_size)},\
+    {"img_cf_is_chroma_keyed", ROREG_FUNC(luat_lv_img_cf_is_chroma_keyed)},\
+    {"img_cf_has_alpha", ROREG_FUNC(luat_lv_img_cf_has_alpha)},\
+    {"img_create", ROREG_FUNC(luat_lv_img_create)},\
+    {"img_set_auto_size", ROREG_FUNC(luat_lv_img_set_auto_size)},\
+    {"img_set_offset_x", ROREG_FUNC(luat_lv_img_set_offset_x)},\
+    {"img_set_offset_y", ROREG_FUNC(luat_lv_img_set_offset_y)},\
+    {"img_set_pivot", ROREG_FUNC(luat_lv_img_set_pivot)},\
+    {"img_set_angle", ROREG_FUNC(luat_lv_img_set_angle)},\
+    {"img_set_zoom", ROREG_FUNC(luat_lv_img_set_zoom)},\
+    {"img_set_antialias", ROREG_FUNC(luat_lv_img_set_antialias)},\
+    {"img_get_src", ROREG_FUNC(luat_lv_img_get_src)},\
+    {"img_get_file_name", ROREG_FUNC(luat_lv_img_get_file_name)},\
+    {"img_get_auto_size", ROREG_FUNC(luat_lv_img_get_auto_size)},\
+    {"img_get_offset_x", ROREG_FUNC(luat_lv_img_get_offset_x)},\
+    {"img_get_offset_y", ROREG_FUNC(luat_lv_img_get_offset_y)},\
+    {"img_get_angle", ROREG_FUNC(luat_lv_img_get_angle)},\
+    {"img_get_pivot", ROREG_FUNC(luat_lv_img_get_pivot)},\
+    {"img_get_zoom", ROREG_FUNC(luat_lv_img_get_zoom)},\
+    {"img_get_antialias", ROREG_FUNC(luat_lv_img_get_antialias)},\
 
 // prefix lv_widgets lv_imgbtn
 int luat_lv_imgbtn_create(lua_State *L);
@@ -1503,13 +1503,13 @@ int luat_lv_imgbtn_get_src(lua_State *L);
 int luat_lv_imgbtn_get_state(lua_State *L);
 int luat_lv_imgbtn_get_checkable(lua_State *L);
 
-#define LUAT_LV_IMGBTN_RLT     {"imgbtn_create", luat_lv_imgbtn_create, 0},\
-    {"imgbtn_set_state", luat_lv_imgbtn_set_state, 0},\
-    {"imgbtn_toggle", luat_lv_imgbtn_toggle, 0},\
-    {"imgbtn_set_checkable", luat_lv_imgbtn_set_checkable, 0},\
-    {"imgbtn_get_src", luat_lv_imgbtn_get_src, 0},\
-    {"imgbtn_get_state", luat_lv_imgbtn_get_state, 0},\
-    {"imgbtn_get_checkable", luat_lv_imgbtn_get_checkable, 0},\
+#define LUAT_LV_IMGBTN_RLT     {"imgbtn_create", ROREG_FUNC(luat_lv_imgbtn_create)},\
+    {"imgbtn_set_state", ROREG_FUNC(luat_lv_imgbtn_set_state)},\
+    {"imgbtn_toggle", ROREG_FUNC(luat_lv_imgbtn_toggle)},\
+    {"imgbtn_set_checkable", ROREG_FUNC(luat_lv_imgbtn_set_checkable)},\
+    {"imgbtn_get_src", ROREG_FUNC(luat_lv_imgbtn_get_src)},\
+    {"imgbtn_get_state", ROREG_FUNC(luat_lv_imgbtn_get_state)},\
+    {"imgbtn_get_checkable", ROREG_FUNC(luat_lv_imgbtn_get_checkable)},\
 
 // prefix lv_widgets lv_keyboard
 int luat_lv_keyboard_create(lua_State *L);
@@ -1520,13 +1520,13 @@ int luat_lv_keyboard_get_textarea(lua_State *L);
 int luat_lv_keyboard_get_mode(lua_State *L);
 int luat_lv_keyboard_get_cursor_manage(lua_State *L);
 
-#define LUAT_LV_KEYBOARD_RLT     {"keyboard_create", luat_lv_keyboard_create, 0},\
-    {"keyboard_set_textarea", luat_lv_keyboard_set_textarea, 0},\
-    {"keyboard_set_mode", luat_lv_keyboard_set_mode, 0},\
-    {"keyboard_set_cursor_manage", luat_lv_keyboard_set_cursor_manage, 0},\
-    {"keyboard_get_textarea", luat_lv_keyboard_get_textarea, 0},\
-    {"keyboard_get_mode", luat_lv_keyboard_get_mode, 0},\
-    {"keyboard_get_cursor_manage", luat_lv_keyboard_get_cursor_manage, 0},\
+#define LUAT_LV_KEYBOARD_RLT     {"keyboard_create", ROREG_FUNC(luat_lv_keyboard_create)},\
+    {"keyboard_set_textarea", ROREG_FUNC(luat_lv_keyboard_set_textarea)},\
+    {"keyboard_set_mode", ROREG_FUNC(luat_lv_keyboard_set_mode)},\
+    {"keyboard_set_cursor_manage", ROREG_FUNC(luat_lv_keyboard_set_cursor_manage)},\
+    {"keyboard_get_textarea", ROREG_FUNC(luat_lv_keyboard_get_textarea)},\
+    {"keyboard_get_mode", ROREG_FUNC(luat_lv_keyboard_get_mode)},\
+    {"keyboard_get_cursor_manage", ROREG_FUNC(luat_lv_keyboard_get_cursor_manage)},\
 
 // prefix lv_widgets lv_label
 int luat_lv_label_create(lua_State *L);
@@ -1553,29 +1553,29 @@ int luat_lv_label_ins_text(lua_State *L);
 int luat_lv_label_cut_text(lua_State *L);
 int luat_lv_label_refr_text(lua_State *L);
 
-#define LUAT_LV_LABEL_RLT     {"label_create", luat_lv_label_create, 0},\
-    {"label_set_text", luat_lv_label_set_text, 0},\
-    {"label_set_text_static", luat_lv_label_set_text_static, 0},\
-    {"label_set_long_mode", luat_lv_label_set_long_mode, 0},\
-    {"label_set_align", luat_lv_label_set_align, 0},\
-    {"label_set_recolor", luat_lv_label_set_recolor, 0},\
-    {"label_set_anim_speed", luat_lv_label_set_anim_speed, 0},\
-    {"label_set_text_sel_start", luat_lv_label_set_text_sel_start, 0},\
-    {"label_set_text_sel_end", luat_lv_label_set_text_sel_end, 0},\
-    {"label_get_text", luat_lv_label_get_text, 0},\
-    {"label_get_long_mode", luat_lv_label_get_long_mode, 0},\
-    {"label_get_align", luat_lv_label_get_align, 0},\
-    {"label_get_recolor", luat_lv_label_get_recolor, 0},\
-    {"label_get_anim_speed", luat_lv_label_get_anim_speed, 0},\
-    {"label_get_letter_pos", luat_lv_label_get_letter_pos, 0},\
-    {"label_get_letter_on", luat_lv_label_get_letter_on, 0},\
-    {"label_is_char_under_pos", luat_lv_label_is_char_under_pos, 0},\
-    {"label_get_text_sel_start", luat_lv_label_get_text_sel_start, 0},\
-    {"label_get_text_sel_end", luat_lv_label_get_text_sel_end, 0},\
-    {"label_get_style", luat_lv_label_get_style, 0},\
-    {"label_ins_text", luat_lv_label_ins_text, 0},\
-    {"label_cut_text", luat_lv_label_cut_text, 0},\
-    {"label_refr_text", luat_lv_label_refr_text, 0},\
+#define LUAT_LV_LABEL_RLT     {"label_create", ROREG_FUNC(luat_lv_label_create)},\
+    {"label_set_text", ROREG_FUNC(luat_lv_label_set_text)},\
+    {"label_set_text_static", ROREG_FUNC(luat_lv_label_set_text_static)},\
+    {"label_set_long_mode", ROREG_FUNC(luat_lv_label_set_long_mode)},\
+    {"label_set_align", ROREG_FUNC(luat_lv_label_set_align)},\
+    {"label_set_recolor", ROREG_FUNC(luat_lv_label_set_recolor)},\
+    {"label_set_anim_speed", ROREG_FUNC(luat_lv_label_set_anim_speed)},\
+    {"label_set_text_sel_start", ROREG_FUNC(luat_lv_label_set_text_sel_start)},\
+    {"label_set_text_sel_end", ROREG_FUNC(luat_lv_label_set_text_sel_end)},\
+    {"label_get_text", ROREG_FUNC(luat_lv_label_get_text)},\
+    {"label_get_long_mode", ROREG_FUNC(luat_lv_label_get_long_mode)},\
+    {"label_get_align", ROREG_FUNC(luat_lv_label_get_align)},\
+    {"label_get_recolor", ROREG_FUNC(luat_lv_label_get_recolor)},\
+    {"label_get_anim_speed", ROREG_FUNC(luat_lv_label_get_anim_speed)},\
+    {"label_get_letter_pos", ROREG_FUNC(luat_lv_label_get_letter_pos)},\
+    {"label_get_letter_on", ROREG_FUNC(luat_lv_label_get_letter_on)},\
+    {"label_is_char_under_pos", ROREG_FUNC(luat_lv_label_is_char_under_pos)},\
+    {"label_get_text_sel_start", ROREG_FUNC(luat_lv_label_get_text_sel_start)},\
+    {"label_get_text_sel_end", ROREG_FUNC(luat_lv_label_get_text_sel_end)},\
+    {"label_get_style", ROREG_FUNC(luat_lv_label_get_style)},\
+    {"label_ins_text", ROREG_FUNC(luat_lv_label_ins_text)},\
+    {"label_cut_text", ROREG_FUNC(luat_lv_label_cut_text)},\
+    {"label_refr_text", ROREG_FUNC(luat_lv_label_refr_text)},\
 
 // prefix lv_widgets lv_led
 int luat_lv_led_create(lua_State *L);
@@ -1585,12 +1585,12 @@ int luat_lv_led_off(lua_State *L);
 int luat_lv_led_toggle(lua_State *L);
 int luat_lv_led_get_bright(lua_State *L);
 
-#define LUAT_LV_LED_RLT     {"led_create", luat_lv_led_create, 0},\
-    {"led_set_bright", luat_lv_led_set_bright, 0},\
-    {"led_on", luat_lv_led_on, 0},\
-    {"led_off", luat_lv_led_off, 0},\
-    {"led_toggle", luat_lv_led_toggle, 0},\
-    {"led_get_bright", luat_lv_led_get_bright, 0},\
+#define LUAT_LV_LED_RLT     {"led_create", ROREG_FUNC(luat_lv_led_create)},\
+    {"led_set_bright", ROREG_FUNC(luat_lv_led_set_bright)},\
+    {"led_on", ROREG_FUNC(luat_lv_led_on)},\
+    {"led_off", ROREG_FUNC(luat_lv_led_off)},\
+    {"led_toggle", ROREG_FUNC(luat_lv_led_toggle)},\
+    {"led_get_bright", ROREG_FUNC(luat_lv_led_get_bright)},\
 
 // prefix lv_widgets lv_line
 int luat_lv_line_create(lua_State *L);
@@ -1599,11 +1599,11 @@ int luat_lv_line_set_y_invert(lua_State *L);
 int luat_lv_line_get_auto_size(lua_State *L);
 int luat_lv_line_get_y_invert(lua_State *L);
 
-#define LUAT_LV_LINE_RLT     {"line_create", luat_lv_line_create, 0},\
-    {"line_set_auto_size", luat_lv_line_set_auto_size, 0},\
-    {"line_set_y_invert", luat_lv_line_set_y_invert, 0},\
-    {"line_get_auto_size", luat_lv_line_get_auto_size, 0},\
-    {"line_get_y_invert", luat_lv_line_get_y_invert, 0},\
+#define LUAT_LV_LINE_RLT     {"line_create", ROREG_FUNC(luat_lv_line_create)},\
+    {"line_set_auto_size", ROREG_FUNC(luat_lv_line_set_auto_size)},\
+    {"line_set_y_invert", ROREG_FUNC(luat_lv_line_set_y_invert)},\
+    {"line_get_auto_size", ROREG_FUNC(luat_lv_line_get_auto_size)},\
+    {"line_get_y_invert", ROREG_FUNC(luat_lv_line_get_y_invert)},\
 
 // prefix lv_widgets lv_linemeter
 int luat_lv_linemeter_create(lua_State *L);
@@ -1621,20 +1621,20 @@ int luat_lv_linemeter_get_angle_offset(lua_State *L);
 int luat_lv_linemeter_draw_scale(lua_State *L);
 int luat_lv_linemeter_get_mirror(lua_State *L);
 
-#define LUAT_LV_LINEMETER_RLT     {"linemeter_create", luat_lv_linemeter_create, 0},\
-    {"linemeter_set_value", luat_lv_linemeter_set_value, 0},\
-    {"linemeter_set_range", luat_lv_linemeter_set_range, 0},\
-    {"linemeter_set_scale", luat_lv_linemeter_set_scale, 0},\
-    {"linemeter_set_angle_offset", luat_lv_linemeter_set_angle_offset, 0},\
-    {"linemeter_set_mirror", luat_lv_linemeter_set_mirror, 0},\
-    {"linemeter_get_value", luat_lv_linemeter_get_value, 0},\
-    {"linemeter_get_min_value", luat_lv_linemeter_get_min_value, 0},\
-    {"linemeter_get_max_value", luat_lv_linemeter_get_max_value, 0},\
-    {"linemeter_get_line_count", luat_lv_linemeter_get_line_count, 0},\
-    {"linemeter_get_scale_angle", luat_lv_linemeter_get_scale_angle, 0},\
-    {"linemeter_get_angle_offset", luat_lv_linemeter_get_angle_offset, 0},\
-    {"linemeter_draw_scale", luat_lv_linemeter_draw_scale, 0},\
-    {"linemeter_get_mirror", luat_lv_linemeter_get_mirror, 0},\
+#define LUAT_LV_LINEMETER_RLT     {"linemeter_create", ROREG_FUNC(luat_lv_linemeter_create)},\
+    {"linemeter_set_value", ROREG_FUNC(luat_lv_linemeter_set_value)},\
+    {"linemeter_set_range", ROREG_FUNC(luat_lv_linemeter_set_range)},\
+    {"linemeter_set_scale", ROREG_FUNC(luat_lv_linemeter_set_scale)},\
+    {"linemeter_set_angle_offset", ROREG_FUNC(luat_lv_linemeter_set_angle_offset)},\
+    {"linemeter_set_mirror", ROREG_FUNC(luat_lv_linemeter_set_mirror)},\
+    {"linemeter_get_value", ROREG_FUNC(luat_lv_linemeter_get_value)},\
+    {"linemeter_get_min_value", ROREG_FUNC(luat_lv_linemeter_get_min_value)},\
+    {"linemeter_get_max_value", ROREG_FUNC(luat_lv_linemeter_get_max_value)},\
+    {"linemeter_get_line_count", ROREG_FUNC(luat_lv_linemeter_get_line_count)},\
+    {"linemeter_get_scale_angle", ROREG_FUNC(luat_lv_linemeter_get_scale_angle)},\
+    {"linemeter_get_angle_offset", ROREG_FUNC(luat_lv_linemeter_get_angle_offset)},\
+    {"linemeter_draw_scale", ROREG_FUNC(luat_lv_linemeter_draw_scale)},\
+    {"linemeter_get_mirror", ROREG_FUNC(luat_lv_linemeter_get_mirror)},\
 
 // prefix lv_widgets lv_list
 int luat_lv_list_create(lua_State *L);
@@ -1664,32 +1664,32 @@ int luat_lv_list_up(lua_State *L);
 int luat_lv_list_down(lua_State *L);
 int luat_lv_list_focus(lua_State *L);
 
-#define LUAT_LV_LIST_RLT     {"list_create", luat_lv_list_create, 0},\
-    {"list_clean", luat_lv_list_clean, 0},\
-    {"list_add_btn", luat_lv_list_add_btn, 0},\
-    {"list_remove", luat_lv_list_remove, 0},\
-    {"list_focus_btn", luat_lv_list_focus_btn, 0},\
-    {"list_set_scrollbar_mode", luat_lv_list_set_scrollbar_mode, 0},\
-    {"list_set_scroll_propagation", luat_lv_list_set_scroll_propagation, 0},\
-    {"list_set_edge_flash", luat_lv_list_set_edge_flash, 0},\
-    {"list_set_anim_time", luat_lv_list_set_anim_time, 0},\
-    {"list_set_layout", luat_lv_list_set_layout, 0},\
-    {"list_get_btn_text", luat_lv_list_get_btn_text, 0},\
-    {"list_get_btn_label", luat_lv_list_get_btn_label, 0},\
-    {"list_get_btn_img", luat_lv_list_get_btn_img, 0},\
-    {"list_get_prev_btn", luat_lv_list_get_prev_btn, 0},\
-    {"list_get_next_btn", luat_lv_list_get_next_btn, 0},\
-    {"list_get_btn_index", luat_lv_list_get_btn_index, 0},\
-    {"list_get_size", luat_lv_list_get_size, 0},\
-    {"list_get_btn_selected", luat_lv_list_get_btn_selected, 0},\
-    {"list_get_layout", luat_lv_list_get_layout, 0},\
-    {"list_get_scrollbar_mode", luat_lv_list_get_scrollbar_mode, 0},\
-    {"list_get_scroll_propagation", luat_lv_list_get_scroll_propagation, 0},\
-    {"list_get_edge_flash", luat_lv_list_get_edge_flash, 0},\
-    {"list_get_anim_time", luat_lv_list_get_anim_time, 0},\
-    {"list_up", luat_lv_list_up, 0},\
-    {"list_down", luat_lv_list_down, 0},\
-    {"list_focus", luat_lv_list_focus, 0},\
+#define LUAT_LV_LIST_RLT     {"list_create", ROREG_FUNC(luat_lv_list_create)},\
+    {"list_clean", ROREG_FUNC(luat_lv_list_clean)},\
+    {"list_add_btn", ROREG_FUNC(luat_lv_list_add_btn)},\
+    {"list_remove", ROREG_FUNC(luat_lv_list_remove)},\
+    {"list_focus_btn", ROREG_FUNC(luat_lv_list_focus_btn)},\
+    {"list_set_scrollbar_mode", ROREG_FUNC(luat_lv_list_set_scrollbar_mode)},\
+    {"list_set_scroll_propagation", ROREG_FUNC(luat_lv_list_set_scroll_propagation)},\
+    {"list_set_edge_flash", ROREG_FUNC(luat_lv_list_set_edge_flash)},\
+    {"list_set_anim_time", ROREG_FUNC(luat_lv_list_set_anim_time)},\
+    {"list_set_layout", ROREG_FUNC(luat_lv_list_set_layout)},\
+    {"list_get_btn_text", ROREG_FUNC(luat_lv_list_get_btn_text)},\
+    {"list_get_btn_label", ROREG_FUNC(luat_lv_list_get_btn_label)},\
+    {"list_get_btn_img", ROREG_FUNC(luat_lv_list_get_btn_img)},\
+    {"list_get_prev_btn", ROREG_FUNC(luat_lv_list_get_prev_btn)},\
+    {"list_get_next_btn", ROREG_FUNC(luat_lv_list_get_next_btn)},\
+    {"list_get_btn_index", ROREG_FUNC(luat_lv_list_get_btn_index)},\
+    {"list_get_size", ROREG_FUNC(luat_lv_list_get_size)},\
+    {"list_get_btn_selected", ROREG_FUNC(luat_lv_list_get_btn_selected)},\
+    {"list_get_layout", ROREG_FUNC(luat_lv_list_get_layout)},\
+    {"list_get_scrollbar_mode", ROREG_FUNC(luat_lv_list_get_scrollbar_mode)},\
+    {"list_get_scroll_propagation", ROREG_FUNC(luat_lv_list_get_scroll_propagation)},\
+    {"list_get_edge_flash", ROREG_FUNC(luat_lv_list_get_edge_flash)},\
+    {"list_get_anim_time", ROREG_FUNC(luat_lv_list_get_anim_time)},\
+    {"list_up", ROREG_FUNC(luat_lv_list_up)},\
+    {"list_down", ROREG_FUNC(luat_lv_list_down)},\
+    {"list_focus", ROREG_FUNC(luat_lv_list_focus)},\
 
 // prefix lv_widgets lv_msgbox
 int luat_lv_msgbox_create(lua_State *L);
@@ -1705,18 +1705,18 @@ int luat_lv_msgbox_get_anim_time(lua_State *L);
 int luat_lv_msgbox_get_recolor(lua_State *L);
 int luat_lv_msgbox_get_btnmatrix(lua_State *L);
 
-#define LUAT_LV_MSGBOX_RLT     {"msgbox_create", luat_lv_msgbox_create, 0},\
-    {"msgbox_set_text", luat_lv_msgbox_set_text, 0},\
-    {"msgbox_set_anim_time", luat_lv_msgbox_set_anim_time, 0},\
-    {"msgbox_start_auto_close", luat_lv_msgbox_start_auto_close, 0},\
-    {"msgbox_stop_auto_close", luat_lv_msgbox_stop_auto_close, 0},\
-    {"msgbox_set_recolor", luat_lv_msgbox_set_recolor, 0},\
-    {"msgbox_get_text", luat_lv_msgbox_get_text, 0},\
-    {"msgbox_get_active_btn", luat_lv_msgbox_get_active_btn, 0},\
-    {"msgbox_get_active_btn_text", luat_lv_msgbox_get_active_btn_text, 0},\
-    {"msgbox_get_anim_time", luat_lv_msgbox_get_anim_time, 0},\
-    {"msgbox_get_recolor", luat_lv_msgbox_get_recolor, 0},\
-    {"msgbox_get_btnmatrix", luat_lv_msgbox_get_btnmatrix, 0},\
+#define LUAT_LV_MSGBOX_RLT     {"msgbox_create", ROREG_FUNC(luat_lv_msgbox_create)},\
+    {"msgbox_set_text", ROREG_FUNC(luat_lv_msgbox_set_text)},\
+    {"msgbox_set_anim_time", ROREG_FUNC(luat_lv_msgbox_set_anim_time)},\
+    {"msgbox_start_auto_close", ROREG_FUNC(luat_lv_msgbox_start_auto_close)},\
+    {"msgbox_stop_auto_close", ROREG_FUNC(luat_lv_msgbox_stop_auto_close)},\
+    {"msgbox_set_recolor", ROREG_FUNC(luat_lv_msgbox_set_recolor)},\
+    {"msgbox_get_text", ROREG_FUNC(luat_lv_msgbox_get_text)},\
+    {"msgbox_get_active_btn", ROREG_FUNC(luat_lv_msgbox_get_active_btn)},\
+    {"msgbox_get_active_btn_text", ROREG_FUNC(luat_lv_msgbox_get_active_btn_text)},\
+    {"msgbox_get_anim_time", ROREG_FUNC(luat_lv_msgbox_get_anim_time)},\
+    {"msgbox_get_recolor", ROREG_FUNC(luat_lv_msgbox_get_recolor)},\
+    {"msgbox_get_btnmatrix", ROREG_FUNC(luat_lv_msgbox_get_btnmatrix)},\
 
 // prefix lv_widgets lv_objmask
 int luat_lv_objmask_create(lua_State *L);
@@ -1724,10 +1724,10 @@ int luat_lv_objmask_add_mask(lua_State *L);
 int luat_lv_objmask_update_mask(lua_State *L);
 int luat_lv_objmask_remove_mask(lua_State *L);
 
-#define LUAT_LV_OBJMASK_RLT     {"objmask_create", luat_lv_objmask_create, 0},\
-    {"objmask_add_mask", luat_lv_objmask_add_mask, 0},\
-    {"objmask_update_mask", luat_lv_objmask_update_mask, 0},\
-    {"objmask_remove_mask", luat_lv_objmask_remove_mask, 0},\
+#define LUAT_LV_OBJMASK_RLT     {"objmask_create", ROREG_FUNC(luat_lv_objmask_create)},\
+    {"objmask_add_mask", ROREG_FUNC(luat_lv_objmask_add_mask)},\
+    {"objmask_update_mask", ROREG_FUNC(luat_lv_objmask_update_mask)},\
+    {"objmask_remove_mask", ROREG_FUNC(luat_lv_objmask_remove_mask)},\
 
 // prefix lv_widgets lv_page
 int luat_lv_page_create(lua_State *L);
@@ -1765,40 +1765,40 @@ int luat_lv_page_scroll_hor(lua_State *L);
 int luat_lv_page_scroll_ver(lua_State *L);
 int luat_lv_page_start_edge_flash(lua_State *L);
 
-#define LUAT_LV_PAGE_RLT     {"page_create", luat_lv_page_create, 0},\
-    {"page_clean", luat_lv_page_clean, 0},\
-    {"page_get_scrollable", luat_lv_page_get_scrollable, 0},\
-    {"page_get_anim_time", luat_lv_page_get_anim_time, 0},\
-    {"page_set_scrollbar_mode", luat_lv_page_set_scrollbar_mode, 0},\
-    {"page_set_anim_time", luat_lv_page_set_anim_time, 0},\
-    {"page_set_scroll_propagation", luat_lv_page_set_scroll_propagation, 0},\
-    {"page_set_edge_flash", luat_lv_page_set_edge_flash, 0},\
-    {"page_set_scrollable_fit4", luat_lv_page_set_scrollable_fit4, 0},\
-    {"page_set_scrollable_fit2", luat_lv_page_set_scrollable_fit2, 0},\
-    {"page_set_scrollable_fit", luat_lv_page_set_scrollable_fit, 0},\
-    {"page_set_scrl_width", luat_lv_page_set_scrl_width, 0},\
-    {"page_set_scrl_height", luat_lv_page_set_scrl_height, 0},\
-    {"page_set_scrl_layout", luat_lv_page_set_scrl_layout, 0},\
-    {"page_get_scrollbar_mode", luat_lv_page_get_scrollbar_mode, 0},\
-    {"page_get_scroll_propagation", luat_lv_page_get_scroll_propagation, 0},\
-    {"page_get_edge_flash", luat_lv_page_get_edge_flash, 0},\
-    {"page_get_width_fit", luat_lv_page_get_width_fit, 0},\
-    {"page_get_height_fit", luat_lv_page_get_height_fit, 0},\
-    {"page_get_width_grid", luat_lv_page_get_width_grid, 0},\
-    {"page_get_height_grid", luat_lv_page_get_height_grid, 0},\
-    {"page_get_scrl_width", luat_lv_page_get_scrl_width, 0},\
-    {"page_get_scrl_height", luat_lv_page_get_scrl_height, 0},\
-    {"page_get_scrl_layout", luat_lv_page_get_scrl_layout, 0},\
-    {"page_get_scrl_fit_left", luat_lv_page_get_scrl_fit_left, 0},\
-    {"page_get_scrl_fit_right", luat_lv_page_get_scrl_fit_right, 0},\
-    {"page_get_scrl_fit_top", luat_lv_page_get_scrl_fit_top, 0},\
-    {"page_get_scrl_fit_bottom", luat_lv_page_get_scrl_fit_bottom, 0},\
-    {"page_on_edge", luat_lv_page_on_edge, 0},\
-    {"page_glue_obj", luat_lv_page_glue_obj, 0},\
-    {"page_focus", luat_lv_page_focus, 0},\
-    {"page_scroll_hor", luat_lv_page_scroll_hor, 0},\
-    {"page_scroll_ver", luat_lv_page_scroll_ver, 0},\
-    {"page_start_edge_flash", luat_lv_page_start_edge_flash, 0},\
+#define LUAT_LV_PAGE_RLT     {"page_create", ROREG_FUNC(luat_lv_page_create)},\
+    {"page_clean", ROREG_FUNC(luat_lv_page_clean)},\
+    {"page_get_scrollable", ROREG_FUNC(luat_lv_page_get_scrollable)},\
+    {"page_get_anim_time", ROREG_FUNC(luat_lv_page_get_anim_time)},\
+    {"page_set_scrollbar_mode", ROREG_FUNC(luat_lv_page_set_scrollbar_mode)},\
+    {"page_set_anim_time", ROREG_FUNC(luat_lv_page_set_anim_time)},\
+    {"page_set_scroll_propagation", ROREG_FUNC(luat_lv_page_set_scroll_propagation)},\
+    {"page_set_edge_flash", ROREG_FUNC(luat_lv_page_set_edge_flash)},\
+    {"page_set_scrollable_fit4", ROREG_FUNC(luat_lv_page_set_scrollable_fit4)},\
+    {"page_set_scrollable_fit2", ROREG_FUNC(luat_lv_page_set_scrollable_fit2)},\
+    {"page_set_scrollable_fit", ROREG_FUNC(luat_lv_page_set_scrollable_fit)},\
+    {"page_set_scrl_width", ROREG_FUNC(luat_lv_page_set_scrl_width)},\
+    {"page_set_scrl_height", ROREG_FUNC(luat_lv_page_set_scrl_height)},\
+    {"page_set_scrl_layout", ROREG_FUNC(luat_lv_page_set_scrl_layout)},\
+    {"page_get_scrollbar_mode", ROREG_FUNC(luat_lv_page_get_scrollbar_mode)},\
+    {"page_get_scroll_propagation", ROREG_FUNC(luat_lv_page_get_scroll_propagation)},\
+    {"page_get_edge_flash", ROREG_FUNC(luat_lv_page_get_edge_flash)},\
+    {"page_get_width_fit", ROREG_FUNC(luat_lv_page_get_width_fit)},\
+    {"page_get_height_fit", ROREG_FUNC(luat_lv_page_get_height_fit)},\
+    {"page_get_width_grid", ROREG_FUNC(luat_lv_page_get_width_grid)},\
+    {"page_get_height_grid", ROREG_FUNC(luat_lv_page_get_height_grid)},\
+    {"page_get_scrl_width", ROREG_FUNC(luat_lv_page_get_scrl_width)},\
+    {"page_get_scrl_height", ROREG_FUNC(luat_lv_page_get_scrl_height)},\
+    {"page_get_scrl_layout", ROREG_FUNC(luat_lv_page_get_scrl_layout)},\
+    {"page_get_scrl_fit_left", ROREG_FUNC(luat_lv_page_get_scrl_fit_left)},\
+    {"page_get_scrl_fit_right", ROREG_FUNC(luat_lv_page_get_scrl_fit_right)},\
+    {"page_get_scrl_fit_top", ROREG_FUNC(luat_lv_page_get_scrl_fit_top)},\
+    {"page_get_scrl_fit_bottom", ROREG_FUNC(luat_lv_page_get_scrl_fit_bottom)},\
+    {"page_on_edge", ROREG_FUNC(luat_lv_page_on_edge)},\
+    {"page_glue_obj", ROREG_FUNC(luat_lv_page_glue_obj)},\
+    {"page_focus", ROREG_FUNC(luat_lv_page_focus)},\
+    {"page_scroll_hor", ROREG_FUNC(luat_lv_page_scroll_hor)},\
+    {"page_scroll_ver", ROREG_FUNC(luat_lv_page_scroll_ver)},\
+    {"page_start_edge_flash", ROREG_FUNC(luat_lv_page_start_edge_flash)},\
 
 // prefix lv_widgets lv_roller
 int luat_lv_roller_create(lua_State *L);
@@ -1815,19 +1815,19 @@ int luat_lv_roller_get_auto_fit(lua_State *L);
 int luat_lv_roller_get_options(lua_State *L);
 int luat_lv_roller_get_anim_time(lua_State *L);
 
-#define LUAT_LV_ROLLER_RLT     {"roller_create", luat_lv_roller_create, 0},\
-    {"roller_set_options", luat_lv_roller_set_options, 0},\
-    {"roller_set_align", luat_lv_roller_set_align, 0},\
-    {"roller_set_selected", luat_lv_roller_set_selected, 0},\
-    {"roller_set_visible_row_count", luat_lv_roller_set_visible_row_count, 0},\
-    {"roller_set_auto_fit", luat_lv_roller_set_auto_fit, 0},\
-    {"roller_set_anim_time", luat_lv_roller_set_anim_time, 0},\
-    {"roller_get_selected", luat_lv_roller_get_selected, 0},\
-    {"roller_get_option_cnt", luat_lv_roller_get_option_cnt, 0},\
-    {"roller_get_align", luat_lv_roller_get_align, 0},\
-    {"roller_get_auto_fit", luat_lv_roller_get_auto_fit, 0},\
-    {"roller_get_options", luat_lv_roller_get_options, 0},\
-    {"roller_get_anim_time", luat_lv_roller_get_anim_time, 0},\
+#define LUAT_LV_ROLLER_RLT     {"roller_create", ROREG_FUNC(luat_lv_roller_create)},\
+    {"roller_set_options", ROREG_FUNC(luat_lv_roller_set_options)},\
+    {"roller_set_align", ROREG_FUNC(luat_lv_roller_set_align)},\
+    {"roller_set_selected", ROREG_FUNC(luat_lv_roller_set_selected)},\
+    {"roller_set_visible_row_count", ROREG_FUNC(luat_lv_roller_set_visible_row_count)},\
+    {"roller_set_auto_fit", ROREG_FUNC(luat_lv_roller_set_auto_fit)},\
+    {"roller_set_anim_time", ROREG_FUNC(luat_lv_roller_set_anim_time)},\
+    {"roller_get_selected", ROREG_FUNC(luat_lv_roller_get_selected)},\
+    {"roller_get_option_cnt", ROREG_FUNC(luat_lv_roller_get_option_cnt)},\
+    {"roller_get_align", ROREG_FUNC(luat_lv_roller_get_align)},\
+    {"roller_get_auto_fit", ROREG_FUNC(luat_lv_roller_get_auto_fit)},\
+    {"roller_get_options", ROREG_FUNC(luat_lv_roller_get_options)},\
+    {"roller_get_anim_time", ROREG_FUNC(luat_lv_roller_get_anim_time)},\
 
 // prefix lv_widgets lv_slider
 int luat_lv_slider_create(lua_State *L);
@@ -1844,19 +1844,19 @@ int luat_lv_slider_is_dragged(lua_State *L);
 int luat_lv_slider_get_anim_time(lua_State *L);
 int luat_lv_slider_get_type(lua_State *L);
 
-#define LUAT_LV_SLIDER_RLT     {"slider_create", luat_lv_slider_create, 0},\
-    {"slider_set_value", luat_lv_slider_set_value, 0},\
-    {"slider_set_left_value", luat_lv_slider_set_left_value, 0},\
-    {"slider_set_range", luat_lv_slider_set_range, 0},\
-    {"slider_set_anim_time", luat_lv_slider_set_anim_time, 0},\
-    {"slider_set_type", luat_lv_slider_set_type, 0},\
-    {"slider_get_value", luat_lv_slider_get_value, 0},\
-    {"slider_get_left_value", luat_lv_slider_get_left_value, 0},\
-    {"slider_get_min_value", luat_lv_slider_get_min_value, 0},\
-    {"slider_get_max_value", luat_lv_slider_get_max_value, 0},\
-    {"slider_is_dragged", luat_lv_slider_is_dragged, 0},\
-    {"slider_get_anim_time", luat_lv_slider_get_anim_time, 0},\
-    {"slider_get_type", luat_lv_slider_get_type, 0},\
+#define LUAT_LV_SLIDER_RLT     {"slider_create", ROREG_FUNC(luat_lv_slider_create)},\
+    {"slider_set_value", ROREG_FUNC(luat_lv_slider_set_value)},\
+    {"slider_set_left_value", ROREG_FUNC(luat_lv_slider_set_left_value)},\
+    {"slider_set_range", ROREG_FUNC(luat_lv_slider_set_range)},\
+    {"slider_set_anim_time", ROREG_FUNC(luat_lv_slider_set_anim_time)},\
+    {"slider_set_type", ROREG_FUNC(luat_lv_slider_set_type)},\
+    {"slider_get_value", ROREG_FUNC(luat_lv_slider_get_value)},\
+    {"slider_get_left_value", ROREG_FUNC(luat_lv_slider_get_left_value)},\
+    {"slider_get_min_value", ROREG_FUNC(luat_lv_slider_get_min_value)},\
+    {"slider_get_max_value", ROREG_FUNC(luat_lv_slider_get_max_value)},\
+    {"slider_is_dragged", ROREG_FUNC(luat_lv_slider_is_dragged)},\
+    {"slider_get_anim_time", ROREG_FUNC(luat_lv_slider_get_anim_time)},\
+    {"slider_get_type", ROREG_FUNC(luat_lv_slider_get_type)},\
 
 // prefix lv_widgets lv_spinbox
 int luat_lv_spinbox_create(lua_State *L);
@@ -1874,20 +1874,20 @@ int luat_lv_spinbox_step_prev(lua_State *L);
 int luat_lv_spinbox_increment(lua_State *L);
 int luat_lv_spinbox_decrement(lua_State *L);
 
-#define LUAT_LV_SPINBOX_RLT     {"spinbox_create", luat_lv_spinbox_create, 0},\
-    {"spinbox_set_rollover", luat_lv_spinbox_set_rollover, 0},\
-    {"spinbox_set_value", luat_lv_spinbox_set_value, 0},\
-    {"spinbox_set_digit_format", luat_lv_spinbox_set_digit_format, 0},\
-    {"spinbox_set_step", luat_lv_spinbox_set_step, 0},\
-    {"spinbox_set_range", luat_lv_spinbox_set_range, 0},\
-    {"spinbox_set_padding_left", luat_lv_spinbox_set_padding_left, 0},\
-    {"spinbox_get_rollover", luat_lv_spinbox_get_rollover, 0},\
-    {"spinbox_get_value", luat_lv_spinbox_get_value, 0},\
-    {"spinbox_get_step", luat_lv_spinbox_get_step, 0},\
-    {"spinbox_step_next", luat_lv_spinbox_step_next, 0},\
-    {"spinbox_step_prev", luat_lv_spinbox_step_prev, 0},\
-    {"spinbox_increment", luat_lv_spinbox_increment, 0},\
-    {"spinbox_decrement", luat_lv_spinbox_decrement, 0},\
+#define LUAT_LV_SPINBOX_RLT     {"spinbox_create", ROREG_FUNC(luat_lv_spinbox_create)},\
+    {"spinbox_set_rollover", ROREG_FUNC(luat_lv_spinbox_set_rollover)},\
+    {"spinbox_set_value", ROREG_FUNC(luat_lv_spinbox_set_value)},\
+    {"spinbox_set_digit_format", ROREG_FUNC(luat_lv_spinbox_set_digit_format)},\
+    {"spinbox_set_step", ROREG_FUNC(luat_lv_spinbox_set_step)},\
+    {"spinbox_set_range", ROREG_FUNC(luat_lv_spinbox_set_range)},\
+    {"spinbox_set_padding_left", ROREG_FUNC(luat_lv_spinbox_set_padding_left)},\
+    {"spinbox_get_rollover", ROREG_FUNC(luat_lv_spinbox_get_rollover)},\
+    {"spinbox_get_value", ROREG_FUNC(luat_lv_spinbox_get_value)},\
+    {"spinbox_get_step", ROREG_FUNC(luat_lv_spinbox_get_step)},\
+    {"spinbox_step_next", ROREG_FUNC(luat_lv_spinbox_step_next)},\
+    {"spinbox_step_prev", ROREG_FUNC(luat_lv_spinbox_step_prev)},\
+    {"spinbox_increment", ROREG_FUNC(luat_lv_spinbox_increment)},\
+    {"spinbox_decrement", ROREG_FUNC(luat_lv_spinbox_decrement)},\
 
 // prefix lv_widgets lv_spinner
 int luat_lv_spinner_create(lua_State *L);
@@ -1900,15 +1900,15 @@ int luat_lv_spinner_get_spin_time(lua_State *L);
 int luat_lv_spinner_get_type(lua_State *L);
 int luat_lv_spinner_get_dir(lua_State *L);
 
-#define LUAT_LV_SPINNER_RLT     {"spinner_create", luat_lv_spinner_create, 0},\
-    {"spinner_set_arc_length", luat_lv_spinner_set_arc_length, 0},\
-    {"spinner_set_spin_time", luat_lv_spinner_set_spin_time, 0},\
-    {"spinner_set_type", luat_lv_spinner_set_type, 0},\
-    {"spinner_set_dir", luat_lv_spinner_set_dir, 0},\
-    {"spinner_get_arc_length", luat_lv_spinner_get_arc_length, 0},\
-    {"spinner_get_spin_time", luat_lv_spinner_get_spin_time, 0},\
-    {"spinner_get_type", luat_lv_spinner_get_type, 0},\
-    {"spinner_get_dir", luat_lv_spinner_get_dir, 0},\
+#define LUAT_LV_SPINNER_RLT     {"spinner_create", ROREG_FUNC(luat_lv_spinner_create)},\
+    {"spinner_set_arc_length", ROREG_FUNC(luat_lv_spinner_set_arc_length)},\
+    {"spinner_set_spin_time", ROREG_FUNC(luat_lv_spinner_set_spin_time)},\
+    {"spinner_set_type", ROREG_FUNC(luat_lv_spinner_set_type)},\
+    {"spinner_set_dir", ROREG_FUNC(luat_lv_spinner_set_dir)},\
+    {"spinner_get_arc_length", ROREG_FUNC(luat_lv_spinner_get_arc_length)},\
+    {"spinner_get_spin_time", ROREG_FUNC(luat_lv_spinner_get_spin_time)},\
+    {"spinner_get_type", ROREG_FUNC(luat_lv_spinner_get_type)},\
+    {"spinner_get_dir", ROREG_FUNC(luat_lv_spinner_get_dir)},\
 
 // prefix lv_widgets lv_switch
 int luat_lv_switch_create(lua_State *L);
@@ -1919,13 +1919,13 @@ int luat_lv_switch_set_anim_time(lua_State *L);
 int luat_lv_switch_get_state(lua_State *L);
 int luat_lv_switch_get_anim_time(lua_State *L);
 
-#define LUAT_LV_SWITCH_RLT     {"switch_create", luat_lv_switch_create, 0},\
-    {"switch_on", luat_lv_switch_on, 0},\
-    {"switch_off", luat_lv_switch_off, 0},\
-    {"switch_toggle", luat_lv_switch_toggle, 0},\
-    {"switch_set_anim_time", luat_lv_switch_set_anim_time, 0},\
-    {"switch_get_state", luat_lv_switch_get_state, 0},\
-    {"switch_get_anim_time", luat_lv_switch_get_anim_time, 0},\
+#define LUAT_LV_SWITCH_RLT     {"switch_create", ROREG_FUNC(luat_lv_switch_create)},\
+    {"switch_on", ROREG_FUNC(luat_lv_switch_on)},\
+    {"switch_off", ROREG_FUNC(luat_lv_switch_off)},\
+    {"switch_toggle", ROREG_FUNC(luat_lv_switch_toggle)},\
+    {"switch_set_anim_time", ROREG_FUNC(luat_lv_switch_set_anim_time)},\
+    {"switch_get_state", ROREG_FUNC(luat_lv_switch_get_state)},\
+    {"switch_get_anim_time", ROREG_FUNC(luat_lv_switch_get_anim_time)},\
 
 // prefix lv_widgets lv_table
 int luat_lv_table_create(lua_State *L);
@@ -1947,24 +1947,24 @@ int luat_lv_table_get_cell_crop(lua_State *L);
 int luat_lv_table_get_cell_merge_right(lua_State *L);
 int luat_lv_table_get_pressed_cell(lua_State *L);
 
-#define LUAT_LV_TABLE_RLT     {"table_create", luat_lv_table_create, 0},\
-    {"table_set_cell_value", luat_lv_table_set_cell_value, 0},\
-    {"table_set_row_cnt", luat_lv_table_set_row_cnt, 0},\
-    {"table_set_col_cnt", luat_lv_table_set_col_cnt, 0},\
-    {"table_set_col_width", luat_lv_table_set_col_width, 0},\
-    {"table_set_cell_align", luat_lv_table_set_cell_align, 0},\
-    {"table_set_cell_type", luat_lv_table_set_cell_type, 0},\
-    {"table_set_cell_crop", luat_lv_table_set_cell_crop, 0},\
-    {"table_set_cell_merge_right", luat_lv_table_set_cell_merge_right, 0},\
-    {"table_get_cell_value", luat_lv_table_get_cell_value, 0},\
-    {"table_get_row_cnt", luat_lv_table_get_row_cnt, 0},\
-    {"table_get_col_cnt", luat_lv_table_get_col_cnt, 0},\
-    {"table_get_col_width", luat_lv_table_get_col_width, 0},\
-    {"table_get_cell_align", luat_lv_table_get_cell_align, 0},\
-    {"table_get_cell_type", luat_lv_table_get_cell_type, 0},\
-    {"table_get_cell_crop", luat_lv_table_get_cell_crop, 0},\
-    {"table_get_cell_merge_right", luat_lv_table_get_cell_merge_right, 0},\
-    {"table_get_pressed_cell", luat_lv_table_get_pressed_cell, 0},\
+#define LUAT_LV_TABLE_RLT     {"table_create", ROREG_FUNC(luat_lv_table_create)},\
+    {"table_set_cell_value", ROREG_FUNC(luat_lv_table_set_cell_value)},\
+    {"table_set_row_cnt", ROREG_FUNC(luat_lv_table_set_row_cnt)},\
+    {"table_set_col_cnt", ROREG_FUNC(luat_lv_table_set_col_cnt)},\
+    {"table_set_col_width", ROREG_FUNC(luat_lv_table_set_col_width)},\
+    {"table_set_cell_align", ROREG_FUNC(luat_lv_table_set_cell_align)},\
+    {"table_set_cell_type", ROREG_FUNC(luat_lv_table_set_cell_type)},\
+    {"table_set_cell_crop", ROREG_FUNC(luat_lv_table_set_cell_crop)},\
+    {"table_set_cell_merge_right", ROREG_FUNC(luat_lv_table_set_cell_merge_right)},\
+    {"table_get_cell_value", ROREG_FUNC(luat_lv_table_get_cell_value)},\
+    {"table_get_row_cnt", ROREG_FUNC(luat_lv_table_get_row_cnt)},\
+    {"table_get_col_cnt", ROREG_FUNC(luat_lv_table_get_col_cnt)},\
+    {"table_get_col_width", ROREG_FUNC(luat_lv_table_get_col_width)},\
+    {"table_get_cell_align", ROREG_FUNC(luat_lv_table_get_cell_align)},\
+    {"table_get_cell_type", ROREG_FUNC(luat_lv_table_get_cell_type)},\
+    {"table_get_cell_crop", ROREG_FUNC(luat_lv_table_get_cell_crop)},\
+    {"table_get_cell_merge_right", ROREG_FUNC(luat_lv_table_get_cell_merge_right)},\
+    {"table_get_pressed_cell", ROREG_FUNC(luat_lv_table_get_pressed_cell)},\
 
 // prefix lv_widgets lv_tabview
 int luat_lv_tabview_create(lua_State *L);
@@ -1980,18 +1980,18 @@ int luat_lv_tabview_get_tab(lua_State *L);
 int luat_lv_tabview_get_anim_time(lua_State *L);
 int luat_lv_tabview_get_btns_pos(lua_State *L);
 
-#define LUAT_LV_TABVIEW_RLT     {"tabview_create", luat_lv_tabview_create, 0},\
-    {"tabview_add_tab", luat_lv_tabview_add_tab, 0},\
-    {"tabview_clean_tab", luat_lv_tabview_clean_tab, 0},\
-    {"tabview_set_tab_act", luat_lv_tabview_set_tab_act, 0},\
-    {"tabview_set_tab_name", luat_lv_tabview_set_tab_name, 0},\
-    {"tabview_set_anim_time", luat_lv_tabview_set_anim_time, 0},\
-    {"tabview_set_btns_pos", luat_lv_tabview_set_btns_pos, 0},\
-    {"tabview_get_tab_act", luat_lv_tabview_get_tab_act, 0},\
-    {"tabview_get_tab_count", luat_lv_tabview_get_tab_count, 0},\
-    {"tabview_get_tab", luat_lv_tabview_get_tab, 0},\
-    {"tabview_get_anim_time", luat_lv_tabview_get_anim_time, 0},\
-    {"tabview_get_btns_pos", luat_lv_tabview_get_btns_pos, 0},\
+#define LUAT_LV_TABVIEW_RLT     {"tabview_create", ROREG_FUNC(luat_lv_tabview_create)},\
+    {"tabview_add_tab", ROREG_FUNC(luat_lv_tabview_add_tab)},\
+    {"tabview_clean_tab", ROREG_FUNC(luat_lv_tabview_clean_tab)},\
+    {"tabview_set_tab_act", ROREG_FUNC(luat_lv_tabview_set_tab_act)},\
+    {"tabview_set_tab_name", ROREG_FUNC(luat_lv_tabview_set_tab_name)},\
+    {"tabview_set_anim_time", ROREG_FUNC(luat_lv_tabview_set_anim_time)},\
+    {"tabview_set_btns_pos", ROREG_FUNC(luat_lv_tabview_set_btns_pos)},\
+    {"tabview_get_tab_act", ROREG_FUNC(luat_lv_tabview_get_tab_act)},\
+    {"tabview_get_tab_count", ROREG_FUNC(luat_lv_tabview_get_tab_count)},\
+    {"tabview_get_tab", ROREG_FUNC(luat_lv_tabview_get_tab)},\
+    {"tabview_get_anim_time", ROREG_FUNC(luat_lv_tabview_get_anim_time)},\
+    {"tabview_get_btns_pos", ROREG_FUNC(luat_lv_tabview_get_btns_pos)},\
 
 // prefix lv_widgets lv_textarea
 int luat_lv_textarea_create(lua_State *L);
@@ -2039,50 +2039,50 @@ int luat_lv_textarea_cursor_left(lua_State *L);
 int luat_lv_textarea_cursor_down(lua_State *L);
 int luat_lv_textarea_cursor_up(lua_State *L);
 
-#define LUAT_LV_TEXTAREA_RLT     {"textarea_create", luat_lv_textarea_create, 0},\
-    {"textarea_add_char", luat_lv_textarea_add_char, 0},\
-    {"textarea_add_text", luat_lv_textarea_add_text, 0},\
-    {"textarea_del_char", luat_lv_textarea_del_char, 0},\
-    {"textarea_del_char_forward", luat_lv_textarea_del_char_forward, 0},\
-    {"textarea_set_text", luat_lv_textarea_set_text, 0},\
-    {"textarea_set_placeholder_text", luat_lv_textarea_set_placeholder_text, 0},\
-    {"textarea_set_cursor_pos", luat_lv_textarea_set_cursor_pos, 0},\
-    {"textarea_set_cursor_hidden", luat_lv_textarea_set_cursor_hidden, 0},\
-    {"textarea_set_cursor_click_pos", luat_lv_textarea_set_cursor_click_pos, 0},\
-    {"textarea_set_pwd_mode", luat_lv_textarea_set_pwd_mode, 0},\
-    {"textarea_set_one_line", luat_lv_textarea_set_one_line, 0},\
-    {"textarea_set_text_align", luat_lv_textarea_set_text_align, 0},\
-    {"textarea_set_accepted_chars", luat_lv_textarea_set_accepted_chars, 0},\
-    {"textarea_set_max_length", luat_lv_textarea_set_max_length, 0},\
-    {"textarea_set_insert_replace", luat_lv_textarea_set_insert_replace, 0},\
-    {"textarea_set_scrollbar_mode", luat_lv_textarea_set_scrollbar_mode, 0},\
-    {"textarea_set_scroll_propagation", luat_lv_textarea_set_scroll_propagation, 0},\
-    {"textarea_set_edge_flash", luat_lv_textarea_set_edge_flash, 0},\
-    {"textarea_set_text_sel", luat_lv_textarea_set_text_sel, 0},\
-    {"textarea_set_pwd_show_time", luat_lv_textarea_set_pwd_show_time, 0},\
-    {"textarea_set_cursor_blink_time", luat_lv_textarea_set_cursor_blink_time, 0},\
-    {"textarea_get_text", luat_lv_textarea_get_text, 0},\
-    {"textarea_get_placeholder_text", luat_lv_textarea_get_placeholder_text, 0},\
-    {"textarea_get_label", luat_lv_textarea_get_label, 0},\
-    {"textarea_get_cursor_pos", luat_lv_textarea_get_cursor_pos, 0},\
-    {"textarea_get_cursor_hidden", luat_lv_textarea_get_cursor_hidden, 0},\
-    {"textarea_get_cursor_click_pos", luat_lv_textarea_get_cursor_click_pos, 0},\
-    {"textarea_get_pwd_mode", luat_lv_textarea_get_pwd_mode, 0},\
-    {"textarea_get_one_line", luat_lv_textarea_get_one_line, 0},\
-    {"textarea_get_accepted_chars", luat_lv_textarea_get_accepted_chars, 0},\
-    {"textarea_get_max_length", luat_lv_textarea_get_max_length, 0},\
-    {"textarea_get_scrollbar_mode", luat_lv_textarea_get_scrollbar_mode, 0},\
-    {"textarea_get_scroll_propagation", luat_lv_textarea_get_scroll_propagation, 0},\
-    {"textarea_get_edge_flash", luat_lv_textarea_get_edge_flash, 0},\
-    {"textarea_text_is_selected", luat_lv_textarea_text_is_selected, 0},\
-    {"textarea_get_text_sel_en", luat_lv_textarea_get_text_sel_en, 0},\
-    {"textarea_get_pwd_show_time", luat_lv_textarea_get_pwd_show_time, 0},\
-    {"textarea_get_cursor_blink_time", luat_lv_textarea_get_cursor_blink_time, 0},\
-    {"textarea_clear_selection", luat_lv_textarea_clear_selection, 0},\
-    {"textarea_cursor_right", luat_lv_textarea_cursor_right, 0},\
-    {"textarea_cursor_left", luat_lv_textarea_cursor_left, 0},\
-    {"textarea_cursor_down", luat_lv_textarea_cursor_down, 0},\
-    {"textarea_cursor_up", luat_lv_textarea_cursor_up, 0},\
+#define LUAT_LV_TEXTAREA_RLT     {"textarea_create", ROREG_FUNC(luat_lv_textarea_create)},\
+    {"textarea_add_char", ROREG_FUNC(luat_lv_textarea_add_char)},\
+    {"textarea_add_text", ROREG_FUNC(luat_lv_textarea_add_text)},\
+    {"textarea_del_char", ROREG_FUNC(luat_lv_textarea_del_char)},\
+    {"textarea_del_char_forward", ROREG_FUNC(luat_lv_textarea_del_char_forward)},\
+    {"textarea_set_text", ROREG_FUNC(luat_lv_textarea_set_text)},\
+    {"textarea_set_placeholder_text", ROREG_FUNC(luat_lv_textarea_set_placeholder_text)},\
+    {"textarea_set_cursor_pos", ROREG_FUNC(luat_lv_textarea_set_cursor_pos)},\
+    {"textarea_set_cursor_hidden", ROREG_FUNC(luat_lv_textarea_set_cursor_hidden)},\
+    {"textarea_set_cursor_click_pos", ROREG_FUNC(luat_lv_textarea_set_cursor_click_pos)},\
+    {"textarea_set_pwd_mode", ROREG_FUNC(luat_lv_textarea_set_pwd_mode)},\
+    {"textarea_set_one_line", ROREG_FUNC(luat_lv_textarea_set_one_line)},\
+    {"textarea_set_text_align", ROREG_FUNC(luat_lv_textarea_set_text_align)},\
+    {"textarea_set_accepted_chars", ROREG_FUNC(luat_lv_textarea_set_accepted_chars)},\
+    {"textarea_set_max_length", ROREG_FUNC(luat_lv_textarea_set_max_length)},\
+    {"textarea_set_insert_replace", ROREG_FUNC(luat_lv_textarea_set_insert_replace)},\
+    {"textarea_set_scrollbar_mode", ROREG_FUNC(luat_lv_textarea_set_scrollbar_mode)},\
+    {"textarea_set_scroll_propagation", ROREG_FUNC(luat_lv_textarea_set_scroll_propagation)},\
+    {"textarea_set_edge_flash", ROREG_FUNC(luat_lv_textarea_set_edge_flash)},\
+    {"textarea_set_text_sel", ROREG_FUNC(luat_lv_textarea_set_text_sel)},\
+    {"textarea_set_pwd_show_time", ROREG_FUNC(luat_lv_textarea_set_pwd_show_time)},\
+    {"textarea_set_cursor_blink_time", ROREG_FUNC(luat_lv_textarea_set_cursor_blink_time)},\
+    {"textarea_get_text", ROREG_FUNC(luat_lv_textarea_get_text)},\
+    {"textarea_get_placeholder_text", ROREG_FUNC(luat_lv_textarea_get_placeholder_text)},\
+    {"textarea_get_label", ROREG_FUNC(luat_lv_textarea_get_label)},\
+    {"textarea_get_cursor_pos", ROREG_FUNC(luat_lv_textarea_get_cursor_pos)},\
+    {"textarea_get_cursor_hidden", ROREG_FUNC(luat_lv_textarea_get_cursor_hidden)},\
+    {"textarea_get_cursor_click_pos", ROREG_FUNC(luat_lv_textarea_get_cursor_click_pos)},\
+    {"textarea_get_pwd_mode", ROREG_FUNC(luat_lv_textarea_get_pwd_mode)},\
+    {"textarea_get_one_line", ROREG_FUNC(luat_lv_textarea_get_one_line)},\
+    {"textarea_get_accepted_chars", ROREG_FUNC(luat_lv_textarea_get_accepted_chars)},\
+    {"textarea_get_max_length", ROREG_FUNC(luat_lv_textarea_get_max_length)},\
+    {"textarea_get_scrollbar_mode", ROREG_FUNC(luat_lv_textarea_get_scrollbar_mode)},\
+    {"textarea_get_scroll_propagation", ROREG_FUNC(luat_lv_textarea_get_scroll_propagation)},\
+    {"textarea_get_edge_flash", ROREG_FUNC(luat_lv_textarea_get_edge_flash)},\
+    {"textarea_text_is_selected", ROREG_FUNC(luat_lv_textarea_text_is_selected)},\
+    {"textarea_get_text_sel_en", ROREG_FUNC(luat_lv_textarea_get_text_sel_en)},\
+    {"textarea_get_pwd_show_time", ROREG_FUNC(luat_lv_textarea_get_pwd_show_time)},\
+    {"textarea_get_cursor_blink_time", ROREG_FUNC(luat_lv_textarea_get_cursor_blink_time)},\
+    {"textarea_clear_selection", ROREG_FUNC(luat_lv_textarea_clear_selection)},\
+    {"textarea_cursor_right", ROREG_FUNC(luat_lv_textarea_cursor_right)},\
+    {"textarea_cursor_left", ROREG_FUNC(luat_lv_textarea_cursor_left)},\
+    {"textarea_cursor_down", ROREG_FUNC(luat_lv_textarea_cursor_down)},\
+    {"textarea_cursor_up", ROREG_FUNC(luat_lv_textarea_cursor_up)},\
 
 // prefix lv_widgets lv_tileview
 int luat_lv_tileview_create(lua_State *L);
@@ -2094,14 +2094,14 @@ int luat_lv_tileview_get_tile_act(lua_State *L);
 int luat_lv_tileview_get_edge_flash(lua_State *L);
 int luat_lv_tileview_get_anim_time(lua_State *L);
 
-#define LUAT_LV_TILEVIEW_RLT     {"tileview_create", luat_lv_tileview_create, 0},\
-    {"tileview_add_element", luat_lv_tileview_add_element, 0},\
-    {"tileview_set_tile_act", luat_lv_tileview_set_tile_act, 0},\
-    {"tileview_set_edge_flash", luat_lv_tileview_set_edge_flash, 0},\
-    {"tileview_set_anim_time", luat_lv_tileview_set_anim_time, 0},\
-    {"tileview_get_tile_act", luat_lv_tileview_get_tile_act, 0},\
-    {"tileview_get_edge_flash", luat_lv_tileview_get_edge_flash, 0},\
-    {"tileview_get_anim_time", luat_lv_tileview_get_anim_time, 0},\
+#define LUAT_LV_TILEVIEW_RLT     {"tileview_create", ROREG_FUNC(luat_lv_tileview_create)},\
+    {"tileview_add_element", ROREG_FUNC(luat_lv_tileview_add_element)},\
+    {"tileview_set_tile_act", ROREG_FUNC(luat_lv_tileview_set_tile_act)},\
+    {"tileview_set_edge_flash", ROREG_FUNC(luat_lv_tileview_set_edge_flash)},\
+    {"tileview_set_anim_time", ROREG_FUNC(luat_lv_tileview_set_anim_time)},\
+    {"tileview_get_tile_act", ROREG_FUNC(luat_lv_tileview_get_tile_act)},\
+    {"tileview_get_edge_flash", ROREG_FUNC(luat_lv_tileview_get_edge_flash)},\
+    {"tileview_get_anim_time", ROREG_FUNC(luat_lv_tileview_get_anim_time)},\
 
 // prefix lv_widgets lv_win
 int luat_lv_win_create(lua_State *L);
@@ -2132,32 +2132,32 @@ int luat_lv_win_focus(lua_State *L);
 int luat_lv_win_scroll_hor(lua_State *L);
 int luat_lv_win_scroll_ver(lua_State *L);
 
-#define LUAT_LV_WIN_RLT     {"win_create", luat_lv_win_create, 0},\
-    {"win_clean", luat_lv_win_clean, 0},\
-    {"win_add_btn_right", luat_lv_win_add_btn_right, 0},\
-    {"win_add_btn_left", luat_lv_win_add_btn_left, 0},\
-    {"win_set_title", luat_lv_win_set_title, 0},\
-    {"win_set_header_height", luat_lv_win_set_header_height, 0},\
-    {"win_set_btn_width", luat_lv_win_set_btn_width, 0},\
-    {"win_set_content_size", luat_lv_win_set_content_size, 0},\
-    {"win_set_layout", luat_lv_win_set_layout, 0},\
-    {"win_set_scrollbar_mode", luat_lv_win_set_scrollbar_mode, 0},\
-    {"win_set_anim_time", luat_lv_win_set_anim_time, 0},\
-    {"win_set_drag", luat_lv_win_set_drag, 0},\
-    {"win_title_set_alignment", luat_lv_win_title_set_alignment, 0},\
-    {"win_get_title", luat_lv_win_get_title, 0},\
-    {"win_get_content", luat_lv_win_get_content, 0},\
-    {"win_get_header_height", luat_lv_win_get_header_height, 0},\
-    {"win_get_btn_width", luat_lv_win_get_btn_width, 0},\
-    {"win_get_from_btn", luat_lv_win_get_from_btn, 0},\
-    {"win_get_layout", luat_lv_win_get_layout, 0},\
-    {"win_get_sb_mode", luat_lv_win_get_sb_mode, 0},\
-    {"win_get_anim_time", luat_lv_win_get_anim_time, 0},\
-    {"win_get_width", luat_lv_win_get_width, 0},\
-    {"win_get_drag", luat_lv_win_get_drag, 0},\
-    {"win_title_get_alignment", luat_lv_win_title_get_alignment, 0},\
-    {"win_focus", luat_lv_win_focus, 0},\
-    {"win_scroll_hor", luat_lv_win_scroll_hor, 0},\
-    {"win_scroll_ver", luat_lv_win_scroll_ver, 0},\
+#define LUAT_LV_WIN_RLT     {"win_create", ROREG_FUNC(luat_lv_win_create)},\
+    {"win_clean", ROREG_FUNC(luat_lv_win_clean)},\
+    {"win_add_btn_right", ROREG_FUNC(luat_lv_win_add_btn_right)},\
+    {"win_add_btn_left", ROREG_FUNC(luat_lv_win_add_btn_left)},\
+    {"win_set_title", ROREG_FUNC(luat_lv_win_set_title)},\
+    {"win_set_header_height", ROREG_FUNC(luat_lv_win_set_header_height)},\
+    {"win_set_btn_width", ROREG_FUNC(luat_lv_win_set_btn_width)},\
+    {"win_set_content_size", ROREG_FUNC(luat_lv_win_set_content_size)},\
+    {"win_set_layout", ROREG_FUNC(luat_lv_win_set_layout)},\
+    {"win_set_scrollbar_mode", ROREG_FUNC(luat_lv_win_set_scrollbar_mode)},\
+    {"win_set_anim_time", ROREG_FUNC(luat_lv_win_set_anim_time)},\
+    {"win_set_drag", ROREG_FUNC(luat_lv_win_set_drag)},\
+    {"win_title_set_alignment", ROREG_FUNC(luat_lv_win_title_set_alignment)},\
+    {"win_get_title", ROREG_FUNC(luat_lv_win_get_title)},\
+    {"win_get_content", ROREG_FUNC(luat_lv_win_get_content)},\
+    {"win_get_header_height", ROREG_FUNC(luat_lv_win_get_header_height)},\
+    {"win_get_btn_width", ROREG_FUNC(luat_lv_win_get_btn_width)},\
+    {"win_get_from_btn", ROREG_FUNC(luat_lv_win_get_from_btn)},\
+    {"win_get_layout", ROREG_FUNC(luat_lv_win_get_layout)},\
+    {"win_get_sb_mode", ROREG_FUNC(luat_lv_win_get_sb_mode)},\
+    {"win_get_anim_time", ROREG_FUNC(luat_lv_win_get_anim_time)},\
+    {"win_get_width", ROREG_FUNC(luat_lv_win_get_width)},\
+    {"win_get_drag", ROREG_FUNC(luat_lv_win_get_drag)},\
+    {"win_title_get_alignment", ROREG_FUNC(luat_lv_win_title_get_alignment)},\
+    {"win_focus", ROREG_FUNC(luat_lv_win_focus)},\
+    {"win_scroll_hor", ROREG_FUNC(luat_lv_win_scroll_hor)},\
+    {"win_scroll_ver", ROREG_FUNC(luat_lv_win_scroll_ver)},\
 
 #endif

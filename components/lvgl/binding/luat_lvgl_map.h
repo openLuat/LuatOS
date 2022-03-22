@@ -14,11 +14,11 @@ int luat_lv_obj_align_origo_x(lua_State *L);
 int luat_lv_obj_align_origo_y(lua_State *L);
 int luat_lv_win_add_btn(lua_State *L);
 
-#define LUAT_LV_MAP_RLT {"obj_align_origo", luat_lv_obj_align_origo, 0},\
-{"obj_align_origo_x", luat_lv_obj_align_origo_x, 0},\
-{"obj_align_origo_y", luat_lv_obj_align_origo_y, 0},\
-{"chart_set_range", luat_lv_chart_set_range, 0},\
-{"chart_clear_serie", luat_lv_chart_clear_serie, 0},\
-{"win_add_btn", luat_lv_win_add_btn, 0},\
+#define LUAT_LV_MAP_RLT {"obj_align_origo", ROREG_FUNC(luat_lv_obj_align_origo)},\
+{"obj_align_origo_x", ROREG_FUNC(luat_lv_obj_align_origo_x)},\
+{"obj_align_origo_y", ROREG_FUNC(luat_lv_obj_align_origo_y)},\
+{"chart_set_range", ROREG_FUNC(luat_lv_chart_set_range)},\
+{"chart_clear_serie", ROREG_FUNC(luat_lv_chart_clear_serie)},\
+{"win_add_btn", ROREG_FUNC(luat_lv_win_add_btn)},\
 
 #endif

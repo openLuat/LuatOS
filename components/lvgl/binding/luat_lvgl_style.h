@@ -12,12 +12,12 @@ int luat_lv_style_delete(lua_State *L);
 int luat_lv_style_list_delete(lua_State *L);
 int luat_lv_style_set_transition_path(lua_State *L);
 
-#define LUAT_LV_STYLE2_RLT {"style_t", luat_lv_style_t, 0},\
-{"style_create", luat_lv_style_create, 0},\
-{"style_list_create", luat_lv_style_list_create, 0},\
-{"style_list_t", luat_lv_style_list_create, 0},\
-{"style_delete", luat_lv_style_delete, 0},\
-{"style_list_delete", luat_lv_style_list_delete, 0},\
-{"style_set_transition_path", luat_lv_style_set_transition_path, 0},\
+#define LUAT_LV_STYLE2_RLT {"style_t", ROREG_FUNC(luat_lv_style_t)},\
+{"style_create", ROREG_FUNC(luat_lv_style_create)},\
+{"style_list_create", ROREG_FUNC(luat_lv_style_list_create)},\
+{"style_list_t", ROREG_FUNC(luat_lv_style_list_create)},\
+{"style_delete", ROREG_FUNC(luat_lv_style_delete)},\
+{"style_list_delete", ROREG_FUNC(luat_lv_style_list_delete)},\
+{"style_set_transition_path", ROREG_FUNC(luat_lv_style_set_transition_path)},\
 
 #endif

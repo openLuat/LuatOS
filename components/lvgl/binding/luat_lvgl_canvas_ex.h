@@ -7,6 +7,6 @@
 
 int luat_lv_canvas_set_buffer(lua_State *L);
 
-#define LUAT_LV_CANVAS_EX_RLT {"canvas_set_buffer", luat_lv_canvas_set_buffer, 0},\
+#define LUAT_LV_CANVAS_EX_RLT {"canvas_set_buffer", ROREG_FUNC(luat_lv_canvas_set_buffer)},\
 
 #endif

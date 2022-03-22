@@ -4,6 +4,6 @@
 
 int luat_lv_img_set_src(lua_State *L);
 
-#define LUAT_LV_IMG_EX_RTL {"img_set_src", luat_lv_img_set_src, 0},\
+#define LUAT_LV_IMG_EX_RTL {"img_set_src", ROREG_FUNC(luat_lv_img_set_src)},\
 
 

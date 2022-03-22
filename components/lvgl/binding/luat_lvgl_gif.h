@@ -9,7 +9,7 @@ int luat_lv_gif_create(lua_State *L);
 int luat_lv_gif_restart(lua_State *L);
 int luat_lv_gif_delete(lua_State *L);
 
-#define LUAT_LV_GIF_RLT {"gif_create", luat_lv_gif_create, 0},\
-{"gif_restart", luat_lv_gif_restart, 0},\
+#define LUAT_LV_GIF_RLT {"gif_create", ROREG_FUNC(luat_lv_gif_create)},\
+{"gif_restart", ROREG_FUNC(luat_lv_gif_restart)},\
 
 #endif

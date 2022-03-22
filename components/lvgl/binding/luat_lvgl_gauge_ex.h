@@ -7,6 +7,6 @@
 
 int luat_lv_gauge_set_needle_count(lua_State *L);
 
-#define LUAT_LV_GAUGE_EX_RLT {"gauge_set_needle_count", luat_lv_gauge_set_needle_count, 0},\
+#define LUAT_LV_GAUGE_EX_RLT {"gauge_set_needle_count", ROREG_FUNC(luat_lv_gauge_set_needle_count)},\
 
 #endif

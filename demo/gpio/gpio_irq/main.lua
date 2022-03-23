@@ -16,7 +16,7 @@ end
 
 --配置gpio7为输入模式，下拉，并会触发中断
 --请根据实际需求更改gpio编号和上下拉
-gpio.setup(7, function()
+gpio.setup(1, function()
     log.info("gpio", "PA7")
 end, gpio.PULLDOWN)
 

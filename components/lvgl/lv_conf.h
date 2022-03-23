@@ -687,7 +687,7 @@ typedef struct luat_lv_userdata lv_obj_user_data_t;
 #  define LV_LABEL_TEXT_SEL               0
 
 /*Store extra some info in labels (12 bytes) to speed up drawing of very long texts*/
-#  define LV_LABEL_LONG_TXT_HINT          0
+#  define LV_LABEL_LONG_TXT_HINT          1
 #endif
 
 /*LED (dependencies: -)*/

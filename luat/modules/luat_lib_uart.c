@@ -361,6 +361,26 @@ static int l_uart_on(lua_State *L) {
     return 0;
 }
 
+
+/*
+等待485模式下TX完成，mcu不支持串口发送移位寄存器空或者类似中断时才需要，在sent事件回调后使用
+@api uart.wait485(id)
+@int 串口id, uart0写0, uart1写1
+@return int 等待了多少次循环才等到tx完成，用于粗劣的观察delay时间是否足够，返回不为0说明还需要放大delay
+ */
+static int l_uart_wait485_tx_done(lua_State *L) {
+    int uart_id = luaL_checkinteger(L, 1);
+    if (!luat_uart_exist(uart_id)) {
+    	lua_pushinteger(L, 0);
+        return 1;
+    }
+#ifdef LUAT__UART_TX_NEED_WAIT_DONE
+    lua_pushinteger(L, luat_uart_wait_485_tx_done(uart_id));
+#else
+    lua_pushinteger(L, 0);
+#endif
+    return 1;
+}
 #include "rotable2.h"
 static const rotable_Reg_t reg_uart[] =
 {
@@ -369,6 +389,7 @@ static const rotable_Reg_t reg_uart[] =
     { "write",      ROREG_FUNC(l_uart_write)},
     { "read",       ROREG_FUNC(l_uart_read)},
     { "on",         ROREG_FUNC(l_uart_on)},
+	{ "wait485",         ROREG_FUNC(l_uart_wait485_tx_done)},
     //校验位
     { "Odd",        ROREG_INT(LUAT_PARITY_ODD)},
     { "Even",       ROREG_INT(LUAT_PARITY_EVEN)},
@@ -384,7 +405,7 @@ static const rotable_Reg_t reg_uart[] =
     { "rx",       ROREG_FUNC(l_uart_rx)},
 	{ "rx_size",	ROREG_FUNC(l_uart_rx_size)},
 
-	{ "VUART_0",        ROREG_INT(0xf0)},
+	{ "VUART_0",        ROREG_INT(LUAT_VUART_ID_0)},
     { NULL,         {}}
 };
 

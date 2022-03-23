@@ -23,7 +23,7 @@ if usbapp then
 end
 
 
-local uartid = 4 -- 根据实际设备选取不同的uartid
+local uartid = uart.VUART_0 -- 根据实际设备选取不同的uartid
 
 --初始化
 local result = uart.setup(
@@ -59,12 +59,12 @@ sys.taskInit(function()
     local timer
     while 1 do
         local result, uart_id,data = sys.waitUntil("USB_UART_INC", 30000)
-        if result and uart_id == 4 and data == 1 then
+        if result and uart_id == uart.VUART_0 and data == 1 then
             --循环发数据
             timer = sys.timerLoopStart(uart.write,1000, uartid, "test")
             while 1 do
                 local result, uart_id,data = sys.waitUntil("USB_UART_INC", 30000)
-                if result and uart_id == 4 and data == 2 then
+                if result and uart_id == uart.VUART_0 and data == 2 then
                     sys.timerStop(timer)
                     break
                 end

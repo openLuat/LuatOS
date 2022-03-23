@@ -17,6 +17,8 @@
 #define LUAT_0_5_STOP_BITS                   0xf0
 #define LUAT_1_5_STOP_BITS                   0xf1
 
+#define LUAT_VUART_ID_0						0x20
+
 typedef struct luat_uart {
     int id;         //串口编号
     int baud_rate;  //波特率

@@ -13,7 +13,7 @@ sys.timerLoopStart(wdt.feed, 3000)
 
 sys.taskInit(function()
     sys.wait(5000)
-    sys.setTimeout(5000)
+    wdt.setTimeout(5000)
     while 1 do
         sys.wait(500)
     end

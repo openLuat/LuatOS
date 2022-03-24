@@ -1,8 +1,8 @@
-# ADC API演示
+# FDB API演示
 
 ## API文档链接
 
-[adc - 数模转换 - LuatOS 文档](https://wiki.luatos.com/api/adc.html)
+[fdb - kv数据库(基于FlashDB) - LuatOS 文档](https://wiki.luatos.com/api/fdb.html)
 
 ## 代码说明
 

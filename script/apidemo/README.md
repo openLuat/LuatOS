@@ -4,5 +4,6 @@
 
 ## API文档链接
 
-https://wiki.luatos.com/api/
+[LuatOS-SOC接口文档 - LuatOS 文档](https://wiki.luatos.com/api/index.html)
+
 

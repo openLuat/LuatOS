@@ -1,8 +1,8 @@
-# ADC API演示
+# JSON API演示
 
 ## API文档链接
 
-[adc - 数模转换 - LuatOS 文档](https://wiki.luatos.com/api/adc.html)
+[json - json生成和解析库 - LuatOS 文档](https://wiki.luatos.com/api/json.html)
 
 ## 代码说明
 

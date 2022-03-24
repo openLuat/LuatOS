@@ -1,8 +1,8 @@
-# ADC API演示
+# I2C API演示
 
 ## API文档链接
 
-[adc - 数模转换 - LuatOS 文档](https://wiki.luatos.com/api/adc.html)
+[i2c - I2C操作 - LuatOS 文档](https://wiki.luatos.com/api/i2c.html)
 
 ## 代码说明
 

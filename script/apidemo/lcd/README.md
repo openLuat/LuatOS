@@ -1,8 +1,8 @@
-# ADC API演示
+# LCD API演示
 
 ## API文档链接
 
-[adc - 数模转换 - LuatOS 文档](https://wiki.luatos.com/api/adc.html)
+[lcd - lcd驱动模块 - LuatOS 文档](https://wiki.luatos.com/api/lcd.html)
 
 ## 代码说明
 

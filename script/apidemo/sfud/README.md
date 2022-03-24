@@ -1,8 +1,8 @@
-# ADC API演示
+# SFUD API演示
 
 ## API文档链接
 
-[adc - 数模转换 - LuatOS 文档](https://wiki.luatos.com/api/adc.html)
+[sfud - SPI FLASH sfud软件包 - LuatOS 文档](https://wiki.luatos.com/api/sfud.html)
 
 ## 代码说明
 

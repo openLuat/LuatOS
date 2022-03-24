@@ -1,8 +1,8 @@
-# ADC API演示
+# MEMINFO API演示
 
 ## API文档链接
 
-[adc - 数模转换 - LuatOS 文档](https://wiki.luatos.com/api/adc.html)
+[rtos - RTOS底层操作库 - LuatOS 文档](https://wiki.luatos.com/api/rtos.html)
 
 ## 代码说明
 

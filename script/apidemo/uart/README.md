@@ -1,8 +1,8 @@
-# ADC API演示
+# UART API演示
 
 ## API文档链接
 
-[adc - 数模转换 - LuatOS 文档](https://wiki.luatos.com/api/adc.html)
+[uart - 串口操作库 - LuatOS 文档](https://wiki.luatos.com/api/uart.html)
 
 ## 代码说明
 

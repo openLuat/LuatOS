@@ -1,8 +1,8 @@
-# ADC API演示
+# U8G2 API演示
 
 ## API文档链接
 
-[adc - 数模转换 - LuatOS 文档](https://wiki.luatos.com/api/adc.html)
+[u8g2 - u8g2图形处理库 - LuatOS 文档](https://wiki.luatos.com/api/u8g2.html)
 
 ## 代码说明
 

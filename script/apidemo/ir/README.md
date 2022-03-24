@@ -1,8 +1,8 @@
-# ADC API演示
+# IR API演示
 
 ## API文档链接
 
-[adc - 数模转换 - LuatOS 文档](https://wiki.luatos.com/api/adc.html)
+[ir - 红外遥控 - LuatOS 文档](https://wiki.luatos.com/api/ir.html)
 
 ## 代码说明
 

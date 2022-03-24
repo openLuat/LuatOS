@@ -1,8 +1,8 @@
-# ADC API演示
+# CRYPTO API演示
 
 ## API文档链接
 
-[adc - 数模转换 - LuatOS 文档](https://wiki.luatos.com/api/adc.html)
+[crypto - 加解密和hash函数 - LuatOS 文档](https://wiki.luatos.com/api/crypto.html)
 
 ## 代码说明
 

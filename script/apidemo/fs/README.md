@@ -1,8 +1,8 @@
-# ADC API演示
+# FS API演示
 
 ## API文档链接
 
-[adc - 数模转换 - LuatOS 文档](https://wiki.luatos.com/api/adc.html)
+[fs - 文件系统额外操作 - LuatOS 文档](https://wiki.luatos.com/api/fs.html)
 
 ## 代码说明
 

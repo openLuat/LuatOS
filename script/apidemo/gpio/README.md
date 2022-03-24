@@ -1,8 +1,8 @@
-# ADC API演示
+# GPIO API演示
 
 ## API文档链接
 
-[adc - 数模转换 - LuatOS 文档](https://wiki.luatos.com/api/adc.html)
+[gpio - GPIO操作 - LuatOS 文档](https://wiki.luatos.com/api/gpio.html)
 
 ## 代码说明
 

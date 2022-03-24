@@ -1,5 +1,7 @@
 local testAdc = {}
 
+local sys = require "sys"
+
 sys.taskInit(function()
     while 1 do
         adc.open(0) -- 模块上的ADC0脚-PA1, 0~2.4v,不要超过范围使用!!!

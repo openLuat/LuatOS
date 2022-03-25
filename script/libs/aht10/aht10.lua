@@ -67,12 +67,12 @@ local function aht10_get_raw_data()
     i2c.send(i2cid, AHT10_ADDRESS_ADR_LOW, AHT10_STATE)
     local data = i2c.recv(i2cid, AHT10_ADDRESS_ADR_LOW, 1)
     local _,state = pack.unpack(data, "b")
-    if bit.isclear(state,7) then
+    -- if bit.isclear(state,7) then
         local data = i2c.recv(i2cid, AHT10_ADDRESS_ADR_LOW, 6)
         local _, data1, data2, data3, data4, data5, data6 = pack.unpack(data, "b6")
         raw_data.Srh = bit.bor(bit.bor(bit.rshift(data4, 4), bit.lshift(data3, 4)),bit.lshift(data2, 12))
         raw_data.St = bit.bor(bit.bor(bit.lshift(bit.band(data4, 0x0f), 16), bit.lshift(data5, 8)), data6)
-    end
+    -- end
     return raw_data or 0
 end
 

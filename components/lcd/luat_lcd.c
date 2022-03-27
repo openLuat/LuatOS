@@ -57,7 +57,9 @@ int lcd_write_cmd(luat_lcd_conf_t* conf, const uint8_t cmd){
         return -1;
     }else{
         #ifdef LUAT_LCD_CMD_DELAY_US
-        luat_timer_us_delay(LUAT_LCD_CMD_DELAY_US);
+        if (conf->dc_delay_us){
+        	luat_timer_us_delay(conf->dc_delay_us);
+        }
         #endif
         return 0;
     }

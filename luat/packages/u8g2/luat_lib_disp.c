@@ -237,30 +237,42 @@ static int l_disp_set_font(lua_State *L) {
         lua_pushboolean(L, 0);
         return 1;
     }
-    int font_id = luaL_checkinteger(L, 1);
-    if (font_id < 0) {
-        lua_pushboolean(L, 0);
+    if (!lua_islightuserdata(L, 1)) {
+        LLOGE("only font pointer is allow");
+        return 0;
     }
-    else {
-        switch (font_id)
-        {
-        case 0:
-            u8g2_SetFont(u8g2, u8g2_font_ncenB08_tr);
-            lua_pushboolean(L, 1);
-            break;
-        #if defined USE_U8G2_OPPOSANSM12_CHINESE
-        case 1:
-            u8g2_SetFont(u8g2, u8g2_font_opposansm12_chinese);
-            lua_pushboolean(L, 1);
-            break;
-        #endif
-        default:
-            lua_pushboolean(L, 0);
-            break;
-        }
+    const uint8_t *ptr = (const uint8_t *)lua_touserdata(L, 1);
+    if (ptr == NULL) {
+        LLOGE("only font pointer is allow");
+        return 0;
     }
-
+    u8g2_SetFont(u8g2, ptr);
+    lua_pushboolean(L, 1);
     return 1;
+    // int font_id = luaL_checkinteger(L, 1);
+    // if (font_id < 0) {
+    //     lua_pushboolean(L, 0);
+    // }
+    // else {
+    //     switch (font_id)
+    //     {
+    //     case 0:
+    //         u8g2_SetFont(u8g2, u8g2_font_ncenB08_tr);
+    //         lua_pushboolean(L, 1);
+    //         break;
+    //     #if defined USE_U8G2_OPPOSANSM12_CHINESE
+    //     case 1:
+    //         u8g2_SetFont(u8g2, u8g2_font_opposansm12_chinese);
+    //         lua_pushboolean(L, 1);
+    //         break;
+    //     #endif
+    //     default:
+    //         lua_pushboolean(L, 0);
+    //         break;
+    //     }
+    // }
+
+    // return 1;
 }
 
 #include "rotable2.h"
@@ -272,6 +284,32 @@ static const rotable_Reg_t reg_disp[] =
     { "update",     ROREG_FUNC(l_disp_update)},
     { "drawStr",    ROREG_FUNC(l_disp_draw_text)},
     { "setFont",    ROREG_FUNC(l_disp_set_font)},
+
+    { "font_unifont_t_symbols",   ROREG_PTR(u8g2_font_unifont_t_symbols)},
+    { "font_open_iconic_weather_6x_t", ROREG_PTR(u8g2_font_open_iconic_weather_6x_t)},
+
+    { "font_opposansm8", ROREG_PTR(u8g2_font_opposansm8)},
+    { "font_opposansm10", ROREG_PTR(u8g2_font_opposansm10)},
+    { "font_opposansm12", ROREG_PTR(u8g2_font_opposansm12)},
+    { "font_opposansm16", ROREG_PTR(u8g2_font_opposansm16)},
+    { "font_opposansm18", ROREG_PTR(u8g2_font_opposansm18)},
+    { "font_opposansm20", ROREG_PTR(u8g2_font_opposansm20)},
+    { "font_opposansm22", ROREG_PTR(u8g2_font_opposansm22)},
+    { "font_opposansm24", ROREG_PTR(u8g2_font_opposansm24)},
+    { "font_opposansm32", ROREG_PTR(u8g2_font_opposansm32)},
+#ifdef USE_U8G2_OPPOSANSM12_CHINESE
+    { "font_opposansm12_chinese", ROREG_PTR(u8g2_font_opposansm12_chinese)},
+#endif
+#ifdef USE_U8G2_OPPOSANSM16_CHINESE
+    { "font_opposansm16_chinese", ROREG_PTR(u8g2_font_opposansm16_chinese)},
+#endif
+#ifdef USE_U8G2_OPPOSANSM24_CHINESE
+    { "font_opposansm24_chinese", ROREG_PTR(u8g2_font_opposansm24_chinese)},
+#endif
+#ifdef USE_U8G2_OPPOSANSM32_CHINESE
+    { "font_opposansm32_chinese", ROREG_PTR(u8g2_font_opposansm32_chinese)},
+#endif
+
 	{ NULL,         {}}
 };
 

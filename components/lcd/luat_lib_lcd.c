@@ -1130,6 +1130,9 @@ static const rotable_Reg_t reg_lcd[] =
     { "drawGtfontUtf8Gray", ROREG_FUNC(l_lcd_draw_gtfont_utf8_gray)},
 #endif // LUAT_USE_GTFONT_UTF8
 #endif // LUAT_USE_GTFONT
+    { "font_unifont_t_symbols",   ROREG_PTR(u8g2_font_unifont_t_symbols)},
+    { "font_open_iconic_weather_6x_t", ROREG_PTR(u8g2_font_open_iconic_weather_6x_t)},
+
     { "font_opposansm8", ROREG_PTR(u8g2_font_opposansm8)},
     { "font_opposansm10", ROREG_PTR(u8g2_font_opposansm10)},
     { "font_opposansm12", ROREG_PTR(u8g2_font_opposansm12)},

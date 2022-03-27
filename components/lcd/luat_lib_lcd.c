@@ -21,24 +21,6 @@
 int8_t u8g2_font_decode_get_signed_bits(u8g2_font_decode_t *f, uint8_t cnt);
 uint8_t u8g2_font_decode_get_unsigned_bits(u8g2_font_decode_t *f, uint8_t cnt);
 
-
-enum
-{
-	font_opposansm8,
-	font_opposansm10,
-	font_opposansm12,
-	font_opposansm16,
-	font_opposansm18,
-	font_opposansm20,
-	font_opposansm22,
-	font_opposansm24,
-	font_opposansm32,
-  font_opposansm12_chinese,
-	font_opposansm16_chinese,
-  font_opposansm24_chinese,
-  font_opposansm32_chinese,
-};
-
 extern uint32_t BACK_COLOR , FORE_COLOR ;
 
 extern const luat_lcd_opts_t lcd_opts_st7735;
@@ -65,8 +47,8 @@ static const lcd_reg_t lcd_regs[] = {
   {"st7789",  &lcd_opts_st7789},   //4
   {"gc9a01",  &lcd_opts_gc9a01},   //5
   {"gc9106l", &lcd_opts_gc9106l},  //6
-  {"gc9306x", &lcd_opts_gc9306x},   //7
-  {"gc9306",  &lcd_opts_gc9306x},   //gc9306是gc9306x的别名
+  {"gc9306x", &lcd_opts_gc9306x},  //7
+  {"gc9306",  &lcd_opts_gc9306x},  //gc9306是gc9306x的别名
   {"ili9341", &lcd_opts_ili9341},  //8
   {"ili9488", &lcd_opts_ili9488},  //9
   {"", NULL} // 最后一个必须是空字符串
@@ -771,87 +753,18 @@ lcd.setFont(lcd.font_opposansm12_chinese)
 lcd.drawStr(40,40,"drawStr测试")
 */
 static int l_lcd_set_font(lua_State *L) {
+    if (!lua_islightuserdata(L, 1)) {
+      LLOGE("only font pointer is allow");
+      return 0;
+    }
+    const uint8_t *ptr = (const uint8_t *)lua_touserdata(L, 1);
+    if (ptr == NULL) {
+      LLOGE("only font pointer is allow");
+      return 0;
+    }
     int font = luaL_checkinteger(L, 1);
-    switch (font)
-        {
-        case font_opposansm8:
-            LLOGI("font_opposansm8");
-            u8g2_SetFont(&(default_conf->luat_lcd_u8g2), u8g2_font_opposansm8);
-            lua_pushboolean(L, 1);
-            break;
-        case font_opposansm10:
-            LLOGI("font_opposansm10");
-            u8g2_SetFont(&(default_conf->luat_lcd_u8g2), u8g2_font_opposansm10);
-            lua_pushboolean(L, 1);
-            break;
-        case font_opposansm12:
-            LLOGI("font_opposansm12");
-            u8g2_SetFont(&(default_conf->luat_lcd_u8g2), u8g2_font_opposansm12);
-            lua_pushboolean(L, 1);
-            break;
-        case font_opposansm16:
-            LLOGI("font_opposansm16");
-            u8g2_SetFont(&(default_conf->luat_lcd_u8g2), u8g2_font_opposansm16);
-            lua_pushboolean(L, 1);
-            break;
-        case font_opposansm18:
-            LLOGI("font_opposansm18");
-            u8g2_SetFont(&(default_conf->luat_lcd_u8g2), u8g2_font_opposansm18);
-            lua_pushboolean(L, 1);
-            break;
-        case font_opposansm20:
-            LLOGI("font_opposansm20");
-            u8g2_SetFont(&(default_conf->luat_lcd_u8g2), u8g2_font_opposansm20);
-            lua_pushboolean(L, 1);
-            break;
-        case font_opposansm22:
-            LLOGI("font_opposansm22");
-            u8g2_SetFont(&(default_conf->luat_lcd_u8g2), u8g2_font_opposansm22);
-            lua_pushboolean(L, 1);
-            break;
-        case font_opposansm24:
-            LLOGI("font_opposansm24");
-            u8g2_SetFont(&(default_conf->luat_lcd_u8g2), u8g2_font_opposansm24);
-            lua_pushboolean(L, 1);
-            break;
-        case font_opposansm32:
-            LLOGI("font_opposansm32");
-            u8g2_SetFont(&(default_conf->luat_lcd_u8g2), u8g2_font_opposansm32);
-            lua_pushboolean(L, 1);
-            break;
-#if defined USE_U8G2_OPPOSANSM12_CHINESE
-        case font_opposansm12_chinese:
-            LLOGI("font_opposansm12_chinese");
-            u8g2_SetFont(&(default_conf->luat_lcd_u8g2), u8g2_font_opposansm12_chinese);
-            lua_pushboolean(L, 1);
-            break;
-#endif
-#if defined USE_U8G2_OPPOSANSM16_CHINESE
-        case font_opposansm16_chinese:
-            LLOGI("font_opposansm16_chinese");
-            u8g2_SetFont(&(default_conf->luat_lcd_u8g2), u8g2_font_opposansm16_chinese);
-            lua_pushboolean(L, 1);
-            break;
-#endif
-#if defined USE_U8G2_OPPOSANSM24_CHINESE
-        case font_opposansm24_chinese:
-            LLOGI("font_opposansm24_chinese");
-            u8g2_SetFont(&(default_conf->luat_lcd_u8g2), u8g2_font_opposansm24_chinese);
-            lua_pushboolean(L, 1);
-            break;
-#endif
-#if defined USE_U8G2_OPPOSANSM32_CHINESE
-        case font_opposansm32_chinese:
-            LLOGI("font_opposansm32_chinese");
-            u8g2_SetFont(&(default_conf->luat_lcd_u8g2), u8g2_font_opposansm32_chinese);
-            lua_pushboolean(L, 1);
-            break;
-#endif
-        default:
-            lua_pushboolean(L, 0);
-            LLOGI("no font");
-            break;
-        }
+    u8g2_SetFont(&(default_conf->luat_lcd_u8g2), ptr);
+    lua_pushboolean(L, 1);
     return 1;
 }
 
@@ -1218,19 +1131,27 @@ static const rotable_Reg_t reg_lcd[] =
     { "drawGtfontUtf8Gray", ROREG_FUNC(l_lcd_draw_gtfont_utf8_gray)},
 #endif // LUAT_USE_GTFONT_UTF8
 #endif // LUAT_USE_GTFONT
-    { "font_opposansm8", ROREG_INT(font_opposansm8)},
-    { "font_opposansm10", ROREG_INT(font_opposansm10)},
-    { "font_opposansm12", ROREG_INT(font_opposansm12)},
-    { "font_opposansm16", ROREG_INT(font_opposansm16)},
-    { "font_opposansm18", ROREG_INT(font_opposansm18)},
-    { "font_opposansm20", ROREG_INT(font_opposansm20)},
-    { "font_opposansm22", ROREG_INT(font_opposansm22)},
-    { "font_opposansm24", ROREG_INT(font_opposansm24)},
-    { "font_opposansm32", ROREG_INT(font_opposansm32)},
-    { "font_opposansm12_chinese", ROREG_INT(font_opposansm12_chinese)},
-    { "font_opposansm16_chinese", ROREG_INT(font_opposansm16_chinese)},
-    { "font_opposansm24_chinese", ROREG_INT(font_opposansm24_chinese)},
-    { "font_opposansm32_chinese", ROREG_INT(font_opposansm32_chinese)},
+    { "font_opposansm8", ROREG_PTR(u8g2_font_opposansm8)},
+    { "font_opposansm10", ROREG_PTR(u8g2_font_opposansm10)},
+    { "font_opposansm12", ROREG_PTR(u8g2_font_opposansm12)},
+    { "font_opposansm16", ROREG_PTR(u8g2_font_opposansm16)},
+    { "font_opposansm18", ROREG_PTR(u8g2_font_opposansm18)},
+    { "font_opposansm20", ROREG_PTR(u8g2_font_opposansm20)},
+    { "font_opposansm22", ROREG_PTR(u8g2_font_opposansm22)},
+    { "font_opposansm24", ROREG_PTR(u8g2_font_opposansm24)},
+    { "font_opposansm32", ROREG_PTR(u8g2_font_opposansm32)},
+#ifdef USE_U8G2_OPPOSANSM12_CHINESE
+    { "font_opposansm12_chinese", ROREG_PTR(u8g2_font_opposansm12_chinese)},
+#endif
+#ifdef USE_U8G2_OPPOSANSM16_CHINESE
+    { "font_opposansm16_chinese", ROREG_PTR(u8g2_font_opposansm16_chinese)},
+#endif
+#ifdef USE_U8G2_OPPOSANSM24_CHINESE
+    { "font_opposansm24_chinese", ROREG_PTR(u8g2_font_opposansm24_chinese)},
+#endif
+#ifdef USE_U8G2_OPPOSANSM32_CHINESE
+    { "font_opposansm32_chinese", ROREG_PTR(u8g2_font_opposansm32_chinese)},
+#endif
 	  {NULL, {}}
 };
 

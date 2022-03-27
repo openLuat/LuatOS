@@ -225,11 +225,11 @@ static int l_disp_draw_text(lua_State *L) {
 
 /*
 设置字体
-@api disp.setFont(fontId) 
-@int 字体id, 默认0,纯英文8x8字节. 如果支持中文支持, 那么1代表12x12的中文字体.
+@api disp.setFont(font) 
+@userdata 字体.
 @usage
 -- 设置为中文字体,对之后的drawStr有效
-disp.setFont(1)
+disp.setFont(disp.font_opposansm12)
 */
 static int l_disp_set_font(lua_State *L) {
     if (u8g2 == NULL) {
@@ -249,30 +249,6 @@ static int l_disp_set_font(lua_State *L) {
     u8g2_SetFont(u8g2, ptr);
     lua_pushboolean(L, 1);
     return 1;
-    // int font_id = luaL_checkinteger(L, 1);
-    // if (font_id < 0) {
-    //     lua_pushboolean(L, 0);
-    // }
-    // else {
-    //     switch (font_id)
-    //     {
-    //     case 0:
-    //         u8g2_SetFont(u8g2, u8g2_font_ncenB08_tr);
-    //         lua_pushboolean(L, 1);
-    //         break;
-    //     #if defined USE_U8G2_OPPOSANSM12_CHINESE
-    //     case 1:
-    //         u8g2_SetFont(u8g2, u8g2_font_opposansm12_chinese);
-    //         lua_pushboolean(L, 1);
-    //         break;
-    //     #endif
-    //     default:
-    //         lua_pushboolean(L, 0);
-    //         break;
-    //     }
-    // }
-
-    // return 1;
 }
 
 #include "rotable2.h"

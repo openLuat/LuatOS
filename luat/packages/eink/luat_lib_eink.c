@@ -35,23 +35,6 @@ uint8_t u8g2_font_decode_get_unsigned_bits(u8g2_font_decode_t *f, uint8_t cnt);
 
 #define LUAT_LOG_TAG "eink"
 
-enum
-{
-	font_opposansm8,
-	font_opposansm10,
-	font_opposansm12,
-	font_opposansm16,
-	font_opposansm18,
-	font_opposansm20,
-	font_opposansm22,
-	font_opposansm24,
-	font_opposansm32,
-  font_opposansm12_chinese,
-	font_opposansm16_chinese,
-  font_opposansm24_chinese,
-  font_opposansm32_chinese,
-};
-
 static uint32_t eink_str_color;
 
 // static EPD epd;
@@ -415,15 +398,41 @@ static int16_t u8g2_font_draw_glyph(u8g2_t *u8g2, int16_t x, int16_t y, uint16_t
   return dx;
 }
 
+/*
+设置字体
+@api eink.setFont(font) 
+@userdata 字体.
+@usage
+-- 设置为中文字体,对之后的drawStr有效
+eink.setFont(eink.font_opposansm12)
+*/
+static int l_eink_set_font(lua_State *L) {
+    if (&(paint.luat_eink_u8g2) == NULL) {
+        LLOGI("disp not init yet!!!");
+        lua_pushboolean(L, 0);
+        return 1;
+    }
+    if (!lua_islightuserdata(L, 1)) {
+        LLOGE("only font pointer is allow");
+        return 0;
+    }
+    const uint8_t *ptr = (const uint8_t *)lua_touserdata(L, 1);
+    if (ptr == NULL) {
+        LLOGE("only font pointer is allow");
+        return 0;
+    }
+    u8g2_SetFont(&(paint.luat_eink_u8g2), ptr);
+    lua_pushboolean(L, 1);
+    return 1;
+}
 
 /**
 绘制字符串
-@api eink.print(x, y, str, colored, font)
+@api eink.print(x, y, str, colored)
 @int x坐标
 @int y坐标
 @string 字符串
 @int 默认是0
-@font 字体大小,默认12
 @return nil 无返回值
 */
 static int l_eink_print(lua_State *L)
@@ -433,88 +442,8 @@ static int l_eink_print(lua_State *L)
     int y           = luaL_checkinteger(L, 2);
     const char *str = luaL_checklstring(L, 3, &len);
     eink_str_color  = luaL_optinteger(L, 4, 0);
-    int font        = luaL_optinteger(L, 5, 12);
-switch (font)
-        {
-        case font_opposansm8:
-            LLOGI("font_opposansm8");
-            u8g2_SetFont(&(paint.luat_eink_u8g2), u8g2_font_opposansm8);
-            lua_pushboolean(L, 1);
-            break;
-        case font_opposansm10:
-            LLOGI("font_opposansm10");
-            u8g2_SetFont(&(paint.luat_eink_u8g2), u8g2_font_opposansm10);
-            lua_pushboolean(L, 1);
-            break;
-        case font_opposansm12:
-            LLOGI("font_opposansm12");
-            u8g2_SetFont(&(paint.luat_eink_u8g2), u8g2_font_opposansm12);
-            lua_pushboolean(L, 1);
-            break;
-        case font_opposansm16:
-            LLOGI("font_opposansm16");
-            u8g2_SetFont(&(paint.luat_eink_u8g2), u8g2_font_opposansm16);
-            lua_pushboolean(L, 1);
-            break;
-        case font_opposansm18:
-            LLOGI("font_opposansm18");
-            u8g2_SetFont(&(paint.luat_eink_u8g2), u8g2_font_opposansm18);
-            lua_pushboolean(L, 1);
-            break;
-        case font_opposansm20:
-            LLOGI("font_opposansm20");
-            u8g2_SetFont(&(paint.luat_eink_u8g2), u8g2_font_opposansm20);
-            lua_pushboolean(L, 1);
-            break;
-        case font_opposansm22:
-            LLOGI("font_opposansm22");
-            u8g2_SetFont(&(paint.luat_eink_u8g2), u8g2_font_opposansm22);
-            lua_pushboolean(L, 1);
-            break;
-        case font_opposansm24:
-            LLOGI("font_opposansm24");
-            u8g2_SetFont(&(paint.luat_eink_u8g2), u8g2_font_opposansm24);
-            lua_pushboolean(L, 1);
-            break;
-        case font_opposansm32:
-            LLOGI("font_opposansm32");
-            u8g2_SetFont(&(paint.luat_eink_u8g2), u8g2_font_opposansm32);
-            lua_pushboolean(L, 1);
-            break;
-#if defined USE_U8G2_OPPOSANSM12_CHINESE
-        case font_opposansm12_chinese:
-            LLOGI("font_opposansm12_chinese");
-            u8g2_SetFont(&(paint.luat_eink_u8g2), u8g2_font_opposansm12_chinese);
-            lua_pushboolean(L, 1);
-            break;
-#endif
-#if defined USE_U8G2_OPPOSANSM16_CHINESE
-        case font_opposansm16_chinese:
-            LLOGI("font_opposansm16_chinese");
-            u8g2_SetFont(&(paint.luat_eink_u8g2), u8g2_font_opposansm16_chinese);
-            lua_pushboolean(L, 1);
-            break;
-#endif
-#if defined USE_U8G2_OPPOSANSM24_CHINESE
-        case font_opposansm24_chinese:
-            LLOGI("font_opposansm24_chinese");
-            u8g2_SetFont(&(paint.luat_eink_u8g2), u8g2_font_opposansm24_chinese);
-            lua_pushboolean(L, 1);
-            break;
-#endif
-#if defined USE_U8G2_OPPOSANSM32_CHINESE
-        case font_opposansm32_chinese:
-            LLOGI("font_opposansm32_chinese");
-            u8g2_SetFont(&(paint.luat_eink_u8g2), u8g2_font_opposansm32_chinese);
-            lua_pushboolean(L, 1);
-            break;
-#endif
-        default:
-            lua_pushboolean(L, 0);
-            LLOGI("no font");
-            break;
-        }
-uint16_t e;
+
+    uint16_t e;
     int16_t delta, sum;
     utf8_state = 0;
     sum = 0;
@@ -1013,6 +942,7 @@ static const rotable_Reg_t reg_eink[] =
     { "rect",           ROREG_FUNC(l_eink_rect)},
     { "circle",         ROREG_FUNC(l_eink_circle)},
     { "line",           ROREG_FUNC(l_eink_line)},
+    { "setFont",        ROREG_FUNC(l_eink_set_font)},
 
     { "qrcode",         ROREG_FUNC(l_eink_qrcode)},
     { "bat",            ROREG_FUNC(l_eink_bat)},
@@ -1045,19 +975,31 @@ static const rotable_Reg_t reg_eink[] =
     { "MODEL_2in9d",          ROREG_INT(MODEL_2in9d)},
     { "MODEL_2in9f",          ROREG_INT(MODEL_2in9f)},
     { "MODEL_3in7",           ROREG_INT(MODEL_3in7)},
-    { "font_opposansm8",      ROREG_INT(font_opposansm8)},
-    { "font_opposansm10",     ROREG_INT(font_opposansm10)},
-    { "font_opposansm12",     ROREG_INT(font_opposansm12)},
-    { "font_opposansm16",     ROREG_INT(font_opposansm16)},
-    { "font_opposansm18",     ROREG_INT(font_opposansm18)},
-    { "font_opposansm20",     ROREG_INT(font_opposansm20)},
-    { "font_opposansm22",     ROREG_INT(font_opposansm22)},
-    { "font_opposansm24",     ROREG_INT(font_opposansm24)},
-    { "font_opposansm32",     ROREG_INT(font_opposansm32)},
-    { "font_opposansm12_chinese", ROREG_INT(font_opposansm12_chinese)},
-    { "font_opposansm16_chinese", ROREG_INT(font_opposansm16_chinese)},
-    { "font_opposansm24_chinese", ROREG_INT(font_opposansm24_chinese)},
-    { "font_opposansm32_chinese", ROREG_INT(font_opposansm32_chinese)},
+
+    { "font_unifont_t_symbols",   ROREG_PTR(u8g2_font_unifont_t_symbols)},
+    { "font_open_iconic_weather_6x_t", ROREG_PTR(u8g2_font_open_iconic_weather_6x_t)},
+
+    { "font_opposansm8", ROREG_PTR(u8g2_font_opposansm8)},
+    { "font_opposansm10", ROREG_PTR(u8g2_font_opposansm10)},
+    { "font_opposansm12", ROREG_PTR(u8g2_font_opposansm12)},
+    { "font_opposansm16", ROREG_PTR(u8g2_font_opposansm16)},
+    { "font_opposansm18", ROREG_PTR(u8g2_font_opposansm18)},
+    { "font_opposansm20", ROREG_PTR(u8g2_font_opposansm20)},
+    { "font_opposansm22", ROREG_PTR(u8g2_font_opposansm22)},
+    { "font_opposansm24", ROREG_PTR(u8g2_font_opposansm24)},
+    { "font_opposansm32", ROREG_PTR(u8g2_font_opposansm32)},
+#ifdef USE_U8G2_OPPOSANSM12_CHINESE
+    { "font_opposansm12_chinese", ROREG_PTR(u8g2_font_opposansm12_chinese)},
+#endif
+#ifdef USE_U8G2_OPPOSANSM16_CHINESE
+    { "font_opposansm16_chinese", ROREG_PTR(u8g2_font_opposansm16_chinese)},
+#endif
+#ifdef USE_U8G2_OPPOSANSM24_CHINESE
+    { "font_opposansm24_chinese", ROREG_PTR(u8g2_font_opposansm24_chinese)},
+#endif
+#ifdef USE_U8G2_OPPOSANSM32_CHINESE
+    { "font_opposansm32_chinese", ROREG_PTR(u8g2_font_opposansm32_chinese)},
+#endif
 
 	  { NULL,                    {}}
 };

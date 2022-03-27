@@ -762,7 +762,6 @@ static int l_lcd_set_font(lua_State *L) {
       LLOGE("only font pointer is allow");
       return 0;
     }
-    int font = luaL_checkinteger(L, 1);
     u8g2_SetFont(&(default_conf->luat_lcd_u8g2), ptr);
     lua_pushboolean(L, 1);
     return 1;

@@ -22,15 +22,6 @@
 #define LUAT_LOG_TAG "u8g2"
 #include "luat_log.h"
 
-enum
-{
-	font_opposansm8,
-	font_opposansm12_chinese,
-	font_unifont_t_symbols,
-	font_open_iconic_weather_6x_t,
-};
-
-
 static u8g2_t* u8g2;
 static int u8g2_lua_ref;
 static uint8_t i2c_id;
@@ -317,41 +308,18 @@ static int l_u8g2_SetFont(lua_State *L) {
         lua_pushboolean(L, 0);
         return 1;
     }
-    int font = luaL_checkinteger(L, 1);
-    switch (font)
-        {
-        case font_opposansm8:
-            LLOGI("font_opposansm8");
-            u8g2_SetFont(u8g2, u8g2_font_opposansm8);
-            lua_pushboolean(L, 1);
-            break;
-#if defined USE_U8G2_OPPOSANSM12_CHINESE
-        case font_opposansm12_chinese:
-            LLOGI("font_opposansm12_chinese");
-            u8g2_SetFont(u8g2, u8g2_font_opposansm12_chinese);
-            lua_pushboolean(L, 1);
-            break;
-#endif
-#if defined USE_U8G2_UNIFONT_SYMBOLS
-        case font_unifont_t_symbols:
-            LLOGI("font_unifont_t_symbols");
-            u8g2_SetFont(u8g2, u8g2_font_unifont_t_symbols);
-            lua_pushboolean(L, 1);
-            break;
-#endif
-#if defined USE_U8G2_ICONIC_WEATHER_6X
-        case font_open_iconic_weather_6x_t:
-            LLOGI("font_open_iconic_weather_6x_t");
-            u8g2_SetFont(u8g2, u8g2_font_open_iconic_weather_6x_t);
-            lua_pushboolean(L, 1);
-            break;
-#endif
-        default:
-            lua_pushboolean(L, 0);
-            LLOGI("default");
-            break;
-        }
-    return 0;
+    if (!lua_islightuserdata(L, 1)) {
+        LLOGE("only font pointer is allow");
+        return 0;
+    }
+    const uint8_t *ptr = (const uint8_t *)lua_touserdata(L, 1);
+    if (ptr == NULL) {
+        LLOGE("only font pointer is allow");
+        return 0;
+    }
+    u8g2_SetFont(u8g2, ptr);
+    lua_pushboolean(L, 1);
+    return 1;
 }
 
 /*
@@ -846,10 +814,31 @@ static const rotable_Reg_t reg_u8g2[] =
     { "drawGtfontUtf8", ROREG_FUNC(l_u8g2_draw_gtfont_utf8)},
 #endif // LUAT_USE_GTFONT_UTF8
 #endif // LUAT_USE_GTFONT
-    { "font_opposansm8",          ROREG_INT(font_opposansm8)},
-    { "font_opposansm12_chinese", ROREG_INT(font_opposansm12_chinese)},
-    { "font_unifont_t_symbols",   ROREG_INT(font_unifont_t_symbols)},
-    { "font_open_iconic_weather_6x_t", ROREG_INT(font_open_iconic_weather_6x_t)},
+    { "font_unifont_t_symbols",   ROREG_PTR(u8g2_font_unifont_t_symbols)},
+    { "font_open_iconic_weather_6x_t", ROREG_PTR(u8g2_font_open_iconic_weather_6x_t)},
+
+    { "font_opposansm8", ROREG_PTR(u8g2_font_opposansm8)},
+    { "font_opposansm10", ROREG_PTR(u8g2_font_opposansm10)},
+    { "font_opposansm12", ROREG_PTR(u8g2_font_opposansm12)},
+    { "font_opposansm16", ROREG_PTR(u8g2_font_opposansm16)},
+    { "font_opposansm18", ROREG_PTR(u8g2_font_opposansm18)},
+    { "font_opposansm20", ROREG_PTR(u8g2_font_opposansm20)},
+    { "font_opposansm22", ROREG_PTR(u8g2_font_opposansm22)},
+    { "font_opposansm24", ROREG_PTR(u8g2_font_opposansm24)},
+    { "font_opposansm32", ROREG_PTR(u8g2_font_opposansm32)},
+#ifdef USE_U8G2_OPPOSANSM12_CHINESE
+    { "font_opposansm12_chinese", ROREG_PTR(u8g2_font_opposansm12_chinese)},
+#endif
+#ifdef USE_U8G2_OPPOSANSM16_CHINESE
+    { "font_opposansm16_chinese", ROREG_PTR(u8g2_font_opposansm16_chinese)},
+#endif
+#ifdef USE_U8G2_OPPOSANSM24_CHINESE
+    { "font_opposansm24_chinese", ROREG_PTR(u8g2_font_opposansm24_chinese)},
+#endif
+#ifdef USE_U8G2_OPPOSANSM32_CHINESE
+    { "font_opposansm32_chinese", ROREG_PTR(u8g2_font_opposansm32_chinese)},
+#endif
+
 	{ NULL,  {}}
 };
 

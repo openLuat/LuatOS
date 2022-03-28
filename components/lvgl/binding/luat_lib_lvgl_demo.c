@@ -11,6 +11,14 @@
 #include "../lv_demos/lv_ex_conf.h"
 #include "luat_malloc.h"
 
+/*
+lvgl benchmark demo
+@api lvgl.demo_benchmark()
+@return nil 无返回值
+@usage
+lvgl.init()
+lvgl.demo_benchmark()
+*/
 int luat_lv_demo_benchmark(lua_State *L){
 #if LV_USE_DEMO_BENCHMARK
     lv_demo_benchmark();
@@ -20,6 +28,14 @@ int luat_lv_demo_benchmark(lua_State *L){
     return 0;
 }
 
+/*
+lvgl keypad_encoder demo
+@api lvgl.demo_keypad_encoder()
+@return nil 无返回值
+@usage
+lvgl.init()
+lvgl.demo_keypad_encoder()
+*/
 int luat_lv_demo_keypad_encoder(lua_State *L){
 #if LV_USE_DEMO_KEYPAD_AND_ENCODER
     lv_demo_keypad_encoder();
@@ -29,6 +45,14 @@ int luat_lv_demo_keypad_encoder(lua_State *L){
     return 0;
 }
 
+/*
+lvgl music demo
+@api lvgl.demo_music()
+@return nil 无返回值
+@usage
+lvgl.init()
+lvgl.demo_music()
+*/
 int luat_lv_demo_music(lua_State *L){
 #if LV_USE_DEMO_MUSIC
     lv_demo_music();
@@ -38,6 +62,14 @@ int luat_lv_demo_music(lua_State *L){
     return 0;
 }
 
+/*
+lvgl printer demo
+@api lvgl.demo_printer()
+@return nil 无返回值
+@usage
+lvgl.init()
+lvgl.demo_printer()
+*/
 int luat_lv_demo_printer(lua_State *L){
 #if LV_USE_DEMO_PRINTER
     lv_demo_printer();
@@ -47,6 +79,14 @@ int luat_lv_demo_printer(lua_State *L){
     return 0;
 }
 
+/*
+lvgl stress demo
+@api lvgl.demo_stress()
+@return nil 无返回值
+@usage
+lvgl.init()
+lvgl.demo_stress()
+*/
 int luat_lv_demo_stress(lua_State *L){
 #if LV_USE_DEMO_STRESS
     lv_demo_stress();
@@ -56,6 +96,14 @@ int luat_lv_demo_stress(lua_State *L){
     return 0;
 }
 
+/*
+lvgl widgets demo
+@api lvgl.demo_widgets()
+@return nil 无返回值
+@usage
+lvgl.init()
+lvgl.demo_widgets()
+*/
 int luat_lv_demo_widgets(lua_State *L){
 #if LV_USE_DEMO_WIDGETS
     lv_demo_widgets();

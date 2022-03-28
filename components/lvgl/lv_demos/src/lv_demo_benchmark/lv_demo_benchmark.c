@@ -8,7 +8,8 @@
  *********************/
 #include "../../lv_examples.h"
 #include "lv_demo_benchmark.h"
-
+#define LUAT_LOG_TAG "lvgl"
+#include "luat_log.h"
 #if LV_USE_DEMO_BENCHMARK
 
 /*********************
@@ -795,11 +796,11 @@ static void scene_next_task_cb(lv_task_t * task)
         row++;
         char buf[256];
         for(i = 0; i < sizeof(scenes) / sizeof(scene_dsc_t) - 1; i++) {
-
             if(scenes[i].fps_normal < 20 && scenes[i].weight >= 10) {
                 lv_table_set_cell_value(table, row, 0, scenes[i].name);
 
                 lv_snprintf(buf, sizeof(buf), "%d", scenes[i].fps_normal);
+
                 lv_table_set_cell_value(table, row, 1, buf);
 
                 lv_table_set_cell_type(table, row, 0, 2);
@@ -836,7 +837,6 @@ static void scene_next_task_cb(lv_task_t * task)
 
         for(i = 0; i < sizeof(scenes) / sizeof(scene_dsc_t) - 1; i++) {
             lv_table_set_cell_value(table, row, 0, scenes[i].name);
-
             lv_snprintf(buf, sizeof(buf), "%d", scenes[i].fps_normal);
             lv_table_set_cell_value(table, row, 1, buf);
 
@@ -871,7 +871,11 @@ static void scene_next_task_cb(lv_task_t * task)
         }
 
         lv_page_set_scrl_layout(page, LV_LAYOUT_COLUMN_LEFT);
-
+        LLOGD("Weighted FPS: %d", fps_weighted);
+        LLOGD("Opa. speed: %d%%", opa_speed_pct);
+        for(i = 0; i < sizeof(scenes) / sizeof(scene_dsc_t) - 1; i++) {
+            LLOGD("%d %s fps_normal %d fps_opa %d", i, scenes[i].name, scenes[i].fps_normal, scenes[i].fps_opa);
+        }
     }
 }
 

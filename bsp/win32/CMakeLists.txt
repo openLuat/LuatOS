@@ -19,6 +19,7 @@ include_directories(./include)
 include_directories(${TOPROOT}/lua/include
                     ${TOPROOT}/luat/include
                     ${TOPROOT}/components/freertos/include
+                    ./lv_drivers
                     )
 IF (WIN32)
      include_directories(${TOPROOT}/components/freertos/portable/MSVC-MingW)
@@ -82,6 +83,7 @@ add_library(luat ${TOPROOT}/luat/modules/luat_main.c
                  ${TOPROOT}/luat/packages/lfs/lfs_util.c
                  ${TOPROOT}/luat/packages/lfs/lfs.c
                  ${TOPROOT}/luat/packages/lfs/luat_lib_lfs2.c
+                 ./lv_drivers/win_drv.c
                #   ${LCD_SRCS}
             )
 
@@ -123,6 +125,6 @@ add_subdirectory(${TOPROOT}/components/lvgl lvgl.out)
 # 指定生成目标
 add_executable(luatos src/main_win32.c src/lua.c)
 target_link_libraries(luat freertos10 winmm fatfs lvgl lua)
-target_link_libraries(luatos freertos10 lua luatos_msys luat winmm cjson
-                      mbedtls fatfs lvgl 
+target_link_libraries(luatos freertos10 lua luatos_msys  lvgl luat winmm cjson
+                      mbedtls fatfs
                       )

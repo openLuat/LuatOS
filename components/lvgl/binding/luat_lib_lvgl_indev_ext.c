@@ -12,7 +12,7 @@
 static lv_indev_data_t point_emulator_data = {0};
 static lv_indev_data_t keyboard_emulator_data = {0};
 
-bool point_input_read(lv_indev_drv_t * drv, lv_indev_data_t*data) {
+static bool point_input_read(lv_indev_drv_t * drv, lv_indev_data_t*data) {
     memcpy(data, drv->user_data, sizeof(lv_indev_data_t));
     // if (((lv_indev_data_t*)drv->user_data)->state == LV_INDEV_STATE_PR){
     //     ((lv_indev_data_t*)drv->user_data)->state == LV_INDEV_STATE_REL;

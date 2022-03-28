@@ -120,7 +120,10 @@ static int l_uart_setup(lua_State *L)
 @int 可选，要发送的数据长度，默认全发
 @return int 成功的数据长度
 @usage
+-- 写入可见字符串
 uart.write(1, "rdy\r\n")
+-- 写入十六进制的数据串
+uart.write(1, string.char(0x55,0xAA,0x4B,0x03,0x86))
 */
 static int l_uart_write(lua_State *L)
 {

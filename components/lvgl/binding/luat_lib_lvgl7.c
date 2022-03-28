@@ -56,17 +56,31 @@ extern uint32_t WINDOW_VER_RES;
 @return bool 成功返回true,否则返回false
  */
 int luat_lv_init(lua_State *L) {
+    int w = 0;
+    int h = 0;
+
     if (LV.disp != NULL) {
         lua_pushboolean(L, 0);
         return 1;
     }
+
+    if (lua_isnumber(L, 1) && lua_isnumber(L, 2)) {
+        w = luaL_checkinteger(L, 1);
+        h = luaL_checkinteger(L, 2);
+    }
+
     #ifdef LUA_USE_WINDOWS
     if (lua_isnumber(L, 1) && lua_isnumber(L, 2)) {
         WINDOW_HOR_RES= luaL_checkinteger(L, 1);
         WINDOW_VER_RES = luaL_checkinteger(L, 2);
     }
+    #ifndef LUAT_EMULATOR_MODE
     HWND windrv_init(void);
     windrv_init();
+    #else
+    extern void emulator_lvgl_init(int w, int h);
+    emulator_lvgl_init(WINDOW_HOR_RES, WINDOW_VER_RES);
+    #endif
     lua_pushboolean(L, 1);
     return 1;
     #elif defined(LUA_USE_LINUX)
@@ -91,12 +105,10 @@ int luat_lv_init(lua_State *L) {
         return 0;
     }
 
-    int w = lcd_conf->w;
-    int h = lcd_conf->h; 
-    if (lua_isinteger(L, 1))
-        w = luaL_checkinteger(L, 1);
-    if (lua_isinteger(L, 2))
-        h = luaL_checkinteger(L, 2);
+    if (w == 0 || h == 0) {
+        w = lcd_conf->w;
+        h = lcd_conf->h;
+    }
 
     if (lua_isinteger(L, 4)) {
         fbuff_size = luaL_checkinteger(L, 4);

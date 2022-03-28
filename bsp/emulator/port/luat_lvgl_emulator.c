@@ -11,6 +11,9 @@
 #include "windows.h"
 #include "luat_msgbus.h"
 
+uint32_t WINDOW_HOR_RES = LV_HOR_RES_MAX;
+uint32_t WINDOW_VER_RES = LV_VER_RES_MAX;
+
 typedef struct luat_lv {
     lv_disp_t* disp;
     lv_disp_buf_t disp_buf;
@@ -73,7 +76,7 @@ void luat_lv_disp_flush(lv_disp_drv_t * disp_drv, const lv_area_t * area, lv_col
     lv_disp_flush_ready(disp_drv);
 }
 
-void win32_lvgl_remote_init(int w, int h) {
+void emulator_lvgl_init(int w, int h) {
     if (rbuff != NULL) {
         LLOGE("lvgl was init completed!!");
         return;

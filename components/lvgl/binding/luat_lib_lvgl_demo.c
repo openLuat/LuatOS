@@ -8,7 +8,7 @@
 #include "luat_base.h"
 #include "luat_lvgl.h"
 #include "lvgl.h"
-#include "../lv_demos/lv_ex_conf.h"
+#include "../lv_demos/lv_examples.h"
 #include "luat_malloc.h"
 
 /*

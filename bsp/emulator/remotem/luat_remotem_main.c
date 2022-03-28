@@ -161,7 +161,7 @@ cJSON* luat_remotem_json_init(cJSON* top) {
 int luat_remotem_up(cJSON* top) {
     if (uplink == NULL)
         return -1;
-    char* json = cJSON_Print(top);
+    char* json = cJSON_PrintUnformatted(top);
     uplink(json, strlen(json));
     cJSON_free(json);
     return 0;

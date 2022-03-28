@@ -301,7 +301,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         DestroyWindow(hwnd);
         return 0;
     case WM_PAINT:
-        on_paint();
+        //on_paint();
         return 0;
     case WM_TIMER:
         lv_tick_inc(25);

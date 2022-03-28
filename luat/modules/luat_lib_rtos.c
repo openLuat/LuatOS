@@ -39,14 +39,25 @@ static int l_rtos_receive(lua_State *L) {
 
 //------------------------------------------------------------------
 static int l_timer_handler(lua_State *L, void* ptr) {
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     luat_timer_t *timer = (luat_timer_t *)ptr;
+    int timer_id = msg->arg1;
+    if (timer_id > 0) {
+        timer = luat_timer_get(timer_id);
+    }
+    else if (timer != NULL) {
+        timer_id = timer->id;
+        timer = luat_timer_get(timer_id);
+    }
+    if (timer == NULL)
+        return 0;
     // LLOGD("l_timer_handler id=%ld\n", timer->id);
     lua_pushinteger(L, MSG_TIMER);
     lua_pushinteger(L, timer->id);
     lua_pushinteger(L, timer->repeat);
     //lua_pushinteger(L, timer->timeout);
     if (timer->repeat == 0) {
-        // LLOGD("l_timer_handler stop id=%ld\n", timer->id);
+        // LLOGD("stop timer %d", timer_id);
         luat_timer_stop(timer);
         luat_heap_free(timer);
     }
@@ -73,9 +84,9 @@ static int l_rtos_timer_start(lua_State *L) {
     size_t id = (size_t)luaL_checkinteger(L, 1) / 1;
     size_t timeout = (size_t)luaL_checkinteger(L, 2);
     int repeat = (size_t)luaL_optinteger(L, 3, 0);
-    // LLOGD(("timer id=%ld\n", id);
-    // LLOGD(("timer timeout=%ld\n", timeout);
-    // LLOGD(("timer repeat=%ld\n", repeat);
+    // LLOGD("start timer id=%ld", id);
+    // LLOGD("timer timeout=%ld", timeout);
+    // LLOGD("timer repeat=%ld", repeat);
     if (timeout < 1) {
         lua_pushinteger(L, 0);
         return 1;
@@ -108,15 +119,15 @@ static int l_rtos_timer_start(lua_State *L) {
 rtos.timer_stop(id)
 */
 static int l_rtos_timer_stop(lua_State *L) {
+    int timerid = -1;
     luat_timer_t *timer = NULL;
-    if (lua_islightuserdata(L, 1)) {
-        timer = (luat_timer_t *)lua_touserdata(L, 1);
+    if (!lua_isinteger(L, 1)) {
+        return 0;
     }
-    else if (lua_isinteger(L, 1)) {
-        timer = luat_timer_get(lua_tointeger(L, 1));
-    }
+    timerid = lua_tointeger(L, 1);
+    timer = luat_timer_get(timerid);
     if (timer != NULL) {
-        //LLOGD("timer stop, free timer %p", timer);
+        // LLOGD("timer stop, free timer %d", timerid);
         luat_timer_stop(timer);
         luat_heap_free(timer);
     }

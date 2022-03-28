@@ -658,7 +658,7 @@ int l_str_startsWith(lua_State *L) {
 
 /*
 判断字符串后缀
-@api string.startsWith(str, suffix)
+@api string.endsWith(str, suffix)
 @string 需要检查的字符串
 @string 后缀字符串
 @return bool 真为true, 假为false

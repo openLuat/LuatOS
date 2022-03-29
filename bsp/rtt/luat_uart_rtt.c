@@ -6,7 +6,12 @@
 
 #include "rtthread.h"
 #include <rtdevice.h>
+
+#ifdef RT_USING_SERIAL_V2
+#include "drivers/serial_v2.h"
+#else
 #include "drivers/serial.h"
+#endif
 
 #define DBG_TAG           "rtt.uart"
 #define DBG_LVL           DBG_WARNING
@@ -117,8 +122,13 @@ int luat_uart_setup(luat_uart_t* uart)
     config.baud_rate = uart->baud_rate;
     config.data_bits = uart->data_bits;
     config.stop_bits = uart->stop_bits - 1;
+#ifdef RT_USING_SERIAL_V2
+    config.rx_bufsz     = 512;
+    config.tx_bufsz     = 1024;
+#else
     //config.bufsz     = uart->bufsz;
     config.bufsz     = 512;
+#endif
     config.parity    = uart->parity;
     config.bit_order = uart->bit_order;
     rt_device_control(dev, RT_DEVICE_CTRL_CONFIG, &config);

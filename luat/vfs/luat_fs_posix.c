@@ -223,11 +223,12 @@ int luat_vfs_posix_info(void* userdata, const char* path, luat_fs_info_t *conf) 
 const struct luat_vfs_filesystem vfs_fs_posix = {
     .name = "posix",
     .opts = {
-        T(mkfs),
+        .mkfs = NULL,
         T(mount),
         T(umount),
-        T(mkdir),
-        T(rmdir),
+        .mkdir = NULL,
+        .rmdir = NULL,
+        .lsdir = NULL,
         T(remove),
         T(rename),
         T(fsize),

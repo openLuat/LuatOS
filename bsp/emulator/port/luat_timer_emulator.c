@@ -39,6 +39,7 @@ void CALLBACK TimeProc(
         if (timers[i] && (UINT_PTR)(timers[i]->os_timer) == idTimer) {
             msg.handler = timers[i]->func;
             msg.ptr = timers[i];
+            msg.arg1 = timers[i]->id;
             luat_msgbus_put(&msg, 0);
             // LLOGD("timer msgbus index=%ld", i);
         }

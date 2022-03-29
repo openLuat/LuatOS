@@ -169,6 +169,11 @@ int luat_vfs_fatfs_rmdir(void* userdata, char const* _DirName) {
     return -1;
 }
 
+int luat_vfs_fatfs_lsdir(void* userdata, char const* _DirName) {
+    LLOGE("not support yet : lsdir");
+    return 0;
+}
+
 int luat_vfs_fatfs_info(void* userdata, const char* path, luat_fs_info_t *conf) {
     // DWORD fre_clust = 0;
     // DWORD fre_sect = 0
@@ -195,6 +200,7 @@ const struct luat_vfs_filesystem vfs_fs_fatfs = {
         T(umount),
         T(mkdir),
         T(rmdir),
+        T(lsdir),
         T(remove),
         T(rename),
         T(fsize),

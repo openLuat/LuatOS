@@ -137,10 +137,10 @@ static int l_ymodem_release(lua_State *L){
 #include "rotable2.h"
 static const rotable_Reg_t reg_ymodem[] =
 {
-    { "create",           ROREG_FUNC(l_ymodem_create)},
-    { "receive",   ROREG_FUNC(l_ymodem_receive)},
-    { "reset",      ROREG_FUNC(l_ymodem_reset)},
-    { "release", ROREG_FUNC(l_ymodem_release)},
+    { "create",           	ROREG_FUNC(l_ymodem_create)},
+    { "receive",   			ROREG_FUNC(l_ymodem_receive)},
+    { "reset",      		ROREG_FUNC(l_ymodem_reset)},
+    { "release",			ROREG_FUNC(l_ymodem_release)},
 	{ NULL,             {}}
 };
 

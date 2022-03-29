@@ -14,9 +14,13 @@ static char timer_name[32];
 
 static void rt_timer_callback(void *param) {
     rtos_msg_t msg;
-    luat_timer_t *timer = (luat_timer_t*)param;
+    size_t timer_id = (size_t)param;
+    luat_timer_t *timer = luat_timer_get(timer_id);
+    if (timer == NULL)
+        return;
     msg.handler = timer->func;
-    msg.ptr = param;
+    msg.ptr = timer;
+    msg.arg1 = timer_id;
     luat_msgbus_put(&msg, 1);
 }
 
@@ -25,7 +29,7 @@ int luat_timer_start(luat_timer_t* timer) {
     LOG_D("rtt timer name=%s", timer_name);
     rt_tick_t tick = rt_tick_from_millisecond(timer->timeout);
     rt_uint8_t flag = timer->repeat ? RT_TIMER_FLAG_PERIODIC : RT_TIMER_FLAG_ONE_SHOT ;
-    rt_timer_t r_timer = rt_timer_create(timer_name, rt_timer_callback, timer, tick, flag|RT_TIMER_FLAG_SOFT_TIMER);
+    rt_timer_t r_timer = rt_timer_create(timer_name, rt_timer_callback, (void *)timer->id, tick, flag|RT_TIMER_FLAG_SOFT_TIMER);
     if (r_timer == RT_NULL) {
         LOG_E("rt_timer_create FAIL!!!");
         return 1;

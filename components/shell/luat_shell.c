@@ -27,20 +27,37 @@ extern void i2c_tools(const char * data,size_t len);
 #include "luat_ymodem.h"
 #endif
 
-luat_shell_t shell_ctx;
+luat_shell_t shell_ctx = {
+    .echo_enable = 1
+};
 extern luat_cmux_t cmux_ctx;
 
 static int luat_shell_loadstr(lua_State *L, void* ptr);
 
+// 查询BSP
 static void cmd_ati(char* uart_buff, size_t len);
+// 复位重启
 static void cmd_reset(char* uart_buff, size_t len);
+// AT回显OK
 static void cmd_at(char* uart_buff, size_t len);
+// AT回显设置
 static void cmd_ate(char* uart_buff, size_t len);
+// 查询内存状态
 static void cmd_free(char* uart_buff, size_t len);
+// 查询芯片唯一id
 static void cmd_cgsn(char* uart_buff, size_t len);
+
+// cmux初始化
 static void cmd_cmux_cmd_init(char* uart_buff, size_t len);
+
+// rpel 操作
 static void cmd_loadstr(char* uart_buff, size_t len);
+
+// 文件操作
 static void cmd_ry(char* uart_buff, size_t len);
+static void cmd_lsdir(char* uart_buff, size_t len);
+static void cmd_fread(char* uart_buff, size_t len);
+static void cmd_fwrite(char* uart_buff, size_t len);
 
 luat_shell_cmd_reg_t cmd_regs[] = {
     {"ATI", cmd_ati},
@@ -65,6 +82,9 @@ luat_shell_cmd_reg_t cmd_regs[] = {
 #ifdef LUAT_USE_YMODEM
     {"ry\r",       cmd_ry},
 #endif
+    {"lsdir ",     cmd_lsdir},
+    {"fread ",     cmd_fread},
+    {"fwrite ",    cmd_fwrite},
     {NULL, NULL}
 };
 
@@ -175,9 +195,11 @@ static void cmd_cmux_cmd_init(char* uart_buff, size_t len) {
     luat_shell_write("OK\r\n", 4);
 }
 
+#ifdef LUAT_USE_I2CTOOLS
 static void cmd_i2c_tools(char* uart_buff, size_t len) {
     i2c_tools(uart_buff, len);
 }
+#endif
 
 #ifdef LUAT_USE_LOADSTR
 static void cmd_loadstr(char* uart_buff, size_t len) {
@@ -222,6 +244,83 @@ static void cmd_ry(char* uart_buff, size_t len) {
     }
 }
 #endif
+
+#include <string.h>
+#include "luat_fs.h"
+// 文件相关的命令
+static void cmd_lsdir(char* uart_buff, size_t len) {
+    if (uart_buff[len - 1] == '\r') {
+        uart_buff[len - 1] = 0;
+    }
+    if (uart_buff[len - 2] == '\r') {
+        uart_buff[len - 2] = 0;
+    }
+    strtok(uart_buff, " ");
+    char* path = strtok(NULL, " ");
+    luat_fs_dirent_t* ents = luat_heap_malloc(sizeof(luat_fs_dirent_t) * 10);
+    if (ents == NULL) {
+        LLOGE("out of memory when malloc luat_fs_dirent_t");
+        return;
+    }
+    int i = 0;
+    int ret = 0;
+    while (1)
+    {
+        //LLOGD("lsdir for %s %d %d", path, i* 10, 10);
+        ret = luat_fs_lsdir(path, ents, i* 10, 10);
+        //LLOGD("luat_fs_lsdir %d", ret);
+        if (ret < 1)
+            break;
+        for (size_t i = 0; i < ret; i++)
+        {
+            LLOGD(">> %s %s", ents[i].d_type == 0 ? "FILE" : "DIR ", ents[i].d_name);
+        }
+        if (ret != 10)
+            break;
+    }
+    luat_heap_free(ents);
+}
+
+static void cmd_fread(char* uart_buff, size_t len) {
+    if (uart_buff[len - 1] == '\r') {
+        uart_buff[len - 1] = 0;
+    }
+    if (uart_buff[len - 2] == '\r') {
+        uart_buff[len - 2] = 0;
+    }
+    strtok(uart_buff, " ");
+    char* path = strtok(NULL, " ");
+    size_t flen = luat_fs_fsize(path);
+    if (flen < 1) {
+        LLOGD("ERR FILE NOT FOUND");
+        return;
+    }
+    FILE* fd = luat_fs_fopen(path, "rb");
+    if (fd == NULL) {
+        LLOGD("ERR FILE NOT FOUND");
+        return;
+    }
+    LLOGD("OK %d", flen);
+    char* buff = luat_heap_malloc(4096);
+    if (buff == NULL) {
+        luat_fs_fclose(fd);
+        LLOGE("out of memory when read file");
+        return;
+    }
+    int count = 0;
+    while (count < flen) {
+        int rlen = luat_fs_fread(buff, 4096, 1, fd);
+        if (rlen < 1)
+            break;
+        luat_shell_write(buff, rlen);
+    }
+    luat_fs_fclose(fd);
+}
+
+static void cmd_fwrite(char* uart_buff, size_t len) {
+    LLOGD("not support yet");
+    return;
+}
 
 /// 已废弃的函数
 

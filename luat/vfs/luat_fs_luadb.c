@@ -470,6 +470,7 @@ const struct luat_vfs_filesystem vfs_fs_luadb = {
         T(umount),
         T(mkdir),
         T(rmdir),
+        T(lsdir),
         T(remove),
         T(rename),
         T(fsize),

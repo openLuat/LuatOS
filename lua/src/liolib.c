@@ -149,6 +149,9 @@ typedef luaL_Stream LStream;
 #define isclosed(p)	((p)->closef == NULL)
 
 #include "luat_fs.h"
+#define LUAT_LOG_TAG "io"
+#include "luat_log.h"
+
 #undef fopen
 #undef fclose
 #undef fread
@@ -881,6 +884,11 @@ static int f_fill(lua_State *L) {
 }
 #endif
 
+static int io_mkfs (lua_State *L);
+static int io_mkdir (lua_State *L);
+static int io_rmdir (lua_State *L);
+static int io_lsdir (lua_State *L);
+
 /*
 ** functions for 'io' library
 */
@@ -903,6 +911,13 @@ static const rotable_Reg_t iolib[] = {
   {"fileSize", ROREG_FUNC(io_fileSize)},
   {"readFile", ROREG_FUNC(io_readFile)},
   {"writeFile", ROREG_FUNC(io_writeFile)},
+  {"mkdir",     ROREG_FUNC(io_mkdir)},
+  {"rmdir",     ROREG_FUNC(io_rmdir)},
+  {"lsdir",     ROREG_FUNC(io_lsdir)},
+  {"mkfs",      ROREG_FUNC(io_mkfs)},
+
+  {"FILE",      ROREG_INT(0)},
+  {"DIR",       ROREG_INT(1)},
   {NULL, {}}
 };
 
@@ -995,3 +1010,80 @@ LUAMOD_API int luaopen_io (lua_State *L) {
   return 1;
 }
 
+// dir methods
+
+static int io_mkfs (lua_State *L) {
+  // const char* path = luaL_checkstring(L, 1);
+  // int ret = luat_fs_mkfs(path);
+  // lua_pushboolean(L, ret == 0 ? 1 : 0);
+  // lua_pushinteger(L, ret);
+  // return 2;
+  return 0;
+}
+
+static int io_mkdir (lua_State *L) {
+  const char* path = luaL_checkstring(L, 1);
+  int ret = luat_fs_mkdir(path);
+  lua_pushboolean(L, ret == 0 ? 1 : 0);
+  lua_pushinteger(L, ret);
+  return 2;
+}
+
+static int io_rmdir (lua_State *L) {
+  const char* path = luaL_checkstring(L, 1);
+  int ret = luat_fs_rmdir(path);
+  lua_pushboolean(L, ret == 0 ? 1 : 0);
+  lua_pushinteger(L, ret);
+  return 2;
+}
+
+static int io_lsdir (lua_State *L) {
+  const char* path = luaL_checkstring(L, 1);
+  int len = luaL_optinteger(L, 2, 10);
+  int offset = luaL_optinteger(L, 3, 0);
+
+  if (len < 0) {
+    len = 10;
+  } else if (len > 50) {
+    len = 50;
+  }
+  if (offset < 0)
+    offset = 0;
+
+  luat_fs_dirent_t* ents = luat_heap_malloc(sizeof(luat_fs_dirent_t) * len);
+  if (ents == NULL) {
+    LLOGE("out of memory when malloc luat_fs_dirent_t");
+    return 0;
+  }
+  int ret = luat_fs_lsdir(path, ents, offset, len);
+  if (ret == 0) {
+    luat_heap_free(ents);
+    lua_pushboolean(L, 1);
+    lua_newtable(L);
+    return 2;
+  }
+  else if (ret > 0) {
+    lua_pushboolean(L, 1);
+    lua_createtable(L, ret, 0);
+    
+    for (size_t i = 0; i < ret; i++)
+    {
+      lua_createtable(L, 0, 2);
+      lua_pushinteger(L, ents[i].d_type);
+      lua_setfield(L, -2, "type");
+      lua_pushstring(L, ents[i].d_name);
+      lua_setfield(L, -2, "name");
+      lua_seti(L, -2, i + 1);
+    }
+    luat_heap_free(ents);
+    return 2;
+  }
+  else {
+    luat_heap_free(ents);
+    lua_pushboolean(L, 0);
+    lua_pushinteger(L, ret);
+    return 2;
+  }
+
+  return 0;
+}

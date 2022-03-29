@@ -287,8 +287,17 @@ int luat_fs_rmdir(char const* _DirName) {
 }
 
 int luat_fs_lsdir(char const* _DirName, luat_fs_dirent_t* ents, size_t offset, size_t len) {
+    if (len == 0)
+        return 0;
     luat_vfs_mount_t *mount = getmount(_DirName);
-    if (mount == NULL || mount->fs->opts.lsdir == NULL) return 0;
+    if (mount == NULL) {
+        LLOGD("no such mount");
+        return 0;
+    }
+    if (mount->fs->opts.lsdir == NULL) {
+        LLOGD("such mount not support lsdir");
+        return 0;
+    }
     return mount->fs->opts.lsdir(mount->userdata,  _DirName + strlen(mount->prefix), ents, offset, len);
 }
 

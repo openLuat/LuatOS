@@ -87,3 +87,8 @@ LUAT_WEAK int luat_fs_rmdir(char const* _DirName) {
     LLOGE("not support yet : rmdir");
     return -1;
 }
+
+LUAT_WEAK int luat_fs_lsdir(char const* _DirName, luat_fs_dirent_t* ents, size_t offset, size_t len) {
+    LLOGE("not support yet : lsdir");
+    return 0;
+}

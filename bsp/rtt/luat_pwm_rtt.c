@@ -42,7 +42,7 @@ static int luat_pwm_rtt_init() {
 	return 0;
 }
 
-INIT_ENV_EXPORT(luat_pwm_rtt_init);
+INIT_COMPONENT_EXPORT(luat_pwm_rtt_init);
 
 //#ifdef SOC_FAMILY_STM32
 #if 0

@@ -9,6 +9,7 @@ objs = objs + SConscript(os.path.join(cwd, '../../../luat/SConscript'))
 objs = objs + SConscript(os.path.join(cwd, '../../../components/network/lwip/SConscript'))
 objs = objs + SConscript(os.path.join(cwd, '../../../components/lcd/SConscript'))
 objs = objs + SConscript(os.path.join(cwd, '../../../components/cmux/SConscript'))
+objs = objs + SConscript(os.path.join(cwd, '../../../components/ymodem/SConscript'))
 objs = objs + SConscript(os.path.join(cwd, '../../../components/shell/SConscript'))
 
 Return('objs')

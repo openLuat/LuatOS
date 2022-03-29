@@ -19,7 +19,7 @@ luat_remotem_ctx_t rctx = {
     .bsp = "win32",
     .wait = 1,
     .mqtt = {
-        .host = "broker-cn.emqx.io",
+        .host = "emqx.site0.cn",
         .port = 1883,
         .protocol = "tcp",
         .topic_uplink = "",
@@ -152,8 +152,8 @@ void luat_remotem_putbuff(char* buff, size_t len) {
 
 cJSON* luat_remotem_json_init(cJSON* top) {
     cJSON_AddNumberToObject(top, "version", 1);
-    cJSON_AddStringToObject(top, "session", "123");
-    cJSON_AddStringToObject(top, "id",      "123");
+    cJSON_AddStringToObject(top, "session", rctx.session_id);
+    cJSON_AddStringToObject(top, "id",      rctx.self_id);
     cJSON_AddStringToObject(top, "role",    "client");
     return cJSON_AddObjectToObject(top,     "data");
 }

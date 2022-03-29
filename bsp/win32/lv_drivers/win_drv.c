@@ -282,8 +282,8 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         fbp = malloc(4*WINDOW_HOR_RES*WINDOW_VER_RES);
         if(fbp == NULL)
             return 1;
-        SetTimer(hwnd, 0, 10, (TIMERPROC)lv_task_handler);
-        SetTimer(hwnd, 1, 25, NULL);
+        //SetTimer(hwnd, 0, 10, (TIMERPROC)lv_task_handler);
+        //SetTimer(hwnd, 1, 25, NULL);
 
         return 0;
     case WM_MOUSEMOVE:
@@ -301,10 +301,10 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         DestroyWindow(hwnd);
         return 0;
     case WM_PAINT:
-        //on_paint();
+        on_paint();
         return 0;
     case WM_TIMER:
-        lv_tick_inc(25);
+        //lv_tick_inc(25);
         return 0;
     case WM_DESTROY:
         PostQuitMessage(0);

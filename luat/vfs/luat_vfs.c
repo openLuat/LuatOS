@@ -254,7 +254,7 @@ int luat_fs_remove(const char *filename) {
 int luat_fs_rename(const char *old_filename, const char *new_filename) {
     luat_vfs_mount_t *old_mount = getmount(old_filename);
     luat_vfs_mount_t *new_mount = getmount(new_filename);\
-    if (old_filename == NULL || new_mount != old_mount) {
+    if (old_filename == NULL || new_mount != old_mount || old_mount->fs->opts.rename == NULL) {
         return -1;
     }
     return old_mount->fs->opts.rename(old_mount->userdata, old_filename + strlen(old_mount->prefix),
@@ -282,8 +282,14 @@ int luat_fs_mkdir(char const* _DirName) {
 }
 int luat_fs_rmdir(char const* _DirName) {
     luat_vfs_mount_t *mount = getmount(_DirName);
-    if (mount == NULL) return 0;
+    if (mount == NULL || mount->fs->opts.rmdir == NULL) return 0;
     return mount->fs->opts.rmdir(mount->userdata,  _DirName + strlen(mount->prefix));
+}
+
+int luat_fs_lsdir(char const* _DirName, luat_fs_dirent_t* ents, size_t offset, size_t len) {
+    luat_vfs_mount_t *mount = getmount(_DirName);
+    if (mount == NULL || mount->fs->opts.lsdir == NULL) return 0;
+    return mount->fs->opts.lsdir(mount->userdata,  _DirName + strlen(mount->prefix), ents, offset, len);
 }
 
 extern const struct luat_vfs_filesystem vfs_fs_luadb;

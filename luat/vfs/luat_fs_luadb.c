@@ -420,10 +420,27 @@ int luat_vfs_luadb_mkdir(void* userdata, char const* _DirName) {
     //LLOGE("not support yet : mkdir");
     return -1;
 }
+
 int luat_vfs_luadb_rmdir(void* userdata, char const* _DirName) {
     //LLOGE("not support yet : rmdir");
     return -1;
 }
+
+int luat_vfs_luadb_lsdir(void* userdata, char const* _DirName, luat_fs_dirent_t* ents, size_t offset, size_t len) {
+    luadb_fs_t* fs = (luadb_fs_t*)userdata;
+    if (fs->filecount > offset) {
+        if (offset + len > fs->filecount)
+            len = fs->filecount - offset;
+        for (size_t i = 0; i < len; i++)
+        {
+            ents[i].d_type = 0;
+            strcpy(ents[i].d_name, fs->files[i+offset].name);
+        }
+        return len;
+    }
+    return 0;
+}
+
 int luat_vfs_luadb_info(void* userdata, const char* path, luat_fs_info_t *conf) {
     memcpy(conf->filesystem, "luadb", strlen("luadb")+1);
     conf->type = 0;

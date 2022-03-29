@@ -168,6 +168,59 @@ int luat_vfs_lfs2_rmdir(void* userdata, char const* _DirName) {
     return -1;
 }
 
+int luat_vfs_lfs2_lsdir(void* userdata, char const* _DirName, luat_fs_dirent_t* ents, size_t offset, size_t len) {
+    lfs_t* fs = (lfs_t*)userdata;
+    int ret = 0;
+    lfs_dir_t *dir;
+    struct lfs_info info;
+    // if (fs->filecount > offset) {
+        // if (offset + len > fs->filecount)
+            // len = fs->filecount - offset;
+        dir = luat_heap_malloc(sizeof(lfs_dir_t));
+        if (dir == NULL) {
+            // LLOGE("out of memory when lsdir");
+            return 0;
+        }
+        ret = lfs_dir_open(fs, dir, _DirName);
+        if (ret < 0) {
+            luat_heap_free(dir);
+            // LLOGE("no such dir %s _DirName");
+            return 0;
+        }
+
+        // TODO 使用seek/tell组合更快更省
+        for (size_t i = 0; i < offset; i++)
+        {
+            ret = lfs_dir_read(fs, dir, &info);
+            if (ret <= 0) {
+                lfs_dir_close(fs, dir);
+                luat_heap_free(dir);
+                return 0;
+            }
+        }
+
+        for (size_t i = 0; i < len; i++)
+        {
+            ret = lfs_dir_read(fs, dir, &info);
+            if (ret < 0) {
+                lfs_dir_close(fs, dir);
+                luat_heap_free(dir);
+                return 0;
+            }
+            if (ret == 0) {
+                len = i;
+                break;
+            }
+            ents[i].d_type = info.type - 1; // lfs file =1, dir=2
+            strcpy(ents[i].d_name, info.name);
+        }
+        lfs_dir_close(fs, dir);
+        luat_heap_free(dir);
+        return len;
+    // }
+    return 0;
+}
+
 int luat_vfs_lfs2_info(void* userdata, const char* path, luat_fs_info_t *conf) {
     lfs_t* fs = (lfs_t*)userdata;
     memcpy(conf->filesystem, "lfs", strlen("lfs")+1);
@@ -188,6 +241,7 @@ const struct luat_vfs_filesystem vfs_fs_lfs2 = {
         T(umount),
         T(mkdir),
         T(rmdir),
+        T(lsdir),
         T(remove),
         T(rename),
         T(fsize),

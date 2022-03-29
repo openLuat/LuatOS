@@ -145,12 +145,13 @@ int luat_vfs_onefile_info(void* userdata, const char* path, luat_fs_info_t *conf
 const struct luat_vfs_filesystem vfs_fs_onefile = {
     .name = "onefile",
     .opts = {
-        T(mkfs),
+        .mkfs = NULL,
         T(mount),
         T(umount),
-        T(mkdir),
-        T(rmdir),
-        T(remove),
+        .mkdir = NULL,
+        .rmdir = NULL,
+        .lsdir = NULL,
+        .remove = NULL,
         T(rename),
         T(fsize),
         T(fexist),

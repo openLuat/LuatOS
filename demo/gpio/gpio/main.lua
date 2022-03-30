@@ -17,6 +17,7 @@ end
 --下面的GPIO引脚编号，请根据实际需要进行更改！
 -- Air101开发板的3个LED分别为 PB08/PB09/PB10
 -- Air103开发板的3个LED分别为 PB24/PB25/PB26
+-- Air105开发板的3个LED分别为 PD14/PD15/PC3
 
 -- 若下载到设备后提示pin库不存在,请升级固件到V0006或以上
 local LEDA = gpio.setup(pin.PB08, 0, gpio.PULLUP) -- PB8输出模式,内部上拉

@@ -10,7 +10,6 @@
 #include "luat_msgbus.h"
 #include "luat_fs.h"
 #include "luat_malloc.h"
-#include <regex.h>
 
 #define LUAT_LOG_TAG "camera"
 #include "luat_log.h"

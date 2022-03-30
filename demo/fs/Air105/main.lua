@@ -9,10 +9,13 @@ log.info("main", PROJECT, VERSION)
 _G.sys = require("sys")
 
 --添加硬狗防止程序卡死
-wdt.init(15000)--初始化watchdog设置为15s
-sys.timerLoopStart(wdt.feed, 10000)--10s喂一次狗
+if wdt then
+    wdt.init(15000)--初始化watchdog设置为15s
+    sys.timerLoopStart(wdt.feed, 10000)--10s喂一次狗
+end
 
 local function fs_test()
+    sys.wait(100)
     -- 文件读取
     local f = io.open("/boot_time", "rb")
     local c = 0
@@ -45,15 +48,28 @@ local function fs_test()
     if fs then
         log.info("fsstat", fs.fsstat(""))
     end
+
+    -- 读取刷机时加入的文件, 并演示按行读取
+    -- 刷机时选取的非lua文件, 均存放在/luadb/目录下, 单层无子文件夹
+    f = io.open("/luadb/abc.txt", "a")
+    if f then
+        while true do
+            local line = f:read("l")
+            if not line or #line == 0 then
+                break
+            end
+            log.info("fs", "read line", line)
+        end
+        f:close()
+        log.info("fs", "close f")
+    else
+        log.info("fs", "pls add abc.txt!!")
+    end
 end
 
-fs_test() -- 每次开机,把记录的数值+1
 
-sys.taskInit(function()
-    while 1 do
-        sys.wait(500)
-    end
-end)
+-- 每次开机,把记录的数值+1
+sys.taskInit(fs_test)
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

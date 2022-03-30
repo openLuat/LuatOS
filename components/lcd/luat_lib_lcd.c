@@ -165,16 +165,54 @@ static int l_lcd_init(lua_State* L) {
         }
         if (s_index == 0){
             luat_lcd_custom_t *cst = luat_heap_malloc(sizeof(luat_lcd_custom_t));
-
             lua_pushstring(L, "initcmd");
             lua_gettable(L, 2);
-            cst->init_cmd_count = lua_rawlen(L, -1);
-            
-            cst->initcmd = luat_heap_malloc(cst->init_cmd_count * sizeof(uint32_t));
-            for (size_t i = 1; i <= cst->init_cmd_count; i++){
-                lua_geti(L, -1, i);
-                cst->initcmd[i-1] = luaL_checkinteger(L, -1);
-                lua_pop(L, 1);
+            if (lua_istable(L, -1)) {
+              cst->init_cmd_count = lua_rawlen(L, -1);
+              cst->initcmd = luat_heap_malloc(cst->init_cmd_count * sizeof(uint32_t));
+              for (size_t i = 1; i <= cst->init_cmd_count; i++){
+                  lua_geti(L, -1, i);
+                  cst->initcmd[i-1] = luaL_checkinteger(L, -1);
+                  lua_pop(L, 1);
+              }
+            }else if(lua_isstring(L, -1)){
+              int len,cmd;
+              const char *fail_name = luaL_checklstring(L, -1, &len);
+              FILE* fd = luat_fs_fopen(fail_name, "rb");
+              cst->init_cmd_count = 0;
+              if (fd){
+                  #define INITCMD_BUFF_SIZE 128
+                  char init_cmd_buff[INITCMD_BUFF_SIZE] ;
+                  cst->initcmd = luat_heap_malloc(sizeof(uint32_t));
+                  while (1) {
+                      memset(init_cmd_buff, 0, INITCMD_BUFF_SIZE);
+                      int readline_len = luat_fs_readline(init_cmd_buff, INITCMD_BUFF_SIZE-1, fd);
+                      if (readline_len < 1)
+                          break;
+                      if (memcmp(init_cmd_buff, "#", 1)==0){
+                          continue;
+                      }
+                      char *token = strtok(init_cmd_buff, ",");
+                      if (sscanf(token,"%x",&cmd) < 1){
+                          continue;
+                      }
+                      cst->init_cmd_count = cst->init_cmd_count + 1;
+                      cst->initcmd = luat_heap_realloc(cst->initcmd,cst->init_cmd_count * sizeof(uint32_t));
+                      cst->initcmd[cst->init_cmd_count-1]=cmd;
+                      while( token != NULL ) {
+                          token = strtok(NULL, ",");
+                          if (sscanf(token,"%x",&cmd) < 1){
+                              break;
+                          }
+                          cst->init_cmd_count = cst->init_cmd_count + 1;
+                          cst->initcmd = luat_heap_realloc(cst->initcmd,cst->init_cmd_count * sizeof(uint32_t));
+                          cst->initcmd[cst->init_cmd_count-1]=cmd;
+                      }
+                  }
+                  luat_fs_fclose(fd);
+              }else{
+                  LLOGE("init_cmd fail open error");
+              }
             }
             lua_pop(L, 1);
             conf->userdata = cst;

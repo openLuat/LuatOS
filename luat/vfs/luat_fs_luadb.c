@@ -465,14 +465,14 @@ const char* luat_vfs_luadb_mmap(void* userdata, int fd) {
 const struct luat_vfs_filesystem vfs_fs_luadb = {
     .name = "luadb",
     .opts = {
-        T(mkfs),
+        .mkfs = NULL,
         T(mount),
         T(umount),
-        T(mkdir),
-        T(rmdir),
-        T(lsdir),
-        T(remove),
-        T(rename),
+        .mkdir = NULL,
+        .rmdir = NULL,
+        .lsdir = NULL,
+        .remove = NULL,
+        .rename = NULL,
         T(fsize),
         T(fexist),
         T(info)
@@ -486,7 +486,7 @@ const struct luat_vfs_filesystem vfs_fs_luadb = {
         T(feof),
         T(ferror),
         T(fread),
-        T(fwrite)
+        .fwrite = NULL
     }
 };
 #endif

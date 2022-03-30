@@ -53,6 +53,8 @@ static void cmd_cmux_cmd_init(char* uart_buff, size_t len);
 // rpel 操作
 static void cmd_loadstr(char* uart_buff, size_t len);
 
+static void cmd_i2c_tools(char* uart_buff, size_t len);
+
 // 文件操作
 static void cmd_ry(char* uart_buff, size_t len);
 static void cmd_lsdir(char* uart_buff, size_t len);

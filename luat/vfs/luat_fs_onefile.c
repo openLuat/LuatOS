@@ -152,7 +152,7 @@ const struct luat_vfs_filesystem vfs_fs_onefile = {
         .rmdir = NULL,
         .lsdir = NULL,
         .remove = NULL,
-        T(rename),
+        .rename = NULL,
         T(fsize),
         T(fexist),
         T(info)
@@ -166,7 +166,7 @@ const struct luat_vfs_filesystem vfs_fs_onefile = {
         T(feof),
         T(ferror),
         T(fread),
-        T(fwrite)
+        .fwrite = NULL
     }
 };
 #endif

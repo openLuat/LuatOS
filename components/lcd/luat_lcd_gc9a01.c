@@ -31,13 +31,15 @@ static int gc9a01_init(luat_lcd_conf_t* conf) {
     luat_timer_mdelay(100);
     luat_gpio_set(conf->pin_rst, Luat_GPIO_HIGH);
 
+    luat_lcd_wakeup(conf);
+    luat_timer_mdelay(120);
     // 发送初始化命令
     lcd_write_cmd(conf,0xEF);
     lcd_write_cmd(conf,0xEB);
     lcd_write_data(conf,0x14);
 
     lcd_write_cmd(conf,0xFE);
-    lcd_write_data(conf,0xEF);
+    lcd_write_cmd(conf,0xEF);
 
     lcd_write_cmd(conf,0xEB);
     lcd_write_data(conf,0x14);
@@ -250,10 +252,10 @@ static int gc9a01_init(luat_lcd_conf_t* conf) {
     lcd_write_data(conf,0x07);
 
     lcd_write_cmd(conf,0x35);
-    lcd_write_data(conf,0x21);
+    lcd_write_cmd(conf,0x21);
 
     /* Sleep Out */
-    lcd_write_cmd(conf,0x11);
+    luat_lcd_wakeup(conf);
     /* wait for power stability */
     luat_timer_mdelay(100);
     luat_lcd_clear(conf,WHITE);

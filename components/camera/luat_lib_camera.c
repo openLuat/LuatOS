@@ -143,23 +143,40 @@ static int l_camera_init(lua_State *L){
                 lua_pop(L, 1);
             }
         }else if(lua_isstring(L, -1)){
-            int len = 0;
+            int len,cmd;
             const char *fail_name = luaL_checklstring(L, -1, &len);
             FILE* fd = luat_fs_fopen(fail_name, "rb");
+            conf.init_cmd_size = 0;
             if (fd){
                 #define INITCMD_BUFF_SIZE 128
                 char init_cmd_buff[INITCMD_BUFF_SIZE] ;
+                conf.init_cmd = luat_heap_malloc(sizeof(uint8_t));
                 while (1) {
                     memset(init_cmd_buff, 0, INITCMD_BUFF_SIZE);
-                    len = luat_fs_readline(init_cmd_buff, INITCMD_BUFF_SIZE-1, fd);
-                    if (len < 1)
+                    int readline_len = luat_fs_readline(init_cmd_buff, INITCMD_BUFF_SIZE-1, fd);
+                    if (readline_len < 1)
                         break;
                     if (memcmp(init_cmd_buff, "#", 1)==0){
                         continue;
                     }
-                    LLOGD("luat_fs_fgets buf:%s",init_cmd_buff);
-
+                    char *token = strtok(init_cmd_buff, ",");
+                    if (sscanf(token,"%x",&cmd) < 1){
+                        continue;
+                    }
+                    conf.init_cmd_size = conf.init_cmd_size + 1;
+                    conf.init_cmd = luat_heap_realloc(conf.init_cmd,conf.init_cmd_size * sizeof(uint8_t));
+                    conf.init_cmd[conf.init_cmd_size-1]=cmd;
+                    while( token != NULL ) {
+                        token = strtok(NULL, ",");
+                        if (sscanf(token,"%x",&cmd) < 1){
+                            break;
+                        }
+                        conf.init_cmd_size = conf.init_cmd_size + 1;
+                        conf.init_cmd = luat_heap_realloc(conf.init_cmd,conf.init_cmd_size * sizeof(uint8_t));
+                        conf.init_cmd[conf.init_cmd_size-1]=cmd;
+                    }
                 }
+                luat_fs_fclose(fd);
             }else{
                 LLOGE("init_cmd fail open error");
             }

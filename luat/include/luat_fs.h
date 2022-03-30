@@ -49,6 +49,7 @@ int luat_fs_remove(const char *filename);
 int luat_fs_rename(const char *old_filename, const char *new_filename);
 size_t luat_fs_fsize(const char *filename);
 int luat_fs_fexist(const char *filename);
+int luat_fs_readline(char * buf, int bufsize, FILE * stream);
 
 // TODO 文件夹相关的API
 //int luat_fs_diropen(char const* _FileName);

@@ -10,6 +10,7 @@
 #include "luat_msgbus.h"
 #include "luat_fs.h"
 #include "luat_malloc.h"
+#include <regex.h>
 
 #define LUAT_LOG_TAG "camera"
 #include "luat_log.h"
@@ -42,24 +43,6 @@ int l_camera_handler(lua_State *L, void* ptr) {
     }
     lua_pushinteger(L, 0);
     return 1;
-}
-
-int luat_fs_fgets(char * buf, int bufsize, FILE * stream){
-    int get_len = 0;
-    char buff[1];
-    for (size_t i = 0; i < bufsize; i++){
-        int len = luat_fs_fread(buff, sizeof(char), 1, stream);
-        if (len>0){
-            get_len = get_len+len;
-            memcpy(buf+i, buff, len);
-            if (memcmp(buff, "\n", 1)==0){
-                break;
-            }
-        }else{
-            break;
-        }
-    }
-    return get_len;
 }
 
 /*
@@ -164,18 +147,18 @@ static int l_camera_init(lua_State *L){
             const char *fail_name = luaL_checklstring(L, -1, &len);
             FILE* fd = luat_fs_fopen(fail_name, "rb");
             if (fd){
-                char init_cmd_buff[1];
-                char init_cmd_a[1];
-                char buf[100] ;
+                #define INITCMD_BUFF_SIZE 128
+                char init_cmd_buff[INITCMD_BUFF_SIZE] ;
                 while (1) {
-                    memset(buf, 0, 100);
-                    len = luat_fs_fgets(buf, 100-1, fd);
+                    memset(init_cmd_buff, 0, INITCMD_BUFF_SIZE);
+                    len = luat_fs_readline(init_cmd_buff, INITCMD_BUFF_SIZE-1, fd);
                     if (len < 1)
                         break;
-                    if (memcmp(buf, "#", 1)==0){
+                    if (memcmp(init_cmd_buff, "#", 1)==0){
                         continue;
                     }
-                    LLOGD("luat_fs_fgets buf:%s",buf);
+                    LLOGD("luat_fs_fgets buf:%s",init_cmd_buff);
+
                 }
             }else{
                 LLOGE("init_cmd fail open error");

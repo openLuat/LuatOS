@@ -271,6 +271,23 @@ int luat_fs_fexist(const char *filename) {
     if (mount == NULL || mount->fs->opts.fexist == NULL) return 0;
     return mount->fs->opts.fexist(mount->userdata,  filename + strlen(mount->prefix));
 }
+int luat_fs_readline(char * buf, int bufsize, FILE * stream){
+    int get_len = 0;
+    char buff[1];
+    for (size_t i = 0; i < bufsize; i++){
+        int len = luat_fs_fread(buff, sizeof(char), 1, stream);
+        if (len>0){
+            get_len = get_len+len;
+            memcpy(buf+i, buff, len);
+            if (memcmp(buff, "\n", 1)==0){
+                break;
+            }
+        }else{
+            break;
+        }
+    }
+    return get_len;
+}
 
 // TODO 文件夹相关的API
 //int luat_fs_diropen(char const* _FileName);

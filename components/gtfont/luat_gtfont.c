@@ -24,7 +24,7 @@ unsigned long r_dat_bat(unsigned long address,unsigned long DataLen,unsigned cha
         (u8)((address)>>8),
         (u8)(address)
     };
-    luat_spi_device_transfer(gt_spi_dev, send_buf, 4, pBuff, DataLen);
+    luat_spi_device_transfer(gt_spi_dev, send_buf, 4, (char *)pBuff, DataLen);
     return pBuff[0];
 }
 
@@ -40,7 +40,7 @@ unsigned char CheckID(unsigned char CMD, unsigned long address,unsigned long byt
         (u8)((address)>>8),
         (u8)(address)
     };
-    luat_spi_device_transfer(gt_spi_dev, send_buf, 4, p_arr, byte_long);
+    luat_spi_device_transfer(gt_spi_dev, send_buf, 4, (char *)p_arr, byte_long);
     // return p_arr[0];
     return 1;
 }

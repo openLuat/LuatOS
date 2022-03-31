@@ -9,6 +9,7 @@
 #include "luat_lcd.h"
 #include "luat_malloc.h"
 #include "luat_zbuff.h"
+#include "luat_fs.h"
 
 #define LUAT_LOG_TAG "lcd"
 #include "luat_log.h"
@@ -176,7 +177,7 @@ static int l_lcd_init(lua_State* L) {
                   lua_pop(L, 1);
               }
             }else if(lua_isstring(L, -1)){
-              int len,cmd;
+              size_t  len,cmd;
               const char *fail_name = luaL_checklstring(L, -1, &len);
               FILE* fd = (FILE *)luat_fs_fopen(fail_name, "rb");
               cst->init_cmd_count = 0;

@@ -409,7 +409,7 @@ static const rotable_Reg_t reg_uart[] =
 	{ "rx_size",	ROREG_FUNC(l_uart_rx_size)},
 
 	{ "VUART_0",        ROREG_INT(LUAT_VUART_ID_0)},
-    { NULL,         {}}
+    { NULL,         ROREG_INT(0) }
 };
 
 LUAMOD_API int luaopen_uart(lua_State *L)

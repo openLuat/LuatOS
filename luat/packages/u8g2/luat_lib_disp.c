@@ -286,7 +286,7 @@ static const rotable_Reg_t reg_disp[] =
     { "font_opposansm32_chinese", ROREG_PTR(u8g2_font_opposansm32_chinese)},
 #endif
 
-	{ NULL,         {}}
+	{ NULL,         ROREG_INT(0)}
 };
 
 LUAMOD_API int luaopen_disp( lua_State *L ) {

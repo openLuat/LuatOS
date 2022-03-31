@@ -388,7 +388,7 @@ static const rotable_Reg_t mathlib[] = {
   {"huge", ROREG_NUM(HUGE_VAL)},
   {"maxinteger", ROREG_INT(LUA_MAXINTEGER)},
   {"mininteger", ROREG_INT(LUA_MININTEGER)},
-  {NULL, {}}
+  {NULL, ROREG_INT(0) }
 };
 
 

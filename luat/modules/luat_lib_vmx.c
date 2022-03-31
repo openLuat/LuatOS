@@ -227,7 +227,7 @@ static const rotable_Reg_t reg_vmx[] =
     { "exec",            ROREG_FUNC(l_vmx_exec)},
     { "close" ,          ROREG_FUNC(l_vmx_close)},
     { "count" ,          ROREG_FUNC(l_vmx_count)},
-    { NULL,              {}}
+    { NULL,              ROREG_INT(0)}
 };
 
 LUAMOD_API int luaopen_vmx( lua_State *L ) {

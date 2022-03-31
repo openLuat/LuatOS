@@ -330,7 +330,7 @@ static const rotable_Reg_t reg_pack[] =
 {
 	{"pack",	   ROREG_FUNC(l_pack)},
 	{"unpack",	ROREG_FUNC(l_unpack)},
-	{NULL,	   {}}
+	{NULL,	   ROREG_INT(0) }
 };
 
 LUAMOD_API int luaopen_pack( lua_State *L ) {

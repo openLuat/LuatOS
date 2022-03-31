@@ -481,7 +481,7 @@ static const rotable_Reg_t reg_sensor[] =
         {"ds18b20",     ROREG_FUNC(l_sensor_ds18b20)},
         {"hx711",       ROREG_FUNC(l_sensor_hx711)},
         {"ws2812b",     ROREG_FUNC(l_sensor_ws2812b)},
-        {NULL,          {}}
+        {NULL,          ROREG_INT(0) }
 };
 
 LUAMOD_API int luaopen_sensor(lua_State *L)

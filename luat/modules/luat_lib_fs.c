@@ -105,7 +105,7 @@ static const rotable_Reg_t reg_fs[] =
     { "mkfs",        ROREG_FUNC(l_fs_mkfs     )},
     { "mount",       ROREG_FUNC(l_fs_mount    )},
     { "umount",      ROREG_FUNC(l_fs_umount   )},
-	{ NULL,          {}}
+	{ NULL,          ROREG_INT(0) }
 };
 
 LUAMOD_API int luaopen_fs( lua_State *L ) {

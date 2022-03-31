@@ -106,7 +106,7 @@ static const rotable_Reg_t reg_keyboard[] =
 {
     { "init" ,         ROREG_FUNC(l_keyboard_init)},
     { "deinit" ,       ROREG_FUNC(l_keyboard_deinit)},
-	{ NULL,            {}}
+	{ NULL,            ROREG_INT(0) }
 };
 
 LUAMOD_API int luaopen_keyboard( lua_State *L ) {

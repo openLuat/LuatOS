@@ -1419,7 +1419,7 @@ static const rotable_Reg_t reg_zbuff[] =
         {"SEEK_SET", ROREG_INT(ZBUFF_SEEK_SET)},
         {"SEEK_CUR", ROREG_INT(ZBUFF_SEEK_CUR)},
         {"SEEK_END", ROREG_INT(ZBUFF_SEEK_END)},
-        {NULL,       {}
+        {NULL,       ROREG_INT(0)
     }
 };
 

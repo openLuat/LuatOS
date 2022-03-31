@@ -157,7 +157,7 @@ static const rotable_Reg_t co_funcs[] = {
   {"wrap", ROREG_FUNC(luaB_cowrap)},
   {"yield", ROREG_FUNC(luaB_yield)},
   {"isyieldable", ROREG_FUNC(luaB_yieldable)},
-  {NULL, {}}
+  {NULL, ROREG_INT(0) }
 };
 
 

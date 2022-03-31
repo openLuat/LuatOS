@@ -157,7 +157,7 @@ static int l_ir_send_nec(lua_State *L) {
 static const rotable_Reg_t reg_ir[] =
 {
     { "sendNEC" ,    ROREG_FUNC(l_ir_send_nec)},
-	{ NULL,          {}}
+	{ NULL,          ROREG_INT(0) }
 };
 
 LUAMOD_API int luaopen_ir( lua_State *L ) {

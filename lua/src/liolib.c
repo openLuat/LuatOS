@@ -918,7 +918,7 @@ static const rotable_Reg_t iolib[] = {
 
   {"FILE",      ROREG_INT(0)},
   {"DIR",       ROREG_INT(1)},
-  {NULL, {}}
+  {NULL, ROREG_INT(0) }
 };
 
 

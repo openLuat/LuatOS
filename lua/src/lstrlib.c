@@ -1592,7 +1592,7 @@ static const rotable_Reg_t strlib[] = {
 #endif
   //{"urlDecode", str_urlDecode},
   //-----------------------------
-  {NULL, {}}
+  {NULL, ROREG_INT(0) }
 };
 
 

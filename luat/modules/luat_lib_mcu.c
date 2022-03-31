@@ -176,7 +176,7 @@ static const rotable_Reg_t reg_mcu[] =
 	{ "dtick64",		ROREG_FUNC(l_mcu_hw_diff_tick64)},
 	{ "setXTAL",		ROREG_FUNC(l_mcu_set_xtal)},
 #endif
-	{ NULL,             {}}
+	{ NULL,             ROREG_INT(0) }
 };
 
 LUAMOD_API int luaopen_mcu( lua_State *L ) {

@@ -164,7 +164,7 @@ static const rotable_Reg_t reg_log[] =
     { "LOG_INFO",   ROREG_INT(LUAT_LOG_INFO)},
     { "LOG_WARN",   ROREG_INT(LUAT_LOG_WARN)},
     { "LOG_ERROR",  ROREG_INT(LUAT_LOG_ERROR)},
-	{ NULL,         {}}
+	{ NULL,         ROREG_INT(0) }
 };
 
 LUAMOD_API int luaopen_log( lua_State *L ) {

@@ -493,7 +493,7 @@ static const rotable_Reg_t reg_dbg[] =
 #ifdef LUAT_USE_SHELL
     { "cmux_state", ROREG_FUNC(l_debug_cmux_state)},
 #endif
-	{ NULL,     {}}
+	{ NULL,     ROREG_INT(0)}
 };
 
 LUAMOD_API int luaopen_dbg( lua_State *L ) {

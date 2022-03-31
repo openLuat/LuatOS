@@ -146,7 +146,7 @@ static const rotable_Reg_t reg_sdio[] =
     { "sd_mount" ,      ROREG_FUNC(l_sdio_sd_mount)},
     { "sd_umount" ,     ROREG_FUNC(l_sdio_sd_umount)},
     { "sd_format" ,     ROREG_FUNC(l_sdio_sd_format)},
-	{ NULL,             {}}
+	{ NULL,             ROREG_INT(0) }
 };
 
 LUAMOD_API int luaopen_sdio( lua_State *L ) {

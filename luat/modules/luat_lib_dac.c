@@ -158,7 +158,7 @@ static const rotable_Reg_t reg_dac[] =
     { "write" ,      ROREG_FUNC(l_dac_write)},
 //    { "writeFile",   ROREG_FUNC(l_dac_write_file)},
     { "close" ,      ROREG_FUNC(l_dac_close)},
-	{ NULL,          {}}
+	{ NULL,          ROREG_INT(0) }
 };
 
 LUAMOD_API int luaopen_dac( lua_State *L ) {

@@ -72,7 +72,7 @@ static const rotable_Reg_t reg_pin[] =
 {
     {"__index", ROREG_FUNC(luat_pin_index)},
     {"get",     ROREG_FUNC(luat_pin_index)},
-	{ NULL,     {}}
+	{ NULL,     ROREG_INT(0) }
 };
 
 LUAMOD_API int luaopen_pin( lua_State *L ) {

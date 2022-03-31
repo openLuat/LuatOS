@@ -434,7 +434,7 @@ static const rotable_Reg_t tab_funcs[] = {
   {"remove", ROREG_FUNC(tremove)},
   {"move", ROREG_FUNC(tmove)},
   {"sort", ROREG_FUNC(sort)},
-  {NULL, {}}
+  {NULL, ROREG_INT(0) }
 };
 
 

@@ -268,7 +268,7 @@ static const rotable_Reg_t  bitlib[] = {
   {"clear",   ROREG_FUNC(b_clear)},
   {"isset",   ROREG_FUNC(b_isset)},
   {"isclear", ROREG_FUNC(b_isclear)},
-  {NULL,      {}}
+  {NULL,      ROREG_INT(0) }
 };
 
 LUAMOD_API int luaopen_bit32 (lua_State *L) {

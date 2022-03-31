@@ -241,7 +241,7 @@ static const rotable_Reg_t reg_pm[] =
     { "LIGHT",          ROREG_INT(LUAT_PM_SLEEP_MODE_LIGHT)},
     { "DEEP",           ROREG_INT(LUAT_PM_SLEEP_MODE_DEEP)},
     { "HIB",            ROREG_INT(LUAT_PM_SLEEP_MODE_STANDBY)},
-	{ NULL,             {}}
+	{ NULL,             ROREG_INT(0) }
 };
 
 LUAMOD_API int luaopen_pm( lua_State *L ) {

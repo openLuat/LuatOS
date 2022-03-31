@@ -126,7 +126,7 @@ static const rotable_Reg_t reg_otp[] =
     {"write",   ROREG_FUNC(l_otp_write)},
     {"erase",   ROREG_FUNC(l_otp_erase)},
     {"lock",    ROREG_FUNC(l_otp_lock)},
-	{ NULL,     {}}
+	{ NULL,     ROREG_INT(0) }
 };
 
 LUAMOD_API int luaopen_otp( lua_State *L ) {

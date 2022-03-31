@@ -83,7 +83,7 @@ static const rotable_Reg_t reg_pwm[] =
     { "open" ,       ROREG_FUNC(l_pwm_open )},
     { "close" ,      ROREG_FUNC(l_pwm_close)},
     { "capture" ,    ROREG_FUNC(l_pwm_capture)},
-	{ NULL,          {}}
+	{ NULL,          ROREG_INT(0) }
 };
 
 LUAMOD_API int luaopen_pwm( lua_State *L ) {

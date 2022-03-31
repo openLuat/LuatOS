@@ -590,7 +590,7 @@ static const rotable_Reg_t reg_socket[] =
     { "ntpSync",    ROREG_FUNC(socket_ntp_sync)}, // TODO 改成平台无关的UDP实现?
     { "isReady",    ROREG_FUNC(l_socket_is_ready)},
     { "ip",         ROREG_FUNC(l_socket_selfip)},
-	{ NULL,         {}}
+	{ NULL,         ROREG_INT(0) }
 };
 
 LUAMOD_API int luaopen_socket( lua_State *L ) {

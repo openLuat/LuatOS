@@ -264,7 +264,7 @@ static const rotable_Reg_t reg_rtc[] =
     { "timerStart", ROREG_FUNC(l_rtc_timer_start)},
     { "timerStop",  ROREG_FUNC(l_rtc_timer_stop)},
     { "setBaseYear", ROREG_FUNC(l_rtc_set_base_year)},
-	{ NULL,         {}}
+	{ NULL,         ROREG_INT(0) }
 };
 
 LUAMOD_API int luaopen_rtc( lua_State *L ) {

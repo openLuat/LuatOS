@@ -445,7 +445,7 @@ static const rotable_Reg_t dblib[] = {
   {"setmetatable", ROREG_FUNC(db_setmetatable)},
   {"setupvalue",   ROREG_FUNC(db_setupvalue)},
   {"traceback",    ROREG_FUNC(db_traceback)},
-  {NULL, {}}
+  {NULL, ROREG_INT(0) }
 };
 
 

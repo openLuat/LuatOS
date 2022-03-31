@@ -79,7 +79,7 @@ static const rotable_Reg_t reg_adc[] =
     { "open" ,       ROREG_FUNC(l_adc_open)},
     { "read" ,       ROREG_FUNC(l_adc_read)},
     { "close" ,      ROREG_FUNC(l_adc_close)},
-	{ NULL,          {}}
+	{ NULL,          ROREG_INT(0) }
 };
 
 LUAMOD_API int luaopen_adc( lua_State *L ) {

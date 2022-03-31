@@ -85,7 +85,7 @@ static const rotable_Reg_t reg_touchkey[] =
 {
     { "setup",  ROREG_FUNC(l_touchkey_setup)},
     { "close",  ROREG_FUNC(l_touchkey_close)},
-    { NULL,     {}}
+    { NULL,     ROREG_INT(0) }
 };
 
 LUAMOD_API int luaopen_touchkey(lua_State *L)

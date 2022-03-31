@@ -532,7 +532,7 @@ static const rotable_Reg_t reg_ctiot[] =
 	{ "NON_REL", ROREG_INT(2)},
 	{ "CON_REL", ROREG_INT(3)},
 #endif
-	{ NULL, {}}
+	{ NULL, ROREG_INT(0) }
 };
 
 LUAMOD_API int luaopen_ctiot( lua_State *L ) {

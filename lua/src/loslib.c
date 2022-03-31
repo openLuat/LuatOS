@@ -400,7 +400,7 @@ static const rotable_Reg_t syslib[] = {
   {"remove",    ROREG_FUNC(os_remove)},
   {"rename",    ROREG_FUNC(os_rename)},
   {"time",      ROREG_FUNC(os_time)},
-  {NULL, {}}
+  {NULL, ROREG_INT(0) }
 };
 
 /* }====================================================== */

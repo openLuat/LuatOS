@@ -80,7 +80,7 @@ static const rotable_Reg_t reg_lpmem[] =
     { "read" ,         ROREG_FUNC(l_lpmem_read)},
     { "write" ,        ROREG_FUNC(l_lpmem_write)},
     { "size",          ROREG_FUNC(l_lpmem_size)},
-	{ NULL,            {}}
+	{ NULL,            ROREG_INT(0) }
 };
 
 LUAMOD_API int luaopen_lpmem( lua_State *L ) {

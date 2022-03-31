@@ -424,7 +424,7 @@ static const rotable_Reg_t reg_crypto[] =
     { "crc8",           ROREG_FUNC(l_crypto_crc8           )},
     { "trng",           ROREG_FUNC(l_crypto_trng           )},
     { "totp",           ROREG_FUNC(l_crypto_totp           )},
-	{ NULL,             {}}
+	{ NULL,             ROREG_INT(0) }
 };
 
 LUAMOD_API int luaopen_crypto( lua_State *L ) {

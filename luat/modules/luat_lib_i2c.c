@@ -666,7 +666,7 @@ static const rotable_Reg_t reg_i2c[] =
 
     { "FAST",       ROREG_INT(1)},
     { "SLOW",       ROREG_INT(0)},
-	{ NULL,         {}}
+	{ NULL,         ROREG_INT(0) }
 };
 
 LUAMOD_API int luaopen_i2c(lua_State *L)

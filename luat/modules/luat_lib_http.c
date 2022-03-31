@@ -282,7 +282,7 @@ static const rotable_Reg_t reg_http[] =
     { "post",   ROREG_FUNC(l_http_post)},
     { "put",    ROREG_FUNC(l_http_put)},
     { "delete", ROREG_FUNC(l_http_delete)},
-	{ NULL,     {}}
+	{ NULL,     ROREG_INT(0) }
 };
 
 LUAMOD_API int luaopen_http( lua_State *L ) {

@@ -14,6 +14,8 @@ CFLAGS_INC    +=  -I $(LUATOS_DIR)/bsp/air302/include \
 				  -I $(LUATOS_DIR)/components/fal/inc \
 				  -I $(LUATOS_DIR)/components/flashdb/inc \
 				  -I $(LUATOS_DIR)/components/sfd \
+				  -I $(LUATOS_DIR)/components/shell \
+				  -I $(LUATOS_DIR)/components/cmux \
 
 
 
@@ -34,6 +36,8 @@ LUATOS_SRC_DIRS += $(LUATOS_DIR)/lua/src \
 				    $(LUATOS_DIR)/components/fal/src \
 				    $(LUATOS_DIR)/components/flashdb/src \
 				    $(LUATOS_DIR)/components/sfd \
+					$(LUATOS_DIR)/components/shell \
+					$(LUATOS_DIR)/components/cmux \
 					$(LUATOS_DIR)/bsp/air302/src 
 
 
@@ -45,7 +49,7 @@ LUATOS_COBJS := $(addprefix $(BUILDDIR)/, $(LUATOS_COBJSTEMP))
 
 -include $(LUATOS_COBJS:.o=.d)
 
-CFLAGS += -DWITH_POSIX -DAIR302
+CFLAGS += --c99 -DWITH_POSIX -DAIR302
 
 ifeq ($(USE_CHINESE_WQY12_FONT), y)
 CFLAGS += -DUSE_CHINESE_WQY12_FONT 

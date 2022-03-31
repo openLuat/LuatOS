@@ -57,7 +57,7 @@ static const rotable_Reg_t reg_hwtimer[] =
     { "read",           ROREG_FUNC(l_hwtimer_read)},
     { "change",         ROREG_FUNC(l_hwtimer_change)},
     { "destroy",        ROREG_FUNC(l_hwtimer_destroy)},
-	{ NULL,             {}}
+	{ NULL,             ROREG_INT(0) }
 };
 
 LUAMOD_API int luaopen_hwtimer( lua_State *L ) {

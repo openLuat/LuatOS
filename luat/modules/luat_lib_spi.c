@@ -68,7 +68,7 @@ static char spi_soft_recv_byte(luat_espi_t *espi)
     return data;
 }
 
-static int spi_soft_send(luat_espi_t *espi, char *data, size_t len)
+static int spi_soft_send(luat_espi_t *espi, const char*data, size_t len)
 {
     size_t i = 0;
     if (espi->cs != -1)
@@ -607,7 +607,7 @@ static const rotable_Reg_t reg_spi[] =
     { "SPI_3",             ROREG_INT(3)},
     { "SPI_4",             ROREG_INT(4)},
 	{ "HSPI_0",             ROREG_INT(5)},
-	{ NULL,                {}}
+	{ NULL,                ROREG_INT(0) }
 };
 
 LUAMOD_API int luaopen_spi( lua_State *L ) {

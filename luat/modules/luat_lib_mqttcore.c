@@ -514,7 +514,7 @@ static const rotable_Reg_t reg_mqttcore[] =
 	{ "packZeroData",   ROREG_FUNC(l_mqttcore_packZeroData)},
 	{ "packUNSUBSCRIBE",ROREG_FUNC(l_mqttcore_packUNSUBSCRIBE)},
 	{ "unpack",  		ROREG_FUNC(l_mqttcore_unpack)},
-	{ NULL,             {}}
+	{ NULL,             ROREG_INT(0) }
 };
 
 LUAMOD_API int luaopen_mqttcore( lua_State *L ) {

@@ -232,7 +232,7 @@ static const rotable_Reg_t reg_gpio[] =
     { "RISING",         ROREG_INT(Luat_GPIO_RISING)},
     { "FALLING",        ROREG_INT(Luat_GPIO_FALLING)},
     { "BOTH",           ROREG_INT(Luat_GPIO_BOTH)},
-	{ NULL,             {}}
+	{ NULL,             ROREG_INT(0) }
 };
 
 LUAMOD_API int luaopen_gpio( lua_State *L ) {

@@ -9,6 +9,11 @@
 #define ZBUFF_SEEK_SET 0
 #define ZBUFF_SEEK_CUR 1
 #define ZBUFF_SEEK_END 2
+
+#if defined ( __CC_ARM )
+#pragma anon_unions
+#endif
+
 typedef struct luat_zbuff {
     uint8_t* addr;      //数据存储的地址
     size_t len;       //数据的长度

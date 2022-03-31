@@ -78,7 +78,7 @@ static const rotable_Reg_t reg_wdt[] =
     { "setTimeout", ROREG_FUNC(l_wdt_set_timeout)},
     { "feed",       ROREG_FUNC(l_wdt_feed)},
     { "close",      ROREG_FUNC(l_wdt_close)},
-	{ NULL,         {}}
+	{ NULL,         ROREG_INT(0) }
 };
 
 LUAMOD_API int luaopen_wdt( lua_State *L ) {

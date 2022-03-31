@@ -496,7 +496,7 @@ static const rotable_Reg_t reg_libcoap[] =
     // { "Service Unavailable",    NULL,   CODE(5,3)},
     // { "Gateway Timeout",    NULL,   CODE(5,4)},
     // { "Proxying Not Supported",    NULL,   CODE(5,5)},
-	{ NULL,  {}}
+	{ NULL,  ROREG_INT(0) }
 };
 
 LUAMOD_API int luaopen_libcoap( lua_State *L ) {

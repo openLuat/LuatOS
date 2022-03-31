@@ -183,7 +183,7 @@ static int l_lcd_init(lua_State* L) {
               if (fd){
                   #define INITCMD_BUFF_SIZE 128
                   char init_cmd_buff[INITCMD_BUFF_SIZE] ;
-                  cst->initcmd = luat_heap_malloc(sizeof(uint32_t));
+                  cst->initcmd = luat_heap_malloc(sizeof(uint32_t)*1024);
                   while (1) {
                       memset(init_cmd_buff, 0, INITCMD_BUFF_SIZE);
                       int readline_len = luat_fs_readline(init_cmd_buff, INITCMD_BUFF_SIZE-1, fd);
@@ -197,7 +197,7 @@ static int l_lcd_init(lua_State* L) {
                           continue;
                       }
                       cst->init_cmd_count = cst->init_cmd_count + 1;
-                      cst->initcmd = luat_heap_realloc(cst->initcmd,cst->init_cmd_count * sizeof(uint32_t));
+                      // cst->initcmd = luat_heap_realloc(cst->initcmd,cst->init_cmd_count * sizeof(uint32_t));
                       cst->initcmd[cst->init_cmd_count-1]=cmd;
                       while( token != NULL ) {
                           token = strtok(NULL, ",");
@@ -205,7 +205,7 @@ static int l_lcd_init(lua_State* L) {
                               break;
                           }
                           cst->init_cmd_count = cst->init_cmd_count + 1;
-                          cst->initcmd = luat_heap_realloc(cst->initcmd,cst->init_cmd_count * sizeof(uint32_t));
+                          // cst->initcmd = luat_heap_realloc(cst->initcmd,cst->init_cmd_count * sizeof(uint32_t));
                           cst->initcmd[cst->init_cmd_count-1]=cmd;
                       }
                   }

@@ -273,8 +273,9 @@ int luat_fs_fexist(const char *filename) {
 }
 int luat_fs_readline(char * buf, int bufsize, FILE * stream){
     int get_len = 0;
-    char buff[1];
-    for (size_t i = 0; i < bufsize; i++){
+    char buff[2];
+    for (size_t i = 0; i <= bufsize; i++){
+        memset(buff, 0, 2);
         int len = luat_fs_fread(buff, sizeof(char), 1, stream);
         if (len>0){
             get_len = get_len+len;

@@ -149,7 +149,8 @@ static int l_camera_init(lua_State *L){
             if (fd){
                 #define INITCMD_BUFF_SIZE 128
                 char init_cmd_buff[INITCMD_BUFF_SIZE] ;
-                conf.init_cmd = luat_heap_malloc(sizeof(uint8_t));
+                conf.init_cmd = luat_heap_malloc(sizeof(uint8_t)*1024);
+                memset(conf.init_cmd, 0, 1024);
                 while (1) {
                     memset(init_cmd_buff, 0, INITCMD_BUFF_SIZE);
                     int readline_len = luat_fs_readline(init_cmd_buff, INITCMD_BUFF_SIZE-1, fd);
@@ -163,7 +164,7 @@ static int l_camera_init(lua_State *L){
                         continue;
                     }
                     conf.init_cmd_size = conf.init_cmd_size + 1;
-                    conf.init_cmd = luat_heap_realloc(conf.init_cmd,conf.init_cmd_size * sizeof(uint8_t));
+                    // conf.init_cmd = luat_heap_realloc(conf.init_cmd,conf.init_cmd_size * sizeof(uint8_t));
                     conf.init_cmd[conf.init_cmd_size-1]=cmd;
                     while( token != NULL ) {
                         token = strtok(NULL, ",");
@@ -171,10 +172,11 @@ static int l_camera_init(lua_State *L){
                             break;
                         }
                         conf.init_cmd_size = conf.init_cmd_size + 1;
-                        conf.init_cmd = luat_heap_realloc(conf.init_cmd,conf.init_cmd_size * sizeof(uint8_t));
+                        // conf.init_cmd = luat_heap_realloc(conf.init_cmd,conf.init_cmd_size * sizeof(uint8_t));
                         conf.init_cmd[conf.init_cmd_size-1]=cmd;
                     }
                 }
+                conf.init_cmd[conf.init_cmd_size]= 0;
                 luat_fs_fclose(fd);
             }else{
                 LLOGE("init_cmd fail open error");

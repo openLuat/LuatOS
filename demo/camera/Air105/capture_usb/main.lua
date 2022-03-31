@@ -396,7 +396,7 @@ local GC032A_InitReg =
 	-- }
 }
 
-local uartid = 1 -- 根据实际设备选取不同的uartid
+local uartid = uart.VUART_0 -- 根据实际设备选取不同的uartid
 --初始化
 local result = uart.setup(
     uartid,--串口id

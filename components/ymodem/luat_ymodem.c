@@ -73,7 +73,7 @@ void *luat_ymodem_create_handler(const char *save_path, const char *force_save_p
 		if (force_save_path)
 		{
 			handler->force_save_path = luat_heap_malloc(strlen(force_save_path) + 1);
-			strcpy(handler->force_save_path, force_save_path);
+			strcpy((char*)handler->force_save_path, force_save_path);
 		}
 
 

@@ -558,7 +558,7 @@ static const rotable_Reg_t reg_fatfs[] =
   { "rename",	ROREG_FUNC(fatfs_rename)}, // 文件改名
 
   { "readfile",	ROREG_FUNC(fatfs_readfile)}, // 读取文件的简易方法
-  { NULL,		{}}
+  { NULL,		ROREG_INT(0)}
 };
 
 int luaopen_fatfs( lua_State *L )

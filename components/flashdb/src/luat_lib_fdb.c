@@ -254,7 +254,7 @@ static const rotable_Reg_t reg_fdb[] =
     { "kv_get",             ROREG_FUNC(l_fdb_kv_get)},
     { "kv_del",             ROREG_FUNC(l_fdb_kv_del)},
     { "kv_clr",             ROREG_FUNC(l_fdb_kv_clr)},
-    { NULL,                 {}}
+    { NULL,                 ROREG_INT(0)}
 };
 
 LUAMOD_API int luaopen_fdb( lua_State *L ) {

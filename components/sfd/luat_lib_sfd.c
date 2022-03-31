@@ -179,7 +179,7 @@ static const rotable_Reg_t reg_sfd[] =
     { "erase",             ROREG_FUNC(l_sfd_erase)},
     { "ioctl",             ROREG_FUNC(l_sfd_ioctl)},
     { "id",                ROREG_FUNC(l_sfd_id)},
-    { NULL,                {}}
+    { NULL,                ROREG_INT(0)}
 };
 
 LUAMOD_API int luaopen_sfd( lua_State *L ) {

@@ -160,7 +160,7 @@ static const rotable_Reg_t reg_lfs2[] =
   { "mount",	ROREG_FUNC(l_lfs2_mount)}, //初始化,挂载
 //   { "unmount",	ROREG_FUNC(l_lfs2_unmount)}, // 取消挂载
   { "mkfs",		ROREG_FUNC(l_lfs2_mkfs)}, // 格式化!!!
-  { NULL,		  {}}
+  { NULL,		  ROREG_INT(0)}
 };
 
 int luaopen_lfs2( lua_State *L )

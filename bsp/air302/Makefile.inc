@@ -16,6 +16,7 @@ CFLAGS_INC    +=  -I $(LUATOS_DIR)/bsp/air302/include \
 				  -I $(LUATOS_DIR)/components/sfd \
 				  -I $(LUATOS_DIR)/components/shell \
 				  -I $(LUATOS_DIR)/components/cmux \
+				  -I $(LUATOS_DIR)/components/ymodem \
 
 
 
@@ -38,6 +39,7 @@ LUATOS_SRC_DIRS += $(LUATOS_DIR)/lua/src \
 				    $(LUATOS_DIR)/components/sfd \
 					$(LUATOS_DIR)/components/shell \
 					$(LUATOS_DIR)/components/cmux \
+					$(LUATOS_DIR)/components/ymodem \
 					$(LUATOS_DIR)/bsp/air302/src 
 
 

@@ -64,7 +64,7 @@ static int l_ymodem_receive(lua_State *L){
 	int result;
 	size_t len;
 	uint8_t ack, flag, file_ok, all_done;
-	char *data;
+	const char *data;
 	if (handler && handler->ctrl)
 	{
 		if (lua_isstring(L, 2))
@@ -141,7 +141,7 @@ static const rotable_Reg_t reg_ymodem[] =
     { "receive",   			ROREG_FUNC(l_ymodem_receive)},
     { "reset",      		ROREG_FUNC(l_ymodem_reset)},
     { "release",			ROREG_FUNC(l_ymodem_release)},
-	{ NULL,             {}}
+	{ NULL,             ROREG_INT(0)}
 };
 
 LUAMOD_API int luaopen_ymodem( lua_State *L ) {

@@ -396,14 +396,14 @@ local GC032A_InitReg =
 	-- }
 }
 
-local uartid = 1 -- 根据实际设备选取不同的uartid
---初始化
-local result = uart.setup(
-    uartid,--串口id
-    115200,--波特率
-    8,--数据位
-    1--停止位
-)
+-- local uartid = 1 -- 根据实际设备选取不同的uartid
+-- --初始化
+-- local result = uart.setup(
+--     uartid,--串口id
+--     115200,--波特率
+--     8,--数据位
+--     1--停止位
+-- )
 
 local camera_pwdn = gpio.setup(pin.PD06, 1, gpio.PULLUP) -- PD06 camera_pwdn引脚
 local camera_rst = gpio.setup(pin.PD07, 1, gpio.PULLUP) -- PD07 camera_rst引脚
@@ -421,22 +421,45 @@ gpio.setup(pin.PA10, function()
 end, gpio.PULLUP,gpio.FALLING)
 
 sys.taskInit(function()
-    
+
+    local spiId = 2
+    local result = spi.setup(
+        spiId,--串口id
+        255, -- 不使用默认CS脚
+        0,--CPHA
+        0,--CPOL
+        8,--数据宽度
+        400*1000  -- 初始化时使用较低的频率
+    )
+    local TF_CS = pin.PB3
+    gpio.setup(TF_CS, 1)
+    --fatfs.debug(1) -- 若挂载失败,可以尝试打开调试信息,查找原因
+    fatfs.mount("SD", spiId, TF_CS, 24000000)
+    local data, err = fatfs.getfree("SD")
+    if data then
+        log.info("fatfs", "getfree", json.encode(data))
+    else
+        log.info("fatfs", "err", err)
+    end
+
     while 1 do
         result, data = sys.waitUntil("CAPTURE", 30000)
         if result==true and data==true then
             log.debug("摄像头捕获图像")
-            camera.capture(camera_id, "/temp.jpg", 1)
-            sys.wait(2000)
-            local f = io.open("/temp.jpg", "r")
-            local data
-            if f then
-                data = f:read("*a")
-                log.info("fs", #data)
-                f:close()
-            end
+            os.remove("/sd/temp.jpg")
+            camera.capture(camera_id, "/sd/temp.jpg", 1)
+
+            -- camera.capture(camera_id, "/temp.jpg", 1)
+            -- sys.wait(2000)
+            -- local f = io.open("/temp.jpg", "r")
+            -- local data
+            -- if f then
+            --     data = f:read("*a")
+            --     log.info("fs", #data)
+            --     f:close()
+            -- end
         
-            uart.write(uartid, data) --找个能保存数据的串口工具保存成文件就能在电脑上看了, 格式为JPG
+            -- uart.write(uartid, data) --找个能保存数据的串口工具保存成文件就能在电脑上看了, 格式为JPG
         end
     end
     

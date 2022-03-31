@@ -1,14 +1,17 @@
 --[[
-这是Air105+摄像头, 通过USB传输到上位机显示图片的示例
+这是Air105+摄像头, 通过USB传输到上位机显示图片的示例, 速率2fps, 色彩空间 RGB565, 不要期望太高
 本demo不需要lcd屏,但lcd的代码暂不可省略
 
 本demo需要V0006, 20220331之后编译的固件版本, 老版本不可用
 
 测试流程:
-1. 先选取最新固件, 配合本demo的main.lua及驱动txt, 两个都需要下载到设备!!
-2. 断开USB, 将拨动开关切换到另一端
+1. 先选取最新固件, 配合本demo的main.lua及驱动txt, 两个都需要下载到设备
+2. 断开USB, 将拨动开关切换到另一端, 切勿带电操作!!!
 3. 重新插入USB
 4. 打开上位机, 选择正确的COM口, 然后开始读取
+
+上位机下载: https://gitee.com/openLuat/luatos-soc-air105/attach_files
+上位机源码: https://gitee.com/openLuat/luatos-soc-air105 C#写的, 就能用, 勿生产
 ]]
 
 PROJECT = "usbcamera"

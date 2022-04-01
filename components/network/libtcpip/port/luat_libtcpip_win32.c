@@ -2,39 +2,37 @@
 
 #include "string.h"
 
-#ifdef LUAT_USE_LIBTCPIP_POSIX
+// #define LUAT_USE_LIBTCPIP_WIN32
+#ifdef LUAT_USE_LIBTCPIP_WIN32
 
 #include "time.h"
 
 #include "luat_libtcpip.h"
 #include <unistd.h>
-#include <arpa/inet.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netdb.h>
-#include <errno.h>
+#include "windows.h"
+#include <WinSock2.h>
 
-#define LUAT_LOG_TAG "posix"
+#define LUAT_LOG_TAG "win32"
 #include "luat_log.h"
 
-static void* luat_libtcpip_socket_posix(int domain, int type, int protocol) {
+static int luat_libtcpip_socket_posix(int domain, int type, int protocol) {
     LLOGD("create socket %d %d %d", domain, type, protocol);
-    return (void*)socket(domain, type, protocol);
+    return socket(domain, type, protocol);
 }
 
-static int luat_libtcpip_send_posix(void* s, const void *data, size_t size, int flags) {
-    return send((int)s, data, size, flags);
+static int luat_libtcpip_send_posix(int s, const void *data, size_t size, int flags) {
+    return send(s, data, size, flags);
 }
 
-static int luat_libtcpip_recv_posix(void* s, void *mem, size_t len, int flags) {
-    return recv((int)s, mem, len, flags);
+static int luat_libtcpip_recv_posix(int s, void *mem, size_t len, int flags) {
+    return recv(s, mem, len, flags);
 }
 
-static int luat_libtcpip_recv_timeout_posix(void* s, void *mem, size_t len, int flags, int timeout) {
+static int luat_libtcpip_recv_timeout_posix(int s, void *mem, size_t len, int flags, int timeout) {
     int ret;
     struct timeval tv;
     fd_set read_fds;
-    int fd = (int)s;
+    int fd = s;
 
     FD_ZERO( &read_fds );
     FD_SET( fd, &read_fds );
@@ -62,12 +60,12 @@ static int luat_libtcpip_select_posix(int maxfdp1, fd_set *readset, fd_set *writ
     return select(maxfdp1, readset, writeset, exceptset, timeout);
 }
 
-static int luat_libtcpip_close_posix(void* s) {
+static int luat_libtcpip_close_posix(int s) {
     // return close(s);
-    return close((int)s);
+    return closesocket(s);
 }
 
-static int luat_libtcpip_connect_posix(void* s, const char *hostname, uint16_t port) {
+static int luat_libtcpip_connect_posix(int s, const char *hostname, uint16_t port) {
     struct sockaddr_in socket_address;
     struct hostent *hp;
     char tmp[32];
@@ -88,10 +86,10 @@ static int luat_libtcpip_connect_posix(void* s, const char *hostname, uint16_t p
     socket_address.sin_port = htons(port);
     memcpy(&(socket_address.sin_addr), hp->h_addr, hp->h_length);
 
-    LLOGD("socket fd %d", (int)s);
+    LLOGD("socket fd %d", s);
 
     LLOGD("connect %s %s %d", hostname, tmp, port);
-    int ret = connect((int)s, &socket_address, sizeof(socket_address));
+    int ret = connect(s, &socket_address, sizeof(socket_address));
     if (ret == -1) {
         LLOGD("connect errno %d", errno);
     }
@@ -103,8 +101,8 @@ static struct hostent* luat_libtcpip_gethostbyname_posix(const char* name) {
     return gethostbyname(name);
 }
 
-static int luat_libtcpip_setsockopt_posix(void* s, int level, int optname, const void *optval, uint32_t optlen) {
-    return setsockopt((int)s, level, optname, optval, (socklen_t)optlen);
+static int luat_libtcpip_setsockopt_posix(int s, int level, int optname, const void *optval, uint32_t optlen) {
+    return setsockopt(s, level, optname, optval, (socklen_t)optlen);
 }
 
 luat_libtcpip_opts_t luat_libtcpip_posix = {

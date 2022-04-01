@@ -7,6 +7,8 @@
 #include "luat_libtcpip.h"
 #include "luat_libtcpip_mqtt.h"
 
+#include "luat_mcu.h"
+
 #include "libemqtt.h"
 #include <sys/socket.h>
 #include <sys/socket.h>
@@ -24,7 +26,6 @@
 
 #define MQTT_KEEPALIVE            240
 
-// static const mqtt_queue_msg_t MQTT_QUEUE_MSG_START = {MQTT_CMD_START};
 static const mqtt_queue_msg_t MQTT_QUEUE_MSG_LOOP =  {MQTT_CMD_LOOP};
 // static const mqtt_queue_msg_t MQTT_QUEUE_MSG_HEART = {MQTT_CMD_HEART};
 
@@ -33,40 +34,34 @@ LUAT_RET app_mqtt_ready(app_mqtt_ctx_t* ctx) {
     return ctx->conack_ready;
 }
 
-// static void app_mqtt_heart_timer(void *ptmr, void *parg)
-// {
-//     //tls_os_queue_send(app_mqtt_task_queue, (void *)&MQTT_QUEUE_MSG_HEART, 0);
-// }
-
 static int app_mqtt_close_socket(app_mqtt_ctx_t* ctx)
 {
-    int fd = ctx->socket_fd;
     ctx->conack_ready = LUAT_FALSE;
-    // XXX 替换原有posix的API调用
-    // return closesocket(fd);
-    return ctx->tcp_opts->_close(fd);
+    ctx->tcp_opts->_close(ctx->socket_ctx);
+    ctx->socket_ctx = NULL;
+    return 0;
 }
 
 static int app_mqtt_send_packet(void* userdata, const void *buf, unsigned int count)
 {
     app_mqtt_ctx_t* ctx = (app_mqtt_ctx_t*)userdata;
     LLOGD("ctx %p", ctx);
-    LLOGD("send fd %d len %d", ctx->socket_fd, count);
-    return ctx->tcp_opts->_send(ctx->socket_fd, buf, count, 0);
+    LLOGD("send fd %d len %d", ctx->socket_ctx, count);
+    return ctx->tcp_opts->_send(ctx->socket_ctx, buf, count, 0);
 }
 
 static int app_mqtt_read_packet(app_mqtt_ctx_t* ctx)
 {
     // int ret = 0;
     int total_bytes = 0, bytes_rcvd, packet_length;
-    int socket_fd = ctx->socket_fd;
+    // int socket_fd = ctx->socket_fd;
     uint8_t* packet_buff = ctx->packet_buffer;
     luat_libtcpip_opts_t* tcp_opts = ctx->tcp_opts;
 
     memset(packet_buff, 0, sizeof(MQTT_RECV_BUF_LEN_MAX));
     // XXX 替换原有posix的API调用
     // if((bytes_rcvd = recv(app_mqtt_socket_id, (app_mqtt_packet_buffer + total_bytes), MQTT_RECV_BUF_LEN_MAX, 0)) <= 0)
-    if((bytes_rcvd = ctx->tcp_opts->_recv_timeout(socket_fd, (packet_buff + total_bytes), 2, 0, 5)) <= 0)
+    if((bytes_rcvd = ctx->tcp_opts->_recv_timeout(ctx->socket_ctx, (packet_buff + total_bytes), 2, 0, 5)) <= 0)
     {
         // printf("%d, %d", bytes_rcvd, app_mqtt_socket_id);
         return MQTT_READ_TIMEOUT;
@@ -75,7 +70,7 @@ static int app_mqtt_read_packet(app_mqtt_ctx_t* ctx)
     total_bytes += bytes_rcvd; // Keep tally of total bytes
     if (total_bytes < 2) {
         // 少于2字节,那就肯定1个字节, 那我们再等15000ms
-        if((bytes_rcvd = tcp_opts->_recv_timeout(socket_fd, (packet_buff + total_bytes), 1, 0, 15000)) <= 0) {
+        if((bytes_rcvd = tcp_opts->_recv_timeout(ctx->socket_ctx, (packet_buff + total_bytes), 1, 0, 15000)) <= 0) {
             LLOGD("read package header timeout, close socket");
             app_mqtt_close_socket(ctx);
             return -1;
@@ -86,7 +81,7 @@ static int app_mqtt_read_packet(app_mqtt_ctx_t* ctx)
         for (size_t i = 1; i < 5; i++)
         {
             if (packet_buff[i] & 0x80) {
-                if((bytes_rcvd = tcp_opts->_recv_timeout(socket_fd, (packet_buff + total_bytes), 1, 0, 15000)) <= 0) {
+                if((bytes_rcvd = tcp_opts->_recv_timeout(ctx->socket_ctx, (packet_buff + total_bytes), 1, 0, 15000)) <= 0) {
                     LLOGD("read package header timeout, close socket");
                     app_mqtt_close_socket(ctx);
                     return -1;
@@ -110,11 +105,9 @@ static int app_mqtt_read_packet(app_mqtt_ctx_t* ctx)
     // LLOGD("packet_length %d total_bytes %d", packet_length, total_bytes);
     while(total_bytes < packet_length) // Reading the packet
     {
-        // XXX 替换原有posix的API调用
         // LLOGD("packet_length %d total_bytes %d", packet_length, total_bytes);
-        // if((bytes_rcvd = recv(app_mqtt_socket_id, (app_mqtt_packet_buffer + total_bytes), MQTT_RECV_BUF_LEN_MAX, 0)) <= 0)
         // LLOGD("more data %d", packet_length - total_bytes);
-        if((bytes_rcvd = tcp_opts->_recv_timeout(socket_fd, (packet_buff + total_bytes), packet_length - total_bytes, 0, 2000)) <= 0)
+        if((bytes_rcvd = tcp_opts->_recv_timeout(ctx->socket_ctx, (packet_buff + total_bytes), packet_length - total_bytes, 0, 2000)) <= 0)
             return -1;
         total_bytes += bytes_rcvd; // Keep tally of total bytes
     }
@@ -128,16 +121,12 @@ static int app_mqtt_init_socket(app_mqtt_ctx_t* ctx)
     // struct hostent *hp;
 
     // Create the socket
-    // XXX 替换原有posix的API调用
-    // if((app_mqtt_socket_id = socket(PF_INET, SOCK_STREAM, 0)) < 0)
-    if((ctx->socket_fd = ctx->tcp_opts->_socket(PF_INET, SOCK_STREAM, 0)) < 0) {
-        LLOGE("socket create error %d", ctx->socket_fd);
+    if((ctx->socket_ctx = ctx->tcp_opts->_socket(PF_INET, SOCK_STREAM, 0)) < 0) {
+        LLOGE("socket create error %p", ctx->socket_ctx);
         return -1;
     }
     // Disable Nagle Algorithm
-    // XXX 替换原有posix的API调用
-    // if (setsockopt(app_mqtt_socket_id, IPPROTO_TCP, 0x01, (char *)&flag, sizeof(flag)) < 0)
-    if (ctx->tcp_opts->_setsockopt(ctx->socket_fd, IPPROTO_TCP, 0x01, (char *)&flag, sizeof(flag)) < 0){
+    if (ctx->tcp_opts->_setsockopt(ctx->socket_ctx, IPPROTO_TCP, 0x01, (char *)&flag, sizeof(flag)) < 0){
         LLOGE("socket setsockopt error");
         app_mqtt_close_socket(ctx);
         return -2;
@@ -146,7 +135,7 @@ static int app_mqtt_init_socket(app_mqtt_ctx_t* ctx)
     // XXX 替换原有posix的API调用
     // if((connect(app_mqtt_socket_id, (struct sockaddr *)&socket_address, sizeof(socket_address))) < 0)
     // if((tcp_opts->_connect(app_mqtt_socket_id, (struct sockaddr *)&socket_address, sizeof(socket_address))) < 0)
-    if(ctx->tcp_opts->_connect(ctx->socket_fd, ctx->host, ctx->port) < 0){
+    if(ctx->tcp_opts->_connect(ctx->socket_ctx, ctx->host, ctx->port) < 0){
         LLOGE("socket connect error");
         app_mqtt_close_socket(ctx);
         return -3;
@@ -167,8 +156,6 @@ static int app_mqtt_init_inner(app_mqtt_ctx_t* ctx)
     ctx->connect_ready = LUAT_FALSE;
     ctx->conack_ready = LUAT_FALSE;
 
-    // uint16_t msg_id, msg_id_rcv;
-    // LLOGD("step1: init mqtt lib.");
 #if 1
     LLOGD("step1: init mqtt lib.");
     LLOGD("mqtt client_id:%s", ctx->client_id);
@@ -192,12 +179,6 @@ static int app_mqtt_init_inner(app_mqtt_ctx_t* ctx)
         return -5;
     }
     ctx->connect_ready = LUAT_TRUE;
-    // LLOGD("step5: start the Heart-beat preservation timer");
-    // ret = tls_os_timer_create(&app_mqtt_heartbeat_timer,
-    //                           app_mqtt_heart_timer,
-    //                           NULL, (APP_MQTT_KEEPALIVE / 3 * HZ), TRUE, NULL);
-    // if (TLS_OS_SUCCESS == ret)
-    //     tls_os_timer_start(app_mqtt_heartbeat_timer);
 
     return 0;
 }
@@ -212,7 +193,7 @@ static int app_mqtt_msg_cb(app_mqtt_ctx_t* ctx) {
     LLOGD("mqtt msg %02X", msg_tp);
     switch (msg_tp) {
         case MQTT_MSG_PUBLISH : {
-            ctx->keepalive_mark = 0;
+            //ctx->keepalive_mark = 0;
             // uint8_t topic[128], *msg;
             topic_len = mqtt_parse_pub_topic_ptr(ctx->packet_buffer, &topic);
             LLOGD("recvd: topic len %d", topic_len);
@@ -231,10 +212,6 @@ static int app_mqtt_msg_cb(app_mqtt_ctx_t* ctx) {
             #endif
 
             ctx->publish_cb(ctx, (char*)topic, topic_len, (char*)payload, payload_len);
-            // LLOGD("recvd: %s >>> %d %d", topic,);
-            // TODO 禁用下面的回显
-            // mqtt_publish(&app_mqtt_mqtt_broker, (const char *)mqtt_iot_pub_topic, (const char *)msg, len, 0);
-            // LLOGD("pushed: %s <<< %s", MQTT_PUB_TOPIC, msg);
             break;
         }
         case MQTT_MSG_CONNACK: {
@@ -282,9 +259,7 @@ static int app_mqtt_msg_cb(app_mqtt_ctx_t* ctx) {
 }
 
 int app_mqtt_disconnect(app_mqtt_ctx_t *ctx) {
-    // tls_os_timer_stop(app_mqtt_heartbeat_timer);
-    app_mqtt_close_socket(ctx);
-    return 0;
+    return app_mqtt_close_socket(ctx);
 }
 
 static int app_mqtt_loop(app_mqtt_ctx_t *ctx)
@@ -300,74 +275,88 @@ static int app_mqtt_loop(app_mqtt_ctx_t *ctx)
         //LLOGD("recvd Packet Header: 0x%x...", app_mqtt_packet_buffer[0]);
         ret = app_mqtt_msg_cb(ctx);
         if (ret != 0) {
-            // tls_os_timer_stop(app_mqtt_heartbeat_timer);
             app_mqtt_close_socket(ctx);
-        }
-        else {
-            // tls_os_queue_send(app_mqtt_task_queue, (void *)&MQTT_QUEUE_MSG_LOOP, 0);
+            return -1;
         }
     }
     else if (packet_length == MQTT_READ_TIMEOUT)
     {
-        // tls_os_queue_send(app_mqtt_task_queue, (void *)&MQTT_QUEUE_MSG_LOOP, 0);
+        // nop
     }
     else if(packet_length == -1)
     {
-        LLOGD("mqtt error:(%d), stop mqtt iotda!", packet_length);
-        // tls_os_timer_stop(app_mqtt_heartbeat_timer);
+        LLOGD("mqtt error:(%d), stop mqtt!", packet_length);
         app_mqtt_close_socket(ctx);
+        return -1;
     }
-
     return 0;
 }
 
 extern int app_mqtt_authentication_get(app_mqtt_ctx_t* ctx);
+
+app_mqtt_ctx_t* app_mqtt_configure_create(void) {
+    app_mqtt_ctx_t* ctx = luat_heap_malloc(sizeof(app_mqtt_ctx_t));
+    if (ctx == NULL) {
+        LLOGE("out of memory when mallo app_mqtt_ctx_t");
+        return NULL;
+    }
+    memset(ctx, 0, sizeof(app_mqtt_ctx_t));
+
+    ctx->keepalive = 240;
+    ctx->port = 1883;
+    ctx->keep_run = 1;
+
+    luat_queue_create(&ctx->msg_queue, 128, 4);
+
+    return ctx;
+}
 
 void app_mqtt_task(void *p)
 {
     int ret = 0;
     mqtt_queue_msg_t *msg;
 	app_mqtt_pub_data_t* pmsg;
-    uint32_t retry_time = 2;
+    // uint32_t retry_time = 2;
     app_mqtt_ctx_t* ctx = (app_mqtt_ctx_t*)p;
 
     msg = &MQTT_QUEUE_MSG_LOOP;
 
-    while (1)
+    // 计算ping的时机
+    // uint64_t last_pkg_ticks = 0;
+    size_t hz = luat_mcu_hz();
+    uint64_t tick_used;
+
+    while (ctx->keep_run)
     {
         if (ctx->connect_ready == LUAT_FALSE)
         {
-            // 固定延迟2秒再启动
-            //luat_timer_mdelay(2 * 1000);
-
             ret = app_mqtt_init_inner(ctx);
             if (ret) {
                 LLOGD("mqtt init fail %d", ret);
-                continue; // 开始下一轮重连循环
+                if (ctx->keep_run) {
+                    luat_timer_mdelay(ctx->reconnet_delay);
+                    continue; // 开始下一轮重连循环
+                }
+                else {
+                    LLOGD("mqtt exit");
+                    break;
+                }
             }
-            //app_mqtt_state = LUAT_TRUE;
-            // tls_os_queue_send(app_mqtt_task_queue, (void *)&MQTT_QUEUE_MSG_LOOP, 0);
+            ctx->last_pkg_tick = luat_mcu_ticks();
         }
-        
-        // ret = tls_os_queue_receive(app_mqtt_task_queue, (void **)&msg, 0, 1);
+
+        ret = luat_queue_recv(&ctx->msg_queue, &msg, sizeof(mqtt_queue_msg_t), 1);
         if (!ret)
         {
             switch((uint32_t)msg->type)
             {
-            // case MQTT_CMD_START:
-            //     break;
-            case MQTT_CMD_HEART:
-                // LLOGD("MQTT_CMD_HEART");
-                if (ctx->keepalive_mark == 1)
-                    mqtt_ping(&ctx->broker);
-                ctx->keepalive_mark = 1;
-                break;
             case MQTT_CMD_LOOP:
                 // LLOGD("MQTT_CMD_LOOP");
                 app_mqtt_loop(ctx);
                 break;
             case PUB_MSG_MAGIC:
-                ctx->keepalive_mark = 0;
+                // ctx->keepalive_mark = 0;
+                ctx->last_pkg_tick = luat_mcu_ticks();
                 pmsg = msg;
                 ret = mqtt_publish_with_qos(&ctx->broker, pmsg->topic, pmsg->data, pmsg->data_len, pmsg->retain, pmsg->qos, NULL);
                 LLOGD("app_mqtt_pub_data_t free %p", msg);
@@ -380,6 +369,12 @@ void app_mqtt_task(void *p)
         }
         else {
             app_mqtt_loop(ctx);
+        }
+        
+        tick_used = luat_mcu_ticks() - ctx->last_pkg_tick;
+        if (tick_used > (ctx->keepalive * hz  / 3)) {
+            mqtt_ping(&ctx->broker);
+            ctx->last_pkg_tick = luat_mcu_ticks();
         }
     }
 }
@@ -407,28 +402,6 @@ int app_mqtt_publish(app_mqtt_ctx_t* ctx, const char* topic, char* data, size_t 
         memcpy(msg->topic, topic, strlen(topic) + 1);
     else
         memcpy(msg->topic, ctx->pub_topic, strlen(ctx->pub_topic) + 1);
-    // int ret = tls_os_queue_send(app_mqtt_task_queue, (void *)msg, 0);
-    // if (ret != 0) {
-    //     LLOGD("app_mqtt_publish fail, free msg %p", msg);
-    //     free(msg);
-    //     return -2;
-    // }
+    luat_queue_send(&ctx->msg_queue, msg, sizeof(app_mqtt_pub_data_t), 1);
     return 0;
 }
-
-//----------------------------------------------------
-//                   MQTT主线程
-//----------------------------------------------------
-
-// static OS_STK app_mqtt_task_stk[MQTT_TASK_SIZE];
-
-// int app_mqtt_init(void) {
-//     ctx = malloc(sizeof(app_ctx_t));
-//     memset(ctx, 0, sizeof(app_ctx_t));
-//     tls_os_queue_create(&app_mqtt_task_queue, 32);
-//     tls_os_task_create(NULL, "mqtt", app_mqtt_task,
-//                         NULL, (void *)app_mqtt_task_stk,  /* task's stack start address */
-//                         MQTT_TASK_SIZE * sizeof(u32), /* task's stack size, unit:byte */
-//                         MQTT_TASK_PRIO, 0);
-//     return WM_SUCCESS;
-// }

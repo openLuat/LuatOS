@@ -159,7 +159,6 @@ static int l_u8g2_begin(lua_State *L) {
         lua_gettable(L, 1);
         if (lua_isinteger(L, -1)) {
             spi_id = luaL_checkinteger(L, -1);
-            // LLOGD("spi_id=%d", spi_id);
         }
         lua_pop(L, 1);
 
@@ -167,7 +166,6 @@ static int l_u8g2_begin(lua_State *L) {
         lua_gettable(L, 1);
         if (lua_isinteger(L, -1)) {
             spi_res = luaL_checkinteger(L, -1);
-            // LLOGD("spi_res=%d", spi_res);
         }
         lua_pop(L, 1);
 
@@ -175,7 +173,6 @@ static int l_u8g2_begin(lua_State *L) {
         lua_gettable(L, 1);
         if (lua_isinteger(L, -1)) {
             spi_dc = luaL_checkinteger(L, -1);
-            // LLOGD("spi_dc=%d", spi_dc);
         }
         lua_pop(L, 1);
 
@@ -183,7 +180,6 @@ static int l_u8g2_begin(lua_State *L) {
         lua_gettable(L, 1);
         if (lua_isinteger(L, -1)) {
             spi_cs = luaL_checkinteger(L, -1);
-            // LLOGD("spi_cs=%d", spi_cs);
         }
         lua_pop(L, 1);
 
@@ -197,9 +193,7 @@ static int l_u8g2_begin(lua_State *L) {
     }
 
     u8g2_lua_ref = luaL_ref(L, LUA_REGISTRYINDEX);
-
     u8g2_SetFont(u8g2, u8g2_font_ncenB08_tr); // 设置默认字体
-
     lua_pushinteger(L, 1);
     return 1;
 }
@@ -297,9 +291,9 @@ static int l_u8g2_SetFontMode(lua_State *L){
 /*
 设置字体
 @api u8g2.SetFont(font)
-@userdata font, u8g2.font_ncenB08_tr为纯英文8x8字节,u8g2.font_opposansm12_chinese 为12x12全中文,u8g2.font_unifont_t_symbols 为符号.
+@userdata font, u8g2.font_opposansm8 为纯英文8号字体,还有font_opposansm10 font_opposansm12 font_opposansm16 font_opposansm18 font_opposansm20 font_opposansm22 font_opposansm24 font_opposansm32 可选 u8g2.font_opposansm12_chinese 为12x12全中文,还有 font_opposansm16_chinese font_opposansm24_chinese font_opposansm32_chinese 可选, u8g2.font_unifont_t_symbols 为符号.
 @usage
--- 设置为中文字体,对之后的drawStr有效,使用中文字体需在 luat_conf_bsp.h开启#define USE_U8G2_OPPOSANSM12_CHINESE
+-- 设置为中文字体,对之后的drawStr有效,使用中文字体需在 luat_conf_bsp.h开启#define USE_U8G2_OPPOSANSMxx_CHINESE xx为字号 之后重新编译固件
 u8g2.setFont(u8g2.font_opposansm12)
 */
 static int l_u8g2_SetFont(lua_State *L) {

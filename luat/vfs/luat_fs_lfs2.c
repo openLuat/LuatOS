@@ -180,7 +180,7 @@ int luat_vfs_lfs2_rmdir(void* userdata, char const* _DirName) {
 
 int luat_vfs_lfs2_lsdir(void* userdata, char const* _DirName, luat_fs_dirent_t* ents, size_t offset, size_t len) {
     lfs_t* fs = (lfs_t*)userdata;
-    int ret = 0;
+    int ret , num = 0;
     lfs_dir_t *dir;
     struct lfs_info info;
     // if (fs->filecount > offset) {
@@ -221,12 +221,15 @@ int luat_vfs_lfs2_lsdir(void* userdata, char const* _DirName, luat_fs_dirent_t* 
                 len = i;
                 break;
             }
-            ents[i].d_type = info.type - 1; // lfs file =1, dir=2
-            strcpy(ents[i].d_name, info.name);
+            if (info.type == 2 && (memcmp(info.name, ".", 2) !=0 ||memcmp(info.name, "..", 3)!=0))
+                continue;
+            ents[num].d_type = info.type - 1; // lfs file =1, dir=2
+            strcpy(ents[num].d_name, info.name);
+            num++;
         }
         lfs_dir_close(fs, dir);
         luat_heap_free(dir);
-        return len;
+        return num;
     // }
     return 0;
 }

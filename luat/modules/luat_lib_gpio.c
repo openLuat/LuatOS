@@ -247,6 +247,7 @@ LUAMOD_API int luaopen_gpio( lua_State *L ) {
 // -------------------- 一些辅助函数
 
 void luat_gpio_mode(int pin, int mode, int pull, int initOutput) {
+    if (pin == 255) return;
     luat_gpio_t conf = {0};
     conf.pin = pin;
     conf.mode = mode == Luat_GPIO_INPUT ? Luat_GPIO_INPUT : Luat_GPIO_OUTPUT; // 只能是输入/输出, 不能是中断.

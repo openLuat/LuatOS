@@ -146,7 +146,17 @@ size_t luat_vfs_lfs2_fsize(void* userdata, const char *filename) {
 }
 
 int luat_vfs_lfs2_mkfs(void* userdata, luat_fs_conf_t *conf) {
-    LLOGE("not support yet : mkfs");
+    int ret = 0;
+    lfs_t* fs = (lfs_t*)userdata;
+    if (fs != NULL && fs->cfg != NULL) {
+        ret = lfs_format(fs, fs->cfg);
+        LLOGD("lfs2 format ret %d", ret);
+        if (ret < 0)
+            return ret;
+        ret = lfs_mount(fs, fs->cfg);
+        LLOGD("lfs2 mount ret %d", ret);
+        return ret;
+    }
     return -1;
 }
 

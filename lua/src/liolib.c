@@ -1013,12 +1013,12 @@ LUAMOD_API int luaopen_io (lua_State *L) {
 // dir methods
 
 static int io_mkfs (lua_State *L) {
-  // const char* path = luaL_checkstring(L, 1);
-  // int ret = luat_fs_mkfs(path);
-  // lua_pushboolean(L, ret == 0 ? 1 : 0);
-  // lua_pushinteger(L, ret);
-  // return 2;
-  return 0;
+  luat_fs_conf_t conf = {0};
+  conf.mount_point = (char*)luaL_checkstring(L, 1);
+  int ret = luat_fs_mkfs(&conf);
+  lua_pushboolean(L, ret == 0 ? 1 : 0);
+  lua_pushinteger(L, ret);
+  return 2;
 }
 
 static int io_mkdir (lua_State *L) {

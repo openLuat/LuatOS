@@ -79,7 +79,15 @@ luat_vfs_mount_t * getmount(const char* filename) {
 }
 
 int luat_fs_mkfs(luat_fs_conf_t *conf) {
-    return 0;
+    for (size_t j = 0; j < LUAT_VFS_FILESYSTEM_MOUNT_MAX; j++) {
+        if (vfs.mounted[j].ok == 0)
+            continue;
+        if (strcmp(vfs.mounted[j].prefix, conf->mount_point) == 0 && vfs.mounted[j].fs->opts.mkfs != NULL) {
+            return vfs.mounted[j].fs->opts.mkfs(vfs.mounted[j].userdata, conf);
+        }
+    }
+    LLOGE("no such mount point %s", conf->mount_point);
+    return -1;
 }
 
 int luat_fs_mount(luat_fs_conf_t *conf) {

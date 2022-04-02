@@ -36,12 +36,12 @@ typedef struct luat_libtcpip_mbedtls_ssl_ctx
 }luat_libtcpip_mbedtls_ssl_ctx_t;
 
 
-static int luat_libtcpip_socket_mbedtls_ssl(int domain, int type, int protocol) {
+static void* luat_libtcpip_socket_mbedtls_ssl(int domain, int type, int protocol) {
     int ret = 0;
     const char *pers = "ssl_client1";
     luat_libtcpip_mbedtls_ssl_ctx_t* ctx = luat_heap_malloc(sizeof(luat_libtcpip_mbedtls_ssl_ctx_t));
     if (ctx == NULL)
-        return 0;
+        return NULL;
     mbedtls_net_init( &ctx->server_fd );
     mbedtls_ssl_init( &ctx->ssl );
     mbedtls_ssl_config_init( &ctx->conf );
@@ -67,20 +67,20 @@ static int luat_libtcpip_socket_mbedtls_ssl(int domain, int type, int protocol) 
     //     goto fail;
     // }
 
-    return (int)ctx;
+    return (void*)ctx;
 
 fail:
     luat_heap_free(ctx);
-    return 0;
+    return NULL;
 
 }
 
-static int luat_libtcpip_send_mbedtls_ssl(int s, const void *data, size_t size, int flags) {
+static int luat_libtcpip_send_mbedtls_ssl(void* s, const void *data, size_t size, int flags) {
     luat_libtcpip_mbedtls_ssl_ctx_t* ctx = (luat_libtcpip_mbedtls_ssl_ctx_t*)s;
     return mbedtls_ssl_write(&ctx->ssl, data, size);
 }
 
-static int luat_libtcpip_recv_mbedtls_ssl(int s, void *mem, size_t len, int flags) {
+static int luat_libtcpip_recv_mbedtls_ssl(void* s, void *mem, size_t len, int flags) {
     luat_libtcpip_mbedtls_ssl_ctx_t* ctx = (luat_libtcpip_mbedtls_ssl_ctx_t*)s;
     // 设置好超时
     mbedtls_ssl_conf_read_timeout(&ctx->conf, 1);
@@ -97,7 +97,7 @@ static int luat_libtcpip_recv_mbedtls_ssl(int s, void *mem, size_t len, int flag
     return ret;
 }
 
-static int luat_libtcpip_recv_timeout_mbedtls_ssl(int s, void *mem, size_t len, int flags, int timeout) {
+static int luat_libtcpip_recv_timeout_mbedtls_ssl(void* s, void *mem, size_t len, int flags, int timeout) {
     luat_libtcpip_mbedtls_ssl_ctx_t* ctx = (luat_libtcpip_mbedtls_ssl_ctx_t*)s;
     // 设置好超时
     mbedtls_ssl_conf_read_timeout(&ctx->conf, timeout);
@@ -119,7 +119,7 @@ static int luat_libtcpip_recv_timeout_mbedtls_ssl(int s, void *mem, size_t len, 
 //     return select(maxfdp1, readset, writeset, exceptset, timeout);
 // }
 
-static int luat_libtcpip_close_mbedtls_ssl(int s) {
+static int luat_libtcpip_close_mbedtls_ssl(void* s) {
     luat_libtcpip_mbedtls_ssl_ctx_t* ctx = (luat_libtcpip_mbedtls_ssl_ctx_t*)s;
     if (ctx == NULL)
         return 0;
@@ -134,7 +134,7 @@ static int luat_libtcpip_close_mbedtls_ssl(int s) {
     return 0;
 }
 
-static int luat_libtcpip_connect_mbedtls_ssl(int s, const char *hostname, uint16_t _port) {
+static int luat_libtcpip_connect_mbedtls_ssl(void* s, const char *hostname, uint16_t _port) {
     // 1. Start the connection
     int ret = 0;
     uint32_t flags;
@@ -201,7 +201,7 @@ static struct hostent* luat_libtcpip_gethostbyname_mbedtls_ssl(const char* name)
     return gethostbyname(name);
 }
 
-static int luat_libtcpip_setsockopt_mbedtls_ssl(int s, int level, int optname, const void *optval, uint32_t optlen) {
+static int luat_libtcpip_setsockopt_mbedtls_ssl(void* s, int level, int optname, const void *optval, uint32_t optlen) {
     // return setsockopt(s, level, optname, optval, optlen);
     return 0; // nop
 }

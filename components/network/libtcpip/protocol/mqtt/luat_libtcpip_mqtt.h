@@ -3,6 +3,7 @@
 
 #include "luat_libtcpip.h"
 #include "libemqtt.h"
+#include "luat_rtos.h"
 
 #define MQTT_READ_TIMEOUT        (-1000)
 
@@ -40,9 +41,13 @@ typedef struct app_mqtt_ctx
     uint8_t packet_buffer[MQTT_RECV_BUF_LEN_MAX];
     int conack_ready; // 判断是否收到CONACK
     int connect_ready; // 判断连接是否已经就绪
-    int socket_fd;
-    int keepalive_mark;
+
+    void* socket_ctx;
+    uint64_t last_pkg_tick;
+    uint16_t reconnet_delay;
+    uint8_t keep_run;
     mqtt_publish_cb publish_cb;
+    luat_rtos_queue_t msg_queue;
 }app_mqtt_ctx_t;
 
 

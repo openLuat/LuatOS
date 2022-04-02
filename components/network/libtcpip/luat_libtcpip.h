@@ -11,16 +11,16 @@
 #define LUAT_IPPROTO_TCP     6
 #define LUAT_IPPROTO_UDP     17
 
-typedef int (*luat_libtcpip_socket)(int domain, int type, int protocol);
-typedef int (*luat_libtcpip_send)(int s, const void *data, size_t size, int flags);
-typedef int (*luat_libtcpip_recv)(int s, void *mem, size_t len, int flags);
-typedef int (*luat_libtcpip_recv_timeout)(int s, void *mem, size_t len, int flags, int timeout_ms);
+typedef void* (*luat_libtcpip_socket)(int domain, int type, int protocol);
+typedef int (*luat_libtcpip_send)(void* s, const void *data, size_t size, int flags);
+typedef int (*luat_libtcpip_recv)(void* s, void *mem, size_t len, int flags);
+typedef int (*luat_libtcpip_recv_timeout)(void* s, void *mem, size_t len, int flags, int timeout_ms);
 // typedef int (*luat_libtcpip_select)(int maxfdp1, fd_set *readset, fd_set *writeset, fd_set *exceptset,
 //             struct timeval *timeout);
-typedef int (*luat_libtcpip_close)(int fd);
-typedef int (*luat_libtcpip_connect)(int s, const char *hostname, uint16_t port);
+typedef int (*luat_libtcpip_close)(void* s);
+typedef int (*luat_libtcpip_connect)(void* s, const char *hostname, uint16_t port);
 typedef struct hostent* (*luat_libtcpip_gethostbyname)(const char* name);
-typedef int (*luat_libtcpip_setsockopt)(int s, int level, int optname, const void *optval, uint32_t optlen);
+typedef int (*luat_libtcpip_setsockopt)(void* s, int level, int optname, const void *optval, uint32_t optlen);
 
 typedef struct luat_libtcpip_opts
 {

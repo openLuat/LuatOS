@@ -94,7 +94,7 @@ function music_demo_start()
                                 sys.waitUntil("moredata", 2000)
                                 in_buff:copy(nil, data) 
                                 result = codec.get_audio_data(codecr, in_buff, buff)
-                                while buff:used() == 0 do
+                                while buff:used() == 0 and data and #data > 0 do
                                     log.info("need more data to decode", in_buff:used())
                                     data = f:read(2048)
                                     in_buff:copy(nil, data)

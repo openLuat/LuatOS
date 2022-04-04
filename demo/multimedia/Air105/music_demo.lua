@@ -22,7 +22,8 @@ end)
 local music_dir = "/music/"
 
 function music_demo_start()
-    sys.wait(1000) -- 启动延时
+    -- sys.wait(1000) -- 启动延时
+    local tag_len = 0
     local spiId = 0
     local result = spi.setup(
         spiId,--串口id
@@ -61,9 +62,9 @@ function music_demo_start()
                         data = f:read(10)
                         if data:sub(1, 3) == 'ID3' then
                             in_buff:copy(nil, data)
-                            log.info("jump head", in_buff:query(6, 4, true))
-                            f:seek(SEEK_SET, in_buff:query(6, 4, true))
-
+                            tag_len = ((in_buff:query(6, 1, true) & 0x7f) << 21) + ((in_buff:query(7, 1, true) & 0x7f) << 14) + ((in_buff:query(8, 1, true) & 0x7f) << 7) + (in_buff:query(9, 1, true) & 0x7f)
+                            log.info("jump head",  tag_len)
+                            f:seek(SEEK_SET, tag_len)
                         end
                         in_buff:del()
                         data = f:read(2048)

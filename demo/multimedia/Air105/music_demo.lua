@@ -44,7 +44,7 @@ function music_demo_start()
     -- usbapp.start(0)
     -- sys.wait(600000)
     local buff = zbuff.create(1024)
-    local in_buff = zbuff.create(frame_len * 2 + 512)
+    local in_buff = zbuff.create(frame_len * 3 + 512)
     local play_list = {}
     if data then
         log.info("fatfs", "getfree", json.encode(data))
@@ -91,16 +91,23 @@ function music_demo_start()
                             data = f:read(frame_len)
                             while result do
                                 sys.waitUntil("moredata", 2000)
-                                data = f:read(frame_len)
-                                in_buff:copy(nil, data) 
-                                if #data ~= frame_len then
-                                    result = codec.get_audio_data(codecr, in_buff, buff, false)
-                                    log.info("解码结束")
-                                    result = false
-                                else
+                                if in_buff:used() >= frame_len * 2 then
+                                    log.info("no need new data", in_buff:used())
                                     result = codec.get_audio_data(codecr, in_buff, buff)
+                                    audio.write(0, buff)
+                                else
+                                    data = f:read(frame_len)
+                                    in_buff:copy(nil, data) 
+                                    if #data ~= frame_len then
+                                        result = codec.get_audio_data(codecr, in_buff, buff, false)
+                                        log.info("解码结束")
+                                        result = false
+                                    else
+                                        result = codec.get_audio_data(codecr, in_buff, buff)
+                                    end
+                                    audio.write(0, buff)
                                 end
-                                audio.write(0, buff)
+
                             end
                             sys.waitUntil("playover", 2000)           
                             

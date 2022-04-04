@@ -292,7 +292,7 @@ static int l_codec_get_audio_data(lua_State *L) {
 				pos += info.frame_bytes;
 				if ((out_buff->len - out_buff->used) < (MINIMP3_MAX_SAMPLES_PER_FRAME * 2))
 				{
-					__zbuff_resize(out_buff, out_buff->len * 2);
+					break;
 				}
 			} while ((in_buff->used - pos) >= (MINIMP3_MAX_SAMPLES_PER_FRAME * is_not_end + 1));
 //			LLOGD("result %u,%u,%u,%u", result, in_buff->used, pos, info.frame_bytes);

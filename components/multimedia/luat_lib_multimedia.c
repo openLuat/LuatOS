@@ -256,6 +256,7 @@ decoder从文件数据中解析出音频数据
 @coder 解码用的decoder
 @zbuff 存放输入数据的zbuff
 @zbuff 存放输出数据的zbuff，空间必须不少于16KB
+@boolean后续有没有新数据，false表示没有了
 @return
 @boolean 是否成功解析
 @usage
@@ -264,10 +265,14 @@ local result = codec.get_audio_data(coder, "xxx", zbuff)
 static int l_codec_get_audio_data(lua_State *L) {
 	luat_multimedia_codec_t *coder = (luat_multimedia_codec_t *)lua_touserdata(L, 1);
 	uint32_t pos = 0;
-	uint32_t frame_len = 0;
 	int result;
 	luat_zbuff_t *in_buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
 	luat_zbuff_t *out_buff = ((luat_zbuff_t *)luaL_checkudata(L, 3, LUAT_ZBUFF_TYPE));
+	uint32_t is_not_end = 1;
+	if (lua_isboolean(L, 4))
+	{
+		is_not_end = lua_toboolean(L, 4);
+	}
 	mp3dec_frame_info_t info;
 	out_buff->used = 0;
 	if (coder)
@@ -277,24 +282,20 @@ static int l_codec_get_audio_data(lua_State *L) {
 		case MULTIMEDIA_DATA_TYPE_MP3:
 			do
 			{
+				memset(&info, 0, sizeof(info));
 				result = mp3dec_decode_frame(coder->mp3_decoder, in_buff->addr + pos, in_buff->used - pos, out_buff->addr + out_buff->used, &info);
-//				LLOGD("result %u,%u,%u", result, info.frame_bytes, pos);
+//				LLOGD("111 %u,%u,%u,%u,%u", result, info.frame_bytes, info.hz, info.layer, in_buff->used - pos);
 				out_buff->used += (result * info.channels * 2);
-				if (result)
-				{
-					pos += info.frame_bytes;
-					frame_len = (frame_len > info.frame_bytes)?frame_len:(info.frame_bytes + 16);
+				if (!result) {
+					LLOGD("jump %dbyte", info.frame_bytes);
 				}
-//				else
-//				{
-//					LLOGD("!!!");
-//				}
-				if ((out_buff->len - out_buff->used) < MINIMP3_MAX_SAMPLES_PER_FRAME)
+				pos += info.frame_bytes;
+				if ((out_buff->len - out_buff->used) < (MINIMP3_MAX_SAMPLES_PER_FRAME * 2))
 				{
 					__zbuff_resize(out_buff, out_buff->len * 2);
 				}
-			} while ((result > 0) && ((in_buff->used - pos) >= frame_len));
-//			LLOGD("result %u,%u,%u", result, in_buff->used - pos, info.frame_bytes);
+			} while ((in_buff->used - pos) >= (MINIMP3_MAX_SAMPLES_PER_FRAME * is_not_end + 1));
+//			LLOGD("result %u,%u,%u,%u", result, in_buff->used, pos, info.frame_bytes);
 			if (pos >= in_buff->used)
 			{
 				in_buff->used = 0;
@@ -311,8 +312,7 @@ static int l_codec_get_audio_data(lua_State *L) {
 
     }
 	lua_pushboolean(L, result);
-	lua_pushinteger(L, frame_len);
-	return 2;
+	return 1;
 }
 
 /**

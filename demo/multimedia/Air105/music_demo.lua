@@ -21,10 +21,10 @@ end)
 -- music文件夾，可以換成你自己的目录，不用加/sd/，demo里固定用TF卡目录，如果要本地目录，自行修改
 local music_dir = "/music/"
 
-sys.taskInit(function()
+function music_demo_start()
     sys.wait(100) -- 启动延时
     local tag_len = 0
-    local frame_len = 1045
+    local frame_len = 1152 * 4
     local spiId = 0
     local result = spi.setup(
         spiId,--串口id
@@ -44,7 +44,7 @@ sys.taskInit(function()
     -- usbapp.start(0)
     -- sys.wait(600000)
     local buff = zbuff.create(1024)
-    local in_buff = zbuff.create(8 * 1024 + 512)
+    local in_buff = zbuff.create(frame_len * 2 + 512)
     local play_list = {}
     if data then
         log.info("fatfs", "getfree", json.encode(data))
@@ -71,36 +71,36 @@ sys.taskInit(function()
                             f:seek(SEEK_SET, tag_len)
                         end
                         in_buff:del()
-                        data = f:read(2048)
+                        data = f:read(frame_len)
                         codecr = codec.create(codec.MP3)
                         local result, AudioFormat, NumChannels, SampleRate, BitsPerSample, is_signed = codec.get_audio_info(codecr, data)
                         if result then
                             log.info("mp3 info", NumChannels, SampleRate, BitsPerSample)
                             buff:resize(65536)
                             in_buff:copy(nil, data)
-                            result, frame_len = codec.get_audio_data(codecr, in_buff, buff)
-                            log.debug("frame_len",frame_len)
-                            in_buff:resize(frame_len * 8 + 512)
+                            result = codec.get_audio_data(codecr, in_buff, buff)
                             log.debug("start", audio.start(0, AudioFormat, NumChannels, SampleRate, BitsPerSample, is_signed))
                             audio.write(0, buff)
                             --local tick1,_ = mcu.tick64()
-                            data = f:read(frame_len * 4)
+                            data = f:read(frame_len)
                             in_buff:copy(nil, data) 
-                            result,_ = codec.get_audio_data(codecr, in_buff, buff)
+                            result = codec.get_audio_data(codecr, in_buff, buff)
                             --local tick2,_ = mcu.tick64()
                             --log.debug(mcu.dtick64(tick2, tick1)/_)
                             audio.write(0, buff)
-                            data = f:read(frame_len * 4)
-                            while result and data and #data > 0 do
+                            data = f:read(frame_len)
+                            while result do
                                 sys.waitUntil("moredata", 2000)
+                                data = f:read(frame_len)
                                 in_buff:copy(nil, data) 
-                                result,_= codec.get_audio_data(codecr, in_buff, buff)
-                                if result then
-                                    audio.write(0, buff)
-                                    data = f:read(frame_len * 4)
-                                else
+                                if #data ~= frame_len then
+                                    result = codec.get_audio_data(codecr, in_buff, buff, false)
                                     log.info("解码结束")
+                                    result = false
+                                else
+                                    result = codec.get_audio_data(codecr, in_buff, buff)
                                 end
+                                audio.write(0, buff)
                             end
                             sys.waitUntil("playover", 2000)           
                             
@@ -164,4 +164,4 @@ sys.taskInit(function()
     else
         log.info("fatfs", "err", err)
     end
-end)
+end

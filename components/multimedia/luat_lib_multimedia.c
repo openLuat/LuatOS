@@ -264,6 +264,7 @@ local result = codec.get_audio_data(coder, "xxx", zbuff)
 static int l_codec_get_audio_data(lua_State *L) {
 	luat_multimedia_codec_t *coder = (luat_multimedia_codec_t *)lua_touserdata(L, 1);
 	uint32_t pos = 0;
+	uint32_t frame_len = 0;
 	int result;
 	luat_zbuff_t *in_buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
 	luat_zbuff_t *out_buff = ((luat_zbuff_t *)luaL_checkudata(L, 3, LUAT_ZBUFF_TYPE));
@@ -279,12 +280,20 @@ static int l_codec_get_audio_data(lua_State *L) {
 				result = mp3dec_decode_frame(coder->mp3_decoder, in_buff->addr + pos, in_buff->used - pos, out_buff->addr + out_buff->used, &info);
 //				LLOGD("result %u,%u,%u", result, info.frame_bytes, pos);
 				out_buff->used += (result * info.channels * 2);
-				pos += info.frame_bytes;
+				if (result)
+				{
+					pos += info.frame_bytes;
+					frame_len = (frame_len > info.frame_bytes)?frame_len:(info.frame_bytes + 16);
+				}
+//				else
+//				{
+//					LLOGD("!!!");
+//				}
 				if ((out_buff->len - out_buff->used) < MINIMP3_MAX_SAMPLES_PER_FRAME)
 				{
 					__zbuff_resize(out_buff, out_buff->len * 2);
 				}
-			} while ((result > 0) && ((in_buff->used - pos) >= info.frame_bytes));
+			} while ((result > 0) && ((in_buff->used - pos) >= frame_len));
 //			LLOGD("result %u,%u,%u", result, in_buff->used - pos, info.frame_bytes);
 			if (pos >= in_buff->used)
 			{
@@ -302,7 +311,8 @@ static int l_codec_get_audio_data(lua_State *L) {
 
     }
 	lua_pushboolean(L, result);
-	return 1;
+	lua_pushinteger(L, frame_len);
+	return 2;
 }
 
 /**

@@ -21,9 +21,10 @@ end)
 -- music文件夾，可以換成你自己的目录，不用加/sd/，demo里固定用TF卡目录，如果要本地目录，自行修改
 local music_dir = "/music/"
 
-function music_demo_start()
-    -- sys.wait(1000) -- 启动延时
+sys.taskInit(function()
+    sys.wait(100) -- 启动延时
     local tag_len = 0
+    local frame_len = 1045
     local spiId = 0
     local result = spi.setup(
         spiId,--串口id
@@ -36,7 +37,8 @@ function music_demo_start()
     local TF_CS = pin.PB13
     gpio.setup(TF_CS, 1)
     -- fatfs.debug(1) -- 若挂载失败,可以尝试打开调试信息,查找原因
-    fatfs.mount("SD", 0, TF_CS, 12000000)
+    fatfs.mount("SD", 0, TF_CS, 24000000)
+    -- fatfs.mount("SD", 0, TF_CS, 24000000)
     local data, err = fatfs.getfree("SD")
     -- usbapp.udisk_attach_sdhc(0)
     -- usbapp.start(0)
@@ -48,12 +50,14 @@ function music_demo_start()
         log.info("fatfs", "getfree", json.encode(data))
         local dir_nums, dir_info = fatfs.lsdir(music_dir)
         for k,v in pairs(dir_info) do
-            log.info(v.size, k)
+            log.info("find",k)
             play_list[v.size] = "/sd".. music_dir .. k
         end
         while true do
             for k,v in pairs(play_list) do
-                log.info(v)
+                log.info('play',v)
+                log.info(rtos.meminfo("sys"))
+                log.info(rtos.meminfo("lua"))
                 if v:find(".mp3") or v:find(".MP3") then
                     f = io.open(v, "rb")               
                     if f then
@@ -74,35 +78,29 @@ function music_demo_start()
                             log.info("mp3 info", NumChannels, SampleRate, BitsPerSample)
                             buff:resize(65536)
                             in_buff:copy(nil, data)
-                            result = codec.get_audio_data(codecr, in_buff, buff)
-                            while buff:used() == 0 do
-                                log.info("need more data to decode", in_buff:used())
-                                data = f:read(2048)
-                                in_buff:copy(nil, data)
-                                result = codec.get_audio_data(codecr, in_buff, buff)
-                            end
+                            result, frame_len = codec.get_audio_data(codecr, in_buff, buff)
+                            log.debug("frame_len",frame_len)
+                            in_buff:resize(frame_len * 8 + 512)
                             log.debug("start", audio.start(0, AudioFormat, NumChannels, SampleRate, BitsPerSample, is_signed))
                             audio.write(0, buff)
                             --local tick1,_ = mcu.tick64()
-                            data = f:read(2048)
+                            data = f:read(frame_len * 4)
                             in_buff:copy(nil, data) 
-                            result = codec.get_audio_data(codecr, in_buff, buff)
+                            result,_ = codec.get_audio_data(codecr, in_buff, buff)
                             --local tick2,_ = mcu.tick64()
                             --log.debug(mcu.dtick64(tick2, tick1)/_)
                             audio.write(0, buff)
-                            data = f:read(2048)
-                            while data and #data > 0 and not decode_error do
+                            data = f:read(frame_len * 4)
+                            while result and data and #data > 0 do
                                 sys.waitUntil("moredata", 2000)
                                 in_buff:copy(nil, data) 
-                                result = codec.get_audio_data(codecr, in_buff, buff)
-                                while buff:used() == 0 and data and #data > 0 do
-                                    log.info("need more data to decode", in_buff:used())
-                                    data = f:read(2048)
-                                    in_buff:copy(nil, data)
-                                    result = codec.get_audio_data(codecr, in_buff, buff)
+                                result,_= codec.get_audio_data(codecr, in_buff, buff)
+                                if result then
+                                    audio.write(0, buff)
+                                    data = f:read(frame_len * 4)
+                                else
+                                    log.info("解码结束")
                                 end
-                                audio.write(0, buff)
-                                data = f:read(2048)
                             end
                             sys.waitUntil("playover", 2000)           
                             
@@ -156,9 +154,14 @@ function music_demo_start()
                         f:close()
                     end
                 end
+                log.info(rtos.meminfo("sys"))
+                log.info(rtos.meminfo("lua"))
             end
         end
+
+
+
     else
         log.info("fatfs", "err", err)
     end
-end
+end)

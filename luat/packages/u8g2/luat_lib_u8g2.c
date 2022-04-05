@@ -42,6 +42,8 @@ u8g2显示屏初始化
 @usage
 -- 初始化硬件i2c的ssd1306
 u8g2.begin({ic = "ssd1306",direction = 0,mode="i2c_hw",i2c_id=0}) -- direction 可选0 90 180 270
+-- 初始化硬件spi的ssd1306
+u8g2.begin({ic = "ssd1306",direction = 0,mode="spi_hw_4pin",spi_id=0,spi_res=pin.PB03,spi_dc=pin.PB01,spi_cs=pin.PB04}) -- direction 可选0 90 180 270
 -- 初始化软件i2c的ssd1306
 u8g2.begin({ic = "ssd1306",direction = 0,mode="i2c_sw", i2c_scl=1, i2c_sda=4}) -- 通过PA1 SCL / PA4 SDA模拟
 

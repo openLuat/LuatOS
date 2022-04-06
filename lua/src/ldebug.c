@@ -41,6 +41,13 @@
 static const char *funcnamefromcode (lua_State *L, CallInfo *ci,
                                     const char **name);
 
+static int getfuncline(Proto *p, int pc)	{
+  int tmp2 = -1;
+  if (p->lineinfo)
+    tmp2 = p->lineinfo[pc];
+  memcpy(&tmp2, &p->lineinfo[pc], sizeof(tmp2));
+  return tmp2;
+}
 
 static int currentpc (CallInfo *ci) {
   lua_assert(isLua(ci));

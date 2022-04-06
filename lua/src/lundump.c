@@ -341,10 +341,10 @@ static void LoadDebug (LoadState *S, Proto *f) {
   int i, n;
   n = LoadInt(S);
 #ifdef LUAT_USE_MEMORY_OPTIMIZATION_CODE_MMAP
-  char* ptr = (char*)luat_vfs_mmap(((LoadF*)S->Z->data)->f);
+  uint8_t* ptr = (uint8_t*)luat_vfs_mmap(((LoadF*)S->Z->data)->f);
   int inst[1];
   if (ptr) {
-	f->lineinfo = ptr + ptr_offset;
+	  f->lineinfo = (int*)(ptr + ptr_offset);
     for (size_t i = 0; i < n; i++)
     {
       LoadVector(S, &inst, 1);

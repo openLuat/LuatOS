@@ -277,7 +277,7 @@ static int l_w1_reset(lua_State *L)
 
 /*
 单总线协议,连接设备
-@api    sensor.w1_reset(pin)
+@api    sensor.w1_connect(pin)
 @int  gpio端口号
 @return boolean 成功返回true,失败返回false
 */

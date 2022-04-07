@@ -26,7 +26,8 @@ uint8_t i2c_init(const uint8_t i2c_id){
 }
 
 uint8_t i2c_probe(char addr){
-    return (luat_i2c_send(i2c_tools_id, addr, NULL, 0) ==0);
+	uint8_t data[2] = {0x00};
+    return (luat_i2c_send(i2c_tools_id, addr, data, 2) ==0);
 }
 
 uint8_t i2c_write(char addr, uint8_t* data, int len){

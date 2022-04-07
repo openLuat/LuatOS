@@ -15,9 +15,9 @@ uint8_t strtonum(const char* str){
 
 void i2c_help(void){
     printf("\n---------------i2c tools help:---------------\n");
-    printf("i2c scan i2c_id\n");
-    printf("i2c recv i2c_id address register [len=1]\n");
-    printf("i2c send i2c_id address [register] data_0 data_1 ...\n\n");
+    printf("i2c tools scan i2c_id\n");
+    printf("i2c tools recv i2c_id address register [len=1]\n");
+    printf("i2c tools send i2c_id address [register] data_0 data_1 ...\n\n");
 }
 
 uint8_t i2c_init(const uint8_t i2c_id){

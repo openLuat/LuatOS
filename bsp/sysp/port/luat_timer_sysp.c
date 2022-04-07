@@ -8,6 +8,10 @@
 #define LUAT_LOG_TAG "timer"
 #include "luat_log.h"
 
+#include <time.h>
+#include <math.h>
+#include <unistd.h>
+
 #define TIMER_COUNT 32
 typedef struct sysp_timer {
     luat_timer_t* timer;
@@ -16,9 +20,13 @@ typedef struct sysp_timer {
 } sysp_timer_t;
 static sysp_timer_t timers[TIMER_COUNT] = {0};
 
-// TODO 获取当前时间
-static uint32_t get_timestamp(void) {
-    return 0;
+// 获取当前时间
+uint32_t get_timestamp(void) {
+    struct timespec _t;
+    clock_gettime(CLOCK_REALTIME, &_t);
+    uint32_t timenow = _t.tv_sec*1000 + lround(_t.tv_nsec/1e6);
+    //printf("time now > %u\n", timenow);
+    return timenow;
 }
 
 void luat_timer_check(void) {
@@ -28,6 +36,7 @@ void luat_timer_check(void) {
     for (size_t i = 0; i < TIMER_COUNT; i++)
     {
         if (timers[i].timer == NULL) continue;
+        //LLOGD("%d %d\n", timers[i].nexttime, timenow);
         if (timers[i].nexttime < timenow) {
             luat_timer_t *timer = timers[i].timer;
             msg.handler = timer->func;
@@ -43,6 +52,7 @@ void luat_timer_check(void) {
             }
         }
     }
+    //LLOGD("end of luat_timer_check\n");
 }
 
 static int nextTimerSlot() {
@@ -99,6 +109,8 @@ luat_timer_t* luat_timer_get(size_t timer_id) {
 
 
 int luat_timer_mdelay(size_t ms) {
+    if (ms > 0)
+        usleep(ms*1000);
     return 0;
 }
 

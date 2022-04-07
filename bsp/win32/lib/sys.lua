@@ -352,7 +352,7 @@ end
 --end
 
 ------------------------------------------ Luat 主调度框架  ------------------------------------------
-local function safeRun()
+function sys.safeRun()
     -- 分发内部消息
     dispatch()
     -- 阻塞读取外部消息
@@ -398,7 +398,7 @@ function sys.run()
     --local result, err
     while true do
         --if sRollBack then
-            safeRun()
+            sys.safeRun()
         --else
         --    result, err = pcall(safeRun)
         --    if not result then rtos.restart(err) end

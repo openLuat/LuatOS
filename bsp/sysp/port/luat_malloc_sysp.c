@@ -7,7 +7,7 @@
 #include "bget.h"
 #include "luat_malloc.h"
 
-#define LUAT_LOG_TAG "luat.vmheap"
+#define LUAT_LOG_TAG "vmheap"
 #include "luat_log.h"
 
 //------------------------------------------------
@@ -37,7 +37,6 @@ void* luat_heap_calloc(size_t count, size_t _size) {
 //------------------------------------------------
 // ---------- 管理 LuaVM所使用的内存----------------
 void* luat_heap_alloc(void *ud, void *ptr, size_t osize, size_t nsize) {
-
     if (nsize)
     {
     	void* ptmp = bgetr(ptr, nsize);
@@ -47,7 +46,8 @@ void* luat_heap_alloc(void *ud, void *ptr, size_t osize, size_t nsize) {
     	}
         return ptmp;
     }
-    brel(ptr);
+    if (ptr)
+        brel(ptr);
     return NULL;
 }
 

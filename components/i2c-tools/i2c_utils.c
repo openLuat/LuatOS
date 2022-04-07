@@ -36,7 +36,7 @@ uint8_t i2c_write(char addr, uint8_t* data, int len){
 
 uint8_t i2c_read(uint8_t addr, uint8_t reg, uint8_t* buffer, uint8_t len){
     int ret = 0;
-    ret = luat_i2c_send(i2c_tools_id, addr, reg, 1);
+    ret = luat_i2c_send(i2c_tools_id, addr, &reg, 1);
     if (ret != 0)return -1;
     ret = luat_i2c_recv(i2c_tools_id, addr, buffer, len);
     if (ret != 0)return -1;

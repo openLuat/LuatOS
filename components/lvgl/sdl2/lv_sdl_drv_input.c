@@ -20,7 +20,8 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-
+#include "luat_base.h"
+#ifdef LUAT_USE_LVGL_SDL2
 #include <stdio.h>
 #include <SDL2/SDL.h>
 
@@ -158,3 +159,5 @@ void lv_sdl_deinit_input(void)
     SDL_GameControllerClose(0);
     SDL_QuitSubSystem(SDL_INIT_GAMECONTROLLER);
 }
+
+#endif

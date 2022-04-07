@@ -21,6 +21,8 @@
  * SOFTWARE.
  */
 
+#include "luat_base.h"
+#ifdef LUAT_USE_LVGL_SDL2
 #include <stdio.h>
 #include <assert.h>
 #include "lvgl.h"
@@ -169,3 +171,5 @@ void lv_sdl_deinit_display(void)
     SDL_QuitSubSystem(SDL_INIT_VIDEO);
     #endif
 }
+
+#endif

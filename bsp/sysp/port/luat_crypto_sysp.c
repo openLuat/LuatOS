@@ -2,9 +2,9 @@
 #include "luat_base.h"
 #include "luat_crypto.h"
 
+#if 0
 
-
-#define LUAT_LOG_TAG "luat.crypto"
+#define LUAT_LOG_TAG "crypto"
 #include "luat_log.h"
 
 #define PKG_USING_MBEDTLS
@@ -123,7 +123,7 @@ _exit:
 #endif
 #include "mbedtls/md5.h"
 
-#define LUAT_LOG_TAG "luat.crypto"
+#define LUAT_LOG_TAG "crypto"
 #include "luat_log.h"
 
 void luat_crypto_HmacSha1(const unsigned char *input, int ilen, unsigned char *output,const unsigned char *key, int keylen);
@@ -406,4 +406,6 @@ void luat_crypto_HmacMd5(const unsigned char *input, int ilen, unsigned char *ou
     memcpy(output, tempbuf, ALI_MD5_DIGEST_SIZE);
     mbedtls_md5_free(&ctx);
 }
+#endif
+
 #endif

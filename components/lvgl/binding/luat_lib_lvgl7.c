@@ -20,30 +20,6 @@ typedef struct luat_lv {
 static luat_lv_t LV = {0};
 //static lv_disp_drv_t my_disp_drv;
 
-#if !defined (LUA_USE_WINDOWS) && !defined (LUA_USE_LINUX)
-#include "luat_lcd.h"
-
-static luat_lcd_conf_t* lcd_conf;
-
-LUAT_WEAK void luat_lv_disp_flush(lv_disp_drv_t * disp_drv, const lv_area_t * area, lv_color_t * color_p) {
-    //-----
-    if (lcd_conf != NULL) {
-#ifdef LV_NO_BLOCK_FLUSH
-    	luat_lcd_draw_no_block(lcd_conf, area->x1, area->y1, area->x2, area->y2, color_p, disp_drv->buffer->flushing_last);
-#else
-        luat_lcd_draw(lcd_conf, area->x1, area->y1, area->x2, area->y2, color_p);
-#endif
-    }
-    // LLOGD("CALL disp_flush (%d, %d, %d, %d)", area->x1, area->y1, area->x2, area->y2);
-    lv_disp_flush_ready(disp_drv);
-}
-#endif
-
-#ifdef LUA_USE_WINDOWS
-#include <windows.h>
-extern uint32_t WINDOW_HOR_RES;
-extern uint32_t WINDOW_VER_RES;
-#endif
 
 /**
 初始化LVGL
@@ -55,6 +31,76 @@ extern uint32_t WINDOW_VER_RES;
 @int 缓冲模式,默认0, 单buff模式, 可选1,双buff模式
 @return bool 成功返回true,否则返回false
  */
+int luat_lv_init(lua_State *L);
+
+#ifdef LUAT_USE_LVGL_SDL2
+// SDL2 模式
+extern lv_disp_t *lv_sdl_init_display(const char* win_name, int width, int height);
+extern lv_indev_t *lv_sdl_init_input(void);
+int luat_lv_init(lua_State *L) {
+    int w = 480;
+    int h = 320;
+
+    if (lua_isnumber(L, 1) && lua_isnumber(L, 2)) {
+        w = luaL_checkinteger(L, 1);
+        h = luaL_checkinteger(L, 2);
+    }
+    lv_sdl_init_display("LVGL@LuatOS", w, h);
+    lv_sdl_init_input();
+    return 0;
+}
+#elif defined(LUAT_EMULATOR_MODE)
+// 模拟器模式
+int luat_lv_init(lua_State *L) {
+    LLOGE("emulator mode init");
+    int w = 480;
+    int h = 320;
+
+    if (lua_isnumber(L, 1) && lua_isnumber(L, 2)) {
+        w = luaL_checkinteger(L, 1);
+        h = luaL_checkinteger(L, 2);
+    }
+
+    extern void emulator_lvgl_init(int w, int h);
+    emulator_lvgl_init(WINDOW_HOR_RES, WINDOW_VER_RES);
+    return 0;
+}
+#elif defined(LUA_USE_WINDOWS)
+// win32遗留模式
+#include <windows.h>
+extern uint32_t WINDOW_HOR_RES;
+extern uint32_t WINDOW_VER_RES;
+int luat_lv_init(lua_State *L) {
+    if (lua_isnumber(L, 1) && lua_isnumber(L, 2)) {
+        WINDOW_VER_RES = luaL_checkinteger(L, 1);
+        WINDOW_HOR_RES = luaL_checkinteger(L, 2);
+    }
+    HWND windrv_init(void);
+    windrv_init();
+    return 0;
+}
+
+#elif defined(LUAT_USE_LVGL_INIT_CUSTOM)
+// 自定义模式, 这个由bsp自行实现了
+
+#else
+// 普通MCU模式
+#include "luat_lcd.h"
+
+static luat_lcd_conf_t* lcd_conf;
+
+LUAT_WEAK void luat_lv_disp_flush(lv_disp_drv_t * disp_drv, const lv_area_t * area, lv_color_t * color_p) {
+    //-----
+    if (lcd_conf != NULL) {
+#ifdef LV_NO_BLOCK_FLUSH
+        luat_lcd_draw_no_block(lcd_conf, area->x1, area->y1, area->x2, area->y2, color_p, disp_drv->buffer->flushing_last);
+#else
+        luat_lcd_draw(lcd_conf, area->x1, area->y1, area->x2, area->y2, color_p);
+#endif
+    }
+    // LLOGD("CALL disp_flush (%d, %d, %d, %d)", area->x1, area->y1, area->x2, area->y2);
+    lv_disp_flush_ready(disp_drv);
+}
 int luat_lv_init(lua_State *L) {
     int w = 0;
     int h = 0;
@@ -68,26 +114,6 @@ int luat_lv_init(lua_State *L) {
         w = luaL_checkinteger(L, 1);
         h = luaL_checkinteger(L, 2);
     }
-
-    #ifdef LUA_USE_WINDOWS
-    if (lua_isnumber(L, 1) && lua_isnumber(L, 2)) {
-        WINDOW_HOR_RES= luaL_checkinteger(L, 1);
-        WINDOW_VER_RES = luaL_checkinteger(L, 2);
-    }
-    #ifndef LUAT_EMULATOR_MODE
-    HWND windrv_init(void);
-    windrv_init();
-    #else
-    extern void emulator_lvgl_init(int w, int h);
-    emulator_lvgl_init(WINDOW_HOR_RES, WINDOW_VER_RES);
-    #endif
-    lua_pushboolean(L, 1);
-    return 1;
-    #elif defined(LUA_USE_LINUX)
-    //lvgl_linux_init();
-    lua_pushboolean(L, 1);
-    return 1;
-    #else
 
     lv_color_t *fbuffer = NULL;
     lv_color_t *fbuffer2 = NULL;
@@ -174,10 +200,9 @@ int luat_lv_init(lua_State *L) {
     LV.disp = lv_disp_drv_register(&my_disp_drv);
     //LLOGD(">>%s %d", __func__, __LINE__);
     lua_pushboolean(L, LV.disp != NULL ? 1 : 0);
-    //LLOGD(">>%s %d", __func__, __LINE__);
 #ifdef __LVGL_SLEEP_ENABLE__
     luat_lvgl_tick_sleep(0);
 #endif
     return 1;
-    #endif
 }
+#endif

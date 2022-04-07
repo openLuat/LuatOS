@@ -273,16 +273,16 @@ local crc = crypto.crc16("")
  */
 static int l_crypto_crc16(lua_State *L)
 {   
-    size_t inputLen;
+    size_t inputlen;
     const char  *inputmethod = (const char*)luaL_checkstring(L, 1);
-    const unsigned char *inputData = (const unsigned char*)lua_tolstring(L,2,&inputLen);
+    const unsigned char *inputData = (const unsigned char*)lua_tolstring(L,2,&inputlen);
     uint16_t poly = luaL_optnumber(L,3,0x0000);
     uint16_t initial = luaL_optnumber(L,4,0x0000);
     uint16_t finally = luaL_optnumber(L,5,0x0000);
     uint8_t inReverse = luaL_optnumber(L,6,0);
     uint8_t outReverse = luaL_optnumber(L,7,0);
    
-    lua_pushinteger(L, calcCRC16(inputData, inputmethod,inputLen,poly,initial,finally,inReverse,outReverse));
+    lua_pushinteger(L, calcCRC16(inputData, inputmethod,inputlen,poly,initial,finally,inReverse,outReverse));
     return 1;
 }
 
@@ -326,17 +326,81 @@ static int l_crypto_crc32(lua_State *L)
 计算crc8值
 @api crypto.crc8(data)
 @string 数据
+@int crc多项式，可选，如果不写，将忽略除了数据外所有参数
+@int crc初始值，可选，默认0
+@boolean 是否需要逆序处理，默认否
 @return int 对应的CRC8值
 @usage
 -- 计算CRC8
 local crc = crypto.crc8(data)
+local crc = crypto.crc8(data, 0x31, 0xff, 0)
  */
 static int l_crypto_crc8(lua_State *L)
 {
     size_t len = 0;
     const unsigned char *inputData = (const unsigned char*)luaL_checklstring(L, 1, &len);
+    if (!lua_isinteger(L, 2)) {
+        lua_pushinteger(L, calcCRC8(inputData, len));
+    } else {
+    	uint8_t poly = lua_tointeger(L, 2);
+    	uint8_t start = luaL_optinteger(L, 3, 0);
+    	uint8_t is_rev = 0;
+    	if (lua_isboolean(L, 4)) {
+    		is_rev = lua_toboolean(L, 4);
+    	}
+    	uint8_t i;
+    	uint8_t CRC8 = start;
+		uint8_t *Src = (uint8_t *)inputData;
+		if (is_rev)
+		{
+			poly = 0;
+			for (i = 0; i < 8; i++)
+			{
+				if (start & (1 << (7 - i)))
+				{
+					poly |= 1 << i;
+				}
+			}
+			while (len--)
+			{
 
-    lua_pushinteger(L, calcCRC8(inputData, len));
+				CRC8 ^= *Src++;
+				for (i = 0; i < 8; i++)
+				{
+					if ((CRC8 & 0x01))
+					{
+						CRC8 >>= 1;
+						CRC8 ^= poly;
+					}
+					else
+					{
+						CRC8 >>= 1;
+					}
+				}
+			}
+		}
+		else
+		{
+			while (len--)
+			{
+
+				CRC8 ^= *Src++;
+				for (i = 8; i > 0; --i)
+				{
+					if ((CRC8 & 0x80))
+					{
+						CRC8 <<= 1;
+						CRC8 ^= poly;
+					}
+					else
+					{
+						CRC8 <<= 1;
+					}
+				}
+			}
+		}
+		lua_pushinteger(L, CRC8);
+    }
     return 1;
 }
 

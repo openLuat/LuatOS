@@ -68,7 +68,7 @@ typedef struct luat_lcd_opts {
 
 int lcd_write_cmd(luat_lcd_conf_t* conf,const uint8_t cmd);
 int lcd_write_data(luat_lcd_conf_t* conf,const uint8_t data);
-int lcd_write_half_word(luat_lcd_conf_t* conf,const uint32_t da);
+int lcd_write_half_word(luat_lcd_conf_t* conf,const luat_color_t da);
 
 luat_lcd_conf_t* luat_lcd_get_default(void);
 const char* luat_lcd_name(luat_lcd_conf_t* conf);
@@ -81,17 +81,17 @@ int luat_lcd_wakeup(luat_lcd_conf_t* conf);
 int luat_lcd_inv_off(luat_lcd_conf_t* conf);
 int luat_lcd_inv_on(luat_lcd_conf_t* conf);
 int luat_lcd_set_address(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2);
-int luat_lcd_set_color(uint32_t back, uint32_t fore);
+int luat_lcd_set_color(luat_color_t back, luat_color_t fore);
 int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, luat_color_t* color);
 int luat_lcd_draw_no_block(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, luat_color_t* color, uint8_t last_flush);
 int luat_lcd_clear(luat_lcd_conf_t* conf,uint32_t color);
-int luat_lcd_draw_fill(luat_lcd_conf_t* conf,uint16_t x1,uint16_t y1,uint16_t x2,uint16_t y2,uint32_t color);
-int luat_lcd_draw_point(luat_lcd_conf_t* conf, uint16_t x, uint16_t y, uint32_t color);
-int luat_lcd_draw_line(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint32_t color);
-int luat_lcd_draw_vline(luat_lcd_conf_t* conf, uint16_t x, uint16_t y,uint16_t h, uint32_t color);
-int luat_lcd_draw_hline(luat_lcd_conf_t* conf, uint16_t x, uint16_t y,uint16_t h, uint32_t color);
-int luat_lcd_draw_rectangle(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint32_t color);
-int luat_lcd_draw_circle(luat_lcd_conf_t* conf,uint16_t x0, uint16_t y0, uint8_t r, uint32_t color);
+int luat_lcd_draw_fill(luat_lcd_conf_t* conf,uint16_t x1,uint16_t y1,uint16_t x2,uint16_t y2,luat_color_t color);
+int luat_lcd_draw_point(luat_lcd_conf_t* conf, uint16_t x, uint16_t y, luat_color_t color);
+int luat_lcd_draw_line(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, luat_color_t color);
+int luat_lcd_draw_vline(luat_lcd_conf_t* conf, uint16_t x, uint16_t y,uint16_t h, luat_color_t color);
+int luat_lcd_draw_hline(luat_lcd_conf_t* conf, uint16_t x, uint16_t y,uint16_t h, luat_color_t color);
+int luat_lcd_draw_rectangle(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, luat_color_t color);
+int luat_lcd_draw_circle(luat_lcd_conf_t* conf,uint16_t x0, uint16_t y0, uint8_t r, luat_color_t color);
 
 void luat_lcd_execute_cmds(luat_lcd_conf_t* conf, uint32_t* cmds, uint32_t count);
 

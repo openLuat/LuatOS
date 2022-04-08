@@ -30,12 +30,12 @@ static const luaL_Reg loadedlibs[] = {
   {"rtos", luaopen_rtos},             // rtos底层库, 核心功能是队列和定时器
   {"log", luaopen_log},               // 日志库
   {"timer", luaopen_timer},           // 延时库
-  //{"pack", luaopen_pack},             // pack.pack/pack.unpack
-  //{"json", luaopen_cjson},             // json
-  //{"zbuff", luaopen_zbuff},            // 
-  //{"mqttcore", luaopen_mqttcore},      // 
-  //{"libcoap", luaopen_libcoap},        // 
-  //{"crypto", luaopen_crypto},
+  {"pack", luaopen_pack},             // pack.pack/pack.unpack
+  {"json", luaopen_cjson},             // json
+  {"zbuff", luaopen_zbuff},            // 
+  {"mqttcore", luaopen_mqttcore},      // 
+  {"libcoap", luaopen_libcoap},        // 
+  {"crypto", luaopen_crypto},
   {"lvgl", luaopen_lvgl},
   {NULL, NULL}
 };

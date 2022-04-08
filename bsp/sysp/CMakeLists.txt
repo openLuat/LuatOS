@@ -53,8 +53,8 @@ add_library(luat ${TOPROOT}/luat/modules/luat_main.c
 
 #-----------------------
 # mbedtls
-#include_directories(${TOPROOT}/components/mbedtls/include)
-#add_subdirectory(${TOPROOT}/components/mbedtls mbedtls.out)
+include_directories(${TOPROOT}/components/mbedtls/include)
+add_subdirectory(${TOPROOT}/components/mbedtls mbedtls.out)
 #-----------------------
 
 #-----------------------
@@ -67,7 +67,7 @@ if( ${CMAKE_SYSTEM_NAME} MATCHES "Emscripten")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${USE_FLAGS}")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${USE_FLAGS}")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${USE_FLAGS}")
-    set(CMAKE_EXECUTABLE_SUFFIX .html)
+    #set(CMAKE_EXECUTABLE_SUFFIX .html)
 else()
     find_package(SDL2 REQUIRED)
     find_package(Freetype REQUIRED)
@@ -78,7 +78,7 @@ add_executable(luatos src/main_sysp.c)
 #add_library(luatos_wasm src/main_sysp.c)
 #target_link_libraries(luat luatos_port lua lvgl SDL2 m)
 #target_link_libraries(luatos_port luat lua lvgl SDL2 m)
-target_link_libraries(luatos luat lua luatos_port cjson lvgl m)
+target_link_libraries(luatos luat lua luatos_port cjson lvgl m mbedtls)
 #target_link_libraries(luatos_wasm luat lua luatos_port cjson m)
 #target_link_libraries(luatos luat lua luatos_port cjson mbedtls lvgl SDL2 m)
 #target_link_libraries(luatos_wasm luat lua luatos_port cjson mbedtls lvgl SDL2 m)

@@ -21,7 +21,7 @@ unsigned int get_timestamp(void);
 
 #define LUAT_USE_LVGL 1
 #define LV_MEM_CUSTOM 1
-// #define LUAT_LV_DEBUG 1
+#define LUAT_LV_DEBUG 0
 #define LUAT_USE_LVGL_INDEV 1
 
 #define LUAT_USE_LVGL_ARC   //圆弧 无依赖

@@ -1,6 +1,6 @@
 {
     "type" : "lua", // 可以是lua(纯lua), c(纯c), 或者lua-c(混合)
-    "enterpoint" : "bmp180.lua",
+    "enterpoint" : "bmx.lua",
     "compatibility" : {
         "soc" : true,
         "air" : true

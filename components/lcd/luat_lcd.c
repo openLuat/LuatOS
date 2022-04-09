@@ -307,3 +307,12 @@ int luat_lcd_draw_circle(luat_lcd_conf_t* conf,uint16_t x0, uint16_t y0, uint8_t
     }
     return 0;
 }
+
+int luat_lcd_show_image(luat_lcd_conf_t* conf,uint16_t x, uint16_t y, uint16_t length, uint16_t wide, const uint8_t *image){
+    if (x + length > conf->w || y + wide > conf->h){
+        return -1;
+    }
+    luat_lcd_draw(conf, x, y, x + length - 1, y + wide - 1, image);
+    return 0;
+}
+

@@ -60,9 +60,9 @@ static void sdl_fb_flush(lv_disp_drv_t *disp_drv,
     r.h = area->y2 - area->y1 + 1;
 
     uint32_t *tmp = fb;
-    for (size_t i = 0; i < disp_drv->hor_res; i++)
+    for (size_t i = 0; i < r.h; i++)
     {
-        for (size_t j = 0; j < disp_drv->ver_res; j++)
+        for (size_t j = 0; j < r.w; j++)
         {
             *tmp = lv_color_to32(*color_p);
             tmp ++;
@@ -101,7 +101,7 @@ lv_disp_t *lv_sdl_init_display(const char *win_name, int width, int height)
         height = LV_VER_RES_MAX;
     size_t buff_line = 16;
     pixels = malloc(sizeof(lv_color_t) * width * buff_line);
-    fb = malloc(sizeof(uint32_t) * width * height);
+    fb = malloc(sizeof(uint32_t) * width * buff_line);
     //printf("pixels %p\n", pixels);
     lv_disp_buf_init(&disp_buf, pixels, NULL, width * buff_line);
     lv_disp_drv_t disp_drv;

@@ -1,5 +1,22 @@
 --- 模块功能：Luat协程调度框架
---module(..., package.seeall)
+--[[
+@module sys
+@summary LuaTask核心逻辑
+@version 1.0
+@date    2018.01.01
+@author  稀饭/wendal/晨旭
+@usage
+-- sys一般会内嵌到固件内, 不需要手工添加到脚本列表,除非你正在修改sys.lua
+-- 本文件修改后, 需要调用 update_inline_sys.lua/update_luadb_inline 对 vfs 中的C文件进行更新
+_G.sys = require("sys")
+
+sys.taskInit(function()
+    sys.wait(1000)
+    log.info("sys", "say hi")
+end)
+
+sys.run()
+]]
 
 local sys = {}
 

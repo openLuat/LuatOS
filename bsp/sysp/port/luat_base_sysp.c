@@ -9,10 +9,6 @@
 #include <emscripten/html5.h>
 #endif
 
-LUAMOD_API int luaopen_win32( lua_State *L );
-int luaopen_lfs(lua_State * L);
-int luaopen_rs232_core(lua_State * L);
-
 static const luaL_Reg loadedlibs[] = {
   {"_G", luaopen_base}, // _G
   {LUA_LOADLIBNAME, luaopen_package}, // require
@@ -37,6 +33,12 @@ static const luaL_Reg loadedlibs[] = {
   {"libcoap", luaopen_libcoap},        // 
   {"crypto", luaopen_crypto},
   {"lvgl", luaopen_lvgl},
+//------------------------------------------------
+// 这部分是外设, 只能模拟
+  {"gpio", luaopen_gpio},
+  {"spi",  luaopen_spi},
+  {"lcd",  luaopen_lcd},
+//-------------------------------------------------
   {NULL, NULL}
 };
 

@@ -8,9 +8,9 @@
 #define LUAT_LOG_TAG "lcd"
 #include "luat_log.h"
 
-uint32_t BACK_COLOR = WHITE, FORE_COLOR = BLACK;
+luat_color_t BACK_COLOR = WHITE, FORE_COLOR = BLACK;
 
-#define LUAT_LCD_CONF_COUNT (2)
+#define LUAT_LCD_CONF_COUNT (1)
 static luat_lcd_conf_t* confs[LUAT_LCD_CONF_COUNT] = {0};
 
 void luat_lcd_execute_cmds(luat_lcd_conf_t* conf, uint32_t* cmds, uint32_t count) {
@@ -74,24 +74,6 @@ int lcd_write_data(luat_lcd_conf_t* conf, const uint8_t data){
     }
     if (len != 1){
         LLOGI("lcd_write_data error. %d", len);
-        return -1;
-    }else{
-        return 0;
-    }
-}
-
-int lcd_write_half_word(luat_lcd_conf_t* conf, const uint32_t da){
-    size_t len = 0;
-    char data[2] = {0};
-    data[0] = da >> 8;
-    data[1] = da;
-    if (conf->port == LUAT_LCD_SPI_DEVICE){
-        len = luat_spi_device_send((luat_spi_device_t*)(conf->lcd_spi_device),  (const char*)data, 2);
-    }else{
-        len = luat_spi_send(conf->port,  (const char*)data, 2);
-    }
-    if (len != 2){
-        LLOGI("lcd_write_half_word error. %d", len);
         return -1;
     }else{
         return 0;
@@ -172,21 +154,21 @@ int luat_lcd_inv_on(luat_lcd_conf_t* conf) {
 }
 
 int luat_lcd_set_address(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2) {
-        lcd_write_cmd(conf,0x2a);
-        lcd_write_data(conf,(x1+conf->xoffset)>>8);
-        lcd_write_data(conf,x1+conf->xoffset);
-        lcd_write_data(conf,(x2+conf->xoffset)>>8);
-        lcd_write_data(conf,x2+conf->xoffset);
-        lcd_write_cmd(conf,0x2b);
-        lcd_write_data(conf,(y1+conf->yoffset)>>8);
-        lcd_write_data(conf,y1+conf->yoffset);
-        lcd_write_data(conf,(y2+conf->yoffset)>>8);
-        lcd_write_data(conf,y2+conf->yoffset);
-        lcd_write_cmd(conf,0x2C);
+    lcd_write_cmd(conf,0x2a);
+    lcd_write_data(conf,(x1+conf->xoffset)>>8);
+    lcd_write_data(conf,x1+conf->xoffset);
+    lcd_write_data(conf,(x2+conf->xoffset)>>8);
+    lcd_write_data(conf,x2+conf->xoffset);
+    lcd_write_cmd(conf,0x2b);
+    lcd_write_data(conf,(y1+conf->yoffset)>>8);
+    lcd_write_data(conf,y1+conf->yoffset);
+    lcd_write_data(conf,(y2+conf->yoffset)>>8);
+    lcd_write_data(conf,y2+conf->yoffset);
+    lcd_write_cmd(conf,0x2C);
     return 0;
 }
 
-int luat_lcd_set_color(uint32_t back, uint32_t fore){
+int luat_lcd_set_color(luat_color_t back, luat_color_t fore){
     BACK_COLOR = back;
     FORE_COLOR = fore;
     return 0;
@@ -194,8 +176,8 @@ int luat_lcd_set_color(uint32_t back, uint32_t fore){
 
 int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, luat_color_t* color) {
     uint32_t size = (x2 - x1 + 1) * (y2 - y1 + 1) * 2;
-    luat_lcd_set_address(conf,x1, y1, x2, y2);
-    luat_gpio_set(conf->pin_dc, Luat_GPIO_HIGH);
+    luat_lcd_set_address(conf, x1, y1, x2, y2);
+    luat_gpio_set(conf->pin_dc, Luat_GPIO_HIGH); // draw是data, 这一句应该不需要的
 	if (conf->port == LUAT_LCD_SPI_DEVICE){
 		luat_spi_device_send((luat_spi_device_t*)(conf->lcd_spi_device), (const char*)color, size);
 	}else{
@@ -204,104 +186,52 @@ int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, 
     return 0;
 }
 
-int luat_lcd_clear(luat_lcd_conf_t* conf,uint32_t color){
-    uint16_t i, j;
-    uint8_t data[2] = {0};
-    uint8_t *buf = NULL;
-    data[0] = color >> 8;
-    data[1] = color;
-    luat_lcd_set_address(conf,0, 0, conf->w - 1, conf->h - 1);
-    buf = luat_heap_malloc(conf->w*conf->h/10);
-    if (buf)
-    {
-        for (j = 0; j < conf->w*conf->h/10 / 2; j++)
-        {
-            buf[j * 2] =  data[0];
-            buf[j * 2 + 1] =  data[1];
-        }
-        luat_gpio_set(conf->pin_dc, Luat_GPIO_HIGH);
-        for (i = 0; i < 20; i++)
-        {
-            if (conf->port == LUAT_LCD_SPI_DEVICE){
-                luat_spi_device_send((luat_spi_device_t*)(conf->lcd_spi_device),  (const char*)buf, conf->w*conf->h/10);
-            }else{
-                luat_spi_send(conf->port,  (const char*)buf, conf->w*conf->h/10);
-            }
-        }
-        luat_heap_free(buf);
-    }
-    else
-    {
-        luat_gpio_set(conf->pin_dc, Luat_GPIO_HIGH);
-        for (i = 0; i < conf->w; i++)
-        {
-            for (j = 0; j < conf->h; j++)
-            {
-                if (conf->port == LUAT_LCD_SPI_DEVICE){
-                    luat_spi_device_send((luat_spi_device_t*)(conf->lcd_spi_device),  (const char*)data, 2);
-                }else{
-                    luat_spi_send(conf->port,  (const char*)data, 2);
-                }
-            }
-        }
-    }
+int luat_lcd_clear(luat_lcd_conf_t* conf, luat_color_t color){
+    luat_lcd_draw_fill(conf, 0, 0, conf->w, conf->h, color);
     return 0;
 }
 
-int luat_lcd_draw_fill(luat_lcd_conf_t* conf,uint16_t x1,uint16_t y1,uint16_t x2,uint16_t y2,uint32_t color){          
-	uint16_t i,j; 
-	luat_lcd_set_address(conf,x1,y1,x2-1,y2-1);//设置显示范围
+int luat_lcd_draw_fill(luat_lcd_conf_t* conf,uint16_t x1,uint16_t y1,uint16_t x2,uint16_t y2, luat_color_t color) {          
+	uint16_t i;
 	for(i=y1;i<y2;i++)
-	{													   	 	
-		for(j=x1;j<x2;j++)
-		{
-			lcd_write_half_word(conf,color);
-		}
+	{
+		luat_lcd_draw_line(conf, x1, i, x2, i, color);
 	}
     return 0;			  	    
 }
 
-int luat_lcd_draw_point(luat_lcd_conf_t* conf, uint16_t x, uint16_t y, uint32_t color) {
-    luat_lcd_set_address(conf,x, y, x, y);
-    lcd_write_half_word(conf,color);
-    return 0;
+int luat_lcd_draw_point(luat_lcd_conf_t* conf, uint16_t x, uint16_t y, luat_color_t color) {
+    return luat_lcd_draw(conf, x, y, x, y, &color);
 }
 
-int luat_lcd_draw_vline(luat_lcd_conf_t* conf, uint16_t x, uint16_t y,uint16_t h, uint32_t color) {
-    luat_lcd_set_address(conf,x, y, x, y + h - 1);
-    while ( h-- ) {lcd_write_half_word(conf,color);}
-    return 0;
+int luat_lcd_draw_vline(luat_lcd_conf_t* conf, uint16_t x, uint16_t y,uint16_t h, luat_color_t color) {
+    return luat_lcd_draw_line(conf, x, y, x, y + h, color);
 }
 
-int luat_lcd_draw_hline(luat_lcd_conf_t* conf, uint16_t x, uint16_t y,uint16_t w, uint32_t color) {
-    luat_lcd_set_address(conf,x, y, x + w - 1, y);
-    while ( w-- ) {lcd_write_half_word(conf,color);}
-    return 0;
+int luat_lcd_draw_hline(luat_lcd_conf_t* conf, uint16_t x, uint16_t y,uint16_t w, luat_color_t color) {
+    return luat_lcd_draw_line(conf, x, y, x+w, y, color);
 }
-int luat_lcd_draw_line(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2,uint32_t color){
+
+int luat_lcd_draw_line(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2,luat_color_t color) {
     uint16_t t;
     uint32_t i = 0;
     int xerr = 0, yerr = 0, delta_x, delta_y, distance;
     int incx, incy, row, col;
-    if (x1 == x2 || y1 == y2)
+    if (x1 == x2 || y1 == y2) // 直线
     {
         /* fast draw transverse line */
-        luat_lcd_set_address(conf,x1, y1, x2, y2);
+        // luat_lcd_set_address(conf,x1, y1, x2, y2);
         size_t dots = (x2 - x1 + 1) * (y2 - y1 + 1);//点数量
-        uint8_t* line_buf = (uint8_t*)luat_heap_malloc(dots * 2);
-        for (i = 0; i < dots; i++)
-        {
-            line_buf[2 * i] = color >> 8;
-            line_buf[2 * i + 1] = color;
+        luat_color_t* line_buf = (luat_color_t*) luat_heap_malloc(dots * sizeof(luat_color_t));
+        if (line_buf) {
+            for (i = 0; i < dots; i++)
+            {
+                line_buf[i] = color;
+            }
+            luat_lcd_draw(conf, x1, y1, x2, y2, line_buf);
+            luat_heap_free(line_buf);
+            return 0;
         }
-        luat_gpio_set(conf->pin_dc, Luat_GPIO_HIGH);
-        if (conf->port == LUAT_LCD_SPI_DEVICE){
-            luat_spi_device_send((luat_spi_device_t*)(conf->lcd_spi_device),  (const char*)line_buf, dots * 2);
-        }else{
-            luat_spi_send(conf->port,  (const char*)line_buf, dots * 2);
-        }
-        luat_heap_free(line_buf);
-        return 0;
     }
 
     delta_x = x2 - x1;
@@ -343,15 +273,15 @@ int luat_lcd_draw_line(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t 
     return 0;
 }
 
-int luat_lcd_draw_rectangle(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2,uint32_t color){
-    luat_lcd_draw_line(conf,x1, y1, x2, y1,color);
-    luat_lcd_draw_line(conf,x1, y1, x1, y2,color);
-    luat_lcd_draw_line(conf,x1, y2, x2, y2,color);
-    luat_lcd_draw_line(conf,x2, y1, x2, y2,color);
+int luat_lcd_draw_rectangle(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, luat_color_t color){
+    luat_lcd_draw_line(conf,x1, y1, x2, y1, color);
+    luat_lcd_draw_line(conf,x1, y1, x1, y2, color);
+    luat_lcd_draw_line(conf,x1, y2, x2, y2, color);
+    luat_lcd_draw_line(conf,x2, y1, x2, y2, color);
     return 0;
 }
 
-int luat_lcd_draw_circle(luat_lcd_conf_t* conf,uint16_t x0, uint16_t y0, uint8_t r,uint32_t color){
+int luat_lcd_draw_circle(luat_lcd_conf_t* conf,uint16_t x0, uint16_t y0, uint8_t r, luat_color_t color){
     int a, b;
     int di;
     a = 0;

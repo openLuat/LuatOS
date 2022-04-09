@@ -20,11 +20,16 @@ include_directories(${TOPROOT}/lua/include
                     ${TOPROOT}/luat/include
                     ${TOPROOT}/components/lcd
                     ${TOPROOT}/luat/packages/u8g2
+                    ${TOPROOT}/luat/packages/qrcode
                     )
 
 aux_source_directory(./port PORT_SRCS)
 aux_source_directory(${TOPROOT}/lua/src LUA_SRCS)
 aux_source_directory(${TOPROOT}/luat/packages/lua-cjson CJSON_SRCS)
+
+aux_source_directory(${TOPROOT}/components/lcd LCD_SRCS)
+aux_source_directory(${TOPROOT}/luat/packages/u8g2 U8G2_SRCS)
+aux_source_directory(${TOPROOT}/luat/packages/qrcode QRCODE_SRCS)
 
 add_library(lua ${LUA_SRCS})
 add_library(luatos_port ${PORT_SRCS})
@@ -42,6 +47,10 @@ add_library(luat ${TOPROOT}/luat/modules/luat_main.c
                  ${TOPROOT}/luat/modules/luat_lib_mqttcore.c
                  ${TOPROOT}/luat/modules/luat_lib_libcoap.c
                  ${TOPROOT}/luat/modules/luat_lib_crypto.c
+                 ${TOPROOT}/luat/modules/luat_lib_gpio.c
+                 ${TOPROOT}/luat/modules/luat_lib_i2c.c
+                 ${TOPROOT}/luat/modules/luat_lib_spi.c
+                 ${TOPROOT}/luat/modules/luat_lib_adc.c
                  ${TOPROOT}/luat/modules/crc.c
                  ${TOPROOT}/luat/vfs/luat_vfs.c
                  ${TOPROOT}/luat/vfs/luat_fs_luadb.c
@@ -49,6 +58,9 @@ add_library(luat ${TOPROOT}/luat/modules/luat_main.c
                  ${TOPROOT}/luat/vfs/luat_luadb_inline.c
                  ${TOPROOT}/luat/vfs/luat_inline_sys.c
                  ${TOPROOT}/luat/vfs/luat_fs_onefile.c
+                 ${LCD_SRCS}
+                 ${U8G2_SRCS}
+                 ${QRCODE_SRCS}
             )
 
 #-----------------------

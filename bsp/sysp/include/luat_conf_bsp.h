@@ -9,6 +9,46 @@
 
 // #define LUAT_MAIN_DEMO 1
 
+#define USE_U8G2_OPPOSANSM12_CHINESE
+
+
+//---------------------
+// UI
+// LCD  是彩屏, 若使用LVGL就必须启用LCD
+#define LUAT_USE_LCD
+// EINK 是墨水屏
+// #define LUAT_USE_EINK
+
+//---------------------
+// U8G2
+// 单色屏, 支持i2c/spi
+// #define LUAT_USE_DISP
+// #define LUAT_USE_U8G2
+// #define U8G2_USE_SH1106
+// #define U8G2_USE_ST7567
+
+/**************FONT*****************/
+// Luat Fonts
+// #define LUAT_USE_FONTS
+// #define LUAT_FONTS_BASE_8P
+// #define LUAT_FONTS_BASE_12P
+// #define LUAT_FONTS_BASE_16P
+// #define LUAT_FONTS_BASE_20P
+// #define LUAT_FONTS_BASE_24P
+// #define LUAT_FONTS_BASE_28P
+/**********U8G2&LCD FONT*************/
+// #define USE_U8G2_UNIFONT_SYMBOLS
+#define USE_U8G2_OPPOSANSM12_CHINESE
+// #define USE_U8G2_OPPOSANSM16_CHINESE
+// #define USE_U8G2_OPPOSANSM24_CHINESE
+// #define USE_U8G2_OPPOSANSM32_CHINESE
+
+
+
+
+
+
+
 #define LV_TICK_CUSTOM     1
 #define LV_TICK_CUSTOM_INCLUDE "stdio.h"
 unsigned int get_timestamp(void);

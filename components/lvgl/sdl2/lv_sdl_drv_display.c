@@ -31,6 +31,7 @@
 
 static lv_disp_buf_t disp_buf;
 static lv_color_t *pixels;
+static uint32_t *fb;
 #ifdef NXDK
 #include <hal/video.h>
 void *framebuffer;
@@ -46,34 +47,30 @@ static void sdl_fb_flush(lv_disp_drv_t *disp_drv,
                          const lv_area_t *area,
                          lv_color_t *color_p)
 {
-
+    //printf("disp flush %d %d %d %d\n", area->x1, area->y1, area->x2, area->y2);
     if(area->x2 < 0 || area->y2 < 0 ||
        area->x1 > disp_drv->hor_res - 1 || area->y1 > disp_drv->ver_res - 1) {
         lv_disp_flush_ready(disp_drv);
         return;
     }
-    #ifdef NXDK
-    static uint8_t pitch = (LV_COLOR_DEPTH + 7) / 8;
-    for(uint32_t y = area->y1; y <= area->y2; y++)
-    {
-        uint32_t line_start = y * disp_drv->hor_res * pitch;
-        for(uint32_t x = area->x1; x <= area->x2; x++)
-        {
-            lv_color_t *pixel = framebuffer + line_start + x * pitch;
-            *pixel = *color_p;
-            color_p++;
-        }
-    }
-    #else
     SDL_Rect r;
     r.x = area->x1;
     r.y = area->y1;
     r.w = area->x2 - area->x1 + 1;
     r.h = area->y2 - area->y1 + 1;
 
-    SDL_UpdateTexture(framebuffer, &r, color_p, r.w * ((LV_COLOR_DEPTH + 7) / 8));
-    #endif
+    uint32_t *tmp = fb;
+    for (size_t i = 0; i < disp_drv->hor_res; i++)
+    {
+        for (size_t j = 0; j < disp_drv->ver_res; j++)
+        {
+            *tmp = lv_color_to32(*color_p);
+            tmp ++;
+            color_p ++;
+        }
+    }
 
+    SDL_UpdateTexture(framebuffer, &r, fb, r.w * 4);
     lv_disp_flush_ready(disp_drv);
 }
 
@@ -102,9 +99,11 @@ lv_disp_t *lv_sdl_init_display(const char *win_name, int width, int height)
         width = LV_HOR_RES_MAX;
     if (height > LV_VER_RES_MAX)
         height = LV_VER_RES_MAX;
-    pixels = malloc(sizeof(lv_color_t) * width * height);
+    size_t buff_line = 16;
+    pixels = malloc(sizeof(lv_color_t) * width * buff_line);
+    fb = malloc(sizeof(uint32_t) * width * height);
     //printf("pixels %p\n", pixels);
-    lv_disp_buf_init(&disp_buf, pixels, NULL, width * height);
+    lv_disp_buf_init(&disp_buf, pixels, NULL, width * buff_line);
     lv_disp_drv_t disp_drv;
     lv_disp_drv_init(&disp_drv);
     disp_drv.buffer = &disp_buf;
@@ -113,18 +112,6 @@ lv_disp_t *lv_sdl_init_display(const char *win_name, int width, int height)
     disp_drv.hor_res = width;
     disp_drv.ver_res = height;
 
-    #ifdef NXDK
-    #define PCRTC_START 0x00600800
-    framebuffer = MmAllocateContiguousMemoryEx(LV_HOR_RES_MAX * LV_VER_RES_MAX * ((LV_COLOR_DEPTH + 7) / 8),
-                                               0x00000000, 0x7FFFFFFF,
-                                               0x1000,
-                                               PAGE_READWRITE |
-                                               PAGE_WRITECOMBINE);
-    assert (framebuffer != NULL);
-    RtlZeroMemory(framebuffer, LV_HOR_RES_MAX * LV_VER_RES_MAX * ((LV_COLOR_DEPTH + 7) / 8));
-    XVideoFlushFB();
-    VIDEOREG(PCRTC_START) = (unsigned int)MmGetPhysicalAddress(framebuffer);
-    #else
     if (SDL_InitSubSystem(SDL_INIT_VIDEO) != 0)
         printf("SDL_InitSubSystem failed: %s\n", SDL_GetError());
 
@@ -132,28 +119,14 @@ lv_disp_t *lv_sdl_init_display(const char *win_name, int width, int height)
                               SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
                               width, height, 0);
 
-    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
-
-#if (LV_COLOR_DEPTH == 16)
-    #if LV_COLOR_16_SWAP
-    printf("SDL_PIXELFORMAT_BGR565\n");
-    Uint32 color_depth = SDL_PIXELFORMAT_BGR565;
-    #else
-    printf("SDL_PIXELFORMAT_RGB565\n");
-    Uint32 color_depth = SDL_PIXELFORMAT_RGB565;
-    #endif
-#else
-    printf("SDL_PIXELFORMAT_ARGB8888\n");
-    Uint32 color_depth = SDL_PIXELFORMAT_ARGB8888;
-#endif
+    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     framebuffer = SDL_CreateTexture(renderer,
-                                    color_depth,
+                                    SDL_PIXELFORMAT_ARGB8888,
                                     SDL_TEXTUREACCESS_STREAMING,
                                     width,
                                     height);
 
     sdl_present_task = lv_task_create(sdl_present, LV_DISP_DEF_REFR_PERIOD, LV_TASK_PRIO_HIGHEST, NULL);
-    #endif
 
     return lv_disp_drv_register(&disp_drv);
 }

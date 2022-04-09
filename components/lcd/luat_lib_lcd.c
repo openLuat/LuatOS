@@ -22,7 +22,7 @@
 int8_t u8g2_font_decode_get_signed_bits(u8g2_font_decode_t *f, uint8_t cnt);
 uint8_t u8g2_font_decode_get_unsigned_bits(u8g2_font_decode_t *f, uint8_t cnt);
 
-extern uint32_t BACK_COLOR , FORE_COLOR ;
+extern luat_color_t BACK_COLOR , FORE_COLOR ;
 
 extern const luat_lcd_opts_t lcd_opts_st7735;
 extern const luat_lcd_opts_t lcd_opts_st7735v;
@@ -59,7 +59,7 @@ static const lcd_reg_t lcd_regs[] = {
 static luat_lcd_conf_t *default_conf = NULL;
 static int dft_conf_lua_ref = 0;
 
-static uint32_t lcd_str_fg_color,lcd_str_bg_color;
+static luat_color_t lcd_str_fg_color,lcd_str_bg_color;
 /*
 lcd显示屏初始化
 @api lcd.init(tp, args)
@@ -369,9 +369,9 @@ lcd颜色设置
 lcd.setColor(0xFFFF,0x0000)
 */
 static int l_lcd_set_color(lua_State* L) {
-    uint32_t back,fore;
-    back = (uint32_t)luaL_checkinteger(L, 1);
-    fore = (uint32_t)luaL_checkinteger(L, 2);
+    luat_color_t back,fore;
+    back = (luat_color_t)luaL_checkinteger(L, 1);
+    fore = (luat_color_t)luaL_checkinteger(L, 2);
     int ret = luat_lcd_set_color(back, fore);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
@@ -401,7 +401,7 @@ static int l_lcd_draw(lua_State* L) {
     y2 = luaL_checkinteger(L, 4);
     if (lua_isinteger(L, 5)) {
         // color = (luat_color_t *)luaL_checkstring(L, 5);
-        uint32_t color = (uint32_t)luaL_checkinteger(L, 1);
+        luat_color_t color = (uint32_t)luaL_checkinteger(L, 1);
         ret = luat_lcd_draw(default_conf, x1, y1, x2, y2, &color);
     }
     else if (lua_isuserdata(L, 5)) {
@@ -431,7 +431,7 @@ lcd.clear()
 */
 static int l_lcd_clear(lua_State* L) {
     //size_t len = 0;
-    uint32_t color = BACK_COLOR;
+    luat_color_t color = BACK_COLOR;
     if (lua_gettop(L) > 0)
         color = (uint32_t)luaL_checkinteger(L, 1);
     int ret = luat_lcd_clear(default_conf, color);
@@ -453,13 +453,13 @@ lcd.fill(20,30,220,30,0x0000)
 */
 static int l_lcd_draw_fill(lua_State* L) {
     uint16_t x1, y1, x2, y2;
-    uint32_t color = BACK_COLOR;
+    luat_color_t color = BACK_COLOR;
     x1 = luaL_checkinteger(L, 1);
     y1 = luaL_checkinteger(L, 2);
     x2 = luaL_checkinteger(L, 3);
     y2 = luaL_checkinteger(L, 4);
     if (lua_gettop(L) > 4)
-        color = (uint32_t)luaL_checkinteger(L, 5);
+        color = (luat_color_t)luaL_checkinteger(L, 5);
     int ret = luat_lcd_draw_fill(default_conf, x1,  y1,  x2,  y2, color);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
@@ -476,11 +476,11 @@ lcd.drawPoint(20,30,0x001F)
 */
 static int l_lcd_draw_point(lua_State* L) {
     uint16_t x, y;
-    uint32_t color = FORE_COLOR;
+    luat_color_t color = FORE_COLOR;
     x = luaL_checkinteger(L, 1);
     y = luaL_checkinteger(L, 2);
     if (lua_gettop(L) > 2)
-        color = (uint32_t)luaL_checkinteger(L, 3);
+        color = (luat_color_t)luaL_checkinteger(L, 3);
     int ret = luat_lcd_draw_point(default_conf, x, y, color);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
@@ -499,13 +499,13 @@ lcd.drawLine(20,30,220,30,0x001F)
 */
 static int l_lcd_draw_line(lua_State* L) {
     uint16_t x1, y1, x2, y2;
-    uint32_t color = FORE_COLOR;
+    luat_color_t color = FORE_COLOR;
     x1 = luaL_checkinteger(L, 1);
     y1 = luaL_checkinteger(L, 2);
     x2 = luaL_checkinteger(L, 3);
     y2 = luaL_checkinteger(L, 4);
     if (lua_gettop(L) > 4)
-        color = (uint32_t)luaL_checkinteger(L, 5);
+        color = (luat_color_t)luaL_checkinteger(L, 5);
     int ret = luat_lcd_draw_line(default_conf, x1,  y1,  x2,  y2, color);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
@@ -524,13 +524,13 @@ lcd.drawRectangle(20,40,220,80,0x001F)
 */
 static int l_lcd_draw_rectangle(lua_State* L) {
     uint16_t x1, y1, x2, y2;
-    uint32_t color = FORE_COLOR;
+    luat_color_t color = FORE_COLOR;
     x1 = luaL_checkinteger(L, 1);
     y1 = luaL_checkinteger(L, 2);
     x2 = luaL_checkinteger(L, 3);
     y2 = luaL_checkinteger(L, 4);
     if (lua_gettop(L) > 4)
-        color = (uint32_t)luaL_checkinteger(L, 5);
+        color = (luat_color_t)luaL_checkinteger(L, 5);
     int ret = luat_lcd_draw_rectangle(default_conf, x1,  y1,  x2,  y2, color);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
@@ -548,12 +548,12 @@ lcd.drawCircle(120,120,20,0x001F)
 */
 static int l_lcd_draw_circle(lua_State* L) {
     uint16_t x0, y0, r;
-    uint32_t color = FORE_COLOR;
+    luat_color_t color = FORE_COLOR;
     x0 = luaL_checkinteger(L, 1);
     y0 = luaL_checkinteger(L, 2);
     r = luaL_checkinteger(L, 3);
     if (lua_gettop(L) > 3)
-        color = (uint32_t)luaL_checkinteger(L, 4);
+        color = (luat_color_t)luaL_checkinteger(L, 4);
     int ret = luat_lcd_draw_circle(default_conf, x0,  y0,  r, color);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
@@ -829,7 +829,7 @@ static int l_lcd_draw_str(lua_State* L) {
     x = luaL_checkinteger(L, 1);
     y = luaL_checkinteger(L, 2);
     data = (const uint8_t*)luaL_checklstring(L, 3, &sz);
-    lcd_str_fg_color = (uint32_t)luaL_optinteger(L, 4,FORE_COLOR);
+    lcd_str_fg_color = (luat_color_t)luaL_optinteger(L, 4,FORE_COLOR);
     // lcd_str_bg_color = (uint32_t)luaL_optinteger(L, 5,BACK_COLOR);
     if (sz == 0)
         return 0;
@@ -924,8 +924,8 @@ static int l_lcd_draw_gtfont_gb2312_gray(lua_State* L) {
 	int i = 0;
 	uint8_t strhigh,strlow ;
 	uint16_t str;
-    const char *fontCode = luaL_checklstring(L, 1,&len);
-    unsigned char size = luaL_checkinteger(L, 2);
+  const char *fontCode = luaL_checklstring(L, 1,&len);
+  unsigned char size = luaL_checkinteger(L, 2);
 	unsigned char font_g = luaL_checkinteger(L, 3);
 	int x = luaL_checkinteger(L, 4);
 	int y = luaL_checkinteger(L, 5);
@@ -1066,6 +1066,7 @@ static int l_lcd_get_size(lua_State *L) {
     if (conf) {
       lua_pushinteger(L, conf->w);
       lua_pushinteger(L, conf->h);
+      return 2;
     }
   }
   if (default_conf == NULL) {

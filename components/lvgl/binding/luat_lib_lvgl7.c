@@ -34,6 +34,7 @@ static luat_lv_t LV = {0};
 int luat_lv_init(lua_State *L);
 
 #ifdef LUAT_USE_LVGL_SDL2
+#include "luat_lcd.h"
 // SDL2 模式
 extern lv_disp_t *lv_sdl_init_display(const char* win_name, int width, int height);
 extern lv_indev_t *lv_sdl_init_input(void);
@@ -41,13 +42,23 @@ int luat_lv_init(lua_State *L) {
     int w = 480;
     int h = 320;
 
+    luat_lcd_conf_t *lcd_conf = NULL;
+    if (lua_isuserdata(L, 3)) {
+        lcd_conf = lua_touserdata(L, 3);
+    }
+    else {
+        lcd_conf = luat_lcd_get_default();
+    }
+
     if (lua_isnumber(L, 1) && lua_isnumber(L, 2)) {
         w = luaL_checkinteger(L, 1);
         h = luaL_checkinteger(L, 2);
     }
-    lv_sdl_init_display("LVGL@LuatOS", w, h);
+    if (lcd_conf == NULL)
+        lv_sdl_init_display("LuatOS", w, h);
     lv_sdl_init_input();
-    return 0;
+    lua_pushboolean(L, 1);
+    return 1;
 }
 #elif defined(LUAT_EMULATOR_MODE)
 // 模拟器模式
@@ -126,12 +137,12 @@ int luat_lv_init(lua_State *L) {
     else {
         lcd_conf = luat_lcd_get_default();
     }
+
     if (lcd_conf == NULL) {
         LLOGE("setup lcd first!!");
         return 0;
     }
-
-    if (w == 0 || h == 0) {
+    else if (w == 0 || h == 0) {
         w = lcd_conf->w;
         h = lcd_conf->h;
     }

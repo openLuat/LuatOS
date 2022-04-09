@@ -174,6 +174,7 @@ int luat_lcd_set_color(luat_color_t back, luat_color_t fore){
     return 0;
 }
 
+#ifndef LUAT_USE_LCD_CUSTOM_DRAW
 int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, luat_color_t* color) {
     uint32_t size = (x2 - x1 + 1) * (y2 - y1 + 1) * 2;
     luat_lcd_set_address(conf, x1, y1, x2, y2);
@@ -184,6 +185,7 @@ int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, 
 	}
     return 0;
 }
+#endif
 
 int luat_lcd_clear(luat_lcd_conf_t* conf, luat_color_t color){
     luat_lcd_draw_fill(conf, 0, 0, conf->w, conf->h, color);

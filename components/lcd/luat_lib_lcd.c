@@ -219,6 +219,10 @@ static int l_lcd_init(lua_State* L) {
             lua_pop(L, 1);
             conf->userdata = cst;
         }
+#ifdef LUAT_USE_LCD_SDL2
+        extern const luat_lcd_opts_t lcd_opts_sdl2;
+        conf->opts = &lcd_opts_sdl2;
+#endif
         int ret = luat_lcd_init(conf);
         if (ret == 0) {
             if (dft_conf_lua_ref) {

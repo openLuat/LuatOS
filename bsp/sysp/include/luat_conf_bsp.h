@@ -39,7 +39,7 @@
 /**********U8G2&LCD FONT*************/
 // #define USE_U8G2_UNIFONT_SYMBOLS
 #define USE_U8G2_OPPOSANSM12_CHINESE
-// #define USE_U8G2_OPPOSANSM16_CHINESE
+#define USE_U8G2_OPPOSANSM16_CHINESE
 // #define USE_U8G2_OPPOSANSM24_CHINESE
 // #define USE_U8G2_OPPOSANSM32_CHINESE
 
@@ -58,6 +58,8 @@ unsigned int get_timestamp(void);
 #define LV_COLOR_DEPTH 16
 
 #define LUAT_USE_LVGL_SDL2 1
+#define LUAT_USE_LCD_SDL2 1
+#define LUAT_USE_LCD_CUSTOM_DRAW 1
 
 #define LUAT_USE_LVGL 1
 #define LV_MEM_CUSTOM 1

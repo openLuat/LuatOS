@@ -177,7 +177,6 @@ int luat_lcd_set_color(luat_color_t back, luat_color_t fore){
 int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, luat_color_t* color) {
     uint32_t size = (x2 - x1 + 1) * (y2 - y1 + 1) * 2;
     luat_lcd_set_address(conf, x1, y1, x2, y2);
-    luat_gpio_set(conf->pin_dc, Luat_GPIO_HIGH); // draw是data, 这一句应该不需要的
 	if (conf->port == LUAT_LCD_SPI_DEVICE){
 		luat_spi_device_send((luat_spi_device_t*)(conf->lcd_spi_device), (const char*)color, size);
 	}else{
@@ -219,8 +218,6 @@ int luat_lcd_draw_line(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t 
     int incx, incy, row, col;
     if (x1 == x2 || y1 == y2) // 直线
     {
-        /* fast draw transverse line */
-        // luat_lcd_set_address(conf,x1, y1, x2, y2);
         size_t dots = (x2 - x1 + 1) * (y2 - y1 + 1);//点数量
         luat_color_t* line_buf = (luat_color_t*) luat_heap_malloc(dots * sizeof(luat_color_t));
         if (line_buf) {

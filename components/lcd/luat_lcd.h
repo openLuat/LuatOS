@@ -25,7 +25,9 @@
 #define GRAY187          0XBDD7
 #define GRAY240          0XF79E
 
-#define LUAT_LCD_COLOR_DEPTH 32
+#ifndef LUAT_LCD_COLOR_DEPTH
+#define LUAT_LCD_COLOR_DEPTH 16
+#endif
 
 #if (LUAT_LCD_COLOR_DEPTH == 32)
 #define luat_color_t uint32_t
@@ -84,7 +86,7 @@ int luat_lcd_set_address(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_
 int luat_lcd_set_color(luat_color_t back, luat_color_t fore);
 int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, luat_color_t* color);
 int luat_lcd_draw_no_block(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, luat_color_t* color, uint8_t last_flush);
-int luat_lcd_clear(luat_lcd_conf_t* conf,uint32_t color);
+int luat_lcd_clear(luat_lcd_conf_t* conf,luat_color_t color);
 int luat_lcd_draw_fill(luat_lcd_conf_t* conf,uint16_t x1,uint16_t y1,uint16_t x2,uint16_t y2,luat_color_t color);
 int luat_lcd_draw_point(luat_lcd_conf_t* conf, uint16_t x, uint16_t y, luat_color_t color);
 int luat_lcd_draw_line(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, luat_color_t color);

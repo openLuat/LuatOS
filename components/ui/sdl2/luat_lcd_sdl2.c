@@ -6,6 +6,8 @@
 
 static uint32_t* fb;
 
+static inline uint32_t luat_color_565to8888(luat_color_t color);
+
 static int sdl2_init(luat_lcd_conf_t* conf) {
     luat_sdl2_conf_t sdl2_conf = {
         .width = conf->w,
@@ -13,6 +15,11 @@ static int sdl2_init(luat_lcd_conf_t* conf) {
     };
     luat_sdl2_init(&sdl2_conf);
     fb = luat_heap_malloc(sizeof(uint32_t) * conf->w * conf->h);
+    luat_lcd_clear(conf, WHITE);
+    // printf("ARGB8888 0xFFFF %08X\n", luat_color_565to8888(0xFFFF));
+    // printf("ARGB8888 0X001F %08X\n", luat_color_565to8888(0X001F));
+    // printf("ARGB8888 0xF800 %08X\n", luat_color_565to8888(0xF800));
+    // printf("ARGB8888 0x0CE0 %08X\n", luat_color_565to8888(0x0CE0));
     return 0;
 }
 
@@ -42,12 +49,13 @@ static inline uint32_t luat_color_565to8888(luat_color_t color) {
     memcpy(&tmp, &color, sizeof(luat_color_rgb565swap_t));
     luat_color_argb8888_t dst = {
         .alpha = 0xFF,
-        .blue = (tmp.blue * 259 + 3) >> 6,
-        .green = (tmp.green * 263 + 7) >> 5,
-        .red = (tmp.red * 263 + 7) >> 5
+        .red = (tmp.red * 263 + 7) >> 5,
+        .green = (tmp.green * 259 + 3) >> 6,
+        .blue = (tmp.blue *263  + 7) >> 5
     };
     uint32_t t;
     memcpy(&t, &dst, sizeof(luat_color_argb8888_t));
+    //printf("ARGB8888 %08X\n", t);
     return t;
 }
 

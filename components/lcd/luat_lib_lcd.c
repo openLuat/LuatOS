@@ -1139,6 +1139,26 @@ static int l_lcd_drawxbm(lua_State *L){
     return 1;
 }
 
+#ifdef LUAT_USE_TJPGD
+#include "luat_tjpgd.h"
+
+static int l_lcd_showimage(lua_State *L){
+    size_t size = 0;
+    int x = luaL_checkinteger(L, 1);
+    int y = luaL_checkinteger(L, 2);
+    int w = luaL_checkinteger(L, 3);
+    int h = luaL_checkinteger(L, 4);
+    const char* input_file = luaL_checklstring(L, 5, &size);
+    uint8_t* image_data = luat_tjpgd(input_file);
+    if(image_data != NULL){
+      luat_lcd_show_image(default_conf,x, y, w, h, (luat_color_t *)image_data,1);
+      luat_heap_free(image_data);    /* Discard frame buffer */
+    }
+    lua_pushboolean(L, 1);
+    return 1;
+}
+#endif
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_lcd[] =
 {
@@ -1167,6 +1187,9 @@ static const rotable_Reg_t reg_lcd[] =
     { "getDefault", ROREG_FUNC(l_lcd_get_default)},
     { "getSize",    ROREG_FUNC(l_lcd_get_size)},
     { "drawXbm",    ROREG_FUNC(l_lcd_drawxbm)},
+#ifdef LUAT_USE_TJPGD
+    { "showImage",    ROREG_FUNC(l_lcd_showimage)},
+#endif
 #ifdef LUAT_USE_GTFONT
     { "drawGtfontGb2312", ROREG_FUNC(l_lcd_draw_gtfont_gb2312)},
     { "drawGtfontGb2312Gray", ROREG_FUNC(l_lcd_draw_gtfont_gb2312_gray)},

@@ -310,11 +310,26 @@ int luat_lcd_draw_circle(luat_lcd_conf_t* conf,uint16_t x0, uint16_t y0, uint8_t
     return 0;
 }
 
-int luat_lcd_show_image(luat_lcd_conf_t* conf,uint16_t x, uint16_t y, uint16_t length, uint16_t wide, const uint8_t *image){
+int luat_lcd_show_image(luat_lcd_conf_t* conf,uint16_t x, uint16_t y, uint16_t length, uint16_t wide, const luat_color_t *image,uint8_t swap){
     if (x + length > conf->w || y + wide > conf->h){
         return -1;
     }
-    luat_lcd_draw(conf, x, y, x + length - 1, y + wide - 1, image);
+    if (swap)
+    {
+        uint32_t size = length * wide;
+        luat_lcd_set_address(conf, x, y, x + length - 1, y + wide - 1);
+        for (size_t i = 0; i < size; i++){
+            char color[2] = {0};
+            color[0] = *(image+i) >> 8;
+            color[1] = *(image+i);
+            if (conf->port == LUAT_LCD_SPI_DEVICE){
+            luat_spi_device_send((luat_spi_device_t*)(conf->lcd_spi_device), (const char*)color, 2);
+            }else{
+                luat_spi_send(conf->port, (const char*)color, 2);
+            }
+        }
+    }else{
+        luat_lcd_draw(conf, x, y, x + length - 1, y + wide - 1, image);
+    }
     return 0;
 }
-

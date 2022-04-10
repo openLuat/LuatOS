@@ -1141,7 +1141,15 @@ static int l_lcd_drawxbm(lua_State *L){
 
 #ifdef LUAT_USE_TJPGD
 #include "luat_tjpgd.h"
-
+/*
+显示图片,当前只支持jpg,jpeg
+@api lcd.showImage(x, y, file)
+@int X坐标
+@int y坐标
+@string 文件路径
+@usage
+lcd.showImage(0,0,"/luadb/logo.jpg")
+*/
 static int l_lcd_showimage(lua_State *L){
     size_t size = 0;
     int x = luaL_checkinteger(L, 1);

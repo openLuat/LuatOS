@@ -112,6 +112,22 @@ static int l_mcu_reg32(lua_State* L) {
     return 1;
 }
 
+/*
+转换10进制数为16进制字符串输出
+@api mcu.x32(value)
+@int 需要转换的值
+@return string 16进制字符串
+@usage
+local value = mcu.x32(0x2009FFFC) --输出"0x2009fffc"
+*/
+static int l_mcu_x32(lua_State* L) {
+    uint32_t value = luaL_checkinteger(L, 1);
+    char c[16];
+    sprintf_(c, "0x%x", value);
+    lua_pushstring(L, c);
+    return 1;
+}
+
 #ifdef __LUATOS_TICK_64BIT__
 /*
 获取启动后的高精度tick，目前只有105能用
@@ -196,6 +212,7 @@ static const rotable_Reg_t reg_mcu[] =
     { "ticks",          ROREG_FUNC(l_mcu_ticks)},
     { "hz",             ROREG_FUNC(l_mcu_hz)},
 	{ "reg32",             ROREG_FUNC(l_mcu_reg32)},
+	{ "x32",             ROREG_FUNC(l_mcu_x32)},
 #ifdef __LUATOS_TICK_64BIT__
 	{ "tick64",			ROREG_FUNC(l_mcu_hw_tick64)},
 	{ "dtick64",		ROREG_FUNC(l_mcu_hw_diff_tick64)},

@@ -88,6 +88,30 @@ static int l_mcu_hz(lua_State* L) {
     return 1;
 }
 
+/*
+读写mcu的32bit寄存器或者ram，谨慎使用写功能，请熟悉mcu的寄存器使用方法后再使用
+@api mcu.reg(address, value, mask)
+@int 寄存器或者ram地址
+@int 写入的值，如果没有，则直接返回当前值
+@int 位掩码，可以对特定几个位置的bit做修改， 默认0xffffffff，修改全部32bit
+@return int 返回当前寄存的值
+@usage
+local value = mcu.reg(0x2009FFFC, 0x01, 0x01) --对0x2009FFFC地址上的值，修改bit0为1
+*/
+static int l_mcu_reg32(lua_State* L) {
+    volatile uint32_t *address = (uint32_t *)(luaL_checkinteger(L, 1) & 0xfffffffc);
+    if (lua_isinteger(L, 2)) {
+    	volatile uint32_t value = lua_tointeger(L, 2);
+    	volatile uint32_t mask = luaL_optinteger(L, 3, 0xffffffff);
+    	volatile uint32_t org = *address;
+    	*address = (org & ~mask)| (value & mask);
+    	lua_pushinteger(L, *address);
+    } else {
+    	lua_pushinteger(L, *address);
+    }
+    return 1;
+}
+
 #ifdef __LUATOS_TICK_64BIT__
 /*
 获取启动后的高精度tick，目前只有105能用
@@ -171,6 +195,7 @@ static const rotable_Reg_t reg_mcu[] =
     { "unique_id",      ROREG_FUNC(l_mcu_unique_id)},
     { "ticks",          ROREG_FUNC(l_mcu_ticks)},
     { "hz",             ROREG_FUNC(l_mcu_hz)},
+	{ "reg32",             ROREG_FUNC(l_mcu_reg32)},
 #ifdef __LUATOS_TICK_64BIT__
 	{ "tick64",			ROREG_FUNC(l_mcu_hw_tick64)},
 	{ "dtick64",		ROREG_FUNC(l_mcu_hw_diff_tick64)},

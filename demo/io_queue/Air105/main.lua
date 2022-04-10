@@ -15,6 +15,7 @@ sys.taskInit(function()
     local buff1 = zbuff.create(100)
     local buff2 = zbuff.create(100)
     local cnt1,cnt2,i,lastTick,bit1Tick,nowTick,j,bit
+    mcu.setXTAL(true)   --为了测试更准确，调整到外部时钟
     bit1Tick = 100 * tick_us
     while 1 do
         --测试单总线DHT11

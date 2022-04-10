@@ -74,7 +74,7 @@ sys.taskInit(function()
         --测试高精度固定间隔定时输出,1us间隔翻转电平
         ioqueue.init(hw_timer_id, 100, 100)
         ioqueue.setgpio(hw_timer_id, out_pin, false,0,1)   --设置成输出口，电平1
-        ioqueue.setdelay(hw_timer_id, 1, 0, true)  --设置成连续延时，每次1个us，延时开始
+        ioqueue.setdelay(hw_timer_id, 0, 45, true)  --设置成连续延时，每次1个us，如果不准，对time_tick微调，延时开始
         for i = 0,40,1 do
             ioqueue.output(hw_timer_id, out_pin, 0)
             ioqueue.delay(hw_timer_id)     --连续延时1次
@@ -96,11 +96,11 @@ sys.taskInit(function()
         ioqueue.output(hw_timer_id, out_pin, 1) --高电平
         ioqueue.setdelay(hw_timer_id, 2, 45)  --单次延迟3us
         ioqueue.output(hw_timer_id, out_pin, 0) --低电平
-        ioqueue.setdelay(hw_timer_id, 3, 45)  --单次延迟1us
+        ioqueue.setdelay(hw_timer_id, 3, 45)  --单次延迟4us
         ioqueue.output(hw_timer_id, out_pin, 1) --高电平
-        ioqueue.setdelay(hw_timer_id, 4, 45)  --单次延迟2us
+        ioqueue.setdelay(hw_timer_id, 4, 45)  --单次延迟5us
         ioqueue.output(hw_timer_id, out_pin, 0) --低电平
-        ioqueue.setdelay(hw_timer_id, 5, 45)  --单次延迟3us
+        ioqueue.setdelay(hw_timer_id, 5, 45)  --单次延迟6us
         ioqueue.output(hw_timer_id, out_pin, 1) --高电平
         ioqueue.start(hw_timer_id)
         sys.waitUntil("IO_QUEUE_DONE_"..hw_timer_id)

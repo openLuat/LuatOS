@@ -29,7 +29,7 @@ LUAT_RET luat_thread_start(luat_thread_t* thread);
 LUAT_RET luat_thread_stop(luat_thread_t* thread);
 LUAT_RET luat_thread_delete(luat_thread_t* thread);
 LUAT_RET luat_send_event_to_task(luat_thread_t* thread, uint32_t id, uint32_t param1, uint32_t param2, uint32_t param3);
-LUAT_RET luat_wait_event_from_task(luat_thread_t* thread, uint32_t wait_event_id, void *out_event, CBFuncEx_t call_back, uint32_t ms);
+LUAT_RET luat_wait_event_from_task(luat_thread_t* thread, uint32_t wait_event_id, void *out_event, void *call_back, uint32_t ms);
 /* ----------------------------------- semaphore ----------------------------------- */
 typedef struct luat_sem{
     const char *name;

@@ -140,7 +140,7 @@ function music_demo_start()
                                     buff:copy(0, f:read(8))
                                 end
                                 log.debug("start", audio.start(0, AudioFormat, NumChannels, SampleRate, BitsPerSample))
-                                SampleRate = (SampleRate * BlockAlign / 8) & ~(3)
+                                SampleRate = (SampleRate * BlockAlign // 8) & ~(3)
                                 log.info("size", SampleRate)
                                 data = f:read(SampleRate)
                                 audio.write(0, data)

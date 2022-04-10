@@ -1187,7 +1187,9 @@ static const rotable_Reg_t reg_lcd[] =
     { "getDefault", ROREG_FUNC(l_lcd_get_default)},
     { "getSize",    ROREG_FUNC(l_lcd_get_size)},
     { "drawXbm",    ROREG_FUNC(l_lcd_drawxbm)},
+#ifdef LUAT_USE_TJPGD
     { "showImage",    ROREG_FUNC(l_lcd_showimage)},
+#endif
 #ifdef LUAT_USE_GTFONT
     { "drawGtfontGb2312", ROREG_FUNC(l_lcd_draw_gtfont_gb2312)},
     { "drawGtfontGb2312Gray", ROREG_FUNC(l_lcd_draw_gtfont_gb2312_gray)},

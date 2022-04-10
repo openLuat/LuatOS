@@ -69,12 +69,14 @@ int out_func (JDEC* jd, void* bitmap, JRECT* rect){
 /* Program Jpeg_Dec             */
 /*------------------------------*/
 
-uint8_t * luat_tjpgd(const char* input_file){
+luat_tjpgd_data_t * luat_tjpgd(const char* input_file){
     JRESULT res;      /* Result code of TJpgDec API */
     JDEC jdec;        /* Decompression object */
     void *work;       /* Pointer to the decompressor work area */
     size_t sz_work = 3500; /* Size of work area */
     IODEV devid;      /* User defined device identifier */
+
+    luat_tjpgd_data_t* tjpgd_data = luat_heap_malloc(sizeof(luat_tjpgd_data_t));
 
     devid.fp = luat_fs_fopen(input_file, "rb");
     if (!devid.fp){
@@ -93,6 +95,8 @@ uint8_t * luat_tjpgd(const char* input_file){
     if (res == JDR_OK){
         /* It is ready to dcompress and image info is available here */
         LLOGI("Image size is %u x %u.\n%u bytes of work ares is used.\n", jdec.width, jdec.height, sz_work - jdec.sz_pool);
+        tjpgd_data->width = jdec.width;
+        tjpgd_data->height = jdec.height;
         devid.fbuf = luat_heap_malloc(N_BPP * jdec.width * jdec.height); /* Frame buffer for output image */
         if(devid.fbuf == NULL)
         {
@@ -104,7 +108,10 @@ uint8_t * luat_tjpgd(const char* input_file){
         res = jd_decomp(&jdec, out_func, 0);   /* Start to decompress with 1/1 scaling */
         if (res == JDR_OK) {
             /* Decompression succeeded. You have the decompressed image in the frame buffer here. */
-            return devid.fbuf;
+            tjpgd_data->fbuf = devid.fbuf;
+            luat_heap_free(work);
+            luat_fs_fclose(devid.fp);
+            return tjpgd_data;
             LLOGI("Decompression succeeded.");
         }
         else{

@@ -129,11 +129,15 @@ lcd.init("st7735s",{port = "device",pin_dc = pin.PB01, pin_pwr = pin.PB00,pin_rs
 --     spi_lcd)
 
 sys.taskInit(function()
-    sys.wait(1000)
+    -- sys.wait(1000)
     -- API 文档 https://wiki.luatos.com/api/lcd.html
-    log.info("lcd.drawLine", lcd.drawLine(20,20,150,20,0x001F))
-    log.info("lcd.drawRectangle", lcd.drawRectangle(20,40,120,70,0xF800))
-    log.info("lcd.drawCircle", lcd.drawCircle(50,50,20,0x0CE0))
+    if lcd.showImage then
+        lcd.showImage(40,0,"/luadb/logo.jpg")
+    else
+        log.info("lcd.drawLine", lcd.drawLine(20,20,150,20,0x001F))
+        log.info("lcd.drawRectangle", lcd.drawRectangle(20,40,120,70,0xF800))
+        log.info("lcd.drawCircle", lcd.drawCircle(50,50,20,0x0CE0))
+    end
     -- while 1 do
     --     sys.wait(500)
     -- end

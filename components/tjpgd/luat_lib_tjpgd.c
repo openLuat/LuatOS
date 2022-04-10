@@ -50,7 +50,7 @@ int out_func (JDEC* jd, void* bitmap, JRECT* rect){
     uint16_t y, bws, bwd;
     /* Put progress indicator */
     if (rect->left == 0) {
-        LLOGI("%lu%%", (rect->top << jd->scale) * 100UL / jd->height);
+        // LLOGD("%lu%%", (rect->top << jd->scale) * 100UL / jd->height);
     }
     /* Copy the output image rectanglar to the frame buffer */
     src = (uint8_t*)bitmap;
@@ -80,13 +80,13 @@ luat_tjpgd_data_t * luat_tjpgd(const char* input_file){
 
     devid.fp = luat_fs_fopen(input_file, "rb");
     if (!devid.fp){
-        LLOGI("Jpeg_Dec open the file failed...");
+        LLOGE("Jpeg_Dec open the file failed...");
         return NULL;
     }
     /* Allocate a work area for TJpgDec */
     work = luat_heap_malloc(sz_work);
     if(work == NULL){
-        LLOGI("Jpeg_Dec work malloc failed...");
+        LLOGE("Jpeg_Dec work malloc failed...");
         res = -1;
         goto __exit;
     }
@@ -94,13 +94,13 @@ luat_tjpgd_data_t * luat_tjpgd(const char* input_file){
     res = jd_prepare(&jdec, in_func, work, sz_work, &devid);
     if (res == JDR_OK){
         /* It is ready to dcompress and image info is available here */
-        LLOGI("Image size is %u x %u.\n%u bytes of work ares is used.\n", jdec.width, jdec.height, sz_work - jdec.sz_pool);
+        // LLOGD("Image size is %u x %u.\n%u bytes of work ares is used.", jdec.width, jdec.height, sz_work - jdec.sz_pool);
         tjpgd_data->width = jdec.width;
         tjpgd_data->height = jdec.height;
         devid.fbuf = luat_heap_malloc(N_BPP * jdec.width * jdec.height); /* Frame buffer for output image */
         if(devid.fbuf == NULL)
         {
-            LLOGI("Jpeg_Dec devid.fbuf malloc failed, need to use %d Bytes ...", N_BPP * jdec.width * jdec.height);
+            // LLOGD("Jpeg_Dec devid.fbuf malloc failed, need to use %d Bytes ...", N_BPP * jdec.width * jdec.height);
             res = -1;
             goto __exit;
         }
@@ -111,16 +111,15 @@ luat_tjpgd_data_t * luat_tjpgd(const char* input_file){
             tjpgd_data->fbuf = devid.fbuf;
             luat_heap_free(work);
             luat_fs_fclose(devid.fp);
+            // LLOGD("Decompression succeeded.");
             return tjpgd_data;
-            LLOGI("Decompression succeeded.");
         }
         else{
-            LLOGI("jd_decomp() failed (rc=%d)", res);
+            LLOGE("jd_decomp() failed (rc=%d)", res);
         }
-
     }
     else{
-        LLOGI("jd_prepare() failed (rc=%d)", res);
+        LLOGE("jd_prepare() failed (rc=%d)", res);
     }
 __exit:
     if(work != NULL){

@@ -1181,15 +1181,20 @@ static int l_lcd_showimage(lua_State *L){
     int x = luaL_checkinteger(L, 1);
     int y = luaL_checkinteger(L, 2);
     const char* input_file = luaL_checklstring(L, 3, &size);
-    luat_tjpgd_data_t* image_data = luat_tjpgd(input_file);
-    if(image_data->fbuf != NULL){
-      luat_lcd_show_image(default_conf,x, y, image_data->width, image_data->height, (luat_color_t *)image_data->fbuf,1);
-      luat_heap_free(image_data->fbuf);    /* Discard frame buffer */
-      luat_heap_free(image_data);          /* Discard frame buffer */
-      lcd_auto_flush(default_conf);
-      lua_pushboolean(L, 1);
-    }
-    else {
+    if (memcmp(input_file+size-4, ".jpg", 5) == 0 || memcmp(input_file+size-4, ".JPG", 5) == 0 || memcmp(input_file+size-5, ".jpeg", 6) == 0 || memcmp(input_file+size-5, ".JPEG", 6) == 0){
+      luat_tjpgd_data_t* image_data = luat_tjpgd(input_file);
+      if(image_data->fbuf != NULL){
+        luat_lcd_show_image(default_conf,x, y, image_data->width, image_data->height, (luat_color_t *)image_data->fbuf,1);
+        luat_heap_free(image_data->fbuf);    /* Discard frame buffer */
+        luat_heap_free(image_data);          /* Discard frame buffer */
+        lcd_auto_flush(default_conf);
+        lua_pushboolean(L, 1);
+      }
+      else {
+        lua_pushboolean(L, 0);
+      }
+    }else{
+      LLOGE("input_file not support");
       lua_pushboolean(L, 0);
     }
     return 1;

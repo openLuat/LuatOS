@@ -59,6 +59,13 @@ static const lcd_reg_t lcd_regs[] = {
 static luat_lcd_conf_t *default_conf = NULL;
 static int dft_conf_lua_ref = 0;
 
+// 所有绘图相关的函数都应该调用本函数
+static void lcd_auto_flush(luat_lcd_conf_t *conf) {
+  if (conf == NULL || conf->buff == NULL || conf->auto_flush == 0)
+    return;
+  luat_lcd_flush(conf);
+}
+
 static luat_color_t lcd_str_fg_color,lcd_str_bg_color;
 /*
 lcd显示屏初始化
@@ -219,9 +226,14 @@ static int l_lcd_init(lua_State* L) {
             lua_pop(L, 1);
             conf->userdata = cst;
         }
+        // 默认自动flush,即使没有buff
+        conf->auto_flush = 1;
+
 #ifdef LUAT_USE_LCD_SDL2
         extern const luat_lcd_opts_t lcd_opts_sdl2;
         conf->opts = &lcd_opts_sdl2;
+        // 假装支持flush
+        conf->buff = (char*)&lcd_opts_sdl2;
 #endif
         int ret = luat_lcd_init(conf);
         if (ret == 0) {
@@ -420,6 +432,7 @@ static int l_lcd_draw(lua_State* L) {
     else {
         return 0;
     }
+    lcd_auto_flush(default_conf);
     // int ret = luat_lcd_draw(default_conf, x1, y1, x2, y2, color);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
@@ -439,6 +452,7 @@ static int l_lcd_clear(lua_State* L) {
     if (lua_gettop(L) > 0)
         color = (uint32_t)luaL_checkinteger(L, 1);
     int ret = luat_lcd_clear(default_conf, color);
+    lcd_auto_flush(default_conf);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -465,6 +479,7 @@ static int l_lcd_draw_fill(lua_State* L) {
     if (lua_gettop(L) > 4)
         color = (luat_color_t)luaL_checkinteger(L, 5);
     int ret = luat_lcd_draw_fill(default_conf, x1,  y1,  x2,  y2, color);
+    lcd_auto_flush(default_conf);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -486,6 +501,7 @@ static int l_lcd_draw_point(lua_State* L) {
     if (lua_gettop(L) > 2)
         color = (luat_color_t)luaL_checkinteger(L, 3);
     int ret = luat_lcd_draw_point(default_conf, x, y, color);
+    lcd_auto_flush(default_conf);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -511,6 +527,7 @@ static int l_lcd_draw_line(lua_State* L) {
     if (lua_gettop(L) > 4)
         color = (luat_color_t)luaL_checkinteger(L, 5);
     int ret = luat_lcd_draw_line(default_conf, x1,  y1,  x2,  y2, color);
+    lcd_auto_flush(default_conf);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -536,6 +553,7 @@ static int l_lcd_draw_rectangle(lua_State* L) {
     if (lua_gettop(L) > 4)
         color = (luat_color_t)luaL_checkinteger(L, 5);
     int ret = luat_lcd_draw_rectangle(default_conf, x1,  y1,  x2,  y2, color);
+    lcd_auto_flush(default_conf);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -559,6 +577,7 @@ static int l_lcd_draw_circle(lua_State* L) {
     if (lua_gettop(L) > 3)
         color = (luat_color_t)luaL_checkinteger(L, 4);
     int ret = luat_lcd_draw_circle(default_conf, x0,  y0,  r, color);
+    lcd_auto_flush(default_conf);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -591,6 +610,7 @@ static int l_lcd_drawQrcode(lua_State *L)
             qrcode_getModule(&qrcode, j, i) ? luat_lcd_draw_point(default_conf, x+j, y+i, FORE_COLOR) : luat_lcd_draw_point(default_conf, x+j, y+i, BACK_COLOR);
         }
     }
+    lcd_auto_flush(default_conf);
     return 0;
 }
 
@@ -864,6 +884,7 @@ static int l_lcd_draw_str(lua_State* L) {
         }
         }
     }
+    lcd_auto_flush(default_conf);
     return 0;
 }
 
@@ -908,6 +929,7 @@ static int l_lcd_draw_gtfont_gb2312(lua_State *L) {
 		x+=size;
 		i+=2;
 	}
+    lcd_auto_flush(default_conf);
     return 0;
 }
 
@@ -949,6 +971,7 @@ static int l_lcd_draw_gtfont_gb2312_gray(lua_State* L) {
 		x+=size;
 		i+=2;
 	}
+    lcd_auto_flush(default_conf);
     return 0;
 }
 
@@ -991,6 +1014,7 @@ static int l_lcd_draw_gtfont_utf8(lua_State *L) {
         x+=size;
       }
     }
+    lcd_auto_flush(default_conf);
     return 0;
 }
 
@@ -1033,6 +1057,7 @@ static int l_lcd_draw_gtfont_utf8_gray(lua_State* L) {
         	x+=size;
         }
     }
+    lcd_auto_flush(default_conf);
     return 0;
 }
 
@@ -1135,6 +1160,7 @@ static int l_lcd_drawxbm(lua_State *L){
       y++;
       h--;
     }
+    lcd_auto_flush(default_conf);
     lua_pushboolean(L, 1);
     return 1;
 }
@@ -1153,16 +1179,123 @@ static int l_lcd_showimage(lua_State *L){
     if(image_data != NULL){
       luat_lcd_show_image(default_conf,x, y, w, h, (luat_color_t *)image_data,1);
       luat_heap_free(image_data);    /* Discard frame buffer */
+      lcd_auto_flush(default_conf);
+      lua_pushboolean(L, 1);
     }
-    lua_pushboolean(L, 1);
+    else {
+      lua_pushboolean(L, 0);
+    }
     return 1;
 }
 #endif
+
+/*
+主动刷新数据到界面, 仅设置buff且禁用自动属性后使用
+@api lcd.flush()
+@return bool 成功返回true, 否则返回nil/false
+@usgae
+-- 本API与 lcd.setupBuff lcd.autoFlush 配合使用
+lcd.flush()
+*/
+static int l_lcd_flush(lua_State* L) {
+  luat_lcd_conf_t * conf = NULL;
+  if (lua_gettop(L) == 1) {
+    conf = lua_touserdata(L, 1);
+  }
+  else {
+    conf = default_conf;
+  }
+  if (conf == NULL) {
+    //LLOGW("lcd not init");
+    return 0;
+  }
+  if (conf-> buff) {
+    //LLOGW("lcd without buff, not support flush");
+    return 0;
+  }
+  if (conf->auto_flush) {
+    //LLOGI("lcd auto flush is enable, no need for flush");
+    return 0;
+  }
+  luat_lcd_flush(conf);
+  lua_pushboolean(L, 1);
+  return 0;
+}
+
+/*
+设置显示缓冲区, 所需内存大小为 2*宽*高 字节. 请衡量内存需求与业务所需的刷新频次.
+@api lcd.setupBuff()
+@return bool 是否成功
+@usage
+-- 初始化lcd的buff缓冲区, 可理解为FrameBuffer区域.
+lcd.setupBuff()
+*/
+static int l_lcd_setup_buff(lua_State* L) {
+  luat_lcd_conf_t * conf = NULL;
+  if (lua_gettop(L) == 1) {
+    conf = lua_touserdata(L, 1);
+  }
+  else {
+    conf = default_conf;
+  }
+  if (conf == NULL) {
+    LLOGW("lcd not init");
+    return 0;
+  }
+  if (conf->buff != NULL) {
+    LLOGW("lcd buff is ok");
+    return 0;
+  }
+  conf->buff = luat_heap_malloc(sizeof(luat_color_t) * conf->w * conf->h);
+  if (conf->buff == NULL) {
+    LLOGE("lcd buff malloc fail, out of memory?");
+    return 0;
+  }
+  lua_pushboolean(L, 1);
+  return 1;
+}
+
+/*
+设置自动刷新, 需配合lcd.setupBuff使用
+@api lcd.autoFlush(enable)
+@bool 是否自动刷新,默认为true
+@usage
+-- 设置buff 并禁用自动更新
+lcd.setupBuff()
+lcd.autoFlush(false)
+-- 禁止自动更新后, 需要使用 lcd.flush() 主动刷新数据到屏幕
+*/
+static int l_lcd_auto_flush(lua_State* L) {
+  luat_lcd_conf_t * conf = default_conf;
+  if (conf == NULL) {
+    LLOGW("lcd not init");
+    return 0;
+  }
+  conf->auto_flush = lua_toboolean(L, 1);
+  lua_pushboolean(L, conf->auto_flush);
+  return 1;
+}
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_lcd[] =
 {
     { "init",       ROREG_FUNC(l_lcd_init)},
+    { "clear",      ROREG_FUNC(l_lcd_clear)},
+    { "fill",       ROREG_FUNC(l_lcd_draw_fill)},
+    { "drawPoint",  ROREG_FUNC(l_lcd_draw_point)},
+    { "drawLine",   ROREG_FUNC(l_lcd_draw_line)},
+    { "drawRectangle",   ROREG_FUNC(l_lcd_draw_rectangle)},
+    { "drawCircle", ROREG_FUNC(l_lcd_draw_circle)},
+    { "drawQrcode", ROREG_FUNC(l_lcd_drawQrcode)},
+    { "drawStr",    ROREG_FUNC(l_lcd_draw_str)},
+    { "flush",      ROREG_FUNC(l_lcd_flush)},
+    { "setupBuff",  ROREG_FUNC(l_lcd_setup_buff)},
+    { "autoFlush",  ROREG_FUNC(l_lcd_auto_flush)},
+    { "setFont",    ROREG_FUNC(l_lcd_set_font)},
+    { "setDefault", ROREG_FUNC(l_lcd_set_default)},
+    { "getDefault", ROREG_FUNC(l_lcd_get_default)},
+    { "getSize",    ROREG_FUNC(l_lcd_get_size)},
+    { "drawXbm",    ROREG_FUNC(l_lcd_drawxbm)},
     { "close",      ROREG_FUNC(l_lcd_close)},
     { "on",         ROREG_FUNC(l_lcd_display_on)},
     { "off",        ROREG_FUNC(l_lcd_display_off)},
@@ -1174,19 +1307,6 @@ static const rotable_Reg_t reg_lcd[] =
     { "data",       ROREG_FUNC(l_lcd_write_data)},
     { "setColor",   ROREG_FUNC(l_lcd_set_color)},
     { "draw",       ROREG_FUNC(l_lcd_draw)},
-    { "clear",      ROREG_FUNC(l_lcd_clear)},
-    { "fill",       ROREG_FUNC(l_lcd_draw_fill)},
-    { "drawPoint",  ROREG_FUNC(l_lcd_draw_point)},
-    { "drawLine",   ROREG_FUNC(l_lcd_draw_line)},
-    { "drawRectangle",   ROREG_FUNC(l_lcd_draw_rectangle)},
-    { "drawCircle", ROREG_FUNC(l_lcd_draw_circle)},
-    { "drawQrcode", ROREG_FUNC(l_lcd_drawQrcode)},
-    { "drawStr",    ROREG_FUNC(l_lcd_draw_str)},
-    { "setFont",    ROREG_FUNC(l_lcd_set_font)},
-    { "setDefault", ROREG_FUNC(l_lcd_set_default)},
-    { "getDefault", ROREG_FUNC(l_lcd_get_default)},
-    { "getSize",    ROREG_FUNC(l_lcd_get_size)},
-    { "drawXbm",    ROREG_FUNC(l_lcd_drawxbm)},
 #ifdef LUAT_USE_TJPGD
     { "showImage",    ROREG_FUNC(l_lcd_showimage)},
 #endif
@@ -1201,7 +1321,7 @@ static const rotable_Reg_t reg_lcd[] =
     { "font_unifont_t_symbols",   ROREG_PTR((void*)u8g2_font_unifont_t_symbols)},
     { "font_open_iconic_weather_6x_t", ROREG_PTR((void*)u8g2_font_open_iconic_weather_6x_t)},
 
-    { "font_opposansm8", ROREG_PTR((void*)u8g2_font_opposansm8)},
+    { "font_opposansm8",  ROREG_PTR((void*)u8g2_font_opposansm8)},
     { "font_opposansm10", ROREG_PTR((void*)u8g2_font_opposansm10)},
     { "font_opposansm12", ROREG_PTR((void*)u8g2_font_opposansm12)},
     { "font_opposansm16", ROREG_PTR((void*)u8g2_font_opposansm16)},

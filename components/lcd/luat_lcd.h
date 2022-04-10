@@ -56,6 +56,8 @@ typedef struct luat_lcd_conf {
     uint32_t dc_delay_us;
     uint8_t xoffset;//偏移
     uint8_t yoffset;//偏移
+    uint8_t auto_flush;
+    luat_color_t* buff;
 
     u8g2_t luat_lcd_u8g2 ;
     struct luat_lcd_opts* opts;
@@ -85,6 +87,7 @@ int luat_lcd_inv_on(luat_lcd_conf_t* conf);
 int luat_lcd_set_address(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2);
 int luat_lcd_set_color(luat_color_t back, luat_color_t fore);
 int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, luat_color_t* color);
+int luat_lcd_flush(luat_lcd_conf_t* conf);
 int luat_lcd_draw_no_block(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, luat_color_t* color, uint8_t last_flush);
 int luat_lcd_clear(luat_lcd_conf_t* conf,luat_color_t color);
 int luat_lcd_draw_fill(luat_lcd_conf_t* conf,uint16_t x1,uint16_t y1,uint16_t x2,uint16_t y2,luat_color_t color);

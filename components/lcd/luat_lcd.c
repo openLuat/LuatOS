@@ -175,14 +175,45 @@ int luat_lcd_set_color(luat_color_t back, luat_color_t fore){
 }
 
 #ifndef LUAT_USE_LCD_CUSTOM_DRAW
-int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, luat_color_t* color) {
-    uint32_t size = (x2 - x1 + 1) * (y2 - y1 + 1) * 2;
-    luat_lcd_set_address(conf, x1, y1, x2, y2);
+int luat_lcd_flush(luat_lcd_conf_t* conf) {
+    if (conf->buff == NULL) {
+        return 0;
+    }
+    uint32_t size = conf->w * conf->h * 2;
+    luat_lcd_set_address(conf, 0, 0, conf->w, conf->h);
 	if (conf->port == LUAT_LCD_SPI_DEVICE){
-		luat_spi_device_send((luat_spi_device_t*)(conf->lcd_spi_device), (const char*)color, size);
+		luat_spi_device_send((luat_spi_device_t*)(conf->lcd_spi_device), (const char*)conf->buff, size);
 	}else{
-		luat_spi_send(conf->port, (const char*)color, size);
+		luat_spi_send(conf->port, (const char*)conf->buff, size);
 	}
+    return 0;
+}
+
+int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, luat_color_t* color) {
+    if (conf->buff == NULL) {
+        uint32_t size = (x2 - x1 + 1) * (y2 - y1 + 1) * 2;
+        luat_lcd_set_address(conf, x1, y1, x2, y2);
+	    if (conf->port == LUAT_LCD_SPI_DEVICE){
+		    luat_spi_device_send((luat_spi_device_t*)(conf->lcd_spi_device), (const char*)color, size);
+	    }else{
+		    luat_spi_send(conf->port, (const char*)color, size);
+	    }
+    }
+    else {
+        if (x1 > conf->w || x2 > conf->w || y1 > conf->h || y2 > conf->h) {
+            LLOGW("out of lcd range");
+            return -1;
+        }
+        char* src = (char*)(conf->buff + x1);
+        char* dst = (char*)(color);
+        size_t lsize = (x2 - x1 + 1);
+        for (size_t i = 0; i < (y2 - y1 + 1); i++)
+        {
+            memcpy(src, dst, lsize * sizeof(luat_color_t));
+            dst += conf->w * sizeof(luat_color_t);  // 移动到下一行
+            src += lsize * sizeof(luat_color_t);    // 移动数据
+        }
+    }
     return 0;
 }
 #endif

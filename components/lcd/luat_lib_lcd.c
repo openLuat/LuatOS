@@ -1180,12 +1180,10 @@ static int l_lcd_showimage(lua_State *L){
     size_t size = 0;
     int x = luaL_checkinteger(L, 1);
     int y = luaL_checkinteger(L, 2);
-    int w = luaL_checkinteger(L, 3);
-    int h = luaL_checkinteger(L, 4);
-    const char* input_file = luaL_checklstring(L, 5, &size);
-    uint8_t* image_data = luat_tjpgd(input_file);
-    if(image_data != NULL){
-      luat_lcd_show_image(default_conf,x, y, w, h, (luat_color_t *)image_data,1);
+    const char* input_file = luaL_checklstring(L, 3, &size);
+    luat_tjpgd_data_t* image_data = luat_tjpgd(input_file);
+    if(image_data->fbuf != NULL){
+      luat_lcd_show_image(default_conf,x, y, image_data->width, image_data->height, (luat_color_t *)image_data->fbuf,1);
       luat_heap_free(image_data->fbuf);    /* Discard frame buffer */
       luat_heap_free(image_data);          /* Discard frame buffer */
       lcd_auto_flush(default_conf);

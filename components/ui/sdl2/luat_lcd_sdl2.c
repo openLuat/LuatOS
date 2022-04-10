@@ -59,6 +59,11 @@ static inline uint32_t luat_color_565to8888(luat_color_t color) {
     return t;
 }
 
+int luat_lcd_flush(luat_lcd_conf_t* conf) {
+    luat_sdl2_flush();
+    return 0;
+}
+
 int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, luat_color_t* color_p) {
     size_t rw = x2 - x1 + 1;
     size_t rh = y2 - y1 + 1;
@@ -75,7 +80,6 @@ int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, 
     }
     
     luat_sdl2_draw(x1, y1, x2, y2, fb);
-    luat_sdl2_flush();
     return 0;
 }
 

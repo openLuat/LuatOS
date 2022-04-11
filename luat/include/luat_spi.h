@@ -66,6 +66,8 @@ typedef struct luat_espi {
 //初始化配置SPI各项参数，并打开SPI
 //成功返回0
 int luat_spi_setup(luat_spi_t* spi);
+//收发SPI数据尝试启动DMA模式
+int luat_spi_config_dma(int spi_id, uint32_t tx_channel, uint32_t rx_channel);
 //关闭SPI，成功返回0
 int luat_spi_close(int spi_id);
 //收发SPI数据，返回接收字节数

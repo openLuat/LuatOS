@@ -599,7 +599,7 @@ static const rotable_Reg_t reg_spi[] =
     { "master",            ROREG_INT(1)},
     { "slave",             ROREG_INT(2)},
     { "full",              ROREG_INT(1)},
-    { "half",              ROREG_INT(2)},
+    { "half",              ROREG_INT(0)},
 
     { "SPI_0",             ROREG_INT(0)},
     { "SPI_1",             ROREG_INT(1)},

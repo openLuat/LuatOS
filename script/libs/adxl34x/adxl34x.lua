@@ -67,9 +67,9 @@ local ADXL34X_DATAZ1              =   0x37 --Z轴数据1
 local ADXL34X_FIFO_CTL            =   0x38 --FIFO控制
 local ADXL34X_FIFO_STATUS         =   0x39 --FIFO状态
 
-local ADXL34X_TAP_SIGN            =   0x3A --单击/双击的符号和来源
-local ADXL34X_ORIENT_CONF         =   0x3B --方向配置
-local ADXL34X_Orient              =   0x3C --方向状态
+local ADXL346_TAP_SIGN            =   0x3A --单击/双击的符号和来源
+local ADXL346_ORIENT_CONF         =   0x3B --方向配置
+local ADXL346_Orient              =   0x3C --方向状态
 
 --器件ID检测
 local function bmp_check()

@@ -2,12 +2,12 @@ import re
 import io
 import os
 
-def get_file_list(paths):
+def get_file_list(paths, ext = ".c"):
     file_list = []
     for path in paths:
         for home, _, files in os.walk(path):
             for filename in files:
-                if filename.endswith(".c"):
+                if filename.endswith(ext):
                     file_list.append(os.path.join(home, filename))
     return file_list
 
@@ -66,7 +66,7 @@ def get_file_list(paths):
 #         ]
 #     }
 # ]
-def get_modules(file_list):
+def get_modules(file_list, start="/*", end="*/"):
     modules = []
     for file in file_list:
         text = ""
@@ -89,10 +89,11 @@ def get_modules(file_list):
 
 
         # 注释头
-        r = re.search(r"/\* *\n *@module *(\w+)\n *@summary *(.+)\n",text,re.I|re.M)
+        r = re.search(re.escape(start) + r" *\n *@module *(\w+)\n *@summary *(.+)\n",text,re.I|re.M)
         if r:
             module["module"] = r.group(1)
             module["summary"] = r.group(2)
+            module["usage"] = ""
             module["api"] = []
         else:
             continue
@@ -106,12 +107,21 @@ def get_modules(file_list):
         #后面的数据
         lines = text.splitlines()
         line_now = 0
+        isGotApi = False #是否已经有过接口？
         while line_now<len(lines)-3:
+            if not isGotApi:#库自带的例子
+                arg = re.search(" *@usage *",lines[line_now],re.I)
+                if arg:
+                    isGotApi = True
+                    line_now+=1
+                    while lines[line_now].find(end) < 0:
+                        module["usage"] += lines[line_now]+"\n"
+                        line_now+=1
             #匹配api完整名称行
             name = re.search(r" *@api *(.+) *",lines[line_now+2],re.I)
             if not name:
                 name = re.search(r" *@function *(.+) *",lines[line_now+2],re.I)
-            if lines[line_now].startswith("/*") and name:
+            if lines[line_now].startswith(start) and name:
                 api = {}
                 api["api"] = name.group(1)
                 api["summary"] = re.search(r" *(.+) *",lines[line_now+1],re.I).group(1)
@@ -121,6 +131,7 @@ def get_modules(file_list):
                 api["usage"] = ""
                 arg_re = r" *@([^ ]+) +(.+) *"
                 return_re = r" *@return *([^ ]+) +(.+) *"
+                isGotApi = True
                 #匹配输入参数
                 while True:
                     arg = re.search(arg_re,lines[line_now],re.I)
@@ -143,7 +154,7 @@ def get_modules(file_list):
                     arg = re.search(" *@usage *",lines[line_now],re.I)
                     if arg:
                         line_now+=1
-                        while lines[line_now].find("*/") < 0:
+                        while lines[line_now].find(end) < 0:
                             api["usage"] += lines[line_now]+"\n"
                             line_now+=1
                     else:

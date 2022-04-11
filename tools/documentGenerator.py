@@ -2,12 +2,10 @@
 # -*- coding: UTF-8 -*-
 
 import sys
-import os
 import io
 import re
 import json
-import shutil
-import capi_get
+import api_get
 import make_doc_file
 
 source_path = r"../luat"
@@ -20,14 +18,14 @@ print("path:")
 print(source_path)
 print(snippet_path)
 
-file_list = capi_get.get_file_list([
+file_list = api_get.get_file_list([
         source_path,
         source_path+"/../lua",
         source_path+"/../components",
         source_path+"/../bsp/rtt"
     ])
 
-modules = capi_get.get_modules(file_list)
+modules = api_get.get_modules(file_list)
 
 ##################  接口数据提取完毕  ##################
 
@@ -61,3 +59,14 @@ make_doc_file.make("../../luatos-wiki/api/",modules,"LuatOS-SOC接口文档\n"+
                                                     "==============\n\n"+
                                                     "请点击左侧列表，查看各个接口。如需搜索，请直接使用搜索框进行搜索。\n\n"+
                                                     ".. toctree::\n\n")
+
+
+
+############### 附加的其他Lua/C库接口 ##########################
+modules = api_get.get_modules(api_get.get_file_list([source_path+"/../script/libs"]))
+modules.extend(api_get.get_modules(api_get.get_file_list([source_path+"/../script/libs"],".lua"),"--[[","]]"))
+
+make_doc_file.make("../../luatos-wiki/api/libs/",modules,"社区库接口文档\n"+
+                                                        "==============\n\n"+
+                                                        "请点击左侧列表，查看各个接口。如需搜索，请直接使用搜索框进行搜索。\n\n"+
+                                                        ".. toctree::\n\n")

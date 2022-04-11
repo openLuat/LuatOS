@@ -4,18 +4,23 @@ import os
 def make(path,modules,index_text):
     try:
         shutil.rmtree(path)
-        os.mkdir(path)
     except:
         pass
+    os.mkdir(path)
 
     doc = open(path+"index.rst", "a+",encoding='utf-8')
     doc.write(index_text)
     
     for module in modules:
-        mdoc = open("../../luatos-wiki/api/"+module["module"]+".md", "a+",encoding='utf-8')
+        mdoc = open(path+module["module"]+".md", "a+",encoding='utf-8')
         mdoc.write("# "+module["module"]+" - "+module["summary"]+"\n\n")
         if len(module["url"]) > 0:
             mdoc.write("> 本页文档由[这个文件]("+module["url"]+")自动生成。如有错误，请提交issue或帮忙修改后pr，谢谢！\n\n")
+
+        if len(module["usage"]) > 0:
+            mdoc.write("**示例**\n\n")
+            mdoc.write("```lua\n"+module["usage"]+"\n```\n\n")
+
         doc.write("   "+module["module"]+"\n")
         for api in module["api"]:
             mdoc.write("## "+api["api"]+"\n\n")

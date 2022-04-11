@@ -51,7 +51,12 @@ jobs:
         MQTTADDR: ${{ secrets.MQTTADDR }}
         MQTTPORT: ${{ secrets.MQTTPORT }}
         MQTTTOPIC: ${{ secrets.MQTTTOPIC }}
+        DD_APPKEY: ${{ secrets.DD_APPKEY }}
+        DD_APPSECRET: ${{ secrets.DD_APPSECRET }}
+        DD_NOTIFY_LIST: ${{ secrets.DD_NOTIFY_LIST }}
+        DD_API_TOKEN: ${{ secrets.DD_API_TOKEN }}
+        DD_API_SEND: ${{ secrets.DD_API_SEND }}
       run: |
-        sudo pip3 install paho_mqtt gitpython
+        sudo pip3 install paho_mqtt gitpython requests
         cd tools
-        if [ "$STATUS" = "failure" ];then python3 ciNotify.py $MQTTADDR $MQTTPORT $MQTTTOPIC "air105 https://github.com/openLuat/LuatOS/actions/runs/$GITHUB_RUN_ID" "air105"; fi
+        if [ "$STATUS" = "failure" ];then python3 ciNotify.py $MQTTADDR $MQTTPORT $MQTTTOPIC "https://github.com/openLuat/LuatOS/actions/runs/$GITHUB_RUN_ID" "air105" "$DD_APPKEY" "$DD_APPSECRET" "$DD_NOTIFY_LIST" "$DD_API_TOKEN" "$DD_API_SEND"; fi

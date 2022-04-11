@@ -10,6 +10,9 @@
 3. 重新插入USB
 4. 打开上位机, 选择正确的COM口, 然后开始读取
 
+-- USB驱动下载 https://doc.openluat.com/wiki/21?wiki_page_id=2070
+-- USB驱动与 合宙Cat.1的USB驱动是一致的
+
 上位机下载: https://gitee.com/openLuat/luatos-soc-air105/attach_files
 上位机源码: https://gitee.com/openLuat/luatos-soc-air105 C#写的, 就能用, 勿生产
 ]]

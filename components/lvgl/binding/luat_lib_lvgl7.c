@@ -107,6 +107,8 @@ LUAT_WEAK void luat_lv_disp_flush(lv_disp_drv_t * disp_drv, const lv_area_t * ar
         luat_lcd_draw_no_block(lcd_conf, area->x1, area->y1, area->x2, area->y2, color_p, disp_drv->buffer->flushing_last);
 #else
         luat_lcd_draw(lcd_conf, area->x1, area->y1, area->x2, area->y2, color_p);
+        if (disp_drv->buffer->flushing_last)
+            luat_lcd_flush(lcd_conf);
 #endif
     }
     // LLOGD("CALL disp_flush (%d, %d, %d, %d)", area->x1, area->y1, area->x2, area->y2);
@@ -163,7 +165,11 @@ int luat_lv_init(lua_State *L) {
 
     LLOGD("w %d h %d buff %d mode %d", w, h, fbuff_size, buffmode);
 
-    if (buffmode & 0x02) {
+    if (lcd_conf != NULL && lcd_conf->buff != NULL) {
+        fbuffer = lcd_conf->buff;
+        fbuff_size = w * h;
+    }
+    else if (buffmode & 0x02) {
         fbuffer = luat_heap_malloc(fbuff_size * sizeof(lv_color_t));
         if (fbuffer == NULL) {
             LLOGD("not enough memory");

@@ -72,7 +72,7 @@ local ADXL346_ORIENT_CONF         =   0x3B --方向配置
 local ADXL346_Orient              =   0x3C --方向状态
 
 --器件ID检测
-local function bmp_check()
+local function chip_check()
     i2c.send(i2cid, ADXL34X_ADDRESS_ADR_LOW, ADXL34X_CHIP_ID_CHECK)--读器件地址
     local revData = i2c.recv(i2cid, ADXL34X_ADDRESS_ADR_LOW, 1)
     if revData:byte() ~= nil then
@@ -113,7 +113,7 @@ adxl34x.init(0)
 function adxl34x.init(i2c_id)
     i2cid = i2c_id
     sys.wait(20)--20 毫秒等待设备稳定
-    if bmp_check() then
+    if chip_check() then
         i2c.send(i2cid, ADXL34X_ADDRESS_ADR, {ADXL34X_BW_RATE,0X0D})
         i2c.send(i2cid, ADXL34X_ADDRESS_ADR, {ADXL34X_POWER_CTL,0X08})
         i2c.send(i2cid, ADXL34X_ADDRESS_ADR, {ADXL34X_DATA_FORMAT,0X09})

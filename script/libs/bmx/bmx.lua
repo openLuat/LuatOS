@@ -180,7 +180,7 @@ local H1,H2,H3,H4,H5,H6,T1,T2,T3,P1,P2,P3,P4,P5,P6,P7,P8,P9
 
 
 --器件ID检测
-local function bmp_check()
+local function chip_check()
     i2c.send(i2cid, BMX_ADDRESS_ADR_LOW, BMX_CHIP_ID_CHECK)--读器件地址
     local revData = i2c.recv(i2cid, BMX_ADDRESS_ADR_LOW, 1)
     if revData:byte() ~= nil then
@@ -219,7 +219,7 @@ end
 function bmx.init(i2c_id)
     i2cid = i2c_id
     sys.wait(20)
-    if bmp_check() then
+    if chip_check() then
         i2c.send(i2cid, BMX_ADDRESS_ADR, {BMX_RESET,BMX_RESET_VALUE})--软复位
         sys.wait(20)
         if CHIP_ID == BMP180_CHIP_ID then

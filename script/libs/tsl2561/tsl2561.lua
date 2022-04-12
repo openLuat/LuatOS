@@ -62,7 +62,7 @@ local TSL2561_TIMING_GAIN_1X      =   0x00 --增益1
 local TSL2561_TIMING_GAIN_16X     =   0x10 --增益16倍
 
 --器件ID检测
-local function bmp_check()
+local function chip_check()
     i2c.send(i2cid, TSL2561_ADDRESS_ADR_LOW, TSL2561_CHIP_ID_CHECK)--读器件地址
     local revData = i2c.recv(i2cid, TSL2561_ADDRESS_ADR_LOW, 1)
     if revData:byte() ~= nil then
@@ -104,7 +104,7 @@ tsl2561.init(0)
 function tsl2561.init(i2c_id)
     i2cid = i2c_id
     sys.wait(20)--20 毫秒等待设备稳定
-    if bmp_check() then
+    if chip_check() then
         i2c.send(i2cid, TSL2561_ADDRESS_ADR, {TSL2561_CONTROL,TSL2561_PowerUp})
         i2c.send(i2cid, TSL2561_ADDRESS_ADR, {TSL2561_TIMING,TSL2561_TIMING_402MS|TSL2561_TIMING_GAIN_16X})
         log.info("tsl2561 init_ok")

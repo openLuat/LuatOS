@@ -1,11 +1,11 @@
 --[[
 @module mpu6xxx
-@summary mpu6xxx icm20xx驱动
+@summary mpu6xxx 六轴/九轴传感器 支持 mpu6500,mpu6050,mpu9250,icm2068g,icm20608d
 @version 1.0
 @date    2022.03.10
 @author  Dozingfiretruck
 @usage
---支持mpu6500，mpu6050，mpu9250，icm2068g，icm20608d，自动判断器件id，只需要配置i2c id就可以
+--支持mpu6500,mpu6050,mpu9250,icm2068g,icm20608d,自动判断器件id,只需要配置i2c id就可以
 --注意:因使用了sys.wait()所有api需要在协程中使用
 -- 用法实例
 local mpu6xxx = require "mpu6xxx"

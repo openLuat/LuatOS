@@ -1,6 +1,6 @@
 --[[
 @module adxl34x
-@summary adxl34x 驱动 目前支持 adxl345 adxl346
+@summary adxl34x 3轴加速度计 目前支持 adxl345 adxl346
 @version 1.0
 @date    2022.04.11
 @author  Dozingfiretruck

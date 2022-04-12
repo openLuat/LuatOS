@@ -1,6 +1,6 @@
 --[[
 @module bmx
-@summary bmx 驱动 目前支持bmp180 bmp280 bme280 会自动判断器件
+@summary bmx 气压传感器 目前支持bmp180 bmp280 bme280 会自动判断器件
 @version 1.0
 @date    2022.04.9
 @author  Dozingfiretruck
@@ -361,6 +361,26 @@ local function bmx_get_humidity_raw()
     local _, humidity = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 2), ">h")
     return humidity or 0
 end
+
+--[[
+获取bmx数据
+@api bmx.get_data()
+@return table bmx数据
+@usage
+local bmx_data = bmx.get_data()
+if bmx_data.temp then
+    log.info("bmx_data_data.temp:"..(bmx_data.temp).."℃")
+end
+if bmx_data.press then
+    log.info("bmx_data_data.press:"..(bmx_data.press).."hPa")
+end
+if bmx_data.high then
+    log.info("bmx_data_data.high:"..(bmx_data.high).."m")
+end
+if bmx_data.hum then
+    log.info("bmx_data_data.temp:"..(bmx_data.hum).."%")
+end
+]]
 
 function bmx.get_data()
     local bme_data={}

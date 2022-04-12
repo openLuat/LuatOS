@@ -1,6 +1,6 @@
 --[[
 @module bh1750
-@summary bh1750 驱动
+@summary bh1750 数字型光强度传感器
 @version 1.0
 @date    2022.03.15
 @author  Dozingfiretruck

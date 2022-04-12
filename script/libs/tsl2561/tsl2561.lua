@@ -1,6 +1,6 @@
 --[[
 @module tsl2561
-@summary tsl2561 驱动 
+@summary tsl2561 光强传感器 
 @version 1.0
 @date    2022.04.11
 @author  Dozingfiretruck

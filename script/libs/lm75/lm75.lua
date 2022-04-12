@@ -1,6 +1,6 @@
 --[[
 @module lm75
-@summary lm75 驱动 支持lm75a lm75b
+@summary lm75 温度传感器 支持lm75a lm75b
 @version 1.0
 @date    2022.04.12
 @author  Dozingfiretruck

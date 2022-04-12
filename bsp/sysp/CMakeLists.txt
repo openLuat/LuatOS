@@ -3,8 +3,8 @@
 # CMake 最低版本号要求
 cmake_minimum_required (VERSION 3.5)
 
-#set(CMAKE_BUILD_TYPE "Debug")
-set(CMAKE_BUILD_TYPE "Release")
+set(CMAKE_BUILD_TYPE "Debug")
+#set(CMAKE_BUILD_TYPE "Release")
 set(CMAKE_CXX_FLAGS_DEBUG "$ENV{CXXFLAGS} -O0 -Wall -g -ggdb")
 set(CMAKE_CXX_FLAGS_RELEASE "$ENV{CXXFLAGS} -O2 -Wall")
 
@@ -80,7 +80,7 @@ include_directories(${TOPROOT}/components/lvgl)
 add_subdirectory(${TOPROOT}/components/lvgl lvgl.out)
 
 if( ${CMAKE_SYSTEM_NAME} MATCHES "Emscripten")
-    set(USE_FLAGS "-s USE_SDL=2 -sEXPORTED_RUNTIME_METHODS=ccall,cwrap")
+    set(USE_FLAGS "-s INITIAL_MEMORY=134217728 -s USE_SDL=2 -sEXPORTED_RUNTIME_METHODS=ccall,cwrap -fsanitize=address -gsource-map --source-map-base http://127.0.0.1:8000/")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${USE_FLAGS}")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${USE_FLAGS}")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${USE_FLAGS}")

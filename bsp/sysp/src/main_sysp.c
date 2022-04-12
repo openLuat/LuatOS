@@ -25,13 +25,6 @@ int luat_sysp_loop(void);
 #define LUAT_HEAP_SIZE (1024*1024)
 uint8_t luavm_heap[LUAT_HEAP_SIZE] = {0};
 
-typedef struct luat_fs_onefile
-{
-    char* ptr;
-    uint32_t  size;
-    uint32_t  offset;
-}luat_fs_onefile_t;
-
 void luat_timer_check(void);
 
 // 被定时调用的方法
@@ -42,6 +35,7 @@ void emscripten_request_animation_frame_loop(EM_BOOL (*cb)(double time, void *us
 EM_BOOL luat_wasm_check(double time, void* userData) {
     if (sysp_state == 0)
         return 1;
+    //LLOGD("CALL luat_wasm_check");
 #ifdef LUAT_USE_LVGL
     lv_task_handler();
 #endif
@@ -67,26 +61,14 @@ int EMSCRIPTEN_KEEPALIVE luat_sysp_start(void) {
 int EMSCRIPTEN_KEEPALIVE luat_fs_append_onefile(const char* path, const char* data, size_t len) {
 	if (len == 0)
 		len = strlen(data);
-    char* tmp = luat_heap_malloc(len);
-    if (tmp == NULL) {
-        LLOGD("out of memory when add vfs-onefile");
-        return -1;
-    }
-	luat_fs_onefile_t* fd = luat_heap_malloc(sizeof(luat_fs_onefile_t));
-    if (fd == NULL) {
-        LLOGD("out of memory when add vfs-onefile");
-        return -1;
-    }
-    fd->ptr = tmp;
-    memcpy(tmp, data, len);
-    fd->size = len;
-	luat_fs_conf_t conf = {
-		.busname = (char*)fd,
-		.type = "onefile",
-		.filesystem = "onefile",
-		.mount_point = path,
-	};
-	luat_fs_mount(&conf);
+    char dst[256];
+    sprintf(dst, "/luadb%s", path);
+	FILE* fd = fopen(dst, "w");
+	if (fd) {
+		fwrite(data, len, 1, fd);
+		fflush(fd);
+		fclose(fd);
+	}
     return 0;
 }
 #endif

@@ -38,29 +38,8 @@ int luat_lv_init(lua_State *L);
 // SDL2 模式
 extern lv_disp_t *lv_sdl_init_display(const char* win_name, int width, int height);
 extern lv_indev_t *lv_sdl_init_input(void);
-int luat_lv_init(lua_State *L) {
-    int w = 480;
-    int h = 320;
-
-    luat_lcd_conf_t *lcd_conf = NULL;
-    if (lua_isuserdata(L, 3)) {
-        lcd_conf = lua_touserdata(L, 3);
-    }
-    else {
-        lcd_conf = luat_lcd_get_default();
-    }
-
-    if (lua_isnumber(L, 1) && lua_isnumber(L, 2)) {
-        w = luaL_checkinteger(L, 1);
-        h = luaL_checkinteger(L, 2);
-    }
-    if (lcd_conf == NULL)
-        lv_sdl_init_display("LuatOS", w, h);
-    lv_sdl_init_input();
-    lua_pushboolean(L, 1);
-    return 1;
-}
-#elif defined(LUAT_EMULATOR_MODE)
+#endif
+#if defined(LUAT_EMULATOR_MODE)
 // 模拟器模式
 int luat_lv_init(lua_State *L) {
     LLOGE("emulator mode init");
@@ -111,7 +90,7 @@ LUAT_WEAK void luat_lv_disp_flush(lv_disp_drv_t * disp_drv, const lv_area_t * ar
             luat_lcd_flush(lcd_conf);
 #endif
     }
-    // LLOGD("CALL disp_flush (%d, %d, %d, %d)", area->x1, area->y1, area->x2, area->y2);
+    LLOGD("CALL disp_flush (%d, %d, %d, %d)", area->x1, area->y1, area->x2, area->y2);
     lv_disp_flush_ready(disp_drv);
 }
 int luat_lv_init(lua_State *L) {
@@ -162,14 +141,15 @@ int luat_lv_init(lua_State *L) {
         buffmode = luaL_checkinteger(L, 5);
     }
 
-
     LLOGD("w %d h %d buff %d mode %d", w, h, fbuff_size, buffmode);
 
     if (lcd_conf != NULL && lcd_conf->buff != NULL) {
+        LLOGD("use LCD buff");
         fbuffer = lcd_conf->buff;
         fbuff_size = w * h;
     }
     else if (buffmode & 0x02) {
+        LLOGD("use HEAP buff");
         fbuffer = luat_heap_malloc(fbuff_size * sizeof(lv_color_t));
         if (fbuffer == NULL) {
             LLOGD("not enough memory");
@@ -185,6 +165,7 @@ int luat_lv_init(lua_State *L) {
         }
     }
     else {
+        LLOGD("use VM buff");
         fbuffer = lua_newuserdata(L, fbuff_size * sizeof(lv_color_t));
         if (fbuffer == NULL) {
             LLOGD("not enough memory");
@@ -214,9 +195,23 @@ int luat_lv_init(lua_State *L) {
     my_disp_drv.ver_res = h;
     my_disp_drv.buffer = &LV.disp_buf;
     //LLOGD(">>%s %d", __func__, __LINE__);
+
+#ifdef LUAT_USE_LVGL_SDL2
+    if (lcd_conf == NULL) {
+        LLOGD("use LVGL-SDL2");
+        LV.disp =lv_sdl_init_display("LuatOS", w, h);
+        lv_sdl_init_input();
+        lua_pushboolean(L, LV.disp != NULL ? 1 : 0);
+        return 1;
+    }
+#endif
     LV.disp = lv_disp_drv_register(&my_disp_drv);
     //LLOGD(">>%s %d", __func__, __LINE__);
     lua_pushboolean(L, LV.disp != NULL ? 1 : 0);
+#ifdef LUAT_USE_LVGL_SDL2
+    LLOGD("use LVGL-LCD-SDL2");
+    lv_sdl_init_input();
+#endif
 #ifdef __LVGL_SLEEP_ENABLE__
     luat_lvgl_tick_sleep(0);
 #endif

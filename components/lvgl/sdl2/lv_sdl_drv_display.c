@@ -124,37 +124,7 @@ lv_disp_t *lv_sdl_init_display(const char *win_name, int width, int height)
     };
     luat_sdl2_init(&conf);
 
-    // if (SDL_InitSubSystem(SDL_INIT_VIDEO) != 0)
-    //     printf("SDL_InitSubSystem failed: %s\n", SDL_GetError());
-
-    // window = SDL_CreateWindow(win_name,
-    //                           SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
-    //                           width, height, 0);
-
-    // renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
-    // framebuffer = SDL_CreateTexture(renderer,
-    //                                 SDL_PIXELFORMAT_ARGB8888,
-    //                                 SDL_TEXTUREACCESS_STREAMING,
-    //                                 width,
-    //                                 height);
-
-    //sdl_present_task = lv_task_create(sdl_present, LV_DISP_DEF_REFR_PERIOD, LV_TASK_PRIO_HIGHEST, NULL);
-
     return lv_disp_drv_register(&disp_drv);
 }
-
-// void lv_sdl_deinit_display(void)
-// {
-//     #ifdef NXDK
-//     XVideoFlushFB();
-//     MmFreeContiguousMemory(framebuffer);
-//     #else
-//     lv_task_del(sdl_present_task);
-//     SDL_DestroyTexture(framebuffer);
-//     SDL_DestroyRenderer(renderer);
-//     SDL_DestroyWindow(window);
-//     SDL_QuitSubSystem(SDL_INIT_VIDEO);
-//     #endif
-// }
 
 #endif

@@ -28,6 +28,10 @@ uint8_t luavm_heap[LUAT_HEAP_SIZE] = {0};
 void luat_timer_check(void);
 
 void luat_custom_init(lua_State *L) {
+    // sys.lua的run函数有个钩子, 如果存在SYSP, 就不走真正的sys.run了
+    lua_pushboolean(L, 1);
+    lua_setglobal(L, "SYSP");
+    // 提前加载sys.lua,这样用户脚本即使写 local sys = require "sys" 也没问题了
     luaL_loadstring(L, "_G.sys = require(\"sys\")");
     lua_pcall(L, 0, 0, 0);
 }

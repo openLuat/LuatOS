@@ -27,7 +27,7 @@ local coroutine = _G.coroutine
 local log = _G.log
 
 -- lib脚本版本号，只要lib中的任何一个脚本做了修改，都需要更新此版本号
-SCRIPT_LIB_VER = "1.0.0"
+SCRIPT_LIB_VER = "2.3.1"
 
 -- TaskID最大值
 local TASK_TIMER_ID_MAX = 0x1FFFFF
@@ -411,15 +411,13 @@ end
 --- run()从底层获取core消息并及时处理相关消息，查询定时器并调度各注册成功的任务线程运行和挂起
 -- @return 无
 -- @usage sys.run()
-function sys.run()
-    --local result, err
-    while true do
-        --if sRollBack then
+if _G.SYSP then
+    function sys.run() end
+else
+    function sys.run()
+        while true do
             sys.safeRun()
-        --else
-        --    result, err = pcall(safeRun)
-        --    if not result then rtos.restart(err) end
-        --end
+        end
     end
 end
 

@@ -127,7 +127,7 @@ function tsl2561.get_data()
     i2c.send(i2cid, TSL2561_ADDRESS_ADR,TSL2561_DATA0LOW)
     local _, ch0, ch1 = pack.unpack(i2c.recv(i2cid, TSL2561_ADDRESS_ADR, 4),"<HH")
     if 0.0 < ch1/ch0 and ch1/ch0 <= 0.50 then
-		Lux = 0.0304*ch0 - 0.062*ch0* (ch1/ch0^1.4)
+		Lux = 0.0304*ch0 - 0.062*ch0*math.pow(ch1/ch0,1.4)
     end
     if 0.50 < ch1/ch0 and ch1/ch0 <= 0.61 then
         Lux = 0.0224*ch0 - 0.031*ch1

@@ -132,14 +132,14 @@ function ads1115.init(i2c_id)
     return true
 end
 
--- --[[
--- 获取ADS1115数据
--- @api ADS1115.get_data()
--- @return number 光照强度数据
--- @usage
--- local ADS1115_data = ADS1115.read_light()
--- log.info("ADS1115_read_light", ADS1115_data)
--- ]]
+--[[
+获取ADS1115数据
+@api ADS1115.get_val()
+@return number 光照强度数据
+@usage
+local ADS1115_data = ADS1115.get_val()
+log.info("ADS1115_read_light", ADS1115_data)
+]]
 function ads1115.get_val()
     i2c.send(i2cid, ADS1115_ADDRESS_AD0_LOW,{ADS1115_CONF_REG,ADS1115_CONF_HCMD,ADS1115_CONF_LCMD})
     sys.wait(5)

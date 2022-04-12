@@ -44,7 +44,7 @@
 // #define USE_U8G2_OPPOSANSM32_CHINESE
 
 
-
+#define LUAT_HAS_CUSTOM_LIB_INIT 1
 
 
 

@@ -34,6 +34,7 @@ static const luaL_Reg loadedlibs[] = {
   {"crypto", luaopen_crypto},
   {"lvgl", luaopen_lvgl},
   {"pin",  luaopen_pin},
+  {"wdt",  luaopen_wdt},
 //------------------------------------------------
 // 这部分是外设, 只能模拟
   {"gpio", luaopen_gpio},

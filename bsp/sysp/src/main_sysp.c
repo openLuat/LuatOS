@@ -27,6 +27,11 @@ uint8_t luavm_heap[LUAT_HEAP_SIZE] = {0};
 
 void luat_timer_check(void);
 
+void luat_custom_init(lua_State *L) {
+    luaL_loadstring(L, "_G.sys = require(\"sys\")");
+    lua_pcall(L, 0, 0, 0);
+}
+
 // 被定时调用的方法
 #ifdef __EMSCRIPTEN__
 

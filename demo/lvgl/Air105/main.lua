@@ -61,7 +61,6 @@ lcd.init("gc9306x",{port = "device",pin_dc = pin.PE8,pin_rst = pin.PC12,pin_pwr 
 
 
 log.info("lvgl", lvgl.init())
-lvgl.disp_set_bg_color(nil, 0xFFFFFF)
 local scr = lvgl.obj_create(nil, nil)
 local btn = lvgl.btn_create(scr)
 
@@ -82,11 +81,6 @@ lvgl.obj_set_style_local_text_font(lvgl.scr_act(), lvgl.OBJ_PART_MAIN, lvgl.STAT
 --local style = lvgl.style_create()
 --lvgl.style_set_text_font(style, lvgl.STATE_DEFAULT, font)
 --lvgl.obj_add_style(lvgl.scr_act(),lvgl.OBJ_PART_MAIN, style)
-sys.taskInit(function()
-    while 1 do
-        sys.wait(500)
-    end
-end)
 
 
 -- 用户代码已结束---------------------------------------------

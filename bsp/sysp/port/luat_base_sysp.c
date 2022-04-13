@@ -38,6 +38,7 @@ static const luaL_Reg loadedlibs[] = {
 //------------------------------------------------
 // 这部分是外设, 只能模拟
   {"gpio", luaopen_gpio},
+  {"uart", luaopen_uart},
   {"spi",  luaopen_spi},
   {"lcd",  luaopen_lcd},
 //-------------------------------------------------

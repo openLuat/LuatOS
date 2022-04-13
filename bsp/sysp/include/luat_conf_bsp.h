@@ -9,7 +9,7 @@
 
 // #define LUAT_MAIN_DEMO 1
 
-#define USE_U8G2_OPPOSANSM12_CHINESE
+// #define USE_U8G2_OPPOSANSM12_CHINESE
 
 
 //---------------------

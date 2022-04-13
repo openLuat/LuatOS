@@ -3,7 +3,7 @@
 /*----------------------------------------------*/
 #include "luat_lcd.h"
 #ifndef JD_SZBUF
-#define JD_SZBUF
+#define JD_SZBUF            512
 #endif
 /* Specifies size of stream input buffer */
 

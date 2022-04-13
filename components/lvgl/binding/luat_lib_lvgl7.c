@@ -90,7 +90,7 @@ LUAT_WEAK void luat_lv_disp_flush(lv_disp_drv_t * disp_drv, const lv_area_t * ar
             luat_lcd_flush(lcd_conf);
 #endif
     }
-    LLOGD("CALL disp_flush (%d, %d, %d, %d)", area->x1, area->y1, area->x2, area->y2);
+    //LLOGD("CALL disp_flush (%d, %d, %d, %d)", area->x1, area->y1, area->x2, area->y2);
     lv_disp_flush_ready(disp_drv);
 }
 int luat_lv_init(lua_State *L) {
@@ -209,7 +209,7 @@ int luat_lv_init(lua_State *L) {
     //LLOGD(">>%s %d", __func__, __LINE__);
     lua_pushboolean(L, LV.disp != NULL ? 1 : 0);
 #ifdef LUAT_USE_LVGL_SDL2
-    LLOGD("use LVGL-LCD-SDL2");
+    LLOGD("use LVGL-LCD-SDL2 swap %d", LV_COLOR_16_SWAP);
     lv_sdl_init_input();
 #endif
 #ifdef __LVGL_SLEEP_ENABLE__

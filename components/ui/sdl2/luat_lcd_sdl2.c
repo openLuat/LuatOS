@@ -4,6 +4,8 @@
 #include "luat_sdl2.h"
 #include "luat_malloc.h"
 
+#include "lvgl.h"
+
 static uint32_t* fb;
 
 static inline uint32_t luat_color_565to8888(luat_color_t color);
@@ -69,11 +71,14 @@ int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, 
     size_t rh = y2 - y1 + 1;
 
     uint32_t *tmp = fb;
+    lv_color_t c;
     for (size_t i = 0; i < rh; i++)
     {
         for (size_t j = 0; j < rw; j++)
         {
-            *tmp = luat_color_565to8888(*color_p);
+            // *tmp = luat_color_565to8888(*color_p);
+            c.full = *color_p;
+            *tmp = lv_color_to32(c);
             tmp ++;
             color_p ++;
         }

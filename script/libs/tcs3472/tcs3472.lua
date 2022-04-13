@@ -1,6 +1,6 @@
 --[[
 @module tcs3472
-@summary tcs3472 驱动
+@summary tcs3472 颜色传感器
 @version 1.0
 @date    2022.03.14
 @author  Dozingfiretruck

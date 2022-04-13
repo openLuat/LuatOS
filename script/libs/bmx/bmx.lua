@@ -1,6 +1,6 @@
 --[[
 @module bmx
-@summary bmx 驱动 目前支持bmp180 bmp280 bme280 会自动判断器件
+@summary bmx 气压传感器 目前支持bmp180 bmp280 bme280 会自动判断器件
 @version 1.0
 @date    2022.04.9
 @author  Dozingfiretruck
@@ -180,7 +180,7 @@ local H1,H2,H3,H4,H5,H6,T1,T2,T3,P1,P2,P3,P4,P5,P6,P7,P8,P9
 
 
 --器件ID检测
-local function bmp_check()
+local function chip_check()
     i2c.send(i2cid, BMX_ADDRESS_ADR_LOW, BMX_CHIP_ID_CHECK)--读器件地址
     local revData = i2c.recv(i2cid, BMX_ADDRESS_ADR_LOW, 1)
     if revData:byte() ~= nil then
@@ -219,7 +219,7 @@ end
 function bmx.init(i2c_id)
     i2cid = i2c_id
     sys.wait(20)
-    if bmp_check() then
+    if chip_check() then
         i2c.send(i2cid, BMX_ADDRESS_ADR, {BMX_RESET,BMX_RESET_VALUE})--软复位
         sys.wait(20)
         if CHIP_ID == BMP180_CHIP_ID then
@@ -361,6 +361,26 @@ local function bmx_get_humidity_raw()
     local _, humidity = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 2), ">h")
     return humidity or 0
 end
+
+--[[
+获取bmx数据
+@api bmx.get_data()
+@return table bmx数据
+@usage
+local bmx_data = bmx.get_data()
+if bmx_data.temp then
+    log.info("bmx_data_data.temp:"..(bmx_data.temp).."℃")
+end
+if bmx_data.press then
+    log.info("bmx_data_data.press:"..(bmx_data.press).."hPa")
+end
+if bmx_data.high then
+    log.info("bmx_data_data.high:"..(bmx_data.high).."m")
+end
+if bmx_data.hum then
+    log.info("bmx_data_data.temp:"..(bmx_data.hum).."%")
+end
+]]
 
 function bmx.get_data()
     local bme_data={}

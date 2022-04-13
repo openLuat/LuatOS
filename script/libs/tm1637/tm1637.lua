@@ -1,6 +1,6 @@
 --[[
 @module tm1637
-@summary tm1637 驱动
+@summary tm1637 数码管
 @version 1.0
 @date    2022.04.06
 @author  Dozingfiretruck

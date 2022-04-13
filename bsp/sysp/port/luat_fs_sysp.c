@@ -2,6 +2,10 @@
 #include "luat_fs.h"
 #include "luat_malloc.h"
 
+#define LUAT_LOG_TAG "sysp"
+#include "luat_log.h"
+#include <sys/stat.h>
+
 #ifdef LUAT_USE_LVGL
 #include "lvgl.h"
 void luat_lv_fs_init(void);
@@ -18,13 +22,6 @@ extern const char luat_inline_sys[];
 extern const uint32_t luat_inline_sys_size;
 // #endif
 
-typedef struct luat_fs_onefile
-{
-    char* ptr;
-    uint32_t  size;
-    uint32_t  offset;
-}luat_fs_onefile_t;
-
 static uint8_t fs_init_done = 0;
 
 int luat_fs_init(void) {
@@ -32,7 +29,6 @@ int luat_fs_init(void) {
 		return 0;
 	fs_init_done = 1;
 
-	#ifdef LUAT_USE_FS_VFS
 	// vfs进行必要的初始化
 	luat_vfs_init(NULL);
 	// 注册vfs for posix 实现
@@ -40,29 +36,19 @@ int luat_fs_init(void) {
 	luat_vfs_reg(&vfs_fs_onefile);
 
 	luat_fs_conf_t conf = {
-		.busname = "",
+		.busname = "posix",
 		.type = "posix",
 		.filesystem = "posix",
-		.mount_point = "/", // window环境下, 需要支持任意路径的读取,不能强制要求必须是/
+		.mount_point = "/",
 	};
 	luat_fs_mount(&conf);
-	// #ifdef LUAT_USE_VFS_INLINE_LIB
-    luat_fs_onefile_t* fd = luat_heap_malloc(sizeof(luat_fs_onefile_t));
-    fd->ptr = luat_inline_sys;
-    fd->size = luat_inline_sys_size;
-	luat_fs_conf_t conf2 = {
-		.busname = (char*)fd,
-		.type = "onefile",
-		.filesystem = "onefile",
-		.mount_point = "/luadb/sys.luac",
-	};
-	luat_fs_mount(&conf2);
-
-	// FILE* fd2 = luat_fs_fopen("/luadb/sys.lua", "rb");
-	// char buff[1024];
-	// luat_fs_fread(buff, 1, 1024, fd2);
-	// #endif
-	#endif
+	mkdir("/luadb", S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+	FILE* fd = fopen("/luadb/sys.luac", "w");
+	if (fd) {
+		fwrite(luat_inline_sys, luat_inline_sys_size, 1, fd);
+		fflush(fd);
+		fclose(fd);
+	}
 
 	#ifdef LUAT_USE_LVGL
 	luat_lv_fs_init();

@@ -9,7 +9,7 @@
 
 // #define LUAT_MAIN_DEMO 1
 
-#define USE_U8G2_OPPOSANSM12_CHINESE
+// #define USE_U8G2_OPPOSANSM12_CHINESE
 
 
 //---------------------
@@ -44,7 +44,7 @@
 // #define USE_U8G2_OPPOSANSM32_CHINESE
 
 
-
+#define LUAT_HAS_CUSTOM_LIB_INIT 1
 
 
 

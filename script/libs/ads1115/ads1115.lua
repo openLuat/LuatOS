@@ -1,6 +1,6 @@
 --[[
 @module ads1115
-@summary ads1115 驱动
+@summary ads1115 模数转换器 
 @version 1.0
 @date    2022.03.18
 @author  Dozingfiretruck
@@ -15,8 +15,8 @@ sys.taskInit(function()
     i2c.setup(i2cid,i2c_speed)
     ads1115.init(i2cid)--初始化,传入i2c_id
     while 1 do
-        local ads1115_val = ads1115.get_val()
-        log.info("ads1115 val", ads1115_val)
+        local ads1115_data = ads1115.get_val()
+        log.info("ads1115_get_val", ads1115_data)
         sys.wait(1000)
     end
 end)
@@ -119,11 +119,11 @@ local ADS1115_CONF_LCMD	            =   0x83  	-- 128sps 传统比较器 输出�
 
 --[[
 ADS1115初始化
-@api ADS1115.init(i2c_id)
+@api ads1115.init(i2c_id)
 @number i2c_id i2c_id
 @return bool   成功返回true
 @usage
-ADS1115.init(0)
+ads1115.init(0)
 ]]
 function ads1115.init(i2c_id)
     i2cid = i2c_id
@@ -132,14 +132,14 @@ function ads1115.init(i2c_id)
     return true
 end
 
--- --[[
--- 获取ADS1115数据
--- @api ADS1115.get_data()
--- @return number 光照强度数据
--- @usage
--- local ADS1115_data = ADS1115.read_light()
--- log.info("ADS1115_read_light", ADS1115_data)
--- ]]
+--[[
+获取ADS1115数据
+@api ads1115.get_val()
+@return number 光照强度数据
+@usage
+local ads1115_data = ads1115.get_val()
+log.info("ads1115_get_val", ads1115_data)
+]]
 function ads1115.get_val()
     i2c.send(i2cid, ADS1115_ADDRESS_AD0_LOW,{ADS1115_CONF_REG,ADS1115_CONF_HCMD,ADS1115_CONF_LCMD})
     sys.wait(5)

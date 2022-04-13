@@ -1,6 +1,6 @@
 --[[
 @module ds3231
-@summary ds3231 驱动
+@summary ds3231 实时时钟传感器
 @version 1.0
 @date    2022.03.16
 @author  Dozingfiretruck

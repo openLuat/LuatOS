@@ -61,8 +61,10 @@ static int dft_conf_lua_ref = 0;
 
 // 所有绘图相关的函数都应该调用本函数
 static void lcd_auto_flush(luat_lcd_conf_t *conf) {
+#ifndef LUAT_USE_LCD_SDL2
   if (conf == NULL || conf->buff == NULL || conf->auto_flush == 0)
     return;
+#endif
   luat_lcd_flush(conf);
 }
 
@@ -232,8 +234,6 @@ static int l_lcd_init(lua_State* L) {
 #ifdef LUAT_USE_LCD_SDL2
         extern const luat_lcd_opts_t lcd_opts_sdl2;
         conf->opts = &lcd_opts_sdl2;
-        // 假装支持flush
-        conf->buff = (char*)&lcd_opts_sdl2;
 #endif
         int ret = luat_lcd_init(conf);
         if (ret == 0) {

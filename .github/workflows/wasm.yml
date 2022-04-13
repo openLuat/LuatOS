@@ -1,16 +1,14 @@
-name: esp32c3
+name: wasm
 
 on:
   push:
     paths:
-      - '.github/workflows/esp32c3.yml'
+      - '.github/workflows/wasm.yml'
       - 'lua/**'
       - 'luat/**'
       - 'components/**'
+      - 'bsp/sysp/**'
   workflow_dispatch:
-  repository_dispatch:
-    types:
-      - webhook-esp32c3-action
 
 jobs:
   build:
@@ -22,28 +20,24 @@ jobs:
         sudo apt-get update
         sudo apt-get install git gcc-multilib libc6 libgcc1 libstdc++5 libstdc++6 libsdl-dev p7zip-full -y
         sudo apt-get install libncurses5-dev -y
-        mkdir -p ~/esp
-        cd ~/esp
-        git clone --recursive --branch=release/v4.4 https://github.com/espressif/esp-idf.git
-        cd ~/esp/esp-idf
-        ./install.sh esp32c3
-    - name: clone LuatOS-ESP32
+    - name: make
       run: |
-        sudo sh -c "curl https://raw.githubusercontent.com/kadwanev/retry/master/retry -o /usr/local/bin/retry && chmod +x /usr/local/bin/retry"
         cd ..
-        retry 'git clone --branch=master https://gitee.com/dreamcmi/LuatOS-ESP32'
-    - name: build
-      run: |
-        mkdir luatosfw
-        cd ../LuatOS-ESP32
-        . ~/esp/esp-idf/export.sh
-        idf.py set-target esp32c3
-        idf.py build
-        mv build/*.bin ../LuatOS/luatosfw
+        git clone https://github.com/emscripten-core/emsdk.git
+        cd emsdk
+        ./emsdk install latest
+        ./emsdk activate latest
+        source ./emsdk_env.sh
+        cd ../LuatOS/bsp/sysp/build
+        emcmake cmake ..
+        emmake make -j16
+        mkdir ../../../luatosfw
+        mv *.html ../../../luatosfw
+        mv luatos.* ../../../luatosfw
     - name: Upload artifact
       uses: actions/upload-artifact@v1
       with:
-        name: esp32c3
+        name: wasm
         path: luatosfw
     - name: report if failure
       if: always()
@@ -60,4 +54,4 @@ jobs:
       run: |
         sudo pip3 install paho_mqtt gitpython requests
         cd tools
-        if [ "$STATUS" = "failure" ];then python3 ciNotify.py $MQTTADDR $MQTTPORT $MQTTTOPIC "https://github.com/openLuat/LuatOS/actions/runs/$GITHUB_RUN_ID" "LuatOS-ESP32" "$DD_APPKEY" "$DD_APPSECRET" "$DD_NOTIFY_LIST" "$DD_API_TOKEN" "$DD_API_SEND"; fi
+        if [ "$STATUS" = "failure" ];then python3 ciNotify.py $MQTTADDR $MQTTPORT $MQTTTOPIC "https://github.com/openLuat/LuatOS/actions/runs/$GITHUB_RUN_ID" "wasm" "$DD_APPKEY" "$DD_APPSECRET" "$DD_NOTIFY_LIST" "$DD_API_TOKEN" "$DD_API_SEND"; fi

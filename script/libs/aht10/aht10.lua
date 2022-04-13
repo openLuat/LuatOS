@@ -1,6 +1,6 @@
 --[[
 @module aht10
-@summary aht10 驱动
+@summary aht10 温湿度传感器
 @version 1.0
 @date    2022.03.10
 @author  Dozingfiretruck

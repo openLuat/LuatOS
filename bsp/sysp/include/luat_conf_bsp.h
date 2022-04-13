@@ -45,7 +45,7 @@
 
 
 #define LUAT_HAS_CUSTOM_LIB_INIT 1
-
+#define LUAT_COMPILER_NOWEAK 1
 
 
 

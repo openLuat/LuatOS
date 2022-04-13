@@ -40,8 +40,8 @@ void luat_timer_check(void) {
         if (timers[i].nexttime < timenow) {
             luat_timer_t *timer = timers[i].timer;
             msg.handler = timer->func;
-            msg.ptr = timer;
-            msg.arg1 = 0;
+            msg.ptr = NULL;
+            msg.arg1 = timer->id;
             msg.arg2 = 0;
             luat_msgbus_put(&msg, 0);
             if (timer->repeat) {

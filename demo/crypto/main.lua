@@ -14,7 +14,9 @@ if wdt then
     sys.timerLoopStart(wdt.feed, 10000)--10s喂一次狗
 end
 
-sys.timerLoopStart(function()
+sys.taskInit(function()
+
+    sys.wait(1000)
 
     -- MD5,输出结果已经hex编码
     log.info("md5", crypto.md5("abc"))
@@ -57,12 +59,6 @@ sys.timerLoopStart(function()
         log.info("totp",r,time.hour,time.min,time.sec)
     end
 
-end, 2000)
-
-sys.taskInit(function()
-    while 1 do
-        sys.wait(500)
-    end
 end)
 
 -- 用户代码已结束---------------------------------------------

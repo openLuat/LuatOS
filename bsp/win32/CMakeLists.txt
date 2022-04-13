@@ -124,7 +124,7 @@ add_subdirectory(${TOPROOT}/components/lvgl lvgl.out)
 
 # 指定生成目标
 add_executable(luatos src/main_win32.c src/lua.c)
-target_link_libraries(luat freertos10 winmm fatfs lvgl lua sdl2)
+target_link_libraries(luat freertos10 winmm fatfs lvgl lua)
 target_link_libraries(luatos freertos10 lua luatos_msys  lvgl luat winmm cjson
-                      mbedtls fatfs sdl2
+                      mbedtls fatfs
                       )

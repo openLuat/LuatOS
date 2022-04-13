@@ -381,7 +381,12 @@ void luat_crypto_HmacMd5(const unsigned char *input, int ilen, unsigned char *ou
     mbedtls_md5_free(&ctx);
 }
 
+#include <stdlib.h>
 
 int luat_crypto_trng(char* buff, size_t len) {
+    for (size_t i = 0; i < len; i++)
+    {
+        buff[i] = (char) rand();
+    }
     return 0;
 }

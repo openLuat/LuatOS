@@ -27,7 +27,6 @@ sys.taskInit(function ()
 
     log.info("lvgl", lvgl.init())
     
-    lvgl.disp_set_bg_color(nil, 0xFFFFFF)
     local scr = lvgl.obj_create(nil, nil)
     local btn = lvgl.btn_create(scr)
     local btn2 = lvgl.btn_create(scr)
@@ -37,7 +36,6 @@ sys.taskInit(function ()
     local label2 = lvgl.label_create(btn2)
     lvgl.label_set_text(label, "LuatOS!")
     lvgl.label_set_text(label2, "Hi")
-    --lvgl.disp_set_bg_color(lvgl.COLOR_WHITE)
 
     lvgl.scr_load(scr)
 

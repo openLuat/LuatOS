@@ -2,16 +2,9 @@
 #include "luat_base.h"
 #include "luat_crypto.h"
 
-#if 1
-
 #define LUAT_LOG_TAG "crypto"
 #include "luat_log.h"
-
-#define PKG_USING_MBEDTLS
-
-#ifdef PKG_USING_MBEDTLS
 #include "mbedtls/cipher.h"
-#endif
 
 int l_crypto_cipher_xxx(lua_State *L, uint8_t flags) {
     size_t cipher_size = 0;
@@ -34,7 +27,6 @@ int l_crypto_cipher_xxx(lua_State *L, uint8_t flags) {
     
     luaL_Buffer buff;
 
-#ifdef PKG_USING_MBEDTLS
     mbedtls_cipher_context_t ctx;
     mbedtls_cipher_init(&ctx);
 
@@ -102,13 +94,7 @@ _exit:
     mbedtls_cipher_free(&ctx);
     luaL_pushresult(&buff);
     return 1;
-#else
-    return 0;
-#endif
 }
-
-
-#ifdef PKG_USING_MBEDTLS
 
 #if !defined(MBEDTLS_CONFIG_FILE)
 #include "mbedtls/config.h"
@@ -123,16 +109,11 @@ _exit:
 #endif
 #include "mbedtls/md5.h"
 
-#define LUAT_LOG_TAG "crypto"
-#include "luat_log.h"
-
 void luat_crypto_HmacSha1(const unsigned char *input, int ilen, unsigned char *output,const unsigned char *key, int keylen);
 void luat_crypto_HmacSha256(const unsigned char *input, int ilen, unsigned char *output,const unsigned char *key, int keylen);
 void luat_crypto_HmacSha512(const unsigned char *input, int ilen, unsigned char *output,const unsigned char *key, int keylen);
 void luat_crypto_HmacMd5(const unsigned char *input, int ilen, unsigned char *output,const unsigned char *key, int keylen);
 
-#ifndef LUAT_CRYPTO_MD5
-#define LUAT_CRYPTO_MD5
 int luat_crypto_md5_simple(const char* str, size_t str_size, void* out_ptr) {
     mbedtls_md5_context ctx;
     mbedtls_md5_init(&ctx);
@@ -143,9 +124,7 @@ int luat_crypto_md5_simple(const char* str, size_t str_size, void* out_ptr) {
     mbedtls_md5_free(&ctx);
     return 0;
 }
-#endif
-#ifndef LUAT_CRYPTO_SHA1
-#define LUAT_CRYPTO_SHA1
+
 int luat_crypto_sha1_simple(const char* str, size_t str_size, void* out_ptr) {
     mbedtls_sha1_context ctx;
     mbedtls_sha1_init(&ctx);
@@ -156,7 +135,6 @@ int luat_crypto_sha1_simple(const char* str, size_t str_size, void* out_ptr) {
     mbedtls_sha1_free(&ctx);
     return 0;
 }
-#endif
 
 int luat_crypto_sha256_simple(const char* str, size_t str_size, void* out_ptr) {
     mbedtls_sha256_context ctx;
@@ -181,25 +159,21 @@ int luat_crypto_sha512_simple(const char* str, size_t str_size, void* out_ptr) {
 }
 #endif
 
-#ifndef LUAT_CRYPTO_MD5
-#define LUAT_CRYPTO_MD5
 int luat_crypto_hmac_md5_simple(const char* str, size_t str_size, const char* mac, size_t mac_size, void* out_ptr) {
     luat_crypto_HmacMd5((const unsigned char *)str, str_size, (unsigned char *)out_ptr, (const unsigned char *)mac, mac_size);
     return 0;
 }
-#endif
-#ifndef LUAT_CRYPTO_SHA1
-#define LUAT_CRYPTO_SHA1
+
 int luat_crypto_hmac_sha1_simple(const char* str, size_t str_size, const char* mac, size_t mac_size, void* out_ptr) {
     luat_crypto_HmacSha1((const unsigned char *)str, str_size, (unsigned char *)out_ptr, (const unsigned char *)mac, mac_size);
     return 0;
 }
-#endif
 
 int luat_crypto_hmac_sha256_simple(const char* str, size_t str_size, const char* mac, size_t mac_size, void* out_ptr) {
     luat_crypto_HmacSha256((const unsigned char *)str, str_size, (unsigned char *)out_ptr, (const unsigned char *)mac, mac_size);
     return 0;
 }
+
 #ifdef MBEDTLS_SHA512_C
 int luat_crypto_hmac_sha512_simple(const char* str, size_t str_size, const char* mac, size_t mac_size, void* out_ptr) {
     luat_crypto_HmacSha512((const unsigned char *)str, str_size, (unsigned char *)out_ptr, (const unsigned char *)mac, mac_size);
@@ -406,6 +380,13 @@ void luat_crypto_HmacMd5(const unsigned char *input, int ilen, unsigned char *ou
     memcpy(output, tempbuf, ALI_MD5_DIGEST_SIZE);
     mbedtls_md5_free(&ctx);
 }
-#endif
 
-#endif
+#include <stdlib.h>
+
+int luat_crypto_trng(char* buff, size_t len) {
+    for (size_t i = 0; i < len; i++)
+    {
+        buff[i] = (char) rand();
+    }
+    return 0;
+}

@@ -852,6 +852,8 @@ uint8_t u8x8_luat_gpio_and_delay(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, voi
 uint8_t u8x8_luat_byte_hw_i2c(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr);
 uint8_t u8x8_luat_byte_4wire_hw_spi(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr);
 
+#ifndef LUAT_COMPILER_NOWEAK
+
 LUAT_WEAK int luat_u8g2_setup(luat_u8g2_conf_t *conf) {
     if (conf->pinType == 1) {
         u8g2_t* u8g2 = (u8g2_t*)conf->ptr;
@@ -1187,3 +1189,4 @@ LUAT_WEAK uint8_t u8x8_luat_gpio_and_delay(u8x8_t *u8x8, uint8_t msg, uint8_t ar
     return 1;
 }
 
+#endif

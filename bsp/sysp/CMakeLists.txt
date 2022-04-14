@@ -56,6 +56,8 @@ add_library(luat ${TOPROOT}/luat/modules/luat_main.c
                  ${TOPROOT}/luat/modules/luat_lib_adc.c
                  ${TOPROOT}/luat/modules/luat_lib_pin.c
                  ${TOPROOT}/luat/modules/luat_lib_wdt.c
+                 ${TOPROOT}/luat/modules/luat_lib_uart.c
+                 ${TOPROOT}/luat/modules/luat_lib_sensor.c
                  ${TOPROOT}/luat/modules/crc.c
                  ${TOPROOT}/luat/vfs/luat_vfs.c
                  ${TOPROOT}/luat/vfs/luat_fs_luadb.c

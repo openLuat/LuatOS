@@ -1277,7 +1277,7 @@ static int l_lcd_setup_buff(lua_State* L) {
   else {
     conf->buff = lua_newuserdata(L, sizeof(luat_color_t) * conf->w * conf->h);
     if (conf->buff) {
-      conf->buff_ref = luaL_ref(L, -1);
+      conf->buff_ref = luaL_ref(L, LUA_REGISTRYINDEX);
     }
   }
   if (conf->buff == NULL) {

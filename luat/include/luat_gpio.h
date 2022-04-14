@@ -9,7 +9,7 @@
 #include "stdint.h"
 #include "luat_msgbus.h"
 
-typedef void (*luat_gpio_irq_cb)(int pin, void* args);
+typedef int (*luat_gpio_irq_cb)(int pin, void* args);
 
 #define Luat_GPIO_LOW                 0x00
 #define Luat_GPIO_HIGH                0x01

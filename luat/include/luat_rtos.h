@@ -28,8 +28,8 @@ typedef struct luat_thread{
 LUAT_RET luat_thread_start(luat_thread_t* thread);
 LUAT_RET luat_thread_stop(luat_thread_t* thread);
 LUAT_RET luat_thread_delete(luat_thread_t* thread);
-LUAT_RET luat_send_event_to_task(luat_thread_t* thread, uint32_t id, uint32_t param1, uint32_t param2, uint32_t param3);
-LUAT_RET luat_wait_event_from_task(luat_thread_t* thread, uint32_t wait_event_id, void *out_event, void *call_back, uint32_t ms);
+LUAT_RET luat_send_event_to_task(void *task_handle, uint32_t id, uint32_t param1, uint32_t param2, uint32_t param3);
+LUAT_RET luat_wait_event_from_task(void *task_handle, uint32_t wait_event_id, void *out_event, void *call_back, uint32_t ms);
 /* ----------------------------------- semaphore ----------------------------------- */
 typedef struct luat_sem{
     const char *name;
@@ -58,4 +58,10 @@ LUAT_RET luat_queue_reset(luat_rtos_queue_t*   queue);
 LUAT_RET luat_queue_delete(luat_rtos_queue_t*   queue);
 LUAT_RET luat_queue_free(luat_rtos_queue_t*   queue);
 
+
+/* ----------------------------------- timer ----------------------------------- */
+void *luat_create_rtos_timer(void *cb, void *param, void *task_handle);
+int luat_start_rtos_timer(void *timer, uint32_t ms, uint8_t is_repeat);
+void luat_stop_rtos_timer(void *timer);
+void luat_release_rtos_timer(void *timer);
 #endif

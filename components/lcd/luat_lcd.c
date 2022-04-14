@@ -14,7 +14,7 @@ luat_color_t BACK_COLOR = WHITE, FORE_COLOR = BLACK;
 static luat_lcd_conf_t* confs[LUAT_LCD_CONF_COUNT] = {0};
 
 static luat_color_t color_swap(luat_color_t color) {
-    luat_color_t tmp = (color >> 8) + (color & 0xFF) << 8;
+    luat_color_t tmp = (color >> 8) + ((color & 0xFF) << 8);
     return tmp;
 }
 

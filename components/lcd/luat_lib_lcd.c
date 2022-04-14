@@ -1184,7 +1184,21 @@ static int l_lcd_showimage(lua_State *L){
     if (memcmp(input_file+size-4, ".jpg", 5) == 0 || memcmp(input_file+size-4, ".JPG", 5) == 0 || memcmp(input_file+size-5, ".jpeg", 6) == 0 || memcmp(input_file+size-5, ".JPEG", 6) == 0){
       luat_tjpgd_data_t* image_data = luat_tjpgd(input_file);
       if(image_data->fbuf != NULL){
-        luat_lcd_show_image(default_conf,x, y, image_data->width, image_data->height, (luat_color_t *)image_data->fbuf,1);
+        luat_color_t *source = image_data->fbuf;
+        luat_color_t tmp;
+        for (size_t i = 0; i < image_data->height; i++)
+        {
+          for (size_t i = 0; i < image_data->width; i++)
+          {
+            tmp = *source;
+            tmp = (tmp >> 8) + ((tmp & 0xFF) << 8);
+            *source = tmp;
+            source ++;
+          }
+          
+        }
+        
+        luat_lcd_draw(default_conf, x, y, image_data->width, image_data->height, (luat_color_t *)image_data->fbuf);
         luat_heap_free(image_data->fbuf);    /* Discard frame buffer */
         luat_heap_free(image_data);          /* Discard frame buffer */
         lcd_auto_flush(default_conf);

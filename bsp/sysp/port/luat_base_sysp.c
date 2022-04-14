@@ -32,15 +32,18 @@ static const luaL_Reg loadedlibs[] = {
   {"mqttcore", luaopen_mqttcore},      // 
   {"libcoap", luaopen_libcoap},        // 
   {"crypto", luaopen_crypto},
-  {"lvgl", luaopen_lvgl},
   {"pin",  luaopen_pin},
   {"wdt",  luaopen_wdt},
+  {"lcd",  luaopen_lcd},
+  {"lvgl", luaopen_lvgl},
+  {"u8g2", luaopen_u8g2},
+  // {"disp", luaopen_disp},
 //------------------------------------------------
 // 这部分是外设, 只能模拟
   {"gpio", luaopen_gpio},
   {"uart", luaopen_uart},
   {"spi",  luaopen_spi},
-  {"lcd",  luaopen_lcd},
+  {"i2c",  luaopen_i2c},
 //-------------------------------------------------
   {NULL, NULL}
 };
@@ -80,3 +83,6 @@ void luat_ota_reboot(int timeout_ms) {
   luat_os_reboot(1);
 }
 
+void luat_timer_us_delay(size_t us) {
+  // nop
+}

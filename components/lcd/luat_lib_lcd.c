@@ -1270,6 +1270,7 @@ static int l_lcd_setup_buff(lua_State* L) {
     return 0;
   }
   conf->buff = luat_heap_malloc(sizeof(luat_color_t) * conf->w * conf->h);
+  memset(conf->buff, 0xFF, sizeof(luat_color_t) * conf->w * conf->h);
   if (conf->buff == NULL) {
     LLOGE("lcd buff malloc fail, out of memory?");
     return 0;

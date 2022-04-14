@@ -912,17 +912,17 @@ int luat_u8g2_setup_default(luat_u8g2_conf_t *conf) {
     else if (conf->pinType == 5) {
         u8g2_t* u8g2 = (u8g2_t*)conf->ptr;
         if (strncmp("ssd1306", conf->cname, 7) == 0 || strncmp("SSD1306", conf->cname, 7) == 0){
-            u8g2_Setup_ssd1306_128x64_noname_f( u8g2, conf->direction, u8x8_luat_byte_4wire_hw_spi, u8x8_luat_gpio_and_delay_default);
+            u8g2_Setup_ssd1306_128x64_noname_f( u8g2, conf->direction, u8x8_luat_byte_4wire_hw_spi_default, u8x8_luat_gpio_and_delay_default);
 #ifdef U8G2_USE_SH1106
         }else if (strncmp("sh1106", conf->cname, 6) == 0 || strncmp("SH1106", conf->cname, 6) == 0){
-            u8g2_Setup_sh1106_128x64_noname_f( u8g2, conf->direction, u8x8_luat_byte_4wire_hw_spi, u8x8_luat_gpio_and_delay_default);
+            u8g2_Setup_sh1106_128x64_noname_f( u8g2, conf->direction, u8x8_luat_byte_4wire_hw_spi_default, u8x8_luat_gpio_and_delay_default);
 #endif
 #ifdef U8G2_USE_ST7567
         }else if (strncmp("st7567", conf->cname, 6) == 0 || strncmp("ST7567", conf->cname, 6) == 0){
-            u8g2_Setup_st7567_jlx12864_f( u8g2, conf->direction, u8x8_luat_byte_4wire_hw_spi, u8x8_luat_gpio_and_delay_default);
+            u8g2_Setup_st7567_jlx12864_f( u8g2, conf->direction, u8x8_luat_byte_4wire_hw_spi_default, u8x8_luat_gpio_and_delay_default);
 #endif
         }else{
-            u8g2_Setup_ssd1306_128x64_noname_f( u8g2, conf->direction, u8x8_luat_byte_4wire_hw_spi, u8x8_luat_gpio_and_delay_default);
+            u8g2_Setup_ssd1306_128x64_noname_f( u8g2, conf->direction, u8x8_luat_byte_4wire_hw_spi_default, u8x8_luat_gpio_and_delay_default);
         }
         LLOGD("setup disp spi.hw  spi_id=%d spi_dc=%d spi_cs=%d spi_res=%d",spi_id,spi_dc,spi_cs,spi_res);
         u8x8_SetPin(u8g2_GetU8x8(u8g2), U8X8_PIN_CS, spi_cs);
@@ -998,7 +998,7 @@ int hw_spi_begin(uint8_t spi_mode, uint32_t max_hz, uint8_t cs_pin )
     return 1;
 }
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
-uint8_t u8x8_luat_byte_4wire_hw_spi(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr) {
+uint8_t u8x8_luat_byte_4wire_hw_spi_default(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr) {
     switch(msg)
     {
         case U8X8_MSG_BYTE_SEND:

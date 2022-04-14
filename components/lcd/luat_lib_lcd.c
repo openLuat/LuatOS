@@ -1186,8 +1186,7 @@ static int l_lcd_showimage(lua_State *L){
       if(image_data->fbuf != NULL){
         luat_color_t *source = image_data->fbuf;
         luat_color_t tmp;
-        for (size_t i = 0; i < image_data->height; i++)
-        {
+        for (size_t i = 0; i < image_data->height; i++){
           for (size_t i = 0; i < image_data->width; i++)
           {
             tmp = *source;
@@ -1195,10 +1194,8 @@ static int l_lcd_showimage(lua_State *L){
             *source = tmp;
             source ++;
           }
-          
         }
-        
-        luat_lcd_draw(default_conf, x, y, image_data->width, image_data->height, (luat_color_t *)image_data->fbuf);
+        luat_lcd_draw(default_conf, x, y, image_data->width-1, image_data->height-1, (luat_color_t *)image_data->fbuf);
         luat_heap_free(image_data->fbuf);    /* Discard frame buffer */
         luat_heap_free(image_data);          /* Discard frame buffer */
         lcd_auto_flush(default_conf);

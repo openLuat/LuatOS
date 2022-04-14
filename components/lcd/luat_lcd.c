@@ -184,11 +184,13 @@ int luat_lcd_flush(luat_lcd_conf_t* conf) {
     if (conf->buff == NULL) {
         return 0;
     }
-    if (conf->flush_y_max <= conf->flush_y_min) {
+    //LLOGD("luat_lcd_flush range %d %d", conf->flush_y_min, conf->flush_y_max);
+    if (conf->flush_y_max < conf->flush_y_min) {
         // 没有需要刷新的内容,直接跳过
+        //LLOGD("luat_lcd_flush no need");
         return 0;
     }
-    uint32_t size = conf->w * (conf->flush_y_max - conf->flush_y_max) * 2;
+    uint32_t size = conf->w * (conf->flush_y_max - conf->flush_y_min + 1) * 2;
     luat_lcd_set_address(conf, 0, conf->flush_y_min, conf->w, conf->flush_y_max);
     const char* tmp = (const char*)(conf->buff + conf->flush_y_min * conf->w);
 	if (conf->port == LUAT_LCD_SPI_DEVICE){
@@ -199,7 +201,7 @@ int luat_lcd_flush(luat_lcd_conf_t* conf) {
 
     // 重置为不需要刷新的状态
     conf->flush_y_max = 0;
-    conf->flush_y_min = 1;
+    conf->flush_y_min = conf->h;
     
     return 0;
 }

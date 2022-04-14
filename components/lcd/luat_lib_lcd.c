@@ -1285,7 +1285,7 @@ static int l_lcd_setup_buff(lua_State* L) {
     return 0;
   }
   // 先设置为不需要的区间
-  conf->flush_y_min = 1;
+  conf->flush_y_min = conf->h;
   conf->flush_y_max = 0;
   // luat_lcd_clear 会将区域扩展到整个屏幕
   luat_lcd_clear(default_conf, BACK_COLOR);

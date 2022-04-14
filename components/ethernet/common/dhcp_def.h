@@ -25,13 +25,13 @@ extern "C" {
 
 typedef struct
 {
-	uint32_t dhcp_server_ip;
-	uint32_t dhcp_ip;
-	uint32_t dhcp_submask;
-	uint32_t dhcp_gateway;
-	uint32_t dhcp_t1;
-	uint32_t dhcp_t2;
-	uint8_t state;
+	unsigned int dhcp_server_ip;
+	unsigned int dhcp_ip;
+	unsigned int dhcp_submask;
+	unsigned int dhcp_gateway;
+	unsigned int dhcp_t1;
+	unsigned int dhcp_t2;
+	unsigned char state;
 }dhcp_client_info_t;
 
 

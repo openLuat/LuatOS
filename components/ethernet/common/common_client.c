@@ -1,5 +1,5 @@
 #include "luat_base.h"
-#if LUAT_USE_DHCP || LUAT_USE_DNS
+#if defined(LUAT_USE_DHCP) || defined(LUAT_USE_DNS)
 #include "dhcp_def.h"
 #include "dns_def.h"
 #include "bsp_common.h"

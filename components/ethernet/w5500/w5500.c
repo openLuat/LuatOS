@@ -281,14 +281,30 @@ static int w5500_socket_config(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t i
 		return -1;
 	}
 	uint8_t cmd[32];
-	cmd[W5500_SOCKET_MR] = is_tcp?Sn_MR_TCP:Sn_MR_UDP;
-	cmd[W5500_SOCKET_CR] = Sn_CR_OPEN;
-	cmd[W5500_SOCKET_IR] = 0xff;
-	BytesPutBe16(&cmd[W5500_SOCKET_SOURCE_PORT0], local_port);
-	BytesPutLe32(&cmd[W5500_SOCKET_DEST_IP0], 0);
-	BytesPutBe16(&cmd[W5500_SOCKET_DEST_PORT0], 0);
-	BytesPutBe16(&cmd[W5500_SOCKET_SEGMENT0], is_tcp?1460:1472);
-	w5500_xfer(w5500, W5500_SOCKET_MR, socket_index(socket_id)|socket_reg|is_write, cmd, W5500_SOCKET_TOS - 1, w5500->data_buf);
+	uint16_t wtemp;
+	for(temp = 0; temp < 3; temp++)
+	{
+		cmd[W5500_SOCKET_MR] = is_tcp?Sn_MR_TCP:Sn_MR_UDP;
+		cmd[W5500_SOCKET_CR] = Sn_CR_OPEN;
+		cmd[W5500_SOCKET_IR] = 0xff;
+		BytesPutBe16(&cmd[W5500_SOCKET_SOURCE_PORT0], local_port);
+		BytesPutLe32(&cmd[W5500_SOCKET_DEST_IP0], 0);
+		BytesPutBe16(&cmd[W5500_SOCKET_DEST_PORT0], 0);
+		BytesPutBe16(&cmd[W5500_SOCKET_SEGMENT0], is_tcp?1460:1472);
+		w5500_xfer(w5500, W5500_SOCKET_MR, socket_index(socket_id)|socket_reg|is_write, cmd, W5500_SOCKET_TOS - 1, w5500->data_buf);
+		w5500_xfer(w5500, W5500_SOCKET_MR, socket_index(socket_id)|socket_reg, cmd, W5500_SOCKET_TOS - 1, w5500->data_buf);
+		wtemp = BytesGetBe16(&cmd[W5500_SOCKET_SOURCE_PORT0]);
+		if (wtemp != local_port)
+		{
+			DBG("error port %u %u", wtemp, local_port);
+		}
+		else
+		{
+			goto W5500_SOCKET_CONFIG_START;
+		}
+	}
+	return -1;
+W5500_SOCKET_CONFIG_START:
 	do
 	{
 		luat_timer_mdelay(1);
@@ -327,11 +343,28 @@ static int w5500_socket_connect(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t 
 
 	if (!is_listen)
 	{
-		BytesPutLe32(&cmd[0], remote_ip);
-		BytesPutBe16(&cmd[W5500_SOCKET_DEST_PORT0 - W5500_SOCKET_DEST_IP0], remote_port);
-		w5500_xfer(w5500, W5500_SOCKET_DEST_IP0, socket_index(socket_id)|socket_reg|is_write, cmd, 6, w5500->data_buf);
+		uint16_t wtemp;
+		uint32_t ip;
+		for(temp = 0; temp < 3; temp++)
+		{
+			BytesPutLe32(&cmd[0], remote_ip);
+			BytesPutBe16(&cmd[W5500_SOCKET_DEST_PORT0 - W5500_SOCKET_DEST_IP0], remote_port);
+			w5500_xfer(w5500, W5500_SOCKET_DEST_IP0, socket_index(socket_id)|socket_reg|is_write, cmd, 6, w5500->data_buf);
+			w5500_xfer(w5500, W5500_SOCKET_DEST_IP0, socket_index(socket_id)|socket_reg, cmd, 6, w5500->data_buf);
+			wtemp = BytesGetBe16(&cmd[W5500_SOCKET_DEST_PORT0 - W5500_SOCKET_DEST_IP0]);
+			ip = BytesGetLe32(&cmd[0]);
+			if ((wtemp != remote_port) || (ip != remote_ip))
+			{
+				DBG("error ip port %u,%u,%x,%x", wtemp, remote_port, ip, remote_ip);
+			}
+			else
+			{
+				goto W5500_SOCKET_CONNECT_START;
+			}
+		}
+		return -1;
 	}
-
+W5500_SOCKET_CONNECT_START:
 	if (temp != SOCK_UDP)
 	{
 
@@ -568,7 +601,7 @@ static int32_t w5500_dummy_callback(void *pData, void *pParam)
 
 static void w5500_sys_socket_callback(w5500_ctrl_t *w5500, uint8_t event)
 {
-
+	Buffer_Struct dhcp_msg_buf;
 	switch(event)
 	{
 	case NW_EVENT_RECV:
@@ -606,7 +639,7 @@ static void w5500_read_irq(w5500_ctrl_t *w5500)
 	}
 	if (common_irq & IR_CONFLICT)
 	{
-
+		DBG("!");
 	}
 	if (socket_irq)
 	{
@@ -616,7 +649,7 @@ static void w5500_read_irq(w5500_ctrl_t *w5500)
 			{
 				if (socket_irq & (1 << j))
 				{
-					w5500_dummy_callback(w5500, j);
+					w5500_sys_socket_callback(w5500, j);
 				}
 			}
 		}

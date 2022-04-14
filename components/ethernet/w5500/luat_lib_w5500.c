@@ -5,13 +5,8 @@
 @date    2022.04.11
 */
 
-/*
-@module  network_adapter
-@summary 网络接口适配
-@version 1.0
-@date    2022.04.11
-*/
 #include "luat_base.h"
+#ifdef LUAT_USE_W5500
 #include "luat_rtos.h"
 #include "luat_zbuff.h"
 #include "luat_spi.h"
@@ -110,3 +105,5 @@ LUAMOD_API int luaopen_w5500( lua_State *L ) {
     luat_newlib2(L, reg_w5500);
     return 1;
 }
+
+#endif

@@ -184,17 +184,28 @@ int luat_lcd_flush(luat_lcd_conf_t* conf) {
     if (conf->buff == NULL) {
         return 0;
     }
-    uint32_t size = conf->w * conf->h * 2;
-    luat_lcd_set_address(conf, 0, 0, conf->w, conf->h);
+    if (conf->flush_y_max <= conf->flush_y_min) {
+        // 没有需要刷新的内容,直接跳过
+        return 0;
+    }
+    uint32_t size = conf->w * (conf->flush_y_max - conf->flush_y_max) * 2;
+    luat_lcd_set_address(conf, 0, conf->flush_y_min, conf->w, conf->flush_y_max);
+    const char* tmp = (const char*)(conf->buff + conf->flush_y_min * conf->w);
 	if (conf->port == LUAT_LCD_SPI_DEVICE){
-		luat_spi_device_send((luat_spi_device_t*)(conf->lcd_spi_device), (const char*)conf->buff, size);
+		luat_spi_device_send((luat_spi_device_t*)(conf->lcd_spi_device), tmp, size);
 	}else{
-		luat_spi_send(conf->port, (const char*)conf->buff, size);
+		luat_spi_send(conf->port, tmp, size);
 	}
+
+    // 重置为不需要刷新的状态
+    conf->flush_y_max = 0;
+    conf->flush_y_min = 1;
+    
     return 0;
 }
 
 int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, luat_color_t* color) {
+    // 直接刷屏模式
     if (conf->buff == NULL) {
         uint32_t size = (x2 - x1 + 1) * (y2 - y1 + 1) * 2;
         luat_lcd_set_address(conf, x1, y1, x2, y2);
@@ -203,22 +214,27 @@ int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, 
 	    }else{
 		    luat_spi_send(conf->port, (const char*)color, size);
 	    }
+        return 0;
     }
-    else {
-        if (x1 > conf->w || x2 > conf->w || y1 > conf->h || y2 > conf->h) {
-            LLOGW("out of lcd range");
-            return -1;
-        }
-        char* dst = (char*)(conf->buff + x1+ conf->w * y1);
-        char* src = (char*)(color);
-        size_t lsize = (x2 - x1 + 1);
-        for (size_t i = 0; i < (y2 - y1 + 1); i++)
-        {
-            memcpy(dst, src, lsize * sizeof(luat_color_t));
-            dst += conf->w * sizeof(luat_color_t);  // 移动到下一行
-            src += lsize * sizeof(luat_color_t);    // 移动数据
-        }
+    // buff模式
+    if (x1 > conf->w || x2 > conf->w || y1 > conf->h || y2 > conf->h) {
+        LLOGW("out of lcd range");
+        return -1;
     }
+    char* dst = (char*)(conf->buff + x1+ conf->w * y1);
+    char* src = (char*)(color);
+    size_t lsize = (x2 - x1 + 1);
+    for (size_t i = 0; i < (y2 - y1 + 1); i++) {
+        memcpy(dst, src, lsize * sizeof(luat_color_t));
+        dst += conf->w * sizeof(luat_color_t);  // 移动到下一行
+        src += lsize * sizeof(luat_color_t);    // 移动数据
+    }
+
+    // 存储需要刷新的区域
+    if (y1 < conf->flush_y_min)
+        conf->flush_y_min = y1;
+    if (y2 > conf->flush_y_max)
+        conf->flush_y_max = y2;
     return 0;
 }
 #endif

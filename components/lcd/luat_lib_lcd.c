@@ -1247,7 +1247,9 @@ static int l_lcd_flush(lua_State* L) {
 
 /*
 设置显示缓冲区, 所需内存大小为 2*宽*高 字节. 请衡量内存需求与业务所需的刷新频次.
-@api lcd.setupBuff()
+@api lcd.setupBuff(conf, onheap)
+@userdata conf指针, 不需要传
+@bool true使用heap内存, false使用vm内存, 默认使用vm内存, 不需要主动传
 @return bool 是否成功
 @usage
 -- 初始化lcd的buff缓冲区, 可理解为FrameBuffer区域.
@@ -1269,11 +1271,23 @@ static int l_lcd_setup_buff(lua_State* L) {
     LLOGW("lcd buff is ok");
     return 0;
   }
-  conf->buff = luat_heap_malloc(sizeof(luat_color_t) * conf->w * conf->h);
+  if (lua_isboolean(L, 2) && lua_toboolean(L, 2)) {
+    conf->buff = luat_heap_malloc(sizeof(luat_color_t) * conf->w * conf->h);
+  }
+  else {
+    conf->buff = lua_newuserdata(L, sizeof(luat_color_t) * conf->w * conf->h);
+    if (conf->buff) {
+      conf->buff_ref = luaL_ref(L, -1);
+    }
+  }
   if (conf->buff == NULL) {
     LLOGE("lcd buff malloc fail, out of memory?");
     return 0;
   }
+  // 先设置为不需要的区间
+  conf->flush_y_min = 1;
+  conf->flush_y_max = 0;
+  // luat_lcd_clear 会将区域扩展到整个屏幕
   luat_lcd_clear(default_conf, BACK_COLOR);
   lua_pushboolean(L, 1);
   return 1;

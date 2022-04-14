@@ -209,12 +209,12 @@ int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, 
             LLOGW("out of lcd range");
             return -1;
         }
-        char* src = (char*)(conf->buff + x1);
-        char* dst = (char*)(color);
+        char* dst = (char*)(conf->buff) + x1;
+        char* src = (char*)(color);
         size_t lsize = (x2 - x1 + 1);
         for (size_t i = 0; i < (y2 - y1 + 1); i++)
         {
-            memcpy(src, dst, lsize * sizeof(luat_color_t));
+            memcpy(dst, src, lsize * sizeof(luat_color_t));
             dst += conf->w * sizeof(luat_color_t);  // 移动到下一行
             src += lsize * sizeof(luat_color_t);    // 移动数据
         }

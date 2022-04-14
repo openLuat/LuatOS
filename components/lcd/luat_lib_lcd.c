@@ -1232,7 +1232,7 @@ static int l_lcd_flush(lua_State* L) {
     //LLOGW("lcd not init");
     return 0;
   }
-  if (conf-> buff) {
+  if (conf->buff == NULL) {
     //LLOGW("lcd without buff, not support flush");
     return 0;
   }

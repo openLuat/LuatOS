@@ -262,11 +262,13 @@ int luat_lcd_draw_fill(luat_lcd_conf_t* conf,uint16_t x1,uint16_t y1,uint16_t x2
 }
 
 int luat_lcd_draw_vline(luat_lcd_conf_t* conf, uint16_t x, uint16_t y,uint16_t h, luat_color_t color) {
-    return luat_lcd_draw_line(conf, x, y, x, y + h, color);
+    if (h==0) return 0;
+    return luat_lcd_draw_line(conf, x, y, x, y + h - 1, color);
 }
 
 int luat_lcd_draw_hline(luat_lcd_conf_t* conf, uint16_t x, uint16_t y,uint16_t w, luat_color_t color) {
-    return luat_lcd_draw_line(conf, x, y, x+w, y, color);
+    if (w==0) return 0;
+    return luat_lcd_draw_line(conf, x, y, x + w - 1, y, color);
 }
 
 int luat_lcd_draw_line(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2,luat_color_t color) {

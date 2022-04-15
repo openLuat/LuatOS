@@ -30,6 +30,10 @@ sys.taskInit(function()
     lcd.init("st7735s",{port = "device",pin_dc = pin.PB01, pin_pwr = pin.PB00,pin_rst = pin.PB03,direction = 2,w = 160,h = 80,xoffset = 1,yoffset = 26},spi_lcd))
 ]]
     -- 使用ffmpeg.exe将视频转成字节流文件sxd.rgb放入TF卡
+    -- 先缩放成目标大小
+    -- ffmpeg -i sxd.mp4 -vf scale=160:90 sxd.avi
+    -- 然后转rbg565ble 字节流
+    -- ffmpeg -i sxd.avi -pix_fmt rgb565be -vcodec rawvideo sxd.rgb
     local rgb_file = "sxd.rgb"
     local file_size = fs.fsize("/sd/"..rgb_file)
     print("/sd/"..rgb_file.." file_size",file_size)

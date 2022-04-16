@@ -136,6 +136,7 @@ enum
 
 	EV_W5500_IRQ = USER_EVENT_ID_START + 1,
 	EV_W5500_LINK,
+	//以下event的顺序不能变，新增event请在上方添加
 	EV_W5500_SOCKET_TX,
 	EV_W5500_SOCKET_CONNECT,
 	EV_W5500_SOCKET_CLOSE,
@@ -163,8 +164,6 @@ typedef struct
 	CBFuncEx_t socket_cb;
 	void *user_data;
 	void *task_handle;
-	void *period_timer;
-	void *dhcp_timer;
 	uint32_t static_ip; //大端格式存放
 	uint32_t static_submask; //大端格式存放
 	uint32_t static_gateway; //大端格式存放
@@ -182,14 +181,14 @@ typedef struct
 	uint8_t network_ready;
 	uint8_t inter_error;
 	uint8_t device_on;
-	uint8_t socket_irq[MAX_SOCK_NUM];
-	uint8_t data_buf[2048 + 8];
+	uint8_t rx_buf[2048 + 8];
 	uint8_t socket_state[MAX_SOCK_NUM];
 }w5500_ctrl_t;
 
 static w5500_ctrl_t *prv_w5500_ctrl;
 
 static void w5500_ip_state(w5500_ctrl_t *w5500, uint8_t check_state);
+static void w5500_check_dhcp(w5500_ctrl_t *w5500);
 
 static int32_t w5500_irq(int pin, void *args)
 {
@@ -209,42 +208,47 @@ static void w5500_callback_to_nw_task(w5500_ctrl_t *w5500, uint32_t event, uint3
 
 }
 
-static void w5500_xfer(w5500_ctrl_t *w5500, uint16_t address, uint8_t ctrl, uint8_t *data, uint32_t len, uint8_t *buf)
+static void w5500_xfer(w5500_ctrl_t *w5500, uint16_t address, uint8_t ctrl, uint8_t *data, uint32_t len)
 {
-	BytesPutBe16(buf, address);
-	buf[2] = ctrl;
+	BytesPutBe16(w5500->rx_buf, address);
+	w5500->rx_buf[2] = ctrl;
 	if (data && len)
 	{
-		memcpy(buf + 3, data, len);
+		memcpy(w5500->rx_buf + 3, data, len);
 	}
 	luat_gpio_set(w5500->cs_pin, 0);
-	luat_spi_transfer(w5500->spi_id, buf, len + 3, buf, len + 3);
+	luat_spi_transfer(w5500->spi_id, w5500->rx_buf, len + 3, w5500->rx_buf, len + 3);
 	luat_gpio_set(w5500->cs_pin, 1);
+	if (data && len)
+	{
+		memcpy(data, w5500->rx_buf + 3, len);
+	}
 }
 
 
 static uint8_t w5500_socket_state(w5500_ctrl_t *w5500, uint8_t socket_id)
 {
 	uint8_t retry = 0;
+	uint8_t temp[4];
 	do
 	{
-		w5500_xfer(w5500, 0, socket_index(socket_id)|socket_reg, NULL, 4, w5500->data_buf);
-		if (w5500->data_buf[3 + W5500_SOCKET_MR] == 0xff)	//模块读不到了
+		w5500_xfer(w5500, W5500_SOCKET_MR, socket_index(socket_id)|socket_reg, temp, 4);
+		if (temp[W5500_SOCKET_MR] == 0xff)	//模块读不到了
 		{
 			w5500->device_on = 0;
 			return 0;
 		}
 		retry++;
-	}while(w5500->data_buf[3 + W5500_SOCKET_CR] && (retry < 10));
+	}while(temp[W5500_SOCKET_CR] && (retry < 10));
 	if (retry >= 10)
 	{
 		DBG("!");
 		w5500->inter_error = 1;
 	}
-	return w5500->data_buf[3 + W5500_SOCKET_SR];
+	return temp[W5500_SOCKET_SR];
 }
 
-static void w5500_socket_close(w5500_ctrl_t *w5500, uint8_t socket_id)
+static void w5500_socket_disconnect(w5500_ctrl_t *w5500, uint8_t socket_id)
 {
 	uint8_t temp;
 	temp = w5500_socket_state(w5500, socket_id);
@@ -264,10 +268,26 @@ static void w5500_socket_close(w5500_ctrl_t *w5500, uint8_t socket_id)
 
 	}
 	temp = Sn_CR_DISCON;
-	w5500_xfer(w5500, W5500_SOCKET_CR, socket_index(socket_id)|socket_reg|is_write, &temp, 1, w5500->data_buf);
+	w5500_xfer(w5500, W5500_SOCKET_CR, socket_index(socket_id)|socket_reg|is_write, &temp, 1);
 	w5500->socket_state[socket_id] = W5500_SOCKET_CLOSING;
 }
 
+static void w5500_socket_close(w5500_ctrl_t *w5500, uint8_t socket_id)
+{
+	uint8_t temp;
+	temp = w5500_socket_state(w5500, socket_id);
+	if (!w5500->device_on) return;
+
+	if (SOCK_CLOSED == temp)
+	{
+		w5500->socket_state[socket_id] = W5500_SOCKET_OFFLINE;
+		DBG("socket %d already closed");
+		return;
+	}
+	temp = Sn_CR_CLOSE;
+	w5500_xfer(w5500, W5500_SOCKET_CR, socket_index(socket_id)|socket_reg|is_write, &temp, 1);
+	w5500->socket_state[socket_id] = W5500_SOCKET_OFFLINE;
+}
 
 static int w5500_socket_config(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t is_tcp, uint16_t local_port)
 {
@@ -277,7 +297,7 @@ static int w5500_socket_config(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t i
 	if (!w5500->device_on) return -1;
 	if (SOCK_CLOSED != temp)
 	{
-		DBG("socket %d not closed state %x", temp);
+		DBG("socket %d not closed state %x", socket_id, temp);
 		return -1;
 	}
 	uint8_t cmd[32];
@@ -285,14 +305,14 @@ static int w5500_socket_config(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t i
 	for(temp = 0; temp < 3; temp++)
 	{
 		cmd[W5500_SOCKET_MR] = is_tcp?Sn_MR_TCP:Sn_MR_UDP;
-		cmd[W5500_SOCKET_CR] = Sn_CR_OPEN;
+		cmd[W5500_SOCKET_CR] = 0;
 		cmd[W5500_SOCKET_IR] = 0xff;
 		BytesPutBe16(&cmd[W5500_SOCKET_SOURCE_PORT0], local_port);
-		BytesPutLe32(&cmd[W5500_SOCKET_DEST_IP0], 0);
-		BytesPutBe16(&cmd[W5500_SOCKET_DEST_PORT0], 0);
+		BytesPutLe32(&cmd[W5500_SOCKET_DEST_IP0], 0xffffffff);
+		BytesPutBe16(&cmd[W5500_SOCKET_DEST_PORT0], 67);
 		BytesPutBe16(&cmd[W5500_SOCKET_SEGMENT0], is_tcp?1460:1472);
-		w5500_xfer(w5500, W5500_SOCKET_MR, socket_index(socket_id)|socket_reg|is_write, cmd, W5500_SOCKET_TOS - 1, w5500->data_buf);
-		w5500_xfer(w5500, W5500_SOCKET_MR, socket_index(socket_id)|socket_reg, cmd, W5500_SOCKET_TOS - 1, w5500->data_buf);
+		w5500_xfer(w5500, W5500_SOCKET_MR, socket_index(socket_id)|socket_reg|is_write, cmd, W5500_SOCKET_TOS - 1);
+		w5500_xfer(w5500, W5500_SOCKET_MR, socket_index(socket_id)|socket_reg, cmd, W5500_SOCKET_TOS - 1);
 		wtemp = BytesGetBe16(&cmd[W5500_SOCKET_SOURCE_PORT0]);
 		if (wtemp != local_port)
 		{
@@ -302,25 +322,21 @@ static int w5500_socket_config(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t i
 		{
 			goto W5500_SOCKET_CONFIG_START;
 		}
+
 	}
 	return -1;
 W5500_SOCKET_CONFIG_START:
+	cmd[0] = Sn_CR_OPEN;
+	w5500_xfer(w5500, W5500_SOCKET_CR, socket_index(socket_id)|socket_reg|is_write, cmd, 1);
 	do
 	{
-		luat_timer_mdelay(1);
 		temp = w5500_socket_state(w5500, socket_id);
 		if (!w5500->device_on) return -1;
-		if (SOCK_CLOSED != temp)
-		{
-			DBG("socket %d not closed");
-			return -1;
-		}
 		delay_cnt++;
 	}while((temp != SOCK_INIT) && (temp != SOCK_UDP) && (delay_cnt < 100));
-
 	if (delay_cnt >= 100)
 	{
-		DBG("socket %d config timeout");
+		DBG("socket %d config timeout", socket_id);
 		return -1;
 	}
 
@@ -330,46 +346,43 @@ W5500_SOCKET_CONFIG_START:
 
 static int w5500_socket_connect(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t is_listen, uint32_t remote_ip, uint16_t remote_port)
 {
+	uint32_t ip;
+	uint16_t port;
 	uint8_t delay_cnt;
 	uint8_t temp;
-	uint8_t cmd[32];
+	uint8_t cmd[16];
 	temp = w5500_socket_state(w5500, socket_id);
 	if (!w5500->device_on) return -1;
 	if ((temp != SOCK_INIT) && (temp != SOCK_UDP))
 	{
-		DBG("socket %d not config state %x", temp);
+		DBG("socket %d not config state %x", socket_id, temp);
 		return -1;
 	}
-
+//	DBG("%08x, %u", remote_ip, remote_port);
 	if (!is_listen)
 	{
-		uint16_t wtemp;
-		uint32_t ip;
-		for(temp = 0; temp < 3; temp++)
+		w5500_xfer(w5500, W5500_SOCKET_DEST_IP0, socket_index(socket_id)|socket_reg, cmd, 6);
+		ip = BytesGetLe32(cmd);
+		port = BytesGetBe16(cmd + 4);
+		if (ip != remote_ip || port != remote_port)
 		{
-			BytesPutLe32(&cmd[0], remote_ip);
+			BytesPutLe32(cmd, remote_ip);
 			BytesPutBe16(&cmd[W5500_SOCKET_DEST_PORT0 - W5500_SOCKET_DEST_IP0], remote_port);
-			w5500_xfer(w5500, W5500_SOCKET_DEST_IP0, socket_index(socket_id)|socket_reg|is_write, cmd, 6, w5500->data_buf);
-			w5500_xfer(w5500, W5500_SOCKET_DEST_IP0, socket_index(socket_id)|socket_reg, cmd, 6, w5500->data_buf);
-			wtemp = BytesGetBe16(&cmd[W5500_SOCKET_DEST_PORT0 - W5500_SOCKET_DEST_IP0]);
-			ip = BytesGetLe32(&cmd[0]);
-			if ((wtemp != remote_port) || (ip != remote_ip))
-			{
-				DBG("error ip port %u,%u,%x,%x", wtemp, remote_port, ip, remote_ip);
-			}
-			else
-			{
-				goto W5500_SOCKET_CONNECT_START;
-			}
+			w5500_xfer(w5500, W5500_SOCKET_DEST_IP0, socket_index(socket_id)|socket_reg|is_write, cmd, 6);
+//			if (temp == SOCK_UDP)
+//			{
+//				cmd[0] = Sn_CR_SEND;
+//				w5500_xfer(w5500, W5500_SOCKET_CR, socket_index(socket_id)|socket_reg|is_write, cmd, 1);
+//			}
 		}
-		return -1;
+
 	}
 W5500_SOCKET_CONNECT_START:
 	if (temp != SOCK_UDP)
 	{
 
 		uint8_t temp = is_listen?Sn_CR_LISTEN:Sn_CR_CONNECT;
-		w5500_xfer(w5500, W5500_SOCKET_CR, socket_index(socket_id)|socket_reg|is_write, &temp, 1, w5500->data_buf);
+		w5500_xfer(w5500, W5500_SOCKET_CR, socket_index(socket_id)|socket_reg|is_write, &temp, 1);
 		w5500->socket_state[socket_id] = W5500_SOCKET_CONNECT;
 	}
 	return 0;
@@ -377,18 +390,9 @@ W5500_SOCKET_CONNECT_START:
 
 static int w5500_socket_auto_heart(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t time)
 {
-	uint8_t temp;
 	uint8_t point[6];
-	uint16_t tx_free, tx_point;
-	temp = w5500_socket_state(w5500, socket_id);
-	if (!w5500->device_on) return -1;
-	if ((temp != SOCK_ESTABLISHED))
-	{
-		DBG("socket %d not online tcp state %x", temp);
-		return -1;
-	}
 	point[0] = time;
-	w5500_xfer(w5500, W5500_SOCKET_KEEP_TIME, socket_index(socket_id)|socket_reg|is_write, point, 1, w5500->data_buf);
+	w5500_xfer(w5500, W5500_SOCKET_KEEP_TIME, socket_index(socket_id)|socket_reg|is_write, point, 1);
 	return 0;
 }
 
@@ -402,29 +406,29 @@ static int w5500_socket_tx(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t *data
 	if (!w5500->device_on) return -1;
 	if ((temp != SOCK_ESTABLISHED) && (temp != SOCK_UDP))
 	{
-		DBG("socket %d not online state %x", temp);
+		DBG("socket %d not online state %x", socket_id, temp);
 		return -1;
 	}
 	w5500->socket_state[socket_id] = W5500_SOCKET_ONLINE;
 	if (!data || !len)
 	{
 		point[0] = Sn_CR_SEND_KEEP;
-		w5500_xfer(w5500, W5500_SOCKET_CR, socket_index(socket_id)|socket_reg|is_write, point, 1, w5500->data_buf);
+		w5500_xfer(w5500, W5500_SOCKET_CR, socket_index(socket_id)|socket_reg|is_write, point, 1);
 	}
 
-	w5500_xfer(w5500, W5500_SOCKET_TX_FREE_SIZE0, socket_index(socket_id)|socket_reg, point, 6, w5500->data_buf);
+	w5500_xfer(w5500, W5500_SOCKET_TX_FREE_SIZE0, socket_index(socket_id)|socket_reg, point, 6);
 	tx_free = BytesGetBe16(point);
 	tx_point = BytesGetBe16(point + 4);
 	if (len > tx_free)
 	{
 		len = tx_free;
 	}
-	w5500_xfer(w5500, tx_point, socket_index(socket_id)|socket_tx|is_write, data, len, w5500->data_buf);
+	w5500_xfer(w5500, tx_point, socket_index(socket_id)|socket_tx|is_write, data, len);
 	tx_point += len;
 	BytesPutBe16(point, tx_point);
-	w5500_xfer(w5500, W5500_SOCKET_TX_WRITE_POINT0, socket_index(socket_id)|socket_reg|is_write, point, 2, w5500->data_buf);
+	w5500_xfer(w5500, W5500_SOCKET_TX_WRITE_POINT0, socket_index(socket_id)|socket_reg|is_write, point, 2);
 	point[0] = Sn_CR_SEND;
-	w5500_xfer(w5500, W5500_SOCKET_CR, socket_index(socket_id)|socket_reg|is_write, point, 1, w5500->data_buf);
+	w5500_xfer(w5500, W5500_SOCKET_CR, socket_index(socket_id)|socket_reg|is_write, point, 1);
 	return len;
 }
 
@@ -438,27 +442,26 @@ static int w5500_socket_rx(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t *data
 	if (!w5500->device_on) return -1;
 	if ((temp != SOCK_ESTABLISHED) && (temp != SOCK_UDP))
 	{
-		DBG("socket %d not config state %x", temp);
+		DBG("socket %d not config state %x", socket_id, temp);
 		return -1;
 	}
 	w5500->socket_state[socket_id] = W5500_SOCKET_ONLINE;
-	w5500_xfer(w5500, W5500_SOCKET_RX_SIZE0, socket_index(socket_id)|socket_reg, point, 4, w5500->data_buf);
+	w5500_xfer(w5500, W5500_SOCKET_RX_SIZE0, socket_index(socket_id)|socket_reg, point, 4);
 
 	rx_size = BytesGetBe16(point);
 	rx_point = BytesGetBe16(point + 2);
-
+//	DBG("%x,%u", rx_point, rx_size);
 	if (!rx_size) return 0;
 	if (rx_size < len)
 	{
 		len = rx_size;
 	}
-	w5500_xfer(w5500, rx_point, socket_index(socket_id)|socket_rx, NULL, len, w5500->data_buf);
-	memcpy(data, &w5500->data_buf[3], len);
+	w5500_xfer(w5500, rx_point, socket_index(socket_id)|socket_rx, data, len);
 	rx_point += len;
 	BytesPutBe16(point, rx_point);
-	w5500_xfer(w5500, W5500_SOCKET_RX_READ_POINT0, socket_index(socket_id)|socket_reg|is_write, point, 2, w5500->data_buf);
+	w5500_xfer(w5500, W5500_SOCKET_RX_READ_POINT0, socket_index(socket_id)|socket_reg|is_write, point, 2);
 	point[0] = Sn_CR_RECV;
-	w5500_xfer(w5500, W5500_SOCKET_CR, socket_index(socket_id)|socket_reg|is_write, point, 1, w5500->data_buf);
+	w5500_xfer(w5500, W5500_SOCKET_CR, socket_index(socket_id)|socket_reg|is_write, point, 1);
 	return len;
 }
 
@@ -484,17 +487,53 @@ static void w5500_nw_state(w5500_ctrl_t *w5500)
 	}
 }
 
+
+static void w5500_check_dhcp(w5500_ctrl_t *w5500)
+{
+	if (w5500->static_ip) return;
+	if (DHCP_STATE_CHECK == w5500->dhcp_client.state)
+	{
+		w5500->dhcp_client.state = DHCP_STATE_WAIT_LEASE_P1;
+		uint8_t temp[24];
+		memset(temp, 0, sizeof(temp));
+		BytesPutLe32(&temp[W5500_COMMON_GAR0], w5500->dhcp_client.gateway);
+		BytesPutLe32(&temp[W5500_COMMON_SUBR0], w5500->dhcp_client.submask);
+		BytesPutLe32(&temp[W5500_COMMON_IP0], w5500->dhcp_client.ip);
+		memcpy(&temp[W5500_COMMON_MAC0], w5500->dhcp_client.mac, 6);
+		w5500_xfer(w5500, W5500_COMMON_MR, is_write, temp, W5500_COMMON_INTLEVEL0);
+		w5500->dhcp_client.discover_cnt = 0;
+		w5500_ip_state(w5500, 1);
+	}
+	if (w5500->dhcp_client.discover_cnt > 5)
+	{
+		DBG("dhcp long time not get ip, reboot w5500");
+		memset(&w5500->dhcp_client, 0, sizeof(w5500->dhcp_client));
+		luat_send_event_to_task(w5500->task_handle, EV_W5500_RE_INIT, 0, 0, 0);
+	}
+
+}
+
 static void w5500_link_state(w5500_ctrl_t *w5500, uint8_t check_state)
 {
+	Buffer_Struct tx_msg_buf = {0,0,0};
+	uint32_t remote_ip;
+	int result;
 	if (w5500->link_ready != check_state)
 	{
 		DBG("link %d -> %d", w5500->link_ready, check_state);
 		w5500->link_ready = check_state;
 		if (w5500->link_ready && !w5500->static_ip)
 		{
-			w5500->dhcp_client.state = DHCP_STATE_REQUEST;
-			w5500_socket_connect(w5500, SYS_SOCK_ID, 0, 0xffffffff, DHCP_SERVER_PORT);
-
+			w5500_ip_state(w5500, 0);
+			w5500->dhcp_client.state = w5500->dhcp_client.ip?DHCP_STATE_REQUIRE:DHCP_STATE_DISCOVER;
+			result = ip4_dhcp_run(&w5500->dhcp_client, NULL, &tx_msg_buf, &remote_ip);
+			if (tx_msg_buf.Pos)
+			{
+				w5500_socket_connect(w5500, SYS_SOCK_ID, 0, remote_ip, DHCP_SERVER_PORT);
+				w5500_socket_tx(w5500, SYS_SOCK_ID, tx_msg_buf.Data, tx_msg_buf.Pos);
+			}
+			OS_DeInitBuffer(&tx_msg_buf);
+			w5500_check_dhcp(w5500);
 		}
 		w5500_nw_state(w5500);
 	}
@@ -512,26 +551,53 @@ static void w5500_ip_state(w5500_ctrl_t *w5500, uint8_t check_state)
 
 static void w5500_init_reg(w5500_ctrl_t *w5500)
 {
+
 	uint8_t temp[64];
 	uint8_t *uid;
 	size_t t;
+	luat_gpio_set(w5500->rst_pin, 0);
+	luat_timer_mdelay(1);
+	luat_gpio_set(w5500->rst_pin, 1);
+	luat_timer_mdelay(1);
 	w5500->ip_ready = 0;
 	w5500->network_ready = 0;
-	w5500->dhcp_client.state = w5500->static_ip ? DHCP_STATE_NOT_WORK : DHCP_STATE_WAIT_LINK_READY;
+	if (w5500->static_ip)
+	{
+		w5500->dhcp_client.state = DHCP_STATE_NOT_WORK;
+	}
+	else
+	{
+		if ((w5500->dhcp_client.state == DHCP_STATE_NOT_WORK) || !w5500->dhcp_client.ip)
+		{
+			w5500->dhcp_client.state = DHCP_STATE_DISCOVER;
+		}
+		else
+		{
+			w5500->dhcp_client.state = DHCP_STATE_REQUIRE;
+		}
+	}
 	w5500_callback_to_nw_task(w5500, 0, 0, 0, 0);
 
 	luat_gpio_close(w5500->link_pin);
 	luat_gpio_close(w5500->irq_pin);
 
-	w5500_xfer(w5500, W5500_COMMON_MR, 0, NULL, W5500_COMMON_QTY, w5500->data_buf);
-	w5500->device_on = (0x04 == w5500->data_buf[3 + W5500_COMMON_VERSIONR])?1:0;
-	w5500_link_state(w5500, w5500->device_on?(w5500->data_buf[3 + W5500_COMMON_PHY] & 0x01):0);
+	w5500_xfer(w5500, W5500_COMMON_MR, 0, temp, W5500_COMMON_QTY);
+	w5500->device_on = (0x04 == temp[W5500_COMMON_VERSIONR])?1:0;
+	w5500_link_state(w5500, w5500->device_on?(temp[W5500_COMMON_PHY] & 0x01):0);
 
-	memcpy(temp, w5500->data_buf + 3, W5500_COMMON_QTY);
-	temp[W5500_COMMON_MR] = MR_WOL;
-	BytesPutLe32(&temp[W5500_COMMON_GAR0], w5500->static_gateway);	//已经是大端格式了不需要转换
-	BytesPutLe32(&temp[W5500_COMMON_SUBR0], w5500->static_submask); //已经是大端格式了不需要转换
-	BytesPutLe32(&temp[W5500_COMMON_IP0], w5500->static_ip); //已经是大端格式了不需要转换
+	temp[W5500_COMMON_MR] = 0;
+	if (w5500->static_ip)
+	{
+		BytesPutLe32(&temp[W5500_COMMON_GAR0], w5500->static_gateway);	//已经是大端格式了不需要转换
+		BytesPutLe32(&temp[W5500_COMMON_SUBR0], w5500->static_submask); //已经是大端格式了不需要转换
+		BytesPutLe32(&temp[W5500_COMMON_IP0], w5500->static_ip); //已经是大端格式了不需要转换
+	}
+	else if (w5500->dhcp_client.ip)
+	{
+		BytesPutLe32(&temp[W5500_COMMON_GAR0], w5500->dhcp_client.gateway);
+		BytesPutLe32(&temp[W5500_COMMON_SUBR0], w5500->dhcp_client.submask);
+		BytesPutLe32(&temp[W5500_COMMON_IP0], w5500->dhcp_client.ip);
+	}
 
 	if (w5500->mac1 || w5500->mac2)
 	{
@@ -543,17 +609,23 @@ static void w5500_init_reg(w5500_ctrl_t *w5500)
 		uid = luat_mcu_unique_id(&t);
 		memcpy(&temp[W5500_COMMON_MAC0], &uid[10], 6);
 	}
+	memcpy(w5500->dhcp_client.mac, &temp[W5500_COMMON_MAC0], 6);
+	sprintf_(w5500->dhcp_client.name, "airm2m-%02x%02x%02x%02x%02x%02x",
+			w5500->dhcp_client.mac[0],w5500->dhcp_client.mac[1], w5500->dhcp_client.mac[2],
+			w5500->dhcp_client.mac[3],w5500->dhcp_client.mac[4], w5500->dhcp_client.mac[5]);
+
+
 	BytesPutBe16(&temp[W5500_COMMON_SOCKET_RTR0], w5500->RTR);
 	temp[W5500_COMMON_IMR] = IR_CONFLICT|IR_UNREACH|IR_MAGIC;
 	temp[W5500_COMMON_SOCKET_IMR] = 0xff;
 	temp[W5500_COMMON_PHY] = 0xf8;
 	temp[W5500_COMMON_SOCKET_RCR] = w5500->RCR;
 //	DBG_HexPrintf(temp, W5500_COMMON_QTY);
-	w5500_xfer(w5500, W5500_COMMON_MR, is_write, temp, W5500_COMMON_QTY, w5500->data_buf);
-
+	w5500_xfer(w5500, W5500_COMMON_MR, is_write, temp, W5500_COMMON_QTY);
+//	memset(temp, 0, sizeof(temp));
+//	w5500_xfer(w5500, W5500_COMMON_MR, 0, NULL, W5500_COMMON_QTY);
+//	DBG_HexPrintf(temp, W5500_COMMON_QTY);
 	w5500_ip_state(w5500, w5500->static_ip?1:0);
-	w5500->common_irq = 0;
-	memset(w5500->socket_irq, 0, MAX_SOCK_NUM);
 
 	luat_gpio_t gpio = {0};
 	gpio.pin = w5500->irq_pin;
@@ -572,13 +644,8 @@ static void w5500_init_reg(w5500_ctrl_t *w5500)
 	luat_gpio_setup(&gpio);
 
 	memset(w5500->socket_state, W5500_SOCKET_OFFLINE, MAX_SOCK_NUM);
+	w5500_socket_auto_heart(w5500, SYS_SOCK_ID, 2);
 	w5500_socket_config(w5500, SYS_SOCK_ID, 0, DHCP_CLIENT_PORT);
-}
-
-
-static void w5500_dhcp_run(w5500_ctrl_t *w5500)
-{
-
 }
 
 static int32_t w5500_dummy_callback(void *pData, void *pParam)
@@ -601,12 +668,53 @@ static int32_t w5500_dummy_callback(void *pData, void *pParam)
 
 static void w5500_sys_socket_callback(w5500_ctrl_t *w5500, uint8_t event)
 {
-	Buffer_Struct dhcp_msg_buf;
+	Buffer_Struct rx_buf;
+	Buffer_Struct msg_buf;
+	Buffer_Struct tx_msg_buf = {0,0,0};
+	int result, i;
+	uint32_t ip;
+	uint16_t port;
+	uint16_t len;
 	switch(event)
 	{
-	case NW_EVENT_RECV:
+	case Sn_IR_SEND_OK:
+		//DBG("send ok");
 		break;
-	case NW_EVENT_ERR:
+	case Sn_IR_RECV:
+		OS_InitBuffer(&rx_buf, 2048);
+		result = w5500_socket_rx(w5500, SYS_SOCK_ID, rx_buf.Data, rx_buf.MaxLen);
+		if (result > 0)
+		{
+			rx_buf.Pos = 0;
+			while (rx_buf.Pos < result)
+			{
+				ip = BytesGetBe32(rx_buf.Data + rx_buf.Pos);
+				port = BytesGetBe16(rx_buf.Data + rx_buf.Pos + 4);
+				len = BytesGetBe16(rx_buf.Data + rx_buf.Pos + 6);
+				msg_buf.Data = rx_buf.Data + rx_buf.Pos + 8;
+				msg_buf.MaxLen = len;
+				msg_buf.Pos = 0;
+				switch(port)
+				{
+				case DHCP_SERVER_PORT:
+					ip4_dhcp_run(w5500, &msg_buf, &tx_msg_buf, &ip);
+					if (tx_msg_buf.Pos)
+					{
+						w5500_socket_connect(w5500, SYS_SOCK_ID, 0, ip, DHCP_SERVER_PORT);
+						w5500_socket_tx(w5500, SYS_SOCK_ID, tx_msg_buf.Data, tx_msg_buf.Pos);
+					}
+					OS_DeInitBuffer(&tx_msg_buf);
+					w5500_check_dhcp(w5500);
+					break;
+				case DNS_SERVER_PORT:
+					break;
+				}
+				rx_buf.Pos += 8 + len;
+			}
+		}
+
+		break;
+	case Sn_IR_TIMEOUT:
 		break;
 	default:
 		break;
@@ -617,18 +725,17 @@ static void w5500_read_irq(w5500_ctrl_t *w5500)
 {
 	OS_EVENT socket_event;
 	uint8_t temp[64];
+	uint8_t socket_irqs[MAX_SOCK_NUM];
 	uint8_t socket_irq, common_irq;
-	int i, j;
-	w5500_xfer(w5500, W5500_COMMON_IR, 0, NULL, W5500_COMMON_QTY - W5500_COMMON_IR, w5500->data_buf);
-	memcpy(temp, w5500->data_buf + 3, W5500_COMMON_QTY - W5500_COMMON_IR);
+	Buffer_Struct tx_msg_buf = {0,0,0};
+	uint32_t remote_ip;
+	int i;
+	w5500_xfer(w5500, W5500_COMMON_IR, 0, temp, W5500_COMMON_QTY - W5500_COMMON_IR);
 	common_irq = temp[0] & 0xf0;
 	socket_irq = temp[W5500_COMMON_SOCKET_IR - W5500_COMMON_IR];
-	w5500->device_on = (0x04 == w5500->data_buf[3 + W5500_COMMON_VERSIONR])?1:0;
-	w5500_link_state(w5500, w5500->device_on?(w5500->data_buf[W5500_COMMON_PHY - W5500_COMMON_IR] & 0x01):0);
-	temp[0] = 0;
-	temp[W5500_COMMON_IMR - W5500_COMMON_IR] = IR_CONFLICT|IR_UNREACH|IR_MAGIC;
-	temp[W5500_COMMON_SOCKET_IR - W5500_COMMON_IR] = 0;
-	w5500_xfer(w5500, W5500_COMMON_IR, is_write, temp, 3, w5500->data_buf);
+	w5500->device_on = (0x04 == temp[W5500_COMMON_VERSIONR - W5500_COMMON_IR])?1:0;
+	w5500_link_state(w5500, w5500->device_on?(temp[W5500_COMMON_PHY - W5500_COMMON_IR] & 0x01):0);
+	memset(socket_irqs, 0, MAX_SOCK_NUM);
 
 	if (!w5500->device_on)
 	{
@@ -637,42 +744,65 @@ static void w5500_read_irq(w5500_ctrl_t *w5500)
 
 		return;
 	}
-	if (common_irq & IR_CONFLICT)
+	if (common_irq)
 	{
-		DBG("!");
+		DBG("%x", common_irq);
+		if (common_irq & IR_CONFLICT)
+		{
+			memset(temp, 0, 4);
+			w5500_xfer(w5500, W5500_COMMON_IP0, is_write, temp, 4);
+			w5500->dhcp_client.state = DHCP_STATE_DECLINE;
+			ip4_dhcp_run(&w5500->dhcp_client, NULL, &tx_msg_buf, &remote_ip);
+			if (tx_msg_buf.Pos)
+			{
+				w5500_socket_connect(w5500, SYS_SOCK_ID, 0, remote_ip, DHCP_SERVER_PORT);
+				w5500_socket_tx(w5500, SYS_SOCK_ID, tx_msg_buf.Data, tx_msg_buf.Pos);
+			}
+			OS_DeInitBuffer(&tx_msg_buf);
+			w5500_ip_state(w5500, 0);
+		}
 	}
+
 	if (socket_irq)
 	{
-		if (socket_irq & 0x01)
+		for(i = 0; i < MAX_SOCK_NUM; i++)
 		{
-			for(j = 0; j < 5; j++)
+			if (socket_irq & (1 << i))
 			{
-				if (socket_irq & (1 << j))
+				w5500_xfer(w5500, W5500_SOCKET_IR, socket_index(i)|socket_reg, &socket_irqs[i], 1);
+				temp[0] = socket_irqs[i];
+				w5500_xfer(w5500, W5500_SOCKET_IR, socket_index(i)|socket_reg|is_write, temp, 1);
+			}
+		}
+	}
+
+	temp[0] = 0;
+	temp[W5500_COMMON_IMR - W5500_COMMON_IR] = IR_CONFLICT|IR_UNREACH|IR_MAGIC;
+	temp[W5500_COMMON_SOCKET_IR - W5500_COMMON_IR] = 0;
+	w5500_xfer(w5500, W5500_COMMON_IR, is_write, temp, 1);
+	if (socket_irq)
+	{
+
+		if (socket_irqs[0])
+		{
+			for(i = 0; i < 5; i++)
+			{
+				if (socket_irqs[0] & (1 << i))
 				{
-					w5500_sys_socket_callback(w5500, j);
+					w5500_sys_socket_callback(w5500, (1 << i));
 				}
 			}
 		}
 		for(i = 1; i < MAX_SOCK_NUM; i++)
 		{
-			if (socket_irq & (1 << i))
+			if (socket_irqs[i])
 			{
-				w5500_xfer(w5500, W5500_SOCKET_IR, socket_index(i)|socket_reg, temp, 1, w5500->data_buf);
-				if (temp[0] != 0xff)
-				{
-					for(j = 0; j < 5; j++)
-					{
-						if (socket_irq & (1 << j))
-						{
-							socket_event.ID = j;
-							socket_event.Param1 = i;
-							w5500->socket_cb(&socket_event, w5500->user_data);
-						}
-					}
-				}
+				DBG("%d,0x%x", i, socket_irqs[i]);
 			}
 		}
+
 	}
+
 }
 
 
@@ -682,18 +812,16 @@ static void w5500_task(void *param)
 	w5500_ctrl_t *w5500 = (w5500_ctrl_t *)param;
 	OS_EVENT event;
 	int result;
-
-	luat_timer_mdelay(1);
-	luat_gpio_set(w5500->rst_pin, 1);
-	luat_timer_mdelay(1);
+	Buffer_Struct tx_msg_buf = {0,0,0};
+	uint32_t remote_ip;
 	w5500_init_reg(w5500);
 	while(1)
 	{
-		result = luat_wait_event_from_task(w5500->task_handle, 0, &event, NULL, (w5500->link_pin != 0xff)?0:1000);
+		result = luat_wait_event_from_task(w5500->task_handle, 0, &event, NULL, (w5500->link_ready || (w5500->link_pin != 0xff))?1000:100);
 
-		w5500_xfer(w5500, W5500_COMMON_MR, 0, NULL, W5500_COMMON_QTY, w5500->data_buf);
-		w5500->device_on = (0x04 == w5500->data_buf[3 + W5500_COMMON_VERSIONR])?1:0;
-		if (w5500->device_on && w5500->data_buf[3 + W5500_COMMON_IMR] != (IR_CONFLICT|IR_UNREACH|IR_MAGIC))
+		w5500_xfer(w5500, W5500_COMMON_MR, 0, NULL, W5500_COMMON_QTY);
+		w5500->device_on = (0x04 == w5500->rx_buf[3 + W5500_COMMON_VERSIONR])?1:0;
+		if (w5500->device_on && w5500->rx_buf[3 + W5500_COMMON_IMR] != (IR_CONFLICT|IR_UNREACH|IR_MAGIC))
 		{
 			w5500_init_reg(w5500);
 		}
@@ -705,11 +833,19 @@ static void w5500_task(void *param)
 		}
 		else
 		{
-			w5500_link_state(w5500, w5500->data_buf[3 + W5500_COMMON_PHY] & 0x01);
+			w5500_link_state(w5500, w5500->rx_buf[3 + W5500_COMMON_PHY] & 0x01);
 		}
 
-		if (result)
+		if (result && w5500->link_ready)
 		{
+			result = ip4_dhcp_run(&w5500->dhcp_client, NULL, &tx_msg_buf, &remote_ip);
+			if (tx_msg_buf.Pos)
+			{
+				w5500_socket_connect(w5500, SYS_SOCK_ID, 0, remote_ip, DHCP_SERVER_PORT);
+				w5500_socket_tx(w5500, SYS_SOCK_ID, tx_msg_buf.Data, tx_msg_buf.Pos);
+			}
+			OS_DeInitBuffer(&tx_msg_buf);
+			w5500_check_dhcp(w5500);
 			continue;
 		}
 		switch(event.ID)
@@ -736,10 +872,6 @@ static void w5500_task(void *param)
 			break;
 		case EV_W5500_RE_INIT:
 			w5500_init_reg(w5500);
-			if (!w5500->static_ip)
-			{
-				//尝试DHCP
-			}
 			break;
 		case EV_W5500_SET_IP:
 			w5500->static_ip = event.Param1;
@@ -807,6 +939,7 @@ int w5500_request(uint32_t cmd, uint32_t param1, uint32_t param2, uint32_t param
 
 void w5500_init(luat_spi_t* spi, uint8_t irq_pin, uint8_t rst_pin, uint8_t link_pin)
 {
+
 	if (!prv_w5500_ctrl)
 	{
 		w5500_ctrl_t *w5500 = luat_heap_malloc(sizeof(w5500_ctrl_t));
@@ -821,7 +954,7 @@ void w5500_init(luat_spi_t* spi, uint8_t irq_pin, uint8_t rst_pin, uint8_t link_
 		w5500->link_pin = link_pin;
 		spi->cs = 0xff;
 		luat_spi_setup(spi);
-//		luat_spi_config_dma(w5500->spi_id, 0xffff, 0xffff);
+		luat_spi_config_dma(w5500->spi_id, 0xffff, 0xffff);
 		luat_gpio_t gpio = {0};
 		gpio.pin = w5500->cs_pin;
 		gpio.mode = Luat_GPIO_OUTPUT;
@@ -833,10 +966,16 @@ void w5500_init(luat_spi_t* spi, uint8_t irq_pin, uint8_t rst_pin, uint8_t link_
 		luat_gpio_setup(&gpio);
 		luat_gpio_set(w5500->rst_pin, 0);
 
+
+		char rands[16];
+		luat_crypto_trng(rands, 16);
+
+		w5500->dhcp_client.xid = BytesGetBe32(rands);
+		w5500->dhcp_client.state = DHCP_STATE_DISCOVER;
 		luat_thread_t thread;
 		thread.task_fun = w5500_task;
 		thread.name = "w5500";
-		thread.stack_size = 1024;
+		thread.stack_size = 2 * 1024;
 		thread.priority = 3;
 		thread.userdata = w5500;
 		luat_thread_start(&thread);

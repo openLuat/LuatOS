@@ -1,8 +1,9 @@
 
 #ifndef __ETHERNET_COMMON_DHCP_DEF_H__
 #define __ETHERNET_COMMON_DHCP_DEF_H__
-
-
+#include "luat_base.h"
+#ifdef LUAT_USE_DHCP
+#include "bsp_common.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -25,27 +26,48 @@ extern "C" {
 
 typedef struct
 {
-	unsigned int dhcp_server_ip;
-	unsigned int dhcp_ip;
-	unsigned int dhcp_submask;
-	unsigned int dhcp_gateway;
-	unsigned int dhcp_t1;
-	unsigned int dhcp_t2;
-	unsigned char state;
+	uint64_t lease_end_time;
+	uint64_t lease_p1_time;
+	uint64_t lease_p2_time;
+	uint64_t last_tx_time;
+	uint32_t server_ip;
+	uint32_t temp_ip;	//服务器给的动态IP
+	uint32_t submask;
+	uint32_t gateway;
+	uint32_t ip;	//当前的动态IP
+	uint32_t xid;
+
+	char name[32];
+	uint8_t mac[6];
+	uint8_t state;
+	uint8_t discover_cnt;
 }dhcp_client_info_t;
 
+typedef struct
+{
+	uint8_t *p;
+	uint16_t len;
+	uint8_t id;
+	uint8_t unuse;
+}dhcp_option_t;
 
 
 /* DHCP client states */
 enum {
   DHCP_STATE_NOT_WORK             = 0,
-  DHCP_STATE_WAIT_LINK_READY,
-  DHCP_STATE_REQUEST,
+  DHCP_STATE_WAIT_LEASE_P1,
+  DHCP_STATE_WAIT_LEASE_P1_ACK,
+  DHCP_STATE_WAIT_LEASE_P2,
+  DHCP_STATE_WAIT_LEASE_P2_ACK,
+  DHCP_STATE_WAIT_LEASE_END,
+  DHCP_STATE_DISCOVER,
+  DHCP_STATE_WAIT_OFFER,
   DHCP_STATE_SELECT,
+  DHCP_STATE_WAIT_SELECT_ACK,
+  DHCP_STATE_REQUIRE,
+  DHCP_STATE_WAIT_REQUIRE_ACK,
+  DHCP_STATE_DECLINE,
   DHCP_STATE_CHECK,
-  DHCP_STATE_WAIT_P1,
-  DHCP_STATE_WAIT_P2,
-
 };
 
 /* DHCP op codes */
@@ -111,8 +133,18 @@ enum {
 #define DHCP_OVERLOAD_SNAME         2
 #define DHCP_OVERLOAD_SNAME_FILE    3
 
+void make_ip4_dhcp_msg_base(dhcp_client_info_t *dhcp, uint16_t flag, Buffer_Struct *out);
+void ip4_dhcp_msg_add_bytes_option(uint8_t id, uint8_t *data, uint8_t len, Buffer_Struct *out);
+void ip4_dhcp_msg_add_ip_option(uint8_t id, uint32_t ip, Buffer_Struct *out);
+void ip4_dhcp_msg_add_integer_option(uint8_t id, uint8_t len, uint32_t value, Buffer_Struct *out);
+void make_ip4_dhcp_discover_msg(dhcp_client_info_t *dhcp, Buffer_Struct *out);
+void make_ip4_dhcp_select_msg(dhcp_client_info_t *dhcp, uint16_t flag, Buffer_Struct *out);
+void make_ip4_dhcp_decline_msg(dhcp_client_info_t *dhcp, Buffer_Struct *out);
+int analyze_ip4_dhcp(dhcp_client_info_t *dhcp, Buffer_Struct *in);
+int ip4_dhcp_run(dhcp_client_info_t *dhcp, Buffer_Struct *in, Buffer_Struct *out, uint32_t *remote_ip);
 #ifdef __cplusplus
 }
 #endif
 
+#endif
 #endif

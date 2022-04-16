@@ -10,7 +10,6 @@ log.info("lcd.init",
 lcd.init("st7789",{port = "device",pin_dc = 6, pin_rst = 10,direction = 0,w = 240,h = 240,xoffset = 0,yoffset = 0},spi_lcd))
 
 log.info("lvgl", lvgl.init())
-lvgl.disp_set_bg_color(nil, 0xFFFFFF)
 local scr = lvgl.obj_create(nil, nil)
 local btn = lvgl.btn_create(scr)
 lvgl.obj_align(btn, lvgl.scr_act(), lvgl.ALIGN_CENTER, 0, 0)

@@ -13,6 +13,11 @@ luat_color_t BACK_COLOR = WHITE, FORE_COLOR = BLACK;
 #define LUAT_LCD_CONF_COUNT (1)
 static luat_lcd_conf_t* confs[LUAT_LCD_CONF_COUNT] = {0};
 
+static luat_color_t color_swap(luat_color_t color) {
+    luat_color_t tmp = (color >> 8) + ((color & 0xFF) << 8);
+    return tmp;
+}
+
 void luat_lcd_execute_cmds(luat_lcd_conf_t* conf, uint32_t* cmds, uint32_t count) {
     uint32_t cmd = 0;
     for (size_t i = 0; i < count; i++)
@@ -179,17 +184,30 @@ int luat_lcd_flush(luat_lcd_conf_t* conf) {
     if (conf->buff == NULL) {
         return 0;
     }
-    uint32_t size = conf->w * conf->h * 2;
-    luat_lcd_set_address(conf, 0, 0, conf->w, conf->h);
+    //LLOGD("luat_lcd_flush range %d %d", conf->flush_y_min, conf->flush_y_max);
+    if (conf->flush_y_max < conf->flush_y_min) {
+        // 没有需要刷新的内容,直接跳过
+        //LLOGD("luat_lcd_flush no need");
+        return 0;
+    }
+    uint32_t size = conf->w * (conf->flush_y_max - conf->flush_y_min + 1) * 2;
+    luat_lcd_set_address(conf, 0, conf->flush_y_min, conf->w, conf->flush_y_max);
+    const char* tmp = (const char*)(conf->buff + conf->flush_y_min * conf->w);
 	if (conf->port == LUAT_LCD_SPI_DEVICE){
-		luat_spi_device_send((luat_spi_device_t*)(conf->lcd_spi_device), (const char*)conf->buff, size);
+		luat_spi_device_send((luat_spi_device_t*)(conf->lcd_spi_device), tmp, size);
 	}else{
-		luat_spi_send(conf->port, (const char*)conf->buff, size);
+		luat_spi_send(conf->port, tmp, size);
 	}
+
+    // 重置为不需要刷新的状态
+    conf->flush_y_max = 0;
+    conf->flush_y_min = conf->h;
+    
     return 0;
 }
 
 int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, luat_color_t* color) {
+    // 直接刷屏模式
     if (conf->buff == NULL) {
         uint32_t size = (x2 - x1 + 1) * (y2 - y1 + 1) * 2;
         luat_lcd_set_address(conf, x1, y1, x2, y2);
@@ -198,25 +216,36 @@ int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, 
 	    }else{
 		    luat_spi_send(conf->port, (const char*)color, size);
 	    }
+        return 0;
     }
-    else {
-        if (x1 > conf->w || x2 > conf->w || y1 > conf->h || y2 > conf->h) {
-            LLOGW("out of lcd range");
-            return -1;
-        }
-        char* src = (char*)(conf->buff + x1);
-        char* dst = (char*)(color);
-        size_t lsize = (x2 - x1 + 1);
-        for (size_t i = 0; i < (y2 - y1 + 1); i++)
-        {
-            memcpy(src, dst, lsize * sizeof(luat_color_t));
-            dst += conf->w * sizeof(luat_color_t);  // 移动到下一行
-            src += lsize * sizeof(luat_color_t);    // 移动数据
-        }
+    // buff模式
+    if (x1 > conf->w || x2 > conf->w || y1 > conf->h || y2 > conf->h) {
+        LLOGW("out of lcd range");
+        return -1;
     }
+    char* dst = (char*)(conf->buff + x1+ conf->w * y1);
+    char* src = (char*)(color);
+    size_t lsize = (x2 - x1 + 1);
+    for (size_t i = 0; i < (y2 - y1 + 1); i++) {
+        memcpy(dst, src, lsize * sizeof(luat_color_t));
+        dst += conf->w * sizeof(luat_color_t);  // 移动到下一行
+        src += lsize * sizeof(luat_color_t);    // 移动数据
+    }
+
+    // 存储需要刷新的区域
+    if (y1 < conf->flush_y_min)
+        conf->flush_y_min = y1;
+    if (y2 > conf->flush_y_max)
+        conf->flush_y_max = y2;
     return 0;
 }
 #endif
+
+int luat_lcd_draw_point(luat_lcd_conf_t* conf, uint16_t x, uint16_t y, luat_color_t color) {
+    // 注意, 这里需要把颜色swap了
+    uint16_t tmp = color_swap(color);
+    return luat_lcd_draw(conf, x, y, x, y, &tmp);
+}
 
 int luat_lcd_clear(luat_lcd_conf_t* conf, luat_color_t color){
     luat_lcd_draw_fill(conf, 0, 0, conf->w, conf->h, color);
@@ -232,16 +261,14 @@ int luat_lcd_draw_fill(luat_lcd_conf_t* conf,uint16_t x1,uint16_t y1,uint16_t x2
     return 0;			  	    
 }
 
-int luat_lcd_draw_point(luat_lcd_conf_t* conf, uint16_t x, uint16_t y, luat_color_t color) {
-    return luat_lcd_draw(conf, x, y, x, y, &color);
-}
-
 int luat_lcd_draw_vline(luat_lcd_conf_t* conf, uint16_t x, uint16_t y,uint16_t h, luat_color_t color) {
-    return luat_lcd_draw_line(conf, x, y, x, y + h, color);
+    if (h==0) return 0;
+    return luat_lcd_draw_line(conf, x, y, x, y + h - 1, color);
 }
 
 int luat_lcd_draw_hline(luat_lcd_conf_t* conf, uint16_t x, uint16_t y,uint16_t w, luat_color_t color) {
-    return luat_lcd_draw_line(conf, x, y, x+w, y, color);
+    if (w==0) return 0;
+    return luat_lcd_draw_line(conf, x, y, x + w - 1, y, color);
 }
 
 int luat_lcd_draw_line(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2,luat_color_t color) {
@@ -253,10 +280,12 @@ int luat_lcd_draw_line(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t 
     {
         size_t dots = (x2 - x1 + 1) * (y2 - y1 + 1);//点数量
         luat_color_t* line_buf = (luat_color_t*) luat_heap_malloc(dots * sizeof(luat_color_t));
+        // 颜色swap
+        luat_color_t tmp = color_swap(color);
         if (line_buf) {
             for (i = 0; i < dots; i++)
             {
-                line_buf[i] = color;
+                line_buf[i] = tmp;
             }
             luat_lcd_draw(conf, x1, y1, x2, y2, line_buf);
             luat_heap_free(line_buf);
@@ -341,26 +370,3 @@ int luat_lcd_draw_circle(luat_lcd_conf_t* conf,uint16_t x0, uint16_t y0, uint8_t
     return 0;
 }
 
-int luat_lcd_show_image(luat_lcd_conf_t* conf,uint16_t x, uint16_t y, uint16_t length, uint16_t wide, const luat_color_t *image,uint8_t swap){
-    if (x + length > conf->w || y + wide > conf->h){
-        return -1;
-    }
-    if (swap)
-    {
-        uint32_t size = length * wide;
-        luat_lcd_set_address(conf, x, y, x + length - 1, y + wide - 1);
-        for (size_t i = 0; i < size; i++){
-            char color[2] = {0};
-            color[0] = *(image+i) >> 8;
-            color[1] = *(image+i);
-            if (conf->port == LUAT_LCD_SPI_DEVICE){
-            luat_spi_device_send((luat_spi_device_t*)(conf->lcd_spi_device), (const char*)color, 2);
-            }else{
-                luat_spi_send(conf->port, (const char*)color, 2);
-            }
-        }
-    }else{
-        luat_lcd_draw(conf, x, y, x + length - 1, y + wide - 1, image);
-    }
-    return 0;
-}

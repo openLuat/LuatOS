@@ -38,22 +38,22 @@ u8g2.ClearBuffer()
 u8g2.SetFont(u8g2.font_opposansm8)
 u8g2.DrawUTF8("U8g2+LuatOS", 32, 22)
 u8g2.SetFont(u8g2.font_opposansm12_chinese)
-u8g2.DrawUTF8("中文测试", 40, 38)
+u8g2.DrawUTF8("中文测试", 40, 38) -- 若中文不显示或乱码,代表所刷固件不带这个字号的字体数据, 可自行云编译一份. wiki.luatos.com 有文档.
 u8g2.SendBuffer()
 
--- 联网主流程
+--主流程
 sys.taskInit(function()
-    sys.wait(2000)
+    sys.wait(1000)
     u8g2.ClearBuffer()
     u8g2.SetFont(u8g2.font_opposansm12_chinese)
-    u8g2.DrawUTF8("屏幕宽度", 20, 24)
-    u8g2.DrawUTF8("屏幕高度", 20, 42)
+    u8g2.DrawUTF8("屏幕宽度", 0, 24)
+    u8g2.DrawUTF8("屏幕高度", 0, 42)
     u8g2.SetFont(u8g2.font_opposansm8)
-    u8g2.DrawUTF8(":"..u8g2.GetDisplayWidth(), 72, 24)
-    u8g2.DrawUTF8(":"..u8g2.GetDisplayHeight(), 72, 42)
+    u8g2.DrawUTF8(":"..u8g2.GetDisplayWidth(), 80, 24)
+    u8g2.DrawUTF8(":"..u8g2.GetDisplayHeight(), 80, 42)
     u8g2.SendBuffer()
 
-    sys.wait(2000)
+    sys.wait(1000)
     u8g2.ClearBuffer()
     u8g2.SetFont(u8g2.font_opposansm12_chinese)
     u8g2.DrawUTF8("画线测试：", 30, 24)
@@ -61,6 +61,7 @@ sys.taskInit(function()
         u8g2.DrawLine(0,40,i,40)
         u8g2.DrawLine(0,60,i,60)
         u8g2.SendBuffer()
+        sys.wait(100)
     end
 
     sys.wait(1000)
@@ -69,6 +70,7 @@ sys.taskInit(function()
     u8g2.DrawUTF8("画圆测试：", 30, 24)
     u8g2.DrawCircle(30,50,10,15)
     u8g2.DrawDisc(90,50,10,15)
+    log.info("main", "SendBuffer6")
     u8g2.SendBuffer()
 
     sys.wait(1000)
@@ -77,6 +79,7 @@ sys.taskInit(function()
     u8g2.DrawUTF8("椭圆测试：", 30, 24)
     u8g2.DrawEllipse(30,50,6,10,15)
     u8g2.DrawFilledEllipse(90,50,6,10,15)
+    log.info("main", "SendBuffer5")
     u8g2.SendBuffer()
 
     sys.wait(1000)
@@ -85,6 +88,7 @@ sys.taskInit(function()
     u8g2.DrawUTF8("方框测试：", 30, 24)
     u8g2.DrawBox(30,40,30,24)
     u8g2.DrawFrame(90,40,30,24)
+    log.info("main", "SendBuffer4")
     u8g2.SendBuffer()
 
     sys.wait(1000)
@@ -93,6 +97,7 @@ sys.taskInit(function()
     u8g2.DrawUTF8("圆角方框：", 30, 24)
     u8g2.DrawRBox(30,40,30,24,8)
     u8g2.DrawRFrame(90,40,30,24,8)
+    log.info("main", "SendBuffer3")
     u8g2.SendBuffer()
 
     sys.wait(1000)
@@ -102,6 +107,7 @@ sys.taskInit(function()
     u8g2.DrawUTF8("显示雪人", 30, 38)
     u8g2.SetFont(u8g2.font_unifont_t_symbols)
     u8g2.DrawGlyph( 50, 60, 0x2603 )
+    log.info("main", "SendBuffer2")
     u8g2.SendBuffer()
 
     sys.wait(1000)
@@ -109,13 +115,19 @@ sys.taskInit(function()
     u8g2.SetFont(u8g2.font_opposansm12_chinese)
     u8g2.DrawUTF8("三角测试：", 30, 24)
     u8g2.DrawTriangle(30,60, 60,30, 90,60)
+    log.info("main", "SendBuffer1")
     u8g2.SendBuffer()
 
-    sys.wait(3000)
-    u8g2.close()
-    while true do
-        sys.wait(1000)
-    end
+
+    -- qrcode测试
+    sys.wait(1000)
+    u8g2.ClearBuffer()
+    u8g2.DrawDrcode(4, 4, "https://wiki.luatos.com/chips/air101/mcu.html", 10);
+    log.info("main", "SendBuffer0")
+    u8g2.SendBuffer()
+
+    --sys.wait(1000)
+    log.info("main", "u8g2 demo done")
 end)
 
 -- 主循环, 必须加

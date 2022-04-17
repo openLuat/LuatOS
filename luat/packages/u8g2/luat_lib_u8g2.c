@@ -22,8 +22,8 @@
 #define LUAT_LOG_TAG "u8g2"
 #include "luat_log.h"
 
-static u8g2_t* u8g2;
-static int u8g2_lua_ref;
+static u8g2_t* u8g2 = NULL;
+static int u8g2_lua_ref = 0;
 static uint8_t i2c_id;
 static uint8_t i2c_speed;
 static uint8_t i2c_scl;
@@ -839,8 +839,9 @@ static const rotable_Reg_t reg_u8g2[] =
 };
 
 LUAMOD_API int luaopen_u8g2( lua_State *L ) {
-    u8g2_lua_ref = 0;
-    u8g2 = NULL;
+    lua_getglobal(L, "disp"); // disp库已经加载过u8g2库, 那就直接重用
+    if (lua_isuserdata(L, -1))
+        return 1;
     luat_newlib2(L, reg_u8g2);
     return 1;
 }

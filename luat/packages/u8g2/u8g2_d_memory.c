@@ -4,7 +4,7 @@
 #include "u8g2.h"
 
 #ifdef U8G2_USE_ONE_STATIC_BUFF
-static uint8_t buf[1024];
+static uint8_t buf[1024 * 2];
 #endif // U8G2_USE_ONE_STATIC_BUFF
 
 uint8_t *u8g2_m_16_4_1(uint8_t *page_cnt)

@@ -5,6 +5,8 @@
 @date    2022.04.11
 */
 #include "luat_base.h"
+#ifdef LUAT_USE_NETWORK
+#include "luat_network_adapter.h"
 #include "luat_rtos.h"
 #include "luat_zbuff.h"
 #define LUAT_LOG_TAG "net_adapter"
@@ -13,9 +15,16 @@
 #include "rotable2.h"
 static const rotable_Reg_t reg_network_adapter[] =
 {
-    { "ETH0",           ROREG_INT(0)},
-	{ "ETH1",           ROREG_INT(1)},
-	{ "AP",     		ROREG_INT(2)},
-	{ "STA",          	ROREG_INT(3)},
+    { "ETH0",           ROREG_INT(NW_ADAPTER_ETH0)},
+	{ "ETH1",           ROREG_INT(NW_ADAPTER_ETH1)},
+	{ "STA",          	ROREG_INT(NW_ADAPTER_STA)},
+	{ "AP",     		ROREG_INT(NW_ADAPTER_AP)},
+
 	{ NULL,            {}}
 };
+
+LUAMOD_API int luaopen_network_adapter( lua_State *L ) {
+    luat_newlib2(L, reg_network_adapter);
+    return 1;
+}
+#endif

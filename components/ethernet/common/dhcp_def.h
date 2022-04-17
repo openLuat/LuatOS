@@ -36,7 +36,7 @@ typedef struct
 	uint32_t gateway;
 	uint32_t ip;	//当前的动态IP
 	uint32_t xid;
-
+	uint32_t lease_time;
 	char name[32];
 	uint8_t mac[6];
 	uint8_t state;
@@ -65,7 +65,7 @@ enum {
   DHCP_STATE_SELECT,
   DHCP_STATE_WAIT_SELECT_ACK,
   DHCP_STATE_REQUIRE,
-  DHCP_STATE_WAIT_REQUIRE_ACK,
+//  DHCP_STATE_WAIT_REQUIRE_ACK,
   DHCP_STATE_DECLINE,
   DHCP_STATE_CHECK,
 };

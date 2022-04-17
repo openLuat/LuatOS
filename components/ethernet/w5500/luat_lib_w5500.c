@@ -7,6 +7,7 @@
 
 #include "luat_base.h"
 #ifdef LUAT_USE_W5500
+#include "luat_network_adapter.h"
 #include "luat_rtos.h"
 #include "luat_zbuff.h"
 #include "luat_spi.h"
@@ -45,13 +46,14 @@ static int l_w5500_init(lua_State *L){
 
 /*
 w5500配置网络信息
-@api w5500.config(ip, submask, gateway, mac, RTR, RCR)
+@api w5500.config(ip, submask, gateway, mac, RTR, RCR, speed)
 @string 静态ip地址，如果需要用DHCP获取，请写nil
 @string 子网掩码，如果使用动态ip，则忽略
 @string 网关，如果使用动态ip，则忽略
 @string MAC，写nil则通过MCU唯一码自动生成，如果要写，长度必须是6byte
 @int 重试间隔时间，默认2000，单位100us，不懂的不要改
 @int 最大重试次数，默认8，不懂的不要改
+@int 速度类型，目前只有0硬件配置，1自适应，默认为0
 @usage
 w5500.config("192.168.1.2", "255.255.255.0", "192.168.1.1", string.fromHex("102a3b4c5d6e"))
 */
@@ -62,18 +64,7 @@ static int l_w5500_config(lua_State *L){
 		LLOGD("device no ready");
 		return 1;
 	}
-	uint32_t RTR = luaL_optinteger(L, 5, 2000);
-	uint32_t RCR = luaL_optinteger(L, 6, 8);
-	w5500_request(W5500_CMD_SET_TO_PARAM, RTR, RCR, 0);
-	if (lua_isstring(L, 4))
-	{
-		size_t mac_len = 0;
-		const char *mac = luaL_checklstring(L, 4, &mac_len);
-		uint32_t mac1;
-		uint16_t mac2;
-		w5500_array_to_mac(mac, &mac1, &mac2);
-		w5500_request(W5500_CMD_SET_MAC, mac1, mac2, 0);
-	}
+
 	if (lua_isstring(L, 1))
 	{
 	    size_t ip_len = 0;
@@ -82,15 +73,40 @@ static int l_w5500_config(lua_State *L){
 	    const char* mask = luaL_checklstring(L, 2, &mask_len);
 	    size_t gateway_len = 0;
 	    const char* gateway = luaL_checklstring(L, 3, &gateway_len);
-	    w5500_request(W5500_CMD_SET_IP, w5500_string_to_ip(ip, ip_len), w5500_string_to_ip(mask, mask_len), w5500_string_to_ip(gateway, gateway_len));
+	    w5500_set_static_ip(w5500_string_to_ip(ip, ip_len), w5500_string_to_ip(mask, mask_len), w5500_string_to_ip(gateway, gateway_len));
 	}
 	else
 	{
-		w5500_request(W5500_CMD_SET_IP, 0, 0, 0);
+		w5500_set_static_ip(0, 0, 0);
 	}
+
+	if (lua_isstring(L, 4))
+	{
+		size_t mac_len = 0;
+		const char *mac = luaL_checklstring(L, 4, &mac_len);
+		w5500_set_mac(mac);
+	}
+
+	w5500_set_param(luaL_optinteger(L, 5, 2000), luaL_optinteger(L, 6, 8), luaL_optinteger(L, 7, 0), 0);
+
+
 	w5500_request(W5500_CMD_RE_INIT, 0, 0, 0);
 	lua_pushboolean(L, 1);
 	return 1;
+}
+
+/*
+将w5500注册进通用网络接口
+@api w5500.nw_reg(network.xxx)
+@int 通用网络通道号
+@usage
+w5500.nw_reg(network.ETH0)
+*/
+static int l_w5500_network_register(lua_State *L){
+
+	int index = luaL_checkinteger(L, 1);
+	w5500_register_adapter(index);
+	return 0;
 }
 
 #include "rotable2.h"
@@ -98,6 +114,7 @@ static const rotable_Reg_t reg_w5500[] =
 {
     { "init",           ROREG_FUNC(l_w5500_init)},
 	{ "config",           ROREG_FUNC(l_w5500_config)},
+	{ "nw_reg",           ROREG_FUNC(l_w5500_network_register)},
 	{ NULL,            {}}
 };
 

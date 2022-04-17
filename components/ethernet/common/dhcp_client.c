@@ -170,7 +170,8 @@ __CHECK:
 		case DHCP_OPTION_LEASE_TIME:
 			if (DHCP_ACK == ack)
 			{
-				lease_time = BytesGetBe32(&in->Data[in->Pos + 2]);
+				dhcp->lease_time = BytesGetBe32(&in->Data[in->Pos + 2]);
+				lease_time = dhcp->lease_time;
 				lease_time *= 1000;
 				dhcp->lease_end_time = GetSysTickMS() + lease_time;
 				dhcp->lease_p1_time = dhcp->lease_end_time - (lease_time >> 1);
@@ -279,29 +280,28 @@ int ip4_dhcp_run(dhcp_client_info_t *dhcp, Buffer_Struct *in, Buffer_Struct *out
 			goto DHCP_NEED_REQUIRE;
 		}
 		break;
-	case DHCP_STATE_WAIT_REQUIRE_ACK:
-		if (in && (result == DHCP_ACK))
-		{
-			DBG("require ip ok");
-			dhcp->state = DHCP_STATE_WAIT_LEASE_P1;
-			break;
-		}
-		if (GetSysTickMS() >= (dhcp->last_tx_time + 2500))
-		{
-			DBG("require ip long time no ack");
-			OS_ReInitBuffer(out, 512);
-			make_ip4_dhcp_discover_msg(dhcp, out);
-			dhcp->last_tx_time = GetSysTickMS();
-			dhcp->discover_cnt = 0;
-			dhcp->state = DHCP_STATE_WAIT_OFFER;
-		}
-		break;
+//	case DHCP_STATE_WAIT_REQUIRE_ACK:
+//		if (in && (result == DHCP_ACK))
+//		{
+//			DBG("require ip ok");
+//			dhcp->state = DHCP_STATE_WAIT_LEASE_P1;
+//			break;
+//		}
+//		if (GetSysTickMS() >= (dhcp->last_tx_time + 2500))
+//		{
+//			DBG("require ip long time no ack");
+//			OS_ReInitBuffer(out, 512);
+//			make_ip4_dhcp_discover_msg(dhcp, out);
+//			dhcp->last_tx_time = GetSysTickMS();
+//			dhcp->discover_cnt = 0;
+//			dhcp->state = DHCP_STATE_WAIT_OFFER;
+//		}
+//		break;
 	case DHCP_STATE_DISCOVER:
 
 		OS_ReInitBuffer(out, 512);
 		make_ip4_dhcp_discover_msg(dhcp, out);
 		dhcp->last_tx_time = GetSysTickMS();
-		dhcp->discover_cnt = 0;
 		dhcp->state = DHCP_STATE_WAIT_OFFER;
 		break;
 	case DHCP_STATE_WAIT_OFFER:
@@ -310,9 +310,9 @@ int ip4_dhcp_run(dhcp_client_info_t *dhcp, Buffer_Struct *in, Buffer_Struct *out
 			dhcp->state = DHCP_STATE_WAIT_SELECT_ACK;
 			goto DHCP_NEED_REQUIRE;
 		}
-		if (GetSysTickMS() >= (dhcp->last_tx_time + 2500))
+		if (GetSysTickMS() >= (dhcp->last_tx_time + (dhcp->discover_cnt * 500) + 900))
 		{
-			DBG("long time no offer");
+			DBG("long time no offer, resend");
 			dhcp->discover_cnt++;
 			OS_ReInitBuffer(out, 512);
 			make_ip4_dhcp_discover_msg(dhcp, out);
@@ -327,7 +327,7 @@ int ip4_dhcp_run(dhcp_client_info_t *dhcp, Buffer_Struct *in, Buffer_Struct *out
 			dhcp->state = DHCP_STATE_CHECK;
 			break;
 		}
-		if (GetSysTickMS() >= (dhcp->last_tx_time + 2500))
+		if (GetSysTickMS() >= (dhcp->last_tx_time + (dhcp->discover_cnt * 500) + 1100))
 		{
 			DBG("select ip long time no ack");
 			OS_ReInitBuffer(out, 512);

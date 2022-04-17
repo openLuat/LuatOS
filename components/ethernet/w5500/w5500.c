@@ -4,6 +4,7 @@
 #include "luat_zbuff.h"
 #include "luat_spi.h"
 #include "luat_gpio.h"
+#include "luat_network_adapter.h"
 #include "bsp_common.h"
 #include "w5500_def.h"
 #include "dhcp_def.h"
@@ -11,6 +12,7 @@
 extern void DBG_Printf(const char* format, ...);
 extern void DBG_HexPrintf(void *Data, unsigned int len);
 #define DBG(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
+#define DBG_ERR(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
 
 #define socket_index(n)	(n << 5)
 #define common_reg	(0)
@@ -144,9 +146,6 @@ enum
 	EV_W5500_SOCKET_LISTEN,
 	EV_W5500_SOCKET_ACCEPT,
 	EV_W5500_SOCKET_DNS,
-	EV_W5500_SET_IP,
-	EV_W5500_SET_MAC,
-	EV_W5500_SET_TO_PARAM,
 	EV_W5500_RE_INIT,
 	EV_W5500_REG_OP,
 
@@ -161,34 +160,40 @@ enum
 typedef struct
 {
 	dhcp_client_info_t dhcp_client;
+	uint64_t last_tx_time;
 	CBFuncEx_t socket_cb;
 	void *user_data;
 	void *task_handle;
 	uint32_t static_ip; //大端格式存放
 	uint32_t static_submask; //大端格式存放
 	uint32_t static_gateway; //大端格式存放
-	uint32_t mac1;
-	uint16_t mac2;
+
 	uint16_t RTR;
 	uint8_t RCR;
+	uint8_t force_arp;
+	uint8_t auto_speed;
 	uint8_t spi_id;
 	uint8_t cs_pin;
 	uint8_t rst_pin;
 	uint8_t irq_pin;
 	uint8_t link_pin;
+	uint8_t speed_status;
 	uint8_t link_ready;
 	uint8_t ip_ready;
 	uint8_t network_ready;
 	uint8_t inter_error;
 	uint8_t device_on;
+	uint8_t last_udp_send_ok;
 	uint8_t rx_buf[2048 + 8];
 	uint8_t socket_state[MAX_SOCK_NUM];
+	uint8_t mac[6];
 }w5500_ctrl_t;
 
 static w5500_ctrl_t *prv_w5500_ctrl;
 
 static void w5500_ip_state(w5500_ctrl_t *w5500, uint8_t check_state);
 static void w5500_check_dhcp(w5500_ctrl_t *w5500);
+static void w5500_init_reg(w5500_ctrl_t *w5500);
 
 static int32_t w5500_irq(int pin, void *args)
 {
@@ -242,8 +247,9 @@ static uint8_t w5500_socket_state(w5500_ctrl_t *w5500, uint8_t socket_id)
 	}while(temp[W5500_SOCKET_CR] && (retry < 10));
 	if (retry >= 10)
 	{
-		DBG("!");
-		w5500->inter_error = 1;
+		w5500->inter_error++;
+		DBG_ERR("check too much times, error %d", w5500->inter_error);
+
 	}
 	return temp[W5500_SOCKET_SR];
 }
@@ -297,7 +303,7 @@ static int w5500_socket_config(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t i
 	if (!w5500->device_on) return -1;
 	if (SOCK_CLOSED != temp)
 	{
-		DBG("socket %d not closed state %x", socket_id, temp);
+		DBG_ERR("socket %d not closed state %x", socket_id, temp);
 		return -1;
 	}
 	uint8_t cmd[32];
@@ -316,7 +322,7 @@ static int w5500_socket_config(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t i
 		wtemp = BytesGetBe16(&cmd[W5500_SOCKET_SOURCE_PORT0]);
 		if (wtemp != local_port)
 		{
-			DBG("error port %u %u", wtemp, local_port);
+			DBG_ERR("error port %u %u", wtemp, local_port);
 		}
 		else
 		{
@@ -336,7 +342,8 @@ W5500_SOCKET_CONFIG_START:
 	}while((temp != SOCK_INIT) && (temp != SOCK_UDP) && (delay_cnt < 100));
 	if (delay_cnt >= 100)
 	{
-		DBG("socket %d config timeout", socket_id);
+		w5500->inter_error++;
+		DBG_ERR("socket %d config timeout, error %d", socket_id, w5500->inter_error);
 		return -1;
 	}
 
@@ -423,6 +430,8 @@ static int w5500_socket_tx(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t *data
 	{
 		len = tx_free;
 	}
+	DBG("%d,0x%04x,%u", socket_id, tx_point, len);
+	w5500->last_tx_time = GetSysTickMS();
 	w5500_xfer(w5500, tx_point, socket_index(socket_id)|socket_tx|is_write, data, len);
 	tx_point += len;
 	BytesPutBe16(point, tx_point);
@@ -450,7 +459,7 @@ static int w5500_socket_rx(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t *data
 
 	rx_size = BytesGetBe16(point);
 	rx_point = BytesGetBe16(point + 2);
-//	DBG("%x,%u", rx_point, rx_size);
+	DBG("%d,0x%04x,%u", socket_id, rx_point, rx_size);
 	if (!rx_size) return 0;
 	if (rx_size < len)
 	{
@@ -495,7 +504,9 @@ static void w5500_check_dhcp(w5500_ctrl_t *w5500)
 	{
 		w5500->dhcp_client.state = DHCP_STATE_WAIT_LEASE_P1;
 		uint8_t temp[24];
+		PV_Union uIP;
 		memset(temp, 0, sizeof(temp));
+		temp[0] = w5500->force_arp?MR_UDP_FARP:0;
 		BytesPutLe32(&temp[W5500_COMMON_GAR0], w5500->dhcp_client.gateway);
 		BytesPutLe32(&temp[W5500_COMMON_SUBR0], w5500->dhcp_client.submask);
 		BytesPutLe32(&temp[W5500_COMMON_IP0], w5500->dhcp_client.ip);
@@ -503,13 +514,21 @@ static void w5500_check_dhcp(w5500_ctrl_t *w5500)
 		w5500_xfer(w5500, W5500_COMMON_MR, is_write, temp, W5500_COMMON_INTLEVEL0);
 		w5500->dhcp_client.discover_cnt = 0;
 		w5500_ip_state(w5500, 1);
+		uIP.u32 = w5500->dhcp_client.ip;
+		DBG("动态IP:%d.%d.%d.%d", uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
+		uIP.u32 = w5500->dhcp_client.submask;
+		DBG("子网掩码:%d.%d.%d.%d", uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
+		uIP.u32 = w5500->dhcp_client.gateway;
+		DBG("网关:%d.%d.%d.%d", uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
+		DBG("租约时间:%u秒", w5500->dhcp_client.lease_time);
 	}
-	if (w5500->dhcp_client.discover_cnt > 5)
+	if ((!w5500->last_udp_send_ok && w5500->dhcp_client.discover_cnt >= 1) || (w5500->last_udp_send_ok && w5500->dhcp_client.discover_cnt >= 3))
 	{
 		DBG("dhcp long time not get ip, reboot w5500");
 		memset(&w5500->dhcp_client, 0, sizeof(w5500->dhcp_client));
 		luat_send_event_to_task(w5500->task_handle, EV_W5500_RE_INIT, 0, 0, 0);
 	}
+
 
 }
 
@@ -522,19 +541,37 @@ static void w5500_link_state(w5500_ctrl_t *w5500, uint8_t check_state)
 	{
 		DBG("link %d -> %d", w5500->link_ready, check_state);
 		w5500->link_ready = check_state;
-		if (w5500->link_ready && !w5500->static_ip)
+
+		if (w5500->link_ready)
 		{
-			w5500_ip_state(w5500, 0);
-			w5500->dhcp_client.state = w5500->dhcp_client.ip?DHCP_STATE_REQUIRE:DHCP_STATE_DISCOVER;
-			result = ip4_dhcp_run(&w5500->dhcp_client, NULL, &tx_msg_buf, &remote_ip);
-			if (tx_msg_buf.Pos)
+			if (!w5500->static_ip)
 			{
-				w5500_socket_connect(w5500, SYS_SOCK_ID, 0, remote_ip, DHCP_SERVER_PORT);
-				w5500_socket_tx(w5500, SYS_SOCK_ID, tx_msg_buf.Data, tx_msg_buf.Pos);
+				w5500_ip_state(w5500, 0);
+				w5500->dhcp_client.state = w5500->dhcp_client.ip?DHCP_STATE_REQUIRE:DHCP_STATE_DISCOVER;
+				uint8_t temp[1];
+				temp[0] = MR_UDP_FARP;
+				w5500_xfer(w5500, W5500_COMMON_MR, is_write, temp, 1);
+				result = ip4_dhcp_run(&w5500->dhcp_client, NULL, &tx_msg_buf, &remote_ip);
+				w5500_check_dhcp(w5500);
+				if (tx_msg_buf.Pos)
+				{
+					w5500_socket_connect(w5500, SYS_SOCK_ID, 0, remote_ip, DHCP_SERVER_PORT);
+					w5500_socket_tx(w5500, SYS_SOCK_ID, tx_msg_buf.Data, tx_msg_buf.Pos);
+					w5500->last_udp_send_ok = 0;
+				}
+				OS_DeInitBuffer(&tx_msg_buf);
 			}
-			OS_DeInitBuffer(&tx_msg_buf);
-			w5500_check_dhcp(w5500);
 		}
+		else
+		{
+			if (GetSysTickMS() < (w5500->last_tx_time + 1500))
+			{
+				w5500->inter_error++;
+				DBG_ERR("link down too fast, error %u", w5500->inter_error);
+			}
+		}
+
+
 		w5500_nw_state(w5500);
 	}
 }
@@ -551,14 +588,11 @@ static void w5500_ip_state(w5500_ctrl_t *w5500, uint8_t check_state)
 
 static void w5500_init_reg(w5500_ctrl_t *w5500)
 {
-
 	uint8_t temp[64];
-	uint8_t *uid;
-	size_t t;
 	luat_gpio_set(w5500->rst_pin, 0);
-	luat_timer_mdelay(1);
+	luat_timer_mdelay(5);
 	luat_gpio_set(w5500->rst_pin, 1);
-	luat_timer_mdelay(1);
+	luat_timer_mdelay(10);
 	w5500->ip_ready = 0;
 	w5500->network_ready = 0;
 	if (w5500->static_ip)
@@ -567,13 +601,20 @@ static void w5500_init_reg(w5500_ctrl_t *w5500)
 	}
 	else
 	{
-		if ((w5500->dhcp_client.state == DHCP_STATE_NOT_WORK) || !w5500->dhcp_client.ip)
+		if (w5500->auto_speed)
 		{
 			w5500->dhcp_client.state = DHCP_STATE_DISCOVER;
 		}
 		else
 		{
-			w5500->dhcp_client.state = DHCP_STATE_REQUIRE;
+			if ((w5500->dhcp_client.state == DHCP_STATE_NOT_WORK) || !w5500->dhcp_client.ip)
+			{
+				w5500->dhcp_client.state = DHCP_STATE_DISCOVER;
+			}
+			else
+			{
+				w5500->dhcp_client.state = DHCP_STATE_REQUIRE;
+			}
 		}
 	}
 	w5500_callback_to_nw_task(w5500, 0, 0, 0, 0);
@@ -585,7 +626,7 @@ static void w5500_init_reg(w5500_ctrl_t *w5500)
 	w5500->device_on = (0x04 == temp[W5500_COMMON_VERSIONR])?1:0;
 	w5500_link_state(w5500, w5500->device_on?(temp[W5500_COMMON_PHY] & 0x01):0);
 
-	temp[W5500_COMMON_MR] = 0;
+	temp[W5500_COMMON_MR] = w5500->force_arp?MR_UDP_FARP:0;
 	if (w5500->static_ip)
 	{
 		BytesPutLe32(&temp[W5500_COMMON_GAR0], w5500->static_gateway);	//已经是大端格式了不需要转换
@@ -598,17 +639,16 @@ static void w5500_init_reg(w5500_ctrl_t *w5500)
 		BytesPutLe32(&temp[W5500_COMMON_SUBR0], w5500->dhcp_client.submask);
 		BytesPutLe32(&temp[W5500_COMMON_IP0], w5500->dhcp_client.ip);
 	}
-
-	if (w5500->mac1 || w5500->mac2)
-	{
-		BytesPutBe32(&temp[W5500_COMMON_MAC0], w5500->mac1);
-		BytesPutBe16(&temp[W5500_COMMON_MAC0 + 4], w5500->mac2);
-	}
 	else
 	{
-		uid = luat_mcu_unique_id(&t);
-		memcpy(&temp[W5500_COMMON_MAC0], &uid[10], 6);
+		BytesPutLe32(&temp[W5500_COMMON_GAR0], 0);
+		BytesPutLe32(&temp[W5500_COMMON_SUBR0], 0);
+		BytesPutLe32(&temp[W5500_COMMON_IP0], 0);
 	}
+
+
+	memcpy(&temp[W5500_COMMON_MAC0], w5500->mac, 6);
+
 	memcpy(w5500->dhcp_client.mac, &temp[W5500_COMMON_MAC0], 6);
 	sprintf_(w5500->dhcp_client.name, "airm2m-%02x%02x%02x%02x%02x%02x",
 			w5500->dhcp_client.mac[0],w5500->dhcp_client.mac[1], w5500->dhcp_client.mac[2],
@@ -618,7 +658,6 @@ static void w5500_init_reg(w5500_ctrl_t *w5500)
 	BytesPutBe16(&temp[W5500_COMMON_SOCKET_RTR0], w5500->RTR);
 	temp[W5500_COMMON_IMR] = IR_CONFLICT|IR_UNREACH|IR_MAGIC;
 	temp[W5500_COMMON_SOCKET_IMR] = 0xff;
-	temp[W5500_COMMON_PHY] = 0xf8;
 	temp[W5500_COMMON_SOCKET_RCR] = w5500->RCR;
 //	DBG_HexPrintf(temp, W5500_COMMON_QTY);
 	w5500_xfer(w5500, W5500_COMMON_MR, is_write, temp, W5500_COMMON_QTY);
@@ -646,6 +685,15 @@ static void w5500_init_reg(w5500_ctrl_t *w5500)
 	memset(w5500->socket_state, W5500_SOCKET_OFFLINE, MAX_SOCK_NUM);
 	w5500_socket_auto_heart(w5500, SYS_SOCK_ID, 2);
 	w5500_socket_config(w5500, SYS_SOCK_ID, 0, DHCP_CLIENT_PORT);
+
+	if (w5500->auto_speed)
+	{
+		temp[0] = 0x78;
+		w5500_xfer(w5500, W5500_COMMON_PHY, is_write, temp, 1);
+		temp[0] = 0x78+ 0x80;
+		w5500_xfer(w5500, W5500_COMMON_PHY, is_write, temp, 1);
+	}
+	w5500->inter_error = 0;
 }
 
 static int32_t w5500_dummy_callback(void *pData, void *pParam)
@@ -678,7 +726,7 @@ static void w5500_sys_socket_callback(w5500_ctrl_t *w5500, uint8_t event)
 	switch(event)
 	{
 	case Sn_IR_SEND_OK:
-		//DBG("send ok");
+		w5500->last_udp_send_ok = 1;
 		break;
 	case Sn_IR_RECV:
 		OS_InitBuffer(&rx_buf, 2048);
@@ -698,13 +746,15 @@ static void w5500_sys_socket_callback(w5500_ctrl_t *w5500, uint8_t event)
 				{
 				case DHCP_SERVER_PORT:
 					ip4_dhcp_run(w5500, &msg_buf, &tx_msg_buf, &ip);
+					w5500_check_dhcp(w5500);
 					if (tx_msg_buf.Pos)
 					{
 						w5500_socket_connect(w5500, SYS_SOCK_ID, 0, ip, DHCP_SERVER_PORT);
 						w5500_socket_tx(w5500, SYS_SOCK_ID, tx_msg_buf.Data, tx_msg_buf.Pos);
+						w5500->last_udp_send_ok = 0;
 					}
 					OS_DeInitBuffer(&tx_msg_buf);
-					w5500_check_dhcp(w5500);
+
 					break;
 				case DNS_SERVER_PORT:
 					break;
@@ -746,7 +796,6 @@ static void w5500_read_irq(w5500_ctrl_t *w5500)
 	}
 	if (common_irq)
 	{
-		DBG("%x", common_irq);
 		if (common_irq & IR_CONFLICT)
 		{
 			memset(temp, 0, 4);
@@ -757,6 +806,7 @@ static void w5500_read_irq(w5500_ctrl_t *w5500)
 			{
 				w5500_socket_connect(w5500, SYS_SOCK_ID, 0, remote_ip, DHCP_SERVER_PORT);
 				w5500_socket_tx(w5500, SYS_SOCK_ID, tx_msg_buf.Data, tx_msg_buf.Pos);
+				w5500->last_udp_send_ok = 0;
 			}
 			OS_DeInitBuffer(&tx_msg_buf);
 			w5500_ip_state(w5500, 0);
@@ -813,11 +863,29 @@ static void w5500_task(void *param)
 	OS_EVENT event;
 	int result;
 	Buffer_Struct tx_msg_buf = {0,0,0};
-	uint32_t remote_ip;
+	uint32_t remote_ip, sleep_time;
 	w5500_init_reg(w5500);
 	while(1)
 	{
-		result = luat_wait_event_from_task(w5500->task_handle, 0, &event, NULL, (w5500->link_ready || (w5500->link_pin != 0xff))?1000:100);
+		if (w5500->inter_error >= 2)
+		{
+			DBG("w5500 error too much, reboot");
+			w5500_init_reg(w5500);
+		}
+		sleep_time = 100;
+		if (w5500->network_ready)
+		{
+			sleep_time = 1000;
+		}
+		else if (w5500->link_ready)
+		{
+			sleep_time = 500;
+		}
+		else if (w5500->link_pin != 0xff)
+		{
+			sleep_time = 0;
+		}
+		result = luat_wait_event_from_task(w5500->task_handle, 0, &event, NULL, sleep_time);
 
 		w5500_xfer(w5500, W5500_COMMON_MR, 0, NULL, W5500_COMMON_QTY);
 		w5500->device_on = (0x04 == w5500->rx_buf[3 + W5500_COMMON_VERSIONR])?1:0;
@@ -834,18 +902,21 @@ static void w5500_task(void *param)
 		else
 		{
 			w5500_link_state(w5500, w5500->rx_buf[3 + W5500_COMMON_PHY] & 0x01);
+			w5500->speed_status = w5500->rx_buf[3 + W5500_COMMON_PHY] & (3 << 1);
 		}
 
 		if (result && w5500->link_ready)
 		{
 			result = ip4_dhcp_run(&w5500->dhcp_client, NULL, &tx_msg_buf, &remote_ip);
+			w5500_check_dhcp(w5500);
 			if (tx_msg_buf.Pos)
 			{
 				w5500_socket_connect(w5500, SYS_SOCK_ID, 0, remote_ip, DHCP_SERVER_PORT);
 				w5500_socket_tx(w5500, SYS_SOCK_ID, tx_msg_buf.Data, tx_msg_buf.Pos);
+				w5500->last_udp_send_ok = 0;
 			}
 			OS_DeInitBuffer(&tx_msg_buf);
-			w5500_check_dhcp(w5500);
+
 			continue;
 		}
 		switch(event.ID)
@@ -872,19 +943,6 @@ static void w5500_task(void *param)
 			break;
 		case EV_W5500_RE_INIT:
 			w5500_init_reg(w5500);
-			break;
-		case EV_W5500_SET_IP:
-			w5500->static_ip = event.Param1;
-			w5500->static_submask = event.Param2;
-			w5500->static_gateway = event.Param3;
-			break;
-		case EV_W5500_SET_MAC:
-			w5500->mac1 = event.Param1;
-			w5500->mac2 = event.Param2;
-			break;
-		case EV_W5500_SET_TO_PARAM:
-			w5500->RTR = event.Param1;
-			w5500->RCR = event.Param2;
 			break;
 		case EV_W5500_REG_OP:
 			break;
@@ -914,14 +972,37 @@ uint32_t w5500_string_to_ip(const char *string, uint32_t len)
 	{
 		uIP.u8[i] = strtol(Buf[i], NULL, 10);
 	}
-	DBG("%d.%d.%d.%d", uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
+//	DBG("%d.%d.%d.%d", uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
 	return uIP.u32;
 }
 
-void w5500_array_to_mac(uint8_t *array, uint32_t *mac1, uint16_t *mac2)
+int w5500_set_static_ip(uint32_t ipv4, uint32_t submask, uint32_t gateway)
 {
-	*mac1 = BytesGetBe32(array);
-	*mac2 = BytesGetBe16(array + 4);
+	if (prv_w5500_ctrl)
+	{
+		prv_w5500_ctrl->static_ip = ipv4;
+		prv_w5500_ctrl->static_submask = submask;
+		prv_w5500_ctrl->static_gateway = gateway;
+	}
+}
+
+void w5500_set_mac(uint8_t mac[6])
+{
+	if (prv_w5500_ctrl)
+	{
+		memcpy(prv_w5500_ctrl->mac, mac, 6);
+	}
+}
+
+void w5500_set_param(uint16_t timeout, uint8_t retry, uint8_t auto_speed, uint8_t force_arp)
+{
+	if (prv_w5500_ctrl)
+	{
+		prv_w5500_ctrl->RTR = timeout;
+		prv_w5500_ctrl->RTR = retry;
+		prv_w5500_ctrl->auto_speed = auto_speed;
+		prv_w5500_ctrl->force_arp = force_arp;
+	}
 }
 
 int w5500_request(uint32_t cmd, uint32_t param1, uint32_t param2, uint32_t param3)
@@ -939,7 +1020,8 @@ int w5500_request(uint32_t cmd, uint32_t param1, uint32_t param2, uint32_t param
 
 void w5500_init(luat_spi_t* spi, uint8_t irq_pin, uint8_t rst_pin, uint8_t link_pin)
 {
-
+	uint8_t *uid;
+	size_t t;
 	if (!prv_w5500_ctrl)
 	{
 		w5500_ctrl_t *w5500 = luat_heap_malloc(sizeof(w5500_ctrl_t));
@@ -971,7 +1053,9 @@ void w5500_init(luat_spi_t* spi, uint8_t irq_pin, uint8_t rst_pin, uint8_t link_
 		luat_crypto_trng(rands, 16);
 
 		w5500->dhcp_client.xid = BytesGetBe32(rands);
-		w5500->dhcp_client.state = DHCP_STATE_DISCOVER;
+		w5500->dhcp_client.state = DHCP_STATE_NOT_WORK;
+		uid = luat_mcu_unique_id(&t);
+		memcpy(w5500->mac, &uid[10], 6);
 		luat_thread_t thread;
 		thread.task_fun = w5500_task;
 		thread.name = "w5500";
@@ -982,7 +1066,6 @@ void w5500_init(luat_spi_t* spi, uint8_t irq_pin, uint8_t rst_pin, uint8_t link_
 		prv_w5500_ctrl = w5500;
 		w5500->task_handle = thread.handle;
 		prv_w5500_ctrl->device_on = 1;
-
 	}
 }
 
@@ -997,10 +1080,102 @@ uint8_t w5500_ready(void)
 		return 0;
 	}
 }
+//创建一个socket，func作为socket工作时相关event的回调函数，并设置成非阻塞模式，user_data传入对应适配器
+static int w5500_create_soceket(uint8_t is_tcp, uint32_t param, uint8_t is_ipv6, void *user_data)
+{
+	return -1;
+}
+//检查这个socket是否正常可以用
+static int w5500_check_socket_vaild(int socket_id, void *user_data)
+{
+	return -1;
+}
+//作为client绑定一个port，并连接remote_ip和remote_port对应的server
+static int w5500_socket_connect_ex(int socket_id, uint16_t local_port, luat_ip_addr_t *remote_ip, uint16_t remote_port, void *user_data)
+{
+	return -1;
+}
+//作为server绑定一个port，开始监听
+static int w5500_socket_listen(int socket_id, uint16_t local_port, void *user_data)
+{
+	return -1;
+}
+//作为server接受一个client
+static int w5500_socket_accept(int socket_id, luat_ip_addr_t *remote_ip, void *user_data)
+{
+	return -1;
+}
+//主动断开一个tcp连接，需要走完整个tcp流程，用户需要接收到close ok回调才能确认彻底断开
+static int w5500_socket_disconnect_ex(int socket_id, void *user_data)
+{
+	return -1;
+}
+static int w5500_socket_receive(int socket_id, uint8_t *buf, uint32_t len, int flags, luat_ip_addr_t *remote_ip, uint16_t *remote_port, void *user_data)
+{
+	return -1;
+}
+static int w5500_socket_send(int socket_id, const uint8_t *buf, uint32_t len, int flags, luat_ip_addr_t *remote_ip, uint16_t remote_port, void *user_data)
+{
+	return -1;
+}
+static int w5500_getsockopt(int s, int level, int optname, void *optval, uint32_t *optlen, void *user_data)
+{
+	return -1;
+}
+static int w5500_setsockopt(int s, int level, int optname, const void *optval, uint32_t optlen, void *user_data)
+{
+	return -1;
+}
+static int w5500_dns(const char *url, void *user_data)
+{
+	return -1;
+}
+static int w5500_set_dns_server(int id, luat_ip_addr_t *ip, void *user_data)
+{
+	return -1;
+}
+static int w5500_socket_set_callback(CBFuncEx_t cb_fun, void *user_data)
+{
+	w5500_ctrl_t *w5500 = (w5500_ctrl_t *)user_data;
+	w5500->socket_cb = cb_fun;
+}
+
+static network_adapter_info prv_w5500_adapter =
+{
+		.create_soceket = w5500_create_soceket,
+		.check_socket_vaild = w5500_check_socket_vaild,
+		.socket_connect = w5500_socket_connect_ex,
+		.socket_listen = w5500_socket_listen,
+		.socket_accept = w5500_socket_accept,
+		.socket_disconnect = w5500_socket_disconnect_ex,
+		.socket_receive = w5500_socket_receive,
+		.socket_send = w5500_socket_send,
+		.setsockopt = w5500_getsockopt,
+		.setsockopt = w5500_getsockopt,
+		.dns = w5500_dns,
+		.set_dns_server = w5500_set_dns_server,
+		.socket_set_callback = w5500_socket_set_callback,
+		.name = "w5500",
+		.socket_num = MAX_SOCK_NUM - 1,
+		.no_accept = 1,
+		.auto_tcp_heart = 1,
+};
+
+void w5500_register_adapter(int index)
+{
+	if (prv_w5500_ctrl)
+	{
+		network_register_adapter(index, &prv_w5500_adapter, prv_w5500_ctrl);
+	}
+}
 #else
 void w5500_init(luat_spi_t* spi, uint8_t irq_pin, uint8_t rst_pin) {;}
+void w5500_set_static_ip(uint32_t ipv4, uint32_t submask, uint32_t gateway) {;}
+void w5500_set_mac(uint8_t mac[6])  {;}
+void w5500_set_param(uint16_t timeout, uint8_t retry, uint8_t auto_speed, uint8_t force_arp) {;}
 int w5500_request(uint32_t cmd, uint32_t param1, uint32_t param2, uint32_t param3) {return -1;}
 uint32_t w5500_string_to_ip(const char *string, uint32_t len) {return 0}
 void w5500_array_to_mac(uint8_t *array, uint32_t *mac1, uint16_t *mac2) {return;}
 uint8_t w5500_ready(void) {return 0;}
+void w5500_register_adapter(int index) {;}
 #endif

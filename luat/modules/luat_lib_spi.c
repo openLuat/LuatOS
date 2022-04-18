@@ -230,6 +230,7 @@ local recv = spi.transfer(0, buff)--把zbuff数据从指针开始，全发出去
 static int l_spi_transfer(lua_State *L) {
     size_t send_length = 0;
     const char* send_buff = NULL;
+    char* recv_buff = NULL;
     if(lua_isuserdata(L, 2)){//zbuff对象特殊处理
         luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
         send_buff = (const char*)(buff->addr+buff->cursor);
@@ -242,13 +243,15 @@ static int l_spi_transfer(lua_State *L) {
         send_length = length;
     size_t recv_length = luaL_optinteger(L,4,1);
     //长度为0时，直接返回空字符串
-    if(send_length <= 0){
-        lua_pushlstring(L,NULL,0);
+    if(send_length == 0){
+        lua_pushlstring(L, "",0);
         return 1;
     }
-    char* recv_buff = luat_heap_malloc(recv_length);
-    if(recv_buff == NULL)
-        return 0;
+    if (recv_length > 0) {
+        recv_buff = luat_heap_malloc(recv_length);
+        if(recv_buff == NULL)
+            return 0;
+    }
     if (lua_isinteger(L, 1))
     {
         int id = luaL_checkinteger(L, 1);
@@ -454,6 +457,8 @@ static int l_spi_device_transfer(lua_State *L) {
     luat_spi_device_t* spi_device = (luat_spi_device_t*)lua_touserdata(L, 1);
     size_t send_length = 0;
     const char* send_buff = NULL;
+    char* recv_buff = NULL;
+
     if(lua_isuserdata(L, 2)){//zbuff对象特殊处理
         luat_zbuff_t *buff = (luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE);
         send_buff = (const char*)(buff->addr+buff->cursor);
@@ -466,13 +471,15 @@ static int l_spi_device_transfer(lua_State *L) {
         send_length = length;
     size_t recv_length = luaL_optinteger(L,4,1);
     //长度为0时，直接返回空字符串
-    if(recv_length <= 0){
+    if(recv_length == 0){
         lua_pushlstring(L,NULL,0);
         return 1;
     }
-    char* recv_buff = luat_heap_malloc(recv_length);
-    if(recv_buff == NULL)
-        return 0;
+    if (recv_length > 0) {
+        recv_buff = luat_heap_malloc(recv_length);
+        if(recv_buff == NULL)
+            return 0;
+    }
     int ret = luat_spi_device_transfer(spi_device, send_buff, send_length, recv_buff, recv_length);
     if (ret > 0) {
         lua_pushlstring(L, recv_buff, ret);

@@ -2,6 +2,7 @@
 #ifdef LUAT_USE_DHCP
 #include "dhcp_def.h"
 #include "bsp_common.h"
+#define DHCP_OPTION_138 138
 extern void DBG_Printf(const char* format, ...);
 extern void DBG_HexPrintf(void *Data, unsigned int len);
 #define DBG(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
@@ -101,7 +102,9 @@ void make_ip4_dhcp_select_msg(dhcp_client_info_t *dhcp, uint16_t flag, Buffer_St
 			  DHCP_OPTION_BROADCAST,
 			  DHCP_OPTION_SERVER_ID,
 			  DHCP_OPTION_LEASE_TIME,
+			  DHCP_OPTION_DNS_SERVER,
 			  DHCP_OPTION_IP_TTL,
+			  DHCP_OPTION_138,
 	  };
 	out->Pos = 0;
 	make_ip4_dhcp_msg_base(dhcp, flag, out);
@@ -136,22 +139,23 @@ int analyze_ip4_dhcp(dhcp_client_info_t *dhcp, Buffer_Struct *in)
 	uint64_t lease_time;
 	if (in->Data[0] != DHCP_BOOTREPLY)
 	{
-		DBG("!");
+		DBG("head error");
 		return -1;
 	}
 	if (BytesGetBe32(&in->Data[DHCP_MSG_LEN]) != DHCP_MAGIC_COOKIE)
 	{
-		DBG("!");
+		DBG("cookie error");
 		return -2;
 	}
+
 	if (BytesGetBe32(&in->Data[4]) != dhcp->xid)
 	{
-		DBG("!");
+		DBG("xid error %x,%x", BytesGetBe32(&in->Data[4]), dhcp->xid);
 		return -3;
 	}
 	if (memcmp(dhcp->mac, &in->Data[28], 6))
 	{
-		DBG("!");
+		DBG("mac error");
 		return -4;
 	}
 	dhcp->temp_ip = BytesGetLe32(&in->Data[16]);
@@ -178,20 +182,25 @@ __CHECK:
 				dhcp->lease_p2_time = dhcp->lease_end_time - (lease_time >> 3);
 			}
 			break;
-		case DHCP_OPTION_PAD:
-			in->Pos++;
-			goto __CHECK;
-			break;
-		case DHCP_OPTION_END:
-			return ack;
+
 		case DHCP_OPTION_SUBNET_MASK:
 			dhcp->submask = BytesGetLe32(&in->Data[in->Pos + 2]);
 			break;
 		case DHCP_OPTION_ROUTER:
 			dhcp->gateway = BytesGetLe32(&in->Data[in->Pos + 2]);
 			break;
+		case DHCP_OPTION_DNS_SERVER:
+			dhcp->dns_server[0] = BytesGetLe32(&in->Data[in->Pos + 2]);
+			dhcp->dns_server[1] = (in->Data[in->Pos + 1] >= 8)?BytesGetLe32(&in->Data[in->Pos + 6]):0;
+			break;
+		case DHCP_OPTION_PAD:
+			in->Pos++;
+			goto __CHECK;
+			break;
+		case DHCP_OPTION_END:
+			return ack;
 		default:
-//			DBG("jump %d,%d", in->Data[in->Pos], in->Data[in->Pos+1]);
+			DBG("jump %d,%d", in->Data[in->Pos], in->Data[in->Pos+1]);
 			break;
 		}
 		in->Pos += 2 + in->Data[in->Pos+1];

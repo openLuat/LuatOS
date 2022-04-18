@@ -35,6 +35,7 @@ typedef struct
 	uint32_t submask;
 	uint32_t gateway;
 	uint32_t ip;	//当前的动态IP
+	uint32_t dns_server[2];
 	uint32_t xid;
 	uint32_t lease_time;
 	char name[32];
@@ -132,6 +133,7 @@ enum {
 #define DHCP_OVERLOAD_FILE          1
 #define DHCP_OVERLOAD_SNAME         2
 #define DHCP_OVERLOAD_SNAME_FILE    3
+
 
 void make_ip4_dhcp_msg_base(dhcp_client_info_t *dhcp, uint16_t flag, Buffer_Struct *out);
 void ip4_dhcp_msg_add_bytes_option(uint8_t id, uint8_t *data, uint8_t len, Buffer_Struct *out);

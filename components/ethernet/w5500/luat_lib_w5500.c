@@ -58,7 +58,7 @@ w5500配置网络信息
 w5500.config("192.168.1.2", "255.255.255.0", "192.168.1.1", string.fromHex("102a3b4c5d6e"))
 */
 static int l_w5500_config(lua_State *L){
-	if (!w5500_ready())
+	if (!w5500_device_ready())
 	{
 		lua_pushboolean(L, 0);
 		LLOGD("device no ready");
@@ -90,7 +90,7 @@ static int l_w5500_config(lua_State *L){
 	w5500_set_param(luaL_optinteger(L, 5, 2000), luaL_optinteger(L, 6, 8), luaL_optinteger(L, 7, 0), 0);
 
 
-	w5500_request(W5500_CMD_RE_INIT, 0, 0, 0);
+	w5500_reset();
 	lua_pushboolean(L, 1);
 	return 1;
 }

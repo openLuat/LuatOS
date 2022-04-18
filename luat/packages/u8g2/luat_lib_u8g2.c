@@ -22,8 +22,8 @@
 #define LUAT_LOG_TAG "u8g2"
 #include "luat_log.h"
 
-static u8g2_t* u8g2;
-static int u8g2_lua_ref;
+static u8g2_t* u8g2 = NULL;
+static int u8g2_lua_ref = 0;
 static uint8_t i2c_id;
 static uint8_t i2c_speed;
 static uint8_t i2c_scl;
@@ -839,8 +839,9 @@ static const rotable_Reg_t reg_u8g2[] =
 };
 
 LUAMOD_API int luaopen_u8g2( lua_State *L ) {
-    u8g2_lua_ref = 0;
-    u8g2 = NULL;
+    lua_getglobal(L, "disp"); // disp库已经加载过u8g2库, 那就直接重用
+    if (lua_isuserdata(L, -1))
+        return 1;
     luat_newlib2(L, reg_u8g2);
     return 1;
 }
@@ -859,6 +860,38 @@ uint8_t u8x8_luat_byte_4wire_hw_spi_default(u8x8_t *u8x8, uint8_t msg, uint8_t a
 
 int luat_u8g2_setup_default(luat_u8g2_conf_t *conf);
 
+typedef void (*dev_setup_cb)(u8g2_t *u8g2, const u8g2_cb_t *rotation, u8x8_msg_cb byte_cb, u8x8_msg_cb gpio_and_delay_cb);
+
+typedef struct luat_u8g2_dev_reg
+{
+    const char* name;
+    dev_setup_cb devcb;
+    uint16_t w; // 屏幕宽, 最大值
+    uint16_t h; // 屏幕高, 最大值
+    uint16_t spi_i2c; // 使用 I2C 0, 使用 SPI 1
+}luat_u8g2_dev_reg_t;
+
+static const luat_u8g2_dev_reg_t devregs[] = {
+    // ssd1306是默认值
+    {.name="ssd1306", .w=128, .h=64, .spi_i2c=0, .devcb=u8g2_Setup_ssd1306_i2c_128x64_noname_f},       // ssd1306 128x64
+    {.name="ssd1322", .w=256, .h=64, .spi_i2c=0, .devcb=u8g2_Setup_ssd1322_nhd_256x64_f},              // ssd1322 128x64
+    {.name="sh1106",  .w=128, .h=64, .spi_i2c=0, .devcb=u8g2_Setup_sh1106_i2c_128x64_noname_f},        // sh1106 128x64
+    {.name="sh1107",  .w=64, .h=128, .spi_i2c=0, .devcb=u8g2_Setup_ssd1306_i2c_128x64_noname_f},       // sh1107 64x128
+    {.name="st7567",  .w=128, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_st7567_jlx12864_f},                 // st7567 128x64
+    {.name=NULL} // 结尾用,必须加.
+};
+
+static const luat_u8g2_dev_reg_t* search_dev_reg(luat_u8g2_conf_t *conf, uint16_t spi_i2c) {
+    size_t dev_reg_index = 0;
+    while (devregs[dev_reg_index].name != NULL)
+    {
+        if (devregs[dev_reg_index].spi_i2c == spi_i2c && strcmp(devregs[dev_reg_index].name, conf->cname) == 0) {
+            return &devregs[dev_reg_index];
+        }
+        dev_reg_index ++;
+    }
+    return &devregs[0];
+}
 
 #ifndef LUAT_COMPILER_NOWEAK
 LUAT_WEAK int luat_u8g2_setup(luat_u8g2_conf_t *conf) {
@@ -876,17 +909,15 @@ LUAT_WEAK uint8_t u8x8_luat_byte_4wire_hw_spi(u8x8_t *u8x8, uint8_t msg, uint8_t
 #endif
 
 int luat_u8g2_setup_default(luat_u8g2_conf_t *conf) {
+    u8g2_t* u8g2 = (u8g2_t*)conf->ptr;
+    const luat_u8g2_dev_reg_t* devreg = NULL;
     if (conf->pinType == 1) {
-        u8g2_t* u8g2 = (u8g2_t*)conf->ptr;
-        if (strncmp("ssd1306", conf->cname, 7) == 0 || strncmp("SSD1306", conf->cname, 7) == 0){
-            u8g2_Setup_ssd1306_i2c_128x64_noname_f( u8g2, conf->direction, u8x8_byte_sw_i2c, u8x8_luat_gpio_and_delay_default);
-#ifdef U8G2_USE_SH1106
-        }else if (strncmp("sh1106", conf->cname, 6) == 0 || strncmp("SH1106", conf->cname, 6) == 0){
-            u8g2_Setup_sh1106_i2c_128x64_noname_f( u8g2, conf->direction, u8x8_byte_sw_i2c, u8x8_luat_gpio_and_delay_default);
-#endif
-        }else{
-            u8g2_Setup_ssd1306_i2c_128x64_noname_f( u8g2, conf->direction, u8x8_byte_sw_i2c, u8x8_luat_gpio_and_delay_default);
+        devreg = search_dev_reg(conf, 0);
+        if (devreg == NULL) {
+            LLOGD("unkown dev %s", conf->cname);
+            return -1;
         }
+        devreg->devcb(u8g2, conf->direction, u8x8_byte_sw_i2c, u8x8_luat_gpio_and_delay_default);
         u8g2->u8x8.pins[U8X8_PIN_I2C_CLOCK] = i2c_scl;
         u8g2->u8x8.pins[U8X8_PIN_I2C_DATA] = i2c_sda;
         u8g2_InitDisplay(u8g2);
@@ -894,36 +925,24 @@ int luat_u8g2_setup_default(luat_u8g2_conf_t *conf) {
         return 0;
     }
     else if (conf->pinType == 2) {
-        u8g2_t* u8g2 = (u8g2_t*)conf->ptr;
-        if (strncmp("ssd1306", conf->cname, 7) == 0 || strncmp("SSD1306", conf->cname, 7) == 0){
-            u8g2_Setup_ssd1306_i2c_128x64_noname_f( u8g2, conf->direction, u8x8_luat_byte_hw_i2c_default, u8x8_luat_gpio_and_delay_default);
-#ifdef U8G2_USE_SH1106
-        }else if (strncmp("sh1106", conf->cname, 6) == 0 || strncmp("SH1106", conf->cname, 6) == 0){
-            u8g2_Setup_sh1106_i2c_128x64_noname_f( u8g2, conf->direction, u8x8_luat_byte_hw_i2c_default, u8x8_luat_gpio_and_delay_default);
-#endif
-        }else{
-            u8g2_Setup_ssd1306_i2c_128x64_noname_f( u8g2, conf->direction, u8x8_luat_byte_hw_i2c_default, u8x8_luat_gpio_and_delay_default);
+        devreg = search_dev_reg(conf, 0);
+        if (devreg == NULL) {
+            LLOGD("unkown dev %s", conf->cname);
+            return -1;
         }
+        devreg->devcb(u8g2, conf->direction, u8x8_luat_byte_hw_i2c_default, u8x8_luat_gpio_and_delay_default);
         LLOGD("setup disp i2c.hw");
         u8g2_InitDisplay(u8g2);
         u8g2_SetPowerSave(u8g2, 0);
         return 0;
     }
     else if (conf->pinType == 5) {
-        u8g2_t* u8g2 = (u8g2_t*)conf->ptr;
-        if (strncmp("ssd1306", conf->cname, 7) == 0 || strncmp("SSD1306", conf->cname, 7) == 0){
-            u8g2_Setup_ssd1306_128x64_noname_f( u8g2, conf->direction, u8x8_luat_byte_4wire_hw_spi_default, u8x8_luat_gpio_and_delay_default);
-#ifdef U8G2_USE_SH1106
-        }else if (strncmp("sh1106", conf->cname, 6) == 0 || strncmp("SH1106", conf->cname, 6) == 0){
-            u8g2_Setup_sh1106_128x64_noname_f( u8g2, conf->direction, u8x8_luat_byte_4wire_hw_spi_default, u8x8_luat_gpio_and_delay_default);
-#endif
-#ifdef U8G2_USE_ST7567
-        }else if (strncmp("st7567", conf->cname, 6) == 0 || strncmp("ST7567", conf->cname, 6) == 0){
-            u8g2_Setup_st7567_jlx12864_f( u8g2, conf->direction, u8x8_luat_byte_4wire_hw_spi_default, u8x8_luat_gpio_and_delay_default);
-#endif
-        }else{
-            u8g2_Setup_ssd1306_128x64_noname_f( u8g2, conf->direction, u8x8_luat_byte_4wire_hw_spi_default, u8x8_luat_gpio_and_delay_default);
+        devreg = search_dev_reg(conf, 0);
+        if (devreg == NULL) {
+            LLOGD("unkown dev %s", conf->cname);
+            return -1;
         }
+        devreg->devcb(u8g2, conf->direction, u8x8_luat_byte_4wire_hw_spi_default, u8x8_luat_gpio_and_delay_default);
         LLOGD("setup disp spi.hw  spi_id=%d spi_dc=%d spi_cs=%d spi_res=%d",spi_id,spi_dc,spi_cs,spi_res);
         u8x8_SetPin(u8g2_GetU8x8(u8g2), U8X8_PIN_CS, spi_cs);
         u8x8_SetPin(u8g2_GetU8x8(u8g2), U8X8_PIN_DC, spi_dc);
@@ -932,7 +951,7 @@ int luat_u8g2_setup_default(luat_u8g2_conf_t *conf) {
         u8g2_SetPowerSave(u8g2, 0);
         return 0;
     }
-    LLOGI("only i2c sw mode is support, by default impl");
+    LLOGI("no such u8g2 mode!!");
     return -1;
 }
 

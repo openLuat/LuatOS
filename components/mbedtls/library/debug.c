@@ -44,8 +44,8 @@
 #define inline __inline
 #endif
 
-#define DEBUG_BUF_SIZE      512
-
+//#define DEBUG_BUF_SIZE      512
+#define DEBUG_BUF_SIZE      64
 static int debug_threshold = 0;
 
 void mbedtls_debug_set_threshold( int threshold )
@@ -363,10 +363,10 @@ void mbedtls_debug_print_crt( const mbedtls_ssl_context *ssl, int level,
     {
         return;
     }
-
+    char *buf = mbedtls_calloc(1024, 1);
     while( crt != NULL )
     {
-        char buf[1024];
+       // char buf[1024];
 
         mbedtls_snprintf( str, sizeof( str ), "%s #%d:\n", text, ++i );
         debug_send_line( ssl, level, file, line, str );
@@ -378,6 +378,7 @@ void mbedtls_debug_print_crt( const mbedtls_ssl_context *ssl, int level,
 
         crt = crt->next;
     }
+    mbedtls_free(buf);
 }
 #endif /* MBEDTLS_X509_CRT_PARSE_C */
 

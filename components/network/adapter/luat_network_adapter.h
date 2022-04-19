@@ -4,6 +4,16 @@
 #ifdef LUAT_USE_NETWORK
 #include "luat_rtos.h"
 #include "bsp_common.h"
+#ifdef LUAT_USE_TLS
+#include "mbedtls/ssl.h"
+#include "mbedtls/platform.h"
+#include "mbedtls/debug.h"
+#include "mbedtls/x509_crt.h"
+#include "mbedtls/base64.h"
+#include "mbedtls/ctr_drbg.h"
+#include "mbedtls/entropy.h"
+#include "mbedtls/sha1.h"
+#endif
 enum
 {
 	EV_NW_RESET = USER_EVENT_ID_START + 0x1000000,

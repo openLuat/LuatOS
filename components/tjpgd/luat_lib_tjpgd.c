@@ -9,6 +9,7 @@
 #include <string.h>
 #include "tjpgd.h"
 #include "luat_tjpgd.h"
+#include "luat_fs.h"
 
 #define LUAT_LOG_TAG "tjpgd"
 #include "luat_log.h"

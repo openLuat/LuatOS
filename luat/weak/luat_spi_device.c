@@ -23,9 +23,9 @@ LUAT_WEAK int luat_spi_device_close(luat_spi_device_t* spi_dev) {
 LUAT_WEAK int luat_spi_device_transfer(luat_spi_device_t* spi_dev, const char* send_buf, size_t send_length, char* recv_buf, size_t recv_length) {
     luat_spi_device_config(spi_dev);
     luat_gpio_set(spi_dev->spi_config.cs, LUAT_SPI_CS_SELECT);
-    // int ret = luat_spi_transfer(spi_dev->bus_id, send_buf, send_length, recv_buf, recv_length);
-    int ret = luat_spi_send(spi_dev->bus_id, send_buf, send_length);
-    ret = luat_spi_recv(spi_dev->bus_id, recv_buf, recv_length);
+    int ret = luat_spi_transfer(spi_dev->bus_id, send_buf, send_length, recv_buf, recv_length);
+    // int ret = luat_spi_send(spi_dev->bus_id, send_buf, send_length);
+    // ret = luat_spi_recv(spi_dev->bus_id, recv_buf, recv_length);
     luat_gpio_set(spi_dev->spi_config.cs, LUAT_SPI_CS_CLEAR);
     return ret;
 }

@@ -1,6 +1,6 @@
 --[[
 @module bmx
-@summary bmx 气压传感器 目前支持bmp180 bmp280 bme280 会自动判断器件
+@summary bmx 气压传感器 目前支持bmp180 bmp280 bme280 bme680 会自动判断器件
 @version 1.0
 @date    2022.04.9
 @author  Dozingfiretruck

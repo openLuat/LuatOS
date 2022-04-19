@@ -15,10 +15,9 @@
 #include "rotable2.h"
 static const rotable_Reg_t reg_network_adapter[] =
 {
-    { "ETH0",           ROREG_INT(NW_ADAPTER_ETH0)},
-	{ "ETH1",           ROREG_INT(NW_ADAPTER_ETH1)},
-	{ "STA",          	ROREG_INT(NW_ADAPTER_STA)},
-	{ "AP",     		ROREG_INT(NW_ADAPTER_AP)},
+    { "ETH0",           ROREG_INT(NW_ADAPTER_INDEX_ETH0)},
+	{ "STA",          	ROREG_INT(NW_ADAPTER_INDEX_STA)},
+	{ "AP",     		ROREG_INT(NW_ADAPTER_INDEX_AP)},
 
 	{ NULL,            {}}
 };

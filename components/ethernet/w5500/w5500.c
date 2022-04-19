@@ -191,6 +191,7 @@ typedef struct
 	uint8_t irq_pin;
 	uint8_t link_pin;
 	uint8_t speed_status;
+	uint8_t run_dns;
 	uint8_t link_ready;
 	uint8_t ip_ready;
 	uint8_t network_ready;
@@ -937,10 +938,10 @@ static void w5500_sys_socket_callback(w5500_ctrl_t *w5500, uint8_t socket_id, ui
 		w5500_callback_to_nw_task(w5500, EV_NW_SOCKET_ERROR, socket_id, 0, 0);
 		break;
 	case Sn_IR_CON:
-		w5500_callback_to_nw_task(w5500, EV_NW_SOCKET_TCP_CONNECT_OK, socket_id, 0, 0);
+		w5500_callback_to_nw_task(w5500, EV_NW_SOCKET_CONNECT_OK, socket_id, 0, 0);
 		break;
 	case Sn_IR_DISCON:
-		w5500_callback_to_nw_task(w5500, EV_NW_SOCKET_TCP_REMOTE_CLOSE, socket_id, 0, 0);
+		w5500_callback_to_nw_task(w5500, EV_NW_SOCKET_REMOTE_CLOSE, socket_id, 0, 0);
 		break;
 	default:
 		break;
@@ -1046,7 +1047,14 @@ static void w5500_task(void *param)
 		sleep_time = 100;
 		if (w5500->network_ready)
 		{
-			sleep_time = 1000;
+			if (!w5500->run_dns && (w5500->link_pin != 0xff))
+			{
+				sleep_time = 0;
+			}
+			else
+			{
+				sleep_time = 1000;
+			}
 		}
 		else if (w5500->link_ready)
 		{
@@ -1127,7 +1135,7 @@ static void w5500_task(void *param)
 			w5500_socket_connect(w5500, event.Param1, 0, event.Param2, uPV.u16[1]);
 			if (!w5500->socket[event.Param1].is_tcp)
 			{
-				w5500_callback_to_nw_task(w5500, EV_NW_SOCKET_TCP_CONNECT_OK, event.Param1, 0, 0);
+				w5500_callback_to_nw_task(w5500, EV_NW_SOCKET_CONNECT_OK, event.Param1, 0, 0);
 			}
 			break;
 		case EV_W5500_SOCKET_CLOSE:
@@ -1144,7 +1152,7 @@ static void w5500_task(void *param)
 						break;
 					}
 				}
-				w5500_callback_to_nw_task(w5500, EV_NW_SOCKET_TCP_CLOSE_OK, event.Param1, 0, 0);
+				w5500_callback_to_nw_task(w5500, EV_NW_SOCKET_CLOSE_OK, event.Param1, 0, 0);
 			}
 			else
 			{
@@ -1165,7 +1173,7 @@ static void w5500_task(void *param)
 			uPV.u32 = event.Param3;
 			w5500_socket_config(w5500, event.Param1, w5500->socket[event.Param1].is_tcp, event.Param2);
 			w5500_socket_connect(w5500, event.Param1, 1, 0xffffffff, 0xff00);
-			w5500_callback_to_nw_task(w5500, EV_NW_SOCKET_TCP_LISTEN, event.Param1, 0, 0);
+			w5500_callback_to_nw_task(w5500, EV_NW_SOCKET_LISTEN, event.Param1, 0, 0);
 			break;
 		case EV_W5500_SOCKET_DNS:
 			break;
@@ -1518,14 +1526,14 @@ static int w5500_dns(const char *url, void *user_data)
 	if (user_data != prv_w5500_ctrl) return -1;
 	return -1;
 }
-static int w5500_set_dns_server(int id, luat_ip_addr_t *ip, void *user_data)
+static int w5500_set_dns_server(uint8_t server_index, luat_ip_addr_t *ip, void *user_data)
 {
 	if (user_data != prv_w5500_ctrl) return -1;
-	if (id >= MAX_DNS_SERVER) return -1;
-	prv_w5500_ctrl->static_dns_server[id] = ip->ipv4;
-	return -1;
+	if (server_index >= MAX_DNS_SERVER) return -1;
+	prv_w5500_ctrl->static_dns_server[server_index] = ip->ipv4;
+	return 0;
 }
-static int w5500_socket_set_callback(CBFuncEx_t cb_fun, void *param, void *user_data)
+static void w5500_socket_set_callback(CBFuncEx_t cb_fun, void *param, void *user_data)
 {
 	((w5500_ctrl_t *)user_data)->socket_cb = cb_fun?cb_fun:w5500_dummy_callback;
 	((w5500_ctrl_t *)user_data)->user_data = param;

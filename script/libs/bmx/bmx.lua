@@ -1,6 +1,6 @@
 --[[
 @module bmx
-@summary bmx 气压传感器 目前支持bmp180 bmp280 bme280 会自动判断器件
+@summary bmx 气压传感器 目前支持bmp180 bmp280 bme280 bme680 会自动判断器件
 @version 1.0
 @date    2022.04.9
 @author  Dozingfiretruck
@@ -25,7 +25,7 @@ sys.taskInit(function()
             log.info("bmx_data_data.high:"..(bmx_data.high).."m")
         end
         if bmx_data.hum then
-            log.info("bmx_data_data.temp:"..(bmx_data.hum).."%")
+            log.info("bmx_data_data.hum:"..(bmx_data.hum).."%")
         end
         sys.wait(1000)
     end
@@ -49,6 +49,7 @@ local BMX_CHIP_ID_CHECK			    =   0xD0
 local BMP180_CHIP_ID                =   0x55
 local BMP280_CHIP_ID                =   0x58
 local BME280_CHIP_ID                =   0x60
+local BME680_CHIP_ID                =   0x61
 
 local BMX_RESET			            =   0xE0
 local BMX_RESET_VALUE		        =   0xB6
@@ -143,6 +144,48 @@ local BMX280_H_SB5			        =   0x05 --oversampling ×16
 local BMX280_SPI_DISABLE			=   0x00
 local BMX280_SPI_ENABLE			    =   0x01
 
+local BME680_CONFIG_ADDR			=   0x75
+local BME680_CTRLMEAS_ADDR			=   0x74
+local BME680_CTRLHUM_ADDR			=   0x72
+local BME680_CTRLGAS1_ADDR			=   0x71
+local BME680_CTRLGAS0_ADDR			=   0x70
+
+local BME680_GASRLSB_ADDR			=   0x2B
+local BME680_GASRMSB_ADDR			=   0x2A
+local BME680_HUMLSB_ADDR			=   0x26
+local BME680_HUMMSB_ADDR			=   0x25
+local BME680_TEMPXLSB_ADDR			=   0x24
+local BME680_TEMPLSB_ADDR			=   0x23
+local BME680_TEMPMSB_ADDR			=   0x22
+local BME680_PRESSXLSB_ADDR			=   0x21
+local BME680_PRESSLSB_ADDR			=   0x20
+local BME680_PRESSMSB_ADDR			=   0x1F
+local BME680_EASSTATUS0_ADDR		=   0x1D
+
+local BME680_T1_ADDR				=   0xE9
+local BME680_T2_ADDR				=   0x8A
+local BME680_T3_ADDR				=   0x8C
+
+local BME680_P1_ADDR				=   0x8E
+local BME680_P2_ADDR				=   0x90
+local BME680_P3_ADDR				=   0x92
+local BME680_P4_ADDR				=   0x94
+local BME680_P5_ADDR				=   0x96
+local BME680_P6_ADDR				=   0x99
+local BME680_P7_ADDR				=   0x98
+local BME680_P8_ADDR				=   0x9C
+local BME680_P9_ADDR				=   0x9E
+local BME680_P10_ADDR				=   0xA0
+
+local BME680_H1M_ADDR				=   0xE3
+local BME680_H1_ADDR				=   0xE2
+local BME680_H2M_ADDR				=   0xE1
+local BME680_H3_ADDR				=   0xE4
+local BME680_H4_ADDR				=   0xE5
+local BME680_H5_ADDR				=   0xE6
+local BME680_H6_ADDR				=   0xE7
+local BME680_H7_ADDR				=   0xE8
+
 --按照官方手册配置一种模式,此处可自行修改
 local osrs_t                        =   BMX280_T_MODE_1
 local osrs_p                        =   BMX280_P_MODE_3
@@ -176,7 +219,7 @@ local BMX280_HUM_LSB			    =   0xFE
 local PRESSURE_OF_SEA			    =   101325	-- 参考海平面压强
 
 local AC1,AC2,AC3,AC4,AC5,AC6,B1,B2,MB,MC,MD
-local H1,H2,H3,H4,H5,H6,T1,T2,T3,P1,P2,P3,P4,P5,P6,P7,P8,P9
+local H1,H2,H3,H4,H5,H6,H7,T1,T2,T3,P1,P2,P3,P4,P5,P6,P7,P8,P9,P10
 
 
 --器件ID检测
@@ -208,6 +251,9 @@ local function chip_check()
     elseif revData:byte() == BME280_CHIP_ID then
         log.info("Device i2c id is: bme280")
         CHIP_ID = BME280_CHIP_ID
+    elseif revData:byte() == BME680_CHIP_ID then
+        log.info("Device i2c id is: bme680")
+        CHIP_ID = BME680_CHIP_ID
     else
         log.info("i2c", "Can't find bmx device")
         return false
@@ -245,6 +291,59 @@ function bmx.init(i2c_id)
             _,MC = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 2), ">h")
             i2c.send(i2cid, BMX_ADDRESS_ADR, BMP180_MD_ADDR)
             _,MD = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 2), ">h")
+        elseif CHIP_ID == BME680_CHIP_ID then
+            i2c.send(i2cid, BMX_ADDRESS_ADR, BME680_T1_ADDR)
+            _,T1 = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 2), "<h")
+            i2c.send(i2cid, BMX_ADDRESS_ADR, BME680_T2_ADDR)
+            _,T2 = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 2), "<h")
+            i2c.send(i2cid, BMX_ADDRESS_ADR, BME680_T3_ADDR)
+            _,T3 = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 1), "<c")
+
+            i2c.send(i2cid, BMX_ADDRESS_ADR, BME680_P1_ADDR)
+            _,P1 = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 2), "<h")
+            i2c.send(i2cid, BMX_ADDRESS_ADR, BME680_P2_ADDR)
+            _,P2 = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 2), "<h")
+            i2c.send(i2cid, BMX_ADDRESS_ADR, BME680_P3_ADDR)
+            _,P3 = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 1), "<c")
+            i2c.send(i2cid, BMX_ADDRESS_ADR, BME680_P4_ADDR)
+            _,P4 = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 2), "<h")
+            i2c.send(i2cid, BMX_ADDRESS_ADR, BME680_P5_ADDR)
+            _,P5 = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 2), "<h")
+            i2c.send(i2cid, BMX_ADDRESS_ADR, BME680_P6_ADDR)
+            _,P6 = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 1), "<c")
+            i2c.send(i2cid, BMX_ADDRESS_ADR, BME680_P7_ADDR)
+            _,P7 = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 1), "<c")
+            i2c.send(i2cid, BMX_ADDRESS_ADR, BME680_P8_ADDR)
+            _,P8 = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 2), "<h")
+            i2c.send(i2cid, BMX_ADDRESS_ADR, BME680_P9_ADDR)
+            _,P9 = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 2), "<h")
+            i2c.send(i2cid, BMX_ADDRESS_ADR, BME680_P10_ADDR)
+            _,P10 = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 1), "<c")
+            
+            i2c.send(i2cid, BMX_ADDRESS_ADR, BME680_H1M_ADDR)
+            local _,tmp1 = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 1), "b")
+            i2c.send(i2cid, BMX_ADDRESS_ADR, BME680_H1_ADDR)
+            local _,tmp2 = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 1), "b")
+            i2c.send(i2cid, BMX_ADDRESS_ADR, BME680_H2M_ADDR)
+            local _,tmp3 = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 1), "b")
+
+            H1 = bit.bor(bit.lshift(tmp1,4),bit.band(tmp2,0x0F))
+            H2 = bit.bor(bit.lshift(tmp3,4),bit.band(bit.rshift(tmp2,4),0x0F))
+
+            if bit.band(H1,0x0080)~=0 then H4 = bit.bxor(-H1,0x00FF) + 1 end
+            if bit.band(H2,0x0080)~=0 then H5 = bit.bxor(-H2,0x00FF) + 1 end
+
+            i2c.send(i2cid, BMX_ADDRESS_ADR, BME680_H3_ADDR)
+            _,H3 = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 1), "<c")
+            i2c.send(i2cid, BMX_ADDRESS_ADR, BME680_H4_ADDR)
+            _,H4 = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 1), "<c")
+            i2c.send(i2cid, BMX_ADDRESS_ADR, BME680_H5_ADDR)
+            _,H5 = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 1), "<c")
+            i2c.send(i2cid, BMX_ADDRESS_ADR, BME680_H6_ADDR)
+            _,H6 = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 1), "<c")
+            i2c.send(i2cid, BMX_ADDRESS_ADR, BME680_H7_ADDR)
+            _,H7 = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 1), "<c")
+
         else
             if CHIP_ID == BME280_CHIP_ID then
                 i2c.send(i2cid, BMX_ADDRESS_ADR, BME280_H1_ADDR)
@@ -255,11 +354,11 @@ function bmx.init(i2c_id)
                 _,H3 = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 1), "<b")
 
                 i2c.send(i2cid, BMX_ADDRESS_ADR, 0xE4)
-                _,tmp1 = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 1), "b")
+                local _,tmp1 = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 1), "b")
                 i2c.send(i2cid, BMX_ADDRESS_ADR, 0xE5)
-                _,tmp2 = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 1), "b")
+                local _,tmp2 = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 1), "b")
                 i2c.send(i2cid, BMX_ADDRESS_ADR, 0xE6)
-                _,tmp3 = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 1), "b")
+                local _,tmp3 = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 1), "b")
 
                 H4 = bit.bor(bit.lshift(tmp1,4),bit.band(tmp2,0x0F))
                 H5 = bit.bor(bit.lshift(tmp3,4),bit.band(bit.rshift(tmp2,4),0x0F))
@@ -295,15 +394,24 @@ function bmx.init(i2c_id)
             i2c.send(i2cid, BMX_ADDRESS_ADR, BMX280_P9_ADDR)
             _,P9 = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 2), "<h")
         end
-        if CHIP_ID == BME280_CHIP_ID then
-            i2c.send(i2cid, BMX_ADDRESS_ADR, {BMX280_CTRLMHUM_ADDR,ctrl_hum})
+        if CHIP_ID == BME680_CHIP_ID then
+            i2c.send(i2cid, BMX_ADDRESS_ADR, {BME680_CONFIG_ADDR,0x1C})
+            i2c.send(i2cid, BMX_ADDRESS_ADR, {BME680_CTRLMEAS_ADDR,ctrl_meas})
+            i2c.send(i2cid, BMX_ADDRESS_ADR, {BME680_CTRLHUM_ADDR,ctrl_hum})
+            i2c.send(i2cid, BMX_ADDRESS_ADR, {BME680_CTRLGAS1_ADDR,0x19})
+            i2c.send(i2cid, BMX_ADDRESS_ADR, {BME680_CTRLGAS0_ADDR,0x08})
+        else
+            if CHIP_ID == BME280_CHIP_ID then
+                i2c.send(i2cid, BMX_ADDRESS_ADR, {BMX280_CTRLMHUM_ADDR,ctrl_hum})
+            end
+            if CHIP_ID == BMP280_CHIP_ID or CHIP_ID == BME280_CHIP_ID then
+                i2c.send(i2cid, BMX_ADDRESS_ADR, {BMX280_CTRLMEAS_ADDR,ctrl_meas})
+                i2c.send(i2cid, BMX_ADDRESS_ADR, {BMX280_CONFIG_ADDR,config})
+            end
         end
-        if CHIP_ID ~= BMP180_CHIP_ID then
-            i2c.send(i2cid, BMX_ADDRESS_ADR, {BMX280_CTRLMEAS_ADDR,ctrl_meas})
-            i2c.send(i2cid, BMX_ADDRESS_ADR, {BMX280_CONFIG_ADDR,config})
-        end
+        
         sys.wait(20)--跳过首次数据
-        log.info("bmp init_ok")
+        log.info("bmx init_ok")
         return true
     end
     return false
@@ -318,6 +426,14 @@ local function bmx_get_temp_raw()
         i2c.send(i2cid, BMX_ADDRESS_ADR,BMP180_AD_MSB)
         local buffer = i2c.recv(i2cid, BMX_ADDRESS_ADR, 2)--获取2字节
         _, temp_raw = pack.unpack(buffer, ">h")
+    elseif CHIP_ID == BME680_CHIP_ID then
+        i2c.send(i2cid, BMX_ADDRESS_ADR,BME680_TEMPMSB_ADDR)
+        local _, MSB = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 1), "b")
+        i2c.send(i2cid, BMX_ADDRESS_ADR,BME680_TEMPLSB_ADDR)
+        local _, LSB = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 1), "b")
+        i2c.send(i2cid, BMX_ADDRESS_ADR,BME680_TEMPXLSB_ADDR)
+        local _, XLSB = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 1), "b")
+        temp_raw = bit.bor(bit.lshift(MSB,12), bit.lshift(LSB, 4), bit.rshift(XLSB, 4))
     else
         i2c.send(i2cid, BMX_ADDRESS_ADR,BMX280_TEMP_MSB)
         local _, MSB = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 1), "b")
@@ -343,6 +459,14 @@ local function bmx_get_pressure_raw()
         i2c.send(i2cid, BMX_ADDRESS_ADR,BMP180_AD_XLSB)
         local _, XLSB = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 1), "b")
         pressure_raw = bit.rshift((bit.lshift(MSB, 16)+bit.lshift(LSB, 8)+XLSB),5)
+    elseif CHIP_ID == BME680_CHIP_ID then
+        i2c.send(i2cid, BMX_ADDRESS_ADR,BME680_PRESSMSB_ADDR)
+        local _, MSB = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 1), "b")
+        i2c.send(i2cid, BMX_ADDRESS_ADR,BME680_PRESSLSB_ADDR)
+        local _, LSB = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 1), "b")
+        i2c.send(i2cid, BMX_ADDRESS_ADR,BME680_PRESSXLSB_ADDR)
+        local _, XLSB = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 1), "b")
+        pressure_raw = bit.bor(bit.lshift(MSB,12), bit.lshift(LSB, 4), bit.rshift(XLSB, 4))
     else
         i2c.send(i2cid, BMX_ADDRESS_ADR,BMX280_PRESS_MSB)
         local _, MSB = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 1), "b")
@@ -357,8 +481,14 @@ end
 
 --获取湿度的原始数据 
 local function bmx_get_humidity_raw()
-    i2c.send(i2cid, BMX_ADDRESS_ADR,BMX280_HUM_MSB)
-    local _, humidity = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 2), ">h")
+    local humidity
+    if CHIP_ID == BME680_CHIP_ID then
+        i2c.send(i2cid, BMX_ADDRESS_ADR,BME680_HUMMSB_ADDR)
+        _, humidity = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 2), ">h")
+    else
+        i2c.send(i2cid, BMX_ADDRESS_ADR,BMX280_HUM_MSB)
+        _, humidity = pack.unpack(i2c.recv(i2cid, BMX_ADDRESS_ADR, 2), ">h")
+    end
     return humidity or 0
 end
 
@@ -378,7 +508,7 @@ if bmx_data.high then
     log.info("bmx_data_data.high:"..(bmx_data.high).."m")
 end
 if bmx_data.hum then
-    log.info("bmx_data_data.temp:"..(bmx_data.hum).."%")
+    log.info("bmx_data_data.hum:"..(bmx_data.hum).."%")
 end
 ]]
 
@@ -415,6 +545,36 @@ function bmx.get_data()
         bme_data.press = P /100
         bme_data.high = 44330 * (1 - math.pow((P / PRESSURE_OF_SEA), (1.0 / 5.255)))
         bme_data.high = 44330 * (1 - math.pow((P / PRESSURE_OF_SEA), (1.0 / 5.255)))
+    elseif CHIP_ID == BME680_CHIP_ID then
+        local var1 = (temp_raw/16384.0 - T1/1024.0) * T2
+        local var2 = ((temp_raw/131072.0 - T1/8192.0) *(temp_raw/131072.0 - T1/8192.0)) * T3 * 16
+        local t_fine = var1 + var2
+        bme_data.temp = t_fine / 5120.0
+
+        var1 = t_fine/2.0 - 64000.0
+        var2 = var1 * var1 * P6 / 131072.0
+        var2 = var2 + var1 * P5 * 2.0
+        var2 = var2 / 4.0 + P4 * 65536.0
+        var1 = (P3 * var1 * var1 / 16384.0 + P2 * var1) / 524288.0
+        var1 = (1.0 + var1 / 32768.0)*P1
+        if var1==0 then
+            return bme_data
+        end
+        local p = 1048576.0 - pressure_raw
+        p = (p - (var2 / 4096.0)) * 6250.0 / var1
+        var1 = P9 * p * p / 2147483648.0
+        var2 = p * P8 / 32768.0
+        local var3 = p / 256.0 * p / 256.0 * p / 256.0 * P10 / 131072.0
+        p = p + (var1 + var2 + var3 + P7 * 128.0) / 16.0
+        bme_data.press = p /100
+        bme_data.high = 44330 * (1 - math.pow((p / PRESSURE_OF_SEA), (1.0 / 5.255)))
+
+        local humidity_raw = bmx_get_humidity_raw()
+        local var1 = humidity_raw - (H1 * 16.0 + H3 / 2.0 * bme_data.temp)
+        local var2 = var1 * (H2 / 262144.0 * (1.0 + H4 / 16384.0 * bme_data.temp + H5 / 1048576.0 * bme_data.temp * bme_data.temp))
+        local var3 = H6 / 16384.0
+        local var4 = H7 / 2097152.0;
+        bme_data.hum = var2 + ((var3 + var4 * bme_data.temp) * var2 * var2)
     else
         local var1 = (temp_raw/16384.0 - T1/1024.0) * T2
         local var2 = ((temp_raw/131072.0 - T1/8192.0) *(temp_raw/131072.0 - T1/8192.0)) * T3

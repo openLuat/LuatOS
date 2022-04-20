@@ -17,6 +17,8 @@
 enum
 {
 	EV_NW_RESET = USER_EVENT_ID_START + 0x1000000,
+	EV_NW_STATE,
+	EV_NW_TIMEOUT,
 	EV_NW_SOCKET_TX_OK,
 	EV_NW_SOCKET_RX_NEW,
 	EV_NW_SOCKET_RX_FULL,
@@ -27,7 +29,7 @@ enum
 	EV_NW_SOCKET_ERROR,
 	EV_NW_SOCKET_LISTEN,
 	EV_NW_SOCKET_NEW_CONNECT,	//作为server接收到新的connect，只有允许accept操作的才有，否则直接上报CONNECT_OK
-	EV_NW_STATE,
+
 
 	NW_ADAPTER_INDEX_ETH0 = 0,		//以太网
 	NW_ADAPTER_INDEX_STA,			//wifi sta和蜂窝
@@ -54,9 +56,9 @@ typedef struct
 	uint64_t ack_size;
 	uint64_t tag;
 #ifdef LUAT_USE_TLS
-    mbedtls_ssl_context ssl;          /**< mbed TLS control context. */
-    mbedtls_ssl_config config;          /**< mbed TLS configuration context. */
-    mbedtls_x509_crt ca_cert;
+    mbedtls_ssl_context *ssl;          /**< mbed TLS control context. */
+    mbedtls_ssl_config *config;          /**< mbed TLS configuration context. */
+    mbedtls_x509_crt *ca_cert;
 #endif
 
 	CBFuncEx_t user_callback;
@@ -98,8 +100,9 @@ typedef struct
 }socket_ctrl_t;		//推荐底层协议栈适配用的socket状态结构
 
 /*
- * info内的api必须全部是非阻塞的，并且对socket_id和tag做合法性检查
+ * info内的api必须全部是非阻塞的及任务的，并且对socket_id和tag做合法性检查
  * 目前只支持tcp和udp，不支持raw
+ * 如果没有特殊说明，成功返回=0，失败返回<0
  */
 typedef struct
 {
@@ -145,36 +148,50 @@ typedef struct
 	void (*socket_set_callback)(CBFuncEx_t cb_fun, void *param, void *user_data);
 
 	char *name;
-	int socket_num;
+	int max_socket_num;//最大socket数量，也是最大network_ctrl申请数量的基础值
 	uint8_t no_accept;
 	uint8_t is_posix;
 }network_adapter_info;
+/*
+ * api有可能涉及到任务安全要求，不可以在中断里运行，只能在task中运行
+ */
 
+
+uint32_t network_string_to_ipv4(const char *string, uint32_t len);
 /****************************以下是通用基础api********************************************************/
 /*
- * 在使用任意API前，必须先注册相关的协议栈接口
+ * 在使用之后任意API前，必须先注册相关的协议栈接口
  */
 int network_register_adapter(uint8_t adapter_index, network_adapter_info *info, void *user_data);
 /*
  * 注册socket回调接口，调用socket_set_callback传入cb_fun和param
  * 网络消息回调时，第一个参数具体消息，第二个是这里传入的param
+ * 需用lua层调用时需要调用本函数来将回调调整给lua api
  */
 void network_set_user_callback(uint8_t adapter_index, CBFuncEx_t cb_fun, void *param);
 
-int network_set_dns_server(uint8_t adapter_index, uint8_t server_index, luat_ip_addr_t *ip);
-
+void network_set_dns_server(uint8_t adapter_index, uint8_t server_index, luat_ip_addr_t *ip);
+/*
+ * 申请一个network_ctrl
+ */
+network_ctrl_t *network_alloc_ctrl(uint8_t adapter_index);
+/*
+ * 归还一个network_ctrl
+ */
+void network_release_ctrl(uint8_t adapter_index, network_ctrl_t *ctrl);
 /*
  * 在使用network_ctrl前，必须先初始化
  * lua调用c时，必须使用非阻塞接口，task_handle，callback，param都不需要
+ * 在纯c调用时，如果不需要则塞应用，必须有callback和param
  * 在纯c调用时，如果需要阻塞应用，则必须有task_handle，建议有callback，param，可以等待消息时，同时在callback中处理其他类型的消息
  */
-int network_init_ctrl(network_ctrl_t *ctrl, uint8_t adapter_index, HANDLE task_handle, CBFuncEx_t callback, void *param);
+void network_init_ctrl(network_ctrl_t *ctrl, uint8_t adapter_index, HANDLE task_handle, CBFuncEx_t callback, void *param);
 
 /*
  * 设置是tcp还是udp模式，也可以直接改network_ctrl_t中的is_tcp参数
  * 设置必须在socket处于close状态，在进行connect和tls初始之前
  */
-int network_set_base_mode(network_ctrl_t *ctrl, uint8_t is_tcp);
+void network_set_base_mode(network_ctrl_t *ctrl, uint8_t is_tcp);
 /*
  * 检查网络是否已经连接，注意不是socket
  * 返回非0是已连接，可以开始socket操作
@@ -184,17 +201,17 @@ uint8_t network_check_ready(network_ctrl_t *ctrl);
 
 //创建一个socket
 //成功返回0，失败 < 0
-int network_create_soceket(network_ctrl_t *ctrl, uint8_t is_tcp, uint8_t is_ipv6);
+int network_create_soceket(network_ctrl_t *ctrl, uint8_t is_ipv6);
 
-//作为client绑定一个port，并连接remote_ip和remote_port对应的server
+//作为client连接server
 //成功返回0，失败 < 0
-int network_socket_connect(network_ctrl_t *ctrl,uint16_t local_port, luat_ip_addr_t *remote_ip, uint16_t remote_port);
-//作为server绑定一个port，开始监听
+int network_socket_connect(network_ctrl_t *ctrl, luat_ip_addr_t *remote_ip);
+//作为server开始监听
 //成功返回0，失败 < 0
-int network_socket_listen(network_ctrl_t *ctrl,uint16_t local_port);
+int network_socket_listen(network_ctrl_t *ctrl);
 //作为server接受一个client
 //成功返回0，失败 < 0
-int network_socket_accept(network_ctrl_t *ctrl,luat_ip_addr_t *remote_ip, uint16_t *remote_port);
+int network_socket_accept(network_ctrl_t *ctrl, network_ctrl_t *accept_ctrl);
 //主动断开一个tcp连接，需要走完整个tcp流程，用户需要接收到close ok回调才能确认彻底断开
 //成功返回0，失败 < 0
 int network_socket_disconnect(network_ctrl_t *ctrl);
@@ -216,8 +233,9 @@ int network_getsockopt(network_ctrl_t *ctrl, int level, int optname, void *optva
 int network_setsockopt(network_ctrl_t *ctrl, int level, int optname, const void *optval, uint32_t optlen);
 //非posix的socket，用这个根据实际硬件设置参数
 int network_user_cmd(network_ctrl_t *ctrl,  uint32_t cmd, uint32_t value);
-
-int network_dns(network_ctrl_t *ctrl, const char *url);
+//url已经是ip形式了，返回1，并且填充remote_ip
+//成功返回0，失败 < 0
+int network_dns(network_ctrl_t *ctrl, const char *url, uint32_t len, luat_ip_addr_t *remote_ip);
 
 /****************************通用基础api结束********************************************************/
 

@@ -1191,29 +1191,6 @@ static void w5500_task(void *param)
 	}
 }
 
-uint32_t w5500_string_to_ip(const char *string, uint32_t len)
-{
-	int i;
-	int8_t Buf[4][4];
-	CmdParam CP;
-	PV_Union uIP;
-	char temp[32];
-	memset(Buf, 0, sizeof(Buf));
-	CP.param_max_len = 4;
-	CP.param_max_num = 4;
-	CP.param_num = 0;
-	CP.param_str = (int8_t *)Buf;
-	memcpy(temp, string, len);
-	temp[len] = 0;
-	CmdParseParam(temp, &CP, '.');
-	for(i = 0; i < 4; i++)
-	{
-		uIP.u8[i] = strtol(Buf[i], NULL, 10);
-	}
-//	DBG("%d.%d.%d.%d", uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
-	return uIP.u32;
-}
-
 int w5500_set_static_ip(uint32_t ipv4, uint32_t submask, uint32_t gateway)
 {
 	if (prv_w5500_ctrl)
@@ -1551,14 +1528,14 @@ static network_adapter_info prv_w5500_adapter =
 		.socket_force_close = w5500_socket_force_close,
 		.socket_receive = w5500_socket_receive,
 		.socket_send = w5500_socket_send,
-		.setsockopt = w5500_getsockopt,
-		.setsockopt = w5500_getsockopt,
+		.getsockopt = w5500_getsockopt,
+		.setsockopt = w5500_setsockopt,
 		.user_cmd = w5500_user_cmd,
 		.dns = w5500_dns,
 		.set_dns_server = w5500_set_dns_server,
 		.socket_set_callback = w5500_socket_set_callback,
 		.name = "w5500",
-		.socket_num = MAX_SOCK_NUM - 1,
+		.max_socket_num = MAX_SOCK_NUM - 1,
 		.no_accept = 1,
 		.is_posix = 0,
 };

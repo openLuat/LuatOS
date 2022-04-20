@@ -73,7 +73,7 @@ static int l_w5500_config(lua_State *L){
 	    const char* mask = luaL_checklstring(L, 2, &mask_len);
 	    size_t gateway_len = 0;
 	    const char* gateway = luaL_checklstring(L, 3, &gateway_len);
-	    w5500_set_static_ip(w5500_string_to_ip(ip, ip_len), w5500_string_to_ip(mask, mask_len), w5500_string_to_ip(gateway, gateway_len));
+	    w5500_set_static_ip(network_string_to_ipv4(ip, ip_len), network_string_to_ipv4(mask, mask_len), network_string_to_ipv4(gateway, gateway_len));
 	}
 	else
 	{

@@ -183,7 +183,7 @@ static int l_pm_force(lua_State *L) {
 }
 
 /**
-检查休眠状态
+检查休眠状态,仅air302适用.
 @api pm.check()
 @return boolean 处理结果,如果能顺利进入休眠,返回true,否则返回false
 @return int 底层返回值,0代表能进入最底层休眠,其他值代表最低可休眠级别

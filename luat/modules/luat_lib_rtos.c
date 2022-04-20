@@ -188,7 +188,7 @@ static int l_rtos_version(lua_State *L) {
 }
 
 /*
-进入待机模式(部分设备可用,例如w60x)
+进入待机模式, 仅部分设备可用, 本API已废弃, 推荐使用pm库
 @api    rtos.standy(timeout)
 @int    休眠时长,单位毫秒     
 @return nil  无返回值

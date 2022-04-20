@@ -1195,7 +1195,7 @@ static int l_lcd_showimage(lua_State *L){
             source ++;
           }
         }
-        luat_lcd_draw(default_conf, x, y, image_data->width-1, image_data->height-1, (luat_color_t *)image_data->fbuf);
+        luat_lcd_draw(default_conf, x, y, x+image_data->width-1, y+image_data->height-1, (luat_color_t *)image_data->fbuf);
         luat_heap_free(image_data->fbuf);    /* Discard frame buffer */
         luat_heap_free(image_data);          /* Discard frame buffer */
         lcd_auto_flush(default_conf);

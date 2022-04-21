@@ -24,7 +24,7 @@ Task协程等待指定时长或者特定的topic
 @api sys.waitUntil(topic, timeout)
 @string 事件topic
 @int 等待时长,单位毫秒,必须大于0,否则无效
-@return boolean 如果是超时,返回true,否则返回false
+@return boolean 如果是超时,返回false,否则返回true
 @return any 对应topic的内容
 @usage
 sys.taskInit(function()

@@ -24,22 +24,31 @@ static network_adapter_t prv_adapter_table[NW_ADAPTER_QTY];
 static int32_t network_default_socket_callback(void *data, void *param)
 {
 	OS_EVENT *event = (OS_EVENT *)data;
-	uint32_t adapter_index =(uint32_t)param;
+	luat_network_cb_param_t *cb_param = (luat_network_cb_param_t *)param;
+	uint32_t adapter_index =(uint32_t)(cb_param->param);
 	if (adapter_index >= NW_ADAPTER_QTY) return -1;
 	network_adapter_t *adapter = (network_adapter_t *)param;
 	int i;
-	network_ctrl_t *ctrl = NULL;
+	network_ctrl_t *ctrl = (network_ctrl_t *)event->Param3;
 	NW_LOCK;
 	if (event->ID > EV_NW_TIMEOUT)
 	{
-		ctrl = event->Param3;
-		if (ctrl->task_handle)
+		if (ctrl && (ctrl->tag == cb_param->tag))
 		{
-			platform_send_event(ctrl->task_handle, event->ID, event->Param1, event->Param2, event->Param3);
+			if (ctrl->task_handle)
+			{
+				platform_send_event(ctrl->task_handle, event->ID, event->Param1, event->Param2, event->Param3);
+			}
+			else
+			{
+				ctrl->user_callback(event, ctrl->user_data);
+			}
 		}
 		else
 		{
-			ctrl->user_callback(event, ctrl->user_data);
+			LLOGE("cb ctrl invaild %x", ctrl);
+			DBG_HexPrintf(&ctrl->tag, 8);
+			DBG_HexPrintf(&cb_param->tag, 8);
 		}
 	}
 	else

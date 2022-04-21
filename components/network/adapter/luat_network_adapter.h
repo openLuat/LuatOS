@@ -52,6 +52,12 @@ typedef struct
 
 typedef struct
 {
+	uint64_t tag;
+	void *param;
+}luat_network_cb_param_t;
+
+typedef struct
+{
 	uint64_t tx_size;
 	uint64_t ack_size;
 	uint64_t tag;
@@ -147,7 +153,7 @@ typedef struct
 	int (*dns)(const char *url, void *user_data);
 	int (*set_dns_server)(uint8_t server_index, luat_ip_addr_t *ip, void *user_data);
 	//所有网络消息都是通过cb_fun回调
-	//cb_fun回调时第一个参数为OS_EVENT，包含了socket的必要信息，第二个是这里传入的param
+	//cb_fun回调时第一个参数为OS_EVENT，包含了socket的必要信息，第二个是luat_network_cb_param_t，其中的param是这里传入的param
 	//OS_EVENT ID为EV_NW_XXX，param1是socket id param2是各自参数 param3是
 	void (*socket_set_callback)(CBFuncEx_t cb_fun, void *param, void *user_data);
 

@@ -22,29 +22,31 @@ end
 -- 若下载到设备后提示pin库不存在,请升级固件到V0006或以上
 
 
---【HaoSir2022】于2022年4月10日修改
-function pinx()--根据开发板给LED的gpio引脚不同编号
+--【HaoSir2022】于2022年4月21日增加
+function pinx()--根据不同开发板，给LED赋值不同的gpio引脚编号
 
-if rtos.bsp()=="air101" then--Air103开发板LED
+if rtos.bsp()=="air101" then--Air101开发板LED引脚编号
 local A= pin.PB08
 local B= pin.PB09
 local C= pin.PB10
 return A,B,C
 
-elseif rtos.bsp() == "air103" then--Air103开发板LED
+elseif rtos.bsp() == "air103" then--Air103开发板LED引脚编号
 local A= pin.PB26
 local B= pin.PB25
 local C= pin.PB24
 return A,B,C
 
-elseif rtos.bsp() == "air105" then--Air105开发板LED
+elseif rtos.bsp() == "air105" then--Air105开发板LED引脚编号
 local A= pin.PD14
 local B= pin.PD15
 local C= pin.PC3
 return A,B,C
 end
 end
-local P1,P2,P3=pinx()--赋值开发板LED脚
+--LED引脚判断赋值结束
+
+local P1,P2,P3=pinx()--赋值开发板LED引脚编号
 local LEDA= gpio.setup(P1, 0, gpio.PULLUP)
 local LEDB= gpio.setup(P2, 0, gpio.PULLUP)
 local LEDC= gpio.setup(P3, 0, gpio.PULLUP)

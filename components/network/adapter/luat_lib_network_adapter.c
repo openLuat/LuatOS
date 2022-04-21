@@ -11,51 +11,93 @@
 #include "luat_zbuff.h"
 #define LUAT_LOG_TAG "net_adapter"
 #include "luat_log.h"
-
-
-static int32_t l_network_callback(void *pdata, void *param)
+static const char NW_TYPE[] = "NW*";
+typedef struct
 {
+	network_ctrl_t *netc;
+	int cb_ref;	//回调函数
+	char *task_name;
+}luat_network_ctrl_t;
 
-}
-/*
-将某个通道的通用网络接口的回调调整给lua api
-@api network.attach(network.xxx)
-@int 通用网络通道号
-@function lua回调函数
-@usage
-network.attach(network.ETH0)
-*/
-static int l_network_attach(lua_State *L){
 
-	int adapter_index = luaL_checkinteger(L, 1);
-	network_set_user_callback(adapter_index, l_network_callback, adapter_index);
-	return 0;
+static int32_t l_network_callback(lua_State *L, void* ptr)
+{
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    luat_network_ctrl_t *l_ctrl =(luat_network_ctrl_t *)msg->ptr;
+
+    if (l_ctrl->netc)
+    {
+    	if (l_ctrl->cb_ref)
+    	{
+            lua_geti(L, LUA_REGISTRYINDEX, l_ctrl->cb_ref);
+            if (lua_isfunction(L, -1)) {
+            	lua_pushlightuserdata(L, l_ctrl);
+            	lua_pushinteger(L, msg->arg1);
+            	lua_pushinteger(L, msg->arg2);
+                lua_call(L, 3, 0);
+            }
+    	}
+    	else if (l_ctrl->task_name)
+    	{
+    	    lua_getglobal(L, "sys_send");
+    	    if (lua_isfunction(L, -1)) {
+    	        lua_pushstring(L, l_ctrl->task_name);
+    	        lua_pushinteger(L, msg->arg1);
+    	        lua_pushinteger(L, msg->arg2);
+    	        lua_call(L, 3, 0);
+    	    }
+    	}
+    	else
+    	{
+    	    lua_getglobal(L, "sys_pub");
+    	    if (lua_isfunction(L, -1)) {
+    	        lua_pushstring(L, NW_TYPE);
+    	        lua_pushinteger(L, l_ctrl->netc->adapter_index);
+    	        lua_pushinteger(L, l_ctrl->netc->socket_id);
+    	        lua_pushinteger(L, msg->arg1);
+    	        lua_pushinteger(L, msg->arg2);
+    	        lua_call(L, 5, 0);
+    	    }
+    	}
+    }
+    lua_pushinteger(L, 0);
+    return 1;
 }
+
+static int32_t luat_lib_network_callback(void *data, void *param)
+{
+	OS_EVENT *event = (OS_EVENT *)data;
+
+    rtos_msg_t msg;
+    msg.handler = l_network_callback;
+    msg.ptr = param;
+    msg.arg1 = event->ID & 0x0fffffff;
+    msg.arg2 = event->Param2;
+    luat_msgbus_put(&msg, 0);
+    return 0;
+}
+
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_network_adapter[] =
 {
-	{ "attach", ROREG_FUNC(l_network_attach)},
-	{},
-	{},
-	{},
-	{},
-	{},
-	{},
-	{},
-	{},
-	{},
-	{},
-	{},
-	{},
-	{},
-	{},
-	{},
-	{},
-	{},
     { "ETH0",           ROREG_INT(NW_ADAPTER_INDEX_ETH0)},
 	{ "STA",          	ROREG_INT(NW_ADAPTER_INDEX_STA)},
 	{ "AP",     		ROREG_INT(NW_ADAPTER_INDEX_AP)},
+
+    { "RESET",           ROREG_INT(EV_NW_RESET & 0x0fffffff)},
+	{ "STATE",          	ROREG_INT(EV_NW_STATE & 0x0fffffff)},
+	{ "TIMEOUT",     		ROREG_INT(EV_NW_TIMEOUT & 0x0fffffff)},
+    { "TX_OK",           ROREG_INT(EV_NW_SOCKET_TX_OK & 0x0fffffff)},
+	{ "RX_NEW",          	ROREG_INT(EV_NW_SOCKET_RX_NEW & 0x0fffffff)},
+	{ "RX_FULL",     		ROREG_INT(EV_NW_SOCKET_RX_FULL & 0x0fffffff)},
+	{ "CLOSED",     		ROREG_INT(EV_NW_SOCKET_CLOSE_OK & 0x0fffffff)},
+	{ "R_CLOSE",     		ROREG_INT(EV_NW_SOCKET_REMOTE_CLOSE & 0x0fffffff)},
+	{ "CONNECT",     		ROREG_INT(EV_NW_SOCKET_CONNECT_OK & 0x0fffffff)},
+	{ "DNS",     		ROREG_INT(EV_NW_SOCKET_DNS_RESULT & 0x0fffffff)},
+	{ "ERROR",     		ROREG_INT(EV_NW_SOCKET_ERROR & 0x0fffffff)},
+	{ "LISTEN",     		ROREG_INT(EV_NW_SOCKET_LISTEN & 0x0fffffff)},
+	{ "R_CONN",     		ROREG_INT(EV_NW_SOCKET_NEW_CONNECT & 0x0fffffff)},
 	{ NULL,            ROREG_INT(0)}
 };
 

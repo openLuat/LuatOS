@@ -1362,7 +1362,7 @@ static const luaL_Reg lib_zbuff[] = {
     //{"__len", l_zbuff_len},
     //{"__newindex", l_zbuff_newindex},
     //{"__gc", l_zbuff_gc},
-	//以下为扩展用法，数据的增减操作尽量和上面的read,write一起使用
+	//以下为扩展用法，数据的增减操作尽量不要和上面的read,write一起使用
 	{"copy", l_zbuff_copy},
 	{"query",l_zbuff_query},
 	{"del", l_zbuff_del},

@@ -26,19 +26,20 @@ static int32_t network_default_socket_callback(void *data, void *param)
 	OS_EVENT *event = (OS_EVENT *)data;
 	uint32_t adapter_index =(uint32_t)param;
 	if (adapter_index >= NW_ADAPTER_QTY) return -1;
-	network_adapter_t *adapter = &prv_adapter_table[adapter_index];
+	network_adapter_t *adapter = (network_adapter_t *)param;
 	int i;
 	network_ctrl_t *ctrl = NULL;
 	NW_LOCK;
 	if (event->ID > EV_NW_TIMEOUT)
 	{
-		for (i = 0; i < adapter->opt->max_socket_num; i++)
+		ctrl = event->Param3;
+		if (ctrl->task_handle)
 		{
-			if (adapter->ctrl_busy[i] && (adapter->ctrl_table[i].socket_id == event->Param1))
-			{
-				ctrl = &adapter->ctrl_table[i];
-				break;
-			}
+			platform_send_event(ctrl->task_handle, event->ID, event->Param1, event->Param2, event->Param3);
+		}
+		else
+		{
+			ctrl->user_callback(event, ctrl->user_data);
 		}
 	}
 	else
@@ -57,18 +58,6 @@ static int32_t network_default_socket_callback(void *data, void *param)
 					ctrl->user_callback(event, ctrl->user_data);
 				}
 			}
-		}
-		ctrl = NULL;
-	}
-	if (ctrl)
-	{
-		if (ctrl->task_handle)
-		{
-			platform_send_event(ctrl->task_handle, event->ID, event->Param1, event->Param2, event->Param3);
-		}
-		else
-		{
-			ctrl->user_callback(event, ctrl->user_data);
 		}
 	}
 	NW_UNLOCK;
@@ -214,19 +203,18 @@ int network_string_to_ipv6(const char *string, luat_ip_addr_t *ip_addr)
 
 }
 
+network_adapter_info *network_get_adapter(uint8_t adapter_index)
+{
+	return prv_adapter_table[adapter_index].opt;
+}
+
 int network_register_adapter(uint8_t adapter_index, network_adapter_info *info, void *user_data)
 {
 	prv_adapter_table[adapter_index].opt = info;
 	prv_adapter_table[adapter_index].user_data = user_data;
-	info->socket_set_callback(network_default_socket_callback, adapter_index, user_data);
+	info->socket_set_callback(network_default_socket_callback, &prv_adapter_table[adapter_index], user_data);
 	prv_adapter_table[adapter_index].ctrl_table = zalloc((info->max_socket_num) * sizeof(network_ctrl_t));
 	prv_adapter_table[adapter_index].ctrl_busy = zalloc(info->max_socket_num);
-}
-
-void network_set_user_callback(uint8_t adapter_index, CBFuncEx_t cb_fun, void *param)
-{
-	network_adapter_t *adapter = &prv_adapter_table[adapter_index];
-	adapter->opt->socket_set_callback(cb_fun, param, adapter->user_data);
 }
 
 void network_set_dns_server(uint8_t adapter_index, uint8_t server_index, luat_ip_addr_t *ip)
@@ -307,7 +295,7 @@ uint8_t network_check_ready(network_ctrl_t *ctrl)
 int network_create_soceket(network_ctrl_t *ctrl, uint8_t is_ipv6)
 {
 	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
-	ctrl->socket_id = adapter->opt->create_soceket(ctrl->is_tcp, &ctrl->tag, is_ipv6, adapter->user_data);
+	ctrl->socket_id = adapter->opt->create_soceket(ctrl->is_tcp, &ctrl->tag, ctrl->socket_param, is_ipv6, adapter->user_data);
 	if (ctrl->socket_id < 0)
 	{
 		ctrl->tag = 0;
@@ -354,21 +342,34 @@ int network_socket_accept(network_ctrl_t *ctrl, network_ctrl_t *accept_ctrl)
 int network_socket_disconnect(network_ctrl_t *ctrl)
 {
 	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
-	return adapter->opt->socket_disconnect(ctrl->socket_id, ctrl->tag, adapter->user_data);
+	if (ctrl->socket_id >= 0)
+	{
+		return adapter->opt->socket_disconnect(ctrl->socket_id, ctrl->tag, adapter->user_data);
+	}
+
 }
 //释放掉socket的控制权
 //成功返回0，失败 < 0
 int network_socket_close(network_ctrl_t *ctrl)
 {
 	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
-	return adapter->opt->socket_close(ctrl->socket_id, ctrl->tag, adapter->user_data);
+	if (ctrl->socket_id >= 0)
+	{
+		return adapter->opt->socket_close(ctrl->socket_id, ctrl->tag, adapter->user_data);
+	}
+
 }
 //强行释放掉socket的控制权
 //成功返回0，失败 < 0
 int network_socket_force_close(network_ctrl_t *ctrl)
 {
 	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
-	return adapter->opt->socket_force_close(ctrl->socket_id, adapter->user_data);
+	if (ctrl->socket_id >= 0)
+	{
+		adapter->opt->socket_force_close(ctrl->socket_id, adapter->user_data);
+	}
+	ctrl->socket_id = -1;
+	return 0;
 }
 //tcp时，不需要remote_ip和remote_port，如果buf为NULL，则返回当前缓存区的数据量，当返回值小于len时说明已经读完了
 //udp时，只返回1个block数据，需要多次读直到没有数据为止

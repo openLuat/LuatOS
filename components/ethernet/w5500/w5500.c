@@ -247,6 +247,10 @@ static int32_t w5500_irq(int pin, void *args)
 static void w5500_callback_to_nw_task(w5500_ctrl_t *w5500, uint32_t event_id, uint32_t param1, uint32_t param2, uint32_t param3)
 {
 	OS_EVENT event = { .ID = event_id, .Param1 = param1, .Param2 = param2, .Param3 = param3};
+	if (event_id > EV_NW_TIMEOUT)
+	{
+		event.Param3 = prv_w5500_ctrl->socket[param1].param;
+	}
 	w5500->socket_cb(&event, w5500->user_data);
 }
 

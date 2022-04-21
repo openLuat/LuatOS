@@ -63,6 +63,7 @@ typedef struct
 
 	CBFuncEx_t user_callback;
 	void *user_data;			//传递给user_callback的pParam
+	void *socket_param;			//一般用来存放network_ctrl本身，用于快速查找
 	HANDLE	task_handle;
 	HANDLE timer;
 #ifdef LUAT_USE_TLS
@@ -93,6 +94,7 @@ typedef struct
 	llist_head rx_head;
 	uint32_t rx_wait_size;
 	uint32_t tx_wait_size;
+	void *param;
 	uint8_t state;
 	uint8_t is_tcp;
 	uint8_t is_ipv6;
@@ -110,7 +112,7 @@ typedef struct
 	uint8_t (*check_ready)(void *user_data);
 	//创建一个socket，并设置成非阻塞模式，user_data传入对应适配器, tag作为socket的合法依据，给check_socket_vaild比对用
 	//成功返回socketid，失败 < 0
-	int (*create_soceket)(uint8_t is_tcp, uint64_t *tag, uint8_t is_ipv6, void *user_data);
+	int (*create_soceket)(uint8_t is_tcp, uint64_t *tag, void *param, uint8_t is_ipv6, void *user_data);
 	//作为client绑定一个port，并连接remote_ip和remote_port对应的server
 	//成功返回0，失败 < 0
 	int (*socket_connect)(int socket_id, uint64_t tag, uint16_t local_port, luat_ip_addr_t *remote_ip, uint16_t remote_port, void *user_data);
@@ -145,6 +147,8 @@ typedef struct
 	int (*dns)(const char *url, void *user_data);
 	int (*set_dns_server)(uint8_t server_index, luat_ip_addr_t *ip, void *user_data);
 	//所有网络消息都是通过cb_fun回调
+	//cb_fun回调时第一个参数为OS_EVENT，包含了socket的必要信息，第二个是这里传入的param
+	//OS_EVENT ID为EV_NW_XXX，param1是socket id param2是各自参数 param3是
 	void (*socket_set_callback)(CBFuncEx_t cb_fun, void *param, void *user_data);
 
 	char *name;
@@ -156,19 +160,15 @@ typedef struct
  * api有可能涉及到任务安全要求，不可以在中断里运行，只能在task中运行
  */
 
-
+network_adapter_info *network_get_adapter(uint8_t adapter_index);
 uint32_t network_string_to_ipv4(const char *string, uint32_t len);
 /****************************以下是通用基础api********************************************************/
 /*
  * 在使用之后任意API前，必须先注册相关的协议栈接口
+ * 没有可逆的api
  */
 int network_register_adapter(uint8_t adapter_index, network_adapter_info *info, void *user_data);
-/*
- * 注册socket回调接口，调用socket_set_callback传入cb_fun和param
- * 网络消息回调时，第一个参数具体消息，第二个是这里传入的param
- * 需用lua层调用时需要调用本函数来将回调调整给lua api
- */
-void network_set_user_callback(uint8_t adapter_index, CBFuncEx_t cb_fun, void *param);
+
 
 void network_set_dns_server(uint8_t adapter_index, uint8_t server_index, luat_ip_addr_t *ip);
 /*

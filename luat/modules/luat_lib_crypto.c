@@ -333,7 +333,7 @@ static int l_crypto_crc32(lua_State *L)
 @usage
 -- 计算CRC8
 local crc = crypto.crc8(data)
-local crc = crypto.crc8(data, 0x31, 0xff, 0)
+local crc = crypto.crc8(data, 0x31, 0xff, false)
  */
 static int l_crypto_crc8(lua_State *L)
 {

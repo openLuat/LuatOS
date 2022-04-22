@@ -114,7 +114,7 @@ static const rotable_Reg_t reg_w5500[] =
 {
     { "init",           ROREG_FUNC(l_w5500_init)},
 	{ "config",           ROREG_FUNC(l_w5500_config)},
-	{ "nw_reg",           ROREG_FUNC(l_w5500_network_register)},
+	{ "bind",           ROREG_FUNC(l_w5500_network_register)},
 	{ NULL,            ROREG_INT(0)}
 };
 

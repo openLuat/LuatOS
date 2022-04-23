@@ -208,8 +208,8 @@ static int l_fdb_kv_get(lua_State *L) {
         }
         return 1;
     }
-    // lua_pushboolean(L, 0);
-    return 0;
+    lua_pushnil(L);
+    return 1;
 }
 
 /**

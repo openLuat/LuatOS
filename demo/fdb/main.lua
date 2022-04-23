@@ -51,7 +51,8 @@ sys.taskInit(function()
 
     -- 删除测试
     fdb.kv_del("my_bool")
-    log.info("fdb", "my_bool",      type(fdb.kv_get("my_bool")),    fdb.kv_get("my_bool"))
+    local t = fdb.kv_get("my_bool")
+    log.info("fdb", "my_bool",      type(t),    t)
 
     while true do
         sys.wait(100)

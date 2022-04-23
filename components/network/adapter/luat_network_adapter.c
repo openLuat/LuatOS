@@ -8,6 +8,12 @@
 #define LUAT_LOG_TAG "net_adapter"
 #include "luat_log.h"
 #include "ctype.h"
+
+extern void DBG_Printf(const char* format, ...);
+extern void DBG_HexPrintf(void *Data, unsigned int len);
+#define DBG(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
+#define DBG_ERR(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
+
 #define NW_LOCK		OS_SuspendTask(NULL)
 #define NW_UNLOCK	OS_ResumeTask(NULL)
 
@@ -49,18 +55,20 @@ static network_info_t prv_network = {
 };
 
 
-static int network_get_host_by_name(network_ctrl_t *ctrl, const char *url)
+static int network_get_host_by_name(network_ctrl_t *ctrl)
 {
 	ctrl->remote_ip.is_ipv6 = 0xff;
-	uint32_t len = strlen(url);
-	if (network_string_is_ipv4(url, len))
+	if (network_string_is_ipv4(ctrl->domain_name, ctrl->domain_name_len))
 	{
 		ctrl->remote_ip.is_ipv6 = 0;
-		ctrl->remote_ip.ipv4 = network_string_to_ipv4(url, len);
+		ctrl->remote_ip.ipv4 = network_string_to_ipv4(ctrl->domain_name, ctrl->domain_name_len);
 	}
 	else
 	{
-		network_string_to_ipv6(url, &ctrl->remote_ip);
+		char *name = zalloc(ctrl->domain_name_len + 1);
+		memcpy(name, ctrl->domain_name, ctrl->domain_name_len);
+		network_string_to_ipv6(name, &ctrl->remote_ip);
+		free(name);
 	}
 	if (ctrl->remote_ip.is_ipv6 != 0xff)
 	{
@@ -72,17 +80,54 @@ static int network_get_host_by_name(network_ctrl_t *ctrl, const char *url)
 	}
 }
 
+
+static int network_base_connect(network_ctrl_t *ctrl, luat_ip_addr_t *remote_ip)
+{
+	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
+	if (ctrl->socket_id >= 0)
+	{
+		if (network_socket_close(ctrl))
+		{
+			network_socket_force_close(ctrl);
+		}
+		ctrl->socket_id = -1;
+	}
+	if (network_create_soceket(ctrl, remote_ip->is_ipv6) < 0)
+	{
+		network_clean_invaild_socket(ctrl->adapter_index);
+		if (network_create_soceket(ctrl, remote_ip->is_ipv6) < 0)
+		{
+			return -1;
+		}
+	}
+	if (adapter->opt->is_posix)
+	{
+		network_setsockopt(ctrl, SOL_SOCKET, SO_KEEPALIVE, (void *)&ctrl->tcp_keep_alive, sizeof(ctrl->tcp_keep_alive));
+		if (ctrl->tcp_keep_alive)
+		{
+			network_setsockopt(ctrl, IPPROTO_TCP, TCP_KEEPIDLE, (void*)&ctrl->tcp_keep_idle, sizeof(ctrl->tcp_keep_idle));
+			network_setsockopt(ctrl, IPPROTO_TCP, TCP_KEEPINTVL, (void *)&ctrl->tcp_keep_interval, sizeof(ctrl->tcp_keep_interval));
+			network_setsockopt(ctrl, IPPROTO_TCP, TCP_KEEPCNT, (void *)&ctrl->tcp_keep_cnt, sizeof(ctrl->tcp_keep_cnt));
+		}
+	}
+	else
+	{
+		network_user_cmd(ctrl, NW_CMD_AUTO_HEART_TIME, ctrl->tcp_keep_idle);
+	}
+	return network_socket_connect(ctrl, remote_ip);
+}
+
 static int network_prepare_connect(network_ctrl_t *ctrl)
 {
 	if (ctrl->remote_ip.is_ipv6 != 0xff)
 	{
 		;
 	}
-	else if (ctrl->uri)
+	else if (ctrl->domain_name)
 	{
-		if (network_get_host_by_name(ctrl, ctrl->uri))
+		if (network_get_host_by_name(ctrl))
 		{
-			if (network_dns(ctrl, ctrl->uri))
+			if (network_dns(ctrl))
 			{
 				network_socket_force_close(ctrl);
 				return -1;
@@ -96,7 +141,7 @@ static int network_prepare_connect(network_ctrl_t *ctrl)
 
 		return -1;
 	}
-	LLOGD("%08x, %d", ctrl->remote_ip.ipv4, ctrl->remote_ip.is_ipv6);
+
 	if (network_base_connect(ctrl, &ctrl->remote_ip))
 	{
 		network_socket_force_close(ctrl);
@@ -106,35 +151,14 @@ static int network_prepare_connect(network_ctrl_t *ctrl)
 	return 0;
 }
 
-static int network_base_connect(network_ctrl_t *ctrl, luat_ip_addr_t *remote_ip)
-{
-	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
-	ctrl->socket_id = network_create_soceket(ctrl, remote_ip->is_ipv6);
-	if (ctrl->socket_id < 0)
-	{
-		return -1;
-	}
-	if (adapter->opt->is_posix)
-	{
-		network_setsockopt(ctrl, SOL_SOCKET, SO_KEEPALIVE, (void *)&ctrl->tcp_keep_alive, sizeof(ctrl->tcp_keep_alive));
-		if (ctrl->tcp_keep_alive)
-		{
-			network_setsockopt(ctrl, IPPROTO_TCP, TCP_KEEPIDLE, (void*)&ctrl->tcp_keep_idle, sizeof(ctrl->tcp_keep_idle));
-			network_setsockopt(ctrl, IPPROTO_TCP, TCP_KEEPINTVL, (void *)&ctrl->tcp_keep_interval, sizeof(ctrl->tcp_keep_interval));
-			network_setsockopt(ctrl, IPPROTO_TCP, TCP_KEEPCNT, (void *)&ctrl->tcp_keep_cnt, sizeof(ctrl->tcp_keep_cnt));
-		}
-	}
-
-	return network_socket_connect(ctrl, remote_ip);
-}
-
 static int network_state_link_off(network_ctrl_t *ctrl, OS_EVENT *event, network_adapter_t *adapter)
 {
 	if (EV_NW_STATE == event->ID)
 	{
 		if (event->Param2)
 		{
-			if (NW_STATE_OFF_LINE == ctrl->target_state)
+			ctrl->state = NW_STATE_OFF_LINE;
+			if (NW_STATE_WAIT_LINK == ctrl->target_state)
 			{
 				return 0;
 			}
@@ -158,25 +182,153 @@ static int network_state_off_line(network_ctrl_t *ctrl, OS_EVENT *event, network
 
 static int network_state_wait_dns(network_ctrl_t *ctrl, OS_EVENT *event, network_adapter_t *adapter)
 {
+	if (ctrl->target_state != NW_STATE_ONLINE) return -1;
 	switch(event->ID)
 	{
-	case
+	case EV_NW_RESET:
+	case EV_NW_SOCKET_ERROR:
+		return -1;
+	case EV_NW_STATE:
+		if (!event->Param2)
+		{
+			return -1;
+		}
+		break;
+	case EV_NW_SOCKET_DNS_RESULT:
+		if (event->Param2)
+		{
+			//更新dns cache
+		}
+
+		ctrl->dns_ip_cnt = 0;
+		if (network_base_connect(ctrl, &ctrl->dns_ip[ctrl->dns_ip_cnt]))
+		{
+			ctrl->state = NW_STATE_OFF_LINE;
+			return -1;
+		}
+		else
+		{
+			ctrl->state = NW_STATE_WAIT_DNS;
+			return 1;
+		}
+	default:
+		return 1;
 	}
 }
 
 static int network_state_connecting(network_ctrl_t *ctrl, OS_EVENT *event, network_adapter_t *adapter)
 {
+	if (ctrl->target_state != NW_STATE_ONLINE) return -1;
+	switch(event->ID)
+	{
+	case EV_NW_RESET:
+	case EV_NW_SOCKET_ERROR:
+	case EV_NW_SOCKET_REMOTE_CLOSE:
+	case EV_NW_SOCKET_CLOSE_OK:
+		return -1;
+	case EV_NW_STATE:
+		if (!event->Param2)
+		{
+			return -1;
+		}
+		break;
 
+	case EV_NW_SOCKET_CONNECT_OK:
+		if (ctrl->tls_mode)
+		{
+			ctrl->state = NW_STATE_SHAKEHAND;
+			return 1;
+		}
+		else
+		{
+			ctrl->state = NW_STATE_ONLINE;
+			return 0;
+		}
+
+	default:
+		return 1;
+	}
 }
 
 static int network_state_shakehand(network_ctrl_t *ctrl, OS_EVENT *event, network_adapter_t *adapter)
 {
+	if ((ctrl->target_state != NW_STATE_ONLINE) || (ctrl->target_state != NW_STATE_TX_OK)) return -1;
+	switch(event->ID)
+	{
+	case EV_NW_RESET:
+	case EV_NW_SOCKET_ERROR:
+	case EV_NW_SOCKET_REMOTE_CLOSE:
+	case EV_NW_SOCKET_CLOSE_OK:
+		return -1;
+	case EV_NW_STATE:
+		if (!event->Param2)
+		{
+			return -1;
+		}
+		break;
 
+	case EV_NW_SOCKET_CONNECT_OK:
+		if (ctrl->tls_mode)
+		{
+			ctrl->state = NW_STATE_SHAKEHAND;
+			return 1;
+		}
+		else
+		{
+			ctrl->state = NW_STATE_ONLINE;
+			return 0;
+		}
+
+	default:
+		return 1;
+	}
 }
 
 static int network_state_on_line(network_ctrl_t *ctrl, OS_EVENT *event, network_adapter_t *adapter)
 {
+	switch(ctrl->target_state)
+	{
+	case NW_STATE_TX_OK:
+	case NW_STATE_NEW_RX:
+	case NW_STATE_OFF_LINE:
+		break;
+	default:
+		return -1;
+	}
 
+	switch(event->ID)
+	{
+	case EV_NW_RESET:
+	case EV_NW_SOCKET_ERROR:
+	case EV_NW_SOCKET_REMOTE_CLOSE:
+	case EV_NW_SOCKET_CLOSE_OK:
+		return -1;
+	case EV_NW_STATE:
+		if (!event->Param2)
+		{
+			return -1;
+		}
+		break;
+	case EV_NW_SOCKET_TX_OK:
+		break;
+	case EV_NW_SOCKET_RX_NEW:
+		break;
+	default:
+		return 1;
+	}
+}
+
+static int network_state_listen(network_ctrl_t *ctrl, OS_EVENT *event, network_adapter_t *adapter)
+{
+
+}
+
+static int network_state_disconnecting(network_ctrl_t *ctrl, OS_EVENT *event, network_adapter_t *adapter)
+{
+	if (ctrl->target_state != NW_STATE_OFF_LINE)
+	{
+
+	}
 }
 
 typedef int (*network_state_fun)(network_ctrl_t *ctrl, OS_EVENT *event, network_adapter_t *adapter);
@@ -188,12 +340,14 @@ static network_state_fun network_state_fun_list[]=
 		network_state_connecting,
 		network_state_shakehand,
 		network_state_on_line,
+		network_state_listen,
+		network_state_disconnecting,
 };
 
 static void network_default_statemachine(network_ctrl_t *ctrl, OS_EVENT *event, network_adapter_t *adapter)
 {
 	int result;
-	if (ctrl->state > NW_STATE_ONLINE)
+	if (ctrl->state > NW_STATE_DISCONNECTING)
 	{
 		ctrl->state = NW_STATE_LINK_OFF;
 		event->Param1 = -1;
@@ -203,7 +357,7 @@ static void network_default_statemachine(network_ctrl_t *ctrl, OS_EVENT *event, 
 			network_socket_force_close(ctrl);
 		}
 		ctrl->socket_id = -1;
-		event->ID = ctrl->target_state + EV_NW_RESULT_LINK;
+		event->ID = ctrl->target_state + EV_NW_RESULT_BASE;
 	}
 	else
 	{
@@ -212,7 +366,7 @@ static void network_default_statemachine(network_ctrl_t *ctrl, OS_EVENT *event, 
 		{
 			return ;
 		}
-		event->ID = ctrl->target_state + EV_NW_RESULT_LINK;
+		event->ID = ctrl->target_state + EV_NW_RESULT_BASE;
 		event->Param1 = result;
 	}
 
@@ -470,7 +624,7 @@ network_ctrl_t *network_alloc_ctrl(uint8_t adapter_index)
 			adapter->ctrl_busy[i] = 1;
 			ctrl = &adapter->ctrl_table[i];
 			ctrl->adapter_index = adapter_index;
-			OS_DeInitBuffer(&ctrl->uri);
+			OS_DeInitBuffer(&ctrl->domain_name);
 			break;
 		}
 	}
@@ -492,7 +646,6 @@ void network_release_ctrl(network_ctrl_t *ctrl)
 		if (&adapter->ctrl_table[i] == ctrl)
 		{
 			network_deinit_tls(ctrl);
-			OS_DeInitBuffer(&ctrl->uri);
 			adapter->ctrl_busy[i] = 0;
 			break;
 		}
@@ -506,7 +659,6 @@ void network_init_ctrl(network_ctrl_t *ctrl, HANDLE task_handle, CBFuncEx_t call
 {
 	uint8_t adapter_index = ctrl->adapter_index;
 	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
-	OS_DeInitBuffer(&ctrl->uri);
 	memset(ctrl, 0, sizeof(network_ctrl_t));
 	ctrl->adapter_index = adapter_index;
 	ctrl->task_handle = task_handle;
@@ -539,7 +691,7 @@ int network_set_local_port(network_ctrl_t *ctrl, uint16_t local_port)
 		NW_LOCK;
 		for (i = 0; i < adapter->opt->max_socket_num; i++)
 		{
-			if (adapter->ctrl_table[i] != ctrl)
+			if (&adapter->ctrl_table[i] != ctrl)
 			{
 				if (adapter->ctrl_table[i].local_port == local_port)
 				{
@@ -589,6 +741,7 @@ int network_socket_connect(network_ctrl_t *ctrl, luat_ip_addr_t *remote_ip)
 {
 	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
 	ctrl->is_server_mode = 0;
+	DBG("%x", remote_ip->ipv4);
 	return adapter->opt->socket_connect(ctrl->socket_id, ctrl->tag, ctrl->local_port, remote_ip, ctrl->remote_port, adapter->user_data);
 }
 
@@ -689,8 +842,8 @@ int network_dns(network_ctrl_t *ctrl)
 {
 	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
 	luat_dns_require_t *require = zalloc(sizeof(luat_dns_require_t));
-	require->uri.Data = ctrl->uri;
-	require->uri.Pos = strlen(ctrl->uri);
+	require->uri.Data = ctrl->domain_name;
+	require->uri.Pos = ctrl->domain_name_len;
 	return adapter->opt->dns(require->uri.Data, require->uri.Pos, adapter->user_data);
 }
 
@@ -772,7 +925,7 @@ int network_wait_link_up(network_ctrl_t *ctrl, uint32_t timeout_ms)
 		return 0;
 	}
 	ctrl->state = NW_STATE_LINK_OFF;
-	ctrl->target_state = NW_STATE_OFF_LINE;
+	ctrl->target_state = NW_STATE_WAIT_LINK;
 
 	NW_UNLOCK;
 	if (!ctrl->task_handle || !timeout_ms)
@@ -816,14 +969,15 @@ int network_wait_link_up(network_ctrl_t *ctrl, uint32_t timeout_ms)
  * 4.如果是加密模式，还要走握手环节，等到握手环节完成后才能返回结果
  * local_port如果为0则api内部自动生成一个
  */
-int network_connect(network_ctrl_t *ctrl, uint16_t local_port, const char *url, luat_ip_addr_t *remote_ip, uint16_t remote_port, uint32_t timeout_ms)
+int network_connect(network_ctrl_t *ctrl, const char *domain_name, uint32_t domain_name_len, luat_ip_addr_t *remote_ip, uint16_t remote_port, uint32_t timeout_ms)
 {
 	if (ctrl->socket_id >= 0)
 	{
 		return -1;
 	}
 	NW_LOCK;
-	ctrl->uri = url;
+	ctrl->domain_name = domain_name;
+	ctrl->domain_name_len = domain_name_len;
 	if (remote_ip)
 	{
 		ctrl->remote_ip = *remote_ip;
@@ -896,6 +1050,7 @@ int network_listen(network_ctrl_t *ctrl, uint16_t local_port, uint32_t timeout_m
 int network_close(network_ctrl_t *ctrl, uint32_t timeout_ms)
 {
 	NW_LOCK;
+	uint8_t old_state = ctrl->state;
 	ctrl->auto_mode = 1;
 	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
 #ifdef LUAT_USE_TLS
@@ -916,7 +1071,7 @@ int network_close(network_ctrl_t *ctrl, uint32_t timeout_ms)
 	ctrl->state = NW_STATE_DISCONNECTING;
 	ctrl->target_state = NW_STATE_LINK_OFF;
 
-	if (ctrl->is_tcp)
+	if ((NW_STATE_ONLINE == old_state) && ctrl->is_tcp)
 	{
 		if (network_socket_disconnect(ctrl))
 		{
@@ -933,10 +1088,11 @@ int network_close(network_ctrl_t *ctrl, uint32_t timeout_ms)
 		{
 			network_clean_invaild_socket(ctrl->adapter_index);
 			network_socket_force_close(ctrl);
-			ctrl->state = NW_STATE_OFF_LINE;
-			ctrl->target_state = NW_STATE_LINK_OFF;
-			return 0;
+
 		}
+		ctrl->state = NW_STATE_OFF_LINE;
+		ctrl->target_state = NW_STATE_LINK_OFF;
+		return 0;
 	}
 NETWORK_CONNECT_WAIT:
 	NW_UNLOCK;

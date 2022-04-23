@@ -44,21 +44,23 @@ enum
 	NW_STATE_DISCONNECTING,
 	NW_STATE_TX_OK,
 	NW_STATE_NEW_RX,
-
+	NW_STATE_WAIT_LINK,
 
 	//一旦使用高级API，回调会改为下面的，param1 = 0成功，其他失败
-	EV_NW_RESULT_LINK = EV_NW_END + 1,
-	EV_NW_RESULT_CONNECT = EV_NW_RESULT_LINK + NW_STATE_ONLINE,
-	EV_NW_RESULT_LISTEN = EV_NW_RESULT_LINK +  NW_STATE_LISTEN,
-	EV_NW_RESULT_CLOSE = EV_NW_RESULT_LINK + NW_STATE_OFF_LINE,
-	EV_NW_RESULT_TX = EV_NW_RESULT_LINK + NW_STATE_TX_OK,
-	EV_NW_RESULT_RX = EV_NW_RESULT_LINK + NW_STATE_NEW_RX,
+	EV_NW_RESULT_BASE = EV_NW_END + 1,
+	EV_NW_RESULT_LINK = EV_NW_RESULT_BASE + NW_STATE_WAIT_LINK,
+	EV_NW_RESULT_CONNECT = EV_NW_RESULT_BASE + NW_STATE_ONLINE,
+	EV_NW_RESULT_LISTEN = EV_NW_RESULT_BASE +  NW_STATE_LISTEN,
+	EV_NW_RESULT_CLOSE = EV_NW_RESULT_BASE + NW_STATE_OFF_LINE,
+	EV_NW_RESULT_TX = EV_NW_RESULT_BASE + NW_STATE_TX_OK,
+	EV_NW_RESULT_RX = EV_NW_RESULT_BASE + NW_STATE_NEW_RX,
 
 	NW_ADAPTER_INDEX_ETH0 = 0,		//以太网
 	NW_ADAPTER_INDEX_STA,			//wifi sta和蜂窝
 	NW_ADAPTER_INDEX_AP,			//wifi ap
 	NW_ADAPTER_QTY,
-	NW_CMD_W5500_AUTO_HEART_TIME = 0,
+
+	NW_CMD_AUTO_HEART_TIME = 0,
 
 
 
@@ -125,7 +127,8 @@ typedef struct
 #endif
 	uint32_t tcp_keep_idle;
 	int socket_id;
-	const char *uri;
+	const char *domain_name;
+	uint32_t domain_name_len;
 	luat_ip_addr_t remote_ip;
 	luat_ip_addr_t *dns_ip;
 	uint16_t remote_port;
@@ -137,6 +140,7 @@ typedef struct
     uint8_t tls_need_reshakehand;
     uint8_t tls_init_done;
 #endif
+    uint8_t dns_ip_cnt;
     uint8_t tcp_keep_alive;
 	uint8_t tcp_keep_interval;
 	uint8_t tcp_keep_cnt;
@@ -208,7 +212,7 @@ typedef struct
 	//非posix的socket，用这个根据实际硬件设置参数
 	int (*user_cmd)(int socket_id, uint64_t tag, uint32_t cmd, uint32_t value, void *user_data);
 
-	int (*dns)(const char *url, uint32_t len, void *user_data);
+	int (*dns)(const char *domain_name, uint32_t len, void *user_data);
 	int (*set_dns_server)(uint8_t server_index, luat_ip_addr_t *ip, void *user_data);
 	//所有网络消息都是通过cb_fun回调
 	//cb_fun回调时第一个参数为OS_EVENT，包含了socket的必要信息，第二个是luat_network_cb_param_t，其中的param是这里传入的param
@@ -227,6 +231,7 @@ typedef struct
 //获取最后一个注册的适配器序号
 int network_get_last_register_adapter(void);
 uint32_t network_string_to_ipv4(const char *string, uint32_t len);
+uint8_t network_string_is_ipv4(const char *string, uint32_t len);
 /****************************以下是通用基础api********************************************************/
 /*
  * 在使用之后任意API前，必须先注册相关的协议栈接口
@@ -304,7 +309,7 @@ int network_setsockopt(network_ctrl_t *ctrl, int level, int optname, const void 
 int network_user_cmd(network_ctrl_t *ctrl,  uint32_t cmd, uint32_t value);
 //url已经是ip形式了，返回1，并且填充remote_ip
 //成功返回0，失败 < 0
-int network_dns(network_ctrl_t *ctrl, const char *url);
+int network_dns(network_ctrl_t *ctrl);
 
 void network_clean_invaild_socket(uint8_t adapter_index);
 /****************************通用基础api结束********************************************************/
@@ -362,7 +367,7 @@ int network_wait_link_up(network_ctrl_t *ctrl, uint32_t timeout_ms);
  * local_port如果为0则api内部自动生成一个
  * 使用前必须确保是在close状态，建议先用network_close
  */
-int network_connect(network_ctrl_t *ctrl, uint16_t local_port, const char *url, luat_ip_addr_t *remote_ip, uint16_t remote_port, uint32_t timeout_ms);
+int network_connect(network_ctrl_t *ctrl, const char *domain_name, uint32_t domain_name_len, luat_ip_addr_t *remote_ip, uint16_t remote_port, uint32_t timeout_ms);
 
 int network_listen(network_ctrl_t *ctrl, uint16_t local_port, uint32_t timeout_ms);
 

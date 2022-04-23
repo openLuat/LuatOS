@@ -421,12 +421,8 @@ static int w5500_socket_connect(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t 
 		{
 			BytesPutLe32(cmd, remote_ip);
 			BytesPutBe16(&cmd[W5500_SOCKET_DEST_PORT0 - W5500_SOCKET_DEST_IP0], remote_port);
+			DBG_HexPrintf(cmd, 6);
 			w5500_xfer(w5500, W5500_SOCKET_DEST_IP0, socket_index(socket_id)|socket_reg|is_write, cmd, 6);
-//			if (temp == SOCK_UDP)
-//			{
-//				cmd[0] = Sn_CR_SEND;
-//				w5500_xfer(w5500, W5500_SOCKET_CR, socket_index(socket_id)|socket_reg|is_write, cmd, 1);
-//			}
 		}
 
 	}
@@ -942,12 +938,14 @@ static void w5500_sys_socket_callback(w5500_ctrl_t *w5500, uint8_t socket_id, ui
 		}
 		break;
 	case Sn_IR_TIMEOUT:
+		DBG_ERR("socket %d timeout", socket_id);
 		w5500_callback_to_nw_task(w5500, EV_NW_SOCKET_ERROR, socket_id, 0, 0);
 		break;
 	case Sn_IR_CON:
 		w5500_callback_to_nw_task(w5500, EV_NW_SOCKET_CONNECT_OK, socket_id, 0, 0);
 		break;
 	case Sn_IR_DISCON:
+		DBG_ERR("socket %d disconnect", socket_id);
 		w5500_callback_to_nw_task(w5500, EV_NW_SOCKET_REMOTE_CLOSE, socket_id, 0, 0);
 		break;
 	default:
@@ -1352,11 +1350,13 @@ static int w5500_create_soceket(uint8_t is_tcp, uint64_t *tag, void *param, uint
 			*tag = prv_w5500_ctrl->tag;
 			prv_w5500_ctrl->socket[i].in_use = 1;
 			prv_w5500_ctrl->socket[i].tag = *tag;
-			prv_w5500_ctrl->socket[socket_id].rx_wait_size = 0;
-			prv_w5500_ctrl->socket[socket_id].tx_wait_size = 0;
-			prv_w5500_ctrl->socket[socket_id].param = param;
+			prv_w5500_ctrl->socket[i].rx_wait_size = 0;
+			prv_w5500_ctrl->socket[i].tx_wait_size = 0;
+			prv_w5500_ctrl->socket[i].param = param;
+			prv_w5500_ctrl->socket[i].is_tcp = is_tcp;
 			llist_traversal(&prv_w5500_ctrl->socket[i].tx_head, w5500_del_data_cache, NULL);
 			llist_traversal(&prv_w5500_ctrl->socket[i].rx_head, w5500_del_data_cache, NULL);
+			socket_id = i;
 			break;
 		}
 	}
@@ -1536,7 +1536,8 @@ static int w5500_user_cmd(int socket_id, uint64_t tag, uint32_t cmd, uint32_t va
 	if (result) return result;
 	switch (cmd)
 	{
-	case NW_CMD_W5500_AUTO_HEART_TIME:
+	case NW_CMD_AUTO_HEART_TIME:
+		value = (value + 4) / 5;
 		platform_send_event(prv_w5500_ctrl->task_handle, EV_W5500_REG_OP, W5500_SOCKET_KEEP_TIME, socket_id, value);
 		break;
 	default:

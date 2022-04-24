@@ -17,7 +17,7 @@
 #include "u8g2.h"
 #include "u8g2_luat_fonts.h"
 
-#include "../qrcode/qrcode.h"
+// #include "../qrcode/qrcode.h"
 
 int8_t u8g2_font_decode_get_signed_bits(u8g2_font_decode_t *f, uint8_t cnt);
 uint8_t u8g2_font_decode_get_unsigned_bits(u8g2_font_decode_t *f, uint8_t cnt);
@@ -582,13 +582,15 @@ static int l_lcd_draw_circle(lua_State* L) {
     return 1;
 }
 
+#ifdef LUAT_USE_QRCODE
+#include "qrcodegen.h"
 /**
 缓冲区绘制QRCode
-@api lcd.drawQrcode(x, y, str, version)
+@api lcd.drawQrcode(x, y, str, size)
 @int x坐标
 @int y坐标
 @string 二维码的内容
-@int 二维码版本号 可选1_40 对应21*21到177*177
+@int 可选,显示大小,不可小于21,默认21
 @return nil 无返回值
 */
 static int l_lcd_drawQrcode(lua_State *L)
@@ -596,23 +598,42 @@ static int l_lcd_drawQrcode(lua_State *L)
     size_t len;
     int x           = luaL_checkinteger(L, 1);
     int y           = luaL_checkinteger(L, 2);
-    const char* str = luaL_checklstring(L, 3, &len);
-    int version     = luaL_checkinteger(L, 4);
-    // Create the QR code
-    QRCode qrcode;
-    uint8_t qrcodeData[qrcode_getBufferSize(version)];
-    qrcode_initText(&qrcode, qrcodeData, version, ECC_LOW, str);
-
-    for(int i = 0; i < qrcode.size; i++)
-    {
-        for (int j = 0; j < qrcode.size; j++)
-        {
-            qrcode_getModule(&qrcode, j, i) ? luat_lcd_draw_point(default_conf, x+j, y+i, FORE_COLOR) : luat_lcd_draw_point(default_conf, x+j, y+i, BACK_COLOR);
+    const char* text = luaL_checklstring(L, 3, &len);
+    int size        = luaL_optinteger(L, 4,21);
+    uint8_t *qrcode = luat_heap_malloc(qrcodegen_BUFFER_LEN_MAX);
+    uint8_t *tempBuffer = luat_heap_malloc(qrcodegen_BUFFER_LEN_MAX);
+    if (qrcode == NULL || tempBuffer == NULL) {
+        if (qrcode)
+            luat_heap_free(qrcode);
+        if (tempBuffer)
+            luat_heap_free(tempBuffer);
+        LLOGE("qrcode out of memory");
+        return 0;
+    }
+    bool ok = qrcodegen_encodeText(text, tempBuffer, qrcode, qrcodegen_Ecc_MEDIUM,
+        qrcodegen_VERSION_MIN, qrcodegen_VERSION_MAX, qrcodegen_Mask_AUTO, true);
+    if (ok){
+        int qr_size = qrcodegen_getSize(qrcode);
+        int scale = size / qr_size ;
+        int margin = (size - qr_size * scale) / 2;
+        luat_lcd_draw_fill(default_conf,x,y,x+size,y+size,BACK_COLOR);
+        x+=margin;
+        y+=margin;
+        for (int j = 0; j < qr_size; j++) {
+            for (int i = 0; i < qr_size; i++) {
+                if (qrcodegen_getModule(qrcode, i, j))
+                    luat_lcd_draw_fill(default_conf,x+i*scale,y+j*scale,x+(i+1)*scale,y+(j+1)*scale,FORE_COLOR);
+            }
         }
     }
+    if (qrcode)
+        luat_heap_free(qrcode);
+    if (tempBuffer)
+        luat_heap_free(tempBuffer);
     lcd_auto_flush(default_conf);
     return 0;
 }
+#endif
 
 static uint8_t utf8_state;
 static uint16_t encoding;
@@ -1324,7 +1345,9 @@ static const rotable_Reg_t reg_lcd[] =
     { "drawLine",   ROREG_FUNC(l_lcd_draw_line)},
     { "drawRectangle",   ROREG_FUNC(l_lcd_draw_rectangle)},
     { "drawCircle", ROREG_FUNC(l_lcd_draw_circle)},
+#ifdef LUAT_USE_QRCODE
     { "drawQrcode", ROREG_FUNC(l_lcd_drawQrcode)},
+#endif
     { "drawStr",    ROREG_FUNC(l_lcd_draw_str)},
     { "flush",      ROREG_FUNC(l_lcd_flush)},
     { "setupBuff",  ROREG_FUNC(l_lcd_setup_buff)},

@@ -157,17 +157,39 @@ static int l_network_create(lua_State *L)
 }
 
 /*
+作为客户端断开连接
+@api network.debug(ctrl, onoff)
+@user_data network.create得到的ctrl
+@boolean true 打开debug开关
+@return nil 无返回值
+@usage network.debug(ctrl, true)
+*/
+static int l_network_set_debug(lua_State *L)
+{
+	luat_network_ctrl_t *l_ctrl = ((luat_network_ctrl_t *)luaL_checkudata(L, 1, LUAT_NW_CTRL_TYPE));
+	if (lua_isboolean(L, 2))
+	{
+		l_ctrl->netc->is_debug = lua_toboolean(L, 2);
+	}
+	return 0;
+}
+
+/*
 等待网卡linkup
 @api network.linkup(ctrl)
 @user_data network.create得到的ctrl
-@return true已经linkup，false没有linkup，之后需要接收network.LINK消息
-@usage local result = network.linkup(ctrl)
+@return
+boolean true有异常发生，false没有异常，如果有error则不需要看下一个返回值了
+boolean true已经linkup，false没有linkup，之后需要接收network.LINK消息
+@usage local error, result = network.linkup(ctrl)
 */
 static int l_network_linkup(lua_State *L)
 {
 	luat_network_ctrl_t *l_ctrl = ((luat_network_ctrl_t *)luaL_checkudata(L, 1, LUAT_NW_CTRL_TYPE));
-	lua_pushboolean(L, !network_wait_link_up(l_ctrl->netc, 0));
-	return 1;
+	int result = network_wait_link_up(l_ctrl->netc, 0);
+	lua_pushboolean(L, result < 0);
+	lua_pushboolean(L, result == 0);
+	return 2;
 
 
 }
@@ -178,7 +200,7 @@ static int l_network_linkup(lua_State *L)
 @user_data network.create得到的ctrl
 @string or int ip或者域名，如果是IPV4，可以是大端格式的int值
 @int 服务器端口号，小端格式
-@int 本地端口号，小端格式，如果不写，则自动分配一个，如果用户填了端口号则需要小于60000
+@int 本地端口号，小端格式，如果不写，则自动分配一个，如果用户填了端口号则需要小于60000, 默认不写
 @boolean 是否是UDP，默认false
 @int tcp keep live模式下的idle时间，如果留空则表示不启用，如果是不支持标准posix接口的网卡（比如W5500），则为心跳间隔
 @int tcp keep live模式下的探测间隔时间
@@ -187,16 +209,17 @@ static int l_network_linkup(lua_State *L)
 @string TCP模式下的客户端ca证书数据，UDP模式下的PSK-ID，TCP模式下如果不需要验证客户端证书时，忽略，一般不需要验证客户端证书
 @string TCP模式下的客户端私钥加密数据
 @string TCP模式下的客户端私钥口令数据
-
-@return true已经linkup，false没有linkup，之后需要接收network.LINK消息
-@usage local result = network.linkup(ctrl)
+@return
+boolean true有异常发生，false没有异常，如果有error则不需要看下一个返回值了，如果有异常，后续要close
+boolean true已经connect，false没有connect，之后需要接收network.ON_LINE消息
+@usage local error, result = network.connect(ctrl, "xxx.xxx.xxx.xxx", xxxx)
 */
 static int l_network_connect(lua_State *L)
 {
 	luat_network_ctrl_t *l_ctrl = ((luat_network_ctrl_t *)luaL_checkudata(L, 1, LUAT_NW_CTRL_TYPE));
 	luat_ip_addr_t ip_addr;
 	uint8_t is_udp = 0;
-	int param_pos = 1;
+	int param_pos = 2;
 	uint32_t keep_idle, keep_interval, keep_cnt;
 	const char *ip;
 	const char *server_cert;
@@ -205,7 +228,7 @@ static int l_network_connect(lua_State *L)
 	const char *client_password;
 	size_t ip_len, server_cert_len, client_cert_len, client_key_len, client_password_len;
 	ip_addr.is_ipv6 = 0xff;
-	if (lua_isinteger(L, ++param_pos))
+	if (lua_isinteger(L, param_pos))
 	{
 		ip_addr.is_ipv6 = 0;
 		ip_addr.ipv4 = lua_tointeger(L, param_pos);
@@ -249,24 +272,206 @@ static int l_network_connect(lua_State *L)
 	}
 	network_set_base_mode(l_ctrl->netc, !is_udp, keep_idle, keep_idle, keep_interval, keep_cnt);
 	network_set_local_port(l_ctrl->netc, local_port);
-	lua_pushboolean(L, !network_connect(l_ctrl->netc, ip, ip_len, ip_addr.is_ipv6?NULL:&ip_addr, remote_port, 0));
-	return 1;
+	int result = network_connect(l_ctrl->netc, ip, ip_len, ip_addr.is_ipv6?NULL:&ip_addr, remote_port, 0);
+	lua_pushboolean(L, result < 0);
+	lua_pushboolean(L, result == 0);
+	return 2;
 }
 
+/*
+作为客户端断开连接
+@api network.close(ctrl)
+@user_data network.create得到的ctrl
+@return
+boolean true有异常发生，false没有异常，如果有error则不需要看下一个返回值了
+boolean true已经断开，false没有断开，之后需要接收network.CLOSED消息
+@usage local error, result = network.close(ctrl)
+*/
 static int l_network_close(lua_State *L)
 {
-
+	luat_network_ctrl_t *l_ctrl = ((luat_network_ctrl_t *)luaL_checkudata(L, 1, LUAT_NW_CTRL_TYPE));
+	int result = network_close(l_ctrl->netc, 0);
+	lua_pushboolean(L, result < 0);
+	lua_pushboolean(L, result == 0);
+	return 2;
 }
 
+/*
+发送数据给对端
+@api network.tx(ctrl, data, ip, port, flag)
+@user_data network.create得到的ctrl
+@string or user_data zbuff  要发送的数据
+@string or int 对端IP，如果是TCP应用则忽略，如果是UDP，如果留空则用connect时候的参数，如果是IPV4，可以是大端格式的int值
+@int 对端端口号，小端格式，如果是TCP应用则忽略，如果是UDP，如果留空则用connect时候的参数
+@int 发送参数，目前预留，不起作用
+@return
+boolean true有异常发生，false没有异常，如果有error则不需要看下一个返回值了，如果有异常，后续要close
+boolean true缓冲区满了，false没有异常，如果true，则需要等待一段时间或者等到network.TX_OK消息后再尝试发送，同时忽略下一个返回值
+boolean true已经收到应答，false没有收到应答，之后需要接收network.TX_OK消息， 也可以忽略继续发送，直到full==true
+@usage local error, full, result = network.tx(ctrl, "123456", "xxx.xxx.xxx.xxx", xxxx)
+*/
 static int l_network_tx(lua_State *L)
 {
+	luat_network_ctrl_t *l_ctrl = ((luat_network_ctrl_t *)luaL_checkudata(L, 1, LUAT_NW_CTRL_TYPE));
+	luat_ip_addr_t ip_addr;
+	luat_zbuff_t *buff = NULL;
+	const char *ip;
+	const char *data;
+	size_t ip_len, data_len;
+	ip_addr.is_ipv6 = 0xff;
+	if (lua_isstring(L, 2))
+	{
+		data_len = 0;
+		data = luaL_checklstring(L, 2, &data_len);
+	}
+	else
+	{
+		buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+		data = buff->addr;
+		data_len = buff->used;
+	}
 
+	if (lua_isstring(L, 3))
+	{
+		ip_len = 0;
+	    ip = luaL_checklstring(L, 3, &ip_len);
+
+		if (network_string_is_ipv4(ip, ip_len))
+		{
+			ip_addr.is_ipv6 = 0;
+			ip_addr.ipv4 = network_string_to_ipv4(ip, ip_len);
+		}
+		else
+		{
+			char *name = luat_heap_malloc(ip_len + 1);
+			memcpy(name, ip, ip_len);
+			name[ip_len] = 0;
+			network_string_to_ipv6(name, &ip_addr);
+			free(name);
+		}
+	}
+	else if (lua_isinteger(L, 3))
+	{
+		ip_addr.is_ipv6 = 0;
+		ip_addr.ipv4 = lua_tointeger(L, 3);
+	}
+	uint32_t tx_len;
+	int result = network_tx(l_ctrl->netc, data, data_len, luaL_optinteger(L, 5, 0), &ip_addr, luaL_optinteger(L, 4, 0), &tx_len, 0);
+	lua_pushboolean(L, result < 0);
+	lua_pushboolean(L, tx_len != data_len);
+	lua_pushboolean(L, result == 0);
+	return 2;
 }
 
+/*
+接收对端发出的数据，注意数据已经缓存在底层，使用本函数只是提取出来，UDP模式下一次只会取出一个数据包
+@api network.rx(ctrl, buff, start, flag)
+@user_data network.create得到的ctrl
+@user_data zbuff 存放接收的数据，如果缓冲区不够大会自动扩容
+@int 接收参数，目前预留，不起作用
+@return
+boolean true有异常发生，false没有异常，如果有异常，后续要close
+int 本次接收到数据长度
+string 对端IP，只有UDP模式下才有意义，TCP模式返回nil，注意返回的格式，如果是IPV4，1byte 0x00 + 4byte地址 如果是IPV6，1byte 0x01 + 16byte地址
+int 对端port，只有UDP模式下才有意义，TCP模式返回0
+@usage local error, data_len, ip, port = network.rx(ctrl, buff)
+*/
 static int l_network_rx(lua_State *L)
 {
+	luat_network_ctrl_t *l_ctrl = ((luat_network_ctrl_t *)luaL_checkudata(L, 1, LUAT_NW_CTRL_TYPE));
+	luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
 
+	luat_ip_addr_t ip_addr;
+	uint8_t ip[17];
+	uint16_t port;
+	uint8_t new_flag = 0;
+	int rx_len;
+	int total_len;
+	int result = network_rx(l_ctrl->netc, NULL, 0, 0, NULL, NULL, &total_len);
+	if (result < 0)
+	{
+		lua_pushboolean(L, 1);
+		lua_pushinteger(L, 0);
+		lua_pushnil(L);
+		lua_pushnil(L);
+	}
+	else if (!total_len)
+	{
+		lua_pushboolean(L, 0);
+		lua_pushinteger(L, 0);
+		lua_pushnil(L);
+		lua_pushnil(L);
+	}
+	else
+	{
+		if ((buff->len - buff->used) < total_len)
+		{
+			__zbuff_resize(buff, total_len + buff->used);
+		}
+		result = network_rx(l_ctrl->netc, buff->addr + buff->used, total_len, 0, &ip_addr, &port, &rx_len);
+		if (result < 0)
+		{
+			lua_pushboolean(L, 1);
+			lua_pushinteger(L, 0);
+			lua_pushnil(L);
+			lua_pushnil(L);
+		}
+		else if (!rx_len)
+		{
+			lua_pushboolean(L, 0);
+			lua_pushinteger(L, 0);
+			lua_pushnil(L);
+			lua_pushnil(L);
+		}
+		else
+		{
+			buff->used += rx_len;
+			lua_pushboolean(L, 0);
+			lua_pushinteger(L, rx_len);
+			if (l_ctrl->netc->is_tcp)
+			{
+				lua_pushnil(L);
+				lua_pushnil(L);
+			}
+			else
+			{
+				if (ip_addr.is_ipv6)
+				{
+					ip[0] = 0;
+					memcpy(ip + 1, &ip_addr.ipv4, 4);
+					lua_pushlstring(L, ip, 5);
+				}
+				else
+				{
+					ip[0] = 1;
+					memcpy(ip + 1, &ip_addr.ipv6_u8_addr, 16);
+					lua_pushlstring(L, ip, 17);
+				}
+				lua_pushinteger(L, port);
+			}
+		}
+	}
+	return 4;
 }
+
+/*
+等待新的socket消息，在连接成功和发送数据成功后，使用一次将network状态转换到接收新数据
+@api network.wait(ctrl)
+@user_data network.create得到的ctrl
+@return
+boolean true有异常发生，false没有异常，如果有异常，后续要close
+boolean true有新的数据需要接收，false没有数据，之后需要接收network.EVENT消息
+@usage local error, result = network.wait(ctrl)
+*/
+static int l_network_wait(lua_State *L)
+{
+	luat_network_ctrl_t *l_ctrl = ((luat_network_ctrl_t *)luaL_checkudata(L, 1, LUAT_NW_CTRL_TYPE));
+	int result = network_wait_event(l_ctrl->netc, NULL, 0, NULL);
+	lua_pushboolean(L, result < 0);
+	lua_pushboolean(L, result == 0);
+	return 2;
+}
+
 
 static int l_network_listen(lua_State *L)
 {
@@ -294,11 +499,13 @@ static int l_network_release(lua_State *L)
 static const rotable_Reg_t reg_network_adapter[] =
 {
 	{"create",			ROREG_FUNC(l_network_create)},
+	{"debug",		ROREG_FUNC(l_network_set_debug)},
 	{"linkup",			ROREG_FUNC(l_network_linkup)},
 	{"connect",			ROREG_FUNC(l_network_connect)},
 	{"close",			ROREG_FUNC(l_network_close)},
 	{"tx",			ROREG_FUNC(l_network_tx)},
 	{"rx",			ROREG_FUNC(l_network_rx)},
+	{"wait",			ROREG_FUNC(l_network_wait)},
 	{"listen",			ROREG_FUNC(l_network_listen)},
 	{"accept",			ROREG_FUNC(l_network_accept)},
 	{"release",			ROREG_FUNC(l_network_release)},
@@ -307,8 +514,7 @@ static const rotable_Reg_t reg_network_adapter[] =
 	{ "AP",     		ROREG_INT(NW_ADAPTER_INDEX_AP)},
     { "LINK",           ROREG_INT(EV_NW_RESULT_LINK & 0x0fffffff)},
 	{ "ON_LINE",          	ROREG_INT(EV_NW_RESULT_CONNECT & 0x0fffffff)},
-    { "LISTEN",           ROREG_INT(EV_NW_RESULT_LISTEN & 0x0fffffff)},
-	{ "RX_NEW",          	ROREG_INT(EV_NW_RESULT_RX & 0x0fffffff)},
+	{ "EVENT",          	ROREG_INT(EV_NW_RESULT_EVENT & 0x0fffffff)},
 	{ "TX_OK",     		ROREG_INT(EV_NW_RESULT_TX & 0x0fffffff)},
 	{ "CLOSED",     		ROREG_INT(EV_NW_RESULT_CLOSE & 0x0fffffff)},
 	{ NULL,            ROREG_INT(0)}

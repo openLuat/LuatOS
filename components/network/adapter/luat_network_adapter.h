@@ -32,6 +32,7 @@ enum
 	EV_NW_SOCKET_ERROR,
 	EV_NW_SOCKET_LISTEN,
 	EV_NW_SOCKET_NEW_CONNECT,	//作为server接收到新的connect，只有允许accept操作的才有，否则直接上报CONNECT_OK
+	EV_NW_BREAK_WAIT,
 	EV_NW_END,
 
 	NW_STATE_LINK_OFF = 0,
@@ -42,18 +43,21 @@ enum
 	NW_STATE_ONLINE,
 	NW_STATE_LISTEN,
 	NW_STATE_DISCONNECTING,
-	NW_STATE_TX_OK,
-	NW_STATE_NEW_RX,
-	NW_STATE_WAIT_LINK,
+
+	NW_WAIT_NONE = 0,
+	NW_WAIT_LINK_UP,
+	NW_WAIT_ON_LINE,
+	NW_WAIT_TX_OK,
+	NW_WAIT_OFF_LINE,
+	NW_WAIT_EVENT,
 
 	//一旦使用高级API，回调会改为下面的，param1 = 0成功，其他失败
 	EV_NW_RESULT_BASE = EV_NW_END + 1,
-	EV_NW_RESULT_LINK = EV_NW_RESULT_BASE + NW_STATE_WAIT_LINK,
-	EV_NW_RESULT_CONNECT = EV_NW_RESULT_BASE + NW_STATE_ONLINE,
-	EV_NW_RESULT_LISTEN = EV_NW_RESULT_BASE +  NW_STATE_LISTEN,
-	EV_NW_RESULT_CLOSE = EV_NW_RESULT_BASE + NW_STATE_OFF_LINE,
-	EV_NW_RESULT_TX = EV_NW_RESULT_BASE + NW_STATE_TX_OK,
-	EV_NW_RESULT_RX = EV_NW_RESULT_BASE + NW_STATE_NEW_RX,
+	EV_NW_RESULT_LINK = EV_NW_RESULT_BASE + NW_WAIT_LINK_UP,
+	EV_NW_RESULT_CONNECT = EV_NW_RESULT_BASE + NW_WAIT_ON_LINE,
+	EV_NW_RESULT_CLOSE = EV_NW_RESULT_BASE + NW_WAIT_OFF_LINE,
+	EV_NW_RESULT_TX = EV_NW_RESULT_BASE + NW_WAIT_TX_OK,
+	EV_NW_RESULT_EVENT = EV_NW_RESULT_BASE + NW_WAIT_EVENT,
 
 	NW_ADAPTER_INDEX_ETH0 = 0,		//以太网
 	NW_ADAPTER_INDEX_STA,			//wifi sta和蜂窝
@@ -134,12 +138,16 @@ typedef struct
 	uint16_t remote_port;
 	uint16_t local_port;
 #ifdef LUAT_USE_TLS
+	const uint8_t *cache_data;
+	uint32_t cache_len;
 	int tls_timer_state;
 	uint32_t tls_send_timeout_ms;
 	uint8_t tls_mode;
     uint8_t tls_need_reshakehand;
     uint8_t tls_init_done;
 #endif
+    uint8_t need_close;
+    uint8_t new_rx_flag;
     uint8_t dns_ip_cnt;
     uint8_t tcp_keep_alive;
 	uint8_t tcp_keep_interval;
@@ -148,8 +156,9 @@ typedef struct
     uint8_t is_tcp;
     uint8_t is_server_mode;
     uint8_t auto_mode;
-    uint8_t target_state;
+    uint8_t wait_target_state;
     uint8_t state;
+    uint8_t is_debug;
 }network_ctrl_t;
 
 typedef struct
@@ -201,7 +210,7 @@ typedef struct
 	//成功返回实际读取的值，失败 < 0
 	int (*socket_receive)(int socket_id, uint64_t tag, uint8_t *buf, uint32_t len, int flags, luat_ip_addr_t *remote_ip, uint16_t *remote_port, void *user_data);
 	//tcp时，不需要remote_ip和remote_port
-	//成功返回0，失败 < 0
+	//成功返回>0的len，缓冲区满了=0，失败 < 0，如果发送了len=0的空包，也是返回0，注意判断
 	int (*socket_send)(int socket_id, uint64_t tag, const uint8_t *buf, uint32_t len, int flags, luat_ip_addr_t *remote_ip, uint16_t remote_port, void *user_data);
 	//检查socket合法性，成功返回0，失败 < 0
 	int (*socket_check)(int socket_id, uint64_t tag, void *user_data);
@@ -214,6 +223,7 @@ typedef struct
 
 	int (*dns)(const char *domain_name, uint32_t len, void *user_data);
 	int (*set_dns_server)(uint8_t server_index, luat_ip_addr_t *ip, void *user_data);
+	int (*get_local_ip_info)(luat_ip_addr_t *ip, luat_ip_addr_t *submask, luat_ip_addr_t *gateway, void *user_data);
 	//所有网络消息都是通过cb_fun回调
 	//cb_fun回调时第一个参数为OS_EVENT，包含了socket的必要信息，第二个是luat_network_cb_param_t，其中的param是这里传入的param
 	//OS_EVENT ID为EV_NW_XXX，param1是socket id param2是各自参数 param3是
@@ -307,6 +317,7 @@ int network_getsockopt(network_ctrl_t *ctrl, int level, int optname, void *optva
 int network_setsockopt(network_ctrl_t *ctrl, int level, int optname, const void *optval, uint32_t optlen);
 //非posix的socket，用这个根据实际硬件设置参数
 int network_user_cmd(network_ctrl_t *ctrl,  uint32_t cmd, uint32_t value);
+int network_get_local_ip_info(network_ctrl_t *ctrl, luat_ip_addr_t *ip, luat_ip_addr_t *submask, luat_ip_addr_t *gateway, void *user_data);
 //url已经是ip形式了，返回1，并且填充remote_ip
 //成功返回0，失败 < 0
 int network_dns(network_ctrl_t *ctrl);
@@ -375,18 +386,19 @@ int network_close(network_ctrl_t *ctrl, uint32_t timeout_ms);
 /*
  * timeout_ms=0时，为非阻塞接口
  */
-int network_tx(network_ctrl_t *ctrl, const uint8_t *data, uint32_t len, uint32_t timeout_ms);
+int network_tx(network_ctrl_t *ctrl, const uint8_t *data, uint32_t len, int flags, luat_ip_addr_t *remote_ip, uint16_t remote_port, uint32_t *tx_len, uint32_t timeout_ms);
 /*
  * timeout_ms=0时，为非阻塞接口
  * 实际读到的数据量在read_len里，如果是UDP模式且为server时，需要看remote_ip和remote_port
  */
-int network_rx(network_ctrl_t *ctrl, uint8_t *data, uint32_t len, uint32_t *read_len, luat_ip_addr_t *remote_ip, uint16_t *remote_port, uint32_t timeout_ms);
+int network_rx(network_ctrl_t *ctrl, uint8_t *data, uint32_t len, int flags, luat_ip_addr_t *remote_ip, uint16_t *remote_port, uint32_t *rx_len);
 
 /*
- * 如果event为NULL，则自动处理掉接收到的非socket的event，直到超时，否则收到非socket的event或者正常的socket rx，就返回成功
+ * 接收到socket异常消息均会返回
+ * 如果event为NULL，则自动处理掉接收到的非socket的event，直到超时，而socket消息则如果is_read=1，则接收到新的数据会返回，如果is_read=0，则接收任意新的消息都会返回
+ * 如果event不为NULL，收到任意消息都会返回
  */
-int network_wait_event(network_ctrl_t *ctrl, OS_EVENT *event, uint32_t timeout_ms, uint8_t *is_timeout);
-
+int network_wait_event(network_ctrl_t *ctrl, OS_EVENT *out_event, uint32_t timeout_ms, uint8_t *is_timeout);
 /****************************高级api结束********************************************************************/
 #endif
 #endif

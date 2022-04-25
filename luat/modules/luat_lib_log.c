@@ -6,18 +6,69 @@
 @date    2020.03.30
 */
 #include "luat_base.h"
-#include "luat_log.h"
 #include "luat_sys.h"
 #include "luat_msgbus.h"
 
+#include "ldebug.h"
+
+#define LUAT_LOG_TAG "log"
+#include "luat_log.h"
+
+typedef struct luat_log_conf
+{
+    uint8_t show_taglevel;
+    uint8_t show_fileline;
+}luat_log_conf_t;
+
+static luat_log_conf_t lconf = {
+    .show_taglevel=1,
+    .show_fileline=0
+};
+
+static int add_debug_info(lua_State *L, uint8_t pos) {
+    lua_Debug ar;
+    int arg;
+    int d = 0;
+    // 如果没启用, 直接返回
+    // if (lconf.show_fileline == 0)
+    //     return;
+    // 查找当前stack的深度
+    while (lua_getstack(L, d, &ar) != 0) {
+        d++;
+    }
+    // 防御一下, 不太可能直接d==0都失败
+    if (d == 0)
+        return 0;
+    // 获取真正的stack位置信息
+    if (!lua_getstack(L, d - 1, &ar))
+        return 0;
+    // S包含源码, l包含当前行号
+    if (0 == lua_getinfo(L, "Sl", &ar))
+        return 0;
+    // 没有调试信息就跳过了
+    if (ar.source == NULL)
+        return 0;
+    // 推入文件名和行号, 注意: 源码路径的第一个字符是标识,需要跳过
+    lua_pushfstring(L, "%s:%d", ar.source + 1, ar.currentline);
+    if (lua_gettop(L) > pos)
+        lua_insert(L, pos);
+    return 1;
+}
+
 /*
 设置日志级别
-@api   log.setLevel(level)
+@api   log.setLevel(level, show_taglevel, show_fileline)
 @string  level 日志级别,可用字符串或数值, 字符串为(SILENT,DEBUG,INFO,WARN,ERROR,FATAL), 数值为(0,1,2,3,4,5)
+@bool 是否显示日志级别和tag, 默认为true
+@bool 是否显示所在行号及行号,需调试信息,默认为false
 @return nil 无返回值
 @usage
 -- 设置日志级别为INFO
 log.setLevel("INFO")
+-- 额外显示行号及文件名, 仅20220425之后的固件可配置
+log.setLevel("DEBUG", true, true)
+-- 只显示行号及文件名, 不限速日志级别和tag, 仅20220425之后的固件可配置
+log.setLevel("DEBUG", false, true)
 */
 static int l_log_set_level(lua_State *L) {
     int LOG_LEVEL = 0;
@@ -46,6 +97,11 @@ static int l_log_set_level(lua_State *L) {
         LOG_LEVEL = LUAT_LOG_CLOSE;
     }
     luat_log_set_level(LOG_LEVEL);
+
+    if (lua_isboolean(L, 2))
+        lconf.show_taglevel = lua_toboolean(L, 2);
+    if (lua_isboolean(L, 3))
+        lconf.show_fileline = lua_toboolean(L, 3);
     return 0;
 }
 
@@ -62,20 +118,33 @@ int l_log_get_level(lua_State *L) {
     return 1;
 }
 
-static int l_log_2_log(lua_State *L) {
+static int l_log_2_log(lua_State *L, const char* LEVEL, uint8_t add_debug) {
     // 是不是什么都不传呀?
     int argc = lua_gettop(L);
-    if (argc < 2) {
+    if (argc < 1) {
         // 最起码传2个参数
         return 0;
     }
     lua_getglobal(L, "print");
     lua_insert(L, 1);
-    lua_pushfstring(L, "%s/user.%s", lua_tostring(L, 2), lua_tostring(L, 3));
-    lua_remove(L, 2); // remove level
-    lua_remove(L, 2); // remove tag
-    lua_insert(L, 2);
-    lua_call(L, argc - 1, 0);
+    uint8_t pos = 2;
+    // if (add_debug && add_debug_info(L)) {
+    //     pos ++;
+    // };
+    if (lconf.show_taglevel) {
+        lua_pushfstring(L, "%s/user.%s", LEVEL, lua_tostring(L, pos));
+        lua_remove(L, pos); // remove tag
+        lua_insert(L, pos);
+        pos ++;
+    }
+    else {
+        lua_remove(L, pos);
+    }
+
+    if (add_debug && add_debug_info(L, pos)) {
+        pos ++;
+    };
+    lua_call(L, lua_gettop(L) - 1, 0);
     return 0;
 }
 
@@ -91,9 +160,7 @@ log.debug("onenet", "connect ok")
 */
 static int l_log_debug(lua_State *L) {
     if (luat_log_get_level() > LUAT_LOG_DEBUG) return 0;
-    lua_pushstring(L, "D");
-    lua_insert(L, 1);
-    return l_log_2_log(L);
+    return l_log_2_log(L, "D", lconf.show_fileline);
 }
 
 /*
@@ -108,9 +175,7 @@ log.info("onenet", "connect ok")
 */
 static int l_log_info(lua_State *L) {
     if (luat_log_get_level() > LUAT_LOG_INFO) return 0;
-    lua_pushstring(L,"I");
-    lua_insert(L, 1);
-    return l_log_2_log(L);
+    return l_log_2_log(L, "I", lconf.show_fileline);
 }
 
 /*
@@ -125,9 +190,7 @@ log.warn("onenet", "connect ok")
 */
 static int l_log_warn(lua_State *L) {
     if (luat_log_get_level() > LUAT_LOG_WARN) return 0;
-    lua_pushstring(L, "W");
-    lua_insert(L, 1);
-    return l_log_2_log(L);
+    return l_log_2_log(L, "W", 1);
 }
 
 /*
@@ -142,9 +205,7 @@ log.error("onenet", "connect ok")
 */
 static int l_log_error(lua_State *L) {
     if (luat_log_get_level() > LUAT_LOG_ERROR) return 0;
-    lua_pushstring(L, "E");
-    lua_insert(L, 1);
-    return l_log_2_log(L);
+    return l_log_2_log(L, "E", 1);
 }
 
 #include "rotable2.h"
@@ -157,7 +218,7 @@ static const rotable_Reg_t reg_log[] =
     { "warn" ,      ROREG_FUNC(l_log_warn)},
     { "error" ,     ROREG_FUNC(l_log_error)},
     { "fatal" ,     ROREG_FUNC(l_log_error)}, // 以error对待
-    { "_log" ,      ROREG_FUNC(l_log_2_log)},
+    //{ "_log" ,      ROREG_FUNC(l_log_2_log)},
 
     { "LOG_SILENT", ROREG_INT(LUAT_LOG_CLOSE)},
     { "LOG_DEBUG",  ROREG_INT(LUAT_LOG_DEBUG)},

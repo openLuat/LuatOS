@@ -20,8 +20,7 @@
 #include "epd.h"
 #include "epdpaint.h"
 #include "imagedata.h"
-#include "../qrcode/qrcode.h"
-
+#include "qrcodegen.h"
 #include <stdlib.h>
 
 #include "u8g2.h"
@@ -578,7 +577,6 @@ static int l_eink_circle(lua_State *L)
     return 0;
 }
 
-#include "qrcodegen.h"
 /**
 缓冲区绘制QRCode
 @api eink.qrcode(x, y, str, size)

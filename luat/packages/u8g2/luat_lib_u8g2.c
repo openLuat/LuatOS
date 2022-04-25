@@ -13,11 +13,9 @@
 #include "luat_timer.h"
 #include "luat_i2c.h"
 #include "luat_spi.h"
-
+#include "qrcodegen.h"
 #include "u8g2.h"
 #include "u8g2_luat_fonts.h"
-
-#include "../qrcode/qrcode.h"
 
 #define LUAT_LOG_TAG "u8g2"
 #include "luat_log.h"
@@ -605,7 +603,6 @@ static int l_u8g2_DrawXBM(lua_State *L){
     return 1;
 }
 
-#include "qrcodegen.h"
 /**
 缓冲区绘制QRCode
 @api u8g2.DrawDrcode(x, y, str, size)

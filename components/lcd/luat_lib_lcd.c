@@ -17,7 +17,7 @@
 #include "u8g2.h"
 #include "u8g2_luat_fonts.h"
 
-// #include "../qrcode/qrcode.h"
+#include "qrcodegen.h"
 
 int8_t u8g2_font_decode_get_signed_bits(u8g2_font_decode_t *f, uint8_t cnt);
 uint8_t u8g2_font_decode_get_unsigned_bits(u8g2_font_decode_t *f, uint8_t cnt);
@@ -582,7 +582,6 @@ static int l_lcd_draw_circle(lua_State* L) {
     return 1;
 }
 
-#include "qrcodegen.h"
 /**
 缓冲区绘制QRCode
 @api lcd.drawQrcode(x, y, str, size)

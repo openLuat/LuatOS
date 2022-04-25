@@ -582,7 +582,6 @@ static int l_lcd_draw_circle(lua_State* L) {
     return 1;
 }
 
-#ifdef LUAT_USE_QRCODE
 #include "qrcodegen.h"
 /**
 缓冲区绘制QRCode
@@ -633,7 +632,6 @@ static int l_lcd_drawQrcode(lua_State *L)
     lcd_auto_flush(default_conf);
     return 0;
 }
-#endif
 
 static uint8_t utf8_state;
 static uint16_t encoding;
@@ -1345,9 +1343,7 @@ static const rotable_Reg_t reg_lcd[] =
     { "drawLine",   ROREG_FUNC(l_lcd_draw_line)},
     { "drawRectangle",   ROREG_FUNC(l_lcd_draw_rectangle)},
     { "drawCircle", ROREG_FUNC(l_lcd_draw_circle)},
-#ifdef LUAT_USE_QRCODE
     { "drawQrcode", ROREG_FUNC(l_lcd_drawQrcode)},
-#endif
     { "drawStr",    ROREG_FUNC(l_lcd_draw_str)},
     { "flush",      ROREG_FUNC(l_lcd_flush)},
     { "setupBuff",  ROREG_FUNC(l_lcd_setup_buff)},

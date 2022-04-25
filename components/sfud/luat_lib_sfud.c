@@ -113,11 +113,11 @@ static int luat_sfud_chip_erase(lua_State *L){
 
 /*
 擦除 Flash 全部数据
-@api  sfud.chip_erase(flash)
+@api  sfud.erase(flash)
 @userdata flash Flash 设备对象 sfud.get_device_table()返回的数据结构
 @return int 成功返回0
 @usage
-sfud.chip_erase(flash)
+sfud.erase(flash)
 */
 static int luat_sfud_erase(lua_State *L){
     const sfud_flash *flash = lua_touserdata(L, 1);

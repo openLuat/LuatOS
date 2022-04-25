@@ -27,7 +27,7 @@ local coroutine = _G.coroutine
 local log = _G.log
 
 -- lib脚本版本号，只要lib中的任何一个脚本做了修改，都需要更新此版本号
-SCRIPT_LIB_VER = "1.0.0"
+SCRIPT_LIB_VER = "2.3.1"
 
 -- TaskID最大值
 local TASK_TIMER_ID_MAX = 0x1FFFFF
@@ -465,18 +465,6 @@ function sys.info(...)
     print(string.format("%s %u:", "I/" .. string.sub(debug.getinfo(2,'S').source,2), debug.getinfo(2,'l').currentline), ...)
 end
 
-function sys.error(...)
-
-    print(string.format("%s %u:", "E/" .. string.sub(debug.getinfo(2,'S').source,2), debug.getinfo(2,'l').currentline), ...)
-
-end
-
-function sys.warn(...)
-
-    print(string.format("%s %u:", "W/" .. string.sub(debug.getinfo(2,'S').source,2), debug.getinfo(2,'l').currentline), ...)
-
-end
-
 function sys.trace(str)
     print(string.format("%s %u:", "D/" .. string.sub(debug.getinfo(2,'S').source,2), debug.getinfo(2,'l').currentline), str)
     if errDump and type(errDump.appendErr)=="function" then
@@ -499,7 +487,7 @@ function sys.taskInitV2(fun, taskName, cbFun, ...)
     return sys.taskInit(fun, ...)
 end
 
-local function waitMsgTimeout(taskName)
+local function waitTo(taskName)
     taskList[taskName].To = true
     sys.publish(taskName)
 end
@@ -519,9 +507,9 @@ function sys.waitMsg(taskName, target, ms)
         end
     end
     sys.subscribe(taskName, coroutine.running())
-    sys.timerStop(waitMsgTimeout, taskName)
+    sys.timerStop(waitTo, taskName)
     if ms and ms ~= 0 then
-        sys.timerStart(waitMsgTimeout, ms, taskName)
+        sys.timerStart(waitTo, ms, taskName)
     end
     taskList[taskName].To = false
     local finish=false
@@ -545,10 +533,10 @@ function sys.waitMsg(taskName, target, ms)
         end
     end
     if taskList[taskName].To then
-        msg = false
+        msg = nil
     end
     taskList[taskName].To = false
-    sys.timerStop(waitMsgTimeout, taskName)
+    sys.timerStop(waitTo, taskName)
     sys.unsubscribe(taskName, coroutine.running())
     return msg
 end

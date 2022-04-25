@@ -318,6 +318,7 @@ int network_setsockopt(network_ctrl_t *ctrl, int level, int optname, const void 
 //非posix的socket，用这个根据实际硬件设置参数
 int network_user_cmd(network_ctrl_t *ctrl,  uint32_t cmd, uint32_t value);
 int network_get_local_ip_info(network_ctrl_t *ctrl, luat_ip_addr_t *ip, luat_ip_addr_t *submask, luat_ip_addr_t *gateway, void *user_data);
+void network_force_close_socket(network_ctrl_t *ctrl);
 //url已经是ip形式了，返回1，并且填充remote_ip
 //成功返回0，失败 < 0
 int network_dns(network_ctrl_t *ctrl);

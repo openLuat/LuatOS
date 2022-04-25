@@ -461,5 +461,119 @@ _G.sys_cw = function (w,...)
     return t
 end
 
+function sys.info(...)
+    print(string.format("%s %u:", "I/" .. string.sub(debug.getinfo(2,'S').source,2), debug.getinfo(2,'l').currentline), ...)
+end
+
+function sys.error(...)
+
+    print(string.format("%s %u:", "E/" .. string.sub(debug.getinfo(2,'S').source,2), debug.getinfo(2,'l').currentline), ...)
+
+end
+
+function sys.warn(...)
+
+    print(string.format("%s %u:", "W/" .. string.sub(debug.getinfo(2,'S').source,2), debug.getinfo(2,'l').currentline), ...)
+
+end
+
+function sys.trace(str)
+    print(string.format("%s %u:", "D/" .. string.sub(debug.getinfo(2,'S').source,2), debug.getinfo(2,'l').currentline), str)
+    if errDump and type(errDump.appendErr)=="function" then
+        errDump.appendErr(str)
+    end
+end
+
+--任务列表
+local taskList = {}
+
+--- 创建一个任务线程,在模块最末行调用该函数并注册模块中的任务函数，main.lua导入该模块即可
+-- @param fun 任务函数名，用于resume唤醒时调用
+-- @param taskName 任务名称，用于唤醒任务的id
+-- @param queue 消息队列，用于接收缓存消息
+-- @param ... 任务函数fun的可变参数
+-- @return co  返回该任务的线程号
+-- @usage sys.taskInitEx(task1,'a',callback)
+function sys.taskInitV2(fun, taskName, cbFun, ...)
+    taskList[taskName]={msgQueue={}, To=false, cb=cbFun}
+    return sys.taskInit(fun, ...)
+end
+
+local function waitMsgTimeout(taskName)
+    taskList[taskName].To = true
+    sys.publish(taskName)
+end
+
+function sys.waitMsg(taskName, target, ms)
+    local msg = false
+    local message = nil
+    if #taskList[taskName].msgQueue > 0 then
+        msg = table.remove(taskList[taskName].msgQueue, 1)
+        if target == nil then
+            return msg
+        end
+        if (msg[1] == target) then
+            return msg
+        elseif type(taskList[taskName].cb) == "function" then
+            taskList[taskName].cb(msg)
+        end
+    end
+    sys.subscribe(taskName, coroutine.running())
+    sys.timerStop(waitMsgTimeout, taskName)
+    if ms and ms ~= 0 then
+        sys.timerStart(waitMsgTimeout, ms, taskName)
+    end
+    taskList[taskName].To = false
+    local finish=false
+    while not finish do
+        message = coroutine.yield()
+        if #taskList[taskName].msgQueue > 0 then
+            msg = table.remove(taskList[taskName].msgQueue, 1)
+            -- sys.info("check target", msg[1], target)
+            if target == nil then
+                finish = true
+            else
+                if (msg[1] == target) then
+                    finish = true
+                elseif type(taskList[taskName].cb) == "function" then
+                    taskList[taskName].cb(msg)
+                end
+            end
+        elseif taskList[taskName].To then
+            -- sys.info(taskName, "wait message timeout")
+            finish = true
+        end
+    end
+    if taskList[taskName].To then
+        msg = false
+    end
+    taskList[taskName].To = false
+    sys.timerStop(waitMsgTimeout, taskName)
+    sys.unsubscribe(taskName, coroutine.running())
+    return msg
+end
+
+function sys.sendMsg(taskName, param1, param2, param3, param4)
+    if taskList[taskName]~=nil then
+        table.insert(taskList[taskName].msgQueue, {param1, param2, param3, param4})
+        sys.publish(taskName)
+        return true
+    end
+    return false
+end
+
+function sys.taskCB(taskName, msg)
+    if taskList[taskName]~=nil then
+        if type(taskList[taskName].cb) == "function" then
+            taskList[taskName].cb(msg)
+            return
+        end
+    end
+    error(taskName, "no cb fun")
+end
+
+_G.sys_send = sys.sendMsg
+_G.sys_wait = sys.waitMsg
+
 return sys
 ----------------------------

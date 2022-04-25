@@ -121,16 +121,7 @@ static int network_get_host_by_name(network_ctrl_t *ctrl)
 	}
 }
 
-static void network_force_close_socket(network_ctrl_t *ctrl)
-{
-	if (network_socket_close(ctrl))
-	{
-		network_clean_invaild_socket(ctrl->adapter_index);
-		network_socket_force_close(ctrl);
-	}
-	ctrl->need_close = 0;
-	ctrl->socket_id = -1;
-}
+
 
 static int network_base_connect(network_ctrl_t *ctrl, luat_ip_addr_t *remote_ip)
 {
@@ -964,7 +955,7 @@ int network_socket_disconnect(network_ctrl_t *ctrl)
 	{
 		return adapter->opt->socket_disconnect(ctrl->socket_id, ctrl->tag, adapter->user_data);
 	}
-
+	return 0;
 }
 //释放掉socket的控制权
 //成功返回0，失败 < 0
@@ -975,7 +966,7 @@ int network_socket_close(network_ctrl_t *ctrl)
 	{
 		return adapter->opt->socket_close(ctrl->socket_id, ctrl->tag, adapter->user_data);
 	}
-
+	return 0;
 }
 //强行释放掉socket的控制权
 //成功返回0，失败 < 0
@@ -1035,6 +1026,17 @@ int network_get_local_ip_info(network_ctrl_t *ctrl, luat_ip_addr_t *ip, luat_ip_
 {
 	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
 	return adapter->opt->get_local_ip_info(ip, submask, gateway, adapter->user_data);
+}
+
+void network_force_close_socket(network_ctrl_t *ctrl)
+{
+	if (network_socket_close(ctrl))
+	{
+		network_clean_invaild_socket(ctrl->adapter_index);
+		network_socket_force_close(ctrl);
+	}
+	ctrl->need_close = 0;
+	ctrl->socket_id = -1;
 }
 
 void network_clean_invaild_socket(uint8_t adapter_index)
@@ -1270,6 +1272,7 @@ int network_close(network_ctrl_t *ctrl, uint32_t timeout_ms)
 			network_force_close_socket(ctrl);
 			ctrl->state = NW_STATE_OFF_LINE;
 			ctrl->wait_target_state = NW_WAIT_NONE;
+			NW_UNLOCK;
 			return 0;
 		}
 	}
@@ -1278,6 +1281,7 @@ int network_close(network_ctrl_t *ctrl, uint32_t timeout_ms)
 		network_force_close_socket(ctrl);
 		ctrl->state = NW_STATE_OFF_LINE;
 		ctrl->wait_target_state = NW_WAIT_NONE;
+		NW_UNLOCK;
 		return 0;
 	}
 	NW_UNLOCK;

@@ -280,20 +280,34 @@ static int l_network_connect(lua_State *L)
 
 /*
 作为客户端断开连接
-@api network.close(ctrl)
+@api network.discon(ctrl)
 @user_data network.create得到的ctrl
 @return
 boolean true有异常发生，false没有异常，如果有error则不需要看下一个返回值了
 boolean true已经断开，false没有断开，之后需要接收network.CLOSED消息
-@usage local error, result = network.close(ctrl)
+@usage local error, result = network.discon(ctrl)
 */
-static int l_network_close(lua_State *L)
+static int l_network_disconnect(lua_State *L)
 {
 	luat_network_ctrl_t *l_ctrl = ((luat_network_ctrl_t *)luaL_checkudata(L, 1, LUAT_NW_CTRL_TYPE));
 	int result = network_close(l_ctrl->netc, 0);
 	lua_pushboolean(L, result < 0);
 	lua_pushboolean(L, result == 0);
 	return 2;
+}
+
+/*
+强制关闭socket
+@api network.close(ctrl)
+@user_data network.create得到的ctrl
+@return 无
+
+*/
+static int l_network_close(lua_State *L)
+{
+	luat_network_ctrl_t *l_ctrl = ((luat_network_ctrl_t *)luaL_checkudata(L, 1, LUAT_NW_CTRL_TYPE));
+	network_force_close_socket(l_ctrl->netc);
+	return 0;
 }
 
 /*
@@ -360,12 +374,12 @@ static int l_network_tx(lua_State *L)
 	lua_pushboolean(L, result < 0);
 	lua_pushboolean(L, tx_len != data_len);
 	lua_pushboolean(L, result == 0);
-	return 2;
+	return 3;
 }
 
 /*
 接收对端发出的数据，注意数据已经缓存在底层，使用本函数只是提取出来，UDP模式下一次只会取出一个数据包
-@api network.rx(ctrl, buff, start, flag)
+@api network.rx(ctrl, buff, flag)
 @user_data network.create得到的ctrl
 @user_data zbuff 存放接收的数据，如果缓冲区不够大会自动扩容
 @int 接收参数，目前预留，不起作用
@@ -502,6 +516,7 @@ static const rotable_Reg_t reg_network_adapter[] =
 	{"debug",		ROREG_FUNC(l_network_set_debug)},
 	{"linkup",			ROREG_FUNC(l_network_linkup)},
 	{"connect",			ROREG_FUNC(l_network_connect)},
+	{"discon",			ROREG_FUNC(l_network_disconnect)},
 	{"close",			ROREG_FUNC(l_network_close)},
 	{"tx",			ROREG_FUNC(l_network_tx)},
 	{"rx",			ROREG_FUNC(l_network_rx)},

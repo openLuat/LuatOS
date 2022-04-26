@@ -1232,7 +1232,11 @@ static int lcd_draw_jpeg(const char* path, int xpos, int ypos) {
   JRESULT res;      /* Result code of TJpgDec API */
   JDEC jdec;        /* Decompression object */
   void *work;       /* Pointer to the decompressor work area */
+#if JD_FASTDECODE == 2
+  size_t sz_work = 3500 * 3; /* Size of work area */
+#else
   size_t sz_work = 3500; /* Size of work area */
+#endif
   IODEV devid;      /* User defined device identifier */
 
   FILE* fd = luat_fs_fopen(path, "r");

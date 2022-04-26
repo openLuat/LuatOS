@@ -542,7 +542,6 @@ static void w5500_nw_state(w5500_ctrl_t *w5500)
 			DBG("network not ready");
 			for(i = 0; i < MAX_SOCK_NUM; i++)
 			{
-				w5500->socket[i].tag = 0;
 				w5500->socket[i].tx_wait_size = 0;
 				llist_traversal(&w5500->socket[i].tx_head, w5500_del_data_cache, NULL);
 				llist_traversal(&w5500->socket[i].rx_head, w5500_del_data_cache, NULL);
@@ -870,6 +869,7 @@ static int32_t w5500_dns_check_result(void *data, void *param)
 		{
 			w5500_callback_to_nw_task(param, EV_NW_DNS_RESULT, 0, 0, require->param);
 		}
+		free(require->uri.Data);
 		return LIST_DEL;
 	}
 	else
@@ -1637,7 +1637,7 @@ void w5500_socket_clean(int *vaild_socket_list, uint32_t num, void *user_data)
 	if (user_data != prv_w5500_ctrl) return;
 	int socket_list[MAX_SOCK_NUM] = {0,0,0,0,0,0,0,0};
 	uint32_t i;
-	for(i = 0; i < num; i++)
+	for(i = 1; i < num + 1; i++)
 	{
 		if ( (vaild_socket_list[i] > 0) && (vaild_socket_list[i] < MAX_SOCK_NUM) )
 		{

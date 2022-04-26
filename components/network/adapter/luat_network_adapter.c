@@ -981,7 +981,6 @@ network_ctrl_t *network_alloc_ctrl(uint8_t adapter_index)
 			adapter->ctrl_busy[i] = 1;
 			ctrl = &adapter->ctrl_table[i];
 			ctrl->adapter_index = adapter_index;
-			OS_DeInitBuffer(&ctrl->domain_name);
 			break;
 		}
 	}
@@ -1007,6 +1006,11 @@ void network_release_ctrl(network_ctrl_t *ctrl)
 			{
 				free(ctrl->cache_data);
 				ctrl->cache_data = NULL;
+			}
+			if (ctrl->dns_ip)
+			{
+				free(ctrl->dns_ip);
+				ctrl->dns_ip = NULL;
 			}
 			adapter->ctrl_busy[i] = 0;
 			break;
@@ -1255,6 +1259,7 @@ void network_clean_invaild_socket(uint8_t adapter_index)
 	}
 	adapter->opt->socket_clean(list, adapter->opt->max_socket_num, adapter->user_data);
 	NW_UNLOCK;
+	free(list);
 }
 
 

@@ -433,6 +433,10 @@ void dns_run(dns_client_t *client, Buffer_Struct *in, Buffer_Struct *out, int *s
 	if (llist_empty(&client->process_head) && !llist_empty(&client->require_head))
 	{
 		dns_clear(client);
+		if (client->is_run)
+		{
+			DBG("dns stop");
+		}
 		client->is_run = 0;
 		return;
 	}
@@ -548,8 +552,16 @@ NET_DNS_RX_OUT:
 
 	if (llist_empty(&client->process_head) && llist_empty(&client->require_head))
 	{
+		if (client->is_run)
+		{
+			DBG("dns stop");
+		}
 		client->is_run = 0;
 		return;
+	}
+	else
+	{
+		client->is_run = 1;
 	}
 	return ;
 }

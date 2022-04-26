@@ -62,7 +62,7 @@ static int add_debug_info(lua_State *L, uint8_t pos, const char* LEVEL) {
 设置日志级别
 @api   log.setLevel(level, show_taglevel, show_fileline)
 @string  level 日志级别,可用字符串或数值, 字符串为(SILENT,DEBUG,INFO,WARN,ERROR,FATAL), 数值为(0,1,2,3,4,5)
-@bool 是否显示日志级别和tag, 默认为true
+@bool 是否显示tag, 默认为true
 @bool 是否显示所在行号及行号,需调试信息,默认为false
 @return nil 无返回值
 @usage
@@ -70,7 +70,7 @@ static int add_debug_info(lua_State *L, uint8_t pos, const char* LEVEL) {
 log.setLevel("INFO")
 -- 额外显示行号及文件名, 仅20220425之后的固件可配置
 log.setLevel("DEBUG", true, true)
--- 只显示行号及文件名, 不限速日志级别和tag, 仅20220425之后的固件可配置
+-- 只显示行号及文件名, 不显示tag, 仅20220425之后的固件可配置
 log.setLevel("DEBUG", false, true)
 */
 static int l_log_set_level(lua_State *L) {

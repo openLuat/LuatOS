@@ -1184,7 +1184,6 @@ static int l_lcd_drawxbm(lua_State *L){
 }
 #define LUAT_USE_TJPGD
 #ifdef LUAT_USE_TJPGD
-#include "luat_tjpgd.h"
 #include "tjpgd.h"
 
 #define N_BPP (3 - JD_FORMAT)
@@ -1252,7 +1251,7 @@ static int lcd_draw_jpeg(const char* path, int xpos, int ypos) {
   if (res != JDR_OK) {
     luat_heap_free(work);
     luat_fs_fclose(fd);
-    LLOGW("no such file %s jd_prepare %d", path, res);
+    LLOGW("jd_prepare file %s error %d", path, res);
     return -2;
   }
   devid.x = xpos;
@@ -1263,7 +1262,7 @@ static int lcd_draw_jpeg(const char* path, int xpos, int ypos) {
   luat_heap_free(work);
   luat_fs_fclose(fd);
   if (res != JDR_OK) {
-    LLOGW("no such file %s jd_prepare %d", path, res);
+    LLOGW("jd_decomp file %s error %d", path, res);
     return -2;
   }
   else {

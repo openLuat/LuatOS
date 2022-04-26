@@ -157,7 +157,7 @@ static int l_network_create(lua_State *L)
 }
 
 /*
-作为客户端断开连接
+配置是否打开debug信息
 @api network.debug(ctrl, onoff)
 @user_data network.create得到的ctrl
 @boolean true 打开debug开关
@@ -170,6 +170,101 @@ static int l_network_set_debug(lua_State *L)
 	if (lua_isboolean(L, 2))
 	{
 		l_ctrl->netc->is_debug = lua_toboolean(L, 2);
+	}
+	return 0;
+}
+
+/*
+配置network一些信息，
+@api network.config(ctrl, local_port, is_udp, is_tls, keep_idle, keep_interval, keep_cnt, server_cert, client_cert, client_key, client_password)
+@user_data network.create得到的ctrl
+@int 本地端口号，小端格式，如果不写，则自动分配一个，如果用户填了端口号则需要小于60000, 默认不写
+@boolean 是否是UDP，默认false
+@boolean 是否是加密传输，默认false
+@int tcp keep live模式下的idle时间，如果留空则表示不启用，如果是不支持标准posix接口的网卡（比如W5500），则为心跳间隔
+@int tcp keep live模式下的探测间隔时间
+@int tcp keep live模式下的探测次数
+@string TCP模式下的服务器ca证书数据，UDP模式下的PSK，不需要加密传输写nil，后续参数也全部nil
+@string TCP模式下的客户端ca证书数据，UDP模式下的PSK-ID，TCP模式下如果不需要验证客户端证书时，忽略，一般不需要验证客户端证书
+@string TCP模式下的客户端私钥加密数据
+@string TCP模式下的客户端私钥口令数据
+@return nil 无返回值
+@usage network.config(ctrl)	--最普通的TCP传输
+network.config(ctrl, nil, nil ,true)	--最普通的加密TCP传输，证书都不用验证的那种
+*/
+static int l_network_config(lua_State *L)
+{
+	luat_network_ctrl_t *l_ctrl = ((luat_network_ctrl_t *)luaL_checkudata(L, 1, LUAT_NW_CTRL_TYPE));
+	uint8_t is_udp = 0;
+	uint8_t is_tls = 0;
+	int param_pos = 1;
+	uint32_t keep_idle, keep_interval, keep_cnt;
+
+	const char *server_cert = NULL;
+	const char *client_cert = NULL;
+	const char *client_key = NULL;
+	const char *client_password = NULL;
+	size_t server_cert_len, client_cert_len, client_key_len, client_password_len;
+
+	uint16_t local_port = luaL_optinteger(L, ++param_pos, 0);
+	if (lua_isboolean(L, ++param_pos))
+	{
+		is_udp = lua_toboolean(L, param_pos);
+	}
+	if (lua_isboolean(L, ++param_pos))
+	{
+		is_tls = lua_toboolean(L, param_pos);
+	}
+	keep_idle = luaL_optinteger(L, ++param_pos, 0);
+	keep_interval = luaL_optinteger(L, ++param_pos, 0);
+	keep_cnt = luaL_optinteger(L, ++param_pos, 0);
+	if (lua_isstring(L, ++param_pos))
+	{
+		server_cert_len = 0;
+		server_cert = luaL_checklstring(L, param_pos, &server_cert_len);
+	}
+	if (lua_isstring(L, ++param_pos))
+	{
+		client_cert_len = 0;
+		client_cert = luaL_checklstring(L, param_pos, &client_cert_len);
+	}
+
+	if (lua_isstring(L, ++param_pos))
+	{
+		client_key_len = 0;
+		client_key = luaL_checklstring(L, param_pos, &client_key_len);
+	}
+	if (lua_isstring(L, ++param_pos))
+	{
+		client_password_len = 0;
+		client_password = luaL_checklstring(L, param_pos, &client_password_len);
+	}
+	network_set_base_mode(l_ctrl->netc, !is_udp, 10000, keep_idle, keep_idle, keep_interval, keep_cnt);
+	network_set_local_port(l_ctrl->netc, local_port);
+	if (is_tls)
+	{
+		network_init_tls(l_ctrl->netc, (server_cert || client_cert)?2:0);
+		if (is_udp)
+		{
+			network_set_psk_info(l_ctrl->netc, server_cert, server_cert_len, client_key, client_key_len);
+		}
+		else
+		{
+			if (server_cert)
+			{
+				network_set_server_cert(l_ctrl->netc, server_cert, server_cert_len);
+			}
+			if (client_cert)
+			{
+				network_set_client_cert(l_ctrl->netc, client_cert, client_cert_len,
+						client_key, client_key_len,
+						client_password, client_password_len);
+			}
+		}
+	}
+	else
+	{
+		network_deinit_tls(l_ctrl->netc);
 	}
 	return 0;
 }
@@ -196,19 +291,10 @@ static int l_network_linkup(lua_State *L)
 
 /*
 作为客户端连接服务器
-@api network.connect(ctrl, ip, remote_port, is_udp, local_port, keep_idle, keep_interval, keep_cnt, server_cert, client_cert, client_key, client_password)
+@api network.connect(ctrl, ip, remote_port)
 @user_data network.create得到的ctrl
 @string or int ip或者域名，如果是IPV4，可以是大端格式的int值
 @int 服务器端口号，小端格式
-@int 本地端口号，小端格式，如果不写，则自动分配一个，如果用户填了端口号则需要小于60000, 默认不写
-@boolean 是否是UDP，默认false
-@int tcp keep live模式下的idle时间，如果留空则表示不启用，如果是不支持标准posix接口的网卡（比如W5500），则为心跳间隔
-@int tcp keep live模式下的探测间隔时间
-@int tcp keep live模式下的探测次数
-@string TCP模式下的服务器ca证书数据，UDP模式下的PSK，不需要加密传输写nil，后续参数也全部nil
-@string TCP模式下的客户端ca证书数据，UDP模式下的PSK-ID，TCP模式下如果不需要验证客户端证书时，忽略，一般不需要验证客户端证书
-@string TCP模式下的客户端私钥加密数据
-@string TCP模式下的客户端私钥口令数据
 @return
 boolean true有异常发生，false没有异常，如果有error则不需要看下一个返回值了，如果有异常，后续要close
 boolean true已经connect，false没有connect，之后需要接收network.ON_LINE消息
@@ -218,60 +304,22 @@ static int l_network_connect(lua_State *L)
 {
 	luat_network_ctrl_t *l_ctrl = ((luat_network_ctrl_t *)luaL_checkudata(L, 1, LUAT_NW_CTRL_TYPE));
 	luat_ip_addr_t ip_addr;
-	uint8_t is_udp = 0;
-	int param_pos = 2;
-	uint32_t keep_idle, keep_interval, keep_cnt;
 	const char *ip;
-	const char *server_cert;
-	const char *client_cert;
-	const char *client_key;
-	const char *client_password;
-	size_t ip_len, server_cert_len, client_cert_len, client_key_len, client_password_len;
+	size_t ip_len;
 	ip_addr.is_ipv6 = 0xff;
-	if (lua_isinteger(L, param_pos))
+	if (lua_isinteger(L, 2))
 	{
 		ip_addr.is_ipv6 = 0;
-		ip_addr.ipv4 = lua_tointeger(L, param_pos);
+		ip_addr.ipv4 = lua_tointeger(L, 2);
 		ip = NULL;
 		ip_len = 0;
 	}
 	else
 	{
 		ip_len = 0;
-	    ip = luaL_checklstring(L, param_pos, &ip_len);
+	    ip = luaL_checklstring(L, 2, &ip_len);
 	}
-	uint16_t remote_port = luaL_checkinteger(L, ++param_pos);
-	uint16_t local_port = luaL_optinteger(L, ++param_pos, 0);
-	if (lua_isboolean(L, ++param_pos))
-	{
-		is_udp = lua_toboolean(L, param_pos);
-	}
-	keep_idle = luaL_optinteger(L, ++param_pos, 0);
-	keep_interval = luaL_optinteger(L, ++param_pos, 0);
-	keep_cnt = luaL_optinteger(L, ++param_pos, 0);
-	if (lua_isstring(L, ++param_pos))
-	{
-		server_cert_len = 0;
-		server_cert = luaL_checklstring(L, param_pos, &server_cert_len);
-	}
-	if (lua_isstring(L, ++param_pos))
-	{
-		client_cert_len = 0;
-		client_cert = luaL_checklstring(L, param_pos, &client_cert_len);
-	}
-
-	if (lua_isstring(L, ++param_pos))
-	{
-		client_key_len = 0;
-		client_key = luaL_checklstring(L, param_pos, &client_key_len);
-	}
-	if (lua_isstring(L, ++param_pos))
-	{
-		client_password_len = 0;
-		client_password = luaL_checklstring(L, param_pos, &client_password_len);
-	}
-	network_set_base_mode(l_ctrl->netc, !is_udp, keep_idle, keep_idle, keep_interval, keep_cnt);
-	network_set_local_port(l_ctrl->netc, local_port);
+	uint16_t remote_port = luaL_checkinteger(L, 3);
 	int result = network_connect(l_ctrl->netc, ip, ip_len, ip_addr.is_ipv6?NULL:&ip_addr, remote_port, 0);
 	lua_pushboolean(L, result < 0);
 	lua_pushboolean(L, result == 0);
@@ -514,6 +562,7 @@ static const rotable_Reg_t reg_network_adapter[] =
 {
 	{"create",			ROREG_FUNC(l_network_create)},
 	{"debug",		ROREG_FUNC(l_network_set_debug)},
+	{"config",		ROREG_FUNC(l_network_config)},
 	{"linkup",			ROREG_FUNC(l_network_linkup)},
 	{"connect",			ROREG_FUNC(l_network_connect)},
 	{"discon",			ROREG_FUNC(l_network_disconnect)},

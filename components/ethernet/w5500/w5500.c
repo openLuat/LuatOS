@@ -1406,7 +1406,7 @@ void w5500_init(luat_spi_t* spi, uint8_t irq_pin, uint8_t rst_pin, uint8_t link_
 		luat_thread_t thread;
 		thread.task_fun = w5500_task;
 		thread.name = "w5500";
-		thread.stack_size = 2 * 1024;
+		thread.stack_size = 4 * 1024;
 		thread.priority = 3;
 		thread.userdata = w5500;
 		platform_create_task(&thread);

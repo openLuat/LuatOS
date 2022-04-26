@@ -483,13 +483,14 @@ static int network_state_connecting(network_ctrl_t *ctrl, OS_EVENT *event, netwo
 
 static int network_state_shakehand(network_ctrl_t *ctrl, OS_EVENT *event, network_adapter_t *adapter)
 {
-	if ((ctrl->need_close) || (ctrl->wait_target_state != NW_WAIT_ON_LINE) || (ctrl->wait_target_state != NW_WAIT_TX_OK)) return -1;
+	if ((ctrl->need_close) || ((ctrl->wait_target_state != NW_WAIT_ON_LINE) && (ctrl->wait_target_state != NW_WAIT_TX_OK))) return -1;
 	switch(event->ID)
 	{
 	case EV_NW_RESET:
 	case EV_NW_SOCKET_ERROR:
 	case EV_NW_SOCKET_REMOTE_CLOSE:
 	case EV_NW_SOCKET_CLOSE_OK:
+		ctrl->need_close = 1;
 		return -1;
 	case EV_NW_STATE:
 		if (!event->Param2)
@@ -499,10 +500,10 @@ static int network_state_shakehand(network_ctrl_t *ctrl, OS_EVENT *event, networ
 		}
 		break;
 	case EV_NW_SOCKET_TX_OK:
-		ctrl->tx_size += event->Param2;
+		ctrl->ack_size += event->Param2;
 		if (ctrl->is_debug)
 		{
-
+			DBG("%llu,%llu",ctrl->tx_size, ctrl->ack_size);
 		}
 		break;
 	case EV_NW_SOCKET_RX_NEW:
@@ -548,6 +549,7 @@ static int network_state_shakehand(network_ctrl_t *ctrl, OS_EVENT *event, networ
 	default:
 		return 1;
 	}
+	return 1;
 }
 
 static int network_state_on_line(network_ctrl_t *ctrl, OS_EVENT *event, network_adapter_t *adapter)
@@ -1039,13 +1041,14 @@ void network_init_ctrl(network_ctrl_t *ctrl, HANDLE task_handle, CBFuncEx_t call
 	}
 }
 
-void network_set_base_mode(network_ctrl_t *ctrl, uint8_t is_tcp, uint8_t keep_alive, uint32_t keep_idle, uint8_t keep_interval, uint8_t keep_cnt)
+void network_set_base_mode(network_ctrl_t *ctrl, uint8_t is_tcp, uint32_t tcp_timeout_ms, uint8_t keep_alive, uint32_t keep_idle, uint8_t keep_interval, uint8_t keep_cnt)
 {
 	ctrl->is_tcp = is_tcp;
 	ctrl->tcp_keep_alive = keep_alive;
 	ctrl->tcp_keep_idle = keep_idle;
 	ctrl->tcp_keep_interval = keep_interval;
 	ctrl->tcp_keep_cnt = keep_cnt;
+	ctrl->tcp_timeou_ms = tcp_timeout_ms;
 }
 
 int network_set_local_port(network_ctrl_t *ctrl, uint16_t local_port)
@@ -1402,7 +1405,7 @@ void network_init_tls(network_ctrl_t *ctrl, int verify_mode)
 		ctrl->config->f_vrfy = tls_verify;
 		ctrl->config->p_vrfy = ctrl;
 		ctrl->config->ca_chain = ctrl->ca_cert;
-		ctrl->config->read_timeout = ctrl->tcp_timeou_ms;
+		ctrl->config->read_timeout = 20000;
 	    ctrl->tls_long_timer = platform_create_timer(tls_longtimeout, ctrl, NULL);
 	    ctrl->tls_short_timer = platform_create_timer(tls_shorttimeout, ctrl, NULL);
 	}

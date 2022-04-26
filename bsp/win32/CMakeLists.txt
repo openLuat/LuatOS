@@ -33,6 +33,7 @@ ELSE ()
 ENDIF ()
 
 include_directories(${TOPROOT}/luat/packages/lfs)
+include_directories(${TOPROOT}/components/tjpgd)
 include_directories(${TOPROOT}/components/qrcode)
 # include_directories(${TOPROOT}/components/lcd)
 
@@ -43,6 +44,7 @@ aux_source_directory(${TOPROOT}/components/freertos RTOS_SRCS)
 aux_source_directory(${TOPROOT}/components/freertos/port RTOS_PORT_SRCS)
 aux_source_directory(${TOPROOT}/luat/packages/lua-cjson CJSON_SRCS)
 
+aux_source_directory(${TOPROOT}/components/tjpgd TJPGD_SRCS)
 aux_source_directory(${TOPROOT}/components/qrcode QRCODE_SRCS)
 # aux_source_directory(${TOPROOT}/components/lcd LCD_SRCS)
 
@@ -87,6 +89,7 @@ add_library(luat ${TOPROOT}/luat/modules/luat_main.c
                  ${TOPROOT}/luat/packages/lfs/luat_lib_lfs2.c
                  ./lv_drivers/win_drv.c
                  ${QRCODE_SRCS}
+                 ${TJPGD_SRCS}
                #   ${LCD_SRCS}
             )
 

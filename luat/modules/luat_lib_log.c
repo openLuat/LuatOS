@@ -25,7 +25,7 @@ static luat_log_conf_t lconf = {
     .show_fileline=0
 };
 
-static int add_debug_info(lua_State *L, uint8_t pos) {
+static int add_debug_info(lua_State *L, uint8_t pos, const char* LEVEL) {
     lua_Debug ar;
     int arg;
     int d = 0;
@@ -49,7 +49,10 @@ static int add_debug_info(lua_State *L, uint8_t pos) {
     if (ar.source == NULL)
         return 0;
     // 推入文件名和行号, 注意: 源码路径的第一个字符是标识,需要跳过
-    lua_pushfstring(L, "%s:%d", ar.source + 1, ar.currentline);
+    if (lconf.show_taglevel == 0)
+        lua_pushfstring(L, "%s/%s:%d", LEVEL, ar.source + 1, ar.currentline);
+    else
+        lua_pushfstring(L, "%s:%d", ar.source + 1, ar.currentline);
     if (lua_gettop(L) > pos)
         lua_insert(L, pos);
     return 1;
@@ -141,7 +144,7 @@ static int l_log_2_log(lua_State *L, const char* LEVEL, uint8_t add_debug) {
         lua_remove(L, pos);
     }
 
-    if (add_debug && add_debug_info(L, pos)) {
+    if (add_debug && add_debug_info(L, pos, LEVEL)) {
         pos ++;
     };
     lua_call(L, lua_gettop(L) - 1, 0);

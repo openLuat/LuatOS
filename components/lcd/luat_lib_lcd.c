@@ -1185,6 +1185,7 @@ static int l_lcd_drawxbm(lua_State *L){
 #define LUAT_USE_TJPGD
 #ifdef LUAT_USE_TJPGD
 #include "tjpgd.h"
+#include "tjpgdcnf.h"
 
 #define N_BPP (3 - JD_FORMAT)
 

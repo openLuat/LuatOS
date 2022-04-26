@@ -1,12 +1,20 @@
 /*----------------------------------------------*/
 /* TJpgDec System Configurations R0.03          */
 /*----------------------------------------------*/
+#include "luat_base.h"
+
+#ifndef LUA_USE_WINDOWS
 #include "luat_lcd.h"
+#endif
+
 #ifndef JD_SZBUF
 #define JD_SZBUF            512
 #endif
 /* Specifies size of stream input buffer */
 
+#ifdef LUAT_USE_LVGL
+#define JD_FORMAT       0  
+#else
 #if (LUAT_LCD_COLOR_DEPTH == 32)
 #define JD_FORMAT       0   
 #elif (LUAT_LCD_COLOR_DEPTH == 16)
@@ -15,6 +23,7 @@
 #define JD_FORMAT       2
 #else
 #error "no supprt color depth"
+#endif
 #endif
 /* Specifies output pixel format.
 /  0: RGB888 (24-bit/pix)

@@ -26,7 +26,6 @@ extern void DBG_HexPrintf(void *Data, unsigned int len);
 #define is_write	(1 << 2)
 
 #define MAX_SOCK_NUM				8
-#define MAX_DNS_SERVER				4
 #define SYS_SOCK_ID					0
 
 #define MR_RST                       0x80		/**< reset */
@@ -176,6 +175,7 @@ typedef struct
 {
 	socket_ctrl_t socket[MAX_SOCK_NUM];
 	dhcp_client_info_t dhcp_client;
+	dns_client_t dns_client;
 	uint64_t last_tx_time;
 	uint64_t tag;
 	CBFuncEx_t socket_cb;
@@ -184,7 +184,6 @@ typedef struct
 	uint32_t static_ip; //大端格式存放
 	uint32_t static_submask; //大端格式存放
 	uint32_t static_gateway; //大端格式存放
-	uint32_t static_dns_server[MAX_DNS_SERVER];
 	uint16_t RTR;
 	uint8_t RCR;
 	uint8_t force_arp;
@@ -195,7 +194,6 @@ typedef struct
 	uint8_t irq_pin;
 	uint8_t link_pin;
 	uint8_t speed_status;
-	uint8_t run_dns;
 	uint8_t link_ready;
 	uint8_t ip_ready;
 	uint8_t network_ready;
@@ -204,7 +202,7 @@ typedef struct
 	uint8_t last_udp_send_ok;
 	uint8_t rx_buf[2048 + 8];
 	uint8_t mac[6];
-	uint8_t next_index;
+	uint8_t next_socket_index;
 }w5500_ctrl_t;
 
 static w5500_ctrl_t *prv_w5500_ctrl;
@@ -226,7 +224,7 @@ static int w5500_next_data_cache(void *p, void *u)
 	socket_data_t *pdata = (socket_data_t *)p;
 	if (socket->tag != pdata->tag)
 	{
-		DBG("tag error");
+//		DBG("tag error");
 		free(pdata->data);
 		return LIST_DEL;
 	}
@@ -251,7 +249,7 @@ static void w5500_callback_to_nw_task(w5500_ctrl_t *w5500, uint32_t event_id, ui
 {
 	luat_network_cb_param_t param = {.tag = 0, .param = w5500->user_data};
 	OS_EVENT event = { .ID = event_id, .Param1 = param1, .Param2 = param2, .Param3 = param3};
-	if (event_id > EV_NW_TIMEOUT)
+	if (event_id > EV_NW_DNS_RESULT)
 	{
 		event.Param3 = prv_w5500_ctrl->socket[param1].param;
 		param.tag = prv_w5500_ctrl->socket[param1].tag;
@@ -522,11 +520,14 @@ static int w5500_socket_rx(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t *data
 
 static void w5500_nw_state(w5500_ctrl_t *w5500)
 {
+	int i;
 	if (w5500->link_ready && w5500->ip_ready)
 	{
 		if (!w5500->network_ready)
 		{
 			w5500->network_ready = 1;
+			dns_clear(&w5500->dns_client);
+			w5500->socket[0].tx_wait_size = 0;	//dns可以继续发送了
 			w5500_callback_to_nw_task(w5500, EV_NW_STATE, 0, 1, 0);
 			DBG("network ready");
 		}
@@ -536,8 +537,16 @@ static void w5500_nw_state(w5500_ctrl_t *w5500)
 		if (w5500->network_ready)
 		{
 			w5500->network_ready = 0;
+			dns_clear(&w5500->dns_client);
 			w5500_callback_to_nw_task(w5500, EV_NW_STATE, 0, 0, 0);
 			DBG("network not ready");
+			for(i = 0; i < MAX_SOCK_NUM; i++)
+			{
+				w5500->socket[i].tag = 0;
+				w5500->socket[i].tx_wait_size = 0;
+				llist_traversal(&w5500->socket[i].tx_head, w5500_del_data_cache, NULL);
+				llist_traversal(&w5500->socket[i].rx_head, w5500_del_data_cache, NULL);
+			}
 		}
 	}
 }
@@ -559,7 +568,7 @@ static void w5500_check_dhcp(w5500_ctrl_t *w5500)
 		memcpy(&temp[W5500_COMMON_MAC0], w5500->dhcp_client.mac, 6);
 		w5500_xfer(w5500, W5500_COMMON_MR, is_write, temp, W5500_COMMON_INTLEVEL0);
 		w5500->dhcp_client.discover_cnt = 0;
-		w5500_ip_state(w5500, 1);
+
 		uIP.u32 = w5500->dhcp_client.ip;
 		DBG("动态IP:%d.%d.%d.%d", uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
 		uIP.u32 = w5500->dhcp_client.submask;
@@ -567,23 +576,35 @@ static void w5500_check_dhcp(w5500_ctrl_t *w5500)
 		uIP.u32 = w5500->dhcp_client.gateway;
 		DBG("网关:%d.%d.%d.%d", uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
 		DBG("租约时间:%u秒", w5500->dhcp_client.lease_time);
-		if (w5500->static_dns_server[0])
+		int i;
+		for(i = 0; i < MAX_DNS_SERVER; i++)
 		{
-			int i;
-			for(i = 0; i < MAX_DNS_SERVER;i++)
+			if (w5500->dns_client.is_static_dns[i])
 			{
-				uIP.u32 = w5500->static_dns_server[i];
-				DBG("静态DNS%d:%d.%d.%d.%d",i, uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
+				goto PRINT_DNS;
 			}
 		}
-		else
+		if (w5500->dhcp_client.dns_server[0])
 		{
-			uIP.u32 = w5500->dhcp_client.dns_server[0];
-			DBG("动态DNS1:%d.%d.%d.%d", uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
-			uIP.u32 = w5500->dhcp_client.dns_server[1];
-			DBG("动态DNS2:%d.%d.%d.%d", uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
+			w5500->dns_client.dns_server[0].ipv4 = w5500->dhcp_client.dns_server[0];
+			w5500->dns_client.dns_server[0].is_ipv6 = 0;
 		}
 
+		if (w5500->dhcp_client.dns_server[1])
+		{
+			w5500->dns_client.dns_server[1].ipv4 = w5500->dhcp_client.dns_server[1];
+			w5500->dns_client.dns_server[1].is_ipv6 = 0;
+		}
+PRINT_DNS:
+		for(i = 0; i < MAX_DNS_SERVER; i++)
+		{
+			if (w5500->dns_client.dns_server[1].is_ipv6 != 0xff)
+			{
+				uIP.u32 = w5500->dns_client.dns_server[1].ipv4;
+				DBG("DNS%d:%d.%d.%d.%d",i, uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
+			}
+		}
+		w5500_ip_state(w5500, 1);
 
 	}
 	if ((!w5500->last_udp_send_ok && w5500->dhcp_client.discover_cnt >= 1) || (w5500->last_udp_send_ok && w5500->dhcp_client.discover_cnt >= 3))
@@ -757,7 +778,16 @@ static void w5500_init_reg(w5500_ctrl_t *w5500)
 		w5500_xfer(w5500, W5500_COMMON_PHY, is_write, temp, 1);
 	}
 	w5500->inter_error = 0;
-	w5500->next_index = 1;
+	w5500->next_socket_index = 1;
+	int i;
+	for(i = 0; i < MAX_DNS_SERVER; i++)
+	{
+		if (!w5500->dns_client.is_static_dns[i])
+		{
+			w5500->dns_client.dns_server[i].is_ipv6 = 0xff;
+		}
+	}
+
 }
 
 static int32_t w5500_dummy_callback(void *pData, void *pParam)
@@ -797,7 +827,9 @@ static socket_data_t * w5500_create_data_node(w5500_ctrl_t *w5500, uint8_t socke
 
 static void w5500_socket_tx_next_data(w5500_ctrl_t *w5500, uint8_t socket_id)
 {
+	W5500_LOCK;
 	socket_data_t *p = llist_traversal(&w5500->socket[socket_id].tx_head, w5500_next_data_cache, &prv_w5500_ctrl->socket[socket_id]);
+	W5500_UNLOCK;
 	if (p)
 	{
 		if (!w5500->socket[socket_id].is_tcp)
@@ -819,6 +851,50 @@ static void w5500_socket_tx_next_data(w5500_ctrl_t *w5500, uint8_t socket_id)
 	}
 }
 
+static int32_t w5500_dns_check_result(void *data, void *param)
+{
+	luat_dns_require_t *require = (luat_dns_require_t *)data;
+	if (require->result != 0)
+	{
+		if (require->result > 0)
+		{
+			luat_dns_ip_result *ip_result = zalloc(sizeof(luat_dns_ip_result) * require->result);
+			int i;
+			for(i = 0; i < require->result; i++)
+			{
+				ip_result[i] = require->ip_result[i];
+			}
+			w5500_callback_to_nw_task(param, EV_NW_DNS_RESULT, require->result, ip_result, require->param);
+		}
+		else
+		{
+			w5500_callback_to_nw_task(param, EV_NW_DNS_RESULT, 0, 0, require->param);
+		}
+		return LIST_DEL;
+	}
+	else
+	{
+		return LIST_PASS;
+	}
+}
+
+static void w5500_dns_tx_next(w5500_ctrl_t *w5500, Buffer_Struct *tx_msg_buf)
+{
+	int i;
+	if (w5500->socket[SYS_SOCK_ID].tx_wait_size) return;
+	dns_run(&w5500->dns_client, NULL, tx_msg_buf, &i);
+	if (tx_msg_buf->Pos)
+	{
+		w5500_socket_connect(w5500, SYS_SOCK_ID, 0, w5500->dns_client.dns_server[i].ipv4, DNS_SERVER_PORT);
+		if (!w5500_socket_tx(w5500, SYS_SOCK_ID, tx_msg_buf->Data, tx_msg_buf->Pos))
+		{
+			w5500->socket[SYS_SOCK_ID].tx_wait_size = 1;
+		}
+		OS_DeInitBuffer(tx_msg_buf);
+		llist_traversal(&w5500->dns_client.require_head, w5500_dns_check_result, w5500);
+	}
+}
+
 static void w5500_sys_socket_callback(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t event)
 {
 	Buffer_Struct rx_buf;
@@ -836,10 +912,15 @@ static void w5500_sys_socket_callback(w5500_ctrl_t *w5500, uint8_t socket_id, ui
 		if (!socket_id)
 		{
 			w5500->last_udp_send_ok = 1;
+			if (w5500->network_ready)
+			{
+				w5500->socket[SYS_SOCK_ID].tx_wait_size = 0;
+				w5500_dns_tx_next(w5500, &tx_msg_buf);
+			}
 		}
-		if (w5500->network_ready)
+		else if (w5500->network_ready)
 		{
-			if (socket_id) W5500_LOCK;
+			W5500_LOCK;
 			p = llist_traversal(&w5500->socket[socket_id].tx_head, w5500_next_data_cache, &prv_w5500_ctrl->socket[socket_id]);
 			if (p && !p->is_sending)
 			{
@@ -855,12 +936,13 @@ static void w5500_sys_socket_callback(w5500_ctrl_t *w5500, uint8_t socket_id, ui
 				free(p);
 
 			}
+			W5500_UNLOCK;
 			w5500_socket_tx_next_data(w5500, socket_id);
 			if (llist_empty(&w5500->socket[socket_id].tx_head))
 			{
 				w5500->socket[socket_id].tx_wait_size = 0;
 			}
-			if (socket_id) W5500_UNLOCK;
+
 
 		}
 		break;
@@ -932,6 +1014,22 @@ static void w5500_sys_socket_callback(w5500_ctrl_t *w5500, uint8_t socket_id, ui
 
 						break;
 					case DNS_SERVER_PORT:
+						dns_run(&w5500->dns_client, &msg_buf, NULL, &i);
+						llist_traversal(&w5500->dns_client.require_head, w5500_dns_check_result, w5500);
+						if (!w5500->socket[SYS_SOCK_ID].tx_wait_size)
+						{
+							dns_run(&w5500->dns_client, NULL, &tx_msg_buf, &i);
+							if (tx_msg_buf.Pos)
+							{
+								w5500_socket_connect(w5500, SYS_SOCK_ID, 0, w5500->dns_client.dns_server[i].ipv4, DNS_SERVER_PORT);
+								if (!w5500_socket_tx(w5500, SYS_SOCK_ID, tx_msg_buf.Data, tx_msg_buf.Pos))
+								{
+									w5500->socket[SYS_SOCK_ID].tx_wait_size = 1;
+								}
+								OS_DeInitBuffer(&tx_msg_buf);
+							}
+						}
+
 						break;
 					}
 					rx_buf.Pos += 8 + len;
@@ -942,7 +1040,10 @@ static void w5500_sys_socket_callback(w5500_ctrl_t *w5500, uint8_t socket_id, ui
 		break;
 	case Sn_IR_TIMEOUT:
 //		DBG_ERR("socket %d timeout", socket_id);
-		w5500_callback_to_nw_task(w5500, EV_NW_SOCKET_ERROR, socket_id, 0, 0);
+		if (socket_id)
+		{
+			w5500_callback_to_nw_task(w5500, EV_NW_SOCKET_ERROR, socket_id, 0, 0);
+		}
 		break;
 	case Sn_IR_CON:
 		w5500_callback_to_nw_task(w5500, EV_NW_SOCKET_CONNECT_OK, socket_id, 0, 0);
@@ -1063,7 +1164,7 @@ static void w5500_task(void *param)
 		sleep_time = 100;
 		if (w5500->network_ready)
 		{
-			if (!w5500->run_dns && (w5500->link_pin != 0xff))
+			if (!w5500->dns_client.is_run && (w5500->link_pin != 0xff))
 			{
 				sleep_time = 0;
 			}
@@ -1098,21 +1199,29 @@ static void w5500_task(void *param)
 			w5500_link_state(w5500, w5500->rx_buf[3 + W5500_COMMON_PHY] & 0x01);
 			w5500->speed_status = w5500->rx_buf[3 + W5500_COMMON_PHY] & (3 << 1);
 		}
-
-		if (result && w5500->link_ready)
+		if (result)
 		{
-			result = ip4_dhcp_run(&w5500->dhcp_client, NULL, &tx_msg_buf, &remote_ip);
-			w5500_check_dhcp(w5500);
-			if (tx_msg_buf.Pos)
+			if (w5500->network_ready)
 			{
-				w5500_socket_connect(w5500, SYS_SOCK_ID, 0, remote_ip, DHCP_SERVER_PORT);
-				w5500_socket_tx(w5500, SYS_SOCK_ID, tx_msg_buf.Data, tx_msg_buf.Pos);
-				w5500->last_udp_send_ok = 0;
+				w5500_dns_tx_next(w5500, &tx_msg_buf);
 			}
-			OS_DeInitBuffer(&tx_msg_buf);
-
+			else if (w5500->link_ready)
+			{
+				result = ip4_dhcp_run(&w5500->dhcp_client, NULL, &tx_msg_buf, &remote_ip);
+				w5500_check_dhcp(w5500);
+				if (tx_msg_buf.Pos)
+				{
+					w5500_socket_connect(w5500, SYS_SOCK_ID, 0, remote_ip, DHCP_SERVER_PORT);
+					w5500_socket_tx(w5500, SYS_SOCK_ID, tx_msg_buf.Data, tx_msg_buf.Pos);
+					w5500->last_udp_send_ok = 0;
+				}
+				OS_DeInitBuffer(&tx_msg_buf);
+			}
 			continue;
 		}
+
+
+
 		switch(event.ID)
 		{
 		case EV_W5500_IRQ:
@@ -1185,6 +1294,11 @@ static void w5500_task(void *param)
 			w5500_callback_to_nw_task(w5500, EV_NW_SOCKET_LISTEN, event.Param1, 0, 0);
 			break;
 		case EV_W5500_SOCKET_DNS:
+			if (w5500->network_ready)
+			{
+				dns_require(&w5500->dns_client, event.Param1, event.Param2, event.Param3);
+				w5500_dns_tx_next(w5500, &tx_msg_buf);
+			}
 			break;
 		case EV_W5500_RE_INIT:
 			w5500_init_reg(w5500);
@@ -1282,6 +1396,8 @@ void w5500_init(luat_spi_t* spi, uint8_t irq_pin, uint8_t rst_pin, uint8_t link_
 			INIT_LLIST_HEAD(&w5500->socket[i].tx_head);
 			INIT_LLIST_HEAD(&w5500->socket[i].rx_head);
 		}
+		INIT_LLIST_HEAD(&w5500->dns_client.process_head);
+		INIT_LLIST_HEAD(&w5500->dns_client.require_head);
 
 		w5500->dhcp_client.xid = BytesGetBe32(rands);
 		w5500->dhcp_client.state = DHCP_STATE_NOT_WORK;
@@ -1339,10 +1455,10 @@ static int w5500_create_soceket(uint8_t is_tcp, uint64_t *tag, void *param, uint
 	int i, socket_id;
 	socket_id = -1;
 	W5500_LOCK;
-	if (!prv_w5500_ctrl->socket[prv_w5500_ctrl->next_index].in_use)
+	if (!prv_w5500_ctrl->socket[prv_w5500_ctrl->next_socket_index].in_use)
 	{
-		socket_id = prv_w5500_ctrl->next_index;
-		prv_w5500_ctrl->next_index++;
+		socket_id = prv_w5500_ctrl->next_socket_index;
+		prv_w5500_ctrl->next_socket_index++;
 	}
 	else
 	{
@@ -1351,14 +1467,14 @@ static int w5500_create_soceket(uint8_t is_tcp, uint64_t *tag, void *param, uint
 			if (!prv_w5500_ctrl->socket[i].in_use)
 			{
 				socket_id = i;
-				prv_w5500_ctrl->next_index = i + 1;
+				prv_w5500_ctrl->next_socket_index = i + 1;
 				break;
 			}
 		}
 	}
-	if (prv_w5500_ctrl->next_index >= MAX_SOCK_NUM)
+	if (prv_w5500_ctrl->next_socket_index >= MAX_SOCK_NUM)
 	{
-		prv_w5500_ctrl->next_index = 1;
+		prv_w5500_ctrl->next_socket_index = 1;
 	}
 	if (socket_id > 0)
 	{
@@ -1391,6 +1507,8 @@ static int w5500_socket_connect_ex(int socket_id, uint64_t tag,  uint16_t local_
 	llist_traversal(&prv_w5500_ctrl->socket[socket_id].rx_head, w5500_del_data_cache, NULL);
 	W5500_UNLOCK;
 	platform_send_event(prv_w5500_ctrl->task_handle, EV_W5500_SOCKET_CONNECT, socket_id, remote_ip->ipv4, uPV.u32);
+	uPV.u32 = remote_ip->ipv4;
+	DBG("%u.%u.%u.%u", uPV.u8[0], uPV.u8[1], uPV.u8[2], uPV.u8[3]);
 	return 0;
 }
 //作为server绑定一个port，开始监听
@@ -1599,16 +1717,20 @@ static int w5500_user_cmd(int socket_id, uint64_t tag, uint32_t cmd, uint32_t va
 	return 0;
 }
 
-static int w5500_dns(const char *url, uint32_t len, void *user_data)
+static int w5500_dns(const char *domain_name, uint32_t len, void *param, void *user_data)
 {
 	if (user_data != prv_w5500_ctrl) return -1;
-	return -1;
+	char *prv_domain_name = (char *)malloc(len);
+	memcpy(prv_domain_name, domain_name, len);
+	platform_send_event(prv_w5500_ctrl->task_handle, EV_W5500_SOCKET_DNS, prv_domain_name, len, param);
+	return 0;
 }
+
 static int w5500_set_dns_server(uint8_t server_index, luat_ip_addr_t *ip, void *user_data)
 {
 	if (user_data != prv_w5500_ctrl) return -1;
 	if (server_index >= MAX_DNS_SERVER) return -1;
-	prv_w5500_ctrl->static_dns_server[server_index] = ip->ipv4;
+	prv_w5500_ctrl->dns_client.dns_server[server_index] = *ip;
 	return 0;
 }
 static void w5500_socket_set_callback(CBFuncEx_t cb_fun, void *param, void *user_data)

@@ -39,8 +39,6 @@ typedef struct
 {
 	int last_adapter_index;
 	llist_head dns_cache_head;
-	llist_head dns_require_head;
-	uint16_t session_id;
 	uint8_t is_init;
 }network_info_t;
 
@@ -60,6 +58,22 @@ static network_info_t prv_network = {
 		.is_init = 0,
 };
 
+static uint8_t network_check_ip_same(luat_ip_addr_t *ip1, luat_ip_addr_t *ip2)
+{
+	if (ip1->is_ipv6 != ip2->is_ipv6)
+	{
+		return 0;
+	}
+	if (ip1->is_ipv6)
+	{
+		return !memcmp(ip1->ipv6_u8_addr, ip2->ipv6_u8_addr, 16);
+	}
+	else
+	{
+		return (ip1->ipv4 == ip2->ipv4);
+	}
+}
+
 static int network_base_tx(network_ctrl_t *ctrl, const uint8_t *data, uint32_t len, int flags, luat_ip_addr_t *remote_ip, uint16_t remote_port)
 {
 	int result = -1;
@@ -75,14 +89,7 @@ static int network_base_tx(network_ctrl_t *ctrl, const uint8_t *data, uint32_t l
 		}
 		else
 		{
-			if (ctrl->remote_ip.is_ipv6 != 0xff)
-			{
-				result = network_socket_send(ctrl, data, len, flags, &ctrl->remote_ip, ctrl->remote_port);
-			}
-			else
-			{
-				result = network_socket_send(ctrl, data, len, flags, &ctrl->dns_ip[ctrl->dns_ip_cnt], ctrl->remote_port);
-			}
+			result = network_socket_send(ctrl, data, len, flags, ctrl->online_ip, ctrl->remote_port);
 		}
 	}
 	if (result >= 0)
@@ -94,6 +101,120 @@ static int network_base_tx(network_ctrl_t *ctrl, const uint8_t *data, uint32_t l
 		ctrl->need_close = 1;
 	}
 	return result;
+}
+
+static int32_t tls_shorttimeout(void *data, void *param)
+{
+	network_ctrl_t *ctrl = (network_ctrl_t *)param;
+	if (!ctrl->tls_mode)
+	{
+		platform_stop_timer(ctrl->tls_long_timer);
+		return 0;
+	}
+	if (0 == ctrl->tls_timer_state)
+	{
+		ctrl->tls_timer_state = 1;
+	}
+	return 0;
+}
+
+static int32_t tls_longtimeout(void *data, void *param)
+{
+	network_ctrl_t *ctrl = (network_ctrl_t *)param;
+	platform_stop_timer(ctrl->tls_short_timer);
+	if (!ctrl->tls_mode)
+	{
+		return 0;
+	}
+	ctrl->tls_timer_state = 2;
+}
+
+static void tls_settimer( void *data, uint32_t int_ms, uint32_t fin_ms )
+{
+	network_ctrl_t *ctrl = (network_ctrl_t *)data;
+	if (!ctrl->tls_mode)
+	{
+		return;
+	}
+	if (!fin_ms)
+	{
+		platform_stop_timer(ctrl->tls_short_timer);
+		platform_stop_timer(ctrl->tls_long_timer);
+		ctrl->tls_timer_state = -1;
+		return ;
+	}
+	platform_start_timer(ctrl->tls_short_timer, int_ms, 0);
+	platform_start_timer(ctrl->tls_long_timer, fin_ms, 0);
+	ctrl->tls_timer_state = 0;
+}
+
+static int tls_gettimer( void *data )
+{
+	network_ctrl_t *ctrl = (network_ctrl_t *)data;
+	if (!ctrl->tls_mode)
+	{
+		return -ERROR_PARAM_INVALID;
+	}
+	return ctrl->tls_timer_state;
+}
+
+static void tls_dbg(void *data, int level,
+        const char *file, int line,
+        const char *str)
+{
+	DBG_Printf("%s %d:%s", file, line, str);
+}
+
+static int tls_send(void *ctx, const unsigned char *buf, size_t len )
+{
+	network_ctrl_t *ctrl = (network_ctrl_t *)ctx;
+	if (!ctrl->tls_mode)
+	{
+		return -ERROR_PERMISSION_DENIED;
+	}
+	if (network_base_tx(ctrl, buf, len, 0, NULL, 0) != len)
+	{
+		return -0x004E;
+	}
+	else
+	{
+		return len;
+	}
+}
+
+static int tls_recv(void *ctx, unsigned char *buf, size_t len )
+{
+#ifdef LUAT_USE_TLS
+	network_ctrl_t *ctrl = (network_ctrl_t *)ctx;
+	luat_ip_addr_t remote_ip;
+	uint16_t remote_port;
+	int Result = -1;
+	if (!ctrl->tls_mode)
+	{
+		return -1;
+	}
+TLS_RECV:
+	Result = network_socket_receive(ctrl, buf, len, 0, &remote_ip, &remote_port);
+
+	if (Result < 0)
+	{
+		return -0x004C;
+	}
+	if (Result > 0)
+	{
+		if (!ctrl->is_tcp)
+		{
+			if ((remote_port == ctrl->remote_port) && network_check_ip_same(&remote_ip, ctrl->online_ip))
+			{
+				goto TLS_RECV;
+			}
+		}
+		return Result;
+	}
+	return MBEDTLS_ERR_SSL_WANT_READ;
+#else
+	return -1;
+#endif
 }
 
 static int network_get_host_by_name(network_ctrl_t *ctrl)
@@ -121,7 +242,15 @@ static int network_get_host_by_name(network_ctrl_t *ctrl)
 	}
 }
 
+static void network_update_dns_cache(network_ctrl_t *ctrl)
+{
 
+}
+
+static void network_get_dns_cache(network_ctrl_t *ctrl)
+{
+
+}
 
 static int network_base_connect(network_ctrl_t *ctrl, luat_ip_addr_t *remote_ip)
 {
@@ -152,6 +281,7 @@ static int network_base_connect(network_ctrl_t *ctrl, luat_ip_addr_t *remote_ip)
 	{
 		network_user_cmd(ctrl, NW_CMD_AUTO_HEART_TIME, ctrl->tcp_keep_idle);
 	}
+
 	return network_socket_connect(ctrl, remote_ip);
 }
 
@@ -232,21 +362,33 @@ static int network_state_wait_dns(network_ctrl_t *ctrl, OS_EVENT *event, network
 			return -1;
 		}
 		break;
-	case EV_NW_SOCKET_DNS_RESULT:
-		if (event->Param2)
+	case EV_NW_DNS_RESULT:
+		if (event->Param1)
 		{
 			//更新dns cache
+			ctrl->dns_ip = event->Param2;
+			ctrl->dns_ip_nums = event->Param1;
+			network_update_dns_cache(ctrl);
 		}
-
-		ctrl->dns_ip_cnt = 0;
-		if (network_base_connect(ctrl, &ctrl->dns_ip[ctrl->dns_ip_cnt]))
+		else
 		{
-			ctrl->state = NW_STATE_OFF_LINE;
+			ctrl->dns_ip_nums = 0;
+			network_get_dns_cache(ctrl);
+			if (!ctrl->dns_ip_nums)
+			{
+				return -1;
+			}
+
+		}
+		ctrl->dns_ip_cnt = 0;
+		if (network_base_connect(ctrl, &ctrl->dns_ip[ctrl->dns_ip_cnt].ip))
+		{
+			network_socket_force_close(ctrl);
 			return -1;
 		}
 		else
 		{
-			ctrl->state = NW_STATE_WAIT_DNS;
+			ctrl->state = NW_STATE_CONNECTING;
 			return 1;
 		}
 	default:
@@ -260,10 +402,31 @@ static int network_state_connecting(network_ctrl_t *ctrl, OS_EVENT *event, netwo
 	switch(event->ID)
 	{
 	case EV_NW_RESET:
+		return -1;
 	case EV_NW_SOCKET_ERROR:
 	case EV_NW_SOCKET_REMOTE_CLOSE:
 	case EV_NW_SOCKET_CLOSE_OK:
-		return -1;
+		if (ctrl->remote_ip.is_ipv6 != 0xff)
+		{
+			return -1;
+		}
+		DBG("dns ip %d no connect!", ctrl->dns_ip_cnt);
+		ctrl->dns_ip_cnt++;
+		if (ctrl->dns_ip_cnt >= ctrl->dns_ip_nums)
+		{
+			return -1;
+		}
+		if (network_base_connect(ctrl, &ctrl->dns_ip[ctrl->dns_ip_cnt].ip))
+		{
+			network_socket_force_close(ctrl);
+			return -1;
+		}
+		else
+		{
+			ctrl->state = NW_STATE_CONNECTING;
+			return 1;
+		}
+		break;
 	case EV_NW_STATE:
 		if (!event->Param2)
 		{
@@ -280,6 +443,16 @@ static int network_state_connecting(network_ctrl_t *ctrl, OS_EVENT *event, netwo
 	case EV_NW_SOCKET_CONNECT_OK:
 		if (ctrl->tls_mode)
 		{
+			mbedtls_ssl_free(ctrl->ssl);
+			memset(ctrl->ssl, 0, sizeof(mbedtls_ssl_context));
+			mbedtls_ssl_setup(ctrl->ssl, ctrl->config);
+			ctrl->ssl->f_set_timer = tls_settimer;
+			ctrl->ssl->f_get_timer = tls_gettimer;
+			ctrl->ssl->p_timer = ctrl;
+			ctrl->ssl->p_bio = ctrl;
+			ctrl->ssl->f_send = tls_send;
+			ctrl->ssl->f_recv = tls_recv;
+
 			ctrl->state = NW_STATE_SHAKEHAND;
 	    	do
 	    	{
@@ -321,6 +494,7 @@ static int network_state_shakehand(network_ctrl_t *ctrl, OS_EVENT *event, networ
 	case EV_NW_STATE:
 		if (!event->Param2)
 		{
+			ctrl->need_close = 1;
 			return -1;
 		}
 		break;
@@ -343,13 +517,22 @@ static int network_state_shakehand(network_ctrl_t *ctrl, OS_EVENT *event, networ
     			break;
     		default:
     			DBG_ERR("0x%x, %d", -result, ctrl->ssl->state);
+    			ctrl->need_close = 1;
     			return -1;
     		}
     	}while(ctrl->ssl->state != MBEDTLS_SSL_HANDSHAKE_OVER);
     	ctrl->state = NW_STATE_ONLINE;
     	if (NW_WAIT_TX_OK == ctrl->wait_target_state)
     	{
+    		if (!ctrl->cache_data)
+    		{
+    			ctrl->need_close = 1;
+    			return -1;
+    		}
     		int result = mbedtls_ssl_write(ctrl->ssl, ctrl->cache_data, ctrl->cache_len);
+    		free(ctrl->cache_data);
+    		ctrl->cache_data = NULL;
+    		ctrl->cache_len = 0;
     	    if (result < 0)
     	    {
     	    	DBG("%08x", -result);
@@ -563,7 +746,7 @@ static int32_t network_default_socket_callback(void *data, void *param)
 	NW_LOCK;
 	if (event->ID > EV_NW_TIMEOUT)
 	{
-		if (ctrl && (ctrl->tag == cb_param->tag))
+		if (ctrl && ((ctrl->tag == cb_param->tag) || (event->ID == EV_NW_DNS_RESULT)))
 		{
 			if (ctrl->auto_mode)
 			{
@@ -770,8 +953,6 @@ int network_register_adapter(uint8_t adapter_index, network_adapter_info *info, 
 	if (!prv_network.is_init)
 	{
 		INIT_LLIST_HEAD(&prv_network.dns_cache_head);
-		INIT_LLIST_HEAD(&prv_network.dns_require_head);
-		prv_network.session_id = 1;
 		prv_network.is_init = 0;
 	}
 
@@ -822,6 +1003,11 @@ void network_release_ctrl(network_ctrl_t *ctrl)
 		if (&adapter->ctrl_table[i] == ctrl)
 		{
 			network_deinit_tls(ctrl);
+			if (ctrl->cache_data)
+			{
+				free(ctrl->cache_data);
+				ctrl->cache_data = NULL;
+			}
 			adapter->ctrl_busy[i] = 0;
 			break;
 		}
@@ -917,6 +1103,7 @@ int network_socket_connect(network_ctrl_t *ctrl, luat_ip_addr_t *remote_ip)
 {
 	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
 	ctrl->is_server_mode = 0;
+	ctrl->online_ip = remote_ip;
 	return adapter->opt->socket_connect(ctrl->socket_id, ctrl->tag, ctrl->local_port, remote_ip, ctrl->remote_port, adapter->user_data);
 }
 
@@ -1016,10 +1203,8 @@ int network_user_cmd(network_ctrl_t *ctrl,  uint32_t cmd, uint32_t value)
 int network_dns(network_ctrl_t *ctrl)
 {
 	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
-	luat_dns_require_t *require = zalloc(sizeof(luat_dns_require_t));
-	require->uri.Data = ctrl->domain_name;
-	require->uri.Pos = ctrl->domain_name_len;
-	return adapter->opt->dns(require->uri.Data, require->uri.Pos, adapter->user_data);
+
+	return adapter->opt->dns(ctrl->domain_name, ctrl->domain_name_len, ctrl, adapter->user_data);
 }
 
 int network_get_local_ip_info(network_ctrl_t *ctrl, luat_ip_addr_t *ip, luat_ip_addr_t *submask, luat_ip_addr_t *gateway, void *user_data)
@@ -1037,6 +1222,13 @@ void network_force_close_socket(network_ctrl_t *ctrl)
 	}
 	ctrl->need_close = 0;
 	ctrl->socket_id = -1;
+	if (ctrl->dns_ip)
+	{
+		free(ctrl->dns_ip);
+		ctrl->dns_ip = NULL;
+	}
+	ctrl->dns_ip_cnt = 0;
+	ctrl->dns_ip_nums = 0;
 }
 
 void network_clean_invaild_socket(uint8_t adapter_index)
@@ -1063,6 +1255,154 @@ void network_clean_invaild_socket(uint8_t adapter_index)
 	}
 	adapter->opt->socket_clean(list, adapter->opt->max_socket_num, adapter->user_data);
 	NW_UNLOCK;
+}
+
+
+
+static int tls_verify(void *ctx, mbedtls_x509_crt *crt, int Index, uint32_t *Result)
+{
+	network_ctrl_t *ctrl = (network_ctrl_t *)ctx;
+	DBG("%d, %08x", Index, *Result);
+	return 0;
+}
+
+int network_set_psk_info(network_ctrl_t *ctrl,
+		const unsigned char *psk, size_t psk_len,
+		const unsigned char *psk_identity, size_t psk_identity_len)
+{
+#ifdef LUAT_USE_TLS
+	if (!ctrl->tls_mode)
+	{
+		return -ERROR_PERMISSION_DENIED;
+	}
+
+//	DBG("%.*s, %.*s", psk_len, psk, psk_identity_len, psk_identity);
+	int ret = mbedtls_ssl_conf_psk( ctrl->config,
+			psk, psk_len, psk_identity, psk_identity_len );
+	if (ret != 0)
+	{
+		DBG("0x%x", -ret);
+		return -ERROR_OPERATION_FAILED;
+	}
+	return ERROR_NONE;
+#else
+	return -1;
+#endif
+}
+
+int network_set_server_cert(network_ctrl_t *ctrl, const unsigned char *cert, size_t cert_len)
+{
+#ifdef LUAT_USE_TLS
+	int ret;
+	if (!ctrl->tls_mode)
+	{
+		return -ERROR_PERMISSION_DENIED;
+	}
+    ret = mbedtls_x509_crt_parse( ctrl->ca_cert, cert, cert_len);
+	if (ret != 0)
+	{
+		DBG("%08x", -ret);
+		return -ERROR_OPERATION_FAILED;
+	}
+
+	return ERROR_NONE;
+#else
+	return -1;
+#endif
+}
+
+int network_set_client_cert(network_ctrl_t *ctrl,
+		const unsigned char *cert, size_t certLen,
+        const unsigned char *key, size_t keylen,
+        const unsigned char *pwd, size_t pwdlen)
+{
+#ifdef LUAT_USE_TLS
+	int ret;
+	mbedtls_x509_crt *client_cert = NULL;
+	mbedtls_pk_context *pkey = NULL;
+	if (!ctrl->tls_mode)
+	{
+		return -ERROR_PERMISSION_DENIED;
+	}
+	client_cert = zalloc(sizeof(mbedtls_x509_crt));
+	pkey = zalloc(sizeof(mbedtls_pk_context));
+	if (!client_cert || !pkey)
+	{
+		goto ERROR_OUT;
+	}
+    ret = mbedtls_x509_crt_parse( client_cert, cert, certLen );
+    if (ret != 0)
+    {
+    	DBG("%08x", -ret);
+    	goto ERROR_OUT;
+    }
+    ret = mbedtls_pk_parse_key( pkey, key, keylen, pwd, pwdlen );
+    if (ret != 0)
+    {
+		DBG("%08x", -ret);
+		goto ERROR_OUT;
+    }
+    ret = mbedtls_ssl_conf_own_cert( ctrl->config, client_cert, pkey );
+    if (ret != 0)
+    {
+		DBG("%08x", -ret);
+		goto ERROR_OUT;
+    }
+    return ERROR_NONE;
+ERROR_OUT:
+	if (client_cert) free(client_cert);
+	if (pkey) free(pkey);
+	return -1;
+#else
+	return -1;
+#endif
+}
+
+int network_cert_verify_result(network_ctrl_t *ctrl)
+{
+#ifdef LUAT_USE_TLS
+	if (!ctrl->tls_mode)
+	{
+		return -1;
+	}
+	return mbedtls_ssl_get_verify_result(ctrl->ssl);
+#else
+	return -1;
+#endif
+}
+
+static int tls_random( void *p_rng,
+        unsigned char *output, size_t output_len )
+{
+	platform_random(output, output_len);
+	return 0;
+}
+
+void network_init_tls(network_ctrl_t *ctrl, int verify_mode)
+{
+#ifdef LUAT_USE_TLS
+	ctrl->tls_mode = 1;
+	if (!ctrl->ssl)
+	{
+		ctrl->ssl = zalloc(sizeof(mbedtls_ssl_context));
+		ctrl->ca_cert = zalloc(sizeof(mbedtls_x509_crt));
+		ctrl->config = zalloc(sizeof(mbedtls_ssl_config));
+		mbedtls_ssl_config_defaults( ctrl->config, MBEDTLS_SSL_IS_CLIENT, ctrl->is_tcp?MBEDTLS_SSL_TRANSPORT_STREAM:MBEDTLS_SSL_TRANSPORT_DATAGRAM, MBEDTLS_SSL_PRESET_DEFAULT);
+		ctrl->config->authmode = verify_mode;
+		ctrl->config->hs_timeout_min = 20000;
+		ctrl->config->f_rng = tls_random;
+		ctrl->config->p_rng = NULL;
+		ctrl->config->f_dbg = tls_dbg;
+		ctrl->config->p_dbg = NULL;
+		ctrl->config->f_vrfy = tls_verify;
+		ctrl->config->p_vrfy = ctrl;
+		ctrl->config->ca_chain = ctrl->ca_cert;
+		ctrl->config->read_timeout = ctrl->tcp_timeou_ms;
+	    ctrl->tls_long_timer = platform_create_timer(tls_longtimeout, ctrl, NULL);
+	    ctrl->tls_short_timer = platform_create_timer(tls_shorttimeout, ctrl, NULL);
+	}
+	ctrl->tls_timer_state = -1;
+#endif
 }
 
 void network_deinit_tls(network_ctrl_t *ctrl)
@@ -1167,7 +1507,18 @@ int network_connect(network_ctrl_t *ctrl, const char *domain_name, uint32_t doma
 	{
 		return -1;
 	}
+
 	NW_LOCK;
+	if (ctrl->dns_ip)
+	{
+		free(ctrl->dns_ip);
+		ctrl->dns_ip = NULL;
+	}
+	if (ctrl->cache_data)
+	{
+		free(ctrl->cache_data);
+		ctrl->cache_data = NULL;
+	}
 	ctrl->need_close = 0;
 	ctrl->domain_name = domain_name;
 	ctrl->domain_name_len = domain_name_len;
@@ -1242,7 +1593,13 @@ int network_listen(network_ctrl_t *ctrl, uint16_t local_port, uint32_t timeout_m
 
 int network_close(network_ctrl_t *ctrl, uint32_t timeout_ms)
 {
+
 	NW_LOCK;
+	if (ctrl->cache_data)
+	{
+		free(ctrl->cache_data);
+		ctrl->cache_data = NULL;
+	}
 	uint8_t old_state = ctrl->state;
 	ctrl->auto_mode = 1;
 	ctrl->need_close = 0;
@@ -1340,7 +1697,13 @@ int network_tx(network_ctrl_t *ctrl, const uint8_t *data, uint32_t len, int flag
 		if (ctrl->tls_need_reshakehand)
 		{
 			ctrl->tls_need_reshakehand = 0;
-			ctrl->cache_data = data;
+			if (ctrl->cache_data)
+			{
+				free(ctrl->cache_data);
+				ctrl->cache_data = NULL;
+			}
+			ctrl->cache_data = malloc(len);
+			memcpy(ctrl->cache_data, data, len);
 			ctrl->cache_len = len;
 	    	mbedtls_ssl_session_reset(ctrl->ssl);
 	    	do

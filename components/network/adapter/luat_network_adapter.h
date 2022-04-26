@@ -15,20 +15,21 @@
 #include "mbedtls/sha1.h"
 #endif
 
-#define MAX_URI_DNS_IP		(4)	//每个URL最多保留4个IP
+#define MAX_DNS_IP		(4)	//每个URL最多保留4个IP
 
 enum
 {
 	EV_NW_RESET = USER_EVENT_ID_START + 0x1000000,
 	EV_NW_STATE,
 	EV_NW_TIMEOUT,
+	EV_NW_DNS_RESULT,
 	EV_NW_SOCKET_TX_OK,
 	EV_NW_SOCKET_RX_NEW,
 	EV_NW_SOCKET_RX_FULL,
 	EV_NW_SOCKET_CLOSE_OK,
 	EV_NW_SOCKET_REMOTE_CLOSE,
 	EV_NW_SOCKET_CONNECT_OK,
-	EV_NW_SOCKET_DNS_RESULT,
+
 	EV_NW_SOCKET_ERROR,
 	EV_NW_SOCKET_LISTEN,
 	EV_NW_SOCKET_NEW_CONNECT,	//作为server接收到新的connect，只有允许accept操作的才有，否则直接上报CONNECT_OK
@@ -89,7 +90,7 @@ typedef struct
 
 typedef struct
 {
-	uint64_t ttl_end;
+	uint32_t ttl_end;
 	luat_ip_addr_t ip;
 }luat_dns_ip_result;
 
@@ -99,15 +100,9 @@ typedef struct
 	/* data */
 	llist_head node;
 	Buffer_Struct uri;
-	luat_dns_ip_result result[MAX_URI_DNS_IP];
+	luat_dns_ip_result result[MAX_DNS_IP];
+	uint8_t ip_nums;
 }luat_dns_cache_t;
-
-typedef struct
-{
-	llist_head node;
-	Buffer_Struct uri;
-	uint16_t session_id;
-}luat_dns_require_t;
 
 typedef struct
 {
@@ -125,30 +120,27 @@ typedef struct
 	void *socket_param;			//一般用来存放network_ctrl本身，用于快速查找
 	HANDLE	task_handle;
 	HANDLE timer;
-#ifdef LUAT_USE_TLS
 	HANDLE tls_short_timer;
 	HANDLE tls_long_timer;
-#endif
 	uint32_t tcp_keep_idle;
 	int socket_id;
 	const char *domain_name;
 	uint32_t domain_name_len;
 	luat_ip_addr_t remote_ip;
-	luat_ip_addr_t *dns_ip;
+	luat_dns_ip_result *dns_ip;
+	luat_ip_addr_t *online_ip;
 	uint16_t remote_port;
 	uint16_t local_port;
-#ifdef LUAT_USE_TLS
 	const uint8_t *cache_data;
 	uint32_t cache_len;
 	int tls_timer_state;
-	uint32_t tls_send_timeout_ms;
+	uint32_t tcp_timeou_ms;
 	uint8_t tls_mode;
     uint8_t tls_need_reshakehand;
-    uint8_t tls_init_done;
-#endif
     uint8_t need_close;
     uint8_t new_rx_flag;
     uint8_t dns_ip_cnt;
+    uint8_t dns_ip_nums;
     uint8_t tcp_keep_alive;
 	uint8_t tcp_keep_interval;
 	uint8_t tcp_keep_cnt;
@@ -221,12 +213,13 @@ typedef struct
 	//非posix的socket，用这个根据实际硬件设置参数
 	int (*user_cmd)(int socket_id, uint64_t tag, uint32_t cmd, uint32_t value, void *user_data);
 
-	int (*dns)(const char *domain_name, uint32_t len, void *user_data);
+	int (*dns)(const char *domain_name, uint32_t len, void *param,  void *user_data);
 	int (*set_dns_server)(uint8_t server_index, luat_ip_addr_t *ip, void *user_data);
 	int (*get_local_ip_info)(luat_ip_addr_t *ip, luat_ip_addr_t *submask, luat_ip_addr_t *gateway, void *user_data);
 	//所有网络消息都是通过cb_fun回调
-	//cb_fun回调时第一个参数为OS_EVENT，包含了socket的必要信息，第二个是luat_network_cb_param_t，其中的param是这里传入的param
-	//OS_EVENT ID为EV_NW_XXX，param1是socket id param2是各自参数 param3是
+	//cb_fun回调时第一个参数为OS_EVENT，包含了socket的必要信息，第二个是luat_network_cb_param_t，其中的param是这里传入的param(就是适配器序号)
+	//OS_EVENT ID为EV_NW_XXX，param1是socket id param2是各自参数 param3是create_soceket传入的socket_param(就是network_ctrl *)
+	//dns结果是特别的，ID为EV_NW_SOCKET_DNS_RESULT，param1是获取到的IP数据量，0就是失败了，param2是ip组，动态分配的， param3是dns传入的param(就是network_ctrl *)
 	void (*socket_set_callback)(CBFuncEx_t cb_fun, void *param, void *user_data);
 
 	char *name;
@@ -337,13 +330,13 @@ int network_set_psk_info(network_ctrl_t *ctrl,
 /*
  * TLS设置验证服务器的证书，可以不用
  */
-int network_set_server_cert(network_ctrl_t *ctrl, const unsigned char *cert, size_t certLen);
+int network_set_server_cert(network_ctrl_t *ctrl, const unsigned char *cert, size_t cert_len);
 /*
  * TLS设置验证客户端的证书，只有双向认证才需要，而且一般只有金融领域才需要
  */
 int network_set_client_cert(network_ctrl_t *ctrl,
 		const unsigned char *cert, size_t certLen,
-        const unsigned char *pkey, size_t pkeylen,
+        const unsigned char *key, size_t keylen,
         const unsigned char *pwd, size_t pwdlen);
 /*
  * 获取证书验证结果

@@ -12,6 +12,11 @@ log.info("main", PROJECT, VERSION)
 -- sys库是标配
 _G.sys = require("sys")
 
+-- UI带屏的项目一般不需要低功耗了吧, 设置到最高性能
+if mcu and (rtos.bsp() == "air101" or rtos.bsp() == "air103") then
+    mcu.setClk(240)
+end
+
 --[[
 -- LCD接法示例, 以Air101开发板的SPI0为例
 LCD管脚       Air101管脚
@@ -138,9 +143,6 @@ sys.taskInit(function()
         log.info("lcd.drawRectangle", lcd.drawRectangle(20,40,120,70,0xF800))
         log.info("lcd.drawCircle", lcd.drawCircle(50,50,20,0x0CE0))
     end
-    -- while 1 do
-    --     sys.wait(500)
-    -- end
 end)
 
 

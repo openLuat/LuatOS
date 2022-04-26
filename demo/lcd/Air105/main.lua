@@ -136,9 +136,6 @@ sys.taskInit(function()
         log.info("lcd.drawRectangle", lcd.drawRectangle(20,40,120,70,0xF800))
         log.info("lcd.drawCircle", lcd.drawCircle(50,50,20,0x0CE0))
     end
-    while 1 do
-        sys.wait(500)
-    end
 end)
 
 

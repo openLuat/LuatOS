@@ -61,7 +61,11 @@
 /*********************
  *      DEFINES
  *********************/
+#if JD_FASTDECODE == 2
+#define TJPGD_WORKBUFF_SIZE             (3500*3)    //Recommended by TJPGD libray
+else
 #define TJPGD_WORKBUFF_SIZE             4096    //Recommended by TJPGD libray
+#endif
 
 //NEVER EDIT THESE OFFSET VALUES
 #define SJPEG_VERSION_OFFSET            8

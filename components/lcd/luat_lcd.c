@@ -191,7 +191,7 @@ int luat_lcd_flush(luat_lcd_conf_t* conf) {
         return 0;
     }
     uint32_t size = conf->w * (conf->flush_y_max - conf->flush_y_min + 1) * 2;
-    luat_lcd_set_address(conf, 0, conf->flush_y_min, conf->w, conf->flush_y_max);
+    luat_lcd_set_address(conf, 0, conf->flush_y_min, conf->w - 1, conf->flush_y_max);
     const char* tmp = (const char*)(conf->buff + conf->flush_y_min * conf->w);
 	if (conf->port == LUAT_LCD_SPI_DEVICE){
 		luat_spi_device_send((luat_spi_device_t*)(conf->lcd_spi_device), tmp, size);
@@ -223,13 +223,13 @@ int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, 
         LLOGW("out of lcd range");
         return -1;
     }
-    char* dst = (char*)(conf->buff + x1+ conf->w * y1);
-    char* src = (char*)(color);
+    luat_color_t* dst = (conf->buff + x1 + conf->w * y1);
+    luat_color_t* src = (color);
     size_t lsize = (x2 - x1 + 1);
     for (size_t i = 0; i < (y2 - y1 + 1); i++) {
         memcpy(dst, src, lsize * sizeof(luat_color_t));
-        dst += conf->w * sizeof(luat_color_t);  // 移动到下一行
-        src += lsize * sizeof(luat_color_t);    // 移动数据
+        dst += conf->w;  // 移动到下一行
+        src += lsize;    // 移动数据
     }
 
     // 存储需要刷新的区域
@@ -237,6 +237,7 @@ int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, 
         conf->flush_y_min = y1;
     if (y2 > conf->flush_y_max)
         conf->flush_y_max = y2;
+
     return 0;
 }
 #endif

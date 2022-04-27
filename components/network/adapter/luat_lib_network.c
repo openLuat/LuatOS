@@ -82,7 +82,7 @@ static int l_network_gc(lua_State *L)
 	luat_network_ctrl_t *l_ctrl = ((luat_network_ctrl_t *)luaL_checkudata(L, 1, LUAT_NW_CTRL_TYPE));
     if (l_ctrl->netc)
     {
-    	network_socket_force_close(l_ctrl->netc);
+    	network_force_close_socket(l_ctrl->netc);
     	network_release_ctrl(l_ctrl->netc);
     	l_ctrl->netc = NULL;
     }

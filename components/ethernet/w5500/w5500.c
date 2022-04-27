@@ -13,8 +13,13 @@
 
 extern void DBG_Printf(const char* format, ...);
 extern void DBG_HexPrintf(void *Data, unsigned int len);
+#if 1
+#define DBG(x,y...)
+#define DBG_ERR(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
+#else
 #define DBG(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
 #define DBG_ERR(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
+#endif
 #define W5500_LOCK	OS_SuspendTask(NULL)
 #define W5500_UNLOCK OS_ResumeTask(NULL)
 
@@ -1049,6 +1054,7 @@ static void w5500_sys_socket_callback(w5500_ctrl_t *w5500, uint8_t socket_id, ui
 		}
 		break;
 	case Sn_IR_CON:
+		DBG_ERR("socket %d connected", socket_id);
 		w5500_callback_to_nw_task(w5500, EV_NW_SOCKET_CONNECT_OK, socket_id, 0, 0);
 		break;
 	case Sn_IR_DISCON:

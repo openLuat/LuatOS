@@ -752,9 +752,9 @@ static int32_t network_default_socket_callback(void *data, void *param)
 		{
 			if (ctrl->auto_mode)
 			{
-				DBG("%d,%d,%d", ctrl->socket_id, ctrl->state, ctrl->wait_target_state);
+//				DBG("%d,%d,%d", ctrl->socket_id, ctrl->state, ctrl->wait_target_state);
 				network_default_statemachine(ctrl, event, adapter);
-				DBG("%d,%d,%d", ctrl->socket_id, ctrl->state, ctrl->wait_target_state);
+//				DBG("%d,%d,%d", ctrl->socket_id, ctrl->state, ctrl->wait_target_state);
 			}
 			else if (ctrl->task_handle)
 			{
@@ -781,9 +781,9 @@ static int32_t network_default_socket_callback(void *data, void *param)
 				ctrl = &adapter->ctrl_table[i];
 				if (ctrl->auto_mode)
 				{
-					DBG("%d,%d,%d", ctrl->socket_id, ctrl->state, ctrl->wait_target_state);
+//					DBG("%d,%d,%d", ctrl->socket_id, ctrl->state, ctrl->wait_target_state);
 					network_default_statemachine(ctrl, event, adapter);
-					DBG("%d,%d,%d", ctrl->socket_id, ctrl->state, ctrl->wait_target_state);
+//					DBG("%d,%d,%d", ctrl->socket_id, ctrl->state, ctrl->wait_target_state);
 				}
 				else if (ctrl->task_handle)
 				{
@@ -980,6 +980,7 @@ network_ctrl_t *network_alloc_ctrl(uint8_t adapter_index)
 	{
 		if (!adapter->ctrl_busy[i])
 		{
+
 			adapter->ctrl_busy[i] = 1;
 			ctrl = &adapter->ctrl_table[i];
 			ctrl->adapter_index = adapter_index;
@@ -1004,6 +1005,10 @@ void network_release_ctrl(network_ctrl_t *ctrl)
 		if (&adapter->ctrl_table[i] == ctrl)
 		{
 			network_deinit_tls(ctrl);
+			if (ctrl->timer)
+			{
+				platform_release_timer(ctrl->timer);
+			}
 			if (ctrl->cache_data)
 			{
 				free(ctrl->cache_data);
@@ -1222,6 +1227,12 @@ int network_get_local_ip_info(network_ctrl_t *ctrl, luat_ip_addr_t *ip, luat_ip_
 
 void network_force_close_socket(network_ctrl_t *ctrl)
 {
+#ifdef LUAT_USE_TLS
+	if (ctrl->tls_mode)
+	{
+		mbedtls_ssl_free(ctrl->ssl);
+	}
+#endif
 	if (network_socket_close(ctrl))
 	{
 		network_clean_invaild_socket(ctrl->adapter_index);
@@ -1601,7 +1612,6 @@ int network_listen(network_ctrl_t *ctrl, uint16_t local_port, uint32_t timeout_m
 
 int network_close(network_ctrl_t *ctrl, uint32_t timeout_ms)
 {
-
 	NW_LOCK;
 	if (ctrl->cache_data)
 	{
@@ -1809,7 +1819,6 @@ int network_rx(network_ctrl_t *ctrl, uint8_t *data, uint32_t len, int flags, lua
 	{
 		return -1;
 	}
-	DBG("%d", len);
 	NW_LOCK;
 	int result = -1;
 	ctrl->auto_mode = 1;
@@ -1856,7 +1865,6 @@ int network_rx(network_ctrl_t *ctrl, uint8_t *data, uint32_t len, int flags, lua
 		else
 		{
 			result = network_socket_receive(ctrl, data, len, flags, remote_ip, remote_port);
-			DBG("%d", result);
 		}
 	}
 	else

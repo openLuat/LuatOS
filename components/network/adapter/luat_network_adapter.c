@@ -441,6 +441,7 @@ static int network_state_connecting(network_ctrl_t *ctrl, OS_EVENT *event, netwo
 		}
 		break;
 	case EV_NW_SOCKET_CONNECT_OK:
+#ifdef LUAT_USE_TLS
 		if (ctrl->tls_mode)
 		{
 			mbedtls_ssl_free(ctrl->ssl);
@@ -471,6 +472,7 @@ static int network_state_connecting(network_ctrl_t *ctrl, OS_EVENT *event, netwo
 	    	return 0;
 		}
 		else
+#endif
 		{
 			ctrl->state = NW_STATE_ONLINE;
 			return 0;
@@ -506,7 +508,9 @@ static int network_state_shakehand(network_ctrl_t *ctrl, OS_EVENT *event, networ
 			DBG("%llu,%llu",ctrl->tx_size, ctrl->ack_size);
 		}
 		break;
+#ifdef LUAT_USE_TLS
 	case EV_NW_SOCKET_RX_NEW:
+
     	do
     	{
     		int result = mbedtls_ssl_handshake_step( ctrl->ssl );
@@ -543,6 +547,7 @@ static int network_state_shakehand(network_ctrl_t *ctrl, OS_EVENT *event, networ
     	    return 1;
     	}
     	return 0;
+#endif
 	case EV_NW_SOCKET_CONNECT_OK:
 		DBG_ERR("!");
 		return 1;
@@ -1277,14 +1282,14 @@ void network_clean_invaild_socket(uint8_t adapter_index)
 }
 
 
-
+#ifdef LUAT_USE_TLS
 static int tls_verify(void *ctx, mbedtls_x509_crt *crt, int Index, uint32_t *result)
 {
 	network_ctrl_t *ctrl = (network_ctrl_t *)ctx;
 	DBG("%d, %08x", Index, *result);
 	return 0;
 }
-
+#endif
 int network_set_psk_info(network_ctrl_t *ctrl,
 		const unsigned char *psk, size_t psk_len,
 		const unsigned char *psk_identity, size_t psk_identity_len)

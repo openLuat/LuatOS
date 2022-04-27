@@ -27,16 +27,16 @@ uint8_t i2c_init(const uint8_t i2c_id){
 
 uint8_t i2c_probe(char addr){
 	uint8_t data[2] = {0x00};
-    return (luat_i2c_send(i2c_tools_id, addr, data, 2) ==0);
+    return (luat_i2c_send(i2c_tools_id, addr, data, 2,1) ==0);
 }
 
 uint8_t i2c_write(char addr, uint8_t* data, int len){
-    return (luat_i2c_send(i2c_tools_id, addr, data, len) == 0);
+    return (luat_i2c_send(i2c_tools_id, addr, data, len,1) == 0);
 }
 
 uint8_t i2c_read(uint8_t addr, uint8_t reg, uint8_t* buffer, uint8_t len){
     int ret = 0;
-    ret = luat_i2c_send(i2c_tools_id, addr, &reg, 1);
+    ret = luat_i2c_send(i2c_tools_id, addr, &reg, 1,0);
     if (ret != 0)return -1;
     ret = luat_i2c_recv(i2c_tools_id, addr, buffer, len);
     if (ret != 0)return -1;

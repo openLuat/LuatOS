@@ -253,6 +253,7 @@ static int l_i2c_send(lua_State *L)
     size_t len = 0;
     int result = 0;
 
+    int stop = luaL_optnumber(L, 4 , 1);
     if (lua_isinteger(L, 3))
     {
         len = lua_gettop(L) - 2;
@@ -268,7 +269,7 @@ static int l_i2c_send(lua_State *L)
         }
         else
         {
-            result = luat_i2c_send(id, addr, buff, len);
+            result = luat_i2c_send(id, addr, buff, len,stop);
         }
         luat_heap_free(buff);
     }
@@ -282,7 +283,7 @@ static int l_i2c_send(lua_State *L)
         }
         else
         {
-            result = luat_i2c_send(id, addr, (char *)buff, len);
+            result = luat_i2c_send(id, addr, (char *)buff, len,stop);
         }
     }
     else if (lua_istable(L, 3))
@@ -303,7 +304,7 @@ static int l_i2c_send(lua_State *L)
         }
         else
         {
-            result = luat_i2c_send(id, addr, buff, len);
+            result = luat_i2c_send(id, addr, buff, len,stop);
         }
         luat_heap_free(buff);
     }
@@ -316,7 +317,7 @@ static int l_i2c_send(lua_State *L)
         }
         else
         {
-            result = luat_i2c_send(id, addr, NULL, 0);
+            result = luat_i2c_send(id, addr, NULL, 0,stop);
         }
     }
     lua_pushboolean(L, result == 0);
@@ -387,6 +388,7 @@ static int l_i2c_write_reg(lua_State *L)
     int reg = luaL_checkinteger(L, 3);
     size_t len;
     const char *lb = luaL_checklstring(L, 4, &len);
+    int stop = luaL_optnumber(L, 5 , 1);
     char *buff = (char *)luat_heap_malloc(sizeof(char) * len + 1);
     *buff = (char)reg;
     memcpy(buff + 1, lb, sizeof(char) + len + 1);
@@ -398,7 +400,7 @@ static int l_i2c_write_reg(lua_State *L)
     }
     else
     {
-        result = luat_i2c_send(id, addr, buff, len + 1);
+        result = luat_i2c_send(id, addr, buff, len + 1,stop);
     }
     luat_heap_free(buff);
     lua_pushboolean(L, result == 0);
@@ -427,16 +429,17 @@ static int l_i2c_read_reg(lua_State *L)
     int addr = luaL_checkinteger(L, 2);
     int reg = luaL_checkinteger(L, 3);
     int len = luaL_checkinteger(L, 4);
+    int stop = luaL_optnumber(L, 5 , 0);
     char temp = (char)reg;
     int result;
     if (lua_isuserdata(L, 1))
     {
         luat_ei2c *ei2c = toei2c(L);
-        result = i2c_soft_send(ei2c, addr, &temp, 1);
+        result = i2c_soft_send(ei2c, addr, &temp, 0);
     }
     else
     {
-        result = luat_i2c_send(id, addr, &temp, 1);
+        result = luat_i2c_send(id, addr, &temp, 1,stop);
     }
     if (result != 0)
     { //如果返回值不为0，说明收失败了
@@ -514,7 +517,7 @@ static int l_i2c_readDHT12(lua_State *L)
     }
     else
     {
-        result = luat_i2c_send(id, addr, &temp, 1);
+        result = luat_i2c_send(id, addr, &temp, 1,1);
     }
     if (result != 0)
     {
@@ -600,7 +603,7 @@ static int l_i2c_readSHT30(lua_State *L)
         int id = luaL_optinteger(L, 1, 0);
         int addr = luaL_optinteger(L, 2, 0x44);
 
-        luat_i2c_send(id, addr, &buff, 2);
+        luat_i2c_send(id, addr, &buff, 2,1);
         luat_timer_mdelay(1);
         result = luat_i2c_recv(id, addr, buff, 6);
     }

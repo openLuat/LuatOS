@@ -1,8 +1,6 @@
 local libnet = require "libnet"
 
-w5500.init(spi.SPI_0, 24000000, pin.PB13, pin.PC09, pin.PC08)
-w5500.config()
-w5500.bind(network.ETH0)
+
 --下面演示用阻塞方式做串口透传远程服务器，简单的串口DTU
 local d1Online = false
 local com_buff = zbuff.create(4096)
@@ -16,7 +14,7 @@ local function demo_dtu(uart_id)
 	local tx_buff = zbuff.create(10240)
 	local rx_buff = zbuff.create(10240)
 	local netc = network.create(network.ETH0, d1Name)
-
+	network.config(netc)	--默认配置就是普通的TCP应用
 	network.debug(netc, true)
 	local result, param, ip, port, is_err
 	result = uart.setup(uart_id,115200,8,1)

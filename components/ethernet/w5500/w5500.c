@@ -526,6 +526,7 @@ static int w5500_socket_rx(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t *data
 static void w5500_nw_state(w5500_ctrl_t *w5500)
 {
 	int i;
+	PV_Union uIP;
 	if (w5500->link_ready && w5500->ip_ready)
 	{
 		if (!w5500->network_ready)
@@ -535,6 +536,14 @@ static void w5500_nw_state(w5500_ctrl_t *w5500)
 			w5500->socket[0].tx_wait_size = 0;	//dns可以继续发送了
 			w5500_callback_to_nw_task(w5500, EV_NW_STATE, 0, 1, 0);
 			DBG("network ready");
+			for(i = 0; i < MAX_DNS_SERVER; i++)
+			{
+				if (w5500->dns_client.dns_server[i].is_ipv6 != 0xff)
+				{
+					uIP.u32 = w5500->dns_client.dns_server[i].ipv4;
+					DBG("DNS%d:%d.%d.%d.%d",i, uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
+				}
+			}
 		}
 	}
 	else
@@ -600,14 +609,6 @@ static void w5500_check_dhcp(w5500_ctrl_t *w5500)
 			w5500->dns_client.dns_server[1].is_ipv6 = 0;
 		}
 PRINT_DNS:
-		for(i = 0; i < MAX_DNS_SERVER; i++)
-		{
-			if (w5500->dns_client.dns_server[1].is_ipv6 != 0xff)
-			{
-				uIP.u32 = w5500->dns_client.dns_server[1].ipv4;
-				DBG("DNS%d:%d.%d.%d.%d",i, uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
-			}
-		}
 		w5500_ip_state(w5500, 1);
 
 	}

@@ -1001,7 +1001,7 @@ uint8_t u8x8_luat_byte_hw_i2c_default(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int
       buf_idx = 0;
       break;
     case U8X8_MSG_BYTE_END_TRANSFER:
-      luat_i2c_send(i2c_id, u8x8_GetI2CAddress(u8x8) >> 1, buffer, buf_idx);
+      luat_i2c_send(i2c_id, u8x8_GetI2CAddress(u8x8) >> 1, buffer, buf_idx,1);
       break;
     default:
       return 0;

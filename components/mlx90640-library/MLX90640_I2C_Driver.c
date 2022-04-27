@@ -39,7 +39,7 @@ int MLX90640_I2CRead(uint8_t slaveAddr, uint16_t startAddress, uint16_t nMemAddr
     cmd[0] = startAddress >> 8;
     cmd[1] = startAddress & 0x00FF;
     
-    ret = luat_i2c_send(mlx90640_i2c_id, slaveAddr, cmd, 2);
+    ret = luat_i2c_send(mlx90640_i2c_id, slaveAddr, cmd, 2,0);
     if (ret != 0)return -1;
     
     ret = luat_i2c_recv(mlx90640_i2c_id, slaveAddr, i2cData, 2*nMemAddressRead);
@@ -63,7 +63,7 @@ int MLX90640_I2CWrite(uint8_t slaveAddr, uint16_t writeAddress, uint16_t data)
     cmd[2] = data >> 8;
     cmd[3] = data & 0x00FF;
 
-    ret = luat_i2c_send(mlx90640_i2c_id, slaveAddr, cmd, 4);
+    ret = luat_i2c_send(mlx90640_i2c_id, slaveAddr, cmd, 4,0);
     if (ret != 0)return -1;
     
     ret = MLX90640_I2CRead(slaveAddr,writeAddress,1, &dataCheck);

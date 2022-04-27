@@ -138,7 +138,7 @@ static char i2c_soft_recv(luat_ei2c *ei2c, unsigned char addr, char *buff, size_
     i2c_soft_stop(ei2c);
     return 0;
 }
-static char i2c_soft_send(luat_ei2c *ei2c, unsigned char addr, char *data, size_t len)
+static char i2c_soft_send(luat_ei2c *ei2c, unsigned char addr, char *data, size_t len, uint8_t stop)
 {
     size_t i;
     i2c_soft_start(ei2c);
@@ -157,7 +157,9 @@ static char i2c_soft_send(luat_ei2c *ei2c, unsigned char addr, char *data, size_
             return -1;
         }
     }
-    i2c_soft_stop(ei2c);
+    if (stop){
+        i2c_soft_stop(ei2c);
+    }
     return 0;
 }
 
@@ -230,10 +232,11 @@ static int l_i2c_soft(lua_State *L)
 
 /*
 i2c发送数据
-@api i2c.send(id, addr, data)
+@api i2c.send(id, addr, data,stop)
 @int 设备id, 例如i2c1的id为1, i2c2的id为2
 @int I2C子设备的地址, 7位地址
 @integer/string/table 待发送的数据,自适应参数类型
+@integer 可选参数 是否发送停止位 1发送 0不发送 默认发送
 @return true/false 发送是否成功
 @usage
 -- 往i2c0发送1个字节的数据
@@ -265,7 +268,7 @@ static int l_i2c_send(lua_State *L)
         if (lua_isuserdata(L, 1))
         {
             luat_ei2c *ei2c = toei2c(L);
-            result = i2c_soft_send(ei2c, addr, buff, len);
+            result = i2c_soft_send(ei2c, addr, buff, len,stop);
         }
         else
         {
@@ -279,7 +282,7 @@ static int l_i2c_send(lua_State *L)
         if (lua_isuserdata(L, 1))
         {
             luat_ei2c *ei2c = toei2c(L);
-            result = i2c_soft_send(ei2c, addr, (char *)buff, len);
+            result = i2c_soft_send(ei2c, addr, (char *)buff, len,stop);
         }
         else
         {
@@ -300,7 +303,7 @@ static int l_i2c_send(lua_State *L)
         if (lua_isuserdata(L, 1))
         {
             luat_ei2c *ei2c = toei2c(L);
-            result = i2c_soft_send(ei2c, addr, buff, len);
+            result = i2c_soft_send(ei2c, addr, buff, len,stop);
         }
         else
         {
@@ -313,7 +316,7 @@ static int l_i2c_send(lua_State *L)
         if (lua_isuserdata(L, 1))
         {
             luat_ei2c *ei2c = toei2c(L);
-            result = i2c_soft_send(ei2c, addr, NULL, 0);
+            result = i2c_soft_send(ei2c, addr, NULL, 0,stop);
         }
         else
         {
@@ -367,11 +370,12 @@ static int l_i2c_recv(lua_State *L)
 
 /*
 i2c写寄存器数据
-@api i2c.writeReg(id, addr, reg, data)
+@api i2c.writeReg(id, addr, reg, data,stop)
 @int 设备id, 例如i2c1的id为1, i2c2的id为2
 @int I2C子设备的地址, 7位地址
 @int 寄存器地址
 @string 待发送的数据
+@integer 可选参数 是否发送停止位 1发送 0不发送 默认发送
 @return true/false 发送是否成功
 @usage
 -- 从i2c1的地址为0x5C的设备的寄存器0x01写入2个字节的数据
@@ -396,7 +400,7 @@ static int l_i2c_write_reg(lua_State *L)
     if (lua_isuserdata(L, 1))
     {
         luat_ei2c *ei2c = toei2c(L);
-        result = i2c_soft_send(ei2c, addr, buff, len + 1);
+        result = i2c_soft_send(ei2c, addr, buff, len + 1,stop);
     }
     else
     {
@@ -414,6 +418,7 @@ i2c读寄存器数据
 @int I2C子设备的地址, 7位地址
 @int 寄存器地址
 @int 待接收的数据长度
+@integer 可选参数 是否发送停止位 1发送 0不发送 默认发送
 @return string 收到的数据
 @usage
 -- 从i2c1的地址为0x5C的设备的寄存器0x01读出2个字节的数据
@@ -435,7 +440,7 @@ static int l_i2c_read_reg(lua_State *L)
     if (lua_isuserdata(L, 1))
     {
         luat_ei2c *ei2c = toei2c(L);
-        result = i2c_soft_send(ei2c, addr, &temp, 0);
+        result = i2c_soft_send(ei2c, addr, &temp, 0,stop);
     }
     else
     {
@@ -513,7 +518,7 @@ static int l_i2c_readDHT12(lua_State *L)
     if (lua_isuserdata(L, 1))
     {
         luat_ei2c *ei2c = toei2c(L);
-        result = i2c_soft_send(ei2c, addr, &temp, 1);
+        result = i2c_soft_send(ei2c, addr, &temp, 1,1);
     }
     else
     {
@@ -593,7 +598,7 @@ static int l_i2c_readSHT30(lua_State *L)
     if (lua_isuserdata(L, 1))
     {
         luat_ei2c *ei2c = toei2c(L);
-        i2c_soft_send(ei2c, ei2c->addr, buff, 2);
+        i2c_soft_send(ei2c, ei2c->addr, buff, 2,1);
         luat_timer_mdelay(13);
 
         result = i2c_soft_recv(ei2c, ei2c->addr, buff, 6);

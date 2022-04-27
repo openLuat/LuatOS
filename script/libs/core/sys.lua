@@ -7,7 +7,7 @@
 @author  稀饭/wendal/晨旭
 @usage
 -- sys一般会内嵌到固件内, 不需要手工添加到脚本列表,除非你正在修改sys.lua
--- 本文件修改后, 需要调用 update_inline_sys.lua/update_luadb_inline 对 vfs 中的C文件进行更新
+-- 本文件修改后, 需要调用 update_lib_inline 对 vfs 中的C文件进行更新
 _G.sys = require("sys")
 
 sys.taskInit(function()
@@ -27,7 +27,7 @@ local coroutine = _G.coroutine
 local log = _G.log
 
 -- lib脚本版本号，只要lib中的任何一个脚本做了修改，都需要更新此版本号
-SCRIPT_LIB_VER = "2.3.1"
+SCRIPT_LIB_VER = "2.3.2"
 
 -- TaskID最大值
 local TASK_TIMER_ID_MAX = 0x1FFFFF
@@ -422,44 +422,6 @@ else
 end
 
 _G.sys_pub = sys.publish
-
---提供给异步c接口使用
-sys.cwaitMt = {
-    wait = function(t,r)
-        return function()
-            if r and type(r) == "table" then--新建等待失败的返回
-                return table.unpack(r)
-            end
-            return sys.waitUntilMsg(t)
-        end
-    end,
-    cb = function(t,r)
-        return function(f)
-            if type(f) ~= "function" then return end
-            sys.taskInit(function ()
-                if r and type(r) == "table" then
-                    --sys.wait(1)--如果回调里调用了sys.publish，直接调用回调，会触发不了下一行的吧。。。
-                    f(table.unpack(r))
-                    return
-                end
-                f(sys.waitUntilMsg(t))
-            end)
-        end
-    end,
-}
-sys.cwaitMt.__index = function(t,i)
-    if sys.cwaitMt[i] then
-        return sys.cwaitMt[i](rawget(t,"w"),rawget(t,"r"))
-    else
-        rawget(t,i)
-    end
-end
-_G.sys_cw = function (w,...)
-    local r = {...}
-    local t = {w=w,r=(#r > 0 and r or nil)}
-    setmetatable(t,sys.cwaitMt)
-    return t
-end
 
 return sys
 ----------------------------

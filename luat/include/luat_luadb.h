@@ -32,6 +32,7 @@ typedef struct luadb_fs
     uint16_t version;  // 文件系统版本号,当前支持v1/v2
     uint16_t filecount; // 文件总数,实际少于100
     luadb_fd_t fds[LUAT_LUADB_MAX_OPENFILE]; // 句柄数组
+    luadb_file_t *inlines;
     luadb_file_t files[1]; // 文件数组
 } luadb_fs_t;
 

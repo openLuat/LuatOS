@@ -10,8 +10,7 @@
 #undef LLOGD
 #define LLOGD(...) 
 
-extern const uint32_t luat_inline_sys_size;
-extern const char luat_inline_sys[];
+extern const luadb_file_t luat_inline2_libs[];
 
 //---
 static uint8_t readU8(const char* ptr, int *index) {
@@ -41,25 +40,44 @@ int luat_luadb_remount(luadb_fs_t *fs, unsigned flags) {
     return 0;
 }
 
-int luat_luadb_open(luadb_fs_t *fs, const char *path, int flags, int /*mode_t*/ mode) {
-    LLOGD("open luadb path = %s flags=%d", path, flags);
-    // if (flags & 0x3) { // xie 
-    //     return -1;
-    // }
+static luadb_file_t* find_by_name(luadb_fs_t *fs, const char *path) {
     for (size_t i = 0; i < fs->filecount; i++)
     {
         if (!strcmp(path, fs->files[i].name)) {
-            for (size_t j = 1; j < LUAT_LUADB_MAX_OPENFILE; j++)
-            {
-                if (fs->fds[j].file == NULL) {
-                    fs->fds[j].fd_pos = 0;
-                    fs->fds[j].file = &(fs->files[i]);
-                    LLOGD("open luadb path = %s fd=%d", path, j);
-                    return j;
-                }
-            }
-            
+            return &(fs->files[i]);
         }
+    }
+    luadb_file_t *ext = fs->inlines;
+    while (ext->ptr != NULL)
+    {
+        if (!strcmp(path, ext->name)) {
+            return ext;
+        }
+        ext += 1;
+    }
+    return NULL;
+}
+
+int luat_luadb_open(luadb_fs_t *fs, const char *path, int flags, int /*mode_t*/ mode) {
+    LLOGD("open luadb path = %s flags=%d", path, flags);
+    int fd = -1;
+    for (size_t j = 1; j < LUAT_LUADB_MAX_OPENFILE; j++)
+    {
+        if (fs->fds[j].file == NULL) {
+            fd = j;
+            break;
+        }
+    }
+    if (fd == -1) {
+        LLOGD("too many open files for luadb");
+        return 0;
+    }
+    luadb_file_t* f = find_by_name(fs, path);
+    if (f != NULL) {
+        fs->fds[fd].fd_pos = 0;
+        fs->fds[fd].file = f;
+        LLOGD("open luadb path = %s fd=%d", path, j);
+        return fd;
     }
     return 0;
 }
@@ -107,22 +125,8 @@ long luat_luadb_lseek(luadb_fs_t *fs, int fd, long /*off_t*/ offset, int mode) {
     return fs->fds[fd].fd_pos;
 }
 
-// int luat_luadb_fstat(void *fs, int fd, struct stat *st) {
-//     luadb_fs_t *_fs = (luadb_fs_t*)fs;
-//     if (fd < 0 || fd >= LUADB2_MAX_OPENFILE || _fs->fds[fd].file == NULL)
-//         return -1;
-//     st->st_size = _fs->fds[fd].file->size;
-//     return 0;
-// }
-
 luadb_file_t * luat_luadb_stat(luadb_fs_t *fs, const char *path) {
-    for (size_t i = 0; i < fs->filecount; i++)
-    {
-        if (!strcmp(path, fs->files[i].name)) {
-            return &fs->files[i];
-        }
-    }
-    return NULL;
+    return find_by_name(fs, path);
 }
 
 luadb_fs_t* luat_luadb_mount(const char* _ptr) {
@@ -225,8 +229,8 @@ _after_head:
 
     LLOGD("LuaDB head seem ok");
 
-    // 由于luadb_fs_t带了一个luadb_file_t元素的,所以多出一个luadb_file_t, 方便存放sys.luac
-    size_t msize = sizeof(luadb_fs_t) + filecount*sizeof(luadb_file_t);
+    // 由于luadb_fs_t带了一个luadb_file_t元素的
+    size_t msize = sizeof(luadb_fs_t) + (filecount - 1)*sizeof(luadb_file_t);
     LLOGD("malloc fo luadb fs size=%d", msize);
     luadb_fs_t *fs = (luadb_fs_t*)luat_heap_malloc(msize);
     if (fs == NULL) {
@@ -243,7 +247,7 @@ _after_head:
     int fail = 0;
     uint8_t type = 0;
     uint32_t len = 0;
-    int hasSys = 0;
+    // int hasSys = 0;
     // 读取每个文件的头部
     for (size_t i = 0; i < filecount; i++)
     {
@@ -303,22 +307,12 @@ _after_head:
         fs->files[i].ptr = (const char*)(index + ptr); // 绝对地址
         index += fs->files[i].size;
 
-        if (hasSys == 0) {
-            if (!strcmp("sys.lua", fs->files[i].name) || !strcmp("sys.luac", fs->files[i].name))
-                hasSys = 1;
-        }
         LLOGD("LuaDB: %s %d", fs->files[i].name, fs->files[i].size);
-    }
-
-    if (fail == 0 && hasSys == 0) {
-        memcpy(fs->files[filecount].name, "sys.luac", strlen("sys.luac")+1);
-        fs->files[filecount].size = luat_inline_sys_size;
-        fs->files[filecount].ptr = luat_inline_sys;
-        fs->filecount ++;
     }
 
     if (fail == 0) {
         LLOGD("LuaDB check files .... ok");
+        fs->inlines = luat_inline2_libs;
         return fs;
     }
     else {

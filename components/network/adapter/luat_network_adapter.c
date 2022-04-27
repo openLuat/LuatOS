@@ -188,19 +188,19 @@ static int tls_recv(void *ctx, unsigned char *buf, size_t len )
 	network_ctrl_t *ctrl = (network_ctrl_t *)ctx;
 	luat_ip_addr_t remote_ip;
 	uint16_t remote_port;
-	int Result = -1;
+	int result = -1;
 	if (!ctrl->tls_mode)
 	{
 		return -1;
 	}
 TLS_RECV:
-	Result = network_socket_receive(ctrl, buf, len, 0, &remote_ip, &remote_port);
 
-	if (Result < 0)
+	result = network_socket_receive(ctrl, buf, len, 0, &remote_ip, &remote_port);
+	if (result < 0)
 	{
 		return -0x004C;
 	}
-	if (Result > 0)
+	if (result > 0)
 	{
 		if (!ctrl->is_tcp)
 		{
@@ -209,7 +209,7 @@ TLS_RECV:
 				goto TLS_RECV;
 			}
 		}
-		return Result;
+		return result;
 	}
 	return MBEDTLS_ERR_SSL_WANT_READ;
 #else
@@ -1267,10 +1267,10 @@ void network_clean_invaild_socket(uint8_t adapter_index)
 
 
 
-static int tls_verify(void *ctx, mbedtls_x509_crt *crt, int Index, uint32_t *Result)
+static int tls_verify(void *ctx, mbedtls_x509_crt *crt, int Index, uint32_t *result)
 {
 	network_ctrl_t *ctrl = (network_ctrl_t *)ctx;
-	DBG("%d, %08x", Index, *Result);
+	DBG("%d, %08x", Index, *result);
 	return 0;
 }
 
@@ -1809,6 +1809,7 @@ int network_rx(network_ctrl_t *ctrl, uint8_t *data, uint32_t len, int flags, lua
 	{
 		return -1;
 	}
+	DBG("%d", len);
 	NW_LOCK;
 	int result = -1;
 	ctrl->auto_mode = 1;
@@ -1820,10 +1821,29 @@ int network_rx(network_ctrl_t *ctrl, uint8_t *data, uint32_t len, int flags, lua
 	#ifdef LUAT_USE_TLS
 			if (ctrl->tls_mode)
 			{
-				result = mbedtls_ssl_read(ctrl->ssl, data, len);
-				if (MBEDTLS_ERR_SSL_WANT_READ == result)
+				uint32_t read_len = 0;
+				uint8_t is_error = 0;
+				do
 				{
-					result = 0;
+					result = mbedtls_ssl_read(ctrl->ssl, data + read_len, len - read_len);
+					if (result < 0 && (result != MBEDTLS_ERR_SSL_WANT_READ))
+					{
+						is_error = 1;
+						break;
+					}
+					else
+					{
+						read_len += result;
+					}
+				}while(network_socket_receive(ctrl, NULL, len, flags, remote_ip, remote_port) > 0);
+
+				if ( !is_error )
+				{
+					result = read_len;
+				}
+				else
+				{
+					result = -1;
 				}
 			}
 			else
@@ -1836,6 +1856,7 @@ int network_rx(network_ctrl_t *ctrl, uint8_t *data, uint32_t len, int flags, lua
 		else
 		{
 			result = network_socket_receive(ctrl, data, len, flags, remote_ip, remote_port);
+			DBG("%d", result);
 		}
 	}
 	else

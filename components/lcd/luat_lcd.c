@@ -220,7 +220,7 @@ int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, 
     }
     // buff模式
     if (x1 > conf->w || x2 > conf->w || y1 > conf->h || y2 > conf->h) {
-        LLOGW("out of lcd range");
+        //LLOGW("out of lcd range");
         return -1;
     }
     luat_color_t* dst = (conf->buff + x1 + conf->w * y1);

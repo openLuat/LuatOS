@@ -16,22 +16,21 @@
 
 typedef struct luat_log_conf
 {
-    uint8_t show_taglevel;
-    uint8_t show_fileline;
+    uint8_t style;
 }luat_log_conf_t;
 
+#define LOG_STYLE_NORMAL        0
+#define LOG_STYLE_DEBUG_INFO    1
+#define LOG_STYLE_FULL          2
+
 static luat_log_conf_t lconf = {
-    .show_taglevel=1,
-    .show_fileline=0
+    .style=0
 };
 
 static int add_debug_info(lua_State *L, uint8_t pos, const char* LEVEL) {
     lua_Debug ar;
     int arg;
     int d = 0;
-    // 如果没启用, 直接返回
-    // if (lconf.show_fileline == 0)
-    //     return;
     // 查找当前stack的深度
     while (lua_getstack(L, d, &ar) != 0) {
         d++;
@@ -49,7 +48,7 @@ static int add_debug_info(lua_State *L, uint8_t pos, const char* LEVEL) {
     if (ar.source == NULL)
         return 0;
     // 推入文件名和行号, 注意: 源码路径的第一个字符是标识,需要跳过
-    if (lconf.show_taglevel == 0)
+    if (LEVEL)
         lua_pushfstring(L, "%s/%s:%d", LEVEL, ar.source + 1, ar.currentline);
     else
         lua_pushfstring(L, "%s:%d", ar.source + 1, ar.currentline);
@@ -60,18 +59,12 @@ static int add_debug_info(lua_State *L, uint8_t pos, const char* LEVEL) {
 
 /*
 设置日志级别
-@api   log.setLevel(level, show_taglevel, show_fileline)
+@api   log.setLevel(level, style)
 @string  level 日志级别,可用字符串或数值, 字符串为(SILENT,DEBUG,INFO,WARN,ERROR,FATAL), 数值为(0,1,2,3,4,5)
-@bool 是否显示tag, 默认为true
-@bool 是否显示所在行号及行号,需调试信息,默认为false
 @return nil 无返回值
 @usage
 -- 设置日志级别为INFO
 log.setLevel("INFO")
--- 额外显示行号及文件名, 仅20220425之后的固件可配置
-log.setLevel("DEBUG", true, true)
--- 只显示行号及文件名, 不显示tag, 仅20220425之后的固件可配置
-log.setLevel("DEBUG", false, true)
 */
 static int l_log_set_level(lua_State *L) {
     int LOG_LEVEL = 0;
@@ -100,12 +93,32 @@ static int l_log_set_level(lua_State *L) {
         LOG_LEVEL = LUAT_LOG_CLOSE;
     }
     luat_log_set_level(LOG_LEVEL);
-
-    if (lua_isboolean(L, 2))
-        lconf.show_taglevel = lua_toboolean(L, 2);
-    if (lua_isboolean(L, 3))
-        lconf.show_fileline = lua_toboolean(L, 3);
     return 0;
+}
+
+/*
+设置日志风格
+@api log.style(val)
+@int 日志风格,默认为0, 不传就是获取当前值
+@return int 当前的日志风格
+@usage
+-- 以 log.info("ABC", "DEF", 123) 为例, 假设该代码位于main.lua的12行
+-- 默认日志0
+-- I/user.ABC DEF 123
+-- 调试风格1, 添加额外的调试信息
+-- I/main.lua:12 ABC DEF 123
+-- 调试风格2, 添加额外的调试信息, 位置有所区别
+-- I/user.ABC main.lua:12 DEF 123
+
+log.setLevel("DEBUG", 0) -- 默认风格0
+log.setLevel("DEBUG", 1) -- 调试风格1
+log.setLevel("DEBUG", 2) -- 调试风格2
+ */
+static int l_log_style(lua_State *L) {
+    if (lua_isinteger(L, 1))
+        lconf.style = luaL_checkinteger(L, 1);
+    lua_pushinteger(L, lconf.style);
+    return 1;
 }
 
 /*
@@ -121,32 +134,29 @@ int l_log_get_level(lua_State *L) {
     return 1;
 }
 
-static int l_log_2_log(lua_State *L, const char* LEVEL, uint8_t add_debug) {
+static int l_log_2_log(lua_State *L, const char* LEVEL) {
     // 是不是什么都不传呀?
     int argc = lua_gettop(L);
     if (argc < 1) {
-        // 最起码传2个参数
+        // 最起码传1个参数
         return 0;
+    }
+    if (lconf.style == LOG_STYLE_NORMAL) {
+        lua_pushfstring(L, "%s/user.%s", LEVEL, lua_tostring(L, 1));
+        lua_remove(L, 1); // remove tag
+        lua_insert(L, 1);
+    }
+    else if (lconf.style == LOG_STYLE_DEBUG_INFO) {
+        add_debug_info(L, 1, LEVEL);
+    }
+    else if (lconf.style == LOG_STYLE_FULL) {
+        lua_pushfstring(L, "%s/user.%s", LEVEL, lua_tostring(L, 1));
+        lua_remove(L, 1); // remove tag
+        lua_insert(L, 1);
+        add_debug_info(L, 2, NULL);
     }
     lua_getglobal(L, "print");
     lua_insert(L, 1);
-    uint8_t pos = 2;
-    // if (add_debug && add_debug_info(L)) {
-    //     pos ++;
-    // };
-    if (lconf.show_taglevel) {
-        lua_pushfstring(L, "%s/user.%s", LEVEL, lua_tostring(L, pos));
-        lua_remove(L, pos); // remove tag
-        lua_insert(L, pos);
-        pos ++;
-    }
-    else {
-        lua_remove(L, pos);
-    }
-
-    if (add_debug && add_debug_info(L, pos, LEVEL)) {
-        pos ++;
-    };
     lua_call(L, lua_gettop(L) - 1, 0);
     return 0;
 }
@@ -163,7 +173,7 @@ log.debug("onenet", "connect ok")
 */
 static int l_log_debug(lua_State *L) {
     if (luat_log_get_level() > LUAT_LOG_DEBUG) return 0;
-    return l_log_2_log(L, "D", lconf.show_fileline);
+    return l_log_2_log(L, "D");
 }
 
 /*
@@ -178,7 +188,7 @@ log.info("onenet", "connect ok")
 */
 static int l_log_info(lua_State *L) {
     if (luat_log_get_level() > LUAT_LOG_INFO) return 0;
-    return l_log_2_log(L, "I", lconf.show_fileline);
+    return l_log_2_log(L, "I");
 }
 
 /*
@@ -193,7 +203,7 @@ log.warn("onenet", "connect ok")
 */
 static int l_log_warn(lua_State *L) {
     if (luat_log_get_level() > LUAT_LOG_WARN) return 0;
-    return l_log_2_log(L, "W", 1);
+    return l_log_2_log(L, "W");
 }
 
 /*
@@ -208,19 +218,20 @@ log.error("onenet", "connect ok")
 */
 static int l_log_error(lua_State *L) {
     if (luat_log_get_level() > LUAT_LOG_ERROR) return 0;
-    return l_log_2_log(L, "E", 1);
+    return l_log_2_log(L, "E");
 }
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_log[] =
 {
-    { "setLevel" ,  ROREG_FUNC(l_log_set_level)},
-    { "getLevel" ,  ROREG_FUNC(l_log_get_level)},
     { "debug" ,     ROREG_FUNC(l_log_debug)},
     { "info" ,      ROREG_FUNC(l_log_info)},
     { "warn" ,      ROREG_FUNC(l_log_warn)},
     { "error" ,     ROREG_FUNC(l_log_error)},
     { "fatal" ,     ROREG_FUNC(l_log_error)}, // 以error对待
+    { "setLevel" ,  ROREG_FUNC(l_log_set_level)},
+    { "getLevel" ,  ROREG_FUNC(l_log_get_level)},
+    { "style",      ROREG_FUNC(l_log_style)},
     //{ "_log" ,      ROREG_FUNC(l_log_2_log)},
 
     { "LOG_SILENT", ROREG_INT(LUAT_LOG_CLOSE)},

@@ -5,6 +5,9 @@ VERSION = "1.0.0"
 
 -- sys库是标配
 _G.sys = require("sys")
+_G.sysplus = require("sysplus")
+
+log.style(1)
 
 w5500.init(spi.SPI_0, 24000000, pin.PB13, pin.PC09, pin.PC08)
 w5500.config()	--默认是DHCP模式

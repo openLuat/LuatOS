@@ -16,6 +16,7 @@ local LEDA = gpio.setup(24, 0, gpio.PULLUP) -- PB8输出模式
 local LEDB = gpio.setup(25, 0, gpio.PULLUP) -- PB9输出模式
 local LEDC = gpio.setup(26, 0, gpio.PULLUP) -- PB10输出模式
 
+-- 这里启动的task也是闪灯, 用于展示休眠状态
 sys.taskInit(function()
     local count = 0
     local uid = mcu.unique_id() or ""
@@ -31,10 +32,31 @@ sys.taskInit(function()
 end)
 
 sys.taskInit(function()
+    -- 对于air101/air103来说, request之后马上就会休眠
+    -- 如果没有休眠, 请检查wakeup脚的电平
+    -- 休眠分2种情况, RAM不掉电的LIGHT 和 RAM不掉电的HIB
+
+    -- 这里的sys.wait是为了开机后不会马上休眠
+    -- 实际情况是跑业务代码, 条件符合后休眠,这里是sys.wait只是演示业务执行
     sys.wait(3000)
-    log.info("pm", "休眠60秒", "要么rtc唤醒,要么wakeup唤醒")
-    pm.dtimerStart(0, 60000)
-    pm.request(pm.HIB)
+
+    -- 先演示LIGHT模式休眠, RAM不掉电, IO保持, 唤醒后代码继续跑
+    -- 设置休眠时长
+    log.info("pm", "轻休眠15秒", "要么rtc唤醒,要么wakeup唤醒", "RAM不掉电")
+    pm.dtimerStart(0, 15000)
+    pm.request(pm.LIGHT)
+    -- 后面的语句, 正常情况下会在15000ms后执行
+    log.info("pm", "轻睡眠唤醒", "代码继续跑")
+    -- 这里等待3000ms,模拟业务执行,期间gpio的闪灯task将继续运行
+    sys.wait(3000)
+
+    -- 接着演示 DEEP模式休眠, RAM掉电, IO失效, 唤醒相当于复位重启
+    -- 因为已经唤醒过,dtimer已经失效, 重新设置一个
+    log.info("pm", "深休眠15秒", "要么rtc唤醒,要么wakeup唤醒", "RAM掉电")
+    pm.dtimerStart(0, 15000)
+    pm.request(pm.DEEP)
+    -- 后面代码都不会执行, 如果执行了, 那100%是wakeup电平有问题
+    log.info("pm", "这里的代码不会被执行")
 end)
 
 -- 用户代码已结束---------------------------------------------

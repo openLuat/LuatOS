@@ -12,9 +12,9 @@
 #endif
 /* Specifies size of stream input buffer */
 
-#ifdef LUAT_USE_LVGL
-#define JD_FORMAT       0  
-#else
+// #ifdef LUAT_USE_LVGL
+// #define JD_FORMAT       0  
+// #else
 #if (LUAT_LCD_COLOR_DEPTH == 32)
 #define JD_FORMAT       0   
 #elif (LUAT_LCD_COLOR_DEPTH == 16)
@@ -24,7 +24,7 @@
 #else
 #error "no supprt color depth"
 #endif
-#endif
+// #endif
 /* Specifies output pixel format.
 /  0: RGB888 (24-bit/pix)
 /  1: RGB565 (16-bit/pix)

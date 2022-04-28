@@ -7,7 +7,8 @@ CFLAGS_INC    +=  -I $(LUATOS_DIR)/bsp/air302/include \
 				  -I $(LUATOS_DIR)/luat/packages/eink \
 				  -I $(LUATOS_DIR)/luat/packages/fonts \
 				  -I $(LUATOS_DIR)/luat/packages/epaper \
-				  -I $(LUATOS_DIR)/luat/packages/qrcode \
+				  -I $(LUATOS_DIR)/components/qrcode \
+				  -I $(LUATOS_DIR)/components/tjpgd \
 				  -I $(LUATOS_DIR)/luat/packages/fatfs \
 				  -I $(LUATOS_DIR)/luat/packages/lfs \
 				  -I $(LUATOS_DIR)/components/lcd \
@@ -30,7 +31,8 @@ LUATOS_SRC_DIRS += $(LUATOS_DIR)/lua/src \
 				    $(LUATOS_DIR)/luat/packages/eink \
 				    $(LUATOS_DIR)/luat/packages/epaper \
 				    $(LUATOS_DIR)/luat/packages/fonts \
-				    $(LUATOS_DIR)/luat/packages/qrcode \
+				    $(LUATOS_DIR)/components/qrcode \
+					$(LUATOS_DIR)/components/tjpgd \
 				    $(LUATOS_DIR)/luat/packages/fatfs \
 				    $(LUATOS_DIR)/luat/packages/lfs \
 					$(LUATOS_DIR)/components/lcd \

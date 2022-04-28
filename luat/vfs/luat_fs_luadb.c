@@ -312,7 +312,7 @@ _after_head:
 
     if (fail == 0) {
         LLOGD("LuaDB check files .... ok");
-        fs->inlines = luat_inline2_libs;
+        fs->inlines = (luadb_file_t *)luat_inline2_libs;
         return fs;
     }
     else {

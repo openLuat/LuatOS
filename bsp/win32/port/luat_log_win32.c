@@ -7,32 +7,14 @@
 
 #include <stdio.h>
 
-#include "FreeRTOS.h"
-#include "queue.h"
-#include "task.h"
-
 typedef struct log_msg {
     char* buff;
 }log_msg_t;
 
-static QueueHandle_t xQueue = NULL;
-
 static uint8_t luat_log_uart_port = 0;
 static uint8_t luat_log_level_cur = LUAT_LOG_DEBUG;
 
-void luat_log_thread_task(void* args) {
-    log_msg_t msg = {0};
-    while (1) {
-        if (pdTRUE == xQueueReceive(xQueue, &msg, -1)) {
-            printf("%s", msg.buff);
-            luat_heap_free(msg.buff);  
-        };
-    }
-}
-
 void luat_log_init_win32(void) {
-    xQueue = xQueueCreate(1024, sizeof(void*));
-    xTaskCreate( luat_log_thread_task, "log", 1024*2, NULL, 23, NULL );
 }
 
 void luat_log_set_uart_port(int port) {
@@ -44,23 +26,10 @@ void luat_print(const char* _str) {
 }
 
 void luat_nprint(char *s, size_t l) {
-    //luat_uart_write(luat_log_uart_port, s, l);
-#if LUAT_USE_LOG_ASYNC_THREAD
-    char* buff = luat_heap_malloc(l + 1);
-    if (buff == NULL)
-        return;
-    memcpy(buff, s, l);
-    buff[l] = 0x00;
-    log_msg_t msg = {
-        .buff = buff
-    };
-    xQueueSendFromISR(xQueue, &msg, NULL);
-#else
     char buff[4*1024];
     memcpy(buff, s, l);
     buff[l] = 0;
     printf("%s", buff);
-#endif
 }
 
 void luat_log_set_level(int level) {

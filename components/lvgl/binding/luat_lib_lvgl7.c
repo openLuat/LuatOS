@@ -62,12 +62,14 @@ extern uint32_t WINDOW_HOR_RES;
 extern uint32_t WINDOW_VER_RES;
 int luat_lv_init(lua_State *L) {
     if (lua_isnumber(L, 1) && lua_isnumber(L, 2)) {
-        WINDOW_VER_RES = luaL_checkinteger(L, 1);
-        WINDOW_HOR_RES = luaL_checkinteger(L, 2);
+        WINDOW_HOR_RES = luaL_checkinteger(L, 1);
+        WINDOW_VER_RES = luaL_checkinteger(L, 2);
     }
+    LLOGD("win32 lvgl init %d %d", WINDOW_HOR_RES, WINDOW_VER_RES);
     HWND windrv_init(void);
     windrv_init();
-    return 0;
+    lua_pushboolean(L, 1);
+    return 1;
 }
 
 #elif defined(LUAT_USE_LVGL_INIT_CUSTOM)

@@ -56,6 +56,7 @@ include_directories(${TOPROOT}/luat/packages/lfs)
 include_directories(${TOPROOT}/components/qrcode)
 include_directories(${TOPROOT}/components/lcd)
 include_directories(${TOPROOT}/luat/packages/u8g2)
+include_directories(${TOPROOT}/components/tjpgd)
 
 aux_source_directory(./port PORT_SRCS)
 aux_source_directory(${TOPROOT}/lua/src LUA_SRCS)
@@ -67,6 +68,7 @@ aux_source_directory(${TOPROOT}/luat/packages/lua-cjson CJSON_SRCS)
 aux_source_directory(${TOPROOT}/components/qrcode QRCODE_SRCS)
 aux_source_directory(${TOPROOT}/components/lcd LCD_SRCS)
 aux_source_directory(${TOPROOT}/components/u8g2 U8G2_SRCS)
+aux_source_directory(${TOPROOT}/components/tjpgd TJPGD_SRCS)
 
 add_library(freertos10 ${PORT_SRCS} ${RTOS_SRCS} ${RTOS_PORT_SRCS} ${MM_SRCS} ${MM2_SRCS})
 add_library(lua ${LUA_SRCS})
@@ -104,6 +106,7 @@ add_library(luat ${TOPROOT}/luat/modules/luat_main.c
                  ${QRCODE_SRCS}
                  ${LCD_SRCS}
                  ${U8G2_SRCS}
+                 ${TJPGD_SRCS}
             )
 
 #-----------------------

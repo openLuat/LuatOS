@@ -82,13 +82,9 @@ static luat_lcd_conf_t* lcd_conf;
 LUAT_WEAK void luat_lv_disp_flush(lv_disp_drv_t * disp_drv, const lv_area_t * area, lv_color_t * color_p) {
     //-----
     if (lcd_conf != NULL) {
-#ifdef LV_NO_BLOCK_FLUSH
-        luat_lcd_draw_no_block(lcd_conf, area->x1, area->y1, area->x2, area->y2, color_p, disp_drv->buffer->flushing_last);
-#else
         luat_lcd_draw(lcd_conf, area->x1, area->y1, area->x2, area->y2, color_p);
         if (disp_drv->buffer->flushing_last)
             luat_lcd_flush(lcd_conf);
-#endif
     }
     //LLOGD("CALL disp_flush (%d, %d, %d, %d)", area->x1, area->y1, area->x2, area->y2);
     lv_disp_flush_ready(disp_drv);

@@ -99,8 +99,10 @@ const char* luat_lcd_name(luat_lcd_conf_t* conf) {
 }
 
 int luat_lcd_init(luat_lcd_conf_t* conf) {
+	conf->is_init_done = 0;
     int ret = conf->opts->init(conf);
     if (ret == 0) {
+    	conf->is_init_done = 1;
         for (size_t i = 0; i < LUAT_LCD_CONF_COUNT; i++)
         {
             if (confs[i] == NULL) {

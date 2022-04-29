@@ -1,8 +1,8 @@
 #include "luat_base.h"
+#include "luat_spi.h"
 #ifdef LUAT_USE_W5500
 #include "luat_rtos.h"
 #include "luat_zbuff.h"
-#include "luat_spi.h"
 #include "luat_gpio.h"
 #include "luat_network_adapter.h"
 #include "bsp_common.h"

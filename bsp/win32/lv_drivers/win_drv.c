@@ -70,6 +70,12 @@ static int mouse_x, mouse_y;
  **********************/
 const char g_szClassName[] = "LittlevGL";
 
+void win32_set_mouse_state(int x, int y, bool pressed) {
+    mouse_x = x;
+    mouse_y = y;
+    mouse_pressed = pressed;
+}
+
 HWND windrv_init(void)
 {
     WNDCLASSEX wc;
@@ -124,7 +130,7 @@ HWND windrv_init(void)
     UpdateWindow(hwnd);
 
 
-    lv_task_create(msg_handler, 0, LV_TASK_PRIO_HIGHEST, NULL);
+    //lv_task_create(msg_handler, 0, LV_TASK_PRIO_HIGHEST, NULL);
     lv_win_exit_flag = false;
     do_register();
 }
@@ -273,10 +279,11 @@ static void win_drv_map(int32_t x1, int32_t y1, int32_t x2, int32_t y2, const lv
     UpdateWindow(hwnd);
 }
 
-static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
     HDC hdc;
     PAINTSTRUCT ps;
+    //printf("WndProc msg %d\n", msg);
     switch(msg) {
     case WM_CREATE:
         fbp = malloc(4*WINDOW_HOR_RES*WINDOW_VER_RES);
@@ -294,6 +301,7 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
         if(msg == WM_LBUTTONDOWN || msg == WM_LBUTTONUP) {
             mouse_pressed = (msg == WM_LBUTTONDOWN);
         }
+        //printf("mouse event %d x %d y %d pressed %d\n", msg, mouse_x, mouse_y, mouse_pressed);
         return 0;
     case WM_CLOSE:
         free(fbp);

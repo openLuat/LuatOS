@@ -35,6 +35,12 @@
 #define LUAT_LV_DEBUG 0
 #define LUAT_USE_LVGL_INDEV 1
 
+#define LV_TICK_CUSTOM     1
+#define LV_TICK_CUSTOM_INCLUDE "stdio.h"
+unsigned int get_timestamp(void);
+#define LV_TICK_CUSTOM_SYS_TIME_EXPR ((uint32_t)get_timestamp())     /*Expression evaluating to current system time in ms*/
+
+
 #define LUAT_USE_LVGL_ARC   //圆弧 无依赖
 #define LUAT_USE_LVGL_BAR   //进度条 无依赖
 #define LUAT_USE_LVGL_BTN   //按钮 依赖容器CONT

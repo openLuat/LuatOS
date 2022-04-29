@@ -7,6 +7,7 @@
 
 #include "luat_base.h"
 #include "luat_malloc.h"
+#include "luat_fs.h"
 
 #include <stdio.h>
 #include <stdlib.h>

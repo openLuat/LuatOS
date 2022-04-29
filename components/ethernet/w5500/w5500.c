@@ -1791,7 +1791,7 @@ void w5500_set_static_ip(uint32_t ipv4, uint32_t submask, uint32_t gateway) {;}
 void w5500_set_mac(uint8_t mac[6])  {;}
 void w5500_set_param(uint16_t timeout, uint8_t retry, uint8_t auto_speed, uint8_t force_arp) {;}
 int w5500_reset(void) {return -1;}
-uint32_t w5500_string_to_ip(const char *string, uint32_t len) {return 0}
+uint32_t w5500_string_to_ip(const char *string, uint32_t len) {return 0;}
 void w5500_array_to_mac(uint8_t *array, uint32_t *mac1, uint16_t *mac2) {return;}
 uint8_t w5500_device_ready(void) {return 0;}
 void w5500_register_adapter(int index) {;}

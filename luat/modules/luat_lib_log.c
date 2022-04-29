@@ -30,16 +30,16 @@ static luat_log_conf_t lconf = {
 static int add_debug_info(lua_State *L, uint8_t pos, const char* LEVEL) {
     lua_Debug ar;
     int arg;
-    int d = 0;
-    // 查找当前stack的深度
-    while (lua_getstack(L, d, &ar) != 0) {
-        d++;
-    }
-    // 防御一下, 不太可能直接d==0都失败
-    if (d == 0)
-        return 0;
+    // int d = 0;
+    // // 查找当前stack的深度
+    // while (lua_getstack(L, d, &ar) != 0) {
+    //     d++;
+    // }
+    // // 防御一下, 不太可能直接d==0都失败
+    // if (d == 0)
+    //     return 0;
     // 获取真正的stack位置信息
-    if (!lua_getstack(L, d - 1, &ar))
+    if (!lua_getstack(L, 1, &ar))
         return 0;
     // S包含源码, l包含当前行号
     if (0 == lua_getinfo(L, "Sl", &ar))
@@ -59,7 +59,7 @@ static int add_debug_info(lua_State *L, uint8_t pos, const char* LEVEL) {
 
 /*
 设置日志级别
-@api   log.setLevel(level, style)
+@api   log.setLevel(level)
 @string  level 日志级别,可用字符串或数值, 字符串为(SILENT,DEBUG,INFO,WARN,ERROR,FATAL), 数值为(0,1,2,3,4,5)
 @return nil 无返回值
 @usage

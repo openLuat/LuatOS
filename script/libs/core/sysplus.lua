@@ -63,10 +63,21 @@ local taskList = {}
 -- @param queue 消息队列，用于接收缓存消息
 -- @param ... 任务函数fun的可变参数
 -- @return co  返回该任务的线程号
--- @usage sys.taskInitEx(task1,'a',callback)
+-- @usage sysplus.taskInitEx(task1,'a',callback)
 function sysplus.taskInitEx(fun, taskName, cbFun, ...)
     taskList[taskName]={msgQueue={}, To=false, cb=cbFun}
     return sys.taskInit(fun, ...)
+end
+
+--- 创建一个任务线程,在模块最末行调用该函数并注册模块中的任务函数，main.lua导入该模块即可
+-- @param fun 任务函数名，用于resume唤醒时调用
+-- @param taskName 任务名称，用于唤醒任务的id
+-- @param queue 消息队列，用于接收缓存消息
+-- @param ... 任务函数fun的可变参数
+-- @return co  返回该任务的线程号
+-- @usage sysplus.taskDel(task1,'a',callback)
+function sysplus.taskDel(taskName)
+    taskList[taskName]=nil
 end
 
 local function waitTo(taskName)
@@ -127,6 +138,14 @@ function sysplus.sendMsg(taskName, param1, param2, param3, param4)
     if taskList[taskName]~=nil then
         table.insert(taskList[taskName].msgQueue, {param1, param2, param3, param4})
         sys.publish(taskName)
+        return true
+    end
+    return false
+end
+
+function sysplus.cleanMsg(taskName)
+    if taskList[taskName]~=nil then
+        taskList[taskName].msgQueue = {}
         return true
     end
     return false

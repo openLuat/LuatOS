@@ -29,13 +29,13 @@ config['air302'] = {
     # 不要修改PLAT_ROOT!不要修改PLAT_ROOT!不要修改PLAT_ROOT!
     # PLAT_ROOT仅供SDK源码开发者使用!!!!
     # 不要把PLAT_ROOT指向任何存在的路径!!!!!
-    "PLAT_ROOT" : "H:\\code\\codeup\\air302\\sdk\\PLAT\\",
+    "PLAT_ROOT" : "E:\\code\\codeup\\air302\\sdk\\PLAT\\",
     # ============================================================
     "FTC_PATH" : ".\\FlashToolCLI\\",
     "EC_PATH" : ".\\Air302_dev.ec",
     "USER_PATH": ".\\user\\",
     "LIB_PATH" : ".\\lib\\",
-    "DEMO_PATH": ".\\demo\\",
+    "DEMO_PATH": "..\\..\\demo\\",
     "TOOLS_PATH": ".\\tools\\",
     "MAIN_LUA_DEBUG" : "false",
     "LUA_DEBUG" : "false",

@@ -95,8 +95,6 @@ end)
 
 local function audio_task()
     softkb.init(0, {pin.PD12, pin.PD13}, {pin.PE1, pin.PE2})
-    local tagLen = 0
-    local frameLen = 1152 * 4
     local spiId = 2
     local nowPlay
     local result = spi.setup(
@@ -107,7 +105,6 @@ local function audio_task()
         8,--数据宽度
         400*1000  -- 初始化时使用较低的频率
     )
-    local isMP3 = false
     local TF_CS = pin.PB3
     gpio.setup(TF_CS, 1)
     -- fatfs.debug(1) -- 若挂载失败,可以尝试打开调试信息,查找原因
@@ -115,10 +112,8 @@ local function audio_task()
     -- fatfs.mount("SD", 0, TF_CS, 24000000)
     local data, err = fatfs.getfree("SD")
     local buff = zbuff.create(1024)
-    local in_buff = zbuff.create(frameLen * 3 + 512)
-    local isRun = false
-    local result, AudioFormat, NumChannels, SampleRate, ByteRate, BlockAlign, BitsPerSample, is_signed
-
+    local result, AudioFormat, NumChannels, SampleRate, BitsPerSample, is_signed
+    local decoder, msg, isRun
     if data then
         log.info("fatfs", "getfree", json.encode(data))
         local dir_nums, dir_info = fatfs.lsdir(musicDir)
@@ -134,129 +129,64 @@ local function audio_task()
         log.info("等待切换歌曲")
         sysplus.waitMsg(taskName, MSG_NEW)
         while true do
-            isRun = false
-            isMP3 = false
             nowPlay = curPlay
             log.info("开始播放")
             log.info("上一首", prePlay, playList[prePlay])
             log.info("当前", curPlay, playList[curPlay])
             log.info("下一首", nextPlay, playList[nextPlay])
-            f = io.open("/sd".. musicDir .. playList[curPlay], "rb")
-            if f then
-                if playList[curPlay]:find(".mp3") or playList[curPlay]:find(".MP3") then
-                    -- 解析MP3的必要信息
-                    isMP3 = true
-                    in_buff:del()
-                    data = f:read(10)
-                    if data:sub(1, 3) == 'ID3' then
-                        in_buff:copy(nil, data)
-                        tagLen = ((in_buff:query(6, 1, true) & 0x7f) << 21) + ((in_buff:query(7, 1, true) & 0x7f) << 14) + ((in_buff:query(8, 1, true) & 0x7f) << 7) + (in_buff:query(9, 1, true) & 0x7f)
-                        log.info("jump head",  tagLen)
-                        f:seek(SEEK_SET, tagLen)
-                    end
-                    in_buff:del()
-                    data = f:read(frameLen)
-                    codecr = codec.create(codec.MP3)
-                    result, AudioFormat, NumChannels, SampleRate, BitsPerSample, is_signed = codec.get_audio_info(codecr, data)
-                    if result then
-                        log.info("mp3 info", NumChannels, SampleRate, BitsPerSample)
-                        buff:resize(65536)
-                        in_buff:copy(nil, data)
-                        result = codec.get_audio_data(codecr, in_buff, buff)
-                        log.debug("start", audio.start(0, AudioFormat, NumChannels, SampleRate, BitsPerSample, is_signed))
-                        audio.write(0, buff)
-                        data = f:read(frameLen)
-                        in_buff:copy(nil, data) 
-                        result = codec.get_audio_data(codecr, in_buff, buff)
-                        audio.write(0, buff)
-                        data = f:read(frameLen)
-                        isRun = true        
-                    else
-                        log.debug("mp3解码失败!")
-                    end
-                else
-                    isMP3 = false
-                    data = nil
-                    buff:del()
-                    -- 解析WAV的必要信息
-                    buff:copy(0, f:read(12))
-                    if buff:query(0, 4) == 'RIFF' and buff:query(8, 4) == 'WAVE' then             
-                        local total = buff:query(4, 4, false)
-                        buff:copy(0, f:read(8))
-                        if buff:query(0, 4) == 'fmt ' then      
-                            buff:copy(0, f:read(16))
-                            buff:seek(0, zbuff.SEEK_SET)
-                            result, AudioFormat, NumChannels, SampleRate, ByteRate, BlockAlign, BitsPerSample = buff:unpack("<HHIIHH")
-                            log.debug("find fmt info", AudioFormat, NumChannels, SampleRate, ByteRate, BlockAlign, BitsPerSample)
-                            buff:copy(0, f:read(8))
-                            if buff:query(0, 4) ~= 'data' then
-                                buff:copy(0, buff:query(4, 4, false))
-                                buff:copy(0, f:read(8))
-                            end
-                            log.debug("start", audio.start(0, AudioFormat, NumChannels, SampleRate, BitsPerSample))
-                            SampleRate = (SampleRate * BlockAlign // 8) & ~(3)
-                            log.info("size", SampleRate)
-                            data = f:read(SampleRate)
-                            audio.write(0, data)
-                            data = f:read(SampleRate)
-                            audio.write(0, data)
-                            data = f:read(SampleRate)
-                            isRun = true
-                        end
-                    else
-                        log.debug("不正确的RIFF头", buff:query(0, 4), buff:query(8, 4))
-                    end
-
-                end
-                if isRun then
-                    while true do
-                        local msg = sysplus.waitMsg(taskName, nil, 2000)
-                        if type(msg) == 'table' then
-                            if msg[1] == MSG_MD and isRun then
-                                if isMP3 then
-                                    if in_buff:used() >= frameLen * 2 then
-                                        isRun = codec.get_audio_data(codecr, in_buff, buff)
-                                        audio.write(0, buff)
-                                    else
-                                        data = f:read(frameLen)
-                                        in_buff:copy(nil, data) 
-                                        if #data ~= frameLen then
-                                            isRun = codec.get_audio_data(codecr, in_buff, buff, false)
-                                            log.info("解码结束")
-                                            isRun = false
-                                        else
-                                            isRun = codec.get_audio_data(codecr, in_buff, buff)
-                                        end
-                                        audio.write(0, buff)
-                                    end
-                                else
-                                    audio.write(0, data)
-                                    data = f:read(SampleRate)
-                                    if not data or #data == 0 then
-                                        log.info("没有数据了")
-                                        isRun = false
-                                    end
-                                end
-                            elseif msg[1] == MSG_PD then
-                                log.info("播放结束")
-                                break
-                            elseif msg[1] == MSG_NEW then
-                                log.info("切换歌曲")
-                                break
-                            end
-                        else
-                            if not isPause then
-                                log.error(type(msg), msg)
-                            end
-                        end
-                    end
-                end
-                if isMP3 then
-                    codec.release(codecr)
-                end
-                audio.stop(0)
-                f:close()
+            if playList[curPlay]:find(".mp3") or playList[curPlay]:find(".MP3") then
+                
+                -- 解析MP3的必要信息
+                decoder = codec.create(codec.MP3)
+            else
+                decoder = codec.create(codec.WAV)
             end
+            result, AudioFormat, NumChannels, SampleRate, BitsPerSample, is_signed = codec.info(decoder, "/sd".. musicDir .. playList[curPlay])
+            if result then
+                log.info("audio info", NumChannels, SampleRate, BitsPerSample)
+                buff:resize(65536)
+                --先解码出一段数据
+                result = codec.data(decoder, buff)
+                --启动播放
+                log.debug("start", audio.start(0, AudioFormat, NumChannels, SampleRate, BitsPerSample, is_signed))
+                --后续解码出一段数据后，让音频通道内始终保持有缓存数据，播放才能连续
+                audio.write(0, buff)
+                result = codec.data(decoder, buff) 
+                audio.write(0, buff)
+                isRun = true
+                --等待音频通道的回调消息，或者切换歌曲的消息
+                while true do
+                    msg = sysplus.waitMsg(taskName, nil, 2000)
+                    if type(msg) == 'table' then
+                        if msg[1] == MSG_MD and isRun then
+                            result = codec.data(decoder, buff)
+                            if not result then
+                                log.info("没有数据了")
+                                isRun = false
+                            else
+                                audio.write(0, buff)
+                            end
+                        elseif msg[1] == MSG_PD then
+                            log.info("播放结束")
+                            break
+                        elseif msg[1] == MSG_NEW then
+                            log.info("切换歌曲")
+                            break
+                        end
+                    else
+                        if not isPause then
+                            log.error(type(msg), msg)
+                        end
+                    end
+                end
+            else
+                log.debug("/sd".. musicDir .. playList[curPlay], "解码失败!")
+
+                sys.wait(1000)
+            end
+            audio.stop(0)
+            codec.release(decoder)
+            decoder = nil
             -- 如果有底层的播放消息，也释放掉
             sysplus.waitMsg(taskName, MSG_MD, 10)
             sysplus.waitMsg(taskName, MSG_PD, 10)

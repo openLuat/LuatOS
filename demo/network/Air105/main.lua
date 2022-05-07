@@ -9,7 +9,9 @@ _G.sysplus = require("sysplus")
 
 log.style(1)
 
-w5500.init(spi.SPI_0, 24000000, pin.PB13, pin.PC09, pin.PC08)
+-- w5500.init(spi.SPI_2, 24000000, pin.PB03, pin.PC00, pin.PC03)
+w5500.init(spi.HSPI_0, 24000000, pin.PC14, pin.PC01, pin.PC00)
+
 w5500.config()	--默认是DHCP模式
 w5500.bind(network.ETH0)
 

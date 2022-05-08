@@ -377,7 +377,6 @@ GET_MP3_DATA:
 			{
 				memset(&info, 0, sizeof(info));
 				result = mp3dec_decode_frame(coder->mp3_decoder, coder->buff.addr + pos, coder->buff.used - pos, out_buff->addr + out_buff->used, &info);
-//				LLOGD("111 %u,%u,%u,%u,%u", result, info.frame_bytes, info.hz, info.layer, coder->buff.used - pos);
 				out_buff->used += (result * info.channels * 2);
 //				if (!result) {
 //					LLOGD("jump %dbyte", info.frame_bytes);
@@ -388,7 +387,7 @@ GET_MP3_DATA:
 					break;
 				}
 			} while ((coder->buff.used - pos) >= (MINIMP3_MAX_SAMPLES_PER_FRAME * is_not_end + 1));
-//			LLOGD("result %u,%u,%u,%u", result, coder->buff.used, pos, info.frame_bytes);
+//			LLOGD("result %u,%u,%u,%u,%u", result, out_buff->used, coder->buff.used, pos, info.frame_bytes);
 			if (pos >= coder->buff.used)
 			{
 				coder->buff.used = 0;
@@ -411,6 +410,10 @@ GET_MP3_DATA:
 			}
 			else
 			{
+				if ((out_buff->used < 16384) && is_not_end)
+				{
+					goto GET_MP3_DATA;
+				}
 				result = 1;
 			}
 			break;

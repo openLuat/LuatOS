@@ -114,10 +114,12 @@ void luat_timer_us_delay(size_t us) {
 
 // 获取当前时间
 uint32_t get_timestamp(void) {
-    struct timespec _t;
-    clock_gettime(CLOCK_REALTIME, &_t);
-    uint32_t timenow = _t.tv_sec*1000 + lround(_t.tv_nsec/1e6);
-    //printf("time now > %u\n", timenow);
-    return timenow;
+    // struct timespec _t;
+    // clock_gettime(CLOCK_REALTIME, &_t);
+    // uint32_t timenow = _t.tv_sec*1000 + lround(_t.tv_nsec/1e6);
+    // //printf("time now > %u\n", timenow);
+    LARGE_INTEGER ticks;
+    QueryPerformanceCounter(&ticks);
+    return ticks.QuadPart;
 }
 

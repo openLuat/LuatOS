@@ -50,8 +50,7 @@ int l_crypto_cipher_xxx(lua_State *L, uint8_t flags) {
         LLOGE("mbedtls_cipher_setkey fail %ld", ret);
         goto _exit;
     }
-    // TODO 设置padding mode
-    // mbedtls_cipher_set_padding_mode
+
     if (iv_size) {
         ret = mbedtls_cipher_set_iv(&ctx, iv, iv_size);
         if (ret) {
@@ -62,7 +61,21 @@ int l_crypto_cipher_xxx(lua_State *L, uint8_t flags) {
 
     mbedtls_cipher_reset(&ctx);
 
-    //mbedtls_cipher_set_padding_mode(&ctx, MBEDTLS_PADDING_PKCS7);
+    if (!strcmp("PKCS7", pad)) {
+        mbedtls_cipher_set_padding_mode(&ctx, MBEDTLS_PADDING_PKCS7);
+    }
+    else if (!strcmp("ZERO", pad) || !strcmp("ZEROS", pad)) {
+        mbedtls_cipher_set_padding_mode(&ctx, MBEDTLS_PADDING_ZEROS);
+    }
+    else if (!strcmp("ONE_AND_ZEROS", pad)) {
+        mbedtls_cipher_set_padding_mode(&ctx, MBEDTLS_PADDING_ONE_AND_ZEROS);
+    }
+    else if (!strcmp("ZEROS_AND_LEN", pad)) {
+        mbedtls_cipher_set_padding_mode(&ctx, MBEDTLS_PADDING_ZEROS_AND_LEN);
+    }
+    else {
+        mbedtls_cipher_set_padding_mode(&ctx, MBEDTLS_PADDING_NONE);
+    }
 
     // 开始注入数据
     luaL_buffinit(L, &buff);

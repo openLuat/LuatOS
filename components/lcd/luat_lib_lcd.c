@@ -28,10 +28,12 @@ extern const luat_lcd_opts_t lcd_opts_st7735;
 extern const luat_lcd_opts_t lcd_opts_st7735v;
 extern const luat_lcd_opts_t lcd_opts_st7735s;
 extern const luat_lcd_opts_t lcd_opts_st7789;
+extern const luat_lcd_opts_t lcd_opts_st7796;
 extern const luat_lcd_opts_t lcd_opts_gc9a01;
 extern const luat_lcd_opts_t lcd_opts_gc9106l;
 extern const luat_lcd_opts_t lcd_opts_gc9306x;
 extern const luat_lcd_opts_t lcd_opts_ili9341;
+extern const luat_lcd_opts_t lcd_opts_ili9486;
 extern const luat_lcd_opts_t lcd_opts_ili9488;
 extern const luat_lcd_opts_t lcd_opts_custom;
 
@@ -42,16 +44,18 @@ typedef struct lcd_reg {
 
 static const lcd_reg_t lcd_regs[] = {
   {"custom",  &lcd_opts_custom},   //0 固定为第零个
-  {"st7735",  &lcd_opts_st7735},   //1
-  {"st7735v", &lcd_opts_st7735v},  //2
-  {"st7735s", &lcd_opts_st7735s},  //3
-  {"st7789",  &lcd_opts_st7789},   //4
-  {"gc9a01",  &lcd_opts_gc9a01},   //5
-  {"gc9106l", &lcd_opts_gc9106l},  //6
-  {"gc9306x", &lcd_opts_gc9306x},  //7
+  {"st7735",  &lcd_opts_st7735},   
+  {"st7735v", &lcd_opts_st7735v},  
+  {"st7735s", &lcd_opts_st7735s},  
+  {"st7789",  &lcd_opts_st7789},   
+  {"st7796", &lcd_opts_st7796},
+  {"gc9a01",  &lcd_opts_gc9a01},  
+  {"gc9106l", &lcd_opts_gc9106l}, 
+  {"gc9306x", &lcd_opts_gc9306x}, 
   {"gc9306",  &lcd_opts_gc9306x},  //gc9306是gc9306x的别名
-  {"ili9341", &lcd_opts_ili9341},  //8
-  {"ili9488", &lcd_opts_ili9488},  //9
+  {"ili9341", &lcd_opts_ili9341},  
+  {"ili9486", &lcd_opts_ili9486},
+  {"ili9488", &lcd_opts_ili9488},  
   {"", NULL} // 最后一个必须是空字符串
 };
 
@@ -72,7 +76,7 @@ static luat_color_t lcd_str_fg_color,lcd_str_bg_color;
 /*
 lcd显示屏初始化
 @api lcd.init(tp, args)
-@string lcd类型, 当前支持st7789/st7735/st7735v/st7735s/gc9a01/gc9106l/gc9306x/ili9341/custom
+@string lcd类型, 当前支持st7796/st7789/st7735/st7735v/st7735s/gc9a01/gc9106l/gc9306x/ili9341/ili9486/custom
 @table 附加参数,与具体设备有关,pin_pwr为可选项,可不设置port:spi端口,例如0,1,2...如果为device方式则为"device";pin_dc:lcd数据/命令选择引脚;pin_rst:lcd复位引脚;pin_pwr:lcd背光引脚 可选项,可不设置;direction:lcd屏幕方向 0:0° 1:180° 2:270° 3:90°;w:lcd 水平分辨率;h:lcd 竖直分辨率;xoffset:x偏移(不同屏幕ic 不同屏幕方向会有差异);yoffset:y偏移(不同屏幕ic 不同屏幕方向会有差异)
 @userdata spi设备,当port = "device"时有效
 @usage

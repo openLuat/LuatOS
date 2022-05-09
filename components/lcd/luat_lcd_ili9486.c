@@ -5,14 +5,14 @@
 #include "luat_malloc.h"
 #include "luat_timer.h"
 
-#define LUAT_LOG_TAG "ili9488"
+#define LUAT_LOG_TAG "ili9486"
 #include "luat_log.h"
 
 #define LCD_W 320
 #define LCD_H 480
 #define LCD_DIRECTION 0
 
-static int ili9488_init(luat_lcd_conf_t* conf) {
+static int ili9486_init(luat_lcd_conf_t* conf) {
     if (conf->w == 0)
         conf->w = LCD_W;
     if (conf->h == 0)
@@ -86,7 +86,7 @@ static int ili9488_init(luat_lcd_conf_t* conf) {
     else lcd_write_data(conf,0xE8);
 
     lcd_write_cmd(conf,0x3A);
-    lcd_write_data(conf,0x66);
+    lcd_write_data(conf,0x55);
 
     lcd_write_cmd(conf,0XB0);
     lcd_write_data(conf,0x00);
@@ -121,8 +121,8 @@ static int ili9488_init(luat_lcd_conf_t* conf) {
     return 0;
 };
 
-const luat_lcd_opts_t lcd_opts_ili9488 = {
-    .name = "ili9488",
-    .init = ili9488_init,
+const luat_lcd_opts_t lcd_opts_ili9486 = {
+    .name = "ili9486",
+    .init = ili9486_init,
 };
 

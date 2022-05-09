@@ -397,6 +397,7 @@ GET_MP3_DATA:
 				memmove(coder->buff.addr, coder->buff.addr + pos, coder->buff.used - pos);
 				coder->buff.used -= pos;
 			}
+			pos = 0;
 			if (!out_buff->used)
 			{
 				if (is_not_end)

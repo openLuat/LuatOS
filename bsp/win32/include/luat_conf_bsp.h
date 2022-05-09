@@ -35,6 +35,8 @@
 #define LUAT_LV_DEBUG 0
 #define LUAT_USE_LVGL_INDEV 1
 
+#define LUAT_COMPILER_NOWEAK 1
+
 #define LV_TICK_CUSTOM     1
 #define LV_TICK_CUSTOM_INCLUDE "stdio.h"
 unsigned int get_timestamp(void);

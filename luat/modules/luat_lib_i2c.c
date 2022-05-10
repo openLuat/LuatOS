@@ -236,7 +236,7 @@ i2c发送数据
 @int 设备id, 例如i2c1的id为1, i2c2的id为2
 @int I2C子设备的地址, 7位地址
 @integer/string/table 待发送的数据,自适应参数类型
-@integer 可选参数 是否发送停止位 1发送 0不发送 默认发送
+@integer 可选参数 是否发送停止位 1发送 0不发送 默认发送(105不支持)
 @return true/false 发送是否成功
 @usage
 -- 往i2c0发送1个字节的数据
@@ -259,22 +259,17 @@ static int l_i2c_send(lua_State *L)
     int stop = luaL_optnumber(L, 4 , 1);
     if (lua_isinteger(L, 3))
     {
-        len = lua_gettop(L) - 2;
-        char *buff = (char *)luat_heap_malloc(len);
-        for (size_t i = 0; i < len; i++)
-        {
-            buff[i] = (char)lua_tointeger(L, 3 + i);
-        }
+        unsigned char buff = (unsigned char)luaL_checkinteger(L, 3);
         if (lua_isuserdata(L, 1))
         {
             luat_ei2c *ei2c = toei2c(L);
-            result = i2c_soft_send(ei2c, addr, buff, len,stop);
+            result = i2c_soft_send(ei2c, addr, &buff, 1,stop);
         }
         else
         {
-            result = luat_i2c_send(id, addr, buff, len,stop);
+            result = luat_i2c_send(id, addr, &buff, 1,stop);
         }
-        luat_heap_free(buff);
+        // luat_heap_free(buff);
     }
     else if (lua_isstring(L, 3))
     {
@@ -375,7 +370,7 @@ i2c写寄存器数据
 @int I2C子设备的地址, 7位地址
 @int 寄存器地址
 @string 待发送的数据
-@integer 可选参数 是否发送停止位 1发送 0不发送 默认发送
+@integer 可选参数 是否发送停止位 1发送 0不发送 默认发送(105不支持)
 @return true/false 发送是否成功
 @usage
 -- 从i2c1的地址为0x5C的设备的寄存器0x01写入2个字节的数据
@@ -418,7 +413,7 @@ i2c读寄存器数据
 @int I2C子设备的地址, 7位地址
 @int 寄存器地址
 @int 待接收的数据长度
-@integer 可选参数 是否发送停止位 1发送 0不发送 默认发送
+@integer 可选参数 是否发送停止位 1发送 0不发送 默认发送(105不支持)
 @return string 收到的数据
 @usage
 -- 从i2c1的地址为0x5C的设备的寄存器0x01读出2个字节的数据

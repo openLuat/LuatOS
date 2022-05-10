@@ -259,7 +259,7 @@ static int l_i2c_send(lua_State *L)
     int stop = luaL_optnumber(L, 4 , 1);
     if (lua_isinteger(L, 3))
     {
-        unsigned char buff = (unsigned char)luaL_checkinteger(L, 3);
+        char buff = (char)luaL_checkinteger(L, 3);
         if (lua_isuserdata(L, 1))
         {
             luat_ei2c *ei2c = toei2c(L);

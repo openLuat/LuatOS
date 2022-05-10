@@ -298,12 +298,12 @@ u8g2.SetFont(u8g2.font_opposansm12)
 */
 static int l_u8g2_SetFont(lua_State *L) {
     if (u8g2 == NULL) {
-        LLOGI("disp not init yet!!!");
+        LLOGI("u8g2 not init yet!!!");
         lua_pushboolean(L, 0);
         return 1;
     }
     if (!lua_islightuserdata(L, 1)) {
-        LLOGE("only font pointer is allow");
+        LLOGE("no such font");
         return 0;
     }
     const uint8_t *ptr = (const uint8_t *)lua_touserdata(L, 1);

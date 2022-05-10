@@ -61,7 +61,7 @@ static const lcd_reg_t lcd_regs[] = {
 
 
 static luat_lcd_conf_t *default_conf = NULL;
-static int dft_conf_lua_ref = 0;
+// static int dft_conf_lua_ref = 0;
 
 // 所有绘图相关的函数都应该调用本函数
 static void lcd_auto_flush(luat_lcd_conf_t *conf) {
@@ -92,10 +92,20 @@ static int l_lcd_init(lua_State* L) {
       LLOGE("out of system memory!!!");
       return 0;
     }
+    if (default_conf != NULL) {
+      LLOGD("lcd was inited, skip");
+      lua_pushboolean(L, 1);
+      return 1;
+    }
     memset(conf, 0, sizeof(luat_lcd_conf_t)); // 填充0,保证无脏数据
     conf->pin_pwr = 255;
     if (lua_type(L, 3) == LUA_TUSERDATA){
+        // 如果是SPI Device模式, 就可能出现变量为local, 从而在某个时间点被GC掉的可能性
         conf->lcd_spi_device = (luat_spi_device_t*)lua_touserdata(L, 3);
+        lua_pushvalue(L, 3);
+        // 所以, 直接引用之外, 再加上强制引用, 避免被GC
+        // 鉴于LCD不太可能重复初始化, 引用也没什么问题
+        conf->lcd_spi_ref = luaL_ref(L, LUA_REGISTRYINDEX);
         conf->port = LUAT_LCD_SPI_DEVICE;
     }
     const char* tp = luaL_checklstring(L, 1, &len);
@@ -240,17 +250,17 @@ static int l_lcd_init(lua_State* L) {
         conf->opts = &lcd_opts_sdl2;
 #endif
         int ret = luat_lcd_init(conf);
-        if (ret == 0) {
-            if (dft_conf_lua_ref) {
-              luaL_unref(L, LUA_REGISTRYINDEX, dft_conf_lua_ref);
-            }
-            default_conf = conf;
-            dft_conf_lua_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+        if (ret != 0) {
+            LLOGE("lcd init fail %d", ret);
+            luat_heap_free(conf);
+            lua_pushboolean(L, 0);
+            return 0;
         }
+        // 初始化OK, 配置额外的参数
+        default_conf = conf;
         u8g2_SetFontMode(&(conf->luat_lcd_u8g2), 0);
         u8g2_SetFontDirection(&(conf->luat_lcd_u8g2), 0);
-        lua_pushboolean(L, ret == 0 ? 1 : 0);
-        // lua_pushlightuserdata(L, conf);
+        lua_pushboolean(L, 1);
         return 1;
     }
     LLOGE("ic not support: %s",tp);

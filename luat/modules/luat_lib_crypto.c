@@ -158,6 +158,13 @@ static int l_crypto_hmac_sha256(lua_State *L) {
     const char* key = luaL_checklstring(L, 2, &key_size);
     char tmp[64] = {0};
     char dst[64] = {0};
+
+    if (key_size > 64) {
+        luat_crypto_sha256_simple(key, key_size, dst);
+        key = (const char*)dst;
+        key_size = 64;
+    }
+
     if (luat_crypto_hmac_sha256_simple(str, str_size, key, key_size, tmp) == 0) {
         fixhex(tmp, dst, 32);
         lua_pushlstring(L, dst, 64);
@@ -207,6 +214,13 @@ static int l_crypto_hmac_sha512(lua_State *L) {
     const char* key = luaL_checklstring(L, 2, &key_size);
     char tmp[128] = {0};
     char dst[128] = {0};
+
+    if (key_size > 128) {
+        luat_crypto_sha512_simple(key, key_size, dst);
+        key = (const char*)dst;
+        key_size = 128;
+    }
+
     if (luat_crypto_hmac_sha512_simple(str, str_size, key, key_size, tmp) == 0) {
         fixhex(tmp, dst, 64);
         lua_pushlstring(L, dst, 128);

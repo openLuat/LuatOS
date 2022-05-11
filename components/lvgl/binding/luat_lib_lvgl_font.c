@@ -74,11 +74,18 @@ int luat_lv_font_get(lua_State *L) {
 
 /*
 从文件系统加载字体
-@api lvgl.font_load(path)
-@string 字体路径
+@api lvgl.font_load(path/spi_device)
+@string/userdata 字体路径/spi_device (spi_device为使用外置高通矢量字库芯片)
+@number size 可选(使用高通矢量字库)
+@number bpp 可选(使用高通矢量字库)
+@number thickness 可选(使用高通矢量字库)
+@number cache_size 可选(使用高通矢量字库)
+@number sty_zh 可选(使用高通矢量字库)
+@number sty_en 可选(使用高通矢量字库)
 @return userdata 字体指针
 @usage
 local font = lvgl.font_load("/font_simsun_32.bin")
+--local font = lvgl.font_load(spi_device,16)(高通矢量字库)
 */
 int luat_lv_font_load(lua_State *L) {
     lv_font_t *font = NULL;

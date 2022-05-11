@@ -12,18 +12,30 @@
 
 int Base_year = 1900;
 
+void LUAT_WEAK luat_rtc_set_tamp32(uint32_t tamp) {
+    LLOGD("not support yet");
+}
+
 /*
 设置时钟
 @api rtc.set(tab)
-@table 时钟参数,见示例
+@table or int 时钟参数,见示例
 @return bool 成功返回true,否则返回nil或false
 @usage
 rtc.set({year=2021,mon=8,day=31,hour=17,min=8,sec=43})
+rtc.set(1652230554)	--目前只有105支持时间戳方式
 */
 static int l_rtc_set(lua_State *L){
     struct tm tblock = {0};
     int ret;
     if (!lua_istable(L, 1)) {
+    	if (lua_isinteger(L, 1))
+    	{
+    		uint32_t tamp = lua_tointeger(L, 1);
+    	    luat_rtc_set_tamp32(tamp);
+    	    lua_pushboolean(L, 1);
+    	    return 1;
+    	}
         LLOGW("rtc time need table");
         return 0;
     }
@@ -255,6 +267,7 @@ static int l_rtc_set_base_year(lua_State *L){
     Base_year = luaL_checkinteger(L, 1);
     return 0;
 }
+
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_rtc[] =

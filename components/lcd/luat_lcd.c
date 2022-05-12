@@ -182,6 +182,8 @@ int luat_lcd_set_color(luat_color_t back, luat_color_t fore){
 }
 
 #ifndef LUAT_USE_LCD_CUSTOM_DRAW
+void luat_lcd_draw_block(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, luat_color_t* color, uint8_t last_flush);
+
 int luat_lcd_flush(luat_lcd_conf_t* conf) {
     if (conf->buff == NULL) {
         return 0;
@@ -192,6 +194,14 @@ int luat_lcd_flush(luat_lcd_conf_t* conf) {
         //LLOGD("luat_lcd_flush no need");
         return 0;
     }
+#ifdef LV_NO_BLOCK_FLUSH
+    if (conf->is_init_done) {
+    	luat_lcd_draw_no_block(conf, 0, conf->flush_y_min, conf->w, conf->flush_y_max, conf->buff + (conf->flush_y_min * conf->w), 1);
+    }
+    else {
+        luat_lcd_draw_block(conf, 0, conf->flush_y_min, conf->w, conf->flush_y_max, conf->buff + (conf->flush_y_min * conf->w), 1);
+    }
+#else
     uint32_t size = conf->w * (conf->flush_y_max - conf->flush_y_min + 1) * 2;
     luat_lcd_set_address(conf, 0, conf->flush_y_min, conf->w - 1, conf->flush_y_max);
     const char* tmp = (const char*)(conf->buff + conf->flush_y_min * conf->w);
@@ -200,7 +210,7 @@ int luat_lcd_flush(luat_lcd_conf_t* conf) {
 	}else{
 		luat_spi_send(conf->port, tmp, size);
 	}
-
+#endif
     // 重置为不需要刷新的状态
     conf->flush_y_max = 0;
     conf->flush_y_min = conf->h;
@@ -211,6 +221,14 @@ int luat_lcd_flush(luat_lcd_conf_t* conf) {
 int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, luat_color_t* color) {
     // 直接刷屏模式
     if (conf->buff == NULL) {
+#ifdef LV_NO_BLOCK_FLUSH
+    if (conf->is_init_done){
+    	luat_lcd_draw_no_block(conf, x1, y1, x2, y2, color, 1);
+    }
+    else {
+        luat_lcd_draw_block(conf, x1, y1, x2, y2, color, 1);
+    }
+#else
         uint32_t size = (x2 - x1 + 1) * (y2 - y1 + 1) * 2;
         luat_lcd_set_address(conf, x1, y1, x2, y2);
 	    if (conf->port == LUAT_LCD_SPI_DEVICE){
@@ -219,6 +237,7 @@ int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, 
 		    luat_spi_send(conf->port, (const char*)color, size);
 	    }
         return 0;
+#endif
     }
     // buff模式
     if (x1 > conf->w || x2 > conf->w || y1 > conf->h || y2 > conf->h) {

@@ -277,6 +277,17 @@ static int l_rtos_set_paths(lua_State *L) {
     return 0;
 }
 
+/*
+空函数,什么都不做
+@api    rtos.nop()
+@return nil 无返回值
+@usage
+-- 这个函数单纯就是 lua -> c -> lua 走一遍
+-- 没有参数,没有返回值,没有逻辑处理
+-- 在绝大多数情况下,不会遇到这个函数的调用
+-- 它通常只会出现在性能测试的代码里, 因为它什么都不干.
+rtos.nop()
+*/
 static int l_rtos_nop(lua_State *L) {
     return 0;
 }

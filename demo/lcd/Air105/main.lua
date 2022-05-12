@@ -48,94 +48,33 @@ spi_lcd = spi.deviceSetup(5,pin.PC14,0,0,8,96*1000*1000,spi.MSB,1,1)
 --[[ 此为合宙售卖的1.54寸TFT LCD LCD 分辨率:240X240 屏幕ic:st7789 购买地址:https://item.taobao.com/item.htm?spm=a1z10.5-c.w4002-24045920841.20.391445d5Ql4uJl&id=659456700222]]
 -- lcd.init("st7789",{port = "device",pin_dc = pin.PE08,pin_rst = pin.PC12, pin_pwr = pin.PE09,direction = 0,w = 240,h = 240,xoffset = 0,yoffset = 0},spi_lcd)
 
+--[[ 此为合宙售卖的0.96寸TFT LCD LCD 分辨率:160X80 屏幕ic:st7735s 购买地址:https://item.taobao.com/item.htm?spm=a1z10.5-c.w4002-24045920841.19.6c2275a1Pa8F9o&id=560176729178]]
+lcd.init("st7735s",{port = "device",pin_dc = pin.PE08, pin_pwr = pin.PE09, pin_rst = pin.PC12,direction = 2,w = 160,h = 80,xoffset = 0,yoffset = 0},spi_lcd)
+
 --[[ 此为合宙售卖的2.4寸TFT LCD 分辨率:240X320 屏幕ic:GC9306 购买地址:https://item.taobao.com/item.htm?spm=a1z10.5-c.w4002-24045920841.39.6c2275a1Pa8F9o&id=655959696358]]
-lcd.init("gc9306x",{port = "device",pin_dc = pin.PE08 ,pin_rst = pin.PC12,pin_pwr = pin.PE09,direction = 0,w = 240,h = 320,xoffset = 0,yoffset = 0},spi_lcd)
+--lcd.init("gc9306x",{port = "device",pin_dc = pin.PE08 , pin_pwr = pin.PE09, pin_rst = pin.PC12, direction = 0,w = 240,h = 320,xoffset = 0,yoffset = 0},spi_lcd)
 
---[[ 下面为custom方式示例,自己传入lcd指令来实现驱动,示例以st7735s做展示 ]]
--- lcd.init("custom",{
---     port = "device",
---     pin_dc = pin.PE08, 
---     pin_pwr = pin.PE09,
---     pin_rst = pin.PC12,
---     direction = 0,
---     w = 128,
---     h = 160,
---     xoffset = 2,
---     yoffset = 1,
---     sleepcmd = 0x10,
---     wakecmd = 0x11,
---     initcmd = {--0001 delay  0002 cmd  0003 data
---         0x00020011,0x00010078,0x00020021, -- 反显
---         0x000200B1,0x00030002,0x00030035,
---         0x00030036,0x000200B2,0x00030002,
---         0x00030035,0x00030036,0x000200B3,
---         0x00030002,0x00030035,0x00030036,
---         0x00030002,0x00030035,0x00030036,
---         0x000200B4,0x00030007,0x000200C0,
---         0x000300A2,0x00030002,0x00030084,
---         0x000200C1,0x000300C5,0x000200C2,
---         0x0003000A,0x00030000,0x000200C3,
---         0x0003008A,0x0003002A,0x000200C4,
---         0x0003008A,0x000300EE,0x000200C5,
---         0x0003000E,0x00020036,0x000300C0,
---         0x000200E0,0x00030012,0x0003001C,
---         0x00030010,0x00030018,0x00030033,
---         0x0003002C,0x00030025,0x00030028,
---         0x00030028,0x00030027,0x0003002F,
---         0x0003003C,0x00030000,0x00030003,
---         0x00030003,0x00030010,0x000200E1,
---         0x00030012,0x0003001C,0x00030010,
---         0x00030018,0x0003002D,0x00030028,
---         0x00030023,0x00030028,0x00030028,
---         0x00030026,0x0003002F,0x0003003B,
---         0x00030000,0x00030003,0x00030003,
---         0x00030010,0x0002003A,0x00030005,
---         0x00020029,
---     },
---     },
---     spi_lcd)
-
---[[ 下面为custom方式示例,自己传入lcd指令来实现驱动,示例以st7789做展示 ]]
--- lcd.init("custom",{
---     port = "device",
---     pin_dc = pin.PE08, 
---     pin_pwr = pin.PE09,
---     pin_rst = pin.PC12,
---     direction = 0,
---     w = 240,
---     h = 320,
---     xoffset = 0,
---     yoffset = 0,
---     sleepcmd = 0x10,
---     wakecmd = 0x11,
---     initcmd = {--0001 delay  0002 cmd  0003 data
---         0x00020036, 0x00030000, 0x0002003A, 0x00030005, 0x000200B2,
---         0x0003000C, 0x0003000C, 0x00030000, 0x00030033, 0x00030033,
---         0x000200B7, 0x00030035, 0x000200BB, 0x00030032,
---         0x000200C2, 0x00030001, 0x000200C3, 0x00030015,
---         0x000200C4, 0x00030020, 0x000200C6, 0x0003000F, 0x000200D0,
---         0x000300A4, 0x000300A1, 0x000200E0, 0x000300D0, 0x00030008,
---         0x0003000E, 0x00030009, 0x00030009, 0x00030005, 0x00030031,
---         0x00030033, 0x00030048, 0x00030017, 0x00030014, 0x00030015,
---         0x00030031, 0x00030034, 0x000200E1, 0x000300D0, 0x00030008,
---         0x0003000E, 0x00030009, 0x00030009, 0x00030015, 0x00030031,
---         0x00030033, 0x00030048, 0x00030017, 0x00030014, 0x00030015,
---         0x00030031, 0x00030034,
---         0x00020021, -- 如果发现屏幕反色，注释掉此行
---     },
---     },
---     spi_lcd)
+-- 不在上述内置驱动的, 需要自定义初始化过程, 看demo/lcd_custom
 
 sys.taskInit(function()
-    -- sys.wait(1000)
-    -- API 文档 https://wiki.luatos.com/api/lcd.html
-    if lcd.showImage then
-        lcd.showImage(40,0,"/luadb/logo.jpg")
-    else
-        log.info("lcd.drawLine", lcd.drawLine(20,20,150,20,0x001F))
-        log.info("lcd.drawRectangle", lcd.drawRectangle(20,40,120,70,0xF800))
-        log.info("lcd.drawCircle", lcd.drawCircle(50,50,20,0x0CE0))
+    sys.wait(1000)
+    lcd.setupBuff()
+    
+    local sh = lcd.showImage
+    local t = mcu.ticks()
+    --local wait = sys.wait
+    for i=1,10 do
+        sh(0, 0, "/luadb/320240.jpg")
+        --wait(5)
     end
+    local e = mcu.ticks()
+
+    log.style(0)
+    log.info("time", "风格0", e - t)
+    log.style(1)
+    log.info("time", "风格1", e - t)
+    log.style(2)
+    log.info("time", "风格2", e - t)
 end)
 
 

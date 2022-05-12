@@ -30,7 +30,6 @@ static int st7735v_init(luat_lcd_conf_t* conf) {
     luat_gpio_set(conf->pin_rst, Luat_GPIO_LOW);
     luat_timer_mdelay(100);
     luat_gpio_set(conf->pin_rst, Luat_GPIO_HIGH);
-
     luat_timer_mdelay(120);//ms
 
     lcd_write_cmd(conf,0x11);

@@ -76,10 +76,22 @@ static int32_t luat_lib_network_callback(void *data, void *param)
     return 0;
 }
 
+static luat_network_ctrl_t * l_get_ctrl(lua_State *L, int index)
+{
+	if (luaL_testudata(L, 1, LUAT_NW_CTRL_TYPE))
+	{
+		return ((luat_network_ctrl_t *)luaL_checkudata(L, 1, LUAT_NW_CTRL_TYPE));
+	}
+	else
+	{
+		return ((luat_network_ctrl_t *)lua_touserdata(L, 1));
+	}
+}
+
 // __gc
 static int l_network_gc(lua_State *L)
 {
-	luat_network_ctrl_t *l_ctrl = ((luat_network_ctrl_t *)luaL_checkudata(L, 1, LUAT_NW_CTRL_TYPE));
+	luat_network_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
     if (l_ctrl->netc)
     {
     	network_force_close_socket(l_ctrl->netc);
@@ -132,6 +144,7 @@ static int l_network_create(lua_State *L)
 	l_ctrl->netc = network_alloc_ctrl(adapter_index);
 	if (!l_ctrl->netc)
 	{
+		LLOGD("create fail");
 		lua_pushnil(L);
 		return 1;
 	}
@@ -166,7 +179,7 @@ static int l_network_create(lua_State *L)
 */
 static int l_network_set_debug(lua_State *L)
 {
-	luat_network_ctrl_t *l_ctrl = ((luat_network_ctrl_t *)luaL_checkudata(L, 1, LUAT_NW_CTRL_TYPE));
+	luat_network_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	if (lua_isboolean(L, 2))
 	{
 		l_ctrl->netc->is_debug = lua_toboolean(L, 2);
@@ -194,7 +207,7 @@ network.config(ctrl, nil, nil ,true)	--最普通的加密TCP传输，证书都�
 */
 static int l_network_config(lua_State *L)
 {
-	luat_network_ctrl_t *l_ctrl = ((luat_network_ctrl_t *)luaL_checkudata(L, 1, LUAT_NW_CTRL_TYPE));
+	luat_network_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	uint8_t is_udp = 0;
 	uint8_t is_tls = 0;
 	int param_pos = 1;
@@ -280,7 +293,7 @@ boolean true已经linkup，false没有linkup，之后需要接收network.LINK消
 */
 static int l_network_linkup(lua_State *L)
 {
-	luat_network_ctrl_t *l_ctrl = ((luat_network_ctrl_t *)luaL_checkudata(L, 1, LUAT_NW_CTRL_TYPE));
+	luat_network_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	int result = network_wait_link_up(l_ctrl->netc, 0);
 	lua_pushboolean(L, result < 0);
 	lua_pushboolean(L, result == 0);
@@ -302,7 +315,7 @@ boolean true已经connect，false没有connect，之后需要接收network.ON_LI
 */
 static int l_network_connect(lua_State *L)
 {
-	luat_network_ctrl_t *l_ctrl = ((luat_network_ctrl_t *)luaL_checkudata(L, 1, LUAT_NW_CTRL_TYPE));
+	luat_network_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	luat_ip_addr_t ip_addr;
 	const char *ip;
 	size_t ip_len;
@@ -337,7 +350,7 @@ boolean true已经断开，false没有断开，之后需要接收network.CLOSED�
 */
 static int l_network_disconnect(lua_State *L)
 {
-	luat_network_ctrl_t *l_ctrl = ((luat_network_ctrl_t *)luaL_checkudata(L, 1, LUAT_NW_CTRL_TYPE));
+	luat_network_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	int result = network_close(l_ctrl->netc, 0);
 	lua_pushboolean(L, result < 0);
 	lua_pushboolean(L, result == 0);
@@ -353,7 +366,7 @@ static int l_network_disconnect(lua_State *L)
 */
 static int l_network_close(lua_State *L)
 {
-	luat_network_ctrl_t *l_ctrl = ((luat_network_ctrl_t *)luaL_checkudata(L, 1, LUAT_NW_CTRL_TYPE));
+	luat_network_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	network_force_close_socket(l_ctrl->netc);
 	return 0;
 }
@@ -374,7 +387,7 @@ boolean true已经收到应答，false没有收到应答，之后需要接收net
 */
 static int l_network_tx(lua_State *L)
 {
-	luat_network_ctrl_t *l_ctrl = ((luat_network_ctrl_t *)luaL_checkudata(L, 1, LUAT_NW_CTRL_TYPE));
+	luat_network_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	luat_ip_addr_t ip_addr;
 	luat_zbuff_t *buff = NULL;
 	const char *ip;
@@ -418,7 +431,7 @@ static int l_network_tx(lua_State *L)
 		ip_addr.ipv4 = lua_tointeger(L, 3);
 	}
 	uint32_t tx_len;
-	int result = network_tx(l_ctrl->netc, data, data_len, luaL_optinteger(L, 5, 0), &ip_addr, luaL_optinteger(L, 4, 0), &tx_len, 0);
+	int result = network_tx(l_ctrl->netc, data, data_len, luaL_optinteger(L, 5, 0), (ip_addr.is_ipv6 != 0xff)?&ip_addr:NULL, luaL_optinteger(L, 4, 0), &tx_len, 0);
 	lua_pushboolean(L, result < 0);
 	lua_pushboolean(L, tx_len != data_len);
 	lua_pushboolean(L, result == 0);
@@ -440,7 +453,7 @@ int 对端port，只有UDP模式下才有意义，TCP模式返回0
 */
 static int l_network_rx(lua_State *L)
 {
-	luat_network_ctrl_t *l_ctrl = ((luat_network_ctrl_t *)luaL_checkudata(L, 1, LUAT_NW_CTRL_TYPE));
+	luat_network_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
 
 	luat_ip_addr_t ip_addr;
@@ -527,7 +540,7 @@ boolean true有新的数据需要接收，false没有数据，之后需要接收
 */
 static int l_network_wait(lua_State *L)
 {
-	luat_network_ctrl_t *l_ctrl = ((luat_network_ctrl_t *)luaL_checkudata(L, 1, LUAT_NW_CTRL_TYPE));
+	luat_network_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	int result = network_wait_event(l_ctrl->netc, NULL, 0, NULL);
 	lua_pushboolean(L, result < 0);
 	lua_pushboolean(L, result == 0);

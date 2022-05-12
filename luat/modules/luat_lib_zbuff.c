@@ -270,7 +270,7 @@ static int l_zbuff_read(lua_State *L)
 }
 
 /**
-zbuff清空数据，类似于memset
+zbuff清空数据
 @api buff:clear(num)
 @int 可选，默认为0。要设置为的值，不会改变buff指针位置
 @usage
@@ -1323,6 +1323,30 @@ static int l_zbuff_query(lua_State *L)
     return 1;
 }
 
+/**
+zbuff的类似于memset操作
+@api buff:set(num, start, len)
+@int 可选，开始位置，默认为0,
+@int 可选，默认为0。要设置为的值
+@int 可选，长度，默认为全部空间，如果超出范围了，会自动截断
+@usage
+-- 全部初始化为0
+buff:set() --等同于 memset(buff, 0, sizeof(buff))
+buff:set(8) --等同于 memset(buff, 0, sizeof(buff) - 8)
+buff:set(0, 0x55) --等同于 memset(buff, 0x55, sizeof(buff))
+buff:set(4, 0xaa, 12) --等用于 memset(&buff[4], 0xaa, 12)
+ */
+static int l_zbuff_set(lua_State *L)
+{
+    luat_zbuff_t *buff = tozbuff(L);
+    int num = luaL_optinteger(L, 3, 0);
+    uint32_t start = luaL_optinteger(L, 2, 0);
+    uint32_t len = luaL_optinteger(L, 4, buff->len);
+    memset(buff->addr + start, num & 0x00ff, ((len + start) > buff->len)?(buff->len - start):len);
+    return 0;
+}
+
+
 static const luaL_Reg lib_zbuff[] = {
     {"write", l_zbuff_write},
     {"read", l_zbuff_read},
@@ -1364,6 +1388,7 @@ static const luaL_Reg lib_zbuff[] = {
     //{"__gc", l_zbuff_gc},
 	//以下为扩展用法，数据的增减操作尽量不要和上面的read,write一起使用
 	{"copy", l_zbuff_copy},
+	{"set", l_zbuff_set},
 	{"query",l_zbuff_query},
 	{"del", l_zbuff_del},
 	{"resize", l_zbuff_resize},

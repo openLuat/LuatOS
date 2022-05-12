@@ -416,7 +416,8 @@ static int w5500_socket_connect(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t 
 		DBG("socket %d not config state %x", socket_id, temp);
 		return -1;
 	}
-//	DBG("%08x, %u", remote_ip, remote_port);
+//	BytesPutLe32(cmd, remote_ip);
+//	DBG("%02d.%02d.%02d,%02d, %u, %d", cmd[0], cmd[1], cmd[2], cmd[3], remote_port, is_listen);
 	if (!is_listen)
 	{
 //		w5500_xfer(w5500, W5500_SOCKET_DEST_IP0, socket_index(socket_id)|socket_reg, cmd, 6);
@@ -475,6 +476,7 @@ static int w5500_socket_tx(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t *data
 //	{
 //		DBG("%d,0x%04x,%u,%u", socket_id, tx_point, len,tx_free);
 //	}
+//	DBG_HexPrintf(data, len);
 	if (len > tx_free)
 	{
 		len = tx_free;
@@ -811,6 +813,10 @@ static socket_data_t * w5500_create_data_node(w5500_ctrl_t *w5500, uint8_t socke
 		if (remote_ip)
 		{
 			p->ip = *remote_ip;
+		}
+		else
+		{
+			p->ip.is_ipv6 = 0xff;
 		}
 		p->tag = w5500->socket[socket_id].tag;
 		if (data && len)
@@ -1519,7 +1525,7 @@ static int w5500_socket_connect_ex(int socket_id, uint64_t tag,  uint16_t local_
 	W5500_UNLOCK;
 	platform_send_event(prv_w5500_ctrl->task_handle, EV_W5500_SOCKET_CONNECT, socket_id, remote_ip->ipv4, uPV.u32);
 	uPV.u32 = remote_ip->ipv4;
-	DBG("%u.%u.%u.%u", uPV.u8[0], uPV.u8[1], uPV.u8[2], uPV.u8[3]);
+//	DBG("%u.%u.%u.%u", uPV.u8[0], uPV.u8[1], uPV.u8[2], uPV.u8[3]);
 	return 0;
 }
 //作为server绑定一个port，开始监听

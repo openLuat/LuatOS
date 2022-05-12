@@ -15,7 +15,7 @@ extern void DBG_HexPrintf(void *Data, unsigned int len);
 #define __NW_DEBUG_ENABLE__
 #ifdef __NW_DEBUG_ENABLE__
 #define DBG(x,y...)	do {if (ctrl->is_debug) {DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y);}} while(0)
-#define DBG_ERR(x,y...) do {if (ctrl->is_debug) {DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y);}} while(0)
+#define DBG_ERR(x,y...) DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
 #else
 #define DBG(x,y...)
 #define DBG_ERR(x,y...)
@@ -746,6 +746,7 @@ static void network_default_statemachine(network_ctrl_t *ctrl, OS_EVENT *event, 
 static int32_t network_default_socket_callback(void *data, void *param)
 {
 	OS_EVENT *event = (OS_EVENT *)data;
+	OS_EVENT temp_event;
 	luat_network_cb_param_t *cb_param = (luat_network_cb_param_t *)param;
 	network_adapter_t *adapter =(network_adapter_t *)(cb_param->param);
 	int i;
@@ -757,9 +758,9 @@ static int32_t network_default_socket_callback(void *data, void *param)
 		{
 			if (ctrl->auto_mode)
 			{
-//				DBG("%d,%d,%d", ctrl->socket_id, ctrl->state, ctrl->wait_target_state);
+				DBG("%d,%d,%d", ctrl->socket_id, ctrl->state, ctrl->wait_target_state);
 				network_default_statemachine(ctrl, event, adapter);
-//				DBG("%d,%d,%d", ctrl->socket_id, ctrl->state, ctrl->wait_target_state);
+				DBG("%d,%d,%d", ctrl->socket_id, ctrl->state, ctrl->wait_target_state);
 			}
 			else if (ctrl->task_handle)
 			{
@@ -781,14 +782,15 @@ static int32_t network_default_socket_callback(void *data, void *param)
 	{
 		for (i = 0; i < adapter->opt->max_socket_num; i++)
 		{
+			temp_event = *event;
 			if (adapter->ctrl_busy[i])
 			{
 				ctrl = &adapter->ctrl_table[i];
 				if (ctrl->auto_mode)
 				{
-//					DBG("%d,%d,%d", ctrl->socket_id, ctrl->state, ctrl->wait_target_state);
-					network_default_statemachine(ctrl, event, adapter);
-//					DBG("%d,%d,%d", ctrl->socket_id, ctrl->state, ctrl->wait_target_state);
+					DBG("%x,%d,%d,%d", event->ID, ctrl->socket_id, ctrl->state, ctrl->wait_target_state);
+					network_default_statemachine(ctrl, &temp_event, adapter);
+					DBG("%x,%d,%d,%d", event->ID, ctrl->socket_id, ctrl->state, ctrl->wait_target_state);
 				}
 				else if (ctrl->task_handle)
 				{
@@ -796,7 +798,7 @@ static int32_t network_default_socket_callback(void *data, void *param)
 				}
 				else if (ctrl->user_callback)
 				{
-					ctrl->user_callback(event, ctrl->user_data);
+					ctrl->user_callback(&temp_event, ctrl->user_data);
 				}
 			}
 		}

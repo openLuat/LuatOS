@@ -435,7 +435,7 @@ static int l_i2c_read_reg(lua_State *L)
     if (lua_isuserdata(L, 1))
     {
         luat_ei2c *ei2c = toei2c(L);
-        result = i2c_soft_send(ei2c, addr, &temp, 0,stop);
+        result = i2c_soft_send(ei2c, addr, &temp, 1,stop);
     }
     else
     {

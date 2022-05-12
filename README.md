@@ -4,12 +4,12 @@
 [![fork](https://gitee.com/openLuat/LuatOS/badge/fork.svg?theme=gvp)](https://gitee.com/openLuat/LuatOS/members)
 [![license](https://img.shields.io/github/license/openLuat/LuatOS)](/LICENSE)
 
-[![air101](https://github.com/openLuat/LuatOS/actions/workflows/air101.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/air101/master)
-[![air105](https://github.com/openLuat/LuatOS/actions/workflows/air105.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/air105/master)
-[![esp32c3](https://github.com/openLuat/LuatOS/actions/workflows/esp32c3.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/esp32c3/master)
-[![air640w](https://github.com/openLuat/LuatOS/actions/workflows/air640w.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/air640w/master)
-[![win32](https://github.com/openLuat/LuatOS/actions/workflows/win32.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/win32/master)
-[![linux](https://github.com/openLuat/LuatOS/actions/workflows/linux.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/linux/master)
+[![air101](https://hub.fastgit.xyz/openLuat/LuatOS/actions/workflows/air101.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/air101/master)
+[![air105](https://hub.fastgit.xyz/openLuat/LuatOS/actions/workflows/air105.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/air105/master)
+[![esp32c3](https://hub.fastgit.xyz/openLuat/LuatOS/actions/workflows/esp32c3.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/esp32c3/master)
+[![air640w](https://hub.fastgit.xyz/openLuat/LuatOS/actions/workflows/air640w.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/air640w/master)
+[![win32](https://hub.fastgit.xyz/openLuat/LuatOS/actions/workflows/win32.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/win32/master)
+[![linux](https://hub.fastgit.xyz/openLuat/LuatOS/actions/workflows/linux.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/linux/master)
 
 LuatOS : Powerful embedded Lua Engine for IoT devices, with many components and low memory requirements (16K RAM, 128K Flash)
 

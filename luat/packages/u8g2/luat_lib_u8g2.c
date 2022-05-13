@@ -596,8 +596,8 @@ static int l_u8g2_DrawXBM(lua_State *L){
     size_t len = 0;
     const char* data = luaL_checklstring(L, 5, &len);
     if (h < 1) return 0; // 行数必须大于0
-    if (w < h) return 0; // 起码要填满一行
-    //if (len % h != 0) return 0; // 必须是行数的整数倍
+    if (len*8/h < w) return 0; // 起码要填满一行
+    if (len != h*w/8)return 0;
     u8g2_DrawXBM(u8g2, x, y, w, h, (const uint8_t*)data);
     lua_pushboolean(L, 1);
     return 1;

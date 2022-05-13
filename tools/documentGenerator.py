@@ -48,7 +48,7 @@ for module in modules:
             body = body[0:-1]+")"
         snippet[api_str] = {
             'body': body,
-            'description': api["summary"],
+            'description': make_doc_file.get_description(api),
             'prefix': api_str,
         }
 s = io.open(snippet_path,"w")

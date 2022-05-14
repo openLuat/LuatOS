@@ -55,3 +55,18 @@ def make(path,modules,index_text):
         mdoc.close()
 
     doc.close()
+
+
+def get_description(api):
+    s = api["api"]+" - "+api["summary"]+"\n"
+    if len(api["args"]) > 0:
+        s = s + "传入值：\n"
+        for arg in api["args"]:
+            s  = s + arg["type"] + " " + arg["summary"]+"\n"
+    if len(api["return"]) > 0:
+        s = s + "返回值：\n"
+        for arg in api["return"]:
+            s  = s + arg["type"] + " " + arg["summary"]+"\n"
+    if len(api["usage"]) > 0:
+        s = s + "例子：\n" + api["usage"]
+    return s

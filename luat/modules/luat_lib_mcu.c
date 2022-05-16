@@ -229,11 +229,11 @@ int LUAT_WEAK luat_mcu_fota_done(uint8_t is_ok)
 初始化fota流程，目前只有105能使用
 @api mcu.fotaInit(storge_location, param1)
 @int or string fota数据存储的起始位置，如果是int，则是由芯片平台具体判断，如果是string，则存储在文件系统中，如果为nil，则由底层决定存储位置
-@userdata param1，如果数据存储在spiflash时,spi device
+@userdata param1，如果数据存储在spiflash时,为spi_device
 @return 成功返回true, 失败返回false
 @usage
 -- 初始化fota流程
-local result = mcu.fotaInit(0,spi.SPI_1,pin.PA7)	--由于105的flash从0x01000000开始，所以0就是外部spiflash
+local result = mcu.fotaInit(0,spi_device)	--由于105的flash从0x01000000开始，所以0就是外部spiflash
 */
 static int l_mcu_fota_init(lua_State* L)
 {
@@ -241,20 +241,20 @@ static int l_mcu_fota_init(lua_State* L)
     size_t len = 0;
     const char *buf = NULL;
     luat_spi_device_t* spi_device = NULL;
-    if (lua_isuserdata(L, 2))
-    {
-    	spi_device = (luat_spi_device_t*)lua_touserdata(L, 2);
-    }
-
-    if (lua_isstring(L, 1))
+    if (lua_type(L, 1) == LUA_TSTRING)
     {
     	buf = lua_tolstring(L, 1, &len);//取出字符串数据
     }
     else
     {
     	address = luaL_optinteger(L, 1, 0xffffffff);
-
     }
+    if (lua_isuserdata(L, 2))
+    {
+    	spi_device = (luat_spi_device_t*)lua_touserdata(L, 2);
+    }
+
+
 	lua_pushboolean(L, !luat_mcu_fota_init(address, spi_device, buf, len));
 	return 1;
 }
@@ -263,10 +263,12 @@ static int l_mcu_fota_init(lua_State* L)
 写入fota数据，目前只有105能使用
 @api mcu.fotaRun(buff)
 @zbuff or string fota数据，尽量用zbuff，如果传入的是zbuff，写入成功后，自动清空zbuff内的数据
-@return 成功返回true, 失败返回false
+@return
+@boolean 有异常返回true
+@boolean 接收到最后一块返回true
 @usage
--- 初始化fota流程
-local result = mcu.fotaRun(buf)
+-- 写入fota流程
+local isError, isDone = mcu.fotaRun(buf)
 */
 static int l_mcu_fota_write(lua_State* L)
 {
@@ -277,32 +279,59 @@ static int l_mcu_fota_write(lua_State* L)
     {
         luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 1, LUAT_ZBUFF_TYPE));
         result = luat_mcu_fota_write(buff->addr, buff->used);
-        if (!result)
-        {
-        	buff->used = 0;
-        }
     }
     else
     {
         buf = lua_tolstring(L, 1, &len);//取出字符串数据
         result = luat_mcu_fota_write(buf, len);
     }
-	lua_pushboolean(L, !result);
-	return 1;
+    if (result > 0)
+    {
+    	lua_pushboolean(L, 0);
+    	lua_pushboolean(L, 0);
+    }
+    else if (result == 0)
+    {
+    	lua_pushboolean(L, 0);
+    	lua_pushboolean(L, 1);
+    }
+    else
+    {
+    	lua_pushboolean(L, 1);
+    	lua_pushboolean(L, 1);
+    }
+	return 2;
 }
 
 /**
 等待底层fota流程完成，目前只有105能使用
 @api mcu.fotaWait()
 @boolean 是否完整走完流程，true 表示正确走完流程了
-@return 成功返回true, 失败返回false
+@return
+@boolean 有异常返回true
+@boolean 写入到最后一块返回true
 @usage
-local result = mcu.fotaWait()
+local isError, isDone = mcu.fotaWait()
 */
 static int l_mcu_fota_wait(lua_State* L)
 {
-	lua_pushboolean(L, !luat_mcu_fota_check());
-	return 1;
+	int result = luat_mcu_fota_check();
+    if (result > 0)
+    {
+    	lua_pushboolean(L, 0);
+    	lua_pushboolean(L, 0);
+    }
+    else if (result == 0)
+    {
+    	lua_pushboolean(L, 0);
+    	lua_pushboolean(L, 1);
+    }
+    else
+    {
+    	lua_pushboolean(L, 1);
+    	lua_pushboolean(L, 1);
+    }
+	return 2;
 }
 
 /**

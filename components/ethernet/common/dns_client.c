@@ -522,6 +522,7 @@ NET_DNS_TX:
 				if (process->dns_cnt >= MAX_DNS_SERVER)
 				{
 					process->ip_nums = 0;
+					process->is_done = 1;
 					llist_traversal(&client->require_head, dns_set_result, process);
 					goto NET_DNS_TX;
 				}

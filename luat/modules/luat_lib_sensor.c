@@ -471,6 +471,49 @@ static int l_sensor_ws2812b(lua_State *L)
   return 0;
 }
 
+#ifdef LUAT_USE_PWM
+
+#include "luat_pwm.h"
+luat_pwm_conf_t ws2812b_conf = {
+  .pnum = 1,
+  .period = 800*1000,
+  .precision = 100
+};
+
+static int l_sensor_ws2812b_pwm(lua_State *L)
+{
+  int j;
+  size_t len,i;
+  const char *send_buff = NULL;
+
+  ws2812b_conf.channel = luaL_checkinteger(L, 1);
+  if (lua_isuserdata(L, 2)){
+    luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+    send_buff = (const char*)buff->addr;
+    len = buff->len;
+  }else if(lua_isstring(L, 2)){
+    send_buff = lua_tolstring(L, 2, &len);
+  }else return 0;
+
+  ws2812b_conf.pulse = 0;
+  luat_pwm_setup(&ws2812b_conf);
+
+  for(i=0;i<len;i++){
+    for(j=7;j>=0;j--){
+      if(send_buff[i]>>j&0x01){
+        ws2812b_conf.pulse = 200/3;
+        luat_pwm_setup(&ws2812b_conf);
+      }else{
+        ws2812b_conf.pulse = 100/3;
+        luat_pwm_setup(&ws2812b_conf);
+      }
+    }
+  }
+
+  return 0;
+}
+#endif
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_sensor[] =
     {
@@ -481,6 +524,9 @@ static const rotable_Reg_t reg_sensor[] =
         {"ds18b20",     ROREG_FUNC(l_sensor_ds18b20)},
         {"hx711",       ROREG_FUNC(l_sensor_hx711)},
         {"ws2812b",     ROREG_FUNC(l_sensor_ws2812b)},
+#ifdef LUAT_USE_PWM
+        {"ws2812b_pwm", ROREG_FUNC(l_sensor_ws2812b_pwm)},
+#endif
         {NULL,          ROREG_INT(0) }
 };
 

@@ -867,6 +867,8 @@ static int32_t w5500_dns_check_result(void *data, void *param)
 	luat_dns_require_t *require = (luat_dns_require_t *)data;
 	if (require->result != 0)
 	{
+		free(require->uri.Data);
+		require->uri.Data = NULL;
 		if (require->result > 0)
 		{
 			luat_dns_ip_result *ip_result = zalloc(sizeof(luat_dns_ip_result) * require->result);
@@ -881,7 +883,7 @@ static int32_t w5500_dns_check_result(void *data, void *param)
 		{
 			w5500_callback_to_nw_task(param, EV_NW_DNS_RESULT, 0, 0, require->param);
 		}
-		free(require->uri.Data);
+
 		return LIST_DEL;
 	}
 	else

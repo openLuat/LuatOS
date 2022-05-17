@@ -1198,7 +1198,7 @@ static int l_lcd_drawxbm(lua_State *L){
     lua_pushboolean(L, 1);
     return 1;
 }
-#define LUAT_USE_TJPGD
+
 #ifdef LUAT_USE_TJPGD
 #include "tjpgd.h"
 #include "tjpgdcnf.h"

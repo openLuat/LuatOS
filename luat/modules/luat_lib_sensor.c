@@ -402,7 +402,7 @@ static int l_sensor_hx711(lua_State *L)
 
 
 /*
-设置ws2812b输出
+设置ws2812b输出(gpio驱动方式)
 @api    sensor.ws2812b(pin,data,T0H,T0L,T1H,T1L)
 @int    ws2812b的gpio端口号
 @string/zbuff    待发送的数据（如果为zbuff数据，则会无视指针位置始终从0偏移开始）
@@ -479,7 +479,16 @@ luat_pwm_conf_t ws2812b_pwm_conf = {
   .period = 800*1000,
   .precision = 100
 };
-
+/*
+设置ws2812b输出(pwm驱动方式)
+@api    sensor.ws2812b_pwm(pin,data)
+@int    pwm端口号
+@string/zbuff    待发送的数据（如果为zbuff数据，则会无视指针位置始终从0偏移开始）
+@usage
+local buff = zbuff.create({8,8,24})
+buff:setFrameBuffer(8,8,24,0x0000ff)
+sensor.ws2812b_pwm(7,buff)
+*/
 static int l_sensor_ws2812b_pwm(lua_State *L)
 {
   int j;
@@ -526,7 +535,16 @@ luat_spi_t ws2812b_spi_conf = {
   .master = 1,
   .mode = 1,
 };
-
+/*
+设置ws2812b输出(spi驱动方式)
+@api    sensor.ws2812b_spi(pin,data)
+@int    spi端口号
+@string/zbuff    待发送的数据（如果为zbuff数据，则会无视指针位置始终从0偏移开始）
+@usage
+local buff = zbuff.create({8,8,24})
+buff:setFrameBuffer(8,8,24,0x0000ff)
+sensor.ws2812b_spi(7,buff)
+*/
 static int l_sensor_ws2812b_spi(lua_State *L)
 {
   int j,m;

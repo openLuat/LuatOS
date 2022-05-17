@@ -18,7 +18,7 @@
 #define dnsNAME_IS_OFFSET               ( ( uint8_t ) 0xc0 )
 #define MAX_DOMAIN_LEN 255
 #define MAX_CHARACTER_NUM_PER_LABEL  63
-#define DNS_TO_BASE (1900)
+#define DNS_TO_BASE (900)
 #define DNS_TRY_MAX	(3)
 
 
@@ -522,6 +522,7 @@ NET_DNS_TX:
 				if (process->dns_cnt >= MAX_DNS_SERVER)
 				{
 					process->ip_nums = 0;
+					process->is_done = 1;
 					llist_traversal(&client->require_head, dns_set_result, process);
 					goto NET_DNS_TX;
 				}
@@ -537,7 +538,7 @@ NET_DNS_TX:
 				goto NET_DNS_TX;
 			}
 		}
-		DBG("use dns sever %d", process->dns_cnt);
+		DBG("%.*s use dns server%d, try %d", process->uri_buf.Pos, process->uri_buf.Data, process->dns_cnt, process->retry_cnt);
 		process->is_done = 0;
 		OS_InitBuffer(out, 512);
 		dns_make(client, process, out);

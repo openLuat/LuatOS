@@ -31,6 +31,31 @@ typedef struct luat_lib_gpio_cb
 static luat_lib_gpio_cb_t irq_cbs[GPIO_IRQ_COUNT];
 static uint8_t default_gpio_pull = Luat_GPIO_DEFAULT;
 
+
+// 记录GPIO电平,仅OUTPUT时可用
+#define PIN_MAX (128)
+static uint8_t gpio_out_levels[PIN_MAX / 8] = {0};
+
+static uint8_t gpio_bit_get(int pin) {
+    if (pin < 0 || pin >= PIN_MAX)
+        return 0;
+    return (gpio_out_levels[pin/8] >> (pin%8)) & 0x01;
+}
+
+static uint8_t gpio_bit_set(int pin, uint8_t value) {
+    if (pin < 0 || pin >= PIN_MAX)
+        return 0;
+    uint8_t val = (gpio_out_levels[pin/8] >> (pin%8)) & 0x01;
+    if (val == value)
+        return 0; // 不变呀
+    if (value == 0) {
+        gpio_out_levels[pin/8] -= (1 << (pin%8));
+    }
+    else {
+        gpio_out_levels[pin/8] += (1 << (pin%8));
+    }
+}
+
 int l_gpio_handler(lua_State *L, void* ptr) {
     // 给 sys.publish方法发送数据
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
@@ -141,10 +166,18 @@ static int l_gpio_setup(lua_State *L) {
 gpio.set(17, 0)
 */
 static int l_gpio_set(lua_State *L) {
-    if (lua_isinteger(L, lua_upvalueindex(1)))
-        luat_gpio_set(lua_tointeger(L, lua_upvalueindex(1)), luaL_checkinteger(L, 1));
-    else
-        luat_gpio_set(luaL_checkinteger(L, 1), luaL_checkinteger(L, 2));
+    int pin = 0;
+    int value = 0;
+    if (lua_isinteger(L, lua_upvalueindex(1))) {
+        pin = lua_tointeger(L, lua_upvalueindex(1));
+        value = luaL_checkinteger(L, 1);
+    }
+    else {
+        pin = luaL_checkinteger(L, 1);
+        value = luaL_checkinteger(L, 2);
+    }
+    luat_gpio_set(pin, value);
+    gpio_bit_set(pin, (uint8_t)value);
     return 0;
 }
 
@@ -210,6 +243,35 @@ static int l_gpio_set_default_pull(lua_State *L) {
     return 1;
 }
 
+/*
+变换GPIO脚输出电平,仅输出模式可用
+@api gpio.toggle(pin)
+@int 管脚的GPIO0AB4276E.png
+@return nil 无返回值
+@usage
+-- 本API于 2022.05.17 添加
+-- 假设GPIO16上有LED, 每500ms切换一次开关
+gpio.setup(16, 0)
+sys.timerLoopStart(function()
+    gpio.toggle(16)
+end, 500)
+*/
+static int l_gpio_toggle(lua_State *L) {
+    int pin = 0;
+    if (lua_isinteger(L, lua_upvalueindex(1)))
+        pin = lua_tointeger(L, lua_upvalueindex(1));
+    else
+        pin = luaL_checkinteger(L, 1);
+    if (pin < 0 || pin >= PIN_MAX) {
+        LLOGD("pin id out of range (0-127)");
+        return 0;
+    }
+    uint8_t value = gpio_bit_get(pin);
+    luat_gpio_set(pin, value == 0 ? Luat_GPIO_HIGH : Luat_GPIO_LOW);
+    gpio_bit_set(pin, value == 0 ? 1 : 0);
+    return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_gpio[] =
 {
@@ -217,6 +279,7 @@ static const rotable_Reg_t reg_gpio[] =
     { "set" ,           ROREG_FUNC(l_gpio_set)},
     { "get" ,           ROREG_FUNC(l_gpio_get)},
     { "close" ,         ROREG_FUNC(l_gpio_close)},
+    { "toggle",         ROREG_FUNC(l_gpio_toggle)},
     { "setDefaultPull", ROREG_FUNC(l_gpio_set_default_pull)},
 
     { "LOW",            ROREG_INT(Luat_GPIO_LOW)},

@@ -9,6 +9,7 @@
 -- 用法实例
 local tm1637 = require "tm1637"
 sys.taskInit(function()
+    count = 0
     tm1637.init(1,4)
     tm1637.singleShow(0,2)
     tm1637.singleShow(1,1,true)
@@ -16,6 +17,12 @@ sys.taskInit(function()
     tm1637.singleShow(3,6)
     while 1 do
         sys.wait(1000)
+        if count > 7 then
+            count = 0
+        end
+        log.info("调整亮度", count)
+        tm1637.setLight(count)
+        count = count + 1
     end
 end)
 ]]
@@ -123,6 +130,19 @@ function tm1637.singleShow(com,date,comma)
         end
         i2c_stop()
     end
+end
+
+--[[
+TM1637设置亮度
+@api tm1637.setLight(light)
+@number light 亮度,0-7
+@usage
+tm1637.setLight(3)
+]]
+function tm1637.setLight(light)
+    i2c_strat()
+    i2c_send(bit.bor(light,0x88))
+    i2c_stop()
 end
 
 --[[

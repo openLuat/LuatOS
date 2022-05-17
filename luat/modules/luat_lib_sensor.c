@@ -402,7 +402,7 @@ static int l_sensor_hx711(lua_State *L)
 
 
 /*
-设置ws2812b输出
+设置ws2812b输出(gpio驱动方式)
 @api    sensor.ws2812b(pin,data,T0H,T0L,T1H,T1L)
 @int    ws2812b的gpio端口号
 @string/zbuff    待发送的数据（如果为zbuff数据，则会无视指针位置始终从0偏移开始）
@@ -474,19 +474,28 @@ static int l_sensor_ws2812b(lua_State *L)
 #ifdef LUAT_USE_PWM
 
 #include "luat_pwm.h"
-luat_pwm_conf_t ws2812b_conf = {
+luat_pwm_conf_t ws2812b_pwm_conf = {
   .pnum = 1,
   .period = 800*1000,
   .precision = 100
 };
-
+/*
+设置ws2812b输出(pwm驱动方式)
+@api    sensor.ws2812b_pwm(pin,data)
+@int    pwm端口号
+@string/zbuff    待发送的数据（如果为zbuff数据，则会无视指针位置始终从0偏移开始）
+@usage
+local buff = zbuff.create({8,8,24})
+buff:setFrameBuffer(8,8,24,0x0000ff)
+sensor.ws2812b_pwm(7,buff)
+*/
 static int l_sensor_ws2812b_pwm(lua_State *L)
 {
   int j;
   size_t len,i;
   const char *send_buff = NULL;
 
-  ws2812b_conf.channel = luaL_checkinteger(L, 1);
+  ws2812b_pwm_conf.channel = luaL_checkinteger(L, 1);
   if (lua_isuserdata(L, 2)){
     luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
     send_buff = (const char*)buff->addr;
@@ -495,21 +504,84 @@ static int l_sensor_ws2812b_pwm(lua_State *L)
     send_buff = lua_tolstring(L, 2, &len);
   }else return 0;
 
-  ws2812b_conf.pulse = 0;
-  luat_pwm_setup(&ws2812b_conf);
+  ws2812b_pwm_conf.pulse = 0;
+  luat_pwm_setup(&ws2812b_pwm_conf);
 
   for(i=0;i<len;i++){
     for(j=7;j>=0;j--){
       if(send_buff[i]>>j&0x01){
-        ws2812b_conf.pulse = 200/3;
-        luat_pwm_setup(&ws2812b_conf);
+        ws2812b_pwm_conf.pulse = 200/3;
+        luat_pwm_setup(&ws2812b_pwm_conf);
       }else{
-        ws2812b_conf.pulse = 100/3;
-        luat_pwm_setup(&ws2812b_conf);
+        ws2812b_pwm_conf.pulse = 100/3;
+        luat_pwm_setup(&ws2812b_pwm_conf);
       }
     }
   }
 
+  return 0;
+}
+#endif
+
+#ifdef LUAT_USE_SPI
+#include "luat_spi.h"
+luat_spi_t ws2812b_spi_conf = {
+  .cs = 255,
+  .CPHA = 0,
+  .CPOL = 0,
+  .dataw = 8,
+  .bandrate = 5*1000*1000,
+  .bit_dict = 1,
+  .master = 1,
+  .mode = 1,
+};
+/*
+设置ws2812b输出(spi驱动方式)
+@api    sensor.ws2812b_spi(pin,data)
+@int    spi端口号
+@string/zbuff    待发送的数据（如果为zbuff数据，则会无视指针位置始终从0偏移开始）
+@usage
+local buff = zbuff.create({8,8,24})
+buff:setFrameBuffer(8,8,24,0x0000ff)
+sensor.ws2812b_spi(7,buff)
+*/
+static int l_sensor_ws2812b_spi(lua_State *L)
+{
+  int j,m;
+  size_t len,i;
+  const char *send_buff = NULL;
+
+  ws2812b_spi_conf.id = luaL_checkinteger(L, 1);
+  if (lua_isuserdata(L, 2)){
+    luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+    send_buff = (const char*)buff->addr;
+    len = buff->len;
+  }else if(lua_isstring(L, 2)){
+    send_buff = lua_tolstring(L, 2, &len);
+  }else return 0;
+
+  const char res_buff = 0x00;
+  const char low_buff = 0xc0;
+  const char high_buff = 0xf8;
+  luat_spi_setup(&ws2812b_spi_conf);
+
+  luat_spi_send(ws2812b_spi_conf.id, &res_buff, 1);
+
+  char *gbr_buff = luat_heap_malloc(len*8);
+  m=0;
+  for(i=0;i<len;i++){
+    for(j=7;j>=0;j--){
+      if(send_buff[i]>>j&0x01){
+        gbr_buff[m]=high_buff;
+      }else{
+        gbr_buff[m]=low_buff;
+      }
+      m++;
+    }
+  }
+  luat_spi_send(ws2812b_spi_conf.id, gbr_buff, len*8);
+  luat_spi_close(ws2812b_spi_conf.id);
+  luat_heap_free(gbr_buff);
   return 0;
 }
 #endif
@@ -526,6 +598,9 @@ static const rotable_Reg_t reg_sensor[] =
         {"ws2812b",     ROREG_FUNC(l_sensor_ws2812b)},
 #ifdef LUAT_USE_PWM
         {"ws2812b_pwm", ROREG_FUNC(l_sensor_ws2812b_pwm)},
+#endif
+#ifdef LUAT_USE_SPI
+        {"ws2812b_spi",     ROREG_FUNC(l_sensor_ws2812b_spi)},
 #endif
         {NULL,          ROREG_INT(0) }
 };

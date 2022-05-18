@@ -44,10 +44,10 @@ static uint8_t gpio_bit_get(int pin) {
 
 static void gpio_bit_set(int pin, uint8_t value) {
     if (pin < 0 || pin >= PIN_MAX)
-        return 0;
+        return;
     uint8_t val = (gpio_out_levels[pin/8] >> (pin%8)) & 0x01;
     if (val == value)
-        return 0; // 不变呀
+        return; // 不变呀
     if (value == 0) {
         gpio_out_levels[pin/8] -= (1 << (pin%8));
     }

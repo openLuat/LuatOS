@@ -42,7 +42,7 @@ static uint8_t gpio_bit_get(int pin) {
     return (gpio_out_levels[pin/8] >> (pin%8)) & 0x01;
 }
 
-static uint8_t gpio_bit_set(int pin, uint8_t value) {
+static void gpio_bit_set(int pin, uint8_t value) {
     if (pin < 0 || pin >= PIN_MAX)
         return 0;
     uint8_t val = (gpio_out_levels[pin/8] >> (pin%8)) & 0x01;

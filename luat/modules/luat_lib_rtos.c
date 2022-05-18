@@ -190,7 +190,7 @@ static int l_rtos_version(lua_State *L) {
 /*
 进入待机模式, 仅部分设备可用, 本API已废弃, 推荐使用pm库
 @api    rtos.standy(timeout)
-@int    休眠时长,单位毫秒     
+@int    休眠时长,单位毫秒
 @return nil  无返回值
 @usage
 -- 进入待机模式
@@ -205,7 +205,7 @@ static int l_rtos_standy(lua_State *L) {
 /*
 获取内存信息
 @api    rtos.meminfo(type)
-@type   "sys"系统内存, "lua"虚拟机内存, 默认为lua虚拟机内存     
+@type   "sys"系统内存, "lua"虚拟机内存, 默认为lua虚拟机内存
 @return int 总内存大小,单位字节
 @return int 当前使用的内存大小,单位字节
 @return int 最大使用的内存大小,单位字节
@@ -243,7 +243,7 @@ static int l_rtos_meminfo(lua_State *L) {
 log.info("firmware", rtos.firmware())
 */
 static int l_rtos_firmware(lua_State *L) {
-    lua_pushfstring(L, "LuatOS_%s_%s", luat_version_str(), luat_os_bsp());
+    lua_pushfstring(L, "LuatOS-SoC_%s_%s", luat_version_str(), luat_os_bsp());
     return 1;
 }
 

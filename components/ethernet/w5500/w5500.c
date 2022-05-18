@@ -867,6 +867,8 @@ static int32_t w5500_dns_check_result(void *data, void *param)
 	luat_dns_require_t *require = (luat_dns_require_t *)data;
 	if (require->result != 0)
 	{
+		free(require->uri.Data);
+		require->uri.Data = NULL;
 		if (require->result > 0)
 		{
 			luat_dns_ip_result *ip_result = zalloc(sizeof(luat_dns_ip_result) * require->result);
@@ -881,7 +883,7 @@ static int32_t w5500_dns_check_result(void *data, void *param)
 		{
 			w5500_callback_to_nw_task(param, EV_NW_DNS_RESULT, 0, 0, require->param);
 		}
-		free(require->uri.Data);
+
 		return LIST_DEL;
 	}
 	else
@@ -962,9 +964,11 @@ static void w5500_sys_socket_callback(w5500_ctrl_t *w5500, uint8_t socket_id, ui
 		}
 		break;
 	case Sn_IR_RECV:
-		if (socket_id && (w5500->socket[socket_id].rx_wait_size >= 32768))
+		if (socket_id && (w5500->socket[socket_id].rx_wait_size >= SOCK_BUF_LEN))
 		{
+			DBG("socket %d, wait %dbyte", socket_id, w5500->socket[socket_id].rx_wait_size);
 			w5500_callback_to_nw_task(w5500, EV_NW_SOCKET_RX_FULL, socket_id, 0, 0);
+			w5500->socket[socket_id].rx_waiting = 1;
 			break;
 		}
 		OS_InitBuffer(&rx_buf, 2048);
@@ -1504,6 +1508,7 @@ static int w5500_create_soceket(uint8_t is_tcp, uint64_t *tag, void *param, uint
 		prv_w5500_ctrl->socket[socket_id].tx_wait_size = 0;
 		prv_w5500_ctrl->socket[socket_id].param = param;
 		prv_w5500_ctrl->socket[socket_id].is_tcp = is_tcp;
+		prv_w5500_ctrl->socket[socket_id].rx_waiting = 0;
 		llist_traversal(&prv_w5500_ctrl->socket[socket_id].tx_head, w5500_del_data_cache, NULL);
 		llist_traversal(&prv_w5500_ctrl->socket[socket_id].rx_head, w5500_del_data_cache, NULL);
 	}
@@ -1624,6 +1629,12 @@ static int w5500_socket_receive(int socket_id, uint64_t tag,  uint8_t *buf, uint
 		read_len = prv_w5500_ctrl->socket[socket_id].rx_wait_size;
 	}
 	W5500_UNLOCK;
+	if ((prv_w5500_ctrl->socket[socket_id].rx_wait_size < SOCK_BUF_LEN) && prv_w5500_ctrl->socket[socket_id].rx_waiting)
+	{
+		prv_w5500_ctrl->socket[socket_id].rx_waiting = 0;
+		DBG("read waiting data");
+		w5500_sys_socket_callback(prv_w5500_ctrl, socket_id, Sn_IR_RECV);
+	}
 	return read_len;
 }
 static int w5500_socket_send(int socket_id, uint64_t tag, const uint8_t *buf, uint32_t len, int flags, luat_ip_addr_t *remote_ip, uint16_t remote_port, void *user_data)

@@ -1,41 +1,68 @@
 #include "luat_base.h"
 
-#include "luat_fonts.h"
+#include "u8g2.h"
+#include "u8g2_luat_fonts.h"
 
-static int l_fonts_get_data(lua_State *L) {
-    int font_id = luaL_checkinteger(L, 1);
-    uint32_t chr = luaL_checkinteger(L, 2);
-    uint8_t buff[512] = {0};
-    luat_font_data_t data = {
-        .buff = buff,
-        .len = 512,
-        .w = 0
-    };
-    int ret = luat_font_get(font_id, chr, &data);
-    if (ret == 0) {
-        lua_pushlstring(L, buff, data.len);
-        lua_pushinteger(L, data.w);
-        return 2;
+typedef struct u8g2_font
+{
+    const char* name;
+    const uint8_t* font;
+}u8g2_font_t;
+
+
+static u8g2_font_t u8g2_fonts[] = {
+    {.name="unifont_t_symbols", .font=u8g2_font_unifont_t_symbols},
+    {.name="open_iconic_weather_6x_t", .font=u8g2_font_open_iconic_weather_6x_t},
+    {.name="opposansm8", .font=u8g2_font_opposansm8},
+    {.name="opposansm10", .font=u8g2_font_opposansm10},
+    {.name="opposansm12", .font=u8g2_font_opposansm12},
+    {.name="opposansm16", .font=u8g2_font_opposansm16},
+    {.name="opposansm20", .font=u8g2_font_opposansm20},
+    {.name="opposansm24", .font=u8g2_font_opposansm24},
+    {.name="opposansm32", .font=u8g2_font_opposansm32},
+#ifdef USE_U8G2_OPPOSANSM12_CHINESE
+    {.name="opposansm12_chinese", .font=u8g2_font_opposansm12_chinese},
+#endif
+#ifdef USE_U8G2_OPPOSANSM16_CHINESE
+    {.name="opposansm16_chinese", .font=u8g2_font_opposansm16_chinese},
+#endif
+#ifdef USE_U8G2_OPPOSANSM20_CHINESE
+    {.name="opposansm20_chinese", .font=u8g2_font_opposansm20_chinese},
+#endif
+#ifdef USE_U8G2_OPPOSANSM24_CHINESE
+    {.name="opposansm24_chinese", .font=u8g2_font_opposansm24_chinese},
+#endif
+#ifdef USE_U8G2_OPPOSANSM32_CHINESE
+    {.name="opposansm32_chinese", .font=u8g2_font_opposansm32_chinese},
+#endif
+    {.name="", .font=NULL},
+};
+
+
+static int l_fonts_u8g2_get(lua_State *L) {
+    const char* name = luaL_checkstring(L,  1);
+    u8g2_font_t *font = u8g2_fonts;
+    while (font->font != NULL) {
+        if (!strcmp(name, font->name)) {
+            lua_pushlightuserdata(L, font->font);
+            return 1;
+        }
+        font ++;
     }
     return 0;
 }
 
-static int l_fonts_load_font(lua_State *L) {
-    // TODO 从文件加载, 还得做个加载器
+static int l_fonts_u8g2_load(lua_State *L) {
+    // TODO 从文件加载
     return 0;
 }
-
-// static int l_fonts_close_font(lua_State *L) {
-    
-// }
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_fonts[] =
 {
-    { "get_data" ,       ROREG_FUNC(l_fonts_get_data)},
-    { "load_font" ,      ROREG_FUNC(l_fonts_load_font)},
-    //{ "close_font" ,   ROREG_FUNC(l_fonts_close_font)},
-	{ NULL,              {}}
+    { "u8g2_get" ,       ROREG_FUNC(l_fonts_u8g2_get)},
+    //{ "u8g2_load" ,      ROREG_FUNC(l_fonts_u8g2_load)},
+	{ NULL,              ROREG_INT(0)},
 };
 
 LUAMOD_API int luaopen_fonts( lua_State *L ) {

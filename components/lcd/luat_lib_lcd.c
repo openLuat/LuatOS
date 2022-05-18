@@ -1180,8 +1180,10 @@ static int l_lcd_drawxbm(lua_State *L){
     int h = luaL_checkinteger(L, 4);
     size_t len = 0;
     const char* data = luaL_checklstring(L, 5, &len);
+
     if (h < 1) return 0; // 行数必须大于0
-    if (w < h) return 0; // 起码要填满一行
+    if (len*8/h < w) return 0; // 起码要填满一行
+    if (len != h*w/8)return 0;
     uint8_t blen;
     blen = w;
     blen += 7;
@@ -1196,7 +1198,7 @@ static int l_lcd_drawxbm(lua_State *L){
     lua_pushboolean(L, 1);
     return 1;
 }
-#define LUAT_USE_TJPGD
+
 #ifdef LUAT_USE_TJPGD
 #include "tjpgd.h"
 #include "tjpgdcnf.h"

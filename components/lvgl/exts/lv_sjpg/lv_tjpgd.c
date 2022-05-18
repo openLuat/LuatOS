@@ -20,7 +20,7 @@
 / Jul 01, 2020 R0.01d Fixed wrong integer type usage.
 /----------------------------------------------------------------------------*/
 
-#include "tjpgd.h"
+#include "lv_tjpgd.h"
 
 
 /*-----------------------------------------------*/
@@ -746,7 +746,7 @@ static JRESULT restart (
 #define	LDB_WORD(ptr)		(uint16_t)(((uint16_t)*((uint8_t*)(ptr))<<8)|(uint16_t)*(uint8_t*)((ptr)+1))
 
 
-JRESULT jd_prepare (
+JRESULT lv_jd_prepare (
 	JDEC* jd,				/* Blank decompressor object */
 	unsigned int (*infunc)(JDEC*, uint8_t*, unsigned int),	/* JPEG strem input function */
 	void* pool,				/* Working buffer for the decompression session */
@@ -922,7 +922,7 @@ JRESULT jd_prepare (
 /* Start to decompress the JPEG picture                                  */
 /*-----------------------------------------------------------------------*/
 
-JRESULT jd_decomp (
+JRESULT lv_jd_decomp (
 	JDEC* jd,								/* Initialized decompression object */
 	int (*outfunc)(JDEC*, void*, JRECT*),	/* RGB output function */
 	uint8_t scale							/* Output de-scaling factor (0 to 3) */

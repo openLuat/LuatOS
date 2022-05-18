@@ -77,8 +77,8 @@ struct JDEC {
 
 
 /* TJpgDec API functions */
-JRESULT jd_prepare (JDEC* jd, unsigned int (*infunc)(JDEC*,uint8_t*,unsigned int), void* pool, unsigned int sz_pool, void* dev);
-JRESULT jd_decomp (JDEC* jd, int (*outfunc)(JDEC*,void*,JRECT*), uint8_t scale);
+JRESULT lv_jd_prepare (JDEC* jd, unsigned int (*infunc)(JDEC*,uint8_t*,unsigned int), void* pool, unsigned int sz_pool, void* dev);
+JRESULT lv_jd_decomp (JDEC* jd, int (*outfunc)(JDEC*,void*,JRECT*), uint8_t scale);
 
 
 #ifdef __cplusplus

@@ -15,7 +15,7 @@ extern "C" {
  *********************/
 
 #include <stdio.h>
-#include "tjpgd.h"
+#include "lv_tjpgd.h"
 
 #define LV_LVGL_H_INCLUDE_SIMPLE
 

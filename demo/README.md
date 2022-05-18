@@ -79,4 +79,5 @@
 |[usb_uart](https://gitee.com/openLuat/LuatOS/tree/master/demo/usb_uart/)|USB虚拟串口|usbapp|air105||
 |[video_play](https://gitee.com/openLuat/LuatOS/tree/master/demo/video_play/)|视频播放|uart,sdio|所有|当前仅支持裸rgb565ble视频流|
 |[wdt](https://gitee.com/openLuat/LuatOS/tree/master/demo/wdt/)|硬狗|wdt|所有||
+|[ws2812](https://gitee.com/openLuat/LuatOS/tree/master/demo/ws2812/)|驱动WS2812B|pwm,spi|所有||
 

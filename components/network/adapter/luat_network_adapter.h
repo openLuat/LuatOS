@@ -165,6 +165,7 @@ typedef struct
 	uint8_t is_tcp;
 	uint8_t is_ipv6;
 	uint8_t in_use;
+	uint8_t rx_waiting;
 }socket_ctrl_t;		//推荐底层协议栈适配用的socket状态结构
 
 /*

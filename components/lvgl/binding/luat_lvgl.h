@@ -13,7 +13,7 @@
 #include "luat_log.h"
 
 #ifndef LUAT_LV_DEBUG
-#define LUAT_LV_DEBUG 1
+#define LUAT_LV_DEBUG 0
 #endif
 
 #if (LUAT_LV_DEBUG == 1)

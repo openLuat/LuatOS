@@ -54,7 +54,7 @@
 |[meminfo](https://gitee.com/openLuat/LuatOS/tree/master/demo/meminfo/)|内存状态|rtos|所有||
 |[multimedia](https://gitee.com/openLuat/LuatOS/tree/master/demo/multimedia/)|多媒体|decoder|air105|音频解码示例|
 |[netinfo](https://gitee.com/openLuat/LuatOS/tree/master/demo/netinfo/)|网络状态|nbiot|air302||
-|[network](https://gitee.com/openLuat/LuatOS/tree/master/demo/network/)|网络库|air105|network|与w5500配合,实现以太网访问|
+|[network](https://gitee.com/openLuat/LuatOS/tree/master/demo/network/)|网络库|network|air105|与w5500配合,实现以太网访问|
 |[nimble](https://gitee.com/openLuat/LuatOS/tree/master/demo/nimble/)|蓝牙库|nimble|air101/air103|仅支持简单收发,功耗高|
 |[ntp](https://gitee.com/openLuat/LuatOS/tree/master/demo/ntp/)|网络对时|socket|air640w|105的支持在路上|
 |[nvm](https://gitee.com/openLuat/LuatOS/tree/master/demo/nvm/)|数据持久化|io|所有|已废弃,推进使用fdb库|

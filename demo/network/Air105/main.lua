@@ -23,6 +23,9 @@ dtuDemo(3, "10.0.0.3", 12000)
 -- 下面演示用回调方式实现NTP校准时间功能
 require "ntp_demo"
 ntpDemo()
+
+require "ota_demo"
+otaDemo()
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()

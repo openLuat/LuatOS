@@ -67,7 +67,7 @@
 |[sfud](https://gitee.com/openLuat/LuatOS/tree/master/demo/sfud/)|通用FLASH读写|sfud,spi|所有||
 |[sht20](https://gitee.com/openLuat/LuatOS/tree/master/demo/sht20/)|温湿度传感器|i2c|所有||
 |[sht30](https://gitee.com/openLuat/LuatOS/tree/master/demo/sht30/)|温湿度传感器|i2c|所有||
-|[socket](https://gitee.com/openLuat/LuatOS/tree/master/demo/socket/)|网络套接字|socket|air640w|air1051请使用network库|
+|[socket](https://gitee.com/openLuat/LuatOS/tree/master/demo/socket/)|网络套接字|socket|air640w|air105请使用network库|
 |[spi](https://gitee.com/openLuat/LuatOS/tree/master/demo/spi/)|SPI库演示|spi|所有||
 |[statem](https://gitee.com/openLuat/LuatOS/tree/master/demo/statem/)|io状态机|statem|所有|air105推荐用ioqueue|
 |[sys_timerStart](https://gitee.com/openLuat/LuatOS/tree/master/demo/sys_timerStart/)|演示定时运行|sys|所有||
@@ -75,7 +75,7 @@
 |[uart](https://gitee.com/openLuat/LuatOS/tree/master/demo/uart/)|UART演示|uart|所有||
 |[update](https://gitee.com/openLuat/LuatOS/tree/master/demo/update/)|OTA演示|socket|air302||
 |[usb_hid](https://gitee.com/openLuat/LuatOS/tree/master/demo/usb_hid/)|USB自定义HID|usbapp|air105||
-|[usb_tf](https://gitee.com/openLuat/LuatOS/tree/master/demo/usb_tf/)|USB读写TF卡|usbapp|air105|速度300~400kbyte/s|
+|[usb_tf](https://gitee.com/openLuat/LuatOS/tree/master/demo/usb_tf/)|USB读写TF卡|usbapp|air105|速度500~700kbyte/s|
 |[usb_uart](https://gitee.com/openLuat/LuatOS/tree/master/demo/usb_uart/)|USB虚拟串口|usbapp|air105||
 |[video_play](https://gitee.com/openLuat/LuatOS/tree/master/demo/video_play/)|视频播放|uart,sdio|所有|当前仅支持裸rgb565ble视频流|
 |[wdt](https://gitee.com/openLuat/LuatOS/tree/master/demo/wdt/)|硬狗|wdt|所有||

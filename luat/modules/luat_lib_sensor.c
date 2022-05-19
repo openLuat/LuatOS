@@ -504,8 +504,8 @@ static int l_sensor_ws2812b_pwm(lua_State *L)
     send_buff = lua_tolstring(L, 2, &len);
   }else return 0;
 
-  ws2812b_pwm_conf.pulse = 0;
-  luat_pwm_setup(&ws2812b_pwm_conf);
+  //ws2812b_pwm_conf.pulse = 0;
+  //luat_pwm_setup(&ws2812b_pwm_conf);
 
   for(i=0;i<len;i++){
     for(j=7;j>=0;j--){

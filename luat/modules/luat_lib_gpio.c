@@ -322,3 +322,9 @@ void luat_gpio_mode(int pin, int mode, int pull, int initOutput) {
     if (conf.mode == Luat_GPIO_OUTPUT)
         luat_gpio_set(pin, initOutput);
 }
+
+#ifndef LUAT_COMPILER_NOWEAK
+void LUAT_WEAK luat_gpio_pulse(int pin, uint16_t delay_ns, uint8_t *level, uint16_t len) {
+
+}
+#endif

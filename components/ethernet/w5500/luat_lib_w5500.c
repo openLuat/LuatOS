@@ -97,10 +97,10 @@ static int l_w5500_config(lua_State *L){
 
 /*
 将w5500注册进通用网络接口
-@api w5500.nw_reg(network.xxx)
+@api w5500.bind(network.xxx)
 @int 通用网络通道号
 @usage
-w5500.nw_reg(network.ETH0)
+w5500.bind(network.ETH0)
 */
 static int l_w5500_network_register(lua_State *L){
 

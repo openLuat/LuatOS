@@ -49,4 +49,7 @@ int l_gpio_handler(lua_State *L, void* ptr);
 
 int luat_gpio_set_irq_cb(int pin, luat_gpio_irq_cb cb, void* args);
 
+// 在同一个GPIO输出一组脉冲, 注意, len的单位是bit, 高位在前.
+void luat_gpio_pulse(int pin, uint16_t delay_ns, uint8_t *level, uint16_t len);
+
 #endif

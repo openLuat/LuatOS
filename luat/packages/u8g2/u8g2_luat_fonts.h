@@ -27,8 +27,13 @@ extern const uint8_t u8g2_font_opposansm20[] U8G2_FONT_SECTION("u8g2_font_opposa
 extern const uint8_t u8g2_font_opposansm22[] U8G2_FONT_SECTION("u8g2_font_opposansm22");
 extern const uint8_t u8g2_font_opposansm24[] U8G2_FONT_SECTION("u8g2_font_opposansm24");
 extern const uint8_t u8g2_font_opposansm32[] U8G2_FONT_SECTION("u8g2_font_opposansm32");
+extern const uint8_t u8g2_font_opposansm8_chinese[] U8G2_FONT_SECTION("u8g2_font_opposansm8_chinese");
+extern const uint8_t u8g2_font_opposansm10_chinese[] U8G2_FONT_SECTION("u8g2_font_opposansm10_chinese");
 extern const uint8_t u8g2_font_opposansm12_chinese[] U8G2_FONT_SECTION("u8g2_font_opposansm12_chinese");
 extern const uint8_t u8g2_font_opposansm16_chinese[] U8G2_FONT_SECTION("u8g2_font_opposansm16_chinese");
+extern const uint8_t u8g2_font_opposansm18_chinese[] U8G2_FONT_SECTION("u8g2_font_opposansm18_chinese");
+extern const uint8_t u8g2_font_opposansm20_chinese[] U8G2_FONT_SECTION("u8g2_font_opposansm20_chinese");
+extern const uint8_t u8g2_font_opposansm22_chinese[] U8G2_FONT_SECTION("u8g2_font_opposansm22_chinese");
 extern const uint8_t u8g2_font_opposansm24_chinese[] U8G2_FONT_SECTION("u8g2_font_opposansm24_chinese");
 extern const uint8_t u8g2_font_opposansm32_chinese[] U8G2_FONT_SECTION("u8g2_font_opposansm32_chinese");
 

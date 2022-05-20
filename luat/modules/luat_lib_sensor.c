@@ -415,22 +415,22 @@ local buff = zbuff.create({8,8,24})
 buff:drawLine(1,2,5,6,0x00ffff)
 sensor.ws2812b(7,buff,300,700,700,700)
 */
+
+const unsigned char xor_bit_table[8]={0x01,0x02,0x04,0x08,0x10,0x20,0x40,0x80};
+
 #define WS2812B_BIT_0() \
   t0h_temp = t0h; t0l_temp = t0l; \
-  luat_gpio_set(pin, Luat_GPIO_HIGH); \
-  while(t0h_temp--); \
-  luat_gpio_set(pin, Luat_GPIO_LOW); \
+  luat_gpio_pulse(pin,t0h,&pulse_level,2); \
   while(t0l_temp--)
 #define WS2812B_BIT_1() \
   t1h_temp = t1h; t1l_temp = t1l; \
-  luat_gpio_set(pin, Luat_GPIO_HIGH); \
-  while(t1h_temp--); \
-  luat_gpio_set(pin, Luat_GPIO_LOW); \
+  luat_gpio_pulse(pin,t1h,&pulse_level,2); \
   while(t1l_temp--)
 static int l_sensor_ws2812b(lua_State *L)
 {
   int j;
   size_t len,i;
+  uint8_t pulse_level = 0x80;
   const char *send_buff = NULL;
   int pin = luaL_checkinteger(L, 1);
   if (lua_isuserdata(L, 2))
@@ -443,21 +443,22 @@ static int l_sensor_ws2812b(lua_State *L)
   {
     send_buff = lua_tolstring(L, 2, &len);
   }
-  uint32_t t0h_temp,t0h = luaL_checkinteger(L, 3);
-  uint32_t t0l_temp,t0l = luaL_checkinteger(L, 4);
-  uint32_t t1h_temp,t1h = luaL_checkinteger(L, 5);
-  uint32_t t1l_temp,t1l = luaL_checkinteger(L, 6);
-
-  luat_os_entry_cri();
+  volatile uint32_t t0h_temp,t0h = luaL_checkinteger(L, 3);
+  volatile uint32_t t0l_temp,t0l = luaL_checkinteger(L, 4);
+  volatile uint32_t t1h_temp,t1h = luaL_checkinteger(L, 5);
+  volatile uint32_t t1l_temp,t1l = luaL_checkinteger(L, 6);
+  
   luat_gpio_mode(pin, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
-  //luat_gpio_set(pin, Luat_GPIO_LOW);
-  luat_timer_us_delay(1);
-  //luat_gpio_set(pin, Luat_GPIO_HIGH);
+  pulse_level = 0 ;
+  luat_gpio_pulse(pin,t0h,&pulse_level,2);
+  pulse_level = 0x80;
+  luat_os_entry_cri();
+
   for(i=0;i<len;i++)
   {
     for(j=7;j>=0;j--)
     {
-      if(send_buff[i]>>j&0x01)
+      if(send_buff[i]&xor_bit_table[j])
       {
         WS2812B_BIT_1();
       }

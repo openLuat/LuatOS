@@ -42,7 +42,6 @@ void luat_gpio_mode(int pin, int mode, int pull, int initOutput);
 int luat_gpio_setup(luat_gpio_t* gpio);
 int luat_gpio_set(int pin, int level);
 int luat_gpio_get(int pin);
-int luat_gpio_pulse(int pin);
 void luat_gpio_close(int pin);
 
 int l_gpio_handler(lua_State *L, void* ptr);

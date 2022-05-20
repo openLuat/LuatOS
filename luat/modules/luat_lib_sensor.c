@@ -450,10 +450,13 @@ static int l_sensor_ws2812b(lua_State *L)
   volatile uint32_t t1l_temp,t1l = luaL_checkinteger(L, 6);
 
   //LLOGD("T0H,T0L,T1H,T1L={%d,%d,%d,%d}",t0h,t0l,t1h,t1l);//hyj
-  luat_os_entry_cri();
+  //luat_os_entry_cri();
+  
   luat_gpio_mode(pin, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
+  
+  luat_os_entry_cri();
   //luat_gpio_set(pin, Luat_GPIO_LOW);
-  luat_timer_us_delay(1);
+  //luat_timer_us_delay(1);
   //luat_gpio_set(pin, Luat_GPIO_HIGH);
   for(i=0;i<len;i++)
   {

@@ -693,6 +693,18 @@ static int l_i2c_transfer(lua_State *L)
 	else if (lua_isstring(L, 3)) {
 		tx_buff = luaL_checklstring(L, 3, &tx_len);
 	}
+    else if (lua_istable(L, 3))
+    {
+        const int tx_len = lua_rawlen(L, 3); //返回数组的长度
+        char *tx_buff = (char *)luat_heap_malloc(tx_len);
+
+        for (size_t i = 0; i < tx_len; i++)
+        {
+            lua_rawgeti(L, 3, 1 + i);
+            tx_buff[i] = (char)lua_tointeger(L, -1);
+            lua_pop(L, 1); //将刚刚获取的元素值从栈中弹出
+        }
+    }
 	else {
 		luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 3, LUAT_ZBUFF_TYPE));
 		tx_buff = buff->addr;
@@ -726,6 +738,7 @@ static int l_i2c_transfer(lua_State *L)
 			result = luat_i2c_transfer(id, addr, NULL, 0, tx_buff, tx_len);
 		}
 	}
+    luat_heap_free(tx_buff);
 //	else if (lua_isuserdata(L, 1))
 //    {
 //        luat_ei2c *ei2c = toei2c(L);

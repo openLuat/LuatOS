@@ -203,10 +203,18 @@ static int l_spi_close(lua_State *L) {
         int id = luaL_checkinteger(L, 1);
         lua_pushinteger(L, luat_spi_close(id));
     }
-    else
+    else if (lua_isuserdata(L, 1))
     {
-        luat_espi_t *espi = (luat_espi_t*)lua_touserdata(L, 1);
-        lua_pushinteger(L, 0);
+        luat_spi_device_t *spi_device = (luat_spi_device_t *)luaL_testudata(L, 1, META_SPI);
+        if (spi_device){
+            int ret = luat_spi_device_close(spi_device);
+            lua_pushboolean(L, ret == 0 ? 1 : 0);
+        }
+        luat_espi_t *espi = (luat_espi_t *)luaL_testudata(L, 1, LUAT_ESPI_TYPE);
+        if (espi){
+            luat_espi_t *espi = (luat_espi_t*)lua_touserdata(L, 1);
+            lua_pushinteger(L, 0);
+        }
     }
     return 1;
 }
@@ -300,10 +308,9 @@ spi.setup(0,nil,0,0,8,2000000,spi.MSB,1,1)
 local recv = spi.recv(0, 4)--接收4字节数据
 */
 static int l_spi_recv(lua_State *L) {
-    int len = luaL_checkinteger(L, 2);
+    int len = luaL_optinteger(L, 2, 1);
     char* recv_buff = luat_heap_malloc(len);
-    if(recv_buff == NULL)
-        return 0;
+    if(recv_buff == NULL)return 0;
     if (lua_isinteger(L, 1))
     {
         int id = luaL_checkinteger(L, 1);
@@ -319,14 +326,21 @@ static int l_spi_recv(lua_State *L) {
             return 0;
         }
     }
-    else
+    else if (lua_isuserdata(L, 1))
     {
-        luat_espi_t *espi = toespi(L);
-        spi_soft_recv(espi, recv_buff, len);
+        luat_spi_device_t *spi_device = (luat_spi_device_t *)luaL_testudata(L, 1, META_SPI);
+        if (spi_device){
+            luat_spi_device_recv(spi_device, recv_buff, len);
+        }
+        luat_espi_t *espi = (luat_espi_t *)luaL_testudata(L, 1, LUAT_ESPI_TYPE);
+        if (espi){
+            spi_soft_recv(espi, recv_buff, len);
+        }
         lua_pushlstring(L, recv_buff, len);
         luat_heap_free(recv_buff);
         return 1;
     }
+    return 0;
 }
 
 /**
@@ -351,7 +365,8 @@ static int l_spi_send(lua_State *L) {
         luat_zbuff_t *buff = (luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE);
         send_buff = (const char*)(buff->addr+buff->cursor);
         len = buff->len - buff->cursor;
-    }else{
+    }
+    else{
         send_buff = lua_tolstring(L, 2, &len);
     }
     if(lua_isinteger(L,3)){//长度参数
@@ -495,7 +510,6 @@ static int l_spi_device_transfer(lua_State *L) {
 @api spi_device:send(data[, len])
 @userdata spi_device
 @string/zbuff 待发送的数据，如果为zbuff数据，则会从对象所处的指针处开始读
-@int 可选。待发送数据的长度，默认为data长度
 @return int 发送结果
 @usage
 -- 初始化spi
@@ -508,25 +522,25 @@ local result = spi_device:send(buff)--把zbuff数据从指针开始，全发出�
 static int l_spi_device_send(lua_State *L) {
     luat_spi_device_t* spi_device = (luat_spi_device_t*)lua_touserdata(L, 1);
     size_t len = 0;
-    const char* send_buff = NULL;
+    char* send_buff = NULL;
     if(lua_isuserdata(L, 2)){//zbuff对象特殊处理
         luat_zbuff_t *buff = (luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE);
-        send_buff = (const char*)(buff->addr+buff->cursor);
+        send_buff = (char*)(buff->addr+buff->cursor);
         len = buff->len - buff->cursor;
-    }else{
-        send_buff = lua_tolstring(L, 2, &len);
+        lua_pushinteger(L, luat_spi_device_send(spi_device, send_buff, len));
+    }else if (lua_istable(L, 2)){
+        len = lua_rawlen(L, 2); //返回数组的长度
+        send_buff = (char*)luat_heap_malloc(len);
+        for (size_t i = 0; i < len; i++){
+            lua_rawgeti(L, 2, 1 + i);
+            send_buff[i] = (char)lua_tointeger(L, -1);
+            lua_pop(L, 1); //将刚刚获取的元素值从栈中弹出
+        }
+        
+    }else {
+        send_buff = (char*)lua_tolstring(L, 2, &len);
+        lua_pushinteger(L, luat_spi_device_send(spi_device, send_buff, len));
     }
-    if(lua_isinteger(L,3)){//长度参数
-        size_t len_temp = luaL_checkinteger(L,3);
-        if(len_temp < len)
-            len = len_temp;
-    }
-    //长度为0时，直接返回
-    if(len <= 0){
-        lua_pushinteger(L,0);
-        return 1;
-    }
-    lua_pushinteger(L, luat_spi_device_send(spi_device, send_buff, len));
     return 1;
 }
 
@@ -543,7 +557,7 @@ local recv = spi_device:recv(4)--接收4字节数据
 */
 static int l_spi_device_recv(lua_State *L) {
     luat_spi_device_t* spi_device = (luat_spi_device_t*)lua_touserdata(L, 1);
-    int len = luaL_checkinteger(L, 2);
+    int len = luaL_optinteger(L, 2,1);
     char* recv_buff = luat_heap_malloc(len);
     if(recv_buff == NULL) return 0;
     int ret = luat_spi_device_recv(spi_device, recv_buff, len);
@@ -600,7 +614,9 @@ static const rotable_Reg_t reg_spi[] =
     { "recv",             ROREG_FUNC(l_spi_recv)},
     { "send",             ROREG_FUNC(l_spi_send)},
     { "deviceSetup",      ROREG_FUNC(l_spi_device_setup)},
-
+    { "deviceTransfer",   ROREG_FUNC(l_spi_device_transfer)},
+    { "deviceSend",       ROREG_FUNC(l_spi_device_send)},
+    
     { "MSB",               ROREG_INT(1)},
     { "LSB",               ROREG_INT(2)},
     { "master",            ROREG_INT(1)},

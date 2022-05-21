@@ -680,8 +680,8 @@ static int l_i2c_transfer(lua_State *L)
 	size_t rx_len = 0;
 	int result = 0;
 	uint8_t temp[1];
-	uint8_t *tx_buff;
-	uint8_t *rx_buff;
+	uint8_t *tx_buff = NULL;
+	uint8_t *rx_buff = NULL;
 	if (lua_isnil(L, 3)) {
 		tx_len = 0;
 	}
@@ -749,8 +749,8 @@ static int l_i2c_transfer(lua_State *L)
 			rbuff->used += rx_len;
 			lua_pushnil(L);
 		} else {
-		    lua_pushlstring(L, rx_buff, rx_len);
-		    luat_heap_free(rx_buff);
+            lua_pushlstring(L, (const char *)rx_buff, rx_len);
+            luat_heap_free(rx_buff);
 		}
 	} else {
 		lua_pushnil(L);

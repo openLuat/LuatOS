@@ -11,7 +11,7 @@
 #include "luat_malloc.h"
 #include "luat_i2c.h"
 #include "luat_gpio.h"
-
+#include "luat_zbuff.h"
 #define LUAT_LOG_TAG "i2c"
 #include "luat_log.h"
 
@@ -649,6 +649,103 @@ static int l_i2c_readSHT30(lua_State *L)
     }
 }
 
+
+int LUAT_WEAK luat_i2c_xfer(int id, int addr, uint8_t *reg, size_t reg_len, uint8_t *buff, size_t len)
+{
+	return -1;
+}
+/*
+i2c通用传输，包括发送N字节，发送N字节+接收N字节，接收N字节三种功能，在发送转接收过程中发送reStart信号
+解决类似mlx90614必须带restart信号，但是又不能用i2c.send来控制的，比如air105
+@api i2c.xfer(id, addr, txBuff, rxBuff, rxLen)
+@int 设备id, 例如i2c1的id为1, i2c2的id为2
+@int I2C子设备的地址, 7位地址
+@integer/string/zbuff 待发送的数据,自适应参数类型，如果为nil，则不发送数据
+@zbuff 待接收数据的zbuff 如果不用zbuff，则接收数据将在return返回
+@int 需要接收的数据长度，如果为0或nil，则不接收数据
+@return
+boolean true/false 发送是否成功
+string or nil 如果参数4是interger，则返回接收到的数据
+@usage
+local result, _ = i2c.xfer(0, 0x11, txbuff, rxbuff)
+local result, rxdata = i2c.xfer(0, 0x11, "\x01\x02", 1) --发送0x01， 0x02，然后接收1个字节，典型应用就是eeprom
+local result, rxdata = i2c.xfer(0, 0x11, 0x00, 1) --发送0x00，然后接收1个字节，典型应用各种传感器
+*/
+static int l_i2c_xfer(lua_State *L)
+{
+
+	int addr = luaL_checkinteger(L, 2);
+	size_t tx_len = 0;
+	size_t rx_len = 0;
+	int result = 0;
+	uint8_t temp[1];
+	uint8_t *tx_buff;
+	uint8_t *rx_buff;
+	if (lua_isnil(L, 3)) {
+		tx_len = 0;
+	}
+	else if (lua_isinteger(L, 3)) {
+		temp[0] = luaL_checkinteger(L, 3);
+		tx_buff = temp;
+		tx_len = 1;
+	}
+	else if (lua_isstring(L, 3)) {
+		tx_buff = luaL_checklstring(L, 3, &tx_len);
+	}
+	else {
+		luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 3, LUAT_ZBUFF_TYPE));
+		tx_buff = buff->addr;
+		tx_len = buff->used;
+	}
+	luat_zbuff_t *rbuff = ((luat_zbuff_t *)luaL_testudata(L, 4, LUAT_ZBUFF_TYPE));
+	if (lua_isnil(L, 5)) {
+		rx_len = 0;
+	}
+	else if (lua_isinteger(L, 5)) {
+		rx_len = luaL_checkinteger(L, 5);
+		if (rx_len) {
+			if (!rbuff) {
+				rx_buff = luat_heap_malloc(rx_len);
+			}
+			else {
+				if ((rbuff->used + rx_len) > rbuff->len) {
+					__zbuff_resize(rbuff, rbuff->len + rx_len);
+				}
+				rx_buff = rbuff->addr + rbuff->used;
+			}
+		}
+	}
+
+	int id = 0;
+	if (!lua_isuserdata(L, 1)) {
+		id = luaL_checkinteger(L, 1);
+		if (rx_buff && rx_len) {
+			result = luat_i2c_xfer(id, addr, tx_buff, tx_len, rx_buff, rx_len);
+		} else {
+			result = luat_i2c_xfer(id, addr, NULL, 0, tx_buff, tx_len);
+		}
+
+	}
+//	else if (lua_isuserdata(L, 1))
+//    {
+//        luat_ei2c *ei2c = toei2c(L);
+//    }
+	lua_pushboolean(L, !result);
+	if (rx_buff && rx_len) {
+		if (rbuff) {
+			rbuff->used += rx_len;
+			lua_pushnil(L);
+		} else {
+		    lua_pushlstring(L, rx_buff, rx_len);
+		    luat_heap_free(rx_buff);
+		}
+	} else {
+		lua_pushnil(L);
+	}
+	return 2;
+
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_i2c[] =
 {
@@ -659,7 +756,9 @@ static const rotable_Reg_t reg_i2c[] =
 #else
     { "send",       ROREG_FUNC(l_i2c_send)},
     { "recv",       ROREG_FUNC(l_i2c_recv)},
+
 #endif
+	{ "xfer",		ROREG_FUNC(l_i2c_xfer)},
     { "writeReg",   ROREG_FUNC(l_i2c_write_reg)},
     { "readReg",    ROREG_FUNC(l_i2c_read_reg)},
     { "close",      ROREG_FUNC(l_i2c_close)},

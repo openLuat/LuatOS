@@ -54,6 +54,10 @@ void luat_os_entry_cri(void);
 
 void luat_os_exit_cri(void);
 
+uint32_t luat_os_interrupt_disable(void);
+
+void luat_os_interrupt_enable(uint32_t level);
+
 void luat_os_irq_disable(uint8_t IRQ_Type);
 
 void luat_os_irq_enable(uint8_t IRQ_Type);

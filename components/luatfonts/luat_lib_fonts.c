@@ -20,14 +20,26 @@ static u8g2_font_t u8g2_fonts[] = {
     {.name="opposansm20", .font=u8g2_font_opposansm20},
     {.name="opposansm24", .font=u8g2_font_opposansm24},
     {.name="opposansm32", .font=u8g2_font_opposansm32},
+#ifdef USE_U8G2_OPPOSANSM8_CHINESE
+    {.name="opposansm8_chinese", .font=u8g2_font_opposansm8_chinese},
+#endif
+#ifdef USE_U8G2_OPPOSANSM10_CHINESE
+    {.name="opposansm10_chinese", .font=u8g2_font_opposansm10_chinese},
+#endif
 #ifdef USE_U8G2_OPPOSANSM12_CHINESE
     {.name="opposansm12_chinese", .font=u8g2_font_opposansm12_chinese},
 #endif
 #ifdef USE_U8G2_OPPOSANSM16_CHINESE
     {.name="opposansm16_chinese", .font=u8g2_font_opposansm16_chinese},
 #endif
+#ifdef USE_U8G2_OPPOSANSM18_CHINESE
+    {.name="opposansm18_chinese", .font=u8g2_font_opposansm18_chinese},
+#endif
 #ifdef USE_U8G2_OPPOSANSM20_CHINESE
     {.name="opposansm20_chinese", .font=u8g2_font_opposansm20_chinese},
+#endif
+#ifdef USE_U8G2_OPPOSANSM22_CHINESE
+    {.name="opposansm22_chinese", .font=u8g2_font_opposansm22_chinese},
 #endif
 #ifdef USE_U8G2_OPPOSANSM24_CHINESE
     {.name="opposansm24_chinese", .font=u8g2_font_opposansm24_chinese},

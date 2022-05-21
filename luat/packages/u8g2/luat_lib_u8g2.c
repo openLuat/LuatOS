@@ -837,11 +837,26 @@ static const rotable_Reg_t reg_u8g2[] =
     { "font_opposansm22", ROREG_PTR((void*)u8g2_font_opposansm22)},
     { "font_opposansm24", ROREG_PTR((void*)u8g2_font_opposansm24)},
     { "font_opposansm32", ROREG_PTR((void*)u8g2_font_opposansm32)},
+#ifdef USE_U8G2_OPPOSANSM8_CHINESE
+    { "font_opposansm8_chinese", ROREG_PTR((void*)u8g2_font_opposansm8_chinese)},
+#endif
+#ifdef USE_U8G2_OPPOSANSM10_CHINESE
+    { "font_opposansm10_chinese", ROREG_PTR((void*)u8g2_font_opposansm10_chinese)},
+#endif
 #ifdef USE_U8G2_OPPOSANSM12_CHINESE
     { "font_opposansm12_chinese", ROREG_PTR((void*)u8g2_font_opposansm12_chinese)},
 #endif
 #ifdef USE_U8G2_OPPOSANSM16_CHINESE
     { "font_opposansm16_chinese", ROREG_PTR((void*)u8g2_font_opposansm16_chinese)},
+#endif
+#ifdef USE_U8G2_OPPOSANSM18_CHINESE
+    { "font_opposansm18_chinese", ROREG_PTR((void*)u8g2_font_opposansm18_chinese)},
+#endif
+#ifdef USE_U8G2_OPPOSANSM20_CHINESE
+    { "font_opposansm20_chinese", ROREG_PTR((void*)u8g2_font_opposansm20_chinese)},
+#endif
+#ifdef USE_U8G2_OPPOSANSM22_CHINESE
+    { "font_opposansm22_chinese", ROREG_PTR((void*)u8g2_font_opposansm22_chinese)},
 #endif
 #ifdef USE_U8G2_OPPOSANSM24_CHINESE
     { "font_opposansm24_chinese", ROREG_PTR((void*)u8g2_font_opposansm24_chinese)},

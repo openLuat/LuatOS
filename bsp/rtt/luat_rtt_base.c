@@ -204,3 +204,11 @@ void luat_os_entry_cri(void) {
 void luat_os_exit_cri(void) {
   rt_interrupt_leave();
 }
+
+uint32_t luat_os_interrupt_disable(void){
+   return rt_hw_interrupt_disable();
+}
+
+void luat_os_interrupt_enable(uint32_t level){
+   rt_hw_interrupt_enable(level);
+}

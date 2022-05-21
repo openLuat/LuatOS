@@ -127,7 +127,7 @@ static char i2c_soft_recv(luat_ei2c *ei2c, unsigned char addr, char *buff, size_
         i2c_soft_stop(ei2c);
         return -1;
     }
-    luat_timer_us_delay(500);
+    luat_timer_us_delay(50);
     for (i = 0; i < len; i++)
     {
         *buff++ = i2c_soft_recv_byte(ei2c);

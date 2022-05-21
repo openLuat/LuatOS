@@ -650,14 +650,16 @@ static int l_i2c_readSHT30(lua_State *L)
 }
 
 
-int LUAT_WEAK luat_i2c_xfer(int id, int addr, uint8_t *reg, size_t reg_len, uint8_t *buff, size_t len)
+int LUAT_WEAK luat_i2c_transfer(int id, int addr, uint8_t *reg, size_t reg_len, uint8_t *buff, size_t len)
 {
+    luat_i2c_send(id, addr, reg, reg_len, 0);
+    luat_i2c_recv(id, addr, buff, len);
 	return -1;
 }
 /*
 i2c通用传输，包括发送N字节，发送N字节+接收N字节，接收N字节三种功能，在发送转接收过程中发送reStart信号
 解决类似mlx90614必须带restart信号，但是又不能用i2c.send来控制的，比如air105
-@api i2c.xfer(id, addr, txBuff, rxBuff, rxLen)
+@api i2c.transfer(id, addr, txBuff, rxBuff, rxLen)
 @int 设备id, 例如i2c1的id为1, i2c2的id为2
 @int I2C子设备的地址, 7位地址
 @integer/string/zbuff 待发送的数据,自适应参数类型，如果为nil，则不发送数据
@@ -667,13 +669,12 @@ i2c通用传输，包括发送N字节，发送N字节+接收N字节，接收N字
 boolean true/false 发送是否成功
 string or nil 如果参数4是interger，则返回接收到的数据
 @usage
-local result, _ = i2c.xfer(0, 0x11, txbuff, rxbuff)
-local result, rxdata = i2c.xfer(0, 0x11, "\x01\x02", 1) --发送0x01， 0x02，然后接收1个字节，典型应用就是eeprom
-local result, rxdata = i2c.xfer(0, 0x11, 0x00, 1) --发送0x00，然后接收1个字节，典型应用各种传感器
+local result, _ = i2c.transfer(0, 0x11, txbuff, rxbuff)
+local result, rxdata = i2c.transfer(0, 0x11, "\x01\x02", 1) --发送0x01， 0x02，然后接收1个字节，典型应用就是eeprom
+local result, rxdata = i2c.transfer(0, 0x11, 0x00, 1) --发送0x00，然后接收1个字节，典型应用各种传感器
 */
-static int l_i2c_xfer(lua_State *L)
+static int l_i2c_transfer(lua_State *L)
 {
-
 	int addr = luaL_checkinteger(L, 2);
 	size_t tx_len = 0;
 	size_t rx_len = 0;
@@ -720,11 +721,10 @@ static int l_i2c_xfer(lua_State *L)
 	if (!lua_isuserdata(L, 1)) {
 		id = luaL_checkinteger(L, 1);
 		if (rx_buff && rx_len) {
-			result = luat_i2c_xfer(id, addr, tx_buff, tx_len, rx_buff, rx_len);
+			result = luat_i2c_transfer(id, addr, tx_buff, tx_len, rx_buff, rx_len);
 		} else {
-			result = luat_i2c_xfer(id, addr, NULL, 0, tx_buff, tx_len);
+			result = luat_i2c_transfer(id, addr, NULL, 0, tx_buff, tx_len);
 		}
-
 	}
 //	else if (lua_isuserdata(L, 1))
 //    {
@@ -758,7 +758,7 @@ static const rotable_Reg_t reg_i2c[] =
     { "recv",       ROREG_FUNC(l_i2c_recv)},
 
 #endif
-	{ "xfer",		ROREG_FUNC(l_i2c_xfer)},
+	{ "transfer",	ROREG_FUNC(l_i2c_transfer)},
     { "writeReg",   ROREG_FUNC(l_i2c_write_reg)},
     { "readReg",    ROREG_FUNC(l_i2c_read_reg)},
     { "close",      ROREG_FUNC(l_i2c_close)},

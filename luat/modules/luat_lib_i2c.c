@@ -652,13 +652,14 @@ static int l_i2c_readSHT30(lua_State *L)
 
 int LUAT_WEAK luat_i2c_transfer(int id, int addr, uint8_t *reg, size_t reg_len, uint8_t *buff, size_t len)
 {
-    luat_i2c_send(id, addr, reg, reg_len, 0);
-    luat_i2c_recv(id, addr, buff, len);
-	return -1;
+    int result;
+    result = luat_i2c_send(id, addr, reg, reg_len, 0);
+    if (result != 0) return-1;
+    return luat_i2c_recv(id, addr, buff, len);
 }
-/*
-i2c通用传输，包括发送N字节，发送N字节+接收N字节，接收N字节三种功能，在发送转接收过程中发送reStart信号
-解决类似mlx90614必须带restart信号，但是又不能用i2c.send来控制的，比如air105
+
+/**
+i2c通用传输，包括发送N字节，发送N字节+接收N字节，接收N字节三种功能，在发送转接收过程中发送reStart信号,解决类似mlx90614必须带restart信号，但是又不能用i2c.send来控制的，比如air105
 @api i2c.transfer(id, addr, txBuff, rxBuff, rxLen)
 @int 设备id, 例如i2c1的id为1, i2c2的id为2
 @int I2C子设备的地址, 7位地址

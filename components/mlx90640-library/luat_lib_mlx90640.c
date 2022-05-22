@@ -27,6 +27,12 @@ static luat_lcd_conf_t* lcd_conf;
 #define  MLX90640_ADDR 0x33
 #define  TA_SHIFT 8 //Default shift for MLX90640 in open air
 
+//low range of the sensor (this will be blue on the screen)
+#define MINTEMP 20
+
+//high range of the sensor (this will be red on the screen)
+#define MAXTEMP 35
+
 static uint16_t eeMLX90640[832];  
 static float mlx90640To[768];
 static uint16_t frame[834];
@@ -66,6 +72,12 @@ const uint16_t camColors[] = {0x480F,
 uint8_t tempto255(float temp){
     return (uint8_t)round((temp+40)*255/340);
 }
+
+float map(float val, float I_Min, float I_Max, float O_Min, float O_Max){
+    return(((val-I_Min)*((O_Max-O_Min)/(I_Max-I_Min)))+O_Min);
+}
+
+#define constrain(amt, low, high) ((amt)<(low)?(low):((amt)>(high)?(high):(amt)))
 
 static paramsMLX90640 mlx90640;
 uint8_t mlx90640_i2c_id;
@@ -255,7 +267,8 @@ int luat_interpolation(float *src, float *dst) {
 @return bool 成功返回true,否则返回false
 */
 static int l_mlx90640_draw2lcd(lua_State *L) {
-    luat_color_t line[32];
+    // luat_color_t line[32];
+    luat_color_t line[320];
     // TODO 还得插值
 
     if (lcd_conf == NULL) {
@@ -290,11 +303,26 @@ static int l_mlx90640_draw2lcd(lua_State *L) {
     {
         for (size_t x = 0; x < 32; x++)
         {
-            int i = y*32 + x;
-            line[x] = camColors[tempto255(mlx90640To[i])];
+            float t = mlx90640To[y*32 + x];
+            if (t<MINTEMP) t=MINTEMP;
+            if (t>MAXTEMP) t=MAXTEMP;
+            
+            uint8_t colorIndex = (uint8_t)round(map(t, MINTEMP, MAXTEMP, 0, 255));
+            colorIndex = constrain(colorIndex, 0, 255);
+            line[x] = color_swap(camColors[colorIndex]);
         }
         luat_lcd_draw(lcd_conf, 0, y, 31, y, line);
     }
+
+// for (size_t i = 0; i < 256; i++)
+// {
+//     for (size_t m = 0; m < 20; m++)
+//     {
+//         uint16_t color_swap_data = color_swap(camColors[i]);
+//         luat_lcd_draw(lcd_conf, i, 50+m, i, 50+m, &color_swap_data);
+//     }
+// }
+
 #endif
     return 0;
 }

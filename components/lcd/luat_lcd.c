@@ -13,7 +13,7 @@ luat_color_t BACK_COLOR = WHITE, FORE_COLOR = BLACK;
 #define LUAT_LCD_CONF_COUNT (1)
 static luat_lcd_conf_t* confs[LUAT_LCD_CONF_COUNT] = {0};
 
-static luat_color_t color_swap(luat_color_t color) {
+luat_color_t color_swap(luat_color_t color) {
     luat_color_t tmp = (color >> 8) + ((color & 0xFF) << 8);
     return tmp;
 }
@@ -246,7 +246,7 @@ int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, 
 
 int luat_lcd_draw_point(luat_lcd_conf_t* conf, uint16_t x, uint16_t y, luat_color_t color) {
     // 注意, 这里需要把颜色swap了
-    uint16_t tmp = color_swap(color);
+    luat_color_t tmp = color_swap(color);
     return luat_lcd_draw(conf, x, y, x, y, &tmp);
 }
 

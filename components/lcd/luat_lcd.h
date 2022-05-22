@@ -92,6 +92,7 @@ int luat_lcd_inv_off(luat_lcd_conf_t* conf);
 int luat_lcd_inv_on(luat_lcd_conf_t* conf);
 int luat_lcd_set_address(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2);
 int luat_lcd_set_color(luat_color_t back, luat_color_t fore);
+luat_color_t color_swap(luat_color_t color);
 int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, luat_color_t* color);
 int luat_lcd_flush(luat_lcd_conf_t* conf);
 int luat_lcd_draw_no_block(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, luat_color_t* color, uint8_t last_flush);

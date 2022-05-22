@@ -21,7 +21,7 @@
 extern uint8_t mlx90640_i2c_id;
 extern uint8_t mlx90640_i2c_speed;
 
-void MLX90640_I2CInit()
+void MLX90640_I2CInit(void)
 {   
     luat_i2c_setup(mlx90640_i2c_id, mlx90640_i2c_speed, NULL);
 }
@@ -31,25 +31,26 @@ int MLX90640_I2CRead(uint8_t slaveAddr, uint16_t startAddress, uint16_t nMemAddr
     int ret = 0;  
     int cnt = 0;
     int i = 0;
-    char i2cData[1664] = {0}; // TODO 改成malloc
+    char* i2cData = NULL;
     uint16_t *p;
     p = data;
     char cmd[2] = {0,0};
-    
     cmd[0] = startAddress >> 8;
     cmd[1] = startAddress & 0x00FF;
-    
-    ret = luat_i2c_send(mlx90640_i2c_id, slaveAddr, cmd, 2,0);
-    if (ret != 0)return -1;
-    
-    ret = luat_i2c_recv(mlx90640_i2c_id, slaveAddr, i2cData, 2*nMemAddressRead);
-    if (ret != 0)return -1;
+
+    i2cData = (char *)luat_heap_malloc(2*nMemAddressRead);
+    ret = luat_i2c_transfer(mlx90640_i2c_id, slaveAddr, cmd, 2, i2cData, 2*nMemAddressRead);
+
+    if (ret != 0){
+        luat_heap_free(i2cData);
+        return -1;
+    }
     for(cnt=0; cnt < nMemAddressRead; cnt++)
     {
         i = cnt << 1;
         *p++ = (uint16_t)i2cData[i]*256 + (uint16_t)i2cData[i+1];
     }
-    
+    luat_heap_free(i2cData);
     return 0;   
 } 
 

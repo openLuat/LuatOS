@@ -162,6 +162,55 @@ static int l_audio_raw_on(lua_State *L) {
     return 0;
 }
 
+/**
+播放/停止播放一个文件，播放完成后，会回调一个audio.DONE消息，可以用pause来暂停/恢复，其他API不可用
+考虑到读SD卡速度比较慢而拖累luavm进程的速度，所以尽量使用本API
+@api audio.play(id, path)
+@int 音频通道
+@string 文件名，如果为空，则表示停止播放
+@return boolean 成功返回true,否则返回false
+@usage
+audio.play(0, "xxxxxx")		--开始播放某个文件
+audio.play(0)				--停止播放某个文件
+*/
+static int l_audio_play(lua_State *L) {
+    int multimedia_id = luaL_checkinteger(L, 1);
+    size_t len, i;
+    int result = 0;
+    const uint8_t *buf;
+    if (lua_isstring(L, 2))
+    {
+        buf = lua_tolstring(L, 2, &len);//取出字符串数据
+        char *path = luat_heap_malloc(len + 1);
+        memcpy(path, buf, len);
+        path[len] = 0;
+
+        result = luat_audio_play_file(multimedia_id, path);
+    	lua_pushboolean(L, !result);
+    	luat_heap_free(path);
+    }
+    else
+    {
+    	luat_audio_play_stop(multimedia_id);
+    	lua_pushboolean(L, 1);
+    }
+    return 1;
+}
+
+/**
+检查当前文件是否已经播放结束
+@api audio.isEnd(id, path)
+@int 音频通道
+@return boolean 成功返回true,否则返回false
+@usage
+audio.isEnd(0)
+
+*/
+static int l_audio_play_wait_end(lua_State *L) {
+    int multimedia_id = luaL_checkinteger(L, 1);
+    lua_pushboolean(L, luat_audio_is_finish(multimedia_id));
+    return 1;
+}
 
 /**
 创建编解码用的codec
@@ -484,6 +533,8 @@ static const rotable_Reg_t reg_audio[] =
     { "pause",         ROREG_FUNC(l_audio_pause_raw)},
 	{ "stop",		   ROREG_FUNC(l_audio_stop_raw)},
     { "on",            ROREG_FUNC(l_audio_raw_on)},
+	{ "play",		   ROREG_FUNC(l_audio_play)},
+	{ "isEnd",		   ROREG_FUNC(l_audio_play_wait_end)},
     { "PCM",           ROREG_INT(MULTIMEDIA_DATA_TYPE_PCM)},
 	{ "MORE_DATA",     ROREG_INT(MULTIMEDIA_CB_AUDIO_NEED_DATA)},
 	{ "DONE",          ROREG_INT(MULTIMEDIA_CB_AUDIO_DONE)},

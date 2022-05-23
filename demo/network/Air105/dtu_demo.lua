@@ -36,7 +36,7 @@ local function dtuTask(uart_id, ip, port)
 			libnet.tx(d1Name, 0, netc, "helloworld")
 		end
 		while result do
-			is_err, param, ip, port = network.rx(netc, rx_buff)
+			is_err, param, _, _ = network.rx(netc, rx_buff)
 			if is_err then
 				log.info("服务器断开了", is_err, param, ip, port)
 				break

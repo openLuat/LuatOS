@@ -307,7 +307,7 @@ static int l_mcu_fota_write(lua_State* L)
     else
     {
         buf = lua_tolstring(L, 1, &len);//取出字符串数据
-        result = luat_mcu_fota_write(buf, len);
+        result = luat_mcu_fota_write((uint8_t*)buf, len);
     }
     if (result > 0)
     {

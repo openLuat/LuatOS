@@ -693,7 +693,7 @@ static int l_i2c_transfer(lua_State *L)
 		tx_len = 1;
 	}
 	else if (lua_isstring(L, 3)) {
-		tx_buff = luaL_checklstring(L, 3, &tx_len);
+		tx_buff = (uint8_t*)luaL_checklstring(L, 3, &tx_len);
 	}
     else if (lua_istable(L, 3)) {
         const int tx_len = lua_rawlen(L, 3); //返回数组的长度

@@ -1483,6 +1483,11 @@ int mp3dec_decode_frame(mp3dec_t *dec, const uint8_t *mp3, int mp3_bytes, mp3d_s
     const uint8_t *hdr;
     bs_t bs_frame[1];
     mp3dec_scratch_t *scratch = luat_heap_malloc(sizeof(mp3dec_scratch_t));
+    if (!scratch)
+    {
+    	DBG("no mem!");
+    	return 0;
+    }
     if (mp3_bytes > 4 && dec->header[0] == 0xff && hdr_compare(dec->header, mp3))
     {
         frame_size = hdr_frame_bytes(mp3, dec->free_format_bytes) + hdr_padding(mp3);

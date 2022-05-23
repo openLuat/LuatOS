@@ -573,7 +573,7 @@ uint8_t air530z_uart_id = 2;
 /**
 设置gps串口id(For Air530Z)
 @api libgnss.air530z_setup(air530z_uart_id)
-@number air530z_uart_id 串口id
+@number air530z_uart_id 串口id 默认串口2
 @usage
 libgnss.air530z_setup(2)
  */

@@ -206,6 +206,7 @@ typedef struct
 	uint8_t device_on;
 	uint8_t last_udp_send_ok;
 	uint8_t rx_buf[2048 + 8];
+	uint8_t tx_buf[2048 + 8];
 	uint8_t mac[6];
 	uint8_t next_socket_index;
 }w5500_ctrl_t;
@@ -266,14 +267,14 @@ static void w5500_callback_to_nw_task(w5500_ctrl_t *w5500, uint32_t event_id, ui
 
 static void w5500_xfer(w5500_ctrl_t *w5500, uint16_t address, uint8_t ctrl, uint8_t *data, uint32_t len)
 {
-	BytesPutBe16(w5500->rx_buf, address);
-	w5500->rx_buf[2] = ctrl;
+	BytesPutBe16(w5500->tx_buf, address);
+	w5500->tx_buf[2] = ctrl;
 	if (data && len)
 	{
-		memcpy(w5500->rx_buf + 3, data, len);
+		memcpy(w5500->tx_buf + 3, data, len);
 	}
 	luat_gpio_set(w5500->cs_pin, 0);
-	luat_spi_transfer(w5500->spi_id, w5500->rx_buf, len + 3, w5500->rx_buf, len + 3);
+	luat_spi_transfer(w5500->spi_id, w5500->tx_buf, len + 3, w5500->rx_buf, len + 3);
 	luat_gpio_set(w5500->cs_pin, 1);
 	if (data && len)
 	{

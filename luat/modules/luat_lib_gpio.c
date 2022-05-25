@@ -273,16 +273,25 @@ static int l_gpio_toggle(lua_State *L) {
 }
 
 static int l_gpio_pulse(lua_State *L) {
-    int pin,delay,len = 0;
-    uint8_t level;
+    int pin,delay = 0;
+    size_t len;
+    char* level = NULL;
     if (lua_isinteger(L, lua_upvalueindex(1))){
         pin = lua_tointeger(L, lua_upvalueindex(1));
-        level = luaL_checkinteger(L, 1);
+        if (lua_isinteger(L, 1)){
+            *level = (char)luaL_checkinteger(L, 1);
+        }else if (lua_isstring(L, 1)){
+            level = luaL_checklstring(L, 1, &len);
+        }
         len = luaL_checkinteger(L, 2);
         delay = luaL_checkinteger(L, 3);
     }else{
         pin = luaL_checkinteger(L, 1);
-        level = luaL_checkinteger(L, 2);
+        if (lua_isinteger(L, 2)){
+            *level = (char)luaL_checkinteger(L, 2);
+        }else if (lua_isstring(L, 2)){
+            level = luaL_checklstring(L, 2, &len);
+        }
         len = luaL_checkinteger(L, 3);
         delay = luaL_checkinteger(L, 4);
     }

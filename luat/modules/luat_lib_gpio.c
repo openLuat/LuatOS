@@ -272,29 +272,27 @@ static int l_gpio_toggle(lua_State *L) {
     return 0;
 }
 
-#ifndef LUAT_COMPILER_NOWEAK
 static int l_gpio_pulse(lua_State *L) {
     int pin,delay,len = 0;
     uint8_t level;
     if (lua_isinteger(L, lua_upvalueindex(1))){
         pin = lua_tointeger(L, lua_upvalueindex(1));
-        delay = luaL_checkinteger(L, 1);
-        level = luaL_checkinteger(L, 2);
-        len = luaL_checkinteger(L, 3);
+        level = luaL_checkinteger(L, 1);
+        len = luaL_checkinteger(L, 2);
+        delay = luaL_checkinteger(L, 3);
     }else{
         pin = luaL_checkinteger(L, 1);
-        delay = luaL_checkinteger(L, 2);
-        level = luaL_checkinteger(L, 3);
-        len = luaL_checkinteger(L, 4);
+        level = luaL_checkinteger(L, 2);
+        len = luaL_checkinteger(L, 3);
+        delay = luaL_checkinteger(L, 4);
     }
     if (pin < 0 || pin >= PIN_MAX) {
         LLOGD("pin id out of range (0-127)");
         return 0;
     }
-    luat_gpio_pulse(pin,delay,&level,len);
+    luat_gpio_pulse(pin,&level,len,delay);
     return 0;
 }
-#endif
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_gpio[] =
@@ -351,7 +349,7 @@ void luat_gpio_mode(int pin, int mode, int pull, int initOutput) {
 }
 
 #ifndef LUAT_COMPILER_NOWEAK
-void LUAT_WEAK luat_gpio_pulse(int pin, uint16_t delay_ns, uint8_t *level, uint16_t len) {
+void LUAT_WEAK luat_gpio_pulse(int pin, uint8_t *level, uint16_t len, uint16_t delay_ns) {
 
 }
 #endif

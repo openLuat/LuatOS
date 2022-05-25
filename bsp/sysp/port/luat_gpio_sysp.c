@@ -16,3 +16,7 @@ int luat_gpio_get(int pin) {
 
 void luat_gpio_close(int pin) {
 }
+
+void luat_gpio_pulse(int pin, uint8_t *level, uint16_t len, uint16_t delay_ns) {
+
+}

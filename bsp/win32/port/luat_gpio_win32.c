@@ -58,9 +58,14 @@ int luat_gpio_get(int pin) {
     }
     return win32gpios[pin].state;
 }
+
 void luat_gpio_close(int pin) {
     if (pin < 0 || pin >= LUAT_WIN32_GPIO_COUNT) {
         return;
     }
     win32gpios[pin].open = 0;
+}
+
+void luat_gpio_pulse(int pin, uint8_t *level, uint16_t len, uint16_t delay_ns) {
+
 }

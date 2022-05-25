@@ -420,11 +420,11 @@ const unsigned char xor_bit_table[8]={0x01,0x02,0x04,0x08,0x10,0x20,0x40,0x80};
 
 #define WS2812B_BIT_0() \
   t0h_temp = t0h; t0l_temp = t0l; \
-  luat_gpio_pulse(pin,t0h,&pulse_level,2); \
+  luat_gpio_pulse(pin,&pulse_level,2,t0h); \
   while(t0l_temp--)
 #define WS2812B_BIT_1() \
   t1h_temp = t1h; t1l_temp = t1l; \
-  luat_gpio_pulse(pin,t1h,&pulse_level,2); \
+  luat_gpio_pulse(pin,&pulse_level,2,t1h); \
   while(t1l_temp--)
 static int l_sensor_ws2812b(lua_State *L)
 {
@@ -450,7 +450,7 @@ static int l_sensor_ws2812b(lua_State *L)
   
   luat_gpio_mode(pin, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
   pulse_level = 0 ;
-  luat_gpio_pulse(pin,t0h,&pulse_level,2);
+  luat_gpio_pulse(pin,&pulse_level,2,t0h);
   pulse_level = 0x80;
   luat_os_entry_cri();
 

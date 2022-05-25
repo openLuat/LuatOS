@@ -272,6 +272,7 @@ static int l_gpio_toggle(lua_State *L) {
     return 0;
 }
 
+#ifndef LUAT_COMPILER_NOWEAK
 static int l_gpio_pulse(lua_State *L) {
     int pin,delay,len = 0;
     uint8_t level;
@@ -293,6 +294,7 @@ static int l_gpio_pulse(lua_State *L) {
     luat_gpio_pulse(pin,delay,&level,len);
     return 0;
 }
+#endif
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_gpio[] =
@@ -303,7 +305,9 @@ static const rotable_Reg_t reg_gpio[] =
     { "close" ,         ROREG_FUNC(l_gpio_close)},
     { "toggle",         ROREG_FUNC(l_gpio_toggle)},
     { "setDefaultPull", ROREG_FUNC(l_gpio_set_default_pull)},
+#ifndef LUAT_COMPILER_NOWEAK
     { "pulse",          ROREG_FUNC(l_gpio_pulse)},
+#endif
 
     { "LOW",            ROREG_INT(Luat_GPIO_LOW)},
     { "HIGH",           ROREG_INT(Luat_GPIO_HIGH)},

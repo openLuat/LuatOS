@@ -1822,7 +1822,7 @@ NETWORK_TX_WAIT:
  */
 int network_rx(network_ctrl_t *ctrl, uint8_t *data, uint32_t len, int flags, luat_ip_addr_t *remote_ip, uint16_t *remote_port, uint32_t *rx_len)
 {
-	if ((ctrl->need_close) || (ctrl->socket_id < 0) || (ctrl->state != NW_STATE_ONLINE))
+	if (!ctrl->new_rx_flag && ((ctrl->need_close) || (ctrl->socket_id < 0) || (ctrl->state != NW_STATE_ONLINE)))
 	{
 		return -1;
 	}
@@ -1892,13 +1892,13 @@ int network_rx(network_ctrl_t *ctrl, uint8_t *data, uint32_t len, int flags, lua
 
 int network_wait_event(network_ctrl_t *ctrl, OS_EVENT *out_event, uint32_t timeout_ms, uint8_t *is_timeout)
 {
-	if ((ctrl->need_close) || (ctrl->socket_id < 0) || (ctrl->state != NW_STATE_ONLINE))
-	{
-		return -1;
-	}
 	if (ctrl->new_rx_flag)
 	{
 		return 0;
+	}
+	if ((ctrl->need_close) || (ctrl->socket_id < 0) || (ctrl->state != NW_STATE_ONLINE))
+	{
+		return -1;
 	}
 	NW_LOCK;
 	ctrl->auto_mode = 1;

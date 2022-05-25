@@ -501,7 +501,7 @@ static int w5500_socket_rx(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t *data
 	uint16_t rx_size, rx_point;
 	temp = w5500_socket_state(w5500, socket_id);
 	if (!w5500->device_on) return -1;
-	if ((temp != SOCK_ESTABLISHED) && (temp != SOCK_UDP))
+	if ((temp < SOCK_ESTABLISHED) || (temp > SOCK_UDP))
 	{
 		DBG("socket %d not config state %x", socket_id, temp);
 		return -1;
@@ -1151,7 +1151,7 @@ static void w5500_read_irq(w5500_ctrl_t *w5500)
 		{
 			if (socket_irqs[i])
 			{
-				for (j = 0; j < 5; j++)
+				for (j = 4; j >= 0; j--)
 				{
 					if (socket_irqs[i] & (1 << j))
 					{

@@ -26,6 +26,8 @@
 
 #include "tjpgd.h"
 
+#define LUAT_LOG_TAG "tjpgd"
+#include "luat_log.h"
 
 #if JD_FASTDECODE == 2
 #define HUFF_BIT	10	/* Bit length to apply fast huffman decode */
@@ -1099,6 +1101,7 @@ JRESULT jd_prepare (
 		case 0xCE:	/* SOF14 */
 		case 0xCF:	/* SOF15 */
 		case 0xD9:	/* EOI */
+			LLOGW("Unsuppoted JPEG standard (may be progressive JPEG)");
 			return JDR_FMT3;	/* Unsuppoted JPEG standard (may be progressive JPEG) */
 
 		default:	/* Unknown segment (comment, exif or etc..) */

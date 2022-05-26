@@ -59,7 +59,7 @@ f:write("\r\n\r\n")
 kvs = {}
 for _, value in ipairs(files) do
     local lf = loadfile("core\\" .. value)
-    local data = string.dump(lf, true)
+    local data = string.dump(lf, false)
     local buff = zbuff.create(256*1024)
     -- local data = io.readFile("tmp\\" .. value .. "c")
     buff:write(data)

@@ -1,5 +1,5 @@
 /*
-@module  network_adapter
+@module  network
 @summary 网络接口适配
 @version 1.0
 @date    2022.04.11

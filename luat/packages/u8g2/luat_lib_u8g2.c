@@ -904,6 +904,7 @@ typedef struct luat_u8g2_dev_reg
 static const luat_u8g2_dev_reg_t devregs[] = {
     // ssd1306是默认值
     {.name="ssd1306", .w=128, .h=64, .spi_i2c=0, .devcb=u8g2_Setup_ssd1306_i2c_128x64_noname_f},       // ssd1306 128x64
+    {.name="ssd1306", .w=128, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_ssd1306_128x64_noname_f},           // ssd1306 128x64
     {.name="ssd1322", .w=256, .h=64, .spi_i2c=0, .devcb=u8g2_Setup_ssd1322_nhd_256x64_f},              // ssd1322 128x64
     {.name="sh1106",  .w=128, .h=64, .spi_i2c=0, .devcb=u8g2_Setup_sh1106_i2c_128x64_noname_f},        // sh1106 128x64
     {.name="sh1107",  .w=64, .h=128, .spi_i2c=0, .devcb=u8g2_Setup_ssd1306_i2c_128x64_noname_f},       // sh1107 64x128
@@ -913,8 +914,7 @@ static const luat_u8g2_dev_reg_t devregs[] = {
 
 static const luat_u8g2_dev_reg_t* search_dev_reg(luat_u8g2_conf_t *conf, uint16_t spi_i2c) {
     size_t dev_reg_index = 0;
-    while (devregs[dev_reg_index].name != NULL)
-    {
+    while (devregs[dev_reg_index].name != NULL){
         if (devregs[dev_reg_index].spi_i2c == spi_i2c && strcmp(devregs[dev_reg_index].name, conf->cname) == 0) {
             return &devregs[dev_reg_index];
         }
@@ -953,8 +953,7 @@ int luat_u8g2_setup_default(luat_u8g2_conf_t *conf) {
         u8g2_InitDisplay(u8g2);
         u8g2_SetPowerSave(u8g2, 0);
         return 0;
-    }
-    else if (conf->pinType == 2) {
+    }else if (conf->pinType == 2) {
         devreg = search_dev_reg(conf, 0);
         if (devreg == NULL) {
             LLOGD("unkown dev %s", conf->cname);
@@ -965,9 +964,8 @@ int luat_u8g2_setup_default(luat_u8g2_conf_t *conf) {
         u8g2_InitDisplay(u8g2);
         u8g2_SetPowerSave(u8g2, 0);
         return 0;
-    }
-    else if (conf->pinType == 5) {
-        devreg = search_dev_reg(conf, 0);
+    }else if (conf->pinType == 5) {
+        devreg = search_dev_reg(conf, 1);
         if (devreg == NULL) {
             LLOGD("unkown dev %s", conf->cname);
             return -1;

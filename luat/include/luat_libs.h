@@ -119,4 +119,7 @@ LUAMOD_API int luaopen_io_queue( lua_State *L );
 LUAMOD_API int luaopen_ymodem( lua_State *L );
 LUAMOD_API int luaopen_w5500( lua_State *L );
 LUAMOD_API int luaopen_network_adapter( lua_State *L );
+
+LUAMOD_API int luaopen_airui( lua_State *L );
+LUAMOD_API int luaopen_fota( lua_State *L );
 #endif

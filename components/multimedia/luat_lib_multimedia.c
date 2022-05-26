@@ -144,7 +144,7 @@ static int l_audio_pause_raw(lua_State *L) {
 @function 回调方法
 @return nil 无返回值
 @usage
-camera.on(0, function(id, str)
+audio.on(0, function(id, str)
     print(id, str)
 end)
 */

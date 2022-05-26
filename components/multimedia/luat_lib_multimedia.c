@@ -137,7 +137,7 @@ static int l_audio_pause_raw(lua_State *L) {
     return 1;
 }
 
-/*
+/**
 注册audio播放事件回调
 @api    audio.on(id, event, func)
 @int audio id, audio 0写0, audio 1写1
@@ -162,9 +162,8 @@ static int l_audio_raw_on(lua_State *L) {
     return 0;
 }
 
-/**
-播放/停止播放一个文件，播放完成后，会回调一个audio.DONE消息，可以用pause来暂停/恢复，其他API不可用
-考虑到读SD卡速度比较慢而拖累luavm进程的速度，所以尽量使用本API
+/*
+播放或者停止播放一个文件，播放完成后，会回调一个audio.DONE消息，可以用pause来暂停或者恢复，其他API不可用。考虑到读SD卡速度比较慢而拖累luavm进程的速度，所以尽量使用本API
 @api audio.play(id, path)
 @int 音频通道
 @string 文件名，如果为空，则表示停止播放

@@ -6,13 +6,13 @@ local rbuff = zbuff.create(16384)
 local function uartRx(id, len)
     uart.rx(id, rbuff)
     if rbuff:used() > 0 then 
-        local isError,fotaDone,nCache = mcu.fotaRun(rbuff)
+        local isError,fotaDone,nCache = fota.run(rbuff)
         
         if not isError then
             
         else
             log.error("fota写入异常，请至少在1秒后重试")
-            mcu.fotaDone(false)
+            fota.done(false)
             return
         end
         rbuff:del()
@@ -26,8 +26,8 @@ end
 
 local function otaTask()
     local spiFlash = spi.deviceSetup(spi.SPI_1,pin.PA7,0,0,8,24*1000*1000,spi.MSB,1,1)
-    mcu.fotaInit(0, 0x00200000, spiFlash)
-    while not mcu.fotaWait() do
+    fota.init(0, 0x00200000, spiFlash)
+    while not fota.wait() do
         sys.wait(100)
     end
     
@@ -36,9 +36,9 @@ local function otaTask()
     uart.write(3,"ready")
     sys.waitUntil("downloadOK")                       
     while true do
-        local isError,fotaDone  = mcu.fotaDone()
+        local isError,fotaDone  = fota.done()
         if fotaDone then
-            mcu.fotaEnd(true)
+            fota.end(true)
             log.info("FOTA完成")
             rtos.reboot()   --如果还有其他事情要做，就不要立刻reboot
             break
@@ -56,17 +56,17 @@ local libnet = require "libnet"
 
 local taskName = "OTA_TASK"
 local function netCB(msg)
-	log.info("未处理消息", msg[1], msg[2], msg[3], msg[4])
+    log.info("未处理消息", msg[1], msg[2], msg[3], msg[4])
 end
 
 local function otaTask()
     local spiFlash = spi.deviceSetup(spi.SPI_1,pin.PA7,0,0,8,24*1000*1000,spi.MSB,1,1)
-    mcu.fotaInit(0, 0x00200000, spiFlash)
-    while not mcu.fotaWait() do
+    fota.init(0, 0x00200000, spiFlash)
+    while not fota.wait() do
         sys.wait(100)
     end
     -- 如果确定只下载脚本，可以下载到文件系统里
-    -- mcu.fotaInit("/update.bin", 0, nil)
+    -- fota.init("/update.bin", 0, nil)
     -- os.remove("/update.bin")
     local isError, param, ip, port, total, findhead, filelen, rcvCache,d1,d2,statusCode,retry,rspHead,rcvChunked,done,fotaDone,nCache
     local tbuff = zbuff.create(512)
@@ -105,18 +105,18 @@ local function otaTask()
         while result do
             isError, param, ip, port = network.rx(netc, rbuff)
             if isError then
-				log.info("服务器断开了", isError, param, ip, port)
-				break
-			end
-			if rbuff:used() > 0 then
+                log.info("服务器断开了", isError, param, ip, port)
+                break
+            end
+            if rbuff:used() > 0 then
                 if findhead then
-                    isError,fotaDone,nCache = mcu.fotaRun(rbuff)
+                    isError,fotaDone,nCache = fota.run(rbuff)
                     
                     if not isError then
                         total = total + rbuff:used()
                     else
                         log.error("fota写入异常，请至少在1秒后重试")
-                        mcu.fotaDone(false)
+                        fota.done(false)
                         done = true
                         break
                     end
@@ -125,9 +125,9 @@ local function otaTask()
                     if fotaDone then
                         log.info("下载完成")
                         while true do
-                            isError,fotaDone  = mcu.fotaDone()
+                            isError,fotaDone  = fota.done()
                             if fotaDone then
-                                mcu.fotaEnd(true)
+                                fota.end(true)
                                 log.info("FOTA完成")
                                 done = true
                                 rtos.reboot()   --如果还有其他事情要做，就不要立刻reboot
@@ -167,12 +167,12 @@ local function otaTask()
                         end
                         --未处理的body数据
                         rbuff:del(0, d2)
-                        isError,fotaDone,nCache = mcu.fotaRun(rbuff)
+                        isError,fotaDone,nCache = fota.run(rbuff)
                         if not isError then
                             total = total + rbuff:used()
                         else
                             log.error("fota写入异常，请至少在1秒后重试")
-                            mcu.fotaDone(false)
+                            fota.done(false)
                             done = true
                             break
                         end
@@ -183,14 +183,14 @@ local function otaTask()
                     end
                     findhead = true
                 end
-			end 
+            end 
             result, param = libnet.wait(taskName, 5000, netc)
-			if not result then
-				log.info("服务器断开了", result, param)
-				break
+            if not result then
+                log.info("服务器断开了", result, param)
+                break
             elseif not param then
                 log.info("服务器没有数据", result, param)
-				break
+                break
             end
         end
         libnet.close(taskName, 5000, netc)

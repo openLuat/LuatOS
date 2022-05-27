@@ -160,8 +160,8 @@ static const rotable_Reg_t reg_fota[] =
 	{ "init",		ROREG_FUNC(l_fota_init)},
 	{ "wait",		ROREG_FUNC(l_fota_wait)},
 	{ "run",		ROREG_FUNC(l_fota_write)},
-	{ "done",		ROREG_FUNC(l_fota_done)},
-	{ "end",		ROREG_FUNC(l_fota_end)},
+	{ "isDone",		ROREG_FUNC(l_fota_done)},
+	{ "finish",		ROREG_FUNC(l_fota_end)},
 	{ NULL,         ROREG_INT(0) }
 };
 

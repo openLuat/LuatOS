@@ -12,7 +12,7 @@ local function uartRx(id, len)
             
         else
             log.error("fota写入异常，请至少在1秒后重试")
-            fota.done(false)
+            fota.finish(false)
             return
         end
         rbuff:del()
@@ -36,9 +36,9 @@ local function otaTask()
     uart.write(3,"ready")
     sys.waitUntil("downloadOK")                       
     while true do
-        local isError,fotaDone  = fota.done()
+        local isError,fotaDone  = fota.isDone()
         if fotaDone then
-            fota.end(true)
+            fota.finish(true)
             log.info("FOTA完成")
             rtos.reboot()   --如果还有其他事情要做，就不要立刻reboot
             break
@@ -116,7 +116,7 @@ local function otaTask()
                         total = total + rbuff:used()
                     else
                         log.error("fota写入异常，请至少在1秒后重试")
-                        fota.done(false)
+                        fota.finish(false)
                         done = true
                         break
                     end
@@ -125,9 +125,9 @@ local function otaTask()
                     if fotaDone then
                         log.info("下载完成")
                         while true do
-                            isError,fotaDone  = fota.done()
+                            isError,fotaDone  = fota.isDone()
                             if fotaDone then
-                                fota.end(true)
+                                fota.finish(true)
                                 log.info("FOTA完成")
                                 done = true
                                 rtos.reboot()   --如果还有其他事情要做，就不要立刻reboot
@@ -172,7 +172,7 @@ local function otaTask()
                             total = total + rbuff:used()
                         else
                             log.error("fota写入异常，请至少在1秒后重试")
-                            fota.done(false)
+                            fota.finish(false)
                             done = true
                             break
                         end
@@ -198,6 +198,7 @@ local function otaTask()
     end
     network.release(netc)
     sysplus.taskDel(taskName)
+    fota.finish(false)
 end
 
 function otaDemo()

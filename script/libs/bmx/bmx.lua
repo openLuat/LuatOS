@@ -16,7 +16,7 @@ sys.taskInit(function()
     while 1 do
         local bmx_data = bmx.get_data()
         if bmx_data.temp then
-            log.info("bmx_data_data.temp:"..(bmx_data.temp).."℃")
+            log.info("bmx_data_data.temp:"..(bmx_data.temp).."°C")
         end
         if bmx_data.press then
             log.info("bmx_data_data.press:"..(bmx_data.press).."hPa")
@@ -499,7 +499,7 @@ end
 @usage
 local bmx_data = bmx.get_data()
 if bmx_data.temp then
-    log.info("bmx_data_data.temp:"..(bmx_data.temp).."℃")
+    log.info("bmx_data_data.temp:"..(bmx_data.temp).."°C")
 end
 if bmx_data.press then
     log.info("bmx_data_data.press:"..(bmx_data.press).."hPa")

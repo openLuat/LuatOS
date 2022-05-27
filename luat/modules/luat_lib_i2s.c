@@ -100,7 +100,7 @@ static int l_i2s_recv(lua_State *L) {
 }
 
 /*
-关闭i2s功能
+关闭i2s
 @api i2s.close(id, data, len)
 @int 通道id
 @return nil 无返回值
@@ -113,6 +113,27 @@ static int l_i2s_close(lua_State *L) {
     return 0;
 }
 
+int l_i2s_play(lua_State *L);
+int l_i2s_pause(lua_State *L);
+int l_i2s_stop(lua_State *L);
+
+#ifndef LUAT_COMPILER_NOWEAK
+LUAT_WEAK int l_i2s_play(lua_State *L) {
+    LLOGE("not support yet");
+    return 0;
+}
+
+LUAT_WEAK int l_i2s_pause(lua_State *L) {
+    LLOGE("not support yet");
+    return 0;
+}
+
+LUAT_WEAK int l_i2s_stop(lua_State *L) {
+    LLOGE("not support yet");
+    return 0;
+}
+#endif
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_i2s[] =
 {
@@ -120,7 +141,10 @@ static const rotable_Reg_t reg_i2s[] =
     { "send",       ROREG_FUNC(l_i2s_send)},
     { "recv",       ROREG_FUNC(l_i2s_recv)},
     { "close",      ROREG_FUNC(l_i2s_close)},
-// TODO 兼容esp32c3 现有的mp3播放功能
+    // 以下为兼容扩展功能,待定
+    { "play",       ROREG_FUNC(l_i2s_play)},
+    { "pause",      ROREG_FUNC(l_i2s_pause)},
+    { "stop",       ROREG_FUNC(l_i2s_stop)},
 	{ NULL,         ROREG_INT(0) }
 };
 

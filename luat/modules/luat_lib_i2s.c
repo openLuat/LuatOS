@@ -22,13 +22,10 @@
 @return 底层返回值
 @usage
 -- 这个库处于开发阶段, 尚不可用
-
 -- 以默认参数初始化i2s
 i2s.setup(0)
-
 -- 以详细参数初始化i2s, 示例为默认值
 i2s.setup(0, 0, 44100, 16, 0, 0, 8000000)
-
 */
 static int l_i2s_setup(lua_State *L) {
     luat_i2s_conf_t conf = {0};
@@ -107,7 +104,7 @@ static int l_i2s_recv(lua_State *L) {
 @api i2s.close(id, data, len)
 @int 通道id
 @return nil 无返回值
-@usgae
+@usage
 i2s.close(0)
 */
 static int l_i2s_close(lua_State *L) {

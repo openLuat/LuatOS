@@ -81,8 +81,15 @@ rtos.timer_start(10000, 3000, -1)
 */
 static int l_rtos_timer_start(lua_State *L) {
     lua_gettop(L);
+    size_t timeout;
+    size_t type = 0;
     size_t id = (size_t)luaL_checkinteger(L, 1) / 1;
-    size_t timeout = (size_t)luaL_checkinteger(L, 2);
+    if (lua_isnumber(L, 2)) {
+    	timeout = lua_tonumber(L, 2) * 1000;
+    	type = 1;
+    } else {
+    	timeout = (size_t)luaL_checkinteger(L, 2);
+    }
     int repeat = (size_t)luaL_optinteger(L, 3, 0);
     // LLOGD("start timer id=%ld", id);
     // LLOGD("timer timeout=%ld", timeout);
@@ -96,7 +103,7 @@ static int l_rtos_timer_start(lua_State *L) {
     timer->timeout = timeout;
     timer->repeat = repeat;
     timer->func = &l_timer_handler;
-
+    timer->type = type;
     int re = luat_timer_start(timer);
     if (re == 0) {
         lua_pushinteger(L, 1);

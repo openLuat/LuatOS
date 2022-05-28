@@ -9,6 +9,9 @@
 #include "luat_i2s.h"
 #include "luat_zbuff.h"
 
+#define LUAT_LOG_TAG "i2s"
+#include "luat_log.h"
+
 /*
 初始化i2s
 @api i2s.setup(id, mode, sample, bitw, channel, format, mclk)

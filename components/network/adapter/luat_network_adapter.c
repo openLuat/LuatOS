@@ -259,30 +259,47 @@ static int network_base_connect(network_ctrl_t *ctrl, luat_ip_addr_t *remote_ip)
 	{
 		network_force_close_socket(ctrl);
 	}
-	if (network_create_soceket(ctrl, remote_ip->is_ipv6) < 0)
+	if (remote_ip)
 	{
-		network_clean_invaild_socket(ctrl->adapter_index);
 		if (network_create_soceket(ctrl, remote_ip->is_ipv6) < 0)
 		{
-			return -1;
+			network_clean_invaild_socket(ctrl->adapter_index);
+			if (network_create_soceket(ctrl, remote_ip->is_ipv6) < 0)
+			{
+				return -1;
+			}
 		}
-	}
-	if (adapter->opt->is_posix)
-	{
-		network_setsockopt(ctrl, SOL_SOCKET, SO_KEEPALIVE, (void *)&ctrl->tcp_keep_alive, sizeof(ctrl->tcp_keep_alive));
-		if (ctrl->tcp_keep_alive)
+		if (adapter->opt->is_posix)
 		{
-			network_setsockopt(ctrl, IPPROTO_TCP, TCP_KEEPIDLE, (void*)&ctrl->tcp_keep_idle, sizeof(ctrl->tcp_keep_idle));
-			network_setsockopt(ctrl, IPPROTO_TCP, TCP_KEEPINTVL, (void *)&ctrl->tcp_keep_interval, sizeof(ctrl->tcp_keep_interval));
-			network_setsockopt(ctrl, IPPROTO_TCP, TCP_KEEPCNT, (void *)&ctrl->tcp_keep_cnt, sizeof(ctrl->tcp_keep_cnt));
+			network_setsockopt(ctrl, SOL_SOCKET, SO_KEEPALIVE, (void *)&ctrl->tcp_keep_alive, sizeof(ctrl->tcp_keep_alive));
+			if (ctrl->tcp_keep_alive)
+			{
+				network_setsockopt(ctrl, IPPROTO_TCP, TCP_KEEPIDLE, (void*)&ctrl->tcp_keep_idle, sizeof(ctrl->tcp_keep_idle));
+				network_setsockopt(ctrl, IPPROTO_TCP, TCP_KEEPINTVL, (void *)&ctrl->tcp_keep_interval, sizeof(ctrl->tcp_keep_interval));
+				network_setsockopt(ctrl, IPPROTO_TCP, TCP_KEEPCNT, (void *)&ctrl->tcp_keep_cnt, sizeof(ctrl->tcp_keep_cnt));
+			}
 		}
+		else
+		{
+			network_user_cmd(ctrl, NW_CMD_AUTO_HEART_TIME, ctrl->tcp_keep_idle);
+		}
+
+		return network_socket_connect(ctrl, remote_ip);
 	}
 	else
 	{
-		network_user_cmd(ctrl, NW_CMD_AUTO_HEART_TIME, ctrl->tcp_keep_idle);
+		luat_ip_addr_t local_ip, net_mask, gate_way;
+		network_get_local_ip_info(ctrl, &local_ip, &net_mask, &gate_way);
+		if (network_create_soceket(ctrl, local_ip.is_ipv6) < 0)
+		{
+			network_clean_invaild_socket(ctrl->adapter_index);
+			if (network_create_soceket(ctrl, local_ip.is_ipv6) < 0)
+			{
+				return -1;
+			}
+		}
+		return network_socket_listen(ctrl);
 	}
-
-	return network_socket_connect(ctrl, remote_ip);
 }
 
 static int network_prepare_connect(network_ctrl_t *ctrl)
@@ -332,10 +349,22 @@ static int network_state_link_off(network_ctrl_t *ctrl, OS_EVENT *event, network
 			}
 			else if (NW_WAIT_ON_LINE == ctrl->wait_target_state)
 			{
-				if (network_prepare_connect(ctrl))
+				if (ctrl->is_server_mode)
 				{
-					return -1;
+					if (network_base_connect(ctrl, NULL))
+					{
+						return -1;
+					}
+					ctrl->state = NW_STATE_CONNECTING;
 				}
+				else
+				{
+					if (network_prepare_connect(ctrl))
+					{
+						return -1;
+					}
+				}
+
 				return 1;
 			}
 		}
@@ -437,7 +466,7 @@ static int network_state_connecting(network_ctrl_t *ctrl, OS_EVENT *event, netwo
 		if (ctrl->is_server_mode)
 		{
 			ctrl->state = NW_STATE_LISTEN;
-			return 0;
+			return 1;
 		}
 		break;
 	case EV_NW_SOCKET_CONNECT_OK:
@@ -613,24 +642,10 @@ static int network_state_listen(network_ctrl_t *ctrl, OS_EVENT *event, network_a
 	{
 	case EV_NW_RESET:
 	case EV_NW_SOCKET_ERROR:
-		ctrl->need_close = 1;
-		return -1;
 	case EV_NW_SOCKET_REMOTE_CLOSE:
 	case EV_NW_SOCKET_CLOSE_OK:
-		if (adapter->opt->no_accept)
-		{
-			if (network_socket_listen(ctrl))
-			{
-				return -1;
-			}
-			ctrl->state = NW_STATE_CONNECTING;
-			ctrl->wait_target_state = NW_WAIT_ON_LINE;
-			return 1;
-		}
-		else
-		{
-			break;
-		}
+		ctrl->need_close = 1;
+		return -1;
 	case EV_NW_STATE:
 		if (!event->Param2)
 		{
@@ -638,26 +653,12 @@ static int network_state_listen(network_ctrl_t *ctrl, OS_EVENT *event, network_a
 			return -1;
 		}
 		break;
-	case EV_NW_SOCKET_TX_OK:
-		ctrl->ack_size += event->Param2;
-		if (NW_WAIT_TX_OK == ctrl->wait_target_state)
-		{
-
-			if (ctrl->ack_size == ctrl->tx_size)
-			{
-				return 0;
-			}
-		}
-		break;
-	case EV_NW_SOCKET_RX_NEW:
-		ctrl->new_rx_flag = 1;
-		if (NW_WAIT_TX_OK != ctrl->wait_target_state)
-		{
-			return 0;
-		}
-		break;
 	case EV_NW_SOCKET_NEW_CONNECT:
-		break;
+		if (adapter->opt->no_accept)
+		{
+			ctrl->state = NW_STATE_ONLINE;
+		}
+		return 0;
 	default:
 		return 1;
 	}
@@ -731,7 +732,9 @@ static void network_default_statemachine(network_ctrl_t *ctrl, OS_EVENT *event, 
 		event->ID = ctrl->wait_target_state + EV_NW_RESULT_BASE;
 		event->Param1 = result;
 	}
-	ctrl->wait_target_state = NW_WAIT_NONE;
+	{
+		ctrl->wait_target_state = NW_WAIT_NONE;
+	}
 	if (ctrl->task_handle)
 	{
 		platform_send_event(ctrl->task_handle, event->ID, event->Param1, event->Param2, event->Param3);
@@ -1149,6 +1152,7 @@ int network_socket_accept(network_ctrl_t *ctrl, network_ctrl_t *accept_ctrl)
 	}
 	else
 	{
+		accept_ctrl->state = NW_STATE_ONLINE;
 		return 0;
 	}
 }
@@ -1226,7 +1230,7 @@ int network_dns(network_ctrl_t *ctrl)
 	return adapter->opt->dns(ctrl->domain_name, ctrl->domain_name_len, ctrl, adapter->user_data);
 }
 
-int network_get_local_ip_info(network_ctrl_t *ctrl, luat_ip_addr_t *ip, luat_ip_addr_t *submask, luat_ip_addr_t *gateway, void *user_data)
+int network_get_local_ip_info(network_ctrl_t *ctrl, luat_ip_addr_t *ip, luat_ip_addr_t *submask, luat_ip_addr_t *gateway)
 {
 	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
 	return adapter->opt->get_local_ip_info(ip, submask, gateway, adapter->user_data);
@@ -1535,6 +1539,7 @@ int network_connect(network_ctrl_t *ctrl, const char *domain_name, uint32_t doma
 	}
 
 	NW_LOCK;
+	ctrl->is_server_mode = 0;
 	if (ctrl->dns_ip)
 	{
 		free(ctrl->dns_ip);
@@ -1613,8 +1618,71 @@ NETWORK_CONNECT_WAIT:
 
 int network_listen(network_ctrl_t *ctrl, uint16_t local_port, uint32_t timeout_ms)
 {
+	if (NW_STATE_LISTEN == ctrl->state)
+	{
+		DBG("socket %d is listen", ctrl->socket_id);
+		return 0;
+	}
+	if (ctrl->socket_id >= 0)
+	{
+		return -1;
+	}
+	NW_LOCK;
+	ctrl->is_server_mode = 1;
 	ctrl->auto_mode = 1;
+	ctrl->need_close = 0;
 	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
+	ctrl->wait_target_state = NW_WAIT_ON_LINE;
+	if (!network_check_ready(ctrl))
+	{
+
+		ctrl->state = NW_STATE_LINK_OFF;
+		goto NETWORK_LISTEN_WAIT;
+	}
+	if (network_base_connect(ctrl, NULL))
+	{
+		ctrl->state = NW_STATE_OFF_LINE;
+		ctrl->wait_target_state = NW_WAIT_NONE;
+		NW_UNLOCK;
+		return -1;
+	}
+	ctrl->state = NW_STATE_CONNECTING;
+NETWORK_LISTEN_WAIT:
+	NW_UNLOCK;
+	if (!ctrl->task_handle || !timeout_ms)
+	{
+
+		return 1;
+	}
+	uint8_t finish = 0;
+	OS_EVENT event;
+	int result;
+	//DBG_INFO("%s wait for active!,%u,%x", Net->Tag, To * SYS_TICK, Net->hTask);
+
+	platform_start_timer(ctrl->timer, timeout_ms, 0);
+	while (!finish)
+	{
+		platform_wait_event(ctrl->task_handle, 0, &event, NULL, 0);
+		switch (event.ID)
+		{
+		case EV_NW_RESULT_CONNECT:
+			result = (int)event.Param1;
+			finish = 1;
+			break;
+		case EV_NW_TIMEOUT:
+			result = -1;
+			finish = 1;
+			break;
+		default:
+			if (ctrl->user_callback)
+			{
+				ctrl->user_callback((void *)&event, ctrl->task_handle);
+			}
+			break;
+		}
+	}
+	platform_stop_timer(ctrl->timer);
+	return result;
 }
 
 int network_close(network_ctrl_t *ctrl, uint32_t timeout_ms)

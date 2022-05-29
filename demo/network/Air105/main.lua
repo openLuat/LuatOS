@@ -15,7 +15,10 @@ w5500.init(spi.HSPI_0, 24000000, pin.PC14, pin.PC01, pin.PC00)
 
 w5500.config()	--默认是DHCP模式
 w5500.bind(network.ETH0)
-
+--测试server模式的话，建议用静态IP和静态DNS，当然不是强制的
+--w5500.config("10.0.0.80","255.255.255.0","10.0.0.1")    
+--w5500.bind(network.ETH0)
+--network.setDNS(network.ETH0, 1, "114.114.114.114")
 
 --下面演示用阻塞方式做串口透传远程服务器，简单的串口DTU，用串口3，局域网内IP，IP可以换成域名，端口换成你自己的
 require "dtu_demo"
@@ -24,8 +27,10 @@ dtuDemo(3, "10.0.0.3", 12000)
 require "ntp_demo"
 ntpDemo()
 
-require "ota_demo"
-otaDemo()
+-- require "ota_demo"
+-- otaDemo()
+require "server_demo"
+SerDemo(14000)	--14000是本地端口
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()

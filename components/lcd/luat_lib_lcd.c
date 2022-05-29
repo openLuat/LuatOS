@@ -1420,6 +1420,70 @@ static int l_lcd_auto_flush(lua_State* L) {
   return 1;
 }
 
+/*
+RGB565颜色生成
+@api lcd.rgb565(r, g, b, swap)
+@int 红色, 0x00 ~ 0xFF
+@int 绿色, 0x00 ~ 0xFF
+@int 蓝色, 0x00 ~ 0xFF
+@bool 是否翻转, true 翻转, false 不翻转. 默认翻转
+@return int 颜色值
+@usage
+-- 本API支持多种模式, 参数数量分别是 1, 2, 3, 4
+-- 1. 单参数形式, 24bit RGB值, swap = true, 推荐
+local red =   lcd.rgb(0xFF0000)
+local green = lcd.rgb(0x00FF00)
+local blue =  lcd.rgb(0x0000FF)
+
+-- 2. 两参数形式, 24bit RGB值, 增加swap的设置
+local red =   lcd.rgb(0xFF0000, true)
+local green = lcd.rgb(0x00FF00, true)
+local blue =  lcd.rgb(0x0000FF, true)
+
+-- 3. 三参数形式, 红/绿/蓝, 各8bit 
+local red = lcd.rgb(0xFF, 0x00, 0x00)
+local green = lcd.rgb(0x00, 0xFF, 0x00)
+local blue = lcd.rgb(0x00, 0x00, 0xFF)
+
+-- 4. 四参数形式, 红/绿/蓝, 各8bit, 增加swap的设置
+local red = lcd.rgb(0xFF, 0x00, 0x00, true)
+local green = lcd.rgb(0x00, 0xFF, 0x00, true)
+local blue = lcd.rgb(0x00, 0x00, 0xFF, true)
+*/
+static int l_lcd_rgb565(lua_State* L) {
+  uint8_t r,g,b;
+  uint8_t swap;
+  uint16_t dst;
+  int top;
+  uint32_t rgb;
+  top = lua_gettop(L);
+  if (top == 1 || top == 2) {
+    rgb = luaL_checkinteger(L, 1);
+    r = (uint8_t)((rgb >> 16 ) & 0xFF);
+    g = (uint8_t)((rgb >> 8 ) & 0xFF);
+    b = (uint8_t)((rgb >> 0 ) & 0xFF);
+    swap = (lua_isboolean(L, 2) && !lua_toboolean(L, 2)) ? 0U : 1U;
+  }
+  else if (top == 3 || top == 4) {
+    r = (uint8_t)luaL_checkinteger(L, 1);
+    g = (uint8_t)luaL_checkinteger(L, 2);
+    b = (uint8_t)luaL_checkinteger(L, 3);
+    swap = (lua_isboolean(L, 4) && !lua_toboolean(L, 4)) ? 0U : 1U;
+  }
+  else {
+    LLOGW("unkown args count %d", top);
+    dst = 0;
+  }
+
+  dst = (uint16_t)((r-r%8)/8*2048 + (g-g%4)/4*32 + (b-b%8)/8);
+
+  if (swap) {
+    dst = ((dst >> 8) & 0xFF) + ((dst & 0xFF) << 8);
+  }
+  lua_pushinteger(L, dst);
+  return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_lcd[] =
 {
@@ -1451,6 +1515,7 @@ static const rotable_Reg_t reg_lcd[] =
     { "data",       ROREG_FUNC(l_lcd_write_data)},
     { "setColor",   ROREG_FUNC(l_lcd_set_color)},
     { "draw",       ROREG_FUNC(l_lcd_draw)},
+    { "rgb565",     ROREG_FUNC(l_lcd_rgb565)},
 #ifdef LUAT_USE_TJPGD
     { "showImage",    ROREG_FUNC(l_lcd_showimage)},
 #endif

@@ -287,6 +287,8 @@ int network_socket_connect(network_ctrl_t *ctrl, luat_ip_addr_t *remote_ip);
 //作为server开始监听
 //成功返回0，失败 < 0
 int network_socket_listen(network_ctrl_t *ctrl);
+
+uint8_t network_accept_enable(network_ctrl_t *ctrl);
 //作为server接受一个client
 //成功返回0，失败 < 0
 int network_socket_accept(network_ctrl_t *ctrl, network_ctrl_t *accept_ctrl);
@@ -375,7 +377,7 @@ int network_wait_link_up(network_ctrl_t *ctrl, uint32_t timeout_ms);
  */
 int network_connect(network_ctrl_t *ctrl, const char *domain_name, uint32_t domain_name_len, luat_ip_addr_t *remote_ip, uint16_t remote_port, uint32_t timeout_ms);
 
-int network_listen(network_ctrl_t *ctrl, uint16_t local_port, uint32_t timeout_ms);
+int network_listen(network_ctrl_t *ctrl, uint32_t timeout_ms);
 
 int network_close(network_ctrl_t *ctrl, uint32_t timeout_ms);
 /*

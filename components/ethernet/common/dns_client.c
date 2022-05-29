@@ -419,7 +419,7 @@ void dns_clear(dns_client_t *client)
 static int32_t dns_find_need_tx_process(void *pData, void *pParam)
 {
 	dns_process_t *process = (dns_process_t *)pData;
-	if (process->timeout_ms < GetSysTickMS())
+	if (!process->is_done && (process->timeout_ms < GetSysTickMS()))
 	{
 		return LIST_FIND;
 	}
@@ -518,6 +518,7 @@ NET_DNS_TX:
 			process->retry_cnt++;
 			if (process->retry_cnt >= DNS_TRY_MAX)
 			{
+				process->retry_cnt = 0;
 				process->dns_cnt++;
 				if (process->dns_cnt >= MAX_DNS_SERVER)
 				{
@@ -538,7 +539,7 @@ NET_DNS_TX:
 				goto NET_DNS_TX;
 			}
 		}
-		DBG("%.*s use dns server%d, try %d", process->uri_buf.Pos, process->uri_buf.Data, process->dns_cnt, process->retry_cnt);
+		DBG("%.*s state %d use dns server%d, try %d", process->uri_buf.Pos, process->uri_buf.Data, process->is_done, process->dns_cnt, process->retry_cnt);
 		process->is_done = 0;
 		OS_InitBuffer(out, 512);
 		dns_make(client, process, out);

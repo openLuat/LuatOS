@@ -398,7 +398,6 @@ W5500_SOCKET_CONFIG_START:
 		DBG_ERR("socket %d config timeout, error %d", socket_id, w5500->inter_error);
 		return -1;
 	}
-
 	w5500->socket[socket_id].state = is_tcp?W5500_SOCKET_CONFIG:W5500_SOCKET_ONLINE;
 	return 0;
 }
@@ -1545,7 +1544,15 @@ static int w5500_socket_listen(int socket_id, uint64_t tag,  uint16_t local_port
 //作为server接受一个client
 static int w5500_socket_accept(int socket_id, uint64_t tag,  luat_ip_addr_t *remote_ip, uint16_t *remote_port, void *user_data)
 {
-	return -1;
+	uint8_t temp[16];
+	int result = w5500_check_socket(user_data, socket_id, tag);
+	if (result) return result;
+	w5500_xfer(user_data, W5500_SOCKET_DEST_IP0, socket_index(socket_id)|socket_reg, temp, 6);
+	remote_ip->is_ipv6 = 0;
+	remote_ip->ipv4 = BytesGetLe32(temp);
+	*remote_port = BytesGetBe16(temp + 4);
+	DBG("client %d.%d.%d.%d, %u", temp[0], temp[1], temp[2], temp[3], *remote_port);
+	return 0;
 }
 //主动断开一个tcp连接，需要走完整个tcp流程，用户需要接收到close ok回调才能确认彻底断开
 static int w5500_socket_disconnect_ex(int socket_id, uint64_t tag,  void *user_data)
@@ -1760,8 +1767,10 @@ static int w5500_set_dns_server(uint8_t server_index, luat_ip_addr_t *ip, void *
 	if (user_data != prv_w5500_ctrl) return -1;
 	if (server_index >= MAX_DNS_SERVER) return -1;
 	prv_w5500_ctrl->dns_client.dns_server[server_index] = *ip;
+	prv_w5500_ctrl->dns_client.is_static_dns[server_index] = 1;
 	return 0;
 }
+
 static void w5500_socket_set_callback(CBFuncEx_t cb_fun, void *param, void *user_data)
 {
 	if (user_data != prv_w5500_ctrl) return ;

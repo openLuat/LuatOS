@@ -18,6 +18,7 @@ typedef struct
 	network_ctrl_t *netc;
 	int cb_ref;	//回调函数
 	char *task_name;
+	uint8_t adapter_index;
 }luat_network_ctrl_t;
 
 
@@ -141,6 +142,7 @@ static int l_network_create(lua_State *L)
 		lua_pushnil(L);
 		return 1;
 	}
+	l_ctrl->adapter_index = adapter_index;
 	l_ctrl->netc = network_alloc_ctrl(adapter_index);
 	if (!l_ctrl->netc)
 	{
@@ -542,15 +544,90 @@ static int l_network_wait(lua_State *L)
 	return 2;
 }
 
-
+/*
+作为服务端开始监听
+@api network.listen(ctrl)
+@user_data network.create得到的ctrl
+@return boolean true有异常发生，false没有异常，如果有error则不需要看下一个返回值了，如果有异常，后续要close
+@return boolean true已经connect，false没有connect，之后需要接收network.ON_LINE消息
+@usage local error, result = network.listen(ctrl)
+*/
 static int l_network_listen(lua_State *L)
 {
-
+	luat_network_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	int result = network_listen(l_ctrl->netc, 0);
+	lua_pushboolean(L, result < 0);
+	lua_pushboolean(L, result == 0);
+	return 2;
 }
 
+/*
+作为服务端接收到一个新的客户端，注意，如果是类似W5500的硬件协议栈不支持1对多，则不需要第二个参数
+@api network.accept(ctrl)
+@user_data network.create得到的ctrl，这里是服务器端
+@string or function or nil string为消息通知的taskName，function则为回调函数，和network.create参数一致
+@return boolean true有异常发生，false没有异常，如果有error则不需要看下一个返回值了，如果有异常，后续要close
+@return user_data or nil 如果支持1对多，则会返回新的ctrl，自动create，如果不支持则返回nil
+@usage local error, new_netc = network.listen(ctrl, cb)
+*/
 static int l_network_accept(lua_State *L)
 {
+	luat_network_ctrl_t *old_ctrl = l_get_ctrl(L, 1);
+	if (network_accept_enable(old_ctrl->netc))
+	{
+		luat_network_ctrl_t *new_ctrl = (luat_network_ctrl_t *)lua_newuserdata(L, sizeof(luat_network_ctrl_t));
+		if (!new_ctrl)
+		{
+			lua_pushboolean(L, 0);
+			lua_pushnil(L);
+			return 2;
+		}
+		new_ctrl->adapter_index = old_ctrl->adapter_index;
+		new_ctrl->netc = network_alloc_ctrl(old_ctrl->adapter_index);
+		if (!new_ctrl->netc)
+		{
+			LLOGD("create fail");
+			lua_pushboolean(L, 0);
+			lua_pushnil(L);
+			return 2;
+		}
+		network_init_ctrl(new_ctrl->netc, NULL, luat_lib_network_callback, new_ctrl);
+		if (lua_isfunction(L, 2))
+		{
+			lua_pushvalue(L, 2);
+			new_ctrl->cb_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+			new_ctrl->task_name = NULL;
+		}
+		else if (lua_isstring(L, 2))
+		{
+			new_ctrl->cb_ref = 0;
+			size_t len;
+			const char *buf;
+			buf = lua_tolstring(L, 2, &len);//取出字符串数据
+			new_ctrl->task_name = luat_heap_malloc(len + 1);
+			memset(new_ctrl->task_name, 0, len + 1);
+			memcpy(new_ctrl->task_name, buf, len);
+		}
+		if (network_socket_accept(old_ctrl, new_ctrl))
+		{
+			lua_pushboolean(L, 0);
+			lua_pushnil(L);
+			return 2;
+		}
+		else
+		{
+			lua_pushboolean(L, 1);
+			luaL_setmetatable(L, LUAT_NW_CTRL_TYPE);
+			return 2;
+		}
 
+	}
+	else
+	{
+		lua_pushboolean(L, !network_socket_accept(old_ctrl->netc, NULL));
+		lua_pushnil(L);
+		return 2;
+	}
 }
 
 /*
@@ -565,6 +642,58 @@ static int l_network_release(lua_State *L)
 	return l_network_gc(L);
 }
 
+/*
+设置DNS服务器
+@api    network.setDNS(adapter_index, dns_index, ip)
+@int 适配器序号， 只能是network.ETH0，network.STA，network.AP，如果不填，会选择最后一个注册的适配器
+@int dns服务器序号，从1开始
+@string or int dns，如果是IPV4，可以是大端格式的int值
+@return boolean 成功返回true，失败返回false
+@usage network.setDNS(network.ETH0, 1, "114.114.114.114")
+*/
+static int l_network_set_dns(lua_State *L)
+{
+	int adapter_index = luaL_optinteger(L, 1, network_get_last_register_adapter());
+	if (adapter_index < 0 || adapter_index >= NW_ADAPTER_QTY)
+	{
+		lua_pushboolean(L, 0);
+		return 1;
+	}
+	int dns_index = luaL_optinteger(L, 2, 1);
+	luat_ip_addr_t ip_addr;
+	const char *ip;
+	size_t ip_len;
+	ip_addr.is_ipv6 = 0xff;
+	if (lua_isinteger(L, 3))
+	{
+		ip_addr.is_ipv6 = 0;
+		ip_addr.ipv4 = lua_tointeger(L, 3);
+		ip = NULL;
+		ip_len = 0;
+	}
+	else
+	{
+		ip_len = 0;
+	    ip = luaL_checklstring(L, 3, &ip_len);
+	    ip_addr.is_ipv6 = !network_string_is_ipv4(ip, ip_len);
+	    if (ip_addr.is_ipv6)
+	    {
+	    	char *temp = luat_heap_malloc(ip_len + 1);
+	    	memcpy(temp, ip, ip_len);
+	    	temp[ip_len] = 0;
+	    	network_string_to_ipv6(temp, &ip_addr);
+	    	luat_heap_free(temp);
+	    }
+	    else
+	    {
+	    	ip_addr.ipv4 = network_string_to_ipv4(ip, ip_len);
+	    }
+	}
+	network_set_dns_server(adapter_index, dns_index - 1, &ip_addr);
+	lua_pushboolean(L, 1);
+	return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_network_adapter[] =
 {
@@ -573,6 +702,8 @@ static const rotable_Reg_t reg_network_adapter[] =
 	{"config",		ROREG_FUNC(l_network_config)},
 	{"linkup",			ROREG_FUNC(l_network_linkup)},
 	{"connect",			ROREG_FUNC(l_network_connect)},
+	{"listen",			ROREG_FUNC(l_network_listen)},
+	{"accept",			ROREG_FUNC(l_network_accept)},
 	{"discon",			ROREG_FUNC(l_network_disconnect)},
 	{"close",			ROREG_FUNC(l_network_close)},
 	{"tx",			ROREG_FUNC(l_network_tx)},
@@ -581,6 +712,7 @@ static const rotable_Reg_t reg_network_adapter[] =
 	{"listen",			ROREG_FUNC(l_network_listen)},
 	{"accept",			ROREG_FUNC(l_network_accept)},
 	{"release",			ROREG_FUNC(l_network_release)},
+	{ "setDNS",           ROREG_FUNC(l_network_set_dns)},
     { "ETH0",           ROREG_INT(NW_ADAPTER_INDEX_ETH0)},
 	{ "STA",          	ROREG_INT(NW_ADAPTER_INDEX_STA)},
 	{ "AP",     		ROREG_INT(NW_ADAPTER_INDEX_AP)},

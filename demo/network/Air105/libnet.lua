@@ -44,6 +44,28 @@ function libnet.connect(taskName,timeout, ... )
 	end
 end
 
+--- 阻塞等待客户端连接上，只能用于任务函数中
+-- @string 任务标志
+-- @int 超时时间，如果==0或者空，则没有超时一致等待
+-- @... 其他参数和network.listen一致
+-- @return 失败或者超时返回false 成功返回true
+function libnet.listen(taskName,timeout, ... )
+	local is_err, result = network.listen(...)
+	if is_err then
+		return false
+	end
+	if not result then
+		result = sys_wait(taskName, network.ON_LINE, timeout)
+	else
+		return true
+	end
+	if type(result) == 'table' and result[2] == 0 then
+		return true
+	else
+		return false
+	end
+end
+
 --- 阻塞等待数据发送完成，只能用于任务函数中
 -- @string 任务标志
 -- @int 超时时间，如果==0或者空，则没有超时一致等待

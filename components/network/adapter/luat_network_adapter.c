@@ -654,10 +654,8 @@ static int network_state_listen(network_ctrl_t *ctrl, OS_EVENT *event, network_a
 		}
 		break;
 	case EV_NW_SOCKET_NEW_CONNECT:
-		if (adapter->opt->no_accept)
-		{
-			ctrl->state = NW_STATE_ONLINE;
-		}
+	case EV_NW_SOCKET_CONNECT_OK:
+		ctrl->state = NW_STATE_ONLINE;
 		return 0;
 	default:
 		return 1;
@@ -732,6 +730,7 @@ static void network_default_statemachine(network_ctrl_t *ctrl, OS_EVENT *event, 
 		event->ID = ctrl->wait_target_state + EV_NW_RESULT_BASE;
 		event->Param1 = result;
 	}
+	if ((ctrl->state != NW_STATE_LISTEN) || (result < 0))
 	{
 		ctrl->wait_target_state = NW_WAIT_NONE;
 	}
@@ -1136,6 +1135,11 @@ int network_socket_listen(network_ctrl_t *ctrl)
 	return adapter->opt->socket_listen(ctrl->socket_id, ctrl->tag, ctrl->local_port, adapter->user_data);
 }
 
+uint8_t network_accept_enable(network_ctrl_t *ctrl)
+{
+	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
+	return !(adapter->opt->no_accept);
+}
 //作为server接受一个client
 //成功返回0，失败 < 0
 int network_socket_accept(network_ctrl_t *ctrl, network_ctrl_t *accept_ctrl)
@@ -1143,6 +1147,8 @@ int network_socket_accept(network_ctrl_t *ctrl, network_ctrl_t *accept_ctrl)
 	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
 	if (adapter->opt->no_accept)
 	{
+//		DBG("%x,%d,%llu,%x,%x,%x",adapter->opt->socket_accept, ctrl->socket_id, ctrl->tag, &ctrl->remote_ip, &ctrl->remote_port, adapter->user_data);
+		adapter->opt->socket_accept(ctrl->socket_id, ctrl->tag, &ctrl->remote_ip, &ctrl->remote_port, adapter->user_data);
 		return 0;
 	}
 	accept_ctrl->socket_id = adapter->opt->socket_accept(ctrl->socket_id, ctrl->tag, &accept_ctrl->remote_ip, &accept_ctrl->remote_port, adapter->user_data);
@@ -1152,6 +1158,13 @@ int network_socket_accept(network_ctrl_t *ctrl, network_ctrl_t *accept_ctrl)
 	}
 	else
 	{
+		accept_ctrl->is_tcp = ctrl->is_tcp;
+		accept_ctrl->tcp_keep_alive = ctrl->tcp_keep_alive;
+		accept_ctrl->tcp_keep_idle = ctrl->tcp_keep_idle;
+		accept_ctrl->tcp_keep_interval = ctrl->tcp_keep_interval;
+		accept_ctrl->tcp_keep_cnt = ctrl->tcp_keep_cnt;
+		accept_ctrl->tcp_timeou_ms = ctrl->tcp_timeou_ms;
+		accept_ctrl->local_port = ctrl->local_port;
 		accept_ctrl->state = NW_STATE_ONLINE;
 		return 0;
 	}
@@ -1616,7 +1629,7 @@ NETWORK_CONNECT_WAIT:
 	return result;
 }
 
-int network_listen(network_ctrl_t *ctrl, uint16_t local_port, uint32_t timeout_ms)
+int network_listen(network_ctrl_t *ctrl, uint32_t timeout_ms)
 {
 	if (NW_STATE_LISTEN == ctrl->state)
 	{

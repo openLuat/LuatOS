@@ -1451,11 +1451,11 @@ local green = lcd.rgb(0x00, 0xFF, 0x00, true)
 local blue = lcd.rgb(0x00, 0x00, 0xFF, true)
 */
 static int l_lcd_rgb565(lua_State* L) {
-  uint8_t r,g,b;
-  uint8_t swap;
-  uint16_t dst;
-  int top;
-  uint32_t rgb;
+  uint8_t r =0,g =0,b = 0;
+  uint8_t swap = 0;
+  uint16_t dst = 0;
+  int top = 0 ;
+  uint32_t rgb = 0;
   top = lua_gettop(L);
   if (top == 1 || top == 2) {
     rgb = luaL_checkinteger(L, 1);

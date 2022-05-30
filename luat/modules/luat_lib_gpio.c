@@ -299,7 +299,7 @@ static int l_gpio_pulse(lua_State *L) {
         LLOGD("pin id out of range (0-127)");
         return 0;
     }
-    luat_gpio_pulse(pin,level,len,delay);
+    luat_gpio_pulse(pin,(uint8_t*)level,len,delay);
     return 0;
 }
 

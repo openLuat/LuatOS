@@ -281,7 +281,7 @@ static int l_gpio_pulse(lua_State *L) {
         if (lua_isinteger(L, 1)){
             *level = (char)luaL_checkinteger(L, 1);
         }else if (lua_isstring(L, 1)){
-            level = luaL_checklstring(L, 1, &len);
+            level = (char*)luaL_checklstring(L, 1, &len);
         }
         len = luaL_checkinteger(L, 2);
         delay = luaL_checkinteger(L, 3);
@@ -290,7 +290,7 @@ static int l_gpio_pulse(lua_State *L) {
         if (lua_isinteger(L, 2)){
             *level = (char)luaL_checkinteger(L, 2);
         }else if (lua_isstring(L, 2)){
-            level = luaL_checklstring(L, 2, &len);
+            level = (char*)luaL_checklstring(L, 2, &len);
         }
         len = luaL_checkinteger(L, 3);
         delay = luaL_checkinteger(L, 4);
@@ -299,7 +299,7 @@ static int l_gpio_pulse(lua_State *L) {
         LLOGD("pin id out of range (0-127)");
         return 0;
     }
-    luat_gpio_pulse(pin,&level,len,delay);
+    luat_gpio_pulse(pin,level,len,delay);
     return 0;
 }
 

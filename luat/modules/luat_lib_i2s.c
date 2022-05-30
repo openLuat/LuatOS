@@ -90,8 +90,8 @@ static int l_i2s_send(lua_State *L) {
 static int l_i2s_recv(lua_State *L) {
     luaL_Buffer buff;
     int id = luaL_checkinteger(L, 1);
-    int len = luaL_checkinteger(L, 2);
-    char* buff2 = luaL_buffinitsize(L, &buff, &len);
+    size_t len = luaL_checkinteger(L, 2);
+    char* buff2 = luaL_buffinitsize(L, &buff, len);
     int ret = luat_i2s_recv(id, buff2, len);
     if (ret > 0)
         luaL_pushresultsize(&buff, ret);

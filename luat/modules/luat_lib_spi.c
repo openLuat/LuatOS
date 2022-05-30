@@ -618,9 +618,9 @@ static const rotable_Reg_t reg_spi[] =
     { "deviceSend",       ROREG_FUNC(l_spi_device_send)},
     
     { "MSB",               ROREG_INT(1)},
-    { "LSB",               ROREG_INT(2)},
+    { "LSB",               ROREG_INT(0)},
     { "master",            ROREG_INT(1)},
-    { "slave",             ROREG_INT(2)},
+    { "slave",             ROREG_INT(0)},
     { "full",              ROREG_INT(1)},
     { "half",              ROREG_INT(0)},
 

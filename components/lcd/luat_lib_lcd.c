@@ -1474,8 +1474,7 @@ static int l_lcd_rgb565(lua_State* L) {
     LLOGW("unkown args count %d", top);
     dst = 0;
   }
-
-  dst = (uint16_t)((r-r%8)/8*2048 + (g-g%4)/4*32 + (b-b%8)/8);
+  dst = (uint16_t)((r&0xF8)<<8) | (uint16_t)((g&0xFC)<<3) | (uint16_t)(b>>3);
 
   if (swap) {
     dst = ((dst >> 8) & 0xFF) + ((dst & 0xFF) << 8);

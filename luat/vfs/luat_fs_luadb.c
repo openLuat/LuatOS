@@ -222,7 +222,7 @@ _after_head:
         LLOGW("miss DB filecount");
         return NULL;
     }
-    if (filecount > 256) {
+    if (filecount > 1024) {
         LLOGW("too many file in LuaDB");
         return NULL;
     }

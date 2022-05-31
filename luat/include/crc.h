@@ -4,8 +4,8 @@
 
 #ifndef uint8_t
 #define uint8_t unsigned char
-#define uint16_t unsigned int
-#define uint32_t unsigned long
+#define uint16_t unsigned short
+#define uint32_t unsigned int
 #define BOOL unsigned char
 #define TRUE 1
 #define FALSE 0

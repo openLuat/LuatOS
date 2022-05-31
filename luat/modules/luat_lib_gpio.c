@@ -272,6 +272,17 @@ static int l_gpio_toggle(lua_State *L) {
     return 0;
 }
 
+/*
+在同一个GPIO输出一组脉冲, 注意, len的单位是bit, 高位在前.
+@api gpio.pulse(pin,level,len,delay)
+@int pin
+@int/string level 
+@int len 长度 单位是bit, 高位在前.
+@int delay 延迟，单位ns
+@return nil 无返回值
+@usage
+gpio.pulse(pin.PB06,1,0xA9,8)
+*/
 static int l_gpio_pulse(lua_State *L) {
     int pin,delay = 0;
     size_t len;

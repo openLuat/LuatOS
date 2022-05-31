@@ -10,6 +10,7 @@
 #include "luat_malloc.h"
 #include "luat_str.h"
 #include <time.h>
+#include "luat_zbuff.h"
 
 #define LUAT_LOG_TAG "crypto"
 #include "luat_log.h"
@@ -288,14 +289,21 @@ local crc = crypto.crc16("")
 static int l_crypto_crc16(lua_State *L)
 {   
     size_t inputlen;
+    const unsigned char *inputData;
     const char  *inputmethod = (const char*)luaL_checkstring(L, 1);
-    const unsigned char *inputData = (const unsigned char*)lua_tolstring(L,2,&inputlen);
+    if(lua_isuserdata(L, 2))
+    {
+        luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+        inputlen = buff->len - buff->cursor;
+        inputData = (const unsigned char *)(buff->addr + buff->cursor);
+    }else{
+        inputData = (const unsigned char*)lua_tolstring(L,2,&inputlen);
+    }
     uint16_t poly = luaL_optnumber(L,3,0x0000);
     uint16_t initial = luaL_optnumber(L,4,0x0000);
     uint16_t finally = luaL_optnumber(L,5,0x0000);
     uint8_t inReverse = luaL_optnumber(L,6,0);
     uint8_t outReverse = luaL_optnumber(L,7,0);
-   
     lua_pushinteger(L, calcCRC16(inputData, inputmethod,inputlen,poly,initial,finally,inReverse,outReverse));
     return 1;
 }

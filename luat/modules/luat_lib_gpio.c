@@ -275,13 +275,14 @@ static int l_gpio_toggle(lua_State *L) {
 /*
 在同一个GPIO输出一组脉冲, 注意, len的单位是bit, 高位在前.
 @api gpio.pulse(pin,level,len,delay)
-@int pin
-@int/string level 
+@int gpio号
+@int/string 数值或者字符串. 
 @int len 长度 单位是bit, 高位在前.
-@int delay 延迟，单位ns
+@int delay 延迟,当前无固定时间单位
 @return nil 无返回值
 @usage
-gpio.pulse(pin.PB06,1,0xA9,8)
+-- 通过PB06脚输出输出8个电平变化.
+gpio.pulse(pin.PB06,0xA9, 8, 0)
 */
 static int l_gpio_pulse(lua_State *L) {
     int pin,delay = 0;

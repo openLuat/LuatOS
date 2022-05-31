@@ -36,8 +36,8 @@ if wdt then
     sys.timerLoopStart(wdt.feed, 10000)--10s喂一次狗
 end
 
--- v0006及以后版本可用pin方式, 请升级到最新固件 https://gitee.com/openLuat/LuatOS/releases
-spi_lcd = spi.deviceSetup(5,pin.PC14,0,0,8,96*1000*1000,spi.MSB,1,1)
+-- HSPI 即 SPI5, 最高96M, 部分屏不支持, 所以这里写48M
+spi_lcd = spi.deviceSetup(5,pin.PC14,0,0,8,48*1000*1000,spi.MSB,1,1)
 
 --[[ 此为合宙售卖的0.96寸TFT LCD LCD 分辨率:160X80 屏幕ic:st7735s 购买地址:https://item.taobao.com/item.htm?spm=a1z10.5-c.w4002-24045920841.19.6c2275a1Pa8F9o&id=560176729178]]
 -- lcd.init("st7735s",{port = "device",pin_dc = pin.PE08 ,pin_rst = pin.PC12,pin_pwr = pin.PE09,direction = 2,w = 160,h = 80,xoffset = 1,yoffset = 26},spi_lcd)
@@ -58,23 +58,22 @@ lcd.init("st7735s",{port = "device",pin_dc = pin.PE08, pin_pwr = pin.PE09, pin_r
 
 sys.taskInit(function()
     sys.wait(1000)
-    lcd.setupBuff()
-    
-    local sh = lcd.showImage
-    local t = mcu.ticks()
-    --local wait = sys.wait
-    for i=1,10 do
-        sh(0, 0, "/luadb/320240.jpg")
-        --wait(5)
-    end
-    local e = mcu.ticks()
 
-    log.style(0)
-    log.info("time", "风格0", e - t)
-    log.style(1)
-    log.info("time", "风格1", e - t)
-    log.style(2)
-    log.info("time", "风格2", e - t)
+    -- 缓存模式,默认不开
+    --lcd.setupBuff()
+    --lcd.autoFlush(false)
+    
+    if lcd.showImage then
+        -- 下载的文件都在 /luadb/ 下,无二级目录.
+        lcd.showImage(40,0,"/luadb/logo.jpg")
+        sys.wait(100)
+        -- lcd.flush()
+    end
+
+    log.info("lcd.drawLine", lcd.drawLine(20,20,150,20,0x001F))
+    log.info("lcd.drawRectangle", lcd.drawRectangle(20,40,120,70,0xF800))
+    log.info("lcd.drawCircle", lcd.drawCircle(50,50,20,0x0CE0))
+    -- lcd.flush()
 end)
 
 

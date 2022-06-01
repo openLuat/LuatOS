@@ -844,6 +844,7 @@ static int io_writeFile (lua_State *L) {
 @int 写入的位置,默认是0
 @int 写入的长度,默认是zbuff的len减去offset
 @return 成功返回true,否则返回false
+@return 返回实际读取到的长度，如果小于0也说明是读取失败了
 @usage
 local buff = zbuff.create(1024)
 local f = io.open("/sd/test.txt")
@@ -880,7 +881,8 @@ static int f_fill(lua_State *L) {
   }
   len = fread(buff->addr + offset, 1, len, f);
   lua_pushboolean(L, len >= 0 ? 1 : 0);
-  return 1;
+  lua_pushinteger(L, len);
+  return 2;
 }
 #endif
 

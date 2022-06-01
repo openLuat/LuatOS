@@ -1,0 +1,9 @@
+{
+    "type" : "lua", // 可以是lua(纯lua), c(纯c), 或者lua-c(混合)
+    "enterpoint" : "xmodem.lua",
+    "compatibility" : {
+        "soc" : true,
+        "air" : false
+    },
+    "dependency" : ["i2c"] // 需要何种硬件或软件接口
+}

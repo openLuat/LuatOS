@@ -1325,7 +1325,7 @@ static int l_zbuff_query(lua_State *L)
 
 /**
 zbuff的类似于memset操作
-@api buff:set(num, start, len)
+@api buff:set(start, num, len)
 @int 可选，开始位置，默认为0,
 @int 可选，默认为0。要设置为的值
 @int 可选，长度，默认为全部空间，如果超出范围了，会自动截断

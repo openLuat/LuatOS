@@ -16,9 +16,12 @@ log.info("lvgl", lvgl.init())
 scr = lvgl.obj_create(nil, nil)
 
 if device.useFont then
-    local font_16 = lvgl.font_load(device.path.."16_test_fonts.bin")
-    assert(font_16,"font not found")
-    lvgl.obj_set_style_local_text_font(scr, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, font_16)
+    local font_16 = lvgl.font_load("/luadb/16_test_fonts.bin")
+    if not font_16 then
+        log.info("font error","font not found")
+    else
+        lvgl.obj_set_style_local_text_font(scr, lvgl.LABEL_PART_MAIN, lvgl.STATE_DEFAULT, font_16)
+    end
 end
 
 home = require"home"

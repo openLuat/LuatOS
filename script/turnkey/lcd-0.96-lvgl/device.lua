@@ -7,7 +7,6 @@ if not pin then pin = {} end
 --LuatOS-SoC_V0006_air101 长这样
 local chips = {
     air101 = {
-        path = "/luadb/",
         useFont = true,
         spi = 0,
         spiCS = pin.PB04,
@@ -22,7 +21,6 @@ local chips = {
         keyO = pin.PA4,
     },
     air105 = {
-        path = "/luadb/",
         useFont = true,
         spi = 5,
         spiCS = pin.PC14,
@@ -37,7 +35,6 @@ local chips = {
         keyO = pin.PE7,
     },
     esp32c3 = {
-        path = "/spiffs/",
         useFont = false,
         spi = 2,
         spiCS = 7,

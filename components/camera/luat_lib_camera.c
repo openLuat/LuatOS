@@ -10,7 +10,7 @@
 #include "luat_msgbus.h"
 #include "luat_fs.h"
 #include "luat_malloc.h"
-
+#include "luat_uart.h"
 #define LUAT_LOG_TAG "camera"
 #include "luat_log.h"
 
@@ -262,6 +262,11 @@ LUAT_WEAK luat_camera_capture(int id, uint8_t quality, const char *path) {
     return -1;
 }
 
+LUAT_WEAK luat_camera_video(int id, int w, int h, uint8_t uart_id) {
+    LLOGD("not support yet");
+    return -1;
+}
+
 /**
 camera拍照
 @api camera.capture(id, y_diff, save_path, quality)
@@ -281,6 +286,26 @@ static int l_camera_capture(lua_State *L) {
     return 0;
 }
 
+/**
+camera输出视频流
+@api camera.video(id, w, h, out_path)
+@int camera id,例如0
+@int 宽度
+@int 高度
+@int 输出路径，目前只能用虚拟串口0
+@return boolean 成功返回true,否则返回false
+@usage
+camera.video(0, 320, 240, uart.VUART_0)
+*/
+static int l_camera_video(lua_State *L) {
+    int id = luaL_checkinteger(L, 1);
+    int w = luaL_optinteger(L, 2, 320);
+    int h = luaL_optinteger(L, 3, 240);
+    int param = luaL_optinteger(L, 4, LUAT_VUART_ID_0);
+    luat_camera_video(id, w, h, param);
+    return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_camera[] =
 {
@@ -288,6 +313,7 @@ static const rotable_Reg_t reg_camera[] =
     { "start" ,      ROREG_FUNC(l_camera_start )},
     { "stop" ,       ROREG_FUNC(l_camera_stop)},
     { "capture",     ROREG_FUNC(l_camera_capture)},
+	{ "video",     ROREG_FUNC(l_camera_video)},
 	{ "close",		 ROREG_FUNC(l_camera_close)},
     { "on",          ROREG_FUNC(l_camera_on)},
 	{ NULL,          {}}

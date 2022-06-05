@@ -107,8 +107,10 @@ def get_modules(file_list, start="/*", end="*/"):
         #后面的数据
         lines = text.splitlines()
         line_now = 0
-        isGotApi = False #是否已经有过接口？
+        isGotApi = False #是否已经有过接口？ 或者是否第一段注释已结束？
         while line_now<len(lines)-3:
+            if lines[line_now].find(end) >= 0:
+                isGotApi = True #第一段注释结束了，不用找例子了
             if not isGotApi:#库自带的例子
                 arg = re.search(" *@usage *",lines[line_now],re.I)
                 if arg:

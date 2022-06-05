@@ -186,7 +186,6 @@ static int l_mcu_hw_diff_tick64(lua_State* L) {
 @boolean 高速时钟是否使用外部时钟源，如果为空则不改变
 @boolean 低速32K是否使用外部时钟源，如果为空则不改变
 @int PLL稳定时间，在切换高速时钟的时候，根据硬件环境，需要delay一段时间等待PLL稳定，默认是1200，建议不小于1024
-@return 无
 @usage
 mcu.setXTAL(true, true, 1248)	--高速时钟使用外部时钟，低速32K使用外部晶振, delay1248
 */

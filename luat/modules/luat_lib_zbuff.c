@@ -1013,7 +1013,6 @@ int __zbuff_resize(luat_zbuff_t *buff, uint32_t new_size)
 调整zbuff的大小（与当前指针位置无关；执行后如果指针超过zbuff大小，会被更改为指向最后一个字节）
 @api buff:resize(n)
 @int 新空间大小
-@return 无
 @usage
 buff:resize(20)
  */
@@ -1118,7 +1117,7 @@ static int l_zbuff_copy(lua_State *L)
 /**
 获取zbuff的实际数据量大小（与当前指针位置无关；执行后指针位置不变）
 @api buff:used()
-@return zbuff的实际数据量大小
+@return int zbuff的实际数据量大小
 @usage
 buff:used()
 */
@@ -1134,7 +1133,6 @@ static int l_zbuff_used(lua_State *L)
 @api buff:del(offset,length)
 @int 起始位置, 默认0，如果<0则从used往前数，-1 = used - 1
 @int 长度，默认为cursor指针位置
-@return 无
 @usage
 buff:del(1,4)	--从位置1开始删除4个字节数据
 */

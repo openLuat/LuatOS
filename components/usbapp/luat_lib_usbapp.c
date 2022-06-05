@@ -51,7 +51,6 @@ USB 设置VID和PID
 @int 设备id,默认为0
 @int vid 小端格式
 @int pid 小端格式
-@return 无
 @usage
 usbapp.set_id(0, 0x1234, 0x5678)
 */
@@ -175,7 +174,7 @@ buff形式读接收到的数据，一次读出全部数据存入buff中，如果
 @api    usbapp.hid_rx(id, buff)
 @int 设备id,默认为0
 @zbuff zbuff对象
-@return 返回读到的长度，并把zbuff指针后移
+@return int 返回读到的长度，并把zbuff指针后移
 @usage
 usbapp.hid_rx(0, buff)
 */

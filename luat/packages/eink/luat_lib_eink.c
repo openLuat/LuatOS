@@ -139,7 +139,6 @@ static int l_eink_setup(lua_State *L) {
 /**
 进入休眠模式，再次使用时需要重新初始化
 @api eink.sleep()
-@return nil
 */
 static int l_eink_sleep(lua_State *L)
 {

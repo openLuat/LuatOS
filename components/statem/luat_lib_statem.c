@@ -15,7 +15,7 @@
 @api statem.create(count, repeat)
 @int 指令条数,默认32条
 @int 重复执行的次数, 0 代表不重复, 正整数代表具体重复执行的次数. 暂不支持永续执行
-@return 若成功,返回状态机指针,否则返回nil
+@return some 若成功,返回状态机指针,否则返回nil
 @usage
 gpio.setup(7, 0, gpio.PULLUP)
 gpio.setup(12, 0, gpio.PULLUP)

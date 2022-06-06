@@ -3,6 +3,7 @@
 @summary 打包和解包格式串
 @version 1.0
 @date    2021.12.20
+@video https://www.bilibili.com/video/BV1Sr4y1n7bP
 */
 
 #define	OP_ZSTRING	      'z'		/* zero-terminated string */

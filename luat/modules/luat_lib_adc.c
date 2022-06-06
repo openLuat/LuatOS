@@ -4,6 +4,7 @@
 @summary 数模转换
 @version 1.0
 @date    2020.07.03
+@demo adc
 */
 #include "luat_base.h"
 #include "luat_adc.h"

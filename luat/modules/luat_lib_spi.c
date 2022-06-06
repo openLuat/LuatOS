@@ -3,6 +3,7 @@
 @summary spi操作库
 @version 1.0
 @date    2020.04.23
+@demo spi
 */
 #include "luat_base.h"
 #include "luat_log.h"

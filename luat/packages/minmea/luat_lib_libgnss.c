@@ -4,6 +4,7 @@
 @summary NMEA数据处理
 @version 1.0
 @date    2020.07.03
+@demo libgnss
 */
 #include "luat_base.h"
 #include "luat_msgbus.h"

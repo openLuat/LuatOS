@@ -3,6 +3,7 @@
 @summary coap数据处理
 @version 1.0
 @date    2020.06.30
+@demo libcoap
 */
 #include "luat_base.h"
 #include "luat_timer.h"

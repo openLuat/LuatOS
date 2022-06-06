@@ -4,6 +4,7 @@
 @author  Dozingfiretruck
 @version 1.0
 @date    2021.01.25
+@demo u8g2
 */
 #include "luat_base.h"
 #include "luat_malloc.h"

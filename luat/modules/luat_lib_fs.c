@@ -4,6 +4,7 @@
 @summary 文件系统额外操作
 @version 1.0
 @date    2021.03.30
+@demo fs
 */
 #include "luat_base.h"
 #include "luat_fs.h"

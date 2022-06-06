@@ -3,6 +3,7 @@
 @summary 中国电信CTIOT集成
 @version 1.0
 @date    2020.08.30
+@demo ctiot
 */
 #include "luat_base.h"
 #include "luat_timer.h"

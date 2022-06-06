@@ -3,6 +3,7 @@
 @summary USB功能操作
 @version 1.0
 @date    2022.01.17
+@demo usb_hid
 */
 #include "luat_base.h"
 #include "luat_msgbus.h"

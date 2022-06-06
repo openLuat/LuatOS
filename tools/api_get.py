@@ -27,6 +27,8 @@ def get_file_list(paths, ext = ".c"):
 # @return 类型 返回的第一个值，这里是解释
 # @return string 返回的第二个值，类型为string
 # ...根据实际，列处所有返回值
+# @demo  demo路径
+# @video 视频链接
 # @usage
 # --使用的例子，可多行
 # lcoal a,b,c = module.function("test",nil,{1,2,3})
@@ -41,6 +43,9 @@ def get_file_list(paths, ext = ".c"):
 #         'module': 'adc',
 #         'summary': '数模转换',
 #         'url': 'https://xxxxxx',
+#         'demo': 'adc',
+#         'video': 'https://xxxxx',
+#         'usage': '--xxxxxxx',
 #         'api':[
 #             {
 #                 'api':'adc.read(id)',
@@ -94,6 +99,8 @@ def get_modules(file_list, start="/*", end="*/"):
             module["module"] = r.group(1)
             module["summary"] = r.group(2)
             module["usage"] = ""
+            module["demo"] = ""
+            module["video"] = ""
             module["api"] = []
         else:
             continue
@@ -112,13 +119,19 @@ def get_modules(file_list, start="/*", end="*/"):
             if lines[line_now].find(end) >= 0:
                 isGotApi = True #第一段注释结束了，不用找例子了
             if not isGotApi:#库自带的例子
-                arg = re.search(" *@usage *",lines[line_now],re.I)
-                if arg:
-                    isGotApi = True
+                if re.search(" *@demo *.+",lines[line_now],re.I):
+                    module["demo"] = "https://gitee.com/openLuat/LuatOS/tree/master/demo/"
+                    module["demo"] += re.search(" *@demo * (.+) *",lines[line_now],re.I).group(1)
+                    line_now+=1
+                if re.search(" *@video *.+",lines[line_now],re.I):
+                    module["video"] = re.search(" *@video * (.+) *",lines[line_now],re.I).group(1)
+                    line_now+=1
+                if re.search(" *@usage *",lines[line_now],re.I):
                     line_now+=1
                     while lines[line_now].find(end) < 0:
                         module["usage"] += lines[line_now]+"\n"
                         line_now+=1
+                    isGotApi = True
             #匹配api完整名称行
             name = re.search(r" *@api *(.+) *",lines[line_now+2],re.I)
             if not name:

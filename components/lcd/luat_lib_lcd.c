@@ -4,6 +4,7 @@
 @summary lcd驱动模块
 @version 1.0
 @date    2021.06.16
+@demo lcd
 */
 #include "luat_base.h"
 #include "luat_lcd.h"

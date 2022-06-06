@@ -3,6 +3,7 @@
 @summary PWM模块
 @version 1.0
 @date    2020.07.03
+@demo pwm
 */
 #include "luat_base.h"
 #include "luat_pwm.h"

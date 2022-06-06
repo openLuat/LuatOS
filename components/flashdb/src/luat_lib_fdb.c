@@ -4,6 +4,7 @@
 @summary kv数据库(基于FlashDB)
 @version 1.0
 @date    2021.11.03
+@demo fdb
 */
 
 #include "luat_base.h"

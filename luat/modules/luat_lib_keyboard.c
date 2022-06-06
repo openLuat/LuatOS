@@ -4,6 +4,7 @@
 @summary 键盘矩阵(当前仅air105支持)
 @version 1.0
 @date    2021.11.24
+@demo keyboard
 */
 
 #include "luat_base.h"

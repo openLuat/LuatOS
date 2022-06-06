@@ -4,6 +4,7 @@
 @summary 多媒体
 @version 1.0
 @date    2022.03.11
+@demo multimedia
 */
 #include "luat_base.h"
 #include "luat_multimedia.h"

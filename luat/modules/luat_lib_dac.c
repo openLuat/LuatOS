@@ -4,6 +4,7 @@
 @summary 数模转换
 @version 1.0
 @date    2021.12.03
+@demo multimedia
 */
 
 #include "luat_base.h"

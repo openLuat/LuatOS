@@ -5,6 +5,8 @@
 @catalog 外设API
 @version 1.0
 @date    2020.03.30
+@demo gpio
+@video https://www.bilibili.com/video/BV1hr4y1p7dt
 */
 #include "luat_base.h"
 #include "luat_gpio.h"

@@ -3,6 +3,7 @@
 @summary disp库已合并到u8g2库,API等价
 @version 1.0
 @date    2020.03.30
+@demo u8g2
 */
 #include "luat_base.h"
 #include "luat_malloc.h"

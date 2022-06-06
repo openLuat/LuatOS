@@ -3,6 +3,7 @@
 @summary watchdog操作库
 @version 1.0
 @date    2021.08.06
+@demo wdt
 */
 #include "luat_base.h"
 #include "luat_wdt.h"

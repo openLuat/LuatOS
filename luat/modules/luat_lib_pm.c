@@ -4,6 +4,7 @@
 @summary 电源管理
 @version 1.0
 @date    2020.07.02
+@demo pm
 */
 #include "lua.h"
 #include "lauxlib.h"

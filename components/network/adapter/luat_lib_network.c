@@ -3,6 +3,7 @@
 @summary 网络接口适配
 @version 1.0
 @date    2022.04.11
+@demo network
 */
 #include "luat_base.h"
 #ifdef LUAT_USE_NETWORK

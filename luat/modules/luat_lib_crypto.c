@@ -4,6 +4,7 @@
 @summary 加解密和hash函数
 @version 1.0
 @date    2020.07.03
+@demo crypto
 */
 #include "luat_base.h"
 #include "luat_crypto.h"

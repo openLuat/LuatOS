@@ -3,6 +3,7 @@
 @summary json生成和解析库
 @version 1.0
 @date    2020.02.18
+@demo json
 */
 /* Lua CJSON - JSON support for Lua
  *

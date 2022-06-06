@@ -4,6 +4,7 @@
 @summary 红外遥控
 @version 1.0
 @date    2021.10.26
+@demo ir
 */
 #include "luat_base.h"
 #include "luat_gpio.h"

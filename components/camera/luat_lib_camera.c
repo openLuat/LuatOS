@@ -4,6 +4,7 @@
 @summary 摄像头
 @version 1.0
 @date    2022.01.11
+@demo camera
 */
 #include "luat_base.h"
 #include "luat_camera.h"

@@ -17,6 +17,13 @@ def make(path,modules,index_text):
         if len(module["url"]) > 0:
             mdoc.write("> 本页文档由[这个文件]("+module["url"]+")自动生成。如有错误，请提交issue或帮忙修改后pr，谢谢！\n\n")
 
+        if len(module["demo"]) > 0:
+            mdoc.write("> 本库有专属demo，[点此链接查看"+module["module"]+"的demo例子]("+module["demo"]+")\n")
+        if len(module["video"]) > 0:
+            mdoc.write("> 本库还有视频教程，[点此链接查看]("+module["video"]+")\n\n")
+        else:
+            mdoc.write("\n")
+
         if len(module["usage"]) > 0:
             mdoc.write("**示例**\n\n")
             mdoc.write("```lua\n"+module["usage"]+"\n```\n\n")

@@ -4,6 +4,7 @@
 @summary 执行http请求
 @version 1.0
 @date    2020.07.07
+@demo http
 */
 #include "luat_base.h"
 #include "luat_http.h"

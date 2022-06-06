@@ -3,6 +3,7 @@
 @summary 实时时钟
 @version 1.0
 @date    2021.08.31
+@demo rtc
 */
 #include "luat_base.h"
 #include "luat_rtc.h"

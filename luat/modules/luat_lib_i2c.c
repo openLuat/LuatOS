@@ -4,6 +4,7 @@
 @summary I2C操作
 @version 1.0
 @date    2020.03.30
+@demo i2c
 */
 #include "luat_base.h"
 #include "luat_log.h"

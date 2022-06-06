@@ -11,6 +11,7 @@
 #include "luat_fs.h"
 #include "luat_malloc.h"
 #include "luat_uart.h"
+#include "luat_zbuff.h"
 #define LUAT_LOG_TAG "camera"
 #include "luat_log.h"
 
@@ -32,6 +33,10 @@ int l_camera_handler(lua_State *L, void* ptr) {
             if (msg->ptr)
             {
                 lua_pushlstring(L, (char *)msg->ptr,msg->arg2);
+            }
+            else if (msg->arg2 > 1)
+            {
+            	lua_pushinteger(L, msg->arg2);
             }
             else
             {
@@ -262,6 +267,16 @@ LUAT_WEAK luat_camera_capture(int id, uint8_t quality, const char *path) {
     return -1;
 }
 
+LUAT_WEAK luat_camera_get_raw_start(int id, int w, int h, uint8_t *data, uint32_t max_len) {
+    LLOGD("not support yet");
+    return -1;
+}
+
+LUAT_WEAK luat_camera_get_raw_again(int id) {
+    LLOGD("not support yet");
+    return -1;
+}
+
 LUAT_WEAK luat_camera_video(int id, int w, int h, uint8_t uart_id) {
     LLOGD("not support yet");
     return -1;
@@ -287,7 +302,7 @@ static int l_camera_capture(lua_State *L) {
 }
 
 /**
-camera输出视频流
+camera输出视频流到USB
 @api camera.video(id, w, h, out_path)
 @int camera id,例如0
 @int 宽度
@@ -306,6 +321,41 @@ static int l_camera_video(lua_State *L) {
     return 0;
 }
 
+
+/**
+启动camera输出原始数据到用户的zbuff缓存区，输出1fps后会停止，并通过camera.on设置的回调函数回调接收到的长度，如果需要再次输出，请调用camera.getRaw
+@api camera.startRaw(id, w, h, buff)
+@int camera id,例如0
+@int 宽度
+@int 高度
+@zbuff 用于存放数据的缓存区，大小必须不小于w*h*2 byte
+@return boolean 成功返回true,否则返回false
+@usage
+camera.startRaw(0, 320, 240, buff)
+*/
+static int l_camera_start_raw(lua_State *L) {
+    int id = luaL_checkinteger(L, 1);
+    int w = luaL_optinteger(L, 2, 320);
+    int h = luaL_optinteger(L, 3, 240);
+    luat_zbuff_t *buff = luaL_checkudata(L, 4, LUAT_ZBUFF_TYPE);
+    luat_camera_get_raw_start(id, w, h, buff->addr, buff->len);
+    return 0;
+}
+
+/**
+再次启动camera输出原始数据到用户的zbuff缓存区，输出1fps后会停止，并通过camera.on设置的回调函数回调接收到的长度，如果需要再次输出，请继续调用本API
+@api camera.getRaw(id)
+@int camera id,例如0
+@return boolean 成功返回true,否则返回false
+@usage
+camera.getRaw(0)
+*/
+static int l_camera_get_raw(lua_State *L) {
+    int id = luaL_checkinteger(L, 1);
+    luat_camera_get_raw_again(id);
+    return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_camera[] =
 {
@@ -314,6 +364,8 @@ static const rotable_Reg_t reg_camera[] =
     { "stop" ,       ROREG_FUNC(l_camera_stop)},
     { "capture",     ROREG_FUNC(l_camera_capture)},
 	{ "video",     ROREG_FUNC(l_camera_video)},
+	{ "startRaw",     ROREG_FUNC(l_camera_start_raw)},
+	{ "getRaw",     ROREG_FUNC(l_camera_get_raw)},
 	{ "close",		 ROREG_FUNC(l_camera_close)},
     { "on",          ROREG_FUNC(l_camera_on)},
 	{ NULL,          {}}

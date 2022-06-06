@@ -1038,6 +1038,7 @@ local len = buff:copy(nil, "123") -- 从buff当前指针位置开始写入数据
 local len = buff:copy(0, "123") -- 从位置0写入数据, 返回写入的数据长度
 local len = buff:copy(2, 0x1a,0x30,0x31,0x32,0x00,0x01)  -- 从位置2开始，按数值写入多个字节数据
 local len = buff:copy(9, buff2)  -- 从位置9开始，合并入buff2里内容
+local len = buff:copy(5, buff2, 10, 1024)  -- 类似于memcpy(&buff[5], &buff2[10], 1024)
  */
 static int l_zbuff_copy(lua_State *L)
 {
@@ -1096,18 +1097,20 @@ static int l_zbuff_copy(lua_State *L)
     else if (lua_isuserdata(L, 3))
     {
         luat_zbuff_t *copy_buff = ((luat_zbuff_t *)luaL_checkudata(L, 3, LUAT_ZBUFF_TYPE));
-        if (copy_buff->used + temp_cursor > buff->len) //防止越界
+        uint32_t start =  luaL_optinteger(L, 4, 0);
+        uint32_t len =  luaL_optinteger(L, 5, copy_buff->used);
+        if (len + temp_cursor > buff->len) //防止越界
         {
-        	if (__zbuff_resize(buff, buff->len + copy_buff->used + temp_cursor))
+        	if (__zbuff_resize(buff, buff->len + len + temp_cursor))
         	{
     	        lua_pushinteger(L, 0);
     	        return 1;
         	}
         }
-        memcpy(buff->addr + temp_cursor, copy_buff->addr, copy_buff->used);
-        temp_cursor += copy_buff->used;
+        memcpy(buff->addr + temp_cursor, copy_buff->addr + start, len);
+        temp_cursor += len;
         buff->used = (temp_cursor > buff->used)?temp_cursor:buff->used;
-        lua_pushinteger(L, copy_buff->used);
+        lua_pushinteger(L, len);
         return 1;
     }
     lua_pushinteger(L, 0);

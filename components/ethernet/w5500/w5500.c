@@ -5,7 +5,7 @@
 #include "luat_zbuff.h"
 #include "luat_gpio.h"
 #include "luat_network_adapter.h"
-#include "bsp_common.h"
+#include "c_common.h"
 #include "w5500_def.h"
 #include "dhcp_def.h"
 #include "dns_def.h"
@@ -20,8 +20,9 @@ extern void DBG_HexPrintf(void *Data, unsigned int len);
 #define DBG(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
 #define DBG_ERR(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
 #endif
-#define W5500_LOCK	OS_SuspendTask(NULL)
-#define W5500_UNLOCK OS_ResumeTask(NULL)
+
+#define W5500_LOCK	OS_LOCK
+#define W5500_UNLOCK OS_UNLOCK
 
 #define socket_index(n)	(n << 5)
 #define common_reg	(0)

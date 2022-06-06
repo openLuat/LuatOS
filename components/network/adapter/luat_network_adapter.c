@@ -4,7 +4,7 @@
 #include "luat_network_adapter.h"
 #include "luat_rtos.h"
 #include "platform_def.h"
-#include "bsp_common.h"
+#include "c_common.h"
 #include "ctype.h"
 
 extern void DBG_Printf(const char* format, ...);
@@ -20,8 +20,8 @@ extern void DBG_HexPrintf(void *Data, unsigned int len);
 #define DBG(x,y...)
 #define DBG_ERR(x,y...)
 #endif
-#define NW_LOCK		OS_SuspendTask(NULL)
-#define NW_UNLOCK	OS_ResumeTask(NULL)
+#define NW_LOCK		OS_LOCK
+#define NW_UNLOCK	OS_UNLOCK
 
 #define SOL_SOCKET  0xfff    /* options for socket level */
 #define SO_REUSEADDR   0x0004 /* Allow local address reuse */

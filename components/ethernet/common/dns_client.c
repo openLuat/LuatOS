@@ -1,7 +1,7 @@
 #include "luat_base.h"
 #ifdef LUAT_USE_DNS
 #include "luat_network_adapter.h"
-#include "bsp_common.h"
+#include "c_common.h"
 #include "dns_def.h"
 #include "ctype.h"
 #define dnsONE_QUESTION                 0x0001

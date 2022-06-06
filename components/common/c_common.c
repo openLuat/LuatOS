@@ -21,6 +21,16 @@
 
 #include "c_common.h"
 #include "luat_malloc.h"
+#include "luat_base.h"
+LUAT_WEAK void DBG_Printf(const char* format, ...)
+{
+
+}
+
+LUAT_WEAK void DBG_HexPrintf(void *Data, unsigned int len)
+{
+
+}
 
 const uint8_t ByteToAsciiTable[16] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
 
@@ -300,7 +310,7 @@ uint32_t CmdParseParam(int8_t* pStr, CmdParam *CP, int8_t Cut)
 }
 
 
-__attribute__((weak)) int32_t OS_InitBuffer(Buffer_Struct *Buf, uint32_t Size)
+LUAT_WEAK int32_t OS_InitBuffer(Buffer_Struct *Buf, uint32_t Size)
 {
 	if (!Buf)
 		return 0;
@@ -317,7 +327,7 @@ __attribute__((weak)) int32_t OS_InitBuffer(Buffer_Struct *Buf, uint32_t Size)
 	return Size;
 }
 
-__attribute__((weak)) void OS_DeInitBuffer(Buffer_Struct *Buf)
+LUAT_WEAK void OS_DeInitBuffer(Buffer_Struct *Buf)
 {
 	if (Buf->Data)
 	{
@@ -328,7 +338,7 @@ __attribute__((weak)) void OS_DeInitBuffer(Buffer_Struct *Buf)
 	Buf->Pos = 0;
 }
 
-__attribute__((weak)) int32_t OS_ReInitBuffer(Buffer_Struct *Buf, uint32_t Size)
+LUAT_WEAK int32_t OS_ReInitBuffer(Buffer_Struct *Buf, uint32_t Size)
 {
 	if (!Buf)
 		return 0;
@@ -350,7 +360,7 @@ __attribute__((weak)) int32_t OS_ReInitBuffer(Buffer_Struct *Buf, uint32_t Size)
 	return Size;
 }
 
-__attribute__((weak)) int32_t OS_ReSizeBuffer(Buffer_Struct *Buf, uint32_t Size)
+LUAT_WEAK int32_t OS_ReSizeBuffer(Buffer_Struct *Buf, uint32_t Size)
 {
 //	uint8_t *Old;
 	uint8_t *New;
@@ -382,7 +392,7 @@ __attribute__((weak)) int32_t OS_ReSizeBuffer(Buffer_Struct *Buf, uint32_t Size)
 	return Size;
 }
 
-__attribute__((weak)) int32_t OS_BufferWrite(Buffer_Struct *Buf, void *Data, uint32_t Len)
+LUAT_WEAK int32_t OS_BufferWrite(Buffer_Struct *Buf, void *Data, uint32_t Len)
 {
 	uint32_t WriteLen;
 	if (!Len)
@@ -417,7 +427,7 @@ __attribute__((weak)) int32_t OS_BufferWrite(Buffer_Struct *Buf, void *Data, uin
 	return ERROR_NONE;
 }
 
-__attribute__((weak)) int32_t OS_BufferWriteLimit(Buffer_Struct *Buf, void *Data, uint32_t Len)
+LUAT_WEAK int32_t OS_BufferWriteLimit(Buffer_Struct *Buf, void *Data, uint32_t Len)
 {
 	uint32_t WriteLen;
 	if (!Len)
@@ -449,7 +459,7 @@ __attribute__((weak)) int32_t OS_BufferWriteLimit(Buffer_Struct *Buf, void *Data
 	return ERROR_NONE;
 }
 
-__attribute__((weak)) void OS_BufferRemove(Buffer_Struct *Buf, uint32_t Len)
+LUAT_WEAK void OS_BufferRemove(Buffer_Struct *Buf, uint32_t Len)
 {
 	uint32_t RestLen;
 	uint32_t i;

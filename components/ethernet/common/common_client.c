@@ -2,7 +2,7 @@
 #if defined(LUAT_USE_DHCP) || defined(LUAT_USE_DNS)
 #include "dhcp_def.h"
 #include "dns_def.h"
-#include "bsp_common.h"
+#include "c_common.h"
 
 typedef struct
 {

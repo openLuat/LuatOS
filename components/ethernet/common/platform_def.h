@@ -14,4 +14,7 @@
 #define malloc 	luat_heap_malloc
 #define free 	luat_heap_free
 #define msleep	luat_timer_mdelay
+
+#define OS_LOCK	luat_task_suspend_all()
+#define OS_UNLOCK luat_task_resume_all()
 #endif /* ETHERNET_COMMON_PLATFORM_DEF_H_ */

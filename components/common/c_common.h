@@ -26,7 +26,6 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdarg.h>
-#include "cmsis_compiler.h"
 
 typedef struct
 {

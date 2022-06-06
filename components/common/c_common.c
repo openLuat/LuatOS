@@ -19,7 +19,7 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include "bsp_common.h"
+#include "c_common.h"
 
 const uint8_t ByteToAsciiTable[16] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
 
@@ -298,228 +298,13 @@ uint32_t CmdParseParam(int8_t* pStr, CmdParam *CP, int8_t Cut)
 	return (1);
 }
 
-__attribute__((weak)) uint8_t OS_CheckInIrq(void)
-{
-	return __get_IPSR();
-}
-
-#include "bget.h"
-#ifdef __BUILD_OS__
-#include "FreeRTOS.h"
-#include "semphr.h"
-#include "task.h"
-HANDLE OS_MutexCreate(void)
-{
-	return xSemaphoreCreateBinary();
-}
-
-HANDLE OS_MutexCreateUnlock(void)
-{
-	HANDLE Sem = xSemaphoreCreateBinary();
-	xSemaphoreGive(Sem);
-	return Sem;
-}
-
-void OS_MutexLock(HANDLE Sem)
-{
-	uint8_t suspend = !OS_IsSchedulerRun();
-	if (suspend)
-	{
-		xTaskResumeAll();
-	}
-	xSemaphoreTake(Sem, portMAX_DELAY);
-	if (suspend)
-	{
-		vTaskSuspendAll();
-	}
-}
-
-int32_t OS_MutexLockWtihTime(HANDLE Sem, uint32_t TimeoutMs)
-{
-	uint8_t suspend = !OS_IsSchedulerRun();
-	if (suspend)
-	{
-		xTaskResumeAll();
-	}
-	int result = xSemaphoreTake(Sem, TimeoutMs);
-	if (suspend)
-	{
-		vTaskSuspendAll();
-	}
-	if (pdTRUE != result)
-	{
-		return -ERROR_OPERATION_FAILED;
-	}
-	else
-	{
-		return ERROR_NONE;
-	}
-}
-
-void OS_MutexRelease(HANDLE Sem)
-{
-	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-//	xSemaphoreGiveFromISR(Sem, &xHigherPriorityTaskWoken);
-	if (OS_CheckInIrq())
-	{
-		xSemaphoreGiveFromISR(Sem, &xHigherPriorityTaskWoken);
-		if (xHigherPriorityTaskWoken)
-		{
-			portYIELD_WITHIN_API();
-		}
-	}
-	else
-	{
-		xSemaphoreGive(Sem);
-	}
-}
-
-void OS_MutexDelete(HANDLE Sem)
-{
-	vSemaphoreDelete(Sem);
-}
-
-uint8_t OS_IsSchedulerRun(void)
-{
-	return (xTaskGetSchedulerState() == taskSCHEDULER_RUNNING);
-}
-
-void OS_SuspendTask(HANDLE taskHandle)
-{
-	if (taskHandle)
-	{
-		vTaskSuspend(taskHandle);
-	}
-	else
-	{
-		vTaskSuspendAll();
-	}
-}
-
-void OS_ResumeTask(HANDLE taskHandle)
-{
-	if (taskHandle)
-	{
-		vTaskResume(taskHandle);
-	}
-	else
-	{
-		xTaskResumeAll();
-	}
-}
-#endif
-static uint8_t prvOSRunFlag;
-extern const uint32_t __os_heap_start;
-extern const uint32_t __ram_end;
-__attribute__((weak)) void OS_SetStartFlag(void)
-{
-	prvOSRunFlag = 1;
-}
-__attribute__((weak)) uint32_t OS_EnterCritical(void)
-{
-#ifdef __BUILD_OS__
-	if (prvOSRunFlag)
-	{
-		if (__get_IPSR())
-		{
-			return taskENTER_CRITICAL_FROM_ISR();
-		}
-		else
-		{
-			taskENTER_CRITICAL();
-			return 0;
-		}
-	}
-	else
-#endif
-	{
-		__disable_irq();
-	}
-}
-__attribute__((weak)) void OS_ExitCritical(uint32_t Critical)
-{
-#ifdef __BUILD_OS__
-	if (prvOSRunFlag)
-	{
-		if (__get_IPSR())
-		{
-			taskEXIT_CRITICAL_FROM_ISR(Critical);
-		}
-		else
-		{
-			taskEXIT_CRITICAL();
-		}
-	}
-	else
-#endif
-	{
-		__enable_irq();
-	}
-}
-
-__attribute__((weak)) void *OS_Malloc(uint32_t Size)
-{
-	void *p;
-	uint32_t Critical = OS_EnterCritical();
-	p = bget(Size);
-	OS_ExitCritical(Critical);
-	return p;
-}
-
-__attribute__((weak)) void *OS_Zalloc(uint32_t Size)
-{
-	void *p;
-	uint32_t Critical = OS_EnterCritical();
-	p = bgetz(Size);
-	OS_ExitCritical(Critical);
-	return p;
-}
-
-__attribute__((weak)) void *OS_Calloc(uint32_t count, uint32_t eltsize)
-{
-	void *p;
-	uint32_t Critical = OS_EnterCritical();
-	p = bgetz(count * eltsize);
-	OS_ExitCritical(Critical);
-	return p;
-}
-
-__attribute__((weak)) void OS_Free(void *p)
-{
-	if (((uint32_t)p >= (uint32_t)(&__os_heap_start)) && ((uint32_t)p <= (uint32_t)(&__ram_end)))
-	{
-		uint32_t Critical = OS_EnterCritical();
-		brel(p);
-		OS_ExitCritical(Critical);
-	}
-
-}
-
-__attribute__((weak)) void *OS_Realloc(void *buf, uint32_t size)
-{
-	void *p;
-	uint32_t Critical = OS_EnterCritical();
-//	p = bget(size);
-//	memcpy(p, buf, size);
-//	brel(buf);
-	p = bgetr(buf, size);
-	OS_ExitCritical(Critical);
-	return p;
-}
-
-__attribute__((weak)) void OS_MemInfo(uint32_t *curalloc, uint32_t *totfree, uint32_t *maxfree)
-{
-	unsigned long  nget, nrel;
-	uint32_t Critical = OS_EnterCritical();
-	bstats(curalloc, totfree, maxfree, &nget, &nrel);
-	OS_ExitCritical(Critical);
-}
 
 __attribute__((weak)) int32_t OS_InitBuffer(Buffer_Struct *Buf, uint32_t Size)
 {
 	if (!Buf)
 		return 0;
-	Buf->Data = OS_Zalloc(Size);
+	Buf->Data = luat_heap_malloc(Size);
+	memset(Buf->Data, 0, Size);
 	if (!Buf->Data)
 	{
 		Buf->MaxLen = 0;
@@ -535,7 +320,7 @@ __attribute__((weak)) void OS_DeInitBuffer(Buffer_Struct *Buf)
 {
 	if (Buf->Data)
 	{
-		OS_Free(Buf->Data);
+		luat_heap_free(Buf->Data);
 	}
 	Buf->Data = NULL;
 	Buf->MaxLen = 0;
@@ -549,9 +334,10 @@ __attribute__((weak)) int32_t OS_ReInitBuffer(Buffer_Struct *Buf, uint32_t Size)
 
 	if (Buf->Data)
 	{
-		OS_Free(Buf->Data);
+		luat_heap_free(Buf->Data);
 	}
-	Buf->Data = OS_Zalloc(Size);
+	Buf->Data = luat_heap_malloc(Size);
+	memset(Buf->Data, 0, Size);
 	if (!Buf->Data)
 	{
 		Buf->MaxLen = 0;
@@ -586,16 +372,12 @@ __attribute__((weak)) int32_t OS_ReSizeBuffer(Buffer_Struct *Buf, uint32_t Size)
 //		memcpy(New, Old, Buf->Pos);
 //		OS_Free(Old);
 //	}
-	uint32_t Critical = OS_EnterCritical();
-	New = bgetr(Buf->Data, Size);
+	New = luat_heap_realloc(Buf->Data, Size);
 	if (New)
 	{
 		Buf->Data = New;
 		Buf->MaxLen = Size;
 	}
-	OS_ExitCritical(Critical);
-
-
 	return Size;
 }
 
@@ -612,7 +394,8 @@ __attribute__((weak)) int32_t OS_BufferWrite(Buffer_Struct *Buf, void *Data, uin
 	}
 	if (!Buf->Data)
 	{
-		Buf->Data = OS_Zalloc(Len);
+		Buf->Data = luat_heap_malloc(Len);
+		memset(Buf->Data, 0, Len);
 		if (!Buf->Data)
 		{
 			return -ERROR_NO_MEMORY;
@@ -646,7 +429,8 @@ __attribute__((weak)) int32_t OS_BufferWriteLimit(Buffer_Struct *Buf, void *Data
 	}
 	if (!Buf->Data)
 	{
-		Buf->Data = OS_Zalloc(Len);
+		Buf->Data = luat_heap_malloc(Len);
+		memset(Buf->Data, 0, Len);
 		if (!Buf->Data)
 		{
 			return -ERROR_NO_MEMORY;

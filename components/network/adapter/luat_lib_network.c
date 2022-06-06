@@ -121,7 +121,7 @@ static int l_network_gc(lua_State *L)
 param1为申请的network_ctrl
 param2为具体的消息，只能是network.RESET, network.LINK, network.ON_LINE, network.TX_OK, network.RX_NEW, network.CLOSE等等
 param3为消息对应的参数
-@return 成功返回network_ctrl，失败返回nil
+@return some 成功返回network_ctrl，失败返回nil
 @usage
 local netc = network.create(network.ETH0, socket_cb_fun)	--以太网网卡上申请一个network_ctrl,通过socket_cb_fun回调相关消息
 local netc = network.create(network.ETH0, "IOT_TASK")	--以太网网卡上申请一个network_ctrl,通过sendMsg方式通知taskName为"IOT_TASK"回调相关消息
@@ -361,8 +361,6 @@ static int l_network_disconnect(lua_State *L)
 强制关闭socket
 @api network.close(ctrl)
 @user_data network.create得到的ctrl
-@return 无
-
 */
 static int l_network_close(lua_State *L)
 {
@@ -634,7 +632,6 @@ static int l_network_accept(lua_State *L)
 主动释放掉network_ctrl
 @api    network.release(ctrl)
 @user_data	network.create得到的ctrl
-@return 无
 @usage network.release(ctrl)
 */
 static int l_network_release(lua_State *L)

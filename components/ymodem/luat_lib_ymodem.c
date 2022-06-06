@@ -105,7 +105,6 @@ static int l_ymodem_receive(lua_State *L){
 重置ymodem处理过程，恢复到初始状态，一般用于接收出错后重置，从而进行下一次接收
 @api ymodem.reset(handler)
 @userdata handler
-@return 无
 @usage
 ymodem.reset(handler)
 */
@@ -120,7 +119,6 @@ static int l_ymodem_reset(lua_State *L){
 释放ymodem处理句柄
 @api ymodem.release(handler)
 @userdata handler
-@return 无
 @usage
 ymodem.release(handler)
 */

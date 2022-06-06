@@ -193,7 +193,7 @@ static int l_zbuff_create(lua_State *L)
 }
 
 /**
-zbuff写数据
+zbuff写数据（从当前指针位置开始；执行后指针会向后移动）
 @api buff:write(para,...)
 @any 写入buff的数据，string时为一个参数，number时可为多个参数
 @return number 数据成功写入的长度
@@ -236,7 +236,7 @@ static int l_zbuff_write(lua_State *L)
 }
 
 /**
-zbuff读数据
+zbuff读数据（从当前指针位置开始；执行后指针会向后移动）
 @api buff:read(length)
 @int 读取buff中的字节数
 @return string 读取结果
@@ -270,7 +270,7 @@ static int l_zbuff_read(lua_State *L)
 }
 
 /**
-zbuff清空数据
+zbuff清空数据（与当前指针位置无关；执行后指针位置不变）
 @api buff:clear(num)
 @int 可选，默认为0。要设置为的值，不会改变buff指针位置
 @usage
@@ -286,7 +286,7 @@ static int l_zbuff_clear(lua_State *L)
 }
 
 /**
-zbuff设置光标位置
+zbuff设置光标位置（可能与当前指针位置有关；执行后指针会被设置到指定位置）
 @api buff:seek(base,offset)
 @int 偏移长度
 @int where, 基点，默认zbuff.SEEK_SET。zbuff.SEEK_SET: 基点为 0 （文件开头），zbuff.SEEK_CUR: 基点为当前位置，zbuff.SEEK_END: 基点为文件尾
@@ -373,7 +373,7 @@ static void doswap(int swap, void *p, size_t n)
 }
 
 /**
-将一系列数据按照格式字符转化，并写入
+将一系列数据按照格式字符转化，并写入（从当前指针位置开始；执行后指针会向后移动）
 @api buff:pack(format,val1, val2,...)
 @string 后面数据的格式（符号含义见下面的例子）
 @val  传入的数据，可以为多个数据
@@ -523,7 +523,7 @@ static int l_zbuff_pack(lua_State *L)
         break;                            \
     }
 /**
-将一系列数据按照格式字符读取出来
+将一系列数据按照格式字符读取出来（从当前指针位置开始；执行后指针会向后移动）
 @api buff:unpack(format)
 @string 数据的格式（符号含义见上面pack接口的例子）
 @return int 成功读取的数据字节长度
@@ -606,7 +606,7 @@ done:
 }
 
 /**
-读取一个指定类型的数据
+读取一个指定类型的数据（从当前指针位置开始；执行后指针会向后移动）
 @api buff:read类型()
 @注释 读取类型可为：I8、U8、I16、U16、I32、U32、I64、U64、F32、F64
 @return number 读取的数据，如果越界则为nil
@@ -636,7 +636,7 @@ zread(f32, float, number);
 zread(f64, double, number);
 
 /**
-写入一个指定类型的数据
+写入一个指定类型的数据（从当前指针位置开始；执行后指针会向后移动）
 @api buff:write类型()
 @number 待写入的数据
 @注释 写入类型可为：I8、U8、I16、U16、I32、U32、I64、U64、F32、F64
@@ -671,7 +671,7 @@ zwrite(f32, float, number);
 zwrite(f64, double, number);
 
 /**
-按起始位置和长度取出数据
+按起始位置和长度取出数据（与当前指针位置无关；执行后指针位置不变）
 @api buff:toStr(offset,length)
 @int 数据的起始位置（起始位置为0）
 @int 数据的长度
@@ -693,7 +693,7 @@ static int l_zbuff_toStr(lua_State *L)
 }
 
 /**
-获取zbuff对象的长度
+获取zbuff对象的长度（与当前指针位置无关；执行后指针位置不变）
 @api buff:len()
 @return int zbuff对象的长度
 @usage
@@ -708,7 +708,7 @@ static int l_zbuff_len(lua_State *L)
 }
 
 /**
-设置buff对象的FrameBuffer属性
+设置buff对象的FrameBuffer属性（与当前指针位置无关；执行后指针位置不变）
 @api buff:setFrameBuffer(width,height,bit,color)
 @int FrameBuffer的宽度
 @int FrameBuffer的高度
@@ -739,7 +739,7 @@ static int l_zbuff_set_frame_buffer(lua_State *L)
 }
 
 /**
-设置或获取FrameBuffer某个像素点的颜色
+设置或获取FrameBuffer某个像素点的颜色（与当前指针位置无关；执行后指针位置不变）
 @api buff:pixel(x,y,color)
 @int 与最左边的距离，范围是0~宽度-1
 @int 与最上边的距离，范围是0~高度-1
@@ -771,7 +771,7 @@ static int l_zbuff_pixel(lua_State *L)
 }
 
 /**
-画一条线
+画一条线（与当前指针位置无关；执行后指针位置不变）
 @api buff:drawLine(x1,y1,x2,y2,color)
 @int 起始坐标点与最左边的距离，范围是0~宽度-1
 @int 起始坐标点与最上边的距离，范围是0~高度-1
@@ -816,7 +816,7 @@ static int l_zbuff_draw_line(lua_State *L)
 }
 
 /**
-画一个矩形
+画一个矩形（与当前指针位置无关；执行后指针位置不变）
 @api buff:drawRect(x1,y1,x2,y2,color,fill)
 @int 起始坐标点与最左边的距离，范围是0~宽度-1
 @int 起始坐标点与最上边的距离，范围是0~高度-1
@@ -860,7 +860,7 @@ static int l_zbuff_draw_rectangle(lua_State *L)
 }
 
 /**
-画一个圆形
+画一个圆形（与当前指针位置无关；执行后指针位置不变）
 @api buff:drawCircle(x,y,r,color,fill)
 @int **圆心**与最左边的距离，范围是0~宽度-1
 @int **圆心**与最上边的距离，范围是0~高度-1
@@ -936,7 +936,7 @@ static int l_zbuff_draw_circle(lua_State *L)
 }
 
 /**
-以下标形式进行数据读写
+以下标形式进行数据读写（与当前指针位置无关；执行后指针位置不变）
 @api buff[n]
 @int 第几个数据，以0开始的下标（C标准）
 @return number 该位置的数据
@@ -1010,10 +1010,9 @@ int __zbuff_resize(luat_zbuff_t *buff, uint32_t new_size)
 }
 
 /**
-调整zbuff的大小
+调整zbuff的大小（与当前指针位置无关；执行后如果指针超过zbuff大小，会被更改为指向最后一个字节）
 @api buff:resize(n)
 @int 新空间大小
-@return 无
 @usage
 buff:resize(20)
  */
@@ -1029,7 +1028,7 @@ static int l_zbuff_resize(lua_State *L)
 }
 
 /**
-zbuff动态写数据，类似于memcpy效果，当原有空间不足时动态扩大空间
+zbuff动态写数据，类似于memcpy效果，当原有空间不足时动态扩大空间（从当前指针位置开始；执行后指针会向后移动）
 @api buff:copy(start, para,...)
 @int 写入buff的起始位置，如果不为数字，则为buff的used，如果小于0，则从used往前数，-1 = used - 1
 @any 写入buff的数据，string或zbuff者时为一个参数，number时可为多个参数
@@ -1116,9 +1115,9 @@ static int l_zbuff_copy(lua_State *L)
 }
 
 /**
-获取zbuff的实际数据量大小
+获取zbuff的实际数据量大小（与当前指针位置无关；执行后指针位置不变）
 @api buff:used()
-@return zbuff的实际数据量大小
+@return int zbuff的实际数据量大小
 @usage
 buff:used()
 */
@@ -1130,11 +1129,10 @@ static int l_zbuff_used(lua_State *L)
 }
 
 /**
-删除zbuff 0~used范围内的一段数据，
+删除zbuff 0~used范围内的一段数据（可能会与当前指针位置有关；执行后如果指针超过zbuff大小，会被更改为指向最后一个字节）
 @api buff:del(offset,length)
 @int 起始位置, 默认0，如果<0则从used往前数，-1 = used - 1
-@int 长度，默认为cursor
-@return 无
+@int 长度，默认为cursor指针位置
 @usage
 buff:del(1,4)	--从位置1开始删除4个字节数据
 */
@@ -1186,7 +1184,7 @@ static uint32_t BytesGetLe32(const void *ptr)
 }
 
 /**
-按起始位置和长度0~used范围内取出数据，如果是1,2,4,8字节，根据后续参数转换成浮点或者整形
+按起始位置和长度0~used范围内取出数据，如果是1,2,4,8字节，根据后续参数转换成浮点或者整形（与当前指针位置有关；执行后指针位置不变）
 @api buff:query(offset,length,isbigend,issigned,isfloat)
 @int 数据的起始位置（起始位置为0）
 @int 数据的长度
@@ -1324,7 +1322,7 @@ static int l_zbuff_query(lua_State *L)
 }
 
 /**
-zbuff的类似于memset操作
+zbuff的类似于memset操作（与当前指针位置无关；执行后指针位置不变）
 @api buff:set(start, num, len)
 @int 可选，开始位置，默认为0,
 @int 可选，默认为0。要设置为的值

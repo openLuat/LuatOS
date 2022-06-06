@@ -22,7 +22,7 @@
 @int 格式, 当前仅支持i2s标准格式. 可选
 @int mclk频率, 默认 8M. 可选
 @return boolean 成功与否
-@return 底层返回值
+@return int 底层返回值
 @usage
 -- 这个库处于开发阶段, 尚不可用
 -- 以默认参数初始化i2s

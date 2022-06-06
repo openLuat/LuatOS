@@ -19,7 +19,7 @@
 /*
 获取当前活跃的screen对象
 @api lvgl.scr_act()
-@return screen指针
+@return 指针 screen指针
 @usage
 local scr = lvgl.scr_act()
 
@@ -32,7 +32,7 @@ static int luat_lv_scr_act(lua_State *L) {
 /*
 获取layout_top
 @api lvgl.layout_top()
-@return layout指针
+@return 指针 layout指针
 */
 static int luat_lv_layer_top(lua_State *L) {
     lua_pushlightuserdata(L, lv_layer_top());
@@ -42,7 +42,7 @@ static int luat_lv_layer_top(lua_State *L) {
 /*
 获取layout_sys
 @api lvgl.layout_sys()
-@return layout指针
+@return 指针 layout指针
 */
 static int luat_lv_layer_sys(lua_State *L) {
     lua_pushlightuserdata(L, lv_layer_sys());

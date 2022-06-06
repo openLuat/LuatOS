@@ -103,11 +103,11 @@ function xmodem.send(uart_id, uart_br, file_path,type)
                         return false
                     end
                     if flen ~= DATA_SIZE then
-                        log.info("文件到头了")
+                        log.info("传输完毕")
                         break
                     end
                 else
-                    log.info("文件到头了")
+                    log.info("传输完毕")
                     break
                 end
             end

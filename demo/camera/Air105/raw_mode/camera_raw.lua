@@ -34,12 +34,12 @@ end)
 local function netCB(msg)
 	log.info("未处理消息", msg[1], msg[2], msg[3], msg[4])
 end
-
+--标注必要的是摄像头采集原始数据必须的操作
 local function camTask(ip, port)
-	camera_rst(0)
-	local camera_id = camera.init(GC032A_InitReg)
+	camera_rst(0)  --必要的
+	local camera_id = camera.init(GC032A_InitReg) --必要的
     local w,h = 320,240
-    local cbuff = zbuff.create(w * h *2)
+    local cbuff = zbuff.create(w * h *2)--必要的
     local blen = w * 16 * 2
     local tx_buff = zbuff.create(blen + 16)
 	local netc 
@@ -48,20 +48,20 @@ local function camTask(ip, port)
     --network.debug(netc, true)
     network.config(netc, nil, true)
     result = libnet.waitLink(taskName, 0, netc)
-    camera.startRaw(camera_id, w, h, cbuff)
+    camera.startRaw(camera_id, w, h, cbuff)--必要的
     log.info("摄像头启动完成")
     while true do
         result = libnet.waitLink(taskName, 0, netc)
 		result = libnet.connect(taskName, 5000, netc, ip, port)
         log.info(result, ip, port)
         while result do
-            result = sys_wait(taskName, MSG_NEW, 200)
-            if type(result) == 'table' then
+            result = sys_wait(taskName, MSG_NEW, 200)--这个等采集完成的消息，当然不限于这个形式
+            if type(result) == 'table' then --收到采集完成的消息后，就可以开始上传了，无论何种方法，只要把所有图像数据按照顺序上传即可
                 vlen = 0
                 start = 0
                 while result and vlen < h do
                     tx_buff:del()
-                    tx_buff:pack("<AHHIHH", "VCAM", w, h, vlen, blen, blen)
+                    tx_buff:pack("<AHHIHH", "VCAM", w, h, vlen, blen, blen) --加入一个包头方便重新合成图片，当然也可以自己定义协议，无限制
                     tx_buff:copy(nil, cbuff, start, blen)
                     start = start + blen
                     if (vlen + 16) >= h then

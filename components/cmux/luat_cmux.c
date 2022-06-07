@@ -308,13 +308,21 @@ static int luat_cmux_parse(unsigned char* cmux_buff, int* start, int* end, int c
     return -1;
 }
 
-static unsigned char cmux_buff[CMUX_BUFFER_SIZE];
+static unsigned char *cmux_buff;
 static int cmux_buff_offset = 0;
 
 void luat_cmux_read(unsigned char* buff,size_t len){
     // for (size_t i = 0; i < len; i++){
     //     LLOGD("uart_buff[%d]:0x%02X",i,buff[i]);
     // }
+    if (cmux_buff == NULL) {
+        cmux_buff = luat_heap_malloc(CMUX_BUFFER_SIZE);
+        if (cmux_buff == NULL) {
+            printf("cmux buff malloc FAIL!!\r\n");
+            return;
+        }
+    }
+
     int start,end;
     if (cmux_buff_offset + len >= CMUX_BUFFER_SIZE) {
         printf("cmux overflow!!!\r\n");

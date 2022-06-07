@@ -1118,7 +1118,7 @@ static int l_zbuff_copy(lua_State *L)
 }
 
 /**
-获取zbuff的实际数据量大小（与当前指针位置无关；执行后指针位置不变）
+获取zbuff的实际数据量大小（与当前指针位置有关；执行后指针位置不变）
 @api buff:used()
 @return int zbuff的实际数据量大小
 @usage

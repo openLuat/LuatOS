@@ -61,7 +61,7 @@ static void cmd_lsdir(char* uart_buff, size_t len);
 static void cmd_fread(char* uart_buff, size_t len);
 static void cmd_fwrite(char* uart_buff, size_t len);
 
-luat_shell_cmd_reg_t cmd_regs[] = {
+const luat_shell_cmd_reg_t cmd_regs[] = {
     {"ATI", cmd_ati},
     {"ati", cmd_ati},
     {"AT+RESET", cmd_reset},

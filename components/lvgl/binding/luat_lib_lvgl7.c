@@ -142,12 +142,12 @@ int luat_lv_init(lua_State *L) {
     LLOGD("w %d h %d buff %d mode %d", w, h, fbuff_size, buffmode);
 
     if (lcd_conf != NULL && lcd_conf->buff != NULL) {
-        LLOGD("use LCD buff");
+        //LLOGD("use LCD buff");
         fbuffer = lcd_conf->buff;
         fbuff_size = w * h;
     }
     else if (buffmode & 0x02) {
-        LLOGD("use HEAP buff");
+        //LLOGD("use HEAP buff");
         fbuffer = luat_heap_malloc(fbuff_size * sizeof(lv_color_t));
         if (fbuffer == NULL) {
             LLOGD("not enough memory");
@@ -163,7 +163,7 @@ int luat_lv_init(lua_State *L) {
         }
     }
     else {
-        LLOGD("use VM buff");
+        //LLOGD("use VM buff");
         fbuffer = lua_newuserdata(L, fbuff_size * sizeof(lv_color_t));
         if (fbuffer == NULL) {
             LLOGD("not enough memory");

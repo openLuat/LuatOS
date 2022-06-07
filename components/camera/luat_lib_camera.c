@@ -329,7 +329,7 @@ static int l_camera_video(lua_State *L) {
 @int camera id,例如0
 @int 宽度
 @int 高度
-@zbuff 用于存放数据的缓存区，大小必须不小于w*h*2 byte
+@zbuff 用于存放数据的缓存区，大小必须不小于w X h X 2 byte
 @return boolean 成功返回true,否则返回false
 @usage
 camera.startRaw(0, 320, 240, buff)

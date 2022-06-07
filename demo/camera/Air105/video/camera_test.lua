@@ -1,4 +1,5 @@
-
+--上位机源码: https://gitee.com/openLuat/luatos-soc-air105 C#写的, 就能用, 勿生产
+--编译好的工具：https://gitee.com/openLuat/luatos-soc-air105/attach_files
 local GC032A_InitReg =
 {
 	zbar_scan = 0,--是否为扫码

@@ -668,11 +668,13 @@ i2c通用传输，包括发送N字节，发送N字节+接收N字节，接收N字
 @zbuff 待接收数据的zbuff 如果不用zbuff，则接收数据将在return返回
 @int 需要接收的数据长度，如果为0或nil，则不接收数据
 @return boolean true/false 发送是否成功
-@return string or nil 如果参数4是interger，则返回接收到的数据
+@return string or nil 如果参数5是interger，则返回接收到的数据
 @usage
-local result, _ = i2c.transfer(0, 0x11, txbuff, rxbuff)
-local result, rxdata = i2c.transfer(0, 0x11, "\x01\x02", 1) --发送0x01， 0x02，然后接收1个字节，典型应用就是eeprom
-local result, rxdata = i2c.transfer(0, 0x11, 0x00, 1) --发送0x00，然后接收1个字节，典型应用各种传感器
+local result, _ = i2c.transfer(0, 0x11, txbuff, rxbuff, 1)
+local result, _ = i2c.transfer(0, 0x11, txbuff, nil, 0)	--只发送txbuff里的数据，不接收数据，典型应用就是写寄存器了，这里寄存器地址和值都放在了txbuff里
+local result, _ = i2c.transfer(0, 0x11, "\x01\x02\x03", nil, 1) --发送0x01， 0x02，0x03，不接收数据，如果是eeprom，就是往0x01的地址写02和03，或者往0x0102的地址写03，看具体芯片了
+local result, rxdata = i2c.transfer(0, 0x11, "\x01\x02", nil, 1) --发送0x01， 0x02，然后接收1个字节，典型应用就是eeprom
+local result, rxdata = i2c.transfer(0, 0x11, 0x00, nil, 1) --发送0x00，然后接收1个字节，典型应用各种传感器
 */
 static int l_i2c_transfer(lua_State *L)
 {

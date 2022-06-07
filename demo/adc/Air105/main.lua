@@ -16,8 +16,8 @@ end
 
 sys.taskInit(function()
     while 1 do
-        adc.open(0) -- 模块上的ADC0脚-PA1, 0~2.4v,不要超过范围使用!!!
-        adc.open(1) -- 模块上的ADC1脚-PA4, 0~2.4v,不要超过范围使用!!!
+        adc.open(0) -- 0通道是内部采集CHARGE_VBAT, 0~5v, 这是特别的
+        adc.open(1) -- 1通道是PC0, 0~1.8v,不要超过范围使用!!!，其它通道也是同样的范围
         sys.wait(500)
         log.debug("adc", "adc0", adc.read(0))
         log.debug("adc", "adc1", adc.read(1))

@@ -1010,7 +1010,7 @@ int __zbuff_resize(luat_zbuff_t *buff, uint32_t new_size)
 }
 
 /**
-调整zbuff的大小（与当前指针位置无关；执行后如果指针超过zbuff大小，会被更改为指向最后一个字节）
+调整zbuff实际分配空间的大小，类似于realloc的效果，new = realloc(old, n)，可以扩大或者缩小（如果缩小后len小于了used，那么used=新len）
 @api buff:resize(n)
 @int 新空间大小
 @usage
@@ -1028,17 +1028,17 @@ static int l_zbuff_resize(lua_State *L)
 }
 
 /**
-zbuff动态写数据，类似于memcpy效果，当原有空间不足时动态扩大空间（从当前指针位置开始；执行后指针会向后移动）
+zbuff动态写数据，类似于memcpy效果，当原有空间不足时动态扩大空间
 @api buff:copy(start, para,...)
 @int 写入buff的起始位置，如果不为数字，则为buff的used，如果小于0，则从used往前数，-1 = used - 1
 @any 写入buff的数据，string或zbuff者时为一个参数，number时可为多个参数
 @return number 数据成功写入的长度
 @usage
-local len = buff:copy(nil, "123") -- 从buff当前指针位置开始写入数据, 指针相应地往后移动，返回写入的数据长度
-local len = buff:copy(0, "123") -- 从位置0写入数据, 返回写入的数据长度
-local len = buff:copy(2, 0x1a,0x30,0x31,0x32,0x00,0x01)  -- 从位置2开始，按数值写入多个字节数据
-local len = buff:copy(9, buff2)  -- 从位置9开始，合并入buff2里内容
-local len = buff:copy(5, buff2, 10, 1024)  -- 类似于memcpy(&buff[5], &buff2[10], 1024)
+local len = buff:copy(nil, "123") -- 类似于memcpy(&buff[used], "123", 3) used+= 3 从buff开始写入数据,指针相应地往后移动
+local len = buff:copy(0, "123") -- 类似于memcpy(&buff[0], "123", 3) if (used < 3) used = 3 从位置0写入数据,指针有可能会移动
+local len = buff:copy(2, 0x1a,0x30,0x31,0x32,0x00,0x01)  -- 类似于memcpy(&buff[2], [0x1a,0x30,0x31,0x32,0x00,0x01], 6) if (used < (2+6)) used = (2+6)从位置2开始，按数值写入多个字节数据
+local len = buff:copy(9, buff2)  -- 类似于memcpy(&buff[9], &buff2[0], buff2的used) if (used < (9+buff2的used)) used = (9+buff2的used) 从位置9开始，合并入buff2里0~used的内容
+local len = buff:copy(5, buff2, 10, 1024)  -- 类似于memcpy(&buff[5], &buff2[10], 1024) if (used < (5+1024)) used = (5+1024)
  */
 static int l_zbuff_copy(lua_State *L)
 {
@@ -1118,7 +1118,7 @@ static int l_zbuff_copy(lua_State *L)
 }
 
 /**
-获取zbuff的实际数据量大小（与当前指针位置有关；执行后指针位置不变）
+获取zbuff的实际数据量大小，注意这个不同于分配的空间大小
 @api buff:used()
 @return int zbuff的实际数据量大小
 @usage
@@ -1132,12 +1132,13 @@ static int l_zbuff_used(lua_State *L)
 }
 
 /**
-删除zbuff 0~used范围内的一段数据（可能会与当前指针位置有关；执行后如果指针超过zbuff大小，会被更改为指向最后一个字节）
+删除zbuff 0~used范围内的一段数据，注意只是改变了used的值，并不是真的在ram里去清除掉数据
 @api buff:del(offset,length)
-@int 起始位置, 默认0，如果<0则从used往前数，-1 = used - 1
-@int 长度，默认为cursor指针位置
+@int 起始位置start, 默认0，如果<0则从used往前数，比如 -1 那么start= used - 1
+@int 长度del_len，默认为used，如果start + del_len数值大于used，会强制调整del_len = used - start
 @usage
 buff:del(1,4)	--从位置1开始删除4个字节数据
+buff:del(-1,4)	--从位置used-1开始删除4个字节数据，但是这肯定会超过used，所以del_len会调整为1，实际上就是删掉了最后一个字节
 */
 static int l_zbuff_del(lua_State *L)
 {
@@ -1187,7 +1188,7 @@ static uint32_t BytesGetLe32(const void *ptr)
 }
 
 /**
-按起始位置和长度0~used范围内取出数据，如果是1,2,4,8字节，根据后续参数转换成浮点或者整形（与当前指针位置有关；执行后指针位置不变）
+按起始位置和长度0~used范围内取出数据，如果是1,2,4,8字节，根据后续参数转换成浮点或者整形
 @api buff:query(offset,length,isbigend,issigned,isfloat)
 @int 数据的起始位置（起始位置为0）
 @int 数据的长度
@@ -1325,7 +1326,7 @@ static int l_zbuff_query(lua_State *L)
 }
 
 /**
-zbuff的类似于memset操作（与当前指针位置无关；执行后指针位置不变）
+zbuff的类似于memset操作，类似于memset(&buff[start], num, len)，当然有ram越界保护，会对len有一定的限制
 @api buff:set(start, num, len)
 @int 可选，开始位置，默认为0,
 @int 可选，默认为0。要设置为的值
@@ -1333,7 +1334,7 @@ zbuff的类似于memset操作（与当前指针位置无关；执行后指针位
 @usage
 -- 全部初始化为0
 buff:set() --等同于 memset(buff, 0, sizeof(buff))
-buff:set(8) --等同于 memset(buff, 0, sizeof(buff) - 8)
+buff:set(8) --等同于 memset(&buff[8], 0, sizeof(buff) - 8)
 buff:set(0, 0x55) --等同于 memset(buff, 0x55, sizeof(buff))
 buff:set(4, 0xaa, 12) --等用于 memset(&buff[4], 0xaa, 12)
  */
@@ -1387,7 +1388,7 @@ static const luaL_Reg lib_zbuff[] = {
     //{"__len", l_zbuff_len},
     //{"__newindex", l_zbuff_newindex},
     //{"__gc", l_zbuff_gc},
-	//以下为扩展用法，数据的增减操作尽量不要和上面的read,write一起使用
+	//以下为扩展用法，数据的增减操作尽量不要和上面的read,write一起使用，对数值指针的用法不一致
 	{"copy", l_zbuff_copy},
 	{"set", l_zbuff_set},
 	{"query",l_zbuff_query},

@@ -16,10 +16,10 @@
 
 typedef struct luat_zbuff {
     uint8_t* addr;      //数据存储的地址
-    size_t len;       //数据的长度
+    size_t len;       //实际分配空间的长度
     union {
-    	size_t cursor;    //目前的指针位置
-    	size_t used;	//已经保存的数据量
+    	size_t cursor;    //目前的指针位置，表明了处理了多少数据
+    	size_t used;	//已经保存的数据量，表明了存了多少数据
     };
 
     uint32_t width; //宽度

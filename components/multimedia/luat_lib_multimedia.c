@@ -212,6 +212,22 @@ static int l_audio_play_wait_end(lua_State *L) {
     return 1;
 }
 
+
+/*
+配置一个音频通道的特性，比如实现自动控制PA开关。注意这个不是必须的，一般在调用play的时候才需要自动控制，其他情况比如你手动控制播放时，就可以自己控制PA开关
+@api audio.config(id, paPin, onLevel)
+@int 音频通道
+@int PA控制IO
+@int PA打开时的电平
+@return 无
+@usage
+audio.config(0, pin.PC0, 1)	--PA控制脚是PC0，高电平打开
+*/
+static int l_audio_config(lua_State *L) {
+    luat_audio_config_pa(luaL_checkinteger(L, 1), luaL_optinteger(L, 2, 255), luaL_optinteger(L, 3, 1));
+    return 0;
+}
+
 /**
 创建编解码用的codec
 @api codec.create(codec.MP3)
@@ -535,6 +551,7 @@ static const rotable_Reg_t reg_audio[] =
     { "on",            ROREG_FUNC(l_audio_raw_on)},
 	{ "play",		   ROREG_FUNC(l_audio_play)},
 	{ "isEnd",		   ROREG_FUNC(l_audio_play_wait_end)},
+	{ "config",			ROREG_FUNC(l_audio_config)},
     { "PCM",           ROREG_INT(MULTIMEDIA_DATA_TYPE_PCM)},
 	{ "MORE_DATA",     ROREG_INT(MULTIMEDIA_CB_AUDIO_NEED_DATA)},
 	{ "DONE",          ROREG_INT(MULTIMEDIA_CB_AUDIO_DONE)},

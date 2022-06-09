@@ -288,7 +288,7 @@ gpio.pulse(pin.PB06,0xA9, 8, 0)
 */
 static int l_gpio_pulse(lua_State *L) {
     int pin,delay = 0;
-    uint8_t tmp;
+    char tmp;
     size_t len;
     char* level = NULL;
     if (lua_isinteger(L, lua_upvalueindex(1))){

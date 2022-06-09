@@ -992,11 +992,12 @@ static const rotable_Reg_t reg_eink[] =
     { "MODEL_2in9d",          ROREG_INT(MODEL_2in9d)},
     { "MODEL_2in9f",          ROREG_INT(MODEL_2in9f)},
     { "MODEL_3in7",           ROREG_INT(MODEL_3in7)},
-
+    // 默认只带8号字体
+    { "font_opposansm8", ROREG_PTR((void*)u8g2_font_opposansm8)},
+#ifdef USE_U8G2_OPPOSANSM_ENGLISH
     { "font_unifont_t_symbols",   ROREG_PTR((void*)u8g2_font_unifont_t_symbols)},
     { "font_open_iconic_weather_6x_t", ROREG_PTR((void*)u8g2_font_open_iconic_weather_6x_t)},
 
-    { "font_opposansm8", ROREG_PTR((void*)u8g2_font_opposansm8)},
     { "font_opposansm10", ROREG_PTR((void*)u8g2_font_opposansm10)},
     { "font_opposansm12", ROREG_PTR((void*)u8g2_font_opposansm12)},
     { "font_opposansm16", ROREG_PTR((void*)u8g2_font_opposansm16)},
@@ -1005,6 +1006,7 @@ static const rotable_Reg_t reg_eink[] =
     { "font_opposansm22", ROREG_PTR((void*)u8g2_font_opposansm22)},
     { "font_opposansm24", ROREG_PTR((void*)u8g2_font_opposansm24)},
     { "font_opposansm32", ROREG_PTR((void*)u8g2_font_opposansm32)},
+#endif
 #ifdef USE_U8G2_OPPOSANSM8_CHINESE
     { "font_opposansm8_chinese", ROREG_PTR((void*)u8g2_font_opposansm8_chinese)},
 #endif

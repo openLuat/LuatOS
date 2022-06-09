@@ -60,7 +60,7 @@ local taskList = {}
 --- 创建一个任务线程,在模块最末行调用该函数并注册模块中的任务函数，main.lua导入该模块即可
 -- @param fun 任务函数名，用于resume唤醒时调用
 -- @param taskName 任务名称，用于唤醒任务的id
--- @param queue 消息队列，用于接收缓存消息
+-- @param cbFun 接收到非目标消息时的回调函数
 -- @param ... 任务函数fun的可变参数
 -- @return co  返回该任务的线程号
 -- @usage sysplus.taskInitEx(task1,'a',callback)
@@ -69,13 +69,10 @@ function sysplus.taskInitEx(fun, taskName, cbFun, ...)
     return sys.taskInit(fun, ...)
 end
 
---- 创建一个任务线程,在模块最末行调用该函数并注册模块中的任务函数，main.lua导入该模块即可
--- @param fun 任务函数名，用于resume唤醒时调用
+--- 删除由taskInitEx创建的任务线程
 -- @param taskName 任务名称，用于唤醒任务的id
--- @param queue 消息队列，用于接收缓存消息
--- @param ... 任务函数fun的可变参数
--- @return co  返回该任务的线程号
--- @usage sysplus.taskDel(task1,'a',callback)
+-- @return 无
+-- @usage sysplus.taskDel('a')
 function sysplus.taskDel(taskName)
     taskList[taskName]=nil
 end
@@ -85,6 +82,12 @@ local function waitTo(taskName)
     sys.publish(taskName)
 end
 
+--- 等待接收一个目标消息
+-- @param taskName 任务名称，用于唤醒任务的id
+-- @param target 目标消息，如果为nil，则表示接收到任意消息都会退出
+-- @param ms 超时时间，如果为nil，则表示无超时，永远等待
+-- @return msg or false 成功返回table型的msg，超时返回false
+-- @usage sysplus.waitMsg('a', 'b', 1000)
 function sysplus.waitMsg(taskName, target, ms)
     local msg = false
     local message = nil
@@ -134,6 +137,14 @@ function sysplus.waitMsg(taskName, target, ms)
     return msg
 end
 
+--- 向目标任务发送一个消息
+-- @param taskName 任务名称，用于唤醒任务的id
+-- @param param1 消息中的参数1，同时也是waitMsg里的target
+-- @param param2 消息中的参数2
+-- @param param3 消息中的参数3
+-- @param param4 消息中的参数4
+-- @return true or false 成功返回true
+-- @usage sysplus.sendMsg('a', 'b')
 function sysplus.sendMsg(taskName, param1, param2, param3, param4)
     if taskList[taskName]~=nil then
         table.insert(taskList[taskName].msgQueue, {param1, param2, param3, param4})

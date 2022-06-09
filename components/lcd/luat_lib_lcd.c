@@ -1527,10 +1527,12 @@ static const rotable_Reg_t reg_lcd[] =
     { "drawGtfontUtf8Gray", ROREG_FUNC(l_lcd_draw_gtfont_utf8_gray)},
 #endif // LUAT_USE_GTFONT_UTF8
 #endif // LUAT_USE_GTFONT
+    // 默认只带英文8号字体
+    { "font_opposansm8",  ROREG_PTR((void*)u8g2_font_opposansm8)},
+#ifdef USE_U8G2_OPPOSANSM_ENGLISH
     { "font_unifont_t_symbols",   ROREG_PTR((void*)u8g2_font_unifont_t_symbols)},
     { "font_open_iconic_weather_6x_t", ROREG_PTR((void*)u8g2_font_open_iconic_weather_6x_t)},
 
-    { "font_opposansm8",  ROREG_PTR((void*)u8g2_font_opposansm8)},
     { "font_opposansm10", ROREG_PTR((void*)u8g2_font_opposansm10)},
     { "font_opposansm12", ROREG_PTR((void*)u8g2_font_opposansm12)},
     { "font_opposansm16", ROREG_PTR((void*)u8g2_font_opposansm16)},
@@ -1539,6 +1541,7 @@ static const rotable_Reg_t reg_lcd[] =
     { "font_opposansm22", ROREG_PTR((void*)u8g2_font_opposansm22)},
     { "font_opposansm24", ROREG_PTR((void*)u8g2_font_opposansm24)},
     { "font_opposansm32", ROREG_PTR((void*)u8g2_font_opposansm32)},
+#endif
 #ifdef USE_U8G2_OPPOSANSM8_CHINESE
     { "font_opposansm8_chinese", ROREG_PTR((void*)u8g2_font_opposansm8_chinese)},
 #endif

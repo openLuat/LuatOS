@@ -288,12 +288,14 @@ gpio.pulse(pin.PB06,0xA9, 8, 0)
 */
 static int l_gpio_pulse(lua_State *L) {
     int pin,delay = 0;
+    uint8_t tmp;
     size_t len;
     char* level = NULL;
     if (lua_isinteger(L, lua_upvalueindex(1))){
         pin = lua_tointeger(L, lua_upvalueindex(1));
         if (lua_isinteger(L, 1)){
-            *level = (char)luaL_checkinteger(L, 1);
+            tmp = (char)luaL_checkinteger(L, 1);
+            level = &tmp;
         }else if (lua_isstring(L, 1)){
             level = (char*)luaL_checklstring(L, 1, &len);
         }
@@ -302,7 +304,8 @@ static int l_gpio_pulse(lua_State *L) {
     }else{
         pin = luaL_checkinteger(L, 1);
         if (lua_isinteger(L, 2)){
-            *level = (char)luaL_checkinteger(L, 2);
+            tmp = (char)luaL_checkinteger(L, 2);
+            level = &tmp;
         }else if (lua_isstring(L, 2)){
             level = (char*)luaL_checklstring(L, 2, &len);
         }

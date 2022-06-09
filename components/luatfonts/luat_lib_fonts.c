@@ -11,6 +11,7 @@ typedef struct u8g2_font
 
 
 static u8g2_font_t u8g2_fonts[] = {
+#ifdef USE_U8G2_OPPOSANSM_ENGLISH
     {.name="unifont_t_symbols", .font=u8g2_font_unifont_t_symbols},
     {.name="open_iconic_weather_6x_t", .font=u8g2_font_open_iconic_weather_6x_t},
     {.name="opposansm8", .font=u8g2_font_opposansm8},
@@ -20,6 +21,7 @@ static u8g2_font_t u8g2_fonts[] = {
     {.name="opposansm20", .font=u8g2_font_opposansm20},
     {.name="opposansm24", .font=u8g2_font_opposansm24},
     {.name="opposansm32", .font=u8g2_font_opposansm32},
+#endif
 #ifdef USE_U8G2_OPPOSANSM8_CHINESE
     {.name="opposansm8_chinese", .font=u8g2_font_opposansm8_chinese},
 #endif

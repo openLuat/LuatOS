@@ -69,12 +69,13 @@ sys.taskInit(function()
         lcd.showImage(40,0,"/luadb/logo.jpg")
         sys.wait(100)
         -- lcd.flush()
+    else
+        log.info("lcd.drawLine", lcd.drawLine(20,20,150,20,0x001F))
+        log.info("lcd.drawRectangle", lcd.drawRectangle(20,40,120,70,0xF800))
+        log.info("lcd.drawCircle", lcd.drawCircle(50,50,20,0x0CE0))
+        -- lcd.flush()
     end
-
-    log.info("lcd.drawLine", lcd.drawLine(20,20,150,20,0x001F))
-    log.info("lcd.drawRectangle", lcd.drawRectangle(20,40,120,70,0xF800))
-    log.info("lcd.drawCircle", lcd.drawCircle(50,50,20,0x0CE0))
-    -- lcd.flush()
+    
 end)
 
 

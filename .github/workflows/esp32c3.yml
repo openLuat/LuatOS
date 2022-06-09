@@ -25,6 +25,7 @@ jobs:
         mkdir -p ~/esp
         cd ~/esp
         git clone --recursive --branch=release/v4.4 https://github.com/espressif/esp-idf.git
+        git reset --hard f1abc863a2c1922f889f43dfefc7eec98bbec8f8
         cd ~/esp/esp-idf
         ./install.sh esp32c3
     - name: clone LuatOS-ESP32
@@ -39,7 +40,10 @@ jobs:
         . ~/esp/esp-idf/export.sh
         idf.py set-target esp32c3
         idf.py build
-        mv build/*.bin ../LuatOS/luatosfw
+        cd tools/
+        pip install -r requirements.txt
+        python esp32v3.py -t esp32c3 -p
+        mv *.soc ../../LuatOS/luatosfw
     - name: Upload artifact
       uses: actions/upload-artifact@v1
       with:

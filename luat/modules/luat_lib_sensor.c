@@ -587,6 +587,136 @@ static int l_sensor_ws2812b_spi(lua_State *L)
 }
 #endif
 
+//总线空闲状态为高电平,主机把总线拉低等待DHT11响应,主机把总线拉低必须大于18毫秒
+static void dht_reset(int pin)
+{
+  luat_gpio_mode(pin, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+  luat_gpio_set(pin, Luat_GPIO_HIGH);
+  luat_timer_mdelay(100);
+  luat_gpio_set(pin, Luat_GPIO_LOW);
+  luat_timer_mdelay(20);
+}
+
+//主机发送开始信号结束后,延时等待20-40us后, 读取DHT11的响应信号
+static uint8_t dht_connect(int pin)
+{
+  luat_gpio_mode(pin, Luat_GPIO_INPUT, Luat_GPIO_PULLUP, 0);
+  luat_timer_mdelay(10);
+  uint8_t retry = 0;
+  while (luat_gpio_get(pin) && retry < 100)
+  {
+    retry++;
+    luat_timer_us_delay(1);
+  };
+  if (retry >= 100)
+    return CONNECT_FAILED;
+
+  retry = 0;
+  while (!luat_gpio_get(pin) && retry < 100)
+  {
+    retry++;
+    luat_timer_us_delay(1);
+  };
+  if (retry >= 100)
+    return CONNECT_FAILED;
+
+  //相应完后等变低
+  while (luat_gpio_get(pin) && retry < 100)
+  {
+    retry++;
+    luat_timer_us_delay(1);
+  };
+  return CONNECT_SUCCESS;
+}
+
+//总线为低电平,说明DHT11发送响应信号,DHT11发送响应信号后,再把总线拉高80us,准备发送数据,每一bit数据都以50us低电平时隙开始,高电平的长短决定了数据位是0还是1
+static uint8_t dht_read_bit(int pin)
+{
+  uint8_t retry=0,d=0;
+  while (!luat_gpio_get(pin) && retry < 100)
+  {
+    retry++;
+    luat_timer_us_delay(1);
+  };
+  luat_timer_us_delay(30);
+  d = luat_gpio_get(pin);
+  retry=0;
+  while (luat_gpio_get(pin) && retry < 80)
+  {
+    retry++;
+    luat_timer_us_delay(1);
+  };
+  return d;
+}
+static uint8_t dht_read_byte(int pin)
+{
+  uint8_t i, dat;
+  dat = 0;
+  for (i = 0; i < 8; i++)//MSB
+  {
+    dat<<=1;
+    dat+=dht_read_bit(pin);
+  }
+  return dat;
+}
+
+/*
+获取DHT1x的温湿度数据
+@api    sensor.dht1x(pin)
+@int    gpio端口号
+@boolean 是否校验crc值,默认为true. 不校验crc值能提高读取成功的概率,但可能会读取到错误的值
+@return int 湿度数据,单位0.01%，读取失败时返回错误值
+@return int 温度数据,单位0.01摄氏度，读取失败时返回错误值
+@return boolean 成功返回true,否则返回false
+@usage
+while 1 do
+    sys.wait(1000)
+    local h,t,r = sensor.dht1x(17, true) -- GPIO17且校验CRC值
+    log.info("dht11", h/100,t/100,r)--90.1 23.22
+end
+*/
+static uint8_t dht1x_read(lua_State *L)
+{
+  int pin = luaL_checkinteger(L,1);
+  int check = lua_toboolean(L,2);
+
+  dht_reset(pin);
+  luat_os_entry_cri();
+  if(dht_connect(pin) != CONNECT_SUCCESS)//没连上
+  {
+    luat_os_exit_cri();
+    lua_pushinteger(L,0);
+    lua_pushinteger(L,0);
+    lua_pushboolean(L,0);
+    return 3;
+  }
+  
+  uint8_t buff[5];
+  buff[0] = dht_read_byte(pin);
+  buff[1] = dht_read_byte(pin);//小数部分
+  buff[2] = dht_read_byte(pin);
+  buff[3] = dht_read_byte(pin);//小数部分
+  buff[4] = dht_read_byte(pin);//这是crc
+  luat_os_exit_cri();
+
+  if(check)
+  {
+    uint8_t check_r = 0;
+    check_r = buff[0]+buff[1]+buff[2]+buff[3];
+    if(check_r != buff[4])
+    {
+      lua_pushinteger(L,0);
+      lua_pushinteger(L,0);
+      lua_pushboolean(L,0);
+      return 3;
+    }
+  }
+  lua_pushinteger(L,buff[0]*100+buff[1]);
+  lua_pushinteger(L,buff[2]*100+buff[3]);
+  lua_pushboolean(L,1);
+  return 3;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_sensor[] =
     {
@@ -597,6 +727,7 @@ static const rotable_Reg_t reg_sensor[] =
         {"ds18b20",     ROREG_FUNC(l_sensor_ds18b20)},
         {"hx711",       ROREG_FUNC(l_sensor_hx711)},
         {"ws2812b",     ROREG_FUNC(l_sensor_ws2812b)},
+        {"dht1x",       ROREG_FUNC(dht1x_read)},
 #ifdef LUAT_USE_PWM
         {"ws2812b_pwm", ROREG_FUNC(l_sensor_ws2812b_pwm)},
 #endif

@@ -661,7 +661,7 @@ static uint8_t dht_read_byte(int pin)
 }
 
 /*
-获取DHT1x的温湿度数据
+获取DHT11/DHT12的温湿度数据
 @api    sensor.dht1x(pin)
 @int    gpio端口号
 @boolean 是否校验crc值,默认为true. 不校验crc值能提高读取成功的概率,但可能会读取到错误的值

@@ -29,7 +29,11 @@ function eink154_update()
     eink.print(16, 16, os.date(), 0, eink.font_opposansm12)
     eink.print(16, 32, "LuatOS",  0, eink.font_opposansm12)
 
-    eink.print(16, 64, "中华人民共和国", 0, eink.font_opposansm16_chinese)
+    if eink.font_opposansm12_chinese then
+        eink.print(16, 64, "中华人民共和国", 0, eink.font_opposansm12_chinese)
+    else
+        eink.print(16, 64, "中华人民共和国", 0, eink.font_opposansm10_chinese)
+    end
 
     log.debug("before show")
 

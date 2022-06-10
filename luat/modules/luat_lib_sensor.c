@@ -675,7 +675,7 @@ while 1 do
     log.info("dht11", h/100,t/100,r)--90.1 23.22
 end
 */
-static uint8_t dht1x_read(lua_State *L)
+static int dht1x_read(lua_State *L)
 {
   int pin = luaL_checkinteger(L,1);
   int check = lua_toboolean(L,2);

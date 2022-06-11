@@ -1014,8 +1014,7 @@ LUAMOD_API int luaopen_io (lua_State *L) {
   return 1;
 }
 
-// dir methods
-
+// dir method
 static int io_mkfs (lua_State *L) {
   luat_fs_conf_t conf = {0};
   conf.mount_point = (char*)luaL_checkstring(L, 1);
@@ -1025,6 +1024,16 @@ static int io_mkfs (lua_State *L) {
   return 2;
 }
 
+/*
+创建文件夹
+@api io.mkdir(path)
+@string 需要建立的目录路径
+@return bool 成功与否
+@return int 底层返回值
+@usage
+local ret, errio = io.mkdir("/data/")
+log.info("fs", "mkdir", ret, errio)
+*/
 static int io_mkdir (lua_State *L) {
   const char* path = luaL_checkstring(L, 1);
   int ret = luat_fs_mkdir(path);
@@ -1033,6 +1042,16 @@ static int io_mkdir (lua_State *L) {
   return 2;
 }
 
+/*
+删除文件夹
+@api io.rmdir(path)
+@string 需要移除的目录路径
+@return bool 成功与否
+@return int 底层返回值
+@usage
+local ret, errio = io.rmdir("/data/")
+log.info("fs", "rmdir", ret, errio)
+*/
 static int io_rmdir (lua_State *L) {
   const char* path = luaL_checkstring(L, 1);
   int ret = luat_fs_rmdir(path);
@@ -1041,6 +1060,22 @@ static int io_rmdir (lua_State *L) {
   return 2;
 }
 
+/*
+列出目录下的文件
+@api io.lsdir(path, len, offset)
+@string 需要枚举的目录路径
+@int 最大长度, 默认10, 最高50
+@int 偏移量, 默认0, 当目录文件很多时分页查询用
+@return bool 成功与否
+@return int 底层返回值
+@usage
+local ret, data = io.lsdir("/data/", 10, 0)
+if ret then
+  log.info("fs", "lsdir", json.encode(data))
+else
+  log.info("fs", "lsdir", "fail", ret, data)
+end
+*/
 static int io_lsdir (lua_State *L) {
   const char* path = luaL_checkstring(L, 1);
   int len = luaL_optinteger(L, 2, 10);
@@ -1091,6 +1126,16 @@ static int io_lsdir (lua_State *L) {
 
   return 0;
 }
+
+
+/*
+列出所有挂载点
+@api io.lsmount()
+@return table 挂载点列表
+@usage
+local data = io.lsmount()
+log.info("fs", "lsmount", json.encode(data))
+*/
 #ifdef LUAT_USE_FS_VFS
 luat_vfs_t* luat_vfs_self(void);
 #endif

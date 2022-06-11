@@ -386,6 +386,20 @@ static int l_uart_wait485_tx_done(lua_State *L) {
 #endif
     return 1;
 }
+
+/*
+检查串口号是否存在
+@api    uart.exist(id)
+@int 串口id, uart0写0, uart1写1, 如此类推
+@return bool 存在返回true
+*/
+static int l_uart_exist(lua_State *L)
+{
+    lua_pushboolean(L, luat_uart_exist(luaL_checkinteger(L,1)));
+    return 1;
+}
+
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_uart[] =
 {
@@ -395,6 +409,7 @@ static const rotable_Reg_t reg_uart[] =
     { "read",       ROREG_FUNC(l_uart_read)},
     { "on",         ROREG_FUNC(l_uart_on)},
 	{ "wait485",         ROREG_FUNC(l_uart_wait485_tx_done)},
+	{ "exist",         ROREG_FUNC(l_uart_exist)},
     //校验位
     { "Odd",        ROREG_INT(LUAT_PARITY_ODD)},
     { "Even",       ROREG_INT(LUAT_PARITY_EVEN)},

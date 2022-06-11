@@ -21,16 +21,6 @@
 
 
 typedef struct {
-#if LUA_VERSION_NUM < 503
-  /* on Lua 5.3 we use a lightuserdata in the uservalue of the
-   * userdata to hold the pointer to the luaL_Reg structure. Older
-   * Lua versions have to store it in the userdata payload. */
-  const rotable_Reg_t* p;
-#endif
-  /* number of elements in the luaL_Reg array *if* it is sorted by
-   * name. We can use binary search in this case. Otherwise we need
-   * linear searches anyway and we can scan for the final `{NULL,0}`
-   * entry. `n` is 0 in this case. */
   int n;
 } rotable;
 
@@ -99,14 +89,10 @@ static rotable* check_rotable( lua_State* L, int idx, char const* func ) {
 static const rotable_Reg_t* find_key( const rotable_Reg_t* p, int n,
                                     char const* s ) {
   if( s ) {
-    //if( n >= ROTABLE_BINSEARCH_MIN ) { /* binary search */
-    //  return (const rotable_Reg_t*)bsearch( s, p, n, sizeof( *p ), reg_compare );
-    //} else { /* use linear scan */
-      for( ; p->name != NULL; ++p ) {
-        if( 0 == reg_compare( s, p ) )
-          return p;
-      }
-    //}
+    for( ; p->name != NULL; ++p ) {
+      if( 0 == reg_compare( s, p ) )
+        return p;
+    }
   }
   return 0;
 }
@@ -138,14 +124,10 @@ static int rotable_func_index( lua_State* L ) {
 static int rotable_udata_index( lua_State* L ) {
   rotable* t = (rotable*)lua_touserdata( L, 1 );
   char const* s = lua_tostring( L, 2 );
-#if LUA_VERSION_NUM < 503
-  const rotable_Reg_t* p = t->p;
-#else
   const rotable_Reg_t* p = 0;
   lua_getuservalue( L, 1 );
   p = (const rotable_Reg_t*)lua_touserdata( L, -1 );
   const rotable_Reg_t* p2 = p;
-#endif
   p = find_key( p, t->n, s );
   if( p ) {
     if (rotable_push_rovalue(L, p)) {
@@ -175,37 +157,32 @@ static int rotable_udata_len( lua_State* L ) {
 
 static int rotable_iter( lua_State* L ) {
   rotable* t = check_rotable( L, 1, "__pairs iterator" );
-  char const* s = lua_tostring( L, 2 );
+  char const* key;
   const rotable_Reg_t* q = 0;
-#if LUA_VERSION_NUM < 503
-  const rotable_Reg_t* p = t->p;
-#else
   const rotable_Reg_t* p = 0;
+
+  int isnil = lua_isnil(L, 2);
   lua_getuservalue( L, 1 );
   p = (const rotable_Reg_t*)lua_touserdata( L, -1 );
-#endif
-  if( s ) {
-    // if( t->n >= ROTABLE_BINSEARCH_MIN ) { /* binary search */
-    //   q = (const rotable_Reg_t*)bsearch( s, p, t->n, sizeof( *p ), reg_compare );
-    //   if( q )
-    //     ++q;
-    //   else
-    //     q = p + t->n;
-    // } else { /* use linear scan */
-      for( q = p; q->name != NULL; ++q ) {
-        if( 0 == reg_compare( s, q ) ) {
-          ++q;
-          break;
-        }
+
+  if (isnil) {
+    lua_pushstring(L, p->name);
+    rotable_push_rovalue(L, p);
+    return 2;
+  }
+  key = lua_tostring(L, 2);
+
+  for( q = p; q->name != NULL; ++q ) {
+      if( 0 == reg_compare( key, q ) ) {
+        ++q;
+        break;
       }
-    // }
-  } else
-    q = p;
+  }
   if (q == NULL || q->name == NULL) {
-    return 0;
+      return 0;
   }
   lua_pushstring( L, q->name );
-
+  rotable_push_rovalue(L, q);
   return 2;
 }
 

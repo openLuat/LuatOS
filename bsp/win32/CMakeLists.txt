@@ -50,6 +50,7 @@ add_library(luat ${TOPROOT}/luat/modules/luat_main.c
                  ${TOPROOT}/luat/modules/luat_lib_libcoap.c
                  ${TOPROOT}/luat/modules/luat_lib_crypto.c
                  ${TOPROOT}/luat/modules/luat_lib_vmx.c
+                 ${TOPROOT}/luat/modules/luat_lib_uart.c
                  ${TOPROOT}/components/sfd/luat_lib_sfd.c
                  ${TOPROOT}/components/sfd/luat_sfd_mem.c
                  ${TOPROOT}/components/sfd/luat_sfd_w25q.c

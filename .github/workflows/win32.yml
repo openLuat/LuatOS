@@ -37,6 +37,8 @@ jobs:
         cp lib/sys.lua luatos_win32/
         cp lib/sys.lua module_test/
         echo -e "local sys = require 'sys'\r\n\r\nlog.info('sys', 'from win32')\r\n\r\nsys.taskInit(function ()\r\n    while true do\r\n        log.info('hi', os.date())\r\n        log.info('sys', rtos.meminfo('sys'))\r\n        log.info('lua', rtos.meminfo('lua'))\r\n        sys.wait(1000)\r\n    end\r\nend)\r\n\r\nsys.run()" > luatos_win32/main.lua
+        cd luatos_win32/
+        wget https://github.com/openLuat/LuatOS/releases/download/v0.0.1/luat_uart.dll
     - name: test
       run: |
         cd bsp/win32/module_test

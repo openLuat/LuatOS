@@ -23,6 +23,7 @@ char** cmdline_argv;
 int lua_main (int argc, char **argv);
 
 void luat_log_init_win32(void);
+void luat_uart_initial_win32(void);
 
 static void _luat_main(void* args) {
     //luat_main();
@@ -74,6 +75,7 @@ int main(int argc, char** argv) {
     }
 
     luat_log_init_win32();
+    luat_uart_initial_win32();
 
     SetConsoleCtrlHandler(consoleHandler, TRUE);
     bpool(luavm_heap, LUAT_HEAP_SIZE);

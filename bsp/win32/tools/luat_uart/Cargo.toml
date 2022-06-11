@@ -1,0 +1,26 @@
+[package]
+name = "luat_uart"
+version = "0.1.0"
+authors = ["chenxuuu <lolicon@papapoi.com>"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serialport = "4"
+lazy_static = "1.4"
+
+
+[lib]
+name = "luat_uart" #生成dll的文件名
+crate-type = ["dylib"]
+
+# ~/.cargo/config
+# [target.x86_64-pc-windows-msvc]
+# rustflags = ["-C", "target-feature=+crt-static"]
+# [target.i686-pc-windows-msvc]
+# rustflags = ["-C", "target-feature=+crt-static"]
+
+#编译x86目标的dll
+#rustup target add i686-pc-windows-msvc
+#cargo build --release --target=i686-pc-windows-msvc

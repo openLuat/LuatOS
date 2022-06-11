@@ -340,4 +340,8 @@ const char* luat_vfs_mmap(FILE* stream) {
     return NULL;
 }
 
+luat_vfs_t* luat_vfs_self(void) {
+    return &vfs;
+}
+
 #endif

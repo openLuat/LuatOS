@@ -890,6 +890,7 @@ static int io_mkfs (lua_State *L);
 static int io_mkdir (lua_State *L);
 static int io_rmdir (lua_State *L);
 static int io_lsdir (lua_State *L);
+static int io_lsmount (lua_State *L);
 
 /*
 ** functions for 'io' library
@@ -917,6 +918,7 @@ static const rotable_Reg_t iolib[] = {
   {"rmdir",     ROREG_FUNC(io_rmdir)},
   {"lsdir",     ROREG_FUNC(io_lsdir)},
   {"mkfs",      ROREG_FUNC(io_mkfs)},
+  {"lsmount",   ROREG_FUNC(io_lsmount)},
 
   {"FILE",      ROREG_INT(0)},
   {"DIR",       ROREG_INT(1)},
@@ -1088,4 +1090,31 @@ static int io_lsdir (lua_State *L) {
   }
 
   return 0;
+}
+#ifdef LUAT_USE_FS_VFS
+luat_vfs_t* luat_vfs_self(void);
+#endif
+static int io_lsmount (lua_State *L) {
+    lua_newtable(L);
+#ifdef LUAT_USE_FS_VFS
+    luat_vfs_t* vfs = luat_vfs_self();
+    for (size_t j = 0; j < LUAT_VFS_FILESYSTEM_MOUNT_MAX; j++) {
+        if (vfs->mounted[j].ok == 0)
+            continue;
+        lua_newtable(L);
+        lua_pushstring(L, vfs->mounted[j].prefix);
+        lua_setfield(L, -2, "path");
+        lua_pushstring(L, vfs->mounted[j].fs->name);
+        lua_setfield(L, -2, "fs");
+        lua_seti(L, -2, j+1);
+    }
+#else
+    lua_newtable(L);
+    lua_pushliteral(L, "");
+    lua_setfield(L, -2, "path");
+    lua_pushliteral(L, "posix");
+    lua_setfield(L, -2, "fs");
+    lua_seti(L, -2, 1);
+#endif
+    return 1;
 }

@@ -399,6 +399,30 @@ static int l_uart_exist(lua_State *L)
     return 1;
 }
 
+/*
+获取可用串口号列表，当前仅限win32
+@api    uart.list(max)
+@int    可选，默认256，最多获取多少个串口
+@return table 获取到的可用串口号列表
+*/
+#ifdef LUAT_FORCE_WIN32
+static int l_uart_list(lua_State *L)
+{
+    size_t len = luaL_optinteger(L,1,256);
+    lua_newtable(L);//返回用的table
+    uint8_t* buff = (uint8_t*)luat_heap_malloc(len);
+    if (!buff)
+        return 1;
+    int rlen = luat_uart_list(buff, len);
+    for(int i = 0;i<rlen;i++)
+    {
+        lua_pushinteger(L,i);
+        lua_pushinteger(L,buff[i]);
+        lua_settable(L,-3);
+    }
+    return 1;
+}
+#endif
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_uart[] =
@@ -408,8 +432,11 @@ static const rotable_Reg_t reg_uart[] =
     { "write",      ROREG_FUNC(l_uart_write)},
     { "read",       ROREG_FUNC(l_uart_read)},
     { "on",         ROREG_FUNC(l_uart_on)},
-	{ "wait485",         ROREG_FUNC(l_uart_wait485_tx_done)},
-	{ "exist",         ROREG_FUNC(l_uart_exist)},
+    { "wait485",    ROREG_FUNC(l_uart_wait485_tx_done)},
+    { "exist",      ROREG_FUNC(l_uart_exist)},
+#ifdef LUAT_FORCE_WIN32
+    { "list",       ROREG_FUNC(l_uart_list)},
+#endif
     //校验位
     { "Odd",        ROREG_INT(LUAT_PARITY_ODD)},
     { "Even",       ROREG_INT(LUAT_PARITY_EVEN)},

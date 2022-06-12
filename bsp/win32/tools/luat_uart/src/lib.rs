@@ -53,6 +53,23 @@ pub extern fn luat_uart_exist_extern(port: i32) -> i32 {
     0
 }
 
+// //获取可用串口列表
+// int (*luat_uart_get_list_extern)(uint8_t* list, size_t buff_len)  = NULL;
+#[no_mangle]
+pub extern fn luat_uart_get_list_extern(list: *mut u8, buff_len: usize) -> i32 {
+    match serialport::available_ports() {
+        Ok(l) => {
+            let len = if l.len() > buff_len {buff_len} else {l.len()};
+            let buff = unsafe{std::slice::from_raw_parts_mut(list, len)};
+            for i in 0..len {
+                buff[i] = l[i].port_name.replace("COM", "").parse().unwrap();
+            }
+            len.try_into().unwrap()
+        },
+        _ => 0
+    }
+}
+
 // //打开串口
 // int (*luat_uart_open_extern)(int id,int br,int db, int sb, int para)  = NULL;
 #[no_mangle]

@@ -21,6 +21,8 @@ int (*luat_uart_send_extern)(int id,void* buff, size_t len)  = NULL;
 int (*luat_uart_recv_cb_extern)(int id,void (*)(int id, int len))  = NULL;
 //配置发送回调
 int (*luat_uart_sent_cb_extern)(int id,void (*)(int id, int len))  = NULL;
+//获取可用串口列表
+int (*luat_uart_get_list_extern)(uint8_t* list, size_t buff_len)  = NULL;
 
 void luat_uart_initial_win32()
 {
@@ -36,12 +38,17 @@ void luat_uart_initial_win32()
     luat_uart_send_extern = (int (*)(int,void*,size_t))GetProcAddress(module, "luat_uart_send_extern");
     luat_uart_recv_cb_extern = (int (*)(int,void (*)(int, const char *, int)))GetProcAddress(module, "luat_uart_recv_cb_extern");
     luat_uart_sent_cb_extern = (int (*)(int,void (*)(int, int)))GetProcAddress(module, "luat_uart_sent_cb_extern");
+    luat_uart_get_list_extern = (int (*)(uint8_t*,size_t))GetProcAddress(module, "luat_uart_get_list_extern");
     //FreeLibrary(module);//感觉用不到
 }
 
 int luat_uart_exist(int uartid) 
 {
     return luat_uart_exist_extern(uartid);
+}
+
+int luat_uart_list(uint8_t* list, size_t buff_len){
+    return luat_uart_get_list_extern(list,buff_len);
 }
 
 int luat_uart_setup(luat_uart_t* uart)

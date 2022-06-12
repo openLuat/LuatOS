@@ -41,6 +41,9 @@ int luat_uart_read(int uartid, void* buffer, size_t length);
 int luat_uart_close(int uartid);
 int luat_uart_exist(int uartid);
 
+#ifdef LUAT_FORCE_WIN32
+int luat_uart_list(uint8_t* list, size_t buff_len);
+#endif
 
 int luat_setup_cb(int uartid, int received, int sent);
 /*

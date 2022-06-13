@@ -601,7 +601,7 @@ static void dht_reset(int pin)
 static uint8_t dht_connect(int pin)
 {
   luat_gpio_mode(pin, Luat_GPIO_INPUT, Luat_GPIO_PULLUP, 0);
-  luat_timer_mdelay(10);
+  luat_timer_us_delay(10);
   uint8_t retry = 0;
   while (luat_gpio_get(pin) && retry < 100)
   {
@@ -621,7 +621,7 @@ static uint8_t dht_connect(int pin)
     return CONNECT_FAILED;
 
   //相应完后等变低
-  while (luat_gpio_get(pin) && retry < 100)
+  while (luat_gpio_get(pin) && retry < 200)
   {
     retry++;
     luat_timer_us_delay(1);
@@ -633,7 +633,7 @@ static uint8_t dht_connect(int pin)
 static uint8_t dht_read_bit(int pin)
 {
   uint8_t retry=0,d=0;
-  while (!luat_gpio_get(pin) && retry < 100)
+  while (!luat_gpio_get(pin) && retry < 200)
   {
     retry++;
     luat_timer_us_delay(1);
@@ -641,7 +641,7 @@ static uint8_t dht_read_bit(int pin)
   luat_timer_us_delay(30);
   d = luat_gpio_get(pin);
   retry=0;
-  while (luat_gpio_get(pin) && retry < 80)
+  while (luat_gpio_get(pin) && retry < 200)
   {
     retry++;
     luat_timer_us_delay(1);
@@ -699,21 +699,18 @@ static int dht1x_read(lua_State *L)
   buff[4] = dht_read_byte(pin);//这是crc
   luat_os_exit_cri();
 
+  lua_pushinteger(L,buff[0]*100+buff[1]);
+  lua_pushinteger(L,buff[2]*100+buff[3]);
   if(check)
   {
     uint8_t check_r = 0;
     check_r = buff[0]+buff[1]+buff[2]+buff[3];
-    if(check_r != buff[4])
-    {
-      lua_pushinteger(L,0);
-      lua_pushinteger(L,0);
-      lua_pushboolean(L,0);
-      return 3;
-    }
+    lua_pushboolean(L,check_r == buff[4]);
   }
-  lua_pushinteger(L,buff[0]*100+buff[1]);
-  lua_pushinteger(L,buff[2]*100+buff[3]);
-  lua_pushboolean(L,1);
+  else
+  {
+    lua_pushboolean(L,1);
+  }
   return 3;
 }
 

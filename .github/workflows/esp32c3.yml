@@ -25,8 +25,6 @@ jobs:
         mkdir -p ~/esp
         cd ~/esp
         git clone --recursive --branch=release/v4.4 https://github.com/espressif/esp-idf.git
-        cd esp-idf/
-        git reset --hard f1abc863a2c1922f889f43dfefc7eec98bbec8f8
         cd ~/esp/esp-idf
         ./install.sh esp32c3
     - name: clone LuatOS-ESP32

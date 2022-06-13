@@ -416,7 +416,7 @@ static int l_uart_list(lua_State *L)
     int rlen = luat_uart_list(buff, len);
     for(int i = 0;i<rlen;i++)
     {
-        lua_pushinteger(L,i);
+        lua_pushinteger(L,i+1);
         lua_pushinteger(L,buff[i]);
         lua_settable(L,-3);
     }

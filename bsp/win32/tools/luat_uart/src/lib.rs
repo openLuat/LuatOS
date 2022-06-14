@@ -260,7 +260,10 @@ pub extern fn luat_uart_send_extern(port: i32, buff: *const u8, len: usize) -> i
     //数据读出来
     let send_buff = match map.get_mut(&port) {
         Some(b) => b,
-        _ => return 0
+        _ => {
+            map.insert(port, vec![]);
+            map.get_mut(&port).unwrap()
+        }
     };
 
     //数据塞进去

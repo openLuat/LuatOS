@@ -184,6 +184,7 @@ typedef enum {
     T_ARR_END,
     T_STRING,
     T_NUMBER,
+    T_INTEGER,
     T_BOOLEAN,
     T_NULL,
     T_COLON,
@@ -201,6 +202,7 @@ static const char *json_token_type_name[] = {
     "T_ARR_END",
     "T_STRING",
     "T_NUMBER",
+    "T_INTEGER",
     "T_BOOLEAN",
     "T_NULL",
     "T_COLON",
@@ -246,6 +248,7 @@ typedef struct {
     union {
         const char *string;
         lua_Number number;
+        lua_Integer lint;
         int boolean;
     } value;
     int string_len;
@@ -396,140 +399,6 @@ static char escape2char(unsigned char c) {
     }
 }
 
-/* ===== CONFIGURATION ===== */
-//extern int mysnprintf(char* buf, int len, char* fmt, ...);
-// static json_config_t *json_fetch_config(lua_State *l)
-// {
-//     json_config_t *cfg;
-
-//     cfg = lua_touserdata(l, lua_upvalueindex(1));
-//     if (!cfg)
-//         luaL_error(l, "BUG: Unable to fetch CJSON configuration");
-
-//     return cfg;
-// }
-
-// /* Ensure the correct number of arguments have been provided.
-//  * Pad with nil to allow other functions to simply check arg[i]
-//  * to find whether an argument was provided */
-// static json_config_t *json_arg_init(lua_State *l, int args)
-// {
-//     luaL_argcheck(l, lua_gettop(l) <= args, args + 1,
-//                   "found too many arguments");
-
-//     while (lua_gettop(l) < args)
-//         lua_pushnil(l);
-
-//     return json_fetch_config(l);
-// }
-
-// /* Process integer options for configuration functions */
-// static int json_integer_option(lua_State *l, int optindex, int *setting,
-//                                int min, int max)
-// {
-//     char errmsg[64];
-//     int value;
-
-//     if (!lua_isnil(l, optindex)) {
-//         value = luaL_checkinteger(l, optindex);
-//         snprintf(errmsg, sizeof(errmsg), "expected integer between %d and %d", min, max);
-//         luaL_argcheck(l, min <= value && value <= max, 1, errmsg);
-//         *setting = value;
-//     }
-
-//     lua_pushinteger(l, *setting);
-
-//     return 1;
-// }
-
-// /* Process enumerated arguments for a configuration function */
-// static int json_enum_option(lua_State *l, int optindex, int *setting,
-//                             const char **options, int bool_true)
-// {
-//     static const char *bool_options[] = { "off", "on", NULL };
-
-//     if (!options) {
-//         options = bool_options;
-//         bool_true = 1;
-//     }
-
-//     if (!lua_isnil(l, optindex)) {
-//         if (bool_true && lua_isboolean(l, optindex))
-//             *setting = lua_toboolean(l, optindex) * bool_true;
-//         else
-//             *setting = luaL_checkoption(l, optindex, NULL, options);
-//     }
-
-//     if (bool_true && (*setting == 0 || *setting == bool_true))
-//         lua_pushboolean(l, *setting);
-//     else
-//         lua_pushstring(l, options[*setting]);
-
-//     return 1;
-// }
-
-// /* Configures handling of extremely sparse arrays:
-//  * convert: Convert extremely sparse arrays into objects? Otherwise error.
-//  * ratio: 0: always allow sparse; 1: never allow sparse; >1: use ratio
-//  * safe: Always use an array when the max index <= safe */
-// static int json_cfg_encode_sparse_array(lua_State *l)
-// {
-//     json_config_t *cfg = json_arg_init(l, 3);
-
-//     json_enum_option(l, 1, &cfg->encode_sparse_convert, NULL, 1);
-//     json_integer_option(l, 2, &cfg->encode_sparse_ratio, 0, INT_MAX);
-//     json_integer_option(l, 3, &cfg->encode_sparse_safe, 0, INT_MAX);
-
-//     return 3;
-// }
-
-// /* Configures the maximum number of nested arrays/objects allowed when
-//  * encoding */
-// static int json_cfg_encode_max_depth(lua_State *l)
-// {
-//     json_config_t *cfg = json_arg_init(l, 1);
-
-//     return json_integer_option(l, 1, &cfg->encode_max_depth, 1, INT_MAX);
-// }
-
-// /* Configures the maximum number of nested arrays/objects allowed when
-//  * encoding */
-// static int json_cfg_decode_max_depth(lua_State *l)
-// {
-//     json_config_t *cfg = json_arg_init(l, 1);
-
-//     return json_integer_option(l, 1, &cfg->decode_max_depth, 1, INT_MAX);
-// }
-
-// /* Configures number precision when converting doubles to text */
-// static int json_cfg_encode_number_precision(lua_State *l)
-// {
-//     json_config_t *cfg = json_arg_init(l, 1);
-
-//     return json_integer_option(l, 1, &cfg->encode_number_precision, 1, 14);
-// }
-
-// /* Configures JSON encoding buffer persistence */
-// static int json_cfg_encode_keep_buffer(lua_State *l)
-// {
-//     json_config_t *cfg = json_arg_init(l, 1);
-//     int old_value;
-
-//     old_value = cfg->encode_keep_buffer;
-
-//     json_enum_option(l, 1, &cfg->encode_keep_buffer, NULL, 1);
-
-//     /* Init / free the buffer if the setting has changed */
-//     if (old_value ^ cfg->encode_keep_buffer) {
-//         if (cfg->encode_keep_buffer)
-//             strbuf_init(&cfg->encode_buf, 0);
-//         else
-//             strbuf_free(&cfg->encode_buf);
-//     }
-
-//     return 1;
-// }
-
 #if defined(DISABLE_INVALID_NUMBERS) && !defined(USE_INTERNAL_FPCONV)
 void json_verify_invalid_number_setting(lua_State *l, int *setting)
 {
@@ -541,114 +410,6 @@ void json_verify_invalid_number_setting(lua_State *l, int *setting)
 #else
 #define json_verify_invalid_number_setting(l, s)    do { } while(0)
 #endif
-
-// static int json_cfg_encode_invalid_numbers(lua_State *l)
-// {
-//     static const char *options[] = { "off", "on", "null", NULL };
-//     json_config_t *cfg = json_arg_init(l, 1);
-
-//     json_enum_option(l, 1, &cfg->encode_invalid_numbers, options, 1);
-
-//     json_verify_invalid_number_setting(l, &cfg->encode_invalid_numbers);
-
-//     return 1;
-// }
-
-// static int json_cfg_decode_invalid_numbers(lua_State *l)
-// {
-//     json_config_t *cfg = json_arg_init(l, 1);
-
-//     json_enum_option(l, 1, &cfg->decode_invalid_numbers, NULL, 1);
-
-//     json_verify_invalid_number_setting(l, &cfg->encode_invalid_numbers);
-
-//     return 1;
-// }
-
-// static int json_destroy_config(lua_State *l)
-// {
-//     json_config_t *cfg;
-
-//     cfg = lua_touserdata(l, 1);
-//     if (cfg)
-//         strbuf_free(&cfg->encode_buf);
-//     cfg = NULL;
-
-//     return 0;
-// }
-
-// static void json_create_config(lua_State *l)
-// {
-//     json_config_t *cfg;
-//     int i;
-
-//     cfg = lua_newuserdata(l, sizeof(*cfg));
-
-//     /* Create GC method to clean up strbuf */
-//     // lua_newtable(l);
-//     // lua_pushcfunction(l, json_destroy_config);
-//     // lua_setfield(l, -2, "__gc");
-//     // lua_setmetatable(l, -2);
-
-//     //cfg->encode_sparse_convert = DEFAULT_SPARSE_CONVERT;
-//     //cfg->encode_sparse_ratio = DEFAULT_SPARSE_RATIO;
-//     //cfg->encode_sparse_safe = DEFAULT_SPARSE_SAFE;
-//     //cfg->encode_max_depth = DEFAULT_ENCODE_MAX_DEPTH;
-//     //cfg->decode_max_depth = DEFAULT_DECODE_MAX_DEPTH;
-//     //cfg->encode_invalid_numbers = DEFAULT_ENCODE_INVALID_NUMBERS;
-//     //cfg->decode_invalid_numbers = DEFAULT_DECODE_INVALID_NUMBERS;
-//     //cfg->encode_keep_buffer = DEFAULT_ENCODE_KEEP_BUFFER;
-//     //cfg->encode_number_precision = DEFAULT_ENCODE_NUMBER_PRECISION;
-
-// #if DEFAULT_ENCODE_KEEP_BUFFER > 0
-//     strbuf_init(&cfg->encode_buf, 0);
-// #endif
-
-//     // /* Decoding init */
-
-//     // /* Tag all characters as an error */
-//     // for (i = 0; i < 256; i++)
-//     //     cfg->ch2token[i] = T_ERROR;
-
-//     // /* Set tokens that require no further processing */
-//     // cfg->ch2token['{'] = T_OBJ_BEGIN;
-//     // cfg->ch2token['}'] = T_OBJ_END;
-//     // cfg->ch2token['['] = T_ARR_BEGIN;
-//     // cfg->ch2token[']'] = T_ARR_END;
-//     // cfg->ch2token[','] = T_COMMA;
-//     // cfg->ch2token[':'] = T_COLON;
-//     // cfg->ch2token['\0'] = T_END;
-//     // cfg->ch2token[' '] = T_WHITESPACE;
-//     // cfg->ch2token['\t'] = T_WHITESPACE;
-//     // cfg->ch2token['\n'] = T_WHITESPACE;
-//     // cfg->ch2token['\r'] = T_WHITESPACE;
-
-//     // /* Update characters that require further processing */
-//     // cfg->ch2token['f'] = T_UNKNOWN;     /* false? */
-//     // cfg->ch2token['i'] = T_UNKNOWN;     /* inf, ininity? */
-//     // cfg->ch2token['I'] = T_UNKNOWN;
-//     // cfg->ch2token['n'] = T_UNKNOWN;     /* null, nan? */
-//     // cfg->ch2token['N'] = T_UNKNOWN;
-//     // cfg->ch2token['t'] = T_UNKNOWN;     /* true? */
-//     // cfg->ch2token['"'] = T_UNKNOWN;     /* string? */
-//     // cfg->ch2token['+'] = T_UNKNOWN;     /* number? */
-//     // cfg->ch2token['-'] = T_UNKNOWN;
-//     // for (i = 0; i < 10; i++)
-//     //     cfg->ch2token['0' + i] = T_UNKNOWN;
-
-//     // /* Lookup table for parsing escape characters */
-//     // for (i = 0; i < 256; i++)
-//     //     cfg->escape2char[i] = 0;          /* String error */
-//     // cfg->escape2char['"'] = '"';
-//     // cfg->escape2char['\\'] = '\\';
-//     // cfg->escape2char['/'] = '/';
-//     // cfg->escape2char['b'] = '\b';
-//     // cfg->escape2char['t'] = '\t';
-//     // cfg->escape2char['n'] = '\n';
-//     // cfg->escape2char['f'] = '\f';
-//     // cfg->escape2char['r'] = '\r';
-//     // cfg->escape2char['u'] = 'u';          /* Unicode parsing required */
-// }
 
 /* ===== ENCODING ===== */
 
@@ -794,7 +555,7 @@ static void json_append_array(lua_State *l, int current_depth,
 
 typedef struct {
      char encode_number_precision_mode;     /*浮点数转化模式 默认为'g',可配置为'f' */
-     int encode_number_precision;           /*浮点数转化精度 默认为7,可配置为0~14 */
+     unsigned char encode_number_precision; /*浮点数转化精度 默认为7,可配置为0~14 */
 } json_easy_config_t;
 
 static json_easy_config_t json_easy_config = {'g',DEFAULT_ENCODE_NUMBER_PRECISION};
@@ -1226,13 +987,30 @@ static int json_is_invalid_number(json_parse_t *json)
 static void json_next_number_token(json_parse_t *json, json_token_t *token)
 {
     char *endptr;
-
+    unsigned len = 0;
+    int int_val = 0;
     token->type = T_NUMBER;
     token->value.number = lua_str2number(json->ptr, &endptr);
     if (json->ptr == endptr)
         json_set_token_error(token, json, "invalid number");
-    else
+    else {
+        // 额外尝试是否为整型
+#ifndef LUAT_LIB_JSON_DECODE_INTEGER_DISABLE
+        len = (endptr - json->ptr);
+        if (len == 1 && (*json->ptr) == '0') {
+            token->type = T_INTEGER;
+            token->value.lint = 0;
+        }
+        else {
+            int_val = strtol(json->ptr, &endptr, 0);
+            if (int_val != 0) {
+                token->type = T_INTEGER;
+                token->value.lint = int_val;
+            }
+        }
+#endif
         json->ptr = endptr;     /* Skip the processed number */
+    }
 
     return;
 }
@@ -1460,6 +1238,9 @@ static void json_process_value(lua_State *l, json_parse_t *json,
         break;;
     case T_NUMBER:
         lua_pushnumber(l, token->value.number);
+        break;;
+    case T_INTEGER:
+        lua_pushinteger(l, token->value.lint);
         break;;
     case T_BOOLEAN:
         lua_pushboolean(l, token->value.boolean);

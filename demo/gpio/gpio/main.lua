@@ -25,19 +25,19 @@ end
 --【HaoSir2022】于2022年4月21日增加
 function pinx()--根据不同开发板，给LED赋值不同的gpio引脚编号
 
-if rtos.bsp()=="air101" then--Air101开发板LED引脚编号
+if rtos.bsp():lower()=="air101" then--Air101开发板LED引脚编号
 local A= pin.PB08
 local B= pin.PB09
 local C= pin.PB10
 return A,B,C
 
-elseif rtos.bsp() == "air103" then--Air103开发板LED引脚编号
+elseif rtos.bsp():lower() == "air103" then--Air103开发板LED引脚编号
 local A= pin.PB26
 local B= pin.PB25
 local C= pin.PB24
 return A,B,C
 
-elseif rtos.bsp() == "air105" then--Air105开发板LED引脚编号
+elseif rtos.bsp():lower() == "air105" then--Air105开发板LED引脚编号
 local A= pin.PD14
 local B= pin.PD15
 local C= pin.PC3

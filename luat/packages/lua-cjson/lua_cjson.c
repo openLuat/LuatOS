@@ -1002,10 +1002,20 @@ static void json_next_number_token(json_parse_t *json, json_token_t *token)
             token->value.lint = 0;
         }
         else {
-            int_val = strtol(json->ptr, &endptr, 0);
-            if (int_val != 0) {
-                token->type = T_INTEGER;
-                token->value.lint = int_val;
+            for (size_t i = 0; i < len; i++)
+            {
+                if (json->ptr[i] == '.') {
+                    int_val = -1;
+                    break;
+                }
+            }
+            if (int_val == 0) {
+                int_val = 0;
+                int_val = strtol(json->ptr, &endptr, 0);
+                if (int_val != 0) {
+                    token->type = T_INTEGER;
+                    token->value.lint = int_val;
+                }
             }
         }
 #endif

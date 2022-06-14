@@ -57,7 +57,7 @@ sys.taskInit(function()
     local count = 0
     while 1 do
     --流水灯程序
-        sys.wait(1000) --点亮时间
+        sys.wait(500) --点亮时间
         -- 轮流点灯
         LEDA(count % 3 == 0 and 1 or 0)
         LEDB(count % 3 == 1 and 1 or 0)

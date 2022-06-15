@@ -413,8 +413,8 @@ lcd颜色填充
 @api lcd.draw(x1, y1, x2, y2,color)
 @int 左上边缘的X位置.
 @int 左上边缘的Y位置.
-@int 右上边缘的X位置.
-@int 右上边缘的Y位置.
+@int 右下边缘的X位置.
+@int 右下边缘的Y位置.
 @string 字符串或zbuff对象
 @usage
 -- lcd颜色填充
@@ -477,8 +477,8 @@ lcd颜色填充
 @api lcd.fill(x1, y1, x2, y2,color)
 @int 左上边缘的X位置.
 @int 左上边缘的Y位置.
-@int 右上边缘的X位置.
-@int 右上边缘的Y位置.
+@int 右下边缘的X位置.
+@int 右下边缘的Y位置.
 @int 绘画颜色 可选参数,默认背景色
 @usage
 -- lcd颜色填充

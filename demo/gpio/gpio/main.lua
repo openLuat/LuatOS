@@ -23,26 +23,22 @@ end
 
 
 --【HaoSir2022】于2022年4月21日增加
+local rtos_bsp = rtos.bsp()
+rtos_bsp = rtos_bsp:lower()
 function pinx()--根据不同开发板，给LED赋值不同的gpio引脚编号
 
-if rtos.bsp()=="air101" then--Air101开发板LED引脚编号
-local A= pin.PB08
-local B= pin.PB09
-local C= pin.PB10
-return A,B,C
-
-elseif rtos.bsp() == "air103" then--Air103开发板LED引脚编号
-local A= pin.PB26
-local B= pin.PB25
-local C= pin.PB24
-return A,B,C
-
-elseif rtos.bsp() == "air105" then--Air105开发板LED引脚编号
-local A= pin.PD14
-local B= pin.PD15
-local C= pin.PC3
-return A,B,C
-end
+    if rtos_bsp =="air101" then--Air101开发板LED引脚编号
+        return pin.PB08, pin.PB09, pin.PB10
+    elseif rtos_bsp == "air103" then--Air103开发板LED引脚编号
+        return pin.PB26, pin.PB25, pin.PB24
+    elseif rtos_bsp == "air105" then--Air105开发板LED引脚编号
+        return pin.PD14, pin.PD15, pin.PC3
+    elseif rtos_bsp == "esp32c3" then -- ESP32C3开发板的引脚
+        return 12, 13, 255 -- 开发板上就2个灯
+    else
+        log.info("main", "define led pin in main.lua")
+        return 0, 0, 0
+    end
 end
 --LED引脚判断赋值结束
 
@@ -57,11 +53,13 @@ sys.taskInit(function()
     local count = 0
     while 1 do
     --流水灯程序
-        sys.wait(1000) --点亮时间
+        sys.wait(500) --点亮时间
         -- 轮流点灯
         LEDA(count % 3 == 0 and 1 or 0)
         LEDB(count % 3 == 1 and 1 or 0)
-        LEDC(count % 3 == 2 and 1 or 0)
+        if P3 and P3 ~= 255 then
+            LEDC(count % 3 == 2 and 1 or 0)
+        end
         log.info("GPIO", "Go Go Go", count, rtos.bsp())
         log.info("LuatOS:", "https://wiki.luatos.com")
         count = count + 1

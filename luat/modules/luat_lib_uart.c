@@ -420,6 +420,7 @@ static int l_uart_list(lua_State *L)
         lua_pushinteger(L,buff[i]);
         lua_settable(L,-3);
     }
+    luat_heap_free(buff);
     return 1;
 }
 #endif

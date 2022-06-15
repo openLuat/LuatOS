@@ -15,8 +15,8 @@
 
 /**
 初始化fota流程，目前只有105能使用
-@api mcu.fotaInit(storge_location, param1)
-@int or string fota数据存储的起始位置，如果是int，则是由芯片平台具体判断，如果是string，则存储在文件系统中，如果为nil，则由底层决定存储位置
+@api fota.fotaInit(storge_location, param1)
+@int/string fota数据存储的起始位置<br>如果是int，则是由芯片平台具体判断<br>如果是string，则存储在文件系统中<br>如果为nil，则由底层决定存储位置
 @int 数据存储的最大空间
 @userdata param1，如果数据存储在spiflash时,为spi_device
 @return 成功返回true, 失败返回false
@@ -50,7 +50,7 @@ static int l_fota_init(lua_State* L)
 
 /**
 等待底层fota流程准备好，目前只有105能使用
-@api mcu.fotaWait()
+@api fota.fotaWait()
 @boolean 是否完整走完流程，true 表示正确走完流程了
 @return
 @boolean 准备好返回true
@@ -65,8 +65,8 @@ static int l_fota_wait(lua_State* L)
 
 /**
 写入fota数据，目前只有105能使用
-@api mcu.fotaRun(buff)
-@zbuff or string fota数据，尽量用zbuff，如果传入的是zbuff，写入成功后，自动清空zbuff内的数据
+@api fota.fotaRun(buff)
+@zbuff/string fota数据，尽量用zbuff，如果传入的是zbuff，写入成功后，自动清空zbuff内的数据
 @return
 @boolean 有异常返回true
 @boolean 接收到最后一块返回true
@@ -111,7 +111,7 @@ static int l_fota_write(lua_State* L)
 
 /**
 等待底层fota流程完成，目前只有105能使用
-@api mcu.fotaDone()
+@api fota.fotaDone()
 @boolean 是否完整走完流程，true 表示正确走完流程了
 @return
 @boolean 有异常返回true
@@ -142,7 +142,7 @@ static int l_fota_done(lua_State* L)
 
 /**
 结束fota流程，目前只有105能使用
-@api mcu.fotaEnd(is_ok)
+@api fota.fotaEnd(is_ok)
 @boolean 是否完整走完流程，true 表示正确走完流程了
 @return 成功返回true, 失败返回false
 @usage

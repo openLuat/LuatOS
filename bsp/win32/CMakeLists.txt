@@ -58,6 +58,7 @@ add_library(luat ${TOPROOT}/luat/modules/luat_main.c
                  ${TOPROOT}/components/luf/luat_luf_dump.c
                  ${TOPROOT}/components/luf/luat_luf_undump.c
                  ${TOPROOT}/components/luf/luat_luf_cmp.c
+                 ${TOPROOT}/components/crypto/luat_crypto_mbedtls.c
                  ${TOPROOT}/luat/modules/crc.c
                  ${TOPROOT}/luat/vfs/luat_vfs.c
                  ${TOPROOT}/luat/vfs/luat_fs_luadb.c

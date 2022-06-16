@@ -1,6 +1,6 @@
 --[[
 
-特别提醒: 本demo已经有更好的替代品: raw_mode, 请使用新版demo, 效果比本demo好很多.
+特别提醒: 本demo已经有更好的替代品: video, 请使用新版video demo, 效果比本demo好很多.
 
 这是Air105+摄像头, 通过USB传输JPG到上位机显示图片的示例, 速率2fps, 色彩空间 RGB565, 不要期望太高
 本demo不需要lcd屏,但lcd的代码暂不可省略

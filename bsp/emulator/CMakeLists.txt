@@ -22,6 +22,7 @@ include_directories(${TOPROOT}/lua/include
 
 include_directories(${TOPROOT}/luat/packages/lfs
                     ${TOPROOT}/components/cjson
+                    ${TOPROOT}/components/qrcode
 )
 
 aux_source_directory(./port PORT_SRCS)
@@ -29,6 +30,7 @@ aux_source_directory(./remotem REMOTEM_SRCS)
 aux_source_directory(${TOPROOT}/lua/src LUA_SRCS)
 aux_source_directory(${TOPROOT}/luat/packages/lua-cjson CJSON_SRCS)
 aux_source_directory(${TOPROOT}/components/cjson CJSON2_SRCS)
+aux_source_directory(${TOPROOT}/components/qrcode QRCODE_SRCS)
 
 # add_library(freertos10 ${PORT_SRCS} ${RTOS_SRCS} ${RTOS_PORT_SRCS} ${MM_SRCS} ${MM2_SRCS})
 add_library(lua ${LUA_SRCS})
@@ -52,10 +54,7 @@ add_library(luat ${TOPROOT}/luat/modules/luat_main.c
                  ${TOPROOT}/components/sfd/luat_lib_sfd.c
                  ${TOPROOT}/components/sfd/luat_sfd_mem.c
                  ${TOPROOT}/components/sfd/luat_sfd_w25q.c
-                 ${TOPROOT}/components/luf/luat_lib_luf.c
-                 ${TOPROOT}/components/luf/luat_luf_dump.c
-                 ${TOPROOT}/components/luf/luat_luf_undump.c
-                 ${TOPROOT}/components/luf/luat_luf_cmp.c
+                 ${TOPROOT}/components/crypto/luat_crypto_mbedtls.c
                  ${TOPROOT}/luat/modules/crc.c
                  ${TOPROOT}/luat/vfs/luat_vfs.c
                  ${TOPROOT}/luat/vfs/luat_fs_luadb.c
@@ -64,11 +63,13 @@ add_library(luat ${TOPROOT}/luat/modules/luat_main.c
                  ${TOPROOT}/luat/vfs/luat_fs_onefile.c
                  ${TOPROOT}/luat/vfs/luat_luadb_inline.c
                  ${TOPROOT}/luat/vfs/luat_luadb_inline_sys.c
+                 ${TOPROOT}/luat/vfs/luat_inline_libs.c
                  ${TOPROOT}/luat/vfs/luat_inline_sys.c
                  ${TOPROOT}/luat/packages/lfs/lfs_sfd.c
                  ${TOPROOT}/luat/packages/lfs/lfs_util.c
                  ${TOPROOT}/luat/packages/lfs/lfs.c
                  ${TOPROOT}/luat/packages/lfs/luat_lib_lfs2.c
+                 ${QRCODE_SRCS}
                #   ${LCD_SRCS}
             )
 

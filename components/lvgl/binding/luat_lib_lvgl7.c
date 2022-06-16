@@ -52,7 +52,7 @@ int luat_lv_init(lua_State *L) {
     }
 
     extern void emulator_lvgl_init(int w, int h);
-    emulator_lvgl_init(WINDOW_HOR_RES, WINDOW_VER_RES);
+    emulator_lvgl_init(w, h);
     return 0;
 }
 #elif defined(LUA_USE_WINDOWS)

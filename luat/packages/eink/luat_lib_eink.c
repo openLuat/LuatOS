@@ -158,7 +158,7 @@ static int l_eink_clear(lua_State *L)
 {
     int colored = luaL_optinteger(L, 1, 1);
     Paint_Clear(&paint, colored);
-    if(lua_isboolean(L, 2))
+    if(lua_toboolean(L, 2))
       EPD_Clear();
     return 0;
 }

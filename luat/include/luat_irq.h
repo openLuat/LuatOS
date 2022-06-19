@@ -11,4 +11,5 @@ int luat_irq_uart_cb(int uartid, void* args);
 
 int luat_irq_spi_cb(int id);
 
+int32_t luat_irq_hardware_cb_handler(void *pdata, void *param);
 #endif

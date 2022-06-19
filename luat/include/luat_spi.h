@@ -77,6 +77,9 @@ int luat_spi_recv(int spi_id, char* recv_buf, size_t length);
 //发SPI数据，返回发送字节数
 int luat_spi_send(int spi_id, const char* send_buf, size_t length);
 
+//非阻塞SPI收发数据
+int luat_spi_no_block_transfer(int spi_id, uint8_t *tx_buff, uint8_t *rx_buff, size_t len, void *CB, void *pParam);
+
 // 初始化总线
 int luat_spi_bus_setup(luat_spi_device_t* spi_dev);
 // 初始化设备

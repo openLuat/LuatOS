@@ -13,6 +13,7 @@
 #include "luat_i2c.h"
 #include "luat_gpio.h"
 #include "luat_zbuff.h"
+#include "luat_irq.h"
 #define LUAT_LOG_TAG "i2c"
 #include "luat_log.h"
 
@@ -659,6 +660,11 @@ int LUAT_WEAK luat_i2c_transfer(int id, int addr, uint8_t *reg, size_t reg_len, 
     return luat_i2c_recv(id, addr, buff, len);
 }
 
+int LUAT_WEAK luat_i2c_no_block_transfer(int id, int addr, uint8_t is_read, uint8_t *reg, size_t reg_len, uint8_t *buff, size_t len, uint16_t Toms, void *CB, void *pParam)
+{
+    return -1;
+}
+
 /**
 i2c通用传输，包括发送N字节，发送N字节+接收N字节，接收N字节三种功能，在发送转接收过程中发送reStart信号,解决类似mlx90614必须带restart信号，但是又不能用i2c.send来控制的，比如air105
 @api i2c.transfer(id, addr, txBuff, rxBuff, rxLen)
@@ -681,7 +687,7 @@ static int l_i2c_transfer(lua_State *L)
 	int addr = luaL_checkinteger(L, 2);
 	size_t tx_len = 0;
 	size_t rx_len = 0;
-	int result = 0;
+	int result = -1;
 	uint8_t temp[1];
 	uint8_t *tx_buff = NULL;
 	uint8_t *rx_buff = NULL;
@@ -764,6 +770,67 @@ static int l_i2c_transfer(lua_State *L)
 
 }
 
+/**
+i2c非阻塞通用传输，类似transfer，但是不会等到I2C传输完成才返回，调用本函数会立刻返回，I2C传输完成后，通过消息回调
+@api i2c.xfer(id, addr, txBuff, rxBuff, rxLen, transfer_done_topic, timeout)
+@int 设备id, 例如i2c1的id为1, i2c2的id为2
+@int I2C子设备的地址, 7位地址
+@zbuff 待发送的数据，由于用的非阻塞模型，为保证动态数据的有效性，只能使用zbuff，发送的数据从zbuff.addr开始，长度为zbuff.used
+@zbuff 待接收数据的zbuff，如果为nil，则忽略后面参数， 不接收数据。接收的数据会放在zbuff.addr开始的位置，会覆盖掉之前的数据，注意zhuff的预留空间要足够
+@int 需要接收的数据长度，如果为0或nil，则不接收数据
+@string 传输完成后回调的消息
+@int 超时时间，如果填nil，则为100ms
+@return boolean true/false 本次传输是否正确启动，true，启动，false，有错误无法启动。传输完成会发布消息transfer_done_topic和boolean型结果
+@usage
+local result = i2c.xfer(0, 0x11, txbuff, rxbuff, 1, "I2CDONE") if result then result, i2c_id, succ, error_code = sys.waitUntil("I2CDONE") end if not result or not succ then log.info("i2c fail, error code", error_code) else log.info("i2c ok") end
+
+*/
+static int l_i2c_no_block_transfer(lua_State *L)
+{
+	size_t topic_len = 0;
+	const char *topic = luaL_checklstring(L, 6, &topic_len);
+
+	uint32_t timeout = luaL_optinteger(L, 7, 100);
+	int addr = luaL_checkinteger(L, 2);
+	size_t tx_len = 0;
+	size_t rx_len = 0;
+	int result = -1;
+	uint8_t *tx_buff = NULL;
+	uint8_t *rx_buff = NULL;
+	if (lua_isnil(L, 3)) {
+		tx_len = 0;
+	}
+	else {
+		luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 3, LUAT_ZBUFF_TYPE));
+		tx_buff = buff->addr;
+		tx_len = buff->used;
+	}
+	luat_zbuff_t *rbuff = ((luat_zbuff_t *)luaL_testudata(L, 4, LUAT_ZBUFF_TYPE));
+	if (lua_isinteger(L, 5) && rbuff) {
+		rx_len = luaL_checkinteger(L, 5);
+		rx_buff = rbuff->addr;
+	}
+
+	int id = 0;
+	if (!lua_isuserdata(L, 1)) {
+		id = luaL_checkinteger(L, 1);
+		char *cb_topic = luat_heap_malloc(topic_len + 1);
+		memcpy(cb_topic, topic, topic_len);
+		cb_topic[topic_len] = 0;
+		if (rx_buff && rx_len) {
+			result = luat_i2c_no_block_transfer(id, addr, 1, tx_buff, tx_len, rx_buff, rx_len, timeout, luat_irq_hardware_cb_handler, cb_topic);
+		} else {
+			result = luat_i2c_no_block_transfer(id, addr, 0, NULL, 0, tx_buff, tx_len, timeout, luat_irq_hardware_cb_handler, cb_topic);
+		}
+		if (result) {
+			luat_heap_free(cb_topic);
+		}
+	}
+	lua_pushboolean(L, !result);
+	return 1;
+
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_i2c[] =
 {
@@ -784,6 +851,7 @@ static const rotable_Reg_t reg_i2c[] =
     { "readDHT12",  ROREG_FUNC(l_i2c_readDHT12)},
     { "readSHT30",  ROREG_FUNC(l_i2c_readSHT30)},
 
+	{ "xfer",	ROREG_FUNC(l_i2c_no_block_transfer)},
     { "FAST",       ROREG_INT(1)},
     { "SLOW",       ROREG_INT(0)},
 	{ NULL,         ROREG_INT(0) }

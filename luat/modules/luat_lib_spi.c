@@ -15,7 +15,7 @@
 #include "luat_spi.h"
 #include "luat_zbuff.h"
 #include "luat_gpio.h"
-
+#include "luat_irq.h"
 #define LUAT_LOG_TAG "spi"
 
 #define META_SPI "SPI*"
@@ -605,6 +605,63 @@ void luat_soft_spi_struct_init(lua_State *L) {
     lua_pop(L, 1);
 }
 
+
+int LUAT_WEAK luat_spi_no_block_transfer(int id, uint8_t *tx_buff, uint8_t *rx_buff, size_t len, void *CB, void *pParam)
+{
+    return -1;
+}
+
+/**
+非阻塞方式硬件SPI传输SPI数据，目的为了提高核心利用率。API直接返回是否启动传输，传输完成后通过topic回调，本API适合硬件SPI传输大量数据传输，外设功能（LCD SPI，W5500 SPI之类的）占据的SPI和软件SPI不能用，少量数据传输建议使用传统阻塞型API
+@api spi.xfer(id, txbuff, rxbuff, rx_len, transfer_done_topic)
+@userdata or int spi_device或者spi_id，注意，如果是spi_device，需要手动在传输完成后拉高cs!!!!!!
+@zbuff 待发送的数据，如果为nil，则只接收数据，由于用的非阻塞模型，为保证动态数据的有效性，只能使用zbuff，发送的数据从zbuff.addr
+@zbuff 接收数据，如果为nil，则只发送数据，由于用的非阻塞模型，为保证动态数据的有效性，只能使用zbuff，接收的数据从zbuff.addr开始存储
+@int 传输数据长度，特别说明 如果为半双工，先发后收，比如spi flash操作这种，则长度=发送字节+接收字节，注意上面发送和接收buff都要留足够的数据，后续接收数据处理需要跳过发送数据长度字节
+@string 传输完成后回调的topic
+@return boolean true/false 本次传输是否正确启动，true，启动，false，有错误无法启动。传输完成会发布消息transfer_done_topic和boolean型结果
+@usage
+local result = spi.xfer(spi.SPI_0, txbuff, rxbuff, 1024, "SPIDONE") if result then result, spi_id, succ, error_code = sys.waitUntil("SPIDONE") end if not result or not succ then log.info("spi fail, error code", error_code) else log.info("spi ok") end
+
+*/
+static int l_spi_no_block_transfer(lua_State *L)
+{
+	size_t topic_len = 0;
+	const char *topic = luaL_checklstring(L, 5, &topic_len);
+	size_t len = luaL_optinteger(L, 4, 0);
+
+	int result = -1;
+	uint8_t *tx_buff = NULL;
+	uint8_t *rx_buff = NULL;
+	luat_zbuff_t *txbuff = ((luat_zbuff_t *)luaL_testudata(L, 2, LUAT_ZBUFF_TYPE));
+	luat_zbuff_t *rxbuff = ((luat_zbuff_t *)luaL_testudata(L, 3, LUAT_ZBUFF_TYPE));
+	if ((!txbuff && !rxbuff) || !len) {
+		lua_pushboolean(L, 0);
+		return 1;
+	}
+	if (txbuff) tx_buff = txbuff->addr;
+	if (rxbuff) rx_buff = rxbuff->addr;
+
+	char *cb_topic = luat_heap_malloc(topic_len + 1);
+	memcpy(cb_topic, topic, topic_len);
+	cb_topic[topic_len] = 0;
+
+    if (lua_isinteger(L, 1)) {
+        int id = luaL_checkinteger(L, 1);
+        result = luat_spi_no_block_transfer(id, tx_buff, rx_buff, len, luat_irq_hardware_cb_handler, cb_topic);
+    }
+    else {
+    	luat_spi_device_t* spi_dev = (luat_spi_device_t*)lua_touserdata(L, 1);
+    	luat_spi_device_config(spi_dev);
+    	luat_gpio_set(spi_dev->spi_config.cs, 0);
+    	result = luat_spi_no_block_transfer(spi_dev->bus_id, tx_buff, rx_buff, len, luat_irq_hardware_cb_handler, cb_topic);
+    }
+    if (result) {
+    	luat_heap_free(cb_topic);
+    }
+	lua_pushboolean(L, !result);
+	return 1;
+}
 //------------------------------------------------------------------
 #include "rotable2.h"
 static const rotable_Reg_t reg_spi[] =
@@ -618,7 +675,7 @@ static const rotable_Reg_t reg_spi[] =
     { "deviceSetup",      ROREG_FUNC(l_spi_device_setup)},
     { "deviceTransfer",   ROREG_FUNC(l_spi_device_transfer)},
     { "deviceSend",       ROREG_FUNC(l_spi_device_send)},
-    
+	{ "xfer",   		  ROREG_FUNC(l_spi_no_block_transfer)},
     { "MSB",               ROREG_INT(1)},
     { "LSB",               ROREG_INT(0)},
     { "master",            ROREG_INT(1)},

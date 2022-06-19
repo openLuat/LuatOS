@@ -1349,6 +1349,39 @@ static int l_zbuff_set(lua_State *L)
     return 0;
 }
 
+/**
+zbuff的类似于memcmp操作，类似于memcmp(&buff[start], &buff2[start2], len)
+@api buff:isEqual(start, buff2, start2, len)
+@int 可选，开始位置，默认为0,
+@zbuff 比较的对象
+@int 可选，比较的对象的开始位置，默认为0
+@int 比较长度
+@return boolean true相等，false不相等
+@return int 相等返回0，不相等返回第一个不相等位置的序号
+@usage
+local result, offset = buff:isEqual(1, buff2, 2, 10) --等同于memcmp(&buff[1], &buff2[2], 10)
+ */
+static int l_zbuff_equal(lua_State *L)
+{
+    luat_zbuff_t *buff = tozbuff(L);
+    uint32_t offset1 = luaL_optinteger(L, 2, 0);
+    luat_zbuff_t *buff2 = ((luat_zbuff_t *)luaL_checkudata(L, 3, LUAT_ZBUFF_TYPE));
+    uint32_t offset2 = luaL_optinteger(L, 4, 0);
+    uint32_t len = luaL_optinteger(L, 5, 1);
+    uint32_t i;
+    uint8_t *b1 = buff->addr + offset1;
+    uint8_t *b2 = buff2->addr + offset2;
+    for(i = 0; i < len; i++) {
+    	if (b1[i] != b2[i]) {
+    		lua_pushboolean(L, 0);
+    		lua_pushinteger(L, i);
+    		return 2;
+    	}
+    }
+	lua_pushboolean(L, 1);
+	lua_pushinteger(L, 0);
+	return 2;
+}
 
 static const luaL_Reg lib_zbuff[] = {
     {"write", l_zbuff_write},
@@ -1396,6 +1429,7 @@ static const luaL_Reg lib_zbuff[] = {
 	{"del", l_zbuff_del},
 	{"resize", l_zbuff_resize},
 	{"used", l_zbuff_used},
+	{"isEqual", l_zbuff_equal},
     {NULL, NULL}};
 
 static int luat_zbuff_meta_index(lua_State *L) {

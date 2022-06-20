@@ -544,13 +544,13 @@ double BytesGetDoubleFromBuf(Buffer_Struct *Buf);
 void BytesPutDoubleToBuf(Buffer_Struct *Buf, double v);
 /*************************************************************************/
 
-extern uint64_t GetSysTickMS();
-
 #define malloc luat_heap_malloc
 #define free luat_heap_free
 #define realloc luat_heap_realloc
 #define zalloc luat_heap_zalloc
 #define calloc luat_heap_calloc
+
+#define GetSysTickMS luat_mcu_ticks
 
 #define COMMON_LOG_BUF_SIZE 255
 

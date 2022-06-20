@@ -852,6 +852,8 @@ static const rotable_Reg_t reg_i2c[] =
     { "readSHT30",  ROREG_FUNC(l_i2c_readSHT30)},
 
 	{ "xfer",	ROREG_FUNC(l_i2c_no_block_transfer)},
+	{ "HSMODE",       ROREG_INT(3)},
+	{ "PLUS",       ROREG_INT(2)},
     { "FAST",       ROREG_INT(1)},
     { "SLOW",       ROREG_INT(0)},
 	{ NULL,         ROREG_INT(0) }

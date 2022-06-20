@@ -161,7 +161,8 @@ static int l_gtfont_init(lua_State* L) {
     if (gt_spi_dev == NULL) {
         gt_spi_dev = lua_touserdata(L, 1);
     }
-	luat_spi_device_send(gt_spi_dev, 0xff, 1);
+	const char data = 0xff;
+	luat_spi_device_send(gt_spi_dev, &data, 1);
     return 0;
 }
 

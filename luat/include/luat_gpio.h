@@ -26,6 +26,8 @@ typedef int (*luat_gpio_irq_cb)(int pin, void* args);
 #define Luat_GPIO_FALLING            0x01
 #define Luat_GPIO_BOTH               0x02
 
+#define Luat_GPIO_MAX_ID             255
+
 typedef struct luat_gpio
 {
     int pin;

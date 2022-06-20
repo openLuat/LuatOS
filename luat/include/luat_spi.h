@@ -36,16 +36,16 @@ typedef struct luat_fatfs_spi
 
 // 软件spi
 typedef struct luat_espi {
-    int cs;
-    int mosi;
-    int miso;
-    int clk;
-    int CPHA;
-    int CPOL;
-    int dataw;
-    int bit_dict;
-    int master;
-    int mode;
+    uint8_t cs;
+    uint8_t mosi;
+    uint8_t miso;
+    uint32_t clk;
+    uint8_t CPHA;
+    uint8_t CPOL;
+    uint8_t dataw;
+    uint8_t bit_dict;
+    uint8_t master;
+    uint8_t mode;
 } luat_espi_t;
 
 #define LUAT_ESPI_TYPE "ESPI*"

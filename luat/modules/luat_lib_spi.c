@@ -20,6 +20,7 @@
 
 #define META_SPI "SPI*"
 
+// 软SPI 发送一个字节
 static void spi_soft_send_byte(luat_espi_t *espi, uint8_t data)
 {
     uint8_t i;
@@ -47,6 +48,7 @@ static void spi_soft_send_byte(luat_espi_t *espi, uint8_t data)
     }
 }
 
+// 软SPI 接收一个字节
 static char spi_soft_recv_byte(luat_espi_t *espi)
 {
     unsigned char i = 8;
@@ -70,10 +72,45 @@ static char spi_soft_recv_byte(luat_espi_t *espi)
     return data;
 }
 
-static int spi_soft_send(luat_espi_t *espi, const char*data, size_t len)
+// 软SPI 收发一个字节
+static char spi_soft_xfer_byte(luat_espi_t *espi, uint8_t send_data)
+{
+    unsigned char i = 8;
+    unsigned char data = 0;
+    while (i--)
+    {
+        // 发送
+        if (send_data&0x80)
+        {
+            luat_gpio_set(espi->mosi, Luat_GPIO_HIGH);
+        }
+        else
+        {
+            luat_gpio_set(espi->mosi, Luat_GPIO_LOW);
+        }
+        send_data<<=1;
+        // 接收
+        data <<= 1;
+        if (luat_gpio_get(espi->miso))
+        {
+            data |= 0x01;
+        }
+        if (espi->CPOL == 0)
+        {
+            luat_gpio_set(espi->clk, Luat_GPIO_HIGH);
+            luat_gpio_set(espi->clk, Luat_GPIO_LOW);
+        }else{
+            luat_gpio_set(espi->clk, Luat_GPIO_LOW);
+            luat_gpio_set(espi->clk, Luat_GPIO_HIGH);
+        }
+    }
+    return data;
+}
+
+int luat_spi_soft_send(luat_espi_t *espi, const char*data, size_t len)
 {
     size_t i = 0;
-    if (espi->cs != -1)
+    if (espi->cs != Luat_GPIO_MAX_ID)
     {
         luat_gpio_set(espi->cs, Luat_GPIO_LOW);
     }
@@ -81,7 +118,7 @@ static int spi_soft_send(luat_espi_t *espi, const char*data, size_t len)
     {
         spi_soft_send_byte(espi, data[i]);
     }
-    if (espi->cs != -1)
+    if (espi->cs != Luat_GPIO_MAX_ID)
     {
         luat_gpio_set(espi->cs, Luat_GPIO_HIGH);
     }
@@ -89,10 +126,10 @@ static int spi_soft_send(luat_espi_t *espi, const char*data, size_t len)
 }
 
 
-static int spi_soft_recv(luat_espi_t *espi, char *buff, size_t len)
+int luat_spi_soft_recv(luat_espi_t *espi, char *buff, size_t len)
 {
     size_t i = 0;
-    if (espi->cs != -1)
+    if (espi->cs != Luat_GPIO_MAX_ID)
     {
         luat_gpio_set(espi->cs, Luat_GPIO_LOW);
     }
@@ -101,7 +138,27 @@ static int spi_soft_recv(luat_espi_t *espi, char *buff, size_t len)
     {
         *buff++ = spi_soft_recv_byte(espi);
     }
-    if (espi->cs != -1)
+    if (espi->cs != Luat_GPIO_MAX_ID)
+    {
+        luat_gpio_set(espi->cs, Luat_GPIO_HIGH);
+    }
+    luat_gpio_set(espi->mosi, Luat_GPIO_HIGH);
+    return 0;
+}
+
+int luat_spi_soft_xfer(luat_espi_t *espi, char *send_buff, char* recv_buff, size_t len)
+{
+    size_t i = 0;
+    if (espi->cs != Luat_GPIO_MAX_ID)
+    {
+        luat_gpio_set(espi->cs, Luat_GPIO_LOW);
+    }
+    luat_gpio_set(espi->mosi, Luat_GPIO_LOW);
+    for (i = 0; i < len; i++)
+    {
+        *recv_buff++ = spi_soft_xfer_byte(espi, (uint8_t)send_buff[i]);
+    }
+    if (espi->cs != Luat_GPIO_MAX_ID)
     {
         luat_gpio_set(espi->cs, Luat_GPIO_HIGH);
     }
@@ -130,7 +187,7 @@ static int l_spi_setup(lua_State *L) {
     luat_spi_t spi_config = {0};
 
     spi_config.id = luaL_checkinteger(L, 1);
-    spi_config.cs = luaL_optinteger(L, 2, 255); // 默认无
+    spi_config.cs = luaL_optinteger(L, 2, Luat_GPIO_MAX_ID); // 默认无
     spi_config.CPHA = luaL_optinteger(L, 3, 0); // CPHA0
     spi_config.CPOL = luaL_optinteger(L, 4, 0); // CPOL0
     spi_config.dataw = luaL_optinteger(L, 5, 8); // 8bit
@@ -165,7 +222,7 @@ local result = spi.send(softSpiDevice, string.char(0x9f))
 */
 static int l_spi_soft(lua_State *L) {
     luat_espi_t *espi = (luat_espi_t *)lua_newuserdata(L, sizeof(luat_espi_t));
-    espi->cs = luaL_optinteger(L, 1, -1);
+    espi->cs = luaL_optinteger(L, 1, Luat_GPIO_MAX_ID);
     espi->mosi = luaL_checkinteger(L, 2);
     espi->miso = luaL_checkinteger(L, 3);
     espi->clk = luaL_checkinteger(L, 4);
@@ -174,17 +231,17 @@ static int l_spi_soft(lua_State *L) {
     espi->dataw = luaL_optinteger(L, 7, 8);
     espi->bit_dict = luaL_optinteger(L, 8, 1);
     espi->master = luaL_optinteger(L, 9, 1);
-    espi->mode = luaL_optinteger(L, 10, 1);
-    luat_gpio_mode(espi->cs, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 1);
-    luat_gpio_mode(espi->mosi, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 1);
-    luat_gpio_mode(espi->miso, Luat_GPIO_INPUT, Luat_GPIO_PULLDOWN, 0);
+    espi->mode = luaL_optinteger(L, 10, 0);
+    luat_gpio_mode(espi->cs, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+    luat_gpio_mode(espi->mosi, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+    luat_gpio_mode(espi->miso, Luat_GPIO_INPUT, Luat_GPIO_PULLDOWN, Luat_GPIO_LOW);
     if (espi->CPOL == 0)
     {
-        luat_gpio_mode(espi->clk, Luat_GPIO_OUTPUT, Luat_GPIO_PULLDOWN, 0);
+        luat_gpio_mode(espi->clk, Luat_GPIO_OUTPUT, Luat_GPIO_PULLDOWN, Luat_GPIO_LOW);
     }
     else if (espi->CPOL == 1)
     {
-        luat_gpio_mode(espi->clk, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 1);
+        luat_gpio_mode(espi->clk, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
     }
     luaL_setmetatable(L, LUAT_ESPI_TYPE);
     return 1;
@@ -274,17 +331,25 @@ static int l_spi_transfer(lua_State *L) {
     }
     else
     {
+        // 软SPI
         luat_espi_t *espi = toespi(L);
-        int csPin = -1;
-        if (espi->cs!=-1)
+        uint8_t csPin = Luat_GPIO_MAX_ID;
+        if (espi->cs != Luat_GPIO_MAX_ID)
         {
             csPin = espi->cs;
-            espi->cs = -1;
+            espi->cs = Luat_GPIO_MAX_ID;
             luat_gpio_set(csPin, Luat_GPIO_LOW);
         }
-        spi_soft_send(espi, send_buff, send_length);
-        spi_soft_recv(espi, recv_buff, recv_length);
-        if (csPin!=-1)
+        // 半双工, 先发后读
+        if (espi->mode == 0 || (send_length != recv_length)) {
+            luat_spi_soft_send(espi, send_buff, send_length);
+            luat_spi_soft_recv(espi, recv_buff, recv_length);
+        }
+        // 全双工, 边发边读, 当且仅当收发都是一样长度时,才是全双工
+        else {
+            luat_spi_soft_xfer(espi, send_buff, recv_buff, send_length);
+        }
+        if (csPin!= Luat_GPIO_MAX_ID)
         {
             luat_gpio_set(csPin, Luat_GPIO_HIGH);
             espi->cs = csPin;
@@ -334,9 +399,11 @@ static int l_spi_recv(lua_State *L) {
         if (spi_device){
             luat_spi_device_recv(spi_device, recv_buff, len);
         }
-        luat_espi_t *espi = (luat_espi_t *)luaL_testudata(L, 1, LUAT_ESPI_TYPE);
-        if (espi){
-            spi_soft_recv(espi, recv_buff, len);
+        else {
+            luat_espi_t *espi = (luat_espi_t *)luaL_testudata(L, 1, LUAT_ESPI_TYPE);
+            if (espi){
+                luat_spi_soft_recv(espi, recv_buff, len);
+            }
         }
         lua_pushlstring(L, recv_buff, len);
         luat_heap_free(recv_buff);
@@ -389,7 +456,7 @@ static int l_spi_send(lua_State *L) {
     else
     {
         luat_espi_t *espi = toespi(L);
-        lua_pushinteger(L, spi_soft_send(espi, send_buff, len));
+        lua_pushinteger(L, luat_spi_soft_send(espi, send_buff, len));
     }
     return 1;
 }

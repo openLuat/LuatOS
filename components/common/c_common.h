@@ -546,11 +546,11 @@ void BytesPutDoubleToBuf(Buffer_Struct *Buf, double v);
 
 extern uint64_t GetSysTickMS();
 
-#define malloc OS_Malloc
-#define free OS_Free
-#define realloc OS_Realloc
-#define zalloc OS_Zalloc
-#define calloc OS_Calloc
+#define malloc luat_heap_malloc
+#define free luat_heap_free
+#define realloc luat_heap_realloc
+#define zalloc luat_heap_zalloc
+#define calloc luat_heap_calloc
 
 #ifndef ASSERT
 #if defined(__DEBUG__)

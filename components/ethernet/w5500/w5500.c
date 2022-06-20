@@ -1,15 +1,16 @@
+#include "platform_def.h"
 #include "luat_base.h"
 #include "luat_spi.h"
 #ifdef LUAT_USE_W5500
 #include "luat_rtos.h"
 #include "luat_zbuff.h"
 #include "luat_gpio.h"
-#include "luat_network_adapter.h"
-#include "c_common.h"
 #include "w5500_def.h"
+
+
+#include "luat_network_adapter.h"
 #include "dhcp_def.h"
 #include "dns_def.h"
-#include "platform_def.h"
 
 extern void DBG_Printf(const char* format, ...);
 extern void DBG_HexPrintf(void *Data, unsigned int len);

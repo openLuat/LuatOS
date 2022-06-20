@@ -7,7 +7,6 @@
 
 #include "luat_base.h"
 #ifdef LUAT_USE_W5500
-#include "luat_network_adapter.h"
 #include "luat_rtos.h"
 #include "luat_zbuff.h"
 #include "luat_spi.h"
@@ -15,6 +14,7 @@
 #include "luat_log.h"
 
 #include "w5500_def.h"
+#include "luat_network_adapter.h"
 /*
 初始化w5500
 @api w5500.init(spiid, speed, cs_pin, irq_pin, rst_pin, link_pin)

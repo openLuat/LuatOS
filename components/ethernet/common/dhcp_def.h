@@ -3,7 +3,6 @@
 #define __ETHERNET_COMMON_DHCP_DEF_H__
 #include "luat_base.h"
 #ifdef LUAT_USE_DHCP
-#include "c_common.h"
 
 #ifdef __cplusplus
 extern "C" {

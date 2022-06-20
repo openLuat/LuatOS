@@ -1,7 +1,7 @@
 #include "luat_base.h"
 #ifdef LUAT_USE_DHCP
+#include "luat_network_adapter.h"
 #include "dhcp_def.h"
-#include "c_common.h"
 #define DHCP_OPTION_138 138
 extern void DBG_Printf(const char* format, ...);
 extern void DBG_HexPrintf(void *Data, unsigned int len);

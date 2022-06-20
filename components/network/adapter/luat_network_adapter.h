@@ -3,7 +3,7 @@
 #include "luat_base.h"
 #ifdef LUAT_USE_NETWORK
 #include "luat_rtos.h"
-#include "c_common.h"
+
 #ifdef LUAT_USE_TLS
 #include "mbedtls/ssl.h"
 #include "mbedtls/platform.h"
@@ -14,7 +14,9 @@
 #include "mbedtls/entropy.h"
 #include "mbedtls/sha1.h"
 #endif
-
+#ifndef __BSP_COMMON_H__
+#include "c_common.h"
+#endif
 #define MAX_DNS_IP		(4)	//每个URL最多保留4个IP
 
 enum

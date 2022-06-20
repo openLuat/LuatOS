@@ -1,12 +1,12 @@
 
 #include "luat_base.h"
 #ifdef LUAT_USE_NETWORK
-#include "luat_network_adapter.h"
+
 #include "luat_rtos.h"
 #include "platform_def.h"
-#include "c_common.h"
 #include "ctype.h"
-
+#include "luat_network_adapter.h"
+#include "dhcp_def.h"
 extern void DBG_Printf(const char* format, ...);
 extern void DBG_HexPrintf(void *Data, unsigned int len);
 //#define DBG(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)

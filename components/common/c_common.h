@@ -19,8 +19,8 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#ifndef __BSP_COMMON_H__
-#define __BSP_COMMON_H__
+#ifndef __C_COMMON_H__
+#define __C_COMMON_H__
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>

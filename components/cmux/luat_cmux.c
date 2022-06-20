@@ -169,12 +169,13 @@ static void uih_dbg_manage(unsigned char*buff,size_t len){
     }
     // luat_heap_free(data);
 }
-
+#ifdef LUAT_USE_YMODEM
 #include "luat_ymodem.h"
 static int ymodem_state = 0;
 static void* ymodem_handler = NULL;
-
+#endif
 static void uih_download_manage(unsigned char*buff,size_t len){
+#ifdef LUAT_USE_YMODEM
     uint8_t ack, flag, file_ok, all_done;
     if (ymodem_handler == NULL) {
         ymodem_handler = luat_ymodem_create_handler("/", NULL);
@@ -183,6 +184,7 @@ static void uih_download_manage(unsigned char*buff,size_t len){
     if (all_done) {
         //luat_ymodem_release
     }
+#endif
 }
 
 LUAT_WEAK void luat_cmux_log_set(uint8_t state) {

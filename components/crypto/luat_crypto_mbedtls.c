@@ -2,6 +2,7 @@
 
 #include "luat_base.h"
 #include "luat_crypto.h"
+#include "luat_malloc.h"
 
 #define LUAT_LOG_TAG "crypto"
 #include "luat_log.h"

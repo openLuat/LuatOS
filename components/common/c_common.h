@@ -552,6 +552,8 @@ extern uint64_t GetSysTickMS();
 #define zalloc luat_heap_zalloc
 #define calloc luat_heap_calloc
 
+#define COMMON_LOG_BUF_SIZE 255
+
 #ifndef ASSERT
 #if defined(__DEBUG__)
 #define ASSERT( x ) if( ( x ) == 0 ) { __disable_irq(); DBG_Trace("\r\nassert %s,%d", __FUNCTION__, __LINE__); for( ;; ); }

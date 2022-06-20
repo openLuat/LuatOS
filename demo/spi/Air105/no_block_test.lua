@@ -3,7 +3,7 @@ local function spiTest(id)
     local txbuff = zbuff.create(txlen)
     local rxbuff = zbuff.create(txlen)
     local cbTopic = "SPI" .. id .. "DONE"
-    local result, succ, errorCode
+    local result, devid, succ, errorCode
     if id ~= spi.HSPI_0 then
         spi.setup(id, nil, 0, 0, 8, 24000000)
     else
@@ -14,7 +14,7 @@ local function spiTest(id)
         log.info("spi"..id, "传输开始")
         result = spi.xfer(id,txbuff,rxbuff,txlen,cbTopic)
         if result then
-            result, succ, errorCode = sys.waitUntil(cbTopic, 1000)
+            result, devid, succ, errorCode = sys.waitUntil(cbTopic, 1000)
         end
         if not result or not succ then
             log.info("spi"..id, "传输失败")

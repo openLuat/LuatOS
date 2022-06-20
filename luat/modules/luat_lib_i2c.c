@@ -789,43 +789,43 @@ static int l_i2c_no_block_transfer(lua_State *L)
 {
 	size_t topic_len = 0;
 	const char *topic = luaL_checklstring(L, 6, &topic_len);
-
-	uint32_t timeout = luaL_optinteger(L, 7, 100);
+	int id = luaL_checkinteger(L, 1);
 	int addr = luaL_checkinteger(L, 2);
+
+
 	size_t tx_len = 0;
 	size_t rx_len = 0;
 	int result = -1;
 	uint8_t *tx_buff = NULL;
 	uint8_t *rx_buff = NULL;
-	if (lua_isnil(L, 3)) {
-		tx_len = 0;
-	}
-	else {
-		luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 3, LUAT_ZBUFF_TYPE));
+
+	luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_testudata(L, 3, LUAT_ZBUFF_TYPE));
+	if (buff) {
 		tx_buff = buff->addr;
 		tx_len = buff->used;
 	}
+
 	luat_zbuff_t *rbuff = ((luat_zbuff_t *)luaL_testudata(L, 4, LUAT_ZBUFF_TYPE));
 	if (lua_isinteger(L, 5) && rbuff) {
 		rx_len = luaL_checkinteger(L, 5);
 		rx_buff = rbuff->addr;
+		rbuff->used = rx_len;
 	}
 
-	int id = 0;
-	if (!lua_isuserdata(L, 1)) {
-		id = luaL_checkinteger(L, 1);
-		char *cb_topic = luat_heap_malloc(topic_len + 1);
-		memcpy(cb_topic, topic, topic_len);
-		cb_topic[topic_len] = 0;
-		if (rx_buff && rx_len) {
-			result = luat_i2c_no_block_transfer(id, addr, 1, tx_buff, tx_len, rx_buff, rx_len, timeout, luat_irq_hardware_cb_handler, cb_topic);
-		} else {
-			result = luat_i2c_no_block_transfer(id, addr, 0, NULL, 0, tx_buff, tx_len, timeout, luat_irq_hardware_cb_handler, cb_topic);
-		}
-		if (result) {
-			luat_heap_free(cb_topic);
-		}
+	uint32_t timeout = luaL_optinteger(L, 7, 100);
+
+	char *cb_topic = luat_heap_malloc(topic_len + 1);
+	memcpy(cb_topic, topic, topic_len);
+	cb_topic[topic_len] = 0;
+	if (rx_buff && rx_len) {
+		result = luat_i2c_no_block_transfer(id, addr, 1, tx_buff, tx_len, rx_buff, rx_len, timeout, luat_irq_hardware_cb_handler, cb_topic);
+	} else {
+		result = luat_i2c_no_block_transfer(id, addr, 0, NULL, 0, tx_buff, tx_len, timeout, luat_irq_hardware_cb_handler, cb_topic);
 	}
+	if (result) {
+		luat_heap_free(cb_topic);
+	}
+
 	lua_pushboolean(L, !result);
 	return 1;
 

@@ -49,7 +49,7 @@ int32_t luat_irq_hardware_cb_handler(void *pdata, void *param)
     msg.handler = luat_irq_topic_cb_handler;
     msg.ptr = param;
     msg.arg1 = (uint32_t)pdata & 0x0000ffff;
-    msg.arg2 = !((uint32_t)pdata >> 16);
+    msg.arg2 = ((uint32_t)pdata >> 16);
     luat_msgbus_put(&msg, 0);
     return 0;
 }

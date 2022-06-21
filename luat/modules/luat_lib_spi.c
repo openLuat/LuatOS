@@ -234,7 +234,7 @@ static int l_spi_soft(lua_State *L) {
     espi->mode = luaL_optinteger(L, 10, 0);
     luat_gpio_mode(espi->cs, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
     luat_gpio_mode(espi->mosi, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-    luat_gpio_mode(espi->miso, Luat_GPIO_INPUT, Luat_GPIO_PULLDOWN, Luat_GPIO_LOW);
+    luat_gpio_mode(espi->miso, Luat_GPIO_INPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW);
     if (espi->CPOL == 0)
     {
         luat_gpio_mode(espi->clk, Luat_GPIO_OUTPUT, Luat_GPIO_PULLDOWN, Luat_GPIO_LOW);
@@ -280,7 +280,7 @@ static int l_spi_close(lua_State *L) {
 
 /**
 传输SPI数据
-@api spi.transfer(id, send_data, send_len, recv_len)
+@api spi.transfer(id, send_data[, len])
 @int SPI号(例如0)或软件SPI对象
 @string/zbuff 待发送的数据，如果为zbuff数据，则会从对象所处的指针处开始读
 @int 可选。待发送数据的长度，默认为data长度

@@ -36,6 +36,10 @@ if wdt then
     sys.timerLoopStart(wdt.feed, 10000)--10s喂一次狗
 end
 
+--[[
+    提示, 若显示内容出现错位/偏离中心, 请修改lcd.init参数的xoffset/yoffset, 微调后观察变化, 然后逐渐逼近完美值
+]]
+
 -- HSPI 即 SPI5, 最高96M, 部分屏不支持, 所以这里写48M
 spi_lcd = spi.deviceSetup(5,pin.PC14,0,0,8,48*1000*1000,spi.MSB,1,1)
 

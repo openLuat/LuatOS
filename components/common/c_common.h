@@ -26,7 +26,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdarg.h>
-
+#include "luat_conf_bsp.h"
 typedef struct
 {
 	uint32_t MaigcNum; //升级包标识，标识不对直接抛弃
@@ -549,10 +549,12 @@ void BytesPutDoubleToBuf(Buffer_Struct *Buf, double v);
 #define realloc luat_heap_realloc
 #define zalloc luat_heap_zalloc
 #define calloc luat_heap_calloc
-
+#ifdef __LUATOS_TICK_64BIT__
+extern uint64_t GetSysTickMS(void);
+#else
 #define GetSysTickMS luat_mcu_ticks
+#endif
 
-#define COMMON_LOG_BUF_SIZE 255
 
 #ifndef ASSERT
 #if defined(__DEBUG__)

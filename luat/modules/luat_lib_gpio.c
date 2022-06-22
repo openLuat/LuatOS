@@ -85,7 +85,8 @@ int luat_gpio_irq_default(int pin, void* args) {
     msg.handler = l_gpio_handler;
     msg.ptr = NULL;
     msg.arg1 = pin;
-    msg.arg2 = (int)args;
+    if (args)msg.arg2 = (int)args;
+    else msg.arg2 = luat_gpio_get(pin);
     return luat_msgbus_put(&msg, 0);
 }
 

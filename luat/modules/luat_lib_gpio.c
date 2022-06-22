@@ -85,8 +85,7 @@ int luat_gpio_irq_default(int pin, void* args) {
     msg.handler = l_gpio_handler;
     msg.ptr = NULL;
     msg.arg1 = pin;
-    if (args)msg.arg2 = (int)args;
-    else msg.arg2 = luat_gpio_get(pin);
+    msg.arg2 = (int)args;
     return luat_msgbus_put(&msg, 0);
 }
 
@@ -97,7 +96,7 @@ int l_gpio_handler(lua_State *L, void* ptr) {
     if (pin < 0 || pin >= PIN_MAX)
         return 0;
     if (gpios[pin].lua_ref == 0)
-        return;
+        return 0;
     lua_geti(L, LUA_REGISTRYINDEX, gpios[pin].lua_ref);
     if (!lua_isnil(L, -1)) {
         lua_pushinteger(L, msg->arg2);

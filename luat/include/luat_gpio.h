@@ -47,6 +47,7 @@ int luat_gpio_get(int pin);
 void luat_gpio_close(int pin);
 
 int l_gpio_handler(lua_State *L, void* ptr);
+int luat_gpio_irq_default(int pin, void* args);
 
 int luat_gpio_set_irq_cb(int pin, luat_gpio_irq_cb cb, void* args);
 

@@ -382,7 +382,7 @@ static const rotable_Reg_t reg_gpio[] =
 };
 
 LUAMOD_API int luaopen_gpio( lua_State *L ) {
-    memset(gpios, 0, sizeof(gpios) * PIN_MAX);
+    memset(gpios, 0, sizeof(gpio_ctx_t) * PIN_MAX);
     luat_newlib2(L, reg_gpio);
     return 1;
 }

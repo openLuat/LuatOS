@@ -1,4 +1,5 @@
 
+#include "luat_base.h"
 #include "luat_ota.h"
 #include "luat_fs.h"
 #include "luat_timer.h"
@@ -138,8 +139,93 @@ static void luat_bin_exec_rollback(void) {
   luat_os_reboot(0); // 重启
 }
 
+#include "luat_crypto.h"
+#include "luat_md5.h"
+
+void luat_str_fromhex(char* str, size_t len, char* buff);
+void luat_str_tohex(char* str, size_t len, char* buff);
+
+#define OTA_CHECK_BUFF_SIZE (512)
+typedef struct ota_md5
+{
+    uint8_t buff[OTA_CHECK_BUFF_SIZE];
+    struct md5_context context;
+    struct md5_digest digest;
+}ota_md5_t;
+
+
+int luat_ota_checkfile(const char* path) {
+    int ret = 0;
+    
+    FILE * fd = luat_fs_fopen(path, "rb");
+    if (fd == NULL) {
+        LLOGE("no such file");
+        return -1;
+    }
+    size_t binsize = luat_fs_fsize(path);
+    if (binsize < 512 || binsize > 1024*1024) {
+        luat_fs_fclose(fd);
+        LLOGE("%s is too small/big %d", path, binsize);
+        return -1;
+    }
+    ota_md5_t* ota = luat_heap_malloc(sizeof(ota_md5_t));
+    if (ota == NULL) {
+        luat_fs_fclose(fd);
+        LLOGE("out of memory when check ota file md5");
+        return -1;
+    }
+    
+    unsigned int len = 0;
+    int remain = binsize - 16;
+
+    luat_md5_init(&ota->context);
+    while (remain > 0) {
+        if (remain > OTA_CHECK_BUFF_SIZE) {
+            len = luat_fs_fread(ota->buff, OTA_CHECK_BUFF_SIZE, 1, fd);
+        }
+        else {
+            len = luat_fs_fread(ota->buff, remain, 1, fd);
+        }
+        //LLOGD("ota read %d byte", len);
+        if (len == 0) {
+            continue;
+        }
+        if (len < 0 || len > 512) {
+            luat_heap_free(ota);
+            luat_fs_fclose(fd);
+            LLOGE("read file fail");
+            return -1;
+        }
+
+        remain -= len;
+        luat_md5_update(&ota->context, ota->buff, len);
+    }
+    luat_md5_finalize(&ota->context, &ota->digest);
+    // 应该还有16字节的md5
+    //memset(ota->buff, 0, OTA_CHECK_BUFF_SIZE);
+    luat_fs_fread(ota->buff, 16, 1, fd);
+    // 读完就可以关了
+    luat_fs_fclose(fd);
+
+    // 判断一下md5
+    // uint8_t *expect_md5 = ota->buff + 64;
+    // uint8_t *face_md5   = ota->buff + 128;
+
+    if (!memcmp(ota->buff, ota->digest.bytes, 16)) {
+        LLOGD("ota file MD5 ok");
+        ret = 0;
+    }
+    else {
+        LLOGE("ota file MD5 FAIL");
+        ret = -1;
+    }
+
+    luat_heap_free(ota);
+    return ret;
+}
+
+
 #ifdef LUAT_USE_OTA
-extern int luat_luadb_checkfile(const char* path);
 
 int luat_ota(uint32_t luadb_addr){
     
@@ -179,7 +265,7 @@ _close_decompress:
     //检测是否有升级文件
     if(luat_fs_fexist(UPDATE_BIN_PATH)){
         LLOGI("found update.bin, checking");
-        if (luat_luadb_checkfile(UPDATE_BIN_PATH) == 0) {
+        if (luat_ota_checkfile(UPDATE_BIN_PATH) == 0) {
             LLOGI("update.bin ok, updating...");
             #define UPDATE_BUFF_SIZE 4096
             uint8_t* buff = luat_heap_malloc(UPDATE_BUFF_SIZE);

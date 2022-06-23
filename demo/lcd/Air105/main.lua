@@ -36,6 +36,15 @@ if wdt then
     sys.timerLoopStart(wdt.feed, 10000)--10s喂一次狗
 end
 
+-- UI带屏的项目一般不需要低功耗了吧, 设置到最高性能
+if mcu then
+    local rtos_bsp = rtos.bsp()
+    rtos_bsp = rtos_bsp:lower()
+    if rtos_bsp == "air101" or rtos_bsp == "air103" then
+        mcu.setClk(240)
+    end
+end
+
 --[[
     提示, 若显示内容出现错位/偏离中心, 请修改lcd.init参数的xoffset/yoffset, 微调后观察变化, 然后逐渐逼近完美值
 ]]

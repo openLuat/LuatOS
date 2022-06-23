@@ -19,21 +19,14 @@
 static int l_gpio_set(lua_State *L);
 static int l_gpio_get(lua_State *L);
 static int l_gpio_close(lua_State *L);
-// #ifdef LUAT_GPIO_NUMS
-// #define GPIO_IRQ_COUNT LUAT_GPIO_NUMS
-// #else
-// #define GPIO_IRQ_COUNT 64
-// #endif
 #define PIN_MAX (128)
 
 typedef struct gpio_ctx
 {
-    int pin;
-    int lua_ref;
-    uint32_t latest_tick;
-    uint16_t conf_tick;
+    int lua_ref; // irq下的回调函数
+    uint32_t latest_tick; // 防抖功能的最后tick数
+    uint16_t conf_tick;   // 防抖设置的超时tick数
 }gpio_ctx_t;
-
 
 // 保存中断回调的数组
 static gpio_ctx_t gpios[PIN_MAX];

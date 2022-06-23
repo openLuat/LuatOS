@@ -22,13 +22,20 @@ local button_detect = true
 local button_state = false
 local button_cont = 0
 
-button = gpio.setup(1, 
-function() 
-    if not button_detect then return end
-    button_detect = false
-    button_state = true
-end, 
-gpio.PULLUP,gpio.FALLING)
+local BTN_PIN = 1 -- 按实际开发板选取
+
+-- 若固件支持防抖, 启用防抖
+if gpio.debounce then
+    gpio.debounce(BTN_PIN, 5)
+end
+
+button = gpio.setup(BTN_PIN, function() 
+        if not button_detect then return end
+        button_detect = false
+        button_state = true
+    end, 
+    gpio.PULLUP,
+    gpio.FALLING)
 
 button_timer = sys.timerLoopStart(function()
     if button_state then

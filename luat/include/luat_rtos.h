@@ -31,13 +31,18 @@ LUAT_RET luat_thread_delete(luat_thread_t* thread);
 LUAT_RET luat_send_event_to_task(void *task_handle, uint32_t id, uint32_t param1, uint32_t param2, uint32_t param3);
 LUAT_RET luat_wait_event_from_task(void *task_handle, uint32_t wait_event_id, void *out_event, void *call_back, uint32_t ms);
 /* ----------------------------------- semaphore ----------------------------------- */
+typedef struct luat_sem{
+    const char *name;
+    uint32_t value;
+    uint8_t flag;
+    void* userdata;
+}luat_sem_t;
 
 
-
-void *luat_sem_create();
-void luat_sem_delete(void* semaphore);
-LUAT_RET luat_sem_take(void* semaphore,uint32_t timeout);
-LUAT_RET luat_sem_release(void* semaphore);
+LUAT_RET luat_sem_create(luat_sem_t* semaphore);
+LUAT_RET luat_sem_delete(luat_sem_t* semaphore);
+LUAT_RET luat_sem_take(luat_sem_t* semaphore,uint32_t timeout);
+LUAT_RET luat_sem_release(luat_sem_t* semaphore);
 
 
 /* ----------------------------------- queue ----------------------------------- */

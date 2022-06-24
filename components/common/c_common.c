@@ -22,6 +22,8 @@
 #include "c_common.h"
 #include "luat_malloc.h"
 #include "luat_base.h"
+#include "luat_log.h"
+
 #define COMMON_LOG_BUF_SIZE 255
 static char common_log_buf[COMMON_LOG_BUF_SIZE];
 const uint8_t ByteToAsciiTable[16] = {'0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F'};
@@ -37,7 +39,7 @@ LUAT_WEAK void DBG_Printf(const char* format, ...){
 
 LUAT_WEAK void DBG_HexPrintf(void *Data, unsigned int len){
 	uint8_t *data = (uint8_t *)Data;
-	int8_t *uart_buf;
+	uint8_t *uart_buf;
     uint32_t i,j;
     j = 0;
     if (!len) return;
@@ -50,7 +52,7 @@ LUAT_WEAK void DBG_HexPrintf(void *Data, unsigned int len){
     }
     uart_buf[j++] = '\r';
     uart_buf[j++] = '\n';
-	luat_log_write(uart_buf, len * 3 + 2);
+	luat_log_write((char*)uart_buf, len * 3 + 2);
 	luat_heap_free(uart_buf);
 }
 

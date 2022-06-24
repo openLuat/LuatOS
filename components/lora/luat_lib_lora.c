@@ -1,4 +1,10 @@
-
+/*
+@module  lora
+@summary lora驱动模块
+@version 1.0
+@date    2022.06.24
+@demo lora
+*/
 
 #include "luat_base.h"
 #include "luat_rtos.h"
@@ -38,10 +44,29 @@ static int l_lora_handler(lua_State* L, void* ptr) {
     }
     switch (event){
     case LORA_TX_DONE: 
+/*
+@sys_pub lora
+LORA 发送完成
+LORA_TX_DONE
+@usage
+sys.subscribe("LORA_TX_DONE", function()
+    lora.recive(1000)
+end)
+*/
         lua_pushstring(L, "LORA_TX_DONE");
         lua_call(L, 1, 0);
         break;
     case LORA_RX_DONE: 
+/*
+@sys_pub lora
+LORA 接收完成
+LORA_RX_DONE
+@usage
+sys.subscribe("LORA_RX_DONE", function(data, size)
+    log.info("LORA_RX_DONE: ", data, size)
+    lora.send("PING")
+end)
+*/
         lua_pushstring(L, "LORA_RX_DONE");
         lua_pushlstring(L, (const char *)msg->ptr,msg->arg2);
         lua_pushinteger(L, msg->arg2);
@@ -49,14 +74,41 @@ static int l_lora_handler(lua_State* L, void* ptr) {
         luat_heap_free(msg->ptr);
         break;
     case LORA_TX_TIMEOUT: 
+/*
+@sys_pub lora
+LORA 发送超时
+LORA_TX_TIMEOUT
+@usage
+sys.subscribe("LORA_TX_TIMEOUT", function()
+    lora.recive(1000)
+end)
+*/
         lua_pushstring(L, "LORA_TX_TIMEOUT");
         lua_call(L, 1, 0);
         break;
     case LORA_RX_TIMEOUT: 
+/*
+@sys_pub lora
+LORA 接收超时
+LORA_RX_TIMEOUT
+@usage
+sys.subscribe("LORA_RX_TIMEOUT", function()
+    lora.recive(1000)
+end)
+*/
         lua_pushstring(L, "LORA_RX_TIMEOUT");
         lua_call(L, 1, 0);
         break;
     case LORA_RX_ERROR: 
+/*
+@sys_pub lora
+LORA 接收错误
+LORA_RX_ERROR
+@usage
+sys.subscribe("LORA_RX_ERROR", function()
+    lora.recive(1000)
+end)
+*/
         lua_pushstring(L, "LORA_RX_ERROR");
         lua_call(L, 1, 0);
         break;
@@ -113,6 +165,19 @@ void OnRxError( void ){
     luat_msgbus_put(&msg, 1);
 }
 
+/*
+lora初始化
+@api lora.init(ic, loraconfig,spiconfig)
+@string lora 型号，当前支持：<br>llcc68<br>sx1268
+@table lora配置参数,与具体设备有关
+@table 硬件配置参数,与具体设备有关
+@usage
+lora.init("llcc68",
+{mode=1,bandwidth=0,datarate=9,coderate=4,preambleLen=8,fixLen=false,crcOn=true,freqHopOn=0,hopPeriod=0,iqInverted=false,
+    frequency = 433000000, power=22,fdev=0,timeout=3000,  bandwidthAfc=0,symbTimeout=0,payloadLen=0,rxContinuous=false},
+{id = 0,cs = pin.PB04,res = pin.PB00,busy = pin.PB01,dio1 = pin.PB06}
+)
+*/
 static int luat_lora_init(lua_State *L){
     size_t len = 0;
     const char* lora_ic = luaL_checklstring(L, 1, &len);
@@ -283,21 +348,41 @@ static int luat_lora_init(lua_State *L){
                             payloadLen, crcOn, freqHopOn, hopPeriod, iqInverted, rxContinuous );
 
         luat_start_rtos_timer(luat_create_rtos_timer(Radio.IrqProcess, NULL, NULL), 10, 1);
-        return 1;
+        return 0;
     }
 }
 
+/*
+发数据
+@api    lora.send(data)
+@string 写入的数据
+@usage
+lora.send("PING")
+*/
 static int luat_lora_send(lua_State *L){
     size_t len;
     const char* send_buff = luaL_checklstring(L, 1, &len);
     Radio.Standby();
     Radio.Send( send_buff, len);
+    return 0;
 }
 
+/*
+开启收数据
+@api    lora.recive(timeout)
+@number 超时时间，默认1000 单位ms
+@usage
+sys.subscribe("LORA_RX_DONE", function(data, size)
+    log.info("LORA_RX_DONE: ", data, size)
+    lora.send("PING")
+end)
+lora.recive(1000)
+*/
 static int luat_lora_recive(lua_State *L){
     int rx_timeout = luaL_optinteger(L, 1, 1000);
     Radio.Standby();
     Radio.Rx(rx_timeout); 
+    return 0;
 }
 
 #include "rotable2.h"

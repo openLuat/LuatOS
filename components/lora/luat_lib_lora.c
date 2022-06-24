@@ -44,10 +44,29 @@ static int l_lora_handler(lua_State* L, void* ptr) {
     }
     switch (event){
     case LORA_TX_DONE: 
+/*
+@sys_pub lora
+LORA 发送完成
+LORA_TX_DONE
+@usage
+sys.subscribe("LORA_TX_DONE", function()
+    lora.recive(1000)
+end)
+*/
         lua_pushstring(L, "LORA_TX_DONE");
         lua_call(L, 1, 0);
         break;
     case LORA_RX_DONE: 
+/*
+@sys_pub lora
+LORA 接收完成
+LORA_RX_DONE
+@usage
+sys.subscribe("LORA_RX_DONE", function(data, size)
+    log.info("LORA_RX_DONE: ", data, size)
+    lora.send("PING")
+end)
+*/
         lua_pushstring(L, "LORA_RX_DONE");
         lua_pushlstring(L, (const char *)msg->ptr,msg->arg2);
         lua_pushinteger(L, msg->arg2);
@@ -55,14 +74,41 @@ static int l_lora_handler(lua_State* L, void* ptr) {
         luat_heap_free(msg->ptr);
         break;
     case LORA_TX_TIMEOUT: 
+/*
+@sys_pub lora
+LORA 发送超时
+LORA_TX_TIMEOUT
+@usage
+sys.subscribe("LORA_TX_TIMEOUT", function()
+    lora.recive(1000)
+end)
+*/
         lua_pushstring(L, "LORA_TX_TIMEOUT");
         lua_call(L, 1, 0);
         break;
     case LORA_RX_TIMEOUT: 
+/*
+@sys_pub lora
+LORA 接收超时
+LORA_RX_TIMEOUT
+@usage
+sys.subscribe("LORA_RX_TIMEOUT", function()
+    lora.recive(1000)
+end)
+*/
         lua_pushstring(L, "LORA_RX_TIMEOUT");
         lua_call(L, 1, 0);
         break;
     case LORA_RX_ERROR: 
+/*
+@sys_pub lora
+LORA 接收错误
+LORA_RX_ERROR
+@usage
+sys.subscribe("LORA_RX_ERROR", function()
+    lora.recive(1000)
+end)
+*/
         lua_pushstring(L, "LORA_RX_ERROR");
         lua_call(L, 1, 0);
         break;

@@ -138,6 +138,21 @@ static int l_lv_theme_set_act(lua_State *L) {
     return 1;
 }
 
+/*
+LVGL休眠控制，暂停/恢复刷新定时器，目前只有105可以用
+@api lvgl.sleep(enable)
+@boolean true暂停 false恢复
+@usage
+lvgl.sleep(true)		--暂停刷新，系统可以休眠
+lvgl.sleep(false)		--恢复刷新，系统不休眠
+*/
+static int luat_lv_sleep(lua_State *L) {
+#ifdef __LVGL_SLEEP_ENABLE__
+    luat_lvgl_tick_sleep(lua_toboolean(L, 1));
+#endif
+    return 0;
+};
+
 // 函数注册
 #include "rotable2.h"
 static const rotable_Reg_t reg_lvgl[] = {
@@ -314,6 +329,9 @@ LUAT_LV_STRUCT_RLT
 LUAT_LV_ENMU_RLT
 
 {"ROLLER_MODE_INIFINITE", ROREG_INT(LV_ROLLER_MODE_INIFINITE)},
+#ifdef __LVGL_SLEEP_ENABLE__
+{"sleep",	ROREG_FUNC(luat_lv_sleep)},
+#endif
 {NULL, {}},
 };
 

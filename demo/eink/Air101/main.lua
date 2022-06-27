@@ -42,7 +42,10 @@ function eink154_update()
 end
 
 sys.taskInit(function()
-    eink.model(eink.MODEL_1in54_V2)
+    --官方商店卖的屏用这个驱动
+    eink.model(eink.MODEL_1in54)
+    --自己买的可能要用下面这行驱动
+    --eink.model(eink.MODEL_1in54_V2)
     eink.setup(1, 0,17,1,4,20)
     -- eink.setup(1, 0,pin.PB01,pin.PA01,pin.PA04,pin.PB04)-- v0006及以后版本可用pin方式
     eink.setWin(200, 200, 0)

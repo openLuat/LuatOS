@@ -12,6 +12,7 @@
 #include "luat_gpio.h"
 #include "luat_malloc.h"
 #include "luat_mcu.h"
+#include <math.h>
 
 #define LUAT_LOG_TAG "gpio"
 #include "luat_log.h"

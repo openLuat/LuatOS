@@ -12,3 +12,4 @@ long luat_mcu_ticks(void);
 uint32_t luat_mcu_hz(void);
 
 #endif
+

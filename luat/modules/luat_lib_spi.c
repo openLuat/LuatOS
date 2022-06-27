@@ -146,7 +146,7 @@ int luat_spi_soft_recv(luat_espi_t *espi, char *buff, size_t len)
     return 0;
 }
 
-int luat_spi_soft_xfer(luat_espi_t *espi, char *send_buff, char* recv_buff, size_t len)
+int luat_spi_soft_xfer(luat_espi_t *espi, const char *send_buff, char* recv_buff, size_t len)
 {
     size_t i = 0;
     if (espi->cs != Luat_GPIO_MAX_ID)

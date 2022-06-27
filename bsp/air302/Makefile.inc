@@ -2,15 +2,15 @@ LUATOS_DIR      := $(LUATOS_SRC)
 CFLAGS_INC    +=  -I $(LUATOS_DIR)/bsp/air302/include \
 				  -I $(LUATOS_DIR)/lua/include \
                   -I $(LUATOS_DIR)/luat/include \
-				  -I $(LUATOS_DIR)/luat/packages/u8g2 \
-				  -I $(LUATOS_DIR)/luat/packages/minmea \
-				  -I $(LUATOS_DIR)/luat/packages/eink \
-				  -I $(LUATOS_DIR)/luat/packages/fonts \
-				  -I $(LUATOS_DIR)/luat/packages/epaper \
+				  -I $(LUATOS_DIR)/components/u8g2 \
+				  -I $(LUATOS_DIR)/components/minmea \
+				  -I $(LUATOS_DIR)/components/eink \
+				  -I $(LUATOS_DIR)/components/fonts \
+				  -I $(LUATOS_DIR)/components/epaper \
 				  -I $(LUATOS_DIR)/components/qrcode \
 				  -I $(LUATOS_DIR)/components/tjpgd \
-				  -I $(LUATOS_DIR)/luat/packages/fatfs \
-				  -I $(LUATOS_DIR)/luat/packages/lfs \
+				  -I $(LUATOS_DIR)/components/fatfs \
+				  -I $(LUATOS_DIR)/components/lfs \
 				  -I $(LUATOS_DIR)/components/lcd \
 				  -I $(LUATOS_DIR)/components/fal/inc \
 				  -I $(LUATOS_DIR)/components/flashdb/inc \
@@ -25,16 +25,16 @@ LUATOS_SRC_DIRS += $(LUATOS_DIR)/lua/src \
 					$(LUATOS_DIR)/luat/modules \
 					$(LUATOS_DIR)/luat/vfs \
 					$(LUATOS_DIR)/luat/weak \
-					$(LUATOS_DIR)/luat/packages/lua-cjson \
-					$(LUATOS_DIR)/luat/packages/u8g2 \
-					$(LUATOS_DIR)/luat/packages/minmea \
-				    $(LUATOS_DIR)/luat/packages/eink \
-				    $(LUATOS_DIR)/luat/packages/epaper \
-				    $(LUATOS_DIR)/luat/packages/fonts \
+					$(LUATOS_DIR)/components/lua-cjson \
+					$(LUATOS_DIR)/components/u8g2 \
+					$(LUATOS_DIR)/components/minmea \
+				    $(LUATOS_DIR)/components/eink \
+				    $(LUATOS_DIR)/components/epaper \
+				    $(LUATOS_DIR)/components/fonts \
 				    $(LUATOS_DIR)/components/qrcode \
 					$(LUATOS_DIR)/components/tjpgd \
-				    $(LUATOS_DIR)/luat/packages/fatfs \
-				    $(LUATOS_DIR)/luat/packages/lfs \
+				    $(LUATOS_DIR)/components/fatfs \
+				    $(LUATOS_DIR)/components/lfs \
 					$(LUATOS_DIR)/components/lcd \
 				    $(LUATOS_DIR)/components/fal/src \
 				    $(LUATOS_DIR)/components/flashdb/src \

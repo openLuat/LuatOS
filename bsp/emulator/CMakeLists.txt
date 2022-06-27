@@ -20,7 +20,7 @@ include_directories(${TOPROOT}/lua/include
                     ${TOPROOT}/luat/include
                     )
 
-include_directories(${TOPROOT}/luat/packages/lfs
+include_directories(${TOPROOT}/components/lfs
                     ${TOPROOT}/components/cjson
                     ${TOPROOT}/components/qrcode
 )
@@ -28,7 +28,7 @@ include_directories(${TOPROOT}/luat/packages/lfs
 aux_source_directory(./port PORT_SRCS)
 aux_source_directory(./remotem REMOTEM_SRCS)
 aux_source_directory(${TOPROOT}/lua/src LUA_SRCS)
-aux_source_directory(${TOPROOT}/luat/packages/lua-cjson CJSON_SRCS)
+aux_source_directory(${TOPROOT}/components/lua-cjson CJSON_SRCS)
 aux_source_directory(${TOPROOT}/components/cjson CJSON2_SRCS)
 aux_source_directory(${TOPROOT}/components/qrcode QRCODE_SRCS)
 
@@ -65,23 +65,23 @@ add_library(luat ${TOPROOT}/luat/modules/luat_main.c
                  ${TOPROOT}/luat/vfs/luat_luadb_inline_sys.c
                  ${TOPROOT}/luat/vfs/luat_inline_libs.c
                  ${TOPROOT}/luat/vfs/luat_inline_sys.c
-                 ${TOPROOT}/luat/packages/lfs/lfs_sfd.c
-                 ${TOPROOT}/luat/packages/lfs/lfs_util.c
-                 ${TOPROOT}/luat/packages/lfs/lfs.c
-                 ${TOPROOT}/luat/packages/lfs/luat_lib_lfs2.c
+                 ${TOPROOT}/components/lfs/lfs_sfd.c
+                 ${TOPROOT}/components/lfs/lfs_util.c
+                 ${TOPROOT}/components/lfs/lfs.c
+                 ${TOPROOT}/components/lfs/luat_lib_lfs2.c
                  ${QRCODE_SRCS}
                #   ${LCD_SRCS}
             )
 
-include_directories(${TOPROOT}/luat/packages/fatfs)
-add_library(fatfs   ${TOPROOT}/luat/packages/fatfs/ff.c
-                    ${TOPROOT}/luat/packages/fatfs/ffsystem.c
-                    ${TOPROOT}/luat/packages/fatfs/ffunicode.c
-                    ${TOPROOT}/luat/packages/fatfs/diskio_impl.c
-                    ${TOPROOT}/luat/packages/fatfs/diskio_ramdisk.c
-                    ${TOPROOT}/luat/packages/fatfs/diskio_spitf.c
+include_directories(${TOPROOT}/components/fatfs)
+add_library(fatfs   ${TOPROOT}/components/fatfs/ff.c
+                    ${TOPROOT}/components/fatfs/ffsystem.c
+                    ${TOPROOT}/components/fatfs/ffunicode.c
+                    ${TOPROOT}/components/fatfs/diskio_impl.c
+                    ${TOPROOT}/components/fatfs/diskio_ramdisk.c
+                    ${TOPROOT}/components/fatfs/diskio_spitf.c
                     ${TOPROOT}/luat/vfs/luat_fs_fatfs.c
-                    ${TOPROOT}/luat/packages/fatfs/luat_lib_fatfs.c)
+                    ${TOPROOT}/components/fatfs/luat_lib_fatfs.c)
 
 #-----------------------
 # mbedtls

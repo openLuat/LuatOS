@@ -52,10 +52,10 @@ include_directories(${TOPROOT}/components/freertos/portable/ThirdParty/GCC/Posix
 aux_source_directory(${TOPROOT}/components/freertos/portable/ThirdParty/GCC/Posix MM_SRCS)
 aux_source_directory(${TOPROOT}/components/freertos/portable/ThirdParty/GCC/Posix/utils MM2_SRCS)
 
-include_directories(${TOPROOT}/luat/packages/lfs)
+include_directories(${TOPROOT}/components/lfs)
 include_directories(${TOPROOT}/components/qrcode)
 include_directories(${TOPROOT}/components/lcd)
-include_directories(${TOPROOT}/luat/packages/u8g2)
+include_directories(${TOPROOT}/components/u8g2)
 include_directories(${TOPROOT}/components/tjpgd)
 
 aux_source_directory(./port PORT_SRCS)
@@ -63,7 +63,7 @@ aux_source_directory(${TOPROOT}/lua/src LUA_SRCS)
 #aux_source_directory(${TOPROOT}/luat/freertos FTOS_T_SRCS)
 aux_source_directory(${TOPROOT}/components/freertos RTOS_SRCS)
 aux_source_directory(${TOPROOT}/components/freertos/port RTOS_PORT_SRCS)
-aux_source_directory(${TOPROOT}/luat/packages/lua-cjson CJSON_SRCS)
+aux_source_directory(${TOPROOT}/components/lua-cjson CJSON_SRCS)
 
 aux_source_directory(${TOPROOT}/components/qrcode QRCODE_SRCS)
 aux_source_directory(${TOPROOT}/components/lcd LCD_SRCS)
@@ -100,10 +100,10 @@ add_library(luat ${TOPROOT}/luat/modules/luat_main.c
                  ${TOPROOT}/luat/vfs/luat_luadb_inline_sys.c
                  ${TOPROOT}/luat/vfs/luat_inline_sys.c
                  ${TOPROOT}/luat/vfs/luat_inline_libs.c
-                 ${TOPROOT}/luat/packages/lfs/lfs_sfd.c
-                 ${TOPROOT}/luat/packages/lfs/lfs_util.c
-                 ${TOPROOT}/luat/packages/lfs/lfs.c
-                 ${TOPROOT}/luat/packages/lfs/luat_lib_lfs2.c
+                 ${TOPROOT}/components/lfs/lfs_sfd.c
+                 ${TOPROOT}/components/lfs/lfs_util.c
+                 ${TOPROOT}/components/lfs/lfs.c
+                 ${TOPROOT}/components/lfs/luat_lib_lfs2.c
                  ${QRCODE_SRCS}
                  ${LCD_SRCS}
                  ${U8G2_SRCS}

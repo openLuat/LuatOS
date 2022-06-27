@@ -151,13 +151,12 @@ static int l_mcu_hw_tick64(lua_State* L) {
 
 /*
 计算2个64bit tick的差值，目前只有105能用
-@api mcu.dtick(tick1, tick2, check_value)
+@api mcu.dtick64(tick1, tick2, check_value)
 @string tick1, 64bit的string
 @string tick2, 64bit的string
 @int 参考值，可选项，如果为0，则返回结果中第一个项目为true
-@return
-boolean 与参考值比较，如果大于等于为true，反之为false
-int 差值tick1 - tick2，如果超过了0x7fffffff，结果可能是错的
+@return boolean 与参考值比较，如果大于等于为true，反之为false
+@return int 差值tick1 - tick2，如果超过了0x7fffffff，结果可能是错的
 @usage
 local result, diff_tick = mcu.dtick64(tick1, tick2)
 print("ticks", result, diff_tick)

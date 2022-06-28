@@ -113,6 +113,7 @@ end)
         lua_call(L, 1, 0);
         break;
     }
+    return 0;
 }
 
 void OnTxDone( void ){   
@@ -182,10 +183,10 @@ static int luat_lora_init(lua_State *L){
     size_t len = 0;
     const char* lora_ic = luaL_checklstring(L, 1, &len);
     if(strcmp("llcc68",lora_ic)== 0||strcmp("LLCC68",lora_ic)== 0){
-        uint8_t mode,bandwidth,datarate,coderate,preambleLen,freqHopOn,hopPeriod,power,fdev,bandwidthAfc,payloadLen;
-        uint32_t frequency,timeout,symbTimeout;
-        bool fixLen,crcOn,iqInverted,rxContinuous;
-        uint8_t id,cs,res,busy,dio1;
+        uint8_t mode = 1,bandwidth = 0,datarate = 9,coderate = 4,preambleLen = 8,freqHopOn = 0,hopPeriod = 0,power = 0,fdev = 0,bandwidthAfc = 0,payloadLen = 0;
+        uint32_t frequency = 433000000,timeout = 0,symbTimeout = 0;
+        bool fixLen = 0,crcOn = 0,iqInverted = 0,rxContinuous = 0;
+        uint8_t id = 0,cs = 0,res = 0,busy = 0,dio1 = 0;
 
         if (lua_istable(L, 2)) {
             lua_pushstring(L, "mode");
@@ -306,6 +307,7 @@ static int luat_lora_init(lua_State *L){
             }
             lua_pop(L, 1);
         }
+
         luat_spi_t sx126x_spi = {0};
         sx126x_spi.id = id;
         sx126x_spi.CPHA = 0;
@@ -318,6 +320,7 @@ static int luat_lora_init(lua_State *L){
         sx126x_spi.cs = Luat_GPIO_MAX_ID;
         luat_spi_setup(&sx126x_spi);
 
+        SX126xSpi = id;
         SX126xCsPin = cs;
         SX126xResetPin = res;
         SX126xBusyPin = busy;
@@ -333,7 +336,7 @@ static int luat_lora_init(lua_State *L){
         RadioEvents.TxTimeout = OnTxTimeout;
         RadioEvents.RxTimeout = OnRxTimeout;
         RadioEvents.RxError = OnRxError;
-        
+
         Radio.Init( &RadioEvents );
         Radio.SetChannel( frequency );
 
@@ -341,15 +344,15 @@ static int luat_lora_init(lua_State *L){
                             datarate, coderate,
                             preambleLen, fixLen,
                             crcOn, freqHopOn, hopPeriod, iqInverted, timeout );
-        
+
         Radio.SetRxConfig( mode, bandwidth, datarate,
                             coderate, bandwidthAfc, preambleLen,
                             symbTimeout, fixLen,
                             payloadLen, crcOn, freqHopOn, hopPeriod, iqInverted, rxContinuous );
 
         luat_start_rtos_timer(luat_create_rtos_timer(Radio.IrqProcess, NULL, NULL), 10, 1);
-        return 0;
     }
+    return 0;
 }
 
 /*

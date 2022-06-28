@@ -17,6 +17,7 @@ Maintainer: Miguel Luis and Gregory Cristian
 #include "luat_base.h"
 #include "luat_gpio.h"
 #include "luat_spi.h"
+#include "luat_timer.h"
 #include "radio.h"
 #include "sx126x.h"
 #include "sx126x-board.h"
@@ -50,12 +51,12 @@ void SX126xWaitOnBusy( void ){
 }
 
 uint8_t SX126xSpiIn(void){
-    uint8_t data;
+    char data;
     luat_spi_recv(SX126xSpi, &data, 1);
 	return data;
 }
 
-void SX126xSpiOut(uint8_t data){
+void SX126xSpiOut(const char data){
     luat_spi_send(SX126xSpi, &data, 1);
 }
 

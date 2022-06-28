@@ -122,6 +122,7 @@ void SX126xAntSwOff( void );
 bool SX126xCheckRfFrequency( uint32_t frequency );
 
 void SX126xDelayMs(uint32_t ms);
+uint8_t SX126xGetIrqFired( void );
 /*!
  * Radio hardware and global parameters
  */

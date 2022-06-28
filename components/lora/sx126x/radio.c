@@ -23,10 +23,6 @@
 #include <math.h>
 #include <string.h>
 #include <stdbool.h>
-// #include "stm32f0xx.h"
-// #include "delay.h"
-// #include "gpio.h"
-// #include "spi.h"
 #include "radio.h"
 #include "sx126x.h"
 #include "sx126x-board.h"

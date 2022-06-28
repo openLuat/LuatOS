@@ -53,7 +53,7 @@ void SX126xWaitOnBusy( void ){
 uint8_t SX126xSpiIn(void){
     char data;
     luat_spi_recv(SX126xSpi, &data, 1);
-	return data;
+	return (uint8_t)data;
 }
 
 void SX126xSpiOut(const char data){
@@ -65,7 +65,6 @@ void SX126xSetNss(uint8_t lev ){
 }
 
 void SX126xWakeup( void ){
-    const char cmd = {RADIO_GET_STATUS,0};
     SX126xSetNss(0);
     SX126xSpiOut(RADIO_GET_STATUS);
     SX126xSpiOut(0x00);
@@ -91,7 +90,6 @@ void SX126xWriteCommand( RadioCommands_t command, uint8_t *buffer, uint16_t size
 
 void SX126xReadCommand( RadioCommands_t command, uint8_t *buffer, uint16_t size ){
     uint16_t i = 0;
-    const char cmd = {command,0};
     SX126xCheckDeviceReady( );
     SX126xSetNss(0);
     SX126xSpiOut((uint8_t)command);
@@ -106,7 +104,6 @@ void SX126xReadCommand( RadioCommands_t command, uint8_t *buffer, uint16_t size 
 
 void SX126xWriteRegisters( uint16_t address, uint8_t *buffer, uint16_t size ){
     uint16_t i = 0;
-    const char cmd = {RADIO_WRITE_REGISTER,( address & 0xFF00 ) >> 8 ,address & 0x00FF};
     SX126xCheckDeviceReady( );
     SX126xSetNss(0);
     SX126xSpiOut(RADIO_WRITE_REGISTER);
@@ -125,7 +122,6 @@ void SX126xWriteRegister( uint16_t address, uint8_t value ){
 
 void SX126xReadRegisters( uint16_t address, uint8_t *buffer, uint16_t size ){
     uint16_t i = 0;
-    const char cmd = {RADIO_READ_REGISTER,( address & 0xFF00 ) >> 8 ,address & 0x00FF,0};
     SX126xCheckDeviceReady( );
     SX126xSetNss(0);
     SX126xSpiOut((uint8_t)RADIO_READ_REGISTER);
@@ -147,7 +143,6 @@ uint8_t SX126xReadRegister( uint16_t address ){
 
 void SX126xWriteBuffer( uint8_t offset, uint8_t *buffer, uint8_t size ){
     uint16_t i = 0;
-    const char cmd = {RADIO_WRITE_BUFFER,offset};
     SX126xCheckDeviceReady( );
     SX126xSetNss(0);
     SX126xSpiOut(RADIO_WRITE_BUFFER);
@@ -162,7 +157,6 @@ void SX126xWriteBuffer( uint8_t offset, uint8_t *buffer, uint8_t size ){
 
 void SX126xReadBuffer( uint8_t offset, uint8_t *buffer, uint8_t size ){
     uint16_t i = 0;
-    const char cmd = {RADIO_READ_BUFFER,offset,0};
     SX126xCheckDeviceReady( );
     SX126xSetNss(0);
     SX126xSpiOut((uint8_t)RADIO_READ_BUFFER);

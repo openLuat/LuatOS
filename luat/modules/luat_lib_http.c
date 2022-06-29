@@ -200,6 +200,23 @@ static int l_http_reqcommon(lua_State *L, uint8_t method) {
         lua_pop(L, 1);
 
         // 取headers
+        lua_pushliteral(L, "headers");
+        lua_gettable(L, 2);
+        if (!lua_isnil(L, -1) && !lua_isstring(L, -1)) {
+            lua_pop(L, 1);
+            lua_pushliteral(L, "headers must be string");
+            lua_error(L);
+            luat_http_req_gc(req);
+            return 0;
+        }
+        else if (lua_isstring(L, -1)) {
+            tmp = (char*)luaL_checklstring(L, -1, &(req->headers.size));
+            if (req->headers.size > 0) {
+                req->headers.ptr = luat_heap_malloc(req->headers.size);
+                memcpy(req->headers.ptr, tmp, req->headers.size);
+            }
+        }
+        lua_pop(L, 1);
 
         // 取body,当前仅支持string
         lua_pushliteral(L, "body");

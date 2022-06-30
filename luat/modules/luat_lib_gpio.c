@@ -250,7 +250,7 @@ static int l_gpio_set_default_pull(lua_State *L) {
 /*
 变换GPIO脚输出电平,仅输出模式可用
 @api gpio.toggle(pin)
-@int 管脚的GPIO0AB4276E.png
+@int 管脚的GPIO号
 @return nil 无返回值
 @usage
 -- 本API于 2022.05.17 添加

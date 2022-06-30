@@ -145,7 +145,7 @@ static void luat_bin_exec_rollback(void) {
 void luat_str_fromhex(char* str, size_t len, char* buff);
 void luat_str_tohex(char* str, size_t len, char* buff);
 
-#define OTA_CHECK_BUFF_SIZE (512)
+#define OTA_CHECK_BUFF_SIZE (64) // 超过64字节的话, luat_md5报错, 待查
 typedef struct ota_md5
 {
     uint8_t buff[OTA_CHECK_BUFF_SIZE];

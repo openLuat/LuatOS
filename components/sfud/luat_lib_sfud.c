@@ -92,7 +92,7 @@ static int luat_sfud_get_device(lua_State *L){
 local sfud_device = sfud.getDeviceTable()
 */
 static int luat_sfud_get_device_table(lua_State *L){
-    sfud_flash *flash = sfud_get_device_table();
+    const sfud_flash *flash = sfud_get_device_table();
     lua_pushlightuserdata(L, flash);
     return 1;
 }

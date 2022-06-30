@@ -66,7 +66,7 @@ int luat_gpio_irq_default(int pin, void* args) {
 
     if (pin < PIN_MAX && gpios[pin].conf_tick > 0) {
         uint32_t ticks = (uint32_t)luat_mcu_ticks();
-        uint32_t diff = abs(ticks - gpios[pin].latest_tick);
+        uint32_t diff = (ticks > gpios[pin].latest_tick) ? (ticks - gpios[pin].latest_tick) : (gpios[pin].latest_tick - ticks);
         if (diff >= gpios[pin].conf_tick) {
             gpios[pin].latest_tick = ticks;
         }

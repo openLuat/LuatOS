@@ -19,11 +19,11 @@ end
 
 
 leds = {}
-if rtos.bsp() == "air101" then -- 与w800/805等价
+if rtos.bsp():lower() == "air101" then -- 与w800/805等价
     leds["a"] = gpio.setup(pin.PB08, 0, gpio.PULLUP) -- PB_08,输出模式
     leds["b"] = gpio.setup(pin.PB09, 0, gpio.PULLUP) -- PB_09,输出模式
     leds["c"] = gpio.setup(pin.PB10, 0, gpio.PULLUP) -- PB_10,输出模式
-elseif rtos.bsp() == "air103" then -- 与w806等价
+elseif rtos.bsp():lower() == "air103" then -- 与w806等价
     leds["a"] = gpio.setup(pin.PB24, 0, gpio.PULLUP) -- PB_24,输出模式
     leds["b"] = gpio.setup(pin.PB25, 0, gpio.PULLUP) -- PB_25,输出模式
     leds["c"] = gpio.setup(pin.PB26, 0, gpio.PULLUP) -- PB_26,输出模式

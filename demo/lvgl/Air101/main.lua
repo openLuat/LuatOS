@@ -26,7 +26,7 @@ if wdt then
 end
 
 -- UI带屏的项目一般不需要低功耗了吧, 设置到最高性能
-if mcu and (rtos.bsp() == "air101" or rtos.bsp() == "air103") then
+if mcu and (rtos.bsp():lower() == "air101" or rtos.bsp():lower() == "air103") then
     mcu.setClk(240)
 end
 log.info("main", "ask for help", "https://wiki.luatos.com/")

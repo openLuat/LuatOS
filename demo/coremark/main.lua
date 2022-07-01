@@ -15,7 +15,7 @@ local sys = require "sys"
 sys.taskInit(function()
     sys.wait(2000)
     if coremark then
-        if mcu and (rtos.bsp() == "air101" or rtos.bsp() == "air103") then
+        if mcu and (rtos.bsp():lower() == "air101" or rtos.bsp():lower() == "air103") then
             mcu.setClk(240)
         end
         log.info("coremark", "G0-----------------------------")

@@ -40,9 +40,8 @@ void luat_str_fromhex(char* str, size_t len, char* buff) {
 @return string HEX字符串
 @return number HEX字符串的长度
 @usage
-string.toHex("\1\2\3") --> "010203" 3
-string.toHex("123abc") --> "313233616263" 6
-string.toHex("123abc"," ") --> "31 32 33 61 62 63 " 6
+string.toHex("\1\2\3") --> "010203" 6
+string.toHex("123abc") --> "313233616263" 12
 */
 int l_str_toHex (lua_State *L) {
   size_t len;

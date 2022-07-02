@@ -426,7 +426,7 @@ void luat_debug_hook(lua_State *L, lua_Debug *ar) {
 /**
  * 等待调试器进入
  * @api dbg.wait(timeout)
- * @int 超时秒数,默认120,即120秒
+ * @int 超时秒数,默认5,单位秒, 最大值当前为5.
  * @return nil 无返回值
  * 
 */
@@ -435,7 +435,9 @@ int l_debug_wait(lua_State *L) {
         // luat_dbg_output("setup hook for debgger\r\n");
         lua_sethook(L, luat_debug_hook, LUA_MASKCALL | LUA_MASKRET | LUA_MASKLINE, 0);
         luat_dbg_set_hook_state(1);
-        int timeout = luaL_optinteger(L, 1, 120) * 1000;
+        int timeout = luaL_optinteger(L, 1, 5) * 1000;
+        if (timeout > 5000)
+            timeout = 5000;
         int t = 0;
         while (timeout > 0 && cur_hook_state == 1) {
             timeout -= 10;

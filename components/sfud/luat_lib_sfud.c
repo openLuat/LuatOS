@@ -43,7 +43,7 @@ static int luat_sfud_init(lua_State *L){
         sfud_spi_flash.dataw = 8; // 8bit
         sfud_spi_flash.bit_dict = 1; // MSB=1, LSB=0
         sfud_spi_flash.master = 1; // master=1,slave=0
-        sfud_spi_flash.mode = 1; // FULL=1, half=0
+        sfud_spi_flash.mode = 0; // FULL=1, half=0
         luat_spi_setup(&sfud_spi_flash);
         luat_sfud.user_data = &sfud_spi_flash;
     }else if (lua_type(L, 1) == LUA_TUSERDATA){

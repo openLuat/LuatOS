@@ -13,13 +13,20 @@
 /* }====================================================== */
 
 static unsigned char hexchars[] = "0123456789ABCDEF";
-void luat_str_tohex(char* str, size_t len, char* buff) {
+void luat_str_tohexwithsep(char* str, size_t len, char* separator, size_t len_j, char* buff) {
   for (size_t i = 0; i < len; i++)
   {
     char ch = *(str+i);
-    buff[i*2] = hexchars[(unsigned char)ch >> 4];
-    buff[i*2+1] = hexchars[(unsigned char)ch & 0xF];
+    buff[i*(2+len_j)] = hexchars[(unsigned char)ch >> 4];
+    buff[i*(2+len_j)+1] = hexchars[(unsigned char)ch & 0xF];
+    for (size_t j = 0; j < len_j; j++){
+      buff[i*(2+len_j)+2+j] = separator[j];
+    }
   }
+}
+
+void luat_str_tohex(char* str, size_t len, char* buff) {
+  luat_str_tohexwithsep(str, len, NULL, 0, buff);
 }
 void luat_str_fromhex(char* str, size_t len, char* buff) {
   for (size_t i = 0; i < len/2; i++)
@@ -35,25 +42,30 @@ void luat_str_fromhex(char* str, size_t len, char* buff) {
 }
 /*
 将字符串转成HEX
-@api string.toHex(str)
+@api string.toHex(str, separator)
 @string 需要转换的字符串
+@string 分隔符, 默认为""
 @return string HEX字符串
 @return number HEX字符串的长度
 @usage
 string.toHex("\1\2\3") --> "010203" 6
 string.toHex("123abc") --> "313233616263" 12
+string.toHex("123abc", " ") --> "31 32 33 61 62 63 " 12
 */
 int l_str_toHex (lua_State *L) {
   size_t len;
   const char *str = luaL_checklstring(L, 1, &len);
+  size_t len_j;
+  const char *separator = luaL_optlstring(L, 2, "", &len_j);
   luaL_Buffer buff;
-  luaL_buffinitsize(L, &buff, 2*len);
-  luat_str_tohex((char*)str, len, buff.b);
-  buff.n = len * 2;
+  luaL_buffinitsize(L, &buff, (2+len_j)*len);
+  luat_str_tohexwithsep((char*)str, len, (char*)separator, len_j, buff.b);
+  buff.n = len * (2 + len_j);
   luaL_pushresult(&buff);
   lua_pushinteger(L, len*2);
   return 2;
 }
+
 /*
 将HEX转成字符串
 @api string.fromHex(hex)

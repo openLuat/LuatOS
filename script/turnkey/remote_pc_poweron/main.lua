@@ -13,6 +13,7 @@ local pcIp =  "255.255.255.255"--目标pc ip，广播就255.255.255.255
 local pcMac = "112233445566" --写mac的hex值就行
 --服务器使用介绍详见https://api.luatos.org/#poweron
 local mqttAddr = "mqtt://apicn.luatos.org:1883"--这是公共服务器，只允许订阅和推送poweron/request/+、poweron/reply/+两个主题
+local mqttUser,mqttPassword = "13xxxxxxxxx","888888"--你的erp账号和密码，连接mqtt服务器用，默认八个8 erp.openluat.com
 local subscribeTopic,subscribePayload = "poweron/request/chenxuuu","poweron"
 local replyTopic,replyPayload = "poweron/reply/chenxuuu","ok"
 ---------------------------------------------------------------------------
@@ -62,56 +63,60 @@ sys.taskInit(function()
     log.info("wlan", "IP_READY", result, data)
 
 
-    while true do
-        local mqttc = espmqtt.init({
-            uri = mqttAddr,
-            client_id = (esp32.getmac():toHex())
-        })
-        log.info("mqttc", mqttc)
-        if mqttc then
+    local mqttc = espmqtt.init({
+        uri = mqttAddr,
+        client_id = (esp32.getmac():toHex()),
+        username = mqttUser,
+        password = mqttPassword,
+    })
+    log.info("mqttc", mqttc)
+    if mqttc then
+        log.info("mqttc", "what happen")
+        local ok, err = espmqtt.start(mqttc)
+        log.info("mqttc", "start", ok, err)
+        if ok then
             connected = true
-            log.info("mqttc", "what happen")
-            local ok, err = espmqtt.start(mqttc)
-            log.info("mqttc", "start", ok, err)
-            if ok then
-                while 1 do
-                    log.info("mqttc", "wait ESPMQTT_EVT 30s")
-                    local result, c, ret, topic, data = sys.waitUntil("ESPMQTT_EVT", 30000)
-                    log.info("mqttc", result, c, ret)
-                    if result == false then
-                        -- 没消息, 没动静
-                        log.info("mqttc", "wait timeout")
-                    elseif c == mqttc then
-                        -- 是当前mqtt客户端的消息, 处理之
-                        if ret == espmqtt.EVENT_CONNECTED then
-                            -- 连接成功, 通常就是定义一些topic
-                            espmqtt.subscribe(mqttc, subscribeTopic)
-                        elseif ret == espmqtt.EVENT_DATA then
-                            -- 服务器来消息了, 如果data很长(超过4kb), 可能会分多次接收, 导致topic为空字符串
-                            log.info("mqttc", topic, data)
-                            if data == subscribePayload then--收到payload信息是开机
-                                LED_D5(1)
-                                log.info("poweron","发送开机请求啦！")
-                                wakeUp(pcMac)
-                                espmqtt.publish(mqttc, replyTopic, replyPayload)--回一条
-                                LED_D5(0)
-                            end
-                        else
-                            -- qos > 0 的订阅信息有响应, 会进这个分支
-                            -- 默认情况下mqtt是自动重连的, 不需要用户关心
-                            log.info("mqttc", "event", ret)
+            while 1 do
+                log.info("mqttc", "wait ESPMQTT_EVT 30s")
+                local result, c, ret, topic, data = sys.waitUntil("ESPMQTT_EVT", 30000)
+                log.info("mqttc", result, c, ret)
+                if result == false then
+                    -- 没消息, 没动静
+                    log.info("mqttc", "wait timeout")
+                elseif ret == espmqtt.EVENT_DISCONNECTED then--断线了
+                    log.info("mqttc", "disconnected!!!")
+                    break
+                elseif c == mqttc then
+                    -- 是当前mqtt客户端的消息, 处理之
+                    if ret == espmqtt.EVENT_CONNECTED then
+                        -- 连接成功, 通常就是定义一些topic
+                        espmqtt.subscribe(mqttc, subscribeTopic)
+                    elseif ret == espmqtt.EVENT_DATA then
+                        -- 服务器来消息了, 如果data很长(超过4kb), 可能会分多次接收, 导致topic为空字符串
+                        log.info("mqttc", topic, data)
+                        if data == subscribePayload then--收到payload信息是开机
+                            LED_D5(1)
+                            log.info("poweron","发送开机请求啦！")
+                            wakeUp(pcMac)
+                            espmqtt.publish(mqttc, replyTopic, replyPayload)--回一条
+                            LED_D5(0)
                         end
                     else
-                        log.info("mqttc", "not this mqttc")
+                        -- qos > 0 的订阅信息有响应, 会进这个分支
+                        -- 默认情况下mqtt是自动重连的, 不需要用户关心
+                        log.info("mqttc", "event", ret)
                     end
+                else
+                    log.info("mqttc", "not this mqttc")
                 end
-            else
-                log.warn("mqttc", "bad start", err)
             end
-            espmqtt.destroy(mqttc)
-            log.warn("reboot", "device will reboot")
-            rtos.reboot()
+            connected = false
+        else
+            log.warn("mqttc", "bad start", err)
         end
+        espmqtt.destroy(mqttc)
+        log.warn("reboot", "device will reboot")
+        rtos.reboot()
     end
 end)
 

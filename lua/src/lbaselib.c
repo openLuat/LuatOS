@@ -31,7 +31,10 @@ static debug_buff_t dbuff = {0};
 
 static void luat_debug_print(int index, const char* str, size_t slen, int eof) {
   if (eof) {
+#ifdef LUAT_LOG_NO_NEWLINE
+#else
     dbuff.buff[dbuff.offset++] = '\n';
+#endif
     dbuff.buff[dbuff.offset] = 0x00;
     luat_nprint(dbuff.buff, dbuff.offset);
     memset(&dbuff, 0, sizeof(debug_buff_t));

@@ -23,7 +23,7 @@
 @int 模式,默认为0,预留
 @return true 成功返回true,否则返回false
 @return int 底层返回值,调试用
-
+@usage
 if dac.open(0, 44000) then
     log.info("dac", "dac ch0 is opened")
 end
@@ -46,7 +46,7 @@ static int l_dac_open(lua_State *L) {
 @string 若输出固定值,可以填数值, 若输出波形,填string
 @return true 成功返回true,否则返回false
 @return int 底层返回值,调试用
-
+@usage
 if dac.open(0, 44000) then
     log.info("dac", "dac ch0 is opened")
     dac.write(0, string.fromHex("ABCDABCD"))
@@ -137,7 +137,7 @@ static int l_dac_write(lua_State *L) {
 @int 通道编号,例如0
 @return true 成功返回true,否则返回false
 @return int 底层返回值,调试用
-
+@usage
 if dac.open(0, 44000) then
     log.info("dac", "dac ch0 is opened")
     dac.write(0, string.fromHex("ABCDABCD"))

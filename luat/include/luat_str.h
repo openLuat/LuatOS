@@ -3,6 +3,7 @@
 #define LUAT_STR_H
 #include "string.h"
 
+void luat_str_tohexwithsep(char* str, size_t len, char* separator, size_t len_j, char* buff);
 void luat_str_tohex(char* str, size_t len, char* buff);
 void luat_str_fromhex(char* str, size_t len, char* buff);
 

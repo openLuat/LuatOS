@@ -36,6 +36,7 @@ int luat_remotem_ready(void);
 int luat_remotem_up(cJSON* top);
 // from string ext
 void luat_str_tohex(char* str, size_t len, char* buff);
+void luat_str_tohexwithsep(char* str, size_t len, char* separator, size_t len_j, char* buff);
 
 
 void luat_remotem_typeopt_init(cJSON* top, cJSON* data);

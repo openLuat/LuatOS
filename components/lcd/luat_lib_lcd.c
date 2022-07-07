@@ -1432,24 +1432,24 @@ RGB565颜色生成
 @usage
 -- 本API支持多种模式, 参数数量分别是 1, 2, 3, 4
 -- 1. 单参数形式, 24bit RGB值, swap = true, 推荐
-local red =   lcd.rgb(0xFF0000)
-local green = lcd.rgb(0x00FF00)
-local blue =  lcd.rgb(0x0000FF)
+local red =   lcd.rgb565(0xFF0000)
+local green = lcd.rgb565(0x00FF00)
+local blue =  lcd.rgb565(0x0000FF)
 
 -- 2. 两参数形式, 24bit RGB值, 增加swap的设置
-local red =   lcd.rgb(0xFF0000, true)
-local green = lcd.rgb(0x00FF00, true)
-local blue =  lcd.rgb(0x0000FF, true)
+local red =   lcd.rgb565(0xFF0000, true)
+local green = lcd.rgb565(0x00FF00, true)
+local blue =  lcd.rgb565(0x0000FF, true)
 
 -- 3. 三参数形式, 红/绿/蓝, 各8bit 
-local red = lcd.rgb(0xFF, 0x00, 0x00)
-local green = lcd.rgb(0x00, 0xFF, 0x00)
-local blue = lcd.rgb(0x00, 0x00, 0xFF)
+local red = lcd.rgb565(0xFF, 0x00, 0x00)
+local green = lcd.rgb565(0x00, 0xFF, 0x00)
+local blue = lcd.rgb565(0x00, 0x00, 0xFF)
 
 -- 4. 四参数形式, 红/绿/蓝, 各8bit, 增加swap的设置
-local red = lcd.rgb(0xFF, 0x00, 0x00, true)
-local green = lcd.rgb(0x00, 0xFF, 0x00, true)
-local blue = lcd.rgb(0x00, 0x00, 0xFF, true)
+local red = lcd.rgb565(0xFF, 0x00, 0x00, true)
+local green = lcd.rgb565(0x00, 0xFF, 0x00, true)
+local blue = lcd.rgb565(0x00, 0x00, 0xFF, true)
 */
 static int l_lcd_rgb565(lua_State* L) {
   uint8_t r =0,g =0,b = 0;

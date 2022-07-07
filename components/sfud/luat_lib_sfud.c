@@ -27,7 +27,7 @@ luat_sfud_flash_t luat_sfud;
 --spi
 log.info("sfud.init",sfud.init(0,20,20 * 1000 * 1000))
 --spi_device
-local spi_device = spi.deviceSetup(0,17,0,0,8,2000000,spi.MSB,1,1)
+local spi_device = spi.deviceSetup(0,17,0,0,8,2000000,spi.MSB,1,0)
 log.info("sfud.init",sfud.init(spi_device))
 */
 static int luat_sfud_init(lua_State *L){
@@ -43,7 +43,7 @@ static int luat_sfud_init(lua_State *L){
         sfud_spi_flash.dataw = 8; // 8bit
         sfud_spi_flash.bit_dict = 1; // MSB=1, LSB=0
         sfud_spi_flash.master = 1; // master=1,slave=0
-        sfud_spi_flash.mode = 1; // FULL=1, half=0
+        sfud_spi_flash.mode = 0; // FULL=1, half=0
         luat_spi_setup(&sfud_spi_flash);
         luat_sfud.user_data = &sfud_spi_flash;
     }else if (lua_type(L, 1) == LUA_TUSERDATA){
@@ -113,12 +113,14 @@ static int luat_sfud_chip_erase(lua_State *L){
 }
 
 /*
-擦除 Flash 全部数据
-@api  sfud.erase(flash)
+擦除 Flash 指定地址指定大小
+@api  sfud.erase(flash,add,size)
 @userdata flash Flash 设备对象 sfud.get_device_table()返回的数据结构
+@number add 擦除地址
+@number size 擦除大小
 @return int 成功返回0
 @usage
-sfud.erase(flash)
+sfud.erase(flash,add,size)
 */
 static int luat_sfud_erase(lua_State *L){
     const sfud_flash *flash = lua_touserdata(L, 1);

@@ -135,7 +135,7 @@ for file in file_list:
 ##################  接口数据提取完毕  ##################
 
 doc = open("../../luatos-wiki/api/sys_pub.md", "a+",encoding='utf-8')
-doc.write("# sys系统消息\n")
+doc.write("# 📮 sys系统消息\n")
 doc.write("\n\n")
 doc.write("此处列举了LuatOS框架中自带的系统消息列表\n\n")
 doc.write("\n\n")

@@ -1,11 +1,11 @@
 {
     "type" : "lua",
     "repo" : "luatos/mcp2515",
-    "tags" : ["mcp2515", "sit2512"],
+    "tags" : ["mcp2515", "sit2512", "can"],
     "title" : "SPI转CAN驱动,兼容mcp2515/sit2515",
     "files" : {
         "." : "*"
     },
     "enterpoint" : "mcp2515.lua",
-    "dependency" : ["i2c"]
+    "dependency" : ["spi"]
 }

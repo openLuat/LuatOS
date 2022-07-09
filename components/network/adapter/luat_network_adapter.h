@@ -3,7 +3,6 @@
 #include "luat_base.h"
 #ifdef LUAT_USE_NETWORK
 #include "luat_rtos.h"
-
 #ifdef LUAT_USE_TLS
 #include "mbedtls/ssl.h"
 #include "mbedtls/platform.h"
@@ -13,6 +12,10 @@
 #include "mbedtls/ctr_drbg.h"
 #include "mbedtls/entropy.h"
 #include "mbedtls/sha1.h"
+#endif
+#ifdef LUAT_USE_LWIP
+#include "lwip/netif.h"
+#include "lwip/ip.h"
 #endif
 #ifndef __BSP_COMMON_H__
 #include "c_common.h"
@@ -73,6 +76,9 @@ enum
 
 };
 
+#ifdef LUAT_USE_LWIP
+#define luat_ip_addr_t ip_addr_t
+#else
 typedef struct
 {
 	union
@@ -83,6 +89,10 @@ typedef struct
 	};
 	uint8_t is_ipv6;
 }luat_ip_addr_t;
+uint8_t network_string_is_ipv4(const char *string, uint32_t len);
+uint32_t network_string_to_ipv4(const char *string, uint32_t len);
+int network_string_to_ipv6(const char *string, luat_ip_addr_t *ip_addr);
+#endif
 
 typedef struct
 {
@@ -126,7 +136,7 @@ typedef struct
 	HANDLE tls_long_timer;
 	uint32_t tcp_keep_idle;
 	int socket_id;
-	const char *domain_name;
+	char *domain_name;
 	uint32_t domain_name_len;
 	luat_ip_addr_t remote_ip;
 	luat_dns_ip_result *dns_ip;
@@ -218,6 +228,10 @@ typedef struct
 
 	int (*dns)(const char *domain_name, uint32_t len, void *param,  void *user_data);
 	int (*set_dns_server)(uint8_t server_index, luat_ip_addr_t *ip, void *user_data);
+#ifdef LUAT_USE_LWIP
+	int (*set_mac)(uint8_t *mac, void *user_data);
+	int (*set_static_ip)(luat_ip_addr_t *ip, luat_ip_addr_t *submask, luat_ip_addr_t *gateway, void *user_data);
+#endif
 	int (*get_local_ip_info)(luat_ip_addr_t *ip, luat_ip_addr_t *submask, luat_ip_addr_t *gateway, void *user_data);
 	//所有网络消息都是通过cb_fun回调
 	//cb_fun回调时第一个参数为OS_EVENT，包含了socket的必要信息，第二个是luat_network_cb_param_t，其中的param是这里传入的param(就是适配器序号)
@@ -236,8 +250,6 @@ typedef struct
 
 //获取最后一个注册的适配器序号
 int network_get_last_register_adapter(void);
-uint32_t network_string_to_ipv4(const char *string, uint32_t len);
-uint8_t network_string_is_ipv4(const char *string, uint32_t len);
 /****************************以下是通用基础api********************************************************/
 /*
  * 在使用之后任意API前，必须先注册相关的协议栈接口

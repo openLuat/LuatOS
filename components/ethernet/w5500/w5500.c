@@ -9,8 +9,6 @@
 
 
 #include "luat_network_adapter.h"
-#include "dhcp_def.h"
-#include "dns_def.h"
 
 extern void DBG_Printf(const char* format, ...);
 extern void DBG_HexPrintf(void *Data, unsigned int len);
@@ -21,9 +19,6 @@ extern void DBG_HexPrintf(void *Data, unsigned int len);
 #define DBG(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
 #define DBG_ERR(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
 #endif
-
-#define W5500_LOCK	OS_LOCK
-#define W5500_UNLOCK OS_UNLOCK
 
 #define socket_index(n)	(n << 5)
 #define common_reg	(0)
@@ -102,6 +97,448 @@ extern void DBG_HexPrintf(void *Data, unsigned int len);
 #define SOCK_PPPOE                   0x5F		/**< pppoe socket */
 
 #define SOCK_BUF_LEN				(20 * 1024)
+
+#ifdef LUAT_USE_LWIP
+
+enum
+{
+	W5500_COMMON_MR,
+	W5500_COMMON_GAR0,
+	W5500_COMMON_SUBR0 = 5,
+	W5500_COMMON_MAC0 = 9,
+	W5500_COMMON_IP0 = 0x0f,
+	W5500_COMMON_INTLEVEL0 = 0x13,
+	W5500_COMMON_IR = 0x15,
+	W5500_COMMON_IMR,
+	W5500_COMMON_SOCKET_IR,
+	W5500_COMMON_SOCKET_IMR,
+	W5500_COMMON_SOCKET_RTR0,
+	W5500_COMMON_SOCKET_RCR = 0x1b,
+	W5500_COMMON_PPP,
+	W5500_COMMON_UIPR0 = 0x28,
+	W5500_COMMON_UPORT0 = 0x2c,
+	W5500_COMMON_PHY = 0x2e,
+	W5500_COMMON_VERSIONR = 0x39,
+	W5500_COMMON_QTY,
+
+	W5500_SOCKET_MR = 0,
+	W5500_SOCKET_CR,
+	W5500_SOCKET_IR,
+	W5500_SOCKET_SR,
+	W5500_SOCKET_SOURCE_PORT0,
+	W5500_SOCKET_DEST_MAC0 = 0x06,
+	W5500_SOCKET_DEST_IP0 = 0x0C,
+	W5500_SOCKET_DEST_PORT0 = 0x10,
+	W5500_SOCKET_SEGMENT0 = 0x12,
+	W5500_SOCKET_TOS = 0x15,
+	W5500_SOCKET_TTL,
+	W5500_SOCKET_RX_MEM_SIZE = 0x1e,
+	W5500_SOCKET_TX_MEM_SIZE,
+	W5500_SOCKET_TX_FREE_SIZE0 = 0x20,
+	W5500_SOCKET_TX_READ_POINT0 = 0x22,
+	W5500_SOCKET_TX_WRITE_POINT0 = 0x24,
+	W5500_SOCKET_RX_SIZE0 = 0x26,
+	W5500_SOCKET_RX_READ_POINT0 = 0x28,
+	W5500_SOCKET_RX_WRITE_POINT0 = 0x2A,
+	W5500_SOCKET_IMR = 0x2C,
+	W5500_SOCKET_IP_HEAD_FRAG_VALUE0,
+	W5500_SOCKET_KEEP_TIME = 0x2f,
+	W5500_SOCKET_QTY,
+
+	EV_W5500_IRQ = USER_EVENT_ID_START + 1,
+	EV_W5500_LINK,
+	EV_W5500_RE_INIT,
+	EV_W5500_READ,
+	EV_W5500_WRITE,
+};
+
+typedef struct
+{
+	llist_head node;
+	uint64_t tag;	//考虑到socket复用的问题，必须有tag来做比对
+	luat_ip_addr_t ip;
+	uint8_t *data;
+	uint32_t read_pos;
+	uint32_t len;
+	uint16_t port;
+	uint8_t is_sending;
+}socket_data_t;
+
+typedef struct
+{
+	uint64_t last_tx_time;
+	struct netif netif;
+	void *user_data;
+	void *task_handle;
+	void *cb_handle;
+	uint8_t auto_speed;
+	uint8_t spi_id;
+	uint8_t cs_pin;
+	uint8_t rst_pin;
+	uint8_t irq_pin;
+	uint8_t link_pin;
+	uint8_t speed_status;
+	uint8_t link_ready;
+	uint8_t inter_error;
+	uint8_t device_on;
+}w5500_ctrl_t;
+
+static w5500_ctrl_t *prv_w5500_ctrl;
+
+
+static void w5500_init_reg(w5500_ctrl_t *w5500);
+
+
+static void w5500_callback_to_nw_task(w5500_ctrl_t *w5500, uint32_t event_id, uint32_t param1, uint32_t param2, uint32_t param3)
+{
+	platform_send_event(w5500->cb_handle, event_id, param1, param2, param3);
+}
+
+
+static int32_t w5500_irq(int pin, void *args)
+{
+	w5500_ctrl_t *w5500 = (w5500_ctrl_t *)args;
+	if ((pin & 0x00ff) == w5500->irq_pin)
+	{
+		platform_send_event(w5500->task_handle, EV_W5500_IRQ, 0, 0, 0);
+	}
+	if ((pin & 0x00ff) == w5500->link_pin)
+	{
+		platform_send_event(w5500->task_handle, EV_W5500_LINK, 0, 0, 0);
+	}
+}
+
+static void w5500_xfer(w5500_ctrl_t *w5500, uint16_t address, uint8_t ctrl, uint8_t write_flag, uint8_t *data, uint32_t len)
+{
+	uint8_t temp[3];
+	BytesPutBe16(temp, address);
+	temp[2] = ctrl|write_flag;
+	luat_gpio_set(w5500->cs_pin, 0);
+	luat_spi_send(w5500->spi_id, temp, 3);
+	if (write_flag)
+	{
+		luat_spi_send(w5500->spi_id, data, len);
+	}
+	else
+	{
+		luat_spi_recv(w5500->spi_id, data, len);
+	}
+	luat_gpio_set(w5500->cs_pin, 1);
+}
+
+
+static int w5500_tx(w5500_ctrl_t *w5500, uint8_t *data, uint16_t len)
+{
+	uint8_t delay_cnt;
+	uint8_t temp;
+	uint8_t point[6];
+	uint16_t tx_free, tx_point;
+	if (!w5500->device_on) return -1;
+
+	w5500_xfer(w5500, W5500_SOCKET_TX_FREE_SIZE0, socket_reg, 0, point, 6);
+	tx_free = BytesGetBe16(point);
+	tx_point = BytesGetBe16(point + 4);
+//	if (tx_free != 2048)
+//	{
+//		DBG("%d,0x%04x,%u,%u", socket_id, tx_point, len,tx_free);
+//	}
+//	DBG_HexPrintf(data, len);
+	if (len > tx_free)
+	{
+		len = tx_free;
+	}
+
+	w5500->last_tx_time = GetSysTickMS();
+	w5500_xfer(w5500, tx_point, socket_tx, is_write, data, len);
+	tx_point += len;
+	BytesPutBe16(point, tx_point);
+	w5500_xfer(w5500, W5500_SOCKET_TX_WRITE_POINT0, socket_reg, is_write, point, 2);
+	point[0] = Sn_CR_SEND;
+	w5500_xfer(w5500, W5500_SOCKET_CR, socket_reg, is_write, point, 1);
+	return len;
+}
+
+static int w5500_rx(w5500_ctrl_t *w5500, uint8_t *data, uint16_t len)
+{
+	uint8_t delay_cnt;
+	uint8_t temp;
+	uint8_t point[4];
+	uint16_t rx_size, rx_point;
+	w5500_xfer(w5500, W5500_SOCKET_RX_SIZE0, socket_reg, 0, point, 4);
+
+	rx_size = BytesGetBe16(point);
+	rx_point = BytesGetBe16(point + 2);
+//	DBG("%d,0x%04x,%u", socket_id, rx_point, rx_size);
+	if (!rx_size) return 0;
+	if (rx_size < len)
+	{
+		len = rx_size;
+	}
+	w5500_xfer(w5500, rx_point, socket_rx, 0, data, len);
+	rx_point += len;
+	BytesPutBe16(point, rx_point);
+	w5500_xfer(w5500, W5500_SOCKET_RX_READ_POINT0, socket_reg, is_write, point, 2);
+	point[0] = Sn_CR_RECV;
+	w5500_xfer(w5500, W5500_SOCKET_CR, socket_reg, is_write, point, 1);
+	return len;
+}
+
+static void w5500_link_state(w5500_ctrl_t *w5500, uint8_t check_state)
+{
+	Buffer_Struct tx_msg_buf = {0,0,0};
+	uint32_t remote_ip;
+	int result;
+	if (w5500->link_ready != check_state)
+	{
+		DBG("link %d -> %d", w5500->link_ready, check_state);
+		w5500->link_ready = check_state;
+
+		if (w5500->link_ready)
+		{
+			w5500_callback_to_nw_task(w5500, EV_NW_STATE, 0, 1, 0);
+		}
+		else
+		{
+			w5500_callback_to_nw_task(w5500, EV_NW_STATE, 0, 0, 0);
+			if (GetSysTickMS() < (w5500->last_tx_time + 1500))
+			{
+				w5500->inter_error++;
+				DBG_ERR("link down too fast, error %u", w5500->inter_error);
+			}
+		}
+	}
+}
+
+
+
+static void w5500_init_reg(w5500_ctrl_t *w5500)
+{
+	uint8_t temp[64];
+	luat_gpio_set(w5500->rst_pin, 0);
+	msleep(5);
+	luat_gpio_set(w5500->rst_pin, 1);
+	msleep(10);
+
+	luat_gpio_close(w5500->link_pin);
+	luat_gpio_close(w5500->irq_pin);
+
+	w5500_xfer(w5500, W5500_COMMON_MR, 0, 0, temp, W5500_COMMON_QTY);
+	w5500->device_on = (0x04 == temp[W5500_COMMON_VERSIONR])?1:0;
+	w5500_link_state(w5500, w5500->device_on?(temp[W5500_COMMON_PHY] & 0x01):0);
+
+	memcpy(&temp[W5500_COMMON_MAC0], w5500->netif.hwaddr, 6);
+
+
+//	BytesPutBe16(&temp[W5500_COMMON_SOCKET_RTR0], w5500->RTR);
+	temp[W5500_COMMON_IMR] = 0;
+	temp[W5500_COMMON_SOCKET_IMR] = 0x01;
+//	temp[W5500_COMMON_SOCKET_RCR] = w5500->RCR;
+//	DBG_HexPrintf(temp + W5500_COMMON_SOCKET_RTR0, 3);
+	w5500_xfer(w5500, W5500_COMMON_MR, 0, is_write, temp, W5500_COMMON_QTY);
+	memset(temp, 0, sizeof(temp));
+	w5500_xfer(w5500, W5500_COMMON_MR, 0, 0,  temp, W5500_COMMON_QTY);
+
+	temp[0] = 16;
+	temp[1] = 16;
+	w5500_xfer(w5500, W5500_SOCKET_RX_MEM_SIZE, socket_reg, is_write, temp, 2);
+	temp[0] = Sn_IR_SEND_OK|Sn_IR_TIMEOUT|Sn_IR_RECV;
+	w5500_xfer(w5500, W5500_SOCKET_IMR, socket_reg, is_write, temp, 1);
+	temp[0] = Sn_MR_MACRAW|Sn_MR_MFEN;
+	temp[1] = Sn_CR_OPEN;
+	w5500_xfer(w5500, W5500_SOCKET_MR, socket_reg, is_write, temp, 2);
+
+	luat_gpio_t gpio = {0};
+	gpio.pin = w5500->irq_pin;
+	gpio.mode = Luat_GPIO_IRQ;
+	gpio.pull = Luat_GPIO_PULLUP;
+	gpio.irq = Luat_GPIO_FALLING;
+	gpio.irq_cb = w5500_irq;
+	gpio.irq_args = w5500;
+	luat_gpio_setup(&gpio);
+
+	gpio.pin = w5500->link_pin;
+	gpio.pull = Luat_GPIO_DEFAULT;
+	gpio.irq = Luat_GPIO_BOTH;
+	gpio.irq_cb = w5500_irq;
+	gpio.irq_args = w5500;
+	luat_gpio_setup(&gpio);
+
+	if (w5500->auto_speed)
+	{
+		temp[0] = 0x78;
+		w5500_xfer(w5500, W5500_COMMON_PHY, 0, is_write, temp, 1);
+		temp[0] = 0x78+ 0x80;
+		w5500_xfer(w5500, W5500_COMMON_PHY, 0, is_write, temp, 1);
+	}
+	w5500->inter_error = 0;
+
+}
+
+static int32_t w5500_dummy_callback(void *pData, void *pParam)
+{
+	return 0;
+}
+
+static void w5500_read_irq(w5500_ctrl_t *w5500)
+{
+	OS_EVENT socket_event;
+	uint8_t temp[1];
+	w5500_xfer(w5500, W5500_SOCKET_IR, socket_reg, 0, temp, 1);
+	w5500_xfer(w5500, W5500_SOCKET_IR, socket_reg, is_write, temp, 1);
+	if (temp[0] & Sn_IR_SEND_OK)
+	{
+	}
+	else if (temp[0] & Sn_IR_RECV)
+	{
+	}
+	else if (temp[0] & Sn_IR_TIMEOUT)
+	{
+	}
+}
+
+
+
+static void w5500_task(void *param)
+{
+	w5500_ctrl_t *w5500 = (w5500_ctrl_t *)param;
+	OS_EVENT event;
+	int result;
+	uint32_t sleep_time;
+	uint8_t temp[64];
+	PV_Union uPV;
+	w5500_init_reg(w5500);
+	while(1)
+	{
+		if (w5500->inter_error >= 2)
+		{
+			DBG("w5500 error too much, reboot");
+			w5500_init_reg(w5500);
+		}
+		sleep_time = 500;
+		if (w5500->link_ready)
+		{
+			sleep_time = 1000;
+		}
+		else if (w5500->link_pin != 0xff)
+		{
+			sleep_time = 0;
+		}
+		result = platform_wait_event(w5500->task_handle, 0, &event, NULL, sleep_time);
+		w5500_xfer(w5500, W5500_COMMON_MR, 0, 0, temp, W5500_COMMON_QTY);
+		w5500->device_on = (0x04 == temp[W5500_COMMON_VERSIONR])?1:0;
+		if (w5500->device_on && (temp[W5500_COMMON_SOCKET_IMR] != 0x01))
+		{
+			w5500_init_reg(w5500);
+		}
+		if (!w5500->device_on)
+		{
+			w5500_link_state(w5500, 0);
+			luat_gpio_close(w5500->link_pin);
+			luat_gpio_close(w5500->irq_pin);
+		}
+		else
+		{
+			w5500_link_state(w5500, temp[W5500_COMMON_PHY] & 0x01);
+			w5500->speed_status = temp[W5500_COMMON_PHY] & (3 << 1);
+		}
+		if (result)
+		{
+			continue;
+		}
+
+
+
+		switch(event.ID)
+		{
+		case EV_W5500_IRQ:
+			if (w5500->device_on)
+			{
+				w5500_read_irq(w5500);
+			}
+			break;
+		case EV_W5500_READ:
+			break;
+		case EV_W5500_WRITE:
+			break;
+		case EV_W5500_RE_INIT:
+			w5500_init_reg(w5500);
+			break;
+		case EV_W5500_LINK:
+			w5500_link_state(w5500, !luat_gpio_get(w5500->link_pin));
+			break;
+		}
+	}
+}
+
+
+
+void w5500_init(luat_spi_t* spi, uint8_t irq_pin, uint8_t rst_pin, uint8_t link_pin)
+{
+	uint8_t *uid;
+	size_t t, i;
+	if (!prv_w5500_ctrl)
+	{
+		w5500_ctrl_t *w5500 = malloc(sizeof(w5500_ctrl_t));
+		memset(w5500, 0, sizeof(w5500_ctrl_t));
+		w5500->spi_id = spi->id;
+		w5500->cs_pin = spi->cs;
+		w5500->irq_pin = irq_pin;
+		w5500->rst_pin = rst_pin;
+		w5500->link_pin = link_pin;
+		w5500->auto_speed = 1;
+		spi->cs = 0xff;
+		luat_spi_setup(spi);
+		luat_gpio_t gpio = {0};
+		gpio.pin = w5500->cs_pin;
+		gpio.mode = Luat_GPIO_OUTPUT;
+		gpio.pull = Luat_GPIO_DEFAULT;
+		luat_gpio_setup(&gpio);
+		luat_gpio_set(w5500->cs_pin, 1);
+
+		gpio.pin = w5500->rst_pin;
+		luat_gpio_setup(&gpio);
+		luat_gpio_set(w5500->rst_pin, 0);
+
+		luat_thread_t thread;
+		thread.task_fun = w5500_task;
+		thread.name = "w5500";
+		thread.stack_size = 4 * 1024;
+		thread.priority = 3;
+		thread.userdata = w5500;
+		platform_create_task(&thread);
+		prv_w5500_ctrl = w5500;
+		w5500->task_handle = thread.handle;
+		prv_w5500_ctrl->device_on = 1;
+
+	}
+}
+
+uint8_t w5500_device_ready(void)
+{
+	if (prv_w5500_ctrl)
+	{
+		return prv_w5500_ctrl->device_on;
+	}
+	else
+	{
+		return 0;
+	}
+}
+
+
+void w5500_register_adapter(int index)
+{
+	if (prv_w5500_ctrl)
+	{
+		//network_register_adapter(index, &prv_w5500_adapter, prv_w5500_ctrl);
+	}
+}
+
+#else
+#include "dhcp_def.h"
+#include "dns_def.h"
+#define W5500_LOCK	OS_LOCK
+#define W5500_UNLOCK OS_UNLOCK
 
 enum
 {
@@ -1814,14 +2251,5 @@ void w5500_register_adapter(int index)
 		network_register_adapter(index, &prv_w5500_adapter, prv_w5500_ctrl);
 	}
 }
-#else
-void w5500_init(luat_spi_t* spi, uint8_t irq_pin, uint8_t rst_pin) {;}
-void w5500_set_static_ip(uint32_t ipv4, uint32_t submask, uint32_t gateway) {;}
-void w5500_set_mac(uint8_t mac[6])  {;}
-void w5500_set_param(uint16_t timeout, uint8_t retry, uint8_t auto_speed, uint8_t force_arp) {;}
-int w5500_reset(void) {return -1;}
-uint32_t w5500_string_to_ip(const char *string, uint32_t len) {return 0;}
-void w5500_array_to_mac(uint8_t *array, uint32_t *mac1, uint16_t *mac2) {return;}
-uint8_t w5500_device_ready(void) {return 0;}
-void w5500_register_adapter(int index) {;}
+#endif
 #endif

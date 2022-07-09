@@ -1,6 +1,6 @@
 /*
 @module  w5500
-@summary w5500
+@summary w5500的硬件初始化，和注册进network适配器
 @version 1.0
 @date    2022.04.11
 */
@@ -44,6 +44,7 @@ static int l_w5500_init(lua_State *L){
 	return 0;
 }
 
+#ifndef LUAT_USE_LWIP
 /*
 w5500配置网络信息
 @api w5500.config(ip, submask, gateway, mac, RTR, RCR, speed)
@@ -94,7 +95,7 @@ static int l_w5500_config(lua_State *L){
 	lua_pushboolean(L, 1);
 	return 1;
 }
-
+#endif
 /*
 将w5500注册进通用网络接口
 @api w5500.bind(network.xxx)
@@ -109,11 +110,14 @@ static int l_w5500_network_register(lua_State *L){
 	return 0;
 }
 
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_w5500[] =
 {
     { "init",           ROREG_FUNC(l_w5500_init)},
+#ifndef LUAT_USE_LWIP
 	{ "config",           ROREG_FUNC(l_w5500_config)},
+#endif
 	{ "bind",           ROREG_FUNC(l_w5500_network_register)},
 	{ NULL,            ROREG_INT(0)}
 };

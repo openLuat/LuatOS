@@ -226,7 +226,8 @@ static int l_io_queue_capture_end(lua_State *L) {
 @int  硬件定时器id
 @zbuff 存放IO输入数据的buff，按照1byte pin + 1byte level 形式存放数据
 @zbuff 存放IO捕获数据的buff，按照1byte pin + 1byte level + 4byte tick形式存放数据
-@return int 返回多少组IO输入数据 int 返回多少组IO捕获数据
+@return int 返回多少组IO输入数据
+@return int 返回多少组IO捕获数据
 @usage
 local input_cnt, capture_cnt = ioqueue.get(0, input_buff, capture_buff)
 */
@@ -264,14 +265,19 @@ static int l_io_queue_start(lua_State *L) {
 停止io操作队列，可以通过start从头开始
 @api  ioqueue.stop(hwtimer_id)
 @int  硬件定时器id
-@return 无
+@return int 返回已经循环的次数，如果是0，表示一次循环都没有完成
+@return int 返回单次循环中已经执行的cmd次数，如果是0，可能是一次循环刚刚结束
 @usage
 ioqueue.stop(0)
 */
 static int l_io_queue_stop(lua_State *L) {
 	uint8_t timer_id = luaL_optinteger(L, 1, 0);
-	luat_io_queue_stop(timer_id);
-	return 0;
+	uint32_t repeat_cnt = 0;
+	uint32_t cmd_cnt = 0;
+	luat_io_queue_stop(timer_id, &repeat_cnt, &cmd_cnt);
+	lua_pushinteger(L, repeat_cnt);
+	lua_pushinteger(L, cmd_cnt);
+	return 2;
 }
 
 

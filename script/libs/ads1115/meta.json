@@ -1,0 +1,11 @@
+{
+    "type" : "lua",
+    "repo" : "luatos/ads1115",
+    "tags" : ["ads1115"],
+    "title" : "ADS1115数模转换的驱动",
+    "files" : {
+        "." : "*"
+    },
+    "enterpoint" : "ads1115.lua",
+    "dependency" : ["i2c"]
+}

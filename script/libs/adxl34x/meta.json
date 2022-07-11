@@ -1,0 +1,11 @@
+{
+    "type" : "lua",
+    "repo" : "luatos/adxl34x",
+    "tags" : ["adxl34x"],
+    "title" : "ADXL34X 3轴加速度计驱动",
+    "files" : {
+        "." : "*"
+    },
+    "enterpoint" : "adxl34x.lua",
+    "dependency" : ["i2c"]
+}

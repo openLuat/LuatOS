@@ -2,6 +2,7 @@
     "type" : "lua",
     "repo" : "luatos/adxl34x",
     "tags" : ["adxl34x"],
+    "version" : "1.0.0",
     "title" : "ADXL34X 3轴加速度计驱动",
     "files" : {
         "." : "*"

@@ -143,7 +143,7 @@ typedef struct
 	luat_ip_addr_t *online_ip;
 	uint16_t remote_port;
 	uint16_t local_port;
-	const uint8_t *cache_data;
+	uint8_t *cache_data;
 	uint32_t cache_len;
 	int tls_timer_state;
 	uint32_t tcp_timeou_ms;

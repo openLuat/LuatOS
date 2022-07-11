@@ -117,6 +117,7 @@ static int32_t tls_longtimeout(void *data, void *param)
 		return 0;
 	}
 	ctrl->tls_timer_state = 2;
+	return 0;
 }
 
 static void tls_settimer( void *data, uint32_t int_ms, uint32_t fin_ms )
@@ -399,6 +400,7 @@ static int network_state_wait_dns(network_ctrl_t *ctrl, OS_EVENT *event, network
 	default:
 		return 1;
 	}
+	return -1;
 }
 
 static int network_state_connecting(network_ctrl_t *ctrl, OS_EVENT *event, network_adapter_t *adapter)
@@ -486,6 +488,7 @@ static int network_state_connecting(network_ctrl_t *ctrl, OS_EVENT *event, netwo
 	default:
 		return 1;
 	}
+	return -1;
 }
 
 static int network_state_shakehand(network_ctrl_t *ctrl, OS_EVENT *event, network_adapter_t *adapter)
@@ -670,6 +673,7 @@ static int network_state_disconnecting(network_ctrl_t *ctrl, OS_EVENT *event, ne
 	default:
 		return 1;
 	}
+	return -1;
 }
 
 typedef int (*network_state_fun)(network_ctrl_t *ctrl, OS_EVENT *event, network_adapter_t *adapter);
@@ -687,7 +691,7 @@ static network_state_fun network_state_fun_list[]=
 
 static void network_default_statemachine(network_ctrl_t *ctrl, OS_EVENT *event, network_adapter_t *adapter)
 {
-	int result;
+	int result = -1;
 	if (ctrl->state > NW_STATE_DISCONNECTING)
 	{
 		ctrl->state = NW_STATE_LINK_OFF;
@@ -811,6 +815,7 @@ int network_register_adapter(uint8_t adapter_index, network_adapter_info *info, 
 	}
 
 	prv_network.last_adapter_index = adapter_index;
+	return 0;
 }
 
 void network_set_dns_server(uint8_t adapter_index, uint8_t server_index, luat_ip_addr_t *ip)

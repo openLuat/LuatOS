@@ -6,6 +6,10 @@ VERSION = "1.0.0"
 -- sys库是标配
 _G.sys = require("sys")
 
+-- 注意:本demo使用luatools下载!!!
+-- 注意:本demo使用luatools下载!!!
+-- 注意:本demo使用luatools下载!!!
+
 local NETLED = gpio.setup(19, 1) -- 输出模式,休眠后就熄灭了
 
 sys.taskInit(function()

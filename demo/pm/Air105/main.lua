@@ -8,6 +8,10 @@ log.info("main", PROJECT, VERSION)
 -- sys库是标配
 _G.sys = require("sys")
 
+-- 注意:本demo使用luatools下载!!!
+-- 注意:本demo使用luatools下载!!!
+-- 注意:本demo使用luatools下载!!!
+
 sys.taskInit(function()
     while 1 do
         sys.wait(3000)

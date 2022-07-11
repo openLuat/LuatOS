@@ -2,6 +2,7 @@
     "type" : "lua",
     "repo" : "luatos/ads1115",
     "tags" : ["ads1115"],
+    "version" : "1.0.0",
     "title" : "ADS1115数模转换的驱动",
     "files" : {
         "." : "*"

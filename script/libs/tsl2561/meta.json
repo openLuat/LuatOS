@@ -1,0 +1,12 @@
+{
+    "type" : "lua",
+    "repo" : "luatos/tsl2561",
+    "tags" : ["tsl2561"],
+    "version" : "1.0.0",
+    "title" : "TSL2561 光强传感器驱动",
+    "files" : {
+        "." : "*"
+    },
+    "enterpoint" : "tsl2561.lua",
+    "dependency" : ["i2c"]
+}

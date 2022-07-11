@@ -1,0 +1,12 @@
+{
+    "type" : "lua",
+    "repo" : "luatos/bmx",
+    "tags" : ["bmx"],
+    "version" : "1.0.0",
+    "title" : "BMX 气压传感器",
+    "files" : {
+        "." : "*"
+    },
+    "enterpoint" : "bmx.lua",
+    "dependency" : ["i2c"]
+}

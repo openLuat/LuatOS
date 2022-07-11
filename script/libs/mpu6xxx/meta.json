@@ -1,0 +1,12 @@
+{
+    "type" : "lua",
+    "repo" : "luatos/mpu6xxx",
+    "tags" : ["mpu6xxx"],
+    "version" : "1.0.0",
+    "title" : "MPU6XXX 加速度计驱动",
+    "files" : {
+        "." : "*"
+    },
+    "enterpoint" : "mpu6xxx.lua",
+    "dependency" : ["i2c"]
+}

@@ -1,0 +1,12 @@
+{
+    "type" : "lua",
+    "repo" : "luatos/gt911",
+    "tags" : ["gt911"],
+    "version" : "1.0.0",
+    "title" : "GT911 电容触摸驱动",
+    "files" : {
+        "." : "*"
+    },
+    "enterpoint" : "gt911.lua",
+    "dependency" : ["i2c"]
+}

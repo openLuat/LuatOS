@@ -1,9 +1,0 @@
-{
-    "type" : "lua", // 可以是lua(纯lua), c(纯c), 或者lua-c(混合)
-    "enterpoint" : "lis2dh12.lua",
-    "compatibility" : {
-        "soc" : true,
-        "air" : true
-    },
-    "dependency" : ["i2c"] // 需要何种硬件或软件接口
-}

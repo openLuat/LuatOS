@@ -1,0 +1,12 @@
+{
+    "type" : "lua",
+    "repo" : "luatos/aht10",
+    "tags" : ["aht10"],
+    "version" : "1.0.0",
+    "title" : "AHT10 温湿度传感器",
+    "files" : {
+        "." : "*"
+    },
+    "enterpoint" : "aht10.lua",
+    "dependency" : ["i2c"]
+}

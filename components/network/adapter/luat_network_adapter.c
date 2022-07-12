@@ -6,6 +6,32 @@
 #include "platform_def.h"
 #include "ctype.h"
 #include "luat_network_adapter.h"
+
+typedef struct
+{
+	int last_adapter_index;
+	int default_adapter_index;
+	llist_head dns_cache_head;
+	uint8_t is_init;
+}network_info_t;
+
+typedef struct
+{
+
+	network_adapter_info *opt;
+	void *user_data;
+	uint8_t *ctrl_busy;
+	network_ctrl_t *ctrl_table;
+	uint16_t port;
+}network_adapter_t;
+
+static network_adapter_t prv_adapter_table[NW_ADAPTER_QTY];
+static network_info_t prv_network = {
+		.last_adapter_index = -1,
+		.default_adapter_index = -1,
+		.is_init = 0,
+};
+
 #ifdef LUAT_USE_LWIP
 
 extern void DBG_Printf(const char* format, ...);
@@ -36,28 +62,7 @@ extern void DBG_HexPrintf(void *Data, unsigned int len);
 #define TCP_KEEPINTVL  0x04    /* set pcb->keep_intvl - Use seconds for get/setsockopt */
 #define TCP_KEEPCNT    0x05    /* set pcb->keep_cnt   - Use number of probes sent for get/setsockopt */
 
-typedef struct
-{
-	int last_adapter_index;
-	llist_head dns_cache_head;
-	uint8_t is_init;
-}network_info_t;
 
-typedef struct
-{
-
-	network_adapter_info *opt;
-	void *user_data;
-	uint8_t *ctrl_busy;
-	network_ctrl_t *ctrl_table;
-	uint16_t port;
-}network_adapter_t;
-
-static network_adapter_t prv_adapter_table[NW_ADAPTER_QTY];
-static network_info_t prv_network = {
-		.last_adapter_index = -1,
-		.is_init = 0,
-};
 
 static uint8_t network_check_ip_same(luat_ip_addr_t *ip1, luat_ip_addr_t *ip2)
 {
@@ -1928,28 +1933,7 @@ extern void DBG_HexPrintf(void *Data, unsigned int len);
 #define TCP_KEEPINTVL  0x04    /* set pcb->keep_intvl - Use seconds for get/setsockopt */
 #define TCP_KEEPCNT    0x05    /* set pcb->keep_cnt   - Use number of probes sent for get/setsockopt */
 
-typedef struct
-{
-	int last_adapter_index;
-	llist_head dns_cache_head;
-	uint8_t is_init;
-}network_info_t;
 
-typedef struct
-{
-
-	network_adapter_info *opt;
-	void *user_data;
-	uint8_t *ctrl_busy;
-	network_ctrl_t *ctrl_table;
-	uint16_t port;
-}network_adapter_t;
-
-static network_adapter_t prv_adapter_table[NW_ADAPTER_QTY];
-static network_info_t prv_network = {
-		.last_adapter_index = -1,
-		.is_init = 0,
-};
 
 static uint8_t network_check_ip_same(luat_ip_addr_t *ip1, luat_ip_addr_t *ip2)
 {

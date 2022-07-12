@@ -37,6 +37,9 @@ extern const uint8_t u8g2_font_opposansm22_chinese[] U8G2_FONT_SECTION("u8g2_fon
 extern const uint8_t u8g2_font_opposansm24_chinese[] U8G2_FONT_SECTION("u8g2_font_opposansm24_chinese");
 extern const uint8_t u8g2_font_opposansm32_chinese[] U8G2_FONT_SECTION("u8g2_font_opposansm32_chinese");
 
+// include custom fonts
+#include "luat_u8g2_fonts_custom.h"
+
 /* end font list */
 
 

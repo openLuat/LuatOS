@@ -8,15 +8,15 @@
 #endif
 #define NO_SYS                          1	//是否不带OS，1不带
 #define NO_SYS_NO_TIMERS               1
-#define LWIP_TIMERS                     0
-#define LWIP_TIMERS_CUSTOM              1
+#define LWIP_TIMERS                     1
+#define LWIP_TIMERS_CUSTOM              0
 #define LWIP_MPU_COMPATIBLE             1
 #define LWIP_TCPIP_CORE_LOCKING         0
 #define LWIP_TCPIP_CORE_LOCKING_INPUT   0
 #define SYS_LIGHTWEIGHT_PROT            1	//平台锁，保护关键区域内缓存的分配与释放，目前lwip不允许放在中断处理，不需要额外的平台锁
 
 //mem管理
-#define MEMP_MEM_MALLOC 0
+#define MEMP_MEM_MALLOC 1
 #define MEM_LIBC_MALLOC 1
 #define mem_clib_free luat_heap_free
 #define mem_clib_malloc luat_heap_malloc
@@ -171,6 +171,8 @@
 #define LWIP_POSIX_SOCKETS_IO_NAMES     1
 #define LWIP_SOCKET_OFFSET              0
 #define LWIP_TCP_KEEPALIVE              1
+#define TCP_KEEPIDLE_DEFAULT			540000	//cmnet require 10min, so use 9min
+#define TCP_KEEPINTVL_DEFAULT			5000
 #define LWIP_SO_SNDTIMEO                1
 #define LWIP_SO_RCVTIMEO                1
 #define LWIP_SO_SNDRCVTIMEO_NONSTANDARD 1
@@ -202,7 +204,7 @@
 #define MLD6_STATS                      (LWIP_IPV6 && LWIP_IPV6_MLD)
 #define ND6_STATS                       (LWIP_IPV6)
 #define MIB2_STATS                      0
-#define LWIP_CHECKSUM_CTRL_PER_NETIF    0
+#define LWIP_CHECKSUM_CTRL_PER_NETIF    1
 #define CHECKSUM_GEN_IP                 1
 #define CHECKSUM_GEN_UDP                1
 #define CHECKSUM_GEN_TCP                1
@@ -253,7 +255,7 @@
 #define LWIP_DHCP6_GET_NTP_SRV          0
 #define LWIP_DHCP6_MAX_NTP_SERVERS      0
 #define LWIP_DHCP6_MAX_DNS_SERVERS      DNS_MAX_SERVERS
-
+//#define LWIP_USING_NAT
 /* TODO: check hooks */
 
 #define LWIP_DBG_MIN_LEVEL              LWIP_DBG_LEVEL_ALL

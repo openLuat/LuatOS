@@ -74,7 +74,7 @@ static int l_dac_write(lua_State *L) {
     else {
         return 0;
     }
-    int ret = luat_dac_write(ch, buff, len);
+    int ret = luat_dac_write(ch, buff, len >> 1);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     lua_pushinteger(L, ret);
     return 2;

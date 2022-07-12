@@ -8,12 +8,12 @@
 #endif
 #define NO_SYS                          1	//是否不带OS，1不带
 #define NO_SYS_NO_TIMERS               1
-#define LWIP_TIMERS                     1
-#define LWIP_TIMERS_CUSTOM              0
+#define LWIP_TIMERS                     0
+#define LWIP_TIMERS_CUSTOM              1
 #define LWIP_MPU_COMPATIBLE             1
 #define LWIP_TCPIP_CORE_LOCKING         0
 #define LWIP_TCPIP_CORE_LOCKING_INPUT   0
-#define SYS_LIGHTWEIGHT_PROT            1	//平台锁，保护关键区域内缓存的分配与释放，目前lwip不允许放在中断处理，不需要额外的平台锁
+#define SYS_LIGHTWEIGHT_PROT            0	//平台锁，保护关键区域内缓存的分配与释放，目前lwip不允许放在中断处理，不需要额外的平台锁
 
 //mem管理
 #define MEMP_MEM_MALLOC 1
@@ -301,9 +301,14 @@
 #define LWIP_PROVIDE_ERRNO
 
 
-
-
-
+#define SYS_ARCH_INC(var, val)
+#define SYS_ARCH_DEC(var, val)
+#define SYS_ARCH_GET(var, val)
+#define SYS_ARCH_SET(var, val)
+#define SYS_ARCH_LOCKED(code)
+#define SYS_ARCH_DECL_PROTECT(x)
+#define SYS_ARCH_PROTECT(x)
+#define SYS_ARCH_UNPROTECT(x)
 typedef uint32_t sys_prot_t;
 #define LWIP_DEBUG 1
 #define sys_arch_assert(x) do {DBG_Printf("Assertion \"%s\" failed at line %d in %s\n", \

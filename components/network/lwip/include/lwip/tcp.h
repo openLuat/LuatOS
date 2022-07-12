@@ -293,7 +293,9 @@ struct tcp_pcb {
 
   /* Retransmission timer. */
   s16_t rtime;
-
+#ifdef __USER_CODE__
+  u16_t mode_delay;	//针对慢速网络场景，需要将超时时间延长
+#endif
   u16_t mss;   /* maximum segment size */
 
   /* RTT (round trip time) estimation variables */

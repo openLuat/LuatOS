@@ -1288,6 +1288,9 @@ tcp_slowtmr_start:
               u8_t backoff_idx = LWIP_MIN(pcb->nrtx, sizeof(tcp_backoff) - 1);
               int calc_rto = ((pcb->sa >> 3) + pcb->sv) << tcp_backoff[backoff_idx];
               pcb->rto = (s16_t)LWIP_MIN(calc_rto, 0x7FFF);
+#ifdef __USER_CODE__
+              pcb->rto += pcb->mode_delay;
+#endif
             }
 
             /* Reset the retransmission timer. */

@@ -16,6 +16,8 @@
 #ifdef LUAT_USE_LWIP
 #include "lwip/netif.h"
 #include "lwip/ip.h"
+#include "lwip/tcp.h"
+#include "lwip/priv/tcp_priv.h"
 #endif
 #ifndef __BSP_COMMON_H__
 #include "c_common.h"

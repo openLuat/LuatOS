@@ -1,0 +1,12 @@
+{
+    "type" : "lua",
+    "repo" : "luatos/l3g4200d",
+    "tags" : ["l3g4200d"],
+    "version" : "1.0.0",
+    "title" : "L3G4200D 3轴加速度计驱动",
+    "files" : {
+        "." : "*"
+    },
+    "enterpoint" : "l3g4200d.lua",
+    "dependency" : ["i2c"]
+}

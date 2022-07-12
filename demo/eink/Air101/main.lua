@@ -16,48 +16,50 @@ SPI0_SCK               (PB2)
 SPI0_MISO              (PB3)
 SPI0_MOSI              (PB5)
 
-显示屏 Pin_BUSY        (PB1)
-显示屏 Pin_RES         (PA1)
-显示屏 Pin_DC          (PA4)
+显示屏 Pin_BUSY        (PB0)
+显示屏 Pin_RES         (PB3)
+显示屏 Pin_DC          (PB1)
 显示屏 Pin_CS          (PB4)
 ]]
 
-function eink154_update()
-
-    eink.clear()
-
-    eink.print(16, 16, os.date(), 0, eink.font_opposansm12)
-    eink.print(16, 32, "LuatOS",  0, eink.font_opposansm12)
-
-    if eink.font_opposansm12_chinese then
-        eink.print(16, 64, "中华人民共和国", 0, eink.font_opposansm12_chinese)
-    else
-        eink.print(16, 64, "中华人民共和国", 0, eink.font_opposansm10_chinese)
-    end
-
-    log.debug("before show")
-
-    -- 刷屏幕
-    eink.show()
-end
-
+-- 全刷模式
 sys.taskInit(function()
-    --官方商店卖的屏用这个驱动
     eink.model(eink.MODEL_1in54)
-    --自己买的可能要用下面这行驱动
-    --eink.model(eink.MODEL_1in54_V2)
-    eink.setup(1, 0,17,1,4,20)
-    -- eink.setup(1, 0,pin.PB01,pin.PA01,pin.PA04,pin.PB04)-- v0006及以后版本可用pin方式
+    eink.setup(0, 0,pin.PB00,pin.PB03,pin.PB01,pin.PB04)
     eink.setWin(200, 200, 0)
-    log.info("eink", "end setup")
-    -- 稍微等一会,免得墨水屏没初始化完成
-    sys.wait(1000)
-    while 1 do
-        log.info("e-paper 1.54", "Testing Go\r\n")
-        eink154_update()
-        log.info("e-paper 1.54", "Testing End\r\n")
-        sys.wait(5000) -- 3秒刷新一次
-    end
+    --稍微等一会,免得墨水屏没初始化完成
+    sys.wait(100)
+    log.info("e-paper 1.54", "Testing Go")
+    eink.clear()
+    --画几条线一个圆
+    eink.circle(50, 100, 40)
+    eink.line(100, 20, 105, 180)
+    eink.line(100, 100, 180, 20)
+    eink.line(100, 100, 180, 180)
+    eink.show()
+    log.info("e-paper 1.54", "Testing End")
 end)
+
+-- 快刷模式，使用本模式刷新时极快，但大概率会有残留：
+--[[
+sys.taskInit(function()
+    eink.model(eink.MODEL_1in54)
+    eink.setup(1, 0,pin.PB00,pin.PB03,pin.PB01,pin.PB04)
+    --初始化时配置局部刷新
+    eink.setWin(200, 200, 0)
+    --稍微等一会,免得墨水屏没初始化完成
+    sys.wait(100)
+    log.info("e-paper 1.54", "Testing Go")
+    eink.clear()
+    --画几条线一个圆
+    eink.circle(50, 100, 40)
+    eink.line(100, 20, 105, 180)
+    eink.line(100, 100, 180, 20)
+    eink.line(100, 100, 180, 180)
+    eink.show(nil,nil,true)
+    --直接刷上去，不清屏
+    log.info("e-paper 1.54", "Testing End")
+end)
+]]
 
 sys.run()

@@ -1,0 +1,12 @@
+{
+    "type" : "lua",
+    "repo" : "luatos/xmodem",
+    "tags" : ["xmodem"],
+    "version" : "1.0.0",
+    "title" : "XMODEM",
+    "files" : {
+        "." : "*"
+    },
+    "enterpoint" : "xmodem.lua",
+    "dependency" : ["i2c"]
+}

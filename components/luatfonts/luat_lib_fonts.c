@@ -100,6 +100,7 @@ static int l_fonts_u8g2_get(lua_State *L) {
 @string 字体路径, 例如 /luadb/abc.bin
 @return userdata 若字体存放,返回字体指针, 否则返回nil
 @usage
+-- API新增于2022-07-11
 -- 提醒: 若文件位于/luadb下, 不需要占用内存
 -- 若文件处于其他路径, 例如tf/sd卡, spi flash, 会自动加载到内存, 消耗lua vm的内存空间
 -- 加载后请适当引用, 不必反复加载同一个字体文件
@@ -155,6 +156,26 @@ static int l_fonts_u8g2_load(lua_State *L) {
     }
     luat_fs_fclose(fd);
     lua_pushlightuserdata(L, ptr);
+    return 1;
+}
+
+/*
+返回固件支持的u8g2字体列表
+@api fonts.u8g2_list()
+@return table 字体列表
+@usage
+-- API新增于2022-07-12
+if fonts.u8g2_list then
+    log.info("fonts", "u8g2", json.encode(fonts.u8g2_list()))
+end
+*/
+static int l_fonts_u8g2_list(lua_State *L) {
+    const char* name = luaL_checkstring(L,  1);
+    u8g2_font_t *font = u8g2_fonts;
+    lua_createtable(L, 10, 0);
+    while (font->font != NULL) {
+        lua_pushstring(L, font->name);
+    }
     return 1;
 }
 

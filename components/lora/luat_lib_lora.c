@@ -398,9 +398,9 @@ lora.mode(lora.STANDBY)
 static int luat_lora_mode(lua_State *L){
     int mode = luaL_optinteger(L, 1, 1);
     if (mode == 1){
-        RadioStandby();
+        Radio.Standby();
     }else if (mode == 0){
-        RadioSleep();
+        Radio.Sleep();
     }
     return 0;
 }

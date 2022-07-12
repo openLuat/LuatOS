@@ -388,12 +388,33 @@ static int luat_lora_recive(lua_State *L){
     return 0;
 }
 
+/*
+设置进入模式(休眠，正常等)
+@api    lora.mode(mode)
+@number 模式 正常模式:lora.STANDBY 休眠模式:lora.SLEEP 默认为正常模式
+@usage
+lora.mode(lora.STANDBY)
+*/
+static int luat_lora_mode(lua_State *L){
+    int mode = luaL_optinteger(L, 1, 1);
+    if (mode == 1){
+        RadioStandby();
+    }else if (mode == 0){
+        RadioSleep();
+    }
+    return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_lora[] =
 {
     { "init",        ROREG_FUNC(luat_lora_init)},
     { "send",        ROREG_FUNC(luat_lora_send)},
     { "recive",      ROREG_FUNC(luat_lora_recive)},
+    { "mode",        ROREG_FUNC(luat_lora_mode)},
+
+    { "SLEEP",       ROREG_INT(0)},
+    { "STANDBY",     ROREG_INT(1)},
 	{ NULL,     {}}
 };
 

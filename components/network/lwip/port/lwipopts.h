@@ -8,8 +8,8 @@
 #endif
 #define NO_SYS                          1	//是否不带OS，1不带
 #define NO_SYS_NO_TIMERS               1
-#define LWIP_TIMERS                     0
-#define LWIP_TIMERS_CUSTOM              1
+#define LWIP_TIMERS                     1
+#define LWIP_TIMERS_CUSTOM              0
 #define LWIP_MPU_COMPATIBLE             1
 #define LWIP_TCPIP_CORE_LOCKING         0
 #define LWIP_TCPIP_CORE_LOCKING_INPUT   0
@@ -171,6 +171,8 @@
 #define LWIP_POSIX_SOCKETS_IO_NAMES     1
 #define LWIP_SOCKET_OFFSET              0
 #define LWIP_TCP_KEEPALIVE              1
+#define TCP_KEEPIDLE_DEFAULT			540000	//cmnet require 10min, so use 9min
+#define TCP_KEEPINTVL_DEFAULT			5000
 #define LWIP_SO_SNDTIMEO                1
 #define LWIP_SO_RCVTIMEO                1
 #define LWIP_SO_SNDRCVTIMEO_NONSTANDARD 1

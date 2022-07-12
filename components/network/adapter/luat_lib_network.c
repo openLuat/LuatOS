@@ -697,6 +697,8 @@ static const rotable_Reg_t reg_network_adapter[] =
     { "ETH0",           ROREG_INT(NW_ADAPTER_INDEX_ETH0)},
 	{ "STA",          	ROREG_INT(NW_ADAPTER_INDEX_STA)},
 	{ "AP",     		ROREG_INT(NW_ADAPTER_INDEX_AP)},
+	{ "GPRS",          	ROREG_INT(NW_ADAPTER_INDEX_GPRS)},
+	{ "USB",     		ROREG_INT(NW_ADAPTER_INDEX_USB)},
     { "LINK",           ROREG_INT(EV_NW_RESULT_LINK & 0x0fffffff)},
 	{ "ON_LINE",          	ROREG_INT(EV_NW_RESULT_CONNECT & 0x0fffffff)},
 	{ "EVENT",          	ROREG_INT(EV_NW_RESULT_EVENT & 0x0fffffff)},

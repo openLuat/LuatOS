@@ -63,7 +63,7 @@ static int l_dac_write(lua_State *L) {
     if (lua_isinteger(L, 2)) {
         value = luaL_checkinteger(L, 2);
         buff = &value;
-        len = 1;
+        len = 2;
     }
     else if (lua_isuserdata(L, 2)) {
         return 0; // TODO 支持zbuff
@@ -72,6 +72,10 @@ static int l_dac_write(lua_State *L) {
         buff = (uint16_t*)luaL_checklstring(L, 2, &len);
     }
     else {
+        return 0;
+    }
+    // 防御过短的数据
+    if (len < 2) {
         return 0;
     }
     int ret = luat_dac_write(ch, buff, len >> 1);

@@ -115,7 +115,7 @@ static int l_sdio_sd_mount(lua_State *L) {
 @string 挂载路径, 默认"/sd", 不允许以"/"结尾
 @return bool 挂载成功返回true,否则返回false
 */
-static int l_sdio_sd_umount(lua_State *L) {
+static int l_sdio_sd_unmount(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
     //int auto_format = luaL_checkinteger(L, 2);
     int ret = luat_sdio_sd_unmount(id, sdio_t[id].rca);
@@ -144,7 +144,7 @@ static const rotable_Reg_t reg_sdio[] =
     { "sd_read" ,       ROREG_FUNC(l_sdio_read )},
     { "sd_write" ,      ROREG_FUNC(l_sdio_write)},
     { "sd_mount" ,      ROREG_FUNC(l_sdio_sd_mount)},
-    { "sd_umount" ,     ROREG_FUNC(l_sdio_sd_umount)},
+    { "sd_unmount" ,     ROREG_FUNC(l_sdio_sd_unmount)},
     { "sd_format" ,     ROREG_FUNC(l_sdio_sd_format)},
 	{ NULL,             ROREG_INT(0) }
 };

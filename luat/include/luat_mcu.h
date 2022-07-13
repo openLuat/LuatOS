@@ -10,7 +10,7 @@ const char* luat_mcu_unique_id(size_t* t);
 long luat_mcu_ticks(void);
 
 uint32_t luat_mcu_hz(void);
-
+uint64_t luat_mcu_tick64(void);
 uint64_t luat_mcu_tick64_ms(void);
 #endif
 

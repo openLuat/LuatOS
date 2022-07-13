@@ -1,7 +1,11 @@
 #include "platform_def.h"
 #include "luat_base.h"
-
+#include "luat_mcu.h"
+#include "luat_rtos.h"
 #include "luat_network_adapter.h"
+
+extern LUAT_WEAK void DBG_Printf(const char* format, ...);
+
 #define NET_DBG(x,y...) DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
 enum
 {
@@ -14,7 +18,9 @@ enum
 	EV_LWIP_FAST_TIMER,
 	EV_LWIP_SOCKET_CONNECT,
 	EV_LWIP_SOCKET_CLOSE,
+	EV_LWIP_REQUIRE_DHCP,
 	EV_LWIP_NETIF_LINK_STATE,
+	EV_LWIP_MLD6_ON_OFF,
 };
 extern u32_t tcp_ticks;
 extern struct tcp_pcb *tcp_active_pcbs;
@@ -28,6 +34,9 @@ typedef struct
 	HANDLE fast_timer;//igmp_tmr,mld6_tmr,autoip_tmr
 	HANDLE dhcp_timer;//dhcp_fine_tmr,dhcp6_tmr
 	uint8_t tcpip_tcp_timer_active;
+	uint8_t common_timer_active;
+	uint8_t dhcp_timer_active;
+	uint8_t fast_timer_active;
 	uint8_t dhcp_check_cnt;
 }luat_lwip_ctrl_struct;
 
@@ -77,6 +86,9 @@ static void luat_lwip_task(void *param)
 {
 	OS_EVENT event;
 	HANDLE cur_task = luat_get_current_task();
+	struct netif *netif;
+	struct dhcp *dhcp;
+	uint8_t active_flag;
 	while(1)
 	{
 
@@ -97,21 +109,27 @@ static void luat_lwip_task(void *param)
 		{
 			prvlwip.last_sleep_ms = luat_mcu_tick64_ms();
 		}
+		netif = (struct netif *)event.Param3;
 		switch(event.ID)
 		{
 		case EV_LWIP_SOCKET_TX:
 			break;
 		case EV_LWIP_NETIF_INPUT:
+			if(netif->input((struct pbuf *)event.Param1, netif) != ERR_OK)
+			{
+				pbuf_free((struct pbuf *)event.Param1);
+			}
 			break;
 		case EV_LWIP_TCP_TIMER:
 			tcp_tmr();
 			if (tcp_active_pcbs || tcp_tw_pcbs)
 			{
 				;
-			} else
+			}
+			else
 			{
-			  prvlwip.tcpip_tcp_timer_active = 0;
-			  luat_stop_rtos_timer(prvlwip.tcp_timer);
+				prvlwip.tcpip_tcp_timer_active = 0;
+				luat_stop_rtos_timer(prvlwip.tcp_timer);
 			}
 			break;
 		case EV_LWIP_COMMON_TIMER:
@@ -130,20 +148,41 @@ static void luat_lwip_task(void *param)
 #if LWIP_IPV6_REASS
 			ip6_reass_tmr();
 #endif
+#if LWIP_DHCP
 			prvlwip.dhcp_check_cnt++;
 			if (prvlwip.dhcp_check_cnt >= DHCP_COARSE_TIMER_SECS)
 			{
 				prvlwip.dhcp_check_cnt = 0;
 				dhcp_coarse_tmr();
+				if (!prvlwip.dhcp_timer_active)
+				{
+					prvlwip.dhcp_timer_active = 1;
+					luat_start_rtos_timer(prvlwip.dhcp_timer, DHCP_FINE_TIMER_MSECS, 1);
+				}
 			}
+#endif
 			break;
 
 		case EV_LWIP_DHCP_TIMER:
 #if LWIP_DHCP
 			dhcp_fine_tmr();
-#endif
-#if LWIP_IPV6_DHCP6
-			dhcp6_tmr();
+			active_flag = 0;
+			NETIF_FOREACH(netif)
+			{
+				dhcp = netif_dhcp_data(netif);
+				/* only act on DHCP configured interfaces */
+				if (dhcp && dhcp->request_timeout && (dhcp->state != DHCP_STATE_BOUND))
+				{
+					active_flag = 1;
+					break;
+				}
+			}
+			if (!active_flag)
+			{
+				NET_DBG("stop dhcp timer!");
+				prvlwip.dhcp_timer_active = 0;
+				luat_stop_rtos_timer(prvlwip.dhcp_timer);
+			}
 #endif
 			break;
 		case EV_LWIP_FAST_TIMER:
@@ -156,12 +195,68 @@ static void luat_lwip_task(void *param)
 #if LWIP_IPV6_MLD
 			mld6_tmr();
 #endif
+			active_flag = 0;
+			NETIF_FOREACH(netif)
+			{
+
+				if (
+#if LWIP_IPV6_MLD
+						netif_mld6_data(netif)
+#endif
+#if LWIP_IGMP
+						|| netif_igmp_data(netif)
+#endif
+#if LWIP_AUTOIP
+						|| netif_autoip_data(netif)
+#endif
+					)
+				{
+					active_flag = 1;
+					break;
+				}
+
+			}
+			if (!active_flag)
+			{
+				NET_DBG("stop fast timer!");
+				prvlwip.fast_timer_active = 0;
+				luat_stop_rtos_timer(prvlwip.fast_timer);
+			}
+
 			break;
 		case EV_LWIP_SOCKET_CONNECT:
 			break;
 		case EV_LWIP_SOCKET_CLOSE:
 			break;
+		case EV_LWIP_REQUIRE_DHCP:
+#if LWIP_DHCP
+			dhcp_start(netif);
+			if (!prvlwip.dhcp_timer_active)
+			{
+				prvlwip.dhcp_timer_active = 1;
+				luat_start_rtos_timer(prvlwip.dhcp_timer, DHCP_FINE_TIMER_MSECS, 1);
+			}
+
+#endif
+			break;
 		case EV_LWIP_NETIF_LINK_STATE:
+			break;
+		case EV_LWIP_MLD6_ON_OFF:
+#if LWIP_IPV6_MLD
+			if (event.Param1)
+			{
+				mld6_joingroup_netif(netif, event.Param2);
+				if (!prvlwip.fast_timer_active)
+				{
+					prvlwip.fast_timer_active = 1;
+					luat_start_rtos_timer(prvlwip.fast_timer, 100, 1);
+				}
+			}
+			else
+			{
+				mld6_stop(netif);
+			}
+#endif
 			break;
 		}
 	}

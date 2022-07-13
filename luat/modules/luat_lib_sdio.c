@@ -110,7 +110,7 @@ static int l_sdio_sd_mount(lua_State *L) {
 
 /*
 卸载SD卡(视硬件情况, 不一定支持)
-@api sdio.sd_unmount(id, path)
+@api sdio.sd_umount(id, path)
 @int sdio总线id
 @string 挂载路径, 默认"/sd", 不允许以"/"结尾
 @return bool 挂载成功返回true,否则返回false

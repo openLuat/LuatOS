@@ -83,7 +83,7 @@
 #define LWIP_DHCP_AUTOIP_COOP_TRIES     9
 #define LWIP_MIB2_CALLBACKS             0
 #define LWIP_MULTICAST_TX_OPTIONS       ((LWIP_IGMP || LWIP_IPV6_MLD) && (LWIP_UDP || LWIP_RAW))
-#define LWIP_IGMP                       1
+#define LWIP_IGMP                       0
 #define LWIP_DNS                        1
 #define DNS_TABLE_SIZE                  16	// dns最大记录数
 #define DNS_MAX_NAME_LENGTH             256
@@ -249,7 +249,7 @@
 #define LWIP_ND6_ALLOW_RA_UPDATES       1
 #define LWIP_ND6_TCP_REACHABILITY_HINTS 1
 #define LWIP_ND6_RDNSS_MAX_DNS_SERVERS  0
-#define LWIP_IPV6_DHCP6               0
+#define LWIP_IPV6_DHCP6              0
 #define LWIP_IPV6_DHCP6_STATEFUL        0
 #define LWIP_IPV6_DHCP6_STATELESS       LWIP_IPV6_DHCP6
 #define LWIP_DHCP6_GET_NTP_SRV          0

@@ -98,31 +98,31 @@ static int network_base_tx(network_ctrl_t *ctrl, const uint8_t *data, uint32_t l
 	return result;
 }
 
-static int32_t tls_shorttimeout(void *data, void *param)
+static LUAT_RT_RET_TYPE tls_shorttimeout(LUAT_RT_CB_PARAM)
 {
 	network_ctrl_t *ctrl = (network_ctrl_t *)param;
 	if (!ctrl->tls_mode)
 	{
 		platform_stop_timer(ctrl->tls_long_timer);
-		return 0;
+		return LUAT_RT_RET;
 	}
 	if (0 == ctrl->tls_timer_state)
 	{
 		ctrl->tls_timer_state = 1;
 	}
-	return 0;
+	return LUAT_RT_RET;
 }
 
-static int32_t tls_longtimeout(void *data, void *param)
+static LUAT_RT_RET_TYPE tls_longtimeout(LUAT_RT_CB_PARAM)
 {
 	network_ctrl_t *ctrl = (network_ctrl_t *)param;
 	platform_stop_timer(ctrl->tls_short_timer);
 	if (!ctrl->tls_mode)
 	{
-		return 0;
+		return LUAT_RT_RET;
 	}
 	ctrl->tls_timer_state = 2;
-	return 0;
+	return LUAT_RT_RET;
 }
 
 static void tls_settimer( void *data, uint32_t int_ms, uint32_t fin_ms )
@@ -794,10 +794,10 @@ static int32_t network_default_socket_callback(void *data, void *param)
 	return 0;
 }
 
-static int32_t network_default_timer_callback(void *data, void *param)
+static LUAT_RT_RET_TYPE network_default_timer_callback(LUAT_RT_CB_PARAM)
 {
 	platform_send_event(param, EV_NW_TIMEOUT, 0, 0, 0);
-	return 0;
+	return LUAT_RT_RET;
 }
 
 int network_get_last_register_adapter(void)

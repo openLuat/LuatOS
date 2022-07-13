@@ -2,7 +2,21 @@
 #define LUAT_RTOS_H
 
 #include "luat_base.h"
+//定时器回调函数需要定义成 LUAT_RT_RET_TYPE fun_name(LUAT_RT_CB_PARAM)
+//定时器回调函数退出时需要， return LUAT_RT_RET;
+#ifndef LUAT_RT_RET_TYPE
+#define LUAT_RT_RET_TYPE	void
+#endif
 
+#ifndef LUAT_RT_RET
+#define LUAT_RT_RET
+#endif
+
+#ifndef LUAT_RT_CB_PARAM
+#define LUAT_RT_CB_PARAM	void
+//#define LUAT_RT_CB_PARAM	void *param
+//#define LUAT_RT_CB_PARAM void *pdata, void *param
+#endif
 /* ----------------------------------- thread ----------------------------------- */
 typedef int (*thread_entry) (void*);
 typedef void (*task_entry) (void*);

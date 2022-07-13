@@ -444,8 +444,10 @@ sys_timeouts_sleeptime(void)
 
 #else /* LWIP_TIMERS && !LWIP_TIMERS_CUSTOM */
 /* Satisfy the TCP code which calls this function */
+#ifndef __USER_CODE__
 void
 tcp_timer_needed(void)
 {
 }
+#endif
 #endif /* LWIP_TIMERS && !LWIP_TIMERS_CUSTOM */

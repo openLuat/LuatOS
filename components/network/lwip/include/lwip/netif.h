@@ -130,6 +130,9 @@ enum lwip_internal_netif_client_data_index
 #if LWIP_IPV6_MLD
    LWIP_NETIF_CLIENT_DATA_INDEX_MLD6,
 #endif
+#ifdef __USER_CODE__
+   LWIP_NETIF_CLIENT_DATA_INDEX_USER,
+#endif
 #endif /* LWIP_IPV6 */
    LWIP_NETIF_CLIENT_DATA_INDEX_MAX
 };

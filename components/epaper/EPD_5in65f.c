@@ -73,12 +73,30 @@ static void EPD_5IN65F_SendData(UBYTE Data)
 
 static void EPD_5IN65F_BusyHigh(void)// If BUSYN=0 then waiting
 {
-    while(!(DEV_Digital_Read(EPD_BUSY_PIN)));
+    unsigned char count = 100;
+    while(!(DEV_Digital_Read(EPD_BUSY_PIN))){
+        if(!(count--))
+        {
+            Debug("error: e-Paper busy timeout!!!\r\n");
+            break;
+        }
+        else
+            DEV_Delay_ms(100);
+    }
 }
 
 static void EPD_5IN65F_BusyLow(void)// If BUSYN=1 then waiting
 {
-    while(DEV_Digital_Read(EPD_BUSY_PIN));
+    unsigned char count = 100;
+    while(DEV_Digital_Read(EPD_BUSY_PIN)){
+        if(!(count--))
+        {
+            Debug("error: e-Paper busy timeout!!!\r\n");
+            break;
+        }
+        else
+            DEV_Delay_ms(100);
+    }
 }
 
 /******************************************************************************

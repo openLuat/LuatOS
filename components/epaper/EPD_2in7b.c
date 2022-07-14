@@ -190,9 +190,16 @@ parameter:
 ******************************************************************************/
 static void EPD_2IN7B_ReadBusy(void)
 {
+    unsigned char count = 100;
     Debug("e-Paper busy\r\n");
     while(DEV_Digital_Read(EPD_BUSY_PIN) == 0) {      //0: busy, 1: idle
-        DEV_Delay_ms(100);
+        if(!(count--))
+        {
+            Debug("error: e-Paper busy timeout!!!\r\n");
+            break;
+        }
+        else
+            DEV_Delay_ms(100);
     }    
     Debug("e-Paper busy release\r\n");
 }

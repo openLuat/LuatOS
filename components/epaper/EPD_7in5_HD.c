@@ -77,9 +77,16 @@ parameter:
 ******************************************************************************/
 static void EPD_7IN5_HD_WaitUntilIdle(void)
 {
+    unsigned char count = 100;
     Debug("e-Paper busy\r\n");
     do{
-        DEV_Delay_ms(10);
+        if(!(count--))
+        {
+            Debug("error: e-Paper busy timeout!!!\r\n");
+            break;
+        }
+        else
+            DEV_Delay_ms(100);
     }while(DEV_Digital_Read(EPD_BUSY_PIN) == 1);   
     DEV_Delay_ms(200);      
     Debug("e-Paper busy release\r\n");

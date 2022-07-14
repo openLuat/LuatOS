@@ -133,10 +133,18 @@ static void EPD_3IN7_SendData(UBYTE Data)
 
 static void EPD_3IN7_ReadBusy_HIGH(void)
 {
+    unsigned char count = 100;
     Debug("e-Paper busy\r\n");
     UBYTE busy;
     do {
         busy = DEV_Digital_Read(EPD_BUSY_PIN);
+        if(!(count--))
+        {
+            Debug("error: e-Paper busy timeout!!!\r\n");
+            break;
+        }
+        else
+            DEV_Delay_ms(100);
     } while(busy);
     DEV_Delay_ms(200);
     Debug("e-Paper busy release\r\n");

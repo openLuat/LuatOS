@@ -131,12 +131,20 @@ parameter:
 ******************************************************************************/
 void EPD_5IN83BC_ReadBusy(void)
 {
+    unsigned char count = 100;
     UBYTE busy;
     Debug("e-Paper busy\r\n");
     do {
         EPD_5IN83BC_SendCommand(0x71);
         busy = DEV_Digital_Read(EPD_BUSY_PIN);
         busy =!(busy & 0x01);
+        if(!(count--))
+        {
+            Debug("error: e-Paper busy timeout!!!\r\n");
+            break;
+        }
+        else
+            DEV_Delay_ms(100);
     } while(busy);
     Debug("e-Paper busy release\r\n");
 }

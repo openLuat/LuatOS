@@ -29,7 +29,7 @@
 #include "mbedtls/ctr_drbg.h"
 #include "mbedtls/platform_util.h"
 #include "mbedtls/error.h"
-
+#include "mbedtls/platform.h"
 #include <string.h>
 
 #if defined(MBEDTLS_FS_IO)

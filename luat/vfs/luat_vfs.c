@@ -128,12 +128,9 @@ int luat_fs_umount(luat_fs_conf_t *conf) {
     return -1;
 }
 int luat_fs_info(const char* path, luat_fs_info_t *conf) {
-    for (size_t j = 0; j < LUAT_VFS_FILESYSTEM_MOUNT_MAX; j++) {
-        if (vfs.mounted[j].ok == 0)
-            continue;
-        if (strcmp(vfs.mounted[j].prefix, path) == 0) {
-            return vfs.mounted[j].fs->opts.info(vfs.mounted[j].userdata, ((char*)path) + strlen(vfs.mounted[j].prefix), conf);
-        }
+    luat_vfs_mount_t * mf = getmount(path);
+    if (mf != NULL) {
+        return mf->fs->opts.info(mf->userdata, ((char*)path) + strlen(mf->prefix), conf);
     }
     LLOGE("no such mount point %s", path);
     return -1;

@@ -76,10 +76,6 @@ static int l_eink_setup(lua_State *L) {
     econf.dc_pin = luaL_optinteger(L, 5, 9);
     econf.cs_pin = luaL_optinteger(L, 6, 16);
 
-    if (frame_buffer != NULL) {
-        lua_pushboolean(L, 1);
-        return 0;
-    }
     if (lua_type(L, 7) == LUA_TUSERDATA){
         LLOGD("luat_spi_device_send");
         econf.userdata = (luat_spi_device_t*)lua_touserdata(L, 3);
@@ -125,7 +121,8 @@ static int l_eink_setup(lua_State *L) {
             LLOGD("e-Paper init failed");
             return 0;
         }
-        frame_buffer = (unsigned char*)luat_heap_malloc(epd_w * epd_h / 8);
+        if (frame_buffer == NULL)
+            frame_buffer = (unsigned char*)luat_heap_malloc(epd_w * epd_h / 8);
         //   Paint paint;
         Paint_Init(&paint, frame_buffer, epd_w, epd_h);
         Paint_Clear(&paint, UNCOLORED);

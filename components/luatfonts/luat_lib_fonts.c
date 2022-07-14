@@ -177,6 +177,7 @@ static int l_fonts_u8g2_list(lua_State *L) {
         lua_pushstring(L, font->name);
         lua_settable(L, -3);
         index ++;
+        font ++;
     }
     return 1;
 }

@@ -283,30 +283,34 @@ static int l_mlx90640_draw2lcd(lua_State *L) {
     }
 // #if defined(AIR101) || defined(AIR103)
 #if 0
-    float *dst = lua_newuserdata(L, 160*120*sizeof(float));
-    // 插值, 试试air101的dsp函数
-    luat_interpolation(mlx90640To, dst);
+    // float *dst = lua_newuserdata(L, 160*120*sizeof(float));
+    // // 插值, 试试air101的dsp函数
+    // luat_interpolation(mlx90640To, dst);
 
-    for (size_t y = 0; y < 120; y++)
-    {
-        for (size_t x = 0; x < 160; x++)
-        {
-            // int i = y*120 + x;
-            float t = dst[y*120 + x];
-            if (t<MINTEMP) t=MINTEMP;
-            if (t>MAXTEMP) t=MAXTEMP;
+    // for (size_t y = 0; y < 120; y++)
+    // {
+    //     for (size_t x = 0; x < 160; x++)
+    //     {
+    //         // int i = y*120 + x;
+    //         float t = dst[y*120 + x];
+    //         if (t<MINTEMP) t=MINTEMP;
+    //         if (t>MAXTEMP) t=MAXTEMP;
             
-            uint8_t colorIndex = (uint8_t)round(map(t, MINTEMP, MAXTEMP, 0, 255));
-            colorIndex = constrain(colorIndex, 0, 255);
-            line[x] = color_swap(camColors[colorIndex]);
+    //         uint8_t colorIndex = (uint8_t)round(map(t, MINTEMP, MAXTEMP, 0, 255));
+    //         colorIndex = constrain(colorIndex, 0, 255);
+    //         line[x] = color_swap(camColors[colorIndex]);
 
-            // line[x] = camColors[tempto255(dst[i])];
-        }
-        luat_lcd_draw(lcd_conf, 0, y, 159, y, line);
-    }
+    //         // line[x] = camColors[tempto255(dst[i])];
+    //     }
+    //     luat_lcd_draw(lcd_conf, 0, y, 159, y, line);
+    // }
 
-    uint8_t TEST_DATA2[1536]; 
-    uint8_t TEST_DATA[768] ; 
+    // uint8_t TEST_DATA2[1536]; 
+    // uint8_t TEST_DATA[768] ; 
+
+    uint8_t* TEST_DATA = luat_heap_malloc(768);
+    uint8_t* TEST_DATA2 = luat_heap_malloc(1536);
+
     for (size_t i = 0; i < 768; i++){
         float t = mlx90640To[i];
         if (t<MINTEMP) t=MINTEMP;
@@ -361,7 +365,8 @@ static int l_mlx90640_draw2lcd(lua_State *L) {
         }
         luat_lcd_draw(lcd_conf, 0, y, w2-1, y, line);
     }
-
+    luat_heap_free(TEST_DATA);
+    luat_heap_free(TEST_DATA2);
 #else
 
     for (size_t y = 0; y < 24; y++)

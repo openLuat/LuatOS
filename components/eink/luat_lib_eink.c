@@ -396,13 +396,13 @@ static int16_t u8g2_font_draw_glyph(u8g2_t *u8g2, int16_t x, int16_t y, uint16_t
   return dx;
 }
 
-/*
+/**
 设置字体
 @api eink.setFont(font) 
-@userdata 字体.
+@userdata 字体
 @usage
--- 设置为中文字体,对之后的drawStr有效
-eink.setFont(eink.font_opposansm12)
+-- 设置为字体,对之后的print有效
+eink.setFont(eink.font_opposansm12_chinese)
 */
 static int l_eink_set_font(lua_State *L) {
     if (&(paint.luat_eink_u8g2) == NULL) {

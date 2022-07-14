@@ -5,7 +5,6 @@
 @date    2022.07.11
 */
 
-
 #include "luat_base.h"
 #include "luat_malloc.h"
 #include "luat_fs.h"
@@ -22,7 +21,7 @@ typedef struct u8g2_font
     const uint8_t* font;
 }u8g2_font_t;
 
-static u8g2_font_t u8g2_fonts[] = {
+static const u8g2_font_t u8g2_fonts[] = {
 #ifdef USE_U8G2_OPPOSANSM_ENGLISH
     {.name="unifont_t_symbols", .font=u8g2_font_unifont_t_symbols},
     {.name="open_iconic_weather_6x_t", .font=u8g2_font_open_iconic_weather_6x_t},
@@ -83,7 +82,7 @@ end
 */
 static int l_fonts_u8g2_get(lua_State *L) {
     const char* name = luaL_checkstring(L,  1);
-    u8g2_font_t *font = u8g2_fonts;
+    const u8g2_font_t *font = u8g2_fonts;
     while (font->font != NULL) {
         if (!strcmp(name, font->name)) {
             lua_pushlightuserdata(L, font->font);
@@ -170,20 +169,113 @@ if fonts.u8g2_list then
 end
 */
 static int l_fonts_u8g2_list(lua_State *L) {
-    const char* name = luaL_checkstring(L,  1);
-    u8g2_font_t *font = u8g2_fonts;
+    const u8g2_font_t *font = u8g2_fonts;
     lua_createtable(L, 10, 0);
+    int index = 1;
     while (font->font != NULL) {
+        lua_pushinteger(L, index);
         lua_pushstring(L, font->name);
+        lua_settable(L, -3);
+        index ++;
     }
     return 1;
 }
+
+//----------------------------------------------
+//               LVGL 相关
+//----------------------------------------------
+
+#ifdef LUAT_USE_LVGL
+
+#include "lvgl.h"
+#include "lv_font/lv_font.h"
+
+typedef struct lv_font_reg
+{
+    const char* name;
+    lv_font_t* font;
+}lv_font_reg_t;
+
+static const lv_font_reg_t lv_regs[] = {
+#ifdef LV_FONT_MONTSERRAT_14
+    {.name="montserrat_14", .font=&lv_font_montserrat_14},
+#endif
+#ifdef LV_FONT_OPPOSANS_M_8
+    {.name="opposans_m_8", .font=&lv_font_opposans_m_8},
+#endif
+#ifdef LV_FONT_OPPOSANS_M_10
+    {.name="opposans_m_10", .font=&lv_font_opposans_m_10},
+#endif
+#ifdef LV_FONT_OPPOSANS_M_12
+    {.name="opposans_m_12", .font=&lv_font_opposans_m_12},
+#endif
+#ifdef LV_FONT_OPPOSANS_M_14
+    {.name="opposans_m_14", .font=&lv_font_opposans_m_14},
+#endif
+#ifdef LV_FONT_OPPOSANS_M_16
+    {.name="opposans_m_16", .font=&lv_font_opposans_m_16},
+#endif
+#ifdef LV_FONT_OPPOSANS_M_18
+    {.name="opposans_m_18", .font=&lv_font_opposans_m_18},
+#endif
+#ifdef LV_FONT_OPPOSANS_M_20
+    {.name="opposans_m_20", .font=&lv_font_opposans_m_20},
+#endif
+#ifdef LV_FONT_OPPOSANS_M_22
+    {.name="opposans_m_22", .font=&lv_font_opposans_m_22},
+#endif
+#ifdef USE_LVGL_SIMSUN_42
+    {.name="simsun_42", .font=&lv_font_simsun_42},
+#endif
+#ifdef USE_LVGL_SIMSUN_48
+    {.name="simsun_48", &lv_font_simsun_48},
+#endif
+
+#ifdef LUAT_FONTS_CUSTOM_LVGL
+    LUAT_FONTS_CUSTOM_LVGL
+#endif
+    {.name="", .font=NULL},
+};
+
+static int l_fonts_lvgl_get(lua_State *L) {
+    const char* name = luaL_checkstring(L,  1);
+    const lv_font_reg_t *font = lv_regs;
+    while (font->font != NULL) {
+        if (!strcmp(name, font->name)) {
+            lua_pushlightuserdata(L, font->font);
+            return 1;
+        }
+        font ++;
+    }
+    return 0;
+}
+
+static int l_fonts_lvgl_list(lua_State *L) {
+    const lv_font_reg_t *font = lv_regs;
+    lua_createtable(L, 10, 0);
+    int index = 1;
+    while (font->font != NULL) {
+        lua_pushinteger(L, index);
+        lua_pushstring(L, font->name);
+        lua_settable(L, -3);
+        index ++;
+    }
+    return 1;
+}
+
+#endif
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_fonts[] =
 {
     { "u8g2_get" ,       ROREG_FUNC(l_fonts_u8g2_get)},
     { "u8g2_load" ,      ROREG_FUNC(l_fonts_u8g2_load)},
+    { "u8g2_list" ,      ROREG_FUNC(l_fonts_u8g2_list)},
+
+#ifdef LUAT_USE_LVGL
+    { "lvgl_get" ,       ROREG_FUNC(l_fonts_lvgl_get)},
+    { "lvgl_list" ,      ROREG_FUNC(l_fonts_lvgl_list)},
+#endif
 	{ NULL,              ROREG_INT(0)},
 };
 

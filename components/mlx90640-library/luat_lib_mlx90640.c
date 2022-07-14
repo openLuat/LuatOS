@@ -232,28 +232,48 @@ static int l_mlx90640_get_vdd(lua_State *L) {
     return 1;
 }
 
-// 实验性插值
-#if defined(AIR101) || defined(AIR103)
-#include "csky_math.h"
+static int luat_interpolation(uint8_t *src, uint16_t rows,uint16_t cols,uint8_t *dst) {
+    int w1 = cols;
+    int h1 = rows;
+    int w2 = w1*2;
+    int h2 = h1*2;
 
-// src[32][24]
-// dst[160][120] , 即放大25倍
-int luat_interpolation(float *src, float *dst) {
-    csky_bilinear_interp_instance_f32 fif;
-    fif.pData = src;
-    fif.numRows = 24;
-    fif.numCols = 32;
-    for (size_t i = 0; i < 120; i++)
-    {
-        for (size_t j = 0; j < 160; j++)
-        {
-            dst[i*160 + j] = csky_bilinear_interp_f32(&fif, (160.0 -j)/160*32, (120 - i)/120*24);
+    for (size_t y = 0; y < h1; y++){
+        for (size_t x = 0; x < w1; x++){
+            dst[y*2*w2+x*2] = src[y*w1+x];
+            if (x == w1 - 1){
+                dst[y*2*w2+x*2+1] = (uint8_t)(dst[y*2*w2+x*2]*2-dst[y*2*w2+x*2-1]);
+                if (y == h1 - 1){
+                    dst[(y*2+1)*w2+x*2] = (uint8_t)(dst[y*2*w2+x*2]*2-dst[(y*2-1)*w2+x*2]);
+                }else{
+                    dst[(y*2+1)*w2+x*2] = (uint8_t)round((src[y*w1+x]+src[(y+1)*w1+x])/2);
+                }
+            }else{
+                dst[y*2*w2+x*2+1] = (uint8_t)round((src[y*w1+x]+src[y*w1+x+1])/2);
+                if (y == h1 - 1){
+                    dst[(y*2+1)*w2+x*2] = (uint8_t)(dst[y*2*w2+x*2]*2-dst[(y*2-1)*w2+x*2]);
+                }else{
+                    dst[(y*2+1)*w2+x*2] = (uint8_t)round((src[y*w1+x]+src[(y+1)*w1+x])/2);
+                }
+            }
+        }
+    }
+    
+    for (size_t y = 0; y < h1; y++){
+        for (size_t x = 0; x < w1; x++){
+            if ((x == w1 - 1) && (y == h1 - 1)){
+                dst[(y*2+1)*w2+x*2+1] = (uint8_t)round((dst[(y*2+1)*w2+x*2]+dst[y*2*w2+x*2+1])/2);
+            }
+            else if (y == h1 - 1){
+                dst[(y*2+1)*w2+x*2+1] = (uint8_t)round((dst[(y*2+1)*w2+x*2]+dst[(y*2+1)*w2+x*2+2])/2);
+            }
+            else{
+                dst[(y*2+1)*w2+x*2+1] = (uint8_t)round((dst[y*2*w2+x*2+1]+dst[(y*2+2)*w2+x*2+1])/2);
+            }
         }
     }
     return 0;
 }
-
-#endif
 
 /*
 绘制到lcd
@@ -265,8 +285,7 @@ int luat_interpolation(float *src, float *dst) {
 @return bool 成功返回true,否则返回false
 */
 static int l_mlx90640_draw2lcd(lua_State *L) {
-    luat_color_t line[32];
-    // luat_color_t line[64];
+    
     // TODO 还得插值
 
     if (lcd_conf == NULL) {
@@ -281,36 +300,10 @@ static int l_mlx90640_draw2lcd(lua_State *L) {
         LLOGW("lcd_w or lcd_h set error !!!");
         return 0;
     }
-// #if defined(AIR101) || defined(AIR103)
-#if 0
-    // float *dst = lua_newuserdata(L, 160*120*sizeof(float));
-    // // 插值, 试试air101的dsp函数
-    // luat_interpolation(mlx90640To, dst);
 
-    // for (size_t y = 0; y < 120; y++)
-    // {
-    //     for (size_t x = 0; x < 160; x++)
-    //     {
-    //         // int i = y*120 + x;
-    //         float t = dst[y*120 + x];
-    //         if (t<MINTEMP) t=MINTEMP;
-    //         if (t>MAXTEMP) t=MAXTEMP;
-            
-    //         uint8_t colorIndex = (uint8_t)round(map(t, MINTEMP, MAXTEMP, 0, 255));
-    //         colorIndex = constrain(colorIndex, 0, 255);
-    //         line[x] = color_swap(camColors[colorIndex]);
+#if 1
 
-    //         // line[x] = camColors[tempto255(dst[i])];
-    //     }
-    //     luat_lcd_draw(lcd_conf, 0, y, 159, y, line);
-    // }
-
-    // uint8_t TEST_DATA2[1536]; 
-    // uint8_t TEST_DATA[768] ; 
-
-    uint8_t* TEST_DATA = luat_heap_malloc(768);
-    uint8_t* TEST_DATA2 = luat_heap_malloc(1536);
-
+    uint8_t* index_data = luat_heap_malloc(768);
     for (size_t i = 0; i < 768; i++){
         float t = mlx90640To[i];
         if (t<MINTEMP) t=MINTEMP;
@@ -318,55 +311,26 @@ static int l_mlx90640_draw2lcd(lua_State *L) {
         
         uint8_t colorIndex = (uint8_t)round(map(t, MINTEMP, MAXTEMP, 0, 255));
         colorIndex = constrain(colorIndex, 0, 255);
-        TEST_DATA[i] = colorIndex;
+        index_data[i] = colorIndex;
     }
 
-    int w1 = 32;
-    int h1 = 24;
-    int w2 = w1*2;
-    int h2 = h1*2;
+    uint8_t* index_data2 = luat_heap_malloc(48*64);
+    luat_interpolation(index_data, 24,32,index_data2);
+    luat_heap_free(index_data);
 
-    for (size_t y = 0; y < h1; y++){
-        for (size_t x = 0; x < w1; x++){
-            TEST_DATA2[y*2*w2+x*2] = TEST_DATA[y*w1+x];
-            if (x == w1 - 1){
-                TEST_DATA2[y*2*w2+x*2+1] = (uint8_t)(TEST_DATA2[y*2*w2+x*2]*2-TEST_DATA2[y*2*w2+x*2-1]);
-                if (y == h1 - 1){
-                    TEST_DATA2[(y*2+1)*w2+x*2] = (uint8_t)(TEST_DATA2[y*2*w1+x*2]*2-TEST_DATA2[(y*2-1)*w1+x*2]);
-                }else{
-                    TEST_DATA2[(y*2+1)*w2+x*2] = (uint8_t)round((TEST_DATA[y*w1+x]+TEST_DATA[(y+1)*w1+x])/2);
-                }
-            }else{
-                TEST_DATA2[y*2*w2+x*2+1] = (uint8_t)round((TEST_DATA[y*w1+x]+TEST_DATA[y*w1+x+1])/2);
-                if (y == h1 - 1){
-                    TEST_DATA2[(y*2+1)*w2+x*2] = (uint8_t)(TEST_DATA2[y*2*w1+x*2]*2-TEST_DATA2[(y*2-1)*w1+x*2]);
-                }else{
-                    TEST_DATA2[(y*2+1)*w2+x*2] = (uint8_t)round((TEST_DATA[y*w1+x]+TEST_DATA[(y+1)*w1+x])/2);
-                }
-            }
+    uint8_t* index_data3 = luat_heap_malloc(128*96);
+    luat_interpolation(index_data2, 48,64,index_data3);
+    luat_heap_free(index_data2);
+
+    luat_color_t line[128];
+    for (size_t y = 0; y < 96; y++){
+        for (size_t x = 0; x < 128; x++){
+            line[x] = color_swap(camColors[index_data3[y*128 + x]]);
         }
+        luat_lcd_draw(lcd_conf, 0, y, 128-1, y, line);
     }
-
-    for (size_t y = 0; y < h1; y++){
-        for (size_t x = 0; x < w1; x++){
-            if ((x == w1 - 1) && (y == h1 - 1)){
-                TEST_DATA2[(y+1)*2*w2+x*2+1] = (uint8_t)round((TEST_DATA2[(y+1)*2*w2+x*2]+TEST_DATA2[y*2*w2+x*2+1])/2);
-            }else if (y == h1 - 1){
-                TEST_DATA2[(y+1)*2*w2+x*2+1] = (uint8_t)round((TEST_DATA2[(y+1)*2*w2+x*2]+TEST_DATA2[(y+1)*2*w2+x*2+2])/2);
-            }else{
-                TEST_DATA2[(y+1)*2*w2+x*2+1] = (uint8_t)round((TEST_DATA2[y*2*w2+x*2+1]+TEST_DATA2[(y+2)*2*w2+x*2+1])/2);
-            }
-        }
-    }
-
-    for (size_t y = 0; y < h2; y++){
-        for (size_t x = 0; x < w2; x++){
-            line[x] = color_swap(camColors[TEST_DATA2[y*w2 + x]]);
-        }
-        luat_lcd_draw(lcd_conf, 0, y, w2-1, y, line);
-    }
-    luat_heap_free(TEST_DATA);
-    luat_heap_free(TEST_DATA2);
+    
+    luat_heap_free(index_data3);
 #else
 
     for (size_t y = 0; y < 24; y++)

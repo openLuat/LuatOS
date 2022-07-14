@@ -111,7 +111,6 @@ static int l_mlx90640_init(lua_State *L){
     mlx90640_refresh_rate = luaL_optinteger(L, 3 , 3);
     lcd_conf = luat_lcd_get_default();
     MLX90640_I2CInit();
-    // luat_timer_mdelay(50);
     MLX90640_SetRefreshRate(MLX90640_ADDR, mlx90640_refresh_rate);
     MLX90640_SetChessMode(MLX90640_ADDR); 
 	status = MLX90640_DumpEE(MLX90640_ADDR, eeMLX90640);
@@ -124,8 +123,8 @@ static int l_mlx90640_init(lua_State *L){
         LLOGW("Parameter extraction failed with error code:%d",status);
         return 0;
     }
-    //初始化后此处先读两帧，去掉初始化后一些错误数据
-    for (size_t i = 0; i < 2; i++){
+    //初始化后此处先读帧,去掉初始化后一些错误数据
+    for (size_t i = 0; i < 3; i++){
         int status = MLX90640_GetFrameData(MLX90640_ADDR, frame);
         if (status < 0){
             LLOGD("GetFrame Error: %d",status);
@@ -266,8 +265,8 @@ int luat_interpolation(float *src, float *dst) {
 @return bool 成功返回true,否则返回false
 */
 static int l_mlx90640_draw2lcd(lua_State *L) {
-    // luat_color_t line[32];
-    luat_color_t line[320];
+    luat_color_t line[32];
+    // luat_color_t line[64];
     // TODO 还得插值
 
     if (lcd_conf == NULL) {
@@ -292,13 +291,80 @@ static int l_mlx90640_draw2lcd(lua_State *L) {
     {
         for (size_t x = 0; x < 160; x++)
         {
-            int i = y*120 + x;
-            line[x] = camColors[tempto255(dst[i])];
+            // int i = y*120 + x;
+            float t = dst[y*120 + x];
+            if (t<MINTEMP) t=MINTEMP;
+            if (t>MAXTEMP) t=MAXTEMP;
+            
+            uint8_t colorIndex = (uint8_t)round(map(t, MINTEMP, MAXTEMP, 0, 255));
+            colorIndex = constrain(colorIndex, 0, 255);
+            line[x] = color_swap(camColors[colorIndex]);
+
+            // line[x] = camColors[tempto255(dst[i])];
         }
         luat_lcd_draw(lcd_conf, 0, y, 159, y, line);
     }
+
+    uint8_t TEST_DATA2[1536]; 
+    uint8_t TEST_DATA[768] ; 
+    for (size_t i = 0; i < 768; i++){
+        float t = mlx90640To[i];
+        if (t<MINTEMP) t=MINTEMP;
+        if (t>MAXTEMP) t=MAXTEMP;
+        
+        uint8_t colorIndex = (uint8_t)round(map(t, MINTEMP, MAXTEMP, 0, 255));
+        colorIndex = constrain(colorIndex, 0, 255);
+        TEST_DATA[i] = colorIndex;
+    }
+
+    int w1 = 32;
+    int h1 = 24;
+    int w2 = w1*2;
+    int h2 = h1*2;
+
+    for (size_t y = 0; y < h1; y++){
+        for (size_t x = 0; x < w1; x++){
+            TEST_DATA2[y*2*w2+x*2] = TEST_DATA[y*w1+x];
+            if (x == w1 - 1){
+                TEST_DATA2[y*2*w2+x*2+1] = (uint8_t)(TEST_DATA2[y*2*w2+x*2]*2-TEST_DATA2[y*2*w2+x*2-1]);
+                if (y == h1 - 1){
+                    TEST_DATA2[(y*2+1)*w2+x*2] = (uint8_t)(TEST_DATA2[y*2*w1+x*2]*2-TEST_DATA2[(y*2-1)*w1+x*2]);
+                }else{
+                    TEST_DATA2[(y*2+1)*w2+x*2] = (uint8_t)round((TEST_DATA[y*w1+x]+TEST_DATA[(y+1)*w1+x])/2);
+                }
+            }else{
+                TEST_DATA2[y*2*w2+x*2+1] = (uint8_t)round((TEST_DATA[y*w1+x]+TEST_DATA[y*w1+x+1])/2);
+                if (y == h1 - 1){
+                    TEST_DATA2[(y*2+1)*w2+x*2] = (uint8_t)(TEST_DATA2[y*2*w1+x*2]*2-TEST_DATA2[(y*2-1)*w1+x*2]);
+                }else{
+                    TEST_DATA2[(y*2+1)*w2+x*2] = (uint8_t)round((TEST_DATA[y*w1+x]+TEST_DATA[(y+1)*w1+x])/2);
+                }
+            }
+        }
+    }
+
+    for (size_t y = 0; y < h1; y++){
+        for (size_t x = 0; x < w1; x++){
+            if ((x == w1 - 1) && (y == h1 - 1)){
+                TEST_DATA2[(y+1)*2*w2+x*2+1] = (uint8_t)round((TEST_DATA2[(y+1)*2*w2+x*2]+TEST_DATA2[y*2*w2+x*2+1])/2);
+            }else if (y == h1 - 1){
+                TEST_DATA2[(y+1)*2*w2+x*2+1] = (uint8_t)round((TEST_DATA2[(y+1)*2*w2+x*2]+TEST_DATA2[(y+1)*2*w2+x*2+2])/2);
+            }else{
+                TEST_DATA2[(y+1)*2*w2+x*2+1] = (uint8_t)round((TEST_DATA2[y*2*w2+x*2+1]+TEST_DATA2[(y+2)*2*w2+x*2+1])/2);
+            }
+        }
+    }
+
+    for (size_t y = 0; y < h2; y++){
+        for (size_t x = 0; x < w2; x++){
+            line[x] = color_swap(camColors[TEST_DATA2[y*w2 + x]]);
+        }
+        luat_lcd_draw(lcd_conf, 0, y, w2-1, y, line);
+    }
+
 #else
-    for (size_t y = 0; y < 768/32; y++)
+
+    for (size_t y = 0; y < 24; y++)
     {
         for (size_t x = 0; x < 32; x++)
         {

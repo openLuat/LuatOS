@@ -77,7 +77,6 @@ static void EPD_5IN65F_BusyHigh(void)// If BUSYN=0 then waiting
     while(!(DEV_Digital_Read(EPD_BUSY_PIN))){
         if(!(count--))
         {
-            Debug("error: e-Paper busy timeout!!!\r\n");
             break;
         }
         else
@@ -91,7 +90,6 @@ static void EPD_5IN65F_BusyLow(void)// If BUSYN=1 then waiting
     while(DEV_Digital_Read(EPD_BUSY_PIN)){
         if(!(count--))
         {
-            Debug("error: e-Paper busy timeout!!!\r\n");
             break;
         }
         else

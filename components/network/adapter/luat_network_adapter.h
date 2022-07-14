@@ -147,6 +147,7 @@ typedef struct
 	uint64_t ack_size;
 	uint64_t tag;
 #ifdef LUAT_USE_TLS
+	//SSL相关数据均为动态生成的，需要在close的时候释放
     mbedtls_ssl_context *ssl;          /**< mbed TLS control context. */
     mbedtls_ssl_config *config;          /**< mbed TLS configuration context. */
     mbedtls_x509_crt *ca_cert;
@@ -161,14 +162,14 @@ typedef struct
 	HANDLE tls_long_timer;
 	uint32_t tcp_keep_idle;
 	int socket_id;
-	char *domain_name;
+	char *domain_name;			//动态生成的，需要在close的时候释放
 	uint32_t domain_name_len;
 	luat_ip_addr_t remote_ip;
-	luat_dns_ip_result *dns_ip;
-	luat_ip_addr_t *online_ip;
+	luat_dns_ip_result *dns_ip;	//动态生成的，需要在close的时候释放
+	luat_ip_addr_t *online_ip;	//指向某个ip，无需释放
 	uint16_t remote_port;
 	uint16_t local_port;
-	uint8_t *cache_data;
+	uint8_t *cache_data;	//动态生成的，需要在close的时候释放
 	uint32_t cache_len;
 	int tls_timer_state;
 	uint32_t tcp_timeou_ms;
@@ -197,6 +198,14 @@ typedef struct
 	llist_head rx_head;
 	uint32_t rx_wait_size;
 	uint32_t tx_wait_size;
+#ifdef LUAT_USE_LWIP
+	union {
+		struct ip_pcb  *ip;
+		struct tcp_pcb *tcp;
+		struct udp_pcb *udp;
+		struct raw_pcb *raw;
+	} pcb;
+#endif
 	void *param;
 	uint8_t state;
 	uint8_t is_tcp;

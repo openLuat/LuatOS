@@ -100,9 +100,8 @@
 #define LWIP_NETBUF_RECVINFO            0
 #define LWIP_TCP                        1
 #define TCP_TTL                         (IP_DEFAULT_TTL)
-#define TCP_WND                         (4 * TCP_MSS)
-#define TCP_MAXRTX                      12
-#define TCP_SYNMAXRTX                   6
+
+
 #define TCP_QUEUE_OOSEQ                 (LWIP_TCP)
 #define LWIP_TCP_SACK_OUT               0
 #define LWIP_TCP_MAX_SACK_NUM           4
@@ -319,6 +318,12 @@ typedef uint32_t sys_prot_t;
 
 #define LWIP_RAND() ((uint32_t)luat_lwip_rand())
 #define LWIP_NUM_SOCKETS	16
+
+#define TCP_MAXRTX                      12
+#define TCP_SYNMAXRTX                   6
+#define TCP_SND_BUF                     (8 * TCP_MSS)
+#define TCP_WND                         (32 * TCP_MSS)
+#define MEM_SIZE 						8192 * 3
 #ifdef LWIP_USER_CONFIG_FILE
 #include LWIP_USER_CONFIG_FILE
 #endif

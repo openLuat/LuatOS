@@ -59,6 +59,10 @@ LUAT_RET luat_sem_delete(luat_sem_t* semaphore);
 LUAT_RET luat_sem_take(luat_sem_t* semaphore,uint32_t timeout);
 LUAT_RET luat_sem_release(luat_sem_t* semaphore);
 
+void *luat_mutex_create(void);
+LUAT_RET luat_mutex_lock(void *mutex);
+LUAT_RET luat_mutex_unlock(void *mutex);
+void luat_mutex_release(void *mutex);
 
 /* ----------------------------------- queue ----------------------------------- */
 
@@ -79,4 +83,7 @@ void *luat_create_rtos_timer(void *cb, void *param, void *task_handle);
 int luat_start_rtos_timer(void *timer, uint32_t ms, uint8_t is_repeat);
 void luat_stop_rtos_timer(void *timer);
 void luat_release_rtos_timer(void *timer);
+
+void luat_task_suspend_all(void);
+void luat_task_resume_all(void);
 #endif

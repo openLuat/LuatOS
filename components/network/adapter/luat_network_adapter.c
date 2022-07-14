@@ -9,9 +9,15 @@
 
 typedef struct
 {
+#ifdef LUAT_USE_LWIP
+	network_ctrl_t lwip_ctrl_table[LWIP_NUM_SOCKETS];
+#endif
 	int last_adapter_index;
 	int default_adapter_index;
 	llist_head dns_cache_head;
+#ifdef LUAT_USE_LWIP
+	uint8_t lwip_ctrl_busy[LWIP_NUM_SOCKETS];
+#endif
 	uint8_t is_init;
 }network_info_t;
 
@@ -810,8 +816,17 @@ int network_register_adapter(uint8_t adapter_index, network_adapter_info *info, 
 	prv_adapter_table[adapter_index].opt = info;
 	prv_adapter_table[adapter_index].user_data = user_data;
 	info->socket_set_callback(network_default_socket_callback, &prv_adapter_table[adapter_index], user_data);
-	prv_adapter_table[adapter_index].ctrl_table = zalloc((info->max_socket_num) * sizeof(network_ctrl_t));
-	prv_adapter_table[adapter_index].ctrl_busy = zalloc(info->max_socket_num);
+	if (adapter_index < NW_ADAPTER_INDEX_HW_PS_DEVICE)
+	{
+		prv_adapter_table[adapter_index].ctrl_table = prv_network.lwip_ctrl_busy;
+		prv_adapter_table[adapter_index].ctrl_busy = prv_network.lwip_ctrl_table;
+	}
+	else
+	{
+		prv_adapter_table[adapter_index].ctrl_table = zalloc((info->max_socket_num) * sizeof(network_ctrl_t));
+		prv_adapter_table[adapter_index].ctrl_busy = zalloc(info->max_socket_num);
+	}
+
 	prv_adapter_table[adapter_index].port = 60000;
 	if (!prv_network.is_init)
 	{

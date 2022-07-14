@@ -24,7 +24,7 @@
 #define MEMP_NUM_RAW_PCB                4
 #define MEMP_NUM_UDP_PCB 				16
 #define MEMP_NUM_TCP_PCB 				16
-#define MEMP_NUM_TCP_PCB_LISTEN			16
+#define MEMP_NUM_TCP_PCB_LISTEN			4
 //#define MEMP_NUM_REASSDATA //IP数据包排队数量
 //
 //#define MEMP_NUM_ARP_QUEUE //arp队列数
@@ -317,5 +317,9 @@ typedef uint32_t sys_prot_t;
                                      x, __LINE__, __FILE__); fflush(NULL); abort();} while(0)
 #define LWIP_PLATFORM_DIAG(x) do {DBG_Printf(x);} while(0)
 
-#define LWIP_RAND() (60000)
+#define LWIP_RAND() ((uint32_t)luat_lwip_rand())
+#define LWIP_NUM_SOCKETS	16
+#ifdef LWIP_USER_CONFIG_FILE
+#include LWIP_USER_CONFIG_FILE
+#endif
 #endif /* LWIP_HDR_LWIPOPTS_H */

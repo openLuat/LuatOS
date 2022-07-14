@@ -67,19 +67,7 @@ static const u8g2_font_t u8g2_fonts[] = {
     {.name="", .font=NULL},
 };
 
-/*
-获取u8g2字体
-@api fonts.u8g2_get(name)
-@string 字体名称, 例如opposansm8_chinese unifont_t_symbols
-@return userdata 若字体存放,返回字体指针, 否则返回nil
-@usage
-oppo_8 = fonts.u8g2_get("opposansm8_chinese")
-if oppo_8 then
-    u8g2.SetFont(oppo_8)
-else
-    log.warn("fonts", "no such font opposansm8_chinese")
-end
-*/
+
 static int l_fonts_u8g2_get(lua_State *L) {
     const char* name = luaL_checkstring(L,  1);
     const u8g2_font_t *font = u8g2_fonts;
@@ -93,23 +81,6 @@ static int l_fonts_u8g2_get(lua_State *L) {
     return 0;
 }
 
-/*
-从文件加载u8g2字体
-@api fonts.u8g2_load(path)
-@string 字体路径, 例如 /luadb/abc.bin
-@return userdata 若字体存放,返回字体指针, 否则返回nil
-@usage
--- API新增于2022-07-11
--- 提醒: 若文件位于/luadb下, 不需要占用内存
--- 若文件处于其他路径, 例如tf/sd卡, spi flash, 会自动加载到内存, 消耗lua vm的内存空间
--- 加载后请适当引用, 不必反复加载同一个字体文件
-oppo12 = fonts.u8g2_load("/luadb/oppo12.bin")
-if oppo12 then
-    u8g2.SetFont(oppo12)
-else
-    log.warn("fonts", "no such font file oppo12.bin")
-end
-*/
 static int l_fonts_u8g2_load(lua_State *L) {
     char* ptr = NULL;
     // 从文件加载
@@ -158,16 +129,7 @@ static int l_fonts_u8g2_load(lua_State *L) {
     return 1;
 }
 
-/*
-返回固件支持的u8g2字体列表
-@api fonts.u8g2_list()
-@return table 字体列表
-@usage
--- API新增于2022-07-12
-if fonts.u8g2_list then
-    log.info("fonts", "u8g2", json.encode(fonts.u8g2_list()))
-end
-*/
+
 static int l_fonts_u8g2_list(lua_State *L) {
     const u8g2_font_t *font = u8g2_fonts;
     lua_createtable(L, 10, 0);
@@ -266,17 +228,105 @@ static int l_fonts_lvgl_list(lua_State *L) {
 
 #endif
 
+/*
+返回固件支持的字体列表
+@api fonts.list(tp)
+@string 类型, 默认 u8g2, 还可以是lvgl
+@return table 字体列表
+@usage
+-- API新增于2022-07-12
+if fonts.list then
+    log.info("fonts", "u8g2", json.encode(fonts.list("u8g2")))
+end
+*/
+static int l_fonts_list(lua_State *L) {
+    const char* tp = luaL_optstring(L, 1, "u8g2");
+#ifdef LUAT_USE_LVGL
+    if (!strcmp("lvgl", tp)) {
+        return l_fonts_lvgl_list(L);
+    }
+#endif
+    return l_fonts_u8g2_list(L);
+}
+
+/*
+获取字体
+@api fonts.u8g2_get(name, tp)
+@string 字体名称, 例如opposansm8_chinese unifont_t_symbols
+@string 类型, 默认 u8g2, 还可以是lvgl
+@return userdata 若字体存放,返回字体指针, 否则返回nil
+@usage
+oppo_8 = fonts.get("opposansm8_chinese", "u8g2")
+if oppo_8 then
+    u8g2.SetFont(oppo_8)
+else
+    log.warn("fonts", "no such font opposansm8_chinese")
+end
+-- 若使用云编译的自定义字库, 使用方式如下
+oppo_8 = fonts.get("oppo_bold_8", "u8g2") -- oppo_bold_8 是云编译界面的字库命名
+if oppo_8 then
+    u8g2.SetFont(oppo_8)
+else
+    log.warn("fonts", "no such font opposansm8_chinese")
+end
+*/
+static int l_fonts_get(lua_State *L) {
+    const char* tp = luaL_optstring(L, 2, "u8g2");
+#ifdef LUAT_USE_LVGL
+    if (!strcmp("lvgl", tp)) {
+        return l_fonts_lvgl_get(L);
+    }
+#endif
+    return l_fonts_u8g2_get(L);
+}
+
+/*
+从文件加载字体
+@api fonts.u8g2_load(path, path)
+@string 字体路径, 例如 /luadb/abc.bin
+@string 类型, 默认 u8g2. 也支持lvgl
+@return userdata 若字体存放,返回字体指针, 否则返回nil
+@usage
+-- API新增于2022-07-11
+-- 提醒: 若文件位于/luadb下, 不需要占用内存
+-- 若文件处于其他路径, 例如tf/sd卡, spi flash, 会自动加载到内存, 消耗lua vm的内存空间
+-- 加载后请适当引用, 不必反复加载同一个字体文件
+oppo12 = fonts.load("/luadb/oppo12.bin")
+if oppo12 then
+    u8g2.SetFont(oppo12)
+else
+    log.warn("fonts", "no such font file oppo12.bin")
+end
+*/
+static int l_fonts_load(lua_State *L) {
+    const char* tp = luaL_optstring(L, 2, "u8g2");
+#ifdef LUAT_USE_LVGL
+    if (!strcmp("lvgl", tp)) {
+        const char* fontname = luaL_checkstring(L, 1);
+        lv_font_t* font = lv_font_load(fontname);
+        if (font == NULL) {
+            return 0;
+        }
+        lua_pushlightuserdata(L, font);
+        return 1;
+    }
+#endif
+    return l_fonts_u8g2_get(L);
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_fonts[] =
 {
-    { "u8g2_get" ,       ROREG_FUNC(l_fonts_u8g2_get)},
-    { "u8g2_load" ,      ROREG_FUNC(l_fonts_u8g2_load)},
-    { "u8g2_list" ,      ROREG_FUNC(l_fonts_u8g2_list)},
+    // { "u8g2_get" ,       ROREG_FUNC(l_fonts_u8g2_get)},
+    // { "u8g2_list" ,      ROREG_FUNC(l_fonts_u8g2_list)},
 
 #ifdef LUAT_USE_LVGL
-    { "lvgl_get" ,       ROREG_FUNC(l_fonts_lvgl_get)},
-    { "lvgl_list" ,      ROREG_FUNC(l_fonts_lvgl_list)},
+    // { "lvgl_get" ,       ROREG_FUNC(l_fonts_lvgl_get)},
+    // { "lvgl_list" ,      ROREG_FUNC(l_fonts_lvgl_list)},
 #endif
+    { "get" ,       ROREG_FUNC(l_fonts_get)},
+    { "list" ,      ROREG_FUNC(l_fonts_list)},
+    { "load" ,      ROREG_FUNC(l_fonts_load)},
 	{ NULL,              ROREG_INT(0)},
 };
 

@@ -430,8 +430,18 @@ static int l_eink_set_font(lua_State *L) {
 @int x坐标
 @int y坐标
 @string 字符串
-@int 默认是0
+@int 颜色, 可以是0或者1, 默认是0
 @return nil 无返回值
+@usage
+-- 先设置字体, 然后写字
+-- 可用字体取决于具体的固件, 如果没有你想要的大小,可以云编译一份自定义固件
+-- font_opposansm8_chinese
+-- font_opposansm10_chinese
+-- font_opposansm12_chinese
+-- font_opposansm14_chinese
+-- font_opposansm16_chinese
+eink.setFont(eink.font_opposansm12_chinese)
+eink.print(10, 20, "LuatOS")
 */
 static int l_eink_print(lua_State *L)
 {

@@ -1,13 +1,13 @@
 name: air640w
 
 on:
-  push:
-    paths:
-      - '.github/workflows/air640w.yml'
-      - 'lua/**'
-      - 'luat/**'
-      - 'components/**'
-      - 'bsp/air640w/**'
+  # push:
+  #   paths:
+  #     - '.github/workflows/air640w.yml'
+  #     - 'lua/**'
+  #     - 'luat/**'
+  #     - 'components/**'
+  #     - 'bsp/air640w/**'
   workflow_dispatch:
 
 jobs:

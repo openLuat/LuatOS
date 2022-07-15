@@ -1,7 +1,0 @@
-LuatOS-SoC@Air101 V0003
-1，add:对象方式spi（支持多spi设备，推荐使用，之前spi方式无法同总线挂载多spi设备）
-2，add:sfud库（串行 SPI Flash 通用驱动库）
-3，add:pwm捕获
-4，add:state库（SM状态机）
-5，update:u8g2支持sh1106控制器
-6，update: sdio挂载tf卡增加返回调试信息

@@ -33,8 +33,11 @@ static luat_lcd_conf_t* lcd_conf;
 //high range of the sensor (this will be red on the screen)
 #define MAXTEMP 35
 
+#define RAW_DATA_W 32
+#define RAW_DATA_H 24
+#define RAW_DATA_SIZE RAW_DATA_W*RAW_DATA_H
 static uint16_t eeMLX90640[832];  
-static float mlx90640To[768];
+static float mlx90640To[RAW_DATA_SIZE];
 static uint16_t frame[834];
 static float emissivity=0.95;
 static int status;
@@ -138,33 +141,6 @@ static int l_mlx90640_init(lua_State *L){
         lua_pushboolean(L, 1);
     }
     return 1;
-    // while (1){
-    //     luat_timer_mdelay(10);
-        
-        
-    //     int x,y = 0;
-    //     // uint8_t mul = 3;
-    //     for(int i = 0; i < 768; i++){
-    //         if(i%32 == 0 && i != 0){
-    //             x = 0;
-    //             // y+=mul;
-    //             y++;
-    //             // printf("\n");
-    //         }
-            
-    //         // uint8_t mul_size = mul*mul;
-    //         // uint16_t draw_data[mul_size];
-    //         // for (size_t m = 0; m < mul_size; m++){
-    //         //     draw_data[m] = camColors[tempto255(mlx90640To[i])];
-    //         // }
-    //         // luat_lcd_draw(lcd_conf,x, y, x+mul-1, y+mul-1, draw_data);
-    //         // x+=mul;
-
-    //         luat_lcd_draw(lcd_conf,x, y, x, y, &(camColors[tempto255(mlx90640To[i])]));
-
-    //         x++;
-    //     }
-    // }
 }
 
 /*
@@ -192,8 +168,8 @@ static int l_mlx90640_feed(lua_State *L) {
 @return table 浮点数数据,768个像素对应的温度值
 */
 static int l_mlx90640_raw_data(lua_State *L) {
-    lua_createtable(L, 768, 0);
-    for (size_t i = 0; i < 768; i++)
+    lua_createtable(L, RAW_DATA_SIZE, 0);
+    for (size_t i = 0; i < RAW_DATA_SIZE; i++)
     {
         lua_pushnumber(L, mlx90640To[i]);
         lua_seti(L, -2, i + 1);
@@ -285,9 +261,6 @@ static int luat_interpolation(uint8_t *src, uint16_t rows,uint16_t cols,uint8_t 
 @return bool 成功返回true,否则返回false
 */
 static int l_mlx90640_draw2lcd(lua_State *L) {
-    
-    // TODO 还得插值
-
     if (lcd_conf == NULL) {
         LLOGW("init lcd first!!!");
         return 0;
@@ -300,15 +273,11 @@ static int l_mlx90640_draw2lcd(lua_State *L) {
         LLOGW("lcd_w or lcd_h set error !!!");
         return 0;
     }
-
-#if 1
-
-    uint8_t* index_data = luat_heap_malloc(768);
-    for (size_t i = 0; i < 768; i++){
+    uint8_t* index_data = luat_heap_malloc(RAW_DATA_SIZE);
+    for (size_t i = 0; i < RAW_DATA_SIZE; i++){
         float t = mlx90640To[i];
         if (t<MINTEMP) t=MINTEMP;
         if (t>MAXTEMP) t=MAXTEMP;
-        
         uint8_t colorIndex = (uint8_t)round(map(t, MINTEMP, MAXTEMP, 0, 255));
         colorIndex = constrain(colorIndex, 0, 255);
         index_data[i] = colorIndex;
@@ -327,37 +296,10 @@ static int l_mlx90640_draw2lcd(lua_State *L) {
         for (size_t x = 0; x < 128; x++){
             line[x] = color_swap(camColors[index_data3[y*128 + x]]);
         }
-        luat_lcd_draw(lcd_conf, 0, y, 128-1, y, line);
+        luat_lcd_draw(lcd_conf, lcd_x, lcd_y+y, lcd_x+128-1, lcd_y+y, line);
     }
     
     luat_heap_free(index_data3);
-#else
-
-    for (size_t y = 0; y < 24; y++)
-    {
-        for (size_t x = 0; x < 32; x++)
-        {
-            float t = mlx90640To[y*32 + x];
-            if (t<MINTEMP) t=MINTEMP;
-            if (t>MAXTEMP) t=MAXTEMP;
-            
-            uint8_t colorIndex = (uint8_t)round(map(t, MINTEMP, MAXTEMP, 0, 255));
-            colorIndex = constrain(colorIndex, 0, 255);
-            line[x] = color_swap(camColors[colorIndex]);
-        }
-        luat_lcd_draw(lcd_conf, 0, y, 31, y, line);
-    }
-
-// for (size_t i = 0; i < 256; i++)
-// {
-//     for (size_t m = 0; m < 20; m++)
-//     {
-//         uint16_t color_swap_data = color_swap(camColors[i]);
-//         luat_lcd_draw(lcd_conf, i, 50+m, i, 50+m, &color_swap_data);
-//     }
-// }
-
-#endif
     return 0;
 }
 

@@ -247,6 +247,69 @@ static int l_fdb_kv_clr(lua_State *L) {
 }
 
 
+/**
+kv数据库迭代器
+@api fdb.kv_iter()
+@return userdata 成功返回迭代器指针,否则返回nil
+@usage
+-- 清空
+local iter = fdb.kv_iter()
+if iter then
+    while 1 do
+        local k = fdb.kv_next(iter)
+        if not k then
+            break
+        end
+        log.info("fdb", k, "value", fdb.kv_get(k))
+    end
+end
+ */
+static int l_fdb_kv_iter(lua_State *L) {
+    fdb_kv_iterator_t iter = lua_newuserdata(L, sizeof(struct fdb_kv_iterator));
+    if (iter == NULL) {
+        return 0;
+    }
+    iter = fdb_kv_iterator_init(iter);
+    if (iter != NULL) {
+        return 1;
+    }
+    return 0;
+}
+
+/**
+kv迭代器获取下一个key
+@api fdb.kv_iter(iter)
+@userdata fdb.kv_iter()返回的指针
+@return string 成功返回字符串key值, 否则返回nil
+@usage
+-- 清空
+local iter = fdb.kv_iter()
+if iter then
+    while 1 do
+        local k = fdb.kv_next(iter)
+        if not k then
+            break
+        end
+        log.info("fdb", k, "value", fdb.kv_get(k))
+    end
+end
+ */
+static int l_fdb_kv_next(lua_State *L) {
+    fdb_kv_t cur_kv = NULL;
+    fdb_kv_iterator_t iter = lua_touserdata(L, 1);
+    if (iter == NULL) {
+        return 0;
+    }
+    bool ret = fdb_kv_iterate(&kvdb, iter);
+    if (ret) {
+        cur_kv = &(iter->curr_kv);
+        lua_pushlstring(L, cur_kv->name, cur_kv->name_len);
+        // TODO 把值也返回一下?
+        return 1;
+    }
+    return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_fdb[] =
 {
@@ -256,6 +319,8 @@ static const rotable_Reg_t reg_fdb[] =
     { "kv_get",             ROREG_FUNC(l_fdb_kv_get)},
     { "kv_del",             ROREG_FUNC(l_fdb_kv_del)},
     { "kv_clr",             ROREG_FUNC(l_fdb_kv_clr)},
+    { "kv_iter",            ROREG_FUNC(l_fdb_kv_iter)},
+    { "kv_next",            ROREG_FUNC(l_fdb_kv_next)},
     { NULL,                 ROREG_INT(0)}
 };
 

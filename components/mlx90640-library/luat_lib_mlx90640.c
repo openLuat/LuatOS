@@ -208,12 +208,12 @@ static int l_mlx90640_get_vdd(lua_State *L) {
     return 1;
 }
 
-static int luat_interpolation(uint8_t *src, uint16_t rows,uint16_t cols,uint8_t *dst) {
+static uint8_t * luat_interpolation_double(uint8_t *src, uint16_t rows,uint16_t cols) {
     int w1 = cols;
     int h1 = rows;
     int w2 = w1*2;
     int h2 = h1*2;
-
+    uint8_t* dst = (uint8_t*)luat_heap_malloc(rows*cols*4);
     for (size_t y = 0; y < h1; y++){
         for (size_t x = 0; x < w1; x++){
             dst[y*2*w2+x*2] = src[y*w1+x];
@@ -248,16 +248,44 @@ static int luat_interpolation(uint8_t *src, uint16_t rows,uint16_t cols,uint8_t 
             }
         }
     }
-    return 0;
+    return dst;
 }
+
+static uint8_t * luat_interpolation(uint8_t *src, uint16_t rows,uint16_t cols,uint8_t fold) {
+    uint8_t* index_data_out1 = NULL;
+    uint8_t* index_data_out2 = NULL;
+    for (size_t i = 2; i <= fold; i=i*2){
+        if (i==2){
+            index_data_out1 = luat_interpolation_double(src, rows,cols);
+            luat_heap_free(src);
+        }else{
+            if (index_data_out1 == NULL){
+                index_data_out1 = luat_interpolation_double(index_data_out2, rows,cols);
+                luat_heap_free(index_data_out2);
+                index_data_out2 = NULL;
+            }else{
+                index_data_out2 = luat_interpolation_double(index_data_out1, rows,cols);
+                luat_heap_free(index_data_out1);
+                index_data_out1 = NULL;
+            }
+        }
+        rows = rows*2;
+        cols = cols*2;
+    }
+    if (index_data_out1 != NULL){
+        return index_data_out1;
+    }else{
+        return index_data_out2;
+    }
+}
+
 
 /*
 绘制到lcd
 @api mlx90640.draw2lcd(x, y, w, h)
 @int 左上角x坐标
 @int 左上角y坐标
-@int 显示尺寸的宽,需要是32的倍数, 若大于32会进行插值
-@int 显示尺寸的高,需要是24的倍数, 若大于24会进行插值
+@int 放大倍数,必须为2的指数倍(1,2,4,8,16...)默认为1
 @return bool 成功返回true,否则返回false
 */
 static int l_mlx90640_draw2lcd(lua_State *L) {
@@ -267,12 +295,8 @@ static int l_mlx90640_draw2lcd(lua_State *L) {
     }
     uint16_t lcd_x = luaL_optinteger(L, 1 , 0);
     uint16_t lcd_y = luaL_optinteger(L, 2 , 0);
-    uint16_t lcd_w = luaL_optinteger(L, 3 , 32);
-    uint16_t lcd_h = luaL_optinteger(L, 4 , 24);
-    if (lcd_w%32||lcd_h%24){
-        LLOGW("lcd_w or lcd_h set error !!!");
-        return 0;
-    }
+    uint8_t fold = luaL_optinteger(L, 3 , 1);
+
     uint8_t* index_data = luat_heap_malloc(RAW_DATA_SIZE);
     for (size_t i = 0; i < RAW_DATA_SIZE; i++){
         float t = mlx90640To[i];
@@ -282,24 +306,24 @@ static int l_mlx90640_draw2lcd(lua_State *L) {
         colorIndex = constrain(colorIndex, 0, 255);
         index_data[i] = colorIndex;
     }
+    uint8_t* index_data_out = NULL;
+    if (fold==1){
+        index_data_out = index_data;
+    }else{
+        index_data_out = luat_interpolation(index_data, RAW_DATA_H,RAW_DATA_W,fold);
+    }
+    int index_data_out_w = RAW_DATA_W*fold;
+    int index_data_out_h = RAW_DATA_H*fold;
 
-    uint8_t* index_data2 = luat_heap_malloc(48*64);
-    luat_interpolation(index_data, 24,32,index_data2);
-    luat_heap_free(index_data);
-
-    uint8_t* index_data3 = luat_heap_malloc(128*96);
-    luat_interpolation(index_data2, 48,64,index_data3);
-    luat_heap_free(index_data2);
-
-    luat_color_t line[128];
-    for (size_t y = 0; y < 96; y++){
-        for (size_t x = 0; x < 128; x++){
-            line[x] = color_swap(camColors[index_data3[y*128 + x]]);
+    luat_color_t line[index_data_out_w];
+    for (size_t y = 0; y < index_data_out_h; y++){
+        for (size_t x = 0; x < index_data_out_w; x++){
+            line[x] = color_swap(camColors[index_data_out[y*index_data_out_w + x]]);
         }
-        luat_lcd_draw(lcd_conf, lcd_x, lcd_y+y, lcd_x+128-1, lcd_y+y, line);
+        luat_lcd_draw(lcd_conf, lcd_x, lcd_y+y, lcd_x+index_data_out_w-1, lcd_y+y, line);
     }
     
-    luat_heap_free(index_data3);
+    luat_heap_free(index_data_out);
     return 0;
 }
 

@@ -160,6 +160,7 @@ typedef struct
 	HANDLE timer;
 	HANDLE tls_short_timer;
 	HANDLE tls_long_timer;
+	HANDLE mutex;
 	uint32_t tcp_keep_idle;
 	int socket_id;
 	char *domain_name;			//动态生成的，需要在close的时候释放
@@ -194,6 +195,9 @@ typedef struct
 typedef struct
 {
 	uint64_t tag;
+#ifdef LUAT_USE_LWIP
+	llist_head wait_ack_head;
+#endif
 	llist_head tx_head;
 	llist_head rx_head;
 	uint32_t rx_wait_size;
@@ -205,6 +209,7 @@ typedef struct
 		struct udp_pcb *udp;
 		struct raw_pcb *raw;
 	} pcb;
+	HANDLE mutex;
 #endif
 	void *param;
 	uint8_t state;
@@ -291,6 +296,7 @@ int network_get_last_register_adapter(void);
  */
 int network_register_adapter(uint8_t adapter_index, network_adapter_info *info, void *user_data);
 
+void network_register_set_default(uint8_t adapter_index);
 
 void network_set_dns_server(uint8_t adapter_index, uint8_t server_index, luat_ip_addr_t *ip);
 /*

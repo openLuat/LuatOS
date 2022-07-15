@@ -117,7 +117,7 @@ static int l_network_gc(lua_State *L)
 /*
 在某个适配的网卡上申请一个network_ctrl
 @api    network.create(adapter, cb)
-@int 适配器序号， 只能是network.ETH0，network.STA，network.AP，如果不填，会选择最后一个注册的适配器
+@int 适配器序号， 只能是network.ETH0（外置以太网），network.LWIP_ETH（内置以太网），network.LWIP_STA（内置WIFI的STA），network.LWIP_AP（内置WIFI的AP），network.LWIP_GP（内置蜂窝网络的GPRS），network.USB（外置USB网卡），如果不填，优先选择soc平台自带能上外网的适配器，若仍然没有，选择最后一个注册的适配器
 @string or function string为消息通知的taskName，function则为回调函数，如果固件没有内置sys_wait，则必须是function
 当通过回调函数回调消息时，输入给function一共3个参数：
 param1为申请的network_ctrl

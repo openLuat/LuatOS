@@ -3,6 +3,7 @@
 #include "luat_mcu.h"
 #include "luat_rtos.h"
 #include "luat_network_adapter.h"
+#include "luat_lwip.h"
 #define MAX_SOCK_NUM LWIP_NUM_SOCKETS
 extern LUAT_WEAK void DBG_Printf(const char* format, ...);
 
@@ -14,8 +15,9 @@ enum
 	EV_LWIP_NETIF_INPUT,
 	EV_LWIP_TCP_TIMER,
 	EV_LWIP_COMMON_TIMER,
-	EV_LWIP_SOCKET_DNS,
+	EV_LWIP_SOCKET_CREATE,
 	EV_LWIP_SOCKET_CONNECT,
+	EV_LWIP_SOCKET_DNS,
 	EV_LWIP_SOCKET_LISTEN,
 	EV_LWIP_SOCKET_ACCPET,
 	EV_LWIP_SOCKET_CLOSE,
@@ -28,12 +30,9 @@ enum
 extern u32_t tcp_ticks;
 extern struct tcp_pcb *tcp_active_pcbs;
 extern struct tcp_pcb *tcp_tw_pcbs;
+#define SOCKET_LOCK(ID)		platform_lock_mutex(prvlwip.socket[ID].mutex)
+#define SOCKET_UNLOCK(ID)	platform_unlock_mutex(prvlwip.socket[ID].mutex)
 
-typedef struct
-{
-	struct netif netif;
-	uint8_t network_ready;
-}lwip_netif_ctrl_t;
 
 typedef struct
 {
@@ -50,7 +49,7 @@ typedef struct
 typedef struct
 {
 	socket_ctrl_t socket[MAX_SOCK_NUM];
-	lwip_netif_ctrl_t lwip_netif[NW_ADAPTER_INDEX_LWIP_NETIF_QTY];
+	struct netif *lwip_netif[NW_ADAPTER_INDEX_LWIP_NETIF_QTY];
 	uint64_t last_sleep_ms;
 	uint64_t socket_tag;
 	CBFuncEx_t socket_cb;
@@ -73,11 +72,129 @@ static luat_lwip_ctrl_struct prvlwip;
 
 static void luat_lwip_task(void *param);
 
+static int luat_lwip_del_data_cache(void *p, void *u)
+{
+	socket_data_t *pdata = (socket_data_t *)p;
+	free(pdata->data);
+	return LIST_DEL;
+}
+
+static int luat_lwip_next_data_cache(void *p, void *u)
+{
+	socket_ctrl_t *socket = (socket_ctrl_t *)u;
+	socket_data_t *pdata = (socket_data_t *)p;
+	if (socket->tag != pdata->tag)
+	{
+		NET_DBG("tag error");
+		free(pdata->data);
+		return LIST_DEL;
+	}
+	return LIST_FIND;
+}
+
+
+static socket_data_t * luat_lwip_create_data_node(uint8_t socket_id, uint8_t *data, uint32_t len, luat_ip_addr_t *remote_ip, uint16_t remote_port)
+{
+	socket_data_t *p = (socket_data_t *)malloc(sizeof(socket_data_t));
+	if (p)
+	{
+		memset(p, 0, sizeof(socket_data_t));
+		p->len = len;
+		p->port = remote_port;
+		if (remote_ip)
+		{
+			p->ip = *remote_ip;
+		}
+		else
+		{
+			p->ip.type = 0xff;
+		}
+		p->tag = prvlwip.socket[socket_id].tag;
+		if (data && len)
+		{
+			p->data = malloc(len);
+			if (p->data)
+			{
+				memcpy(p->data, data, len);
+			}
+			else
+			{
+				free(p);
+				return NULL;
+			}
+		}
+	}
+	return p;
+}
+
 static LUAT_RT_RET_TYPE luat_lwip_timer_cb(LUAT_RT_CB_PARAM)
 {
 	luat_send_event_to_task(prvlwip.task_handle, (uint32_t)param, 0, 0, 0);
 	return LUAT_RT_RET;
 }
+
+static void luat_lwip_callback_to_nw_task(uint32_t event_id, uint32_t param1, uint32_t param2, uint32_t param3)
+{
+	luat_network_cb_param_t param = {.tag = 0, .param = prvlwip.user_data};
+	OS_EVENT event = { .ID = event_id, .Param1 = param1, .Param2 = param2, .Param3 = param3};
+	if (event_id > EV_NW_DNS_RESULT)
+	{
+		event.Param3 = prvlwip.socket[param1].param;
+		param.tag = prvlwip.socket[param1].tag;
+	}
+	prvlwip.socket_cb(&event, &param);
+}
+
+
+static err_t luat_lwip_tcp_connected_cb(void *arg, struct tcp_pcb *tpcb, err_t err)
+{
+	int socket_id = (int)arg;
+	luat_lwip_callback_to_nw_task(EV_NW_SOCKET_CONNECT_OK, socket_id, 0, 0);
+	return ERR_OK;
+}
+
+static err_t luat_lwip_tcp_accept_cb(void *arg, struct tcp_pcb *newpcb, err_t err)
+{
+	int socket_id = (int)arg;
+	return ERR_OK;
+}
+
+static err_t luat_lwip_tcp_recv_cb(void *arg, struct tcp_pcb *tpcb,
+                             struct pbuf *p, err_t err)
+{
+	int socket_id = (int)arg;
+	if (p)
+	{
+
+	}
+	if (err || p)
+	{
+
+	}
+	return ERR_OK;
+}
+
+static err_t luat_lwip_tcp_sent_cb(void *arg, struct tcp_pcb *tpcb,
+                              u16_t len)
+{
+	int socket_id = (int)arg;
+	luat_lwip_callback_to_nw_task(EV_NW_SOCKET_TX_OK, socket_id, len, 0);
+	return ERR_OK;
+}
+
+static err_t luat_lwip_tcp_err_cb(void *arg, err_t err)
+{
+	int socket_id = (int)arg;
+	prvlwip.socket[socket_id].pcb.ip = NULL;
+	luat_lwip_callback_to_nw_task(EV_NW_SOCKET_ERROR, socket_id, 0, 0);
+}
+
+static err_t luat_lwip_udp_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *p,
+    const ip_addr_t *addr, u16_t port)
+{
+
+}
+
 
 uint32_t luat_lwip_rand()
 {
@@ -89,6 +206,13 @@ uint32_t luat_lwip_rand()
 void luat_lwip_init(void)
 {
 	luat_thread_t thread;
+	uint8_t i;
+	for(i = 0; i < MAX_SOCK_NUM; i++)
+	{
+		INIT_LLIST_HEAD(&prvlwip.socket[i].wait_ack_head);
+		INIT_LLIST_HEAD(&prvlwip.socket[i].tx_head);
+		INIT_LLIST_HEAD(&prvlwip.socket[i].rx_head);
+	}
 	prvlwip.socket_mutex = platform_create_mutex();
 	prvlwip.tcp_timer = platform_create_timer(luat_lwip_timer_cb, (void *)EV_LWIP_TCP_TIMER, 0);
 	prvlwip.common_timer = platform_create_timer(luat_lwip_timer_cb, (void *)EV_LWIP_COMMON_TIMER, 0);
@@ -105,6 +229,8 @@ void luat_lwip_init(void)
 	lwip_init();
 	platform_start_timer(prvlwip.common_timer, 1000, 1);
 }
+
+
 
 void tcp_timer_needed(void)
 {
@@ -126,7 +252,12 @@ static void luat_lwip_task(void *param)
 	HANDLE cur_task = luat_get_current_task();
 	struct netif *netif;
 	struct dhcp *dhcp;
+	socket_data_t *p;
+	int error;
+	PV_Union uPV;
 	uint8_t active_flag;
+	uint8_t socket_id;
+	uint8_t netif_id;
 	while(1)
 	{
 
@@ -148,11 +279,46 @@ static void luat_lwip_task(void *param)
 			prvlwip.last_sleep_ms = luat_mcu_tick64_ms();
 		}
 		netif = (struct netif *)event.Param3;
+		socket_id = event.Param1;
 
 		switch(event.ID)
 		{
 		case EV_LWIP_SOCKET_TX:
-//			tcp_output(prvlwip.socket[event.Param1].pcb.tcp);
+
+			SOCKET_LOCK(socket_id);
+			if (prvlwip.socket[socket_id].in_use && prvlwip.socket[socket_id].pcb.ip)
+			{
+				p = llist_traversal(&prvlwip.socket[socket_id].tx_head, luat_lwip_next_data_cache, &prvlwip.socket[socket_id]);
+				if (p)
+				{
+					if (prvlwip.socket[socket_id].is_tcp)
+					{
+						if (prvlwip.socket[socket_id].pcb.tcp->snd_buf >= p->len)
+						{
+							tcp_write(prvlwip.socket[socket_id].pcb.tcp, p->data, p->len, 0);
+							llist_del(&p->node);
+							llist_add_tail(&p->node, &prvlwip.socket[socket_id].wait_ack_head);
+						}
+					}
+					else
+					{
+						SOCKET_UNLOCK(socket_id);
+						udp_send(prvlwip.socket[socket_id].pcb.udp, NULL);
+						break;
+					}
+				}
+				SOCKET_UNLOCK(socket_id);
+				tcp_output(prvlwip.socket[socket_id].pcb.tcp);
+
+			}
+			else
+			{
+				NET_DBG("socket %d no in use! %x", socket_id, prvlwip.socket[socket_id].pcb.ip);
+				SOCKET_UNLOCK(socket_id);
+				luat_lwip_callback_to_nw_task(EV_NW_SOCKET_ERROR, socket_id, 0, 0);
+			}
+
+
 			break;
 		case EV_LWIP_NETIF_INPUT:
 			if(netif->input((struct pbuf *)event.Param1, netif) != ERR_OK)
@@ -202,15 +368,111 @@ static void luat_lwip_task(void *param)
 			}
 #endif
 			break;
-		case EV_LWIP_SOCKET_DNS:
+		case EV_LWIP_SOCKET_CREATE:
+			netif_id = event.Param3;
+			if (prvlwip.socket[socket_id].is_tcp)
+			{
+				prvlwip.socket[socket_id].pcb.tcp = tcp_new();
+				prvlwip.socket[socket_id].pcb.tcp->netif_idx = netif_get_index(prvlwip.lwip_netif[netif_id]);
+				prvlwip.socket[socket_id].pcb.tcp->callback_arg = (void *)socket_id;
+				prvlwip.socket[socket_id].pcb.tcp->recv = luat_lwip_tcp_recv_cb;
+				prvlwip.socket[socket_id].pcb.tcp->sent = luat_lwip_tcp_sent_cb;
+				prvlwip.socket[socket_id].pcb.tcp->errf = luat_lwip_tcp_err_cb;
+			}
+			else
+			{
+				prvlwip.socket[socket_id].pcb.udp = udp_new();
+				prvlwip.socket[socket_id].pcb.udp->netif_idx = netif_get_index(prvlwip.lwip_netif[netif_id]);
+				prvlwip.socket[socket_id].pcb.udp->recv_arg = (void *)socket_id;
+				prvlwip.socket[socket_id].pcb.udp->recv = luat_lwip_udp_recv_cb;
+			}
+
 			break;
 		case EV_LWIP_SOCKET_CONNECT:
+			if (!prvlwip.socket[socket_id].in_use || !prvlwip.socket[socket_id].pcb.ip)
+			{
+				NET_DBG("socket %d no in use! %x", socket_id, prvlwip.socket[socket_id].pcb.ip);
+				luat_lwip_callback_to_nw_task(EV_NW_SOCKET_ERROR, socket_id, 0, 0);
+				break;
+			}
+			uPV.u32 = event.Param3;
+			if (prvlwip.socket[socket_id].is_tcp)
+			{
+
+				tcp_bind(prvlwip.socket[socket_id].pcb.tcp, NULL, uPV.u16[0]);
+				error = tcp_connect(prvlwip.socket[socket_id].pcb.tcp, (luat_ip_addr_t *)event.Param2, uPV.u16[1], luat_lwip_tcp_connected_cb);
+				if (error)
+				{
+					luat_lwip_callback_to_nw_task(EV_NW_SOCKET_ERROR, socket_id, 0, 0);
+				}
+			}
+			else
+			{
+				udp_bind(prvlwip.socket[socket_id].pcb.udp, NULL, uPV.u16[0]);
+				error = udp_connect(prvlwip.socket[socket_id].pcb.udp, (luat_ip_addr_t *)event.Param2, uPV.u16[1]);
+				if (error)
+				{
+					luat_lwip_callback_to_nw_task(EV_NW_SOCKET_ERROR, socket_id, 0, 0);
+				}
+				else
+				{
+					luat_lwip_callback_to_nw_task(EV_NW_SOCKET_CONNECT_OK, socket_id, 0, 0);
+				}
+
+			}
+			break;
+		case EV_LWIP_SOCKET_DNS:
+//			dns_gethostbyname(hostname, addr, found, callback_arg)
 			break;
 		case EV_LWIP_SOCKET_LISTEN:
+			SOCKET_LOCK(socket_id);
+			SOCKET_UNLOCK(socket_id);
 			break;
 		case EV_LWIP_SOCKET_ACCPET:
+			SOCKET_LOCK(socket_id);
+			SOCKET_UNLOCK(socket_id);
 			break;
 		case EV_LWIP_SOCKET_CLOSE:
+			if (!prvlwip.socket[socket_id].in_use)
+			{
+				NET_DBG("socket %d no in use!,%x", socket_id);
+				SOCKET_UNLOCK(socket_id);
+				break;
+			}
+			if (prvlwip.socket[socket_id].pcb.ip)
+			{
+				if (prvlwip.socket[socket_id].is_tcp)
+				{
+					error = tcp_close(prvlwip.socket[socket_id].pcb.tcp);
+					if (error)
+					{
+						NET_DBG("tcp close error %d", error);
+					}
+				}
+				else
+				{
+					udp_remove(prvlwip.socket[socket_id].pcb.udp);
+				}
+			}
+			SOCKET_LOCK(socket_id);
+			OS_LOCK;
+			prvlwip.socket[socket_id].state = 0;
+			prvlwip.socket[socket_id].in_use = 0;
+			prvlwip.socket[socket_id].tag = 0;
+			prvlwip.socket[socket_id].param = NULL;
+			prvlwip.socket[socket_id].rx_wait_size = 0;
+			prvlwip.socket[socket_id].tx_wait_size = 0;
+			llist_traversal(&prvlwip.socket[socket_id].wait_ack_head, luat_lwip_del_data_cache, NULL);
+			llist_traversal(&prvlwip.socket[socket_id].tx_head, luat_lwip_del_data_cache, NULL);
+			llist_traversal(&prvlwip.socket[socket_id].rx_head, luat_lwip_del_data_cache, NULL);
+			OS_UNLOCK;
+			SOCKET_UNLOCK(socket_id);
+
+			if (event.Param2)
+			{
+				luat_lwip_callback_to_nw_task(EV_NW_SOCKET_CLOSE_OK, socket_id, 0, 0);
+			}
+
 			break;
 		case EV_LWIP_DHCP_TIMER:
 #if LWIP_DHCP
@@ -309,67 +571,14 @@ static void luat_lwip_task(void *param)
 
 }
 
-static int luat_lwip_del_data_cache(void *p, void *u)
-{
-	socket_data_t *pdata = (socket_data_t *)p;
-	free(pdata->data);
-	return LIST_DEL;
-}
 
-static int luat_lwip_next_data_cache(void *p, void *u)
-{
-	socket_ctrl_t *socket = (socket_ctrl_t *)u;
-	socket_data_t *pdata = (socket_data_t *)p;
-	if (socket->tag != pdata->tag)
-	{
-		DBG("tag error");
-		free(pdata->data);
-		return LIST_DEL;
-	}
-	return LIST_FIND;
-}
-
-
-static socket_data_t * luat_lwip_create_data_node(uint8_t socket_id, uint8_t *data, uint32_t len, luat_ip_addr_t *remote_ip, uint16_t remote_port)
-{
-	socket_data_t *p = (socket_data_t *)malloc(sizeof(socket_data_t));
-	if (p)
-	{
-		memset(p, 0, sizeof(socket_data_t));
-		p->len = len;
-		p->port = remote_port;
-		if (remote_ip)
-		{
-			p->ip = *remote_ip;
-		}
-		else
-		{
-			p->ip.type = 0xff;
-		}
-		p->tag = prvlwip.socket[socket_id].tag;
-		if (data && len)
-		{
-			p->data = malloc(len);
-			if (p->data)
-			{
-				memcpy(p->data, data, len);
-			}
-			else
-			{
-				free(p);
-				return NULL;
-			}
-		}
-	}
-	return p;
-}
 
 static int luat_lwip_check_socket(void *user_data, int socket_id, uint64_t tag)
 {
 	if ((uint32_t)user_data >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) return -1;
 	if (socket_id >= MAX_SOCK_NUM) return -1;
 	if (prvlwip.socket[socket_id].tag != tag) return -1;
-	if (!prvlwip.socket[socket_id].in_use) return -1;
+	if (!prvlwip.socket[socket_id].in_use || prvlwip.socket[socket_id].state) return -1;
 	return 0;
 }
 
@@ -382,7 +591,7 @@ static int luat_lwip_socket_check(int socket_id, uint64_t tag, void *user_data)
 static uint8_t luat_lwip_check_ready(void *user_data)
 {
 	if ((uint32_t)user_data >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) return 0;
-	return prvlwip.lwip_netif[(uint32_t)user_data].network_ready;
+	return (prvlwip.lwip_netif[(uint32_t)user_data]->flags & NETIF_FLAG_LINK_UP);
 }
 
 static int luat_lwip_create_soceket(uint8_t is_tcp, uint64_t *tag, void *param, uint8_t is_ipv6, void *user_data)
@@ -390,7 +599,7 @@ static int luat_lwip_create_soceket(uint8_t is_tcp, uint64_t *tag, void *param, 
 	if ((uint32_t)user_data >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) return -1;
 	int i, socket_id, error;
 	socket_id = -1;
-	platform_lock_mutex(prvlwip.socket_mutex);
+	OS_LOCK;
 	if (!prvlwip.socket[prvlwip.next_socket_index].in_use)
 	{
 		socket_id = prvlwip.next_socket_index;
@@ -412,45 +621,38 @@ static int luat_lwip_create_soceket(uint8_t is_tcp, uint64_t *tag, void *param, 
 	{
 		prvlwip.next_socket_index = 0;
 	}
+
 	if (socket_id >= 0)
 	{
+		LWIP_ASSERT("socket must free before create", !prvlwip.socket[socket_id].pcb.ip);
 		prvlwip.socket_tag++;
 		*tag = prvlwip.socket_tag;
 		prvlwip.socket[socket_id].in_use = 1;
 		prvlwip.socket[socket_id].tag = *tag;
 		prvlwip.socket[socket_id].param = param;
 		prvlwip.socket[socket_id].is_tcp = is_tcp;
+		llist_traversal(&prvlwip.socket[socket_id].wait_ack_head, luat_lwip_del_data_cache, NULL);
+		llist_traversal(&prvlwip.socket[socket_id].tx_head, luat_lwip_del_data_cache, NULL);
 		llist_traversal(&prvlwip.socket[socket_id].rx_head, luat_lwip_del_data_cache, NULL);
-		if (prvlwip.socket[socket_id].pcb.ip)
-		{
-			if (prvlwip.socket[socket_id].is_tcp)
-			{
-				error = tcp_close(prvlwip.socket[socket_id].pcb.tcp);
-				if (error)
-				{
-					NET_DBG("tcp close error %d", error);
-				}
-			}
-			else
-			{
-				udp_remove(prvlwip.socket[socket_id].pcb.udp);
-			}
-			prvlwip.socket[socket_id].pcb.ip = NULL;
-		}
+		OS_UNLOCK;
+		platform_send_event(prvlwip.task_handle, EV_LWIP_SOCKET_CREATE, socket_id, 0, user_data);
 	}
-	platform_unlock_mutex(prvlwip.socket_mutex);
+	else
+	{
+		OS_UNLOCK;
+	}
+
 	return socket_id;
 }
 
 //作为client绑定一个port，并连接remote_ip和remote_port对应的server
-static int luat_lwip_socket_connect_ex(int socket_id, uint64_t tag,  uint16_t local_port, luat_ip_addr_t *remote_ip, uint16_t remote_port, void *user_data)
+static int luat_lwip_socket_connect(int socket_id, uint64_t tag,  uint16_t local_port, luat_ip_addr_t *remote_ip, uint16_t remote_port, void *user_data)
 {
 	int result = luat_lwip_check_socket(user_data, socket_id, tag);
 	if (result) return result;
 	PV_Union uPV;
 	uPV.u16[0] = local_port;
 	uPV.u16[1] = remote_port;
-	//llist_traversal(&prvlwip.socket[socket_id].rx_head, luat_lwip_del_data_cache, NULL);
 	platform_send_event(prvlwip.task_handle, EV_LWIP_SOCKET_CONNECT, socket_id, remote_ip, uPV.u32);
 	return 0;
 }
@@ -459,7 +661,7 @@ static int luat_lwip_socket_listen(int socket_id, uint64_t tag,  uint16_t local_
 {
 	int result = luat_lwip_check_socket(user_data, socket_id, tag);
 	if (result) return result;
-	platform_send_event(prvlwip.task_handle, EV_LWIP_SOCKET_LISTEN, socket_id, local_port, NULL);
+	platform_send_event(prvlwip.task_handle, EV_LWIP_SOCKET_LISTEN, socket_id, local_port, user_data);
 	return 0;
 }
 //作为server接受一个client
@@ -476,52 +678,26 @@ static int luat_lwip_socket_accept(int socket_id, uint64_t tag,  luat_ip_addr_t 
 	return 0;
 }
 //主动断开一个tcp连接，需要走完整个tcp流程，用户需要接收到close ok回调才能确认彻底断开
-static int luat_lwip_socket_disconnect_ex(int socket_id, uint64_t tag,  void *user_data)
+static int luat_lwip_socket_disconnect(int socket_id, uint64_t tag,  void *user_data)
 {
 	int result = luat_lwip_check_socket(user_data, socket_id, tag);
 	if (result) return result;
-	platform_send_event(prvlwip.task_handle, EV_LWIP_SOCKET_CLOSE, socket_id, 0, 0);
+	platform_send_event(prvlwip.task_handle, EV_LWIP_SOCKET_CLOSE, socket_id, 1, user_data);
 	return 0;
 }
 
 static int luat_lwip_socket_force_close(int socket_id, void *user_data)
 {
-	int error;
-	if (prvlwip.socket[socket_id].pcb.ip)
-	{
-		if (prvlwip.socket[socket_id].is_tcp)
-		{
-			error = tcp_close(prvlwip.socket[socket_id].pcb.tcp);
-			if (error)
-			{
-				NET_DBG("tcp close error %d", error);
-			}
-		}
-		else
-		{
-			udp_remove(prvlwip.socket[socket_id].pcb.udp);
-		}
-		prvlwip.socket[socket_id].pcb.ip = NULL;
-	}
-
-
-	if (prvlwip.socket[socket_id].in_use)
-	{
-		prvlwip.socket[socket_id].in_use = 0;
-		prvlwip.socket[socket_id].tag = 0;
-		prvlwip.socket[socket_id].param = NULL;
-		llist_traversal(&prvlwip.socket[socket_id].rx_head, luat_lwip_del_data_cache, NULL);
-	}
+	prvlwip.socket[socket_id].state = 1;
+	platform_send_event(prvlwip.task_handle, EV_LWIP_SOCKET_CLOSE, socket_id, 0, user_data);
 	return 0;
 }
 
-static int luat_lwip_socket_close_ex(int socket_id, uint64_t tag,  void *user_data)
+static int luat_lwip_socket_close(int socket_id, uint64_t tag,  void *user_data)
 {
 	int result = luat_lwip_check_socket(user_data, socket_id, tag);
 	if (result) return result;
-	platform_lock_mutex(prvlwip.socket_mutex);
 	luat_lwip_socket_force_close(socket_id, user_data);
-	platform_unlock_mutex(prvlwip.socket_mutex);
 	return 0;
 
 }
@@ -550,6 +726,7 @@ static int luat_lwip_socket_receive(int socket_id, uint64_t tag,  uint8_t *buf, 
 	uint32_t read_len = 0;
 	if (buf)
 	{
+		SOCKET_LOCK(socket_id);
 		socket_data_t *p = (socket_data_t *)llist_traversal(&prvlwip.socket[socket_id].rx_head, luat_lwip_next_data_cache, &prvlwip.socket[socket_id]);
 
 		if (prvlwip.socket[socket_id].is_tcp)
@@ -568,6 +745,7 @@ static int luat_lwip_socket_receive(int socket_id, uint64_t tag,  uint8_t *buf, 
 		{
 			prvlwip.socket[socket_id].rx_wait_size = 0;
 		}
+		SOCKET_UNLOCK(socket_id);
 	}
 	else
 	{
@@ -580,7 +758,29 @@ static int luat_lwip_socket_send(int socket_id, uint64_t tag, const uint8_t *buf
 {
 	int result = luat_lwip_check_socket(user_data, socket_id, tag);
 	if (result) return result;
-	platform_send_event(prvlwip.task_handle, EV_LWIP_SOCKET_TX, socket_id, buf, len);
+	SOCKET_LOCK(socket_id);
+	if (prvlwip.socket[socket_id].is_tcp)
+	{
+		uint32_t save_len = 0;
+		while((len - save_len) > TCP_BUF_LEN)
+		{
+			socket_data_t *p = luat_lwip_create_data_node(socket_id, &buf[save_len], TCP_BUF_LEN, remote_ip, remote_port);
+			llist_add_tail(&p->node, &prvlwip.socket[socket_id].tx_head);
+			save_len += TCP_BUF_LEN;
+		}
+		if ((len - save_len) > 0)
+		{
+			socket_data_t *p = luat_lwip_create_data_node(socket_id, &buf[save_len], len - save_len, remote_ip, remote_port);
+			llist_add_tail(&p->node, &prvlwip.socket[socket_id].tx_head);
+		}
+	}
+	else
+	{
+		socket_data_t *p = luat_lwip_create_data_node(socket_id, buf, len, remote_ip, remote_port);
+		llist_add_tail(&p->node, &prvlwip.socket[socket_id].tx_head);
+	}
+	SOCKET_UNLOCK(socket_id);
+	platform_send_event(prvlwip.task_handle, EV_LWIP_SOCKET_TX, socket_id, 0, user_data);
 	result = len;
 	return result;
 }
@@ -599,7 +799,6 @@ void luat_lwip_socket_clean(int *vaild_socket_list, uint32_t num, void *user_dat
 		}
 		NET_DBG("%d,%d",i,vaild_socket_list[i]);
 	}
-	platform_lock_mutex(prvlwip.socket_mutex);
 	for(i = 0; i < MAX_SOCK_NUM; i++)
 	{
 		NET_DBG("%d,%d",i,socket_list[i]);
@@ -608,7 +807,6 @@ void luat_lwip_socket_clean(int *vaild_socket_list, uint32_t num, void *user_dat
 			luat_lwip_socket_force_close(i, user_data);
 		}
 	}
-	platform_unlock_mutex(prvlwip.socket_mutex);
 }
 
 static int luat_lwip_getsockopt(int socket_id, uint64_t tag,  int level, int optname, void *optval, uint32_t *optlen, void *user_data)
@@ -647,6 +845,7 @@ static int luat_lwip_get_local_ip_info(luat_ip_addr_t *ip, luat_ip_addr_t *subma
 //		gateway->is_ipv6 = 0;
 //		return 0;
 //	}
+	return 0;
 }
 
 static int luat_lwip_user_cmd(int socket_id, uint64_t tag, uint32_t cmd, uint32_t value, void *user_data)
@@ -659,7 +858,7 @@ static int luat_lwip_dns(const char *domain_name, uint32_t len, void *param, voi
 	if ((uint32_t)user_data >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) return -1;
 	char *prv_domain_name = (char *)malloc(len);
 	memcpy(prv_domain_name, domain_name, len);
-	platform_send_event(prvlwip.task_handle, EV_LWIP_SOCKET_DNS, prv_domain_name, len, param);
+	platform_send_event(prvlwip.task_handle, EV_LWIP_SOCKET_DNS, prv_domain_name, param, user_data);
 	return 0;
 }
 
@@ -697,11 +896,11 @@ static network_adapter_info prv_luat_lwip_adapter =
 {
 		.check_ready = luat_lwip_check_ready,
 		.create_soceket = luat_lwip_create_soceket,
-		.socket_connect = luat_lwip_socket_connect_ex,
+		.socket_connect = luat_lwip_socket_connect,
 		.socket_listen = luat_lwip_socket_listen,
 		.socket_accept = luat_lwip_socket_accept,
-		.socket_disconnect = luat_lwip_socket_disconnect_ex,
-		.socket_close = luat_lwip_socket_close_ex,
+		.socket_disconnect = luat_lwip_socket_disconnect,
+		.socket_close = luat_lwip_socket_close,
 		.socket_force_close = luat_lwip_socket_force_close,
 		.socket_receive = luat_lwip_socket_receive,
 		.socket_send = luat_lwip_socket_send,
@@ -723,3 +922,7 @@ static network_adapter_info prv_luat_lwip_adapter =
 };
 
 
+void luat_lwip_register_adapter(uint8_t adapter_index)
+{
+	network_register_adapter(adapter_index, &prv_luat_lwip_adapter, adapter_index);
+}

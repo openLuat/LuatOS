@@ -11,6 +11,7 @@ typedef struct
 {
 #ifdef LUAT_USE_LWIP
 	network_ctrl_t lwip_ctrl_table[LWIP_NUM_SOCKETS];
+	HANDLE network_mutex;
 #endif
 	int last_adapter_index;
 	int default_adapter_index;
@@ -53,8 +54,8 @@ extern void DBG_HexPrintf(void *Data, unsigned int len);
 #define DBG(x,y...)
 #define DBG_ERR(x,y...)
 #endif
-#define NW_LOCK		OS_LOCK
-#define NW_UNLOCK	OS_UNLOCK
+#define NW_LOCK		platform_lock_mutex(ctrl->mutex)
+#define NW_UNLOCK	platform_unlock_mutex(ctrl->mutex)
 
 #define SOL_SOCKET  0xfff    /* options for socket level */
 #define SO_REUSEADDR   0x0004 /* Allow local address reuse */
@@ -703,10 +704,12 @@ static network_state_fun network_state_fun_list[]=
 static void network_default_statemachine(network_ctrl_t *ctrl, OS_EVENT *event, network_adapter_t *adapter)
 {
 	int result = -1;
+	NW_LOCK;
 	if (ctrl->state > NW_STATE_DISCONNECTING)
 	{
 		ctrl->state = NW_STATE_LINK_OFF;
 		event->Param1 = -1;
+
 		network_force_close_socket(ctrl);
 		event->ID = ctrl->wait_target_state + EV_NW_RESULT_BASE;
 
@@ -716,6 +719,7 @@ static void network_default_statemachine(network_ctrl_t *ctrl, OS_EVENT *event, 
 		result = network_state_fun_list[ctrl->state](ctrl, event, adapter);
 		if (result > 0)
 		{
+			NW_UNLOCK;
 			return ;
 		}
 		event->ID = ctrl->wait_target_state + EV_NW_RESULT_BASE;
@@ -725,6 +729,7 @@ static void network_default_statemachine(network_ctrl_t *ctrl, OS_EVENT *event, 
 	{
 		ctrl->wait_target_state = NW_WAIT_NONE;
 	}
+	NW_UNLOCK;
 	if (ctrl->task_handle)
 	{
 		platform_send_event(ctrl->task_handle, event->ID, event->Param1, event->Param2, event->Param3);
@@ -744,16 +749,16 @@ static int32_t network_default_socket_callback(void *data, void *param)
 	network_adapter_t *adapter =(network_adapter_t *)(cb_param->param);
 	int i;
 	network_ctrl_t *ctrl = (network_ctrl_t *)event->Param3;
-	NW_LOCK;
+
 	if (event->ID > EV_NW_TIMEOUT)
 	{
 		if (ctrl && ((ctrl->tag == cb_param->tag) || (event->ID == EV_NW_DNS_RESULT)))
 		{
 			if (ctrl->auto_mode)
 			{
-				DBG("%d,%d,%d", ctrl->socket_id, ctrl->state, ctrl->wait_target_state);
+				DBG("%d,%d,%d", ctrl->adapter_index, ctrl->socket_id, ctrl->state, ctrl->wait_target_state);
 				network_default_statemachine(ctrl, event, adapter);
-				DBG("%d,%d,%d", ctrl->socket_id, ctrl->state, ctrl->wait_target_state);
+				DBG("%d,%d", ctrl->state, ctrl->wait_target_state);
 			}
 			else if (ctrl->task_handle)
 			{
@@ -779,24 +784,28 @@ static int32_t network_default_socket_callback(void *data, void *param)
 			if (adapter->ctrl_busy[i])
 			{
 				ctrl = &adapter->ctrl_table[i];
-				if (ctrl->auto_mode)
+				if (ctrl->adapter_index == (uint8_t)(event->Param3))
 				{
-					DBG("%x,%d,%d,%d", event->ID, ctrl->socket_id, ctrl->state, ctrl->wait_target_state);
-					network_default_statemachine(ctrl, &temp_event, adapter);
-					DBG("%x,%d,%d,%d", event->ID, ctrl->socket_id, ctrl->state, ctrl->wait_target_state);
+					if (ctrl->auto_mode)
+					{
+						DBG("%x,%d,%d,%d,%d", event->ID, ctrl->adapter_index, ctrl->socket_id, ctrl->state, ctrl->wait_target_state);
+						network_default_statemachine(ctrl, &temp_event, adapter);
+						DBG("%d,%d",ctrl->state, ctrl->wait_target_state);
+					}
+					else if (ctrl->task_handle)
+					{
+						platform_send_event(ctrl->task_handle, event->ID, event->Param1, event->Param2, event->Param3);
+					}
+					else if (ctrl->user_callback)
+					{
+						ctrl->user_callback(&temp_event, ctrl->user_data);
+					}
 				}
-				else if (ctrl->task_handle)
-				{
-					platform_send_event(ctrl->task_handle, event->ID, event->Param1, event->Param2, event->Param3);
-				}
-				else if (ctrl->user_callback)
-				{
-					ctrl->user_callback(&temp_event, ctrl->user_data);
-				}
+
 			}
 		}
 	}
-	NW_UNLOCK;
+
 	return 0;
 }
 
@@ -808,7 +817,13 @@ static LUAT_RT_RET_TYPE network_default_timer_callback(LUAT_RT_CB_PARAM)
 
 int network_get_last_register_adapter(void)
 {
+	if (prv_network.default_adapter_index != -1) return prv_network.default_adapter_index;
 	return prv_network.last_adapter_index;
+}
+
+void network_register_set_default(uint8_t adapter_index)
+{
+	prv_network.default_adapter_index = adapter_index;
 }
 
 int network_register_adapter(uint8_t adapter_index, network_adapter_info *info, void *user_data)
@@ -830,6 +845,7 @@ int network_register_adapter(uint8_t adapter_index, network_adapter_info *info, 
 	prv_adapter_table[adapter_index].port = 60000;
 	if (!prv_network.is_init)
 	{
+		prv_network.network_mutex = platform_create_mutex();
 		INIT_LLIST_HEAD(&prv_network.dns_cache_head);
 		prv_network.is_init = 0;
 	}
@@ -852,7 +868,7 @@ network_ctrl_t *network_alloc_ctrl(uint8_t adapter_index)
 	int i;
 	network_ctrl_t *ctrl = NULL;
 	network_adapter_t *adapter = &prv_adapter_table[adapter_index];
-	NW_LOCK;
+	OS_LOCK;
 	for (i = 0; i < adapter->opt->max_socket_num; i++)
 	{
 		if (!adapter->ctrl_busy[i])
@@ -864,8 +880,8 @@ network_ctrl_t *network_alloc_ctrl(uint8_t adapter_index)
 			break;
 		}
 	}
+	OS_UNLOCK;
 	if (i >= adapter->opt->max_socket_num) {DBG_ERR("adapter no more ctrl!");}
-	NW_UNLOCK;
 	return ctrl;
 }
 
@@ -876,7 +892,8 @@ void network_release_ctrl(network_ctrl_t *ctrl)
 {
 	int i;
 	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
-	NW_LOCK;
+	NW_UNLOCK;
+//	OS_LOCK;
 	for (i = 0; i < adapter->opt->max_socket_num; i++)
 	{
 		if (&adapter->ctrl_table[i] == ctrl)
@@ -896,11 +913,12 @@ void network_release_ctrl(network_ctrl_t *ctrl)
 				free(ctrl->dns_ip);
 				ctrl->dns_ip = NULL;
 			}
+
 			adapter->ctrl_busy[i] = 0;
 			break;
 		}
 	}
-	NW_UNLOCK;
+//	OS_UNLOCK;
 	if (i >= adapter->opt->max_socket_num) {DBG_ERR("adapter index maybe error!, %d, %x", ctrl->adapter_index, ctrl);}
 
 }
@@ -921,6 +939,10 @@ void network_init_ctrl(network_ctrl_t *ctrl, HANDLE task_handle, CBFuncEx_t call
 	{
 		ctrl->timer = platform_create_timer(network_default_timer_callback, task_handle, NULL);
 	}
+	if (!ctrl->mutex)
+	{
+		ctrl->mutex = platform_create_mutex();
+	}
 }
 
 void network_set_base_mode(network_ctrl_t *ctrl, uint8_t is_tcp, uint32_t tcp_timeout_ms, uint8_t keep_alive, uint32_t keep_idle, uint8_t keep_interval, uint8_t keep_cnt)
@@ -939,33 +961,33 @@ int network_set_local_port(network_ctrl_t *ctrl, uint16_t local_port)
 	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
 	if (local_port)
 	{
-		NW_LOCK;
+		OS_LOCK;
 		for (i = 0; i < adapter->opt->max_socket_num; i++)
 		{
 			if (&adapter->ctrl_table[i] != ctrl)
 			{
 				if (adapter->ctrl_table[i].local_port == local_port)
 				{
-					NW_UNLOCK;
+					OS_UNLOCK;
 					return -1;
 				}
 			}
 
 		}
 		ctrl->local_port = local_port;
-		NW_UNLOCK;
+		OS_UNLOCK;
 		return 0;
 	}
 	else
 	{
-		NW_LOCK;
+		OS_LOCK;
 		adapter->port++;
 		if (adapter->port < 60000)
 		{
 			adapter->port = 60000;
 		}
 		ctrl->local_port = adapter->port;
-		NW_UNLOCK;
+		OS_UNLOCK;
 		return 0;
 	}
 }
@@ -1153,7 +1175,7 @@ void network_clean_invaild_socket(uint8_t adapter_index)
 	network_adapter_t *adapter = &prv_adapter_table[adapter_index];
 	network_ctrl_t *ctrl;
 	list = malloc(adapter->opt->max_socket_num * sizeof(int));
-	NW_LOCK;
+	OS_LOCK;
 	for (i = 0; i < adapter->opt->max_socket_num; i++)
 	{
 		ctrl = &adapter->ctrl_table[i];
@@ -1168,8 +1190,8 @@ void network_clean_invaild_socket(uint8_t adapter_index)
 		}
 		DBG("%d,%d", i, list[i]);
 	}
+	OS_UNLOCK;
 	adapter->opt->socket_clean(list, adapter->opt->max_socket_num, adapter->user_data);
-	NW_UNLOCK;
 	free(list);
 }
 

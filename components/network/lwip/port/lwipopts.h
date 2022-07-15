@@ -25,6 +25,7 @@
 #define MEMP_NUM_UDP_PCB 				16
 #define MEMP_NUM_TCP_PCB 				16
 #define MEMP_NUM_TCP_PCB_LISTEN			4
+#define MEMP_NUM_PBUF					128
 //#define MEMP_NUM_REASSDATA //IP数据包排队数量
 //
 //#define MEMP_NUM_ARP_QUEUE //arp队列数
@@ -107,7 +108,6 @@
 #define LWIP_TCP_MAX_SACK_NUM           4
 #define TCP_MSS                         1500
 #define TCP_CALCULATE_EFF_SEND_MSS      1
-#define TCP_SND_BUF                     (2 * TCP_MSS)
 #define TCP_SND_QUEUELEN                ((4 * (TCP_SND_BUF) + (TCP_MSS - 1))/(TCP_MSS))
 #define TCP_SNDLOWAT                    LWIP_MIN(LWIP_MAX(((TCP_SND_BUF)/2), (2 * TCP_MSS) + 1), (TCP_SND_BUF) - 1)
 #define TCP_SNDQUEUELOWAT               LWIP_MAX(((TCP_SND_QUEUELEN)/2), 5)
@@ -311,9 +311,9 @@
 typedef uint32_t sys_prot_t;
 #define LWIP_DEBUG 1
 #define sys_arch_assert(x) do {DBG_Printf("Assertion \"%s\" failed at line %d in %s\n", \
-                                     x, __LINE__, __FILE__); fflush(NULL); abort();} while(0)
+                                     x, __LINE__, __FILE__); luat_panic();} while(0)
 #define LWIP_PLATFORM_ASSERT(x) do {DBG_Printf("Assertion \"%s\" failed at line %d in %s\n", \
-                                     x, __LINE__, __FILE__); fflush(NULL); abort();} while(0)
+                                     x, __LINE__, __FILE__); luat_panic();} while(0)
 #define LWIP_PLATFORM_DIAG(x) do {DBG_Printf(x);} while(0)
 
 #define LWIP_RAND() ((uint32_t)luat_lwip_rand())
@@ -321,8 +321,8 @@ typedef uint32_t sys_prot_t;
 
 #define TCP_MAXRTX                      12
 #define TCP_SYNMAXRTX                   6
-#define TCP_SND_BUF                     (8 * TCP_MSS)
-#define TCP_WND                         (32 * TCP_MSS)
+#define TCP_SND_BUF                     (2 * TCP_MSS)
+#define TCP_WND                         (4 * TCP_MSS)
 #define MEM_SIZE 						8192 * 3
 #ifdef LWIP_USER_CONFIG_FILE
 #include LWIP_USER_CONFIG_FILE

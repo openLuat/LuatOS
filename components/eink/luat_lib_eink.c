@@ -129,6 +129,7 @@ static int l_eink_setup(lua_State *L) {
         Paint_Init(&paint, frame_buffer, epd_w, epd_h);
         Paint_Clear(&paint, UNCOLORED);
     }
+    u8g2_SetFont(&(paint.luat_eink_u8g2), u8g2_font_opposansm8);
     u8g2_SetFontMode(&(paint.luat_eink_u8g2), 0);
     u8g2_SetFontDirection(&(paint.luat_eink_u8g2), 0);
     //LLOGD("epd init complete");

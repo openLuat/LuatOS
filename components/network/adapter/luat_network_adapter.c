@@ -6,7 +6,7 @@
 #include "platform_def.h"
 #include "ctype.h"
 #include "luat_network_adapter.h"
-
+#include "luat_lwip.h"
 typedef struct
 {
 #ifdef LUAT_USE_LWIP
@@ -606,7 +606,11 @@ static int network_state_on_line(network_ctrl_t *ctrl, OS_EVENT *event, network_
 
 			if (ctrl->ack_size == ctrl->tx_size)
 			{
+#ifdef LUAT_USE_LWIP
+				return luat_lwip_check_all_ack(ctrl->socket_id);
+#else
 				return 0;
+#endif
 			}
 		}
 		break;

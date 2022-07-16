@@ -25,7 +25,7 @@
 #define MEMP_NUM_UDP_PCB 				16
 #define MEMP_NUM_TCP_PCB 				16
 #define MEMP_NUM_TCP_PCB_LISTEN			4
-#define MEMP_NUM_PBUF					128
+#define MEMP_NUM_PBUF					256
 //#define MEMP_NUM_REASSDATA //IP数据包排队数量
 //
 //#define MEMP_NUM_ARP_QUEUE //arp队列数

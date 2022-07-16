@@ -42,7 +42,7 @@ typedef struct
 	luat_ip_addr_t ip;
 	uint8_t *data;
 	uint32_t read_pos;
-	uint32_t len;
+	uint16_t len;
 	uint16_t port;
 	uint8_t is_sending;
 }socket_data_t;
@@ -175,16 +175,19 @@ static err_t luat_lwip_tcp_recv_cb(void *arg, struct tcp_pcb *tpcb,
 	{
 		tcp_recved(tpcb, p->tot_len);
 		SOCKET_LOCK(socket_id);
+		socket_data_t *p = luat_lwip_create_data_node(socket_id, p->data, p->len, NULL, 0);
+		llist_add_tail(&p->node, &prvlwip.socket[socket_id].rx_head);
 		SOCKET_UNLOCK(socket_id);
 		pbuf_free(p);
+		luat_lwip_callback_to_nw_task(EV_NW_SOCKET_RX_NEW, socket_id, p->len, 0);
 	}
 	else if (err == ERR_OK)
 	{
-
+		luat_lwip_callback_to_nw_task(EV_NW_SOCKET_REMOTE_CLOSE, socket_id, 0, 0);
 	}
 	else
 	{
-
+		luat_lwip_callback_to_nw_task(EV_NW_SOCKET_ERROR, socket_id, 0, 0);
 	}
 	return ERR_OK;
 }
@@ -193,25 +196,60 @@ static err_t luat_lwip_tcp_sent_cb(void *arg, struct tcp_pcb *tpcb,
                               u16_t len)
 {
 	int socket_id = (int)arg;
+	volatile uint16_t check_len = 0;
+	volatile uint32_t rest_len;
 	socket_data_t *p;
 	SOCKET_LOCK(socket_id);
-
-	p = llist_traversal(&prvlwip.socket[socket_id].tx_head, luat_lwip_next_data_cache, &prvlwip.socket[socket_id]);
-	if (p)
+	while(check_len < len)
 	{
-		if (ERR_OK == tcp_write(prvlwip.socket[socket_id].pcb.tcp, p->data, p->len, 0))
+		if (llist_empty(&prvlwip.socket[socket_id].wait_ack_head))
 		{
+			NET_DBG("!");
+			goto SOCEKT_ERROR;
+		}
+		p = (socket_data_t *)prvlwip.socket[socket_id].wait_ack_head.next;
+		rest_len = p->len - p->read_pos;
+		if ((len - check_len) >= rest_len)
+		{
+			check_len += rest_len;
+			NET_DBG("socket %d, %ubytes ack", socket_id, p->len);
 			llist_del(&p->node);
-			llist_add_tail(&p->node, &prvlwip.socket[socket_id].wait_ack_head);
+			free(p->data);
+			free(p);
+			check_len += rest_len;
 		}
 		else
 		{
-			NET_DBG("tcp buf is full, wait ack and send again");
+			p->read_pos += (len - check_len);
+			check_len = len;
+			NET_DBG("socket %d, all %ubytes ack %ubytes ", socket_id, p->len, p->read_pos);
 		}
 	}
+	while (!llist_empty(&prvlwip.socket[socket_id].tx_head))
+	{
+		p = llist_traversal(&prvlwip.socket[socket_id].tx_head, luat_lwip_next_data_cache, &prvlwip.socket[socket_id]);
+		if (p)
+		{
+			if (ERR_OK == tcp_write(prvlwip.socket[socket_id].pcb.tcp, p->data, p->len, 0))
+			{
+				llist_del(&p->node);
+				llist_add_tail(&p->node, &prvlwip.socket[socket_id].wait_ack_head);
+			}
+			else
+			{
+				NET_DBG("tcp buf is full, wait ack and send again");
+				break;
+			}
+		}
+	}
+
 	SOCKET_UNLOCK(socket_id);
 	tcp_output(prvlwip.socket[socket_id].pcb.tcp);
 	luat_lwip_callback_to_nw_task(EV_NW_SOCKET_TX_OK, socket_id, len, 0);
+	return ERR_OK;
+SOCEKT_ERROR:
+	SOCKET_UNLOCK(socket_id);
+	luat_lwip_callback_to_nw_task(EV_NW_SOCKET_ERROR, socket_id, 0, 0);
 	return ERR_OK;
 }
 
@@ -229,8 +267,11 @@ static err_t luat_lwip_udp_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *
 	if (p)
 	{
 		SOCKET_LOCK(socket_id);
+		socket_data_t *p = luat_lwip_create_data_node(socket_id, p->data, p->len, addr, port);
+		llist_add_tail(&p->node, &prvlwip.socket[socket_id].rx_head);
 		SOCKET_UNLOCK(socket_id);
 		pbuf_free(p);
+		luat_lwip_callback_to_nw_task(EV_NW_SOCKET_RX_NEW, socket_id, p->len, 0);
 	}
 	return ERR_OK;
 }
@@ -360,6 +401,7 @@ void luat_lwip_init(void)
 			prvlwip.dns_client.dns_server[i].type = 0xff;
 		}
 	}
+	prvlwip.dns_udp->local_port = 54;
 }
 
 
@@ -424,19 +466,24 @@ static void luat_lwip_task(void *param)
 			{
 				if (prvlwip.socket[socket_id].is_tcp)
 				{
-					p = llist_traversal(&prvlwip.socket[socket_id].tx_head, luat_lwip_next_data_cache, &prvlwip.socket[socket_id]);
-					if (p)
+					while (!llist_empty(&prvlwip.socket[socket_id].tx_head))
 					{
-						if (ERR_OK == tcp_write(prvlwip.socket[socket_id].pcb.tcp, p->data, p->len, 0))
+						p = llist_traversal(&prvlwip.socket[socket_id].tx_head, luat_lwip_next_data_cache, &prvlwip.socket[socket_id]);
+						if (p)
 						{
-							llist_del(&p->node);
-							llist_add_tail(&p->node, &prvlwip.socket[socket_id].wait_ack_head);
-						}
-						else
-						{
-							NET_DBG("tcp buf is full, wait ack and send again");
+							if (ERR_OK == tcp_write(prvlwip.socket[socket_id].pcb.tcp, p->data, p->len, 0))
+							{
+								llist_del(&p->node);
+								llist_add_tail(&p->node, &prvlwip.socket[socket_id].wait_ack_head);
+							}
+							else
+							{
+								NET_DBG("tcp buf is full, wait ack and send again");
+								break;
+							}
 						}
 					}
+
 					SOCKET_UNLOCK(socket_id);
 					tcp_output(prvlwip.socket[socket_id].pcb.tcp);
 				}
@@ -1062,4 +1109,32 @@ static network_adapter_info prv_luat_lwip_adapter =
 void luat_lwip_register_adapter(uint8_t adapter_index)
 {
 	network_register_adapter(adapter_index, &prv_luat_lwip_adapter, adapter_index);
+}
+
+int luat_lwip_check_all_ack(int socket_id)
+{
+	if (!llist_empty(&prvlwip.socket[socket_id].wait_ack_head))
+	{
+		NET_DBG("socekt %d not all ack", socket_id);
+		return -1;
+	}
+	if (!llist_empty(&prvlwip.socket[socket_id].tx_head))
+	{
+		NET_DBG("socekt %d not all send", socket_id);
+		return -1;
+	}
+	if (prvlwip.socket[socket_id].pcb.tcp->snd_buf != TCP_SND_BUF)
+	{
+		NET_DBG("socket_id %d send buf %ubytes, need %u", prvlwip.socket[socket_id].pcb.tcp->snd_buf, TCP_SND_BUF);
+	}
+	return 0;
+}
+
+void luat_lwip_set_netif(uint8_t netif_id, struct netif *netif, uint8_t is_wlan)
+{
+	prvlwip.lwip_netif[netif_id] = netif;
+	if (is_wlan)
+	{
+		prvlwip.dns_udp->netif_idx = netif_get_index(netif);
+	}
 }

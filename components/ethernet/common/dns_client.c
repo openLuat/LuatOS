@@ -1,6 +1,6 @@
 #include "luat_base.h"
 #ifdef LUAT_USE_DNS
-
+#include "platform_def.h"
 #include "dns_def.h"
 #include "ctype.h"
 #include "luat_network_adapter.h"
@@ -20,7 +20,9 @@
 #define MAX_CHARACTER_NUM_PER_LABEL  63
 #define DNS_TO_BASE (900)
 #define DNS_TRY_MAX	(3)
-
+#ifdef LUAT_USE_LWIP
+#define GetSysTickMS luat_mcu_tick64_ms
+#endif
 
 extern void DBG_Printf(const char* format, ...);
 extern void DBG_HexPrintf(void *Data, unsigned int len);
@@ -39,6 +41,7 @@ typedef struct
 	uint8_t dns_cnt;
 	uint8_t ip_nums;
 	uint8_t is_done;
+	uint8_t is_ipv6;
 }dns_process_t;
 
 typedef struct xDNSMessage
@@ -154,8 +157,13 @@ int32_t dns_get_ip(dns_client_t *client, Buffer_Struct *buf, uint16_t answer_num
 				error = 1;
 				goto NET_DNSGETIP_DONE;
 			}
+#ifdef LUAT_USE_LWIP
+			ip_addr.type = IPADDR_TYPE_V4;
+			ip_addr.u_addr.ip4.addr = BytesGetLe32(buf->Data + buf->Pos);
+#else
 			ip_addr.ipv4 = BytesGetLe32(buf->Data + buf->Pos);
 			ip_addr.is_ipv6 = 0;
+#endif
 			buf->Pos += usTemp;
 			if (ttl > 0)
 			{
@@ -181,8 +189,14 @@ int32_t dns_get_ip(dns_client_t *client, Buffer_Struct *buf, uint16_t answer_num
 				error = 1;
 				goto NET_DNSGETIP_DONE;
 			}
+#ifdef LUAT_USE_LWIP
+			memcpy(ip_addr.u_addr.ip6.addr, buf->Data + buf->Pos, sizeof( uint32_t ) * 4);
+			ip_addr.u_addr.ip6.zone = 0;
+			ip_addr.type = IPADDR_TYPE_V6;
+#else
 			memcpy(ip_addr.ipv6_u8_addr, buf->Data + buf->Pos, sizeof( uint32_t ) * 4);
 			ip_addr.is_ipv6 = 1;
+#endif
 			if (ttl > 0)
 			{
 				if (process && (process->ip_nums < MAX_DNS_IP))
@@ -336,7 +350,8 @@ int32_t dns_make(dns_client_t *client, dns_process_t *process, Buffer_Struct *ou
     } while( *pucByte != 0x00 );
     pucByte++;
     /* Finish off the record. */
-    if (client->dns_server[process->dns_cnt].is_ipv6)
+
+    if (process->is_ipv6)
     {
     	BytesPutBe16(pucByte, dnsTYPE_IPV6);
     }
@@ -411,7 +426,7 @@ static int32_t dns_clear_process(void *pData, void *pParam)
 
 void dns_clear(dns_client_t *client)
 {
-	uint64_t now_time = GetSysTickMS();
+//	uint64_t now_time = GetSysTickMS();
 	llist_traversal(&client->process_head, dns_clear_process, NULL);
 	llist_traversal(&client->require_head, dns_clear_require, NULL);
 }
@@ -525,17 +540,25 @@ NET_DNS_TX:
 					process->ip_nums = 0;
 					process->is_done = 1;
 					llist_traversal(&client->require_head, dns_set_result, process);
+					llist_del(&process->node);
+					free(process);
 					goto NET_DNS_TX;
 				}
 			}
 		}
+#ifdef LUAT_USE_LWIP
+		while(0xff == client->dns_server[process->dns_cnt].type)
+#else
 		while(0xff == client->dns_server[process->dns_cnt].is_ipv6)
+#endif
 		{
 			process->dns_cnt++;
 			if (process->dns_cnt >= MAX_DNS_SERVER)
 			{
 				process->ip_nums = 0;
 				llist_traversal(&client->require_head, dns_set_result, process);
+				llist_del(&process->node);
+				free(process);
 				goto NET_DNS_TX;
 			}
 		}

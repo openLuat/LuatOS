@@ -85,7 +85,7 @@
 #define LWIP_MIB2_CALLBACKS             0
 #define LWIP_MULTICAST_TX_OPTIONS       ((LWIP_IGMP || LWIP_IPV6_MLD) && (LWIP_UDP || LWIP_RAW))
 #define LWIP_IGMP                       0
-#define LWIP_DNS                        1
+#define LWIP_DNS                        0
 #define DNS_TABLE_SIZE                  16	// dns最大记录数
 #define DNS_MAX_NAME_LENGTH             256
 #define DNS_MAX_SERVERS                 4	//最大dns服务数
@@ -203,18 +203,18 @@
 #define MLD6_STATS                      (LWIP_IPV6 && LWIP_IPV6_MLD)
 #define ND6_STATS                       (LWIP_IPV6)
 #define MIB2_STATS                      0
-#define LWIP_CHECKSUM_CTRL_PER_NETIF    1
-#define CHECKSUM_GEN_IP                 1
-#define CHECKSUM_GEN_UDP                1
-#define CHECKSUM_GEN_TCP                1
-#define CHECKSUM_GEN_ICMP               1
-#define CHECKSUM_GEN_ICMP6              1
-#define CHECKSUM_CHECK_IP               1
-#define CHECKSUM_CHECK_UDP              1
-#define CHECKSUM_CHECK_TCP              1
-#define CHECKSUM_CHECK_ICMP             1
-#define CHECKSUM_CHECK_ICMP6            1
-#define LWIP_CHECKSUM_ON_COPY           0
+//#define LWIP_CHECKSUM_CTRL_PER_NETIF    1
+//#define CHECKSUM_GEN_IP                 1
+//#define CHECKSUM_GEN_UDP                1
+//#define CHECKSUM_GEN_TCP                1
+//#define CHECKSUM_GEN_ICMP               1
+//#define CHECKSUM_GEN_ICMP6              1
+//#define CHECKSUM_CHECK_IP               1
+//#define CHECKSUM_CHECK_UDP              1
+//#define CHECKSUM_CHECK_TCP              1
+//#define CHECKSUM_CHECK_ICMP             1
+//#define CHECKSUM_CHECK_ICMP6            1
+//#define LWIP_CHECKSUM_ON_COPY           1
 #define LWIP_IPV6                       1
 #define IPV6_REASS_MAXAGE               60
 #define LWIP_IPV6_SCOPES                (LWIP_IPV6 && !LWIP_SINGLE_NETIF)

@@ -2,6 +2,7 @@
 #include "luat_base.h"
 #include "luat_mcu.h"
 #include "luat_rtos.h"
+#include "dns_def.h"
 #include "luat_network_adapter.h"
 #include "luat_lwip.h"
 #define MAX_SOCK_NUM LWIP_NUM_SOCKETS
@@ -48,6 +49,7 @@ typedef struct
 
 typedef struct
 {
+	dns_client_t dns_client;
 	socket_ctrl_t socket[MAX_SOCK_NUM];
 	struct netif *lwip_netif[NW_ADAPTER_INDEX_LWIP_NETIF_QTY];
 	uint64_t last_sleep_ms;
@@ -55,6 +57,7 @@ typedef struct
 	CBFuncEx_t socket_cb;
 	void *user_data;
 	void *task_handle;
+	struct udp_pcb *dns_udp;
 	HANDLE socket_mutex;
 	HANDLE tcp_timer;//tcp_tmr
 	HANDLE common_timer;//ip_reass_tmr,etharp_tmr,dns_tmr,nd6_tmr,ip6_reass_tmr
@@ -133,6 +136,11 @@ static LUAT_RT_RET_TYPE luat_lwip_timer_cb(LUAT_RT_CB_PARAM)
 	return LUAT_RT_RET;
 }
 
+static int luat_lwip_udp_send(struct udp_pcb *udp, const char *data, uint16_t len)
+{
+
+}
+
 static void luat_lwip_callback_to_nw_task(uint32_t event_id, uint32_t param1, uint32_t param2, uint32_t param3)
 {
 	luat_network_cb_param_t param = {.tag = 0, .param = prvlwip.user_data};
@@ -165,9 +173,16 @@ static err_t luat_lwip_tcp_recv_cb(void *arg, struct tcp_pcb *tpcb,
 	int socket_id = (int)arg;
 	if (p)
 	{
+		tcp_recved(tpcb, p->tot_len);
+		SOCKET_LOCK(socket_id);
+		SOCKET_UNLOCK(socket_id);
+		pbuf_free(p);
+	}
+	else if (err == ERR_OK)
+	{
 
 	}
-	if (err || p)
+	else
 	{
 
 	}
@@ -178,6 +193,24 @@ static err_t luat_lwip_tcp_sent_cb(void *arg, struct tcp_pcb *tpcb,
                               u16_t len)
 {
 	int socket_id = (int)arg;
+	socket_data_t *p;
+	SOCKET_LOCK(socket_id);
+
+	p = llist_traversal(&prvlwip.socket[socket_id].tx_head, luat_lwip_next_data_cache, &prvlwip.socket[socket_id]);
+	if (p)
+	{
+		if (ERR_OK == tcp_write(prvlwip.socket[socket_id].pcb.tcp, p->data, p->len, 0))
+		{
+			llist_del(&p->node);
+			llist_add_tail(&p->node, &prvlwip.socket[socket_id].wait_ack_head);
+		}
+		else
+		{
+			NET_DBG("tcp buf is full, wait ack and send again");
+		}
+	}
+	SOCKET_UNLOCK(socket_id);
+	tcp_output(prvlwip.socket[socket_id].pcb.tcp);
 	luat_lwip_callback_to_nw_task(EV_NW_SOCKET_TX_OK, socket_id, len, 0);
 	return ERR_OK;
 }
@@ -192,9 +225,101 @@ static err_t luat_lwip_tcp_err_cb(void *arg, err_t err)
 static err_t luat_lwip_udp_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *p,
     const ip_addr_t *addr, u16_t port)
 {
-
+	int socket_id = (int)arg;
+	if (p)
+	{
+		SOCKET_LOCK(socket_id);
+		SOCKET_UNLOCK(socket_id);
+		pbuf_free(p);
+	}
+	return ERR_OK;
 }
 
+static int32_t luat_lwip_dns_check_result(void *data, void *param)
+{
+	luat_dns_require_t *require = (luat_dns_require_t *)data;
+	if (require->result != 0)
+	{
+		free(require->uri.Data);
+		require->uri.Data = NULL;
+		if (require->result > 0)
+		{
+			luat_dns_ip_result *ip_result = zalloc(sizeof(luat_dns_ip_result) * require->result);
+			int i;
+			for(i = 0; i < require->result; i++)
+			{
+				ip_result[i] = require->ip_result[i];
+			}
+			luat_lwip_callback_to_nw_task(EV_NW_DNS_RESULT, require->result, ip_result, require->param);
+		}
+		else
+		{
+			luat_lwip_callback_to_nw_task(EV_NW_DNS_RESULT, 0, 0, require->param);
+		}
+
+		return LIST_DEL;
+	}
+	else
+	{
+		return LIST_PASS;
+	}
+}
+
+static err_t luat_lwip_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *p,
+    const ip_addr_t *addr, u16_t port)
+{
+	Buffer_Struct msg_buf;
+	Buffer_Struct tx_msg_buf = {0,0,0};
+	struct pbuf *out_p;
+	int i;
+	if (p)
+	{
+		msg_buf.Data = p->payload;
+		msg_buf.MaxLen = p->len;
+		dns_run(&prvlwip.dns_client, &msg_buf, NULL, &i);
+		llist_traversal(&prvlwip.dns_client.require_head, luat_lwip_dns_check_result, NULL);
+		//if (!prvlwip.socket[SYS_SOCK_ID].tx_wait_size)
+		{
+			dns_run(&prvlwip.dns_client, NULL, &tx_msg_buf, &i);
+			if (tx_msg_buf.Pos)
+			{
+				out_p = pbuf_alloc(PBUF_RAW, tx_msg_buf.Pos, PBUF_ROM);
+				if (out_p)
+				{
+					out_p->payload = tx_msg_buf.Data;
+					udp_sendto(prvlwip.dns_udp, out_p, &prvlwip.dns_client.dns_server[i], DNS_SERVER_PORT);
+					pbuf_free(out_p);
+				}
+				OS_DeInitBuffer(&tx_msg_buf);
+				llist_traversal(&prvlwip.dns_client.require_head, luat_lwip_dns_check_result, NULL);
+			}
+		}
+		pbuf_free(p);
+	}
+	return ERR_OK;
+}
+
+
+
+
+static void luat_lwip_dns_tx_next(Buffer_Struct *tx_msg_buf)
+{
+	int i;
+	struct pbuf *p;
+	dns_run(&prvlwip.dns_client, NULL, tx_msg_buf, &i);
+	if (tx_msg_buf->Pos)
+	{
+		p = pbuf_alloc(PBUF_RAW, tx_msg_buf->Pos, PBUF_ROM);
+		if (p)
+		{
+			p->payload = tx_msg_buf->Data;
+			udp_sendto(prvlwip.dns_udp, p, &prvlwip.dns_client.dns_server[i], DNS_SERVER_PORT);
+			pbuf_free(p);
+		}
+		OS_DeInitBuffer(tx_msg_buf);
+		llist_traversal(&prvlwip.dns_client.require_head, luat_lwip_dns_check_result, NULL);
+	}
+}
 
 uint32_t luat_lwip_rand()
 {
@@ -228,6 +353,13 @@ void luat_lwip_init(void)
 	prvlwip.task_handle = thread.handle;
 	lwip_init();
 	platform_start_timer(prvlwip.common_timer, 1000, 1);
+	for(i = 0; i < MAX_DNS_SERVER; i++)
+	{
+		if (!prvlwip.dns_client.is_static_dns[i])
+		{
+			prvlwip.dns_client.dns_server[i].type = 0xff;
+		}
+	}
 }
 
 
@@ -249,10 +381,12 @@ u32_t sys_now(void)
 static void luat_lwip_task(void *param)
 {
 	OS_EVENT event;
+	Buffer_Struct tx_msg_buf = {0,0,0};
 	HANDLE cur_task = luat_get_current_task();
 	struct netif *netif;
 	struct dhcp *dhcp;
 	socket_data_t *p;
+	struct pbuf *out_p;
 	int error;
 	PV_Union uPV;
 	uint8_t active_flag;
@@ -288,28 +422,50 @@ static void luat_lwip_task(void *param)
 			SOCKET_LOCK(socket_id);
 			if (prvlwip.socket[socket_id].in_use && prvlwip.socket[socket_id].pcb.ip)
 			{
-				p = llist_traversal(&prvlwip.socket[socket_id].tx_head, luat_lwip_next_data_cache, &prvlwip.socket[socket_id]);
-				if (p)
+				if (prvlwip.socket[socket_id].is_tcp)
 				{
-					if (prvlwip.socket[socket_id].is_tcp)
+					p = llist_traversal(&prvlwip.socket[socket_id].tx_head, luat_lwip_next_data_cache, &prvlwip.socket[socket_id]);
+					if (p)
 					{
-						if (prvlwip.socket[socket_id].pcb.tcp->snd_buf >= p->len)
+						if (ERR_OK == tcp_write(prvlwip.socket[socket_id].pcb.tcp, p->data, p->len, 0))
 						{
-							tcp_write(prvlwip.socket[socket_id].pcb.tcp, p->data, p->len, 0);
 							llist_del(&p->node);
 							llist_add_tail(&p->node, &prvlwip.socket[socket_id].wait_ack_head);
 						}
+						else
+						{
+							NET_DBG("tcp buf is full, wait ack and send again");
+						}
 					}
-					else
+					SOCKET_UNLOCK(socket_id);
+					tcp_output(prvlwip.socket[socket_id].pcb.tcp);
+				}
+				else
+				{
+					p = llist_traversal(&prvlwip.socket[socket_id].tx_head, luat_lwip_next_data_cache, &prvlwip.socket[socket_id]);
+					if (p)
 					{
-						SOCKET_UNLOCK(socket_id);
-						udp_send(prvlwip.socket[socket_id].pcb.udp, NULL);
-						break;
+						llist_del(&p->node);
+					}
+					SOCKET_UNLOCK(socket_id);
+					if (p)
+					{
+
+						out_p = pbuf_alloc(PBUF_RAW, p->len, PBUF_ROM);
+						if (out_p)
+						{
+							out_p->payload = p->data;
+							udp_sendto(prvlwip.dns_udp, out_p, &p->ip, p->port);
+							pbuf_free(out_p);
+						}
+						else
+						{
+							NET_DBG("mem err send fail");
+						}
+						free(p->data);
+						free(p);
 					}
 				}
-				SOCKET_UNLOCK(socket_id);
-				tcp_output(prvlwip.socket[socket_id].pcb.tcp);
-
 			}
 			else
 			{
@@ -339,6 +495,9 @@ static void luat_lwip_task(void *param)
 			}
 			break;
 		case EV_LWIP_COMMON_TIMER:
+#ifdef LUAT_USE_DNS
+			luat_lwip_dns_tx_next(&tx_msg_buf);
+#endif
 #if IP_REASSEMBLY
 			ip_reass_tmr();
 #endif
@@ -422,21 +581,17 @@ static void luat_lwip_task(void *param)
 			}
 			break;
 		case EV_LWIP_SOCKET_DNS:
-//			dns_gethostbyname(hostname, addr, found, callback_arg)
 			break;
 		case EV_LWIP_SOCKET_LISTEN:
-			SOCKET_LOCK(socket_id);
-			SOCKET_UNLOCK(socket_id);
+
 			break;
 		case EV_LWIP_SOCKET_ACCPET:
-			SOCKET_LOCK(socket_id);
-			SOCKET_UNLOCK(socket_id);
+
 			break;
 		case EV_LWIP_SOCKET_CLOSE:
 			if (!prvlwip.socket[socket_id].in_use)
 			{
 				NET_DBG("socket %d no in use!,%x", socket_id);
-				SOCKET_UNLOCK(socket_id);
 				break;
 			}
 			if (prvlwip.socket[socket_id].pcb.ip)
@@ -759,26 +914,8 @@ static int luat_lwip_socket_send(int socket_id, uint64_t tag, const uint8_t *buf
 	int result = luat_lwip_check_socket(user_data, socket_id, tag);
 	if (result) return result;
 	SOCKET_LOCK(socket_id);
-	if (prvlwip.socket[socket_id].is_tcp)
-	{
-		uint32_t save_len = 0;
-		while((len - save_len) > TCP_BUF_LEN)
-		{
-			socket_data_t *p = luat_lwip_create_data_node(socket_id, &buf[save_len], TCP_BUF_LEN, remote_ip, remote_port);
-			llist_add_tail(&p->node, &prvlwip.socket[socket_id].tx_head);
-			save_len += TCP_BUF_LEN;
-		}
-		if ((len - save_len) > 0)
-		{
-			socket_data_t *p = luat_lwip_create_data_node(socket_id, &buf[save_len], len - save_len, remote_ip, remote_port);
-			llist_add_tail(&p->node, &prvlwip.socket[socket_id].tx_head);
-		}
-	}
-	else
-	{
-		socket_data_t *p = luat_lwip_create_data_node(socket_id, buf, len, remote_ip, remote_port);
-		llist_add_tail(&p->node, &prvlwip.socket[socket_id].tx_head);
-	}
+	socket_data_t *p = luat_lwip_create_data_node(socket_id, buf, len, remote_ip, remote_port);
+	llist_add_tail(&p->node, &prvlwip.socket[socket_id].tx_head);
 	SOCKET_UNLOCK(socket_id);
 	platform_send_event(prvlwip.task_handle, EV_LWIP_SOCKET_TX, socket_id, 0, user_data);
 	result = len;
@@ -865,9 +1002,9 @@ static int luat_lwip_dns(const char *domain_name, uint32_t len, void *param, voi
 static int luat_lwip_set_dns_server(uint8_t server_index, luat_ip_addr_t *ip, void *user_data)
 {
 	if ((uint32_t)user_data >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) return -1;
-//	if (server_index >= MAX_DNS_SERVER) return -1;
-//	prvlwip.dns_client.dns_server[server_index] = *ip;
-//	prvlwip.dns_client.is_static_dns[server_index] = 1;
+	if (server_index >= MAX_DNS_SERVER) return -1;
+	prvlwip.dns_client.dns_server[server_index] = *ip;
+	prvlwip.dns_client.is_static_dns[server_index] = 1;
 	return 0;
 }
 

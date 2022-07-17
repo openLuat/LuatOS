@@ -148,7 +148,7 @@ void Paint_DrawLine(Paint* paint, int x0, int y0, int x1, int y1, int colored) {
     int sy = y0 < y1 ? 1 : -1;
     int err = dx + dy;
 
-    while((x0 != x1) && (y0 != y1)) {
+    while((x0 != x1) || (y0 != y1)) {
         Paint_DrawPixel(paint, x0, y0 , colored);
         if (2 * err >= dy) {     
             err += dy;

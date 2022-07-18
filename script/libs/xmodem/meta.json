@@ -3,10 +3,10 @@
     "repo" : "luatos/xmodem",
     "tags" : ["xmodem"],
     "version" : "1.0.0",
-    "title" : "XMODEM",
+    "title" : "XMODEM 文件传输协议",
     "files" : {
         "." : "*"
     },
     "enterpoint" : "xmodem.lua",
-    "dependency" : ["i2c"]
+    "dependency" : ["uart"]
 }

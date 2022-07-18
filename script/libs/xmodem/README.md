@@ -1,6 +1,8 @@
-# XMODEM 驱动
+# XMODEM 文件传输协议
 
-I2C 开发板模块
+XMODEM 文件传输协议
+
+可用于air101/air103的刷机, 或者对其他设备传输文件/刷机
 
 ## 用法示例
 
@@ -17,6 +19,3 @@ end)
 sys.run()
 ```
 
-## 购买链接
-
-https://s.taobao.com/search?q=XMODEM

@@ -17,15 +17,16 @@
 
 //mem管理
 #define MEMP_MEM_MALLOC 1
-#define MEM_LIBC_MALLOC 1
-#define mem_clib_free luat_heap_free
-#define mem_clib_malloc luat_heap_malloc
-#define mem_clib_calloc luat_heap_calloc
-#define MEMP_NUM_RAW_PCB                4
-#define MEMP_NUM_UDP_PCB 				16
-#define MEMP_NUM_TCP_PCB 				20
-#define MEMP_NUM_TCP_PCB_LISTEN			4
-#define MEMP_NUM_PBUF					256
+//#define MEM_LIBC_MALLOC 1
+//#define mem_clib_free luat_heap_free
+//#define mem_clib_malloc luat_heap_malloc
+//#define mem_clib_calloc luat_heap_calloc
+//#define MEM_USE_POOLS	1
+//#define MEMP_NUM_RAW_PCB                4
+//#define MEMP_NUM_UDP_PCB 				16
+//#define MEMP_NUM_TCP_PCB 				20
+//#define MEMP_NUM_TCP_PCB_LISTEN			4
+//#define MEMP_NUM_PBUF					256
 //#define MEMP_NUM_REASSDATA //IP数据包排队数量
 //
 //#define MEMP_NUM_ARP_QUEUE //arp队列数
@@ -102,7 +103,6 @@
 #define LWIP_TCP                        1
 #define TCP_TTL                         (IP_DEFAULT_TTL)
 
-
 #define TCP_QUEUE_OOSEQ                 (LWIP_TCP)
 #define LWIP_TCP_SACK_OUT               0
 #define LWIP_TCP_MAX_SACK_NUM           4
@@ -122,7 +122,7 @@
 #define TCP_WND_UPDATE_THRESHOLD        LWIP_MIN((TCP_WND / 4), (TCP_MSS * 4))
 #define LWIP_EVENT_API                  0
 #define LWIP_CALLBACK_API               1
-#define LWIP_WND_SCALE                  0
+#define LWIP_WND_SCALE                  1
 #define TCP_RCV_SCALE                   0
 #define LWIP_TCP_PCB_NUM_EXT_ARGS       0
 #define LWIP_ALTCP                      0
@@ -316,7 +316,7 @@ typedef uint32_t sys_prot_t;
                                      x, __LINE__, __FILE__); luat_panic();} while(0)
 #define LWIP_PLATFORM_DIAG(x) do {DBG_Printf(x);} while(0)
 
-#define LWIP_RAND() ((uint32_t)luat_lwip_rand())
+
 #define LWIP_NUM_SOCKETS	16
 
 #define TCP_MAXRTX                      12

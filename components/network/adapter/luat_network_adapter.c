@@ -40,7 +40,7 @@ static network_info_t prv_network = {
 };
 
 #ifdef LUAT_USE_LWIP
-#include "luat_lwip.h"
+#include "../lwip/port/net_lwip.h"
 extern void DBG_Printf(const char* format, ...);
 extern void DBG_HexPrintf(void *Data, unsigned int len);
 //#define DBG(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
@@ -607,7 +607,7 @@ static int network_state_on_line(network_ctrl_t *ctrl, OS_EVENT *event, network_
 			if (ctrl->ack_size == ctrl->tx_size)
 			{
 #ifdef LUAT_USE_LWIP
-				return luat_lwip_check_all_ack(ctrl->socket_id);
+				return net_lwip_check_all_ack(ctrl->socket_id);
 #else
 				return 0;
 #endif

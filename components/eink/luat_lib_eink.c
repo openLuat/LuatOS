@@ -107,7 +107,7 @@ static int l_eink_setup(lua_State *L) {
         luat_gpio_mode(Pin_DC, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
         luat_gpio_mode(Pin_CS, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
     }
-    
+
 
     size_t epd_w = 0;
     size_t epd_h = 0;
@@ -223,7 +223,7 @@ static uint16_t utf8_next(uint8_t b)
     else if ( b >= 0xf0 )
     {
       utf8_state = 3;
-      b &= 7;      
+      b &= 7;
     }
     else if ( b >= 0xe0 )
     {
@@ -319,7 +319,7 @@ static void u8g2_font_decode_len(u8g2_t *u8g2, uint8_t len, uint8_t is_foregroun
       {
 	    u8g2_draw_hv_line(u8g2, x, y, current, decode->dir, eink_str_color);
       }
-      else if ( decode->is_transparent == 0 )    
+      else if ( decode->is_transparent == 0 )
       {
 	// u8g2_draw_hv_line(u8g2, x, y, current, decode->dir, decode->bg_color);
       }
@@ -340,16 +340,16 @@ static void u8g2_font_setup_decode(u8g2_t *u8g2, const uint8_t *glyph_data)
   u8g2_font_decode_t *decode = &(u8g2->font_decode);
   decode->decode_ptr = glyph_data;
   decode->decode_bit_pos = 0;
-  
+
   /* 8 Nov 2015, this is already done in the glyph data search procedure */
   /*
   decode->decode_ptr += 1;
   decode->decode_ptr += 1;
   */
-  
+
   decode->glyph_width = u8g2_font_decode_get_unsigned_bits(decode, u8g2->font_info.bits_per_char_width);
   decode->glyph_height = u8g2_font_decode_get_unsigned_bits(decode,u8g2->font_info.bits_per_char_height);
-  
+
 }
 static int8_t u8g2_font_decode_glyph(u8g2_t *u8g2, const uint8_t *glyph_data){
   uint8_t a, b;
@@ -362,7 +362,7 @@ static int8_t u8g2_font_decode_glyph(u8g2_t *u8g2, const uint8_t *glyph_data){
   x = u8g2_font_decode_get_signed_bits(decode, u8g2->font_info.bits_per_char_x);
   y = u8g2_font_decode_get_signed_bits(decode, u8g2->font_info.bits_per_char_y);
   d = u8g2_font_decode_get_signed_bits(decode, u8g2->font_info.bits_per_delta_x);
-  
+
   if ( decode->glyph_width > 0 )
   {
     decode->target_x = u8g2_add_vector_x(decode->target_x, x, -(h+y), decode->dir);
@@ -399,7 +399,7 @@ static int16_t u8g2_font_draw_glyph(u8g2_t *u8g2, int16_t x, int16_t y, uint16_t
 
 /**
 设置字体
-@api eink.setFont(font) 
+@api eink.setFont(font)
 @userdata 字体
 @usage
 -- 设置为字体,对之后的print有效
@@ -477,7 +477,7 @@ static int l_eink_print(lua_State *L)
             y -= delta;
             break;
         }
-        sum += delta;    
+        sum += delta;
         }
     }
     return 0;
@@ -863,7 +863,7 @@ static int l_eink_draw_gtfont_utf8(lua_State *L) {
         uint16_t str = unicodetogb2312(e);
         get_font(buf, 1, str, size, size, size);
         gtfont_draw_w(buf , x ,y , size , size,Paint_DrawPixel,&paint,1);
-        x+=size;    
+        x+=size;
       }
     }
     return 0;
@@ -890,7 +890,7 @@ static int l_eink_draw_gtfont_utf8_gray(lua_State* L) {
 			get_font(buf, 1, str, size*font_g, size*font_g, size*font_g);
 			Gray_Process(buf,size,size,font_g);
       gtfont_draw_gray_hz(buf, x, y, size , size, font_g, 1,Paint_DrawPixel,&paint,1);
-        	x+=size;    
+        	x+=size;
         }
     }
     return 0;
@@ -990,6 +990,7 @@ static const rotable_Reg_t reg_eink[] =
     { "MODEL_1in54_V2",       ROREG_INT(MODEL_1in54_V2)},
     { "MODEL_1in54b",         ROREG_INT(MODEL_1in54b)},
     { "MODEL_1in54b_V2",      ROREG_INT(MODEL_1in54b_V2)},
+    { "MODEL_1in54_V3",       ROREG_INT(MODEL_1in54_V3)},
     { "MODEL_1in54c",         ROREG_INT(MODEL_1in54c)},
     { "MODEL_1in54f",         ROREG_INT(MODEL_1in54f)},
     { "MODEL_2in54b_V3",      ROREG_INT(MODEL_2in13b_V3)},

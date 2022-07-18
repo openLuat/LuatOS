@@ -16,6 +16,7 @@ enum EPD_MODEL {
     MODEL_1in02d = 1,
     MODEL_1in54,
     MODEL_1in54_V2,
+    MODEL_1in54_V3,
     MODEL_1in54b,
     MODEL_1in54b_V2,
     MODEL_1in54c,
@@ -36,6 +37,7 @@ enum EPD_MODEL {
 #include "EPD_1in02d.h"
 #include "EPD_1in54.h"
 #include "EPD_1in54_V2.h"
+#include "EPD_1in54_V3.h"
 #include "EPD_1in54b.h"
 #include "EPD_1in54b_V2.h"
 #include "EPD_1in54c.h"

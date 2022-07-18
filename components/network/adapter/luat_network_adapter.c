@@ -956,7 +956,7 @@ void network_set_base_mode(network_ctrl_t *ctrl, uint8_t is_tcp, uint32_t tcp_ti
 	ctrl->tcp_keep_idle = keep_idle;
 	ctrl->tcp_keep_interval = keep_interval;
 	ctrl->tcp_keep_cnt = keep_cnt;
-	ctrl->tcp_timeou_ms = tcp_timeout_ms;
+	ctrl->tcp_timeout_ms = tcp_timeout_ms;
 }
 
 int network_set_local_port(network_ctrl_t *ctrl, uint16_t local_port)
@@ -1057,7 +1057,7 @@ int network_socket_accept(network_ctrl_t *ctrl, network_ctrl_t *accept_ctrl)
 		accept_ctrl->tcp_keep_idle = ctrl->tcp_keep_idle;
 		accept_ctrl->tcp_keep_interval = ctrl->tcp_keep_interval;
 		accept_ctrl->tcp_keep_cnt = ctrl->tcp_keep_cnt;
-		accept_ctrl->tcp_timeou_ms = ctrl->tcp_timeou_ms;
+		accept_ctrl->tcp_timeout_ms = ctrl->tcp_timeout_ms;
 		accept_ctrl->local_port = ctrl->local_port;
 		accept_ctrl->state = NW_STATE_ONLINE;
 		return 0;
@@ -2980,7 +2980,7 @@ void network_set_base_mode(network_ctrl_t *ctrl, uint8_t is_tcp, uint32_t tcp_ti
 	ctrl->tcp_keep_idle = keep_idle;
 	ctrl->tcp_keep_interval = keep_interval;
 	ctrl->tcp_keep_cnt = keep_cnt;
-	ctrl->tcp_timeou_ms = tcp_timeout_ms;
+	ctrl->tcp_timeout_ms = tcp_timeout_ms;
 }
 
 int network_set_local_port(network_ctrl_t *ctrl, uint16_t local_port)
@@ -3081,7 +3081,7 @@ int network_socket_accept(network_ctrl_t *ctrl, network_ctrl_t *accept_ctrl)
 		accept_ctrl->tcp_keep_idle = ctrl->tcp_keep_idle;
 		accept_ctrl->tcp_keep_interval = ctrl->tcp_keep_interval;
 		accept_ctrl->tcp_keep_cnt = ctrl->tcp_keep_cnt;
-		accept_ctrl->tcp_timeou_ms = ctrl->tcp_timeou_ms;
+		accept_ctrl->tcp_timeout_ms = ctrl->tcp_timeout_ms;
 		accept_ctrl->local_port = ctrl->local_port;
 		accept_ctrl->state = NW_STATE_ONLINE;
 		return 0;

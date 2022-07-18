@@ -23,7 +23,7 @@
 #define mem_clib_calloc luat_heap_calloc
 #define MEMP_NUM_RAW_PCB                4
 #define MEMP_NUM_UDP_PCB 				16
-#define MEMP_NUM_TCP_PCB 				16
+#define MEMP_NUM_TCP_PCB 				20
 #define MEMP_NUM_TCP_PCB_LISTEN			4
 #define MEMP_NUM_PBUF					256
 //#define MEMP_NUM_REASSDATA //IP数据包排队数量
@@ -172,11 +172,11 @@
 #define LWIP_TCP_KEEPALIVE              1
 #define TCP_KEEPIDLE_DEFAULT			540000	//cmnet require 10min, so use 9min
 #define TCP_KEEPINTVL_DEFAULT			5000
-#define LWIP_SO_SNDTIMEO                1
-#define LWIP_SO_RCVTIMEO                1
+#define LWIP_SO_SNDTIMEO                0
+#define LWIP_SO_RCVTIMEO                0
 #define LWIP_SO_SNDRCVTIMEO_NONSTANDARD 1
-#define LWIP_SO_RCVBUF                  1
-#define LWIP_SO_LINGER                  1
+#define LWIP_SO_RCVBUF                  0
+#define LWIP_SO_LINGER                  0
 #define RECV_BUFSIZE_DEFAULT            INT_MAX
 #define LWIP_TCP_CLOSE_TIMEOUT_MS_DEFAULT 20000
 #define SO_REUSE                        1

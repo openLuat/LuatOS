@@ -36,6 +36,7 @@
 #include "lwip/dhcp6.h"
 #include "lwip/sys.h"
 #include "lwip/pbuf.h"
+#include "lwip/inet.h"
 #endif
 #ifndef __BSP_COMMON_H__
 #include "c_common.h"
@@ -173,7 +174,7 @@ typedef struct
 	uint8_t *cache_data;	//动态生成的，需要在close的时候释放
 	uint32_t cache_len;
 	int tls_timer_state;
-	uint32_t tcp_timeou_ms;
+	uint32_t tcp_timeout_ms;
 	uint8_t tls_mode;
     uint8_t tls_need_reshakehand;
     uint8_t need_close;

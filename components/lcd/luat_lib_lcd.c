@@ -259,7 +259,9 @@ static int l_lcd_init(lua_State* L) {
         }
         // 初始化OK, 配置额外的参数
         default_conf = conf;
+#ifndef LUAT_USE_LVGL
         u8g2_SetFont(&(conf->luat_lcd_u8g2), u8g2_font_opposansm8);
+#endif
         u8g2_SetFontMode(&(conf->luat_lcd_u8g2), 0);
         u8g2_SetFontDirection(&(conf->luat_lcd_u8g2), 0);
         lua_pushboolean(L, 1);

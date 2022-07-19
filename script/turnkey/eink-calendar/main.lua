@@ -12,13 +12,13 @@ local wifiName,wifiPassword = "wifi","password"
 --地区id，请前往https://api.luatos.org/luatos-calendar/v1/check-city/ 查询自己所在位置的id
 local location = "101020100"
 --天气接口信息，需要自己申请，具体参数请参考https://api.luatos.org/ 页面上的描述
-local appid,appsecret = "27548549","rEi9nRak"
+local appid,appsecret = "appid(要改)","appsecret(要改)"
 
 local function connectWifi()
     log.info("wlan", "wlan_init:", wlan.init())
 
     wlan.setMode(wlan.STATION)
-    wlan.connect(wifiName,wifiPassword)
+    wlan.connect(wifiName,wifiPassword,1)
 
     -- 等待连上路由,此时还没获取到ip
     result, _ = sys.waitUntil("WLAN_STA_CONNECTED")
@@ -60,7 +60,9 @@ function refresh()
     log.info("refresh","start!")
     local data
     for i=1,5 do--重试最多五次
+        collectgarbage("collect")
         data = requestHttp()
+        collectgarbage("collect")
         if #data > 100 then
             break
         end
@@ -70,6 +72,7 @@ function refresh()
         log.info("load fail","exit!")
         return
     end
+    collectgarbage("collect")
     eink.model(eink.MODEL_1in54)
     log.info("eink.setup",eink.setup(0, 2,11,10,6,7))
     eink.setWin(200, 200, 2)

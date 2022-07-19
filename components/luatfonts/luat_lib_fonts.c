@@ -15,6 +15,8 @@
 #include "u8g2.h"
 #include "u8g2_luat_fonts.h"
 
+#include "luat_fonts_custom.h"
+
 typedef struct u8g2_font
 {
     const char* name;
@@ -311,23 +313,16 @@ static int l_fonts_load(lua_State *L) {
         return 1;
     }
 #endif
-    return l_fonts_u8g2_get(L);
+    return l_fonts_u8g2_load(L);
 }
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_fonts[] =
 {
-    // { "u8g2_get" ,       ROREG_FUNC(l_fonts_u8g2_get)},
-    // { "u8g2_list" ,      ROREG_FUNC(l_fonts_u8g2_list)},
-
-#ifdef LUAT_USE_LVGL
-    // { "lvgl_get" ,       ROREG_FUNC(l_fonts_lvgl_get)},
-    // { "lvgl_list" ,      ROREG_FUNC(l_fonts_lvgl_list)},
-#endif
     { "get" ,       ROREG_FUNC(l_fonts_get)},
     { "list" ,      ROREG_FUNC(l_fonts_list)},
     { "load" ,      ROREG_FUNC(l_fonts_load)},
-	{ NULL,              ROREG_INT(0)},
+	{ NULL,         ROREG_INT(0)},
 };
 
 LUAMOD_API int luaopen_fonts( lua_State *L ) {

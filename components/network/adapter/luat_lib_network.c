@@ -372,7 +372,7 @@ static int l_network_close(lua_State *L)
 }
 
 /*
-发送数据给对端，单次调用发送不可以超过60000B，建议不要超过16KB，但是可以连续多次调用，不能超过128次
+发送数据给对端，UDP单次发送不要超过1460字节，否则很容易失败
 @api network.tx(ctrl, data, ip, port, flag)
 @user_data network.create得到的ctrl
 @string or user_data zbuff  要发送的数据

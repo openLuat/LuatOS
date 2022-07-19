@@ -270,7 +270,7 @@ typedef struct
 	int (*set_dns_server)(uint8_t server_index, luat_ip_addr_t *ip, void *user_data);
 #ifdef LUAT_USE_LWIP
 	int (*set_mac)(uint8_t *mac, void *user_data);
-	int (*set_static_ip)(luat_ip_addr_t *ip, luat_ip_addr_t *submask, luat_ip_addr_t *gateway, void *user_data);
+	int (*set_static_ip)(luat_ip_addr_t *ip, luat_ip_addr_t *submask, luat_ip_addr_t *gateway, luat_ip_addr_t *ipv6, void *user_data);
 #endif
 	int (*get_local_ip_info)(luat_ip_addr_t *ip, luat_ip_addr_t *submask, luat_ip_addr_t *gateway, void *user_data);
 	//所有网络消息都是通过cb_fun回调
@@ -368,6 +368,10 @@ int network_getsockopt(network_ctrl_t *ctrl, int level, int optname, void *optva
 int network_setsockopt(network_ctrl_t *ctrl, int level, int optname, const void *optval, uint32_t optlen);
 //非posix的socket，用这个根据实际硬件设置参数
 int network_user_cmd(network_ctrl_t *ctrl,  uint32_t cmd, uint32_t value);
+#ifdef LUAT_USE_LWIP
+int network_set_mac(uint8_t adapter_index, uint8_t *mac);
+int network_set_static_ip_info(uint8_t adapter_index, luat_ip_addr_t *ip, luat_ip_addr_t *submask, luat_ip_addr_t *gateway, luat_ip_addr_t *ipv6);
+#endif
 int network_get_local_ip_info(network_ctrl_t *ctrl, luat_ip_addr_t *ip, luat_ip_addr_t *submask, luat_ip_addr_t *gateway);
 void network_force_close_socket(network_ctrl_t *ctrl);
 //url已经是ip形式了，返回1，并且填充remote_ip

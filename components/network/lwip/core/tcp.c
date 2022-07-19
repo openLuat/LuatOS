@@ -1289,7 +1289,7 @@ tcp_slowtmr_start:
               int calc_rto = ((pcb->sa >> 3) + pcb->sv) << tcp_backoff[backoff_idx];
               pcb->rto = (s16_t)LWIP_MIN(calc_rto, 0x7FFF);
 #ifdef __USER_CODE__
-              pcb->rto += pcb->mode_delay;
+              pcb->rto += pcb->more_delay;
 #endif
             }
 
@@ -1907,7 +1907,9 @@ tcp_alloc(u8_t prio)
     pcb->cwnd = 1;
     pcb->tmr = tcp_ticks;
     pcb->last_timer = tcp_timer_ctr;
-
+#ifdef __USER_CODE__
+    pcb->more_delay = TCP_MORE_DELAY;
+#endif
     /* RFC 5681 recommends setting ssthresh abritrarily high and gives an example
     of using the largest advertised receive window.  We've seen complications with
     receiving TCPs that use window scaling and/or window auto-tuning where the

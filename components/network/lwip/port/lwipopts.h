@@ -16,6 +16,7 @@
 #define SYS_LIGHTWEIGHT_PROT            0	//平台锁，保护关键区域内缓存的分配与释放，目前lwip不允许放在中断处理，不需要额外的平台锁
 
 //mem管理
+#define MEM_ALIGNMENT                   4
 #define MEMP_MEM_MALLOC 1
 //#define MEM_LIBC_MALLOC 1
 //#define mem_clib_free luat_heap_free
@@ -324,7 +325,11 @@ typedef uint32_t sys_prot_t;
 #define TCP_SND_BUF                     (2 * TCP_MSS)
 #define TCP_WND                         (4 * TCP_MSS)
 #define MEM_SIZE 						8192 * 3
+
+#define TCP_MORE_DELAY					0
+
 #ifdef LWIP_USER_CONFIG_FILE
 #include LWIP_USER_CONFIG_FILE
 #endif
+
 #endif /* LWIP_HDR_LWIPOPTS_H */

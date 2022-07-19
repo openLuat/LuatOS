@@ -1137,6 +1137,18 @@ int network_dns(network_ctrl_t *ctrl)
 	return adapter->opt->dns(ctrl->domain_name, ctrl->domain_name_len, ctrl, adapter->user_data);
 }
 
+int network_set_mac(uint8_t adapter_index, uint8_t *mac)
+{
+	network_adapter_t *adapter = &prv_adapter_table[adapter_index];
+	return adapter->opt->set_mac(mac, adapter->user_data);
+}
+
+int network_set_static_ip_info(uint8_t adapter_index, luat_ip_addr_t *ip, luat_ip_addr_t *submask, luat_ip_addr_t *gateway, luat_ip_addr_t *ipv6)
+{
+	network_adapter_t *adapter = &prv_adapter_table[adapter_index];
+	return adapter->opt->set_static_ip(ip, submask, gateway, ipv6, adapter->user_data);
+}
+
 int network_get_local_ip_info(network_ctrl_t *ctrl, luat_ip_addr_t *ip, luat_ip_addr_t *submask, luat_ip_addr_t *gateway)
 {
 	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];

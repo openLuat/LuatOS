@@ -18,7 +18,7 @@ local function connectWifi()
     log.info("wlan", "wlan_init:", wlan.init())
 
     wlan.setMode(wlan.STATION)
-    wlan.connect(wifiName,wifiPassword)
+    wlan.connect(wifiName,wifiPassword,1)
 
     -- 等待连上路由,此时还没获取到ip
     result, _ = sys.waitUntil("WLAN_STA_CONNECTED")

@@ -1135,6 +1135,9 @@ dhcp_bind(struct netif *netif)
   dhcp_set_state(dhcp, DHCP_STATE_BOUND);
 
   netif_set_addr(netif, &dhcp->offered_ip_addr, &sn_mask, &gw_addr);
+#ifdef __USER_CODE__
+  netif->dhcp_done_callback(netif);
+#endif
   /* interface is used by routing now that an address is set */
 }
 

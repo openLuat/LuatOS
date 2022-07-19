@@ -1,6 +1,5 @@
 #ifndef __NET_LWIP_H__
 #define __NET_LWIP_H__
-
 void net_lwip_register_adapter(uint8_t adapter_index);
 void net_lwip_init(void);
 int net_lwip_check_all_ack(int socket_id);

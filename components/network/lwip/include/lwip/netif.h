@@ -222,7 +222,9 @@ typedef err_t (*netif_igmp_mac_filter_fn)(struct netif *netif,
 typedef err_t (*netif_mld_mac_filter_fn)(struct netif *netif,
        const ip6_addr_t *group, enum netif_mac_filter_action action);
 #endif /* LWIP_IPV6 && LWIP_IPV6_MLD */
-
+#ifdef __USER_CODE__
+typedef void (*netif_dhcp_done_fn)(struct netif *netif);
+#endif
 #if LWIP_DHCP || LWIP_AUTOIP || LWIP_IGMP || LWIP_IPV6_MLD || LWIP_IPV6_DHCP6 || (LWIP_NUM_NETIF_CLIENT_DATA > 0)
 #if LWIP_NUM_NETIF_CLIENT_DATA > 0
 u8_t netif_alloc_client_data_id(void);
@@ -318,6 +320,10 @@ struct netif {
   /** This function is called when the netif has been removed */
   netif_status_callback_fn remove_callback;
 #endif /* LWIP_NETIF_REMOVE_CALLBACK */
+#ifdef __USER_CODE__
+  netif_dhcp_done_fn dhcp_done_callback;
+  void *dhcp_done_arg;
+#endif
   /** This field can be set by the device driver and could point
    *  to state information for the device. */
   void *state;

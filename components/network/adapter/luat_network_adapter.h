@@ -211,6 +211,8 @@ typedef struct
 		struct raw_pcb *raw;
 	} pcb;
 	HANDLE mutex;
+	uint16_t local_port;
+	uint16_t remote_port;
 #endif
 	void *param;
 	uint8_t state;

@@ -20,6 +20,7 @@ typedef struct
 	luat_dns_ip_result ip_result[MAX_DNS_IP];
 	void *param;
 	int result;
+	uint8_t adapter_index;
 }luat_dns_require_t;
 
 typedef struct
@@ -34,6 +35,7 @@ typedef struct
 
 uint8_t dns_check_uri(const char *uri, uint32_t uri_len);
 void dns_require(dns_client_t *client, const char *domain_name, uint32_t len, void *param);
+void dns_require_ex(dns_client_t *client, const char *domain_name, void *param, uint8_t adapter_index);
 void dns_clear(dns_client_t *client);
 void dns_run(dns_client_t *client, Buffer_Struct *in, Buffer_Struct *out, int *server_cnt);
 #endif /* __ETHERNET_COMMON_DNS_DEF_H__ */

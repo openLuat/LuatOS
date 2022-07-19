@@ -405,6 +405,32 @@ void dns_require(dns_client_t *client, const char *domain_name, uint32_t len, vo
 	llist_add_tail(&require->node, &client->require_head);
 }
 
+void dns_require_ex(dns_client_t *client, const char *domain_name, void *param, uint8_t adapter_index)
+{
+	luat_dns_require_t *require = zalloc(sizeof(luat_dns_require_t));
+	require->uri.Data = domain_name;
+	require->uri.Pos = strlen(domain_name);
+	require->uri.MaxLen = strlen(domain_name);
+	require->param = param;
+	require->adapter_index = adapter_index;
+	dns_process_t *process = llist_traversal(&client->process_head, dns_check_process, &require->uri);
+	// if no same proc
+	if (!process)
+	{
+		process = zalloc(sizeof(dns_process_t));
+		Buffer_StaticInit(&process->uri_buf, require->uri.Data, require->uri.Pos);
+		process->uri_buf.Pos = require->uri.Pos;
+		client->session_id++;
+		if (!client->session_id)
+		{
+			client->session_id++;
+		}
+		process->session_id = client->session_id;
+		llist_add_tail(&process->node, &client->process_head);
+	}
+	llist_add_tail(&require->node, &client->require_head);
+}
+
 static int32_t dns_clear_require(void *pData, void *pParam)
 {
 	luat_dns_require_t *require = (luat_dns_require_t *)pData;

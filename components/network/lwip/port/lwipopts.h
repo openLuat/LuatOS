@@ -310,12 +310,8 @@
 #define SYS_ARCH_PROTECT(x)
 #define SYS_ARCH_UNPROTECT(x)
 typedef uint32_t sys_prot_t;
-#define LWIP_DEBUG 1
-#define sys_arch_assert(x) do {DBG_Printf("Assertion \"%s\" failed at line %d in %s\n", \
-                                     x, __LINE__, __FILE__); luat_panic();} while(0)
-#define LWIP_PLATFORM_ASSERT(x) do {DBG_Printf("Assertion \"%s\" failed at line %d in %s\n", \
-                                     x, __LINE__, __FILE__); luat_panic();} while(0)
-#define LWIP_PLATFORM_DIAG(x) do {DBG_Printf(x);} while(0)
+//#define LWIP_DEBUG 0
+
 
 
 #define LWIP_NUM_SOCKETS	16

@@ -300,7 +300,7 @@ static int l_mqttcore_packPUBLISH(lua_State *L) {
 	uint8_t dup = luaL_checkinteger(L, 1);
 	uint8_t qos = luaL_checkinteger(L, 2);
 	uint8_t retain = luaL_checkinteger(L, 3);
-	uint16_t packetId = luaL_checkinteger(L, 4);
+	//uint16_t packetId = luaL_checkinteger(L, 4);
 	const char* topic = luaL_checklstring(L, 5, &topic_len);
 	const char* payload = luaL_checklstring(L, 6, &payload_len);
 

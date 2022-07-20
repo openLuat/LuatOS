@@ -617,7 +617,19 @@ NET_DNS_RX_OUT:
 	return ;
 }
 
-
+void dns_init_client(dns_client_t *client)
+{
+	int i;
+	INIT_LLIST_HEAD(&client->process_head);
+	INIT_LLIST_HEAD(&client->require_head);
+	for(i = 0; i < MAX_DNS_SERVER; i++)
+	{
+		if (!client->is_static_dns[i])
+		{
+			client->dns_server[i].type = 0xff;
+		}
+	}
+}
 
 #endif
 

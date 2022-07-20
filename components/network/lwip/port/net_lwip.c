@@ -289,8 +289,11 @@ lwip_sockopt_to_ipopt(int optname)
 
 #define MAX_SOCK_NUM LWIP_NUM_SOCKETS
 extern LUAT_WEAK void DBG_Printf(const char* format, ...);
-
+#ifdef LUAT_LOG_NO_NEWLINE
+#define NET_DBG(x,y...) DBG_Printf("%s %d:"x, __FUNCTION__,__LINE__,##y)
+#else
 #define NET_DBG(x,y...) DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
+#endif
 enum
 {
 	EV_LWIP_EVENT_START = USER_EVENT_ID_START + 0x2000000,
@@ -723,14 +726,10 @@ void net_lwip_init(void)
 	prvlwip.task_handle = thread.handle;
 	lwip_init();
 	platform_start_timer(prvlwip.common_timer, 1000, 1);
-	for(i = 0; i < MAX_DNS_SERVER; i++)
-	{
-		if (!prvlwip.dns_client.is_static_dns[i])
-		{
-			prvlwip.dns_client.dns_server[i].type = 0xff;
-		}
-	}
+
+	prvlwip.dns_udp = udp_new();
 	prvlwip.dns_udp->local_port = 54;
+	dns_init_client(&prvlwip.dns_client);
 }
 
 
@@ -1134,13 +1133,17 @@ static void net_lwip_task(void *param)
 			free(p_ip);
 			break;
 		case EV_LWIP_NETIF_LINK_STATE:
-			if (event.Param1)
+			NET_DBG("%d,%d,%d", event.Param3, prvlwip.netif_network_ready[event.Param3], event.Param1);
+			if (prvlwip.netif_network_ready[event.Param3] != event.Param1)
 			{
-				netif_set_link_up(prvlwip.lwip_netif[event.Param3]);
-			}
-			else
-			{
-				netif_set_link_down(prvlwip.lwip_netif[event.Param3]);
+				if (event.Param1)
+				{
+					netif_set_link_up(prvlwip.lwip_netif[event.Param3]);
+				}
+				else
+				{
+					netif_set_link_down(prvlwip.lwip_netif[event.Param3]);
+				}
 			}
 			net_lwip_check_network_ready(event.Param3);
 			break;
@@ -1939,14 +1942,12 @@ int net_lwip_check_all_ack(int socket_id)
 
 void net_lwip_set_netif(uint8_t adapter_index, struct netif *netif, void *init, uint8_t is_default)
 {
-	if (netif)
+	if (!netif)
 	{
-		prvlwip.lwip_netif[adapter_index] = netif;
+		netif = zalloc(sizeof(struct netif));
 	}
-	else
-	{
-		prvlwip.lwip_netif[adapter_index] = zalloc(sizeof(struct netif));
-	}
+
+	prvlwip.lwip_netif[adapter_index] = netif;
 	netif_add(netif, NULL, NULL, NULL, NULL, init, netif_input);
 	netif->dhcp_done_callback = net_lwip_dhcp_done_cb;
 	netif->dhcp_done_arg = (void *)adapter_index;

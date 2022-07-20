@@ -32,7 +32,7 @@ typedef struct
 	uint8_t is_static_dns[MAX_DNS_SERVER];
 	uint8_t is_run;
 }dns_client_t;
-
+void dns_init_client(dns_client_t *client);
 uint8_t dns_check_uri(const char *uri, uint32_t uri_len);
 void dns_require(dns_client_t *client, const char *domain_name, uint32_t len, void *param);
 void dns_require_ex(dns_client_t *client, const char *domain_name, void *param, uint8_t adapter_index);

@@ -314,7 +314,7 @@ typedef uint32_t sys_prot_t;
 
 
 
-#define LWIP_NUM_SOCKETS	16
+#define LWIP_NUM_SOCKETS	8
 
 #define TCP_MAXRTX                      12
 #define TCP_SYNMAXRTX                   6

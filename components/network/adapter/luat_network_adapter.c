@@ -46,10 +46,16 @@ extern void DBG_HexPrintf(void *Data, unsigned int len);
 //#define DBG(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
 //#define DBG_ERR(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
 
+
 #define __NW_DEBUG_ENABLE__
 #ifdef __NW_DEBUG_ENABLE__
+#ifdef LUAT_LOG_NO_NEWLINE
+#define DBG(x,y...)	do {if (ctrl->is_debug) {DBG_Printf("%s %d:"x, __FUNCTION__,__LINE__,##y);}} while(0)
+#define DBG_ERR(x,y...) DBG_Printf("%s %d:"x, __FUNCTION__,__LINE__,##y)
+#else
 #define DBG(x,y...)	do {if (ctrl->is_debug) {DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y);}} while(0)
 #define DBG_ERR(x,y...) DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
+#endif
 #else
 #define DBG(x,y...)
 #define DBG_ERR(x,y...)
@@ -837,8 +843,8 @@ int network_register_adapter(uint8_t adapter_index, network_adapter_info *info, 
 	info->socket_set_callback(network_default_socket_callback, &prv_adapter_table[adapter_index], user_data);
 	if (adapter_index < NW_ADAPTER_INDEX_HW_PS_DEVICE)
 	{
-		prv_adapter_table[adapter_index].ctrl_table = prv_network.lwip_ctrl_busy;
-		prv_adapter_table[adapter_index].ctrl_busy = prv_network.lwip_ctrl_table;
+		prv_adapter_table[adapter_index].ctrl_table = prv_network.lwip_ctrl_table;
+		prv_adapter_table[adapter_index].ctrl_busy = prv_network.lwip_ctrl_busy;
 	}
 	else
 	{
@@ -1402,7 +1408,7 @@ int network_wait_link_up(network_ctrl_t *ctrl, uint32_t timeout_ms)
 {
 	NW_LOCK;
 	ctrl->auto_mode = 1;
-	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
+//	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
 	if (network_check_ready(ctrl))
 	{
 		ctrl->state = NW_STATE_OFF_LINE;

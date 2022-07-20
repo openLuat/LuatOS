@@ -1244,6 +1244,7 @@ static int net_lwip_socket_check(int socket_id, uint64_t tag, void *user_data)
 static uint8_t net_lwip_check_ready(void *user_data)
 {
 	if ((uint32_t)user_data >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) return 0;
+	NET_DBG("%d", user_data);
 	return (prvlwip.netif_network_ready[(uint32_t)user_data]);
 }
 

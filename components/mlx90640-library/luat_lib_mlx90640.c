@@ -328,28 +328,28 @@ static int l_mlx90640_draw2lcd(lua_State *L) {
     return 0;
 }
 
-#include "rotable.h"
-static const rotable_Reg reg_mlx90640[] =
+#include "rotable2.h"
+static const rotable_Reg_t reg_mlx90640[] =
 {
-    {"init", l_mlx90640_init, 0},
-    {"feed", l_mlx90640_feed, 0},
-    {"raw_data", l_mlx90640_raw_data, 0},
-    {"raw_point", l_mlx90640_raw_point, 0},
-    {"draw2lcd", l_mlx90640_draw2lcd, 0},
-    {"get_temp", l_mlx90640_get_temp, 0},
-    {"get_vdd", l_mlx90640_get_vdd, 0},
+    {"init",        ROREG_FUNC(l_mlx90640_init) },
+    {"feed",        ROREG_FUNC(l_mlx90640_feed) },
+    {"raw_data",    ROREG_FUNC(l_mlx90640_raw_data)},
+    {"raw_point",   ROREG_FUNC(l_mlx90640_raw_point)},
+    {"draw2lcd",    ROREG_FUNC(l_mlx90640_draw2lcd)},
+    {"get_temp",    ROREG_FUNC(l_mlx90640_get_temp)},
+    {"get_vdd",     ROREG_FUNC(l_mlx90640_get_vdd)},
 
-    { "FPS1HZ",  NULL, FPS1HZ},
-    { "FPS2HZ",  NULL, FPS2HZ},
-    { "FPS4HZ",  NULL, FPS4HZ},
-    { "FPS8HZ",  NULL, FPS8HZ},
-    { "FPS16HZ",  NULL, FPS16HZ},
-    { "FPS32HZ",  NULL, FPS32HZ},
-    { "FPS64HZ",  NULL, FPS64HZ},
-	{ NULL, NULL , 0}
+    { "FPS1HZ",     ROREG_INT(FPS1HZ)},
+    { "FPS2HZ",     ROREG_INT(FPS2HZ)},
+    { "FPS4HZ",     ROREG_INT(FPS4HZ)},
+    { "FPS8HZ",     ROREG_INT(FPS8HZ)},
+    { "FPS16HZ",    ROREG_INT(FPS16HZ)},
+    { "FPS32HZ",    ROREG_INT(FPS32HZ)},
+    { "FPS64HZ",    ROREG_INT(FPS64HZ)},
+	{ NULL,         ROREG_INT(0) }
 };
 
 LUAMOD_API int luaopen_mlx90640( lua_State *L ) {
-    luat_newlib(L, reg_mlx90640);
+    luat_newlib2(L, reg_mlx90640);
     return 1;
 }

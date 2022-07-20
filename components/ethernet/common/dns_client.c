@@ -626,7 +626,11 @@ void dns_init_client(dns_client_t *client)
 	{
 		if (!client->is_static_dns[i])
 		{
+#ifdef LUAT_USE_LWIP
 			client->dns_server[i].type = 0xff;
+#else
+			client->dns_server[i].is_ipv6 = 0xff;
+#endif
 		}
 	}
 }

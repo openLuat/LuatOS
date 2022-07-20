@@ -83,7 +83,7 @@ float map(float val, float I_Min, float I_Max, float O_Min, float O_Max){
 
 #define constrain(amt, low, high) ((amt)<(low)?(low):((amt)>(high)?(high):(amt)))
 
-static paramsMLX90640 mlx90640;
+static paramsMLX90640* mlx90640;
 uint8_t mlx90640_i2c_id;
 uint8_t mlx90640_i2c_speed;
 static uint8_t mlx90640_refresh_rate;
@@ -115,6 +115,7 @@ static int l_mlx90640_init(lua_State *L){
     mlx90640_refresh_rate = luaL_optinteger(L, 3 , 3);
     lcd_conf = luat_lcd_get_default();
     MLX90640_I2CInit();
+    mlx90640 = (paramsMLX90640*)luat_heap_malloc(sizeof(paramsMLX90640));
     MLX90640_SetRefreshRate(MLX90640_ADDR, mlx90640_refresh_rate);
     MLX90640_SetChessMode(MLX90640_ADDR); 
 	status = MLX90640_DumpEE(MLX90640_ADDR, eeMLX90640);
@@ -122,7 +123,7 @@ static int l_mlx90640_init(lua_State *L){
         LLOGW("load system parameters error with code:%d",status);
         return 0;
     } 
-	status = MLX90640_ExtractParameters(eeMLX90640, &mlx90640);
+	status = MLX90640_ExtractParameters(eeMLX90640, mlx90640);
 	if (status != 0) {
         LLOGW("Parameter extraction failed with error code:%d",status);
         return 0;
@@ -134,11 +135,11 @@ static int l_mlx90640_init(lua_State *L){
             LLOGD("GetFrame Error: %d",status);
             return 0;
         }
-        vdd = MLX90640_GetVdd(frame, &mlx90640);
-        Ta = MLX90640_GetTa(frame, &mlx90640);
-        MLX90640_CalculateTo(frame, &mlx90640, emissivity , Ta - TA_SHIFT, mlx90640To);
-        MLX90640_BadPixelsCorrection(mlx90640.brokenPixels, mlx90640To, 1, &mlx90640);
-        MLX90640_BadPixelsCorrection(mlx90640.outlierPixels, mlx90640To, 1, &mlx90640);
+        vdd = MLX90640_GetVdd(frame, mlx90640);
+        Ta = MLX90640_GetTa(frame, mlx90640);
+        MLX90640_CalculateTo(frame, mlx90640, emissivity , Ta - TA_SHIFT, mlx90640To);
+        MLX90640_BadPixelsCorrection(mlx90640->brokenPixels, mlx90640To, 1, mlx90640);
+        MLX90640_BadPixelsCorrection(mlx90640->outlierPixels, mlx90640To, 1, mlx90640);
         lua_pushboolean(L, 1);
     }
     return 1;
@@ -154,11 +155,11 @@ static int l_mlx90640_feed(lua_State *L) {
         LLOGD("GetFrame Error: %d",status);
         return 0;
     }
-    vdd = MLX90640_GetVdd(frame, &mlx90640);
-    Ta = MLX90640_GetTa(frame, &mlx90640); 
-    MLX90640_CalculateTo(frame, &mlx90640, emissivity , Ta - TA_SHIFT, mlx90640To);
-    MLX90640_BadPixelsCorrection(mlx90640.brokenPixels, mlx90640To, 1, &mlx90640);
-    MLX90640_BadPixelsCorrection(mlx90640.outlierPixels, mlx90640To, 1, &mlx90640);
+    vdd = MLX90640_GetVdd(frame, mlx90640);
+    Ta = MLX90640_GetTa(frame, mlx90640); 
+    MLX90640_CalculateTo(frame, mlx90640, emissivity , Ta - TA_SHIFT, mlx90640To);
+    MLX90640_BadPixelsCorrection(mlx90640->brokenPixels, mlx90640To, 1, mlx90640);
+    MLX90640_BadPixelsCorrection(mlx90640->outlierPixels, mlx90640To, 1, mlx90640);
     lua_pushboolean(L, 1);
     return 0;
 }

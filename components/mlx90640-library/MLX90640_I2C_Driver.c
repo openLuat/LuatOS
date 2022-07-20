@@ -16,6 +16,7 @@
  */
 
 #include "luat_i2c.h"
+#include "luat_malloc.h"
 #include "MLX90640_I2C_Driver.h"
 
 extern uint8_t mlx90640_i2c_id;
@@ -39,7 +40,7 @@ int MLX90640_I2CRead(uint8_t slaveAddr, uint16_t startAddress, uint16_t nMemAddr
     cmd[1] = startAddress & 0x00FF;
 
     i2cData = (char *)luat_heap_malloc(2*nMemAddressRead);
-    ret = luat_i2c_transfer(mlx90640_i2c_id, slaveAddr, cmd, 2, i2cData, 2*nMemAddressRead);
+    ret = luat_i2c_transfer(mlx90640_i2c_id, slaveAddr, (uint8_t*)cmd, 2, (uint8_t*)i2cData, 2*nMemAddressRead);
 
     if (ret != 0){
         luat_heap_free(i2cData);

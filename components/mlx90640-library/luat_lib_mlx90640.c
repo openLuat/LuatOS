@@ -282,7 +282,7 @@ static uint8_t * luat_interpolation(uint8_t *src, uint16_t rows,uint16_t cols,ui
 
 /*
 绘制到lcd
-@api mlx90640.draw2lcd(x, y, w, h)
+@api mlx90640.draw2lcd(x, y, fold)
 @int 左上角x坐标
 @int 左上角y坐标
 @int 放大倍数,必须为2的指数倍(1,2,4,8,16...)默认为1

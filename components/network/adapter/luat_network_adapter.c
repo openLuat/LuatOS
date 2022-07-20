@@ -613,7 +613,11 @@ static int network_state_on_line(network_ctrl_t *ctrl, OS_EVENT *event, network_
 			if (ctrl->ack_size == ctrl->tx_size)
 			{
 #ifdef LUAT_USE_LWIP
-				return net_lwip_check_all_ack(ctrl->socket_id);
+				if (ctrl->is_tcp)
+				{
+					return net_lwip_check_all_ack(ctrl->socket_id);
+				}
+				return 0;
 #else
 				return 0;
 #endif
@@ -766,7 +770,7 @@ static int32_t network_default_socket_callback(void *data, void *param)
 		{
 			if (ctrl->auto_mode)
 			{
-				DBG("%d,%d,%d", ctrl->adapter_index, ctrl->socket_id, ctrl->state, ctrl->wait_target_state);
+				DBG("%d,%d,%d,%d", ctrl->adapter_index, ctrl->socket_id, ctrl->state, ctrl->wait_target_state);
 				network_default_statemachine(ctrl, event, adapter);
 				DBG("%d,%d", ctrl->state, ctrl->wait_target_state);
 			}

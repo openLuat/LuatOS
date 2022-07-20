@@ -26,9 +26,13 @@
 
 extern void DBG_Printf(const char* format, ...);
 extern void DBG_HexPrintf(void *Data, unsigned int len);
+#ifdef LUAT_LOG_NO_NEWLINE
+#define DBG(x,y...)		DBG_Printf("%s %d:"x, __FUNCTION__,__LINE__,##y)
+#define DBG_ERR(x,y...)		DBG_Printf("%s %d:"x, __FUNCTION__,__LINE__,##y)
+#else
 #define DBG(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
 #define DBG_ERR(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
-
+#endif
 
 typedef struct
 {

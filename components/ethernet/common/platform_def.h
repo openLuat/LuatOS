@@ -8,6 +8,7 @@
 #define platform_wait_event luat_wait_event_from_task
 
 #define platform_create_task	luat_thread_start
+#define platform_get_current_task luat_get_current_task
 #define platform_create_timer	luat_create_rtos_timer
 #define platform_start_timer	luat_start_rtos_timer
 #define platform_stop_timer	luat_stop_rtos_timer

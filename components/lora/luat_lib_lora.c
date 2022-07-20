@@ -182,7 +182,7 @@ lora.init("llcc68",
 static int luat_lora_init(lua_State *L){
     size_t len = 0;
     const char* lora_ic = luaL_checklstring(L, 1, &len);
-    if(strcmp("llcc68",lora_ic)== 0||strcmp("LLCC68",lora_ic)== 0){
+    if(strcmp("llcc68",lora_ic)== 0||strcmp("LLCC68",lora_ic)== 0||strcmp("sx1268",lora_ic)== 0||strcmp("SX1268",lora_ic)== 0){
         uint8_t mode = 1,bandwidth = 0,datarate = 9,coderate = 4,preambleLen = 8,freqHopOn = 0,hopPeriod = 0,power = 0,fdev = 0,bandwidthAfc = 0,payloadLen = 0;
         uint32_t frequency = 433000000,timeout = 0,symbTimeout = 0;
         bool fixLen = 0,crcOn = 0,iqInverted = 0,rxContinuous = 0;

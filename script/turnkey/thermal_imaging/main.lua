@@ -50,11 +50,10 @@ sys.taskInit(function()
         log.info("mlx90640", "init ok")
         sys.wait(500) -- 稍等片刻
         while 1 do
-            local temp_max = {temp = 0,index = 0}
+            local temp_max = {temp = 0,x = 0,y = 0}
             mlx90640.feed() -- 取一帧数据
-            local raw_data = mlx90640.raw_data()
-            mlx90640.draw2lcd(skew_x, skew_y, fold)
             local temp,index = mlx90640.max_temp()
+            mlx90640.draw2lcd(skew_x, skew_y, fold)
             temp_max.temp = math.floor(temp)
             temp_max.x = (index%32)*fold+skew_x
             temp_max.y = (math.floor (index/32))*fold+skew_y

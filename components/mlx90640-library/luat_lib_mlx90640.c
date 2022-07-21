@@ -208,7 +208,7 @@ static int l_mlx90640_ta_temp(lua_State *L) {
 */
 static int l_mlx90640_max_temp(lua_State *L) {
     float max_temp = -40;
-    uint8_t index = 0;
+    uint16_t index = 0;
     for (size_t i = 0; i < RAW_DATA_SIZE; i++){
         if (mlx90640To[i]>max_temp)
         {
@@ -217,7 +217,7 @@ static int l_mlx90640_max_temp(lua_State *L) {
         }
     }
     lua_pushnumber(L, max_temp);
-    lua_pushinteger(L, index);
+    lua_pushinteger(L, index+1);
     return 2;
 }
 
@@ -229,7 +229,7 @@ static int l_mlx90640_max_temp(lua_State *L) {
 */
 static int l_mlx90640_min_temp(lua_State *L) {
     float min_temp = 300;
-    uint8_t index = 0;
+    uint16_t index = 0;
     for (size_t i = 0; i < RAW_DATA_SIZE; i++){
         if (mlx90640To[i]<min_temp)
         {
@@ -238,7 +238,7 @@ static int l_mlx90640_min_temp(lua_State *L) {
         }
     }
     lua_pushnumber(L, min_temp);
-    lua_pushinteger(L, index);
+    lua_pushinteger(L, index+1);
     return 2;
 }
 

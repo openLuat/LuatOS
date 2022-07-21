@@ -680,6 +680,7 @@ static int network_state_disconnecting(network_ctrl_t *ctrl, OS_EVENT *event, ne
 	case EV_NW_SOCKET_ERROR:
 	case EV_NW_SOCKET_REMOTE_CLOSE:
 	case EV_NW_SOCKET_CLOSE_OK:
+		DBG("!");
 		network_force_close_socket(ctrl);
 		ctrl->state = NW_STATE_OFF_LINE;
 		ctrl->socket_id = -1;
@@ -691,6 +692,7 @@ static int network_state_disconnecting(network_ctrl_t *ctrl, OS_EVENT *event, ne
 		}
 		else
 		{
+			DBG("!");
 			network_force_close_socket(ctrl);
 			ctrl->state = NW_STATE_OFF_LINE;
 			ctrl->socket_id = -1;
@@ -770,7 +772,7 @@ static int32_t network_default_socket_callback(void *data, void *param)
 		{
 			if (ctrl->auto_mode)
 			{
-				DBG("%d,%d,%d,%d", ctrl->adapter_index, ctrl->socket_id, ctrl->state, ctrl->wait_target_state);
+				DBG("%x,%d,%d,%d,%d", event->ID, ctrl->adapter_index, ctrl->socket_id, ctrl->state, ctrl->wait_target_state);
 				network_default_statemachine(ctrl, event, adapter);
 				DBG("%d,%d", ctrl->state, ctrl->wait_target_state);
 			}
@@ -994,14 +996,15 @@ int network_set_local_port(network_ctrl_t *ctrl, uint16_t local_port)
 	}
 	else
 	{
-		OS_LOCK;
-		adapter->port++;
-		if (adapter->port < 60000)
-		{
-			adapter->port = 60000;
-		}
-		ctrl->local_port = adapter->port;
-		OS_UNLOCK;
+//		OS_LOCK;
+//		adapter->port++;
+//		if (adapter->port < 60000)
+//		{
+//			adapter->port = 60000;
+//		}
+//		ctrl->local_port = adapter->port;
+//		OS_UNLOCK;
+		ctrl->local_port = 0;
 		return 0;
 	}
 }

@@ -9,6 +9,7 @@
 
 #define platform_create_task	luat_thread_start
 #define platform_get_current_task luat_get_current_task
+#define platform_task_sleep	luat_timer_mdelay
 #define platform_create_timer	luat_create_rtos_timer
 #define platform_start_timer	luat_start_rtos_timer
 #define platform_stop_timer	luat_stop_rtos_timer

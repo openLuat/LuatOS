@@ -28,19 +28,19 @@ BL           (PE09) --开发板上的U3_TX
 local rtos_bsp = rtos.bsp():lower()
 if rtos_bsp=="air101" or rtos_bsp=="air103" then
     mcu.setClk(240)
-end
-
-spi_lcd = spi.deviceSetup(5,pin.PC14,0,0,8,48*1000*1000,spi.MSB,1,0)
-
-log.info("lcd.init",
-lcd.init("st7735",{port = "device",pin_dc = pin.PE08 ,pin_rst = pin.PC12,pin_pwr = pin.PE09,direction = 3,w = 160,h = 128,xoffset = 1,yoffset = 2},spi_lcd))
-
-if rtos_bsp=="air105" then
+    spi_lcd = spi.deviceSetup(0,pin.PB04,0,0,8,20*1000*1000,spi.MSB,1,0)
+    lcd.init("st7735",{port = "device",pin_dc = pin.PB01, pin_pwr = pin.PB00, pin_rst = pin.PB03,direction = 3,w = 160,h = 128,xoffset = 1,yoffset = 2},spi_lcd)
+elseif rtos_bsp=="air105" then
+    spi_lcd = spi.deviceSetup(5,pin.PC14,0,0,8,48*1000*1000,spi.MSB,1,0)
+    lcd.init("st7735",{port = "device",pin_dc = pin.PE08 ,pin_rst = pin.PC12,pin_pwr = pin.PE09,direction = 3,w = 160,h = 128,xoffset = 1,yoffset = 2},spi_lcd)
     lcd.setupBuff()
     lcd.autoFlush(false)
+elseif rtos_bsp=="esp32c3" then
+    spi_lcd = spi.deviceSetup(2, 7, 0, 0, 8, 40000000, spi.MSB, 1, 0)
+    lcd.init("st7735",{port = "device",pin_dc = 6, pin_pwr = 11,pin_rst = 10,direction = 3,w = 160,h = 128,xoffset = 1,yoffset = 2},spi_lcd)
 end
-lcd.clear(0x0000)
 
+lcd.clear(0x0000)
 
 sys.taskInit(function()
     local skew_x = 16

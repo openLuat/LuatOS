@@ -476,7 +476,7 @@ static int net_lwip_rx_data(int socket_id, struct pbuf *p, const ip_addr_t *addr
 		if (data_p->data)
 		{
 			data_p->len = pbuf_copy_partial(p, data_p->data, p->tot_len, 0);
-			NET_DBG("new data %ubyte", p->tot_len);
+//			NET_DBG("new data %ubyte", p->tot_len);
 			llist_add_tail(&data_p->node, &prvlwip.socket[socket_id].rx_head);
 			prvlwip.socket[socket_id].rx_wait_size += p->tot_len;
 		}

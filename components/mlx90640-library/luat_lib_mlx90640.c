@@ -208,7 +208,7 @@ static int l_mlx90640_ta_temp(lua_State *L) {
 */
 static int l_mlx90640_max_temp(lua_State *L) {
     float max_temp = -40;
-    uint8_t index = 0;
+    uint16_t index = 0;
     for (size_t i = 0; i < RAW_DATA_SIZE; i++){
         if (mlx90640To[i]>max_temp)
         {
@@ -217,7 +217,7 @@ static int l_mlx90640_max_temp(lua_State *L) {
         }
     }
     lua_pushnumber(L, max_temp);
-    lua_pushinteger(L, index);
+    lua_pushinteger(L, index+1);
     return 2;
 }
 
@@ -229,7 +229,7 @@ static int l_mlx90640_max_temp(lua_State *L) {
 */
 static int l_mlx90640_min_temp(lua_State *L) {
     float min_temp = 300;
-    uint8_t index = 0;
+    uint16_t index = 0;
     for (size_t i = 0; i < RAW_DATA_SIZE; i++){
         if (mlx90640To[i]<min_temp)
         {
@@ -237,10 +237,34 @@ static int l_mlx90640_min_temp(lua_State *L) {
             index = i;
         }
     }
-    printf("min_temp index%d\n",index);
     lua_pushnumber(L, min_temp);
-    lua_pushinteger(L, index);
+    lua_pushinteger(L, index+1);
     return 2;
+}
+
+/*
+获取平均温度
+@api mlx90640.average_temp()
+@return number 平均温度
+*/
+static int l_mlx90640_average_temp(lua_State *L) {
+    float temp[RAW_DATA_H] = {0};
+    float temp1=0;
+    for (size_t j = 0; j < RAW_DATA_H; j++)
+    {
+        for (size_t i = 0; i < RAW_DATA_W; i++)
+        {
+            temp1+=mlx90640To[i];
+        }
+        temp[j]=temp1/RAW_DATA_W;
+        temp1 = 0;
+    }
+    
+    for (size_t i = 0; i < RAW_DATA_H; i++){
+        temp1+=temp[i];
+    }
+    lua_pushnumber(L, temp1/RAW_DATA_H);
+    return 1;
 }
 
 /*
@@ -383,6 +407,7 @@ static const rotable_Reg_t reg_mlx90640[] =
     {"ta_temp",     ROREG_FUNC(l_mlx90640_ta_temp)},
     {"max_temp",    ROREG_FUNC(l_mlx90640_max_temp)},
     {"min_temp",    ROREG_FUNC(l_mlx90640_min_temp)},
+    {"average_temp",ROREG_FUNC(l_mlx90640_average_temp)},
     {"get_vdd",     ROREG_FUNC(l_mlx90640_get_vdd)},
 
     { "FPS1HZ",     ROREG_INT(FPS1HZ)},

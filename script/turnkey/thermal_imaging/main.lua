@@ -25,32 +25,38 @@ BL           (PE09) --开发板上的U3_TX
 2. 数据输入(MISO)和片选(CS), 虽然是SPI, 但已复用为GPIO, 并非固定,是可以自由修改成其他脚
 ]]
 
-spi_lcd = spi.deviceSetup(5,pin.PC14,0,0,8,48*1000*1000,spi.MSB,1,0)
+local rtos_bsp = rtos.bsp():lower()
+if rtos_bsp=="air101" or rtos_bsp=="air103" then
+    mcu.setClk(240)
+    spi_lcd = spi.deviceSetup(0,pin.PB04,0,0,8,20*1000*1000,spi.MSB,1,0)
+    lcd.init("st7735",{port = "device",pin_dc = pin.PB01, pin_pwr = pin.PB00, pin_rst = pin.PB03,direction = 3,w = 160,h = 128,xoffset = 1,yoffset = 2},spi_lcd)
+elseif rtos_bsp=="air105" then
+    spi_lcd = spi.deviceSetup(5,pin.PC14,0,0,8,48*1000*1000,spi.MSB,1,0)
+    lcd.init("st7735",{port = "device",pin_dc = pin.PE08 ,pin_rst = pin.PC12,pin_pwr = pin.PE09,direction = 3,w = 160,h = 128,xoffset = 1,yoffset = 2},spi_lcd)
+    lcd.setupBuff()
+    lcd.autoFlush(false)
+elseif rtos_bsp=="esp32c3" then
+    spi_lcd = spi.deviceSetup(2, 7, 0, 0, 8, 40000000, spi.MSB, 1, 0)
+    lcd.init("st7735",{port = "device",pin_dc = 6, pin_pwr = 11,pin_rst = 10,direction = 3,w = 160,h = 128,xoffset = 1,yoffset = 2},spi_lcd)
+end
 
-log.info("lcd.init",
-lcd.init("st7735",{port = "device",pin_dc = pin.PE08 ,pin_rst = pin.PC12,pin_pwr = pin.PE09,direction = 3,w = 160,h = 128,xoffset = 1,yoffset = 2},spi_lcd))
 lcd.clear(0x0000)
 
 sys.taskInit(function()
     local skew_x = 16
     local skew_y = 16
     local fold = 4
-
     if mlx90640.init(0,i2c.FAST,mlx90640.FPS4HZ) then
         log.info("mlx90640", "init ok")
         sys.wait(500) -- 稍等片刻
         while 1 do
-            local temp_max = {temp = 0,index = 0}
+            local temp_max = {temp = 0,x = 0,y = 0}
             mlx90640.feed() -- 取一帧数据
-            local raw_data = mlx90640.raw_data()
+            local temp,index = mlx90640.max_temp()
             mlx90640.draw2lcd(skew_x, skew_y, fold)
-            for k, v in pairs(raw_data) do
-                if v > temp_max.temp then
-                    temp_max.temp = math.floor(v)
-                    temp_max.x = (k%32)*fold+skew_x
-                    temp_max.y = (math.floor (k/32))*fold+skew_y
-                end
-            end 
+            temp_max.temp = math.floor(temp)
+            temp_max.x = (index%32)*fold+skew_x
+            temp_max.y = (math.floor (index/32))*fold+skew_y
             if temp_max.x-fold<skew_x then
                 temp_max.x = skew_x+fold
             elseif temp_max.x+fold>32*fold+skew_x then
@@ -64,14 +70,11 @@ sys.taskInit(function()
             lcd.drawCircle(temp_max.x,temp_max.y,fold/2,0x001F)
 
             lcd.drawStr(temp_max.x,temp_max.y,temp_max.temp)
-            sys.wait(100) -- 默认是4HZ
+            if rtos_bsp=="air105" then lcd.flush() end
+            sys.wait(100)
         end
     else
         log.info("mlx90640", "init fail")
-    end
-
-    while 1 do
-        sys.wait(1000)
     end
 end)
 

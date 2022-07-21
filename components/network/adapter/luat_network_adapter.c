@@ -1477,6 +1477,8 @@ int network_connect(network_ctrl_t *ctrl, const char *domain_name, uint32_t doma
 
 	NW_LOCK;
 	ctrl->is_server_mode = 0;
+	ctrl->tx_size = 0;
+	ctrl->ack_size = 0;
 	if (ctrl->dns_ip)
 	{
 		free(ctrl->dns_ip);

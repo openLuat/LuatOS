@@ -506,7 +506,7 @@ static err_t net_lwip_tcp_recv_cb(void *arg, struct tcp_pcb *tpcb,
 
 	if (p)
 	{
-		tcp_recved(tpcb, p->tot_len);
+//		tcp_recved(tpcb, p->tot_len);
 		len = p->tot_len;
 		if (net_lwip_rx_data(socket_id, p, NULL, 0))
 		{
@@ -551,8 +551,7 @@ static err_t net_lwip_tcp_sent_cb(void *arg, struct tcp_pcb *tpcb,
 		rest_len = p->len - p->read_pos;
 		if ((len - check_len) >= rest_len)
 		{
-			check_len += rest_len;
-			NET_DBG("adapter %d socket %d, %ubytes ack", adapter_index, socket_id, p->len);
+//			NET_DBG("adapter %d socket %d, %ubytes ack", adapter_index, socket_id, p->len);
 			llist_del(&p->node);
 			free(p->data);
 			free(p);
@@ -562,7 +561,7 @@ static err_t net_lwip_tcp_sent_cb(void *arg, struct tcp_pcb *tpcb,
 		{
 			p->read_pos += (len - check_len);
 			check_len = len;
-			NET_DBG("adapter %d socket %d, all %ubytes ack %ubytes ", adapter_index, socket_id, p->len, p->read_pos);
+//			NET_DBG("adapter %d socket %d, all %ubytes ack %ubytes ", adapter_index, socket_id, p->len, p->read_pos);
 		}
 	}
 	while (!llist_empty(&prvlwip.socket[socket_id].tx_head))
@@ -584,7 +583,7 @@ static err_t net_lwip_tcp_sent_cb(void *arg, struct tcp_pcb *tpcb,
 	}
 
 	SOCKET_UNLOCK(socket_id);
-	tcp_output(prvlwip.socket[socket_id].pcb.tcp);
+	tcp_output(tpcb);
 	net_lwip_callback_to_nw_task(adapter_index, EV_NW_SOCKET_TX_OK, socket_id, len, 0);
 	return ERR_OK;
 SOCEKT_ERROR:
@@ -698,16 +697,7 @@ static err_t net_lwip_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *p
 						}
 					}
 					err_t err = udp_sendto(prvlwip.dns_udp, out_p, &prvlwip.dns_client.dns_server[i], DNS_SERVER_PORT);
-					switch(err)
-					{
-					case ERR_IF:
-					case ERR_OK:
-						break;
-					default:
-						NET_DBG("%d", err);
-						pbuf_free(out_p);
-						break;
-					}
+					pbuf_free(out_p);
 				}
 				OS_DeInitBuffer(&tx_msg_buf);
 				llist_traversal(&prvlwip.dns_client.require_head, net_lwip_dns_check_result, NULL);
@@ -751,16 +741,7 @@ static void net_lwip_dns_tx_next(Buffer_Struct *tx_msg_buf)
 			}
 
 			err = udp_sendto(prvlwip.dns_udp, p, &prvlwip.dns_client.dns_server[i], DNS_SERVER_PORT);
-			switch(err)
-			{
-			case ERR_IF:
-			case ERR_OK:
-				break;
-			default:
-				NET_DBG("%d", err);
-				pbuf_free(p);
-				break;
-			}
+			pbuf_free(p);
 		}
 		OS_DeInitBuffer(tx_msg_buf);
 		llist_traversal(&prvlwip.dns_client.require_head, net_lwip_dns_check_result, NULL);
@@ -869,6 +850,14 @@ static void net_lwip_task(void *param)
 			SOCKET_LOCK(socket_id);
 			if (prvlwip.socket[socket_id].in_use && prvlwip.socket[socket_id].pcb.ip)
 			{
+				if (!prvlwip.socket[socket_id].pcb.tcp->unsent && !prvlwip.socket[socket_id].pcb.tcp->unacked)
+				{
+					active_flag = 0;
+				}
+				else
+				{
+					active_flag = 1;
+				}
 				if (prvlwip.socket[socket_id].is_tcp)
 				{
 					while (!llist_empty(&prvlwip.socket[socket_id].tx_head))
@@ -890,6 +879,7 @@ static void net_lwip_task(void *param)
 					}
 					SOCKET_UNLOCK(socket_id);
 					tcp_output(prvlwip.socket[socket_id].pcb.tcp);
+
 				}
 				else
 				{
@@ -907,16 +897,7 @@ static void net_lwip_task(void *param)
 						{
 							out_p->payload = p->data;
 							error = udp_sendto(prvlwip.socket[socket_id].pcb.udp, out_p, &p->ip, p->port);
-							switch(error)
-							{
-							case ERR_IF:
-							case ERR_OK:
-								break;
-							default:
-								NET_DBG("%d", error);
-								pbuf_free(out_p);
-								break;
-							}
+							pbuf_free(out_p);
 						}
 						else
 						{
@@ -1001,8 +982,8 @@ static void net_lwip_task(void *param)
 				NET_DBG("error socket %d state %d,%x,%d", socket_id, prvlwip.socket[socket_id].in_use, prvlwip.socket[socket_id].pcb.ip, prvlwip.socket[socket_id].is_tcp);
 				break;
 			}
-			NET_DBG("socket %d rx ack %dbytes", socket_id, event.Param2);
-//			tcp_recved(prvlwip.socket[socket_id].pcb.tcp, event.Param2);
+//			NET_DBG("socket %d rx ack %dbytes", socket_id, event.Param2);
+			tcp_recved(prvlwip.socket[socket_id].pcb.tcp, event.Param2);
 			break;
 		case EV_LWIP_SOCKET_CREATE:
 			net_lwip_create_socket_now(adapter_index, socket_id);
@@ -1335,7 +1316,7 @@ static void net_lwip_create_socket_now(uint8_t adapter_index, uint8_t socket_id)
 //					tcp_set_flags(prvlwip.socket[socket_id].pcb.tcp, TCP_NODELAY);
 			if (adapter_index == NW_ADAPTER_INDEX_LWIP_GPRS)
 			{
-				prvlwip.socket[socket_id].pcb.tcp->more_delay = 1;
+				prvlwip.socket[socket_id].pcb.tcp->more_delay = 6;
 			}
 
 		}
@@ -2078,7 +2059,7 @@ int net_lwip_check_all_ack(int socket_id)
 	}
 	if (prvlwip.socket[socket_id].pcb.tcp->snd_buf != TCP_SND_BUF)
 	{
-		NET_DBG("socket_id %d send buf %ubytes, need %u",socket_id, prvlwip.socket[socket_id].pcb.tcp->snd_buf, TCP_SND_BUF);
+		NET_DBG("socket %d send buf %ubytes, need %u",socket_id, prvlwip.socket[socket_id].pcb.tcp->snd_buf, TCP_SND_BUF);
 	}
 	return 0;
 }

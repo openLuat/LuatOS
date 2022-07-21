@@ -269,10 +269,10 @@
 #define LWIP_PROVIDE_ERRNO
 
 
-#define SYS_ARCH_INC(var, val)
-#define SYS_ARCH_DEC(var, val)
-#define SYS_ARCH_GET(var, val)
-#define SYS_ARCH_SET(var, val)
+//#define SYS_ARCH_INC(var, val)
+//#define SYS_ARCH_DEC(var, val)
+//#define SYS_ARCH_GET(var, val)
+//#define SYS_ARCH_SET(var, val)
 #define SYS_ARCH_LOCKED(code)
 #define SYS_ARCH_DECL_PROTECT(x)
 #define SYS_ARCH_PROTECT(x)

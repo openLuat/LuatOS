@@ -192,12 +192,54 @@ static int l_mlx90640_raw_point(lua_State *L) {
 
 /*
 获取外壳温度
-@api mlx90640.get_temp()
+@api mlx90640.ta_temp()
 @return number 外壳温度
 */
-static int l_mlx90640_get_temp(lua_State *L) {
+static int l_mlx90640_ta_temp(lua_State *L) {
     lua_pushnumber(L, Ta);
     return 1;
+}
+
+/*
+获取最高温度
+@api mlx90640.max_temp()
+@return number 最高温度
+@return number 最高温度位置
+*/
+static int l_mlx90640_max_temp(lua_State *L) {
+    float max_temp = -40;
+    uint8_t index = 0;
+    for (size_t i = 0; i < RAW_DATA_SIZE; i++){
+        if (mlx90640To[i]>max_temp)
+        {
+            max_temp = mlx90640To[i];
+            index = i;
+        }
+    }
+    lua_pushnumber(L, max_temp);
+    lua_pushnumber(L, index);
+    return 2;
+}
+
+/*
+获取最低温度
+@api mlx90640.min_temp()
+@return number 最低温度
+@return number 最低温度位置
+*/
+static int l_mlx90640_min_temp(lua_State *L) {
+    float min_temp = 300;
+    uint8_t index = 0;
+    for (size_t i = 0; i < RAW_DATA_SIZE; i++){
+        if (mlx90640To[i]<min_temp)
+        {
+            min_temp = mlx90640To[i];
+            index = i;
+        }
+    }
+    lua_pushnumber(L, min_temp);
+    lua_pushnumber(L, index);
+    return 2;
 }
 
 /*
@@ -337,7 +379,9 @@ static const rotable_Reg_t reg_mlx90640[] =
     {"raw_data",    ROREG_FUNC(l_mlx90640_raw_data)},
     {"raw_point",   ROREG_FUNC(l_mlx90640_raw_point)},
     {"draw2lcd",    ROREG_FUNC(l_mlx90640_draw2lcd)},
-    {"get_temp",    ROREG_FUNC(l_mlx90640_get_temp)},
+    {"ta_temp",     ROREG_FUNC(l_mlx90640_ta_temp)},
+    {"max_temp",    ROREG_FUNC(l_mlx90640_max_temp)},
+    {"min_temp",    ROREG_FUNC(l_mlx90640_min_temp)},
     {"get_vdd",     ROREG_FUNC(l_mlx90640_get_vdd)},
 
     { "FPS1HZ",     ROREG_INT(FPS1HZ)},

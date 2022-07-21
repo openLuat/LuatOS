@@ -217,7 +217,7 @@ static int l_mlx90640_max_temp(lua_State *L) {
         }
     }
     lua_pushnumber(L, max_temp);
-    lua_pushnumber(L, index);
+    lua_pushinteger(L, index);
     return 2;
 }
 
@@ -237,8 +237,9 @@ static int l_mlx90640_min_temp(lua_State *L) {
             index = i;
         }
     }
+    printf("min_temp index%d\n",index);
     lua_pushnumber(L, min_temp);
-    lua_pushnumber(L, index);
+    lua_pushinteger(L, index);
     return 2;
 }
 

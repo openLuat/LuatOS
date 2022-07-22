@@ -21,6 +21,8 @@ jobs:
       run: |
         wget -q https://github.com/openLuat/LuatOS/releases/download/v0.0.1/gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2 -O gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2
         tar jxvf gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2
+        pwd
+        ls /home/runner/work/action/LuatOS/gcc-arm-none-eabi-10.3-2021.10/bin
     - name: clone 8850
       env:
         REPO: ${{ secrets.REPO8850 }}

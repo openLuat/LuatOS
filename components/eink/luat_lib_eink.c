@@ -57,7 +57,7 @@ eink_conf_t econf = {0};
 
 /**
 初始化eink
-@api eink.setup(full, spiid)
+@api eink.setup(full, spiid, pin_busy, pin_reset, pin_dc, pin_cs)
 @int 全屏刷新0,局部刷新1,默认是全屏刷新
 @int 所在的spi,默认是0
 @int Busy 忙信号管脚

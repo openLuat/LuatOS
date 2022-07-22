@@ -21,8 +21,6 @@ jobs:
       run: |
         wget -q https://github.com/openLuat/LuatOS/releases/download/v0.0.1/gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2 -O gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2
         tar jxvf gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2
-        pwd
-        ls /home/runner/work/action/LuatOS/gcc-arm-none-eabi-10.3-2021.10/bin
     - name: clone 8850
       env:
         REPO: ${{ secrets.REPO8850 }}
@@ -35,9 +33,9 @@ jobs:
         cd ..
         chmod 777 -R 8850/
         cd 8850
-        sed -i 's/`pwd`\/prebuilts\/linux\/gcc-arm-none-eabi\/bin/\/home\/runner\/work\/action\/LuatOS\/gcc-arm-none-eabi-10.3-2021.10\/bin/g' build.sh
+        sed -i 's/`pwd`\/prebuilts\/linux\/gcc-arm-none-eabi\/bin/\/home\/runner\/work\/LuatOS\/LuatOS\/gcc-arm-none-eabi-10.3-2021.10\/bin/g' build.sh
         cp CMakeLists样本.txt CMakeLists.txt
-        sed -i 's/E:\/\/LuatOS/\/home\/runner\/work\/action\/LuatOS\//g' CMakeLists.txt
+        sed -i 's/E:\/\/LuatOS/\/home\/runner\/work\/LuatOS\/LuatOS\//g' CMakeLists.txt
         chmod +x build.sh
         chmod +x prebuilts/linux/bin/*
         chmod +x tools/linux/*

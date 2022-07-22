@@ -1,7 +1,7 @@
 
 /*
 @module  fdb
-@summary kv数据库(基于FlashDB)
+@summary kv数据库,掉电不丢数据
 @version 1.0
 @date    2021.11.03
 @demo fdb
@@ -21,6 +21,7 @@ static struct fdb_kvdb kvdb;
 @string FAL分区名,当前仅支持onchip_fdb
 @return boolean 成功返回true,否则返回false
 @usage
+-- fdb库基于 flashdb , 再次表示感谢.
 if fdb.kvdb_init("env", "onchip_fdb") then
     log.info("fdb", "kv数据库初始化成功")
 end

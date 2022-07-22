@@ -157,6 +157,16 @@ void gtfont_draw_gray_hz (unsigned char *data,unsigned short x,unsigned short y,
 	}
 }
 
+/**
+初始化高通字体芯片
+@api gtfont.init(spi_device)
+@userdata 仅支持spi device 生成的指针数据
+@return boolean 成功返回true,否则返回false
+@usage
+-- 特别提醒: 使用本库的任何代码, 都需要 额外 的 高通字体芯片 !!
+-- 没有额外芯片是跑不了的!!
+gtfont.init(spi_device)
+*/
 static int l_gtfont_init(lua_State* L) {
     if (gt_spi_dev == NULL) {
         gt_spi_dev = lua_touserdata(L, 1);

@@ -1,6 +1,6 @@
 /*
 @module  w5500
-@summary w5500的硬件初始化，和注册进network适配器
+@summary w5500以太网驱动
 @version 1.0
 @date    2022.04.11
 */

@@ -30,7 +30,9 @@ jobs:
         retry 'git clone --branch=luatos-soc $REPO 8850'
     - name: make
       run: |
-        cd ../8850
+        cd ..
+        chmod 777 -R 8850/
+        cd 8850
         sed -i 's/`pwd`\/prebuilts\/linux\/gcc-arm-none-eabi\/bin/\/home\/runner\/work\/action\/LuatOS\/gcc-arm-none-eabi-10.3-2021.10\/bin/g' build.sh
         cp CMakeLists样本.txt CMakeLists.txt
         sed -i 's/E:\/\/LuatOS/\/home\/runner\/work\/action\/LuatOS\//g' CMakeLists.txt
@@ -41,7 +43,7 @@ jobs:
         mkdir out/8850BM_LuatOS_debug
         bash build_8850DM.sh
         mkdir ../LuatOS/luatosfw
-        cp /home/runner/work/action/luatos-soc-uis8850/hex/8850BM_LuatOS_debug/*.soc ../LuatOS/luatosfw
+        cp hex/8850BM_LuatOS_debug/*.soc ../LuatOS/luatosfw
     - name: Upload artifact
       uses: actions/upload-artifact@v1
       with:

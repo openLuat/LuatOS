@@ -221,25 +221,28 @@ int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, 
         return 0;
     }
     // buff模式
-    if (x1 > conf->w || x2 > conf->w || y1 > conf->h || y2 > conf->h) {
-        //LLOGW("out of lcd range");
+    if (x1 > conf->w || y1 > conf->h) {
+        LLOGE("out of lcd range");
         return -1;
     }
+    uint16_t x_end = x2 > conf->w?conf->w:x2;
+    uint16_t y_end = y2 > conf->h?conf->h:y2;
     luat_color_t* dst = (conf->buff + x1 + conf->w * y1);
     luat_color_t* src = (color);
-    size_t lsize = (x2 - x1 + 1);
-    for (size_t i = 0; i < (y2 - y1 + 1); i++) {
+    size_t lsize = (x_end - x1 + 1);
+    for (size_t i = y1; i <= y_end; i++) {
         memcpy(dst, src, lsize * sizeof(luat_color_t));
         dst += conf->w;  // 移动到下一行
         src += lsize;    // 移动数据
+        if (x2 > conf->w){
+            src+=x2 - conf->w;
+        }
     }
-
     // 存储需要刷新的区域
     if (y1 < conf->flush_y_min)
         conf->flush_y_min = y1;
-    if (y2 > conf->flush_y_max)
-        conf->flush_y_max = y2;
-
+    if (y_end > conf->flush_y_max)
+        conf->flush_y_max = y_end;
     return 0;
 }
 #endif

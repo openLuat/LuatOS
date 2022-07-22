@@ -19,8 +19,6 @@ jobs:
     - uses: actions/checkout@v1
     - name: prepare software
       run: |
-        sudo apt-get update
-        sudo apt-get install git gcc-multilib libc6 libgcc1 libstdc++5 libstdc++6 libsdl-dev p7zip-full libncurses5-dev -y
         wget -q https://github.com/openLuat/LuatOS/releases/download/v0.0.1/gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2 -O gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2
         tar jxvf gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2
     - name: clone 8850

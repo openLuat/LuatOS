@@ -56,6 +56,7 @@ fdb_err_t         fdb_kv_set_default  (fdb_kvdb_t db);
 void              fdb_kv_print        (fdb_kvdb_t db);
 fdb_kv_iterator_t fdb_kv_iterator_init(fdb_kv_iterator_t itr);
 bool              fdb_kv_iterate      (fdb_kvdb_t db, fdb_kv_iterator_t itr);
+bool              fdb_kv_stat         (fdb_kvdb_t db, uint32_t* using_sz, uint32_t* max_sz, uint32_t* kv_count);
 
 /* Time series log API like a TSDB */
 fdb_err_t  fdb_tsl_append      (fdb_tsdb_t db, fdb_blob_t blob);

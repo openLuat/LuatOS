@@ -311,6 +311,28 @@ static int l_fdb_kv_next(lua_State *L) {
     return 0;
 }
 
+/*
+获取kv数据库状态
+@api fdb.kv_stat()
+@return int 已使用的空间,单位字节
+@return int 总可用空间, 单位字节
+@return int 总kv键值对数量, 单位个
+@usage
+-- 本API于2022.07.23 添加
+local used,maxs,kv_count = fdb.kv_stat()
+log.info("fdb", "kv", used,maxs,kv_count)
+*/
+static int l_fdb_kv_stat(lua_State *L) {
+    uint32_t using_sz = 0;
+    uint32_t max_sz = 0;
+    uint32_t kv_count = 0;
+    fdb_kv_stat(&kvdb, &using_sz, &max_sz, &kv_count);
+    lua_pushinteger(L, using_sz);
+    lua_pushinteger(L, max_sz);
+    lua_pushinteger(L, kv_count);
+    return 3;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_fdb[] =
 {
@@ -322,6 +344,7 @@ static const rotable_Reg_t reg_fdb[] =
     { "kv_clr",             ROREG_FUNC(l_fdb_kv_clr)},
     { "kv_iter",            ROREG_FUNC(l_fdb_kv_iter)},
     { "kv_next",            ROREG_FUNC(l_fdb_kv_next)},
+    { "kv_stat",            ROREG_FUNC(l_fdb_kv_stat)},
     { NULL,                 ROREG_INT(0)}
 };
 

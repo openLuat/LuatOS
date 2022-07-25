@@ -123,15 +123,18 @@ def get_modules(file_list, start="/*", end="*/"):
                     module["demo"] = "https://gitee.com/openLuat/LuatOS/tree/master/demo/"
                     module["demo"] += re.search(" *@demo * (.+) *",lines[line_now],re.I).group(1)
                     line_now+=1
+                    continue
                 if re.search(" *@video *.+",lines[line_now],re.I):
                     module["video"] = re.search(" *@video * (.+) *",lines[line_now],re.I).group(1)
                     line_now+=1
+                    continue
                 if re.search(" *@usage *",lines[line_now],re.I):
                     line_now+=1
                     while lines[line_now].find(end) < 0:
                         module["usage"] += lines[line_now]+"\n"
                         line_now+=1
                     isGotApi = True
+                    continue
             #匹配api完整名称行
             name = re.search(r" *@api *(.+) *",lines[line_now+2],re.I)
             if not name:

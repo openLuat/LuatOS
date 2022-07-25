@@ -166,6 +166,7 @@ void OnRxError( void ){
     luat_msgbus_put(&msg, 1);
 }
 
+extern void RadioEventsInit(RadioEvents_t *events);
 /*
 lora初始化
 @api lora.init(ic, loraconfig,spiconfig)
@@ -245,6 +246,7 @@ static int luat_lora_init(lua_State *L){
         RadioEvents.RxTimeout = OnRxTimeout;
         RadioEvents.RxError = OnRxError;
 
+        RadioEventsInit(&RadioEvents);
         if (lora_init) Radio.Init( &RadioEvents );
 
         luat_start_rtos_timer(luat_create_rtos_timer(Radio.IrqProcess, NULL, NULL), 10, 1);

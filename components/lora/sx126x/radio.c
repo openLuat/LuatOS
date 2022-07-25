@@ -446,7 +446,7 @@ static RadioPublicNetwork_t RadioPublicNetwork = { false };
 /*!
  * Radio callbacks variable
  */
-static RadioEvents_t* RadioEvents;
+RadioEvents_t* RadioEvents;
 
 /*
  * Public global variables
@@ -487,6 +487,10 @@ static uint8_t RadioGetFskBandwidthRegValue( uint32_t bandwidth )
     }
     // ERROR: Value not found
     while( 1 );
+}
+
+void RadioEventsInit(RadioEvents_t *events){
+    RadioEvents = events;
 }
 
 void RadioInit( RadioEvents_t *events )

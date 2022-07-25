@@ -174,9 +174,7 @@ lora初始化
 @table 硬件配置参数,与具体设备有关
 @usage
 lora.init("llcc68",
-{mode=1,bandwidth=0,datarate=9,coderate=4,preambleLen=8,fixLen=false,crcOn=true,freqHopOn=0,hopPeriod=0,iqInverted=false,
-    frequency = 433000000, power=22,fdev=0,timeout=3000,  bandwidthAfc=0,symbTimeout=0,payloadLen=0,rxContinuous=false},
-{id = 0,cs = pin.PB04,res = pin.PB00,busy = pin.PB01,dio1 = pin.PB06}
+{id = 0,cs = pin.PB04,res = pin.PB00,busy = pin.PB01,dio1 = pin.PB06,lora_init = true}
 )
 */
 static int luat_lora_init(lua_State *L){
@@ -184,7 +182,7 @@ static int luat_lora_init(lua_State *L){
     const char* lora_ic = luaL_checklstring(L, 1, &len);
     if(strcmp("llcc68",lora_ic)== 0||strcmp("LLCC68",lora_ic)== 0||strcmp("sx1268",lora_ic)== 0||strcmp("SX1268",lora_ic)== 0){
         uint8_t id = 0,cs = 0,res = 0,busy = 0,dio1 = 0;
-
+        bool lora_init = true;
         if (lua_istable(L, 2)) {
             lua_pushstring(L, "id");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
@@ -209,6 +207,11 @@ static int luat_lora_init(lua_State *L){
             lua_pushstring(L, "dio1");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
                 dio1 = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+            lua_pushstring(L, "lora_init");
+            if (LUA_TBOOLEAN == lua_gettable(L, 2)) {
+                lora_init = lua_toboolean(L, -1);
             }
             lua_pop(L, 1);
         }
@@ -242,7 +245,7 @@ static int luat_lora_init(lua_State *L){
         RadioEvents.RxTimeout = OnRxTimeout;
         RadioEvents.RxError = OnRxError;
 
-        Radio.Init( &RadioEvents );
+        if (lora_init) Radio.Init( &RadioEvents );
 
         luat_start_rtos_timer(luat_create_rtos_timer(Radio.IrqProcess, NULL, NULL), 10, 1);
     }
@@ -279,7 +282,7 @@ static int luat_lora_set_txconfig(lua_State *L){
     if(strcmp("llcc68",lora_ic)== 0||strcmp("LLCC68",lora_ic)== 0||strcmp("sx1268",lora_ic)== 0||strcmp("SX1268",lora_ic)== 0){
         uint8_t mode = 1,power = 0,fdev = 0,bandwidth = 0,datarate = 9,coderate = 4,preambleLen = 8,freqHopOn = 0,hopPeriod = 0;
         uint32_t timeout = 0;
-        bool fixLen = 0,crcOn = 0,iqInverted = 0;
+        bool fixLen = false,crcOn = true,iqInverted = false;
 
         if (lua_istable(L, 2)) {
             lua_pushstring(L, "mode");
@@ -374,7 +377,7 @@ static int luat_lora_set_rxconfig(lua_State *L){
     if(strcmp("llcc68",lora_ic)== 0||strcmp("LLCC68",lora_ic)== 0||strcmp("sx1268",lora_ic)== 0||strcmp("SX1268",lora_ic)== 0){
         uint8_t mode = 1,bandwidth = 0,datarate = 9,coderate = 4,bandwidthAfc = 0,preambleLen = 8,symbTimeout = 0,payloadLen = 0,freqHopOn = 0,hopPeriod = 0;
         uint32_t frequency = 433000000,timeout = 0;
-        bool fixLen = 0,crcOn = 0,iqInverted = 0,rxContinuous = 0;
+        bool fixLen = false,crcOn = true,iqInverted = false,rxContinuous = false;
 
         if (lua_istable(L, 2)) {
             lua_pushstring(L, "mode");
@@ -491,6 +494,22 @@ static int luat_lora_recive(lua_State *L){
 }
 
 /*
+主动读取接收缓存
+@api    lora.get_payload()
+@return string 缓存数据
+@return number 数据长度
+@usage
+payload,len = lora.get_payload()
+*/
+static int luat_lora_get_payload(lua_State *L){
+    uint8_t size,payload;
+    SX126xGetPayload( &payload, &size , 255 );
+    lua_pushlstring(L, (const char *)&payload,size);
+    lua_pushinteger(L, size);
+    return 2;
+}
+
+/*
 设置进入模式(休眠，正常等)
 @api    lora.mode(mode)
 @number 模式 正常模式:lora.STANDBY 休眠模式:lora.SLEEP 默认为正常模式
@@ -511,11 +530,12 @@ static int luat_lora_mode(lua_State *L){
 static const rotable_Reg_t reg_lora[] =
 {
     { "init",        ROREG_FUNC(luat_lora_init)},
-    { "set_channel",     ROREG_FUNC(luat_lora_set_channel)},
-    { "set_txconfig",    ROREG_FUNC(luat_lora_set_txconfig)},
-    { "set_rxconfig",    ROREG_FUNC(luat_lora_set_rxconfig)},
+    { "set_channel", ROREG_FUNC(luat_lora_set_channel)},
+    { "set_txconfig",ROREG_FUNC(luat_lora_set_txconfig)},
+    { "set_rxconfig",ROREG_FUNC(luat_lora_set_rxconfig)},
     { "send",        ROREG_FUNC(luat_lora_send)},
     { "recive",      ROREG_FUNC(luat_lora_recive)},
+    { "get_payload", ROREG_FUNC(luat_lora_get_payload)},
     { "mode",        ROREG_FUNC(luat_lora_mode)},
 
     { "SLEEP",       ROREG_INT(0)},

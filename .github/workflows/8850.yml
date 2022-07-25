@@ -41,9 +41,12 @@ jobs:
         chmod +x tools/linux/*
         mkdir out
         mkdir out/8850BM_LuatOS_debug
-        bash build_8850DM.sh
+        mkdir out/8850DG_LuatOS_debug
+        bash build_8850BM.sh
+        bash build_8850DG.sh
         mkdir ../LuatOS/luatosfw
         cp hex/8850BM_LuatOS_debug/*.soc ../LuatOS/luatosfw
+        cp hex/8850DG_LuatOS_debug/*.soc ../LuatOS/luatosfw
     - name: Upload artifact
       uses: actions/upload-artifact@v1
       with:

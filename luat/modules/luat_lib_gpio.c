@@ -280,7 +280,7 @@ static int l_gpio_toggle(lua_State *L) {
 在同一个GPIO输出一组脉冲, 注意, len的单位是bit, 高位在前.
 @api gpio.pulse(pin,level,len,delay)
 @int gpio号
-@int/string 数值或者字符串. 
+@int/string 数值或者字符串.
 @int len 长度 单位是bit, 高位在前.
 @int delay 延迟,当前无固定时间单位
 @return nil 无返回值
@@ -359,18 +359,28 @@ static const rotable_Reg_t reg_gpio[] =
     { "pulse",          ROREG_FUNC(l_gpio_pulse)},
     { "setDefaultPull", ROREG_FUNC(l_gpio_set_default_pull)},
 
+    //@const LOW number 低电平
     { "LOW",            ROREG_INT(Luat_GPIO_LOW)},
+    //@const HIGH number 高电平
     { "HIGH",           ROREG_INT(Luat_GPIO_HIGH)},
 
+    //@const OUTPUT number 输出模式
     { "OUTPUT",         ROREG_INT(Luat_GPIO_OUTPUT)},
+    //@const INPUT number 输入模式
     { "INPUT",          ROREG_INT(Luat_GPIO_INPUT)},
+    //@const IRQ number 中断模式
     { "IRQ",            ROREG_INT(Luat_GPIO_IRQ)},
 
+    //@const PULLUP number 上拉
     { "PULLUP",         ROREG_INT(Luat_GPIO_PULLUP)},
+    //@const PULLDOWN number 下拉
     { "PULLDOWN",       ROREG_INT(Luat_GPIO_PULLDOWN)},
 
+    //@const RISING number 上升沿触发
     { "RISING",         ROREG_INT(Luat_GPIO_RISING)},
+    //@const FALLING number 下降沿触发
     { "FALLING",        ROREG_INT(Luat_GPIO_FALLING)},
+    //@const BOTH number 双向触发
     { "BOTH",           ROREG_INT(Luat_GPIO_BOTH)},
 	{ NULL,             ROREG_INT(0) }
 };

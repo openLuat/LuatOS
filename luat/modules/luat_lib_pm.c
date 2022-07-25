@@ -245,9 +245,13 @@ static const rotable_Reg_t reg_pm[] =
     { "force",          ROREG_FUNC(l_pm_force)},
     { "check",          ROREG_FUNC(l_pm_check)},
     { "lastReson",      ROREG_FUNC(l_pm_last_reson)},
+    //@const IDLE number IDLE模式
     { "IDLE",           ROREG_INT(LUAT_PM_SLEEP_MODE_IDLE)},
+    //@const LIGHT number LIGHT模式
     { "LIGHT",          ROREG_INT(LUAT_PM_SLEEP_MODE_LIGHT)},
+    //@const DEEP number DEEP模式
     { "DEEP",           ROREG_INT(LUAT_PM_SLEEP_MODE_DEEP)},
+    //@const HIB number HIB模式
     { "HIB",            ROREG_INT(LUAT_PM_SLEEP_MODE_STANDBY)},
 	{ NULL,             ROREG_INT(0) }
 };

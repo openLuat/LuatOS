@@ -24,7 +24,7 @@
 -- 初始化lcdseg
 if lcdseg.setup(lcdseg.BIAS_ONETHIRD, lcdseg.DUTY_ONEFOURTH, 33, 4, 60) then
     lcdseg.enable(1)
-    
+
     lcdseg.seg_set(0, 1, 1)
     lcdseg.seg_set(2, 0, 1)
     lcdseg.seg_set(3, 31, 1)
@@ -91,19 +91,31 @@ static const rotable_Reg_t reg_lcdseg[] = {
     { "power",      ROREG_FUNC(l_lcdseg_power)},
     { "seg_set",    ROREG_FUNC(l_lcdseg_seg_set)},
 
+    //@const BIAS_STATIC number 没偏置电压(bias)
     { "BIAS_STATIC",    ROREG_INT(0)},
+    //@const BIAS_ONEHALF number 1/2偏置电压(bias)
     { "BIAS_ONEHALF",   ROREG_INT(2)},
+    //@const BIAS_ONETHIRD number 1/3偏置电压(bias)
     { "BIAS_ONETHIRD",  ROREG_INT(3)},
+    //@const BIAS_ONEFOURTH number 1/4偏置电压(bias)
     { "BIAS_ONEFOURTH", ROREG_INT(4)},
 
 
+    //@const DUTY_STATIC number 100%占空比(duty)
     { "DUTY_STATIC",    ROREG_INT(0)},
+    //@const DUTY_ONEHALF number 1/2占空比(duty)
     { "DUTY_ONEHALF",   ROREG_INT(2)},
+    //@const DUTY_ONETHIRD number 1/3占空比(duty)
     { "DUTY_ONETHIRD",  ROREG_INT(3)},
+    //@const DUTY_ONEFOURTH number 1/4占空比(duty)
     { "DUTY_ONEFOURTH", ROREG_INT(4)},
+    //@const DUTY_ONEFIFTH number 1/5占空比(duty)
     { "DUTY_ONEFIFTH",  ROREG_INT(5)},
+    //@const DUTY_ONESIXTH number 1/6占空比(duty)
     { "DUTY_ONESIXTH",  ROREG_INT(6)},
+    //@const DUTY_ONESEVENTH number 1/7占空比(duty)
     { "DUTY_ONESEVENTH", ROREG_INT(7)},
+    //@const DUTY_ONEEIGHTH number 1/8占空比(duty)
     { "DUTY_ONEEIGHTH", ROREG_INT(8)},
 };
 

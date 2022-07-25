@@ -1478,8 +1478,11 @@ static void createmeta(lua_State *L)
 static const rotable_Reg_t reg_zbuff[] =
     {
         {"create",  ROREG_FUNC(l_zbuff_create)},
+        //@const SEEK_SET number 以头为基点
         {"SEEK_SET", ROREG_INT(ZBUFF_SEEK_SET)},
+        //@const SEEK_CUR number 以当前位置为基点
         {"SEEK_CUR", ROREG_INT(ZBUFF_SEEK_CUR)},
+        //@const SEEK_END number 以末尾为基点
         {"SEEK_END", ROREG_INT(ZBUFF_SEEK_END)},
         {NULL,       ROREG_INT(0)
     }

@@ -234,10 +234,16 @@ static const rotable_Reg_t reg_log[] =
     { "style",      ROREG_FUNC(l_log_style)},
     //{ "_log" ,      ROREG_FUNC(l_log_2_log)},
 
+
+    //@const LOG_SILENT number 无日志模式
     { "LOG_SILENT", ROREG_INT(LUAT_LOG_CLOSE)},
+    //@const LOG_DEBUG number debug日志模式
     { "LOG_DEBUG",  ROREG_INT(LUAT_LOG_DEBUG)},
+    //@const LOG_INFO number info日志模式
     { "LOG_INFO",   ROREG_INT(LUAT_LOG_INFO)},
+    //@const LOG_WARN number warning日志模式
     { "LOG_WARN",   ROREG_INT(LUAT_LOG_WARN)},
+    //@const LOG_ERROR number error日志模式
     { "LOG_ERROR",  ROREG_INT(LUAT_LOG_ERROR)},
 	{ NULL,         ROREG_INT(0) }
 };

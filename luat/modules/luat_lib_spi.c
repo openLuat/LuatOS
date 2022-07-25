@@ -358,7 +358,7 @@ static int l_spi_transfer(lua_State *L) {
         luat_heap_free(recv_buff);
         return 1;
     }
-    
+
     luat_heap_free(recv_buff);
     return 0;
 }
@@ -493,12 +493,12 @@ static int l_spi_device_setup(lua_State *L) {
     memset(spi_device, 0, sizeof(luat_spi_device_t));
     spi_device->bus_id = bus_id;
     spi_device->spi_config.cs = cs;
-    spi_device->spi_config.CPHA = CPHA; 
+    spi_device->spi_config.CPHA = CPHA;
     spi_device->spi_config.CPOL = CPOL;
     spi_device->spi_config.dataw = dataw;
-    spi_device->spi_config.bandrate = bandrate; 
-    spi_device->spi_config.bit_dict = bit_dict; 
-    spi_device->spi_config.master = master; 
+    spi_device->spi_config.bandrate = bandrate;
+    spi_device->spi_config.bit_dict = bit_dict;
+    spi_device->spi_config.master = master;
     spi_device->spi_config.mode = mode;
     luat_spi_device_setup(spi_device);
     luaL_setmetatable(L, META_SPI);
@@ -605,7 +605,7 @@ static int l_spi_device_send(lua_State *L) {
             send_buff[i] = (char)lua_tointeger(L, -1);
             lua_pop(L, 1); //将刚刚获取的元素值从栈中弹出
         }
-        
+
     }else {
         send_buff = (char*)lua_tolstring(L, 2, &len);
         lua_pushinteger(L, luat_spi_device_send(spi_device, send_buff, len));
@@ -743,11 +743,18 @@ static const rotable_Reg_t reg_spi[] =
     { "deviceTransfer",   ROREG_FUNC(l_spi_device_transfer)},
     { "deviceSend",       ROREG_FUNC(l_spi_device_send)},
 	{ "xfer",   		  ROREG_FUNC(l_spi_no_block_transfer)},
+
+    //@const MSB number 大端模式
     { "MSB",               ROREG_INT(1)},
+    //@const LSB number 小端模式
     { "LSB",               ROREG_INT(0)},
+    //@const master number 主机模式
     { "master",            ROREG_INT(1)},
+    //@const slave number 从机模式
     { "slave",             ROREG_INT(0)},
+    //@const full number 全双工
     { "full",              ROREG_INT(1)},
+    //@const half number 半双工
     { "half",              ROREG_INT(0)},
 
     { "SPI_0",             ROREG_INT(0)},

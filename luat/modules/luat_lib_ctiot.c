@@ -528,9 +528,13 @@ static const rotable_Reg_t reg_ctiot[] =
 //	{ "read", ROREG_FUNC(l_ctiot_read)},
 	{ "update", ROREG_FUNC(l_ctiot_update)},
     // ----- 类型常量
+    //@const CON number CON
 	{ "CON", ROREG_INT(0)},
+    //@const NON number NON
 	{ "NON", ROREG_INT(1)},
+    //@const NON_REL number NON_REL
 	{ "NON_REL", ROREG_INT(2)},
+    //@const CON_REL number CON_REL
 	{ "CON_REL", ROREG_INT(3)},
 #endif
 	{ NULL, ROREG_INT(0) }

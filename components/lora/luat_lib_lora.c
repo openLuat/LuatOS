@@ -494,22 +494,6 @@ static int luat_lora_recive(lua_State *L){
 }
 
 /*
-主动读取接收缓存
-@api    lora.get_payload()
-@return string 缓存数据
-@return number 数据长度
-@usage
-payload,len = lora.get_payload()
-*/
-static int luat_lora_get_payload(lua_State *L){
-    uint8_t size,payload;
-    SX126xGetPayload( &payload, &size , 255 );
-    lua_pushlstring(L, (const char *)&payload,size);
-    lua_pushinteger(L, size);
-    return 2;
-}
-
-/*
 设置进入模式(休眠，正常等)
 @api    lora.mode(mode)
 @number 模式 正常模式:lora.STANDBY 休眠模式:lora.SLEEP 默认为正常模式
@@ -535,7 +519,6 @@ static const rotable_Reg_t reg_lora[] =
     { "set_rxconfig",ROREG_FUNC(luat_lora_set_rxconfig)},
     { "send",        ROREG_FUNC(luat_lora_send)},
     { "recive",      ROREG_FUNC(luat_lora_recive)},
-    { "get_payload", ROREG_FUNC(luat_lora_get_payload)},
     { "mode",        ROREG_FUNC(luat_lora_mode)},
 
     { "SLEEP",       ROREG_INT(0)},

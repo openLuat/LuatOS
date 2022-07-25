@@ -36,6 +36,8 @@ def get_file_list(paths, ext = ".c"):
 # static int l_module_function(lua_State *L) {
 #     //一堆代码
 # }
+#
+#//@const NONE number 无校验
 ########################################################
 #数据结构：
 # modules = [
@@ -46,6 +48,13 @@ def get_file_list(paths, ext = ".c"):
 #         'demo': 'adc',
 #         'video': 'https://xxxxx',
 #         'usage': '--xxxxxxx',
+#         'const': [
+# {
+#    'var':'uart.NONE',
+#    'type':'number',
+#    'summary':'无校验',
+# },
+# ],
 #         'api':[
 #             {
 #                 'api':'adc.read(id)',
@@ -102,6 +111,7 @@ def get_modules(file_list, start="/*", end="*/"):
             module["demo"] = ""
             module["video"] = ""
             module["api"] = []
+            module["const"] = []
         else:
             continue
 
@@ -139,6 +149,14 @@ def get_modules(file_list, start="/*", end="*/"):
             name = re.search(r" *@api *(.+) *",lines[line_now+2],re.I)
             if not name:
                 name = re.search(r" *@function *(.+) *",lines[line_now+2],re.I)
+            #匹配常量
+            const_re = re.search(r"[ \-]*//@const +(.+?) +(.+?) +(.+)",lines[line_now],re.I)
+            if const_re:
+                const = {}
+                const["var"] = module["module"]+"."+const_re.group(1)
+                const["type"] = const_re.group(2)
+                const["summary"] = const_re.group(3)
+                module["const"].append(const)
             if lines[line_now].startswith(start) and name:
                 api = {}
                 api["api"] = name.group(1)

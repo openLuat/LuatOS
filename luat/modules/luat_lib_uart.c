@@ -442,17 +442,23 @@ static const rotable_Reg_t reg_uart[] =
     { "Odd",        ROREG_INT(LUAT_PARITY_ODD)},
     { "Even",       ROREG_INT(LUAT_PARITY_EVEN)},
     { "None",       ROREG_INT(LUAT_PARITY_NONE)},
+    //@const ODD number 奇校验
     { "ODD",        ROREG_INT(LUAT_PARITY_ODD)},
+    //@const EVEN number 偶校验
     { "EVEN",       ROREG_INT(LUAT_PARITY_EVEN)},
+    //@const NONE number 无校验
     { "NONE",       ROREG_INT(LUAT_PARITY_NONE)},
     //高低位顺序
+    //@const LSB number 小端模式
     { "LSB",        ROREG_INT(LUAT_BIT_ORDER_LSB)},
+    //@const MSB number 大端模式
     { "MSB",        ROREG_INT(LUAT_BIT_ORDER_MSB)},
 
     { "tx",      ROREG_FUNC(l_uart_tx)},
     { "rx",       ROREG_FUNC(l_uart_rx)},
 	{ "rx_size",	ROREG_FUNC(l_uart_rx_size)},
 
+    //@const VUART_0 number 虚拟串口0
 	{ "VUART_0",        ROREG_INT(LUAT_VUART_ID_0)},
     { NULL,         ROREG_INT(0) }
 };

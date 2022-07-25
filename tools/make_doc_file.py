@@ -10,7 +10,7 @@ def make(path,modules,index_text):
 
     doc = open(path+"index.rst", "a+",encoding='utf-8')
     doc.write(index_text)
-    
+
     for module in modules:
         mdoc = open(path+module["module"]+".md", "a+",encoding='utf-8')
         mdoc.write("# "+module["module"]+" - "+module["summary"]+"\n\n")
@@ -27,6 +27,13 @@ def make(path,modules,index_text):
         if len(module["usage"]) > 0:
             mdoc.write("**示例**\n\n")
             mdoc.write("```lua\n"+module["usage"]+"\n```\n\n")
+
+        if len(module["const"]) > 0:
+            mdoc.write("## 常量\n\n")
+            mdoc.write("|常量|类型|解释|\n|-|-|-|\n")
+            for const in module["const"]:
+                mdoc.write("|"+const["var"].replace("|","\|")+"|"+const["type"].replace("|","\|")+"|"+const["summary"].replace("|","\|")+"|\n")
+            mdoc.write("\n\n")
 
         doc.write("   "+module["module"]+"\n")
         for api in module["api"]:

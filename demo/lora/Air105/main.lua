@@ -37,11 +37,18 @@ sys.subscribe("LORA_RX_TIMEOUT", function()
 end)
 
 sys.taskInit(function()
-    lora.init("llcc68",
-    {mode=1,bandwidth=0,datarate=9,coderate=4,preambleLen=8,fixLen=false,crcOn=true,freqHopOn=0,hopPeriod=0,iqInverted=false,
-        frequency = 433000000, power=22,fdev=0,timeout=3000,  bandwidthAfc=0,symbTimeout=0,payloadLen=0,rxContinuous=false},
-    {id = 5,cs = pin.PC14,res = pin.PE08,busy = pin.PE09,dio1 = pin.PE06}
+    lora.init("llcc68",{id = 5,cs = pin.PC14,res = pin.PE08,busy = pin.PE09,dio1 = pin.PE06})
+    
+    lora.set_channel(433000000)
+    lora.set_txconfig("llcc68",
+    {mode=1,power=22,fdev=0,bandwidth=0,datarate=9,coderate=4,preambleLen=8,
+        fixLen=false,crcOn=true,freqHopOn=0,hopPeriod=0,iqInverted=false,timeout=3000}
     )
+    lora.set_rxconfig("llcc68",
+    {mode=1,bandwidth=0,datarate=9,coderate=4,bandwidthAfc=0,preambleLen=8,symbTimeout=0,fixLen=false,
+        payloadLen=0,crcOn=true,freqHopOn=0,hopPeriod=0,iqInverted=false,rxContinuous=false}
+    )
+
     lora.send("PING")
     while 1 do
         sys.wait(1000)

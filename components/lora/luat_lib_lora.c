@@ -183,10 +183,103 @@ static int luat_lora_init(lua_State *L){
     size_t len = 0;
     const char* lora_ic = luaL_checklstring(L, 1, &len);
     if(strcmp("llcc68",lora_ic)== 0||strcmp("LLCC68",lora_ic)== 0||strcmp("sx1268",lora_ic)== 0||strcmp("SX1268",lora_ic)== 0){
-        uint8_t mode = 1,bandwidth = 0,datarate = 9,coderate = 4,preambleLen = 8,freqHopOn = 0,hopPeriod = 0,power = 0,fdev = 0,bandwidthAfc = 0,payloadLen = 0;
-        uint32_t frequency = 433000000,timeout = 0,symbTimeout = 0;
-        bool fixLen = 0,crcOn = 0,iqInverted = 0,rxContinuous = 0;
         uint8_t id = 0,cs = 0,res = 0,busy = 0,dio1 = 0;
+
+        if (lua_istable(L, 2)) {
+            lua_pushstring(L, "id");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                id = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+            lua_pushstring(L, "cs");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                cs = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+            lua_pushstring(L, "res");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                res = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+            lua_pushstring(L, "busy");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                busy = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+            lua_pushstring(L, "dio1");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                dio1 = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+        }
+
+        luat_spi_t sx126x_spi = {0};
+        sx126x_spi.id = id;
+        sx126x_spi.CPHA = 0;
+        sx126x_spi.CPOL = 0;
+        sx126x_spi.dataw = 8;
+        sx126x_spi.bit_dict = 1;
+        sx126x_spi.master = 1;
+        sx126x_spi.mode = 0;
+        sx126x_spi.bandrate = 20000000;
+        sx126x_spi.cs = Luat_GPIO_MAX_ID;
+        luat_spi_setup(&sx126x_spi);
+
+        SX126xSpi = id;
+        SX126xCsPin = cs;
+        SX126xResetPin = res;
+        SX126xBusyPin = busy;
+        SX126xDio1Pin = dio1;
+
+        luat_gpio_mode(SX126xCsPin, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+        luat_gpio_mode(SX126xResetPin, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH); 
+        luat_gpio_mode(SX126xBusyPin, Luat_GPIO_INPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW); 
+        luat_gpio_mode(SX126xDio1Pin, Luat_GPIO_INPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW); 
+
+        RadioEvents.TxDone = OnTxDone;
+        RadioEvents.RxDone = OnRxDone;
+        RadioEvents.TxTimeout = OnTxTimeout;
+        RadioEvents.RxTimeout = OnRxTimeout;
+        RadioEvents.RxError = OnRxError;
+
+        Radio.Init( &RadioEvents );
+
+        luat_start_rtos_timer(luat_create_rtos_timer(Radio.IrqProcess, NULL, NULL), 10, 1);
+    }
+    return 0;
+}
+
+/*
+设置频道频率
+@api    lora.set_channel(freq)
+@number 频率
+@usage
+lora.set_channel(433000000)
+*/
+static int luat_lora_set_channel(lua_State *L){
+    uint32_t freq = luaL_optinteger(L, 1,433000000);
+    Radio.SetChannel(freq);
+    return 0;
+}
+
+/*
+lora配置发送参数
+@api lora.set_txconfig(ic, txconfig)
+@string lora 型号，当前支持：<br>llcc68<br>sx1268
+@table lora发送配置参数,与具体设备有关
+@usage
+lora.set_txconfig("llcc68",
+{mode=1,power=22,fdev=0,bandwidth=0,datarate=9,coderate=4,preambleLen=8,
+    fixLen=false,crcOn=true,freqHopOn=0,hopPeriod=0,iqInverted=false,timeout=3000}
+)
+*/
+static int luat_lora_set_txconfig(lua_State *L){
+    size_t len = 0;
+    const char* lora_ic = luaL_checklstring(L, 1, &len);
+    if(strcmp("llcc68",lora_ic)== 0||strcmp("LLCC68",lora_ic)== 0||strcmp("sx1268",lora_ic)== 0||strcmp("SX1268",lora_ic)== 0){
+        uint8_t mode = 1,power = 0,fdev = 0,bandwidth = 0,datarate = 9,coderate = 4,preambleLen = 8,freqHopOn = 0,hopPeriod = 0;
+        uint32_t timeout = 0;
+        bool fixLen = 0,crcOn = 0,iqInverted = 0;
 
         if (lua_istable(L, 2)) {
             lua_pushstring(L, "mode");
@@ -194,6 +287,17 @@ static int luat_lora_init(lua_State *L){
                 mode = luaL_optinteger(L, -1,1);
             }
             lua_pop(L, 1);
+            lua_pushstring(L, "power");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                power = luaL_optinteger(L, -1,22);
+            }
+            lua_pop(L, 1);
+            lua_pushstring(L, "fdev");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                fdev = luaL_optinteger(L, -1,0);
+            }
+            lua_pop(L, 1);
+
             lua_pushstring(L, "bandwidth");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
                 bandwidth = luaL_optinteger(L, -1,0);
@@ -239,24 +343,58 @@ static int luat_lora_init(lua_State *L){
                 iqInverted = lua_toboolean(L, -1);
             }
             lua_pop(L, 1);
-            lua_pushstring(L, "frequency");
-            if (LUA_TNUMBER == lua_gettable(L, 2)) {
-                frequency = luaL_optinteger(L, -1,433000000);
-            }
-            lua_pop(L, 1);
-            lua_pushstring(L, "power");
-            if (LUA_TNUMBER == lua_gettable(L, 2)) {
-                power = luaL_optinteger(L, -1,22);
-            }
-            lua_pop(L, 1);
-            lua_pushstring(L, "fdev");
-            if (LUA_TNUMBER == lua_gettable(L, 2)) {
-                fdev = luaL_optinteger(L, -1,0);
-            }
-            lua_pop(L, 1);
             lua_pushstring(L, "timeout");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
                 timeout = luaL_optinteger(L, -1,3000);
+            }
+            lua_pop(L, 1);
+        }
+        Radio.SetTxConfig( mode, power, fdev, bandwidth,
+                            datarate, coderate,
+                            preambleLen, fixLen,
+                            crcOn, freqHopOn, hopPeriod, iqInverted, timeout );
+    }
+    return 0;
+}
+
+/*
+lora配置接收参数
+@api lora.init(ic, set_rxconfig)
+@string lora 型号，当前支持：<br>llcc68<br>sx1268
+@table lora接收配置参数,与具体设备有关
+@usage
+lora.set_rxconfig("llcc68",
+{mode=1,bandwidth=0,datarate=9,coderate=4,bandwidthAfc=0,preambleLen=8,symbTimeout=0,fixLen=false,
+    payloadLen=0,crcOn=true,freqHopOn=0,hopPeriod=0,iqInverted=false,rxContinuous=false}
+)
+*/
+static int luat_lora_set_rxconfig(lua_State *L){
+    size_t len = 0;
+    const char* lora_ic = luaL_checklstring(L, 1, &len);
+    if(strcmp("llcc68",lora_ic)== 0||strcmp("LLCC68",lora_ic)== 0||strcmp("sx1268",lora_ic)== 0||strcmp("SX1268",lora_ic)== 0){
+        uint8_t mode = 1,bandwidth = 0,datarate = 9,coderate = 4,bandwidthAfc = 0,preambleLen = 8,symbTimeout = 0,payloadLen = 0,freqHopOn = 0,hopPeriod = 0;
+        uint32_t frequency = 433000000,timeout = 0;
+        bool fixLen = 0,crcOn = 0,iqInverted = 0,rxContinuous = 0;
+
+        if (lua_istable(L, 2)) {
+            lua_pushstring(L, "mode");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                mode = luaL_optinteger(L, -1,1);
+            }
+            lua_pop(L, 1);
+            lua_pushstring(L, "bandwidth");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                bandwidth = luaL_optinteger(L, -1,0);
+            }
+            lua_pop(L, 1);
+            lua_pushstring(L, "datarate");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                datarate = luaL_optinteger(L, -1,9);
+            }
+            lua_pop(L, 1);
+            lua_pushstring(L, "coderate");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                coderate = luaL_optinteger(L, -1,4);
             }
             lua_pop(L, 1);
             lua_pushstring(L, "bandwidthAfc");
@@ -264,14 +402,44 @@ static int luat_lora_init(lua_State *L){
                 bandwidthAfc = luaL_optinteger(L, -1,0);
             }
             lua_pop(L, 1);
+            lua_pushstring(L, "preambleLen");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                preambleLen = luaL_optinteger(L, -1,8);
+            }
+            lua_pop(L, 1);
             lua_pushstring(L, "symbTimeout");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
                 symbTimeout = luaL_optinteger(L, -1,0);
             }
             lua_pop(L, 1);
+            lua_pushstring(L, "fixLen");
+            if (LUA_TBOOLEAN == lua_gettable(L, 2)) {
+                fixLen = lua_toboolean(L, -1);
+            }
+            lua_pop(L, 1);
             lua_pushstring(L, "payloadLen");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
                 payloadLen = luaL_optinteger(L, -1,0);
+            }
+            lua_pop(L, 1);
+            lua_pushstring(L, "crcOn");
+            if (LUA_TBOOLEAN == lua_gettable(L, 2)) {
+                crcOn = lua_toboolean(L, -1);
+            }
+            lua_pop(L, 1);
+            lua_pushstring(L, "freqHopOn");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                freqHopOn = luaL_optinteger(L, -1,0);
+            }
+            lua_pop(L, 1);
+            lua_pushstring(L, "hopPeriod");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                hopPeriod = luaL_optinteger(L, -1,0);
+            }
+            lua_pop(L, 1);
+            lua_pushstring(L, "iqInverted");
+            if (LUA_TBOOLEAN == lua_gettable(L, 2)) {
+                iqInverted = lua_toboolean(L, -1);
             }
             lua_pop(L, 1);
             lua_pushstring(L, "rxContinuous");
@@ -280,77 +448,11 @@ static int luat_lora_init(lua_State *L){
             }
             lua_pop(L, 1);
         }
-        if (lua_istable(L, 3)) {
-            lua_pushstring(L, "id");
-            if (LUA_TNUMBER == lua_gettable(L, 3)) {
-                id = luaL_checkinteger(L, -1);
-            }
-            lua_pop(L, 1);
-            lua_pushstring(L, "cs");
-            if (LUA_TNUMBER == lua_gettable(L, 3)) {
-                cs = luaL_checkinteger(L, -1);
-            }
-            lua_pop(L, 1);
-            lua_pushstring(L, "res");
-            if (LUA_TNUMBER == lua_gettable(L, 3)) {
-                res = luaL_checkinteger(L, -1);
-            }
-            lua_pop(L, 1);
-            lua_pushstring(L, "busy");
-            if (LUA_TNUMBER == lua_gettable(L, 3)) {
-                busy = luaL_checkinteger(L, -1);
-            }
-            lua_pop(L, 1);
-            lua_pushstring(L, "dio1");
-            if (LUA_TNUMBER == lua_gettable(L, 3)) {
-                dio1 = luaL_checkinteger(L, -1);
-            }
-            lua_pop(L, 1);
-        }
-
-        luat_spi_t sx126x_spi = {0};
-        sx126x_spi.id = id;
-        sx126x_spi.CPHA = 0;
-        sx126x_spi.CPOL = 0;
-        sx126x_spi.dataw = 8;
-        sx126x_spi.bit_dict = 1;
-        sx126x_spi.master = 1;
-        sx126x_spi.mode = 0;
-        sx126x_spi.bandrate = 20000000;
-        sx126x_spi.cs = Luat_GPIO_MAX_ID;
-        luat_spi_setup(&sx126x_spi);
-
-        SX126xSpi = id;
-        SX126xCsPin = cs;
-        SX126xResetPin = res;
-        SX126xBusyPin = busy;
-        SX126xDio1Pin = dio1;
-
-        luat_gpio_mode(SX126xCsPin, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-        luat_gpio_mode(SX126xResetPin, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH); 
-        luat_gpio_mode(SX126xBusyPin, Luat_GPIO_INPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW); 
-        luat_gpio_mode(SX126xDio1Pin, Luat_GPIO_INPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW); 
-
-        RadioEvents.TxDone = OnTxDone;
-        RadioEvents.RxDone = OnRxDone;
-        RadioEvents.TxTimeout = OnTxTimeout;
-        RadioEvents.RxTimeout = OnRxTimeout;
-        RadioEvents.RxError = OnRxError;
-
-        Radio.Init( &RadioEvents );
-        Radio.SetChannel( frequency );
-
-        Radio.SetTxConfig( mode, power, fdev, bandwidth,
-                            datarate, coderate,
-                            preambleLen, fixLen,
-                            crcOn, freqHopOn, hopPeriod, iqInverted, timeout );
 
         Radio.SetRxConfig( mode, bandwidth, datarate,
                             coderate, bandwidthAfc, preambleLen,
                             symbTimeout, fixLen,
                             payloadLen, crcOn, freqHopOn, hopPeriod, iqInverted, rxContinuous );
-
-        luat_start_rtos_timer(luat_create_rtos_timer(Radio.IrqProcess, NULL, NULL), 10, 1);
     }
     return 0;
 }
@@ -409,6 +511,9 @@ static int luat_lora_mode(lua_State *L){
 static const rotable_Reg_t reg_lora[] =
 {
     { "init",        ROREG_FUNC(luat_lora_init)},
+    { "set_channel",     ROREG_FUNC(luat_lora_set_channel)},
+    { "set_txconfig",    ROREG_FUNC(luat_lora_set_txconfig)},
+    { "set_rxconfig",    ROREG_FUNC(luat_lora_set_rxconfig)},
     { "send",        ROREG_FUNC(luat_lora_send)},
     { "recive",      ROREG_FUNC(luat_lora_recive)},
     { "mode",        ROREG_FUNC(luat_lora_mode)},

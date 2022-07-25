@@ -37,7 +37,7 @@ static luat_lcd_conf_t* lcd_conf;
 #define RAW_DATA_W 32
 #define RAW_DATA_H 24
 #define RAW_DATA_SIZE RAW_DATA_W*RAW_DATA_H
-static uint16_t eeMLX90640[832];  
+static uint16_t eeMLX90640[832];
 static float mlx90640To[RAW_DATA_SIZE];
 static uint16_t frame[834];
 static float emissivity=0.95;
@@ -117,12 +117,12 @@ static int l_mlx90640_init(lua_State *L){
     MLX90640_I2CInit();
     mlx90640 = (paramsMLX90640*)luat_heap_malloc(sizeof(paramsMLX90640));
     MLX90640_SetRefreshRate(MLX90640_ADDR, mlx90640_refresh_rate);
-    MLX90640_SetChessMode(MLX90640_ADDR); 
+    MLX90640_SetChessMode(MLX90640_ADDR);
 	status = MLX90640_DumpEE(MLX90640_ADDR, eeMLX90640);
 	if (status != 0){
         LLOGW("load system parameters error with code:%d",status);
         return 0;
-    } 
+    }
 	status = MLX90640_ExtractParameters(eeMLX90640, mlx90640);
 	if (status != 0) {
         LLOGW("Parameter extraction failed with error code:%d",status);
@@ -156,7 +156,7 @@ static int l_mlx90640_feed(lua_State *L) {
         return 0;
     }
     vdd = MLX90640_GetVdd(frame, mlx90640);
-    Ta = MLX90640_GetTa(frame, mlx90640); 
+    Ta = MLX90640_GetTa(frame, mlx90640);
     MLX90640_CalculateTo(frame, mlx90640, emissivity , Ta - TA_SHIFT, mlx90640To);
     MLX90640_BadPixelsCorrection(mlx90640->brokenPixels, mlx90640To, 1, mlx90640);
     MLX90640_BadPixelsCorrection(mlx90640->outlierPixels, mlx90640To, 1, mlx90640);
@@ -259,7 +259,7 @@ static int l_mlx90640_average_temp(lua_State *L) {
         temp[j]=temp1/RAW_DATA_W;
         temp1 = 0;
     }
-    
+
     for (size_t i = 0; i < RAW_DATA_H; i++){
         temp1+=temp[i];
     }
@@ -303,7 +303,7 @@ static uint8_t * luat_interpolation_double(uint8_t *src, uint16_t rows,uint16_t 
             }
         }
     }
-    
+
     for (size_t y = 0; y < h1; y++){
         for (size_t x = 0; x < w1; x++){
             if ((x == w1 - 1) && (y == h1 - 1)){
@@ -391,7 +391,7 @@ static int l_mlx90640_draw2lcd(lua_State *L) {
         }
         luat_lcd_draw(lcd_conf, lcd_x, lcd_y+y, lcd_x+index_data_out_w-1, lcd_y+y, line);
     }
-    
+
     luat_heap_free(index_data_out);
     return 0;
 }
@@ -410,12 +410,19 @@ static const rotable_Reg_t reg_mlx90640[] =
     {"average_temp",ROREG_FUNC(l_mlx90640_average_temp)},
     {"get_vdd",     ROREG_FUNC(l_mlx90640_get_vdd)},
 
+    //@const FPS1HZ number FPS1HZ
     { "FPS1HZ",     ROREG_INT(FPS1HZ)},
+    //@const FPS2HZ number FPS2HZ
     { "FPS2HZ",     ROREG_INT(FPS2HZ)},
+    //@const FPS4HZ number FPS4HZ
     { "FPS4HZ",     ROREG_INT(FPS4HZ)},
+    //@const FPS8HZ number FPS8HZ
     { "FPS8HZ",     ROREG_INT(FPS8HZ)},
+    //@const FPS16HZ number FPS16HZ
     { "FPS16HZ",    ROREG_INT(FPS16HZ)},
+    //@const FPS32HZ number FPS32HZ
     { "FPS32HZ",    ROREG_INT(FPS32HZ)},
+    //@const FPS64HZ number FPS64HZ
     { "FPS64HZ",    ROREG_INT(FPS64HZ)},
 	{ NULL,         ROREG_INT(0) }
 };

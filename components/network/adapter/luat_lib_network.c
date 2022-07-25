@@ -1397,11 +1397,17 @@ static const rotable_Reg_t reg_network_adapter[] =
 	//{"accept",			ROREG_FUNC(l_network_accept)},
 	{"release",			ROREG_FUNC(l_network_release)},
 	{ "setDNS",           ROREG_FUNC(l_network_set_dns)},
+    //@const ETH0 number ETH0
     { "ETH0",           ROREG_INT(NW_ADAPTER_INDEX_ETH0)},
+    //@const LINK number LINK事件
     { "LINK",           ROREG_INT(EV_NW_RESULT_LINK & 0x0fffffff)},
+    //@const ON_LINE number ON_LINE事件
 	{ "ON_LINE",          	ROREG_INT(EV_NW_RESULT_CONNECT & 0x0fffffff)},
+    //@const EVENT number EVENT事件
 	{ "EVENT",          	ROREG_INT(EV_NW_RESULT_EVENT & 0x0fffffff)},
+    //@const TX_OK number TX_OK事件
 	{ "TX_OK",     		ROREG_INT(EV_NW_RESULT_TX & 0x0fffffff)},
+    //@const CLOSED number CLOSED事件
 	{ "CLOSED",     		ROREG_INT(EV_NW_RESULT_CLOSE & 0x0fffffff)},
 	{ NULL,            ROREG_INT(0)}
 };

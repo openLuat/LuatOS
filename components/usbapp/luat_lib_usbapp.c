@@ -257,9 +257,13 @@ static const rotable_Reg_t reg_usbapp[] =
     { "vhid_cancel_upload", ROREG_FUNC(l_usb_vhid_cancel_upload)},
 	{ "udisk_attach_sdhc", ROREG_FUNC(l_usb_udisk_attach_sdhc)},
 	{ "udisk_detach_sdhc", ROREG_FUNC(l_usb_udisk_detach_sdhc)},
+    //@const NO_READY number NO_READY事件
     { "NO_READY",      ROREG_INT(USB_HID_NOT_READY)},
+    //@const READY number READY事件
     { "READY",         ROREG_INT(USB_HID_READY)},
+    //@const SEND_OK number SEND_OK事件
     { "SEND_OK",      ROREG_INT(USB_HID_SEND_DONE)},
+    //@const NEW_DATA number NEW_DATA事件
 	{ "NEW_DATA",      ROREG_INT(USB_HID_NEW_DATA)},
 	{ NULL,            ROREG_INT(0)},
 };

@@ -565,7 +565,9 @@ static const rotable_Reg_t reg_codec[] =
     { "info" , 		 ROREG_FUNC(l_codec_get_audio_info)},
     { "data",  		 ROREG_FUNC(l_codec_get_audio_data)},
     { "release",         ROREG_FUNC(l_codec_release)},
+    //@const MP3 number MP3格式
 	{ "MP3",             ROREG_INT(MULTIMEDIA_DATA_TYPE_MP3)},
+    //@const WAV number WAV格式
 	{ "WAV",             ROREG_INT(MULTIMEDIA_DATA_TYPE_WAV)},
 	{ NULL,              {}}
 };

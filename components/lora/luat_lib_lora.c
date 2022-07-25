@@ -43,7 +43,7 @@ static int l_lora_handler(lua_State* L, void* ptr) {
         return 1;
     }
     switch (event){
-    case LORA_TX_DONE: 
+    case LORA_TX_DONE:
 /*
 @sys_pub lora
 LORA 发送完成
@@ -56,7 +56,7 @@ end)
         lua_pushstring(L, "LORA_TX_DONE");
         lua_call(L, 1, 0);
         break;
-    case LORA_RX_DONE: 
+    case LORA_RX_DONE:
 /*
 @sys_pub lora
 LORA 接收完成
@@ -73,7 +73,7 @@ end)
         lua_call(L, 3, 0);
         luat_heap_free(msg->ptr);
         break;
-    case LORA_TX_TIMEOUT: 
+    case LORA_TX_TIMEOUT:
 /*
 @sys_pub lora
 LORA 发送超时
@@ -86,7 +86,7 @@ end)
         lua_pushstring(L, "LORA_TX_TIMEOUT");
         lua_call(L, 1, 0);
         break;
-    case LORA_RX_TIMEOUT: 
+    case LORA_RX_TIMEOUT:
 /*
 @sys_pub lora
 LORA 接收超时
@@ -99,7 +99,7 @@ end)
         lua_pushstring(L, "LORA_RX_TIMEOUT");
         lua_call(L, 1, 0);
         break;
-    case LORA_RX_ERROR: 
+    case LORA_RX_ERROR:
 /*
 @sys_pub lora
 LORA 接收错误
@@ -116,7 +116,7 @@ end)
     return 0;
 }
 
-void OnTxDone( void ){   
+void OnTxDone( void ){
     rtos_msg_t msg;
     msg.handler = l_lora_handler;
     msg.ptr = NULL;
@@ -235,9 +235,9 @@ static int luat_lora_init(lua_State *L){
         SX126xDio1Pin = dio1;
 
         luat_gpio_mode(SX126xCsPin, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-        luat_gpio_mode(SX126xResetPin, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH); 
-        luat_gpio_mode(SX126xBusyPin, Luat_GPIO_INPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW); 
-        luat_gpio_mode(SX126xDio1Pin, Luat_GPIO_INPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW); 
+        luat_gpio_mode(SX126xResetPin, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+        luat_gpio_mode(SX126xBusyPin, Luat_GPIO_INPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
+        luat_gpio_mode(SX126xDio1Pin, Luat_GPIO_INPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
 
         RadioEvents.TxDone = OnTxDone;
         RadioEvents.RxDone = OnRxDone;
@@ -489,7 +489,7 @@ lora.recive(1000)
 static int luat_lora_recive(lua_State *L){
     int rx_timeout = luaL_optinteger(L, 1, 1000);
     Radio.Standby();
-    Radio.Rx(rx_timeout); 
+    Radio.Rx(rx_timeout);
     return 0;
 }
 
@@ -521,7 +521,9 @@ static const rotable_Reg_t reg_lora[] =
     { "recive",      ROREG_FUNC(luat_lora_recive)},
     { "mode",        ROREG_FUNC(luat_lora_mode)},
 
+    //@const SLEEP number SLEEP模式
     { "SLEEP",       ROREG_INT(0)},
+    //@const STANDBY number STANDBY模式
     { "STANDBY",     ROREG_INT(1)},
 	{ NULL,     {}}
 };

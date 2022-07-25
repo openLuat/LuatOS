@@ -985,30 +985,59 @@ static const rotable_Reg_t reg_eink[] =
     { "drawGtfontUtf8Gray", ROREG_FUNC(l_eink_draw_gtfont_utf8_gray)},
 #endif // LUAT_USE_GTFONT_UTF8
 #endif // LUAT_USE_GTFONT
+    //@const MODEL_1in02d number 1.02寸d
     { "MODEL_1in02d",         ROREG_INT(MODEL_1in02d)},
+    //@const MODEL_1in54 number 1.54寸
     { "MODEL_1in54",          ROREG_INT(MODEL_1in54)},
+    //@const MODEL_1in54_V2 number 1.54寸_V2
     { "MODEL_1in54_V2",       ROREG_INT(MODEL_1in54_V2)},
+    //@const MODEL_1in54b number 1.54寸b
     { "MODEL_1in54b",         ROREG_INT(MODEL_1in54b)},
+    //@const MODEL_1in54b_V2 number 1.54寸b_V2
     { "MODEL_1in54b_V2",      ROREG_INT(MODEL_1in54b_V2)},
+    //@const MODEL_1in54_V3 number 1.54寸_V3
     { "MODEL_1in54_V3",       ROREG_INT(MODEL_1in54_V3)},
+    //@const MODEL_1in54c number 1.54寸c
     { "MODEL_1in54c",         ROREG_INT(MODEL_1in54c)},
+    //@const MODEL_1in54f number 1.54寸f
     { "MODEL_1in54f",         ROREG_INT(MODEL_1in54f)},
+    //@const MODEL_2in54b_V3 number 2.13寸b_V3
     { "MODEL_2in54b_V3",      ROREG_INT(MODEL_2in13b_V3)},
+    //@const MODEL_2in7 number 2.7寸
     { "MODEL_2in7",           ROREG_INT(MODEL_2in7)},
+    //@const MODEL_2in7b number 2.7寸b
     { "MODEL_2in7b",          ROREG_INT(MODEL_2in7b)},
+    //@const MODEL_2in9 number 2.9寸
     { "MODEL_2in9",           ROREG_INT(MODEL_2in9)},
+    //@const MODEL_2in9_V2 number 2.9寸_V2
     { "MODEL_2in9_V2",        ROREG_INT(MODEL_2in9_V2)},
+    //@const MODEL_2in9bc number 2.9寸bc
     { "MODEL_2in9bc",         ROREG_INT(MODEL_2in9bc)},
+    //@const MODEL_2in9b_V3 number 2.9寸b_V3
     { "MODEL_2in9b_V3",       ROREG_INT(MODEL_2in9b_V3)},
+    //@const MODEL_2in9d number 2.9寸d
     { "MODEL_2in9d",          ROREG_INT(MODEL_2in9d)},
+    //@const MODEL_2in9f number 2.9寸f
     { "MODEL_2in9f",          ROREG_INT(MODEL_2in9f)},
+    //@const MODEL_3in7 number 3.7寸
     { "MODEL_3in7",           ROREG_INT(MODEL_3in7)},
     // 默认只带8号字体
+    //@const font_opposansm8 font 8号字体
     { "font_opposansm8", ROREG_PTR((void*)u8g2_font_opposansm8)},
 #ifdef USE_U8G2_OPPOSANSM_ENGLISH
+    //@const font_unifont_t_symbols font 符号字体
     { "font_unifont_t_symbols",   ROREG_PTR((void*)u8g2_font_unifont_t_symbols)},
+    //@const font_open_iconic_weather_6x_t font 天气字体
     { "font_open_iconic_weather_6x_t", ROREG_PTR((void*)u8g2_font_open_iconic_weather_6x_t)},
 
+    //@const font_opposansm10 font 10号字体
+    //@const font_opposansm12 font 12号字体
+    //@const font_opposansm16 font 16号字体
+    //@const font_opposansm18 font 18号字体
+    //@const font_opposansm20 font 20号字体
+    //@const font_opposansm22 font 22号字体
+    //@const font_opposansm24 font 24号字体
+    //@const font_opposansm32 font 32号字体
     { "font_opposansm10", ROREG_PTR((void*)u8g2_font_opposansm10)},
     { "font_opposansm12", ROREG_PTR((void*)u8g2_font_opposansm12)},
     { "font_opposansm16", ROREG_PTR((void*)u8g2_font_opposansm16)},
@@ -1019,30 +1048,39 @@ static const rotable_Reg_t reg_eink[] =
     { "font_opposansm32", ROREG_PTR((void*)u8g2_font_opposansm32)},
 #endif
 #ifdef USE_U8G2_OPPOSANSM8_CHINESE
+    //@const font_opposansm8_chinese font 8号中文字体
     { "font_opposansm8_chinese", ROREG_PTR((void*)u8g2_font_opposansm8_chinese)},
 #endif
 #ifdef USE_U8G2_OPPOSANSM10_CHINESE
+    //@const font_opposansm8_chinese font 10号中文字体
     { "font_opposansm10_chinese", ROREG_PTR((void*)u8g2_font_opposansm10_chinese)},
 #endif
 #ifdef USE_U8G2_OPPOSANSM12_CHINESE
+    //@const font_opposansm12_chinese font 12号中文字体
     { "font_opposansm12_chinese", ROREG_PTR((void*)u8g2_font_opposansm12_chinese)},
 #endif
 #ifdef USE_U8G2_OPPOSANSM16_CHINESE
+    //@const font_opposansm16_chinese font 16号中文字体
     { "font_opposansm16_chinese", ROREG_PTR((void*)u8g2_font_opposansm16_chinese)},
 #endif
 #ifdef USE_U8G2_OPPOSANSM18_CHINESE
+    //@const font_opposansm18_chinese font 18号中文字体
     { "font_opposansm18_chinese", ROREG_PTR((void*)u8g2_font_opposansm18_chinese)},
 #endif
 #ifdef USE_U8G2_OPPOSANSM20_CHINESE
+    //@const font_opposansm20_chinese font 20号中文字体
     { "font_opposansm20_chinese", ROREG_PTR((void*)u8g2_font_opposansm20_chinese)},
 #endif
 #ifdef USE_U8G2_OPPOSANSM22_CHINESE
+    //@const font_opposansm22_chinese font 22号中文字体
     { "font_opposansm22_chinese", ROREG_PTR((void*)u8g2_font_opposansm22_chinese)},
 #endif
 #ifdef USE_U8G2_OPPOSANSM24_CHINESE
+    //@const font_opposansm24_chinese font 24号中文字体
     { "font_opposansm24_chinese", ROREG_PTR((void*)u8g2_font_opposansm24_chinese)},
 #endif
 #ifdef USE_U8G2_OPPOSANSM32_CHINESE
+    //@const font_opposansm32_chinese font 32号中文字体
     { "font_opposansm32_chinese", ROREG_PTR((void*)u8g2_font_opposansm32_chinese)},
 #endif
 

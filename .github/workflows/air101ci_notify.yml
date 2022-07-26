@@ -1,0 +1,29 @@
+name: air101ci_notify
+
+on:
+  workflow_dispatch:
+  repository_dispatch:
+    types:
+      - webhook_air101ci_notify
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v1
+    - name: report if failure
+      if: always()
+      env:
+        STATUS: ${{ job.status }}
+        MQTTADDR: ${{ secrets.MQTTADDR }}
+        MQTTPORT: ${{ secrets.MQTTPORT }}
+        MQTTTOPIC: ${{ secrets.MQTTTOPIC }}
+        DD_APPKEY: ${{ secrets.DD_APPKEY }}
+        DD_APPSECRET: ${{ secrets.DD_APPSECRET }}
+        DD_NOTIFY_LIST: ${{ secrets.DD_NOTIFY_LIST }}
+        DD_API_TOKEN: ${{ secrets.DD_API_TOKEN }}
+        DD_API_SEND: ${{ secrets.DD_API_SEND }}
+      run: |
+        sudo pip3 install paho_mqtt gitpython requests
+        cd tools
+        python3 ciNotify.py $MQTTADDR $MQTTPORT $MQTTTOPIC "http://luat.papapoi.com:23380/openLuat/LuatOS" "实物测试" "$DD_APPKEY" "$DD_APPSECRET" "$DD_NOTIFY_LIST" "$DD_API_TOKEN" "$DD_API_SEND"

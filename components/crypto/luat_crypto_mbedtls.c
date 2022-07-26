@@ -81,19 +81,19 @@ int l_crypto_cipher_xxx(lua_State *L, uint8_t flags) {
 
 	ret = mbedtls_cipher_setup(&ctx, _cipher);
     if (ret) {
-        LLOGE("mbedtls_cipher_setup fail %d", ret);
+        LLOGE("mbedtls_cipher_setup fail -0x%x", -ret);
         goto _error_exit;
     }
     ret = mbedtls_cipher_setkey(&ctx, key, key_size * 8, flags & 0x1);
     if (ret) {
-        LLOGE("mbedtls_cipher_setkey fail %d", ret);
+        LLOGE("mbedtls_cipher_setkey fail -0x%x", -ret);
         goto _error_exit;
     }
 
     if (iv_size) {
         ret = mbedtls_cipher_set_iv(&ctx, iv, iv_size);
         if (ret) {
-            LLOGE("mbedtls_cipher_set_iv fail %d", ret);
+            LLOGE("mbedtls_cipher_set_iv fail -0x%x", -ret);
             goto _error_exit;
         }
     }

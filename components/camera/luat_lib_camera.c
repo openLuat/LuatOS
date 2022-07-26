@@ -263,17 +263,17 @@ static int l_camera_close(lua_State *L) {
     return 1;
 }
 
-LUAT_WEAK luat_camera_capture(int id, uint8_t quality, const char *path) {
+LUAT_WEAK int luat_camera_capture(int id, uint8_t quality, const char *path) {
     LLOGD("not support yet");
     return -1;
 }
 
-LUAT_WEAK luat_camera_get_raw_start(int id, int w, int h, uint8_t *data, uint32_t max_len) {
+LUAT_WEAK int luat_camera_get_raw_start(int id, int w, int h, uint8_t *data, uint32_t max_len) {
     LLOGD("not support yet");
     return -1;
 }
 
-LUAT_WEAK luat_camera_get_raw_again(int id) {
+LUAT_WEAK int luat_camera_get_raw_again(int id) {
     LLOGD("not support yet");
     return -1;
 }

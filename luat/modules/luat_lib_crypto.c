@@ -491,6 +491,36 @@ static int l_crypto_totp(lua_State *L) {
     return 0;
 }
 
+/**
+将数据进行base64编码
+@api crypto.base64_encode(data)
+@string 待编码的数据
+@return string 编码后的数据
+@usage
+-- 本函数与 string.toBase64 是同一个
+local data = "123"
+local bdata = crypto.base64_encode(data)
+log.info("base64", "encode", data, bdata)
+data = crypto.base64_decode(data)
+log.info("base64", "decode", data, bdata)
+ */
+int l_str_toBase64(lua_State *L);
+
+/**
+将数据进行base64解码
+@api crypto.base64_decode(data)
+@string 待解码的数据
+@return string 解码后的数据
+@usage
+-- 本函数与 string.fromBase64 是同一个
+local data = "123"
+local bdata = crypto.base64_encode(data)
+log.info("base64", "encode", data, bdata)
+data = crypto.base64_decode(data)
+log.info("base64", "decode", data, bdata)
+ */
+int l_str_fromBase64(lua_State *L);
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_crypto[] =
 {
@@ -511,6 +541,8 @@ static const rotable_Reg_t reg_crypto[] =
     { "crc8",           ROREG_FUNC(l_crypto_crc8           )},
     { "trng",           ROREG_FUNC(l_crypto_trng           )},
     { "totp",           ROREG_FUNC(l_crypto_totp           )},
+    { "base64_encode",  ROREG_FUNC(l_str_toBase64)},
+    { "base64_decode",  ROREG_FUNC(l_str_fromBase64)},
 	{ NULL,             ROREG_INT(0) }
 };
 

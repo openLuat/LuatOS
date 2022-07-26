@@ -170,8 +170,7 @@ _exit:
 _error_exit:
 	luat_heap_free(temp);
 	mbedtls_cipher_free(&ctx);
-	lua_pushboolean(L, 0);
-	return 1;
+	return 0;
 }
 
 

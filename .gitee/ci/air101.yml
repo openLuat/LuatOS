@@ -2,6 +2,9 @@ kind: pipeline
 type: exec
 name: shell
 
+concurrency:
+  limit: 1
+
 platform:
   os: linux
   arch: amd64

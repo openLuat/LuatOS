@@ -68,6 +68,7 @@ int l_crypto_cipher_xxx(lua_State *L, uint8_t flags) {
     size_t block_size = 0;
 
     luaL_Buffer buff;
+    luaL_buffinit(L, &buff);
 
     mbedtls_cipher_context_t ctx;
     mbedtls_cipher_init(&ctx);
@@ -81,19 +82,19 @@ int l_crypto_cipher_xxx(lua_State *L, uint8_t flags) {
 
 	ret = mbedtls_cipher_setup(&ctx, _cipher);
     if (ret) {
-        LLOGE("mbedtls_cipher_setup fail -0x%x", -ret);
+        LLOGE("mbedtls_cipher_setup fail -0x%04x", -ret);
         goto _error_exit;
     }
     ret = mbedtls_cipher_setkey(&ctx, key, key_size * 8, flags & 0x1);
     if (ret) {
-        LLOGE("mbedtls_cipher_setkey fail -0x%x", -ret);
+        LLOGE("mbedtls_cipher_setkey fail -0x%04x", -ret);
         goto _error_exit;
     }
 
     if (iv_size) {
         ret = mbedtls_cipher_set_iv(&ctx, iv, iv_size);
         if (ret) {
-            LLOGE("mbedtls_cipher_set_iv fail -0x%x", -ret);
+            LLOGE("mbedtls_cipher_set_iv fail -0x%04x", -ret);
             goto _error_exit;
         }
     }
@@ -117,7 +118,6 @@ int l_crypto_cipher_xxx(lua_State *L, uint8_t flags) {
     }
 
     // 开始注入数据
-    luaL_buffinit(L, &buff);
     block_size = mbedtls_cipher_get_block_size(&ctx);
 
     if ((ctx.cipher_info->mode == MBEDTLS_MODE_ECB) && !strcmp("PKCS7", pad) && (flags & 0x1)) {

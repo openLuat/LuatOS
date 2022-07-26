@@ -219,6 +219,51 @@ int luat_vfs_posix_info(void* userdata, const char* path, luat_fs_info_t *conf) 
     return 0;
 }
 
+#if defined(LUA_USE_LINUX) || defined(LUA_USE_WINDOWS) || defined(LUA_USE_MACOSX)
+#include <stdio.h>
+#include <sys/types.h>
+#include <dirent.h>
+int luat_vfs_posix_lsdir(void* fsdata, char const* _DirName, luat_fs_dirent_t* ents, size_t offset, size_t len) {
+    DIR *dp;
+    struct dirent *ep;
+    int index = 0;
+
+    LLOGW("opendir file %s %d %d", _DirName, offset, len);
+
+    dp = opendir (_DirName);
+    if (dp != NULL)
+    {
+        while ((ep = readdir (dp)) != NULL) {
+            LLOGW("offset %d len %d", offset, len);
+            if (offset > 0) {
+                offset --;
+                continue;
+            }
+            if (len > 0) {
+                memcpy(ents[index].d_name, ep->d_name, strlen(ep->d_name) + 1);
+                ents[index].d_type = 0;
+                index++;
+                len --;
+            }
+            else {
+                break;
+            }
+        }
+
+        (void) closedir (dp);
+        return index;
+    }
+    else {
+        LLOGW("opendir file %s", _DirName);
+    }
+    return 0;
+}
+#else
+int luat_vfs_posix_lsdir(void* fsdata, char const* _DirName, luat_fs_dirent_t* ents, size_t offset, size_t len) {
+    return 0;
+}
+#endif
+
 #define T(name) .name = luat_vfs_posix_##name
 const struct luat_vfs_filesystem vfs_fs_posix = {
     .name = "posix",
@@ -228,7 +273,7 @@ const struct luat_vfs_filesystem vfs_fs_posix = {
         T(umount),
         .mkdir = NULL,
         .rmdir = NULL,
-        .lsdir = NULL,
+        T(lsdir),
         T(remove),
         T(rename),
         T(fsize),

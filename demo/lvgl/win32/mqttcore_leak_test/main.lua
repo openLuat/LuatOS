@@ -2,7 +2,7 @@
     testcase for mqttcore
     检验mqttcore是否存在内存泄漏的问题
 ]]
-local sys = require("sys")
+sys = require("sys")
 
 local packCONNECT = mqttcore.packCONNECT
 local packPUBLISH = mqttcore.packPUBLISH

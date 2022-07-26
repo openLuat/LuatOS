@@ -3,7 +3,7 @@
 PROJECT = "camerademo"
 VERSION = "1.0.0"
 
-local sys = require "sys"
+sys = require("sys")
 
 --[[
 -- LCD接法示例, 以Air105开发板的HSPI(SPI5)为例
@@ -120,11 +120,11 @@ sys.taskInit(function()
             --     log.info("fs", #data)
             --     f:close()
             -- end
-        
+
             -- uart.write(uartid, data) --找个能保存数据的串口工具保存成文件就能在电脑上看了, 格式为JPG
         end
     end
-    
+
 end)
 
 -- 用户代码已结束---------------------------------------------

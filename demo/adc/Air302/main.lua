@@ -4,7 +4,7 @@ PROJECT = "adcdemo"
 VERSION = "1.0.0"
 
 -- 一定要添加sys.lua !!!!
-local sys = require "sys"
+sys = require("sys")
 
 -- 网络灯 GPIO19, NETLED脚
 local NETLED = gpio.setup(19, 0)     -- 初始化GPIO19, 并设置为低电平
@@ -33,7 +33,7 @@ sys.taskInit(function()
         adc.close(1)
         adc.close(2)
     end
-    
+
 end)
 
 

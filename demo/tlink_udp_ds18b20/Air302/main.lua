@@ -42,7 +42,7 @@ VERSION = "1.0.0"
     - 4.5 点击 "保存协议", 则 "当前协议" 会显示为 "[H:]  [D?]  [TE:0D0A]"
 5. 返回设备列表, 至此, 网页端的配置就完成了
 
-参考文档: 
+参考文档:
     - 创建设备 https://www.tlink.io/help.htm?menu=2
     - UDP 协议 https://www.tlink.io/help.htm?menu=2&page=46
     - 安卓APP  https://www.tlink.io/help.htm?menu=2&page=116
@@ -52,7 +52,7 @@ VERSION = "1.0.0"
     - 由UDP的特性决定, 不能100%保证数据能上报成功
 ]]
 
-local sys = require "sys"
+sys = require("sys")
 
 -----------------------------------------------------------------------------------
 --PM异常唤醒检测  休眠时间最低120S
@@ -178,7 +178,7 @@ function main_task()
             rtos.reboot()
         end
     end
-    -- 要求进入休眠状态,省电. 
+    -- 要求进入休眠状态,省电.
     -- 如修改休眠时长, 务必做到 "同比例"修改pm_wakeup_time_check里面的检测时长
     pm_enter_hib_mode(120)
 end

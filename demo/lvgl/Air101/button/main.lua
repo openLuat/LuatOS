@@ -5,7 +5,7 @@ VERSION = "1.0.0"
 log.info("main", PROJECT, VERSION)
 
 -- 引入必要的库文件(lua编写), 内部库不需要require
-local sys = require "sys"
+sys = require("sys")
 
 if wdt then
     --添加硬狗防止程序卡死，在支持的设备上启用这个功能
@@ -45,8 +45,8 @@ label = lvgl.label_create(btn2, nil)
 lvgl.label_set_text(label, "Toggled")
 end
 
-gpio.setup(pin.PA04, 
-    function(val) 
+gpio.setup(pin.PA04,
+    function(val)
         if val==0 then
             lvgl.indev_point_emulator_update(80,40,1)
         else

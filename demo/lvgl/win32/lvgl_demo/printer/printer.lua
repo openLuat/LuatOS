@@ -1,4 +1,4 @@
-local sys = require "sys"
+sys = require("sys")
 local home = require "home"
 local setup = require "setup"
 local loader = require "loader"

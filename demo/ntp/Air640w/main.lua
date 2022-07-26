@@ -3,7 +3,7 @@ PROJECT = "ntpdemo"
 VERSION = "1.0.0"
 
 -- 引入必要的库文件(lua编写), 内部库不需要require
-local sys = require "sys"
+sys = require("sys")
 
 sys.subscribe("WLAN_READY", function ()
     print("!!! wlan ready event !!!")

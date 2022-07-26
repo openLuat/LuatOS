@@ -9,15 +9,15 @@ PROJECT_KEY = "5aae50f068d9408c92b0fb5911834029"
 
 log.info("version", VERSION) -- 打印版本号,就能知道是否升级成功
 
-local sys = require "sys"
+sys = require("sys")
 
 wlan.connect("uiot", "1234567890")
 
 -- 生成OTA的URL
 local iot_url = "http://iot.nutz.cn/api/site/firmware_upgrade"
-local ota_url = string.format("%s?project_key=%s&imei=%s&firmware_name=%s&version=%s", 
+local ota_url = string.format("%s?project_key=%s&imei=%s&firmware_name=%s&version=%s",
                         iot_url,
-                        PROJECT_KEY, 
+                        PROJECT_KEY,
                         wlan.getMac(),
                         PROJECT .. "_" .. rtos.firmware(),
                         VERSION

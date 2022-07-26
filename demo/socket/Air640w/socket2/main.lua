@@ -9,7 +9,7 @@ PROJECT = "socket2demo"
 VERSION = "1.0.0"
 
 -- 引入必要的库文件(lua编写), 内部库不需要require
-local sys = require "sys"
+sys = require("sys")
 
 log.info("main", "socket demo, tcp long connect")
 

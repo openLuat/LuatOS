@@ -2,7 +2,7 @@
 PROJECT = "modbus_rtu"
 VERSION = "1.0.0"
 
-local sys = require "sys"
+sys = require("sys")
 
 sys.taskInit(function()
     uart.on(1, "recv", function(id, len)

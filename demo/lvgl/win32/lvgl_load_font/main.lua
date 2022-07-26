@@ -1,4 +1,4 @@
-local sys = require("sys")
+sys = require("sys")
 
 sys.taskInit(function ()
     sys.wait(1000)

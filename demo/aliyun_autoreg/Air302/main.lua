@@ -12,7 +12,7 @@ regproxy服务的源码 https://gitee.com/openLuat/iot-regproxy
 ]]
 
 -- 引入必要的库文件(lua编写), 内部库不需要require
-local sys = require "sys"
+sys = require("sys")
 local mqtt = require "mqtt"
 
 
@@ -86,11 +86,11 @@ end
 -- 连接到阿里云物联网的Task
 sys.taskInit(function()
     sys.wait(2000)
-    while not socket.isReady() do 
+    while not socket.isReady() do
         log.info("net", "wait for network ready")
         sys.waitUntil("NET_READY", 1000)
     end
-    
+
     -- 阿里云物联网的设备信息
     -- https://help.aliyun.com/document_detail/73742.html?spm=a2c4g.11186623.6.593.11a22cf0rGX1bC
     -- deviceName 是imei
@@ -152,7 +152,7 @@ sys.taskInit(function()
     log.info("mqtt", "topic_user_get", topic_user_get)
     while true do
         -- 等待联网成功
-        while not socket.isReady() do 
+        while not socket.isReady() do
             log.info("net", "wait for network ready")
             sys.waitUntil("NET_READY", 1000)
         end

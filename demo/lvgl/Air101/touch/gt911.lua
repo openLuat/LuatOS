@@ -30,7 +30,7 @@ sys.subscribe("GT911",gt911CallBack)
 
 
 local gt911 = {}
-local sys = require "sys"
+sys = require("sys")
 local i2cid
 
 local function gt911_send(...)
@@ -68,8 +68,8 @@ function gt911.init(gt911_i2c,gt911_res,gt911_int)
     gpio.set(gt911_res, 1)
     sys.wait(10)
 
-    gpio.setup(gt911_int, 
-        function(val) 
+    gpio.setup(gt911_int,
+        function(val)
             local count
             local data = gt911_recv(0x81, 0x4E)
             if data ~=0 then
@@ -92,7 +92,7 @@ function gt911.init(gt911_i2c,gt911_res,gt911_int)
             else
             end
         end,nil,gpio.RISING)
-        
+
     gt911_send(0x80, 0x40, 0x02)
     gt911_send(0x80, 0x40, 0x00)
     local touchic_id = gt911_recv(0x81, 0x40)

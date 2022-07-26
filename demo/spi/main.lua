@@ -3,7 +3,7 @@
 PROJECT = "w25q_spi_demo"
 VERSION = "1.0.1"
 
-local sys = require "sys"
+sys = require("sys")
 
 --spi编号，请按实际情况修改！
 local spiId = 0

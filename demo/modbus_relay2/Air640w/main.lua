@@ -9,7 +9,7 @@ PROJECT = "modbus2relay"
 VERSION = "1.0.0"
 
 -- 引入必要的库文件(lua编写), 内部库不需要require
-local sys = require "sys"
+sys = require("sys")
 
 log.info("main", "simple modbus relay demo")
 
@@ -38,7 +38,7 @@ if wlan ~= nil then
     -- 方法3 airkiss配网, 可参考 app/playit/main.lua
 end
 
--- airkiss.auto(27) -- 预留的功能,未完成 
+-- airkiss.auto(27) -- 预留的功能,未完成
 -- //////////////////////////////////////////////////////////////////////////////////////
 
 --- 从这里开始, 代码与具体网络无关
@@ -117,12 +117,12 @@ end
 sys.taskInit(function()
     -- 等待联网成功
     while true do
-        while not socket.isReady() do 
+        while not socket.isReady() do
             log.info("net", "wait for network ready")
             sys.waitUntil("NET_READY", 3000)
         end
         log.info("main", "socket loop")
-        
+
         collectgarbage("collect")
         local s = socket.tcp()
         s:host("modbus.git4.cn") -- 改成服务器ip或者域名

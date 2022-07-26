@@ -6,7 +6,7 @@ VERSION = "1.0.0"
 log.info("main", PROJECT, VERSION)
 
 -- 一定要添加sys.lua !!!!
-local sys = require "sys"
+sys = require("sys")
 
 --添加硬狗防止程序卡死
 if wdt then
@@ -38,7 +38,7 @@ sys.taskInit(function()
         adc.close(11)
         sys.wait(500)
     end
-    
+
 end)
 
 

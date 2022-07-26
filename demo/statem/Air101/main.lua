@@ -3,7 +3,7 @@
 PROJECT = "statemdemo"
 VERSION = "1.0.0"
 
-local sys = require "sys"
+sys = require("sys")
 
 --添加硬狗防止程序卡死
 wdt.init(15000)--初始化watchdog设置为15s

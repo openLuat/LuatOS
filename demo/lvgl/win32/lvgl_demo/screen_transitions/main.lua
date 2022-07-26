@@ -6,7 +6,7 @@
 @date    2021.07.26
 ]]
 
-local sys = require "sys"
+sys = require("sys")
 local setup = require "setup_scr_screen"
 
 log.info("sys", "from win32")

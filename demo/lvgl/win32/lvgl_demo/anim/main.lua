@@ -1,4 +1,4 @@
-local sys = require "sys"
+sys = require("sys")
 
 log.info("sys", "from win32")
 

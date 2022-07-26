@@ -7,7 +7,7 @@ VERSION = "1.0.0"
 log.info("main", PROJECT, VERSION)
 
 -- 一定要添加sys.lua !!!!
-local sys = require "sys"
+sys = require("sys")
 
 --添加硬狗防止程序卡死
 if wdt then
@@ -101,7 +101,7 @@ if nimble then
             nimble.server_deinit()
         end
     end)
-    
+
     -- 监听GATT服务器的WRITE_CHR事件
     sys.subscribe("BLE_GATT_WRITE_CHR", function(info, data)
         sys.timerStop(bulingbuling)
@@ -117,7 +117,7 @@ if nimble then
         -- led,b,off 对应 6c65642c622c6f6666
         -- led,c,off 对应 6c65642c632c6f6666
         -- display,xxx 对应 646973706C6179xxx, 支持中文
-        
+
         local cmd = data:split(",")
         if cmd[1] and cmds[cmd[1]] then
             cmds[cmd[1]](table.unpack(cmd, 2))
@@ -126,7 +126,7 @@ if nimble then
         end
     end)
 
-    
+
     -- TODO 支持传数据(read)和推送数据(notify)
 
 -- 配合微信小程序 "LuatOS蓝牙调试"

@@ -25,7 +25,7 @@
 PROJECT = "usbcamera"
 VERSION = "1.0.0"
 
-local sys = require "sys"
+sys = require("sys")
 
 if wdt then
     wdt.init(15000)--初始化watchdog设置为15s
@@ -80,7 +80,7 @@ camera.on(0, "scanned", function()
 end)
 
 sys.taskInit(function()
-    
+
     while 1 do
             -- 稍微等待一下
             sys.wait(100)
@@ -101,7 +101,7 @@ sys.taskInit(function()
                 uart.write(uart.VUART_0, data)
             end
     end
-    
+
 end)
 
 -- 用户代码已结束---------------------------------------------

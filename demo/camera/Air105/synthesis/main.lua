@@ -3,7 +3,7 @@
 PROJECT = "camerademo"
 VERSION = "1.0.0"
 
-local sys = require "sys"
+sys = require("sys")
 
 --[[
 -- LCD接法示例, 以Air105开发板的HSPI为例
@@ -96,7 +96,7 @@ sys.taskInit(function()
     -- local camera_id = camera.init(GC032A_InitReg)--屏幕输出rgb图像
     local camera_id = camera.init(GC032A_InitReg_Gray)--屏幕输出灰度图像并扫码
 
-    
+
     log.info("摄像头启动")
     camera.start(camera_id)--开始指定的camera
     sys.wait(2000)

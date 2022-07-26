@@ -7,7 +7,7 @@ VERSION = "1.0.0"
 ]]
 
 -- 引入必要的库文件(lua编写), 内部库不需要require
-local sys = require "sys"
+sys = require("sys")
 
 require "config"--默认数据文件
 --引用nvm库

@@ -6,7 +6,7 @@
 @date    2021.07.12
 ]]
 
-local sys = require "sys"
+sys = require("sys")
 
 log.info("sys", "from win32")
 

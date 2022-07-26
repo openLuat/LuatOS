@@ -4,7 +4,7 @@ PROJECT = "i2c 24c02 demo"
 VERSION = "1.0.0"
 
 -- sys库是标配
-local sys = require "sys"
+sys = require("sys")
 
 --1010 000x
 --7bit地址，不包含最后一位读写位

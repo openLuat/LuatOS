@@ -1,6 +1,6 @@
 
 
-local sys = require "sys"
+sys = require("sys")
 local printer = require "printer"
 
 log.info("sys", "from win32")

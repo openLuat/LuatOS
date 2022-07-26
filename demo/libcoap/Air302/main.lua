@@ -4,7 +4,7 @@ PROJECT = "coapdemo"
 VERSION = "1.0.0"
 
 -- sys库是标配
-local sys = require "sys"
+sys = require("sys")
 
 sys.taskInit(function()
     while 1 do

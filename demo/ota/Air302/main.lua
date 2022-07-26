@@ -9,14 +9,14 @@ PROJECT_KEY = "01kgGFLlsfAabFuwJosS4surDNWOQCVH"
 
 log.info("version", VERSION) -- 打印版本号,就能知道是否升级成功
 
-local sys = require "sys"
+sys = require("sys")
 
 -- 生成OTA的URL
 -- local iot_url = "http://iot.nutz.cn/api/site/firmware_upgrade"
 local iot_url = "http://iot.openluat.com/api/site/firmware_upgrade"
-local ota_url = string.format("%s?project_key=%s&imei=%s&firmware_name=%s&version=%s", 
+local ota_url = string.format("%s?project_key=%s&imei=%s&firmware_name=%s&version=%s",
                         iot_url,
-                        PROJECT_KEY, 
+                        PROJECT_KEY,
                         nbiot.imei(),
                         PROJECT .. "_" .. rtos.firmware(),
                         VERSION

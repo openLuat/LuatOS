@@ -24,7 +24,7 @@ enable = 1
 ]]
 dbg.wait()
 
-local sys = require("sys")
+sys = require("sys")
 
 local function call_abc(tag, val, date, time)
     log.info(tag, val, date)

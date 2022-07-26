@@ -4,7 +4,7 @@ PROJECT = "wifiscan"
 VERSION = "1.0.0"
 
 -- 引入必要的库文件(lua编写), 内部库不需要require
-local sys = require "sys"
+sys = require("sys")
 
 -- 打印demo信息, 免得下错demo了
 log.info("main", "wifi scan demo")

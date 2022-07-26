@@ -3,7 +3,7 @@
 PROJECT = "udpdemo"
 VERSION = "1.0.0"
 
-local sys = require "sys"
+sys = require("sys")
 
 -- V0004开始支持设置Band模式, 中移动的卡支持B8
 if nbiot.getBands then log.info("bands", nbiot.getBands()) end

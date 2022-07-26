@@ -3,7 +3,7 @@
 -- @author Dozingfiretruck
 -- @release 2021.01.25
 
-local sys = require("sys")
+sys = require("sys")
 
 --[[ 注意：如需使用u8g2的全中文字库需将 luat_base.h中#define USE_U8G2_WQY12_T_GB2312 打开]]
 

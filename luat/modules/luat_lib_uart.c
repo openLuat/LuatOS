@@ -438,9 +438,11 @@ static const rotable_Reg_t reg_uart[] =
 #ifdef LUAT_FORCE_WIN32
     { "list",       ROREG_FUNC(l_uart_list)},
 #endif
-    //校验位
+	//@const Odd number 奇校验,大小写兼容性
     { "Odd",        ROREG_INT(LUAT_PARITY_ODD)},
+	//@const Even number 偶校验,大小写兼容性
     { "Even",       ROREG_INT(LUAT_PARITY_EVEN)},
+	//@const None number 无校验,大小写兼容性
     { "None",       ROREG_INT(LUAT_PARITY_NONE)},
     //@const ODD number 奇校验
     { "ODD",        ROREG_INT(LUAT_PARITY_ODD)},

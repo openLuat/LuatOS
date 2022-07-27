@@ -756,12 +756,17 @@ static const rotable_Reg_t reg_spi[] =
     { "full",              ROREG_INT(1)},
     //@const half number 半双工
     { "half",              ROREG_INT(0)},
-
+	//@const SPI_0 number SPI0
     { "SPI_0",             ROREG_INT(0)},
+	//@const SPI_1 number SPI1
     { "SPI_1",             ROREG_INT(1)},
+	//@const SPI_2 number SPI2
     { "SPI_2",             ROREG_INT(2)},
+	//@const SPI_3 number SPI3
     { "SPI_3",             ROREG_INT(3)},
+	//@const SPI_4 number SPI4
     { "SPI_4",             ROREG_INT(4)},
+	//@const HSPI_0 number 高速SPI0，目前105专用
 	{ "HSPI_0",             ROREG_INT(5)},
 	{ NULL,                ROREG_INT(0) }
 };

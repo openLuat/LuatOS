@@ -24,6 +24,16 @@ rtos.receive(-1)
 static int l_rtos_receive(lua_State *L) {
     rtos_msg_t msg;
     int re;
+#ifdef LUAT_USE_MEMORY_OPTIMIZATION_CODE_MMAP
+    size_t total = 0;
+    size_t used = 0;
+    size_t max_used = 0;
+    luat_meminfo_luavm(&total, &used, &max_used);
+    if ( (used * 100) >= (total * 90))
+    {
+    	LLOGD("luavm use very much ram! used %d, total %d",used, total);
+    }
+#endif
     re = luat_msgbus_get(&msg, luaL_checkinteger(L, 1));
     if (!re) {
         //LLOGD("rtos_msg got, invoke it handler=%08X", msg.handler);

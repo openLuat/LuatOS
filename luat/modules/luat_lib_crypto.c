@@ -521,6 +521,40 @@ log.info("base64", "decode", data, bdata)
  */
 int l_str_fromBase64(lua_State *L);
 
+/**
+获取当前固件支持的cipher列表
+@api crypto.cipher_list()
+@return table 本固件支持的cipher列表,字符串数组
+@usage
+-- 本API于2022.07.27添加
+local ciphers = crypto.cipher_list()
+if ciphers then
+    log.info("crypto", "ciphers list", json.encode(ciphers))
+end
+ */
+int l_crypto_cipher_list(lua_State *L) {
+    const char* list[32] = {0};
+    size_t len = 0;
+    lua_newtable(L);
+    if (list == NULL) {
+        LLOGD("out of memory when cipher_list");
+        return 1;
+    }
+    int ret = luat_crypto_cipher_list(list, &len, 32);
+    if (ret == 0) {
+        for (size_t i = 0; i < len; i++)
+        {
+            lua_pushstring(L, list[i]);
+            lua_seti(L, -2, i + 1);
+        }
+        return 1;
+    }
+    else {
+        LLOGD("bsp not support cipher_list");
+    }
+    return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_crypto[] =
 {
@@ -535,6 +569,7 @@ static const rotable_Reg_t reg_crypto[] =
     { "cipher" ,        ROREG_FUNC(l_crypto_cipher_encrypt )},
     { "cipher_encrypt" ,ROREG_FUNC(l_crypto_cipher_encrypt )},
     { "cipher_decrypt" ,ROREG_FUNC(l_crypto_cipher_decrypt )},
+    { "cipher_list" ,   ROREG_FUNC(l_crypto_cipher_list     )},
     { "crc16",          ROREG_FUNC(l_crypto_crc16          )},
     { "crc16_modbus",   ROREG_FUNC(l_crypto_crc16_modbus   )},
     { "crc32",          ROREG_FUNC(l_crypto_crc32          )},

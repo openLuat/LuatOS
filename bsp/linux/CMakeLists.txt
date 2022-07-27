@@ -104,6 +104,7 @@ add_library(luat ${TOPROOT}/luat/modules/luat_main.c
                  ${TOPROOT}/components/lfs/lfs_util.c
                  ${TOPROOT}/components/lfs/lfs.c
                  ${TOPROOT}/components/lfs/luat_lib_lfs2.c
+                 ${TOPROOT}/components/crypto/luat_crypto_mbedtls.c
                  ${QRCODE_SRCS}
                  ${LCD_SRCS}
                  ${U8G2_SRCS}

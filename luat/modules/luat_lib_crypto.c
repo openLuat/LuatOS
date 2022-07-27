@@ -148,7 +148,7 @@ static int l_crypto_sha256(lua_State *L) {
 @api crypto.hmac_sha256(str, key)
 @string 需要计算的字符串
 @string 密钥
-@return string 计算得出的hmac_sha1值的hex字符串
+@return string 计算得出的hmac_sha256值的hex字符串
 @usage
 -- 计算字符串"abc"的hmac_sha256
 log.info("hmac_sha256", crypto.hmac_sha256("abc", "1234567890"))
@@ -204,7 +204,7 @@ static int l_crypto_sha512(lua_State *L) {
 @api crypto.hmac_sha512(str, key)
 @string 需要计算的字符串
 @string 密钥
-@return string 计算得出的hmac_sha1值的hex字符串
+@return string 计算得出的hmac_sha512值的hex字符串
 @usage
 -- 计算字符串"abc"的hmac_sha512
 log.info("hmac_sha512", crypto.hmac_sha512("abc", "1234567890"))

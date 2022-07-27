@@ -1,15 +1,15 @@
 local sys = require("../lib/sys")
 
-local temp = 1
+_G.temp = 1
 sys.timerStart(function ()
     temp = 2
 end,1)
 
 sys.timerStart(function ()
     assert(temp == 2,"timer error")
-end,10)
+end,100)
 
-local taskCheck
+_G.taskCheck = nil
 sys.taskInit(function ()
     sys.wait(1)
     taskCheck = true
@@ -17,7 +17,7 @@ end)
 
 sys.timerStart(function ()
     assert(taskCheck,"task error")
-end,10)
+end,100)
 
 sys.timerStart(function ()
     os.exit(0)

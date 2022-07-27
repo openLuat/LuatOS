@@ -1145,8 +1145,6 @@ static int l_zbuff_del(lua_State *L)
 {
     luat_zbuff_t *buff = tozbuff(L);
     int start = luaL_optinteger(L, 2, 0);
-    if (start >= buff->used)
-        return 0;
     if (start < 0)
     {
     	start += buff->used;
@@ -1155,6 +1153,10 @@ static int l_zbuff_del(lua_State *L)
     		return 0;
     	}
     }
+
+    if (start >= (int)buff->used)
+        return 0;
+
     uint32_t len = luaL_optinteger(L, 3, buff->used);
     if (start + len > buff->used)
         len = buff->used - start;

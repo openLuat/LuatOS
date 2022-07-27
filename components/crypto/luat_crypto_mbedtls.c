@@ -82,19 +82,19 @@ int l_crypto_cipher_xxx(lua_State *L, uint8_t flags) {
 
 	ret = mbedtls_cipher_setup(&ctx, _cipher);
     if (ret) {
-        LLOGE("mbedtls_cipher_setup fail -0x%04x", -ret);
+        LLOGE("mbedtls_cipher_setup fail -0x%04x %s", -ret, cipher);
         goto _error_exit;
     }
-    ret = mbedtls_cipher_setkey(&ctx, key, key_size * 8, flags & 0x1);
+    ret = mbedtls_cipher_setkey(&ctx, (const unsigned char*)key, key_size * 8, flags & 0x1);
     if (ret) {
-        LLOGE("mbedtls_cipher_setkey fail -0x%04x", -ret);
+        LLOGE("mbedtls_cipher_setkey fail -0x%04x %s", -ret, cipher);
         goto _error_exit;
     }
 
     if (iv_size) {
-        ret = mbedtls_cipher_set_iv(&ctx, iv, iv_size);
+        ret = mbedtls_cipher_set_iv(&ctx, (const unsigned char*)iv, iv_size);
         if (ret) {
-            LLOGE("mbedtls_cipher_set_iv fail -0x%04x", -ret);
+            LLOGE("mbedtls_cipher_set_iv fail -0x%04x %s", -ret, cipher);
             goto _error_exit;
         }
     }
@@ -126,41 +126,41 @@ int l_crypto_cipher_xxx(lua_State *L, uint8_t flags) {
     	memcpy(temp, str, str_size);
     	add_pkcs_padding(temp + str_size - str_size % block_size, block_size, str_size % block_size);
     	str_size = new_len;
-    	str = temp;
+    	str = (const char*)temp;
     }
     for (size_t i = 0; i < str_size; i+=block_size) {
         input_size = str_size - i;
         if (input_size > block_size) {
             input_size = block_size;
-            ret = mbedtls_cipher_update(&ctx, str+i, input_size, output, &output_size);
+            ret = mbedtls_cipher_update(&ctx, (const unsigned char *)(str+i), input_size, output, &output_size);
         }
         else if ((ctx.cipher_info->mode == MBEDTLS_MODE_ECB) && !strcmp("PKCS7", pad) && !flags)
         {
-        	ret = mbedtls_cipher_update(&ctx, str+i, input_size, output, &output_size);
+        	ret = mbedtls_cipher_update(&ctx, (const unsigned char *)(str+i), input_size, output, &output_size);
         	get_pkcs_padding(output, output_size, &output_size);
         }
         else {
-        	ret = mbedtls_cipher_update(&ctx, str+i, input_size, output, &output_size);
+        	ret = mbedtls_cipher_update(&ctx, (const unsigned char *)(str+i), input_size, output, &output_size);
         }
         if (ret) {
-            LLOGE("mbedtls_cipher_update fail %ld", ret);
+            LLOGE("mbedtls_cipher_update fail 0x%04X %s", -ret, cipher);
             goto _exit;
         }
         //else LLOGD("mbedtls_cipher_update, output size=%ld", output_size);
         if (output_size > 0) {
-            luaL_addlstring(&buff, output, output_size);
+            luaL_addlstring(&buff, (const char*)output, output_size);
         }
         output_size = 0;
     }
     output_size = 0;
-    ret = mbedtls_cipher_finish(&ctx, output, &output_size);
+    ret = mbedtls_cipher_finish(&ctx, (unsigned char *)output, &output_size);
     if (ret) {
-        LLOGE("mbedtls_cipher_finish fail %ld", ret);
+        LLOGE("mbedtls_cipher_finish fail 0x%04X %s", -ret, cipher);
         goto _exit;
     }
     //else LLOGD("mbedtls_cipher_finish, output size=%ld", output_size);
     if (output_size > 0)
-        luaL_addlstring(&buff, output, output_size);
+        luaL_addlstring(&buff, (const char*)output, output_size);
 
 _exit:
 	luat_heap_free(temp);
@@ -419,4 +419,20 @@ void luat_crypto_HmacMd5(const unsigned char *input, int ilen, unsigned char *ou
 
     memcpy(output, tempbuf, ALI_MD5_DIGEST_SIZE);
     mbedtls_md5_free(&ctx);
+}
+
+const int *mbedtls_cipher_list( void );
+
+int luat_crypto_cipher_list(const char** list, size_t* len, size_t limit) {
+    size_t count = 0;
+    const int *cipher = mbedtls_cipher_list();
+    for (size_t i = 0; i < limit; i++)
+    {
+        if (cipher[i] == 0)
+            break;
+        count ++;
+        list[i] = mbedtls_cipher_info_from_type(cipher[i])->name;
+    }
+    *len = count;
+    return 0;
 }

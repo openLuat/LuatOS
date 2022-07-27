@@ -26,4 +26,5 @@ int luat_crypto_hmac_sha256_simple(const char* str, size_t str_size, const char*
 int luat_crypto_sha512_simple(const char* str, size_t str_size, void* out_ptr) ;
 int luat_crypto_hmac_sha512_simple(const char* str, size_t str_size, const char* mac, size_t mac_size, void* out_ptr) ;
 
+int luat_crypto_cipher_list(const char** list, size_t* len, size_t limit);
 #endif

@@ -41,7 +41,7 @@ steps:
     - for file in `ls luatos-test/luatos-soc-ci/script`; do cp luatos-test/luatos-soc-ci/script/$file air101/mklfs/disk; done
     - cd air101/mklfs/disk
     - ls
-    - for file in `ls`; do /hdd/ci/build/luac_536_32bits -s -o $file.luac $file; done
+    - for file in `ls`; do /hdd/ci/build/luac_536_32bits -o $file.luac $file; done
     - ls
     - cd ..
     - python3 /hdd/ci/build/luadb.py disk/

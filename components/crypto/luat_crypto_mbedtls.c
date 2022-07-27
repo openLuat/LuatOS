@@ -13,6 +13,14 @@
 #include "mbedtls/sha512.h"
 #include "mbedtls/md5.h"
 
+#ifdef ESP_PLATFORM
+#ifdef mbedtls_md5_starts
+#undef mbedtls_md5_starts
+#endif
+#include "md5_alt.h"
+#define mbedtls_md5_starts mbedtls_md5_starts_ret
+#endif
+
 static void add_pkcs_padding( unsigned char *output, size_t output_len,
         size_t data_len )
 {

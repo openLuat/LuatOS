@@ -6,13 +6,13 @@ script=( ./*.lua )
 for file in "${script[@]}"
 do
     script_output=$(./luatos.exe $file)
-    if [ $? -eq 0 ]
+    if grep -q "E/lua.err" <<< "$script_output";
     then
-        echo -e "[\e[1;32mpass\e[0m] $file"
-    else
         echo -e "[\e[1;31mfail\e[0m] $file"
         echo "$script_output"
         result=1
+    else
+        echo -e "[\e[1;32mpass\e[0m] $file"
     fi
 done
 if [ $result -eq 0 ]

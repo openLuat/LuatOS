@@ -393,25 +393,31 @@ static int f_lines (lua_State *L) {
   return 1;
 }
 
+static void opencheck (lua_State *L, const char *fname, const char *mode) {
+  LStream *p = newfile(L);
+  p->f = fopen(fname, mode);
+  if (p->f == NULL)
+    luaL_error(L, "cannot open file '%s' (%s)", fname, strerror(errno));
+}
 
-// static int io_lines (lua_State *L) {
-//   int toclose;
-//   if (lua_isnone(L, 1)) lua_pushnil(L);  /* at least one argument */
-//   if (lua_isnil(L, 1)) {  /* no file name? */
-//     lua_getfield(L, LUA_REGISTRYINDEX, IO_INPUT);  /* get default input */
-//     lua_replace(L, 1);  /* put it at index 1 */
-//     tofile(L);  /* check that it's a valid file handle */
-//     toclose = 0;  /* do not close it after iteration */
-//   }
-//   else {  /* open a new file */
-//     const char *filename = luaL_checkstring(L, 1);
-//     opencheck(L, filename, "r");
-//     lua_replace(L, 1);  /* put file at index 1 */
-//     toclose = 1;  /* close it after iteration */
-//   }
-//   aux_lines(L, toclose);
-//   return 1;
-// }
+static int io_lines (lua_State *L) {
+  int toclose;
+  if (lua_isnone(L, 1)) lua_pushnil(L);  /* at least one argument */
+  if (lua_isnil(L, 1)) {  /* no file name? */
+    lua_getfield(L, LUA_REGISTRYINDEX, IO_INPUT);  /* get default input */
+    lua_replace(L, 1);  /* put it at index 1 */
+    tofile(L);  /* check that it's a valid file handle */
+    toclose = 0;  /* do not close it after iteration */
+  }
+  else {  /* open a new file */
+    const char *filename = luaL_checkstring(L, 1);
+    opencheck(L, filename, "r");
+    lua_replace(L, 1);  /* put file at index 1 */
+    toclose = 1;  /* close it after iteration */
+  }
+  aux_lines(L, toclose);
+  return 1;
+}
 
 
 /*
@@ -900,7 +906,6 @@ static const rotable_Reg_t iolib[] = {
   // {"close", io_close,  0},
   // {"flush", io_flush,  0},
   // {"input", io_input,  0},
-  // {"lines", io_lines,  0},
   {"open", ROREG_FUNC(io_open)},
   // {"output", io_output,0},
 #ifdef LUA_USE_WINDOWS
@@ -914,6 +919,7 @@ static const rotable_Reg_t iolib[] = {
   {"fileSize", ROREG_FUNC(io_fileSize)},
   {"readFile", ROREG_FUNC(io_readFile)},
   {"writeFile", ROREG_FUNC(io_writeFile)},
+  {"lines", ROREG_FUNC(io_lines)},
   {"mkdir",     ROREG_FUNC(io_mkdir)},
   {"rmdir",     ROREG_FUNC(io_rmdir)},
   {"lsdir",     ROREG_FUNC(io_lsdir)},
@@ -1083,8 +1089,8 @@ static int io_lsdir (lua_State *L) {
 
   if (len < 0) {
     len = 10;
-  } else if (len > 50) {
-    len = 50;
+  } else if (len > 100) {
+    len = 100;
   }
   if (offset < 0)
     offset = 0;
@@ -1095,6 +1101,7 @@ static int io_lsdir (lua_State *L) {
     return 0;
   }
   int ret = luat_fs_lsdir(path, ents, offset, len);
+  //LLOGD("luat_fs_lsdir ret %d", ret);
   if (ret == 0) {
     luat_heap_free(ents);
     lua_pushboolean(L, 1);

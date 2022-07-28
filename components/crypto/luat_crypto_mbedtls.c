@@ -6,7 +6,7 @@
 
 #define LUAT_LOG_TAG "crypto"
 #include "luat_log.h"
-#include "mbedtls/config.h"
+//#include "mbedtls/config.h"
 #include "mbedtls/cipher.h"
 #include "mbedtls/sha1.h"
 #include "mbedtls/sha256.h"

@@ -80,20 +80,22 @@ int onenet_creat_token_init(onenet_msg_t* msg, long long time,char * method,char
     int declen = 0, enclen =  0;
     char plaintext[64]     = { 0 };
     char hmac[64]          = { 0 };
-    sign_msg sign ;
-    memset(&sign,0x00,sizeof(sign));
+    char StringForSignature[256] = { 0 };
+    sign_msg sign = {0};
+    sign.method = method;
     sign.version = version;
+
     sprintf(sign.et,"%lld",time);
     sprintf(sign.res,"products/%s/devices/%s",msg->produt_id,msg->device_name);
     luat_str_base64_decode((unsigned char *)plaintext, sizeof(plaintext), &declen, (const unsigned char * )msg->key, strlen((char*)msg->key));
-    char StringForSignature[256] = { 0 };
-    sign.method = method;
     sprintf(StringForSignature, "%s\n%s\n%s\n%s", sign.et, sign.method, sign.res, sign.version);
     printf("StringForSignature: %s\n",StringForSignature);
-    luat_crypto_hmac_sha256_simple(plaintext, declen,StringForSignature, strlen(StringForSignature), hmac);
-    for (size_t i = 0; i < 64; i++){
-        printf("hmac[%d]: 0x%02x\n",i,hmac[i]);
-    }
+    luat_crypto_hmac_md5_simple(plaintext, declen,StringForSignature, strlen(StringForSignature), hmac);
+    // luat_crypto_hmac_sha1_simple(plaintext, declen,StringForSignature, strlen(StringForSignature), hmac);
+    // luat_crypto_hmac_sha256_simple(plaintext, declen,StringForSignature, strlen(StringForSignature), hmac);
+    // for (size_t i = 0; i < 64; i++){
+    //     printf("hmac[%d]: 0x%02x\n",i,hmac[i]);
+    // }
     luat_str_base64_encode((unsigned char *)sign.sign, sizeof(sign.sign), &enclen, (const unsigned char * )hmac, strlen(hmac));
     return url_encoding_for_token(&sign,token);
 }
@@ -105,7 +107,7 @@ static int l_iotauth_aliyun(lua_State *L) {
 static int l_iotauth_onenet(lua_State *L) {
     char authorization_buf[200]={0};
     int authorization_buf_len;
-    size_t *len;
+    size_t len;
     onenet_msg_t onenet;
     onenet.device_name = luaL_checklstring(L, 1, &len);
     onenet.produt_id = luaL_checklstring(L, 2, &len);

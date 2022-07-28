@@ -124,5 +124,6 @@ LUAMOD_API int luaopen_airui( lua_State *L );
 LUAMOD_API int luaopen_fota( lua_State *L );
 LUAMOD_API int luaopen_i2s( lua_State *L );
 LUAMOD_API int luaopen_lora( lua_State *L );
+LUAMOD_API int luaopen_iotauth( lua_State *L );
 
 #endif

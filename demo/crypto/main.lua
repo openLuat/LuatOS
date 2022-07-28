@@ -47,6 +47,11 @@ sys.taskInit(function()
     log.info("AES", "aes-128-cbc", data2_decrypt)
     log.info("mem", rtos.meminfo("sys"))
 
+    -- DES-ECB 加解密
+    local data1 = crypto.cipher_encrypt("DES-ECB", "PKCS7", "abcdefg", "12345678")
+    print(data1:toHex())
+    local data2 = crypto.cipher_decrypt("DES-ECB", "PKCS7", data1, "12345678")
+    print(data2)
 
     --totp的密钥
     local secret = "VK54ZXPO74ISEM2E"

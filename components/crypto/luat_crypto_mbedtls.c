@@ -431,10 +431,10 @@ void luat_crypto_HmacMd5(const unsigned char *input, int ilen, unsigned char *ou
 
 const int *mbedtls_cipher_list( void );
 
-int luat_crypto_cipher_list(const char** list, size_t* len, size_t limit) {
+int luat_crypto_cipher_list(const char** list, size_t* len) {
     size_t count = 0;
     const int *cipher = mbedtls_cipher_list();
-    for (size_t i = 0; i < limit; i++)
+    for (size_t i = 0;; i++)
     {
         if (cipher[i] == 0)
             break;

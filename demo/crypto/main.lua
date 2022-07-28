@@ -48,7 +48,12 @@ sys.taskInit(function()
     log.info("mem", rtos.meminfo("sys"))
 
 
-    --totp的密钥
+    -- 打印所有支持的cipher
+    if crypto.cipher_list then
+        log.info("cipher", "list", json.encode(crypto.cipher_list()))
+    end
+
+    -- totp的密钥
     local secret = "VK54ZXPO74ISEM2E"
     --写死时间戳用来测试
     local ts = 1646796576

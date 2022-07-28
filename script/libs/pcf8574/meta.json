@@ -1,0 +1,12 @@
+{
+    "type" : "lua",
+    "repo" : "luatos/pcf8574",
+    "tags" : ["pcf8574"],
+    "version" : "1.0.0",
+    "title" : "PCF8574 IO扩展",
+    "files" : {
+        "." : "*"
+    },
+    "enterpoint" : "pcf8574.lua",
+    "dependency" : ["i2c"]
+}

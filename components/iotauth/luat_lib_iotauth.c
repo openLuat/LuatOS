@@ -90,9 +90,16 @@ int onenet_creat_token_init(onenet_msg_t* msg, long long time,char * method,char
     luat_str_base64_decode((unsigned char *)plaintext, sizeof(plaintext), &declen, (const unsigned char * )msg->key, strlen((char*)msg->key));
     sprintf(StringForSignature, "%s\n%s\n%s\n%s", sign.et, sign.method, sign.res, sign.version);
     printf("StringForSignature: %s\n",StringForSignature);
-    luat_crypto_hmac_md5_simple(plaintext, declen,StringForSignature, strlen(StringForSignature), hmac);
-    // luat_crypto_hmac_sha1_simple(plaintext, declen,StringForSignature, strlen(StringForSignature), hmac);
-    // luat_crypto_hmac_sha256_simple(plaintext, declen,StringForSignature, strlen(StringForSignature), hmac);
+    if (!strcmp("md5", method)) {
+        luat_crypto_hmac_md5_simple(plaintext, declen,StringForSignature, strlen(StringForSignature), hmac);
+    }else if (!strcmp("sha1", method)) {
+        luat_crypto_hmac_sha1_simple(plaintext, declen,StringForSignature, strlen(StringForSignature), hmac);
+    }else if (!strcmp("sha256", method)) {
+        luat_crypto_hmac_sha256_simple(plaintext, declen,StringForSignature, strlen(StringForSignature), hmac);
+    }else{
+        LLOGE("not support: %s",method);
+        return -1;
+    }
     // for (size_t i = 0; i < 64; i++){
     //     printf("hmac[%d]: 0x%02x\n",i,hmac[i]);
     // }
@@ -112,9 +119,9 @@ static int l_iotauth_onenet(lua_State *L) {
     onenet.device_name = luaL_checklstring(L, 1, &len);
     onenet.produt_id = luaL_checklstring(L, 2, &len);
     onenet.key = luaL_checklstring(L, 3, &len);
-    onenet.time = luaL_checkinteger(L, 4);
-    onenet.method = luaL_optlstring(L, 5, "sha256", &len);
-    onenet.version = luaL_optlstring(L, 5, "2018-10-31", &len);
+    onenet.method = luaL_optlstring(L, 4, "sha256", &len);
+    onenet.time = luaL_optinteger(L, 5,time() + 3600);
+    onenet.version = luaL_optlstring(L, 6, "2018-10-31", &len);
     len = onenet_creat_token_init(&onenet, onenet.time,onenet.method,onenet.version,authorization_buf);
     lua_pushlstring(L, authorization_buf, len);
     return 1;

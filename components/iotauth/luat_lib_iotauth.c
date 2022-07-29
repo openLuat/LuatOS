@@ -29,6 +29,13 @@ typedef  struct {
     char* str;
 }URL_PARAMETES;
 
+static void HexDump(char *pData, uint16_t len){
+    for (int i = 0; i < len; i++) {
+        printf("0x%02.2x ", (unsigned char)pData[i]);
+    }
+    printf("\n");
+}
+
 static int url_encoding_for_token(sign_msg* msg,char *token){
     int i,j,k,slen;
     sign_msg* temp_msg = msg;
@@ -102,9 +109,6 @@ int onenet_creat_token_init(onenet_msg_t* msg, long long time,char * method,char
         LLOGE("not support: %s",method);
         return -1;
     }
-    for (size_t i = 0; i < 64; i++){
-        printf("hmac[%d]: 0x%02x\n",i,hmac[i]);
-    }
     luat_str_base64_encode((unsigned char *)sign.sign, sizeof(sign.sign), &enclen, (const unsigned char * )hmac, strlen(hmac));
     return url_encoding_for_token(&sign,token);
 }
@@ -135,16 +139,8 @@ static int l_iotauth_iotda(lua_State *L) {
 
 /* Max size of base64 encoded PSK = 64, after decode: 64/4*3 = 48*/
 #define DECODE_PSK_LENGTH 48
-
 /* Max size of conn Id  */
 #define MAX_CONN_ID_LEN (6)
-
-static void HexDump(char *pData, uint16_t len){
-    for (int i = 0; i < len; i++) {
-        printf("0x%02.2x ", (unsigned char)pData[i]);
-    }
-    printf("\n");
-}
 
 static void get_next_conn_id(char *conn_id)
 {
@@ -228,10 +224,6 @@ static int l_iotauth_aws(lua_State *L) {
     return 0;
 }
 
-static int l_iotauth_test(lua_State *L) {
-    return 0;
-}
-
 #include "rotable2.h"
 static const rotable_Reg_t reg_iotauth[] =
 {
@@ -242,7 +234,6 @@ static const rotable_Reg_t reg_iotauth[] =
     { "tuya" ,            ROREG_FUNC(l_iotauth_tuya)},
     { "baidu" ,           ROREG_FUNC(l_iotauth_baidu)},
     { "aws" ,             ROREG_FUNC(l_iotauth_aws)},
-    { "test" ,            ROREG_FUNC(l_iotauth_test)},
 	{ NULL,               ROREG_INT(0)}
 };
 

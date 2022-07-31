@@ -25,6 +25,8 @@ typedef int (*luat_gpio_irq_cb)(int pin, void* args);
 #define Luat_GPIO_RISING             0x00
 #define Luat_GPIO_FALLING            0x01
 #define Luat_GPIO_BOTH               0x02
+#define Luat_GPIO_HIGH_IRQ			0x03	//高电平中断
+#define Luat_GPIO_LOW_IRQ			0x04	//低电平中断
 
 #define Luat_GPIO_MAX_ID             255
 

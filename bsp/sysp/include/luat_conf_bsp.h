@@ -2,14 +2,8 @@
 #ifndef LUAT_CONF_BSP
 #define LUAT_CONF_BSP
 
-// #define LUAT_BSP "sys"
-
 #define LUAT_USE_FS_VFS 1
 #define LUAT_USE_VFS_INLINE_LIB 1
-
-// #define LUAT_MAIN_DEMO 1
-
-// #define USE_U8G2_OPPOSANSM12_CHINESE
 
 
 //---------------------
@@ -17,31 +11,32 @@
 // LCD  是彩屏, 若使用LVGL就必须启用LCD
 #define LUAT_USE_LCD
 // EINK 是墨水屏
-// #define LUAT_USE_EINK
+#define LUAT_USE_EINK
 
 //---------------------
 // U8G2
 // 单色屏, 支持i2c/spi
 // #define LUAT_USE_DISP
-// #define LUAT_USE_U8G2
-// #define U8G2_USE_SH1106
-// #define U8G2_USE_ST7567
+#define LUAT_USE_U8G2
+#define U8G2_USE_SH1106
+#define U8G2_USE_ST7567
 
 /**************FONT*****************/
 // Luat Fonts
-// #define LUAT_USE_FONTS
-// #define LUAT_FONTS_BASE_8P
-// #define LUAT_FONTS_BASE_12P
-// #define LUAT_FONTS_BASE_16P
-// #define LUAT_FONTS_BASE_20P
-// #define LUAT_FONTS_BASE_24P
-// #define LUAT_FONTS_BASE_28P
+#define LUAT_USE_FONTS
 /**********U8G2&LCD FONT*************/
+#define USE_U8G2_OPPOSANSM_ENGLISH
 #define USE_U8G2_UNIFONT_SYMBOLS
+#define USE_U8G2_OPPOSANSM8_CHINESE
+#define USE_U8G2_OPPOSANSM10_CHINESE
 #define USE_U8G2_OPPOSANSM12_CHINESE
+#define USE_U8G2_OPPOSANSM14_CHINESE
 #define USE_U8G2_OPPOSANSM16_CHINESE
-// #define USE_U8G2_OPPOSANSM24_CHINESE
-// #define USE_U8G2_OPPOSANSM32_CHINESE
+#define USE_U8G2_OPPOSANSM18_CHINESE
+#define USE_U8G2_OPPOSANSM20_CHINESE
+#define USE_U8G2_OPPOSANSM22_CHINESE
+#define USE_U8G2_OPPOSANSM24_CHINESE
+#define USE_U8G2_OPPOSANSM32_CHINESE
 
 
 #define LUAT_HAS_CUSTOM_LIB_INIT 1
@@ -106,9 +101,9 @@ unsigned int get_timestamp(void);
 #define LV_FONT_OPPOSANS_M_12
 #define LV_FONT_OPPOSANS_M_14
 #define LV_FONT_OPPOSANS_M_16
-// #define LV_FONT_OPPOSANS_M_18
-// #define LV_FONT_OPPOSANS_M_20
-// #define LV_FONT_OPPOSANS_M_22
+#define LV_FONT_OPPOSANS_M_18
+#define LV_FONT_OPPOSANS_M_20
+#define LV_FONT_OPPOSANS_M_22
 // #define USE_LVGL_SIMSUN_42
 // #define USE_LVGL_SIMSUN_48
 

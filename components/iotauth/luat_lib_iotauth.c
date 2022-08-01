@@ -233,8 +233,34 @@ static int l_iotauth_tuya(lua_State *L) {
     return 1;
 }
 
+static int baidu_token(const char* device_key,const char* device_secret,const char* method,long long cur_timestamp,const char* token){
+    char crypto[64] = {0};
+    char *token_temp  = (char *)luat_heap_malloc(100);
+    memset(token_temp, 0, 100);
+    snprintf(token_temp, 100, "%s&%lld&%s%s",device_key,cur_timestamp,method,device_secret);
+    if (!strcmp("MD5", method)) {
+        luat_crypto_md5_simple(token_temp, strlen(token_temp),crypto);
+    }else if (!strcmp("SHA256", method)) {
+        luat_crypto_sha256_simple(token_temp, strlen(token_temp),crypto);
+    }else{
+        LLOGE("not support: %s",method);
+        return -1;
+    }
+    luat_str_tohex(crypto, strlen(crypto), token);
+    luat_heap_free(token_temp);
+    return strlen(token);
+}
+
 static int l_iotauth_baidu(lua_State *L) {
-    return 0;
+    char token[200]={0};
+    size_t len;
+    const char* device_key = luaL_checklstring(L, 1, &len);
+    const char* device_secret = luaL_checklstring(L, 2, &len);
+    const char* method = luaL_optlstring(L, 3, "SHA256", &len);
+    long long cur_timestamp = luaL_optinteger(L, 4,time(NULL) + 3600);
+    len = baidu_token(device_key,device_secret,method,cur_timestamp,token);
+    lua_pushlstring(L, token, len);
+    return 1;
 }
 
 static int l_iotauth_aws(lua_State *L) {

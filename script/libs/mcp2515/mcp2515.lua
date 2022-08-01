@@ -350,8 +350,8 @@ end
 --[[ 
 mcp2515 数据发送
 @api mcp2515.send_buffer(config,...)
-table config 接收数据参数 id:报文ID ide:是否为扩展帧 rtr:是否为远程帧
-number ... 发送数据
+@table config 接收数据参数 id:报文ID ide:是否为扩展帧 rtr:是否为远程帧
+@number ... 发送数据 数据个数不可大于8
 @usage
 mcp2515.send_buffer({id = 0x7FF,ide = false,rtr = false},0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07)--标准帧,数据帧
 mcp2515.send_buffer({id = 0x1FFFFFE6,ide = true,rtr = false},0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07)--扩展帧,数据帧

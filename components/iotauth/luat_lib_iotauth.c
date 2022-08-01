@@ -85,7 +85,7 @@ static int url_encoding_for_token(sign_msg* msg,char *token){
     return strlen(token);
 }
 
-int onenet_creat_token_init(onenet_msg_t* msg, long long time,char * method,char * version,char *token){
+int onenet_token(onenet_msg_t* msg, long long time,char * method,char * version,char *token){
     size_t  declen = 0, enclen =  0;
     char plaintext[64]     = { 0 };
     char hmac[64]          = { 0 };
@@ -118,8 +118,7 @@ static int l_iotauth_aliyun(lua_State *L) {
 }
 
 static int l_iotauth_onenet(lua_State *L) {
-    char authorization_buf[200]={0};
-    int authorization_buf_len;
+    char token[200]={0};
     size_t len;
     onenet_msg_t onenet;
     onenet.device_name = luaL_checklstring(L, 1, &len);
@@ -128,8 +127,8 @@ static int l_iotauth_onenet(lua_State *L) {
     onenet.method = luaL_optlstring(L, 4, "sha256", &len);
     onenet.time = luaL_optinteger(L, 5,time(NULL) + 3600);
     onenet.version = luaL_optlstring(L, 6, "2018-10-31", &len);
-    len = onenet_creat_token_init(&onenet, onenet.time,onenet.method,onenet.version,authorization_buf);
-    lua_pushlstring(L, authorization_buf, len);
+    len = onenet_token(&onenet, onenet.time,onenet.method,onenet.version,token);
+    lua_pushlstring(L, token, len);
     return 1;
 }
 
@@ -212,8 +211,26 @@ static int l_iotauth_qcloud(lua_State *L) {
     return 1;
 }
 
+int tuya_token(const char* device_id,const char* device_secret,long long cur_timestamp,const char* token){
+    char hmac[64] = {0};
+    char *token_temp  = (char *)luat_heap_malloc(100);
+    memset(token_temp, 0, 100);
+    snprintf(token_temp, 100, "deviceId=%s,timestamp=%ld,secureMode=1,accessType=1", device_id, cur_timestamp);
+    luat_crypto_hmac_sha256_simple(token_temp, strlen(token_temp),device_secret, strlen(device_secret), hmac);
+    luat_str_tohex(hmac, strlen(hmac), token);
+    luat_heap_free(token_temp);
+    return strlen(token);
+}
+
 static int l_iotauth_tuya(lua_State *L) {
-    return 0;
+    char token[200]={0};
+    size_t len;
+    const char* device_id = luaL_checklstring(L, 1, &len);
+    const char* device_secret = luaL_checklstring(L, 2, &len);
+    long long cur_timestamp = luaL_optinteger(L, 3,time(NULL) + 3600);
+    len = tuya_token(device_id,device_secret,cur_timestamp,token);
+    lua_pushlstring(L, token, len);
+    return 1;
 }
 
 static int l_iotauth_baidu(lua_State *L) {

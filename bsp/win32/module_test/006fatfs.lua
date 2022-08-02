@@ -20,16 +20,16 @@ sys.taskInit(function ()
         end
         -- fatfs 在vfs中的前缀总是/sdcard
         local str = string.char(0, 1, 2, 0, 4, 6, 7, 0xff):rep(1024)
-        local f = io.open("/sdcard/abc.txt", "wb")
+        local f = io.open("/sd/abc.txt", "wb")
         assert(f ~= nil, "fatfs io error")
         if f then
             f:write(str)
             f:write(string.rep("zzz", 1024))
             f:close()
         end
-        log.info("fatfs", "file size", io.fileSize("/sdcard/abc.txt"))
-        assert(io.fileSize("/sdcard/abc.txt") == str:len() + 3*1024)
-        f = io.open("/sdcard/abc.txt", "rb")
+        log.info("fatfs", "file size", io.fileSize("/sd/abc.txt"))
+        assert(io.fileSize("/sd/abc.txt") == str:len() + 3*1024)
+        f = io.open("/sd/abc.txt", "rb")
         assert(f ~= nil, "fatfs io error")
         if f then
             local data = f:read(str:len())

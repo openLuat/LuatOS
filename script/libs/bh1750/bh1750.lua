@@ -90,7 +90,7 @@ local bh1750_data = bh1750.read_light()
 log.info("bh1750_read_light", bh1750_data)
 ]]
 function bh1750.read_light()
-    bh1750_set_measure_mode(BH1750_CON_H_RES_MODE2, 180)
+    bh1750_set_measure_mode(BH1750_CON_H_RES_MODE, 180)
     local _,light = pack.unpack(i2c_recv(2),">h")
     return light / 1.2
 end

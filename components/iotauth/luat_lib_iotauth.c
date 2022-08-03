@@ -8,14 +8,10 @@
 #define LUAT_LOG_TAG "iotauth"
 #include "luat_log.h"
 
-typedef struct onenet_msg{
-    const char* produt_id;
-    const char* device_name;
-    const char* key;
-    const char* method;
-    const char* version;
-    long long time;
-}onenet_msg_t;
+static char client_id[64]={0};
+static char user_name[100]={0};
+static char password[200]={0};
+
 typedef struct {
     char et[32];
     char *version;
@@ -95,7 +91,7 @@ static int url_encoding_for_token(sign_msg* msg,char *token){
     return strlen(token);
 }
 
-int onenet_token(onenet_msg_t* msg, long long time,char * method,char * version,char *token){
+static void onenet_token(const char* product_id,const char* device_name,const char* device_secret,long long cur_timestamp,char * method,char * version,char *token){
     size_t  declen = 0, enclen =  0;
     char plaintext[64]     = { 0 };
     char hmac[64]          = { 0 };
@@ -103,12 +99,11 @@ int onenet_token(onenet_msg_t* msg, long long time,char * method,char * version,
     sign_msg sign = {0};
     sign.method = method;
     sign.version = version;
-
-    sprintf(sign.et,"%lld",time);
-    sprintf(sign.res,"products/%s/devices/%s",msg->produt_id,msg->device_name);
-    luat_str_base64_decode((unsigned char *)plaintext, sizeof(plaintext), &declen, (const unsigned char * )msg->key, strlen((char*)msg->key));
+    sprintf(sign.et,"%lld",cur_timestamp);
+    sprintf(sign.res,"products/%s/devices/%s",product_id,device_name);
+    luat_str_base64_decode((unsigned char *)plaintext, sizeof(plaintext), &declen, (const unsigned char * )device_secret, strlen((char*)device_secret));
     sprintf(StringForSignature, "%s\n%s\n%s\n%s", sign.et, sign.method, sign.res, sign.version);
-    printf("StringForSignature:%d\n%s\n",declen,StringForSignature);
+    // printf("StringForSignature:%d\n%s\n",declen,StringForSignature);
     if (!strcmp("md5", method)) {
         luat_crypto_hmac_md5_simple(plaintext, declen,StringForSignature, strlen(StringForSignature), hmac);
     }else if (!strcmp("sha1", method)) {
@@ -120,7 +115,7 @@ int onenet_token(onenet_msg_t* msg, long long time,char * method,char * version,
         return -1;
     }
     luat_str_base64_encode((unsigned char *)sign.sign, sizeof(sign.sign), &enclen, (const unsigned char * )hmac, strlen(hmac));
-    return url_encoding_for_token(&sign,token);
+    url_encoding_for_token(&sign,token);
 }
 
 static int l_iotauth_aliyun(lua_State *L) {
@@ -128,18 +123,19 @@ static int l_iotauth_aliyun(lua_State *L) {
 }
 
 static int l_iotauth_onenet(lua_State *L) {
-    char token[200]={0};
+    memset(password, 0, 200);
     size_t len;
-    onenet_msg_t onenet;
-    onenet.device_name = luaL_checklstring(L, 1, &len);
-    onenet.produt_id = luaL_checklstring(L, 2, &len);
-    onenet.key = luaL_checklstring(L, 3, &len);
-    onenet.method = luaL_optlstring(L, 4, "sha256", &len);
-    onenet.time = luaL_optinteger(L, 5,time(NULL) + 3600);
-    onenet.version = luaL_optlstring(L, 6, "2018-10-31", &len);
-    len = onenet_token(&onenet, onenet.time,onenet.method,onenet.version,token);
-    lua_pushlstring(L, token, len);
-    return 1;
+    const char* produt_id = luaL_checklstring(L, 1, &len);
+    const char* device_name = luaL_checklstring(L, 2, &len);
+    const char* key = luaL_checklstring(L, 3, &len);
+    const char* method = luaL_optlstring(L, 4, "sha256", &len);
+    long long cur_timestamp = luaL_optinteger(L, 5,time(NULL) + 3600);
+    const char* version = luaL_optlstring(L, 6, "2018-10-31", &len);
+    onenet_token(produt_id,device_name,key,cur_timestamp,method,version,password);
+    lua_pushlstring(L, device_name, strlen(device_name));
+    lua_pushlstring(L, produt_id, strlen(produt_id));
+    lua_pushlstring(L, password, strlen(password));
+    return 3;
 }
 
 static int l_iotauth_iotda(lua_State *L) {
@@ -151,8 +147,7 @@ static int l_iotauth_iotda(lua_State *L) {
 /* Max size of conn Id  */
 #define MAX_CONN_ID_LEN (6)
 
-static void get_next_conn_id(char *conn_id)
-{
+static void get_next_conn_id(char *conn_id){
     int i;
     srand((unsigned)luat_mcu_ticks());
     for (i = 0; i < MAX_CONN_ID_LEN - 1; i++) {
@@ -201,9 +196,9 @@ static void qcloud_token(const char* product_id,const char* device_name,const ch
 }
 
 static int l_iotauth_qcloud(lua_State *L) {
-    char client_id[64]={0};
-    char user_name[100]={0};
-    char password[200]={0};
+    memset(client_id, 0, 64);
+    memset(user_name, 0, 100);
+    memset(password, 0, 200);
     size_t len;
     const char* product_id = luaL_checklstring(L, 1, &len);
     const char* device_name = luaL_checklstring(L, 2, &len);
@@ -230,9 +225,9 @@ static void tuya_token(const char* device_id,const char* device_secret,long long
 }
 
 static int l_iotauth_tuya(lua_State *L) {
-    char client_id[64]={0};
-    char user_name[100]={0};
-    char password[200]={0};
+    memset(client_id, 0, 64);
+    memset(user_name, 0, 100);
+    memset(password, 0, 200);
     size_t len;
     const char* device_id = luaL_checklstring(L, 1, &len);
     const char* device_secret = luaL_checklstring(L, 2, &len);
@@ -267,8 +262,8 @@ static void baidu_token(const char* iot_core_id,const char* device_key,const cha
 }
 
 static int l_iotauth_baidu(lua_State *L) {
-    char user_name[100]={0};
-    char password[200]={0};
+    memset(user_name, 0, 100);
+    memset(password, 0, 200);
     size_t len;
     const char* iot_core_id = luaL_checklstring(L, 1, &len);
     const char* device_key = luaL_checklstring(L, 2, &len);

@@ -173,26 +173,17 @@ static void get_next_conn_id(char *conn_id)
     conn_id[MAX_CONN_ID_LEN - 1] = '\0';
 }
 
-int qcloud_token(const char* product_id,const char* device_name,const char* device_secret,long long cur_timestamp,const char* method,const char* sdk_appid,const char* token){
-    char *username     = NULL;
-    int   username_len = 0;
+static void qcloud_token(const char* product_id,const char* device_name,const char* device_secret,long long cur_timestamp,const char* method,const char* sdk_appid,char* username,char* password){
     char  conn_id[MAX_CONN_ID_LEN] = {};
     char username_sign[41] = {0};
     char   psk_base64decode[DECODE_PSK_LENGTH];
     size_t psk_base64decode_len = 0;
     luat_str_base64_decode((unsigned char *)psk_base64decode, DECODE_PSK_LENGTH, &psk_base64decode_len,(unsigned char *)device_secret, strlen(device_secret));
-    username_len = strlen(product_id) + strlen(device_name) + strlen(sdk_appid) + MAX_CONN_ID_LEN + 20;
-    username     = (char *)luat_heap_malloc(username_len);
-    if (username == NULL) {
-        printf("malloc username failed!\r\n");
-        return -1;
-    }
     get_next_conn_id(conn_id);
-    printf("conn_id %s\n",conn_id);
-    snprintf(username, username_len, "%s%s;%s;%s;%ld", product_id, device_name, sdk_appid,conn_id, cur_timestamp);
-    if (!strcmp("sha1", method)) {
+    sprintf(username, "%s%s;%s;%s;%ld", product_id, device_name, sdk_appid,conn_id, cur_timestamp);
+    if (!strcmp("sha1", method)||!strcmp("SHA1", method)) {
         luat_crypto_hmac_sha1_simple(username, strlen(username),psk_base64decode, psk_base64decode_len, username_sign);
-    }else if (!strcmp("sha256", method)) {
+    }else if (!strcmp("sha256", method)||!strcmp("SHA256", method)) {
         luat_crypto_hmac_sha256_simple(username, strlen(username),psk_base64decode, psk_base64decode_len, username_sign);
     }else{
         LLOGE("not support: %s",method);
@@ -201,14 +192,18 @@ int qcloud_token(const char* product_id,const char* device_name,const char* devi
     char *username_sign_hex  = (char *)luat_heap_malloc(strlen(username_sign)*2+1);
     memset(username_sign_hex, 0, strlen(username_sign)*2+1);
     str_tohex(username_sign, strlen(username_sign), username_sign_hex);
-    sprintf(token, "%s;hmacsha1", username_sign_hex);
-    luat_heap_free(username);
+    if (!strcmp("sha1", method)||!strcmp("SHA1", method)) {
+        sprintf(password, "%s;hmacsha1", username_sign_hex);
+    }else if (!strcmp("sha256", method)||!strcmp("SHA256", method)) {
+        sprintf(password, "%s;hmacsha256", username_sign_hex);
+    }
     luat_heap_free(username_sign_hex);
-    return strlen(token);
 }
 
 static int l_iotauth_qcloud(lua_State *L) {
-    char token[200]={0};
+    char client_id[64]={0};
+    char user_name[100]={0};
+    char password[200]={0};
     size_t len;
     const char* product_id = luaL_checklstring(L, 1, &len);
     const char* device_name = luaL_checklstring(L, 2, &len);
@@ -216,9 +211,12 @@ static int l_iotauth_qcloud(lua_State *L) {
     const char* method = luaL_optlstring(L, 4, "sha256", &len);
     long long cur_timestamp = luaL_optinteger(L, 5,time(NULL) + 3600);
     const char* sdk_appid = luaL_optlstring(L, 6, "12010126", &len);
-    len = qcloud_token(product_id, device_name,device_secret,cur_timestamp,method,sdk_appid,token);
-    lua_pushlstring(L, token, len);
-    return 1;
+    qcloud_token(product_id, device_name,device_secret,cur_timestamp,method,sdk_appid,user_name,password);
+    snprintf(client_id, 64,"%s%s", product_id,device_name);
+    lua_pushlstring(L, client_id, strlen(client_id));
+    lua_pushlstring(L, user_name, strlen(user_name));
+    lua_pushlstring(L, password, strlen(password));
+    return 3;
 }
 
 int tuya_token(const char* device_id,const char* device_secret,long long cur_timestamp,const char* token){
@@ -243,16 +241,16 @@ static int l_iotauth_tuya(lua_State *L) {
     return 1;
 }
 
-static void baidu_token(const char* iot_core_id,const char* device_key,const char* device_secret,const char* method,long long cur_timestamp,char* user_name,char* password){
+static void baidu_token(const char* iot_core_id,const char* device_key,const char* device_secret,const char* method,long long cur_timestamp,char* username,char* password){
     char crypto[64] = {0};
     char *token_temp  = (char *)luat_heap_malloc(100);
     memset(token_temp, 0, 100);
     if (!strcmp("MD5", method)||!strcmp("md5", method)) {
-        sprintf(user_name, "thingidp@%s|%s|%lld|%s",iot_core_id,device_key,cur_timestamp,"MD5");
+        sprintf(username, "thingidp@%s|%s|%lld|%s",iot_core_id,device_key,cur_timestamp,"MD5");
         snprintf(token_temp, 100, "%s&%lld&%s%s",device_key,cur_timestamp,"MD5",device_secret);
         luat_crypto_md5_simple(token_temp, strlen(token_temp),crypto);
     }else if (!strcmp("SHA256", method)||!strcmp("sha256", method)) {
-        sprintf(user_name, "thingidp@%s|%s|%lld|%s",iot_core_id,device_key,cur_timestamp,"SHA256");
+        sprintf(username, "thingidp@%s|%s|%lld|%s",iot_core_id,device_key,cur_timestamp,"SHA256");
         snprintf(token_temp, 100, "%s&%lld&%s%s",device_key,cur_timestamp,"SHA256",device_secret);
         luat_crypto_sha256_simple(token_temp, strlen(token_temp),crypto);
     }else{

@@ -42,6 +42,10 @@ static void str_tohex(const char* str, size_t str_len, char* hex) {
     }
 }
 
+static int l_iotauth_aliyun(lua_State *L) {
+    return 0;
+}
+
 static int url_encoding_for_token(sign_msg* msg,char *token){
     int i,j,k,slen;
     sign_msg* temp_msg = msg;
@@ -118,10 +122,6 @@ static void onenet_token(const char* product_id,const char* device_name,const ch
     url_encoding_for_token(&sign,token);
 }
 
-static int l_iotauth_aliyun(lua_State *L) {
-    return 0;
-}
-
 static int l_iotauth_onenet(lua_State *L) {
     memset(password, 0, 200);
     size_t len;
@@ -138,8 +138,31 @@ static int l_iotauth_onenet(lua_State *L) {
     return 3;
 }
 
+static void iotda_token(const char* device_id,const char* device_secret,long long cur_timestamp,int ins_timestamp,char* client_id,const char* password){
+    char hmac[64] = {0};
+    char timestamp[12] = {0};
+    struct tm *timeinfo = localtime( &cur_timestamp );
+    snprintf(timestamp, 12, "%04d%02d%02d%02d", (timeinfo->tm_year)+1900,timeinfo->tm_mon+1,timeinfo->tm_mday,timeinfo->tm_hour);
+    snprintf(client_id, 100, "%s_0_%d_%s", device_id,ins_timestamp,timestamp);
+    luat_crypto_hmac_sha256_simple(device_secret, strlen(device_secret),timestamp, strlen(timestamp), hmac);
+    str_tohex(hmac, strlen(hmac), password);
+}
+
+
 static int l_iotauth_iotda(lua_State *L) {
-    return 0;
+    memset(client_id, 0, 64);
+    memset(password, 0, 200);
+    size_t len;
+    const char* device_id = luaL_checklstring(L, 1, &len);
+    const char* device_secret = luaL_checklstring(L, 2, &len);
+    int ins_timestamp = luaL_optinteger(L, 3, 0);
+    long long cur_timestamp = luaL_optinteger(L, 4,time(NULL));
+    ins_timestamp = ins_timestamp==0?0:1;
+    iotda_token(device_id,device_secret,cur_timestamp,ins_timestamp,client_id,password);
+    lua_pushlstring(L, client_id, strlen(client_id));
+    lua_pushlstring(L, device_id, strlen(device_id));
+    lua_pushlstring(L, password, strlen(password));
+    return 3;
 }
 
 /* Max size of base64 encoded PSK = 64, after decode: 64/4*3 = 48*/

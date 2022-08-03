@@ -36,6 +36,16 @@ static void HexDump(char *pData, uint16_t len){
     printf("\n");
 }
 
+static const unsigned char hexchars[] = "0123456789abcdef";
+static void str_tohex(const char* str, size_t str_len, char* hex) {
+    for (size_t i = 0; i < str_len; i++)
+    {
+        char ch = *(str+i);
+        hex[i*2] = hexchars[(unsigned char)ch >> 4];
+        hex[i*2+1] = hexchars[(unsigned char)ch & 0xF];
+    }
+}
+
 static int url_encoding_for_token(sign_msg* msg,char *token){
     int i,j,k,slen;
     sign_msg* temp_msg = msg;
@@ -190,7 +200,7 @@ int qcloud_token(const char* product_id,const char* device_name,const char* devi
     }
     char *username_sign_hex  = (char *)luat_heap_malloc(strlen(username_sign)*2+1);
     memset(username_sign_hex, 0, strlen(username_sign)*2+1);
-    luat_str_tohex(username_sign, strlen(username_sign), username_sign_hex);
+    str_tohex(username_sign, strlen(username_sign), username_sign_hex);
     sprintf(token, "%s;hmacsha1", username_sign_hex);
     luat_heap_free(username);
     luat_heap_free(username_sign_hex);
@@ -217,7 +227,7 @@ int tuya_token(const char* device_id,const char* device_secret,long long cur_tim
     memset(token_temp, 0, 100);
     snprintf(token_temp, 100, "deviceId=%s,timestamp=%ld,secureMode=1,accessType=1", device_id, cur_timestamp);
     luat_crypto_hmac_sha256_simple(token_temp, strlen(token_temp),device_secret, strlen(device_secret), hmac);
-    luat_str_tohex(hmac, strlen(hmac), token);
+    str_tohex(hmac, strlen(hmac), token);
     luat_heap_free(token_temp);
     return strlen(token);
 }
@@ -233,34 +243,40 @@ static int l_iotauth_tuya(lua_State *L) {
     return 1;
 }
 
-static int baidu_token(const char* device_key,const char* device_secret,const char* method,long long cur_timestamp,const char* token){
+static void baidu_token(const char* iot_core_id,const char* device_key,const char* device_secret,const char* method,long long cur_timestamp,char* user_name,char* password){
     char crypto[64] = {0};
     char *token_temp  = (char *)luat_heap_malloc(100);
     memset(token_temp, 0, 100);
-    snprintf(token_temp, 100, "%s&%lld&%s%s",device_key,cur_timestamp,method,device_secret);
-    if (!strcmp("MD5", method)) {
+    if (!strcmp("MD5", method)||!strcmp("md5", method)) {
+        sprintf(user_name, "thingidp@%s|%s|%lld|%s",iot_core_id,device_key,cur_timestamp,"MD5");
+        snprintf(token_temp, 100, "%s&%lld&%s%s",device_key,cur_timestamp,"MD5",device_secret);
         luat_crypto_md5_simple(token_temp, strlen(token_temp),crypto);
-    }else if (!strcmp("SHA256", method)) {
+    }else if (!strcmp("SHA256", method)||!strcmp("sha256", method)) {
+        sprintf(user_name, "thingidp@%s|%s|%lld|%s",iot_core_id,device_key,cur_timestamp,"SHA256");
+        snprintf(token_temp, 100, "%s&%lld&%s%s",device_key,cur_timestamp,"SHA256",device_secret);
         luat_crypto_sha256_simple(token_temp, strlen(token_temp),crypto);
     }else{
         LLOGE("not support: %s",method);
         return -1;
     }
-    luat_str_tohex(crypto, strlen(crypto), token);
+    str_tohex(crypto, strlen(crypto), password);
     luat_heap_free(token_temp);
-    return strlen(token);
 }
 
 static int l_iotauth_baidu(lua_State *L) {
-    char token[200]={0};
+    char user_name[100]={0};
+    char password[200]={0};
     size_t len;
-    const char* device_key = luaL_checklstring(L, 1, &len);
-    const char* device_secret = luaL_checklstring(L, 2, &len);
-    const char* method = luaL_optlstring(L, 3, "SHA256", &len);
-    long long cur_timestamp = luaL_optinteger(L, 4,time(NULL) + 3600);
-    len = baidu_token(device_key,device_secret,method,cur_timestamp,token);
-    lua_pushlstring(L, token, len);
-    return 1;
+    const char* iot_core_id = luaL_checklstring(L, 1, &len);
+    const char* device_key = luaL_checklstring(L, 2, &len);
+    const char* device_secret = luaL_checklstring(L, 3, &len);
+    const char* method = luaL_optlstring(L, 4, "MD5", &len);
+    long long cur_timestamp = luaL_optinteger(L, 5,time(NULL) + 3600);
+    baidu_token(iot_core_id,device_key,device_secret,method,cur_timestamp,user_name,password);
+    lua_pushlstring(L, iot_core_id, strlen(iot_core_id));
+    lua_pushlstring(L, user_name, strlen(user_name));
+    lua_pushlstring(L, password, strlen(password));
+    return 3;
 }
 
 static int l_iotauth_aws(lua_State *L) {

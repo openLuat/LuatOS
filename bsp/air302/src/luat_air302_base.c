@@ -40,16 +40,20 @@ static const luaL_Reg loadedlibs[] = {
   {"libgnss", luaopen_libgnss},           // 处理GNSS定位数据
   {"fs",      luaopen_fs},                // 文件系统库,在io库之外再提供一些方法
   {"sensor",  luaopen_sensor},            // 传感器库,支持DS18B20
+  {"crypto",luaopen_crypto},            // 加密和hash模块
+
+  /* UI */
   // {"disp",  luaopen_disp},              // OLED显示模块,支持SSD1306
   // {"u8g2", luaopen_u8g2},              // u8g2
-  {"crypto",luaopen_crypto},            // 加密和hash模块
   // {"eink",  luaopen_eink},              // 电子墨水屏,试验阶段
+  // {"lcd",luaopen_lcd}, 
+
   //{"iconv", luaopen_iconv},             // 编码转换,暂不可用
   // {"fatfs",   luaopen_fatfs},             // 挂载sdcard
   //{"sfd",   luaopen_sfd},             // 挂载与sfd配合, 挂载spi flash
   //{"lfs2",   luaopen_lfs2},             // 挂载与sfd配合, 挂载spi flash
   //{"zbuff",luaopen_zbuff},            // zbuff库
-  // {"lcd",luaopen_lcd},            // zbuff库
+
 //------------------------------------------------------------------------
 // 联网及NBIOT特有的库
   {"socket",  luaopen_socket},            // 套接字操作

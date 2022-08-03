@@ -4,7 +4,7 @@
 
 #define AIR302 1
 
-#define LUAT_BSP_VERSION "V0012"
+#define LUAT_BSP_VERSION "V0013"
 #define LUAT_COMPILER_NOWEAK 1
 
 // 启用64位虚拟机

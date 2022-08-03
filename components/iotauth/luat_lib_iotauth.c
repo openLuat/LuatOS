@@ -219,26 +219,31 @@ static int l_iotauth_qcloud(lua_State *L) {
     return 3;
 }
 
-int tuya_token(const char* device_id,const char* device_secret,long long cur_timestamp,const char* token){
+static void tuya_token(const char* device_id,const char* device_secret,long long cur_timestamp,const char* password){
     char hmac[64] = {0};
     char *token_temp  = (char *)luat_heap_malloc(100);
     memset(token_temp, 0, 100);
     snprintf(token_temp, 100, "deviceId=%s,timestamp=%ld,secureMode=1,accessType=1", device_id, cur_timestamp);
     luat_crypto_hmac_sha256_simple(token_temp, strlen(token_temp),device_secret, strlen(device_secret), hmac);
-    str_tohex(hmac, strlen(hmac), token);
+    str_tohex(hmac, strlen(hmac), password);
     luat_heap_free(token_temp);
-    return strlen(token);
 }
 
 static int l_iotauth_tuya(lua_State *L) {
-    char token[200]={0};
+    char client_id[64]={0};
+    char user_name[100]={0};
+    char password[200]={0};
     size_t len;
     const char* device_id = luaL_checklstring(L, 1, &len);
     const char* device_secret = luaL_checklstring(L, 2, &len);
     long long cur_timestamp = luaL_optinteger(L, 3,time(NULL) + 3600);
-    len = tuya_token(device_id,device_secret,cur_timestamp,token);
-    lua_pushlstring(L, token, len);
-    return 1;
+    tuya_token(device_id,device_secret,cur_timestamp,password);
+    snprintf(client_id, 64, "tuyalink_%s", device_id);
+    snprintf(user_name, 100, "%s|signMethod=hmacSha256,timestamp=%lld", device_id,cur_timestamp);
+    lua_pushlstring(L, client_id, strlen(client_id));
+    lua_pushlstring(L, user_name, strlen(user_name));
+    lua_pushlstring(L, password, strlen(password));
+    return 3;
 }
 
 static void baidu_token(const char* iot_core_id,const char* device_key,const char* device_secret,const char* method,long long cur_timestamp,char* username,char* password){

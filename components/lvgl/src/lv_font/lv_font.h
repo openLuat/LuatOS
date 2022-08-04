@@ -41,6 +41,8 @@ typedef struct {
     int16_t ofs_x;   /**< x offset of the bounding box*/
     int16_t ofs_y;  /**< y offset of the bounding box*/
     uint8_t bpp;   /**< Bit-per-pixel: 1, 2, 4, 8*/
+    uint8_t data_ready;
+    uint8_t *data;
 } lv_font_glyph_dsc_t;
 
 /** The bitmaps might be upscaled by 3 to achieve subpixel rendering. */
@@ -70,9 +72,9 @@ typedef struct _lv_font_struct {
     int8_t underline_thickness;     /**< Thickness of the underline*/
 
     void * dsc;                     /**< Store implementation specific or run_time data or caching here*/
-#if LV_USE_USER_DATA
-    lv_font_user_data_t user_data;  /**< Custom user data for font. */
-#endif
+// #if LV_USE_USER_DATA
+//     lv_font_user_data_t user_data;  /**< Custom user data for font. */
+// #endif
 
 } lv_font_t;
 

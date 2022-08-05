@@ -494,7 +494,7 @@ typedef void * lv_font_user_data_t;
 
 /*Simple to the create your theme based on it
  * No flags. Set LV_THEME_DEFAULT_FLAG 0 */
-#define LV_USE_THEME_TEMPLATE    0
+#define LV_USE_THEME_TEMPLATE    1
 
 /* A fast and impressive theme.
  * Flags:
@@ -510,7 +510,7 @@ typedef void * lv_font_user_data_t;
  * texts and borders will be black and the background will be
  * white. Else the colors are inverted.
  * No flags. Set LV_THEME_DEFAULT_FLAG 0 */
-#define LV_USE_THEME_MONO        0
+#define LV_USE_THEME_MONO        1
 
 #define LV_THEME_DEFAULT_INCLUDE            <stdint.h>      /*Include a header for the init. function*/
 #define LV_THEME_DEFAULT_INIT               lv_theme_material_init

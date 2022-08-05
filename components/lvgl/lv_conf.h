@@ -183,7 +183,7 @@ typedef lv_anim_mydata_t lv_anim_user_data_t;
 #endif
 
 /* 1: Enable shadow drawing on rectangles*/
-#define LV_USE_SHADOW           1
+#define LV_USE_SHADOW           0
 #if LV_USE_SHADOW
 /* Allow buffering some shadow calculation
  * LV_SHADOW_CACHE_SIZE is the max. shadow size to buffer,
@@ -380,7 +380,7 @@ typedef void * lv_indev_drv_user_data_t;            /*Type of user data in the i
  * The behavior of asserts can be overwritten by redefining them here.
  * E.g. #define LV_ASSERT_MEM(p)  <my_assert_code>
  */
-#define LV_USE_DEBUG        1
+#define LV_USE_DEBUG        0
 #if LV_USE_DEBUG
 
 /*Check if the parameter is NULL. (Quite fast) */
@@ -467,10 +467,10 @@ typedef void * lv_indev_drv_user_data_t;            /*Type of user data in the i
 /* Enables/disables support for compressed fonts. If it's disabled, compressed
  * glyphs cannot be processed by the library and won't be rendered.
  */
-#define LV_USE_FONT_COMPRESSED 1
+#define LV_USE_FONT_COMPRESSED 0
 
 /* Enable subpixel rendering */
-#define LV_USE_FONT_SUBPX 1
+#define LV_USE_FONT_SUBPX 0
 #if LV_USE_FONT_SUBPX
 /* Set the pixel order of the display.
  * Important only if "subpx fonts" are used.
@@ -494,7 +494,7 @@ typedef void * lv_font_user_data_t;
 
 /*Simple to the create your theme based on it
  * No flags. Set LV_THEME_DEFAULT_FLAG 0 */
-#define LV_USE_THEME_TEMPLATE    1
+#define LV_USE_THEME_TEMPLATE    0
 
 /* A fast and impressive theme.
  * Flags:
@@ -510,7 +510,7 @@ typedef void * lv_font_user_data_t;
  * texts and borders will be black and the background will be
  * white. Else the colors are inverted.
  * No flags. Set LV_THEME_DEFAULT_FLAG 0 */
-#define LV_USE_THEME_MONO        1
+#define LV_USE_THEME_MONO        0
 
 #define LV_THEME_DEFAULT_INCLUDE            <stdint.h>      /*Include a header for the init. function*/
 #define LV_THEME_DEFAULT_INIT               lv_theme_material_init
@@ -810,6 +810,13 @@ typedef struct luat_lv_userdata lv_obj_user_data_t;
 
 /*Window (dependencies: lv_cont, lv_btn, lv_label, lv_img, lv_page)*/
 #define LV_USE_WIN      1
+
+#if LV_USE_ANIMATION == 0
+#ifdef LV_USE_SPINNER
+#undef LV_USE_SPINNER
+#endif
+#define LV_USE_SPINNER 0
+#endif
 
 /*==================
  * Non-user section

@@ -26,6 +26,7 @@
 
 #include "u8g2.h"
 #include "u8g2_luat_fonts.h"
+#include "luat_zbuff.h"
 
 int8_t u8g2_font_decode_get_signed_bits(u8g2_font_decode_t *f, uint8_t cnt);
 uint8_t u8g2_font_decode_get_unsigned_bits(u8g2_font_decode_t *f, uint8_t cnt);
@@ -79,7 +80,7 @@ static int l_eink_setup(lua_State *L) {
     econf.cs_pin = luaL_optinteger(L, 6, 16);
 
     if (lua_type(L, 7) == LUA_TUSERDATA){
-        LLOGD("luat_spi_device_send");
+        //LLOGD("luat_spi_device_send");
         econf.userdata = (luat_spi_device_t*)lua_touserdata(L, 3);
         econf.port = LUAT_EINK_SPI_DEVICE;
         luat_gpio_mode(Pin_BUSY, Luat_GPIO_INPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
@@ -87,7 +88,7 @@ static int l_eink_setup(lua_State *L) {
         luat_gpio_mode(Pin_DC, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
         status = 0;
     }else{
-        LLOGD("luat_spi_send");
+        //LLOGD("luat_spi_send");
         luat_spi_t spi_config = {0};
         spi_config.bandrate = 2000000U;//luaL_optinteger(L, 1, 2000000U); // 2000000U
         spi_config.id = SPI_ID;
@@ -490,13 +491,13 @@ static int l_eink_print(lua_State *L)
 @api eink.show(x, y, noClear)
 @int x 输出的x坐标,默认0
 @int y 输出的y坐标,默认0
-@bool noClear 可选，默认false。如果为true则不进行清屏，直接刷上新内容
+@bool 可选，默认false。如果为true则不进行清屏，直接刷上新内容
 @return nil 无返回值
 */
 static int l_eink_show(lua_State *L)
 {
-    int x     = luaL_optinteger(L, 1, 0);
-    int y     = luaL_optinteger(L, 2, 0);
+    // int x     = luaL_optinteger(L, 1, 0);
+    // int y     = luaL_optinteger(L, 2, 0);
     int no_clear     = lua_toboolean(L, 3);
     /* Display the frame_buffer */
     //EPD_SetFrameMemory(&epd, frame_buffer, x, y, Paint_GetWidth(&paint), Paint_GetHeight(&paint));
@@ -504,6 +505,28 @@ static int l_eink_show(lua_State *L)
     if(!no_clear)
       EPD_Clear();
     EPD_Display(frame_buffer, NULL);
+    return 0;
+}
+
+/**
+直接输出数据到屏幕,支持双色数据
+@api eink.draw(buff, buff2, noclear)
+@userdata zbuff指针
+@userdata zbuff指针
+@bool 可选，默认false。如果为true则不进行清屏，直接刷上新内容
+@return nil 无返回值
+*/
+static int l_eink_draw(lua_State *L)
+{
+    luat_zbuff_t* buff = tozbuff(L);
+    luat_zbuff_t* buff2 = buff;
+    int no_clear     = lua_toboolean(L, 3);
+    if (lua_isuserdata(L, 2)) {
+      buff2 = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+    }
+    if(!no_clear)
+      EPD_Clear();
+    EPD_Display(buff->addr, buff2->addr);
     return 0;
 }
 
@@ -979,6 +1002,7 @@ static const rotable_Reg_t reg_eink[] =
 
     { "model",          ROREG_FUNC(l_eink_model)},
     { "drawXbm",        ROREG_FUNC(l_eink_drawXbm)},
+    { "draw",           ROREG_FUNC(l_eink_draw)},
 #ifdef LUAT_USE_GTFONT
     { "drawGtfontGb2312", ROREG_FUNC(l_eink_draw_gtfont_gb2312)},
     { "drawGtfontGb2312Gray", ROREG_FUNC(l_eink_draw_gtfont_gb2312_gray)},

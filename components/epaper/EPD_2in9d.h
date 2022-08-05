@@ -60,9 +60,9 @@
 #define EPD_2IN9D_WIDTH   128
 #define EPD_2IN9D_HEIGHT  296
 
-void EPD_2IN9D_Init(void);
+void EPD_2IN9D_Init(UBYTE mode);
 void EPD_2IN9D_Clear(void);
-void EPD_2IN9D_Display(UBYTE *Image);
+void EPD_2IN9D_Display(UBYTE *Image, UBYTE *Image2);
 void EPD_2IN9D_DisplayPart(UBYTE *Image);
 void EPD_2IN9D_Sleep(void);
 

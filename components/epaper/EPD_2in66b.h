@@ -37,7 +37,7 @@
 #define EPD_2IN66B_HEIGHT      296
 
 
-void EPD_2IN66B_Init(void);
+void EPD_2IN66B_Init(UBYTE mode);
 void EPD_2IN66B_Display(UBYTE *ImageBlack, UBYTE*ImageRed);
 void EPD_2IN66B_Clear(void);
 void EPD_2IN66B_Sleep(void);

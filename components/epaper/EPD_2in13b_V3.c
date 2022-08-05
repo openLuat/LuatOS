@@ -114,7 +114,7 @@ static void EPD_2IN13B_V3_TurnOnDisplay(void)
 function :	Initialize the e-Paper register
 parameter:
 ******************************************************************************/
-void EPD_2IN13B_V3_Init(void)
+void EPD_2IN13B_V3_Init(UBYTE mode)
 {
     EPD_2IN13B_V3_Reset();
     DEV_Delay_ms(10);

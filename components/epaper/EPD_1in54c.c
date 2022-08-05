@@ -145,7 +145,7 @@ static void EPD_1IN54C_ReadBusy(void)
 function :	Initialize the e-Paper register
 parameter:
 ******************************************************************************/
-void EPD_1IN54C_Init(void)
+void EPD_1IN54C_Init(UBYTE mode)
 {
     EPD_1IN54C_Reset();
 

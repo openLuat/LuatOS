@@ -91,7 +91,7 @@
 #define EPD_7IN5BC_WIDTH       640
 #define EPD_7IN5BC_HEIGHT      384
 
-void EPD_7IN5BC_Init(void);
+void EPD_7IN5BC_Init(UBYTE mode);
 void EPD_7IN5BC_Clear(void);
 void EPD_7IN5BC_Display(const UBYTE *blackimage, const UBYTE *ryimage);
 void EPD_7IN5BC_DisplayHalfScreen(const UBYTE *blackimage, const UBYTE *ryimage);

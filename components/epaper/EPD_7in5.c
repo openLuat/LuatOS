@@ -163,7 +163,7 @@ static void EPD_7IN5_TurnOnDisplay(void)
 function :	Initialize the e-Paper register
 parameter:
 ******************************************************************************/
-void EPD_7IN5_Init(void)
+void EPD_7IN5_Init(UBYTE mode)
 {
     EPD_7IN5_Reset();
 
@@ -234,7 +234,7 @@ void EPD_7IN5_Clear(void)
 function :	Sends the image buffer in RAM to e-Paper and displays
 parameter:
 ******************************************************************************/
-void EPD_7IN5_Display(UBYTE *Image)
+void EPD_7IN5_Display(UBYTE *Image, UBYTE *Image2)
 {
     UBYTE Data_Black, Data;
     UWORD Width, Height;

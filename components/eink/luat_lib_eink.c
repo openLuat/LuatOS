@@ -33,7 +33,9 @@ uint8_t u8g2_font_decode_get_unsigned_bits(u8g2_font_decode_t *f, uint8_t cnt);
 #define COLORED      0
 #define UNCOLORED    1
 
+#ifndef LUAT_LOG_TAG
 #define LUAT_LOG_TAG "eink"
+#endif
 
 static uint32_t eink_str_color;
 
@@ -1018,7 +1020,7 @@ static const rotable_Reg_t reg_eink[] =
     //@const MODEL_2in9d number 2.9寸d
     { "MODEL_2in9d",          ROREG_INT(MODEL_2in9d)},
     //@const MODEL_2in9f number 2.9寸f
-    { "MODEL_2in9f",          ROREG_INT(MODEL_2in9f)},
+    { "MODEL_2in9f",          ROREG_INT(MODEL_2in9ff)},
     //@const MODEL_3in7 number 3.7寸
     { "MODEL_3in7",           ROREG_INT(MODEL_3in7)},
     // 默认只带8号字体
@@ -1083,7 +1085,44 @@ static const rotable_Reg_t reg_eink[] =
     //@const font_opposansm32_chinese font 32号中文字体
     { "font_opposansm32_chinese", ROREG_PTR((void*)u8g2_font_opposansm32_chinese)},
 #endif
-
+{ "MODEL_1in02d",           ROREG_INT(MODEL_1in02d)},
+{ "MODEL_1in54",           ROREG_INT(MODEL_1in54)},
+{ "MODEL_1in54b",           ROREG_INT(MODEL_1in54b)},
+{ "MODEL_1in54b_V2",           ROREG_INT(MODEL_1in54b_V2)},
+{ "MODEL_1in54c",           ROREG_INT(MODEL_1in54c)},
+{ "MODEL_1in54f",           ROREG_INT(MODEL_1in54f)},
+{ "MODEL_1in54_V2",           ROREG_INT(MODEL_1in54_V2)},
+{ "MODEL_1in54_V3",           ROREG_INT(MODEL_1in54_V3)},
+{ "MODEL_2in13",           ROREG_INT(MODEL_2in13)},
+{ "MODEL_2in13bc",           ROREG_INT(MODEL_2in13bc)},
+{ "MODEL_2in13b_V3",           ROREG_INT(MODEL_2in13b_V3)},
+{ "MODEL_2in13d",           ROREG_INT(MODEL_2in13d)},
+{ "MODEL_2in13_V2",           ROREG_INT(MODEL_2in13_V2)},
+{ "MODEL_2in66",           ROREG_INT(MODEL_2in66)},
+{ "MODEL_2in66b",           ROREG_INT(MODEL_2in66b)},
+{ "MODEL_2in7",           ROREG_INT(MODEL_2in7)},
+{ "MODEL_2in7b",           ROREG_INT(MODEL_2in7b)},
+{ "MODEL_2in9",           ROREG_INT(MODEL_2in9)},
+{ "MODEL_2in9bc",           ROREG_INT(MODEL_2in9bc)},
+{ "MODEL_2in9b_V3",           ROREG_INT(MODEL_2in9b_V3)},
+{ "MODEL_2in9d",           ROREG_INT(MODEL_2in9d)},
+{ "MODEL_2in9ff",           ROREG_INT(MODEL_2in9ff)},
+{ "MODEL_2in9_V2",           ROREG_INT(MODEL_2in9_V2)},
+{ "MODEL_3in7",           ROREG_INT(MODEL_3in7)},
+{ "MODEL_4in2",           ROREG_INT(MODEL_4in2)},
+{ "MODEL_4in2bc",           ROREG_INT(MODEL_4in2bc)},
+{ "MODEL_4in2b_V2",           ROREG_INT(MODEL_4in2b_V2)},
+{ "MODEL_5in65f",           ROREG_INT(MODEL_5in65f)},
+{ "MODEL_5in83",           ROREG_INT(MODEL_5in83)},
+{ "MODEL_5in83bc",           ROREG_INT(MODEL_5in83bc)},
+{ "MODEL_5in83b_V2",           ROREG_INT(MODEL_5in83b_V2)},
+{ "MODEL_5in83_V2",           ROREG_INT(MODEL_5in83_V2)},
+{ "MODEL_7in5",           ROREG_INT(MODEL_7in5)},
+{ "MODEL_7in5bc",           ROREG_INT(MODEL_7in5bc)},
+{ "MODEL_7in5b_HD",           ROREG_INT(MODEL_7in5b_HD)},
+{ "MODEL_7in5b_V2",           ROREG_INT(MODEL_7in5b_V2)},
+{ "MODEL_7in5_HD",           ROREG_INT(MODEL_7in5_HD)},
+{ "MODEL_7in5_V2",           ROREG_INT(MODEL_7in5_V2)},
 	  { NULL,                    ROREG_INT(0)}
 };
 

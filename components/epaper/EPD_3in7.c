@@ -177,7 +177,7 @@ void EPD_3IN7_Load_LUT(UBYTE lut)
 function :	Initialize the e-Paper register
 parameter:
 ******************************************************************************/
-void EPD_3IN7_4Gray_Init(void)
+void EPD_3IN7_4Gray_Init(UBYTE mode)
 {
     EPD_3IN7_Reset();
 
@@ -255,7 +255,7 @@ void EPD_3IN7_4Gray_Init(void)
 function :  Initialize the e-Paper register
 parameter:
 ******************************************************************************/
-void EPD_3IN7_1Gray_Init(void)
+void EPD_3IN7_1Gray_Init(UBYTE mode)
 {
     EPD_3IN7_Reset();
 
@@ -524,7 +524,7 @@ void EPD_3IN7_4Gray_Display(const UBYTE *Image)
 function :  Sends the image buffer in RAM to e-Paper and displays
 parameter:
 ******************************************************************************/
-void EPD_3IN7_1Gray_Display(const UBYTE *Image)
+void EPD_3IN7_1Gray_Display(const UBYTE *Image, UBYTE *Image2)
 {
   UWORD i;
   UWORD IMAGE_COUNTER = EPD_3IN7_WIDTH * EPD_3IN7_HEIGHT / 8;

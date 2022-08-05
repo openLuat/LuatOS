@@ -241,7 +241,7 @@ static void EPD_2IN7B_SetLut(void)
 function :	Initialize the e-Paper register
 parameter:
 ******************************************************************************/
-void EPD_2IN7B_Init(void)
+void EPD_2IN7B_Init(UBYTE mode)
 {
     EPD_2IN7B_Reset();
 

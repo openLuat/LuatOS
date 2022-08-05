@@ -324,7 +324,7 @@ void EPD_2in7_gray_SetLut(void)
 function :	Initialize the e-Paper register
 parameter:
 ******************************************************************************/
-void EPD_2IN7_Init(void)
+void EPD_2IN7_Init(UBYTE mode)
 {
     EPD_2in7_Reset();
 
@@ -493,7 +493,7 @@ void EPD_2IN7_Clear(void)
 function :	Sends the image buffer in RAM to e-Paper and displays
 parameter:
 ******************************************************************************/
-void EPD_2IN7_Display(const UBYTE *Image)
+void EPD_2IN7_Display(const UBYTE *Image, UBYTE *Image2)
 {
     UWORD Width, Height;
     Width = (EPD_2IN7_WIDTH % 8 == 0)? (EPD_2IN7_WIDTH / 8 ): (EPD_2IN7_WIDTH / 8 + 1);

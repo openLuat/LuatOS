@@ -98,7 +98,7 @@
 
 void EPD_1IN54_Init(UBYTE Mode);
 void EPD_1IN54_Clear(void);
-void EPD_1IN54_Display(UBYTE *Image);
+void EPD_1IN54_Display(UBYTE *Image, UBYTE *Image2);
 void EPD_1IN54_Sleep(void);
 
 #endif

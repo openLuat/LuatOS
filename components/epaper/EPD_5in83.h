@@ -93,9 +93,9 @@
 #define EPD_5IN83_WIDTH       600
 #define EPD_5IN83_HEIGHT      448
 
-void EPD_5IN83_Init(void);
+void EPD_5IN83_Init(UBYTE mode);
 void EPD_5IN83_Clear(void);
-void EPD_5IN83_Display(UBYTE *Image);
+void EPD_5IN83_Display(UBYTE *Image, UBYTE *Image2);
 void EPD_5IN83_Sleep(void);
 
 #endif

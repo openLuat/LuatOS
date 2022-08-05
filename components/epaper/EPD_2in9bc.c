@@ -148,7 +148,7 @@ void EPD_2IN9BC_ReadBusy(void)
 function :	Initialize the e-Paper register
 parameter:
 ******************************************************************************/
-void EPD_2IN9BC_Init(void)
+void EPD_2IN9BC_Init(UBYTE mode)
 {
     EPD_2IN9BC_Reset();
 

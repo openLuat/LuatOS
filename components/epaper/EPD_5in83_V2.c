@@ -109,7 +109,7 @@ static void EPD_5in83_V2_TurnOnDisplay(void)
 function :	Initialize the e-Paper register
 parameter:
 ******************************************************************************/
-void EPD_5in83_V2_Init(void)
+void EPD_5in83_V2_Init(UBYTE mode)
 {
     EPD_5in83_V2_Reset();
 
@@ -168,7 +168,7 @@ void EPD_5in83_V2_Clear(void)
 function :	Sends the image buffer in RAM to e-Paper and displays
 parameter:
 ******************************************************************************/
-void EPD_5in83_V2_Display(UBYTE *Image)
+void EPD_5in83_V2_Display(UBYTE *Image, UBYTE *Image2)
 {
     UWORD Width, Height, i, j;
     Width = (EPD_5in83_V2_WIDTH % 8 == 0)? (EPD_5in83_V2_WIDTH / 8 ): (EPD_5in83_V2_WIDTH / 8 + 1);

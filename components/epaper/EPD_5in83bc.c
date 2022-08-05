@@ -167,7 +167,7 @@ static void EPD_5IN83BC_TurnOnDisplay(void)
 function :	Initialize the e-Paper register
 parameter:
 ******************************************************************************/
-void EPD_5IN83BC_Init(void)
+void EPD_5IN83BC_Init(UBYTE mode)
 {
     EPD_5IN83BC_Reset();
 

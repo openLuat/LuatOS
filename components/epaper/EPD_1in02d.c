@@ -192,7 +192,7 @@ void EPD_1IN02_TurnOnDisplay(void)
 /******************************************************************************
 function :Initialize the e-Paper register
 ******************************************************************************/
-UBYTE EPD_1IN02_Init(void)
+void EPD_1IN02_Init(UBYTE Mode)
 {
 	EPD_1IN02_Reset(); 
 	
@@ -236,7 +236,7 @@ UBYTE EPD_1IN02_Init(void)
 	EPD_1IN02_SetFulltReg();	
     EPD_1IN02_SendCommand(0x04);     		//power on
     EPD_1IN02_WaitUntilIdle();
-	return 0;
+	// return 0;
 }
 
 /******************************************************************************
@@ -310,7 +310,7 @@ function :	Sends the image buffer in RAM to e-Paper and displays
 parameter:
     Image :Displayed data
 ******************************************************************************/
-void EPD_1IN02_Display(UBYTE *Image)
+void EPD_1IN02_Display(UBYTE *Image, UBYTE *Image2)
 { 
 	UWORD Width;
 	Width = (EPD_1IN02_WIDTH % 8 == 0)? (EPD_1IN02_WIDTH / 8 ): (EPD_1IN02_WIDTH / 8 + 1);

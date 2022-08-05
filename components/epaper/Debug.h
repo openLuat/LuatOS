@@ -15,7 +15,7 @@
 #define __DEBUG_H
 
 #ifndef LUAT_LOG
-#define LUAT_LOG_TAG "luat.epaper"
+#define LUAT_LOG_TAG "eink"
 #include "luat_log.h"
 #endif
 

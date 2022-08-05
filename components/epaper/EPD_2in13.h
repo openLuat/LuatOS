@@ -62,7 +62,7 @@
 
 void EPD_2IN13_Init(UBYTE Mode);
 void EPD_2IN13_Clear(void);
-void EPD_2IN13_Display(UBYTE *Image);
+void EPD_2IN13_Display(UBYTE *Image, UBYTE *Image2);
 void EPD_2IN13_Sleep(void);
 
 #endif

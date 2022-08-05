@@ -40,7 +40,7 @@
 #define EPD_7IN5B_V2_WIDTH       800
 #define EPD_7IN5B_V2_HEIGHT      480
 
-UBYTE EPD_7IN5B_V2_Init(void);
+void EPD_7IN5B_V2_Init(UBYTE mode);
 void EPD_7IN5B_V2_Clear(void);
 void EPD_7IN5B_V2_ClearRed(void);
 void EPD_7IN5B_V2_ClearBlack(void);

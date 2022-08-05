@@ -113,7 +113,7 @@ static void EPD_7IN5_V2_TurnOnDisplay(void)
 function :	Initialize the e-Paper register
 parameter:
 ******************************************************************************/
-UBYTE EPD_7IN5_V2_Init(void)
+UBYTE EPD_7IN5_V2_Init(UBYTE mode)
 {
     EPD_Reset();
 
@@ -189,7 +189,7 @@ void EPD_7IN5_V2_ClearBlack(void)
 function :	Sends the image buffer in RAM to e-Paper and displays
 parameter:
 ******************************************************************************/
-void EPD_7IN5_V2_Display(const UBYTE *blackimage)
+void EPD_7IN5_V2_Display(const UBYTE *blackimage, UBYTE *Image2)
 {
     UDOUBLE Width, Height;
     Width =(EPD_7IN5_V2_WIDTH % 8 == 0)?(EPD_7IN5_V2_WIDTH / 8 ):(EPD_7IN5_V2_WIDTH / 8 + 1);

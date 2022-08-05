@@ -439,7 +439,7 @@ static void EPD_4IN2_4Gray_lut(void)
 function :	Initialize the e-Paper register
 parameter:
 ******************************************************************************/
-void EPD_4IN2_Init(void)
+void EPD_4IN2_Init(UBYTE mode)
 {
     EPD_4IN2_Reset();
 
@@ -547,7 +547,7 @@ void EPD_4IN2_Clear(void)
 function :	Sends the image buffer in RAM to e-Paper and displays
 parameter:
 ******************************************************************************/
-void EPD_4IN2_Display(UBYTE *Image)
+void EPD_4IN2_Display(UBYTE *Image, UBYTE *Image2)
 {
     UWORD Width, Height;
     Width = (EPD_4IN2_WIDTH % 8 == 0)? (EPD_4IN2_WIDTH / 8 ): (EPD_4IN2_WIDTH / 8 + 1);

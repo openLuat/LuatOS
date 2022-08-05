@@ -37,10 +37,10 @@
 #define EPD_7IN5_HD_WIDTH       880
 #define EPD_7IN5_HD_HEIGHT      528
 
-void EPD_7IN5_HD_Init(void);
+void EPD_7IN5_HD_Init(UBYTE mode);
 void EPD_7IN5_HD_Clear(void);
 void EPD_7IN5_HD_ClearBlack(void);
-void EPD_7IN5_HD_Display(const UBYTE *blackimage);
+void EPD_7IN5_HD_Display(const UBYTE *blackimage, UBYTE *Image2);
 void EPD_7IN5_HD_Sleep(void);
 void EPD_7IN5_HD_WritePicture(const UBYTE *blackimage, UBYTE Block);
 void EPD_7IN5_HD_DisplayImage(const UBYTE *blackimage,UDOUBLE start_X, UDOUBLE start_Y, UDOUBLE image_width, UDOUBLE image_high);

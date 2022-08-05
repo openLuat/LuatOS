@@ -69,9 +69,9 @@
 #define EPD_2IN13D_WIDTH   104
 #define EPD_2IN13D_HEIGHT  212
 
-void EPD_2IN13D_Init(void);
+void EPD_2IN13D_Init(UBYTE mode);
 void EPD_2IN13D_Clear(void);
-void EPD_2IN13D_Display(UBYTE *Image);
+void EPD_2IN13D_Display(UBYTE *Image, UBYTE *Image2);
 void EPD_2IN13D_DisplayPart(UBYTE *Image);
 void EPD_2IN13D_Sleep(void);
 

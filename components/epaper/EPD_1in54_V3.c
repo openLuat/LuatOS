@@ -90,7 +90,7 @@ static void EPD_1IN54_V3_TurnOnDisplayPart(void)
 function :	Initialize the e-Paper register
 parameter:
 ******************************************************************************/
-void EPD_1IN54_V3_Init(void)
+void EPD_1IN54_V3_Init(UBYTE mode)
 {
     EPD_1IN54_V3_Reset();
 
@@ -176,7 +176,7 @@ void EPD_1IN54_V3_Clear(void)
 function :	Sends the image buffer in RAM to e-Paper and displays
 parameter:
 ******************************************************************************/
-void EPD_1IN54_V3_Display(UBYTE *Image)
+void EPD_1IN54_V3_Display(UBYTE *Image, UBYTE *Image2)
 {
     UBYTE Temp = 0x00;
     UWORD Width, Height;
@@ -214,7 +214,7 @@ parameter:
 ******************************************************************************/
 void EPD_1IN54_V3_DisplayPartBaseImage(UBYTE *Image)
 {
-    EPD_1IN54_V3_Display(Image);
+    EPD_1IN54_V3_Display(Image, NULL);
 }
 
 /******************************************************************************
@@ -223,7 +223,7 @@ parameter:
 ******************************************************************************/
 void EPD_1IN54_V3_DisplayPart(UBYTE *Image)
 {
-    EPD_1IN54_V3_Display(Image);
+    EPD_1IN54_V3_Display(Image, NULL);
 }
 /******************************************************************************
 function :	Enter sleep mode

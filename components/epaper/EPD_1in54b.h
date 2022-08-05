@@ -100,7 +100,7 @@
 #define EPD_1IN54B_WIDTH       200
 #define EPD_1IN54B_HEIGHT      200
 
-void EPD_1IN54B_Init(void);
+void EPD_1IN54B_Init(UBYTE mode);
 void EPD_1IN54B_Clear(void);
 void EPD_1IN54B_Display(const UBYTE *blackimage, const UBYTE *redimage);
 void EPD_1IN54B_Sleep(void);

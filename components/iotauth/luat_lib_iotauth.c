@@ -103,17 +103,26 @@ static void onenet_token(const char* product_id,const char* device_name,const ch
     sign_msg sign = {0};
     sign.method = method;
     sign.version = version;
-    sprintf(sign.et,"%lld",cur_timestamp);
+    // sprintf(sign.et,"%lld",cur_timestamp);
+    sprintf(sign.et, "%s", "2415919103");
     sprintf(sign.res,"products/%s/devices/%s",product_id,device_name);
+    // printf("device_secret %s\n", device_secret);
     luat_str_base64_decode((unsigned char *)plaintext, sizeof(plaintext), &declen, (const unsigned char * )device_secret, strlen((char*)device_secret));
     sprintf(StringForSignature, "%s\n%s\n%s\n%s", sign.et, sign.method, sign.res, sign.version);
-    // printf("StringForSignature:%d\n%s\n",declen,StringForSignature);
+    // printf("StringForSignature:%d\n%s\n",declen, StringForSignature);
+    // printf("device_secret ========\n");
+    // for (size_t i = 0; i < declen; i++)
+    // {
+    //     printf("%02X ", plaintext[i]);
+    // }
+    // printf("\n========\n");
+    
     if (!strcmp("md5", method)) {
-        luat_crypto_hmac_md5_simple(plaintext, declen,StringForSignature, strlen(StringForSignature), hmac);
+        luat_crypto_hmac_md5_simple(StringForSignature, strlen(StringForSignature), plaintext, declen, hmac);
     }else if (!strcmp("sha1", method)) {
-        luat_crypto_hmac_sha1_simple(plaintext, declen,StringForSignature, strlen(StringForSignature), hmac);
+        luat_crypto_hmac_sha1_simple(StringForSignature, strlen(StringForSignature),plaintext, declen,  hmac);
     }else if (!strcmp("sha256", method)) {
-        luat_crypto_hmac_sha256_simple(plaintext, declen,StringForSignature, strlen(StringForSignature), hmac);
+        luat_crypto_hmac_sha256_simple(StringForSignature, strlen(StringForSignature),plaintext, declen,  hmac);
     }else{
         LLOGE("not support: %s",method);
         return -1;
@@ -128,7 +137,7 @@ static int l_iotauth_onenet(lua_State *L) {
     const char* produt_id = luaL_checklstring(L, 1, &len);
     const char* device_name = luaL_checklstring(L, 2, &len);
     const char* key = luaL_checklstring(L, 3, &len);
-    const char* method = luaL_optlstring(L, 4, "sha256", &len);
+    const char* method = luaL_optlstring(L, 4, "md5", &len);
     long long cur_timestamp = luaL_optinteger(L, 5,time(NULL) + 3600);
     const char* version = luaL_optlstring(L, 6, "2018-10-31", &len);
     onenet_token(produt_id,device_name,key,cur_timestamp,method,version,password);

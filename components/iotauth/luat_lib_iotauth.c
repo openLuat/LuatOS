@@ -109,7 +109,7 @@ static void onenet_token(const char* product_id,const char* device_name,const ch
     sign_msg sign = {0};
     sign.method = method;
     sign.version = version;
-    sprintf(sign.et, "%s", "2415919103");
+    sprintf(sign.et,"%lld",cur_timestamp);
     sprintf(sign.res,"products/%s/devices/%s",product_id,device_name);
     luat_str_base64_decode((unsigned char *)plaintext, sizeof(plaintext), &declen, (const unsigned char * )device_secret, strlen((char*)device_secret));
     sprintf(StringForSignature, "%s\n%s\n%s\n%s", sign.et, sign.method, sign.res, sign.version);

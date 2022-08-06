@@ -405,8 +405,12 @@ static int l_network_tx(lua_State *L)
 		data = buff->addr;
 		data_len = buff->used;
 	}
-
-	if (lua_isstring(L, 3))
+	if (lua_isinteger(L, 3))
+	{
+		ip_addr.type = 0;
+		ip_addr.u_addr.ip4.addr = lua_tointeger(L, 3);
+	}
+	else if (lua_isstring(L, 3))
 	{
 		ip_len = 0;
 	    ip = luaL_checklstring(L, 3, &ip_len);
@@ -414,11 +418,6 @@ static int l_network_tx(lua_State *L)
 	    ip_buf[ip_len] = 0;
 	    ipaddr_aton(ip_buf, &ip_addr);
 
-	}
-	else if (lua_isinteger(L, 3))
-	{
-		ip_addr.type = 0;
-		ip_addr.u_addr.ip4.addr = lua_tointeger(L, 3);
 	}
 	uint32_t tx_len;
 	int result = network_tx(l_ctrl->netc, data, data_len, luaL_optinteger(L, 5, 0), (ip_addr.type != 0xff)?&ip_addr:NULL, luaL_optinteger(L, 4, 0), &tx_len, 0);
@@ -499,7 +498,7 @@ static int l_network_rx(lua_State *L)
 			}
 			else
 			{
-				if (IPADDR_TYPE_V6 == ip_addr.type)
+				if (IPADDR_TYPE_V4 == ip_addr.type)
 				{
 					ip[0] = 0;
 					memcpy(ip + 1, &ip_addr.u_addr.ip4.addr, 4);
@@ -1089,8 +1088,12 @@ static int l_network_tx(lua_State *L)
 		data = buff->addr;
 		data_len = buff->used;
 	}
-
-	if (lua_isstring(L, 3))
+	if (lua_isinteger(L, 3))
+	{
+		ip_addr.is_ipv6 = 0;
+		ip_addr.ipv4 = lua_tointeger(L, 3);
+	}
+	else if (lua_isstring(L, 3))
 	{
 		ip_len = 0;
 	    ip = luaL_checklstring(L, 3, &ip_len);
@@ -1108,11 +1111,6 @@ static int l_network_tx(lua_State *L)
 			network_string_to_ipv6(name, &ip_addr);
 			free(name);
 		}
-	}
-	else if (lua_isinteger(L, 3))
-	{
-		ip_addr.is_ipv6 = 0;
-		ip_addr.ipv4 = lua_tointeger(L, 3);
 	}
 	uint32_t tx_len;
 	int result = network_tx(l_ctrl->netc, data, data_len, luaL_optinteger(L, 5, 0), (ip_addr.is_ipv6 != 0xff)?&ip_addr:NULL, luaL_optinteger(L, 4, 0), &tx_len, 0);
@@ -1193,7 +1191,7 @@ static int l_network_rx(lua_State *L)
 			}
 			else
 			{
-				if (ip_addr.is_ipv6)
+				if (!ip_addr.is_ipv6)
 				{
 					ip[0] = 0;
 					memcpy(ip + 1, &ip_addr.ipv4, 4);

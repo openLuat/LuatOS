@@ -380,8 +380,12 @@ static const rotable_Reg_t reg_gpio[] =
     { "RISING",         ROREG_INT(Luat_GPIO_RISING)},
     //@const FALLING number 下降沿触发
     { "FALLING",        ROREG_INT(Luat_GPIO_FALLING)},
-    //@const BOTH number 双向触发
+    //@const BOTH number 双向触发,部分设备支持
     { "BOTH",           ROREG_INT(Luat_GPIO_BOTH)},
+    //@const HIGH_IRQ number 高电平触发,部分设备支持
+    { "HIGH_IRQ",       ROREG_INT(Luat_GPIO_HIGH_IRQ)},
+    //@const LOW_IRQ number 低电平触发,部分设备支持
+    { "LOW_IRQ",        ROREG_INT(Luat_GPIO_LOW_IRQ)},
 	{ NULL,             ROREG_INT(0) }
 };
 

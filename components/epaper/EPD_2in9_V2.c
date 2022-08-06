@@ -173,7 +173,7 @@ static void EPD_2IN9_V2_SetCursor(UWORD Xstart, UWORD Ystart)
 function :	Initialize the e-Paper register
 parameter:
 ******************************************************************************/
-void EPD_2IN9_V2_Init(void)
+void EPD_2IN9_V2_Init(UBYTE mode)
 {
 	EPD_2IN9_V2_Reset();
 	DEV_Delay_ms(100);
@@ -225,7 +225,7 @@ void EPD_2IN9_V2_Clear(void)
 function :	Sends the image buffer in RAM to e-Paper and displays
 parameter:
 ******************************************************************************/
-void EPD_2IN9_V2_Display(UBYTE *Image)
+void EPD_2IN9_V2_Display(UBYTE *Image, UBYTE *Image2)
 {
 	UWORD i;	
 	EPD_2IN9_V2_SendCommand(0x24);   //write RAM for black(0)/white (1)

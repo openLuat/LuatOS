@@ -112,7 +112,7 @@ int luat_lv_obj_set_signal_cb(lua_State *L) {
 }
 
 //========================================================================
-
+#if LV_USE_ANIMATION
 static int l_obj_anim_cb(lua_State *L, void*ptr) {
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     lua_geti(L, LUA_REGISTRYINDEX, msg->arg1);
@@ -281,6 +281,7 @@ int luat_lv_anim_path_set_cb(lua_State *L) {
     }
     return 0;
 }
+#endif
 
 /*
 发送事件给组件

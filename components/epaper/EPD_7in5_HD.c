@@ -98,7 +98,7 @@ static void EPD_7IN5_HD_WaitUntilIdle(void)
 function :	Initialize the e-Paper register
 parameter:
 ******************************************************************************/
-void EPD_7IN5_HD_Init(void)
+void EPD_7IN5_HD_Init(UBYTE mode)
 {
     EPD_7IN5_HD_Reset();
     
@@ -198,7 +198,7 @@ void EPD_7IN5_HD_Clear(void)
 function :	Sends the image buffer in RAM to e-Paper and displays
 parameter:
 ******************************************************************************/
-void EPD_7IN5_HD_Display(const UBYTE *blackimage)
+void EPD_7IN5_HD_Display(const UBYTE *blackimage, UBYTE *Image2)
 {
     UDOUBLE Width, Height;
     Width =(EPD_7IN5_HD_WIDTH % 8 == 0)?(EPD_7IN5_HD_WIDTH / 8 ):(EPD_7IN5_HD_WIDTH / 8 + 1);

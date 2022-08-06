@@ -10,7 +10,7 @@ import sys
 import json
 import io
 
-BIG_VER = "V0011"
+BIG_VER = "V0013"
 TAG_PROJECT = ""
 TAG_VERSION = ""
 TAG_UPDATE_NAME = ""
@@ -164,7 +164,7 @@ def _pkg():
             zip.extractall(path="tmp/ec/")
     # 拷贝库文件和demo
     shutil.copytree(LIB_PATH, "tmp/lib")
-    shutil.copytree(DEMO_PATH, "tmp/demo")
+    # shutil.copytree(DEMO_PATH, "tmp/demo")
     shutil.copytree(TOOLS_PATH, "tmp/tools")
     
     #拷贝自身

@@ -303,9 +303,9 @@ static int l_spi_transfer(lua_State *L) {
         send_buff = (const char*)(buff->addr+buff->cursor);
         send_length = buff->len - buff->cursor;
     }else{
-        send_buff = lua_tolstring(L, 2, &send_length);
+        send_buff = luaL_checklstring(L, 2, &send_length);
     }
-    size_t length = luaL_optinteger(L,3,1);
+    size_t length = luaL_optinteger(L,3,send_length);
     if(length <= send_length)
         send_length = length;
     size_t recv_length = luaL_optinteger(L,4,1);
@@ -436,7 +436,7 @@ static int l_spi_send(lua_State *L) {
         len = buff->len - buff->cursor;
     }
     else{
-        send_buff = lua_tolstring(L, 2, &len);
+        send_buff = luaL_checklstring(L, 2, &len);
     }
     if(lua_isinteger(L,3)){//长度参数
         size_t len_temp = luaL_checkinteger(L,3);
@@ -548,7 +548,7 @@ static int l_spi_device_transfer(lua_State *L) {
         send_buff = (const char*)(buff->addr+buff->cursor);
         send_length = buff->len - buff->cursor;
     }else{
-        send_buff = lua_tolstring(L, 2, &send_length);
+        send_buff = luaL_checklstring(L, 2, &send_length);
     }
     size_t length = luaL_optinteger(L,3,1);
     if(length <= send_length)
@@ -607,7 +607,7 @@ static int l_spi_device_send(lua_State *L) {
         }
 
     }else {
-        send_buff = (char*)lua_tolstring(L, 2, &len);
+        send_buff = (char*)luaL_checklstring(L, 2, &len);
         lua_pushinteger(L, luat_spi_device_send(spi_device, send_buff, len));
     }
     return 1;

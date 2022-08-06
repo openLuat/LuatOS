@@ -23,7 +23,9 @@ include_directories(${TOPROOT}/lua/include
 
 include_directories(${TOPROOT}/components/lfs)
 include_directories(${TOPROOT}/components/qrcode)
-# include_directories(${TOPROOT}/components/lcd)
+include_directories(${TOPROOT}/components/lcd)
+include_directories(${TOPROOT}/components/luatfonts)
+include_directories(${TOPROOT}/components/lvgl/src/lv_font)
 
 aux_source_directory(./port PORT_SRCS)
 aux_source_directory(${TOPROOT}/lua/src LUA_SRCS)
@@ -31,6 +33,8 @@ aux_source_directory(${TOPROOT}/components/lua-cjson CJSON_SRCS)
 
 aux_source_directory(${TOPROOT}/components/qrcode QRCODE_SRCS)
 # aux_source_directory(${TOPROOT}/components/lcd LCD_SRCS)
+
+aux_source_directory(./components/iotauth IOTAUTH_SRCS)
 
 add_library(lua ${LUA_SRCS})
 add_library(luatos_msys ${PORT_SRCS})
@@ -72,10 +76,11 @@ add_library(luat ${TOPROOT}/luat/modules/luat_main.c
                  ${TOPROOT}/components/lfs/lfs_util.c
                  ${TOPROOT}/components/lfs/lfs.c
                  ${TOPROOT}/components/lfs/luat_lib_lfs2.c
+                 ${TOPROOT}/components/iotauth/luat_lib_iotauth.c
                  ${TOPROOT}/luat/vfs/luat_inline_libs.c
                  ./lv_drivers/win_drv.c
                  ${QRCODE_SRCS}
-               #   ${LCD_SRCS}
+                 #${LCD_SRCS}
             )
 
 include_directories(${TOPROOT}/components/fatfs)

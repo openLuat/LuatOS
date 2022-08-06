@@ -93,9 +93,9 @@
 #define EPD_7IN5_WIDTH       640
 #define EPD_7IN5_HEIGHT      384
 
-void EPD_7IN5_Init(void);
+void EPD_7IN5_Init(UBYTE mode);
 void EPD_7IN5_Clear(void);
-void EPD_7IN5_Display(UBYTE *Image);
+void EPD_7IN5_Display(UBYTE *Image, UBYTE *Image2);
 void EPD_7IN5_Sleep(void);
 
 #endif

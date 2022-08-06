@@ -142,7 +142,7 @@ static void EPD_2IN66_SetLUA(void)
 function :	Initialize the e-Paper register
 parameter:
 ******************************************************************************/
-void EPD_2IN66_Init(void)
+void EPD_2IN66_Init(UBYTE mode)
 {
     EPD_2IN66_Reset();
     EPD_2IN66_ReadBusy();
@@ -235,7 +235,7 @@ void EPD_2IN66_Clear(void)
 function :	Sends the image buffer in RAM to e-Paper and displays
 parameter:
 ******************************************************************************/
-void EPD_2IN66_Display(UBYTE *Image)
+void EPD_2IN66_Display(UBYTE *Image, UBYTE *Image2)
 {
     UWORD Width, Height;
     Width = (EPD_2IN66_WIDTH % 8 == 0)? (EPD_2IN66_WIDTH / 8 ): (EPD_2IN66_WIDTH / 8 + 1);

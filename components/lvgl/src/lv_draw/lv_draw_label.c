@@ -400,6 +400,11 @@ LV_ATTRIBUTE_FAST_MEM static void lv_draw_letter(const lv_point_t * pos_p, const
                                                  uint32_t letter,
                                                  lv_color_t color, lv_opa_t opa, lv_blend_mode_t blend_mode)
 {
+    //printf("CALL lv_draw_letter\n");
+    // 足以存放64字号的bitmap数据
+    uint8_t bitmap_buff[512] = {0};
+    const uint8_t * map_p;
+    lv_font_glyph_dsc_t g = {0};
     if(opa < LV_OPA_MIN) return;
     if(opa > LV_OPA_MAX) opa = LV_OPA_COVER;
 
@@ -408,7 +413,12 @@ LV_ATTRIBUTE_FAST_MEM static void lv_draw_letter(const lv_point_t * pos_p, const
         return;
     }
 
-    lv_font_glyph_dsc_t g;
+    g.data_ready = 0;
+    if (font_p->line_height <= 64)
+        g.data = bitmap_buff;
+    else
+        g.data = NULL;
+    //printf("g %p g.data %p\n", &g, g.data);
     bool g_ret = lv_font_get_glyph_dsc(font_p, &g, letter, '\0');
     if(g_ret == false)  {
         /* Add warning if the dsc is not found
@@ -433,7 +443,12 @@ LV_ATTRIBUTE_FAST_MEM static void lv_draw_letter(const lv_point_t * pos_p, const
         return;
     }
 
-    const uint8_t * map_p = lv_font_get_glyph_bitmap(font_p, letter);
+    // add by wendal, 2022-08-04
+    // 若字体支持直接去数据,就不用查2次, 也不会加缓存了
+    if (g.data_ready == 0)
+        map_p = lv_font_get_glyph_bitmap(font_p, letter);
+    else
+        map_p = bitmap_buff;
     if(map_p == NULL) {
         LV_LOG_WARN("lv_draw_letter: character's bitmap not found");
         return;

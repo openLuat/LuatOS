@@ -137,7 +137,7 @@ static void EPD_2IN66B_SetCursor(UWORD Xstart, UWORD Ystart)
 function :	Initialize the e-Paper register
 parameter:
 ******************************************************************************/
-void EPD_2IN66B_Init(void)
+void EPD_2IN66B_Init(UBYTE mode)
 {
     EPD_2IN66B_Reset();
     EPD_2IN66B_ReadBusy();

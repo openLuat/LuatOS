@@ -7,6 +7,7 @@
  */
 void lv_ex_btn_2(void)
 {
+#if LV_USE_ANIMATION
     static lv_anim_path_t path_overshoot;
     lv_anim_path_init(&path_overshoot);
     lv_anim_path_set_cb(&path_overshoot, lv_anim_path_overshoot);
@@ -18,6 +19,7 @@ void lv_ex_btn_2(void)
     static lv_anim_path_t path_ease_in_out;
     lv_anim_path_init(&path_ease_in_out);
     lv_anim_path_set_cb(&path_ease_in_out, lv_anim_path_ease_in_out);
+#endif
 
     /*Gum-like button*/
     static lv_style_t style_gum;
@@ -25,8 +27,10 @@ void lv_ex_btn_2(void)
     lv_style_set_transform_width(&style_gum, LV_STATE_PRESSED, 10);
     lv_style_set_transform_height(&style_gum, LV_STATE_PRESSED, -10);
     lv_style_set_value_letter_space(&style_gum, LV_STATE_PRESSED, 5);
+#if LV_USE_ANIMATION
     lv_style_set_transition_path(&style_gum, LV_STATE_DEFAULT, &path_overshoot);
     lv_style_set_transition_path(&style_gum, LV_STATE_PRESSED, &path_ease_in_out);
+#endif
     lv_style_set_transition_time(&style_gum, LV_STATE_DEFAULT, 250);
     lv_style_set_transition_delay(&style_gum, LV_STATE_DEFAULT, 100);
     lv_style_set_transition_prop_1(&style_gum, LV_STATE_DEFAULT, LV_STYLE_TRANSFORM_WIDTH);
@@ -73,8 +77,9 @@ void lv_ex_btn_2(void)
     lv_style_set_transform_height(&style_ripple, LV_STATE_DEFAULT, -20);
     lv_style_set_transform_width(&style_ripple, LV_STATE_PRESSED, 0);
     lv_style_set_transform_height(&style_ripple, LV_STATE_PRESSED, 0);
-
+#if LV_USE_ANIMATION
     lv_style_set_transition_path(&style_ripple, LV_STATE_DEFAULT, &path_ease_out);
+#endif
     lv_style_set_transition_prop_1(&style_ripple, LV_STATE_DEFAULT, LV_STYLE_BG_OPA);
     lv_style_set_transition_prop_2(&style_ripple, LV_STATE_DEFAULT, LV_STYLE_TRANSFORM_WIDTH);
     lv_style_set_transition_prop_3(&style_ripple, LV_STATE_DEFAULT, LV_STYLE_TRANSFORM_HEIGHT);

@@ -90,7 +90,7 @@
 #define EPD_4IN2BC_WIDTH       400
 #define EPD_4IN2BC_HEIGHT      300
 
-void EPD_4IN2BC_Init(void);
+void EPD_4IN2BC_Init(UBYTE mode);
 void EPD_4IN2BC_Clear(void);
 void EPD_4IN2BC_Display(const UBYTE *blackimage, const UBYTE *ryimage);
 void EPD_4IN2BC_Sleep(void);

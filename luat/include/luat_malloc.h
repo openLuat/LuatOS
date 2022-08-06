@@ -16,6 +16,7 @@ void  luat_heap_free(void* ptr);
 void* luat_heap_realloc(void* ptr, size_t len);
 void* luat_heap_calloc(size_t count, size_t _size);
 void* luat_heap_zalloc(size_t _size);
+
 //size_t luat_heap_getfree(void);
 // 这部分是LuaVM专属内存
 void* luat_heap_alloc(void *ud, void *ptr, size_t osize, size_t nsize);

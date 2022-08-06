@@ -26,7 +26,9 @@ int luat_lv_init(lua_State *L);
 void luat_lv_fs_init(void);
 
 
+#if LV_USE_ANIMATION
 #include "luat_lvgl_anim.h"
+#endif
 #include "luat_lvgl_qrcode.h"
 #include "luat_lvgl_gif.h"
 #include "luat_lvgl_cb.h"
@@ -53,5 +55,6 @@ void luat_lv_fs_init(void);
 #include "luat_lvgl_indev.h"
 #include "luat_lvgl_symbol.h"
 #include "luat_lvgl_demo.h"
+#include "luat_lvgl_cb.h"
 
 #endif

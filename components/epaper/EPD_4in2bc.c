@@ -159,7 +159,7 @@ static void EPD_4IN2BC_TurnOnDisplay(void)
 function :	Initialize the e-Paper register
 parameter:
 ******************************************************************************/
-void EPD_4IN2BC_Init(void)
+void EPD_4IN2BC_Init(UBYTE mode)
 {
     EPD_4IN2BC_Reset();
 

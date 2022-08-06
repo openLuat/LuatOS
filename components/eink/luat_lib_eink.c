@@ -26,6 +26,7 @@
 
 #include "u8g2.h"
 #include "u8g2_luat_fonts.h"
+#include "luat_zbuff.h"
 
 int8_t u8g2_font_decode_get_signed_bits(u8g2_font_decode_t *f, uint8_t cnt);
 uint8_t u8g2_font_decode_get_unsigned_bits(u8g2_font_decode_t *f, uint8_t cnt);
@@ -33,7 +34,9 @@ uint8_t u8g2_font_decode_get_unsigned_bits(u8g2_font_decode_t *f, uint8_t cnt);
 #define COLORED      0
 #define UNCOLORED    1
 
+#ifndef LUAT_LOG_TAG
 #define LUAT_LOG_TAG "eink"
+#endif
 
 static uint32_t eink_str_color;
 
@@ -77,7 +80,7 @@ static int l_eink_setup(lua_State *L) {
     econf.cs_pin = luaL_optinteger(L, 6, 16);
 
     if (lua_type(L, 7) == LUA_TUSERDATA){
-        LLOGD("luat_spi_device_send");
+        //LLOGD("luat_spi_device_send");
         econf.userdata = (luat_spi_device_t*)lua_touserdata(L, 3);
         econf.port = LUAT_EINK_SPI_DEVICE;
         luat_gpio_mode(Pin_BUSY, Luat_GPIO_INPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
@@ -85,7 +88,7 @@ static int l_eink_setup(lua_State *L) {
         luat_gpio_mode(Pin_DC, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
         status = 0;
     }else{
-        LLOGD("luat_spi_send");
+        //LLOGD("luat_spi_send");
         luat_spi_t spi_config = {0};
         spi_config.bandrate = 2000000U;//luaL_optinteger(L, 1, 2000000U); // 2000000U
         spi_config.id = SPI_ID;
@@ -488,13 +491,13 @@ static int l_eink_print(lua_State *L)
 @api eink.show(x, y, noClear)
 @int x 输出的x坐标,默认0
 @int y 输出的y坐标,默认0
-@bool noClear 可选，默认false。如果为true则不进行清屏，直接刷上新内容
+@bool 可选，默认false。如果为true则不进行清屏，直接刷上新内容
 @return nil 无返回值
 */
 static int l_eink_show(lua_State *L)
 {
-    int x     = luaL_optinteger(L, 1, 0);
-    int y     = luaL_optinteger(L, 2, 0);
+    // int x     = luaL_optinteger(L, 1, 0);
+    // int y     = luaL_optinteger(L, 2, 0);
     int no_clear     = lua_toboolean(L, 3);
     /* Display the frame_buffer */
     //EPD_SetFrameMemory(&epd, frame_buffer, x, y, Paint_GetWidth(&paint), Paint_GetHeight(&paint));
@@ -502,6 +505,28 @@ static int l_eink_show(lua_State *L)
     if(!no_clear)
       EPD_Clear();
     EPD_Display(frame_buffer, NULL);
+    return 0;
+}
+
+/**
+直接输出数据到屏幕,支持双色数据
+@api eink.draw(buff, buff2, noclear)
+@userdata zbuff指针
+@userdata zbuff指针
+@bool 可选，默认false。如果为true则不进行清屏，直接刷上新内容
+@return nil 无返回值
+*/
+static int l_eink_draw(lua_State *L)
+{
+    luat_zbuff_t* buff = tozbuff(L);
+    luat_zbuff_t* buff2 = buff;
+    int no_clear     = lua_toboolean(L, 3);
+    if (lua_isuserdata(L, 2)) {
+      buff2 = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+    }
+    if(!no_clear)
+      EPD_Clear();
+    EPD_Display(buff->addr, buff2->addr);
     return 0;
 }
 
@@ -977,6 +1002,7 @@ static const rotable_Reg_t reg_eink[] =
 
     { "model",          ROREG_FUNC(l_eink_model)},
     { "drawXbm",        ROREG_FUNC(l_eink_drawXbm)},
+    { "draw",           ROREG_FUNC(l_eink_draw)},
 #ifdef LUAT_USE_GTFONT
     { "drawGtfontGb2312", ROREG_FUNC(l_eink_draw_gtfont_gb2312)},
     { "drawGtfontGb2312Gray", ROREG_FUNC(l_eink_draw_gtfont_gb2312_gray)},
@@ -1018,7 +1044,7 @@ static const rotable_Reg_t reg_eink[] =
     //@const MODEL_2in9d number 2.9寸d
     { "MODEL_2in9d",          ROREG_INT(MODEL_2in9d)},
     //@const MODEL_2in9f number 2.9寸f
-    { "MODEL_2in9f",          ROREG_INT(MODEL_2in9f)},
+    { "MODEL_2in9f",          ROREG_INT(MODEL_2in9ff)},
     //@const MODEL_3in7 number 3.7寸
     { "MODEL_3in7",           ROREG_INT(MODEL_3in7)},
     // 默认只带8号字体
@@ -1083,7 +1109,44 @@ static const rotable_Reg_t reg_eink[] =
     //@const font_opposansm32_chinese font 32号中文字体
     { "font_opposansm32_chinese", ROREG_PTR((void*)u8g2_font_opposansm32_chinese)},
 #endif
-
+{ "MODEL_1in02d",           ROREG_INT(MODEL_1in02d)},
+{ "MODEL_1in54",           ROREG_INT(MODEL_1in54)},
+{ "MODEL_1in54b",           ROREG_INT(MODEL_1in54b)},
+{ "MODEL_1in54b_V2",           ROREG_INT(MODEL_1in54b_V2)},
+{ "MODEL_1in54c",           ROREG_INT(MODEL_1in54c)},
+{ "MODEL_1in54f",           ROREG_INT(MODEL_1in54f)},
+{ "MODEL_1in54_V2",           ROREG_INT(MODEL_1in54_V2)},
+{ "MODEL_1in54_V3",           ROREG_INT(MODEL_1in54_V3)},
+{ "MODEL_2in13",           ROREG_INT(MODEL_2in13)},
+{ "MODEL_2in13bc",           ROREG_INT(MODEL_2in13bc)},
+{ "MODEL_2in13b_V3",           ROREG_INT(MODEL_2in13b_V3)},
+{ "MODEL_2in13d",           ROREG_INT(MODEL_2in13d)},
+{ "MODEL_2in13_V2",           ROREG_INT(MODEL_2in13_V2)},
+{ "MODEL_2in66",           ROREG_INT(MODEL_2in66)},
+{ "MODEL_2in66b",           ROREG_INT(MODEL_2in66b)},
+{ "MODEL_2in7",           ROREG_INT(MODEL_2in7)},
+{ "MODEL_2in7b",           ROREG_INT(MODEL_2in7b)},
+{ "MODEL_2in9",           ROREG_INT(MODEL_2in9)},
+{ "MODEL_2in9bc",           ROREG_INT(MODEL_2in9bc)},
+{ "MODEL_2in9b_V3",           ROREG_INT(MODEL_2in9b_V3)},
+{ "MODEL_2in9d",           ROREG_INT(MODEL_2in9d)},
+{ "MODEL_2in9ff",           ROREG_INT(MODEL_2in9ff)},
+{ "MODEL_2in9_V2",           ROREG_INT(MODEL_2in9_V2)},
+{ "MODEL_3in7",           ROREG_INT(MODEL_3in7)},
+{ "MODEL_4in2",           ROREG_INT(MODEL_4in2)},
+{ "MODEL_4in2bc",           ROREG_INT(MODEL_4in2bc)},
+{ "MODEL_4in2b_V2",           ROREG_INT(MODEL_4in2b_V2)},
+{ "MODEL_5in65f",           ROREG_INT(MODEL_5in65f)},
+{ "MODEL_5in83",           ROREG_INT(MODEL_5in83)},
+{ "MODEL_5in83bc",           ROREG_INT(MODEL_5in83bc)},
+{ "MODEL_5in83b_V2",           ROREG_INT(MODEL_5in83b_V2)},
+{ "MODEL_5in83_V2",           ROREG_INT(MODEL_5in83_V2)},
+{ "MODEL_7in5",           ROREG_INT(MODEL_7in5)},
+{ "MODEL_7in5bc",           ROREG_INT(MODEL_7in5bc)},
+{ "MODEL_7in5b_HD",           ROREG_INT(MODEL_7in5b_HD)},
+{ "MODEL_7in5b_V2",           ROREG_INT(MODEL_7in5b_V2)},
+{ "MODEL_7in5_HD",           ROREG_INT(MODEL_7in5_HD)},
+{ "MODEL_7in5_V2",           ROREG_INT(MODEL_7in5_V2)},
 	  { NULL,                    ROREG_INT(0)}
 };
 

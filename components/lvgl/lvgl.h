@@ -73,7 +73,9 @@ extern "C" {
 #include "src/lv_widgets/lv_linemeter.h"
 #include "src/lv_widgets/lv_switch.h"
 #include "src/lv_widgets/lv_arc.h"
+#if LV_USE_ANIMATION
 #include "src/lv_widgets/lv_spinner.h"
+#endif
 #include "src/lv_widgets/lv_calendar.h"
 #include "src/lv_widgets/lv_spinbox.h"
 

@@ -111,6 +111,7 @@ int luat_lv_style_list_delete(lua_State *L) {
     return 0;
 }
 
+#if LV_USE_ANIMATION
 int luat_lv_style_set_transition_path(lua_State *L) {
     lv_style_t* style = (lv_style_t*)lua_touserdata(L, 1);
     lv_state_t state = (lv_state_t)luaL_checkinteger(L, 2);
@@ -118,3 +119,4 @@ int luat_lv_style_set_transition_path(lua_State *L) {
     lv_style_set_transition_path(style, state, path);
     return 0;
 }
+#endif

@@ -220,7 +220,7 @@ static void EPD_1IN54B_SetLutRed(void)
 function :	Initialize the e-Paper register
 parameter:
 ******************************************************************************/
-void EPD_1IN54B_Init(void)
+void EPD_1IN54B_Init(UBYTE mode)
 {
     EPD_1IN54B_Reset();
 

@@ -40,7 +40,7 @@ end)
 sys.taskInit(function()
     sys.wait(2000)
     nimble.debug(6)
-    nimble.init()
+    nimble.init("LuatOS-Wendal") -- 蓝牙名称可修改,也有默认值LOS-$mac地址
 
     if nimble.send_msg then
         while 1 do

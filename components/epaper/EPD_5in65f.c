@@ -101,7 +101,7 @@ static void EPD_5IN65F_BusyLow(void)// If BUSYN=1 then waiting
 function :	Initialize the e-Paper register
 parameter:
 ******************************************************************************/
-void EPD_5IN65F_Init(void)
+void EPD_5IN65F_Init(UBYTE mode)
 {
 	EPD_5IN65F_Reset();
     EPD_5IN65F_BusyHigh();
@@ -209,7 +209,7 @@ void EPD_5IN65F_Show7Block(void)
 function :	Sends the image buffer in RAM to e-Paper and displays
 parameter:
 ******************************************************************************/
-void EPD_5IN65F_Display(const UBYTE *image)
+void EPD_5IN65F_Display(const UBYTE *image, UBYTE *Image2)
 {
     unsigned long i,j;
     EPD_5IN65F_SendCommand(0x61);//Set Resolution setting

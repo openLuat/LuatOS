@@ -38,7 +38,7 @@
 #define EPD_5IN83B_V2_WIDTH       648
 #define EPD_5IN83B_V2_HEIGHT      480
 
-UBYTE EPD_5IN83B_V2_Init(void);
+UBYTE EPD_5IN83B_V2_Init(UBYTE mode);
 void EPD_5IN83B_V2_Clear(void);
 void EPD_5IN83B_V2_Display(const UBYTE *blackimage, const UBYTE *ryimage);
 void EPD_5IN83B_V2_Sleep(void);

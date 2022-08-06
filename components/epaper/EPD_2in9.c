@@ -271,7 +271,7 @@ void EPD_2IN9_Clear(void)
 function :	Sends the image buffer in RAM to e-Paper and displays
 parameter:
 ******************************************************************************/
-void EPD_2IN9_Display(UBYTE *Image)
+void EPD_2IN9_Display(UBYTE *Image, UBYTE *Image2)
 {
     UWORD Width, Height;
     Width = (EPD_2IN9_WIDTH % 8 == 0)? (EPD_2IN9_WIDTH / 8 ): (EPD_2IN9_WIDTH / 8 + 1);

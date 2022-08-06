@@ -1652,7 +1652,7 @@ static void pwd_char_hider(lv_obj_t * ta)
 
         /*If the textarea's font has "bullet" character use it else fallback to "*"*/
         const lv_font_t * font = lv_obj_get_style_text_font(ta, LV_TEXTAREA_PART_BG);
-        lv_font_glyph_dsc_t g;
+        lv_font_glyph_dsc_t g = {0};
         bool has_bullet;
         has_bullet = lv_font_get_glyph_dsc(font, &g, LV_TEXTAREA_PWD_BULLET_UNICODE, 0);
         const char * bullet;

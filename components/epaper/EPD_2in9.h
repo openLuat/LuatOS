@@ -90,7 +90,7 @@
 
 void EPD_2IN9_Init(UBYTE Mode);
 void EPD_2IN9_Clear(void);
-void EPD_2IN9_Display(UBYTE *Image);
+void EPD_2IN9_Display(UBYTE *Image, UBYTE *Image2);
 void EPD_2IN9_Sleep(void);
 
 #endif

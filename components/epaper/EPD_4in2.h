@@ -118,9 +118,9 @@
 #define EPD_4IN2_WIDTH       400
 #define EPD_4IN2_HEIGHT      300
 
-void EPD_4IN2_Init(void);
+void EPD_4IN2_Init(UBYTE mode);
 void EPD_4IN2_Clear(void);
-void EPD_4IN2_Display(UBYTE *Image);
+void EPD_4IN2_Display(UBYTE *Image, UBYTE *Image2);
 void EPD_4IN2_Sleep(void);
 void EPD_4IN2_PartialDisplay(UWORD X_start,UWORD Y_start,UWORD X_end,UWORD Y_end, UBYTE *Image);
 

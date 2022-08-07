@@ -1484,6 +1484,126 @@ static int l_lcd_rgb565(lua_State* L) {
   lua_pushinteger(L, dst);
   return 1;
 }
+#ifdef LUAT_USE_UFONT
+#include "luat_ufont.h"
+static const int l_lcd_draw_utf8(lua_State *L) {
+    size_t sz = 0;
+    uint32_t letter = 0;
+    uint32_t str_offset;
+    int ret = 0;
+    uint16_t draw_offset = 0;
+
+    int draw_x = 0;
+    int draw_y = 0;
+    luat_font_char_desc_t desc = {0};
+    // 左上角坐标x,y
+    int x = luaL_checkinteger(L, 1);
+    int y = luaL_checkinteger(L, 2);
+    // 待绘制的字符串
+    const char* data = (const char*)luaL_checklstring(L, 3, &sz);
+    // 字体指针
+    lv_font_t* lfont = (lv_font_t*)lua_touserdata(L, 4);
+    if (lfont == NULL) {
+       LLOGW("draw without font");
+       return 0;
+    }
+    luat_font_header_t* font = (luat_font_header_t*)lfont->dsc;
+    // 是否填充背景
+    bool draw_bg = lua_isboolean(L, 5) ? lua_toboolean(L, 5) : true;
+
+    // 没内容, 不需要画了
+    if (sz == 0) {
+      // 直接返回原坐标
+      lua_pushinteger(L, x);
+      return 1;
+    }
+
+    // 没字体, 不需要画了
+    if (font == NULL) {
+      LLOGD("NULL font, skip draw");
+      // 直接返回原坐标
+      lua_pushinteger(L, x);
+      return 1;
+    }
+    // 超边界了没? 超了就没必要绘制了
+    if (default_conf->h < y || default_conf->w < x) {
+      //LLOGD("draw y %d h % font->line_height %d", y, default_conf->h, font->line_height);
+      // 直接返回原坐标
+      lua_pushinteger(L, x);
+      return 1;
+    }
+
+    luat_color_t* buff = NULL;
+    if (draw_bg)
+      buff = luat_heap_malloc(font->line_height * font->line_height * 2);
+    // if (buff == NULL)
+    //   return 0;
+    int offset = 0;
+    uint8_t *data_ptr = data;
+    uint8_t utf8_state = 0;
+    uint16_t utf8_tmp = 0;
+    uint16_t utf8_out = 0;
+    luat_color_t color = FORE_COLOR;
+    for (size_t i = 0; i < sz; i++)
+    {
+        utf8_out = luat_utf8_next(data[i], &utf8_state, &utf8_tmp);
+        if (utf8_out == 0x0ffff)
+          break; // 结束了
+        if (utf8_out == 0x0fffe)
+          continue; // 没读完一个字符,继续下一个循环
+        letter = (uint32_t)utf8_out;
+
+        //LLOGD("draw letter %04X", letter);
+        int ret = luat_font_get_bitmap(font, &desc, letter);
+        if (ret != 0) {
+            LLOGD("not such char in font");
+            draw_offset += font->line_height / 2; // 找不到字符, 默认跳过半个字
+            continue;
+        }
+        offset = 0;
+        // desc.data = tmp;
+        memset(buff, 0, font->line_height * font->line_height * 2);
+        draw_x = x + draw_offset;
+        draw_offset += desc.char_w;
+        if (draw_x >= 0 &&  draw_x + desc.char_w <= default_conf->w) {
+          //if (default_conf->buff == NULL) {
+            for (size_t j = 0; j < font->line_height; j++)
+            {
+              //LLOGD("draw char pix line %d", i);
+              for (size_t k = 0; k < desc.char_w; k++)
+              {
+                if ((desc.data[offset / 8] >> (7 - (offset % 8))) & 0x01) {
+                  color = FORE_COLOR;
+                  if (buff)
+                    buff[offset] = FORE_COLOR;
+                  else
+                    luat_lcd_draw_point(default_conf, draw_x + k, y + j, FORE_COLOR);
+                  //LLOGD("draw char pix mark %d", offset);
+                }
+                else {
+                  if (buff)
+                    buff[offset] = BACK_COLOR;
+                  //LLOGD("draw char pix offset %d color %04X", offset, FORE_COLOR);
+                }
+                offset ++;
+              }
+            }
+            //LLOGD("luat_lcd_draw %d %d %d %d", draw_x, y, draw_x + desc.char_w, y + font->line_height);
+            luat_lcd_draw(default_conf, draw_x, y, draw_x + desc.char_w - 1, y + font->line_height - 1, buff);
+          //}
+          //else {
+          // 
+          //}
+        }
+    }
+    if (buff)
+      luat_heap_free(buff);
+
+    lcd_auto_flush(default_conf);
+    lua_pushinteger(L, draw_x + desc.char_w);  
+    return 1;
+}
+#endif
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_lcd[] =
@@ -1517,6 +1637,9 @@ static const rotable_Reg_t reg_lcd[] =
     { "setColor",   ROREG_FUNC(l_lcd_set_color)},
     { "draw",       ROREG_FUNC(l_lcd_draw)},
     { "rgb565",     ROREG_FUNC(l_lcd_rgb565)},
+#ifdef LUAT_USE_UFONT
+    { "drawUTF8",   ROREG_FUNC(l_lcd_draw_utf8)},
+#endif
 #ifdef LUAT_USE_TJPGD
     { "showImage",    ROREG_FUNC(l_lcd_showimage)},
 #endif

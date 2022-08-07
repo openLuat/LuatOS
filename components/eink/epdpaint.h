@@ -42,9 +42,10 @@
 
 typedef struct Paint_t {
     unsigned char* image;
-    int width;
-    int height;
-    int rotate;
+    uint16_t width;
+    uint16_t height;
+    uint16_t rotate;
+    uint16_t inited;
     u8g2_t luat_eink_u8g2 ;
 } Paint;
 

@@ -1354,7 +1354,7 @@ static int l_lcd_flush(lua_State* L) {
 }
 
 /*
-设置显示缓冲区, 所需内存大小为 2*宽*高 字节. 请衡量内存需求与业务所需的刷新频次.
+设置显示缓冲区, 所需内存大小为 2×宽×高 字节. 请衡量内存需求与业务所需的刷新频次.
 @api lcd.setupBuff(conf, onheap)
 @userdata conf指针, 不需要传
 @bool true使用heap内存, false使用vm内存, 默认使用vm内存, 不需要主动传

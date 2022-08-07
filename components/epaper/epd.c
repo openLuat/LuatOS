@@ -71,6 +71,7 @@ void EPD_Model(UBYTE model) {
     while (reg->tp >= 0) {
         if (reg->tp == model) {
             cur_model_index = index;
+            break;
         }
         reg ++;
         index ++;
@@ -79,6 +80,8 @@ void EPD_Model(UBYTE model) {
 
 int EPD_Init(UBYTE mode, size_t *w, size_t *h) {
     eink_regs[cur_model_index].init(mode);
+    *w = eink_regs[cur_model_index].w;
+    *h = eink_regs[cur_model_index].h;
     return 0;
 }
 void EPD_Clear(void) {

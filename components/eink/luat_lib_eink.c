@@ -120,7 +120,6 @@ static int l_eink_setup(lua_State *L) {
     size_t epd_h = 0;
     if(status == 0)
     {
-        LLOGD("spi setup complete, now setup epd");
         if(econf.full_mode)
             status = EPD_Init(1, &epd_w, &epd_h);
         else

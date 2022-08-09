@@ -10,6 +10,8 @@
 #include "luat_crypto.h"
 #include "luat_malloc.h"
 #include "time.h"
+#include "luat_str.h"
+#include "luat_mcu.h"
 
 #define LUAT_LOG_TAG "iotauth"
 #include "luat_log.h"
@@ -31,12 +33,12 @@ typedef  struct {
     char* str;
 }URL_PARAMETES;
 
-static void HexDump(char *pData, uint16_t len){
-    for (int i = 0; i < len; i++) {
-        printf("0x%02.2x ", (unsigned char)pData[i]);
-    }
-    printf("\n");
-}
+// static void HexDump(char *pData, uint16_t len){
+//     for (int i = 0; i < len; i++) {
+//         printf("0x%02.2x ", (unsigned char)pData[i]);
+//     }
+//     printf("\n");
+// }
 
 static const unsigned char hexchars[] = "0123456789abcdef";
 static void str_tohex(const char* str, size_t str_len, char* hex) {
@@ -121,7 +123,7 @@ static void onenet_token(const char* product_id,const char* device_name,const ch
         luat_crypto_hmac_sha256_simple(StringForSignature, strlen(StringForSignature),plaintext, declen,  hmac);
     }else{
         LLOGE("not support: %s",method);
-        return -1;
+        return;
     }
     luat_str_base64_encode((unsigned char *)sign.sign, sizeof(sign.sign), &enclen, (const unsigned char * )hmac, strlen(hmac));
     url_encoding_for_token(&sign,token);
@@ -340,7 +342,7 @@ static void baidu_token(const char* iot_core_id,const char* device_key,const cha
         luat_crypto_sha256_simple(token_temp, strlen(token_temp),crypto);
     }else{
         LLOGE("not support: %s",method);
-        return -1;
+        return;
     }
     str_tohex(crypto, strlen(crypto), password);
     luat_heap_free(token_temp);

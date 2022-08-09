@@ -157,48 +157,6 @@ static int l_uart_write(lua_State *L)
 }
 
 /*
-buff形式写串口,等同于c语言uart_tx(uart_id, &buff[start], len);
-@api    uart.tx(id, buff, start, len)
-@int 串口id, uart0写0, uart1写1
-@zbuff 待写入的数据，如果是zbuff会从指针起始位置开始读
-@int 可选，要发送的数据起始位置，默认为0
-@int 可选，要发送的数据长度，默认为zbuff内有效数据，最大值不超过zbuff的最大空间
-@return int 成功的数据长度
-@usage
-uart.tx(1, buf)
-*/
-static int l_uart_tx(lua_State *L)
-{
-    size_t start, len;
-    // const char *buf;
-    luat_zbuff_t *buff;
-    uint8_t id = luaL_checkinteger(L, 1);
-    if(lua_isuserdata(L, 2))
-    {
-        buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
-    }
-    else
-    {
-    	lua_pushinteger(L, 0);
-    	return 1;
-    }
-    start = luaL_optinteger(L, 3, 0);
-    len = luaL_optinteger(L, 4, buff->used);
-    if (start >= buff->len)
-    {
-    	lua_pushinteger(L, 0);
-    	return 1;
-    }
-    if ((start + len)>= buff->len)
-    {
-    	len = buff->len - start;
-    }
-    int result = luat_uart_write(id, buff->addr + start, len);
-    lua_pushinteger(L, result);
-    return 1;
-}
-
-/*
 读串口
 @api    uart.read(id, len)
 @int 串口id, uart0写0, uart1写1
@@ -263,53 +221,6 @@ static int l_uart_read(lua_State *L)
     return 1;
 }
 
-/*
-buff形式读串口，一次读出全部数据存入buff中，如果buff空间不够会自动扩展，目前只有air105支持这个操作
-@api    uart.rx(id, buff)
-@int 串口id, uart0写0, uart1写1
-@zbuff zbuff对象
-@return int 返回读到的长度，并把zbuff指针后移
-@usage
-uart.rx(1, buff)
-*/
-static int l_uart_rx(lua_State *L)
-{
-    uint8_t id = luaL_checkinteger(L, 1);
-
-    if(lua_isuserdata(L, 2)){//zbuff对象特殊处理
-    	luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
-        int result = luat_uart_read(id, NULL, 0);	//读出当前缓存的长度，目前只有105支持这个操作
-        if (result > (buff->len - buff->used))
-        {
-        	__zbuff_resize(buff, buff->len + result);
-        }
-        luat_uart_read(id, buff->addr + buff->used, result);
-        lua_pushinteger(L, result);
-        buff->used += result;
-        return 1;
-    }
-    else
-    {
-        lua_pushinteger(L, 0);
-        return 1;
-    }
-    return 1;
-}
-
-/*
-读串口Rx缓存中剩余数据量，目前只有air105支持这个操作
-@api    uart.rx_size(id)
-@int 串口id, uart0写0, uart1写1
-@return int 返回读到的长度
-@usage
-local size = uart.rx_size(1)
-*/
-static int l_uart_rx_size(lua_State *L)
-{
-    uint8_t id = luaL_checkinteger(L, 1);
-    lua_pushinteger(L, luat_uart_read(id, NULL, 0));//读出当前缓存的长度，目前只有105支持这个操作
-    return 1;
-}
 /*
 关闭串口
 @api    uart.close(id)
@@ -401,6 +312,99 @@ static int l_uart_exist(lua_State *L)
     lua_pushboolean(L, luat_uart_exist(luaL_checkinteger(L,1)));
     return 1;
 }
+
+
+/*
+buff形式读串口，一次读出全部数据存入buff中，如果buff空间不够会自动扩展，目前只有air105支持这个操作
+@api    uart.rx(id, buff)
+@int 串口id, uart0写0, uart1写1
+@zbuff zbuff对象
+@return int 返回读到的长度，并把zbuff指针后移
+@usage
+uart.rx(1, buff)
+*/
+static int l_uart_rx(lua_State *L)
+{
+    uint8_t id = luaL_checkinteger(L, 1);
+
+    if(lua_isuserdata(L, 2)){//zbuff对象特殊处理
+    	luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+        int result = luat_uart_read(id, NULL, 0);	//读出当前缓存的长度，目前只有105支持这个操作
+        if (result > (buff->len - buff->used))
+        {
+        	__zbuff_resize(buff, buff->len + result);
+        }
+        luat_uart_read(id, buff->addr + buff->used, result);
+        lua_pushinteger(L, result);
+        buff->used += result;
+        return 1;
+    }
+    else
+    {
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    return 1;
+}
+
+/*
+读串口Rx缓存中剩余数据量，目前只有air105支持这个操作
+@api    uart.rx_size(id)
+@int 串口id, uart0写0, uart1写1
+@return int 返回读到的长度
+@usage
+local size = uart.rx_size(1)
+*/
+static int l_uart_rx_size(lua_State *L)
+{
+    uint8_t id = luaL_checkinteger(L, 1);
+    lua_pushinteger(L, luat_uart_read(id, NULL, 0));//读出当前缓存的长度，目前只有105支持这个操作
+    return 1;
+}
+
+
+/*
+buff形式写串口,等同于c语言uart_tx(uart_id, &buff[start], len);
+@api    uart.tx(id, buff, start, len)
+@int 串口id, uart0写0, uart1写1
+@zbuff 待写入的数据，如果是zbuff会从指针起始位置开始读
+@int 可选，要发送的数据起始位置，默认为0
+@int 可选，要发送的数据长度，默认为zbuff内有效数据，最大值不超过zbuff的最大空间
+@return int 成功的数据长度
+@usage
+uart.tx(1, buf)
+*/
+static int l_uart_tx(lua_State *L)
+{
+    size_t start, len;
+    // const char *buf;
+    luat_zbuff_t *buff;
+    uint8_t id = luaL_checkinteger(L, 1);
+    if(lua_isuserdata(L, 2))
+    {
+        buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+    }
+    else
+    {
+    	lua_pushinteger(L, 0);
+    	return 1;
+    }
+    start = luaL_optinteger(L, 3, 0);
+    len = luaL_optinteger(L, 4, buff->used);
+    if (start >= buff->len)
+    {
+    	lua_pushinteger(L, 0);
+    	return 1;
+    }
+    if ((start + len)>= buff->len)
+    {
+    	len = buff->len - start;
+    }
+    int result = luat_uart_write(id, buff->addr + start, len);
+    lua_pushinteger(L, result);
+    return 1;
+}
+
 
 /*
 获取可用串口号列表，当前仅限win32

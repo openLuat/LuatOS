@@ -78,7 +78,6 @@ static int mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
     return 0;
 }
 
-
 static int32_t luat_lib_mqtt_callback(void *data, void *param)
 {
 	OS_EVENT *event = (OS_EVENT *)data;
@@ -106,7 +105,6 @@ static int32_t luat_lib_mqtt_callback(void *data, void *param)
 	}else if(event->ID == EV_NW_RESULT_CLOSE){
 
 	}
-	
 	network_wait_event(mqtt_ctrl->netc, NULL, 0, NULL);
     return 0;
 }
@@ -193,16 +191,29 @@ static int l_mqtt_connect(lua_State *L) {
 	mqtt_ctrl->remote_port = luaL_checkinteger(L, 3);
 	mqtt_ctrl->keepalive = luaL_optinteger(L, 4, 240);
 	int result = network_wait_link_up(mqtt_ctrl->netc, 0);
+	if (result < 0)
+	{
+		/* code */
+	}
+	
 	LLOGD("network_wait_link_up result %d",result);
 
+	return 0;
+}
 
-	// ret = luat_mqtt_connect(mqtt_ctrl, ip, remote_port, keepalive);
-    // if(ret){
-    //     LLOGD("init_socket ret=%d\n", ret);
-    // }
-
-	// int packet_length = 0;
-	// packet_length = mqtt_read_packet();
+static int l_mqtt_subscribe(lua_State *L) {
+	return 0;
+}
+static int l_mqtt_unsubscribe(lua_State *L) {
+	return 0;
+}
+static int l_mqtt_publish(lua_State *L) {
+	return 0;
+}
+static int l_mqtt_receive(lua_State *L) {
+	return 0;
+}
+static int l_mqtt_disconnect(lua_State *L) {
 	return 0;
 }
 
@@ -211,7 +222,12 @@ static const rotable_Reg_t reg_mqtt[] =
 {
 	{"client",			ROREG_FUNC(l_mqtt_client)},
 	{"connect",			ROREG_FUNC(l_mqtt_connect)},
-	{ NULL,            ROREG_INT(0)}
+	{"subscribe",		ROREG_FUNC(l_mqtt_subscribe)},
+	{"unsubscribe",		ROREG_FUNC(l_mqtt_unsubscribe)},
+	{"publish",			ROREG_FUNC(l_mqtt_publish)},
+	{"receive",			ROREG_FUNC(l_mqtt_receive)},
+	{"disconnect",		ROREG_FUNC(l_mqtt_disconnect)},
+	{ NULL,             ROREG_INT(0)}
 };
 
 LUAMOD_API int luaopen_mqtt( lua_State *L ) {

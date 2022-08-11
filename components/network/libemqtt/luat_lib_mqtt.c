@@ -64,7 +64,6 @@ static int32_t l_mqtt_callback(lua_State *L, void* ptr)
 				lua_pushlightuserdata(L, mqtt_ctrl);
 				lua_pushlstring(L, mqtt_msg->topic,mqtt_msg->topic_len);
 				lua_pushlstring(L, mqtt_msg->payload,mqtt_msg->payload_len);
-				// LLOGD("MQTT_MSG_PUBLISH mqtt_msg->topic %.*s mqtt_msg->payload %.*s \n",mqtt_msg->topic_len,mqtt_msg->topic,mqtt_msg->payload_len,mqtt_msg->payload);
 				lua_call(L, 4, 0);
 				luat_heap_free(mqtt_msg);
 			}
@@ -92,8 +91,8 @@ static int mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
     switch (msg_tp) {
         case MQTT_MSG_PUBLISH : {
 			luat_mqtt_msg_t *mqtt_msg = (luat_mqtt_msg_t *)luat_heap_malloc(sizeof(luat_mqtt_msg_t));
-			mqtt_msg->topic_len = mqtt_parse_pub_topic_ptr(mqtt_ctrl->mqtt_packet_buffer, mqtt_msg->topic);
-            mqtt_msg->payload_len = mqtt_parse_pub_msg_ptr(mqtt_ctrl->mqtt_packet_buffer, mqtt_msg->payload);
+			mqtt_msg->topic_len = mqtt_parse_pub_topic(mqtt_ctrl->mqtt_packet_buffer, mqtt_msg->topic);
+            mqtt_msg->payload_len = mqtt_parse_publish_msg(mqtt_ctrl->mqtt_packet_buffer, mqtt_msg->payload);
 			msg.ptr = mqtt_ctrl;
 			msg.arg1 = MQTT_MSG_PUBLISH;
 			msg.arg2 = mqtt_msg;

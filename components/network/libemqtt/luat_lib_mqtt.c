@@ -24,6 +24,14 @@ typedef struct
 	uint8_t mqtt_state;
 }luat_mqtt_ctrl_t;
 
+typedef struct
+{
+	uint16_t topic_len;
+    uint16_t payload_len;
+	uint8_t topic[255];
+	uint8_t payload[1000];
+}luat_mqtt_msg_t;
+
 static int luat_mqtt_connect(luat_mqtt_ctrl_t *mqtt_ctrl, const char *hostname, uint16_t port, uint16_t keepalive);
 
 static int mqtt_close_socket(luat_mqtt_ctrl_t *mqtt_ctrl)
@@ -42,26 +50,69 @@ static int mqtt_read_packet(luat_mqtt_ctrl_t *mqtt_ctrl)
 	return rx_len;
 }
 
-static int mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
-    const uint8_t *topic;
-    const uint8_t *payload;
 
-    uint16_t topic_len;
-    uint16_t payload_len;
+static int32_t l_mqtt_callback(lua_State *L, void* ptr)
+{
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    luat_mqtt_ctrl_t *mqtt_ctrl =(luat_mqtt_ctrl_t *)msg->ptr;
+    switch (msg->arg1) {
+		case MQTT_MSG_PUBLISH : {
+			luat_mqtt_msg_t *mqtt_msg =(luat_mqtt_msg_t *)msg->arg2;
+			lua_getglobal(L, "sys_pub");
+			if (lua_isfunction(L, -1)) {
+				lua_pushstring(L, "MQTT_MSG_PUBLISH");
+				lua_pushlightuserdata(L, mqtt_ctrl);
+				lua_pushlstring(L, mqtt_msg->topic,mqtt_msg->topic_len);
+				lua_pushlstring(L, mqtt_msg->payload,mqtt_msg->payload_len);
+				// LLOGD("MQTT_MSG_PUBLISH mqtt_msg->topic %.*s mqtt_msg->payload %.*s \n",mqtt_msg->topic_len,mqtt_msg->topic,mqtt_msg->payload_len,mqtt_msg->payload);
+				lua_call(L, 4, 0);
+				luat_heap_free(mqtt_msg);
+			}
+            break;
+        }
+        case MQTT_MSG_CONNACK: {
+			lua_getglobal(L, "sys_pub");
+			if (lua_isfunction(L, -1)) {
+				lua_pushstring(L, "MQTT_MSG_CONNACK");
+				lua_pushlightuserdata(L, mqtt_ctrl);
+				lua_call(L, 2, 0);
+			}
+            break;
+        }
+    }
+    lua_pushinteger(L, 0);
+    return 1;
+}
+
+
+static int mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
+	rtos_msg_t msg;
+    msg.handler = l_mqtt_callback;
     uint8_t msg_tp = MQTTParseMessageType(mqtt_ctrl->mqtt_packet_buffer);
-    LLOGD("mqtt msg %02X", msg_tp);
     switch (msg_tp) {
         case MQTT_MSG_PUBLISH : {
-			LLOGD("MQTT_MSG_PUBLISH");
+			luat_mqtt_msg_t *mqtt_msg = (luat_mqtt_msg_t *)luat_heap_malloc(sizeof(luat_mqtt_msg_t));
+			mqtt_msg->topic_len = mqtt_parse_pub_topic_ptr(mqtt_ctrl->mqtt_packet_buffer, mqtt_msg->topic);
+            mqtt_msg->payload_len = mqtt_parse_pub_msg_ptr(mqtt_ctrl->mqtt_packet_buffer, mqtt_msg->payload);
+			msg.ptr = mqtt_ctrl;
+			msg.arg1 = MQTT_MSG_PUBLISH;
+			msg.arg2 = mqtt_msg;
+			luat_msgbus_put(&msg, 0);
             break;
         }
         case MQTT_MSG_CONNACK: {
 			mqtt_ctrl->mqtt_state = 1;
-			LLOGD("MQTT_MSG_CONNACK");
+			msg.ptr = mqtt_ctrl;
+			msg.arg1 = MQTT_MSG_CONNACK;
+			luat_msgbus_put(&msg, 0);
             break;
         }
         case MQTT_MSG_PINGRESP : {
 			LLOGD("MQTT_MSG_PINGRESP");
+            break;
+        }
+		case MQTT_MSG_SUBSCRIBE : {
+			LLOGD("MQTT_MSG_SUBSCRIBE");
             break;
         }
         case MQTT_MSG_SUBACK : {
@@ -205,13 +256,21 @@ static int l_mqtt_connect(lua_State *L) {
 }
 
 static int l_mqtt_subscribe(lua_State *L) {
-
+	size_t len;
+	luat_mqtt_ctrl_t * mqtt_ctrl = (luat_mqtt_ctrl_t *)lua_touserdata(L, 1);
+	const char * topic = luaL_checklstring(L, 2, &len);
+	int subscribe_state = mqtt_subscribe(mqtt_ctrl->broker, topic, NULL);
 	return 0;
 }
 
 static int l_mqtt_unsubscribe(lua_State *L) {
+	size_t len;
+	luat_mqtt_ctrl_t * mqtt_ctrl = (luat_mqtt_ctrl_t *)lua_touserdata(L, 1);
+	const char * topic = luaL_checklstring(L, 2, &len);
+	int subscribe_state = mqtt_unsubscribe(mqtt_ctrl->broker, topic, NULL);
 	return 0;
 }
+
 static int l_mqtt_publish(lua_State *L) {
 	size_t len;
 	luat_mqtt_ctrl_t * mqtt_ctrl = (luat_mqtt_ctrl_t *)lua_touserdata(L, 1);
@@ -222,10 +281,10 @@ static int l_mqtt_publish(lua_State *L) {
 	mqtt_publish_with_qos(mqtt_ctrl->broker, topic, payload, retain, qos, NULL);
 	return 0;
 }
-static int l_mqtt_receive(lua_State *L) {
-	return 0;
-}
+
 static int l_mqtt_disconnect(lua_State *L) {
+	luat_mqtt_ctrl_t * mqtt_ctrl = (luat_mqtt_ctrl_t *)lua_touserdata(L, 1);
+	mqtt_close_socket(mqtt_ctrl);
 	return 0;
 }
 
@@ -237,7 +296,6 @@ static const rotable_Reg_t reg_mqtt[] =
 	{"subscribe",		ROREG_FUNC(l_mqtt_subscribe)},
 	{"unsubscribe",		ROREG_FUNC(l_mqtt_unsubscribe)},
 	{"publish",			ROREG_FUNC(l_mqtt_publish)},
-	{"receive",			ROREG_FUNC(l_mqtt_receive)},
 	{"disconnect",		ROREG_FUNC(l_mqtt_disconnect)},
 	{ NULL,             ROREG_INT(0)}
 };

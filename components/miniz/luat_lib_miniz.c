@@ -1,0 +1,154 @@
+/*
+@module  miniz
+@summary 简易zlib压缩
+@version 1.0
+@date    2022.8.11
+@usage
+-- 准备好数据
+local bigdata = "123jfoiq4hlkfjbnasdilfhuqwo;hfashfp9qw38hrfaios;hfiuoaghfluaeisw"
+-- 压缩之, 压缩得到的数据是zlib兼容的,其他语言可通过zlib相关的库进行解压
+local cdata = miniz.compress(bigdata) 
+-- lua 的 字符串相当于有长度的char[],可存放包括0x00的一切数据
+if cdata then
+    -- 检查压缩前后的数据大小
+    log.info("miniz", "before", #bigdata, "after", #cdata)
+    log.info("miniz", "cdata as hex", cdata:toHex())
+
+    -- 解压, 得到原文
+    local udata = miniz.compress(cdata)
+    log.info("miniz", "udata", udata)
+end
+*/
+#include "luat_base.h"
+#include "luat_malloc.h"
+
+#define LUAT_LOG_TAG "miniz"
+#include "luat_log.h"
+
+#include "miniz.h"
+
+/*
+快速压缩,需要165kb的系统内存和32kb的LuaVM内存
+@api miniz.compress(data, flags)
+@string 待压缩的数据, 少于400字节的数据不建议压缩, 且压缩后的数据不能大于32k.
+@flags 压缩参数,默认是 miniz.WRITE_ZLIB_HEADER , 即写入zlib头部
+@return string 若压缩成功,返回数据字符串, 否则返回nil
+@usage
+
+local bigdata = "123jfoiq4hlkfjbnasdilfhuqwo;hfashfp9qw38hrfaios;hfiuoaghfluaeisw"
+local cdata = miniz.compress(bigdata)
+if cdata then
+    log.info("miniz", "before", #bigdata, "after", #cdata)
+    log.info("miniz", "cdata as hex", cdata:toHex())
+end
+
+*/
+static int l_miniz_compress(lua_State* L) {
+    size_t len = 0;
+    const char* data = luaL_checklstring(L, 1, &len);
+    int flags = luaL_optinteger(L, 2, TDEFL_WRITE_ZLIB_HEADER);
+    if (len > 32* 1024) {
+        LLOGE("only 32k data is allow");
+        return 0;
+    }
+    luaL_Buffer buff;
+    char* dst = luaL_buffinitsize(L, &buff, TDEFL_OUT_BUF_SIZE);
+    if (dst == NULL) {
+        LLOGE("out of memory when malloc dst buff");
+        return 0;
+    }
+    int ret = tdefl_compress_mem_to_mem(dst, TDEFL_OUT_BUF_SIZE, data, len, flags);
+    if (ret == 0) {
+        LLOGW("compress fail ret=0");
+        return 0;
+    }
+    luaL_pushresultsize(&buff, ret);
+    return 1;
+}
+
+/*
+快速解压,需要32kb的LuaVM内存
+@api miniz.uncompress(data, flags)
+@string 待解压的数据, 解压后的数据不能大于32k
+@flags 解压参数,默认是 miniz.PARSE_ZLIB_HEADER , 即解析zlib头部
+@return string 若解压成功,返回数据字符串, 否则返回nil
+@usage
+
+local bigdata = "123jfoiq4hlkfjbnasdilfhuqwo;hfashfp9qw38hrfaios;hfiuoaghfluaeisw"
+local cdata = miniz.compress(bigdata)
+if cdata then
+    log.info("miniz", "before", #bigdata, "after", #cdata)
+    log.info("miniz", "cdata as hex", cdata:toHex())
+
+    local udata = miniz.compress(cdata)
+    log.info("miniz", "udata", udata)
+end
+*/
+static int l_miniz_uncompress(lua_State* L) {
+    size_t len = 0;
+    const char* data = luaL_checklstring(L, 1, &len);
+    int flags = luaL_optinteger(L, 2, TINFL_FLAG_PARSE_ZLIB_HEADER);
+    if (len > 32* 1024) {
+        LLOGE("only 32k data is allow");
+        return 0;
+    }
+    luaL_Buffer buff;
+    char* dst = luaL_buffinitsize(L, &buff, TDEFL_OUT_BUF_SIZE);
+    if (dst == NULL) {
+        LLOGE("out of memory when malloc dst buff");
+        return 0;
+    }
+    size_t ret = tinfl_decompress_mem_to_mem(dst, TDEFL_OUT_BUF_SIZE, data, len, flags);
+    if (ret == TINFL_DECOMPRESS_MEM_TO_MEM_FAILED) {
+        LLOGW("decompress fail");
+        return 0;
+    }
+    luaL_pushresultsize(&buff, ret);
+    return 1;
+}
+
+#include "rotable2.h"
+static const rotable_Reg_t reg_miniz[] = {
+    {"compress", ROREG_FUNC(l_miniz_compress)},
+    {"uncompress", ROREG_FUNC(l_miniz_uncompress)},
+    // {"inflate", ROREG_FUNC(l_miniz_inflate)},
+    // {"deflate", ROREG_FUNC(l_miniz_deflate)},
+
+    // 放些常量
+    // 压缩参数-------------------------
+    //@const WRITE_ZLIB_HEADER 压缩参数,是否写入zlib头部数据,compress函数的默认值
+    {"WRITE_ZLIB_HEADER", ROREG_INT(TDEFL_WRITE_ZLIB_HEADER)},
+    //@const COMPUTE_ADLER32 压缩参数,是否计算adler-32
+    {"COMPUTE_ADLER32", ROREG_INT(TDEFL_COMPUTE_ADLER32)},
+    //@const WRITE_ZLIB_HEADER 压缩参数,是否快速greedy处理, 默认使用较慢的处理模式
+    {"GREEDY_PARSING_FLAG", ROREG_INT(TDEFL_GREEDY_PARSING_FLAG)},
+    //@const NONDETERMINISTIC_PARSING_FLAG 压缩参数,是否快速初始化压缩器
+    {"NONDETERMINISTIC_PARSING_FLAG", ROREG_INT(TDEFL_NONDETERMINISTIC_PARSING_FLAG)},
+    //@const RLE_MATCHES 压缩参数, 仅扫描RLE
+    {"RLE_MATCHES", ROREG_INT(TDEFL_RLE_MATCHES)},
+    //@const FILTER_MATCHES 压缩参数,过滤少于5次的字符
+    {"FILTER_MATCHES", ROREG_INT(TDEFL_FILTER_MATCHES)},
+    //@const FORCE_ALL_STATIC_BLOCKS 压缩参数,是否禁用优化过的Huffman表
+    {"FORCE_ALL_STATIC_BLOCKS", ROREG_INT(TDEFL_FORCE_ALL_STATIC_BLOCKS)},
+    //@const FORCE_ALL_RAW_BLOCKS 压缩参数,是否只是要raw块
+    {"FORCE_ALL_RAW_BLOCKS", ROREG_INT(TDEFL_FORCE_ALL_RAW_BLOCKS)},
+
+    // 解压参数
+    //@const PARSE_ZLIB_HEADER 解压参数,是否处理zlib头部,uncompress函数的默认值
+    {"PARSE_ZLIB_HEADER", ROREG_INT(TINFL_FLAG_PARSE_ZLIB_HEADER)},
+    //@const HAS_MORE_INPUT 解压参数,是否还有更多数据,仅流式解压可用,暂不支持
+    {"HAS_MORE_INPUT", ROREG_INT(TINFL_FLAG_HAS_MORE_INPUT)},
+    //@const USING_NON_WRAPPING_OUTPUT_BUF 解压参数,解压区间是否够全部数据,,仅流式解压可用,暂不支持
+    {"USING_NON_WRAPPING_OUTPUT_BUF", ROREG_INT(TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF)},
+    //@const COMPUTE_ADLER32 解压参数,是否强制校验adler-32
+    {"COMPUTE_ADLER32", ROREG_INT(TINFL_FLAG_COMPUTE_ADLER32)},
+    
+
+    {NULL, ROREG_INT(0)}
+};
+
+
+LUAMOD_API int luaopen_miniz( lua_State *L ) {
+    luat_newlib2(L, reg_miniz);
+    return 1;
+}

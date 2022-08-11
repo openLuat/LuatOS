@@ -53,6 +53,7 @@ static const luaL_Reg loadedlibs[] = {
   {"lvgl",   luaopen_lvgl},
 #endif
   {"iotauth", luaopen_iotauth},
+  {"miniz", luaopen_miniz},
   {NULL, NULL}
 };
 

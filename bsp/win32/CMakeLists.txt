@@ -26,10 +26,13 @@ include_directories(${TOPROOT}/components/qrcode)
 include_directories(${TOPROOT}/components/lcd)
 include_directories(${TOPROOT}/components/luatfonts)
 include_directories(${TOPROOT}/components/lvgl/src/lv_font)
+include_directories(${TOPROOT}/components/miniz)
 
 aux_source_directory(./port PORT_SRCS)
 aux_source_directory(${TOPROOT}/lua/src LUA_SRCS)
 aux_source_directory(${TOPROOT}/components/lua-cjson CJSON_SRCS)
+
+aux_source_directory(${TOPROOT}/components/miniz MINIZ_SRCS)
 
 aux_source_directory(${TOPROOT}/components/qrcode QRCODE_SRCS)
 # aux_source_directory(${TOPROOT}/components/lcd LCD_SRCS)
@@ -80,6 +83,7 @@ add_library(luat ${TOPROOT}/luat/modules/luat_main.c
                  ${TOPROOT}/luat/vfs/luat_inline_libs.c
                  ./lv_drivers/win_drv.c
                  ${QRCODE_SRCS}
+                 ${MINIZ_SRCS}
                  #${LCD_SRCS}
             )
 

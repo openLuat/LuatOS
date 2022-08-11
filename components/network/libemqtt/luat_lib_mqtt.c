@@ -21,6 +21,7 @@ typedef struct
 	uint16_t remote_port;
 	uint16_t keepalive;
 	uint8_t adapter_index;
+	uint8_t mqtt_state;
 }luat_mqtt_ctrl_t;
 
 static int luat_mqtt_connect(luat_mqtt_ctrl_t *mqtt_ctrl, const char *hostname, uint16_t port, uint16_t keepalive);
@@ -55,6 +56,7 @@ static int mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
             break;
         }
         case MQTT_MSG_CONNACK: {
+			mqtt_ctrl->mqtt_state = 1;
 			LLOGD("MQTT_MSG_CONNACK");
             break;
         }
@@ -122,6 +124,7 @@ static int l_mqtt_client(lua_State *L) {
 		lua_pushnil(L);
 		return 1;
 	}
+	mqtt_ctrl->mqtt_state = 0;
 	mqtt_ctrl->adapter_index = adapter_index;
 	mqtt_ctrl->netc = network_alloc_ctrl(adapter_index);
 	if (!mqtt_ctrl->netc){
@@ -202,12 +205,21 @@ static int l_mqtt_connect(lua_State *L) {
 }
 
 static int l_mqtt_subscribe(lua_State *L) {
+
 	return 0;
 }
+
 static int l_mqtt_unsubscribe(lua_State *L) {
 	return 0;
 }
 static int l_mqtt_publish(lua_State *L) {
+	size_t len;
+	luat_mqtt_ctrl_t * mqtt_ctrl = (luat_mqtt_ctrl_t *)lua_touserdata(L, 1);
+	const char * topic = luaL_checklstring(L, 2, &len);
+	const char * payload = luaL_checklstring(L, 3, &len);
+	uint8_t qos = luaL_optinteger(L, 4, 0);
+	uint8_t retain = luaL_optinteger(L, 5, 0);
+	mqtt_publish_with_qos(mqtt_ctrl->broker, topic, payload, retain, qos, NULL);
 	return 0;
 }
 static int l_mqtt_receive(lua_State *L) {

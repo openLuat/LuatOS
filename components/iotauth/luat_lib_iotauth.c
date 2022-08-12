@@ -16,9 +16,13 @@
 #define LUAT_LOG_TAG "iotauth"
 #include "luat_log.h"
 
-static char client_id[64]={0};
-static char user_name[100]={0};
-static char password[200]={0};
+#define CLIENT_ID_LEN 64
+#define USER_NAME_LEN 100
+#define PASSWORD_LEN 200
+
+static char client_id[CLIENT_ID_LEN]={0};
+static char user_name[USER_NAME_LEN]={0};
+static char password[PASSWORD_LEN]={0};
 
 typedef struct {
     char et[32];
@@ -33,13 +37,6 @@ typedef  struct {
     char* str;
 }URL_PARAMETES;
 
-// static void HexDump(char *pData, uint16_t len){
-//     for (int i = 0; i < len; i++) {
-//         printf("0x%02.2x ", (unsigned char)pData[i]);
-//     }
-//     printf("\n");
-// }
-
 static const unsigned char hexchars[] = "0123456789abcdef";
 static void str_tohex(const char* str, size_t str_len, char* hex) {
     for (size_t i = 0; i < str_len; i++)
@@ -50,8 +47,71 @@ static void str_tohex(const char* str, size_t str_len, char* hex) {
     }
 }
 
+static void aliyun_token(const char* product_key,const char* device_name,const char* device_secret,long long cur_timestamp,const char* method,char* client_id, char* user_name, char* password){
+    char deviceId[64] = {0};
+    char macSrc[200] = {0};
+    uint8_t macRes[32] = {0};
+    char timestamp_value[20] = {0};
+    char mqtt_clinetid_kv[96] = {0};
+    sprintf(timestamp_value,"%lld",cur_timestamp);
+    if (!strcmp("hmacmd5", method)||!strcmp("HMACMD5", method)) {
+        sprintf(mqtt_clinetid_kv,"|timestamp=%s,_v=paho-c-1.0.0,securemode=3,signmethod=%s,lan=C|",timestamp_value,"hmacmd5");
+    }else if (!strcmp("hmacsha1", method)||!strcmp("HMACSHA1", method)) {
+        sprintf(mqtt_clinetid_kv,"|timestamp=%s,_v=paho-c-1.0.0,securemode=3,signmethod=%s,lan=C|",timestamp_value,"hmacsha1");
+    }else if (!strcmp("hmacsha256", method)||!strcmp("HMACSHA256", method)) {
+        sprintf(mqtt_clinetid_kv,"|timestamp=%s,_v=paho-c-1.0.0,securemode=3,signmethod=%s,lan=C|",timestamp_value,"hmacsha256");
+    }else{
+        LLOGE("not support: %s",method);
+        return;
+    }
+    /* setup deviceId */
+    memcpy(deviceId, device_name, strlen(device_name));
+    memcpy(deviceId + strlen(deviceId), "&", strlen("&"));
+    memcpy(deviceId + strlen(deviceId), product_key, strlen(product_key));
+    /* setup clientid */
+    memcpy(client_id, deviceId, strlen(deviceId));
+    memcpy(client_id + strlen(deviceId), mqtt_clinetid_kv, strlen(mqtt_clinetid_kv));
+    memset(client_id + strlen(deviceId) + strlen(mqtt_clinetid_kv), 0, 1);
+    /* setup username */
+    memcpy(user_name, deviceId, strlen(deviceId));
+    memset(user_name + strlen(deviceId), 0, 1);
+    /* setup password */
+    memcpy(macSrc, "clientId", strlen("clientId"));
+    memcpy(macSrc + strlen(macSrc), deviceId, strlen(deviceId));
+    memcpy(macSrc + strlen(macSrc), "deviceName", strlen("deviceName"));
+    memcpy(macSrc + strlen(macSrc), device_name, strlen(device_name));
+    memcpy(macSrc + strlen(macSrc), "productKey", strlen("productKey"));
+    memcpy(macSrc + strlen(macSrc), product_key, strlen(product_key));
+    memcpy(macSrc + strlen(macSrc), "timestamp", strlen("timestamp"));
+    memcpy(macSrc + strlen(macSrc), timestamp_value, strlen(timestamp_value));
+    if (!strcmp("hmacmd5", method)||!strcmp("HMACMD5", method)) {
+        luat_crypto_hmac_md5_simple(macSrc, strlen(macSrc),device_secret, strlen(device_secret),  macRes);
+    }else if (!strcmp("hmacsha1", method)||!strcmp("HMACSHA1", method)) {
+        luat_crypto_hmac_sha1_simple(macSrc, strlen(macSrc),device_secret, strlen(device_secret),  macRes);
+    }else if (!strcmp("hmacsha256", method)||!strcmp("HMACSHA256", method)) {
+        luat_crypto_hmac_sha256_simple(macSrc, strlen(macSrc),device_secret, strlen(device_secret),  macRes);
+    }else{
+        LLOGE("not support: %s",method);
+        return;
+    }
+    luat_str_tohex(macRes, sizeof(macRes), password);
+}
+
 static int l_iotauth_aliyun(lua_State *L) {
-    return 0;
+    memset(client_id, 0, CLIENT_ID_LEN);
+    memset(user_name, 0, USER_NAME_LEN);
+    memset(password, 0, PASSWORD_LEN);
+    size_t len;
+    const char* product_key = luaL_checklstring(L, 1, &len);
+    const char* device_name = luaL_checklstring(L, 2, &len);
+    const char* device_secret = luaL_checklstring(L, 3, &len);
+    const char* method = luaL_optlstring(L, 4, "hmacsha256", &len);
+    long long cur_timestamp = luaL_optinteger(L, 5,time(NULL) + 3600);
+    aliyun_token(product_key,device_name,device_secret,cur_timestamp,method,client_id,user_name,password);
+    lua_pushlstring(L, client_id, strlen(client_id));
+    lua_pushlstring(L, user_name, strlen(user_name));
+    lua_pushlstring(L, password, strlen(password));
+    return 3;
 }
 
 static int url_encoding_for_token(sign_msg* msg,char *token){
@@ -115,11 +175,11 @@ static void onenet_token(const char* product_id,const char* device_name,const ch
     sprintf(sign.res,"products/%s/devices/%s",product_id,device_name);
     luat_str_base64_decode((unsigned char *)plaintext, sizeof(plaintext), &declen, (const unsigned char * )device_secret, strlen((char*)device_secret));
     sprintf(StringForSignature, "%s\n%s\n%s\n%s", sign.et, sign.method, sign.res, sign.version);
-    if (!strcmp("md5", method)) {
+    if (!strcmp("md5", method)||!strcmp("MD5", method)) {
         luat_crypto_hmac_md5_simple(StringForSignature, strlen(StringForSignature), plaintext, declen, hmac);
-    }else if (!strcmp("sha1", method)) {
+    }else if (!strcmp("sha1", method)||!strcmp("SHA1", method)) {
         luat_crypto_hmac_sha1_simple(StringForSignature, strlen(StringForSignature),plaintext, declen,  hmac);
-    }else if (!strcmp("sha256", method)) {
+    }else if (!strcmp("sha256", method)||!strcmp("SHA256", method)) {
         luat_crypto_hmac_sha256_simple(StringForSignature, strlen(StringForSignature),plaintext, declen,  hmac);
     }else{
         LLOGE("not support: %s",method);
@@ -146,7 +206,7 @@ local client_id,user_name,password = iotauth.onenet("123456789","test","KuF3NT/j
 print(client_id,user_name,password)
 */
 static int l_iotauth_onenet(lua_State *L) {
-    memset(password, 0, 200);
+    memset(password, 0, PASSWORD_LEN);
     size_t len;
     const char* produt_id = luaL_checklstring(L, 1, &len);
     const char* device_name = luaL_checklstring(L, 2, &len);
@@ -166,7 +226,7 @@ static void iotda_token(const char* device_id,const char* device_secret,long lon
     char timestamp[12] = {0};
     struct tm *timeinfo = localtime( &cur_timestamp );
     snprintf(timestamp, 12, "%04d%02d%02d%02d", (timeinfo->tm_year)+1900,timeinfo->tm_mon+1,timeinfo->tm_mday,timeinfo->tm_hour);
-    snprintf(client_id, 100, "%s_0_%d_%s", device_id,ins_timestamp,timestamp);
+    snprintf(client_id, CLIENT_ID_LEN, "%s_0_%d_%s", device_id,ins_timestamp,timestamp);
     luat_crypto_hmac_sha256_simple(device_secret, strlen(device_secret),timestamp, strlen(timestamp), hmac);
     str_tohex(hmac, strlen(hmac), password);
 }
@@ -186,8 +246,8 @@ local client_id,user_name,password = iotauth.iotda("6203cc94c7fb24029b110408_888
 print(client_id,user_name,password)
 */
 static int l_iotauth_iotda(lua_State *L) {
-    memset(client_id, 0, 64);
-    memset(password, 0, 200);
+    memset(client_id, 0, CLIENT_ID_LEN);
+    memset(password, 0, PASSWORD_LEN);
     size_t len;
     const char* device_id = luaL_checklstring(L, 1, &len);
     const char* device_secret = luaL_checklstring(L, 2, &len);
@@ -270,9 +330,9 @@ local client_id,user_name,password = iotauth.qcloud("LD8S5J1L07","test","acyv3QD
 print(client_id,user_name,password)
 */
 static int l_iotauth_qcloud(lua_State *L) {
-    memset(client_id, 0, 64);
-    memset(user_name, 0, 100);
-    memset(password, 0, 200);
+    memset(client_id, 0, CLIENT_ID_LEN);
+    memset(user_name, 0, USER_NAME_LEN);
+    memset(password, 0, PASSWORD_LEN);
     size_t len;
     const char* product_id = luaL_checklstring(L, 1, &len);
     const char* device_name = luaL_checklstring(L, 2, &len);
@@ -281,7 +341,7 @@ static int l_iotauth_qcloud(lua_State *L) {
     long long cur_timestamp = luaL_optinteger(L, 5,time(NULL) + 3600);
     const char* sdk_appid = luaL_optlstring(L, 6, "12010126", &len);
     qcloud_token(product_id, device_name,device_secret,cur_timestamp,method,sdk_appid,user_name,password);
-    snprintf(client_id, 64,"%s%s", product_id,device_name);
+    snprintf(client_id, CLIENT_ID_LEN,"%s%s", product_id,device_name);
     lua_pushlstring(L, client_id, strlen(client_id));
     lua_pushlstring(L, user_name, strlen(user_name));
     lua_pushlstring(L, password, strlen(password));
@@ -312,16 +372,16 @@ local client_id,user_name,password = iotauth.tuya("6c95875d0f5ba69607nzfl","fb80
 print(client_id,user_name,password)
 */
 static int l_iotauth_tuya(lua_State *L) {
-    memset(client_id, 0, 64);
-    memset(user_name, 0, 100);
-    memset(password, 0, 200);
+    memset(client_id, 0, CLIENT_ID_LEN);
+    memset(user_name, 0, USER_NAME_LEN);
+    memset(password, 0, PASSWORD_LEN);
     size_t len;
     const char* device_id = luaL_checklstring(L, 1, &len);
     const char* device_secret = luaL_checklstring(L, 2, &len);
     long long cur_timestamp = luaL_optinteger(L, 3,time(NULL) + 3600);
     tuya_token(device_id,device_secret,cur_timestamp,password);
-    snprintf(client_id, 64, "tuyalink_%s", device_id);
-    snprintf(user_name, 100, "%s|signMethod=hmacSha256,timestamp=%lld", device_id,cur_timestamp);
+    snprintf(client_id, CLIENT_ID_LEN, "tuyalink_%s", device_id);
+    snprintf(user_name, USER_NAME_LEN, "%s|signMethod=hmacSha256,timestamp=%lld", device_id,cur_timestamp);
     lua_pushlstring(L, client_id, strlen(client_id));
     lua_pushlstring(L, user_name, strlen(user_name));
     lua_pushlstring(L, password, strlen(password));
@@ -364,8 +424,8 @@ local client_id,user_name,password = iotauth.baidu("abcd123","mydevice","ImSeCrE
 print(client_id,user_name,password)
 */
 static int l_iotauth_baidu(lua_State *L) {
-    memset(user_name, 0, 100);
-    memset(password, 0, 200);
+    memset(user_name, 0, USER_NAME_LEN);
+    memset(password, 0, PASSWORD_LEN);
     size_t len;
     const char* iot_core_id = luaL_checklstring(L, 1, &len);
     const char* device_key = luaL_checklstring(L, 2, &len);

@@ -50,7 +50,7 @@ static void str_tohex(const char* str, size_t str_len, char* hex) {
 static void aliyun_token(const char* product_key,const char* device_name,const char* device_secret,long long cur_timestamp,const char* method,char* client_id, char* user_name, char* password){
     char deviceId[64] = {0};
     char macSrc[200] = {0};
-    uint8_t macRes[32] = {0};
+    char macRes[32] = {0};
     char timestamp_value[20] = {0};
     char mqtt_clinetid_kv[96] = {0};
     sprintf(timestamp_value,"%lld",cur_timestamp);

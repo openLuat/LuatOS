@@ -17,25 +17,12 @@
 #include "luat_log.h"
 
 #define CLIENT_ID_LEN 64
-#define USER_NAME_LEN 100
-#define PASSWORD_LEN 200
+#define USER_NAME_LEN 128
+#define PASSWORD_LEN 256
 
 static char client_id[CLIENT_ID_LEN]={0};
 static char user_name[USER_NAME_LEN]={0};
 static char password[PASSWORD_LEN]={0};
-
-typedef struct {
-    char et[32];
-    char *version;
-    char *method;
-    char res[128];
-    char sign[128];
-} sign_msg;
-
-typedef  struct {
-    char* old_str;
-    char* str;
-}URL_PARAMETES;
 
 static const unsigned char hexchars[] = "0123456789abcdef";
 static void str_tohex(const char* str, size_t str_len, char* hex) {
@@ -129,6 +116,19 @@ static int l_iotauth_aliyun(lua_State *L) {
     return 3;
 }
 
+typedef struct {
+    char et[32];
+    char version[12];
+    char method[12];
+    char res[64];
+    char sign[64];
+} sign_msg;
+
+typedef  struct {
+    char* old_str;
+    char* str;
+}URL_PARAMETES;
+
 static int url_encoding_for_token(sign_msg* msg,char *token){
     int i,j,k,slen;
     sign_msg* temp_msg = msg;
@@ -142,7 +142,7 @@ static int url_encoding_for_token(sign_msg* msg,char *token){
         {"&","%26"},
         {"=","%3D"},
     };
-    char temp[128]     = {0};
+    char temp[64]     = {0};
     slen = strlen(temp_msg->res);
     for (i = 0,j = 0; i < slen; i++) {
         for(k = 0; k < 8; k++){
@@ -174,7 +174,9 @@ static int url_encoding_for_token(sign_msg* msg,char *token){
 	}
     memcpy(temp_msg->sign,temp,strlen(temp));
     temp_msg->sign[strlen(temp)] = 0;
-    sprintf(token, "version=%s&res=%s&et=%s&method=%s&sign=%s", temp_msg->version, temp_msg->res, temp_msg->et, temp_msg->method, temp_msg->sign);
+    if(snprintf(token,PASSWORD_LEN, "version=%s&res=%s&et=%s&method=%s&sign=%s", temp_msg->version, temp_msg->res, temp_msg->et, temp_msg->method, temp_msg->sign)<0){
+        return;
+    }
     return strlen(token);
 }
 
@@ -184,8 +186,8 @@ static void onenet_token(const char* product_id,const char* device_name,const ch
     char hmac[64]          = { 0 };
     char StringForSignature[256] = { 0 };
     sign_msg sign = {0};
-    sign.method = method;
-    sign.version = version;
+    memcpy(sign.method, method, strlen(method));
+    memcpy(sign.version, version, strlen(version));
     sprintf(sign.et,"%lld",cur_timestamp);
     sprintf(sign.res,"products/%s/devices/%s",product_id,device_name);
     luat_str_base64_decode((unsigned char *)plaintext, sizeof(plaintext), &declen, (const unsigned char * )device_secret, strlen((char*)device_secret));
@@ -240,7 +242,9 @@ static void iotda_token(const char* device_id,const char* device_secret,long lon
     char hmac[64] = {0};
     char timestamp[12] = {0};
     struct tm *timeinfo = localtime( &cur_timestamp );
-    snprintf(timestamp, 12, "%04d%02d%02d%02d", (timeinfo->tm_year)+1900,timeinfo->tm_mon+1,timeinfo->tm_mday,timeinfo->tm_hour);
+    if(snprintf(timestamp, 12, "%04d%02d%02d%02d", (timeinfo->tm_year)+1900,timeinfo->tm_mon+1,timeinfo->tm_mday,timeinfo->tm_hour)<0){
+        return;
+    }
     snprintf(client_id, CLIENT_ID_LEN, "%s_0_%d_%s", device_id,ins_timestamp,timestamp);
     luat_crypto_hmac_sha256_simple(device_secret, strlen(device_secret),timestamp, strlen(timestamp), hmac);
     str_tohex(hmac, strlen(hmac), password);

@@ -308,7 +308,7 @@ static void qcloud_token(const char* product_id,const char* device_name,const ch
     size_t psk_base64decode_len = 0;
     luat_str_base64_decode((unsigned char *)psk_base64decode, DECODE_PSK_LENGTH, &psk_base64decode_len,(unsigned char *)device_secret, strlen(device_secret));
     get_next_conn_id(conn_id);
-    sprintf(username, "%s%s;%s;%s;%ld", product_id, device_name, sdk_appid,conn_id, cur_timestamp);
+    sprintf(username, "%s%s;%s;%s;%lld", product_id, device_name, sdk_appid,conn_id, cur_timestamp);
     if (!strcmp("sha1", method)||!strcmp("SHA1", method)) {
         luat_crypto_hmac_sha1_simple(username, strlen(username),psk_base64decode, psk_base64decode_len, username_sign);
     }else if (!strcmp("sha256", method)||!strcmp("SHA256", method)) {
@@ -367,7 +367,7 @@ static void tuya_token(const char* device_id,const char* device_secret,long long
     char hmac[64] = {0};
     char *token_temp  = (char *)luat_heap_malloc(100);
     memset(token_temp, 0, 100);
-    snprintf(token_temp, 100, "deviceId=%s,timestamp=%ld,secureMode=1,accessType=1", device_id, cur_timestamp);
+    snprintf(token_temp, 100, "deviceId=%s,timestamp=%lld,secureMode=1,accessType=1", device_id, cur_timestamp);
     luat_crypto_hmac_sha256_simple(token_temp, strlen(token_temp),device_secret, strlen(device_secret), hmac);
     str_tohex(hmac, strlen(hmac), password);
     luat_heap_free(token_temp);

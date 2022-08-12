@@ -12,11 +12,12 @@
 #define LUAT_LOG_TAG "mcu"
 #include "luat_log.h"
 /*
-设置主频,单位MHZ. 请注意,主频与外设主频有关联性, 例如主频2M时SPI的最高只能1M
+设置主频,单位MHZ
 @api mcu.setClk(mhz)
 @int 主频,根据设备的不同有不同的有效值,请查阅手册
 @return bool 成功返回true,否则返回false
 @usage
+--  请注意,主频与外设主频有关联性, 例如主频2M时SPI的最高只能1M
 -- 设置到80MHZ
 mcu.setClk(80)
 sys.wait(1000)
@@ -34,7 +35,7 @@ static int l_mcu_set_clk(lua_State* L) {
 }
 
 /*
-获取主频,单位MHZ.
+获取主频,单位MHZ
 @api mcu.getClk()
 @return int 若失败返回-1,否则返回主频数值,若等于0,可能处于32k晶振的省电模式
 @usage
@@ -91,14 +92,14 @@ static int l_mcu_hz(lua_State* L) {
 }
 
 /*
-读写mcu的32bit寄存器或者ram，谨慎使用写功能，请熟悉mcu的寄存器使用方法后再使用
-@api mcu.reg(address, value, mask)
+读写mcu的32bit寄存器或者ram,谨慎使用写功能,请熟悉mcu的寄存器使用方法后再使用
+@api mcu.reg32(address, value, mask)
 @int 寄存器或者ram地址
-@int 写入的值，如果没有，则直接返回当前值
-@int 位掩码，可以对特定几个位置的bit做修改， 默认0xffffffff，修改全部32bit
+@int 写入的值,如果没有,则直接返回当前值
+@int 位掩码,可以对特定几个位置的bit做修改, 默认0xffffffff,修改全部32bit
 @return int 返回当前寄存的值
 @usage
-local value = mcu.reg(0x2009FFFC, 0x01, 0x01) --对0x2009FFFC地址上的值，修改bit0为1
+local value = mcu.reg32(0x2009FFFC, 0x01, 0x01) --对0x2009FFFC地址上的值,修改bit0为1
 */
 static int l_mcu_reg32(lua_State* L) {
     volatile uint32_t *address = (uint32_t *)(luaL_checkinteger(L, 1) & 0xfffffffc);
@@ -130,12 +131,12 @@ static int l_mcu_x32(lua_State* L) {
     return 1;
 }
 
-#ifdef __LUATOS_TICK_64BIT__
+// #ifdef __LUATOS_TICK_64BIT__
 /*
-获取启动后的高精度tick，目前只有105能用
+获取启动后的高精度tick,目前只有101/103/105能用
 @api mcu.tick64()
-@return string 当前tick值，8个字节的uint64
-@return int 1us有几个tick，0表示未知
+@return string 当前tick值,8个字节的uint64
+@return int 1us有几个tick,0表示未知
 @usage
 local tick_str, tick_per = mcu.tick64()
 print("ticks", tick_str, tick_per)
@@ -150,13 +151,13 @@ static int l_mcu_hw_tick64(lua_State* L) {
 }
 
 /*
-计算2个64bit tick的差值，目前只有105能用
+计算2个64bit tick的差值,目前只有105能用
 @api mcu.dtick64(tick1, tick2, check_value)
-@string tick1, 64bit的string
-@string tick2, 64bit的string
-@int 参考值，可选项，如果为0，则返回结果中第一个项目为true
-@return boolean 与参考值比较，如果大于等于为true，反之为false
-@return int 差值tick1 - tick2，如果超过了0x7fffffff，结果可能是错的
+@string 64bit的string
+@string 64bit的string
+@int 参考值,可选项,如果为0,则返回结果中第一个项目为true
+@return boolean 与参考值比较,如果大于等于为true,反之为false
+@return int 差值tick1 - tick2,如果超过了0x7fffffff,结果可能是错的
 @usage
 local result, diff_tick = mcu.dtick64(tick1, tick2)
 print("ticks", result, diff_tick)
@@ -180,13 +181,13 @@ static int l_mcu_hw_diff_tick64(lua_State* L) {
 }
 
 /*
-选择时钟源
-@api mcu.setXTAL(source_main, source_32k)，目前只有105能用
-@boolean 高速时钟是否使用外部时钟源，如果为空则不改变
-@boolean 低速32K是否使用外部时钟源，如果为空则不改变
-@int PLL稳定时间，在切换高速时钟的时候，根据硬件环境，需要delay一段时间等待PLL稳定，默认是1200，建议不小于1024
+选择时钟源,当前仅air105支持
+@api mcu.setXTAL(source_main, source_32k, delay)
+@boolean 高速时钟是否使用外部时钟源,如果为空则不改变
+@boolean 低速32K是否使用外部时钟源,如果为空则不改变
+@int PLL稳定时间,在切换高速时钟的时候,根据硬件环境,需要delay一段时间等待PLL稳定,默认是1200,建议不小于1024
 @usage
-mcu.setXTAL(true, true, 1248)	--高速时钟使用外部时钟，低速32K使用外部晶振, delay1248
+mcu.setXTAL(true, true, 1248)	--高速时钟使用外部时钟,低速32K使用外部晶振, delay1248
 */
 static int l_mcu_set_xtal(lua_State* L) {
 	int source_main = 255;
@@ -201,7 +202,7 @@ static int l_mcu_set_xtal(lua_State* L) {
 	luat_mcu_set_clk_source(source_main, source_32k, delay);
     return 0;
 }
-#endif
+// #endif
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_mcu[] =
@@ -211,13 +212,13 @@ static const rotable_Reg_t reg_mcu[] =
     { "unique_id",      ROREG_FUNC(l_mcu_unique_id)},
     { "ticks",          ROREG_FUNC(l_mcu_ticks)},
     { "hz",             ROREG_FUNC(l_mcu_hz)},
-	{ "reg32",             ROREG_FUNC(l_mcu_reg32)},
+	{ "reg32",          ROREG_FUNC(l_mcu_reg32)},
 	{ "x32",             ROREG_FUNC(l_mcu_x32)},
-#ifdef __LUATOS_TICK_64BIT__
+// #ifdef __LUATOS_TICK_64BIT__
 	{ "tick64",			ROREG_FUNC(l_mcu_hw_tick64)},
 	{ "dtick64",		ROREG_FUNC(l_mcu_hw_diff_tick64)},
 	{ "setXTAL",		ROREG_FUNC(l_mcu_set_xtal)},
-#endif
+// #endif
 	{ NULL,             ROREG_INT(0) }
 };
 

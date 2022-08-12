@@ -97,6 +97,21 @@ static void aliyun_token(const char* product_key,const char* device_name,const c
     luat_str_tohex(macRes, sizeof(macRes), password);
 }
 
+/*
+阿里云物联网平台三元组生成
+@api iotauth.aliyun(product_key, device_name,device_secret,method,cur_timestamp)
+@string product_key 
+@string device_name 
+@string device_secret 
+@string method 加密方式,"hmacmd5" "hmacsha1" "hmacsha256" 可选,默认"hmacsha256"
+@number cur_timestamp 可选
+@return string mqtt三元组 client_id
+@return string mqtt三元组 user_name
+@return string mqtt三元组 password
+@usage
+local client_id,user_name,password = iotauth.aliyun("123456789","abcdefg","Y877Bgo8X5owd3lcB5wWDjryNPoB")
+print(client_id,user_name,password)
+*/
 static int l_iotauth_aliyun(lua_State *L) {
     memset(client_id, 0, CLIENT_ID_LEN);
     memset(user_name, 0, USER_NAME_LEN);

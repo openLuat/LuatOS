@@ -116,31 +116,31 @@ static const rotable_Reg_t reg_miniz[] = {
 
     // 放些常量
     // 压缩参数-------------------------
-    //@const WRITE_ZLIB_HEADER 压缩参数,是否写入zlib头部数据,compress函数的默认值
+    //@const WRITE_ZLIB_HEADER int 压缩参数,是否写入zlib头部数据,compress函数的默认值
     {"WRITE_ZLIB_HEADER", ROREG_INT(TDEFL_WRITE_ZLIB_HEADER)},
-    //@const COMPUTE_ADLER32 压缩参数,是否计算adler-32
+    //@const COMPUTE_ADLER32 int 压缩参数,是否计算adler-32
     {"COMPUTE_ADLER32", ROREG_INT(TDEFL_COMPUTE_ADLER32)},
-    //@const WRITE_ZLIB_HEADER 压缩参数,是否快速greedy处理, 默认使用较慢的处理模式
+    //@const WRITE_ZLIB_HEADER int 压缩参数,是否快速greedy处理, 默认使用较慢的处理模式
     {"GREEDY_PARSING_FLAG", ROREG_INT(TDEFL_GREEDY_PARSING_FLAG)},
-    //@const NONDETERMINISTIC_PARSING_FLAG 压缩参数,是否快速初始化压缩器
+    //@const NONDETERMINISTIC_PARSING_FLAG int 压缩参数,是否快速初始化压缩器
     {"NONDETERMINISTIC_PARSING_FLAG", ROREG_INT(TDEFL_NONDETERMINISTIC_PARSING_FLAG)},
-    //@const RLE_MATCHES 压缩参数, 仅扫描RLE
+    //@const RLE_MATCHES int 压缩参数, 仅扫描RLE
     {"RLE_MATCHES", ROREG_INT(TDEFL_RLE_MATCHES)},
-    //@const FILTER_MATCHES 压缩参数,过滤少于5次的字符
+    //@const FILTER_MATCHES int 压缩参数,过滤少于5次的字符
     {"FILTER_MATCHES", ROREG_INT(TDEFL_FILTER_MATCHES)},
-    //@const FORCE_ALL_STATIC_BLOCKS 压缩参数,是否禁用优化过的Huffman表
+    //@const FORCE_ALL_STATIC_BLOCKS int 压缩参数,是否禁用优化过的Huffman表
     {"FORCE_ALL_STATIC_BLOCKS", ROREG_INT(TDEFL_FORCE_ALL_STATIC_BLOCKS)},
-    //@const FORCE_ALL_RAW_BLOCKS 压缩参数,是否只是要raw块
+    //@const FORCE_ALL_RAW_BLOCKS int 压缩参数,是否只是要raw块
     {"FORCE_ALL_RAW_BLOCKS", ROREG_INT(TDEFL_FORCE_ALL_RAW_BLOCKS)},
 
     // 解压参数
-    //@const PARSE_ZLIB_HEADER 解压参数,是否处理zlib头部,uncompress函数的默认值
+    //@const PARSE_ZLIB_HEADER int 解压参数,是否处理zlib头部,uncompress函数的默认值
     {"PARSE_ZLIB_HEADER", ROREG_INT(TINFL_FLAG_PARSE_ZLIB_HEADER)},
-    //@const HAS_MORE_INPUT 解压参数,是否还有更多数据,仅流式解压可用,暂不支持
+    //@const HAS_MORE_INPUT int 解压参数,是否还有更多数据,仅流式解压可用,暂不支持
     {"HAS_MORE_INPUT", ROREG_INT(TINFL_FLAG_HAS_MORE_INPUT)},
-    //@const USING_NON_WRAPPING_OUTPUT_BUF 解压参数,解压区间是否够全部数据,,仅流式解压可用,暂不支持
+    //@const USING_NON_WRAPPING_OUTPUT_BUF int 解压参数,解压区间是否够全部数据,,仅流式解压可用,暂不支持
     {"USING_NON_WRAPPING_OUTPUT_BUF", ROREG_INT(TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF)},
-    //@const COMPUTE_ADLER32 解压参数,是否强制校验adler-32
+    //@const COMPUTE_ADLER32 int 解压参数,是否强制校验adler-32
     {"COMPUTE_ADLER32", ROREG_INT(TINFL_FLAG_COMPUTE_ADLER32)},
     
 

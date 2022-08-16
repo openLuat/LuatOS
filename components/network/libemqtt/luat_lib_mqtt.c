@@ -21,7 +21,6 @@ typedef struct
 	uint32_t keepalive;
 	uint8_t adapter_index;
 	uint8_t mqtt_state;
-	void* timer;
 }luat_mqtt_ctrl_t;
 
 #define MAX_MQTT_COUNT 32
@@ -181,7 +180,6 @@ static int32_t luat_lib_mqtt_callback(void *data, void *param)
 		}
 	}else if(event->ID == EV_NW_RESULT_CONNECT){
 		mqtt_connect(mqtt_ctrl->broker);
-		luat_start_rtos_timer(mqtt_ctrl->timer, mqtt_ctrl->keepalive*1000, 1);
 	}else if(event->ID == EV_NW_RESULT_EVENT){
 		ret = mqtt_read_packet(mqtt_ctrl);
 		if (ret > 0)
@@ -213,12 +211,6 @@ static int luat_socket_connect(luat_mqtt_ctrl_t *mqtt_ctrl, const char *hostname
     mqtt_ctrl->broker->socket_info = mqtt_ctrl;
     mqtt_ctrl->broker->send = mqtt_send_packet;
     return 0;
-}
-
-static void mqtt_timer_callback(void *data, void *param)
-{
-	luat_mqtt_ctrl_t * mqtt_ctrl = (luat_mqtt_ctrl_t *)param;
-	mqtt_ping(mqtt_ctrl->broker);
 }
 
 static int l_mqtt_subscribe(lua_State *L) {
@@ -289,7 +281,6 @@ static int l_mqtt_create(lua_State *L) {
 	memset(mqtt_ctrl->ip, 0, ip_len + 1);
 	memcpy(mqtt_ctrl->ip, ip, ip_len);
 	mqtt_ctrl->remote_port = luaL_checkinteger(L, 3);
-	mqtt_ctrl->timer = luat_create_rtos_timer(mqtt_timer_callback, mqtt_ctrl, NULL);
 	luaL_setmetatable(L, LUAT_MQTT_CTRL_TYPE);
 	return 1;
 

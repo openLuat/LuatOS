@@ -33,8 +33,7 @@ typedef struct
 {
 	uint16_t topic_len;
     uint16_t payload_len;
-	uint8_t topic[255];
-	uint8_t payload[1000];
+	uint8_t date[];
 }luat_mqtt_msg_t;
 
 static int luat_socket_connect(luat_mqtt_ctrl_t *mqtt_ctrl, const char *hostname, uint16_t port, uint16_t keepalive);
@@ -90,8 +89,8 @@ static int32_t l_mqtt_callback(lua_State *L, void* ptr)
 				if (lua_isfunction(L, -1)) {
 					lua_pushlightuserdata(L, mqtt_ctrl);
 					lua_pushstring(L, "recv");
-					lua_pushlstring(L, mqtt_msg->topic,mqtt_msg->topic_len);
-					lua_pushlstring(L, mqtt_msg->payload,mqtt_msg->payload_len);
+					lua_pushlstring(L, mqtt_msg->date,mqtt_msg->topic_len);
+					lua_pushlstring(L, mqtt_msg->date+mqtt_msg->topic_len,mqtt_msg->payload_len);
 					lua_call(L, 4, 0);
 				}
             }
@@ -121,9 +120,12 @@ static int mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
     uint8_t msg_tp = MQTTParseMessageType(mqtt_ctrl->mqtt_packet_buffer);
     switch (msg_tp) {
         case MQTT_MSG_PUBLISH : {
-			luat_mqtt_msg_t *mqtt_msg = (luat_mqtt_msg_t *)luat_heap_malloc(sizeof(luat_mqtt_msg_t));
-			mqtt_msg->topic_len = mqtt_parse_pub_topic(mqtt_ctrl->mqtt_packet_buffer, mqtt_msg->topic);
-            mqtt_msg->payload_len = mqtt_parse_publish_msg(mqtt_ctrl->mqtt_packet_buffer, mqtt_msg->payload);
+			const uint8_t* ptr;
+			uint16_t topic_len = mqtt_parse_pub_topic_ptr(mqtt_ctrl->mqtt_packet_buffer, &ptr);
+			uint16_t payload_len = mqtt_parse_pub_msg_ptr(mqtt_ctrl->mqtt_packet_buffer, &ptr);
+			luat_mqtt_msg_t *mqtt_msg = (luat_mqtt_msg_t *)luat_heap_malloc(sizeof(luat_mqtt_msg_t)+topic_len+payload_len);
+			mqtt_msg->topic_len = mqtt_parse_pub_topic(mqtt_ctrl->mqtt_packet_buffer, mqtt_msg->date);
+            mqtt_msg->payload_len = mqtt_parse_publish_msg(mqtt_ctrl->mqtt_packet_buffer, mqtt_msg->date+topic_len);
 			msg.ptr = mqtt_ctrl;
 			msg.arg1 = MQTT_MSG_PUBLISH;
 			msg.arg2 = mqtt_msg;

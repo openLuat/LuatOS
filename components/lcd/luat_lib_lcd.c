@@ -1143,22 +1143,6 @@ static int l_lcd_get_size(lua_State *L) {
   return 2;
 }
 
-static void lcd_DrawHXBM(uint16_t x, uint16_t y, uint16_t len, const uint8_t *b){
-  uint8_t mask;
-  mask = 1;
-  while(len > 0) {
-    if ( *b & mask ) luat_lcd_draw_hline(default_conf, x, y, 1,FORE_COLOR);
-    else luat_lcd_draw_vline(default_conf, x, y, 1,BACK_COLOR);
-    x++;
-    mask <<= 1;
-    if ( mask == 0 ){
-      mask = 1;
-      b++;
-    }
-    len--;
-  }
-}
-
 /*
 绘制位图
 @api lcd.drawXbm(x, y, w, h, data)
@@ -1168,7 +1152,7 @@ static void lcd_DrawHXBM(uint16_t x, uint16_t y, uint16_t len, const uint8_t *b)
 @int 位图高
 @int 位图数据,每一位代表一个像素
 @usage
--- 取模使用PCtoLCD2002软件即可
+-- 取模使用PCtoLCD2002软件即可 阴码 逐行 逆向
 -- 在(0,0)为左上角,绘制 16x16 "今" 的位图
 lcd.drawXbm(0, 0, 16,16, string.char(
     0x80,0x00,0x80,0x00,0x40,0x01,0x20,0x02,0x10,0x04,0x48,0x08,0x84,0x10,0x83,0x60,
@@ -1182,20 +1166,30 @@ static int l_lcd_drawxbm(lua_State *L){
     int h = luaL_checkinteger(L, 4);
     size_t len = 0;
     const char* data = luaL_checklstring(L, 5, &len);
-
+    uint8_t mask = 1;
     if (h < 1) return 0; // 行数必须大于0
     if (len*8/h < w) return 0; // 起码要填满一行
-    if (len != h*w/8)return 0;
-    uint8_t blen;
-    blen = w;
-    blen += 7;
-    blen >>= 3;
-    while( h > 0 ){
-      lcd_DrawHXBM(x, y, w, (const uint8_t*)data);
-      data += blen;
-      y++;
-      h--;
+    int w1 = w/8;
+    if (w%8)w1++;
+    if (len != h*w1)return 0;
+    luat_color_t* color_w = luat_heap_malloc(sizeof(luat_color_t) * w);
+    for (size_t b = 0; b < h; b++){
+      size_t a = 0;
+      while (a < w){
+        for (size_t c = 0; c < 8; c++){
+          if (*data&(mask<<c)){
+            color_w[a]=FORE_COLOR;
+          }else{
+            color_w[a]=BACK_COLOR;
+          }
+          a++;
+          if (a == w)break;
+        }
+        data++;
+      }
+      luat_lcd_draw(default_conf, x, y+b, x+w-1, y+b, color_w);
     }
+    luat_heap_free(color_w);
     lcd_auto_flush(default_conf);
     lua_pushboolean(L, 1);
     return 1;

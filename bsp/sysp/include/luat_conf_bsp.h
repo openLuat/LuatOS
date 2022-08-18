@@ -4,6 +4,7 @@
 
 #define LUAT_USE_FS_VFS 1
 #define LUAT_USE_VFS_INLINE_LIB 1
+#define LUAT_VFS_FILESYSTEM_MOUNT_MAX (256)
 
 
 //---------------------

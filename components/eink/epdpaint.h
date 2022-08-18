@@ -46,7 +46,6 @@ typedef struct Paint_t {
     uint16_t height;
     uint16_t rotate;
     uint16_t inited;
-    u8g2_t luat_eink_u8g2 ;
 } Paint;
 
 void Paint_Init(Paint* paint, unsigned char* image, int width, int height);

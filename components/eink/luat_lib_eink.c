@@ -38,11 +38,23 @@ uint8_t u8g2_font_decode_get_unsigned_bits(u8g2_font_decode_t *f, uint8_t cnt);
 #define LUAT_LOG_TAG "eink"
 #endif
 
-static uint32_t eink_str_color;
+typedef struct eink_ctx
+{
+  uint32_t str_color;
+  Paint paint;
+  uint8_t fb[];
+}eink_ctx_t;
+
+static uint32_t ctx_index = 0;
+static eink_ctx_t *ctxs[2]; // 暂时只支持2种颜色, 有需要的话后续继续加
+static u8g2_t luat_eink_u8g2;
+
+
+// static uint32_t eink_str_color;
 
 // static EPD epd;
-static Paint paint = {0};
-static unsigned char* frame_buffer = NULL;
+// static Paint paint = {0};
+// static unsigned char* frame_buffer = NULL;
 
 // #ifdef econf
 // #undef econf
@@ -57,6 +69,13 @@ eink_conf_t econf = {0};
 
 #define SPI_ID          (econf.spi_id)
 
+static int check_init(void) {
+    if (ctxs[0] == NULL) {
+      LLOGW("eink NOT init yet");
+      return 0;
+    }
+    return 1;
+}
 
 /**
 初始化eink
@@ -118,33 +137,45 @@ static int l_eink_setup(lua_State *L) {
 
     size_t epd_w = 0;
     size_t epd_h = 0;
+    size_t colors = 0;
     if(status == 0)
     {
         if(econf.full_mode)
-            status = EPD_Init(1, &epd_w, &epd_h);
+            status = EPD_Init(1, &epd_w, &epd_h, &colors);
         else
-            status = EPD_Init(0, &epd_w, &epd_h);
+            status = EPD_Init(0, &epd_w, &epd_h, &colors);
 
         if (status != 0) {
             LLOGD("e-Paper init failed");
             return 0;
         }
         LLOGD("spi setup complete, now setup epd");
-        if (frame_buffer == NULL)
-            frame_buffer = (unsigned char*)luat_heap_malloc(epd_w * epd_h / 8);
-
-        if (frame_buffer == NULL) {
-            LLOGD("e-Paper frame_buffer failed");
+        if (colors > 2) {
+            LLOGE("only 2 color eink supported yet");
             return 0;
         }
-        //   Paint paint;
-        Paint_Init(&paint, frame_buffer, epd_w, epd_h);
-        Paint_Clear(&paint, UNCOLORED);
+        for (size_t i = 0; i < colors; i++)
+        {
+            ctxs[i] = luat_heap_malloc( sizeof(eink_ctx_t) +  (epd_w * epd_h + 7) / 8);
+            if (ctxs[i] == NULL) {
+                LLOGE("out of memory when malloc buff for eink");
+                for (size_t j = 0; j < i - 1; j++)
+                {
+                    luat_heap_free(ctxs[i]);
+                    ctxs[i] = NULL;
+                }
+              return 0;
+            }
+            Paint_Init(&ctxs[i]->paint, ctxs[i]->fb, epd_w, epd_h);
+            Paint_Clear(&ctxs[i]->paint, UNCOLORED);
+            ctxs[i]->paint.inited = 1;
+        }
+
     }
-    u8g2_SetFont(&(paint.luat_eink_u8g2), u8g2_font_opposansm8);
-    u8g2_SetFontMode(&(paint.luat_eink_u8g2), 0);
-    u8g2_SetFontDirection(&(paint.luat_eink_u8g2), 0);
-    paint.inited = 1;
+    u8g2_SetFont(&(luat_eink_u8g2), u8g2_font_opposansm8);
+    u8g2_SetFontMode(&(luat_eink_u8g2), 0);
+    u8g2_SetFontDirection(&(luat_eink_u8g2), 0);
+    //paint.inited = 1;
     //LLOGD("epd init complete");
     lua_pushboolean(L, 1);
     return 1;
@@ -170,11 +201,9 @@ static int l_eink_sleep(lua_State *L)
 static int l_eink_clear(lua_State *L)
 {
     int colored = luaL_optinteger(L, 1, 1);
-    if (paint.inited == 0) {
-      LLOGW("eink NOT init yet");
-      return 0;
-    }
-    Paint_Clear(&paint, colored);
+    if (check_init() == 0)
+        return 0;
+    Paint_Clear(&ctxs[ctx_index]->paint, colored);
     if(lua_toboolean(L, 2))
       EPD_Clear();
     return 0;
@@ -194,9 +223,12 @@ static int l_eink_setWin(lua_State *L)
     int height = luaL_checkinteger(L, 2);
     int rotate = luaL_checkinteger(L, 3);
 
-    Paint_SetWidth(&paint, width);
-    Paint_SetHeight(&paint, height);
-    Paint_SetRotate(&paint, rotate);
+    if (check_init() == 0)
+        return 0;
+
+    Paint_SetWidth(&ctxs[ctx_index]->paint, width);
+    Paint_SetHeight(&ctxs[ctx_index]->paint, height);
+    Paint_SetRotate(&ctxs[ctx_index]->paint, rotate);
     return 0;
 }
 
@@ -209,9 +241,11 @@ static int l_eink_setWin(lua_State *L)
 */
 static int l_eink_getWin(lua_State *L)
 {
-    int width =  Paint_GetWidth(&paint);
-    int height = Paint_GetHeight(&paint);
-    int rotate = Paint_GetRotate(&paint);
+    if (check_init() == 0)
+        return 0;
+    int width =  Paint_GetWidth(&ctxs[ctx_index]->paint);
+    int height = Paint_GetHeight(&ctxs[ctx_index]->paint);
+    int rotate = Paint_GetRotate(&ctxs[ctx_index]->paint);
 
     lua_pushinteger(L, width);
     lua_pushinteger(L, height);
@@ -284,16 +318,16 @@ static void u8g2_draw_hv_line(u8g2_t *u8g2, int16_t x, int16_t y, int16_t len, u
   switch(dir)
   {
     case 0:
-      drawFastHLine(&paint,x,y,len,color);
+      drawFastHLine(&ctxs[ctx_index]->paint,x,y,len,color);
       break;
     case 1:
-        drawFastVLine(&paint,x,y,len,color);
+        drawFastVLine(&ctxs[ctx_index]->paint,x,y,len,color);
       break;
     case 2:
-        drawFastHLine(&paint,x-len+1,y,len,color);
+        drawFastHLine(&ctxs[ctx_index]->paint,x-len+1,y,len,color);
       break;
     case 3:
-        drawFastVLine(&paint,x,y-len+1,len,color);
+        drawFastVLine(&ctxs[ctx_index]->paint,x,y-len+1,len,color);
       break;
   }
 }
@@ -334,7 +368,7 @@ static void u8g2_font_decode_len(u8g2_t *u8g2, uint8_t len, uint8_t is_foregroun
     {
       if ( is_foreground )
       {
-	    u8g2_draw_hv_line(u8g2, x, y, current, decode->dir, eink_str_color);
+	    u8g2_draw_hv_line(u8g2, x, y, current, decode->dir, ctxs[ctx_index]->str_color);
       }
       else if ( decode->is_transparent == 0 )
       {
@@ -423,14 +457,8 @@ static int16_t u8g2_font_draw_glyph(u8g2_t *u8g2, int16_t x, int16_t y, uint16_t
 eink.setFont(eink.font_opposansm12_chinese)
 */
 static int l_eink_set_font(lua_State *L) {
-    if (paint.inited == 0) {
-      LLOGW("eink NOT init yet");
+    if (check_init() == 0) {
       return 0;
-    }
-    if (&(paint.luat_eink_u8g2) == NULL) {
-        LLOGI("disp not init yet!!!");
-        lua_pushboolean(L, 0);
-        return 1;
     }
     if (!lua_islightuserdata(L, 1)) {
         LLOGE("only font pointer is allow");
@@ -441,7 +469,7 @@ static int l_eink_set_font(lua_State *L) {
         LLOGE("only font pointer is allow");
         return 0;
     }
-    u8g2_SetFont(&(paint.luat_eink_u8g2), ptr);
+    u8g2_SetFont(&(luat_eink_u8g2), ptr);
     lua_pushboolean(L, 1);
     return 1;
 }
@@ -471,13 +499,12 @@ static int l_eink_print(lua_State *L)
     int x           = luaL_checkinteger(L, 1);
     int y           = luaL_checkinteger(L, 2);
     const char *str = luaL_checklstring(L, 3, &len);
-    eink_str_color  = luaL_optinteger(L, 4, 0);
 
     
-    if (paint.inited == 0) {
-      LLOGW("eink NOT init yet");
+    if (check_init() == 0) {
       return 0;
     }
+    ctxs[ctx_index]->str_color = luaL_optinteger(L, 4, 0);
 
     uint16_t e;
     int16_t delta, sum;
@@ -489,8 +516,8 @@ static int l_eink_print(lua_State *L)
         break;
         str++;
         if ( e != 0x0fffe ){
-        delta = u8g2_font_draw_glyph(&(paint.luat_eink_u8g2), x, y, e);
-        switch(paint.luat_eink_u8g2.font_decode.dir){
+        delta = u8g2_font_draw_glyph(&(luat_eink_u8g2), x, y, e);
+        switch(luat_eink_u8g2.font_decode.dir){
             case 0:
             x += delta;
             break;
@@ -524,16 +551,18 @@ static int l_eink_show(lua_State *L)
     // int y     = luaL_optinteger(L, 2, 0);
     int no_clear     = lua_toboolean(L, 3);
     /* Display the frame_buffer */
-    //EPD_SetFrameMemory(&epd, frame_buffer, x, y, Paint_GetWidth(&paint), Paint_GetHeight(&paint));
+    //EPD_SetFrameMemory(&epd, frame_buffer, x, y, Paint_GetWidth(&ctxs[ctx_index]->paint), Paint_GetHeight(&ctxs[ctx_index]->paint));
     //EPD_DisplayFrame(&epd);
     
-    if (paint.inited == 0) {
-      LLOGW("eink NOT init yet");
+    if (check_init() == 0) {
       return 0;
     }
     if(!no_clear)
       EPD_Clear();
-    EPD_Display(frame_buffer, NULL);
+    if (ctxs[1] == NULL)
+      EPD_Display(ctxs[0]->fb, NULL);
+    else
+      EPD_Display(ctxs[0]->fb, ctxs[1]->fb);
     return 0;
 }
 
@@ -553,8 +582,7 @@ static int l_eink_draw(lua_State *L)
     if (lua_isuserdata(L, 2)) {
       buff2 = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
     }
-    if (paint.inited == 0) {
-      LLOGW("eink NOT init yet");
+    if (check_init() == 0) {
       return 0;
     }
     if(!no_clear)
@@ -583,12 +611,11 @@ static int l_eink_line(lua_State *L)
     int y2      = luaL_checkinteger(L, 4);
     int colored = luaL_optinteger(L, 5, 0);
 
-    if (paint.inited == 0) {
-      LLOGW("eink NOT init yet");
+    if (check_init() == 0) {
       return 0;
     }
 
-    Paint_DrawLine(&paint, x, y, x2, y2, colored);
+    Paint_DrawLine(&ctxs[ctx_index]->paint, x, y, x2, y2, colored);
     return 0;
 }
 
@@ -615,15 +642,14 @@ static int l_eink_rect(lua_State *L)
     int colored = luaL_optinteger(L, 5, 0);
     int fill    = luaL_optinteger(L, 6, 0);
   
-    if (paint.inited == 0) {
-      LLOGW("eink NOT init yet");
+    if (check_init() == 0) {
       return 0;
     }
 
     if(fill)
-        Paint_DrawFilledRectangle(&paint, x, y, x2, y2, colored);
+        Paint_DrawFilledRectangle(&ctxs[ctx_index]->paint, x, y, x2, y2, colored);
     else
-        Paint_DrawRectangle(&paint, x, y, x2, y2, colored);
+        Paint_DrawRectangle(&ctxs[ctx_index]->paint, x, y, x2, y2, colored);
     return 0;
 }
 
@@ -648,15 +674,14 @@ static int l_eink_circle(lua_State *L)
     int colored = luaL_optinteger(L, 4, 0);
     int fill    = luaL_optinteger(L, 5, 0);
 
-    if (paint.inited == 0) {
-      LLOGW("eink NOT init yet");
+    if (check_init() == 0) {
       return 0;
     }
 
     if(fill)
-        Paint_DrawFilledCircle(&paint, x, y, radius, colored);
+        Paint_DrawFilledCircle(&ctxs[ctx_index]->paint, x, y, radius, colored);
     else
-        Paint_DrawCircle(&paint, x, y, radius, colored);
+        Paint_DrawCircle(&ctxs[ctx_index]->paint, x, y, radius, colored);
     return 0;
 }
 
@@ -677,8 +702,7 @@ static int l_eink_qrcode(lua_State *L)
     const char* text = luaL_checklstring(L, 3, &len);
     int size        = luaL_optinteger(L, 4,21);
 
-    if (paint.inited == 0) {
-      LLOGW("eink NOT init yet");
+    if (check_init() == 0) {
       return 0;
     }
 
@@ -703,7 +727,7 @@ static int l_eink_qrcode(lua_State *L)
         for (int j = 0; j < qr_size; j++) {
             for (int i = 0; i < qr_size; i++) {
                 if (qrcodegen_getModule(qrcode, i, j))
-                    Paint_DrawFilledRectangle(&paint,x+i*scale,y+j*scale,x+(i+1)*scale,y+(j+1)*scale,0);
+                    Paint_DrawFilledRectangle(&ctxs[ctx_index]->paint,x+i*scale,y+j*scale,x+(i+1)*scale,y+(j+1)*scale,0);
             }
         }
     }
@@ -745,16 +769,15 @@ static int l_eink_bat(lua_State *L)
     if(bat < 3500 && bat > 2500)batnum = 5;
     batnum = 20 - (int)(batnum / 5) + 3;
 
-    if (paint.inited == 0) {
-      LLOGW("eink NOT init yet");
+    if (check_init() == 0) {
       return 0;
     }
 
     // w外框
-    Paint_DrawRectangle(&paint, x+0, y+3, x+2, y+6, COLORED);
-    Paint_DrawRectangle(&paint, x+2, y+0, x+23, y+9, COLORED);
+    Paint_DrawRectangle(&ctxs[ctx_index]->paint, x+0, y+3, x+2, y+6, COLORED);
+    Paint_DrawRectangle(&ctxs[ctx_index]->paint, x+2, y+0, x+23, y+9, COLORED);
     // 3 ~21   100 / 5
-    Paint_DrawFilledRectangle(&paint, x+batnum, y+1, x+22, y+8, COLORED);
+    Paint_DrawFilledRectangle(&ctxs[ctx_index]->paint, x+batnum, y+1, x+22, y+8, COLORED);
 
     return 0;
 }
@@ -794,12 +817,11 @@ static int l_eink_weather_icon(lua_State *L)
     //     for (int j = 0; j < 8; j++)
     //     {
     //         for (int k = 0; k < 8; k++)
-    //             (gImage_103[i*8+j] << k )& 0x80 ? Paint_DrawPixel(&paint, x+j*8+k, y+i, COLORED) : Paint_DrawPixel(&paint, x+j*8+k, y+i, UNCOLORED);
+    //             (gImage_103[i*8+j] << k )& 0x80 ? Paint_DrawPixel(&ctxs[ctx_index]->paint, x+j*8+k, y+i, COLORED) : Paint_DrawPixel(&ctxs[ctx_index]->paint, x+j*8+k, y+i, UNCOLORED);
     //     }
     // }
 
-    if (paint.inited == 0) {
-      LLOGW("eink NOT init yet");
+    if (check_init() == 0) {
       return 0;
     }
 
@@ -857,7 +879,7 @@ static int l_eink_weather_icon(lua_State *L)
         for (int j = 0; j < 6; j++)
         {
             for (int k = 0; k < 8; k++)
-                (icon[i*6+j] << k )& 0x80 ? Paint_DrawPixel(&paint, x+j*8+k, y+i, COLORED) : Paint_DrawPixel(&paint, x+j*8+k, y+i, UNCOLORED);
+                (icon[i*6+j] << k )& 0x80 ? Paint_DrawPixel(&ctxs[ctx_index]->paint, x+j*8+k, y+i, COLORED) : Paint_DrawPixel(&ctxs[ctx_index]->paint, x+j*8+k, y+i, UNCOLORED);
         }
     }
 
@@ -899,7 +921,7 @@ static int l_eink_draw_gtfont_gb2312(lua_State *L) {
 		str = (strhigh<<8)|strlow;
 		fontCode++;
 		get_font(buf, 1, str, size, size, size);
-		gtfont_draw_w(buf , x ,y , size , size,Paint_DrawPixel,&paint,1);
+		gtfont_draw_w(buf , x ,y , size , size,Paint_DrawPixel,&ctxs[ctx_index]->paint,1);
 		x+=size;
 		i+=2;
 	}
@@ -925,7 +947,7 @@ static int l_eink_draw_gtfont_gb2312_gray(lua_State* L) {
 		fontCode++;
 		get_font(buf, 1, str, size*font_g, size*font_g, size*font_g);
 		Gray_Process(buf,size,size,font_g);
-		gtfont_draw_gray_hz(buf, x, y, size , size, font_g, 1,Paint_DrawPixel,&paint,1);
+		gtfont_draw_gray_hz(buf, x, y, size , size, font_g, 1,Paint_DrawPixel,&ctxs[ctx_index]->paint,1);
 		x+=size;
 		i+=2;
 	}
@@ -952,7 +974,7 @@ static int l_eink_draw_gtfont_utf8(lua_State *L) {
       if ( e != 0x0fffe ){
         uint16_t str = unicodetogb2312(e);
         get_font(buf, 1, str, size, size, size);
-        gtfont_draw_w(buf , x ,y , size , size,Paint_DrawPixel,&paint,1);
+        gtfont_draw_w(buf , x ,y , size , size,Paint_DrawPixel,&ctxs[ctx_index]->paint,1);
         x+=size;
       }
     }
@@ -979,7 +1001,7 @@ static int l_eink_draw_gtfont_utf8_gray(lua_State* L) {
 			uint16_t str = unicodetogb2312(e);
 			get_font(buf, 1, str, size*font_g, size*font_g, size*font_g);
 			Gray_Process(buf,size,size,font_g);
-      gtfont_draw_gray_hz(buf, x, y, size , size, font_g, 1,Paint_DrawPixel,&paint,1);
+      gtfont_draw_gray_hz(buf, x, y, size , size, font_g, 1,Paint_DrawPixel,&ctxs[ctx_index]->paint,1);
         	x+=size;
         }
     }
@@ -992,13 +1014,13 @@ static int l_eink_draw_gtfont_utf8_gray(lua_State* L) {
 
 static void eink_DrawHXBM(uint16_t x, uint16_t y, uint16_t len, const uint8_t *b){
   uint8_t mask = 1;
-  if (paint.inited == 0) {
-    LLOGW("eink NOT init yet");
+
+  if (check_init() == 0) {
     return 0;
   }
   while(len > 0) {
-    if ( *b & mask ) drawFastHLine(&paint, x, y, 1,COLORED);
-    else drawFastVLine(&paint, x, y, 1,UNCOLORED);
+    if ( *b & mask ) drawFastHLine(&ctxs[ctx_index]->paint, x, y, 1,COLORED);
+    else drawFastVLine(&ctxs[ctx_index]->paint, x, y, 1,UNCOLORED);
     x++;
     mask <<= 1;
     if ( mask == 0 ){
@@ -1036,8 +1058,7 @@ static int l_eink_drawXbm(lua_State *L){
     if (len*8/h < w) return 0; // 起码要填满一行
     if (len != h*w/8)return 0;
 
-    if (paint.inited == 0) {
-      LLOGW("eink NOT init yet");
+    if (check_init() == 0) {
       return 0;
     }
 
@@ -1053,6 +1074,30 @@ static int l_eink_drawXbm(lua_State *L){
     }
     lua_pushboolean(L, 1);
     return 1;
+}
+
+/*
+切换颜色画板, 适合多色墨水屏
+@api eink.setCtx(index)
+@int 颜色索引, 黑色为0, 红色为1
+@usage
+-- 仅适合多色墨水屏, 对单色墨水屏(只有黑白)的无效
+eink.setCtx(1)
+-- 切换后, 所有drawXXX都会操作在指定颜色的画板
+*/
+static int l_eink_set_ctx(lua_State *L) {
+  int index = luaL_checkinteger(L, 1);
+  if (index < 0 || index > 1) {
+    LLOGE("invaild ctx index %d", index);
+    return 0;
+  }
+  if (ctxs[index] == NULL) {
+    LLOGE("invaild ctx index %d", index);
+    return 0;
+  }
+  ctx_index = index;
+  lua_pushboolean(L, 1);
+  return 1;
 }
 
 #include "rotable2.h"
@@ -1077,6 +1122,7 @@ static const rotable_Reg_t reg_eink[] =
     { "model",          ROREG_FUNC(l_eink_model)},
     { "drawXbm",        ROREG_FUNC(l_eink_drawXbm)},
     { "draw",           ROREG_FUNC(l_eink_draw)},
+    { "setCtx",         ROREG_FUNC(l_eink_set_ctx)},
 #ifdef LUAT_USE_GTFONT
     { "drawGtfontGb2312", ROREG_FUNC(l_eink_draw_gtfont_gb2312)},
     { "drawGtfontGb2312Gray", ROREG_FUNC(l_eink_draw_gtfont_gb2312_gray)},

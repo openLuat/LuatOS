@@ -7,10 +7,11 @@
 #include "DEV_Config.h"
 
 void EPD_Model(UBYTE model);
-int EPD_Init(UBYTE Mode, size_t *w, size_t *h);
+int EPD_Init(UBYTE Mode, size_t *w, size_t *h, size_t* color_count);
 void EPD_Clear(void);
 void EPD_Display(UBYTE *Image, UBYTE *Image2);
 void EPD_Sleep(void);
+void EPD_ReadBusy(void);
 
 enum EPD_MODEL {
         MODEL_1in02d = 1,

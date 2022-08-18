@@ -354,7 +354,12 @@ static int l_mqtt_on(lua_State *L) {
 static int l_mqtt_connect(lua_State *L) {
 	luat_mqtt_ctrl_t * mqtt_ctrl = get_mqtt_ctrl(L);
 	int ret = network_wait_link_up(mqtt_ctrl->netc, 0);
-	// LLOGD("ret:%d",ret);
+	if (ret == 0){
+		int ret = luat_socket_connect(mqtt_ctrl, mqtt_ctrl->ip, mqtt_ctrl->remote_port, mqtt_ctrl->keepalive);
+		if(ret){
+			LLOGD("init_socket ret=%d\n", ret);
+		}
+	}
 	return 0;
 }
 

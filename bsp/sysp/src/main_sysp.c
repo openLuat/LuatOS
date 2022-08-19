@@ -22,7 +22,7 @@
 int luat_sysp_init(void);
 int luat_sysp_loop(void);
 
-#define LUAT_HEAP_SIZE (1024*1024)
+#define LUAT_HEAP_SIZE (256*1024)
 uint8_t luavm_heap[LUAT_HEAP_SIZE] = {0};
 
 void luat_timer_check(void);
@@ -42,6 +42,7 @@ void luat_custom_init(lua_State *L) {
 static uint32_t sysp_state = 0;
 void emscripten_request_animation_frame_loop(EM_BOOL (*cb)(double time, void *userData), void *userData);
 EM_BOOL luat_wasm_check(double time, void* userData) {
+    // LLOGD("sysp_state %d", sysp_state);
     if (sysp_state == 0)
         return 1;
     //LLOGD("CALL luat_wasm_check");
@@ -68,10 +69,12 @@ int EMSCRIPTEN_KEEPALIVE luat_sysp_start(void) {
 
 
 int EMSCRIPTEN_KEEPALIVE luat_fs_append_onefile(const char* path, const char* data, size_t len) {
+    LLOGD("add file %s %p %d", path, data, len);
 	if (len == 0)
 		len = strlen(data);
     char dst[256];
     sprintf(dst, "/luadb%s", path);
+    LLOGD("file to /luadb%s size %d", path, len);
 	FILE* fd = fopen(dst, "w");
 	if (fd) {
 		fwrite(data, len, 1, fd);
@@ -80,23 +83,52 @@ int EMSCRIPTEN_KEEPALIVE luat_fs_append_onefile(const char* path, const char* da
 	}
     return 0;
 }
+
+int luat_str_base64_decode( unsigned char *dst, size_t dlen, size_t *olen,
+                   const unsigned char *src, size_t slen );
+int EMSCRIPTEN_KEEPALIVE luat_fs_append_base64(const char* path, const char* data) {
+    size_t len = strlen(data);
+	if (len == 0)
+		len = strlen(data);
+    char dst[256] = {0};
+    unsigned char *buff = luat_heap_malloc(len);
+    if (buff == NULL) {
+        LLOGD("out of memory when malloc onefile");
+        return 0;
+    }
+    size_t olen = 0;
+    luat_str_base64_decode(buff, len, &olen, data, len);
+    sprintf(dst, "/luadb%s", path);
+    LLOGD("file to /luadb%s size %d", path, olen);
+	FILE* fd = fopen(dst, "w");
+	if (fd) {
+		fwrite(buff, olen, 1, fd);
+		fflush(fd);
+		fclose(fd);
+	}
+    return 0;
+}
 #endif
 
 int main(int argc, char** argv) {
+    //LLOGI("sysp main start");
     bpool(luavm_heap, LUAT_HEAP_SIZE);
     luat_fs_init();
 #ifdef LUAT_USE_LVGL
     lv_init();
 #endif
 #ifdef __EMSCRIPTEN__
+    LLOGI("sysp main __EMSCRIPTEN__");
     emscripten_request_animation_frame_loop(luat_wasm_check, 0);
 #else
+    //LLOGI("sysp main normal");
     luat_sysp_init();
     while (1) {
         luat_timer_mdelay(5);
         luat_sysp_loop();
     }
 #endif
+    //LLOGI("sysp main exit");
     return 0;
 }
 

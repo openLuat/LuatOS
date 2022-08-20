@@ -104,6 +104,12 @@ static int32_t l_mqtt_callback(lua_State *L, void* ptr)
 					lua_pushstring(L, "conack");
 					lua_call(L, 2, 0);
 				}
+				lua_getglobal(L, "sys_pub");
+				if (lua_isfunction(L, -1)) {
+					lua_pushstring(L, "MQTT_CONNACK");
+					lua_pushlightuserdata(L, mqtt_ctrl);
+					lua_call(L, 2, 0);
+				}
             }
             break;
         }
@@ -153,7 +159,13 @@ static int mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
 			break;
 		}
 		case MQTT_MSG_PUBREC : {
+			uint16_t msg_id=mqtt_parse_msg_id(mqtt_ctrl->broker);
+			mqtt_pubrel(mqtt_ctrl->broker, msg_id);
 			LLOGD("MQTT_MSG_PUBREC");
+			break;
+		}
+		case MQTT_MSG_PUBCOMP : {
+			LLOGD("MQTT_MSG_PUBCOMP");
 			break;
 		}
 		case MQTT_MSG_SUBSCRIBE : {
@@ -185,7 +197,7 @@ static int mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
             break;
         }
         default : {
-			LLOGD("mqtt_msg_cb no");
+			LLOGD("mqtt_msg_cb error msg_tp:%d",msg_tp);
             break;
         }
     }

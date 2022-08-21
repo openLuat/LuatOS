@@ -1,12 +1,12 @@
 name: 8850
 
 on:
-  push:
-    paths:
-      - '.github/workflows/8850.yml'
-      - 'lua/**'
-      - 'luat/**'
-      - 'components/**'
+  # push:
+  #   paths:
+  #     - '.github/workflows/8850.yml'
+  #     - 'lua/**'
+  #     - 'luat/**'
+  #     - 'components/**'
   workflow_dispatch:
   repository_dispatch:
     types:

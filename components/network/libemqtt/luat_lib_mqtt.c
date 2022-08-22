@@ -113,6 +113,22 @@ static int32_t l_mqtt_callback(lua_State *L, void* ptr)
             }
             break;
         }
+		case MQTT_MSG_PUBACK:
+		case MQTT_MSG_PUBCOMP: {
+			if (mqtt_cbs[mqtt_ctrl->mqtt_id]) {
+				lua_geti(L, LUA_REGISTRYINDEX, mqtt_cbs[mqtt_ctrl->mqtt_id]);
+				if (lua_isfunction(L, -1)) {
+					lua_pushlightuserdata(L, mqtt_ctrl);
+					lua_pushstring(L, "send");
+					lua_call(L, 2, 0);
+				}
+            }
+            break;
+        }
+		default : {
+			LLOGD("l_mqtt_callback error arg1:%d",msg->arg1);
+            break;
+        }
     }
     lua_pushinteger(L, 0);
     return 1;
@@ -156,6 +172,9 @@ static int mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
         }
         case MQTT_MSG_PUBACK : {
 			LLOGD("MQTT_MSG_PUBACK");
+			msg.ptr = mqtt_ctrl;
+			msg.arg1 = MQTT_MSG_PUBACK;
+			luat_msgbus_put(&msg, 0);
 			break;
 		}
 		case MQTT_MSG_PUBREC : {
@@ -166,6 +185,9 @@ static int mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
 		}
 		case MQTT_MSG_PUBCOMP : {
 			LLOGD("MQTT_MSG_PUBCOMP");
+			msg.ptr = mqtt_ctrl;
+			msg.arg1 = MQTT_MSG_PUBCOMP;
+			luat_msgbus_put(&msg, 0);
 			break;
 		}
 		case MQTT_MSG_SUBSCRIBE : {

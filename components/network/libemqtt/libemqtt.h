@@ -261,7 +261,7 @@ int mqtt_pubrel(mqtt_broker_handle_t* broker, uint16_t message_id);
  * @retval  0 On connection error.
  * @retval -1 On IO error.
  */
-int mqtt_subscribe(mqtt_broker_handle_t* broker, const char* topic, uint16_t* message_id);
+int mqtt_subscribe(mqtt_broker_handle_t* broker, const char* topic, uint16_t* message_id, uint8_t qos);
 
 /** Unsubscribe from a topic.
  * @param broker Data structure that contains the connection information with the broker.

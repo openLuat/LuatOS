@@ -275,7 +275,8 @@ static int l_mqtt_subscribe(lua_State *L) {
 	size_t len;
 	luat_mqtt_ctrl_t * mqtt_ctrl = (luat_mqtt_ctrl_t *)lua_touserdata(L, 1);
 	const char * topic = luaL_checklstring(L, 2, &len);
-	int subscribe_state = mqtt_subscribe(mqtt_ctrl->broker, topic, NULL);
+	uint8_t qos = luaL_optinteger(L, 3, 0);
+	int subscribe_state = mqtt_subscribe(mqtt_ctrl->broker, topic, NULL,qos);
 	return 0;
 }
 

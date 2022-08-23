@@ -61,6 +61,7 @@ unsigned int get_timestamp(void);
 #define LV_MEM_CUSTOM 1
 #define LUAT_LV_DEBUG 0
 #define LUAT_USE_LVGL_INDEV 1
+#define LV_USE_LOG 1
 
 #define LUAT_USE_LVGL_ARC   //圆弧 无依赖
 #define LUAT_USE_LVGL_BAR   //进度条 无依赖

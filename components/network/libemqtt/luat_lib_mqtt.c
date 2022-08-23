@@ -326,8 +326,12 @@ static int32_t luat_lib_mqtt_callback(void *data, void *param){
 	}else if(event->ID == EV_NW_RESULT_CONNECT){
 		mqtt_connect(mqtt_ctrl->broker);
 	}else if(event->ID == EV_NW_RESULT_EVENT){
-		ret = mqtt_read_packet(mqtt_ctrl);
-		LLOGD("mqtt_read_packet ret:%d",ret);
+		if (event->Param1==0){
+			ret = mqtt_read_packet(mqtt_ctrl);
+			LLOGD("mqtt_read_packet ret:%d",ret);
+		}else{
+
+		}
 	}else if(event->ID == EV_NW_RESULT_TX){
 
 	}else if(event->ID == EV_NW_RESULT_CLOSE){
@@ -373,8 +377,11 @@ static int l_mqtt_unsubscribe(lua_State *L) {
 	return 0;
 }
 
-
 static int l_mqtt_create(lua_State *L) {
+	size_t client_cert_len, client_key_len, client_password_len;
+	const char *client_cert = NULL;
+	const char *client_key = NULL;
+	const char *client_password = NULL;
 	int adapter_index = luaL_optinteger(L, 1, network_get_last_register_adapter());
 	if (adapter_index < 0 || adapter_index >= NW_ADAPTER_QTY){
 		// lua_pushnil(L);
@@ -403,9 +410,29 @@ static int l_mqtt_create(lua_State *L) {
 
 	network_set_base_mode(mqtt_ctrl->netc, 1, 10000, 0, 0, 0, 0);
 	network_set_local_port(mqtt_ctrl->netc, 0);
-
-	//后面再加tls
-	network_deinit_tls(mqtt_ctrl->netc);
+	uint8_t is_tls = 0;
+	if (lua_isboolean(L, 4)){
+		is_tls = lua_toboolean(L, 4);
+	}
+	if (lua_isstring(L, 5)){
+		client_cert = luaL_checklstring(L, 5, &client_cert_len);
+	}
+	if (lua_isstring(L, 6)){
+		client_key = luaL_checklstring(L, 6, &client_key_len);
+	}
+	if (lua_isstring(L, 7)){
+		client_password = luaL_checklstring(L, 7, &client_password_len);
+	}
+	if (is_tls){
+		network_init_tls(mqtt_ctrl->netc, client_cert?2:0);
+		if (client_cert){
+			network_set_client_cert(mqtt_ctrl->netc, client_cert, client_cert_len,
+					client_key, client_key_len,
+					client_password, client_password_len);
+		}
+	}else{
+		network_deinit_tls(mqtt_ctrl->netc);
+	}
 
 	int packet_length = 0;
 	uint16_t msg_id = 0, msg_id_rcv = 0;
@@ -482,8 +509,10 @@ static int l_mqtt_publish(lua_State *L) {
 	const char * payload = luaL_checkstring(L, 3);
 	uint8_t qos = luaL_optinteger(L, 4, 0);
 	uint8_t retain = luaL_optinteger(L, 5, 0);
-	mqtt_publish_with_qos(mqtt_ctrl->broker, topic, payload, retain, qos, &message_id);
-	// TODO 判断一下mqtt_publish_with_qos的返回值哦
+	int ret = mqtt_publish_with_qos(mqtt_ctrl->broker, topic, payload, retain, qos, &message_id);
+	if (ret!=1){
+		return 0;
+	}
 	if (qos == 0){
 		rtos_msg_t msg = {0};
     	msg.handler = l_mqtt_callback;

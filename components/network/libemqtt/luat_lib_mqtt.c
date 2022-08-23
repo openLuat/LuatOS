@@ -449,16 +449,6 @@ static int l_mqtt_keepalive(lua_State *L) {
 	return 0;
 }
 
-static int l_mqtt_topics(lua_State *L) {
-	luat_mqtt_ctrl_t * mqtt_ctrl = get_mqtt_ctrl(L);
-	return 0;
-}
-
-static int l_mqtt_qos2auto(lua_State *L) {
-	luat_mqtt_ctrl_t * mqtt_ctrl = get_mqtt_ctrl(L);
-	return 0;
-}
-
 static int l_mqtt_on(lua_State *L) {
 	luat_mqtt_ctrl_t * mqtt_ctrl = get_mqtt_ctrl(L);
 	if (mqtt_cbs[mqtt_ctrl->mqtt_id] != 0) {
@@ -534,14 +524,6 @@ int _mqtt_struct_newindex(lua_State *L) {
         lua_pushcfunction(L, l_mqtt_keepalive);
         return 1;
     }
-    else if (!strcmp("topics", key)) {
-        lua_pushcfunction(L, l_mqtt_topics);
-        return 1;
-    }
-    else if (!strcmp("qos2auto", key)) {
-        lua_pushcfunction(L, l_mqtt_qos2auto);
-        return 1;
-    }
 	else if (!strcmp("on", key)) {
         lua_pushcfunction(L, l_mqtt_on);
         return 1;
@@ -590,8 +572,6 @@ static const rotable_Reg_t reg_mqtt[] =
 	{"create",			ROREG_FUNC(l_mqtt_create)},
 	{"auth",			ROREG_FUNC(l_mqtt_auth)},
 	{"keepalive",		ROREG_FUNC(l_mqtt_keepalive)},
-	{"topics",			ROREG_FUNC(l_mqtt_topics)},
-	{"qos2auto",		ROREG_FUNC(l_mqtt_qos2auto)},
 	{"on",				ROREG_FUNC(l_mqtt_on)},
 	{"connect",			ROREG_FUNC(l_mqtt_connect)},
 	{"publish",			ROREG_FUNC(l_mqtt_publish)},

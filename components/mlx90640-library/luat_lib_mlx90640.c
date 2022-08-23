@@ -37,9 +37,18 @@ static luat_lcd_conf_t* lcd_conf;
 #define RAW_DATA_W 32
 #define RAW_DATA_H 24
 #define RAW_DATA_SIZE RAW_DATA_W*RAW_DATA_H
-static uint16_t eeMLX90640[832];
-static float mlx90640To[RAW_DATA_SIZE];
-static uint16_t frame[834];
+typedef struct mlx_ctx
+{
+    uint16_t eeMLX90640[832];
+    float mlx90640To[RAW_DATA_SIZE];
+    uint16_t frame[834];
+}mlx_ctx_t;
+
+static mlx_ctx_t* ctx = NULL;
+
+// static uint16_t eeMLX90640[832];
+// static float mlx90640To[RAW_DATA_SIZE];
+// static uint16_t frame[834];
 static float emissivity=0.95;
 static int status;
 static float vdd;
@@ -114,34 +123,43 @@ static int l_mlx90640_init(lua_State *L){
     mlx90640_i2c_speed = luaL_optinteger(L, 2 , 1);
     mlx90640_refresh_rate = luaL_optinteger(L, 3 , 3);
     lcd_conf = luat_lcd_get_default();
+
+    if (ctx == NULL) {
+        ctx = luat_heap_malloc(sizeof(mlx_ctx_t));
+        if (ctx == NULL) {
+            LLOGE("out of memory when malloc mlx_ctx_t");
+            return 0;
+        }
+    }
+
     MLX90640_I2CInit();
     mlx90640 = (paramsMLX90640*)luat_heap_malloc(sizeof(paramsMLX90640));
     MLX90640_SetRefreshRate(MLX90640_ADDR, mlx90640_refresh_rate);
     MLX90640_SetChessMode(MLX90640_ADDR);
-	status = MLX90640_DumpEE(MLX90640_ADDR, eeMLX90640);
+	status = MLX90640_DumpEE(MLX90640_ADDR, ctx->eeMLX90640);
 	if (status != 0){
         LLOGW("load system parameters error with code:%d",status);
         return 0;
     }
-	status = MLX90640_ExtractParameters(eeMLX90640, mlx90640);
+	status = MLX90640_ExtractParameters(ctx->eeMLX90640, mlx90640);
 	if (status != 0) {
         LLOGW("Parameter extraction failed with error code:%d",status);
         return 0;
     }
     //初始化后此处先读帧,去掉初始化后一些错误数据
     for (size_t i = 0; i < 3; i++){
-        int status = MLX90640_GetFrameData(MLX90640_ADDR, frame);
+        int status = MLX90640_GetFrameData(MLX90640_ADDR, ctx->frame);
         if (status < 0){
             LLOGD("GetFrame Error: %d",status);
             return 0;
         }
-        vdd = MLX90640_GetVdd(frame, mlx90640);
-        Ta = MLX90640_GetTa(frame, mlx90640);
-        MLX90640_CalculateTo(frame, mlx90640, emissivity , Ta - TA_SHIFT, mlx90640To);
-        MLX90640_BadPixelsCorrection(mlx90640->brokenPixels, mlx90640To, 1, mlx90640);
-        MLX90640_BadPixelsCorrection(mlx90640->outlierPixels, mlx90640To, 1, mlx90640);
-        lua_pushboolean(L, 1);
+        vdd = MLX90640_GetVdd(ctx->frame, mlx90640);
+        Ta = MLX90640_GetTa(ctx->frame, mlx90640);
+        MLX90640_CalculateTo(ctx->frame, mlx90640, emissivity , Ta - TA_SHIFT, ctx->mlx90640To);
+        MLX90640_BadPixelsCorrection(mlx90640->brokenPixels, ctx->mlx90640To, 1, mlx90640);
+        MLX90640_BadPixelsCorrection(mlx90640->outlierPixels, ctx->mlx90640To, 1, mlx90640);
     }
+    lua_pushboolean(L, 1);
     return 1;
 }
 
@@ -150,16 +168,20 @@ static int l_mlx90640_init(lua_State *L){
 @api mlx90640.feed()
 */
 static int l_mlx90640_feed(lua_State *L) {
-    int status = MLX90640_GetFrameData(MLX90640_ADDR, frame);
+    if (ctx == NULL) {
+        LLOGE("mlx90640 NOT init yet");
+        return 0;
+    }
+    int status = MLX90640_GetFrameData(MLX90640_ADDR, ctx->frame);
     if (status < 0){
         LLOGD("GetFrame Error: %d",status);
         return 0;
     }
-    vdd = MLX90640_GetVdd(frame, mlx90640);
-    Ta = MLX90640_GetTa(frame, mlx90640);
-    MLX90640_CalculateTo(frame, mlx90640, emissivity , Ta - TA_SHIFT, mlx90640To);
-    MLX90640_BadPixelsCorrection(mlx90640->brokenPixels, mlx90640To, 1, mlx90640);
-    MLX90640_BadPixelsCorrection(mlx90640->outlierPixels, mlx90640To, 1, mlx90640);
+    vdd = MLX90640_GetVdd(ctx->frame, mlx90640);
+    Ta = MLX90640_GetTa(ctx->frame, mlx90640);
+    MLX90640_CalculateTo(ctx->frame, mlx90640, emissivity , Ta - TA_SHIFT, ctx->mlx90640To);
+    MLX90640_BadPixelsCorrection(mlx90640->brokenPixels, ctx->mlx90640To, 1, mlx90640);
+    MLX90640_BadPixelsCorrection(mlx90640->outlierPixels, ctx->mlx90640To, 1, mlx90640);
     lua_pushboolean(L, 1);
     return 0;
 }
@@ -170,10 +192,14 @@ static int l_mlx90640_feed(lua_State *L) {
 @return table 浮点数数据,768个像素对应的温度值
 */
 static int l_mlx90640_raw_data(lua_State *L) {
+    if (ctx == NULL) {
+        LLOGE("mlx90640 NOT init yet");
+        return 0;
+    }
     lua_createtable(L, RAW_DATA_SIZE, 0);
     for (size_t i = 0; i < RAW_DATA_SIZE; i++)
     {
-        lua_pushnumber(L, mlx90640To[i]);
+        lua_pushnumber(L, ctx->mlx90640To[i]);
         lua_seti(L, -2, i + 1);
     }
     return 1;
@@ -186,7 +212,11 @@ static int l_mlx90640_raw_data(lua_State *L) {
 @return number 单点温度值
 */
 static int l_mlx90640_raw_point(lua_State *L) {
-    lua_pushnumber(L, mlx90640To[luaL_checkinteger(L, 1)]);
+    if (ctx == NULL) {
+        LLOGE("mlx90640 NOT init yet");
+        return 0;
+    }
+    lua_pushnumber(L, ctx->mlx90640To[luaL_checkinteger(L, 1)]);
     return 1;
 }
 
@@ -209,10 +239,14 @@ static int l_mlx90640_ta_temp(lua_State *L) {
 static int l_mlx90640_max_temp(lua_State *L) {
     float max_temp = -40;
     uint16_t index = 0;
+    if (ctx == NULL) {
+        LLOGE("mlx90640 NOT init yet");
+        return 0;
+    }
     for (size_t i = 0; i < RAW_DATA_SIZE; i++){
-        if (mlx90640To[i]>max_temp)
+        if (ctx->mlx90640To[i]>max_temp)
         {
-            max_temp = mlx90640To[i];
+            max_temp = ctx->mlx90640To[i];
             index = i;
         }
     }
@@ -230,10 +264,14 @@ static int l_mlx90640_max_temp(lua_State *L) {
 static int l_mlx90640_min_temp(lua_State *L) {
     float min_temp = 300;
     uint16_t index = 0;
+    if (ctx == NULL) {
+        LLOGE("mlx90640 NOT init yet");
+        return 0;
+    }
     for (size_t i = 0; i < RAW_DATA_SIZE; i++){
-        if (mlx90640To[i]<min_temp)
+        if (ctx->mlx90640To[i]<min_temp)
         {
-            min_temp = mlx90640To[i];
+            min_temp = ctx->mlx90640To[i];
             index = i;
         }
     }
@@ -250,11 +288,15 @@ static int l_mlx90640_min_temp(lua_State *L) {
 static int l_mlx90640_average_temp(lua_State *L) {
     float temp[RAW_DATA_H] = {0};
     float temp1=0;
+    if (ctx == NULL) {
+        LLOGE("mlx90640 NOT init yet");
+        return 0;
+    }
     for (size_t j = 0; j < RAW_DATA_H; j++)
     {
         for (size_t i = 0; i < RAW_DATA_W; i++)
         {
-            temp1+=mlx90640To[i];
+            temp1 += ctx->mlx90640To[i];
         }
         temp[j]=temp1/RAW_DATA_W;
         temp1 = 0;
@@ -368,7 +410,7 @@ static int l_mlx90640_draw2lcd(lua_State *L) {
 
     uint8_t* index_data = luat_heap_malloc(RAW_DATA_SIZE);
     for (size_t i = 0; i < RAW_DATA_SIZE; i++){
-        float t = mlx90640To[i];
+        float t = ctx->mlx90640To[i];
         if (t<MINTEMP) t=MINTEMP;
         if (t>MAXTEMP) t=MAXTEMP;
         uint8_t colorIndex = (uint8_t)round(map(t, MINTEMP, MAXTEMP, 0, 255));

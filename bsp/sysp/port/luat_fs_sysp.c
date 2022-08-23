@@ -39,7 +39,7 @@ int luat_fs_init(void) {
 		.busname = "posix",
 		.type = "posix",
 		.filesystem = "posix",
-		.mount_point = "/",
+		.mount_point = "",
 	};
 	luat_fs_mount(&conf);
 	mkdir("/luadb", S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);

@@ -21,7 +21,7 @@ w5500.bind(network.ETH0)
 --network.setDNS(network.ETH0, 1, "114.114.114.114")
 
 --下面演示用阻塞方式做串口透传远程服务器，简单的串口DTU，用串口3，局域网内IP，IP可以换成域名，端口换成你自己的
-require "dtu_demo"
+-- require "dtu_demo"
 -- dtuDemo(3, "10.0.0.3", 12000)
 -- 下面演示用回调方式实现NTP校准时间功能
 require "ntp_demo"
@@ -29,9 +29,13 @@ ntpDemo()
 
 -- require "ota_demo"
 -- otaDemo()
-require "server_demo"
+-- require "server_demo"
 -- SerDemo(14000)	--14000是本地端口
-UDPSerDemo(14000)	--UDP的server demo
+-- UDPSerDemo(14000)	--UDP的server demo
+
+-- require "mqtt_demo"
+-- mqttDemo()
+
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()

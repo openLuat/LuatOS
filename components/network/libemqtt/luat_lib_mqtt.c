@@ -16,7 +16,8 @@ typedef struct
 	network_ctrl_t *netc;
 	luat_ip_addr_t *ip_addr;
 	const char *ip; // 这是host?
-	uint16_t buffer_offset; // 用于标识mqtt_packet_buffer当前有多少数据
+	uint16_t buffer_offset; // 用于标识mqtt_packet_buffer当前头偏移
+	uint16_t buffer_unpack_len; // 用于标识mqtt_packet_buffer当前有多少数据
 	uint8_t mqtt_packet_buffer[MQTT_RECV_BUF_LEN_MAX + 4];
 	uint8_t mqtt_id; // 对应mqtt_cbs的索引, TODO, 既然要存function的ref_id, 为啥不直接存呢
 	uint16_t remote_port; // 远程端口号
@@ -85,20 +86,20 @@ static int packet_parse(luat_mqtt_ctrl_t *mqtt_ctrl,uint8_t *buff_in,uint32_t rx
 }
 
 static int mqtt_parse(luat_mqtt_ctrl_t *mqtt_ctrl) {
-	if (mqtt_ctrl->buffer_offset < 2) {
+	if (mqtt_ctrl->buffer_unpack_len < 2) {
 		LLOGD("wait more data");
 		return 0;
 	}
-	mqtt_ctrl->mqtt_packet_buffer[mqtt_ctrl->buffer_offset] = 0x00;
+	mqtt_ctrl->mqtt_packet_buffer[mqtt_ctrl->buffer_unpack_len] = 0x00;
 	// 判断数据长度, 前几个字节能判断出够不够读出mqtt的头
-	uint8_t rem_len_bytes = mqtt_num_rem_len_bytes(mqtt_ctrl->mqtt_packet_buffer);
-	if (rem_len_bytes > mqtt_ctrl->buffer_offset - 1) {
+	uint8_t rem_len_bytes = mqtt_num_rem_len_bytes(mqtt_ctrl->mqtt_packet_buffer+mqtt_ctrl->buffer_offset);
+	if (rem_len_bytes > mqtt_ctrl->buffer_unpack_len - 1) {
 		LLOGD("wait more data for mqtt head");
 		return 0;
 	}
 	// 判断数据总长, 这里rem_len只包含mqtt头部之外的数据
-	uint16_t rem_len = mqtt_parse_rem_len(mqtt_ctrl->mqtt_packet_buffer);
-	if (rem_len > mqtt_ctrl->buffer_offset - rem_len_bytes - 1) {
+	uint16_t rem_len = mqtt_parse_rem_len(mqtt_ctrl->mqtt_packet_buffer+mqtt_ctrl->buffer_offset);
+	if (rem_len > mqtt_ctrl->buffer_unpack_len - rem_len_bytes - 1) {
 		LLOGD("wait more data for mqtt head");
 		return 0;
 	}
@@ -106,14 +107,20 @@ static int mqtt_parse(luat_mqtt_ctrl_t *mqtt_ctrl) {
 	// 至此, mqtt包是完整的
 
 	// TODO 解析类型, 处理之
-	mqtt_msg_cb(mqtt_ctrl);
-
+	int ret = mqtt_msg_cb(mqtt_ctrl);
+	if (ret!=0){
+		return -1;
+	}
+	LLOGD("mqtt_parse 1 rem_len_bytes:%d rem_len:%d mqtt_ctrl->buffer_unpack_len:%d",rem_len_bytes,rem_len,mqtt_ctrl->buffer_unpack_len);
 	// 处理完成后, 如果还有数据, 移动数据, 继续处理
-	mqtt_ctrl->buffer_offset -= (1 + rem_len_bytes + rem_len);
-	return 0;
+	mqtt_ctrl->buffer_offset += (1 + rem_len_bytes + rem_len);
+	mqtt_ctrl->buffer_unpack_len -= (1 + rem_len_bytes + rem_len);
+	LLOGD("mqtt_parse 2 rem_len_bytes:%d rem_len:%d mqtt_ctrl->buffer_unpack_len:%d",rem_len_bytes,rem_len,mqtt_ctrl->buffer_unpack_len);
+	return 1;
 }
 
 static int mqtt_read_packet(luat_mqtt_ctrl_t *mqtt_ctrl){
+	LLOGD("mqtt_read_packet mqtt_ctrl->buffer_unpack_len:%d",mqtt_ctrl->buffer_unpack_len);
 	int ret = -1;
 	uint8_t *read_buff = NULL;
 	uint32_t total_len = 0;
@@ -129,7 +136,7 @@ static int mqtt_read_packet(luat_mqtt_ctrl_t *mqtt_ctrl){
 		LLOGD("rx event but NO data wait for recv");
 		return 0;
 	}
-	if (MQTT_RECV_BUF_LEN_MAX - mqtt_ctrl->buffer_offset) {
+	if (MQTT_RECV_BUF_LEN_MAX - mqtt_ctrl->buffer_unpack_len <= 0) {
 		LLOGD("buff is FULL, mqtt packet too big");
 		// TODO 关闭socket
 		return 0;
@@ -138,30 +145,40 @@ static int mqtt_read_packet(luat_mqtt_ctrl_t *mqtt_ctrl){
 	int recv_want = 0;
 
 	// 读取数据, 直至没有数据可读
-	while (MQTT_RECV_BUF_LEN_MAX - mqtt_ctrl->buffer_offset > 0) {
-		if (MAX_READ > (MQTT_RECV_BUF_LEN_MAX - mqtt_ctrl->buffer_offset)) {
-			recv_want = MQTT_RECV_BUF_LEN_MAX - mqtt_ctrl->buffer_offset;
+	while (MQTT_RECV_BUF_LEN_MAX - mqtt_ctrl->buffer_unpack_len > 0) {
+		if (MAX_READ > (MQTT_RECV_BUF_LEN_MAX - mqtt_ctrl->buffer_unpack_len)) {
+			recv_want = MQTT_RECV_BUF_LEN_MAX - mqtt_ctrl->buffer_unpack_len;
 		}
 		else {
 			// 
 			recv_want = MAX_READ;
 		}
 		// 从网络接收数据
-		result = network_rx(mqtt_ctrl->netc, mqtt_ctrl->mqtt_packet_buffer + mqtt_ctrl->buffer_offset, recv_want, 0, NULL, NULL, &rx_len);
+		result = network_rx(mqtt_ctrl->netc, mqtt_ctrl->mqtt_packet_buffer + mqtt_ctrl->buffer_unpack_len, recv_want, 0, NULL, NULL, &rx_len);
 		// TODO 判断 result, 虽然通常没问题
 		if (rx_len == 0) {
 			break;
 		}
+		LLOGD("mqtt_read_packet 1 mqtt_ctrl->buffer_unpack_len:%d",mqtt_ctrl->buffer_unpack_len);
 		// 收到数据了, 传给处理函数继续处理
 		// 数据的长度变更, 触发传递
-		mqtt_ctrl->buffer_offset += rx_len;
+		mqtt_ctrl->buffer_unpack_len += rx_len;
+further:
 		result = mqtt_parse(mqtt_ctrl);
+		LLOGD("mqtt_read_packet 1 mqtt_ctrl->buffer_unpack_len:%d",mqtt_ctrl->buffer_unpack_len);
 		if (result == 0) {
 			// 处理OK
+		}else if(result == 1){
+			goto further;
 		}
 		else {
 			// TODO 数据肯定有问题,关闭socket
 			break;
+		}
+		if (mqtt_ctrl->buffer_unpack_len == 0)
+		{
+			mqtt_ctrl->buffer_offset = 0;
+			memset(mqtt_ctrl->mqtt_packet_buffer, 0, MQTT_RECV_BUF_LEN_MAX);
 		}
 	}
 	return 0;
@@ -230,7 +247,7 @@ static int32_t l_mqtt_callback(lua_State *L, void* ptr){
 static int mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
 	rtos_msg_t msg = {0};
     msg.handler = l_mqtt_callback;
-    uint8_t msg_tp = MQTTParseMessageType(mqtt_ctrl->mqtt_packet_buffer);
+    uint8_t msg_tp = MQTTParseMessageType(mqtt_ctrl->mqtt_packet_buffer+mqtt_ctrl->buffer_offset);
     switch (msg_tp) {
 		case MQTT_MSG_CONNECT : {
 			LLOGD("MQTT_MSG_CONNECT");
@@ -238,7 +255,7 @@ static int mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
 		}
 		case MQTT_MSG_CONNACK: {
 			LLOGD("MQTT_MSG_CONNACK");
-			if(mqtt_ctrl->mqtt_packet_buffer[3] != 0x00){
+			if((mqtt_ctrl->mqtt_packet_buffer+mqtt_ctrl->buffer_offset)[3] != 0x00){
                 mqtt_close_socket(mqtt_ctrl);
                 return -2;
             }
@@ -251,11 +268,11 @@ static int mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
         case MQTT_MSG_PUBLISH : {
 			LLOGD("MQTT_MSG_PUBLISH");
 			const uint8_t* ptr;
-			uint16_t topic_len = mqtt_parse_pub_topic_ptr(mqtt_ctrl->mqtt_packet_buffer, &ptr);
-			uint16_t payload_len = mqtt_parse_pub_msg_ptr(mqtt_ctrl->mqtt_packet_buffer, &ptr);
+			uint16_t topic_len = mqtt_parse_pub_topic_ptr(mqtt_ctrl->mqtt_packet_buffer+mqtt_ctrl->buffer_offset, &ptr);
+			uint16_t payload_len = mqtt_parse_pub_msg_ptr(mqtt_ctrl->mqtt_packet_buffer+mqtt_ctrl->buffer_offset, &ptr);
 			luat_mqtt_msg_t *mqtt_msg = (luat_mqtt_msg_t *)luat_heap_malloc(sizeof(luat_mqtt_msg_t)+topic_len+payload_len);
-			mqtt_msg->topic_len = mqtt_parse_pub_topic(mqtt_ctrl->mqtt_packet_buffer, mqtt_msg->data);
-            mqtt_msg->payload_len = mqtt_parse_publish_msg(mqtt_ctrl->mqtt_packet_buffer, mqtt_msg->data+topic_len);
+			mqtt_msg->topic_len = mqtt_parse_pub_topic(mqtt_ctrl->mqtt_packet_buffer+mqtt_ctrl->buffer_offset, mqtt_msg->data);
+            mqtt_msg->payload_len = mqtt_parse_publish_msg(mqtt_ctrl->mqtt_packet_buffer+mqtt_ctrl->buffer_offset, mqtt_msg->data+topic_len);
 			msg.ptr = mqtt_ctrl;
 			msg.arg1 = MQTT_MSG_PUBLISH;
 			msg.arg2 = mqtt_msg;
@@ -406,6 +423,9 @@ static int l_mqtt_create(lua_State *L) {
 	mqtt_ctrl->mqtt_state = 0;
 	mqtt_ctrl->netc->is_debug = 1;
 	mqtt_ctrl->keepalive = 240;
+
+	mqtt_ctrl->buffer_offset = 0;
+	mqtt_ctrl->buffer_unpack_len = 0;
 
 	network_set_base_mode(mqtt_ctrl->netc, 1, 10000, 0, 0, 0, 0);
 	network_set_local_port(mqtt_ctrl->netc, 0);

@@ -1016,7 +1016,7 @@ static void eink_DrawHXBM(uint16_t x, uint16_t y, uint16_t len, const uint8_t *b
   uint8_t mask = 1;
 
   if (check_init() == 0) {
-    return 0;
+    return;
   }
   while(len > 0) {
     if ( *b & mask ) drawFastHLine(&ctxs[ctx_index]->paint, x, y, 1,COLORED);

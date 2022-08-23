@@ -145,7 +145,7 @@ static int l_mcu_hw_tick64(lua_State* L) {
 
     uint64_t tick = luat_mcu_tick64();
     uint32_t us_period = luat_mcu_us_period();
-    lua_pushlstring(L, &tick, 8);
+    lua_pushlstring(L, (const char*)&tick, 8);
     lua_pushinteger(L, us_period);
     return 2;
 }

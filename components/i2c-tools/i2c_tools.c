@@ -13,7 +13,7 @@ void i2c_tools(const char * data,size_t len){
         int i2c_id = atoi(strtok(NULL, " "));
         i2c_init(i2c_id);
         uint8_t address = strtonum(strtok(NULL, " "));
-        uint8_t* send_buff;
+        uint8_t send_buff[16];
         uint8_t len = 0;
         while (1){
             char* buff = strtok(NULL, " ");

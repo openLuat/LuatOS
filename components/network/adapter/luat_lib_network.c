@@ -6,6 +6,7 @@
 @demo network
 */
 #include "luat_base.h"
+#include "luat_malloc.h"
 #ifdef LUAT_USE_NETWORK
 #include "luat_network_adapter.h"
 #include "luat_rtos.h"

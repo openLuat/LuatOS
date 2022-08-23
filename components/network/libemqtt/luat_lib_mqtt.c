@@ -61,12 +61,10 @@ static int mqtt_close_socket(luat_mqtt_ctrl_t *mqtt_ctrl){
 	if (mqtt_ctrl->ip){
 		luat_heap_free(mqtt_ctrl->ip);
 	}
-	if (mqtt_ctrl){
-		luat_heap_free(mqtt_ctrl);
-	}
 }
 static int mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl);
 static int packet_parse(luat_mqtt_ctrl_t *mqtt_ctrl,uint8_t *buff_in,uint32_t rx_len){
+	int ret = -1;
 	uint16_t rem_len = mqtt_parse_rem_len(buff_in);
     uint8_t rem_len_bytes = mqtt_num_rem_len_bytes(buff_in);
 	if (rem_len+rem_len_bytes+1>rx_len){
@@ -74,12 +72,13 @@ static int packet_parse(luat_mqtt_ctrl_t *mqtt_ctrl,uint8_t *buff_in,uint32_t rx
 	}
 	memset(mqtt_ctrl->mqtt_packet_buffer, 0, MQTT_RECV_BUF_LEN_MAX);
 	memcpy(mqtt_ctrl->mqtt_packet_buffer, buff_in, rem_len+rem_len_bytes+1);
-	mqtt_msg_cb(mqtt_ctrl);
+	ret = mqtt_msg_cb(mqtt_ctrl);
 	if(rem_len+rem_len_bytes+1==rx_len){
 		return 0;
 	}else{
-		return packet_parse(mqtt_ctrl,buff_in+rem_len+rem_len_bytes+1,rx_len-rem_len-rem_len_bytes-1);
+		packet_parse(mqtt_ctrl,buff_in+rem_len+rem_len_bytes+1,rx_len-rem_len-rem_len_bytes-1);
 	}
+	return ret;
 }
 
 static int mqtt_read_packet(luat_mqtt_ctrl_t *mqtt_ctrl){
@@ -105,8 +104,7 @@ static int mqtt_read_packet(luat_mqtt_ctrl_t *mqtt_ctrl){
 	return ret;
 }
 
-static int32_t l_mqtt_callback(lua_State *L, void* ptr)
-{
+static int32_t l_mqtt_callback(lua_State *L, void* ptr){
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     luat_mqtt_ctrl_t *mqtt_ctrl =(luat_mqtt_ctrl_t *)msg->ptr;
     switch (msg->arg1) {
@@ -149,7 +147,7 @@ static int32_t l_mqtt_callback(lua_State *L, void* ptr)
 				lua_geti(L, LUA_REGISTRYINDEX, mqtt_cbs[mqtt_ctrl->mqtt_id]);
 				if (lua_isfunction(L, -1)) {
 					lua_pushlightuserdata(L, mqtt_ctrl);
-					lua_pushstring(L, "send");
+					lua_pushstring(L, "sent");
 					lua_call(L, 2, 0);
 				}
             }

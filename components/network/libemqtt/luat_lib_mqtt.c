@@ -40,6 +40,7 @@ typedef struct
 }luat_mqtt_msg_t;
 
 static int luat_socket_connect(luat_mqtt_ctrl_t *mqtt_ctrl, const char *hostname, uint16_t port, uint16_t keepalive);
+static int mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl);
 
 static luat_mqtt_ctrl_t * get_mqtt_ctrl(lua_State *L){
 	if (luaL_testudata(L, 1, LUAT_MQTT_CTRL_TYPE)){
@@ -49,9 +50,14 @@ static luat_mqtt_ctrl_t * get_mqtt_ctrl(lua_State *L){
 	}
 }
 
-static int mqtt_close_socket(luat_mqtt_ctrl_t *mqtt_ctrl){
+static void mqtt_close_socket(luat_mqtt_ctrl_t *mqtt_ctrl){
 	if (mqtt_ctrl->netc){
 		network_force_close_socket(mqtt_ctrl->netc);
+	}
+}
+
+static void mqtt_release_socket(luat_mqtt_ctrl_t *mqtt_ctrl){
+	if (mqtt_ctrl->netc){
 		network_release_ctrl(mqtt_ctrl->netc);
     	mqtt_ctrl->netc = NULL;
 	}
@@ -65,7 +71,6 @@ static int mqtt_close_socket(luat_mqtt_ctrl_t *mqtt_ctrl){
 		luat_heap_free(mqtt_ctrl->host);
 	}
 }
-static int mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl);
 
 static int mqtt_parse(luat_mqtt_ctrl_t *mqtt_ctrl) {
 	if (mqtt_ctrl->buffer_offset < 2) {
@@ -220,7 +225,6 @@ static int32_t l_mqtt_callback(lua_State *L, void* ptr){
     return 1;
 }
 
-
 static int mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
 	rtos_msg_t msg = {0};
     msg.handler = l_mqtt_callback;
@@ -363,9 +367,17 @@ static int luat_socket_connect(luat_mqtt_ctrl_t *mqtt_ctrl, const char *hostname
 static int l_mqtt_subscribe(lua_State *L) {
 	size_t len = 0;
 	luat_mqtt_ctrl_t * mqtt_ctrl = (luat_mqtt_ctrl_t *)lua_touserdata(L, 1);
-	const char * topic = luaL_checklstring(L, 2, &len);
-	uint8_t qos = luaL_optinteger(L, 3, 0);
-	int subscribe_state = mqtt_subscribe(mqtt_ctrl->broker, topic, NULL,qos);
+	if (lua_isstring(L, 2)){
+		const char * topic = luaL_checklstring(L, 2, &len);
+		uint8_t qos = luaL_optinteger(L, 3, 0);
+		int subscribe_state = mqtt_subscribe(mqtt_ctrl->broker, topic, NULL,qos);
+	}else if(lua_istable(L, 2)){
+		lua_pushnil(L);
+		while (lua_next(L, 2) != 0) {
+		mqtt_subscribe(mqtt_ctrl->broker, lua_tostring(L, -2), NULL,luaL_optinteger(L, -1, 0));
+		lua_pop(L, 1);
+		}
+	}
 	return 0;
 }
 
@@ -534,6 +546,7 @@ static int l_mqtt_close(lua_State *L) {
 	luat_mqtt_ctrl_t * mqtt_ctrl = get_mqtt_ctrl(L);
 	mqtt_disconnect(mqtt_ctrl->broker);
 	mqtt_close_socket(mqtt_ctrl);
+	mqtt_release_socket(mqtt_ctrl);
 	return 0;
 }
 

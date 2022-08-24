@@ -25,6 +25,7 @@ typedef struct
 	uint8_t mqtt_state;    // mqtt状态
 	uint8_t reconnect;    // mqtt是否重连
 	uint8_t reconnect_time;    // mqtt重连时间 单位ms
+	void* reconnect_timer;		// mqtt重连定时器
 	// TODO 记录最后一次数据交互的时间,方便判断是否真的发送ping请求
 }luat_mqtt_ctrl_t;
 
@@ -42,6 +43,7 @@ typedef struct
 }luat_mqtt_msg_t;
 
 static int luat_socket_connect(luat_mqtt_ctrl_t *mqtt_ctrl, const char *hostname, uint16_t port, uint16_t keepalive);
+static void mqtt_close_socket(luat_mqtt_ctrl_t *mqtt_ctrl);
 static int mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl);
 
 static luat_mqtt_ctrl_t * get_mqtt_ctrl(lua_State *L){
@@ -52,10 +54,30 @@ static luat_mqtt_ctrl_t * get_mqtt_ctrl(lua_State *L){
 	}
 }
 
+static void reconnect_timer_cb(void *data, void *param){
+	luat_mqtt_ctrl_t * mqtt_ctrl = (luat_mqtt_ctrl_t *)param;
+	int ret = network_wait_link_up(mqtt_ctrl->netc, 0);
+	if (ret == 0){
+		int ret = luat_socket_connect(mqtt_ctrl, mqtt_ctrl->host, mqtt_ctrl->remote_port, mqtt_ctrl->keepalive);
+		if(ret){
+			LLOGD("init_socket ret=%d\n", ret);
+			mqtt_close_socket(mqtt_ctrl);
+		}
+	}
+}
+
+static void mqtt_reconnect(luat_mqtt_ctrl_t *mqtt_ctrl){
+	if (mqtt_ctrl->reconnect){
+		mqtt_ctrl->reconnect_timer = luat_create_rtos_timer(reconnect_timer_cb, mqtt_ctrl, NULL);
+		luat_start_rtos_timer(mqtt_ctrl->reconnect_timer, mqtt_ctrl->reconnect_time, 0);
+	}
+}
+
 static void mqtt_close_socket(luat_mqtt_ctrl_t *mqtt_ctrl){
 	if (mqtt_ctrl->netc){
 		network_force_close_socket(mqtt_ctrl->netc);
 	}
+	mqtt_reconnect(mqtt_ctrl);
 }
 
 static void mqtt_release_socket(luat_mqtt_ctrl_t *mqtt_ctrl){
@@ -92,19 +114,14 @@ static int mqtt_parse(luat_mqtt_ctrl_t *mqtt_ctrl) {
 		LLOGD("wait more data for mqtt head");
 		return 0;
 	}
-
-	// 至此, mqtt包是完整的
-
-	// TODO 解析类型, 处理之
+	// 至此, mqtt包是完整的 解析类型, 处理之
 	int ret = mqtt_msg_cb(mqtt_ctrl);
 	if (ret!=0){
 		return -1;
 	}
-	// LLOGD("mqtt_parse 1 rem_len_bytes:%d rem_len:%d mqtt_ctrl->buffer_offset:%d",rem_len_bytes,rem_len,mqtt_ctrl->buffer_offset);
 	// 处理完成后, 如果还有数据, 移动数据, 继续处理
 	mqtt_ctrl->buffer_offset -= (1 + rem_len_bytes + rem_len);
 	memmove(mqtt_ctrl->mqtt_packet_buffer, mqtt_ctrl->mqtt_packet_buffer+1 + rem_len_bytes + rem_len, mqtt_ctrl->buffer_offset);
-	// LLOGD("mqtt_parse 2 rem_len_bytes:%d rem_len:%d mqtt_ctrl->buffer_offset:%d",rem_len_bytes,rem_len,mqtt_ctrl->buffer_offset);
 	return 1;
 }
 
@@ -161,7 +178,7 @@ further:
 			goto further;
 		}
 		else {
-			// TODO 数据肯定有问题,关闭socket
+			mqtt_close_socket(mqtt_ctrl);
 			break;
 		}
 	}
@@ -408,30 +425,26 @@ static int l_mqtt_create(lua_State *L) {
 	const char *client_password = NULL;
 	int adapter_index = luaL_optinteger(L, 1, network_get_last_register_adapter());
 	if (adapter_index < 0 || adapter_index >= NW_ADAPTER_QTY){
-		// lua_pushnil(L);
 		return 0;
 	}
 	luat_mqtt_ctrl_t *mqtt_ctrl = (luat_mqtt_ctrl_t *)lua_newuserdata(L, sizeof(luat_mqtt_ctrl_t));
 	if (!mqtt_ctrl){
-		// lua_pushnil(L);
 		return 0;
 	}
 	memset(mqtt_ctrl, 0, sizeof(luat_mqtt_ctrl_t));
-
 	mqtt_ctrl->adapter_index = adapter_index;
 	mqtt_ctrl->netc = network_alloc_ctrl(adapter_index);
 	if (!mqtt_ctrl->netc){
 		LLOGD("create fail");
-		lua_pushnil(L);
-		return 1;
+		return 0;
 	}
 	network_init_ctrl(mqtt_ctrl->netc, NULL, luat_lib_mqtt_callback, mqtt_ctrl);
 
 	mqtt_ctrl->mqtt_id = mqtt_id++;
+
 	mqtt_ctrl->mqtt_state = 0;
 	mqtt_ctrl->netc->is_debug = 1;
 	mqtt_ctrl->keepalive = 240;
-
 	network_set_base_mode(mqtt_ctrl->netc, 1, 10000, 0, 0, 0, 0);
 	network_set_local_port(mqtt_ctrl->netc, 0);
 	uint8_t is_tls = 0;
@@ -457,14 +470,11 @@ static int l_mqtt_create(lua_State *L) {
 	}else{
 		network_deinit_tls(mqtt_ctrl->netc);
 	}
-
 	int packet_length = 0;
 	uint16_t msg_id = 0, msg_id_rcv = 0;
 	mqtt_ctrl->broker = (mqtt_broker_handle_t *)luat_heap_malloc(sizeof(mqtt_broker_handle_t));
-	
 	const char *ip;
 	size_t ip_len = 0;
-
 	mqtt_ctrl->ip_addr = (luat_ip_addr_t *)luat_heap_malloc(sizeof(luat_ip_addr_t));
 	mqtt_ctrl->ip_addr->is_ipv6 = 0xff;
 	if (lua_isinteger(L, 2)){

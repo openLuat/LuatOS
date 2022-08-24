@@ -352,13 +352,14 @@ static int32_t luat_lib_mqtt_callback(void *data, void *param){
 		if (event->Param1==0){
 			ret = mqtt_read_packet(mqtt_ctrl);
 			LLOGD("mqtt_read_packet ret:%d",ret);
-		}else{
-
 		}
 	}else if(event->ID == EV_NW_RESULT_TX){
 		
 	}else if(event->ID == EV_NW_RESULT_CLOSE){
 
+	}
+	if (event->Param1){
+		mqtt_close_socket(mqtt_ctrl);
 	}
 	network_wait_event(mqtt_ctrl->netc, NULL, 0, NULL);
     return 0;

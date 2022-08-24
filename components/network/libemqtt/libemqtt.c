@@ -402,16 +402,8 @@ int mqtt_pubrel(mqtt_broker_handle_t* broker, uint16_t message_id) {
 
 int mqtt_subscribe(mqtt_broker_handle_t* broker, const char* topic, uint16_t* message_id, uint8_t qos) {
 	uint16_t topiclen = strlen(topic);
-
-	uint8_t qos_flag = MQTT_QOS0_FLAG;
-	if(qos == 0) {
-		qos_flag = MQTT_QOS0_FLAG;
-	}else if(qos == 1) {
-		qos_flag = MQTT_QOS1_FLAG;
-	}else if(qos == 2) {
-		qos_flag = MQTT_QOS2_FLAG;
-	}
-
+	if (qos>2) qos=0;
+	
 	// Variable header
 	uint8_t var_header[2]; // Message ID
 	var_header[0] = broker->seq>>8;
@@ -427,7 +419,7 @@ int mqtt_subscribe(mqtt_broker_handle_t* broker, const char* topic, uint16_t* me
 	utf_topic[0] = topiclen>>8;
 	utf_topic[1] = topiclen&0xFF;
 	memcpy(utf_topic+2, topic, topiclen);
-	utf_topic[topiclen+2] |= qos_flag;
+	utf_topic[topiclen+2] |= qos;
 
 	// Fixed header
 	uint8_t fixed_header[] = {

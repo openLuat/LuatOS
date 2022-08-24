@@ -537,8 +537,8 @@ void w5500_register_adapter(int index)
 #else
 #include "dhcp_def.h"
 #include "dns_def.h"
-#define W5500_LOCK	OS_LOCK
-#define W5500_UNLOCK OS_UNLOCK
+#define W5500_LOCK	platform_lock_mutex(prv_w5500_ctrl->Sem)
+#define W5500_UNLOCK platform_unlock_mutex(prv_w5500_ctrl->Sem)
 
 enum
 {
@@ -625,6 +625,7 @@ typedef struct
 	CBFuncEx_t socket_cb;
 	void *user_data;
 	void *task_handle;
+	HANDLE Sem;
 	uint32_t static_ip; //大端格式存放
 	uint32_t static_submask; //大端格式存放
 	uint32_t static_gateway; //大端格式存放
@@ -1375,7 +1376,7 @@ static void w5500_sys_socket_callback(w5500_ctrl_t *w5500, uint8_t socket_id, ui
 		{
 			W5500_LOCK;
 			p = llist_traversal(&w5500->socket[socket_id].tx_head, w5500_next_data_cache, &prv_w5500_ctrl->socket[socket_id]);
-			W5500_UNLOCK;
+
 			if (p && !p->is_sending)
 			{
 				DBG_ERR("socket %d should sending!", socket_id);
@@ -1384,7 +1385,6 @@ static void w5500_sys_socket_callback(w5500_ctrl_t *w5500, uint8_t socket_id, ui
 			if (p && (p->read_pos >= p->len))
 			{
 				ip = p->len;
-				W5500_LOCK;
 				w5500->socket[socket_id].tx_wait_size -= p->len;
 				llist_del(&p->node);
 				free(p->data);
@@ -1392,7 +1392,10 @@ static void w5500_sys_socket_callback(w5500_ctrl_t *w5500, uint8_t socket_id, ui
 				W5500_UNLOCK;
 				w5500_callback_to_nw_task(w5500, EV_NW_SOCKET_TX_OK, socket_id, ip, 0);
 			}
-
+			else
+			{
+				W5500_UNLOCK;
+			}
 			w5500_socket_tx_next_data(w5500, socket_id);
 			if (llist_empty(&w5500->socket[socket_id].tx_head))
 			{
@@ -1533,6 +1536,7 @@ static void w5500_read_irq(w5500_ctrl_t *w5500)
 	Buffer_Struct tx_msg_buf = {0,0,0};
 	uint32_t remote_ip;
 	int i, j;
+RETRY:
 	w5500_xfer(w5500, W5500_COMMON_IR, 0, temp, W5500_COMMON_QTY - W5500_COMMON_IR);
 	common_irq = temp[0] & 0xf0;
 	socket_irq = temp[W5500_COMMON_SOCKET_IR - W5500_COMMON_IR];
@@ -1574,6 +1578,7 @@ static void w5500_read_irq(w5500_ctrl_t *w5500)
 			{
 				w5500_xfer(w5500, W5500_SOCKET_IR, socket_index(i)|socket_reg, &socket_irqs[i], 1);
 				temp[0] = socket_irqs[i];
+//				DBG("%d,%x",i, socket_irqs[i]);
 				w5500_xfer(w5500, W5500_SOCKET_IR, socket_index(i)|socket_reg|is_write, temp, 1);
 			}
 		}
@@ -1598,6 +1603,12 @@ static void w5500_read_irq(w5500_ctrl_t *w5500)
 				}
 			}
 		}
+	}
+
+	if (luat_gpio_get(w5500->irq_pin) != 1)
+	{
+//		DBG("irq not clear!");
+		goto RETRY;
 	}
 }
 
@@ -1695,7 +1706,7 @@ static void w5500_task(void *param)
 			if (event.Param1) W5500_UNLOCK;
 			if (p && p->is_sending)
 			{
-//				DBG("socket %d is sending, need wait!", event.Param1);
+				DBG("socket %d is sending, need wait!", event.Param1);
 			}
 			else
 			{
@@ -1705,7 +1716,6 @@ static void w5500_task(void *param)
 					w5500_callback_to_nw_task(w5500, EV_NW_SOCKET_ERROR, event.Param1, 0, 0);
 				}
 			}
-
 			break;
 		case EV_W5500_SOCKET_CONNECT:
 			uPV.u8[0] = 0;
@@ -1873,7 +1883,7 @@ void w5500_init(luat_spi_t* spi, uint8_t irq_pin, uint8_t rst_pin, uint8_t link_
 		prv_w5500_ctrl = w5500;
 		w5500->task_handle = thread.handle;
 		prv_w5500_ctrl->device_on = 1;
-
+		prv_w5500_ctrl->Sem = luat_mutex_create();
 	}
 }
 

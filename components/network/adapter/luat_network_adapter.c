@@ -6,7 +6,8 @@
 #include "platform_def.h"
 #include "ctype.h"
 #include "luat_network_adapter.h"
-
+#define LUAT_LOG_TAG "adapter"
+#include "luat_log.h"
 typedef struct
 {
 #ifdef LUAT_USE_LWIP
@@ -943,6 +944,19 @@ void network_init_ctrl(network_ctrl_t *ctrl, HANDLE task_handle, CBFuncEx_t call
 {
 	uint8_t adapter_index = ctrl->adapter_index;
 	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
+	if (ctrl->dns_ip)
+	{
+		free(ctrl->dns_ip);
+	}
+	if (ctrl->cache_data)
+	{
+		free(ctrl->cache_data);
+	}
+	if (ctrl->domain_name)
+	{
+		free(ctrl->domain_name);
+	}
+	HANDLE sem = ctrl->mutex;
 	memset(ctrl, 0, sizeof(network_ctrl_t));
 	ctrl->adapter_index = adapter_index;
 	ctrl->task_handle = task_handle;
@@ -951,6 +965,7 @@ void network_init_ctrl(network_ctrl_t *ctrl, HANDLE task_handle, CBFuncEx_t call
 	ctrl->socket_id = -1;
 	ctrl->socket_param = ctrl;
 	ctrl->remote_ip.type = 0xff;
+	ctrl->mutex = sem;
 	if (task_handle)
 	{
 		ctrl->timer = platform_create_timer(network_default_timer_callback, task_handle, NULL);
@@ -959,6 +974,7 @@ void network_init_ctrl(network_ctrl_t *ctrl, HANDLE task_handle, CBFuncEx_t call
 	{
 		ctrl->mutex = platform_create_mutex();
 	}
+
 }
 
 void network_set_base_mode(network_ctrl_t *ctrl, uint8_t is_tcp, uint32_t tcp_timeout_ms, uint8_t keep_alive, uint32_t keep_idle, uint8_t keep_interval, uint8_t keep_cnt)
@@ -1986,8 +2002,11 @@ extern void DBG_HexPrintf(void *Data, unsigned int len);
 #define DBG(x,y...)
 #define DBG_ERR(x,y...)
 #endif
-#define NW_LOCK		OS_LOCK
-#define NW_UNLOCK	OS_UNLOCK
+//#define NW_LOCK		OS_LOCK
+//#define NW_UNLOCK	OS_UNLOCK
+
+#define NW_LOCK		platform_lock_mutex(ctrl->mutex)
+#define NW_UNLOCK	platform_unlock_mutex(ctrl->mutex)
 
 #define SOL_SOCKET  0xfff    /* options for socket level */
 #define SO_REUSEADDR   0x0004 /* Allow local address reuse */
@@ -2072,6 +2091,7 @@ static int32_t tls_longtimeout(void *data, void *param)
 		return 0;
 	}
 	ctrl->tls_timer_state = 2;
+	return 0;
 }
 
 static void tls_settimer( void *data, uint32_t int_ms, uint32_t fin_ms )
@@ -2698,7 +2718,6 @@ static int32_t network_default_socket_callback(void *data, void *param)
 	network_adapter_t *adapter =(network_adapter_t *)(cb_param->param);
 	int i;
 	network_ctrl_t *ctrl = (network_ctrl_t *)event->Param3;
-	NW_LOCK;
 	if (event->ID > EV_NW_TIMEOUT)
 	{
 		if (ctrl && ((ctrl->tag == cb_param->tag) || (event->ID == EV_NW_DNS_RESULT)))
@@ -2750,7 +2769,6 @@ static int32_t network_default_socket_callback(void *data, void *param)
 			}
 		}
 	}
-	NW_UNLOCK;
 	return 0;
 }
 
@@ -2929,7 +2947,7 @@ network_ctrl_t *network_alloc_ctrl(uint8_t adapter_index)
 	int i;
 	network_ctrl_t *ctrl = NULL;
 	network_adapter_t *adapter = &prv_adapter_table[adapter_index];
-	NW_LOCK;
+	OS_LOCK;
 	for (i = 0; i < adapter->opt->max_socket_num; i++)
 	{
 		if (!adapter->ctrl_busy[i])
@@ -2942,7 +2960,7 @@ network_ctrl_t *network_alloc_ctrl(uint8_t adapter_index)
 		}
 	}
 	if (i >= adapter->opt->max_socket_num) {DBG_ERR("adapter no more ctrl!");}
-	NW_UNLOCK;
+	OS_UNLOCK;
 	return ctrl;
 }
 
@@ -2986,6 +3004,17 @@ void network_init_ctrl(network_ctrl_t *ctrl, HANDLE task_handle, CBFuncEx_t call
 {
 	uint8_t adapter_index = ctrl->adapter_index;
 	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
+	if (ctrl->dns_ip)
+	{
+		free(ctrl->dns_ip);
+		ctrl->dns_ip = NULL;
+	}
+	if (ctrl->cache_data)
+	{
+		free(ctrl->cache_data);
+		ctrl->cache_data = NULL;
+	}
+	HANDLE sem = ctrl->mutex;
 	memset(ctrl, 0, sizeof(network_ctrl_t));
 	ctrl->adapter_index = adapter_index;
 	ctrl->task_handle = task_handle;
@@ -2994,9 +3023,14 @@ void network_init_ctrl(network_ctrl_t *ctrl, HANDLE task_handle, CBFuncEx_t call
 	ctrl->socket_id = -1;
 	ctrl->socket_param = ctrl;
 	ctrl->remote_ip.is_ipv6 = 0xff;
+	ctrl->mutex = sem;
 	if (task_handle)
 	{
 		ctrl->timer = platform_create_timer(network_default_timer_callback, task_handle, NULL);
+	}
+	if (!ctrl->mutex)
+	{
+		ctrl->mutex = platform_create_mutex();
 	}
 }
 

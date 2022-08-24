@@ -384,8 +384,18 @@ static int l_mqtt_subscribe(lua_State *L) {
 static int l_mqtt_unsubscribe(lua_State *L) {
 	size_t len = 0;
 	luat_mqtt_ctrl_t * mqtt_ctrl = (luat_mqtt_ctrl_t *)lua_touserdata(L, 1);
-	const char * topic = luaL_checklstring(L, 2, &len);
-	int subscribe_state = mqtt_unsubscribe(mqtt_ctrl->broker, topic, NULL);
+	if (lua_isstring(L, 2)){
+		const char * topic = luaL_checklstring(L, 2, &len);
+		int subscribe_state = mqtt_unsubscribe(mqtt_ctrl->broker, topic, NULL);
+	}else if(lua_istable(L, 2)){
+		size_t count = lua_rawlen(L, 2);
+		for (size_t i = 1; i <= count; i++){
+			lua_geti(L, 2, i);
+			const char * topic = luaL_checklstring(L, -1, &len);
+			mqtt_unsubscribe(mqtt_ctrl->broker, topic, NULL);
+			lua_pop(L, 1);
+		}
+	}
 	return 0;
 }
 

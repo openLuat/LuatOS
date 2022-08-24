@@ -910,7 +910,7 @@ void network_release_ctrl(network_ctrl_t *ctrl)
 	int i;
 	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
 	NW_UNLOCK;
-//	OS_LOCK;
+	OS_LOCK;
 	for (i = 0; i < adapter->opt->max_socket_num; i++)
 	{
 		if (&adapter->ctrl_table[i] == ctrl)
@@ -918,7 +918,9 @@ void network_release_ctrl(network_ctrl_t *ctrl)
 			network_deinit_tls(ctrl);
 			if (ctrl->timer)
 			{
+				platform_stop_timer(ctrl->timer);
 				platform_release_timer(ctrl->timer);
+				ctrl->timer = NULL;
 			}
 			if (ctrl->cache_data)
 			{
@@ -930,12 +932,18 @@ void network_release_ctrl(network_ctrl_t *ctrl)
 				free(ctrl->dns_ip);
 				ctrl->dns_ip = NULL;
 			}
-
+			if (ctrl->domain_name)
+			{
+				free(ctrl->domain_name);
+				ctrl->domain_name = NULL;
+			}
 			adapter->ctrl_busy[i] = 0;
+			platform_release_mutex(ctrl->mutex);
+			ctrl->mutex = NULL;
 			break;
 		}
 	}
-//	OS_UNLOCK;
+	OS_UNLOCK;
 	if (i >= adapter->opt->max_socket_num) {DBG_ERR("adapter index maybe error!, %d, %x", ctrl->adapter_index, ctrl);}
 
 }

@@ -51,9 +51,9 @@ sys.run()
 2. 然后, 下载[固件包](https://gitee.com/openLuat/LuatOS/releases),按压缩包里的文档进行刷机
 3. 开始愉快地玩耍(或者放着积灰...)
 
-**QQ群: 1061642968** 和 钉钉群
+**QQ群: 1061642968** 
 
-![](images/qq_group.jpg)   ![](images/dingding_group.jpg)
+![](images/qq_group.jpg) 
 
 ----------------------------------------------------------------------------------
 ## 资源

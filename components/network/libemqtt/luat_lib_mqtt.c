@@ -15,14 +15,16 @@ typedef struct
 	mqtt_broker_handle_t *broker; // TODO 这里没必要分开malloc
 	network_ctrl_t *netc;
 	luat_ip_addr_t *ip_addr;
-	const char *host;
+	const char *host; 
 	uint16_t buffer_offset; // 用于标识mqtt_packet_buffer当前有多少数据
 	uint8_t mqtt_packet_buffer[MQTT_RECV_BUF_LEN_MAX + 4];
 	uint8_t mqtt_id; // 对应mqtt_cbs的索引, TODO, 既然要存function的ref_id, 为啥不直接存呢
 	uint16_t remote_port; // 远程端口号
-	uint32_t keepalive;   // 心跳时长
+	uint32_t keepalive;   // 心跳时长 单位s
 	uint8_t adapter_index; // 适配器索引号, 似乎并没有什么用
 	uint8_t mqtt_state;    // mqtt状态
+	uint8_t reconnect;    // mqtt是否重连
+	uint8_t reconnect_time;    // mqtt重连时间 单位ms
 	// TODO 记录最后一次数据交互的时间,方便判断是否真的发送ping请求
 }luat_mqtt_ctrl_t;
 
@@ -337,7 +339,7 @@ static int32_t luat_lib_mqtt_callback(void *data, void *param){
 
 		}
 	}else if(event->ID == EV_NW_RESULT_TX){
-
+		
 	}else if(event->ID == EV_NW_RESULT_CLOSE){
 
 	}
@@ -524,6 +526,15 @@ static int l_mqtt_connect(lua_State *L) {
 	return 0;
 }
 
+static int l_mqtt_reconnect(lua_State *L) {
+	luat_mqtt_ctrl_t * mqtt_ctrl = get_mqtt_ctrl(L);
+	if (lua_isboolean(L, 2)){
+		mqtt_ctrl->reconnect = lua_toboolean(L, 2);
+	}
+	mqtt_ctrl->reconnect_time = luaL_optinteger(L, 3, 3000);
+	return 0;
+}
+
 static int l_mqtt_publish(lua_State *L) {
 	uint16_t message_id = 0;
 	luat_mqtt_ctrl_t * mqtt_ctrl = get_mqtt_ctrl(L);
@@ -584,6 +595,10 @@ int _mqtt_struct_newindex(lua_State *L) {
         lua_pushcfunction(L, l_mqtt_connect);
         return 1;
     }
+	else if (!strcmp("reconnect", key)) {
+        lua_pushcfunction(L, l_mqtt_reconnect);
+        return 1;
+    }
 	else if (!strcmp("publish", key)) {
         lua_pushcfunction(L, l_mqtt_publish);
         return 1;
@@ -626,6 +641,7 @@ static const rotable_Reg_t reg_mqtt[] =
 	{"keepalive",		ROREG_FUNC(l_mqtt_keepalive)},
 	{"on",				ROREG_FUNC(l_mqtt_on)},
 	{"connect",			ROREG_FUNC(l_mqtt_connect)},
+	{"reconnect",		ROREG_FUNC(l_mqtt_reconnect)},
 	{"publish",			ROREG_FUNC(l_mqtt_publish)},
 	{"subscribe",		ROREG_FUNC(l_mqtt_subscribe)},
 	{"unsubscribe",		ROREG_FUNC(l_mqtt_unsubscribe)},

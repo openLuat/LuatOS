@@ -583,54 +583,7 @@ static int l_mqtt_ready(lua_State *L) {
 	return 1;
 }
 
-int _mqtt_struct_newindex(lua_State *L) {
-    const char* key = luaL_checkstring(L, 2);
-    if (!strcmp("auth", key)) {
-        lua_pushcfunction(L, l_mqtt_auth);
-        return 1;
-    }
-    else if (!strcmp("keepalive", key)) {
-        lua_pushcfunction(L, l_mqtt_keepalive);
-        return 1;
-    }
-	else if (!strcmp("on", key)) {
-        lua_pushcfunction(L, l_mqtt_on);
-        return 1;
-    }
-	else if (!strcmp("connect", key)) {
-        lua_pushcfunction(L, l_mqtt_connect);
-        return 1;
-    }
-	else if (!strcmp("autoreconn", key)) {
-        lua_pushcfunction(L, l_mqtt_autoreconn);
-        return 1;
-    }
-	else if (!strcmp("publish", key)) {
-        lua_pushcfunction(L, l_mqtt_publish);
-        return 1;
-    }
-	else if (!strcmp("subscribe", key)) {
-        lua_pushcfunction(L, l_mqtt_subscribe);
-        return 1;
-    }
-	else if (!strcmp("unsubscribe", key)) {
-        lua_pushcfunction(L, l_mqtt_unsubscribe);
-        return 1;
-    }
-	else if (!strcmp("ping", key)) {
-        lua_pushcfunction(L, l_mqtt_ping);
-        return 1;
-    }
-	else if (!strcmp("close", key)) {
-        lua_pushcfunction(L, l_mqtt_close);
-        return 1;
-    }
-	else if (!strcmp("ready", key)) {
-        lua_pushcfunction(L, l_mqtt_ready);
-        return 1;
-    }
-    return 0;
-}
+static int _mqtt_struct_newindex(lua_State *L);
 
 void luat_mqtt_struct_init(lua_State *L) {
     luaL_newmetatable(L, LUAT_MQTT_CTRL_TYPE);
@@ -657,6 +610,21 @@ static const rotable_Reg_t reg_mqtt[] =
 
 	{ NULL,             ROREG_INT(0)}
 };
+
+static int _mqtt_struct_newindex(lua_State *L) {
+	rotable_Reg_t* reg = reg_mqtt;
+    const char* key = luaL_checkstring(L, 2);
+	while (1) {
+		if (reg->name == NULL)
+			return 0;
+		if (!strcmp(reg->name, key)) {
+			lua_pushcfunction(L, reg->value.value.func);
+			return 1;
+		}
+		reg ++;
+	}
+    //return 0;
+}
 
 LUAMOD_API int luaopen_mqtt( lua_State *L ) {
     luat_newlib2(L, reg_mqtt);

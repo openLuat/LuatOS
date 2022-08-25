@@ -566,7 +566,7 @@ mqtt心跳设置
 @api mqttc:keepalive(time)
 @int time 可选 单位s 默认240s
 @usage 
-    mqttc:keepalive(30)
+mqttc:keepalive(30)
 */
 static int l_mqtt_keepalive(lua_State *L) {
 	luat_mqtt_ctrl_t * mqtt_ctrl = get_mqtt_ctrl(L);
@@ -579,10 +579,10 @@ mqtt回调注册
 @api mqttc:on(cb)
 @function cb mqtt回调,参数包括mqtt_client, event, data, payload
 @usage 
-    mqttc:on(function(mqtt_client, event, data, payload)
-        -- 用户自定义代码
-        log.info("mqtt", "event", event, mqtt_client, data, payload)
-    end)
+mqttc:on(function(mqtt_client, event, data, payload)
+	-- 用户自定义代码
+	log.info("mqtt", "event", event, mqtt_client, data, payload)
+end)
 */
 static int l_mqtt_on(lua_State *L) {
 	luat_mqtt_ctrl_t * mqtt_ctrl = get_mqtt_ctrl(L);
@@ -600,7 +600,8 @@ static int l_mqtt_on(lua_State *L) {
 /*
 连接服务器
 @api mqttc:connect()
-@usage mqttc:connect()
+@usage 
+mqttc:connect()
 */
 static int l_mqtt_connect(lua_State *L) {
 	luat_mqtt_ctrl_t * mqtt_ctrl = get_mqtt_ctrl(L);
@@ -620,7 +621,8 @@ static int l_mqtt_connect(lua_State *L) {
 @api mqttc:autoreconn(reconnect, reconnect_time)
 @bool reconnect 是否自动重连
 @int 自动重连周期 单位ms 默认3s
-@usage mqttc:autoreconn(true)
+@usage 
+mqttc:autoreconn(true)
 */
 static int l_mqtt_autoreconn(lua_State *L) {
 	luat_mqtt_ctrl_t * mqtt_ctrl = get_mqtt_ctrl(L);
@@ -637,7 +639,8 @@ static int l_mqtt_autoreconn(lua_State *L) {
 @string topic 主题
 @string data  消息
 @int qos 0/1/2 默认0
-@usage mqttc:publish("/luatos/123456", "123")
+@usage 
+mqttc:publish("/luatos/123456", "123")
 */
 static int l_mqtt_publish(lua_State *L) {
 	uint16_t message_id = 0;
@@ -665,7 +668,8 @@ static int l_mqtt_publish(lua_State *L) {
 /*
 mqtt客户端关闭
 @api mqttc:close()
-@usage mqttc:close()
+@usage 
+mqttc:close()
 */
 static int l_mqtt_close(lua_State *L) {
 	luat_mqtt_ctrl_t * mqtt_ctrl = get_mqtt_ctrl(L);
@@ -679,7 +683,8 @@ static int l_mqtt_close(lua_State *L) {
 mqtt客户端是否就绪
 @api mqttc:ready()
 @return bool 客户端是否就绪
-@usage local error = mqttc:ready()
+@usage 
+local error = mqttc:ready()
 */
 static int l_mqtt_ready(lua_State *L) {
 	luat_mqtt_ctrl_t * mqtt_ctrl = get_mqtt_ctrl(L);

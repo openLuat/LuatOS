@@ -11,7 +11,7 @@
 
 #define MQTT_RECV_BUF_LEN_MAX 4096
 typedef struct{
-	mqtt_broker_handle_t *broker; // TODO 这里没必要分开malloc
+	mqtt_broker_handle_t broker;
 	network_ctrl_t *netc;
 	luat_ip_addr_t *ip_addr;
 	const char *host; 
@@ -54,7 +54,7 @@ static luat_mqtt_ctrl_t * get_mqtt_ctrl(lua_State *L){
 
 static void mqtt_timer_callback(void *data, void *param){
 	luat_mqtt_ctrl_t * mqtt_ctrl = (luat_mqtt_ctrl_t *)param;
-	mqtt_ping(mqtt_ctrl->broker);
+	mqtt_ping(&(mqtt_ctrl->broker));
 }
 
 static void reconnect_timer_cb(void *data, void *param){
@@ -94,9 +94,6 @@ static void mqtt_release_socket(luat_mqtt_ctrl_t *mqtt_ctrl){
 	if (mqtt_ctrl->netc){
 		network_release_ctrl(mqtt_ctrl->netc);
     	mqtt_ctrl->netc = NULL;
-	}
-	if (mqtt_ctrl->broker){
-		luat_heap_free(mqtt_ctrl->broker);
 	}
 	if (mqtt_ctrl->ip_addr){
 		luat_heap_free(mqtt_ctrl->ip_addr);
@@ -141,12 +138,11 @@ static int mqtt_read_packet(luat_mqtt_ctrl_t *mqtt_ctrl){
 	uint8_t *read_buff = NULL;
 	uint32_t total_len = 0;
 	uint32_t rx_len = 0;
-	// 这里获取长度的逻辑貌似没有用了, 还是说network需要先读一次呢?
 	int result = network_rx(mqtt_ctrl->netc, NULL, 0, 0, NULL, NULL, &total_len);
 	if (total_len > 0xFFF) {
 		LLOGE("too many data wait for recv %d", total_len);
-		// TODO close socket, clean up mqtt context
-		return 0;
+		mqtt_close_socket(mqtt_ctrl);
+		return -1;
 	}
 	if (total_len == 0) {
 		LLOGD("rx event but NO data wait for recv");
@@ -154,36 +150,31 @@ static int mqtt_read_packet(luat_mqtt_ctrl_t *mqtt_ctrl){
 	}
 	if (MQTT_RECV_BUF_LEN_MAX - mqtt_ctrl->buffer_offset <= 0) {
 		LLOGD("buff is FULL, mqtt packet too big");
-		// TODO 关闭socket
-		return 0;
+		mqtt_close_socket(mqtt_ctrl);
+		return -1;
 	}
 	#define MAX_READ (1024)
 	int recv_want = 0;
 
-	// 读取数据, 直至没有数据可读
 	while (MQTT_RECV_BUF_LEN_MAX - mqtt_ctrl->buffer_offset > 0) {
 		if (MAX_READ > (MQTT_RECV_BUF_LEN_MAX - mqtt_ctrl->buffer_offset)) {
 			recv_want = MQTT_RECV_BUF_LEN_MAX - mqtt_ctrl->buffer_offset;
 		}
 		else {
-			// 
 			recv_want = MAX_READ;
 		}
 		// 从网络接收数据
 		result = network_rx(mqtt_ctrl->netc, mqtt_ctrl->mqtt_packet_buffer + mqtt_ctrl->buffer_offset, recv_want, 0, NULL, NULL, &rx_len);
-		// TODO 判断 result, 虽然通常没问题
-		if (rx_len == 0) {
+		if (rx_len == 0||result!=0) {
 			break;
 		}
-		// LLOGD("mqtt_read_packet 1 mqtt_ctrl->buffer_offset:%d",mqtt_ctrl->buffer_offset);
 		// 收到数据了, 传给处理函数继续处理
-		// 数据的长度变更, 触发传递
+		// 数据的长度变更, 触发传递		
 		mqtt_ctrl->buffer_offset += rx_len;
 further:
 		result = mqtt_parse(mqtt_ctrl);
-		// LLOGD("mqtt_read_packet 1 mqtt_ctrl->buffer_offset:%d",mqtt_ctrl->buffer_offset);
 		if (result == 0) {
-			// 处理OK
+			// OK
 		}else if(result == 1){
 			goto further;
 		}
@@ -239,8 +230,8 @@ static int32_t l_mqtt_callback(lua_State *L, void* ptr){
 				if (lua_isfunction(L, -1)) {
 					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
 					lua_pushstring(L, "sent");
-					// TODO 需要解出pkgid,作为参数传过去
-					lua_call(L, 2, 0);
+					lua_pushinteger(L, msg->arg2);
+					lua_call(L, 3, 0);
 				}
             }
             break;
@@ -300,12 +291,13 @@ static int mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
 			LLOGD("MQTT_MSG_PUBACK");
 			msg.ptr = mqtt_ctrl;
 			msg.arg1 = MQTT_MSG_PUBACK;
+			msg.arg2 = mqtt_parse_msg_id(mqtt_ctrl->mqtt_packet_buffer);
 			luat_msgbus_put(&msg, 0);
 			break;
 		}
 		case MQTT_MSG_PUBREC : {
-			uint16_t msg_id=mqtt_parse_msg_id(mqtt_ctrl->broker);
-			mqtt_pubrel(mqtt_ctrl->broker, msg_id);
+			uint16_t msg_id=mqtt_parse_msg_id(&(mqtt_ctrl->broker));
+			mqtt_pubrel(&(mqtt_ctrl->broker), msg_id);
 			LLOGD("MQTT_MSG_PUBREC");
 			break;
 		}
@@ -313,6 +305,7 @@ static int mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
 			LLOGD("MQTT_MSG_PUBCOMP");
 			msg.ptr = mqtt_ctrl;
 			msg.arg1 = MQTT_MSG_PUBCOMP;
+			msg.arg2 = mqtt_parse_msg_id(mqtt_ctrl->mqtt_packet_buffer);
 			luat_msgbus_put(&msg, 0);
 			break;
 		}
@@ -364,7 +357,7 @@ static int32_t luat_lib_mqtt_callback(void *data, void *param){
 			LLOGD("init_socket ret=%d\n", ret);
 		}
 	}else if(event->ID == EV_NW_RESULT_CONNECT){
-		ret = mqtt_connect(mqtt_ctrl->broker);
+		ret = mqtt_connect(&(mqtt_ctrl->broker));
 		if(ret==1){
 			luat_start_rtos_timer(mqtt_ctrl->ping_timer, mqtt_ctrl->keepalive*1000*0.75, 1);
 		}
@@ -391,9 +384,7 @@ static int32_t luat_lib_mqtt_callback(void *data, void *param){
 static int mqtt_send_packet(void* socket_info, const void* buf, unsigned int count){
     luat_mqtt_ctrl_t * mqtt_ctrl = (luat_mqtt_ctrl_t *)socket_info;
 	uint32_t tx_len = 0;
-	network_tx(mqtt_ctrl->netc, buf, count, 0, mqtt_ctrl->ip_addr->is_ipv6?NULL:&(mqtt_ctrl->ip_addr), NULL, &tx_len, 0);
-	// TODO 判断network_tx的返回值
-	return 0;
+	return network_tx(mqtt_ctrl->netc, buf, count, 0, mqtt_ctrl->ip_addr->is_ipv6?NULL:&(mqtt_ctrl->ip_addr), NULL, &tx_len, 0);
 }
 
 static int luat_socket_connect(luat_mqtt_ctrl_t *mqtt_ctrl, const char *hostname, uint16_t port, uint16_t keepalive){
@@ -401,9 +392,9 @@ static int luat_socket_connect(luat_mqtt_ctrl_t *mqtt_ctrl, const char *hostname
         network_close(mqtt_ctrl->netc, 0);
         return -1;
     }
-    mqtt_set_alive(mqtt_ctrl->broker, keepalive);
-    mqtt_ctrl->broker->socket_info = mqtt_ctrl;
-    mqtt_ctrl->broker->send = mqtt_send_packet;
+    mqtt_set_alive(&(mqtt_ctrl->broker), keepalive);
+    mqtt_ctrl->broker.socket_info = mqtt_ctrl;
+    mqtt_ctrl->broker.send = mqtt_send_packet;
     return 0;
 }
 
@@ -413,11 +404,11 @@ static int l_mqtt_subscribe(lua_State *L) {
 	if (lua_isstring(L, 2)){
 		const char * topic = luaL_checklstring(L, 2, &len);
 		uint8_t qos = luaL_optinteger(L, 3, 0);
-		int subscribe_state = mqtt_subscribe(mqtt_ctrl->broker, topic, NULL,qos);
+		int subscribe_state = mqtt_subscribe(&(mqtt_ctrl->broker), topic, NULL,qos);
 	}else if(lua_istable(L, 2)){
 		lua_pushnil(L);
 		while (lua_next(L, 2) != 0) {
-		mqtt_subscribe(mqtt_ctrl->broker, lua_tostring(L, -2), NULL,luaL_optinteger(L, -1, 0));
+		mqtt_subscribe(&(mqtt_ctrl->broker), lua_tostring(L, -2), NULL,luaL_optinteger(L, -1, 0));
 		lua_pop(L, 1);
 		}
 	}
@@ -429,13 +420,13 @@ static int l_mqtt_unsubscribe(lua_State *L) {
 	luat_mqtt_ctrl_t * mqtt_ctrl = (luat_mqtt_ctrl_t *)lua_touserdata(L, 1);
 	if (lua_isstring(L, 2)){
 		const char * topic = luaL_checklstring(L, 2, &len);
-		int subscribe_state = mqtt_unsubscribe(mqtt_ctrl->broker, topic, NULL);
+		int subscribe_state = mqtt_unsubscribe(&(mqtt_ctrl->broker), topic, NULL);
 	}else if(lua_istable(L, 2)){
 		size_t count = lua_rawlen(L, 2);
 		for (size_t i = 1; i <= count; i++){
 			lua_geti(L, 2, i);
 			const char * topic = luaL_checklstring(L, -1, &len);
-			mqtt_unsubscribe(mqtt_ctrl->broker, topic, NULL);
+			mqtt_unsubscribe(&(mqtt_ctrl->broker), topic, NULL);
 			lua_pop(L, 1);
 		}
 	}
@@ -494,7 +485,7 @@ static int l_mqtt_create(lua_State *L) {
 	}
 	int packet_length = 0;
 	uint16_t msg_id = 0, msg_id_rcv = 0;
-	mqtt_ctrl->broker = (mqtt_broker_handle_t *)luat_heap_malloc(sizeof(mqtt_broker_handle_t));
+
 	const char *ip;
 	size_t ip_len = 0;
 	mqtt_ctrl->ip_addr = (luat_ip_addr_t *)luat_heap_malloc(sizeof(luat_ip_addr_t));
@@ -524,8 +515,8 @@ static int l_mqtt_auth(lua_State *L) {
 	const char *client_id = luaL_checkstring(L, 2);
 	const char *username = luaL_optstring(L, 3, "");
 	const char *password = luaL_optstring(L, 4, "");
-	mqtt_init(mqtt_ctrl->broker, client_id);
-	mqtt_init_auth(mqtt_ctrl->broker, username, password);
+	mqtt_init(&(mqtt_ctrl->broker), client_id);
+	mqtt_init_auth(&(mqtt_ctrl->broker), username, password);
 	return 0;
 }
 
@@ -577,7 +568,7 @@ static int l_mqtt_publish(lua_State *L) {
 	const char * payload = luaL_checkstring(L, 3);
 	uint8_t qos = luaL_optinteger(L, 4, 0);
 	uint8_t retain = luaL_optinteger(L, 5, 0);
-	int ret = mqtt_publish_with_qos(mqtt_ctrl->broker, topic, payload, retain, qos, &message_id);
+	int ret = mqtt_publish_with_qos(&(mqtt_ctrl->broker), topic, payload, retain, qos, &message_id);
 	if (ret!=1){
 		return 0;
 	}
@@ -586,6 +577,7 @@ static int l_mqtt_publish(lua_State *L) {
     	msg.handler = l_mqtt_callback;
 		msg.ptr = mqtt_ctrl;
 		msg.arg1 = MQTT_MSG_PUBACK;
+		msg.arg2 = message_id;
 		luat_msgbus_put(&msg, 0);
 	}
 	lua_pushinteger(L, message_id);
@@ -594,7 +586,7 @@ static int l_mqtt_publish(lua_State *L) {
 
 static int l_mqtt_close(lua_State *L) {
 	luat_mqtt_ctrl_t * mqtt_ctrl = get_mqtt_ctrl(L);
-	mqtt_disconnect(mqtt_ctrl->broker);
+	mqtt_disconnect(&(mqtt_ctrl->broker));
 	mqtt_close_socket(mqtt_ctrl);
 	mqtt_release_socket(mqtt_ctrl);
 	return 0;

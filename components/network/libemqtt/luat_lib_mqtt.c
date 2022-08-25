@@ -18,7 +18,7 @@ typedef struct
 	const char *host; 
 	uint16_t buffer_offset; // 用于标识mqtt_packet_buffer当前有多少数据
 	uint8_t mqtt_packet_buffer[MQTT_RECV_BUF_LEN_MAX + 4];
-	uint8_t mqtt_id; // 对应mqtt_cbs的索引, TODO, 既然要存function的ref_id, 为啥不直接存呢
+	int mqtt_cb;
 	uint16_t remote_port; // 远程端口号
 	uint32_t keepalive;   // 心跳时长 单位s
 	uint8_t adapter_index; // 适配器索引号, 似乎并没有什么用
@@ -28,10 +28,6 @@ typedef struct
 	void* reconnect_timer;		// mqtt重连定时器
 	// TODO 记录最后一次数据交互的时间,方便判断是否真的发送ping请求
 }luat_mqtt_ctrl_t;
-
-#define MAX_MQTT_COUNT 32
-static int mqtt_cbs[MAX_MQTT_COUNT];
-static uint8_t mqtt_id = 0;
 
 #define LUAT_MQTT_CTRL_TYPE "MQTTCTRL*"
 
@@ -77,6 +73,7 @@ static void mqtt_close_socket(luat_mqtt_ctrl_t *mqtt_ctrl){
 	if (mqtt_ctrl->netc){
 		network_force_close_socket(mqtt_ctrl->netc);
 	}
+	mqtt_ctrl->mqtt_state = 0;
 	mqtt_reconnect(mqtt_ctrl);
 }
 
@@ -191,9 +188,9 @@ static int32_t l_mqtt_callback(lua_State *L, void* ptr){
     switch (msg->arg1) {
 		case MQTT_MSG_PUBLISH : {
 			luat_mqtt_msg_t *mqtt_msg =(luat_mqtt_msg_t *)msg->arg2;
-			if (mqtt_cbs[mqtt_ctrl->mqtt_id]) {
+			if (mqtt_ctrl->mqtt_cb) {
 				luat_mqtt_msg_t *mqtt_msg =(luat_mqtt_msg_t *)msg->arg2;
-				lua_geti(L, LUA_REGISTRYINDEX, mqtt_cbs[mqtt_ctrl->mqtt_id]);
+				lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_cb);
 				if (lua_isfunction(L, -1)) {
 					lua_pushlightuserdata(L, mqtt_ctrl);
 					lua_pushstring(L, "recv");
@@ -206,8 +203,8 @@ static int32_t l_mqtt_callback(lua_State *L, void* ptr){
             break;
         }
         case MQTT_MSG_CONNACK: {
-			if (mqtt_cbs[mqtt_ctrl->mqtt_id]) {
-				lua_geti(L, LUA_REGISTRYINDEX, mqtt_cbs[mqtt_ctrl->mqtt_id]);
+			if (mqtt_ctrl->mqtt_cb) {
+				lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_cb);
 				if (lua_isfunction(L, -1)) {
 					lua_pushlightuserdata(L, mqtt_ctrl);
 					lua_pushstring(L, "conack");
@@ -224,8 +221,8 @@ static int32_t l_mqtt_callback(lua_State *L, void* ptr){
         }
 		case MQTT_MSG_PUBACK:
 		case MQTT_MSG_PUBCOMP: {
-			if (mqtt_cbs[mqtt_ctrl->mqtt_id]) {
-				lua_geti(L, LUA_REGISTRYINDEX, mqtt_cbs[mqtt_ctrl->mqtt_id]);
+			if (mqtt_ctrl->mqtt_cb) {
+				lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_cb);
 				if (lua_isfunction(L, -1)) {
 					lua_pushlightuserdata(L, mqtt_ctrl);
 					lua_pushstring(L, "sent");
@@ -441,8 +438,6 @@ static int l_mqtt_create(lua_State *L) {
 	}
 	network_init_ctrl(mqtt_ctrl->netc, NULL, luat_lib_mqtt_callback, mqtt_ctrl);
 
-	mqtt_ctrl->mqtt_id = mqtt_id++;
-
 	mqtt_ctrl->mqtt_state = 0;
 	mqtt_ctrl->netc->is_debug = 1;
 	mqtt_ctrl->keepalive = 240;
@@ -513,13 +508,13 @@ static int l_mqtt_keepalive(lua_State *L) {
 
 static int l_mqtt_on(lua_State *L) {
 	luat_mqtt_ctrl_t * mqtt_ctrl = get_mqtt_ctrl(L);
-	if (mqtt_cbs[mqtt_ctrl->mqtt_id] != 0) {
-		luaL_unref(L, LUA_REGISTRYINDEX, mqtt_cbs[mqtt_ctrl->mqtt_id]);
-		mqtt_cbs[mqtt_ctrl->mqtt_id] = 0;
+	if (mqtt_ctrl->mqtt_cb != 0) {
+		luaL_unref(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_cb);
+		mqtt_ctrl->mqtt_cb = 0;
 	}
 	if (lua_isfunction(L, 2)) {
 		lua_pushvalue(L, 2);
-		mqtt_cbs[mqtt_ctrl->mqtt_id] = luaL_ref(L, LUA_REGISTRYINDEX);
+		mqtt_ctrl->mqtt_cb = luaL_ref(L, LUA_REGISTRYINDEX);
 	}
 	return 0;
 }
@@ -537,7 +532,7 @@ static int l_mqtt_connect(lua_State *L) {
 	return 0;
 }
 
-static int l_mqtt_reconnect(lua_State *L) {
+static int l_mqtt_autoreconn(lua_State *L) {
 	luat_mqtt_ctrl_t * mqtt_ctrl = get_mqtt_ctrl(L);
 	if (lua_isboolean(L, 2)){
 		mqtt_ctrl->reconnect = lua_toboolean(L, 2);
@@ -606,8 +601,8 @@ int _mqtt_struct_newindex(lua_State *L) {
         lua_pushcfunction(L, l_mqtt_connect);
         return 1;
     }
-	else if (!strcmp("reconnect", key)) {
-        lua_pushcfunction(L, l_mqtt_reconnect);
+	else if (!strcmp("autoreconn", key)) {
+        lua_pushcfunction(L, l_mqtt_autoreconn);
         return 1;
     }
 	else if (!strcmp("publish", key)) {
@@ -652,7 +647,7 @@ static const rotable_Reg_t reg_mqtt[] =
 	{"keepalive",		ROREG_FUNC(l_mqtt_keepalive)},
 	{"on",				ROREG_FUNC(l_mqtt_on)},
 	{"connect",			ROREG_FUNC(l_mqtt_connect)},
-	{"reconnect",		ROREG_FUNC(l_mqtt_reconnect)},
+	{"autoreconn",		ROREG_FUNC(l_mqtt_autoreconn)},
 	{"publish",			ROREG_FUNC(l_mqtt_publish)},
 	{"subscribe",		ROREG_FUNC(l_mqtt_subscribe)},
 	{"unsubscribe",		ROREG_FUNC(l_mqtt_unsubscribe)},

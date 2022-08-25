@@ -31,6 +31,7 @@ typedef struct{
 
 #define LUAT_MQTT_CTRL_TYPE "MQTTCTRL*"
 
+#define MQTT_MSG_RELEASE 0
 typedef struct
 {
 	uint16_t topic_len;
@@ -41,6 +42,7 @@ typedef struct
 static int luat_socket_connect(luat_mqtt_ctrl_t *mqtt_ctrl, const char *hostname, uint16_t port, uint16_t keepalive);
 static void mqtt_close_socket(luat_mqtt_ctrl_t *mqtt_ctrl);
 static int mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl);
+static int32_t l_mqtt_callback(lua_State *L, void* ptr);
 
 static luat_mqtt_ctrl_t * get_mqtt_ctrl(lua_State *L){
 	if (luaL_testudata(L, 1, LUAT_MQTT_CTRL_TYPE)){
@@ -84,6 +86,11 @@ static void mqtt_close_socket(luat_mqtt_ctrl_t *mqtt_ctrl){
 }
 
 static void mqtt_release_socket(luat_mqtt_ctrl_t *mqtt_ctrl){
+	rtos_msg_t msg = {0};
+	msg.handler = l_mqtt_callback;
+	msg.ptr = mqtt_ctrl;
+	msg.arg1 = MQTT_MSG_RELEASE;
+	luat_msgbus_put(&msg, 0);
 	if (mqtt_ctrl->netc){
 		network_release_ctrl(mqtt_ctrl->netc);
     	mqtt_ctrl->netc = NULL;
@@ -238,6 +245,13 @@ static int32_t l_mqtt_callback(lua_State *L, void* ptr){
             }
             break;
         }
+		case MQTT_MSG_RELEASE: {
+			if (mqtt_ctrl->mqtt_ref) {
+				luaL_unref(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
+				mqtt_ctrl->mqtt_ref = 0;
+            }
+            break;
+        }
 		default : {
 			LLOGD("l_mqtt_callback error arg1:%d",msg->arg1);
             break;
@@ -352,18 +366,18 @@ static int32_t luat_lib_mqtt_callback(void *data, void *param){
 	}else if(event->ID == EV_NW_RESULT_CONNECT){
 		ret = mqtt_connect(mqtt_ctrl->broker);
 		if(ret==1){
-			luat_start_rtos_timer(mqtt_ctrl->ping_timer, mqtt_ctrl->keepalive*1000, 1);
+			luat_start_rtos_timer(mqtt_ctrl->ping_timer, mqtt_ctrl->keepalive*1000*0.75, 1);
 		}
 	}else if(event->ID == EV_NW_RESULT_EVENT){
 		if (event->Param1==0){
 			ret = mqtt_read_packet(mqtt_ctrl);
 			// LLOGD("mqtt_read_packet ret:%d",ret);
 			luat_stop_rtos_timer(mqtt_ctrl->ping_timer);
-			luat_start_rtos_timer(mqtt_ctrl->ping_timer, mqtt_ctrl->keepalive*1000, 1);
+			luat_start_rtos_timer(mqtt_ctrl->ping_timer, mqtt_ctrl->keepalive*1000*0.75, 1);
 		}
 	}else if(event->ID == EV_NW_RESULT_TX){
 		luat_stop_rtos_timer(mqtt_ctrl->ping_timer);
-		luat_start_rtos_timer(mqtt_ctrl->ping_timer, mqtt_ctrl->keepalive*1000, 1);
+		luat_start_rtos_timer(mqtt_ctrl->ping_timer, mqtt_ctrl->keepalive*1000*0.75, 1);
 	}else if(event->ID == EV_NW_RESULT_CLOSE){
 
 	}

@@ -10,23 +10,23 @@
 #include "luat_log.h"
 
 #define MQTT_RECV_BUF_LEN_MAX 4096
-typedef struct
-{
+typedef struct{
 	mqtt_broker_handle_t *broker; // TODO 这里没必要分开malloc
 	network_ctrl_t *netc;
 	luat_ip_addr_t *ip_addr;
 	const char *host; 
-	uint16_t buffer_offset; // 用于标识mqtt_packet_buffer当前有多少数据
+	uint16_t buffer_offset; 	// 用于标识mqtt_packet_buffer当前有多少数据
 	uint8_t mqtt_packet_buffer[MQTT_RECV_BUF_LEN_MAX + 4];
 	int mqtt_cb;
-	uint16_t remote_port; // 远程端口号
-	uint32_t keepalive;   // 心跳时长 单位s
-	uint8_t adapter_index; // 适配器索引号, 似乎并没有什么用
-	uint8_t mqtt_state;    // mqtt状态
-	uint8_t reconnect;    // mqtt是否重连
+	uint16_t remote_port; 		// 远程端口号
+	uint32_t keepalive;   		// 心跳时长 单位s
+	uint8_t adapter_index; 		// 适配器索引号, 似乎并没有什么用
+	uint8_t mqtt_state;    		// mqtt状态
+	uint8_t reconnect;    		// mqtt是否重连
 	uint32_t reconnect_time;    // mqtt重连时间 单位ms
 	void* reconnect_timer;		// mqtt重连定时器
-	// TODO 记录最后一次数据交互的时间,方便判断是否真的发送ping请求
+	void* ping_timer;			// mqtt_ping定时器
+	int mqtt_ref;				//强制引用自身避免被GC
 }luat_mqtt_ctrl_t;
 
 #define LUAT_MQTT_CTRL_TYPE "MQTTCTRL*"
@@ -48,6 +48,11 @@ static luat_mqtt_ctrl_t * get_mqtt_ctrl(lua_State *L){
 	}else{
 		return ((luat_mqtt_ctrl_t *)lua_touserdata(L, 1));
 	}
+}
+
+static void mqtt_timer_callback(void *data, void *param){
+	luat_mqtt_ctrl_t * mqtt_ctrl = (luat_mqtt_ctrl_t *)param;
+	mqtt_ping(mqtt_ctrl->broker);
 }
 
 static void reconnect_timer_cb(void *data, void *param){
@@ -73,6 +78,7 @@ static void mqtt_close_socket(luat_mqtt_ctrl_t *mqtt_ctrl){
 	if (mqtt_ctrl->netc){
 		network_force_close_socket(mqtt_ctrl->netc);
 	}
+	luat_stop_rtos_timer(mqtt_ctrl->ping_timer);
 	mqtt_ctrl->mqtt_state = 0;
 	mqtt_reconnect(mqtt_ctrl);
 }
@@ -344,14 +350,20 @@ static int32_t luat_lib_mqtt_callback(void *data, void *param){
 			LLOGD("init_socket ret=%d\n", ret);
 		}
 	}else if(event->ID == EV_NW_RESULT_CONNECT){
-		mqtt_connect(mqtt_ctrl->broker);
+		ret = mqtt_connect(mqtt_ctrl->broker);
+		if(ret==1){
+			luat_start_rtos_timer(mqtt_ctrl->ping_timer, mqtt_ctrl->keepalive*1000, 1);
+		}
 	}else if(event->ID == EV_NW_RESULT_EVENT){
 		if (event->Param1==0){
 			ret = mqtt_read_packet(mqtt_ctrl);
-			LLOGD("mqtt_read_packet ret:%d",ret);
+			// LLOGD("mqtt_read_packet ret:%d",ret);
+			luat_stop_rtos_timer(mqtt_ctrl->ping_timer);
+			luat_start_rtos_timer(mqtt_ctrl->ping_timer, mqtt_ctrl->keepalive*1000, 1);
 		}
 	}else if(event->ID == EV_NW_RESULT_TX){
-		
+		luat_stop_rtos_timer(mqtt_ctrl->ping_timer);
+		luat_start_rtos_timer(mqtt_ctrl->ping_timer, mqtt_ctrl->keepalive*1000, 1);
 	}else if(event->ID == EV_NW_RESULT_CLOSE){
 
 	}
@@ -486,7 +498,10 @@ static int l_mqtt_create(lua_State *L) {
 	memset(mqtt_ctrl->host, 0, ip_len + 1);
 	memcpy(mqtt_ctrl->host, ip, ip_len);
 	mqtt_ctrl->remote_port = luaL_checkinteger(L, 3);
+	mqtt_ctrl->ping_timer = luat_create_rtos_timer(mqtt_timer_callback, mqtt_ctrl, NULL);
 	luaL_setmetatable(L, LUAT_MQTT_CTRL_TYPE);
+	lua_pushvalue(L, -1);
+	mqtt_ctrl->mqtt_ref = luaL_ref(L, LUA_REGISTRYINDEX);
 	return 1;
 }
 
@@ -563,12 +578,6 @@ static int l_mqtt_publish(lua_State *L) {
 	return 1;
 }
 
-static int l_mqtt_ping(lua_State *L) {
-	luat_mqtt_ctrl_t * mqtt_ctrl = get_mqtt_ctrl(L);
-	mqtt_ping(mqtt_ctrl->broker);
-	return 0;
-}
-
 static int l_mqtt_close(lua_State *L) {
 	luat_mqtt_ctrl_t * mqtt_ctrl = get_mqtt_ctrl(L);
 	mqtt_disconnect(mqtt_ctrl->broker);
@@ -604,7 +613,6 @@ static const rotable_Reg_t reg_mqtt[] =
 	{"publish",			ROREG_FUNC(l_mqtt_publish)},
 	{"subscribe",		ROREG_FUNC(l_mqtt_subscribe)},
 	{"unsubscribe",		ROREG_FUNC(l_mqtt_unsubscribe)},
-	{"ping",			ROREG_FUNC(l_mqtt_ping)},
 	{"close",			ROREG_FUNC(l_mqtt_close)},
 	{"ready",			ROREG_FUNC(l_mqtt_ready)},
 

@@ -102,6 +102,10 @@ static void mqtt_release_socket(luat_mqtt_ctrl_t *mqtt_ctrl){
 		network_release_ctrl(mqtt_ctrl->netc);
     	mqtt_ctrl->netc = NULL;
 	}
+	if (mqtt_ctrl->mqtt_cb != 0) {
+		luaL_unref(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_cb);
+		mqtt_ctrl->mqtt_cb = 0;
+	}
 	if (mqtt_ctrl->host){
 		luat_heap_free(mqtt_ctrl->host);
 	}
@@ -406,8 +410,8 @@ static int luat_socket_connect(luat_mqtt_ctrl_t *mqtt_ctrl, const char *hostname
 /*
 订阅主题
 @api mqttc:subscribe(topic, qos)
-@string/table topic 主题
-@int qos topic为string时生效 0/1/2 默认0
+@string/table 主题
+@int topic为string时生效 0/1/2 默认0
 @usage 
 mqttc:subscribe("/luatos/123456")
 mqttc:subscribe({["/luatos/1234567"]=1,["/luatos/12345678"]=2})
@@ -432,7 +436,7 @@ static int l_mqtt_subscribe(lua_State *L) {
 /*
 取消订阅主题
 @api mqttc:unsubscribe(topic)
-@string/table topic 主题
+@string/table 主题
 @usage 
 mqttc:unsubscribe("/luatos/123456")
 mqttc:unsubscribe({"/luatos/1234567","/luatos/12345678"})
@@ -459,10 +463,10 @@ static int l_mqtt_unsubscribe(lua_State *L) {
 mqtt客户端创建
 @api mqttc:create(adapter,host,port,isssl,ca_file)
 @int 适配器序号， 只能是network.ETH0，network.STA，network.AP，如果不填，会选择最后一个注册的适配器
-@string host 服务器地址
-@int 	port 端口号
-@bool 	isssl 是否为ssl加密连接,默认不加密
-@string ca_file 证书
+@string 服务器地址
+@int  	端口号
+@bool  	是否为ssl加密连接,默认不加密
+@string 证书
 @usage 
 mqttc = mqtt.create(nil,"120.55.137.106", 1884)
 */
@@ -546,8 +550,8 @@ static int l_mqtt_create(lua_State *L) {
 mqtt三元组配置
 @api mqttc:auth(client_id,username,password)
 @string client_id
-@string username 可选
-@string password 可选
+@string 账号 可选
+@string 密码 可选
 @usage 
 mqttc:auth("123456789","username","password")
 */
@@ -564,7 +568,7 @@ static int l_mqtt_auth(lua_State *L) {
 /*
 mqtt心跳设置
 @api mqttc:keepalive(time)
-@int time 可选 单位s 默认240s
+@int 可选 单位s 默认240s
 @usage 
 mqttc:keepalive(30)
 */
@@ -619,7 +623,7 @@ static int l_mqtt_connect(lua_State *L) {
 /*
 自动重连
 @api mqttc:autoreconn(reconnect, reconnect_time)
-@bool reconnect 是否自动重连
+@bool 是否自动重连
 @int 自动重连周期 单位ms 默认3s
 @usage 
 mqttc:autoreconn(true)
@@ -639,6 +643,7 @@ static int l_mqtt_autoreconn(lua_State *L) {
 @string topic 主题
 @string data  消息
 @int qos 0/1/2 默认0
+@return int message_id
 @usage 
 mqttc:publish("/luatos/123456", "123")
 */
@@ -666,7 +671,7 @@ static int l_mqtt_publish(lua_State *L) {
 }
 
 /*
-mqtt客户端关闭
+mqtt客户端关闭(关闭后资源释放无法再使用)
 @api mqttc:close()
 @usage 
 mqttc:close()

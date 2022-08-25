@@ -1,3 +1,10 @@
+/*
+@module  mqtt
+@summary mqtt客户端
+@version 1.0
+@date    2022.08.25
+@demo mqtt
+*/
 
 #include "luat_base.h"
 
@@ -253,11 +260,11 @@ static int mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
     uint8_t msg_tp = MQTTParseMessageType(mqtt_ctrl->mqtt_packet_buffer);
     switch (msg_tp) {
 		case MQTT_MSG_CONNECT : {
-			LLOGD("MQTT_MSG_CONNECT");
+			// LLOGD("MQTT_MSG_CONNECT");
 			break;
 		}
 		case MQTT_MSG_CONNACK: {
-			LLOGD("MQTT_MSG_CONNACK");
+			// LLOGD("MQTT_MSG_CONNACK");
 			if(mqtt_ctrl->mqtt_packet_buffer[3] != 0x00){
                 mqtt_close_socket(mqtt_ctrl);
                 return -2;
@@ -269,7 +276,7 @@ static int mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
             break;
         }
         case MQTT_MSG_PUBLISH : {
-			LLOGD("MQTT_MSG_PUBLISH");
+			// LLOGD("MQTT_MSG_PUBLISH");
 			const uint8_t* ptr;
 			uint16_t topic_len = mqtt_parse_pub_topic_ptr(mqtt_ctrl->mqtt_packet_buffer, &ptr);
 			uint16_t payload_len = mqtt_parse_pub_msg_ptr(mqtt_ctrl->mqtt_packet_buffer, &ptr);
@@ -283,7 +290,7 @@ static int mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
             break;
         }
         case MQTT_MSG_PUBACK : {
-			LLOGD("MQTT_MSG_PUBACK");
+			// LLOGD("MQTT_MSG_PUBACK");
 			msg.ptr = mqtt_ctrl;
 			msg.arg1 = MQTT_MSG_PUBACK;
 			msg.arg2 = mqtt_parse_msg_id(mqtt_ctrl->mqtt_packet_buffer);
@@ -293,11 +300,11 @@ static int mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
 		case MQTT_MSG_PUBREC : {
 			uint16_t msg_id=mqtt_parse_msg_id(&(mqtt_ctrl->broker));
 			mqtt_pubrel(&(mqtt_ctrl->broker), msg_id);
-			LLOGD("MQTT_MSG_PUBREC");
+			// LLOGD("MQTT_MSG_PUBREC");
 			break;
 		}
 		case MQTT_MSG_PUBCOMP : {
-			LLOGD("MQTT_MSG_PUBCOMP");
+			// LLOGD("MQTT_MSG_PUBCOMP");
 			msg.ptr = mqtt_ctrl;
 			msg.arg1 = MQTT_MSG_PUBCOMP;
 			msg.arg2 = mqtt_parse_msg_id(mqtt_ctrl->mqtt_packet_buffer);
@@ -305,31 +312,31 @@ static int mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
 			break;
 		}
 		case MQTT_MSG_SUBSCRIBE : {
-			LLOGD("MQTT_MSG_SUBSCRIBE");
+			// LLOGD("MQTT_MSG_SUBSCRIBE");
             break;
         }
         case MQTT_MSG_SUBACK : {
-			LLOGD("MQTT_MSG_SUBACK");
+			// LLOGD("MQTT_MSG_SUBACK");
             break;
         }
 		case MQTT_MSG_UNSUBSCRIBE : {
-			LLOGD("MQTT_MSG_UNSUBSCRIBE");
+			// LLOGD("MQTT_MSG_UNSUBSCRIBE");
             break;
         }
 		case MQTT_MSG_UNSUBACK : {
-			LLOGD("MQTT_MSG_UNSUBACK");
+			// LLOGD("MQTT_MSG_UNSUBACK");
             break;
         }
 		case MQTT_MSG_PINGREQ : {
-			LLOGD("MQTT_MSG_PINGREQ");
+			// LLOGD("MQTT_MSG_PINGREQ");
             break;
         }
         case MQTT_MSG_PINGRESP : {
-			LLOGD("MQTT_MSG_PINGRESP");
+			// LLOGD("MQTT_MSG_PINGRESP");
             break;
         }
 		case MQTT_MSG_DISCONNECT : {
-			LLOGD("MQTT_MSG_DISCONNECT");
+			// LLOGD("MQTT_MSG_DISCONNECT");
             break;
         }
         default : {
@@ -344,12 +351,13 @@ static int32_t luat_lib_mqtt_callback(void *data, void *param){
 	OS_EVENT *event = (OS_EVENT *)data;
 	luat_mqtt_ctrl_t *mqtt_ctrl =(luat_mqtt_ctrl_t *)param;
 	int ret = 0;
-	LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
-	LLOGD("luat_lib_mqtt_callback %d %d",event->ID & 0x0fffffff,event->Param1);
+	// LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
+	// LLOGD("luat_lib_mqtt_callback %d %d",event->ID & 0x0fffffff,event->Param1);
 	if (event->ID == EV_NW_RESULT_LINK){
 		int ret = luat_socket_connect(mqtt_ctrl, mqtt_ctrl->host, mqtt_ctrl->remote_port, mqtt_ctrl->keepalive);
 		if(ret){
-			LLOGD("init_socket ret=%d\n", ret);
+			// LLOGD("init_socket ret=%d\n", ret);
+			mqtt_close_socket(mqtt_ctrl);
 		}
 	}else if(event->ID == EV_NW_RESULT_CONNECT){
 		ret = mqtt_connect(&(mqtt_ctrl->broker));
@@ -412,8 +420,8 @@ static int l_mqtt_subscribe(lua_State *L) {
 	}else if(lua_istable(L, 2)){
 		lua_pushnil(L);
 		while (lua_next(L, 2) != 0) {
-		mqtt_subscribe(&(mqtt_ctrl->broker), lua_tostring(L, -2), NULL,luaL_optinteger(L, -1, 0));
-		lua_pop(L, 1);
+			mqtt_subscribe(&(mqtt_ctrl->broker), lua_tostring(L, -2), NULL,luaL_optinteger(L, -1, 0));
+			lua_pop(L, 1);
 		}
 	}
 	return 0;

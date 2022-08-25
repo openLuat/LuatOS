@@ -24,7 +24,7 @@ typedef struct
 	uint8_t adapter_index; // 适配器索引号, 似乎并没有什么用
 	uint8_t mqtt_state;    // mqtt状态
 	uint8_t reconnect;    // mqtt是否重连
-	uint8_t reconnect_time;    // mqtt重连时间 单位ms
+	uint32_t reconnect_time;    // mqtt重连时间 单位ms
 	void* reconnect_timer;		// mqtt重连定时器
 	// TODO 记录最后一次数据交互的时间,方便判断是否真的发送ping请求
 }luat_mqtt_ctrl_t;

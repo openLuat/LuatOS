@@ -8,6 +8,8 @@
 
 #include "luat_base.h"
 
+#ifdef LUAT_USE_NETWORK
+
 #include "luat_network_adapter.h"
 #include "libemqtt.h"
 #include "luat_rtos.h"
@@ -732,3 +734,20 @@ LUAMOD_API int luaopen_mqtt( lua_State *L ) {
 	luat_mqtt_struct_init(L);
     return 1;
 }
+
+#else
+
+#define LUAT_LOG_TAG "mqtt"
+#include "luat_log.h"
+
+#include "rotable2.h"
+static const rotable_Reg_t reg_mqtt[] =
+{
+	{ NULL,             ROREG_INT(0)}
+};
+LUAMOD_API int luaopen_mqtt( lua_State *L ) {
+    luat_newlib2(L, reg_mqtt);
+	LLOGE("mqtt require network enable!!");
+    return 1;
+}
+#endif

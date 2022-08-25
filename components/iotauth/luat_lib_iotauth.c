@@ -175,7 +175,7 @@ static int url_encoding_for_token(sign_msg* msg,char *token){
     memcpy(temp_msg->sign,temp,strlen(temp));
     temp_msg->sign[strlen(temp)] = 0;
     if(snprintf(token,PASSWORD_LEN, "version=%s&res=%s&et=%s&method=%s&sign=%s", temp_msg->version, temp_msg->res, temp_msg->et, temp_msg->method, temp_msg->sign)<0){
-        return;
+        return -1;
     }
     return strlen(token);
 }
@@ -319,7 +319,7 @@ static void qcloud_token(const char* product_id,const char* device_name,const ch
         luat_crypto_hmac_sha256_simple(username, strlen(username),psk_base64decode, psk_base64decode_len, username_sign);
     }else{
         LLOGE("not support: %s",method);
-        return -1;
+        return;
     }
     char *username_sign_hex  = (char *)luat_heap_malloc(strlen(username_sign)*2+1);
     memset(username_sign_hex, 0, strlen(username_sign)*2+1);

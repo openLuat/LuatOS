@@ -102,6 +102,10 @@ static void mqtt_release_socket(luat_mqtt_ctrl_t *mqtt_ctrl){
 		network_release_ctrl(mqtt_ctrl->netc);
     	mqtt_ctrl->netc = NULL;
 	}
+	if (mqtt_ctrl->mqtt_cb != 0) {
+		luaL_unref(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_cb);
+		mqtt_ctrl->mqtt_cb = 0;
+	}
 	if (mqtt_ctrl->host){
 		luat_heap_free(mqtt_ctrl->host);
 	}

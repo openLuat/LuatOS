@@ -205,7 +205,7 @@ static int32_t l_mqtt_callback(lua_State *L, void* ptr){
 				luat_mqtt_msg_t *mqtt_msg =(luat_mqtt_msg_t *)msg->arg2;
 				lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_cb);
 				if (lua_isfunction(L, -1)) {
-					lua_pushlightuserdata(L, mqtt_ctrl);
+					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
 					lua_pushstring(L, "recv");
 					lua_pushlstring(L, mqtt_msg->data,mqtt_msg->topic_len);
 					lua_pushlstring(L, mqtt_msg->data+mqtt_msg->topic_len,mqtt_msg->payload_len);
@@ -219,14 +219,14 @@ static int32_t l_mqtt_callback(lua_State *L, void* ptr){
 			if (mqtt_ctrl->mqtt_cb) {
 				lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_cb);
 				if (lua_isfunction(L, -1)) {
-					lua_pushlightuserdata(L, mqtt_ctrl);
+					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
 					lua_pushstring(L, "conack");
 					lua_call(L, 2, 0);
 				}
 				lua_getglobal(L, "sys_pub");
 				if (lua_isfunction(L, -1)) {
 					lua_pushstring(L, "MQTT_CONNACK");
-					lua_pushlightuserdata(L, mqtt_ctrl);
+					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
 					lua_call(L, 2, 0);
 				}
             }
@@ -237,7 +237,7 @@ static int32_t l_mqtt_callback(lua_State *L, void* ptr){
 			if (mqtt_ctrl->mqtt_cb) {
 				lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_cb);
 				if (lua_isfunction(L, -1)) {
-					lua_pushlightuserdata(L, mqtt_ctrl);
+					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
 					lua_pushstring(L, "sent");
 					// TODO 需要解出pkgid,作为参数传过去
 					lua_call(L, 2, 0);

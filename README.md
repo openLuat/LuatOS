@@ -29,3 +29,8 @@ LuatOS : Powerful embedded Lua Engine for IoT devices, with many components and 
 ## 授权协议
 
 [MIT License](LICENSE)
+
+```lua
+print("感谢您使用LuatOS ^_^")
+print("Thank you for using LuatOS ^_^")
+```

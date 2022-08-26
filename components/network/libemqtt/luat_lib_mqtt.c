@@ -102,10 +102,6 @@ static void mqtt_release_socket(luat_mqtt_ctrl_t *mqtt_ctrl){
 		network_release_ctrl(mqtt_ctrl->netc);
     	mqtt_ctrl->netc = NULL;
 	}
-	if (mqtt_ctrl->mqtt_cb != 0) {
-		luaL_unref(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_cb);
-		mqtt_ctrl->mqtt_cb = 0;
-	}
 	if (mqtt_ctrl->host){
 		luat_heap_free(mqtt_ctrl->host);
 	}
@@ -680,6 +676,10 @@ static int l_mqtt_close(lua_State *L) {
 	luat_mqtt_ctrl_t * mqtt_ctrl = get_mqtt_ctrl(L);
 	mqtt_disconnect(&(mqtt_ctrl->broker));
 	mqtt_close_socket(mqtt_ctrl);
+	if (mqtt_ctrl->mqtt_cb != 0) {
+		luaL_unref(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_cb);
+		mqtt_ctrl->mqtt_cb = 0;
+	}
 	mqtt_release_socket(mqtt_ctrl);
 	return 0;
 }

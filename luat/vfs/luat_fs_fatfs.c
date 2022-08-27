@@ -12,7 +12,7 @@
 #include "diskio.h"
 
 FILE* luat_vfs_fatfs_fopen(void* userdata, const char *filename, const char *mode) {
-    LLOGD("f_open %s %s", filename, mode);
+    //LLOGD("f_open %s %s", filename, mode);
     //FATFS *fs = (FATFS*)userdata;
     FIL* fp = luat_heap_malloc(sizeof(FIL));
     int flag = 0;
@@ -161,17 +161,60 @@ int luat_vfs_fatfs_umount(void* userdata, luat_fs_conf_t *conf) {
 }
 
 int luat_vfs_fatfs_mkdir(void* userdata, char const* _DirName) {
-    LLOGE("not support yet : mkdir");
+    FRESULT ret = f_mkdir(_DirName);
+    if (FR_OK == ret)
+        return 0;
+    LLOGD("mkdir ret %d", ret);
     return -1;
 }
 int luat_vfs_fatfs_rmdir(void* userdata, char const* _DirName) {
-    LLOGE("not support yet : rmdir");
+    FRESULT ret = f_rmdir(_DirName);
+    if (FR_OK == ret)
+        return 0;
+    LLOGD("rmdir ret %d", ret);
     return -1;
 }
 
-int luat_vfs_fatfs_lsdir(void* userdata, char const* _DirName) {
-    LLOGE("not support yet : lsdir");
-    return 0;
+int luat_vfs_fatfs_lsdir(void* userdata, char const* _DirName, luat_fs_dirent_t* ents, size_t offset, size_t len) {
+    DIR dir = {0};
+    FRESULT res  = 0;
+    FILINFO fno = {0};
+    size_t i = 0;
+    size_t count = 0;
+    res = f_opendir(&dir, _DirName);
+    if (res != FR_OK) {
+        LLOGD("opendir %s %d", _DirName, res);
+        return 0;
+    }
+    for (i = 0; i < offset; i++)
+    {
+        res = f_readdir(&dir, &fno);
+        if (res != FR_OK || fno.fname[0] == 0) {
+            return 0; // 读取失败或者是读完了
+        };
+    }
+    for (i = 0; i < len; i++)
+    {
+        res = f_readdir(&dir, &fno);
+        if (res != FR_OK || fno.fname[0] == 0) {
+            break;
+        };
+        count ++;
+        if (fno.fattrib & AM_DIR) {
+            ents[i].d_type = 2;
+        }
+        else {
+            ents[i].d_type = 1;
+        }
+        if (strlen(fno.fname) < 255)
+            memcpy(&ents[i].d_name, fno.fname, strlen(fno.fname) + 1);
+        else {
+            memcpy(ents[i].d_name, fno.fname, 254);
+            ents[i].d_name[254] = 0;
+        }
+    }
+
+    return count;
 }
 
 int luat_vfs_fatfs_info(void* userdata, const char* path, luat_fs_info_t *conf) {

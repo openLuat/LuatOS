@@ -1,17 +1,17 @@
 
 
-local sys = require "sys"
+-- local sys = require "sys"
 
 log.info("sys", "from win32")
 
-sys.taskInit(function ()
-    sys.wait(1000)
+-- sys.taskInit(function ()
+    -- sys.wait(1000)
 
     if fatfs ~= nil then
         fatfs.debug(1)
         fatfs.mount("ram", 64*1024)
         fatfs.mkfs("ram")
-        sys.wait(100)
+        -- sys.wait(100)
         local data, err = fatfs.getfree("ram")
         if data then
             log.info("fatfs", "ramdisk", json.encode(data))
@@ -45,10 +45,13 @@ sys.taskInit(function ()
             f:seek("set", 0)
             assert(f:read(str:len() + 3) == str .. "zzz")
         end
+        local ret, files = io.lsdir("/sd")
+        assert(files ~= nil, "fatfs lsdir shall work")
+        log.info("fatfs", "lsdir", json.encode(files))
         log.info("bye")
-        sys.wait(1000)
+        -- sys.wait(1000)
     end
     os.exit(0)
-end)
+-- end)
 
-sys.run()
+-- sys.run()

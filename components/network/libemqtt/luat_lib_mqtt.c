@@ -458,7 +458,7 @@ static int l_mqtt_unsubscribe(lua_State *L) {
 /*
 mqtt客户端创建
 @api mqttc:create(adapter,host,port,isssl,ca_file)
-@int 适配器序号， 只能是network.ETH0，network.STA，network.AP，如果不填，会选择最后一个注册的适配器
+@int 适配器序号, 只能是network.ETH0,network.STA,network.AP,如果不填,会选择最后一个注册的适配器
 @string 服务器地址
 @int  	端口号
 @bool  	是否为ssl加密连接,默认不加密
@@ -493,6 +493,25 @@ static int l_mqtt_create(lua_State *L) {
 	mqtt_ctrl->keepalive = 240;
 	network_set_base_mode(mqtt_ctrl->netc, 1, 10000, 0, 0, 0, 0);
 	network_set_local_port(mqtt_ctrl->netc, 0);
+
+	const char *ip;
+	size_t ip_len = 0;
+	mqtt_ctrl->ip_addr.is_ipv6 = 0xff;
+	if (lua_isinteger(L, 2)){
+		mqtt_ctrl->ip_addr.is_ipv6 = 0;
+		mqtt_ctrl->ip_addr.ipv4 = lua_tointeger(L, 2);
+		ip = NULL;
+		ip_len = 0;
+	}else{
+		ip_len = 0;
+		ip = luaL_checklstring(L, 2, &ip_len);
+	}
+	mqtt_ctrl->host = luat_heap_malloc(ip_len + 1);
+	memset(mqtt_ctrl->host, 0, ip_len + 1);
+	memcpy(mqtt_ctrl->host, ip, ip_len);
+	mqtt_ctrl->remote_port = luaL_checkinteger(L, 3);
+	mqtt_ctrl->ping_timer = luat_create_rtos_timer(mqtt_timer_callback, mqtt_ctrl, NULL);
+	
 	uint8_t is_tls = 0;
 	if (lua_isboolean(L, 4)){
 		is_tls = lua_toboolean(L, 4);
@@ -516,26 +535,7 @@ static int l_mqtt_create(lua_State *L) {
 	}else{
 		network_deinit_tls(mqtt_ctrl->netc);
 	}
-	int packet_length = 0;
-	uint16_t msg_id = 0, msg_id_rcv = 0;
 
-	const char *ip;
-	size_t ip_len = 0;
-	mqtt_ctrl->ip_addr.is_ipv6 = 0xff;
-	if (lua_isinteger(L, 2)){
-		mqtt_ctrl->ip_addr.is_ipv6 = 0;
-		mqtt_ctrl->ip_addr.ipv4 = lua_tointeger(L, 2);
-		ip = NULL;
-		ip_len = 0;
-	}else{
-		ip_len = 0;
-		ip = luaL_checklstring(L, 2, &ip_len);
-	}
-	mqtt_ctrl->host = luat_heap_malloc(ip_len + 1);
-	memset(mqtt_ctrl->host, 0, ip_len + 1);
-	memcpy(mqtt_ctrl->host, ip, ip_len);
-	mqtt_ctrl->remote_port = luaL_checkinteger(L, 3);
-	mqtt_ctrl->ping_timer = luat_create_rtos_timer(mqtt_timer_callback, mqtt_ctrl, NULL);
 	luaL_setmetatable(L, LUAT_MQTT_CTRL_TYPE);
 	lua_pushvalue(L, -1);
 	mqtt_ctrl->mqtt_ref = luaL_ref(L, LUA_REGISTRYINDEX);

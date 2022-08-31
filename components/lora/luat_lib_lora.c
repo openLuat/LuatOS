@@ -364,7 +364,7 @@ static int luat_lora_set_txconfig(lua_State *L){
 
 /*
 lora配置接收参数
-@api lora.init(ic, set_rxconfig)
+@api lora.set_rxconfig(ic, set_rxconfig)
 @string lora 型号，当前支持：<br>llcc68<br>sx1268
 @table lora接收配置参数,与具体设备有关
 @usage

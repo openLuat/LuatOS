@@ -344,6 +344,20 @@ static int l_u8g2_GetDisplayWidth(lua_State *L){
 }
 
 /*
+为所有绘图功能分配绘图颜色。
+@api u8g2.SetDrawColor(c)
+@int c为颜色值 0没有色 1有色 2与底色xor
+@usage
+u8g2.SetDrawColor(0)
+*/
+static int l_u8g2_SetDrawColor(lua_State *L){
+    if (u8g2 == NULL) return 0;
+    u8g2_SetDrawColor(u8g2,luaL_checkinteger(L, 1));
+    return 1;
+}
+
+
+/*
 画一个点.
 @api u8g2.DrawPixel(x,y)
 @int X位置.
@@ -805,6 +819,7 @@ static const rotable_Reg_t reg_u8g2[] =
     { "SetFont",     ROREG_FUNC(l_u8g2_SetFont)},
     { "GetDisplayHeight",   ROREG_FUNC(l_u8g2_GetDisplayHeight)},
     { "GetDisplayWidth",    ROREG_FUNC(l_u8g2_GetDisplayWidth)},
+    { "SetDrawColor",   ROREG_FUNC(l_u8g2_SetDrawColor)},
     { "DrawPixel",   ROREG_FUNC(l_u8g2_DrawPixel)},
     { "DrawLine",    ROREG_FUNC(l_u8g2_DrawLine)},
     { "DrawCircle",  ROREG_FUNC(l_u8g2_DrawCircle)},
@@ -907,10 +922,11 @@ typedef struct luat_u8g2_dev_reg
 
 static const luat_u8g2_dev_reg_t devregs[] = {
     // ssd1306是默认值
-    {.name="ssd1306", .w=128, .h=64, .spi_i2c=0, .devcb=u8g2_Setup_ssd1306_i2c_128x64_noname_f},       // ssd1306 128x64
-    {.name="ssd1306", .w=128, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_ssd1306_128x64_noname_f},           // ssd1306 128x64
+    {.name="ssd1306", .w=128, .h=64, .spi_i2c=0, .devcb=u8g2_Setup_ssd1306_i2c_128x64_noname_f},       // ssd1306 128x64,I2C
+    {.name="ssd1306", .w=128, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_ssd1306_128x64_noname_f},           // ssd1306 128x64,SPI
     {.name="ssd1322", .w=256, .h=64, .spi_i2c=0, .devcb=u8g2_Setup_ssd1322_nhd_256x64_f},              // ssd1322 128x64
-    {.name="sh1106",  .w=128, .h=64, .spi_i2c=0, .devcb=u8g2_Setup_sh1106_i2c_128x64_noname_f},        // sh1106 128x64
+    {.name="sh1106",  .w=128, .h=64, .spi_i2c=0, .devcb=u8g2_Setup_sh1106_i2c_128x64_noname_f},        // sh1106 128x64,I2C
+    {.name="sh1106",  .w=128, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_sh1106_128x64_noname_f},        // sh1106 128x64,SPI
     {.name="sh1107",  .w=64, .h=128, .spi_i2c=0, .devcb=u8g2_Setup_ssd1306_i2c_128x64_noname_f},       // sh1107 64x128
     {.name="st7567",  .w=128, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_st7567_jlx12864_f},                 // st7567 128x64
     {.name=NULL} // 结尾用,必须加.

@@ -353,7 +353,7 @@ u8g2.SetDrawColor(0)
 static int l_u8g2_SetDrawColor(lua_State *L){
     if (u8g2 == NULL) return 0;
     u8g2_SetDrawColor(u8g2,luaL_checkinteger(L, 1));
-    return 1;
+    return 0;
 }
 
 

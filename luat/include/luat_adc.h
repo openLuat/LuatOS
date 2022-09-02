@@ -40,4 +40,13 @@ int luat_adc_read(int pin, int* val, int* val2);
 ******************************************************************************/
 int luat_adc_close(int pin);
 
+/******************************************************************************
+ * luat_adc_global_config
+ * Description: 设置adc全局参数
+ * @param tp[in]  参数类型
+ * @param val[in] 参数值
+ * @return 0 成功, 其他值为失败
+******************************************************************************/
+int luat_adc_global_config(int tp, int val);
+
 #endif

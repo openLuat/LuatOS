@@ -65,15 +65,21 @@ static int32_t luat_lib_http_callback(void *data, void *param){
 			return -1;
     	}
 	}else if(event->ID == EV_NW_RESULT_CONNECT){
+		memset(http_ctrl->request_message, 0, HTTP_REQUEST_BUF_LEN_MAX);
 		if (http_ctrl->header){
 			snprintf(http_ctrl->request_message, HTTP_REQUEST_BUF_LEN_MAX, 
-					"%s %s HTTP/1.1\r\nHost: %s\r\n%s\r\n", 
+					"%s %s HTTP/1.1\r\nHost: %s\r\n%s", 
 					http_ctrl->method,http_ctrl->uri,http_ctrl->host,http_ctrl->header);
 		}else{
 			snprintf(http_ctrl->request_message, HTTP_REQUEST_BUF_LEN_MAX, 
-					"%s %s HTTP/1.1\r\nHost: %s\r\n\r\n", 
+					"%s %s HTTP/1.1\r\nHost: %s\r\n", 
 					http_ctrl->method,http_ctrl->uri,http_ctrl->host);
 		}
+		if (http_ctrl->body)
+		{
+			strncat(http_ctrl->header, http_ctrl->body, strlen(http_ctrl->body));
+		}
+		strncat(http_ctrl->header, "\r\n", 2);
 		LLOGD("http_ctrl->request_message:%s",http_ctrl->request_message);
 		uint32_t tx_len = 0;
 		network_tx(http_ctrl->netc, http_ctrl->request_message, strlen(http_ctrl->request_message), 0, http_ctrl->ip_addr.is_ipv6?NULL:&(http_ctrl->ip_addr), NULL, &tx_len, 0);
@@ -107,8 +113,19 @@ static int32_t luat_lib_http_callback(void *data, void *param){
 }
 
 static int http_add_header(luat_http_ctrl_t *http_ctrl, const char* name, const char* value){
-	LLOGD("http_add_header name:%s value:%s",name,value);
-	
+	// LLOGD("http_add_header name:%s value:%s",name,value);
+	if (http_ctrl->header){
+		http_ctrl->header = luat_heap_realloc(http_ctrl->header, strlen(http_ctrl->header)+strlen(name)+strlen(value)+1);
+		strncat(http_ctrl->header, name, strlen(name));
+		strncat(http_ctrl->header, ":", 1);
+		strncat(http_ctrl->header, value, strlen(value));
+		strncat(http_ctrl->header, "\r\n", 2);
+	}else{
+		http_ctrl->header = luat_heap_malloc(strlen(name)+strlen(value)+1);
+		memset(http_ctrl->header, 0, strlen(name)+strlen(value)+1);
+		sprintf(http_ctrl->header, "%s:%s\r\n", name,value);
+	}
+	// LLOGD("http_ctrl->header:%s",http_ctrl->header);
 }
 
 static int http_set_url(luat_http_ctrl_t *http_ctrl) {
@@ -235,10 +252,13 @@ static int l_http_request(lua_State *L) {
 
 		lua_pushstring(L, "body");
 		if (LUA_TSTRING == lua_gettable(L, 3)) {
+			char body_len[6] = {0}; 
 			const char *body = luaL_checklstring(L, -1, len);
 			http_ctrl->body = luat_heap_malloc(len + 1);
 			memset(http_ctrl->body, 0, len + 1);
 			memcpy(http_ctrl->body, body, len);
+			sprintf(body_len, "%d",len);
+			http_add_header(http_ctrl,"Content-Length",body_len);
 			LLOGD("body:%s",http_ctrl->body);
 		}
 		lua_pop(L, 1);

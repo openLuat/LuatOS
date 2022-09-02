@@ -8,6 +8,10 @@
 
 #include "luat_base.h"
 
+typedef enum
+{
+	ADC_SET_GLOBAL_RANGE = 0x80,
+}ADC_SET_CMD_ENUM;
 
 /******************************************************************************
  * luat_adc_open

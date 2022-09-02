@@ -32,6 +32,22 @@ static int l_adc_open(lua_State *L) {
 }
 
 /**
+设置ADC的测量范围，注意这个和具体芯片有关，目前只支持air105
+@api adc.setRange(range)
+@int range参数,与具体设备有关,比如air105填adc.ADC_RANGE_1_8和adc.ADC_RANGE_3_6
+@return nil
+@usage
+-- 关闭air105内部分压
+adc.setRange(adc.ADC_RANGE_1_8)
+-- 打开air105内部分压
+adc.setRange(adc.ADC_RANGE_3_6)
+ */
+static int l_adc_set_range(lua_State *L) {
+	luat_adc_open(ADC_SET_GLOBAL_RANGE, (void *)luaL_checkinteger(L, 1));
+	return 0;
+}
+
+/**
 读取adc通道
 @api adc.read(id)
 @int 通道id,与具体设备有关,通常从0开始
@@ -78,8 +94,13 @@ static int l_adc_close(lua_State *L) {
 static const rotable_Reg_t reg_adc[] =
 {
     { "open" ,       ROREG_FUNC(l_adc_open)},
+	{ "setRange" ,       ROREG_FUNC(l_adc_set_range)},
     { "read" ,       ROREG_FUNC(l_adc_read)},
     { "close" ,      ROREG_FUNC(l_adc_close)},
+	//@const ADC_RANGE_3_6 number air105的ADC分压电阻开启，范围0~3.76V
+	{ "ADC_RANGE_3_6", ROREG_INT(1)},
+	//@const ADC_RANGE_1_8 number air105的ADC分压电阻关闭，范围0~1.88V
+	{ "ADC_RANGE_1_8", ROREG_INT(0)},
 	{ NULL,          ROREG_INT(0) }
 };
 

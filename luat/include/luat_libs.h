@@ -49,8 +49,9 @@ LUAMOD_API int luaopen_sfud( lua_State *L );
 // LUAMOD_API int luaopen_utest( lua_State *L );
 /** mqtt库*/
 LUAMOD_API int luaopen_mqtt( lua_State *L );
-/** mqtt库*/
+/** http库*/
 LUAMOD_API int luaopen_http( lua_State *L );
+LUAMOD_API int luaopen_http2( lua_State *L );
 /** pack库*/
 LUAMOD_API int luaopen_pack( lua_State *L );
 /** mqttcore库*/
@@ -119,7 +120,6 @@ LUAMOD_API int luaopen_io_queue( lua_State *L );
 LUAMOD_API int luaopen_ymodem( lua_State *L );
 LUAMOD_API int luaopen_w5500( lua_State *L );
 LUAMOD_API int luaopen_network_adapter( lua_State *L );
-LUAMOD_API int luaopen_mqtt( lua_State *L );
 
 LUAMOD_API int luaopen_airui( lua_State *L );
 LUAMOD_API int luaopen_fota( lua_State *L );

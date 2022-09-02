@@ -234,23 +234,21 @@ static int iter_codes (lua_State *L) {
 /* pattern to match a single UTF-8 character */
 #define UTF8PATT	"[\0-\x7F\xC2-\xF4][\x80-\xBF]*"
 
-
-static const luaL_Reg funcs[] = {
-  {"offset", byteoffset},
-  {"codepoint", codepoint},
-  {"char", utfchar},
-  {"len", utflen},
-  {"codes", iter_codes},
+#include "rotable2.h"
+static const rotable_Reg_t funcs[] = {
+  {"offset",      ROREG_FUNC(byteoffset)},
+  {"codepoint",   ROREG_FUNC(codepoint)},
+  {"char",        ROREG_FUNC(utfchar)},
+  {"len",         ROREG_FUNC(utflen)},
+  {"codes",       ROREG_FUNC(iter_codes)},
   /* placeholders */
-  {"charpattern", NULL},
-  {NULL, NULL}
+  {"charpattern", ROREG_STR(UTF8PATT)},
+  {NULL, ROREG_INT(0)}
 };
 
 
 LUAMOD_API int luaopen_utf8 (lua_State *L) {
-  luaL_newlib(L, funcs);
-  lua_pushlstring(L, UTF8PATT, sizeof(UTF8PATT)/sizeof(char) - 1);
-  lua_setfield(L, -2, "charpattern");
+  rotable2_newlib(L, funcs);
   return 1;
 }
 

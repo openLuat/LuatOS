@@ -7,19 +7,15 @@ VERSION = "1.0.0"
 _G.sys = require("sys")
 
 --[[
-显示屏为佳显 1.54寸v2,200x200,快刷屏
+显示屏为合宙 1.54寸v2,200x200,快刷屏
 硬件接线
-显示屏SPI          --> Air101 SPI0
-
-SPI0
-SPI0_SCK               (PB2)
-SPI0_MISO              (PB3)
-SPI0_MOSI              (PB5)
-
-显示屏 Pin_BUSY        (PB0)
-显示屏 Pin_RES         (PB3)
-显示屏 Pin_DC          (PB1)
-显示屏 Pin_CS          (PB4)
+显示屏SPI   -->  Air101 SPI0
+Pin_RSCL        (PB2)
+Pin_RSDA        (PB5)
+Pin_RES         (PB3)
+Pin_DC          (PB1)
+Pin_CS          (PB4)
+Pin_BUSY        (PB0)
 ]]
 
 -- 全刷模式

@@ -11,17 +11,17 @@ _G.sys = require("sys")
 
 SPI 使用常规4线解法
 Air105开发板         TF模块
-PC9                  CS
-PB12(SPI0_CLK)       CLK
-PB14(SPI0_MISO)      MOSI
-PB15(SPI0_MISO)      MISO
-5V                   VCC
+PB3                  CS
+PB2(SPI2_CLK)        CLK
+PB4(SPI2_MISO)       MOSI
+PB5(SPI2_MISO)       MISO
+3.3V                 VCC
 GND                  GND
 ]]
 
 sys.taskInit(function()
     --sys.wait(1000) -- 启动延时
-    local spiId = 0
+    local spiId = 2
     local result = spi.setup(
         spiId,--串口id
         255, -- 不使用默认CS脚
@@ -30,7 +30,7 @@ sys.taskInit(function()
         8,--数据宽度
         400*1000  -- 初始化时使用较低的频率
     )
-    local TF_CS = pin.PC9
+    local TF_CS = pin.PB3
     gpio.setup(TF_CS, 1)
     --fatfs.debug(1) -- 若挂载失败,可以尝试打开调试信息,查找原因
     fatfs.mount("SD", spiId, TF_CS, 24000000)

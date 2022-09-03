@@ -46,7 +46,7 @@ static int32_t l_http_callback(lua_State *L, void* ptr){
 		uint16_t header_len = strlen(header)-strlen(body)-4;
 		lua_pushlstring(L, http_ctrl->reply_message+code_offset,code_len);
 		lua_pushlstring(L, header,header_len);
-		lua_pushlstring(L, body,strlen(body)-2);
+		lua_pushlstring(L, body,strlen(body));
 		luat_cbcwait(L, *idp, 3);
     }
 
@@ -77,9 +77,10 @@ static int32_t luat_lib_http_callback(void *data, void *param){
 		}
 		if (http_ctrl->body)
 		{
-			strncat(http_ctrl->header, http_ctrl->body, strlen(http_ctrl->body));
+			strncat(http_ctrl->request_message, "\r\n", 2);
+			strncat(http_ctrl->request_message, http_ctrl->body, strlen(http_ctrl->body));
 		}
-		strncat(http_ctrl->header, "\r\n", 2);
+		strncat(http_ctrl->request_message, "\r\n", 2);
 		LLOGD("http_ctrl->request_message:%s",http_ctrl->request_message);
 		uint32_t tx_len = 0;
 		network_tx(http_ctrl->netc, http_ctrl->request_message, strlen(http_ctrl->request_message), 0, http_ctrl->ip_addr.is_ipv6?NULL:&(http_ctrl->ip_addr), NULL, &tx_len, 0);
@@ -93,7 +94,7 @@ static int32_t luat_lib_http_callback(void *data, void *param){
 			if (rx_len == 0||result!=0) {
 				//
 			}
-			// LLOGD("http_ctrl->reply_message:%s",http_ctrl->reply_message);
+			LLOGD("http_ctrl->reply_message:%s",http_ctrl->reply_message);
 
 			rtos_msg_t msg = {0};
     		msg.handler = l_http_callback;
@@ -242,7 +243,7 @@ static int l_http_request(lua_State *L) {
 	if (lua_istable(L, 3)){
 		lua_pushstring(L, "method");
 		if (LUA_TSTRING == lua_gettable(L, 3)) {
-			const char *method = luaL_optlstring(L, -1, "GET", len);
+			const char *method = luaL_optlstring(L, -1, "GET", &len);
 			http_ctrl->method = luat_heap_malloc(len + 1);
 			memset(http_ctrl->method, 0, len + 1);
 			memcpy(http_ctrl->method, method, len);
@@ -253,13 +254,13 @@ static int l_http_request(lua_State *L) {
 		lua_pushstring(L, "body");
 		if (LUA_TSTRING == lua_gettable(L, 3)) {
 			char body_len[6] = {0}; 
-			const char *body = luaL_checklstring(L, -1, len);
+			const char *body = luaL_checklstring(L, -1, &len);
 			http_ctrl->body = luat_heap_malloc(len + 1);
 			memset(http_ctrl->body, 0, len + 1);
 			memcpy(http_ctrl->body, body, len);
 			sprintf(body_len, "%d",len);
 			http_add_header(http_ctrl,"Content-Length",body_len);
-			LLOGD("body:%s",http_ctrl->body);
+			LLOGD("http_ctrl->body:%s",http_ctrl->body);
 		}
 		lua_pop(L, 1);
 		

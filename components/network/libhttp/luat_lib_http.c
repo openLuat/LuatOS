@@ -7,13 +7,12 @@
 #define LUAT_LOG_TAG "http"
 #include "luat_log.h"
 
-#define HTTP_REQUEST_BUF_LEN_MAX 1024
+#define HTTP_REQUEST_BUF_LEN_MAX 2048
 typedef struct{
-	// http_broker_handle_t broker;// mqtt broker
-	network_ctrl_t *netc;		    // http netc
-	luat_ip_addr_t ip_addr;		// mqtt ip
+	network_ctrl_t *netc;		// http netc
+	luat_ip_addr_t ip_addr;		// http ip
 	uint8_t is_tls;
-	const char *host; 			// mqtt host
+	const char *host; 			// http host
 	uint16_t remote_port; 		// 远程端口号
 	const char *url;
 	const char *uri;
@@ -23,12 +22,38 @@ typedef struct{
 	uint8_t request_message[HTTP_REQUEST_BUF_LEN_MAX];
 	uint8_t *reply_message;
 	uint64_t* idp;
-	uint32_t keepalive;   		// 心跳时长 单位s
-	uint8_t adapter_index; 		// 适配器索引号, 似乎并没有什么用
 }luat_http_ctrl_t;
 
 static int http_close(luat_http_ctrl_t *http_ctrl){
-
+	if (http_ctrl->netc){
+		network_force_close_socket(http_ctrl->netc);
+		network_release_ctrl(http_ctrl->netc);
+	}
+	if (http_ctrl->host){
+		luat_heap_free(http_ctrl->host);
+	}
+	if (http_ctrl->url){
+		luat_heap_free(http_ctrl->url);
+	}
+	if (http_ctrl->uri){
+		luat_heap_free(http_ctrl->uri);
+	}
+	if (http_ctrl->method){
+		luat_heap_free(http_ctrl->method);
+	}
+	if (http_ctrl->header){
+		luat_heap_free(http_ctrl->header);
+	}
+	if (http_ctrl->body){
+		luat_heap_free(http_ctrl->body);
+	}
+	if (http_ctrl->reply_message){
+		luat_heap_free(http_ctrl->reply_message);
+	}
+	if (http_ctrl->idp){
+		luat_heap_free(http_ctrl->idp);
+	}
+	luat_heap_free(http_ctrl);
 }
 
 
@@ -62,6 +87,7 @@ static int32_t luat_lib_http_callback(void *data, void *param){
 	if (event->ID == EV_NW_RESULT_LINK){
 		if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), http_ctrl->ip_addr.is_ipv6?NULL:&(http_ctrl->ip_addr), http_ctrl->remote_port, 0) < 0){
 			network_close(http_ctrl->netc, 0);
+			http_close(http_ctrl);
 			return -1;
     	}
 	}else if(event->ID == EV_NW_RESULT_CONNECT){
@@ -92,7 +118,8 @@ static int32_t luat_lib_http_callback(void *data, void *param){
 			http_ctrl->reply_message = luat_heap_malloc(total_len + 1);
 			result = network_rx(http_ctrl->netc, http_ctrl->reply_message, total_len, 0, NULL, NULL, &rx_len);
 			if (rx_len == 0||result!=0) {
-				//
+				http_close(http_ctrl);
+				return -1;
 			}
 			LLOGD("http_ctrl->reply_message:%s",http_ctrl->reply_message);
 
@@ -107,7 +134,8 @@ static int32_t luat_lib_http_callback(void *data, void *param){
 
 	}
 	if (event->Param1){
-		// mqtt_close_socket(mqtt_ctrl);
+		http_close(http_ctrl);
+		return -1;
 	}
 	network_wait_event(http_ctrl->netc, NULL, 0, NULL);
     return 0;
@@ -151,8 +179,7 @@ static int http_set_url(luat_http_ctrl_t *http_ctrl) {
     }
 	char tmphost[256] = {0};
     char *tmpuri = NULL;
-    for (size_t i = 0; i < tmplen; i++)
-    {
+    for (size_t i = 0; i < tmplen; i++){
         if (tmp[i] == '/') {
             if (i > 255) {
                 LLOGI("host too long %s", http_ctrl->url);
@@ -212,19 +239,18 @@ static int l_http_request(lua_State *L) {
 	const char *client_password = NULL;
 	int adapter_index = luaL_optinteger(L, 1, network_get_last_register_adapter());
 	if (adapter_index < 0 || adapter_index >= NW_ADAPTER_QTY){
-		return 0;
+		goto error;
 	}
 
 	luat_http_ctrl_t *http_ctrl = (luat_http_ctrl_t *)luat_heap_malloc(sizeof(luat_http_ctrl_t));
 	if (!http_ctrl){
-		return 0;
+		goto error;
 	}
 	memset(http_ctrl, 0, sizeof(luat_http_ctrl_t));
-	http_ctrl->adapter_index = adapter_index;
 	http_ctrl->netc = network_alloc_ctrl(adapter_index);
 	if (!http_ctrl->netc){
 		LLOGD("create fail");
-		return 0;
+		goto error;
 	}
 	network_init_ctrl(http_ctrl->netc, NULL, luat_lib_http_callback, http_ctrl);
 
@@ -278,7 +304,7 @@ static int l_http_request(lua_State *L) {
 
 
 	}else{
-		//关闭并释放
+		goto error;
 	}
 
 	if (http_ctrl->is_tls){
@@ -301,26 +327,28 @@ static int l_http_request(lua_State *L) {
 		network_deinit_tls(http_ctrl->netc);
 	}
 
-	http_set_url(http_ctrl);
+	int ret = http_set_url(http_ctrl);
+	if (ret){
+		goto error;
+	}
 	
 	if (!strncmp("GET", http_ctrl->method, strlen("GET"))) {
-        // luat_http_get(http_ctrl);
+        LLOGI("HTTP GET");
     }
     else if (!strncmp("POST", http_ctrl->method, strlen("POST"))) {
-        // luat_http_post(http_ctrl);
-    }
-    else {
+        LLOGI("HTTP POST");
+    }else {
         LLOGI("only GET/POST supported %s", http_ctrl->method);
-        //关闭并释放
+        goto error;
     }
 
 	http_ctrl->ip_addr.is_ipv6 = 0xff;
 
-	int ret = network_wait_link_up(http_ctrl->netc, 0);
+	network_wait_link_up(http_ctrl->netc, 0);
 	if (ret == 0){
 		if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), http_ctrl->ip_addr.is_ipv6?NULL:&(http_ctrl->ip_addr), http_ctrl->remote_port, 0) < 0){
         	network_close(http_ctrl->netc, 0);
-        return -1;
+        	goto error;
     	}
 	}
 
@@ -328,6 +356,9 @@ static int l_http_request(lua_State *L) {
 	http_ctrl->idp = (uint64_t*)luat_heap_malloc(sizeof(uint64_t));
     memcpy(http_ctrl->idp, &id, sizeof(uint64_t));
     return 1;
+error:
+	http_close(http_ctrl);
+	return 0;
 }
 
 #ifdef LUAT_USE_NETWORK

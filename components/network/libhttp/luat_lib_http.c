@@ -3,6 +3,7 @@
 #include "luat_network_adapter.h"
 #include "luat_rtos.h"
 #include "luat_msgbus.h"
+#include "luat_fs.h"
 
 #define LUAT_LOG_TAG "http"
 #include "luat_log.h"
@@ -74,8 +75,19 @@ static int32_t l_http_callback(lua_State *L, void* ptr){
 		uint16_t header_len = strlen(header)-strlen(body)-4;
 		lua_pushlstring(L, http_ctrl->reply_message+code_offset,code_len);
 		lua_pushlstring(L, header,header_len);
-		lua_pushlstring(L, body,strlen(body));
-		luat_cbcwait(L, *idp, 3);
+		if (http_ctrl->is_download){
+			luat_fs_remove(http_ctrl->dst);
+			FILE *fd_out = luat_fs_fopen(http_ctrl->dst, "wb");
+			if (!fd_out) {
+                LLOGE("create file fail! %s", fd_out);
+            }
+			luat_fs_fwrite(body, 1, strlen(body), fd_out);
+			luat_fs_fclose(fd_out);
+			luat_cbcwait(L, *idp, 2);
+		}else{
+			lua_pushlstring(L, body,strlen(body));
+			luat_cbcwait(L, *idp, 3);
+		}
     }
 
 	return 0;
@@ -251,7 +263,7 @@ static int l_http_request(lua_State *L) {
 
 	if (lua_istable(L, 5)){
 		lua_pushstring(L, "adapter");
-		if (LUA_TNUMBER == lua_gettable(L, 3)) {
+		if (LUA_TNUMBER == lua_gettable(L, 5)) {
 			adapter_index = luaL_optinteger(L, -1, network_get_last_register_adapter());
 		}else{
 			adapter_index = network_get_last_register_adapter();
@@ -259,13 +271,13 @@ static int l_http_request(lua_State *L) {
 		lua_pop(L, 1);
 
 		lua_pushstring(L, "timeout");
-		if (LUA_TNUMBER == lua_gettable(L, 3)) {
+		if (LUA_TNUMBER == lua_gettable(L, 5)) {
 			http_ctrl->timeout = luaL_optinteger(L, -1, 0);
 		}
 		lua_pop(L, 1);
 
 		lua_pushstring(L, "dst");
-		if (LUA_TSTRING == lua_gettable(L, 3)) {
+		if (LUA_TSTRING == lua_gettable(L, 5)) {
 			const char *dst = luaL_checklstring(L, -1, &len);
 			http_ctrl->dst = luat_heap_malloc(len + 1);
 			memset(http_ctrl->dst, 0, len + 1);
@@ -273,7 +285,7 @@ static int l_http_request(lua_State *L) {
 			http_ctrl->is_download = 1;
 		}
 		lua_pop(L, 1);
-		
+
 	}else{
 		adapter_index = network_get_last_register_adapter();
 	}

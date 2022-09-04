@@ -19,9 +19,12 @@ typedef struct{
 	const char *method;
 	const char *header;
 	const char *body;
+	const char *dst;
+	uint8_t is_download;
 	uint8_t request_message[HTTP_REQUEST_BUF_LEN_MAX];
 	uint8_t *reply_message;
 	uint64_t* idp;
+	uint16_t timeout;
 }luat_http_ctrl_t;
 
 static int http_close(luat_http_ctrl_t *http_ctrl){
@@ -233,20 +236,52 @@ static int http_set_url(luat_http_ctrl_t *http_ctrl) {
 }
 
 static int l_http_request(lua_State *L) {
-	size_t client_cert_len, client_key_len, client_password_len;
+	size_t client_cert_len, client_key_len, client_password_len,len;
 	const char *client_cert = NULL;
 	const char *client_key = NULL;
 	const char *client_password = NULL;
-	int adapter_index = luaL_optinteger(L, 1, network_get_last_register_adapter());
-	if (adapter_index < 0 || adapter_index >= NW_ADAPTER_QTY){
-		goto error;
-	}
+	int adapter_index;
+	char body_len[6] = {0}; 
 
 	luat_http_ctrl_t *http_ctrl = (luat_http_ctrl_t *)luat_heap_malloc(sizeof(luat_http_ctrl_t));
 	if (!http_ctrl){
 		goto error;
 	}
 	memset(http_ctrl, 0, sizeof(luat_http_ctrl_t));
+
+	if (lua_istable(L, 5)){
+		lua_pushstring(L, "adapter");
+		if (LUA_TNUMBER == lua_gettable(L, 3)) {
+			adapter_index = luaL_optinteger(L, -1, network_get_last_register_adapter());
+		}else{
+			adapter_index = network_get_last_register_adapter();
+		}
+		lua_pop(L, 1);
+
+		lua_pushstring(L, "timeout");
+		if (LUA_TNUMBER == lua_gettable(L, 3)) {
+			http_ctrl->timeout = luaL_optinteger(L, -1, 0);
+		}
+		lua_pop(L, 1);
+
+		lua_pushstring(L, "dst");
+		if (LUA_TSTRING == lua_gettable(L, 3)) {
+			const char *dst = luaL_checklstring(L, -1, &len);
+			http_ctrl->dst = luat_heap_malloc(len + 1);
+			memset(http_ctrl->dst, 0, len + 1);
+			memcpy(http_ctrl->dst, dst, len);
+			http_ctrl->is_download = 1;
+		}
+		lua_pop(L, 1);
+		
+	}else{
+		adapter_index = network_get_last_register_adapter();
+	}
+
+	if (adapter_index < 0 || adapter_index >= NW_ADAPTER_QTY){
+		goto error;
+	}
+
 	http_ctrl->netc = network_alloc_ctrl(adapter_index);
 	if (!http_ctrl->netc){
 		LLOGD("create fail");
@@ -258,7 +293,12 @@ static int l_http_request(lua_State *L) {
 	network_set_base_mode(http_ctrl->netc, 1, 10000, 0, 0, 0, 0);
 	network_set_local_port(http_ctrl->netc, 0);
 
-	size_t len;
+	const char *method = luaL_optlstring(L, 1, "GET", &len);
+	http_ctrl->method = luat_heap_malloc(len + 1);
+	memset(http_ctrl->method, 0, len + 1);
+	memcpy(http_ctrl->method, method, len);
+	LLOGD("method:%s",http_ctrl->method);
+
 	const char *url = luaL_checklstring(L, 2, &len);
 	http_ctrl->url = luat_heap_malloc(len + 1);
 	memset(http_ctrl->url, 0, len + 1);
@@ -266,56 +306,33 @@ static int l_http_request(lua_State *L) {
 
 	LLOGD("http_ctrl->url:%s",http_ctrl->url);
 
-	if (lua_istable(L, 3)){
-		lua_pushstring(L, "method");
-		if (LUA_TSTRING == lua_gettable(L, 3)) {
-			const char *method = luaL_optlstring(L, -1, "GET", &len);
-			http_ctrl->method = luat_heap_malloc(len + 1);
-			memset(http_ctrl->method, 0, len + 1);
-			memcpy(http_ctrl->method, method, len);
-			LLOGD("method:%s",http_ctrl->method);
+	if (lua_istable(L, 3)) {
+		lua_pushnil(L);
+		while (lua_next(L, 3) != 0) {
+			const char *name = lua_tostring(L, -2);
+			const char *value = lua_tostring(L, -1);
+			http_add_header(http_ctrl,name,value);
+			lua_pop(L, 1);
 		}
-		lua_pop(L, 1);
-
-		lua_pushstring(L, "body");
-		if (LUA_TSTRING == lua_gettable(L, 3)) {
-			char body_len[6] = {0}; 
-			const char *body = luaL_checklstring(L, -1, &len);
-			http_ctrl->body = luat_heap_malloc(len + 1);
-			memset(http_ctrl->body, 0, len + 1);
-			memcpy(http_ctrl->body, body, len);
-			sprintf(body_len, "%d",len);
-			http_add_header(http_ctrl,"Content-Length",body_len);
-			LLOGD("http_ctrl->body:%s",http_ctrl->body);
-		}
-		lua_pop(L, 1);
-		
-		lua_pushstring(L, "headers");
-		if (LUA_TTABLE == lua_gettable(L, 3)) {
-			lua_pushnil(L);
-			while (lua_next(L, -2) != 0) {
-				const char *name = lua_tostring(L, -2);
-				const char *value = lua_tostring(L, -1);
-				http_add_header(http_ctrl,name,value);
-				lua_pop(L, 1);
-			}
-		}
-		lua_pop(L, 1);
-
-
-	}else{
-		goto error;
 	}
-
+	if (lua_isstring(L, 4)) {
+		const char *body = luaL_checklstring(L, 4, &len);
+		http_ctrl->body = luat_heap_malloc(len + 1);
+		memset(http_ctrl->body, 0, len + 1);
+		memcpy(http_ctrl->body, body, len);
+		sprintf(body_len, "%d",len);
+		http_add_header(http_ctrl,"Content-Length",body_len);
+	}
+	
 	if (http_ctrl->is_tls){
-		if (lua_isstring(L, 4)){
-			client_cert = luaL_checklstring(L, 4, &client_cert_len);
-		}
-		if (lua_isstring(L, 5)){
-			client_key = luaL_checklstring(L, 5, &client_key_len);
-		}
 		if (lua_isstring(L, 6)){
-			client_password = luaL_checklstring(L, 6, &client_password_len);
+			client_cert = luaL_checklstring(L, 6, &client_cert_len);
+		}
+		if (lua_isstring(L, 7)){
+			client_key = luaL_checklstring(L, 7, &client_key_len);
+		}
+		if (lua_isstring(L, 8)){
+			client_password = luaL_checklstring(L, 8, &client_password_len);
 		}
 		network_init_tls(http_ctrl->netc, client_cert?2:0);
 		if (client_cert){

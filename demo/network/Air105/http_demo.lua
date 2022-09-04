@@ -20,17 +20,23 @@ local function testTask()
     log.info("http2.post", code, headers, body)
 
     -- POST and download, task内的同步操作
-    local opts = {}           -- 额外的配置项
-    opts["dst"] = "/data.bin" -- 下载路径,可选
-    opts["timeout"] = 30      -- 超时时长,单位秒,可选
-    opts["adapter"] = 0       -- 使用哪个网卡,可选
+    local opts = {}                 -- 额外的配置项
+    opts["dst"] = "/data.bin"       -- 下载路径,可选
+    opts["timeout"] = 30            -- 超时时长,单位秒,可选
+    opts["adapter"] = network.ETH0  -- 使用哪个网卡,可选
     local code, headers, body = http2.request("POST","http://site0.cn/api/httptest/simple/date", 
             {}, -- 请求所添加的 headers, 可以是nil
             "", 
             opts
     ).wait()
-    log.info("http2.get", code, headers, body) -- 只返回code和headers
+    log.info("http2.post", code, headers, body) -- 只返回code和headers
 
+    local f = io.open("/data.bin", "rb")
+    if f then
+        local data = f:read("*a")
+        log.info("fs", "data", data, data:toHex())
+    end
+    
     -- GET request, 开个task让它自行执行去吧, 不管执行结果了
     sys.taskInit(http2.request("GET","http://site0.cn/api/httptest/simple/time").wait)
 end

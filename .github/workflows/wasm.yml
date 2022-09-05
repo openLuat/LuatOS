@@ -4,9 +4,9 @@ on:
   push:
     paths:
       - '.github/workflows/wasm.yml'
-      - 'lua/**'
-      - 'luat/**'
-      - 'components/**'
+      # - 'lua/**'
+      # - 'luat/**'
+      # - 'components/**'
       - 'bsp/sysp/**'
   workflow_dispatch:
 

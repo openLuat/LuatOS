@@ -382,6 +382,10 @@ void network_force_close_socket(network_ctrl_t *ctrl);
 int network_dns(network_ctrl_t *ctrl);
 
 void network_clean_invaild_socket(uint8_t adapter_index);
+
+const char *network_ctrl_state_string(uint8_t state);
+const char *network_ctrl_wait_state_string(uint8_t state);
+const char *network_ctrl_callback_event_string(uint32_t event);
 /****************************通用基础api结束********************************************************/
 
 /****************************tls相关api************************************************************/
@@ -454,8 +458,9 @@ int network_rx(network_ctrl_t *ctrl, uint8_t *data, uint32_t len, int flags, lua
 
 /*
  * 接收到socket异常消息均会返回
- * 如果event为NULL，则自动处理掉接收到的非socket的event，直到超时，而socket消息则如果is_read=1，则接收到新的数据会返回，如果is_read=0，则接收任意新的消息都会返回
- * 如果event不为NULL，收到任意消息都会返回
+ * timeout_ms=0时，为非阻塞接口
+ * 如果为阻塞接口，out_event保存消息（拷贝，非引用），is_timeout保存是否超时
+ * 返回0表示有数据接收或者超时返回，返回1表示切换到非阻塞等待，其他为网络异常
  */
 int network_wait_event(network_ctrl_t *ctrl, OS_EVENT *out_event, uint32_t timeout_ms, uint8_t *is_timeout);
 /****************************高级api结束********************************************************************/

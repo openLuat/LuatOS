@@ -39,6 +39,65 @@ static network_info_t prv_network = {
 		.default_adapter_index = -1,
 		.is_init = 0,
 };
+static const char *prv_network_ctrl_state_string[] =
+{
+		"硬件离线",
+		"离线",
+		"等待DNS",
+		"正在连接",
+		"正在TLS握手",
+		"在线",
+		"在监听",
+		"正在离线",
+		"未知"
+};
+
+static const char *prv_network_ctrl_wait_state_string[] =
+{
+		"无等待",
+		"等待硬件上线",
+		"等待连接完成",
+		"等待发送完成",
+		"等待离线完成",
+		"等待任意网络变化",
+		"未知",
+};
+
+static const char *prv_network_ctrl_callback_event_string[] =
+{
+		"硬件状态回调",
+		"连接状态回调",
+		"离线状态回调",
+		"发送状态回调",
+		"任意网络变化回调",
+};
+
+const char *network_ctrl_state_string(uint8_t state)
+{
+	if (state > NW_STATE_DISCONNECTING)
+	{
+		return prv_network_ctrl_state_string[NW_STATE_DISCONNECTING + 1];
+	}
+	return prv_network_ctrl_state_string[state];
+}
+
+const char *network_ctrl_wait_state_string(uint8_t state)
+{
+	if (state > NW_WAIT_EVENT)
+	{
+		return prv_network_ctrl_wait_state_string[NW_WAIT_EVENT + 1];
+	}
+	return prv_network_ctrl_wait_state_string[state];
+}
+
+const char *network_ctrl_callback_event_string(uint32_t event)
+{
+	if (event > EV_NW_RESULT_EVENT || event < EV_NW_RESULT_LINK)
+	{
+		return prv_network_ctrl_callback_event_string[event - EV_NW_RESULT_EVENT + 1];
+	}
+	return prv_network_ctrl_callback_event_string[event - EV_NW_RESULT_EVENT];
+}
 
 #ifdef LUAT_USE_LWIP
 #include "../lwip/port/net_lwip.h"
@@ -2732,9 +2791,13 @@ static int32_t network_default_socket_callback(void *data, void *param)
 		{
 			if (ctrl->auto_mode)
 			{
-				DBG("%d,%d,%d", ctrl->socket_id, ctrl->state, ctrl->wait_target_state);
+				DBG("%x,%d,%s,%s", event->ID, ctrl->socket_id,
+						network_ctrl_state_string(ctrl->state),
+						network_ctrl_wait_state_string(ctrl->wait_target_state));
 				network_default_statemachine(ctrl, event, adapter);
-				DBG("%d,%d,%d", ctrl->socket_id, ctrl->state, ctrl->wait_target_state);
+				DBG("%x,%d,%s,%s", event->ID, ctrl->socket_id,
+						network_ctrl_state_string(ctrl->state),
+						network_ctrl_wait_state_string(ctrl->wait_target_state));
 			}
 			else if (ctrl->task_handle)
 			{
@@ -2762,9 +2825,13 @@ static int32_t network_default_socket_callback(void *data, void *param)
 				ctrl = &adapter->ctrl_table[i];
 				if (ctrl->auto_mode)
 				{
-					DBG("%x,%d,%d,%d", event->ID, ctrl->socket_id, ctrl->state, ctrl->wait_target_state);
+					DBG("%x,%d,%s,%s", event->ID, ctrl->socket_id,
+							network_ctrl_state_string(ctrl->state),
+							network_ctrl_wait_state_string(ctrl->wait_target_state));
 					network_default_statemachine(ctrl, &temp_event, adapter);
-					DBG("%x,%d,%d,%d", event->ID, ctrl->socket_id, ctrl->state, ctrl->wait_target_state);
+					DBG("%x,%d,%s,%s", event->ID, ctrl->socket_id,
+							network_ctrl_state_string(ctrl->state),
+							network_ctrl_wait_state_string(ctrl->wait_target_state));
 				}
 				else if (ctrl->task_handle)
 				{

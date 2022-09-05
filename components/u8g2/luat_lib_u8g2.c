@@ -368,7 +368,7 @@ u8g2.DrawPixel(20, 5)
 static int l_u8g2_DrawPixel(lua_State *L){
     if (u8g2 == NULL) return 0;
     u8g2_DrawPixel(u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2));
-    return 1;
+    return 0;
 }
 
 /*
@@ -384,7 +384,7 @@ u8g2.DrawLine(20, 5, 5, 32)
 static int l_u8g2_DrawLine(lua_State *L){
     if (u8g2 == NULL) return 0;
     u8g2_DrawLine(u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_checkinteger(L, 4));
-    return 1;
+    return 0;
 }
 
 /*
@@ -405,7 +405,7 @@ u8g2.DrawCircle(60,30,8,15)
 static int l_u8g2_DrawCircle(lua_State *L){
     if (u8g2 == NULL) return 0;
     u8g2_DrawCircle(u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_checkinteger(L, 4));
-    return 1;
+    return 0;
 }
 
 /*
@@ -426,7 +426,7 @@ u8g2.DrawDisc(60,30,8,15)
 static int l_u8g2_DrawDisc(lua_State *L){
     if (u8g2 == NULL) return 0;
     u8g2_DrawDisc(u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_checkinteger(L, 4));
-    return 1;
+    return 0;
 }
 
 /*

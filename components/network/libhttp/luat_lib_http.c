@@ -1,9 +1,8 @@
 /*
-@module  http
-@summary http客户端
+@module  http2
+@summary http2客户端
 @version 1.0
 @date    2022.09.05
-@demo http
 */
 
 
@@ -265,7 +264,7 @@ static int http_set_url(luat_http_ctrl_t *http_ctrl) {
 }
 
 /*
-http客户端
+http2客户端
 @api http2.request(method,url,headers,body,opts,ca_file)
 @string 请求方法, 支持 GET/POST
 @string url地址
@@ -284,6 +283,7 @@ static int l_http_request(lua_State *L) {
 	const char *client_password = NULL;
 	int adapter_index;
 	char body_len[6] = {0}; 
+	// mbedtls_debug_set_threshold(4);
 	luat_http_ctrl_t *http_ctrl = (luat_http_ctrl_t *)luat_heap_malloc(sizeof(luat_http_ctrl_t));
 	if (!http_ctrl){
 		goto error;
@@ -419,14 +419,14 @@ error:
 }
 
 #include "rotable2.h"
-static const rotable_Reg_t reg_http2[] =
+static const rotable_Reg_t reg_http[] =
 {
 	{"request",			ROREG_FUNC(l_http_request)},
 	{ NULL,             ROREG_INT(0)}
 };
 
-LUAMOD_API int luaopen_http2( lua_State *L ) {
-    luat_newlib2(L, reg_http2);
+LUAMOD_API int luaopen_http( lua_State *L ) {
+    luat_newlib2(L, reg_http);
     return 1;
 }
 
@@ -436,12 +436,12 @@ LUAMOD_API int luaopen_http2( lua_State *L ) {
 #include "luat_log.h"
 
 #include "rotable2.h"
-static const rotable_Reg_t reg_http2[] =
+static const rotable_Reg_t reg_http[] =
 {
 	{ NULL,             ROREG_INT(0)}
 };
-LUAMOD_API int luaopen_http2( lua_State *L ) {
-    luat_newlib2(L, reg_http2);
+LUAMOD_API int luaopen_http( lua_State *L ) {
+    luat_newlib2(L, reg_http);
 	LLOGE("reg_http2 require network enable!!");
     return 1;
 }

@@ -1377,6 +1377,18 @@ static int l_network_set_dns(lua_State *L)
 	return 1;
 }
 
+/*
+设置SSL的log
+@api    network.sslLog(log_level)
+@int	mbedtls log等级，<=2基本不打印，不要超过9
+@usage network.sslLog(3)
+*/
+static int l_network_set_ssl_log(lua_State *L)
+{
+	mbedtls_debug_set_threshold(luaL_optinteger(L, 1, 1));
+	return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_network_adapter[] =
 {
@@ -1396,6 +1408,7 @@ static const rotable_Reg_t reg_network_adapter[] =
 	//{"accept",			ROREG_FUNC(l_network_accept)},
 	{"release",			ROREG_FUNC(l_network_release)},
 	{ "setDNS",           ROREG_FUNC(l_network_set_dns)},
+	{ "sslLog",			ROREG_FUNC(l_network_set_ssl_log)},
     //@const ETH0 number ETH0
     { "ETH0",           ROREG_INT(NW_ADAPTER_INDEX_ETH0)},
     //@const LINK number LINK事件

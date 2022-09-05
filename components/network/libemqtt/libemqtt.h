@@ -31,11 +31,11 @@
 #include <stdint.h>
 
 #ifndef MQTT_CONF_USERNAME_LENGTH
-	#define MQTT_CONF_USERNAME_LENGTH 13 // Recommended by MQTT Specification (12 + '\0')
+	#define MQTT_CONF_USERNAME_LENGTH 192 // Recommended by MQTT Specification (12 + '\0')
 #endif
 
 #ifndef MQTT_CONF_PASSWORD_LENGTH
-	#define MQTT_CONF_PASSWORD_LENGTH 13 // Recommended by MQTT Specification (12 + '\0')
+	#define MQTT_CONF_PASSWORD_LENGTH 192 // Recommended by MQTT Specification (12 + '\0')
 #endif
 
 
@@ -157,7 +157,7 @@ typedef struct {
 	void* socket_info;
 	int (*send)(void* socket_info, const void* buf, unsigned int count);
 	// Connection info
-	char clientid[50];
+	char clientid[192];
 	// Auth fields
 	char username[MQTT_CONF_USERNAME_LENGTH];
 	char password[MQTT_CONF_PASSWORD_LENGTH];

@@ -14,6 +14,7 @@
 #include "libemqtt.h"
 #include "luat_rtos.h"
 #include "luat_zbuff.h"
+#include "luat_malloc.h"
 
 #define LUAT_LOG_TAG "mqtt"
 #include "luat_log.h"
@@ -78,6 +79,7 @@ static void reconnect_timer_cb(void *data, void *param){
 
 static void mqtt_reconnect(luat_mqtt_ctrl_t *mqtt_ctrl){
 	if (mqtt_ctrl->reconnect){
+		mqtt_ctrl->buffer_offset = 0;
 		mqtt_ctrl->reconnect_timer = luat_create_rtos_timer(reconnect_timer_cb, mqtt_ctrl, NULL);
 		luat_start_rtos_timer(mqtt_ctrl->reconnect_timer, mqtt_ctrl->reconnect_time, 0);
 	}
@@ -268,8 +270,9 @@ static int mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
 		case MQTT_MSG_CONNACK: {
 			// LLOGD("MQTT_MSG_CONNACK");
 			if(mqtt_ctrl->mqtt_packet_buffer[3] != 0x00){
+				LLOGE("MQTT_MSG_CONNACK mqtt_ctrl->mqtt_packet_buffer[3]:0x%02x",mqtt_ctrl->mqtt_packet_buffer[3]);
                 mqtt_close_socket(mqtt_ctrl);
-                return -2;
+                return -1;
             }
 			mqtt_ctrl->mqtt_state = 1;
 			msg.ptr = mqtt_ctrl;
@@ -353,12 +356,12 @@ static int32_t luat_lib_mqtt_callback(void *data, void *param){
 	OS_EVENT *event = (OS_EVENT *)data;
 	luat_mqtt_ctrl_t *mqtt_ctrl =(luat_mqtt_ctrl_t *)param;
 	int ret = 0;
-	// LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
-	// LLOGD("luat_lib_mqtt_callback %d %d",event->ID & 0x0fffffff,event->Param1);
+	LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
+	LLOGD("luat_lib_mqtt_callback %d %d",event->ID & 0x0fffffff,event->Param1);
 	if (event->ID == EV_NW_RESULT_LINK){
 		int ret = luat_socket_connect(mqtt_ctrl, mqtt_ctrl->host, mqtt_ctrl->remote_port, mqtt_ctrl->keepalive);
 		if(ret){
-			// LLOGD("init_socket ret=%d\n", ret);
+			LLOGE("init_socket ret=%d\n", ret);
 			mqtt_close_socket(mqtt_ctrl);
 		}
 	}else if(event->ID == EV_NW_RESULT_CONNECT){

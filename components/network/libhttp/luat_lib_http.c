@@ -51,6 +51,9 @@ static int http_close(luat_http_ctrl_t *http_ctrl){
 	if (http_ctrl->body){
 		luat_heap_free(http_ctrl->body);
 	}
+	if (http_ctrl->dst){
+		luat_heap_free(http_ctrl->dst);
+	}
 	if (http_ctrl->reply_message){
 		luat_heap_free(http_ctrl->reply_message);
 	}

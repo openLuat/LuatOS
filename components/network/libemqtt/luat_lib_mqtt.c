@@ -14,6 +14,7 @@
 #include "libemqtt.h"
 #include "luat_rtos.h"
 #include "luat_zbuff.h"
+#include "luat_malloc.h"
 
 #define LUAT_LOG_TAG "mqtt"
 #include "luat_log.h"

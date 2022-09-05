@@ -1,4 +1,17 @@
+/*
+@module  http
+@summary http客户端
+@version 1.0
+@date    2022.09.05
+@demo http
+*/
+
+
+
 #include "luat_base.h"
+
+#ifdef LUAT_USE_NETWORK
+
 #include "luat_http.h"
 #include "luat_network_adapter.h"
 #include "luat_rtos.h"
@@ -252,6 +265,19 @@ static int http_set_url(luat_http_ctrl_t *http_ctrl) {
 	return 0;
 }
 
+/*
+http客户端
+@api http2.request(method,url,headers,body,opts,ca_file)
+@string 请求方法, 支持 GET/POST
+@string url地址
+@tabal  请求头 可选 例如{["Content-Type"] = "application/x-www-form-urlencoded"}
+@string body 可选
+@tabal  额外配置 可选 包含dst:下载路径,可选 adapter:选择使用网卡,可选
+@string 证书 可选
+@usage 
+local code, headers, body = http2.request("GET","http://site0.cn/api/httptest/simple/time").wait()
+log.info("http2.get", code, headers, body)
+*/
 static int l_http_request(lua_State *L) {
 	size_t client_cert_len, client_key_len, client_password_len,len;
 	const char *client_cert = NULL;
@@ -259,7 +285,6 @@ static int l_http_request(lua_State *L) {
 	const char *client_password = NULL;
 	int adapter_index;
 	char body_len[6] = {0}; 
-
 	luat_http_ctrl_t *http_ctrl = (luat_http_ctrl_t *)luat_heap_malloc(sizeof(luat_http_ctrl_t));
 	if (!http_ctrl){
 		goto error;
@@ -360,7 +385,6 @@ static int l_http_request(lua_State *L) {
 	}else{
 		network_deinit_tls(http_ctrl->netc);
 	}
-
 	int ret = http_set_url(http_ctrl);
 	if (ret){
 		goto error;
@@ -394,8 +418,6 @@ error:
 	http_close(http_ctrl);
 	return 0;
 }
-
-#ifdef LUAT_USE_NETWORK
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_http2[] =

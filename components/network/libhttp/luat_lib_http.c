@@ -4,6 +4,7 @@
 #include "luat_rtos.h"
 #include "luat_msgbus.h"
 #include "luat_fs.h"
+#include "luat_malloc.h"
 
 #define LUAT_LOG_TAG "http"
 #include "luat_log.h"
@@ -91,6 +92,7 @@ static int32_t l_http_callback(lua_State *L, void* ptr){
 			lua_pushlstring(L, body,strlen(body));
 			luat_cbcwait(L, *idp, 3);
 		}
+		http_close(http_ctrl);
     }
 
 	return 0;
@@ -100,8 +102,8 @@ static int32_t luat_lib_http_callback(void *data, void *param){
 	OS_EVENT *event = (OS_EVENT *)data;
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)param;
 	int ret = 0;
-	LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
-	LLOGD("luat_lib_mqtt_callback %d %d",event->ID & 0x0fffffff,event->Param1);
+	// LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
+	// LLOGD("luat_lib_mqtt_callback %d %d",event->ID & 0x0fffffff,event->Param1);
 	if (event->ID == EV_NW_RESULT_LINK){
 		if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), http_ctrl->ip_addr.is_ipv6?NULL:&(http_ctrl->ip_addr), http_ctrl->remote_port, 0) < 0){
 			network_close(http_ctrl->netc, 0);
@@ -125,7 +127,7 @@ static int32_t luat_lib_http_callback(void *data, void *param){
 			strncat(http_ctrl->request_message, http_ctrl->body, strlen(http_ctrl->body));
 		}
 		strncat(http_ctrl->request_message, "\r\n", 2);
-		LLOGD("http_ctrl->request_message:%s",http_ctrl->request_message);
+		// LLOGD("http_ctrl->request_message:%s",http_ctrl->request_message);
 		uint32_t tx_len = 0;
 		network_tx(http_ctrl->netc, http_ctrl->request_message, strlen(http_ctrl->request_message), 0, http_ctrl->ip_addr.is_ipv6?NULL:&(http_ctrl->ip_addr), NULL, &tx_len, 0);
 	}else if(event->ID == EV_NW_RESULT_EVENT){
@@ -139,7 +141,7 @@ static int32_t luat_lib_http_callback(void *data, void *param){
 				http_close(http_ctrl);
 				return -1;
 			}
-			LLOGD("http_ctrl->reply_message:%s",http_ctrl->reply_message);
+			// LLOGD("http_ctrl->reply_message:%s",http_ctrl->reply_message);
 
 			rtos_msg_t msg = {0};
     		msg.handler = l_http_callback;
@@ -228,8 +230,8 @@ static int http_set_url(luat_http_ctrl_t *http_ctrl) {
         else
             http_ctrl->remote_port = 80;
     }
-    LLOGD("tmphost:%s",tmphost);
-	LLOGD("tmpuri:%s",tmpuri);
+    // LLOGD("tmphost:%s",tmphost);
+	// LLOGD("tmpuri:%s",tmpuri);
     http_ctrl->host = luat_heap_malloc(strlen(tmphost) + 1);
     if (http_ctrl->host == NULL) {
         LLOGE("out of memory when malloc host");
@@ -244,9 +246,9 @@ static int http_set_url(luat_http_ctrl_t *http_ctrl) {
     }
     memcpy(http_ctrl->uri, tmpuri, strlen(tmpuri) + 1);
 
-	LLOGD("http_ctrl->uri:%s",http_ctrl->uri);
-	LLOGD("http_ctrl->host:%s",http_ctrl->host);
-	LLOGD("http_ctrl->port:%d",http_ctrl->remote_port);
+	// LLOGD("http_ctrl->uri:%s",http_ctrl->uri);
+	// LLOGD("http_ctrl->host:%s",http_ctrl->host);
+	// LLOGD("http_ctrl->port:%d",http_ctrl->remote_port);
 	return 0;
 }
 
@@ -299,7 +301,7 @@ static int l_http_request(lua_State *L) {
 
 	http_ctrl->netc = network_alloc_ctrl(adapter_index);
 	if (!http_ctrl->netc){
-		LLOGD("create fail");
+		LLOGE("create fail");
 		goto error;
 	}
 	network_init_ctrl(http_ctrl->netc, NULL, luat_lib_http_callback, http_ctrl);
@@ -312,14 +314,14 @@ static int l_http_request(lua_State *L) {
 	http_ctrl->method = luat_heap_malloc(len + 1);
 	memset(http_ctrl->method, 0, len + 1);
 	memcpy(http_ctrl->method, method, len);
-	LLOGD("method:%s",http_ctrl->method);
+	// LLOGD("method:%s",http_ctrl->method);
 
 	const char *url = luaL_checklstring(L, 2, &len);
 	http_ctrl->url = luat_heap_malloc(len + 1);
 	memset(http_ctrl->url, 0, len + 1);
 	memcpy(http_ctrl->url, url, len);
 
-	LLOGD("http_ctrl->url:%s",http_ctrl->url);
+	// LLOGD("http_ctrl->url:%s",http_ctrl->url);
 
 	if (lua_istable(L, 3)) {
 		lua_pushnil(L);

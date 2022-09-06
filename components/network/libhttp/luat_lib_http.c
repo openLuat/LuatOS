@@ -84,6 +84,7 @@ static int http_body_len(char *headers){
 }
 
 static int32_t l_http_callback(lua_State *L, void* ptr){
+	char code[6] = {0};
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)msg->ptr;
     uint64_t* idp = (uint64_t*)http_ctrl->idp;
@@ -94,7 +95,8 @@ static int32_t l_http_callback(lua_State *L, void* ptr){
 	char *body_rec = strstr(header,"\r\n\r\n")+4;
 	uint16_t body_offset = strlen(body_rec);
 	uint16_t header_len = strlen(header)-strlen(body_rec)-4;
-	lua_pushlstring(L, http_ctrl->reply_message+code_offset,code_len);
+	strncpy(code, http_ctrl->reply_message+code_offset,code_len);
+	lua_pushinteger(L, atoi(code));
 	lua_pushlstring(L, header,header_len);
 	if (http_ctrl->is_download){
 		luat_fs_remove(http_ctrl->dst);
@@ -120,7 +122,7 @@ static int http_read_packet(luat_http_ctrl_t *http_ctrl){
 		uint16_t content_len = http_body_len(header);
 		char *body_rec = strstr(header,"\r\n\r\n")+4;
 		uint16_t body_offset = strlen(body_rec);
-		LLOGD("l_http_callback content_len:%d body_offset:%d",content_len,body_offset);
+		// LLOGD("l_http_callback content_len:%d body_offset:%d",content_len,body_offset);
 		if (content_len==body_offset){
 			rtos_msg_t msg = {0};
     		msg.handler = l_http_callback;
@@ -323,6 +325,9 @@ http2客户端
 @string body 可选
 @tabal  额外配置 可选 包含dst:下载路径,可选 adapter:选择使用网卡,可选
 @string 证书 可选
+@return int code
+@return string headers 
+@return string body
 @usage 
 local code, headers, body = http2.request("GET","http://site0.cn/api/httptest/simple/time").wait()
 log.info("http2.get", code, headers, body)

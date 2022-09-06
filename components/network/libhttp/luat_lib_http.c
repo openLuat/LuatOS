@@ -142,7 +142,10 @@ static int http_read_packet(luat_http_ctrl_t *http_ctrl){
 		uint16_t code_len = 3;
 		char *headers = strstr(http_ctrl->reply_message,"\r\n")+2;
 		uint16_t content_len = http_body_len(headers);
-		char *body_rec = strstr(headers,"\r\n\r\n")+4; // TODO 如果没找到, 还需要等下一波数据
+		char *body_rec = strstr(headers,"\r\n\r\n")+4;
+		if (!body_rec){
+			return 0; // 如果没找到, 还需要等下一波数据
+		}
 		uint16_t body_offset = http_ctrl->reply_message_len-(body_rec-(http_ctrl->reply_message));
 		// LLOGD("l_http_callback content_len:%d body_offset:%d",content_len,(http_ctrl->reply_message_len-(body_rec-(http_ctrl->reply_message))));
 		if (content_len == body_offset){

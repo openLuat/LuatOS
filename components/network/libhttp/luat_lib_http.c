@@ -5,10 +5,9 @@
 @date    2022.09.05
 */
 
-
-
 #include "luat_base.h"
 
+#ifdef LUAT_USE_NETWORK
 
 #include "luat_network_adapter.h"
 #include "luat_rtos.h"
@@ -73,6 +72,7 @@ static int http_close(luat_http_ctrl_t *http_ctrl){
 		luat_heap_free(http_ctrl->idp);
 	}
 	luat_heap_free(http_ctrl);
+	return 0;
 }
 
 static int http_body_len(char *headers){
@@ -109,7 +109,6 @@ static int32_t l_http_callback(lua_State *L, void* ptr){
 		lua_pushlstring(L, body_rec,body_offset);
 		luat_cbcwait(L, *idp, 3);
 	}
-	http_close(http_ctrl);
 	return 0;
 }
 
@@ -192,6 +191,7 @@ static int32_t luat_lib_http_callback(void *data, void *param){
 
 	}
 	if (event->Param1){
+		LLOGD("luat_lib_mqtt_callback http_ctrl close %d %d",event->ID & 0x0fffffff,event->Param1);
 		http_close(http_ctrl);
 		return -1;
 	}
@@ -447,7 +447,6 @@ error:
 	http_close(http_ctrl);
 	return 0;
 }
-#ifdef LUAT_USE_NETWORK
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_http[] =

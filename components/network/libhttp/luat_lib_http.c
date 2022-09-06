@@ -35,7 +35,7 @@ typedef struct{
 	const char *dst;
 	uint8_t is_download;
 	uint8_t request_message[HTTP_REQUEST_BUF_LEN_MAX];
-	uint8_t *reply_message;
+	char *reply_message;
 	uint32_t reply_message_len;
 	uint64_t* idp;
 	uint16_t timeout;
@@ -90,16 +90,34 @@ static int32_t l_http_callback(lua_State *L, void* ptr){
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)msg->ptr;
     uint64_t* idp = (uint64_t*)http_ctrl->idp;
+	if (1 == msg->arg1){
+		luat_cbcwait(L, *idp, 0);
+	}
 	uint16_t code_offset = strlen("HTTP/1.x ");
 	uint16_t code_len = 3;
-	char *header = strstr(http_ctrl->reply_message,"\r\n")+2;
-	uint16_t content_len = http_body_len(header);
-	char *body_rec = strstr(header,"\r\n\r\n")+4;
+	char *headers = strstr(http_ctrl->reply_message,"\r\n")+2;
+	uint16_t content_len = http_body_len(headers);
+	char *body_rec = strstr(headers,"\r\n\r\n")+4;
 	uint16_t body_offset = strlen(body_rec);
-	uint16_t header_len = strlen(header)-strlen(body_rec)-4;
+	uint16_t headers_len = strlen(headers)-strlen(body_rec)-4;
 	strncpy(code, http_ctrl->reply_message+code_offset,code_len);
 	lua_pushinteger(L, atoi(code));
-	lua_pushlstring(L, header, header_len); // TODO 需要解成table,或者当前设置为空table也行
+	lua_newtable(L);
+	char* temp;
+	char *header;
+	char *value;
+	uint16_t header_len,value_len;
+	temp = headers;
+	while ((temp+2)!=body_rec){
+		header = temp;
+		value = strstr(header,":")+1;
+		temp = strstr(value,"\r\n")+2;
+		header_len = value-header-1;
+		value_len = temp-value-2;
+		lua_pushlstring(L, header,header_len);
+		lua_pushlstring(L, value,value_len);
+		lua_settable(L, -3);
+	}
 	if (http_ctrl->is_download){
 		luat_fs_remove(http_ctrl->dst);
 		FILE *fd_out = luat_fs_fopen(http_ctrl->dst, "w+");
@@ -122,11 +140,11 @@ static int http_read_packet(luat_http_ctrl_t *http_ctrl){
 	if (!strncmp("HTTP/1.", http_ctrl->reply_message, strlen("HTTP/1."))){
 		uint16_t code_offset = strlen("HTTP/1.x ");
 		uint16_t code_len = 3;
-		char *header = strstr(http_ctrl->reply_message,"\r\n")+2;
-		uint16_t content_len = http_body_len(header);
-		char *body_rec = strstr(header,"\r\n\r\n")+4; // TODO 如果没找到, 还需要等下一波数据
-		uint16_t body_offset = strlen(body_rec); // TODO 不能通过strlen判断, 要根据reply_message_len
-		// LLOGD("l_http_callback content_len:%d body_offset:%d",content_len,body_offset);
+		char *headers = strstr(http_ctrl->reply_message,"\r\n")+2;
+		uint16_t content_len = http_body_len(headers);
+		char *body_rec = strstr(headers,"\r\n\r\n")+4; // TODO 如果没找到, 还需要等下一波数据
+		uint16_t body_offset = http_ctrl->reply_message_len-(body_rec-(http_ctrl->reply_message));
+		// LLOGD("l_http_callback content_len:%d body_offset:%d",content_len,(http_ctrl->reply_message_len-(body_rec-(http_ctrl->reply_message))));
 		if (content_len == body_offset){
 			rtos_msg_t msg = {0};
     		msg.handler = l_http_callback;
@@ -134,7 +152,11 @@ static int http_read_packet(luat_http_ctrl_t *http_ctrl){
 			luat_msgbus_put(&msg, 0);
 		}
 	}else{
-		// TODO 如果没有数据, 那wait就不会返回了, 需要发消息
+		rtos_msg_t msg = {0};
+		msg.handler = l_http_callback;
+		msg.ptr = http_ctrl;
+		msg.arg1 = 1;
+		luat_msgbus_put(&msg, 0);
 		http_close(http_ctrl);
 	}
 	return 0;
@@ -342,7 +364,7 @@ http2客户端
 @tabal  额外配置 可选 包含dst:下载路径,可选 adapter:选择使用网卡,可选
 @string 证书 可选
 @return int code
-@return string headers 
+@return tabal headers 
 @return string body
 @usage 
 local code, headers, body = http2.request("GET","http://site0.cn/api/httptest/simple/time").wait()

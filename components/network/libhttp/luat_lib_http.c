@@ -165,6 +165,30 @@ static int32_t luat_lib_http_callback(void *data, void *param){
 		// LLOGD("http_ctrl->request_message:%s",http_ctrl->request_message);
 		uint32_t tx_len = 0;
 		network_tx(http_ctrl->netc, http_ctrl->request_message, strlen(http_ctrl->request_message), 0, http_ctrl->ip_addr.is_ipv6?NULL:&(http_ctrl->ip_addr), NULL, &tx_len, 0);
+		if (http_ctrl->host){
+			luat_heap_free(http_ctrl->host);
+			http_ctrl->host = NULL;
+		}
+		if (http_ctrl->url){
+			luat_heap_free(http_ctrl->url);
+			http_ctrl->url = NULL;
+		}
+		if (http_ctrl->uri){
+			luat_heap_free(http_ctrl->uri);
+			http_ctrl->uri = NULL;
+		}
+		if (http_ctrl->method){
+			luat_heap_free(http_ctrl->method);
+			http_ctrl->method = NULL;
+		}
+		if (http_ctrl->header){
+			luat_heap_free(http_ctrl->header);
+			http_ctrl->header = NULL;
+		}
+		if (http_ctrl->body){
+			luat_heap_free(http_ctrl->body);
+			http_ctrl->body = NULL;
+		}
 	}else if(event->ID == EV_NW_RESULT_EVENT){
 		if (event->Param1==0){
 			uint32_t total_len = 0;

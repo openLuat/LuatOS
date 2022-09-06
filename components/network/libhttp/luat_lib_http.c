@@ -18,7 +18,7 @@
 #define LUAT_LOG_TAG "http"
 #include "luat_log.h"
 
-#define HTTP_REQUEST_BUF_LEN_MAX 128
+#define HTTP_REQUEST_BUF_LEN_MAX 1024
 typedef struct{
 	network_ctrl_t *netc;		// http netc
 	luat_ip_addr_t ip_addr;		// http ip
@@ -98,18 +98,20 @@ static int32_t l_http_callback(lua_State *L, void* ptr){
 	uint16_t header_len = strlen(header)-strlen(body_rec)-4;
 	strncpy(code, http_ctrl->reply_message+code_offset,code_len);
 	lua_pushinteger(L, atoi(code));
-	lua_pushlstring(L, header,header_len);
+	lua_pushlstring(L, header, header_len); // TODO 需要解成table,或者当前设置为空table也行
 	if (http_ctrl->is_download){
 		luat_fs_remove(http_ctrl->dst);
 		FILE *fd_out = luat_fs_fopen(http_ctrl->dst, "w+");
 		if (!fd_out) {
 			LLOGE("create file fail! %s", http_ctrl->dst);
 		}
-		luat_fs_fwrite(body_rec, 1, body_offset, fd_out);
-		luat_fs_fclose(fd_out);
+		else {
+			luat_fs_fwrite(body_rec, 1, body_offset, fd_out);
+			luat_fs_fclose(fd_out);
+		}
 		luat_cbcwait(L, *idp, 2);
 	}else{
-		lua_pushlstring(L, body_rec,body_offset);
+		lua_pushlstring(L, body_rec, body_offset);
 		luat_cbcwait(L, *idp, 3);
 	}
 	return 0;
@@ -121,19 +123,28 @@ static int http_read_packet(luat_http_ctrl_t *http_ctrl){
 		uint16_t code_len = 3;
 		char *header = strstr(http_ctrl->reply_message,"\r\n")+2;
 		uint16_t content_len = http_body_len(header);
-		char *body_rec = strstr(header,"\r\n\r\n")+4;
-		uint16_t body_offset = strlen(body_rec);
+		char *body_rec = strstr(header,"\r\n\r\n")+4; // TODO 如果没找到, 还需要等下一波数据
+		uint16_t body_offset = strlen(body_rec); // TODO 不能通过strlen判断, 要根据reply_message_len
 		// LLOGD("l_http_callback content_len:%d body_offset:%d",content_len,body_offset);
-		if (content_len==body_offset){
+		if (content_len == body_offset){
 			rtos_msg_t msg = {0};
     		msg.handler = l_http_callback;
 			msg.ptr = http_ctrl;
 			luat_msgbus_put(&msg, 0);
 		}
 	}else{
+		// TODO 如果没有数据, 那wait就不会返回了, 需要发消息
 		http_close(http_ctrl);
 	}
 	return 0;
+}
+
+static uint32_t http_send(luat_http_ctrl_t *http_ctrl, uint8_t* data, size_t len) {
+	if (len == 0)
+		return 0;
+	uint32_t tx_len = 0;
+	network_tx(http_ctrl->netc, data, len, 0, http_ctrl->ip_addr.is_ipv6?NULL:&(http_ctrl->ip_addr), NULL, &tx_len, 0);
+	return tx_len;
 }
 
 static int32_t luat_lib_http_callback(void *data, void *param){
@@ -149,21 +160,26 @@ static int32_t luat_lib_http_callback(void *data, void *param){
 			return -1;
     	}
 	}else if(event->ID == EV_NW_RESULT_CONNECT){
-		memset(http_ctrl->request_message, 0, HTTP_REQUEST_BUF_LEN_MAX);
+		//memset(http_ctrl->request_message, 0, HTTP_REQUEST_BUF_LEN_MAX);
 		uint32_t tx_len = 0;
+		// 发送请求行
+		snprintf(http_ctrl->request_message, HTTP_REQUEST_BUF_LEN_MAX, "%s %s HTTP/1.0\r\n", http_ctrl->method, http_ctrl->uri);
+		http_send(http_ctrl, http_ctrl->request_message, strlen(http_ctrl->request_message));
+		// 强制添加host. TODO 判断自定义headers是否有host
+		snprintf(http_ctrl->request_message, HTTP_REQUEST_BUF_LEN_MAX,  "Host: %s\r\n", http_ctrl->host);
+		http_send(http_ctrl, http_ctrl->request_message, strlen(http_ctrl->request_message));
+		// 发送自定义头部
 		if (http_ctrl->header){
-			snprintf(http_ctrl->request_message, HTTP_REQUEST_BUF_LEN_MAX, 
-					"%s %s HTTP/1.0\r\nHost: %s\r\n%s\r\n", 
-					http_ctrl->method,http_ctrl->uri,http_ctrl->host,http_ctrl->header);
-		}else{
-			snprintf(http_ctrl->request_message, HTTP_REQUEST_BUF_LEN_MAX, 
-					"%s %s HTTP/1.0\r\nHost: %s\r\n\r\n", 
-					http_ctrl->method,http_ctrl->uri,http_ctrl->host);
+			http_send(http_ctrl, http_ctrl->header, strlen(http_ctrl->header));
 		}
-		network_tx(http_ctrl->netc, http_ctrl->request_message, strlen(http_ctrl->request_message), 0, http_ctrl->ip_addr.is_ipv6?NULL:&(http_ctrl->ip_addr), NULL, &tx_len, 0);
+		// 结束头部
+		http_send(http_ctrl, "\r\n", 2);
+		// 发送body
 		if (http_ctrl->body){
-			network_tx(http_ctrl->netc, http_ctrl->body, http_ctrl->body_len, 0, http_ctrl->ip_addr.is_ipv6?NULL:&(http_ctrl->ip_addr), NULL, &tx_len, 0);
+			http_send(http_ctrl, http_ctrl->body, http_ctrl->body_len);
 		}
+		//--------------------------------------------
+		// 清理资源
 		if (http_ctrl->host){
 			luat_heap_free(http_ctrl->host);
 			http_ctrl->host = NULL;
@@ -187,7 +203,9 @@ static int32_t luat_lib_http_callback(void *data, void *param){
 		if (http_ctrl->body){
 			luat_heap_free(http_ctrl->body);
 			http_ctrl->body = NULL;
+			http_ctrl->body_len = 0;
 		}
+		//------------------------------
 	}else if(event->ID == EV_NW_RESULT_EVENT){
 		if (event->Param1==0){
 			uint32_t total_len = 0;

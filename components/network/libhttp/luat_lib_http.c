@@ -18,7 +18,7 @@
 #define LUAT_LOG_TAG "http"
 #include "luat_log.h"
 
-#define HTTP_REQUEST_BUF_LEN_MAX 1024
+#define HTTP_REQUEST_BUF_LEN_MAX 128
 typedef struct{
 	network_ctrl_t *netc;		// http netc
 	luat_ip_addr_t ip_addr;		// http ip
@@ -30,6 +30,7 @@ typedef struct{
 	const char *method;
 	const char *header;
 	const char *body;
+	size_t body_len;
 	const char *dst;
 	uint8_t is_download;
 	uint8_t request_message[HTTP_REQUEST_BUF_LEN_MAX];
@@ -149,24 +150,20 @@ static int32_t luat_lib_http_callback(void *data, void *param){
     	}
 	}else if(event->ID == EV_NW_RESULT_CONNECT){
 		memset(http_ctrl->request_message, 0, HTTP_REQUEST_BUF_LEN_MAX);
+		uint32_t tx_len = 0;
 		if (http_ctrl->header){
 			snprintf(http_ctrl->request_message, HTTP_REQUEST_BUF_LEN_MAX, 
-					"%s %s HTTP/1.0\r\nHost: %s\r\n%s", 
+					"%s %s HTTP/1.0\r\nHost: %s\r\n%s\r\n", 
 					http_ctrl->method,http_ctrl->uri,http_ctrl->host,http_ctrl->header);
 		}else{
 			snprintf(http_ctrl->request_message, HTTP_REQUEST_BUF_LEN_MAX, 
-					"%s %s HTTP/1.0\r\nHost: %s\r\n", 
+					"%s %s HTTP/1.0\r\nHost: %s\r\n\r\n", 
 					http_ctrl->method,http_ctrl->uri,http_ctrl->host);
 		}
-		if (http_ctrl->body)
-		{
-			strncat(http_ctrl->request_message, "\r\n", 2);
-			strncat(http_ctrl->request_message, http_ctrl->body, strlen(http_ctrl->body));
-		}
-		strncat(http_ctrl->request_message, "\r\n", 2);
-		// LLOGD("http_ctrl->request_message:%s",http_ctrl->request_message);
-		uint32_t tx_len = 0;
 		network_tx(http_ctrl->netc, http_ctrl->request_message, strlen(http_ctrl->request_message), 0, http_ctrl->ip_addr.is_ipv6?NULL:&(http_ctrl->ip_addr), NULL, &tx_len, 0);
+		if (http_ctrl->body){
+			network_tx(http_ctrl->netc, http_ctrl->body, http_ctrl->body_len, 0, http_ctrl->ip_addr.is_ipv6?NULL:&(http_ctrl->ip_addr), NULL, &tx_len, 0);
+		}
 		if (http_ctrl->host){
 			luat_heap_free(http_ctrl->host);
 			http_ctrl->host = NULL;
@@ -413,11 +410,11 @@ static int l_http_request(lua_State *L) {
 		}
 	}
 	if (lua_isstring(L, 4)) {
-		const char *body = luaL_checklstring(L, 4, &len);
-		http_ctrl->body = luat_heap_malloc(len + 1);
-		memset(http_ctrl->body, 0, len + 1);
-		memcpy(http_ctrl->body, body, len);
-		sprintf(body_len, "%d",len);
+		const char *body = luaL_checklstring(L, 4, &(http_ctrl->body_len));
+		http_ctrl->body = luat_heap_malloc((http_ctrl->body_len) + 1);
+		memset(http_ctrl->body, 0, (http_ctrl->body_len) + 1);
+		memcpy(http_ctrl->body, body, (http_ctrl->body_len));
+		sprintf(body_len, "%d",(http_ctrl->body_len));
 		http_add_header(http_ctrl,"Content-Length",body_len);
 	}
 	// else{

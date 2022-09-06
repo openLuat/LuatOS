@@ -9,7 +9,6 @@
 
 #include "luat_base.h"
 
-#ifdef LUAT_USE_NETWORK
 
 #include "luat_network_adapter.h"
 #include "luat_rtos.h"
@@ -20,7 +19,7 @@
 #define LUAT_LOG_TAG "http"
 #include "luat_log.h"
 
-#define HTTP_REQUEST_BUF_LEN_MAX 2048
+#define HTTP_REQUEST_BUF_LEN_MAX 1024
 typedef struct{
 	network_ctrl_t *netc;		// http netc
 	luat_ip_addr_t ip_addr;		// http ip
@@ -36,6 +35,7 @@ typedef struct{
 	uint8_t is_download;
 	uint8_t request_message[HTTP_REQUEST_BUF_LEN_MAX];
 	uint8_t *reply_message;
+	uint32_t reply_message_len;
 	uint64_t* idp;
 	uint16_t timeout;
 }luat_http_ctrl_t;
@@ -75,37 +75,62 @@ static int http_close(luat_http_ctrl_t *http_ctrl){
 	luat_heap_free(http_ctrl);
 }
 
-
+static int http_body_len(char *headers){
+	char *length_str = strstr(headers,"Content-Length")+15;
+	char *Content_Length_end = strstr(length_str,"\r\n");
+	char len[20] = {0};
+	strncpy(len, length_str,Content_Length_end-length_str);
+	return atoi(len);
+}
 
 static int32_t l_http_callback(lua_State *L, void* ptr){
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)msg->ptr;
     uint64_t* idp = (uint64_t*)http_ctrl->idp;
+	uint16_t code_offset = strlen("HTTP/1.x ");
+	uint16_t code_len = 3;
+	char *header = strstr(http_ctrl->reply_message,"\r\n")+2;
+	uint16_t content_len = http_body_len(header);
+	char *body_rec = strstr(header,"\r\n\r\n")+4;
+	uint16_t body_offset = strlen(body_rec);
+	uint16_t header_len = strlen(header)-strlen(body_rec)-4;
+	lua_pushlstring(L, http_ctrl->reply_message+code_offset,code_len);
+	lua_pushlstring(L, header,header_len);
+	if (http_ctrl->is_download){
+		luat_fs_remove(http_ctrl->dst);
+		FILE *fd_out = luat_fs_fopen(http_ctrl->dst, "w+");
+		if (!fd_out) {
+			LLOGE("create file fail! %s", http_ctrl->dst);
+		}
+		luat_fs_fwrite(body_rec, 1, body_offset, fd_out);
+		luat_fs_fclose(fd_out);
+		luat_cbcwait(L, *idp, 2);
+	}else{
+		lua_pushlstring(L, body_rec,body_offset);
+		luat_cbcwait(L, *idp, 3);
+	}
+	http_close(http_ctrl);
+	return 0;
+}
 
+static int http_read_packet(luat_http_ctrl_t *http_ctrl){
 	if (!strncmp("HTTP/1.", http_ctrl->reply_message, strlen("HTTP/1."))){
 		uint16_t code_offset = strlen("HTTP/1.x ");
 		uint16_t code_len = 3;
 		char *header = strstr(http_ctrl->reply_message,"\r\n")+2;
-		char *body = strstr(header,"\r\n\r\n")+4;
-		uint16_t header_len = strlen(header)-strlen(body)-4;
-		lua_pushlstring(L, http_ctrl->reply_message+code_offset,code_len);
-		lua_pushlstring(L, header,header_len);
-		if (http_ctrl->is_download){
-			luat_fs_remove(http_ctrl->dst);
-			FILE *fd_out = luat_fs_fopen(http_ctrl->dst, "wb");
-			if (!fd_out) {
-                LLOGE("create file fail! %s", fd_out);
-            }
-			luat_fs_fwrite(body, 1, strlen(body), fd_out);
-			luat_fs_fclose(fd_out);
-			luat_cbcwait(L, *idp, 2);
-		}else{
-			lua_pushlstring(L, body,strlen(body));
-			luat_cbcwait(L, *idp, 3);
+		uint16_t content_len = http_body_len(header);
+		char *body_rec = strstr(header,"\r\n\r\n")+4;
+		uint16_t body_offset = strlen(body_rec);
+		LLOGD("l_http_callback content_len:%d body_offset:%d",content_len,body_offset);
+		if (content_len==body_offset){
+			rtos_msg_t msg = {0};
+    		msg.handler = l_http_callback;
+			msg.ptr = http_ctrl;
+			luat_msgbus_put(&msg, 0);
 		}
+	}else{
 		http_close(http_ctrl);
-    }
-
+	}
 	return 0;
 }
 
@@ -125,11 +150,11 @@ static int32_t luat_lib_http_callback(void *data, void *param){
 		memset(http_ctrl->request_message, 0, HTTP_REQUEST_BUF_LEN_MAX);
 		if (http_ctrl->header){
 			snprintf(http_ctrl->request_message, HTTP_REQUEST_BUF_LEN_MAX, 
-					"%s %s HTTP/1.1\r\nHost: %s\r\n%s", 
+					"%s %s HTTP/1.0\r\nHost: %s\r\n%s", 
 					http_ctrl->method,http_ctrl->uri,http_ctrl->host,http_ctrl->header);
 		}else{
 			snprintf(http_ctrl->request_message, HTTP_REQUEST_BUF_LEN_MAX, 
-					"%s %s HTTP/1.1\r\nHost: %s\r\n", 
+					"%s %s HTTP/1.0\r\nHost: %s\r\n", 
 					http_ctrl->method,http_ctrl->uri,http_ctrl->host);
 		}
 		if (http_ctrl->body)
@@ -146,18 +171,20 @@ static int32_t luat_lib_http_callback(void *data, void *param){
 			uint32_t total_len = 0;
 			uint32_t rx_len = 0;
 			int result = network_rx(http_ctrl->netc, NULL, 0, 0, NULL, NULL, &total_len);
-			http_ctrl->reply_message = luat_heap_malloc(total_len + 1);
-			result = network_rx(http_ctrl->netc, http_ctrl->reply_message, total_len, 0, NULL, NULL, &rx_len);
+			if (0 == http_ctrl->reply_message_len){
+				http_ctrl->reply_message = luat_heap_malloc(total_len + 1);
+				http_ctrl->reply_message[total_len] = 0x00;
+			}else{
+				http_ctrl->reply_message = luat_heap_realloc(http_ctrl->reply_message,http_ctrl->reply_message_len+total_len+1);
+				http_ctrl->reply_message[http_ctrl->reply_message_len+total_len] = 0x00;
+			}
+			result = network_rx(http_ctrl->netc, http_ctrl->reply_message+(http_ctrl->reply_message_len), total_len, 0, NULL, NULL, &rx_len);
 			if (rx_len == 0||result!=0) {
 				http_close(http_ctrl);
 				return -1;
 			}
-			// LLOGD("http_ctrl->reply_message:%s",http_ctrl->reply_message);
-
-			rtos_msg_t msg = {0};
-    		msg.handler = l_http_callback;
-			msg.ptr = http_ctrl;
-			luat_msgbus_put(&msg, 0);
+			http_ctrl->reply_message_len += total_len;
+			http_read_packet(http_ctrl);
 		}
 	}else if(event->ID == EV_NW_RESULT_TX){
 
@@ -364,6 +391,9 @@ static int l_http_request(lua_State *L) {
 		sprintf(body_len, "%d",len);
 		http_add_header(http_ctrl,"Content-Length",body_len);
 	}
+	// else{
+	// 	http_add_header(http_ctrl,"Content-Length","0");
+	// }
 	
 	if (http_ctrl->is_tls){
 		if (lua_isstring(L, 6)){
@@ -417,6 +447,7 @@ error:
 	http_close(http_ctrl);
 	return 0;
 }
+#ifdef LUAT_USE_NETWORK
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_http[] =

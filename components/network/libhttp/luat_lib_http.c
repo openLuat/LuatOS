@@ -459,14 +459,17 @@ static int http_set_url(luat_http_ctrl_t *http_ctrl) {
     char *tmpuri = NULL;
     for (size_t i = 0; i < tmplen; i++){
         if (tmp[i] == '/') {
-            if (i > 255) {
-                LLOGI("host too long %s", http_ctrl->url);
-                return -1;
-            } 
-            memcpy(tmphost, tmp, i);
+			if (i > 255) {
+				LLOGI("host too long %s", http_ctrl->url);
+				return -1;
+			}
             tmpuri = tmp + i;
             break;
-        }
+        }else if(i == tmplen-1){
+			tmphost[i+2] = '/';
+			tmpuri = tmp + i+1;
+		}
+		tmphost[i] = tmp[i];
     }
 	if (strlen(tmphost) < 1) {
         LLOGI("host not found %s", http_ctrl->url);
@@ -475,6 +478,8 @@ static int http_set_url(luat_http_ctrl_t *http_ctrl) {
     if (strlen(tmpuri) == 0) {
         tmpuri = "/";
     }
+    // LLOGD("tmphost:%s",tmphost);
+	// LLOGD("tmpuri:%s",tmpuri);
     for (size_t i = 1; i < strlen(tmphost); i++){
         if (tmp[i] == ":") {
             tmp[i] = 0x00;
@@ -488,8 +493,7 @@ static int http_set_url(luat_http_ctrl_t *http_ctrl) {
         else
             http_ctrl->remote_port = 80;
     }
-    // LLOGD("tmphost:%s",tmphost);
-	// LLOGD("tmpuri:%s",tmpuri);
+
     http_ctrl->host = luat_heap_malloc(strlen(tmphost) + 1);
     if (http_ctrl->host == NULL) {
         LLOGE("out of memory when malloc host");

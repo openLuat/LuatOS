@@ -1946,6 +1946,10 @@ int network_rx(network_ctrl_t *ctrl, uint8_t *data, uint32_t len, int flags, lua
 					else
 					{
 						read_len += result;
+						if (read_len >= len)
+						{
+							break;
+						}
 					}
 				}while(network_socket_receive(ctrl, NULL, len, flags, remote_ip, remote_port) > 0);
 
@@ -1983,6 +1987,7 @@ int network_rx(network_ctrl_t *ctrl, uint8_t *data, uint32_t len, int flags, lua
 					else
 					{
 						read_len = ctrl->ssl->in_msglen;
+						break;
 					}
 				}while(network_socket_receive(ctrl, NULL, len, flags, remote_ip, remote_port) > 0);
 
@@ -2022,6 +2027,7 @@ int network_wait_event(network_ctrl_t *ctrl, OS_EVENT *out_event, uint32_t timeo
 {
 	if (ctrl->new_rx_flag)
 	{
+		ctrl->wait_target_state = NW_WAIT_EVENT;
 		return 0;
 	}
 	if ((ctrl->need_close) || (ctrl->socket_id < 0) || (ctrl->state != NW_STATE_ONLINE))
@@ -4019,6 +4025,10 @@ int network_rx(network_ctrl_t *ctrl, uint8_t *data, uint32_t len, int flags, lua
 					else
 					{
 						read_len += result;
+						if (read_len >= len)
+						{
+							break;
+						}
 					}
 				}while(network_socket_receive(ctrl, NULL, len, flags, remote_ip, remote_port) > 0);
 
@@ -4056,6 +4066,7 @@ int network_rx(network_ctrl_t *ctrl, uint8_t *data, uint32_t len, int flags, lua
 					else
 					{
 						read_len = ctrl->ssl->in_msglen;
+						break;
 					}
 				}while(network_socket_receive(ctrl, NULL, len, flags, remote_ip, remote_port) > 0);
 
@@ -4095,6 +4106,7 @@ int network_wait_event(network_ctrl_t *ctrl, OS_EVENT *out_event, uint32_t timeo
 {
 	if (ctrl->new_rx_flag)
 	{
+		ctrl->wait_target_state = NW_WAIT_EVENT;
 		return 0;
 	}
 	if ((ctrl->need_close) || (ctrl->socket_id < 0) || (ctrl->state != NW_STATE_ONLINE))

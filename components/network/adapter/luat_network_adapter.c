@@ -1946,6 +1946,10 @@ int network_rx(network_ctrl_t *ctrl, uint8_t *data, uint32_t len, int flags, lua
 					else
 					{
 						read_len += result;
+						if (read_len >= len)
+						{
+							break;
+						}
 					}
 				}while(network_socket_receive(ctrl, NULL, len, flags, remote_ip, remote_port) > 0);
 
@@ -1983,6 +1987,7 @@ int network_rx(network_ctrl_t *ctrl, uint8_t *data, uint32_t len, int flags, lua
 					else
 					{
 						read_len = ctrl->ssl->in_msglen;
+						break;
 					}
 				}while(network_socket_receive(ctrl, NULL, len, flags, remote_ip, remote_port) > 0);
 
@@ -4020,6 +4025,10 @@ int network_rx(network_ctrl_t *ctrl, uint8_t *data, uint32_t len, int flags, lua
 					else
 					{
 						read_len += result;
+						if (read_len >= len)
+						{
+							break;
+						}
 					}
 				}while(network_socket_receive(ctrl, NULL, len, flags, remote_ip, remote_port) > 0);
 
@@ -4057,6 +4066,7 @@ int network_rx(network_ctrl_t *ctrl, uint8_t *data, uint32_t len, int flags, lua
 					else
 					{
 						read_len = ctrl->ssl->in_msglen;
+						break;
 					}
 				}while(network_socket_receive(ctrl, NULL, len, flags, remote_ip, remote_port) > 0);
 

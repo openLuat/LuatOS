@@ -5746,7 +5746,11 @@ int mbedtls_ssl_read( mbedtls_ssl_context *ssl, unsigned char *buf, size_t len )
 
     n = ( len < ssl->in_msglen )
         ? len : ssl->in_msglen;
-
+    if (!buf)
+    {
+    	MBEDTLS_SSL_DEBUG_MSG( 2, ( "<= read" ) );
+    	return 0;
+    }
     memcpy( buf, ssl->in_offt, n );
     ssl->in_msglen -= n;
 

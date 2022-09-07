@@ -3964,6 +3964,8 @@ int network_rx(network_ctrl_t *ctrl, uint8_t *data, uint32_t len, int flags, lua
 	NW_LOCK;
 	int result = -1;
 	ctrl->auto_mode = 1;
+	uint32_t read_len = 0;
+	uint8_t is_error = 0;
 	if (ctrl->new_rx_flag)
 	{
 		if (data)
@@ -3972,8 +3974,7 @@ int network_rx(network_ctrl_t *ctrl, uint8_t *data, uint32_t len, int flags, lua
 	#ifdef LUAT_USE_TLS
 			if (ctrl->tls_mode)
 			{
-				uint32_t read_len = 0;
-				uint8_t is_error = 0;
+
 				do
 				{
 					result = mbedtls_ssl_read(ctrl->ssl, data + read_len, len - read_len);
@@ -4006,7 +4007,39 @@ int network_rx(network_ctrl_t *ctrl, uint8_t *data, uint32_t len, int flags, lua
 		}
 		else
 		{
-			result = network_socket_receive(ctrl, data, len, flags, remote_ip, remote_port);
+#ifdef LUAT_USE_TLS
+			if (ctrl->tls_mode)
+			{
+				read_len = 0;
+				do
+				{
+					result = mbedtls_ssl_read(ctrl->ssl, NULL, 0);
+					if (result < 0 && (result != MBEDTLS_ERR_SSL_WANT_READ))
+					{
+						is_error = 1;
+						read_len = 0;
+						break;
+					}
+					else
+					{
+						read_len = ctrl->ssl->in_msglen;
+					}
+				}while(network_socket_receive(ctrl, NULL, len, flags, remote_ip, remote_port) > 0);
+
+				if ( !is_error )
+				{
+					result = read_len;
+				}
+				else
+				{
+					result = -1;
+				}
+			}
+			else
+	#endif
+			{
+				result = network_socket_receive(ctrl, data, len, flags, remote_ip, remote_port);
+			}
 		}
 	}
 	else

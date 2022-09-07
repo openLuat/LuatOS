@@ -47,7 +47,7 @@ sys.run()
 
 ## 如何使用LuatOS-SoC
 
-1. 首先, 购买开发板([Air101](https://item.taobao.com/item.htm?id=655594061844)/[Wifi](https://item.taobao.com/item.htm?id=590724913462) / [NB-IOT](https://item.taobao.com/item.htm?id=625893281770&ns=1))
+1. 首先, 购买开发板([Air101](https://luat.taobao.com/))
 2. 然后, 下载[固件包](https://gitee.com/openLuat/LuatOS/releases),按压缩包里的文档进行刷机
 3. 开始愉快地玩耍(或者放着积灰...)
 
@@ -67,7 +67,7 @@ sys.run()
 * [Lua 5.3中文手册](https://www.runoob.com/manual/lua53doc/) 官方手册的中文版
 * [合宙官网](http://www.openluat.com) 一家有理想的物联网公司
 * [合宙商城](http://mall.m.openluat.com) 合宙官方商城(微信)
-* [合宙商城](http://openluat.taobao.com) 合宙官方商城(淘宝)
+* [合宙商城](http://luat.taobao.com) 合宙官方商城(淘宝)
 * [联盛德W600/合宙Air640W专属说明](bsp/air640w/README.md) wifi模块,便宜,耐操
 * [合宙Air302专属说明](bsp/air302/README.md) NB-IOT模块,二次开发的首选
 * [如何编译-Wifi固件](bsp/air640w/userdoc/how_to_build.md) 自行编译wifi模块

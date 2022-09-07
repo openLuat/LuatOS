@@ -43,7 +43,7 @@ adc.setRange(adc.ADC_RANGE_1_8)
 adc.setRange(adc.ADC_RANGE_3_6)
  */
 static int l_adc_set_range(lua_State *L) {
-	luat_adc_global_config(ADC_SET_GLOBAL_RANGE, (void *)luaL_checkinteger(L, 1));
+	luat_adc_global_config(ADC_SET_GLOBAL_RANGE, luaL_checkinteger(L, 1));
 	return 0;
 }
 

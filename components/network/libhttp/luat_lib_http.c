@@ -108,10 +108,13 @@ static int32_t l_http_callback(lua_State *L, void* ptr){
 	char *header;
 	char *value;
 	uint16_t header_len,value_len;
-	temp = http_ctrl->resp_headers;
+	temp = strstr(http_ctrl->resp_headers,"\r\n")+2;
 	while ( temp < body_rec){
 		header = temp;
 		value = strstr(header,":")+1;
+		if (value[1]==' '){
+			value++;
+		}
 		temp = strstr(value,"\r\n")+2;
 		header_len = value-header-1;
 		value_len = temp-value-2;

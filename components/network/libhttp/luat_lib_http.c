@@ -98,24 +98,25 @@ static int32_t l_http_callback(lua_State *L, void* ptr){
 	// 解析status code
 	uint16_t code_offset = strlen("HTTP/1.x ");
 	uint16_t code_len = 3;
-	strncpy(code, http_ctrl->resp_buff+code_offset,code_len);
+	strncpy(code, http_ctrl->resp_headers+code_offset,code_len);
 	lua_pushinteger(L, atoi(code));
 
 	// 解析出header
-	char *headers = http_ctrl->resp_headers;
 	char *body_rec = http_ctrl->resp_headers + strlen(http_ctrl->resp_headers);
 	lua_newtable(L);
 	char* temp;
 	char *header;
 	char *value;
 	uint16_t header_len,value_len;
-	temp = headers;
-	while ((temp+2)!=body_rec){
+	temp = http_ctrl->resp_headers;
+	while ( temp < body_rec){
 		header = temp;
 		value = strstr(header,":")+1;
 		temp = strstr(value,"\r\n")+2;
 		header_len = value-header-1;
 		value_len = temp-value-2;
+		// LLOGD("header:%.*s",header_len,header);
+		// LLOGD("value:%.*s",value_len,value);
 		lua_pushlstring(L, header,header_len);
 		lua_pushlstring(L, value,value_len);
 		lua_settable(L, -3);
@@ -204,7 +205,7 @@ static int http_resp_parse_header(luat_http_ctrl_t *http_ctrl) {
 			http_ctrl->resp_headers = http_ctrl->resp_buff; // 留着解析全部header
 			if (http_ctrl->resp_content_len > 0) {
 				// 还有数据
-				uint32_t header_size = (size_t)(http_ctrl->resp_buff - header_end) + 4;
+				uint32_t header_size = (size_t)(body_start - http_ctrl->resp_headers);
 				if (http_ctrl->resp_buff_len > header_size) { 
 					// 已经有部分/全部body数据了
 					http_ctrl->resp_buff = luat_heap_malloc(http_ctrl->resp_buff_len - header_size);
@@ -258,6 +259,7 @@ static int http_read_packet(luat_http_ctrl_t *http_ctrl){
 		}
 		int ret = http_resp_parse_header(http_ctrl);
 		if (ret < 0) {
+			LLOGE("http_resp_parse_header ret:%d",ret);
 			return ret; // 出错啦
 		}
 		// 能到这里, 头部已经解析完成了
@@ -300,6 +302,7 @@ static int http_read_packet(luat_http_ctrl_t *http_ctrl){
 		}
 	}
 	else { // 非下载模式, 等数据齐了就结束
+		LLOGE("resp_buff_len:%d resp_content_len:%d",http_ctrl->resp_buff_len,http_ctrl->resp_content_len);
 		if (http_ctrl->resp_buff_len == http_ctrl->resp_content_len) {
 			luat_msgbus_put(&msg, 0);
 			return 0;
@@ -313,6 +316,7 @@ static uint32_t http_send(luat_http_ctrl_t *http_ctrl, uint8_t* data, size_t len
 	if (len == 0)
 		return 0;
 	uint32_t tx_len = 0;
+	// LLOGD("http_send data:%.*s",len,data);
 	network_tx(http_ctrl->netc, data, len, 0, http_ctrl->ip_addr.is_ipv6?NULL:&(http_ctrl->ip_addr), NULL, &tx_len, 0);
 	return tx_len;
 }
@@ -394,6 +398,7 @@ static int32_t luat_lib_http_callback(void *data, void *param){
 				return -1;
 			}
 			http_ctrl->resp_buff_len += total_len;
+			// LLOGD("http_ctrl->resp_buff:%.*s len:%d",http_ctrl->resp_buff_len,http_ctrl->resp_buff,http_ctrl->resp_buff_len);
 			http_read_packet(http_ctrl);
 		}
 	}else if(event->ID == EV_NW_RESULT_TX){

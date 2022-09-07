@@ -8,6 +8,8 @@
 
 #include "luat_base.h"
 
+#ifdef LUAT_USE_NETWORK
+
 #include "luat_network_adapter.h"
 #include "luat_rtos.h"
 #include "luat_msgbus.h"
@@ -673,8 +675,6 @@ error:
 	http_close(http_ctrl);
 	return 0;
 }
-
-#ifdef LUAT_USE_NETWORK
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_http[] =

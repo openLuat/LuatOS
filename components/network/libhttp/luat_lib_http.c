@@ -329,7 +329,7 @@ static int32_t luat_lib_http_callback(void *data, void *param){
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)param;
 	int ret = 0;
 	// LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
-	// LLOGD("luat_lib_mqtt_callback %d %d",event->ID & 0x0fffffff,event->Param1);
+	// LLOGD("luat_lib_http_callback %d %d",event->ID & 0x0fffffff,event->Param1);
 	if (event->ID == EV_NW_RESULT_LINK){
 		if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), http_ctrl->ip_addr.is_ipv6?NULL:&(http_ctrl->ip_addr), http_ctrl->remote_port, 0) < 0){
 			network_close(http_ctrl->netc, 0);
@@ -622,6 +622,11 @@ static int l_http_request(lua_State *L) {
 	// 	http_add_header(http_ctrl,"Content-Length","0");
 	// }
 	
+	int ret = http_set_url(http_ctrl);
+	if (ret){
+		goto error;
+	}
+
 	if (http_ctrl->is_tls){
 		if (lua_isstring(L, 6)){
 			client_cert = luaL_checklstring(L, 6, &client_cert_len);
@@ -640,10 +645,6 @@ static int l_http_request(lua_State *L) {
 		}
 	}else{
 		network_deinit_tls(http_ctrl->netc);
-	}
-	int ret = http_set_url(http_ctrl);
-	if (ret){
-		goto error;
 	}
 	
 	if (!strncmp("GET", http_ctrl->method, strlen("GET"))) {

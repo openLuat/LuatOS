@@ -1,7 +1,7 @@
 #ifndef __LUAT_NW_ADAPTER_H__
 #define __LUAT_NW_ADAPTER_H__
 #include "luat_base.h"
-#ifdef LUAT_USE_NETWORK
+// #ifdef LUAT_USE_NETWORK
 #include "luat_rtos.h"
 #ifdef LUAT_USE_TLS
 #include "mbedtls/ssl.h"
@@ -465,4 +465,4 @@ int network_rx(network_ctrl_t *ctrl, uint8_t *data, uint32_t len, int flags, lua
 int network_wait_event(network_ctrl_t *ctrl, OS_EVENT *out_event, uint32_t timeout_ms, uint8_t *is_timeout);
 /****************************高级api结束********************************************************************/
 #endif
-#endif
+// #endif

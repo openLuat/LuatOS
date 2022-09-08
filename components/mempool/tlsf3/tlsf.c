@@ -1269,3 +1269,30 @@ void* tlsf_realloc(tlsf_t tlsf, void* ptr, size_t size)
 
 	return p;
 }
+
+
+//=------------------------------------------------
+// more function for usage data
+typedef struct walker_ctx
+{
+    size_t total;
+    size_t used;
+}walker_ctx_t;
+
+static void stat_walker(void* ptr, size_t size, int used, void* user) {
+    walker_ctx_t *ctx = (walker_ctx_t*)user;
+    ctx->total = ctx->total + size;
+    if (used != 0)
+        ctx->used = ctx->used + size;
+}
+
+int tlsf_stat(pool_t pool, size_t *total, size_t *used, size_t *maxused) {
+	walker_ctx_t ctx = {
+		.total = *total,
+		.used = *used
+	};
+	tlsf_walk_pool(pool, stat_walker, &ctx);
+    *total = ctx.total;
+    *used = ctx.used;
+	*maxused = ctx.used;
+}

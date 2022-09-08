@@ -83,6 +83,9 @@ void tlsf_walk_pool(pool_t pool, tlsf_walker walker, void* user);
 int tlsf_check(tlsf_t tlsf);
 int tlsf_check_pool(pool_t pool);
 
+// add by wendal
+int tlsf_stat(pool_t pool, size_t *total, size_t *used, size_t *maxused);
+
 #if defined(__cplusplus)
 };
 #endif

@@ -130,4 +130,6 @@ LUAMOD_API int luaopen_ufont( lua_State *L );
 LUAMOD_API int luaopen_miniz( lua_State *L );
 LUAMOD_API int luaopen_mobile( lua_State *L );
 
+LUAMOD_API int luaopen_protobuf( lua_State *L );
+
 #endif

@@ -92,17 +92,19 @@ static int32_t l_http_callback(lua_State *L, void* ptr){
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)msg->ptr;
     uint64_t idp = http_ctrl->idp;
+	// LLOGD("l_http_callback arg1:%d arg2:%d is_download:%d idp:%d",msg->arg1,msg->arg2,http_ctrl->is_download,idp);
 	if (1 == msg->arg1){
 		lua_pushinteger(L, msg->arg2); // 把错误码返回去
 		luat_cbcwait(L, idp, 1);
 		return 0;
+	}else if(2 == msg->arg1){
+		http_close(http_ctrl);
 	}
 	// 解析status code
 	uint16_t code_offset = strlen("HTTP/1.x ");
 	uint16_t code_len = 3;
 	strncpy(code, http_ctrl->resp_headers+code_offset,code_len);
 	lua_pushinteger(L, atoi(code));
-
 	// 解析出header
 	char *body_rec = http_ctrl->resp_headers + strlen(http_ctrl->resp_headers);
 	lua_newtable(L);
@@ -159,6 +161,14 @@ static void http_resp_error(luat_http_ctrl_t *http_ctrl, int error_code) {
 	msg.ptr = http_ctrl;
 	msg.arg1 = 1;
 	msg.arg2 = error_code;
+	luat_msgbus_put(&msg, 0);
+}
+
+static void http_release_msg(luat_http_ctrl_t *http_ctrl) {
+	rtos_msg_t msg = {0};
+	msg.handler = l_http_callback;
+	msg.ptr = http_ctrl;
+	msg.arg1 = 2;
 	luat_msgbus_put(&msg, 0);
 }
 
@@ -307,7 +317,7 @@ static int http_read_packet(luat_http_ctrl_t *http_ctrl){
 		}
 	}
 	else { // 非下载模式, 等数据齐了就结束
-		LLOGE("resp_buff_len:%d resp_content_len:%d",http_ctrl->resp_buff_len,http_ctrl->resp_content_len);
+		// LLOGD("resp_buff_len:%d resp_content_len:%d",http_ctrl->resp_buff_len,http_ctrl->resp_content_len);
 		if (http_ctrl->resp_buff_len == http_ctrl->resp_content_len) {
 			luat_msgbus_put(&msg, 0);
 			return 0;
@@ -330,8 +340,8 @@ static int32_t luat_lib_http_callback(void *data, void *param){
 	OS_EVENT *event = (OS_EVENT *)data;
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)param;
 	int ret = 0;
-	LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
-	LLOGD("luat_lib_http_callback %d %d",event->ID & 0x0fffffff,event->Param1);
+	// LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
+	// LLOGD("luat_lib_http_callback %d %d",event->ID & 0x0fffffff,event->Param1);
 	if (event->ID == EV_NW_RESULT_LINK){
 		if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), http_ctrl->ip_addr.is_ipv6?NULL:&(http_ctrl->ip_addr), http_ctrl->remote_port, 0) < 0){
 			network_close(http_ctrl->netc, 0);
@@ -390,7 +400,7 @@ static int32_t luat_lib_http_callback(void *data, void *param){
 			uint32_t total_len = 0;
 			uint32_t rx_len = 0;
 			int result = network_rx(http_ctrl->netc, NULL, 0, 0, NULL, NULL, &total_len);
-			LLOGD("result:%d total_len:%d",result,total_len);
+			// LLOGD("result:%d total_len:%d",result,total_len);
 			if (0 == result){
 				if (total_len>0){
 					if (0 == http_ctrl->resp_buff_len){
@@ -402,7 +412,7 @@ static int32_t luat_lib_http_callback(void *data, void *param){
 					}
 next:
 					result = network_rx(http_ctrl->netc, http_ctrl->resp_buff+(http_ctrl->resp_buff_len), total_len, 0, NULL, NULL, &rx_len);
-					LLOGD("result:%d rx_len:%d",result,rx_len);
+					// LLOGD("result:%d rx_len:%d",result,rx_len);
 					if (result)
 						goto next;
 					if (rx_len == 0||result!=0) {
@@ -410,7 +420,7 @@ next:
 						return -1;
 					}
 					http_ctrl->resp_buff_len += total_len;
-					LLOGD("http_ctrl->resp_buff:%.*s len:%d",http_ctrl->resp_buff_len,http_ctrl->resp_buff,http_ctrl->resp_buff_len);
+					// LLOGD("http_ctrl->resp_buff:%.*s len:%d",http_ctrl->resp_buff_len,http_ctrl->resp_buff,http_ctrl->resp_buff_len);
 					http_read_packet(http_ctrl);
 				}
 			}else{
@@ -425,8 +435,8 @@ next:
 
 	}
 	if (event->Param1){
-		LLOGD("luat_lib_mqtt_callback http_ctrl close %d %d",event->ID & 0x0fffffff,event->Param1);
-		http_close(http_ctrl);
+		LLOGD("luat_lib_http_callback http_ctrl close %d %d",event->ID & 0x0fffffff,event->Param1);
+		http_release_msg(http_ctrl);
 		return -1;
 	}
 	network_wait_event(http_ctrl->netc, NULL, 0, NULL);
@@ -643,7 +653,6 @@ static int l_http_request(lua_State *L) {
 	}
 
 	if (http_ctrl->is_tls){
-		mbedtls_debug_set_threshold(4);
 		if (lua_isstring(L, 6)){
 			client_cert = luaL_checklstring(L, 6, &client_cert_len);
 		}

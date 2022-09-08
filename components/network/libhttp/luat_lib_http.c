@@ -345,6 +345,7 @@ static int32_t luat_lib_http_callback(void *data, void *param){
 	if (event->ID == EV_NW_RESULT_LINK){
 		if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), http_ctrl->ip_addr.is_ipv6?NULL:&(http_ctrl->ip_addr), http_ctrl->remote_port, 0) < 0){
 			network_close(http_ctrl->netc, 0);
+			http_resp_error(http_ctrl, -5);
 			http_close(http_ctrl);
 			return -1;
     	}
@@ -416,6 +417,7 @@ next:
 					if (result)
 						goto next;
 					if (rx_len == 0||result!=0) {
+						http_resp_error(http_ctrl, -3);
 						http_close(http_ctrl);
 						return -1;
 					}
@@ -424,6 +426,7 @@ next:
 					http_read_packet(http_ctrl);
 				}
 			}else{
+				http_resp_error(http_ctrl, -3);
 				http_close(http_ctrl);
 				return -1;
 			}
@@ -695,6 +698,7 @@ static int l_http_request(lua_State *L) {
 	http_ctrl->idp = luat_pushcwait(L);
     return 1;
 error:
+	http_resp_error(http_ctrl, -5);
 	http_close(http_ctrl);
 	return 0;
 }

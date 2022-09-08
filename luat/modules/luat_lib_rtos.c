@@ -331,7 +331,7 @@ static const rotable_Reg_t reg_rtos[] =
     { "timer_stop",        ROREG_FUNC(l_rtos_timer_stop)},
     { "receive",           ROREG_FUNC(l_rtos_receive)},
     { "reboot",            ROREG_FUNC(l_rtos_reboot)},
-    { "poweron_reason",    ROREG_FUNC(l_rtos_poweron_reason)},
+    // { "poweron_reason",    ROREG_FUNC(l_rtos_poweron_reason)},
     { "standy",            ROREG_FUNC(l_rtos_standy)},
 
     { "buildDate",         ROREG_FUNC(l_rtos_build_date)},

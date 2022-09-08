@@ -1978,15 +1978,22 @@ int network_rx(network_ctrl_t *ctrl, uint8_t *data, uint32_t len, int flags, lua
 				do
 				{
 					result = mbedtls_ssl_read(ctrl->ssl, NULL, 0);
-					if (result < 0 && (result != MBEDTLS_ERR_SSL_WANT_READ))
+					if ((result < 0) && (result != (MBEDTLS_ERR_SSL_WANT_READ)))
 					{
 						is_error = 1;
 						read_len = 0;
 						break;
 					}
-					else
+					else if (!result)
 					{
 						read_len = ctrl->ssl->in_msglen;
+						break;
+					}
+					else if ((MBEDTLS_ERR_SSL_WANT_READ) == result)
+					{
+						read_len = 0;
+						ctrl->new_rx_flag = 0;
+						DBG("socket %d ssl data need more", ctrl->socket_id);
 						break;
 					}
 				}while(network_socket_receive(ctrl, NULL, len, flags, remote_ip, remote_port) > 0);
@@ -3085,7 +3092,8 @@ void network_release_ctrl(network_ctrl_t *ctrl)
 {
 	int i;
 	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
-	NW_LOCK;
+	NW_UNLOCK;
+	OS_LOCK;
 	for (i = 0; i < adapter->opt->max_socket_num; i++)
 	{
 		if (&adapter->ctrl_table[i] == ctrl)
@@ -3106,10 +3114,13 @@ void network_release_ctrl(network_ctrl_t *ctrl)
 				ctrl->dns_ip = NULL;
 			}
 			adapter->ctrl_busy[i] = 0;
+			platform_release_mutex(ctrl->mutex);
+			ctrl->mutex = NULL;
 			break;
 		}
 	}
-	NW_UNLOCK;
+	OS_UNLOCK;
+//	NW_UNLOCK;
 	if (i >= adapter->opt->max_socket_num) {DBG_ERR("adapter index maybe error!, %d, %x", ctrl->adapter_index, ctrl);}
 
 }
@@ -4057,15 +4068,22 @@ int network_rx(network_ctrl_t *ctrl, uint8_t *data, uint32_t len, int flags, lua
 				do
 				{
 					result = mbedtls_ssl_read(ctrl->ssl, NULL, 0);
-					if (result < 0 && (result != MBEDTLS_ERR_SSL_WANT_READ))
+					if ((result < 0) && (result != (MBEDTLS_ERR_SSL_WANT_READ)))
 					{
 						is_error = 1;
 						read_len = 0;
 						break;
 					}
-					else
+					else if (!result)
 					{
 						read_len = ctrl->ssl->in_msglen;
+						break;
+					}
+					else if ((MBEDTLS_ERR_SSL_WANT_READ) == result)
+					{
+						read_len = 0;
+						ctrl->new_rx_flag = 0;
+						DBG("socket %d ssl data need more", ctrl->socket_id);
 						break;
 					}
 				}while(network_socket_receive(ctrl, NULL, len, flags, remote_ip, remote_port) > 0);

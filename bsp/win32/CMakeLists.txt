@@ -19,25 +19,25 @@ include_directories(./include)
 include_directories(${TOPROOT}/lua/include
                     ${TOPROOT}/luat/include
                     ./lv_drivers
+                    ${TOPROOT}/components/lfs 
+                    ${TOPROOT}/components/qrcode
+                    ${TOPROOT}/components/lcd
+                    ${TOPROOT}/components/luatfonts
+                    ${TOPROOT}/components/lvgl/src/lv_font
+                    ${TOPROOT}/components/miniz
+                    ${TOPROOT}/components/mempool/tlsf
+                    ${TOPROOT}/components/serialization/protobuf
                     )
-
-include_directories(${TOPROOT}/components/lfs)
-include_directories(${TOPROOT}/components/qrcode)
-include_directories(${TOPROOT}/components/lcd)
-include_directories(${TOPROOT}/components/luatfonts)
-include_directories(${TOPROOT}/components/lvgl/src/lv_font)
-include_directories(${TOPROOT}/components/miniz)
 
 aux_source_directory(./port PORT_SRCS)
 aux_source_directory(${TOPROOT}/lua/src LUA_SRCS)
 aux_source_directory(${TOPROOT}/components/lua-cjson CJSON_SRCS)
-
 aux_source_directory(${TOPROOT}/components/miniz MINIZ_SRCS)
-
 aux_source_directory(${TOPROOT}/components/qrcode QRCODE_SRCS)
 # aux_source_directory(${TOPROOT}/components/lcd LCD_SRCS)
-
 aux_source_directory(./components/iotauth IOTAUTH_SRCS)
+aux_source_directory(./components/mempool/tlsf TLSF_SRCS)
+aux_source_directory(${TOPROOT}/components/serialization/protobuf PB_SRCS)
 
 add_library(lua ${LUA_SRCS})
 add_library(luatos_msys ${PORT_SRCS})
@@ -85,6 +85,7 @@ add_library(luat ${TOPROOT}/luat/modules/luat_main.c
                  ${QRCODE_SRCS}
                  ${MINIZ_SRCS}
                  #${LCD_SRCS}
+                 ${PB_SRCS}
             )
 
 include_directories(${TOPROOT}/components/fatfs)

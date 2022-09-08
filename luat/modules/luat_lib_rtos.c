@@ -309,6 +309,20 @@ rtos.nop()
 static int l_rtos_nop(lua_State *L) {
     return 0;
 }
+
+LUAT_WEAK int luat_poweron_reason(void) {
+    return 0;
+}
+
+//uint32_t-高16位重启主原因,低16位详细原因
+//高16位:0-上电/复位开机,1-用户主动软件重启,2-RTC开机,3-异常重启,4-唤醒开机
+//低16位
+//
+static int l_rtos_poweron_reason(lua_State *L) {
+    lua_pushinteger(L,luat_poweron_reason());
+    return 1;
+}
+
 //------------------------------------------------------------------
 #include "rotable2.h"
 static const rotable_Reg_t reg_rtos[] =
@@ -317,6 +331,7 @@ static const rotable_Reg_t reg_rtos[] =
     { "timer_stop",        ROREG_FUNC(l_rtos_timer_stop)},
     { "receive",           ROREG_FUNC(l_rtos_receive)},
     { "reboot",            ROREG_FUNC(l_rtos_reboot)},
+    { "poweron_reason",    ROREG_FUNC(l_rtos_poweron_reason)},
     { "standy",            ROREG_FUNC(l_rtos_standy)},
 
     { "buildDate",         ROREG_FUNC(l_rtos_build_date)},

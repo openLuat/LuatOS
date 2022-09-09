@@ -40,9 +40,10 @@
 
 
 
-#include "luat_base.h"
+// #include "luat_base.h"
+#include "stdint.h"
 #include <stddef.h>
-// #include <limits.h>
+#include <limits.h>
 
 PB_NS_BEGIN
 

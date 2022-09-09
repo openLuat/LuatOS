@@ -225,7 +225,7 @@ LUALIB_API lpb_State *lpb_lstate(lua_State *L) {
         LS->state = &LS->local;
         pb_init(&LS->local);
         pb_initbuffer(&LS->buffer);
-        luaL_setmetatable(L, PB_STATE);
+        // luaL_setmetatable(L, PB_STATE);
         lua_rawsetp(L, LUA_REGISTRYINDEX, state_name);
     }
     return LS;
@@ -2193,6 +2193,7 @@ LUALIB_API int luaopen_pb(lua_State *L) {
 //     return 1;
 // }
 
+#include "luat_base.h"
 #include "rotable2.h"
 
 static const rotable_Reg_t reg_protobuf[] = {

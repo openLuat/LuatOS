@@ -3,9 +3,9 @@
 # CMake 最低版本号要求
 cmake_minimum_required (VERSION 3.5)
 
-set(CMAKE_BUILD_TYPE "Debug")
+set(CMAKE_BUILD_TYPE "Release")
 set(CMAKE_CXX_FLAGS_DEBUG "$ENV{CXXFLAGS} -O0 -Wall -g -ggdb")
-set(CMAKE_CXX_FLAGS_RELEASE "$ENV{CXXFLAGS} -O2 -Wall")
+set(CMAKE_CXX_FLAGS_RELEASE "$ENV{CXXFLAGS} -O3 -Wall")
 set(CMAKE_EXE_LINKER_FLAGS "-Wl,-Map=luatos.map")
 
 set(TOPROOT "../..")
@@ -18,98 +18,83 @@ include_directories(./include)
 
 include_directories(${TOPROOT}/lua/include
                     ${TOPROOT}/luat/include
+                    ${TOPROOT}/components/peripheral/onchip/inc
+                    ${TOPROOT}/components/network/ota
+                    ${TOPROOT}/components/fs/lfs 
+                    ${TOPROOT}/components/crypto/inc 
+                    ${TOPROOT}/components/ui/qrcode
+                    ${TOPROOT}/components/ui/lcd
+                    ${TOPROOT}/components/ui/luatfonts
+                    ${TOPROOT}/components/ui/lvgl/src/lv_font
+                    ${TOPROOT}/components/serialization/miniz
+                    ${TOPROOT}/components/mempool/tlsf
+                    ${TOPROOT}/components/serialization/protobuf
+                    ${TOPROOT}/components/tools/zbuff
+                    ${TOPROOT}/components/fs/luadb
+                    ${TOPROOT}/components/tools/pack
                     ${TOPROOT}/components/freertos/include
                     )
-# 
-# include_directories(
-# /usr/include/gtk-3.0 
-# /usr/include/at-spi2-atk/2.0 
-# /usr/include/at-spi-2.0 
-# /usr/include/dbus-1.0 
-# /usr/lib/arm-linux-gnueabihf/dbus-1.0/include 
-# /usr/include/gtk-3.0 
-# /usr/include/gio-unix-2.0 
-# /usr/include/cairo 
-# /usr/include/pango-1.0 
-# /usr/include/harfbuzz 
-# /usr/include/pango-1.0 
-# /usr/include/fribidi 
-# /usr/include/atk-1.0 
-# /usr/include/cairo 
-# /usr/include/pixman-1 
-# /usr/include/freetype2 
-# /usr/include/libpng16 
-# /usr/include/gdk-pixbuf-2.0 
-# /usr/include/libmount 
-# /usr/include/blkid 
-# /usr/include/uuid 
-# /usr/include/glib-2.0 
-# /usr/lib/arm-linux-gnueabihf/glib-2.0/include
-# )
+
+aux_source_directory(./port PORT_SRCS)
+aux_source_directory(${TOPROOT}/lua/src LUA_SRCS)
+aux_source_directory(${TOPROOT}/luat/modules LUAT_SRCS)
+aux_source_directory(${TOPROOT}/components/serialization/lua-cjson CJSON_SRCS)
+aux_source_directory(${TOPROOT}/components/serialization/miniz MINIZ_SRCS)
+aux_source_directory(${TOPROOT}/components/ui/qrcode QRCODE_SRCS)
+# aux_source_directory(${TOPROOT}/components/ui/lcd LCD_SRCS)
+aux_source_directory(./components/tools/iotauth IOTAUTH_SRCS)
+aux_source_directory(./components/mempool/tlsf TLSF_SRCS)
+aux_source_directory(${TOPROOT}/components/serialization/protobuf PB_SRCS)
+aux_source_directory(${TOPROOT}/components/fs/vfs VFS_SRCS)
+aux_source_directory(${TOPROOT}/components/fs/lfs LFS_SRCS)
+aux_source_directory(${TOPROOT}/components/crypto/src CRYPTO_SRCS)
+aux_source_directory(${TOPROOT}/components/tools/zbuff ZBUFF_SRCS)
+aux_source_directory(${TOPROOT}/components/tools/libcoap LIBCOAP_SRCS)
+aux_source_directory(${TOPROOT}/components/tools/mqttcore MQTTCORE_SRCS)
+
+aux_source_directory(${TOPROOT}/components/peripheral/onchip/src ONCHIP_SRC)
+aux_source_directory(${TOPROOT}/components/tools/pack PACK_SRC)
+aux_source_directory(${TOPROOT}/components/peripheral/sfd SFD_SRC)
+aux_source_directory(${TOPROOT}/components/mempool/bget BGET_SRC)
 
 include_directories(${TOPROOT}/components/freertos/portable/ThirdParty/GCC/Posix)
 include_directories(${TOPROOT}/components/freertos/portable/ThirdParty/GCC/Posix/utils)
 aux_source_directory(${TOPROOT}/components/freertos/portable/ThirdParty/GCC/Posix MM_SRCS)
 aux_source_directory(${TOPROOT}/components/freertos/portable/ThirdParty/GCC/Posix/utils MM2_SRCS)
 
-include_directories(${TOPROOT}/components/lfs)
-include_directories(${TOPROOT}/components/qrcode)
-include_directories(${TOPROOT}/components/lcd)
-include_directories(${TOPROOT}/components/u8g2)
-include_directories(${TOPROOT}/components/tjpgd)
-
-aux_source_directory(./port PORT_SRCS)
-aux_source_directory(${TOPROOT}/lua/src LUA_SRCS)
-#aux_source_directory(${TOPROOT}/luat/freertos FTOS_T_SRCS)
-aux_source_directory(${TOPROOT}/components/freertos RTOS_SRCS)
-aux_source_directory(${TOPROOT}/components/freertos/port RTOS_PORT_SRCS)
-aux_source_directory(${TOPROOT}/components/lua-cjson CJSON_SRCS)
-
-aux_source_directory(${TOPROOT}/components/qrcode QRCODE_SRCS)
-aux_source_directory(${TOPROOT}/components/lcd LCD_SRCS)
-aux_source_directory(${TOPROOT}/components/u8g2 U8G2_SRCS)
-aux_source_directory(${TOPROOT}/components/tjpgd TJPGD_SRCS)
-
-add_library(freertos10 ${PORT_SRCS} ${RTOS_SRCS} ${RTOS_PORT_SRCS} ${MM_SRCS} ${MM2_SRCS})
 add_library(lua ${LUA_SRCS})
 add_library(luatos_msys ${PORT_SRCS})
 add_library(cjson ${CJSON_SRCS})
-add_library(luat ${TOPROOT}/luat/modules/luat_main.c
-                 ${TOPROOT}/luat/modules/luat_base.c
-                 ${TOPROOT}/luat/modules/luat_ota.c
-                 ${TOPROOT}/luat/modules/luat_luat_bin.c
-                 ${TOPROOT}/luat/modules/luat_lib_rtos.c
-                 ${TOPROOT}/luat/modules/luat_lib_timer.c
-                 ${TOPROOT}/luat/modules/luat_lib_log.c
-                 ${TOPROOT}/luat/modules/luat_lib_gpio.c
-                 ${TOPROOT}/luat/modules/luat_lib_spi.c
-                 ${TOPROOT}/luat/modules/luat_lib_pack.c
-                 ${TOPROOT}/luat/modules/luat_lib_zbuff.c
-                 ${TOPROOT}/luat/modules/luat_lib_mqttcore.c
-                 ${TOPROOT}/luat/modules/luat_lib_libcoap.c
-                 ${TOPROOT}/luat/modules/luat_lib_crypto.c
-                 ${TOPROOT}/components/sfd/luat_lib_sfd.c
-                 ${TOPROOT}/components/sfd/luat_sfd_mem.c
-                 ${TOPROOT}/components/sfd/luat_sfd_w25q.c
-                 ${TOPROOT}/luat/modules/crc.c
-                 ${TOPROOT}/luat/vfs/luat_vfs.c
-                 ${TOPROOT}/luat/vfs/luat_fs_luadb.c
-                 ${TOPROOT}/luat/vfs/luat_fs_posix.c
-                 ${TOPROOT}/luat/vfs/luat_fs_lfs2.c
-                 ${TOPROOT}/luat/vfs/luat_luadb_inline.c
-                 ${TOPROOT}/luat/vfs/luat_luadb_inline_sys.c
-                 ${TOPROOT}/luat/vfs/luat_inline_sys.c
-                 ${TOPROOT}/luat/vfs/luat_inline_libs.c
-                 ${TOPROOT}/components/lfs/lfs_sfd.c
-                 ${TOPROOT}/components/lfs/lfs_util.c
-                 ${TOPROOT}/components/lfs/lfs.c
-                 ${TOPROOT}/components/lfs/luat_lib_lfs2.c
-                 ${TOPROOT}/components/crypto/luat_crypto_mbedtls.c
+add_library(luat ${LUAT_SRCS}
+                 ${ONCHIP_SRC}
+                 ${CRYPTO_SRCS}
+                 ${ZBUFF_SRCS}
+                 ${LIBCOAP_SRCS}
+                 ${MQTTCORE_SRCS}
+                 ${TOPROOT}/components/crypto/src/luat_crypto_mbedtls.c
+                 ${VFS_SRCS}
+                 ${LFS_SRCS}
+                 ${TOPROOT}/components/tools/iotauth/luat_lib_iotauth.c
                  ${QRCODE_SRCS}
-                 ${LCD_SRCS}
-                 ${U8G2_SRCS}
-                 ${TJPGD_SRCS}
+                 ${MINIZ_SRCS}
+                 #${LCD_SRCS}
+                 ${PB_SRCS}
+                 ${PACK_SRC}
+                 ${SFD_SRC}
+                 ${BGET_SRC}
             )
+
+add_library(freertos10 ${PORT_SRCS} ${RTOS_SRCS} ${RTOS_PORT_SRCS} ${MM_SRCS} ${MM2_SRCS})
+
+include_directories(${TOPROOT}/components/fs/fatfs)
+add_library(fatfs   ${TOPROOT}/components/fs/fatfs/ff.c
+                    ${TOPROOT}/components/fs/fatfs/ffsystem.c
+                    ${TOPROOT}/components/fs/fatfs/ffunicode.c
+                    ${TOPROOT}/components/fs/fatfs/diskio_impl.c
+                    ${TOPROOT}/components/fs/fatfs/diskio_ramdisk.c
+                    ${TOPROOT}/components/fs/fatfs/diskio_spitf.c
+                    ${TOPROOT}/components/fs/fatfs/luat_lib_fatfs.c
+                    )
 
 #-----------------------
 # mbedtls
@@ -119,28 +104,13 @@ add_subdirectory(${TOPROOT}/components/mbedtls mbedtls.out)
 
 #-----------------------
 # lvgl
-# include_directories(${TOPROOT}/components/lvgl)
-# add_subdirectory(${TOPROOT}/components/lvgl lvgl.out)
-#-----------------------
-
-#-----------------------
-# luat_rtos
-include_directories(${TOPROOT}/components/rtos/posix/include)
-aux_source_directory(${TOPROOT}/components/rtos/posix RTOS_POSIX_SRCS)
-add_library(luat_rtos ${RTOS_POSIX_SRCS})
-#-----------------------
-
-#-----------------------
-# luat_network_libtcpip
-include_directories(${TOPROOT}/components/network/libtcpip/)
-include_directories(${TOPROOT}/components/network/libtcpip/protocol/mqtt)
-aux_source_directory(${TOPROOT}/components/network/libtcpip/port LIBTCPIP_SRCS)
-aux_source_directory(${TOPROOT}/components/network/libtcpip/protocol/mqtt LIBTCPIP_SRCS2)
-add_library(luat_network_libtcpip ${LIBTCPIP_SRCS} ${LIBTCPIP_SRCS2})
-#-----------------------
+#include_directories(${TOPROOT}/components/ui/lvgl)
+#add_subdirectory(${TOPROOT}/components/ui/lvgl lvgl.out)
 
 
+# 指定生成目标
 add_executable(luatos src/main.c src/lua.c)
-
-target_link_libraries(luat freertos10 pthread luat_rtos luat_network_libtcpip lua)
-target_link_libraries(luatos freertos10 lua luatos_msys luat pthread cjson mbedtls m dl readline luat_rtos luat_network_libtcpip)
+#target_link_libraries(luat pthread fatfs lua freertos10)
+target_link_libraries(luatos pthread lua luat luatos_msys lua luat  cjson mbedtls fatfs luat lua freertos10 
+                      m dl readline 
+)

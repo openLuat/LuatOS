@@ -1,0 +1,5 @@
+target("lora")
+    set_kind("static")
+    add_includedirs(".")
+    add_files("*.c")
+    add_files("sx126x/*.c")

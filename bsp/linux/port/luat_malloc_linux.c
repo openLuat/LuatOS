@@ -80,13 +80,13 @@ void luat_meminfo_luavm(size_t *total, size_t *used, size_t *max_used) {
     *total = curalloc + totfree;
 }
 
-#include "FreeRTOS.h"
-#include "task.h"
+// #include "FreeRTOS.h"
+// #include "task.h"
 
 void luat_meminfo_sys(size_t *total, size_t *used, size_t *max_used) {
-	*used = configTOTAL_HEAP_SIZE - xPortGetFreeHeapSize();
-	*max_used = configTOTAL_HEAP_SIZE - xPortGetMinimumEverFreeHeapSize();
-    *total = configTOTAL_HEAP_SIZE;
+	// *used = configTOTAL_HEAP_SIZE - xPortGetFreeHeapSize();
+	// *max_used = configTOTAL_HEAP_SIZE - xPortGetMinimumEverFreeHeapSize();
+    // *total = configTOTAL_HEAP_SIZE;
 }
 
 //-----------------------------------------------------------------------------

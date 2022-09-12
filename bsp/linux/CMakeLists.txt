@@ -57,10 +57,10 @@ aux_source_directory(${TOPROOT}/components/tools/pack PACK_SRC)
 aux_source_directory(${TOPROOT}/components/peripheral/sfd SFD_SRC)
 aux_source_directory(${TOPROOT}/components/mempool/bget BGET_SRC)
 
-include_directories(${TOPROOT}/components/freertos/portable/ThirdParty/GCC/Posix)
-include_directories(${TOPROOT}/components/freertos/portable/ThirdParty/GCC/Posix/utils)
-aux_source_directory(${TOPROOT}/components/freertos/portable/ThirdParty/GCC/Posix MM_SRCS)
-aux_source_directory(${TOPROOT}/components/freertos/portable/ThirdParty/GCC/Posix/utils MM2_SRCS)
+#include_directories(${TOPROOT}/components/freertos/portable/ThirdParty/GCC/Posix)
+#include_directories(${TOPROOT}/components/freertos/portable/ThirdParty/GCC/Posix/utils)
+#aux_source_directory(${TOPROOT}/components/freertos/portable/ThirdParty/GCC/Posix MM_SRCS)
+#aux_source_directory(${TOPROOT}/components/freertos/portable/ThirdParty/GCC/Posix/utils MM2_SRCS)
 
 add_library(lua ${LUA_SRCS})
 add_library(luatos_msys ${PORT_SRCS})
@@ -84,7 +84,7 @@ add_library(luat ${LUAT_SRCS}
                  ${BGET_SRC}
             )
 
-add_library(freertos10 ${PORT_SRCS} ${RTOS_SRCS} ${RTOS_PORT_SRCS} ${MM_SRCS} ${MM2_SRCS})
+#add_library(freertos10 ${PORT_SRCS} ${RTOS_SRCS} ${RTOS_PORT_SRCS} ${MM_SRCS} ${MM2_SRCS})
 
 include_directories(${TOPROOT}/components/fs/fatfs)
 add_library(fatfs   ${TOPROOT}/components/fs/fatfs/ff.c
@@ -110,7 +110,7 @@ add_subdirectory(${TOPROOT}/components/mbedtls mbedtls.out)
 
 # 指定生成目标
 add_executable(luatos src/main.c src/lua.c)
-#target_link_libraries(luat pthread fatfs lua freertos10)
-target_link_libraries(luatos pthread lua luat luatos_msys lua luat  cjson mbedtls fatfs luat lua freertos10 
+#target_link_libraries(luat pthread fatfs lua )
+target_link_libraries(luatos pthread lua luat luatos_msys lua luat  cjson mbedtls fatfs luat lua  
                       m dl readline 
 )

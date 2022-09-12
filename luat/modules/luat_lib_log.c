@@ -6,7 +6,6 @@
 @date    2020.03.30
 */
 #include "luat_base.h"
-#include "luat_sys.h"
 #include "luat_msgbus.h"
 
 #include "ldebug.h"

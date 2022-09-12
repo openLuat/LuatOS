@@ -7,9 +7,7 @@
 #include "luat_msgbus.h"
 #include "luat_timer.h"
 
-#ifdef AIR302
 #include "luat_ota.h"
-#endif
 
 
 #define LUAT_LOG_TAG "main"

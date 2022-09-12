@@ -7,7 +7,6 @@
 */
 #include "luat_base.h"
 #include "luat_log.h"
-#include "luat_sys.h"
 #include "luat_msgbus.h"
 #include "luat_timer.h"
 #include "luat_malloc.h"

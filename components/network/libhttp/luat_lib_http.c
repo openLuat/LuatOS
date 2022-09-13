@@ -166,8 +166,15 @@ static void http_resp_error(luat_http_ctrl_t *http_ctrl, int error_code) {
 
 static void http_parse_resp_content_length(luat_http_ctrl_t *http_ctrl) {
 	// 开始找Content-Length
-	char* cl_start = strstr(http_ctrl->resp_buff, "Content-Length: ");
+	char* cl_start;
+	cl_start = strstr(http_ctrl->resp_buff, "Content-Length: ");
 	if (cl_start == NULL) {
+		cl_start = strstr(http_ctrl->resp_buff, "CONTENT-LENGTH: ");
+		if (cl_start == NULL) {
+			// 当前必须有Content-Length, 否则一律将其设置为0
+			LLOGD("resp Content-Length not found, set 0");
+			http_ctrl->resp_content_len = 0;
+		}
 		// 当前必须有Content-Length, 否则一律将其设置为0
 		LLOGD("resp Content-Length not found, set 0");
 		http_ctrl->resp_content_len = 0;

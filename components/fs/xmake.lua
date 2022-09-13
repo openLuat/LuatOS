@@ -1,0 +1,17 @@
+
+includes("fal")
+includes("fatfs")
+includes("flashdb")
+includes("lfs")
+includes("luadb")
+includes("vfs")
+
+target("fs")
+    set_kind("static")
+    add_deps("fal")
+    add_deps("fatfs")
+    add_deps("flashdb")
+    add_deps("lfs")
+    add_deps("luadb")
+    add_deps("vfs")
+target_end()

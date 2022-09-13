@@ -1,7 +1,7 @@
 
 
 
-target("vfs")
+target("luadb")
     set_kind("static")
     add_files("*.c")
     add_includedirs(".",{public = true})

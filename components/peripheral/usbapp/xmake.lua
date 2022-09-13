@@ -1,8 +1,8 @@
 
 
 
-target("vfs")
+target("usbapp")
     set_kind("static")
-    add_files("*.c")
+    add_files("./*.c")
     add_includedirs(".",{public = true})
 target_end()

@@ -7,7 +7,7 @@
 @demo io_queue
 */
 #include "luat_base.h"
-#include "luat_multimedia.h"
+// #include "luat_multimedia.h"
 #include "luat_msgbus.h"
 #include "luat_zbuff.h"
 #define LUAT_LOG_TAG "io_queue"

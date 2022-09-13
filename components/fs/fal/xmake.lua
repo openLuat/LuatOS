@@ -1,5 +1,8 @@
-target("luatos_lua")
+
+
+
+target("fal")
     set_kind("static")
-    add_includedirs("include")
     add_files("src/*.c")
+    add_includedirs("inc",{public = true})
 target_end()

@@ -1,8 +1,8 @@
 
 
 
-target("vfs")
+target("io_queue")
     set_kind("static")
-    add_files("*.c")
+    add_files("./*.c")
     add_includedirs(".",{public = true})
 target_end()

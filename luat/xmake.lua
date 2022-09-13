@@ -1,4 +1,5 @@
-target("luat")
+target("luatos_core")
     set_kind("static")
     add_includedirs("include")
     add_files("modules/*.c")
+target_end()

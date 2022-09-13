@@ -90,19 +90,16 @@ static int http_close(luat_http_ctrl_t *http_ctrl){
 static int32_t l_http_callback(lua_State *L, void* ptr){
 	char code[6] = {0};
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
-    luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)msg->ptr;
-    uint64_t idp = http_ctrl->idp;
+	uint64_t idp = msg->arg2;
 	// LLOGD("l_http_callback arg1:%d arg2:%d is_download:%d idp:%d",msg->arg1,msg->arg2,http_ctrl->is_download,idp);
-	if (1 == msg->arg1){
-		lua_pushinteger(L, msg->arg2); // 把错误码返回去
+	if (msg->arg1){
+		lua_pushinteger(L, msg->arg1); // 把错误码返回去
 		luat_cbcwait(L, idp, 1);
-		return 0;
-	}else if(2 == msg->arg1){
-		lua_pushinteger(L, msg->arg2); // 把错误码返回去
-		luat_cbcwait(L, idp, 1);
-		http_close(http_ctrl);
 		return 0;
 	}
+
+    luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)msg->ptr;
+
 	// 解析status code
 	uint16_t code_offset = strlen("HTTP/1.x ");
 	uint16_t code_len = 3;
@@ -162,16 +159,8 @@ static void http_resp_error(luat_http_ctrl_t *http_ctrl, int error_code) {
 	rtos_msg_t msg = {0};
 	msg.handler = l_http_callback;
 	msg.ptr = http_ctrl;
-	msg.arg1 = 1;
-	msg.arg2 = error_code;
-	luat_msgbus_put(&msg, 0);
-}
-
-static void http_release_msg(luat_http_ctrl_t *http_ctrl) {
-	rtos_msg_t msg = {0};
-	msg.handler = l_http_callback;
-	msg.ptr = http_ctrl;
-	msg.arg1 = 2;
+	msg.arg1 = error_code;
+	msg.arg2 = http_ctrl->idp;
 	luat_msgbus_put(&msg, 0);
 }
 
@@ -295,6 +284,8 @@ static int http_read_packet(luat_http_ctrl_t *http_ctrl){
 	rtos_msg_t msg = {0};
     msg.handler = l_http_callback;
 	msg.ptr = http_ctrl;
+	msg.arg1 = 0;
+	msg.arg2 = http_ctrl->idp;
 
 	if (http_ctrl->is_download) {
 		// 写数据
@@ -343,8 +334,8 @@ static int32_t luat_lib_http_callback(void *data, void *param){
 	OS_EVENT *event = (OS_EVENT *)data;
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)param;
 	int ret = 0;
-	LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
-	LLOGD("luat_lib_http_callback %d %d",event->ID & 0x0fffffff,event->Param1);
+	// LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
+	// LLOGD("luat_lib_http_callback %d %d",event->ID & 0x0fffffff,event->Param1);
 	if (event->ID == EV_NW_RESULT_LINK){
 		if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), http_ctrl->ip_addr.is_ipv6?NULL:&(http_ctrl->ip_addr), http_ctrl->remote_port, 0) < 0){
 			network_close(http_ctrl->netc, 0);
@@ -356,10 +347,10 @@ static int32_t luat_lib_http_callback(void *data, void *param){
 		//memset(http_ctrl->request_message, 0, HTTP_REQUEST_BUF_LEN_MAX);
 		uint32_t tx_len = 0;
 		// 发送请求行
-		snprintf(http_ctrl->request_message, HTTP_REQUEST_BUF_LEN_MAX, "%s %s HTTP/1.0\r\n", http_ctrl->method, http_ctrl->uri);
+		snprintf_(http_ctrl->request_message, HTTP_REQUEST_BUF_LEN_MAX, "%s %s HTTP/1.0\r\n", http_ctrl->method, http_ctrl->uri);
 		http_send(http_ctrl, http_ctrl->request_message, strlen(http_ctrl->request_message));
 		// 强制添加host. TODO 判断自定义headers是否有host
-		snprintf(http_ctrl->request_message, HTTP_REQUEST_BUF_LEN_MAX,  "Host: %s\r\n", http_ctrl->host);
+		snprintf_(http_ctrl->request_message, HTTP_REQUEST_BUF_LEN_MAX,  "Host: %s\r\n", http_ctrl->host);
 		http_send(http_ctrl, http_ctrl->request_message, strlen(http_ctrl->request_message));
 		// 发送自定义头部
 		if (http_ctrl->req_header){
@@ -442,7 +433,8 @@ next:
 	}
 	if (event->Param1){
 		LLOGD("luat_lib_http_callback http_ctrl close %d %d",event->ID & 0x0fffffff,event->Param1);
-		http_release_msg(http_ctrl);
+		http_resp_error(http_ctrl, -1);
+		http_close(http_ctrl);
 		return -1;
 	}
 	network_wait_event(http_ctrl->netc, NULL, 0, NULL);

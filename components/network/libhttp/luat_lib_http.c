@@ -169,34 +169,28 @@ static void http_resp_error(luat_http_ctrl_t *http_ctrl, int error_code) {
 	luat_msgbus_put(&msg, 0);
 }
 
-static void http_parse_resp_content_length(luat_http_ctrl_t *http_ctrl) {
-	// 开始找Content-Length
-	char* cl_start;
-	cl_start = strstr(http_ctrl->resp_buff, "Content-Length: ");
-	if (cl_start == NULL) {
-		cl_start = strstr(http_ctrl->resp_buff, "CONTENT-LENGTH: ");
-		if (cl_start == NULL) {
-			// 当前必须有Content-Length, 否则一律将其设置为0
-			LLOGD("resp Content-Length not found, set 0");
-			http_ctrl->resp_content_len = 0;
-		}
-	}
-	else {
-		char* cl_end = strstr(cl_start, "\r\n");
-		if (cl_end == NULL) {
-			// 当前必须有Content-Length, 否则一律将其设置为0
-			LLOGD("resp Content-Length NOT ok, set 0");
-			http_ctrl->resp_content_len = 0;
-		}
-		else {
+static void http_parse_resp_content_length(luat_http_ctrl_t *http_ctrl,uint32_t headers_len) {
+	// LLOGD("http_parse_resp_content_length headers_len:%d",headers_len);
+	http_ctrl->resp_content_len=0;
+	char* temp;
+	char *header;
+	uint16_t header_len;
+	temp = strstr(http_ctrl->resp_buff,"\r\n")+2;
+	while ( temp < http_ctrl->resp_buff+headers_len){
+		header = temp;
+		temp = strstr(header,"\r\n")+2;
+		header_len = temp-header-1;
+		// LLOGD("header:%.*s",header_len,header);
+		if(!strncasecmp(header, "Content-Length: ", 16)){
 			char tmp[16] = {0};
-			cl_start += strlen("Content-Length: ");
-			memcpy(tmp, cl_start, cl_end - cl_start); // TODO 还需要判断一下长度
+			header += strlen("Content-Length: ");
+			memcpy(tmp, header, temp - header-2); // TODO 还需要判断一下长度
 			http_ctrl->resp_content_len = atoi(tmp);
 			if (http_ctrl->resp_content_len < 0) {
 				LLOGD("resp Content-Length not good, %s", tmp);
 				http_ctrl->resp_content_len = 0;
 			}
+			break;
 		}
 	}
 }
@@ -217,7 +211,7 @@ static int http_resp_parse_header(luat_http_ctrl_t *http_ctrl) {
 			char* body_start = header_end + 4;
 			// 分隔header与body
 			header_end[2] = 0x00; // 将第二个\r设置为0, 预防Content-Length就是最后一个header
-			http_parse_resp_content_length(http_ctrl);
+			http_parse_resp_content_length(http_ctrl,header_end-http_ctrl->resp_buff+2);
 			http_ctrl->resp_headers = http_ctrl->resp_buff; // 留着解析全部header
 			if (http_ctrl->resp_content_len > 0) {
 				// 还有数据
@@ -228,7 +222,7 @@ static int http_resp_parse_header(luat_http_ctrl_t *http_ctrl) {
 					if (http_ctrl->resp_buff == NULL) {
 						LLOGE("out of memory when malloc buff for http resp");
 						http_resp_error(http_ctrl, -4); // 炸了
-						http_close(http_ctrl);
+						// http_close(http_ctrl);
 						return -1;
 					}
 					http_ctrl->resp_buff_len = http_ctrl->resp_buff_len - header_size;

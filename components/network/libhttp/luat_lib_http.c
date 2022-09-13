@@ -91,14 +91,16 @@ static int32_t l_http_callback(lua_State *L, void* ptr){
 	char code[6] = {0};
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
 	uint64_t idp = msg->arg2;
+	
+    luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)msg->ptr;
+
 	// LLOGD("l_http_callback arg1:%d arg2:%d is_download:%d idp:%d",msg->arg1,msg->arg2,http_ctrl->is_download,idp);
 	if (msg->arg1){
+		http_close(http_ctrl);
 		lua_pushinteger(L, msg->arg1); // 把错误码返回去
 		luat_cbcwait(L, idp, 1);
 		return 0;
 	}
-
-    luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)msg->ptr;
 
 	// 解析status code
 	uint16_t code_offset = strlen("HTTP/1.x ");
@@ -156,6 +158,9 @@ static int32_t l_http_callback(lua_State *L, void* ptr){
 }
 
 static void http_resp_error(luat_http_ctrl_t *http_ctrl, int error_code) {
+	if (http_ctrl->netc){
+		network_close(http_ctrl->netc, 0);
+	}
 	rtos_msg_t msg = {0};
 	msg.handler = l_http_callback;
 	msg.ptr = http_ctrl;
@@ -175,9 +180,6 @@ static void http_parse_resp_content_length(luat_http_ctrl_t *http_ctrl) {
 			LLOGD("resp Content-Length not found, set 0");
 			http_ctrl->resp_content_len = 0;
 		}
-		// 当前必须有Content-Length, 否则一律将其设置为0
-		LLOGD("resp Content-Length not found, set 0");
-		http_ctrl->resp_content_len = 0;
 	}
 	else {
 		char* cl_end = strstr(cl_start, "\r\n");
@@ -204,7 +206,7 @@ static int http_resp_parse_header(luat_http_ctrl_t *http_ctrl) {
 		// 开头几个字节不是HTTP/1 ? 可以断开连接了
 		LLOGW("resp NOT startwith HTTP/1.");
 		http_resp_error(http_ctrl, -1); // 非法响应
-		http_close(http_ctrl);
+		// http_close(http_ctrl);
 		return -1;
 	}
 	else {
@@ -253,7 +255,7 @@ static int http_resp_parse_header(luat_http_ctrl_t *http_ctrl) {
 			if (http_ctrl->resp_buff_len > HTTP_RESP_HEADER_MAX_SIZE) {
 				LLOGW("http resp header too big!!!");
 				http_resp_error(http_ctrl, -2); // 非法响应
-				http_close(http_ctrl);
+				// http_close(http_ctrl);
 				return 0; // 是返回0还是-1的?
 			}
 			else {
@@ -345,9 +347,9 @@ static int32_t luat_lib_http_callback(void *data, void *param){
 	// LLOGD("luat_lib_http_callback %d %d",event->ID & 0x0fffffff,event->Param1);
 	if (event->ID == EV_NW_RESULT_LINK){
 		if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), http_ctrl->ip_addr.is_ipv6?NULL:&(http_ctrl->ip_addr), http_ctrl->remote_port, 0) < 0){
-			network_close(http_ctrl->netc, 0);
+			// network_close(http_ctrl->netc, 0);
 			http_resp_error(http_ctrl, -5);
-			http_close(http_ctrl);
+			// http_close(http_ctrl);
 			return -1;
     	}
 	}else if(event->ID == EV_NW_RESULT_CONNECT){
@@ -419,7 +421,7 @@ next:
 						goto next;
 					if (rx_len == 0||result!=0) {
 						http_resp_error(http_ctrl, -3);
-						http_close(http_ctrl);
+						// http_close(http_ctrl);
 						return -1;
 					}
 					http_ctrl->resp_buff_len += total_len;
@@ -428,7 +430,7 @@ next:
 				}
 			}else{
 				http_resp_error(http_ctrl, -3);
-				http_close(http_ctrl);
+				// http_close(http_ctrl);
 				return -1;
 			}
 
@@ -692,7 +694,7 @@ static int l_http_request(lua_State *L) {
 	network_wait_link_up(http_ctrl->netc, 0);
 	if (ret == 0){
 		if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), http_ctrl->ip_addr.is_ipv6?NULL:&(http_ctrl->ip_addr), http_ctrl->remote_port, 0) < 0){
-        	network_close(http_ctrl->netc, 0);
+        	// network_close(http_ctrl->netc, 0);
         	goto error;
     	}
 	}
@@ -701,7 +703,7 @@ static int l_http_request(lua_State *L) {
     return 1;
 error:
 	http_resp_error(http_ctrl, -5);
-	http_close(http_ctrl);
+	// http_close(http_ctrl);
 	return 0;
 }
 

@@ -959,7 +959,7 @@ static int l_zbuff_index(lua_State *L)
         /* found no method, so get value from userdata. */
         luat_zbuff_t *buff = tozbuff(L);
         int o = luaL_checkinteger(L, 2);
-        if (o > buff->len)
+        if (o >= buff->len)
             return 0;
         lua_pushinteger(L, buff->addr[o]);
         return 1;

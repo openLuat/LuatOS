@@ -90,15 +90,15 @@ static int http_close(luat_http_ctrl_t *http_ctrl){
 static int32_t l_http_callback(lua_State *L, void* ptr){
 	char code[6] = {0};
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
-	uint64_t idp = msg->arg2;
-	
-    luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)msg->ptr;
 
-	// LLOGD("l_http_callback arg1:%d arg2:%d is_download:%d idp:%d",msg->arg1,msg->arg2,http_ctrl->is_download,idp);
+    luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)msg->ptr;
+	uint64_t idp = http_ctrl->idp;
+
+	// LLOGD("l_http_callback arg1:%d is_download:%d idp:%d",msg->arg1,http_ctrl->is_download,idp);
 	if (msg->arg1){
-		http_close(http_ctrl);
 		lua_pushinteger(L, msg->arg1); // 把错误码返回去
 		luat_cbcwait(L, idp, 1);
+		http_close(http_ctrl);
 		return 0;
 	}
 
@@ -165,7 +165,6 @@ static void http_resp_error(luat_http_ctrl_t *http_ctrl, int error_code) {
 	msg.handler = l_http_callback;
 	msg.ptr = http_ctrl;
 	msg.arg1 = error_code;
-	msg.arg2 = http_ctrl->idp;
 	luat_msgbus_put(&msg, 0);
 }
 
@@ -286,7 +285,6 @@ static int http_read_packet(luat_http_ctrl_t *http_ctrl){
     msg.handler = l_http_callback;
 	msg.ptr = http_ctrl;
 	msg.arg1 = 0;
-	msg.arg2 = http_ctrl->idp;
 
 	if (http_ctrl->is_download) {
 		// 写数据
@@ -316,6 +314,9 @@ static int http_read_packet(luat_http_ctrl_t *http_ctrl){
 		if (http_ctrl->resp_buff_len == http_ctrl->resp_content_len) {
 			luat_msgbus_put(&msg, 0);
 			return 0;
+		}else if (http_ctrl->resp_buff_len > http_ctrl->resp_content_len){
+			http_resp_error(http_ctrl, -3);
+			return -1;
 		}
 	}
 	// 其他情况就是继续等数据, 后续还得判断timeout

@@ -403,7 +403,7 @@ LUAT_WEAK int32_t OS_ReSizeBuffer(Buffer_Struct *Buf, uint32_t Size)
 //	if (Old)
 //	{
 //		memcpy(New, Old, Buf->Pos);
-//		OS_Free(Old);
+//		free(Old);
 //	}
 	New = luat_heap_realloc(Buf->Data, Size);
 	if (New)

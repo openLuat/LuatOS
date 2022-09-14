@@ -325,10 +325,6 @@ uint8_t OS_IsSchedulerRun(void);
 #endif
 uint32_t OS_EnterCritical(void);
 void OS_ExitCritical(uint32_t Critical);
-void *OS_Malloc(uint32_t Size);
-void *OS_Zalloc(uint32_t Size);
-void OS_Free(void *p);
-void *OS_Realloc(void *buf, uint32_t size);
 void OS_MemInfo(uint32_t *curalloc, uint32_t *totfree, uint32_t *maxfree);
 int32_t OS_InitBuffer(Buffer_Struct *Buf, uint32_t Size);
 void OS_DeInitBuffer(Buffer_Struct *Buf);

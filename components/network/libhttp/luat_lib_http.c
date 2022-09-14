@@ -193,6 +193,7 @@ static void http_parse_resp_content_length(luat_http_ctrl_t *http_ctrl,uint32_t 
 			break;
 		}
 	}
+	// LLOGD("http_parse_resp_content_length Content-Length:%d",http_ctrl->resp_content_len);
 }
 
 static int http_resp_parse_header(luat_http_ctrl_t *http_ctrl) {
@@ -200,7 +201,6 @@ static int http_resp_parse_header(luat_http_ctrl_t *http_ctrl) {
 		// 开头几个字节不是HTTP/1 ? 可以断开连接了
 		LLOGW("resp NOT startwith HTTP/1.");
 		http_resp_error(http_ctrl, -1); // 非法响应
-		// http_close(http_ctrl);
 		return -1;
 	}
 	else {
@@ -222,7 +222,6 @@ static int http_resp_parse_header(luat_http_ctrl_t *http_ctrl) {
 					if (http_ctrl->resp_buff == NULL) {
 						LLOGE("out of memory when malloc buff for http resp");
 						http_resp_error(http_ctrl, -4); // 炸了
-						// http_close(http_ctrl);
 						return -1;
 					}
 					http_ctrl->resp_buff_len = http_ctrl->resp_buff_len - header_size;
@@ -249,7 +248,6 @@ static int http_resp_parse_header(luat_http_ctrl_t *http_ctrl) {
 			if (http_ctrl->resp_buff_len > HTTP_RESP_HEADER_MAX_SIZE) {
 				LLOGW("http resp header too big!!!");
 				http_resp_error(http_ctrl, -2); // 非法响应
-				// http_close(http_ctrl);
 				return 0; // 是返回0还是-1的?
 			}
 			else {
@@ -343,7 +341,6 @@ static int32_t luat_lib_http_callback(void *data, void *param){
 		if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), http_ctrl->ip_addr.is_ipv6?NULL:&(http_ctrl->ip_addr), http_ctrl->remote_port, 0) < 0){
 			// network_close(http_ctrl->netc, 0);
 			http_resp_error(http_ctrl, -5);
-			// http_close(http_ctrl);
 			return -1;
     	}
 	}else if(event->ID == EV_NW_RESULT_CONNECT){
@@ -415,7 +412,6 @@ next:
 						goto next;
 					if (rx_len == 0||result!=0) {
 						http_resp_error(http_ctrl, -3);
-						// http_close(http_ctrl);
 						return -1;
 					}
 					http_ctrl->resp_buff_len += total_len;
@@ -424,7 +420,6 @@ next:
 				}
 			}else{
 				http_resp_error(http_ctrl, -3);
-				// http_close(http_ctrl);
 				return -1;
 			}
 
@@ -437,7 +432,6 @@ next:
 	if (event->Param1){
 		LLOGD("luat_lib_http_callback http_ctrl close %d %d",event->ID & 0x0fffffff,event->Param1);
 		http_resp_error(http_ctrl, -1);
-		http_close(http_ctrl);
 		return -1;
 	}
 	network_wait_event(http_ctrl->netc, NULL, 0, NULL);
@@ -697,7 +691,6 @@ static int l_http_request(lua_State *L) {
     return 1;
 error:
 	http_resp_error(http_ctrl, -5);
-	// http_close(http_ctrl);
 	return 0;
 }
 

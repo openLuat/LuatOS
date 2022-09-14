@@ -11,9 +11,9 @@ log.info("main", "hello world")
 print(_VERSION)
 
 sys.taskInit(function()
-    assert(iotauth, "iotauth exist")
+
     local client_id,user_name,password = iotauth.onenet("qDPGh8t81z", "45463968338A185E", "MTIzNDU2")
-    log.info("onenet", client_id,user_name,password)
+    log.info("onenet",client_id,user_name,password)
 
     local client_id,user_name,password = iotauth.iotda("6203cc94c7fb24029b110408_88888888","123456789")
     log.info("iotda",client_id,user_name,password)
@@ -30,9 +30,6 @@ sys.taskInit(function()
     local client_id,user_name,password = iotauth.aliyun("123456789","abcdefg","Y877Bgo8X5owd3lcB5wWDjryNPoB")
     log.info("aliyun",client_id,user_name,password)
 
-
-    
-    os.exit()
 end)
 
 

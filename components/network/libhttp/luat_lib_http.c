@@ -22,6 +22,13 @@
 #define HTTP_REQUEST_BUF_LEN_MAX 1024
 #define HTTP_RESP_HEADER_MAX_SIZE (4096)
 
+#define HTTP_ERROR_STATE 	(-1)
+#define HTTP_ERROR_HEADER 	(-2)
+#define HTTP_ERROR_BODY 	(-3)
+#define HTTP_ERROR_CONNECT 	(-4)
+#define HTTP_ERROR_CLOSE 	(-5)
+#define HTTP_ERROR_RX 		(-6)
+
 typedef struct{
 	network_ctrl_t *netc;		// http netc
 	luat_ip_addr_t ip_addr;		// http ip
@@ -199,7 +206,7 @@ static int http_resp_parse_header(luat_http_ctrl_t *http_ctrl) {
 	if (strncmp("HTTP/1.", http_ctrl->resp_buff, strlen("HTTP/1."))){
 		// 开头几个字节不是HTTP/1 ? 可以断开连接了
 		LLOGW("resp NOT startwith HTTP/1.");
-		http_resp_error(http_ctrl, -1); // 非法响应
+		http_resp_error(http_ctrl, HTTP_ERROR_STATE); // 非法响应
 		return -1;
 	}
 	else {
@@ -220,7 +227,7 @@ static int http_resp_parse_header(luat_http_ctrl_t *http_ctrl) {
 					http_ctrl->resp_buff = luat_heap_malloc(http_ctrl->resp_buff_len - header_size);
 					if (http_ctrl->resp_buff == NULL) {
 						LLOGE("out of memory when malloc buff for http resp");
-						http_resp_error(http_ctrl, -4); // 炸了
+						http_resp_error(http_ctrl, HTTP_ERROR_HEADER); // 炸了
 						return -1;
 					}
 					http_ctrl->resp_buff_len = http_ctrl->resp_buff_len - header_size;
@@ -246,7 +253,7 @@ static int http_resp_parse_header(luat_http_ctrl_t *http_ctrl) {
 			// 防御一下太大的header
 			if (http_ctrl->resp_buff_len > HTTP_RESP_HEADER_MAX_SIZE) {
 				LLOGW("http resp header too big!!!");
-				http_resp_error(http_ctrl, -2); // 非法响应
+				http_resp_error(http_ctrl, HTTP_ERROR_HEADER); // 非法响应
 				return 0; // 是返回0还是-1的?
 			}
 			else {
@@ -315,7 +322,7 @@ static int http_read_packet(luat_http_ctrl_t *http_ctrl){
 			luat_msgbus_put(&msg, 0);
 			return 0;
 		}else if (http_ctrl->resp_buff_len > http_ctrl->resp_content_len){
-			http_resp_error(http_ctrl, -3);
+			http_resp_error(http_ctrl, HTTP_ERROR_BODY);
 			return -1;
 		}
 	}
@@ -341,7 +348,7 @@ static int32_t luat_lib_http_callback(void *data, void *param){
 	if (event->ID == EV_NW_RESULT_LINK){
 		if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), http_ctrl->ip_addr.is_ipv6?NULL:&(http_ctrl->ip_addr), http_ctrl->remote_port, 0) < 0){
 			// network_close(http_ctrl->netc, 0);
-			http_resp_error(http_ctrl, -5);
+			http_resp_error(http_ctrl, HTTP_ERROR_CONNECT);
 			return -1;
     	}
 	}else if(event->ID == EV_NW_RESULT_CONNECT){
@@ -412,7 +419,7 @@ next:
 					if (result)
 						goto next;
 					if (rx_len == 0||result!=0) {
-						http_resp_error(http_ctrl, -3);
+						http_resp_error(http_ctrl, HTTP_ERROR_RX);
 						return -1;
 					}
 					http_ctrl->resp_buff_len += total_len;
@@ -420,7 +427,7 @@ next:
 					http_read_packet(http_ctrl);
 				}
 			}else{
-				http_resp_error(http_ctrl, -3);
+				http_resp_error(http_ctrl, HTTP_ERROR_RX);
 				return -1;
 			}
 
@@ -432,7 +439,7 @@ next:
 	}
 	if (event->Param1){
 		LLOGD("luat_lib_http_callback http_ctrl close %d %d",event->ID & 0x0fffffff,event->Param1);
-		http_resp_error(http_ctrl, -1);
+		http_resp_error(http_ctrl, HTTP_ERROR_CLOSE);
 		return -1;
 	}
 	network_wait_event(http_ctrl->netc, NULL, 0, NULL);
@@ -691,7 +698,7 @@ static int l_http_request(lua_State *L) {
 	http_ctrl->idp = luat_pushcwait(L);
     return 1;
 error:
-	http_resp_error(http_ctrl, -5);
+	http_resp_error(http_ctrl, HTTP_ERROR_CONNECT);
 	return 0;
 }
 

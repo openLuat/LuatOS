@@ -320,14 +320,14 @@ void luat_cmux_read(unsigned char* buff,size_t len){
     if (cmux_buff == NULL) {
         cmux_buff = luat_heap_malloc(CMUX_BUFFER_SIZE);
         if (cmux_buff == NULL) {
-            luat_shell_write("cmux buff malloc FAIL!!", 24);
+            luat_shell_write("cmux buff malloc FAIL!!", 23);
             return;
         }
     }
 
     int start,end;
     if (cmux_buff_offset + len >= CMUX_BUFFER_SIZE) {
-        luat_shell_write("cmux overflow!!!",17);
+        luat_shell_write("cmux overflow!!!",16);
         cmux_buff_offset = 0;
         return;
     }

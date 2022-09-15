@@ -73,7 +73,7 @@ static void uih_shell_manage(unsigned char*buff,size_t len){
     memcpy(data, buff+4, buff[3]>>1);
     if (shell_ctx.echo_enable)
     {
-        sprintf(send_buff, "%s\r\n", data);
+        sprintf_(send_buff, "%s\r\n", data);
         luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,send_buff, strlen(send_buff));
         memset(send_buff, 0, 128);
     }
@@ -81,15 +81,15 @@ static void uih_shell_manage(unsigned char*buff,size_t len){
         luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r\n", 4);
     }else if (memcmp("ATI", data, 3) == 0){
         #ifdef LUAT_BSP_VERSION
-            sprintf(send_buff, "LuatOS-SoC_%s_%s\r\n", LUAT_BSP_VERSION, luat_os_bsp());
+            sprintf_(send_buff, "LuatOS-SoC_%s_%s\r\n", LUAT_BSP_VERSION, luat_os_bsp());
         #else
-            sprintf(send_buff, "LuatOS-SoC_%s_%s\r\n", luat_version_str(), luat_os_bsp());
+            sprintf_(send_buff, "LuatOS-SoC_%s_%s\r\n", luat_version_str(), luat_os_bsp());
         #endif
         luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,send_buff, strlen(send_buff));
         luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r\n", 4);
     }else if (memcmp("AT+LUAFLASHSIZE?", data, 16) == 0){
         #ifdef FLASH_FS_REGION_SIZE
-            sprintf(send_buff, "+LUAFLASHSIZE: 0X%x\r\n",FLASH_FS_REGION_SIZE);
+            sprintf_(send_buff, "+LUAFLASHSIZE: 0X%x\r\n",FLASH_FS_REGION_SIZE);
             luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,send_buff, strlen(send_buff));
             luat_cmux_write(LUAT_CMUX_CH_SHELL,  CMUX_FRAME_UIH & ~ CMUX_CONTROL_PF,"OK\r\n", 4);
         #endif
@@ -320,14 +320,14 @@ void luat_cmux_read(unsigned char* buff,size_t len){
     if (cmux_buff == NULL) {
         cmux_buff = luat_heap_malloc(CMUX_BUFFER_SIZE);
         if (cmux_buff == NULL) {
-            printf("cmux buff malloc FAIL!!\r\n");
+            luat_shell_write("cmux buff malloc FAIL!!", 24);
             return;
         }
     }
 
     int start,end;
     if (cmux_buff_offset + len >= CMUX_BUFFER_SIZE) {
-        printf("cmux overflow!!!\r\n");
+        luat_shell_write("cmux overflow!!!",17);
         cmux_buff_offset = 0;
         return;
     }

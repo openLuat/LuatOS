@@ -249,22 +249,20 @@ static int http_resp_parse_header(luat_http_ctrl_t *http_ctrl) {
 				http_ctrl->resp_buff_len = 0;
 			}
 			return 0;
-		}
-		else {
+		}else {
 			// 防御一下太大的header
 			if (http_ctrl->resp_buff_len > HTTP_RESP_HEADER_MAX_SIZE) {
 				LLOGW("http resp header too big!!!");
 				http_resp_error(http_ctrl, HTTP_ERROR_HEADER); // 非法响应
-				return 0; // 是返回0还是-1的?
+				return -1;
 			}
 			else {
 				// 数据不够, 头部也不齐, 等下一波的数据.
 				// 后续还需要根据ticks判断一下timeout, 或者timer?
-				return 0;
+				return -2;
 			}
 		}
 	}
-	return 0;
 }
 
 static int http_read_packet(luat_http_ctrl_t *http_ctrl){
@@ -275,7 +273,7 @@ static int http_read_packet(luat_http_ctrl_t *http_ctrl){
 		int ret = http_resp_parse_header(http_ctrl);
 		if (ret < 0) {
 			LLOGE("http_resp_parse_header ret:%d",ret);
-			return ret; // 出错啦
+			return ret; // -2 未接收完 其他为出错
 		}
 		// 能到这里, 头部已经解析完成了
 		// 如果是下载模式, 打开文件, 开始写
@@ -440,7 +438,8 @@ next:
 
 	}
 	if (event->Param1){
-		LLOGD("luat_lib_http_callback http_ctrl close %d %d",event->ID & 0x0fffffff,event->Param1);
+		LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
+		LLOGE("luat_lib_http_callback http_ctrl close %d %d",event->ID & 0x0fffffff,event->Param1);
 		http_resp_error(http_ctrl, HTTP_ERROR_CLOSE);
 		return -1;
 	}

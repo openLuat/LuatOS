@@ -56,6 +56,7 @@ typedef struct{
 	uint8_t fd_ok;
 	uint64_t idp;
 	uint16_t timeout;
+	uint8_t close_state;
 }luat_http_ctrl_t;
 
 static int http_close(luat_http_ctrl_t *http_ctrl){
@@ -169,11 +170,14 @@ static void http_resp_error(luat_http_ctrl_t *http_ctrl, int error_code) {
 	if (http_ctrl->netc){
 		network_close(http_ctrl->netc, 0);
 	}
-	rtos_msg_t msg = {0};
-	msg.handler = l_http_callback;
-	msg.ptr = http_ctrl;
-	msg.arg1 = error_code;
-	luat_msgbus_put(&msg, 0);
+	if (http_ctrl->close_state==0){
+		http_ctrl->close_state=1;
+		rtos_msg_t msg = {0};
+		msg.handler = l_http_callback;
+		msg.ptr = http_ctrl;
+		msg.arg1 = error_code;
+		luat_msgbus_put(&msg, 0);
+	}
 }
 
 static void http_parse_resp_content_length(luat_http_ctrl_t *http_ctrl,uint32_t headers_len) {
@@ -311,14 +315,20 @@ static int http_read_packet(luat_http_ctrl_t *http_ctrl){
 				http_ctrl->fd_ok = 1; // 标记成功
 			}
 			// 读完写完, 完结散花
+			network_close(http_ctrl->netc, 0);
+			http_ctrl->close_state=1;
 			luat_msgbus_put(&msg, 0);
 			return 0;
+		}else if (http_ctrl->resp_buff_len > http_ctrl->resp_content_len){
+			http_resp_error(http_ctrl, HTTP_ERROR_BODY);
+			return -1;
 		}
 	}
 	else { // 非下载模式, 等数据齐了就结束
 		// LLOGD("resp_buff_len:%d resp_content_len:%d",http_ctrl->resp_buff_len,http_ctrl->resp_content_len);
 		if (http_ctrl->resp_buff_len == http_ctrl->resp_content_len) {
 			network_close(http_ctrl->netc, 0);
+			http_ctrl->close_state=1;
 			luat_msgbus_put(&msg, 0);
 			return 0;
 		}else if (http_ctrl->resp_buff_len > http_ctrl->resp_content_len){

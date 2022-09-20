@@ -161,6 +161,7 @@ static int32_t l_http_callback(lua_State *L, void* ptr){
 		lua_pushlstring(L, http_ctrl->resp_buff, http_ctrl->resp_content_len);
 		luat_cbcwait(L, idp, 3); // code, headers, body
 	}
+	http_close(http_ctrl);
 	return 0;
 }
 
@@ -319,6 +320,7 @@ static int http_read_packet(luat_http_ctrl_t *http_ctrl){
 	else { // 非下载模式, 等数据齐了就结束
 		// LLOGD("resp_buff_len:%d resp_content_len:%d",http_ctrl->resp_buff_len,http_ctrl->resp_content_len);
 		if (http_ctrl->resp_buff_len == http_ctrl->resp_content_len) {
+			network_close(http_ctrl->netc, 0);
 			luat_msgbus_put(&msg, 0);
 			return 0;
 		}else if (http_ctrl->resp_buff_len > http_ctrl->resp_content_len){
@@ -568,7 +570,9 @@ static int l_http_request(lua_State *L) {
 	// mbedtls_debug_set_threshold(4);
 	luat_http_ctrl_t *http_ctrl = (luat_http_ctrl_t *)luat_heap_malloc(sizeof(luat_http_ctrl_t));
 	if (!http_ctrl){
-		goto error;
+		LLOGE("out of memory when malloc http_ctrl");
+		luat_pushcwait_error(L,HTTP_ERROR_CONNECT);
+		return 1;
 	}
 	memset(http_ctrl, 0, sizeof(luat_http_ctrl_t));
 

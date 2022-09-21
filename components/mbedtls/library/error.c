@@ -961,7 +961,7 @@ void mbedtls_strerror( int ret, char *buf, size_t buflen )
 #else /* MBEDTLS_ERROR_C */
 
 /*
- * Provide an non-function in case MBEDTLS_ERROR_C is not defined
+ * Provide a dummy implementation when MBEDTLS_ERROR_C is not defined
  */
 void mbedtls_strerror( int ret, char *buf, size_t buflen )
 {
@@ -972,5 +972,9 @@ void mbedtls_strerror( int ret, char *buf, size_t buflen )
 }
 
 #endif /* MBEDTLS_ERROR_C */
+
+#if defined(MBEDTLS_TEST_HOOKS)
+void (*mbedtls_test_hook_error_add)( int, int, const char *, int );
+#endif
 
 #endif /* MBEDTLS_ERROR_C || MBEDTLS_ERROR_STRERROR_DUMMY */

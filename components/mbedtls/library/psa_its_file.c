@@ -18,11 +18,7 @@
  *  limitations under the License.
  */
 
-#if defined(MBEDTLS_CONFIG_FILE)
-#include MBEDTLS_CONFIG_FILE
-#else
-#include "mbedtls/config.h"
-#endif
+#include "common.h"
 
 #if defined(MBEDTLS_PSA_ITS_FILE_C)
 
@@ -188,6 +184,11 @@ psa_status_t psa_its_set( psa_storage_uid_t uid,
                           const void *p_data,
                           psa_storage_create_flags_t create_flags )
 {
+    if( uid == 0 )
+    {
+        return( PSA_ERROR_INVALID_HANDLE );
+    }
+
     psa_status_t status = PSA_ERROR_STORAGE_FAILURE;
     char filename[PSA_ITS_STORAGE_FILENAME_LENGTH];
     FILE *stream = NULL;
@@ -195,14 +196,8 @@ psa_status_t psa_its_set( psa_storage_uid_t uid,
     size_t n;
 
     memcpy( header.magic, PSA_ITS_MAGIC_STRING, PSA_ITS_MAGIC_LENGTH );
-    header.size[0] = data_length & 0xff;
-    header.size[1] = ( data_length >> 8 ) & 0xff;
-    header.size[2] = ( data_length >> 16 ) & 0xff;
-    header.size[3] = ( data_length >> 24 ) & 0xff;
-    header.flags[0] = create_flags & 0xff;
-    header.flags[1] = ( create_flags >> 8 ) & 0xff;
-    header.flags[2] = ( create_flags >> 16 ) & 0xff;
-    header.flags[3] = ( create_flags >> 24 ) & 0xff;
+    MBEDTLS_PUT_UINT32_LE( data_length, header.size, 0 );
+    MBEDTLS_PUT_UINT32_LE( create_flags, header.flags, 0 );
 
     psa_its_fill_filename( uid, filename );
     stream = fopen( PSA_ITS_STORAGE_TEMP, "wb" );

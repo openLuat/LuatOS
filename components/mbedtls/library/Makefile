@@ -39,9 +39,9 @@ LOCAL_CFLAGS += -fPIC -fpic
 endif
 endif
 
-SOEXT_TLS=so.13
+SOEXT_TLS=so.14
 SOEXT_X509=so.1
-SOEXT_CRYPTO=so.6
+SOEXT_CRYPTO=so.7
 
 # Set AR_DASH= (empty string) to use an ar implementation that does not accept
 # the - prefix for command line options (e.g. llvm-ar)
@@ -84,6 +84,7 @@ OBJS_CRYPTO= \
 	     cipher.o \
 	     cipher_wrap.o \
 	     cmac.o \
+	     constant_time.o \
 	     ctr_drbg.o \
 	     des.o \
 	     dhm.o \
@@ -104,6 +105,8 @@ OBJS_CRYPTO= \
 	     md4.o \
 	     md5.o \
 	     memory_buffer_alloc.o \
+	     mps_reader.o \
+	     mps_trace.o \
 	     nist_kw.o \
 	     oid.o \
 	     padlock.o \
@@ -118,9 +121,13 @@ OBJS_CRYPTO= \
 	     platform_util.o \
 	     poly1305.o \
 	     psa_crypto.o \
+	     psa_crypto_aead.o \
+	     psa_crypto_cipher.o \
 	     psa_crypto_client.o \
 	     psa_crypto_driver_wrappers.o \
 	     psa_crypto_ecp.o \
+	     psa_crypto_hash.o \
+	     psa_crypto_mac.o \
 	     psa_crypto_rsa.o \
 	     psa_crypto_se.o \
 	     psa_crypto_slot_management.o \
@@ -183,6 +190,14 @@ static: libmbedcrypto.a libmbedx509.a libmbedtls.a
 
 shared: libmbedcrypto.$(DLEXT) libmbedx509.$(DLEXT) libmbedtls.$(DLEXT)
 
+# Windows builds under Mingw can fail if make tries to create archives in the same
+# directory at the same time - see https://bugs.launchpad.net/gcc-arm-embedded/+bug/1848002.
+# This forces builds of the .a files to be serialised.
+ifdef WINDOWS
+libmbedtls.a: | libmbedx509.a
+libmbedx509.a: | libmbedcrypto.a
+endif
+
 # tls
 libmbedtls.a: $(OBJS_TLS)
 	echo "  AR    $@"
@@ -196,7 +211,7 @@ endif
 
 libmbedtls.$(SOEXT_TLS): $(OBJS_TLS) libmbedx509.so
 	echo "  LD    $@"
-	$(CC) -shared -Wl,-soname,$@ -L. -lmbedcrypto -lmbedx509 $(LOCAL_LDFLAGS) $(LDFLAGS) -o $@ $(OBJS_TLS)
+	$(CC) -shared -Wl,-soname,$@ -o $@ $(OBJS_TLS) -L. -lmbedx509 -lmbedcrypto $(LOCAL_LDFLAGS) $(LDFLAGS)
 
 libmbedtls.so: libmbedtls.$(SOEXT_TLS)
 	echo "  LN    $@ -> $<"
@@ -204,11 +219,11 @@ libmbedtls.so: libmbedtls.$(SOEXT_TLS)
 
 libmbedtls.dylib: $(OBJS_TLS) libmbedx509.dylib
 	echo "  LD    $@"
-	$(CC) -dynamiclib -L. -lmbedcrypto -lmbedx509 $(LOCAL_LDFLAGS) $(LDFLAGS) -o $@ $(OBJS_TLS)
+	$(CC) -dynamiclib -o $@ $(OBJS_TLS) -L. -lmbedx509 -lmbedcrypto $(LOCAL_LDFLAGS) $(LDFLAGS)
 
 libmbedtls.dll: $(OBJS_TLS) libmbedx509.dll
 	echo "  LD    $@"
-	$(CC) -shared -Wl,-soname,$@ -Wl,--out-implib,$@.a -o $@ $(OBJS_TLS) -lws2_32 -lwinmm -lgdi32 -L. -lmbedcrypto -lmbedx509 -static-libgcc $(LOCAL_LDFLAGS) $(LDFLAGS)
+	$(CC) -shared -Wl,-soname,$@ -Wl,--out-implib,$@.a -o $@ $(OBJS_TLS) -lws2_32 -lwinmm -lgdi32 -L. -lmbedx509 -lmbedcrypto -static-libgcc $(LOCAL_LDFLAGS) $(LDFLAGS)
 
 # x509
 libmbedx509.a: $(OBJS_X509)
@@ -223,7 +238,7 @@ endif
 
 libmbedx509.$(SOEXT_X509): $(OBJS_X509) libmbedcrypto.so
 	echo "  LD    $@"
-	$(CC) -shared -Wl,-soname,$@ -L. -lmbedcrypto $(LOCAL_LDFLAGS) $(LDFLAGS) -o $@ $(OBJS_X509)
+	$(CC) -shared -Wl,-soname,$@ -o $@ $(OBJS_X509) -L. -lmbedcrypto $(LOCAL_LDFLAGS) $(LDFLAGS)
 
 libmbedx509.so: libmbedx509.$(SOEXT_X509)
 	echo "  LN    $@ -> $<"
@@ -231,7 +246,7 @@ libmbedx509.so: libmbedx509.$(SOEXT_X509)
 
 libmbedx509.dylib: $(OBJS_X509) libmbedcrypto.dylib
 	echo "  LD    $@"
-	$(CC) -dynamiclib -L. -lmbedcrypto  $(LOCAL_LDFLAGS) $(LDFLAGS) -o $@ $(OBJS_X509)
+	$(CC) -dynamiclib -o $@ $(OBJS_X509) -L. -lmbedcrypto  $(LOCAL_LDFLAGS) $(LDFLAGS)
 
 libmbedx509.dll: $(OBJS_X509) libmbedcrypto.dll
 	echo "  LD    $@"
@@ -250,7 +265,7 @@ endif
 
 libmbedcrypto.$(SOEXT_CRYPTO): $(OBJS_CRYPTO)
 	echo "  LD    $@"
-	$(CC) -shared -Wl,-soname,$@ $(LOCAL_LDFLAGS) $(LDFLAGS) -o $@ $(OBJS_CRYPTO)
+	$(CC) -shared -Wl,-soname,$@ -o $@ $(OBJS_CRYPTO) $(LOCAL_LDFLAGS) $(LDFLAGS)
 
 libmbedcrypto.so: libmbedcrypto.$(SOEXT_CRYPTO)
 	echo "  LN    $@ -> $<"
@@ -258,7 +273,7 @@ libmbedcrypto.so: libmbedcrypto.$(SOEXT_CRYPTO)
 
 libmbedcrypto.dylib: $(OBJS_CRYPTO)
 	echo "  LD    $@"
-	$(CC) -dynamiclib $(LOCAL_LDFLAGS) $(LDFLAGS) -o $@ $(OBJS_CRYPTO)
+	$(CC) -dynamiclib -o $@ $(OBJS_CRYPTO) $(LOCAL_LDFLAGS) $(LDFLAGS)
 
 libmbedcrypto.dll: $(OBJS_CRYPTO)
 	echo "  LD    $@"

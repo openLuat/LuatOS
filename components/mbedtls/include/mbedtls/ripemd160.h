@@ -33,7 +33,8 @@
 
 /* MBEDTLS_ERR_RIPEMD160_HW_ACCEL_FAILED is deprecated and should not be used.
  */
-#define MBEDTLS_ERR_RIPEMD160_HW_ACCEL_FAILED             -0x0031  /**< RIPEMD160 hardware accelerator failed */
+/** RIPEMD160 hardware accelerator failed */
+#define MBEDTLS_ERR_RIPEMD160_HW_ACCEL_FAILED             -0x0031
 
 #ifdef __cplusplus
 extern "C" {
@@ -73,7 +74,7 @@ void mbedtls_ripemd160_init( mbedtls_ripemd160_context *ctx );
 void mbedtls_ripemd160_free( mbedtls_ripemd160_context *ctx );
 
 /**
- * \brief          Clone (the state of) an RIPEMD-160 context
+ * \brief          Clone (the state of) a RIPEMD-160 context
  *
  * \param dst      The destination context
  * \param src      The context to be cloned

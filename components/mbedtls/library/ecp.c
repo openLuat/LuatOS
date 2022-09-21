@@ -76,6 +76,9 @@
 #include "mbedtls/threading.h"
 #include "mbedtls/platform_util.h"
 #include "mbedtls/error.h"
+#include "mbedtls/bn_mul.h"
+
+#include "ecp_invasive.h"
 
 #include <string.h>
 
@@ -1157,8 +1160,7 @@ int mbedtls_ecp_tls_write_group( const mbedtls_ecp_group *grp, size_t *olen,
     /*
      * Next two bytes are the namedcurve value
      */
-    buf[0] = curve_info->tls_id >> 8;
-    buf[1] = curve_info->tls_id & 0xFF;
+    MBEDTLS_PUT_UINT16_BE( curve_info->tls_id, buf, 0 );
 
     return( 0 );
 }
@@ -1305,7 +1307,7 @@ cleanup:
  * For curves in short Weierstrass form, we do all the internal operations in
  * Jacobian coordinates.
  *
- * For multiplication, we'll use a comb method with coutermeasueres against
+ * For multiplication, we'll use a comb method with countermeasures against
  * SPA, hence timing attacks.
  */
 
@@ -1699,26 +1701,11 @@ static int ecp_randomize_jac( const mbedtls_ecp_group *grp, mbedtls_ecp_point *p
 #else
     int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
     mbedtls_mpi l, ll;
-    int count = 0;
-    size_t p_size = ( grp->pbits + 7 ) / 8;
 
     mbedtls_mpi_init( &l ); mbedtls_mpi_init( &ll );
 
     /* Generate l such that 1 < l < p */
-    do
-    {
-        MBEDTLS_MPI_CHK( mbedtls_mpi_fill_random( &l, p_size, f_rng, p_rng ) );
-
-        while( mbedtls_mpi_cmp_mpi( &l, &grp->P ) >= 0 )
-            MBEDTLS_MPI_CHK( mbedtls_mpi_shift_r( &l, 1 ) );
-
-        if( count++ > 10 )
-        {
-            ret = MBEDTLS_ERR_ECP_RANDOM_FAILED;
-            goto cleanup;
-        }
-    }
-    while( mbedtls_mpi_cmp_int( &l, 1 ) <= 0 );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_random( &l, 2, &grp->P, f_rng, p_rng ) );
 
     /* Z = l * Z */
     MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mod( grp, &pt->Z,   &pt->Z,     &l  ) );
@@ -1734,6 +1721,8 @@ static int ecp_randomize_jac( const mbedtls_ecp_group *grp, mbedtls_ecp_point *p
 cleanup:
     mbedtls_mpi_free( &l ); mbedtls_mpi_free( &ll );
 
+    if( ret == MBEDTLS_ERR_MPI_NOT_ACCEPTABLE )
+        ret = MBEDTLS_ERR_ECP_RANDOM_FAILED;
     return( ret );
 #endif /* !defined(MBEDTLS_ECP_NO_FALLBACK) || !defined(MBEDTLS_ECP_RANDOMIZE_JAC_ALT) */
 }
@@ -2262,7 +2251,7 @@ static unsigned char ecp_pick_window_size( const mbedtls_ecp_group *grp,
  * This function is mainly responsible for administrative work:
  * - managing the restart context if enabled
  * - managing the table of precomputed points (passed between the below two
- *   functions): allocation, computation, ownership tranfer, freeing.
+ *   functions): allocation, computation, ownership transfer, freeing.
  *
  * It delegates the actual arithmetic work to:
  *      ecp_precompute_comb() and ecp_mul_comb_with_precomp()
@@ -2433,7 +2422,7 @@ cleanup:
 /*
  * For Montgomery curves, we do all the internal arithmetic in projective
  * coordinates. Import/export of points uses only the x coordinates, which is
- * internaly represented as X / Z.
+ * internally represented as X / Z.
  *
  * For scalar multiplication, we'll use a Montgomery ladder.
  */
@@ -2475,7 +2464,7 @@ static int ecp_randomize_mxz( const mbedtls_ecp_group *grp, mbedtls_ecp_point *P
 {
 #if defined(MBEDTLS_ECP_RANDOMIZE_MXZ_ALT)
     if( mbedtls_internal_ecp_grp_capable( grp ) )
-        return( mbedtls_internal_ecp_randomize_mxz( grp, P, f_rng, p_rng );
+        return( mbedtls_internal_ecp_randomize_mxz( grp, P, f_rng, p_rng ) );
 #endif /* MBEDTLS_ECP_RANDOMIZE_MXZ_ALT */
 
 #if defined(MBEDTLS_ECP_NO_FALLBACK) && defined(MBEDTLS_ECP_RANDOMIZE_MXZ_ALT)
@@ -2483,25 +2472,10 @@ static int ecp_randomize_mxz( const mbedtls_ecp_group *grp, mbedtls_ecp_point *P
 #else
     int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
     mbedtls_mpi l;
-    int count = 0;
-    size_t p_size = ( grp->pbits + 7 ) / 8;
     mbedtls_mpi_init( &l );
 
     /* Generate l such that 1 < l < p */
-    do
-    {
-        MBEDTLS_MPI_CHK( mbedtls_mpi_fill_random( &l, p_size, f_rng, p_rng ) );
-
-        while( mbedtls_mpi_cmp_mpi( &l, &grp->P ) >= 0 )
-            MBEDTLS_MPI_CHK( mbedtls_mpi_shift_r( &l, 1 ) );
-
-        if( count++ > 10 )
-        {
-            ret = MBEDTLS_ERR_ECP_RANDOM_FAILED;
-            goto cleanup;
-        }
-    }
-    while( mbedtls_mpi_cmp_int( &l, 1 ) <= 0 );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_random( &l, 2, &grp->P, f_rng, p_rng ) );
 
     MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mod( grp, &P->X, &P->X, &l ) );
     MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mod( grp, &P->Z, &P->Z, &l ) );
@@ -2509,6 +2483,8 @@ static int ecp_randomize_mxz( const mbedtls_ecp_group *grp, mbedtls_ecp_point *P
 cleanup:
     mbedtls_mpi_free( &l );
 
+    if( ret == MBEDTLS_ERR_MPI_NOT_ACCEPTABLE )
+        ret = MBEDTLS_ERR_ECP_RANDOM_FAILED;
     return( ret );
 #endif /* !defined(MBEDTLS_ECP_NO_FALLBACK) || !defined(MBEDTLS_ECP_RANDOMIZE_MXZ_ALT) */
 }
@@ -2616,7 +2592,7 @@ static int ecp_mul_mxz( mbedtls_ecp_group *grp, mbedtls_ecp_point *R,
     MBEDTLS_MPI_CHK( mbedtls_mpi_lset( &R->Z, 0 ) );
     mbedtls_mpi_free( &R->Y );
 
-    /* RP.X might be sligtly larger than P, so reduce it */
+    /* RP.X might be slightly larger than P, so reduce it */
     MOD_ADD( RP.X );
 
     /* Randomize coordinates of the starting point */
@@ -2808,7 +2784,7 @@ cleanup:
 
 #if defined(MBEDTLS_ECP_SHORT_WEIERSTRASS_ENABLED)
 /*
- * R = m * P with shortcuts for m == 1 and m == -1
+ * R = m * P with shortcuts for m == 0, m == 1 and m == -1
  * NOT constant-time - ONLY for short Weierstrass!
  */
 static int mbedtls_ecp_mul_shortcuts( mbedtls_ecp_group *grp,
@@ -2819,7 +2795,11 @@ static int mbedtls_ecp_mul_shortcuts( mbedtls_ecp_group *grp,
 {
     int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
 
-    if( mbedtls_mpi_cmp_int( m, 1 ) == 0 )
+    if( mbedtls_mpi_cmp_int( m, 0 ) == 0 )
+    {
+        MBEDTLS_MPI_CHK( mbedtls_ecp_set_zero( R ) );
+    }
+    else if( mbedtls_mpi_cmp_int( m, 1 ) == 0 )
     {
         MBEDTLS_MPI_CHK( mbedtls_ecp_copy( R, P ) );
     }
@@ -2955,6 +2935,97 @@ int mbedtls_ecp_muladd( mbedtls_ecp_group *grp, mbedtls_ecp_point *R,
 #endif /* MBEDTLS_ECP_SHORT_WEIERSTRASS_ENABLED */
 
 #if defined(MBEDTLS_ECP_MONTGOMERY_ENABLED)
+#if defined(MBEDTLS_ECP_DP_CURVE25519_ENABLED)
+#define ECP_MPI_INIT(s, n, p) {s, (n), (mbedtls_mpi_uint *)(p)}
+#define ECP_MPI_INIT_ARRAY(x)   \
+    ECP_MPI_INIT(1, sizeof(x) / sizeof(mbedtls_mpi_uint), x)
+/*
+ * Constants for the two points other than 0, 1, -1 (mod p) in
+ * https://cr.yp.to/ecdh.html#validate
+ * See ecp_check_pubkey_x25519().
+ */
+static const mbedtls_mpi_uint x25519_bad_point_1[] = {
+    MBEDTLS_BYTES_TO_T_UINT_8( 0xe0, 0xeb, 0x7a, 0x7c, 0x3b, 0x41, 0xb8, 0xae ),
+    MBEDTLS_BYTES_TO_T_UINT_8( 0x16, 0x56, 0xe3, 0xfa, 0xf1, 0x9f, 0xc4, 0x6a ),
+    MBEDTLS_BYTES_TO_T_UINT_8( 0xda, 0x09, 0x8d, 0xeb, 0x9c, 0x32, 0xb1, 0xfd ),
+    MBEDTLS_BYTES_TO_T_UINT_8( 0x86, 0x62, 0x05, 0x16, 0x5f, 0x49, 0xb8, 0x00 ),
+};
+static const mbedtls_mpi_uint x25519_bad_point_2[] = {
+    MBEDTLS_BYTES_TO_T_UINT_8( 0x5f, 0x9c, 0x95, 0xbc, 0xa3, 0x50, 0x8c, 0x24 ),
+    MBEDTLS_BYTES_TO_T_UINT_8( 0xb1, 0xd0, 0xb1, 0x55, 0x9c, 0x83, 0xef, 0x5b ),
+    MBEDTLS_BYTES_TO_T_UINT_8( 0x04, 0x44, 0x5c, 0xc4, 0x58, 0x1c, 0x8e, 0x86 ),
+    MBEDTLS_BYTES_TO_T_UINT_8( 0xd8, 0x22, 0x4e, 0xdd, 0xd0, 0x9f, 0x11, 0x57 ),
+};
+static const mbedtls_mpi ecp_x25519_bad_point_1 = ECP_MPI_INIT_ARRAY(
+        x25519_bad_point_1 );
+static const mbedtls_mpi ecp_x25519_bad_point_2 = ECP_MPI_INIT_ARRAY(
+        x25519_bad_point_2 );
+#endif /* MBEDTLS_ECP_DP_CURVE25519_ENABLED */
+
+/*
+ * Check that the input point is not one of the low-order points.
+ * This is recommended by the "May the Fourth" paper:
+ * https://eprint.iacr.org/2017/806.pdf
+ * Those points are never sent by an honest peer.
+ */
+static int ecp_check_bad_points_mx( const mbedtls_mpi *X, const mbedtls_mpi *P,
+                                    const mbedtls_ecp_group_id grp_id )
+{
+    int ret;
+    mbedtls_mpi XmP;
+
+    mbedtls_mpi_init( &XmP );
+
+    /* Reduce X mod P so that we only need to check values less than P.
+     * We know X < 2^256 so we can proceed by subtraction. */
+    MBEDTLS_MPI_CHK( mbedtls_mpi_copy( &XmP, X ) );
+    while( mbedtls_mpi_cmp_mpi( &XmP, P ) >= 0 )
+        MBEDTLS_MPI_CHK( mbedtls_mpi_sub_mpi( &XmP, &XmP, P ) );
+
+    /* Check against the known bad values that are less than P. For Curve448
+     * these are 0, 1 and -1. For Curve25519 we check the values less than P
+     * from the following list: https://cr.yp.to/ecdh.html#validate */
+    if( mbedtls_mpi_cmp_int( &XmP, 1 ) <= 0 ) /* takes care of 0 and 1 */
+    {
+        ret = MBEDTLS_ERR_ECP_INVALID_KEY;
+        goto cleanup;
+    }
+
+#if defined(MBEDTLS_ECP_DP_CURVE25519_ENABLED)
+    if( grp_id == MBEDTLS_ECP_DP_CURVE25519 )
+    {
+        if( mbedtls_mpi_cmp_mpi( &XmP, &ecp_x25519_bad_point_1 ) == 0 )
+        {
+            ret = MBEDTLS_ERR_ECP_INVALID_KEY;
+            goto cleanup;
+        }
+
+        if( mbedtls_mpi_cmp_mpi( &XmP, &ecp_x25519_bad_point_2 ) == 0 )
+        {
+            ret = MBEDTLS_ERR_ECP_INVALID_KEY;
+            goto cleanup;
+        }
+    }
+#else
+    (void) grp_id;
+#endif
+
+    /* Final check: check if XmP + 1 is P (final because it changes XmP!) */
+    MBEDTLS_MPI_CHK( mbedtls_mpi_add_int( &XmP, &XmP, 1 ) );
+    if( mbedtls_mpi_cmp_mpi( &XmP, P ) == 0 )
+    {
+        ret = MBEDTLS_ERR_ECP_INVALID_KEY;
+        goto cleanup;
+    }
+
+    ret = 0;
+
+cleanup:
+    mbedtls_mpi_free( &XmP );
+
+    return( ret );
+}
+
 /*
  * Check validity of a public key for Montgomery curves with x-only schemes
  */
@@ -2966,7 +3037,13 @@ static int ecp_check_pubkey_mx( const mbedtls_ecp_group *grp, const mbedtls_ecp_
     if( mbedtls_mpi_size( &pt->X ) > ( grp->nbits + 7 ) / 8 )
         return( MBEDTLS_ERR_ECP_INVALID_KEY );
 
-    return( 0 );
+    /* Implicit in all standards (as they don't consider negative numbers):
+     * X must be non-negative. This is normally ensured by the way it's
+     * encoded for transmission, but let's be extra sure. */
+    if( mbedtls_mpi_cmp_int( &pt->X, 0 ) < 0 )
+        return( MBEDTLS_ERR_ECP_INVALID_KEY );
+
+    return( ecp_check_bad_points_mx( &pt->X, &grp->P, grp->id ) );
 }
 #endif /* MBEDTLS_ECP_MONTGOMERY_ENABLED */
 
@@ -3034,6 +3111,56 @@ int mbedtls_ecp_check_privkey( const mbedtls_ecp_group *grp,
     return( MBEDTLS_ERR_ECP_BAD_INPUT_DATA );
 }
 
+#if defined(MBEDTLS_ECP_MONTGOMERY_ENABLED)
+MBEDTLS_STATIC_TESTABLE
+int mbedtls_ecp_gen_privkey_mx( size_t high_bit,
+                                mbedtls_mpi *d,
+                                int (*f_rng)(void *, unsigned char *, size_t),
+                                void *p_rng )
+{
+    int ret = MBEDTLS_ERR_ECP_BAD_INPUT_DATA;
+    size_t n_random_bytes = high_bit / 8 + 1;
+
+    /* [Curve25519] page 5 */
+    /* Generate a (high_bit+1)-bit random number by generating just enough
+     * random bytes, then shifting out extra bits from the top (necessary
+     * when (high_bit+1) is not a multiple of 8). */
+    MBEDTLS_MPI_CHK( mbedtls_mpi_fill_random( d, n_random_bytes,
+                                              f_rng, p_rng ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_shift_r( d, 8 * n_random_bytes - high_bit - 1 ) );
+
+    MBEDTLS_MPI_CHK( mbedtls_mpi_set_bit( d, high_bit, 1 ) );
+
+    /* Make sure the last two bits are unset for Curve448, three bits for
+       Curve25519 */
+    MBEDTLS_MPI_CHK( mbedtls_mpi_set_bit( d, 0, 0 ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_set_bit( d, 1, 0 ) );
+    if( high_bit == 254 )
+    {
+        MBEDTLS_MPI_CHK( mbedtls_mpi_set_bit( d, 2, 0 ) );
+    }
+
+cleanup:
+    return( ret );
+}
+#endif /* MBEDTLS_ECP_MONTGOMERY_ENABLED */
+
+#if defined(MBEDTLS_ECP_SHORT_WEIERSTRASS_ENABLED)
+static int mbedtls_ecp_gen_privkey_sw(
+    const mbedtls_mpi *N, mbedtls_mpi *d,
+    int (*f_rng)(void *, unsigned char *, size_t), void *p_rng )
+{
+    int ret = mbedtls_mpi_random( d, 1, N, f_rng, p_rng );
+    switch( ret )
+    {
+        case MBEDTLS_ERR_MPI_NOT_ACCEPTABLE:
+            return( MBEDTLS_ERR_ECP_RANDOM_FAILED );
+        default:
+            return( ret );
+    }
+}
+#endif /* MBEDTLS_ECP_SHORT_WEIERSTRASS_ENABLED */
+
 /*
  * Generate a private key
  */
@@ -3042,89 +3169,21 @@ int mbedtls_ecp_gen_privkey( const mbedtls_ecp_group *grp,
                      int (*f_rng)(void *, unsigned char *, size_t),
                      void *p_rng )
 {
-    int ret = MBEDTLS_ERR_ECP_BAD_INPUT_DATA;
-    size_t n_size;
-
     ECP_VALIDATE_RET( grp   != NULL );
     ECP_VALIDATE_RET( d     != NULL );
     ECP_VALIDATE_RET( f_rng != NULL );
 
-    n_size = ( grp->nbits + 7 ) / 8;
-
 #if defined(MBEDTLS_ECP_MONTGOMERY_ENABLED)
     if( mbedtls_ecp_get_type( grp ) == MBEDTLS_ECP_TYPE_MONTGOMERY )
-    {
-        /* [M225] page 5 */
-        size_t b;
-
-        do {
-            MBEDTLS_MPI_CHK( mbedtls_mpi_fill_random( d, n_size, f_rng, p_rng ) );
-        } while( mbedtls_mpi_bitlen( d ) == 0);
-
-        /* Make sure the most significant bit is nbits */
-        b = mbedtls_mpi_bitlen( d ) - 1; /* mbedtls_mpi_bitlen is one-based */
-        if( b > grp->nbits )
-            MBEDTLS_MPI_CHK( mbedtls_mpi_shift_r( d, b - grp->nbits ) );
-        else
-            MBEDTLS_MPI_CHK( mbedtls_mpi_set_bit( d, grp->nbits, 1 ) );
-
-        /* Make sure the last two bits are unset for Curve448, three bits for
-           Curve25519 */
-        MBEDTLS_MPI_CHK( mbedtls_mpi_set_bit( d, 0, 0 ) );
-        MBEDTLS_MPI_CHK( mbedtls_mpi_set_bit( d, 1, 0 ) );
-        if( grp->nbits == 254 )
-        {
-            MBEDTLS_MPI_CHK( mbedtls_mpi_set_bit( d, 2, 0 ) );
-        }
-    }
+        return( mbedtls_ecp_gen_privkey_mx( grp->nbits, d, f_rng, p_rng ) );
 #endif /* MBEDTLS_ECP_MONTGOMERY_ENABLED */
 
 #if defined(MBEDTLS_ECP_SHORT_WEIERSTRASS_ENABLED)
     if( mbedtls_ecp_get_type( grp ) == MBEDTLS_ECP_TYPE_SHORT_WEIERSTRASS )
-    {
-        /* SEC1 3.2.1: Generate d such that 1 <= n < N */
-        int count = 0;
-        unsigned cmp = 0;
-
-        /*
-         * Match the procedure given in RFC 6979 (deterministic ECDSA):
-         * - use the same byte ordering;
-         * - keep the leftmost nbits bits of the generated octet string;
-         * - try until result is in the desired range.
-         * This also avoids any biais, which is especially important for ECDSA.
-         */
-        do
-        {
-            MBEDTLS_MPI_CHK( mbedtls_mpi_fill_random( d, n_size, f_rng, p_rng ) );
-            MBEDTLS_MPI_CHK( mbedtls_mpi_shift_r( d, 8 * n_size - grp->nbits ) );
-
-            /*
-             * Each try has at worst a probability 1/2 of failing (the msb has
-             * a probability 1/2 of being 0, and then the result will be < N),
-             * so after 30 tries failure probability is a most 2**(-30).
-             *
-             * For most curves, 1 try is enough with overwhelming probability,
-             * since N starts with a lot of 1s in binary, but some curves
-             * such as secp224k1 are actually very close to the worst case.
-             */
-            if( ++count > 30 )
-            {
-                ret = MBEDTLS_ERR_ECP_RANDOM_FAILED;
-                goto cleanup;
-            }
-
-            ret = mbedtls_mpi_lt_mpi_ct( d, &grp->N, &cmp );
-            if( ret != 0 )
-            {
-                goto cleanup;
-            }
-        }
-        while( mbedtls_mpi_cmp_int( d, 1 ) < 0 || cmp != 1 );
-    }
+        return( mbedtls_ecp_gen_privkey_sw( &grp->N, d, f_rng, p_rng ) );
 #endif /* MBEDTLS_ECP_SHORT_WEIERSTRASS_ENABLED */
 
-cleanup:
-    return( ret );
+    return( MBEDTLS_ERR_ECP_BAD_INPUT_DATA );
 }
 
 /*

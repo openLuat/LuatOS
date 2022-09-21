@@ -44,6 +44,46 @@
 
 #include "mbedtls/bignum.h"
 
+
+/*
+ * Conversion macros for embedded constants:
+ * build lists of mbedtls_mpi_uint's from lists of unsigned char's grouped by 8, 4 or 2
+ */
+#if defined(MBEDTLS_HAVE_INT32)
+
+#define MBEDTLS_BYTES_TO_T_UINT_4( a, b, c, d )               \
+    ( (mbedtls_mpi_uint) (a) <<  0 ) |                        \
+    ( (mbedtls_mpi_uint) (b) <<  8 ) |                        \
+    ( (mbedtls_mpi_uint) (c) << 16 ) |                        \
+    ( (mbedtls_mpi_uint) (d) << 24 )
+
+#define MBEDTLS_BYTES_TO_T_UINT_2( a, b )                   \
+    MBEDTLS_BYTES_TO_T_UINT_4( a, b, 0, 0 )
+
+#define MBEDTLS_BYTES_TO_T_UINT_8( a, b, c, d, e, f, g, h ) \
+    MBEDTLS_BYTES_TO_T_UINT_4( a, b, c, d ),                \
+    MBEDTLS_BYTES_TO_T_UINT_4( e, f, g, h )
+
+#else /* 64-bits */
+
+#define MBEDTLS_BYTES_TO_T_UINT_8( a, b, c, d, e, f, g, h )   \
+    ( (mbedtls_mpi_uint) (a) <<  0 ) |                        \
+    ( (mbedtls_mpi_uint) (b) <<  8 ) |                        \
+    ( (mbedtls_mpi_uint) (c) << 16 ) |                        \
+    ( (mbedtls_mpi_uint) (d) << 24 ) |                        \
+    ( (mbedtls_mpi_uint) (e) << 32 ) |                        \
+    ( (mbedtls_mpi_uint) (f) << 40 ) |                        \
+    ( (mbedtls_mpi_uint) (g) << 48 ) |                        \
+    ( (mbedtls_mpi_uint) (h) << 56 )
+
+#define MBEDTLS_BYTES_TO_T_UINT_4( a, b, c, d )             \
+    MBEDTLS_BYTES_TO_T_UINT_8( a, b, c, d, 0, 0, 0, 0 )
+
+#define MBEDTLS_BYTES_TO_T_UINT_2( a, b )                   \
+    MBEDTLS_BYTES_TO_T_UINT_8( a, b, 0, 0, 0, 0, 0, 0 )
+
+#endif /* bits in mbedtls_mpi_uint */
+
 #if defined(MBEDTLS_HAVE_ASM)
 
 #ifndef asm
@@ -55,12 +95,28 @@
     ( !defined(__ARMCC_VERSION) || __ARMCC_VERSION >= 6000000 )
 
 /*
+ * GCC < 5.0 treated the x86 ebx (which is used for the GOT) as a
+ * fixed reserved register when building as PIC, leading to errors
+ * like: bn_mul.h:46:13: error: PIC register clobbered by 'ebx' in 'asm'
+ *
+ * This is fixed by an improved register allocator in GCC 5+. From the
+ * release notes:
+ * Register allocation improvements: Reuse of the PIC hard register,
+ * instead of using a fixed register, was implemented on x86/x86-64
+ * targets. This improves generated PIC code performance as more hard
+ * registers can be used.
+ */
+#if defined(__GNUC__) && __GNUC__ < 5 && defined(__PIC__)
+#define MULADDC_CANNOT_USE_EBX
+#endif
+
+/*
  * Disable use of the i386 assembly code below if option -O0, to disable all
  * compiler optimisations, is passed, detected with __OPTIMIZE__
  * This is done as the number of registers used in the assembly code doesn't
  * work with the -O0 option.
  */
-#if defined(__i386__) && defined(__OPTIMIZE__)
+#if defined(__i386__) && defined(__OPTIMIZE__) && !defined(MULADDC_CANNOT_USE_EBX)
 
 #define MULADDC_INIT                        \
     asm(                                    \
@@ -189,9 +245,9 @@
         "addq   $8, %%rdi\n"
 
 #define MULADDC_STOP                        \
-        : "+c" (c), "+D" (d), "+S" (s)      \
-        : "b" (b)                           \
-        : "rax", "rdx", "r8"                \
+        : "+c" (c), "+D" (d), "+S" (s), "+m" (*(uint64_t (*)[16]) d) \
+        : "b" (b), "m" (*(const uint64_t (*)[16]) s)                 \
+        : "rax", "rdx", "r8"                                         \
     );
 
 #endif /* AMD64 */
@@ -204,18 +260,18 @@
 #define MULADDC_CORE                \
         "ldr x4, [%2], #8   \n\t"   \
         "ldr x5, [%1]       \n\t"   \
-        "mul x6, x4, %3     \n\t"   \
-        "umulh x7, x4, %3   \n\t"   \
+        "mul x6, x4, %4     \n\t"   \
+        "umulh x7, x4, %4   \n\t"   \
         "adds x5, x5, x6    \n\t"   \
         "adc x7, x7, xzr    \n\t"   \
         "adds x5, x5, %0    \n\t"   \
         "adc %0, x7, xzr    \n\t"   \
         "str x5, [%1], #8   \n\t"
 
-#define MULADDC_STOP                        \
-         : "+r" (c),  "+r" (d), "+r" (s)    \
-         : "r" (b)                          \
-         : "x4", "x5", "x6", "x7", "cc"     \
+#define MULADDC_STOP                                                    \
+         : "+r" (c),  "+r" (d), "+r" (s), "+m" (*(uint64_t (*)[16]) d)  \
+         : "r" (b), "m" (*(const uint64_t (*)[16]) s)                   \
+         : "x4", "x5", "x6", "x7", "cc"                                 \
     );
 
 #endif /* Aarch64 */
@@ -523,10 +579,20 @@
         "andi  r7,   r6, 0xffff \n\t"   \
         "bsrli r6,   r6, 16     \n\t"
 
-#define MULADDC_CORE                    \
+#if(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+#define MULADDC_LHUI                    \
+        "lhui  r9,   r3,   0    \n\t"   \
+        "addi  r3,   r3,   2    \n\t"   \
+        "lhui  r8,   r3,   0    \n\t"
+#else
+#define MULADDC_LHUI                    \
         "lhui  r8,   r3,   0    \n\t"   \
         "addi  r3,   r3,   2    \n\t"   \
-        "lhui  r9,   r3,   0    \n\t"   \
+        "lhui  r9,   r3,   0    \n\t"
+#endif
+
+#define MULADDC_CORE                    \
+        MULADDC_LHUI                    \
         "addi  r3,   r3,   2    \n\t"   \
         "mul   r10,  r9,  r6    \n\t"   \
         "mul   r11,  r8,  r7    \n\t"   \

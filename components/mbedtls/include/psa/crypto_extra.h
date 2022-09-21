@@ -30,6 +30,7 @@
 
 #include "mbedtls/platform_util.h"
 
+#include "crypto_types.h"
 #include "crypto_compat.h"
 
 #ifdef __cplusplus
@@ -179,10 +180,10 @@ static inline void psa_clear_key_slot_number(
  *         The secure element driver for the specified lifetime does not
  *         support registering a key.
  * \retval #PSA_ERROR_INVALID_ARGUMENT
+ *         The identifier in \p attributes is invalid, namely the identifier is
+ *         not in the user range, or
  *         \p attributes specifies a lifetime which is not located
- *         in a secure element.
- * \retval #PSA_ERROR_INVALID_ARGUMENT
- *         No slot number is specified in \p attributes,
+ *         in a secure element, or no slot number is specified in \p attributes,
  *         or the specified slot number is not valid.
  * \retval #PSA_ERROR_NOT_PERMITTED
  *         The caller is not authorized to register the specified key slot.
@@ -344,7 +345,7 @@ psa_status_t mbedtls_psa_inject_entropy(const uint8_t *seed,
  * length of the byte string is the private key size in bytes (leading zeroes
  * are not stripped).
  *
- * Determinstic DSA key derivation with psa_generate_derived_key follows
+ * Deterministic DSA key derivation with psa_generate_derived_key follows
  * FIPS 186-4 &sect;B.1.2: interpret the byte string as integer
  * in big-endian order. Discard it if it is not in the range
  * [0, *N* - 2] where *N* is the boundary of the private key domain
@@ -355,7 +356,7 @@ psa_status_t mbedtls_psa_inject_entropy(const uint8_t *seed,
  */
 #define PSA_KEY_TYPE_DSA_KEY_PAIR                    ((psa_key_type_t)0x7002)
 
-/** Whether a key type is an DSA key (pair or public-only). */
+/** Whether a key type is a DSA key (pair or public-only). */
 #define PSA_KEY_TYPE_IS_DSA(type)                                       \
     (PSA_KEY_TYPE_PUBLIC_KEY_OF_KEY_PAIR(type) == PSA_KEY_TYPE_DSA_PUBLIC_KEY)
 
@@ -407,10 +408,9 @@ psa_status_t mbedtls_psa_inject_entropy(const uint8_t *seed,
 
 /* We need to expand the sample definition of this macro from
  * the API definition. */
-#undef PSA_ALG_IS_HASH_AND_SIGN
-#define PSA_ALG_IS_HASH_AND_SIGN(alg)                                   \
-    (PSA_ALG_IS_RSA_PSS(alg) || PSA_ALG_IS_RSA_PKCS1V15_SIGN(alg) ||    \
-     PSA_ALG_IS_DSA(alg) || PSA_ALG_IS_ECDSA(alg))
+#undef PSA_ALG_IS_VENDOR_HASH_AND_SIGN
+#define PSA_ALG_IS_VENDOR_HASH_AND_SIGN(alg)    \
+    PSA_ALG_IS_DSA(alg)
 
 /**@}*/
 
@@ -445,9 +445,9 @@ psa_status_t mbedtls_psa_inject_entropy(const uint8_t *seed,
  *   As an exception, the public exponent 65537 is represented by an empty
  *   byte string.
  * - For DSA keys (#PSA_KEY_TYPE_DSA_PUBLIC_KEY or #PSA_KEY_TYPE_DSA_KEY_PAIR),
- *   the `Dss-Parms` format as defined by RFC 3279 &sect;2.3.2.
+ *   the `Dss-Params` format as defined by RFC 3279 &sect;2.3.2.
  *   ```
- *   Dss-Parms ::= SEQUENCE  {
+ *   Dss-Params ::= SEQUENCE  {
  *      p       INTEGER,
  *      q       INTEGER,
  *      g       INTEGER
@@ -463,9 +463,9 @@ psa_status_t mbedtls_psa_inject_entropy(const uint8_t *seed,
  *      g               INTEGER,                    -- generator, g
  *      q               INTEGER,                    -- factor of p-1
  *      j               INTEGER OPTIONAL,           -- subgroup factor
- *      validationParms ValidationParms OPTIONAL
+ *      validationParams ValidationParams OPTIONAL
  *   }
- *   ValidationParms ::= SEQUENCE {
+ *   ValidationParams ::= SEQUENCE {
  *      seed            BIT STRING,
  *      pgenCounter     INTEGER
  *   }
@@ -710,6 +710,104 @@ psa_status_t mbedtls_psa_external_get_random(
 #endif /* MBEDTLS_PSA_CRYPTO_EXTERNAL_RNG */
 
 /**@}*/
+
+/** \defgroup psa_builtin_keys Built-in keys
+ * @{
+ */
+
+/** The minimum value for a key identifier that is built into the
+ * implementation.
+ *
+ * The range of key identifiers from #MBEDTLS_PSA_KEY_ID_BUILTIN_MIN
+ * to #MBEDTLS_PSA_KEY_ID_BUILTIN_MAX within the range from
+ * #PSA_KEY_ID_VENDOR_MIN and #PSA_KEY_ID_VENDOR_MAX and must not intersect
+ * with any other set of implementation-chosen key identifiers.
+ *
+ * This value is part of the library's ABI since changing it would invalidate
+ * the values of built-in key identifiers in applications.
+ */
+#define MBEDTLS_PSA_KEY_ID_BUILTIN_MIN          ((psa_key_id_t)0x7fff0000)
+
+/** The maximum value for a key identifier that is built into the
+ * implementation.
+ *
+ * See #MBEDTLS_PSA_KEY_ID_BUILTIN_MIN for more information.
+ */
+#define MBEDTLS_PSA_KEY_ID_BUILTIN_MAX          ((psa_key_id_t)0x7fffefff)
+
+/** A slot number identifying a key in a driver.
+ *
+ * Values of this type are used to identify built-in keys.
+ */
+typedef uint64_t psa_drv_slot_number_t;
+
+#if defined(MBEDTLS_PSA_CRYPTO_BUILTIN_KEYS)
+/** Test whether a key identifier belongs to the builtin key range.
+ *
+ * \param key_id  Key identifier to test.
+ *
+ * \retval 1
+ *         The key identifier is a builtin key identifier.
+ * \retval 0
+ *         The key identifier is not a builtin key identifier.
+ */
+static inline int psa_key_id_is_builtin( psa_key_id_t key_id )
+{
+    return( ( key_id >= MBEDTLS_PSA_KEY_ID_BUILTIN_MIN ) &&
+            ( key_id <= MBEDTLS_PSA_KEY_ID_BUILTIN_MAX ) );
+}
+
+/** Platform function to obtain the location and slot number of a built-in key.
+ *
+ * An application-specific implementation of this function must be provided if
+ * #MBEDTLS_PSA_CRYPTO_BUILTIN_KEYS is enabled. This would typically be provided
+ * as part of a platform's system image.
+ *
+ * #MBEDTLS_SVC_KEY_ID_GET_KEY_ID(\p key_id) needs to be in the range from
+ * #MBEDTLS_PSA_KEY_ID_BUILTIN_MIN to #MBEDTLS_PSA_KEY_ID_BUILTIN_MAX.
+ *
+ * In a multi-application configuration
+ * (\c MBEDTLS_PSA_CRYPTO_KEY_ID_ENCODES_OWNER is defined),
+ * this function should check that #MBEDTLS_SVC_KEY_ID_GET_OWNER_ID(\p key_id)
+ * is allowed to use the given key.
+ *
+ * \param key_id                The key ID for which to retrieve the
+ *                              location and slot attributes.
+ * \param[out] lifetime         On success, the lifetime associated with the key
+ *                              corresponding to \p key_id. Lifetime is a
+ *                              combination of which driver contains the key,
+ *                              and with what persistence level the key is
+ *                              intended to be used. If the platform
+ *                              implementation does not contain specific
+ *                              information about the intended key persistence
+ *                              level, the persistence level may be reported as
+ *                              #PSA_KEY_PERSISTENCE_DEFAULT.
+ * \param[out] slot_number      On success, the slot number known to the driver
+ *                              registered at the lifetime location reported
+ *                              through \p lifetime which corresponds to the
+ *                              requested built-in key.
+ *
+ * \retval #PSA_SUCCESS
+ *         The requested key identifier designates a built-in key.
+ *         In a multi-application configuration, the requested owner
+ *         is allowed to access it.
+ * \retval #PSA_ERROR_DOES_NOT_EXIST
+ *         The requested key identifier is not a built-in key which is known
+ *         to this function. If a key exists in the key storage with this
+ *         identifier, the data from the storage will be used.
+ * \return (any other error)
+ *         Any other error is propagated to the function that requested the key.
+ *         Common errors include:
+ *         - #PSA_ERROR_NOT_PERMITTED: the key exists but the requested owner
+ *           is not allowed to access it.
+ */
+psa_status_t mbedtls_psa_platform_get_builtin_key(
+    mbedtls_svc_key_id_t key_id,
+    psa_key_lifetime_t *lifetime,
+    psa_drv_slot_number_t *slot_number );
+#endif /* MBEDTLS_PSA_CRYPTO_BUILTIN_KEYS */
+
+/** @} */
 
 #ifdef __cplusplus
 }

@@ -6,9 +6,9 @@
 #     command but rather at the target level using the
 #     target_include_directories command. That way, it is easier to guarantee
 #     that targets are built using the proper list of include directories.
-#   + Use the PUBLIC and PRIVATE keywords to specifiy the scope of include
+#   + Use the PUBLIC and PRIVATE keywords to specify the scope of include
 #     directories. That way, a target linking to a library (using the
-#     target_link_librairies command) inherits from the library PUBLIC include
+#     target_link_libraries command) inherits from the library PUBLIC include
 #     directories and not from the PRIVATE ones.
 #   + Note: there is currently one remaining include_directories command in the
 #     CMake files. It is related to ZLIB support which is planned to be removed.
@@ -93,12 +93,12 @@ if(NOT CMAKE_VERSION VERSION_LESS 3.15.0)
     set(Python3_FIND_STRATEGY LOCATION)
     find_package(Python3 COMPONENTS Interpreter)
     if(Python3_Interpreter_FOUND)
-        # set(MBEDTLS_PYTHON_EXECUTABLE ${Python3_EXECUTABLE})
+        set(MBEDTLS_PYTHON_EXECUTABLE ${Python3_EXECUTABLE})
     endif()
 else()
     find_package(PythonInterp 3)
     if(PYTHONINTERP_FOUND)
-        # set(MBEDTLS_PYTHON_EXECUTABLE ${PYTHON_EXECUTABLE})
+        set(MBEDTLS_PYTHON_EXECUTABLE ${PYTHON_EXECUTABLE})
     endif()
 endif()
 if(MBEDTLS_PYTHON_EXECUTABLE)
@@ -202,7 +202,7 @@ if(CMAKE_COMPILER_IS_GNU)
         endif()
     endif()
     if (GCC_VERSION VERSION_GREATER 7.0 OR GCC_VERSION VERSION_EQUAL 7.0)
-      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wformat-overflow=2 -Wformat-truncation=2")
+      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wformat-overflow=2 -Wformat-truncation")
     endif()
     set(CMAKE_C_FLAGS_RELEASE     "-O2")
     set(CMAKE_C_FLAGS_DEBUG       "-O0 -g3")
@@ -226,12 +226,12 @@ if(CMAKE_COMPILER_IS_CLANG)
 endif(CMAKE_COMPILER_IS_CLANG)
 
 if(CMAKE_COMPILER_IS_IAR)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --warn_about_c_style_casts --warnings_are_errors -Ohz")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --warn_about_c_style_casts -Ohz")
 endif(CMAKE_COMPILER_IS_IAR)
 
 if(CMAKE_COMPILER_IS_MSVC)
-    # Strictest warnings
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W3")
+    # Strictest warnings, UTF-8 source and execution charset
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /W3 /utf-8")
 endif(CMAKE_COMPILER_IS_MSVC)
 
 if(MBEDTLS_FATAL_WARNINGS)
@@ -247,6 +247,10 @@ if(MBEDTLS_FATAL_WARNINGS)
             set(CMAKE_C_FLAGS_ASANDBG "${CMAKE_C_FLAGS_ASANDBG} -Wno-error=cpp")
         endif(UNSAFE_BUILD)
     endif(CMAKE_COMPILER_IS_CLANG OR CMAKE_COMPILER_IS_GNU)
+
+    if (CMAKE_COMPILER_IS_IAR)
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --warning_are_errors")
+    endif(CMAKE_COMPILER_IS_IAR)
 endif(MBEDTLS_FATAL_WARNINGS)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Coverage")

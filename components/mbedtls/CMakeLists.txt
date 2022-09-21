@@ -274,8 +274,8 @@ endif(ENABLE_ZLIB_SUPPORT)
 
 add_subdirectory(include)
 
-add_subdirectory(3rdparty)
-list(APPEND libs ${thirdparty_lib})
+#add_subdirectory(3rdparty)
+#list(APPEND libs ${thirdparty_lib})
 
 add_subdirectory(library)
 

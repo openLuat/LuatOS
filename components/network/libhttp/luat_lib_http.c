@@ -22,6 +22,13 @@
 #define HTTP_REQUEST_BUF_LEN_MAX 1024
 #define HTTP_RESP_HEADER_MAX_SIZE (4096)
 
+#define HTTP_ERROR_STATE 	(-1)
+#define HTTP_ERROR_HEADER 	(-2)
+#define HTTP_ERROR_BODY 	(-3)
+#define HTTP_ERROR_CONNECT 	(-4)
+#define HTTP_ERROR_CLOSE 	(-5)
+#define HTTP_ERROR_RX 		(-6)
+
 typedef struct{
 	network_ctrl_t *netc;		// http netc
 	luat_ip_addr_t ip_addr;		// http ip
@@ -49,6 +56,7 @@ typedef struct{
 	uint8_t fd_ok;
 	uint64_t idp;
 	uint16_t timeout;
+	uint8_t close_state;
 }luat_http_ctrl_t;
 
 static int http_close(luat_http_ctrl_t *http_ctrl){
@@ -154,6 +162,7 @@ static int32_t l_http_callback(lua_State *L, void* ptr){
 		lua_pushlstring(L, http_ctrl->resp_buff, http_ctrl->resp_content_len);
 		luat_cbcwait(L, idp, 3); // code, headers, body
 	}
+	http_close(http_ctrl);
 	return 0;
 }
 
@@ -161,11 +170,14 @@ static void http_resp_error(luat_http_ctrl_t *http_ctrl, int error_code) {
 	if (http_ctrl->netc){
 		network_close(http_ctrl->netc, 0);
 	}
-	rtos_msg_t msg = {0};
-	msg.handler = l_http_callback;
-	msg.ptr = http_ctrl;
-	msg.arg1 = error_code;
-	luat_msgbus_put(&msg, 0);
+	if (http_ctrl->close_state==0){
+		http_ctrl->close_state=1;
+		rtos_msg_t msg = {0};
+		msg.handler = l_http_callback;
+		msg.ptr = http_ctrl;
+		msg.arg1 = error_code;
+		luat_msgbus_put(&msg, 0);
+	}
 }
 
 static void http_parse_resp_content_length(luat_http_ctrl_t *http_ctrl,uint32_t headers_len) {
@@ -199,7 +211,7 @@ static int http_resp_parse_header(luat_http_ctrl_t *http_ctrl) {
 	if (strncmp("HTTP/1.", http_ctrl->resp_buff, strlen("HTTP/1."))){
 		// 开头几个字节不是HTTP/1 ? 可以断开连接了
 		LLOGW("resp NOT startwith HTTP/1.");
-		http_resp_error(http_ctrl, -1); // 非法响应
+		http_resp_error(http_ctrl, HTTP_ERROR_STATE); // 非法响应
 		return -1;
 	}
 	else {
@@ -220,7 +232,7 @@ static int http_resp_parse_header(luat_http_ctrl_t *http_ctrl) {
 					http_ctrl->resp_buff = luat_heap_malloc(http_ctrl->resp_buff_len - header_size);
 					if (http_ctrl->resp_buff == NULL) {
 						LLOGE("out of memory when malloc buff for http resp");
-						http_resp_error(http_ctrl, -4); // 炸了
+						http_resp_error(http_ctrl, HTTP_ERROR_HEADER); // 炸了
 						return -1;
 					}
 					http_ctrl->resp_buff_len = http_ctrl->resp_buff_len - header_size;
@@ -241,22 +253,20 @@ static int http_resp_parse_header(luat_http_ctrl_t *http_ctrl) {
 				http_ctrl->resp_buff_len = 0;
 			}
 			return 0;
-		}
-		else {
+		}else {
 			// 防御一下太大的header
 			if (http_ctrl->resp_buff_len > HTTP_RESP_HEADER_MAX_SIZE) {
 				LLOGW("http resp header too big!!!");
-				http_resp_error(http_ctrl, -2); // 非法响应
-				return 0; // 是返回0还是-1的?
+				http_resp_error(http_ctrl, HTTP_ERROR_HEADER); // 非法响应
+				return -1;
 			}
 			else {
 				// 数据不够, 头部也不齐, 等下一波的数据.
 				// 后续还需要根据ticks判断一下timeout, 或者timer?
-				return 0;
+				return -2;
 			}
 		}
 	}
-	return 0;
 }
 
 static int http_read_packet(luat_http_ctrl_t *http_ctrl){
@@ -267,7 +277,7 @@ static int http_read_packet(luat_http_ctrl_t *http_ctrl){
 		int ret = http_resp_parse_header(http_ctrl);
 		if (ret < 0) {
 			LLOGE("http_resp_parse_header ret:%d",ret);
-			return ret; // 出错啦
+			return ret; // -2 未接收完 其他为出错
 		}
 		// 能到这里, 头部已经解析完成了
 		// 如果是下载模式, 打开文件, 开始写
@@ -305,17 +315,24 @@ static int http_read_packet(luat_http_ctrl_t *http_ctrl){
 				http_ctrl->fd_ok = 1; // 标记成功
 			}
 			// 读完写完, 完结散花
+			network_close(http_ctrl->netc, 0);
+			http_ctrl->close_state=1;
 			luat_msgbus_put(&msg, 0);
 			return 0;
+		}else if (http_ctrl->resp_buff_len > http_ctrl->resp_content_len){
+			http_resp_error(http_ctrl, HTTP_ERROR_BODY);
+			return -1;
 		}
 	}
 	else { // 非下载模式, 等数据齐了就结束
 		// LLOGD("resp_buff_len:%d resp_content_len:%d",http_ctrl->resp_buff_len,http_ctrl->resp_content_len);
 		if (http_ctrl->resp_buff_len == http_ctrl->resp_content_len) {
+			network_close(http_ctrl->netc, 0);
+			http_ctrl->close_state=1;
 			luat_msgbus_put(&msg, 0);
 			return 0;
 		}else if (http_ctrl->resp_buff_len > http_ctrl->resp_content_len){
-			http_resp_error(http_ctrl, -3);
+			http_resp_error(http_ctrl, HTTP_ERROR_BODY);
 			return -1;
 		}
 	}
@@ -341,7 +358,7 @@ static int32_t luat_lib_http_callback(void *data, void *param){
 	if (event->ID == EV_NW_RESULT_LINK){
 		if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), http_ctrl->ip_addr.is_ipv6?NULL:&(http_ctrl->ip_addr), http_ctrl->remote_port, 0) < 0){
 			// network_close(http_ctrl->netc, 0);
-			http_resp_error(http_ctrl, -5);
+			http_resp_error(http_ctrl, HTTP_ERROR_CONNECT);
 			return -1;
     	}
 	}else if(event->ID == EV_NW_RESULT_CONNECT){
@@ -412,7 +429,7 @@ next:
 					if (result)
 						goto next;
 					if (rx_len == 0||result!=0) {
-						http_resp_error(http_ctrl, -3);
+						http_resp_error(http_ctrl, HTTP_ERROR_RX);
 						return -1;
 					}
 					http_ctrl->resp_buff_len += total_len;
@@ -420,7 +437,7 @@ next:
 					http_read_packet(http_ctrl);
 				}
 			}else{
-				http_resp_error(http_ctrl, -3);
+				http_resp_error(http_ctrl, HTTP_ERROR_RX);
 				return -1;
 			}
 
@@ -431,8 +448,9 @@ next:
 
 	}
 	if (event->Param1){
-		LLOGD("luat_lib_http_callback http_ctrl close %d %d",event->ID & 0x0fffffff,event->Param1);
-		http_resp_error(http_ctrl, -1);
+		LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
+		LLOGE("luat_lib_http_callback http_ctrl close %d %d",event->ID & 0x0fffffff,event->Param1);
+		http_resp_error(http_ctrl, HTTP_ERROR_CLOSE);
 		return -1;
 	}
 	network_wait_event(http_ctrl->netc, NULL, 0, NULL);
@@ -561,7 +579,9 @@ static int l_http_request(lua_State *L) {
 	// mbedtls_debug_set_threshold(4);
 	luat_http_ctrl_t *http_ctrl = (luat_http_ctrl_t *)luat_heap_malloc(sizeof(luat_http_ctrl_t));
 	if (!http_ctrl){
-		goto error;
+		LLOGE("out of memory when malloc http_ctrl");
+		luat_pushcwait_error(L,HTTP_ERROR_CONNECT);
+		return 1;
 	}
 	memset(http_ctrl, 0, sizeof(luat_http_ctrl_t));
 
@@ -691,7 +711,7 @@ static int l_http_request(lua_State *L) {
 	http_ctrl->idp = luat_pushcwait(L);
     return 1;
 error:
-	http_resp_error(http_ctrl, -5);
+	http_resp_error(http_ctrl, HTTP_ERROR_CONNECT);
 	return 0;
 }
 

@@ -167,11 +167,9 @@ static int32_t l_http_callback(lua_State *L, void* ptr){
 }
 
 static void http_resp_error(luat_http_ctrl_t *http_ctrl, int error_code) {
-	if (http_ctrl->netc){
-		network_close(http_ctrl->netc, 0);
-	}
 	if (http_ctrl->close_state==0){
 		http_ctrl->close_state=1;
+		network_close(http_ctrl->netc, 0);
 		rtos_msg_t msg = {0};
 		msg.handler = l_http_callback;
 		msg.ptr = http_ctrl;
@@ -618,9 +616,10 @@ static int l_http_request(lua_State *L) {
 		goto error;
 	}
 
+
 	http_ctrl->netc = network_alloc_ctrl(adapter_index);
 	if (!http_ctrl->netc){
-		LLOGE("create fail");
+		LLOGE("netc create fail");
 		goto error;
 	}
 	network_init_ctrl(http_ctrl->netc, NULL, luat_lib_http_callback, http_ctrl);
@@ -699,20 +698,21 @@ static int l_http_request(lua_State *L) {
     }
 
 	http_ctrl->ip_addr.is_ipv6 = 0xff;
+	http_ctrl->idp = luat_pushcwait(L);
 
 	network_wait_link_up(http_ctrl->netc, 0);
 	if (ret == 0){
 		if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), http_ctrl->ip_addr.is_ipv6?NULL:&(http_ctrl->ip_addr), http_ctrl->remote_port, 0) < 0){
-        	// network_close(http_ctrl->netc, 0);
-        	goto error;
+        	http_resp_error(http_ctrl, HTTP_ERROR_CONNECT);
+			return 0;
     	}
 	}
-
-	http_ctrl->idp = luat_pushcwait(L);
+	
     return 1;
 error:
-	http_resp_error(http_ctrl, HTTP_ERROR_CONNECT);
-	return 0;
+	http_close(http_ctrl);
+	luat_pushcwait_error(L,HTTP_ERROR_CONNECT);
+	return 1;
 }
 
 #include "rotable2.h"

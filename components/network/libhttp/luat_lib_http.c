@@ -88,9 +88,6 @@ static int http_close(luat_http_ctrl_t *http_ctrl){
 	if (http_ctrl->resp_buff){
 		luat_heap_free(http_ctrl->resp_buff);
 	}
-	if (http_ctrl->resp_headers){
-		luat_heap_free(http_ctrl->resp_headers);
-	}
 	luat_heap_free(http_ctrl);
 	return 0;
 }
@@ -353,6 +350,12 @@ static int32_t luat_lib_http_callback(void *data, void *param){
 	int ret = 0;
 	// LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
 	// LLOGD("luat_lib_http_callback %d %d",event->ID & 0x0fffffff,event->Param1);
+	if (event->Param1){
+		LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
+		LLOGE("luat_lib_http_callback http_ctrl close %d %d",event->ID & 0x0fffffff,event->Param1);
+		http_resp_error(http_ctrl, HTTP_ERROR_CLOSE);
+		return -1;
+	}
 	if (event->ID == EV_NW_RESULT_LINK){
 		if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), http_ctrl->ip_addr.is_ipv6?NULL:&(http_ctrl->ip_addr), http_ctrl->remote_port, 0) < 0){
 			// network_close(http_ctrl->netc, 0);
@@ -407,50 +410,42 @@ static int32_t luat_lib_http_callback(void *data, void *param){
 		}
 		//------------------------------
 	}else if(event->ID == EV_NW_RESULT_EVENT){
-		if (event->Param1==0){
-			uint32_t total_len = 0;
-			uint32_t rx_len = 0;
-			int result = network_rx(http_ctrl->netc, NULL, 0, 0, NULL, NULL, &total_len);
-			// LLOGD("result:%d total_len:%d",result,total_len);
-			if (0 == result){
-				if (total_len>0){
-					if (0 == http_ctrl->resp_buff_len){
-						http_ctrl->resp_buff = luat_heap_malloc(total_len + 1);
-						http_ctrl->resp_buff[total_len] = 0x00;
-					}else{
-						http_ctrl->resp_buff = luat_heap_realloc(http_ctrl->resp_buff,http_ctrl->resp_buff_len+total_len+1);
-						http_ctrl->resp_buff[http_ctrl->resp_buff_len+total_len] = 0x00;
-					}
-next:
-					result = network_rx(http_ctrl->netc, http_ctrl->resp_buff+(http_ctrl->resp_buff_len), total_len, 0, NULL, NULL, &rx_len);
-					// LLOGD("result:%d rx_len:%d",result,rx_len);
-					if (result)
-						goto next;
-					if (rx_len == 0||result!=0) {
-						http_resp_error(http_ctrl, HTTP_ERROR_RX);
-						return -1;
-					}
-					http_ctrl->resp_buff_len += total_len;
-					// LLOGD("http_ctrl->resp_buff:%.*s len:%d",http_ctrl->resp_buff_len,http_ctrl->resp_buff,http_ctrl->resp_buff_len);
-					http_read_packet(http_ctrl);
+		uint32_t total_len = 0;
+		uint32_t rx_len = 0;
+		int result = network_rx(http_ctrl->netc, NULL, 0, 0, NULL, NULL, &total_len);
+		// LLOGD("result:%d total_len:%d",result,total_len);
+		if (0 == result){
+			if (total_len>0){
+				if (0 == http_ctrl->resp_buff_len){
+					http_ctrl->resp_buff = luat_heap_malloc(total_len + 1);
+					http_ctrl->resp_buff[total_len] = 0x00;
+				}else{
+					http_ctrl->resp_buff = luat_heap_realloc(http_ctrl->resp_buff,http_ctrl->resp_buff_len+total_len+1);
+					http_ctrl->resp_buff[http_ctrl->resp_buff_len+total_len] = 0x00;
 				}
-			}else{
-				http_resp_error(http_ctrl, HTTP_ERROR_RX);
-				return -1;
+next:
+				result = network_rx(http_ctrl->netc, http_ctrl->resp_buff+(http_ctrl->resp_buff_len), total_len, 0, NULL, NULL, &rx_len);
+				// LLOGD("result:%d rx_len:%d",result,rx_len);
+				if (result)
+					goto next;
+				if (rx_len == 0||result!=0) {
+					http_resp_error(http_ctrl, HTTP_ERROR_RX);
+					return -1;
+				}
+				http_ctrl->resp_buff_len += total_len;
+				// LLOGD("http_ctrl->resp_buff:%.*s len:%d",http_ctrl->resp_buff_len,http_ctrl->resp_buff,http_ctrl->resp_buff_len);
+				http_read_packet(http_ctrl);
 			}
-
+		}else{
+			http_resp_error(http_ctrl, HTTP_ERROR_RX);
+			return -1;
 		}
 	}else if(event->ID == EV_NW_RESULT_TX){
 
 	}else if(event->ID == EV_NW_RESULT_CLOSE){
 
 	}
-	if (event->Param1){
-		LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
-		LLOGE("luat_lib_http_callback http_ctrl close %d %d",event->ID & 0x0fffffff,event->Param1);
-		http_resp_error(http_ctrl, HTTP_ERROR_CLOSE);
-		return -1;
-	}
+
 	network_wait_event(http_ctrl->netc, NULL, 0, NULL);
     return 0;
 }

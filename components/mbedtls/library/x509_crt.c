@@ -105,7 +105,11 @@ const mbedtls_x509_crt_profile mbedtls_x509_crt_profile_default =
     MBEDTLS_X509_ID_FLAG( MBEDTLS_MD_SHA512 ),
     0xFFFFFFF, /* Any PK alg    */
     0xFFFFFFF, /* Any curve     */
+#if (defined __LUATOS__) || (defined __USER_CODE__)
+	1024,
+#else
     2048,
+#endif
 };
 
 /*

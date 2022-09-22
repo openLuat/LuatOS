@@ -1187,10 +1187,13 @@ static int ssl_write_client_hello( mbedtls_ssl_context *ssl )
                                       ssl->conf->min_minor_ver,
                                       ssl->conf->max_minor_ver ) != 0 )
             continue;
-
+#if (defined __LUATOS__) || (defined __USER_CODE__)
+        MBEDTLS_SSL_DEBUG_MSG( 3, ( "client hello, add ciphersuite: %04x (%s)",
+                                            (unsigned int)ciphersuites[i], ciphersuite_info->name ) );
+#else
         MBEDTLS_SSL_DEBUG_MSG( 3, ( "client hello, add ciphersuite: %#04x (%s)",
                                     (unsigned int)ciphersuites[i], ciphersuite_info->name ) );
-
+#endif
 #if defined(MBEDTLS_ECDH_C) || defined(MBEDTLS_ECDSA_C) || \
     defined(MBEDTLS_KEY_EXCHANGE_ECJPAKE_ENABLED)
         uses_ec |= mbedtls_ssl_ciphersuite_uses_ec( ciphersuite_info );

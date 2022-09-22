@@ -44,7 +44,11 @@
 #define inline __inline
 #endif
 
+#ifdef __SMALL_RAM___
+#define DEBUG_BUF_SIZE      96
+#else
 #define DEBUG_BUF_SIZE      512
+#endif
 
 static int debug_threshold = 0;
 
@@ -147,7 +151,9 @@ void mbedtls_debug_print_buf( const mbedtls_ssl_context *ssl, int level,
     {
         return;
     }
-
+#ifdef __SMALL_RAM___
+    return;
+#endif
     mbedtls_snprintf( str + idx, sizeof( str ) - idx, "dumping '%s' (%u bytes)\n",
               text, (unsigned int) len );
 
@@ -205,7 +211,9 @@ void mbedtls_debug_print_ecp( const mbedtls_ssl_context *ssl, int level,
     {
         return;
     }
-
+#ifdef __SMALL_RAM___
+    return;
+#endif
     mbedtls_snprintf( str, sizeof( str ), "%s(X)", text );
     mbedtls_debug_print_mpi( ssl, level, file, line, str, &X->X );
 
@@ -231,7 +239,9 @@ void mbedtls_debug_print_mpi( const mbedtls_ssl_context *ssl, int level,
     {
         return;
     }
-
+#ifdef __SMALL_RAM___
+    return;
+#endif
     bitlen = mbedtls_mpi_bitlen( X );
 
     mbedtls_snprintf( str, sizeof( str ), "value of '%s' (%u bits) is:\n",
@@ -280,7 +290,9 @@ static void debug_print_pk( const mbedtls_ssl_context *ssl, int level,
     size_t i;
     mbedtls_pk_debug_item items[MBEDTLS_PK_DEBUG_MAX_ITEMS];
     char name[16];
-
+#ifdef __SMALL_RAM___
+    return;
+#endif
     memset( items, 0, sizeof( items ) );
 
     if( mbedtls_pk_debug( pk, items ) != 0 )
@@ -351,11 +363,16 @@ void mbedtls_debug_print_crt( const mbedtls_ssl_context *ssl, int level,
     {
         return;
     }
-
+#ifdef __SMALL_RAM___
+    return;
+#endif
     while( crt != NULL )
     {
+#ifdef __SMALL_RAM___
+        char buf[4];
+#else
         char buf[1024];
-
+#endif
         mbedtls_snprintf( str, sizeof( str ), "%s #%d:\n", text, ++i );
         debug_send_line( ssl, level, file, line, str );
 

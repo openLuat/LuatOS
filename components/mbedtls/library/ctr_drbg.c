@@ -29,7 +29,9 @@
 #include "mbedtls/ctr_drbg.h"
 #include "mbedtls/platform_util.h"
 #include "mbedtls/error.h"
-
+#if (defined __LUATOS__) || (defined __USER_CODE__)
+#include "mbedtls/platform.h"
+#endif
 #include <string.h>
 
 #if defined(MBEDTLS_FS_IO)
@@ -125,8 +127,12 @@ void mbedtls_ctr_drbg_set_reseed_interval( mbedtls_ctr_drbg_context *ctx,
 static int block_cipher_df( unsigned char *output,
                             const unsigned char *data, size_t data_len )
 {
+#if (defined __LUATOS__) || (defined __USER_CODE__)
+	unsigned char *buf = NULL;
+#else
     unsigned char buf[MBEDTLS_CTR_DRBG_MAX_SEED_INPUT +
                       MBEDTLS_CTR_DRBG_BLOCKSIZE + 16];
+#endif
     unsigned char tmp[MBEDTLS_CTR_DRBG_SEEDLEN];
     unsigned char key[MBEDTLS_CTR_DRBG_KEYSIZE];
     unsigned char chain[MBEDTLS_CTR_DRBG_BLOCKSIZE];
@@ -139,9 +145,12 @@ static int block_cipher_df( unsigned char *output,
 
     if( data_len > MBEDTLS_CTR_DRBG_MAX_SEED_INPUT )
         return( MBEDTLS_ERR_CTR_DRBG_INPUT_TOO_BIG );
-
+#if (defined __LUATOS__) || (defined __USER_CODE__)
+    buf = mbedtls_calloc(MBEDTLS_CTR_DRBG_MAX_SEED_INPUT + MBEDTLS_CTR_DRBG_BLOCKSIZE + 16, 1);
+#endif
     memset( buf, 0, MBEDTLS_CTR_DRBG_MAX_SEED_INPUT +
             MBEDTLS_CTR_DRBG_BLOCKSIZE + 16 );
+
     mbedtls_aes_init( &aes_ctx );
 
     /*
@@ -227,7 +236,11 @@ exit:
     /*
     * tidy up the stack
     */
+#if (defined __LUATOS__) || (defined __USER_CODE__)
+    mbedtls_free(buf);
+#else
     mbedtls_platform_zeroize( buf, sizeof( buf ) );
+#endif
     mbedtls_platform_zeroize( tmp, sizeof( tmp ) );
     mbedtls_platform_zeroize( key, sizeof( key ) );
     mbedtls_platform_zeroize( chain, sizeof( chain ) );
@@ -363,7 +376,11 @@ static int mbedtls_ctr_drbg_reseed_internal( mbedtls_ctr_drbg_context *ctx,
                                              size_t len,
                                              size_t nonce_len )
 {
+#if (defined __LUATOS__) || (defined __USER_CODE__)
+	unsigned char *seed = NULL;
+#else
     unsigned char seed[MBEDTLS_CTR_DRBG_MAX_SEED_INPUT];
+#endif
     size_t seedlen = 0;
     int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
 
@@ -373,12 +390,17 @@ static int mbedtls_ctr_drbg_reseed_internal( mbedtls_ctr_drbg_context *ctx,
         return( MBEDTLS_ERR_CTR_DRBG_INPUT_TOO_BIG );
     if( len > MBEDTLS_CTR_DRBG_MAX_SEED_INPUT - ctx->entropy_len - nonce_len )
         return( MBEDTLS_ERR_CTR_DRBG_INPUT_TOO_BIG );
-
+#if (defined __LUATOS__) || (defined __USER_CODE__)
+    seed = mbedtls_calloc(MBEDTLS_CTR_DRBG_MAX_SEED_INPUT, 1);
+#endif
     memset( seed, 0, MBEDTLS_CTR_DRBG_MAX_SEED_INPUT );
 
     /* Gather entropy_len bytes of entropy to seed state. */
     if( 0 != ctx->f_entropy( ctx->p_entropy, seed, ctx->entropy_len ) )
     {
+#if (defined __LUATOS__) || (defined __USER_CODE__)
+    	mbedtls_free(seed);
+#endif
         return( MBEDTLS_ERR_CTR_DRBG_ENTROPY_SOURCE_FAILED );
     }
     seedlen += ctx->entropy_len;
@@ -388,6 +410,9 @@ static int mbedtls_ctr_drbg_reseed_internal( mbedtls_ctr_drbg_context *ctx,
     {
         if( 0 != ctx->f_entropy( ctx->p_entropy, seed + seedlen, nonce_len ) )
         {
+#if (defined __LUATOS__) || (defined __USER_CODE__)
+        	mbedtls_free(seed);
+#endif
             return( MBEDTLS_ERR_CTR_DRBG_ENTROPY_SOURCE_FAILED );
         }
         seedlen += nonce_len;
@@ -410,7 +435,11 @@ static int mbedtls_ctr_drbg_reseed_internal( mbedtls_ctr_drbg_context *ctx,
     ctx->reseed_counter = 1;
 
 exit:
+#if (defined __LUATOS__) || (defined __USER_CODE__)
+    mbedtls_free(seed);
+#else
     mbedtls_platform_zeroize( seed, sizeof( seed ) );
+#endif
     return( ret );
 }
 

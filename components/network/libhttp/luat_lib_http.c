@@ -38,7 +38,8 @@ typedef struct{
 	const char *url;
 	const char *uri;
 	const char *method;
-	const char *req_header;
+	Buffer_Struct req_head_buf;
+//	const char *req_header;
 	const char *req_body;
 	size_t req_body_len;
 	const char *dst;
@@ -76,9 +77,10 @@ static int http_close(luat_http_ctrl_t *http_ctrl){
 	if (http_ctrl->method){
 		luat_heap_free(http_ctrl->method);
 	}
-	if (http_ctrl->req_header){
-		luat_heap_free(http_ctrl->req_header);
-	}
+//	if (http_ctrl->req_header){
+//		luat_heap_free(http_ctrl->req_header);
+//	}
+	OS_DeInitBuffer(&http_ctrl->req_head_buf);
 	if (http_ctrl->req_body){
 		luat_heap_free(http_ctrl->req_body);
 	}
@@ -372,8 +374,11 @@ static int32_t luat_lib_http_callback(void *data, void *param){
 		snprintf_(http_ctrl->request_message, HTTP_REQUEST_BUF_LEN_MAX,  "Host: %s\r\n", http_ctrl->host);
 		http_send(http_ctrl, http_ctrl->request_message, strlen(http_ctrl->request_message));
 		// 发送自定义头部
-		if (http_ctrl->req_header){
-			http_send(http_ctrl, http_ctrl->req_header, strlen(http_ctrl->req_header));
+//		if (http_ctrl->req_header){
+//			http_send(http_ctrl, http_ctrl->req_header, strlen(http_ctrl->req_header));
+//		}
+		if (http_ctrl->req_head_buf.Data) {
+			http_send(http_ctrl, http_ctrl->req_head_buf.Data, http_ctrl->req_head_buf.Pos);
 		}
 		// 结束头部
 		http_send(http_ctrl, "\r\n", 2);
@@ -399,10 +404,11 @@ static int32_t luat_lib_http_callback(void *data, void *param){
 			luat_heap_free(http_ctrl->method);
 			http_ctrl->method = NULL;
 		}
-		if (http_ctrl->req_header){
-			luat_heap_free(http_ctrl->req_header);
-			http_ctrl->req_header = NULL;
-		}
+//		if (http_ctrl->req_header){
+//			luat_heap_free(http_ctrl->req_header);
+//			http_ctrl->req_header = NULL;
+//		}
+		OS_DeInitBuffer(&http_ctrl->req_head_buf);
 		if (http_ctrl->req_body){
 			luat_heap_free(http_ctrl->req_body);
 			http_ctrl->req_body = NULL;
@@ -453,18 +459,22 @@ next:
 static int http_add_header(luat_http_ctrl_t *http_ctrl, const char* name, const char* value){
 	// LLOGD("http_add_header name:%s value:%s",name,value);
 	// TODO 对value还需要进行urlencode
-	if (http_ctrl->req_header){
-		http_ctrl->req_header = luat_heap_realloc(http_ctrl->req_header, strlen(http_ctrl->req_header)+strlen(name)+strlen(value)+4);
-		strncat(http_ctrl->req_header, name, strlen(name));
-		strncat(http_ctrl->req_header, ":", 1);
-		strncat(http_ctrl->req_header, value, strlen(value));
-		strncat(http_ctrl->req_header, "\r\n", 2);
-	}else{
-		http_ctrl->req_header = luat_heap_malloc(strlen(name)+strlen(value)+4);
-		memset(http_ctrl->req_header, 0, strlen(name)+strlen(value)+1);
-		sprintf_(http_ctrl->req_header, "%s:%s\r\n", name,value);
-	}
+//	if (http_ctrl->req_header){
+//		http_ctrl->req_header = luat_heap_realloc(http_ctrl->req_header, strlen(http_ctrl->req_header)+strlen(name)+strlen(value)+4);
+//		strncat(http_ctrl->req_header, name, strlen(name));
+//		strncat(http_ctrl->req_header, ":", 1);
+//		strncat(http_ctrl->req_header, value, strlen(value));
+//		strncat(http_ctrl->req_header, "\r\n", 2);
+//	}else{
+//		http_ctrl->req_header = luat_heap_malloc(strlen(name)+strlen(value)+4);
+//		memset(http_ctrl->req_header, 0, strlen(name)+strlen(value)+4);
+//		sprintf_(http_ctrl->req_header, "%s:%s\r\n", name,value);
+//	}
 	// LLOGD("http_ctrl->req_header:%s",http_ctrl->req_header);
+	OS_BufferWrite(&http_ctrl->req_head_buf, name, strlen(name));
+	OS_BufferWrite(&http_ctrl->req_head_buf, ":", 1);
+	OS_BufferWrite(&http_ctrl->req_head_buf, value, strlen(value));
+	OS_BufferWrite(&http_ctrl->req_head_buf, "\r\n", 2);
 }
 
 static int http_set_url(luat_http_ctrl_t *http_ctrl) {
@@ -635,7 +645,7 @@ static int l_http_request(lua_State *L) {
 	memcpy(http_ctrl->url, url, len);
 
 	// LLOGD("http_ctrl->url:%s",http_ctrl->url);
-
+	OS_InitBuffer(&http_ctrl->req_head_buf, 4096);
 	if (lua_istable(L, 3)) {
 		lua_pushnil(L);
 		while (lua_next(L, 3) != 0) {

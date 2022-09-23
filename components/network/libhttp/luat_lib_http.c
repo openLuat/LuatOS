@@ -705,7 +705,7 @@ static int l_http_request(lua_State *L) {
 	http_ctrl->ip_addr.is_ipv6 = 0xff;
 	http_ctrl->idp = luat_pushcwait(L);
 
-	network_wait_link_up(http_ctrl->netc, 0);
+	ret = network_wait_link_up(http_ctrl->netc, 0);
 	if (ret == 0){
 		if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), http_ctrl->ip_addr.is_ipv6?NULL:&(http_ctrl->ip_addr), http_ctrl->remote_port, 0) < 0){
         	http_resp_error(http_ctrl, HTTP_ERROR_CONNECT);

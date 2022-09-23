@@ -15,7 +15,7 @@ if cdata then
     log.info("miniz", "cdata as hex", cdata:toHex())
 
     -- 解压, 得到原文
-    local udata = miniz.compress(cdata)
+    local udata = miniz.uncompress(cdata)
     log.info("miniz", "udata", udata)
 end
 */
@@ -80,7 +80,7 @@ if cdata then
     log.info("miniz", "before", #bigdata, "after", #cdata)
     log.info("miniz", "cdata as hex", cdata:toHex())
 
-    local udata = miniz.compress(cdata)
+    local udata = miniz.uncompress(cdata)
     log.info("miniz", "udata", udata)
 end
 */

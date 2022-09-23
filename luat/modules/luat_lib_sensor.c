@@ -168,11 +168,11 @@ static int32_t ds18b20_get_temperature(int pin, int32_t *val, int check_crc)
   data[0] = w1_read_byte(pin); /* LSB first */
   data[1] = w1_read_byte(pin);
 
-  if (data[0] == 0xFF || data[1] == 0xFF)
-  {
-    //LLOGD("ds18b20 bad data, skip");
-    return -3;
-  }
+  // if (data[0] == 0xFF || data[1] == 0xFF)
+  // {
+  //   //LLOGD("ds18b20 bad data, skip");
+  //   return -3;
+  // }
 
   // 9个字节都读出来,校验CRC
   if (check_crc)
@@ -207,7 +207,7 @@ static int32_t ds18b20_get_temperature(int pin, int32_t *val, int check_crc)
     tem <<= 8;
     tem += TL;
     tem = (int32_t)(tem * 0.0625 * 10 + 0.5);
-    *val = tem;
+    *val = -tem;
     return 0;
   }
   else

@@ -454,13 +454,13 @@ static int http_add_header(luat_http_ctrl_t *http_ctrl, const char* name, const 
 	// LLOGD("http_add_header name:%s value:%s",name,value);
 	// TODO 对value还需要进行urlencode
 	if (http_ctrl->req_header){
-		http_ctrl->req_header = luat_heap_realloc(http_ctrl->req_header, strlen(http_ctrl->req_header)+strlen(name)+strlen(value)+1);
+		http_ctrl->req_header = luat_heap_realloc(http_ctrl->req_header, strlen(http_ctrl->req_header)+strlen(name)+strlen(value)+4);
 		strncat(http_ctrl->req_header, name, strlen(name));
 		strncat(http_ctrl->req_header, ":", 1);
 		strncat(http_ctrl->req_header, value, strlen(value));
 		strncat(http_ctrl->req_header, "\r\n", 2);
 	}else{
-		http_ctrl->req_header = luat_heap_malloc(strlen(name)+strlen(value)+1);
+		http_ctrl->req_header = luat_heap_malloc(strlen(name)+strlen(value)+4);
 		memset(http_ctrl->req_header, 0, strlen(name)+strlen(value)+1);
 		sprintf_(http_ctrl->req_header, "%s:%s\r\n", name,value);
 	}

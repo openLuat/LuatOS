@@ -80,6 +80,9 @@ static int http_close(luat_http_ctrl_t *http_ctrl){
 //	if (http_ctrl->req_header){
 //		luat_heap_free(http_ctrl->req_header);
 //	}
+	if (http_ctrl->resp_headers){
+		luat_heap_free(http_ctrl->resp_headers);
+	}
 	OS_DeInitBuffer(&http_ctrl->req_head_buf);
 	if (http_ctrl->req_body){
 		luat_heap_free(http_ctrl->req_body);
@@ -660,7 +663,7 @@ static int l_http_request(lua_State *L) {
 		http_ctrl->req_body = luat_heap_malloc((http_ctrl->req_body_len) + 1);
 		memset(http_ctrl->req_body, 0, (http_ctrl->req_body_len) + 1);
 		memcpy(http_ctrl->req_body, body, (http_ctrl->req_body_len));
-		sprintf_(body_len, "%d",(http_ctrl->req_body_len));
+		snprintf_(body_len, 6,"%d",(http_ctrl->req_body_len));
 		http_add_header(http_ctrl,"Content-Length",body_len);
 	}
 	// else{

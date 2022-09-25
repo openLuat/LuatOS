@@ -18,8 +18,8 @@ sys.taskInit(function()
     while 1 do
         adc.open(0) -- 模块上的ADC0脚-PA1, 0~2.4v,不要超过范围使用!!!
         adc.open(1) -- 模块上的ADC1脚-PA4, 0~2.4v,不要超过范围使用!!!
-        adc.open(2) -- 模块上的ADC0脚-PA2, 0~2.4v,不要超过范围使用!!! 仅air103
-        adc.open(3) -- 模块上的ADC1脚-PA3, 0~2.4v,不要超过范围使用!!! 仅air103
+        adc.open(2) -- 模块上的ADC2脚-PA2, 0~2.4v,不要超过范围使用!!! 仅air103
+        adc.open(3) -- 模块上的ADC3脚-PA3, 0~2.4v,不要超过范围使用!!! 仅air103
         adc.open(10) -- CPU温度
         adc.open(11) -- VBAT电压,最新代码才支持
         sys.wait(500)

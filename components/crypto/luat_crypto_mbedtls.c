@@ -13,14 +13,6 @@
 #include "mbedtls/sha512.h"
 #include "mbedtls/md5.h"
 
-#ifdef ESP_PLATFORM
-#ifdef mbedtls_md5_starts
-#undef mbedtls_md5_starts
-#endif
-#include "md5_alt.h"
-#define mbedtls_md5_starts mbedtls_md5_starts_ret
-#endif
-
 static void add_pkcs_padding( unsigned char *output, size_t output_len,
         size_t data_len )
 {
@@ -191,9 +183,9 @@ int luat_crypto_md5_simple(const char* str, size_t str_size, void* out_ptr) {
     mbedtls_md5_context ctx;
     mbedtls_md5_init(&ctx);
 
-    mbedtls_md5_starts(&ctx);
-    mbedtls_md5_update(&ctx, (const unsigned char *)str, str_size);
-    mbedtls_md5_finish(&ctx, (unsigned char *)out_ptr);
+    mbedtls_md5_starts_ret(&ctx);
+    mbedtls_md5_update_ret(&ctx, (const unsigned char *)str, str_size);
+    mbedtls_md5_finish_ret(&ctx, (unsigned char *)out_ptr);
     mbedtls_md5_free(&ctx);
     return 0;
 }
@@ -207,9 +199,9 @@ int luat_crypto_sha1_simple(const char* str, size_t str_size, void* out_ptr) {
     mbedtls_sha1_context ctx;
     mbedtls_sha1_init(&ctx);
 
-    mbedtls_sha1_starts(&ctx);
-    mbedtls_sha1_update(&ctx, (const unsigned char *)str, str_size);
-    mbedtls_sha1_finish(&ctx, (unsigned char *)out_ptr);
+    mbedtls_sha1_starts_ret(&ctx);
+    mbedtls_sha1_update_ret(&ctx, (const unsigned char *)str, str_size);
+    mbedtls_sha1_finish_ret(&ctx, (unsigned char *)out_ptr);
     mbedtls_sha1_free(&ctx);
     return 0;
 }
@@ -223,9 +215,9 @@ int luat_crypto_sha256_simple(const char* str, size_t str_size, void* out_ptr) {
     mbedtls_sha256_context ctx;
     mbedtls_sha256_init(&ctx);
 
-    mbedtls_sha256_starts(&ctx, 0);
-    mbedtls_sha256_update(&ctx, (const unsigned char *)str, str_size);
-    mbedtls_sha256_finish(&ctx, (unsigned char *)out_ptr);
+    mbedtls_sha256_starts_ret(&ctx, 0);
+    mbedtls_sha256_update_ret(&ctx, (const unsigned char *)str, str_size);
+    mbedtls_sha256_finish_ret(&ctx, (unsigned char *)out_ptr);
     mbedtls_sha256_free(&ctx);
     return 0;
 }
@@ -234,9 +226,9 @@ int luat_crypto_sha512_simple(const char* str, size_t str_size, void* out_ptr) {
     mbedtls_sha512_context ctx;
     mbedtls_sha512_init(&ctx);
 
-    mbedtls_sha512_starts(&ctx, 0);
-    mbedtls_sha512_update(&ctx, (const unsigned char *)str, str_size);
-    mbedtls_sha512_finish(&ctx, (unsigned char *)out_ptr);
+    mbedtls_sha512_starts_ret(&ctx, 0);
+    mbedtls_sha512_update_ret(&ctx, (const unsigned char *)str, str_size);
+    mbedtls_sha512_finish_ret(&ctx, (unsigned char *)out_ptr);
     mbedtls_sha512_free(&ctx);
     return 0;
 }
@@ -292,15 +284,15 @@ void luat_crypto_HmacSha1(const unsigned char *input, int ilen, unsigned char *o
     }
     mbedtls_sha1_init(&ctx);
 
-    mbedtls_sha1_starts(&ctx);
-    mbedtls_sha1_update(&ctx, k_ipad, ALI_SHA1_KEY_IOPAD_SIZE);
-    mbedtls_sha1_update(&ctx, input, ilen);
-    mbedtls_sha1_finish(&ctx, tempbuf);
+    mbedtls_sha1_starts_ret(&ctx);
+    mbedtls_sha1_update_ret(&ctx, k_ipad, ALI_SHA1_KEY_IOPAD_SIZE);
+    mbedtls_sha1_update_ret(&ctx, input, ilen);
+    mbedtls_sha1_finish_ret(&ctx, tempbuf);
 
-    mbedtls_sha1_starts(&ctx);
-    mbedtls_sha1_update(&ctx, k_opad, ALI_SHA1_KEY_IOPAD_SIZE);
-    mbedtls_sha1_update(&ctx, tempbuf, ALI_SHA1_DIGEST_SIZE);
-    mbedtls_sha1_finish(&ctx, tempbuf);
+    mbedtls_sha1_starts_ret(&ctx);
+    mbedtls_sha1_update_ret(&ctx, k_opad, ALI_SHA1_KEY_IOPAD_SIZE);
+    mbedtls_sha1_update_ret(&ctx, tempbuf, ALI_SHA1_DIGEST_SIZE);
+    mbedtls_sha1_finish_ret(&ctx, tempbuf);
 
     memcpy(output, tempbuf, ALI_SHA1_DIGEST_SIZE);
 
@@ -338,15 +330,15 @@ void luat_crypto_HmacSha256(const unsigned char *input, int ilen, unsigned char 
     }
     mbedtls_sha256_init(&ctx);
 
-    mbedtls_sha256_starts(&ctx, 0);
-    mbedtls_sha256_update(&ctx, k_ipad, ALI_SHA256_KEY_IOPAD_SIZE);
-    mbedtls_sha256_update(&ctx, input, ilen);
-    mbedtls_sha256_finish(&ctx, output);
+    mbedtls_sha256_starts_ret(&ctx, 0);
+    mbedtls_sha256_update_ret(&ctx, k_ipad, ALI_SHA256_KEY_IOPAD_SIZE);
+    mbedtls_sha256_update_ret(&ctx, input, ilen);
+    mbedtls_sha256_finish_ret(&ctx, output);
 
-    mbedtls_sha256_starts(&ctx, 0);
-    mbedtls_sha256_update(&ctx, k_opad, ALI_SHA256_KEY_IOPAD_SIZE);
-    mbedtls_sha256_update(&ctx, output, ALI_SHA256_DIGEST_SIZE);
-    mbedtls_sha256_finish(&ctx, output);
+    mbedtls_sha256_starts_ret(&ctx, 0);
+    mbedtls_sha256_update_ret(&ctx, k_opad, ALI_SHA256_KEY_IOPAD_SIZE);
+    mbedtls_sha256_update_ret(&ctx, output, ALI_SHA256_DIGEST_SIZE);
+    mbedtls_sha256_finish_ret(&ctx, output);
 
     mbedtls_sha256_free(&ctx);
 }
@@ -380,15 +372,15 @@ void luat_crypto_HmacSha512(const unsigned char *input, int ilen, unsigned char 
     }
     mbedtls_sha512_init(&ctx);
 
-    mbedtls_sha512_starts(&ctx, 0);
-    mbedtls_sha512_update(&ctx, k_ipad, ALI_SHA512_KEY_IOPAD_SIZE);
-    mbedtls_sha512_update(&ctx, input, ilen);
-    mbedtls_sha512_finish(&ctx, output);
+    mbedtls_sha512_starts_ret(&ctx, 0);
+    mbedtls_sha512_update_ret(&ctx, k_ipad, ALI_SHA512_KEY_IOPAD_SIZE);
+    mbedtls_sha512_update_ret(&ctx, input, ilen);
+    mbedtls_sha512_finish_ret(&ctx, output);
 
-    mbedtls_sha512_starts(&ctx, 0);
-    mbedtls_sha512_update(&ctx, k_opad, ALI_SHA512_KEY_IOPAD_SIZE);
-    mbedtls_sha512_update(&ctx, output, ALI_SHA512_DIGEST_SIZE);
-    mbedtls_sha512_finish(&ctx, output);
+    mbedtls_sha512_starts_ret(&ctx, 0);
+    mbedtls_sha512_update_ret(&ctx, k_opad, ALI_SHA512_KEY_IOPAD_SIZE);
+    mbedtls_sha512_update_ret(&ctx, output, ALI_SHA512_DIGEST_SIZE);
+    mbedtls_sha512_finish_ret(&ctx, output);
 
     mbedtls_sha512_free(&ctx);
 }
@@ -415,15 +407,15 @@ void luat_crypto_HmacMd5(const unsigned char *input, int ilen, unsigned char *ou
     }
     mbedtls_md5_init(&ctx);
 
-    mbedtls_md5_starts(&ctx);
-    mbedtls_md5_update(&ctx, k_ipad, ALI_MD5_KEY_IOPAD_SIZE);
-    mbedtls_md5_update(&ctx, input, ilen);
-    mbedtls_md5_finish(&ctx, tempbuf);
+    mbedtls_md5_starts_ret(&ctx);
+    mbedtls_md5_update_ret(&ctx, k_ipad, ALI_MD5_KEY_IOPAD_SIZE);
+    mbedtls_md5_update_ret(&ctx, input, ilen);
+    mbedtls_md5_finish_ret(&ctx, tempbuf);
 
-    mbedtls_md5_starts(&ctx);
-    mbedtls_md5_update(&ctx, k_opad, ALI_MD5_KEY_IOPAD_SIZE);
-    mbedtls_md5_update(&ctx, tempbuf, ALI_MD5_DIGEST_SIZE);
-    mbedtls_md5_finish(&ctx, tempbuf);
+    mbedtls_md5_starts_ret(&ctx);
+    mbedtls_md5_update_ret(&ctx, k_opad, ALI_MD5_KEY_IOPAD_SIZE);
+    mbedtls_md5_update_ret(&ctx, tempbuf, ALI_MD5_DIGEST_SIZE);
+    mbedtls_md5_finish_ret(&ctx, tempbuf);
 
     memcpy(output, tempbuf, ALI_MD5_DIGEST_SIZE);
     mbedtls_md5_free(&ctx);

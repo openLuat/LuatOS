@@ -13,6 +13,28 @@
 #include "mbedtls/sha512.h"
 #include "mbedtls/md5.h"
 
+#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+
+#define mbedtls_md5_starts_ret mbedtls_md5_starts
+#define mbedtls_md5_update_ret mbedtls_md5_update
+#define mbedtls_md5_finish_ret mbedtls_md5_finish
+
+#define mbedtls_sha1_starts_ret mbedtls_sha1_starts
+#define mbedtls_sha1_update_ret mbedtls_sha1_update
+#define mbedtls_sha1_finish_ret mbedtls_sha1_finish
+
+
+#define mbedtls_sha256_starts_ret mbedtls_sha256_starts
+#define mbedtls_sha256_update_ret mbedtls_sha256_update
+#define mbedtls_sha256_finish_ret mbedtls_sha256_finish
+
+
+#define mbedtls_sha512_starts_ret mbedtls_sha512_starts
+#define mbedtls_sha512_update_ret mbedtls_sha512_update
+#define mbedtls_sha512_finish_ret mbedtls_sha512_finish
+
+#endif
+
 static void add_pkcs_padding( unsigned char *output, size_t output_len,
         size_t data_len )
 {
@@ -120,7 +142,13 @@ int l_crypto_cipher_xxx(lua_State *L, uint8_t flags) {
     // 开始注入数据
     block_size = mbedtls_cipher_get_block_size(&ctx);
 
-    if ((ctx.cipher_info->mode == MBEDTLS_MODE_ECB) && !strcmp("PKCS7", pad) && (flags & 0x1)) {
+    #if MBEDTLS_VERSION_NUMBER >= 0x03000000
+    int cipher_mode = mbedtls_cipher_info_get_mode(_cipher);
+    #else
+    int cipher_mode = _cipher->mode;
+    #endif
+
+    if ((cipher_mode == MBEDTLS_MODE_ECB) && !strcmp("PKCS7", pad) && (flags & 0x1)) {
     	uint32_t new_len  = ((str_size / block_size) + 1) * block_size;
     	temp = luat_heap_malloc(new_len);
     	memcpy(temp, str, str_size);
@@ -134,7 +162,7 @@ int l_crypto_cipher_xxx(lua_State *L, uint8_t flags) {
             input_size = block_size;
             ret = mbedtls_cipher_update(&ctx, (const unsigned char *)(str+i), input_size, output, &output_size);
         }
-        else if ((ctx.cipher_info->mode == MBEDTLS_MODE_ECB) && !strcmp("PKCS7", pad) && !flags)
+        else if ((cipher_mode == MBEDTLS_MODE_ECB) && !strcmp("PKCS7", pad) && !flags)
         {
         	ret = mbedtls_cipher_update(&ctx, (const unsigned char *)(str+i), input_size, output, &output_size);
         	get_pkcs_padding(output, output_size, &output_size);
@@ -431,7 +459,11 @@ int luat_crypto_cipher_list(const char** list, size_t* len) {
         if (cipher[i] == 0)
             break;
         count ++;
+#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+        list[i] = mbedtls_cipher_info_get_name(mbedtls_cipher_info_from_type(cipher[i]));
+#else
         list[i] = mbedtls_cipher_info_from_type(cipher[i])->name;
+#endif
     }
     *len = count;
     return 0;

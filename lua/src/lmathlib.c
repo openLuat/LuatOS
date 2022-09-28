@@ -246,7 +246,13 @@ static int math_max (lua_State *L) {
 */
 static int math_random (lua_State *L) {
   lua_Integer low, up;
+#ifdef LUAT_USE_CRYPTO
+  extern int luat_crypto_trng(char* buff, size_t len);
+  luat_crypto_trng((char*)&low, 4);
+  double r = (double)(low & 0x7FFFFFFF) * (1.0 / ((double)L_RANDMAX + 1.0));
+#else
   double r = (double)l_rand() * (1.0 / ((double)L_RANDMAX + 1.0));
+#endif
   switch (lua_gettop(L)) {  /* check number of arguments */
     case 0: {  /* no arguments */
       lua_pushnumber(L, (lua_Number)r);  /* Number between 0 and 1 */
@@ -275,8 +281,11 @@ static int math_random (lua_State *L) {
 
 
 static int math_randomseed (lua_State *L) {
+#ifdef LUAT_USE_CRYPTO
+#else
   l_srand((unsigned int)(lua_Integer)luaL_checknumber(L, 1));
   (void)l_rand(); /* discard first value to avoid undesirable correlations */
+#endif
   return 0;
 }
 

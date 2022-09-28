@@ -142,6 +142,23 @@ static void luat_bin_exec_rollback(void) {
 #include "luat_crypto.h"
 #include "luat_md5.h"
 
+#ifdef LUAT_USE_CRYPTO
+#include "mbedtls/md5.h"
+#undef luat_md5_init
+#undef luat_md5_update
+#undef luat_md5_finalize
+
+#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+#define luat_md5_init mbedtls_md5_init
+#define luat_md5_update mbedtls_md5_update
+#define luat_md5_finalize mbedtls_md5_finish
+#else
+#define luat_md5_init mbedtls_md5_init
+#define luat_md5_update mbedtls_md5_update_ret
+#define luat_md5_finalize mbedtls_md5_finish_ret
+#endif
+#endif
+
 void luat_str_fromhex(char* str, size_t len, char* buff);
 void luat_str_tohex(char* str, size_t len, char* buff);
 
@@ -149,7 +166,11 @@ void luat_str_tohex(char* str, size_t len, char* buff);
 typedef struct ota_md5
 {
     uint8_t buff[OTA_CHECK_BUFF_SIZE];
+    #ifdef LUAT_USE_CRYPTO
+    mbedtls_md5_context context;
+    #else
     struct md5_context context;
+    #endif
     struct md5_digest digest;
 }ota_md5_t;
 
@@ -179,6 +200,7 @@ int luat_ota_checkfile(const char* path) {
     int remain = binsize - 16;
 
     luat_md5_init(&ota->context);
+
     while (remain > 0) {
         if (remain > OTA_CHECK_BUFF_SIZE) {
             len = luat_fs_fread(ota->buff, OTA_CHECK_BUFF_SIZE, 1, fd);
@@ -201,6 +223,9 @@ int luat_ota_checkfile(const char* path) {
         luat_md5_update(&ota->context, ota->buff, len);
     }
     luat_md5_finalize(&ota->context, &ota->digest);
+    #ifdef LUAT_USE_CRYPTO
+    mbedtls_md5_free(&ota->context);
+    #endif
     // 应该还有16字节的md5
     //memset(ota->buff, 0, OTA_CHECK_BUFF_SIZE);
     luat_fs_fread(ota->buff, 16, 1, fd);

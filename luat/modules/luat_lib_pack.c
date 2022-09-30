@@ -140,7 +140,7 @@ static int l_unpack(lua_State *L)
 {
  size_t len;
  const char *s=luaL_checklstring(L,1,&len);
- const char *f=luaL_checkstring(L,2);
+ const unsigned char *f= (const unsigned char*)luaL_checkstring(L,2);
  int i=luaL_optnumber(L,3,1)-1;
  int n=0;
  int swap=0;
@@ -260,7 +260,7 @@ log.info("data", data, data:toHex())
 static int l_pack(lua_State *L)
 {
  int i=2;
- const char *f=luaL_checkstring(L,1);
+ const unsigned char *f=(const unsigned char*)luaL_checkstring(L,1);
  int swap=0;
  luaL_Buffer b;
  luaL_buffinit(L,&b);

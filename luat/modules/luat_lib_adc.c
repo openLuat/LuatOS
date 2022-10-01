@@ -15,11 +15,12 @@
 @int 通道id,与具体设备有关,通常从0开始
 @return boolean 打开结果
 @usage
--- 打开adc通道2,并读取
-if adc.open(2) then
-    log.info("adc", adc.read(2))
+-- 打开adc通道4,并读取
+if adc.open(4) then
+    log.info("adc", adc.read(4)) -- 返回值有2个, 原始值和计算值,通常只需要后者
+    log.info("adc", adc.get(4))  -- 返回值有1个, 仅计算值
 end
-adc.close(2)
+adc.close(4) -- 若需要持续读取, 则不需要close, 功耗会高一点.
  */
 static int l_adc_open(lua_State *L) {
     if (luat_adc_open(luaL_checkinteger(L, 1), NULL) == 0) {
@@ -75,6 +76,31 @@ static int l_adc_read(lua_State *L) {
 }
 
 /**
+获取adc计算值
+@api adc.get(id)
+@int 通道id,与具体设备有关,通常从0开始
+@return int 单位通常是mV, 部分通道会返回温度值,单位千分之一摄氏度. 若读取失败,会返回-1
+@usage
+-- 本API 在 2022.10.01后编译的固件可用
+-- 打开adc通道2,并读取
+if adc.open(2) then
+    log.info("adc", adc.get(2))
+end
+adc.close(2) -- 按需关闭
+ */
+static int l_adc_get(lua_State *L) {
+    int val = 0xFF;
+    int val2 = 0xFF;
+    if (luat_adc_read(luaL_checkinteger(L, 1), &val, &val2) == 0) {
+        lua_pushinteger(L, val2);
+    }
+    else {
+        lua_pushinteger(L, -1);
+    }
+    return 1;
+}
+
+/**
 关闭adc通道
 @api adc.close(id)
 @int 通道id,与具体设备有关,通常从0开始
@@ -93,15 +119,16 @@ static int l_adc_close(lua_State *L) {
 #include "rotable2.h"
 static const rotable_Reg_t reg_adc[] =
 {
-    { "open" ,       ROREG_FUNC(l_adc_open)},
+    { "open" ,           ROREG_FUNC(l_adc_open)},
 	{ "setRange" ,       ROREG_FUNC(l_adc_set_range)},
-    { "read" ,       ROREG_FUNC(l_adc_read)},
-    { "close" ,      ROREG_FUNC(l_adc_close)},
+    { "read" ,           ROREG_FUNC(l_adc_read)},
+    { "get" ,            ROREG_FUNC(l_adc_get)},
+    { "close" ,          ROREG_FUNC(l_adc_close)},
 	//@const ADC_RANGE_3_6 number air105的ADC分压电阻开启，范围0~3.76V
-	{ "ADC_RANGE_3_6", ROREG_INT(1)},
+	{ "ADC_RANGE_3_6",   ROREG_INT(1)},
 	//@const ADC_RANGE_1_8 number air105的ADC分压电阻关闭，范围0~1.88V
-	{ "ADC_RANGE_1_8", ROREG_INT(0)},
-	{ NULL,          ROREG_INT(0) }
+	{ "ADC_RANGE_1_8",   ROREG_INT(0)},
+	{ NULL,              ROREG_INT(0) }
 };
 
 LUAMOD_API int luaopen_adc( lua_State *L ) {

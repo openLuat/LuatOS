@@ -219,12 +219,14 @@ static int l_audio_play_wait_end(lua_State *L) {
 @int 音频通道
 @int PA控制IO
 @int PA打开时的电平
+@int 在DAC启动后插入的冗余时间，单位100ms
+@int 在DAC启动后，延迟多长时间打开PA，单位1ms
 @return 无
 @usage
 audio.config(0, pin.PC0, 1)	--PA控制脚是PC0，高电平打开
 */
 static int l_audio_config(lua_State *L) {
-    luat_audio_config_pa(luaL_checkinteger(L, 1), luaL_optinteger(L, 2, 255), luaL_optinteger(L, 3, 1));
+    luat_audio_config_pa(luaL_checkinteger(L, 1), luaL_optinteger(L, 2, 255), luaL_optinteger(L, 3, 1), luaL_optinteger(L, 3, 5), luaL_optinteger(L, 3, 200));
     return 0;
 }
 

@@ -567,7 +567,7 @@ static bufsize pool_len = 0;          /* 0: no bpool calls have been made
    bufsize, defined in a way that the compiler will accept. */
 
 #define ESent   ((bufsize) (-(((1L << (sizeof(bufsize) * 8 - 2)) - 1) * 2) - 2))
-#define assert(x)
+#define _assert_(x)
 /*  BGET  --  Allocate a buffer.  */
 
 void *bget(bufsize requested_size)
@@ -582,7 +582,7 @@ void *bget(bufsize requested_size)
     int compactseq = 0;
 #endif
 
-    assert(size >= 0);
+    _assert_(size >= 0);
     if (!size)
     {
     	return NULL;
@@ -645,7 +645,7 @@ void *bget(bufsize requested_size)
 
                     ba = BH(((char *) b) + (b->bh.bsize - size));
                     bn = BH(((char *) ba) + size);
-                    assert(bn->prevfree == b->bh.bsize);
+                    _assert_(bn->prevfree == b->bh.bsize);
                     /* Subtract size from length of free block. */
                     b->bh.bsize -= size;
                     /* Link allocated buffer to the previous free buffer. */
@@ -669,13 +669,13 @@ void *bget(bufsize requested_size)
                     struct bhead *ba;
 
                     ba = BH(((char *) b) + b->bh.bsize);
-                    assert(ba->prevfree == b->bh.bsize);
+                    _assert_(ba->prevfree == b->bh.bsize);
 
                     /* The buffer isn't big enough to split.  Give  the  whole
                        shebang to the caller and remove it from the free list. */
 
-                    assert(b->ql.blink->ql.flink == b);
-                    assert(b->ql.flink->ql.blink == b);
+                    _assert_(b->ql.blink->ql.flink == b);
+                    _assert_(b->ql.flink->ql.blink == b);
                     b->ql.blink->ql.flink = b->ql.flink;
                     b->ql.flink->ql.blink = b->ql.blink;
 
@@ -785,7 +785,7 @@ void *bgetz(bufsize size)
         } else {
             rsize -= sizeof(struct bhead);
         }
-        assert(rsize >= size);
+        _assert_(rsize >= size);
         memset(buf, 0, (MemSize) rsize);
     }
     return ((void *) buf);
@@ -820,7 +820,7 @@ void *bgetr(void *buf, bufsize size)
     } else
 #endif
         osize -= sizeof(struct bhead);
-    assert(osize > 0);
+    _assert_(osize > 0);
     V memcpy((char *) nbuf, (char *) buf, /* Copy the data */
              (MemSize) ((size < osize) ? size : osize));
     brel(buf);
@@ -837,7 +837,7 @@ void brel(void *buf)
 #ifdef BufStats
     numrel++;                         /* Increment number of brel() calls */
 #endif
-    assert(buf != NULL);
+    _assert_(buf != NULL);
     if (!buf)
     {
     	return;
@@ -847,17 +847,17 @@ void brel(void *buf)
         struct bdhead *bdh;
 
         bdh = BDH(((char *) buf) - sizeof(struct bdhead));
-        assert(b->bh.prevfree == 0);
+        _assert_(b->bh.prevfree == 0);
 #ifdef BufStats
         totalloc -= bdh->tsize;
-        assert(totalloc >= 0);
+        _assert_(totalloc >= 0);
         numdrel++;                    /* Number of direct releases */
 #endif /* BufStats */
 #ifdef FreeWipe
         V memset((char *) buf, 0x55,
                  (MemSize) (bdh->tsize - sizeof(struct bdhead)));
 #endif /* FreeWipe */
-        assert(relfcn != NULL);
+        _assert_(relfcn != NULL);
         (*relfcn)((void *) bdh);      /* Release it directly. */
         return;
     }
@@ -869,16 +869,16 @@ void brel(void *buf)
     if (b->bh.bsize >= 0) {
         bn = NULL;
     }
-    assert(b->bh.bsize < 0);
+    _assert_(b->bh.bsize < 0);
 
     /*  Back pointer in next buffer must be zero, indicating the
         same thing: */
 
-    assert(BH((char *) b - b->bh.bsize)->prevfree == 0);
+    _assert_(BH((char *) b - b->bh.bsize)->prevfree == 0);
 
 #ifdef BufStats
     totalloc += b->bh.bsize;
-    assert(totalloc >= 0);
+    _assert_(totalloc >= 0);
 #endif
 
     /* If the back link is nonzero, the previous buffer is free.  */
@@ -894,7 +894,7 @@ void brel(void *buf)
         register bufsize size = b->bh.bsize;
 
         /* Make the previous buffer the one we're working on. */
-        assert(BH((char *) b - b->bh.prevfree)->bsize == b->bh.prevfree);
+        _assert_(BH((char *) b - b->bh.prevfree)->bsize == b->bh.prevfree);
         b = BFH(((char *) b) - b->bh.prevfree);
         b->bh.bsize -= size;
     } else {
@@ -902,8 +902,8 @@ void brel(void *buf)
         /* The previous buffer isn't allocated.  Insert this buffer
            on the free list as an isolated free block. */
 
-        assert(freelist.ql.blink->ql.flink == &freelist);
-        assert(freelist.ql.flink->ql.blink == &freelist);
+        _assert_(freelist.ql.blink->ql.flink == &freelist);
+        _assert_(freelist.ql.flink->ql.blink == &freelist);
         b->ql.flink = &freelist;
         b->ql.blink = freelist.ql.blink;
         freelist.ql.blink = b;
@@ -922,9 +922,9 @@ void brel(void *buf)
         /* The buffer is free.  Remove it from the free list and add
            its size to that of our buffer. */
 
-        assert(BH((char *) bn + bn->bh.bsize)->prevfree == bn->bh.bsize);
-        assert(bn->ql.blink->ql.flink == bn);
-        assert(bn->ql.flink->ql.blink == bn);
+        _assert_(BH((char *) bn + bn->bh.bsize)->prevfree == bn->bh.bsize);
+        _assert_(bn->ql.blink->ql.flink == bn);
+        _assert_(bn->ql.flink->ql.blink == bn);
         bn->ql.blink->ql.flink = bn->ql.flink;
         bn->ql.flink->ql.blink = bn->ql.blink;
         b->bh.bsize += bn->bh.bsize;
@@ -942,7 +942,7 @@ void brel(void *buf)
     V memset(((char *) b) + sizeof(struct bfhead), 0x55,
             (MemSize) (b->bh.bsize - sizeof(struct bfhead)));
 #endif
-    assert(bn->bh.bsize < 0);
+    _assert_(bn->bh.bsize < 0);
 
     /* The next buffer is allocated.  Set the backpointer in it  to  point
        to this buffer; the previous free buffer in memory. */
@@ -959,9 +959,9 @@ void brel(void *buf)
     if (relfcn != NULL &&
         ((bufsize) b->bh.bsize) == (pool_len - sizeof(struct bhead))) {
 
-        assert(b->bh.prevfree == 0);
-        assert(BH((char *) b + b->bh.bsize)->bsize == ESent);
-        assert(BH((char *) b + b->bh.bsize)->prevfree == b->bh.bsize);
+        _assert_(b->bh.prevfree == 0);
+        _assert_(BH((char *) b + b->bh.bsize)->bsize == ESent);
+        _assert_(BH((char *) b + b->bh.bsize)->prevfree == b->bh.bsize);
         /*  Unlink the buffer from the free list  */
         b->ql.blink->ql.flink = b->ql.flink;
         b->ql.flink->ql.blink = b->ql.blink;
@@ -970,7 +970,7 @@ void brel(void *buf)
 #ifdef BufStats
         numprel++;                    /* Nr of expansion block releases */
         numpblk--;                    /* Total number of blocks */
-        assert(numpblk == numpget - numprel);
+        _assert_(numpblk == numpget - numprel);
 #endif /* BufStats */
     }
 #endif /* BECtl */
@@ -1008,7 +1008,7 @@ void bpool(void *buf, bufsize len)
 #ifdef BufStats
     numpget++;                        /* Number of block acquisitions */
     numpblk++;                        /* Number of blocks total */
-    assert(numpblk == numpget - numprel);
+    _assert_(numpblk == numpget - numprel);
 #endif /* BufStats */
 #endif /* BECtl */
 
@@ -1016,7 +1016,7 @@ void bpool(void *buf, bufsize len)
        it  had  better  not  be  (much) larger than the largest buffer
        whose size we can store in bhead.bsize. */
 
-    assert(len - sizeof(struct bhead) <= -((bufsize) ESent + 1));
+    _assert_(len - sizeof(struct bhead) <= -((bufsize) ESent + 1));
 
     /* Clear  the  backpointer at  the start of the block to indicate that
        there  is  no  free  block  prior  to  this   one.    That   blocks
@@ -1026,8 +1026,8 @@ void bpool(void *buf, bufsize len)
 
     /* Chain the new block to the free list. */
 
-    assert(freelist.ql.blink->ql.flink == &freelist);
-    assert(freelist.ql.flink->ql.blink == &freelist);
+    _assert_(freelist.ql.blink->ql.flink == &freelist);
+    _assert_(freelist.ql.flink->ql.blink == &freelist);
     b->ql.flink = &freelist;
     b->ql.blink = freelist.ql.blink;
     freelist.ql.blink = b;
@@ -1050,7 +1050,7 @@ void bpool(void *buf, bufsize len)
     bn = BH(((char *) b) + len);
     bn->prevfree = (bufsize) len;
     /* Definition of ESent assumes two's complement! */
-    assert((~0) == -1);
+    _assert_((~0) == -1);
     bn->bsize = ESent;
 }
 
@@ -1068,7 +1068,7 @@ void bstats(bufsize *curalloc, bufsize *totfree, bufsize *maxfree, unsigned long
     *totfree = 0;
     *maxfree = -1;
     while (b != &freelist) {
-        assert(b->bh.bsize > 0);
+        _assert_(b->bh.bsize > 0);
         *totfree += b->bh.bsize;
         if (b->bh.bsize > *maxfree) {
             *maxfree = b->bh.bsize;
@@ -1111,7 +1111,7 @@ void bufdump(buf)
     bufsize bdlen;
 
     b = BFH(((char *) buf) - sizeof(struct bhead));
-    assert(b->bh.bsize != 0);
+    _assert_(b->bh.bsize != 0);
     if (b->bh.bsize < 0) {
         bdump = (unsigned char *) buf;
         bdlen = (-b->bh.bsize) - sizeof(struct bhead);
@@ -1179,7 +1179,7 @@ void bpoold(void *buf, int dumpalloc, int dumpfree)
         } else {
             char *lerr = "";
 
-            assert(bs > 0);
+            _assert_(bs > 0);
             if ((b->ql.blink->ql.flink != b) ||
                 (b->ql.flink->ql.blink != b)) {
                 lerr = "  (Bad free list links)";
@@ -1222,7 +1222,7 @@ int bpoolv(void *buf)
         } else {
             char *lerr = "";
 
-            assert(bs > 0);
+            _assert_(bs > 0);
             if (bs <= 0) {
                 return 0;
             }
@@ -1230,7 +1230,7 @@ int bpoolv(void *buf)
                 (b->ql.flink->ql.blink != b)) {
                 V printf("Free block: size %6ld bytes.  (Bad free list links)\n",
                      (unsigned long) bs);
-                assert(0);
+                _assert_(0);
                 return 0;
             }
 #ifdef FreeWipe
@@ -1241,7 +1241,7 @@ int bpoolv(void *buf)
                 V printf(
                     "(Contents of above free block have been overstored.)\n");
                 bufdump((void *) (((char *) b) + sizeof(struct bhead)));
-                assert(0);
+                _assert_(0);
                 return 0;
             }
 #endif
@@ -1477,11 +1477,11 @@ int main()
 #ifdef BECtl
     bectl(bcompact, bexpand, bshrink, (bufsize) ExpIncr);
     bp = malloc(ExpIncr);
-    assert(bp != NULL);
+    _assert_(bp != NULL);
     bpool((void *) bp, (bufsize) ExpIncr);
 #else
     bp = malloc(PoolSize);
-    assert(bp != NULL);
+    _assert_(bp != NULL);
     bpool((void *) bp, (bufsize) PoolSize);
 #endif
 
@@ -1493,7 +1493,7 @@ int main()
         char *cb;
         bufsize bs = pow(x, (double) (rand() & (ExpIncr - 1)));
 
-        assert(bs <= (((bufsize) 4) * ExpIncr));
+        _assert_(bs <= (((bufsize) 4) * ExpIncr));
         bs = blimit(bs);
         if (rand() & 0x400) {
             cb = (char *) bgetz(bs);

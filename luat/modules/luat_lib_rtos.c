@@ -13,6 +13,9 @@
 #define LUAT_LOG_TAG "rtos"
 #include "luat_log.h"
 
+static uint16_t autogc_config = 100; // TODO 通过API可配置
+static uint16_t autogc_counter = 0;
+
 /*
 接受并处理底层消息队列.
 @api    rtos.receive(timeout)   
@@ -22,18 +25,28 @@
 rtos.receive(-1)
 */
 static int l_rtos_receive(lua_State *L) {
-    rtos_msg_t msg;
-    int re;
-#ifdef LUAT_USE_MEMORY_OPTIMIZATION_CODE_MMAP
+    rtos_msg_t msg = {0};
+    int re = {0};
     size_t total = 0;
     size_t used = 0;
     size_t max_used = 0;
-    luat_meminfo_luavm(&total, &used, &max_used);
-    if ( (used * 100) >= (total * 90))
-    {
-    	LLOGD("luavm use very much ram! used %d, total %d",used, total);
+    if (autogc_config > 0) {
+        if (autogc_counter >= autogc_config) {
+            autogc_counter = 0;
+            luat_meminfo_luavm(&total, &used, &max_used);
+            if ( (used * 100) >= (total * 90))
+            {
+                LLOGD("luavm ram too high! used %d, total %d. Trigger Force-GC", used, total);
+                // 需要执行2次, 因为userdata在第二次才会被回收
+                lua_gc(L, LUA_GCCOLLECT, 0);
+                lua_gc(L, LUA_GCCOLLECT, 0);
+            }
+        }
+        else {
+            autogc_counter ++;
+        }
     }
-#endif
+
     re = luat_msgbus_get(&msg, luaL_checkinteger(L, 1));
     if (!re) {
         //LLOGD("rtos_msg got, invoke it handler=%08X", msg.handler);
@@ -91,7 +104,7 @@ rtos.timer_start(10000, 3000, -1)
 */
 static int l_rtos_timer_start(lua_State *L) {
     lua_gettop(L);
-    size_t timeout;
+    size_t timeout = 0;
     size_t type = 0;
     size_t id = (size_t)luaL_checkinteger(L, 1) / 1;
 #if 0
@@ -314,6 +327,7 @@ static int l_rtos_nop(lua_State *L) {
     return 0;
 }
 
+// TODO 部分平台不支持LUAT_WEAK
 LUAT_WEAK int luat_poweron_reason(void) {
     return 0;
 }

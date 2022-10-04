@@ -564,81 +564,6 @@ static int l_libgnss_get_gga(lua_State* L) {
     return 1;
 }
 
-
-//-----------------------------------------------------
-// For Air530Z
-//-----------------------------------------------------
-
-uint8_t air530z_uart_id = 2;
-
-/**
-设置gps串口id(For Air530Z)
-@api libgnss.air530z_setup(air530z_uart_id)
-@number air530z_uart_id 串口id 默认串口2
-@usage
-libgnss.air530z_setup(2)
- */
-static int l_libgnss_air530_setup(lua_State *L) {
-    air530z_uart_id = luaL_checkinteger(L, 1);
-    return 0;
-}
-
-/**
-保存配置信息(For Air530Z)
-@api libgnss.air530z_saveconf()
-@usage
-libgnss.air530z_saveconf()
- */
-static int l_libgnss_air530_saveconf(lua_State *L) {
-    luat_uart_write(air530z_uart_id, "$PCAS00*01\r\n", strlen("$PCAS00*01\r\n"));
-    return 0;
-}
-
-/**
-设置通讯波特率(For Air530Z)
-@api libgnss.air530z_setbandrate(bandrate)
-@number table 波特率
-@usage
-libgnss.air530z_setbandrate(115200)
- */
-static int l_libgnss_air530_setbandrate(lua_State *L) {
-    /*
-0=4800bps
-1=9600bps
-2=19200bps
-3=38400bps
-4=57600bps
-5=115200bps
-    */
-    int bandrate = luaL_checkinteger(L, 1);
-    switch (bandrate)
-    {
-    case 4800:
-        luat_uart_write(air530z_uart_id, "$PCAS01,0*1C\r\n", strlen("$PCAS01,0*1C\r\n"));
-        break;
-    case 9600:
-        luat_uart_write(air530z_uart_id, "$PCAS01,1*1D\r\n", strlen("$PCAS01,1*1D\r\n"));
-        break;
-    case 19200:
-        luat_uart_write(air530z_uart_id, "$PCAS01,2*1E\r\n", strlen("$PCAS01,2*1E\r\n"));
-        break;
-    case 38400:
-        luat_uart_write(air530z_uart_id, "$PCAS01,3*1F\r\n", strlen("$PCAS01,3*1F\r\n"));
-        break;
-    case 57600:
-        luat_uart_write(air530z_uart_id, "$PCAS01,4*18\r\n", strlen("$PCAS01,4*18\r\n"));
-        break;
-    case 115200:
-        luat_uart_write(air530z_uart_id, "$PCAS01,5*19\r\n", strlen("$PCAS01,5*19\r\n"));
-        break;
-    default:
-        LLOGD("fallback to default 9600");
-        luat_uart_write(air530z_uart_id, "$PCAS01,1*1D\r\n", strlen("$PCAS01,1*1D\r\n"));
-        break;
-    }
-    return 0;
-}
-
 #include "rotable2.h"
 static const rotable_Reg_t reg_libgnss[] =
 {
@@ -652,11 +577,6 @@ static const rotable_Reg_t reg_libgnss[] =
     { "getGga", ROREG_FUNC(l_libgnss_get_gga)},
     { "getZda", ROREG_FUNC(l_libgnss_get_zda)},
     { "debug",  ROREG_FUNC(l_libgnss_debug)},
-
-    //-----------------------------------------
-    { "air530z_setup", ROREG_FUNC(l_libgnss_air530_setup)},
-    { "air530z_saveconf", ROREG_FUNC(l_libgnss_air530_saveconf)},
-    { "air530z_setbandrate", ROREG_FUNC(l_libgnss_air530_setbandrate)},
 
 	{ NULL,      ROREG_INT(0)}
 };

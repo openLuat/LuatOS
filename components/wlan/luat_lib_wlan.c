@@ -73,24 +73,68 @@ static int l_wlan_scan(lua_State* L){
     return 0;
 }
 
+static int l_wlan_scan_result(lua_State* L) {
+    int ap_limit = luaL_optinteger(L, 1, 20);
+    if (ap_limit > 32)
+        ap_limit = 32;
+    else if (ap_limit < 8)
+        ap_limit = 8;
+    lua_newtable(L);
+    luat_wlan_scan_result_t *results = luat_heap_malloc(sizeof(luat_wlan_scan_result_t) * ap_limit);
+    if (results == NULL) {
+        LLOGE("out of memory when malloc scan result");
+        return 1;
+    }
+    memset(results, 0, sizeof(luat_wlan_scan_result_t) * ap_limit);
+    int len = luat_wlan_scan_get_result(results, ap_limit);
+    for (size_t i = 0; i < len; i++)
+    {
+        lua_newtable(L);
+
+        lua_pushstring(L, (const char *)results[i].ssid);
+        lua_setfield(L, -2, "ssid");
+
+        // lua_pushfstring(L, "%02X%02X%02X%02X%02X%02X", results[i].bssid[0], 
+        //                                                results[i].bssid[1], 
+        //                                                results[i].bssid[2], 
+        //                                                results[i].bssid[3], 
+        //                                                results[i].bssid[4], 
+        //                                                results[i].bssid[5]);
+        lua_pushlstring(L, (const char *)results[i].bssid, 6);
+        lua_setfield(L, -2, "bssid");
+
+        lua_pushinteger(L, results[i].ch);
+        lua_setfield(L, -2, "channel");
+
+        lua_pushinteger(L, results[i].rssi);
+        lua_setfield(L, -2, "rssi");
+
+        lua_seti(L, -2, i + 1);
+    }
+    luat_heap_free(results);
+    return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_wlan[] =
 {
-    { "init",           ROREG_FUNC(l_wlan_init)},
-    { "mode",           ROREG_FUNC(l_wlan_mode)},
+    { "init",               ROREG_FUNC(l_wlan_init)},
+    { "mode",               ROREG_FUNC(l_wlan_mode)},
+    { "setMode",            ROREG_FUNC(l_wlan_mode)},
     // { "setMode",           ROREG_FUNC(l_wlan_set_mode)},
     // { "getMode",           ROREG_FUNC(l_wlan_get_mode)},
-    { "ready",          ROREG_FUNC(l_wlan_ready)},
-    { "connect",        ROREG_FUNC(l_wlan_connect)},
-    { "disconnect",     ROREG_FUNC(l_wlan_disconnect)},
-    { "scan",           ROREG_FUNC(l_wlan_scan)},
+    { "ready",              ROREG_FUNC(l_wlan_ready)},
+    { "connect",            ROREG_FUNC(l_wlan_connect)},
+    { "disconnect",         ROREG_FUNC(l_wlan_disconnect)},
+    { "scan",               ROREG_FUNC(l_wlan_scan)},
+    { "scanResult",         ROREG_FUNC(l_wlan_scan_result)},
 
     // 常数
-    {"NONE",            ROREG_INT(LUAT_WLAN_MODE_NULL)},
-    {"STATION",         ROREG_INT(LUAT_WLAN_MODE_STA)},
-    {"AP",              ROREG_INT(LUAT_WLAN_MODE_AP)},
-    {"STATIONAP",       ROREG_INT(LUAT_WLAN_MODE_APSTA)},
-	{ NULL,             ROREG_INT(0)}
+    {"NONE",                ROREG_INT(LUAT_WLAN_MODE_NULL)},
+    {"STATION",             ROREG_INT(LUAT_WLAN_MODE_STA)},
+    {"AP",                  ROREG_INT(LUAT_WLAN_MODE_AP)},
+    {"STATIONAP",           ROREG_INT(LUAT_WLAN_MODE_APSTA)},
+	{ NULL,                 ROREG_INT(0)}
 };
 
 LUAMOD_API int luaopen_wlan( lua_State *L ) {

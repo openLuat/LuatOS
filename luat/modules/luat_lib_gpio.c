@@ -17,10 +17,14 @@
 #define LUAT_LOG_TAG "gpio"
 #include "luat_log.h"
 
+// 若bsp没有定义最大PIN编号, 那么默认给个128吧
+#ifndef LUAT_GPIO_PIN_MAX
+#define LUAT_GPIO_PIN_MAX (128)
+#endif
+
 static int l_gpio_set(lua_State *L);
 static int l_gpio_get(lua_State *L);
 static int l_gpio_close(lua_State *L);
-#define PIN_MAX (128)
 
 typedef struct gpio_ctx
 {
@@ -30,21 +34,21 @@ typedef struct gpio_ctx
 }gpio_ctx_t;
 
 // 保存中断回调的数组
-static gpio_ctx_t gpios[PIN_MAX];
+static gpio_ctx_t gpios[LUAT_GPIO_PIN_MAX];
 static uint8_t default_gpio_pull = Luat_GPIO_DEFAULT;
 
 
 // 记录GPIO电平,仅OUTPUT时可用
-static uint8_t gpio_out_levels[PIN_MAX / 8] = {0};
+static uint8_t gpio_out_levels[LUAT_GPIO_PIN_MAX / 8] = {0};
 
 static uint8_t gpio_bit_get(int pin) {
-    if (pin < 0 || pin >= PIN_MAX)
+    if (pin < 0 || pin >= LUAT_GPIO_PIN_MAX)
         return 0;
     return (gpio_out_levels[pin/8] >> (pin%8)) & 0x01;
 }
 
 static void gpio_bit_set(int pin, uint8_t value) {
-    if (pin < 0 || pin >= PIN_MAX)
+    if (pin < 0 || pin >= LUAT_GPIO_PIN_MAX)
         return;
     uint8_t val = (gpio_out_levels[pin/8] >> (pin%8)) & 0x01;
     if (val == value)
@@ -64,7 +68,7 @@ int luat_gpio_irq_default(int pin, void* args) {
         return 0;
     }
 
-    if (pin < PIN_MAX && gpios[pin].conf_tick > 0) {
+    if (pin < LUAT_GPIO_PIN_MAX && gpios[pin].conf_tick > 0) {
         uint32_t ticks = (uint32_t)luat_mcu_ticks();
         uint32_t diff = (ticks > gpios[pin].latest_tick) ? (ticks - gpios[pin].latest_tick) : (gpios[pin].latest_tick - ticks);
         if (diff >= gpios[pin].conf_tick) {
@@ -87,7 +91,7 @@ int l_gpio_handler(lua_State *L, void* ptr) {
     // 给 sys.publish方法发送数据
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     int pin = msg->arg1;
-    if (pin < 0 || pin >= PIN_MAX)
+    if (pin < 0 || pin >= LUAT_GPIO_PIN_MAX)
         return 0;
     if (gpios[pin].lua_ref == 0)
         return 0;
@@ -216,7 +220,7 @@ gpio.close(17)
 */
 static int l_gpio_close(lua_State *L) {
     int pin = luaL_checkinteger(L, 1);
-    if (pin < 0 || pin >= PIN_MAX)
+    if (pin < 0 || pin >= LUAT_GPIO_PIN_MAX)
         return 0;
     luat_gpio_close(pin);
     if (gpios[pin].lua_ref) {
@@ -266,7 +270,7 @@ static int l_gpio_toggle(lua_State *L) {
         pin = lua_tointeger(L, lua_upvalueindex(1));
     else
         pin = luaL_checkinteger(L, 1);
-    if (pin < 0 || pin >= PIN_MAX) {
+    if (pin < 0 || pin >= LUAT_GPIO_PIN_MAX) {
         LLOGW("pin id out of range (0-127)");
         return 0;
     }
@@ -314,7 +318,7 @@ static int l_gpio_pulse(lua_State *L) {
         len = luaL_checkinteger(L, 3);
         delay = luaL_checkinteger(L, 4);
     }
-    if (pin < 0 || pin >= PIN_MAX) {
+    if (pin < 0 || pin >= LUAT_GPIO_PIN_MAX) {
         LLOGD("pin id out of range (0-127)");
         return 0;
     }
@@ -338,7 +342,7 @@ gpio.debounce(7, 0)
 static int l_gpio_debounce(lua_State *L) {
     uint8_t pin = luaL_checkinteger(L, 1);
     uint16_t time = luaL_checkinteger(L, 2);
-    if (pin >= PIN_MAX) {
+    if (pin >= LUAT_GPIO_PIN_MAX) {
         LLOGW("MUST pin < 128");
         return 0;
     }
@@ -390,7 +394,7 @@ static const rotable_Reg_t reg_gpio[] =
 };
 
 LUAMOD_API int luaopen_gpio( lua_State *L ) {
-    memset(gpios, 0, sizeof(gpio_ctx_t) * PIN_MAX);
+    memset(gpios, 0, sizeof(gpio_ctx_t) * LUAT_GPIO_PIN_MAX);
     luat_newlib2(L, reg_gpio);
     return 1;
 }

@@ -115,6 +115,19 @@ static int l_wlan_scan_result(lua_State* L) {
     return 1;
 }
 
+static int l_wlan_smartconfig(lua_State *L) {
+    int tp = luaL_optinteger(L, 1, LUAT_SC_TYPE_ESPTOUCH);
+    if (tp == LUAT_SC_TYPE_STOP) {
+        luat_wlan_smartconfig_stop();
+        return 0;
+    }
+    else {
+        int ret = luat_wlan_smartconfig_start(tp);
+        lua_pushboolean(L, ret == 0 ? 1 : 0);
+        return 1;
+    }
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_wlan[] =
 {
@@ -129,11 +142,21 @@ static const rotable_Reg_t reg_wlan[] =
     { "scan",               ROREG_FUNC(l_wlan_scan)},
     { "scanResult",         ROREG_FUNC(l_wlan_scan_result)},
 
+    // 配网相关
+    { "smartconfig",         ROREG_FUNC(l_wlan_smartconfig)},
+
     // 常数
     {"NONE",                ROREG_INT(LUAT_WLAN_MODE_NULL)},
     {"STATION",             ROREG_INT(LUAT_WLAN_MODE_STA)},
     {"AP",                  ROREG_INT(LUAT_WLAN_MODE_AP)},
     {"STATIONAP",           ROREG_INT(LUAT_WLAN_MODE_APSTA)},
+
+    // smartconfig 配网
+    {"STOP",                ROREG_INT(0)},
+    {"ESPTOUCH",            ROREG_INT(LUAT_SC_TYPE_ESPTOUCH)},
+    {"AIRKISS",             ROREG_INT(LUAT_SC_TYPE_AIRKISS)},
+    {"ESPTOUCH_AIRKISS",    ROREG_INT(LUAT_SC_TYPE_ESPTOUCH_AIRKISS)},
+    {"ESPTOUCH_V2",         ROREG_INT(LUAT_SC_TYPE_ESPTOUCH_V2)},
 	{ NULL,                 ROREG_INT(0)}
 };
 

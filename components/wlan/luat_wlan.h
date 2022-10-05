@@ -42,3 +42,19 @@ int luat_wlan_connect(luat_wlan_conninfo_t* info);
 int luat_wlan_disconnect(void);
 int luat_wlan_scan(void);
 int luat_wlan_scan_get_result(luat_wlan_scan_result_t *results, int ap_limit);
+
+// 配网相关
+// --- smartconfig 配网
+enum LUAT_WLAN_SC_TYPE {
+    LUAT_SC_TYPE_STOP = 0,
+    LUAT_SC_TYPE_ESPTOUCH,
+    LUAT_SC_TYPE_AIRKISS,
+    LUAT_SC_TYPE_ESPTOUCH_AIRKISS,
+    LUAT_SC_TYPE_ESPTOUCH_V2
+};
+
+int luat_wlan_smartconfig_start(int tp);
+int luat_wlan_smartconfig_stop(void);
+
+// -- esp easy connect 配网
+// TODO

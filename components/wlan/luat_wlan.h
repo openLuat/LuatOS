@@ -56,5 +56,7 @@ enum LUAT_WLAN_SC_TYPE {
 int luat_wlan_smartconfig_start(int tp);
 int luat_wlan_smartconfig_stop(void);
 
-// -- esp easy connect 配网
-// TODO
+// 数据类
+int luat_wlan_get_mac(int id, char* mac);
+
+int luat_wlan_set_mac(int id, char* mac);

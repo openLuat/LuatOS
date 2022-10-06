@@ -128,6 +128,16 @@ static int l_wlan_smartconfig(lua_State *L) {
     }
 }
 
+// 获取mac
+static int l_wlan_get_mac(lua_State* L){
+    char tmp[6] = {0};
+    char tmpbuff[16] = {0};
+    luat_wlan_get_mac(luaL_optinteger(L, 1, 0), tmp);
+    sprintf_(tmpbuff, "%02X%02X%02X%02X%02X%02X", tmp[0], tmp[1], tmp[2], tmp[3], tmp[4], tmp[5]);
+    lua_pushstring(L, tmpbuff);
+    return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_wlan[] =
 {
@@ -144,6 +154,8 @@ static const rotable_Reg_t reg_wlan[] =
 
     // 配网相关
     { "smartconfig",         ROREG_FUNC(l_wlan_smartconfig)},
+
+    { "getMac",              ROREG_FUNC(l_wlan_get_mac)},
 
     // 常数
     {"NONE",                ROREG_INT(LUAT_WLAN_MODE_NULL)},

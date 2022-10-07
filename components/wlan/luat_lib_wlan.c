@@ -53,9 +53,10 @@ static int l_wlan_ready(lua_State* L){
 }
 
 static int l_wlan_connect(lua_State* L){
-    const char* ssid = luaL_checkstring(L, 1);
+    const char* ssid = luaL_optstring(L, 1, "");
     const char* password = luaL_optstring(L, 2, "");
     luat_wlan_conninfo_t info = {0};
+    info.auto_reconnection = 1;
     memcpy(info.ssid, ssid, strlen(ssid));
     memcpy(info.password, password, strlen(password));
 
@@ -138,6 +139,35 @@ static int l_wlan_get_mac(lua_State* L){
     return 1;
 }
 
+// 启动AP
+static int l_wlan_ap_start(lua_State *L) {
+    size_t ssid_len = 0;
+    size_t password_len = 0;
+    luat_wlan_apinfo_t apinfo = {0};
+    const char* ssid = luaL_checklstring(L, 1, &ssid_len);
+    const char* password = luaL_optlstring(L, 2, "", &password_len);
+    if (ssid_len < 1) {
+        LLOGE("ssid MUST NOT EMTRY");
+        return 0;
+    }
+    if (ssid_len > 32) {
+        LLOGE("ssid too long [%s]", ssid);
+        return 0;
+    }
+    if (password_len > 63) {
+        LLOGE("password too long [%s]", password);
+        return 0;
+    }
+
+    memcpy(apinfo.ssid, ssid, ssid_len);
+    memcpy(apinfo.password, password, password_len);
+
+    int ret = luat_wlan_ap_start(&apinfo);
+    LLOGD("apstart ret %d", ret);
+    lua_pushboolean(L, ret == 0 ? 1 : 0);
+    return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_wlan[] =
 {
@@ -156,6 +186,9 @@ static const rotable_Reg_t reg_wlan[] =
     { "smartconfig",         ROREG_FUNC(l_wlan_smartconfig)},
 
     { "getMac",              ROREG_FUNC(l_wlan_get_mac)},
+
+    // AP相关
+    { "createAP",            ROREG_FUNC(l_wlan_ap_start)},
 
     // 常数
     {"NONE",                ROREG_INT(LUAT_WLAN_MODE_NULL)},

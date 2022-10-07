@@ -10,12 +10,18 @@ typedef struct luat_wlan_config
 typedef struct luat_wlan_conninfo
 {
     char ssid[36];
-    char password[48];
-    char bssid[36];
+    char password[64];
+    char bssid[8];
     uint32_t authmode;
     uint32_t auto_reconnection;
     uint32_t auto_reconnection_delay_sec;
 }luat_wlan_conninfo_t;
+
+typedef struct luat_wlan_apinfo
+{
+    char ssid[36];
+    char password[64];
+}luat_wlan_apinfo_t;
 
 enum LUAT_WLAN_MODE {
     LUAT_WLAN_MODE_NULL,
@@ -58,5 +64,8 @@ int luat_wlan_smartconfig_stop(void);
 
 // 数据类
 int luat_wlan_get_mac(int id, char* mac);
-
 int luat_wlan_set_mac(int id, char* mac);
+
+// AP类
+int luat_wlan_ap_start(luat_wlan_apinfo_t *apinfo);
+

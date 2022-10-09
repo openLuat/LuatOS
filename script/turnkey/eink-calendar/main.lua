@@ -35,6 +35,7 @@ local function requestHttp()
         if code == 200 then
             return body
         end
+        sys.wait(500)
     end
 end
 

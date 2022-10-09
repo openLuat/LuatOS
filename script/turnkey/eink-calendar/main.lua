@@ -30,28 +30,10 @@ end
 
 local function requestHttp()
     local rd = {}
-    local httpc = esphttp.init(esphttp.GET, "http://apicn.luatos.org:23328/luatos-calendar/v1?mac=111&battery=10&location="..location.."&appid="..appid.."&appsecret="..appsecret)
-    if httpc then
-        local ok, err = esphttp.perform(httpc, true)
-        if ok then
-            while 1 do
-                local result, c, ret, data = sys.waitUntil("ESPHTTP_EVT", 20000)
-                --log.info("httpc", result, c, ret)
-                if c == httpc then
-                    if esphttp.is_done(httpc, ret) then
-                        break
-                    end
-                    if ret == esphttp.EVENT_ON_DATA and esphttp.status_code(httpc) == 200 then
-                        table.insert(rd,data)
-                    end
-                end
-            end
-        else
-            log.warn("esphttp", "bad perform", err)
-        end
-        esphttp.cleanup(httpc)
-        if ok then
-            return table.concat(rd)
+    while 1 do
+        local code, headers, body = http2.request("GET","http://apicn.luatos.org:23328/luatos-calendar/v1?mac=111&battery=10&location="..location.."&appid="..appid.."&appsecret="..appsecret).wait()
+        if code == 200 then
+            return body
         end
     end
 end

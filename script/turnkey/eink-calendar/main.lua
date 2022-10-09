@@ -5,6 +5,7 @@ VERSION = "1.0.0"
 --测试固件版本：LuatOS-SoC_V0003_ESP32C3[_USB].soc
 
 local sys = require "sys"
+require("sysplus")
 
 --需要自行填写的东西
 --wifi信息

@@ -33,7 +33,7 @@ static uint8_t spi_res;
 static uint8_t spi_dc;
 static uint8_t spi_cs;
 
-static char* buff_ptr = NULL;
+static uint8_t * buff_ptr = NULL;
 
 static const char* mode_strs[] = {
     "i2c_sw",
@@ -986,7 +986,7 @@ int luat_u8g2_setup_default(luat_u8g2_conf_t *conf) {
         }
         devreg->devcb(u8g2, conf->direction, u8x8_byte_sw_i2c, u8x8_luat_gpio_and_delay_default);
         #ifdef U8G2_USE_DYNAMIC_ALLOC
-        buff_ptr = (char*)luat_heap_malloc(u8g2_GetBufferSize(u8g2));
+        buff_ptr = (uint8_t *)luat_heap_malloc(u8g2_GetBufferSize(u8g2));
         u8g2_SetBufferPtr(u8g2, buff_ptr);
         #endif
         u8g2->u8x8.pins[U8X8_PIN_I2C_CLOCK] = i2c_scl;
@@ -1002,7 +1002,7 @@ int luat_u8g2_setup_default(luat_u8g2_conf_t *conf) {
         }
         devreg->devcb(u8g2, conf->direction, u8x8_luat_byte_hw_i2c_default, u8x8_luat_gpio_and_delay_default);
         #ifdef U8G2_USE_DYNAMIC_ALLOC
-        buff_ptr = (char*)luat_heap_malloc(u8g2_GetBufferSize(u8g2));
+        buff_ptr = (uint8_t *)luat_heap_malloc(u8g2_GetBufferSize(u8g2));
         u8g2_SetBufferPtr(u8g2, buff_ptr);
         #endif
         //LLOGD("setup disp i2c.hw");
@@ -1017,7 +1017,7 @@ int luat_u8g2_setup_default(luat_u8g2_conf_t *conf) {
         }
         devreg->devcb(u8g2, conf->direction, u8x8_luat_byte_4wire_hw_spi_default, u8x8_luat_gpio_and_delay_default);
         #ifdef U8G2_USE_DYNAMIC_ALLOC
-        buff_ptr = (char*)luat_heap_malloc(u8g2_GetBufferSize(u8g2));
+        buff_ptr = (uint8_t *)luat_heap_malloc(u8g2_GetBufferSize(u8g2));
         u8g2_SetBufferPtr(u8g2, buff_ptr);
         #endif
         LLOGD("setup disp spi.hw  spi_id=%d spi_dc=%d spi_cs=%d spi_res=%d",spi_id,spi_dc,spi_cs,spi_res);

@@ -969,6 +969,9 @@ int luat_u8g2_setup_default(luat_u8g2_conf_t *conf) {
             return -1;
         }
         devreg->devcb(u8g2, conf->direction, u8x8_byte_sw_i2c, u8x8_luat_gpio_and_delay_default);
+        #ifdef U8G2_USE_DYNAMIC_ALLOC
+        u8g2_SetBufferPtr(u8g2, luat_heap_malloc(u8g2_GetBufferSize(u8g2)));
+        #endif
         u8g2->u8x8.pins[U8X8_PIN_I2C_CLOCK] = i2c_scl;
         u8g2->u8x8.pins[U8X8_PIN_I2C_DATA] = i2c_sda;
         u8g2_InitDisplay(u8g2);
@@ -981,6 +984,9 @@ int luat_u8g2_setup_default(luat_u8g2_conf_t *conf) {
             return -1;
         }
         devreg->devcb(u8g2, conf->direction, u8x8_luat_byte_hw_i2c_default, u8x8_luat_gpio_and_delay_default);
+        #ifdef U8G2_USE_DYNAMIC_ALLOC
+        u8g2_SetBufferPtr(u8g2, luat_heap_malloc(u8g2_GetBufferSize(u8g2)));
+        #endif
         LLOGD("setup disp i2c.hw");
         u8g2_InitDisplay(u8g2);
         u8g2_SetPowerSave(u8g2, 0);
@@ -992,6 +998,9 @@ int luat_u8g2_setup_default(luat_u8g2_conf_t *conf) {
             return -1;
         }
         devreg->devcb(u8g2, conf->direction, u8x8_luat_byte_4wire_hw_spi_default, u8x8_luat_gpio_and_delay_default);
+        #ifdef U8G2_USE_DYNAMIC_ALLOC
+        u8g2_SetBufferPtr(u8g2, luat_heap_malloc(u8g2_GetBufferSize(u8g2)));
+        #endif
         LLOGD("setup disp spi.hw  spi_id=%d spi_dc=%d spi_cs=%d spi_res=%d",spi_id,spi_dc,spi_cs,spi_res);
         u8x8_SetPin(u8g2_GetU8x8(u8g2), U8X8_PIN_CS, spi_cs);
         u8x8_SetPin(u8g2_GetU8x8(u8g2), U8X8_PIN_DC, spi_dc);

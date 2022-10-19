@@ -39,8 +39,9 @@ typedef struct {
     int length;
     int increment;
     int dynamic;
-    int reallocs;
-    int debug;
+    int is_err;
+    // int reallocs;
+    // int debug;
 } strbuf_t;
 
 #ifndef STRBUF_DEFAULT_SIZE
@@ -52,7 +53,7 @@ typedef struct {
 
 /* Initialise */
 extern strbuf_t *strbuf_new(int len);
-extern void strbuf_init(strbuf_t *s, int len);
+extern int strbuf_init(strbuf_t *s, int len);
 extern void strbuf_set_increment(strbuf_t *s, int increment);
 
 /* Release */
@@ -118,29 +119,34 @@ static inline int strbuf_length(strbuf_t *s)
 static inline void strbuf_append_char(strbuf_t *s, const char c)
 {
     strbuf_ensure_empty_length(s, 1);
+    if (s->is_err) return;
     s->buf[s->length++] = c;
 }
 
 static inline void strbuf_append_char_unsafe(strbuf_t *s, const char c)
 {
+    if (s->is_err) return;
     s->buf[s->length++] = c;
 }
 
 static inline void strbuf_append_mem(strbuf_t *s, const char *c, int len)
 {
     strbuf_ensure_empty_length(s, len);
+    if (s->is_err) return;
     memcpy(s->buf + s->length, c, len);
     s->length += len;
 }
 
 static inline void strbuf_append_mem_unsafe(strbuf_t *s, const char *c, int len)
 {
+    if (s->is_err) return;
     memcpy(s->buf + s->length, c, len);
     s->length += len;
 }
 
 static inline void strbuf_ensure_null(strbuf_t *s)
 {
+    if (s->is_err) return;
     s->buf[s->length] = 0;
 }
 

@@ -4,13 +4,12 @@
 [![fork](https://gitee.com/openLuat/LuatOS/badge/fork.svg?theme=gvp)](https://gitee.com/openLuat/LuatOS/members)
 [![license](https://img.shields.io/github/license/openLuat/LuatOS)](/LICENSE)
 
-[![air101](https://github.com/openLuat/LuatOS/actions/workflows/air101.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/air101/master)
-[![air105](https://github.com/openLuat/LuatOS/actions/workflows/air105.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/air105/master)
-[![esp32c3](https://github.com/openLuat/LuatOS/actions/workflows/esp32c3.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/esp32c3/master)
-[![air100st](https://github.com/openLuat/LuatOS/actions/workflows/air100st.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/air100st/master)
-[![air640w](https://github.com/openLuat/LuatOS/actions/workflows/air640w.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/air640w/master)
-[![win32](https://github.com/openLuat/LuatOS/actions/workflows/win32.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/win32/master)
-[![linux](https://github.com/openLuat/LuatOS/actions/workflows/linux.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/linux/master)
+[![air101](https://pg.air32.cn/openLuat/LuatOS/actions/workflows/air101.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/air101/master)
+[![air105](https://pg.air32.cn/openLuat/LuatOS/actions/workflows/air105.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/air105/master)
+[![esp32c3](https://pg.air32.cn/openLuat/LuatOS/actions/workflows/esp32c3-idf5.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/esp32c3-idf5/master)
+[![win32](https://pg.air32.cn/openLuat/LuatOS/actions/workflows/win32.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/win32/master)
+[![linux](https://pg.air32.cn/openLuat/LuatOS/actions/workflows/linux.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/linux/master)
+![Build Status](http://luat.papapoi.com:23380/api/badges/openLuat/LuatOS/status.svg)
 
 LuatOS-SoC是一款实时操作系统,用户编写Lua代码就可完成各种功能, 仅需极少的内存和Flash空间
 

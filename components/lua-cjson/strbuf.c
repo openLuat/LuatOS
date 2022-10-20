@@ -56,6 +56,7 @@ int strbuf_init(strbuf_t *s, int len)
     s->length = 0;
     s->increment = STRBUF_DEFAULT_INCREMENT;
     s->dynamic = 0;
+    s->is_err = 0;
     // s->reallocs = 0;
     // s->debug = 0;
 

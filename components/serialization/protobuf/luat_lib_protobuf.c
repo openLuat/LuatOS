@@ -193,7 +193,7 @@ static void lpb_pushenchooktable(lua_State *L, lpb_State *LS)
 
 static void lpb_pushdechooktable(lua_State *L, lpb_State *LS)
 { LS->dec_hooks_index = lpb_reftable(L, LS->dec_hooks_index); }
-
+#if 0
 static int Lpb_delete(lua_State *L) {
     lpb_State *LS = (lpb_State*)luaL_testudata(L, 1, PB_STATE);
     if (LS != NULL) {
@@ -209,7 +209,7 @@ static int Lpb_delete(lua_State *L) {
     }
     return 0;
 }
-
+#endif
 LUALIB_API lpb_State *lpb_lstate(lua_State *L) {
     lpb_State *LS;
     if (lua53_rawgetp(L, LUA_REGISTRYINDEX, state_name) == LUA_TUSERDATA) {
@@ -230,7 +230,7 @@ LUALIB_API lpb_State *lpb_lstate(lua_State *L) {
     }
     return LS;
 }
-
+#if 0
 static int Lpb_state(lua_State *L) {
     int top = lua_gettop(L);
     lpb_lstate(L);
@@ -246,7 +246,7 @@ static int Lpb_state(lua_State *L) {
     }
     return 1;
 }
-
+#endif
 
 /* protobuf util routines */
 
@@ -257,7 +257,7 @@ static int typeerror(lua_State *L, int idx, const char *type) {
     lua_pushfstring(L, "%s expected, got %s", type, luaL_typename(L, idx));
     return luaL_argerror(L, idx, lua_tostring(L, -1));
 }
-
+#if 0
 static lua_Integer posrelat(lua_Integer pos, size_t len) {
     if (pos >= 0) return pos;
     else if (0u - (size_t)pos > len) return 0;
@@ -271,6 +271,7 @@ static lua_Integer rangerelat(lua_State *L, int idx, lua_Integer r[2], size_t le
     if (r[1] > (lua_Integer)len) r[1] = len;
     return r[0] <= r[1] ? r[1] - r[0] + 1 : 0;
 }
+#endif
 
 static int argcheck(lua_State *L, int cond, int idx, const char *fmt, ...) {
     if (!cond) {
@@ -364,14 +365,14 @@ static uint64_t lpb_tointegerx(lua_State *L, int idx, int *isint) {
     *isint = 1;
     return neg ? ~v + 1 : v;
 }
-
+#if 0
 static uint64_t lpb_checkinteger(lua_State *L, int idx) {
     int isint;
     uint64_t v = lpb_tointegerx(L, idx, &isint);
     if (!isint) typeerror(L, idx, "number/string");
     return v;
 }
-
+#endif
 static void lpb_pushinteger(lua_State *L, int64_t n, int mode) {
     if (mode != LPB_NUMBER && (n < INT_MIN || n > UINT_MAX)) {
         char buff[32], *p = buff + sizeof(buff) - 1;
@@ -537,7 +538,7 @@ static void lpb_readtype(lua_State *L, lpb_State *LS, int type, pb_Slice *s) {
 
 
 /* io routines */
-
+#if 0
 #ifdef _WIN32
 # include <io.h>
 # include <fcntl.h>
@@ -705,7 +706,6 @@ LUALIB_API int luaopen_pb_conv(lua_State *L) {
 
 
 /* protobuf encode routine */
-
 static int lpb_typefmt(int fmt) {
     switch (fmt) {
 #define X(name,type,fmt) case fmt: return PB_T##name;
@@ -897,7 +897,6 @@ LUALIB_API int luaopen_pb_buffer(lua_State *L) {
     }
     return 1;
 }
-
 
 /* protobuf decode routine */
 
@@ -1193,6 +1192,7 @@ LUALIB_API int luaopen_pb_slice(lua_State *L) {
     return 1;
 }
 
+#endif
 
 /* high level typeinfo/encode/decode routines */
 
@@ -1245,7 +1245,7 @@ static int Lpb_load(lua_State *L) {
     lua_pushinteger(L, pb_pos(s)+1);
     return 2;
 }
-
+#if 0
 static int Lpb_loadfile(lua_State *L) {
     lpb_State *LS = lpb_lstate(L);
     const char *filename = luaL_checkstring(L, 1);
@@ -1315,7 +1315,9 @@ static int Lpb_types(lua_State *L) {
     lua_pushnil(L);
     return 3;
 }
+#endif
 
+#if 0
 static int Lpb_fieldsiter(lua_State *L) {
     lpb_State *LS = lpb_lstate(L);
     const pb_Type *t = lpb_type(LS, lpb_checkslice(L, 1));
@@ -1357,7 +1359,7 @@ static int Lpb_enum(lua_State *L) {
         lpb_pushinteger(L, f->number, LS->int64_mode);
     return 1;
 }
-
+#endif
 static int lpb_pushdeffield(lua_State *L, lpb_State *LS, const pb_Field *f, int is_proto3) {
     int ret = 0;
     const pb_Type *type;
@@ -1436,7 +1438,6 @@ static void lpb_pushdefmeta(lua_State *L, lpb_State *LS, const pb_Type *t) {
     }
     lua_remove(L, -2);
 }
-
 static void lpb_cleardefmeta(lua_State *L, lpb_State *LS, const pb_Type *t) {
     lpb_pushdeftable(L, LS);
     lua_pushnil(L);
@@ -1444,6 +1445,7 @@ static void lpb_cleardefmeta(lua_State *L, lpb_State *LS, const pb_Type *t) {
     lua_pop(L, 1);
 }
 
+#if 0
 static int Lpb_defaults(lua_State *L) {
     lpb_State *LS = lpb_lstate(L);
     const pb_Type *t = lpb_type(LS, lpb_checkslice(L, 1));
@@ -1453,7 +1455,6 @@ static int Lpb_defaults(lua_State *L) {
     if (clear) lpb_cleardefmeta(L, LS, t);
     return 1;
 }
-
 static int Lpb_hook(lua_State *L) {
     lpb_State *LS = lpb_lstate(L);
     const pb_Type *t = lpb_type(LS, lpb_checkslice(L, 1));
@@ -1487,7 +1488,7 @@ static int Lpb_encode_hook(lua_State *L) {
     }
     return 1;
 }
-
+#endif
 /*
 清除已加载的二进制定义数据
 @api protobuf.clear()
@@ -1518,7 +1519,7 @@ static int Lpb_clear(lua_State *L) {
     lpb_cleardefmeta(L, LS, t);
     return 0;
 }
-
+#if 0
 static int Lpb_typefmt(lua_State *L) {
     pb_Slice s = lpb_checkslice(L, 1);
     const char *r = NULL;
@@ -1546,7 +1547,7 @@ static int Lpb_typefmt(lua_State *L) {
     lua_pushinteger(L, type);
     return 2;
 }
-
+#endif
 
 /* protobuf encode */
 
@@ -1748,7 +1749,7 @@ static int Lpb_encode(lua_State *L) {
     }
     return 1;
 }
-
+#if 0
 static int lpbE_pack(lpb_Env* e, const pb_Type* t, int idx) {
     unsigned i;
     lua_State* L = e->L;
@@ -1781,7 +1782,7 @@ static int Lpb_pack(lua_State* L) {
     }
     return 1;
 }
-
+#endif
 /* protobuf decode */
 
 #define lpb_withinput(e,ns,stmt) ((e)->s = (ns), (stmt), (e)->s = s)
@@ -1993,6 +1994,7 @@ static int Lpb_decode(lua_State *L) {
 }
 
 
+#if 0
 void lpb_pushunpackdef(lua_State* L, lpb_State* LS, const pb_Type* t, pb_Field** l, int top) {
     unsigned int i;
     int mode = LS->encode_mode;
@@ -2052,7 +2054,6 @@ static int lpbD_unpack(lpb_Env* e, const pb_Type* t) {
     if (decode_count != t->field_count) lpb_pushunpackdef(L, e->LS, t, list, top);
     return t->field_count;
 }
-
 static int Lpb_unpack(lua_State* L) {
     lpb_State* LS = lpb_lstate(L);
     const pb_Type* t = lpb_type(LS, lpb_checkslice(L, 1));
@@ -2064,7 +2065,6 @@ static int Lpb_unpack(lua_State* L) {
 }
 
 /* pb module interface */
-
 static int Lpb_option(lua_State *L) {
 #define OPTS(X) \
     X(0,  enum_as_name,         LS->enum_as_value = 0)               \
@@ -2104,8 +2104,6 @@ static int Lpb_option(lua_State *L) {
     return 0;
 #undef  OPTS
 }
-
-/*
 LUALIB_API int luaopen_pb(lua_State *L) {
     luaL_Reg libs[] = {
 #define ENTRY(name) { #name, Lpb_##name }
@@ -2146,7 +2144,6 @@ LUALIB_API int luaopen_pb(lua_State *L) {
     luaL_newlib(L, libs);
     return 1;
 }
-*/
 
 // static int Lpb_decode_unsafe(lua_State *L) {
 //     const char *data = (const char *)lua_touserdata(L, 2);
@@ -2192,6 +2189,7 @@ LUALIB_API int luaopen_pb(lua_State *L) {
 //     luaL_newlib(L, libs);
 //     return 1;
 // }
+#endif
 
 #include "luat_base.h"
 #include "rotable2.h"

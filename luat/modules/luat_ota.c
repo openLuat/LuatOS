@@ -253,19 +253,20 @@ int luat_ota_checkfile(const char* path) {
 #ifdef LUAT_USE_OTA
 
 int luat_ota(uint32_t luadb_addr){
-    
+    FILE *fd_out = NULL;
+    FILE *fd_in = NULL;
 #ifdef LUAT_USE_ZLIB 
     extern int zlib_decompress(FILE *source, FILE *dest);
     //检测是否有压缩升级文件
     if(luat_fs_fexist(UPDATE_TGZ_PATH)){
         LLOGI("found update.tgz, decompress ...");
-        FILE *fd_in = luat_fs_fopen(UPDATE_TGZ_PATH, "r");
+        fd_in = luat_fs_fopen(UPDATE_TGZ_PATH, "r");
         if (fd_in == NULL){
             LLOGE("open the input file : %s error!", UPDATE_TGZ_PATH);
             goto _close_decompress;
         }
         luat_fs_remove(UPDATE_BIN_PATH);
-        FILE *fd_out = luat_fs_fopen(UPDATE_BIN_PATH, "w+");
+        fd_out = luat_fs_fopen(UPDATE_BIN_PATH, "w+");
         if (fd_out == NULL){
             LLOGE("open the output file : %s error!", UPDATE_BIN_PATH);
             goto _close_decompress;

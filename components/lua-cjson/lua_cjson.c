@@ -56,6 +56,9 @@
 
 #define MIN_OPT_LEVEL 2
 
+#define LUAT_LOG_TAG "json"
+#include "luat_log.h"
+
 //#include <lrodefs.h>
 //#include <auxmods.h>
 
@@ -442,6 +445,8 @@ static void json_append_string(lua_State *l, strbuf_t *json, int lindex)
      * If there are any excess pages, they won't be hit anyway.
      * This gains ~5% speedup. */
     strbuf_ensure_empty_length(json, len * 6 + 2);
+    if (json->is_err)
+        return;
 
     strbuf_append_char_unsafe(json, '\"');
     for (i = 0; i < len; i++) {
@@ -588,6 +593,8 @@ static void json_append_number(lua_State *l,
     }
 
     strbuf_ensure_empty_length(json, FPCONV_G_FMT_BUFSIZE);
+    if (json->is_err)
+        return;
     if (lua_isinteger(l, lindex)) {
         len = snprintf_(strbuf_empty_ptr(json), FPCONV_G_FMT_BUFSIZE, "%ld", lua_tointeger(l, lindex));
     }
@@ -698,26 +705,31 @@ static int json_encode(lua_State *l)
     strbuf_t *encode_buf;
     char *json;
     int len;
+    int ret;
 
     luaL_argcheck(l, lua_gettop(l) == 1, 1, "expected 1 argument");
 
-    // if (!DEFAULT_ENCODE_KEEP_BUFFER) {
-        /* Use private buffer */
-        encode_buf = &local_encode_buf;
-        strbuf_init(encode_buf, 0);
-    // } else {
-    //     /* Reuse existing buffer */
-    //     encode_buf = &cfg->encode_buf;
-    //     strbuf_reset(encode_buf);
-    // }
+    
+    encode_buf = &local_encode_buf;
+    ret = strbuf_init(encode_buf, 0);
+    if (ret) {
+        LLOGE("json encode out of memory!!!");
+        return 0;
+    }
 
     json_append_data(l, 0, encode_buf);
-    json = strbuf_string(encode_buf, &len);
 
-    lua_pushlstring(l, json, len);
+    // check if err
+    if (local_encode_buf.is_err) {
+        LLOGE("json encode failed by memory less");
+        lua_pushnil(l);
+    }
+    else {
+        json = strbuf_string(encode_buf, &len);
+        lua_pushlstring(l, json, len);
+    }
 
-    // if (!cfg->encode_keep_buffer)
-        strbuf_free(encode_buf);
+    strbuf_free(encode_buf);
 
     return 1;
 }
@@ -1295,6 +1307,10 @@ static int json_decode(lua_State *l)
      * This means we no longer need to do length checks since the decoded
      * string must be smaller than the entire json string */
     json.tmp = strbuf_new(json_len);
+    if (json.tmp == NULL) {
+        LLOGE("json decode out of memory!");
+        return 0;
+    }
 
     json_next_token(&json, &token);
     json_process_value(l, &json, &token);

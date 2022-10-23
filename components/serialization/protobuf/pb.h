@@ -38,12 +38,15 @@
 # define PB_API extern
 #endif
 
-
-
-// #include "luat_base.h"
 #include "stdint.h"
 #include <stddef.h>
 #include <limits.h>
+
+void* luat_heap_malloc(size_t len);
+void  luat_heap_free(void* ptr);
+
+#define os_malloc luat_heap_malloc
+#define os_free luat_heap_free
 
 PB_NS_BEGIN
 
@@ -656,7 +659,7 @@ PB_API void pb_initbuffer(pb_Buffer *b)
 { memset(b, 0, sizeof(pb_Buffer)); }
 
 PB_API void pb_resetbuffer(pb_Buffer *b)
-{ if (pb_onheap(b)) free(b->u.h.buff); pb_initbuffer(b); }
+{ if (pb_onheap(b)) os_free(b->u.h.buff); pb_initbuffer(b); }
 
 static int pb_write32(char *buff, uint32_t n) {
     int p, c = 0;
@@ -790,7 +793,7 @@ PB_API void pb_freepool(pb_Pool *pool) {
     void *page = pool->pages;
     while (page) {
         void *next = *(void**)((char*)page + PB_POOLSIZE - sizeof(void*));
-        free(page);
+        os_free(page);
         page = next;
     }
     pb_initpool(pool, pool->obj_size);
@@ -800,7 +803,7 @@ PB_API void *pb_poolalloc(pb_Pool *pool) {
     void *obj = pool->freed;
     if (obj == NULL) {
         size_t objsize = pool->obj_size, offset;
-        void *newpage = malloc(PB_POOLSIZE);
+        void *newpage = os_malloc(PB_POOLSIZE);
         if (newpage == NULL) return NULL;
         offset = ((PB_POOLSIZE - sizeof(void*)) / objsize - 1) * objsize;
         for (; offset > 0; offset -= objsize) {
@@ -828,7 +831,7 @@ PB_API void pb_inittable(pb_Table *t, size_t entrysize)
 { memset(t, 0, sizeof(pb_Table)), t->entry_size = (unsigned)entrysize; }
 
 PB_API void pb_freetable(pb_Table *t)
-{ free(t->hash); pb_inittable(t, t->entry_size); }
+{ os_free(t->hash); pb_inittable(t, t->entry_size); }
 
 static pb_Entry *pbT_hash(const pb_Table *t, pb_Key key) {
     size_t h = ((size_t)key*2654435761U)&(t->size-1);
@@ -876,7 +879,7 @@ PB_API size_t pb_resizetable(pb_Table *t, size_t size) {
     if (newsize < size) return 0;
     nt.size     = newsize;
     nt.lastfree = nt.entry_size * newsize;
-    nt.hash     = (pb_Entry*)malloc(nt.lastfree);
+    nt.hash     = (pb_Entry*)os_malloc(nt.lastfree);
     if (nt.hash == NULL) return 0;
     memset(nt.hash, 0, nt.lastfree);
     for (i = 0; i < rawsize; i += t->entry_size) {
@@ -885,7 +888,7 @@ PB_API size_t pb_resizetable(pb_Table *t, size_t size) {
         if (nt.entry_size > sizeof(pb_Entry))
             memcpy(newe+1, olde+1, nt.entry_size - sizeof(pb_Entry));
     }
-    free(t->hash);
+    os_free(t->hash);
     *t = nt;
     return newsize;
 }
@@ -944,11 +947,11 @@ static void pbN_free(pb_State *S) {
         pb_NameEntry *ne = nt->hash[i];
         while (ne != NULL) {
             pb_NameEntry *next = ne->next;
-            free(ne);
+            os_free(ne);
             ne = next;
         }
     }
-    free(nt->hash);
+    os_free(nt->hash);
     pbN_init(S);
 }
 
@@ -968,7 +971,7 @@ static size_t pbN_resize(pb_State *S, size_t size) {
     while (newsize < PB_MAX_HASHSIZE/sizeof(pb_NameEntry*) && newsize < size)
         newsize <<= 1;
     if (newsize < size) return 0;
-    hash = (pb_NameEntry**)malloc(newsize * sizeof(pb_NameEntry*));
+    hash = (pb_NameEntry**)os_malloc(newsize * sizeof(pb_NameEntry*));
     if (hash == NULL) return 0;
     memset(hash, 0, newsize * sizeof(pb_NameEntry*));
     for (i = 0; i < nt->size; ++i) {
@@ -980,7 +983,7 @@ static size_t pbN_resize(pb_State *S, size_t size) {
             entry = next;
         }
     }
-    free(nt->hash);
+    os_free(nt->hash);
     nt->hash = hash;
     nt->size = newsize;
     return newsize;
@@ -992,7 +995,7 @@ static pb_NameEntry *pbN_newname(pb_State *S, pb_Slice s, unsigned hash) {
     size_t len = pb_len(s);
     if (nt->count >= nt->size && !pbN_resize(S, nt->size * 2)) return NULL;
     list = &nt->hash[hash & (nt->size - 1)];
-    newobj = (pb_NameEntry*)malloc(sizeof(pb_NameEntry) + len + 1);
+    newobj = (pb_NameEntry*)os_malloc(sizeof(pb_NameEntry) + len + 1);
     if (newobj == NULL) return NULL;
     newobj->next     = *list;
     newobj->length   = (unsigned)len;
@@ -1014,7 +1017,7 @@ static void pbN_delname(pb_State *S, pb_NameEntry *name) {
         else {
             *list = (*list)->next;
             --nt->count;
-            free(name);
+            os_free(name);
             break;
         }
     }
@@ -1140,7 +1143,7 @@ PB_API pb_Field** pb_sortfield(pb_Type* t) {
         int index = 0;
         unsigned int i = 0;
         const pb_Field* f = NULL;
-        pb_Field** list = malloc(sizeof(pb_Field*) * t->field_count);
+        pb_Field** list = os_malloc(sizeof(pb_Field*) * t->field_count);
 
         assert(list);
         while (pb_nextfield(t, &f)) {
@@ -1228,7 +1231,7 @@ PB_API pb_Type *pb_newtype(pb_State *S, pb_Name *tname) {
 
 PB_API void pb_delsort(pb_Type *t) {
     if (t->field_sort) {
-        free(t->field_sort);
+        os_free(t->field_sort);
         t->field_sort = NULL;
     }
 }
@@ -1318,7 +1321,7 @@ typedef struct pb_ArrayHeader {
 } pb_ArrayHeader;
 
 #define pbL_rawh(A)   ((pb_ArrayHeader*)(A) - 1)
-#define pbL_delete(A) ((A) ? (void)free(pbL_rawh(A)) : (void)0)
+#define pbL_delete(A) ((A) ? (void)os_free(pbL_rawh(A)) : (void)0)
 #define pbL_count(A)  ((A) ? pbL_rawh(A)->count    : 0)
 #define pbL_add(A)    (pbL_grow((void**)&(A),sizeof(*(A)))==PB_OK ?\
                        &(A)[pbL_rawh(A)->count++] : NULL)

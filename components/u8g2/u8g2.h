@@ -84,12 +84,12 @@
   Before using any display functions, the dynamic buffer *must* be assigned to the u8g2 struct using the u8g2_SetBufferPtr function.
   When using dynamic allocation, the stack size must be increased by u8g2_GetBufferSize bytes.
  */
-//#define U8G2_USE_DYNAMIC_ALLOC
+#define U8G2_USE_DYNAMIC_ALLOC
 
 /*
   U8G2 uses the same static array
  */
-#define U8G2_USE_ONE_STATIC_BUFF
+// #define U8G2_USE_ONE_STATIC_BUFF
 
 /* U8g2 feature selection, see also https://github.com/olikraus/u8g2/wiki/u8g2optimization */
 

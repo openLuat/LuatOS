@@ -234,12 +234,13 @@ static int f_close (lua_State *L) {
   return aux_close(L);
 }
 
-
-// static int io_close (lua_State *L) {
-//   if (lua_isnone(L, 1))  /* no argument? */
-//     lua_getfield(L, LUA_REGISTRYINDEX, IO_OUTPUT);  /* use standard output */
-//   return f_close(L);
-// }
+#ifdef LUA_USE_WINDOWS
+static int io_close (lua_State *L) {
+  if (lua_isnone(L, 1))  /* no argument? */
+    lua_getfield(L, LUA_REGISTRYINDEX, IO_OUTPUT);  /* use standard output */
+  return f_close(L);
+}
+#endif
 
 
 static int f_gc (lua_State *L) {
@@ -267,13 +268,12 @@ static LStream *newfile (lua_State *L) {
   return p;
 }
 
-
-// static void opencheck (lua_State *L, const char *fname, const char *mode) {
-//   LStream *p = newfile(L);
-//   p->f = fopen(fname, mode);
-//   if (p->f == NULL)
-//     luaL_error(L, "cannot open file '%s' (%s)", fname, strerror(errno));
-// }
+static void opencheck (lua_State *L, const char *fname, const char *mode) {
+  LStream *p = newfile(L);
+  p->f = fopen(fname, mode);
+  if (p->f == NULL)
+    luaL_error(L, "cannot open file '%s' (%s)", fname, strerror(errno));
+}
 
 
 static int io_open (lua_State *L) {
@@ -322,51 +322,51 @@ static int io_popen (lua_State *L) {
   #endif
   return (p->f == NULL) ? luaL_fileresult(L, 0, filename) : 1;
 }
+
+static int io_tmpfile (lua_State *L) {
+  LStream *p = newfile(L);
+  p->f = tmpfile();
+  return (p->f == NULL) ? luaL_fileresult(L, 0, NULL) : 1;
+}
+
+
+static FILE *getiofile (lua_State *L, const char *findex) {
+  LStream *p;
+  lua_getfield(L, LUA_REGISTRYINDEX, findex);
+  p = (LStream *)lua_touserdata(L, -1);
+  if (isclosed(p))
+    luaL_error(L, "standard %s file is closed", findex + IOPREF_LEN);
+  return p->f;
+}
+
+
+static int g_iofile (lua_State *L, const char *f, const char *mode) {
+  if (!lua_isnoneornil(L, 1)) {
+    const char *filename = lua_tostring(L, 1);
+    if (filename)
+      opencheck(L, filename, mode);
+    else {
+      tofile(L);  /* check that it's a valid file handle */
+      lua_pushvalue(L, 1);
+    }
+    lua_setfield(L, LUA_REGISTRYINDEX, f);
+  }
+  /* return current value */
+  lua_getfield(L, LUA_REGISTRYINDEX, f);
+  return 1;
+}
+
+
+static int io_input (lua_State *L) {
+  return g_iofile(L, IO_INPUT, "r");
+}
+
+
+static int io_output (lua_State *L) {
+  return g_iofile(L, IO_OUTPUT, "w");
+}
+
 #endif
-
-// static int io_tmpfile (lua_State *L) {
-//   LStream *p = newfile(L);
-//   p->f = tmpfile();
-//   return (p->f == NULL) ? luaL_fileresult(L, 0, NULL) : 1;
-// }
-
-
-// static FILE *getiofile (lua_State *L, const char *findex) {
-//   LStream *p;
-//   lua_getfield(L, LUA_REGISTRYINDEX, findex);
-//   p = (LStream *)lua_touserdata(L, -1);
-//   if (isclosed(p))
-//     luaL_error(L, "standard %s file is closed", findex + IOPREF_LEN);
-//   return p->f;
-// }
-
-
-// static int g_iofile (lua_State *L, const char *f, const char *mode) {
-//   if (!lua_isnoneornil(L, 1)) {
-//     const char *filename = lua_tostring(L, 1);
-//     if (filename)
-//       opencheck(L, filename, mode);
-//     else {
-//       tofile(L);  /* check that it's a valid file handle */
-//       lua_pushvalue(L, 1);
-//     }
-//     lua_setfield(L, LUA_REGISTRYINDEX, f);
-//   }
-//   /* return current value */
-//   lua_getfield(L, LUA_REGISTRYINDEX, f);
-//   return 1;
-// }
-
-
-// static int io_input (lua_State *L) {
-//   return g_iofile(L, IO_INPUT, "r");
-// }
-
-
-// static int io_output (lua_State *L) {
-//   return g_iofile(L, IO_OUTPUT, "w");
-// }
-
 
 static int io_readline (lua_State *L);
 
@@ -393,12 +393,12 @@ static int f_lines (lua_State *L) {
   return 1;
 }
 
-static void opencheck (lua_State *L, const char *fname, const char *mode) {
-  LStream *p = newfile(L);
-  p->f = fopen(fname, mode);
-  if (p->f == NULL)
-    luaL_error(L, "cannot open file '%s' (%s)", fname, strerror(errno));
-}
+// static void opencheck (lua_State *L, const char *fname, const char *mode) {
+//   LStream *p = newfile(L);
+//   p->f = fopen(fname, mode);
+//   if (p->f == NULL)
+//     luaL_error(L, "cannot open file '%s' (%s)", fname, strerror(errno));
+// }
 
 static int io_lines (lua_State *L) {
   int toclose;
@@ -623,10 +623,11 @@ static int g_read (lua_State *L, FILE *f, int first) {
   return n - first;
 }
 
-
-// static int io_read (lua_State *L) {
-//   return g_read(L, getiofile(L, IO_INPUT), 1);
-// }
+#ifdef LUA_USE_WINDOWS
+static int io_read (lua_State *L) {
+  return g_read(L, getiofile(L, IO_INPUT), 1);
+}
+#endif
 
 
 static int f_read (lua_State *L) {
@@ -688,10 +689,11 @@ static int g_write (lua_State *L, FILE *f, int arg) {
   else return luaL_fileresult(L, status, NULL);
 }
 
-
-// static int io_write (lua_State *L) {
-//   return g_write(L, getiofile(L, IO_OUTPUT), 1);
-// }
+#ifdef LUA_USE_WINDOWS
+static int io_write (lua_State *L) {
+  return g_write(L, getiofile(L, IO_OUTPUT), 1);
+}
+#endif
 
 
 static int f_write (lua_State *L) {
@@ -731,10 +733,11 @@ static int f_setvbuf (lua_State *L) {
 }
 
 
-
-// static int io_flush (lua_State *L) {
-//   return luaL_fileresult(L, fflush(getiofile(L, IO_OUTPUT)) == 0, NULL);
-// }
+#ifdef LUA_USE_WINDOWS
+static int io_flush (lua_State *L) {
+  return luaL_fileresult(L, fflush(getiofile(L, IO_OUTPUT)) == 0, NULL);
+}
+#endif
 
 
 static int f_flush (lua_State *L) {
@@ -903,18 +906,18 @@ static int io_lsmount (lua_State *L);
 */
 #include "rotable2.h"
 static const rotable_Reg_t iolib[] = {
-  // {"close", io_close,  0},
-  // {"flush", io_flush,  0},
-  // {"input", io_input,  0},
   {"open", ROREG_FUNC(io_open)},
-  // {"output", io_output,0},
 #ifdef LUA_USE_WINDOWS
   {"popen", ROREG_FUNC(io_popen)},
+  {"read", ROREG_FUNC(io_read)},
+  {"tmpfile", ROREG_FUNC(io_tmpfile)},
+  {"write", ROREG_FUNC(io_write)},
+  {"close", ROREG_FUNC(io_close)},
+  {"flush", ROREG_FUNC(io_flush)},
+  {"input", ROREG_FUNC(io_input)},
+  {"output", ROREG_FUNC(io_output)},
 #endif
-  // {"read", io_read,    0},
-  // {"tmpfile", io_tmpfile, 0},
   {"type", ROREG_FUNC(io_type)},
-  // {"write", io_write,  0},
   {"exists", ROREG_FUNC(io_exists)},
   {"fileSize", ROREG_FUNC(io_fileSize)},
   {"readFile", ROREG_FUNC(io_readFile)},

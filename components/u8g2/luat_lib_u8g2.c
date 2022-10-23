@@ -33,6 +33,16 @@ static uint8_t spi_res;
 static uint8_t spi_dc;
 static uint8_t spi_cs;
 
+static uint8_t * buff_ptr = NULL;
+
+static const char* mode_strs[] = {
+    "i2c_sw",
+    "i2c_hw",
+    "spi_sw_3pin",
+    "spi_sw_4pin",
+    "spi_hw_4pin"
+};
+
 /*
 u8g2显示屏初始化
 @api u8g2.begin(conf)
@@ -64,13 +74,15 @@ static int l_u8g2_begin(lua_State *L) {
     conf.pinType = 2; // I2C 硬件(或者是个假硬件)
     conf.ptr = u8g2;
     conf.direction = U8G2_R0;
+    char mode[8] = {0};
+    size_t mode_len = 0;
     if (lua_istable(L, 1)) {
         // 参数解析
         lua_pushliteral(L, "ic");
         lua_gettable(L, 1);
         if (lua_isstring(L, -1)) {
             conf.cname = (char*)luaL_checkstring(L, -1);
-            LLOGD("using ic: %s",conf.cname);
+            //LLOGD("using ic: %s",conf.cname);
         }
         lua_pop(L, 1);
 
@@ -102,31 +114,29 @@ static int l_u8g2_begin(lua_State *L) {
 
         lua_pushliteral(L, "mode");
         lua_gettable(L, 1);
-        if (lua_isstring(L, -1)) {
-            const char* mode = luaL_checkstring(L, -1);
-            LLOGD("mode = [%s]", mode);
-            if (strcmp("i2c_sw", mode) == 0) {
-                LLOGD("using i2c_sw");
-                conf.pinType = 1;
-            }
-            else if (strcmp("i2c_hw", mode) == 0) {
-                LLOGD("using i2c_hw");
-                conf.pinType = 2;
-            }
-            else if (strcmp("spi_sw_3pin", mode) == 0) {
-                LLOGD("using spi_sw_3pin");
-                conf.pinType = 3;
-            }
-            else if (strcmp("spi_sw_4pin", mode) == 0) {
-                LLOGD("using spi_sw_4pin");
-                conf.pinType = 4;
-            }
-            else if (strcmp("spi_hw_4pin", mode) == 0) {
-                LLOGD("using spi_hw_4pin");
-                conf.pinType = 5;
+        if (!lua_isstring(L, -1)) {
+            LLOGE("need mode!!!");
+            return 0;
+        }
+        const char* tmp = luaL_checklstring(L, -1, &mode_len);
+        if (mode_len < 1 || mode_len > 7) {
+            LLOGE("mode string too short or too long!!");
+            return 0;
+        }
+        memcpy(mode, tmp, strlen(tmp));
+        lua_pop(L, 1);
+        conf.pinType = 255;
+        for (size_t i = 0; i < sizeof(mode_strs) / sizeof(const char*); i++)
+        {
+            if (strcmp(mode_strs[i], tmp) == 0) {
+                conf.pinType = i + 1;
+                break;
             }
         }
-        lua_pop(L, 1);
+        if (conf.pinType == 255) {
+            LLOGE("no such mode [%s]", tmp);
+            return 0;
+        }
 
         lua_pushliteral(L, "i2c_scl");
         lua_gettable(L, 1);
@@ -185,14 +195,14 @@ static int l_u8g2_begin(lua_State *L) {
         lua_pop(L, 1);
 
     }
-    LLOGD("pinType=%d", conf.pinType);
+    LLOGD("driver %s mode %s", conf.cname, mode);
     if (luat_u8g2_setup(&conf)) {
         u8g2 = NULL;
         LLOGW("disp init fail");
         lua_pushinteger(L, 4);
         return 1; // 初始化失败
     }
-
+    LLOGD("setup done");
     u8g2_lua_ref = luaL_ref(L, LUA_REGISTRYINDEX);
     u8g2_SetFont(u8g2, u8g2_font_ncenB08_tr); // 设置默认字体
     lua_pushinteger(L, 1);
@@ -214,6 +224,12 @@ static int l_u8g2_close(lua_State *L) {
         }
         u8g2_lua_ref = 0;
     }
+    // buff也得释放掉
+    if (buff_ptr != NULL) {
+        luat_heap_free(buff_ptr);
+        buff_ptr = NULL;
+    }
+    lua_gc(L, LUA_GCCOLLECT, 0);
     lua_gc(L, LUA_GCCOLLECT, 0);
     u8g2 = NULL;
     return 0;
@@ -929,6 +945,7 @@ static const luat_u8g2_dev_reg_t devregs[] = {
     {.name="sh1106",  .w=128, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_sh1106_128x64_noname_f},        // sh1106 128x64,SPI
     {.name="sh1107",  .w=64, .h=128, .spi_i2c=0, .devcb=u8g2_Setup_ssd1306_i2c_128x64_noname_f},       // sh1107 64x128
     {.name="st7567",  .w=128, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_st7567_jlx12864_f},                 // st7567 128x64
+    {.name="uc1701",  .w=128, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_uc1701_mini12864_f},                // uc1701
     {.name=NULL} // 结尾用,必须加.
 };
 
@@ -968,6 +985,10 @@ int luat_u8g2_setup_default(luat_u8g2_conf_t *conf) {
             return -1;
         }
         devreg->devcb(u8g2, conf->direction, u8x8_byte_sw_i2c, u8x8_luat_gpio_and_delay_default);
+        #ifdef U8G2_USE_DYNAMIC_ALLOC
+        buff_ptr = (uint8_t *)luat_heap_malloc(u8g2_GetBufferSize(u8g2));
+        u8g2_SetBufferPtr(u8g2, buff_ptr);
+        #endif
         u8g2->u8x8.pins[U8X8_PIN_I2C_CLOCK] = i2c_scl;
         u8g2->u8x8.pins[U8X8_PIN_I2C_DATA] = i2c_sda;
         u8g2_InitDisplay(u8g2);
@@ -980,7 +1001,11 @@ int luat_u8g2_setup_default(luat_u8g2_conf_t *conf) {
             return -1;
         }
         devreg->devcb(u8g2, conf->direction, u8x8_luat_byte_hw_i2c_default, u8x8_luat_gpio_and_delay_default);
-        LLOGD("setup disp i2c.hw");
+        #ifdef U8G2_USE_DYNAMIC_ALLOC
+        buff_ptr = (uint8_t *)luat_heap_malloc(u8g2_GetBufferSize(u8g2));
+        u8g2_SetBufferPtr(u8g2, buff_ptr);
+        #endif
+        //LLOGD("setup disp i2c.hw");
         u8g2_InitDisplay(u8g2);
         u8g2_SetPowerSave(u8g2, 0);
         return 0;
@@ -991,6 +1016,10 @@ int luat_u8g2_setup_default(luat_u8g2_conf_t *conf) {
             return -1;
         }
         devreg->devcb(u8g2, conf->direction, u8x8_luat_byte_4wire_hw_spi_default, u8x8_luat_gpio_and_delay_default);
+        #ifdef U8G2_USE_DYNAMIC_ALLOC
+        buff_ptr = (uint8_t *)luat_heap_malloc(u8g2_GetBufferSize(u8g2));
+        u8g2_SetBufferPtr(u8g2, buff_ptr);
+        #endif
         LLOGD("setup disp spi.hw  spi_id=%d spi_dc=%d spi_cs=%d spi_res=%d",spi_id,spi_dc,spi_cs,spi_res);
         u8x8_SetPin(u8g2_GetU8x8(u8g2), U8X8_PIN_CS, spi_cs);
         u8x8_SetPin(u8g2_GetU8x8(u8g2), U8X8_PIN_DC, spi_dc);
@@ -999,7 +1028,9 @@ int luat_u8g2_setup_default(luat_u8g2_conf_t *conf) {
         u8g2_SetPowerSave(u8g2, 0);
         return 0;
     }
-    LLOGI("no such u8g2 mode!!");
+    else {
+        LLOGI("no such u8g2 mode!!");
+    }
     return -1;
 }
 

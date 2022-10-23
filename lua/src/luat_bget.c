@@ -438,7 +438,7 @@ void luat_bget_init(luat_bget_t* bg) {
    bufsize, defined in a way that the compiler will accept. */
 
 #define ESent   ((bufsize) (-(((1L << (sizeof(bufsize) * 8 - 2)) - 1) * 2) - 2))
-#define assert(x)
+#define _assert_(x)
 /*  BGET  --  Allocate a buffer.  */
 
 void *luat_bget(luat_bget_t* bg, bufsize requested_size)
@@ -452,7 +452,7 @@ void *luat_bget(luat_bget_t* bg, bufsize requested_size)
 #ifdef BECtl
     int compactseq = 0;
 #endif
-    assert(size >= 0);
+    _assert_(size >= 0);
     if (!size)
     {
     	return NULL;
@@ -515,7 +515,7 @@ void *luat_bget(luat_bget_t* bg, bufsize requested_size)
 
                     ba = BH(((char *) b) + (b->bh.bsize - size));
                     bn = BH(((char *) ba) + size);
-                    assert(bn->prevfree == b->bh.bsize);
+                    _assert_(bn->prevfree == b->bh.bsize);
                     /* Subtract size from length of free block. */
                     b->bh.bsize -= size;
                     /* Link allocated buffer to the previous free buffer. */
@@ -539,13 +539,13 @@ void *luat_bget(luat_bget_t* bg, bufsize requested_size)
                     struct bhead *ba;
 
                     ba = BH(((char *) b) + b->bh.bsize);
-                    assert(ba->prevfree == b->bh.bsize);
+                    _assert_(ba->prevfree == b->bh.bsize);
 
                     /* The buffer isn't big enough to split.  Give  the  whole
                        shebang to the caller and remove it from the free list. */
 
-                    assert(b->ql.blink->ql.flink == b);
-                    assert(b->ql.flink->ql.blink == b);
+                    _assert_(b->ql.blink->ql.flink == b);
+                    _assert_(b->ql.flink->ql.blink == b);
                     b->ql.blink->ql.flink = b->ql.flink;
                     b->ql.flink->ql.blink = b->ql.blink;
 
@@ -597,7 +597,7 @@ void *luat_bgetz(luat_bget_t* bg, bufsize size)
         } else {
             rsize -= sizeof(struct bhead);
         }
-        assert(rsize >= size);
+        _assert_(rsize >= size);
         memset(buf, 0, (MemSize) rsize);
     }
     return ((void *) buf);
@@ -624,7 +624,7 @@ void *luat_bgetr(luat_bget_t* bg, void *buf, bufsize size)
     osize = -b->bsize;
 
     osize -= sizeof(struct bhead);
-    assert(osize > 0);
+    _assert_(osize > 0);
     V memcpy((char *) nbuf, (char *) buf, /* Copy the data */
              (MemSize) ((size < osize) ? size : osize));
     luat_brel(bg, buf);
@@ -641,7 +641,7 @@ void luat_brel(luat_bget_t* bg, void *buf)
 #ifdef BufStats
     bg->numrel++;                         /* Increment number of brel() calls */
 #endif
-    assert(buf != NULL);
+    _assert_(buf != NULL);
     if (!buf)
     {
     	return;
@@ -653,16 +653,16 @@ void luat_brel(luat_bget_t* bg, void *buf)
     if (b->bh.bsize >= 0) {
         bn = NULL;
     }
-    assert(b->bh.bsize < 0);
+    _assert_(b->bh.bsize < 0);
 
     /*  Back pointer in next buffer must be zero, indicating the
         same thing: */
 
-    assert(BH((char *) b - b->bh.bsize)->prevfree == 0);
+    _assert_(BH((char *) b - b->bh.bsize)->prevfree == 0);
 
 #ifdef BufStats
     bg->totalloc += b->bh.bsize;
-    assert(bg->totalloc >= 0);
+    _assert_(bg->totalloc >= 0);
 #endif
 
     /* If the back link is nonzero, the previous buffer is free.  */
@@ -678,7 +678,7 @@ void luat_brel(luat_bget_t* bg, void *buf)
         register bufsize size = b->bh.bsize;
 
         /* Make the previous buffer the one we're working on. */
-        assert(BH((char *) b - b->bh.prevfree)->bsize == b->bh.prevfree);
+        _assert_(BH((char *) b - b->bh.prevfree)->bsize == b->bh.prevfree);
         b = BFH(((char *) b) - b->bh.prevfree);
         b->bh.bsize -= size;
     } else {
@@ -686,8 +686,8 @@ void luat_brel(luat_bget_t* bg, void *buf)
         /* The previous buffer isn't allocated.  Insert this buffer
            on the free list as an isolated free block. */
 
-        assert(bg->freelist.ql.blink->ql.flink == &bg->freelist);
-        assert(bg->freelist.ql.flink->ql.blink == &bg->freelist);
+        _assert_(bg->freelist.ql.blink->ql.flink == &bg->freelist);
+        _assert_(bg->freelist.ql.flink->ql.blink == &bg->freelist);
         b->ql.flink = &bg->freelist;
         b->ql.blink = bg->freelist.ql.blink;
         bg->freelist.ql.blink = b;
@@ -706,9 +706,9 @@ void luat_brel(luat_bget_t* bg, void *buf)
         /* The buffer is free.  Remove it from the free list and add
            its size to that of our buffer. */
 
-        assert(BH((char *) bn + bn->bh.bsize)->prevfree == bn->bh.bsize);
-        assert(bn->ql.blink->ql.flink == bn);
-        assert(bn->ql.flink->ql.blink == bn);
+        _assert_(BH((char *) bn + bn->bh.bsize)->prevfree == bn->bh.bsize);
+        _assert_(bn->ql.blink->ql.flink == bn);
+        _assert_(bn->ql.flink->ql.blink == bn);
         bn->ql.blink->ql.flink = bn->ql.flink;
         bn->ql.flink->ql.blink = bn->ql.blink;
         b->bh.bsize += bn->bh.bsize;
@@ -726,7 +726,7 @@ void luat_brel(luat_bget_t* bg, void *buf)
     V memset(((char *) b) + sizeof(struct bfhead), 0x55,
             (MemSize) (b->bh.bsize - sizeof(struct bfhead)));
 #endif
-    assert(bn->bh.bsize < 0);
+    _assert_(bn->bh.bsize < 0);
 
     /* The next buffer is allocated.  Set the backpointer in it  to  point
        to this buffer; the previous free buffer in memory. */
@@ -749,7 +749,7 @@ void luat_bpool(luat_bget_t* bg, void *buf, bufsize len)
        it  had  better  not  be  (much) larger than the largest buffer
        whose size we can store in bhead.bsize. */
 
-    assert(len - sizeof(struct bhead) <= -((bufsize) ESent + 1));
+    _assert_(len - sizeof(struct bhead) <= -((bufsize) ESent + 1));
 
     /* Clear  the  backpointer at  the start of the block to indicate that
        there  is  no  free  block  prior  to  this   one.    That   blocks
@@ -759,8 +759,8 @@ void luat_bpool(luat_bget_t* bg, void *buf, bufsize len)
 
     /* Chain the new block to the free list. */
 
-    assert(bg->freelist.ql.blink->ql.flink == &bg->freelist);
-    assert(bg->freelist.ql.flink->ql.blink == &bg->freelist);
+    _assert_(bg->freelist.ql.blink->ql.flink == &bg->freelist);
+    _assert_(bg->freelist.ql.flink->ql.blink == &bg->freelist);
     b->ql.flink = &bg->freelist;
     b->ql.blink = bg->freelist.ql.blink;
     bg->freelist.ql.blink = b;
@@ -783,7 +783,7 @@ void luat_bpool(luat_bget_t* bg, void *buf, bufsize len)
     bn = BH(((char *) b) + len);
     bn->prevfree = (bufsize) len;
     /* Definition of ESent assumes two's complement! */
-    assert((~0) == -1);
+    _assert_((~0) == -1);
     bn->bsize = ESent;
 }
 
@@ -801,7 +801,7 @@ void luat_bstats(luat_bget_t* bg, bufsize *curalloc, bufsize *totfree, bufsize *
     *totfree = 0;
     *maxfree = -1;
     while (b != &bg->freelist) {
-        assert(b->bh.bsize > 0);
+        _assert_(b->bh.bsize > 0);
         *totfree += b->bh.bsize;
         if (b->bh.bsize > *maxfree) {
             *maxfree = b->bh.bsize;

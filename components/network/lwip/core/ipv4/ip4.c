@@ -440,7 +440,6 @@ ip4_input(struct pbuf *p, struct netif *inp)
 
   IP_STATS_INC(ip.recv);
   MIB2_STATS_INC(mib2.ipinreceives);
-  LWIP_DEBUGF(IP_DEBUG, ("IP4 packet "));
   /* identify the IP header */
   iphdr = (struct ip_hdr *)p->payload;
   if (IPH_V(iphdr) != 4) {

@@ -150,10 +150,12 @@ static void luat_bin_exec_rollback(void) {
 
 #if MBEDTLS_VERSION_NUMBER >= 0x03000000
 #define luat_md5_init mbedtls_md5_init
+#define luat_md5_starts mbedtls_md5_starts
 #define luat_md5_update mbedtls_md5_update
 #define luat_md5_finalize mbedtls_md5_finish
 #else
 #define luat_md5_init mbedtls_md5_init
+#define luat_md5_starts mbedtls_md5_starts_ret
 #define luat_md5_update mbedtls_md5_update_ret
 #define luat_md5_finalize mbedtls_md5_finish_ret
 #endif
@@ -200,7 +202,7 @@ int luat_ota_checkfile(const char* path) {
     int remain = binsize - 16;
 
     luat_md5_init(&ota->context);
-
+    luat_md5_starts(&ota->context);
     while (remain > 0) {
         if (remain > OTA_CHECK_BUFF_SIZE) {
             len = luat_fs_fread(ota->buff, OTA_CHECK_BUFF_SIZE, 1, fd);

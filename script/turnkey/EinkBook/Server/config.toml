@@ -1,0 +1,6 @@
+[server]
+    address = ":2333"
+    LogStdout         = true
+    ErrorStack        = true
+    ErrorLogEnabled   = true
+    AccessLogEnabled  = true

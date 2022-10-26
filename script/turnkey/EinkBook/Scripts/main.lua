@@ -3,8 +3,8 @@ VERSION = "1.0.0"
 MOD_TYPE = rtos.bsp()
 log.info("MOD_TYPE", MOD_TYPE)
 sys = require("sys")
+require("sysplus")
 wifiLib = require("wifiLib")
-httpLib = require("httpLib")
 
 tag = "EINKBOOK"
 -- 是否启用配网功能（配合esptouch使用）
@@ -150,9 +150,9 @@ function showBook(bookName, bookUrl, page)
     sys.taskInit(function()
         waitHttpTask = true
         for i = 1, 3 do
-            local result, code, data = httpLib.request("GET", bookUrl .. "/" .. page)
-            log.info("SHOWBOOK", result, code)
-            if result == false or code == -1 or code == 0 then
+            local code, headers, data = http2.request("GET",bookUrl .. "/" .. page).wait()
+            log.info("SHOWBOOK", code)
+            if code ~= 200 then
                 log.error("SHOWBOOK", "获取图书内容失败 ", data)
             else
                 local bookLines = json.decode(data)
@@ -298,7 +298,8 @@ sys.taskInit(function()
     eink.show(0, 0)
     eink.clear(1, true)
     eink.show(0, 0)
-    eink.setFont(fonts.get("sarasa_regular_12"))
+    -- eink.setFont(fonts.get("sarasa_regular_12"))
+    eink.setFont(eink.font_opposansm12_chinese)
 
     if USE_SMARTCONFIG == true then
         einkShowStr(0, 16, "开机中 等待配网...", 0, false, true)
@@ -316,8 +317,9 @@ sys.taskInit(function()
         end
     end
     for i = 1, 5 do
-        local result, code, data = httpLib.request("GET", serverAdress .. "getBooks")
-        if result == false or code == -1 or code == 0 then
+        local code, headers, data = http2.request("GET", serverAdress .. "getBooks").wait()
+        log.info("SHOWBOOK", code)
+        if code ~= 200 then
             log.error(tag, "获取图书列表失败 ", data)
             if i == 5 then
                 einkShowStr(0, 16, "连接图书服务器失败 正在重启", 0, true, true)

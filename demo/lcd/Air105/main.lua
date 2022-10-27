@@ -32,8 +32,8 @@ BL           (PE09) --开发板上的U3_TX
 
 --添加硬狗防止程序卡死
 if wdt then
-    wdt.init(15000)--初始化watchdog设置为15s
-    sys.timerLoopStart(wdt.feed, 10000)--10s喂一次狗
+    wdt.init(9000)--初始化watchdog设置为9s
+    sys.timerLoopStart(wdt.feed, 3000)--3s喂一次狗
 end
 
 -- UI带屏的项目一般不需要低功耗了吧, 设置到最高性能

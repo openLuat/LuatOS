@@ -6,8 +6,8 @@ VERSION = "1.0.0"
 sys = require("sys")
 
 --添加硬狗防止程序卡死
-wdt.init(15000)--初始化watchdog设置为15s
-sys.timerLoopStart(wdt.feed, 10000)--10s喂一次狗
+wdt.init(9000)--初始化watchdog设置为9s
+sys.timerLoopStart(wdt.feed, 3000)--3s喂一次狗
 
 sys.taskInit(function()
     gpio.setup(7, 0, gpio.PULLUP)

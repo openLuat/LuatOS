@@ -24,8 +24,8 @@ BL           (PE09) --开发板上的U3_TX
 ]]
 
 if wdt then
-    wdt.init(15000)--初始化watchdog设置为15s
-    sys.timerLoopStart(wdt.feed, 10000)--10s喂一次狗
+    wdt.init(9000)--初始化watchdog设置为9s
+    sys.timerLoopStart(wdt.feed, 3000)--3s喂一次狗
 end
 
 spi_lcd = spi.deviceSetup(5,pin.PC14,0,0,8,48*1000*1000,spi.MSB,1,1)

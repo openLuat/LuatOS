@@ -12,6 +12,11 @@
 
 #include "flashdb.h"
 
+#ifndef LUAT_LOG_TAG
+#define LUAT_LOG_TAG "fdb"
+#include "luat_log.h"
+#endif
+
 static struct fdb_kvdb kvdb;
 
 /**

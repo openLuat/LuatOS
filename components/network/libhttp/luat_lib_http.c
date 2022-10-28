@@ -227,7 +227,7 @@ static int http_resp_parse_header(luat_http_ctrl_t *http_ctrl) {
 			if (http_ctrl->resp_content_len > 0) {
 				// 还有数据
 				uint32_t header_size = (size_t)(body_start - http_ctrl->resp_headers);
-				if (http_ctrl->resp_buff_len > header_size) { 
+				if (http_ctrl->resp_buff_len > header_size) {
 					// 已经有部分/全部body数据了
 					http_ctrl->resp_buff = luat_heap_malloc(http_ctrl->resp_buff_len - header_size);
 					if (http_ctrl->resp_buff == NULL) {
@@ -337,7 +337,7 @@ static int http_read_packet(luat_http_ctrl_t *http_ctrl){
 		}
 	}
 	// 其他情况就是继续等数据, 后续还得判断timeout
-	return 0; 
+	return 0;
 }
 
 static uint32_t http_send(luat_http_ctrl_t *http_ctrl, uint8_t* data, size_t len) {
@@ -569,9 +569,9 @@ http2客户端
 @tabal  额外配置 可选 包含dst:下载路径,可选 adapter:选择使用网卡,可选
 @string 证书 可选
 @return int code
-@return tabal headers 
+@return tabal headers
 @return string body
-@usage 
+@usage
 local code, headers, body = http2.request("GET","http://site0.cn/api/httptest/simple/time").wait()
 log.info("http2.get", code, headers, body)
 */
@@ -581,12 +581,13 @@ static int l_http_request(lua_State *L) {
 	const char *client_key = NULL;
 	const char *client_password = NULL;
 	int adapter_index;
-	char body_len[6] = {0}; 
+	char body_len[6] = {0};
 	// mbedtls_debug_set_threshold(4);
 	luat_http_ctrl_t *http_ctrl = (luat_http_ctrl_t *)luat_heap_malloc(sizeof(luat_http_ctrl_t));
 	if (!http_ctrl){
 		LLOGE("out of memory when malloc http_ctrl");
-		luat_pushcwait_error(L,HTTP_ERROR_CONNECT);
+        lua_pushinteger(L,HTTP_ERROR_CONNECT);
+		luat_pushcwait_error(L,1);
 		return 1;
 	}
 	memset(http_ctrl, 0, sizeof(luat_http_ctrl_t));
@@ -669,7 +670,7 @@ static int l_http_request(lua_State *L) {
 	// else{
 	// 	http_add_header(http_ctrl,"Content-Length","0");
 	// }
-	
+
 	int ret = http_set_url(http_ctrl);
 	if (ret){
 		goto error;
@@ -694,7 +695,7 @@ static int l_http_request(lua_State *L) {
 	}else{
 		network_deinit_tls(http_ctrl->netc);
 	}
-	
+
 	if (!strncmp("GET", http_ctrl->method, strlen("GET"))) {
         LLOGI("HTTP GET");
     }
@@ -715,11 +716,12 @@ static int l_http_request(lua_State *L) {
 			return 0;
     	}
 	}
-	
+
     return 1;
 error:
 	http_close(http_ctrl);
-	luat_pushcwait_error(L,HTTP_ERROR_CONNECT);
+    lua_pushinteger(L,HTTP_ERROR_CONNECT);
+	luat_pushcwait_error(L,1);
 	return 1;
 }
 

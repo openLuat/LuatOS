@@ -150,7 +150,7 @@
    Note if MINIZ_NO_MALLOC is defined then the user must always provide custom user alloc/free/realloc
    callbacks to the zlib and archive API's, and a few stand-alone helper API's which don't provide custom user
    functions (such as tdefl_compress_mem_to_heap() and tinfl_decompress_mem_to_heap()) won't work. */
-// #define MINIZ_NO_MALLOC
+#define MINIZ_NO_MALLOC
 
 #ifdef MINIZ_NO_INFLATE_APIS
 #define MINIZ_NO_ARCHIVE_APIS
@@ -538,7 +538,7 @@ typedef void *const voidpc;
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include "luat_malloc.h"
+
 
 
 /* ------------------- Types and macros */
@@ -586,9 +586,9 @@ typedef struct mz_dummy_time_t_tag
 #define MZ_FREE(x) (void)x, ((void)0)
 #define MZ_REALLOC(p, x) NULL
 #else
-#define MZ_MALLOC(x) luat_heap_malloc(x)
-#define MZ_FREE(x) luat_heap_free(x)
-#define MZ_REALLOC(p, x) luat_heap_realloc(p, x)
+#define MZ_MALLOC(x) malloc(x)
+#define MZ_FREE(x) free(x)
+#define MZ_REALLOC(p, x) realloc(p, x)
 #endif
 
 #define MZ_MAX(a, b) (((a) > (b)) ? (a) : (b))
@@ -640,7 +640,7 @@ extern "C" {
 /* ------------------- Low-level Compression API Definitions */
 
 /* Set TDEFL_LESS_MEMORY to 1 to use less memory (compression will be slightly slower, and raw/dynamic blocks will be output more frequently). */
-#define TDEFL_LESS_MEMORY 1
+#define TDEFL_LESS_MEMORY 0
 
 /* tdefl_init() compression flags logically OR'd together (low 12 bits contain the max. number of probes per dictionary search): */
 /* TDEFL_DEFAULT_MAX_PROBES: The compressor defaults to 128 dictionary probes per dictionary search. 0=Huffman only, 1=Huffman+LZ (fastest/crap compression), 4095=Huffman+LZ (slowest/best compression). */

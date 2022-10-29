@@ -36,7 +36,7 @@ jobs:
       run: |
         mkdir luatosfw
         cd ../luatos-soc-idf5/luatos
-        sed -i 's/E:\/\/code\/codeup\/LuatOS\//\/home\/runner\/work\/LuatOS\/LuatOS/g' CMakeLists.txt
+        sed -i 's/D:\/\/github\/LuatOS\//\/home\/runner\/work\/LuatOS\/LuatOS/g' CMakeLists.txt
         . ~/esp/esp-idf/export.sh
         idf.py set-target esp32c3
         idf.py build

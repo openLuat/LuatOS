@@ -1294,6 +1294,7 @@ LUAT_LV_GIF_RLT
 #endif
 
 // 回调
+LUAT_LV_CB_RLT
 // {"obj_add_event_cb", ROREG_FUNC(luat_lv_obj_add_event_cb)},
 // {"obj_remove_event_cb", ROREG_FUNC(luat_lv_obj_remove_event_cb)},
 // {"obj_remove_event_cb_with_user_data", ROREG_FUNC(luat_lv_obj_remove_event_cb_with_user_data)},

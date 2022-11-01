@@ -202,7 +202,9 @@ int luat_ota_checkfile(const char* path) {
     int remain = binsize - 16;
 
     luat_md5_init(&ota->context);
+#ifdef LUAT_USE_CRYPTO
     luat_md5_starts(&ota->context);
+#endif
     while (remain > 0) {
         if (remain > OTA_CHECK_BUFF_SIZE) {
             len = luat_fs_fread(ota->buff, OTA_CHECK_BUFF_SIZE, 1, fd);

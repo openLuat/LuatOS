@@ -827,6 +827,7 @@ static int l_u8g2_draw_gtfont_utf8(lua_State *L) {
 static const rotable_Reg_t reg_u8g2[] =
 {
     { "begin",       ROREG_FUNC(l_u8g2_begin)},
+    { "init",        ROREG_FUNC(l_u8g2_begin)}, // 兼容disp.init函数
     { "close",       ROREG_FUNC(l_u8g2_close)},
     { "ClearBuffer", ROREG_FUNC(l_u8g2_ClearBuffer)},
     { "SendBuffer",  ROREG_FUNC(l_u8g2_SendBuffer)},

@@ -86,6 +86,7 @@ RSA解密
 @api rsa.encrypt(key, data, pwd)
 @string 私钥数据,仅支持PEM格式
 @string 待解密数据
+@string 私钥的密码,可选
 @return string 解密成功后的数据,若失败会返回nil
 @usage
 -- 注意, 解密通常很慢, 建议在服务器端进行

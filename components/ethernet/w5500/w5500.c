@@ -1873,15 +1873,9 @@ void w5500_init(luat_spi_t* spi, uint8_t irq_pin, uint8_t rst_pin, uint8_t link_
 		w5500->dhcp_client.state = DHCP_STATE_NOT_WORK;
 		uid = luat_mcu_unique_id(&t);
 		memcpy(w5500->mac, &uid[10], 6);
-		luat_thread_t thread;
-		thread.task_fun = w5500_task;
-		thread.name = "w5500";
-		thread.stack_size = 4 * 1024;
-		thread.priority = 3;
-		thread.userdata = w5500;
-		platform_create_task(&thread);
+		platform_create_task(&w5500->task_handle, 4 * 1024, 30, "w5500", w5500_task, w5500, 64);
 		prv_w5500_ctrl = w5500;
-		w5500->task_handle = thread.handle;
+
 		prv_w5500_ctrl->device_on = 1;
 		prv_w5500_ctrl->Sem = luat_mutex_create();
 	}

@@ -757,7 +757,7 @@ uint32_t net_lwip_rand()
 
 void net_lwip_init(void)
 {
-	luat_thread_t thread;
+
 	uint8_t i;
 	for(i = 0; i < MAX_SOCK_NUM; i++)
 	{
@@ -772,12 +772,7 @@ void net_lwip_init(void)
 	prvlwip.dhcp_timer = platform_create_timer(net_lwip_timer_cb, (void *)EV_LWIP_DHCP_TIMER, 0);
 	tcp_ticks = luat_mcu_tick64_ms() / TCP_SLOW_INTERVAL;
 	prvlwip.last_sleep_ms = luat_mcu_tick64_ms();
-	thread.task_fun = net_lwip_task;
-	thread.name = "lwip";
-	thread.stack_size = 16 * 1024;
-	thread.priority = 40;
-	platform_create_task(&thread);
-	prvlwip.task_handle = thread.handle;
+	platform_create_task(&prvlwip.task_handle, 16 * 1024, 40, "lwip", net_lwip_task, NULL, 64);
 	lwip_init();
 	platform_start_timer(prvlwip.common_timer, 1000, 1);
 

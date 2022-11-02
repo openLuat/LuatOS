@@ -722,6 +722,7 @@ static int f_seek (lua_State *L) {
 }
 
 
+#ifdef LUA_USE_WINDOWS
 static int f_setvbuf (lua_State *L) {
   static const int mode[] = {_IONBF, _IOFBF, _IOLBF};
   static const char *const modenames[] = {"no", "full", "line", NULL};
@@ -732,8 +733,6 @@ static int f_setvbuf (lua_State *L) {
   return luaL_fileresult(L, res == 0, NULL);
 }
 
-
-#ifdef LUA_USE_WINDOWS
 static int io_flush (lua_State *L) {
   return luaL_fileresult(L, fflush(getiofile(L, IO_OUTPUT)) == 0, NULL);
 }
@@ -944,7 +943,9 @@ static const luaL_Reg flib[] = {
   {"lines", f_lines},
   {"read", f_read},
   {"seek", f_seek},
-//  {"setvbuf", f_setvbuf},
+#ifdef LUA_USE_WINDOWS
+ {"setvbuf", f_setvbuf},
+#endif
   {"write", f_write},
 #ifdef LUAT_USE_ZBUFF
   {"fill", f_fill},

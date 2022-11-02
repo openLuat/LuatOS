@@ -27,6 +27,11 @@ end
 
 #include "miniz.h"
 
+static mz_bool luat_output_buffer_putter(const void *pBuf, int len, void *pUser) {
+    luaL_addlstring((luaL_Buffer*)pUser, pBuf, len);
+    return MZ_TRUE;
+}
+
 /*
 快速压缩,需要165kb的系统内存和32kb的LuaVM内存
 @api miniz.compress(data, flags)
@@ -45,6 +50,8 @@ end
 */
 static int l_miniz_compress(lua_State* L) {
     size_t len = 0;
+    tdefl_compressor *pComp;
+    mz_bool succeeded;
     const char* data = luaL_checklstring(L, 1, &len);
     int flags = luaL_optinteger(L, 2, TDEFL_WRITE_ZLIB_HEADER);
     if (len > 32* 1024) {
@@ -52,17 +59,23 @@ static int l_miniz_compress(lua_State* L) {
         return 0;
     }
     luaL_Buffer buff;
-    char* dst = luaL_buffinitsize(L, &buff, TDEFL_OUT_BUF_SIZE);
-    if (dst == NULL) {
+    if (NULL == luaL_buffinitsize(L, &buff, 4096)) {
         LLOGE("out of memory when malloc dst buff");
         return 0;
     }
-    int ret = tdefl_compress_mem_to_mem(dst, TDEFL_OUT_BUF_SIZE, data, len, flags);
-    if (ret == 0) {
+    pComp = (tdefl_compressor *)luat_heap_malloc(sizeof(tdefl_compressor));
+    if (!pComp) {
+        LLOGE("out of memory when malloc tdefl_compressor size 0x%04X", sizeof(tdefl_compressor));
+        return 0;
+    }
+    succeeded = (tdefl_init(pComp, luat_output_buffer_putter, &buff, flags) == TDEFL_STATUS_OKAY);
+    succeeded = succeeded && (tdefl_compress_buffer(pComp, data, len, TDEFL_FINISH) == TDEFL_STATUS_DONE);
+    luat_heap_free(pComp);
+    if (!succeeded) {
         LLOGW("compress fail ret=0");
         return 0;
     }
-    luaL_pushresultsize(&buff, ret);
+    luaL_pushresult(&buff);
     return 1;
 }
 

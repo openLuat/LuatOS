@@ -25,20 +25,22 @@ include_directories(${TOPROOT}/components/qrcode)
 include_directories(${TOPROOT}/components/lcd)
 include_directories(${TOPROOT}/components/u8g2)
 include_directories(${TOPROOT}/components/tjpgd)
+include_directories(${TOPROOT}/components/rsa/inc)
 
 aux_source_directory(./port PORT_SRCS)
 aux_source_directory(${TOPROOT}/lua/src LUA_SRCS)
 aux_source_directory(${TOPROOT}/components/lua-cjson CJSON_SRCS)
+aux_source_directory(${TOPROOT}/components/rsa/binding RSA_SRCS)
 
 aux_source_directory(${TOPROOT}/components/qrcode QRCODE_SRCS)
 aux_source_directory(${TOPROOT}/components/lcd LCD_SRCS)
 aux_source_directory(${TOPROOT}/components/u8g2 U8G2_SRCS)
 aux_source_directory(${TOPROOT}/components/tjpgd TJPGD_SRCS)
 
-add_library(lua ${LUA_SRCS})
-add_library(luatos_msys ${PORT_SRCS})
-add_library(cjson ${CJSON_SRCS})
-add_library(luat ${TOPROOT}/luat/modules/luat_main.c
+#add_library(lua )
+#add_library(luatos_msys ${PORT_SRCS})
+#add_library(cjson )
+add_library(luat ${PORT_SRCS} ${LUA_SRCS} ${CJSON_SRCS} ${TOPROOT}/luat/modules/luat_main.c
                  ${TOPROOT}/luat/modules/luat_base.c
                  ${TOPROOT}/luat/modules/luat_ota.c
                  ${TOPROOT}/luat/modules/luat_luat_bin.c
@@ -73,6 +75,7 @@ add_library(luat ${TOPROOT}/luat/modules/luat_main.c
                  ${LCD_SRCS}
                  ${U8G2_SRCS}
                  ${TJPGD_SRCS}
+                 ${RSA_SRCS}
             )
 
 #-----------------------
@@ -91,5 +94,5 @@ add_subdirectory(${TOPROOT}/components/mbedtls mbedtls.out)
 
 add_executable(luatos src/main.c src/lua.c)
 
-target_link_libraries(luat pthread lua)
-target_link_libraries(luatos lua luatos_msys luat pthread cjson mbedtls m dl readline)
+#target_link_libraries(luat pthread lua)
+target_link_libraries(luatos luat pthread mbedtls m dl readline)

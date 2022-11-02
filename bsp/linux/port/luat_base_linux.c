@@ -44,6 +44,7 @@ static const luaL_Reg loadedlibs[] = {
 //   {"sfd",   luaopen_sfd},
 //   {"lfs2",   luaopen_lfs2},
 //   {"gpio",   luaopen_gpio},
+  {"rsa", luaopen_rsa},
 #ifdef LUAT_USE_LVGL
   {"lvgl",   luaopen_lvgl},
   {"lcd",    luaopen_lcd},

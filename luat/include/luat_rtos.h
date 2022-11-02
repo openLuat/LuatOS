@@ -46,18 +46,11 @@ LUAT_RET luat_send_event_to_task(void *task_handle, uint32_t id, uint32_t param1
 LUAT_RET luat_wait_event_from_task(void *task_handle, uint32_t wait_event_id, void *out_event, void *call_back, uint32_t ms);
 void *luat_get_current_task(void);
 /* ----------------------------------- semaphore ----------------------------------- */
-typedef struct luat_sem{
-    const char *name;
-    uint32_t value;
-    uint8_t flag;
-    void* userdata;
-}luat_sem_t;
+void *luat_semaphore_create(void);
+LUAT_RET luat_semaphore_delete(void* semaphore);
+LUAT_RET luat_semaphore_take(void* semaphore,uint32_t timeout);
+LUAT_RET luat_semaphore_release(void* semaphore);
 
-
-LUAT_RET luat_sem_create(luat_sem_t* semaphore);
-LUAT_RET luat_sem_delete(luat_sem_t* semaphore);
-LUAT_RET luat_sem_take(luat_sem_t* semaphore,uint32_t timeout);
-LUAT_RET luat_sem_release(luat_sem_t* semaphore);
 
 void *luat_mutex_create(void);
 LUAT_RET luat_mutex_lock(void *mutex);
@@ -66,16 +59,12 @@ void luat_mutex_release(void *mutex);
 
 /* ----------------------------------- queue ----------------------------------- */
 
-typedef struct luat_rtos_queue {
-    void* userdata;
-}luat_rtos_queue_t;
-
-LUAT_RET luat_queue_create(luat_rtos_queue_t* queue, size_t msgcount, size_t msgsize);
-LUAT_RET luat_queue_send(luat_rtos_queue_t*   queue, void* msg,  size_t msg_size, size_t timeout);
-LUAT_RET luat_queue_recv(luat_rtos_queue_t*   queue, void* msg, size_t msg_size, size_t timeout);
-LUAT_RET luat_queue_reset(luat_rtos_queue_t*   queue);
-LUAT_RET luat_queue_delete(luat_rtos_queue_t*   queue);
-LUAT_RET luat_queue_free(luat_rtos_queue_t*   queue);
+void *luat_queue_create(size_t msgcount, size_t msgsize);
+LUAT_RET luat_queue_send(void*   queue, void* msg,  size_t msg_size, size_t timeout);
+LUAT_RET luat_queue_recv(void*   queue, void* msg, size_t msg_size, size_t timeout);
+LUAT_RET luat_queue_reset(void*   queue);
+LUAT_RET luat_queue_delete(void*   queue);
+LUAT_RET luat_queue_free(void*   queue);
 
 
 /* ----------------------------------- timer ----------------------------------- */

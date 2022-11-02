@@ -14,7 +14,7 @@ LUAT_WEAK int luat_rtos_event_send(luat_rtos_task_handle task_handle, uint32_t i
 {
 	return luat_send_event_to_task(task_handle, id, param1, param2, param3);
 }
-LUAT_WEAK int luat_rtos_event_recv(luat_rtos_task_handle task_handle, uint32_t wait_event_id, luat_event_t *out_event, call_back_fun_t *callback_fun, uint32_t timeout)
+LUAT_WEAK int luat_rtos_event_recv(luat_rtos_task_handle task_handle, uint32_t wait_event_id, luat_event_t *out_event, luat_rtos_event_wait_callback_t *callback_fun, uint32_t timeout)
 {
 	return luat_wait_event_from_task(task_handle, wait_event_id, out_event, callback_fun, timeout);
 }

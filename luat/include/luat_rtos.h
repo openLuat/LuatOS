@@ -4,9 +4,6 @@
 #include "luat_base.h"
 #include "luat_rtos_legacy.h"
 
-typedef LUAT_RT_RET_TYPE (*call_back_fun_t)(LUAT_RT_CB_PARAM);
-
-
 
 typedef enum LUAT_RTOS_WAIT
 {
@@ -31,8 +28,9 @@ void luat_rtos_task_sleep(uint32_t ms);
 /* ------------------------------------------------ task   end------------------------------------------------ */
 
 /* ----------------------------------------------- event begin---------------------------------------------- */
+typedef LUAT_RT_RET_TYPE (*luat_rtos_event_wait_callback_t)(LUAT_RT_CB_PARAM);
 int luat_rtos_event_send(luat_rtos_task_handle task_handle, uint32_t id, uint32_t param1, uint32_t param2, uint32_t param3, uint32_t timeout);
-int luat_rtos_event_recv(luat_rtos_task_handle task_handle, uint32_t wait_event_id, luat_event_t *out_event, call_back_fun_t *callback_fun, uint32_t timeout);
+int luat_rtos_event_recv(luat_rtos_task_handle task_handle, uint32_t wait_event_id, luat_event_t *out_event, luat_rtos_event_wait_callback_t *callback_fun, uint32_t timeout);
 
 /* ----------------------------------------------- event end---------------------------------------------- */
 
@@ -78,9 +76,10 @@ int luat_rtos_queue_recv(luat_rtos_queue_t queue_handle, void *msg, uint32_t msg
 
 /* ------------------------------------------------ timer begin----------------------------------------------- */
 typedef void * luat_rtos_timer_t;
+typedef LUAT_RT_RET_TYPE (*luat_rtos_timer_callback_t)(LUAT_RT_CB_PARAM);
 int luat_rtos_timer_create(luat_rtos_timer_t *timer_handle);
 int luat_rtos_timer_delete(luat_rtos_timer_t timer_handle);
-int luat_rtos_timer_start(luat_rtos_timer_t timer_handle, uint32_t timeout, uint8_t repeat, call_back_fun_t callback_fun, void *user_param);
+int luat_rtos_timer_start(luat_rtos_timer_t timer_handle, uint32_t timeout, uint8_t repeat, luat_rtos_timer_callback_t callback_fun, void *user_param);
 int luat_rtos_timer_stop(luat_rtos_timer_t timer_handle);
 /*------------------------------------------------ timer   end----------------------------------------------- */
 #endif

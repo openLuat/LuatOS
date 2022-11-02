@@ -72,6 +72,8 @@ int luat_wlan_set_ps(int mode);
 int luat_wlan_get_ps(void);
 
 int luat_wlan_get_ap_bssid(char* buff);
+int luat_wlan_get_ap_rssi(void);
+int luat_wlan_get_ap_gateway(char* buff);
 
 // AP类
 int luat_wlan_ap_start(luat_wlan_apinfo_t *apinfo);

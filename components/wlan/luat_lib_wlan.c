@@ -295,6 +295,43 @@ static int l_wlan_ap_start(lua_State *L) {
     return 1;
 }
 
+/*
+获取信息,如AP的bssid,信号强度
+@api wlan.getInfo()
+@return table 详情,键值对形式
+@usage
+
+log.info("wlan", "info", json.encode(wlan.getInfo()))
+--[[
+典型输出
+{
+    "bssid" : "xxxxxx",
+    "rssi"  : -89,
+    "gw" : "192.168.1.1"
+}
+]]
+*/
+static int l_wlan_get_info(lua_State *L) {
+    char buff[48] = {0};
+    char buff2[32] = {0};
+    lua_newtable(L);
+
+    luat_wlan_get_ap_bssid(buff);
+    sprintf_(buff2, "%02X%02X%02X%02X%02X%02X", buff[0], buff[1], buff[2], buff[3], buff[4], buff[5]);
+    lua_pushstring(L, buff2);
+    lua_setfield(L, -2, "bssid");
+
+    memset(buff, 0, 48);
+    luat_wlan_get_ap_gateway(buff);
+    lua_pushstring(L, buff);
+    lua_setfield(L, -2, "gw");
+
+    lua_pushinteger(L, luat_wlan_get_ap_rssi());
+    lua_setfield(L, -2, "rssi");
+
+    return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_wlan[] =
 {
@@ -312,6 +349,7 @@ static const rotable_Reg_t reg_wlan[] =
 
     { "getMac",              ROREG_FUNC(l_wlan_get_mac)},
     { "getIP",               ROREG_FUNC(l_wlan_get_ip)},
+    { "getInfo",             ROREG_FUNC(l_wlan_get_info)},
 
     // AP相关
     { "createAP",            ROREG_FUNC(l_wlan_ap_start)},

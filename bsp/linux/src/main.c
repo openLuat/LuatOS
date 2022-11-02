@@ -9,13 +9,13 @@
 
 #include "bget.h"
 
-#include "FreeRTOS.h"
-#include "task.h"
+// #include "FreeRTOS.h"
+// #include "task.h"
 
 #define LUAT_HEAP_SIZE (1024*1024)
 uint8_t luavm_heap[LUAT_HEAP_SIZE] = {0};
 
-void luat_log_init_win32(void);
+// void luat_log_init_win32(void);
 
 
 int cmdline_argc;
@@ -57,7 +57,7 @@ int main(int argc, char** argv) {
     
     bpool(luavm_heap, LUAT_HEAP_SIZE);
 
-    luat_log_init_win32();
+    // luat_log_init_win32();
 
 #ifdef LUAT_USE_LVGL
     lv_init();
@@ -66,8 +66,9 @@ int main(int argc, char** argv) {
     xTaskCreate( _lvgl_handler, "lvgl", 1024*2, NULL, 23, NULL );
 #endif
 
-    xTaskCreate( _luat_main, "luatos", 1024*16, NULL, 21, NULL );
-    vTaskStartScheduler();
+    // xTaskCreate( _luat_main, "luatos", 1024*16, NULL, 21, NULL );
+    // vTaskStartScheduler();
+    _luat_main(NULL);
     return 0;
 }
 

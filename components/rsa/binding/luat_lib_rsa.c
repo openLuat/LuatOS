@@ -54,15 +54,14 @@ log.info("rsa", "encrypt", res and #res or 0, res and res:toHex() or "")
 */
 static int l_rsa_encrypt(lua_State* L) {
     int ret = 0;
-    size_t datalen = 0;
+    size_t ilen = 0;
     size_t keylen = 0;
-    size_t rsa_len = 0;
+    size_t olen = 0;
     char buff[1024];
     const char* key = luaL_checklstring(L, 1, &keylen);
-    const char* data = luaL_checklstring(L, 2, &datalen);
+    const char* data = luaL_checklstring(L, 2, &ilen);
 
     mbedtls_pk_context ctx_pk;
-    mbedtls_rsa_context *rsa;
     mbedtls_pk_init(&ctx_pk);
     ret = mbedtls_pk_parse_public_key(&ctx_pk, (const unsigned char*)key, keylen + 1);
     if (ret) {
@@ -70,18 +69,15 @@ static int l_rsa_encrypt(lua_State* L) {
         LLOGW("bad public key %04X", -ret);
         return 0;
     }
-    rsa = (mbedtls_rsa_context *)ctx_pk.pk_ctx;
-    rsa_len = rsa->len;
-    //LLOGD("output len %d", rsa->len);
 
-    ret = mbedtls_rsa_pkcs1_encrypt( ctx_pk.pk_ctx, myrand, NULL, MBEDTLS_RSA_PUBLIC, datalen, (const unsigned char*)data, (unsigned char*)buff );
+    ret = mbedtls_pk_encrypt(&ctx_pk, (const unsigned char*)data, ilen, (unsigned char*)buff, &olen, 1024, myrand, NULL);
     mbedtls_pk_free(&ctx_pk);
 
     if (ret) {
         LLOGW("mbedtls_rsa_pkcs1_encrypt %04X", -ret);
         return 0;
     }
-    lua_pushlstring(L, buff, rsa_len);
+    lua_pushlstring(L, buff, olen);
     return 1;
 }
 
@@ -110,28 +106,29 @@ static int l_rsa_decrypt(lua_State* L) {
     const char* pwd = luaL_optlstring(L, 3, "", &pwdlen);
 
     mbedtls_pk_context ctx_pk;
-    mbedtls_rsa_context *rsa;
     mbedtls_pk_init(&ctx_pk);
-    ret = mbedtls_pk_parse_key(&ctx_pk, (const unsigned char*)key, keylen + 1, (const unsigned char*)pwd, pwdlen);
+    ret = mbedtls_pk_parse_key(&ctx_pk, (const unsigned char*)key, keylen + 1, (const unsigned char*)pwd, pwdlen
+#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+    , myrand, NULL
+#endif
+    );
     if (ret) {
         mbedtls_pk_free(&ctx_pk);
         LLOGW("bad private key %04X", -ret);
         return 0;
     }
-    rsa = (mbedtls_rsa_context *)ctx_pk.pk_ctx;
-    rsa_len = rsa->len;
+    rsa_len = (mbedtls_pk_get_bitlen(&ctx_pk) + 7 ) / 8;
     if (rsa_len != ilen) {
         mbedtls_pk_free(&ctx_pk);
         LLOGW("data len NOT match expect %d but %d", rsa_len, ilen);
         return 0;
     }
-    //LLOGD("output len %d", rsa->len);
-
-    ret = mbedtls_rsa_pkcs1_decrypt( ctx_pk.pk_ctx, myrand, NULL, MBEDTLS_RSA_PRIVATE, &olen, (const unsigned char*)data, (unsigned char*)buff, 1024);
+    ret = mbedtls_pk_decrypt(&ctx_pk, (const unsigned char*)data, ilen, (unsigned char*)buff, &olen, 1024, myrand, NULL);
     mbedtls_pk_free(&ctx_pk);
 
     if (ret) {
         LLOGW("mbedtls_rsa_pkcs1_decrypt %04X", -ret);
+        return 0;
     }
     lua_pushlstring(L, buff, olen);
     return 1;

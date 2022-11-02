@@ -12,8 +12,15 @@ typedef enum LUAT_DEBUG_FAULT_MODE
 void luat_debug_print(const char *fmt, ...);
 #define LUAT_DEBUG_PRINT(fmt, argv...) luat_debug_print("%s %d:"fmt, __FUNCTION__,__LINE__, ##argv)
 
-void luat_debug_assert(uint8_t condition, const char *fmt, ...);
-#define LUAT_DEBUG_ASSERT(condition, fmt, argv...) luat_debug_assert(condition, "%s %d:"fmt, __FUNCTION__,__LINE__, ##argv)
+void luat_debug_assert(const char *fun_name, unsigned int line_no, const char *fmt, ...);
+#define LUAT_DEBUG_ASSERT(condition, fmt, argv...)  do {  \
+														{ \
+															if((condition) == 0) \
+															{ \
+																luat_debug_assert(__FUNCTION__, __LINE__, fmt, ##argv); \
+															}\
+														} \
+													} while(0)
 
 void luat_debug_set_fault_mode(LUAT_DEBUG_FAULT_MODE_E mode);
 

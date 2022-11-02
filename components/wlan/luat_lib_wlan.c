@@ -1,14 +1,45 @@
+
+/*
+@module  wlan
+@summary wifi操作
+@catalog 外设API
+@version 1.0
+@date    2022.09.30
+@demo wlan
+*/
+
 #include "luat_base.h"
 #include "luat_wlan.h"
 
 #define LUAT_LOG_TAG "wlan"
 #include "luat_log.h"
 
+/*
+初始化
+@api wifi.init()
+@return bool 成功返回true,否则返回false
+*/
 static int l_wlan_init(lua_State* L){
-    luat_wlan_init(NULL);
-    return 0;
+    int ret = luat_wlan_init(NULL);
+    lua_pushboolean(L, ret == 0 ? 1 : 0);
+    return 1;
 }
 
+/*
+设置wifi模式
+@api wifi.setMode(mode)
+@int wifi模式
+@return bool 成功返回true,否则返回false
+@usage
+-- 设置为AP模式, 广播ssid, 接收wifi客户端的链接
+wifi.setMode(wifi.AP)
+
+-- 设置为STATION模式, 也是初始化后的默认模式
+wifi.setMode(wifi.STATION)
+
+-- 混合模式, 做AP又做STATION
+wifi.setMode(wifi.APSTA)
+*/
 static int l_wlan_mode(lua_State* L){
     int mode = LUAT_WLAN_MODE_STA;
     if (lua_isinteger(L, 1)) {
@@ -43,15 +74,37 @@ static int l_wlan_mode(lua_State* L){
     luat_wlan_config_t conf = {
         .mode = mode
     };
-    luat_wlan_mode(&conf);
-    return 0;
+    int ret = luat_wlan_mode(&conf);
+    lua_pushboolean(L, ret == 0 ? 1 : 0);
+    return 1;
 }
 
+/*
+作为STATION时,是否已经连接上AP,且获取IP成功
+@api wifi.ready()
+@return bool 已经连接成功返回true,否则返回false
+*/
 static int l_wlan_ready(lua_State* L){
     lua_pushboolean(L, luat_wlan_ready());
     return 1;
 }
 
+/*
+作为STATION时,连接到指定AP
+@api wifi.connect(ssid, password)
+@string AP的ssid
+@string AP的password,可选
+@return bool 发起连接成功返回true,否则返回false.注意,不代表连接AP成功!!
+@usage
+
+-- 普通模式,带密码
+wlan.connect("myap", "12345678")
+-- 普通模式,不带密码
+wlan.connect("myap")
+-- 特殊模式, 重用之前的ssid和密码,本次直接连接
+-- 注意, 前提是本次上电后已经传过ssid和或password,否则必失败
+wlan.connect()
+*/
 static int l_wlan_connect(lua_State* L){
     const char* ssid = luaL_optstring(L, 1, "");
     const char* password = luaL_optstring(L, 2, "");
@@ -60,20 +113,57 @@ static int l_wlan_connect(lua_State* L){
     memcpy(info.ssid, ssid, strlen(ssid));
     memcpy(info.password, password, strlen(password));
 
-    luat_wlan_connect(&info);
-    return 0;
+    int ret = luat_wlan_connect(&info);
+    lua_pushboolean(L, ret == 0 ? 1 : 0);
+    return 1;
 }
 
+/*
+作为STATION时,断开AP
+@api wifi.disconnect()
+*/
 static int l_wlan_disconnect(lua_State* L){
     luat_wlan_disconnect();
     return 0;
 }
 
+/*
+扫描wifi频段
+@api wifi.scan()
+@usage
+-- 注意, wifi.scan()是异步API,启动扫描后会马上返回
+
+-- wifi扫描成功后, 会有WLAN_SCAN_DONE消息, 读取即可
+sys.subscribe("WLAN_SCAN_DONE", function ()
+    local results = wlan.scanResult()
+    log.info("scan", "results", #results)
+    for k,v in pairs(results) do
+        log.info("scan", v["ssid"], v["rssi"], (v["bssid"]:toHex()))
+    end
+end)
+
+-- 下面演示的是初始化wifi后定时扫描,请按实际业务需求修改
+sys.taskInit(function()
+    sys.wait(1000)
+    wlan.init()
+    while 1 do
+        wlan.scan()
+        sys.wait(15000)
+    end
+end)
+*/
 static int l_wlan_scan(lua_State* L){
     luat_wlan_scan();
     return 0;
 }
 
+/*
+获取wifi扫描结果
+@api wifi.scanResult()
+@return table 扫描结果
+@usage
+-- 用法请查阅 wlan.scan() 函数
+*/
 static int l_wlan_scan_result(lua_State* L) {
     int ap_limit = luaL_optinteger(L, 1, 20);
     if (ap_limit > 32)
@@ -116,20 +206,35 @@ static int l_wlan_scan_result(lua_State* L) {
     return 1;
 }
 
+/*
+配网
+@api wlan.smartconfig(mode)
+@int 配网模式, 默认为esptouch, 若传0则主动停止配网
+@return bool 启动成功或停止成功, 返回true, 否则返回false
+@usage
+wlan.smartconfig()
+local ret, ssid, passwd = sys.waitUntil("SC_RESULT", 180*1000) -- 最多等3分钟
+log.info("sc", ret, ssid, passwd)
+-- 详细用法请查看demo
+*/
 static int l_wlan_smartconfig(lua_State *L) {
     int tp = luaL_optinteger(L, 1, LUAT_SC_TYPE_ESPTOUCH);
     if (tp == LUAT_SC_TYPE_STOP) {
         luat_wlan_smartconfig_stop();
-        return 0;
+        lua_pushboolean(L, 1);
     }
     else {
         int ret = luat_wlan_smartconfig_start(tp);
         lua_pushboolean(L, ret == 0 ? 1 : 0);
-        return 1;
     }
+    return 1;
 }
 
-// 获取mac
+/*
+获取mac
+@api wlan.getMode()
+@return string MAC地址,十六进制字符串形式 "AABBCCDDEEFF"
+*/
 static int l_wlan_get_mac(lua_State* L){
     char tmp[6] = {0};
     char tmpbuff[16] = {0};
@@ -139,7 +244,29 @@ static int l_wlan_get_mac(lua_State* L){
     return 1;
 }
 
-// 启动AP
+
+/*
+获取ip,仅STATION或APSTA模式下有意义
+@api wlan.getIP()
+@return string ip地址,当前仅返回ipv4地址,例如 "192.168.1.25"
+*/
+static int l_wlan_get_ip(lua_State* L){
+    char tmpbuff[16] = {0};
+    luat_wlan_get_ip(luaL_optinteger(L, 1, 0), tmpbuff);
+    lua_pushstring(L, tmpbuff);
+    return 1;
+}
+
+/*
+启动AP
+@api wlan.createAP(ssid, passwd)
+@string AP的SSID,必填
+@string AP的密码,可选
+@return bool 成功创建返回true,否则返回false
+@usage
+-- 注意, 调用本AP时,若wifi模式为STATION,会自动切换成 APSTA
+wlan.createAP("uiot", "12345678")
+*/
 static int l_wlan_ap_start(lua_State *L) {
     size_t ssid_len = 0;
     size_t password_len = 0;
@@ -174,8 +301,6 @@ static const rotable_Reg_t reg_wlan[] =
     { "init",               ROREG_FUNC(l_wlan_init)},
     { "mode",               ROREG_FUNC(l_wlan_mode)},
     { "setMode",            ROREG_FUNC(l_wlan_mode)},
-    // { "setMode",           ROREG_FUNC(l_wlan_set_mode)},
-    // { "getMode",           ROREG_FUNC(l_wlan_get_mode)},
     { "ready",              ROREG_FUNC(l_wlan_ready)},
     { "connect",            ROREG_FUNC(l_wlan_connect)},
     { "disconnect",         ROREG_FUNC(l_wlan_disconnect)},
@@ -186,21 +311,31 @@ static const rotable_Reg_t reg_wlan[] =
     { "smartconfig",         ROREG_FUNC(l_wlan_smartconfig)},
 
     { "getMac",              ROREG_FUNC(l_wlan_get_mac)},
+    { "getIP",               ROREG_FUNC(l_wlan_get_ip)},
 
     // AP相关
     { "createAP",            ROREG_FUNC(l_wlan_ap_start)},
 
-    // 常数
+    // wifi模式
+    //@const NONE WLAN模式,停用
     {"NONE",                ROREG_INT(LUAT_WLAN_MODE_NULL)},
+    //@const STATION WLAN模式,STATION模式,主动连AP
     {"STATION",             ROREG_INT(LUAT_WLAN_MODE_STA)},
+    //@const AP WLAN模式,AP模式,接受STATION连接
     {"AP",                  ROREG_INT(LUAT_WLAN_MODE_AP)},
+    //@const AP WLAN模式,混合模式
     {"STATIONAP",           ROREG_INT(LUAT_WLAN_MODE_APSTA)},
 
-    // smartconfig 配网
-    {"STOP",                ROREG_INT(0)},
+    // 配网模式
+    //@const STOP 停止配网
+    {"STOP",                ROREG_INT(LUAT_SC_TYPE_STOP)},
+    //@const ESPTOUCH esptouch配网, V1
     {"ESPTOUCH",            ROREG_INT(LUAT_SC_TYPE_ESPTOUCH)},
+    //@const AIRKISS Airkiss配网, 微信常用
     {"AIRKISS",             ROREG_INT(LUAT_SC_TYPE_AIRKISS)},
+    //@const ESPTOUCH_AIRKISS esptouch和Airkiss混合配网
     {"ESPTOUCH_AIRKISS",    ROREG_INT(LUAT_SC_TYPE_ESPTOUCH_AIRKISS)},
+    //@const ESPTOUCH_V2 esptouch配网, V2, 未测试
     {"ESPTOUCH_V2",         ROREG_INT(LUAT_SC_TYPE_ESPTOUCH_V2)},
 	{ NULL,                 ROREG_INT(0)}
 };

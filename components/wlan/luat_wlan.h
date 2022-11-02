@@ -65,6 +65,13 @@ int luat_wlan_smartconfig_stop(void);
 // 数据类
 int luat_wlan_get_mac(int id, char* mac);
 int luat_wlan_set_mac(int id, char* mac);
+int luat_wlan_get_ip(int type, char* data);
+
+// 设置和获取省电模式
+int luat_wlan_set_ps(int mode);
+int luat_wlan_get_ps(void);
+
+int luat_wlan_get_ap_bssid(char* buff);
 
 // AP类
 int luat_wlan_ap_start(luat_wlan_apinfo_t *apinfo);

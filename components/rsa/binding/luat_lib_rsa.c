@@ -83,7 +83,7 @@ static int l_rsa_encrypt(lua_State* L) {
 
 /*
 RSA解密
-@api rsa.encrypt(key, data, pwd)
+@api rsa.decrypt(key, data, pwd)
 @string 私钥数据,仅支持PEM格式
 @string 待解密数据
 @string 私钥的密码,可选

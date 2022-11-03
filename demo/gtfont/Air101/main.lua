@@ -23,11 +23,9 @@ log.info("lcd.init",
 lcd.init("st7789",{port = "device",pin_dc = 17,pin_rst = 16,direction = 0,w = 240,h = 320,xoffset = 0,yoffset = 0},spi_lcd))
 
 gtfont.init(spi_gtfont)
-gtfont.utf8_display("啊啊啊",32,0,0)--utf8编码
-gtfont.utf8_display_gray("啊啊啊",32,4,0,40)--utf8编码
+lcd.drawGtfontUtf8("啊啊啊",32,0,0)
+lcd.drawGtfontUtf8Gray("啊啊啊",32,4,0,40)
 
--- gtfont.gb2312_display("����",32,0,0)--gb2312编码
--- gtfont.gb2312_display_gray("����",32,4,0,40)--gb2312编码
 
 sys.taskInit(function()
     while 1 do

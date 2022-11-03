@@ -1,6 +1,6 @@
 #include "luat_lvgl_fonts.h"
 
-#ifdef LUAT_USE_LVGL_GT_FONT
+#ifdef LUAT_USE_GTFONT
 
 #include "GT5SLCD2E_1A.h"
 

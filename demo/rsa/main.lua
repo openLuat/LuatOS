@@ -25,6 +25,12 @@ log.info("main", PROJECT, VERSION)
 -- sys库是标配
 _G.sys = require("sys")
 
+-- 因为这是通用demo, air101/air103跑满速才不至于太慢-_-
+if rtos.bsp() == "AIR101" or rtos.bsp() == "AIR103" then
+    if mcu then
+        mcu.setClk(240)
+    end
+end
 
 sys.taskInit(function()
     -- 为了日志能正常显示出来, 这里特意延时2秒, 实际使用中不需要
@@ -46,6 +52,17 @@ sys.taskInit(function()
         -- 读取私钥, 然后解码数据
         local dst = rsa.decrypt((io.readFile("/luadb/privkey.pem")), res, "")
         log.info("rsa", "decrypt", dst and #dst or 0, dst and dst:toHex() or "")
+    end
+
+    -- 演示签名和验签
+    local hash = crypto.sha1("1234567890"):fromHex()
+    -- 签名通常很慢, 通常是服务器做
+    local sig = rsa.sign((io.readFile("/luadb/privkey.pem")), rsa.MD_SHA1, hash, "")
+    log.info("rsa", "sign", sig and #sig or 0, sig and sig:toHex() or "")
+    if sig then
+        -- 验签是很快的
+        local ret = rsa.verify((io.readFile("/luadb/public.pem")), rsa.MD_SHA1, hash, sig)
+        log.info("rsa", "verify", ret)
     end
 end)
 

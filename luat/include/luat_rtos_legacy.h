@@ -30,11 +30,11 @@ LUAT_RET luat_wait_event_from_task(void *task_handle, uint32_t wait_event_id, lu
 void *luat_get_current_task(void);
 
 
-
+/* -----------------------------------信号量模拟互斥锁，可以在中断中unlock-------------------------------*/
 void *luat_mutex_create(void);
 LUAT_RET luat_mutex_lock(void *mutex);
 LUAT_RET luat_mutex_unlock(void *mutex);
-
+void luat_mutex_release(void *mutex);
 
 
 /* ----------------------------------- timer ----------------------------------- */

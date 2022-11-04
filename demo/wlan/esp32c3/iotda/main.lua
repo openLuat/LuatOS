@@ -64,7 +64,7 @@ sys.taskInit(function()
     local result, data = sys.waitUntil("IP_READY")
     while true do
         sys.wait(5000)
-        if mqttc:ready() then
+        if mqttc and mqttc:ready() then
             local pkgid = mqttc:publish(topic, payload, qos)
         end
     end

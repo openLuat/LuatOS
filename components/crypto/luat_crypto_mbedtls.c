@@ -183,14 +183,12 @@ int luat_crypto_md(int64_t md, const char* str, size_t str_size, void* out_ptr, 
     if (info == NULL) {
         return -1;
     }
-    mbedtls_md_setup(&ctx, info, key_len);
-    if (key_len == 0)
-        mbedtls_md_starts(&ctx);
-    else
-        mbedtls_md_hmac_starts(&ctx, (const unsigned char*)key, key_len);
-    mbedtls_md_update(&ctx, (const unsigned char*)str, str_size);
-    mbedtls_md_finish(&ctx, out_ptr);
-    mbedtls_md_free(&ctx);
+    if (key_len < 1) {
+        mbedtls_md(info, (const unsigned char*)str, str_size, (unsigned char*)out_ptr);
+    }
+    else {
+        mbedtls_md_hmac(info, (const unsigned char*)key, key_len, (const unsigned char*)str, str_size, (unsigned char*)out_ptr);
+    }
     return 0;
 }
 

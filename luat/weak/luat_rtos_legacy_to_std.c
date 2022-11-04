@@ -10,6 +10,12 @@ LUAT_WEAK void luat_rtos_task_resume_all(void)
 {
 	luat_task_resume_all();
 }
+
+luat_rtos_task_handle luat_rtos_get_current_handle(void)
+{
+	return luat_get_current_task();
+}
+
 LUAT_WEAK int luat_rtos_event_send(luat_rtos_task_handle task_handle, uint32_t id, uint32_t param1, uint32_t param2, uint32_t param3, uint32_t timeout)
 {
 	return luat_send_event_to_task(task_handle, id, param1, param2, param3);

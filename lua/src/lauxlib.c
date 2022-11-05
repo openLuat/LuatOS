@@ -828,7 +828,6 @@ LUALIB_API lua_Integer luaL_len (lua_State *L, int idx) {
 
 
 LUALIB_API const char *luaL_tolstring (lua_State *L, int idx, size_t *len) {
-  char buff[64] = {0};
   if (luaL_callmeta(L, idx, "__tostring")) {  /* metafield? */
     if (!lua_isstring(L, -1))
       luaL_error(L, "'__tostring' must return a string");
@@ -838,11 +837,8 @@ LUALIB_API const char *luaL_tolstring (lua_State *L, int idx, size_t *len) {
       case LUA_TNUMBER: {
         if (lua_isinteger(L, idx))
           lua_pushfstring(L, "%I", (LUAI_UACINT)lua_tointeger(L, idx));
-        else {
-          lua_Number num = lua_tonumber(L, idx);
-          snprintf_(buff, 64, "%f", num);
-          lua_pushlstring(L, buff, strlen(buff));
-        }
+        else
+          lua_pushfstring(L, "%f", (LUAI_UACNUMBER)lua_tonumber(L, idx));
         break;
       }
       case LUA_TSTRING:

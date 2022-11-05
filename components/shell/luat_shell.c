@@ -120,7 +120,7 @@ void luat_shell_exec(char* uart_buff, size_t rcount) {
 }
 
 // ---- 各种子命令
-
+#ifdef LUAT_USE_LOADSTR
 static int luat_shell_loadstr(lua_State *L, void* ptr) {
     lua_settop(L, 0);
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
@@ -133,7 +133,7 @@ static int luat_shell_loadstr(lua_State *L, void* ptr) {
     }
     return 0;
 }
-
+#endif
 static void cmd_ati(char* uart_buff, size_t len) {
     char buff[128] = {0};
     #ifdef LUAT_BSP_VERSION

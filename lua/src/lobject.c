@@ -9,7 +9,7 @@
 
 #include "lprefix.h"
 
-
+#include "stdint.h"
 #include <locale.h>
 #include <math.h>
 #include <stdarg.h>
@@ -431,11 +431,11 @@ const char *luaO_pushvfstring (lua_State *L, const char *fmt, va_list argp) {
         // 针对EC618的va_arg取double出错的临时解决方案
         // 直接调用 va_arg(argp, double) 会返回0
         // 可能与某个gcc参数有关
-        int d1, d2;
+        uint32_t d1, d2;
         double num;
         char* tmp = (char*)&num;
-        d1 = va_arg(argp, int);
-        d2 = va_arg(argp, int);
+        d1 = va_arg(argp, uint32_t);
+        d2 = va_arg(argp, uint32_t);
         memcpy(tmp, &d1, 4);
         memcpy(tmp + 4, &d2, 4);
         setfltvalue(L->top, (lua_Number)num);

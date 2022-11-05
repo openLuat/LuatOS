@@ -427,7 +427,21 @@ const char *luaO_pushvfstring (lua_State *L, const char *fmt, va_list argp) {
         goto top2str;
       }
       case 'f': {  /* a 'lua_Number' */
+#ifdef CHIP_EC618
+        // 针对EC618的va_arg取double出错的临时解决方案
+        // 直接调用 va_arg(argp, double) 会返回0
+        // 可能与某个gcc参数有关
+        int d1, d2;
+        double num;
+        char* tmp = (char*)&num;
+        d1 = va_arg(argp, int);
+        d2 = va_arg(argp, int);
+        memcpy(tmp, &d1, 4);
+        memcpy(tmp + 4, &d2, 4);
+        setfltvalue(L->top, (lua_Number)num);
+#else
         setfltvalue(L->top, cast_num(va_arg(argp, l_uacNumber)));
+#endif
       top2str:  /* convert the top element to a string */
         luaD_inctop(L);
         luaO_tostring(L, L->top - 1);

@@ -153,7 +153,7 @@ static int _statem_struct_newindex(lua_State *L) {
 static const rotable_Reg_t reg_statem[] =
 {
     { "create",      ROREG_FUNC(l_statem_create)},
-	{ NULL,          {}}
+	{ NULL,          ROREG_INT(0)}
 };
 
 static void luat_statem_struct_init(lua_State *L) {

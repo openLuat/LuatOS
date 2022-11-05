@@ -578,7 +578,13 @@ static int _vsnprintf(out_fct_type out, char* buffer, const size_t maxlen, const
 {
   unsigned int flags, width, precision, n;
   size_t idx = 0U;
-
+#ifdef __PRINT_ALIGNED_32BIT__
+  volatile uint32_t *ap_addr;
+  volatile uint32_t ap_value;
+  uint32_t d1,d2;
+  uint64_t value;
+  double f64;
+#endif
   if (!buffer) {
     // use null output function
     out = _out_null;
@@ -723,7 +729,21 @@ static int _vsnprintf(out_fct_type out, char* buffer, const size_t maxlen, const
           // signed
           if (flags & FLAGS_LONG_LONG) {
 #if defined(PRINTF_SUPPORT_LONG_LONG)
+
+#ifdef __PRINT_ALIGNED_32BIT__
+            ap_addr = (uint32_t *)&va;
+            ap_value = (*ap_addr);
+            if (!(ap_value & 0x07))
+            {
+              d1 = va_arg(va, uint32_t);
+            }
+            d1 = va_arg(va, uint32_t);
+            d2 = va_arg(va, uint32_t);
+            value = d2;
+            value = (value << 32) | d1;
+#else
             const long long value = va_arg(va, long long);
+#endif
             idx = _ntoa_long_long(out, buffer, idx, maxlen, (unsigned long long)(value > 0 ? value : 0 - value), value < 0, base, precision, width, flags);
 #endif
           }
@@ -740,7 +760,21 @@ static int _vsnprintf(out_fct_type out, char* buffer, const size_t maxlen, const
           // unsigned
           if (flags & FLAGS_LONG_LONG) {
 #if defined(PRINTF_SUPPORT_LONG_LONG)
+#ifdef __ALIGNED_32BIT__
+            ap_addr = (uint32_t *)&va;
+            ap_value = (*ap_addr);
+            if (!(ap_value & 0x07))
+            {
+              d1 = va_arg(va, uint32_t);
+            }
+            d1 = va_arg(va, uint32_t);
+            d2 = va_arg(va, uint32_t);
+            value = d2;
+            value = (value << 32) | d1;
+            idx = _ntoa_long_long(out, buffer, idx, maxlen, value, false, base, precision, width, flags);
+#else
             idx = _ntoa_long_long(out, buffer, idx, maxlen, va_arg(va, unsigned long long), false, base, precision, width, flags);
+#endif
 #endif
           }
           else if (flags & FLAGS_LONG) {
@@ -758,7 +792,22 @@ static int _vsnprintf(out_fct_type out, char* buffer, const size_t maxlen, const
       case 'f' :
       case 'F' :
         if (*format == 'F') flags |= FLAGS_UPPERCASE;
+#ifdef __PRINT_ALIGNED_32BIT__
+        ap_addr = (uint32_t *)&va;
+        ap_value = (*ap_addr);
+        if (!(ap_value & 0x07))
+        {
+          d1 = va_arg(va, uint32_t);
+        }
+        d1 = va_arg(va, uint32_t);
+        d2 = va_arg(va, uint32_t);
+        value = d2;
+        value = (value << 32) | d1;
+        memcpy(&f64, &value, 8);
+        idx = _ftoa(out, buffer, idx, maxlen, f64, precision, width, flags);
+#else
         idx = _ftoa(out, buffer, idx, maxlen, va_arg(va, double), precision, width, flags);
+#endif
         format++;
         break;
 #if defined(PRINTF_SUPPORT_EXPONENTIAL)
@@ -768,7 +817,22 @@ static int _vsnprintf(out_fct_type out, char* buffer, const size_t maxlen, const
       case 'G':
         if ((*format == 'g')||(*format == 'G')) flags |= FLAGS_ADAPT_EXP;
         if ((*format == 'E')||(*format == 'G')) flags |= FLAGS_UPPERCASE;
+#ifdef __PRINT_ALIGNED_32BIT__
+        ap_addr = (uint32_t *)&va;
+        ap_value = (*ap_addr);
+        if (!(ap_value & 0x07))
+        {
+          d1 = va_arg(va, uint32_t);
+        }
+        d1 = va_arg(va, uint32_t);
+        d2 = va_arg(va, uint32_t);
+        value = d2;
+        value = (value << 32) | d1;
+        memcpy(&f64, &value, 8);
+        idx = _etoa(out, buffer, idx, maxlen, f64, precision, width, flags);
+#else
         idx = _etoa(out, buffer, idx, maxlen, va_arg(va, double), precision, width, flags);
+#endif
         format++;
         break;
 #endif  // PRINTF_SUPPORT_EXPONENTIAL

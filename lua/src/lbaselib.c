@@ -58,13 +58,18 @@ static void luat_debug_print(int index, const char* str, size_t slen, int eof) {
 static int luaB_print (lua_State *L) {
   int n = lua_gettop(L);  /* number of arguments */
   int i;
-  const char *s;
-  size_t l;
+  lua_getglobal(L, "tostring");
   for (i=1; i<=n; i++) {
-    s = lua_tolstring(L, i, &l);  /* get result */
+    const char *s;
+    size_t l;
+    lua_pushvalue(L, -1);  /* function to be called */
+    lua_pushvalue(L, i);   /* value to print */
+    lua_call(L, 1, 1);
+    s = lua_tolstring(L, -1, &l);  /* get result */
     if (s == NULL)
       return luaL_error(L, "'tostring' must return a string to 'print'");
     luat_debug_print(i, s, l, 0);
+    lua_pop(L, 1);  /* pop result */
   }
   luat_debug_print(0, NULL, 0, 1);
   return 0;
@@ -472,12 +477,8 @@ static int luaB_xpcall (lua_State *L) {
 
 
 static int luaB_tostring (lua_State *L) {
-  size_t len = 0;
-  const char* str = NULL;
   luaL_checkany(L, 1);
-  lua_settop(L, 1);
-  str = luaL_tolstring(L, 1, &len);
-  lua_pushlstring(L, str, len);
+  luaL_tolstring(L, 1, NULL);
   return 1;
 }
 

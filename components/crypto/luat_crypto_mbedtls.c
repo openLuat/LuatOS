@@ -50,8 +50,6 @@ int l_crypto_cipher_xxx(lua_State *L, uint8_t flags) {
         goto _error_exit;
     }
     mode = mbedtls_cipher_info_get_mode(_cipher);
-    block_size = mbedtls_cipher_info_get_block_size(_cipher);
-    //LLOGD("mbedtls_cipher_get_block_size %d", block_size);
 
 	ret = mbedtls_cipher_setup(&ctx, _cipher);
     //LLOGD("mbedtls_cipher_setup %d", ret);
@@ -59,6 +57,8 @@ int l_crypto_cipher_xxx(lua_State *L, uint8_t flags) {
         LLOGW("mbedtls_cipher_setup 0x%04x %s", -ret, cipher);
         goto _error_exit;
     }
+    block_size = mbedtls_cipher_get_block_size(&ctx);
+    //LLOGD("mbedtls_cipher_get_block_size %d", block_size);
 
 
     ret = mbedtls_cipher_setkey(&ctx, (const unsigned char*)key, key_size * 8, opt);

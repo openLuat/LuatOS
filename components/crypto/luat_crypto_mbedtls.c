@@ -49,7 +49,11 @@ int l_crypto_cipher_xxx(lua_State *L, uint8_t flags) {
     	LLOGW("%s not support", cipher);
         goto _error_exit;
     }
+#if MBEDTLS_VERSION_NUMBER >= 0x03000000
     mode = mbedtls_cipher_info_get_mode(_cipher);
+#else
+    mode = _cipher->mode;
+#endif
 
 	ret = mbedtls_cipher_setup(&ctx, _cipher);
     //LLOGD("mbedtls_cipher_setup %d", ret);

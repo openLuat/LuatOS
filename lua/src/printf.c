@@ -760,7 +760,7 @@ static int _vsnprintf(out_fct_type out, char* buffer, const size_t maxlen, const
           // unsigned
           if (flags & FLAGS_LONG_LONG) {
 #if defined(PRINTF_SUPPORT_LONG_LONG)
-#ifdef __ALIGNED_32BIT__
+#ifdef __PRINT_ALIGNED_32BIT__
             ap_addr = (uint32_t *)&va;
             ap_value = (*ap_addr);
             if (!(ap_value & 0x07))

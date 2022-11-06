@@ -234,14 +234,14 @@ static int l_crypto_hmac_sha512(lua_State *L) {
 int l_crypto_cipher_xxx(lua_State *L, uint8_t flags);
 
 /**
-对称加密
+对称加密(AES/DES/ARIA等)
 @api crypto.cipher_encrypt(type, padding, str, key, iv)
-@string 算法名称, 例如 AES-128-ECB/AES-128-CBC, 可查阅mbedtls的cipher_wrap.c
-@string 对齐方式, 当前仅支持PKCS7
-@string 需要加密的数据
+@string 算法名称, 例如 AES-128-ECB/AES-128-CBC, 可通过cipher_list函数查询
+@string 对齐方式, 仅CBC模式下支持, 可选值有PKCS7/ZERO/ONE_AND_ZEROS/ZEROS_AND_LEN
+@string 需要加密的数据. 注意,非CBC模式下, 数据长度必须是对应的块大小的倍数, 例如16/32的倍数
 @string 密钥,需要对应算法的密钥长度
 @string IV值, 非ECB算法需要
-@return string 加密后的字符串
+@return string 加密后的字符串,若失败返回nil
 @usage
 -- 计算AES
 local data = crypto.cipher_encrypt("AES-128-ECB", "PKCS7", "1234567890123456", "1234567890123456")
@@ -250,15 +250,16 @@ local data2 = crypto.cipher_encrypt("AES-128-CBC", "PKCS7", "1234567890123456", 
 int l_crypto_cipher_encrypt(lua_State *L) {
     return l_crypto_cipher_xxx(L, 1);
 }
+
 /**
-对称解密
+对称解密(AES/DES/ARIA等)
 @api crypto.cipher_decrypt(type, padding, str, key, iv)
-@string 算法名称, 例如 AES-128-ECB/AES-128-CBC, 可查阅mbedtls的cipher_wrap.c
-@string 对齐方式, 当前仅支持PKCS7
-@string 需要解密的数据
+@string 算法名称, 例如 AES-128-ECB/AES-128-CBC, 可通过cipher_list函数查询
+@string 对齐方式, 仅CBC模式下支持, 可选值有PKCS7/ZERO/ONE_AND_ZEROS/ZEROS_AND_LEN
+@string 需要解密的数据. 注意,非CBC模式下, 数据长度必须是对应的块大小的倍数, 例如16/32的倍数
 @string 密钥,需要对应算法的密钥长度
 @string IV值, 非ECB算法需要
-@return string 解密后的字符串
+@return string 解密后的字符串,若失败返回nil
 @usage
 -- 用AES加密,然后用AES解密
 local data = crypto.cipher_encrypt("AES-128-ECB", "PKCS7", "1234567890123456", "1234567890123456")

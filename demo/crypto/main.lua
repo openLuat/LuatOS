@@ -34,8 +34,9 @@ sys.taskInit(function()
     log.info("sha512", crypto.sha512("abc"))
     log.info("hmac_sha512", crypto.hmac_sha512("abc", "1234567890"))
 
-    -- AES加密, 未经Hex编码. AES-128-ECB 算法,待加密字符串如果超过32字节会报错,待查. by wendal 20200812
-    local data_encrypt = crypto.cipher_encrypt("AES-128-ECB", "PKCS7", "12345678901234 > 123456", "1234567890123456")
+    -- AES加密, 以下演示未经Hex编码
+    -- 注意, 只有CBC模式需要iv值, 也只有CBC模式支持padding
+    local data_encrypt = crypto.cipher_encrypt("AES-128-ECB", "PKCS7", "01234567890123450123456789012345", "1234567890123456")
     local data2_encrypt = crypto.cipher_encrypt("AES-128-CBC", "PKCS7", "12345678901234 > 123456", "1234567890123456", "1234567890666666")
     log.info("AES", "aes-128-ecb", data_encrypt:toHex())
     log.info("AES", "aes-128-cbc", data2_encrypt:toHex())

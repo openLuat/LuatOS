@@ -48,9 +48,6 @@ typedef struct luat_espi {
     uint8_t mode;
 } luat_espi_t;
 
-#define LUAT_ESPI_TYPE "ESPI*"
-#define toespi(L) ((luat_espi_t *)luaL_checkudata(L, 1, LUAT_ESPI_TYPE))
-
 /**
     spiId,--串口id
     cs,

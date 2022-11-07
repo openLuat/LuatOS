@@ -20,7 +20,7 @@ typedef struct luat_vmx {
 
 static luat_vmx_t vms[LUAT_VMX_COUNT];
 
-static void* vms_alloc(const void* ud, void *ptr, size_t osize, size_t nsize) {
+static void* vms_alloc(void* ud, void *ptr, unsigned int osize, unsigned int nsize) {
     if (ud == NULL)
         return NULL;
     if (nsize)

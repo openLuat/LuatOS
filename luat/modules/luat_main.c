@@ -171,7 +171,7 @@ int luat_main (void) {
     luat_ota_update_or_rollback();
 #endif
 
-  int result = luat_main_call();
+  luat_main_call();
   LLOGE("Lua VM exit!! reboot in %dms", LUAT_EXIT_REBOOT_DELAY);
   luat_ota_reboot(LUAT_EXIT_REBOOT_DELAY);
   // 往下是肯定不会被执行的

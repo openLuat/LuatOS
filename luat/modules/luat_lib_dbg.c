@@ -240,7 +240,7 @@ void luat_dbg_vars(void *params) {
     if (lua_getstack(dbg_L, level, dbg_ar) == 1) {
         int index = 1;
         //int valtype = 0;
-        char *buff;
+        char *buff = NULL;
         int ret;
         size_t valstrlen = 0;
         //size_t valoutlen = 0;

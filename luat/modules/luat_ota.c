@@ -257,9 +257,9 @@ int luat_ota_checkfile(const char* path) {
 #ifdef LUAT_USE_OTA
 
 int luat_ota(uint32_t luadb_addr){
+#ifdef LUAT_USE_ZLIB 
     FILE *fd_out = NULL;
     FILE *fd_in = NULL;
-#ifdef LUAT_USE_ZLIB 
     extern int zlib_decompress(FILE *source, FILE *dest);
     //检测是否有压缩升级文件
     if(luat_fs_fexist(UPDATE_TGZ_PATH)){

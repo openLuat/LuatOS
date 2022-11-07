@@ -20,6 +20,10 @@
 
 #define META_SPI "SPI*"
 
+#define LUAT_ESPI_TYPE "ESPI*"
+#define toespi(L) ((luat_espi_t *)luaL_checkudata(L, 1, LUAT_ESPI_TYPE))
+
+
 // 软SPI 发送一个字节
 static void spi_soft_send_byte(luat_espi_t *espi, uint8_t data)
 {

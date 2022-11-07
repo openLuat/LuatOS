@@ -34,20 +34,6 @@ typedef struct luat_fatfs_spi
 	luat_spi_device_t * spi_device;
 }luat_fatfs_spi_t;
 
-// 软件spi
-typedef struct luat_espi {
-    uint8_t cs;
-    uint8_t mosi;
-    uint8_t miso;
-    uint32_t clk;
-    uint8_t CPHA;
-    uint8_t CPOL;
-    uint8_t dataw;
-    uint8_t bit_dict;
-    uint8_t master;
-    uint8_t mode;
-} luat_espi_t;
-
 /**
     spiId,--串口id
     cs,

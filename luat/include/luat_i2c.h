@@ -3,12 +3,6 @@
 
 #include "luat_base.h"
 
-typedef struct luat_ei2c {
-    int sda;
-    int scl;
-    unsigned char addr;
-} luat_ei2c;//软件i2c
-
 int luat_i2c_exist(int id);
 int luat_i2c_setup(int id, int speed, int slaveaddr);
 int luat_i2c_close(int id);

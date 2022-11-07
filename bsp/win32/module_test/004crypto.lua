@@ -32,7 +32,7 @@ assert(hmac_sha512:upper() == "0F92B9AC88949E0BF7C9F1E6F9901BAB8EDFDC9E561DFDE42
 
 local data_encrypt = crypto.cipher_encrypt("AES-128-ECB", "PKCS7", "12345678901234 > 123456000000000", "1234567890123456")
 log.info("AES", "aes-128-ecb encrypt", data_encrypt:toHex())
-assert(data_encrypt:toHex():upper() == "A37DE67837A1A3006E47A7BC25AA0ECC030B4E058E1972FE5B257FD8C3436142", "AES aes-128-ecb encrypt error")
+assert(data_encrypt:toHex():upper() == "A37DE67837A1A3006E47A7BC25AA0ECCEF744534DF0A80686810235A6450E2E2050187A0CDE5A9872CBAB091AB73E553", "AES aes-128-ecb encrypt error")
 
 local data_decrypt = crypto.cipher_decrypt("AES-128-ECB", "PKCS7", data_encrypt, "1234567890123456")
 log.info("AES", "aes-128-ecb decrypt", data_decrypt)

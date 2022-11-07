@@ -30,13 +30,13 @@ local hmac_sha512 = crypto.hmac_sha512("abc", "1234567890")
 log.info("hmac_sha512 result",hmac_sha512)
 assert(hmac_sha512:upper() == "0F92B9AC88949E0BF7C9F1E6F9901BAB8EDFDC9E561DFDE428BC4339961A0569AD01B44343AA56E439949655D15C4D28492D459E75015489920243F3C9986F2A","hmac_sha512 error")
 
-local data_encrypt = crypto.cipher_encrypt("AES-128-ECB", "PKCS7", "12345678901234 > 123456", "1234567890123456")
+local data_encrypt = crypto.cipher_encrypt("AES-128-ECB", "PKCS7", "12345678901234 > 1234560000000000000", "1234567890123456")
 log.info("AES", "aes-128-ecb encrypt", data_encrypt:toHex())
 assert(data_encrypt:toHex():upper() == "A37DE67837A1A3006E47A7BC25AA0ECC030B4E058E1972FE5B257FD8C3436142", "AES aes-128-ecb encrypt error")
 
 local data_decrypt = crypto.cipher_decrypt("AES-128-ECB", "PKCS7", data_encrypt, "1234567890123456")
 log.info("AES", "aes-128-ecb decrypt", data_decrypt)
-assert(data_decrypt:upper() == "12345678901234 > 123456", "AES aes-128-ecb decrypt error")
+assert(data_decrypt:upper() == "12345678901234 > 1234560000000000000", "AES aes-128-ecb decrypt error")
 
 local data2_encrypt = crypto.cipher_encrypt("AES-128-CBC", "PKCS7", "12345678901234 > 123456", "1234567890123456", "1234567890666666")
 log.info("AES", "aes-128-cbc encrypt", data2_encrypt:toHex())

@@ -24,7 +24,7 @@ extern uint8_t mlx90640_i2c_speed;
 
 void MLX90640_I2CInit(void)
 {   
-    luat_i2c_setup(mlx90640_i2c_id, mlx90640_i2c_speed, NULL);
+    luat_i2c_setup(mlx90640_i2c_id, mlx90640_i2c_speed);
 }
 
 int MLX90640_I2CRead(uint8_t slaveAddr, uint16_t startAddress, uint16_t nMemAddressRead, uint16_t *data)

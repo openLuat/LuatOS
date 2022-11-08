@@ -22,7 +22,7 @@ void i2c_help(void){
 
 uint8_t i2c_init(const uint8_t i2c_id){
     i2c_tools_id = i2c_id;
-    return (luat_i2c_setup(i2c_tools_id, 1, 0));
+    return (luat_i2c_setup(i2c_tools_id, 1));
 }
 
 uint8_t i2c_probe(char addr){

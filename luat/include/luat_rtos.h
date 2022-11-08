@@ -4,22 +4,38 @@
 #include "luat_base.h"
 #include "luat_rtos_legacy.h"
 
+/**
+ * @defgroup luatos_os  操作系统接口
+ * @{
+ */
 
+/**
+ * @brief LUAT_RTOS 超时时间枚举值
+ */
 typedef enum LUAT_RTOS_WAIT
 {
-	LUAT_NO_WAIT = 0,
-	LUAT_WAIT_FOREVER = (uint32_t)0xFFFFFFFF
-}LUAT_RTOS_WAIT_E;
-
-
+	LUAT_NO_WAIT = 0,						 /**< 超时时间为0 */
+	LUAT_WAIT_FOREVER = (uint32_t)0xFFFFFFFF /**< 最大超时时间0xFFFFFFFF*/
+} LUAT_RTOS_WAIT_E;
 
 /* ------------------------------------------------ task begin------------------------------------------------ */
+/**
+ * @defgroup  luatos_os_Task 线程任务接口函数
+ * @{
+ */
+
+/**
+ *@brief task的入口函数,函数类型
+ */
 typedef void (*luat_rtos_task_entry) (void*);
+/**
+ *@brief 定义task任务句柄
+ */
 typedef void * luat_rtos_task_handle;
 /**
  * @brief 创建一个可以带mailbox机制的task
  * 
- * @param task_handle 返回创建的句柄
+ * @param task_handle[OUT] 返回创建的句柄
  * @param stack_size task的栈空间大小，单位byte，必须4字节对齐
  * @param priority 优先级，单位是百分比，0%~100%,100%为最高等级，由具体实现转换到底层SDK用的优先级
  * @param task_name task名字
@@ -79,8 +95,12 @@ void luat_rtos_task_sleep(uint32_t ms);
  * @return luat_rtos_task_handle 当前task的句柄
  */
 luat_rtos_task_handle luat_rtos_get_current_handle(void);
+/** @}*/
 /* ------------------------------------------------ task   end------------------------------------------------ */
-
+/**
+ * @defgroup  luatos_os_event 消息事件函数
+ * @{
+ */
 /* ----------------------------------------------- event begin---------------------------------------------- */
 /**
  * @brief 在等待event中，如果设置了目标event id，而到来的不是目标event id，可以通过回调函数交给用户处理
@@ -106,7 +126,7 @@ int luat_rtos_event_send(luat_rtos_task_handle task_handle, uint32_t id, uint32_
  * 
  * @param task_handle 需要接收event的task句柄
  * @param wait_event_id 目标event的ID，=0表示不限制，任意event id都会返回
- * @param out_event 接收到的event
+ * @param out_event[OUT] 接收到的event
  * @param callback_fun event的ID不是目标ID时，用户回调函数，可以为NULL，从而抛弃掉这个event
  * @param timeout 接收超时，单位ms，特殊值见LUAT_RTOS_WAIT_E
  * @return int =0成功，其他失败
@@ -130,22 +150,27 @@ int luat_rtos_message_send(luat_rtos_task_handle task_handle, uint32_t message_i
  * @brief 接收一个message，只能在task里接收
  * 
  * @param task_handle 需要接收massage的task句柄
- * @param message_id 接收到的message id
- * @param p_p_message message内容，输出一个void *指针，如果是发送时动态创建的，需要释放掉
+ * @param message_id[OUT] 接收到的message id
+ * @param p_p_message[OUT] message内容，输出一个void *指针，如果是发送时动态创建的，需要释放掉
  * @param timeout 接收超时，单位ms，特殊值见LUAT_RTOS_WAIT_E
  * @return int =0成功，其他失败
  */
 int luat_rtos_message_recv(luat_rtos_task_handle task_handle, uint32_t *message_id, void **p_p_message, uint32_t timeout);
+/** @}*/
+
 /* ----------------------------------------------- message   end---------------------------------------------- */
 
-
+/**
+ * @defgroup  luatos_os_semaphore 信号量接口函数
+ * @{
+ */
 
 /* ---------------------------------------------- semaphore begin--------------------------------------------- */
 typedef void * luat_rtos_semaphore_t;
 /**
  * @brief 信号量创建，可以在中断中release
  * 
- * @param semaphore_handle 信号量句柄
+ * @param semaphore_handle[OUT] 信号量句柄
  * @param init_count 初始值
  * @return int =0成功，其他失败
  */
@@ -176,15 +201,18 @@ int luat_rtos_semaphore_take(luat_rtos_semaphore_t semaphore_handle, uint32_t ti
  */
 int luat_rtos_semaphore_release(luat_rtos_semaphore_t semaphore_handle);
 /* ---------------------------------------------- semaphore   end--------------------------------------------- */
+/** @}*/
 
-
-
+/**
+ * @defgroup  luatos_os_mutex 互斥锁接口函数
+ * @{
+ */
 /* ------------------------------------------------ mutex begin----------------------------------------------- */
 typedef void * luat_rtos_mutex_t;
 /**
  * @brief 互斥锁创建，不能在中断中unlock
  * 
- * @param mutex_handle 互斥锁句柄
+ * @param mutex_handle[OUT] 互斥锁句柄
  * @return int =0成功，其他失败
  */
 int luat_rtos_mutex_create(luat_rtos_mutex_t *mutex_handle);
@@ -215,15 +243,18 @@ int luat_rtos_mutex_unlock(luat_rtos_mutex_t mutex_handle);
 int luat_rtos_mutex_delete(luat_rtos_mutex_t mutex_handle);
 
 /* ------------------------------------------------ mutex   end----------------------------------------------- */
+/** @}*/
 
-
-
+/**
+ * @defgroup  luatos_os_queue 队列接口函数
+ * @{
+ */
 /* ------------------------------------------------ queue begin----------------------------------------------- */
 typedef void * luat_rtos_queue_t;
 /**
  * @brief 创建队列
  * 
- * @param queue_handle 返回的队列句柄
+ * @param queue_handle[OUT] 返回的队列句柄
  * @param msgcount 队列里元素的最大数量
  * @param msgsize 队列里单个元素的大小
  * @return int =0成功，其他失败
@@ -260,7 +291,12 @@ int luat_rtos_queue_send(luat_rtos_queue_t queue_handle, void *item, uint32_t it
  */
 int luat_rtos_queue_recv(luat_rtos_queue_t queue_handle, void *item, uint32_t item_size, uint32_t timeout);
 /* ------------------------------------------------ queue   end----------------------------------------------- */
+/** @}*/
 
+/**
+ * @defgroup  luatos_os_timer 软件定时器接口函数
+ * @{
+ */
 
 /* ------------------------------------------------ timer begin----------------------------------------------- */
 typedef void * luat_rtos_timer_t;
@@ -268,7 +304,7 @@ typedef LUAT_RT_RET_TYPE (*luat_rtos_timer_callback_t)(LUAT_RT_CB_PARAM);
 /**
  * @brief 创建软件定时器
  * 
- * @param timer_handle 返回定时器句柄
+ * @param timer_handle[OUT] 返回定时器句柄
  * @return int =0成功，其他失败
  */
 int luat_rtos_timer_create(luat_rtos_timer_t *timer_handle);
@@ -301,6 +337,12 @@ int luat_rtos_timer_start(luat_rtos_timer_t timer_handle, uint32_t timeout, uint
  */
 int luat_rtos_timer_stop(luat_rtos_timer_t timer_handle);
 /*------------------------------------------------ timer   end----------------------------------------------- */
+/** @}*/
+
+/**
+ * @defgroup  luatos_os_critical 临界保护接口函数
+ * @{
+ */
 
 /* ------------------------------------------------ critical begin----------------------------------------------- */
 /**
@@ -317,4 +359,6 @@ uint32_t luat_rtos_entry_critical(void);
  */
 void luat_rtos_exit_critical(uint32_t critical);
 /*------------------------------------------------ critical   end----------------------------------------------- */
+/** @}*/
+/** @}*/
 #endif

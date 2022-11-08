@@ -2,23 +2,112 @@
 #define __LUAT_MOBILE_H__
 
 #include "luat_base.h"
+/**
+ * @defgroup luatos_mobile 移动网络相关接口
+ * @{
+ */
 
-int luat_mobile_get_imei(int sim_id, char* buff, size_t* len);
-int luat_mobile_get_sn(char* buff, size_t* len);
-int luat_mobile_get_muid(char* buff, size_t* len);
-int luat_mobile_get_iccid(int sim_id, char* buff, size_t* len);
-int luat_mobile_get_imsi(int sim_id, char* buff, size_t* len);
+/**
+ * @brief 获取IMEI
+ * 
+ * @param sim_id sim位置，对于双卡双待的设备，选0或者1，其他设备随意
+ * @param buff[OUT] IMEI数据
+ * @param buf_len 用户传入缓存的大小，如果底层数据量大于buf_len，只会传出buf_len大小的数据
+ * @return int <= 0错误 >0实际传出的大小
+ */
+int luat_mobile_get_imei(int sim_id, char* buff, size_t buf_len);
 
+/**
+ * @brief 获取SN，并不一定存在
+ * 
+ * @param buff[OUT] SN数据 
+ * @param buf_len 用户传入缓存的大小，如果底层数据量大于buf_len，只会传出buf_len大小的数据
+ * @return int <= 0错误 >0实际传出的大小
+ */
+int luat_mobile_get_sn(char* buff, size_t buf_len);
+
+/**
+ * @brief 获取MUID，并不一定存在
+ * 
+ * @param buff[OUT] MUID数据 
+ * @param buf_len 用户传入缓存的大小，如果底层数据量大于buf_len，只会传出buf_len大小的数据
+ * @return int <= 0错误 >0实际传出的大小
+ */
+int luat_mobile_get_muid(char* buff, size_t buf_len);
+
+/**
+ * @brief 获取SIM卡的ICCID
+ * 
+ * @param sim_id sim位置，对于双卡双待的设备，选0或者1，其他设备随意
+ * @param buff[OUT] ICCID数据 
+ * @param buf_len 用户传入缓存的大小，如果底层数据量大于buf_len，只会传出buf_len大小的数据
+ * @return int <= 0错误 >0实际传出的大小
+ */
+int luat_mobile_get_iccid(int sim_id, char* buff, size_t buf_len);
+
+/**
+ * @brief 获取SIM卡的IMSI
+ * 
+ * @param sim_id sim位置，对于双卡双待的设备，选0或者1，其他设备随意
+ * @param buff[OUT] IMSI数据
+ * @param buf_len 用户传入缓存的大小，如果底层数据量大于buf_len，只会传出buf_len大小的数据
+ * @return int <= 0错误 >0实际传出的大小
+ */
+int luat_mobile_get_imsi(int sim_id, char* buff, size_t buf_len);
+
+/**
+ * @brief 当前使用的SIM卡的位置，并不一定支持
+ * 
+ * @param id[OUT] sim位置，对于双卡双待的设备，输出0或者1，其他设备输出0
+ * @return int =0成功，其他失败
+ */
 int luat_mobile_get_sim_id(int *id);
+
+/**
+ * @brief 改变使用的SIM卡的位置，并不一定支持
+ * 
+ * @param id sim位置，对于双卡双待的设备，选0或者1，其他设备不支持
+ * @return int =0成功，其他失败
+ */
 int luat_mobile_set_sim_id(int id);
 
+/**
+ * @brief 获取配置的apn name，并不一定支持
+ * 
+ * @param sim_id sim位置，对于双卡双待的设备，选0或者1，其他设备随意
+ * @param cid cid位置 1~6
+ * @param buff[OUT] apn name
+ * @param buf_len 用户传入缓存的大小，如果底层数据量大于buf_len，只会传出buf_len大小的数据
+ * @return int <= 0错误 >0实际传出的大小
+ */
+int luat_mobile_get_apn(int sim_id, int cid, char* buff, size_t buf_len);
 
-int luat_mobile_get_apn(int sim_id, int cid, char* buff, size_t* len);
-int luat_mobile_get_default_apn(int sim_id, char* buff, size_t* len);
+/**
+ * @brief 获取默认CID的apn name，并不一定支持
+ * 
+ * @param sim_id sim位置，对于双卡双待的设备，选0或者1，其他设备随意
+ * @param buff[OUT] apn name 
+ * @param buf_len 用户传入缓存的大小，如果底层数据量大于buf_len，只会传出buf_len大小的数据
+ * @return int <= 0错误 >0实际传出的大小
+ */
+int luat_mobile_get_default_apn(int sim_id, char* buff, size_t buf_len);
 
 
-// 进出飞行模式
+/**
+ * @brief 进出飞行模式
+ * 
+ * @param index sim位置，对于双卡双待的设备，选0或者1，其他设备随意
+ * @param mode 飞行模式，0进入，1退出
+ * @return int =0成功，其他失败
+ */
 int luat_mobile_set_flymode(int index, int mode);
+
+/**
+ * @brief 飞行模式当前状态
+ * 
+ * @param index sim位置，对于双卡双待的设备，选0或者1，其他设备随意
+ * @return int <0 异常 =0飞行模式 =1正常工作 =4射频关闭
+ */
 int luat_mobile_get_flymode(int index);
 
 /* -------------------------------------------------- cell info begin -------------------------------------------------- */
@@ -26,12 +115,12 @@ int luat_mobile_get_flymode(int index);
 
 typedef struct luat_mobile_gsm_service_cell_info
 {
-    int cid;        /**Cell ID, (0 indicates information is not represent).*/
-    int mcc;        /**This field should be ignored when cid is not present*/
-    int mnc;        /**This field should be ignored when cid is not present*/
-    int lac;        /**Location area code.(This field should be ignord when cid is not present). */
-    int arfcn;      /**Absolute RF channel number. */
-    int bsic;       /**Base station identity code. (0 indicates information is not present). */
+    int cid;        /**< Cell ID, (0 indicates information is not represent).*/
+    int mcc;        /**< This field should be ignored when cid is not present*/
+    int mnc;        /**< This field should be ignored when cid is not present*/
+    int lac;        /**< Location area code.(This field should be ignord when cid is not present). */
+    int arfcn;      /**< Absolute RF channel number. */
+    int bsic;       /**< Base station identity code. (0 indicates information is not present). */
 	int rssi;		/**< Receive signal strength, Value range: rxlev-111 for dbm format */
 }luat_mobile_gsm_service_cell_info_t;
 
@@ -72,7 +161,6 @@ typedef struct luat_mobile_lte_cell_info
 	uint16_t tac;           /**Tracing area code (This field should be ignored when cid is not present). */
 	uint16_t pci;           /**Physical cell ID. Range: 0 to 503. */
     uint32_t earfcn;        /**E-UTRA absolute radio frequency channel number of the cell. RANGE: 0 TO 65535. */
-    int16_t rssi;		   /**< Receive signal strength, Value range: rsrp-140 for dbm format */
     int16_t rsrp;
 	int16_t rsrq;
 	int16_t snr;
@@ -118,33 +206,63 @@ typedef struct luat_mobile_signal_strength_info
     uint8_t luat_mobile_lte_signal_strength_vaild;
 }luat_mobile_signal_strength_info_t;
 
+/**
+ * @brief 从RSSI转换到CSQ，RSSI只能作为天线口状态的一个参考，而不能作为LTE网络信号状态的参考
+ * 
+ * @param rssi RSSI值
+ * @return uint8_t CSQ值
+ */
 uint8_t luat_mobile_rssi_to_csq(int8_t rssi);
+
+/**
+ * @brief 获取当前移动网络信号状态详细信息
+ * 
+ * @param info 当前移动网络信号状态详细信息
+ * @return int =0成功，其他失败
+ */
 int luat_mobile_get_signal_strength_info(luat_mobile_signal_strength_info_t *info);
+
+/**
+ * @brief 获取CSQ值 CSQ从RSSI转换而来，只能作为天线口状态的一个参考，而不能作为LTE网络信号状态的参考
+ * 
+ * @param csq CSQ值
+ * @return int =0成功，其他失败
+ */
 int luat_mobile_get_signal_strength(uint8_t *csq);
+
+/**
+ * @brief 获取最近一次网络信号状态更新通知后的网络信号状态详细信息
+ * 
+ * @param info 网络信号状态详细信息
+ * @return int =0成功，其他失败
+ */
 int luat_mobile_get_last_notify_signal_strength_info(luat_mobile_signal_strength_info_t *info);
+
+/**
+ * @brief 获取最近一次网络信号状态更新通知后的CSQ值
+ * 
+ * @param info CSQ值
+ * @return int =0成功，其他失败
+ */
 int luat_mobile_get_last_notify_signal_strength(uint8_t *csq);
 /* --------------------------------------------------- cell info end --------------------------------------------------- */
 
 
 /* ------------------------------------------------ mobile status begin ----------------------------------------------- */
+/**
+ * @brief 网络状态及相关功能状态发生更换的消息
+ * 
+ */
 typedef enum LUAT_MOBILE_EVENT
 {
-	/*!< CFUN消息*/
-	LUAT_MOBILE_EVENT_CFUN = 0,
-	/*!< SIM卡消息*/
-	LUAT_MOBILE_EVENT_SIM,
-    /*!< 移动网络注册消息*/
-	LUAT_MOBILE_EVENT_REGISTER_STATUS,
-	/*!< 小区基站信号变更消息*/
-	LUAT_MOBILE_EVENT_CELL_INFO,
-	/*!< PDP状态消息*/
-	LUAT_MOBILE_EVENT_PDP,
-	/*!< internet状态*/
-	LUAT_MOBILE_EVENT_NETIF,
-	/*!< 通过基站同步时间完成*/
-	LUAT_MOBILE_EVENT_TIME_SYNC,
-	/*!< 新短信消息*/
-	LUAT_MOBILE_EVENT_SMS,
+	LUAT_MOBILE_EVENT_CFUN = 0, /**< CFUN消息 */
+	LUAT_MOBILE_EVENT_SIM, /**< SIM卡消息*/
+	LUAT_MOBILE_EVENT_REGISTER_STATUS,     /**< 移动网络注册消息*/
+	LUAT_MOBILE_EVENT_CELL_INFO, 	/**< 小区基站信息和网络信号变更消息*/
+	LUAT_MOBILE_EVENT_PDP, 	/**< PDP状态消息*/
+	LUAT_MOBILE_EVENT_NETIF, 	/**< internet状态*/
+	LUAT_MOBILE_EVENT_TIME_SYNC, 	/**< 通过基站同步时间完成*/
+	LUAT_MOBILE_EVENT_SMS, 	/**< 新短信消息*/
 }LUAT_MOBILE_EVENT_E;
 
 typedef enum LUAT_MOBILE_CFUN_STATUS
@@ -163,17 +281,11 @@ typedef enum LUAT_MOBILE_SIM_STATUS
 
 typedef enum LUAT_MOBILE_REGISTER_STATUS
 {
-
-    /*!< 网络未注册*/
-	LUAT_MOBILE_STATUS_UNREGISTER,
-    /*!< 网络已注册*/
-	LUAT_MOBILE_STATUS_REGISTERED,
-	/*!< 网络注册被拒绝*/
-	LUAT_MOBILE_STATUS_DENIED,
-	/*!< 网络状态未知*/
-	LUAT_MOBILE_STATUS_UNKNOW,
-	/*!< 网络已注册，漫游*/
-	LUAT_MOBILE_STATUS_REGISTERED_ROAMING,
+	LUAT_MOBILE_STATUS_UNREGISTER,  /**< 网络未注册*/
+	LUAT_MOBILE_STATUS_REGISTERED,  /**< 网络已注册*/
+	LUAT_MOBILE_STATUS_DENIED,  	/**< 网络注册被拒绝，或者正在搜网中*/
+	LUAT_MOBILE_STATUS_UNKNOW,		/**< 网络状态未知*/
+	LUAT_MOBILE_STATUS_REGISTERED_ROAMING, 	/**< 网络已注册，漫游*/
 	LUAT_MOBILE_STATUS_SMS_ONLY_REGISTERED,
 	LUAT_MOBILE_STATUS_SMS_ONLY_REGISTERED_ROAMING,
 	LUAT_MOBILE_STATUS_EMERGENCY_REGISTERED,
@@ -183,8 +295,8 @@ typedef enum LUAT_MOBILE_REGISTER_STATUS
 
 typedef enum LUAT_MOBILE_CELL_INFO_STATUS
 {
-	LUAT_MOBILE_CELL_INFO_UPDATE = 0,
-	LUAT_MOBILE_SIGNAL_UPDATE,
+	LUAT_MOBILE_CELL_INFO_UPDATE = 0,	/**< 小区基站信息变更，只有设置了周期性搜索小区基站时才会有*/
+	LUAT_MOBILE_SIGNAL_UPDATE,			/**< 网络信号状态变更，但是不一定是有变化*/
 }LUAT_MOBILE_CELL_INFO_STATUS_E;
 
 typedef enum LUAT_MOBILE_PDP_STATUS
@@ -196,17 +308,55 @@ typedef enum LUAT_MOBILE_PDP_STATUS
 
 typedef enum LUAT_MOBILE_NETIF_STATUS
 {
-	LUAT_MOBILE_NETIF_LINK_ON = 0,
-	LUAT_MOBILE_NETIF_LINK_OFF,
-	LUAT_MOBILE_NETIF_LINK_OOS,	//失去网络连接，尝试恢复中，等同于LUAT_MOBILE_NETIF_LINK_OFF
+	LUAT_MOBILE_NETIF_LINK_ON = 0, /**< 已联网*/
+	LUAT_MOBILE_NETIF_LINK_OFF,	/**< 断网*/
+	LUAT_MOBILE_NETIF_LINK_OOS,	/**< 失去网络连接，尝试恢复中，等同于LUAT_MOBILE_NETIF_LINK_OFF*/
 }LUAT_MOBILE_NETIF_STATUS_E;
 
+/**
+ * @brief 获取当前移动网络注册状态
+ * 
+ * @return 见@enum LUAT_MOBILE_REGISTER_STATUS_E 
+ */
 LUAT_MOBILE_REGISTER_STATUS_E luat_mobile_get_register_status(void);
 
+/**
+ * @brief 网络状态及相关功能状态发生更换时的回调函数，event是消息，index是CID，SIM卡号之类的序号，status是变更后的状态或者更具体的ENUM
+ * 
+ */
 typedef void (*luat_mobile_event_callback_t)(LUAT_MOBILE_EVENT_E event, uint8_t index, uint8_t status);
+
+/**
+ * @brief 注册网络状态及相关功能状态发生更换时的回调函数
+ * 
+ * @param callback_fun 网络状态及相关功能状态发生更换时的回调函数
+ * @return int =0成功，其他失败
+ */
 int luat_mobile_event_register_handler(luat_mobile_event_callback_t callback_fun);
+
+/**
+ * @brief 注销网络状态及相关功能状态发生更换时的回调函数
+ * 
+ * @return int =0成功，其他失败
+ */
 int luat_mobile_event_deregister_handler(void);
 /* ------------------------------------------------- mobile status end ------------------------------------------------ */
 
+/**
+ * @brief 重新底层网络协议栈，本质是快速的进出飞行模式，注意和设置飞行模式是冲突的，一定时间内只能用一个。
+ * 
+ * @return int =0成功，其他失败
+ */
 int luat_mobile_reset_stack(void);
+
+/**
+ * @brief 设置周期性辅助工作，包括周期性搜索小区基站，SIM卡短时间脱离卡槽后周期性尝试恢复，这个功能和luat_mobile_reset_stack是有可能冲突的。所有功能默认都是关闭的
+ * 
+ * @param get_cell_period 周期性搜索小区基站的时间间隔，单位ms，这个会增加低功耗，尽量的长，或者写0关闭这个功能，用上面的手段搜索
+ * @param check_sim_period SIM卡短时间脱离卡槽后尝试恢复的时间间隔，单位ms，建议在5000~10000，或者写0，当SIM卡移除的消息上来后手动重启协议栈
+ * @param serach_cell_time 启动周期性搜索小区基站后，每次搜索的最大时间，单位s，1~8
+ * @return int 
+ */
+int luat_mobile_set_period_work(uint32_t get_cell_period, uint32_t check_sim_period, uint8_t serach_cell_time);
+/** @}*/
 #endif

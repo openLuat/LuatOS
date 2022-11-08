@@ -25,13 +25,13 @@ FILE* luat_vfs_lfs2_fopen(void* userdata, const char *filename, const char *mode
 "w+": 更新模式，所有之前的数据都删除；
 "a+": 追加更新模式，所有之前的数据都保留，只允许在文件尾部做写入。
 */
-    if (!strcmp("r+", mode) || !strcmp("r+b", mode)) {
+    if (!strcmp("r+", mode) || !strcmp("r+b", mode) || !strcmp("rb+", mode)) {
         flag = LFS_O_RDWR | LFS_O_CREAT;
     }
-    else if(!strcmp("w+", mode) || !strcmp("w+b", mode)) {
+    else if(!strcmp("w+", mode) || !strcmp("w+b", mode) || !strcmp("wb+", mode)) {
         flag = LFS_O_RDWR | LFS_O_CREAT | LFS_O_TRUNC;
     }
-    else if(!strcmp("a+", mode) || !strcmp("a+b", mode)) {
+    else if(!strcmp("a+", mode) || !strcmp("a+b", mode) || !strcmp("ab+", mode)) {
         flag = LFS_O_APPEND | LFS_O_CREAT;
     }
     else if(!strcmp("w", mode) || !strcmp("wb", mode)) {
@@ -171,11 +171,15 @@ int luat_vfs_lfs2_umount(void* userdata, luat_fs_conf_t *conf) {
 }
 
 int luat_vfs_lfs2_mkdir(void* userdata, char const* _DirName) {
-    return -1;
+    lfs_t* fs = (lfs_t*)userdata;
+    int ret = lfs_mkdir(fs, _DirName);
+    return ret == LFS_ERR_OK ? 0 : -1;
 }
 
 int luat_vfs_lfs2_rmdir(void* userdata, char const* _DirName) {
-    return -1;
+    lfs_t* fs = (lfs_t*)userdata;
+    int ret = lfs_remove(fs, _DirName);
+    return ret == LFS_ERR_OK ? 0 : -1;
 }
 
 int luat_vfs_lfs2_lsdir(void* userdata, char const* _DirName, luat_fs_dirent_t* ents, size_t offset, size_t len) {

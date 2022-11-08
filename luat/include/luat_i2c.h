@@ -4,7 +4,7 @@
 #include "luat_base.h"
 
 int luat_i2c_exist(int id);
-int luat_i2c_setup(int id, int speed, int slaveaddr);
+int luat_i2c_setup(int id, int speed);
 int luat_i2c_close(int id);
 int luat_i2c_send(int id, int addr, void* buff, size_t len, uint8_t stop);
 int luat_i2c_recv(int id, int addr, void* buff, size_t len);

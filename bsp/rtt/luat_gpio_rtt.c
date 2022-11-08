@@ -82,7 +82,7 @@ int luat_gpio_setup(luat_gpio_t* gpio) {
     return 0;
 }
 
-int luat_gpio_set(int pin, uint8_t level) {
+int luat_gpio_set(int pin, int level) {
     //LOG_D("Pin set pin=%d level=%d", pin, level);
     rt_pin_write(pin, level);
     return 0;

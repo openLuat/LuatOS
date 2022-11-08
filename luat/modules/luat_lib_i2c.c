@@ -17,6 +17,15 @@
 #define LUAT_LOG_TAG "i2c"
 #include "luat_log.h"
 
+#define LUAT_EI2C_TYPE "EI2C*"
+#define toei2c(L) ((luat_ei2c *)luaL_checkudata(L, 1, LUAT_EI2C_TYPE))
+
+typedef struct luat_ei2c {
+    int sda;
+    int scl;
+    unsigned char addr;
+} luat_ei2c;//软件i2c
+
 static void i2c_soft_start(luat_ei2c *ei2c)
 {
     luat_gpio_mode(ei2c->sda, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 1);
@@ -200,7 +209,7 @@ end
 */
 static int l_i2c_setup(lua_State *L)
 {
-    int re = luat_i2c_setup(luaL_checkinteger(L, 1), luaL_optinteger(L, 2, 0), luaL_optinteger(L, 3, 0));
+    int re = luat_i2c_setup(luaL_checkinteger(L, 1), luaL_optinteger(L, 2, 0));
     lua_pushinteger(L, re == 0 ? luaL_optinteger(L, 2, 0) : -1);
     return 1;
 }

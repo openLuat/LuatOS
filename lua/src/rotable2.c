@@ -156,7 +156,7 @@ static int rotable_udata_len( lua_State* L ) {
 
 
 static int rotable_iter( lua_State* L ) {
-  rotable* t = check_rotable( L, 1, "__pairs iterator" );
+  check_rotable( L, 1, "__pairs iterator" );
   char const* key;
   const rotable_Reg_t* q = 0;
   const rotable_Reg_t* p = 0;

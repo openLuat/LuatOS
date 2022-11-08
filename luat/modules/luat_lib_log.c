@@ -29,7 +29,7 @@ static luat_log_conf_t lconf = {
 
 static int add_debug_info(lua_State *L, uint8_t pos, const char* LEVEL) {
     lua_Debug ar;
-    int arg;
+    // int arg;
     // int d = 0;
     // // 查找当前stack的深度
     // while (lua_getstack(L, d, &ar) != 0) {

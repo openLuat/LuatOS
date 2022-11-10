@@ -55,7 +55,7 @@ DRESULT diskio_close(BYTE pdrv);
 #define STA_PROTECT		0x04	/* Write protected */
 
 
-/* Command code for disk_ioctrl fucntion */
+/* Command code for disk_ioctrl function */
 
 /* Generic command (Used by FatFs) */
 #define CTRL_SYNC			0	/* Complete pending write process (needed at FF_FS_READONLY == 0) */

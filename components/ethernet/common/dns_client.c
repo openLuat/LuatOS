@@ -129,7 +129,7 @@ static int32_t dns_set_result(void *pData, void *pParam)
 int32_t dns_get_ip(dns_client_t *client, Buffer_Struct *buf, uint16_t answer_num, dns_process_t *process)
 {
 	uint16_t i, usTemp;
-	luat_ip_addr_t ip_addr;
+	luat_ip_addr_t ip_addr = {0};
 
 	uint32_t ttl;
 	uint8_t error = 0;
@@ -195,7 +195,7 @@ int32_t dns_get_ip(dns_client_t *client, Buffer_Struct *buf, uint16_t answer_num
 			}
 #ifdef LUAT_USE_LWIP
 			memcpy(ip_addr.u_addr.ip6.addr, buf->Data + buf->Pos, sizeof( uint32_t ) * 4);
-			ip_addr.u_addr.ip6.zone = 0;
+//			ip_addr.u_addr.ip6.zone = 0;
 			ip_addr.type = IPADDR_TYPE_V6;
 #else
 			memcpy(ip_addr.ipv6_u8_addr, buf->Data + buf->Pos, sizeof( uint32_t ) * 4);

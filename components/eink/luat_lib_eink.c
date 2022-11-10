@@ -120,7 +120,7 @@ static int l_eink_setup(lua_State *L) {
         spi_config.mode = 1; // FULL=1, half=0
 
         //先关了再开一遍
-        luat_spi_close(spi_config.id);
+        // luat_spi_close(spi_config.id);
         //LLOGD("setup GPIO for epd");
         status = luat_spi_setup(&spi_config);
 

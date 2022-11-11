@@ -213,7 +213,7 @@ int luat_vfs_lfs2_lsdir(void* userdata, char const* _DirName, luat_fs_dirent_t* 
             }
         }
 
-        for (size_t i = 0; i < len; i++)
+        while (num < len)
         {
             ret = lfs_dir_read(fs, dir, &info);
             if (ret < 0) {
@@ -222,7 +222,6 @@ int luat_vfs_lfs2_lsdir(void* userdata, char const* _DirName, luat_fs_dirent_t* 
                 return 0;
             }
             if (ret == 0) {
-                len = i;
                 break;
             }
             if (info.type == 2 && (memcmp(info.name, ".", 2) !=0 ||memcmp(info.name, "..", 3)!=0))

@@ -24,15 +24,18 @@
 #define GetSysTickMS luat_mcu_tick64_ms
 #endif
 
-extern void DBG_Printf(const char* format, ...);
-extern void DBG_HexPrintf(void *Data, unsigned int len);
-#ifdef LUAT_LOG_NO_NEWLINE
-#define DBG(x,y...)		DBG_Printf("%s %d:"x, __FUNCTION__,__LINE__,##y)
-#define DBG_ERR(x,y...)		DBG_Printf("%s %d:"x, __FUNCTION__,__LINE__,##y)
-#else
-#define DBG(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
-#define DBG_ERR(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
-#endif
+//extern void DBG_Printf(const char* format, ...);
+//extern void DBG_HexPrintf(void *Data, unsigned int len);
+//#ifdef LUAT_LOG_NO_NEWLINE
+//#define DBG(x,y...)		DBG_Printf("%s %d:"x, __FUNCTION__,__LINE__,##y)
+//#define DBG_ERR(x,y...)		DBG_Printf("%s %d:"x, __FUNCTION__,__LINE__,##y)
+//#else
+//#define DBG(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
+//#define DBG_ERR(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
+//#endif
+#define LUAT_LOG_TAG "DNS"
+#include "luat_log.h"
+
 
 typedef struct
 {
@@ -480,7 +483,7 @@ void dns_run(dns_client_t *client, Buffer_Struct *in, Buffer_Struct *out, int *s
 		dns_clear(client);
 		if (client->is_run)
 		{
-			DBG("dns stop");
+			LLOGI("dns stop");
 		}
 		client->is_run = 0;
 		return;
@@ -592,7 +595,7 @@ NET_DNS_TX:
 				goto NET_DNS_TX;
 			}
 		}
-		DBG("%.*s state %d use dns server%d, try %d", process->uri_buf.Pos, process->uri_buf.Data, process->is_done, process->dns_cnt, process->retry_cnt);
+		LLOGD("%.*s state %d use dns server%d, try %d", process->uri_buf.Pos, process->uri_buf.Data, process->is_done, process->dns_cnt, process->retry_cnt);
 		process->is_done = 0;
 		OS_InitBuffer(out, 512);
 		dns_make(client, process, out);
@@ -609,7 +612,7 @@ NET_DNS_RX_OUT:
 	{
 		if (client->is_run)
 		{
-			DBG("dns stop");
+			LLOGD("dns stop");
 		}
 		client->is_run = 0;
 		return;

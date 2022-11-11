@@ -12,6 +12,7 @@
 #include "luat_gpio.h"
 #include "luat_malloc.h"
 #include "luat_mcu.h"
+#include "luat_msgbus.h"
 #include <math.h>
 
 #define LUAT_LOG_TAG "gpio"
@@ -25,6 +26,7 @@
 static int l_gpio_set(lua_State *L);
 static int l_gpio_get(lua_State *L);
 static int l_gpio_close(lua_State *L);
+int l_gpio_handler(lua_State *L, void* ptr) ;
 
 typedef struct gpio_ctx
 {
@@ -34,12 +36,12 @@ typedef struct gpio_ctx
 }gpio_ctx_t;
 
 // 保存中断回调的数组
-static gpio_ctx_t gpios[LUAT_GPIO_PIN_MAX];
-static uint8_t default_gpio_pull = Luat_GPIO_DEFAULT;
+static gpio_ctx_t gpios[LUAT_GPIO_PIN_MAX] __attribute__((aligned (16)));
+static uint32_t default_gpio_pull = Luat_GPIO_DEFAULT;
 
 
 // 记录GPIO电平,仅OUTPUT时可用
-static uint8_t gpio_out_levels[LUAT_GPIO_PIN_MAX / 8] = {0};
+static uint8_t gpio_out_levels[LUAT_GPIO_PIN_MAX / 8] __attribute__((aligned (16)));
 
 static uint8_t gpio_bit_get(int pin) {
     if (pin < 0 || pin >= LUAT_GPIO_PIN_MAX)

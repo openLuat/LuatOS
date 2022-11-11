@@ -10,6 +10,9 @@ int luat_crypto_trng(char* buff, size_t len) {
     for (size_t i = 0; i < len; i++)
     {
         buff[i] = (char) rand();
+        if (buff[i] == 0) {
+            buff[i] = i;
+        }
     }
     return 0;
 }

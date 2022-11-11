@@ -6,6 +6,8 @@
 
 #define LUAT_WIN32_GPIO_COUNT (32)
 
+int l_gpio_handler(lua_State *L, void* ptr) ;
+
 typedef struct gpio_state {
     luat_gpio_t gpio;
     uint8_t open;

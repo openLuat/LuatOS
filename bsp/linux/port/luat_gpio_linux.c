@@ -4,6 +4,8 @@
 
 // 模拟GPIO在win32下的实现
 
+int l_gpio_handler(lua_State *L, void* ptr) ;
+
 #define LUAT_WIN32_GPIO_COUNT (32)
 
 typedef struct gpio_state {

@@ -6,8 +6,11 @@
 #define LUA_USE_LINUX 1
 
 #define LUAT_BSP_VERSION "V0001"
-#define LUAT_USE_CMDLINE_ARGS 1
+// #define LUAT_USE_CMDLINE_ARGS 1
 #define LUAT_CONF_LAUX_BUFFSIZE 1024
+
+// Linux 下默认64bit得了, 32bit的编译器太难找
+#define LUAT_CONF_VM_64bit
 
 #define LUAT_USE_FS_VFS 1
 #define LUAT_USE_VFS_INLINE_LIB 1

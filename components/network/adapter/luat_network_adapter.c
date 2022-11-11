@@ -139,7 +139,11 @@ extern void DBG_HexPrintf(void *Data, unsigned int len);
 
 static uint8_t network_check_ip_same(luat_ip_addr_t *ip1, luat_ip_addr_t *ip2)
 {
+#if defined ENABLE_PSIF
+	return ip_addr_cmp(ip1, ip2);
+#else
 	return ip_addr_cmp_zoneless(ip1, ip2);
+#endif
 }
 
 static int network_base_tx(network_ctrl_t *ctrl, const uint8_t *data, uint32_t len, int flags, luat_ip_addr_t *remote_ip, uint16_t remote_port)

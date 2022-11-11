@@ -151,13 +151,21 @@ int luat_main (void) {
     return 0; // just nop
   }
   #ifdef LUAT_BSP_VERSION
-  LLOGI("LuatOS@%s base %s bsp %s", luat_os_bsp(), LUAT_VERSION, LUAT_BSP_VERSION);
+  #ifdef LUAT_CONF_VM_64bit
+  LLOGI("LuatOS@%s base %s bsp %s 64bit", luat_os_bsp(), LUAT_VERSION, LUAT_BSP_VERSION);
+  #else
+  LLOGI("LuatOS@%s base %s bsp %s 32bit", luat_os_bsp(), LUAT_VERSION, LUAT_BSP_VERSION);
+  #endif
   LLOGI("ROM Build: " __DATE__ " " __TIME__);
   // #if LUAT_VERSION_BETA
   // LLOGD("This is a beta/snapshot version, for testing");
   // #endif
   #else
-  LLOGI("LuatOS@%s %s, Build: " __DATE__ " " __TIME__, luat_os_bsp(), LUAT_VERSION);
+  #ifdef LUAT_CONF_VM_64bit
+  LLOGI("LuatOS@%s %s, Build: " __DATE__ " " __TIME__ " 64bit", luat_os_bsp(), LUAT_VERSION);
+  #else
+  LLOGI("LuatOS@%s %s, Build: " __DATE__ " " __TIME__ " 32bit", luat_os_bsp(), LUAT_VERSION);
+  #endif
   #if LUAT_VERSION_BETA
   LLOGD("This is a beta version, for testing");
   #endif

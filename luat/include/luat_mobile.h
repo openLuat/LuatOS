@@ -6,6 +6,19 @@
  * @defgroup luatos_mobile 移动网络相关接口
  * @{
  */
+/**
+ * @example  example_mobile/src/example_mobile.c
+ * mobile接口示例
+ */
+/**
+ * @example  example_https/src/example_main.c
+ * https接口示例
+ */
+/**
+ * @example  example_linksdk/src/example_mqtt_basic.c
+ * @example  example_linksdk/src/example_sysdep_api_test.c
+ * linkssdk接口示例
+ */
 
 /**
  * @brief 获取IMEI
@@ -20,7 +33,7 @@ int luat_mobile_get_imei(int sim_id, char* buff, size_t buf_len);
 /**
  * @brief 获取SN，并不一定存在
  * 
- * @param buff[OUT] SN数据 
+ * @param buff[OUT] SN数据
  * @param buf_len 用户传入缓存的大小，如果底层数据量大于buf_len，只会传出buf_len大小的数据
  * @return int <= 0错误 >0实际传出的大小
  */
@@ -29,7 +42,7 @@ int luat_mobile_get_sn(char* buff, size_t buf_len);
 /**
  * @brief 获取MUID，并不一定存在
  * 
- * @param buff[OUT] MUID数据 
+ * @param buff[OUT] MUID数据
  * @param buf_len 用户传入缓存的大小，如果底层数据量大于buf_len，只会传出buf_len大小的数据
  * @return int <= 0错误 >0实际传出的大小
  */
@@ -39,7 +52,7 @@ int luat_mobile_get_muid(char* buff, size_t buf_len);
  * @brief 获取SIM卡的ICCID
  * 
  * @param sim_id sim位置，对于双卡双待的设备，选0或者1，其他设备随意
- * @param buff[OUT] ICCID数据 
+ * @param buff[OUT] ICCID数据
  * @param buf_len 用户传入缓存的大小，如果底层数据量大于buf_len，只会传出buf_len大小的数据
  * @return int <= 0错误 >0实际传出的大小
  */
@@ -263,6 +276,7 @@ typedef enum LUAT_MOBILE_EVENT
 	LUAT_MOBILE_EVENT_NETIF, 	/**< internet状态*/
 	LUAT_MOBILE_EVENT_TIME_SYNC, 	/**< 通过基站同步时间完成*/
 	LUAT_MOBILE_EVENT_SMS, 	/**< 新短信消息*/
+	LUAT_MOBILE_EVENT_CSCON, /**< RRC状态，0 idle 1 active*/
 }LUAT_MOBILE_EVENT_E;
 
 typedef enum LUAT_MOBILE_CFUN_STATUS
@@ -316,7 +330,7 @@ typedef enum LUAT_MOBILE_NETIF_STATUS
 /**
  * @brief 获取当前移动网络注册状态
  * 
- * @return 见@enum LUAT_MOBILE_REGISTER_STATUS_E 
+ * @return 见@enum LUAT_MOBILE_REGISTER_STATUS_E
  */
 LUAT_MOBILE_REGISTER_STATUS_E luat_mobile_get_register_status(void);
 
@@ -341,6 +355,29 @@ int luat_mobile_event_register_handler(luat_mobile_event_callback_t callback_fun
  */
 int luat_mobile_event_deregister_handler(void);
 /* ------------------------------------------------- mobile status end ------------------------------------------------ */
+
+/**
+ * @brief 设置RRC自动释放时间，在RRC active（见LUAT_MOBILE_EVENT_CSCON）后经过一段时间在适当的时机释放RRC
+ * 
+ * @param s 超时时间，单位秒，如果为0则是关闭功能
+ * @note 没有在Air724上使用过AT*RTIME的，或者不明白RRC的含义，请不要使用RRC相关API
+ */
+void luat_mobile_set_rrc_auto_release_time(uint8_t s);
+
+/**
+ * @brief RRC自动释放暂停/恢复
+ * 
+ * @param onoff 1暂停 0恢复
+ * @note 没有在Air724上使用过AT*RTIME的，或者不明白RRC的含义，请不要使用RRC相关API
+ */
+void luat_mobile_rrc_auto_release_pause(uint8_t onoff);
+
+
+/**
+ * @brief RRC立刻释放一次，不能在luat_mobile_event_callback里使用
+ * @note 没有在Air724上使用过AT*RTIME的，或者不明白RRC的含义，请不要使用RRC相关API
+ */
+void luat_mobile_rrc_release_once(void);
 
 /**
  * @brief 重新底层网络协议栈，本质是快速的进出飞行模式，注意和设置飞行模式是冲突的，一定时间内只能用一个。

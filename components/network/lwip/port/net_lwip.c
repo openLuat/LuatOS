@@ -1591,13 +1591,21 @@ static int net_lwip_getsockopt(int socket_id, uint64_t tag,  int level, int optn
 {
 	int result = net_lwip_check_socket(user_data, socket_id, tag);
 	if (result) return result;
-	if (!prvlwip.socket[socket_id].pcb.ip)
+	for(int i = 0; i < 10; i++)
 	{
-		platform_task_sleep(1);
+		if (!prvlwip.socket[socket_id].pcb.ip)
+		{
+			platform_task_sleep(1);
+		}
+		else
+		{
+			break;
+		}
 	}
+
 	if (!prvlwip.socket[socket_id].pcb.ip)
 	{
-		NET_DBG("try later!");
+		NET_DBG("socket %d not create try later! %d, %d, %x, %d", socket_id, level, optname, optval, optlen);
 		return -1;
 	}
 	switch (level)
@@ -1778,13 +1786,21 @@ static int net_lwip_setsockopt(int socket_id, uint64_t tag,  int level, int optn
 {
 	int result = net_lwip_check_socket(user_data, socket_id, tag);
 	if (result) return result;
-	if (!prvlwip.socket[socket_id].pcb.ip)
+	for(int i = 0; i < 10; i++)
 	{
-		platform_task_sleep(1);
+		if (!prvlwip.socket[socket_id].pcb.ip)
+		{
+			platform_task_sleep(1);
+		}
+		else
+		{
+			break;
+		}
 	}
+
 	if (!prvlwip.socket[socket_id].pcb.ip)
 	{
-		NET_DBG("try later!");
+		NET_DBG("socket %d not create try later! %d, %d, %x, %d", socket_id, level, optname, optval, optlen);
 		return -1;
 	}
 	switch (level)

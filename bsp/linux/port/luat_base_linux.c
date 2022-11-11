@@ -77,9 +77,7 @@ const char* luat_os_bsp(void) {
 extern const struct luat_vfs_filesystem vfs_fs_posix;
 extern const struct luat_vfs_filesystem vfs_fs_luadb;
 
-#ifdef LUAT_USE_VFS_INLINE_LIB
-extern const char luadb_inline[];
-#endif
+extern const char* luat_luadb_mock;
 
 int luat_fs_init(void) {
 	#ifdef LUAT_USE_FS_VFS
@@ -98,7 +96,7 @@ int luat_fs_init(void) {
 	luat_fs_mount(&conf);
 	#ifdef LUAT_USE_VFS_INLINE_LIB
 	luat_fs_conf_t conf2 = {
-		.busname = (char*)luadb_inline,
+		.busname = (char*)luat_luadb_mock,
 		.type = "luadb",
 		.filesystem = "luadb",
 		.mount_point = "/luadb/",

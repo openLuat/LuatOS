@@ -4,6 +4,8 @@
 
 // 模拟GPIO在win32下的实现
 
+int l_gpio_handler(lua_State *L, void* ptr) ;
+
 #define LUAT_WIN32_GPIO_COUNT (32)
 
 typedef struct gpio_state {
@@ -29,7 +31,7 @@ int luat_gpio_setup(luat_gpio_t* gpio) {
     return 0;
 }
 
-int luat_gpio_set(int pin, uint8_t level) {
+int luat_gpio_set(int pin, int level) {
     if (pin < 0 || pin >= LUAT_WIN32_GPIO_COUNT) {
         return -1;
     }

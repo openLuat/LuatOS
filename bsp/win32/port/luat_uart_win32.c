@@ -7,6 +7,8 @@
 
 #define LUAT_LOG_TAG           "luat.uart"
 
+int l_uart_handler(lua_State *L, void* ptr);
+
 //检测串口存不存在
 int (*luat_uart_exist_extern)(int id)  = NULL;
 //打开串口

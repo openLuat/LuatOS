@@ -6,6 +6,7 @@
 #include "luat_malloc.h"
 
 int luat_irq_fire(int tp, int arg, void* args);
+int l_gpio_handler(lua_State *L, void* ptr) ;
 
 int luat_irq_gpio_cb(int pin, void* args) {
     rtos_msg_t msg = {0};

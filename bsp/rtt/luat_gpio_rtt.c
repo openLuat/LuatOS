@@ -12,9 +12,7 @@
 #define DBG_LVL           DBG_INFO
 #include <rtdbg.h>
 
-// void luat_gpio_mode(int pin, int mode) {
-//     rt_pin_mode(pin, mode);
-// }
+int l_gpio_handler(lua_State *L, void* ptr) ;
 
 static void luat_gpio_irq_callback(void* ptr) {
     //LOG_D("IRQ Callback");

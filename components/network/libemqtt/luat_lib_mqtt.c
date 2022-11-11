@@ -8,8 +8,6 @@
 
 #include "luat_base.h"
 
-#ifdef LUAT_USE_NETWORK
-
 #include "luat_network_adapter.h"
 #include "libemqtt.h"
 #include "luat_rtos.h"
@@ -392,11 +390,19 @@ static int32_t luat_lib_mqtt_callback(void *data, void *param){
 static int mqtt_send_packet(void* socket_info, const void* buf, unsigned int count){
     luat_mqtt_ctrl_t * mqtt_ctrl = (luat_mqtt_ctrl_t *)socket_info;
 	uint32_t tx_len = 0;
+#ifdef LUAT_USE_LWIP
+	return network_tx(mqtt_ctrl->netc, buf, count, 0, mqtt_ctrl->ip_addr.type?NULL:&(mqtt_ctrl->ip_addr), NULL, &tx_len, 0);
+#else
 	return network_tx(mqtt_ctrl->netc, buf, count, 0, mqtt_ctrl->ip_addr.is_ipv6?NULL:&(mqtt_ctrl->ip_addr), NULL, &tx_len, 0);
+#endif
 }
 
 static int luat_socket_connect(luat_mqtt_ctrl_t *mqtt_ctrl, const char *hostname, uint16_t port, uint16_t keepalive){
+#ifdef LUAT_USE_LWIP
+	if(network_connect(mqtt_ctrl->netc, hostname, strlen(hostname), mqtt_ctrl->ip_addr.type?NULL:&(mqtt_ctrl->ip_addr), port, 0) < 0){
+#else
 	if(network_connect(mqtt_ctrl->netc, hostname, strlen(hostname), mqtt_ctrl->ip_addr.is_ipv6?NULL:&(mqtt_ctrl->ip_addr), port, 0) < 0){
+#endif
         network_close(mqtt_ctrl->netc, 0);
         return -1;
     }
@@ -499,10 +505,19 @@ static int l_mqtt_create(lua_State *L) {
 
 	const char *ip;
 	size_t ip_len = 0;
+#ifdef LUAT_USE_LWIP
+	mqtt_ctrl->ip_addr.type = 0xff;
+#else
 	mqtt_ctrl->ip_addr.is_ipv6 = 0xff;
+#endif
 	if (lua_isinteger(L, 2)){
+#ifdef LUAT_USE_LWIP
+		mqtt_ctrl->ip_addr.type = 0;
+		mqtt_ctrl->ip_addr.u_addr.ip4.addr = lua_tointeger(L, 2);
+#else
 		mqtt_ctrl->ip_addr.is_ipv6 = 0;
 		mqtt_ctrl->ip_addr.ipv4 = lua_tointeger(L, 2);
+#endif
 		ip = NULL;
 		ip_len = 0;
 	}else{
@@ -741,26 +756,20 @@ static int _mqtt_struct_newindex(lua_State *L) {
 	}
     //return 0;
 }
-
-LUAMOD_API int luaopen_mqtt( lua_State *L ) {
-    luat_newlib2(L, reg_mqtt);
-	luat_mqtt_struct_init(L);
-    return 1;
-}
-
-#else
-
-#define LUAT_LOG_TAG "mqtt"
-#include "luat_log.h"
-
-#include "rotable2.h"
-static const rotable_Reg_t reg_mqtt[] =
+static const rotable_Reg_t reg_mqtt_emtry[] =
 {
 	{ NULL,             ROREG_INT(0)}
 };
+
 LUAMOD_API int luaopen_mqtt( lua_State *L ) {
+
+#ifdef LUAT_USE_NETWORK
     luat_newlib2(L, reg_mqtt);
-	LLOGE("mqtt require network enable!!");
+	luat_mqtt_struct_init(L);
     return 1;
-}
+#else
+	luat_newlib2(L, reg_mqtt_emtry);
+    return 1;
+	LLOGE("mqtt require network enable!!");
 #endif
+}

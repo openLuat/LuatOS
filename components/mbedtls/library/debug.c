@@ -101,8 +101,11 @@ void mbedtls_debug_print_msg( const mbedtls_ssl_context *ssl, int level,
 
     if( ret >= 0 && ret < DEBUG_BUF_SIZE - 1 )
     {
+#ifdef LUAT_LOG_NO_NEWLINE
+#else
         str[ret]     = '\n';
         str[ret + 1] = '\0';
+#endif
     }
 
     debug_send_line( ssl, level, file, line, str );
@@ -129,10 +132,13 @@ void mbedtls_debug_print_ret( const mbedtls_ssl_context *ssl, int level,
      */
     if( ret == MBEDTLS_ERR_SSL_WANT_READ )
         return;
-
+#ifdef LUAT_LOG_NO_NEWLINE
+    mbedtls_snprintf( str, sizeof( str ), "%s() returned %d (-0x%04x)",
+              text, ret, (unsigned int) -ret );
+#else
     mbedtls_snprintf( str, sizeof( str ), "%s() returned %d (-0x%04x)\n",
               text, ret, (unsigned int) -ret );
-
+#endif
     debug_send_line( ssl, level, file, line, str );
 }
 
@@ -339,8 +345,11 @@ static void debug_print_line_by_line( const mbedtls_ssl_context *ssl, int level,
                 len = DEBUG_BUF_SIZE - 1;
 
             memcpy( str, start, len );
+#ifdef LUAT_LOG_NO_NEWLINE
+            str[len - 1] = '\0';
+#else
             str[len] = '\0';
-
+#endif
             debug_send_line( ssl, level, file, line, str );
 
             start = cur + 1;

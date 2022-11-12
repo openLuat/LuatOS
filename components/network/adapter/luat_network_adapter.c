@@ -1856,6 +1856,7 @@ int network_tx(network_ctrl_t *ctrl, const uint8_t *data, uint32_t len, int flag
 			NW_UNLOCK;
 			return -1;
 	    }
+	    *tx_len = result;
 	}
 	else
 #endif
@@ -2104,6 +2105,7 @@ int network_wait_event(network_ctrl_t *ctrl, OS_EVENT *out_event, uint32_t timeo
 	platform_stop_timer(ctrl->timer);
 	return result;
 }
+
 #else
 #include "dhcp_def.h"
 extern void DBG_Printf(const char* format, ...);

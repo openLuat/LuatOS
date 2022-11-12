@@ -18,7 +18,10 @@
 #include "luat_log.h"
 
 #define LUAT_MQTT_CTRL_TYPE "MQTTCTRL*"
+
 #define MQTT_MSG_RELEASE 0
+#define MQTT_MSG_TIMER_PING 2
+
 #define MQTT_RECV_BUF_LEN_MAX 4096
 typedef struct{
 	mqtt_broker_handle_t broker;// mqtt broker
@@ -60,7 +63,12 @@ static luat_mqtt_ctrl_t * get_mqtt_ctrl(lua_State *L){
 
 static void mqtt_timer_callback(void *data, void *param){
 	luat_mqtt_ctrl_t * mqtt_ctrl = (luat_mqtt_ctrl_t *)param;
-	mqtt_ping(&(mqtt_ctrl->broker));
+	rtos_msg_t msg = {0};
+	msg.handler = l_mqtt_callback;
+	msg.ptr = mqtt_ctrl;
+	msg.arg1 = MQTT_MSG_TIMER_PING;
+	luat_msgbus_put(&msg, 0);
+
 }
 
 static void reconnect_timer_cb(void *data, void *param){
@@ -194,6 +202,10 @@ static int32_t l_mqtt_callback(lua_State *L, void* ptr){
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     luat_mqtt_ctrl_t *mqtt_ctrl =(luat_mqtt_ctrl_t *)msg->ptr;
     switch (msg->arg1) {
+		case MQTT_MSG_TIMER_PING : {
+			mqtt_ping(&(mqtt_ctrl->broker));
+			break;
+		}
 		case MQTT_MSG_PUBLISH : {
 			luat_mqtt_msg_t *mqtt_msg =(luat_mqtt_msg_t *)msg->arg2;
 			if (mqtt_ctrl->mqtt_cb) {

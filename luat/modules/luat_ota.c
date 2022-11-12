@@ -214,8 +214,8 @@ int luat_ota_checkfile(const char* path) {
             len = luat_fs_fread(ota->buff, remain, 1, fd);
         }
         //LLOGD("ota read %d byte", len);
-        if (len == 0) {
-            continue;
+        if (len == 0) { // 不可能的事
+            break;
         }
         if (len < 0 || len > 512) {
             luat_heap_free(ota);
@@ -297,7 +297,7 @@ _close_decompress:
     if(luat_fs_fexist(UPDATE_BIN_PATH)){
         LLOGI("found update.bin, checking");
         if (luat_ota_checkfile(UPDATE_BIN_PATH) == 0) {
-            LLOGI("update.bin ok, updating...");
+            LLOGI("update.bin ok, updating... %08X", luadb_addr);
             #define UPDATE_BUFF_SIZE 4096
             uint8_t* buff = luat_heap_malloc(UPDATE_BUFF_SIZE);
             int len = 0;
@@ -311,7 +311,7 @@ _close_decompress:
                   if (len < 1)
                       break;
                   luat_flash_erase(luadb_addr + offset, UPDATE_BUFF_SIZE);
-                  luat_flash_write(luadb_addr + offset, buff, UPDATE_BUFF_SIZE);
+                  luat_flash_write((char*)buff, luadb_addr + offset, UPDATE_BUFF_SIZE);
                   offset += len;
                 }
               }else{

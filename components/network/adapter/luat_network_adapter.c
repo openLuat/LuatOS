@@ -12,7 +12,7 @@ typedef struct
 {
 #ifdef LUAT_USE_LWIP
 	network_ctrl_t lwip_ctrl_table[LWIP_NUM_SOCKETS];
-	HANDLE network_mutex;
+//	HANDLE network_mutex;
 #endif
 	int last_adapter_index;
 	int default_adapter_index;
@@ -744,7 +744,6 @@ static int network_state_disconnecting(network_ctrl_t *ctrl, OS_EVENT *event, ne
 	case EV_NW_SOCKET_ERROR:
 	case EV_NW_SOCKET_REMOTE_CLOSE:
 	case EV_NW_SOCKET_CLOSE_OK:
-		DBG("!");
 		network_force_close_socket(ctrl);
 		ctrl->state = NW_STATE_OFF_LINE;
 		ctrl->socket_id = -1;
@@ -756,7 +755,6 @@ static int network_state_disconnecting(network_ctrl_t *ctrl, OS_EVENT *event, ne
 		}
 		else
 		{
-			DBG("!");
 			network_force_close_socket(ctrl);
 			ctrl->state = NW_STATE_OFF_LINE;
 			ctrl->socket_id = -1;
@@ -836,9 +834,13 @@ static int32_t network_default_socket_callback(void *data, void *param)
 		{
 			if (ctrl->auto_mode)
 			{
-				DBG("%x,%d,%d,%d,%d", event->ID, ctrl->adapter_index, ctrl->socket_id, ctrl->state, ctrl->wait_target_state);
+				DBG("%x,%d,%s,%s", event->ID, ctrl->socket_id,
+						network_ctrl_state_string(ctrl->state),
+						network_ctrl_wait_state_string(ctrl->wait_target_state));
 				network_default_statemachine(ctrl, event, adapter);
-				DBG("%d,%d", ctrl->state, ctrl->wait_target_state);
+				DBG("%x,%d,%s,%s", event->ID, ctrl->socket_id,
+						network_ctrl_state_string(ctrl->state),
+						network_ctrl_wait_state_string(ctrl->wait_target_state));
 			}
 			else if (ctrl->task_handle)
 			{
@@ -868,9 +870,13 @@ static int32_t network_default_socket_callback(void *data, void *param)
 				{
 					if (ctrl->auto_mode)
 					{
-						DBG("%x,%d,%d,%d,%d", event->ID, ctrl->adapter_index, ctrl->socket_id, ctrl->state, ctrl->wait_target_state);
+						DBG("%x,%d,%s,%s", event->ID, ctrl->socket_id,
+								network_ctrl_state_string(ctrl->state),
+								network_ctrl_wait_state_string(ctrl->wait_target_state));
 						network_default_statemachine(ctrl, &temp_event, adapter);
-						DBG("%d,%d",ctrl->state, ctrl->wait_target_state);
+						DBG("%x,%d,%s,%s", event->ID, ctrl->socket_id,
+								network_ctrl_state_string(ctrl->state),
+								network_ctrl_wait_state_string(ctrl->wait_target_state));
 					}
 					else if (ctrl->task_handle)
 					{
@@ -925,7 +931,7 @@ int network_register_adapter(uint8_t adapter_index, network_adapter_info *info, 
 	prv_adapter_table[adapter_index].port = 60000;
 	if (!prv_network.is_init)
 	{
-		prv_network.network_mutex = platform_create_mutex();
+		//prv_network.network_mutex = platform_create_mutex();
 		INIT_LLIST_HEAD(&prv_network.dns_cache_head);
 		prv_network.is_init = 0;
 	}

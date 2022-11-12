@@ -3946,6 +3946,7 @@ int network_tx(network_ctrl_t *ctrl, const uint8_t *data, uint32_t len, int flag
 			NW_UNLOCK;
 			return -1;
 	    }
+	    *tx_len = result;
 	}
 	else
 #endif

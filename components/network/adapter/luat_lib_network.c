@@ -336,7 +336,7 @@ static int l_network_connect(lua_State *L)
 	    ip = luaL_checklstring(L, 2, &ip_len);
 	}
 	uint16_t remote_port = luaL_checkinteger(L, 3);
-	int result = network_connect(l_ctrl->netc, ip, ip_len, ip_addr.type?NULL:&ip_addr, remote_port, 0);
+	int result = network_connect(l_ctrl->netc, ip, ip_len, (ip_addr.type != IPADDR_TYPE_V4)?NULL:&ip_addr, remote_port, 0);
 	lua_pushboolean(L, result < 0);
 	lua_pushboolean(L, result == 0);
 	return 2;

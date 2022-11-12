@@ -345,11 +345,7 @@ static uint32_t http_send(luat_http_ctrl_t *http_ctrl, uint8_t* data, size_t len
 		return 0;
 	uint32_t tx_len = 0;
 	// LLOGD("http_send data:%.*s",len,data);
-#ifdef LUAT_USE_LWIP
-	network_tx(http_ctrl->netc, data, len, 0, http_ctrl->ip_addr.type?NULL:&(http_ctrl->ip_addr), NULL, &tx_len, 0);
-#else
-	network_tx(http_ctrl->netc, data, len, 0, http_ctrl->ip_addr.is_ipv6?NULL:&(http_ctrl->ip_addr), NULL, &tx_len, 0);
-#endif
+	network_tx(http_ctrl->netc, data, len, 0, NULL, 0, &tx_len, 0);
 	return tx_len;
 }
 
@@ -367,9 +363,9 @@ static int32_t luat_lib_http_callback(void *data, void *param){
 	}
 	if (event->ID == EV_NW_RESULT_LINK){
 #ifdef LUAT_USE_LWIP
-		if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), http_ctrl->ip_addr.type?NULL:&(http_ctrl->ip_addr), http_ctrl->remote_port, 0) < 0){
+		if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), (0xff == http_ctrl->ip_addr.type)?NULL:&(http_ctrl->ip_addr), http_ctrl->remote_port, 0) < 0){
 #else
-        if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), http_ctrl->ip_addr.is_ipv6?NULL:&(http_ctrl->ip_addr), http_ctrl->remote_port, 0) < 0){
+        if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), (0xff == http_ctrl->ip_addr.is_ipv6)?NULL:&(http_ctrl->ip_addr), http_ctrl->remote_port, 0) < 0){
 #endif
 			// network_close(http_ctrl->netc, 0);
 			http_resp_error(http_ctrl, HTTP_ERROR_CONNECT);
@@ -722,11 +718,8 @@ static int l_http_request(lua_State *L) {
 
 	ret = network_wait_link_up(http_ctrl->netc, 0);
 	if (ret == 0){
-#ifdef LUAT_USE_LWIP
-		if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), http_ctrl->ip_addr.type?NULL:&(http_ctrl->ip_addr), http_ctrl->remote_port, 0) < 0){
-#else
-		if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), http_ctrl->ip_addr.is_ipv6?NULL:&(http_ctrl->ip_addr), http_ctrl->remote_port, 0) < 0){
-#endif
+
+		if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), NULL, http_ctrl->remote_port, 0) < 0){
         	http_resp_error(http_ctrl, HTTP_ERROR_CONNECT);
 			return 0;
     	}

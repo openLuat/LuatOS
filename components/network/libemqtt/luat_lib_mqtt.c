@@ -173,7 +173,7 @@ static int mqtt_read_packet(luat_mqtt_ctrl_t *mqtt_ctrl){
 			break;
 		}
 		// 收到数据了, 传给处理函数继续处理
-		// 数据的长度变更, 触发传递		
+		// 数据的长度变更, 触发传递
 		mqtt_ctrl->buffer_offset += rx_len;
 further:
 		result = mqtt_parse(mqtt_ctrl);
@@ -391,17 +391,17 @@ static int mqtt_send_packet(void* socket_info, const void* buf, unsigned int cou
     luat_mqtt_ctrl_t * mqtt_ctrl = (luat_mqtt_ctrl_t *)socket_info;
 	uint32_t tx_len = 0;
 #ifdef LUAT_USE_LWIP
-	return network_tx(mqtt_ctrl->netc, buf, count, 0, mqtt_ctrl->ip_addr.type?NULL:&(mqtt_ctrl->ip_addr), NULL, &tx_len, 0);
+	return network_tx(mqtt_ctrl->netc, buf, count, 0, NULL, 0, &tx_len, 0);
 #else
-	return network_tx(mqtt_ctrl->netc, buf, count, 0, mqtt_ctrl->ip_addr.is_ipv6?NULL:&(mqtt_ctrl->ip_addr), NULL, &tx_len, 0);
+	return network_tx(mqtt_ctrl->netc, buf, count, 0, NULL, 0, &tx_len, 0);
 #endif
 }
 
 static int luat_socket_connect(luat_mqtt_ctrl_t *mqtt_ctrl, const char *hostname, uint16_t port, uint16_t keepalive){
 #ifdef LUAT_USE_LWIP
-	if(network_connect(mqtt_ctrl->netc, hostname, strlen(hostname), mqtt_ctrl->ip_addr.type?NULL:&(mqtt_ctrl->ip_addr), port, 0) < 0){
+	if(network_connect(mqtt_ctrl->netc, hostname, strlen(hostname), (0xff == mqtt_ctrl->ip_addr.type)?NULL:&(mqtt_ctrl->ip_addr), port, 0) < 0){
 #else
-	if(network_connect(mqtt_ctrl->netc, hostname, strlen(hostname), mqtt_ctrl->ip_addr.is_ipv6?NULL:&(mqtt_ctrl->ip_addr), port, 0) < 0){
+	if(network_connect(mqtt_ctrl->netc, hostname, strlen(hostname), (0xff == mqtt_ctrl->ip_addr.is_ipv6)?NULL:&(mqtt_ctrl->ip_addr), port, 0) < 0){
 #endif
         network_close(mqtt_ctrl->netc, 0);
         return -1;
@@ -512,7 +512,7 @@ static int l_mqtt_create(lua_State *L) {
 #endif
 	if (lua_isinteger(L, 2)){
 #ifdef LUAT_USE_LWIP
-		mqtt_ctrl->ip_addr.type = 0;
+		mqtt_ctrl->ip_addr.type = IPADDR_TYPE_V4;
 		mqtt_ctrl->ip_addr.u_addr.ip4.addr = lua_tointeger(L, 2);
 #else
 		mqtt_ctrl->ip_addr.is_ipv6 = 0;

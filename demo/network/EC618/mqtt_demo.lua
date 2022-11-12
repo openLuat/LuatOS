@@ -2,7 +2,7 @@ local libnet = require "libnet"
 
 
 local mqtt_host = "www.dozingfiretruck.com.cn"
-local mqtt_port = 8883
+local mqtt_port = 1883
 local client_id = "123456"
 local user_name = ""
 local password = ""
@@ -31,8 +31,7 @@ sys.taskInit(function()
     end)
 
     mqttc:connect()
-    sys.wait(10000)
-    mqttc:subscribe("/luatos/123456")
+
 	sys.waitUntil("mqtt_conack")
     while true do
         -- mqttc自动处理重连

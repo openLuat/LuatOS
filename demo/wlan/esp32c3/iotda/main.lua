@@ -42,8 +42,6 @@ sys.taskInit(function()
     end)
 
     mqttc:connect()
-    sys.wait(10000)
-    mqttc:subscribe("/luatos/123456")
 	sys.waitUntil("mqtt_conack")
     while true do
         -- mqttc自动处理重连

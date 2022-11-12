@@ -13,14 +13,14 @@ local function dtuTask(uart_id, ip, port)
 	local tx_buff = zbuff.create(1024)
 	local rx_buff = zbuff.create(1024)
 	local netc 
-	local result, param, is_err, rIP, rPort
-	-- result = uart.setup(uart_id,115200,8,1)
-	-- uart.on(uart_id, "receive", function(id, len)
-	--     uart.rx(id, com_buff)
-	--     if d1Online then
-	--     	sys_send(d1Name, network.EVENT, 0)
-	--     end
-	-- end)
+	local result, param, is_err
+	result = uart.setup(uart_id,115200,8,1)
+	uart.on(uart_id, "receive", function(id, len)
+	    uart.rx(id, com_buff)
+	    if d1Online then
+	    	sys_send(d1Name, network.EVENT, 0)
+	    end
+	end)
 	netc = network.create(nil, d1Name)
 	network.debug(netc, true)
 	network.config(netc, nil, nil, nil)
@@ -37,18 +37,15 @@ local function dtuTask(uart_id, ip, port)
 			libnet.tx(d1Name, 0, netc, "helloworld")
 		end
 		while result do
-			is_err, param, rIP, rPort = network.rx(netc, rx_buff)
+			is_err, param, _, _ = network.rx(netc, rx_buff)
 			if is_err then
 				log.info("服务器断开了", is_err, param, ip, port)
 				break
 			end
 			if rx_buff:used() > 0 then
 				log.info("收到服务器数据，长度", rx_buff:used())
-				-- uart.tx(uart_id, rx_buff)
-				tx_buff:copy(nil, rx_buff)
+				uart.tx(uart_id, rx_buff)
 				rx_buff:del()
-			else
-				libnet.tx(d1Name, 15000, netc, "heart!")
 			end
 			tx_buff:copy(nil, com_buff)
 			com_buff:del()
@@ -75,7 +72,6 @@ local function dtuTask(uart_id, ip, port)
 				log.info("服务器断开了", result, param)
 				break
 			end
-
 		end
 		d1Online = false
 		libnet.close(d1Name, 5000, netc)

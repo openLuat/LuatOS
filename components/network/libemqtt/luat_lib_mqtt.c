@@ -61,7 +61,7 @@ static luat_mqtt_ctrl_t * get_mqtt_ctrl(lua_State *L){
 	}
 }
 
-static void mqtt_timer_callback(void *data, void *param){
+static LUAT_RT_RET_TYPE mqtt_timer_callback(LUAT_RT_CB_PARAM){
 	luat_mqtt_ctrl_t * mqtt_ctrl = (luat_mqtt_ctrl_t *)param;
 	rtos_msg_t msg = {0};
 	msg.handler = l_mqtt_callback;

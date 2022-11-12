@@ -4,6 +4,7 @@
 #include "luat_fs.h"
 #include "luat_timer.h"
 #include "luat_malloc.h"
+#include "luat_flash.h"
 
 #define LUAT_LOG_TAG "ota"
 #include "luat_log.h"
@@ -309,6 +310,7 @@ _close_decompress:
                   len = luat_fs_fread(buff, sizeof(uint8_t), UPDATE_BUFF_SIZE, fd);
                   if (len < 1)
                       break;
+                  luat_flash_erase(luadb_addr + offset, UPDATE_BUFF_SIZE);
                   luat_flash_write(luadb_addr + offset, buff, UPDATE_BUFF_SIZE);
                   offset += len;
                 }

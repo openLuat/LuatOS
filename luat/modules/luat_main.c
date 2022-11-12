@@ -177,6 +177,13 @@ int luat_main (void) {
 #ifdef AIR302
     // 是否需要升级或者回滚
     luat_ota_update_or_rollback();
+#else
+#ifdef LUAT_USE_OTA
+  if (luat_ota_exec() == 0) {
+    luat_os_reboot(5);
+  }
+#endif
+
 #endif
 
   luat_main_call();

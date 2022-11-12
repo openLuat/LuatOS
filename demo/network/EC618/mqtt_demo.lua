@@ -2,7 +2,7 @@ local libnet = require "libnet"
 
 
 local mqtt_host = "www.dozingfiretruck.com.cn"
-local mqtt_port = 1883
+local mqtt_port = 8883
 local client_id = "123456"
 local user_name = ""
 local password = ""

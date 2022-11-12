@@ -5,8 +5,5 @@ require "dtu_demo"
 dtuDemo(1, "112.125.89.8", 37711)
 require "ntp_demo"
 ntpDemo()
+require "http_demo"
 require "mqtt_demo"
---require "ota_demo"
---otaDemo()
---require "server_demo"
---SerDemo(12000)

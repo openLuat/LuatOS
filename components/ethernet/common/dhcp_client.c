@@ -159,6 +159,7 @@ int analyze_ip4_dhcp(dhcp_client_info_t *dhcp, Buffer_Struct *in)
 		return -4;
 	}
 	dhcp->temp_ip = BytesGetLe32(&in->Data[16]);
+	DBG("find ip %x", dhcp->temp_ip);
 	in->Pos = DHCP_OPTIONS_OFS;
 	while (in->Pos < in->MaxLen)
 	{
@@ -216,7 +217,7 @@ int ip4_dhcp_run(dhcp_client_info_t *dhcp, Buffer_Struct *in, Buffer_Struct *out
 	if (in)
 	{
 		result = analyze_ip4_dhcp(dhcp, in);
-
+		DBG("result %d", result);
 		if (result > 0)
 		{
 			if (result == DHCP_NAK)
@@ -307,7 +308,7 @@ int ip4_dhcp_run(dhcp_client_info_t *dhcp, Buffer_Struct *in, Buffer_Struct *out
 //		}
 //		break;
 	case DHCP_STATE_DISCOVER:
-
+		DBG("dhcp discover");
 		OS_ReInitBuffer(out, 512);
 		make_ip4_dhcp_discover_msg(dhcp, out);
 		dhcp->last_tx_time = GetSysTickMS();
@@ -316,6 +317,7 @@ int ip4_dhcp_run(dhcp_client_info_t *dhcp, Buffer_Struct *in, Buffer_Struct *out
 	case DHCP_STATE_WAIT_OFFER:
 		if (in && (result == DHCP_OFFER))
 		{
+			DBG("select offer, wait ack");
 			dhcp->state = DHCP_STATE_WAIT_SELECT_ACK;
 			goto DHCP_NEED_REQUIRE;
 		}
@@ -334,6 +336,7 @@ int ip4_dhcp_run(dhcp_client_info_t *dhcp, Buffer_Struct *in, Buffer_Struct *out
 //			DBG("need check ip %x,%x,%x,%x", dhcp->temp_ip, dhcp->submask, dhcp->gateway, dhcp->server_ip);
 			dhcp->ip = dhcp->temp_ip;
 			dhcp->state = DHCP_STATE_CHECK;
+			DBG("DHCP get ip ready");
 			break;
 		}
 		if (GetSysTickMS() >= (dhcp->last_tx_time + (dhcp->discover_cnt * 500) + 1100))

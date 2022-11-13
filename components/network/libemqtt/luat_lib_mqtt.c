@@ -510,7 +510,7 @@ static int l_mqtt_create(lua_State *L) {
 	network_init_ctrl(mqtt_ctrl->netc, NULL, luat_lib_mqtt_callback, mqtt_ctrl);
 
 	mqtt_ctrl->mqtt_state = 0;
-	mqtt_ctrl->netc->is_debug = 1;
+	mqtt_ctrl->netc->is_debug = 0;
 	mqtt_ctrl->keepalive = 240;
 	network_set_base_mode(mqtt_ctrl->netc, 1, 10000, 0, 0, 0, 0);
 	network_set_local_port(mqtt_ctrl->netc, 0);

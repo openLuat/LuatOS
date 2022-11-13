@@ -637,7 +637,7 @@ static int l_http_request(lua_State *L) {
 	}
 	network_init_ctrl(http_ctrl->netc, NULL, luat_lib_http_callback, http_ctrl);
 
-	http_ctrl->netc->is_debug = 1;
+	http_ctrl->netc->is_debug = 0;
 	network_set_base_mode(http_ctrl->netc, 1, 10000, 0, 0, 0, 0);
 	network_set_local_port(http_ctrl->netc, 0);
 

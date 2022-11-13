@@ -9,7 +9,7 @@ _G.sysplus = require("sysplus")
 log.style(1)
 w5500.init(spi.SPI_2, 24000000, pin.PB03, pin.PC00, pin.PE10)
 w5500.config()
-w5500.bind(network.ETH0)
+w5500.bind(socket.ETH0)
 require "camera_raw"
 --采集到摄像头原始数据，发送给局域网内的UDP服务器，由于W5500速度不够快，效果很差
 camDemo("10.0.0.3", 12000)

@@ -21,14 +21,14 @@ typedef struct
 	int cb_ref;	//回调函数
 	char *task_name;
 	uint8_t adapter_index;
-}luat_network_ctrl_t;
+}luat_socket_ctrl_t;
 
 #ifdef LUAT_USE_LWIP
 
-static int32_t l_network_callback(lua_State *L, void* ptr)
+static int32_t l_socket_callback(lua_State *L, void* ptr)
 {
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
-    luat_network_ctrl_t *l_ctrl =(luat_network_ctrl_t *)msg->ptr;
+    luat_socket_ctrl_t *l_ctrl =(luat_socket_ctrl_t *)msg->ptr;
     if (l_ctrl->netc)
     {
     	if (l_ctrl->cb_ref)
@@ -68,11 +68,11 @@ static int32_t l_network_callback(lua_State *L, void* ptr)
     return 1;
 }
 
-static int32_t luat_lib_network_callback(void *data, void *param)
+static int32_t luat_lib_socket_callback(void *data, void *param)
 {
 	OS_EVENT *event = (OS_EVENT *)data;
 	rtos_msg_t msg;
-    msg.handler = l_network_callback;
+    msg.handler = l_socket_callback;
     msg.ptr = param;
     msg.arg1 = event->ID & 0x0fffffff;
     msg.arg2 = event->Param1;
@@ -80,22 +80,22 @@ static int32_t luat_lib_network_callback(void *data, void *param)
     return 0;
 }
 
-static luat_network_ctrl_t * l_get_ctrl(lua_State *L, int index)
+static luat_socket_ctrl_t * l_get_ctrl(lua_State *L, int index)
 {
 	if (luaL_testudata(L, 1, LUAT_NW_CTRL_TYPE))
 	{
-		return ((luat_network_ctrl_t *)luaL_checkudata(L, 1, LUAT_NW_CTRL_TYPE));
+		return ((luat_socket_ctrl_t *)luaL_checkudata(L, 1, LUAT_NW_CTRL_TYPE));
 	}
 	else
 	{
-		return ((luat_network_ctrl_t *)lua_touserdata(L, 1));
+		return ((luat_socket_ctrl_t *)lua_touserdata(L, 1));
 	}
 }
 
 // __gc
-static int l_network_gc(lua_State *L)
+static int l_socket_gc(lua_State *L)
 {
-	luat_network_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
     if (l_ctrl->netc)
     {
     	network_force_close_socket(l_ctrl->netc);
@@ -116,21 +116,21 @@ static int l_network_gc(lua_State *L)
 }
 
 /*
-在某个适配的网卡上申请一个network_ctrl
-@api    network.create(adapter, cb)
-@int 适配器序号， 只能是network.ETH0（外置以太网），network.LWIP_ETH（内置以太网），network.LWIP_STA（内置WIFI的STA），network.LWIP_AP（内置WIFI的AP），network.LWIP_GP（内置蜂窝网络的GPRS），network.USB（外置USB网卡），如果不填，优先选择soc平台自带能上外网的适配器，若仍然没有，选择最后一个注册的适配器
+在某个适配的网卡上申请一个socket_ctrl
+@api    socket.create(adapter, cb)
+@int 适配器序号， 只能是socket.ETH0（外置以太网），socket.LWIP_ETH（内置以太网），socket.LWIP_STA（内置WIFI的STA），socket.LWIP_AP（内置WIFI的AP），socket.LWIP_GP（内置蜂窝网络的GPRS），socket.USB（外置USB网卡），如果不填，优先选择soc平台自带能上外网的适配器，若仍然没有，选择最后一个注册的适配器
 @string or function string为消息通知的taskName，function则为回调函数，如果固件没有内置sys_wait，则必须是function
 当通过回调函数回调消息时，输入给function一共3个参数：
 param1为申请的network_ctrl
-param2为具体的消息，只能是network.RESET, network.LINK, network.ON_LINE, network.TX_OK, network.RX_NEW, network.CLOSE等等
+param2为具体的消息，只能是socket.RESET, socket.LINK, socket.ON_LINE, socket.TX_OK, socket.RX_NEW, socket.CLOSE等等
 param3为消息对应的参数
 @return some 成功返回network_ctrl，失败返回nil
 @usage
-local netc = network.create(network.ETH0, socket_cb_fun)	--以太网网卡上申请一个network_ctrl,通过socket_cb_fun回调相关消息
-local netc = network.create(network.ETH0, "IOT_TASK")	--以太网网卡上申请一个network_ctrl,通过sendMsg方式通知taskName为"IOT_TASK"回调相关消息
+local netc = socket.create(socket.ETH0, socket_cb_fun)	--以太网网卡上申请一个network_ctrl,通过socket_cb_fun回调相关消息
+local netc = socket.create(socket.ETH0, "IOT_TASK")	--以太网网卡上申请一个network_ctrl,通过sendMsg方式通知taskName为"IOT_TASK"回调相关消息
 
 */
-static int l_network_create(lua_State *L)
+static int l_socket_create(lua_State *L)
 {
 	int adapter_index = luaL_optinteger(L, 1, network_get_last_register_adapter());
 	if (adapter_index < 0 || adapter_index >= NW_ADAPTER_QTY)
@@ -139,7 +139,7 @@ static int l_network_create(lua_State *L)
 		return 1;
 	}
 
-	luat_network_ctrl_t *l_ctrl = (luat_network_ctrl_t *)lua_newuserdata(L, sizeof(luat_network_ctrl_t));
+	luat_socket_ctrl_t *l_ctrl = (luat_socket_ctrl_t *)lua_newuserdata(L, sizeof(luat_socket_ctrl_t));
 	if (!l_ctrl)
 	{
 		lua_pushnil(L);
@@ -153,7 +153,7 @@ static int l_network_create(lua_State *L)
 		lua_pushnil(L);
 		return 1;
 	}
-	network_init_ctrl(l_ctrl->netc, NULL, luat_lib_network_callback, l_ctrl);
+	network_init_ctrl(l_ctrl->netc, NULL, luat_lib_socket_callback, l_ctrl);
 	if (lua_isfunction(L, 2))
 	{
         lua_pushvalue(L, 2);
@@ -176,15 +176,15 @@ static int l_network_create(lua_State *L)
 
 /*
 配置是否打开debug信息
-@api network.debug(ctrl, onoff)
-@user_data network.create得到的ctrl
+@api socket.debug(ctrl, onoff)
+@user_data socket.create得到的ctrl
 @boolean true 打开debug开关
 @return nil 无返回值
-@usage network.debug(ctrl, true)
+@usage socket.debug(ctrl, true)
 */
-static int l_network_set_debug(lua_State *L)
+static int l_socket_set_debug(lua_State *L)
 {
-	luat_network_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	if (lua_isboolean(L, 2))
 	{
 		l_ctrl->netc->is_debug = lua_toboolean(L, 2);
@@ -194,8 +194,8 @@ static int l_network_set_debug(lua_State *L)
 
 /*
 配置network一些信息，
-@api network.config(ctrl, local_port, is_udp, is_tls, keep_idle, keep_interval, keep_cnt, server_cert, client_cert, client_key, client_password)
-@user_data network.create得到的ctrl
+@api socket.config(ctrl, local_port, is_udp, is_tls, keep_idle, keep_interval, keep_cnt, server_cert, client_cert, client_key, client_password)
+@user_data socket.create得到的ctrl
 @int 本地端口号，小端格式，如果不写，则自动分配一个，如果用户填了端口号则需要小于60000, 默认不写
 @boolean 是否是UDP，默认false
 @boolean 是否是加密传输，默认false
@@ -207,12 +207,12 @@ static int l_network_set_debug(lua_State *L)
 @string TCP模式下的客户端私钥加密数据
 @string TCP模式下的客户端私钥口令数据
 @return nil 无返回值
-@usage network.config(ctrl)	--最普通的TCP传输
-network.config(ctrl, nil, nil ,true)	--最普通的加密TCP传输，证书都不用验证的那种
+@usage socket.config(ctrl)	--最普通的TCP传输
+socket.config(ctrl, nil, nil ,true)	--最普通的加密TCP传输，证书都不用验证的那种
 */
-static int l_network_config(lua_State *L)
+static int l_socket_config(lua_State *L)
 {
-	luat_network_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	uint8_t is_udp = 0;
 	uint8_t is_tls = 0;
 	int param_pos = 1;
@@ -289,15 +289,15 @@ static int l_network_config(lua_State *L)
 
 /*
 等待网卡linkup
-@api network.linkup(ctrl)
-@user_data network.create得到的ctrl
+@api socket.linkup(ctrl)
+@user_data socket.create得到的ctrl
 @return boolean true有异常发生，false没有异常，如果有error则不需要看下一个返回值了
-@return boolean true已经linkup，false没有linkup，之后需要接收network.LINK消息
-@usage local error, result = network.linkup(ctrl)
+@return boolean true已经linkup，false没有linkup，之后需要接收socket.LINK消息
+@usage local error, result = socket.linkup(ctrl)
 */
-static int l_network_linkup(lua_State *L)
+static int l_socket_linkup(lua_State *L)
 {
-	luat_network_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	int result = network_wait_link_up(l_ctrl->netc, 0);
 	lua_pushboolean(L, result < 0);
 	lua_pushboolean(L, result == 0);
@@ -308,17 +308,17 @@ static int l_network_linkup(lua_State *L)
 
 /*
 作为客户端连接服务器
-@api network.connect(ctrl, ip, remote_port)
-@user_data network.create得到的ctrl
+@api socket.connect(ctrl, ip, remote_port)
+@user_data socket.create得到的ctrl
 @string or int ip或者域名，如果是IPV4，可以是大端格式的int值
 @int 服务器端口号，小端格式
 @return boolean true有异常发生，false没有异常，如果有error则不需要看下一个返回值了，如果有异常，后续要close
-@return boolean true已经connect，false没有connect，之后需要接收network.ON_LINE消息
-@usage local error, result = network.connect(ctrl, "xxx.xxx.xxx.xxx", xxxx)
+@return boolean true已经connect，false没有connect，之后需要接收socket.ON_LINE消息
+@usage local error, result = socket.connect(ctrl, "xxx.xxx.xxx.xxx", xxxx)
 */
-static int l_network_connect(lua_State *L)
+static int l_socket_connect(lua_State *L)
 {
-	luat_network_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	luat_ip_addr_t ip_addr;
 	const char *ip;
 	size_t ip_len;
@@ -344,16 +344,16 @@ static int l_network_connect(lua_State *L)
 
 /*
 作为客户端断开连接
-@api network.discon(ctrl)
-@user_data network.create得到的ctrl
+@api socket.discon(ctrl)
+@user_data socket.create得到的ctrl
 @return
 boolean true有异常发生，false没有异常，如果有error则不需要看下一个返回值了
-boolean true已经断开，false没有断开，之后需要接收network.CLOSED消息
-@usage local error, result = network.discon(ctrl)
+boolean true已经断开，false没有断开，之后需要接收socket.CLOSED消息
+@usage local error, result = socket.discon(ctrl)
 */
-static int l_network_disconnect(lua_State *L)
+static int l_socket_disconnect(lua_State *L)
 {
-	luat_network_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	int result = network_close(l_ctrl->netc, 0);
 	lua_pushboolean(L, result < 0);
 	lua_pushboolean(L, result == 0);
@@ -362,33 +362,33 @@ static int l_network_disconnect(lua_State *L)
 
 /*
 强制关闭socket
-@api network.close(ctrl)
-@user_data network.create得到的ctrl
+@api socket.close(ctrl)
+@user_data socket.create得到的ctrl
 */
-static int l_network_close(lua_State *L)
+static int l_socket_close(lua_State *L)
 {
-	luat_network_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	network_force_close_socket(l_ctrl->netc);
 	return 0;
 }
 
 /*
 发送数据给对端，UDP单次发送不要超过1460字节，否则很容易失败
-@api network.tx(ctrl, data, ip, port, flag)
-@user_data network.create得到的ctrl
+@api socket.tx(ctrl, data, ip, port, flag)
+@user_data socket.create得到的ctrl
 @string or user_data zbuff  要发送的数据
 @string or int 对端IP，如果是TCP应用则忽略，如果是UDP，如果留空则用connect时候的参数，如果是IPV4，可以是大端格式的int值
 @int 对端端口号，小端格式，如果是TCP应用则忽略，如果是UDP，如果留空则用connect时候的参数
 @int 发送参数，目前预留，不起作用
 @return boolean true有异常发生，false没有异常，如果有error则不需要看下一个返回值了，如果有异常，后续要close
-@return boolean true缓冲区满了，false没有异常，如果true，则需要等待一段时间或者等到network.TX_OK消息后再尝试发送，同时忽略下一个返回值
-@return boolean true已经收到应答，false没有收到应答，之后需要接收network.TX_OK消息， 也可以忽略继续发送，直到full==true
-@usage local error, full, result = network.tx(ctrl, "123456", "xxx.xxx.xxx.xxx", xxxx)
+@return boolean true缓冲区满了，false没有异常，如果true，则需要等待一段时间或者等到socket.TX_OK消息后再尝试发送，同时忽略下一个返回值
+@return boolean true已经收到应答，false没有收到应答，之后需要接收socket.TX_OK消息， 也可以忽略继续发送，直到full==true
+@usage local error, full, result = socket.tx(ctrl, "123456", "xxx.xxx.xxx.xxx", xxxx)
 */
-static int l_network_tx(lua_State *L)
+static int l_socket_tx(lua_State *L)
 {
 	char ip_buf[68];
-	luat_network_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	luat_ip_addr_t ip_addr;
 	luat_zbuff_t *buff = NULL;
 	const char *ip;
@@ -430,19 +430,19 @@ static int l_network_tx(lua_State *L)
 
 /*
 接收对端发出的数据，注意数据已经缓存在底层，使用本函数只是提取出来，UDP模式下一次只会取出一个数据包
-@api network.rx(ctrl, buff, flag)
-@user_data network.create得到的ctrl
+@api socket.rx(ctrl, buff, flag)
+@user_data socket.create得到的ctrl
 @user_data zbuff 存放接收的数据，如果缓冲区不够大会自动扩容
 @int 接收参数，目前预留，不起作用
 @return boolean true有异常发生，false没有异常，如果有异常，后续要close
 @return int 本次接收到数据长度
 @return string 对端IP，只有UDP模式下才有意义，TCP模式返回nil，注意返回的格式，如果是IPV4，1byte 0x00 + 4byte地址 如果是IPV6，1byte 0x01 + 16byte地址
 @return int 对端port，只有UDP模式下才有意义，TCP模式返回0
-@usage local error, data_len, ip, port = network.rx(ctrl, buff)
+@usage local error, data_len, ip, port = socket.rx(ctrl, buff)
 */
-static int l_network_rx(lua_State *L)
+static int l_socket_rx(lua_State *L)
 {
-	luat_network_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
 
 	luat_ip_addr_t ip_addr;
@@ -520,15 +520,15 @@ static int l_network_rx(lua_State *L)
 
 /*
 等待新的socket消息，在连接成功和发送数据成功后，使用一次将network状态转换到接收新数据
-@api network.wait(ctrl)
-@user_data network.create得到的ctrl
+@api socket.wait(ctrl)
+@user_data socket.create得到的ctrl
 @return boolean true有异常发生，false没有异常，如果有异常，后续要close
-@return boolean true有新的数据需要接收，false没有数据，之后需要接收network.EVENT消息
-@usage local error, result = network.wait(ctrl)
+@return boolean true有新的数据需要接收，false没有数据，之后需要接收socket.EVENT消息
+@usage local error, result = socket.wait(ctrl)
 */
-static int l_network_wait(lua_State *L)
+static int l_socket_wait(lua_State *L)
 {
-	luat_network_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	int result = network_wait_event(l_ctrl->netc, NULL, 0, NULL);
 	lua_pushboolean(L, result < 0);
 	lua_pushboolean(L, result == 0);
@@ -537,15 +537,15 @@ static int l_network_wait(lua_State *L)
 
 /*
 作为服务端开始监听
-@api network.listen(ctrl)
-@user_data network.create得到的ctrl
+@api socket.listen(ctrl)
+@user_data socket.create得到的ctrl
 @return boolean true有异常发生，false没有异常，如果有error则不需要看下一个返回值了，如果有异常，后续要close
-@return boolean true已经connect，false没有connect，之后需要接收network.ON_LINE消息
-@usage local error, result = network.listen(ctrl)
+@return boolean true已经connect，false没有connect，之后需要接收socket.ON_LINE消息
+@usage local error, result = socket.listen(ctrl)
 */
-static int l_network_listen(lua_State *L)
+static int l_socket_listen(lua_State *L)
 {
-	luat_network_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	int result = network_listen(l_ctrl->netc, 0);
 	lua_pushboolean(L, result < 0);
 	lua_pushboolean(L, result == 0);
@@ -554,19 +554,19 @@ static int l_network_listen(lua_State *L)
 
 /*
 作为服务端接收到一个新的客户端，注意，如果是类似W5500的硬件协议栈不支持1对多，则不需要第二个参数
-@api network.accept(ctrl)
-@user_data network.create得到的ctrl，这里是服务器端
-@string or function or nil string为消息通知的taskName，function则为回调函数，和network.create参数一致
+@api socket.accept(ctrl)
+@user_data socket.create得到的ctrl，这里是服务器端
+@string or function or nil string为消息通知的taskName，function则为回调函数，和socket.create参数一致
 @return boolean true有异常发生，false没有异常，如果有error则不需要看下一个返回值了，如果有异常，后续要close
 @return user_data or nil 如果支持1对多，则会返回新的ctrl，自动create，如果不支持则返回nil
-@usage local error, new_netc = network.listen(ctrl, cb)
+@usage local error, new_netc = socket.listen(ctrl, cb)
 */
-static int l_network_accept(lua_State *L)
+static int l_socket_accept(lua_State *L)
 {
-	luat_network_ctrl_t *old_ctrl = l_get_ctrl(L, 1);
+	luat_socket_ctrl_t *old_ctrl = l_get_ctrl(L, 1);
 	if (network_accept_enable(old_ctrl->netc))
 	{
-		luat_network_ctrl_t *new_ctrl = (luat_network_ctrl_t *)lua_newuserdata(L, sizeof(luat_network_ctrl_t));
+		luat_socket_ctrl_t *new_ctrl = (luat_socket_ctrl_t *)lua_newuserdata(L, sizeof(luat_socket_ctrl_t));
 		if (!new_ctrl)
 		{
 			lua_pushboolean(L, 0);
@@ -582,7 +582,7 @@ static int l_network_accept(lua_State *L)
 			lua_pushnil(L);
 			return 2;
 		}
-		network_init_ctrl(new_ctrl->netc, NULL, luat_lib_network_callback, new_ctrl);
+		network_init_ctrl(new_ctrl->netc, NULL, luat_lib_socket_callback, new_ctrl);
 		if (lua_isfunction(L, 2))
 		{
 			lua_pushvalue(L, 2);
@@ -623,25 +623,25 @@ static int l_network_accept(lua_State *L)
 
 /*
 主动释放掉network_ctrl
-@api    network.release(ctrl)
-@user_data	network.create得到的ctrl
-@usage network.release(ctrl)
+@api    socket.release(ctrl)
+@user_data	socket.create得到的ctrl
+@usage socket.release(ctrl)
 */
-static int l_network_release(lua_State *L)
+static int l_socket_release(lua_State *L)
 {
-	return l_network_gc(L);
+	return l_socket_gc(L);
 }
 
 /*
 设置DNS服务器
-@api    network.setDNS(adapter_index, dns_index, ip)
-@int 适配器序号， 只能是network.ETH0，network.STA，network.AP，如果不填，会选择最后一个注册的适配器
+@api    socket.setDNS(adapter_index, dns_index, ip)
+@int 适配器序号， 只能是socket.ETH0，socket.STA，socket.AP，如果不填，会选择最后一个注册的适配器
 @int dns服务器序号，从1开始
 @string or int dns，如果是IPV4，可以是大端格式的int值
 @return boolean 成功返回true，失败返回false
-@usage network.setDNS(network.ETH0, 1, "114.114.114.114")
+@usage socket.setDNS(socket.ETH0, 1, "114.114.114.114")
 */
-static int l_network_set_dns(lua_State *L)
+static int l_socket_set_dns(lua_State *L)
 {
 	char ip_buf[68];
 	int adapter_index = luaL_optinteger(L, 1, network_get_last_register_adapter());
@@ -677,36 +677,36 @@ static int l_network_set_dns(lua_State *L)
 
 /*
 设置SSL的log
-@api    network.sslLog(log_level)
+@api    socket.sslLog(log_level)
 @int	mbedtls log等级，<=2基本不打印，不要超过9
-@usage network.sslLog(3)
+@usage socket.sslLog(3)
 */
-static int l_network_set_ssl_log(lua_State *L)
+static int l_socket_set_ssl_log(lua_State *L)
 {
 	mbedtls_debug_set_threshold(luaL_optinteger(L, 1, 1));
 	return 0;
 }
 
 #include "rotable2.h"
-static const rotable_Reg_t reg_network_adapter[] =
+static const rotable_Reg_t reg_socket_adapter[] =
 {
-	{"create",			ROREG_FUNC(l_network_create)},
-	{"debug",		ROREG_FUNC(l_network_set_debug)},
-	{"config",		ROREG_FUNC(l_network_config)},
-	{"linkup",			ROREG_FUNC(l_network_linkup)},
-	{"connect",			ROREG_FUNC(l_network_connect)},
-	{"listen",			ROREG_FUNC(l_network_listen)},
-	{"accept",			ROREG_FUNC(l_network_accept)},
-	{"discon",			ROREG_FUNC(l_network_disconnect)},
-	{"close",			ROREG_FUNC(l_network_close)},
-	{"tx",			ROREG_FUNC(l_network_tx)},
-	{"rx",			ROREG_FUNC(l_network_rx)},
-	{"wait",			ROREG_FUNC(l_network_wait)},
-	//{"listen",			ROREG_FUNC(l_network_listen)},
-	//{"accept",			ROREG_FUNC(l_network_accept)},
-	{"release",			ROREG_FUNC(l_network_release)},
-	{ "setDNS",           ROREG_FUNC(l_network_set_dns)},
-	{ "sslLog",			ROREG_FUNC(l_network_set_ssl_log)},
+	{"create",			ROREG_FUNC(l_socket_create)},
+	{"debug",		ROREG_FUNC(l_socket_set_debug)},
+	{"config",		ROREG_FUNC(l_socket_config)},
+	{"linkup",			ROREG_FUNC(l_socket_linkup)},
+	{"connect",			ROREG_FUNC(l_socket_connect)},
+	{"listen",			ROREG_FUNC(l_socket_listen)},
+	{"accept",			ROREG_FUNC(l_socket_accept)},
+	{"discon",			ROREG_FUNC(l_socket_disconnect)},
+	{"close",			ROREG_FUNC(l_socket_close)},
+	{"tx",			ROREG_FUNC(l_socket_tx)},
+	{"rx",			ROREG_FUNC(l_socket_rx)},
+	{"wait",			ROREG_FUNC(l_socket_wait)},
+	//{"listen",			ROREG_FUNC(l_socket_listen)},
+	//{"accept",			ROREG_FUNC(l_socket_accept)},
+	{"release",			ROREG_FUNC(l_socket_release)},
+	{ "setDNS",           ROREG_FUNC(l_socket_set_dns)},
+	{ "sslLog",			ROREG_FUNC(l_socket_set_ssl_log)},
     { "ETH0",           ROREG_INT(NW_ADAPTER_INDEX_ETH0)},
 	{ "LWIP_ETH",          	ROREG_INT(NW_ADAPTER_INDEX_LWIP_ETH)},
 	{ "LWIP_STA",          	ROREG_INT(NW_ADAPTER_INDEX_LWIP_WIFI_STA)},
@@ -722,10 +722,10 @@ static const rotable_Reg_t reg_network_adapter[] =
 };
 
 #else
-static int32_t l_network_callback(lua_State *L, void* ptr)
+static int32_t l_socket_callback(lua_State *L, void* ptr)
 {
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
-    luat_network_ctrl_t *l_ctrl =(luat_network_ctrl_t *)msg->ptr;
+    luat_socket_ctrl_t *l_ctrl =(luat_socket_ctrl_t *)msg->ptr;
     if (l_ctrl->netc)
     {
     	if (l_ctrl->cb_ref)
@@ -765,11 +765,11 @@ static int32_t l_network_callback(lua_State *L, void* ptr)
     return 1;
 }
 
-static int32_t luat_lib_network_callback(void *data, void *param)
+static int32_t luat_lib_socket_callback(void *data, void *param)
 {
 	OS_EVENT *event = (OS_EVENT *)data;
 	rtos_msg_t msg;
-    msg.handler = l_network_callback;
+    msg.handler = l_socket_callback;
     msg.ptr = param;
     msg.arg1 = event->ID & 0x0fffffff;
     msg.arg2 = event->Param1;
@@ -777,22 +777,22 @@ static int32_t luat_lib_network_callback(void *data, void *param)
     return 0;
 }
 
-static luat_network_ctrl_t * l_get_ctrl(lua_State *L, int index)
+static luat_socket_ctrl_t * l_get_ctrl(lua_State *L, int index)
 {
 	if (luaL_testudata(L, 1, LUAT_NW_CTRL_TYPE))
 	{
-		return ((luat_network_ctrl_t *)luaL_checkudata(L, 1, LUAT_NW_CTRL_TYPE));
+		return ((luat_socket_ctrl_t *)luaL_checkudata(L, 1, LUAT_NW_CTRL_TYPE));
 	}
 	else
 	{
-		return ((luat_network_ctrl_t *)lua_touserdata(L, 1));
+		return ((luat_socket_ctrl_t *)lua_touserdata(L, 1));
 	}
 }
 
 // __gc
-static int l_network_gc(lua_State *L)
+static int l_socket_gc(lua_State *L)
 {
-	luat_network_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
     if (l_ctrl->netc)
     {
     	network_force_close_socket(l_ctrl->netc);
@@ -814,20 +814,20 @@ static int l_network_gc(lua_State *L)
 
 /*
 在某个适配的网卡上申请一个network_ctrl
-@api    network.create(adapter, cb)
-@int 适配器序号， 只能是network.ETH0，network.STA，network.AP，如果不填，会选择最后一个注册的适配器
+@api    socket.create(adapter, cb)
+@int 适配器序号， 只能是socket.ETH0，socket.STA，socket.AP，如果不填，会选择最后一个注册的适配器
 @string or function string为消息通知的taskName，function则为回调函数，如果固件没有内置sys_wait，则必须是function
 当通过回调函数回调消息时，输入给function一共3个参数：
 param1为申请的network_ctrl
-param2为具体的消息，只能是network.RESET, network.LINK, network.ON_LINE, network.TX_OK, network.RX_NEW, network.CLOSE等等
+param2为具体的消息，只能是socket.RESET, socket.LINK, socket.ON_LINE, socket.TX_OK, socket.RX_NEW, socket.CLOSE等等
 param3为消息对应的参数
 @return some 成功返回network_ctrl，失败返回nil
 @usage
-local netc = network.create(network.ETH0, socket_cb_fun)	--以太网网卡上申请一个network_ctrl,通过socket_cb_fun回调相关消息
-local netc = network.create(network.ETH0, "IOT_TASK")	--以太网网卡上申请一个network_ctrl,通过sendMsg方式通知taskName为"IOT_TASK"回调相关消息
+local netc = socket.create(socket.ETH0, socket_cb_fun)	--以太网网卡上申请一个network_ctrl,通过socket_cb_fun回调相关消息
+local netc = socket.create(socket.ETH0, "IOT_TASK")	--以太网网卡上申请一个network_ctrl,通过sendMsg方式通知taskName为"IOT_TASK"回调相关消息
 
 */
-static int l_network_create(lua_State *L)
+static int l_socket_create(lua_State *L)
 {
 	int adapter_index = luaL_optinteger(L, 1, network_get_last_register_adapter());
 	if (adapter_index < 0 || adapter_index >= NW_ADAPTER_QTY)
@@ -836,7 +836,7 @@ static int l_network_create(lua_State *L)
 		return 1;
 	}
 
-	luat_network_ctrl_t *l_ctrl = (luat_network_ctrl_t *)lua_newuserdata(L, sizeof(luat_network_ctrl_t));
+	luat_socket_ctrl_t *l_ctrl = (luat_socket_ctrl_t *)lua_newuserdata(L, sizeof(luat_socket_ctrl_t));
 	if (!l_ctrl)
 	{
 		lua_pushnil(L);
@@ -850,7 +850,7 @@ static int l_network_create(lua_State *L)
 		lua_pushnil(L);
 		return 1;
 	}
-	network_init_ctrl(l_ctrl->netc, NULL, luat_lib_network_callback, l_ctrl);
+	network_init_ctrl(l_ctrl->netc, NULL, luat_lib_socket_callback, l_ctrl);
 	if (lua_isfunction(L, 2))
 	{
         lua_pushvalue(L, 2);
@@ -873,15 +873,15 @@ static int l_network_create(lua_State *L)
 
 /*
 配置是否打开debug信息
-@api network.debug(ctrl, onoff)
-@user_data network.create得到的ctrl
+@api socket.debug(ctrl, onoff)
+@user_data socket.create得到的ctrl
 @boolean true 打开debug开关
 @return nil 无返回值
-@usage network.debug(ctrl, true)
+@usage socket.debug(ctrl, true)
 */
-static int l_network_set_debug(lua_State *L)
+static int l_socket_set_debug(lua_State *L)
 {
-	luat_network_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	if (lua_isboolean(L, 2))
 	{
 		l_ctrl->netc->is_debug = lua_toboolean(L, 2);
@@ -891,8 +891,8 @@ static int l_network_set_debug(lua_State *L)
 
 /*
 配置network一些信息，
-@api network.config(ctrl, local_port, is_udp, is_tls, keep_idle, keep_interval, keep_cnt, server_cert, client_cert, client_key, client_password)
-@user_data network.create得到的ctrl
+@api socket.config(ctrl, local_port, is_udp, is_tls, keep_idle, keep_interval, keep_cnt, server_cert, client_cert, client_key, client_password)
+@user_data socket.create得到的ctrl
 @int 本地端口号，小端格式，如果不写，则自动分配一个，如果用户填了端口号则需要小于60000, 默认不写
 @boolean 是否是UDP，默认false
 @boolean 是否是加密传输，默认false
@@ -904,12 +904,12 @@ static int l_network_set_debug(lua_State *L)
 @string TCP模式下的客户端私钥加密数据
 @string TCP模式下的客户端私钥口令数据
 @return nil 无返回值
-@usage network.config(ctrl)	--最普通的TCP传输
-network.config(ctrl, nil, nil ,true)	--最普通的加密TCP传输，证书都不用验证的那种
+@usage socket.config(ctrl)	--最普通的TCP传输
+socket.config(ctrl, nil, nil ,true)	--最普通的加密TCP传输，证书都不用验证的那种
 */
-static int l_network_config(lua_State *L)
+static int l_socket_config(lua_State *L)
 {
-	luat_network_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	uint8_t is_udp = 0;
 	uint8_t is_tls = 0;
 	int param_pos = 1;
@@ -986,15 +986,15 @@ static int l_network_config(lua_State *L)
 
 /*
 等待网卡linkup
-@api network.linkup(ctrl)
-@user_data network.create得到的ctrl
+@api socket.linkup(ctrl)
+@user_data socket.create得到的ctrl
 @return boolean true有异常发生，false没有异常，如果有error则不需要看下一个返回值了
-@return boolean true已经linkup，false没有linkup，之后需要接收network.LINK消息
-@usage local error, result = network.linkup(ctrl)
+@return boolean true已经linkup，false没有linkup，之后需要接收socket.LINK消息
+@usage local error, result = socket.linkup(ctrl)
 */
-static int l_network_linkup(lua_State *L)
+static int l_socket_linkup(lua_State *L)
 {
-	luat_network_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	int result = network_wait_link_up(l_ctrl->netc, 0);
 	lua_pushboolean(L, result < 0);
 	lua_pushboolean(L, result == 0);
@@ -1005,17 +1005,17 @@ static int l_network_linkup(lua_State *L)
 
 /*
 作为客户端连接服务器
-@api network.connect(ctrl, ip, remote_port)
-@user_data network.create得到的ctrl
+@api socket.connect(ctrl, ip, remote_port)
+@user_data socket.create得到的ctrl
 @string or int ip或者域名，如果是IPV4，可以是大端格式的int值
 @int 服务器端口号，小端格式
 @return boolean true有异常发生，false没有异常，如果有error则不需要看下一个返回值了，如果有异常，后续要close
-@return boolean true已经connect，false没有connect，之后需要接收network.ON_LINE消息
-@usage local error, result = network.connect(ctrl, "xxx.xxx.xxx.xxx", xxxx)
+@return boolean true已经connect，false没有connect，之后需要接收socket.ON_LINE消息
+@usage local error, result = socket.connect(ctrl, "xxx.xxx.xxx.xxx", xxxx)
 */
-static int l_network_connect(lua_State *L)
+static int l_socket_connect(lua_State *L)
 {
-	luat_network_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	luat_ip_addr_t ip_addr;
 	const char *ip;
 	size_t ip_len;
@@ -1041,16 +1041,16 @@ static int l_network_connect(lua_State *L)
 
 /*
 作为客户端断开连接
-@api network.discon(ctrl)
-@user_data network.create得到的ctrl
+@api socket.discon(ctrl)
+@user_data socket.create得到的ctrl
 @return
 boolean true有异常发生，false没有异常，如果有error则不需要看下一个返回值了
-boolean true已经断开，false没有断开，之后需要接收network.CLOSED消息
-@usage local error, result = network.discon(ctrl)
+boolean true已经断开，false没有断开，之后需要接收socket.CLOSED消息
+@usage local error, result = socket.discon(ctrl)
 */
-static int l_network_disconnect(lua_State *L)
+static int l_socket_disconnect(lua_State *L)
 {
-	luat_network_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	int result = network_close(l_ctrl->netc, 0);
 	lua_pushboolean(L, result < 0);
 	lua_pushboolean(L, result == 0);
@@ -1059,32 +1059,32 @@ static int l_network_disconnect(lua_State *L)
 
 /*
 强制关闭socket
-@api network.close(ctrl)
-@user_data network.create得到的ctrl
+@api socket.close(ctrl)
+@user_data socket.create得到的ctrl
 */
-static int l_network_close(lua_State *L)
+static int l_socket_close(lua_State *L)
 {
-	luat_network_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	network_force_close_socket(l_ctrl->netc);
 	return 0;
 }
 
 /*
 发送数据给对端
-@api network.tx(ctrl, data, ip, port, flag)
-@user_data network.create得到的ctrl
+@api socket.tx(ctrl, data, ip, port, flag)
+@user_data socket.create得到的ctrl
 @string or user_data zbuff  要发送的数据
 @string or int 对端IP，如果是TCP应用则忽略，如果是UDP，如果留空则用connect时候的参数，如果是IPV4，可以是大端格式的int值
 @int 对端端口号，小端格式，如果是TCP应用则忽略，如果是UDP，如果留空则用connect时候的参数
 @int 发送参数，目前预留，不起作用
 @return boolean true有异常发生，false没有异常，如果有error则不需要看下一个返回值了，如果有异常，后续要close
-@return boolean true缓冲区满了，false没有异常，如果true，则需要等待一段时间或者等到network.TX_OK消息后再尝试发送，同时忽略下一个返回值
-@return boolean true已经收到应答，false没有收到应答，之后需要接收network.TX_OK消息， 也可以忽略继续发送，直到full==true
-@usage local error, full, result = network.tx(ctrl, "123456", "xxx.xxx.xxx.xxx", xxxx)
+@return boolean true缓冲区满了，false没有异常，如果true，则需要等待一段时间或者等到socket.TX_OK消息后再尝试发送，同时忽略下一个返回值
+@return boolean true已经收到应答，false没有收到应答，之后需要接收socket.TX_OK消息， 也可以忽略继续发送，直到full==true
+@usage local error, full, result = socket.tx(ctrl, "123456", "xxx.xxx.xxx.xxx", xxxx)
 */
-static int l_network_tx(lua_State *L)
+static int l_socket_tx(lua_State *L)
 {
-	luat_network_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	luat_ip_addr_t ip_addr;
 	luat_zbuff_t *buff = NULL;
 	const char *ip;
@@ -1136,19 +1136,19 @@ static int l_network_tx(lua_State *L)
 
 /*
 接收对端发出的数据，注意数据已经缓存在底层，使用本函数只是提取出来，UDP模式下一次只会取出一个数据包
-@api network.rx(ctrl, buff, flag)
-@user_data network.create得到的ctrl
+@api socket.rx(ctrl, buff, flag)
+@user_data socket.create得到的ctrl
 @user_data zbuff 存放接收的数据，如果缓冲区不够大会自动扩容
 @int 接收参数，目前预留，不起作用
 @return boolean true有异常发生，false没有异常，如果有异常，后续要close
 @return int 本次接收到数据长度
 @return string 对端IP，只有UDP模式下才有意义，TCP模式返回nil，注意返回的格式，如果是IPV4，1byte 0x00 + 4byte地址 如果是IPV6，1byte 0x01 + 16byte地址
 @return int 对端port，只有UDP模式下才有意义，TCP模式返回0
-@usage local error, data_len, ip, port = network.rx(ctrl, buff)
+@usage local error, data_len, ip, port = socket.rx(ctrl, buff)
 */
-static int l_network_rx(lua_State *L)
+static int l_socket_rx(lua_State *L)
 {
-	luat_network_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
 
 	luat_ip_addr_t ip_addr;
@@ -1226,15 +1226,15 @@ static int l_network_rx(lua_State *L)
 
 /*
 等待新的socket消息，在连接成功和发送数据成功后，使用一次将network状态转换到接收新数据
-@api network.wait(ctrl)
-@user_data network.create得到的ctrl
+@api socket.wait(ctrl)
+@user_data socket.create得到的ctrl
 @return boolean true有异常发生，false没有异常，如果有异常，后续要close
-@return boolean true有新的数据需要接收，false没有数据，之后需要接收network.EVENT消息
-@usage local error, result = network.wait(ctrl)
+@return boolean true有新的数据需要接收，false没有数据，之后需要接收socket.EVENT消息
+@usage local error, result = socket.wait(ctrl)
 */
-static int l_network_wait(lua_State *L)
+static int l_socket_wait(lua_State *L)
 {
-	luat_network_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	int result = network_wait_event(l_ctrl->netc, NULL, 0, NULL);
 	lua_pushboolean(L, result < 0);
 	lua_pushboolean(L, result == 0);
@@ -1243,15 +1243,15 @@ static int l_network_wait(lua_State *L)
 
 /*
 作为服务端开始监听
-@api network.listen(ctrl)
-@user_data network.create得到的ctrl
+@api socket.listen(ctrl)
+@user_data socket.create得到的ctrl
 @return boolean true有异常发生，false没有异常，如果有error则不需要看下一个返回值了，如果有异常，后续要close
-@return boolean true已经connect，false没有connect，之后需要接收network.ON_LINE消息
-@usage local error, result = network.listen(ctrl)
+@return boolean true已经connect，false没有connect，之后需要接收socket.ON_LINE消息
+@usage local error, result = socket.listen(ctrl)
 */
-static int l_network_listen(lua_State *L)
+static int l_socket_listen(lua_State *L)
 {
-	luat_network_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	int result = network_listen(l_ctrl->netc, 0);
 	lua_pushboolean(L, result < 0);
 	lua_pushboolean(L, result == 0);
@@ -1260,19 +1260,19 @@ static int l_network_listen(lua_State *L)
 
 /*
 作为服务端接收到一个新的客户端，注意，如果是类似W5500的硬件协议栈不支持1对多，则不需要第二个参数
-@api network.accept(ctrl)
-@user_data network.create得到的ctrl，这里是服务器端
-@string or function or nil string为消息通知的taskName，function则为回调函数，和network.create参数一致
+@api socket.accept(ctrl)
+@user_data socket.create得到的ctrl，这里是服务器端
+@string or function or nil string为消息通知的taskName，function则为回调函数，和socket.create参数一致
 @return boolean true有异常发生，false没有异常，如果有error则不需要看下一个返回值了，如果有异常，后续要close
 @return user_data or nil 如果支持1对多，则会返回新的ctrl，自动create，如果不支持则返回nil
-@usage local error, new_netc = network.listen(ctrl, cb)
+@usage local error, new_netc = socket.listen(ctrl, cb)
 */
-static int l_network_accept(lua_State *L)
+static int l_socket_accept(lua_State *L)
 {
-	luat_network_ctrl_t *old_ctrl = l_get_ctrl(L, 1);
+	luat_socket_ctrl_t *old_ctrl = l_get_ctrl(L, 1);
 	if (network_accept_enable(old_ctrl->netc))
 	{
-		luat_network_ctrl_t *new_ctrl = (luat_network_ctrl_t *)lua_newuserdata(L, sizeof(luat_network_ctrl_t));
+		luat_socket_ctrl_t *new_ctrl = (luat_socket_ctrl_t *)lua_newuserdata(L, sizeof(luat_socket_ctrl_t));
 		if (!new_ctrl)
 		{
 			lua_pushboolean(L, 0);
@@ -1288,7 +1288,7 @@ static int l_network_accept(lua_State *L)
 			lua_pushnil(L);
 			return 2;
 		}
-		network_init_ctrl(new_ctrl->netc, NULL, luat_lib_network_callback, new_ctrl);
+		network_init_ctrl(new_ctrl->netc, NULL, luat_lib_socket_callback, new_ctrl);
 		if (lua_isfunction(L, 2))
 		{
 			lua_pushvalue(L, 2);
@@ -1329,25 +1329,25 @@ static int l_network_accept(lua_State *L)
 
 /*
 主动释放掉network_ctrl
-@api    network.release(ctrl)
-@user_data	network.create得到的ctrl
-@usage network.release(ctrl)
+@api    socket.release(ctrl)
+@user_data	socket.create得到的ctrl
+@usage socket.release(ctrl)
 */
-static int l_network_release(lua_State *L)
+static int l_socket_release(lua_State *L)
 {
-	return l_network_gc(L);
+	return l_socket_gc(L);
 }
 
 /*
 设置DNS服务器
-@api    network.setDNS(adapter_index, dns_index, ip)
-@int 适配器序号， 只能是network.ETH0，network.STA，network.AP，如果不填，会选择最后一个注册的适配器
+@api    socket.setDNS(adapter_index, dns_index, ip)
+@int 适配器序号， 只能是socket.ETH0，socket.STA，socket.AP，如果不填，会选择最后一个注册的适配器
 @int dns服务器序号，从1开始
 @string or int dns，如果是IPV4，可以是大端格式的int值
 @return boolean 成功返回true，失败返回false
-@usage network.setDNS(network.ETH0, 1, "114.114.114.114")
+@usage socket.setDNS(socket.ETH0, 1, "114.114.114.114")
 */
-static int l_network_set_dns(lua_State *L)
+static int l_socket_set_dns(lua_State *L)
 {
 	int adapter_index = luaL_optinteger(L, 1, network_get_last_register_adapter());
 	if (adapter_index < 0 || adapter_index >= NW_ADAPTER_QTY)
@@ -1392,36 +1392,36 @@ static int l_network_set_dns(lua_State *L)
 
 /*
 设置SSL的log
-@api    network.sslLog(log_level)
+@api    socket.sslLog(log_level)
 @int	mbedtls log等级，<=2基本不打印，不要超过9
-@usage network.sslLog(3)
+@usage socket.sslLog(3)
 */
-static int l_network_set_ssl_log(lua_State *L)
+static int l_socket_set_ssl_log(lua_State *L)
 {
 	mbedtls_debug_set_threshold(luaL_optinteger(L, 1, 1));
 	return 0;
 }
 
 #include "rotable2.h"
-static const rotable_Reg_t reg_network_adapter[] =
+static const rotable_Reg_t reg_socket_adapter[] =
 {
-	{"create",			ROREG_FUNC(l_network_create)},
-	{"debug",		ROREG_FUNC(l_network_set_debug)},
-	{"config",		ROREG_FUNC(l_network_config)},
-	{"linkup",			ROREG_FUNC(l_network_linkup)},
-	{"connect",			ROREG_FUNC(l_network_connect)},
-	{"listen",			ROREG_FUNC(l_network_listen)},
-	{"accept",			ROREG_FUNC(l_network_accept)},
-	{"discon",			ROREG_FUNC(l_network_disconnect)},
-	{"close",			ROREG_FUNC(l_network_close)},
-	{"tx",			ROREG_FUNC(l_network_tx)},
-	{"rx",			ROREG_FUNC(l_network_rx)},
-	{"wait",			ROREG_FUNC(l_network_wait)},
-	//{"listen",			ROREG_FUNC(l_network_listen)},
-	//{"accept",			ROREG_FUNC(l_network_accept)},
-	{"release",			ROREG_FUNC(l_network_release)},
-	{ "setDNS",           ROREG_FUNC(l_network_set_dns)},
-	{ "sslLog",			ROREG_FUNC(l_network_set_ssl_log)},
+	{"create",			ROREG_FUNC(l_socket_create)},
+	{"debug",		ROREG_FUNC(l_socket_set_debug)},
+	{"config",		ROREG_FUNC(l_socket_config)},
+	{"linkup",			ROREG_FUNC(l_socket_linkup)},
+	{"connect",			ROREG_FUNC(l_socket_connect)},
+	{"listen",			ROREG_FUNC(l_socket_listen)},
+	{"accept",			ROREG_FUNC(l_socket_accept)},
+	{"discon",			ROREG_FUNC(l_socket_disconnect)},
+	{"close",			ROREG_FUNC(l_socket_close)},
+	{"tx",			ROREG_FUNC(l_socket_tx)},
+	{"rx",			ROREG_FUNC(l_socket_rx)},
+	{"wait",			ROREG_FUNC(l_socket_wait)},
+	//{"listen",			ROREG_FUNC(l_socket_listen)},
+	//{"accept",			ROREG_FUNC(l_socket_accept)},
+	{"release",			ROREG_FUNC(l_socket_release)},
+	{ "setDNS",           ROREG_FUNC(l_socket_set_dns)},
+	{ "sslLog",			ROREG_FUNC(l_socket_set_ssl_log)},
     //@const ETH0 number ETH0
     { "ETH0",           ROREG_INT(NW_ADAPTER_INDEX_ETH0)},
     //@const LINK number LINK事件
@@ -1438,10 +1438,10 @@ static const rotable_Reg_t reg_network_adapter[] =
 };
 #endif
 
-LUAMOD_API int luaopen_network_adapter( lua_State *L ) {
-    luat_newlib2(L, reg_network_adapter);
+LUAMOD_API int luaopen_socket_adapter( lua_State *L ) {
+    luat_newlib2(L, reg_socket_adapter);
     luaL_newmetatable(L, LUAT_NW_CTRL_TYPE); /* create metatable for file handles */
-    lua_pushcfunction(L, l_network_gc);
+    lua_pushcfunction(L, l_socket_gc);
     lua_setfield(L, -2, "__gc");
     lua_pop(L, 1); /* pop new metatable */
     return 1;

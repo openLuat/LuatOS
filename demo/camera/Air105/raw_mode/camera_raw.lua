@@ -44,9 +44,9 @@ local function camTask(ip, port)
     local tx_buff = zbuff.create(blen + 16)
 	local netc 
 	local result, param, is_err, rIP, rPort, vlen, start
-    netc = network.create(network.ETH0, taskName)
-    --network.debug(netc, true)
-    network.config(netc, nil, true)
+    netc = socket.create(socket.ETH0, taskName)
+    --socket.debug(netc, true)
+    socket.config(netc, nil, true)
     result = libnet.waitLink(taskName, 0, netc)
     camera.startRaw(camera_id, w, h, cbuff)--必要的
     log.info("摄像头启动完成")

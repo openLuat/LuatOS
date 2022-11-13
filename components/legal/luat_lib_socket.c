@@ -1,5 +1,5 @@
 /*
-@module  socket
+@module  legacy socket
 @summary socket操作库
 @version 1.0
 @date    2020.03.30

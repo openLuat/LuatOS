@@ -36,7 +36,7 @@ static int l_rtos_receive(lua_State *L) {
             luat_meminfo_luavm(&total, &used, &max_used);
             if ( (used * 100) >= (total * 90))
             {
-                LLOGD("luavm ram too high! used %d, total %d. Trigger Force-GC", used, total);
+                //LLOGD("luavm ram too high! used %d, total %d. Trigger Force-GC", used, total);
                 // 需要执行2次, 因为userdata在第二次才会被回收
                 lua_gc(L, LUA_GCCOLLECT, 0);
                 lua_gc(L, LUA_GCCOLLECT, 0);

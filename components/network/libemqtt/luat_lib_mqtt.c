@@ -477,8 +477,23 @@ static int l_mqtt_unsubscribe(lua_State *L) {
 }
 
 /*
+配置是否打开debug信息
+@api mqttc:debug(onoff)
+@boolean true 打开debug开关
+@return nil 无返回值
+@usage mqttc:debug(true)
+*/
+static int l_mqtt_set_debug(lua_State *L){
+	luat_mqtt_ctrl_t * mqtt_ctrl = get_mqtt_ctrl(L);
+	if (lua_isboolean(L, 2)){
+		mqtt_ctrl->netc->is_debug = lua_toboolean(L, 2);
+	}
+	return 0;
+}
+
+/*
 mqtt客户端创建
-@api mqttc:create(adapter,host,port,isssl,ca_file)
+@api mqtt.create(adapter,host,port,isssl,ca_file)
 @int 适配器序号, 只能是network.ETH0,network.STA,network.AP,如果不填,会选择最后一个注册的适配器
 @string 服务器地址
 @int  	端口号

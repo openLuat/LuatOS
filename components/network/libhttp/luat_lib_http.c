@@ -570,7 +570,7 @@ http2客户端
 @string url地址
 @tabal  请求头 可选 例如{["Content-Type"] = "application/x-www-form-urlencoded"}
 @string body 可选
-@tabal  额外配置 可选 包含dst:下载路径,可选 adapter:选择使用网卡,可选
+@tabal  额外配置 可选 包含dst:下载路径,可选 adapter:选择使用网卡,可选 debug:是否打开debug信息,可选
 @string 证书 可选
 @return int code
 @return tabal headers
@@ -621,6 +621,12 @@ static int l_http_request(lua_State *L) {
 		}
 		lua_pop(L, 1);
 
+		lua_pushstring(L, "debug");
+		if (LUA_TBOOLEAN == lua_gettable(L, 5)) {
+			http_ctrl->netc->is_debug = lua_toboolean(L, -1);
+		}
+		lua_pop(L, 1);
+
 	}else{
 		adapter_index = network_get_last_register_adapter();
 	}
@@ -637,7 +643,7 @@ static int l_http_request(lua_State *L) {
 	}
 	network_init_ctrl(http_ctrl->netc, NULL, luat_lib_http_callback, http_ctrl);
 
-	http_ctrl->netc->is_debug = 0;
+	
 	network_set_base_mode(http_ctrl->netc, 1, 10000, 0, 0, 0, 0);
 	network_set_local_port(http_ctrl->netc, 0);
 

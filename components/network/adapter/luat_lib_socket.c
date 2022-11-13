@@ -1,9 +1,9 @@
 /*
-@module  network
-@summary 网络接口适配
+@module  socket
+@summary 网络接口
 @version 1.0
-@date    2022.04.11
-@demo network
+@date    2022.11.13
+@demo socket
 */
 #include "luat_base.h"
 #include "luat_malloc.h"

@@ -11,7 +11,8 @@
 #define LLOGD(...) 
 
 #ifdef LUAT_CONF_VM_64bit
-extern const luadb_file_t luat_inline2_libs_64bit[];
+extern const luadb_file_t luat_inline2_libs_64bit_size64[];
+extern const luadb_file_t luat_inline2_libs_64bit_size32[];
 #else
 extern const luadb_file_t luat_inline2_libs[];
 #endif
@@ -317,7 +318,11 @@ _after_head:
     if (fail == 0) {
         LLOGD("LuaDB check files .... ok");
         #ifdef LUAT_CONF_VM_64bit
-        fs->inlines = (luadb_file_t *)luat_inline2_libs_64bit;
+        //#if (sizeof(size_t) == 8)
+        //fs->inlines = (luadb_file_t *)luat_inline2_libs_64bit_size64;
+        //#else
+        fs->inlines = (luadb_file_t *)luat_inline2_libs_64bit_size32;
+        //#endif
         #else
         fs->inlines = (luadb_file_t *)luat_inline2_libs;
         #endif

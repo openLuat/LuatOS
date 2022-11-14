@@ -40,13 +40,13 @@ static void aliyun_token(const char* product_key,const char* device_name,const c
     char macRes[32] = {0};
     char timestamp_value[20] = {0};
     char mqtt_clinetid_kv[96] = {0};
-    sprintf(timestamp_value,"%lld",cur_timestamp);
+    sprintf_(timestamp_value,"%lld",cur_timestamp);
     if (!strcmp("hmacmd5", method)||!strcmp("HMACMD5", method)) {
-        sprintf(mqtt_clinetid_kv,"|timestamp=%s,_v=paho-c-1.0.0,securemode=3,signmethod=%s,lan=C|",timestamp_value,"hmacmd5");
+        sprintf_(mqtt_clinetid_kv,"|timestamp=%s,_v=paho-c-1.0.0,securemode=3,signmethod=%s,lan=C|",timestamp_value,"hmacmd5");
     }else if (!strcmp("hmacsha1", method)||!strcmp("HMACSHA1", method)) {
-        sprintf(mqtt_clinetid_kv,"|timestamp=%s,_v=paho-c-1.0.0,securemode=3,signmethod=%s,lan=C|",timestamp_value,"hmacsha1");
+        sprintf_(mqtt_clinetid_kv,"|timestamp=%s,_v=paho-c-1.0.0,securemode=3,signmethod=%s,lan=C|",timestamp_value,"hmacsha1");
     }else if (!strcmp("hmacsha256", method)||!strcmp("HMACSHA256", method)) {
-        sprintf(mqtt_clinetid_kv,"|timestamp=%s,_v=paho-c-1.0.0,securemode=3,signmethod=%s,lan=C|",timestamp_value,"hmacsha256");
+        sprintf_(mqtt_clinetid_kv,"|timestamp=%s,_v=paho-c-1.0.0,securemode=3,signmethod=%s,lan=C|",timestamp_value,"hmacsha256");
     }else{
         LLOGE("not support: %s",method);
         return;
@@ -188,10 +188,10 @@ static void onenet_token(const char* product_id,const char* device_name,const ch
     sign_msg sign = {0};
     memcpy(sign.method, method, strlen(method));
     memcpy(sign.version, version, strlen(version));
-    sprintf(sign.et,"%lld",cur_timestamp);
-    sprintf(sign.res,"products/%s/devices/%s",product_id,device_name);
+    sprintf_(sign.et,"%lld",cur_timestamp);
+    sprintf_(sign.res,"products/%s/devices/%s",product_id,device_name);
     luat_str_base64_decode((unsigned char *)plaintext, sizeof(plaintext), &declen, (const unsigned char * )device_secret, strlen((char*)device_secret));
-    sprintf(StringForSignature, "%s\n%s\n%s\n%s", sign.et, sign.method, sign.res, sign.version);
+    sprintf_(StringForSignature, "%s\n%s\n%s\n%s", sign.et, sign.method, sign.res, sign.version);
     if (!strcmp("md5", method)||!strcmp("MD5", method)) {
         luat_crypto_hmac_md5_simple(StringForSignature, strlen(StringForSignature), plaintext, declen, hmac);
     }else if (!strcmp("sha1", method)||!strcmp("SHA1", method)) {
@@ -312,7 +312,7 @@ static void qcloud_token(const char* product_id,const char* device_name,const ch
     size_t psk_base64decode_len = 0;
     luat_str_base64_decode((unsigned char *)psk_base64decode, DECODE_PSK_LENGTH, &psk_base64decode_len,(unsigned char *)device_secret, strlen(device_secret));
     get_next_conn_id(conn_id);
-    sprintf(username, "%s%s;%s;%s;%lld", product_id, device_name, sdk_appid,conn_id, cur_timestamp);
+    sprintf_(username, "%s%s;%s;%s;%lld", product_id, device_name, sdk_appid,conn_id, cur_timestamp);
     if (!strcmp("sha1", method)||!strcmp("SHA1", method)) {
         luat_crypto_hmac_sha1_simple(username, strlen(username),psk_base64decode, psk_base64decode_len, username_sign);
     }else if (!strcmp("sha256", method)||!strcmp("SHA256", method)) {
@@ -325,9 +325,9 @@ static void qcloud_token(const char* product_id,const char* device_name,const ch
     memset(username_sign_hex, 0, strlen(username_sign)*2+1);
     str_tohex(username_sign, strlen(username_sign), username_sign_hex);
     if (!strcmp("sha1", method)||!strcmp("SHA1", method)) {
-        sprintf(password, "%s;hmacsha1", username_sign_hex);
+        sprintf_(password, "%s;hmacsha1", username_sign_hex);
     }else if (!strcmp("sha256", method)||!strcmp("SHA256", method)) {
-        sprintf(password, "%s;hmacsha256", username_sign_hex);
+        sprintf_(password, "%s;hmacsha256", username_sign_hex);
     }
     luat_heap_free(username_sign_hex);
 }
@@ -412,11 +412,11 @@ static void baidu_token(const char* iot_core_id,const char* device_key,const cha
     char *token_temp  = (char *)luat_heap_malloc(100);
     memset(token_temp, 0, 100);
     if (!strcmp("MD5", method)||!strcmp("md5", method)) {
-        sprintf(username, "thingidp@%s|%s|%lld|%s",iot_core_id,device_key,cur_timestamp,"MD5");
+        sprintf_(username, "thingidp@%s|%s|%lld|%s",iot_core_id,device_key,cur_timestamp,"MD5");
         snprintf(token_temp, 100, "%s&%lld&%s%s",device_key,cur_timestamp,"MD5",device_secret);
         luat_crypto_md5_simple(token_temp, strlen(token_temp),crypto);
     }else if (!strcmp("SHA256", method)||!strcmp("sha256", method)) {
-        sprintf(username, "thingidp@%s|%s|%lld|%s",iot_core_id,device_key,cur_timestamp,"SHA256");
+        sprintf_(username, "thingidp@%s|%s|%lld|%s",iot_core_id,device_key,cur_timestamp,"SHA256");
         snprintf(token_temp, 100, "%s&%lld&%s%s",device_key,cur_timestamp,"SHA256",device_secret);
         luat_crypto_sha256_simple(token_temp, strlen(token_temp),crypto);
     }else{

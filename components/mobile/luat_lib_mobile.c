@@ -4,6 +4,24 @@
 @summary 蜂窝网络
 @version 1.0
 @date    2022.8.9
+@demo    mobile
+@usage
+-- 简单演示
+
+log.info("imei", mobile.imei())
+log.info("imsi", mobile.imsi())
+local sn = mobile.sn()
+if sn then
+    log.info("sn",   sn:toHex())
+end
+log.info("muid", mobile.muid())
+log.info("iccid", mobile.iccid())
+log.info("csq", mobile.csq())
+log.info("rssi", mobile.rssi())
+log.info("rsrq", mobile.rsrq())
+log.info("rsrp", mobile.rsrp())
+log.info("snr", mobile.snr())
+log.info("simid", mobile.simid())
 */
 #include "luat_base.h"
 #include "luat_malloc.h"
@@ -72,7 +90,7 @@ static int l_mobile_imsi(lua_State* L) {
 /**
 获取SN
 @api mobile.sn()
-@return string 当前的SN值,若失败返回nil
+@return string 当前的SN值,若失败返回nil. 注意, SN可能包含不可见字符
  */
 static int l_mobile_sn(lua_State* L) {
     char buff[24] = {0};

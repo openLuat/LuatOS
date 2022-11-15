@@ -71,7 +71,7 @@ static LUAT_RT_RET_TYPE mqtt_timer_callback(LUAT_RT_CB_PARAM){
 
 }
 
-static void reconnect_timer_cb(void *data, void *param){
+static void reconnect_timer_cb(LUAT_RT_CB_PARAM){
 	luat_mqtt_ctrl_t * mqtt_ctrl = (luat_mqtt_ctrl_t *)param;
 	int ret = network_wait_link_up(mqtt_ctrl->netc, 0);
 	if (ret == 0){
@@ -402,11 +402,7 @@ static int32_t luat_lib_mqtt_callback(void *data, void *param){
 static int mqtt_send_packet(void* socket_info, const void* buf, unsigned int count){
     luat_mqtt_ctrl_t * mqtt_ctrl = (luat_mqtt_ctrl_t *)socket_info;
 	uint32_t tx_len = 0;
-#ifdef LUAT_USE_LWIP
 	return network_tx(mqtt_ctrl->netc, buf, count, 0, NULL, 0, &tx_len, 0);
-#else
-	return network_tx(mqtt_ctrl->netc, buf, count, 0, NULL, 0, &tx_len, 0);
-#endif
 }
 
 static int luat_socket_connect(luat_mqtt_ctrl_t *mqtt_ctrl, const char *hostname, uint16_t port, uint16_t keepalive){

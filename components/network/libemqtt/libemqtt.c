@@ -215,8 +215,8 @@ int mqtt_connect(mqtt_broker_handle_t* broker)
 
 	// Variable header
 	uint8_t var_header[] = {
-		0x00,0x06,0x4d,0x51,0x49,0x73,0x64,0x70, // Protocol name: MQIsdp
-		0x03, // Protocol version
+		0x00,0x04,0x4d,0x51,0x54,0x54, // Protocol name: MQTT
+		0x04, // Protocol version
 		flags, // Connect flags
 		broker->alive>>8, broker->alive&0xFF, // Keep alive
 	};

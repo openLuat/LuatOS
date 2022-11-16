@@ -174,7 +174,7 @@ static int l_mobile_simid(lua_State* L) {
     int id = 0;
     if (lua_isinteger(L, 1)) {
         ret = luat_mobile_set_sim_id(lua_tointeger(L, 1));
-        LLOGI("sim set to %d , ret %d", id, ret);
+        LLOGI("sim set to %d , ret %d", lua_tointeger(L, 1), ret);
     }
     ret = luat_mobile_get_sim_id(&id);
     if (ret == 0) {

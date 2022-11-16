@@ -359,7 +359,6 @@ static const rotable_Reg_t reg_mobile[] = {
     {"CSFB_NOT_PREFERRED_REGISTERED",  ROREG_INT(LUAT_MOBILE_STATUS_CSFB_NOT_PREFERRED_REGISTERED)},
     // const CSFB_NOT_PREFERRED_REGISTERED_ROAMING 已注册,非主要服务,漫游
     {"CSFB_NOT_PREFERRED_REGISTERED_ROAMING",  ROREG_INT(LUAT_MOBILE_STATUS_CSFB_NOT_PREFERRED_REGISTERED_ROAMING)},
-    // const REGISTERED 已注册
 
     {NULL,          ROREG_INT(0)}
 };
@@ -368,3 +367,5 @@ LUAMOD_API int luaopen_mobile( lua_State *L ) {
     luat_newlib2(L, reg_mobile);
     return 1;
 }
+
+// TODO 还得做一个回调函数, 给luat_mobile_event_register_handler 注册用, 给lua层发消息

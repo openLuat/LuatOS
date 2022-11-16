@@ -9,6 +9,7 @@
 
 #include "mbedtls/cipher.h"
 #include "mbedtls/md.h"
+#include "mbedtls/ssl_ciphersuites.h"
 
 
 static void add_pkcs_padding( unsigned char *output, size_t output_len,
@@ -178,7 +179,6 @@ _error_exit:
 }
 
 int luat_crypto_md(int64_t md, const char* str, size_t str_size, void* out_ptr, const char* key, size_t key_len) {
-    mbedtls_md_context_t ctx;
     const mbedtls_md_info_t * info = mbedtls_md_info_from_type((mbedtls_md_type_t)md);
     if (info == NULL) {
         return -1;
@@ -224,8 +224,9 @@ const int *mbedtls_cipher_list( void );
 
 int luat_crypto_cipher_list(const char** list, size_t* len) {
     size_t count = 0;
+    size_t limit = *len;
     const int *cipher = mbedtls_cipher_list();
-    for (size_t i = 0;; i++)
+    for (size_t i = 0; i < limit; i++)
     {
         if (cipher[i] == 0)
             break;
@@ -237,5 +238,32 @@ int luat_crypto_cipher_list(const char** list, size_t* len) {
 #endif
     }
     *len = count;
+    return 0;
+}
+
+int luat_crypto_cipher_suites(const char** list, size_t* len) {
+#ifdef MBEDTLS_SSL_TLS_C
+    size_t count = 0;
+    size_t limit = *len;
+    const int *suites = mbedtls_ssl_list_ciphersuites();
+    const mbedtls_ssl_ciphersuite_t * suite = NULL;
+    for (size_t i = 0; i < limit; i++)
+    {
+        if (suites[i] == 0)
+            break;
+        suite = mbedtls_ssl_ciphersuite_from_id(suites[i]);
+        if (suite == NULL)
+            continue;
+        count ++;
+#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+        list[i] = mbedtls_ssl_ciphersuite_get_name(suite);
+#else
+        list[i] = suite->name;
+#endif
+    }
+    *len = count;
+#else
+    *len = 0;
+#endif
     return 0;
 }

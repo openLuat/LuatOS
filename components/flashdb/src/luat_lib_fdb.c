@@ -9,6 +9,7 @@
 
 #include "luat_base.h"
 #include "luat_msgbus.h"
+#include "luat_malloc.h"
 
 #include "flashdb.h"
 
@@ -17,7 +18,8 @@
 #include "luat_log.h"
 #endif
 
-static struct fdb_kvdb kvdb;
+static struct fdb_kvdb* kvdb;
+static uint32_t kvdb_inited = 0;
 
 /**
 初始化kv数据库
@@ -32,16 +34,36 @@ if fdb.kvdb_init("env", "onchip_fdb") then
 end
  */
 static int l_fdb_kvdb_init(lua_State *L) {
-    fdb_err_t ret = fdb_kvdb_init(&kvdb, "env", "onchip_fdb", NULL, NULL);
-    if (ret) {
-        LLOGD("fdb_kvdb_init ret=%d", ret);
+    if (kvdb == NULL) {
+        kvdb = luat_heap_malloc(sizeof(struct fdb_kvdb));
+        if (kvdb == NULL) {
+            LLOGE("malloc kvdb failed!!!!");
+            lua_pushboolean(L, 0);
+            return 1;
+        }
     }
-    lua_pushboolean(L, ret == 0 ? 1 : 0);
+    if (kvdb_inited == 0) {
+        fdb_err_t ret = fdb_kvdb_init(&kvdb, "env", "onchip_fdb", NULL, NULL);
+        if (ret) {
+            LLOGE("fdb_kvdb_init ret=%d", ret);
+        }
+        else {
+            kvdb_inited = 1;
+        }
+        lua_pushboolean(L, ret == 0 ? 1 : 0);
+    }
+    else {
+        lua_pushboolean(L, 1);
+    }
     return 1;
 }
 
 // 暂时对外公开
 static int l_fdb_kvdb_deinit(lua_State *L) {
+    if (kvdb_inited == 0) {
+        LLOGE("call fdb.kvdb_init first!!!");
+        return 0;
+    }
     fdb_err_t ret = fdb_kvdb_deinit(&kvdb);
     if (ret) {
         LLOGD("fdb_kvdb_deinit ret=%d", ret);
@@ -63,6 +85,10 @@ if fdb.kvdb_init("env", "onchip_fdb") then
 end
  */
 static int l_fdb_kv_set(lua_State *L) {
+    if (kvdb_inited == 0) {
+        LLOGE("call fdb.kvdb_init first!!!");
+        return 0;
+    }
     size_t len;
     struct fdb_blob blob = {0};
     luaL_Buffer buff;
@@ -170,7 +196,10 @@ if fdb.kvdb_init("env", "onchip_fdb") then
 end
  */
 static int l_fdb_kv_get(lua_State *L) {
-    // size_t len;
+    if (kvdb_inited == 0) {
+        LLOGE("call fdb.kvdb_init first!!!");
+        return 0;
+    }
     luaL_Buffer buff;
     struct fdb_blob blob = {0};
     const char* key = luaL_checkstring(L, 1);
@@ -231,7 +260,15 @@ if fdb.kvdb_init("env", "onchip_fdb") then
 end
  */
 static int l_fdb_kv_del(lua_State *L) {
+    if (kvdb_inited == 0) {
+        LLOGE("call fdb.kvdb_init first!!!");
+        return 0;
+    }
     const char* key = luaL_checkstring(L, 1);
+    if (key == NULL) {
+        lua_pushboolean(L, 0);
+        return 1;
+    }
     fdb_err_t ret = fdb_kv_del(&kvdb, key);
     lua_pushboolean(L, ret == FDB_NO_ERR ? 1 : 0);
     return 1;
@@ -246,6 +283,10 @@ static int l_fdb_kv_del(lua_State *L) {
 fdb.kv_clr()
  */
 static int l_fdb_kv_clr(lua_State *L) {
+    if (kvdb_inited == 0) {
+        LLOGE("call fdb.kvdb_init first!!!");
+        return 0;
+    }
     fdb_err_t ret = fdb_kv_set_default(&kvdb);
     lua_pushboolean(L, ret == FDB_NO_ERR ? 1 : 0);
     lua_pushinteger(L, ret);
@@ -271,6 +312,10 @@ if iter then
 end
  */
 static int l_fdb_kv_iter(lua_State *L) {
+    if (kvdb_inited == 0) {
+        LLOGE("call fdb.kvdb_init first!!!");
+        return 0;
+    }
     fdb_kv_iterator_t iter = lua_newuserdata(L, sizeof(struct fdb_kv_iterator));
     if (iter == NULL) {
         return 0;
@@ -331,6 +376,10 @@ static int l_fdb_kv_stat(lua_State *L) {
     uint32_t using_sz = 0;
     uint32_t max_sz = 0;
     uint32_t kv_count = 0;
+    if (kvdb_inited == 0) {
+        LLOGE("call fdb.kvdb_init first!!!");
+        return 0;
+    }
     fdb_kv_stat(&kvdb, &using_sz, &max_sz, &kv_count);
     lua_pushinteger(L, using_sz);
     lua_pushinteger(L, max_sz);

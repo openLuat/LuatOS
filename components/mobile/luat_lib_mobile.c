@@ -25,6 +25,8 @@ log.info("simid", mobile.simid())
 */
 #include "luat_base.h"
 #include "luat_malloc.h"
+#include "luat_rtos.h"
+#include "luat_msgbus.h"
 
 #include "luat_mobile.h"
 
@@ -172,7 +174,7 @@ static int l_mobile_simid(lua_State* L) {
     int id = 0;
     if (lua_isinteger(L, 1)) {
         ret = luat_mobile_set_sim_id(lua_tointeger(L, 1));
-        LLOGI("sim set to %d , ret %d", id, ret);
+        LLOGI("sim set to %d , ret %d", lua_tointeger(L, 1), ret);
     }
     ret = luat_mobile_get_sim_id(&id);
     if (ret == 0) {
@@ -359,7 +361,6 @@ static const rotable_Reg_t reg_mobile[] = {
     {"CSFB_NOT_PREFERRED_REGISTERED",  ROREG_INT(LUAT_MOBILE_STATUS_CSFB_NOT_PREFERRED_REGISTERED)},
     // const CSFB_NOT_PREFERRED_REGISTERED_ROAMING 已注册,非主要服务,漫游
     {"CSFB_NOT_PREFERRED_REGISTERED_ROAMING",  ROREG_INT(LUAT_MOBILE_STATUS_CSFB_NOT_PREFERRED_REGISTERED_ROAMING)},
-    // const REGISTERED 已注册
 
     {NULL,          ROREG_INT(0)}
 };
@@ -367,4 +368,73 @@ static const rotable_Reg_t reg_mobile[] = {
 LUAMOD_API int luaopen_mobile( lua_State *L ) {
     luat_newlib2(L, reg_mobile);
     return 1;
+}
+
+static int l_mobile_event_handle(lua_State* L, void* ptr) {
+    LUAT_MOBILE_EVENT_E event;
+    uint8_t index;
+    uint8_t status;
+
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    event = msg->arg1;
+    index = msg->arg2 >> 8;
+    status = msg->arg2 & 0xFF;
+
+	// luat_mobile_cell_info_t cell_info;
+	// luat_mobile_signal_strength_info_t signal_info;
+	// uint8_t csq, i;
+	// char imsi[20];
+	// char iccid[24] = {0};
+
+    if (lua_getglobal(L, "sys_pub") != LUA_TFUNCTION) {
+        return 0;
+    };
+
+	switch(event)
+	{
+	case LUAT_MOBILE_EVENT_CFUN:
+		break;
+	case LUAT_MOBILE_EVENT_SIM:
+		break;
+	case LUAT_MOBILE_EVENT_REGISTER_STATUS:
+		break;
+	case LUAT_MOBILE_EVENT_CELL_INFO:
+		break;
+	case LUAT_MOBILE_EVENT_PDP:
+		break;
+	case LUAT_MOBILE_EVENT_NETIF:
+		switch (status)
+		{
+		case LUAT_MOBILE_NETIF_LINK_ON:
+			break;
+		default:
+			break;
+		}
+		break;
+	case LUAT_MOBILE_EVENT_TIME_SYNC:
+        LLOGD("TIME_SYNC %d", status);
+        lua_pushstring(L, "NTP_UPDATE");
+        lua_call(L, 1, 0);
+		break;
+	case LUAT_MOBILE_EVENT_SMS:
+		LLOGD("SMS %d", status);
+		break;
+	case LUAT_MOBILE_EVENT_CSCON:
+		LLOGD("CSCON %d", status);
+		break;
+	default:
+		break;
+	}
+    return 0;
+}
+
+// 给luat_mobile_event_register_handler 注册用, 给lua层发消息
+void luat_mobile_event_cb(LUAT_MOBILE_EVENT_E event, uint8_t index, uint8_t status) {
+    rtos_msg_t msg = {
+        .handler = l_mobile_event_handle,
+        .arg1 = event,
+        .arg2 = (index << 8) + status ,
+        .ptr = NULL
+    };
+    luat_msgbus_put(&msg, 0);
 }

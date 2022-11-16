@@ -534,7 +534,7 @@ end
  */
 int l_crypto_cipher_list(lua_State *L) {
     const char* list[64] = {0};
-    size_t len = 0;
+    size_t len = 64;
     lua_newtable(L);
     if (list == NULL) {
         LLOGD("out of memory when cipher_list");
@@ -549,6 +549,38 @@ int l_crypto_cipher_list(lua_State *L) {
     }
     else {
         LLOGD("bsp not support cipher_list");
+    }
+    return 1;
+}
+
+/**
+获取当前固件支持的cipher suites列表
+@api crypto.cipher_suites()
+@return table 本固件支持的cipher suites列表,字符串数组
+@usage
+-- 本API于2022.11.16添加
+local suites = crypto.cipher_suites()
+if suites then
+    log.info("crypto", "ciphers suites", json.encode(suites))
+end
+ */
+int l_crypto_cipher_suites(lua_State *L) {
+    const char* list[128] = {0};
+    size_t len = 128;
+    lua_newtable(L);
+    if (list == NULL) {
+        LLOGD("out of memory when cipher_list");
+        return 1;
+    }
+    int ret = luat_crypto_cipher_suites(list, &len);
+    if (ret == 0) {
+        for (size_t i = 0; i < len; i++){
+            lua_pushstring(L, list[i]);
+            lua_seti(L, -2, i + 1);
+        }
+    }
+    else {
+        LLOGD("bsp not support cipher_suites");
     }
     return 1;
 }
@@ -568,6 +600,7 @@ static const rotable_Reg_t reg_crypto[] =
     { "cipher_encrypt" ,ROREG_FUNC(l_crypto_cipher_encrypt )},
     { "cipher_decrypt" ,ROREG_FUNC(l_crypto_cipher_decrypt )},
     { "cipher_list" ,   ROREG_FUNC(l_crypto_cipher_list     )},
+    { "cipher_suites",  ROREG_FUNC(l_crypto_cipher_suites)},
     { "crc16",          ROREG_FUNC(l_crypto_crc16          )},
     { "crc16_modbus",   ROREG_FUNC(l_crypto_crc16_modbus   )},
     { "crc32",          ROREG_FUNC(l_crypto_crc32          )},

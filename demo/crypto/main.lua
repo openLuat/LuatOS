@@ -59,6 +59,10 @@ sys.taskInit(function()
     if crypto.cipher_list then
         log.info("cipher", "list", json.encode(crypto.cipher_list()))
     end
+    -- 打印所有支持的cipher suites
+    if crypto.cipher_suites then
+        log.info("cipher", "suites", json.encode(crypto.cipher_suites()))
+    end
 
     for i=1, 10 do
         sys.wait(100)

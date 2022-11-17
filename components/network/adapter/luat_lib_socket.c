@@ -709,15 +709,15 @@ static const rotable_Reg_t reg_socket_adapter[] =
 	{ "sslLog",			ROREG_FUNC(l_socket_set_ssl_log)},
 	//@const ETH0 number 带硬件协议栈的ETH0
     { "ETH0",           ROREG_INT(NW_ADAPTER_INDEX_ETH0)},
-	//@const ETH0 number 使用LWIP协议栈的以太网卡
+	//@const LWIP_ETH number 使用LWIP协议栈的以太网卡
 	{ "LWIP_ETH",          	ROREG_INT(NW_ADAPTER_INDEX_LWIP_ETH)},
-	//@const ETH0 number 使用LWIP协议栈的WIFI STA
+	//@const LWIP_STA number 使用LWIP协议栈的WIFI STA
 	{ "LWIP_STA",          	ROREG_INT(NW_ADAPTER_INDEX_LWIP_WIFI_STA)},
-	//@const ETH0 number 使用LWIP协议栈的WIFI AP
+	//@const LWIP_AP number 使用LWIP协议栈的WIFI AP
 	{ "LWIP_AP",     		ROREG_INT(NW_ADAPTER_INDEX_LWIP_WIFI_AP)},
-	//@const ETH0 number 使用LWIP协议栈的移动蜂窝模块
+	//@const LWIP_GP number 使用LWIP协议栈的移动蜂窝模块
 	{ "LWIP_GP",          	ROREG_INT(NW_ADAPTER_INDEX_LWIP_GPRS)},
-	//@const ETH0 number 使用LWIP协议栈的USB网卡
+	//@const USB number 使用LWIP协议栈的USB网卡
 	{ "USB",     		ROREG_INT(NW_ADAPTER_INDEX_USB)},
 	//@const LINK number LINK事件
     { "LINK",           ROREG_INT(EV_NW_RESULT_LINK & 0x0fffffff)},

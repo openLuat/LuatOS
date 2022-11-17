@@ -127,11 +127,11 @@ static int l_mobile_sn(lua_State* L) {
 @return string 当前的MUID值,若失败返回nil
  */
 static int l_mobile_muid(lua_State* L) {
-    char buff[24] = {0};
+    char buff[33] = {0};
     // size_t len = 0;
     // size_t wlen = 0;
     int ret = 0;
-    ret = luat_mobile_get_muid(buff, 24);
+    ret = luat_mobile_get_muid(buff, 32);
     if (lua_isstring(L, 1)) {
         // const char* wbuff = luaL_checklstring(L, 1, &wlen);
         // if (wlen >= 15) {
@@ -140,7 +140,6 @@ static int l_mobile_muid(lua_State* L) {
         // }
     }
     if (ret > 0)  {        
-        buff[23] = 0x00; // 确保能结束
         lua_pushlstring(L, buff, strlen(buff));
     }
     else

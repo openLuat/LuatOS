@@ -3,6 +3,11 @@
 PROJECT = "test"
 VERSION = "1.0.0"
 
+--[[
+驱动下载, 与Air724驱动一致:
+https://doc.openluat.com/wiki/21?wiki_page_id=2070
+]]
+
 -- sys库是标配
 _G.sys = require("sys")
 

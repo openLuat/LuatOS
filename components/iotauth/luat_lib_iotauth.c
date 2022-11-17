@@ -174,7 +174,7 @@ static int url_encoding_for_token(sign_msg* msg,char *token){
 	}
     memcpy(temp_msg->sign,temp,strlen(temp));
     temp_msg->sign[strlen(temp)] = 0;
-    if(snprintf(token,PASSWORD_LEN, "version=%s&res=%s&et=%s&method=%s&sign=%s", temp_msg->version, temp_msg->res, temp_msg->et, temp_msg->method, temp_msg->sign)<0){
+    if(snprintf_(token,PASSWORD_LEN, "version=%s&res=%s&et=%s&method=%s&sign=%s", temp_msg->version, temp_msg->res, temp_msg->et, temp_msg->method, temp_msg->sign)<0){
         return -1;
     }
     return strlen(token);
@@ -242,10 +242,10 @@ static void iotda_token(const char* device_id,const char* device_secret,long lon
     char hmac[64] = {0};
     char timestamp[12] = {0};
     struct tm *timeinfo = localtime( &cur_timestamp );
-    if(snprintf(timestamp, 12, "%04d%02d%02d%02d", (timeinfo->tm_year)+1900,timeinfo->tm_mon+1,timeinfo->tm_mday,timeinfo->tm_hour)<0){
+    if(snprintf_(timestamp, 12, "%04d%02d%02d%02d", (timeinfo->tm_year)+1900,timeinfo->tm_mon+1,timeinfo->tm_mday,timeinfo->tm_hour)<0){
         return;
     }
-    snprintf(client_id, CLIENT_ID_LEN, "%s_0_%d_%s", device_id,ins_timestamp,timestamp);
+    snprintf_(client_id, CLIENT_ID_LEN, "%s_0_%d_%s", device_id,ins_timestamp,timestamp);
     luat_crypto_hmac_sha256_simple(device_secret, strlen(device_secret),timestamp, strlen(timestamp), hmac);
     str_tohex(hmac, strlen(hmac), password);
 }
@@ -360,7 +360,7 @@ static int l_iotauth_qcloud(lua_State *L) {
     long long cur_timestamp = luaL_optinteger(L, 5,time(NULL) + 3600);
     const char* sdk_appid = luaL_optlstring(L, 6, "12010126", &len);
     qcloud_token(product_id, device_name,device_secret,cur_timestamp,method,sdk_appid,user_name,password);
-    snprintf(client_id, CLIENT_ID_LEN,"%s%s", product_id,device_name);
+    snprintf_(client_id, CLIENT_ID_LEN,"%s%s", product_id,device_name);
     lua_pushlstring(L, client_id, strlen(client_id));
     lua_pushlstring(L, user_name, strlen(user_name));
     lua_pushlstring(L, password, strlen(password));
@@ -371,7 +371,7 @@ static void tuya_token(const char* device_id,const char* device_secret,long long
     char hmac[64] = {0};
     char *token_temp  = (char *)luat_heap_malloc(100);
     memset(token_temp, 0, 100);
-    snprintf(token_temp, 100, "deviceId=%s,timestamp=%lld,secureMode=1,accessType=1", device_id, cur_timestamp);
+    snprintf_(token_temp, 100, "deviceId=%s,timestamp=%lld,secureMode=1,accessType=1", device_id, cur_timestamp);
     luat_crypto_hmac_sha256_simple(token_temp, strlen(token_temp),device_secret, strlen(device_secret), hmac);
     str_tohex(hmac, strlen(hmac), password);
     luat_heap_free(token_temp);
@@ -399,8 +399,8 @@ static int l_iotauth_tuya(lua_State *L) {
     const char* device_secret = luaL_checklstring(L, 2, &len);
     long long cur_timestamp = luaL_optinteger(L, 3,time(NULL) + 3600);
     tuya_token(device_id,device_secret,cur_timestamp,password);
-    snprintf(client_id, CLIENT_ID_LEN, "tuyalink_%s", device_id);
-    snprintf(user_name, USER_NAME_LEN, "%s|signMethod=hmacSha256,timestamp=%lld", device_id,cur_timestamp);
+    snprintf_(client_id, CLIENT_ID_LEN, "tuyalink_%s", device_id);
+    snprintf_(user_name, USER_NAME_LEN, "%s|signMethod=hmacSha256,timestamp=%lld,secureMode=1,accessType=1", device_id,cur_timestamp);
     lua_pushlstring(L, client_id, strlen(client_id));
     lua_pushlstring(L, user_name, strlen(user_name));
     lua_pushlstring(L, password, strlen(password));
@@ -413,11 +413,11 @@ static void baidu_token(const char* iot_core_id,const char* device_key,const cha
     memset(token_temp, 0, 100);
     if (!strcmp("MD5", method)||!strcmp("md5", method)) {
         sprintf_(username, "thingidp@%s|%s|%lld|%s",iot_core_id,device_key,cur_timestamp,"MD5");
-        snprintf(token_temp, 100, "%s&%lld&%s%s",device_key,cur_timestamp,"MD5",device_secret);
+        snprintf_(token_temp, 100, "%s&%lld&%s%s",device_key,cur_timestamp,"MD5",device_secret);
         luat_crypto_md5_simple(token_temp, strlen(token_temp),crypto);
     }else if (!strcmp("SHA256", method)||!strcmp("sha256", method)) {
         sprintf_(username, "thingidp@%s|%s|%lld|%s",iot_core_id,device_key,cur_timestamp,"SHA256");
-        snprintf(token_temp, 100, "%s&%lld&%s%s",device_key,cur_timestamp,"SHA256",device_secret);
+        snprintf_(token_temp, 100, "%s&%lld&%s%s",device_key,cur_timestamp,"SHA256",device_secret);
         luat_crypto_sha256_simple(token_temp, strlen(token_temp),crypto);
     }else{
         LLOGE("not support: %s",method);

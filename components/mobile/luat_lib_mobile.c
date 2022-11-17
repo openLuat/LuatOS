@@ -53,8 +53,10 @@ static int l_mobile_imei(lua_State* L) {
     //         LLOGI("IMEI write %d %s ret %d", index, wbuff, ret);
     //     }
     // }
-    if (ret > 0)
-        lua_pushlstring(L, buff, ret);
+    if (ret > 0) {
+        buff[23] = 0x00; // 确保能结束
+        lua_pushlstring(L, buff, strlen(buff));
+    }
     else
         lua_pushnil(L);
     return 1;
@@ -80,8 +82,10 @@ static int l_mobile_imsi(lua_State* L) {
     //         LLOGI("IMSI write %d %s ret %d", index, wbuff, ret);
     //     }
     // }
-    if (ret > 0)
-        lua_pushlstring(L, buff, ret);
+    if (ret > 0){
+        buff[23] = 0x00; // 确保能结束
+        lua_pushlstring(L, buff, strlen(buff));
+    }
     else
         lua_pushnil(L);
     return 1;
@@ -95,11 +99,11 @@ static int l_mobile_imsi(lua_State* L) {
 @return string 当前的SN值,若失败返回nil. 注意, SN可能包含不可见字符
  */
 static int l_mobile_sn(lua_State* L) {
-    char buff[24] = {0};
+    char buff[32] = {0};
     // size_t len = 0;
     // size_t wlen = 0;
     int ret = 0;
-    ret = luat_mobile_get_sn(buff, 24);
+    ret = luat_mobile_get_sn(buff, 32);
     // if (lua_isstring(L, 1)) {
     //     const char* wbuff = luaL_checklstring(L, 1, &wlen);
     //     if (wlen >= 1) {
@@ -107,8 +111,10 @@ static int l_mobile_sn(lua_State* L) {
     //         LLOGI("SN write %d %s ret %d", index, wbuff, ret);
     //     }
     // }
-    if (ret > 0)
+    if (ret > 0) {        
+        //buff[63] = 0x00; // 确保能结束
         lua_pushlstring(L, buff, ret);
+    }
     else
         lua_pushnil(L);
     return 1;
@@ -133,8 +139,10 @@ static int l_mobile_muid(lua_State* L) {
         //     LLOGI("SN write %d %s ret %d", index, wbuff, ret);
         // }
     }
-    if (ret > 0)
-        lua_pushlstring(L, buff, ret);
+    if (ret > 0)  {        
+        buff[23] = 0x00; // 确保能结束
+        lua_pushlstring(L, buff, strlen(buff));
+    }
     else
         lua_pushnil(L);
     return 1;
@@ -154,8 +162,10 @@ static int l_mobile_iccid(lua_State* L) {
     int ret = 0;
     int index = luaL_optinteger(L, 1, 0);
     ret = luat_mobile_get_iccid(index, buff, 24);
-    if (ret > 0)
-        lua_pushlstring(L, buff, ret);
+    if (ret > 0) {        
+        buff[23] = 0x00; // 确保能结束
+        lua_pushlstring(L, buff, strlen(buff));
+    }
     else
         lua_pushnil(L);
     return 1;
@@ -209,8 +219,10 @@ static int l_mobile_apn(lua_State* L) {
     //         LLOGI("APN write %d %s ret %d", index, wbuff, ret);
     //     }
     // }
-    if (ret > 0)
-        lua_pushlstring(L, buff, ret);
+    if (ret > 0) {        
+        buff[35] = 0x00; // 确保能结束
+        lua_pushlstring(L, buff, strlen(buff));
+    }
     else
         lua_pushnil(L);
     return 1;

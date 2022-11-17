@@ -154,8 +154,8 @@ static int l_pm_dtimer_wakeup_id(lua_State *L) {
 /**
 开机原因,用于判断是从休眠模块开机,还是电源/复位开机
 @api pm.lastReson()
-@return int 0-上电/复位开机, 1-RTC开机, 2-WakeupIn/Pad开机, 4-Wakeup/RTC开机
-@return int 0-普通开机(上电/复位),1-Wakeup/RTC开机,3-深睡眠开机,4-休眠开机
+@return int 0-上电/复位开机, 1-RTC开机, 2-WakeupIn/Pad/IO开机, 3-Wakeup/RTC开机
+@return int 0-普通开机(上电/复位),3-深睡眠开机,4-休眠开机，3和4说明程序已经复位了
 @usage
 -- 是哪种方式开机呢
 log.info("pm", "last power reson", pm.lastReson())
@@ -170,9 +170,9 @@ static int l_pm_last_reson(lua_State *L) {
 }
 
 /**
-强制进入指定的休眠模式
+强制进入指定的休眠模式，忽略某些外设的影响，比如USB
 @api pm.force(mode)
-@int 休眠模式,仅pm.DEEP/HIB
+@int 休眠模式
 @return boolean 处理结果,若返回成功,大概率会马上进入该休眠模式
 @usage
 -- 请求进入休眠模式
@@ -245,6 +245,8 @@ static const rotable_Reg_t reg_pm[] =
     { "force",          ROREG_FUNC(l_pm_force)},
     { "check",          ROREG_FUNC(l_pm_check)},
     { "lastReson",      ROREG_FUNC(l_pm_last_reson)},
+    //@const NONE number 不休眠模式
+    { "NONE",           ROREG_INT(LUAT_PM_SLEEP_MODE_NONE)},
     //@const IDLE number IDLE模式
     { "IDLE",           ROREG_INT(LUAT_PM_SLEEP_MODE_IDLE)},
     //@const LIGHT number LIGHT模式

@@ -117,7 +117,7 @@ int luat_mobile_get_default_apn(int sim_id, char* buff, size_t buf_len);
  * @brief 进出飞行模式
  * 
  * @param index sim位置，对于双卡双待的设备，选0或者1，其他设备随意
- * @param mode 飞行模式，0进入，1退出
+ * @param mode 飞行模式，1进入，0退出
  * @return int =0成功，其他失败
  */
 int luat_mobile_set_flymode(int index, int mode);

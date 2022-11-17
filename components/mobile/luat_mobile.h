@@ -198,7 +198,29 @@ typedef struct luat_mobile_cell_info
     uint8_t                     	lte_neighbor_info_num;                           /**< Must be set to the number of elements in entry*/
 }luat_mobile_cell_info_t;
 
+/**
+ * @brief 立刻搜索一次周围小区基站信息，并同步返回结果
+ *
+ * @param info 当前移动网络信号状态详细信息
+ * @return int =0成功，其他失败
+ */
 int luat_mobile_get_cell_info(luat_mobile_cell_info_t  *info);
+
+/**
+ * @brief 立刻搜索一次周围小区基站信息，通过LUAT_MOBILE_CELL_INFO_UPDATE返回搜索完成消息，luat_mobile_get_last_notify_cell_info获取详细信息
+ *
+ * @param max_time 搜索的最大时间，单位秒
+ * @return int =0成功，其他失败
+ */
+int luat_mobile_get_cell_info_async(uint8_t max_time);
+
+/**
+ * @brief 获取上一次异步搜索周围小区基站信息，包括周期性搜索和异步搜索，在LUAT_MOBILE_CELL_INFO_UPDATE到来后用本函数获取信息
+ *
+ * @param info 当前移动网络信号状态详细信息
+ * @param max_time 搜索的最大时间
+ * @return int =0成功，其他失败
+ */
 int luat_mobile_get_last_notify_cell_info(luat_mobile_cell_info_t  *info);
 
 
@@ -414,9 +436,9 @@ int luat_mobile_reset_stack(void);
  * 
  * @param get_cell_period 周期性搜索小区基站的时间间隔，单位ms，这个会增加低功耗，尽量的长，或者写0关闭这个功能，用上面的手段搜索
  * @param check_sim_period SIM卡短时间脱离卡槽后尝试恢复的时间间隔，单位ms，建议在5000~10000，或者写0，当SIM卡移除的消息上来后手动重启协议栈
- * @param serach_cell_time 启动周期性搜索小区基站后，每次搜索的最大时间，单位s，1~8
+ * @param search_cell_time 启动周期性搜索小区基站后，每次搜索的最大时间，单位s，1~8
  * @return int 
  */
-int luat_mobile_set_period_work(uint32_t get_cell_period, uint32_t check_sim_period, uint8_t serach_cell_time);
+int luat_mobile_set_period_work(uint32_t get_cell_period, uint32_t check_sim_period, uint8_t search_cell_time);
 /** @}*/
 #endif

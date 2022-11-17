@@ -43,7 +43,7 @@ static int l_fdb_kvdb_init(lua_State *L) {
         }
     }
     if (kvdb_inited == 0) {
-        fdb_err_t ret = fdb_kvdb_init(&kvdb, "env", "onchip_fdb", NULL, NULL);
+        fdb_err_t ret = fdb_kvdb_init(kvdb, "env", "onchip_fdb", NULL, NULL);
         if (ret) {
             LLOGE("fdb_kvdb_init ret=%d", ret);
         }
@@ -64,7 +64,7 @@ static int l_fdb_kvdb_deinit(lua_State *L) {
         LLOGE("call fdb.kvdb_init first!!!");
         return 0;
     }
-    fdb_err_t ret = fdb_kvdb_deinit(&kvdb);
+    fdb_err_t ret = fdb_kvdb_deinit(kvdb);
     if (ret) {
         LLOGD("fdb_kvdb_deinit ret=%d", ret);
     }
@@ -179,7 +179,7 @@ static int l_fdb_kv_set(lua_State *L) {
     }
     blob.buf = buff.b;
     blob.size = buff.n;
-    fdb_err_t ret = fdb_kv_set_blob(&kvdb, key, &blob);
+    fdb_err_t ret = fdb_kv_set_blob(kvdb, key, &blob);
     lua_pushboolean(L, ret == FDB_NO_ERR ? 1 : 0);
     lua_pushinteger(L, ret);
     return 2;
@@ -206,7 +206,7 @@ static int l_fdb_kv_get(lua_State *L) {
     luaL_buffinit(L, &buff);
     blob.buf = buff.b;
     blob.size = buff.size;
-    size_t read_len = fdb_kv_get_blob(&kvdb, key, &blob);
+    size_t read_len = fdb_kv_get_blob(kvdb, key, &blob);
     
     lua_Integer *intVal;
     // lua_Number *numVal;
@@ -269,7 +269,7 @@ static int l_fdb_kv_del(lua_State *L) {
         lua_pushboolean(L, 0);
         return 1;
     }
-    fdb_err_t ret = fdb_kv_del(&kvdb, key);
+    fdb_err_t ret = fdb_kv_del(kvdb, key);
     lua_pushboolean(L, ret == FDB_NO_ERR ? 1 : 0);
     return 1;
 }
@@ -287,7 +287,7 @@ static int l_fdb_kv_clr(lua_State *L) {
         LLOGE("call fdb.kvdb_init first!!!");
         return 0;
     }
-    fdb_err_t ret = fdb_kv_set_default(&kvdb);
+    fdb_err_t ret = fdb_kv_set_default(kvdb);
     lua_pushboolean(L, ret == FDB_NO_ERR ? 1 : 0);
     lua_pushinteger(L, ret);
     return 2;
@@ -351,7 +351,7 @@ static int l_fdb_kv_next(lua_State *L) {
     if (iter == NULL) {
         return 0;
     }
-    bool ret = fdb_kv_iterate(&kvdb, iter);
+    bool ret = fdb_kv_iterate(kvdb, iter);
     if (ret) {
         cur_kv = &(iter->curr_kv);
         lua_pushlstring(L, cur_kv->name, cur_kv->name_len);
@@ -380,7 +380,7 @@ static int l_fdb_kv_stat(lua_State *L) {
         LLOGE("call fdb.kvdb_init first!!!");
         return 0;
     }
-    fdb_kv_stat(&kvdb, &using_sz, &max_sz, &kv_count);
+    fdb_kv_stat(kvdb, &using_sz, &max_sz, &kv_count);
     lua_pushinteger(L, using_sz);
     lua_pushinteger(L, max_sz);
     lua_pushinteger(L, kv_count);

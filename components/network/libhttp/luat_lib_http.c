@@ -530,11 +530,11 @@ static int http_set_url(luat_http_ctrl_t *http_ctrl) {
     // LLOGD("tmphost:%s",tmphost);
 	// LLOGD("tmpuri:%s",tmpuri);
     for (size_t i = 1; i < strlen(tmphost); i++){
-        if (tmp[i] == ":") {
-            tmp[i] = 0x00;
-            http_ctrl->remote_port = atoi(&tmp[i+1]);
-            break;
-        }
+		if (tmphost[i] == ':') {
+			tmphost[i] = '\0';
+			http_ctrl->remote_port = atoi(tmphost + i + 1);
+			break;
+		}
     }
     if (http_ctrl->remote_port <= 0) {
         if (http_ctrl->is_tls)

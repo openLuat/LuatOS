@@ -86,7 +86,7 @@ int luat_mobile_get_sim_id(int *id);
 /**
  * @brief 改变使用的SIM卡的位置，并不一定支持
  * 
- * @param id sim位置，对于双卡双待的设备，选0或者1，其他设备不支持
+ * @param id sim位置，对于双卡的设备，选0或者1，其他为自动选择模式。非双卡的设备不支持
  * @return int =0成功，其他失败
  */
 int luat_mobile_set_sim_id(int id);
@@ -282,7 +282,6 @@ typedef enum LUAT_MOBILE_EVENT
 	LUAT_MOBILE_EVENT_PDP, 	/**< PDP状态消息*/
 	LUAT_MOBILE_EVENT_NETIF, 	/**< internet状态*/
 	LUAT_MOBILE_EVENT_TIME_SYNC, 	/**< 通过基站同步时间完成*/
-	LUAT_MOBILE_EVENT_SMS, 	/**< 新短信消息*/
 	LUAT_MOBILE_EVENT_CSCON, /**< RRC状态，0 idle 1 active*/
 }LUAT_MOBILE_EVENT_E;
 
@@ -347,6 +346,14 @@ LUAT_MOBILE_REGISTER_STATUS_E luat_mobile_get_register_status(void);
  */
 typedef void (*luat_mobile_event_callback_t)(LUAT_MOBILE_EVENT_E event, uint8_t index, uint8_t status);
 
+
+/**
+ * @brief 底层短信消息回调函数，event是消息，param是具体数据指针，暂时不同的平台需要独自处理
+ *
+ */
+typedef void (*luat_mobile_sms_event_callback_t)(uint32_t event, void *param);
+
+
 /**
  * @brief 注册网络状态及相关功能状态发生更换时的回调函数
  * 
@@ -361,6 +368,15 @@ int luat_mobile_event_register_handler(luat_mobile_event_callback_t callback_fun
  * @return int =0成功，其他失败
  */
 int luat_mobile_event_deregister_handler(void);
+
+
+/**
+ * @brief 注册底层短信消息回调函数，后续改为统一消息处理
+ *
+ * @param callback_fun 短信消息回调函数，如果为NULL，则是注销
+ * @return int =0成功，其他失败
+ */
+int luat_mobile_sms_sdk_event_register_handler(luat_mobile_sms_event_callback_t callback_fun);
 /* ------------------------------------------------- mobile status end ------------------------------------------------ */
 
 /**

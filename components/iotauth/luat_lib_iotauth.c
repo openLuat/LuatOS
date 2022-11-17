@@ -373,7 +373,9 @@ static void tuya_token(const char* device_id,const char* device_secret,long long
     memset(token_temp, 0, 100);
     snprintf_(token_temp, 100, "deviceId=%s,timestamp=%lld,secureMode=1,accessType=1", device_id, cur_timestamp);
     luat_crypto_hmac_sha256_simple(token_temp, strlen(token_temp),device_secret, strlen(device_secret), hmac);
-    str_tohex(hmac, strlen(hmac), password);
+    for (int i = 0; i < 32; i++) {
+        sprintf_(password + 2*i, "%02x", hmac[i]);
+    }
     luat_heap_free(token_temp);
 }
 

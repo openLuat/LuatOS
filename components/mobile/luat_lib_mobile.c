@@ -335,6 +335,130 @@ static int l_mobile_status(lua_State* L) {
     return 1;
 }
 
+/**
+获取机制信息
+@api mobile.getCellInfo()
+@return table 包含基站数据的数组
+@usage
+--示例输出
+--[[
+[
+    {"rsrq":-10,"rssi":-55,"cid":124045360,"mnc":17,"pci":115,"earfcn":1850,"snr":15,"rsrp":-85,"mcc":1120,"tdd":0},
+    {"pci":388,"rsrq":-11,"mnc":17,"earfcn":2452,"snr":5,"rsrp":-67,"mcc":1120,"cid":124045331},
+    {"pci":100,"rsrq":-9,"mnc":17,"earfcn":75,"snr":17,"rsrp":-109,"mcc":1120,"cid":227096712}
+]
+]]
+
+-- 订阅式
+sys.subscribe("CELL_INFO_UPDATE", function()
+    log.info("cell", json.encode(mobile.getCellInfo()))
+end)
+
+-- 定期轮训式
+sys.taskInit(function()
+    sys.wait(3000)
+    while 1 do
+        mobile.reqCellInfo(15)
+        sys.waitUntil("CELL_INFO_UPDATE", 15000)
+        log.info("cell", json.encode(mobile.getCellInfo()))
+    end
+end)
+ */
+static int l_mobile_get_cell_info(lua_State* L) {
+    lua_newtable(L);
+    luat_mobile_cell_info_t* info = luat_heap_malloc(sizeof(luat_mobile_cell_info_t));
+    if (info == NULL) {
+        LLOGE("out of memory when malloc cell_info");
+        return 1;
+    }
+    int ret = luat_mobile_get_last_notify_cell_info(info);
+    if (ret != 0) {
+        LLOGI("none cell info found %d", ret);
+        goto exit;
+    }
+
+    //LLOGD("cid %d neighbor %d", info->lte_service_info.cid, info->lte_neighbor_info_num);
+
+    // 当前仅返回lte信息
+    if (info->lte_info_valid == 0 && info->lte_service_info.cid == 0) {
+        LLOGI("lte cell info not found");
+        goto exit;
+    }
+    
+    lua_newtable(L);
+    lua_pushinteger(L, info->lte_service_info.pci);
+    lua_setfield(L, -2, "pci");
+    lua_pushinteger(L, info->lte_service_info.cid);
+    lua_setfield(L, -2, "cid");
+    lua_pushinteger(L, info->lte_service_info.earfcn);
+    lua_setfield(L, -2, "earfcn");
+    lua_pushinteger(L, info->lte_service_info.rsrp);
+    lua_setfield(L, -2, "rsrp");
+    lua_pushinteger(L, info->lte_service_info.rsrq);
+    lua_setfield(L, -2, "rsrq");
+    lua_pushinteger(L, info->lte_service_info.rssi);
+    lua_setfield(L, -2, "rssi");
+    lua_pushinteger(L, info->lte_service_info.is_tdd);
+    lua_setfield(L, -2, "tdd");
+    lua_pushinteger(L, info->lte_service_info.snr);
+    lua_setfield(L, -2, "snr");
+    lua_pushinteger(L, info->lte_service_info.mcc);
+    lua_setfield(L, -2, "mcc");
+    lua_pushinteger(L, info->lte_service_info.mnc);
+    lua_setfield(L, -2, "mnc");
+
+    lua_seti(L, -2, 1);
+
+    if (info->lte_neighbor_info_num > 0) {
+        for (size_t i = 0; i < info->lte_neighbor_info_num; i++)
+        {
+            lua_settop(L, 1);
+            //LLOGD("add neighbor %d", i);
+            lua_newtable(L);
+            lua_pushinteger(L, info->lte_info[i].pci);
+            lua_setfield(L, -2, "pci");
+            lua_pushinteger(L, info->lte_info[i].cid);
+            lua_setfield(L, -2, "cid");
+            lua_pushinteger(L, info->lte_info[i].earfcn);
+            lua_setfield(L, -2, "earfcn");
+            lua_pushinteger(L, info->lte_info[i].rsrp);
+            lua_setfield(L, -2, "rsrp");
+            lua_pushinteger(L, info->lte_info[i].rsrq);
+            lua_setfield(L, -2, "rsrq");
+            lua_pushinteger(L, info->lte_info[i].mcc);
+            lua_setfield(L, -2, "mcc");
+            lua_pushinteger(L, info->lte_info[i].mnc);
+            lua_setfield(L, -2, "mnc");
+            lua_pushinteger(L, info->lte_info[i].snr);
+            lua_setfield(L, -2, "snr");
+
+            lua_seti(L, -2, i + 2);
+        }
+    }
+    lua_settop(L, 1);
+
+    exit:
+        luat_heap_free(info);
+    return 1;
+}
+/**
+发起基站信息查询,含临近小区
+@api mobile.reqCellInfo(timeout)
+@int 超时时长,单位秒,默认15. 最少5, 最高60
+@return nil 无返回值
+@usage
+-- 参考 mobile.getCellInfo 函数
+ */
+static int l_mobile_request_cell_info(lua_State* L) {
+    int timeout = luaL_optinteger(L, 1, 15);
+    if (timeout > 60)
+        timeout = 60;
+    else if (timeout < 5)
+        timeout = 5;
+    luat_mobile_get_cell_info_async(timeout);
+    return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_mobile[] = {
     {"status",      ROREG_FUNC(l_mobile_status)},
@@ -351,6 +475,9 @@ static const rotable_Reg_t reg_mobile[] = {
     {"snr",         ROREG_FUNC(l_mobile_snr)},
     {"flymode",     ROREG_FUNC(l_mobile_flymode)},
     {"simid",       ROREG_FUNC(l_mobile_simid)},
+
+    {"getCellInfo", ROREG_FUNC(l_mobile_get_cell_info)},
+    {"reqCellInfo", ROREG_FUNC(l_mobile_request_cell_info)},
 
     // const UNREGISTER 未注册
     {"UNREGISTER",                  ROREG_INT(LUAT_MOBILE_STATUS_UNREGISTER)},
@@ -410,6 +537,16 @@ static int l_mobile_event_handle(lua_State* L, void* ptr) {
 	case LUAT_MOBILE_EVENT_REGISTER_STATUS:
 		break;
 	case LUAT_MOBILE_EVENT_CELL_INFO:
+        switch (status)
+        {
+        case LUAT_MOBILE_CELL_INFO_UPDATE:
+            LLOGD("CELL_INFO_UPDATE %d", status);
+            lua_pushstring(L, "CELL_INFO_UPDATE");
+            lua_call(L, 1, 0);
+		    break;
+        default:
+            break;
+        }
 		break;
 	case LUAT_MOBILE_EVENT_PDP:
 		break;

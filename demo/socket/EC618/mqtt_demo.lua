@@ -51,7 +51,7 @@ sys.taskInit(function()
 	local topic = "/luatos/123456"
 	local payload = "123"
 	local qos = 1
-    local result, data = sys.waitUntil("IP_READY")
+
     while true do
         sys.wait(5000)
         if mqttc and mqttc:ready() then

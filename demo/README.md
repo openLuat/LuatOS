@@ -13,24 +13,18 @@
 
 ## Demo列表
 
-* esp32c3的demo 请查阅 https://gitee.com/dreamcmi/LuatOS-ESP32
+* esp32c3的配网相关的demo 请查阅 [wlan](wlan/) 目录
 
 |文件名|功能|依赖的库|受支持的模块|备注|
 |------|----|-------|-----------|----|
 |[adc](https://gitee.com/openLuat/LuatOS/tree/master/demo/adc/)|模数转换|adc|所有||
-|[airkiss](https://gitee.com/openLuat/LuatOS/tree/master/demo/airkiss/)|配网|wlan|仅air640w|已废弃|
-|[aliyun](https://gitee.com/openLuat/LuatOS/tree/master/demo/aliyun/)|阿里云物联网|socket|air302|air105的支持尚未完成|
-|[aliyun_autoreg](https://gitee.com/openLuat/LuatOS/tree/master/demo/aliyun_autoreg/)|阿里云物联网自动注册|socket|air302|air105的支持尚未完成|
 |[camera](https://gitee.com/openLuat/LuatOS/tree/master/demo/camera/)|摄像头|camera|air105||
 |[coremark](https://gitee.com/openLuat/LuatOS/tree/master/demo/coremark/)|跑分|coremark|所有|生产固件均不带该库,可自行编译或云编译|
 |[crypto](https://gitee.com/openLuat/LuatOS/tree/master/demo/crypto/)|加解密|crypto|所有||
-|[ctiot](https://gitee.com/openLuat/LuatOS/tree/master/demo/ctiot/)|中国电信物联网|ctiot|air302||
-|[dbg](https://gitee.com/openLuat/LuatOS/tree/master/demo/dbg/)|调试|dbg|所有|需配合LuatIDE使用,普通用户无需关注|
 |[dht12](https://gitee.com/openLuat/LuatOS/tree/master/demo/dht12/)|温湿度传感器|i2c|所有||
 |[disp](https://gitee.com/openLuat/LuatOS/tree/master/demo/disp/)|简易显示库框架|disp,spi|所有|已合并到u8g2库|
 |[ds18b20](https://gitee.com/openLuat/LuatOS/tree/master/demo/ds18b20/)|单总线温度传感器|sensor|air105|air101/air103的gpio速度达不到|
 |[eink](https://gitee.com/openLuat/LuatOS/tree/master/demo/eink/)|电子墨水屏|eink|所有||
-|[eink_weather](https://gitee.com/openLuat/LuatOS/tree/master/demo/eink_weather/)|墨水屏天气|eink,socket|air302||
 |[fatfs](https://gitee.com/openLuat/LuatOS/tree/master/demo/fatfs/)|挂载sd卡|fatfs,sdio|所有|部分模块支持sdio挂载,其余支持spi挂载|
 |[fdb](https://gitee.com/openLuat/LuatOS/tree/master/demo/fdb/)|持久化kv存储|fdb|所有||
 |[fs](https://gitee.com/openLuat/LuatOS/tree/master/demo/fs/)|文件系统|io|所有||
@@ -38,8 +32,6 @@
 |[gpio_irq](https://gitee.com/openLuat/LuatOS/tree/master/demo/gpio_irq/)|io中断|gpio|所有||
 |[gtfont](https://gitee.com/openLuat/LuatOS/tree/master/demo/gtfont/)|高通字体|gtfont|所有|需要额外的高通字体芯片,外挂在SPI|
 |[hello_world](https://gitee.com/openLuat/LuatOS/tree/master/demo/hello_world/)|最简示例|无|所有||
-|[http](https://gitee.com/openLuat/LuatOS/tree/master/demo/http/)|http客户端|http|air302|air105的支持尚未完成|
-|[http_download](https://gitee.com/openLuat/LuatOS/tree/master/demo/http_download/)|http下载|http|air302|air105的支持尚未完成|
 |[i2c](https://gitee.com/openLuat/LuatOS/tree/master/demo/i2c/)|IIC总线|i2c|所有|演示i2c基本操作|
 |[io_queue](https://gitee.com/openLuat/LuatOS/tree/master/demo/io_queue/)|IO序列|ioqueue|air105|高精度IO序列|
 |[ir](https://gitee.com/openLuat/LuatOS/tree/master/demo/ir/)|红外|ir|air105|当前仅支持接收|
@@ -53,27 +45,23 @@
 |[lvgl](https://gitee.com/openLuat/LuatOS/tree/master/demo/lvgl/)|LVGL示例|lvgl,spi|所有|该目录下有大量LVGL实例,不同模组的实例也能参考|
 |[meminfo](https://gitee.com/openLuat/LuatOS/tree/master/demo/meminfo/)|内存状态|rtos|所有||
 |[multimedia](https://gitee.com/openLuat/LuatOS/tree/master/demo/multimedia/)|多媒体|decoder|air105|音频解码示例|
-|[netinfo](https://gitee.com/openLuat/LuatOS/tree/master/demo/netinfo/)|网络状态|nbiot|air302||
 |[network](https://gitee.com/openLuat/LuatOS/tree/master/demo/network/)|网络库|network|air105|与w5500配合,实现以太网访问|
 |[nimble](https://gitee.com/openLuat/LuatOS/tree/master/demo/nimble/)|蓝牙库|nimble|air101/air103|仅支持简单收发,功耗高|
-|[ntp](https://gitee.com/openLuat/LuatOS/tree/master/demo/ntp/)|网络对时|socket|air640w|105的支持在路上|
 |[nvm](https://gitee.com/openLuat/LuatOS/tree/master/demo/nvm/)|数据持久化|io|所有|已废弃,推进使用fdb库|
 |[ota](https://gitee.com/openLuat/LuatOS/tree/master/demo/ota/)|固件更新|uart|所有||
 |[pm](https://gitee.com/openLuat/LuatOS/tree/master/demo/pm/)|功耗控制|pm|所有||
-|[psm_tcp](https://gitee.com/openLuat/LuatOS/tree/master/demo/psm_tcp/)|低功耗TCP|socket|air302||
 |[pwm](https://gitee.com/openLuat/LuatOS/tree/master/demo/pwm/)|可控方波|pwm|所有||
 |[rtc](https://gitee.com/openLuat/LuatOS/tree/master/demo/rtc/)|内部时钟|rtc|所有||
 |[sdcard](https://gitee.com/openLuat/LuatOS/tree/master/demo/sdcard/)|挂载SD卡|spi,sdio|air101|与fatfs类似|
 |[sfud](https://gitee.com/openLuat/LuatOS/tree/master/demo/sfud/)|通用FLASH读写|sfud,spi|所有||
 |[sht20](https://gitee.com/openLuat/LuatOS/tree/master/demo/sht20/)|温湿度传感器|i2c|所有||
 |[sht30](https://gitee.com/openLuat/LuatOS/tree/master/demo/sht30/)|温湿度传感器|i2c|所有||
-|[socket](https://gitee.com/openLuat/LuatOS/tree/master/demo/socket/)|网络套接字|socket|air640w|air105请使用network库|
+|[socket](https://gitee.com/openLuat/LuatOS/tree/master/demo/socket/)|网络套接字|socket|air105/air780e||
 |[spi](https://gitee.com/openLuat/LuatOS/tree/master/demo/spi/)|SPI库演示|spi|所有||
 |[statem](https://gitee.com/openLuat/LuatOS/tree/master/demo/statem/)|io状态机|statem|所有|air105推荐用ioqueue|
 |[sys_timerStart](https://gitee.com/openLuat/LuatOS/tree/master/demo/sys_timerStart/)|演示定时运行|sys|所有||
 |[u8g2](https://gitee.com/openLuat/LuatOS/tree/master/demo/u8g2/)|单色OLED屏驱|u8g2|所有||
 |[uart](https://gitee.com/openLuat/LuatOS/tree/master/demo/uart/)|UART演示|uart|所有||
-|[update](https://gitee.com/openLuat/LuatOS/tree/master/demo/update/)|OTA演示|socket|air302||
 |[usb_hid](https://gitee.com/openLuat/LuatOS/tree/master/demo/usb_hid/)|USB自定义HID|usbapp|air105||
 |[usb_tf](https://gitee.com/openLuat/LuatOS/tree/master/demo/usb_tf/)|USB读写TF卡|usbapp|air105|速度500~700kbyte/s|
 |[usb_uart](https://gitee.com/openLuat/LuatOS/tree/master/demo/usb_uart/)|USB虚拟串口|usbapp|air105||

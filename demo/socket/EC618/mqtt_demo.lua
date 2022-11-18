@@ -1,8 +1,10 @@
 local libnet = require "libnet"
 
-
+--根据自己的服务器修改以下参数
 local mqtt_host = "www.dozingfiretruck.com.cn"
 local mqtt_port = 8883
+local mqtt_isssl = true
+
 local client_id = "123456"
 local user_name = ""
 local password = ""
@@ -11,7 +13,7 @@ local mqttc = nil
 
 sys.taskInit(function()
 	sys.wait(3000)
-    mqttc = mqtt.create(nil,mqtt_host, mqtt_port,true)
+    mqttc = mqtt.create(nil,mqtt_host, mqtt_port,mqtt_isssl)
 
     mqttc:auth(client_id,user_name,password)
     mqttc:keepalive(30) -- 默认值240s

@@ -7,6 +7,11 @@ log.info("main", PROJECT, VERSION)
 -- 引入必要的库文件(lua编写), 内部库不需要require
 sys = require("sys")
 
+local rtos_bsp = rtos.bsp():lower()
+if rtos_bsp=="air101" or rtos_bsp=="air103" then
+    mcu.setClk(240)
+end
+
 if wdt then
     --添加硬狗防止程序卡死，在支持的设备上启用这个功能
     wdt.init(9000)--初始化watchdog设置为9s
@@ -54,8 +59,10 @@ local function ws2812_roll_show(show_data,data_w)
         end
         m = m+1
         if m==data_w then m=0 end
-        sensor.ws2812b_pwm(5,buff)--此处使用pwm方法驱动,当然也可以用gpio,spi方式,API详情查看wiki https://wiki.luatos.com/api/sensor.html
-        -- sensor.ws2812b_spi(0,buff)
+        --可选pwm,gpio,spi方式驱动,API详情查看wiki https://wiki.luatos.com/api/sensor.html
+        sensor.ws2812b(7,buff,0,20,20,0)--此处使用gpio方法驱动
+        -- sensor.ws2812b_pwm(5,buff)--此处使用pwm方法驱动
+        -- sensor.ws2812b_spi(0,buff)--此处使用spi方法驱动
         sys.wait(300)
     end
 end

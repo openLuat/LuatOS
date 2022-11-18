@@ -554,7 +554,13 @@ static int l_mobile_event_handle(lua_State* L, void* ptr) {
 		switch (status)
 		{
 		case LUAT_MOBILE_NETIF_LINK_ON:
+            LLOGD("NETIF_LINK_ON -> IP_READY");
+            lua_pushstring(L, "IP_READY");
+            lua_call(L, 1, 0);
 			break;
+        case LUAT_MOBILE_NETIF_LINK_OFF:
+            LLOGD("NETIF_LINK_OFF");
+            break;
 		default:
 			break;
 		}

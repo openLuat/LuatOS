@@ -576,7 +576,15 @@ http2客户端
 @return tabal headers
 @return string body
 @usage
+-- GET请求
 local code, headers, body = http2.request("GET","http://site0.cn/api/httptest/simple/time").wait()
+log.info("http2.get", code, headers, body)
+-- POST请求
+local code, headers, body = http2.request("POST","http://httpbin.com/post", {}, "abc=123").wait()
+log.info("http2.post", code, headers, body)
+
+-- GET请求,但下载到文件
+local code, headers, body = http2.request("GET","http://httpbin.com/", {}, "", {dst="/data.bin"}).wait()
 log.info("http2.get", code, headers, body)
 */
 static int l_http_request(lua_State *L) {

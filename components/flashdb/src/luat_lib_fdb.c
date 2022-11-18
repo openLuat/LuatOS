@@ -43,6 +43,7 @@ static int l_fdb_kvdb_init(lua_State *L) {
         }
     }
     if (kvdb_inited == 0) {
+        memset(kvdb, 0, sizeof(struct fdb_kvdb));
         fdb_err_t ret = fdb_kvdb_init(kvdb, "env", "onchip_fdb", NULL, NULL);
         if (ret) {
             LLOGE("fdb_kvdb_init ret=%d", ret);

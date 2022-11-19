@@ -34,9 +34,8 @@ if fdb.kvdb_init("env", "onchip_fdb") then
 end
 
 -- 关于清空fdb库
--- 下载工具是没有提供直接清除fdb数据的途径的, 但有2个办法解决
--- 1. 全清flash, 但一般不会提供这个工具, 同时也容易误删校准数据(指通信模块)
--- 2. 写一个main.lua, 执行 fdb.kvdb_init 后 执行 fdb.clear() 即可全清fdb数据.
+-- 下载工具是没有提供直接清除fdb数据的途径的, 但有有办法解决
+-- 写一个main.lua, 执行 fdb.kvdb_init 后 执行 fdb.clear() 即可全清fdb数据.
  */
 static int l_fdb_kvdb_init(lua_State *L) {
     if (kvdb == NULL) {

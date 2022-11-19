@@ -16,7 +16,7 @@
 
 /*
 初始化
-@api wifi.init()
+@api wlan.init()
 @return bool 成功返回true,否则返回false
 */
 static int l_wlan_init(lua_State* L){
@@ -27,18 +27,18 @@ static int l_wlan_init(lua_State* L){
 
 /*
 设置wifi模式
-@api wifi.setMode(mode)
+@api wlan.setMode(mode)
 @int wifi模式
 @return bool 成功返回true,否则返回false
 @usage
 -- 设置为AP模式, 广播ssid, 接收wifi客户端的链接
-wifi.setMode(wifi.AP)
+wlan.setMode(wlan.AP)
 
 -- 设置为STATION模式, 也是初始化后的默认模式
-wifi.setMode(wifi.STATION)
+wlan.setMode(wlan.STATION)
 
 -- 混合模式, 做AP又做STATION
-wifi.setMode(wifi.APSTA)
+wlan.setMode(wlan.APSTA)
 */
 static int l_wlan_mode(lua_State* L){
     int mode = LUAT_WLAN_MODE_STA;
@@ -81,7 +81,7 @@ static int l_wlan_mode(lua_State* L){
 
 /*
 作为STATION时,是否已经连接上AP,且获取IP成功
-@api wifi.ready()
+@api wlan.ready()
 @return bool 已经连接成功返回true,否则返回false
 */
 static int l_wlan_ready(lua_State* L){
@@ -91,7 +91,7 @@ static int l_wlan_ready(lua_State* L){
 
 /*
 作为STATION时,连接到指定AP
-@api wifi.connect(ssid, password)
+@api wlan.connect(ssid, password)
 @string AP的ssid
 @string AP的password,可选
 @return bool 发起连接成功返回true,否则返回false.注意,不代表连接AP成功!!
@@ -120,7 +120,7 @@ static int l_wlan_connect(lua_State* L){
 
 /*
 作为STATION时,断开AP
-@api wifi.disconnect()
+@api wlan.disconnect()
 */
 static int l_wlan_disconnect(lua_State* L){
     luat_wlan_disconnect();
@@ -129,9 +129,9 @@ static int l_wlan_disconnect(lua_State* L){
 
 /*
 扫描wifi频段
-@api wifi.scan()
+@api wlan.scan()
 @usage
--- 注意, wifi.scan()是异步API,启动扫描后会马上返回
+-- 注意, wlan.scan()是异步API,启动扫描后会马上返回
 
 -- wifi扫描成功后, 会有WLAN_SCAN_DONE消息, 读取即可
 sys.subscribe("WLAN_SCAN_DONE", function ()
@@ -159,7 +159,7 @@ static int l_wlan_scan(lua_State* L){
 
 /*
 获取wifi扫描结果
-@api wifi.scanResult()
+@api wlan.scanResult()
 @return table 扫描结果
 @usage
 -- 用法请查阅 wlan.scan() 函数

@@ -47,11 +47,12 @@ static int add_debug_info(lua_State *L, uint8_t pos, const char* LEVEL) {
     // 没有调试信息就跳过了
     if (ar.source == NULL)
         return 0;
+    int line = ar.currentline > 64*1024 ? 0 : ar.currentline;
     // 推入文件名和行号, 注意: 源码路径的第一个字符是标识,需要跳过
     if (LEVEL)
-        lua_pushfstring(L, "%s/%s:%d", LEVEL, ar.source + 1, ar.currentline);
+        lua_pushfstring(L, "%s/%s:%d", LEVEL, ar.source + 1, line);
     else
-        lua_pushfstring(L, "%s:%d", ar.source + 1, ar.currentline);
+        lua_pushfstring(L, "%s:%d", ar.source + 1, line);
     if (lua_gettop(L) > pos)
         lua_insert(L, pos);
     return 1;

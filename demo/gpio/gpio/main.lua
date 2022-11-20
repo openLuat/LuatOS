@@ -24,7 +24,9 @@ end
 
 --【HaoSir2022】于2022年4月21日增加
 local rtos_bsp = rtos.bsp()
-rtos_bsp = rtos_bsp:lower()
+if rtos_bsp ~="EC618" then
+    rtos_bsp = rtos_bsp:lower()
+end
 function pinx()--根据不同开发板，给LED赋值不同的gpio引脚编号
 
     if rtos_bsp =="air101" then--Air101开发板LED引脚编号
@@ -35,6 +37,8 @@ function pinx()--根据不同开发板，给LED赋值不同的gpio引脚编号
         return pin.PD14, pin.PD15, pin.PC3
     elseif rtos_bsp == "esp32c3" then -- ESP32C3开发板的引脚
         return 12, 13, 255 -- 开发板上就2个灯
+    elseif rtos_bsp == "EC618" then --Air780E开发板引脚
+        return 27, 255, 255 -- AIR780E开发板上就一个灯
     else
         log.info("main", "define led pin in main.lua")
         return 0, 0, 0
@@ -56,7 +60,9 @@ sys.taskInit(function()
         sys.wait(500) --点亮时间
         -- 轮流点灯
         LEDA(count % 3 == 0 and 1 or 0)
-        LEDB(count % 3 == 1 and 1 or 0)
+        if P2 and P2 ~=255 then
+            LEDB(count % 3 == 1 and 1 or 0)
+        end
         if P3 and P3 ~= 255 then
             LEDC(count % 3 == 2 and 1 or 0)
         end

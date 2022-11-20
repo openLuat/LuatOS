@@ -3,6 +3,7 @@
 #include "luat_base.h"
 #include "luat_crypto.h"
 #include "luat_malloc.h"
+#include "luat_fs.h"
 
 #define LUAT_LOG_TAG "crypto"
 #include "luat_log.h"
@@ -178,7 +179,7 @@ _error_exit:
 	return 0;
 }
 
-int luat_crypto_md(int64_t md, const char* str, size_t str_size, void* out_ptr, const char* key, size_t key_len) {
+int luat_crypto_md(int md, const char* str, size_t str_size, void* out_ptr, const char* key, size_t key_len) {
     const mbedtls_md_info_t * info = mbedtls_md_info_from_type((mbedtls_md_type_t)md);
     if (info == NULL) {
         return -1;
@@ -190,6 +191,60 @@ int luat_crypto_md(int64_t md, const char* str, size_t str_size, void* out_ptr, 
         mbedtls_md_hmac(info, (const unsigned char*)key, key_len, (const unsigned char*)str, str_size, (unsigned char*)out_ptr);
     }
     return 0;
+}
+
+int luat_crypto_md_file(const char* md, void* out_ptr, const char* key, size_t key_len, const char* path) {
+    const mbedtls_md_info_t * info = mbedtls_md_info_from_string(md);
+    if (info == NULL) {
+        LLOGI("no such message digest %s", md);
+        return -1;
+    }
+    FILE* fd = luat_fs_fopen(path, "rb");
+    if (fd == NULL) {
+        LLOGI("no such file %s", path);
+        return -1;
+    }
+    mbedtls_md_context_t ctx;
+
+    mbedtls_md_init(&ctx);
+    mbedtls_md_setup(&ctx, info, key_len > 0 ? 1 : 0);
+
+    uint8_t buff[512];
+    int len = 0;
+
+    if (key_len > 0) {
+        mbedtls_md_hmac_starts(&ctx, (const unsigned char*)key, key_len);
+    }
+    else {
+        mbedtls_md_starts(&ctx);
+    }
+
+    while (1) {
+        len = luat_fs_fread(buff, 1, 512, fd);
+        if (len < 1)
+            break;
+        if (key_len > 0) {
+            mbedtls_md_hmac_update(&ctx, buff, len);
+        }
+        else {
+            mbedtls_md_update(&ctx, buff, len);
+        }
+    }
+    luat_fs_fclose(fd);
+
+    int ret = 0;
+    if (key_len > 0) {
+        ret = mbedtls_md_hmac_finish(&ctx, out_ptr);
+    }
+    else {
+        ret = mbedtls_md_finish(&ctx, out_ptr);
+    }
+    mbedtls_md_free(&ctx);
+    if (ret == 0) {
+        return mbedtls_md_get_size(info);
+    }
+    LLOGI("md finish ret %d", ret);
+    return ret;
 }
 
 int luat_crypto_md5_simple(const char* str, size_t str_size, void* out_ptr) {

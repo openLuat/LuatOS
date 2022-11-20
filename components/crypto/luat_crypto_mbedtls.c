@@ -179,8 +179,8 @@ _error_exit:
 	return 0;
 }
 
-int luat_crypto_md(int md, const char* str, size_t str_size, void* out_ptr, const char* key, size_t key_len) {
-    const mbedtls_md_info_t * info = mbedtls_md_info_from_type((mbedtls_md_type_t)md);
+int luat_crypto_md(const char* md, const char* str, size_t str_size, void* out_ptr, const char* key, size_t key_len) {
+    const mbedtls_md_info_t * info = mbedtls_md_info_from_string(md);
     if (info == NULL) {
         return -1;
     }
@@ -248,31 +248,31 @@ int luat_crypto_md_file(const char* md, void* out_ptr, const char* key, size_t k
 }
 
 int luat_crypto_md5_simple(const char* str, size_t str_size, void* out_ptr) {
-    return luat_crypto_md(MBEDTLS_MD_MD5, str, str_size, out_ptr, NULL, 0);
+    return luat_crypto_md("MD5", str, str_size, out_ptr, NULL, 0);
 }
 int luat_crypto_hmac_md5_simple(const char* str, size_t str_size, const char* mac, size_t mac_size, void* out_ptr) {
-    return luat_crypto_md(MBEDTLS_MD_MD5, str, str_size, out_ptr, mac, mac_size);
+    return luat_crypto_md("MD5", str, str_size, out_ptr, mac, mac_size);
 }
 
 int luat_crypto_sha1_simple(const char* str, size_t str_size, void* out_ptr) {
-    return luat_crypto_md(MBEDTLS_MD_SHA1, str, str_size, out_ptr, NULL, 0);
+    return luat_crypto_md("SHA1", str, str_size, out_ptr, NULL, 0);
 }
 int luat_crypto_hmac_sha1_simple(const char* str, size_t str_size, const char* mac, size_t mac_size, void* out_ptr) {
-    return luat_crypto_md(MBEDTLS_MD_SHA1, str, str_size, out_ptr, mac, mac_size);
+    return luat_crypto_md("SHA1", str, str_size, out_ptr, mac, mac_size);
 }
 
 int luat_crypto_sha256_simple(const char* str, size_t str_size, void* out_ptr) {
-    return luat_crypto_md(MBEDTLS_MD_SHA256, str, str_size, out_ptr, NULL, 0);
+    return luat_crypto_md("SHA256", str, str_size, out_ptr, NULL, 0);
 }
 int luat_crypto_hmac_sha256_simple(const char* str, size_t str_size, const char* mac, size_t mac_size, void* out_ptr) {
-    return luat_crypto_md(MBEDTLS_MD_SHA256, str, str_size, out_ptr, mac, mac_size);
+    return luat_crypto_md("SHA256", str, str_size, out_ptr, mac, mac_size);
 }
 
 int luat_crypto_sha512_simple(const char* str, size_t str_size, void* out_ptr) {
-    return luat_crypto_md(MBEDTLS_MD_SHA512, str, str_size, out_ptr, NULL, 0);
+    return luat_crypto_md("SHA512", str, str_size, out_ptr, NULL, 0);
 }
 int luat_crypto_hmac_sha512_simple(const char* str, size_t str_size, const char* mac, size_t mac_size, void* out_ptr) {
-    return luat_crypto_md(MBEDTLS_MD_SHA512, str, str_size, out_ptr, mac, mac_size);
+    return luat_crypto_md("SHA512", str, str_size, out_ptr, mac, mac_size);
 }
 
 const int *mbedtls_cipher_list( void );

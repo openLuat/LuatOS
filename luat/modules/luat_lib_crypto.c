@@ -608,17 +608,58 @@ static int l_crypto_md_file(lua_State *L) {
     size_t key_len = 0;
     size_t path_size = 0;
     const char* key = NULL;
-    char *md = luaL_checkstring(L, 1);
+    const char *md = luaL_checkstring(L, 1);
     const char* path = luaL_checklstring(L, 2, &path_size);
     if (path_size < 2)
         return 0;
     if (lua_type(L, 3) == LUA_TSTRING) {
         key = luaL_checklstring(L, 3, &key_len);
     }
-    char buff[64] = {0};
+    char buff[128] = {0};
     char output[64];
 
     int ret = luat_crypto_md_file(md, output, key, key_len, path);
+    if (ret < 1) {
+        return 0;
+    }
+
+    fixhex(output, buff, ret);
+    lua_pushlstring(L, buff, ret *2);
+    return 1;
+}
+
+/**
+计算数据的hash值(md5/sha1/sha256及hmac形式)
+@api crypto.md_file(tp, data, hmac)
+@string hash类型, 大小字母, 例如 "MD5" "SHA1" "SHA256"
+@string 待处理的数据
+@string hmac值,可选
+@return string HEX过的hash值,若失败会无返回值
+@usage
+
+-- 无hmac的hash值
+log.info("md5", crypto.md("MD5", "1234567890"))
+log.info("sha1", crypto.md("SHA1", "1234567890"))
+log.info("sha256", crypto.md("SHA256", "1234567890"))
+
+-- 带hmac的hash值
+log.info("hmac_md5", crypto.md("MD5", "1234567890", "123456"))
+log.info("hmac_sha1", crypto.md("SHA1", "1234567890", "123456"))
+log.info("hmac_sha256", crypto.md("SHA256", "1234567890", "123456"))
+ */
+static int l_crypto_md(lua_State *L) {
+    size_t key_len = 0;
+    size_t data_size = 0;
+    const char* key = NULL;
+    const char *md = luaL_checkstring(L, 1);
+    const char* data = luaL_checklstring(L, 2, &data_size);
+    if (lua_type(L, 3) == LUA_TSTRING) {
+        key = luaL_checklstring(L, 3, &key_len);
+    }
+    char buff[128] = {0};
+    char output[64];
+
+    int ret = luat_crypto_md(md, data, data_size, output, key, key_len);
     if (ret < 1) {
         return 0;
     }
@@ -653,6 +694,7 @@ static const rotable_Reg_t reg_crypto[] =
     { "base64_encode",  ROREG_FUNC(l_str_toBase64)},
     { "base64_decode",  ROREG_FUNC(l_str_fromBase64)},
     { "md_file",        ROREG_FUNC(l_crypto_md_file)},
+    { "md",             ROREG_FUNC(l_crypto_md)},
 
 	{ NULL,             ROREG_INT(0) }
 };

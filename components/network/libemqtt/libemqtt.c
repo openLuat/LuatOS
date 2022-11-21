@@ -172,7 +172,7 @@ void mqtt_init(mqtt_broker_handle_t* broker, const char* clientid) {
 	memset(broker->username, 0, sizeof(broker->username));
 	memset(broker->password, 0, sizeof(broker->password));
 	if(clientid) {
-		strncpy(broker->clientid, clientid, sizeof(broker->clientid));
+		strncpy(broker->clientid, clientid, strlen(broker->clientid));
 	} else {
 		strcpy(broker->clientid, "emqtt");
 	}
@@ -182,9 +182,9 @@ void mqtt_init(mqtt_broker_handle_t* broker, const char* clientid) {
 
 void mqtt_init_auth(mqtt_broker_handle_t* broker, const char* username, const char* password) {
 	if(username && username[0] != '\0')
-		strncpy(broker->username, username, sizeof(broker->username)-1);
+		strncpy(broker->username, username, strlen(broker->username));
 	if(password && password[0] != '\0')
-		strncpy(broker->password, password, sizeof(broker->password)-1);
+		strncpy(broker->password, password, strlen(broker->password));
 }
 
 void mqtt_set_alive(mqtt_broker_handle_t* broker, uint16_t alive) {
@@ -216,7 +216,7 @@ int mqtt_connect(mqtt_broker_handle_t* broker)
 	// Variable header
 	uint8_t var_header[] = {
 		0x00,0x04,0x4d,0x51,0x54,0x54, // Protocol name: MQTT
-		0x04, // Protocol version
+		0x04, // Protocol version 3.1.1
 		flags, // Connect flags
 		broker->alive>>8, broker->alive&0xFF, // Keep alive
 	};

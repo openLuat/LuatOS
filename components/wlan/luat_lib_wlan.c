@@ -336,14 +336,14 @@ static int l_wlan_get_info(lua_State *L) {
 static const rotable_Reg_t reg_wlan[] =
 {
     { "init",               ROREG_FUNC(l_wlan_init)},
+    { "scan",               ROREG_FUNC(l_wlan_scan)},
+    { "scanResult",         ROREG_FUNC(l_wlan_scan_result)},
+#ifndef LUAT_USE_WLAN_SCANONLY
     { "mode",               ROREG_FUNC(l_wlan_mode)},
     { "setMode",            ROREG_FUNC(l_wlan_mode)},
     { "ready",              ROREG_FUNC(l_wlan_ready)},
     { "connect",            ROREG_FUNC(l_wlan_connect)},
     { "disconnect",         ROREG_FUNC(l_wlan_disconnect)},
-    { "scan",               ROREG_FUNC(l_wlan_scan)},
-    { "scanResult",         ROREG_FUNC(l_wlan_scan_result)},
-
     // 配网相关
     { "smartconfig",         ROREG_FUNC(l_wlan_smartconfig)},
 
@@ -353,7 +353,7 @@ static const rotable_Reg_t reg_wlan[] =
 
     // AP相关
     { "createAP",            ROREG_FUNC(l_wlan_ap_start)},
-
+#endif
     // wifi模式
     //@const NONE WLAN模式,停用
     {"NONE",                ROREG_INT(LUAT_WLAN_MODE_NULL)},

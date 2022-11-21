@@ -280,7 +280,7 @@ static int mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
 		case MQTT_MSG_CONNACK: {
 			// LLOGD("MQTT_MSG_CONNACK");
 			if(mqtt_ctrl->mqtt_packet_buffer[3] != 0x00){
-				LLOGE("MQTT_MSG_CONNACK mqtt_ctrl->mqtt_packet_buffer[3]:0x%02x",mqtt_ctrl->mqtt_packet_buffer[3]);
+				LLOGE("CONACK 0x%02x",mqtt_ctrl->mqtt_packet_buffer[3]);
                 mqtt_close_socket(mqtt_ctrl);
                 return -1;
             }
@@ -367,11 +367,11 @@ static int32_t luat_lib_mqtt_callback(void *data, void *param){
 	luat_mqtt_ctrl_t *mqtt_ctrl =(luat_mqtt_ctrl_t *)param;
 	int ret = 0;
 	LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
-	LLOGD("luat_lib_mqtt_callback %d %d",event->ID & 0x0fffffff,event->Param1);
+	LLOGD("network mqtt cb %d %d",event->ID & 0x0fffffff,event->Param1);
 	if (event->ID == EV_NW_RESULT_LINK){
 		int ret = luat_socket_connect(mqtt_ctrl, mqtt_ctrl->host, mqtt_ctrl->remote_port, mqtt_ctrl->keepalive);
 		if(ret){
-			LLOGE("init_socket ret=%d\n", ret);
+			LLOGE("socket connect ret=%d\n", ret);
 			mqtt_close_socket(mqtt_ctrl);
 		}
 	}else if(event->ID == EV_NW_RESULT_CONNECT){
@@ -425,25 +425,38 @@ static int luat_socket_connect(luat_mqtt_ctrl_t *mqtt_ctrl, const char *hostname
 @api mqttc:subscribe(topic, qos)
 @string/table 主题
 @int topic为string时生效 0/1/2 默认0
+@return int 消息id,当qos为1时有效, 若底层返回失败,会返回nil
 @usage 
-mqttc:subscribe("/luatos/123456")
+-- 订阅单个topic, 且qos=0
+mqttc:subscribe("/luatos/123456", 0)
+-- 订阅单个topic, 且qos=1
+mqttc:subscribe("/luatos/12345678", 1)
+-- 订阅多个topic, 且使用不同的qos
 mqttc:subscribe({["/luatos/1234567"]=1,["/luatos/12345678"]=2})
 */
 static int l_mqtt_subscribe(lua_State *L) {
 	size_t len = 0;
+	int ret = 0;
+	uint16_t msgid = 0;
 	luat_mqtt_ctrl_t * mqtt_ctrl = (luat_mqtt_ctrl_t *)lua_touserdata(L, 1);
 	if (lua_isstring(L, 2)){
 		const char * topic = luaL_checklstring(L, 2, &len);
 		uint8_t qos = luaL_optinteger(L, 3, 0);
-		int subscribe_state = mqtt_subscribe(&(mqtt_ctrl->broker), topic, NULL,qos);
+		ret = mqtt_subscribe(&(mqtt_ctrl->broker), topic, &msgid, qos);
 	}else if(lua_istable(L, 2)){
 		lua_pushnil(L);
 		while (lua_next(L, 2) != 0) {
-			mqtt_subscribe(&(mqtt_ctrl->broker), lua_tostring(L, -2), NULL,luaL_optinteger(L, -1, 0));
+			ret &= mqtt_subscribe(&(mqtt_ctrl->broker), lua_tostring(L, -2), &msgid, luaL_optinteger(L, -1, 0)) == 1 ? 1 : 0;
 			lua_pop(L, 1);
 		}
 	}
-	return 0;
+	if (ret == 1) {
+		lua_pushinteger(L, msgid);
+		return 1;
+	}
+	else {
+		return 0;
+	}
 }
 
 /*
@@ -456,18 +469,24 @@ mqttc:unsubscribe({"/luatos/1234567","/luatos/12345678"})
 */
 static int l_mqtt_unsubscribe(lua_State *L) {
 	size_t len = 0;
+	int ret = 0;
+	uint16_t msgid = 0;
 	luat_mqtt_ctrl_t * mqtt_ctrl = (luat_mqtt_ctrl_t *)lua_touserdata(L, 1);
 	if (lua_isstring(L, 2)){
 		const char * topic = luaL_checklstring(L, 2, &len);
-		int subscribe_state = mqtt_unsubscribe(&(mqtt_ctrl->broker), topic, NULL);
+		ret = mqtt_unsubscribe(&(mqtt_ctrl->broker), topic, &msgid);
 	}else if(lua_istable(L, 2)){
 		size_t count = lua_rawlen(L, 2);
 		for (size_t i = 1; i <= count; i++){
 			lua_geti(L, 2, i);
 			const char * topic = luaL_checklstring(L, -1, &len);
-			mqtt_unsubscribe(&(mqtt_ctrl->broker), topic, NULL);
+			ret &= mqtt_unsubscribe(&(mqtt_ctrl->broker), topic, &msgid) == 1 ? 1 : 0;
 			lua_pop(L, 1);
 		}
+	}
+	if (ret == 1) {
+		lua_pushinteger(L, msgid);
+		return 1;
 	}
 	return 0;
 }
@@ -475,7 +494,7 @@ static int l_mqtt_unsubscribe(lua_State *L) {
 /*
 配置是否打开debug信息
 @api mqttc:debug(onoff)
-@boolean true 打开debug开关
+@boolean 是否打开debug开关
 @return nil 无返回值
 @usage mqttc:debug(true)
 */
@@ -491,12 +510,20 @@ static int l_mqtt_set_debug(lua_State *L){
 mqtt客户端创建
 @api mqtt.create(adapter,host,port,isssl,ca_file)
 @int 适配器序号, 只能是network.ETH0,network.STA,network.AP,如果不填,会选择最后一个注册的适配器
-@string 服务器地址
+@string 服务器地址,可以是域名, 也可以是ip
 @int  	端口号
 @bool  	是否为ssl加密连接,默认不加密
-@string 证书
-@usage 
+@string 证书数据,可选
+@string 证书密钥,可选
+@string 证书密码,可选
+@return userdata 若成功会返回mqtt客户端实例,否则返回nil
+@usage
+-- 普通TCP链接
 mqttc = mqtt.create(nil,"120.55.137.106", 1884)
+-- 加密TCP链接
+mqttc = mqtt.create(nil,"120.55.137.106", 8883, true)
+-- 带证书的TCP链接
+mqttc = mqtt.create(nil,"120.55.137.106", 8883, true, io.readFile("/luadb/ca.crt"), "123", "456")
 */
 static int l_mqtt_create(lua_State *L) {
 	size_t client_cert_len, client_key_len, client_password_len;
@@ -586,10 +613,11 @@ static int l_mqtt_create(lua_State *L) {
 /*
 mqtt三元组配置
 @api mqttc:auth(client_id,username,password)
-@string client_id
+@string 设备识别id,对于同一个mqtt服务器来说, 通常要求唯一,相同client_id会互相踢下线
 @string 账号 可选
 @string 密码 可选
-@usage 
+@return nil 无返回值
+@usage
 mqttc:auth("123456789","username","password")
 */
 static int l_mqtt_auth(lua_State *L) {
@@ -605,20 +633,27 @@ static int l_mqtt_auth(lua_State *L) {
 /*
 mqtt心跳设置
 @api mqttc:keepalive(time)
-@int 可选 单位s 默认240s
+@int 可选 单位s 默认240s. 最先15,最高600
+@return nil 无返回值
 @usage 
 mqttc:keepalive(30)
 */
 static int l_mqtt_keepalive(lua_State *L) {
 	luat_mqtt_ctrl_t * mqtt_ctrl = get_mqtt_ctrl(L);
-	mqtt_ctrl->keepalive = luaL_optinteger(L, 2, 240);
+	int timeout = luaL_optinteger(L, 2, 240);
+	if (timeout < 15)
+		timeout = 15;
+	if (timeout > 600)
+		timeout = 600;
+	mqtt_ctrl->keepalive = timeout;
 	return 0;
 }
 
 /*
-mqtt回调注册
+注册mqtt回调
 @api mqttc:on(cb)
 @function cb mqtt回调,参数包括mqtt_client, event, data, payload
+@return nil 无返回值
 @usage 
 mqttc:on(function(mqtt_client, event, data, payload)
 	-- 用户自定义代码
@@ -641,27 +676,33 @@ static int l_mqtt_on(lua_State *L) {
 /*
 连接服务器
 @api mqttc:connect()
-@usage 
+@return boolean 发起成功返回true, 否则返回false
+@usage
+-- 开始建立连接
 mqttc:connect()
+-- 本函数仅代表发起成功, 后续仍需根据ready函数判断mqtt是否连接正常
 */
 static int l_mqtt_connect(lua_State *L) {
 	luat_mqtt_ctrl_t * mqtt_ctrl = get_mqtt_ctrl(L);
 	int ret = network_wait_link_up(mqtt_ctrl->netc, 0);
 	if (ret == 0){
 		int ret = luat_socket_connect(mqtt_ctrl, mqtt_ctrl->host, mqtt_ctrl->remote_port, mqtt_ctrl->keepalive);
-		if(ret){
-			LLOGD("init_socket ret=%d\n", ret);
+		if (ret) {
+			LLOGE("socket connect ret=%d\n", ret);
 			mqtt_close_socket(mqtt_ctrl);
+			lua_pushboolean(L, 0);
+			return 1;
 		}
 	}
-	return 0;
+	lua_pushboolean(L, 1);
+	return 1;
 }
 
 /*
 自动重连
 @api mqttc:autoreconn(reconnect, reconnect_time)
 @bool 是否自动重连
-@int 自动重连周期 单位ms 默认3s
+@int 自动重连周期 单位ms 默认3000ms
 @usage 
 mqttc:autoreconn(true)
 */
@@ -676,11 +717,12 @@ static int l_mqtt_autoreconn(lua_State *L) {
 
 /*
 发布消息
-@api mqttc:publish(topic, data, qos)
-@string topic 主题
-@string data  消息
-@int qos 0/1/2 默认0
-@return int message_id
+@api mqttc:publish(topic, data, qos, retain)
+@string 主题,必填
+@string 消息,必填,但长度可以是0
+@int 消息级别 0/1 默认0
+@int 是否存档, 0/1,默认0
+@return int 消息id, 当qos为1或2时会有效值. 若底层返回是否, 会返回nil
 @usage 
 mqttc:publish("/luatos/123456", "123")
 */
@@ -692,7 +734,7 @@ static int l_mqtt_publish(lua_State *L) {
 	uint8_t qos = luaL_optinteger(L, 4, 0);
 	uint8_t retain = luaL_optinteger(L, 5, 0);
 	int ret = mqtt_publish_with_qos(&(mqtt_ctrl->broker), topic, payload,payload_len, retain, qos, &message_id);
-	if (ret!=1){
+	if (ret != 1){
 		return 0;
 	}
 	if (qos == 0){
@@ -734,7 +776,7 @@ local error = mqttc:ready()
 */
 static int l_mqtt_ready(lua_State *L) {
 	luat_mqtt_ctrl_t * mqtt_ctrl = get_mqtt_ctrl(L);
-	lua_pushboolean(L, mqtt_ctrl->mqtt_state);
+	lua_pushboolean(L, mqtt_ctrl->mqtt_state > 0 ? 1 : 0);
 	return 1;
 }
 

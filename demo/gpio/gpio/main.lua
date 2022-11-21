@@ -24,25 +24,24 @@ end
 
 --【HaoSir2022】于2022年4月21日增加
 local rtos_bsp = rtos.bsp()
-rtos_bsp = rtos_bsp:lower()
-
-function pinx()--根据不同开发板，给LED赋值不同的gpio引脚编号
-
-    if rtos_bsp =="air101" then--Air101开发板LED引脚编号
+function pinx() -- 根据不同开发板，给LED赋值不同的gpio引脚编号
+    if rtos_bsp == "AIR101" then -- Air101开发板LED引脚编号
         return pin.PB08, pin.PB09, pin.PB10
-    elseif rtos_bsp == "air103" then--Air103开发板LED引脚编号
+    elseif rtos_bsp == "AIR103" then -- Air103开发板LED引脚编号
         return pin.PB26, pin.PB25, pin.PB24
-    elseif rtos_bsp == "air105" then--Air105开发板LED引脚编号
+    elseif rtos_bsp == "AIR105" then -- Air105开发板LED引脚编号
         return pin.PD14, pin.PD15, pin.PC3
-    elseif rtos_bsp == "esp32c3" then -- ESP32C3开发板的引脚
-        return 12, 13, 255 -- 开发板上就2个灯
-    elseif rtos_bsp == "ec618" then --Air780E开发板引脚
+    elseif rtos_bsp == "ESP32C3" then -- ESP32C3开发板的引脚
+        return 12, 13, 255 -- 开发板上就2个灯<<<<<<< HEAD
+    elseif rtos_bsp == "EC618" then -- Air780E开发板引脚
         return 27, 255, 255 -- AIR780E开发板上就一个灯
     else
         log.info("main", "define led pin in main.lua")
         return 0, 0, 0
     end
 end
+
+
 --LED引脚判断赋值结束
 
 local P1,P2,P3=pinx()--赋值开发板LED引脚编号

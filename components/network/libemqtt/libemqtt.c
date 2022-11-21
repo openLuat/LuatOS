@@ -172,7 +172,7 @@ void mqtt_init(mqtt_broker_handle_t* broker, const char* clientid) {
 	memset(broker->username, 0, sizeof(broker->username));
 	memset(broker->password, 0, sizeof(broker->password));
 	if(clientid) {
-		strncpy(broker->clientid, clientid, strlen(broker->clientid));
+		strncpy(broker->clientid, clientid, strlen(clientid));
 	} else {
 		strcpy(broker->clientid, "emqtt");
 	}
@@ -182,9 +182,9 @@ void mqtt_init(mqtt_broker_handle_t* broker, const char* clientid) {
 
 void mqtt_init_auth(mqtt_broker_handle_t* broker, const char* username, const char* password) {
 	if(username && username[0] != '\0')
-		strncpy(broker->username, username, strlen(broker->username));
+		strncpy(broker->username, username, strlen(username));
 	if(password && password[0] != '\0')
-		strncpy(broker->password, password, strlen(broker->password));
+		strncpy(broker->password, password, strlen(password));
 }
 
 void mqtt_set_alive(mqtt_broker_handle_t* broker, uint16_t alive) {

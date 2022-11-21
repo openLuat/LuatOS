@@ -540,7 +540,7 @@ static int l_mobile_event_handle(lua_State* L, void* ptr) {
         switch (status)
         {
         case LUAT_MOBILE_CELL_INFO_UPDATE:
-            LLOGD("CELL_INFO_UPDATE %d", status);
+            //LLOGD("CELL_INFO_UPDATE %d", status);
             lua_pushstring(L, "CELL_INFO_UPDATE");
             lua_call(L, 1, 0);
 		    break;
@@ -571,7 +571,7 @@ static int l_mobile_event_handle(lua_State* L, void* ptr) {
         lua_call(L, 1, 0);
 		break;
 	case LUAT_MOBILE_EVENT_CSCON:
-		LLOGD("CSCON %d", status);
+		//LLOGD("CSCON %d", status);
 		break;
 	default:
 		break;

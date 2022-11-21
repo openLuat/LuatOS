@@ -2,7 +2,7 @@
 -- socket.setDNS(nil,1,"223.5.5.5")	
 -- socket.setDNS(nil,2,"114.114.114.114")
 require "dtu_demo"
-dtuDemo(1, "112.125.89.8", 37711)
+dtuDemo(1, "112.125.89.8", 33107)
 require "ntp_demo"
 ntpDemo()
 require "http_demo"

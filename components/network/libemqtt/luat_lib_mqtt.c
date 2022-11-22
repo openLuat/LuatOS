@@ -829,7 +829,7 @@ static int l_mqtt_publish(lua_State *L) {
 		payload = buff->addr;
 		payload_len = buff->len;
 	}
-	LLOGD("payload_len:%d",payload_len);
+	// LLOGD("payload_len:%d",payload_len);
 	uint8_t qos = luaL_optinteger(L, 4, 0);
 	uint8_t retain = luaL_optinteger(L, 5, 0);
 	int ret = mqtt_publish_with_qos(&(mqtt_ctrl->broker), topic, payload,payload_len, retain, qos, &message_id);

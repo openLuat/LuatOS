@@ -368,30 +368,34 @@ int mqtt_publish_with_qos(mqtt_broker_handle_t* broker, const char* topic, const
 		fixed_header[0] |= MQTT_RETAIN_FLAG;
    }
 
-	LLOGD("remainLen:%d",remainLen);
+	// LLOGD("remainLen:%d",remainLen);
    // Remaining Length
 	if (remainLen <= 127) {
 		fixed_header[1] = remainLen;
 	} else if(remainLen >= 128 && remainLen <= 16383){
-		fixed_header[1] = remainLen / 128 == 1 ? 0 : remainLen / 128;
+		fixed_header[1] = remainLen / 128;
 		fixed_header[2] = remainLen - fixed_header[1]*128;
 		fixed_header[1] = fixed_header[1] | 0x80;
+		// LLOGD("fixed_header[1]:%02X",fixed_header[1]);
+		// LLOGD("fixed_header[2]:%02X",fixed_header[2]);
 	} 
 	else if(remainLen >= 16384 && remainLen <= 2097151){
-		fixed_header[1] = remainLen / 16384 == 1 ? 0 : remainLen / 16384;
+		fixed_header[1] = remainLen / 16384;
 		tem_len = remainLen - fixed_header[1]*16384;
-		fixed_header[2] = tem_len / 128 == 1 ? 0 : tem_len / 128;
+		fixed_header[2] = tem_len / 128;
 		fixed_header[3] = tem_len - fixed_header[2]*128;
 		fixed_header[1] = fixed_header[1] | 0x80;
 		fixed_header[2] = fixed_header[2] | 0x80;
-
+		// LLOGD("fixed_header[1]:%02X",fixed_header[1]);
+		// LLOGD("fixed_header[2]:%02X",fixed_header[2]);
+		// LLOGD("fixed_header[3]:%02X",fixed_header[3]);
 	} 
 	else if(remainLen >= 2097152 && remainLen <= 268435455){
-		fixed_header[1] = remainLen / 2097152 == 1 ? 0 : remainLen / 2097152;
+		fixed_header[1] = remainLen / 2097152;
 		tem_len = remainLen - fixed_header[1]*2097152;
-		fixed_header[2] = tem_len / 16384 == 1 ? 0 : tem_len / 16384;
+		fixed_header[2] = tem_len / 16384;
 		tem_len = tem_len - fixed_header[2]*16384;
-		fixed_header[3] = tem_len / 128 == 1 ? 0 : tem_len / 128;
+		fixed_header[3] = tem_len / 128;
 		fixed_header[4] = tem_len - fixed_header[3]*128;
 		fixed_header[1] = fixed_header[1] | 0x80;
 		fixed_header[2] = fixed_header[2] | 0x80;

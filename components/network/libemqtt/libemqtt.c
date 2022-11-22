@@ -311,13 +311,13 @@ int mqtt_ping(mqtt_broker_handle_t* broker) {
 	return 1;
 }
 
-int mqtt_publish(mqtt_broker_handle_t* broker, const char* topic, const char* msg, uint16_t msg_len, uint8_t retain) {
+int mqtt_publish(mqtt_broker_handle_t* broker, const char* topic, const char* msg, uint32_t msg_len, uint8_t retain) {
 	return mqtt_publish_with_qos(broker, topic, msg, msg_len, retain, 0, NULL);
 }
 
-int mqtt_publish_with_qos(mqtt_broker_handle_t* broker, const char* topic, const char* msg, uint16_t msg_len, uint8_t retain, uint8_t qos, uint16_t* message_id) {
+int mqtt_publish_with_qos(mqtt_broker_handle_t* broker, const char* topic, const char* msg, uint32_t msg_len, uint8_t retain, uint8_t qos, uint16_t* message_id) {
 	uint16_t topiclen = strlen(topic);
-	uint16_t msglen = msg_len;
+	uint32_t msglen = msg_len;
 
 	uint8_t qos_flag = MQTT_QOS0_FLAG;
 	uint8_t qos_size = 0; // No QoS included
@@ -354,6 +354,12 @@ int mqtt_publish_with_qos(mqtt_broker_handle_t* broker, const char* topic, const
 	if (remainLen > 127) {
 		fixedHeaderSize++;          // add an additional byte for Remaining Length
 	}
+	if (remainLen > 16383) {
+		fixedHeaderSize++;          // add an additional byte for Remaining Length
+	}
+	if (remainLen > 2097151) {
+		fixedHeaderSize++;          // add an additional byte for Remaining Length
+	}
 	uint8_t fixed_header[fixedHeaderSize];
     
    // Message Type, DUP flag, QoS level, Retain
@@ -364,12 +370,33 @@ int mqtt_publish_with_qos(mqtt_broker_handle_t* broker, const char* topic, const
    // Remaining Length
    if (remainLen <= 127) {
        fixed_header[1] = remainLen;
-   } else {
+   } else if(remainLen >= 128 && remainLen <= 16383){
        // first byte is remainder (mod) of 128, then set the MSB to indicate more bytes
        fixed_header[1] = remainLen % 128;
        fixed_header[1] = fixed_header[1] | 0x80;
        // second byte is number of 128s
        fixed_header[2] = remainLen / 128;
+   } else if(remainLen >= 16384 && remainLen <= 2097151){
+       // first byte is remainder (mod) of 16384, then set the MSB to indicate more bytes
+       fixed_header[1] = remainLen % 16384;
+       fixed_header[1] = fixed_header[1] | 0x80;
+		// second byte is remainder (mod) of 128, then set the MSB to indicate more bytes
+       fixed_header[2] = remainLen % 128;
+       fixed_header[2] = fixed_header[2] | 0x80;
+       // third byte is number of 128s
+       fixed_header[3] = remainLen / 128;
+   } else if(remainLen >= 2097152 && remainLen <= 268435455){
+       // first byte is remainder (mod) of 2097152, then set the MSB to indicate more bytes
+       fixed_header[1] = remainLen % 2097152;
+       fixed_header[1] = fixed_header[1] | 0x80;
+		// second byte is remainder (mod) of 16384, then set the MSB to indicate more bytes
+       fixed_header[2] = remainLen % 16384;
+       fixed_header[2] = fixed_header[2] | 0x80;
+		// third byte is remainder (mod) of 128, then set the MSB to indicate more bytes
+       fixed_header[3] = remainLen % 128;
+       fixed_header[3] = fixed_header[3] | 0x80;
+       // fourth byte is number of 128s
+       fixed_header[4] = remainLen / 128;
    }
 
 	uint8_t packet[sizeof(fixed_header)+sizeof(var_header)];

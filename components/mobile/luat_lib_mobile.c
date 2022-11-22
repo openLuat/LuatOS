@@ -406,6 +406,8 @@ static int l_mobile_get_cell_info(lua_State* L) {
     lua_setfield(L, -2, "mcc");
     lua_pushinteger(L, info->lte_service_info.mnc);
     lua_setfield(L, -2, "mnc");
+    lua_pushinteger(L, info->lte_service_info.tac);
+    lua_setfield(L, -2, "tac");
 
     lua_seti(L, -2, 1);
 
@@ -431,6 +433,8 @@ static int l_mobile_get_cell_info(lua_State* L) {
             lua_setfield(L, -2, "mnc");
             lua_pushinteger(L, info->lte_info[i].snr);
             lua_setfield(L, -2, "snr");
+            lua_pushinteger(L, info->lte_info[i].tac);
+            lua_setfield(L, -2, "tac");
 
             lua_seti(L, -2, i + 2);
         }

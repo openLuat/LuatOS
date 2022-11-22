@@ -41,6 +41,9 @@
 #define MQTT_USERNAME_FLAG  (1<<7)
 #define MQTT_PASSWORD_FLAG  (1<<6)
 
+#define LUAT_LOG_TAG "mqtt"
+#include "luat_log.h"
+
 
 uint8_t mqtt_num_rem_len_bytes(const uint8_t* buf) {
 	uint8_t num_bytes = 1;
@@ -173,8 +176,6 @@ void mqtt_init(mqtt_broker_handle_t* broker, const char* clientid) {
 	memset(broker->password, 0, sizeof(broker->password));
 	if(clientid) {
 		strncpy(broker->clientid, clientid, strlen(clientid));
-	} else {
-		strcpy(broker->clientid, "emqtt");
 	}
 	// Will topic
 	broker->clean_session = 1;
@@ -254,7 +255,8 @@ int mqtt_connect(mqtt_broker_handle_t* broker)
 	// Client ID - UTF encoded
 	packet[offset++] = clientidlen>>8;
 	packet[offset++] = clientidlen&0xFF;
-	memcpy(packet+offset, broker->clientid, clientidlen);
+	if (clientidlen)
+		memcpy(packet+offset, broker->clientid, clientidlen);
 	offset += clientidlen;
 
 	if(usernamelen) {
@@ -282,7 +284,7 @@ int mqtt_connect(mqtt_broker_handle_t* broker)
 }
 
 int mqtt_disconnect(mqtt_broker_handle_t* broker) {
-	uint8_t packet[] = {
+	static const uint8_t packet[] = {
 		MQTT_MSG_DISCONNECT, // Message Type, DUP flag, QoS level, Retain
 		0x00 // Remaining length
 	};
@@ -296,7 +298,7 @@ int mqtt_disconnect(mqtt_broker_handle_t* broker) {
 }
 
 int mqtt_ping(mqtt_broker_handle_t* broker) {
-	uint8_t packet[] = {
+	static const uint8_t packet[] = {
 		MQTT_MSG_PINGREQ, // Message Type, DUP flag, QoS level, Retain
 		0x00 // Remaining length
 	};
@@ -370,14 +372,21 @@ int mqtt_publish_with_qos(mqtt_broker_handle_t* broker, const char* topic, const
        fixed_header[2] = remainLen / 128;
    }
 
-	uint8_t packet[sizeof(fixed_header)+sizeof(var_header)+msglen];
+	uint8_t packet[sizeof(fixed_header)+sizeof(var_header)];
 	memset(packet, 0, sizeof(packet));
 	memcpy(packet, fixed_header, sizeof(fixed_header));
 	memcpy(packet+sizeof(fixed_header), var_header, sizeof(var_header));
-	memcpy(packet+sizeof(fixed_header)+sizeof(var_header), msg, msglen);
+	//memcpy(packet+sizeof(fixed_header)+sizeof(var_header), msg, msglen);
 
 	// Send the packet
-	if(broker->send(broker->socket_info, packet, sizeof(packet)) < sizeof(packet)) {
+	int ret = broker->send(broker->socket_info, packet, sizeof(packet));
+	//LLOGD("publish packet header %d ret %d", sizeof(packet), ret);
+	if(ret < 0 || ret < sizeof(packet)) {
+		return -1;
+	}
+	ret = broker->send(broker->socket_info, msg, msg_len);
+	//LLOGD("publish packet body %d ret %d", msg_len, ret);
+	if(ret < 0 || ret < msg_len) {
 		return -1;
 	}
 

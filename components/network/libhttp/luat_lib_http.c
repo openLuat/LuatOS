@@ -459,7 +459,7 @@ next:
 
 	}
 
-	int ret = network_wait_event(http_ctrl->netc, NULL, 0, NULL);
+	ret = network_wait_event(http_ctrl->netc, NULL, 0, NULL);
 	if (ret < 0){
 		http_resp_error(http_ctrl, HTTP_ERROR_CLOSE);
 		return -1;

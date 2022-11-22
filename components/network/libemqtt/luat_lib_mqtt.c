@@ -23,6 +23,13 @@
 #define MQTT_MSG_TIMER_PING 2
 
 #define MQTT_RECV_BUF_LEN_MAX 4096
+
+#define MQTT_DEBUG 0
+#if MQTT_DEBUG == 0
+#undef LLOGD
+#define LLOGD(...)
+#endif
+
 typedef struct{
 	mqtt_broker_handle_t broker;// mqtt broker
 	network_ctrl_t *netc;		// mqtt netc
@@ -77,7 +84,7 @@ static void reconnect_timer_cb(LUAT_RT_CB_PARAM){
 	if (ret == 0){
 		int ret = luat_socket_connect(mqtt_ctrl, mqtt_ctrl->host, mqtt_ctrl->remote_port, mqtt_ctrl->keepalive);
 		if(ret){
-			LLOGD("init_socket ret=%d\n", ret);
+			LLOGI("init_socket ret=%d\n", ret);
 			mqtt_close_socket(mqtt_ctrl);
 		}
 	}
@@ -116,31 +123,51 @@ static void mqtt_release_socket(luat_mqtt_ctrl_t *mqtt_ctrl){
 }
 
 static int mqtt_parse(luat_mqtt_ctrl_t *mqtt_ctrl) {
+	LLOGD("mqtt_parse offset %d", mqtt_ctrl->buffer_offset);
 	if (mqtt_ctrl->buffer_offset < 2) {
 		LLOGD("wait more data");
 		return 0;
 	}
-	mqtt_ctrl->mqtt_packet_buffer[mqtt_ctrl->buffer_offset] = 0x00;
+	//mqtt_ctrl->mqtt_packet_buffer[mqtt_ctrl->buffer_offset] = 0x00;
 	// 判断数据长度, 前几个字节能判断出够不够读出mqtt的头
-	uint8_t rem_len_bytes = mqtt_num_rem_len_bytes(mqtt_ctrl->mqtt_packet_buffer);
-	if (rem_len_bytes > mqtt_ctrl->buffer_offset - 1) {
-		LLOGD("wait more data for mqtt head");
-		return 0;
+	char* buf = mqtt_ctrl->mqtt_packet_buffer;
+	int num_bytes = 1;
+	if ((buf[1] & 0x80) == 0x80) {
+		num_bytes++;
+		if (mqtt_ctrl->buffer_offset < 3) {
+			LLOGD("wait more data for mqtt head");
+			return 0;
+		}
+		if ((buf[2] & 0x80) == 0x80) {
+			num_bytes ++;
+			if (mqtt_ctrl->buffer_offset < 4) {
+				LLOGD("wait more data for mqtt head");
+				return 0;
+			}
+			if ((buf[3] & 0x80) == 0x80) {
+				num_bytes ++;
+			}
+		}
 	}
+	// if (num_bytes > mqtt_ctrl->buffer_offset - 1) {
+	// 	LLOGD("wait more data for mqtt head");
+	// 	return 0;
+	// }
 	// 判断数据总长, 这里rem_len只包含mqtt头部之外的数据
 	uint16_t rem_len = mqtt_parse_rem_len(mqtt_ctrl->mqtt_packet_buffer);
-	if (rem_len > mqtt_ctrl->buffer_offset - rem_len_bytes - 1) {
+	if (rem_len > mqtt_ctrl->buffer_offset - num_bytes - 1) {
 		LLOGD("wait more data for mqtt head");
 		return 0;
 	}
 	// 至此, mqtt包是完整的 解析类型, 处理之
 	int ret = mqtt_msg_cb(mqtt_ctrl);
-	if (ret!=0){
+	if (ret != 0){
+		LLOGW("bad mqtt packet!! ret %d", ret);
 		return -1;
 	}
 	// 处理完成后, 如果还有数据, 移动数据, 继续处理
-	mqtt_ctrl->buffer_offset -= (1 + rem_len_bytes + rem_len);
-	memmove(mqtt_ctrl->mqtt_packet_buffer, mqtt_ctrl->mqtt_packet_buffer+1 + rem_len_bytes + rem_len, mqtt_ctrl->buffer_offset);
+	mqtt_ctrl->buffer_offset -= (1 + num_bytes + rem_len);
+	memmove(mqtt_ctrl->mqtt_packet_buffer, mqtt_ctrl->mqtt_packet_buffer+1 + num_bytes + rem_len, mqtt_ctrl->buffer_offset);
 	return 1;
 }
 
@@ -157,11 +184,11 @@ static int mqtt_read_packet(luat_mqtt_ctrl_t *mqtt_ctrl){
 		return -1;
 	}
 	if (total_len == 0) {
-		LLOGD("rx event but NO data wait for recv");
+		LLOGW("rx event but NO data wait for recv");
 		return 0;
 	}
 	if (MQTT_RECV_BUF_LEN_MAX - mqtt_ctrl->buffer_offset <= 0) {
-		LLOGD("buff is FULL, mqtt packet too big");
+		LLOGE("buff is FULL, mqtt packet too big");
 		mqtt_close_socket(mqtt_ctrl);
 		return -1;
 	}
@@ -177,18 +204,24 @@ static int mqtt_read_packet(luat_mqtt_ctrl_t *mqtt_ctrl){
 		}
 		// 从网络接收数据
 		result = network_rx(mqtt_ctrl->netc, mqtt_ctrl->mqtt_packet_buffer + mqtt_ctrl->buffer_offset, recv_want, 0, NULL, NULL, &rx_len);
-		if (rx_len == 0||result!=0) {
+		if (rx_len == 0 || result != 0 ) {
+			LLOGD("rx_len %d result %d", rx_len, result);
 			break;
 		}
 		// 收到数据了, 传给处理函数继续处理
 		// 数据的长度变更, 触发传递
 		mqtt_ctrl->buffer_offset += rx_len;
+		LLOGD("data recv %d offset %d", rx_len, mqtt_ctrl->buffer_offset);
 further:
 		result = mqtt_parse(mqtt_ctrl);
 		if (result == 0) {
 			// OK
 		}else if(result == 1){
-			goto further;
+			if (mqtt_ctrl->buffer_offset > 0)
+				goto further;
+			else {
+				continue;
+			}
 		}
 		else {
 			mqtt_close_socket(mqtt_ctrl);
@@ -273,14 +306,14 @@ static int mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
     msg.handler = l_mqtt_callback;
     uint8_t msg_tp = MQTTParseMessageType(mqtt_ctrl->mqtt_packet_buffer);
     switch (msg_tp) {
-		case MQTT_MSG_CONNECT : {
-			// LLOGD("MQTT_MSG_CONNECT");
-			break;
-		}
+		// case MQTT_MSG_CONNECT : {
+		// 	// LLOGD("MQTT_MSG_CONNECT");
+		// 	break;
+		// }
 		case MQTT_MSG_CONNACK: {
 			// LLOGD("MQTT_MSG_CONNACK");
 			if(mqtt_ctrl->mqtt_packet_buffer[3] != 0x00){
-				LLOGE("CONACK 0x%02x",mqtt_ctrl->mqtt_packet_buffer[3]);
+				LLOGW("CONACK 0x%02x",mqtt_ctrl->mqtt_packet_buffer[3]);
                 mqtt_close_socket(mqtt_ctrl);
                 return -1;
             }
@@ -326,28 +359,28 @@ static int mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
 			luat_msgbus_put(&msg, 0);
 			break;
 		}
-		case MQTT_MSG_SUBSCRIBE : {
-			// LLOGD("MQTT_MSG_SUBSCRIBE");
-            break;
-        }
+		// case MQTT_MSG_SUBSCRIBE : {
+		// 	// LLOGD("MQTT_MSG_SUBSCRIBE");
+        //     break;
+        // }
         case MQTT_MSG_SUBACK : {
-			// LLOGD("MQTT_MSG_SUBACK");
+			LLOGD("MQTT_MSG_SUBACK");
             break;
         }
-		case MQTT_MSG_UNSUBSCRIBE : {
-			// LLOGD("MQTT_MSG_UNSUBSCRIBE");
-            break;
-        }
+		// case MQTT_MSG_UNSUBSCRIBE : {
+		// 	// LLOGD("MQTT_MSG_UNSUBSCRIBE");
+        //     break;
+        // }
 		case MQTT_MSG_UNSUBACK : {
-			// LLOGD("MQTT_MSG_UNSUBACK");
+			LLOGD("MQTT_MSG_UNSUBACK");
             break;
         }
-		case MQTT_MSG_PINGREQ : {
-			// LLOGD("MQTT_MSG_PINGREQ");
-            break;
-        }
+		// case MQTT_MSG_PINGREQ : {
+		// 	// LLOGD("MQTT_MSG_PINGREQ");
+        //     break;
+        // }
         case MQTT_MSG_PINGRESP : {
-			// LLOGD("MQTT_MSG_PINGRESP");
+			LLOGD("MQTT_MSG_PINGRESP");
             break;
         }
 		case MQTT_MSG_DISCONNECT : {
@@ -362,12 +395,30 @@ static int mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
     return 0;
 }
 
+static const char* event2str(uint32_t id) {
+	switch (id)
+	{
+	case EV_NW_RESULT_LINK:
+		return "EV_NW_RESULT_LINK";
+	case EV_NW_RESULT_CONNECT:
+		return "EV_NW_RESULT_CONNECT";
+	case EV_NW_RESULT_EVENT:
+		return "EV_NW_RESULT_EVENT";
+	case EV_NW_RESULT_TX:
+		return "EV_NW_RESULT_TX";
+	case EV_NW_RESULT_CLOSE:
+		return "EV_NW_RESULT_CLOSE";
+	default:
+		return "UNKOWN";
+	}
+}
+
 static int32_t luat_lib_mqtt_callback(void *data, void *param){
 	OS_EVENT *event = (OS_EVENT *)data;
 	luat_mqtt_ctrl_t *mqtt_ctrl =(luat_mqtt_ctrl_t *)param;
 	int ret = 0;
-	LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
-	LLOGD("network mqtt cb %d %d",event->ID & 0x0fffffff,event->Param1);
+	// LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
+	LLOGD("network mqtt cb %8X %s %8X",event->ID & 0x0ffffffff, event2str(event->ID & 0x0ffffffff) ,event->Param1);
 	if (event->ID == EV_NW_RESULT_LINK){
 		int ret = luat_socket_connect(mqtt_ctrl, mqtt_ctrl->host, mqtt_ctrl->remote_port, mqtt_ctrl->keepalive);
 		if(ret){
@@ -402,7 +453,10 @@ static int32_t luat_lib_mqtt_callback(void *data, void *param){
 static int mqtt_send_packet(void* socket_info, const void* buf, unsigned int count){
     luat_mqtt_ctrl_t * mqtt_ctrl = (luat_mqtt_ctrl_t *)socket_info;
 	uint32_t tx_len = 0;
-	return network_tx(mqtt_ctrl->netc, buf, count, 0, NULL, 0, &tx_len, 0);
+	int ret = network_tx(mqtt_ctrl->netc, buf, count, 0, NULL, 0, &tx_len, 0);
+	if (ret < 0)
+		return 0;
+	return count;
 }
 
 static int luat_socket_connect(luat_mqtt_ctrl_t *mqtt_ctrl, const char *hostname, uint16_t port, uint16_t keepalive){
@@ -622,7 +676,7 @@ mqttc:auth("123456789","username","password")
 */
 static int l_mqtt_auth(lua_State *L) {
 	luat_mqtt_ctrl_t * mqtt_ctrl = get_mqtt_ctrl(L);
-	const char *client_id = luaL_checkstring(L, 2);
+	const char *client_id = luaL_optstring(L, 2, "");
 	const char *username = luaL_optstring(L, 3, "");
 	const char *password = luaL_optstring(L, 4, "");
 	mqtt_init(&(mqtt_ctrl->broker), client_id);

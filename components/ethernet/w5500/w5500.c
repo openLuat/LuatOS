@@ -889,7 +889,7 @@ static int w5500_socket_auto_heart(w5500_ctrl_t *w5500, uint8_t socket_id, uint8
 	return 0;
 }
 
-static int w5500_socket_tx(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t *data, uint16_t len)
+static int w5500_socket_tx(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t *data, uint32_t len)
 {
 	uint8_t delay_cnt;
 	uint8_t temp;

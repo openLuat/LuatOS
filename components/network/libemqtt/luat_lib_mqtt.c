@@ -249,7 +249,31 @@ static int32_t l_mqtt_callback(lua_State *L, void* ptr){
 					lua_pushstring(L, "recv");
 					lua_pushlstring(L, mqtt_msg->data,mqtt_msg->topic_len);
 					lua_pushlstring(L, mqtt_msg->data+mqtt_msg->topic_len,mqtt_msg->payload_len);
-					lua_call(L, 4, 0);
+					
+					// 增加一个返回值meta，类型为table，包含qos、retain和dup
+					// 	mqttc:on(function(mqtt_client, event, data, payload, meta)
+            		// 		if event == "recv" then
+            		//     	log.info("mqtt recv", "topic", data)
+            		//     	log.info("mqtt recv", 'payload', payload)
+            		//     	log.info("mqtt recv", 'meta.qos', meta.qos)
+            		//     	log.info("mqtt recv", 'meta.retain', meta.retain)
+            		//     	log.info("mqtt recv", 'meta.dup', meta.dup)
+					lua_createtable(L, 0, 3);
+
+					lua_pushliteral(L, "qos"); 
+					lua_pushinteger(L, MQTTParseMessageQos(mqtt_ctrl->mqtt_packet_buffer));
+					lua_settable(L, -3);
+
+					lua_pushliteral(L, "retain"); 
+					lua_pushinteger(L, MQTTParseMessageRetain(mqtt_ctrl->mqtt_packet_buffer));
+					lua_settable(L, -3);
+
+					lua_pushliteral(L, "dup"); 
+					lua_pushinteger(L, MQTTParseMessageDuplicate(mqtt_ctrl->mqtt_packet_buffer));
+					lua_settable(L, -3);
+
+					// lua_call(L, 4, 0);
+					lua_call(L, 5, 0);
 				}
             }
 			luat_heap_free(mqtt_msg);

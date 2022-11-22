@@ -446,7 +446,11 @@ static int32_t luat_lib_mqtt_callback(void *data, void *param){
 	if (event->Param1){
 		mqtt_close_socket(mqtt_ctrl);
 	}
-	network_wait_event(mqtt_ctrl->netc, NULL, 0, NULL);
+	ret = network_wait_event(mqtt_ctrl->netc, NULL, 0, NULL);
+	if (ret < 0){
+		mqtt_close_socket(mqtt_ctrl);
+		return -1;
+	}
     return 0;
 }
 

@@ -370,40 +370,33 @@ int mqtt_publish_with_qos(mqtt_broker_handle_t* broker, const char* topic, const
 
 	LLOGD("remainLen:%d",remainLen);
    // Remaining Length
-   if (remainLen <= 127) {
-       fixed_header[1] = remainLen;
-   } else if(remainLen >= 128 && remainLen <= 16383){
-       // first byte is remainder (mod) of 128, then set the MSB to indicate more bytes
-       fixed_header[1] = remainLen % 128;
-       fixed_header[1] = fixed_header[1] | 0x80;
-       // second byte is number of 128s
-       fixed_header[2] = remainLen / 128;
-   } 
-//    else if(remainLen >= 16384 && remainLen <= 2097151){
-//        // first byte is remainder (mod) of 16384, then set the MSB to indicate more bytes
-//        fixed_header[1] = remainLen % 16384;
-//        fixed_header[1] = fixed_header[1] | 0x80;
-// 	   tem_len = remainLen / 16384;
-// 		// second byte is remainder (mod) of 128, then set the MSB to indicate more bytes
-//        fixed_header[2] = tem_len % 128;
-//        fixed_header[2] = fixed_header[2] | 0x80;
-//        // third byte is number of 128s
-//        fixed_header[3] = tem_len / 128;
-//    } else if(remainLen >= 2097152 && remainLen <= 268435455){
-//        // first byte is remainder (mod) of 2097152, then set the MSB to indicate more bytes
-//        fixed_header[1] = remainLen % 2097152;
-//        fixed_header[1] = fixed_header[1] | 0x80;
-// 	   tem_len = remainLen / 2097152;
-// 		// second byte is remainder (mod) of 16384, then set the MSB to indicate more bytes
-//        fixed_header[2] = tem_len % 16384;
-//        fixed_header[2] = fixed_header[2] | 0x80;
-// 	   tem_len = tem_len / 16384;
-// 		// third byte is remainder (mod) of 128, then set the MSB to indicate more bytes
-//        fixed_header[3] = tem_len % 128;
-//        fixed_header[3] = fixed_header[3] | 0x80;
-//        // fourth byte is number of 128s
-//        fixed_header[4] = tem_len / 128;
-//    }
+	if (remainLen <= 127) {
+		fixed_header[1] = remainLen;
+	} else if(remainLen >= 128 && remainLen <= 16383){
+		fixed_header[1] = remainLen / 128 == 1 ? 0 : remainLen / 128;
+		fixed_header[2] = remainLen - fixed_header[1]*128;
+		fixed_header[1] = fixed_header[1] | 0x80;
+	} 
+	else if(remainLen >= 16384 && remainLen <= 2097151){
+		fixed_header[1] = remainLen / 16384 == 1 ? 0 : remainLen / 16384;
+		tem_len = remainLen - fixed_header[1]*16384;
+		fixed_header[2] = tem_len / 128 == 1 ? 0 : tem_len / 128;
+		fixed_header[3] = tem_len - fixed_header[2]*128;
+		fixed_header[1] = fixed_header[1] | 0x80;
+		fixed_header[2] = fixed_header[2] | 0x80;
+
+	} 
+	else if(remainLen >= 2097152 && remainLen <= 268435455){
+		fixed_header[1] = remainLen / 2097152 == 1 ? 0 : remainLen / 2097152;
+		tem_len = remainLen - fixed_header[1]*2097152;
+		fixed_header[2] = tem_len / 16384 == 1 ? 0 : tem_len / 16384;
+		tem_len = tem_len - fixed_header[2]*16384;
+		fixed_header[3] = tem_len / 128 == 1 ? 0 : tem_len / 128;
+		fixed_header[4] = tem_len - fixed_header[3]*128;
+		fixed_header[1] = fixed_header[1] | 0x80;
+		fixed_header[2] = fixed_header[2] | 0x80;
+		fixed_header[3] = fixed_header[3] | 0x80;
+	}
 
 	uint8_t packet[sizeof(fixed_header)+sizeof(var_header)];
 	memset(packet, 0, sizeof(packet));

@@ -305,6 +305,8 @@ static int mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
 	rtos_msg_t msg = {0};
     msg.handler = l_mqtt_callback;
     uint8_t msg_tp = MQTTParseMessageType(mqtt_ctrl->mqtt_packet_buffer);
+	uint16_t msg_id = 0;
+	uint8_t qos = 0;
     switch (msg_tp) {
 		// case MQTT_MSG_CONNECT : {
 		// 	// LLOGD("MQTT_MSG_CONNECT");
@@ -326,6 +328,7 @@ static int mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
         case MQTT_MSG_PUBLISH : {
 			// LLOGD("MQTT_MSG_PUBLISH");
 			const uint8_t* ptr;
+			qos = MQTTParseMessageQos(mqtt_ctrl->mqtt_packet_buffer);
 			uint16_t topic_len = mqtt_parse_pub_topic_ptr(mqtt_ctrl->mqtt_packet_buffer, &ptr);
 			uint16_t payload_len = mqtt_parse_pub_msg_ptr(mqtt_ctrl->mqtt_packet_buffer, &ptr);
 			luat_mqtt_msg_t *mqtt_msg = (luat_mqtt_msg_t *)luat_heap_malloc(sizeof(luat_mqtt_msg_t)+topic_len+payload_len);
@@ -335,6 +338,11 @@ static int mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
 			msg.arg1 = MQTT_MSG_PUBLISH;
 			msg.arg2 = mqtt_msg;
 			luat_msgbus_put(&msg, 0);
+			// 还是回复puback
+			if (qos == 1) {
+				msg_id = mqtt_parse_msg_id(mqtt_ctrl->mqtt_packet_buffer);
+				mqtt_puback(&(mqtt_ctrl->broker), msg_id);
+			}
             break;
         }
         case MQTT_MSG_PUBACK : {
@@ -346,7 +354,7 @@ static int mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
 			break;
 		}
 		case MQTT_MSG_PUBREC : {
-			uint16_t msg_id=mqtt_parse_msg_id(&(mqtt_ctrl->broker));
+			msg_id=mqtt_parse_msg_id(&(mqtt_ctrl->broker));
 			mqtt_pubrel(&(mqtt_ctrl->broker), msg_id);
 			// LLOGD("MQTT_MSG_PUBREC");
 			break;

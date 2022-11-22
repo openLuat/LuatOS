@@ -283,5 +283,6 @@ int mqtt_unsubscribe(mqtt_broker_handle_t* broker, const char* topic, uint16_t* 
  */
 int mqtt_ping(mqtt_broker_handle_t* broker);
 
+int mqtt_puback(mqtt_broker_handle_t* broker, uint16_t message_id);
 
 #endif // __LIBEMQTT_H__

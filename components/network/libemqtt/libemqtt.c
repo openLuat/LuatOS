@@ -318,7 +318,7 @@ int mqtt_publish(mqtt_broker_handle_t* broker, const char* topic, const char* ms
 int mqtt_publish_with_qos(mqtt_broker_handle_t* broker, const char* topic, const char* msg, uint32_t msg_len, uint8_t retain, uint8_t qos, uint16_t* message_id) {
 	uint16_t topiclen = strlen(topic);
 	uint32_t msglen = msg_len;
-
+	uint32_t tem_len;
 	uint8_t qos_flag = MQTT_QOS0_FLAG;
 	uint8_t qos_size = 0; // No QoS included
 	if(qos == 1) {
@@ -350,7 +350,7 @@ int mqtt_publish_with_qos(mqtt_broker_handle_t* broker, const char* topic, const
 	// actually, it can be up to 4 bytes but I'm making the assumption the embedded device will only
 	// need up to two bytes of length (handles up to 16,383 (almost 16k) sized message)
 	uint8_t fixedHeaderSize = 2;    // Default size = one byte Message Type + one byte Remaining Length
-	uint16_t remainLen = sizeof(var_header)+msglen;
+	uint32_t remainLen = sizeof(var_header)+msglen;
 	if (remainLen > 127) {
 		fixedHeaderSize++;          // add an additional byte for Remaining Length
 	}
@@ -367,6 +367,8 @@ int mqtt_publish_with_qos(mqtt_broker_handle_t* broker, const char* topic, const
 	if(retain) {
 		fixed_header[0] |= MQTT_RETAIN_FLAG;
    }
+
+	LLOGD("remainLen:%d",remainLen);
    // Remaining Length
    if (remainLen <= 127) {
        fixed_header[1] = remainLen;
@@ -376,28 +378,32 @@ int mqtt_publish_with_qos(mqtt_broker_handle_t* broker, const char* topic, const
        fixed_header[1] = fixed_header[1] | 0x80;
        // second byte is number of 128s
        fixed_header[2] = remainLen / 128;
-   } else if(remainLen >= 16384 && remainLen <= 2097151){
-       // first byte is remainder (mod) of 16384, then set the MSB to indicate more bytes
-       fixed_header[1] = remainLen % 16384;
-       fixed_header[1] = fixed_header[1] | 0x80;
-		// second byte is remainder (mod) of 128, then set the MSB to indicate more bytes
-       fixed_header[2] = remainLen % 128;
-       fixed_header[2] = fixed_header[2] | 0x80;
-       // third byte is number of 128s
-       fixed_header[3] = remainLen / 128;
-   } else if(remainLen >= 2097152 && remainLen <= 268435455){
-       // first byte is remainder (mod) of 2097152, then set the MSB to indicate more bytes
-       fixed_header[1] = remainLen % 2097152;
-       fixed_header[1] = fixed_header[1] | 0x80;
-		// second byte is remainder (mod) of 16384, then set the MSB to indicate more bytes
-       fixed_header[2] = remainLen % 16384;
-       fixed_header[2] = fixed_header[2] | 0x80;
-		// third byte is remainder (mod) of 128, then set the MSB to indicate more bytes
-       fixed_header[3] = remainLen % 128;
-       fixed_header[3] = fixed_header[3] | 0x80;
-       // fourth byte is number of 128s
-       fixed_header[4] = remainLen / 128;
-   }
+   } 
+//    else if(remainLen >= 16384 && remainLen <= 2097151){
+//        // first byte is remainder (mod) of 16384, then set the MSB to indicate more bytes
+//        fixed_header[1] = remainLen % 16384;
+//        fixed_header[1] = fixed_header[1] | 0x80;
+// 	   tem_len = remainLen / 16384;
+// 		// second byte is remainder (mod) of 128, then set the MSB to indicate more bytes
+//        fixed_header[2] = tem_len % 128;
+//        fixed_header[2] = fixed_header[2] | 0x80;
+//        // third byte is number of 128s
+//        fixed_header[3] = tem_len / 128;
+//    } else if(remainLen >= 2097152 && remainLen <= 268435455){
+//        // first byte is remainder (mod) of 2097152, then set the MSB to indicate more bytes
+//        fixed_header[1] = remainLen % 2097152;
+//        fixed_header[1] = fixed_header[1] | 0x80;
+// 	   tem_len = remainLen / 2097152;
+// 		// second byte is remainder (mod) of 16384, then set the MSB to indicate more bytes
+//        fixed_header[2] = tem_len % 16384;
+//        fixed_header[2] = fixed_header[2] | 0x80;
+// 	   tem_len = tem_len / 16384;
+// 		// third byte is remainder (mod) of 128, then set the MSB to indicate more bytes
+//        fixed_header[3] = tem_len % 128;
+//        fixed_header[3] = fixed_header[3] | 0x80;
+//        // fourth byte is number of 128s
+//        fixed_header[4] = tem_len / 128;
+//    }
 
 	uint8_t packet[sizeof(fixed_header)+sizeof(var_header)];
 	memset(packet, 0, sizeof(packet));

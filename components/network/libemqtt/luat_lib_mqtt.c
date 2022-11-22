@@ -820,7 +820,16 @@ static int l_mqtt_publish(lua_State *L) {
 	uint32_t message_id ,payload_len= 0;
 	luat_mqtt_ctrl_t * mqtt_ctrl = get_mqtt_ctrl(L);
 	const char * topic = luaL_checkstring(L, 2);
-	const char * payload = luaL_checklstring(L, 3, &payload_len);
+	const char * payload = NULL;
+	luat_zbuff_t *buff = NULL;
+	if (lua_isstring(L, 3)){
+		payload = luaL_checklstring(L, 3, &payload_len);
+	}else{
+		buff = ((luat_zbuff_t *)luaL_checkudata(L, 3, LUAT_ZBUFF_TYPE));
+		payload = buff->addr;
+		payload_len = buff->len;
+	}
+	LLOGD("payload_len:%d",payload_len);
 	uint8_t qos = luaL_optinteger(L, 4, 0);
 	uint8_t retain = luaL_optinteger(L, 5, 0);
 	int ret = mqtt_publish_with_qos(&(mqtt_ctrl->broker), topic, payload,payload_len, retain, qos, &message_id);

@@ -24,7 +24,7 @@
 
 #define MQTT_RECV_BUF_LEN_MAX 4096
 
-#define MQTT_DEBUG 0
+#define MQTT_DEBUG 1
 #if MQTT_DEBUG == 0
 #undef LLOGD
 #define LLOGD(...)
@@ -84,7 +84,7 @@ static void reconnect_timer_cb(LUAT_RT_CB_PARAM){
 	if (ret == 0){
 		int ret = luat_socket_connect(mqtt_ctrl, mqtt_ctrl->host, mqtt_ctrl->remote_port, mqtt_ctrl->keepalive);
 		if(ret){
-			LLOGI("init_socket ret=%d\n", ret);
+			LLOGI("reconnect init socket ret=%d\n", ret);
 			mqtt_close_socket(mqtt_ctrl);
 		}
 	}
@@ -92,6 +92,7 @@ static void reconnect_timer_cb(LUAT_RT_CB_PARAM){
 
 static void mqtt_reconnect(luat_mqtt_ctrl_t *mqtt_ctrl){
 	if (mqtt_ctrl->reconnect){
+		LLOGI("reconnect after %sms", mqtt_ctrl->reconnect_time);
 		mqtt_ctrl->buffer_offset = 0;
 		mqtt_ctrl->reconnect_timer = luat_create_rtos_timer(reconnect_timer_cb, mqtt_ctrl, NULL);
 		luat_start_rtos_timer(mqtt_ctrl->reconnect_timer, mqtt_ctrl->reconnect_time, 0);
@@ -99,6 +100,7 @@ static void mqtt_reconnect(luat_mqtt_ctrl_t *mqtt_ctrl){
 }
 
 static void mqtt_close_socket(luat_mqtt_ctrl_t *mqtt_ctrl){
+	LLOGI("mqtt closing socket");
 	if (mqtt_ctrl->netc){
 		network_force_close_socket(mqtt_ctrl->netc);
 	}
@@ -224,6 +226,7 @@ further:
 			}
 		}
 		else {
+			LLOGW("mqtt_parse ret %d, closing socket");
 			mqtt_close_socket(mqtt_ctrl);
 			break;
 		}
@@ -452,11 +455,11 @@ static int32_t luat_lib_mqtt_callback(void *data, void *param){
 	// LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
 	LLOGD("network mqtt cb %8X %s %8X",event->ID & 0x0ffffffff, event2str(event->ID & 0x0ffffffff) ,event->Param1);
 	if (event->ID == EV_NW_RESULT_LINK){
-		int ret = luat_socket_connect(mqtt_ctrl, mqtt_ctrl->host, mqtt_ctrl->remote_port, mqtt_ctrl->keepalive);
-		if(ret){
-			LLOGE("socket connect ret=%d\n", ret);
-			mqtt_close_socket(mqtt_ctrl);
-		}
+		// int ret = luat_socket_connect(mqtt_ctrl, mqtt_ctrl->host, mqtt_ctrl->remote_port, mqtt_ctrl->keepalive);
+		// if(ret){
+		// 	LLOGE("socket connect ret=%d\n", ret);
+		// 	mqtt_close_socket(mqtt_ctrl);
+		// }
 		return 0; // 这里应该直接返回, 不能往下调用network_wait_event
 	}else if(event->ID == EV_NW_RESULT_CONNECT){
 		ret = mqtt_connect(&(mqtt_ctrl->broker));
@@ -477,10 +480,12 @@ static int32_t luat_lib_mqtt_callback(void *data, void *param){
 
 	}
 	if (event->Param1){
+		LLOGW("mqtt_callback param1 %d, closing socket", event->Param1);
 		mqtt_close_socket(mqtt_ctrl);
 	}
 	ret = network_wait_event(mqtt_ctrl->netc, NULL, 0, NULL);
 	if (ret < 0){
+		LLOGW("network_wait_event ret %d, closing socket", ret);
 		mqtt_close_socket(mqtt_ctrl);
 		return -1;
 	}
@@ -497,17 +502,18 @@ static int mqtt_send_packet(void* socket_info, const void* buf, unsigned int cou
 }
 
 static int luat_socket_connect(luat_mqtt_ctrl_t *mqtt_ctrl, const char *hostname, uint16_t port, uint16_t keepalive){
+	int ret = 0;
+    mqtt_set_alive(&(mqtt_ctrl->broker), keepalive);
 #ifdef LUAT_USE_LWIP
-	if(network_connect(mqtt_ctrl->netc, hostname, strlen(hostname), (0xff == mqtt_ctrl->ip_addr.type)?NULL:&(mqtt_ctrl->ip_addr), port, 0) < 0){
+	ret = network_connect(mqtt_ctrl->netc, hostname, strlen(hostname), (0xff == mqtt_ctrl->ip_addr.type)?NULL:&(mqtt_ctrl->ip_addr), port, 0) < 0;
 #else
-	if(network_connect(mqtt_ctrl->netc, hostname, strlen(hostname), (0xff == mqtt_ctrl->ip_addr.is_ipv6)?NULL:&(mqtt_ctrl->ip_addr), port, 0) < 0){
+	ret = network_connect(mqtt_ctrl->netc, hostname, strlen(hostname), (0xff == mqtt_ctrl->ip_addr.is_ipv6)?NULL:&(mqtt_ctrl->ip_addr), port, 0) < 0;
 #endif
+	LLOGD("network_connect ret %d", ret);
+	if (ret < 0) {
         network_close(mqtt_ctrl->netc, 0);
         return -1;
     }
-    mqtt_set_alive(&(mqtt_ctrl->broker), keepalive);
-    mqtt_ctrl->broker.socket_info = mqtt_ctrl;
-    mqtt_ctrl->broker.send = mqtt_send_packet;
     return 0;
 }
 
@@ -695,6 +701,10 @@ static int l_mqtt_create(lua_State *L) {
 		network_deinit_tls(mqtt_ctrl->netc);
 	}
 
+	
+    mqtt_ctrl->broker.socket_info = mqtt_ctrl;
+    mqtt_ctrl->broker.send = mqtt_send_packet;
+
 	luaL_setmetatable(L, LUAT_MQTT_CTRL_TYPE);
 	lua_pushvalue(L, -1);
 	mqtt_ctrl->mqtt_ref = luaL_ref(L, LUA_REGISTRYINDEX);
@@ -775,15 +785,12 @@ mqttc:connect()
 */
 static int l_mqtt_connect(lua_State *L) {
 	luat_mqtt_ctrl_t * mqtt_ctrl = get_mqtt_ctrl(L);
-	int ret = network_wait_link_up(mqtt_ctrl->netc, 0);
-	if (ret == 0){
-		int ret = luat_socket_connect(mqtt_ctrl, mqtt_ctrl->host, mqtt_ctrl->remote_port, mqtt_ctrl->keepalive);
-		if (ret) {
-			LLOGE("socket connect ret=%d\n", ret);
-			mqtt_close_socket(mqtt_ctrl);
-			lua_pushboolean(L, 0);
-			return 1;
-		}
+	int ret = ret = luat_socket_connect(mqtt_ctrl, mqtt_ctrl->host, mqtt_ctrl->remote_port, mqtt_ctrl->keepalive);
+	if (ret) {
+		LLOGE("socket connect ret=%d\n", ret);
+		mqtt_close_socket(mqtt_ctrl);
+		lua_pushboolean(L, 0);
+		return 1;
 	}
 	lua_pushboolean(L, 1);
 	return 1;

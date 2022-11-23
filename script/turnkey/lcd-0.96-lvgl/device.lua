@@ -48,6 +48,20 @@ local chips = {
         keyD = 9,
         keyO = 4,
     },
+    ec618 = {
+        useFont = false,
+        spi = 0,
+        spiCS = 8,
+        spiSpeed = 20*1000*1000,
+        lcdDC = 10,
+        lcdRST = 1,
+        lcdBL = 22,
+        keyL = 0xff,
+        keyR = 0xff,
+        keyU = 12,
+        keyD = 0xff,
+        keyO = 11,
+    },
     --别的看着加吧
 }
 --这俩兼容

@@ -824,10 +824,12 @@ static int l_mqtt_publish(lua_State *L) {
 	luat_zbuff_t *buff = NULL;
 	if (lua_isstring(L, 3)){
 		payload = luaL_checklstring(L, 3, &payload_len);
-	}else{
+	}else if (luaL_testudata(L, 3, LUAT_ZBUFF_TYPE)){
 		buff = ((luat_zbuff_t *)luaL_checkudata(L, 3, LUAT_ZBUFF_TYPE));
 		payload = buff->addr;
-		payload_len = buff->len;
+		payload_len = buff->used;
+	}else{
+		LLOGD("only support string or zbuff");
 	}
 	// LLOGD("payload_len:%d",payload_len);
 	uint8_t qos = luaL_optinteger(L, 4, 0);

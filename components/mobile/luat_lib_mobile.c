@@ -335,6 +335,16 @@ static int l_mobile_status(lua_State* L) {
     return 1;
 }
 
+static inline uint16_t u162bcd(uint16_t src) {
+    uint8_t high = (src >> 8) & 0xFF;
+    uint8_t low  = src & 0xFF;
+    uint16_t dst = 0;
+    dst += (low & 0x0F) + (low >> 4) * 10;
+    dst += ((high & 0x0F) + (high >> 4) * 10) * 100;
+    //LLOGD("src %04X dst %d", src, dst);
+    return dst;
+}
+
 /**
 获取机制信息
 @api mobile.getCellInfo()
@@ -402,9 +412,9 @@ static int l_mobile_get_cell_info(lua_State* L) {
     lua_setfield(L, -2, "tdd");
     lua_pushinteger(L, info->lte_service_info.snr);
     lua_setfield(L, -2, "snr");
-    lua_pushinteger(L, info->lte_service_info.mcc);
+    lua_pushinteger(L, u162bcd(info->lte_service_info.mcc));
     lua_setfield(L, -2, "mcc");
-    lua_pushinteger(L, info->lte_service_info.mnc);
+    lua_pushinteger(L, u162bcd(info->lte_service_info.mnc));
     lua_setfield(L, -2, "mnc");
     lua_pushinteger(L, info->lte_service_info.tac);
     lua_setfield(L, -2, "tac");
@@ -427,9 +437,9 @@ static int l_mobile_get_cell_info(lua_State* L) {
             lua_setfield(L, -2, "rsrp");
             lua_pushinteger(L, info->lte_info[i].rsrq);
             lua_setfield(L, -2, "rsrq");
-            lua_pushinteger(L, info->lte_info[i].mcc);
+            lua_pushinteger(L, u162bcd(info->lte_info[i].mcc));
             lua_setfield(L, -2, "mcc");
-            lua_pushinteger(L, info->lte_info[i].mnc);
+            lua_pushinteger(L, u162bcd(info->lte_info[i].mnc));
             lua_setfield(L, -2, "mnc");
             lua_pushinteger(L, info->lte_info[i].snr);
             lua_setfield(L, -2, "snr");

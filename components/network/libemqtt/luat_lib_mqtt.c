@@ -457,6 +457,7 @@ static int32_t luat_lib_mqtt_callback(void *data, void *param){
 			LLOGE("socket connect ret=%d\n", ret);
 			mqtt_close_socket(mqtt_ctrl);
 		}
+		return 0; // 这里应该直接返回, 不能往下调用network_wait_event
 	}else if(event->ID == EV_NW_RESULT_CONNECT){
 		ret = mqtt_connect(&(mqtt_ctrl->broker));
 		if(ret==1){

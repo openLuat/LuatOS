@@ -371,6 +371,7 @@ static int32_t luat_lib_http_callback(void *data, void *param){
 			http_resp_error(http_ctrl, HTTP_ERROR_CONNECT);
 			return -1;
     	}
+		return 0;
 	}else if(event->ID == EV_NW_RESULT_CONNECT){
 		//memset(http_ctrl->request_message, 0, HTTP_REQUEST_BUF_LEN_MAX);
 		uint32_t tx_len = 0;

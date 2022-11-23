@@ -18,12 +18,11 @@ sys.taskInit(function()
     -- miniz能解压标准zlib数据流
     local b64str = "eAEFQIGNwyAMXOUm+E2+OzjhCCiOjYyhyvbVR7K7IR0l+iau8G82eIW5jXVoPzF5pse/B8FaPXLiWTNxEMsKI+WmIR0l+iayEY2i2V4UbqqPh5bwimyEuY11aD8xeaYHxAquvom6VDFUXqQjG1Fek6efCFfCK0b0LUnQMjiCxhUT05GNL75dFUWCSMcjN3EE5c4Wvq42/36R41fa"
     local str = b64str:fromBase64()
-    
+
     local dstr = miniz.uncompress(str)
     -- 压缩过的数据长度 156
     -- 解压后的数据长度,即原始数据的长度 235
     log.info("miniz", "compressed", #str, "uncompressed", #dstr)
-
 end)
 
 

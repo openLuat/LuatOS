@@ -8,7 +8,7 @@
 
 #include "luat_base.h"
 
-#ifdef LUAT_USE_NETWORK
+#include "http_parser.h"
 
 #include "luat_network_adapter.h"
 #include "luat_rtos.h"
@@ -22,6 +22,7 @@
 #define HTTP_REQUEST_BUF_LEN_MAX 1024
 #define HTTP_RESP_HEADER_MAX_SIZE (4096)
 
+#define HTTP_OK 			(0)
 #define HTTP_ERROR_STATE 	(-1)
 #define HTTP_ERROR_HEADER 	(-2)
 #define HTTP_ERROR_BODY 	(-3)
@@ -45,6 +46,8 @@ typedef struct{
 	const char *dst;
 	uint8_t is_download;
 	uint8_t request_message[HTTP_REQUEST_BUF_LEN_MAX];
+
+	http_parser  parser;
 
 	// 响应相关
 	uint8_t resp_header_parsed;
@@ -111,7 +114,7 @@ static int32_t l_http_callback(lua_State *L, void* ptr){
 		http_close(http_ctrl);
 		return 0;
 	}
-
+	network_close(http_ctrl->netc, 0);
 	// 解析status code
 	uint16_t code_offset = strlen("HTTP/1.x ");
 	uint16_t code_len = 3;
@@ -294,7 +297,7 @@ static int http_read_packet(luat_http_ctrl_t *http_ctrl){
 	rtos_msg_t msg = {0};
     msg.handler = l_http_callback;
 	msg.ptr = http_ctrl;
-	msg.arg1 = 0;
+	msg.arg1 = HTTP_OK;
 
 	if (http_ctrl->is_download) {
 		// 写数据
@@ -315,7 +318,7 @@ static int http_read_packet(luat_http_ctrl_t *http_ctrl){
 				http_ctrl->fd_ok = 1; // 标记成功
 			}
 			// 读完写完, 完结散花
-			network_close(http_ctrl->netc, 0);
+
 			http_ctrl->close_state=1;
 			luat_msgbus_put(&msg, 0);
 			return 0;
@@ -327,7 +330,7 @@ static int http_read_packet(luat_http_ctrl_t *http_ctrl){
 	else { // 非下载模式, 等数据齐了就结束
 		// LLOGD("resp_buff_len:%d resp_content_len:%d",http_ctrl->resp_buff_len,http_ctrl->resp_content_len);
 		if (http_ctrl->resp_buff_len == http_ctrl->resp_content_len) {
-			network_close(http_ctrl->netc, 0);
+
 			http_ctrl->close_state=1;
 			luat_msgbus_put(&msg, 0);
 			return 0;
@@ -759,26 +762,18 @@ static const rotable_Reg_t reg_http[] =
 	{ NULL,             ROREG_INT(0)}
 };
 
-LUAMOD_API int luaopen_http( lua_State *L ) {
-    luat_newlib2(L, reg_http);
-    return 1;
-}
-
-#else
-
-#define LUAT_LOG_TAG "http2"
-#include "luat_log.h"
-
-#include "rotable2.h"
-static const rotable_Reg_t reg_http[] =
+static const rotable_Reg_t reg_http_emtry[] =
 {
 	{ NULL,             ROREG_INT(0)}
 };
+
 LUAMOD_API int luaopen_http( lua_State *L ) {
+#ifdef LUAT_USE_NETWORK
     luat_newlib2(L, reg_http);
+#else
+    luat_newlib2(L, reg_http_emtry);
 	LLOGE("reg_http2 require network enable!!");
+#endif
     return 1;
 }
-#endif
-
 

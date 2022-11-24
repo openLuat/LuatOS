@@ -382,7 +382,7 @@ mqttc:connect()
 */
 static int l_mqtt_connect(lua_State *L) {
 	luat_mqtt_ctrl_t * mqtt_ctrl = get_mqtt_ctrl(L);
-	int ret = ret = luat_mqtt_connect(mqtt_ctrl);
+	int ret = luat_mqtt_connect(mqtt_ctrl);
 	if (ret) {
 		LLOGE("socket connect ret=%d\n", ret);
 		luat_mqtt_close_socket(mqtt_ctrl);

@@ -25,13 +25,10 @@ LUAT_RT_RET_TYPE luat_mqtt_timer_callback(LUAT_RT_CB_PARAM){
 
 static void reconnect_timer_cb(LUAT_RT_CB_PARAM){
 	luat_mqtt_ctrl_t * mqtt_ctrl = (luat_mqtt_ctrl_t *)param;
-	int ret = network_wait_link_up(mqtt_ctrl->netc, 0);
-	if (ret == 0){
-		int ret = luat_mqtt_connect(mqtt_ctrl);
-		if(ret){
-			LLOGI("reconnect init socket ret=%d\n", ret);
-			luat_mqtt_close_socket(mqtt_ctrl);
-		}
+	int ret = luat_mqtt_connect(mqtt_ctrl);
+	if(ret){
+		LLOGI("reconnect init socket ret=%d\n", ret);
+		luat_mqtt_close_socket(mqtt_ctrl);
 	}
 }
 

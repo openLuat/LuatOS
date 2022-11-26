@@ -1,4 +1,6 @@
 #include "luat_base.h"
+#include "luat_mcu.h"
+#include "luat_malloc.h"
 #ifdef LUAT_USE_DNS
 #include "platform_def.h"
 #include "dns_def.h"
@@ -263,20 +265,20 @@ uint8_t dns_check_uri(const char *uri, uint32_t uri_len)
          return 0;
     }
 
-    if (!isalpha(uri[0])) // domain must start with a letter
+    if (!isalpha((int)uri[0])) // domain must start with a letter
     {
         return 0;
     }
 
     uri_last = uri[uri_len - 1];
-    if (!isalnum(uri_last))//end with a letter or digit
+    if (!isalnum((int)uri_last))//end with a letter or digit
     {
          return 0;
     }
 
     for(i = 0; i < uri_len ; i++)
     {
-        if(!(isalnum(uri[i]) || uri[i]== '.' || uri[i] == '-'))//must a~z or A~Z or 0~9 or . or -
+        if(!(isalnum((int)uri[i]) || uri[i]== '.' || uri[i] == '-'))//must a~z or A~Z or 0~9 or . or -
         {
             return 0;
         }

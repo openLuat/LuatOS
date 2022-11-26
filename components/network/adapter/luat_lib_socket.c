@@ -264,19 +264,19 @@ static int l_socket_config(lua_State *L)
 		network_init_tls(l_ctrl->netc, (server_cert || client_cert)?2:0);
 		if (is_udp)
 		{
-			network_set_psk_info(l_ctrl->netc, server_cert, server_cert_len, client_key, client_key_len);
+			network_set_psk_info(l_ctrl->netc, (const unsigned char *)server_cert, server_cert_len, (const unsigned char *)client_key, client_key_len);
 		}
 		else
 		{
 			if (server_cert)
 			{
-				network_set_server_cert(l_ctrl->netc, server_cert, server_cert_len);
+				network_set_server_cert(l_ctrl->netc, (const unsigned char *)server_cert, server_cert_len);
 			}
 			if (client_cert)
 			{
-				network_set_client_cert(l_ctrl->netc, client_cert, client_cert_len,
-						client_key, client_key_len,
-						client_password, client_password_len);
+				network_set_client_cert(l_ctrl->netc, (const unsigned char *)client_cert, client_cert_len,
+						(const unsigned char *)client_key, client_key_len,
+						(const unsigned char *)client_password, client_password_len);
 			}
 		}
 	}
@@ -387,13 +387,13 @@ static int l_socket_close(lua_State *L)
 */
 static int l_socket_tx(lua_State *L)
 {
-	char ip_buf[68];
+	char ip_buf[68] = {0};
 	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
-	luat_ip_addr_t ip_addr;
+	luat_ip_addr_t ip_addr = {0};
 	luat_zbuff_t *buff = NULL;
-	const char *ip;
-	const char *data;
-	size_t ip_len, data_len;
+	const char *ip = NULL;
+	const char *data = NULL;
+	size_t ip_len = 0, data_len = 0;
 	ip_addr.type = 0xff;
 	if (lua_isstring(L, 2))
 	{
@@ -403,7 +403,7 @@ static int l_socket_tx(lua_State *L)
 	else
 	{
 		buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
-		data = buff->addr;
+		data = (const char*)buff->addr;
 		data_len = buff->used;
 	}
 	if (lua_isinteger(L, 3))
@@ -934,19 +934,19 @@ static int l_socket_config(lua_State *L)
 		network_init_tls(l_ctrl->netc, (server_cert || client_cert)?2:0);
 		if (is_udp)
 		{
-			network_set_psk_info(l_ctrl->netc, server_cert, server_cert_len, client_key, client_key_len);
+			network_set_psk_info(l_ctrl->netc, (const unsigned char *)server_cert, server_cert_len, (const unsigned char *)client_key, client_key_len);
 		}
 		else
 		{
 			if (server_cert)
 			{
-				network_set_server_cert(l_ctrl->netc, server_cert, server_cert_len);
+				network_set_server_cert(l_ctrl->netc, (const unsigned char *)server_cert, server_cert_len);
 			}
 			if (client_cert)
 			{
-				network_set_client_cert(l_ctrl->netc, client_cert, client_cert_len,
-						client_key, client_key_len,
-						client_password, client_password_len);
+				network_set_client_cert(l_ctrl->netc, (const unsigned char *)client_cert, client_cert_len,
+						(const unsigned char *)client_key, client_key_len,
+						(const unsigned char *)client_password, client_password_len);
 			}
 		}
 	}
@@ -1018,11 +1018,11 @@ static int l_socket_close(lua_State *L)
 static int l_socket_tx(lua_State *L)
 {
 	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
-	luat_ip_addr_t ip_addr;
+	luat_ip_addr_t ip_addr = {0};
 	luat_zbuff_t *buff = NULL;
-	const char *ip;
-	const char *data;
-	size_t ip_len, data_len;
+	const char *ip = NULL;
+	const char *data = NULL;
+	size_t ip_len = 0, data_len = 0;
 	ip_addr.is_ipv6 = 0xff;
 	if (lua_isstring(L, 2))
 	{
@@ -1032,7 +1032,7 @@ static int l_socket_tx(lua_State *L)
 	else
 	{
 		buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
-		data = buff->addr;
+		data = (const char *)buff->addr;
 		data_len = buff->used;
 	}
 	if (lua_isinteger(L, 3))
@@ -1060,7 +1060,7 @@ static int l_socket_tx(lua_State *L)
 		}
 	}
 	uint32_t tx_len;
-	int result = network_tx(l_ctrl->netc, data, data_len, luaL_optinteger(L, 5, 0), (ip_addr.is_ipv6 != 0xff)?&ip_addr:NULL, luaL_optinteger(L, 4, 0), &tx_len, 0);
+	int result = network_tx(l_ctrl->netc, (const uint8_t *)data, data_len, luaL_optinteger(L, 5, 0), (ip_addr.is_ipv6 != 0xff)?&ip_addr:NULL, luaL_optinteger(L, 4, 0), &tx_len, 0);
 	lua_pushboolean(L, result < 0);
 	lua_pushboolean(L, tx_len != data_len);
 	lua_pushboolean(L, result == 0);
@@ -1131,13 +1131,13 @@ static int l_socket_rx(lua_State *L)
 				{
 					ip[0] = 0;
 					memcpy(ip + 1, &ip_addr.ipv4, 4);
-					lua_pushlstring(L, ip, 5);
+					lua_pushlstring(L, (const char*)ip, 5);
 				}
 				else
 				{
 					ip[0] = 1;
 					memcpy(ip + 1, &ip_addr.ipv6_u8_addr, 16);
-					lua_pushlstring(L, ip, 17);
+					lua_pushlstring(L, (const char*)ip, 17);
 				}
 				lua_pushinteger(L, port);
 			}
@@ -1280,7 +1280,9 @@ static int l_socket_set_dns(lua_State *L)
 
 static int l_socket_set_ssl_log(lua_State *L)
 {
+	#if defined(MBEDTLS_DEBUG_C)
 	mbedtls_debug_set_threshold(luaL_optinteger(L, 1, 1));
+	#endif
 	return 0;
 }
 

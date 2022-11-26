@@ -1,4 +1,6 @@
 #include "luat_base.h"
+#include "luat_malloc.h"
+#include "luat_mcu.h"
 #ifdef LUAT_USE_DHCP
 #include "luat_network_adapter.h"
 #include "dhcp_def.h"
@@ -81,8 +83,8 @@ void make_ip4_dhcp_discover_msg(dhcp_client_info_t *dhcp, Buffer_Struct *out)
 	make_ip4_dhcp_msg_base(dhcp, 0x8000, out);
 	ip4_dhcp_msg_add_integer_option(DHCP_OPTION_MESSAGE_TYPE, DHCP_OPTION_MESSAGE_TYPE_LEN, DHCP_DISCOVER, out);
 	ip4_dhcp_msg_add_bytes_option(DHCP_OPTION_PARAMETER_REQUEST_LIST, dhcp_discover_request_options, sizeof(dhcp_discover_request_options), out);
-	ip4_dhcp_msg_add_bytes_option(DHCP_OPTION_HOSTNAME, dhcp->name, strlen(dhcp->name), out);
-	ip4_dhcp_msg_add_client_id_option(DHCP_OPTION_CLIENT_ID, dhcp->mac, 6, out);
+	ip4_dhcp_msg_add_bytes_option(DHCP_OPTION_HOSTNAME, (uint8_t*)dhcp->name, strlen(dhcp->name), out);
+	ip4_dhcp_msg_add_client_id_option(DHCP_OPTION_CLIENT_ID, (uint8_t*)dhcp->mac, 6, out);
 	BytesPut8ToBuf(out, 0xff);
 	if (out->Pos < (DHCP_MSG_LEN + 72))
 	{
@@ -115,8 +117,8 @@ void make_ip4_dhcp_select_msg(dhcp_client_info_t *dhcp, uint16_t flag, Buffer_St
 		ip4_dhcp_msg_add_ip_option(DHCP_OPTION_SERVER_ID, dhcp->server_ip, out);
 	}
 	ip4_dhcp_msg_add_bytes_option(DHCP_OPTION_PARAMETER_REQUEST_LIST, dhcp_discover_request_options, sizeof(dhcp_discover_request_options), out);
-	ip4_dhcp_msg_add_bytes_option(DHCP_OPTION_HOSTNAME, dhcp->name, strlen(dhcp->name), out);
-	ip4_dhcp_msg_add_client_id_option(DHCP_OPTION_CLIENT_ID, dhcp->mac, 6, out);
+	ip4_dhcp_msg_add_bytes_option(DHCP_OPTION_HOSTNAME, (uint8_t*)dhcp->name, strlen(dhcp->name), out);
+	ip4_dhcp_msg_add_client_id_option(DHCP_OPTION_CLIENT_ID, (uint8_t*)dhcp->mac, 6, out);
 	BytesPut8ToBuf(out, 0xff);
 }
 
@@ -128,14 +130,14 @@ void make_ip4_dhcp_decline_msg(dhcp_client_info_t *dhcp, Buffer_Struct *out)
 	ip4_dhcp_msg_add_integer_option(DHCP_OPTION_MESSAGE_TYPE, DHCP_OPTION_MESSAGE_TYPE_LEN, DHCP_DECLINE, out);
 	ip4_dhcp_msg_add_ip_option(DHCP_OPTION_REQUESTED_IP, dhcp->temp_ip, out);
 	ip4_dhcp_msg_add_ip_option(DHCP_OPTION_SERVER_ID, dhcp->server_ip, out);
-	ip4_dhcp_msg_add_bytes_option(DHCP_OPTION_HOSTNAME, dhcp->name, strlen(dhcp->name), out);
-	ip4_dhcp_msg_add_client_id_option(DHCP_OPTION_CLIENT_ID, dhcp->mac, 6, out);
+	ip4_dhcp_msg_add_bytes_option(DHCP_OPTION_HOSTNAME, (uint8_t*)dhcp->name, strlen(dhcp->name), out);
+	ip4_dhcp_msg_add_client_id_option(DHCP_OPTION_CLIENT_ID, (uint8_t*)dhcp->mac, 6, out);
 	BytesPut8ToBuf(out, 0xff);
 }
 
 int analyze_ip4_dhcp(dhcp_client_info_t *dhcp, Buffer_Struct *in)
 {
-	int ack;
+	int ack = 0;
 	uint64_t lease_time;
 	if (in->Data[0] != DHCP_BOOTREPLY)
 	{
@@ -213,7 +215,7 @@ int ip4_dhcp_run(dhcp_client_info_t *dhcp, Buffer_Struct *in, Buffer_Struct *out
 {
 	uint16_t flag = 0x8000;
 	*remote_ip = 0xffffffff;
-	int result;
+	int result = 0;
 	if (in)
 	{
 		result = analyze_ip4_dhcp(dhcp, in);

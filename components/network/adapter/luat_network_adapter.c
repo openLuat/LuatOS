@@ -1,5 +1,8 @@
 
 #include "luat_base.h"
+#include "luat_malloc.h"
+#include "luat_crypto.h"
+#include "luat_rtos.h"
 #ifdef LUAT_USE_NETWORK
 
 #include "luat_rtos.h"
@@ -2513,6 +2516,7 @@ static int network_state_wait_dns(network_ctrl_t *ctrl, OS_EVENT *event, network
 	default:
 		return 1;
 	}
+	return 1; // TODO 返回值不确定
 }
 
 static int network_state_connecting(network_ctrl_t *ctrl, OS_EVENT *event, network_adapter_t *adapter)
@@ -2600,6 +2604,7 @@ static int network_state_connecting(network_ctrl_t *ctrl, OS_EVENT *event, netwo
 	default:
 		return 1;
 	}
+	return 1; // TODO 返回值不确定
 }
 
 static int network_state_shakehand(network_ctrl_t *ctrl, OS_EVENT *event, network_adapter_t *adapter)
@@ -2779,6 +2784,7 @@ static int network_state_disconnecting(network_ctrl_t *ctrl, OS_EVENT *event, ne
 			network_force_close_socket(ctrl);
 			ctrl->state = NW_STATE_OFF_LINE;
 			ctrl->socket_id = -1;
+			return -1; // TODO 不清楚应该返回什么
 		}
 		break;
 	default:
@@ -2801,7 +2807,7 @@ static network_state_fun network_state_fun_list[]=
 
 static void network_default_statemachine(network_ctrl_t *ctrl, OS_EVENT *event, network_adapter_t *adapter)
 {
-	int result;
+	int result = 0;
 	if (ctrl->state > NW_STATE_DISCONNECTING)
 	{
 		ctrl->state = NW_STATE_LINK_OFF;
@@ -2841,7 +2847,7 @@ static int32_t network_default_socket_callback(void *data, void *param)
 	OS_EVENT temp_event;
 	luat_network_cb_param_t *cb_param = (luat_network_cb_param_t *)param;
 	network_adapter_t *adapter =(network_adapter_t *)(cb_param->param);
-	int i;
+	int i = 0;
 	network_ctrl_t *ctrl = (network_ctrl_t *)event->Param3;
 	if (event->ID > EV_NW_TIMEOUT)
 	{
@@ -2916,7 +2922,7 @@ uint8_t network_string_is_ipv4(const char *string, uint32_t len)
 	int i;
 	for(i = 0; i < len; i++)
 	{
-		if (!isdigit(string[i]) && (string[i] != '.'))
+		if (!isdigit((int)string[i]) && (string[i] != '.'))
 		{
 			return 0;
 		}
@@ -2938,10 +2944,10 @@ uint32_t network_string_to_ipv4(const char *string, uint32_t len)
 	CP.param_str = (int8_t *)Buf;
 	memcpy(temp, string, len);
 	temp[len] = 0;
-	CmdParseParam(temp, &CP, '.');
+	CmdParseParam((int8_t*)temp, &CP, '.');
 	for(i = 0; i < 4; i++)
 	{
-		uIP.u8[i] = strtol(Buf[i], NULL, 10);
+		uIP.u8[i] = strtol((uint8_t)Buf[i], NULL, 10);
 	}
 //	DBG("%d.%d.%d.%d", uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
 	return uIP.u32;
@@ -2965,7 +2971,7 @@ int network_string_to_ipv6(const char *string, luat_ip_addr_t *ip_addr)
   for (s = string; *s != 0; s++) {
 	if (*s == ':') {
 	  zero_blocks--;
-	} else if (!isxdigit(*s)) {
+	} else if (!isxdigit((int)*s)) {
 	  break;
 	}
   }
@@ -3009,11 +3015,11 @@ int network_string_to_ipv6(const char *string, luat_ip_addr_t *ip_addr)
 		  }
 		}
 	  }
-	} else if (isxdigit(*s)) {
+	} else if (isxdigit((int)*s)) {
 	  /* add current digit */
 	  current_block_value = (current_block_value << 4) +
-		  (isxdigit(*s) ? (uint32_t)(*s - '0') :
-		  (uint32_t)(10 + (isxdigit(*s) ? *s - 'a' : *s - 'A')));
+		  (isxdigit((int)*s) ? (uint32_t)(*s - '0') :
+		  (uint32_t)(10 + (isxdigit((int)*s) ? *s - 'a' : *s - 'A')));
 	} else {
 	  /* unexpected digit, space? CRLF? */
 	  break;
@@ -3064,6 +3070,7 @@ int network_register_adapter(uint8_t adapter_index, network_adapter_info *info, 
 	}
 
 	prv_network.last_adapter_index = adapter_index;
+	return 0;
 }
 
 void network_set_dns_server(uint8_t adapter_index, uint8_t server_index, luat_ip_addr_t *ip)
@@ -3391,10 +3398,10 @@ void network_force_close_socket(network_ctrl_t *ctrl)
 
 void network_clean_invaild_socket(uint8_t adapter_index)
 {
-	int i;
-	int *list;
+	int i = 0;
+	int *list = NULL;
 	network_adapter_t *adapter = &prv_adapter_table[adapter_index];
-	network_ctrl_t *ctrl;
+	network_ctrl_t *ctrl = NULL;
 	list = malloc(adapter->opt->max_socket_num * sizeof(int));
 	NW_LOCK;
 	for (i = 0; i < adapter->opt->max_socket_num; i++)
@@ -3533,7 +3540,7 @@ int network_cert_verify_result(network_ctrl_t *ctrl)
 static int tls_random( void *p_rng,
         unsigned char *output, size_t output_len )
 {
-	platform_random(output, output_len);
+	platform_random((char*)output, output_len);
 	return 0;
 }
 
@@ -3973,8 +3980,9 @@ int network_tx(network_ctrl_t *ctrl, const uint8_t *data, uint32_t len, int flag
 			return 0;
 		}
 	}
-
+#ifdef LUAT_USE_TLS
 NETWORK_TX_WAIT:
+#endif
 	ctrl->wait_target_state = NW_WAIT_TX_OK;
 	NW_UNLOCK;
 

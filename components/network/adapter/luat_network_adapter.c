@@ -2516,7 +2516,7 @@ static int network_state_wait_dns(network_ctrl_t *ctrl, OS_EVENT *event, network
 	default:
 		return 1;
 	}
-	return 1; // TODO 返回值不确定
+	return -1; // TODO 返回值不确定
 }
 
 static int network_state_connecting(network_ctrl_t *ctrl, OS_EVENT *event, network_adapter_t *adapter)
@@ -2784,12 +2784,12 @@ static int network_state_disconnecting(network_ctrl_t *ctrl, OS_EVENT *event, ne
 			network_force_close_socket(ctrl);
 			ctrl->state = NW_STATE_OFF_LINE;
 			ctrl->socket_id = -1;
-			return -1; // TODO 不清楚应该返回什么
 		}
 		break;
 	default:
 		return 1;
 	}
+	return -1;
 }
 
 typedef int (*network_state_fun)(network_ctrl_t *ctrl, OS_EVENT *event, network_adapter_t *adapter);

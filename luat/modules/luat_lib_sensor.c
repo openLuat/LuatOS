@@ -475,7 +475,7 @@ static int l_sensor_ws2812b(lua_State *L)
 #ifdef LUAT_USE_PWM
 
 #include "luat_pwm.h"
-luat_pwm_conf_t ws2812b_pwm_conf = {
+static luat_pwm_conf_t ws2812b_pwm_conf = {
   .pnum = 1,
   .period = 800*1000,
   .precision = 100
@@ -492,7 +492,8 @@ sensor.ws2812b_pwm(7,buff)
 */
 static int l_sensor_ws2812b_pwm(lua_State *L)
 {
-  int j;
+  int ret = 0;
+  int j = 0;
   size_t len,i;
   const char *send_buff = NULL;
 
@@ -512,10 +513,14 @@ static int l_sensor_ws2812b_pwm(lua_State *L)
     for(j=7;j>=0;j--){
       if(send_buff[i]>>j&0x01){
         ws2812b_pwm_conf.pulse = 200/3;
-        luat_pwm_setup(&ws2812b_pwm_conf);
+        ret = luat_pwm_setup(&ws2812b_pwm_conf);
       }else{
         ws2812b_pwm_conf.pulse = 100/3;
-        luat_pwm_setup(&ws2812b_pwm_conf);
+        ret = luat_pwm_setup(&ws2812b_pwm_conf);
+      }
+      if (ret) {
+        LLOGW("luat_pwm_setup ret %d, end of PWM output", ret);
+        return 0;
       }
     }
   }
@@ -526,7 +531,7 @@ static int l_sensor_ws2812b_pwm(lua_State *L)
 
 #ifdef LUAT_USE_SPI
 #include "luat_spi.h"
-luat_spi_t ws2812b_spi_conf = {
+static luat_spi_t ws2812b_spi_conf = {
   .cs = 255,
   .CPHA = 0,
   .CPOL = 0,
@@ -544,7 +549,7 @@ luat_spi_t ws2812b_spi_conf = {
 @usage
 local buff = zbuff.create({8,8,24})
 buff:setFrameBuffer(8,8,24,0x0000ff)
-sensor.ws2812b_spi(7,buff)
+sensor.ws2812b_spi(2,buff)
 */
 static int l_sensor_ws2812b_spi(lua_State *L)
 {

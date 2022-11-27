@@ -238,8 +238,8 @@ static int l_rtos_standy(lua_State *L) {
 @api    rtos.meminfo(type)
 @type   "sys"系统内存, "lua"虚拟机内存, 默认为lua虚拟机内存
 @return int 总内存大小,单位字节
-@return int 当前使用的内存大小,单位字节
-@return int 最大使用的内存大小,单位字节
+@return int 当前已使用的内存大小,单位字节
+@return int 历史最高已使用的内存大小,单位字节
 @usage
 -- 打印内存占用
 log.info("mem.lua", rtos.meminfo())

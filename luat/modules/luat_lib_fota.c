@@ -14,8 +14,8 @@
 #include "luat_log.h"
 
 /**
-初始化fota流程，目前只有105能使用
-@api fota.fotaInit(storge_location, param1)
+初始化fota流程
+@api fota.fotaInit(storge_location, len, param1)
 @int/string fota数据存储的起始位置<br>如果是int，则是由芯片平台具体判断<br>如果是string，则存储在文件系统中<br>如果为nil，则由底层决定存储位置
 @int 数据存储的最大空间
 @userdata param1，如果数据存储在spiflash时,为spi_device
@@ -23,6 +23,7 @@
 @usage
 -- 初始化fota流程
 local result = mcu.fotaInit(0, 0x00300000, spi_device)	--由于105的flash从0x01000000开始，所以0就是外部spiflash
+local result = mcu.fotaInit()	--ec618使用固定内部地址，所以不需要参数了
 */
 static int l_fota_init(lua_State* L)
 {

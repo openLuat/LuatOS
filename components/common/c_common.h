@@ -42,6 +42,19 @@ typedef struct
 typedef struct
 {
 	uint32_t MaigcNum; //升级包标识，标识不对直接抛弃
+	uint32_t CRC32;		//后续字节的CRC32校验，所有CRC32规则与ZIP压缩一致
+	uint32_t Param1;	//升级参数，其中byte0升级类型，byte1升级包存放位置，byte2外设总线序号，和platform_define里的外设序号一致
+	uint32_t Param2;	//额外的参数，需要和外置存储总线配合使用，一般是外置存储总线的PIN
+	uint32_t DataStartAddress;//升级包在flash中的起始地址，外部和内部都可以用
+	uint32_t DataLen;//升级包大小
+	uint32_t MainVersion[5];//目标的底层版本，升级成功的话就是这个版本号了，有些SDK无法提供版本号，用MD5代替
+	uint8_t CommonMD5[16];//升级包整体数据的MD5
+	char FilePath[100];//升级包在文件系统中的绝对路径，如果在flash中则随意填写
+}CoreUpgrade_HeadCalMD5Struct;
+
+typedef struct
+{
+	uint32_t MaigcNum; //升级包标识，标识不对直接抛弃
 	uint32_t CRC32;		//后续字节的CRC32校验
 	uint32_t MainVersion;//目标的底层版本，升级成功的话就是这个版本号了
 	uint32_t AppVersion;//整包的版本号
@@ -53,6 +66,19 @@ typedef struct
 typedef struct
 {
 	uint32_t MaigcNum; //升级包标识，标识不对直接抛弃
+	uint32_t CRC32;		//后续字节的CRC32校验
+	uint32_t MainVersion[5];//目标的底层版本，升级成功的话就是这个版本号了，有些SDK无法提供版本号，用MD5代替
+	uint32_t AppVersion;//整包的版本号
+	uint32_t STDVersion[5];//允许升级的底层版本号，有些SDK无法提供版本号，用MD5代替
+	uint32_t CommonDataLen;	//通用升级包数据长度，内容是CoreUpgrade_SectorStruct或者CoreUpgrade_SectorCalMD5Struct
+	uint32_t SDKDataLen;	//特殊升级包数据长度，一般是SDK闭源的升级包
+	uint8_t CommonMD5[16];	//通用升级包数据的MD5，这里验证传输的准确性
+	uint8_t SDKMD5[16];	//特殊升级包数据的MD5，这里验证传输的准确性
+}CoreUpgrade_FileHeadCalMD5Struct;
+
+typedef struct
+{
+	uint32_t MaigcNum; //升级包标识，标识不对直接抛弃
 	uint32_t TotalLen;	//解压前占据的空间
 	uint32_t DataLen;	//解压后占据的空间，如果和TotalLen一样，则表示未启用压缩，不需要解压，也没有压缩参数
 						//如果是0，则表示是差分升级
@@ -60,6 +86,18 @@ typedef struct
 	uint32_t DataCRC32;	//解压后的数据的CRC32，这里验证烧录的正确性
 	uint32_t StartAddress;	//烧写的起始地址
 }CoreUpgrade_SectorStruct;
+
+typedef struct
+{
+	uint32_t MaigcNum; //升级包标识，标识不对直接抛弃
+	uint32_t TotalLen;	//解压前占据的空间
+	uint32_t DataLen;	//解压后占据的空间，如果和TotalLen一样，则表示未启用压缩，不需要解压，也没有压缩参数
+						//如果是0，则表示是差分升级
+						//其他表示是整包升级，数据包经过了lzma压缩
+	uint8_t MD5[16];	//解压后的数据的MD5，这里验证烧录的正确性
+	uint32_t BlockLen;	//压缩时分隔的大小，一般是64K，128K或者256K
+	uint32_t StartAddress;	//烧写的起始地址
+}CoreUpgrade_SectorCalMD5Struct;
 
 typedef struct
 {

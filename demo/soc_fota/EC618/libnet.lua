@@ -103,12 +103,12 @@ end
 function libnet.wait(taskName,timeout, netc)
 	local is_err, result = socket.wait(netc)
 	if is_err then
-		return false
+		return false, false
 	end
 	if not result then
 		result = sys_wait(taskName, socket.EVENT, timeout)
 	else
-		return true
+		return true, true
 	end
 	if type(result) == 'table' then
 		if result[2] == 0 then

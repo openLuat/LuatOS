@@ -72,7 +72,7 @@ local function otaTask()
     rspHead = {}
     local result = libnet.waitLink(taskName, 0, netc)
     while retry < 3 and not done do
-        result = libnet.connect(taskName, 5000, netc, "www.air32.cn", 80) --后续出了http库则直接用http来处理
+        result = libnet.connect(taskName, 30000, netc, "www.air32.cn", 80) --后续出了http库则直接用http来处理
         tbuff:del()
         -- 用的iot平台，所以固件名称和版本号需要对应处理
         -- 用的自建平台，可以自主定制规则

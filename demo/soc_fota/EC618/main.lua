@@ -11,6 +11,7 @@ log.style(1)
 -- require "i2c_test"
 -- require "audio_test"
 require "soc_fota"
+otaDemo()
 -- require "evb_lcd"
 -- require "timer_test"
 -- require "rotary"

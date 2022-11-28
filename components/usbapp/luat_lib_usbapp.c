@@ -4,7 +4,7 @@
 @version 1.0
 @date    2022.01.17
 @demo usb_hid
-@demo LUAT_USE_USB
+@tag LUAT_USE_USB
 */
 #include "luat_base.h"
 #include "luat_msgbus.h"

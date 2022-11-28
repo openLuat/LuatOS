@@ -1056,13 +1056,13 @@ static int l_eink_drawXbm(lua_State *L){
     const char* data = luaL_checklstring(L, 5, &len);
     if (h < 1) return 0; // 行数必须大于0
     if (len*8/h < w) return 0; // 起码要填满一行
-    if (len != h*w/8)return 0;
+    if (len < h*w/8) return 0;
 
     if (check_init() == 0) {
       return 0;
     }
 
-    uint8_t blen;
+    uint8_t blen = 0;
     blen = w;
     blen += 7;
     blen >>= 3;

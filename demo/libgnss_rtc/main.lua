@@ -6,18 +6,23 @@ VERSION = "1.0.0"
 -- sys库是标配
 _G.sys = require("sys")
 
---[[ demo适用于air530z ]]
+--[[ 
+demo适用于air530z, 演示挂载在uart 2的情况, 如果挂载在其他端口, 修改gps_uart_id
+]]
 
-uart.on(2, "recv", function(id, len)
-    local data = uart.read(2, 1024)
-    --log.info("uart2", data)
-    libgnss.parse(data)
+local gps_uart_id = 2
+
+uart.on(gps_uart_id, "recv", function(id, len)
+    local data = uart.read(gps_uart_id, 1024)
+     if data then
+        libgnss.parse(data)
+    end
 end)
 
-uart.setup(2, 9600)
-libgnss.air530z_setup(2)
-libgnss.air530z_setbandrate(115200)
-uart.setup(2, 115200)
+-- Air530Z默认波特率是9600, 主动切换一次
+uart.setup(gps_uart_id, 9600)
+uart.write(gps_uart_id, "$PCAS01,5*19\r\n")
+uart.setup(gps_uart_id, 115200)
 
 sys.timerLoopStart(function()
     log.info("GPS", libgnss.getIntLocation())

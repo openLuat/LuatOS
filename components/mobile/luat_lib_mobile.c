@@ -554,7 +554,16 @@ static int l_mobile_event_handle(lua_State* L, void* ptr) {
         switch (status)
         {
         case LUAT_MOBILE_CELL_INFO_UPDATE:
-            //LLOGD("CELL_INFO_UPDATE %d", status);
+/*
+@sys_pub mobile
+基站数据已更新
+CELL_INFO_UPDATE
+@usage
+-- 订阅式, 模块本身会周期性查询基站信息,但通常不包含临近小区
+sys.subscribe("CELL_INFO_UPDATE", function()
+    log.info("cell", json.encode(mobile.getCellInfo()))
+end)
+*/
             lua_pushstring(L, "CELL_INFO_UPDATE");
             lua_call(L, 1, 0);
 		    break;
@@ -569,6 +578,17 @@ static int l_mobile_event_handle(lua_State* L, void* ptr) {
 		{
 		case LUAT_MOBILE_NETIF_LINK_ON:
             LLOGD("NETIF_LINK_ON -> IP_READY");
+/*
+@sys_pub mobile
+已联网
+IP_READY
+@usage
+-- 联网后会发一次这个消息
+-- 与wlan库不同, 本消息不带ip地址
+sys.subscribe("IP_READY", function()
+    log.info("mobile", "IP_READY")
+end)
+*/
             lua_pushstring(L, "IP_READY");
             lua_call(L, 1, 0);
 			break;
@@ -580,6 +600,16 @@ static int l_mobile_event_handle(lua_State* L, void* ptr) {
 		}
 		break;
 	case LUAT_MOBILE_EVENT_TIME_SYNC:
+/*
+@sys_pub mobile
+时间已经同步
+NTP_UPDATE
+@usage
+-- 对于电信/移动的卡, 联网后,基站会下发时间,但联通卡不会,务必留意
+sys.subscribe("NTP_UPDATE", function()
+    log.info("mobile", "time", os.date())
+end)
+*/
         LLOGD("TIME_SYNC %d", status);
         lua_pushstring(L, "NTP_UPDATE");
         lua_call(L, 1, 0);

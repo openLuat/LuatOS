@@ -3,7 +3,7 @@
 @summary http2客户端
 @version 1.0
 @date    2022.09.05
-@demo network
+@demo    socket
 */
 
 #include "luat_base.h"

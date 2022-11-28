@@ -3,6 +3,7 @@
 @summary 字体库
 @version 1.0
 @date    2022.07.11
+@tag LUAT_USE_FONTS
 */
 
 #include "luat_base.h"

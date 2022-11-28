@@ -9,11 +9,11 @@ require("sysplus")
 
 --需要自行填写的东西
 --wifi信息
-local wifiName,wifiPassword = "wifi","password"
+local wifiName,wifiPassword = "Xiaomi_AX6000","Air123456"
 --地区id，请前往https://api.luatos.org/luatos-calendar/v1/check-city/ 查询自己所在位置的id
 local location = "101020100"
 --天气接口信息，需要自己申请，具体参数请参考https://api.luatos.org/ 页面上的描述
-local appid,appsecret = "appid(要改)","appsecret(要改)"
+local appid,appsecret = "27548549","3wdKWuRZ"
 
 local function connectWifi()
     log.info("wlan", "wlan_init:", wlan.init())
@@ -30,7 +30,7 @@ local function connectWifi()
 end
 
 local function requestHttp()
-    local code, headers, body = http2.request("GET","http://apicn.luatos.org:23328/luatos-calendar/v1?mac=111&battery=10&location="..location.."&appid="..appid.."&appsecret="..appsecret).wait()
+    local code, headers, body = http.request("GET","http://apicn.luatos.org:23328/luatos-calendar/v1?mac=111&battery=10&location="..location.."&appid="..appid.."&appsecret="..appsecret).wait()
     if code == 200 then
         return body
     else

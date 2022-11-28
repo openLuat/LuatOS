@@ -4,6 +4,7 @@
 @summary 红外测温(MLX90640)
 @version 1.0
 @date    2022.1.20
+@tag LUAT_USE_MLX90640
 */
 
 #include "luat_base.h"

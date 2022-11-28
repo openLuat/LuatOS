@@ -5,6 +5,7 @@
 @version 1.0
 @date    2021.11.03
 @demo fdb
+@tag LUAT_USE_FDB
 */
 
 #include "luat_base.h"
@@ -212,7 +213,7 @@ static int l_fdb_kv_get(lua_State *L) {
     blob.buf = buff.b;
     blob.size = buff.size;
     size_t read_len = fdb_kv_get_blob(kvdb, key, &blob);
-    
+
     lua_Integer *intVal;
     // lua_Number *numVal;
 

@@ -5,6 +5,7 @@
 @version 1.0
 @date    2020.03.30
 @demo i2c
+@tag LUAT_USE_I2C
 */
 #include "luat_base.h"
 #include "luat_log.h"

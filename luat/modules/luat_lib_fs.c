@@ -5,6 +5,7 @@
 @version 1.0
 @date    2021.03.30
 @demo fs
+@tag LUAT_USE_FS
 */
 #include "luat_base.h"
 #include "luat_fs.h"

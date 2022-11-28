@@ -118,7 +118,7 @@ def get_modules(file_list, start="/*", end="*/"):
 
         for mstep in range(len(modules)-1,-1,-1):
             if modules[mstep]["module"] == module["module"]:
-                module["api"] = modules[mstep]["api"]
+                module = modules[mstep]
                 del modules[mstep]
                 module["url"] = ""
 

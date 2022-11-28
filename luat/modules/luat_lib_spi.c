@@ -5,6 +5,7 @@
 @date    2020.04.23
 @demo spi
 @video https://www.bilibili.com/video/BV1VY411M7YH
+@tag LUAT_USE_SPI
 */
 #include "luat_base.h"
 #include "luat_log.h"

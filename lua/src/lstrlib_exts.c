@@ -1,6 +1,7 @@
 /*
 @module  string
 @summary 字符串操作函数
+@tag LUAT_CONF_BSP
 */
 #include "luat_base.h"
 #include "luat_malloc.h"

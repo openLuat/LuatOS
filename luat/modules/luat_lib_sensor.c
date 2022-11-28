@@ -4,6 +4,7 @@
 @summary 传感器操作库
 @version 1.0
 @date    2020.03.30
+@tag LUAT_USE_SENSOR
 */
 #include "luat_base.h"
 #include "luat_timer.h"

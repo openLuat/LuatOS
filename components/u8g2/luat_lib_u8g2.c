@@ -5,6 +5,7 @@
 @version 1.0
 @date    2021.01.25
 @demo u8g2
+@tag LUAT_USE_U8G2
 */
 #include "luat_base.h"
 #include "luat_malloc.h"

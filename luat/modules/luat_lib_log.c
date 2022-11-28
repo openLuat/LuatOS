@@ -4,6 +4,7 @@
 @summary 日志库
 @version 1.0
 @date    2020.03.30
+@tag LUAT_CONF_BSP
 */
 #include "luat_base.h"
 #include "luat_sys.h"

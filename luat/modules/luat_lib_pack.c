@@ -4,6 +4,7 @@
 @version 1.0
 @date    2021.12.20
 @video https://www.bilibili.com/video/BV1Sr4y1n7bP
+@tag LUAT_USE_PACK
 */
 
 #define	OP_ZSTRING	      'z'		/* zero-terminated string */

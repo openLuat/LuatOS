@@ -18,7 +18,7 @@ for bsp in bsp_header_list:
 def get_tags(tag):
     r = []
     for bsp in bsp_header_list:
-        if bsp["url"].find(" "+tag) >= 0:
+        if bsp["url"].find(" "+tag+" ") >= 0 or bsp["url"].find(" "+tag+"\r") >= 0 or bsp["url"].find(" "+tag+"\n") >= 0:
             r.append("{bdg-primary}`" + bsp["name"] + "`")
     return " ".join(r)
 

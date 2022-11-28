@@ -3,6 +3,8 @@
 @summary LVGL图像库
 @version 1.0
 @date    2021.06.01
+@demo lvgl
+@tag LUAT_USE_LVGL
 */
 
 #include "luat_base.h"

@@ -1,5 +1,26 @@
 import shutil
 import os
+import requests
+
+#bsp.h文件列表
+bsp_header_list = [
+{"name":"Air101/Air103","url":"https://gitee.com/openLuat/luatos-soc-air101/raw/master/app/port/luat_conf_bsp.h"},
+{"name":"Air105","url":"https://gitee.com/openLuat/luatos-soc-air105/raw/master/application/include/luat_conf_bsp.h"},
+{"name":"ESP32C3","url":"https://gitee.com/openLuat/luatos-soc-idf5/raw/master/luatos/include/luat_conf_bsp.h"},
+{"name":"Air780","url":"https://gitee.com/openLuat/luatos-soc-2022/raw/master/project/luatos/inc/luat_conf_bsp.h"},
+]
+print("getting bsp.h files...")
+for bsp in bsp_header_list:
+    print("getting "+bsp["name"]+"...")
+    bsp["url"] = requests.get(bsp["url"]).text
+    print("done "+ str(len(bsp["url"])) + " bytes")
+
+def get_tags(tag):
+    r = []
+    for bsp in bsp_header_list:
+        if bsp["url"].find(" "+tag) >= 0:
+            r.append("{bdg-primary}`" + bsp["name"] + "`")
+    return " ".join(r)
 
 def make(path,modules,index_text):
     try:
@@ -14,13 +35,18 @@ def make(path,modules,index_text):
     for module in modules:
         mdoc = open(path+module["module"]+".md", "a+",encoding='utf-8')
         mdoc.write("# "+module["module"]+" - "+module["summary"]+"\n\n")
+
+        if len(module["tag"]) > 0:
+            mdoc.write(get_tags(module["tag"]))
+            mdoc.write("\n\n")
+
         if len(module["url"]) > 0:
-            mdoc.write("> 本页文档由[这个文件]("+module["url"]+")自动生成。如有错误，请提交issue或帮忙修改后pr，谢谢！\n\n")
+            mdoc.write("```{note}\n本页文档由[这个文件]("+module["url"]+")自动生成。如有错误，请提交issue或帮忙修改后pr，谢谢！\n```\n\n")
 
         if len(module["demo"]) > 0:
-            mdoc.write("> 本库有专属demo，[点此链接查看"+module["module"]+"的demo例子]("+module["demo"]+")\n")
+            mdoc.write("```{tip}\n本库有专属demo，[点此链接查看"+module["module"]+"的demo例子]("+module["demo"]+")\n```\n")
         if len(module["video"]) > 0:
-            mdoc.write("> 本库还有视频教程，[点此链接查看]("+module["video"]+")\n\n")
+            mdoc.write("```{tip}\n本库还有视频教程，[点此链接查看]("+module["video"]+")\n```\n\n")
         else:
             mdoc.write("\n")
 

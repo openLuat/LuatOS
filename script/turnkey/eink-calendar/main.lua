@@ -30,7 +30,7 @@ local function connectWifi()
 end
 
 local function requestHttp()
-    local code, headers, body = http2.request("GET","http://apicn.luatos.org:23328/luatos-calendar/v1?mac=111&battery=10&location="..location.."&appid="..appid.."&appsecret="..appsecret).wait()
+    local code, headers, body = http.request("GET","http://apicn.luatos.org:23328/luatos-calendar/v1?mac=111&battery=10&location="..location.."&appid="..appid.."&appsecret="..appsecret).wait()
     if code == 200 then
         return body
     else

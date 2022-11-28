@@ -573,8 +573,8 @@ static int http_set_url(luat_http_ctrl_t *http_ctrl) {
 }
 
 /*
-http2客户端
-@api http2.request(method,url,headers,body,opts,ca_file)
+http客户端
+@api http.request(method,url,headers,body,opts,ca_file)
 @string 请求方法, 支持 GET/POST
 @string url地址
 @tabal  请求头 可选 例如{["Content-Type"] = "application/x-www-form-urlencoded"}
@@ -586,15 +586,15 @@ http2客户端
 @return string body
 @usage
 -- GET请求
-local code, headers, body = http2.request("GET","http://site0.cn/api/httptest/simple/time").wait()
-log.info("http2.get", code, headers, body)
+local code, headers, body = http.request("GET","http://site0.cn/api/httptest/simple/time").wait()
+log.info("http.get", code, headers, body)
 -- POST请求
-local code, headers, body = http2.request("POST","http://httpbin.com/post", {}, "abc=123").wait()
-log.info("http2.post", code, headers, body)
+local code, headers, body = http.request("POST","http://httpbin.com/post", {}, "abc=123").wait()
+log.info("http.post", code, headers, body)
 
 -- GET请求,但下载到文件
-local code, headers, body = http2.request("GET","http://httpbin.com/", {}, "", {dst="/data.bin"}).wait()
-log.info("http2.get", code, headers, body)
+local code, headers, body = http.request("GET","http://httpbin.com/", {}, "", {dst="/data.bin"}).wait()
+log.info("http.get", code, headers, body)
 */
 static int l_http_request(lua_State *L) {
 	size_t client_cert_len, client_key_len, client_password_len,len;
@@ -778,7 +778,7 @@ LUAMOD_API int luaopen_http( lua_State *L ) {
     return 1;
 }
 
-LUAMOD_API int luaopen_http2( lua_State *L ) {
+LUAMOD_API int luaopen_http( lua_State *L ) {
     lua_getglobal(L, "http");
     if (lua_isuserdata(L, -1))
         return 1;

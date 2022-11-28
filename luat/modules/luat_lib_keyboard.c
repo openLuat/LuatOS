@@ -5,6 +5,7 @@
 @version 1.0
 @date    2021.11.24
 @demo keyboard
+@tag LUAT_USE_KEYBOARD
 */
 
 #include "luat_base.h"
@@ -84,7 +85,7 @@ static int l_keyboard_init(lua_State *L) {
     conf.debounce = luaL_optinteger(L, 4, 1);
     conf.cb = l_keyboard_irq_cb;
     int ret = luat_keyboard_init(&conf);
-    
+
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -97,7 +98,7 @@ static int l_keyboard_deinit(lua_State *L) {
     conf.debounce = luaL_optinteger(L, 4, 1);
 
     int ret = luat_keyboard_deinit(&conf);
-    
+
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }

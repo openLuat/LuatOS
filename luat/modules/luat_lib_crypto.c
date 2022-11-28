@@ -5,6 +5,7 @@
 @version 1.0
 @date    2020.07.03
 @demo crypto
+@tag LUAT_USE_CRYPTO
 */
 #include "luat_base.h"
 #include "luat_crypto.h"
@@ -288,7 +289,7 @@ int l_crypto_cipher_decrypt(lua_State *L) {
 local crc = crypto.crc16("")
  */
 static int l_crypto_crc16(lua_State *L)
-{   
+{
     size_t inputlen;
     const unsigned char *inputData;
     const char  *inputmethod = (const char*)luaL_checkstring(L, 1);

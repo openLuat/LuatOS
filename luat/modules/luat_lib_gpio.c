@@ -7,6 +7,7 @@
 @date    2020.03.30
 @demo gpio
 @video https://www.bilibili.com/video/BV1hr4y1p7dt
+@tag LUAT_USE_GPIO
 */
 #include "luat_base.h"
 #include "luat_gpio.h"

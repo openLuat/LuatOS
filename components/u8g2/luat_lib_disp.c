@@ -4,6 +4,7 @@
 @version 1.0
 @date    2020.03.30
 @demo u8g2
+@tag LUAT_USE_DISP
 */
 #include "luat_base.h"
 #include "luat_malloc.h"

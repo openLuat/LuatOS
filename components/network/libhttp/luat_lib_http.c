@@ -4,6 +4,7 @@
 @version 1.0
 @date    2022.09.05
 @demo    socket
+@tag LUAT_USE_HTTP
 */
 
 #include "luat_base.h"
@@ -659,7 +660,7 @@ static int l_http_request(lua_State *L) {
 	}
 	network_init_ctrl(http_ctrl->netc, NULL, luat_lib_http_callback, http_ctrl);
 
-	
+
 	network_set_base_mode(http_ctrl->netc, 1, 10000, 0, 0, 0, 0);
 	network_set_local_port(http_ctrl->netc, 0);
 

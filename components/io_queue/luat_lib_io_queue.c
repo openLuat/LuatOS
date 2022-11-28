@@ -5,6 +5,7 @@
 @version 1.0
 @date    2022.03.13
 @demo io_queue
+@tag LUAT_USE_IO_QUEUE
 */
 #include "luat_base.h"
 #include "luat_multimedia.h"

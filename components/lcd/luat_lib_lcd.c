@@ -5,6 +5,7 @@
 @version 1.0
 @date    2021.06.16
 @demo lcd
+@tag LUAT_USE_LCD
 */
 #include "luat_base.h"
 #include "luat_lcd.h"
@@ -1590,7 +1591,7 @@ static const int l_lcd_draw_utf8(lua_State *L) {
             luat_lcd_draw(default_conf, draw_x, y, draw_x + desc.char_w - 1, y + font->line_height - 1, buff);
           //}
           //else {
-          // 
+          //
           //}
         }
     }
@@ -1598,7 +1599,7 @@ static const int l_lcd_draw_utf8(lua_State *L) {
       luat_heap_free(buff);
 
     lcd_auto_flush(default_conf);
-    lua_pushinteger(L, draw_x + desc.char_w);  
+    lua_pushinteger(L, draw_x + desc.char_w);
     return 1;
 }
 #endif

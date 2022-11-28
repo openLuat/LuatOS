@@ -5,6 +5,7 @@
 @version 1.0
 @date    2020.07.03
 @demo libgnss
+@tag LUAT_USE_LIBGNSS
 */
 #include "luat_base.h"
 #include "luat_msgbus.h"
@@ -41,7 +42,7 @@ static int luat_libgnss_init(lua_State *L) {
             LLOGW("out of memory for libgnss data parse");
             return 0;
         }
-        gnsstmp = luat_heap_malloc(sizeof(luat_libgnss_t)); 
+        gnsstmp = luat_heap_malloc(sizeof(luat_libgnss_t));
         if (gnsstmp == NULL) {
             luat_heap_free(gnss);
             LLOGW("out of memory for libgnss data parse");
@@ -62,7 +63,7 @@ static int parse_nmea(const char* line, lua_State *L) {
     if (gnss == NULL && luat_libgnss_init(L)) {
         return 0;
     }
-    
+
     switch (minmea_sentence_id(line, false)) {
         case MINMEA_SENTENCE_RMC: {
             if (minmea_parse_rmc(&(gnsstmp->frame_rmc), line)) {
@@ -206,7 +207,7 @@ static int l_libgnss_parse(lua_State *L) {
             prev = i;
         }
     }
-    
+
     return 0;
 }
 
@@ -265,7 +266,7 @@ static int l_libgnss_get_rmc(lua_State *L) {
     lua_createtable(L, 0, 12);
 
     if (gnss != NULL) {
-        
+
         lua_pushliteral(L, "valid");
         lua_pushboolean(L, gnss->frame_rmc.valid);
         lua_settable(L, -3);
@@ -346,7 +347,7 @@ static int l_libgnss_get_gsv(lua_State *L) {
                 if (gnss->frame_gsv[i].sats[j].snr) {
                     lua_pushinteger(L, count++);
                     lua_createtable(L, 0, 3);
-                    
+
                     lua_pushliteral(L, "snr");
                     lua_pushinteger(L, gnss->frame_gsv[i].sats[j].snr);
                     lua_settable(L, -3);
@@ -412,7 +413,7 @@ static int l_libgnss_get_gsa(lua_State *L) {
             lua_settable(L, -3);
         }
     }
-    
+
     lua_settable(L, -3);
 
     return 1;
@@ -519,7 +520,7 @@ static int l_libgnss_debug(lua_State *L) {
     {
         gnss->debug = 0;
     }
-    
+
     return 0;
 }
 

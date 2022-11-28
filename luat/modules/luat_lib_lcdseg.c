@@ -3,6 +3,7 @@
 @summary 段式lcd
 @version 1.0
 @date    2021.10.22
+@tag LUAT_USE_LCDSEG
 */
 
 #include "luat_base.h"

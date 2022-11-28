@@ -4,6 +4,7 @@
 @summary 封装mcu一些特殊操作
 @version core V0007
 @date    2021.08.18
+@tag LUAT_USE_MCU
 */
 #include "luat_base.h"
 #include "luat_mcu.h"

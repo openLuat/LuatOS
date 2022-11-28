@@ -5,6 +5,7 @@
 @version 1.0
 @date    2020.07.03
 @demo adc
+@tag LUAT_USE_ADC
 */
 #include "luat_base.h"
 #include "luat_adc.h"

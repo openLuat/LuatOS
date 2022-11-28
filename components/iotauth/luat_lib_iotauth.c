@@ -5,6 +5,7 @@
 @version core V0007
 @date    2022.08.06
 @demo iotauth
+@tag LUAT_USE_IOTAUTH
 */
 #include "luat_base.h"
 #include "luat_crypto.h"
@@ -87,9 +88,9 @@ static void aliyun_token(const char* product_key,const char* device_name,const c
 /*
 阿里云物联网平台三元组生成
 @api iotauth.aliyun(product_key, device_name,device_secret,method,cur_timestamp)
-@string product_key 
-@string device_name 
-@string device_secret 
+@string product_key
+@string device_name
+@string device_secret
 @string method 加密方式,"hmacmd5" "hmacsha1" "hmacsha256" 可选,默认"hmacsha256"
 @number cur_timestamp 可选
 @return string mqtt三元组 client_id
@@ -209,9 +210,9 @@ static void onenet_token(const char* product_id,const char* device_name,const ch
 /*
 中国移动物联网平台三元组生成
 @api iotauth.onenet(produt_id, device_name,key,method,cur_timestamp,version)
-@string produt_id 
-@string device_name 
-@string key 
+@string produt_id
+@string device_name
+@string key
 @string method 加密方式,"md5" "sha1" "sha256" 可选,默认"md5"
 @number cur_timestamp 可选
 @string version 可选 默认"2018-10-31"
@@ -253,8 +254,8 @@ static void iotda_token(const char* device_id,const char* device_secret,long lon
 /*
 华为物联网平台三元组生成
 @api iotauth.iotda(device_id,device_secret,ins_timestamp,cur_timestamp)
-@string device_id 
-@string device_secret 
+@string device_id
+@string device_secret
 @number ins_timestamp 是否校验时间戳 1:校验 0:不校验
 @number cur_timestamp 可选
 @return string mqtt三元组 client_id
@@ -335,9 +336,9 @@ static void qcloud_token(const char* product_id,const char* device_name,const ch
 /*
 腾讯联网平台三元组生成
 @api iotauth.qcloud(product_id, device_name,device_secret,method,cur_timestamp,sdk_appid)
-@string product_id 
-@string device_name 
-@string device_secret 
+@string product_id
+@string device_name
+@string device_secret
 @string method 加密方式,"sha1" "sha256" 可选,默认"sha256"
 @number cur_timestamp 可选
 @string sdk_appid 可选 默认为"12010126"
@@ -383,7 +384,7 @@ static void tuya_token(const char* device_id,const char* device_secret,long long
 涂鸦联网平台三元组生成
 @api iotauth.tuya(device_id,device_secret,cur_timestamp)
 @string device_id
-@string device_secret 
+@string device_secret
 @number cur_timestamp 可选
 @return string mqtt三元组 client_id
 @return string mqtt三元组 user_name
@@ -432,9 +433,9 @@ static void baidu_token(const char* iot_core_id,const char* device_key,const cha
 /*
 百度物联网平台三元组生成
 @api iotauth.baidu(iot_core_id, device_key,device_secret,method,cur_timestamp)
-@string iot_core_id 
-@string device_key 
-@string device_secret 
+@string iot_core_id
+@string device_key
+@string device_secret
 @string method 加密方式,"MD5" "SHA256" 可选,默认"MD5"
 @number cur_timestamp 可选
 @return string mqtt三元组 client_id

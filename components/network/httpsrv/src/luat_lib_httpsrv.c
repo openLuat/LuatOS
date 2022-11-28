@@ -4,6 +4,7 @@
 @version 1.0
 @date    2022.010.15
 @demo wlan
+@tag LUAT_USE_HTTPSRV
 */
 
 #include "luat_base.h"

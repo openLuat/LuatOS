@@ -4,6 +4,7 @@
 @version 1.0
 @date    2021.08.31
 @demo rtc
+@tag LUAT_USE_RTC
 */
 #include "luat_base.h"
 #include "luat_rtc.h"

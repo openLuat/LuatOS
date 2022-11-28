@@ -4,6 +4,7 @@
 @summary sdio
 @version 1.0
 @date    2021.09.02
+@tag LUAT_USE_SDIO
 */
 #include "luat_base.h"
 #include "luat_sdio.h"

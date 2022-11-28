@@ -3,6 +3,7 @@
 @summary w5500以太网驱动
 @version 1.0
 @date    2022.04.11
+@tag LUAT_USE_W5500
 */
 
 #include "luat_base.h"

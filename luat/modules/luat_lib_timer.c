@@ -3,6 +3,7 @@
 @summary 操作底层定时器
 @version 1.0
 @date    2020.03.30
+@tag LUAT_USE_TIMER
 */
 #include "luat_base.h"
 #include "luat_log.h"

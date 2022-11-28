@@ -3,6 +3,7 @@
 @summary SPI FLASH操作库
 @version 1.0
 @date    2021.05.18
+@tag LUAT_USE_SFD
 */
 #include "luat_base.h"
 #include "luat_spi.h"

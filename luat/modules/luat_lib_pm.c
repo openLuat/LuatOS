@@ -5,6 +5,7 @@
 @version 1.0
 @date    2020.07.02
 @demo pm
+@tag LUAT_USE_PM
 */
 #include "lua.h"
 #include "lauxlib.h"

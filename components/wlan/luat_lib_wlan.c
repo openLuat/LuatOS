@@ -6,6 +6,7 @@
 @version 1.0
 @date    2022.09.30
 @demo wlan
+@tag LUAT_USE_WLAN
 */
 
 #include "luat_base.h"

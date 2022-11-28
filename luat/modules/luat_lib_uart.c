@@ -5,6 +5,7 @@
 @date    2020.03.30
 @demo uart
 @video https://www.bilibili.com/video/BV1er4y1p75y
+@tag LUAT_USE_UART
 */
 #include "luat_base.h"
 #include "luat_uart.h"

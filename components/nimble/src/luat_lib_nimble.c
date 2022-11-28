@@ -4,6 +4,7 @@
 @version 1.0
 @date    2022.10.21
 @demo    nimble
+@tag LUAT_USE_NIMBLE
 @usage
 -- 本库当前支持Air101/Air103/ESP32/ESP32C3
 -- 理论上支持ESP32C2/ESP32S2/ESP32S3,但尚未测试

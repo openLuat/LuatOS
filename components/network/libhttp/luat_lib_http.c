@@ -1,6 +1,6 @@
 /*
-@module  http2
-@summary http2客户端
+@module  http
+@summary http 客户端
 @version 1.0
 @date    2022.09.05
 @demo    socket

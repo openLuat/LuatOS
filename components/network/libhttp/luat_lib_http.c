@@ -778,7 +778,7 @@ LUAMOD_API int luaopen_http( lua_State *L ) {
     return 1;
 }
 
-LUAMOD_API int luaopen_http( lua_State *L ) {
+LUAMOD_API int luaopen_http2( lua_State *L ) {
     lua_getglobal(L, "http");
     if (lua_isuserdata(L, -1))
         return 1;

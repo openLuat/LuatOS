@@ -91,7 +91,8 @@ log.info("bh1750_read_light", bh1750_data)
 ]]
 function bh1750.read_light()
     bh1750_set_measure_mode(BH1750_CON_H_RES_MODE, 180)
-    local _,light = pack.unpack(i2c_recv(2),">h")
+    -- local _,light = pack.unpack(i2c_recv(2),">h") -- 极端情况下数据溢出导致的光照出现负值, 如string.toHex(i2c_recv(2)) == "FFFF"
+    local _,light = pack.unpack(i2c_recv(2),">H")
     return light / 1.2
 end
 

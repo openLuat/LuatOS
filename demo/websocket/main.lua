@@ -35,16 +35,26 @@ sys.taskInit(function()
         sys.waitUntil("IP_READY", 30000)
     end
 
-    wsc = websocket.create(nil, "ws://nutz.cn/websocket")
+    -- 这是个测试服务, 当发送的是json,且action=echo,就会回显所发送的内容
+    wsc = websocket.create(nil, "ws://echo.airtun.air32.cn/ws/echo")
     wsc:autoreconn(true, 3000) -- 自动重连机制
     wsc:on(function(wsc, event, data, fin, optcode)
-        log.info("wsc", event, data, fid, optcode)
-        if event == "conack" then
-            wsc:send((json.encode({action="login",device_id=device_id})))
+        -- event 事件, 当前有conack和recv
+        -- data 当事件为recv是有接收到的数据
+        -- fin 是否为最后一个数据包, 0代表还有数据, 1代表是最后一个数据包
+        -- optcode, 0 - 中间数据包, 1 - 文本数据包, 2 - 二进制数据包
+        -- 因为lua并不区分文本和二进制数据, 所以optcode通常可以无视
+        -- 若数据不多, 小于1400字节, 那么fid通常也是1, 同样可以忽略
+        log.info("wsc", event, data, fin, optcode)
+        if event == "conack" then -- 连接websocket服务后, 会有这个事件
+            wsc:send((json.encode({action="echo", device_id=device_id})))
+            sys.publish("wsc_conack")
         end
     end)
     wsc:connect()
-    --sys.waitUntil("websocket_conack", 15000)
+    -- 等待conack是可选的
+    --sys.waitUntil("wsc_conack", 15000)
+    -- 定期发业务ping也是可选的, 但为了保存连接, 也为了继续持有wsc对象, 这里周期性发数据
     while true do
         sys.wait(45000)
         -- wsc:send("{\"room\":\"topic:okfd7qcob2iujp1br83nn7lcg5\",\"action\":\"join\"}")

@@ -107,4 +107,5 @@ int luat_audio_pause_raw(uint8_t multimedia_id, uint8_t is_pause);
 
 void luat_audio_config_pa(uint8_t multimedia_id, uint32_t pin, int level, uint32_t dummy_time_len, uint32_t pa_delay_time);
 void luat_audio_config_dac(uint8_t multimedia_id, int pin, int level);
+uint16_t luat_audio_vol(uint8_t multimedia_id, uint16_t vol);
 #endif

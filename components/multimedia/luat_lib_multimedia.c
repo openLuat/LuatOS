@@ -253,6 +253,24 @@ static int l_audio_play_wait_end(lua_State *L) {
     return 1;
 }
 
+/*
+获取最近一次播放结果，不是所有平台都支持的，目前只有EC618支持
+@api audio.getError(id)
+@int 音频通道
+@return
+@boolean 是否全部播放成功，true成功，false有文件播放失败
+@boolean 如果播放失败，是否是用户停止，true是，false不是
+@int 第几个文件失败了，从1开始
+@usage
+local result, user_stop, file_no = audio.getError(0)
+*/
+static int l_audio_play_get_last_error(lua_State *L) {
+	int result = luat_audio_play_get_last_error(luaL_checkinteger(L, 1));
+	lua_pushboolean(L, 0 == result);
+	lua_pushboolean(L, result < 0);
+	lua_pushinteger(L, result > 0?result:0);
+    return 3;
+}
 
 /*
 配置一个音频通道的特性，比如实现自动控制PA开关。注意这个不是必须的，一般在调用play的时候才需要自动控制，其他情况比如你手动控制播放时，就可以自己控制PA开关
@@ -273,6 +291,20 @@ static int l_audio_config(lua_State *L) {
     luat_audio_config_pa(luaL_checkinteger(L, 1), luaL_optinteger(L, 2, 255), luaL_optinteger(L, 3, 1), luaL_optinteger(L, 4, 5), luaL_optinteger(L, 5, 200));
     luat_audio_config_dac(luaL_checkinteger(L, 1), luaL_optinteger(L, 6, -1), luaL_optinteger(L, 7, 1));
     return 0;
+}
+
+/*
+配置一个音频通道的音量调节，直接将原始数据放大或者缩小，不是所有平台都支持，建议尽量用硬件方法去缩放
+@api audio.vol(id, value)
+@int 音频通道
+@int 音量，百分比，1%~1000%，默认100%，就是不调节
+@return int 当前音量
+@usage
+local result = audio.vol(0, 90)	--通道0的音量调节到90%，result存放了调节后的音量水平，有可能仍然是100
+*/
+static int l_audio_vol(lua_State *L) {
+    lua_pushinteger(L, luat_audio_vol(luaL_checkinteger(L, 1), luaL_optinteger(L, 2, 100)));
+    return 1;
 }
 
 /**
@@ -600,6 +632,8 @@ static const rotable_Reg_t reg_audio[] =
 	{ "playStop",	   ROREG_FUNC(l_audio_play_stop)},
 	{ "isEnd",		   ROREG_FUNC(l_audio_play_wait_end)},
 	{ "config",			ROREG_FUNC(l_audio_config)},
+	{ "vol",			ROREG_FUNC(l_audio_vol)},
+	{ "getError",			ROREG_FUNC(l_audio_play_get_last_error)},
     { "PCM",           ROREG_INT(MULTIMEDIA_DATA_TYPE_PCM)},
 	{ "MORE_DATA",     ROREG_INT(MULTIMEDIA_CB_AUDIO_NEED_DATA)},
 	{ "DONE",          ROREG_INT(MULTIMEDIA_CB_AUDIO_DONE)},

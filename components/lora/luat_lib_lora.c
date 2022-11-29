@@ -4,6 +4,7 @@
 @version 1.0
 @date    2022.06.24
 @demo lora
+@tag LUAT_USE_LORA
 */
 
 #include "luat_base.h"

@@ -4,6 +4,7 @@
 @version 1.0
 @date    2020.06.30
 @demo libcoap
+@tag LUAT_USE_COAP
 */
 #include "luat_base.h"
 #include "luat_timer.h"
@@ -220,7 +221,7 @@ static int l_libcoap_parse(lua_State* L) {
             else if (opt_header->opt_len == 13) {
                 opt_header->opt_len += (unsigned int)(*(ptr+1));
             }
-            
+
             ptr += opt_header->opt_len + 1;
             idx += opt_header->opt_len + 1;
             _coap->optSize += opt_header->opt_len + 1;
@@ -228,7 +229,7 @@ static int l_libcoap_parse(lua_State* L) {
         LLOGD("opt size=%d", _coap->optSize);
         memcpy(_coap->opt, ptr - _coap->optSize, _coap->optSize);
     }
-    
+
 
     // 分析一下data
     if (idx < len) {

@@ -4,6 +4,7 @@
 @version 1.0
 @date    2022.08.25
 @demo socket
+@tag LUAT_USE_MQTT
 */
 
 #include "luat_base.h"

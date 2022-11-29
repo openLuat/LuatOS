@@ -5,6 +5,7 @@
 @version 1.0
 @date    2022.8.9
 @demo    mobile
+@tag LUAT_USE_MOBILE
 @usage
 -- 简单演示
 

@@ -150,7 +150,7 @@ function showBook(bookName, bookUrl, page)
     sys.taskInit(function()
         waitHttpTask = true
         for i = 1, 3 do
-            local code, headers, data = http2.request("GET",bookUrl .. "/" .. page).wait()
+            local code, headers, data = http.request("GET",bookUrl .. "/" .. page).wait()
             log.info("SHOWBOOK", code)
             if code ~= 200 then
                 log.error("SHOWBOOK", "获取图书内容失败 ", data)
@@ -317,7 +317,7 @@ sys.taskInit(function()
         end
     end
     for i = 1, 5 do
-        local code, headers, data = http2.request("GET", serverAdress .. "getBooks").wait()
+        local code, headers, data = http.request("GET", serverAdress .. "getBooks").wait()
         log.info("SHOWBOOK", code)
         if code ~= 200 then
             log.error(tag, "获取图书列表失败 ", data)

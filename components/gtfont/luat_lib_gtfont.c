@@ -3,6 +3,7 @@
 @summary gtfont高通字库模块
 @version 1.0
 @date    2021.11.11
+@tag LUAT_USE_GTFONT
 */
 
 #include "luat_base.h"
@@ -23,7 +24,7 @@ void gtfont_draw_w(unsigned char *pBits,unsigned int x,unsigned int y,unsigned i
 	unsigned int i,j,k,n;
 	unsigned char temp;
 	n = 0;
-	
+
 	for( i = 0;i < high; i++){
 		for( j = 0;j < ((widt+7)>> 3);j++){
 			temp = pBits[n++];

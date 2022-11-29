@@ -2,7 +2,7 @@ local libnet = require "libnet"
 
 
 -- local function downloadFile(code, headers, body)
---     log.info("http2.get", code, json.encode(headers), body)
+--     log.info("http.get", code, json.encode(headers), body)
 --     local r = io.writeFile("/data.txt", body)
 --     if r then
 --         log.info("文件写入成功")
@@ -18,12 +18,12 @@ sys.taskInit(function ()
     log.info("------下载文件------")
     local path = "/data.txt"
     -- GET请求,但下载到文件
-    http2.request(
+    http.request(
         "GET",
         "http://cdn.openluat-luatcommunity.openluat.com/attachment/20220825134126812_text.txt").cb
         (
             function (code, headers, body)
-                log.info("http2.get", code, json.encode(headers), body)
+                log.info("http.get", code, json.encode(headers), body)
                 local r = io.writeFile("/data.txt", body)
                 if r then
                     log.info("文件写入成功")
@@ -48,12 +48,12 @@ sys.taskInit(function ()
     -- opts["adapter"] = ""  -- 使用哪个网卡,可选
     -- local req_headers = {}
     -- req_headers["Content-Type"] = "application/json"
-    -- local code, headers, body = http2.request("POST","http://site0.cn/api/httptest/simple/date", 
+    -- local code, headers, body = http.request("POST","http://site0.cn/api/httptest/simple/date", 
     --         json.encode(req_headers), -- 请求所添加的 headers, 可以是nil
     --         "",
     --         opts
     -- ).wait()
-    -- log.info("http2.post", code, headers, body) -- 只返回code和headers
+    -- log.info("http.post", code, headers, body) -- 只返回code和headers
 end)
 
 -- [[
@@ -66,7 +66,7 @@ sys.taskInit(
 
         -- GET请求
         log.info("------GET请求------")
-        local code, headers, body = http2.request("GET","https://www.baidu.com/").wait()
+        local code, headers, body = http.request("GET","https://www.baidu.com/").wait()
         log.info("http.get", code, json.encode(headers), body)
         sys.wait(2000)
 
@@ -75,7 +75,7 @@ sys.taskInit(
         local req_headers = {}
         req_headers["Content-Type"] = "application/json"
         local body = json.encode({name="LuatOS"})
-        http2.request("POST","http://site0.cn/api/httptest/simple/date", 
+        http.request("POST","http://site0.cn/api/httptest/simple/date", 
             req_headers,
             body -- POST请求所需要的body, string, zbuff, file均可
         ).cb(function(code, headers, body)
@@ -94,24 +94,24 @@ sys.taskInit(
 --         -- while 1 do
 --             log.info("mem.lua", rtos.meminfo())
 --             log.info("mem.sys", rtos.meminfo("sys"))
---             local code, headers, body = http2.request("GET","https://www.baidu.com/").wait()
---             log.info("http2.get", code, json.encode(headers), body)
+--             local code, headers, body = http.request("GET","https://www.baidu.com/").wait()
+--             log.info("http.get", code, json.encode(headers), body)
 
---             -- -- local code, headers, body = http2.request("GET","http://site0.cn/api/httptest/simple/time").wait()
---             -- -- log.info("http2.get", code, json.encode(headers), body)
+--             -- -- local code, headers, body = http.request("GET","http://site0.cn/api/httptest/simple/time").wait()
+--             -- -- log.info("http.get", code, json.encode(headers), body)
 --             -- sys.wait(2000)
 
 --             -- -- POST request
 --             -- local req_headers = {}
 --             -- req_headers["Content-Type"] = "application/json"
 --             -- local body = json.encode({name="LuatOS"})
---             -- local code, headers, body = http2.request("POST","http://site0.cn/api/httptest/simple/date", 
+--             -- local code, headers, body = http.request("POST","http://site0.cn/api/httptest/simple/date", 
 --             --         req_headers,
 --             --         body -- POST请求所需要的body, string, zbuff, file均可
 --             -- ).cb(function (code, headers, body)
---             --     log.info("http2.post", code, headers, body)
+--             --     log.info("http.post", code, headers, body)
 --             -- end)
---             -- log.info("http2.post1", code, headers, body)
+--             -- log.info("http.post1", code, headers, body)
 --         -- end
 --     end
 -- )

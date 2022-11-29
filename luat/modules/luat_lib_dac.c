@@ -5,6 +5,7 @@
 @version 1.0
 @date    2021.12.03
 @demo multimedia
+@tag LUAT_USE_DAC
 */
 
 #include "luat_base.h"

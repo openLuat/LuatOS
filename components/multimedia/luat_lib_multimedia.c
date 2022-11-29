@@ -5,6 +5,7 @@
 @version 1.0
 @date    2022.03.11
 @demo multimedia
+@tag LUAT_USE_MEDIA
 */
 #include "luat_base.h"
 #include "luat_multimedia.h"

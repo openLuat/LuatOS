@@ -3,6 +3,7 @@
 @summary 触摸按键
 @version 1.0
 @date    2022.01.15
+@tag LUAT_USE_TOUCHKEY
 */
 #include "luat_base.h"
 #include "luat_touchkey.h"

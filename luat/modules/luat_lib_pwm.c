@@ -4,6 +4,7 @@
 @version 1.0
 @date    2020.07.03
 @demo pwm
+@tag LUAT_USE_PWM
 */
 #include "luat_base.h"
 #include "luat_pwm.h"

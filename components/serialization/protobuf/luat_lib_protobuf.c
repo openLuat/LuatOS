@@ -4,6 +4,7 @@
 @version 1.0
 @date    2022.09.08
 @demo protobuf
+@tag LUAT_USE_PROTOBUF
 @usage
 
 -- 加载 pb 文件, 这个是从pbtxt 转换得到的

@@ -30,7 +30,7 @@ sys.taskInit(function()
         sys.wait(100)
         -- local url = "http://ip.nutz.cn/json"
         local url = "http://nutzam.com/1.txt"
-        local code, headers, body = http2.request("GET", url).wait()
+        local code, headers, body = http.request("GET", url).wait()
         log.info("http", code, json.encode(headers), #body)
     else
         print("wlan NOT ready!!!!")

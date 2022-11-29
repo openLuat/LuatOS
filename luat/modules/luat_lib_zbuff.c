@@ -4,6 +4,7 @@
 @version 0.1
 @date    2021.03.31
 @video https://www.bilibili.com/video/BV1gr4y1V7HN
+@tag LUAT_USE_ZBUFF
 */
 #include "luat_base.h"
 #include "luat_zbuff.h"

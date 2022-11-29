@@ -3,6 +3,7 @@
 @summary zlib压缩/解压缩
 @version 1.0
 @date    2022.01.06
+@tag LUAT_USE_ZLIB
 */
 
 #include "luat_base.h"

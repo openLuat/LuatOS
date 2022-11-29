@@ -4,6 +4,7 @@
 @version 1.0
 @date    2022.11.13
 @demo socket
+@tag LUAT_USE_NETWORK
 */
 #include "luat_base.h"
 #include "luat_malloc.h"

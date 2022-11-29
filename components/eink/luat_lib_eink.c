@@ -4,6 +4,7 @@
 @version 1.0
 @date    2020.11.14
 @demo eink
+@tag LUAT_USE_EINK
 */
 #include "luat_base.h"
 #include "luat_log.h"
@@ -500,7 +501,7 @@ static int l_eink_print(lua_State *L)
     int y           = luaL_checkinteger(L, 2);
     const char *str = luaL_checklstring(L, 3, &len);
 
-    
+
     if (check_init() == 0) {
       return 0;
     }
@@ -553,7 +554,7 @@ static int l_eink_show(lua_State *L)
     /* Display the frame_buffer */
     //EPD_SetFrameMemory(&epd, frame_buffer, x, y, Paint_GetWidth(&ctxs[ctx_index]->paint), Paint_GetHeight(&ctxs[ctx_index]->paint));
     //EPD_DisplayFrame(&epd);
-    
+
     if (check_init() == 0) {
       return 0;
     }
@@ -641,7 +642,7 @@ static int l_eink_rect(lua_State *L)
     int y2      = luaL_checkinteger(L, 4);
     int colored = luaL_optinteger(L, 5, 0);
     int fill    = luaL_optinteger(L, 6, 0);
-  
+
     if (check_init() == 0) {
       return 0;
     }
@@ -1056,13 +1057,13 @@ static int l_eink_drawXbm(lua_State *L){
     const char* data = luaL_checklstring(L, 5, &len);
     if (h < 1) return 0; // 行数必须大于0
     if (len*8/h < w) return 0; // 起码要填满一行
-    if (len != h*w/8)return 0;
+    if (len < h*w/8) return 0;
 
     if (check_init() == 0) {
       return 0;
     }
 
-    uint8_t blen;
+    uint8_t blen = 0;
     blen = w;
     blen += 7;
     blen >>= 3;

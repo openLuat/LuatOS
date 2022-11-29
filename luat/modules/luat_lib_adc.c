@@ -5,6 +5,7 @@
 @version 1.0
 @date    2020.07.03
 @demo adc
+@tag LUAT_USE_ADC
 */
 #include "luat_base.h"
 #include "luat_adc.h"
@@ -128,6 +129,11 @@ static const rotable_Reg_t reg_adc[] =
 	{ "ADC_RANGE_3_6",   ROREG_INT(1)},
 	//@const ADC_RANGE_1_8 number air105的ADC分压电阻关闭，范围0~1.88V
 	{ "ADC_RANGE_1_8",   ROREG_INT(0)},
+
+    //@const CH_CPU number CPU内部温度的通道id
+    { "CH_CPU",          ROREG_INT(10)},
+    //@const CH_VBAT number VBAT供电电压的通道id
+    { "CH_VBAT",         ROREG_INT(11)},
 	{ NULL,              ROREG_INT(0) }
 };
 

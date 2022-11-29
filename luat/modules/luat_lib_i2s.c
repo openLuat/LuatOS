@@ -3,6 +3,7 @@
 @summary 数字音频
 @version core V0007
 @date    2022.05.26
+@tag LUAT_USE_I2S
 */
 #include "luat_base.h"
 #include "luat_malloc.h"

@@ -3,6 +3,7 @@
 @summary 简易zlib压缩
 @version 1.0
 @date    2022.8.11
+@tag LUAT_USE_MINIZ
 @usage
 -- 准备好数据
 local bigdata = "123jfoiq4hlkfjbnasdilfhuqwo;hfashfp9qw38hrfaios;hfiuoaghfluaeisw"

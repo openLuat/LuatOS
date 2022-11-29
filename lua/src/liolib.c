@@ -3,6 +3,7 @@
 @summary io操作(扩展)
 @version 1.0
 @date    2020.07.03
+@tag LUAT_CONF_BSP
 */
 
 #define liolib_c
@@ -755,7 +756,7 @@ static int f_flush (lua_State *L) {
 @string 文件路径
 @return bool 存在返回true,否则返回false
 @usage
-log.info("io", "file exists", io.exists("/boottime")) 
+log.info("io", "file exists", io.exists("/boottime"))
  */
 static int io_exists (lua_State *L) {
   const char *filename = luaL_checkstring(L, 1);
@@ -781,7 +782,7 @@ static int io_fileSize (lua_State *L) {
   const char *filename = luaL_checkstring(L, 1);
   FILE* f = fopen(filename, "rb");
   if(f == NULL) {
-    lua_pushinteger(L, 0); 
+    lua_pushinteger(L, 0);
   }
   else {
     fseek(f, 0, SEEK_END);
@@ -1115,7 +1116,7 @@ static int io_lsdir (lua_State *L) {
   else if (ret > 0) {
     lua_pushboolean(L, 1);
     lua_createtable(L, ret, 0);
-    
+
     for (size_t i = 0; i < ret; i++)
     {
       lua_createtable(L, 0, 2);

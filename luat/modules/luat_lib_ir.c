@@ -5,6 +5,7 @@
 @version 1.0
 @date    2021.10.26
 @demo ir
+@tag LUAT_USE_IR
 */
 #include "luat_base.h"
 #include "luat_gpio.h"

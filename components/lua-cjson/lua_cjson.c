@@ -4,6 +4,7 @@
 @version 1.0
 @date    2020.02.18
 @demo json
+@tag LUAT_USE_CJSON
 */
 /* Lua CJSON - JSON support for Lua
  *
@@ -709,7 +710,7 @@ static int json_encode(lua_State *l)
 
     luaL_argcheck(l, lua_gettop(l) == 1, 1, "expected 1 argument");
 
-    
+
     encode_buf = &local_encode_buf;
     ret = strbuf_init(encode_buf, 0);
     if (ret) {

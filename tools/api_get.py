@@ -110,6 +110,7 @@ def get_modules(file_list, start="/*", end="*/"):
             module["usage"] = ""
             module["demo"] = ""
             module["video"] = ""
+            module["tag"] = ""
             module["api"] = []
             module["const"] = []
         else:
@@ -117,7 +118,7 @@ def get_modules(file_list, start="/*", end="*/"):
 
         for mstep in range(len(modules)-1,-1,-1):
             if modules[mstep]["module"] == module["module"]:
-                module["api"] = modules[mstep]["api"]
+                module = modules[mstep]
                 del modules[mstep]
                 module["url"] = ""
 
@@ -136,6 +137,10 @@ def get_modules(file_list, start="/*", end="*/"):
                     continue
                 if re.search(" *@video *.+",lines[line_now],re.I):
                     module["video"] = re.search(" *@video * (.+) *",lines[line_now],re.I).group(1)
+                    line_now+=1
+                    continue
+                if re.search(" *@tag *.+",lines[line_now],re.I):
+                    module["tag"] = re.search(" *@tag * (.+) *",lines[line_now],re.I).group(1)
                     line_now+=1
                     continue
                 if re.search(" *@usage *",lines[line_now],re.I):

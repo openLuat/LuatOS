@@ -3,6 +3,7 @@
 @summary 跑分
 @version 1.0
 @date    2022.01.11
+@tag LUAT_USE_COREMARK
 */
 #include "luat_base.h"
 

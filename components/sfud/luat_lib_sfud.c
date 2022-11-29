@@ -4,6 +4,7 @@
 @version 1.0
 @date    2021.09.23
 @demo sfud
+@tag LUAT_USE_SFUD
 */
 
 #include "luat_base.h"

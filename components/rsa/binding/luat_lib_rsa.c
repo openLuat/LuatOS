@@ -4,6 +4,7 @@
 @version 1.0
 @date    2022.11.03
 @demo    rsa
+@tag LUAT_USE_RSA
 @usage
 -- 请在电脑上生成私钥和公钥, 当前最高支持4096bit, 一般来说2048bit就够用了
 -- openssl genrsa -out privkey.pem 2048

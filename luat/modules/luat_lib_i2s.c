@@ -19,7 +19,7 @@
 @int 模式, 当前仅支持0, MASTER|TX|RX 模式, 暂不支持slave. 可选
 @int 采样率,默认44100. 可选
 @int 声道, 0 左声道, 1 右声道, 2 双声道. 可选
-@int 格式, 当前仅支持i2s标准格式. 可选
+@int 格式, 可选MODE_I2S, MODE_LSB, MODE_MSB
 @int mclk频率, 默认 8M. 可选
 @return boolean 成功与否
 @return int 底层返回值
@@ -148,6 +148,12 @@ static const rotable_Reg_t reg_i2s[] =
     { "play",       ROREG_FUNC(l_i2s_play)},
     { "pause",      ROREG_FUNC(l_i2s_pause)},
     { "stop",       ROREG_FUNC(l_i2s_stop)},
+	//@const MODE_I2S number I2S标准，比如ES7149
+	{ "MODE_I2S", 	ROREG_INT(0)},
+	//@const MODE_LSB number LSB格式
+	{ "MODE_LSB", 	ROREG_INT(1)},
+	//@const MODE_MSB number MSB格式，比如TM8211
+	{ "MODE_MSB", 	ROREG_INT(2)},
 	{ NULL,         ROREG_INT(0) }
 };
 

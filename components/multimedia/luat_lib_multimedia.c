@@ -15,6 +15,11 @@
 
 #include <stddef.h>
 #include "mp3_decode/minimp3.h"
+#ifndef __BSP_COMMON_H__
+#include "c_common.h"
+#endif
+
+
 #define LUAT_M_CODE_TYPE "MCODER*"
 #define MP3_FRAME_LEN 4 * 1152
 
@@ -165,9 +170,10 @@ static int l_audio_raw_on(lua_State *L) {
 
 /*
 播放或者停止播放一个文件，播放完成后，会回调一个audio.DONE消息，可以用pause来暂停或者恢复，其他API不可用。考虑到读SD卡速度比较慢而拖累luavm进程的速度，所以尽量使用本API
-@api audio.play(id, path)
+@api audio.play(id, path, errStop)
 @int 音频通道
-@string 文件名，如果为空，则表示停止播放
+@string/table 文件名，如果为空，则表示停止播放，如果是table，则表示连续播放多个文件，并且会用到errStop参数
+@boolean 是否在文件解码失败后停止解码，只有在连续播放多个文件时才有用，默认true，遇到解码错误自动停止
 @return boolean 成功返回true,否则返回false
 @usage
 audio.play(0, "xxxxxx")		--开始播放某个文件
@@ -178,7 +184,27 @@ static int l_audio_play(lua_State *L) {
     size_t len, i;
     int result = 0;
     const uint8_t *buf;
-    if (lua_isstring(L, 2))
+    uint8_t is_error_stop = 1;
+    if (lua_istable(L, 2))
+    {
+    	size_t len = lua_rawlen(L, 2); //返回数组的长度
+        uData_t *info = (uData_t *)luat_heap_malloc(len * sizeof(uData_t));
+        for (size_t i = 0; i < len; i++)
+        {
+            lua_rawgeti(L, 2, 1 + i);
+            info[i].value.asBuffer.buffer = lua_tolstring(L, -1, &info[i].value.asBuffer.length);
+            info[i].Type = UDATA_TYPE_OPAQUE;
+            lua_pop(L, 1); //将刚刚获取的元素值从栈中弹出
+        }
+    	if (lua_isboolean(L, 3))
+    	{
+    		is_error_stop = lua_toboolean(L, 3);
+    	}
+        result = luat_audio_play_multi_files(multimedia_id, info, len, is_error_stop);
+    	lua_pushboolean(L, !result);
+    	luat_heap_free(info);
+    }
+    else if (LUA_TSTRING == (lua_type(L, (2))))
     {
         buf = lua_tolstring(L, 2, &len);//取出字符串数据
         char *path = luat_heap_malloc(len + 1);
@@ -198,6 +224,20 @@ static int l_audio_play(lua_State *L) {
 }
 
 /**
+停止播放文件
+@api audio.playStop(id)
+@int audio id,例如0
+@return boolean 成功返回true,否则返回false
+@usage
+audio.playStop(0)
+*/
+static int l_audio_play_stop(lua_State *L) {
+    lua_pushboolean(L, !luat_audio_play_stop(luaL_checkinteger(L, 1)));
+    return 1;
+}
+
+
+/**
 检查当前文件是否已经播放结束
 @api audio.isEnd(id, path)
 @int 音频通道
@@ -215,18 +255,22 @@ static int l_audio_play_wait_end(lua_State *L) {
 
 /*
 配置一个音频通道的特性，比如实现自动控制PA开关。注意这个不是必须的，一般在调用play的时候才需要自动控制，其他情况比如你手动控制播放时，就可以自己控制PA开关
-@api audio.config(id, paPin, onLevel)
+@api audio.config(id, paPin, onLevel, dacDelay, paDelay, dacPin, dacLevel)
 @int 音频通道
 @int PA控制IO
 @int PA打开时的电平
-@int 在DAC启动后插入的冗余时间，单位100ms
+@int 在DAC启动前插入的冗余时间，单位100ms，一般用于外部DAC
 @int 在DAC启动后，延迟多长时间打开PA，单位1ms
+@int 外部dac电源控制IO，如果不填，则表示使用平台默认IO，比如Air780E使用DACEN脚，air105则不启用
+@int 外部dac打开时，电源控制IO的电平，默认拉高
 @return 无
 @usage
-audio.config(0, pin.PC0, 1)	--PA控制脚是PC0，高电平打开
+audio.config(0, pin.PC0, 1)	--PA控制脚是PC0，高电平打开，air105用这个配置就可以用了
+audio.config(0, 25, 1, 6, 200)	--PA控制脚是GPIO25，高电平打开，Air780E云喇叭板用这个配置就可以用了
 */
 static int l_audio_config(lua_State *L) {
-    luat_audio_config_pa(luaL_checkinteger(L, 1), luaL_optinteger(L, 2, 255), luaL_optinteger(L, 3, 1), luaL_optinteger(L, 3, 5), luaL_optinteger(L, 3, 200));
+    luat_audio_config_pa(luaL_checkinteger(L, 1), luaL_optinteger(L, 2, 255), luaL_optinteger(L, 3, 1), luaL_optinteger(L, 4, 5), luaL_optinteger(L, 5, 200));
+    luat_audio_config_dac(luaL_checkinteger(L, 1), luaL_optinteger(L, 6, -1), luaL_optinteger(L, 7, 1));
     return 0;
 }
 
@@ -552,6 +596,7 @@ static const rotable_Reg_t reg_audio[] =
 	{ "stop",		   ROREG_FUNC(l_audio_stop_raw)},
     { "on",            ROREG_FUNC(l_audio_raw_on)},
 	{ "play",		   ROREG_FUNC(l_audio_play)},
+	{ "playStop",	   ROREG_FUNC(l_audio_play_stop)},
 	{ "isEnd",		   ROREG_FUNC(l_audio_play_wait_end)},
 	{ "config",			ROREG_FUNC(l_audio_config)},
     { "PCM",           ROREG_INT(MULTIMEDIA_DATA_TYPE_PCM)},

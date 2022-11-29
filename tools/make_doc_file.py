@@ -16,11 +16,14 @@ for bsp in bsp_header_list:
     print("done "+ str(len(bsp["url"])) + " bytes")
 
 def get_tags(tag):
-    r = []
+    r = ["{bdg-success}`已适配`"]
     for bsp in bsp_header_list:
         if bsp["url"].find(" "+tag+" ") >= 0 or bsp["url"].find(" "+tag+"\r") >= 0 or bsp["url"].find(" "+tag+"\n") >= 0:
             r.append("{bdg-primary}`" + bsp["name"] + "`")
-    return " ".join(r)
+    if len(r) > 1:
+        return " ".join(r)
+    else:
+        return "{bdg-secondary}`适配状态未知`"
 
 def make(path,modules,index_text):
     try:

@@ -16,6 +16,8 @@ for bsp in bsp_header_list:
     print("done "+ str(len(bsp["url"])) + " bytes")
 
 def get_tags(tag):
+    if len(tag) == 0:
+        return "{bdg-secondary}`适配状态未知`"
     r = ["{bdg-success}`已适配`"]
     for bsp in bsp_header_list:
         if bsp["url"].find(" "+tag+" ") >= 0 or bsp["url"].find(" "+tag+"\r") >= 0 or bsp["url"].find(" "+tag+"\n") >= 0:
@@ -39,9 +41,9 @@ def make(path,modules,index_text):
         mdoc = open(path+module["module"]+".md", "a+",encoding='utf-8')
         mdoc.write("# "+module["module"]+" - "+module["summary"]+"\n\n")
 
-        if len(module["tag"]) > 0:
-            mdoc.write(get_tags(module["tag"]))
-            mdoc.write("\n\n")
+        #支持的芯片
+        mdoc.write(get_tags(module["tag"]))
+        mdoc.write("\n\n")
 
         if len(module["url"]) > 0:
             mdoc.write("```{note}\n本页文档由[这个文件]("+module["url"]+")自动生成。如有错误，请提交issue或帮忙修改后pr，谢谢！\n```\n\n")

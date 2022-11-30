@@ -58,9 +58,7 @@ int luat_mqtt_init(luat_mqtt_ctrl_t *mqtt_ctrl, int adapter_index) {
 	mqtt_ctrl->keepalive = 240;
 	network_set_base_mode(mqtt_ctrl->netc, 1, 10000, 0, 0, 0, 0);
 	network_set_local_port(mqtt_ctrl->netc, 0);
-	if (mqtt_ctrl->reconnect){
-		mqtt_ctrl->reconnect_timer = luat_create_rtos_timer(reconnect_timer_cb, mqtt_ctrl, NULL);
-	}
+	mqtt_ctrl->reconnect_timer = luat_create_rtos_timer(reconnect_timer_cb, mqtt_ctrl, NULL);
 	mqtt_ctrl->ping_timer = luat_create_rtos_timer(luat_mqtt_timer_callback, mqtt_ctrl, NULL);
     return 0;
 }
@@ -97,7 +95,7 @@ void luat_mqtt_close_socket(luat_mqtt_ctrl_t *mqtt_ctrl){
 	}
 	luat_stop_rtos_timer(mqtt_ctrl->ping_timer);
 	mqtt_ctrl->mqtt_state = 0;
-	if (mqtt_ctrl->reconnect){
+	if (mqtt_ctrl->reconnect && mqtt_ctrl->reconnect_time > 0){
 		mqtt_reconnect(mqtt_ctrl);
 	}
 }

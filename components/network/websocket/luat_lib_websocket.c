@@ -7,12 +7,14 @@
 @usage
 local wsc = nil
 if websocket then
-    wsc = websocket.create(nil, "ws://nutz.cn/websocket")
+	wsc = websocket.create(nil, "ws://echo.airtun.air32.cn/ws/echo")
     wsc:autoreconn(true, 3000) -- 自动重连机制
+    wsc:on(function(wsc, event, data, fin, optcode)
     wsc:on(function(wsc, event, data)
         log.info("wsc", event, data)
         if event == "conack" then
-            wsc:send((json.encode({action="login",device_id=device_id})))
+            wsc:send((json.encode({action="echo", device_id=device_id})))
+            sys.publish("wsc_conack")
         end
     end)
     wsc:connect()
@@ -64,6 +66,11 @@ static int32_t l_websocket_callback(lua_State *L, void *ptr)
 	case WEBSOCKET_MSG_TIMER_PING:
 	{
 		luat_websocket_ping(websocket_ctrl);
+		break;
+	}
+	case WEBSOCKET_MSG_RECONNECT:
+	{
+		luat_websocket_reconnect(websocket_ctrl);
 		break;
 	}
 	case WEBSOCKET_MSG_PUBLISH:
@@ -277,6 +284,8 @@ static int l_websocket_autoreconn(lua_State *L)
 		websocket_ctrl->reconnect = lua_toboolean(L, 2);
 	}
 	websocket_ctrl->reconnect_time = luaL_optinteger(L, 3, 3000);
+	if (websocket_ctrl->reconnect && websocket_ctrl->reconnect_time < 1000)
+		websocket_ctrl->reconnect_time = 1000;
 	return 0;
 }
 

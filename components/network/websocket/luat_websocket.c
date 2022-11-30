@@ -116,6 +116,15 @@ void luat_websocket_pong(luat_websocket_ctrl_t *websocket_ctrl)
 	luat_websocket_send_frame(websocket_ctrl, &pkg);
 }
 
+void luat_websocket_reconnect(luat_websocket_ctrl_t *websocket_ctrl) {
+	int ret = luat_websocket_connect(websocket_ctrl);
+	if (ret)
+	{
+		LLOGI("reconnect init socket ret=%d\n", ret);
+		luat_websocket_close_socket(websocket_ctrl);
+	}
+}
+
 LUAT_RT_RET_TYPE luat_websocket_timer_callback(LUAT_RT_CB_PARAM)
 {
 	luat_websocket_ctrl_t *websocket_ctrl = (luat_websocket_ctrl_t *)param;
@@ -125,12 +134,7 @@ LUAT_RT_RET_TYPE luat_websocket_timer_callback(LUAT_RT_CB_PARAM)
 static void reconnect_timer_cb(LUAT_RT_CB_PARAM)
 {
 	luat_websocket_ctrl_t *websocket_ctrl = (luat_websocket_ctrl_t *)param;
-	int ret = luat_websocket_connect(websocket_ctrl);
-	if (ret)
-	{
-		LLOGI("reconnect init socket ret=%d\n", ret);
-		luat_websocket_close_socket(websocket_ctrl);
-	}
+	l_luat_websocket_msg_cb(websocket_ctrl, WEBSOCKET_MSG_RECONNECT, 0);
 }
 
 int luat_websocket_init(luat_websocket_ctrl_t *websocket_ctrl, int adapter_index)
@@ -147,9 +151,10 @@ int luat_websocket_init(luat_websocket_ctrl_t *websocket_ctrl, int adapter_index
 
 	websocket_ctrl->websocket_state = 0;
 	websocket_ctrl->netc->is_debug = 0;
-	websocket_ctrl->keepalive = 240;
+	websocket_ctrl->keepalive = 60;
 	network_set_base_mode(websocket_ctrl->netc, 1, 10000, 0, 0, 0, 0);
 	network_set_local_port(websocket_ctrl->netc, 0);
+	websocket_ctrl->reconnect_timer = luat_create_rtos_timer(reconnect_timer_cb, websocket_ctrl, NULL);
 	websocket_ctrl->ping_timer = luat_create_rtos_timer(luat_websocket_timer_callback, websocket_ctrl, NULL);
 	return 0;
 }
@@ -208,13 +213,8 @@ int luat_websocket_set_connopts(luat_websocket_ctrl_t *websocket_ctrl, const cha
 			break;
 		}
 	}
-	if (port == 0 && is_tls)
-	{
-		port = 443;
-	}
-	else
-	{
-		port = 80;
+	if (port == 0) {
+		port = is_tls ? 443 : 80;
 	}
 
 	if (websocket_ctrl->uri[0] == 0)
@@ -242,13 +242,10 @@ int luat_websocket_set_connopts(luat_websocket_ctrl_t *websocket_ctrl, const cha
 
 static void websocket_reconnect(luat_websocket_ctrl_t *websocket_ctrl)
 {
-	if (websocket_ctrl->reconnect)
-	{
-		LLOGI("reconnect after %dms", websocket_ctrl->reconnect_time);
-		websocket_ctrl->buffer_offset = 0;
-		websocket_ctrl->reconnect_timer = luat_create_rtos_timer(reconnect_timer_cb, websocket_ctrl, NULL);
-		luat_start_rtos_timer(websocket_ctrl->reconnect_timer, websocket_ctrl->reconnect_time, 0);
-	}
+	LLOGI("reconnect after %dms", websocket_ctrl->reconnect_time);
+	websocket_ctrl->buffer_offset = 0;
+	websocket_ctrl->reconnect_timer = luat_create_rtos_timer(reconnect_timer_cb, websocket_ctrl, NULL);
+	luat_start_rtos_timer(websocket_ctrl->reconnect_timer, websocket_ctrl->reconnect_time, 0);
 }
 
 void luat_websocket_close_socket(luat_websocket_ctrl_t *websocket_ctrl)
@@ -260,12 +257,22 @@ void luat_websocket_close_socket(luat_websocket_ctrl_t *websocket_ctrl)
 	}
 	luat_stop_rtos_timer(websocket_ctrl->ping_timer);
 	websocket_ctrl->websocket_state = 0;
-	websocket_reconnect(websocket_ctrl);
+	if (websocket_ctrl->reconnect) {
+		websocket_reconnect(websocket_ctrl);
+	}
 }
 
 void luat_websocket_release_socket(luat_websocket_ctrl_t *websocket_ctrl)
 {
 	l_luat_websocket_msg_cb(websocket_ctrl, WEBSOCKET_MSG_RELEASE, 0);
+	if (websocket_ctrl->ping_timer) {
+		luat_release_rtos_timer(websocket_ctrl->ping_timer);
+    	websocket_ctrl->ping_timer = NULL;
+	}
+	if (websocket_ctrl->reconnect_timer) {
+		luat_release_rtos_timer(websocket_ctrl->reconnect_timer);
+    	websocket_ctrl->reconnect_timer = NULL;
+	}
 	if (websocket_ctrl->netc)
 	{
 		network_release_ctrl(websocket_ctrl->netc);
@@ -277,7 +284,7 @@ static int websocket_connect(luat_websocket_ctrl_t *websocket_ctrl)
 {
 	LLOGD("request host %s port %d uri %s", websocket_ctrl->host, websocket_ctrl->remote_port, websocket_ctrl->uri);
 	// 借用pkg_buff
-	int ret = snprintf_(websocket_ctrl->pkg_buff,
+	int ret = snprintf_((char*)websocket_ctrl->pkg_buff,
 						WEBSOCKET_RECV_BUF_LEN_MAX,
 						"GET %s HTTP/1.1\r\n"
 						"Host: %s\r\n"
@@ -287,8 +294,10 @@ static int websocket_connect(luat_websocket_ctrl_t *websocket_ctrl)
 						"Sec-WebSocket-Version: 13\r\n"
 						"\r\n",
 						websocket_ctrl->uri, websocket_ctrl->host);
-	// LLOGD("Request %s", websocket_ctrl->pkg_buff);
-	return luat_websocket_send_packet(websocket_ctrl, websocket_ctrl->pkg_buff, ret);
+	LLOGD("Request %s", websocket_ctrl->pkg_buff);
+	ret = luat_websocket_send_packet(websocket_ctrl, websocket_ctrl->pkg_buff, ret);
+	LLOGD("websocket_connect ret %d", ret);
+	return ret;
 }
 
 int luat_websocket_send_frame(luat_websocket_ctrl_t *websocket_ctrl, luat_websocket_pkg_t *pkg)

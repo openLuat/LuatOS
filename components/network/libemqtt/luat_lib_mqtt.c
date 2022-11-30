@@ -415,6 +415,8 @@ static int l_mqtt_autoreconn(lua_State *L) {
 		mqtt_ctrl->reconnect = lua_toboolean(L, 2);
 	}
 	mqtt_ctrl->reconnect_time = luaL_optinteger(L, 3, 3000);
+	if (mqtt_ctrl->reconnect && mqtt_ctrl->reconnect_time < 1000)
+		mqtt_ctrl->reconnect_time = 1000;
 	return 0;
 }
 

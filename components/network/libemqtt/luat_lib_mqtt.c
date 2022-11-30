@@ -289,16 +289,19 @@ static int l_mqtt_create(lua_State *L) {
 	if (lua_isboolean(L, 4)){
 		opts.is_tls = lua_toboolean(L, 4);
 	}
-	if (lua_isstring(L, 5)){
-		opts.client_cert = luaL_checklstring(L, 5, &opts.client_cert_len);
+	
+	if (opts.is_tls){
+		if (lua_isstring(L, 5)){
+			opts.client_cert = luaL_checklstring(L, 5, &opts.client_cert_len);
+		}
+		if (lua_isstring(L, 6)){
+			opts.client_key = luaL_checklstring(L, 6, &opts.client_key_len);
+		}
+		if (lua_isstring(L, 7)){
+			opts.client_password = luaL_checklstring(L, 7, &opts.client_password_len);
+		}
 	}
-	if (lua_isstring(L, 6)){
-		opts.client_key = luaL_checklstring(L, 6, &opts.client_key_len);
-	}
-	if (lua_isstring(L, 7)){
-		opts.client_password = luaL_checklstring(L, 7, &opts.client_password_len);
-	}
-
+	
 	ret = luat_mqtt_set_connopts(mqtt_ctrl, &opts);
 
 	// TODO 判断ret, 如果初始化失败, 应该终止

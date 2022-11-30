@@ -35,14 +35,16 @@ void i2c_tools(const char * data,size_t len){
         uint8_t *buffer = (uint8_t *)luat_heap_malloc(len);
         memset(buffer, 0, len); // 确保填充为0
         if( i2c_read(address, reg,buffer,len)!=1){
-            printf("[ ");
+            char buff[64] = {0};
+            sprintf_(buff, "[ ");
             for(uint8_t i = 0; i < len; i++){
-                printf("0x%02X", buffer[i]);
+                sprintf_(buff + 2 + i *4, "0x%02X", buffer[i]);
                 if(i != (len-1)){
                     printf(", ");
                 }
             }
-            printf(" ]\n");
+            sprintf_(buff + 2 + 4*len, " ]");
+            LLOGD(buff);
         }
         luat_heap_free(buffer);
     }else if(memcmp("scan",command,4) == 0){

@@ -1,5 +1,11 @@
+
+#include "luat_base.h"
 #include "i2c_utils.h"
 #include "luat_i2c.h"
+
+#define LUAT_LOG_TAG "i2c"
+#include "luat_log.h"
+
 
 static uint8_t i2c_tools_id = 0;
 
@@ -14,10 +20,10 @@ uint8_t strtonum(const char* str){
 }
 
 void i2c_help(void){
-    printf("\n---------------i2c tools help:---------------\n");
-    printf("i2c tools scan i2c_id\n");
-    printf("i2c tools recv i2c_id address register [len=1]\n");
-    printf("i2c tools send i2c_id address [register] data_0 data_1 ...\n\n");
+    LLOGD("---------------i2c tools help:---------------");
+    LLOGD("i2c tools scan i2c_id");
+    LLOGD("i2c tools recv i2c_id address register [len=1]");
+    LLOGD("i2c tools send i2c_id address [register] data_0 data_1 ...");
 }
 
 uint8_t i2c_init(const uint8_t i2c_id){
@@ -44,18 +50,18 @@ uint8_t i2c_read(uint8_t addr, uint8_t reg, uint8_t* buffer, uint8_t len){
 }
 
 void i2c_scan(void){
-    printf("     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f\n");
+    LLOGD("     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f");
+    char buff[64] = {0};
     for(unsigned char i=0; i<8; i++){
-        printf("%d0: ", i);
+        sprintf_(buff, "%d0: ", i);
         for(unsigned char j=0; j<16; j++){
             char addr = i*16+j;
             if( i2c_probe(addr) == 1){
-                printf("%02X", addr);
+                sprintf_(buff + 3 + j*2, "%02X ", addr);
             }else{
-                printf("--");
+                sprintf_(buff + 3 + j*2, "-- ");
             }
-            printf(" ");
         }
-        printf("\n");
+        LLOGD("%s", buff);
     }
 }

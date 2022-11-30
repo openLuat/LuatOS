@@ -287,21 +287,10 @@ static int l_iotauth_iotda(lua_State *L) {
 #define MAX_CONN_ID_LEN (6)
 
 static void get_next_conn_id(char *conn_id){
-    int i;
-    srand((unsigned)luat_mcu_ticks());
+    size_t i;
+    luat_crypto_trng(conn_id, 5);
     for (i = 0; i < MAX_CONN_ID_LEN - 1; i++) {
-        int flag = rand() % 3;
-        switch (flag) {
-            case 0:
-                conn_id[i] = (rand() % 26) + 'a';
-                break;
-            case 1:
-                conn_id[i] = (rand() % 26) + 'A';
-                break;
-            case 2:
-                conn_id[i] = (rand() % 10) + '0';
-                break;
-        }
+        conn_id[i] = (conn_id[i] % 26) + 'a';
     }
     conn_id[MAX_CONN_ID_LEN - 1] = '\0';
 }

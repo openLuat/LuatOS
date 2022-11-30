@@ -3,6 +3,7 @@
 
 #define MQTT_MSG_RELEASE 0
 #define MQTT_MSG_TIMER_PING 2
+#define MQTT_MSG_RECONNECT  3
 
 #define MQTT_RECV_BUF_LEN_MAX 4096
 
@@ -59,5 +60,8 @@ void luat_mqtt_release_socket(luat_mqtt_ctrl_t *mqtt_ctrl);
 
 int luat_mqtt_init(luat_mqtt_ctrl_t *mqtt_ctrl, int adapter_index);
 int luat_mqtt_set_connopts(luat_mqtt_ctrl_t *mqtt_ctrl, luat_mqtt_connopts_t *opts);
+
+int luat_mqtt_reconnect(luat_mqtt_ctrl_t *mqtt_ctrl);
+int luat_mqtt_ping(luat_mqtt_ctrl_t *mqtt_ctrl);
 
 #endif

@@ -34,7 +34,11 @@ static int32_t l_mqtt_callback(lua_State *L, void* ptr){
     luat_mqtt_ctrl_t *mqtt_ctrl =(luat_mqtt_ctrl_t *)msg->ptr;
     switch (msg->arg1) {
 		case MQTT_MSG_TIMER_PING : {
-			mqtt_ping(&(mqtt_ctrl->broker));
+			luat_mqtt_ping(mqtt_ctrl);
+			break;
+		}
+		case MQTT_MSG_RECONNECT : {
+			luat_mqtt_reconnect(mqtt_ctrl);
 			break;
 		}
 		case MQTT_MSG_PUBLISH : {

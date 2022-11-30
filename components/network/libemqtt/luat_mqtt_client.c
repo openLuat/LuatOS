@@ -23,13 +23,24 @@ LUAT_RT_RET_TYPE luat_mqtt_timer_callback(LUAT_RT_CB_PARAM){
     l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_TIMER_PING, 0);
 }
 
-static void reconnect_timer_cb(LUAT_RT_CB_PARAM){
+static LUAT_RT_RET_TYPE reconnect_timer_cb(LUAT_RT_CB_PARAM){
 	luat_mqtt_ctrl_t * mqtt_ctrl = (luat_mqtt_ctrl_t *)param;
+	l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_RECONNECT, 0);
+}
+
+int luat_mqtt_reconnect(luat_mqtt_ctrl_t *mqtt_ctrl) {
 	int ret = luat_mqtt_connect(mqtt_ctrl);
 	if(ret){
 		LLOGI("reconnect init socket ret=%d\n", ret);
 		luat_mqtt_close_socket(mqtt_ctrl);
 	}
+}
+
+
+
+int luat_mqtt_ping(luat_mqtt_ctrl_t *mqtt_ctrl) {
+	mqtt_ping(&mqtt_ctrl->broker);
+	return 0;
 }
 
 int luat_mqtt_init(luat_mqtt_ctrl_t *mqtt_ctrl, int adapter_index) {
@@ -60,9 +71,9 @@ int luat_mqtt_set_connopts(luat_mqtt_ctrl_t *mqtt_ctrl, luat_mqtt_connopts_t *op
 	if (opts->is_tls){
 		network_init_tls(mqtt_ctrl->netc, opts->client_cert?2:0);
 		if (opts->client_cert){
-			network_set_client_cert(mqtt_ctrl->netc, opts->client_cert, opts->client_cert_len,
-					opts->client_key, opts->client_key_len,
-					opts->client_password, opts->client_password_len);
+			network_set_client_cert(mqtt_ctrl->netc, (const unsigned char*)opts->client_cert, opts->client_cert_len,
+					(const unsigned char*)opts->client_key, opts->client_key_len,
+					(const unsigned char*)opts->client_password, opts->client_password_len);
 		}
 	} else {
 		network_deinit_tls(mqtt_ctrl->netc);
@@ -373,3 +384,4 @@ int luat_mqtt_connect(luat_mqtt_ctrl_t *mqtt_ctrl) {
     }
     return 0;
 }
+

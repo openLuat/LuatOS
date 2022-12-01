@@ -23,13 +23,24 @@ LUAT_RT_RET_TYPE luat_mqtt_timer_callback(LUAT_RT_CB_PARAM){
     l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_TIMER_PING, 0);
 }
 
-static void reconnect_timer_cb(LUAT_RT_CB_PARAM){
+static LUAT_RT_RET_TYPE reconnect_timer_cb(LUAT_RT_CB_PARAM){
 	luat_mqtt_ctrl_t * mqtt_ctrl = (luat_mqtt_ctrl_t *)param;
+	l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_RECONNECT, 0);
+}
+
+int luat_mqtt_reconnect(luat_mqtt_ctrl_t *mqtt_ctrl) {
 	int ret = luat_mqtt_connect(mqtt_ctrl);
 	if(ret){
 		LLOGI("reconnect init socket ret=%d\n", ret);
 		luat_mqtt_close_socket(mqtt_ctrl);
 	}
+}
+
+
+
+int luat_mqtt_ping(luat_mqtt_ctrl_t *mqtt_ctrl) {
+	mqtt_ping(&mqtt_ctrl->broker);
+	return 0;
 }
 
 int luat_mqtt_init(luat_mqtt_ctrl_t *mqtt_ctrl, int adapter_index) {
@@ -47,6 +58,7 @@ int luat_mqtt_init(luat_mqtt_ctrl_t *mqtt_ctrl, int adapter_index) {
 	mqtt_ctrl->keepalive = 240;
 	network_set_base_mode(mqtt_ctrl->netc, 1, 10000, 0, 0, 0, 0);
 	network_set_local_port(mqtt_ctrl->netc, 0);
+	mqtt_ctrl->reconnect_timer = luat_create_rtos_timer(reconnect_timer_cb, mqtt_ctrl, NULL);
 	mqtt_ctrl->ping_timer = luat_create_rtos_timer(luat_mqtt_timer_callback, mqtt_ctrl, NULL);
     return 0;
 }
@@ -55,11 +67,15 @@ int luat_mqtt_set_connopts(luat_mqtt_ctrl_t *mqtt_ctrl, luat_mqtt_connopts_t *op
     memcpy(mqtt_ctrl->host, opts->host, strlen(opts->host) + 1);
     mqtt_ctrl->remote_port = opts->port;
 	if (opts->is_tls){
-		network_init_tls(mqtt_ctrl->netc, opts->client_cert?2:0);
+		network_init_tls(mqtt_ctrl->netc, (opts->server_cert || opts->client_cert)?2:0);
+		if (opts->server_cert){
+			network_set_server_cert(mqtt_ctrl->netc, (const unsigned char *)opts->server_cert, opts->server_cert_len);
+		}
 		if (opts->client_cert){
-			network_set_client_cert(mqtt_ctrl->netc, opts->client_cert, opts->client_cert_len,
-					opts->client_key, opts->client_key_len,
-					opts->client_password, opts->client_password_len);
+			
+			network_set_client_cert(mqtt_ctrl->netc, (const unsigned char*)opts->client_cert, opts->client_cert_len,
+					(const unsigned char*)opts->client_key, opts->client_key_len,
+					(const unsigned char*)opts->client_password, opts->client_password_len);
 		}
 	} else {
 		network_deinit_tls(mqtt_ctrl->netc);
@@ -71,12 +87,9 @@ int luat_mqtt_set_connopts(luat_mqtt_ctrl_t *mqtt_ctrl, luat_mqtt_connopts_t *op
 }
 
 static void mqtt_reconnect(luat_mqtt_ctrl_t *mqtt_ctrl){
-	if (mqtt_ctrl->reconnect){
-		LLOGI("reconnect after %dms", mqtt_ctrl->reconnect_time);
-		mqtt_ctrl->buffer_offset = 0;
-		mqtt_ctrl->reconnect_timer = luat_create_rtos_timer(reconnect_timer_cb, mqtt_ctrl, NULL);
-		luat_start_rtos_timer(mqtt_ctrl->reconnect_timer, mqtt_ctrl->reconnect_time, 0);
-	}
+	LLOGI("reconnect after %dms", mqtt_ctrl->reconnect_time);
+	mqtt_ctrl->buffer_offset = 0;
+	luat_start_rtos_timer(mqtt_ctrl->reconnect_timer, mqtt_ctrl->reconnect_time, 0);
 }
 
 void luat_mqtt_close_socket(luat_mqtt_ctrl_t *mqtt_ctrl){
@@ -86,11 +99,21 @@ void luat_mqtt_close_socket(luat_mqtt_ctrl_t *mqtt_ctrl){
 	}
 	luat_stop_rtos_timer(mqtt_ctrl->ping_timer);
 	mqtt_ctrl->mqtt_state = 0;
-	mqtt_reconnect(mqtt_ctrl);
+	if (mqtt_ctrl->reconnect && mqtt_ctrl->reconnect_time > 0){
+		mqtt_reconnect(mqtt_ctrl);
+	}
 }
 
 void luat_mqtt_release_socket(luat_mqtt_ctrl_t *mqtt_ctrl){
     l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_RELEASE, 0);
+	if (mqtt_ctrl->ping_timer){
+		luat_release_rtos_timer(mqtt_ctrl->ping_timer);
+    	mqtt_ctrl->ping_timer = NULL;
+	}
+	if (mqtt_ctrl->reconnect_timer){
+		luat_release_rtos_timer(mqtt_ctrl->reconnect_timer);
+    	mqtt_ctrl->reconnect_timer = NULL;
+	}
 	if (mqtt_ctrl->netc){
 		network_release_ctrl(mqtt_ctrl->netc);
     	mqtt_ctrl->netc = NULL;
@@ -363,3 +386,4 @@ int luat_mqtt_connect(luat_mqtt_ctrl_t *mqtt_ctrl) {
     }
     return 0;
 }
+

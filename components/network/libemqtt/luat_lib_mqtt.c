@@ -34,7 +34,11 @@ static int32_t l_mqtt_callback(lua_State *L, void* ptr){
     luat_mqtt_ctrl_t *mqtt_ctrl =(luat_mqtt_ctrl_t *)msg->ptr;
     switch (msg->arg1) {
 		case MQTT_MSG_TIMER_PING : {
-			mqtt_ping(&(mqtt_ctrl->broker));
+			luat_mqtt_ping(mqtt_ctrl);
+			break;
+		}
+		case MQTT_MSG_RECONNECT : {
+			luat_mqtt_reconnect(mqtt_ctrl);
 			break;
 		}
 		case MQTT_MSG_PUBLISH : {
@@ -227,9 +231,10 @@ mqtt客户端创建
 @string 服务器地址,可以是域名, 也可以是ip
 @int  	端口号
 @bool  	是否为ssl加密连接,默认不加密
-@string 证书数据,可选
-@string 证书密钥,可选
-@string 证书密码,可选
+@string 服务器ca证书数据
+@string 客户端ca证书数据
+@string 客户端私钥加密数据
+@string 客户端私钥口令数据
 @return userdata 若成功会返回mqtt客户端实例,否则返回nil
 @usage
 -- 普通TCP链接
@@ -289,16 +294,22 @@ static int l_mqtt_create(lua_State *L) {
 	if (lua_isboolean(L, 4)){
 		opts.is_tls = lua_toboolean(L, 4);
 	}
-	if (lua_isstring(L, 5)){
-		opts.client_cert = luaL_checklstring(L, 5, &opts.client_cert_len);
+	
+	if (opts.is_tls){
+		if (lua_isstring(L, 5)){
+			opts.server_cert = luaL_checklstring(L, 5, &opts.server_cert_len);
+		}
+		if (lua_isstring(L, 6)){
+			opts.client_cert = luaL_checklstring(L, 6, &opts.client_cert_len);
+		}
+		if (lua_isstring(L, 7)){
+			opts.client_key = luaL_checklstring(L, 7, &opts.client_key_len);
+		}
+		if (lua_isstring(L, 8)){
+			opts.client_password = luaL_checklstring(L, 8, &opts.client_password_len);
+		}
 	}
-	if (lua_isstring(L, 6)){
-		opts.client_key = luaL_checklstring(L, 6, &opts.client_key_len);
-	}
-	if (lua_isstring(L, 7)){
-		opts.client_password = luaL_checklstring(L, 7, &opts.client_password_len);
-	}
-
+	
 	ret = luat_mqtt_set_connopts(mqtt_ctrl, &opts);
 
 	// TODO 判断ret, 如果初始化失败, 应该终止
@@ -408,6 +419,8 @@ static int l_mqtt_autoreconn(lua_State *L) {
 		mqtt_ctrl->reconnect = lua_toboolean(L, 2);
 	}
 	mqtt_ctrl->reconnect_time = luaL_optinteger(L, 3, 3000);
+	if (mqtt_ctrl->reconnect && mqtt_ctrl->reconnect_time < 1000)
+		mqtt_ctrl->reconnect_time = 1000;
 	return 0;
 }
 

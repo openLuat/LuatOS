@@ -7,6 +7,7 @@ enum
 	WEBSOCKET_MSG_PUBLISH = 1,
 	WEBSOCKET_MSG_TIMER_PING = 2,
 	WEBSOCKET_MSG_CONNACK = 3,
+	WEBSOCKET_MSG_RECONNECT = 4,
 };
 
 #define WEBSOCKET_RECV_BUF_LEN_MAX 4096
@@ -63,6 +64,7 @@ int luat_websocket_send_packet(void *socket_info, const void *buf, unsigned int 
 void luat_websocket_close_socket(luat_websocket_ctrl_t *websocket_ctrl);
 void luat_websocket_release_socket(luat_websocket_ctrl_t *websocket_ctrl);
 void luat_websocket_ping(luat_websocket_ctrl_t *websocket_ctrl);
+void luat_websocket_reconnect(luat_websocket_ctrl_t *websocket_ctrl);
 int luat_websocket_init(luat_websocket_ctrl_t *websocket_ctrl, int adapter_index);
 int luat_websocket_set_connopts(luat_websocket_ctrl_t *websocket_ctrl, const char *url);
 int luat_websocket_payload(char *buff, luat_websocket_pkg_t *pkg, size_t limit);

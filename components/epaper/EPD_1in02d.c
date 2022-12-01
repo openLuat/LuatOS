@@ -386,7 +386,7 @@ void EPD_1IN02_Sleep(void)
     EPD_1IN02_SendData(0xA5);
     
     DEV_Delay_ms(200);
-    printf("Turn off the power!!! \r\n");
+    //printf("Turn off the power!!! \r\n");
     DEV_Digital_Write(EPD_RST_PIN, 0);// Module reset
 }
 

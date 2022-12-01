@@ -56,6 +56,8 @@ static void aliyun_token(const char* product_key,const char* device_name,const c
         sprintf_(client_id,"%s|securemode=2,signmethod=hmacmd5,timestamp=%s|",deviceId,timestamp_value);
     }else if (!strcmp("hmacsha1", method)||!strcmp("HMACSHA1", method)) {
         sprintf_(client_id,"%s|securemode=2,signmethod=hmacsha1,timestamp=%s|",deviceId,timestamp_value);
+    }else if (!strcmp("hmacsha256", method)||!strcmp("HMACSHA256", method)) {
+        sprintf_(client_id,"%s|securemode=2,signmethod=hmacsha256,timestamp=%s|",deviceId,timestamp_value);
     }else{
         LLOGE("not support: %s",method);
         return;
@@ -77,6 +79,8 @@ static void aliyun_token(const char* product_key,const char* device_name,const c
         luat_crypto_hmac_md5_simple(macSrc, strlen(macSrc),device_secret, strlen(device_secret),  macRes);
     }else if (!strcmp("hmacsha1", method)||!strcmp("HMACSHA1", method)) {
         luat_crypto_hmac_sha1_simple(macSrc, strlen(macSrc),device_secret, strlen(device_secret),  macRes);
+    }else if (!strcmp("hmacsha256", method)||!strcmp("HMACSHA256", method)) {
+        luat_crypto_hmac_sha256_simple(macSrc, strlen(macSrc),device_secret, strlen(device_secret),  macRes);
     }else{
         LLOGE("not support: %s",method);
         return;

@@ -580,7 +580,10 @@ http客户端
 @tabal  请求头 可选 例如{["Content-Type"] = "application/x-www-form-urlencoded"}
 @string body 可选
 @tabal  额外配置 可选 包含dst:下载路径,可选 adapter:选择使用网卡,可选 debug:是否打开debug信息,可选
-@string 证书 可选
+@string 服务器ca证书数据
+@string 客户端ca证书数据
+@string 客户端私钥加密数据
+@string 客户端私钥口令数据
 @return int code
 @return tabal headers
 @return string body
@@ -597,7 +600,8 @@ local code, headers, body = http.request("GET","http://httpbin.com/", {}, "", {d
 log.info("http.get", code, headers, body)
 */
 static int l_http_request(lua_State *L) {
-	size_t client_cert_len, client_key_len, client_password_len,len;
+	size_t server_cert_len,client_cert_len, client_key_len, client_password_len,len;
+	const char *server_cert = NULL;
 	const char *client_cert = NULL;
 	const char *client_key = NULL;
 	const char *client_password = NULL;
@@ -705,15 +709,21 @@ static int l_http_request(lua_State *L) {
 
 	if (http_ctrl->is_tls){
 		if (lua_isstring(L, 6)){
-			client_cert = luaL_checklstring(L, 6, &client_cert_len);
+			server_cert = luaL_checklstring(L, 6, &server_cert_len);
 		}
 		if (lua_isstring(L, 7)){
-			client_key = luaL_checklstring(L, 7, &client_key_len);
+			client_cert = luaL_checklstring(L, 7, &client_cert_len);
 		}
 		if (lua_isstring(L, 8)){
-			client_password = luaL_checklstring(L, 8, &client_password_len);
+			client_key = luaL_checklstring(L, 8, &client_key_len);
 		}
-		network_init_tls(http_ctrl->netc, client_cert?2:0);
+		if (lua_isstring(L, 9)){
+			client_password = luaL_checklstring(L, 9, &client_password_len);
+		}
+		network_init_tls(http_ctrl->netc, (server_cert || client_cert)?2:0);
+		if (server_cert){
+			network_set_server_cert(http_ctrl->netc, (const unsigned char *)server_cert, server_cert_len);
+		}
 		if (client_cert){
 			network_set_client_cert(http_ctrl->netc, client_cert, client_cert_len,
 					client_key, client_key_len,

@@ -208,13 +208,8 @@ static int l_audio_play(lua_State *L) {
     else if (LUA_TSTRING == (lua_type(L, (2))))
     {
         buf = lua_tolstring(L, 2, &len);//取出字符串数据
-        char *path = luat_heap_malloc(len + 1);
-        memcpy(path, buf, len);
-        path[len] = 0;
-
-        result = luat_audio_play_file(multimedia_id, path);
+        result = luat_audio_play_file(multimedia_id, buf);
     	lua_pushboolean(L, !result);
-    	luat_heap_free(path);
     }
     else
     {

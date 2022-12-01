@@ -271,13 +271,13 @@ static int l_socket_config(lua_State *L)
 		{
 			if (server_cert)
 			{
-				network_set_server_cert(l_ctrl->netc, (const unsigned char *)server_cert, server_cert_len);
+				network_set_server_cert(l_ctrl->netc, (const unsigned char *)server_cert, server_cert_len + 1);
 			}
 			if (client_cert)
 			{
-				network_set_client_cert(l_ctrl->netc, (const unsigned char *)client_cert, client_cert_len,
-						(const unsigned char *)client_key, client_key_len,
-						(const unsigned char *)client_password, client_password_len);
+				network_set_client_cert(l_ctrl->netc, (const unsigned char *)client_cert, client_cert_len + 1,
+						(const unsigned char *)client_key, client_key_len + 1,
+						(const unsigned char *)client_password, client_password_len + 1);
 			}
 		}
 	}

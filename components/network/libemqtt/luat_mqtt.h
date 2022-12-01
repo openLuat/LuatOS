@@ -38,6 +38,8 @@ typedef struct luat_mqtt_connopts
     const char* host;
     uint16_t port;
     uint16_t is_tls;
+    const char* server_cert;
+    size_t server_cert_len;
     const char* client_cert;
     size_t client_cert_len;
     const char* client_key;

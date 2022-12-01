@@ -231,9 +231,10 @@ mqtt客户端创建
 @string 服务器地址,可以是域名, 也可以是ip
 @int  	端口号
 @bool  	是否为ssl加密连接,默认不加密
-@string 证书数据,可选
-@string 证书密钥,可选
-@string 证书密码,可选
+@string 服务器ca证书数据
+@string 客户端ca证书数据
+@string 客户端私钥加密数据
+@string 客户端私钥口令数据
 @return userdata 若成功会返回mqtt客户端实例,否则返回nil
 @usage
 -- 普通TCP链接
@@ -296,13 +297,16 @@ static int l_mqtt_create(lua_State *L) {
 	
 	if (opts.is_tls){
 		if (lua_isstring(L, 5)){
-			opts.client_cert = luaL_checklstring(L, 5, &opts.client_cert_len);
+			opts.server_cert = luaL_checklstring(L, 5, &opts.server_cert_len);
 		}
 		if (lua_isstring(L, 6)){
-			opts.client_key = luaL_checklstring(L, 6, &opts.client_key_len);
+			opts.client_cert = luaL_checklstring(L, 6, &opts.client_cert_len);
 		}
 		if (lua_isstring(L, 7)){
-			opts.client_password = luaL_checklstring(L, 7, &opts.client_password_len);
+			opts.client_key = luaL_checklstring(L, 7, &opts.client_key_len);
+		}
+		if (lua_isstring(L, 8)){
+			opts.client_password = luaL_checklstring(L, 8, &opts.client_password_len);
 		}
 	}
 	

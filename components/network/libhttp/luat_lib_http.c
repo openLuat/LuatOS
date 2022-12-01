@@ -722,12 +722,12 @@ static int l_http_request(lua_State *L) {
 		}
 		network_init_tls(http_ctrl->netc, (server_cert || client_cert)?2:0);
 		if (server_cert){
-			network_set_server_cert(http_ctrl->netc, (const unsigned char *)server_cert, server_cert_len);
+			network_set_server_cert(http_ctrl->netc, (const unsigned char *)server_cert, server_cert_len+1);
 		}
 		if (client_cert){
-			network_set_client_cert(http_ctrl->netc, client_cert, client_cert_len,
-					client_key, client_key_len,
-					client_password, client_password_len);
+			network_set_client_cert(http_ctrl->netc, client_cert, client_cert_len+1,
+					client_key, client_key_len+1,
+					client_password, client_password_len+1);
 		}
 	}else{
 		network_deinit_tls(http_ctrl->netc);

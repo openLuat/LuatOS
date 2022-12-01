@@ -10,7 +10,7 @@
 #define LUAT_LOG_TAG "websocket"
 #include "luat_log.h"
 
-#define WEBSOCKET_DEBUG 0
+#define WEBSOCKET_DEBUG 1
 #if WEBSOCKET_DEBUG == 0
 #undef LLOGD
 #define LLOGD(...)
@@ -55,7 +55,7 @@ int luat_websocket_payload(char *buf, luat_websocket_pkg_t *pkg, size_t limit)
 		{
 			// 还缺1个字节,等吧
 			LLOGD("wait more data offset %d", limit);
-			return NULL;
+			return 0;
 		}
 		pkg->plen = (buf[2] & 0xFF) << 8;
 		pkg->plen += (buf[3] & 0xFF);
@@ -81,7 +81,7 @@ int luat_websocket_payload(char *buf, luat_websocket_pkg_t *pkg, size_t limit)
 		return 0;
 	}
 
-	return 0;
+	return 1;
 }
 
 int luat_websocket_send_packet(void *socket_info, const void *buf, unsigned int count)
@@ -165,6 +165,8 @@ int luat_websocket_set_connopts(luat_websocket_ctrl_t *websocket_ctrl, const cha
 	const char *tmp = url;
 	LLOGD("url %s", url);
 
+	// TODO 支持基本授权的URL ws://wendal:123@wendal.cn:8080/abc
+
 	websocket_ctrl->host[0] = 0;
 	char port_tmp[6] = {0};
 	uint16_t port = 0;
@@ -183,37 +185,41 @@ int luat_websocket_set_connopts(luat_websocket_ctrl_t *websocket_ctrl, const cha
 	}
 
 	// LLOGD("tmp %s", tmp);
-
+	size_t uri_start_index = 0;
 	for (size_t i = 0; i < strlen(tmp); i++)
 	{
 		if (tmp[i] == '/')
 		{
-			for (size_t j = 0; j < i; j++)
-			{
-				if (tmp[j] == ':')
-				{
-					memcpy(websocket_ctrl->host, tmp, j);
-					websocket_ctrl->host[j] = 0;
-					memcpy(port_tmp, tmp + j + 1, i - j - 1);
-					port = atoi(port_tmp);
-					//LLOGD("port str %s %d", port_tmp, port);
-					// LLOGD("found custom host %s port %d", websocket_ctrl->host, port);
-					break;
-				}
-			}
-			// 没有自定义host
-			if (websocket_ctrl->host[0] == 0)
-			{
-				memcpy(websocket_ctrl->host, tmp, i);
-				websocket_ctrl->host[i] = 0;
-				// LLOGD("found custom host %s", websocket_ctrl->host);
-			}
-			memcpy(websocket_ctrl->uri, tmp + i, strlen(tmp) - i);
-			websocket_ctrl->uri[strlen(tmp) - i] = 0;
-			// LLOGD("found uri %s", websocket_ctrl->uri);
+			uri_start_index = i;
 			break;
 		}
 	}
+	if (uri_start_index < 2) {
+		uri_start_index = strlen(tmp);
+	}
+	for (size_t j = 0; j < uri_start_index; j++)
+	{
+		if (tmp[j] == ':')
+		{
+			memcpy(websocket_ctrl->host, tmp, j);
+			websocket_ctrl->host[j] = 0;
+			memcpy(port_tmp, tmp + j + 1, uri_start_index - j - 1);
+			port = atoi(port_tmp);
+			//LLOGD("port str %s %d", port_tmp, port);
+			// LLOGD("found custom host %s port %d", websocket_ctrl->host, port);
+			break;
+		}
+	}
+	// 没有自定义host
+	if (websocket_ctrl->host[0] == 0)
+	{
+		memcpy(websocket_ctrl->host, tmp, uri_start_index);
+		websocket_ctrl->host[uri_start_index] = 0;
+		// LLOGD("found custom host %s", websocket_ctrl->host);
+	}
+	memcpy(websocket_ctrl->uri, tmp + uri_start_index, strlen(tmp) - uri_start_index);
+	websocket_ctrl->uri[strlen(tmp) - uri_start_index] = 0;
+
 	if (port == 0) {
 		port = is_tls ? 443 : 80;
 	}
@@ -245,7 +251,8 @@ static void websocket_reconnect(luat_websocket_ctrl_t *websocket_ctrl)
 {
 	LLOGI("reconnect after %dms", websocket_ctrl->reconnect_time);
 	websocket_ctrl->buffer_offset = 0;
-	websocket_ctrl->reconnect_timer = luat_create_rtos_timer(reconnect_timer_cb, websocket_ctrl, NULL);
+	//websocket_ctrl->reconnect_timer = luat_create_rtos_timer(reconnect_timer_cb, websocket_ctrl, NULL);
+	luat_stop_rtos_timer(websocket_ctrl->reconnect_timer);
 	luat_start_rtos_timer(websocket_ctrl->reconnect_timer, websocket_ctrl->reconnect_time, 0);
 }
 
@@ -306,6 +313,7 @@ int luat_websocket_send_frame(luat_websocket_ctrl_t *websocket_ctrl, luat_websoc
 	char *dst = luat_heap_malloc(pkg->plen + 6);
 	memset(dst, 0, pkg->plen + 6);
 	size_t offset = 0;
+	size_t ret = 0;
 	// first byte, FIN and OPTCODE
 	dst[0] = pkg->FIN << 7;
 	dst[0] |= pkg->OPT_CODE & 0xF;
@@ -338,12 +346,14 @@ int luat_websocket_send_frame(luat_websocket_ctrl_t *websocket_ctrl, luat_websoc
 		}
 	}
 
-	luat_websocket_send_packet(websocket_ctrl, dst, offset + pkg->plen);
-	return 0;
+	ret = luat_websocket_send_packet(websocket_ctrl, dst, offset + pkg->plen);
+	luat_heap_free(dst);
+	return ret;
 }
 
 static int websocket_parse(luat_websocket_ctrl_t *websocket_ctrl)
 {
+	int ret = 0;
 	char *buf = websocket_ctrl->pkg_buff;
 	LLOGD("websocket_parse offset %d %d", websocket_ctrl->buffer_offset, websocket_ctrl->websocket_state);
 	if (websocket_ctrl->websocket_state == 0)
@@ -388,7 +398,15 @@ static int websocket_parse(luat_websocket_ctrl_t *websocket_ctrl)
 	// 判断数据长度, 前几个字节能判断出够不够读出websocket的头
 
 	luat_websocket_pkg_t pkg = {0};
-	luat_websocket_payload(buf, &pkg, websocket_ctrl->buffer_offset);
+	ret = luat_websocket_payload(buf, &pkg, websocket_ctrl->buffer_offset);
+	if (ret == 0) {
+		LLOGD("wait more data offset %d", websocket_ctrl->buffer_offset);
+		return 0;
+	}
+	if (ret < 0) {
+		LLOGI("payload too large!!!");
+		return -1;
+	}
 
 	switch (pkg.OPT_CODE)
 	{
@@ -444,12 +462,12 @@ int luat_websocket_read_packet(luat_websocket_ctrl_t *websocket_ctrl)
 	uint32_t total_len = 0;
 	uint32_t rx_len = 0;
 	int result = network_rx(websocket_ctrl->netc, NULL, 0, 0, NULL, NULL, &total_len);
-	if (total_len > 0xFFF)
-	{
-		LLOGE("too many data wait for recv %d", total_len);
-		luat_websocket_close_socket(websocket_ctrl);
-		return -1;
-	}
+	// if (total_len > 0xFFFF)
+	// {
+	// 	LLOGE("too many data wait for recv %d", total_len);
+	// 	//luat_websocket_close_socket(websocket_ctrl);
+	// 	return -1;
+	// }
 	if (total_len == 0)
 	{
 		LLOGW("rx event but NO data wait for recv");
@@ -458,7 +476,7 @@ int luat_websocket_read_packet(luat_websocket_ctrl_t *websocket_ctrl)
 	if (WEBSOCKET_RECV_BUF_LEN_MAX - websocket_ctrl->buffer_offset <= 0)
 	{
 		LLOGE("buff is FULL, websocket packet too big");
-		luat_websocket_close_socket(websocket_ctrl);
+		//luat_websocket_close_socket(websocket_ctrl);
 		return -1;
 	}
 #define MAX_READ (1024)
@@ -502,9 +520,9 @@ int luat_websocket_read_packet(luat_websocket_ctrl_t *websocket_ctrl)
 		}
 		else
 		{
-			LLOGW("websocket_parse ret %d, closing socket", result);
-			luat_websocket_close_socket(websocket_ctrl);
-			break;
+			LLOGW("websocket_parse ret %d", result);
+			//luat_websocket_close_socket(websocket_ctrl);
+			return -1;
 		}
 	}
 	return 0;
@@ -542,13 +560,25 @@ int32_t luat_websocket_callback(void *data, void *param)
 	}
 	else if (event->ID == EV_NW_RESULT_CONNECT)
 	{
-		ret = websocket_connect(websocket_ctrl);
+		if (event->Param1 == 0) {
+			ret = websocket_connect(websocket_ctrl);
+			if (ret < 0) {
+				return 0; // 发送失败, 那么
+			}
+		}
+		else {
+			// 连接失败, 重连吧.
+		}
 	}
 	else if (event->ID == EV_NW_RESULT_EVENT)
 	{
 		if (event->Param1 == 0)
 		{
 			ret = luat_websocket_read_packet(websocket_ctrl);
+			if (ret < 0) {
+				luat_websocket_close_socket(websocket_ctrl);
+				return ret;
+			}
 			// LLOGD("luat_websocket_read_packet ret:%d",ret);
 			luat_stop_rtos_timer(websocket_ctrl->ping_timer);
 			luat_start_rtos_timer(websocket_ctrl->ping_timer, websocket_ctrl->keepalive * 1000 * 0.75, 1);
@@ -566,6 +596,7 @@ int32_t luat_websocket_callback(void *data, void *param)
 	{
 		LLOGW("websocket_callback param1 %d, closing socket", event->Param1);
 		luat_websocket_close_socket(websocket_ctrl);
+		return 0;
 	}
 	ret = network_wait_event(websocket_ctrl->netc, NULL, 0, NULL);
 	if (ret < 0)
@@ -582,7 +613,8 @@ int luat_websocket_connect(luat_websocket_ctrl_t *websocket_ctrl)
 	int ret = 0;
 	const char *hostname = websocket_ctrl->host;
 	uint16_t port = websocket_ctrl->remote_port;
-	LLOGD("host %s port %d", hostname, port);
+	LLOGI("connect host %s port %d", hostname, port);
+	network_close(websocket_ctrl->netc, 0);
 #ifdef LUAT_USE_LWIP
 	ret = network_connect(websocket_ctrl->netc, hostname, strlen(hostname), (0xff == websocket_ctrl->ip_addr.type) ? NULL : &(websocket_ctrl->ip_addr), port, 0) < 0;
 #else

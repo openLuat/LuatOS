@@ -17,7 +17,7 @@
 #define LUAT_LOG_TAG "iotauth"
 #include "luat_log.h"
 
-#define CLIENT_ID_LEN 64
+#define CLIENT_ID_LEN 128
 #define USER_NAME_LEN 128
 #define PASSWORD_LEN 256
 
@@ -25,8 +25,15 @@ static char client_id[CLIENT_ID_LEN]={0};
 static char user_name[USER_NAME_LEN]={0};
 static char password[PASSWORD_LEN]={0};
 
-static const unsigned char hexchars[] = "0123456789abcdef";
-static void str_tohex(const char* str, size_t str_len, char* hex) {
+static const unsigned char hexchars_s[] = "0123456789abcdef";
+static const unsigned char hexchars_u[] = "0123456789ABCDEF";
+
+static void str_tohex(const char* str, size_t str_len, char* hex,uint8_t uppercase) {
+    unsigned char* hexchars = NULL;
+    if (uppercase)
+        hexchars = hexchars_u;
+    else
+        hexchars = hexchars_s;
     for (size_t i = 0; i < str_len; i++)
     {
         char ch = *(str+i);
@@ -40,29 +47,23 @@ static void aliyun_token(const char* product_key,const char* device_name,const c
     char macSrc[200] = {0};
     char macRes[32] = {0};
     char timestamp_value[20] = {0};
-    char mqtt_clinetid_kv[96] = {0};
+
     sprintf_(timestamp_value,"%lld",cur_timestamp);
+    sprintf_(deviceId,"%s.%s",product_key,device_name);
+
+    /* setup clientid */
     if (!strcmp("hmacmd5", method)||!strcmp("HMACMD5", method)) {
-        sprintf_(mqtt_clinetid_kv,"|timestamp=%s,_v=paho-c-1.0.0,securemode=3,signmethod=%s,lan=C|",timestamp_value,"hmacmd5");
+        sprintf_(client_id,"%s|securemode=2,signmethod=hmacmd5,timestamp=%s|",deviceId,timestamp_value);
     }else if (!strcmp("hmacsha1", method)||!strcmp("HMACSHA1", method)) {
-        sprintf_(mqtt_clinetid_kv,"|timestamp=%s,_v=paho-c-1.0.0,securemode=3,signmethod=%s,lan=C|",timestamp_value,"hmacsha1");
-    }else if (!strcmp("hmacsha256", method)||!strcmp("HMACSHA256", method)) {
-        sprintf_(mqtt_clinetid_kv,"|timestamp=%s,_v=paho-c-1.0.0,securemode=3,signmethod=%s,lan=C|",timestamp_value,"hmacsha256");
+        sprintf_(client_id,"%s|securemode=2,signmethod=hmacsha1,timestamp=%s|",deviceId,timestamp_value);
     }else{
         LLOGE("not support: %s",method);
         return;
     }
-    /* setup deviceId */
-    memcpy(deviceId, device_name, strlen(device_name));
-    memcpy(deviceId + strlen(deviceId), "&", strlen("&"));
-    memcpy(deviceId + strlen(deviceId), product_key, strlen(product_key));
-    /* setup clientid */
-    memcpy(client_id, deviceId, strlen(deviceId));
-    memcpy(client_id + strlen(deviceId), mqtt_clinetid_kv, strlen(mqtt_clinetid_kv));
-    memset(client_id + strlen(deviceId) + strlen(mqtt_clinetid_kv), 0, 1);
+
     /* setup username */
-    memcpy(user_name, deviceId, strlen(deviceId));
-    memset(user_name + strlen(deviceId), 0, 1);
+    sprintf_(user_name,"%s&%s",device_name,product_key);
+
     /* setup password */
     memcpy(macSrc, "clientId", strlen("clientId"));
     memcpy(macSrc + strlen(macSrc), deviceId, strlen(deviceId));
@@ -76,13 +77,11 @@ static void aliyun_token(const char* product_key,const char* device_name,const c
         luat_crypto_hmac_md5_simple(macSrc, strlen(macSrc),device_secret, strlen(device_secret),  macRes);
     }else if (!strcmp("hmacsha1", method)||!strcmp("HMACSHA1", method)) {
         luat_crypto_hmac_sha1_simple(macSrc, strlen(macSrc),device_secret, strlen(device_secret),  macRes);
-    }else if (!strcmp("hmacsha256", method)||!strcmp("HMACSHA256", method)) {
-        luat_crypto_hmac_sha256_simple(macSrc, strlen(macSrc),device_secret, strlen(device_secret),  macRes);
     }else{
         LLOGE("not support: %s",method);
         return;
     }
-    luat_str_tohex(macRes, sizeof(macRes), password);
+    str_tohex(macRes, strlen(macRes), password,1);
 }
 
 /*
@@ -91,7 +90,7 @@ static void aliyun_token(const char* product_key,const char* device_name,const c
 @string product_key
 @string device_name
 @string device_secret
-@string method 加密方式,"hmacmd5" "hmacsha1" "hmacsha256" 可选,默认"hmacsha256"
+@string method 加密方式,"hmacmd5" "hmacsha1" "hmacsha256" 可选,默认"hmacmd5"
 @number cur_timestamp 可选
 @return string mqtt三元组 client_id
 @return string mqtt三元组 user_name
@@ -108,7 +107,7 @@ static int l_iotauth_aliyun(lua_State *L) {
     const char* product_key = luaL_checklstring(L, 1, &len);
     const char* device_name = luaL_checklstring(L, 2, &len);
     const char* device_secret = luaL_checklstring(L, 3, &len);
-    const char* method = luaL_optlstring(L, 4, "hmacsha256", &len);
+    const char* method = luaL_optlstring(L, 4, "hmacmd5", &len);
     long long cur_timestamp = luaL_optinteger(L, 5,time(NULL) + 3600);
     aliyun_token(product_key,device_name,device_secret,cur_timestamp,method,client_id,user_name,password);
     lua_pushlstring(L, client_id, strlen(client_id));
@@ -248,7 +247,7 @@ static void iotda_token(const char* device_id,const char* device_secret,long lon
     }
     snprintf_(client_id, CLIENT_ID_LEN, "%s_0_%d_%s", device_id,ins_timestamp,timestamp);
     luat_crypto_hmac_sha256_simple(device_secret, strlen(device_secret),timestamp, strlen(timestamp), hmac);
-    str_tohex(hmac, strlen(hmac), password);
+    str_tohex(hmac, strlen(hmac), password,0);
 }
 
 /*
@@ -313,7 +312,7 @@ static void qcloud_token(const char* product_id,const char* device_name,const ch
     }
     char *username_sign_hex  = (char *)luat_heap_malloc(strlen(username_sign)*2+1);
     memset(username_sign_hex, 0, strlen(username_sign)*2+1);
-    str_tohex(username_sign, strlen(username_sign), username_sign_hex);
+    str_tohex(username_sign, strlen(username_sign), username_sign_hex,0);
     if (!strcmp("sha1", method)||!strcmp("SHA1", method)) {
         sprintf_(password, "%s;hmacsha1", username_sign_hex);
     }else if (!strcmp("sha256", method)||!strcmp("SHA256", method)) {
@@ -415,7 +414,7 @@ static void baidu_token(const char* iot_core_id,const char* device_key,const cha
         LLOGE("not support: %s",method);
         return;
     }
-    str_tohex(crypto, strlen(crypto), password);
+    str_tohex(crypto, strlen(crypto), password,0);
     luat_heap_free(token_temp);
 }
 

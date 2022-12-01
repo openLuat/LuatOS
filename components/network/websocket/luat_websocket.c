@@ -165,6 +165,8 @@ int luat_websocket_set_connopts(luat_websocket_ctrl_t *websocket_ctrl, const cha
 	const char *tmp = url;
 	LLOGD("url %s", url);
 
+	// TODO 支持基本授权的URL ws://wendal:123@wendal.cn:8080/abc
+
 	websocket_ctrl->host[0] = 0;
 	char port_tmp[6] = {0};
 	uint16_t port = 0;
@@ -183,37 +185,41 @@ int luat_websocket_set_connopts(luat_websocket_ctrl_t *websocket_ctrl, const cha
 	}
 
 	// LLOGD("tmp %s", tmp);
-
+	size_t uri_start_index = 0;
 	for (size_t i = 0; i < strlen(tmp); i++)
 	{
 		if (tmp[i] == '/')
 		{
-			for (size_t j = 0; j < i; j++)
-			{
-				if (tmp[j] == ':')
-				{
-					memcpy(websocket_ctrl->host, tmp, j);
-					websocket_ctrl->host[j] = 0;
-					memcpy(port_tmp, tmp + j + 1, i - j - 1);
-					port = atoi(port_tmp);
-					//LLOGD("port str %s %d", port_tmp, port);
-					// LLOGD("found custom host %s port %d", websocket_ctrl->host, port);
-					break;
-				}
-			}
-			// 没有自定义host
-			if (websocket_ctrl->host[0] == 0)
-			{
-				memcpy(websocket_ctrl->host, tmp, i);
-				websocket_ctrl->host[i] = 0;
-				// LLOGD("found custom host %s", websocket_ctrl->host);
-			}
-			memcpy(websocket_ctrl->uri, tmp + i, strlen(tmp) - i);
-			websocket_ctrl->uri[strlen(tmp) - i] = 0;
-			// LLOGD("found uri %s", websocket_ctrl->uri);
+			uri_start_index = i;
 			break;
 		}
 	}
+	if (uri_start_index < 2) {
+		uri_start_index = strlen(tmp);
+	}
+	for (size_t j = 0; j < uri_start_index; j++)
+	{
+		if (tmp[j] == ':')
+		{
+			memcpy(websocket_ctrl->host, tmp, j);
+			websocket_ctrl->host[j] = 0;
+			memcpy(port_tmp, tmp + j + 1, uri_start_index - j - 1);
+			port = atoi(port_tmp);
+			//LLOGD("port str %s %d", port_tmp, port);
+			// LLOGD("found custom host %s port %d", websocket_ctrl->host, port);
+			break;
+		}
+	}
+	// 没有自定义host
+	if (websocket_ctrl->host[0] == 0)
+	{
+		memcpy(websocket_ctrl->host, tmp, uri_start_index);
+		websocket_ctrl->host[uri_start_index] = 0;
+		// LLOGD("found custom host %s", websocket_ctrl->host);
+	}
+	memcpy(websocket_ctrl->uri, tmp + uri_start_index, strlen(tmp) - uri_start_index);
+	websocket_ctrl->uri[strlen(tmp) - uri_start_index] = 0;
+
 	if (port == 0) {
 		port = is_tls ? 443 : 80;
 	}
@@ -582,7 +588,7 @@ int luat_websocket_connect(luat_websocket_ctrl_t *websocket_ctrl)
 	int ret = 0;
 	const char *hostname = websocket_ctrl->host;
 	uint16_t port = websocket_ctrl->remote_port;
-	LLOGD("host %s port %d", hostname, port);
+	LLOGI("connect host %s port %d", hostname, port);
 #ifdef LUAT_USE_LWIP
 	ret = network_connect(websocket_ctrl->netc, hostname, strlen(hostname), (0xff == websocket_ctrl->ip_addr.type) ? NULL : &(websocket_ctrl->ip_addr), port, 0) < 0;
 #else

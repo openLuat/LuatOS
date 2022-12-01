@@ -192,10 +192,11 @@ int luat_websocket_set_connopts(luat_websocket_ctrl_t *websocket_ctrl, const cha
 			{
 				if (tmp[j] == ':')
 				{
-					memcpy(websocket_ctrl->host, tmp, j - 1);
-					websocket_ctrl->host[j - 1] = 0;
-					memcpy(port_tmp, tmp + j, i - j);
+					memcpy(websocket_ctrl->host, tmp, j);
+					websocket_ctrl->host[j] = 0;
+					memcpy(port_tmp, tmp + j + 1, i - j - 1);
 					port = atoi(port_tmp);
+					//LLOGD("port str %s %d", port_tmp, port);
 					// LLOGD("found custom host %s port %d", websocket_ctrl->host, port);
 					break;
 				}

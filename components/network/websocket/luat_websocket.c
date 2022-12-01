@@ -251,7 +251,8 @@ static void websocket_reconnect(luat_websocket_ctrl_t *websocket_ctrl)
 {
 	LLOGI("reconnect after %dms", websocket_ctrl->reconnect_time);
 	websocket_ctrl->buffer_offset = 0;
-	websocket_ctrl->reconnect_timer = luat_create_rtos_timer(reconnect_timer_cb, websocket_ctrl, NULL);
+	//websocket_ctrl->reconnect_timer = luat_create_rtos_timer(reconnect_timer_cb, websocket_ctrl, NULL);
+	luat_stop_rtos_timer(websocket_ctrl->reconnect_timer);
 	luat_start_rtos_timer(websocket_ctrl->reconnect_timer, websocket_ctrl->reconnect_time, 0);
 }
 

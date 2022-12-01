@@ -44,8 +44,8 @@ sys.taskInit(function()
     end)
 
     mqttc:connect()
-    log.info("mqtt连接成功")
 	sys.waitUntil("mqtt_conack")
+    log.info("mqtt连接成功")
     while true do
         -- mqttc自动处理重连
         local ret, topic, data, qos = sys.waitUntil("mqtt_pub", 30000)

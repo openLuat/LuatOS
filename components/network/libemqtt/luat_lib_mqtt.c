@@ -230,11 +230,7 @@ mqtt客户端创建
 @int 适配器序号, 只能是network.ETH0,network.STA,network.AP,如果不填,会选择最后一个注册的适配器
 @string 服务器地址,可以是域名, 也可以是ip
 @int  	端口号
-@bool  	是否为ssl加密连接,默认不加密
-@string 服务器ca证书数据
-@string 客户端ca证书数据
-@string 客户端私钥加密数据
-@string 客户端私钥口令数据
+@bool/table  是否为ssl加密连接,默认不加密,true为无证书最简单的加密，table为有证书的加密 <br>server_cert 服务器ca证书数据 <br>client_cert 客户端ca证书数据 <br>client_key 客户端私钥加密数据 <br>client_password 客户端私钥口令数据
 @return userdata 若成功会返回mqtt客户端实例,否则返回nil
 @usage
 -- 普通TCP链接
@@ -294,7 +290,35 @@ static int l_mqtt_create(lua_State *L) {
 	if (lua_isboolean(L, 4)){
 		opts.is_tls = lua_toboolean(L, 4);
 	}
-	
+
+	if (lua_istable(L, 4)){
+		opts.is_tls = 1;
+
+		lua_pushstring(L, "server_cert");
+		if (LUA_TSTRING == lua_gettable(L, 4)) {
+			opts.server_cert = luaL_checklstring(L, -1, &opts.server_cert_len);
+		}
+		lua_pop(L, 1);
+
+		lua_pushstring(L, "client_cert");
+		if (LUA_TSTRING == lua_gettable(L, 4)) {
+			opts.client_cert = luaL_checklstring(L, -1, &opts.client_cert_len);
+		}
+		lua_pop(L, 1);
+
+		lua_pushstring(L, "client_key");
+		if (LUA_TSTRING == lua_gettable(L, 4)) {
+			opts.client_key = luaL_checklstring(L, -1, &opts.client_key_len);
+		}
+		lua_pop(L, 1);
+
+		lua_pushstring(L, "client_password");
+		if (LUA_TSTRING == lua_gettable(L, 4)) {
+			opts.client_password = luaL_checklstring(L, -1, &opts.client_password_len);
+		}
+		lua_pop(L, 1);
+	}
+
 	if (opts.is_tls){
 		if (lua_isstring(L, 5)){
 			opts.server_cert = luaL_checklstring(L, 5, &opts.server_cert_len);

@@ -211,7 +211,7 @@ local function audio_task()
     end
     sysplus.taskDel(taskName)
 end
-]]
+
 
 audio.on(0, function(id, event)
     sysplus.sendMsg(taskName, MSG_PD)
@@ -361,6 +361,59 @@ local function audio_task()
         end
     else
         log.info("fatfs", "err", err)
+    end
+    sysplus.taskDel(taskName)
+end
+
+sysplus.taskInitEx(audio_task, taskName, task_cb)
+]]
+
+local taskName = "task_audio"
+
+local MSG_MD = "moreData"   -- 播放缓存有空余
+local MSG_PD = "playDone"   -- 播放完成所有数据
+
+audio.on(0, function(id, event)
+    --使用play来播放文件时只有播放完成回调
+    sysplus.sendMsg(taskName, MSG_PD)
+end)
+
+
+local function audio_task()
+    local result
+    audio.config(0, 25, 1, 6, 200)
+
+    while true do
+        log.info("开始播放")
+        result = audio.play(0, "/luadb/test.mp3")
+        if result then
+        --等待音频通道的回调消息，或者切换歌曲的消息
+            while true do
+                msg = sysplus.waitMsg(taskName, nil)
+                if type(msg) == 'table' then
+                    if msg[1] == MSG_PD then
+                        log.info("播放结束")
+                        while not audio.isEnd(0) do
+                            log.info("等待真正结束")    --确保异步进程里没有操作了
+                            sys.wait(10)
+                        end
+                        break
+                    end
+                else
+                    log.error(type(msg), msg)
+                end
+            end
+        else
+            log.debug("/luadb/test.mp3", "解码失败!")
+            sys.wait(1000)
+        end
+        if not audio.isEnd(0) then
+            log.info("手动关闭")
+            audio.playStop(0)
+        end
+        log.info(rtos.meminfo("sys"))
+        log.info(rtos.meminfo("lua"))
+        sys.wait(1000)
     end
     sysplus.taskDel(taskName)
 end

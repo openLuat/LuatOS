@@ -235,10 +235,17 @@ mqtt客户端创建
 @usage
 -- 普通TCP链接
 mqttc = mqtt.create(nil,"120.55.137.106", 1884)
--- 加密TCP链接
+-- 加密TCP链接,不验证服务器证书
 mqttc = mqtt.create(nil,"120.55.137.106", 8883, true)
--- 带证书的TCP链接
-mqttc = mqtt.create(nil,"120.55.137.106", 8883, true, io.readFile("/luadb/ca.crt"), "123", "456")
+-- 加密TCPTCP链接,单服务器证书验证
+mqttc = mqtt.create(nil,"120.55.137.106", 8883, {server_cert=io.readFile("/luadb/ca.crt"))
+-- 加密TCPTCP链接,双向证书验证
+mqttc = mqtt.create(nil,"120.55.137.106", 8883, {
+					server_cert=io.readFile("/luadb/ca.crt"),
+					client_cert=io.readFile("/luadb/client.pem"),
+					client_key="123456",
+					client_password="123456",
+					)
 */
 static int l_mqtt_create(lua_State *L) {
 	int ret = 0;

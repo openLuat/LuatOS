@@ -5,6 +5,14 @@ local MSG_PD = "playDone"   -- 播放完成所有数据
 
 audio.on(0, function(id, event)
     --使用play来播放文件时只有播放完成回调
+    local succ,stop,file_cnt = audio.getError(0)
+    if not succ then
+        if stop then
+            log.info("用户停止播放")
+        else
+            log.info("第", file_cnt, "个文件解码失败")
+        end
+    end
     sysplus.sendMsg(taskName, MSG_PD)
 end)
 
@@ -35,7 +43,7 @@ local function audio_task()
                 end
             end
         else
-            log.debug("/sd".. musicDir .. playList[curPlay], "解码失败!")
+            log.debug("解码失败!")
             sys.wait(1000)
         end
         if not audio.isEnd(0) then

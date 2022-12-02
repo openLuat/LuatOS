@@ -1,5 +1,5 @@
 /******************************************************************************
- *  ADC设备操作抽象层
+ *  文件系统操作抽象层
  *  @author wendal
  *  @since 0.1.5
  *****************************************************************************/
@@ -69,11 +69,11 @@ int luat_fs_lsdir(char const* _DirName, luat_fs_dirent_t* ents, size_t offset, s
 #ifdef LUAT_USE_FS_VFS
 
 #ifndef LUAT_VFS_FILESYSTEM_MAX
-#define LUAT_VFS_FILESYSTEM_MAX 4
+#define LUAT_VFS_FILESYSTEM_MAX 8
 #endif
 
 #ifndef LUAT_VFS_FILESYSTEM_MOUNT_MAX
-#define LUAT_VFS_FILESYSTEM_MOUNT_MAX 4
+#define LUAT_VFS_FILESYSTEM_MOUNT_MAX 8
 #endif
 
 #ifndef LUAT_VFS_FILESYSTEM_FD_MAX

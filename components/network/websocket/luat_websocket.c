@@ -10,7 +10,7 @@
 #define LUAT_LOG_TAG "websocket"
 #include "luat_log.h"
 
-#define WEBSOCKET_DEBUG 1
+#define WEBSOCKET_DEBUG 0
 #if WEBSOCKET_DEBUG == 0
 #undef LLOGD
 #define LLOGD(...)

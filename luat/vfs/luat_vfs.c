@@ -20,10 +20,13 @@
 #undef ferror
 #endif
 
+extern const struct luat_vfs_filesystem vfs_fs_inline;
+
 static luat_vfs_t vfs= {0};
 
 int luat_vfs_init(void* params) {
     memset(&vfs, 0, sizeof(vfs));
+    luat_vfs_reg(&vfs_fs_inline);
     return 0;
 }
 
@@ -102,6 +105,12 @@ int luat_fs_mount(luat_fs_conf_t *conf) {
                         vfs.mounted[j].fs = vfs.fsList[i];
                         vfs.mounted[j].ok = 1;
                         memcpy(vfs.mounted[j].prefix, conf->mount_point, strlen(conf->mount_point) + 1);
+                        if (j == 0) {
+                            // 挂载内嵌文件系统
+                            vfs.mounted[j+1].fs = &vfs_fs_inline;
+                            vfs.mounted[j+1].ok = 1;
+                            memcpy(vfs.mounted[j+1].prefix, "/lua/", strlen("/lua/") + 1);
+                        }
                     }
                     else
                         LLOGD("mount error ret %d", ret);
@@ -117,7 +126,7 @@ int luat_fs_mount(luat_fs_conf_t *conf) {
 }
 int luat_fs_umount(luat_fs_conf_t *conf) {
     for (size_t j = 0; j < LUAT_VFS_FILESYSTEM_MOUNT_MAX; j++) {
-        if (vfs.mounted[j].ok == 0)
+        if (vfs.mounted[j].ok == 0 || vfs.mounted[j].fs->opts.umount == NULL)
             continue;
         if (strcmp(vfs.mounted[j].prefix, conf->mount_point) == 0) {
             // TODO 关闭对应的FD
@@ -127,9 +136,10 @@ int luat_fs_umount(luat_fs_conf_t *conf) {
     LLOGE("no such mount point %s", conf->mount_point);
     return -1;
 }
+
 int luat_fs_info(const char* path, luat_fs_info_t *conf) {
     luat_vfs_mount_t * mf = getmount(path);
-    if (mf != NULL) {
+    if (mf != NULL && mf->fs->opts.info != NULL) {
         return mf->fs->opts.info(mf->userdata, ((char*)path) + strlen(mf->prefix), conf);
     }
     LLOGE("no such mount point %s", path);
@@ -294,9 +304,6 @@ int luat_fs_readline(char * buf, int bufsize, FILE * stream){
     }
     return get_len;
 }
-
-// TODO 文件夹相关的API
-//int luat_fs_diropen(char const* _FileName);
 
 int luat_fs_mkdir(char const* _DirName) {
     luat_vfs_mount_t *mount = getmount(_DirName);

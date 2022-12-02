@@ -10,12 +10,12 @@
 #undef LLOGD
 #define LLOGD(...) 
 
-#ifdef LUAT_CONF_VM_64bit
-extern const luadb_file_t luat_inline2_libs_64bit_size64[];
-extern const luadb_file_t luat_inline2_libs_64bit_size32[];
-#else
-extern const luadb_file_t luat_inline2_libs[];
-#endif
+// #ifdef LUAT_CONF_VM_64bit
+// extern const luadb_file_t luat_inline2_libs_64bit_size64[];
+// extern const luadb_file_t luat_inline2_libs_64bit_size32[];
+// #else
+// extern const luadb_file_t luat_inline2_libs[];
+// #endif
 
 //---
 static uint8_t readU8(const char* ptr, int *index) {
@@ -52,14 +52,14 @@ static luadb_file_t* find_by_name(luadb_fs_t *fs, const char *path) {
             return &(fs->files[i]);
         }
     }
-    luadb_file_t *ext = fs->inlines;
-    while (ext->ptr != NULL)
-    {
-        if (!strcmp(path, ext->name)) {
-            return ext;
-        }
-        ext += 1;
-    }
+    // luadb_file_t *ext = fs->inlines;
+    // while (ext->ptr != NULL)
+    // {
+    //     if (!strcmp(path, ext->name)) {
+    //         return ext;
+    //     }
+    //     ext += 1;
+    // }
     return NULL;
 }
 
@@ -317,15 +317,15 @@ _after_head:
 
     if (fail == 0) {
         LLOGD("LuaDB check files .... ok");
-        #ifdef LUAT_CONF_VM_64bit
-        //#if (sizeof(size_t) == 8)
-        //fs->inlines = (luadb_file_t *)luat_inline2_libs_64bit_size64;
-        //#else
-        fs->inlines = (luadb_file_t *)luat_inline2_libs_64bit_size32;
-        //#endif
-        #else
-        fs->inlines = (luadb_file_t *)luat_inline2_libs;
-        #endif
+        // #ifdef LUAT_CONF_VM_64bit
+        // //#if (sizeof(size_t) == 8)
+        // //fs->inlines = (luadb_file_t *)luat_inline2_libs_64bit_size64;
+        // //#else
+        // fs->inlines = (luadb_file_t *)luat_inline2_libs_64bit_size32;
+        // //#endif
+        // #else
+        // fs->inlines = (luadb_file_t *)luat_inline2_libs;
+        // #endif
         return fs;
     }
     else {

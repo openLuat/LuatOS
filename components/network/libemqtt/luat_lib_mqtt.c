@@ -318,21 +318,6 @@ static int l_mqtt_create(lua_State *L) {
 		}
 		lua_pop(L, 1);
 	}
-
-	if (opts.is_tls){
-		if (lua_isstring(L, 5)){
-			opts.server_cert = luaL_checklstring(L, 5, &opts.server_cert_len);
-		}
-		if (lua_isstring(L, 6)){
-			opts.client_cert = luaL_checklstring(L, 6, &opts.client_cert_len);
-		}
-		if (lua_isstring(L, 7)){
-			opts.client_key = luaL_checklstring(L, 7, &opts.client_key_len);
-		}
-		if (lua_isstring(L, 8)){
-			opts.client_password = luaL_checklstring(L, 8, &opts.client_password_len);
-		}
-	}
 	
 	ret = luat_mqtt_set_connopts(mqtt_ctrl, &opts);
 

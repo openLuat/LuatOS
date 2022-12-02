@@ -1299,10 +1299,7 @@ LUAT_LV_CB_RLT
 // {"obj_remove_event_cb", ROREG_FUNC(luat_lv_obj_remove_event_cb)},
 // {"obj_remove_event_cb_with_user_data", ROREG_FUNC(luat_lv_obj_remove_event_cb_with_user_data)},
 // {"keyboard_def_event_cb", ROREG_FUNC(luat_lv_keyboard_def_event_cb)},
-#if LV_USE_ANIMATION
-{"anim_set_exec_cb", ROREG_FUNC(luat_lv_anim_set_exec_cb)},
-{"anim_set_ready_cb", ROREG_FUNC(luat_lv_anim_set_ready_cb)},
-#endif
+
 
 // 额外添加的函数
 LUAT_LV_EX_RLT

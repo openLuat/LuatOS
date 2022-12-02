@@ -175,7 +175,7 @@ static int l_mobile_iccid(lua_State* L) {
 /**
 获取当前SIM卡槽,或者切换卡槽
 @api mobile.simid(id)
-@int SIM卡的编号, 例如0, 1. 可选
+@int SIM卡的编号, 例如0, 1，如果支持双卡，比如EC618，可以填2来自适应，但是会占用掉4个IO。如果不填就直接读取当前卡槽
 @return int 当前sim卡槽编号,若失败返回-1
  */
 static int l_mobile_simid(lua_State* L) {

@@ -55,7 +55,15 @@ local libnet = require "libnet"
 
 local taskName = "OTA_TASK"
 local function netCB(msg)
-    log.info("未处理消息", msg[1], msg[2], msg[3], msg[4])
+    if msg[1] == socket.EVENT then
+        log.info("socket网络状态变更")
+    elseif msg[1] == socket.TX_OK then
+        log.info("socket发送完成")
+    elseif msg[1] == socket.EV_NW_RESULT_CLOSE then
+        log.info("socket关闭")
+    else
+        log.info("未处理消息", msg[1], msg[2], msg[3], msg[4])
+    end
 end
 
 local function otaTask()
@@ -107,8 +115,8 @@ local function otaTask()
                         done = true
                         break
                     end
+                    log.info("收到服务器数据，长度", rbuff:used(), "fota结果", isError, done, "总共", filelen)
                     rbuff:del()
-                    -- log.info("收到服务器数据，长度", rbuff:used(), "fota结果", isError, done, "总共", filelen)
                     if fotaDone then
                         log.info("下载完成")
                         while true do
@@ -163,15 +171,17 @@ local function otaTask()
                             done = true
                             break
                         end
+                        log.info("收到服务器数据，长度", rbuff:used(), "fota结果", isError, done, "总共", filelen)
                         rbuff:del()
-                        -- log.info("收到服务器数据，长度", rbuff:used(), "fota结果", isError, done, "总共", filelen)
                     else
                         break
                     end
                     findhead = true
                 end
             end 
+            log.info("等待新数据到来")
             result, param = libnet.wait(taskName, 5000, netc)
+            log.info(result, param)
             if not result then
                 log.info("服务器断开了", result, param)
                 break

@@ -803,7 +803,7 @@ static void network_default_statemachine(network_ctrl_t *ctrl, OS_EVENT *event, 
 			NW_UNLOCK;
 			return ;
 		}
-		event->ID = ctrl->wait_target_state + EV_NW_RESULT_BASE;
+		event->ID = (ctrl->wait_target_state?ctrl->wait_target_state:NW_WAIT_EVENT) + EV_NW_RESULT_BASE;
 		event->Param1 = result;
 	}
 	if ((ctrl->state != NW_STATE_LISTEN) || (result < 0))
@@ -2823,7 +2823,7 @@ static void network_default_statemachine(network_ctrl_t *ctrl, OS_EVENT *event, 
 		{
 			return ;
 		}
-		event->ID = ctrl->wait_target_state + EV_NW_RESULT_BASE;
+		event->ID = (ctrl->wait_target_state?ctrl->wait_target_state:NW_WAIT_EVENT) + EV_NW_RESULT_BASE;
 		event->Param1 = result;
 	}
 	if ((ctrl->state != NW_STATE_LISTEN) || (result < 0))

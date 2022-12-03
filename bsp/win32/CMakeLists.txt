@@ -72,6 +72,8 @@ add_library(luat ${TOPROOT}/luat/modules/luat_main.c
                  ${TOPROOT}/luat/vfs/luat_fs_posix.c
                  ${TOPROOT}/luat/vfs/luat_fs_lfs2.c
                  ${TOPROOT}/luat/vfs/luat_inline_libs.c
+                 ${TOPROOT}/luat/vfs/luat_fs_inline.c
+                 ${TOPROOT}/luat/vfs/luat_fs_romfs.c
                  ${TOPROOT}/luat/vfs/luat_inline_libs_64bit_size32.c
                  ${TOPROOT}/luat/vfs/luat_inline_libs_64bit_size64.c
                  ${TOPROOT}/luat/vfs/luat_luadb_mock.c

@@ -13,17 +13,20 @@ if wdt then
     sys.timerLoopStart(wdt.feed, 3000)--3s喂一次狗
 end
 
-log.info("main", "uart demo")
+log.info("main", "usb uart demo")
 
+-- Air105 的虚拟串口需要安装驱动, Air780E/Air600E不需要
 -- USB驱动下载 https://doc.openluat.com/wiki/21?wiki_page_id=2070
 -- USB驱动与 合宙Cat.1的USB驱动是一致的
 
-if usbapp then
+-- 当前仅Air105/Air780E/Air600E能运行本demo
+
+if usbapp then -- Air105需要初始化usb虚拟串口
     usbapp.start(0)
 end
 
 
-local uartid = uart.VUART_0 -- 根据实际设备选取不同的uartid
+local uartid = uart.VUART_0 -- USB虚拟串口的固定id
 
 --初始化
 local result = uart.setup(
@@ -41,7 +44,7 @@ uart.on(uartid, "receive", function(id, len)
         -- 如果是air302, len不可信, 传1024
         -- s = uart.read(id, 1024)
         s = uart.read(id, len)
-        if #s > 0 then -- #s 是取字符串的长度
+        if s and #s > 0 then -- #s 是取字符串的长度
             -- 如果传输二进制/十六进制数据, 部分字符不可见, 不代表没收到
             -- 关于收发hex值,请查阅 https://doc.openluat.com/article/583
             log.info("uart", "receive", id, #s, s)

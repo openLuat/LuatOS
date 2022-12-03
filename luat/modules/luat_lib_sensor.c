@@ -482,7 +482,7 @@ static luat_pwm_conf_t ws2812b_pwm_conf = {
   .precision = 100
 };
 /*
-设置ws2812b输出(pwm驱动方式)
+设置ws2812b输出(pwm驱动方式,需要pwm能输出800k频率，否则无法使用此方法)
 @api    sensor.ws2812b_pwm(pin,data)
 @int    pwm端口号
 @string/zbuff    待发送的数据（如果为zbuff数据，则会无视指针位置始终从0偏移开始）
@@ -543,7 +543,7 @@ static luat_spi_t ws2812b_spi_conf = {
   .mode = 1,
 };
 /*
-设置ws2812b输出(spi驱动方式)
+设置ws2812b输出(spi驱动方式,需要spi能输出5M频率，否则无法使用此方法)
 @api    sensor.ws2812b_spi(pin,data)
 @int    spi端口号
 @string/zbuff    待发送的数据（如果为zbuff数据，则会无视指针位置始终从0偏移开始）

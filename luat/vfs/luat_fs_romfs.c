@@ -262,7 +262,7 @@ int luat_vfs_romfs_lsdir(void *userdata, char const *_DirName, luat_fs_dirent_t 
         }
         if ((file->next_offset & 0xFFFFFFF0) == 0)
             break;
-        file = (romfs_fd_t *)(ptr + sizeof(romfs_head_t) + (file->next_offset & 0xFFFFFFF0));
+        file = (romfs_file_t *)(ptr + sizeof(romfs_head_t) + (file->next_offset & 0xFFFFFFF0));
     }
     return 0;
 }

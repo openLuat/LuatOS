@@ -81,6 +81,16 @@ sys.taskInit(function()
         log.info("totp", string.format("%06d" ,r),time.hour,time.min,time.sec)
     end
 
+    if crypto.md_file then
+        log.info("md5", crypto.md_file("MD5", "/luadb/logo.jpg"))
+        log.info("sha1", crypto.md_file("SHA1", "/luadb/logo.jpg"))
+        log.info("sha256", crypto.md_file("SHA256", "/luadb/logo.jpg"))
+        
+        log.info("hmac_md5", crypto.md_file("MD5", "/luadb/logo.jpg", "123456"))
+        log.info("hmac_sha1", crypto.md_file("SHA1", "/luadb/logo.jpg", "123456"))
+        log.info("hmac_sha256", crypto.md_file("SHA256", "/luadb/logo.jpg", "123456"))
+    end
+
     log.info("crypto", "ALL Done")
     sys.wait(100000)
 end)

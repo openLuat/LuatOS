@@ -9,10 +9,13 @@ log.info("main", PROJECT, VERSION)
 _G.sys = require("sys")
 
 --添加硬狗防止程序卡死
-wdt.init(9000)--初始化watchdog设置为9s
-sys.timerLoopStart(wdt.feed, 3000)--3s喂一次狗
+if wdt then
+    wdt.init(9000)--初始化watchdog设置为9s
+    sys.timerLoopStart(wdt.feed, 3000)--3s喂一次狗
+end
 
 local function fs_test()
+    -- 根目录/是可写
     local f = io.open("/boot_time", "rb")
     local c = 0
     if f then
@@ -34,6 +37,9 @@ local function fs_test()
         log.info("fsstat", fs.fsstat("/"))
     end
 
+    local ret, files = io.lsdir("/")
+    log.info("fatfs", "lsdir", json.encode(files))
+
     -- 读取刷机时加入的文件, 并演示按行读取
     -- 刷机时选取的非lua文件, 均存放在/luadb/目录下, 单层无子文件夹
     f = io.open("/luadb/abc.txt", "a")
@@ -52,12 +58,13 @@ local function fs_test()
     end
 end
 
-fs_test() -- 每次开机,把记录的数值+1
+
 
 sys.taskInit(function()
-    while 1 do
-        sys.wait(500)
-    end
+    -- 为了显示日志,这里特意延迟一秒
+    -- 正常使用不需要delay
+    sys.wait(1000)
+    fs_test()
 end)
 
 -- 用户代码已结束---------------------------------------------

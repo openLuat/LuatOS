@@ -4,6 +4,46 @@
 @version 1.0
 @date    2020.07.03
 @tag LUAT_CONF_BSP
+@demo    fs
+@usage
+-- io模块是lua原生模块,LuatOS增加了一些API
+-- 请配合os模块一起使用
+
+-- 只读模式, 打开文件
+local fd = io.open("/xxx.txt", "rb")
+-- 读写默认,打开文件
+local fd = io.open("/xxx.txt", "wb")
+-- 写入文件,且截断为0字节
+local fd = io.open("/xxx.txt", "wb+")
+-- 追加模式
+local fd = io.open("/xxx.txt", "a")
+
+-- 若文件打开成功, fd不为nil,否则就是失败了
+-- 注意, 刷机时所添加的文件, 均在 /luadb 目录下, 只读
+if fd then
+  -- 读取指定字节数,如果数据不足,就只返回实际长度的数据
+  local data = fd:read(12)
+  -- 按行读取
+  local line = fd:read("*l")
+  -- 全部读取
+  local line = fd:read("*a")
+
+  -- 数据写入, 仅w或a模式可调用
+  -- 数据需要是字符串, lua的字符串是带长度的,可以包含任何二进制数据
+  fd:write("xxxx") 
+  -- 以下是写入0x12, 0x13
+  fd:write(string.char(0x12, 0x13))
+
+  -- 移动句柄,绝对坐标
+  fd:seek(1024, io.SEEK_SET)
+  -- 移动句柄,相对坐标
+  fd:seek(1024, io.SEEK_CUR)
+  -- 移动句柄,反向绝对坐标,从文件结尾往文件头部算
+  fd:seek(124, io.SEEK_END)
+
+  -- 执行完操作后,一定要关掉文件
+  fd:close()
+end
 */
 
 #define liolib_c

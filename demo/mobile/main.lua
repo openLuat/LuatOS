@@ -8,6 +8,9 @@ log.info("main", PROJECT, VERSION)
 -- sys库是标配
 _G.sys = require("sys")
 
+-- 对于双卡的设备, 可以设置为自动选sim卡
+-- 但是, 这样SIM1所在管脚就强制复用为SIM功能, 不可以再复用为GPIO
+-- mobile.simid(2)
 
 sys.taskInit(function()
     sys.wait(2000)
@@ -20,12 +23,12 @@ sys.taskInit(function()
         end
         log.info("muid", mobile.muid():toHex())
         log.info("iccid", mobile.iccid())
-        log.info("csq", mobile.csq())
-        log.info("rssi", mobile.rssi())
+        log.info("csq", mobile.csq()) -- 4G模块的CSQ并不能完全代表强度
+        log.info("rssi", mobile.rssi()) -- 需要综合rssi/rsrq/rsrp/snr一起判断
         log.info("rsrq", mobile.rsrq())
         log.info("rsrp", mobile.rsrp())
         log.info("snr", mobile.snr())
-        log.info("simid", mobile.simid())
+        log.info("simid", mobile.simid()) -- 这里是获取当前SIM卡槽
         sys.wait(15000)
     end
 end)

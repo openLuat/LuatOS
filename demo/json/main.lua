@@ -35,6 +35,13 @@ sys.taskInit(function()
         t.abc[1] = 345
         -- 输出的内容是 {"abc":{"1":345,"def":"123"}}
         log.info("json", "encode2", json.encode(t))
+
+        -- 浮点数演示
+        -- 默认%.7g
+        log.info("json", json.encode({abc=1234.300}))
+        -- 限制小数点到1位
+        log.info("json", json.encode({abc=1234.300}, "1f"))
+
     end
 end)
 

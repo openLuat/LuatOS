@@ -33,19 +33,41 @@ local gt911 = {}
 local sys = require "sys"
 local i2cid
 
+local gt911_id
+local gt911_id_2 = 0x14
+local gt911_id_1 = 0x5D
+
 local function gt911_send(...)
-    i2c.send(i2cid, 0x5D, {...})
+    i2c.send(i2cid, gt911_id, {...})
 end
 
 local function gt911_recv(...)
-    i2c.send(i2cid, 0x5D, {...})
-    local _, read_data = pack.unpack(i2c.recv(0, 0x5D, 1), "b")
+    i2c.send(i2cid, gt911_id, {...})
+    local _, read_data = pack.unpack(i2c.recv(0, gt911_id, 1), "b")
     return read_data
 end
 
 local press_sta = false
 
 local point = {{x=0,y=0},{x=0,y=0},{x=0,y=0},{x=0,y=0},{x=0,y=0}}
+
+--器件ID检测
+local function chip_check()
+    local ret = i2c.send(i2cid, gt911_id_1,string.char(0x00, 0x00))
+    if ret then
+        gt911_id = gt911_id_1
+    else
+        ret = i2c.send(i2cid, gt911_id_2,string.char(0x00, 0x00))
+        if ret then
+            gt911_id = gt911_id_2
+        else
+            log.info("gt911", "Can't find device")
+            return false
+        end
+    end
+    log.info("gt911", "find device",gt911_id)
+    return true
+end
 
 --[[
 gt911初始化
@@ -63,11 +85,15 @@ function gt911.init(gt911_i2c,gt911_res,gt911_int)
     gpio.setup(gt911_res, 0)
 
     gpio.set(gt911_int, 0)
+    gpio.set(gt911_res, 1)
+
     gpio.set(gt911_res, 0)
     sys.wait(10)
     gpio.set(gt911_res, 1)
     sys.wait(10)
-
+    if chip_check()~=true then
+        return false
+    end
     gpio.setup(gt911_int, 
         function(val) 
             local count

@@ -63,6 +63,8 @@
 //#include <lrodefs.h>
 //#include <auxmods.h>
 
+static char float_fmt[12];
+
 #ifdef WIN32
 #define snprintf _snprintf
 typedef unsigned char u_char;
@@ -559,12 +561,12 @@ static void json_append_array(lua_State *l, int current_depth,
     strbuf_append_char(json, ']');
 }
 
-typedef struct {
-     char encode_number_precision_mode;     /*浮点数转化模式 默认为'g',可配置为'f' */
-     unsigned char encode_number_precision; /*浮点数转化精度 默认为7,可配置为0~14 */
-} json_easy_config_t;
+// typedef struct {
+//      char encode_number_precision_mode;     /*浮点数转化模式 默认为'g',可配置为'f' */
+//      unsigned char encode_number_precision; /*浮点数转化精度 默认为7,可配置为0~14 */
+// } json_easy_config_t;
 
-static json_easy_config_t json_easy_config = {'g',DEFAULT_ENCODE_NUMBER_PRECISION};
+// static json_easy_config_t json_easy_config = {'g',DEFAULT_ENCODE_NUMBER_PRECISION};
 
 static void json_append_number(lua_State *l,
                                strbuf_t *json, int lindex)
@@ -600,15 +602,15 @@ static void json_append_number(lua_State *l,
         len = snprintf_(strbuf_empty_ptr(json), FPCONV_G_FMT_BUFSIZE, "%ld", lua_tointeger(l, lindex));
     }
     else {
-        //len = snprintf_("%f", strbuf_empty_ptr(json), FPCONV_G_FMT_BUFSIZE, lua_tonumber(l, lindex));
-        if (json_easy_config.encode_number_precision_mode == 'f')
-        {
-        	len = fpconv_f_fmt(strbuf_empty_ptr(json), num, json_easy_config.encode_number_precision);
-        }
-        else
-        {
-        	len = fpconv_g_fmt(strbuf_empty_ptr(json), num, json_easy_config.encode_number_precision);
-        }
+        len = snprintf_(strbuf_empty_ptr(json), FPCONV_G_FMT_BUFSIZE, float_fmt, lua_tonumber(l, lindex));
+        // if (json_easy_config.encode_number_precision_mode == 'f')
+        // {
+        // 	len = fpconv_f_fmt(strbuf_empty_ptr(json), num, json_easy_config.encode_number_precision);
+        // }
+        // else
+        // {
+        // 	len = fpconv_g_fmt(strbuf_empty_ptr(json), num, json_easy_config.encode_number_precision);
+        // }
     }
     //len = fpconv_g_fmt(strbuf_empty_ptr(json), num, DEFAULT_ENCODE_NUMBER_PRECISION);
     strbuf_extend_length(json, len);
@@ -1390,111 +1392,40 @@ json.encode(obj)-->浮点数用%.7g的方式转换为字符串
 json.encode(obj,"12f")-->浮点数用%.12f的方式转换为字符串
 */
 static int l_json_encode_safe(lua_State *L) {
-    int top = lua_gettop(L);
-    if(top <= 1)
-	{
-		json_easy_config.encode_number_precision = DEFAULT_ENCODE_NUMBER_PRECISION;
-		json_easy_config.encode_number_precision_mode = 'g';
-	}
-	else{
-		size_t len;
-		int prec = 0;
-		const char* mode = luaL_optlstring(L, top, "7g",&len);
-		for(int i = 0; i<len+1; i++)
-		{
-			if( *(mode+i) >= '0' &&  *(mode+i) <= '9' )
-			{
-				prec *= 10;
-				prec += *(mode+i)-'0';
-			}
-			else
-			{
-				if(*(mode+i) == 'f')
-				{
-					json_easy_config.encode_number_precision_mode = *(mode+i);
-				}
-				else
-				{
-					json_easy_config.encode_number_precision_mode = 'g';
-				}
-				break;
-			}
-		}
-		if (prec>=0 && prec<=14)
-		{
-			json_easy_config.encode_number_precision = prec;
-		}
-		else
-		{
-			json_easy_config.encode_number_precision = DEFAULT_ENCODE_NUMBER_PRECISION;
-		}
-		--top;
-		lua_settop(L,top);
-	}
-    lua_pushcfunction(L, json_encode);
-    lua_insert(L, 1);
-    int status = lua_pcall(L, top, 1, 0);
-    if (status != LUA_OK) {
+    // int top = lua_gettop(L);
+    if (lua_isnil(L, 1)) {
         lua_pushnil(L);
-        lua_insert(L, 1);
+        lua_pushliteral(L, "obj is nil");
+        return 1;
+    }
+    memcpy(float_fmt, "%.7g", strlen("%.7g") + 1);
+    size_t len = 0;
+	int prec = 0;
+    char buff[6] = {0};
+	if (lua_isstring(L, 2)) {
+		const char* mode = luaL_checklstring(L, 2, &len);
+        //LLOGD("json format ? %s", mode);
+        if (len > 1 && len < 8 && (mode[len - 1] == 'g' || mode[len - 1] == 'f')) {
+            if (mode[0] == '%') {
+                memcpy(float_fmt, mode, len + 1);
+            }
+            else {
+                memcpy(float_fmt + 2, mode, len + 1);
+            }
+        }
+    }
+    //LLOGD("float_fmt [%s]", float_fmt);
+    lua_pushcfunction(L, json_encode);
+    lua_pushvalue(L, 1);
+    int status = lua_pcall(L, 1, 1, 0);
+    if (status != LUA_OK) {
+        const char* err = lua_tostring(L, -1);
+        lua_pushnil(L);
+        lua_pushstring(L, err);
         return 2;
     }
     return 1;
 }
-// /*
-// 设置encode数字精度和模式
-// @api json.encode_number_precision
-// @param string 浮点数精度和模式,这项不存在的时候,为默认值"7g",数字只支持"0~14",模式只支持"f/g"
-// @return nil 无返回值
-// @usage
-// json.encode_number_precision()-->浮点数用%.7g的方式转换为字符串
-// json.encode_number_precision("2")-->浮点数用%.2g的方式转换为字符串
-// json.encode_number_precision("10f")-->浮点数用%.10f的方式转换为字符串
-// */
-// static int l_json_cfg_encode_number_precision(lua_State *L) {
-// 	int top = lua_gettop(L);
-// 	if(top <= 0)
-// 	{
-// 		json_easy_config.encode_number_precision = DEFAULT_ENCODE_NUMBER_PRECISION;
-// 		json_easy_config.encode_number_precision_mode = 'g';
-// 	}
-// 	else{
-// 		size_t len;
-// 		int prec = 0;
-// 		const char* mode = luaL_optlstring(L, top, "7g",&len);
-// 		for(int i = 0; i<len+1; i++)
-// 		{
-// 			if( *(mode+i) >= '0' &&  *(mode+i) <= '9' )
-// 			{
-// 				prec *= 10;
-// 				prec += *(mode+i)-'0';
-// 			}
-// 			else
-// 			{
-// 				if(*(mode+i) == 'f')
-// 				{
-// 					json_easy_config.encode_number_precision_mode = *(mode+i);
-// 				}
-// 				else
-// 				{
-// 					json_easy_config.encode_number_precision_mode = 'g';
-// 				}
-// 				break;
-// 			}
-// 		}
-// 		if (prec>=0 && prec<=14)
-// 		{
-// 			json_easy_config.encode_number_precision = prec;
-// 		}
-// 		else
-// 		{
-// 			json_easy_config.encode_number_precision = DEFAULT_ENCODE_NUMBER_PRECISION;
-// 		}
-// 		--top;
-// 		lua_settop(L,top);
-// 	}
-// 	return 0;
-// }
 
 /*
 将字符串反序列化为对象
@@ -1592,6 +1523,7 @@ static int lua_cjson_new(lua_State *l)
 
 int luaopen_cjson(lua_State *l)
 {
+    memcpy(float_fmt, "%.7g", strlen("%.7g") + 1);
     lua_cjson_new(l);
 
 // #ifdef ENABLE_CJSON_GLOBAL

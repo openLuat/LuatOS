@@ -120,7 +120,7 @@ static int l_u8g2_begin(lua_State *L) {
             return 0;
         }
         const char* tmp = luaL_checklstring(L, -1, &mode_len);
-        if (mode_len < 1 || mode_len > 7) {
+        if (mode_len < 1 || mode_len > 16) {
             LLOGE("mode string too short or too long!!");
             return 0;
         }

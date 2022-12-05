@@ -136,4 +136,8 @@ LUAMOD_API int luaopen_rsa( lua_State *L );
 
 LUAMOD_API int luaopen_websocket( lua_State *L );
 
+
+LUAMOD_API int luaopen_ftp( lua_State *L );
+LUAMOD_API int luaopen_hmeta( lua_State *L );
+
 #endif

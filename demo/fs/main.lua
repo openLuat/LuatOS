@@ -56,6 +56,25 @@ local function fs_test()
     else
         log.info("fs", "pls add abc.txt!!")
     end
+
+    -- 文件夹操作
+    sys.wait(3000)
+    io.mkdir("/iot/")
+    f = io.open("/iot/1.txt", "w+")
+    if f then
+        f:write("hi, LuatOS " .. os.date())
+        f:close()
+    else
+        log.info("fs", "open file for write failed")
+    end
+    f = io.open("/iot/1.txt", "r")
+    if f then
+        local data = f:read("*a")
+        f:close()
+        log.info("fs", "writed data", data)
+    else
+        log.info("fs", "open file for read failed")
+    end
 end
 
 

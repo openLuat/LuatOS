@@ -161,13 +161,15 @@ typedef struct {
 	// Auth fields
 	char username[MQTT_CONF_USERNAME_LENGTH];
 	char password[MQTT_CONF_PASSWORD_LENGTH];
+	// Management fields
+	uint16_t seq;
+	uint16_t alive;
 	// Will topic
 	uint8_t will_retain;
 	uint8_t will_qos;
 	uint8_t clean_session;
-	// Management fields
-	uint16_t seq;
-	uint16_t alive;
+	char *will_data; // 包含topic和payload
+	uint32_t will_len;
 } mqtt_broker_handle_t;
 
 
@@ -195,6 +197,10 @@ void mqtt_init_auth(mqtt_broker_handle_t* broker, const char* username, const ch
  * @note Only has effect before to call mqtt_connect
  */
 void mqtt_set_alive(mqtt_broker_handle_t* broker, uint16_t alive);
+
+int mqtt_set_will(mqtt_broker_handle_t* broker, const char* topic, 
+						const char* payload, size_t payload_len, 
+						uint8_t qos, size_t retain);
 
 /** Connect to the broker.
  * @param broker Data structure that contains the connection information with the broker.

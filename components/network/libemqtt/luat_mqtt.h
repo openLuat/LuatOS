@@ -65,5 +65,7 @@ int luat_mqtt_set_connopts(luat_mqtt_ctrl_t *mqtt_ctrl, luat_mqtt_connopts_t *op
 
 int luat_mqtt_reconnect(luat_mqtt_ctrl_t *mqtt_ctrl);
 int luat_mqtt_ping(luat_mqtt_ctrl_t *mqtt_ctrl);
-
+int luat_mqtt_set_will(luat_mqtt_ctrl_t *mqtt_ctrl, const char* topic, 
+						const char* payload, size_t payload_len, 
+						uint8_t qos, size_t retain);
 #endif

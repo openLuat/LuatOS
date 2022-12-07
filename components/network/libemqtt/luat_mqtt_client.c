@@ -114,6 +114,11 @@ void luat_mqtt_release_socket(luat_mqtt_ctrl_t *mqtt_ctrl){
 		luat_release_rtos_timer(mqtt_ctrl->reconnect_timer);
     	mqtt_ctrl->reconnect_timer = NULL;
 	}
+	if (mqtt_ctrl->broker.will_data) {
+		mqtt_ctrl->broker.will_len = 0;
+		luat_heap_free(mqtt_ctrl->broker.will_data);
+		mqtt_ctrl->broker.will_data = NULL;
+	}
 	if (mqtt_ctrl->netc){
 		network_release_ctrl(mqtt_ctrl->netc);
     	mqtt_ctrl->netc = NULL;
@@ -387,3 +392,10 @@ int luat_mqtt_connect(luat_mqtt_ctrl_t *mqtt_ctrl) {
     return 0;
 }
 
+int luat_mqtt_set_will(luat_mqtt_ctrl_t *mqtt_ctrl, const char* topic, 
+						const char* payload, size_t payload_len, 
+						uint8_t qos, size_t retain) {
+	if (mqtt_ctrl == NULL || mqtt_ctrl->netc == NULL)
+		return -1;
+	return mqtt_set_will(&mqtt_ctrl->broker, topic, payload, payload_len, qos, retain);
+}

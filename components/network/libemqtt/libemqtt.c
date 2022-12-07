@@ -27,6 +27,8 @@
 
 #include <string.h>
 #include <libemqtt.h>
+#include "luat_base.h"
+#include "luat_malloc.h"
 
 #define MQTT_DUP_FLAG     (1<<3)
 #define MQTT_QOS0_FLAG    (0<<1)
@@ -213,6 +215,15 @@ int mqtt_connect(mqtt_broker_handle_t* broker)
 	if(broker->clean_session) {
 		flags |= MQTT_CLEAN_SESSION;
 	}
+	if (broker->will_len > 0) {
+		payload_len += broker->will_len;
+		flags |= MQTT_WILL_FLAG;
+		if (broker->will_retain)
+			flags |= MQTT_WILL_RETAIN;
+		if (broker->will_qos) {
+			flags |= (broker->will_qos << 3);
+		}
+	}
 
 	// Variable header
 	uint8_t var_header[] = {
@@ -246,7 +257,12 @@ int mqtt_connect(mqtt_broker_handle_t* broker)
     }
 
 	uint16_t offset = 0;
-	uint8_t packet[sizeof(fixed_header)+sizeof(var_header)+payload_len];
+	uint32_t packet_size = sizeof(fixed_header)+sizeof(var_header)+payload_len;
+	uint8_t *packet = luat_heap_malloc(packet_size);
+	if (packet == NULL) {
+		LLOGE("out of memory when malloc connect packet");
+		return -2;
+	}
 	memset(packet, 0, sizeof(packet));
 	memcpy(packet, fixed_header, sizeof(fixed_header));
 	offset += sizeof(fixed_header);
@@ -258,6 +274,12 @@ int mqtt_connect(mqtt_broker_handle_t* broker)
 	if (clientidlen)
 		memcpy(packet+offset, broker->clientid, clientidlen);
 	offset += clientidlen;
+
+	
+	if (broker->will_len) {
+		memcpy(packet+offset, broker->will_data, broker->will_len);
+		offset += broker->will_len;
+	}
 
 	if(usernamelen) {
 		// Username - UTF encoded
@@ -276,10 +298,11 @@ int mqtt_connect(mqtt_broker_handle_t* broker)
 	}
 
 	// Send the packet
-	if(broker->send(broker->socket_info, packet, sizeof(packet)) < sizeof(packet)) {
+	if(broker->send(broker->socket_info, packet, packet_size) < packet_size) {
+		luat_heap_free(packet);
 		return -1;
 	}
-
+	luat_heap_free(packet);
 	return 1;
 }
 
@@ -504,4 +527,40 @@ int mqtt_unsubscribe(mqtt_broker_handle_t* broker, const char* topic, uint16_t* 
 	}
 
 	return 1;
+}
+
+int mqtt_set_will(mqtt_broker_handle_t* broker, const char* topic, 
+						const char* payload, size_t payload_len, 
+						uint8_t qos, size_t retain) {
+	if (broker == NULL)
+		return -1;
+	//LLOGD("will %s %.*s %d %d", topic, payload_len, payload, qos, retain);
+	// 如果之前有数据, 那就释放掉
+	if (broker->will_data != NULL) {
+		broker->will_len = 0;
+		luat_heap_free(broker->will_data);
+		broker->will_data = NULL;
+	}
+	if (topic == NULL || payload == NULL || payload_len == 0) {
+		LLOGI("will topic/payload is NULL");
+		return 0;
+	}
+	size_t topic_len = strlen(topic);
+	broker->will_data = luat_heap_malloc(topic_len + 2 + payload_len + 2);
+	if (broker->will_data == NULL) {
+		return -2;
+	}
+	broker->will_data[0] = (uint8_t)(topic_len >> 8);
+	broker->will_data[1] = (uint8_t)(topic_len & 0xFF);
+	memcpy(broker->will_data + 2, topic, topic_len);
+	
+	broker->will_data[2  + topic_len] = (uint8_t)(payload_len >> 8);
+	broker->will_data[2  + topic_len + 1] = (uint8_t)(payload_len & 0xFF);
+	memcpy(broker->will_data + 2 + topic_len + 2, payload, payload_len);
+
+	broker->will_qos = qos > 2 ? 0 : qos;
+	broker->will_retain = retain;
+	broker->will_len = topic_len + 2 + payload_len + 2;
+	//LLOGD("will len %d", broker->will_len);
+	return 0;
 }

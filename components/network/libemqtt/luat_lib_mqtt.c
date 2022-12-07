@@ -516,6 +516,29 @@ static int l_mqtt_ready(lua_State *L) {
 	return 1;
 }
 
+/*
+设置遗嘱消息
+@api mqttc:will(topic, payload, qos, retain)
+@string 遗嘱消息的topic
+@string 遗嘱消息的payload
+@string 遗嘱消息的qos, 默认0, 可以不填
+@string 遗嘱消息的retain, 默认0, 可以不填
+@return bool 成功返回true,否则返回false
+@usage
+-- 要在connect之前调用 
+mqttc:will("/xxx/xxx", "xxxxxx")
+*/
+static int l_mqtt_will(lua_State *L) {
+	luat_mqtt_ctrl_t * mqtt_ctrl = get_mqtt_ctrl(L);
+	size_t payload_len = 0;
+	const char* topic = luaL_checkstring(L, 2);
+	const char* payload = luaL_checklstring(L, 3, &payload_len);
+	int qos = luaL_optinteger(L, 4, 0);
+	int retain = luaL_optinteger(L, 5, 0);
+	lua_pushboolean(L, luat_mqtt_set_will(mqtt_ctrl, topic, payload, payload_len, qos, retain) == 0 ? 1 : 0);
+	return 1;
+}
+
 static int _mqtt_struct_newindex(lua_State *L);
 
 void luat_mqtt_struct_init(lua_State *L) {
@@ -539,6 +562,7 @@ static const rotable_Reg_t reg_mqtt[] =
 	{"unsubscribe",		ROREG_FUNC(l_mqtt_unsubscribe)},
 	{"close",			ROREG_FUNC(l_mqtt_close)},
 	{"ready",			ROREG_FUNC(l_mqtt_ready)},
+	{"will",			ROREG_FUNC(l_mqtt_will)},
 
 	{ NULL,             ROREG_INT(0)}
 };

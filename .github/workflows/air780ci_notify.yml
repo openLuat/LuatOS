@@ -26,4 +26,4 @@ jobs:
       run: |
         sudo pip3 install paho_mqtt gitpython requests
         cd tools
-        python3 ciNotify.py $MQTTADDR $MQTTPORT $MQTTTOPIC "http://luat.papapoi.com:23380/openLuat/luatos-soc-ec618" "Air780编译" "$DD_APPKEY" "$DD_APPSECRET" "$DD_NOTIFY_LIST" "$DD_API_TOKEN" "$DD_API_SEND"
+        python3 ciNotify.py $MQTTADDR $MQTTPORT $MQTTTOPIC "http://luat.papapoi.com:23380/openLuat/luatos-soc-2022" "Air780编译" "$DD_APPKEY" "$DD_APPSECRET" "$DD_NOTIFY_LIST" "$DD_API_TOKEN" "$DD_API_SEND"

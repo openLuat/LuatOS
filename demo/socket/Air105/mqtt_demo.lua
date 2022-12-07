@@ -1,13 +1,19 @@
 
+--根据自己的服务器修改以下参数
+local mqtt_host = "lbsmqtt.airm2m.com"
+local mqtt_port = 1884
+local mqtt_isssl = false
+local client_id = "abc"
+local user_name = "user"
+local password = "password"
+
 local mqttc = nil
 
 local function testTask()
     print("testTask")
-    mqttc = mqtt.create(nil,"120.55.137.106", 1884, isssl, ca_file) -- host,port必填,其余选填
-    -- mqttc = mqtt.create(nil,"192.168.31.71", 1883, nil, nil) --tcp
-    -- mqttc = mqtt.create(nil,"192.168.31.71", 8883, true) -- tcp ssl加密不验证证书
+    mqttc = mqtt.create(nil,mqtt_host, mqtt_port, mqtt_isssl, ca_file)
 
-    mqttc:auth("123456789","username","password") -- client_id必填,其余选填
+    mqttc:auth(client_id,user_name,password) -- client_id必填,其余选填
     mqttc:keepalive(30) -- 默认值240s
     mqttc:autoreconn(true, 3000) -- 自动重连机制
 

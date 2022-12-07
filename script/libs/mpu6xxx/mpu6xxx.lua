@@ -60,7 +60,7 @@ local MPU6XXX_RA_GYRO_ZOUT_H      =   0x47
 local MPU6XXX_RA_GYRO_ZOUT_L      =   0x48
 
 local MPU6XXX_ACCEL_SEN           =   16384
-local MPU6XXX_GYRO_SEN            =   1310
+local MPU6XXX_GYRO_SEN            =   16384
 
 local MPU60X0_TEMP_SEN            =   340
 local MPU60X0_TEMP_OFFSET         =   36.5

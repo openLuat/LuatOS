@@ -31,7 +31,7 @@ function adc_pin() -- 根据不同开发板，设置ADC编号
     elseif rtos_bsp == "AIR105" then -- Air105开发板ADC编号
         return 0,5,6,255,255,255
     elseif rtos_bsp == "ESP32C3" then -- ESP32C3开发板ADC编号
-        return 0,1,2,3,4,10 
+        return 0,1,2,3,4,adc.CH_CPU 
     elseif rtos_bsp == "EC618" then --Air780E开发板ADC编号
         return 0,1,255,255,10,11 --
     else

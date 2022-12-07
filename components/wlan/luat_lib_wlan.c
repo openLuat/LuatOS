@@ -233,7 +233,7 @@ static int l_wlan_smartconfig(lua_State *L) {
 
 /*
 获取mac
-@api wlan.getMode()
+@api wlan.getMac()
 @return string MAC地址,十六进制字符串形式 "AABBCCDDEEFF"
 */
 static int l_wlan_get_mac(lua_State* L){

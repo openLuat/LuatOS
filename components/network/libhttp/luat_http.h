@@ -29,6 +29,7 @@ typedef struct{
 	const char *req_body;		//发送body
 	size_t req_body_len;		//发送body长度
 
+	//下载相关
 	uint8_t is_download;		//是否下载
 	const char *dst;			//下载路径
 	//解析相关
@@ -38,7 +39,8 @@ typedef struct{
 	uint32_t headers_len;		//headers缓存长度
 	char* body;
 	uint32_t body_len;			//body缓存长度
-
+	uint8_t is_chunk;			//是否chunk编码
+	
 	// 响应相关
 	// uint32_t resp_content_len;	//content 长度
 	FILE* fd;					//下载 FILE

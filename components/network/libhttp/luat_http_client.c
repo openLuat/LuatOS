@@ -234,7 +234,7 @@ int on_message_complete(http_parser* parser){
 		http_ctrl->fd = NULL;
 	}
 	// LLOGD("status_code:%d",parser->status_code);
-	LLOGD("content_length:%d",parser->content_length);
+	// LLOGD("content_length:%lld",parser->content_length);
 	http_ctrl->close_state=1;
 	rtos_msg_t msg = {0};
     msg.handler = l_http_callback;
@@ -245,14 +245,15 @@ int on_message_complete(http_parser* parser){
 }
 
 int on_chunk_header(http_parser* parser){
-	LLOGD("on_chunk_header");
-	LLOGD("content_length:%d",parser->content_length);
+	// LLOGD("on_chunk_header");
+	// LLOGD("content_length:%lld",parser->content_length);
+	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
+	http_ctrl->is_chunk = 1;
     return 0;
 }
 
 int on_chunk_complete(http_parser* parser){
-	LLOGD("on_chunk_complete");
-	LLOGD("content_length:%d",parser->content_length);
+	// LLOGD("on_chunk_complete");
     return 0;
 }
 
@@ -356,6 +357,30 @@ next:
 				}
 				
 				int nParseBytes = http_parser_execute(&http_ctrl->parser, &http_ctrl->parser_settings, resp_buff, total_len);
+				
+				if (http_ctrl->is_chunk){
+					if (http_ctrl->is_download){
+						if (http_ctrl->fd == NULL){
+							luat_fs_remove(http_ctrl->dst);
+							http_ctrl->fd = luat_fs_fopen(http_ctrl->dst, "w+");
+							if (http_ctrl->fd == NULL) {
+								LLOGE("open download file fail %s", http_ctrl->dst);
+								http_resp_error(http_ctrl, HTTP_ERROR_DOWNLOAD);
+								return -1;
+							}
+						}
+						luat_fs_fwrite(resp_buff, total_len, 1, http_ctrl->fd);
+					}else{
+						if (!http_ctrl->body){
+							http_ctrl->body = luat_heap_malloc(total_len+1);
+						}else{
+							http_ctrl->body = luat_heap_realloc(http_ctrl->body,http_ctrl->body_len+total_len+1);
+						}
+						memcpy(http_ctrl->body+http_ctrl->body_len,resp_buff,total_len);
+						http_ctrl->body_len += total_len;
+					}
+				}
+				
 				luat_heap_free(resp_buff);
 
 				if (nParseBytes != total_len){

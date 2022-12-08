@@ -2947,7 +2947,7 @@ uint32_t network_string_to_ipv4(const char *string, uint32_t len)
 	CmdParseParam((int8_t*)temp, &CP, '.');
 	for(i = 0; i < 4; i++)
 	{
-		uIP.u8[i] = strtol((uint8_t)Buf[i], NULL, 10);
+		uIP.u8[i] = strtol((char *)Buf[i], NULL, 10);
 	}
 //	DBG("%d.%d.%d.%d", uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
 	return uIP.u32;

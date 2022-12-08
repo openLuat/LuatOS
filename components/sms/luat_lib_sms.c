@@ -14,6 +14,11 @@
 #include "luat_msgbus.h"
 #include "luat_malloc.h"
 #include "luat_mobile.h"
+
+#ifndef bool
+#define bool uint8_t
+#endif
+
 #include "luat_sms.h"
 
 #define LUAT_LOG_TAG "sms"

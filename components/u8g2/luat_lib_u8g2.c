@@ -948,6 +948,7 @@ static const luat_u8g2_dev_reg_t devregs[] = {
     {.name="sh1107",  .w=64, .h=128, .spi_i2c=0, .devcb=u8g2_Setup_ssd1306_i2c_128x64_noname_f},       // sh1107 64x128
     {.name="st7567",  .w=128, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_st7567_jlx12864_f},                 // st7567 128x64
     {.name="uc1701",  .w=128, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_uc1701_mini12864_f},                // uc1701
+    {.name="ssd1306_128x32", .w=128, .h=32, .spi_i2c=0, .devcb=u8g2_Setup_ssd1306_i2c_128x32_univision_f},       // ssd1306 128x32,I2C
     {.name=NULL} // 结尾用,必须加.
 };
 

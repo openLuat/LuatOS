@@ -3,7 +3,7 @@
 
 
 // 获取模块的设备类型, 原始需求是区分Air780E和Air600E
-int luat_hmeta_model_name(char* buff, size_t* len);
+int luat_hmeta_model_name(char* buff);
 
 
 // -------------------------------------------------------

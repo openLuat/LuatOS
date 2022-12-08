@@ -47,9 +47,12 @@ static int http_close(luat_http_ctrl_t *http_ctrl){
 	if (http_ctrl->dst){
 		luat_heap_free(http_ctrl->dst);
 	}
-	// if (http_ctrl->resp_buff){
-	// 	luat_heap_free(http_ctrl->resp_buff);
-	// }
+	if (http_ctrl->headers){
+		luat_heap_free(http_ctrl->headers);
+	}
+	if (http_ctrl->body){
+		luat_heap_free(http_ctrl->body);
+	}
 	luat_heap_free(http_ctrl);
 	return 0;
 }

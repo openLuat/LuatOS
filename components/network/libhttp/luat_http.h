@@ -11,6 +11,7 @@
 #define HTTP_ERROR_CONNECT 	(-4)
 #define HTTP_ERROR_CLOSE 	(-5)
 #define HTTP_ERROR_RX 		(-6)
+#define HTTP_ERROR_DOWNLOAD (-7)
 
 typedef struct{
 	network_ctrl_t *netc;		// http netc
@@ -34,14 +35,14 @@ typedef struct{
 	http_parser  parser;
 	http_parser_settings parser_settings;
 	char* headers;
+	uint32_t headers_len;		//headers缓存长度
 	char* body;
+	uint32_t body_len;			//body缓存长度
+
 	// 响应相关
-	char *resp_buff;			//接受缓存
-	uint32_t resp_buff_len;		//接受缓存长度
 	uint32_t resp_content_len;	//content 长度
 	FILE* fd;					//下载 FILE
 	uint32_t fd_writed;
-	uint8_t fd_ok;
 	uint64_t idp;
 	uint16_t timeout;
 	uint8_t close_state;

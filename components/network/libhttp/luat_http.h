@@ -40,7 +40,7 @@ typedef struct{
 	uint32_t body_len;			//body缓存长度
 
 	// 响应相关
-	uint32_t resp_content_len;	//content 长度
+	// uint32_t resp_content_len;	//content 长度
 	FILE* fd;					//下载 FILE
 	uint32_t fd_writed;
 	uint64_t idp;

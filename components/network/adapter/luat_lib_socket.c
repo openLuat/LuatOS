@@ -24,6 +24,55 @@ typedef struct
 	uint8_t adapter_index;
 }luat_socket_ctrl_t;
 
+
+network_adapter_info* network_adapter_fetch(int id, void** userdata);
+
+/*
+获取本地ip,当前仅支持IPV4的地址
+@api    socket.localIP(adapter)
+@int 适配器序号， 只能是socket.ETH0（外置以太网），socket.LWIP_ETH（内置以太网），socket.LWIP_STA（内置WIFI的STA），socket.LWIP_AP（内置WIFI的AP），socket.LWIP_GP（内置蜂窝网络的GPRS），socket.USB（外置USB网卡），如果不填，优先选择soc平台自带能上外网的适配器，若仍然没有，选择最后一个注册的适配器
+@return string 通常是内网ip, 也可能是外网ip, 取决于运营商的分配
+@return string 网络掩码
+@return string 网关IP
+@usage
+sys.taskInit(function()
+    while 1 do
+        sys.wait(3000)
+        log.info("socket", "ip", socket.localIP())
+		-- 输出示例
+		-- 62.39.244.10	255.255.255.255	0.0.0.0
+    end
+end)
+*/
+static int l_socket_local_ip(lua_State *L)
+{
+	luat_ip_addr_t local_ip, net_mask, gate_way;
+	int adapter_index = luaL_optinteger(L, 1, network_get_last_register_adapter());
+	if (adapter_index < 0 || adapter_index >= NW_ADAPTER_QTY)
+	{
+		return 0;
+	}
+	void* userdata = NULL;
+	network_adapter_info* info = network_adapter_fetch(adapter_index, &userdata);
+	if (info == NULL)
+		return 0;
+	int ret = info->get_local_ip_info(&local_ip, &net_mask, &gate_way, userdata);
+	if (ret == 0) {
+#ifdef LUAT_USE_LWIP
+		lua_pushfstring(L, "%d.%d.%d.%d", (local_ip.u_addr.ip4.addr >> 24) & 0xFF, (local_ip.u_addr.ip4.addr >> 16) & 0xFF, (local_ip.u_addr.ip4.addr >> 8) & 0xFF, (local_ip.u_addr.ip4.addr >> 0) & 0xFF);
+		lua_pushfstring(L, "%d.%d.%d.%d", (net_mask.u_addr.ip4.addr >> 24) & 0xFF, (net_mask.u_addr.ip4.addr >> 16) & 0xFF, (net_mask.u_addr.ip4.addr >> 8) & 0xFF, (net_mask.u_addr.ip4.addr >> 0) & 0xFF);
+		lua_pushfstring(L, "%d.%d.%d.%d", (gate_way.u_addr.ip4.addr >> 24) & 0xFF, (gate_way.u_addr.ip4.addr >> 16) & 0xFF, (gate_way.u_addr.ip4.addr >> 8) & 0xFF, (gate_way.u_addr.ip4.addr >> 0) & 0xFF);
+#else
+		lua_pushfstring(L, "%d.%d.%d.%d", (local_ip.ipv4 >> 24) & 0xFF, (local_ip.ipv4 >> 16) & 0xFF, (local_ip.ipv4 >> 8) & 0xFF, (local_ip.ipv4 >> 0) & 0xFF);
+		lua_pushfstring(L, "%d.%d.%d.%d", (net_mask.ipv4 >> 24) & 0xFF, (net_mask.ipv4 >> 16) & 0xFF, (net_mask.ipv4 >> 8) & 0xFF, (net_mask.ipv4 >> 0) & 0xFF);
+		lua_pushfstring(L, "%d.%d.%d.%d", (gate_way.ipv4 >> 24) & 0xFF, (gate_way.ipv4 >> 16) & 0xFF, (gate_way.ipv4 >> 8) & 0xFF, (gate_way.ipv4 >> 0) & 0xFF);
+#endif
+		return 3;
+	}
+	return 0;
+}
+
+
 #ifdef LUAT_USE_LWIP
 
 static int32_t l_socket_callback(lua_State *L, void* ptr)
@@ -708,6 +757,7 @@ static const rotable_Reg_t reg_socket_adapter[] =
 	{"release",			ROREG_FUNC(l_socket_release)},
 	{ "setDNS",           ROREG_FUNC(l_socket_set_dns)},
 	{ "sslLog",			ROREG_FUNC(l_socket_set_ssl_log)},
+	{"localIP",         	ROREG_FUNC(l_socket_local_ip)},
 	//@const ETH0 number 带硬件协议栈的ETH0
     { "ETH0",           ROREG_INT(NW_ADAPTER_INDEX_ETH0)},
 	//@const LWIP_ETH number 使用LWIP协议栈的以太网卡
@@ -1290,30 +1340,32 @@ static int l_socket_set_ssl_log(lua_State *L)
 #include "rotable2.h"
 static const rotable_Reg_t reg_socket_adapter[] =
 {
-	{"create",			ROREG_FUNC(l_socket_create)},
-	{"debug",		ROREG_FUNC(l_socket_set_debug)},
-	{"config",		ROREG_FUNC(l_socket_config)},
-	{"linkup",			ROREG_FUNC(l_socket_linkup)},
-	{"connect",			ROREG_FUNC(l_socket_connect)},
-	{"listen",			ROREG_FUNC(l_socket_listen)},
-	{"accept",			ROREG_FUNC(l_socket_accept)},
-	{"discon",			ROREG_FUNC(l_socket_disconnect)},
-	{"close",			ROREG_FUNC(l_socket_close)},
-	{"tx",			ROREG_FUNC(l_socket_tx)},
-	{"rx",			ROREG_FUNC(l_socket_rx)},
-	{"wait",			ROREG_FUNC(l_socket_wait)},
+	{"create",				ROREG_FUNC(l_socket_create)},
+	{"debug",				ROREG_FUNC(l_socket_set_debug)},
+	{"config",				ROREG_FUNC(l_socket_config)},
+	{"linkup",				ROREG_FUNC(l_socket_linkup)},
+	{"connect",				ROREG_FUNC(l_socket_connect)},
+	{"listen",				ROREG_FUNC(l_socket_listen)},
+	{"accept",				ROREG_FUNC(l_socket_accept)},
+	{"discon",				ROREG_FUNC(l_socket_disconnect)},
+	{"close",				ROREG_FUNC(l_socket_close)},
+	{"tx",					ROREG_FUNC(l_socket_tx)},
+	{"rx",					ROREG_FUNC(l_socket_rx)},
+	{"wait",				ROREG_FUNC(l_socket_wait)},
 	//{"listen",			ROREG_FUNC(l_socket_listen)},
 	//{"accept",			ROREG_FUNC(l_socket_accept)},
-	{"release",			ROREG_FUNC(l_socket_release)},
-	{ "setDNS",           ROREG_FUNC(l_socket_set_dns)},
-	{ "sslLog",			ROREG_FUNC(l_socket_set_ssl_log)},
-    { "ETH0",           ROREG_INT(NW_ADAPTER_INDEX_ETH0)},
-    { "LINK",           ROREG_INT(EV_NW_RESULT_LINK & 0x0fffffff)},
+	{"release",				ROREG_FUNC(l_socket_release)},
+	{ "setDNS",           	ROREG_FUNC(l_socket_set_dns)},
+	{ "sslLog",				ROREG_FUNC(l_socket_set_ssl_log)},
+	{"localIP",         	ROREG_FUNC(l_socket_local_ip)},
+
+    { "ETH0",           	ROREG_INT(NW_ADAPTER_INDEX_ETH0)},
+    { "LINK",           	ROREG_INT(EV_NW_RESULT_LINK & 0x0fffffff)},
 	{ "ON_LINE",          	ROREG_INT(EV_NW_RESULT_CONNECT & 0x0fffffff)},
 	{ "EVENT",          	ROREG_INT(EV_NW_RESULT_EVENT & 0x0fffffff)},
-	{ "TX_OK",     		ROREG_INT(EV_NW_RESULT_TX & 0x0fffffff)},
+	{ "TX_OK",     			ROREG_INT(EV_NW_RESULT_TX & 0x0fffffff)},
 	{ "CLOSED",     		ROREG_INT(EV_NW_RESULT_CLOSE & 0x0fffffff)},
-	{ NULL,            ROREG_INT(0)}
+	{ NULL,            		ROREG_INT(0)}
 };
 #endif
 

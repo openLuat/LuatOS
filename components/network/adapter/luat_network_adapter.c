@@ -102,6 +102,16 @@ const char *network_ctrl_callback_event_string(uint32_t event)
 	return prv_network_ctrl_callback_event_string[event - EV_NW_RESULT_EVENT];
 }
 
+network_adapter_info* network_adapter_fetch(int id, void** userdata) {
+	if (id >= 0 && id < NW_ADAPTER_QTY) {
+		if (prv_adapter_table[id].opt) {
+			*userdata = prv_adapter_table[id].user_data;
+			return prv_adapter_table[id].opt;
+		}
+	}
+	return NULL;
+}
+
 #ifdef LUAT_USE_LWIP
 #include "../lwip/port/net_lwip.h"
 extern void DBG_Printf(const char* format, ...);

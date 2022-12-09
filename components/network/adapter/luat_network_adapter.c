@@ -343,12 +343,17 @@ static int network_base_connect(network_ctrl_t *ctrl, luat_ip_addr_t *remote_ip)
 		}
 		if (adapter->opt->is_posix)
 		{
-			network_setsockopt(ctrl, SOL_SOCKET, SO_KEEPALIVE, (void *)&ctrl->tcp_keep_alive, sizeof(ctrl->tcp_keep_alive));
+			volatile uint32_t val;
+			val = ctrl->tcp_keep_alive;
+			network_setsockopt(ctrl, SOL_SOCKET, SO_KEEPALIVE, (void *)&val, sizeof(val));
 			if (ctrl->tcp_keep_alive)
 			{
-				network_setsockopt(ctrl, IPPROTO_TCP, TCP_KEEPIDLE, (void*)&ctrl->tcp_keep_idle, sizeof(ctrl->tcp_keep_idle));
-				network_setsockopt(ctrl, IPPROTO_TCP, TCP_KEEPINTVL, (void *)&ctrl->tcp_keep_interval, sizeof(ctrl->tcp_keep_interval));
-				network_setsockopt(ctrl, IPPROTO_TCP, TCP_KEEPCNT, (void *)&ctrl->tcp_keep_cnt, sizeof(ctrl->tcp_keep_cnt));
+				val = ctrl->tcp_keep_idle;
+				network_setsockopt(ctrl, IPPROTO_TCP, TCP_KEEPIDLE, (void*)&val, sizeof(val));
+				val = ctrl->tcp_keep_interval;
+				network_setsockopt(ctrl, IPPROTO_TCP, TCP_KEEPINTVL, (void *)&val, sizeof(val));
+				val = ctrl->tcp_keep_cnt;
+				network_setsockopt(ctrl, IPPROTO_TCP, TCP_KEEPCNT, (void *)&val, sizeof(val));
 			}
 		}
 		else

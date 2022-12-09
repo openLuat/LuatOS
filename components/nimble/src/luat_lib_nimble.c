@@ -144,15 +144,27 @@ static int l_nimble_send_msg(lua_State *L) {
     return 1;
 }
 
+static int l_nimble_scan(lua_State *L) {
+    int ret = luat_nimble_blecent_scan();
+    lua_pushboolean(L, ret == 0 ? 1 : 0);
+    // lua_pushinteger(L, ret);
+    return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_nimble[] =
 {
 	{ "init",           ROREG_FUNC(l_nimble_init)},
     { "deinit",         ROREG_FUNC(l_nimble_deinit)},
     { "debug",          ROREG_FUNC(l_nimble_debug)},
+
+    // 外设模式, 广播并等待连接
     { "server_init",    ROREG_FUNC(l_nimble_server_init)},
     { "server_deinit",  ROREG_FUNC(l_nimble_server_deinit)},
     { "send_msg",       ROREG_FUNC(l_nimble_send_msg)},
+
+    // 中心模式, 扫描并连接外设
+    { "scan",           ROREG_FUNC(l_nimble_scan)},
 
     // 放一些常量
     { "STATE_OFF",           ROREG_INT(BT_STATE_OFF)},

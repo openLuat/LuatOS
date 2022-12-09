@@ -707,7 +707,7 @@ bleprph_on_sync(void)
 
 
 
-int luat_nimble_init_server(uint8_t uart_idx, char* name, int mode) {
+int luat_nimble_init_peripheral(uint8_t uart_idx, char* name, int mode) {
     int rc = 0;
     nimble_port_init();
 

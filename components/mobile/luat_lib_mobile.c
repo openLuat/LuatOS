@@ -419,7 +419,8 @@ static int l_mobile_get_cell_info(lua_State* L) {
     lua_setfield(L, -2, "mnc");
     lua_pushinteger(L, info->lte_service_info.tac);
     lua_setfield(L, -2, "tac");
-
+    lua_pushinteger(L, info->lte_service_info.band);
+    lua_setfield(L, -2, "band");
     lua_seti(L, -2, 1);
 
     if (info->lte_neighbor_info_num > 0) {

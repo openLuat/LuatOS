@@ -15,13 +15,13 @@ _G.sys = require("sys")
 sys.taskInit(function()
     sys.wait(2000)
     while 1 do
-        log.info("imei", mobile.imei():toHex())
-        log.info("imsi", mobile.imsi():toHex())
+        log.info("imei", mobile.imei())
+        log.info("imsi", mobile.imsi())
         local sn = mobile.sn()
         if sn then
             log.info("sn",   sn:toHex())
         end
-        log.info("muid", mobile.muid():toHex())
+        log.info("muid", mobile.muid())
         log.info("iccid", mobile.iccid())
         log.info("csq", mobile.csq()) -- 4G模块的CSQ并不能完全代表强度
         log.info("rssi", mobile.rssi()) -- 需要综合rssi/rsrq/rsrp/snr一起判断

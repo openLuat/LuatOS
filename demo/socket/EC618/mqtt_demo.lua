@@ -31,14 +31,16 @@ sys.taskInit(function()
     mqttc:autoreconn(true, 3000) -- 自动重连机制
 
     mqttc:on(function(mqtt_client, event, data, payload)  --mqtt回调注册
-        -- 用户自定义代码
+        -- 用户自定义代码，按event处理
         log.info("mqtt", "event", event, mqtt_client, data, payload)
-        if event == "conack" then
+        if event == "conack" then -- mqtt成功完成鉴权后的消息
             sys.publish("mqtt_conack") -- 小写字母的topic均为自定义topic
+            -- 订阅不是必须的，但一般会有
             mqtt_client:subscribe("/luatos/123456")
-        elseif event == "recv" then
+        elseif event == "recv" then -- 服务器下发的数据
             log.info("mqtt", "downlink", "topic", data, "payload", payload)
-        elseif event == "sent" then
+            -- 这里继续加自定义的业务处理逻辑
+        elseif event == "sent" then -- publish成功后的事件
             log.info("mqtt", "sent", "pkgid", data)
         end
     end)
@@ -48,9 +50,9 @@ sys.taskInit(function()
 	sys.waitUntil("mqtt_conack")
     log.info("mqtt连接成功")
     while true do
-        -- 业务演示。等到其他task发过来的待上报数据
+        -- 业务演示。等待其他task发过来的待上报数据
         -- 这里的mqtt_pub字符串是自定义的，与mqtt库没有直接联系
-        -- 若不需要异步关闭mqtt链接，这段代码可以替换成sys.wait(13000
+        -- 若不需要异步关闭mqtt链接，while内的代码可以替换成sys.wait(13000
         local ret, topic, data, qos = sys.waitUntil("mqtt_pub", 30000)
         if ret then
             if topic == "close" then break end

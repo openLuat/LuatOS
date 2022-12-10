@@ -148,6 +148,7 @@ bleprph_print_conn_desc(struct ble_gap_conn_desc *desc)
 
 static int blecent_gap_event(struct ble_gap_event *event, void *arg)
 {
+    struct ble_hs_adv_fields fields;
     struct ble_gap_conn_desc desc;
     int rc;
 

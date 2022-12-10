@@ -1,3 +1,4 @@
+local libnet = require "libnet"
 
 --根据自己的服务器修改以下参数
 local mqtt_host = "lbsmqtt.airm2m.com"
@@ -9,34 +10,47 @@ local password = "password"
 
 local mqttc = nil
 
-local function testTask()
-    print("testTask")
-    mqttc = mqtt.create(nil,mqtt_host, mqtt_port, mqtt_isssl, ca_file)
+-- function recv(topic, payload)
+--     local tjson, r = json.decode(payload)
+--     log.info("result", r, ",tjson", tjson)
+--     if r then
+--         log.info("topic", topic)
+--         for k, v in pairs(tjson) do
+--             log.info("key & value", k, v)
+--         end
+--     end
+-- end
 
-    mqttc:auth(client_id,user_name,password) -- client_id必填,其余选填
+sys.taskInit(function()
+	sys.wait(3000)
+
+    mqttc = mqtt.create(nil,mqtt_host, mqtt_port,mqtt_isssl)  --mqtt客户端创建
+
+    mqttc:auth(client_id,user_name,password) --mqtt三元组配置
     mqttc:keepalive(30) -- 默认值240s
     mqttc:autoreconn(true, 3000) -- 自动重连机制
 
-    mqttc:on(function(mqtt_client, event, data, payload)
+    mqttc:on(function(mqtt_client, event, data, payload)  --mqtt回调注册
         -- 用户自定义代码
         log.info("mqtt", "event", event, mqtt_client, data, payload)
         if event == "conack" then
-            sys.publish("mqtt_conack")
+            sys.publish("mqtt_conack") -- 小写字母的topic均为自定义topic
             mqtt_client:subscribe("/luatos/123456")
         elseif event == "recv" then
             log.info("mqtt", "downlink", "topic", data, "payload", payload)
         elseif event == "sent" then
             log.info("mqtt", "sent", "pkgid", data)
-        -- elseif event == "disconnect" then
-            -- 非自动重连时,按需重启mqttc
-            -- mqtt_client:connect()
         end
     end)
 
+    -- 发起连接之后，mqtt库会自动维护链接，若连接断开，默认会自动重连
     mqttc:connect()
 	sys.waitUntil("mqtt_conack")
+    log.info("mqtt连接成功")
     while true do
-        -- mqttc自动处理重连
+        -- 业务演示。等到其他task发过来的待上报数据
+        -- 这里的mqtt_pub字符串是自定义的，与mqtt库没有直接联系
+        -- 若不需要异步关闭mqtt链接，这段代码可以替换成sys.wait(13000
         local ret, topic, data, qos = sys.waitUntil("mqtt_pub", 30000)
         if ret then
             if topic == "close" then break end
@@ -45,23 +59,18 @@ local function testTask()
     end
     mqttc:close()
     mqttc = nil
-end
-
-function mqttDemo()
-	sys.taskInit(testTask)
-end
+end)
 
 sys.taskInit(function()
 	local topic = "/luatos/123456"
-	local data = "123"
+	local payload = "123"
 	local qos = 1
     while true do
         sys.wait(5000)
-        if mqttc:ready() then
-			-- mqttc:subscribe(topic)
-            local pkgid = mqttc:publish(topic, data, qos)
-            -- 也可以通过sys.publish发布到指定task去
-            -- sys.publish("mqtt_pub", topic, data, qos)
+        if mqttc and mqttc:ready() then
+            log.info("mqtt的topic",topic,payload,qos)
+            local pkgid = mqttc:publish(topic, payload, qos) --发送一条消息
         end
     end
 end)
+ 

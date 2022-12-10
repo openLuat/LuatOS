@@ -1,4 +1,3 @@
-local libnet = require "libnet"
 
 --根据自己的服务器修改以下参数
 local mqtt_host = "lbsmqtt.airm2m.com"
@@ -10,27 +9,15 @@ local password = "password"
 
 local mqttc = nil
 
--- function recv(topic, payload)
---     local tjson, r = json.decode(payload)
---     log.info("result", r, ",tjson", tjson)
---     if r then
---         log.info("topic", topic)
---         for k, v in pairs(tjson) do
---             log.info("key & value", k, v)
---         end
---     end
--- end
+local function testTask()
+    print("testTask")
+    mqttc = mqtt.create(nil,mqtt_host, mqtt_port, mqtt_isssl, ca_file)
 
-sys.taskInit(function()
-	sys.wait(3000)
-
-    mqttc = mqtt.create(nil,mqtt_host, mqtt_port,mqtt_isssl)  --mqtt客户端创建
-
-    mqttc:auth(client_id,user_name,password) --mqtt三元组配置
+    mqttc:auth(client_id,user_name,password) -- client_id必填,其余选填
     mqttc:keepalive(30) -- 默认值240s
     mqttc:autoreconn(true, 3000) -- 自动重连机制
 
-    mqttc:on(function(mqtt_client, event, data, payload)  --mqtt回调注册
+    mqttc:on(function(mqtt_client, event, data, payload)
         -- 用户自定义代码
         log.info("mqtt", "event", event, mqtt_client, data, payload)
         if event == "conack" then
@@ -40,12 +27,14 @@ sys.taskInit(function()
             log.info("mqtt", "downlink", "topic", data, "payload", payload)
         elseif event == "sent" then
             log.info("mqtt", "sent", "pkgid", data)
+        -- elseif event == "disconnect" then
+            -- 非自动重连时,按需重启mqttc
+            -- mqtt_client:connect()
         end
     end)
 
     mqttc:connect()
 	sys.waitUntil("mqtt_conack")
-    log.info("mqtt连接成功")
     while true do
         -- mqttc自动处理重连
         local ret, topic, data, qos = sys.waitUntil("mqtt_pub", 30000)
@@ -56,18 +45,23 @@ sys.taskInit(function()
     end
     mqttc:close()
     mqttc = nil
-end)
+end
+
+function mqttDemo()
+	sys.taskInit(testTask)
+end
 
 sys.taskInit(function()
 	local topic = "/luatos/123456"
-	local payload = "123"
+	local data = "123"
 	local qos = 1
     while true do
         sys.wait(5000)
-        if mqttc and mqttc:ready() then
-            log.info("mqtt的topic",topic,payload,qos)
-            local pkgid = mqttc:publish(topic, payload, qos) --发送一条消息
+        if mqttc:ready() then
+			-- mqttc:subscribe(topic)
+            local pkgid = mqttc:publish(topic, data, qos)
+            -- 也可以通过sys.publish发布到指定task去
+            -- sys.publish("mqtt_pub", topic, data, qos)
         end
     end
 end)
- 

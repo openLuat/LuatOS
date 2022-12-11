@@ -227,7 +227,7 @@ static int l_mqtt_set_debug(lua_State *L){
 /*
 mqtt客户端创建
 @api mqtt.create(adapter,host,port,isssl,ca_file)
-@int 适配器序号, 只能是network.ETH0,network.STA,network.AP,如果不填,会选择最后一个注册的适配器
+@int 适配器序号, 只能是socket.ETH0, socket.STA, socket.AP,如果不填,会选择平台自带的方式,然后是最后一个注册的适配器
 @string 服务器地址,可以是域名, 也可以是ip
 @int  	端口号
 @bool/table  是否为ssl加密连接,默认不加密,true为无证书最简单的加密，table为有证书的加密 <br>server_cert 服务器ca证书数据 <br>client_cert 客户端ca证书数据 <br>client_key 客户端私钥加密数据 <br>client_password 客户端私钥口令数据

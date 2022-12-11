@@ -91,7 +91,11 @@ static int pmain(lua_State *L) {
 */
 static void l_message (const char *pname, const char *msg) {
   if (pname) LLOGE("%s: ", pname);
+#ifdef LUAT_LOG_NO_NEWLINE
+  LLOGE("%s", strlen(msg), msg);
+#else
   LLOGE("%s\n", msg);
+#endif
 }
 
 

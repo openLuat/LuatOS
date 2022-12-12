@@ -157,6 +157,9 @@ int on_status(http_parser* parser, const char *at, size_t length){
 int on_header_field(http_parser* parser, const char *at, size_t length){
     // LLOGD("on_header_field:%.*s",length,at);
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
+	if (http_ctrl->headers_complete){
+		return 0;
+	}
 	// if(!strncasecmp(at, "Content-Length: ", 16)){
 	// 	http_ctrl->resp_content_len = -1;
 	// }
@@ -175,6 +178,9 @@ int on_header_value(http_parser* parser, const char *at, size_t length){
     // LLOGD("on_header_value:%.*s",length,at);
 	char tmp[16] = {0};
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
+	if (http_ctrl->headers_complete){
+		return 0;
+	}
 	// if(http_ctrl->resp_content_len == -1){
 	// 	memcpy(tmp, at, length);
 	// 	http_ctrl->resp_content_len = atoi(tmp);
@@ -190,6 +196,9 @@ int on_header_value(http_parser* parser, const char *at, size_t length){
 int on_headers_complete(http_parser* parser){
     // LLOGD("on_headers_complete");
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
+	if (http_ctrl->headers_complete){
+		return 0;
+	}
 	http_ctrl->headers[http_ctrl->headers_len] = 0x00;
 	if (http_ctrl->is_download){
 		luat_fs_remove(http_ctrl->dst);

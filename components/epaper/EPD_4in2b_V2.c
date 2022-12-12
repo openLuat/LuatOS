@@ -77,7 +77,7 @@ parameter:
 ******************************************************************************/
 void EPD_4IN2B_V2_ReadBusy(void)
 {
-    unsigned char count = 100;
+    unsigned char count = 200;
     Debug("e-Paper busy\r\n");
     unsigned char busy;
     do{

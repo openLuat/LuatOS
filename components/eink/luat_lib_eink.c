@@ -7,7 +7,7 @@
 @tag LUAT_USE_EINK
 */
 #include "luat_base.h"
-#include "luat_log.h"
+
 #include "luat_sys.h"
 #include "luat_msgbus.h"
 #include "luat_timer.h"
@@ -15,9 +15,6 @@
 #include "luat_spi.h"
 
 #include "luat_gpio.h"
-
-// #include "epd1in54.h"
-// #include "epd2in9.h"
 
 #include "epd.h"
 #include "epdpaint.h"
@@ -29,15 +26,16 @@
 #include "u8g2_luat_fonts.h"
 #include "luat_zbuff.h"
 
+#include "luat_log.h"
+#ifndef LUAT_LOG_TAG
+#define LUAT_LOG_TAG "eink"
+#endif
+
 int8_t u8g2_font_decode_get_signed_bits(u8g2_font_decode_t *f, uint8_t cnt);
 uint8_t u8g2_font_decode_get_unsigned_bits(u8g2_font_decode_t *f, uint8_t cnt);
 
 #define COLORED      0
 #define UNCOLORED    1
-
-#ifndef LUAT_LOG_TAG
-#define LUAT_LOG_TAG "eink"
-#endif
 
 typedef struct eink_ctx
 {
@@ -50,25 +48,12 @@ static uint32_t ctx_index = 0;
 static eink_ctx_t *ctxs[2]; // 暂时只支持2种颜色, 有需要的话后续继续加
 static u8g2_t luat_eink_u8g2;
 
-
-// static uint32_t eink_str_color;
-
-// static EPD epd;
-// static Paint paint = {0};
-// static unsigned char* frame_buffer = NULL;
-
-// #ifdef econf
-// #undef econf
-// #endif
-
 eink_conf_t econf = {0};
 
 #define Pin_BUSY        (econf.busy_pin)
 #define Pin_RES         (econf.res_pin)
 #define Pin_DC          (econf.dc_pin)
 #define Pin_CS          (econf.cs_pin)
-
-#define SPI_ID          (econf.spi_id)
 
 static int check_init(void) {
     if (ctxs[0] == NULL) {
@@ -92,42 +77,24 @@ static int check_init(void) {
 static int l_eink_setup(lua_State *L) {
     int status = 0;
     econf.full_mode = luaL_optinteger(L, 1, 1);
-    econf.spi_id = luaL_optinteger(L, 2, 0);
+    econf.port = luaL_optinteger(L, 2, 0);
 
     econf.busy_pin = luaL_optinteger(L, 3, 18);
     econf.res_pin  = luaL_optinteger(L, 4, 7);
     econf.dc_pin = luaL_optinteger(L, 5, 9);
     econf.cs_pin = luaL_optinteger(L, 6, 16);
 
+    luat_gpio_mode(Pin_BUSY, Luat_GPIO_INPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
+    luat_gpio_mode(Pin_RES, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
+    luat_gpio_mode(Pin_DC, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
+
     if (lua_type(L, 7) == LUA_TUSERDATA){
         //LLOGD("luat_spi_device_send");
-        econf.userdata = (luat_spi_device_t*)lua_touserdata(L, 3);
+        econf.eink_spi_device = (luat_spi_device_t*)lua_touserdata(L, 3);
         econf.port = LUAT_EINK_SPI_DEVICE;
-        luat_gpio_mode(Pin_BUSY, Luat_GPIO_INPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
-        luat_gpio_mode(Pin_RES, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
-        luat_gpio_mode(Pin_DC, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
+
         status = 0;
     }else{
-        //LLOGD("luat_spi_send");
-        luat_spi_t spi_config = {0};
-        spi_config.bandrate = 2000000U;//luaL_optinteger(L, 1, 2000000U); // 2000000U
-        spi_config.id = SPI_ID;
-        spi_config.cs = 255; // 默认无
-        spi_config.CPHA = 0; // CPHA0
-        spi_config.CPOL = 0; // CPOL0
-        spi_config.dataw = 8; // 8bit
-        spi_config.bit_dict = 1; // MSB=1, LSB=0
-        spi_config.master = 1; // master=1,slave=0
-        spi_config.mode = 1; // FULL=1, half=0
-
-        //先关了再开一遍
-        // luat_spi_close(spi_config.id);
-        //LLOGD("setup GPIO for epd");
-        status = luat_spi_setup(&spi_config);
-
-        luat_gpio_mode(Pin_BUSY, Luat_GPIO_INPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
-        luat_gpio_mode(Pin_RES, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
-        luat_gpio_mode(Pin_DC, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
         luat_gpio_mode(Pin_CS, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
     }
 

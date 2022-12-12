@@ -48,11 +48,6 @@
 #ifndef _DEV_CONFIG_H_
 #define _DEV_CONFIG_H_
 
-// #include "main.h"
-// #include "stm32f1xx_hal.h"
-// #include "stm32f1xx_hal_gpio.h"
-// #include <stdint.h>
-
 #include "luat_base.h"
 #include "luat_gpio.h"
 #include "luat_spi.h"
@@ -65,20 +60,16 @@
 #define UWORD   uint16_t
 #define UDOUBLE uint32_t
 
-// #define Pin_BUSY        (18)
-// #define Pin_RES         (7)
-// #define Pin_DC          (9)
-// #define Pin_CS          (16)
 #define LUAT_EINK_SPI_DEVICE 255
 
 typedef struct eink_conf {
-    uint8_t spi_id;
     uint8_t busy_pin;
     uint8_t res_pin;
     uint8_t dc_pin;
     uint8_t cs_pin;
     uint8_t full_mode;
     uint8_t port;
+    luat_spi_device_t* eink_spi_device;
     void* userdata;
 }eink_conf_t;
 
@@ -105,6 +96,4 @@ extern eink_conf_t econf;
 
 void DEV_SPI_WriteByte(UBYTE value);
 
-int DEV_Module_Init(void);
-void DEV_Module_Exit(void);
 #endif

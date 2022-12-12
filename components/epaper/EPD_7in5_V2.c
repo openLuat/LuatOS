@@ -77,7 +77,7 @@ parameter:
 ******************************************************************************/
 static void EPD_WaitUntilIdle(void)
 {
-    unsigned char count = 100;
+    unsigned char count = 200;
     Debug("e-Paper busy\r\n");
     unsigned char busy;
 	do{

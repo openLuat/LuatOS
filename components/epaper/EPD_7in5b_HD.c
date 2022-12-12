@@ -77,7 +77,7 @@ parameter:
 ******************************************************************************/
 void EPD_7IN5B_HD_WaitUntilIdle(void)
 {
-    unsigned char count = 100;
+    unsigned char count = 200;
     Debug("e-Paper busy\r\n");
     while(DEV_Digital_Read(EPD_BUSY_PIN)){
         if(!(count--))

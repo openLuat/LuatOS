@@ -76,19 +76,19 @@ parameter:
 ******************************************************************************/
 void EPD_7IN5B_V2_WaitUntilIdle(void)
 {
-    unsigned char count = 100;
+    unsigned char count = 300;
 	Debug("e-Paper busy\r\n");
 	unsigned char busy;
 	do	{
 		EPD_7IN5B_V2_SendCommand(0x71);
 		busy = DEV_Digital_Read(EPD_BUSY_PIN);
 		busy =!(busy & 0x01);        
-        if(!(count--))
-        {
-            Debug("error: e-Paper busy timeout!!!\r\n");
-            break;
-        }
-        else
+        // if(!(count--))
+        // {
+        //     Debug("error: e-Paper busy timeout!!!\r\n");
+        //     break;
+        // }
+        // else
             DEV_Delay_ms(100);
 	}while(busy);
 	DEV_Delay_ms(200);      

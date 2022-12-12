@@ -133,7 +133,7 @@ parameter:
 ******************************************************************************/
 void EPD_7IN5_ReadBusy(void)
 {
-    unsigned char count = 100;
+    unsigned char count = 200;
     Debug("e-Paper busy\r\n");
     while(DEV_Digital_Read(EPD_BUSY_PIN) == 0) {      //LOW: idle, HIGH: busy
         if(!(count--))

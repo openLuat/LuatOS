@@ -40,3 +40,11 @@ void DEV_SPI_WriteByte(UBYTE value)
     }
     
 }
+
+int DEV_Digital_Write(int pin, int level){
+    if (pin == EPD_CS_PIN && econf.port == LUAT_EINK_SPI_DEVICE){
+        return 0;
+    }
+    return luat_gpio_set(pin, level);
+}
+

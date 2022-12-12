@@ -86,7 +86,7 @@ extern eink_conf_t econf;
 /**
  * GPIO read and write
 **/
-#define DEV_Digital_Write luat_gpio_set
+int DEV_Digital_Write(int pin, int level);
 #define DEV_Digital_Read luat_gpio_get
 
 /**

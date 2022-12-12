@@ -6,6 +6,18 @@ sys = require("sys")
 require("sysplus")
 wifiLib = require("wifiLib")
 
+
+-- 兼容V1001固件的
+if http == nil and http2 then
+    http = http2
+end
+
+
+-- 兼容V1001固件的
+if http == nil and http2 then
+    http = http2
+end
+
 tag = "EINKBOOK"
 -- 是否启用配网功能（配合esptouch使用）
 USE_SMARTCONFIG = false

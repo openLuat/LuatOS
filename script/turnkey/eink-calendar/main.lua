@@ -7,6 +7,12 @@ VERSION = "1.0.0"
 local sys = require "sys"
 require("sysplus")
 
+
+-- 兼容V1001固件的
+if http == nil and http2 then
+    http = http2
+end
+
 --需要自行填写的东西
 --wifi信息
 local wifiName,wifiPassword = "Xiaomi_AX6000","Air123456"

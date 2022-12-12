@@ -19,6 +19,11 @@ require("sysplus")
 
 -- end)
 
+-- 兼容V1001固件的
+if http == nil and http2 then
+    http = http2
+end
+
 sys.taskInit(function()
     sys.wait(1000)
     wlan.init()

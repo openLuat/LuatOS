@@ -47,6 +47,7 @@ typedef struct{
 	uint32_t fd_writed;
 	uint64_t idp;
 	uint16_t timeout;
+	uint8_t headers_complete;
 	uint8_t close_state;
 }luat_http_ctrl_t;
 

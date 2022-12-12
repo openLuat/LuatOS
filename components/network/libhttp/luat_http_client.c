@@ -21,6 +21,8 @@
 #define LUAT_LOG_TAG "http"
 #include "luat_log.h"
 
+static void http_send_message(luat_http_ctrl_t *http_ctrl);
+
 static int http_close(luat_http_ctrl_t *http_ctrl){
 	if (http_ctrl->netc){
 		network_force_close_socket(http_ctrl->netc);
@@ -124,7 +126,9 @@ static int32_t l_http_callback(lua_State *L, void* ptr){
 }
 
 static void http_resp_error(luat_http_ctrl_t *http_ctrl, int error_code) {
-	if (http_ctrl->close_state==0){
+	if (http_ctrl->close_state == 0 && http_ctrl->headers_complete){
+		http_send_message(http_ctrl);
+	}else if (http_ctrl->close_state==0){
 		http_ctrl->close_state=1;
 		network_close(http_ctrl->netc, 0);
 		rtos_msg_t msg = {0};
@@ -134,7 +138,6 @@ static void http_resp_error(luat_http_ctrl_t *http_ctrl, int error_code) {
 		luat_msgbus_put(&msg, 0);
 	}
 }
-
 
 int on_message_begin(http_parser* parser){
 	// LLOGD("on_message_begin");
@@ -195,7 +198,7 @@ int on_headers_complete(http_parser* parser){
 			LLOGE("open download file fail %s", http_ctrl->dst);
 		}
 	}
-	
+	http_ctrl->headers_complete = 1;
     return 0;
 }
 
@@ -235,7 +238,7 @@ int on_message_complete(http_parser* parser){
 	}
 	// LLOGD("status_code:%d",parser->status_code);
 	// LLOGD("content_length:%lld",parser->content_length);
-	http_ctrl->close_state=1;
+	http_ctrl->close_state = 1;
 	rtos_msg_t msg = {0};
     msg.handler = l_http_callback;
 	msg.ptr = http_ctrl;
@@ -267,6 +270,60 @@ static uint32_t http_send(luat_http_ctrl_t *http_ctrl, uint8_t* data, size_t len
 	return tx_len;
 }
 
+static void http_send_message(luat_http_ctrl_t *http_ctrl){
+	uint32_t tx_len = 0;
+	// 发送请求行
+	snprintf_(http_ctrl->request_message, HTTP_REQUEST_BUF_LEN_MAX, "%s %s HTTP/1.1\r\n", http_ctrl->method, http_ctrl->uri);
+	http_send(http_ctrl, http_ctrl->request_message, strlen(http_ctrl->request_message));
+	// 强制添加host. TODO 判断自定义headers是否有host
+	snprintf_(http_ctrl->request_message, HTTP_REQUEST_BUF_LEN_MAX,  "Host: %s\r\n", http_ctrl->host);
+	http_send(http_ctrl, http_ctrl->request_message, strlen(http_ctrl->request_message));
+
+	if (http_ctrl->headers_complete){
+		snprintf_(http_ctrl->request_message, HTTP_REQUEST_BUF_LEN_MAX,  "Range: bytes=%d-\r\n", http_ctrl->body_len+1);
+		http_send(http_ctrl, http_ctrl->request_message, strlen(http_ctrl->request_message));
+	}
+	
+	// 发送自定义头部
+	if (http_ctrl->req_header){
+		http_send(http_ctrl, http_ctrl->req_header, strlen(http_ctrl->req_header));
+	}
+
+	// 结束头部
+	http_send(http_ctrl, "\r\n", 2);
+	// 发送body
+	if (http_ctrl->req_body){
+		http_send(http_ctrl, http_ctrl->req_body, http_ctrl->req_body_len);
+	}
+	//--------------------------------------------
+	// 清理资源
+	if (http_ctrl->host){
+		luat_heap_free(http_ctrl->host);
+		http_ctrl->host = NULL;
+	}
+	if (http_ctrl->url){
+		luat_heap_free(http_ctrl->url);
+		http_ctrl->url = NULL;
+	}
+	if (http_ctrl->uri){
+		luat_heap_free(http_ctrl->uri);
+		http_ctrl->uri = NULL;
+	}
+	if (http_ctrl->method){
+		luat_heap_free(http_ctrl->method);
+		http_ctrl->method = NULL;
+	}
+	if (http_ctrl->req_header){
+		luat_heap_free(http_ctrl->req_header);
+		http_ctrl->req_header = NULL;
+	}
+	if (http_ctrl->req_body){
+		luat_heap_free(http_ctrl->req_body);
+		http_ctrl->req_body = NULL;
+		http_ctrl->req_body_len = 0;
+	}
+}
+
 static int32_t luat_lib_http_callback(void *data, void *param){
 	OS_EVENT *event = (OS_EVENT *)data;
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)param;
@@ -291,52 +348,7 @@ static int32_t luat_lib_http_callback(void *data, void *param){
     	}
 		return 0;
 	}else if(event->ID == EV_NW_RESULT_CONNECT){
-		uint32_t tx_len = 0;
-		// 发送请求行
-		snprintf_(http_ctrl->request_message, HTTP_REQUEST_BUF_LEN_MAX, "%s %s HTTP/1.1\r\n", http_ctrl->method, http_ctrl->uri);
-		http_send(http_ctrl, http_ctrl->request_message, strlen(http_ctrl->request_message));
-		// 强制添加host. TODO 判断自定义headers是否有host
-		snprintf_(http_ctrl->request_message, HTTP_REQUEST_BUF_LEN_MAX,  "Host: %s\r\n", http_ctrl->host);
-		http_send(http_ctrl, http_ctrl->request_message, strlen(http_ctrl->request_message));
-		// 发送自定义头部
-		if (http_ctrl->req_header){
-			http_send(http_ctrl, http_ctrl->req_header, strlen(http_ctrl->req_header));
-		}
-
-		// 结束头部
-		http_send(http_ctrl, "\r\n", 2);
-		// 发送body
-		if (http_ctrl->req_body){
-			http_send(http_ctrl, http_ctrl->req_body, http_ctrl->req_body_len);
-		}
-		//--------------------------------------------
-		// 清理资源
-		if (http_ctrl->host){
-			luat_heap_free(http_ctrl->host);
-			http_ctrl->host = NULL;
-		}
-		if (http_ctrl->url){
-			luat_heap_free(http_ctrl->url);
-			http_ctrl->url = NULL;
-		}
-		if (http_ctrl->uri){
-			luat_heap_free(http_ctrl->uri);
-			http_ctrl->uri = NULL;
-		}
-		if (http_ctrl->method){
-			luat_heap_free(http_ctrl->method);
-			http_ctrl->method = NULL;
-		}
-		if (http_ctrl->req_header){
-			luat_heap_free(http_ctrl->req_header);
-			http_ctrl->req_header = NULL;
-		}
-		if (http_ctrl->req_body){
-			luat_heap_free(http_ctrl->req_body);
-			http_ctrl->req_body = NULL;
-			http_ctrl->req_body_len = 0;
-		}
-		//------------------------------
+		http_send_message(http_ctrl);
 	}else if(event->ID == EV_NW_RESULT_EVENT){
 		uint32_t total_len = 0;
 		uint32_t rx_len = 0;

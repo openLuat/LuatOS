@@ -22,7 +22,6 @@
 #include "qrcodegen.h"
 #include <stdlib.h>
 
-#include "u8g2.h"
 #include "u8g2_luat_fonts.h"
 #include "luat_zbuff.h"
 
@@ -37,31 +36,137 @@ uint8_t u8g2_font_decode_get_unsigned_bits(u8g2_font_decode_t *f, uint8_t cnt);
 #define COLORED      0
 #define UNCOLORED    1
 
-typedef struct eink_ctx
-{
-  uint32_t str_color;
-  Paint paint;
-  uint8_t fb[];
-}eink_ctx_t;
-
-static uint32_t ctx_index = 0;
-static eink_ctx_t *ctxs[2]; // 暂时只支持2种颜色, 有需要的话后续继续加
-static u8g2_t luat_eink_u8g2;
-
 eink_conf_t econf = {0};
 
-#define Pin_BUSY        (econf.busy_pin)
-#define Pin_RES         (econf.res_pin)
-#define Pin_DC          (econf.dc_pin)
-#define Pin_CS          (econf.cs_pin)
-
 static int check_init(void) {
-    if (ctxs[0] == NULL) {
+    if (econf.ctxs[0] == NULL) {
       LLOGW("eink NOT init yet");
       return 0;
     }
     return 1;
 }
+
+/*
+eink显示屏初始化
+@api eink.init(tp, args,spi_device)
+@number eink类型，当前支持：https://wiki.luatos.com/api/eink.html#id1
+@table 附加参数,与具体设备有关：<br>pin_busy（busy）<br>port：spi端口,例如0,1,2...如果为device方式则为"device"<br>pin_dc：eink数据/命令选择引脚<br>pin_rst：eink复位引脚
+@userdata spi设备,当port = "device"时有效
+@usage
+-- 初始化spi0的eink.MODEL_4in2bc) 注意:eink初始化之前需要先初始化spi
+spi_eink = spi.deviceSetup(0,20,0,0,8,20000000,spi.MSB,1,1)
+log.info("eink.init",
+eink.init(eink.MODEL_4in2bc),{port = "device",pin_dc = 17, pin_pwr = 7,pin_rst = 19,direction = 2,w = 160,h = 80,xoffset = 1,yoffset = 26},spi_eink))
+*/
+static int l_eink_init(lua_State* L) {
+    if (lua_type(L, 3) == LUA_TUSERDATA){
+        // 如果是SPI Device模式, 就可能出现变量为local, 从而在某个时间点被GC掉的可能性
+        econf.eink_spi_device = (luat_spi_device_t*)lua_touserdata(L, 3);
+        lua_pushvalue(L, 3);
+        // 所以, 直接引用之外, 再加上强制引用, 避免被GC
+        // 鉴于LCD不太可能重复初始化, 引用也没什么问题
+        econf.eink_spi_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+        econf.port = LUAT_EINK_SPI_DEVICE;
+    }
+    EPD_Model(luaL_checkinteger(L, 1));
+
+    if (lua_gettop(L) > 1) {
+
+        lua_settop(L, 2); // 丢弃多余的参数
+
+        lua_pushstring(L, "port");
+        int port = lua_gettable(L, 2);
+        if (econf.port == LUAT_EINK_SPI_DEVICE && port ==LUA_TNUMBER) {
+          LLOGE("port is not device but find luat_spi_device_t");
+          goto end;
+        }else if (econf.port != LUAT_EINK_SPI_DEVICE && LUA_TSTRING == port){
+          LLOGE("port is device but not find luat_spi_device_t");
+          goto end;
+        }else if (LUA_TNUMBER == port) {
+            econf.port = luaL_checkinteger(L, -1);
+        }else if (LUA_TSTRING == port){
+            econf.port = LUAT_EINK_SPI_DEVICE;
+        }
+        lua_pop(L, 1);
+
+        lua_pushstring(L, "pin_dc");
+        if (LUA_TNUMBER == lua_gettable(L, 2)) {
+            econf.pin_dc = luaL_checkinteger(L, -1);
+        }
+        lua_pop(L, 1);
+
+        lua_pushstring(L, "pin_busy");
+        if (LUA_TNUMBER == lua_gettable(L, 2)) {
+            econf.pin_busy = luaL_checkinteger(L, -1);
+        }
+        lua_pop(L, 1);
+
+        lua_pushstring(L, "pin_rst");
+        if (LUA_TNUMBER == lua_gettable(L, 2)) {
+            econf.pin_rst = luaL_checkinteger(L, -1);
+        }
+        lua_pop(L, 1);
+
+        lua_pushstring(L, "mode");
+        if (LUA_TNUMBER == lua_gettable(L, 2)) {
+            econf.full_mode = luaL_optinteger(L, -1, 1);
+        }
+        lua_pop(L, 1);
+
+        lua_pushstring(L, "pin_cs");
+        if (LUA_TNUMBER == lua_gettable(L, 2)) {
+            econf.pin_cs = luaL_checkinteger(L, -1);
+            luat_gpio_mode(econf.pin_cs, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
+        }
+        lua_pop(L, 1);
+    }
+
+    luat_gpio_mode(econf.pin_busy, Luat_GPIO_INPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
+    luat_gpio_mode(econf.pin_rst, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
+    luat_gpio_mode(econf.pin_dc, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
+
+    size_t epd_w = 0;
+    size_t epd_h = 0;
+    size_t colors = 0;
+
+    int status = EPD_Init(econf.full_mode, &epd_w, &epd_h, &colors);
+
+    if (status != 0) {
+        LLOGD("e-Paper init failed");
+        return 0;
+    }
+
+    if (colors > 2) {
+        LLOGE("only 2 color eink supported yet");
+        return 0;
+    }
+    for (size_t i = 0; i < colors; i++){
+        econf.ctxs[i] = luat_heap_malloc( sizeof(eink_ctx_t) +  (epd_w * epd_h + 7) / 8);
+        if (econf.ctxs[i] == NULL) {
+            LLOGE("out of memory when malloc buff for eink");
+            for (size_t j = 0; j < i - 1; j++)
+            {
+                luat_heap_free(econf.ctxs[i]);
+                econf.ctxs[i] = NULL;
+            }
+          return 0;
+        }
+        Paint_Init(&econf.ctxs[i]->paint, econf.ctxs[i]->fb, epd_w, epd_h);
+        Paint_Clear(&econf.ctxs[i]->paint, UNCOLORED);
+        econf.ctxs[i]->paint.inited = 1;
+    }
+
+    u8g2_SetFont(&(econf.luat_eink_u8g2), u8g2_font_opposansm8);
+    u8g2_SetFontMode(&(econf.luat_eink_u8g2), 0);
+    u8g2_SetFontDirection(&(econf.luat_eink_u8g2), 0);
+    lua_pushboolean(L, 1);
+    return 1;
+
+end:
+    lua_pushboolean(L, 0);
+    return 1;
+}
+
 
 /**
 初始化eink
@@ -79,14 +184,14 @@ static int l_eink_setup(lua_State *L) {
     econf.full_mode = luaL_optinteger(L, 1, 1);
     econf.port = luaL_optinteger(L, 2, 0);
 
-    econf.busy_pin = luaL_optinteger(L, 3, 18);
-    econf.res_pin  = luaL_optinteger(L, 4, 7);
-    econf.dc_pin = luaL_optinteger(L, 5, 9);
-    econf.cs_pin = luaL_optinteger(L, 6, 16);
+    econf.pin_busy = luaL_checkinteger(L, 3);
+    econf.pin_rst  = luaL_checkinteger(L, 4);
+    econf.pin_dc = luaL_checkinteger(L, 5);
+    econf.pin_cs = luaL_checkinteger(L, 6);
 
-    luat_gpio_mode(Pin_BUSY, Luat_GPIO_INPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
-    luat_gpio_mode(Pin_RES, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
-    luat_gpio_mode(Pin_DC, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
+    luat_gpio_mode(econf.pin_busy, Luat_GPIO_INPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
+    luat_gpio_mode(econf.pin_rst, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
+    luat_gpio_mode(econf.pin_dc, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
 
     if (lua_type(L, 7) == LUA_TUSERDATA){
         //LLOGD("luat_spi_device_send");
@@ -95,7 +200,7 @@ static int l_eink_setup(lua_State *L) {
 
         status = 0;
     }else{
-        luat_gpio_mode(Pin_CS, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
+        luat_gpio_mode(econf.pin_cs, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_LOW);
     }
 
     if (status != 0) {
@@ -124,25 +229,25 @@ static int l_eink_setup(lua_State *L) {
         }
         for (size_t i = 0; i < colors; i++)
         {
-            ctxs[i] = luat_heap_malloc( sizeof(eink_ctx_t) +  (epd_w * epd_h + 7) / 8);
-            if (ctxs[i] == NULL) {
+            econf.ctxs[i] = luat_heap_malloc( sizeof(eink_ctx_t) +  (epd_w * epd_h + 7) / 8);
+            if (econf.ctxs[i] == NULL) {
                 LLOGE("out of memory when malloc buff for eink");
                 for (size_t j = 0; j < i - 1; j++)
                 {
-                    luat_heap_free(ctxs[i]);
-                    ctxs[i] = NULL;
+                    luat_heap_free(econf.ctxs[i]);
+                    econf.ctxs[i] = NULL;
                 }
               return 0;
             }
-            Paint_Init(&ctxs[i]->paint, ctxs[i]->fb, epd_w, epd_h);
-            Paint_Clear(&ctxs[i]->paint, UNCOLORED);
-            ctxs[i]->paint.inited = 1;
+            Paint_Init(&econf.ctxs[i]->paint, econf.ctxs[i]->fb, epd_w, epd_h);
+            Paint_Clear(&econf.ctxs[i]->paint, UNCOLORED);
+            econf.ctxs[i]->paint.inited = 1;
         }
 
     }
-    u8g2_SetFont(&(luat_eink_u8g2), u8g2_font_opposansm8);
-    u8g2_SetFontMode(&(luat_eink_u8g2), 0);
-    u8g2_SetFontDirection(&(luat_eink_u8g2), 0);
+    u8g2_SetFont(&(econf.luat_eink_u8g2), u8g2_font_opposansm8);
+    u8g2_SetFontMode(&(econf.luat_eink_u8g2), 0);
+    u8g2_SetFontDirection(&(econf.luat_eink_u8g2), 0);
     //paint.inited = 1;
     //LLOGD("epd init complete");
     lua_pushboolean(L, 1);
@@ -171,7 +276,7 @@ static int l_eink_clear(lua_State *L)
     int colored = luaL_optinteger(L, 1, 1);
     if (check_init() == 0)
         return 0;
-    Paint_Clear(&ctxs[ctx_index]->paint, colored);
+    Paint_Clear(&econf.ctxs[econf.ctx_index]->paint, colored);
     if(lua_toboolean(L, 2))
       EPD_Clear();
     return 0;
@@ -194,9 +299,9 @@ static int l_eink_setWin(lua_State *L)
     if (check_init() == 0)
         return 0;
 
-    Paint_SetWidth(&ctxs[ctx_index]->paint, width);
-    Paint_SetHeight(&ctxs[ctx_index]->paint, height);
-    Paint_SetRotate(&ctxs[ctx_index]->paint, rotate);
+    Paint_SetWidth(&econf.ctxs[econf.ctx_index]->paint, width);
+    Paint_SetHeight(&econf.ctxs[econf.ctx_index]->paint, height);
+    Paint_SetRotate(&econf.ctxs[econf.ctx_index]->paint, rotate);
     return 0;
 }
 
@@ -211,9 +316,9 @@ static int l_eink_getWin(lua_State *L)
 {
     if (check_init() == 0)
         return 0;
-    int width =  Paint_GetWidth(&ctxs[ctx_index]->paint);
-    int height = Paint_GetHeight(&ctxs[ctx_index]->paint);
-    int rotate = Paint_GetRotate(&ctxs[ctx_index]->paint);
+    int width =  Paint_GetWidth(&econf.ctxs[econf.ctx_index]->paint);
+    int height = Paint_GetHeight(&econf.ctxs[econf.ctx_index]->paint);
+    int rotate = Paint_GetRotate(&econf.ctxs[econf.ctx_index]->paint);
 
     lua_pushinteger(L, width);
     lua_pushinteger(L, height);
@@ -286,16 +391,16 @@ static void u8g2_draw_hv_line(u8g2_t *u8g2, int16_t x, int16_t y, int16_t len, u
   switch(dir)
   {
     case 0:
-      drawFastHLine(&ctxs[ctx_index]->paint,x,y,len,color);
+      drawFastHLine(&econf.ctxs[econf.ctx_index]->paint,x,y,len,color);
       break;
     case 1:
-        drawFastVLine(&ctxs[ctx_index]->paint,x,y,len,color);
+        drawFastVLine(&econf.ctxs[econf.ctx_index]->paint,x,y,len,color);
       break;
     case 2:
-        drawFastHLine(&ctxs[ctx_index]->paint,x-len+1,y,len,color);
+        drawFastHLine(&econf.ctxs[econf.ctx_index]->paint,x-len+1,y,len,color);
       break;
     case 3:
-        drawFastVLine(&ctxs[ctx_index]->paint,x,y-len+1,len,color);
+        drawFastVLine(&econf.ctxs[econf.ctx_index]->paint,x,y-len+1,len,color);
       break;
   }
 }
@@ -336,7 +441,7 @@ static void u8g2_font_decode_len(u8g2_t *u8g2, uint8_t len, uint8_t is_foregroun
     {
       if ( is_foreground )
       {
-	    u8g2_draw_hv_line(u8g2, x, y, current, decode->dir, ctxs[ctx_index]->str_color);
+	    u8g2_draw_hv_line(u8g2, x, y, current, decode->dir, econf.ctxs[econf.ctx_index]->str_color);
       }
       else if ( decode->is_transparent == 0 )
       {
@@ -437,7 +542,7 @@ static int l_eink_set_font(lua_State *L) {
         LLOGE("only font pointer is allow");
         return 0;
     }
-    u8g2_SetFont(&(luat_eink_u8g2), ptr);
+    u8g2_SetFont(&(econf.luat_eink_u8g2), ptr);
     lua_pushboolean(L, 1);
     return 1;
 }
@@ -472,7 +577,7 @@ static int l_eink_print(lua_State *L)
     if (check_init() == 0) {
       return 0;
     }
-    ctxs[ctx_index]->str_color = luaL_optinteger(L, 4, 0);
+    econf.ctxs[econf.ctx_index]->str_color = luaL_optinteger(L, 4, 0);
 
     uint16_t e;
     int16_t delta, sum;
@@ -484,8 +589,8 @@ static int l_eink_print(lua_State *L)
         break;
         str++;
         if ( e != 0x0fffe ){
-        delta = u8g2_font_draw_glyph(&(luat_eink_u8g2), x, y, e);
-        switch(luat_eink_u8g2.font_decode.dir){
+        delta = u8g2_font_draw_glyph(&(econf.luat_eink_u8g2), x, y, e);
+        switch(econf.luat_eink_u8g2.font_decode.dir){
             case 0:
             x += delta;
             break;
@@ -519,7 +624,7 @@ static int l_eink_show(lua_State *L)
     // int y     = luaL_optinteger(L, 2, 0);
     int no_clear     = lua_toboolean(L, 3);
     /* Display the frame_buffer */
-    //EPD_SetFrameMemory(&epd, frame_buffer, x, y, Paint_GetWidth(&ctxs[ctx_index]->paint), Paint_GetHeight(&ctxs[ctx_index]->paint));
+    //EPD_SetFrameMemory(&epd, frame_buffer, x, y, Paint_GetWidth(&econf.ctxs[econf.ctx_index]->paint), Paint_GetHeight(&econf.ctxs[econf.ctx_index]->paint));
     //EPD_DisplayFrame(&epd);
 
     if (check_init() == 0) {
@@ -527,10 +632,10 @@ static int l_eink_show(lua_State *L)
     }
     if(!no_clear)
       EPD_Clear();
-    if (ctxs[1] == NULL)
-      EPD_Display(ctxs[0]->fb, NULL);
+    if (econf.ctxs[1] == NULL)
+      EPD_Display(econf.ctxs[0]->fb, NULL);
     else
-      EPD_Display(ctxs[0]->fb, ctxs[1]->fb);
+      EPD_Display(econf.ctxs[0]->fb, econf.ctxs[1]->fb);
     return 0;
 }
 
@@ -583,7 +688,7 @@ static int l_eink_line(lua_State *L)
       return 0;
     }
 
-    Paint_DrawLine(&ctxs[ctx_index]->paint, x, y, x2, y2, colored);
+    Paint_DrawLine(&econf.ctxs[econf.ctx_index]->paint, x, y, x2, y2, colored);
     return 0;
 }
 
@@ -615,9 +720,9 @@ static int l_eink_rect(lua_State *L)
     }
 
     if(fill)
-        Paint_DrawFilledRectangle(&ctxs[ctx_index]->paint, x, y, x2, y2, colored);
+        Paint_DrawFilledRectangle(&econf.ctxs[econf.ctx_index]->paint, x, y, x2, y2, colored);
     else
-        Paint_DrawRectangle(&ctxs[ctx_index]->paint, x, y, x2, y2, colored);
+        Paint_DrawRectangle(&econf.ctxs[econf.ctx_index]->paint, x, y, x2, y2, colored);
     return 0;
 }
 
@@ -647,9 +752,9 @@ static int l_eink_circle(lua_State *L)
     }
 
     if(fill)
-        Paint_DrawFilledCircle(&ctxs[ctx_index]->paint, x, y, radius, colored);
+        Paint_DrawFilledCircle(&econf.ctxs[econf.ctx_index]->paint, x, y, radius, colored);
     else
-        Paint_DrawCircle(&ctxs[ctx_index]->paint, x, y, radius, colored);
+        Paint_DrawCircle(&econf.ctxs[econf.ctx_index]->paint, x, y, radius, colored);
     return 0;
 }
 
@@ -695,7 +800,7 @@ static int l_eink_qrcode(lua_State *L)
         for (int j = 0; j < qr_size; j++) {
             for (int i = 0; i < qr_size; i++) {
                 if (qrcodegen_getModule(qrcode, i, j))
-                    Paint_DrawFilledRectangle(&ctxs[ctx_index]->paint,x+i*scale,y+j*scale,x+(i+1)*scale,y+(j+1)*scale,0);
+                    Paint_DrawFilledRectangle(&econf.ctxs[econf.ctx_index]->paint,x+i*scale,y+j*scale,x+(i+1)*scale,y+(j+1)*scale,0);
             }
         }
     }
@@ -742,10 +847,10 @@ static int l_eink_bat(lua_State *L)
     }
 
     // w外框
-    Paint_DrawRectangle(&ctxs[ctx_index]->paint, x+0, y+3, x+2, y+6, COLORED);
-    Paint_DrawRectangle(&ctxs[ctx_index]->paint, x+2, y+0, x+23, y+9, COLORED);
+    Paint_DrawRectangle(&econf.ctxs[econf.ctx_index]->paint, x+0, y+3, x+2, y+6, COLORED);
+    Paint_DrawRectangle(&econf.ctxs[econf.ctx_index]->paint, x+2, y+0, x+23, y+9, COLORED);
     // 3 ~21   100 / 5
-    Paint_DrawFilledRectangle(&ctxs[ctx_index]->paint, x+batnum, y+1, x+22, y+8, COLORED);
+    Paint_DrawFilledRectangle(&econf.ctxs[econf.ctx_index]->paint, x+batnum, y+1, x+22, y+8, COLORED);
 
     return 0;
 }
@@ -785,7 +890,7 @@ static int l_eink_weather_icon(lua_State *L)
     //     for (int j = 0; j < 8; j++)
     //     {
     //         for (int k = 0; k < 8; k++)
-    //             (gImage_103[i*8+j] << k )& 0x80 ? Paint_DrawPixel(&ctxs[ctx_index]->paint, x+j*8+k, y+i, COLORED) : Paint_DrawPixel(&ctxs[ctx_index]->paint, x+j*8+k, y+i, UNCOLORED);
+    //             (gImage_103[i*8+j] << k )& 0x80 ? Paint_DrawPixel(&econf.ctxs[econf.ctx_index]->paint, x+j*8+k, y+i, COLORED) : Paint_DrawPixel(&econf.ctxs[econf.ctx_index]->paint, x+j*8+k, y+i, UNCOLORED);
     //     }
     // }
 
@@ -847,7 +952,7 @@ static int l_eink_weather_icon(lua_State *L)
         for (int j = 0; j < 6; j++)
         {
             for (int k = 0; k < 8; k++)
-                (icon[i*6+j] << k )& 0x80 ? Paint_DrawPixel(&ctxs[ctx_index]->paint, x+j*8+k, y+i, COLORED) : Paint_DrawPixel(&ctxs[ctx_index]->paint, x+j*8+k, y+i, UNCOLORED);
+                (icon[i*6+j] << k )& 0x80 ? Paint_DrawPixel(&econf.ctxs[econf.ctx_index]->paint, x+j*8+k, y+i, COLORED) : Paint_DrawPixel(&econf.ctxs[econf.ctx_index]->paint, x+j*8+k, y+i, UNCOLORED);
         }
     }
 
@@ -889,7 +994,7 @@ static int l_eink_draw_gtfont_gb2312(lua_State *L) {
 		str = (strhigh<<8)|strlow;
 		fontCode++;
 		get_font(buf, 1, str, size, size, size);
-		gtfont_draw_w(buf , x ,y , size , size,Paint_DrawPixel,&ctxs[ctx_index]->paint,1);
+		gtfont_draw_w(buf , x ,y , size , size,Paint_DrawPixel,&econf.ctxs[econf.ctx_index]->paint,1);
 		x+=size;
 		i+=2;
 	}
@@ -915,7 +1020,7 @@ static int l_eink_draw_gtfont_gb2312_gray(lua_State* L) {
 		fontCode++;
 		get_font(buf, 1, str, size*font_g, size*font_g, size*font_g);
 		Gray_Process(buf,size,size,font_g);
-		gtfont_draw_gray_hz(buf, x, y, size , size, font_g, 1,Paint_DrawPixel,&ctxs[ctx_index]->paint,1);
+		gtfont_draw_gray_hz(buf, x, y, size , size, font_g, 1,Paint_DrawPixel,&econf.ctxs[econf.ctx_index]->paint,1);
 		x+=size;
 		i+=2;
 	}
@@ -942,7 +1047,7 @@ static int l_eink_draw_gtfont_utf8(lua_State *L) {
       if ( e != 0x0fffe ){
         uint16_t str = unicodetogb2312(e);
         get_font(buf, 1, str, size, size, size);
-        gtfont_draw_w(buf , x ,y , size , size,Paint_DrawPixel,&ctxs[ctx_index]->paint,1);
+        gtfont_draw_w(buf , x ,y , size , size,Paint_DrawPixel,&econf.ctxs[econf.ctx_index]->paint,1);
         x+=size;
       }
     }
@@ -969,7 +1074,7 @@ static int l_eink_draw_gtfont_utf8_gray(lua_State* L) {
 			uint16_t str = unicodetogb2312(e);
 			get_font(buf, 1, str, size*font_g, size*font_g, size*font_g);
 			Gray_Process(buf,size,size,font_g);
-      gtfont_draw_gray_hz(buf, x, y, size , size, font_g, 1,Paint_DrawPixel,&ctxs[ctx_index]->paint,1);
+      gtfont_draw_gray_hz(buf, x, y, size , size, font_g, 1,Paint_DrawPixel,&econf.ctxs[econf.ctx_index]->paint,1);
         	x+=size;
         }
     }
@@ -987,8 +1092,8 @@ static void eink_DrawHXBM(uint16_t x, uint16_t y, uint16_t len, const uint8_t *b
     return;
   }
   while(len > 0) {
-    if ( *b & mask ) drawFastHLine(&ctxs[ctx_index]->paint, x, y, 1,COLORED);
-    else drawFastVLine(&ctxs[ctx_index]->paint, x, y, 1,UNCOLORED);
+    if ( *b & mask ) drawFastHLine(&econf.ctxs[econf.ctx_index]->paint, x, y, 1,COLORED);
+    else drawFastVLine(&econf.ctxs[econf.ctx_index]->paint, x, y, 1,UNCOLORED);
     x++;
     mask <<= 1;
     if ( mask == 0 ){
@@ -1059,11 +1164,11 @@ static int l_eink_set_ctx(lua_State *L) {
     LLOGE("invaild ctx index %d", index);
     return 0;
   }
-  if (ctxs[index] == NULL) {
+  if (econf.ctxs[index] == NULL) {
     LLOGE("invaild ctx index %d", index);
     return 0;
   }
-  ctx_index = index;
+  econf.ctx_index = index;
   lua_pushboolean(L, 1);
   return 1;
 }
@@ -1071,6 +1176,7 @@ static int l_eink_set_ctx(lua_State *L) {
 #include "rotable2.h"
 static const rotable_Reg_t reg_eink[] =
 {
+    { "init",           ROREG_FUNC(l_eink_init)},
     { "setup",          ROREG_FUNC(l_eink_setup)},
     { "sleep",          ROREG_FUNC(l_eink_sleep)},
     { "clear",          ROREG_FUNC(l_eink_clear)},

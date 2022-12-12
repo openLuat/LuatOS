@@ -13,7 +13,7 @@
 *   UBYTE\UWORD\UDOUBLE
 * 2.Change:
 *   EPD_RST -> EPD_RST_PIN
-*   EPD_DC -> EPD_DC_PIN
+*   EPD_DC -> EPD_pin_dc
 *   EPD_CS -> EPD_CS_PIN
 *   EPD_BUSY -> EPD_BUSY_PIN
 * 3.Remote:
@@ -53,6 +53,7 @@
 #include "luat_spi.h"
 #include "luat_timer.h"
 
+#include "u8g2.h"
 /**
  * data
 **/
@@ -62,14 +63,25 @@
 
 #define LUAT_EINK_SPI_DEVICE 255
 
+#include "epdpaint.h"
+typedef struct eink_ctx{
+    uint32_t str_color;
+    Paint paint;
+    uint8_t fb[];
+}eink_ctx_t;
+
 typedef struct eink_conf {
-    uint8_t busy_pin;
-    uint8_t res_pin;
-    uint8_t dc_pin;
-    uint8_t cs_pin;
     uint8_t full_mode;
     uint8_t port;
+    uint8_t pin_rst;
+    uint8_t pin_dc;
+    uint8_t pin_cs;
+    uint8_t pin_busy;
+    uint32_t ctx_index;
+    eink_ctx_t *ctxs[2]; // 暂时只支持2种颜色, 有需要的话后续继续
+    u8g2_t luat_eink_u8g2;
     luat_spi_device_t* eink_spi_device;
+    int eink_spi_ref;
     void* userdata;
 }eink_conf_t;
 
@@ -78,10 +90,10 @@ extern eink_conf_t econf;
 /**
  * e-Paper GPIO
 **/
-#define EPD_RST_PIN     (econf.res_pin)
-#define EPD_DC_PIN      (econf.dc_pin)
-#define EPD_CS_PIN      (econf.cs_pin)
-#define EPD_BUSY_PIN    (econf.busy_pin)
+#define EPD_RST_PIN     (econf.pin_rst)
+#define EPD_DC_PIN      (econf.pin_dc)
+#define EPD_CS_PIN      (econf.pin_cs)
+#define EPD_BUSY_PIN    (econf.pin_busy)
 
 /**
  * GPIO read and write

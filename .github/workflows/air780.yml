@@ -1,0 +1,65 @@
+name: air780
+
+on:
+  push:
+    paths:
+      - '.github/workflows/air780.yml'
+      - 'lua/**'
+      - 'luat/**'
+      - 'components/**'
+      - 'bsp/air780/**'
+  workflow_dispatch:
+  repository_dispatch:
+    types:
+      - webhook-780-action
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v1
+    - name: prepare software
+      run: |
+        sudo apt-get update
+        sudo apt-get install git gcc-multilib libc6 libgcc1 libstdc++5 libstdc++6 libsdl-dev p7zip-full -y
+        sudo apt-get install libncurses5-dev -y
+        sudo add-apt-repository ppa:xmake-io/xmake -y
+        sudo apt install xmake -y
+    - name: clone 780
+      run: |
+        sudo sh -c "curl https://raw.githubusercontent.com/kadwanev/retry/master/retry -o /usr/local/bin/retry && chmod +x /usr/local/bin/retry"
+        cd ..
+        retry 'git clone --branch=master https://gitee.com/openLuat/luatos-soc-2022.git air780'
+    - name: make
+      run: |
+        cd ../air780
+        sed -i 's/os.exec(cmd)/if 1 then return end/g' xmake.lua
+        export PROJECT_NAME="luatos"
+        export LSPD_MODE=enable
+        mkdir /home/runner/toolchains
+        wget -q https://github.com/openLuat/LuatOS/releases/download/v0.0.1/gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2 -O /home/runner/toolchains/gcc-arm-none-eabi-10.3-2021.10-x86_64-linux.tar.bz2
+        xmake g --pkg_searchdirs=/home/runner/toolchains
+        xmake -y
+        mkdir ../LuatOS/luatosfw
+        mv out/luatos/* ../LuatOS/luatosfw
+    - name: Upload artifact
+      uses: actions/upload-artifact@v1
+      with:
+        name: air780
+        path: luatosfw
+    - name: report if failure
+      if: always()
+      env:
+        STATUS: ${{ job.status }}
+        MQTTADDR: ${{ secrets.MQTTADDR }}
+        MQTTPORT: ${{ secrets.MQTTPORT }}
+        MQTTTOPIC: ${{ secrets.MQTTTOPIC }}
+        DD_APPKEY: ${{ secrets.DD_APPKEY }}
+        DD_APPSECRET: ${{ secrets.DD_APPSECRET }}
+        DD_NOTIFY_LIST: ${{ secrets.DD_NOTIFY_LIST }}
+        DD_API_TOKEN: ${{ secrets.DD_API_TOKEN }}
+        DD_API_SEND: ${{ secrets.DD_API_SEND }}
+      run: |
+        sudo pip3 install paho_mqtt gitpython requests
+        cd tools
+        if [ "$STATUS" = "failure" ];then python3 ciNotify.py $MQTTADDR $MQTTPORT $MQTTTOPIC "https://github.com/openLuat/LuatOS/actions/runs/$GITHUB_RUN_ID" "air780" "$DD_APPKEY" "$DD_APPSECRET" "$DD_NOTIFY_LIST" "$DD_API_TOKEN" "$DD_API_SEND"; fi

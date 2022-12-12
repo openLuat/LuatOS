@@ -126,7 +126,7 @@ static int32_t l_http_callback(lua_State *L, void* ptr){
 }
 
 static void http_resp_error(luat_http_ctrl_t *http_ctrl, int error_code) {
-	if (http_ctrl->close_state == 0 && http_ctrl->headers_complete && http_ctrl->re_request_count < 3){
+	if (http_ctrl->close_state == 0 && http_ctrl->headers_complete && http_ctrl->re_request_count < HTTP_RE_REQUEST_MAX){
 		http_ctrl->re_request_count++;
 #ifdef LUAT_USE_LWIP
 		if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), (0xff == http_ctrl->ip_addr.type)?NULL:&(http_ctrl->ip_addr), http_ctrl->remote_port, 0) < 0){

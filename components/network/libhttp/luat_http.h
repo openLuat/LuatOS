@@ -13,6 +13,8 @@
 #define HTTP_ERROR_RX 		(-6)
 #define HTTP_ERROR_DOWNLOAD (-7)
 
+#define HTTP_RE_REQUEST_MAX (3)
+
 typedef struct{
 	network_ctrl_t *netc;		// http netc
 	luat_ip_addr_t ip_addr;		// http ip

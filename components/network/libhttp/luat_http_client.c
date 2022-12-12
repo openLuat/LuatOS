@@ -126,9 +126,17 @@ static int32_t l_http_callback(lua_State *L, void* ptr){
 }
 
 static void http_resp_error(luat_http_ctrl_t *http_ctrl, int error_code) {
-	if (http_ctrl->close_state == 0 && http_ctrl->headers_complete){
-		http_send_message(http_ctrl);
+	if (http_ctrl->close_state == 0 && http_ctrl->headers_complete && http_ctrl->re_request_count < 3){
+		http_ctrl->re_request_count++;
+#ifdef LUAT_USE_LWIP
+		if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), (0xff == http_ctrl->ip_addr.type)?NULL:&(http_ctrl->ip_addr), http_ctrl->remote_port, 0) < 0){
+#else
+		if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), (0xff == http_ctrl->ip_addr.is_ipv6)?NULL:&(http_ctrl->ip_addr), http_ctrl->remote_port, 0) < 0){
+#endif
+			goto error;
+		}
 	}else if (http_ctrl->close_state==0){
+error:
 		http_ctrl->close_state=1;
 		network_close(http_ctrl->netc, 0);
 		rtos_msg_t msg = {0};
@@ -346,15 +354,6 @@ static int32_t luat_lib_http_callback(void *data, void *param){
 		return -1;
 	}
 	if (event->ID == EV_NW_RESULT_LINK){
-#ifdef LUAT_USE_LWIP
-		if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), (0xff == http_ctrl->ip_addr.type)?NULL:&(http_ctrl->ip_addr), http_ctrl->remote_port, 0) < 0){
-#else
-        if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), (0xff == http_ctrl->ip_addr.is_ipv6)?NULL:&(http_ctrl->ip_addr), http_ctrl->remote_port, 0) < 0){
-#endif
-			// network_close(http_ctrl->netc, 0);
-			http_resp_error(http_ctrl, HTTP_ERROR_CONNECT);
-			return -1;
-    	}
 		return 0;
 	}else if(event->ID == EV_NW_RESULT_CONNECT){
 		http_send_message(http_ctrl);
@@ -714,15 +713,14 @@ static int l_http_request(lua_State *L) {
 #endif
 	http_ctrl->idp = luat_pushcwait(L);
 
-	ret = network_wait_link_up(http_ctrl->netc, 0);
-	if (ret == 0){
-
-		if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), NULL, http_ctrl->remote_port, 0) < 0){
-        	http_resp_error(http_ctrl, HTTP_ERROR_CONNECT);
-			return 0;
-    	}
+#ifdef LUAT_USE_LWIP
+	if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), (0xff == http_ctrl->ip_addr.type)?NULL:&(http_ctrl->ip_addr), http_ctrl->remote_port, 0) < 0){
+#else
+	if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), (0xff == http_ctrl->ip_addr.is_ipv6)?NULL:&(http_ctrl->ip_addr), http_ctrl->remote_port, 0) < 0){
+#endif
+		network_close(http_ctrl->netc, 0);
+		goto error;
 	}
-
     return 1;
 error:
 	http_close(http_ctrl);

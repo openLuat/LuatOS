@@ -40,7 +40,8 @@ typedef struct{
 	char* body;
 	uint32_t body_len;			//body缓存长度
 	uint8_t is_chunk;			//是否chunk编码
-	
+	uint8_t re_request_count;
+
 	// 响应相关
 	// uint32_t resp_content_len;	//content 长度
 	FILE* fd;					//下载 FILE

@@ -118,7 +118,7 @@ end)
 }
 
 void OnTxDone( void ){
-    rtos_msg_t msg;
+    rtos_msg_t msg = {0};
     msg.handler = l_lora_handler;
     msg.ptr = NULL;
     msg.arg1 = LORA_TX_DONE;
@@ -132,7 +132,7 @@ void OnRxDone( uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr ){
     char* rx_buff = luat_heap_malloc(size);
     memcpy( rx_buff, payload, size );
 
-    rtos_msg_t msg;
+    rtos_msg_t msg = {0};
     msg.handler = l_lora_handler;
     msg.ptr = rx_buff;
     msg.arg1 = LORA_RX_DONE;
@@ -141,7 +141,7 @@ void OnRxDone( uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr ){
 }
 
 void OnTxTimeout( void ){
-    rtos_msg_t msg;
+    rtos_msg_t msg = {0};
     msg.handler = l_lora_handler;
     msg.ptr = NULL;
     msg.arg1 = LORA_TX_TIMEOUT;
@@ -150,7 +150,7 @@ void OnTxTimeout( void ){
 }
 
 void OnRxTimeout( void ){
-    rtos_msg_t msg;
+    rtos_msg_t msg = {0};
     msg.handler = l_lora_handler;
     msg.ptr = NULL;
     msg.arg1 = LORA_RX_TIMEOUT;
@@ -159,7 +159,7 @@ void OnRxTimeout( void ){
 }
 
 void OnRxError( void ){
-    rtos_msg_t msg;
+    rtos_msg_t msg = {0};
     msg.handler = l_lora_handler;
     msg.ptr = NULL;
     msg.arg1 = LORA_RX_ERROR;
@@ -173,10 +173,16 @@ lora初始化
 @api lora.init(ic, loraconfig,spiconfig)
 @string lora 型号，当前支持：<br>llcc68<br>sx1268
 @table lora配置参数,与具体设备有关
-@table 硬件配置参数,与具体设备有关
 @usage
 lora.init("llcc68",
-{id = 0,cs = pin.PB04,res = pin.PB00,busy = pin.PB01,dio1 = pin.PB06,lora_init = true}
+    {
+        id = 0,           -- SPI id
+        cs = pin.PB04,    -- SPI 片选的GPIO号,如果没有pin库,填GPIO数字编号就行
+        res = pin.PB00,   -- 复位脚连接的GPIO号,如果没有pin库,填GPIO数字编号就行
+        busy = pin.PB01,  -- 忙检测脚的GPIO号
+        dio1 = pin.PB06,  -- 数据输入中断脚
+        lora_init = true  -- 是否发送初始化命令. 如果是唤醒后直接读取, 就传false
+    }
 )
 */
 static int luat_lora_init(lua_State *L){
@@ -252,6 +258,9 @@ static int luat_lora_init(lua_State *L){
 
         luat_start_rtos_timer(luat_create_rtos_timer(Radio.IrqProcess, NULL, NULL), 10, 1);
     }
+    else {
+        LLOGE("no such ic %s", lora_ic);
+    }
     return 0;
 }
 
@@ -275,8 +284,21 @@ lora配置发送参数
 @table lora发送配置参数,与具体设备有关
 @usage
 lora.set_txconfig("llcc68",
-{mode=1,power=22,fdev=0,bandwidth=0,datarate=9,coderate=4,preambleLen=8,
-    fixLen=false,crcOn=true,freqHopOn=0,hopPeriod=0,iqInverted=false,timeout=3000}
+    {
+        mode=1,
+        power=22,
+        fdev=0,
+        bandwidth=0,
+        datarate=9,
+        coderate=4,
+        preambleLen=8,
+        fixLen=false,
+        crcOn=true,
+        freqHopOn=0,
+        hopPeriod=0,
+        iqInverted=false,
+        timeout=3000
+    }
 )
 */
 static int luat_lora_set_txconfig(lua_State *L){
@@ -360,6 +382,9 @@ static int luat_lora_set_txconfig(lua_State *L){
                             preambleLen, fixLen,
                             crcOn, freqHopOn, hopPeriod, iqInverted, timeout );
     }
+    else {
+        LLOGE("no such ic %s", lora_ic);
+    }
     return 0;
 }
 
@@ -370,8 +395,22 @@ lora配置接收参数
 @table lora接收配置参数,与具体设备有关
 @usage
 lora.set_rxconfig("llcc68",
-{mode=1,bandwidth=0,datarate=9,coderate=4,bandwidthAfc=0,preambleLen=8,symbTimeout=0,fixLen=false,
-    payloadLen=0,crcOn=true,freqHopOn=0,hopPeriod=0,iqInverted=false,rxContinuous=false}
+    {
+        mode=1,
+        bandwidth=0,
+        datarate=9,
+        coderate=4,
+        bandwidthAfc=0,
+        preambleLen=8,
+        symbTimeout=0,
+        fixLen=false,
+        payloadLen=0,
+        crcOn=true,
+        freqHopOn=0,
+        hopPeriod=0,
+        iqInverted=false,
+        rxContinuous=false
+    }
 )
 */
 static int luat_lora_set_rxconfig(lua_State *L){
@@ -460,6 +499,9 @@ static int luat_lora_set_rxconfig(lua_State *L){
                             symbTimeout, fixLen,
                             payloadLen, crcOn, freqHopOn, hopPeriod, iqInverted, rxContinuous );
     }
+    else {
+        LLOGE("no such ic %s", lora_ic);
+    }
     return 0;
 }
 
@@ -480,14 +522,15 @@ static int luat_lora_send(lua_State *L){
 
 /*
 开启收数据
-@api    lora.recive(timeout)
+@api    lora.recv(timeout)
 @number 超时时间，默认1000 单位ms
 @usage
 sys.subscribe("LORA_RX_DONE", function(data, size)
     log.info("LORA_RX_DONE: ", data, size)
     lora.send("PING")
 end)
-lora.recive(1000)
+-- 老版本没有recv, 可以改成 lora.recive
+lora.recv(1000)
 */
 static int luat_lora_recive(lua_State *L){
     int rx_timeout = luaL_optinteger(L, 1, 1000);
@@ -521,6 +564,7 @@ static const rotable_Reg_t reg_lora[] =
     { "set_txconfig",ROREG_FUNC(luat_lora_set_txconfig)},
     { "set_rxconfig",ROREG_FUNC(luat_lora_set_rxconfig)},
     { "send",        ROREG_FUNC(luat_lora_send)},
+    { "recv",        ROREG_FUNC(luat_lora_recive)},
     { "recive",      ROREG_FUNC(luat_lora_recive)},
     { "mode",        ROREG_FUNC(luat_lora_mode)},
 
@@ -528,7 +572,7 @@ static const rotable_Reg_t reg_lora[] =
     { "SLEEP",       ROREG_INT(0)},
     //@const STANDBY number STANDBY模式
     { "STANDBY",     ROREG_INT(1)},
-	{ NULL,     {}}
+	{ NULL,          ROREG_INT(0)}
 };
 
 LUAMOD_API int luaopen_lora( lua_State *L ) {

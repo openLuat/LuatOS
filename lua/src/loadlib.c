@@ -111,8 +111,8 @@ static int checkload (lua_State *L, int stat, const char *filename) {
 
 #ifndef LUAT_MODULE_SEARCH_PATH
 #define LUAT_MODULE_SEARCH_PATH   "/%s.luac", "/%s.lua", \
-  "/lua/%s.luac", "/lua/%s.lua",\
   "/luadb/%s.luac", "/luadb/%s.lua",\
+  "/lua/%s.luac", "/lua/%s.lua",\
   "",
 #endif
 static const char* search_paths[] = {

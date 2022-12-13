@@ -29,16 +29,48 @@ static int lua_sms_ref = 0;
 
 static int l_sms_recv_handler(lua_State* L, void* ptr) {
     LUAT_SMS_RECV_MSG_T* sms = ((LUAT_SMS_RECV_MSG_T*)ptr);
-    char buff[200] = {0};
+    char buff[280+2] = {0};
+    luaL_Buffer b;
+    size_t dstlen = strlen(sms->sms_buffer);
+    uint8_t dst[142] = {0};
 
     LLOGD("dcs %d | %d | %d | %d", sms->dcs_info.alpha_bet, sms->dcs_info.dcs, sms->dcs_info.msg_class, sms->dcs_info.type);
 
     if (sms->dcs_info.alpha_bet == 0) {
-        memcpy(buff, sms->sms_buffer, strlen(sms->sms_buffer) + 1);
+        memcpy(dst, sms->sms_buffer, strlen(sms->sms_buffer));
     }
     else {
         luat_str_fromhex(sms->sms_buffer, strlen(sms->sms_buffer), buff);
-        LLOGD("sms %s buff %s", sms->sms_buffer, buff);
+        //LLOGD("sms %s buff %s", sms->sms_buffer, buff);
+        uint16_t* tmp = (uint16_t*)buff;
+        // size_t tmplen = origin_len / 2;
+        // size_t dstoff = 0;
+        uint16_t unicode = 0;
+        dstlen = 0;
+        while (1) {
+            unicode = *tmp ++;
+            unicode = ((unicode >> 8) & 0xFF) + ((unicode & 0xFF) << 8);
+            //LLOGD("unicode %04X", unicode);
+            if (unicode == 0)
+                break; // 终止了
+            if (unicode <= 0x0000007F) {
+                dst[dstlen++] = (unicode & 0x7F);
+                continue;
+            }
+            if (unicode <= 0x000007FF) {
+                dst[dstlen++]	= ((unicode >> 6) & 0x1F) | 0xC0;
+			    dst[dstlen++] 	= (unicode & 0x3F) | 0x80;
+                continue;
+            }
+            if (unicode <= 0x0000FFFF) {
+                dst[dstlen++]	= ((unicode >> 12) & 0x0F) | 0xE0;
+			    dst[dstlen++]	= ((unicode >>  6) & 0x3F) | 0x80;
+			    dst[dstlen++]	= (unicode & 0x3F) | 0x80;
+                //LLOGD("why? %02X %02X %02X", ((unicode >> 12) & 0x0F) | 0xE0, ((unicode >>  6) & 0x3F) | 0x80, (unicode & 0x3F) | 0x80);
+                continue;
+            }
+            break;
+        }
     }
     // 先发系统消息
     lua_getglobal(L, "sys_pub");
@@ -48,7 +80,7 @@ static int l_sms_recv_handler(lua_State* L, void* ptr) {
     }
     lua_pushliteral(L, "SMS_INC");
     lua_pushstring(L, sms->phone_address);
-    lua_pushstring(L, buff);
+    lua_pushlstring(L, dst, dstlen);
     lua_call(L, 3, 0);
 
     // 如果有回调函数, 就调用
@@ -56,7 +88,7 @@ static int l_sms_recv_handler(lua_State* L, void* ptr) {
         lua_geti(L, LUA_REGISTRYINDEX, lua_sms_ref);
         if (lua_isfunction(L, -1)) {
             lua_pushstring(L, sms->phone_address);
-            lua_pushstring(L, buff);
+            lua_pushlstring(L, dst, dstlen);
             lua_call(L, 2, 0);
         }
     }

@@ -56,7 +56,7 @@ eink显示屏初始化
 -- 初始化spi0的eink.MODEL_4in2bc) 注意:eink初始化之前需要先初始化spi
 spi_eink = spi.deviceSetup(0,20,0,0,8,20000000,spi.MSB,1,1)
 log.info("eink.init",
-eink.init(eink.MODEL_4in2bc),{port = "device",pin_dc = 17, pin_pwr = 7,pin_rst = 19,direction = 2,w = 160,h = 80,xoffset = 1,yoffset = 26},spi_eink))
+eink.init(eink.MODEL_4in2bc,{port = "device",pin_dc = 17, pin_pwr = 7,pin_rst = 19,direction = 2,w = 160,h = 80,xoffset = 1,yoffset = 26},spi_eink))
 */
 static int l_eink_init(lua_State* L) {
     if (lua_type(L, 3) == LUA_TUSERDATA){
@@ -129,6 +129,10 @@ static int l_eink_init(lua_State* L) {
     size_t epd_h = 0;
     size_t colors = 0;
 
+    if (econf.async){
+      econf.idp = luat_pushcwait(L);
+    }
+
     int status = EPD_Init(econf.full_mode, &epd_w, &epd_h, &colors);
 
     if (status != 0) {
@@ -160,10 +164,16 @@ static int l_eink_init(lua_State* L) {
     u8g2_SetFontMode(&(econf.luat_eink_u8g2), 0);
     u8g2_SetFontDirection(&(econf.luat_eink_u8g2), 0);
     lua_pushboolean(L, 1);
+    if (econf.async){
+      luat_pushcwait_error(L,1);
+    }
     return 1;
 
 end:
     lua_pushboolean(L, 0);
+    if (econf.async){
+      luat_pushcwait_error(L,1);
+    }
     return 1;
 }
 
@@ -211,6 +221,9 @@ static int l_eink_setup(lua_State *L) {
     size_t epd_w = 0;
     size_t epd_h = 0;
     size_t colors = 0;
+    if (econf.async){
+      econf.idp = luat_pushcwait(L);
+    }
     if(status == 0)
     {
         if(econf.full_mode)
@@ -251,6 +264,9 @@ static int l_eink_setup(lua_State *L) {
     //paint.inited = 1;
     //LLOGD("epd init complete");
     lua_pushboolean(L, 1);
+    if (econf.async){
+      luat_pushcwait_error(L,1);
+    }
     return 1;
 }
 
@@ -261,7 +277,11 @@ static int l_eink_setup(lua_State *L) {
 static int l_eink_sleep(lua_State *L)
 {
     EPD_Sleep();
-    return 0;
+    lua_pushboolean(L, 1);
+    if (econf.async){
+      luat_pushcwait_error(L,1);
+    }
+    return 1;
 }
 
 /**
@@ -279,7 +299,11 @@ static int l_eink_clear(lua_State *L)
     Paint_Clear(&econf.ctxs[econf.ctx_index]->paint, colored);
     if(lua_toboolean(L, 2))
       EPD_Clear();
-    return 0;
+    lua_pushboolean(L, 1);
+    if (econf.async){
+      luat_pushcwait_error(L,1);
+    }
+    return 1;
 }
 
 /**
@@ -636,7 +660,11 @@ static int l_eink_show(lua_State *L)
       EPD_Display(econf.ctxs[0]->fb, NULL);
     else
       EPD_Display(econf.ctxs[0]->fb, econf.ctxs[1]->fb);
-    return 0;
+    lua_pushboolean(L, 1);
+    if (econf.async){
+      luat_pushcwait_error(L,1);
+    }
+    return 1;
 }
 
 /**
@@ -661,7 +689,11 @@ static int l_eink_draw(lua_State *L)
     if(!no_clear)
       EPD_Clear();
     EPD_Display(buff->addr, buff2->addr);
-    return 0;
+    lua_pushboolean(L, 1);
+    if (econf.async){
+      luat_pushcwait_error(L,1);
+    }
+    return 1;
 }
 
 
@@ -1173,9 +1205,15 @@ static int l_eink_set_ctx(lua_State *L) {
   return 1;
 }
 
+static int l_eink_async(lua_State *L) {
+  econf.async = luaL_checkinteger(L, 1);
+  return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_eink[] =
 {
+    { "async",          ROREG_FUNC(l_eink_async)},
     { "init",           ROREG_FUNC(l_eink_init)},
     { "setup",          ROREG_FUNC(l_eink_setup)},
     { "sleep",          ROREG_FUNC(l_eink_sleep)},

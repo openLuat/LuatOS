@@ -73,28 +73,30 @@ static void EPD_5IN65F_SendData(UBYTE Data)
 
 static void EPD_5IN65F_BusyHigh(void)// If BUSYN=0 then waiting
 {
-    unsigned char count = 100;
-    while(!(DEV_Digital_Read(EPD_BUSY_PIN))){
-        if(!(count--))
-        {
-            break;
-        }
-        else
-            DEV_Delay_ms(100);
-    }
+    EPD_Busy_WaitUntil(1,0);
+    // unsigned char count = 100;
+    // while(!(DEV_Digital_Read(EPD_BUSY_PIN))){
+    //     if(!(count--))
+    //     {
+    //         break;
+    //     }
+    //     else
+    //         DEV_Delay_ms(100);
+    // }
 }
 
 static void EPD_5IN65F_BusyLow(void)// If BUSYN=1 then waiting
 {
-    unsigned char count = 100;
-    while(DEV_Digital_Read(EPD_BUSY_PIN)){
-        if(!(count--))
-        {
-            break;
-        }
-        else
-            DEV_Delay_ms(100);
-    }
+    EPD_Busy_WaitUntil(0,0);
+    // unsigned char count = 100;
+    // while(DEV_Digital_Read(EPD_BUSY_PIN)){
+    //     if(!(count--))
+    //     {
+    //         break;
+    //     }
+    //     else
+    //         DEV_Delay_ms(100);
+    // }
 }
 
 /******************************************************************************

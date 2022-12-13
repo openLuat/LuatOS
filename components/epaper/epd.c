@@ -98,22 +98,60 @@ void EPD_Sleep(void) {
     eink_regs[cur_model_index].sleep();
 }
 
-void EPD_ReadBusy(void)
-{
-    uint16_t count = 1000;
-    Debug("e-Paper busy\r\n");
-	while(1)
-	{	 //=1 BUSY
-		if(DEV_Digital_Read(EPD_BUSY_PIN)==0) 
-			break;
-        if(!(count--))
-        {
-            Debug("error: e-Paper busy timeout!!!\r\n");
-            return;
+static LUAT_RT_RET_TYPE readbusy_timer_cb(LUAT_RT_CB_PARAM){
+    if (econf.timer_count++ > 200){
+        luat_stop_rtos_timer(econf.readbusy_timer);
+        luat_release_rtos_timer(econf.readbusy_timer);
+        luat_cbcwait_noarg(econf.eink_spi_ref);
+    }
+    uint8_t level = *(uint8_t *)param;
+    if (level){
+        if(DEV_Digital_Read(EPD_BUSY_PIN)) {
+            luat_stop_rtos_timer(econf.readbusy_timer);
+            luat_release_rtos_timer(econf.readbusy_timer);
+            luat_cbcwait_noarg(econf.eink_spi_ref);
         }
-        else
-            DEV_Delay_ms(10);
-	}
-	DEV_Delay_ms(50);
-    Debug("e-Paper busy release\r\n");
+    }else{
+        DEV_Digital_Write(EPD_DC_PIN, 0);
+        DEV_Digital_Write(EPD_CS_PIN, 0);
+        DEV_SPI_WriteByte(0x71);
+        DEV_Digital_Write(EPD_CS_PIN, 1);
+        if(DEV_Digital_Read(EPD_BUSY_PIN)==0) {
+            luat_stop_rtos_timer(econf.readbusy_timer);
+            luat_release_rtos_timer(econf.readbusy_timer);
+            luat_cbcwait_noarg(econf.eink_spi_ref);
+        }
+    }
+}
+
+void EPD_Busy_WaitUntil(uint8_t level,uint8_t send_cmd){
+    uint16_t count = 100;//10s
+
+    if (econf.async){
+        econf.readbusy_timer = luat_create_rtos_timer(readbusy_timer_cb, &level, NULL);
+        luat_start_rtos_timer(econf.readbusy_timer, 100, 1);
+    }else{
+        while(1){
+            if (level){
+                if (send_cmd){
+                    DEV_Digital_Write(EPD_DC_PIN, 0);
+                    DEV_Digital_Write(EPD_CS_PIN, 0);
+                    DEV_SPI_WriteByte(0x71);
+                    DEV_Digital_Write(EPD_CS_PIN, 1);
+                }
+                if(DEV_Digital_Read(EPD_BUSY_PIN)) 
+                    break;
+            }else{
+                if(DEV_Digital_Read(EPD_BUSY_PIN)==0) 
+                    break;
+            }
+            if(!(count--)){
+                Debug("error: e-Paper busy timeout!!!\r\n");
+                return;
+            }
+            else
+                DEV_Delay_ms(100);
+        }
+        DEV_Delay_ms(100);
+    }
 }

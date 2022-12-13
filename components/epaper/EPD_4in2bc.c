@@ -130,18 +130,19 @@ parameter:
 ******************************************************************************/
 void EPD_4IN2BC_ReadBusy(void)
 {
-    unsigned char count = 200;
-    Debug("e-Paper busy\r\n");
-    while(DEV_Digital_Read(EPD_BUSY_PIN) == 0) {      //0: busy, 1: idle
-        if(!(count--))
-        {
-            Debug("error: e-Paper busy timeout!!!\r\n");
-            break;
-        }
-        else
-            DEV_Delay_ms(100);
-    }
-    Debug("e-Paper busy release\r\n");
+    EPD_Busy_WaitUntil(1,0);
+    // unsigned char count = 200;
+    // Debug("e-Paper busy\r\n");
+    // while(DEV_Digital_Read(EPD_BUSY_PIN) == 0) {      //0: busy, 1: idle
+    //     if(!(count--))
+    //     {
+    //         Debug("error: e-Paper busy timeout!!!\r\n");
+    //         break;
+    //     }
+    //     else
+    //         DEV_Delay_ms(100);
+    // }
+    // Debug("e-Paper busy release\r\n");
 }
 
 /******************************************************************************

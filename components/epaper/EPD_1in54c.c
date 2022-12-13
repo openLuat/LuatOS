@@ -127,18 +127,19 @@ parameter:
 ******************************************************************************/
 static void EPD_1IN54C_ReadBusy(void)
 {
-    unsigned char busy;
-    unsigned char count = 100;
-    do {
-        EPD_1IN54C_SendCommand(0x71);
-        busy = DEV_Digital_Read(EPD_BUSY_PIN);
-        busy =!(busy & 0x01);
-		if(!(count--))
-            break;
-        else
-            DEV_Delay_ms(100);
-    }	while(busy);
-    DEV_Delay_ms(200);
+    EPD_Busy_WaitUntil(1,1);
+    // unsigned char busy;
+    // unsigned char count = 100;
+    // do {
+    //     EPD_1IN54C_SendCommand(0x71);
+    //     busy = DEV_Digital_Read(EPD_BUSY_PIN);
+    //     busy =!(busy & 0x01);
+	// 	if(!(count--))
+    //         break;
+    //     else
+    //         DEV_Delay_ms(100);
+    // }	while(busy);
+    // DEV_Delay_ms(200);
 }
 
 /******************************************************************************

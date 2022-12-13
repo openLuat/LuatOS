@@ -115,9 +115,10 @@ void EPD_2IN9F_SendData(EPD* epd, unsigned char data) {
  *  @brief: Wait until the busy_pin goes LOW
  */
 void EPD_2IN9F_WaitUntilIdle(EPD* epd) {
-  while(EPD_2IN9F_DigitalRead(epd, epd->busy_pin) == HIGH) {      //0: busy, 1: idle
-    EPD_2IN9F_DelayMs(epd, 100);
-  }      
+  EPD_Busy_WaitUntil(0,0);
+  // while(EPD_2IN9F_DigitalRead(epd, epd->busy_pin) == HIGH) {      //0: busy, 1: idle
+  //   EPD_2IN9F_DelayMs(epd, 100);
+  // }      
 }
 
 /**

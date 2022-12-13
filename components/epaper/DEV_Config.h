@@ -77,11 +77,15 @@ typedef struct eink_conf {
     uint8_t pin_dc;
     uint8_t pin_cs;
     uint8_t pin_busy;
+    uint8_t async;
+    uint64_t idp;
     uint32_t ctx_index;
     eink_ctx_t *ctxs[2]; // 暂时只支持2种颜色, 有需要的话后续继续
     u8g2_t luat_eink_u8g2;
     luat_spi_device_t* eink_spi_device;
     int eink_spi_ref;
+    uint8_t timer_count;
+    void* readbusy_timer;
     void* userdata;
 }eink_conf_t;
 

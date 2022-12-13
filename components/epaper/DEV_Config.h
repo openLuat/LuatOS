@@ -70,6 +70,11 @@ typedef struct eink_ctx{
     uint8_t fb[];
 }eink_ctx_t;
 
+typedef struct eink_async{
+    uint8_t level;
+    uint8_t send_cmd;
+}eink_async_t;
+
 typedef struct eink_conf {
     uint8_t full_mode;
     uint8_t port;
@@ -78,6 +83,7 @@ typedef struct eink_conf {
     uint8_t pin_cs;
     uint8_t pin_busy;
     uint8_t async;
+    eink_async_t async_cmd;
     uint64_t idp;
     uint32_t ctx_index;
     eink_ctx_t *ctxs[2]; // 暂时只支持2种颜色, 有需要的话后续继续

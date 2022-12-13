@@ -68,6 +68,9 @@ static int l_eink_init(lua_State* L) {
         econf.eink_spi_ref = luaL_ref(L, LUA_REGISTRYINDEX);
         econf.port = LUAT_EINK_SPI_DEVICE;
     }
+    if (econf.async){
+      econf.idp = luat_pushcwait(L);
+    }
     EPD_Model(luaL_checkinteger(L, 1));
 
     if (lua_gettop(L) > 1) {
@@ -129,10 +132,6 @@ static int l_eink_init(lua_State* L) {
     size_t epd_h = 0;
     size_t colors = 0;
 
-    if (econf.async){
-      econf.idp = luat_pushcwait(L);
-    }
-
     int status = EPD_Init(econf.full_mode, &epd_w, &epd_h, &colors);
 
     if (status != 0) {
@@ -163,16 +162,16 @@ static int l_eink_init(lua_State* L) {
     u8g2_SetFont(&(econf.luat_eink_u8g2), u8g2_font_opposansm8);
     u8g2_SetFontMode(&(econf.luat_eink_u8g2), 0);
     u8g2_SetFontDirection(&(econf.luat_eink_u8g2), 0);
-    lua_pushboolean(L, 1);
-    if (econf.async){
-      luat_pushcwait_error(L,1);
+    if (!econf.async){
+      lua_pushboolean(L, 1);
     }
     return 1;
 
 end:
-    lua_pushboolean(L, 0);
     if (econf.async){
       luat_pushcwait_error(L,1);
+    }else{
+      lua_pushboolean(L, 0);
     }
     return 1;
 }
@@ -263,9 +262,8 @@ static int l_eink_setup(lua_State *L) {
     u8g2_SetFontDirection(&(econf.luat_eink_u8g2), 0);
     //paint.inited = 1;
     //LLOGD("epd init complete");
-    lua_pushboolean(L, 1);
-    if (econf.async){
-      luat_pushcwait_error(L,1);
+    if (!econf.async){
+      lua_pushboolean(L, 1);
     }
     return 1;
 }
@@ -276,10 +274,13 @@ static int l_eink_setup(lua_State *L) {
 */
 static int l_eink_sleep(lua_State *L)
 {
+    if (econf.async){
+      econf.idp = luat_pushcwait(L);
+    }
     EPD_Sleep();
     lua_pushboolean(L, 1);
-    if (econf.async){
-      luat_pushcwait_error(L,1);
+    if (!econf.async){
+      lua_pushboolean(L, 1);
     }
     return 1;
 }
@@ -296,12 +297,14 @@ static int l_eink_clear(lua_State *L)
     int colored = luaL_optinteger(L, 1, 1);
     if (check_init() == 0)
         return 0;
+    if (econf.async){
+      econf.idp = luat_pushcwait(L);
+    }
     Paint_Clear(&econf.ctxs[econf.ctx_index]->paint, colored);
     if(lua_toboolean(L, 2))
       EPD_Clear();
-    lua_pushboolean(L, 1);
-    if (econf.async){
-      luat_pushcwait_error(L,1);
+    if (!econf.async){
+      lua_pushboolean(L, 1);
     }
     return 1;
 }
@@ -654,6 +657,9 @@ static int l_eink_show(lua_State *L)
     if (check_init() == 0) {
       return 0;
     }
+    if (econf.async){
+      econf.idp = luat_pushcwait(L);
+    }
     if(!no_clear)
       EPD_Clear();
     if (econf.ctxs[1] == NULL)
@@ -661,8 +667,8 @@ static int l_eink_show(lua_State *L)
     else
       EPD_Display(econf.ctxs[0]->fb, econf.ctxs[1]->fb);
     lua_pushboolean(L, 1);
-    if (econf.async){
-      luat_pushcwait_error(L,1);
+    if (!econf.async){
+      lua_pushboolean(L, 1);
     }
     return 1;
 }
@@ -683,6 +689,9 @@ static int l_eink_draw(lua_State *L)
     if (lua_isuserdata(L, 2)) {
       buff2 = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
     }
+    if (econf.async){
+      econf.idp = luat_pushcwait(L);
+    }
     if (check_init() == 0) {
       return 0;
     }
@@ -690,8 +699,8 @@ static int l_eink_draw(lua_State *L)
       EPD_Clear();
     EPD_Display(buff->addr, buff2->addr);
     lua_pushboolean(L, 1);
-    if (econf.async){
-      luat_pushcwait_error(L,1);
+    if (!econf.async){
+      lua_pushboolean(L, 1);
     }
     return 1;
 }

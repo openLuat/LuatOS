@@ -35,7 +35,7 @@ typedef struct luat_libgnss
 static luat_libgnss_t *gnss = NULL;
 static luat_libgnss_t *gnsstmp = NULL;
 
-static int luat_libgnss_init(lua_State *L) {
+static int luat_libgnss_init(void) {
     if (gnss == NULL) {
         gnss = luat_heap_malloc(sizeof(luat_libgnss_t));
         if (gnss == NULL) {
@@ -52,19 +52,24 @@ static int luat_libgnss_init(lua_State *L) {
         memset(gnss, 0, sizeof(luat_libgnss_t));
         memset(gnsstmp, 0, sizeof(luat_libgnss_t));
     }
-    lua_pushboolean(L, 1);
+    //lua_pushboolean(L, 1);
     return 1;
 }
 
-static int parse_nmea(const char* line, lua_State *L) {
+static int parse_nmea(const char* line) {
     // $GNRMC,080313.00,A,2324.40756,N,11313.86184,E,0.284,,010720,,,A*68
     //if (gnss != NULL && gnss->debug)
     //    LLOGD("GNSS [%s]", line);
-    if (gnss == NULL && luat_libgnss_init(L)) {
+    if (gnss == NULL && !luat_libgnss_init()) {
         return 0;
     }
+    struct minmea_sentence_gsv frame_gsv = {0};
 
     switch (minmea_sentence_id(line, false)) {
+        case MINMEA_INVALID : {
+            LLOGD("bad line %s", line);
+            break;
+        }
         case MINMEA_SENTENCE_RMC: {
             if (minmea_parse_rmc(&(gnsstmp->frame_rmc), line)) {
                 if (gnsstmp->frame_rmc.valid) {
@@ -124,17 +129,16 @@ static int parse_nmea(const char* line, lua_State *L) {
         // } break;
 
         case MINMEA_SENTENCE_GSV: {
-            if (minmea_parse_gsv(&gnsstmp->frame_gsv[0], line)) {
-                switch (gnsstmp->frame_gsv[0].msg_nr)
-                {
-                case 1:
+            //LLOGD("Got GSV : %s", line);
+            if (minmea_parse_gsv(&frame_gsv, line)) {
+                //LLOGD("$GSV: message %d of %d", frame_gsv.msg_nr, frame_gsv.total_msgs);
+                if (frame_gsv.msg_nr == 1) {
+                    //LLOGD("Clean GSV");
                     memset(&(gnss->frame_gsv), 0, sizeof(struct minmea_sentence_gsv) * 3);
-                case 2:
-                case 3:
-                    memcpy(&(gnss->frame_gsv[gnsstmp->frame_gsv[0].msg_nr - 1]), &gnsstmp->frame_gsv, sizeof(struct minmea_sentence_gsv));
-                    break;
-                default:
-                    break;
+                }
+                if (frame_gsv.msg_nr >= 1 && frame_gsv.msg_nr <= 3) {
+                    //LLOGD("memcpy GSV %d", frame_gsv.msg_nr);
+                    memcpy(&(gnss->frame_gsv[frame_gsv.msg_nr - 1]), &frame_gsv, sizeof(struct minmea_sentence_gsv));
                 }
                 // LLOGD("$GSV: message %d of %d", frame_gsv.msg_nr, frame_gsv.total_msgs);
                 // LLOGD("$GSV: sattelites in view: %d", frame_gsv.total_sats);
@@ -144,6 +148,9 @@ static int parse_nmea(const char* line, lua_State *L) {
                 //         frame_gsv.sats[i].elevation,
                 //         frame_gsv.sats[i].azimuth,
                 //         frame_gsv.sats[i].snr);
+            }
+            else {
+                //LLOGD("bad GSV %s", line);
             }
         } break;
 
@@ -170,7 +177,8 @@ static int parse_nmea(const char* line, lua_State *L) {
             }
         } break;
         default:
-        break;
+            //LLOGD("why happen");
+            break;
     }
     return 0;
 }
@@ -190,6 +198,7 @@ static int l_libgnss_parse(lua_State *L) {
     if (len == 0) {
         return 0;
     }
+    // TODO 处理粘包,分包的情况
     char buff[85] = {0}; // nmea 最大长度82,含换行符
     char *ptr = (char*)str;
     size_t prev = 0;
@@ -200,7 +209,7 @@ static int l_libgnss_parse(lua_State *L) {
                 memcpy(buff, ptr + prev, i - prev - 1);
                 if (buff[0] == '$') {
                     buff[i - prev - 1] = 0; // 确保结束符存在
-                    parse_nmea((const char*)buff, L);
+                    parse_nmea((const char*)buff);
                 }
             }
             i ++;
@@ -340,13 +349,18 @@ static int l_libgnss_get_gsv(lua_State *L) {
 
         lua_pushliteral(L, "sats");
         lua_createtable(L, 12, 0);
-        for (size_t i = 0; i < gnss->frame_gsv[0].msg_nr; i++)
+        for (size_t i = 0; i < 3; i++)
         {
             for (size_t j = 0; j < 4; j++)
             {
-                if (gnss->frame_gsv[i].sats[j].snr) {
+                //LLOGD("nr %d snr %d", gnss->frame_gsv[i].sats[j].nr, gnss->frame_gsv[i].sats[j].snr);
+                if (gnss->frame_gsv[i].sats[j].nr) {
                     lua_pushinteger(L, count++);
-                    lua_createtable(L, 0, 3);
+                    lua_createtable(L, 0, 4);
+
+                    lua_pushliteral(L, "nr");
+                    lua_pushinteger(L, gnss->frame_gsv[i].sats[j].nr);
+                    lua_settable(L, -3);
 
                     lua_pushliteral(L, "snr");
                     lua_pushinteger(L, gnss->frame_gsv[i].sats[j].snr);
@@ -510,7 +524,7 @@ static int l_libgnss_get_zda(lua_State *L) {
 }
 
 static int l_libgnss_debug(lua_State *L) {
-    if (gnss == NULL && luat_libgnss_init(L)) {
+    if (gnss == NULL && luat_libgnss_init()) {
         return 0;
     }
     if (lua_isboolean(L, 1) && lua_toboolean(L, 1)) {
@@ -565,6 +579,18 @@ static int l_libgnss_get_gga(lua_State* L) {
     return 1;
 }
 
+/**
+清除历史定位数据
+@api libgnss.clear()
+@return nil 无返回值
+ */
+static int l_libgnss_clear(lua_State*L) {
+    if (gnss == NULL && !luat_libgnss_init())
+        return 0;
+    memset(gnss, 0, sizeof(luat_libgnss_t));
+    return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_libgnss[] =
 {
@@ -578,6 +604,7 @@ static const rotable_Reg_t reg_libgnss[] =
     { "getGga", ROREG_FUNC(l_libgnss_get_gga)},
     { "getZda", ROREG_FUNC(l_libgnss_get_zda)},
     { "debug",  ROREG_FUNC(l_libgnss_debug)},
+    { "clear",  ROREG_FUNC(l_libgnss_clear)},
 
 	{ NULL,      ROREG_INT(0)}
 };

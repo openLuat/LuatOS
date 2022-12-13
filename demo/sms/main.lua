@@ -6,6 +6,7 @@ log.info("main", PROJECT, VERSION)
 
 -- 引入必要的库文件(lua编写), 内部库不需要require
 sys = require("sys")
+require "sysplus" -- http库需要这个sysplus
 
 if wdt then
     --添加硬狗防止程序卡死，在支持的设备上启用这个功能
@@ -14,26 +15,65 @@ if wdt then
 end
 log.info("main", "sms demo")
 
--- 接收短信, 支持两种方式, 选一种就可以了
+-- 辅助发送http请求, 因为http库需要在task里运行
+function http_post(url, headers, body)
+    sys.taskInit(function()
+        local code, headers, body = http.request("POST", url, headers, body).wait()
+        log.info("resp", code)
+    end)
+end
+
+function sms_handler(num, txt)
+    -- num 手机号码
+    -- txt 文本内容
+    log.info("sms", num, txt, txt:toHex())
+
+    -- http演示1, 发json
+    local body = json.encode({phone=num, txt=txt})
+    local headers = {}
+    headers["Content-Type"] = "application/json"
+    log.info("json", body)
+    http_post("http://www.luatos.com/api/sms/blackhole", headers, body)
+    -- http演示2, 发表单的
+    headers = {}
+    headers["Content-Type"] = "application/x-www-form-urlencoded"
+    local body = string.format("phone=%s&txt=%s", num:urlEncode(), txt:urlEncode())
+    log.info("params", body)
+    http_post("http://www.luatos.com/api/sms/blackhole", headers, body)
+    -- http演示3, 不需要headers,直接发
+    http_post("http://www.luatos.com/api/sms/blackhole", nil, num .. "," .. txt)
+end
+
+--------------------------------------------------------------------
+-- 接收短信, 支持多种方式, 选一种就可以了
 -- 1. 设置回调函数
-sms.setNewSmsCb(function(num, txt, datetime)
-    -- num 手机号码
-    -- txt 文本内容
-    -- datetime 发送时间,当前为nil,暂不支持
-    log.info("sms", num, txt, txt:toHex())
-end)
+--sms.setNewSmsCb(sms_handler)
 -- 2. 订阅系统消息
-sys.subscribe("SMS_INC", function(num, txt, datetime)
-    -- num 手机号码
-    -- txt 文本内容
-    -- datetime 发送时间,当前为nil,暂不支持
-    log.info("sms", num, txt, txt:toHex())
+--sys.subscribe("SMS_INC", sms_handler)
+-- 3. 在task里等着
+sys.taskInit(function()
+    while 1 do
+        local ret, num, txt = sys.waitUntil("SMS_INC", 300000)
+        if num then
+            -- 方案1, 交给自定义函数处理
+            sms_handler(num, txt)
+            -- 方案2, 因为这里是task内, 可以直接调用http.request
+            -- local body = json.encode({phone=num, txt=txt})
+            -- local headers = {}
+            -- headers["Content-Type"] = "application/json"
+            -- log.info("json", body)
+            -- local code, headers, body = http.request("POST", "http://www.luatos.com/api/sms/blackhole", headers, body).wait()
+            -- log.info("resp", code)
+        end
+    end
 end)
 
+-------------------------------------------------------------------
+-- 发送短信, 直接调用sms.send就行, 是不是task无所谓
 sys.taskInit(function()
     sys.wait(10000)
-    -- 暂时只能发英文短信
-    sms.send("10086", "Hi, from LuatOS - " .. os.date())
+    -- 暂时只能发英文短信, 后续会继续更新
+    --sms.send("10086", "Hi, from LuatOS - " .. os.date())
 end)
 
 

@@ -12,13 +12,28 @@ if wdt then
     wdt.init(9000)--初始化watchdog设置为9s
     sys.timerLoopStart(wdt.feed, 3000)--3s喂一次狗
 end
-
--- 暂时只能发短信, 且只能发英文短信
 log.info("main", "sms demo")
+
+-- 接收短信, 支持两种方式, 选一种就可以了
+-- 1. 设置回调函数
+sms.setNewSmsCb(function(num, txt, datetime)
+    -- num 手机号码
+    -- txt 文本内容
+    -- datetime 发送时间,当前为nil,暂不支持
+    log.info("sms", num, txt, txt:toHex())
+end)
+-- 2. 订阅系统消息
+sys.subscribe("SMS_INC", function(num, txt, datetime)
+    -- num 手机号码
+    -- txt 文本内容
+    -- datetime 发送时间,当前为nil,暂不支持
+    log.info("sms", num, txt, txt:toHex())
+end)
 
 sys.taskInit(function()
     sys.wait(10000)
-    sms.send("13912341234", "Hi, from LuatOS - " .. os.date())
+    -- 暂时只能发英文短信
+    sms.send("10086", "Hi, from LuatOS - " .. os.date())
 end)
 
 

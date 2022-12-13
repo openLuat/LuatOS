@@ -13,6 +13,48 @@ typedef enum
 	ADC_SET_GLOBAL_RANGE = 0x80,
 }ADC_SET_CMD_ENUM;
 
+/**
+ * @brief ADC控制命令
+*/
+typedef enum LUAT_ADC_CTRL_CMD
+{
+	LUAT_ADC_SET_GLOBAL_RANGE,/**< 量程 */
+}LUAT_ADC_CTRL_CMD_E;
+
+typedef enum LUAT_ADC_RANGE
+{
+	LUAT_ADC_AIO_RANGE_1_2,
+	LUAT_ADC_AIO_RANGE_1_4,
+	LUAT_ADC_AIO_RANGE_1_6,
+	LUAT_ADC_AIO_RANGE_1_9,
+	LUAT_ADC_AIO_RANGE_2_4,
+	LUAT_ADC_AIO_RANGE_2_7,
+	LUAT_ADC_AIO_RANGE_3_2,
+	LUAT_ADC_AIO_RANGE_3_8,
+	LUAT_ADC_AIO_RANGE_4_8,
+	LUAT_ADC_AIO_RANGE_6_4,
+	LUAT_ADC_AIO_RANGE_9_6,
+	LUAT_ADC_AIO_RANGE_19_2,
+
+	LUAT_ADC_VBAT_RANGE_2_0_RATIO,
+	LUAT_ADC_VBAT_RANGE_2_2_RATIO,
+	LUAT_ADC_VBAT_RANGE_2_6_RATIO,
+	LUAT_ADC_VBAT_RANGE_3_2_RATIO,
+	LUAT_ADC_VBAT_RANGE_4_0_RATIO,
+	LUAT_ADC_VBAT_RANGE_5_3_RATIO,
+	LUAT_ADC_VBAT_RANGE_8_0_RATIO,
+	LUAT_ADC_VBAT_RANGE_16_0_RATIO,
+}LUAT_ADC_RANGE_E;
+
+/**
+ * @brief ADC控制参数
+*/
+typedef union luat_adc_ctrl_param
+{	
+	LUAT_ADC_RANGE_E range;/**< adc量程*/
+	void *userdata;/**< 预留 */
+} luat_adc_ctrl_param_t;
+
 /******************************************************************************
  * luat_adc_open
  * Description: 打开一个adc通道

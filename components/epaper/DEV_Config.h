@@ -54,6 +54,9 @@
 #include "luat_timer.h"
 
 #include "u8g2.h"
+
+#include "Debug.h"
+
 /**
  * data
 **/
@@ -117,5 +120,6 @@ int DEV_Digital_Write(int pin, int level);
 #define DEV_Delay_ms(__xms) luat_timer_mdelay(__xms);
 
 void DEV_SPI_WriteByte(UBYTE value);
+void EPD_Busy_WaitUntil(uint8_t level,uint8_t send_cmd);
 
 #endif

@@ -28,7 +28,7 @@ static const eink_reg_t eink_regs[] = {
         {.tp=MODEL_1in54b,      .colors=1, .init=EPD_1IN54B_Init, .w = EPD_1IN54B_WIDTH, .h = EPD_1IN54B_HEIGHT, .clear = EPD_1IN54B_Clear, .sleep =EPD_1IN54B_Sleep, .display=EPD_1IN54B_Display},
         {.tp=MODEL_1in54b_V2,   .colors=1, .init=EPD_1IN54B_V2_Init, .w = EPD_1IN54B_V2_WIDTH, .h = EPD_1IN54B_V2_HEIGHT, .clear = EPD_1IN54B_V2_Clear, .sleep =EPD_1IN54B_V2_Sleep, .display=EPD_1IN54B_V2_Display},
         {.tp=MODEL_1in54c,      .colors=1, .init=EPD_1IN54C_Init, .w = EPD_1IN54C_WIDTH, .h = EPD_1IN54C_HEIGHT, .clear = EPD_1IN54C_Clear, .sleep =EPD_1IN54C_Sleep, .display=EPD_1IN54C_Display},
-        {.tp=MODEL_1in54f,      .colors=1, .init=EPD_1IN54FF_Init, .w = EPD_1IN54F_WIDTH, .h = EPD_1IN54F_HEIGHT, .clear = EPD_1IN54FF_Clear, .sleep =EPD_1IN54FF_Sleep, .display=EPD_1IN54FF_Display},
+        // {.tp=MODEL_1in54f,      .colors=1, .init=EPD_1IN54FF_Init, .w = EPD_1IN54F_WIDTH, .h = EPD_1IN54F_HEIGHT, .clear = EPD_1IN54FF_Clear, .sleep =EPD_1IN54FF_Sleep, .display=EPD_1IN54FF_Display},
         {.tp=MODEL_1in54_V2,    .colors=1, .init=EPD_1IN54_V2_Init, .w = EPD_1IN54_V2_WIDTH, .h = EPD_1IN54_V2_HEIGHT, .clear = EPD_1IN54_V2_Clear, .sleep =EPD_1IN54_V2_Sleep, .display=EPD_1IN54_V2_Display},       
         {.tp=MODEL_1in54_V3,    .colors=1, .init=EPD_1IN54_V3_Init, .w = EPD_1IN54_V3_WIDTH, .h = EPD_1IN54_V3_HEIGHT, .clear = EPD_1IN54_V3_Clear, .sleep =EPD_1IN54_V3_Sleep, .display=EPD_1IN54_V3_Display},       
         {.tp=MODEL_2in13,       .colors=1, .init=EPD_2IN13_Init, .w = EPD_2IN13_WIDTH, .h = EPD_2IN13_HEIGHT, .clear = EPD_2IN13_Clear, .sleep =EPD_2IN13_Sleep, .display=EPD_2IN13_Display},
@@ -44,7 +44,7 @@ static const eink_reg_t eink_regs[] = {
         {.tp=MODEL_2in9bc,      .colors=1, .init=EPD_2IN9BC_Init, .w = EPD_2IN9BC_WIDTH, .h = EPD_2IN9BC_HEIGHT, .clear = EPD_2IN9BC_Clear, .sleep =EPD_2IN9BC_Sleep, .display=EPD_2IN9BC_Display},
         {.tp=MODEL_2in9b_V3,    .colors=1, .init=EPD_2IN9B_V3_Init, .w = EPD_2IN9B_V3_WIDTH, .h = EPD_2IN9B_V3_HEIGHT, .clear = EPD_2IN9B_V3_Clear, .sleep =EPD_2IN9B_V3_Sleep, .display=EPD_2IN9B_V3_Display},
         {.tp=MODEL_2in9d,       .colors=1, .init=EPD_2IN9D_Init, .w = EPD_2IN9D_WIDTH, .h = EPD_2IN9D_HEIGHT, .clear = EPD_2IN9D_Clear, .sleep =EPD_2IN9D_Sleep, .display=EPD_2IN9D_Display},
-        {.tp=MODEL_2in9ff,      .colors=1, .init=EPD_2IN9FF_Init, .w = EPD_2IN9FF_WIDTH, .h = EPD_2IN9FF_HEIGHT, .clear = EPD_2IN9FF_Clear, .sleep =EPD_2IN9FF_Sleep, .display=EPD_2IN9FF_Display},
+        // {.tp=MODEL_2in9ff,      .colors=1, .init=EPD_2IN9FF_Init, .w = EPD_2IN9FF_WIDTH, .h = EPD_2IN9FF_HEIGHT, .clear = EPD_2IN9FF_Clear, .sleep =EPD_2IN9FF_Sleep, .display=EPD_2IN9FF_Display},
         {.tp=MODEL_2in9_V2,     .colors=1, .init=EPD_2IN9_V2_Init, .w = EPD_2IN9_V2_WIDTH, .h = EPD_2IN9_V2_HEIGHT, .clear = EPD_2IN9_V2_Clear, .sleep =EPD_2IN9_V2_Sleep, .display=EPD_2IN9_V2_Display},
         {.tp=MODEL_3in7,        .colors=1, .init=EPD_3IN7_1Gray_Init, .w = EPD_3IN7_WIDTH, .h = EPD_3IN7_HEIGHT, .clear = EPD_3IN7_1Gray_Clear, .sleep =EPD_3IN7_Sleep, .display=EPD_3IN7_1Gray_Display},
         {.tp=MODEL_4in2,        .colors=1, .init=EPD_4IN2_Init, .w = EPD_4IN2_WIDTH, .h = EPD_4IN2_HEIGHT, .clear = EPD_4IN2_Clear, .sleep =EPD_4IN2_Sleep, .display=EPD_4IN2_Display},
@@ -98,74 +98,3 @@ void EPD_Sleep(void) {
     eink_regs[cur_model_index].sleep();
 }
 
-static int32_t l_eink_callback(lua_State *L, void* ptr){
-    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
-    luat_release_rtos_timer(econf.readbusy_timer);
-    luat_cbcwait(L, econf.idp, 1);
-    return 0;
-}
-
-static LUAT_RT_RET_TYPE readbusy_timer_cb(LUAT_RT_CB_PARAM){
-    rtos_msg_t msg = {
-		.handler = l_eink_callback,
-	};
-    if (econf.timer_count++ > 300){//30s
-        luat_cbcwait_noarg(econf.idp);
-        luat_stop_rtos_timer(econf.readbusy_timer);
-        luat_msgbus_put(&msg, 0);
-        return;
-    }
-    eink_async_t* async_cmd = (eink_async_t *)param;
-    if (async_cmd->level){
-        if(DEV_Digital_Read(EPD_BUSY_PIN)) {
-            if (async_cmd->send_cmd){
-                DEV_Digital_Write(EPD_DC_PIN, 0);
-                DEV_Digital_Write(EPD_CS_PIN, 0);
-                DEV_SPI_WriteByte(0x71);
-                DEV_Digital_Write(EPD_CS_PIN, 1);
-            }
-            luat_cbcwait_noarg(econf.idp);
-            luat_stop_rtos_timer(econf.readbusy_timer);
-            luat_msgbus_put(&msg, 0);
-        }
-    }else{
-        if(DEV_Digital_Read(EPD_BUSY_PIN)==0) {
-            luat_cbcwait_noarg(econf.idp);
-            luat_stop_rtos_timer(econf.readbusy_timer);
-            luat_msgbus_put(&msg, 0);
-        }
-    }
-}
-
-void EPD_Busy_WaitUntil(uint8_t level,uint8_t send_cmd){
-    uint16_t count = 200;//20s
-    econf.async_cmd.level = level;
-    econf.async_cmd.send_cmd = send_cmd;
-    if (econf.async){
-        econf.readbusy_timer = luat_create_rtos_timer(readbusy_timer_cb, &econf.async_cmd, NULL);
-        luat_start_rtos_timer(econf.readbusy_timer, 100, 1);
-    }else{
-        while(1){
-            if (level){
-                if (send_cmd){
-                    DEV_Digital_Write(EPD_DC_PIN, 0);
-                    DEV_Digital_Write(EPD_CS_PIN, 0);
-                    DEV_SPI_WriteByte(0x71);
-                    DEV_Digital_Write(EPD_CS_PIN, 1);
-                }
-                if(DEV_Digital_Read(EPD_BUSY_PIN)) 
-                    break;
-            }else{
-                if(DEV_Digital_Read(EPD_BUSY_PIN)==0) 
-                    break;
-            }
-            if(!(count--)){
-                Debug("error: e-Paper busy timeout!!!\r\n");
-                return;
-            }
-            else
-                DEV_Delay_ms(100);
-        }
-        DEV_Delay_ms(100);
-    }
-}

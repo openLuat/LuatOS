@@ -3,7 +3,6 @@
 #define EPD_EPD
 
 #include "stdio.h"
-#include "Debug.h"
 #include "DEV_Config.h"
 
 void EPD_Model(UBYTE model);
@@ -11,7 +10,6 @@ int EPD_Init(UBYTE Mode, size_t *w, size_t *h, size_t* color_count);
 void EPD_Clear(void);
 void EPD_Display(UBYTE *Image, UBYTE *Image2);
 void EPD_Sleep(void);
-void EPD_Busy_WaitUntil(uint8_t level,uint8_t send_cmd);
 
 enum EPD_MODEL {
         MODEL_1in02d = 1,
@@ -19,7 +17,7 @@ enum EPD_MODEL {
         MODEL_1in54b,
         MODEL_1in54b_V2,
         MODEL_1in54c,
-        MODEL_1in54f,
+        // MODEL_1in54f,
         MODEL_1in54_V2,
         MODEL_1in54_V3,
         MODEL_2in13,
@@ -35,7 +33,7 @@ enum EPD_MODEL {
         MODEL_2in9bc,
         MODEL_2in9b_V3,
         MODEL_2in9d,
-        MODEL_2in9ff,
+        // MODEL_2in9ff,
         MODEL_2in9_V2,
         MODEL_3in7,
         MODEL_4in2,

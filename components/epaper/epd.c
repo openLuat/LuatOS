@@ -98,3 +98,27 @@ void EPD_Sleep(void) {
     eink_regs[cur_model_index].sleep();
 }
 
+void EPD_Task(void *param){
+    uint8_t event;
+    while (1) {
+        luat_rtos_queue_recv(econf.eink_queue_handle, &event, sizeof(uint8_t), LUAT_WAIT_FOREVER);
+        if (event){
+            if (event & EPD_CLEAR){
+                EPD_Clear();
+            }
+            if (event & EPD_SHOW){
+                if(event & EPD_CLEAR)
+                    EPD_Clear();
+                if (econf.ctxs[1] == NULL)
+                    EPD_Display(econf.ctxs[0]->fb, NULL);
+                else
+                    EPD_Display(econf.ctxs[0]->fb, econf.ctxs[1]->fb);
+            }
+            if (event & EPD_DRAW){//初始化时候已经创建缓冲区，zbuff好像意义不大了?
+
+            }
+            luat_cbcwait_noarg(econf.idp);
+        }
+	}
+}
+

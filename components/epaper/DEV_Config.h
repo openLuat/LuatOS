@@ -52,9 +52,9 @@
 #include "luat_gpio.h"
 #include "luat_spi.h"
 #include "luat_timer.h"
+#include "luat_rtos.h"
 
 #include "u8g2.h"
-
 #include "Debug.h"
 
 /**
@@ -66,18 +66,17 @@
 
 #define LUAT_EINK_SPI_DEVICE 255
 
+#define EPD_SHOW        (1<<0)
+#define EPD_DRAW        (1<<1)
+#define EPD_CLEAR       (1<<2)
+
+
 #include "epdpaint.h"
 typedef struct eink_ctx{
     uint32_t str_color;
     Paint paint;
     uint8_t fb[];
 }eink_ctx_t;
-
-typedef struct eink_async{
-    uint8_t level;
-    uint8_t send_cmd;
-}eink_async_t;
-
 typedef struct eink_conf {
     uint8_t full_mode;
     uint8_t port;
@@ -86,15 +85,14 @@ typedef struct eink_conf {
     uint8_t pin_cs;
     uint8_t pin_busy;
     uint8_t async;
-    eink_async_t async_cmd;
     uint64_t idp;
     uint32_t ctx_index;
     eink_ctx_t *ctxs[2]; // 暂时只支持2种颜色, 有需要的话后续继续
     u8g2_t luat_eink_u8g2;
     luat_spi_device_t* eink_spi_device;
     int eink_spi_ref;
-    uint8_t timer_count;
-    void* readbusy_timer;
+    luat_rtos_queue_t eink_queue_handle;
+    luat_rtos_task_handle eink_task_handle;
     void* userdata;
 }eink_conf_t;
 

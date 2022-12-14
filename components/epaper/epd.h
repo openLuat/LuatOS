@@ -10,6 +10,7 @@ int EPD_Init(UBYTE Mode, size_t *w, size_t *h, size_t* color_count);
 void EPD_Clear(void);
 void EPD_Display(UBYTE *Image, UBYTE *Image2);
 void EPD_Sleep(void);
+void EPD_Task(void *param);
 
 enum EPD_MODEL {
         MODEL_1in02d = 1,

@@ -11,9 +11,11 @@
 #include "luat_msgbus.h"
 #include "luat_zbuff.h"
 #include "ldebug.h"
-#include "luat_network_adapter.h"
 #include "luat_rtos.h"
+#ifdef LUAT_USE_ERR_DUMP
 #include "luat_mobile.h"
+#include "luat_network_adapter.h"
+#endif
 #define LUAT_LOG_TAG "log"
 #include "luat_log.h"
 #define ERR_DUMP_LEN_MAX	(4096)

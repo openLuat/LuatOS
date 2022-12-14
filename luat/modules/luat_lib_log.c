@@ -571,7 +571,7 @@ static void luat_log_save(const char *path, const uint8_t *data, uint32_t len)
 		luat_fs_fwrite(data, len, 1, fd);
 	}
 	luat_fs_fclose(fd);
-	if (!lconf.is_uploading)
+	if (!lconf.is_uploading  && lconf.upload_period)
 	{
 		luat_rtos_timer_start(lconf.upload_timer, 2000, 0, luat_errdump_timer_callback, NULL);
 	}
@@ -677,7 +677,11 @@ static int l_log_dump(lua_State *L) {
 	{
 		is_delete = lua_toboolean(L, 3);
 	}
-	luat_zbuff_t *buff = tozbuff(L);
+	luat_zbuff_t *buff = NULL;
+	if (lua_touserdata(L, 1))
+	{
+		buff = tozbuff(L);
+	}
 	int result = 0;
 	const char *path = NULL;
 	int type = luaL_optinteger(L, 2, LUAT_LOG_RECORD_TYPE_USR);
@@ -713,11 +717,10 @@ static int l_log_dump(lua_State *L) {
 			lconf.user_error_r_cnt = lconf.user_error_w_cnt;
 			break;
 		}
-
+		luat_log_load(path, &buffer);
 		buff->addr = buffer.Data;
 		buff->len = buffer.MaxLen;
 		buff->used = buffer.Pos;
-		luat_log_load(path, &buffer);
 	}
 	lua_pushboolean(L, result);
 	if (is_delete)

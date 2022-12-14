@@ -222,6 +222,10 @@ int on_headers_complete(http_parser* parser){
 int on_body(http_parser* parser, const char *at, size_t length){
 	// LLOGD("on_body:%.*s",length,at);
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
+	if (http_ctrl->is_chunk){
+		return 0;
+	}
+	
 	if (http_ctrl->is_download){
 		if (http_ctrl->fd == NULL){
 			luat_fs_remove(http_ctrl->dst);

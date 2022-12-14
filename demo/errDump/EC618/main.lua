@@ -28,7 +28,7 @@ log.uploadConfig(true, 0)
 local function test_user_log()
 	local buff = zbuff.create(4096)
 	local new_flag = log.dump(buff, log.TYPE_SYS)
-	if buff:used() then
+	if buff:used() > 0 then
 		log.info(buff:toStr(0, buff:used()))
 	end
 	new_flag = log.dump(buff, log.TYPE_SYS)

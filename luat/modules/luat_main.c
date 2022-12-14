@@ -108,6 +108,9 @@ static int report (lua_State *L, int status) {
   if (status != LUA_OK) {
     const char *msg = lua_tostring(L, -1);
     l_message("LUAT", msg);
+#ifdef LUAT_USE_ERR_DUMP
+    luat_log_save_file(msg, strlen(msg));
+#endif
     lua_pop(L, 1);  /* remove message */
   }
   return status;

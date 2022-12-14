@@ -1227,6 +1227,23 @@ static int l_eink_set_ctx(lua_State *L) {
   return 1;
 }
 
+/*
+异步方式，使用此方式需要先 require("sysplus") 之后 eink.clear().wait() eink.show().wait()进行刷屏
+@api eink.async(index)
+@int 1 使用异步
+@usage
+    eink.async(1)
+    spi_eink = spi.deviceSetup(spi_id,pin_cs,0,0,8,20*1000*1000,spi.MSB,1,1)
+    eink.init(eink.MODEL_1in54,
+            {port = "device",pin_dc = pin_dc, pin_busy = pin_busy,pin_rst = pin_reset},
+            spi_eink)
+    eink.setWin(200, 200, 0)
+    sys.wait(100)
+    log.info("e-paper 1.54", "Testing Go")
+    eink.print(30, 20, "LuatOS-AIR780E",0x00)
+    eink.show().wait()
+    log.info("e-paper 1.54", "Testing End")
+*/
 static int l_eink_async(lua_State *L) {
   econf.async = luaL_checkinteger(L, 1);
   return 0;

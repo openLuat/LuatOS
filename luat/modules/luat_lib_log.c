@@ -33,8 +33,10 @@ enum
 	LUAT_ERRDUMP_CLOSE,
 };
 
+#ifdef LUAT_USE_ERR_DUMP
 static const char sys_error_log_file_path[] = {'/',0xaa,'s','e','r','r',0};
 static const char user_error_log_file_path[] = {'/',0xaa,'u','e','r','r',0};
+#endif
 typedef struct luat_log_conf
 {
 #ifdef LUAT_USE_ERR_DUMP

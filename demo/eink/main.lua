@@ -75,13 +75,8 @@ end)
     
 --         log.info("e-paper 1.54", "Testing Go")
 --         eink.clear().wait()
---         print("eink.print")
---         eink.setCtx(0)
 --         eink.print(30, 20, "LuatOS-AIR780E",0x00)
     
---         eink.setCtx(1)
---         eink.print(30, 50, "LuatOS-AIR780E",0x00)
---         print("eink.print end")
 --         eink.show().wait()
 --         log.info("e-paper 1.54", "Testing End")
 --     end

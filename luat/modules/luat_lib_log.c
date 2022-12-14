@@ -268,6 +268,7 @@ static int luat_errdump_network_callback(void *data, void *param)
 	OS_EVENT *event = (OS_EVENT *)data;
 	int ret = 0;
 	rtos_msg_t msg = {0};
+
 	if (event->Param1)
 	{
 		LLOGE("errdump fail, after %d second retry", lconf.upload_period);
@@ -289,6 +290,7 @@ static int luat_errdump_network_callback(void *data, void *param)
 		msg.handler = l_errdump_callback,
 		msg.arg1 = LUAT_ERRDUMP_RX,
 		luat_msgbus_put(&msg, 0);
+		network_wait_event(lconf.netc, NULL, 0, 0);
 		break;
 	case EV_NW_RESULT_CLOSE:
 		break;
@@ -369,8 +371,12 @@ static void luat_errdump_make_data(lua_State *L)
 
 static int32_t l_errdump_callback(lua_State *L, void* ptr)
 {
+	uint8_t response[16];
+	luat_ip_addr_t remote_ip;
+	uint16_t remote_port;
 	uint32_t dummy_len;
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    const char *ok_result = "{\"r\": 1}";
     switch(msg->arg1)
     {
     case LUAT_ERRDUMP_CONNECT:
@@ -387,7 +393,7 @@ static int32_t l_errdump_callback(lua_State *L, void* ptr)
     	{
     		network_init_ctrl(lconf.netc, NULL, luat_errdump_network_callback, NULL);
     		network_set_base_mode(lconf.netc, 0, 0, 0, 0, 0, 0);
-    		network_set_local_port(lconf.netc, 0);
+    		lconf.netc->is_debug = 1;
     		luat_rtos_timer_start(lconf.network_timer, 30000, 0, luat_errdump_rx_timer_callback, NULL);
     		network_connect(lconf.netc, luat_errdump_domain, sizeof(luat_errdump_domain), NULL, LUAT_ERRDUMP_PORT, 0);
     	}
@@ -406,50 +412,64 @@ static int32_t l_errdump_callback(lua_State *L, void* ptr)
     		}
     	}
 
-    	if (network_tx(lconf.netc, lconf.tx_buf.Data, lconf.tx_buf.Pos, 0, NULL, 0, &dummy_len, 0))
+    	if (network_tx(lconf.netc, lconf.tx_buf.Data, lconf.tx_buf.Pos, 0, NULL, 0, &dummy_len, 0) < 0)
     	{
     		LLOGE("socket tx error, errdump fail, after %d second retry", lconf.upload_period);
     		luat_rtos_timer_start(lconf.upload_timer, lconf.upload_period * 1000, 0, luat_errdump_timer_callback, NULL);
 			goto SOCKET_CLOSE;
     	}
+    	network_wait_event(lconf.netc, NULL, 0, 0);
     	luat_rtos_timer_start(lconf.network_timer, 10000, 0, luat_errdump_rx_timer_callback, (void *)(msg->arg2 + 1));
     	break;
     case LUAT_ERRDUMP_RX:
-    	uint8_t response[16];
-    	luat_ip_addr_t remote_ip;
-    	uint16_t remote_port;
+
     	if (network_rx(lconf.netc, response, 16, 0, &remote_ip, &remote_port, &dummy_len))
     	{
     		LLOGE("socket rx error, errdump fail, after %d second retry", lconf.upload_period);
     		luat_rtos_timer_start(lconf.upload_timer, lconf.upload_period * 1000, 0, luat_errdump_timer_callback, NULL);
 			goto SOCKET_CLOSE;
     	}
-    	if (dummy_len >= 2)
+    	if (8 == dummy_len)
     	{
-    		if ('O' == response[0] && 'K' == response[1])
+    		if (memcmp(response, ok_result, 8))
     		{
-        		if (lconf.sys_error_r_cnt != lconf.sys_error_w_cnt || lconf.user_error_r_cnt != lconf.user_error_w_cnt)
-        		{
-        			LLOGD("errdump need retry!");
-        			luat_errdump_make_data(L);
-        			if (network_tx(lconf.netc, lconf.tx_buf.Data, lconf.tx_buf.Pos, 0, NULL, 0, &dummy_len, 0))
-					{
-						LLOGE("socket tx error, errdump fail, after %d second retry", lconf.upload_period);
-						luat_rtos_timer_start(lconf.upload_timer, lconf.upload_period * 1000, 0, luat_errdump_timer_callback, NULL);
-						goto SOCKET_CLOSE;
-					}
-					luat_rtos_timer_start(lconf.network_timer, 10000, 0, luat_errdump_rx_timer_callback, (void *)1);
-        		}
-        		else
-        		{
-        			LLOGD("errdump ok!");
-        			luat_log_clear(sys_error_log_file_path);
-        			luat_log_clear(user_error_log_file_path);
-        			lconf.upload_poweron_reason_done = 1;
-        			goto SOCKET_CLOSE;
-        		}
+    			LLOGD("errdump response error %.*s", dummy_len, response);
+    			break;
     		}
     	}
+    	else if (2 == dummy_len)
+    	{
+    		if (memcmp(response, "OK", 2))
+    		{
+    			LLOGD("errdump response error %.*s", dummy_len, response);
+    			break;
+    		}
+    	}
+    	else
+    	{
+    		LLOGD("errdump response meybe new %.*s", dummy_len, response);
+    	}
+		if (lconf.sys_error_r_cnt != lconf.sys_error_w_cnt || lconf.user_error_r_cnt != lconf.user_error_w_cnt)
+		{
+			LLOGD("errdump need retry!");
+			luat_errdump_make_data(L);
+			if (network_tx(lconf.netc, lconf.tx_buf.Data, lconf.tx_buf.Pos, 0, NULL, 0, &dummy_len, 0))
+			{
+				LLOGE("socket tx error, errdump fail, after %d second retry", lconf.upload_period);
+				luat_rtos_timer_start(lconf.upload_timer, lconf.upload_period * 1000, 0, luat_errdump_timer_callback, NULL);
+				goto SOCKET_CLOSE;
+			}
+			network_wait_event(lconf.netc, NULL, 0, 0);
+			luat_rtos_timer_start(lconf.network_timer, 10000, 0, luat_errdump_rx_timer_callback, (void *)1);
+		}
+		else
+		{
+			LLOGD("errdump ok!");
+			luat_log_clear(sys_error_log_file_path);
+			luat_log_clear(user_error_log_file_path);
+			lconf.upload_poweron_reason_done = 1;
+			goto SOCKET_CLOSE;
+		}
     	break;
     case LUAT_ERRDUMP_CLOSE:
     	goto SOCKET_CLOSE;
@@ -534,6 +554,7 @@ static void luat_log_save(const char *path, const uint8_t *data, uint32_t len)
 		uint8_t *buffer = luat_heap_malloc(now_len + len);
 		if (!buffer)
 		{
+			luat_fs_fclose(fd);
 			return;
 		}
 		luat_fs_fseek(fd, 0, SEEK_SET);

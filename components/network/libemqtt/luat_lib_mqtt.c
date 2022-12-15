@@ -337,22 +337,35 @@ static int l_mqtt_create(lua_State *L) {
 }
 
 /*
-mqtt三元组配置
-@api mqttc:auth(client_id,username,password)
+mqtt三元组配置及cleanSession
+@api mqttc:auth(client_id,username,password,cleanSession)
 @string 设备识别id,对于同一个mqtt服务器来说, 通常要求唯一,相同client_id会互相踢下线
 @string 账号 可选
 @string 密码 可选
+@bool 清除session,默认true,可选
 @return nil 无返回值
 @usage
+-- 无账号密码登录,仅clientId
+mqttc:auth("123456789")
+-- 带账号密码登录
 mqttc:auth("123456789","username","password")
+-- 额外配置cleanSession,不清除
+mqttc:auth("123456789","username","password", false)
+-- 无clientId模式, 服务器随机生成id, cleanSession不可配置
+mqttc:auth()
 */
 static int l_mqtt_auth(lua_State *L) {
 	luat_mqtt_ctrl_t * mqtt_ctrl = get_mqtt_ctrl(L);
 	const char *client_id = luaL_optstring(L, 2, "");
 	const char *username = luaL_optstring(L, 3, "");
 	const char *password = luaL_optstring(L, 4, "");
+	int cleanSession = 1;
+	if (lua_isboolean(L, 5) && !lua_toboolean(L, 5)) {
+		cleanSession = 0;
+	}
 	mqtt_init(&(mqtt_ctrl->broker), client_id);
 	mqtt_init_auth(&(mqtt_ctrl->broker), username, password);
+	mqtt_ctrl->broker.clean_session = cleanSession;
 	return 0;
 }
 

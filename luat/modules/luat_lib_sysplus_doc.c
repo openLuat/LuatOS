@@ -24,7 +24,7 @@
 sysplus.waitMsg('a', 'b', 1000)
 -- 注意, 本函数会自动注册成全局函数 sys_wait
 */
-void doc_sys_wait(void){};
+void doc_sysplus_wait(void){};
 
 /*
 向目标任务发送一个消息
@@ -40,4 +40,4 @@ void doc_sys_wait(void){};
 sysplus.sendMsg('a', 'b')
 -- 注意, 本函数会自动注册成全局函数 sys_send
 */
-void doc_sys_send(void){};
+void doc_sysplus_send(void){};

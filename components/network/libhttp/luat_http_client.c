@@ -5,6 +5,17 @@
 @date    2022.09.05
 @demo    socket
 @tag LUAT_USE_HTTP
+@usage
+-- 使用http库,需要引入sysplus库, 且需要在task内使用
+require "sys"
+require "sysplus"
+
+sys.taskInit(function()
+	sys.wait(1000)
+	local code,headers,body = http.request("GET", "http://www.example.com/abc").wait()
+	log.info("http", code, body)
+end)
+
 */
 
 #include "luat_base.h"
@@ -532,7 +543,7 @@ http客户端
 @string url地址
 @tabal  请求头 可选 例如{["Content-Type"] = "application/x-www-form-urlencoded"}
 @string body 可选
-@tabal  额外配置 可选 包含dst:下载路径,可选 adapter:选择使用网卡,可选 debug:是否打开debug信息,可选
+@table  额外配置 可选 包含dst:下载路径,可选 adapter:选择使用网卡,可选 debug:是否打开debug信息,可选
 @string 服务器ca证书数据
 @string 客户端ca证书数据
 @string 客户端私钥加密数据

@@ -47,7 +47,6 @@ typedef struct{
 	// 响应相关
 	// uint32_t resp_content_len;	//content 长度
 	FILE* fd;					//下载 FILE
-	uint32_t fd_writed;
 	uint64_t idp;
 	uint16_t timeout;
 	uint8_t headers_complete;

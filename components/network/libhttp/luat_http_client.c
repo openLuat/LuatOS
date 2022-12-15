@@ -258,15 +258,15 @@ int on_body(http_parser* parser, const char *at, size_t length){
 			http_ctrl->body = luat_heap_realloc(http_ctrl->body,http_ctrl->body_len+length+1);
 		}
 		memcpy(http_ctrl->body+http_ctrl->body_len,at,length);
-		http_ctrl->body_len += length;
 	}
+	http_ctrl->body_len += length;
     return 0;
 }
 
 int on_message_complete(http_parser* parser){
     LLOGD("on_message_complete");
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
-	http_ctrl->body[http_ctrl->body_len] = 0x00;
+	// http_ctrl->body[http_ctrl->body_len] = 0x00;
 	if (http_ctrl->fd != NULL) {
 		luat_fs_fclose(http_ctrl->fd);
 		http_ctrl->fd = NULL;

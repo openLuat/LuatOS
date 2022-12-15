@@ -7,7 +7,6 @@
 @tag LUAT_USE_SMS
 @usage
 -- 注意, Air780E/Air600E/Air780EG/Air780EG均不支持电信卡的短信!!
--- 本库尚在开发中, 暂不可用
 */
 
 #include "luat_base.h"
@@ -26,13 +25,63 @@ void luat_str_fromhex(char* str, size_t len, char* buff) ;
 #define LUAT_LOG_TAG "sms"
 #include "luat_log.h"
 static int lua_sms_ref = 0;
+static int lua_sms_recv_long = 1;
+static char* sms_long_buff[16];
+// static char* longsms = NULL;
+// static int longsms_refNum = -1;
+
+static void push_sms_args(lua_State* L, LUAT_SMS_RECV_MSG_T* sms, char* dst, size_t dstlen) {
+    lua_pushstring(L, sms->phone_address);
+    if (sms->maxNum > 0 && lua_sms_recv_long) {
+        luaL_Buffer buff;
+        luaL_buffinit(L, &buff);
+        for (size_t i = 0; i < sms->maxNum; i++)
+        {
+            if (sms_long_buff[i]) {
+                luaL_addstring(&buff, sms_long_buff[i]);
+                luat_heap_free(sms_long_buff[i]);
+                sms_long_buff[i] = NULL;
+            }
+        }
+        luaL_pushresult(&buff);
+    }
+    else {
+        lua_pushlstring(L, dst, dstlen);
+    }
+    // 添加元数据
+    lua_newtable(L);
+
+    // 长短信总数
+    // lua_pushinteger(L, sms->refNum);
+    // lua_setfield(L, -2, "refNum");
+    // // 当前序号
+    // lua_pushinteger(L, sms->seqNum);
+    // lua_setfield(L, -2, "seqNum");
+
+    // 时间信息
+    lua_pushinteger(L, sms->time.year);
+    lua_setfield(L, -2, "year");
+    lua_pushinteger(L, sms->time.month);
+    lua_setfield(L, -2, "mon");
+    lua_pushinteger(L, sms->time.day);
+    lua_setfield(L, -2, "day");
+    lua_pushinteger(L, sms->time.hour);
+    lua_setfield(L, -2, "hour");
+    lua_pushinteger(L, sms->time.minute);
+    lua_setfield(L, -2, "min");
+    lua_pushinteger(L, sms->time.second);
+    lua_setfield(L, -2, "sec");
+    lua_pushinteger(L, sms->time.tz_sign == '+' ? sms->time.tz : - sms->time.tz);
+    lua_setfield(L, -2, "tz");
+
+}
 
 static int l_sms_recv_handler(lua_State* L, void* ptr) {
     LUAT_SMS_RECV_MSG_T* sms = ((LUAT_SMS_RECV_MSG_T*)ptr);
     char buff[280+2] = {0};
-    luaL_Buffer b;
     size_t dstlen = strlen(sms->sms_buffer);
-    uint8_t dst[142] = {0};
+    char tmpbuff[142] = {0};
+    char *dst = tmpbuff;
 
     LLOGD("dcs %d | %d | %d | %d", sms->dcs_info.alpha_bet, sms->dcs_info.dcs, sms->dcs_info.msg_class, sms->dcs_info.type);
 
@@ -72,6 +121,31 @@ static int l_sms_recv_handler(lua_State* L, void* ptr) {
             break;
         }
     }
+    if (sms->maxNum > 0 && lua_sms_recv_long) {
+        if (sms->maxNum > 16) {
+            LLOGE("max 16 long-sms supported!! %d", sms->maxNum);
+            luat_heap_free(sms);
+            return 0;
+        }
+        if (sms_long_buff[sms->seqNum - 1] == NULL) {
+            sms_long_buff[sms->seqNum - 1] = luat_heap_malloc(dstlen + 1);
+            if (sms_long_buff[sms->seqNum - 1] == NULL) {
+                LLOGE("out of memory when malloc long sms buff");
+                return 0;
+            }
+            memcpy(sms_long_buff[sms->seqNum - 1], dst, dstlen);
+            sms_long_buff[sms->seqNum - 1][dstlen] = 0x00;
+        }
+        for (size_t i = 0; i < sms->maxNum; i++)
+        {
+            if (sms_long_buff[i] == NULL) {
+                LLOGI("long-sms, wait more frags %d/%d", sms->seqNum, sms->maxNum);
+                return 0;
+            }
+        }
+        LLOGI("long-sms is ok");
+    }
+
     // 先发系统消息
     lua_getglobal(L, "sys_pub");
     if (lua_isnil(L, -1)) {
@@ -79,17 +153,15 @@ static int l_sms_recv_handler(lua_State* L, void* ptr) {
         return 0;
     }
     lua_pushliteral(L, "SMS_INC");
-    lua_pushstring(L, sms->phone_address);
-    lua_pushlstring(L, dst, dstlen);
-    lua_call(L, 3, 0);
+    push_sms_args(L, sms, dst, dstlen);
+    lua_call(L, 4, 0);
 
     // 如果有回调函数, 就调用
     if (lua_sms_ref) {
         lua_geti(L, LUA_REGISTRYINDEX, lua_sms_ref);
         if (lua_isfunction(L, -1)) {
-            lua_pushstring(L, sms->phone_address);
-            lua_pushlstring(L, dst, dstlen);
-            lua_call(L, 2, 0);
+            push_sms_args(L, sms, dst, dstlen);
+            lua_call(L, 3, 0);
         }
     }
     luat_heap_free(sms);
@@ -136,15 +208,16 @@ static int l_sms_send(lua_State *L) {
 /**
 设置新SMS的回调函数
 @api sms.setNewSmsCb(func)
-@function 回调函数, 3个参数, num, txt, datetime
+@function 回调函数, 3个参数, num, txt, metas
 @return nil 传入是函数就能成功,无返回值
 @usage
 
-sms.setNewSmsCb(function(num, txt, datetime)
+sms.setNewSmsCb(function(num, txt, metas)
     -- num 手机号码
     -- txt 文本内容
-    -- datetime 发送时间,当前为nil,暂不支持
-    log.info("sms", num, txt, datetime)
+    -- metas 短信的元数据,例如发送的时间,长短信编号
+    -- 注意, 长短信会自动合并成一条txt
+    log.info("sms", num, txt, metas and json.encode(metas) or "")
 end)
  */
 static int l_sms_cb(lua_State *L) {

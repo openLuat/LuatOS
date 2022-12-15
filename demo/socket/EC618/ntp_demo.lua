@@ -12,11 +12,11 @@ local function netCB(netc, event, param)
 		if rbuf:used() >= 48 then
 			local tamp = rbuf:query(40,4,true) 
 			if tamp - 0x83aa7e80 > 0 then
-				-- rtc.set(tamp - 0x83aa7e80 + 8 * 3600)
+				-rtc.set(tamp - 0x83aa7e80 + 8 * 3600)
 			else
 				--2036年后，当前ntp协议会回滚
 				log.info("ntp 时间戳回滚")
-				-- rtc.set(0x7C558180 + tamp + 8 * 3600)
+				rtc.set(0x7C558180 + tamp + 8 * 3600)
 			end
 			log.info(os.date())
 			sys.publish("NTP_FINISH")

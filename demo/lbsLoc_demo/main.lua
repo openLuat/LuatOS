@@ -1,5 +1,5 @@
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "mobiledemo"
+PROJECT = "lbsLoc_demo"
 VERSION = "1.0.0"
 
 local PRODUCT_KEY = "VmhtOb81EgZau6YyuuZJzwF6oUNGCbXi"

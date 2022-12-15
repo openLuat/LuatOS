@@ -149,8 +149,6 @@ local function taskClient(cbFnc, reqAddr, timeout, productKey, host, port,reqTim
     end
 
 end
-
-
 local function cbFnc(result, lat, lng, addr, time, locType)
     log.info("testLbsLoc.getLocCb", result, lat, lng)
     -- 获取经纬度成功
@@ -161,21 +159,7 @@ local function cbFnc(result, lat, lng, addr, time, locType)
     end
 
 end
-
-
-
--- sys.taskInit(taskClient,cbFnc,nil,20000, PRODUCT_KEY,"112.125.89.8","37975",nil,nil)
-
-
 sysplus.taskInitEx(taskClient, d1Name, netCB, cbFnc,nil,20000, PRODUCT_KEY,"bs.openluat.com",12411,nil,nil)
---sysplus.taskInitEx(taskClient, d1Name, netCB, cbFnc,nil,20000, PRODUCT_KEY,"112.125.89.8",33560,nil,nil)
-
-
-
-
-
-
-
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()

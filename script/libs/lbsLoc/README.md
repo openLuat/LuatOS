@@ -13,8 +13,7 @@ log.info("main", PROJECT, VERSION)
 -- sys库是标配
 _G.sys = require("sys")
 _G.sysplus = require("sysplus")
-local lbsLoc = require("lbsLoc")
-
+local lbsLoc = require("lbsLoc")                          
 local function reqLbsLoc()
     lbsLoc.request(getLocCb)
 end
@@ -41,7 +40,6 @@ function getLocCb(result, lat, lng, addr, time, locType)
     if result == 0 then
         log.info("服务器返回的时间", time:toHex())
         log.info("定位类型,基站定位成功返回0", locType)
-        -- 失败
     end
     sys.timerStart(reqLbsLoc,20000)
 end

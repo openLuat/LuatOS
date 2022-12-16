@@ -319,6 +319,9 @@ end
 @string host 服务器域名，此参数可选，目前仅lib中agps.lua使用此参数。应用脚本可以直接传nil
 @string port 服务器端口，此参数可选，目前仅lib中agps.lua使用此参数。应用脚本可以直接传nil
 @bool reqTime 是否需要服务器返回时间信息，true返回，false或者nil不返回，此参数可选，目前仅lib中agps.lua使用此参数。应用脚本可以直接传nil
+@table reqWifi 搜索到的WIFI热点信息(MAC地址和信号强度)，如果传入了此参数，后台会查询WIFI热点对应的经纬度，此参数格式如下：
+{["1a:fe:34:9e:a1:77"] = -63,["8c:be:be:2d:cd:e9"] = -81,["20:4e:7f:82:c2:c4"] = -70,}
+@return nil
 ]]
 function lbsLoc.request(cbFnc,reqAddr,timeout,productKey,host,port,reqTime,reqWifi)
     sysplus.taskInitEx(taskClient, d1Name, netCB, cbFnc,reqAddr or nil,timeout or 20000,productKey or _G.PRODUCT_KEY,host or "bs.openluat.com",port or "12411",reqTime,reqWifi)

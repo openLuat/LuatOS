@@ -574,6 +574,35 @@ static int l_mobile_event_handle(lua_State* L, void* ptr) {
 	case LUAT_MOBILE_EVENT_CFUN:
 		break;
 	case LUAT_MOBILE_EVENT_SIM:
+/*
+@sys_pub mobile
+sim卡状态变化
+CELL_INFO_UPDATE
+@usage
+sys.subscribe("SIM_IND", function(status)
+    log.info("sim status", status)
+end)
+*/
+        switch (status)
+        {
+        case LUAT_MOBILE_SIM_READY:
+            lua_pushstring(L, "SIM_IND");
+            lua_pushstring(L, "RDY");
+            lua_call(L, 2, 0);
+            break;
+        case LUAT_MOBILE_NO_SIM:
+            lua_pushstring(L, "SIM_IND");
+            lua_pushstring(L, "NORDY");
+            lua_call(L, 2, 0);
+            break;
+        case LUAT_MOBILE_SIM_NEED_PIN:
+            lua_pushstring(L, "SIM_IND");
+            lua_pushstring(L, "SIM_PIN");
+            lua_call(L, 2, 0);
+            break;
+        default:
+            break;
+        }
 		break;
 	case LUAT_MOBILE_EVENT_REGISTER_STATUS:
 		break;

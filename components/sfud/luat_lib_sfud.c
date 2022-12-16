@@ -200,13 +200,15 @@ static int luat_sfud_erase_write(lua_State *L){
 #ifdef LUAT_USE_FS_VFS
 #include "luat_fs.h"
 #include "lfs.h"
-extern lfs_t* flash_lfs_sfud(sfud_flash* flash);
+extern lfs_t* flash_lfs_sfud(sfud_flash* flash, size_t offset, size_t maxsize);
 
 /*
 挂载sfud lfs文件系统
-@api  sfud.mount(flash, mount_point)
+@api  sfud.mount(flash, mount_point, offset, maxsize)
 @userdata flash Flash 设备对象 sfud.get_device_table()返回的数据结构
 @string mount_point 挂载目录名
+@int    起始偏移量,默认0
+@int    总大小, 默认是整个flash
 @return bool 成功返回true
 @usage
 log.info("sfud.mount",sfud.mount(sfud_device,"/sfud"))
@@ -216,7 +218,9 @@ log.info("fsstat", fs.fsstat("/sfud"))
 static int luat_sfud_mount(lua_State *L) {
     const sfud_flash *flash = lua_touserdata(L, 1);
     const char* mount_point = luaL_checkstring(L, 2);
-    lfs_t* lfs = flash_lfs_sfud(flash);
+    size_t offset = luaL_optinteger(L, 3, 0);
+    size_t maxsize = luaL_optinteger(L, 4, 0);
+    lfs_t* lfs = flash_lfs_sfud(flash, offset, maxsize);
     if (lfs) {
 	    luat_fs_conf_t conf = {
 		    .busname = (char*)lfs,

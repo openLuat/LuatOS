@@ -18,24 +18,26 @@
 //#define LFS_BLOCK_DEVICE_TOTOAL_SIZE (FLASH_FS_REGION_SIZE)
 #define LFS_BLOCK_DEVICE_LOOK_AHEAD (16)
 
+static size_t sfud_offset = 0;
+
 // Read a block
 static int sfud_block_device_read(const struct lfs_config *cfg, lfs_block_t block, lfs_off_t off, void *buffer, lfs_size_t size) {
     sfud_flash* flash = (sfud_flash*)cfg->context;
-    int ret = sfud_read(flash, block * LFS_BLOCK_SIZE + off, size, buffer);
+    int ret = sfud_read(flash, sfud_offset + block * LFS_BLOCK_SIZE + off, size, buffer);
     //LLOGD("sfud_block_device_read ret %d", ret);
     return LFS_ERR_OK;
 }
 
 static int sfud_block_device_prog(const struct lfs_config *cfg, lfs_block_t block, lfs_off_t off, const void *buffer, lfs_size_t size) {
     sfud_flash* flash = (sfud_flash*)cfg->context;
-    int ret = sfud_write(flash, block * LFS_BLOCK_SIZE + off, size, buffer);
+    int ret = sfud_write(flash, sfud_offset + block * LFS_BLOCK_SIZE + off, size, buffer);
     //LLOGD("sfud_block_device_prog ret %d", ret);
     return LFS_ERR_OK;
 }
 
 static int sfud_block_device_erase(const struct lfs_config *cfg, lfs_block_t block) {
     sfud_flash* flash = (sfud_flash*)cfg->context;
-    int ret = sfud_erase(flash, block * LFS_BLOCK_SIZE, LFS_BLOCK_SIZE);
+    int ret = sfud_erase(flash, sfud_offset + block * LFS_BLOCK_SIZE, LFS_BLOCK_SIZE);
     //LLOGD("sfud_block_device_erase ret %d", ret);
     return LFS_ERR_OK;
 }
@@ -53,11 +55,12 @@ typedef struct LFS2 {
 }LFS2_t;
 
 
-lfs_t* flash_lfs_sfud(sfud_flash* flash) {
+lfs_t* flash_lfs_sfud(sfud_flash* flash, size_t offset, size_t maxsize) {
     LFS2_t *_lfs = luat_heap_malloc(sizeof(LFS2_t));
     if (_lfs == NULL)
         return NULL;
     memset(_lfs, 0, sizeof(LFS2_t));
+    sfud_offset = offset;
     lfs_t *lfs = &_lfs->lfs;
     struct lfs_config *lfs_cfg = &_lfs->cfg;
 
@@ -72,7 +75,7 @@ lfs_t* flash_lfs_sfud(sfud_flash* flash) {
     lfs_cfg->read_size = LFS_BLOCK_DEVICE_READ_SIZE;
     lfs_cfg->prog_size = LFS_BLOCK_DEVICE_PROG_SIZE;
     lfs_cfg->block_size = flash->chip.erase_gran;
-    lfs_cfg->block_count = flash->chip.capacity / flash->chip.erase_gran;
+    lfs_cfg->block_count = (maxsize > 0 ? maxsize : flash->chip.capacity) / flash->chip.erase_gran;
     lfs_cfg->block_cycles = 200;
     lfs_cfg->cache_size = LFS_BLOCK_DEVICE_CACHE_SIZE;
     lfs_cfg->lookahead_size = LFS_BLOCK_DEVICE_LOOK_AHEAD;

@@ -6,6 +6,15 @@ VERSION = "1.0.0"
 _G.sys = require("sys")
 -- _G.sysplus = require("sysplus")
 
+----------------------------------------
+-- 报错信息自动上报到平台,默认是iot.openluat.com
+-- 支持自定义, 详细配置请查阅API手册
+-- 开启后会上报开机原因, 这需要消耗流量,请留意
+if errDump then
+    errDump.uploadConfig(true, 600)
+end
+----------------------------------------
+
 local wsc = nil
 
 sys.taskInit(function()

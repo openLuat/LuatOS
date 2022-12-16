@@ -8,6 +8,16 @@ _G.sys = require("sys")
 _G.sysplus = require("sysplus")
 log.style(1)
 
+----------------------------------------
+-- 报错信息自动上报到平台,默认是iot.openluat.com
+-- 支持自定义, 详细配置请查阅API手册
+-- 开启后会上报开机原因, 这需要消耗流量,请留意
+if errDump then
+    errDump.uploadConfig(true, 600)
+end
+----------------------------------------
+
+
 require "net_test"
 
 -- 用户代码已结束---------------------------------------------

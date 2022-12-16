@@ -7,7 +7,7 @@ _G.sysplus = require("sysplus")
 log.style(1)
 
 --下面演示自动发送
-errDump.uploadConfig(true, 600, "user_id")	-- 默认是关闭，用这个可以额外添加用户标识，比如用户自定义的ID之类
+errDump.config(true, 600, "user_id")	-- 默认是关闭，用这个可以额外添加用户标识，比如用户自定义的ID之类
 
 -- local function test_user_log()
 -- 	while true do
@@ -24,7 +24,7 @@ errDump.uploadConfig(true, 600, "user_id")	-- 默认是关闭，用这个可以�
 
 
 -- 下面演示手动获取信息
-errDump.uploadConfig(true, 0)
+errDump.config(true, 0)
 local function test_user_log()
 	local buff = zbuff.create(4096)
 	local new_flag = log.dump(buff, log.TYPE_SYS)

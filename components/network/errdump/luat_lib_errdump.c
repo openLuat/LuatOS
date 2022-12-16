@@ -543,15 +543,15 @@ static int l_errdump_record(lua_State *L) {
 
 /*
 配置关键日志上传IOT平台，这里的日志包括引起luavm异常退出的日志和用户通过record写入的日志，类似于air的errDump
-@api    errDump.uploadConfig(enable, period, user_flag)
+@api    errDump.config(enable, period, user_flag)
 @boolean  是否启用记录功能，false的话将不会记录任何日志
 @int     定时上传周期，单位秒，默认600秒，这个是自动上传时候后的重试时间时间，在开机后或者有record操作后会很快尝试上传到合宙IOT平台一次，如果为0，则不会上传，由用户dump后自己上传自己的平台
 @string 用户的特殊标识，可以为空
 @return nil 无返回值
 @usage
-errDump.uploadConfig(true, 3600, "12345678")	--一个小时尝试上次一次，上传时会在imei后附加上12345678
-errDump.uploadConfig(false)	--关闭记录功能，不再上传
-errDump.uploadConfig(true, 0)	--记录，但是不会主动上传，由用户实现上传功能
+errDump.config(true, 3600, "12345678")	--一个小时尝试上次一次，上传时会在imei后附加上12345678
+errDump.config(false)	--关闭记录功能，不再上传
+errDump.config(true, 0)	--记录，但是不会主动上传，由用户实现上传功能
 */
 static int l_errdump_upload_config(lua_State *L) {
 	if (LUA_TBOOLEAN == lua_type(L, 1))
@@ -581,7 +581,7 @@ static const rotable_Reg_t reg_errdump[] =
 {
 	{ "dump",		    ROREG_FUNC(l_errdump_dump)},
 	{ "record", 	    ROREG_FUNC(l_errdump_record)},
-	{ "uploadConfig", 	ROREG_FUNC(l_errdump_upload_config)},
+	{ "config", 	ROREG_FUNC(l_errdump_upload_config)},
 	{ "TYPE_SYS",       ROREG_INT(LUAT_ERRDUMP_RECORD_TYPE_SYS)},
 	{ "TYPE_USR",       ROREG_INT(LUAT_ERRDUMP_RECORD_TYPE_USR)},
 	{ NULL,             ROREG_INT(0) }

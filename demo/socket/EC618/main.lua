@@ -13,7 +13,7 @@ log.style(1)
 -- 支持自定义, 详细配置请查阅API手册
 -- 开启后会上报开机原因, 这需要消耗流量,请留意
 if errDump then
-    errDump.uploadConfig(true, 600)
+    errDump.config(true, 600)
 end
 ----------------------------------------
 

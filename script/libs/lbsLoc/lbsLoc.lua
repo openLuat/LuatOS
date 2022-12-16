@@ -315,35 +315,14 @@ end
 
 --[[
 发送基站/WIFI定位请求（仅支持中国区域的位置查询）
-@api lbsloc.request(cbFnc,reqAddr,timeout,productKey,host,port,reqTime,reqWifi)
-@function cbFnc 用户回调函数，回调函数的调用形式为：
-cbFnc(result,lat,lng,addr,time,locType)
-result：number类型
-0表示成功
-1表示网络环境尚未就绪                     
-2表示连接服务器失败
-3表示发送数据失败
-4表示接收服务器应答超时
-5表示服务器返回查询失败
-6表示socket已满，创建socket失败
-为0时，后面的5个参数才有意义
-lat：string类型或者nil，纬度，整数部分3位，小数部分7位，例如"031.2425864"
-lng：string类型或者nil，经度，整数部分3位，小数部分7位，例如"121.4736522"
-addr：目前无意义
-time：string类型或者nil，服务器返回的时间，6个字节，年月日时分秒，需要转为十六进制读取
-        第一个字节：年减去2000，例如2017年，则为0x11
-        第二个字节：月，例如7月则为0x07，12月则为0x0C
-        第三个字节：日，例如11日则为0x0B
-        第四个字节：时，例如18时则为0x12
-        第五个字节：分，例如59分则为0x3B
-        第六个字节：秒，例如48秒则为0x30
-        locType：numble类型或者nil，定位类型，0表示基站定位成功，255表示WIFI定位成功
-@bool[opt=nil] reqAddr 是否请求服务器返回具体的位置字符串信息，目前此功能不完善
-@number[opt=20000] timeout 请求超时时间，单位毫秒，默认20000毫秒
-@string[opt=nil] productKey IOT网站上的产品证书，如果在main.lua中定义了PRODUCT_KEY变量，则此参数可以传nil
-@string[opt=nil] host 服务器域名，此参数可选，目前仅lib中agps.lua使用此参数。应用脚本可以直接传nil
-@string[opt=nil] port 服务器端口，此参数可选，目前仅lib中agps.lua使用此参数。应用脚本可以直接传nil
-@bool[opt=nil] reqTime 是否需要服务器返回时间信息，true返回，false或者nil不返回，此参数可选，目前仅lib中agps.lua使用此参数。应用脚本可以直接传nil
+@api lbsLoc.request(cbFnc,reqAddr,timeout,productKey,host,port,reqTime,reqWifi)
+@function cbFnc 用户回调函数，回调函数的调用形式为：cbFnc(result,lat,lng,addr,time,locType)
+@bool reqAddr 是否请求服务器返回具体的位置字符串信息，目前此功能不完善，参数可以传nil
+@number timeout 请求超时时间，单位毫秒，默认20000毫秒
+@string productKey IOT网站上的产品证书，如果在main.lua中定义了PRODUCT_KEY变量，则此参数可以传nil
+@string host 服务器域名，此参数可选，目前仅lib中agps.lua使用此参数。应用脚本可以直接传nil
+@string port 服务器端口，此参数可选，目前仅lib中agps.lua使用此参数。应用脚本可以直接传nil
+@bool reqTime 是否需要服务器返回时间信息，true返回，false或者nil不返回，此参数可选，目前仅lib中agps.lua使用此参数。应用脚本可以直接传nil
 ]]
 function lbsLoc.request(cbFnc,reqAddr,timeout,productKey,host,port,reqTime,reqWifi)
     sysplus.taskInitEx(taskClient, d1Name, netCB, cbFnc,reqAddr or nil,timeout or 20000,productKey or _G.PRODUCT_KEY,host or "bs.openluat.com",port or "12411",reqTime,reqWifi)

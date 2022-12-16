@@ -7,5 +7,6 @@
     "files" : {
         "." : "*"
     },
-    "enterpoint" : "lbsLoc.lua"
+    "enterpoint" : "lbsLoc.lua",
+    "dependency" : ["mobile"]
 }

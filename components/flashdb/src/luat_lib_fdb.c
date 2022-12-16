@@ -193,8 +193,9 @@ static int l_fdb_kv_set(lua_State *L) {
 
 /**
 根据key获取对应的数据
-@api fdb.kv_get(key)
+@api fdb.kv_get(key, skey)
 @string key的名称,必填,不能空字符串
+@string 可选的次级key,仅当原始值为table时有效,相当于 fdb.kv_get(key)[skey]
 @return any 存在则返回数据,否则返回nil
 @usage
 if fdb.kvdb_init("env", "onchip_fdb") then
@@ -209,6 +210,7 @@ static int l_fdb_kv_get(lua_State *L) {
     luaL_Buffer buff;
     struct fdb_blob blob = {0};
     const char* key = luaL_checkstring(L, 1);
+    const char* skey = luaL_optstring(L, 2, "");
     luaL_buffinit(L, &buff);
     blob.buf = buff.b;
     blob.size = buff.size;
@@ -243,6 +245,9 @@ static int l_fdb_kv_get(lua_State *L) {
             lua_getfield(L, -1, "decode");
             lua_pushlstring(L, (const char*)(buff.b + 1), read_len - 1);
             lua_call(L, 1, 1);
+            if (strlen(skey) > 0 && lua_istable(L, -1)) {
+                lua_getfield(L, -1, skey);
+            }
             break;
         default :
             LLOGW("bad value prefix %02X", buff.b[0]);

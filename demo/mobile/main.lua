@@ -54,6 +54,13 @@ sys.taskInit(function()
     end
 end)
 
+-- 获取sim卡的状态
+
+sys.subscribe("SIM_IND", function(status)
+    log.info("sim status", status)
+end)
+
+
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()

@@ -54,6 +54,7 @@ lfs_t* flash_lfs_sfud(sfud_flash* flash) {
     LFS2_t *_lfs = luat_heap_malloc(sizeof(LFS2_t));
     if (_lfs == NULL)
         return NULL;
+    memset(_lfs, 0, sizeof(LFS2_t));
     lfs_t *lfs = &_lfs->lfs;
     struct lfs_config *lfs_cfg = &_lfs->cfg;
 

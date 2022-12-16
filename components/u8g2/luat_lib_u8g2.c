@@ -24,6 +24,7 @@
 
 static u8g2_t* u8g2 = NULL;
 static int u8g2_lua_ref = 0;
+uint8_t pinType = 255; // I2C_SW = 1, I2C_HW = 2, SPI_SW_3PIN = 3, SPI_SW_4PIN = 4, SPI_HW_4PIN=5, P8080 = 6
 static uint8_t i2c_id;
 static uint8_t i2c_speed;
 static uint8_t i2c_scl;
@@ -72,7 +73,6 @@ static int l_u8g2_begin(lua_State *L) {
     }
 
     luat_u8g2_conf_t conf = {0};
-    conf.pinType = 2; // I2C 硬件(或者是个假硬件)
     conf.ptr = u8g2;
     conf.direction = U8G2_R0;
     char mode[12] = {0};
@@ -126,15 +126,14 @@ static int l_u8g2_begin(lua_State *L) {
         }
         memcpy(mode, tmp, strlen(tmp));
         lua_pop(L, 1);
-        conf.pinType = 255;
         for (size_t i = 0; i < sizeof(mode_strs) / sizeof(const char*); i++)
         {
             if (strcmp(mode_strs[i], tmp) == 0) {
-                conf.pinType = i + 1;
+                pinType = i + 1;
                 break;
             }
         }
-        if (conf.pinType == 255) {
+        if (pinType == 255) {
             LLOGE("no such mode [%s]", tmp);
             return 0;
         }
@@ -981,7 +980,8 @@ LUAT_WEAK uint8_t u8x8_luat_byte_4wire_hw_spi(u8x8_t *u8x8, uint8_t msg, uint8_t
 int luat_u8g2_setup_default(luat_u8g2_conf_t *conf) {
     u8g2_t* u8g2 = (u8g2_t*)conf->ptr;
     const luat_u8g2_dev_reg_t* devreg = NULL;
-    if (conf->pinType == 1) {
+    // LLOGD("conf->pinType %d", conf->pinType);
+    if (pinType == 1) {
         devreg = search_dev_reg(conf, 0);
         if (devreg == NULL) {
             LLOGD("unkown dev %s", conf->cname);
@@ -997,7 +997,7 @@ int luat_u8g2_setup_default(luat_u8g2_conf_t *conf) {
         u8g2_InitDisplay(u8g2);
         u8g2_SetPowerSave(u8g2, 0);
         return 0;
-    }else if (conf->pinType == 2) {
+    }else if (pinType == 2) {
         devreg = search_dev_reg(conf, 0);
         if (devreg == NULL) {
             LLOGD("unkown dev %s", conf->cname);
@@ -1012,7 +1012,7 @@ int luat_u8g2_setup_default(luat_u8g2_conf_t *conf) {
         u8g2_InitDisplay(u8g2);
         u8g2_SetPowerSave(u8g2, 0);
         return 0;
-    }else if (conf->pinType == 5) {
+    }else if (pinType == 5) {
         devreg = search_dev_reg(conf, 1);
         if (devreg == NULL) {
             LLOGD("unkown dev %s", conf->cname);
@@ -1093,10 +1093,13 @@ int hw_spi_begin(uint8_t spi_mode, uint32_t max_hz, uint8_t cs_pin )
     u8g2_spi.master = 1;
     u8g2_spi.mode = 1;
     u8g2_spi.bandrate = max_hz;
-    u8g2_spi.cs = cs_pin;
-    // LLOGI("cs_pin=%d",cs_pin);
+    u8g2_spi.cs = -1;
+    LLOGI("spi_mode:%d bandrate:%d cs_pin:%d",spi_mode,max_hz,cs_pin);
     luat_spi_setup(&u8g2_spi);
-    return 1;
+
+    luat_gpio_mode(spi_res,Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+    luat_gpio_mode(spi_dc,Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+    return 0;
 }
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 uint8_t u8x8_luat_byte_4wire_hw_spi_default(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr) {
@@ -1164,43 +1167,56 @@ uint8_t u8x8_luat_gpio_and_delay_default(u8x8_t *u8x8, uint8_t msg, uint8_t arg_
             // Function which implements a delay, arg_int contains the amount of ms
 
             // set spi pin mode
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_SPI_CLOCK],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);//d0 a5 15 d1 a7 17 res b0 18 dc b1 19 cs a4 14
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_SPI_DATA],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_RESET],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_DC],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_CS],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+            if (pinType == 1){
+                // set i2c pin mode
+                luat_gpio_mode(u8x8->pins[U8X8_PIN_I2C_DATA],Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_HIGH);
+                luat_gpio_mode(u8x8->pins[U8X8_PIN_I2C_CLOCK],Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_HIGH);
+            }else if (pinType == 3){
+                luat_gpio_mode(u8x8->pins[U8X8_PIN_SPI_CLOCK],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);//d0 a5 15 d1 a7 17 res b0 18 dc b1 19 cs a4 14
+                luat_gpio_mode(u8x8->pins[U8X8_PIN_SPI_DATA],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+                luat_gpio_mode(u8x8->pins[U8X8_PIN_RESET],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+                luat_gpio_mode(u8x8->pins[U8X8_PIN_DC],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+                luat_gpio_mode(u8x8->pins[U8X8_PIN_CS],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+            }else if (pinType == 4){
+                luat_gpio_mode(u8x8->pins[U8X8_PIN_SPI_CLOCK],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);//d0 a5 15 d1 a7 17 res b0 18 dc b1 19 cs a4 14
+                luat_gpio_mode(u8x8->pins[U8X8_PIN_SPI_DATA],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+                luat_gpio_mode(u8x8->pins[U8X8_PIN_RESET],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+                luat_gpio_mode(u8x8->pins[U8X8_PIN_DC],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+                luat_gpio_mode(u8x8->pins[U8X8_PIN_CS],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+            }else if (pinType == 5){
+                luat_gpio_mode(u8x8->pins[U8X8_PIN_RESET],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+                luat_gpio_mode(u8x8->pins[U8X8_PIN_DC],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+                luat_gpio_mode(u8x8->pins[U8X8_PIN_CS],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+            }else if (pinType == 6){
+                // set 8080 pin mode
+                luat_gpio_mode(u8x8->pins[U8X8_PIN_D0],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+                luat_gpio_mode(u8x8->pins[U8X8_PIN_D1],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+                luat_gpio_mode(u8x8->pins[U8X8_PIN_D2],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+                luat_gpio_mode(u8x8->pins[U8X8_PIN_D3],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+                luat_gpio_mode(u8x8->pins[U8X8_PIN_D4],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+                luat_gpio_mode(u8x8->pins[U8X8_PIN_D5],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+                luat_gpio_mode(u8x8->pins[U8X8_PIN_D6],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+                luat_gpio_mode(u8x8->pins[U8X8_PIN_D7],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+                luat_gpio_mode(u8x8->pins[U8X8_PIN_E],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+                luat_gpio_mode(u8x8->pins[U8X8_PIN_DC],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+                luat_gpio_mode(u8x8->pins[U8X8_PIN_RESET],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+            }
+            
+            // // set menu pin mode
+            // luat_gpio_mode(u8x8->pins[U8X8_PIN_MENU_HOME],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+            // luat_gpio_mode(u8x8->pins[U8X8_PIN_MENU_SELECT],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+            // luat_gpio_mode(u8x8->pins[U8X8_PIN_MENU_PREV],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+            // luat_gpio_mode(u8x8->pins[U8X8_PIN_MENU_NEXT],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+            // luat_gpio_mode(u8x8->pins[U8X8_PIN_MENU_UP],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+            // luat_gpio_mode(u8x8->pins[U8X8_PIN_MENU_DOWN],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
 
-            // set i2c pin mode
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_I2C_DATA],Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_HIGH);
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_I2C_CLOCK],Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_HIGH);
+            // // set value
+            // luat_gpio_set(u8x8->pins[U8X8_PIN_SPI_CLOCK],Luat_GPIO_HIGH);
+            // luat_gpio_set(u8x8->pins[U8X8_PIN_SPI_DATA],Luat_GPIO_HIGH);
+            // luat_gpio_set(u8x8->pins[U8X8_PIN_RESET],Luat_GPIO_HIGH);
+            // luat_gpio_set(u8x8->pins[U8X8_PIN_DC],Luat_GPIO_HIGH);
+            // luat_gpio_set(u8x8->pins[U8X8_PIN_CS],Luat_GPIO_HIGH);
 
-            // set 8080 pin mode
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_D0],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_D1],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_D2],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_D3],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_D4],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_D5],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_D6],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_D7],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_E],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_DC],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_RESET],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-
-            // set menu pin mode
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_MENU_HOME],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_MENU_SELECT],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_MENU_PREV],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_MENU_NEXT],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_MENU_UP],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-            luat_gpio_mode(u8x8->pins[U8X8_PIN_MENU_DOWN],Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
-
-            // set value
-            luat_gpio_set(u8x8->pins[U8X8_PIN_SPI_CLOCK],1);
-            luat_gpio_set(u8x8->pins[U8X8_PIN_SPI_DATA],1);
-            luat_gpio_set(u8x8->pins[U8X8_PIN_RESET],1);
-            luat_gpio_set(u8x8->pins[U8X8_PIN_DC],1);
-            luat_gpio_set(u8x8->pins[U8X8_PIN_CS],1);
             break;
 
         case U8X8_MSG_DELAY_I2C:

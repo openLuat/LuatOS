@@ -492,7 +492,7 @@ static int l_libgnss_get_zda(lua_State *L) {
         lua_settable(L, -3);
 
         lua_pushliteral(L, "year");
-        lua_pushinteger(L, gnss->frame_zda.date.year + 2000);
+        lua_pushinteger(L, gnss->frame_zda.date.year);
         lua_settable(L, -3);
 
         lua_pushliteral(L, "month");

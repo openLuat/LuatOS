@@ -34,9 +34,9 @@
 #define LUAT_LOG_TAG "sfud"
 #include "luat_log.h"
 
-static char log_buf[256];
 
-void sfud_log_debug(const char *file, const long line, const char *format, ...);
+
+// void sfud_log_debug(const char *file, const long line, const char *format, ...);
 
 /**
  * SPI write data then read data
@@ -126,42 +126,44 @@ sfud_err sfud_spi_port_init(sfud_flash *flash) {
     return result;
 }
 
-/**
- * This function is print debug info.
- *
- * @param file the file which has call this function
- * @param line the line number which has call this function
- * @param format output format
- * @param ... args
- */
-void sfud_log_debug(const char *file, const long line, const char *format, ...) {
-    va_list args;
+// /**
+//  * This function is print debug info.
+//  *
+//  * @param file the file which has call this function
+//  * @param line the line number which has call this function
+//  * @param format output format
+//  * @param ... args
+//  */
+// void sfud_log_debug(const char *file, const long line, const char *format, ...) {
+//     char log_buf[256] = {0};
+//     va_list args;
 
-    /* args point to the first variable parameter */
-    va_start(args, format);
-    // printf("[SFUD](%s:%ld) ", file, line);
-    /* must use vprintf to print */
-    vsnprintf(log_buf, sizeof(log_buf), format, args);
-    // printf("%s\n", log_buf);
-    LLOGD("%s ", log_buf);
-    va_end(args);
-}
+//     /* args point to the first variable parameter */
+//     va_start(args, format);
+//     // printf("[SFUD](%s:%ld) ", file, line);
+//     /* must use vprintf to print */
+//     vsnprintf(log_buf, sizeof(log_buf), format, args);
+//     // printf("%s\n", log_buf);
+//     LLOGD("%s ", log_buf);
+//     va_end(args);
+// }
 
-/**
- * This function is print routine info.
- *
- * @param format output format
- * @param ... args
- */
-void sfud_log_info(const char *format, ...) {
-    va_list args;
+// /**
+//  * This function is print routine info.
+//  *
+//  * @param format output format
+//  * @param ... args
+//  */
+// void sfud_log_info(const char *format, ...) {
+//     char log_buf[256] = {0};
+//     va_list args;
 
-    /* args point to the first variable parameter */
-    va_start(args, format);
-    // printf("[SFUD]");
-    /* must use vprintf to print */
-    vsnprintf(log_buf, sizeof(log_buf), format, args);
-    // printf("%s\n", log_buf);
-    LLOGD("%s ", log_buf);
-    va_end(args);
-}
+//     /* args point to the first variable parameter */
+//     va_start(args, format);
+//     // printf("[SFUD]");
+//     /* must use vprintf to print */
+//     vsnprintf(log_buf, sizeof(log_buf), format, args);
+//     // printf("%s\n", log_buf);
+//     LLOGD("%s ", log_buf);
+//     va_end(args);
+// }

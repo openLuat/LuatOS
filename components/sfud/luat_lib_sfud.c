@@ -10,10 +10,10 @@
 #include "luat_base.h"
 #include "luat_spi.h"
 #include "luat_malloc.h"
-#include "sfud.h"
 
 #define LUAT_LOG_TAG "sfud"
 #include "luat_log.h"
+#include "sfud.h"
 
 luat_sfud_flash_t luat_sfud;
 
@@ -224,7 +224,8 @@ static int luat_sfud_mount(lua_State *L) {
 		    .filesystem = "lfs2",
 		    .mount_point = mount_point,
 	    };
-	    luat_fs_mount(&conf);
+	    int ret = luat_fs_mount(&conf);
+        LLOGD("vfs mount %s ret %d", mount_point, ret);
         lua_pushboolean(L, 1);
     }
     else {
@@ -249,7 +250,7 @@ static const rotable_Reg_t reg_sfud[] =
 #ifdef LUAT_USE_FS_VFS
     { "mount",          ROREG_FUNC(luat_sfud_mount)},
 #endif
-	{ NULL,             {}}
+	{ NULL,             ROREG_INT(0)}
 };
 
 LUAMOD_API int luaopen_sfud( lua_State *L ) {

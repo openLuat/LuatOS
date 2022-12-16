@@ -38,7 +38,7 @@ typedef struct luat_sfud_flash
     void *user_data;// some user data
 } luat_sfud_flash_t;
 
-#define SFUD_DEBUG_MODE
+// #define SFUD_DEBUG_MODE
 
 #define SFUD_USING_SFDP
 

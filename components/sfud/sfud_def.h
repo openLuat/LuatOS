@@ -36,6 +36,12 @@
 #include <sfud_cfg.h>
 #include "sfud_flash_def.h"
 
+#include "luat_base.h"
+#ifndef LUAT_LOG_TAG
+#define LUAT_LOG_TAG "sfud"
+#endif
+#include "luat_log.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -50,7 +56,7 @@ extern "C" {
 #endif /* SFUD_DEBUG_MODE */
 
 #ifndef SFUD_INFO
-#define SFUD_INFO(...)  sfud_log_info(__VA_ARGS__)
+#define SFUD_INFO(...)  LLOGI(__VA_ARGS__)
 #endif
 
 /* assert for developer. */

@@ -21,19 +21,22 @@
 // Read a block
 static int sfud_block_device_read(const struct lfs_config *cfg, lfs_block_t block, lfs_off_t off, void *buffer, lfs_size_t size) {
     sfud_flash* flash = (sfud_flash*)cfg->context;
-    int re = sfud_read(flash, block * LFS_BLOCK_SIZE + off, size, buffer);
+    int ret = sfud_read(flash, block * LFS_BLOCK_SIZE + off, size, buffer);
+    //LLOGD("sfud_block_device_read ret %d", ret);
     return LFS_ERR_OK;
 }
 
 static int sfud_block_device_prog(const struct lfs_config *cfg, lfs_block_t block, lfs_off_t off, const void *buffer, lfs_size_t size) {
     sfud_flash* flash = (sfud_flash*)cfg->context;
-    int re = sfud_write(flash, block * LFS_BLOCK_SIZE + off, size, buffer);
+    int ret = sfud_write(flash, block * LFS_BLOCK_SIZE + off, size, buffer);
+    //LLOGD("sfud_block_device_prog ret %d", ret);
     return LFS_ERR_OK;
 }
 
 static int sfud_block_device_erase(const struct lfs_config *cfg, lfs_block_t block) {
     sfud_flash* flash = (sfud_flash*)cfg->context;
-    int re = sfud_erase(flash, block * LFS_BLOCK_SIZE, LFS_BLOCK_SIZE);
+    int ret = sfud_erase(flash, block * LFS_BLOCK_SIZE, LFS_BLOCK_SIZE);
+    //LLOGD("sfud_block_device_erase ret %d", ret);
     return LFS_ERR_OK;
 }
 
@@ -81,13 +84,18 @@ lfs_t* flash_lfs_sfud(sfud_flash* flash) {
     lfs_cfg->file_max = 0;
     lfs_cfg->attr_max = 0;
 
+    // LLOGD("block_size %d", lfs_cfg->block_size);
+    // LLOGD("block_count %d", lfs_cfg->block_count);
+    // LLOGD("capacity %d", flash->chip.capacity);
+    // LLOGD("erase_gran %d", flash->chip.erase_gran);
+
     // ------
     int err = lfs_mount(lfs, lfs_cfg);
     LLOGD("lfs_mount %d",err);
     if (err)
     {
         err = lfs_format(lfs, lfs_cfg);
-        LLOGD("lfs_format %d",err);
+        // LLOGD("lfs_format %d",err);
         if(err)
             goto fail;
         err = lfs_mount(lfs, lfs_cfg);

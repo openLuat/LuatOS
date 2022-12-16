@@ -71,7 +71,7 @@ static void gpio_bit_set(int pin, uint8_t value) {
 int l_gpio_debounce_timer_handler(lua_State *L, void* ptr) {
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     luat_timer_t *timer = (luat_timer_t *)ptr;
-    if (time == NULL)
+    if (timer == NULL)
         return 0;
     int pin = timer->id;
     if (pin < 0 || pin >= LUAT_GPIO_PIN_MAX)

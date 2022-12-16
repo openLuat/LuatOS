@@ -14,6 +14,7 @@
 #include "luat_malloc.h"
 #include "luat_mcu.h"
 #include "luat_msgbus.h"
+#include "luat_timer.h"
 #include <math.h>
 
 #define LUAT_LOG_TAG "gpio"
@@ -34,6 +35,9 @@ typedef struct gpio_ctx
     int lua_ref; // irq下的回调函数
     uint32_t latest_tick; // 防抖功能的最后tick数
     uint16_t conf_tick;   // 防抖设置的超时tick数
+    uint8_t debounce_mode;
+    uint8_t latest_state;
+    luat_timer_t* timer;
 }gpio_ctx_t;
 
 // 保存中断回调的数组
@@ -42,7 +46,7 @@ static uint32_t default_gpio_pull = Luat_GPIO_DEFAULT;
 
 
 // 记录GPIO电平,仅OUTPUT时可用
-static uint8_t gpio_out_levels[LUAT_GPIO_PIN_MAX / 8] __attribute__((aligned (16)));
+static uint8_t gpio_out_levels[(LUAT_GPIO_PIN_MAX + 7) / 8] __attribute__((aligned (16)));
 
 static uint8_t gpio_bit_get(int pin) {
     if (pin < 0 || pin >= LUAT_GPIO_PIN_MAX)
@@ -64,6 +68,26 @@ static void gpio_bit_set(int pin, uint8_t value) {
     }
 }
 
+int l_gpio_debounce_timer_handler(lua_State *L, void* ptr) {
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    luat_timer_t *timer = (luat_timer_t *)ptr;
+    if (time == NULL)
+        return 0;
+    int pin = timer->id;
+    if (pin < 0 || pin >= LUAT_GPIO_PIN_MAX)
+        return 0; // 超范围, 内存异常
+    if (gpios[pin].lua_ref == 0)
+        return 0; // 早关掉了
+    if (gpios[pin].latest_state != luat_gpio_get(pin))
+        return 0; // 电平变了
+    lua_geti(L, LUA_REGISTRYINDEX, gpios[pin].lua_ref);
+    if (!lua_isnil(L, -1)) {
+        lua_pushinteger(L, gpios[pin].latest_state);
+        lua_call(L, 1, 0);
+    }
+    return 0;
+}
+
 int luat_gpio_irq_default(int pin, void* args) {
     rtos_msg_t msg = {0};
 
@@ -72,13 +96,25 @@ int luat_gpio_irq_default(int pin, void* args) {
     }
 
     if (pin < LUAT_GPIO_PIN_MAX && gpios[pin].conf_tick > 0) {
-        uint32_t ticks = (uint32_t)luat_mcu_ticks();
-        uint32_t diff = (ticks > gpios[pin].latest_tick) ? (ticks - gpios[pin].latest_tick) : (gpios[pin].latest_tick - ticks);
-        if (diff >= gpios[pin].conf_tick) {
-            gpios[pin].latest_tick = ticks;
+        // 防抖模式0, 触发后冷却N个ms
+        if (gpios[pin].debounce_mode == 0) {
+            uint32_t ticks = (uint32_t)luat_mcu_ticks();
+            uint32_t diff = (ticks > gpios[pin].latest_tick) ? (ticks - gpios[pin].latest_tick) : (gpios[pin].latest_tick - ticks);
+            if (diff >= gpios[pin].conf_tick) {
+                gpios[pin].latest_tick = ticks;
+            }
+            else {
+                // 防抖生效, 直接返回
+            return 0;
+            }
         }
-        else {
-            // 防抖生效, 直接返回
+        // 防抖模式1, 触发后延时N个ms, 电平依然不变才触发
+        else if (gpios[pin].debounce_mode == 1) {
+            if (gpios[pin].timer == NULL) {
+                return 0; // timer被释放了?
+            }
+            luat_timer_stop(gpios[pin].timer);
+            luat_timer_start(gpios[pin].timer);
             return 0;
         }
     }
@@ -230,6 +266,11 @@ static int l_gpio_close(lua_State *L) {
         luaL_unref(L, LUA_REGISTRYINDEX, gpios[pin].lua_ref);
         gpios[pin].lua_ref = 0;
     }
+    if (gpios[pin].timer != NULL) {
+        luat_timer_stop(gpios[pin].timer);
+        luat_heap_free(gpios[pin].timer);
+        gpios[pin].timer = NULL;
+    }
     return 0;
 }
 
@@ -310,7 +351,7 @@ static int l_gpio_pulse(lua_State *L) {
         }
         len = luaL_checkinteger(L, 2);
         delay = luaL_checkinteger(L, 3);
-    }else{
+    } else {
         pin = luaL_checkinteger(L, 1);
         if (lua_isinteger(L, 2)){
             tmp = (char)luaL_checkinteger(L, 2);
@@ -331,26 +372,55 @@ static int l_gpio_pulse(lua_State *L) {
 
 /*
 防抖设置, 根据硬件ticks进行防抖
-@api gpio.debounce(pin, ms)
+@api gpio.debounce(pin, ms, mode)
 @int gpio号, 0~127, 与硬件相关
 @int 防抖时长,单位毫秒, 最大 65555 ms, 设置为0则关闭
+@int 模式, 0冷却模式, 1延时模式. 默认是0
 @return nil 无返回值
 @usage
--- 本API与2022.06.22可用
--- 开启防抖
-gpio.debounce(7, 100) -- 若芯片执行pin库, 可用pin.PA7代替数字7
--- 关闭防抖
+-- 消抖模式, 当前支持2种, 2022.12.16开始支持mode=1
+-- 0 触发中断后,马上上报一次, 然后冷却N个毫秒后,重新接受中断
+-- 1 触发中断后,延迟N个毫秒,期间没有新中断且电平没有变化,上报一次
+
+-- 开启防抖, 模式0-冷却, 中断后马上上报, 但100ms内只上报一次
+gpio.debounce(7, 100) -- 若芯片支持pin库, 可用pin.PA7代替数字7
+-- 开启防抖, 模式1-延时, 中断后等待100ms,期间若保持该电平了,时间到之后上报一次
+-- 对应的,如果输入的是一个 50hz的方波,那么不会触发任何上报
+gpio.debounce(7, 100, 1)
+
+-- 关闭防抖,时间设置为0就关闭
 gpio.debounce(7, 0)
 */
 static int l_gpio_debounce(lua_State *L) {
     uint8_t pin = luaL_checkinteger(L, 1);
-    uint16_t time = luaL_checkinteger(L, 2);
+    uint16_t timeout = luaL_checkinteger(L, 2);
+    uint8_t mode = luaL_optinteger(L, 3, 0);
     if (pin >= LUAT_GPIO_PIN_MAX) {
         LLOGW("MUST pin < 128");
         return 0;
     }
-    gpios[pin].conf_tick = time;
+    //LLOGD("debounce %d %d %d", pin, timeout, mode);
+    gpios[pin].conf_tick = timeout;
     gpios[pin].latest_tick = 0;
+    gpios[pin].debounce_mode = mode;
+    if ((mode == 0 && gpios[pin].timer != NULL) || timeout == 0) {
+        luat_timer_stop(gpios[pin].timer);
+        luat_heap_free(gpios[pin].timer);
+        gpios[pin].timer = NULL;
+    }
+    else if (mode == 1 && gpios[pin].timer == NULL && timeout > 0) {
+        //LLOGD("GPIO debounce mode 1 %d %d", pin, timeout);
+        gpios[pin].timer = luat_heap_malloc(sizeof(luat_timer_t));
+        if (gpios[pin].timer == NULL) {
+            LLOGE("out of memory when malloc debounce timer");
+            return 0;
+        }
+        memset(gpios[pin].timer, 0, sizeof(luat_timer_t));
+        gpios[pin].timer->func = l_gpio_debounce_timer_handler;
+        gpios[pin].timer->repeat = 0;
+        gpios[pin].timer->id = pin;
+        gpios[pin].timer->timeout = timeout;
+    }
     return 0;
 }
 

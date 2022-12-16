@@ -238,12 +238,14 @@ int luat_vfs_lfs2_lsdir(void* userdata, char const* _DirName, luat_fs_dirent_t* 
 }
 
 int luat_vfs_lfs2_info(void* userdata, const char* path, luat_fs_info_t *conf) {
+    //LLOGD("why ? luat_vfs_lfs2_info %p", userdata);
     lfs_t* fs = (lfs_t*)userdata;
     memcpy(conf->filesystem, "lfs", strlen("lfs")+1);
     conf->type = 0;
     conf->total_block = fs->cfg->block_count;
     conf->block_used = lfs_fs_size(fs);
     conf->block_size = fs->cfg->block_size;
+    //LLOGD("total %d used %d size %d", conf->total_block, conf->block_used, conf->block_size);
     return 0;
 }
 

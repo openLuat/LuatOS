@@ -45,6 +45,9 @@ end)
 #include "luat_log.h"
 
 static uint32_t nimble_mode = 0;
+uint16_t g_ble_state;
+uint16_t g_ble_conn_handle;
+
 
 /*
 初始化BLE上下文,开始对外广播/扫描
@@ -151,12 +154,36 @@ static int l_nimble_scan(lua_State *L) {
     return 1;
 }
 
+static int l_nimble_mode(lua_State *L) {
+    if (lua_isinteger(L, 1)) {
+        nimble_mode = lua_tointeger(L, 1);
+    }
+    lua_pushinteger(L, nimble_mode);
+    return 1;
+}
+
+static int l_nimble_connect(lua_State *L) {
+    size_t len = 0;
+    const char* addr = luaL_checklstring(L, 1, &len);
+    if (addr == NULL)
+        return 0;
+    luat_nimble_blecent_connect(addr);
+    return 0;
+}
+
+static int l_nimble_connok(lua_State *L) {
+    lua_pushboolean(L, g_ble_state == BT_STATE_CONNECTED ? 1 : 0);
+    return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_nimble[] =
 {
 	{ "init",           ROREG_FUNC(l_nimble_init)},
     { "deinit",         ROREG_FUNC(l_nimble_deinit)},
     { "debug",          ROREG_FUNC(l_nimble_debug)},
+    { "mode",           ROREG_FUNC(l_nimble_mode)},
+    { "connok",         ROREG_FUNC(l_nimble_connok)},
 
     // 外设模式, 广播并等待连接
     { "server_init",    ROREG_FUNC(l_nimble_server_init)},
@@ -165,6 +192,7 @@ static const rotable_Reg_t reg_nimble[] =
 
     // 中心模式, 扫描并连接外设
     { "scan",           ROREG_FUNC(l_nimble_scan)},
+    { "connect",        ROREG_FUNC(l_nimble_connect)},
 
     // 放一些常量
     { "STATE_OFF",           ROREG_INT(BT_STATE_OFF)},

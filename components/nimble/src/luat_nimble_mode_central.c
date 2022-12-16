@@ -47,16 +47,43 @@ typedef void (*TaskFunction_t)( void * );
 struct ble_hs_cfg;
 struct ble_gatt_register_ctxt;
 
-static void gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt, void *arg);
-static int gatt_svr_init(void);
 
-static const char *manuf_name = "LuatOS";
-static const char *model_num = "BLE Demo";
-static uint16_t hrs_hrm_handle;
-static uint16_t g_ble_attr_indicate_handle;
-static uint16_t g_ble_attr_write_handle;
-static uint16_t g_ble_conn_handle;
-// extern uint16_t g_ble_state;
+
+typedef struct luat_nimble_scan_result
+{
+    uint16_t uuids_16[16];
+    uint32_t uuids_32[16];
+    uint8_t uuids_128[16][16];
+    char name[64];
+    ble_addr_t addr;
+}luat_nimble_scan_result_t;
+
+// static void gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt, void *arg);
+// static int gatt_svr_init(void);
+
+void rand_bytes(uint8_t *data, int len);
+
+void print_bytes(const uint8_t *bytes, int len);
+
+void print_addr(const void *addr);
+
+void print_mbuf(const struct os_mbuf *om);
+
+char *addr_str(const void *addr);
+
+void print_uuid(const ble_uuid_t *uuid);
+
+void print_conn_desc(const struct ble_gap_conn_desc *desc);
+
+void print_adv_fields(const struct ble_hs_adv_fields *fields);
+
+// static const char *manuf_name = "LuatOS";
+// static const char *model_num = "BLE Demo";
+// static uint16_t hrs_hrm_handle;
+// static uint16_t g_ble_attr_indicate_handle;
+// static uint16_t g_ble_attr_write_handle;
+extern uint16_t g_ble_conn_handle;
+extern uint16_t g_ble_state;
 
 #define WM_GATT_SVC_UUID      0xFFF0
 #define WM_GATT_INDICATE_UUID 0xFFF1
@@ -69,12 +96,15 @@ static uint16_t g_ble_conn_handle;
 
 static char selfname[32];
 // extern uint16_t g_ble_conn_handle;
-static uint16_t g_ble_state;
+// static uint16_t g_ble_state;
 
 void ble_store_config_init(void);
 
 static int blecent_gap_event(struct ble_gap_event *event, void *arg);
 
+static void gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt, void *arg) {
+    LLOGD("gatt_svr_register_cb op %d", ctxt->op);
+}
 
 /**
  * Initiates the GAP general discovery procedure.
@@ -109,7 +139,7 @@ int luat_nimble_blecent_scan(void)
     disc_params.filter_policy = 0;
     disc_params.limited = 0;
 
-    rc = ble_gap_disc(own_addr_type, BLE_HS_FOREVER, &disc_params,
+    rc = ble_gap_disc(own_addr_type, 28*1000, &disc_params,
                       blecent_gap_event, NULL);
     if (rc != 0) {
         LLOGE("Error initiating GAP discovery procedure; rc=%d", rc);
@@ -138,7 +168,7 @@ bleprph_print_conn_desc(struct ble_gap_conn_desc *desc)
     LLOGI(" peer_ota_addr_type=%d peer_ota_addr=" ADDR_FMT, desc->peer_ota_addr.type, ADDR_T(desc->peer_ota_addr.val));
     LLOGI(" peer_id_addr_type=%d peer_id_addr=" ADDR_FMT, desc->peer_id_addr.type, ADDR_T(desc->peer_id_addr.val));
     LLOGI(" conn_itvl=%d conn_latency=%d supervision_timeout=%d "
-                "encrypted=%d authenticated=%d bonded=%d\n",
+                "encrypted=%d authenticated=%d bonded=%d",
                 desc->conn_itvl, desc->conn_latency,
                 desc->supervision_timeout,
                 desc->sec_state.encrypted,
@@ -146,11 +176,106 @@ bleprph_print_conn_desc(struct ble_gap_conn_desc *desc)
                 desc->sec_state.bonded);
 }
 
+// int luat_nimble_connect(ble_addr_t *addr) {
+int luat_nimble_blecent_connect(const char* _addr){
+    uint8_t own_addr_type;
+    int rc;
+    ble_addr_t *addr;
+    addr = (ble_addr_t *)_addr;
+
+    // 首先, 停止搜索
+    rc = ble_gap_disc_cancel();
+    LLOGD("ble_gap_disc_cancel %d", rc);
+    rc = ble_hs_id_infer_auto(0, &own_addr_type);
+    LLOGD("ble_hs_id_infer_auto %d", rc);
+    rc = ble_gap_connect(own_addr_type, addr, 30000, NULL, blecent_gap_event, NULL);
+    LLOGD("ble_gap_connect %d", rc);
+    return rc;
+}
+
+
+int luat_nimble_scan_cb(lua_State*L, void*ptr) {
+    luat_nimble_scan_result_t* res = (luat_nimble_scan_result_t*)ptr;
+    lua_getglobal(L,"sys_pub");
+
+    lua_pushliteral(L, "BLE_SCAN_RESULT");
+
+    lua_pushlstring(L, (const char*)&res->addr, 7);
+    lua_newtable(L);
+    // char buff[64];
+
+    if (res->name[0]) {
+        lua_pushstring(L, res->name);
+        lua_setfield(L, -2, "name");
+    }
+
+    if (res->uuids_16[0]) {
+        lua_newtable(L);
+        for (size_t i = 0; i < 16; i++)
+        {
+            if (res->uuids_16[i] == 0)
+                break;
+            //lua_pushlstring(L, (const char*)&res->uuids_16[i], 2);
+            lua_pushinteger(L, res->uuids_16[i]);
+            lua_seti(L, -2, i+1);
+        }
+        lua_setfield(L, -2, "uuids16");
+    }
+    // if (res->uuids_32[0]) {
+    //     lua_newtable(L);
+    //     for (size_t i = 0; i < 16; i++)
+    //     {
+    //         if (res->uuids_32[i] == 0)
+    //             break;
+    //         lua_pushlstring(L, (const char*)&res->uuids_32[i], 4);
+    //         lua_pushinteger(L, res->uuids_32[i]);
+    //         lua_seti(L, -2, i+1);
+    //     }
+    //     lua_setfield(L, -2, "uuids32");
+    // }
+    // if (res->uuids_128[0][0]) {
+    //     lua_newtable(L);
+    //     for (size_t i = 0; i < 16; i++)
+    //     {
+    //         if (res->uuids_32[i] == 0)
+    //             break;
+    //         lua_pushlstring(L, (const char*)res->uuids_128[i], 16);
+    //         lua_seti(L, -2, i+1);
+    //     }
+    //     lua_setfield(L, -2, "uuids128");
+    // }
+    luat_heap_free(res);
+    lua_call(L, 3, 0);
+    return 0;
+}
+
+static int svc_disced(uint16_t conn_handle,
+                                 const struct ble_gatt_error *error,
+                                 const struct ble_gatt_svc *service,
+                                 void *arg) {
+    LLOGD("ble_gatt_error status %d", error->status);
+    if (error->status == BLE_HS_EDONE) {
+        LLOGD("service discovery done");
+        return 0;
+    }
+    if (error->status != 0) {
+        return error->status;
+    }
+
+
+
+    return 0;                
+}
+
 static int blecent_gap_event(struct ble_gap_event *event, void *arg)
 {
     struct ble_hs_adv_fields fields;
     struct ble_gap_conn_desc desc;
-    int rc;
+    int rc = 0;
+    int i = 0;
+    rtos_msg_t msg = {.handler=luat_nimble_scan_cb};
+
+    LLOGD("blecent_gap_event %d", event->type);
 
     switch (event->type) {
     case BLE_GAP_EVENT_DISC:
@@ -159,9 +284,35 @@ static int blecent_gap_event(struct ble_gap_event *event, void *arg)
         if (rc != 0) {
             return 0;
         }
+        if (event->disc.event_type != BLE_HCI_ADV_RPT_EVTYPE_ADV_IND &&
+                event->disc.event_type != BLE_HCI_ADV_RPT_EVTYPE_DIR_IND) {
+            return 0;
+        }
+        luat_nimble_scan_result_t* res = luat_heap_malloc(sizeof(luat_nimble_scan_result_t));
+        if (res == NULL)
+            return 0;
+        memset(res, 0, sizeof(luat_nimble_scan_result_t));
+        for (i = 0; i < fields.num_uuids16 && i < 16; i++) {
+            res->uuids_16[i] = fields.uuids16[i].value;
+        }
+        for (i = 0; i < fields.num_uuids32 && i < 16; i++) {
+            res->uuids_32[i] = fields.uuids32[i].value;
+        }
+        // for (i = 0; i < fields.num_uuids128 && i < 16; i++) {
+        //     memcpy(res->uuids_128[i], fields.uuids128[i].value, 16);
+        // }
+        memcpy(&res->addr, &event->disc.addr, sizeof(ble_addr_t));
+        memcpy(res->name, fields.name, fields.name_len);
+        LLOGD("addr %02X%02X%02X%02X%02X%02X", event->disc.addr.val[0], event->disc.addr.val[1], event->disc.addr.val[2], 
+                                               event->disc.addr.val[3], event->disc.addr.val[4], event->disc.addr.val[5]);
+        // for (i = 0; i < fields.num_uuids128 && i < 16; i++) {
+        //     res->uuids_128[i] = fields.num_uuids128.value >> 32;
+        // }
+        msg.ptr = res;
+        luat_msgbus_put(&msg, 0);
 
         /* An advertisment report was received during GAP discovery. */
-        //print_adv_fields(&fields);
+        print_adv_fields(&fields);
 
         /* Try to connect to the advertiser if it looks interesting. */
         //blecent_connect_if_interesting(&event->disc);
@@ -177,6 +328,8 @@ static int blecent_gap_event(struct ble_gap_event *event, void *arg)
             if (rc == 0)
                 bleprph_print_conn_desc(&desc);
             g_ble_state = BT_STATE_CONNECTED;
+            /* Perform service discovery. */
+            rc = ble_gattc_disc_all_svcs(event->connect.conn_handle, svc_disced, NULL);
         }
         else {
             g_ble_state = BT_STATE_DISCONNECT;
@@ -195,7 +348,7 @@ static int blecent_gap_event(struct ble_gap_event *event, void *arg)
         rc = ble_gap_conn_find(event->conn_update.conn_handle, &desc);
         if (rc == 0)
             bleprph_print_conn_desc(&desc);
-        // LLOGI("\n");
+        // LLOGI("");
         return 0;
 
     case BLE_GAP_EVENT_ENC_CHANGE:
@@ -205,12 +358,12 @@ static int blecent_gap_event(struct ble_gap_event *event, void *arg)
         rc = ble_gap_conn_find(event->enc_change.conn_handle, &desc);
         if (rc == 0)
             bleprph_print_conn_desc(&desc);
-        // LLOGI("\n");
+        // LLOGI("");
         return 0;
 
     case BLE_GAP_EVENT_SUBSCRIBE:
         LLOGI("subscribe event; conn_handle=%d attr_handle=%d "
-                    "reason=%d prevn=%d curn=%d previ=%d curi=%d\n",
+                    "reason=%d prevn=%d curn=%d previ=%d curi=%d",
                     event->subscribe.conn_handle,
                     event->subscribe.attr_handle,
                     event->subscribe.reason,
@@ -221,7 +374,7 @@ static int blecent_gap_event(struct ble_gap_event *event, void *arg)
         return 0;
 
     case BLE_GAP_EVENT_MTU:
-        LLOGI("mtu update event; conn_handle=%d cid=%d mtu=%d\n",
+        LLOGI("mtu update event; conn_handle=%d cid=%d mtu=%d",
                     event->mtu.conn_handle,
                     event->mtu.channel_id,
                     event->mtu.value);
@@ -302,12 +455,183 @@ int luat_nimble_init_central(uint8_t uart_idx, char* name, int mode) {
     ble_svc_gap_init();
     ble_svc_gatt_init();
 
-    rc = gatt_svr_init();
-    LLOGD("gatt_svr_init rc %d", rc);
+    // rc = gatt_svr_init();
+    // LLOGD("gatt_svr_init rc %d", rc);
 
     /* XXX Need to have template for store */
     ble_store_config_init();
 
     return 0;
+}
+
+//-----------------------------------
+//            helper
+//-----------------------------------
+
+/**
+ * Utility function to log an array of bytes.
+ */
+void
+print_bytes(const uint8_t *bytes, int len)
+{
+    int i;
+    char buff[256 + 1] = {0};
+
+    for (i = 0; i < len; i++) {
+        sprintf_(buff + strlen(buff), "%02X", bytes[i]);
+        // LLOGD("%s0x%02x", i != 0 ? ":" : "", bytes[i]);
+    }
+    LLOGD("%s", buff);
+}
+
+char *
+addr_str(const void *addr)
+{
+    static char buf[6 * 2 + 5 + 1];
+    const uint8_t *u8p;
+
+    u8p = addr;
+    sprintf(buf, "%02x:%02x:%02x:%02x:%02x:%02x",
+            u8p[5], u8p[4], u8p[3], u8p[2], u8p[1], u8p[0]);
+
+    return buf;
+}
+
+void
+print_uuid(const ble_uuid_t *uuid)
+{
+    char buf[BLE_UUID_STR_LEN];
+
+    LLOGD("%s", ble_uuid_to_str(uuid, buf));
+}
+
+
+/**
+ * Logs information about a connection to the console.
+ */
+void
+print_conn_desc(const struct ble_gap_conn_desc *desc)
+{
+    LLOGD("handle=%d our_ota_addr_type=%d our_ota_addr=%s ",
+                desc->conn_handle, desc->our_ota_addr.type,
+                addr_str(desc->our_ota_addr.val));
+    LLOGD("our_id_addr_type=%d our_id_addr=%s ",
+                desc->our_id_addr.type, addr_str(desc->our_id_addr.val));
+    LLOGD("peer_ota_addr_type=%d peer_ota_addr=%s ",
+                desc->peer_ota_addr.type, addr_str(desc->peer_ota_addr.val));
+    LLOGD("peer_id_addr_type=%d peer_id_addr=%s ",
+                desc->peer_id_addr.type, addr_str(desc->peer_id_addr.val));
+    LLOGD("conn_itvl=%d conn_latency=%d supervision_timeout=%d "
+                "encrypted=%d authenticated=%d bonded=%d",
+                desc->conn_itvl, desc->conn_latency,
+                desc->supervision_timeout,
+                desc->sec_state.encrypted,
+                desc->sec_state.authenticated,
+                desc->sec_state.bonded);
+}
+
+
+void
+print_adv_fields(const struct ble_hs_adv_fields *fields)
+{
+    char s[BLE_HS_ADV_MAX_SZ];
+    const uint8_t *u8p;
+    int i;
+
+    // if (fields->flags != 0) {
+    //     LLOGD("    flags=0x%02x", fields->flags);
+    // }
+
+    if (fields->uuids16 != NULL) {
+        LLOGD("    uuids16(%scomplete)=",
+                    fields->uuids16_is_complete ? "" : "in");
+        for (i = 0; i < fields->num_uuids16; i++) {
+            print_uuid(&fields->uuids16[i].u);
+            //LLOGD(" ");
+        }
+    }
+
+    // if (fields->uuids32 != NULL) {
+    //     LLOGD("    uuids32(%scomplete)=",
+    //                 fields->uuids32_is_complete ? "" : "in");
+    //     for (i = 0; i < fields->num_uuids32; i++) {
+    //         print_uuid(&fields->uuids32[i].u);
+    //         //LLOGD(" ");
+    //     }
+    // }
+
+    // if (fields->uuids128 != NULL) {
+    //     LLOGD("    uuids128(%scomplete)=",
+    //                 fields->uuids128_is_complete ? "" : "in");
+    //     for (i = 0; i < fields->num_uuids128; i++) {
+    //         print_uuid(&fields->uuids128[i].u);
+    //         LLOGD(" ");
+    //     }
+    //     //LLOGD("");
+    // }
+
+    // if (fields->name != NULL) {
+    //     assert(fields->name_len < sizeof s - 1);
+    //     memcpy(s, fields->name, fields->name_len);
+    //     s[fields->name_len] = '\0';
+    //     LLOGD("    name(%scomplete)=%s",
+    //                 fields->name_is_complete ? "" : "in", s);
+    // }
+
+    // if (fields->tx_pwr_lvl_is_present) {
+    //     LLOGD("    tx_pwr_lvl=%d", fields->tx_pwr_lvl);
+    // }
+
+    // if (fields->slave_itvl_range != NULL) {
+    //     LLOGD("    slave_itvl_range=");
+    //     print_bytes(fields->slave_itvl_range, BLE_HS_ADV_SLAVE_ITVL_RANGE_LEN);
+    // }
+
+    // if (fields->svc_data_uuid16 != NULL) {
+    //     LLOGD("    svc_data_uuid16=");
+    //     print_bytes(fields->svc_data_uuid16, fields->svc_data_uuid16_len);
+    // }
+
+    // if (fields->public_tgt_addr != NULL) {
+    //     LLOGD("    public_tgt_addr=");
+    //     u8p = fields->public_tgt_addr;
+    //     for (i = 0; i < fields->num_public_tgt_addrs; i++) {
+    //         LLOGD("public_tgt_addr=%s ", addr_str(u8p));
+    //         u8p += BLE_HS_ADV_PUBLIC_TGT_ADDR_ENTRY_LEN;
+    //     }
+    //     // LLOGD("");
+    // }
+
+    // if (fields->appearance_is_present) {
+    //     LLOGD("    appearance=0x%04x", fields->appearance);
+    // }
+
+    // if (fields->adv_itvl_is_present) {
+    //     LLOGD("    adv_itvl=0x%04x", fields->adv_itvl);
+    // }
+
+    // if (fields->svc_data_uuid32 != NULL) {
+    //     LLOGD("    svc_data_uuid32=");
+    //     print_bytes(fields->svc_data_uuid32, fields->svc_data_uuid32_len);
+    //     LLOGD("");
+    // }
+
+    // if (fields->svc_data_uuid128 != NULL) {
+    //     LLOGD("    svc_data_uuid128=");
+    //     print_bytes(fields->svc_data_uuid128, fields->svc_data_uuid128_len);
+    //     LLOGD("");
+    // }
+
+    // if (fields->uri != NULL) {
+    //     LLOGD("    uri=");
+    //     print_bytes(fields->uri, fields->uri_len);
+    //     LLOGD("");
+    // }
+
+    // if (fields->mfg_data != NULL) {
+    //     LLOGD("    mfg_data=");
+    //     print_bytes(fields->mfg_data, fields->mfg_data_len);
+    //     LLOGD("");
+    // }
 }
 

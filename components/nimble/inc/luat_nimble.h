@@ -32,5 +32,7 @@ int luat_nimble_server_send(int id, char* data, size_t len);
 
 int luat_nimble_blecent_scan(void);
 
+int luat_nimble_blecent_connect(const char* addr);
+
 #endif
 

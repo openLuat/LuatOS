@@ -55,8 +55,8 @@ static const char *model_num = "BLE Demo";
 static uint16_t hrs_hrm_handle;
 static uint16_t g_ble_attr_indicate_handle;
 static uint16_t g_ble_attr_write_handle;
-static uint16_t g_ble_conn_handle;
-// extern uint16_t g_ble_state;
+extern uint16_t g_ble_conn_handle;
+extern uint16_t g_ble_state;
 
 #define WM_GATT_SVC_UUID      0xFFF0
 #define WM_GATT_INDICATE_UUID 0xFFF1
@@ -69,7 +69,6 @@ static uint16_t g_ble_conn_handle;
 
 static char selfname[32];
 // extern uint16_t g_ble_conn_handle;
-static uint16_t g_ble_state;
 
 typedef struct ble_write_msg {
     // uint16_t conn_handle,
@@ -201,7 +200,7 @@ gatt_svr_chr_access_device_info(uint16_t conn_handle, uint16_t attr_handle,
 static void gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt, void *arg)
 {
     char buf[BLE_UUID_STR_LEN];
-
+    LLOGD("gatt_svr_register_cb op %d", ctxt->op);
     switch (ctxt->op) {
     case BLE_GATT_REGISTER_OP_SVC:
         LLOGD("registered service %s with handle=%d\n",

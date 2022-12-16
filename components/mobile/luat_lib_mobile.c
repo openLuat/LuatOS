@@ -577,7 +577,7 @@ static int l_mobile_event_handle(lua_State* L, void* ptr) {
 /*
 @sys_pub mobile
 sim卡状态变化
-CELL_INFO_UPDATE
+SIM_IND
 @usage
 sys.subscribe("SIM_IND", function(status)
     log.info("sim status", status)

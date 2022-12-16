@@ -140,5 +140,6 @@ LUAMOD_API int luaopen_websocket( lua_State *L );
 LUAMOD_API int luaopen_ftp( lua_State *L );
 LUAMOD_API int luaopen_hmeta( lua_State *L );
 LUAMOD_API int luaopen_sms( lua_State *L );
+LUAMOD_API int luaopen_errdump( lua_State *L );
 
 #endif

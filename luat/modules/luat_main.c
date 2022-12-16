@@ -12,6 +12,10 @@
 #define LUAT_LOG_TAG "main"
 #include "luat_log.h"
 
+#ifdef LUAT_USE_ERRDUMP
+#include "luat_errdump.h"
+#endif
+
 static int report (lua_State *L, int status);
 
 lua_State *L;
@@ -108,8 +112,8 @@ static int report (lua_State *L, int status) {
   if (status != LUA_OK) {
     const char *msg = lua_tostring(L, -1);
     l_message("LUAT", msg);
-#ifdef LUAT_USE_ERR_DUMP
-    luat_log_save_file(msg, strlen(msg));
+#ifdef LUAT_USE_ERRDUMP
+    luat_errdump_save_file(msg, strlen(msg));
 #endif
     lua_pop(L, 1);  /* remove message */
   }

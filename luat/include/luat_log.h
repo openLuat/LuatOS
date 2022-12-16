@@ -19,10 +19,7 @@ uint8_t luat_log_get_uart_port(void);
 void luat_log_set_level(int level);
 int luat_log_get_level(void);
 
-#ifdef LUAT_USE_ERR_DUMP
-void luat_log_save_file(const uint8_t *data, uint32_t len);
-void luat_log_record_init(uint8_t enable, uint32_t upload_period);
-#endif
+
 
 #ifdef LUAT_USE_LOG2
 

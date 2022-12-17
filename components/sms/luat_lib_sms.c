@@ -13,6 +13,7 @@
 #include "luat_msgbus.h"
 #include "luat_malloc.h"
 #include "luat_mobile.h"
+#include "luat_timer.h"
 
 void luat_str_fromhex(char* str, size_t len, char* buff) ;
 
@@ -30,8 +31,58 @@ static char* sms_long_buff[16];
 // static char* longsms = NULL;
 // static int longsms_refNum = -1;
 
+
+static void ucs2char(char* source, size_t size, char* dst2, size_t* outlen) {
+    char buff[size + 2];
+    memset(buff, 0, size + 2);
+    luat_str_fromhex(source, size, buff);
+    //LLOGD("sms %s", source);
+    uint16_t* tmp = (uint16_t*)buff;
+    char* dst = dst2;
+    // size_t tmplen = origin_len / 2;
+    // size_t dstoff = 0;
+    uint16_t unicode = 0;
+    size_t dstlen = 0;
+    while (1) {
+        unicode = *tmp ++;
+        unicode = ((unicode >> 8) & 0xFF) + ((unicode & 0xFF) << 8);
+        //LLOGD("unicode %04X", unicode);
+        if (unicode == 0)
+            break; // 终止了
+        if (unicode <= 0x0000007F) {
+            dst[dstlen++] = (unicode & 0x7F);
+            continue;
+        }
+        if (unicode <= 0x000007FF) {
+            dst[dstlen++]	= ((unicode >> 6) & 0x1F) | 0xC0;
+		    dst[dstlen++] 	= (unicode & 0x3F) | 0x80;
+            continue;
+        }
+        if (unicode <= 0x0000FFFF) {
+            dst[dstlen++]	= ((unicode >> 12) & 0x0F) | 0xE0;
+		    dst[dstlen++]	= ((unicode >>  6) & 0x3F) | 0x80;
+		    dst[dstlen++]	= (unicode & 0x3F) | 0x80;
+            //LLOGD("why? %02X %02X %02X", ((unicode >> 12) & 0x0F) | 0xE0, ((unicode >>  6) & 0x3F) | 0x80, (unicode & 0x3F) | 0x80);
+            continue;
+        }
+        break;
+    }
+    *outlen = dstlen;
+    //LLOGD("ucs2char %d", dstlen);
+}
+
 static void push_sms_args(lua_State* L, LUAT_SMS_RECV_MSG_T* sms, char* dst, size_t dstlen) {
-    lua_pushstring(L, sms->phone_address);
+    char phone[64] = {0};
+    size_t outlen = 0;
+    memcpy(phone, sms->phone_address, strlen(sms->phone_address));
+    if (strlen(phone) > 4 && phone[0] == '0' && phone[1] == '0' && strlen(phone) % 2 == 0) {
+        // 看来是ucs编码了
+        ucs2char(sms->phone_address, strlen(sms->phone_address), phone, &outlen);
+        phone[outlen] = 0x00;
+    }
+    lua_pushstring(L, phone);
+
+
     if (sms->maxNum > 0 && lua_sms_recv_long) {
         luaL_Buffer buff;
         luaL_buffinit(L, &buff);
@@ -74,11 +125,12 @@ static void push_sms_args(lua_State* L, LUAT_SMS_RECV_MSG_T* sms, char* dst, siz
 
 }
 
+
 static int l_sms_recv_handler(lua_State* L, void* ptr) {
     LUAT_SMS_RECV_MSG_T* sms = ((LUAT_SMS_RECV_MSG_T*)ptr);
     char buff[280+2] = {0};
     size_t dstlen = strlen(sms->sms_buffer);
-    char tmpbuff[142] = {0};
+    char tmpbuff[280+2] = {0};
     char *dst = tmpbuff;
 
     LLOGD("dcs %d | %d | %d | %d", sms->dcs_info.alpha_bet, sms->dcs_info.dcs, sms->dcs_info.msg_class, sms->dcs_info.type);
@@ -87,38 +139,10 @@ static int l_sms_recv_handler(lua_State* L, void* ptr) {
         memcpy(dst, sms->sms_buffer, strlen(sms->sms_buffer));
     }
     else {
-        luat_str_fromhex(sms->sms_buffer, strlen(sms->sms_buffer), buff);
-        //LLOGD("sms %s buff %s", sms->sms_buffer, buff);
-        uint16_t* tmp = (uint16_t*)buff;
-        // size_t tmplen = origin_len / 2;
-        // size_t dstoff = 0;
-        uint16_t unicode = 0;
-        dstlen = 0;
-        while (1) {
-            unicode = *tmp ++;
-            unicode = ((unicode >> 8) & 0xFF) + ((unicode & 0xFF) << 8);
-            //LLOGD("unicode %04X", unicode);
-            if (unicode == 0)
-                break; // 终止了
-            if (unicode <= 0x0000007F) {
-                dst[dstlen++] = (unicode & 0x7F);
-                continue;
-            }
-            if (unicode <= 0x000007FF) {
-                dst[dstlen++]	= ((unicode >> 6) & 0x1F) | 0xC0;
-			    dst[dstlen++] 	= (unicode & 0x3F) | 0x80;
-                continue;
-            }
-            if (unicode <= 0x0000FFFF) {
-                dst[dstlen++]	= ((unicode >> 12) & 0x0F) | 0xE0;
-			    dst[dstlen++]	= ((unicode >>  6) & 0x3F) | 0x80;
-			    dst[dstlen++]	= (unicode & 0x3F) | 0x80;
-                //LLOGD("why? %02X %02X %02X", ((unicode >> 12) & 0x0F) | 0xE0, ((unicode >>  6) & 0x3F) | 0x80, (unicode & 0x3F) | 0x80);
-                continue;
-            }
-            break;
-        }
+        ucs2char(sms->sms_buffer, strlen(sms->sms_buffer), dst, &dstlen);
+        dst[dstlen] = 0;
     }
+
     if (sms->maxNum > 0 && lua_sms_recv_long) {
         if (sms->maxNum > 16) {
             LLOGE("max 16 long-sms supported!! %d", sms->maxNum);

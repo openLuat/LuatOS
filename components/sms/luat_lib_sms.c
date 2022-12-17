@@ -39,8 +39,6 @@ static void push_sms_args(lua_State* L, LUAT_SMS_RECV_MSG_T* sms, char* dst, siz
         {
             if (sms_long_buff[i]) {
                 luaL_addstring(&buff, sms_long_buff[i]);
-                luat_heap_free(sms_long_buff[i]);
-                sms_long_buff[i] = NULL;
             }
         }
         luaL_pushresult(&buff);
@@ -124,14 +122,13 @@ static int l_sms_recv_handler(lua_State* L, void* ptr) {
     if (sms->maxNum > 0 && lua_sms_recv_long) {
         if (sms->maxNum > 16) {
             LLOGE("max 16 long-sms supported!! %d", sms->maxNum);
-            luat_heap_free(sms);
-            return 0;
+            goto exit;
         }
         if (sms_long_buff[sms->seqNum - 1] == NULL) {
             sms_long_buff[sms->seqNum - 1] = luat_heap_malloc(dstlen + 1);
             if (sms_long_buff[sms->seqNum - 1] == NULL) {
                 LLOGE("out of memory when malloc long sms buff");
-                return 0;
+                goto exit;
             }
             memcpy(sms_long_buff[sms->seqNum - 1], dst, dstlen);
             sms_long_buff[sms->seqNum - 1][dstlen] = 0x00;
@@ -140,7 +137,7 @@ static int l_sms_recv_handler(lua_State* L, void* ptr) {
         {
             if (sms_long_buff[i] == NULL) {
                 LLOGI("long-sms, wait more frags %d/%d", sms->seqNum, sms->maxNum);
-                return 0;
+                goto exit;
             }
         }
         LLOGI("long-sms is ok");
@@ -164,6 +161,16 @@ static int l_sms_recv_handler(lua_State* L, void* ptr) {
             lua_call(L, 3, 0);
         }
     }
+    // 清理长短信的缓冲,如果有的话
+    for (size_t i = 0; i < 16; i++)
+    {
+        if (sms_long_buff[i]) {
+            luat_heap_free(sms_long_buff[i]);
+            sms_long_buff[i] = NULL;
+        }
+    }
+
+exit:
     luat_heap_free(sms);
     return 0;
 }

@@ -72,7 +72,8 @@ static void ucs2char(char* source, size_t size, char* dst2, size_t* outlen) {
 }
 
 static void push_sms_args(lua_State* L, LUAT_SMS_RECV_MSG_T* sms, char* dst, size_t dstlen) {
-    char phone[64] = {0};
+    char phone[strlen(sms->phone_address) * 3 + 1];
+    memset(phone, 0, strlen(sms->phone_address) * 3 + 1);
     size_t outlen = 0;
     memcpy(phone, sms->phone_address, strlen(sms->phone_address));
     if (strlen(phone) > 4 && phone[0] == '0' && phone[1] == '0' && strlen(phone) % 2 == 0) {
@@ -128,9 +129,9 @@ static void push_sms_args(lua_State* L, LUAT_SMS_RECV_MSG_T* sms, char* dst, siz
 
 static int l_sms_recv_handler(lua_State* L, void* ptr) {
     LUAT_SMS_RECV_MSG_T* sms = ((LUAT_SMS_RECV_MSG_T*)ptr);
-    char buff[280+2] = {0};
+    // char buff[280+2] = {0};
     size_t dstlen = strlen(sms->sms_buffer);
-    char tmpbuff[280+2] = {0};
+    char tmpbuff[140*3+2] = {0};
     char *dst = tmpbuff;
 
     LLOGD("dcs %d | %d | %d | %d", sms->dcs_info.alpha_bet, sms->dcs_info.dcs, sms->dcs_info.msg_class, sms->dcs_info.type);

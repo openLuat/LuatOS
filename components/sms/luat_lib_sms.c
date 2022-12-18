@@ -223,17 +223,152 @@ void luat_sms_recv_cb(uint32_t event, void *param)
 @api sms.send(phone, msg)
 @string 电话号码,必填
 @string 短信内容,必填
-@return bool 成功返回true,否则返回false
+@return bool 成功返回true,否则返回false或nil
 @usgae
-log.info("sms", sms.send("13416121234", "Hi, LuatOS - " .. os.date()))
+-- 短信号码支持2种形式
+-- +XXYYYYYYY 其中XX代表国家代码, 中国是86, 推荐使用这种
+-- YYYYYYYYY  直接填目标号码, 例如10010, 10086, 或者国内的手机号码
+log.info("sms", sms.send("+8613416121234", "Hi, LuatOS - " .. os.date()))
 */
 static int l_sms_send(lua_State *L) {
+    size_t phone_len = 0;
     size_t payload_len = 0;
-    const char* dst = luaL_checkstring(L, 1);
+    const char* phone = luaL_checklstring(L, 1, &phone_len);
     const char* payload = luaL_checklstring(L, 2, &payload_len);
-    // 暂时只支持非PDU短信
-    int ret = luat_sms_send_msg(payload, dst, 0, 0);
-    lua_pushboolean(L, ret == 0 ? 1 : 0);
+    int ret = 0;
+    char phone_buff[32] = {0};
+
+    if (payload_len == 0) {
+        LLOGI("sms is emtry");
+        return 0;
+    }
+    if (payload_len > 140) {
+        LLOGI("sms is too long %d", payload_len);
+        return 0;
+    }
+    int pdu_mode = 0;
+    for (size_t i = 0; i < payload_len; i++)
+    {
+        if (payload[i] & 0x80) {
+            LLOGD("found non-ASCII char, using PDU mode");
+            pdu_mode = 1;
+            break;
+        }
+    }
+
+    
+    if (phone_len < 3 || phone_len > 29) {
+        LLOGI("phone is too short or too long!! %d", phone_len);
+        return 0;
+    }
+    // +8613416121234
+    if (pdu_mode) { // PDU模式下, 必须带上国家代码
+        if (phone[0] == '+') {
+            memcpy(phone_buff, phone + 1, phone_len - 1);
+        }
+        // 13416121234
+        else if (phone[0] != '8' && phone[1] != '6') {
+            phone_buff[0] = '8';
+            phone_buff[1] = '6';
+            memcpy(phone_buff + 2, phone, phone_len);
+        }
+        else {
+            memcpy(phone_buff, phone, phone_len);
+        }
+    }
+    else {
+        if (phone[0] == '+') {
+            memcpy(phone_buff, phone + 3, phone_len - 3);
+        }
+        else if (phone[0] == '8' && phone[1] == '6') {
+            memcpy(phone_buff, phone+2, phone_len - 2);
+        }
+        else {
+            memcpy(phone_buff, phone, phone_len);
+        }
+    }
+    
+    
+    phone_len = strlen(phone_buff);
+    phone = phone_buff;
+    LLOGD("phone %s", phone);
+    if (pdu_mode) {
+        char pdu[280 + 100] = {0};
+        // 首先, 填充PDU头部
+        strcat(pdu, "00"); // 使用内置短信中心,暂时不可设置
+        strcat(pdu, "01"); // 仅收件信息, 不传保留时间
+        strcat(pdu, "00"); // TP-MR, 固定填0
+        sprintf_(pdu + strlen(pdu), "%02X", phone_len); // 电话号码长度
+        strcat(pdu, "91"); // 目标地址格式
+        // 手机方号码
+        for (size_t i = 0; i < phone_len; i+=2)
+        {
+            if (i == (phone_len - 1) && phone_len % 2 != 0) {
+                pdu[strlen(pdu)] = 'F';
+                pdu[strlen(pdu)] = phone[i];
+            }
+            else {
+                pdu[strlen(pdu)] = phone[i+1];
+                pdu[strlen(pdu)] = phone[i];
+            }
+        }
+        strcat(pdu, "00"); // 协议标识(TP-PID) 是普通GSM类型，点到点方式
+        strcat(pdu, "08"); // 编码格式, UCS编码
+        size_t pdu_len_offset = strlen(pdu);
+        strcat(pdu, "00"); // 这是预留的, 填充数据会后更新成正确的值
+        uint16_t unicode = 0;
+        size_t pdu_userdata_len = 0;
+        for (size_t i = 0; i < payload_len; i++)
+        {
+            // 首先是不是单字节
+            if (payload[i] & 0x80) {
+                // 非ASCII编码
+                if (payload[i] && 0xE0) { // 1110xxxx 10xxxxxx 10xxxxxx
+                    unicode = ((payload[i] & 0x0F) << 12) + ((payload[i+1] & 0x3F) << 6) + (payload[i+2] & 0x3F);
+                    //LLOGD("unicode %04X %02X%02X%02X", unicode, payload[i], payload[i+1], payload[i+2]);
+                    sprintf_(pdu + strlen(pdu), "%02X%02X", (unicode >> 8) & 0xFF, unicode & 0xFF);
+                    i+=2;
+                    pdu_userdata_len += 2;
+                    continue;
+                }
+                if (payload[i] & 0xC0) { // 110xxxxx 10xxxxxx
+                    unicode = ((payload[i] & 0x1F) << 6) + (payload[i+1] & 0x3F);
+                    //LLOGD("unicode %04X %02X%02X", unicode, payload[i], payload[i+1]);
+                    sprintf_(pdu + strlen(pdu), "%02X%02X", (unicode >> 8) & 0xFF, unicode & 0xFF);
+                    i++;
+                    pdu_userdata_len += 2;
+                    continue;
+                }
+                LLOGD("bad UTF8 string");
+                break;
+            }
+            // 单个ASCII字符, 但需要扩展到2位
+            else {
+                // ASCII编码
+                strcat(pdu, "00");
+                sprintf_(pdu + strlen(pdu), "%02X", payload[i]);
+                pdu_userdata_len += 2;
+                continue;
+            }
+        }
+        // 修正pdu长度
+        char tmp[3] = {0};
+        sprintf_(tmp, "%02X", pdu_userdata_len);
+        memcpy(pdu + pdu_len_offset, tmp, 2);
+
+        // 打印PDU数据, 调试用
+        LLOGD("PDU %s", pdu);
+        payload = pdu;
+        payload_len = strlen(pdu);
+        phone = "";
+        ret = luat_sms_send_msg(pdu, "", 1, 54);
+        lua_pushboolean(L, ret == 0 ? 1 : 0);
+    }
+    else {
+        ret = luat_sms_send_msg(payload, phone, 0, 0);
+        lua_pushboolean(L, ret == 0 ? 1 : 0);
+    }
+    LLOGD("sms ret %d", ret);
     return 1;
 }
 

@@ -72,8 +72,10 @@ end)
 -- 发送短信, 直接调用sms.send就行, 是不是task无所谓
 sys.taskInit(function()
     sys.wait(10000)
-    -- 暂时只能发英文短信, 后续会继续更新
-    --sms.send("10086", "Hi, from LuatOS - " .. os.date())
+    -- 中移动卡查短信
+    -- sms.send("+8610086", "301")
+    -- 联通卡查话费
+    sms.send("10010", "101")
 end)
 
 

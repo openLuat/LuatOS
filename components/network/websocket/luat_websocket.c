@@ -354,7 +354,7 @@ int luat_websocket_send_frame(luat_websocket_ctrl_t *websocket_ctrl, luat_websoc
 static int websocket_parse(luat_websocket_ctrl_t *websocket_ctrl)
 {
 	int ret = 0;
-	char *buf = websocket_ctrl->pkg_buff;
+	char *buf = (char*)websocket_ctrl->pkg_buff;
 	LLOGD("websocket_parse offset %d %d", websocket_ctrl->buffer_offset, websocket_ctrl->websocket_state);
 	if (websocket_ctrl->websocket_state == 0)
 	{

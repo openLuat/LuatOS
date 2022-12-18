@@ -313,7 +313,7 @@ static int l_websocket_send(lua_State *L)
 	else if (luaL_testudata(L, 2, LUAT_ZBUFF_TYPE))
 	{
 		buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
-		payload = buff->addr;
+		payload = (const char *)buff->addr;
 		payload_len = buff->used;
 	}
 	else
@@ -375,7 +375,7 @@ void luat_websocket_struct_init(lua_State *L)
 }
 
 #include "rotable2.h"
-static const rotable_Reg_t reg_websocket[] =
+const rotable_Reg_t reg_websocket[] =
 	{
 		{"create", ROREG_FUNC(l_websocket_create)},
 		{"on", ROREG_FUNC(l_websocket_on)},
@@ -387,7 +387,7 @@ static const rotable_Reg_t reg_websocket[] =
 
 		{NULL, ROREG_INT(0)}};
 
-static int _websocket_struct_newindex(lua_State *L)
+int _websocket_struct_newindex(lua_State *L)
 {
 	rotable_Reg_t *reg = reg_websocket;
 	const char *key = luaL_checkstring(L, 2);
@@ -404,9 +404,11 @@ static int _websocket_struct_newindex(lua_State *L)
 	}
 	// return 0;
 }
-static const rotable_Reg_t reg_websocket_emtry[] =
-	{
-		{NULL, ROREG_INT(0)}};
+#ifndef LUAT_USE_NETWORK
+static const rotable_Reg_t reg_websocket_emtry[] = {
+		{NULL, ROREG_INT(0)}
+};
+#endif
 
 LUAMOD_API int luaopen_websocket(lua_State *L)
 {

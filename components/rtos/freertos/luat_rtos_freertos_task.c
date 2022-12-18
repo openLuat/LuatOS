@@ -87,15 +87,25 @@ typedef struct
 
 int luat_rtos_task_create(luat_rtos_task_handle *task_handle, uint32_t stack_size, uint8_t priority, const char *task_name, luat_rtos_task_entry task_fun, void* user_data, uint16_t event_cout)
 {
+	// if (!task_handle) return -1;
+	// *task_handle = create_event_task(task_fun, user_data, stack_size, priority, event_cout, task_name);
+	// return (*task_handle)?0:-1;
 	if (!task_handle) return -1;
-	*task_handle = create_event_task(task_fun, user_data, stack_size, priority, event_cout, task_name);
-	return (*task_handle)?0:-1;
+	return xTaskCreate(task_fun,
+		task_name,
+		stack_size/sizeof(uint32_t),
+		user_data,
+		priority,
+		task_handle	);
 }
 
 int luat_rtos_task_delete(luat_rtos_task_handle task_handle)
 {
+	// if (!task_handle) return -1;
+	// delete_event_task(task_handle);
+	// return 0;
 	if (!task_handle) return -1;
-	delete_event_task(task_handle);
+	vTaskDelete(task_handle);
 	return 0;
 }
 
@@ -134,19 +144,22 @@ void *luat_get_current_task(void)
 
 int luat_rtos_event_send(luat_rtos_task_handle task_handle, uint32_t id, uint32_t param1, uint32_t param2, uint32_t param3, uint32_t timeout)
 {
-	if (!task_handle) return -1;
-	return send_event_to_task(task_handle, NULL, id, param1, param2, param3, timeout);
+	// if (!task_handle) return -1;
+	// return send_event_to_task(task_handle, NULL, id, param1, param2, param3, timeout);
+	return -1;
 }
 
 LUAT_RET luat_send_event_to_task(void *task_handle, uint32_t id, uint32_t param1, uint32_t param2, uint32_t param3)
 {
-	if (!task_handle) return -1;
-	return send_event_to_task(task_handle, NULL, id, param1, param2, param3, LUAT_WAIT_FOREVER);
+	// if (!task_handle) return -1;
+	// return send_event_to_task(task_handle, NULL, id, param1, param2, param3, LUAT_WAIT_FOREVER);
+	return -1;
 }
 LUAT_RET luat_wait_event_from_task(void *task_handle, uint32_t wait_event_id, luat_event_t *out_event, void *call_back, uint32_t ms)
 {
-	if (!task_handle) return -1;
-	return get_event_from_task(task_handle, wait_event_id, (void *)out_event, call_back, ms);
+	// if (!task_handle) return -1;
+	// return get_event_from_task(task_handle, wait_event_id, (void *)out_event, call_back, ms);
+	return -1;
 }
 
 /**

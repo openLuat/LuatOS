@@ -234,7 +234,7 @@ local function taskClient(cbFnc, reqAddr, timeout, productKey, host, port,reqTim
     end
     local retryCnt  = 0
     sys.wait(3000)
-    local reqStr = pack.pack("bAbAAAA", productKey:len(), productKey,
+    local reqStr = pack.pack("bAbAAAAA", productKey:len(), productKey,
                              (reqAddr and 2 or 0) + (reqTime and 4 or 0) + 8 +(reqWifi and 16 or 0) + 32, "",
                              numToBcdNum(mobile.imei()), enMuid(),
                              enCellInfo(mobile.getCellInfo()),

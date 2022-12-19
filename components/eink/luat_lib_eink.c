@@ -854,7 +854,7 @@ static int l_eink_qrcode(lua_State *L)
         for (int j = 0; j < qr_size; j++) {
             for (int i = 0; i < qr_size; i++) {
                 if (qrcodegen_getModule(qrcode, i, j))
-                    Paint_DrawFilledRectangle(&econf.ctxs[econf.ctx_index]->paint,x+i*scale,y+j*scale,x+(i+1)*scale,y+(j+1)*scale,0);
+                    Paint_DrawFilledRectangle(&econf.ctxs[econf.ctx_index]->paint,x+i*scale,y+j*scale,x+(i+1)*scale,y+(j+1)*scale,COLORED);
             }
         }
     }
@@ -879,33 +879,32 @@ static int l_eink_bat(lua_State *L)
     int y           = luaL_checkinteger(L, 2);
     int bat         = luaL_checkinteger(L, 3);
     int batnum      = 0;
-        // eink.rect(0, 3, 2, 6)
-        // eink.rect(2, 0, 20, 9)
-        // eink.rect(9, 1, 19, 8, 0, 1)
-    if(bat < 4200 && bat > 4080)batnum = 100;
-    if(bat < 4080 && bat > 4000)batnum = 90;
-    if(bat < 4000 && bat > 3930)batnum = 80;
-    if(bat < 3930 && bat > 3870)batnum = 70;
-    if(bat < 3870 && bat > 3820)batnum = 60;
-    if(bat < 3820 && bat > 3790)batnum = 50;
-    if(bat < 3790 && bat > 3770)batnum = 40;
-    if(bat < 3770 && bat > 3730)batnum = 30;
-    if(bat < 3730 && bat > 3700)batnum = 20;
-    if(bat < 3700 && bat > 3680)batnum = 15;
-    if(bat < 3680 && bat > 3500)batnum = 10;
-    if(bat < 3500 && bat > 2500)batnum = 5;
+    if (bat > 4200){
+      LLOGE("The bat is greater than 4200");
+    }
+    
+    if(bat > 4080)batnum = 100;
+    if(bat <= 4080 && bat > 4000)batnum = 90;
+    if(bat <= 4000 && bat > 3930)batnum = 80;
+    if(bat <= 3930 && bat > 3870)batnum = 70;
+    if(bat <= 3870 && bat > 3820)batnum = 60;
+    if(bat <= 3820 && bat > 3790)batnum = 50;
+    if(bat <= 3790 && bat > 3770)batnum = 40;
+    if(bat <= 3770 && bat > 3730)batnum = 30;
+    if(bat <= 3730 && bat > 3700)batnum = 20;
+    if(bat <= 3700 && bat > 3680)batnum = 15;
+    if(bat <= 3680 && bat > 3500)batnum = 10;
+    if(bat <= 3500 && bat > 2500)batnum = 5;
     batnum = 20 - (int)(batnum / 5) + 3;
 
     if (check_init() == 0) {
       return 0;
     }
-
     // w外框
     Paint_DrawRectangle(&econf.ctxs[econf.ctx_index]->paint, x+0, y+3, x+2, y+6, COLORED);
     Paint_DrawRectangle(&econf.ctxs[econf.ctx_index]->paint, x+2, y+0, x+23, y+9, COLORED);
     // 3 ~21   100 / 5
     Paint_DrawFilledRectangle(&econf.ctxs[econf.ctx_index]->paint, x+batnum, y+1, x+22, y+8, COLORED);
-
     return 0;
 }
 

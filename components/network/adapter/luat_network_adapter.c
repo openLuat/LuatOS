@@ -42,6 +42,25 @@ static network_info_t prv_network = {
 		.default_adapter_index = -1,
 		.is_init = 0,
 };
+static const char *prv_network_event_id_string[] =
+{
+		"适配器复位",
+		"LINK状态变更",
+		"超时",
+		"DNS结果",
+		"发送成功",
+		"有新的数据",
+		"接收缓存满了",
+		"断开成功",
+		"对端关闭",
+		"连接成功",
+		"连接异常",
+		"开始监听",
+		"新的客户端来了",
+		"唤醒",
+		"未知",
+};
+
 static const char *prv_network_ctrl_state_string[] =
 {
 		"硬件离线",
@@ -74,6 +93,15 @@ static const char *prv_network_ctrl_callback_event_string[] =
 		"发送状态回调",
 		"任意网络变化回调",
 };
+
+const char *network_ctrl_event_id_string(uint32_t event)
+{
+	if (event > EV_NW_END || event < EV_NW_RESET)
+	{
+		return prv_network_event_id_string[EV_NW_END - EV_NW_RESET];
+	}
+	return prv_network_event_id_string[event - EV_NW_RESET];
+}
 
 const char *network_ctrl_state_string(uint8_t state)
 {
@@ -852,13 +880,11 @@ static int32_t network_default_socket_callback(void *data, void *param)
 		{
 			if (ctrl->auto_mode)
 			{
-				DBG("%x,%d,%s,%s", event->ID, ctrl->socket_id,
+				DBG("socket %d,%s,%s,%s", ctrl->socket_id, network_ctrl_event_id_string(event->ID),
 						network_ctrl_state_string(ctrl->state),
 						network_ctrl_wait_state_string(ctrl->wait_target_state));
 				network_default_statemachine(ctrl, event, adapter);
-				DBG("%x,%d,%s,%s", event->ID, ctrl->socket_id,
-						network_ctrl_state_string(ctrl->state),
-						network_ctrl_wait_state_string(ctrl->wait_target_state));
+				DBG("%s,%s",network_ctrl_state_string(ctrl->state),network_ctrl_wait_state_string(ctrl->wait_target_state));
 			}
 			else if (ctrl->task_handle)
 			{
@@ -888,13 +914,11 @@ static int32_t network_default_socket_callback(void *data, void *param)
 				{
 					if (ctrl->auto_mode)
 					{
-						DBG("%x,%d,%s,%s", event->ID, ctrl->socket_id,
+						DBG("socket %d,%s,%s,%s", ctrl->socket_id, network_ctrl_event_id_string(event->ID),
 								network_ctrl_state_string(ctrl->state),
 								network_ctrl_wait_state_string(ctrl->wait_target_state));
 						network_default_statemachine(ctrl, &temp_event, adapter);
-						DBG("%x,%d,%s,%s", event->ID, ctrl->socket_id,
-								network_ctrl_state_string(ctrl->state),
-								network_ctrl_wait_state_string(ctrl->wait_target_state));
+						DBG("%s,%s",network_ctrl_state_string(ctrl->state),	network_ctrl_wait_state_string(ctrl->wait_target_state));
 					}
 					else if (ctrl->task_handle)
 					{
@@ -2870,11 +2894,11 @@ static int32_t network_default_socket_callback(void *data, void *param)
 		{
 			if (ctrl->auto_mode)
 			{
-				DBG("%x,%d,%s,%s", event->ID, ctrl->socket_id,
+				DBG("socket %d,%s,%s,%s", ctrl->socket_id, network_ctrl_event_id_string(event->ID),
 						network_ctrl_state_string(ctrl->state),
 						network_ctrl_wait_state_string(ctrl->wait_target_state));
 				network_default_statemachine(ctrl, event, adapter);
-				DBG("%x,%d,%s,%s", event->ID, ctrl->socket_id,
+				DBG("%s,%s",
 						network_ctrl_state_string(ctrl->state),
 						network_ctrl_wait_state_string(ctrl->wait_target_state));
 			}
@@ -2904,11 +2928,11 @@ static int32_t network_default_socket_callback(void *data, void *param)
 				ctrl = &adapter->ctrl_table[i];
 				if (ctrl->auto_mode)
 				{
-					DBG("%x,%d,%s,%s", event->ID, ctrl->socket_id,
+					DBG("socket %d,%s,%s,%s", ctrl->socket_id, network_ctrl_event_id_string(event->ID),
 							network_ctrl_state_string(ctrl->state),
 							network_ctrl_wait_state_string(ctrl->wait_target_state));
 					network_default_statemachine(ctrl, &temp_event, adapter);
-					DBG("%x,%d,%s,%s", event->ID, ctrl->socket_id,
+					DBG("%s,%s",
 							network_ctrl_state_string(ctrl->state),
 							network_ctrl_wait_state_string(ctrl->wait_target_state));
 				}

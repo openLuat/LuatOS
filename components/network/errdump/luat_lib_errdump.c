@@ -192,7 +192,6 @@ static int32_t l_errdump_callback(lua_State *L, void* ptr)
     	{
     		network_init_ctrl(econf.netc, NULL, luat_errdump_network_callback, NULL);
     		network_set_base_mode(econf.netc, 0, 0, 0, 0, 0, 0);
-    		econf.netc->is_debug = 1;
     		luat_rtos_timer_start(econf.network_timer, 30000, 0, luat_errdump_rx_timer_callback, NULL);
     		network_connect(econf.netc, luat_errdump_domain, sizeof(luat_errdump_domain), NULL, LUAT_ERRDUMP_PORT, 0);
     	}

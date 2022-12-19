@@ -12,7 +12,7 @@
 #include "luat_network_adapter.h"
 #include "luat_rtos.h"
 #include "luat_zbuff.h"
-#define LUAT_LOG_TAG "network"
+#define LUAT_LOG_TAG "socket"
 #include "luat_log.h"
 //static const char NW_TYPE[] = "NWA*";
 #define LUAT_NW_CTRL_TYPE "NWCTRL*"
@@ -370,7 +370,7 @@ static int l_socket_connect(lua_State *L)
 {
 	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	luat_ip_addr_t ip_addr;
-	const char *ip;
+	const char *ip = NULL;
 	size_t ip_len;
 	ip_addr.type = 0xff;
 	if (lua_isinteger(L, 2))
@@ -386,6 +386,7 @@ static int l_socket_connect(lua_State *L)
 	    ip = luaL_checklstring(L, 2, &ip_len);
 	}
 	uint16_t remote_port = luaL_checkinteger(L, 3);
+	LLOGD("connect to %s,%d", ip, remote_port);
 	int result = network_connect(l_ctrl->netc, ip, ip_len, (ip_addr.type != IPADDR_TYPE_V4)?NULL:&ip_addr, remote_port, 0);
 	lua_pushboolean(L, result < 0);
 	lua_pushboolean(L, result == 0);
@@ -1025,7 +1026,7 @@ static int l_socket_connect(lua_State *L)
 {
 	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	luat_ip_addr_t ip_addr;
-	const char *ip;
+	const char *ip = NULL;
 	size_t ip_len;
 	ip_addr.is_ipv6 = 0xff;
 	if (lua_isinteger(L, 2))
@@ -1041,6 +1042,7 @@ static int l_socket_connect(lua_State *L)
 	    ip = luaL_checklstring(L, 2, &ip_len);
 	}
 	uint16_t remote_port = luaL_checkinteger(L, 3);
+	LLOGD("connect to %s,%d", ip, remote_port);
 	int result = network_connect(l_ctrl->netc, ip, ip_len, ip_addr.is_ipv6?NULL:&ip_addr, remote_port, 0);
 	lua_pushboolean(L, result < 0);
 	lua_pushboolean(L, result == 0);

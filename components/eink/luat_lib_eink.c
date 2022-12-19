@@ -848,15 +848,19 @@ static int l_eink_qrcode(lua_State *L)
     if (ok){
         int qr_size = qrcodegen_getSize(qrcode);
         int scale = size / qr_size ;
+        if (!scale)scale = 1;
         int margin = (size - qr_size * scale) / 2;
         x+=margin;
         y+=margin;
         for (int j = 0; j < qr_size; j++) {
             for (int i = 0; i < qr_size; i++) {
-                if (qrcodegen_getModule(qrcode, i, j))
+                if (qrcodegen_getModule(qrcode, i, j)){
                     Paint_DrawFilledRectangle(&econf.ctxs[econf.ctx_index]->paint,x+i*scale,y+j*scale,x+(i+1)*scale,y+(j+1)*scale,COLORED);
+                }
             }
         }
+    }else{
+      LLOGE("qrcodegen_encodeText %d",ok);
     }
     if (qrcode)
         luat_heap_free(qrcode);

@@ -630,6 +630,7 @@ static int l_lcd_drawQrcode(lua_State *L)
     if (ok){
         int qr_size = qrcodegen_getSize(qrcode);
         int scale = size / qr_size ;
+        if (!scale)scale = 1;
         int margin = (size - qr_size * scale) / 2;
         luat_lcd_draw_fill(default_conf,x,y,x+size,y+size,BACK_COLOR);
         x+=margin;

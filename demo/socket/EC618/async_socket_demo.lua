@@ -38,6 +38,7 @@ local function socketTask()
         end
         log.info("服务器断开了，5秒后重连")
         socket.close(netc)
+        log.info(rtos.meminfo("sys"))
         sys.wait(5000)
     end
 end

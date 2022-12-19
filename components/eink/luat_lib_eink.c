@@ -758,7 +758,7 @@ static int l_eink_line(lua_State *L)
 @return nil 无返回值
 @usage
 eink.rect(0, 0, 10, 20)
-eink.rect(0, 0, 10, 20, 1) -- Filled
+eink.rect(0, 0, 10, 20,0, 1) -- Filled
 */
 static int l_eink_rect(lua_State *L)
 {

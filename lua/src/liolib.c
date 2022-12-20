@@ -846,18 +846,18 @@ static int io_readFile (lua_State *L) {
   FILE* f = fopen(filename, mode);
   if(f == NULL)
     return 0;
-  int r = fseek(f, 0, SEEK_END);
-  if(r != 0) {
-    fclose(f);
-    return 0;
+  char buff[256];
+  luaL_Buffer b;
+  luaL_buffinit(L, &b);
+  int ret = 0;
+  while (1) {
+    ret = fread(buff, 1, 256, f);
+    if (ret < 1)
+      break;
+    luaL_addlstring(&b, (const char*)buff, ret);
   }
-  int len = ftell(f);
-  fseek(f, 0, SEEK_SET);
-  char* buff = (char*)luat_heap_malloc(len);
-  fread(buff, 1, len, f);
   fclose(f);
-  lua_pushlstring(L, buff, len);
-  luat_heap_free(buff);
+  luaL_pushresult(&b);
   return 1;
 }
 

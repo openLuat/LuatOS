@@ -51,7 +51,7 @@ static int l_fota_init(lua_State* L)
 }
 
 /**
-等待底层fota流程准备好，目前只有105能使用
+等待底层fota流程准备好
 @api fota.fotaWait()
 @boolean 是否完整走完流程，true 表示正确走完流程了
 @return boolean 准备好返回true
@@ -65,7 +65,7 @@ static int l_fota_wait(lua_State* L)
 }
 
 /**
-写入fota数据，目前只有105能使用
+写入fota数据
 @api fota.fotaRun(buff)
 @zbuff/string fota数据，尽量用zbuff，如果传入的是zbuff，写入成功后，自动清空zbuff内的数据
 @return boolean 有异常返回true
@@ -109,7 +109,7 @@ static int l_fota_write(lua_State* L)
 }
 
 /**
-等待底层fota流程完成，目前只有105能使用
+等待底层fota流程完成
 @api fota.fotaDone()
 @boolean 是否完整走完流程，true 表示正确走完流程了
 @return boolean 有异常返回true
@@ -139,7 +139,7 @@ static int l_fota_done(lua_State* L)
 }
 
 /**
-结束fota流程，目前只有105能使用
+结束fota流程
 @api fota.fotaEnd(is_ok)
 @boolean 是否完整走完流程，true 表示正确走完流程了
 @return boolean 成功返回true, 失败返回false

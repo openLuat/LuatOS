@@ -105,6 +105,27 @@ int luat_audio_stop_raw(uint8_t multimedia_id);
  */
 int luat_audio_pause_raw(uint8_t multimedia_id, uint8_t is_pause);
 
+/**
+ * @brief 编码并播放一段文字
+ *
+ * @param multimedia_id multimedia_id 多媒体通道，目前只有0
+ * @param text 文字数据
+ * @param text_bytes 文字数据长度
+ * @return int =0成功，其他失败
+ */
+int luat_audio_play_tts_text(uint32_t multimedia_id, void *text, uint32_t text_bytes);
+/**
+ * @brief 在收到MULTIMEDIA_CB_TTS_INIT回调时，可以设置TTS参数，等同于ivTTS_SetParam
+ *
+ * @param multimedia_id multimedia_id 多媒体通道，目前只有0
+ * @param param_id 见ivTTS_PARAM_XXX
+ * @param param_value param_id对应的value
+ * @return int =0成功，其他失败
+ */
+int luat_audio_play_tts_set_param(uint32_t multimedia_id, uint32_t param_id, uint32_t param_value);
+
+
+
 void luat_audio_config_pa(uint8_t multimedia_id, uint32_t pin, int level, uint32_t dummy_time_len, uint32_t pa_delay_time);
 void luat_audio_config_dac(uint8_t multimedia_id, int pin, int level);
 uint16_t luat_audio_vol(uint8_t multimedia_id, uint16_t vol);

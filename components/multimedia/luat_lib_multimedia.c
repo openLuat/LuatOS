@@ -218,7 +218,43 @@ static int l_audio_play(lua_State *L) {
     }
     return 1;
 }
-
+#ifdef LUAT_USE_TTS
+/*
+TTS播放或者停止
+@api audio.tts(id, data)
+@int 音频通道
+@string/zbuff 需要播放的内容
+@return boolean 成功返回true,否则返回false
+@usage
+audio.tts(0, "测试一下")		--开始播放
+audio.tts(0)				--停止播放
+*/
+static int l_audio_play_tts(lua_State *L) {
+    int multimedia_id = luaL_checkinteger(L, 1);
+    size_t len, i;
+    int result = 0;
+    const uint8_t *buf;
+    uint8_t is_error_stop = 1;
+    if (LUA_TSTRING == (lua_type(L, (2))))
+    {
+        buf = lua_tolstring(L, 2, &len);//取出字符串数据
+        result = luat_audio_play_tts_text(multimedia_id, buf, len);
+    	lua_pushboolean(L, !result);
+    }
+    else if(lua_isuserdata(L, 2))
+    {
+        luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+        result = luat_audio_play_tts_text(multimedia_id, buff->addr, buff->used);
+    	lua_pushboolean(L, !result);
+    }
+    else
+    {
+    	luat_audio_play_stop(multimedia_id);
+    	lua_pushboolean(L, 1);
+    }
+    return 1;
+}
+#endif
 /**
 停止播放文件，和audio.play(id)是一样的作用
 @api audio.playStop(id)
@@ -624,6 +660,9 @@ static const rotable_Reg_t reg_audio[] =
 	{ "stop",		   ROREG_FUNC(l_audio_stop_raw)},
     { "on",            ROREG_FUNC(l_audio_raw_on)},
 	{ "play",		   ROREG_FUNC(l_audio_play)},
+#ifdef LUAT_USE_TTS
+	{ "tts",		   ROREG_FUNC(l_audio_play_tts)},
+#endif
 	{ "playStop",	   ROREG_FUNC(l_audio_play_stop)},
 	{ "isEnd",		   ROREG_FUNC(l_audio_play_wait_end)},
 	{ "config",			ROREG_FUNC(l_audio_config)},

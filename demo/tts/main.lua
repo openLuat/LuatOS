@@ -6,13 +6,20 @@ VERSION = "2.0.0"
 --[[
 本demo当前仅支持Ar780E和Air600E
 
-提醒:
+## 提醒:
 1. 本demo需要2022.12.21及之后的源码所编译的LuatOS固件
-2. 本demo必须有外挂的SPI Flash, 起码1M字节
-3. 使用本demo前,必须先刷tts.binpkg进行SPI Flash的刷写,下载链接 TODO
+2. 本demo必须有外挂的SPI Flash, 起码1M字节, 后面有刷写说明
+3. 下载脚本时, 把txt也加上一起下载
 4. 本demo需要音频扩展板, 780E只有I2S输出, 需要codec和PA才能驱动喇叭
 
-SPI Flash布局, 以1M字节为例,供参考:
+## 使用本demo前,必须先刷tts.binpkg进行SPI Flash的刷写
+1. 下载链接 https://gitee.com/openLuat/luatos-soc-2022/attach_files
+2. 在LuaTools主界面, 用"下载固件"按钮进行下载.
+3. 下载前需要接好SPI Flash!!
+4. 下载前选日志模式 4G USB, luatools版本号2.1.85或以上
+
+## SPI Flash布局, 以1M字节为例,供参考:
+
 -----------------------------------
 64 k 保留空间, 用户自行分配
 -----------------------------------
@@ -21,13 +28,16 @@ SPI Flash布局, 以1M字节为例,供参考:
 剩余空间, 256k,用户自行分配
 -----------------------------------
 
-基本流程:
+## 基本流程:
 1. 初始化sfud, 本demo使用SPI0 + GPIO8
 2. 使用 audio.tts播放文本
 3. 等待 播放结束事件
 4. 继续下一个循环
 
-接线说明, 以780E开发板为例, 需要1.5版本或以上. 1.4版本SPI分布有所不同
+## 接线说明
+
+以780E开发板为例, 需要1.5版本或以上,团购版本均为1.5或以上.
+1.4版本SPI分布有所不同, 注意区分.
 
 https://wiki.luatos.com/chips/air780e/board.html
 

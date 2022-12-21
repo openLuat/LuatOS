@@ -1,6 +1,7 @@
 -- netlab.luatos.com上打开TCP，然后修改IP和端口号，自动回复netlab下发的数据，自收自发测试
 local server_ip = "112.125.89.8"
 local server_port = 35257
+local rxbuf = zbuff.create(8192)
 local function netCB(netc, event, param)
     if param ~= 0 then
         sys.publish("socket_disconnect")
@@ -11,13 +12,11 @@ local function netCB(netc, event, param)
 	elseif event == socket.ON_LINE then
         socket.tx(netc, "hello,luatos!")
 	elseif event == socket.EVENT then
-        local rbuf = zbuff.create(8192)
-        socket.rx(netc, rbuf)
-        if rbuf:used() > 0 then
-            socket.tx(netc, rbuf)
+        socket.rx(netc, rxbuf)
+        if rxbuf:used() > 0 then
+            socket.tx(netc, rxbuf)
         end
-        rbuf:del()
-        rbuf = nil
+        rxbuf:del()
 	elseif event == socket.TX_OK then
         log.info("发送完成")
 	elseif event == socket.CLOSE then

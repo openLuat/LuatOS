@@ -89,8 +89,8 @@ int l_gpio_debounce_timer_handler(lua_State *L, void* ptr) {
     return 0;
 }
 
-static void l_gpio_debounce_mode1_cb(void* args) {
-    int pin = (int)args;
+static LUAT_RT_RET_TYPE l_gpio_debounce_mode1_cb(LUAT_RT_CB_PARAM) {
+    int pin = (int)param;
     rtos_msg_t msg = {0};
     msg.handler = l_gpio_debounce_timer_handler;
     msg.arg1 = pin;
@@ -122,6 +122,7 @@ int luat_gpio_irq_default(int pin, void* args) {
             if (gpios[pin].timer == NULL || gpios[pin].conf_tick == 0) {
                 return 0; // timer被释放了?
             }
+            gpios[pin].latest_state = luat_gpio_get(pin);
             luat_rtos_timer_stop(gpios[pin].timer);
             luat_rtos_timer_start(gpios[pin].timer, gpios[pin].conf_tick, 0, l_gpio_debounce_mode1_cb, (void*)pin);
             return 0;

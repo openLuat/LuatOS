@@ -281,12 +281,14 @@ static int l_gpio_close(lua_State *L) {
         luaL_unref(L, LUA_REGISTRYINDEX, gpios[pin].lua_ref);
         gpios[pin].lua_ref = 0;
     }
+#ifndef LUAT_RTOS_API_NOTOK
     if (gpios[pin].timer != NULL) {
         gpios[pin].conf_tick = 0;
         luat_rtos_timer_stop(gpios[pin].timer);
         luat_rtos_timer_delete(gpios[pin].timer);
         gpios[pin].timer = NULL;
     }
+#endif
     return 0;
 }
 

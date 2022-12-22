@@ -32,4 +32,6 @@ int luat_pm_dtimer_list(size_t* count, size_t* list);
 
 int luat_pm_dtimer_wakeup_id(int* id);
 
+int luat_pm_poweroff(void);
+
 #endif

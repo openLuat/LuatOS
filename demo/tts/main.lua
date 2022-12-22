@@ -32,7 +32,7 @@ VERSION = "2.0.0"
 1. 初始化sfud, 本demo使用SPI0 + GPIO8
 2. 使用 audio.tts播放文本
 3. 等待 播放结束事件
-4. 继续下一个循环
+4. 从第二步重新下一个循环
 
 ## 接线说明
 
@@ -46,10 +46,10 @@ https://wiki.luatos.com/chips/air780e/board.html
 Flash -- 开发板
 GND   -- 16脚, GND
 VCC   -- 15脚, 3.3V
-CLK   -- 14脚, GPIO11/SPI0_CLK, 时钟. 如果是1.4版本的开发板, 接05脚的GPIO11/UART2_TXD
-MOSI  -- 13脚, GPIO09/SPI0_MOSI,主控数据输出
-MISO  -- 11脚, GPIO10/SPI0_MISO,主控数据输入. 如果是1.4版本的开发板, 接05脚的GPIO10/UART2_RXD
-CS    -- 10脚, GPIO08/SPI0_CS,片选.
+CLK   -- 14脚, GPIO11/SPI0_CLK/LCD_CLK, 时钟. 如果是1.4版本的开发板, 接05脚的GPIO11/UART2_TXD
+MOSI  -- 13脚, GPIO09/SPI0_MOSI/LCD_OUT,主控数据输出
+MISO  -- 11脚, GPIO10/SPI0_MISO/LCD_RS,主控数据输入. 如果是1.4版本的开发板, 接06脚的GPIO10/UART2_RXD
+CS    -- 10脚, GPIO08/SPI0_CS/LCD_CS,片选.
 
 注意: 12脚是跳过的, 接线完毕后请检查好再通电!!
 ]]

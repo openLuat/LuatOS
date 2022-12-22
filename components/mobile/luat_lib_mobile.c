@@ -352,7 +352,7 @@ static int l_mobile_flymode(lua_State* L) {
 /**
 获取网络状态
 @api mobile.status()
-@return int 当前网络状态
+@return int 当前网络状态,0:网络未注册;1:网络已注册;2:网络注册被拒绝，或者正在搜网中
  */
 static int l_mobile_status(lua_State* L) {
     int LUAT_MOBILE_REGISTER_STATUS_E = luat_mobile_get_register_status();

@@ -269,6 +269,26 @@ int l_rtos_standby(lua_State *L);
 //     }
 // }
 
+/**
+开启内部的电源控制，注意不是所有的平台都支持，可能部分平台支持部分选项，看硬件
+@api pm.power(id, onoff)
+@int 电源控制id,pm.USB pm.GPS pm.GPS_ANT之类
+@boolean 开关true开，false关，默认关
+@return boolean 处理结果true成功，false失败
+@usage
+pm.power(pm.USB, false) --关闭USB电源
+ */
+static int l_pm_power_ctrl(lua_State *L) {
+	uint8_t onoff = 0;
+    int id = luaL_checkinteger(L, 1);
+    if (lua_isboolean(L, 2)) {
+    	onoff = lua_toboolean(L, 2);
+
+    }
+    lua_pushboolean(L, !luat_pm_power_ctrl(id, onoff));
+    return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_pm[] =
 {
@@ -285,6 +305,7 @@ static const rotable_Reg_t reg_pm[] =
     { "lastReson",      ROREG_FUNC(l_pm_last_reson)},
     { "shutdown",       ROREG_FUNC(l_pm_power_off)},
     { "reboot",         ROREG_FUNC(l_rtos_reboot)},
+	{ "power",         ROREG_FUNC(l_pm_power_ctrl)},
     //@const NONE number 不休眠模式
     { "NONE",           ROREG_INT(LUAT_PM_SLEEP_MODE_NONE)},
     //@const IDLE number IDLE模式
@@ -295,6 +316,13 @@ static const rotable_Reg_t reg_pm[] =
     { "DEEP",           ROREG_INT(LUAT_PM_SLEEP_MODE_DEEP)},
     //@const HIB number HIB模式
     { "HIB",            ROREG_INT(LUAT_PM_SLEEP_MODE_STANDBY)},
+    //@const USB number USB电源
+    { "USB",            ROREG_INT(LUAT_PM_POWER_USB)},
+    //@const GPS number GPS电源
+    { "GPS",            ROREG_INT(LUAT_PM_POWER_GPS)},
+    //@const GPS_ANT number GPS的天线电源，有源天线才需要
+    { "GPS_ANT",        ROREG_INT(LUAT_PM_POWER_GPS_ANT)},
+
 	{ NULL,             ROREG_INT(0) }
 };
 

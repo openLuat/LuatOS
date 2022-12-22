@@ -10,6 +10,13 @@
 #define LUAT_PM_SLEEP_MODE_STANDBY	4	//待机模式，CPU 停止，设备上下文丢失(可保存至特殊外设)，唤醒后通常复位
 //#define LUAT_PM_SLEEP_MODE_SHUTDOWN	5	//关断模式，比 Standby 模式功耗更低， 上下文通常不可恢复， 唤醒后复位
 
+enum
+{
+	LUAT_PM_POWER_USB,
+	LUAT_PM_POWER_GPS,
+	LUAT_PM_POWER_GPS_ANT,
+};
+
 int luat_pm_request(int mode);
 
 int luat_pm_release(int mode);
@@ -34,4 +41,5 @@ int luat_pm_dtimer_wakeup_id(int* id);
 
 int luat_pm_poweroff(void);
 
+int luat_pm_power_ctrl(int id, uint8_t onoff);
 #endif

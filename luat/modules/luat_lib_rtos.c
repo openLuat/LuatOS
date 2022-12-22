@@ -173,7 +173,7 @@ static int l_rtos_timer_stop(lua_State *L) {
 -- 立即重启设备
 rtos.reboot()
 */
-static int l_rtos_reboot(lua_State *L) {
+int l_rtos_reboot(lua_State *L) {
     luat_os_reboot(luaL_optinteger(L, 1, 0));
     return 0;
 }

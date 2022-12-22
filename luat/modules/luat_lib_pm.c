@@ -13,6 +13,9 @@
 #include "luat_pm.h"
 #include "luat_msgbus.h"
 
+#define LUAT_LOG_TAG "pm"
+#include "luat_log.h"
+
 // static int lua_event_cb = 0;
 
 /**
@@ -206,6 +209,40 @@ static int l_pm_check(lua_State *L) {
 }
 
 
+#ifndef LUAT_COMPILER_NOWEAK
+LUAT_WEAK int luat_pm_poweroff(void) {
+    LLOGW("powerOff is not supported");
+    return -1;
+}
+#else
+extern int luat_pm_poweroff(void);
+#endif
+
+/**
+关机
+@api pm.shutdown()
+@return nil 无返回值
+@usage
+-- 当前仅EC618系列(Air780E/Air600E/Air700E/Air780EG支持)
+-- 需要2022-12-22之后编译的固件
+pm.shutdown()
+ */
+static int l_pm_power_off(lua_State *L) {
+    (void)L;
+    luat_pm_poweroff();
+    return 0;
+}
+
+/**
+重启
+@api pm.reboot()
+@return nil          无返回值
+-- 立即重启设备, 本函数的行为与rtos.reboot()完全一致,只是在pm库做个别名
+pm.reboot()
+ */
+int l_rtos_reboot(lua_State *L);
+int l_rtos_standby(lua_State *L);
+
 
 // static int luat_pm_msg_handler(lua_State *L, void* ptr) {
 //     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
@@ -246,6 +283,8 @@ static const rotable_Reg_t reg_pm[] =
     { "force",          ROREG_FUNC(l_pm_force)},
     { "check",          ROREG_FUNC(l_pm_check)},
     { "lastReson",      ROREG_FUNC(l_pm_last_reson)},
+    { "shutdown",       ROREG_FUNC(l_pm_power_off)},
+    { "reboot",         ROREG_FUNC(l_rtos_reboot)},
     //@const NONE number 不休眠模式
     { "NONE",           ROREG_INT(LUAT_PM_SLEEP_MODE_NONE)},
     //@const IDLE number IDLE模式

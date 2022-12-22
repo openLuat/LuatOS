@@ -15,6 +15,7 @@
 #include "luat_mcu.h"
 #include "luat_msgbus.h"
 #include "luat_timer.h"
+#include "luat_rtos.h"
 #include <math.h>
 
 #define LUAT_LOG_TAG "gpio"
@@ -37,7 +38,7 @@ typedef struct gpio_ctx
     uint16_t conf_tick;   // 防抖设置的超时tick数
     uint8_t debounce_mode;
     uint8_t latest_state;
-    luat_timer_t* timer;
+    luat_rtos_timer_t timer;
 }gpio_ctx_t;
 
 // 保存中断回调的数组
@@ -69,11 +70,11 @@ static void gpio_bit_set(int pin, uint8_t value) {
 }
 
 int l_gpio_debounce_timer_handler(lua_State *L, void* ptr) {
+    (void)L;
+    (void)ptr;
+
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
-    luat_timer_t *timer = (luat_timer_t *)ptr;
-    if (timer == NULL)
-        return 0;
-    int pin = timer->id;
+    int pin = msg->arg1;
     if (pin < 0 || pin >= LUAT_GPIO_PIN_MAX)
         return 0; // 超范围, 内存异常
     if (gpios[pin].lua_ref == 0)
@@ -86,6 +87,14 @@ int l_gpio_debounce_timer_handler(lua_State *L, void* ptr) {
         lua_call(L, 1, 0);
     }
     return 0;
+}
+
+static void l_gpio_debounce_mode1_cb(void* args) {
+    int pin = (int)args;
+    rtos_msg_t msg = {0};
+    msg.handler = l_gpio_debounce_timer_handler;
+    msg.arg1 = pin;
+    luat_msgbus_put(&msg, 0);
 }
 
 int luat_gpio_irq_default(int pin, void* args) {
@@ -110,11 +119,11 @@ int luat_gpio_irq_default(int pin, void* args) {
         }
         // 防抖模式1, 触发后延时N个ms, 电平依然不变才触发
         else if (gpios[pin].debounce_mode == 1) {
-            if (gpios[pin].timer == NULL) {
+            if (gpios[pin].timer == NULL || gpios[pin].conf_tick == 0) {
                 return 0; // timer被释放了?
             }
-            luat_timer_stop(gpios[pin].timer);
-            luat_timer_start(gpios[pin].timer);
+            luat_rtos_timer_stop(gpios[pin].timer);
+            luat_rtos_timer_start(gpios[pin].timer, gpios[pin].conf_tick, 0, l_gpio_debounce_mode1_cb, (void*)pin);
             return 0;
         }
     }
@@ -127,6 +136,7 @@ int luat_gpio_irq_default(int pin, void* args) {
 }
 
 int l_gpio_handler(lua_State *L, void* ptr) {
+    (void)ptr; // unused
     // 给 sys.publish方法发送数据
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     int pin = msg->arg1;
@@ -267,8 +277,9 @@ static int l_gpio_close(lua_State *L) {
         gpios[pin].lua_ref = 0;
     }
     if (gpios[pin].timer != NULL) {
-        luat_timer_stop(gpios[pin].timer);
-        luat_heap_free(gpios[pin].timer);
+        gpios[pin].conf_tick = 0;
+        luat_rtos_timer_stop(gpios[pin].timer);
+        luat_rtos_timer_delete(gpios[pin].timer);
         gpios[pin].timer = NULL;
     }
     return 0;
@@ -404,22 +415,18 @@ static int l_gpio_debounce(lua_State *L) {
     gpios[pin].latest_tick = 0;
     gpios[pin].debounce_mode = mode;
     if ((mode == 0 && gpios[pin].timer != NULL) || timeout == 0) {
-        luat_timer_stop(gpios[pin].timer);
-        luat_heap_free(gpios[pin].timer);
+        luat_rtos_timer_stop(gpios[pin].timer);
+        luat_rtos_timer_delete(gpios[pin].timer);
         gpios[pin].timer = NULL;
     }
     else if (mode == 1 && gpios[pin].timer == NULL && timeout > 0) {
         //LLOGD("GPIO debounce mode 1 %d %d", pin, timeout);
-        gpios[pin].timer = luat_heap_malloc(sizeof(luat_timer_t));
+        if (gpios[pin].timer == NULL)
+            luat_rtos_timer_create(&gpios[pin].timer);
         if (gpios[pin].timer == NULL) {
             LLOGE("out of memory when malloc debounce timer");
             return 0;
         }
-        memset(gpios[pin].timer, 0, sizeof(luat_timer_t));
-        gpios[pin].timer->func = l_gpio_debounce_timer_handler;
-        gpios[pin].timer->repeat = 0;
-        gpios[pin].timer->id = pin;
-        gpios[pin].timer->timeout = timeout;
     }
     return 0;
 }

@@ -485,6 +485,21 @@ int luat_rtos_timer_is_active(luat_rtos_timer_t timer_handle)
 		return 0;
 }
 
+LUAT_WEAK int luat_rtos_timer_stop(luat_rtos_timer_t timer_handle)
+{
+	if (!timer_handle) return -1;
+	luat_stop_rtos_timer(timer_handle);
+	return 0;
+}
+
+LUAT_WEAK int luat_rtos_timer_delete(luat_rtos_timer_t timer_handle)
+{
+	if (!timer_handle) return -1;
+	luat_release_rtos_timer(timer_handle);
+	return 0;
+}
+
+
 /*------------------------------------------------ timer   end----------------------------------------------- */
 
 /* ------------------------------------------------ critical begin----------------------------------------------- */

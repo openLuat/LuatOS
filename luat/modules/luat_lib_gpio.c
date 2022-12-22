@@ -89,6 +89,7 @@ int l_gpio_debounce_timer_handler(lua_State *L, void* ptr) {
     return 0;
 }
 
+#ifndef LUAT_RTOS_API_NOTOK
 static LUAT_RT_RET_TYPE l_gpio_debounce_mode1_cb(LUAT_RT_CB_PARAM) {
     int pin = (int)param;
     rtos_msg_t msg = {0};
@@ -96,6 +97,7 @@ static LUAT_RT_RET_TYPE l_gpio_debounce_mode1_cb(LUAT_RT_CB_PARAM) {
     msg.arg1 = pin;
     luat_msgbus_put(&msg, 0);
 }
+#endif
 
 int luat_gpio_irq_default(int pin, void* args) {
     rtos_msg_t msg = {0};
@@ -117,6 +119,7 @@ int luat_gpio_irq_default(int pin, void* args) {
             return 0;
             }
         }
+        #ifndef LUAT_RTOS_API_NOTOK
         // 防抖模式1, 触发后延时N个ms, 电平依然不变才触发
         else if (gpios[pin].debounce_mode == 1) {
             if (gpios[pin].timer == NULL || gpios[pin].conf_tick == 0) {
@@ -127,6 +130,7 @@ int luat_gpio_irq_default(int pin, void* args) {
             luat_rtos_timer_start(gpios[pin].timer, gpios[pin].conf_tick, 0, l_gpio_debounce_mode1_cb, (void*)pin);
             return 0;
         }
+        #endif
     }
 
     msg.handler = l_gpio_handler;
@@ -415,6 +419,7 @@ static int l_gpio_debounce(lua_State *L) {
     gpios[pin].conf_tick = timeout;
     gpios[pin].latest_tick = 0;
     gpios[pin].debounce_mode = mode;
+#ifndef LUAT_RTOS_API_NOTOK
     if ((mode == 0 && gpios[pin].timer != NULL) || timeout == 0) {
         luat_rtos_timer_stop(gpios[pin].timer);
         luat_rtos_timer_delete(gpios[pin].timer);
@@ -429,6 +434,7 @@ static int l_gpio_debounce(lua_State *L) {
             return 0;
         }
     }
+#endif
     return 0;
 }
 

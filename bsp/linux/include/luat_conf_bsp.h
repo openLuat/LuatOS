@@ -9,6 +9,10 @@
 // #define LUAT_USE_CMDLINE_ARGS 1
 #define LUAT_CONF_LAUX_BUFFSIZE 1024
 
+#define LUAT_RET int
+#define LUAT_RT_RET_TYPE	void
+#define LUAT_RT_CB_PARAM void *param
+#define LUAT_RTOS_API_NOTOK 1
 // Linux 下默认64bit得了, 32bit的编译器太难找
 #define LUAT_CONF_VM_64bit
 

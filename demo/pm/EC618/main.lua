@@ -26,25 +26,33 @@ if reason > 0 then
 else
     log.info("普通复位，开始测试")
     sys.taskInit(function()
+        pm.power(pm.GPS, true) --打开780EG内部GPS电源，注意如果真的用GPS，需要初始化UART2
+        pm.power(pm.GPS_ANT, true) --打开780EG内部GPS天线电源，注意如果真的用GPS，需要初始化UART2
         log.info("等联网完成")
         sys.wait(20000)
+        pm.power(pm.GPS, false) --打开780EG内部GPS电源，注意如果真的用GPS，需要初始化UART2
+        pm.power(pm.GPS_ANT, false) --打开780EG内部GPS天线电源，注意如果真的用GPS，需要初始化UART2
         -- lvgl刷新太快，如果有lvgl.init操作的，需要先停一下
-        lvgl.sleep(true)
-        -- 如果接着USB，则需要开启强制休眠pm.force，如果没接USB，可以用pm.require
+        if lvgl then
+            lvgl.sleep(true)
+        end
+        pm.power(pm.USB, false)-- 如果是插着USB测试，需要关闭USB
         pm.force(pm.LIGHT)
         log.info("普通休眠测试，需要先进飞行模式")
         mobile.flymode(0, true)
         log.info("普通休眠测试，普通定时器就能唤醒，10秒后唤醒一下")
         sys.wait(10000)
         pm.force(pm.IDLE)
-        -- 注意如果接着USB，但是用了pm.force，实际上USB是断开的，所以下面的打印不用在luatools看到
-        -- 重新插拔能看到打印，或者看UART0，或者看电流情况
+        pm.power(pm.USB, true)
+        sys.wait(1000)
         log.info("普通休眠测试成功，接下来深度休眠，需要先进飞行模式，或者PSM模式")
-        
+        mobile.flymode(0, true)
+        sys.wait(10000)
         log.info("深度休眠测试用DTIMER来唤醒")
         -- EC618上，0和1只能最多2.5小时，2~6可以750小时
         pm.dtimerStart(0, 10000)
         pm.force(pm.DEEP)   --也可以pm.HIB模式
+        pm.power(pm.USB, false) -- 如果是插着USB测试，需要关闭USB
         log.info("开始深度休眠测试")
         sys.wait(3000)
         log.info("深度休眠测试失败")

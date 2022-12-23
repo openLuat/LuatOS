@@ -48,6 +48,7 @@ def get_file_list(paths, ext = ".c"):
 #         'demo': 'adc',
 #         'video': 'https://xxxxx',
 #         'usage': '--xxxxxxx',
+#         'tag': 'bsp里的tag',
 #         'const': [
 # {
 #    'var':'uart.NONE',
@@ -59,6 +60,7 @@ def get_file_list(paths, ext = ".c"):
 #             {
 #                 'api':'adc.read(id)',
 #                 'summary': '读取adc通道',
+#                 'tag': 'bsp里的tag',
 #                 'args': [
 #                     {
 #                         'type': 'int',
@@ -166,10 +168,14 @@ def get_modules(file_list, start="/*", end="*/"):
                 api = {}
                 api["api"] = name.group(1)
                 api["summary"] = re.search(r" *(.+) *",lines[line_now+1],re.I).group(1)
+                api["tag"] = ""
                 line_now += 3
                 api["args"] = []
                 api["return"] = []
                 api["usage"] = ""
+                if re.search(" *@tag *.+",lines[line_now],re.I):
+                    api["tag"] = re.search(" *@tag * (.+) *",lines[line_now],re.I).group(1)
+                    line_now+=1
                 arg_re = r" *@([^ ]+) +(.+) *"
                 return_re = r" *@return *([^ ]+) +(.+) *"
                 isGotApi = True

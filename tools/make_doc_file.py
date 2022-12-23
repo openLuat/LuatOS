@@ -15,10 +15,17 @@ for bsp in bsp_header_list:
     bsp["url"] = requests.get(bsp["url"]).text
     print("done "+ str(len(bsp["url"])) + " bytes")
 
-def get_tags(tag):
+def get_tags(tag, is_api = False):
     if len(tag) == 0:
-        return "{bdg-secondary}`适配状态未知`"
-    r = ["{bdg-success}`已适配`"]
+        if is_api:
+            return ""
+        else:
+            return "{bdg-secondary}`适配状态未知`"
+    r = []
+    if is_api:
+        r.append("{bdg-success}`本接口仅支持`")
+    else:
+        r.append("{bdg-success}`已适配`")
     for bsp in bsp_header_list:
         if bsp["url"].find(" "+tag+" ") >= 0 or bsp["url"].find(" "+tag+"\r") >= 0 or bsp["url"].find(" "+tag+"\n") >= 0:
             r.append("{bdg-primary}`" + bsp["name"] + "`")
@@ -69,6 +76,11 @@ def make(path,modules,index_text):
         doc.write("   "+module["module"]+"\n")
         for api in module["api"]:
             mdoc.write("## "+api["api"]+"\n\n")
+
+            #支持的芯片
+            mdoc.write(get_tags(api["tag"], True))
+            mdoc.write("\n\n")
+
             mdoc.write(api["summary"]+"\n\n")
 
             mdoc.write("**参数**\n\n")

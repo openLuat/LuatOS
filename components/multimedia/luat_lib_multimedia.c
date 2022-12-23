@@ -225,6 +225,7 @@ TTS播放或者停止
 @int 音频通道
 @string/zbuff 需要播放的内容
 @return boolean 成功返回true,否则返回false
+@tag LUAT_USE_TTS
 @usage
 audio.tts(0, "测试一下")		--开始播放
 audio.tts(0)				--停止播放

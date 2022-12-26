@@ -6,16 +6,38 @@
 @date    2020.07.03
 @demo libgnss
 @tag LUAT_USE_LIBGNSS
+@usage
+-- 方案1, 经lua层进行数据中转
+uart.setup(2, 115200)
+uart.on(2, "recv", function(id, len)
+    while 1 do
+        local data = uart.read(id, 1024)
+        if data and #data > 1 then
+            libgnss.parse(data)
+        else
+            break
+        end
+    end
+end)
+-- 方案2, 适合2022.12.26之后编译固件,效率更高一些
+uart.setup(2, 115200)
+libgnss.bind(2)
+
+-- 可选调试模式
+-- libgnss.debug(true)
 */
 #include "luat_base.h"
 #include "luat_msgbus.h"
 #include "luat_malloc.h"
 #include "luat_uart.h"
 
-#define LUAT_LOG_TAG "luat.gnss"
+#define LUAT_LOG_TAG "gnss"
 #include "luat_log.h"
 
 #include "minmea.h"
+#define RECV_BUFF_SIZE (2048)
+
+void luat_uart_set_app_recv(int id, luat_uart_recv_callback_t cb);
 
 typedef struct luat_libgnss
 {
@@ -34,6 +56,33 @@ typedef struct luat_libgnss
 
 static luat_libgnss_t *gnss = NULL;
 static luat_libgnss_t *gnsstmp = NULL;
+
+static int parse_nmea(const char* line);
+static int parse_data(const char* data, size_t len);
+
+static char *recvbuff;
+static void nmea_uart_recv_cb(int uart_id, uint32_t data_len) {
+    (void)data_len;
+    if (recvbuff == NULL)
+        return;
+    LLOGD("uart recv cb");
+    int len = 0;
+    while (1) {
+        len = luat_uart_read(uart_id, recvbuff, RECV_BUFF_SIZE - 1);
+        if (len < 1 || len > RECV_BUFF_SIZE)
+            break;
+        LLOGD("uart recv %d", len);
+        recvbuff[len] = 0;
+        if (gnss == NULL)
+            continue;
+        if (gnss->debug) {
+            LLOGD("recv %s", recvbuff);
+        }
+        parse_data(recvbuff, len);
+    }
+}
+
+static uint32_t msg_counter[MINMEA_SENTENCE_MAX_ID];
 
 static int luat_libgnss_init(void) {
     if (gnss == NULL) {
@@ -56,6 +105,32 @@ static int luat_libgnss_init(void) {
     return 1;
 }
 
+static int parse_data(const char* data, size_t len) {
+    size_t prev = 0;
+    static char nmea_tmp_buff[86] = {0}; // nmea 最大长度82,含换行符
+    for (size_t offset = 0; offset < len; offset++)
+    {
+        // \r == 0x0D  \n == 0x0A
+        if (data[offset] == 0x0A) {
+            // 最短也需要是 OK\r\n
+            // 应该\r\n的
+            // 太长了
+            if (offset - prev < 3 || data[offset - 1] != 0x0D || offset - prev > 82) {
+                prev = offset + 1;
+                continue;
+            }
+            memcpy(nmea_tmp_buff, data + prev, offset - prev - 1);
+            nmea_tmp_buff[offset - prev - 1] = 0x00;
+            if (gnss->debug) {
+                LLOGD(">> %s", nmea_tmp_buff);
+            }
+            parse_nmea((const char*)nmea_tmp_buff);
+            prev = offset + 1;
+        }
+    }
+    return 0;
+}
+
 static int parse_nmea(const char* line) {
     // $GNRMC,080313.00,A,2324.40756,N,11313.86184,E,0.284,,010720,,,A*68
     //if (gnss != NULL && gnss->debug)
@@ -64,12 +139,11 @@ static int parse_nmea(const char* line) {
         return 0;
     }
     struct minmea_sentence_gsv frame_gsv = {0};
-
-    switch (minmea_sentence_id(line, false)) {
-        case MINMEA_INVALID : {
-            LLOGD("bad line %s", line);
-            break;
-        }
+    enum minmea_sentence_id id = minmea_sentence_id(line, false);
+    if (id == MINMEA_UNKNOWN || id >= MINMEA_SENTENCE_MAX_ID || id == MINMEA_INVALID)
+        return -1;
+    msg_counter[id] ++;
+    switch (id) {
         case MINMEA_SENTENCE_RMC: {
             if (minmea_parse_rmc(&(gnsstmp->frame_rmc), line)) {
                 if (gnsstmp->frame_rmc.valid) {
@@ -195,28 +269,9 @@ log.info("nmea", json.encode(libgnss.getRmc()))
 static int l_libgnss_parse(lua_State *L) {
     size_t len = 0;
     const char* str = luaL_checklstring(L, 1, &len);
-    if (len == 0) {
-        return 0;
+    if (len > 0) {
+        parse_data(str, len);
     }
-    // TODO 处理粘包,分包的情况
-    char buff[85] = {0}; // nmea 最大长度82,含换行符
-    char *ptr = (char*)str;
-    size_t prev = 0;
-    for (size_t i = 1; i < len; i++)
-    {
-        if (*(ptr + i) == 0x0A) {
-            if (i - prev > 10 && i - prev < 82) {
-                memcpy(buff, ptr + prev, i - prev - 1);
-                if (buff[0] == '$') {
-                    buff[i - prev - 1] = 0; // 确保结束符存在
-                    parse_nmea((const char*)buff);
-                }
-            }
-            i ++;
-            prev = i;
-        }
-    }
-
     return 0;
 }
 
@@ -523,22 +578,42 @@ static int l_libgnss_get_zda(lua_State *L) {
     return 1;
 }
 
+/**
+设置调试模式
+@api libgnss.debug(mode)
+@bool true开启调试,false关闭调试,默认为false
+@usage
+-- 开启调试
+libgnss.debug(true)
+-- 关闭调试
+libgnss.debug(false)
+ */
 static int l_libgnss_debug(lua_State *L) {
     if (gnss == NULL && luat_libgnss_init()) {
         return 0;
     }
     if (lua_isboolean(L, 1) && lua_toboolean(L, 1)) {
+        LLOGD("Debug ON");
         gnss->debug = 1;
     }
     else
     {
+        LLOGD("Debug OFF");
         gnss->debug = 0;
     }
 
     return 0;
 }
 
-
+/*
+获取GGA数据
+@api libgnss.getGga()
+@return table GGA数据, 若如不存在会返回nil
+local gga = libgnss.getGga()
+if gga then
+    log.info("GGA", json.encode(gga))
+end
+*/
 static int l_libgnss_get_gga(lua_State* L) {
     if (gnss == NULL)
         return 0;
@@ -579,15 +654,88 @@ static int l_libgnss_get_gga(lua_State* L) {
     return 1;
 }
 
+/*
+获取GLL数据
+@api libgnss.getGll()
+@return table GLL数据, 若如不存在会返回nil
+local gll = libgnss.getGll()
+if gll then
+    log.info("GLL", json.encode(gll))
+end
+*/
+static int l_libgnss_get_gll(lua_State* L) {
+    if (gnss == NULL)
+        return 0;
+    lua_newtable(L);
+
+    lua_pushstring(L, "latitude");
+    lua_pushinteger(L, gnss->frame_gll.latitude.value);
+    lua_settable(L, -3);
+
+    lua_pushstring(L, "longitude");
+    lua_pushinteger(L, gnss->frame_gll.longitude.value);
+    lua_settable(L, -3);
+
+    lua_pushstring(L, "mode");
+    lua_pushinteger(L, gnss->frame_gll.mode);
+    lua_settable(L, -3);
+
+    lua_pushstring(L, "status");
+    lua_pushinteger(L, gnss->frame_gll.status);
+    lua_settable(L, -3);
+
+    lua_pushstring(L, "hour");
+    lua_pushinteger(L, gnss->frame_gll.time.hours);
+    lua_settable(L, -3);
+    lua_pushstring(L, "us");
+    lua_pushinteger(L, gnss->frame_gll.time.microseconds);
+    lua_settable(L, -3);
+    lua_pushstring(L, "min");
+    lua_pushinteger(L, gnss->frame_gll.time.minutes);
+    lua_settable(L, -3);
+    lua_pushstring(L, "sec");
+    lua_pushinteger(L, gnss->frame_gll.time.seconds);
+    lua_settable(L, -3);
+
+    return 1;
+}
+
 /**
 清除历史定位数据
 @api libgnss.clear()
 @return nil 无返回值
  */
 static int l_libgnss_clear(lua_State*L) {
+    (void)L;
     if (gnss == NULL && !luat_libgnss_init())
         return 0;
     memset(gnss, 0, sizeof(luat_libgnss_t));
+    return 0;
+}
+
+/*
+绑定uart端口进行GNSS数据读取
+@api libgnss.bind(id)
+@int uart端口号
+@usage
+-- 配置串口信息, 通常为 115200 8N1
+uart.setup(2, 115200)
+-- 绑定uart, 马上开始解析GNSS数据
+libgnss.bind(2)
+-- 无需再调用uart.on然后调用libgnss.parse
+-- 开发期可打开调试日志
+libgnss.debug(true)
+*/
+static int l_libgnss_bind(lua_State* L) {
+    int uart_id = luaL_checkinteger(L, 1);
+    l_libgnss_clear(L);
+    if (recvbuff == NULL) {
+        recvbuff = luat_heap_malloc(2048);
+    }
+    if (luat_uart_exist(uart_id)) {
+        //uart_app_recvs[uart_id] = nmea_uart_recv_cb;
+        luat_uart_set_app_recv(uart_id, nmea_uart_recv_cb);
+    }
     return 0;
 }
 
@@ -602,9 +750,12 @@ static const rotable_Reg_t reg_libgnss[] =
     { "getGsa", ROREG_FUNC(l_libgnss_get_gsa)},
     { "getVtg", ROREG_FUNC(l_libgnss_get_vtg)},
     { "getGga", ROREG_FUNC(l_libgnss_get_gga)},
+    { "getGll", ROREG_FUNC(l_libgnss_get_gll)},
     { "getZda", ROREG_FUNC(l_libgnss_get_zda)},
+    
     { "debug",  ROREG_FUNC(l_libgnss_debug)},
     { "clear",  ROREG_FUNC(l_libgnss_clear)},
+    { "bind",   ROREG_FUNC(l_libgnss_bind)},
 
 	{ NULL,      ROREG_INT(0)}
 };

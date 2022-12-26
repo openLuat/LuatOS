@@ -26,7 +26,16 @@ typedef struct luat_uart_cb {
 } luat_uart_cb_t;
 static luat_uart_cb_t uart_cbs[MAX_DEVICE_COUNT];
 
+static luat_uart_recv_callback_t uart_app_recvs[MAX_DEVICE_COUNT];
+
+void luat_uart_set_app_recv(int id, luat_uart_recv_callback_t cb) {
+    if (luat_uart_exist(id)) {
+        uart_app_recvs[id] = cb;
+    }
+}
+
 int l_uart_handler(lua_State *L, void* ptr) {
+    (void)ptr;
     //LLOGD("l_uart_handler");
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     lua_pop(L, 1);
@@ -47,6 +56,9 @@ int l_uart_handler(lua_State *L, void* ptr) {
         }
     }
     else {
+        if (uart_app_recvs[uart_id]) {
+            uart_app_recvs[uart_id](uart_id, msg->arg2);
+        }
         if (uart_cbs[uart_id].received) {
             lua_geti(L, LUA_REGISTRYINDEX, uart_cbs[uart_id].received);
             if (lua_isfunction(L, -1)) {

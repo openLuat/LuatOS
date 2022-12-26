@@ -185,23 +185,28 @@ int luat_libgnss_parse_nmea(const char* line) {
         case MINMEA_SENTENCE_GSV: {
             //LLOGD("Got GSV : %s", line);
             if (minmea_parse_gsv(&frame_gsv, line)) {
+                struct minmea_sentence_gsv *gsvs = libgnss_gnss->frame_gsv_gp;
+                if (0 == memcmp("$GPGSV", line, strlen("$GPGSV"))) {
+                    gsvs = libgnss_gnss->frame_gsv_gp;
+                }
+                else if (0 == memcmp("$GBGSV", line, strlen("$GBGSV"))) {
+                    gsvs = libgnss_gnss->frame_gsv_gb;
+                }
+                else if (0 == memcmp("$GLGSV", line, strlen("$GLGSV"))) {
+                    gsvs = libgnss_gnss->frame_gsv_gl;
+                }
+                else if (0 == memcmp("$GAGSV", line, strlen("$GAGSV"))) {
+                    gsvs = libgnss_gnss->frame_gsv_ga;
+                }
                 //LLOGD("$GSV: message %d of %d", frame_gsv.msg_nr, frame_gsv.total_msgs);
                 if (frame_gsv.msg_nr == 1) {
                     //LLOGD("Clean GSV");
-                    memset(&(libgnss_gnss->frame_gsv), 0, sizeof(struct minmea_sentence_gsv) * 3);
+                    memset(gsvs, 0, sizeof(struct minmea_sentence_gsv) * 3);
                 }
                 if (frame_gsv.msg_nr >= 1 && frame_gsv.msg_nr <= 3) {
                     //LLOGD("memcpy GSV %d", frame_gsv.msg_nr);
-                    memcpy(&(libgnss_gnss->frame_gsv[frame_gsv.msg_nr - 1]), &frame_gsv, sizeof(struct minmea_sentence_gsv));
+                    memcpy(&gsvs[frame_gsv.msg_nr - 1], &frame_gsv, sizeof(struct minmea_sentence_gsv));
                 }
-                // LLOGD("$GSV: message %d of %d", frame_gsv.msg_nr, frame_gsv.total_msgs);
-                // LLOGD("$GSV: sattelites in view: %d", frame_gsv.total_sats);
-                // for (int i = 0; i < 4; i++)
-                //     LLOGD("$GSV: sat nr %d, elevation: %d, azimuth: %d, snr: %d dbm",
-                //         frame_gsv.sats[i].nr,
-                //         frame_gsv.sats[i].elevation,
-                //         frame_gsv.sats[i].azimuth,
-                //         frame_gsv.sats[i].snr);
             }
             else {
                 //LLOGD("bad GSV %s", line);

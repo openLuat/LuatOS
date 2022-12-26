@@ -259,7 +259,7 @@ static inline int_least32_t minmea_rescale(const struct minmea_float *f, int_lea
 static inline float minmea_tofloat(const struct minmea_float *f)
 {
     if (f->scale == 0)
-        return NAN;
+        return 0;
     return (float) f->value / (float) f->scale;
 }
 
@@ -308,7 +308,10 @@ typedef struct luat_libgnss
     struct minmea_sentence_gga frame_gga;
     struct minmea_sentence_gll frame_gll;
     struct minmea_sentence_gst frame_gst;
-    struct minmea_sentence_gsv frame_gsv[3];
+    struct minmea_sentence_gsv frame_gsv_gp[3];
+    struct minmea_sentence_gsv frame_gsv_gb[3];
+    struct minmea_sentence_gsv frame_gsv_gl[3];
+    struct minmea_sentence_gsv frame_gsv_ga[3];
     struct minmea_sentence_vtg frame_vtg;
     struct minmea_sentence_gsa frame_gsa;
     struct minmea_sentence_zda frame_zda;

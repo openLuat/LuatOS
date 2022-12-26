@@ -243,32 +243,6 @@ pm.reboot()
 int l_rtos_reboot(lua_State *L);
 int l_rtos_standby(lua_State *L);
 
-
-// static int luat_pm_msg_handler(lua_State *L, void* ptr) {
-//     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
-//     if (lua_event_cb == 0) {
-//         return 0;
-//     }
-//     lua_geti(L, LUA_REGISTRYINDEX, lua_event_cb);
-//     if (lua_isfunction(L, -1)) {
-//         lua_pushinteger(L, msg->arg1);
-//         lua_pushinteger(L, msg->arg2);
-//         lua_call(L, 2, 0);
-//     }
-//     return 0;
-// }
-
-// void luat_pm_cb(int event, int arg, void* args) {
-//     if (lua_event_cb != 0) {
-//         rtos_msg_t msg;
-//         msg.handler = luat_pm_msg_handler;
-//         msg.arg1 = event;
-//         msg.arg2 = arg;
-//         msg.ptr = NULL;
-//         luat_msgbus_put(&msg, 0);
-//     }
-// }
-
 /**
 开启内部的电源控制，注意不是所有的平台都支持，可能部分平台支持部分选项，看硬件
 @api pm.power(id, onoff)

@@ -44,12 +44,38 @@ extern char* libgnss_recvbuff;
 
 void luat_uart_set_app_recv(int id, luat_uart_recv_callback_t cb);
 
+static void put_datetime(lua_State*L, struct tm* rtime) {
+    lua_pushliteral(L, "year");
+    lua_pushinteger(L, rtime->tm_year);
+    lua_settable(L, -3);
+
+    lua_pushliteral(L, "month");
+    lua_pushinteger(L, rtime->tm_mon + 1); // 比较纠结, 要不要兼容老的呢?
+    lua_settable(L, -3);
+
+    lua_pushliteral(L, "day");
+    lua_pushinteger(L, rtime->tm_mday);
+    lua_settable(L, -3);
+
+    lua_pushliteral(L, "hour");
+    lua_pushinteger(L, rtime->tm_hour);
+    lua_settable(L, -3);
+
+    lua_pushliteral(L, "min");
+    lua_pushinteger(L, rtime->tm_min);
+    lua_settable(L, -3);
+
+    lua_pushliteral(L, "sec");
+    lua_pushinteger(L, rtime->tm_sec);
+    lua_settable(L, -3);
+}
+
 /**
 处理nmea数据
 @api libgnss.parse(str)
 @string 原始nmea数据
 @usage
--- 解析nmea
+-- 解析nmea数据
 libgnss.parse(indata)
 log.info("nmea", json.encode(libgnss.getRmc()))
  */
@@ -116,6 +142,8 @@ log.info("nmea", "rmc", json.encode(libgnss.getRmc()))
 static int l_libgnss_get_rmc(lua_State *L) {
     lua_createtable(L, 0, 12);
 
+    struct tm rtime = {0};
+
     if (libgnss_gnss != NULL) {
 
         lua_pushliteral(L, "valid");
@@ -149,29 +177,9 @@ static int l_libgnss_get_rmc(lua_State *L) {
         lua_pushinteger(L, libgnss_gnss->frame_rmc.variation.value);
         lua_settable(L, -3);
 
-        lua_pushliteral(L, "year");
-        lua_pushinteger(L, libgnss_gnss->frame_rmc.date.year + 2000);
-        lua_settable(L, -3);
-
-        lua_pushliteral(L, "month");
-        lua_pushinteger(L, libgnss_gnss->frame_rmc.date.month);
-        lua_settable(L, -3);
-
-        lua_pushliteral(L, "day");
-        lua_pushinteger(L, libgnss_gnss->frame_rmc.date.day);
-        lua_settable(L, -3);
-
-        lua_pushliteral(L, "hour");
-        lua_pushinteger(L, libgnss_gnss->frame_rmc.time.hours);
-        lua_settable(L, -3);
-
-        lua_pushliteral(L, "min");
-        lua_pushinteger(L, libgnss_gnss->frame_rmc.time.minutes);
-        lua_settable(L, -3);
-
-        lua_pushliteral(L, "sec");
-        lua_pushinteger(L, libgnss_gnss->frame_rmc.time.seconds);
-        lua_settable(L, -3);
+        // 时间类
+        minmea_getdatetime(&rtime, &libgnss_gnss->frame_rmc.date, &libgnss_gnss->frame_rmc.time);
+        put_datetime(L, &rtime);
     }
 
     return 1;
@@ -328,7 +336,7 @@ log.info("nmea", "zda", json.encode(libgnss.getZda()))
  */
 static int l_libgnss_get_zda(lua_State *L) {
     lua_createtable(L, 0, 9);
-
+    struct tm rtime = {0};
     if (libgnss_gnss != NULL) {
 
         lua_pushliteral(L, "hour_offset");
@@ -339,33 +347,10 @@ static int l_libgnss_get_zda(lua_State *L) {
         lua_pushinteger(L, libgnss_gnss->frame_zda.minute_offset);
         lua_settable(L, -3);
 
-        lua_pushliteral(L, "year");
-        lua_pushinteger(L, libgnss_gnss->frame_zda.date.year + 2000);
-        lua_settable(L, -3);
-
-        lua_pushliteral(L, "month");
-        lua_pushinteger(L, libgnss_gnss->frame_zda.date.month);
-        lua_settable(L, -3);
-
-        lua_pushliteral(L, "day");
-        lua_pushinteger(L, libgnss_gnss->frame_zda.date.day);
-        lua_settable(L, -3);
-
-        lua_pushliteral(L, "hour");
-        lua_pushinteger(L, libgnss_gnss->frame_zda.time.hours);
-        lua_settable(L, -3);
-
-        lua_pushliteral(L, "min");
-        lua_pushinteger(L, libgnss_gnss->frame_zda.time.minutes);
-        lua_settable(L, -3);
-
-        lua_pushliteral(L, "sec");
-        lua_pushinteger(L, libgnss_gnss->frame_zda.time.seconds);
-        lua_settable(L, -3);
-
-        lua_pushliteral(L, "mic");
-        lua_pushinteger(L, libgnss_gnss->frame_zda.time.microseconds);
-        lua_settable(L, -3);
+        // 时间相关
+        // 时间类
+        minmea_getdatetime(&rtime, &libgnss_gnss->frame_zda.date, &libgnss_gnss->frame_zda.time);
+        put_datetime(L, &rtime);
     }
 
     return 1;
@@ -523,7 +508,7 @@ static int l_libgnss_bind(lua_State* L) {
     int uart_id = luaL_checkinteger(L, 1);
     l_libgnss_clear(L);
     if (libgnss_recvbuff == NULL) {
-        libgnss_recvbuff = luat_heap_malloc(2048);
+        libgnss_recvbuff = luat_heap_malloc(RECV_BUFF_SIZE);
     }
     if (luat_uart_exist(uart_id)) {
         //uart_app_recvs[uart_id] = nmea_uart_recv_cb;

@@ -10,9 +10,7 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
 #include <stdarg.h>
-#include <time.h>
 
 #define boolstr(s) ((s) ? "true" : "false")
 
@@ -46,10 +44,6 @@ bool minmea_check(const char *sentence, bool strict)
 {
     uint8_t checksum = 0x00;
 
-    // Sequence length is limited.
-    if (strlen(sentence) > MINMEA_MAX_LENGTH + 3)
-        return false;
-
     // A valid sentence starts with "$".
     if (*sentence++ != '$')
         return false;
@@ -79,20 +73,25 @@ bool minmea_check(const char *sentence, bool strict)
     }
 
     // The only stuff allowed at this point is a newline.
-    if (*sentence && strcmp(sentence, "\n") && strcmp(sentence, "\r\n"))
+    while (*sentence == '\r' || *sentence == '\n') {
+        sentence++;
+    }
+    
+    if (*sentence) {
         return false;
+    }
 
     return true;
-}
-
-static inline bool minmea_isfield(char c) {
-    return isprint((unsigned char) c) && c != ',' && c != '*';
 }
 
 bool minmea_scan(const char *sentence, const char *format, ...)
 {
     bool result = false;
     bool optional = false;
+
+    if (sentence == NULL)
+        return false;
+
     va_list ap;
     va_start(ap, format);
 
@@ -358,24 +357,48 @@ enum minmea_sentence_id minmea_sentence_id(const char *sentence, bool strict)
     if (!minmea_scan(sentence, "t", type))
         return MINMEA_INVALID;
 
-    if (!strcmp(type+2, "RMC"))
-        return MINMEA_SENTENCE_RMC;
+    if (!strcmp(type+2, "GBS"))
+        return MINMEA_SENTENCE_GBS;
     if (!strcmp(type+2, "GGA"))
         return MINMEA_SENTENCE_GGA;
-    if (!strcmp(type+2, "GSA"))
-        return MINMEA_SENTENCE_GSA;
     if (!strcmp(type+2, "GLL"))
         return MINMEA_SENTENCE_GLL;
+    if (!strcmp(type+2, "GSA"))
+        return MINMEA_SENTENCE_GSA;
     if (!strcmp(type+2, "GST"))
         return MINMEA_SENTENCE_GST;
     if (!strcmp(type+2, "GSV"))
         return MINMEA_SENTENCE_GSV;
+    if (!strcmp(type+2, "RMC"))
+        return MINMEA_SENTENCE_RMC;
     if (!strcmp(type+2, "VTG"))
         return MINMEA_SENTENCE_VTG;
     if (!strcmp(type+2, "ZDA"))
         return MINMEA_SENTENCE_ZDA;
 
     return MINMEA_UNKNOWN;
+}
+
+bool minmea_parse_gbs(struct minmea_sentence_gbs *frame, const char *sentence)
+{
+    // $GNGBS,170556.00,3.0,2.9,8.3,,,,*5C
+    char type[6];
+    if (!minmea_scan(sentence, "tTfffifff",
+            type,
+            &frame->time,
+            &frame->err_latitude,
+            &frame->err_longitude,
+            &frame->err_altitude,
+            &frame->svid,
+            &frame->prob,
+            &frame->bias,
+            &frame->stddev
+            ))
+        return false;
+    if (strcmp(type+2, "GBS"))
+        return false;
+
+    return true;
 }
 
 bool minmea_parse_rmc(struct minmea_sentence_rmc *frame, const char *sentence)
@@ -561,7 +584,7 @@ bool minmea_parse_vtg(struct minmea_sentence_vtg *frame, const char *sentence)
     char type[6];
     char c_true, c_magnetic, c_knots, c_kph, c_faa_mode;
 
-    if (!minmea_scan(sentence, "tfcfcfcfc;c",
+    if (!minmea_scan(sentence, "t;fcfcfcfcc",
             type,
             &frame->true_track_degrees,
             &c_true,
@@ -575,12 +598,15 @@ bool minmea_parse_vtg(struct minmea_sentence_vtg *frame, const char *sentence)
         return false;
     if (strcmp(type+2, "VTG"))
         return false;
-    // check chars
-    if (c_true != 'T' ||
-        c_magnetic != 'M' ||
-        c_knots != 'N' ||
-        c_kph != 'K')
-        return false;
+    // values are only valid with the accompanying characters
+    if (c_true != 'T')
+        frame->true_track_degrees.scale = 0;
+    if (c_magnetic != 'M')
+        frame->magnetic_track_degrees.scale = 0;
+    if (c_knots != 'N')
+        frame->speed_knots.scale = 0;
+    if (c_kph != 'K')
+        frame->speed_kph.scale = 0;
     frame->faa_mode = (enum minmea_faa_mode)c_faa_mode;
 
     return true;
@@ -612,25 +638,33 @@ bool minmea_parse_zda(struct minmea_sentence_zda *frame, const char *sentence)
   return true;
 }
 
-int minmea_gettime(struct timespec *ts, const struct minmea_date *date, const struct minmea_time *time_)
+int minmea_getdatetime(struct tm *tm, const struct minmea_date *date, const struct minmea_time *time_)
 {
     if (date->year == -1 || time_->hours == -1)
         return -1;
 
-    struct tm tm;
-    memset(&tm, 0, sizeof(tm));
+    memset(tm, 0, sizeof(*tm));
     if (date->year < 80) {
-        tm.tm_year = 2000 + date->year - 1900;  // 2000-2079
+        tm->tm_year = 2000 + date->year - 1900; // 2000-2079
     } else if (date->year >= 1900) {
-        tm.tm_year = date->year - 1900; // 4 digit year, use directly
+        tm->tm_year = date->year - 1900;        // 4 digit year, use directly
     } else {
-        tm.tm_year = date->year;    // 1980-1999
+        tm->tm_year = date->year;               // 1980-1999
     }
-    tm.tm_mon = date->month - 1;
-    tm.tm_mday = date->day;
-    tm.tm_hour = time_->hours;
-    tm.tm_min = time_->minutes;
-    tm.tm_sec = time_->seconds;
+    tm->tm_mon = date->month - 1;
+    tm->tm_mday = date->day;
+    tm->tm_hour = time_->hours;
+    tm->tm_min = time_->minutes;
+    tm->tm_sec = time_->seconds;
+
+    return 0;
+}
+
+int minmea_gettime(struct timespec *ts, const struct minmea_date *date, const struct minmea_time *time_)
+{
+    struct tm tm;
+    if (minmea_getdatetime(&tm, date, time_))
+        return -1;
 
     // time_t timestamp = timegm(&tm); /* See README.md if your system lacks timegm(). */
     // if (timestamp != (time_t)-1) {

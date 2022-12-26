@@ -31,6 +31,7 @@ static luat_uart_recv_callback_t uart_app_recvs[MAX_DEVICE_COUNT];
 void luat_uart_set_app_recv(int id, luat_uart_recv_callback_t cb) {
     if (luat_uart_exist(id)) {
         uart_app_recvs[id] = cb;
+        luat_setup_cb(id, 1, 0); // 暂时覆盖
     }
 }
 

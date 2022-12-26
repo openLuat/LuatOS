@@ -238,7 +238,7 @@ static inline int_least32_t minmea_rescale(struct minmea_float *f, int_least32_t
 static inline float minmea_tofloat(struct minmea_float *f)
 {
     if (f->scale == 0)
-        return NAN;
+        return 0;
     return (float) f->value / (float) f->scale;
 }
 
@@ -249,11 +249,36 @@ static inline float minmea_tofloat(struct minmea_float *f)
 static inline float minmea_tocoord(struct minmea_float *f)
 {
     if (f->scale == 0)
-        return NAN;
+        return 0;
     int_least32_t degrees = f->value / (f->scale * 100);
     int_least32_t minutes = f->value % (f->scale * 100);
     return (float) degrees + (float) minutes / (60 * f->scale);
 }
+
+// 扩展
+
+#define RECV_BUFF_SIZE (2048)
+
+int luat_libgnss_init(void);
+int luat_libgnss_parse_data(const char* data, size_t len);
+int luat_libgnss_parse_nmea(const char* line);
+void luat_libgnss_uart_recv_cb(int uart_id, uint32_t data_len);
+
+typedef struct luat_libgnss
+{
+    uint8_t debug;
+    uint8_t rtc_auto;
+    uint32_t fix_at_ticks;
+    // int lua_ref;
+    struct minmea_sentence_rmc frame_rmc;
+    struct minmea_sentence_gga frame_gga;
+    struct minmea_sentence_gll frame_gll;
+    struct minmea_sentence_gst frame_gst;
+    struct minmea_sentence_gsv frame_gsv[3];
+    struct minmea_sentence_vtg frame_vtg;
+    struct minmea_sentence_gsa frame_gsa;
+    struct minmea_sentence_zda frame_zda;
+} luat_libgnss_t;
 
 #ifdef __cplusplus
 }

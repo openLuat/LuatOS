@@ -334,13 +334,13 @@ static int l_libgnss_get_gsa(lua_State *L) {
 
     lua_pushliteral(L, "sats");
     lua_createtable(L, 12, 0);
-    if (libgnss_gnss != NULL) {
-        for (size_t i = 0; i < 12; i++) {
-            if (libgnss_gnss->frame_gsa.sats[i] == 0) break;
-            lua_pushinteger(L, i + 1);
-            lua_pushinteger(L, libgnss_gnss->frame_gsa.sats[i]);
-            lua_settable(L, -3);
-        }
+    size_t pos = 1;
+    for (size_t i = 0; i < 12; i++) {
+        if (libgnss_gnss->frame_gsa.sats[i] == 0)
+            continue;
+        lua_pushinteger(L, libgnss_gnss->frame_gsa.sats[i]);
+        lua_seti(L, -2, pos);
+        pos ++;
     }
 
     lua_settable(L, -3);

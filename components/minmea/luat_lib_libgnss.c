@@ -308,39 +308,42 @@ static int l_libgnss_get_gsa(lua_State *L) {
     //lua_settable(L, -3);
 
     lua_pushliteral(L, "fix_type");
-    lua_pushinteger(L, libgnss_gnss->frame_gsa.fix_type);
+    lua_pushinteger(L, libgnss_gnss->frame_gsa[0].fix_type);
     lua_settable(L, -3);
 
     lua_pushliteral(L, "pdop");
-    if (use_float && libgnss_gnss->frame_gsa.pdop.value != 0)
-        lua_pushnumber(L, minmea_tofloat(&(libgnss_gnss->frame_gsa.pdop)));
+    if (use_float && libgnss_gnss->frame_gsa[0].pdop.value != 0)
+        lua_pushnumber(L, minmea_tofloat(&(libgnss_gnss->frame_gsa[0].pdop)));
     else
-        lua_pushinteger(L, libgnss_gnss->frame_gsa.pdop.value);
+        lua_pushinteger(L, libgnss_gnss->frame_gsa[0].pdop.value);
     lua_settable(L, -3);
 
     lua_pushliteral(L, "hdop");
-    if (use_float && libgnss_gnss->frame_gsa.hdop.value != 0)
-        lua_pushnumber(L, minmea_tofloat(&(libgnss_gnss->frame_gsa.hdop)));
+    if (use_float && libgnss_gnss->frame_gsa[0].hdop.value != 0)
+        lua_pushnumber(L, minmea_tofloat(&(libgnss_gnss->frame_gsa[0].hdop)));
     else
-        lua_pushinteger(L, libgnss_gnss->frame_gsa.hdop.value);
+        lua_pushinteger(L, libgnss_gnss->frame_gsa[0].hdop.value);
     lua_settable(L, -3);
 
     lua_pushliteral(L, "vdop");
-    if (use_float && libgnss_gnss->frame_gsa.vdop.value != 0)
-        lua_pushnumber(L, minmea_tofloat(&(libgnss_gnss->frame_gsa.vdop)));
+    if (use_float && libgnss_gnss->frame_gsa[0].vdop.value != 0)
+        lua_pushnumber(L, minmea_tofloat(&(libgnss_gnss->frame_gsa[0].vdop)));
     else
-        lua_pushinteger(L, libgnss_gnss->frame_gsa.vdop.value);
+        lua_pushinteger(L, libgnss_gnss->frame_gsa[0].vdop.value);
     lua_settable(L, -3);
 
     lua_pushliteral(L, "sats");
     lua_createtable(L, 12, 0);
     size_t pos = 1;
     for (size_t i = 0; i < 12; i++) {
-        if (libgnss_gnss->frame_gsa.sats[i] == 0)
-            continue;
-        lua_pushinteger(L, libgnss_gnss->frame_gsa.sats[i]);
-        lua_seti(L, -2, pos);
-        pos ++;
+        for (size_t j = 0; j < 3; j++)
+        {
+            if (libgnss_gnss->frame_gsa[j].sats[i] == 0)
+                continue;
+            lua_pushinteger(L, libgnss_gnss->frame_gsa[j].sats[i]);
+            lua_seti(L, -2, pos);
+            pos ++;
+        }
     }
 
     lua_settable(L, -3);

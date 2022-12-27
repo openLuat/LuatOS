@@ -106,6 +106,8 @@ int luat_libgnss_parse_nmea(const char* line) {
     switch (id) {
         case MINMEA_SENTENCE_RMC: {
             if (minmea_parse_rmc(&(libgnss_gnsstmp->frame_rmc), line)) {
+                // 清空gsa
+                memset(libgnss_gnss->frame_gsa, 0, sizeof(struct minmea_sentence_gsa) * FRAME_GSA_MAX);
                 if (libgnss_gnsstmp->frame_rmc.valid) {
                     memcpy(&(libgnss_gnss->frame_rmc), &libgnss_gnsstmp->frame_rmc, sizeof(struct minmea_sentence_rmc));
                     #ifdef LUAT_USE_MCU
@@ -165,8 +167,17 @@ int luat_libgnss_parse_nmea(const char* line) {
         } break;
 
         case MINMEA_SENTENCE_GSA: {
-            if (minmea_parse_gsa(&(libgnss_gnss->frame_gsa), line)) {
-
+            //LLOGD("GSV %s", line);
+            if (minmea_parse_gsa(&(libgnss_gnsstmp->frame_gsa[0]), line)) {
+                for (size_t i = 0; i < FRAME_GSA_MAX; i++)
+                {
+                    // 如果是mode=0,代表空的
+                    if (libgnss_gnss->frame_gsa[i].mode == 0) {
+                        memcpy(&libgnss_gnss->frame_gsa[i], &(libgnss_gnsstmp->frame_gsa[0]), sizeof(struct minmea_sentence_gsa));
+                        break;
+                    }
+                }
+                
             }
         } break;
 

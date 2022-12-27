@@ -292,6 +292,7 @@ static inline bool minmea_isfield(char c) {
 // 扩展
 
 #define RECV_BUFF_SIZE (2048)
+#define FRAME_GSA_MAX   (3)
 
 int luat_libgnss_init(void);
 int luat_libgnss_parse_data(const char* data, size_t len);
@@ -313,7 +314,7 @@ typedef struct luat_libgnss
     struct minmea_sentence_gsv frame_gsv_gl[3];
     struct minmea_sentence_gsv frame_gsv_ga[3];
     struct minmea_sentence_vtg frame_vtg;
-    struct minmea_sentence_gsa frame_gsa;
+    struct minmea_sentence_gsa frame_gsa[FRAME_GSA_MAX];
     struct minmea_sentence_zda frame_zda;
 } luat_libgnss_t;
 

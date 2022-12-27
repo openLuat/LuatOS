@@ -12,7 +12,12 @@ bsp_header_list = [
 print("getting bsp.h files...")
 for bsp in bsp_header_list:
     print("getting "+bsp["name"]+"...")
-    bsp["url"] = requests.get(bsp["url"]).text
+    res = ""
+    #有时候获取不到完整的数据，看看啥原因，后需要改 todo
+    while len(res) < 200:
+        print(res)
+        res = requests.get(bsp["url"]).text
+    bsp["url"] = res
     print("done "+ str(len(bsp["url"])) + " bytes")
 
 def get_tags(tag, is_api = False):

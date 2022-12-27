@@ -670,6 +670,38 @@ static int l_crypto_md(lua_State *L) {
     return 1;
 }
 
+/*
+计算checksum校验和
+@api crypto.checksum(data)
+@string 待计算的数据,必选
+@return int checksum值,校验和
+@usage
+-- 本函数在 2022.12.28 添加
+-- 单纯计算checksum值
+local ck = crypto.checksum("OK")
+log.info("checksum", "ok", string.format("%02X", ck))
+*/
+static int l_crypt_checksum(lua_State *L) {
+    size_t len = 0;
+    uint8_t checksum = 0x00;
+    const char* sentence = luaL_checklstring(L, 1, &len);
+    for (size_t i = 0; i < len; i++)
+    {
+        checksum ^= *sentence++;
+    }
+    // if (lua_isboolean(L, 2) && lua_toboolean(L, 2) == 1) {
+    //     luaL_Buffer buff;
+    //     luaL_buffinitsize(L, &buff, len + 1);
+    //     luaL_addlstring(&buff, sentence, len);
+    //     luaL_addchar(&buff, checksum);
+    //     luaL_pushresult(&buff);
+    // }
+    // else {
+        lua_pushinteger(L, checksum);
+    // }
+    return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_crypto[] =
 {
@@ -696,6 +728,7 @@ static const rotable_Reg_t reg_crypto[] =
     { "base64_decode",  ROREG_FUNC(l_str_fromBase64)},
     { "md_file",        ROREG_FUNC(l_crypto_md_file)},
     { "md",             ROREG_FUNC(l_crypto_md)},
+    { "checksum",       ROREG_FUNC(l_crypt_checksum)},
 
 	{ NULL,             ROREG_INT(0) }
 };

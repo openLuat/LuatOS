@@ -41,6 +41,7 @@ end)
 static void http_send_message(luat_http_ctrl_t *http_ctrl);
 
 static int http_close(luat_http_ctrl_t *http_ctrl){
+	LLOGI("http close %p", http_ctrl);
 	if (http_ctrl->netc){
 		network_force_close_socket(http_ctrl->netc);
 		network_release_ctrl(http_ctrl->netc);
@@ -86,14 +87,14 @@ static int32_t l_http_callback(lua_State *L, void* ptr){
     luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)msg->ptr;
 	uint64_t idp = http_ctrl->idp;
 
+	network_close(http_ctrl->netc, 0);
+
 	// LLOGD("l_http_callback arg1:%d is_download:%d idp:%d",msg->arg1,http_ctrl->is_download,idp);
 	if (msg->arg1){
 		lua_pushinteger(L, msg->arg1); // 把错误码返回去
 		luat_cbcwait(L, idp, 1);
-		http_close(http_ctrl);
-		return 0;
+		goto exit;
 	}
-	network_close(http_ctrl->netc, 0);
 
 	lua_pushinteger(L, http_ctrl->parser.status_code);
 	lua_newtable(L);
@@ -123,7 +124,7 @@ static int32_t l_http_callback(lua_State *L, void* ptr){
 			// 下载操作一切正常, 返回长度
 			lua_pushinteger(L, http_ctrl->body_len);
 			luat_cbcwait(L, idp, 3); // code, headers, body
-			return 0;
+			goto exit;
 		}else if (http_ctrl->fd != NULL) {
 			// 下载中断了!!
 			luat_fs_fclose(http_ctrl->fd);
@@ -132,12 +133,13 @@ static int32_t l_http_callback(lua_State *L, void* ptr){
 		// 下载失败, 返回错误码
 		lua_pushinteger(L, -1);
 		luat_cbcwait(L, idp, 3); // code, headers, body
-		return 0;
+		goto exit;
 	} else {
 		// 非下载模式
 		lua_pushlstring(L, http_ctrl->body, http_ctrl->body_len);
 		luat_cbcwait(L, idp, 3); // code, headers, body
 	}
+exit:
 	http_close(http_ctrl);
 	return 0;
 }

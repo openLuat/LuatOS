@@ -16,6 +16,10 @@
 #include "luat_errdump.h"
 #endif
 
+#ifdef LUAT_USE_PROFILER
+#include "luat_profiler.h"
+#endif
+
 static int report (lua_State *L, int status);
 
 lua_State *L;
@@ -137,7 +141,11 @@ int luat_main_call(void) {
   // 4. init Lua State
   int status = 0;
   int result = 0;
+#ifdef LUAT_USE_PROFILER
+  L = lua_newstate(luat_profiler_alloc, NULL);
+#else
   L = lua_newstate(luat_heap_alloc, NULL);
+#endif
   if (L == NULL) {
     l_message("lua", "cannot create state: not enough memory\n");
     goto _exit;

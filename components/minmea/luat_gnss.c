@@ -99,7 +99,7 @@ int luat_libgnss_parse_nmea(const char* line) {
     if (libgnss_gnss == NULL && !luat_libgnss_init()) {
         return 0;
     }
-    struct minmea_sentence_gsv frame_gsv = {0};
+    struct minmea_sentence_gsv *frame_gsv = &libgnss_gnsstmp->frame_gsv;
     enum minmea_sentence_id id = minmea_sentence_id(line, false);
     if (id == MINMEA_UNKNOWN || id >= MINMEA_SENTENCE_MAX_ID || id == MINMEA_INVALID)
         return -1;
@@ -115,7 +115,7 @@ int luat_libgnss_parse_nmea(const char* line) {
                 if (libgnss_gnsstmp->frame_rmc.valid) {
                     memcpy(&(libgnss_gnss->frame_rmc), &libgnss_gnsstmp->frame_rmc, sizeof(struct minmea_sentence_rmc));
                     #ifdef LUAT_USE_MCU
-                    if (libgnss_gnss->rtc_auto && ((uint32_t)(ticks - libgnss_gnss->fix_at_ticks)) > 600*1000) {
+                    if (libgnss_gnss->rtc_auto && (libgnss_gnss->fix_at_ticks == 0 || ((uint32_t)(ticks - libgnss_gnss->fix_at_ticks)) > 600*1000)) {
                         LLOGI("Auto-Set RTC by GNSS RMC");
                         tblock.tm_sec =  libgnss_gnss->frame_rmc.time.seconds;
                         tblock.tm_min =  libgnss_gnss->frame_rmc.time.minutes;
@@ -124,6 +124,7 @@ int luat_libgnss_parse_nmea(const char* line) {
                         tblock.tm_mon =  libgnss_gnss->frame_rmc.date.month;
                         tblock.tm_year = libgnss_gnss->frame_rmc.date.year;
                         luat_rtc_set(&tblock);
+                        // luat_rtc_set_tamp32(mktime(&tblock));
                     }
                     if (libgnss_gnss->fix_at_ticks == 0) {
                         LLOGI("Fixed %d %d", libgnss_gnss->frame_rmc.latitude.value, libgnss_gnss->frame_rmc.longitude.value);
@@ -187,7 +188,7 @@ int luat_libgnss_parse_nmea(const char* line) {
 
         case MINMEA_SENTENCE_GSV: {
             //LLOGD("Got GSV : %s", line);
-            if (minmea_parse_gsv(&frame_gsv, line)) {
+            if (minmea_parse_gsv(frame_gsv, line)) {
                 struct minmea_sentence_gsv *gsvs = libgnss_gnss->frame_gsv_gp;
                 if (0 == memcmp("$GPGSV", line, strlen("$GPGSV"))) {
                     gsvs = libgnss_gnss->frame_gsv_gp;
@@ -202,13 +203,13 @@ int luat_libgnss_parse_nmea(const char* line) {
                     gsvs = libgnss_gnss->frame_gsv_ga;
                 }
                 //LLOGD("$GSV: message %d of %d", frame_gsv.msg_nr, frame_gsv.total_msgs);
-                if (frame_gsv.msg_nr == 1) {
+                if (frame_gsv->msg_nr == 1) {
                     //LLOGD("Clean GSV");
                     memset(gsvs, 0, sizeof(struct minmea_sentence_gsv) * FRAME_GSV_MAX);
                 }
-                if (frame_gsv.msg_nr >= 1 && frame_gsv.msg_nr <= FRAME_GSV_MAX) {
+                if (frame_gsv->msg_nr >= 1 && frame_gsv->msg_nr <= FRAME_GSV_MAX) {
                     //LLOGD("memcpy GSV %d", frame_gsv.msg_nr);
-                    memcpy(&gsvs[frame_gsv.msg_nr - 1], &frame_gsv, sizeof(struct minmea_sentence_gsv));
+                    memcpy(&gsvs[frame_gsv->msg_nr - 1], frame_gsv, sizeof(struct minmea_sentence_gsv));
                 }
             }
             else {

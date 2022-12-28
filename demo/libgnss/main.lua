@@ -1,55 +1,186 @@
-
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "libgnssdemo"
+PROJECT = "gnss"
 VERSION = "1.0.0"
 
--- sys库是标配
-_G.sys = require("sys")
-
---[[ 
-demo适用于air530z, 演示挂载在uart 2的情况, 如果挂载在其他端口, 修改gps_uart_id
+--[[
+本demo是演示定位数据处理的
 ]]
 
-local gps_uart_id = 2
+-- sys库是标配
+local sys = require("sys")
+require("sysplus")
 
-uart.on(gps_uart_id, "recv", function(id, len)
-    local data = uart.read(gps_uart_id, 1024)
-     if data then
-        libgnss.parse(data)
+local gps_uart_id = 2
+-- uart.on(gps_uart_id, "recv", function(id, len)
+--     while 1 do
+--         local data = uart.read(id, 1024)
+--         if data and #data > 0 then
+--             log.info("GPS", data)
+--         else
+--             break
+--         end
+--     end
+-- end)
+libgnss.clear()
+
+sys.taskInit(function()
+    -- Air780EG工程样品的GPS的默认波特率是9600, 量产版是115200,以下是临时代码
+    if rtos.bsp():startsWith("EC618") then
+        uart.setup(gps_uart_id, 9600)
+        log.info("GPS", "start")
+        pm.power(pm.GPS, true)
+        pm.power(pm.GPS_ANT, true)
+        sys.wait(100)
+        uart.write(gps_uart_id, "$CFGPRT,,h0,115200,,\r\n")
+        sys.wait(50)
+    end
+    -- 下列是正式代码
+    uart.setup(gps_uart_id, 115200)
+    libgnss.bind(gps_uart_id)
+    -- 调试日志
+    libgnss.debug(true)
+    -- 定位成功后,使用GNSS时间设置RTC, 暂不可用
+    -- libgnss.rtcAuto(true)
+    -- 读取之前的位置信息
+    local gnssloc = io.readFile("/gnssloc")
+    if gnssloc then
+        uart.write(gps_uart_id, "$AIDPOS," .. gnssloc .. "\r\n")
+        gnssloc = nil
+    end
+    sys.wait(100)
+    if http then
+        while 1 do
+            local code, headers, body = http.request("GET", "http://download.openluat.com/9501-xingli/HXXT_GPS_BDS_AGNSS_DATA.dat").wait()
+            log.info("gnss", "AGNSS", code, body and #body or 0)
+            if code == 200 and body and #body > 1024 then
+                for offset=1,#body,1024 do
+                    log.info("gnss", "AGNSS", "write >>>")
+                    uart.write(gps_uart_id, body:sub(offset, 1024))
+                    sys.wait(20)
+                end 
+                break
+            end
+            sys.wait(60*1000)
+        end
     end
 end)
 
--- Air530Z默认波特率是9600, 主动切换一次
-uart.setup(gps_uart_id, 9600)
-uart.write(gps_uart_id, "$PCAS01,5*19\r\n")
-uart.setup(gps_uart_id, 115200)
+sys.timerLoopStart(function()
+    -- 6228CI, 查询产品信息, 可选
+    -- uart.write(gps_uart_id, "$PDTINFO,*62\r\n")
+    uart.write(gps_uart_id, "$AIDINFO\r\n")
+    log.info("RMC", json.encode(libgnss.getRmc(2) or {}))
+    log.info("GGA", json.encode(libgnss.getGga(2) or {}))
+    log.info("GLL", json.encode(libgnss.getGll(2) or {}))
+    log.info("GSA", json.encode(libgnss.getGsa(2) or {}))
+    log.info("GSV", json.encode(libgnss.getGsv(2) or {}))
+    log.info("VTG", json.encode(libgnss.getVtg(2) or {}))
+    log.info("date", os.date())
+end, 5000)
 
--- sys.timerLoopStart(function()
---     log.info("GPS", libgnss.getIntLocation())
---     local rmc = libgnss.getRmc()
---     log.info("rmc", json.encode(rmc))
---     --log.info("rmc", rmc.lat, rmc.lng, rmc.year, rmc.month, rmc.day, rmc.hour, rmc.min, rmc.sec)
---     rtc.set({year=rmc.year,mon=rmc.month,day=rmc.day,hour=rmc.hour,min=rmc.min,sec=rmc.sec})
--- end, 3000) -- 两秒打印一次
-
-sys.taskInit(function()
-    sys.wait(3000)
-    -- libgnss.parse("$GNGGA,220134.000,2232.12578,N,11356.85838,E,1,08,1.7,33.1,M,-3.4,M,,*67\r\n")
-    -- libgnss.parse("$GNGLL,2232.12578,N,11356.85838,E,220134.000,A,A*47\r\n")
-    -- libgnss.parse("$GNGSA,A,3,10,22,31,32,194,,,,,,,,2.7,1.7,2.1,1*0F\r\n")
-    -- libgnss.parse("$GNGSA,A,3,06,21,36,,,,,,,,,,2.7,1.7,2.1,4*34\r\n")
-    libgnss.parse("$GPGSV,2,1,07,03,,,31,10,28,174,18,22,62,017,33,25,,,29,0*6E\r\n")
-    libgnss.parse("$GPGSV,2,2,07,31,51,343,38,32,63,069,42,194,65,061,37,0*6A\r\n")
-    -- libgnss.parse("$BDGSV,2,1,07,04,,,33,06,55,003,34,19,05,147,09,21,66,307,42,0*41\r\n")
-    -- libgnss.parse("$BDGSV,2,2,07,22,55,157,,36,16,045,30,39,,,40,0*7E\r\n")
-    -- libgnss.parse("$GNRMC,220134.000,A,2232.12578,N,11356.85838,E,0.06,0.00,120422,,,A,V*0B\r\n")
-    -- libgnss.parse("$GNVTG,0.00,T,,M,0.06,N,0.12,K,A*26\r\n")
-    -- libgnss.parse("$GNZDA,220134.000,12,04,2022,00,00*4B\r\n")
-    -- libgnss.parse("$GPTXT,01,01,01,ANTENNA OK*35\r\n")
-    -----------------------------------------------------------------------------------------
-    local gsv = libgnss.getGsv()
-    log.info("---gsv", json.encode(gsv))
+-- 订阅GNSS状态编码
+sys.subscribe("GNSS_STATE", function(event, ticks)
+    -- event取值有 
+    -- FIXED 定位成功
+    -- LOSE  定位丢失
+    -- ticks是事件发生的时间,一般可以忽略
+    log.info("gnss", "state", event, ticks)
+    if event == "FIXED" then
+        local locStr = libgnss.locStr()
+        log.info("gnss", "pre loc", locStr)
+        if locStr then
+            io.writeFile("/gnssloc", locStr)
+        end
+    end
 end)
+
+sys.subscribe("NTP_UPDATE", function()
+    if not libgnss.isFix() then
+        -- "$AIDTIME,year,month,day,hour,minute,second,millisecond"
+        local date = os.date("!*t")
+        local str = string.format("$AIDTIME,%d,%d,%d,%d,%d,%d,000", 
+                             date["year"], date["month"], date["day"], date["hour"], date["min"], date["sec"])
+        log.info("gnss", str)
+        uart.write(gps_uart_id, str .. "\r\n")
+    end
+end)
+
+-- NTP任务
+-- 实现ntp校准时间
+-- 通过回调的方式进行演示
+local function netCB(netc, event, param)
+	if event == socket.LINK and param == 0 then
+		sys.publish("NTP_ENABLE_LINK")
+	elseif event == socket.ON_LINE and param == 0 then
+		socket.tx(netc, "\xE3\x00\x06\xEC" .. string.rep("\x00", 44))
+		socket.wait(netc)	-- 这样才会有接收消息的回调
+	elseif event == socket.EVENT and param == 0 then
+		local rbuf = zbuff.create(512)
+		socket.rx(netc, rbuf)
+		if rbuf:used() >= 48 then
+			local tamp = rbuf:query(40,4,true) 
+			if tamp - 0x83aa7e80 > 0 then
+				rtc.set(tamp - 0x83aa7e80)
+			else
+				--2036年后，当前ntp协议会回滚
+				log.info("ntp", "时间戳回滚")
+				rtc.set(0x7C558180 + tamp)
+			end
+			log.info("date", os.date())
+			sys.publish("NTP_UPDATE")
+            sys.publish("NTP_FINISH")
+			rbuf:resize(4)
+		end
+	end
+end
+
+local function ntpTask()
+	local server = {
+		"ntp1.aliyun.com",
+		"ntp2.aliyun.com",
+		"ntp3.aliyun.com",
+		"ntp4.aliyun.com",
+		"ntp5.aliyun.com",
+		"ntp6.aliyun.com",
+		"ntp7.aliyun.com",
+		"194.109.22.18",
+		"210.72.145.44",}
+	local msg
+	local netc = socket.create(nil, netCB)
+	socket.debug(netc, true)
+	socket.config(netc, nil, true)	-- 配置成UDP，自动分配本地端口
+	local isError, result = socket.linkup(netc)
+	if isError then
+		log.info("unkown error")
+		return false
+	end
+	if not result then
+		result, msg = sys.waitUntil("NTP_ENABLE_LINK")
+	else
+		log.info("already online")
+	end
+	for k,v in pairs(server) do
+		log.info("尝试", v)
+		isError, result = socket.connect(netc, v, 123)
+		if isError then
+			log.info("unkown error")
+		else
+			result, msg = sys.waitUntil("NTP_FINISH", 5000)
+			if result then
+				log.info("ntp", "完成")
+				socket.close(netc)
+				socket.release(netc)
+				return
+			end
+		end
+		socket.close(netc)
+	end
+	log.info("ntp 失败")
+	socket.release(netc)
+	return
+end
+
+sys.taskInit(ntpTask)
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

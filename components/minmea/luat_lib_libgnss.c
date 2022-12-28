@@ -52,6 +52,27 @@ extern char* libgnss_recvbuff;
 
 void luat_uart_set_app_recv(int id, luat_uart_recv_callback_t cb);
 
+static inline void push_gnss_value(lua_State *L, struct minmea_float *f, int mode) {
+    if (f->value == 0) {
+        lua_pushinteger(L, 0);
+        return;
+    }
+    switch (mode)
+    {
+    case 0:
+        lua_pushinteger(L, minmea_tofloat(f));
+        break;
+    case 1:
+        lua_pushinteger(L, f->value);
+        break;
+    case 2:
+        lua_pushnumber(L, minmea_tocoord(f));
+        break;
+    default:
+        break;
+    }
+}
+
 static int luat_libgnss_state_handler(lua_State *L, void* ptr) {
     (void)ptr;
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
@@ -171,8 +192,8 @@ static int l_libgnss_is_fix(lua_State *L) {
 /**
 获取位置信息
 @api libgnss.getIntLocation()
-@return int lat数据, 格式为 ddmmmmmmm
-@return int lng数据, 格式为 ddmmmmmmm
+@return int lat数据, 格式为 ddddddddd
+@return int lng数据, 格式为 ddddddddd
 @return int speed数据
 @usage
 -- 解析nmea
@@ -194,8 +215,8 @@ static int l_libgnss_get_int_location(lua_State *L) {
 
 /**
 获取原始RMC位置信息
-@api libgnss.getRmc(use_float)
-@bool 输出浮点数据,默认true, 如需输出整型,请填false
+@api libgnss.getRmc(data_mode)
+@int 坐标类数据的格式, 0-DDMM.MMM格式, 1-DDDDDDD格式, 2-DD.DDDDD格式
 @return table 原始rmc数据
 @usage
 -- 解析nmea
@@ -203,9 +224,7 @@ libgnss.parse(indata)
 log.info("nmea", "rmc", json.encode(libgnss.getRmc()))
  */
 static int l_libgnss_get_rmc(lua_State *L) {
-    int use_float = 1;
-    if (lua_isboolean(L, 1) && lua_toboolean(L, 1) == 0)
-        use_float = 0;
+    int mode = luaL_optinteger(L, 1, 0);
     lua_settop(L, 0);
     lua_createtable(L, 0, 12);
 
@@ -216,50 +235,35 @@ static int l_libgnss_get_rmc(lua_State *L) {
         lua_setfield(L, -2, "valid");
 
         if (libgnss_gnss->frame_rmc.valid) {
-            if (use_float && libgnss_gnss->frame_rmc.latitude.value != 0)
-                lua_pushnumber(L, minmea_tofloat(&(libgnss_gnss->frame_rmc.latitude)));
-            else
-                lua_pushinteger(L, libgnss_gnss->frame_rmc.latitude.value);
+            push_gnss_value(L, &(libgnss_gnss->frame_rmc.latitude), mode);
         }
         else
             lua_pushinteger(L, 0);
         lua_setfield(L, -2, "lat");
 
         if (libgnss_gnss->frame_rmc.valid) {
-            if (use_float && libgnss_gnss->frame_rmc.longitude.value != 0)
-                lua_pushnumber(L, minmea_tofloat(&(libgnss_gnss->frame_rmc.longitude)));
-            else
-                lua_pushinteger(L, libgnss_gnss->frame_rmc.longitude.value);
+            push_gnss_value(L, &(libgnss_gnss->frame_rmc.longitude), mode);
         }
         else
             lua_pushinteger(L, 0);
         lua_setfield(L, -2, "lng");
 
         if (libgnss_gnss->frame_rmc.valid) {
-            if (use_float && libgnss_gnss->frame_rmc.speed.value != 0)
-                lua_pushnumber(L, minmea_tofloat(&(libgnss_gnss->frame_rmc.speed)));
-            else
-                lua_pushinteger(L, libgnss_gnss->frame_rmc.speed.value);
+            push_gnss_value(L, &(libgnss_gnss->frame_rmc.speed), mode);
         }
         else
             lua_pushinteger(L, 0);
         lua_setfield(L, -2, "speed");
 
         if (libgnss_gnss->frame_rmc.valid) {
-            if (use_float && libgnss_gnss->frame_rmc.course.value != 0)
-                lua_pushnumber(L, minmea_tofloat(&(libgnss_gnss->frame_rmc.course)));
-            else
-                lua_pushinteger(L, libgnss_gnss->frame_rmc.course.value);
+            push_gnss_value(L, &(libgnss_gnss->frame_rmc.course), mode);
         }
         else
             lua_pushinteger(L, 0);
         lua_setfield(L, -2, "course");
 
         if (libgnss_gnss->frame_rmc.valid) {
-            if (use_float && libgnss_gnss->frame_rmc.variation.value != 0)
-                lua_pushnumber(L, minmea_tofloat(&(libgnss_gnss->frame_rmc.variation)));
-            else
-                lua_pushinteger(L, libgnss_gnss->frame_rmc.variation.value);
+            push_gnss_value(L, &(libgnss_gnss->frame_rmc.variation), mode);
         }
         else
             lua_pushinteger(L, 0);
@@ -348,8 +352,8 @@ static int l_libgnss_get_gsv(lua_State *L) {
 
 /**
 获取原始GSA信息
-@api libgnss.getGsa(use_float)
-@bool 输出浮点数据,默认true, 如需输出整型,请填false
+@api libgnss.getGsa(data_mode)
+@int 坐标类数据的格式, 0-DDMM.MMM格式, 1-DDDDDDD格式, 2-DD.DDDDD格式
 @return table 原始GSA数据
 @usage
 -- 解析nmea
@@ -357,9 +361,7 @@ libgnss.parse(indata)
 log.info("nmea", "gsa", json.encode(libgnss.getGsa()))
  */
 static int l_libgnss_get_gsa(lua_State *L) {
-    int use_float = 1;
-    if (lua_isboolean(L, 1) && lua_toboolean(L, 1) == 0)
-        use_float = 0;
+    int mode = luaL_optinteger(L, 1, 0);
     lua_settop(L, 0);
     if (libgnss_gnss == NULL)
         return 0;
@@ -374,24 +376,15 @@ static int l_libgnss_get_gsa(lua_State *L) {
     lua_settable(L, -3);
 
     lua_pushliteral(L, "pdop");
-    if (use_float && libgnss_gnss->frame_gsa[0].pdop.value != 0)
-        lua_pushnumber(L, minmea_tofloat(&(libgnss_gnss->frame_gsa[0].pdop)));
-    else
-        lua_pushinteger(L, libgnss_gnss->frame_gsa[0].pdop.value);
+    push_gnss_value(L, &(libgnss_gnss->frame_gsa[0].pdop), mode);
     lua_settable(L, -3);
 
     lua_pushliteral(L, "hdop");
-    if (use_float && libgnss_gnss->frame_gsa[0].hdop.value != 0)
-        lua_pushnumber(L, minmea_tofloat(&(libgnss_gnss->frame_gsa[0].hdop)));
-    else
-        lua_pushinteger(L, libgnss_gnss->frame_gsa[0].hdop.value);
+    push_gnss_value(L, &(libgnss_gnss->frame_gsa[0].hdop), mode);
     lua_settable(L, -3);
 
     lua_pushliteral(L, "vdop");
-    if (use_float && libgnss_gnss->frame_gsa[0].vdop.value != 0)
-        lua_pushnumber(L, minmea_tofloat(&(libgnss_gnss->frame_gsa[0].vdop)));
-    else
-        lua_pushinteger(L, libgnss_gnss->frame_gsa[0].vdop.value);
+    push_gnss_value(L, &(libgnss_gnss->frame_gsa[0].vdop), mode);
     lua_settable(L, -3);
 
     lua_pushliteral(L, "sats");
@@ -416,8 +409,8 @@ static int l_libgnss_get_gsa(lua_State *L) {
 
 /**
 获取原始VTA位置信息
-@api libgnss.getVtg(use_float)
-@bool 输出浮点数据,默认true, 如需输出整型,请填false
+@api libgnss.getVtg(data_mode)
+@int 坐标类数据的格式, 0-DDMM.MMM格式, 1-DDDDDDD格式, 2-DD.DDDDD格式
 @return table 原始VTA数据
 @usage
 -- 解析nmea
@@ -425,9 +418,7 @@ libgnss.parse(indata)
 log.info("nmea", "vtg", json.encode(libgnss.getVtg()))
  */
 static int l_libgnss_get_vtg(lua_State *L) {
-    int use_float = 1;
-    if (lua_isboolean(L, 1) && lua_toboolean(L, 1) == 0)
-        use_float = 0;
+    int mode = luaL_optinteger(L, 1, 0);
     lua_settop(L, 0);
     if (libgnss_gnss == NULL)
         return 0;
@@ -438,31 +429,19 @@ static int l_libgnss_get_vtg(lua_State *L) {
     // lua_settable(L, -3);
 
     lua_pushliteral(L, "true_track_degrees");
-    if (use_float && libgnss_gnss->frame_vtg.true_track_degrees.value != 0)
-        lua_pushnumber(L, minmea_tofloat(&(libgnss_gnss->frame_vtg.true_track_degrees)));
-    else
-        lua_pushinteger(L, libgnss_gnss->frame_vtg.true_track_degrees.value);
+    push_gnss_value(L, &(libgnss_gnss->frame_vtg.true_track_degrees), mode);
     lua_settable(L, -3);
 
     lua_pushliteral(L, "magnetic_track_degrees");
-    if (use_float && libgnss_gnss->frame_vtg.magnetic_track_degrees.value != 0)
-        lua_pushnumber(L, minmea_tofloat(&(libgnss_gnss->frame_vtg.magnetic_track_degrees)));
-    else
-        lua_pushinteger(L, libgnss_gnss->frame_vtg.magnetic_track_degrees.value);
+    push_gnss_value(L, &(libgnss_gnss->frame_vtg.magnetic_track_degrees), mode);
     lua_settable(L, -3);
 
     lua_pushliteral(L, "speed_knots");
-    if (use_float && libgnss_gnss->frame_vtg.speed_knots.value != 0)
-        lua_pushnumber(L, minmea_tofloat(&(libgnss_gnss->frame_vtg.speed_knots)));
-    else
-        lua_pushinteger(L, libgnss_gnss->frame_vtg.speed_knots.value);
+    push_gnss_value(L, &(libgnss_gnss->frame_vtg.speed_knots), mode);
     lua_settable(L, -3);
 
     lua_pushliteral(L, "speed_kph");
-    if (use_float && libgnss_gnss->frame_vtg.speed_kph.value != 0)
-        lua_pushnumber(L, minmea_tofloat(&(libgnss_gnss->frame_vtg.speed_kph)));
-    else
-        lua_pushinteger(L, libgnss_gnss->frame_vtg.speed_kph.value);
+    push_gnss_value(L, &(libgnss_gnss->frame_vtg.speed_kph), mode);
     lua_settable(L, -3);
 
     return 1;
@@ -527,8 +506,8 @@ static int l_libgnss_debug(lua_State *L) {
 
 /*
 获取GGA数据
-@api libgnss.getGga(use_float)
-@bool 输出浮点数据,默认true, 如需输出整型,请填false
+@api libgnss.getGga(data_mode)
+@int 坐标类数据的格式, 0-DDMM.MMM格式, 1-DDDDDDD格式, 2-DD.DDDDD格式
 @return table GGA数据, 若如不存在会返回nil
 local gga = libgnss.getGga()
 if gga then
@@ -536,33 +515,22 @@ if gga then
 end
 */
 static int l_libgnss_get_gga(lua_State* L) {
-    int use_float = 1;
-    if (lua_isboolean(L, 1) && lua_toboolean(L, 1) == 0)
-        use_float = 0;
+    int mode = luaL_optinteger(L, 1, 0);
     lua_settop(L, 0);
     if (libgnss_gnss == NULL)
         return 0;
     lua_newtable(L);
 
     lua_pushstring(L, "altitude");
-    if (use_float && libgnss_gnss->frame_gga.altitude.value != 0)
-        lua_pushnumber(L, minmea_tofloat(&(libgnss_gnss->frame_gga.altitude)));
-    else
-        lua_pushinteger(L, libgnss_gnss->frame_gga.altitude.value);
+    push_gnss_value(L, &(libgnss_gnss->frame_gga.altitude), mode);
     lua_settable(L, -3);
 
     lua_pushstring(L, "latitude");
-    if (use_float && libgnss_gnss->frame_gga.latitude.value != 0)
-        lua_pushnumber(L, minmea_tofloat(&(libgnss_gnss->frame_gga.latitude)));
-    else
-        lua_pushinteger(L, libgnss_gnss->frame_gga.latitude.value);
+    push_gnss_value(L, &(libgnss_gnss->frame_gga.latitude), mode);
     lua_settable(L, -3);
 
     lua_pushstring(L, "longitude");
-    if (use_float && libgnss_gnss->frame_gga.longitude.value != 0)
-        lua_pushnumber(L, minmea_tofloat(&(libgnss_gnss->frame_gga.longitude)));
-    else
-        lua_pushinteger(L, libgnss_gnss->frame_gga.longitude.value);
+    push_gnss_value(L, &(libgnss_gnss->frame_gga.longitude), mode);
     lua_settable(L, -3);
 
     lua_pushstring(L, "fix_quality");
@@ -574,24 +542,15 @@ static int l_libgnss_get_gga(lua_State* L) {
     lua_settable(L, -3);
 
     lua_pushstring(L, "hdop");
-    if (use_float && libgnss_gnss->frame_gga.hdop.value != 0)
-        lua_pushnumber(L, minmea_tofloat(&(libgnss_gnss->frame_gga.hdop)));
-    else
-        lua_pushinteger(L, libgnss_gnss->frame_gga.hdop.value);
+    push_gnss_value(L, &(libgnss_gnss->frame_gga.hdop), mode);
     lua_settable(L, -3);
 
     lua_pushstring(L, "height");
-    if (use_float && libgnss_gnss->frame_gga.height.value != 0)
-        lua_pushnumber(L, minmea_tofloat(&(libgnss_gnss->frame_gga.height)));
-    else
-        lua_pushinteger(L, libgnss_gnss->frame_gga.height.value);
+    push_gnss_value(L, &(libgnss_gnss->frame_gga.height), mode);
     lua_settable(L, -3);
 
     lua_pushstring(L, "dgps_age");
-    if (use_float && libgnss_gnss->frame_gga.dgps_age.value != 0)
-        lua_pushnumber(L, minmea_tofloat(&(libgnss_gnss->frame_gga.dgps_age)));
-    else
-        lua_pushinteger(L, libgnss_gnss->frame_gga.dgps_age.value);
+    push_gnss_value(L, &(libgnss_gnss->frame_gga.dgps_age), mode);
     lua_settable(L, -3);
 
     return 1;
@@ -599,8 +558,8 @@ static int l_libgnss_get_gga(lua_State* L) {
 
 /*
 获取GLL数据
-@api libgnss.getGll(use_float)
-@bool 输出浮点数据,默认true, 如需输出整型,请填false
+@api libgnss.getGll(data_mode)
+@int 坐标类数据的格式, 0-DDMM.MMM格式, 1-DDDDDDD格式, 2-DD.DDDDD格式
 @return table GLL数据, 若如不存在会返回nil
 local gll = libgnss.getGll()
 if gll then
@@ -608,26 +567,18 @@ if gll then
 end
 */
 static int l_libgnss_get_gll(lua_State* L) {
-    int use_float = 1;
-    if (lua_isboolean(L, 1) && lua_toboolean(L, 1) == 0)
-        use_float = 0;
+    int mode = luaL_optinteger(L, 1, 0);
     lua_settop(L, 0);
     if (libgnss_gnss == NULL)
         return 0;
     lua_newtable(L);
 
     lua_pushstring(L, "latitude");
-    if (use_float && libgnss_gnss->frame_gll.latitude.value != 0)
-        lua_pushnumber(L, minmea_tofloat(&(libgnss_gnss->frame_gll.latitude)));
-    else
-        lua_pushinteger(L, libgnss_gnss->frame_gll.latitude.value);
+    push_gnss_value(L, &(libgnss_gnss->frame_gll.latitude), mode);
     lua_settable(L, -3);
 
     lua_pushstring(L, "longitude");
-    if (use_float && libgnss_gnss->frame_gll.longitude.value != 0)
-        lua_pushnumber(L, minmea_tofloat(&(libgnss_gnss->frame_gll.longitude)));
-    else
-        lua_pushinteger(L, libgnss_gnss->frame_gll.longitude.value);
+    push_gnss_value(L, &(libgnss_gnss->frame_gll.longitude), mode);
     lua_settable(L, -3);
 
     lua_pushstring(L, "mode");
@@ -716,6 +667,20 @@ static int l_libgnss_locStr(lua_State *L) {
     return 1;
 }
 
+static int l_libgnss_rtc_auto(lua_State *L) {
+    if (libgnss_gnss == NULL)
+        return 0;
+    if (lua_isboolean(L, 1) && lua_toboolean(L, 1)) {
+        libgnss_gnss->rtc_auto = 1;
+        LLOGD("GNSS->RTC Auto-Set now is ON");
+    }
+    else {
+        libgnss_gnss->rtc_auto = 0;
+        LLOGD("GNSS->RTC Auto-Set now is OFF");
+    }
+    return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_libgnss[] =
 {
@@ -730,6 +695,7 @@ static const rotable_Reg_t reg_libgnss[] =
     { "getGll", ROREG_FUNC(l_libgnss_get_gll)},
     { "getZda", ROREG_FUNC(l_libgnss_get_zda)},
     { "locStr", ROREG_FUNC(l_libgnss_locStr)},
+    { "rtcAuto",ROREG_FUNC(l_libgnss_rtc_auto)},
     
     { "debug",  ROREG_FUNC(l_libgnss_debug)},
     { "clear",  ROREG_FUNC(l_libgnss_clear)},

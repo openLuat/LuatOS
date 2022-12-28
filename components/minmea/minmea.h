@@ -293,6 +293,7 @@ static inline bool minmea_isfield(char c) {
 
 #define RECV_BUFF_SIZE (2048)
 #define FRAME_GSA_MAX   (3)
+#define FRAME_GSV_MAX   (4)
 
 int luat_libgnss_init(void);
 int luat_libgnss_parse_data(const char* data, size_t len);
@@ -318,14 +319,26 @@ typedef struct luat_libgnss
     struct minmea_sentence_gga frame_gga;
     struct minmea_sentence_gll frame_gll;
     struct minmea_sentence_gst frame_gst;
-    struct minmea_sentence_gsv frame_gsv_gp[3];
-    struct minmea_sentence_gsv frame_gsv_gb[3];
-    struct minmea_sentence_gsv frame_gsv_gl[3];
-    struct minmea_sentence_gsv frame_gsv_ga[3];
+    struct minmea_sentence_gsv frame_gsv_gp[FRAME_GSV_MAX];
+    struct minmea_sentence_gsv frame_gsv_gb[FRAME_GSV_MAX];
+    struct minmea_sentence_gsv frame_gsv_gl[FRAME_GSV_MAX];
+    struct minmea_sentence_gsv frame_gsv_ga[FRAME_GSV_MAX];
     struct minmea_sentence_vtg frame_vtg;
     struct minmea_sentence_gsa frame_gsa[FRAME_GSA_MAX];
     struct minmea_sentence_zda frame_zda;
 } luat_libgnss_t;
+
+typedef struct luat_libgnss_tmp
+{
+    struct minmea_sentence_rmc frame_rmc;
+    struct minmea_sentence_gga frame_gga;
+    struct minmea_sentence_gll frame_gll;
+    struct minmea_sentence_gst frame_gst;
+    struct minmea_sentence_gsv frame_gsv;
+    struct minmea_sentence_vtg frame_vtg;
+    struct minmea_sentence_gsa frame_gsa;
+    struct minmea_sentence_zda frame_zda;
+} luat_libgnss_tmp_t;
 
 #ifdef __cplusplus
 }

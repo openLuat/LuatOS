@@ -47,7 +47,7 @@ end)
 #include "minmea.h"
 
 extern luat_libgnss_t *libgnss_gnss;
-extern luat_libgnss_t *libgnss_gnsstmp;
+// extern luat_libgnss_t *libgnss_gnsstmp;
 extern char* libgnss_recvbuff;
 
 void luat_uart_set_app_recv(int id, luat_uart_recv_callback_t cb);
@@ -693,6 +693,29 @@ static int l_libgnss_bind(lua_State* L) {
     return 0;
 }
 
+static int l_libgnss_locStr(lua_State *L) {
+    int mode = luaL_optinteger(L, 1, 0);
+    char buff[64] = {0};
+    float lat_f = minmea_tofloat(&libgnss_gnss->frame_rmc.latitude);
+    float lng_f = minmea_tofloat(&libgnss_gnss->frame_rmc.longitude);
+    switch (mode)
+    {
+    case 0:
+        snprintf_(buff, 63, "%.7g,%c,%.7g,%c,%.7g", 
+                            fabs(lat_f), lat_f > 0 ? 'N' : 'S', 
+                            fabs(lng_f), lng_f > 0 ? 'E' : 'W',
+                            libgnss_gnss->frame_gga.height.value == 0 ? 1.0 : minmea_tofloat(&libgnss_gnss->frame_gga.height));
+        break;
+    case 1:
+        snprintf_(buff, 63, "%d,%d", libgnss_gnss->frame_rmc.latitude.value, libgnss_gnss->frame_rmc.longitude.value);
+        break;
+    default:
+        break;
+    }
+    lua_pushstring(L, buff);
+    return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_libgnss[] =
 {
@@ -706,6 +729,7 @@ static const rotable_Reg_t reg_libgnss[] =
     { "getGga", ROREG_FUNC(l_libgnss_get_gga)},
     { "getGll", ROREG_FUNC(l_libgnss_get_gll)},
     { "getZda", ROREG_FUNC(l_libgnss_get_zda)},
+    { "locStr", ROREG_FUNC(l_libgnss_locStr)},
     
     { "debug",  ROREG_FUNC(l_libgnss_debug)},
     { "clear",  ROREG_FUNC(l_libgnss_clear)},

@@ -11,7 +11,7 @@
 #include "minmea.h"
 
 luat_libgnss_t *libgnss_gnss;
-luat_libgnss_t *libgnss_gnsstmp;
+luat_libgnss_tmp_t *libgnss_gnsstmp;
 char *libgnss_recvbuff;
 
 // static int parse_nmea(const char* line);
@@ -32,7 +32,7 @@ void luat_libgnss_uart_recv_cb(int uart_id, uint32_t data_len) {
         if (libgnss_gnss == NULL)
             continue;
         if (libgnss_gnss->debug) {
-            LLOGD("recv %s", libgnss_recvbuff);
+            //LLOGD("recv %s", libgnss_recvbuff);
         }
         luat_libgnss_parse_data(libgnss_recvbuff, len);
     }
@@ -48,7 +48,7 @@ int luat_libgnss_init(void) {
             LLOGW("out of memory for libgnss data parse");
             return 0;
         }
-        libgnss_gnsstmp = luat_heap_malloc(sizeof(luat_libgnss_t));
+        libgnss_gnsstmp = luat_heap_malloc(sizeof(luat_libgnss_tmp_t));
         if (libgnss_gnsstmp == NULL) {
             luat_heap_free(libgnss_gnss);
             LLOGW("out of memory for libgnss data parse");
@@ -56,7 +56,7 @@ int luat_libgnss_init(void) {
         }
         // gnss->lua_ref = luaL_ref(L, LUA_REGISTRYINDEX);
         memset(libgnss_gnss, 0, sizeof(luat_libgnss_t));
-        memset(libgnss_gnsstmp, 0, sizeof(luat_libgnss_t));
+        memset(libgnss_gnsstmp, 0, sizeof(luat_libgnss_tmp_t));
     }
     //lua_pushboolean(L, 1);
     return 1;
@@ -65,6 +65,10 @@ int luat_libgnss_init(void) {
 int luat_libgnss_parse_data(const char* data, size_t len) {
     size_t prev = 0;
     static char nmea_tmp_buff[86] = {0}; // nmea 最大长度82,含换行符
+    if (data[0] == 0xAA && data[1] == 0xF0) {
+        LLOGD("EPH data resp?");
+    }
+
     for (size_t offset = 0; offset < len; offset++)
     {
         // \r == 0x0D  \n == 0x0A
@@ -156,12 +160,12 @@ int luat_libgnss_parse_nmea(const char* line) {
 
         case MINMEA_SENTENCE_GSA: {
             //LLOGD("GSV %s", line);
-            if (minmea_parse_gsa(&(libgnss_gnsstmp->frame_gsa[0]), line)) {
+            if (minmea_parse_gsa(&(libgnss_gnsstmp->frame_gsa), line)) {
                 for (size_t i = 0; i < FRAME_GSA_MAX; i++)
                 {
                     // 如果是mode=0,代表空的
                     if (libgnss_gnss->frame_gsa[i].mode == 0) {
-                        memcpy(&libgnss_gnss->frame_gsa[i], &(libgnss_gnsstmp->frame_gsa[0]), sizeof(struct minmea_sentence_gsa));
+                        memcpy(&libgnss_gnss->frame_gsa[i], &(libgnss_gnsstmp->frame_gsa), sizeof(struct minmea_sentence_gsa));
                         break;
                     }
                 }
@@ -200,9 +204,9 @@ int luat_libgnss_parse_nmea(const char* line) {
                 //LLOGD("$GSV: message %d of %d", frame_gsv.msg_nr, frame_gsv.total_msgs);
                 if (frame_gsv.msg_nr == 1) {
                     //LLOGD("Clean GSV");
-                    memset(gsvs, 0, sizeof(struct minmea_sentence_gsv) * 3);
+                    memset(gsvs, 0, sizeof(struct minmea_sentence_gsv) * FRAME_GSV_MAX);
                 }
-                if (frame_gsv.msg_nr >= 1 && frame_gsv.msg_nr <= 3) {
+                if (frame_gsv.msg_nr >= 1 && frame_gsv.msg_nr <= FRAME_GSV_MAX) {
                     //LLOGD("memcpy GSV %d", frame_gsv.msg_nr);
                     memcpy(&gsvs[frame_gsv.msg_nr - 1], &frame_gsv, sizeof(struct minmea_sentence_gsv));
                 }

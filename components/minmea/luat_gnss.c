@@ -122,7 +122,9 @@ int luat_libgnss_parse_nmea(const char* line) {
                         luat_rtc_set(&tblock);
                     }
                     if (libgnss_gnss->fix_at_ticks == 0) {
-                        LLOGI("Fixed"); // TODO 发布系统消息
+                        LLOGI("Fixed %d %d", libgnss_gnss->frame_rmc.latitude.value, libgnss_gnss->frame_rmc.longitude.value);
+                        // 发布系统消息
+                        luat_libgnss_state_onchanged(GNSS_STATE_FIXED);
                     }
                     libgnss_gnss->fix_at_ticks = luat_mcu_ticks();
                     #endif
@@ -130,6 +132,7 @@ int luat_libgnss_parse_nmea(const char* line) {
                 else {
                     if (libgnss_gnss->fix_at_ticks && libgnss_gnss->frame_rmc.valid) {
                         LLOGI("Lose"); // TODO 发布系统消息
+                        luat_libgnss_state_onchanged(GNSS_STATE_LOSE);
                     }
                     libgnss_gnss->fix_at_ticks = 0;
                     libgnss_gnss->frame_rmc.valid = 0;
@@ -140,21 +143,6 @@ int luat_libgnss_parse_nmea(const char* line) {
                         memcpy(&(libgnss_gnss->frame_rmc.time), &(libgnss_gnsstmp->frame_rmc.time), sizeof(struct minmea_time));
                     }
                 }
-                //memcpy(&(gnss->frame_rmc), &frame_rmc, sizeof(struct minmea_sentence_rmc));
-                //LLOGD("RMC %s", line);
-                //LLOGD("RMC isFix(%d) Lat(%ld) Lng(%ld)", gnss->frame_rmc.valid, gnss->frame_rmc.latitude.value, gnss->frame_rmc.longitude.value);
-                // if (prev_gnss_fixed != gnss->frame_rmc.valid) {
-                //     lua_getglobal(L, "sys_pub");
-                //     if (lua_isfunction(L, -1)) {
-                //         lua_pushliteral(L, "GPS_STATE");
-                //         lua_pushstring(L, gnss->frame_rmc.valid ? "LOCATION_SUCCESS" : "LOCATION_FAIL");
-                //         lua_call(L, 2, 0);
-                //     }
-                //     else {
-                //         lua_pop(L, 1);
-                //     }
-                //     prev_gnss_fixed = gnss->frame_rmc.valid;
-                // }
             }
         } break;
 

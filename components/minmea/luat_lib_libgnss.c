@@ -25,6 +25,14 @@ libgnss.bind(2)
 
 -- 可选调试模式
 -- libgnss.debug(true)
+
+sys.subscribe("GNSS_STATE", function(event, ticks)
+    -- event取值有 
+    -- FIXED 定位成功
+    -- LOSE  定位丢失
+    -- ticks是事件发生的时间,一般可以忽略
+    log.info("gnss", "state", event, ticks)
+end)
 */
 #include "luat_base.h"
 #include "luat_msgbus.h"
@@ -43,6 +51,60 @@ extern luat_libgnss_t *libgnss_gnsstmp;
 extern char* libgnss_recvbuff;
 
 void luat_uart_set_app_recv(int id, luat_uart_recv_callback_t cb);
+
+static int luat_libgnss_state_handler(lua_State *L, void* ptr) {
+    (void)ptr;
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    lua_getglobal(L, "sys_pub");
+    if (!lua_isfunction(L, -1)) {
+        return 0;
+    }
+/*
+@sys_pub libgnss
+GNSS状态变化
+GNSS_STATE
+@usage
+sys.subscribe("GNSS_STATE", function(event, ticks)
+    -- event取值有 
+    -- FIXED 定位成功
+    -- LOSE  定位丢失
+    -- ticks是事件发生的时间,一般可以忽略
+    log.info("gnss", "state", event, ticks)
+end)
+*/
+    lua_pushliteral(L, "GNSS_STATE");
+    switch (msg->arg1)
+    {
+    case GNSS_STATE_FIXED:
+        lua_pushliteral(L, "FIXED");
+        break;
+    case GNSS_STATE_LOSE:
+        lua_pushliteral(L, "LOSE");
+        break;
+    case GNSS_STATE_OPEN:
+        lua_pushliteral(L, "OPEN");
+        break;
+    case GNSS_STATE_CLOSE:
+        lua_pushliteral(L, "CLOSE");
+        break;
+    default:
+        return 0;
+    }
+    lua_pushinteger(L, msg->arg2);
+    lua_call(L, 3, 0);
+    return 0;
+}
+
+int luat_libgnss_state_onchanged(int state) {
+    rtos_msg_t msg = {0};
+    msg.handler = luat_libgnss_state_handler;
+    msg.arg1 = state;
+    #ifdef LUAT_USE_MCU
+    msg.arg2 = luat_mcu_ticks();
+    #endif
+    luat_msgbus_put(&msg, 0);
+    return 0;
+}
 
 static void put_datetime(lua_State*L, struct tm* rtime) {
     lua_pushliteral(L, "year");

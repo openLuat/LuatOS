@@ -298,6 +298,15 @@ int luat_libgnss_init(void);
 int luat_libgnss_parse_data(const char* data, size_t len);
 int luat_libgnss_parse_nmea(const char* line);
 void luat_libgnss_uart_recv_cb(int uart_id, uint32_t data_len);
+int luat_libgnss_state_onchanged(int state);
+
+enum GNSS_STATE {
+    GNSS_STATE_INIT = 0,
+    GNSS_STATE_FIXED,
+    GNSS_STATE_LOSE,
+    GNSS_STATE_OPEN,
+    GNSS_STATE_CLOSE
+};
 
 typedef struct luat_libgnss
 {

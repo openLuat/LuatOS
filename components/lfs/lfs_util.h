@@ -25,12 +25,17 @@
 #include <string.h>
 
 //--------------------------------
-//#include <inttypes.h>
+#include <inttypes.h>
+#include "luat_base.h"
 #include "luat_malloc.h"
 #define LFS_NO_ASSERT 1
 #define LFS_NO_DEBUG 1
 #define LFS_NO_WARN 1
 #define LFS_NO_ERROR 1
+#define LFS_NO_ERROR 1
+// #define LFS_YES_TRACE
+#define LUAT_LOG_TAG "lfs"
+#include "luat_log.h"
 //--------------------------------
 
 #ifndef LFS_NO_MALLOC
@@ -59,28 +64,28 @@ extern "C"
 // Logging functions
 #ifdef LFS_YES_TRACE
 #define LFS_TRACE(fmt, ...) \
-    printf("lfs_trace:%d: " fmt "\n", __LINE__, __VA_ARGS__)
+    LLOGD("lfs_trace:%d: " fmt "\n", __LINE__, __VA_ARGS__)
 #else
 #define LFS_TRACE(fmt, ...)
 #endif
 
 #ifndef LFS_NO_DEBUG
 #define LFS_DEBUG(fmt, ...) \
-    printf("lfs_debug:%d: " fmt "\n", __LINE__, __VA_ARGS__)
+    LLOGD("lfs_debug:%d: " fmt "\n", __LINE__, __VA_ARGS__)
 #else
 #define LFS_DEBUG(fmt, ...)
 #endif
 
 #ifndef LFS_NO_WARN
 #define LFS_WARN(fmt, ...) \
-    printf("lfs_warn:%d: " fmt "\n", __LINE__, __VA_ARGS__)
+    LLOGW("lfs_warn:%d: " fmt "\n", __LINE__, __VA_ARGS__)
 #else
 #define LFS_WARN(fmt, ...)
 #endif
 
 #ifndef LFS_NO_ERROR
 #define LFS_ERROR(fmt, ...) \
-    printf("lfs_error:%d: " fmt "\n", __LINE__, __VA_ARGS__)
+    LLOGE("lfs_error:%d: " fmt "\n", __LINE__, __VA_ARGS__)
 #else
 #define LFS_ERROR(fmt, ...)
 #endif

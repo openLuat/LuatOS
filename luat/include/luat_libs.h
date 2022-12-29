@@ -142,5 +142,6 @@ LUAMOD_API int luaopen_hmeta( lua_State *L );
 LUAMOD_API int luaopen_sms( lua_State *L );
 LUAMOD_API int luaopen_errdump( lua_State *L );
 LUAMOD_API int luaopen_profiler( lua_State *L );
+LUAMOD_API int luaopen_fskv( lua_State *L );
 
 #endif

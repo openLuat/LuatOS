@@ -25,7 +25,11 @@
 #include <string.h>
 
 //--------------------------------
-#include <inttypes.h>
+// #if (defined(AIR101) || defined(AIR103))
+
+// #else
+// #include <inttypes.h>
+// #endif
 #include "luat_base.h"
 #include "luat_malloc.h"
 #define LFS_NO_ASSERT 1

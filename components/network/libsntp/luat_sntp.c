@@ -216,15 +216,16 @@ int ntp_get(void){
 /*
 sntp时间同步
 @api    socket.sntp(sntp_server)
-@string/table sntp服务器地址 选填
 @tag LUAT_USE_SNTP
+@string/table sntp服务器地址 选填
 @usage
 socket.sntp()
+--socket.sntp("ntp.aliyun.com") --自定义sntp服务器地址
+--socket.sntp({"ntp.aliyun.com","ntp1.aliyun.com","ntp2.aliyun.com"}) --sntp服务器地址
 sys.subscribe("NTP_UPDATE", function()
     log.info("sntp", "time", os.date())
 end)
 */
-
 int l_sntp_get(lua_State *L){
     size_t len = 0;
 	if (lua_isstring(L, 1)){

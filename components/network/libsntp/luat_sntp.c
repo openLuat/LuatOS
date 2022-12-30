@@ -17,7 +17,7 @@
 #define SNTP_SERVER_LEN_MAX     32
 
 static char sntp_server[SNTP_SERVER_COUNT][SNTP_SERVER_LEN_MAX] = {
-    "ntp.aliyun.com ",
+    "ntp.aliyun.com",
     "ntp1.aliyun.com",
     "ntp2.aliyun.com"
 };
@@ -138,11 +138,17 @@ next:
 				}
                 const uint8_t *p = (const uint8_t *)resp_buff+40;
                 uint32_t time =  (p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3];
-                luat_rtc_set_tamp32(time - 0x83AA7E80);
-                LLOGD("Unix timestamp:%d",time - 0x83AA7E80);
+                if (time > 0x83AA7E80){
+                    time -= 0x83AA7E80;
+                }else{
+                    time += 0x7C558180;
+                }
+                luat_rtc_set_tamp32(time);
+                LLOGD("Unix timestamp:%d",time);
                 sntp_server_num = 0;
                 luat_sntp_close_socket(sntp_netc);
                 luat_heap_free(resp_buff);
+                return 0;
 			}
 		}else{
 			luat_sntp_close_socket(sntp_netc);

@@ -22,7 +22,7 @@ static char sntp_server[SNTP_SERVER_COUNT][SNTP_SERVER_LEN_MAX] = {
     "ntp2.aliyun.com"
 };
 
-static sntp_server_num = 0;
+static unsigned int sntp_server_num = 0;
 
 static const uint8_t sntp_packet[48]={0x1b};
 
@@ -123,7 +123,7 @@ int32_t luat_sntp_callback(void *data, void *param) {
 		// LLOGD("result:%d total_len:%d",result,total_len);
 		if (0 == result){
 			if (total_len>0){
-				char* resp_buff = luat_heap_malloc(total_len + 1);
+				uint8_t* resp_buff = luat_heap_malloc(total_len + 1);
 				resp_buff[total_len] = 0x00;
 next:
 				result = network_rx(sntp_netc, resp_buff, total_len, 0, NULL, NULL, &rx_len);

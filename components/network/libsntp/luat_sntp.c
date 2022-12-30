@@ -4,7 +4,7 @@
 #include "luat_network_adapter.h"
 #include "luat_rtos.h"
 #include "luat_msgbus.h"
-#include "luat_fs.h"
+
 #include "luat_malloc.h"
 #include "luat_rtc.h"
 
@@ -13,7 +13,10 @@
 #define LUAT_LOG_TAG "sntp"
 #include "luat_log.h"
 
-static const char* sntp_server[] = {
+#define SNTP_SERVER_COUNT       3
+#define SNTP_SERVER_LEN_MAX     32
+
+static char sntp_server[SNTP_SERVER_COUNT][SNTP_SERVER_LEN_MAX] = {
     "ntp1.aliyun.com",
     "ntp2.aliyun.com",
     "ntp3.aliyun.com"
@@ -22,12 +25,25 @@ static sntp_server_num = 0;
 
 static const uint8_t sntp_packet[48]={0x1b};
 
+#define NTP_UPDATE 1
+#define NTP_ERROR  2
+
 static int l_sntp_event_handle(lua_State* L, void* ptr) {
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     if (lua_getglobal(L, "sys_pub") != LUA_TFUNCTION) {
         return 0;
     };
-    // LLOGD("TIME_SYNC %d", status);
-    lua_pushstring(L, "NTP_UPDATE");
+    switch (msg->arg1)
+    {
+    case NTP_UPDATE:
+        lua_pushstring(L, "NTP_UPDATE");
+        break;
+    case NTP_ERROR:
+        lua_pushstring(L, "NTP_ERROR");
+        break;
+    default:
+        return 0;
+    }
     lua_call(L, 1, 0);
     return 0;
 }
@@ -49,7 +65,7 @@ int luat_sntp_connect(network_ctrl_t *sntp_netc){
 	ret = network_connect(sntp_netc, sntp_server[sntp_server_num], strlen(sntp_server[sntp_server_num]), (0xff == ip_addr.is_ipv6)?NULL:&(ip_addr), 123, 1000);
 #endif
     sntp_server_num++;
-	LLOGD("network_connect ret %d", ret);
+	// LLOGD("network_connect ret %d", ret);
 	if (ret < 0) {
         network_close(sntp_netc, 0);
         return -1;
@@ -61,11 +77,27 @@ int luat_sntp_close_socket(network_ctrl_t *sntp_netc){
     if (sntp_netc){
 		network_force_close_socket(sntp_netc);
 	}
-	if (sntp_server_num > 0 && sntp_server_num < sizeof(sntp_server)){
+    if (sntp_server_num == 0){
+#ifdef __LUATOS__
+        rtos_msg_t msg;
+        msg.handler = l_sntp_event_handle;
+        msg.arg1 = NTP_UPDATE;
+        luat_msgbus_put(&msg, 0);
+#endif
+        network_release_ctrl(sntp_netc);
+        return 0;
+	}
+	if (sntp_server_num < sizeof(sntp_server)){
 		luat_sntp_connect(sntp_netc);
 	}else{
         network_release_ctrl(sntp_netc);
         sntp_server_num = 0;
+#ifdef __LUATOS__
+        rtos_msg_t msg;
+        msg.handler = l_sntp_event_handle;
+        msg.arg1 = NTP_ERROR;
+        luat_msgbus_put(&msg, 0);
+#endif
     }
     return 0;
 }
@@ -105,16 +137,11 @@ next:
 				}
                 const uint8_t *p = (const uint8_t *)resp_buff+40;
                 uint32_t time =  (p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3];
-                LLOGD("time:%d",time - 2208988800);
-				luat_heap_free(resp_buff);
-#ifdef __LUATOS__
-                rtos_msg_t msg;
-                msg.handler = l_sntp_event_handle;
-                int re = luat_msgbus_put(&msg, 0);
-#endif
-                luat_rtc_set_tamp32(time);
+                luat_rtc_set_tamp32(time - 0x83AA7E80);
+                LLOGD("Unix timestamp:%d",time - 0x83AA7E80);
                 sntp_server_num = 0;
                 luat_sntp_close_socket(sntp_netc);
+                luat_heap_free(resp_buff);
 			}
 		}else{
 			luat_sntp_close_socket(sntp_netc);
@@ -126,12 +153,12 @@ next:
 
 	}
 	if (event->Param1){
-		LLOGW("sntp_callback param1 %d, closing socket", event->Param1);
+		// LLOGW("sntp_callback param1 %d, closing socket", event->Param1);
 		luat_sntp_close_socket(sntp_netc);
 	}
 	ret = network_wait_event(sntp_netc, NULL, 0, NULL);
 	if (ret < 0){
-		LLOGW("network_wait_event ret %d, closing socket", ret);
+		// LLOGW("network_wait_event ret %d, closing socket", ret);
 		luat_sntp_close_socket(sntp_netc);
 		return -1;
 	}
@@ -145,7 +172,7 @@ int ntp_get(void){
 	}
 	network_ctrl_t *sntp_netc = network_alloc_ctrl(adapter_index);
 	if (!sntp_netc){
-		LLOGW("network_alloc_ctrl fail");
+		LLOGE("network_alloc_ctrl fail");
 		return -1;
 	}
 	network_init_ctrl(sntp_netc, NULL, luat_sntp_callback, sntp_netc);
@@ -155,5 +182,35 @@ int ntp_get(void){
     return luat_sntp_connect(sntp_netc);
 }
 
+int l_sntp_get(lua_State *L){
+    size_t len = 0;
+	if (lua_isstring(L, 1)){
+        const char * server_addr = luaL_checklstring(L, 1, &len);
+        if (len < SNTP_SERVER_LEN_MAX){
+            memcpy(sntp_server[0], server_addr, len);
+            sntp_server[0][len] = 0x00;
+        }else{
+            LLOGE("server_addr too lang");
+        }
+	}else if(lua_istable(L, 1)){
+        size_t count = lua_rawlen(L, 1);
+        if (count > sizeof(sntp_server)){
+            count = sizeof(sntp_server);
+        }
+		for (size_t i = 1; i <= count; i++){
+			lua_geti(L, 1, i);
+			const char * server_addr = luaL_checklstring(L, -1, &len);
+            if (len < SNTP_SERVER_LEN_MAX){
+                memcpy(sntp_server[0], server_addr, len);
+                sntp_server[0][len] = 0x00;
+            }else{
+                LLOGE("server_addr too lang");
+            }
+			lua_pop(L, 1);
+		}
+	}
+    ntp_get();
+	return 0;
+}
 
 

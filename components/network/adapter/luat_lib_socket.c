@@ -1321,7 +1321,7 @@ static const rotable_Reg_t reg_socket_adapter[] =
 	{ "sslLog",			ROREG_FUNC(l_socket_set_ssl_log)},
 	{"localIP",         	ROREG_FUNC(l_socket_local_ip)},
 #ifdef LUAT_USE_SNTP
-	{"sntp",         	ROREG_FUNC(ntp_get)},
+	{"sntp",         	ROREG_FUNC(l_sntp_get)},
 #endif
 	//@const ETH0 number 带硬件协议栈的ETH0
     { "ETH0",           ROREG_INT(NW_ADAPTER_INDEX_ETH0)},

@@ -174,9 +174,8 @@ static int l_socket_gc(lua_State *L)
 param1为申请的network_ctrl
 param2为具体的消息，只能是socket.RESET, socket.LINK, socket.ON_LINE, socket.TX_OK, socket.RX_NEW, socket.CLOSE等等
 param3为消息对应的参数
-@return some 成功返回network_ctrl，失败返回nil
-@usage
-local netc = socket.create(socket.ETH0, socket_cb_fun)	--以太网网卡上申请一个network_ctrl,通过socket_cb_fun回调相关消息
+@return userdata 成功返回network_ctrl，失败返回nil
+@usage local netc = socket.create(socket.ETH0, socket_cb_fun)	--以太网网卡上申请一个network_ctrl,通过socket_cb_fun回调相关消息
 local netc = socket.create(socket.ETH0, "IOT_TASK")	--以太网网卡上申请一个network_ctrl,通过sendMsg方式通知taskName为"IOT_TASK"回调相关消息
 
 */

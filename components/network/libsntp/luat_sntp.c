@@ -1,3 +1,9 @@
+/*
+@module  socket
+@summary 网络接口
+@version 1.0
+@date    2022.11.13
+*/
 
 #include "luat_base.h"
 
@@ -36,9 +42,27 @@ static int l_sntp_event_handle(lua_State* L, void* ptr) {
     };
     switch (msg->arg1)
     {
+/*
+@sys_pub socket
+时间已经同步
+NTP_UPDATE
+@usage
+sys.subscribe("NTP_UPDATE", function()
+    log.info("socket", "sntp", os.date())
+end)
+*/
     case NTP_UPDATE:
         lua_pushstring(L, "NTP_UPDATE");
         break;
+/*
+@sys_pub socket
+时间同步失败
+NTP_ERROR
+@usage
+sys.subscribe("NTP_ERROR", function()
+    log.info("socket", "sntp error")
+end)
+*/
     case NTP_ERROR:
         lua_pushstring(L, "NTP_ERROR");
         break;
@@ -188,6 +212,18 @@ int ntp_get(void){
 	network_deinit_tls(sntp_netc);
     return luat_sntp_connect(sntp_netc);
 }
+
+/*
+sntp时间同步
+@api    socket.sntp(sntp_server)
+@string/table sntp服务器地址 选填
+@tag LUAT_USE_SNTP
+@usage
+socket.sntp()
+sys.subscribe("NTP_UPDATE", function()
+    log.info("sntp", "time", os.date())
+end)
+*/
 
 int l_sntp_get(lua_State *L){
     size_t len = 0;

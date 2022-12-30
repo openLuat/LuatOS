@@ -11,6 +11,8 @@
 
 luat_fskv_t* fskv;
 
+static sfd_onchip_t onchip;
+
 int sfd_onchip_init (void* userdata);
 int sfd_onchip_status (void* userdata);
 int sfd_onchip_read (void* userdata, char* buff, size_t offset, size_t len);
@@ -21,9 +23,9 @@ int sfd_onchip_ioctl (void* userdata, size_t cmd, void* buff);
 // Read a block
 static int block_device_read(const struct lfs_config *cfg, lfs_block_t block,
         lfs_off_t off, void *buffer, lfs_size_t size) {
-    int ret = sfd_onchip_read(NULL, buffer, block * LFS_BLOCK_DEVICE_ERASE_SIZE + off, size);
+    int ret = sfd_onchip_read(&onchip, buffer, block * LFS_BLOCK_DEVICE_ERASE_SIZE + off, size);
     // LLOGD("sfd read %d %d %d %d", block, off, size, ret);
-    if (ret == size) {
+    if (ret >= 0) {
         // LLOGD("block_device_read return LFS_ERR_OK");
         return LFS_ERR_OK;
     }
@@ -36,9 +38,9 @@ static int block_device_read(const struct lfs_config *cfg, lfs_block_t block,
 // The block must have previously been erased.
 static int block_device_prog(const struct lfs_config *cfg, lfs_block_t block,
         lfs_off_t off, const void *buffer, lfs_size_t size) {
-    int ret = sfd_onchip_write(NULL, buffer, block * LFS_BLOCK_DEVICE_ERASE_SIZE + off, size);
+    int ret = sfd_onchip_write(&onchip, buffer, block * LFS_BLOCK_DEVICE_ERASE_SIZE + off, size);
     // LLOGD("sfd write %d %d %d %d", block, off, size, ret);
-    if (ret == size) {
+    if (ret >= 0) {
         // LLOGD("block_device_prog return LFS_ERR_OK");
         return LFS_ERR_OK;
     }
@@ -51,7 +53,7 @@ static int block_device_prog(const struct lfs_config *cfg, lfs_block_t block,
 // A block must be erased before being programmed. The
 // state of an erased block is undefined.
 static int block_device_erase(const struct lfs_config *cfg, lfs_block_t block) {
-    int ret = sfd_onchip_erase(NULL, block * LFS_BLOCK_DEVICE_ERASE_SIZE, LFS_BLOCK_DEVICE_ERASE_SIZE);
+    int ret = sfd_onchip_erase(&onchip, block * LFS_BLOCK_DEVICE_ERASE_SIZE, LFS_BLOCK_DEVICE_ERASE_SIZE);
     // LLOGD("sfd erase %d %d", block, ret);
     (void)ret;
     return 0;
@@ -96,7 +98,10 @@ int luat_fskv_init(void) {
         // LLOGD("fskv->conf.prog_size %d", fskv->conf.prog_size);
         // LLOGD("fskv->conf.cache_size %d", fskv->conf.cache_size);
 
-        sfd_onchip_init(NULL);
+        onchip.block_count = fskv->conf.block_count;
+        onchip.block_size = LFS_BLOCK_DEVICE_ERASE_SIZE;
+        memcpy(onchip.name, "fskv", 5);
+        sfd_onchip_init(&onchip);
 
         // block_device_read(NULL, 0, 0, fskv->prog_buffer, 256);
         // LLOGD("Flash starts %02X %02X %02X %02X", fskv->prog_buffer[0], fskv->prog_buffer[1], 

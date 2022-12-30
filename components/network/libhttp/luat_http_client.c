@@ -387,6 +387,7 @@ next:
 				if (result)
 					goto next;
 				if (rx_len == 0||result!=0) {
+					luat_heap_free(resp_buff);
 					http_resp_error(http_ctrl, HTTP_ERROR_RX);
 					return -1;
 				}

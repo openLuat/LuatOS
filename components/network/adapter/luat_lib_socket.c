@@ -738,52 +738,6 @@ static int l_socket_set_ssl_log(lua_State *L)
 	return 0;
 }
 
-#include "rotable2.h"
-static const rotable_Reg_t reg_socket_adapter[] =
-{
-	{"create",			ROREG_FUNC(l_socket_create)},
-	{"debug",		ROREG_FUNC(l_socket_set_debug)},
-	{"config",		ROREG_FUNC(l_socket_config)},
-	{"linkup",			ROREG_FUNC(l_socket_linkup)},
-	{"connect",			ROREG_FUNC(l_socket_connect)},
-	{"listen",			ROREG_FUNC(l_socket_listen)},
-	{"accept",			ROREG_FUNC(l_socket_accept)},
-	{"discon",			ROREG_FUNC(l_socket_disconnect)},
-	{"close",			ROREG_FUNC(l_socket_close)},
-	{"tx",			ROREG_FUNC(l_socket_tx)},
-	{"rx",			ROREG_FUNC(l_socket_rx)},
-	{"wait",			ROREG_FUNC(l_socket_wait)},
-	//{"listen",			ROREG_FUNC(l_socket_listen)},
-	//{"accept",			ROREG_FUNC(l_socket_accept)},
-	{"release",			ROREG_FUNC(l_socket_release)},
-	{ "setDNS",           ROREG_FUNC(l_socket_set_dns)},
-	{ "sslLog",			ROREG_FUNC(l_socket_set_ssl_log)},
-	{"localIP",         	ROREG_FUNC(l_socket_local_ip)},
-	//@const ETH0 number 带硬件协议栈的ETH0
-    { "ETH0",           ROREG_INT(NW_ADAPTER_INDEX_ETH0)},
-	//@const LWIP_ETH number 使用LWIP协议栈的以太网卡
-	{ "LWIP_ETH",          	ROREG_INT(NW_ADAPTER_INDEX_LWIP_ETH)},
-	//@const LWIP_STA number 使用LWIP协议栈的WIFI STA
-	{ "LWIP_STA",          	ROREG_INT(NW_ADAPTER_INDEX_LWIP_WIFI_STA)},
-	//@const LWIP_AP number 使用LWIP协议栈的WIFI AP
-	{ "LWIP_AP",     		ROREG_INT(NW_ADAPTER_INDEX_LWIP_WIFI_AP)},
-	//@const LWIP_GP number 使用LWIP协议栈的移动蜂窝模块
-	{ "LWIP_GP",          	ROREG_INT(NW_ADAPTER_INDEX_LWIP_GPRS)},
-	//@const USB number 使用LWIP协议栈的USB网卡
-	{ "USB",     		ROREG_INT(NW_ADAPTER_INDEX_USB)},
-	//@const LINK number LINK事件
-    { "LINK",           ROREG_INT(EV_NW_RESULT_LINK & 0x0fffffff)},
-    //@const ON_LINE number ON_LINE事件
-	{ "ON_LINE",          	ROREG_INT(EV_NW_RESULT_CONNECT & 0x0fffffff)},
-    //@const EVENT number EVENT事件
-	{ "EVENT",          	ROREG_INT(EV_NW_RESULT_EVENT & 0x0fffffff)},
-    //@const TX_OK number TX_OK事件
-	{ "TX_OK",     		ROREG_INT(EV_NW_RESULT_TX & 0x0fffffff)},
-    //@const CLOSED number CLOSED事件
-	{ "CLOSED",     		ROREG_INT(EV_NW_RESULT_CLOSE & 0x0fffffff)},
-	{ NULL,            ROREG_INT(0)}
-};
-
 #else
 static int32_t l_socket_callback(lua_State *L, void* ptr)
 {
@@ -1339,37 +1293,60 @@ static int l_socket_set_ssl_log(lua_State *L)
 	return 0;
 }
 
+#endif
+
+#ifdef LUAT_USE_SNTP
+#include "luat_sntp.h"
+#endif
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_socket_adapter[] =
 {
-	{"create",				ROREG_FUNC(l_socket_create)},
-	{"debug",				ROREG_FUNC(l_socket_set_debug)},
-	{"config",				ROREG_FUNC(l_socket_config)},
-	{"linkup",				ROREG_FUNC(l_socket_linkup)},
-	{"connect",				ROREG_FUNC(l_socket_connect)},
-	{"listen",				ROREG_FUNC(l_socket_listen)},
-	{"accept",				ROREG_FUNC(l_socket_accept)},
-	{"discon",				ROREG_FUNC(l_socket_disconnect)},
-	{"close",				ROREG_FUNC(l_socket_close)},
-	{"tx",					ROREG_FUNC(l_socket_tx)},
-	{"rx",					ROREG_FUNC(l_socket_rx)},
-	{"wait",				ROREG_FUNC(l_socket_wait)},
+	{"create",			ROREG_FUNC(l_socket_create)},
+	{"debug",		ROREG_FUNC(l_socket_set_debug)},
+	{"config",		ROREG_FUNC(l_socket_config)},
+	{"linkup",			ROREG_FUNC(l_socket_linkup)},
+	{"connect",			ROREG_FUNC(l_socket_connect)},
+	{"listen",			ROREG_FUNC(l_socket_listen)},
+	{"accept",			ROREG_FUNC(l_socket_accept)},
+	{"discon",			ROREG_FUNC(l_socket_disconnect)},
+	{"close",			ROREG_FUNC(l_socket_close)},
+	{"tx",			ROREG_FUNC(l_socket_tx)},
+	{"rx",			ROREG_FUNC(l_socket_rx)},
+	{"wait",			ROREG_FUNC(l_socket_wait)},
 	//{"listen",			ROREG_FUNC(l_socket_listen)},
 	//{"accept",			ROREG_FUNC(l_socket_accept)},
-	{"release",				ROREG_FUNC(l_socket_release)},
-	{ "setDNS",           	ROREG_FUNC(l_socket_set_dns)},
-	{ "sslLog",				ROREG_FUNC(l_socket_set_ssl_log)},
+	{"release",			ROREG_FUNC(l_socket_release)},
+	{ "setDNS",           ROREG_FUNC(l_socket_set_dns)},
+	{ "sslLog",			ROREG_FUNC(l_socket_set_ssl_log)},
 	{"localIP",         	ROREG_FUNC(l_socket_local_ip)},
-
-    { "ETH0",           	ROREG_INT(NW_ADAPTER_INDEX_ETH0)},
-    { "LINK",           	ROREG_INT(EV_NW_RESULT_LINK & 0x0fffffff)},
-	{ "ON_LINE",          	ROREG_INT(EV_NW_RESULT_CONNECT & 0x0fffffff)},
-	{ "EVENT",          	ROREG_INT(EV_NW_RESULT_EVENT & 0x0fffffff)},
-	{ "TX_OK",     			ROREG_INT(EV_NW_RESULT_TX & 0x0fffffff)},
-	{ "CLOSED",     		ROREG_INT(EV_NW_RESULT_CLOSE & 0x0fffffff)},
-	{ NULL,            		ROREG_INT(0)}
-};
+#ifdef LUAT_USE_SNTP
+	{"sntp",         	ROREG_FUNC(ntp_get)},
 #endif
+	//@const ETH0 number 带硬件协议栈的ETH0
+    { "ETH0",           ROREG_INT(NW_ADAPTER_INDEX_ETH0)},
+	//@const LWIP_ETH number 使用LWIP协议栈的以太网卡
+	{ "LWIP_ETH",          	ROREG_INT(NW_ADAPTER_INDEX_LWIP_ETH)},
+	//@const LWIP_STA number 使用LWIP协议栈的WIFI STA
+	{ "LWIP_STA",          	ROREG_INT(NW_ADAPTER_INDEX_LWIP_WIFI_STA)},
+	//@const LWIP_AP number 使用LWIP协议栈的WIFI AP
+	{ "LWIP_AP",     		ROREG_INT(NW_ADAPTER_INDEX_LWIP_WIFI_AP)},
+	//@const LWIP_GP number 使用LWIP协议栈的移动蜂窝模块
+	{ "LWIP_GP",          	ROREG_INT(NW_ADAPTER_INDEX_LWIP_GPRS)},
+	//@const USB number 使用LWIP协议栈的USB网卡
+	{ "USB",     		ROREG_INT(NW_ADAPTER_INDEX_USB)},
+	//@const LINK number LINK事件
+    { "LINK",           ROREG_INT(EV_NW_RESULT_LINK & 0x0fffffff)},
+    //@const ON_LINE number ON_LINE事件
+	{ "ON_LINE",          	ROREG_INT(EV_NW_RESULT_CONNECT & 0x0fffffff)},
+    //@const EVENT number EVENT事件
+	{ "EVENT",          	ROREG_INT(EV_NW_RESULT_EVENT & 0x0fffffff)},
+    //@const TX_OK number TX_OK事件
+	{ "TX_OK",     		ROREG_INT(EV_NW_RESULT_TX & 0x0fffffff)},
+    //@const CLOSED number CLOSED事件
+	{ "CLOSED",     		ROREG_INT(EV_NW_RESULT_CLOSE & 0x0fffffff)},
+	{ NULL,            ROREG_INT(0)}
+};
 
 LUAMOD_API int luaopen_socket_adapter( lua_State *L ) {
     luat_newlib2(L, reg_socket_adapter);

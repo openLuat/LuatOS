@@ -17,10 +17,11 @@
 #define SNTP_SERVER_LEN_MAX     32
 
 static char sntp_server[SNTP_SERVER_COUNT][SNTP_SERVER_LEN_MAX] = {
+    "ntp.aliyun.com ",
     "ntp1.aliyun.com",
-    "ntp2.aliyun.com",
-    "ntp3.aliyun.com"
+    "ntp2.aliyun.com"
 };
+
 static sntp_server_num = 0;
 
 static const uint8_t sntp_packet[48]={0x1b};

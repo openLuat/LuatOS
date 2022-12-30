@@ -140,8 +140,8 @@ local function audio_task()
             log.info("手动关闭")
             audio.playStop(0)
         end
-        log.info(rtos.meminfo("sys"))
-        log.info(rtos.meminfo("lua"))
+        log.info("mem", "sys", rtos.meminfo("sys"))
+        log.info("mem", "lua", rtos.meminfo("lua"))
         sys.wait(1000)
     end
     sysplus.taskDel(taskName)

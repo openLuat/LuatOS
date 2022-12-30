@@ -41,6 +41,7 @@ end)
 static void http_send_message(luat_http_ctrl_t *http_ctrl);
 
 static int http_close(luat_http_ctrl_t *http_ctrl){
+	LLOGI("http close %p", http_ctrl);
 	if (http_ctrl->netc){
 		network_force_close_socket(http_ctrl->netc);
 		network_release_ctrl(http_ctrl->netc);
@@ -53,9 +54,6 @@ static int http_close(luat_http_ctrl_t *http_ctrl){
 	}
 	if (http_ctrl->uri){
 		luat_heap_free(http_ctrl->uri);
-	}
-	if (http_ctrl->method){
-		luat_heap_free(http_ctrl->method);
 	}
 	if (http_ctrl->req_header){
 		luat_heap_free(http_ctrl->req_header);
@@ -86,14 +84,14 @@ static int32_t l_http_callback(lua_State *L, void* ptr){
     luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)msg->ptr;
 	uint64_t idp = http_ctrl->idp;
 
+	network_close(http_ctrl->netc, 0);
+
 	// LLOGD("l_http_callback arg1:%d is_download:%d idp:%d",msg->arg1,http_ctrl->is_download,idp);
 	if (msg->arg1){
 		lua_pushinteger(L, msg->arg1); // 把错误码返回去
 		luat_cbcwait(L, idp, 1);
-		http_close(http_ctrl);
-		return 0;
+		goto exit;
 	}
-	network_close(http_ctrl->netc, 0);
 
 	lua_pushinteger(L, http_ctrl->parser.status_code);
 	lua_newtable(L);
@@ -123,7 +121,7 @@ static int32_t l_http_callback(lua_State *L, void* ptr){
 			// 下载操作一切正常, 返回长度
 			lua_pushinteger(L, http_ctrl->body_len);
 			luat_cbcwait(L, idp, 3); // code, headers, body
-			return 0;
+			goto exit;
 		}else if (http_ctrl->fd != NULL) {
 			// 下载中断了!!
 			luat_fs_fclose(http_ctrl->fd);
@@ -132,12 +130,13 @@ static int32_t l_http_callback(lua_State *L, void* ptr){
 		// 下载失败, 返回错误码
 		lua_pushinteger(L, -1);
 		luat_cbcwait(L, idp, 3); // code, headers, body
-		return 0;
+		goto exit;
 	} else {
 		// 非下载模式
 		lua_pushlstring(L, http_ctrl->body, http_ctrl->body_len);
 		luat_cbcwait(L, idp, 3); // code, headers, body
 	}
+exit:
 	http_close(http_ctrl);
 	return 0;
 }
@@ -164,22 +163,22 @@ error:
 	}
 }
 
-int on_message_begin(http_parser* parser){
+static int on_message_begin(http_parser* parser){
 	LLOGD("on_message_begin");
     return 0;
 }
 
-int on_url(http_parser* parser, const char *at, size_t length){
+static int on_url(http_parser* parser, const char *at, size_t length){
 	LLOGD("on_url:%.*s",length,at);
     return 0;
 }
 
-int on_status(http_parser* parser, const char *at, size_t length){
+static int on_status(http_parser* parser, const char *at, size_t length){
     LLOGD("on_status:%.*s",length,at);
     return 0;
 }
 
-int on_header_field(http_parser* parser, const char *at, size_t length){
+static int on_header_field(http_parser* parser, const char *at, size_t length){
     LLOGD("on_header_field:%.*s",length,at);
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
 	if (http_ctrl->headers_complete){
@@ -199,7 +198,7 @@ int on_header_field(http_parser* parser, const char *at, size_t length){
     return 0;
 }
 	
-int on_header_value(http_parser* parser, const char *at, size_t length){
+static int on_header_value(http_parser* parser, const char *at, size_t length){
     LLOGD("on_header_value:%.*s",length,at);
 	char tmp[16] = {0};
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
@@ -218,7 +217,7 @@ int on_header_value(http_parser* parser, const char *at, size_t length){
     return 0;
 }
 
-int on_headers_complete(http_parser* parser){
+static int on_headers_complete(http_parser* parser){
     LLOGD("on_headers_complete");
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
 	if (http_ctrl->headers_complete){
@@ -236,7 +235,7 @@ int on_headers_complete(http_parser* parser){
     return 0;
 }
 
-int on_body(http_parser* parser, const char *at, size_t length){
+static int on_body(http_parser* parser, const char *at, size_t length){
 	LLOGD("on_body:%.*s",length,at);
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
 
@@ -263,7 +262,7 @@ int on_body(http_parser* parser, const char *at, size_t length){
     return 0;
 }
 
-int on_message_complete(http_parser* parser){
+static int on_message_complete(http_parser* parser){
     LLOGD("on_message_complete");
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
 	// http_ctrl->body[http_ctrl->body_len] = 0x00;
@@ -282,16 +281,17 @@ int on_message_complete(http_parser* parser){
     return 0;
 }
 
-int on_chunk_header(http_parser* parser){
+static int on_chunk_header(http_parser* parser){
 	LLOGD("on_chunk_header");
 	LLOGD("content_length:%lld",parser->content_length);
-	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
-	http_ctrl->is_chunk = 1;
+	// luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
+	// http_ctrl->is_chunk = 1;
     return 0;
 }
 
-int on_chunk_complete(http_parser* parser){
-	LLOGD("on_chunk_complete");
+static int on_chunk_complete(http_parser* parser){
+	LLOGD("on_chunk_complete CALL on_message_complete");
+	on_message_complete(parser);
     return 0;
 }
 
@@ -344,10 +344,6 @@ static void http_send_message(luat_http_ctrl_t *http_ctrl){
 		luat_heap_free(http_ctrl->uri);
 		http_ctrl->uri = NULL;
 	}
-	if (http_ctrl->method){
-		luat_heap_free(http_ctrl->method);
-		http_ctrl->method = NULL;
-	}
 	if (http_ctrl->req_header){
 		luat_heap_free(http_ctrl->req_header);
 		http_ctrl->req_header = NULL;
@@ -391,35 +387,14 @@ next:
 				if (result)
 					goto next;
 				if (rx_len == 0||result!=0) {
+					luat_heap_free(resp_buff);
 					http_resp_error(http_ctrl, HTTP_ERROR_RX);
 					return -1;
 				}
 				
 				int nParseBytes = http_parser_execute(&http_ctrl->parser, &http_ctrl->parser_settings, resp_buff, total_len);
 				
-				// if (http_ctrl->is_chunk){
-				// 	if (http_ctrl->is_download){
-				// 		if (http_ctrl->fd == NULL){
-				// 			luat_fs_remove(http_ctrl->dst);
-				// 			http_ctrl->fd = luat_fs_fopen(http_ctrl->dst, "w+");
-				// 			if (http_ctrl->fd == NULL) {
-				// 				LLOGE("open download file fail %s", http_ctrl->dst);
-				// 				http_resp_error(http_ctrl, HTTP_ERROR_DOWNLOAD);
-				// 				return -1;
-				// 			}
-				// 		}
-				// 		luat_fs_fwrite(resp_buff, total_len, 1, http_ctrl->fd);
-				// 	}else{
-				// 		if (!http_ctrl->body){
-				// 			http_ctrl->body = luat_heap_malloc(total_len+1);
-				// 		}else{
-				// 			LLOGD("chunk realloc len:%d",http_ctrl->body_len+total_len+1);
-				// 			http_ctrl->body = luat_heap_realloc(http_ctrl->body,http_ctrl->body_len+total_len+1);
-				// 		}
-				// 		memcpy(http_ctrl->body+http_ctrl->body_len,resp_buff,total_len);
-				// 		http_ctrl->body_len += total_len;
-				// 	}
-				// }
+				LLOGD("nParseBytes %d total_len %d", nParseBytes, total_len);
 				
 				luat_heap_free(resp_buff);
 
@@ -440,6 +415,7 @@ next:
 	}
 
 	ret = network_wait_event(http_ctrl->netc, NULL, 0, NULL);
+	LLOGD("network_wait_event %d", ret);
 	if (ret < 0){
 		http_resp_error(http_ctrl, HTTP_ERROR_CLOSE);
 		return -1;
@@ -569,7 +545,7 @@ static int l_http_request(lua_State *L) {
 	const char *client_cert = NULL;
 	const char *client_key = NULL;
 	const char *client_password = NULL;
-	int adapter_index;
+	int adapter_index = -1;
 	char body_len[6] = {0};
 	// mbedtls_debug_set_threshold(4);
 	luat_http_ctrl_t *http_ctrl = (luat_http_ctrl_t *)luat_heap_malloc(sizeof(luat_http_ctrl_t));
@@ -617,6 +593,7 @@ static int l_http_request(lua_State *L) {
 	}
 
 	if (adapter_index < 0 || adapter_index >= NW_ADAPTER_QTY){
+		LLOGD("bad network adapter index %d", adapter_index);
 		goto error;
 	}
 
@@ -650,9 +627,11 @@ static int l_http_request(lua_State *L) {
 
 
 	const char *method = luaL_optlstring(L, 1, "GET", &len);
-	http_ctrl->method = luat_heap_malloc(len + 1);
-	memset(http_ctrl->method, 0, len + 1);
-	memcpy(http_ctrl->method, method, len);
+	if (len > 11) {
+		LLOGE("method is too long %s", method);
+		goto error;
+	}
+	memcpy(http_ctrl->method, method, len + 1);
 	// LLOGD("method:%s",http_ctrl->method);
 
 	const char *url = luaL_checklstring(L, 2, &len);
@@ -717,15 +696,6 @@ static int l_http_request(lua_State *L) {
 		network_deinit_tls(http_ctrl->netc);
 	}
 
-	if (!strncmp("GET", http_ctrl->method, strlen("GET"))) {
-        LLOGI("HTTP GET");
-    }
-    else if (!strncmp("POST", http_ctrl->method, strlen("POST"))) {
-        LLOGI("HTTP POST");
-    }else {
-        LLOGI("only GET/POST supported %s", http_ctrl->method);
-        goto error;
-    }
 #ifdef LUAT_USE_LWIP
 	http_ctrl->ip_addr.type = 0xff;
 #else

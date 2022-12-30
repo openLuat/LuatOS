@@ -14,11 +14,6 @@ LuatOS Shell -- LuatOS 控制台
 #include "luat_mcu.h"
 #endif
 
-#ifdef LUAT_USE_I2CTOOLS
-#include "i2c_utils.h"
-extern void i2c_tools(const char * data,size_t len);
-#endif
-
 #include "luat_shell.h"
 #include "luat_str.h"
 #include "luat_cmux.h"
@@ -55,6 +50,9 @@ static void cmd_loadstr(char* uart_buff, size_t len);
 
 static void cmd_i2c_tools(char* uart_buff, size_t len);
 
+static void cmd_ping(char* uart_buff, size_t len);
+static void cmd_sntp(char* uart_buff, size_t len);
+
 // 文件操作
 static void cmd_ry(char* uart_buff, size_t len);
 static void cmd_lsdir(char* uart_buff, size_t len);
@@ -83,6 +81,12 @@ const luat_shell_cmd_reg_t cmd_regs[] = {
 #endif
 #ifdef LUAT_USE_YMODEM
     {"ry\r",       cmd_ry},
+#endif
+#ifdef LUAT_USE_SNTP
+    {"sntp", cmd_sntp},
+#endif
+#ifdef LUAT_USE_PING
+    {"ping", cmd_ping},
 #endif
     {"lsdir ",     cmd_lsdir},
     {"fread ",     cmd_fread},
@@ -198,8 +202,25 @@ static void cmd_cmux_cmd_init(char* uart_buff, size_t len) {
 }
 
 #ifdef LUAT_USE_I2CTOOLS
+#include "i2c_utils.h"
+extern void i2c_tools(const char * data,size_t len);
 static void cmd_i2c_tools(char* uart_buff, size_t len) {
     i2c_tools(uart_buff, len);
+}
+#endif
+
+#ifdef LUAT_USE_SNTP
+#include "luat_sntp.h"
+static void cmd_sntp(char* uart_buff, size_t len){
+    ntp_get();
+}
+#endif
+
+#ifdef LUAT_USE_PING
+#include "luat_ping.h"
+static void cmd_ping(char* uart_buff, size_t len){
+    char* buff = (char*)memchr(uart_buff, ' ', len);
+    l_ping(buff+1, len-(buff-uart_buff)-1);
 }
 #endif
 

@@ -23,7 +23,7 @@ typedef struct{
 	uint16_t remote_port; 		// 远程端口号
 	const char *url;			// url
 	const char *uri;			// uri
-	const char *method;			// method
+	char method[12];			// method
 
 	// 发送相关
 	uint8_t request_message[HTTP_REQUEST_BUF_LEN_MAX];
@@ -41,7 +41,7 @@ typedef struct{
 	uint32_t headers_len;		//headers缓存长度
 	char* body;
 	uint32_t body_len;			//body缓存长度
-	uint8_t is_chunk;			//是否chunk编码
+	// uint8_t is_chunk;			//是否chunk编码
 	uint8_t re_request_count;
 
 	// 响应相关

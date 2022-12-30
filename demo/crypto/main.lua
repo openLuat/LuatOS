@@ -91,6 +91,10 @@ sys.taskInit(function()
         log.info("hmac_sha256", crypto.md_file("SHA256", "/luadb/logo.jpg", "123456"))
     end
 
+    if crypto.checksum then
+        log.info("checksum", "OK", string.char(crypto.checksum("OK")):toHex())
+    end
+
     log.info("crypto", "ALL Done")
     sys.wait(100000)
 end)

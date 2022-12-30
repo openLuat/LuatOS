@@ -1,55 +1,152 @@
-
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "libgnssdemo"
+PROJECT = "gnss"
 VERSION = "1.0.0"
 
--- sys库是标配
-_G.sys = require("sys")
-
---[[ 
-demo适用于air530z, 演示挂载在uart 2的情况, 如果挂载在其他端口, 修改gps_uart_id
+--[[
+本demo是演示定位数据处理的
 ]]
 
-local gps_uart_id = 2
+-- sys库是标配
+local sys = require("sys")
+require("sysplus")
 
-uart.on(gps_uart_id, "recv", function(id, len)
-    local data = uart.read(gps_uart_id, 1024)
-     if data then
-        libgnss.parse(data)
+local gps_uart_id = 2
+libgnss.clear() -- 清空数据,兼初始化
+
+sys.taskInit(function()
+    -- Air780EG工程样品的GPS的默认波特率是9600, 量产版是115200,以下是临时代码
+    log.info("GPS", "start")
+    pm.power(pm.GPS, true)
+    uart.setup(gps_uart_id, 115200)
+    libgnss.bind(gps_uart_id) -- 绑定uart,底层自动处理GNSS数据
+    sys.wait(200) -- GPNSS芯片启动需要时间
+    -- 调试日志,可选
+    libgnss.debug(true)
+    -- 增加显示的语句
+    uart.write(gps_uart_id, "$CFGMSG,0,1,1\r\n") -- GLL
+    sys.wait(10)
+    uart.write(gps_uart_id, "$CFGMSG,0,5,1\r\n") -- VTG
+    -- 定位成功后,使用GNSS时间设置RTC, 暂不可用
+    -- libgnss.rtcAuto(true)
+    -- 读取之前的位置信息
+    local gnssloc = io.readFile("/gnssloc")
+    if gnssloc then
+        uart.write(gps_uart_id, "$AIDPOS," .. gnssloc .. "\r\n")
+        gnssloc = nil
+    end
+    sys.wait(100)
+    if http then
+        -- TODO AGNSS 未调通
+        -- while 1 do
+        --     local code, headers, body = http.request("GET", "http://download.openluat.com/9501-xingli/HXXT_GPS_BDS_AGNSS_DATA.dat").wait()
+        --     -- local code, headers, body = http.request("GET", "http://nutzam.com/6228.bin").wait()
+        --     log.info("gnss", "AGNSS", code, body and #body or 0)
+        --     if code == 200 and body and #body > 1024 then
+        --         for offset=1,#body,1024 do
+        --             log.info("gnss", "AGNSS", "write >>>")
+        --             uart.write(gps_uart_id, body:sub(offset, 1024))
+        --             sys.wait(5)
+        --         end
+        --         io.writeFile("/6228.bin", body)
+        --         break
+        --     end
+        --     sys.wait(60*1000)
+        -- end
     end
 end)
 
--- Air530Z默认波特率是9600, 主动切换一次
-uart.setup(gps_uart_id, 9600)
-uart.write(gps_uart_id, "$PCAS01,5*19\r\n")
-uart.setup(gps_uart_id, 115200)
+sys.timerLoopStart(function()
+    -- 6228CI, 查询产品信息, 可选
+    -- uart.write(gps_uart_id, "$PDTINFO,*62\r\n")
+    -- uart.write(gps_uart_id, "$AIDINFO\r\n")
+    -- uart.write(gps_uart_id, "$CFGSYS\r\n")
+    -- uart.write(gps_uart_id, "$CFGMSG,6,4\r\n")
+    log.info("RMC", json.encode(libgnss.getRmc(2) or {}))
+    -- log.info("GGA", json.encode(libgnss.getGga(2) or {}))
+    -- log.info("GLL", json.encode(libgnss.getGll(2) or {}))
+    -- log.info("GSA", json.encode(libgnss.getGsa(2) or {}))
+    -- log.info("GSV", json.encode(libgnss.getGsv(2) or {}))
+    -- log.info("VTG", json.encode(libgnss.getVtg(2) or {}))
+    -- log.info("date", os.date())
+    log.info("sys", rtos.meminfo("sys"))
+    log.info("lua", rtos.meminfo("lua"))
+end, 5000)
 
--- sys.timerLoopStart(function()
---     log.info("GPS", libgnss.getIntLocation())
---     local rmc = libgnss.getRmc()
---     log.info("rmc", json.encode(rmc))
---     --log.info("rmc", rmc.lat, rmc.lng, rmc.year, rmc.month, rmc.day, rmc.hour, rmc.min, rmc.sec)
---     rtc.set({year=rmc.year,mon=rmc.month,day=rmc.day,hour=rmc.hour,min=rmc.min,sec=rmc.sec})
--- end, 3000) -- 两秒打印一次
-
-sys.taskInit(function()
-    sys.wait(3000)
-    -- libgnss.parse("$GNGGA,220134.000,2232.12578,N,11356.85838,E,1,08,1.7,33.1,M,-3.4,M,,*67\r\n")
-    -- libgnss.parse("$GNGLL,2232.12578,N,11356.85838,E,220134.000,A,A*47\r\n")
-    -- libgnss.parse("$GNGSA,A,3,10,22,31,32,194,,,,,,,,2.7,1.7,2.1,1*0F\r\n")
-    -- libgnss.parse("$GNGSA,A,3,06,21,36,,,,,,,,,,2.7,1.7,2.1,4*34\r\n")
-    libgnss.parse("$GPGSV,2,1,07,03,,,31,10,28,174,18,22,62,017,33,25,,,29,0*6E\r\n")
-    libgnss.parse("$GPGSV,2,2,07,31,51,343,38,32,63,069,42,194,65,061,37,0*6A\r\n")
-    -- libgnss.parse("$BDGSV,2,1,07,04,,,33,06,55,003,34,19,05,147,09,21,66,307,42,0*41\r\n")
-    -- libgnss.parse("$BDGSV,2,2,07,22,55,157,,36,16,045,30,39,,,40,0*7E\r\n")
-    -- libgnss.parse("$GNRMC,220134.000,A,2232.12578,N,11356.85838,E,0.06,0.00,120422,,,A,V*0B\r\n")
-    -- libgnss.parse("$GNVTG,0.00,T,,M,0.06,N,0.12,K,A*26\r\n")
-    -- libgnss.parse("$GNZDA,220134.000,12,04,2022,00,00*4B\r\n")
-    -- libgnss.parse("$GPTXT,01,01,01,ANTENNA OK*35\r\n")
-    -----------------------------------------------------------------------------------------
-    local gsv = libgnss.getGsv()
-    log.info("---gsv", json.encode(gsv))
+-- 订阅GNSS状态编码
+sys.subscribe("GNSS_STATE", function(event, ticks)
+    -- event取值有 
+    -- FIXED 定位成功
+    -- LOSE  定位丢失
+    -- ticks是事件发生的时间,一般可以忽略
+    log.info("gnss", "state", event, ticks)
+    if event == "FIXED" then
+        local locStr = libgnss.locStr()
+        log.info("gnss", "pre loc", locStr)
+        if locStr then
+            io.writeFile("/gnssloc", locStr)
+        end
+    end
 end)
+
+sys.subscribe("NTP_UPDATE", function()
+    if not libgnss.isFix() then
+        -- "$AIDTIME,year,month,day,hour,minute,second,millisecond"
+        local date = os.date("!*t")
+        local str = string.format("$AIDTIME,%d,%d,%d,%d,%d,%d,000", 
+                             date["year"], date["month"], date["day"], date["hour"], date["min"], date["sec"])
+        log.info("gnss", str)
+        uart.write(gps_uart_id, str .. "\r\n")
+    end
+end)
+
+if socket and socket.sntp then
+    sys.subscribe("IP_READY", function()
+    socket.sntp()
+    end)
+end
+
+-- 定期重启GPS, 测试AGNSS
+-- sys.taskInit(function()
+--     while 1 do
+--         sys.wait(120 * 1000)
+--         log.info("GPS", "stop")
+--         pm.power(pm.GPS, false)
+--         pm.power(pm.GPS_ANT, false)
+--         sys.wait(500)
+--         log.info("GPS", "start")
+--         pm.power(pm.GPS, true)
+--         pm.power(pm.GPS_ANT, true)
+--         sys.wait(300) -- 输出产品日志大概是150ms左右,这里延时一下
+--         -- 写入时间
+--         local date = os.date("!*t")
+--         if date["year"] > 2021 then
+--             local str = string.format("$AIDTIME,%d,%d,%d,%d,%d,%d,000", 
+--                              date["year"], date["month"], date["day"], date["hour"], date["min"], date["sec"])
+--             log.info("gnss", str)
+--             uart.write(gps_uart_id, str .. "\r\n")
+--         end
+--         -- 读取并写入辅助坐标
+--         local gnssloc = io.readFile("/gnssloc")
+--         if gnssloc then
+--             uart.write(gps_uart_id, "$AIDPOS," .. gnssloc .. "\r\n")
+--             gnssloc = nil
+--         end
+--         -- 写入星历
+--         local body = io.readFile("/6228.bin")
+--         if body then
+--             for offset=1,#body,1024 do
+--                 log.info("gnss", "AGNSS", "write >>>")
+--                 uart.write(gps_uart_id, body:sub(offset, 1024))
+--                 sys.wait(5)
+--             end
+--         end
+--         log.info("AGNSS", "write complete")
+--         -- 查询一下辅助定位成功没
+--         sys.wait(300)
+--         uart.write(gps_uart_id, "$AIDINFO\r\n")
+--     end
+
+-- end)
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

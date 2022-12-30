@@ -13,29 +13,33 @@
 extern "C" {
 #endif
 
-#include <stdio.h>
+#include <ctype.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <errno.h>
 #include <time.h>
 #include <math.h>
 #ifdef MINMEA_INCLUDE_COMPAT
 #include <minmea_compat.h>
 #endif
 
-#define MINMEA_MAX_LENGTH 80
+#ifndef MINMEA_MAX_SENTENCE_LENGTH
+#define MINMEA_MAX_SENTENCE_LENGTH 80
+#endif
 
 enum minmea_sentence_id {
     MINMEA_INVALID = -1,
     MINMEA_UNKNOWN = 0,
-    MINMEA_SENTENCE_RMC,
+    MINMEA_SENTENCE_GBS,
     MINMEA_SENTENCE_GGA,
-    MINMEA_SENTENCE_GSA,
     MINMEA_SENTENCE_GLL,
+    MINMEA_SENTENCE_GSA,
     MINMEA_SENTENCE_GST,
     MINMEA_SENTENCE_GSV,
+    MINMEA_SENTENCE_RMC,
     MINMEA_SENTENCE_VTG,
     MINMEA_SENTENCE_ZDA,
+
+    MINMEA_SENTENCE_MAX_ID
 };
 
 struct minmea_float {
@@ -54,6 +58,17 @@ struct minmea_time {
     int minutes;
     int seconds;
     int microseconds;
+};
+
+struct minmea_sentence_gbs {
+    struct minmea_time time;
+    struct minmea_float err_latitude;
+    struct minmea_float err_longitude;
+    struct minmea_float err_altitude;
+    int svid;
+    struct minmea_float prob;
+    struct minmea_float bias;
+    struct minmea_float stddev;
 };
 
 struct minmea_sentence_rmc {
@@ -187,11 +202,14 @@ enum minmea_sentence_id minmea_sentence_id(const char *sentence, bool strict);
  * Scanf-like processor for NMEA sentences. Supports the following formats:
  * c - single character (char *)
  * d - direction, returned as 1/-1, default 0 (int *)
- * f - fractional, returned as value + scale (int *, int *)
+ * f - fractional, returned as value + scale (struct minmea_float *)
  * i - decimal, default zero (int *)
  * s - string (char *)
  * t - talker identifier and type (char *)
- * T - date/time stamp (int *, int *, int *)
+ * D - date (struct minmea_date *)
+ * T - time stamp (struct minmea_time *)
+ * _ - ignore this field
+ * ; - following fields are optional
  * Returns true on success. See library source code for details.
  */
 bool minmea_scan(const char *sentence, const char *format, ...);
@@ -199,6 +217,7 @@ bool minmea_scan(const char *sentence, const char *format, ...);
 /*
  * Parse a specific type of sentence. Return true on success.
  */
+bool minmea_parse_gbs(struct minmea_sentence_gbs *frame, const char *sentence);
 bool minmea_parse_rmc(struct minmea_sentence_rmc *frame, const char *sentence);
 bool minmea_parse_gga(struct minmea_sentence_gga *frame, const char *sentence);
 bool minmea_parse_gsa(struct minmea_sentence_gsa *frame, const char *sentence);
@@ -209,14 +228,19 @@ bool minmea_parse_vtg(struct minmea_sentence_vtg *frame, const char *sentence);
 bool minmea_parse_zda(struct minmea_sentence_zda *frame, const char *sentence);
 
 /**
+ * Convert GPS UTC date/time representation to a UNIX calendar time.
+ */
+int minmea_getdatetime(struct tm *tm, const struct minmea_date *date, const struct minmea_time *time_);
+
+/**
  * Convert GPS UTC date/time representation to a UNIX timestamp.
  */
-//int minmea_gettime(struct timespec *ts, const struct minmea_date *date, const struct minmea_time *time_);
+int minmea_gettime(struct timespec *ts, const struct minmea_date *date, const struct minmea_time *time_);
 
 /**
  * Rescale a fixed-point value to a different scale. Rounds towards zero.
  */
-static inline int_least32_t minmea_rescale(struct minmea_float *f, int_least32_t new_scale)
+static inline int_least32_t minmea_rescale(const struct minmea_float *f, int_least32_t new_scale)
 {
     if (f->scale == 0)
         return 0;
@@ -232,10 +256,10 @@ static inline int_least32_t minmea_rescale(struct minmea_float *f, int_least32_t
  * Convert a fixed-point value to a floating-point value.
  * Returns NaN for "unknown" values.
  */
-static inline float minmea_tofloat(struct minmea_float *f)
+static inline float minmea_tofloat(const struct minmea_float *f)
 {
     if (f->scale == 0)
-        return NAN;
+        return 0;
     return (float) f->value / (float) f->scale;
 }
 
@@ -243,14 +267,78 @@ static inline float minmea_tofloat(struct minmea_float *f)
  * Convert a raw coordinate to a floating point DD.DDD... value.
  * Returns NaN for "unknown" values.
  */
-static inline float minmea_tocoord(struct minmea_float *f)
+static inline float minmea_tocoord(const struct minmea_float *f)
 {
     if (f->scale == 0)
-        return NAN;
+        return 0;
+    if (f->scale  > (INT_LEAST32_MAX / 100))
+        return 0;
+    if (f->scale < (INT_LEAST32_MIN / 100))
+        return 0;
     int_least32_t degrees = f->value / (f->scale * 100);
     int_least32_t minutes = f->value % (f->scale * 100);
     return (float) degrees + (float) minutes / (60 * f->scale);
 }
+
+/**
+ * Check whether a character belongs to the set of characters allowed in a
+ * sentence data field.
+ */
+static inline bool minmea_isfield(char c) {
+    return isprint((unsigned char) c) && c != ',' && c != '*';
+}
+
+
+// 扩展
+
+#define RECV_BUFF_SIZE (2048)
+#define FRAME_GSA_MAX   (3)
+#define FRAME_GSV_MAX   (5)
+
+int luat_libgnss_init(void);
+int luat_libgnss_parse_data(const char* data, size_t len);
+int luat_libgnss_parse_nmea(const char* line);
+void luat_libgnss_uart_recv_cb(int uart_id, uint32_t data_len);
+int luat_libgnss_state_onchanged(int state);
+
+enum GNSS_STATE {
+    GNSS_STATE_INIT = 0,
+    GNSS_STATE_FIXED,
+    GNSS_STATE_LOSE,
+    GNSS_STATE_OPEN,
+    GNSS_STATE_CLOSE
+};
+
+typedef struct luat_libgnss
+{
+    uint8_t debug;
+    uint8_t rtc_auto;
+    uint32_t fix_at_ticks;
+    // int lua_ref;
+    struct minmea_sentence_rmc frame_rmc;
+    struct minmea_sentence_gga frame_gga;
+    struct minmea_sentence_gll frame_gll;
+    struct minmea_sentence_gst frame_gst;
+    struct minmea_sentence_gsv frame_gsv_gp[FRAME_GSV_MAX];
+    struct minmea_sentence_gsv frame_gsv_gb[FRAME_GSV_MAX];
+    struct minmea_sentence_gsv frame_gsv_gl[FRAME_GSV_MAX];
+    struct minmea_sentence_gsv frame_gsv_ga[FRAME_GSV_MAX];
+    struct minmea_sentence_vtg frame_vtg;
+    struct minmea_sentence_gsa frame_gsa[FRAME_GSA_MAX];
+    struct minmea_sentence_zda frame_zda;
+} luat_libgnss_t;
+
+typedef struct luat_libgnss_tmp
+{
+    struct minmea_sentence_rmc frame_rmc;
+    struct minmea_sentence_gga frame_gga;
+    struct minmea_sentence_gll frame_gll;
+    struct minmea_sentence_gst frame_gst;
+    struct minmea_sentence_gsv frame_gsv;
+    struct minmea_sentence_vtg frame_vtg;
+    struct minmea_sentence_gsa frame_gsa;
+    struct minmea_sentence_zda frame_zda;
+} luat_libgnss_tmp_t;
 
 #ifdef __cplusplus
 }

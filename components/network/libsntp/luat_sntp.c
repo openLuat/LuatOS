@@ -198,12 +198,12 @@ int l_sntp_get(lua_State *L){
         if (count > sizeof(sntp_server)){
             count = sizeof(sntp_server);
         }
-		for (size_t i = 1; i <= count; i++){
+		for (size_t i = 0; i < count; i++){
 			lua_geti(L, 1, i);
 			const char * server_addr = luaL_checklstring(L, -1, &len);
             if (len < SNTP_SERVER_LEN_MAX){
-                memcpy(sntp_server[0], server_addr, len);
-                sntp_server[0][len] = 0x00;
+                memcpy(sntp_server[i], server_addr, len);
+                sntp_server[i][len] = 0x00;
             }else{
                 LLOGE("server_addr too lang");
             }

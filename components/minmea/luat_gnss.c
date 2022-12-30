@@ -136,7 +136,7 @@ int luat_libgnss_parse_nmea(const char* line) {
                 }
                 else {
                     if (libgnss_gnss->fix_at_ticks && libgnss_gnss->frame_rmc.valid) {
-                        LLOGI("Lose"); // TODO 发布系统消息
+                        LLOGI("Lose"); // 发布系统消息
                         luat_libgnss_state_onchanged(GNSS_STATE_LOSE);
                     }
                     libgnss_gnss->fix_at_ticks = 0;

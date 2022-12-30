@@ -293,7 +293,7 @@ static inline bool minmea_isfield(char c) {
 
 #define RECV_BUFF_SIZE (2048)
 #define FRAME_GSA_MAX   (3)
-#define FRAME_GSV_MAX   (4)
+#define FRAME_GSV_MAX   (5)
 
 int luat_libgnss_init(void);
 int luat_libgnss_parse_data(const char* data, size_t len);

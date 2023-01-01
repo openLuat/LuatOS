@@ -84,8 +84,6 @@ static int32_t l_http_callback(lua_State *L, void* ptr){
     luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)msg->ptr;
 	uint64_t idp = http_ctrl->idp;
 
-	network_close(http_ctrl->netc, 0);
-
 	LLOGD("l_http_callback arg1:%d is_download:%d idp:%d",msg->arg1,http_ctrl->is_download,idp);
 	if (msg->arg1){
 		lua_pushinteger(L, msg->arg1); // 把错误码返回去
@@ -142,7 +140,7 @@ exit:
 }
 
 static void http_resp_error(luat_http_ctrl_t *http_ctrl, int error_code) {
-	// LLOGD("http_resp_error close_state:%d",http_ctrl->close_state);
+	LLOGD("http_resp_error error_code:%d close_state:%d",error_code,http_ctrl->close_state);
 	if (http_ctrl->close_state == 0 && http_ctrl->headers_complete && http_ctrl->re_request_count < HTTP_RE_REQUEST_MAX){
 		http_ctrl->re_request_count++;
 #ifdef LUAT_USE_LWIP
@@ -274,6 +272,7 @@ static int on_message_complete(http_parser* parser){
 	LLOGD("status_code:%d",parser->status_code);
 	LLOGD("content_length:%lld",parser->content_length);
 	http_ctrl->close_state = 1;
+	network_close(http_ctrl->netc, 0);
 	rtos_msg_t msg = {0};
     msg.handler = l_http_callback;
 	msg.ptr = http_ctrl;
@@ -394,11 +393,9 @@ next:
 				}
 				
 				int nParseBytes = http_parser_execute(&http_ctrl->parser, &http_ctrl->parser_settings, resp_buff, total_len);
-				
 				LLOGD("nParseBytes %d total_len %d", nParseBytes, total_len);
 				
 				luat_heap_free(resp_buff);
-
 				if (nParseBytes != total_len){
 					http_resp_error(http_ctrl, HTTP_ERROR_RX);
 					return -1;
@@ -416,7 +413,6 @@ next:
 	}else if(event->ID == EV_NW_RESULT_CLOSE){
 
 	}
-
 	ret = network_wait_event(http_ctrl->netc, NULL, 0, NULL);
 	LLOGD("network_wait_event %d", ret);
 	if (ret < 0){

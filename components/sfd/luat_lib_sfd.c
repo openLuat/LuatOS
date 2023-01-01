@@ -9,11 +9,12 @@
 #include "luat_spi.h"
 #include "luat_sfd.h"
 
-#define LUAT_LOG_SDF
+#define LUAT_LOG_TAG "sfd"
 #include "luat_log.h"
 
 extern const sdf_opts_t sfd_w25q_opts;
 extern const sdf_opts_t sfd_mem_opts;
+extern const sdf_opts_t sfd_onchip_opts;
 
 /*
 初始化spi flash
@@ -47,6 +48,7 @@ static int l_sfd_init(lua_State *L) {
         if (re == 0) {
             return 1;
         }
+        return 0;
     }
     if (!strcmp("zbuff", type)) {
         sfd_drv_t *drv = (sfd_drv_t *)lua_newuserdata(L, sizeof(sfd_drv_t));
@@ -60,6 +62,18 @@ static int l_sfd_init(lua_State *L) {
         if (re == 0) {
             return 1;
         }
+        return 0;
+    }
+    if (!strcmp("onchip", type)) {
+        sfd_drv_t *drv = (sfd_drv_t *)lua_newuserdata(L, sizeof(sfd_drv_t));
+        memset(drv, 0, sizeof(sfd_drv_t));
+        drv->type = 3;
+        drv->opts = &sfd_onchip_opts;
+        int re = drv->opts->initialize(drv);
+        if (re == 0) {
+            return 1;
+        }
+        return 0;
     }
     return 0;
 }

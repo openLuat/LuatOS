@@ -37,9 +37,6 @@ int l_multimedia_raw_handler(lua_State *L, void* ptr);
 
 #include <stddef.h>
 #include "mp3_decode/minimp3.h"
-#ifndef __BSP_COMMON_H__
-#include "c_common.h"
-#endif
 
 
 typedef struct

@@ -8,14 +8,13 @@
 @tag LUAT_USE_MEDIA
 */
 #include "luat_base.h"
-#include "luat_multimedia.h"
 #include "luat_msgbus.h"
 #include "luat_zbuff.h"
 #define LUAT_LOG_TAG "audio"
 #include "luat_log.h"
 
-#include <stddef.h>
-#include "mp3_decode/minimp3.h"
+#include "luat_multimedia.h"
+
 #ifndef __BSP_COMMON_H__
 #include "c_common.h"
 #endif

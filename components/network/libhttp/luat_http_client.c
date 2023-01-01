@@ -41,7 +41,7 @@ end)
 static void http_send_message(luat_http_ctrl_t *http_ctrl);
 
 static int http_close(luat_http_ctrl_t *http_ctrl){
-	LLOGI("http close %p", http_ctrl);
+	LLOGD("http close %p", http_ctrl);
 	if (http_ctrl->netc){
 		network_force_close_socket(http_ctrl->netc);
 		network_release_ctrl(http_ctrl->netc);

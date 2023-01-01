@@ -86,7 +86,7 @@ static int32_t l_http_callback(lua_State *L, void* ptr){
 
 	network_close(http_ctrl->netc, 0);
 
-	// LLOGD("l_http_callback arg1:%d is_download:%d idp:%d",msg->arg1,http_ctrl->is_download,idp);
+	LLOGD("l_http_callback arg1:%d is_download:%d idp:%d",msg->arg1,http_ctrl->is_download,idp);
 	if (msg->arg1){
 		lua_pushinteger(L, msg->arg1); // 把错误码返回去
 		luat_cbcwait(L, idp, 1);
@@ -142,6 +142,7 @@ exit:
 }
 
 static void http_resp_error(luat_http_ctrl_t *http_ctrl, int error_code) {
+	// LLOGD("http_resp_error close_state:%d",http_ctrl->close_state);
 	if (http_ctrl->close_state == 0 && http_ctrl->headers_complete && http_ctrl->re_request_count < HTTP_RE_REQUEST_MAX){
 		http_ctrl->re_request_count++;
 #ifdef LUAT_USE_LWIP
@@ -270,8 +271,8 @@ static int on_message_complete(http_parser* parser){
 		luat_fs_fclose(http_ctrl->fd);
 		http_ctrl->fd = NULL;
 	}
-	// LLOGD("status_code:%d",parser->status_code);
-	// LLOGD("content_length:%lld",parser->content_length);
+	LLOGD("status_code:%d",parser->status_code);
+	LLOGD("content_length:%lld",parser->content_length);
 	http_ctrl->close_state = 1;
 	rtos_msg_t msg = {0};
     msg.handler = l_http_callback;
@@ -290,8 +291,8 @@ static int on_chunk_header(http_parser* parser){
 }
 
 static int on_chunk_complete(http_parser* parser){
-	LLOGD("on_chunk_complete CALL on_message_complete");
-	on_message_complete(parser);
+	// LLOGD("on_chunk_complete CALL on_message_complete");
+	// on_message_complete(parser);
     return 0;
 }
 

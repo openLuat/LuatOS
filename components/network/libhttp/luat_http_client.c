@@ -135,7 +135,6 @@ static int32_t l_http_callback(lua_State *L, void* ptr){
 		luat_cbcwait(L, idp, 3); // code, headers, body
 	}
 exit:
-	http_close(http_ctrl);
 	return 0;
 }
 
@@ -411,7 +410,8 @@ next:
 	}else if(event->ID == EV_NW_RESULT_TX){
 
 	}else if(event->ID == EV_NW_RESULT_CLOSE){
-
+		http_close(http_ctrl);
+		return 0;
 	}
 	ret = network_wait_event(http_ctrl->netc, NULL, 0, NULL);
 	LLOGD("network_wait_event %d", ret);

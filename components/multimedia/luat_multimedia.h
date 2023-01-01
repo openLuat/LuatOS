@@ -5,6 +5,7 @@
 #define __LUAT_MULTIMEDIA_H__
 
 #include "luat_base.h"
+#include "luat_zbuff.h"
 
 enum
 {
@@ -27,4 +28,38 @@ enum
 	MULTIMEDIA_CB_TTS_DONE,				//TTS编码完成了。注意不是播放完成
 };
 int l_multimedia_raw_handler(lua_State *L, void* ptr);
+
+
+
+#define LUAT_M_CODE_TYPE "MCODER*"
+#define MP3_FRAME_LEN 4 * 1152
+
+
+#include <stddef.h>
+#include "mp3_decode/minimp3.h"
+#ifndef __BSP_COMMON_H__
+#include "c_common.h"
+#endif
+
+
+typedef struct
+{
+
+	union
+	{
+		mp3dec_t *mp3_decoder;
+		uint32_t read_len;
+	};
+	FILE* fd;
+	luat_zbuff_t buff;
+	uint8_t type;
+	uint8_t is_decoder;
+}luat_multimedia_codec_t;
+
+#define MAX_DEVICE_COUNT 2
+
+typedef struct luat_multimedia_cb {
+    int function_ref;
+} luat_multimedia_cb_t;
+
 #endif

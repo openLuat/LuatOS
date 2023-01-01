@@ -290,11 +290,11 @@ static int on_chunk_header(http_parser* parser){
     return 0;
 }
 
-static int on_chunk_complete(http_parser* parser){
-	// LLOGD("on_chunk_complete CALL on_message_complete");
-	// on_message_complete(parser);
-    return 0;
-}
+// static int on_chunk_complete(http_parser* parser){
+// 	// LLOGD("on_chunk_complete CALL on_message_complete");
+// 	// on_message_complete(parser);
+//     return 0;
+// }
 
 
 static uint32_t http_send(luat_http_ctrl_t *http_ctrl, uint8_t* data, size_t len) {
@@ -403,7 +403,9 @@ next:
 					http_resp_error(http_ctrl, HTTP_ERROR_RX);
 					return -1;
 				}
-				
+				if (http_ctrl->close_state){
+					return 0;
+				}
 			}
 		}else{
 			http_resp_error(http_ctrl, HTTP_ERROR_RX);
@@ -624,7 +626,7 @@ static int l_http_request(lua_State *L) {
     http_ctrl->parser_settings.on_body = on_body;
     http_ctrl->parser_settings.on_message_complete = on_message_complete;
 	http_ctrl->parser_settings.on_chunk_header = on_chunk_header;
-	http_ctrl->parser_settings.on_chunk_complete = on_chunk_complete;
+	// http_ctrl->parser_settings.on_chunk_complete = on_chunk_complete;
 
 
 	const char *method = luaL_optlstring(L, 1, "GET", &len);

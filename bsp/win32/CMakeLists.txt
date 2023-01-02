@@ -61,6 +61,8 @@ add_library(luat ${TOPROOT}/luat/modules/luat_main.c
                  ${TOPROOT}/components/sfd/luat_lib_sfd.c
                  ${TOPROOT}/components/sfd/luat_sfd_mem.c
                  ${TOPROOT}/components/sfd/luat_sfd_w25q.c
+                 ${TOPROOT}/components/sfd/luat_sfd_onchip.c
+                 ${TOPROOT}/components/sfd/luat_sfd.c
                  ${TOPROOT}/components/luf/luat_lib_luf.c
                  ${TOPROOT}/components/luf/luat_luf_dump.c
                  ${TOPROOT}/components/luf/luat_luf_undump.c

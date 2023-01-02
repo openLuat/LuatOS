@@ -24,25 +24,7 @@
 
 #include "lfs.h"
 
-#define LFS_BLOCK_DEVICE_READ_SIZE (256)
-#define LFS_BLOCK_DEVICE_PROG_SIZE (256)
-#define LFS_BLOCK_DEVICE_CACHE_SIZE (256)
-#define LFS_BLOCK_DEVICE_ERASE_SIZE (4096) // one sector 4KB
-#define LFS_BLOCK_DEVICE_TOTOAL_SIZE (64 * 1024)
-#define LFS_BLOCK_DEVICE_LOOK_AHEAD (16)
 
-#define LUAT_FSKV_MAX_SIZE (4096)
-
-
-typedef struct luat_fskv
-{
-    char read_buffer[LFS_BLOCK_DEVICE_READ_SIZE];
-    char prog_buffer[LFS_BLOCK_DEVICE_PROG_SIZE];
-    // char cache_buffer[LFS_BLOCK_DEVICE_CACHE_SIZE];
-    char lookahead_buffer[LFS_BLOCK_DEVICE_LOOK_AHEAD];
-    lfs_t lfs;
-    struct lfs_config conf;
-}luat_fskv_t;
 
 /**
  * @defgroup luatos_fskv 持久化数据存储接口

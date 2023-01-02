@@ -112,7 +112,17 @@ static int l_miniz_uncompress(lua_State* L) {
         LLOGE("out of memory when malloc dst buff");
         return 0;
     }
-    size_t ret = tinfl_decompress_mem_to_mem(dst, TDEFL_OUT_BUF_SIZE, data, len, flags);
+    size_t out_buf_len = TDEFL_OUT_BUF_SIZE;
+    tinfl_status status;
+    tinfl_decompressor *decomp = luat_heap_malloc(sizeof(tinfl_decompressor));
+    if (decomp == NULL) {
+        LLOGE("out of memory when malloc tinfl_decompressor");
+        return 0;
+    }
+    tinfl_init(decomp);
+    status = tinfl_decompress(decomp, (const mz_uint8 *)data, &len, (mz_uint8 *)dst, (mz_uint8 *)dst, &out_buf_len, (flags & ~TINFL_FLAG_HAS_MORE_INPUT) | TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF);
+    size_t ret = (status != TINFL_STATUS_DONE) ? TINFL_DECOMPRESS_MEM_TO_MEM_FAILED : out_buf_len;
+    luat_heap_free(decomp);
     if (ret == TINFL_DECOMPRESS_MEM_TO_MEM_FAILED) {
         LLOGW("decompress fail");
         return 0;

@@ -103,6 +103,9 @@ static int l_rtc_set(lua_State *L){
         return 0;
     }
 
+    tblock.tm_year -= Base_year;
+    tblock.tm_mon -= 1;
+
     ret = luat_rtc_set(&tblock);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
@@ -124,6 +127,11 @@ static int l_rtc_get(lua_State *L){
     if (ret) {
         return 0;
     }
+
+    tblock.tm_year += Base_year;
+    tblock.tm_mon += 1;
+
+
     lua_newtable(L);
 
     lua_pushstring(L, "year");
@@ -234,6 +242,9 @@ static int l_rtc_timer_start(lua_State *L){
         LLOGW("rtc time miss sec");
         return 0;
     }
+
+    tblock.tm_year -= Base_year;
+    tblock.tm_mon -= 1;
 
     ret = luat_rtc_timer_start(id, &tblock);
     lua_pushboolean(L, ret == 0 ? 1 : 0);

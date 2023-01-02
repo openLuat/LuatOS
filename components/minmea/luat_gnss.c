@@ -117,12 +117,8 @@ int luat_libgnss_parse_nmea(const char* line) {
                     #ifdef LUAT_USE_MCU
                     if (libgnss_gnss->rtc_auto && (libgnss_gnss->fix_at_ticks == 0 || ((uint32_t)(ticks - libgnss_gnss->fix_at_ticks)) > 600*1000)) {
                         LLOGI("Auto-Set RTC by GNSS RMC");
-                        tblock.tm_sec =  libgnss_gnss->frame_rmc.time.seconds;
-                        tblock.tm_min =  libgnss_gnss->frame_rmc.time.minutes;
-                        tblock.tm_hour = libgnss_gnss->frame_rmc.time.hours;
-                        tblock.tm_mday = libgnss_gnss->frame_rmc.date.day;
-                        tblock.tm_mon =  libgnss_gnss->frame_rmc.date.month;
-                        tblock.tm_year = libgnss_gnss->frame_rmc.date.year;
+                        minmea_getdatetime(&tblock, &libgnss_gnss->frame_rmc.date, &libgnss_gnss->frame_rmc.time);
+                        tblock.tm_year -= 1900;
                         luat_rtc_set(&tblock);
                         // luat_rtc_set_tamp32(mktime(&tblock));
                     }

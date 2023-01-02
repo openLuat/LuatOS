@@ -28,25 +28,28 @@ fskv与fdb的实现机制导致的差异
 #include "luat_malloc.h"
 
 #include "luat_fskv.h"
+#include "luat_sfd.h"
 
 #ifndef LUAT_LOG_TAG
 #define LUAT_LOG_TAG "fskv"
 #include "luat_log.h"
 #endif
 
-extern luat_fskv_t* fskv;
+#define LUAT_FSKV_MAX_SIZE (4096)
+
+extern sfd_drv_t* sfd_onchip;
+extern luat_sfd_lfs_t* sfd_lfs;
 
 static char fskv_read_buff[LUAT_FSKV_MAX_SIZE];
 
 /**
 初始化kv数据库
-@api fskv.kvdb_init(name, partition)
+@api fskv.init()
 @string 数据库名,当前仅支持env
 @string FAL分区名,当前仅支持onchip_fdb
 @return boolean 成功返回true,否则返回false
 @usage
--- fdb库基于 flashdb , 再次表示感谢.
-if fskv.kvdb_init("env", "onchip_fdb") then
+if fskv.init() then
     log.info("fdb", "kv数据库初始化成功")
 end
 
@@ -55,13 +58,23 @@ end
 -- 写一个main.lua, 执行 fskv.kvdb_init 后 执行 fskv.clear() 即可全清fdb数据.
  */
 static int l_fskvdb_init(lua_State *L) {
-    if (fskv == NULL) {
-        int ret = luat_fskv_init();
-        lua_pushboolean(L, ret == 0 ? 1 : 0);
+    if (sfd_lfs == NULL) {
+        if (sfd_onchip == NULL) {
+            luat_sfd_onchip_init();
+        }
+        if (sfd_onchip == NULL) {
+            LLOGE("sfd-onchip init failed");
+            return 0;
+        }
+        if (sfd_lfs == NULL) {
+            luat_sfd_lfs_init(sfd_onchip);
+        }
+        if (sfd_lfs == NULL) {
+            LLOGE("sfd-onchip lfs int failed");
+            return 0;
+        }
     }
-    else {
-        lua_pushboolean(L, 1);
-    }
+    lua_pushboolean(L, 1);
     return 1;
 }
 
@@ -78,7 +91,7 @@ if fskv.kvdb_init("env", "onchip_fdb") then
 end
  */
 static int l_fskv_set(lua_State *L) {
-    if (fskv == 0) {
+    if (sfd_lfs == 0) {
         LLOGE("call fskv.init() first!!!");
         return 0;
     }
@@ -192,7 +205,7 @@ if fskv.init() then
 end
  */
 static int l_fskv_get(lua_State *L) {
-    if (fskv == NULL) {
+    if (sfd_lfs == NULL) {
         LLOGE("call fskv.init() first!!!");
         return 0;
     }
@@ -262,7 +275,7 @@ if fskv.kvdb_init("env", "onchip_fdb") then
 end
  */
 static int l_fskv_del(lua_State *L) {
-    if (fskv == NULL) {
+    if (sfd_lfs == NULL) {
         LLOGE("call fskv.init() first!!!");
         return 0;
     }
@@ -285,7 +298,7 @@ static int l_fskv_del(lua_State *L) {
 fskv.kv_clr()
  */
 static int l_fskv_clr(lua_State *L) {
-    if (fskv == NULL) {
+    if (sfd_lfs == NULL) {
         LLOGE("call fskv.init() first!!!");
         return 0;
     }
@@ -376,7 +389,7 @@ static int l_fskv_stat(lua_State *L) {
     size_t using_sz = 0;
     size_t max_sz = 0;
     size_t kv_count = 0;
-    if (fskv == 0) {
+    if (sfd_lfs == 0) {
         LLOGE("call fskv.init() first!!!");
         return 0;
     }

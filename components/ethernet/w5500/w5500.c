@@ -699,6 +699,10 @@ static void w5500_callback_to_nw_task(w5500_ctrl_t *w5500, uint32_t event_id, ui
 	{
 		event.Param3 = prv_w5500_ctrl->socket[param1].param;
 		param.tag = prv_w5500_ctrl->socket[param1].tag;
+		if (EV_NW_SOCKET_CLOSE_OK == event_id)
+		{
+			prv_w5500_ctrl->socket[param1].param = NULL;
+		}
 	}
 	w5500->socket_cb(&event, &param);
 }

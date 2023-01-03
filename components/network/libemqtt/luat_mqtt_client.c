@@ -17,6 +17,8 @@
 #define LLOGD(...)
 #endif
 
+static int luat_mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl);
+
 
 LUAT_RT_RET_TYPE luat_mqtt_timer_callback(LUAT_RT_CB_PARAM){
 	luat_mqtt_ctrl_t * mqtt_ctrl = (luat_mqtt_ctrl_t *)param;

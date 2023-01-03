@@ -49,6 +49,7 @@ end)
 extern luat_libgnss_t *libgnss_gnss;
 // extern luat_libgnss_t *libgnss_gnsstmp;
 extern char* libgnss_recvbuff;
+extern int libgnss_route_uart_id;
 
 void luat_uart_set_app_recv(int id, luat_uart_recv_callback_t cb);
 
@@ -620,8 +621,9 @@ static int l_libgnss_clear(lua_State*L) {
 
 /*
 绑定uart端口进行GNSS数据读取
-@api libgnss.bind(id)
+@api libgnss.bind(id, next_id)
 @int uart端口号
+@int 转发到端口号, 例如虚拟UART. 
 @usage
 -- 配置串口信息, 通常为 115200 8N1
 uart.setup(2, 115200)
@@ -630,6 +632,10 @@ libgnss.bind(2)
 -- 无需再调用uart.on然后调用libgnss.parse
 -- 开发期可打开调试日志
 libgnss.debug(true)
+
+-- 2023-01-02之后编译的固件有效
+-- 从uart2读取并解析, 同时转发到虚拟串口0
+libgnss.bind(2, uart.VUART_0)
 */
 static int l_libgnss_bind(lua_State* L) {
     int uart_id = luaL_checkinteger(L, 1);
@@ -640,6 +646,9 @@ static int l_libgnss_bind(lua_State* L) {
     if (luat_uart_exist(uart_id)) {
         //uart_app_recvs[uart_id] = nmea_uart_recv_cb;
         luat_uart_set_app_recv(uart_id, luat_libgnss_uart_recv_cb);
+    }
+    if (lua_isinteger(L, 2)) {
+        libgnss_route_uart_id = luaL_checkinteger(L, 2);
     }
     return 0;
 }
@@ -681,6 +690,59 @@ static int l_libgnss_rtc_auto(lua_State *L) {
     return 0;
 }
 
+//临时处理, 当前GNSS处理均在lua线程
+// static lua_State *gnss_L;
+static int gnss_raw_cb = 0;
+
+int luat_libgnss_rawdata_cb(lua_State *L, void* ptr) {
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    // lua_getglobal(L, "sys_pub");
+    lua_geti(L, LUA_REGISTRYINDEX, gnss_raw_cb);
+    if (lua_isfunction(L, -1)) {
+        // lua_pushliteral(gnss_L, "GNSS_RAW_DATA");
+        lua_pushlstring(L, ptr, msg->arg1);
+        luat_heap_free(ptr);
+        ptr = NULL;
+        lua_call(L, 1, 0);
+    }
+    else {
+        luat_heap_free(ptr);
+    }
+    return 0;
+}
+
+int luat_libgnss_on_rawdata(const char* data, size_t len) {
+    if (gnss_raw_cb == 0)
+        return 0;
+    char* ptr = luat_heap_malloc(len);
+    if (ptr == NULL)
+        return 0;
+    memcpy(ptr, data, len);
+    rtos_msg_t msg = {
+        .handler = luat_libgnss_rawdata_cb,
+        .arg1 = len,
+        .ptr = ptr
+    };
+    luat_msgbus_put(&msg, 0);
+    return 0;
+}
+
+static int l_libgnss_on(lua_State *L) {
+    size_t len = 0;
+    const char* tp = luaL_checklstring(L, 1, &len);
+    if (!strcmp("raw", tp)) {
+        if (gnss_raw_cb != 0) {
+            luaL_unref(L, LUA_REGISTRYINDEX, gnss_raw_cb);
+            gnss_raw_cb = 0;
+        }
+        if (lua_isfunction(L, 2)) {
+            lua_pushvalue(L, 2);
+            gnss_raw_cb = luaL_ref(L, LUA_REGISTRYINDEX);
+        }
+    }
+    return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_libgnss[] =
 {
@@ -696,6 +758,7 @@ static const rotable_Reg_t reg_libgnss[] =
     { "getZda", ROREG_FUNC(l_libgnss_get_zda)},
     { "locStr", ROREG_FUNC(l_libgnss_locStr)},
     { "rtcAuto",ROREG_FUNC(l_libgnss_rtc_auto)},
+    { "on",     ROREG_FUNC(l_libgnss_on)},
     
     { "debug",  ROREG_FUNC(l_libgnss_debug)},
     { "clear",  ROREG_FUNC(l_libgnss_clear)},

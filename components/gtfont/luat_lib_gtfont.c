@@ -158,6 +158,12 @@ void gtfont_draw_gray_hz (unsigned char *data,unsigned short x,unsigned short y,
 	}
 }
 
+#ifndef LUAT_COMPILER_NOWEAK
+LUAT_WEAK int GT_Font_Init(void) {
+    return 1;
+}
+#endif
+
 /**
 初始化高通字体芯片
 @api gtfont.init(spi_device)
@@ -174,7 +180,8 @@ static int l_gtfont_init(lua_State* L) {
     }
 	const char data = 0xff;
 	luat_spi_device_send(gt_spi_dev, &data, 1);
-    return 0;
+	int font_init = GT_Font_Init();
+    return 1;
 }
 
 #include "rotable2.h"

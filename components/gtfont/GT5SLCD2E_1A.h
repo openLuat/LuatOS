@@ -7,7 +7,12 @@
 
 /* 外部函数声明 */
 extern unsigned long r_dat_bat(unsigned long address,unsigned long DataLen,unsigned char *pBuff);
+extern unsigned char gt_read_data(unsigned char* sendbuf , unsigned char sendlen , unsigned char* receivebuf, unsigned int receivelen);
+
 extern unsigned char CheckID(unsigned char CMD, unsigned long address,unsigned long byte_long,unsigned char *p_arr);
+/* ----------------------------------------------------------- */
+//字库初始化
+int GT_Font_Init(void);
 
 /********************* 矢量公用部分 *********************/
 //中文
@@ -74,6 +79,7 @@ extern unsigned char CheckID(unsigned char CMD, unsigned long address,unsigned l
 #endif
 /********************* 矢量区域结束 *********************/
 
+
 /*
  *函数名：	get_Font_Gray()
  *功能		灰度矢量文字读取函数
@@ -83,7 +89,7 @@ extern unsigned char CheckID(unsigned char CMD, unsigned long address,unsigned l
  *		fontSize	文字大小
  *		thick		文字粗细
  *返回值：re_buff[0] 字符的显示宽度 , re_buff[1] 字符的灰度阶级[1阶/2阶/3阶/4阶]
-**/	
+**/
 unsigned int* get_Font_Gray(unsigned char *pBits,unsigned char sty,unsigned long fontCode,unsigned char fontSize, unsigned char thick);
 
 //Unicode转GBK
@@ -100,30 +106,31 @@ unsigned int BIG52GBK( unsigned char h,unsigned char l );
 void Gray_Process(unsigned char *OutPutData ,int width,int High,unsigned char Grade);
 
 /*----------------------------------------------------------------------------------------
- * 灰度文字颜色设置 
- * BmpDst 目标图片数据 
- * BmpSrc 图标图片数据 
+ * 灰度文字颜色设置
+ * BmpDst 目标图片数据
+ * BmpSrc 图标图片数据
  * WORD x, WORD y, 图标在目标图片的 X,Y位置。
- * WORD src_w, WORD src_h,  图标的宽度和高度 
- * WORD dst_w, WORD dst_h   目标图片的宽度和高度 
+ * WORD src_w, WORD src_h,  图标的宽度和高度
+ * WORD dst_w, WORD dst_h   目标图片的宽度和高度
  * SrcGray 灰度文字数据
  * Grade	灰度阶级[2阶/4阶]
  *------------------------------------------------------------------------------------------*/
-void AlphaBlend_whiteBC(unsigned char *BmpDst,unsigned char *BmpSrc, int x, int y, 
+void AlphaBlend_whiteBC(unsigned char *BmpDst,unsigned char *BmpSrc, int x, int y,
 	int src_w, int src_h, int dst_w, int dst_h,unsigned char *SrcGray,unsigned char Grade);
 
 /*----------------------------------------------------------------------------------------
  * 灰度文字与背景混合
- * BmpDst 目标图片数据 
- * BmpSrc 图标图片数据 
+ * BmpDst 目标图片数据
+ * BmpSrc 图标图片数据
  * WORD x, WORD y, 图标在目标图片的 X,Y位置。
- * WORD src_w, WORD src_h,  图标的宽度和高度 
- * WORD dst_w, WORD dst_h   目标图片的宽度和高度 
+ * WORD src_w, WORD src_h,  图标的宽度和高度
+ * WORD dst_w, WORD dst_h   目标图片的宽度和高度
  * SrcGray 灰度文字数据
  * Grade	灰度阶级[2阶/4阶]
  *------------------------------------------------------------------------------------------*/
 void AlphaBlend_blackBC(unsigned char *BmpDst,unsigned char *BmpSrc, int x, int y,
 	int src_w, int src_h, int dst_w, int dst_h,unsigned char *SrcGray,unsigned char Grade);
+
 
 #endif
 

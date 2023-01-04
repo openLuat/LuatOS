@@ -31,8 +31,11 @@ uart.on(uart.VUART_0, "recv", function(id, len)
     -- end
 end)
 
+
+uart.setup(gps_uart_id, 115200)
 uart.on(2, "sent", function(id, len)
-    sys.publish("UART_SEND", 2)
+    log.info("uart", "event", "sent", id)
+    sys.publish("UART2_SEND", 2)
 end)
 
 sys.taskInit(function()
@@ -52,7 +55,6 @@ sys.taskInit(function()
     -- Air780EG工程样品的GPS的默认波特率是9600, 量产版是115200,以下是临时代码
     log.info("GPS", "start")
     pm.power(pm.GPS, true)
-    uart.setup(gps_uart_id, 115200)
     -- 绑定uart,底层自动处理GNSS数据
     -- 第二个参数是转发到虚拟UART, 方便上位机分析
     libgnss.bind(gps_uart_id, uart.VUART_0)
@@ -63,8 +65,8 @@ sys.taskInit(function()
     -- 调试日志,可选
     libgnss.debug(true)
     -- 显示串口配置
-    uart.write(gps_uart_id, "$CFGPRT,1\r\n")
-    sys.wait(20)
+    -- uart.write(gps_uart_id, "$CFGPRT,1\r\n")
+    -- sys.wait(20)
     -- 增加显示的语句
     uart.write(gps_uart_id, "$CFGMSG,0,1,1\r\n") -- GLL
     sys.wait(20)
@@ -74,7 +76,6 @@ sys.taskInit(function()
     -- libgnss.rtcAuto(true)
     if http then
         -- AGNSS 已调通
-        -- URL需要更新到3星座数据
         while 1 do
             local code, headers, body = http.request("GET", "http://download.openluat.com/9501-xingli/HXXT_GPS_BDS_AGNSS_DATA.dat").wait()
             -- local code, headers, body = http.request("GET", "http://nutzam.com/6228.bin").wait()
@@ -85,7 +86,7 @@ sys.taskInit(function()
                 for offset=1,#body,512 do
                     log.info("gnss", "AGNSS", "write >>>", #body:sub(offset, offset + 511))
                     uart.write(gps_uart_id, body:sub(offset, offset + 511))
-                    sys.waitUntil("UART_SEND", 100)
+                    sys.waitUntil("UART2_SEND", 100)
                 end
                 io.writeFile("/6228.bin", body)
                 break
@@ -114,10 +115,10 @@ end)
 
 sys.taskInit(function()
     while 1 do
-        sys.wait(1000)
+        sys.wait(5000)
         -- 6228CI, 查询产品信息, 可选
         -- uart.write(gps_uart_id, "$PDTINFO,*62\r\n")
-        uart.write(gps_uart_id, "$AIDINFO\r\n")
+        -- uart.write(gps_uart_id, "$AIDINFO\r\n")
         -- sys.wait(100)
         
         -- uart.write(gps_uart_id, "$CFGSYS\r\n")
@@ -182,7 +183,7 @@ sys.taskInit(function()
     while true do
         -- 业务演示。等待其他task发过来的待上报数据
         -- 这里的mqtt_pub字符串是自定义的，与mqtt库没有直接联系
-        -- 若不需要异步关闭mqtt链接，while内的代码可以替换成sys.wait(13000
+        -- 若不需要异步关闭mqtt链接，while内的代码可以替换成sys.wait(30000)
         local ret, topic, data, qos = sys.waitUntil("mqtt_pub", 30000)
         if ret then
             if topic == "close" then break end
@@ -210,49 +211,6 @@ end)
 --         socket.sntp()
 --     end)
 -- end
-
--- 定期重启GPS, 测试AGNSS
--- sys.taskInit(function()
---     while 1 do
---         sys.wait(120 * 1000)
---         log.info("GPS", "stop")
---         pm.power(pm.GPS, false)
---         pm.power(pm.GPS_ANT, false)
---         sys.wait(500)
---         log.info("GPS", "start")
---         pm.power(pm.GPS, true)
---         pm.power(pm.GPS_ANT, true)
---         sys.wait(300) -- 输出产品日志大概是150ms左右,这里延时一下
---         -- 写入时间
---         local date = os.date("!*t")
---         if date["year"] > 2021 then
---             local str = string.format("$AIDTIME,%d,%d,%d,%d,%d,%d,000", 
---                              date["year"], date["month"], date["day"], date["hour"], date["min"], date["sec"])
---             log.info("gnss", str)
---             uart.write(gps_uart_id, str .. "\r\n")
---         end
---         -- 读取并写入辅助坐标
---         local gnssloc = io.readFile("/gnssloc")
---         if gnssloc then
---             uart.write(gps_uart_id, "$AIDPOS," .. gnssloc .. "\r\n")
---             gnssloc = nil
---         end
---         -- 写入星历
---         local body = io.readFile("/6228.bin")
---         if body then
---             for offset=1,#body,1024 do
---                 log.info("gnss", "AGNSS", "write >>>")
---                 uart.write(gps_uart_id, body:sub(offset, 1024))
---                 sys.wait(5)
---             end
---         end
---         log.info("AGNSS", "write complete")
---         -- 查询一下辅助定位成功没
---         sys.wait(300)
---         uart.write(gps_uart_id, "$AIDINFO\r\n")
---     end
-
--- end)
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

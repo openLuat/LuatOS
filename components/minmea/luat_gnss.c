@@ -13,6 +13,7 @@
 luat_libgnss_t *libgnss_gnss;
 luat_libgnss_tmp_t *libgnss_gnsstmp;
 char *libgnss_recvbuff;
+int libgnss_route_uart_id = -1;
 
 // static int parse_nmea(const char* line);
 // static int parse_data(const char* data, size_t len);
@@ -27,6 +28,10 @@ void luat_libgnss_uart_recv_cb(int uart_id, uint32_t data_len) {
         len = luat_uart_read(uart_id, libgnss_recvbuff, RECV_BUFF_SIZE - 1);
         if (len < 1 || len > RECV_BUFF_SIZE)
             break;
+        if (libgnss_route_uart_id > 0) {
+            luat_uart_write(libgnss_route_uart_id, libgnss_recvbuff, len);
+        }
+        luat_libgnss_on_rawdata(libgnss_recvbuff, len);
         //LLOGD("uart recv %d", len);
         libgnss_recvbuff[len] = 0;
         if (libgnss_gnss == NULL)

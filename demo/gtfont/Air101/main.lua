@@ -16,8 +16,8 @@ _G.sys = require("sys")
 wdt.init(9000)--初始化watchdog设置为9s
 sys.timerLoopStart(wdt.feed, 3000)--3s喂一次狗
 
-spi_gtfont = spi.deviceSetup(0,7,0,0,8,20*1000*1000,spi.MSB,1,1)
-spi_lcd = spi.deviceSetup(0,20,0,0,8,2000000,spi.MSB,1,1)
+spi_gtfont = spi.deviceSetup(0,7,0,0,8,20*1000*1000,spi.MSB,1,0)
+spi_lcd = spi.deviceSetup(0,20,0,0,8,2000000,spi.MSB,1,0)
 
 log.info("lcd.init",
 lcd.init("st7789",{port = "device",pin_dc = 17,pin_rst = 16,direction = 0,w = 240,h = 320,xoffset = 0,yoffset = 0},spi_lcd))

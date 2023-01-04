@@ -50,7 +50,7 @@ typedef struct luat_mqtt_connopts
 
 
 int luat_mqtt_connect(luat_mqtt_ctrl_t *mqtt_ctrl);
-static int luat_mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl);
+// static int luat_mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl);
 // int l_mqtt_callback(lua_State *L, void* ptr);
 int l_luat_mqtt_msg_cb(luat_mqtt_ctrl_t * ctrl, int arg1, int arg2);
 int32_t luat_mqtt_callback(void *data, void *param);

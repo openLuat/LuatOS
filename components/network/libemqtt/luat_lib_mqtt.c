@@ -30,6 +30,7 @@ static luat_mqtt_ctrl_t * get_mqtt_ctrl(lua_State *L){
 }
 
 static int32_t l_mqtt_callback(lua_State *L, void* ptr){
+	(void)ptr;
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     luat_mqtt_ctrl_t *mqtt_ctrl =(luat_mqtt_ctrl_t *)msg->ptr;
     switch (msg->arg1) {
@@ -49,8 +50,8 @@ static int32_t l_mqtt_callback(lua_State *L, void* ptr){
 				if (lua_isfunction(L, -1)) {
 					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
 					lua_pushstring(L, "recv");
-					lua_pushlstring(L, mqtt_msg->data,mqtt_msg->topic_len);
-					lua_pushlstring(L, mqtt_msg->data+mqtt_msg->topic_len,mqtt_msg->payload_len);
+					lua_pushlstring(L, (const char*)(mqtt_msg->data),mqtt_msg->topic_len);
+					lua_pushlstring(L, (const char*)(mqtt_msg->data+mqtt_msg->topic_len),mqtt_msg->payload_len);
 					
 					// 增加一个返回值meta，类型为table，包含qos、retain和dup
 					// 	mqttc:on(function(mqtt_client, event, data, payload, meta)
@@ -268,7 +269,7 @@ static int l_mqtt_create(lua_State *L) {
 	luat_mqtt_connopts_t opts = {0};
 
 	// 连接参数相关
-	const char *ip;
+	// const char *ip;
 	size_t ip_len = 0;
 #ifdef LUAT_USE_LWIP
 	mqtt_ctrl->ip_addr.type = 0xff;
@@ -283,7 +284,7 @@ static int l_mqtt_create(lua_State *L) {
 		mqtt_ctrl->ip_addr.is_ipv6 = 0;
 		mqtt_ctrl->ip_addr.ipv4 = lua_tointeger(L, 2);
 #endif
-		ip = NULL;
+		// ip = NULL;
 		ip_len = 0;
 	}else{
 		ip_len = 0;
@@ -465,7 +466,8 @@ static int l_mqtt_autoreconn(lua_State *L) {
 mqttc:publish("/luatos/123456", "123")
 */
 static int l_mqtt_publish(lua_State *L) {
-	uint32_t message_id ,payload_len= 0;
+	uint16_t message_id  = 0;
+	size_t payload_len = 0;
 	luat_mqtt_ctrl_t * mqtt_ctrl = get_mqtt_ctrl(L);
 	const char * topic = luaL_checkstring(L, 2);
 	const char * payload = NULL;
@@ -474,7 +476,7 @@ static int l_mqtt_publish(lua_State *L) {
 		payload = luaL_checklstring(L, 3, &payload_len);
 	}else if (luaL_testudata(L, 3, LUAT_ZBUFF_TYPE)){
 		buff = ((luat_zbuff_t *)luaL_checkudata(L, 3, LUAT_ZBUFF_TYPE));
-		payload = buff->addr;
+		payload = (const char*)buff->addr;
 		payload_len = buff->used;
 	}else{
 		LLOGD("only support string or zbuff");
@@ -482,7 +484,7 @@ static int l_mqtt_publish(lua_State *L) {
 	// LLOGD("payload_len:%d",payload_len);
 	uint8_t qos = luaL_optinteger(L, 4, 0);
 	uint8_t retain = luaL_optinteger(L, 5, 0);
-	int ret = mqtt_publish_with_qos(&(mqtt_ctrl->broker), topic, payload,payload_len, retain, qos, &message_id);
+	int ret = mqtt_publish_with_qos(&(mqtt_ctrl->broker), topic, payload, payload_len, retain, qos, &message_id);
 	if (ret != 1){
 		return 0;
 	}
@@ -581,7 +583,7 @@ static const rotable_Reg_t reg_mqtt[] =
 };
 
 static int _mqtt_struct_newindex(lua_State *L) {
-	rotable_Reg_t* reg = reg_mqtt;
+	const rotable_Reg_t* reg = reg_mqtt;
     const char* key = luaL_checkstring(L, 2);
 	while (1) {
 		if (reg->name == NULL)

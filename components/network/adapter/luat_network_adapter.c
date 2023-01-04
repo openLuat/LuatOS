@@ -1990,98 +1990,95 @@ int network_rx(network_ctrl_t *ctrl, uint8_t *data, uint32_t len, int flags, lua
 	ctrl->auto_mode = 1;
 	uint32_t read_len = 0;
 	uint8_t is_error = 0;
-	if (ctrl->new_rx_flag)
+
+
+	if (data)
 	{
-		if (data)
+		ctrl->new_rx_flag = 0;
+#ifdef LUAT_USE_TLS
+		if (ctrl->tls_mode)
 		{
-			ctrl->new_rx_flag = 0;
-	#ifdef LUAT_USE_TLS
-			if (ctrl->tls_mode)
+
+			do
 			{
-
-				do
+				result = mbedtls_ssl_read(ctrl->ssl, data + read_len, len - read_len);
+				if (result < 0 && (result != MBEDTLS_ERR_SSL_WANT_READ))
 				{
-					result = mbedtls_ssl_read(ctrl->ssl, data + read_len, len - read_len);
-					if (result < 0 && (result != MBEDTLS_ERR_SSL_WANT_READ))
-					{
-						is_error = 1;
-						break;
-					}
-					else
-					{
-						read_len += result;
-						if (read_len >= len)
-						{
-							break;
-						}
-					}
-				}while(network_socket_receive(ctrl, NULL, len, flags, remote_ip, remote_port) > 0);
-
-				if ( !is_error )
-				{
-					result = read_len;
+					is_error = 1;
+					break;
 				}
 				else
 				{
-					result = -1;
+					read_len += result;
+					if (read_len >= len)
+					{
+						break;
+					}
 				}
+			}while(network_socket_receive(ctrl, NULL, len, flags, remote_ip, remote_port) > 0);
+
+			if ( !is_error )
+			{
+				result = read_len;
 			}
 			else
-	#endif
 			{
-
-				result = network_socket_receive(ctrl, data, len, flags, remote_ip, remote_port);
+				result = -1;
 			}
 		}
 		else
+#endif
 		{
-#ifdef LUAT_USE_TLS
-			if (ctrl->tls_mode)
-			{
-				read_len = 0;
-				do
-				{
-					result = mbedtls_ssl_read(ctrl->ssl, NULL, 0);
-					if ((result < 0) && (result != (MBEDTLS_ERR_SSL_WANT_READ)))
-					{
-						is_error = 1;
-						read_len = 0;
-						break;
-					}
-					else if (!result)
-					{
-						read_len = ctrl->ssl->in_msglen;
-						break;
-					}
-					else if ((MBEDTLS_ERR_SSL_WANT_READ) == result)
-					{
-						read_len = 0;
-						ctrl->new_rx_flag = 0;
-						DBG("socket %d ssl data need more", ctrl->socket_id);
-						break;
-					}
-				}while(network_socket_receive(ctrl, NULL, len, flags, remote_ip, remote_port) > 0);
 
-				if ( !is_error )
-				{
-					result = read_len;
-				}
-				else
-				{
-					result = -1;
-				}
-			}
-			else
-	#endif
-			{
-				result = network_socket_receive(ctrl, data, len, flags, remote_ip, remote_port);
-			}
+			result = network_socket_receive(ctrl, data, len, flags, remote_ip, remote_port);
 		}
 	}
 	else
 	{
-		result = 0;
+#ifdef LUAT_USE_TLS
+		if (ctrl->tls_mode)
+		{
+			read_len = 0;
+			do
+			{
+				result = mbedtls_ssl_read(ctrl->ssl, NULL, 0);
+				if ((result < 0) && (result != (MBEDTLS_ERR_SSL_WANT_READ)))
+				{
+					is_error = 1;
+					read_len = 0;
+					break;
+				}
+				else if (!result)
+				{
+					read_len = ctrl->ssl->in_msglen;
+					break;
+				}
+				else if ((MBEDTLS_ERR_SSL_WANT_READ) == result)
+				{
+					read_len = 0;
+					ctrl->new_rx_flag = 0;
+					DBG("socket %d ssl data need more", ctrl->socket_id);
+					break;
+				}
+			}while(network_socket_receive(ctrl, NULL, len, flags, remote_ip, remote_port) > 0);
+
+			if ( !is_error )
+			{
+				result = read_len;
+			}
+			else
+			{
+				result = -1;
+			}
+		}
+		else
+#endif
+		{
+			result = network_socket_receive(ctrl, data, len, flags, remote_ip, remote_port);
+		}
 	}
+
+
 	NW_UNLOCK;
 	if (result >= 0)
 	{
@@ -4087,8 +4084,7 @@ int network_rx(network_ctrl_t *ctrl, uint8_t *data, uint32_t len, int flags, lua
 	ctrl->auto_mode = 1;
 	uint32_t read_len = 0;
 	uint8_t is_error = 0;
-	if (ctrl->new_rx_flag)
-	{
+
 		if (data)
 		{
 			ctrl->new_rx_flag = 0;
@@ -4174,11 +4170,7 @@ int network_rx(network_ctrl_t *ctrl, uint8_t *data, uint32_t len, int flags, lua
 				result = network_socket_receive(ctrl, data, len, flags, remote_ip, remote_port);
 			}
 		}
-	}
-	else
-	{
-		result = 0;
-	}
+
 	NW_UNLOCK;
 	if (result >= 0)
 	{

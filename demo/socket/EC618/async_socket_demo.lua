@@ -1,7 +1,7 @@
 -- netlab.luatos.com上打开TCP，然后修改IP和端口号，自动回复netlab下发的数据，自收自发测试
 local server_ip = "112.125.89.8"
 local server_port = 33476
-local UDP_port = 33243
+local UDP_port = 37834
 local ssl_port = 35528
 local rxbuf = zbuff.create(8192)
 local function netCB(netc, event, param)
@@ -16,7 +16,7 @@ local function netCB(netc, event, param)
         socket.rx(netc, rxbuf)
         socket.wait(netc)
         if rxbuf:used() > 0 then
-            log.info("收到", rxbuf:toStr():toHex())
+            log.info("收到", rxbuf:toStr(0,rxbuf:used()):toHex())
             log.info("发送", rxbuf:used(), "bytes")
             socket.tx(netc, rxbuf)
         end

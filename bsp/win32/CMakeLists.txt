@@ -45,7 +45,6 @@ add_library(cjson ${CJSON_SRCS})
 add_library(luat ${TOPROOT}/luat/modules/luat_main.c
                  ${TOPROOT}/luat/modules/luat_base.c
                  ${TOPROOT}/luat/modules/luat_ota.c
-                 ${TOPROOT}/luat/modules/luat_luat_bin.c
                  ${TOPROOT}/luat/modules/luat_lib_rtos.c
                  ${TOPROOT}/luat/modules/luat_lib_timer.c
                  ${TOPROOT}/luat/modules/luat_lib_log.c

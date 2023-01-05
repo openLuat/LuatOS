@@ -43,7 +43,6 @@ aux_source_directory(${TOPROOT}/components/tjpgd TJPGD_SRCS)
 add_library(luat ${PORT_SRCS} ${LUA_SRCS} ${CJSON_SRCS} ${TOPROOT}/luat/modules/luat_main.c
                  ${TOPROOT}/luat/modules/luat_base.c
                  ${TOPROOT}/luat/modules/luat_ota.c
-                 ${TOPROOT}/luat/modules/luat_luat_bin.c
                  ${TOPROOT}/luat/modules/luat_lib_rtos.c
                  ${TOPROOT}/luat/modules/luat_lib_timer.c
                  ${TOPROOT}/luat/modules/luat_lib_log.c
@@ -57,6 +56,8 @@ add_library(luat ${PORT_SRCS} ${LUA_SRCS} ${CJSON_SRCS} ${TOPROOT}/luat/modules/
                  ${TOPROOT}/components/sfd/luat_lib_sfd.c
                  ${TOPROOT}/components/sfd/luat_sfd_mem.c
                  ${TOPROOT}/components/sfd/luat_sfd_w25q.c
+                 ${TOPROOT}/components/sfd/luat_sfd_onchip.c
+                 ${TOPROOT}/components/sfd/luat_sfd.c
                  ${TOPROOT}/luat/modules/crc.c
                  ${TOPROOT}/luat/vfs/luat_vfs.c
                  ${TOPROOT}/luat/vfs/luat_fs_luadb.c

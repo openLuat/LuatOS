@@ -1,7 +1,7 @@
 
 /*
 @module  codec
-@summary 多媒体
+@summary 多媒体-编解码
 @version 1.0
 @date    2022.03.11
 @demo multimedia

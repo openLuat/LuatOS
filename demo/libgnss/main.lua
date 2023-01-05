@@ -19,24 +19,24 @@ uart.setup(
     8,--数据位
     1--停止位
 )
-uart.on(uart.VUART_0, "recv", function(id, len)
-    log.info("uart", id, len);
-    -- while 1 do
-        -- local data = uart.read(uart.VUART_0, 1024)
-        -- if data and #data > 0 then
-        --     uart.write(gps_uart_id, data)
-        -- else
-        --     -- break
-        -- end
-    -- end
-end)
+-- uart.on(uart.VUART_0, "recv", function(id, len)
+--     log.info("uart", id, len);
+--     -- while 1 do
+--         -- local data = uart.read(uart.VUART_0, 1024)
+--         -- if data and #data > 0 then
+--         --     uart.write(gps_uart_id, data)
+--         -- else
+--         --     -- break
+--         -- end
+--     -- end
+-- end)
 
 
 uart.setup(gps_uart_id, 115200)
-uart.on(2, "sent", function(id, len)
-    log.info("uart", "event", "sent", id)
-    sys.publish("UART2_SEND", 2)
-end)
+-- uart.on(2, "sent", function(id, len)
+--     log.info("uart", "event", "sent", id)
+--     -- sys.publish("UART2_SEND", 2)
+-- end)
 
 sys.taskInit(function()
     while 1 do
@@ -82,12 +82,15 @@ sys.taskInit(function()
             log.info("gnss", "AGNSS", code, body and #body or 0)
             if code == 200 and body and #body > 1024 then
                 -- uart.write(gps_uart_id, "$reset,0,h01\r\n")
-                sys.wait(200)
+                -- sys.wait(200)
+                -- uart.write(gps_uart_id, body)
                 for offset=1,#body,512 do
                     log.info("gnss", "AGNSS", "write >>>", #body:sub(offset, offset + 511))
                     uart.write(gps_uart_id, body:sub(offset, offset + 511))
-                    sys.waitUntil("UART2_SEND", 100)
+                    -- sys.waitUntil("UART2_SEND", 100)
+                    sys.wait(100) -- 等100ms反而更成功
                 end
+                -- sys.waitUntil("UART2_SEND", 1000)
                 io.writeFile("/6228.bin", body)
                 break
             end
@@ -155,7 +158,7 @@ end)
 sys.taskInit(function()
 	sys.waitUntil("IP_READY", 15000)
 
-    mqttc = mqtt.create(nil, "mqtt.air32.cn", 1883)  --mqtt客户端创建
+    mqttc = mqtt.create(nil, "lbsmqtt.airm2m.com", 1884)  --mqtt客户端创建
 
     mqttc:auth(mobile.imei(), mobile.imei(), mobile.imei()) --mqtt三元组配置
     mqttc:keepalive(30) -- 默认值240s

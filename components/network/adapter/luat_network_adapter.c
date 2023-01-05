@@ -1954,10 +1954,6 @@ NETWORK_TX_WAIT:
 		{
 		case EV_NW_RESULT_TX:
 			result = (int)event.Param1;
-			if (!result)
-			{
-				result = -1;
-			}
 			finish = 1;
 			break;
 		case EV_NW_TIMEOUT:
@@ -4112,10 +4108,6 @@ NETWORK_TX_WAIT:
 		{
 		case EV_NW_RESULT_TX:
 			result = (int)event.Param1;
-			if (!result)
-			{
-				result = -1;
-			}
 			finish = 1;
 			break;
 		case EV_NW_TIMEOUT:

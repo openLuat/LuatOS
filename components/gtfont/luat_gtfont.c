@@ -52,7 +52,7 @@ unsigned char gt_read_data(unsigned char* sendbuf , unsigned char sendlen , unsi
 {
     if (gt_spi_dev == NULL)
         return 0;
-    luat_spi_device_transfer(gt_spi_dev, sendbuf, sendlen,receivebuf, receivelen);
+    luat_spi_device_transfer(gt_spi_dev, (const char *)sendbuf, sendlen,(char *)receivebuf, receivelen);
     #if LUAT_GT_DEBUG
     LLOGD("gt_read_data sendlen:%d receivelen:%d",sendlen,receivelen);
     for(int i = 0; i < sendlen;i++){

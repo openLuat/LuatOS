@@ -9,7 +9,7 @@
 [![esp32](https://pg.air32.cn/openLuat/LuatOS/actions/workflows/esp32-idf5.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/esp32-idf5/master)
 [![win32](https://pg.air32.cn/openLuat/LuatOS/actions/workflows/win32.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/win32/master)
 [![linux](https://pg.air32.cn/openLuat/LuatOS/actions/workflows/linux.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/linux/master)
-![Build Status](http://luat.papapoi.com:23380/api/badges/openLuat/LuatOS/status.svg)
+![ec618,Air780E](http://luat.papapoi.com:23380/api/badges/openLuat/LuatOS/status.svg)
 
 LuatOS : Powerful embedded Lua Engine for IoT devices, with many components and low memory requirements (16K RAM, 128K Flash)
 
@@ -17,15 +17,19 @@ LuatOS : Powerful embedded Lua Engine for IoT devices, with many components and 
 
 ## 快速入门
 
-1. 使用或购买支持的开发板 - [Air101](https://luat.taobao.com)/[Air103](https://luat.taobao.com)/[Air105](luat.taobao.com)/[ESP32C3](luat.taobao.com)
+1. 使用或购买支持的开发板
+    * [Air780E-4G Cat.1开发板](https://item.taobao.com/item.htm?id=693774140934)
+    * [Air101 - MCU开发板](https://luat.taobao.com)
+    * [Air103 - MCU开发板](https://luat.taobao.com)
+    * [Air105 - MCU开发板](https://luat.taobao.com)
+    * [ESP32C3 - wifi开发板](https://luat.taobao.com)/
 2. 掌握[刷机](https://wiki.luatos.com/boardGuide/flash.html)
 3. 尝试[各种demo](https://gitee.com/openLuat/LuatOS/tree/master/demo), 浏览[API](https://wiki.luatos.com/api/index.html), [30分钟入门lua语法(视频)](https://www.bilibili.com/video/BV1vf4y1L7Rb?spm_id_from=333.999.0.0)
 4. 愉快地写业务代码
 
-## 详细介绍
+## 资料大全
 
-* [详细介绍](README_FULL.md)
-* 资料大全 [wiki@luatos](https://wiki.luatos.com)
+*  [wiki@luatos](https://wiki.luatos.com)
 
 ## 授权协议
 

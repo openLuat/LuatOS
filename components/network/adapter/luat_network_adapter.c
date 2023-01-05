@@ -1599,7 +1599,7 @@ int network_wait_link_up(network_ctrl_t *ctrl, uint32_t timeout_ms)
 		default:
 			if (ctrl->user_callback)
 			{
-				ctrl->user_callback((void *)&event, ctrl->task_handle);
+				ctrl->user_callback((void *)&event, ctrl->user_data);
 			}
 			break;
 		}
@@ -1697,7 +1697,7 @@ NETWORK_CONNECT_WAIT:
 		default:
 			if (ctrl->user_callback)
 			{
-				ctrl->user_callback((void *)&event, ctrl->task_handle);
+				ctrl->user_callback((void *)&event, ctrl->user_data);
 			}
 			break;
 		}
@@ -1766,7 +1766,7 @@ NETWORK_LISTEN_WAIT:
 		default:
 			if (ctrl->user_callback)
 			{
-				ctrl->user_callback((void *)&event, ctrl->task_handle);
+				ctrl->user_callback((void *)&event, ctrl->user_data);
 			}
 			break;
 		}
@@ -1851,7 +1851,7 @@ int network_close(network_ctrl_t *ctrl, uint32_t timeout_ms)
 		default:
 			if (ctrl->user_callback)
 			{
-				ctrl->user_callback((void *)&event, ctrl->task_handle);
+				ctrl->user_callback((void *)&event, ctrl->user_data);
 			}
 			break;
 		}
@@ -1967,7 +1967,7 @@ NETWORK_TX_WAIT:
 		default:
 			if (ctrl->user_callback)
 			{
-				ctrl->user_callback((void *)&event, ctrl->task_handle);
+				ctrl->user_callback((void *)&event, ctrl->user_data);
 			}
 			break;
 		}
@@ -2152,7 +2152,7 @@ int network_wait_event(network_ctrl_t *ctrl, OS_EVENT *out_event, uint32_t timeo
 			}
 			else if (ctrl->user_callback)
 			{
-				ctrl->user_callback((void *)&event, ctrl->task_handle);
+				ctrl->user_callback((void *)&event, ctrl->user_data);
 			}
 			break;
 		}
@@ -2216,7 +2216,7 @@ int network_wait_rx(network_ctrl_t *ctrl, uint32_t timeout_ms, uint8_t *is_break
 		default:
 			if (ctrl->user_callback)
 			{
-				ctrl->user_callback((void *)&event, ctrl->task_handle);
+				ctrl->user_callback((void *)&event, ctrl->user_data);
 			}
 			break;
 		}
@@ -3763,7 +3763,7 @@ int network_wait_link_up(network_ctrl_t *ctrl, uint32_t timeout_ms)
 		default:
 			if (ctrl->user_callback)
 			{
-				ctrl->user_callback((void *)&event, ctrl->task_handle);
+				ctrl->user_callback((void *)&event, ctrl->user_data);
 			}
 			break;
 		}
@@ -3854,7 +3854,7 @@ NETWORK_CONNECT_WAIT:
 		default:
 			if (ctrl->user_callback)
 			{
-				ctrl->user_callback((void *)&event, ctrl->task_handle);
+				ctrl->user_callback((void *)&event, ctrl->user_data);
 			}
 			break;
 		}
@@ -3923,7 +3923,7 @@ NETWORK_LISTEN_WAIT:
 		default:
 			if (ctrl->user_callback)
 			{
-				ctrl->user_callback((void *)&event, ctrl->task_handle);
+				ctrl->user_callback((void *)&event, ctrl->user_data);
 			}
 			break;
 		}
@@ -4008,7 +4008,7 @@ int network_close(network_ctrl_t *ctrl, uint32_t timeout_ms)
 		default:
 			if (ctrl->user_callback)
 			{
-				ctrl->user_callback((void *)&event, ctrl->task_handle);
+				ctrl->user_callback((void *)&event, ctrl->user_data);
 			}
 			break;
 		}
@@ -4125,7 +4125,7 @@ NETWORK_TX_WAIT:
 		default:
 			if (ctrl->user_callback)
 			{
-				ctrl->user_callback((void *)&event, ctrl->task_handle);
+				ctrl->user_callback((void *)&event, ctrl->user_data);
 			}
 			break;
 		}
@@ -4308,7 +4308,7 @@ int network_wait_event(network_ctrl_t *ctrl, OS_EVENT *out_event, uint32_t timeo
 			}
 			else if (ctrl->user_callback)
 			{
-				ctrl->user_callback((void *)&event, ctrl->task_handle);
+				ctrl->user_callback((void *)&event, ctrl->user_data);
 			}
 			break;
 		}
@@ -4374,7 +4374,7 @@ int network_wait_rx(network_ctrl_t *ctrl, uint32_t timeout_ms, uint8_t *is_break
 		default:
 			if (ctrl->user_callback)
 			{
-				ctrl->user_callback((void *)&event, ctrl->task_handle);
+				ctrl->user_callback((void *)&event, ctrl->user_data);
 			}
 			break;
 		}

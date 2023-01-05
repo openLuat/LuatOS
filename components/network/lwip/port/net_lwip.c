@@ -623,6 +623,7 @@ static err_t net_lwip_udp_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *p
 		{
 			net_lwip_callback_to_nw_task(adapter_index, EV_NW_SOCKET_RX_NEW, socket_id, len, 0);
 		}
+		pbuf_free(p);
 	}
 	return ERR_OK;
 }

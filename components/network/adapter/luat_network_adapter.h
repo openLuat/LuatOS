@@ -454,7 +454,6 @@ int network_close(network_ctrl_t *ctrl, uint32_t timeout_ms);
  */
 int network_tx(network_ctrl_t *ctrl, const uint8_t *data, uint32_t len, int flags, luat_ip_addr_t *remote_ip, uint16_t remote_port, uint32_t *tx_len, uint32_t timeout_ms);
 /*
- * timeout_ms=0时，为非阻塞接口
  * 实际读到的数据量在read_len里，如果是UDP模式且为server时，需要看remote_ip和remote_port
  */
 int network_rx(network_ctrl_t *ctrl, uint8_t *data, uint32_t len, int flags, luat_ip_addr_t *remote_ip, uint16_t *remote_port, uint32_t *rx_len);
@@ -466,6 +465,14 @@ int network_rx(network_ctrl_t *ctrl, uint8_t *data, uint32_t len, int flags, lua
  * 返回0表示有数据接收或者超时返回，返回1表示切换到非阻塞等待，其他为网络异常
  */
 int network_wait_event(network_ctrl_t *ctrl, OS_EVENT *out_event, uint32_t timeout_ms, uint8_t *is_timeout);
+
+/*
+ * 接收到socket异常，用户发送EV_NW_BREAK_WAIT，或者有新数据都会返回，如果是其他消息，通过network_init_ctrl里输入的回调函数使用，如果没有回调函数，就直接抛弃了
+ * timeout_ms=0时，依然为阻塞接口，而且是永远等待
+ * 返回0表示有数据接收，用户打断或者超时返回，其他为网络异常
+ * 用户打断，is_break = 1，超时 is_timeout = 1
+ */
+int network_wait_rx(network_ctrl_t *ctrl, uint32_t timeout_ms, uint8_t *is_break, uint8_t *is_timeout);
 /****************************高级api结束********************************************************************/
 #endif
 // #endif

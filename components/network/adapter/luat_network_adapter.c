@@ -1873,7 +1873,6 @@ int network_tx(network_ctrl_t *ctrl, const uint8_t *data, uint32_t len, int flag
 	int result;
 
 	ctrl->auto_mode = 1;
-	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
 #ifdef LUAT_USE_TLS
 	if (ctrl->tls_mode)
 	{
@@ -2157,6 +2156,71 @@ int network_wait_event(network_ctrl_t *ctrl, OS_EVENT *out_event, uint32_t timeo
 			}
 			break;
 		}
+	}
+	platform_stop_timer(ctrl->timer);
+	return result;
+}
+
+int network_wait_rx(network_ctrl_t *ctrl, uint32_t timeout_ms, uint8_t *is_break, uint8_t *is_timeout)
+{
+	*is_timeout = 0;
+	*is_break = 0;
+	if (ctrl->new_rx_flag)
+	{
+		ctrl->wait_target_state = NW_WAIT_EVENT;
+		return 0;
+	}
+	if ((ctrl->need_close) || (ctrl->socket_id < 0) || (ctrl->state != NW_STATE_ONLINE))
+	{
+		return -1;
+	}
+	NW_LOCK;
+	ctrl->auto_mode = 1;
+	ctrl->wait_target_state = NW_WAIT_EVENT;
+	NW_UNLOCK;
+
+	uint8_t finish = 0;
+	OS_EVENT event;
+	int result;
+	//DBG_INFO("%s wait for active!,%u,%x", Net->Tag, To * SYS_TICK, Net->hTask);
+
+	platform_start_timer(ctrl->timer, timeout_ms, 0);
+	while (!finish)
+	{
+		platform_wait_event(ctrl->task_handle, 0, &event, NULL, 0);
+		switch (event.ID)
+		{
+		case EV_NW_RESULT_EVENT:
+			result = (int)event.Param1;
+			if (result)
+			{
+				result = -1;
+				finish = 1;
+			}
+			else if (ctrl->new_rx_flag)
+			{
+				result = 0;
+				finish = 1;
+			}
+			break;
+		case EV_NW_TIMEOUT:
+			*is_timeout = 1;
+			result = 0;
+			finish = 1;
+			break;
+		case EV_NW_BREAK_WAIT:
+			*is_break = 1;
+			result = 0;
+			finish = 1;
+			break;
+		default:
+			if (ctrl->user_callback)
+			{
+				ctrl->user_callback((void *)&event, ctrl->task_handle);
+			}
+			break;
+		}
+		ctrl->wait_target_state = NW_WAIT_EVENT;
 	}
 	platform_stop_timer(ctrl->timer);
 	return result;
@@ -3966,7 +4030,6 @@ int network_tx(network_ctrl_t *ctrl, const uint8_t *data, uint32_t len, int flag
 	int result;
 
 	ctrl->auto_mode = 1;
-	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
 #ifdef LUAT_USE_TLS
 	if (ctrl->tls_mode)
 	{
@@ -4254,5 +4317,73 @@ int network_wait_event(network_ctrl_t *ctrl, OS_EVENT *out_event, uint32_t timeo
 	return result;
 }
 
+int network_wait_rx(network_ctrl_t *ctrl, uint32_t timeout_ms, uint8_t *is_break, uint8_t *is_timeout)
+{
+	*is_timeout = 0;
+	*is_break = 0;
+	if (ctrl->new_rx_flag)
+	{
+		ctrl->wait_target_state = NW_WAIT_EVENT;
+		return 0;
+	}
+	if ((ctrl->need_close) || (ctrl->socket_id < 0) || (ctrl->state != NW_STATE_ONLINE))
+	{
+		return -1;
+	}
+	NW_LOCK;
+	ctrl->auto_mode = 1;
+	ctrl->wait_target_state = NW_WAIT_EVENT;
+	NW_UNLOCK;
+
+	uint8_t finish = 0;
+	OS_EVENT event;
+	int result;
+	//DBG_INFO("%s wait for active!,%u,%x", Net->Tag, To * SYS_TICK, Net->hTask);
+	if (timeout_ms)
+	{
+		platform_start_timer(ctrl->timer, timeout_ms, 0);
+	}
+	while (!finish)
+	{
+		platform_wait_event(ctrl->task_handle, 0, &event, NULL, 0);
+		switch (event.ID)
+		{
+		case EV_NW_RESULT_EVENT:
+			result = (int)event.Param1;
+			if (result)
+			{
+				result = -1;
+				finish = 1;
+			}
+			else if (ctrl->new_rx_flag)
+			{
+				result = 0;
+				finish = 1;
+			}
+			break;
+		case EV_NW_TIMEOUT:
+			*is_timeout = 1;
+			result = 0;
+			finish = 1;
+			break;
+		case EV_NW_BREAK_WAIT:
+			*is_break = 1;
+			result = 0;
+			finish = 1;
+			break;
+		default:
+			if (ctrl->user_callback)
+			{
+				ctrl->user_callback((void *)&event, ctrl->task_handle);
+			}
+			break;
+		}
+		ctrl->wait_target_state = NW_WAIT_EVENT;
+	}
+	platform_stop_timer(ctrl->timer);
+	return result;
+}
+
 #endif
+
 #endif

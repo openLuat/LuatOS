@@ -72,6 +72,8 @@ sys.taskInit(function()
     sys.wait(20)
     uart.write(gps_uart_id, "$CFGMSG,0,5,1\r\n") -- VTG
     sys.wait(20)
+    uart.write(gps_uart_id, "$CFGMSG,0,6,1\r\n") -- ZDA
+    sys.wait(20)
     -- 定位成功后,使用GNSS时间设置RTC, 暂不可用
     -- libgnss.rtcAuto(true)
     if http then
@@ -97,14 +99,16 @@ sys.taskInit(function()
             sys.wait(60*1000)
         end
     end
-    sys.wait(100)
+    sys.wait(20)
     -- "$AIDTIME,year,month,day,hour,minute,second,millisecond"
     local date = os.date("!*t")
-    local str = string.format("$AIDTIME,%d,%d,%d,%d,%d,%d,000", 
+    if date.year > 2022 then
+        local str = string.format("$AIDTIME,%d,%d,%d,%d,%d,%d,000", 
                          date["year"], date["month"], date["day"], date["hour"], date["min"], date["sec"])
-    log.info("gnss", str)
-    uart.write(gps_uart_id, str .. "\r\n") 
-    sys.wait(100)
+        log.info("gnss", str)
+        uart.write(gps_uart_id, str .. "\r\n") 
+        sys.wait(20)
+    end
     -- 读取之前的位置信息
     local gnssloc = io.readFile("/gnssloc")
     if gnssloc then
@@ -113,6 +117,9 @@ sys.taskInit(function()
         uart.write(gps_uart_id, str .. "\r\n")
         str = nil
         gnssloc = nil
+    else
+        -- TODO 发起基站定位
+        uart.write(gps_uart_id, "$AIDPOS,3432.70,N,10885.25,E,1.0\r\n")
     end
 end)
 
@@ -127,11 +134,12 @@ sys.taskInit(function()
         -- uart.write(gps_uart_id, "$CFGSYS\r\n")
         -- uart.write(gps_uart_id, "$CFGMSG,6,4\r\n")
         log.info("RMC", json.encode(libgnss.getRmc(2) or {}))
-        -- log.info("GGA", json.encode(libgnss.getGga(2) or {}))
-        -- log.info("GLL", json.encode(libgnss.getGll(2) or {}))
-        -- log.info("GSA", json.encode(libgnss.getGsa(2) or {}))
-        -- log.info("GSV", json.encode(libgnss.getGsv(2) or {}))
-        -- log.info("VTG", json.encode(libgnss.getVtg(2) or {}))
+        log.info("GGA", json.encode(libgnss.getGga(2) or {}))
+        log.info("GLL", json.encode(libgnss.getGll(2) or {}))
+        log.info("GSA", json.encode(libgnss.getGsa(2) or {}))
+        log.info("GSV", json.encode(libgnss.getGsv(2) or {}))
+        log.info("VTG", json.encode(libgnss.getVtg(2) or {}))
+        log.info("ZDA", json.encode(libgnss.getZda(2) or {}))
         -- log.info("date", os.date())
         log.info("sys", rtos.meminfo("sys"))
         log.info("lua", rtos.meminfo("lua"))

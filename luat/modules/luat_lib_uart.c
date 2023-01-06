@@ -18,15 +18,14 @@
 #define LUAT_LOG_TAG "uart"
 #include "luat_log.h"
 
-#define MAX_DEVICE_COUNT 10
-
+#define MAX_DEVICE_COUNT 9
+#define MAX_USB_DEVICE_COUNT 1
 typedef struct luat_uart_cb {
     int received;//回调函数
     int sent;//回调函数
 } luat_uart_cb_t;
-static luat_uart_cb_t uart_cbs[MAX_DEVICE_COUNT];
-
-static luat_uart_recv_callback_t uart_app_recvs[MAX_DEVICE_COUNT];
+static luat_uart_cb_t uart_cbs[MAX_DEVICE_COUNT + MAX_USB_DEVICE_COUNT];
+static luat_uart_recv_callback_t uart_app_recvs[MAX_DEVICE_COUNT + MAX_USB_DEVICE_COUNT];
 
 void luat_uart_set_app_recv(int id, luat_uart_recv_callback_t cb) {
     if (luat_uart_exist(id)) {
@@ -45,13 +44,18 @@ int l_uart_handler(lua_State *L, void* ptr) {
         //LLOGW("not exist uart id=%ld but event fired?!", uart_id);
         return 0;
     }
+    int org_uart_id = uart_id;
+    if (uart_id >= LUAT_VUART_ID_0)
+    {
+    	uart_id = MAX_DEVICE_COUNT + uart_id - LUAT_VUART_ID_0;
+    }
     // sent event
     if (msg->arg2 == 0) {
         //LLOGD("uart%ld sent callback", uart_id);
         if (uart_cbs[uart_id].sent) {
             lua_geti(L, LUA_REGISTRYINDEX, uart_cbs[uart_id].sent);
             if (lua_isfunction(L, -1)) {
-                lua_pushinteger(L, uart_id);
+                lua_pushinteger(L, org_uart_id);
                 lua_call(L, 1, 0);
             }
         }
@@ -63,7 +67,7 @@ int l_uart_handler(lua_State *L, void* ptr) {
         if (uart_cbs[uart_id].received) {
             lua_geti(L, LUA_REGISTRYINDEX, uart_cbs[uart_id].received);
             if (lua_isfunction(L, -1)) {
-                lua_pushinteger(L, uart_id);
+                lua_pushinteger(L, org_uart_id);
                 lua_pushinteger(L, msg->arg2);
                 lua_call(L, 2, 0);
             }
@@ -265,10 +269,16 @@ end)
 */
 static int l_uart_on(lua_State *L) {
     int uart_id = luaL_checkinteger(L, 1);
+    int org_uart_id = uart_id;
     if (!luat_uart_exist(uart_id)) {
         lua_pushliteral(L, "no such uart id");
         return 1;
     }
+    if (uart_id >= LUAT_VUART_ID_0)
+    {
+    	uart_id = MAX_DEVICE_COUNT + uart_id - LUAT_VUART_ID_0;
+    }
+
     const char* event = luaL_checkstring(L, 2);
     if (!strcmp("receive", event) || !strcmp("recv", event)) {
         if (uart_cbs[uart_id].received != 0) {
@@ -290,7 +300,7 @@ static int l_uart_on(lua_State *L) {
             uart_cbs[uart_id].sent = luaL_ref(L, LUA_REGISTRYINDEX);
         }
     }
-    luat_setup_cb(uart_id, uart_cbs[uart_id].received, uart_cbs[uart_id].sent);
+    luat_setup_cb(org_uart_id, uart_cbs[uart_id].received, uart_cbs[uart_id].sent);
     return 0;
 }
 

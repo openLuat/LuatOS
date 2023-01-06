@@ -174,6 +174,24 @@ static int l_sms_recv_handler(lua_State* L, void* ptr) {
         luat_heap_free(sms);
         return 0;
     }
+/*
+@sys_pub sms
+收到短信
+SMS_INC
+@string 手机号
+@string 短信内容，UTF8编码
+@usage
+--使用的例子，可多行
+-- 接收短信, 支持多种方式, 选一种就可以了
+-- 1. 设置回调函数
+--sms.setNewSmsCb( function(phone,sms)
+    log.info("sms",phone,sms)
+end)
+-- 2. 订阅系统消息
+--sys.subscribe("SMS_INC", function(phone,sms)
+    log.info("sms",phone,sms)
+end)
+*/
     lua_pushliteral(L, "SMS_INC");
     push_sms_args(L, sms, dst, dstlen);
     lua_call(L, 4, 0);

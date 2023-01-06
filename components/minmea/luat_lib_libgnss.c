@@ -497,6 +497,7 @@ static int l_libgnss_get_vtg(lua_State *L) {
         return 0;
     if (mode == 3) {
         lua_pushstring(L, libgnss_gnss->vtg);
+        return 1;
     }
     lua_createtable(L, 0, 10);
     struct minmea_sentence_vtg frame_vtg = {0};
@@ -625,6 +626,7 @@ static int l_libgnss_get_gga(lua_State* L) {
         return 0;
     if (mode == 3) {
         lua_pushstring(L, libgnss_gnss->gga);
+        return 1;
     }
     lua_newtable(L);
     struct minmea_sentence_gga frame_gga = {0};
@@ -693,6 +695,10 @@ static int l_libgnss_get_gll(lua_State* L) {
     lua_settop(L, 0);
     if (libgnss_gnss == NULL)
         return 0;
+    if (mode == 3) {
+        lua_pushstring(L, libgnss_gnss->vtg);
+        return 1;
+    }
     lua_newtable(L);
     struct minmea_sentence_gll frame_gll = {0};
     minmea_parse_gll(&frame_gll, libgnss_gnss->gll);

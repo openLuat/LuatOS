@@ -495,6 +495,9 @@ static int l_libgnss_get_vtg(lua_State *L) {
     lua_settop(L, 0);
     if (libgnss_gnss == NULL)
         return 0;
+    if (mode == 3) {
+        lua_pushstring(L, libgnss_gnss->vtg);
+    }
     lua_createtable(L, 0, 10);
     struct minmea_sentence_vtg frame_vtg = {0};
     minmea_parse_vtg(&frame_vtg, libgnss_gnss->vtg);
@@ -595,7 +598,7 @@ static int l_libgnss_debug(lua_State *L) {
 /*
 获取GGA数据
 @api libgnss.getGga(data_mode)
-@int 坐标类数据的格式, 0-DDMM.MMM格式, 1-DDDDDDD格式, 2-DD.DDDDD格式
+@int 坐标类数据的格式, 0-DDMM.MMM格式, 1-DDDDDDD格式, 2-DD.DDDDD格式, 3-原始字符串
 @return table GGA数据, 若如不存在会返回nil
 local gga = libgnss.getGga(2)
 if gga then
@@ -620,6 +623,9 @@ static int l_libgnss_get_gga(lua_State* L) {
     lua_settop(L, 0);
     if (libgnss_gnss == NULL)
         return 0;
+    if (mode == 3) {
+        lua_pushstring(L, libgnss_gnss->gga);
+    }
     lua_newtable(L);
     struct minmea_sentence_gga frame_gga = {0};
     minmea_parse_gga(&frame_gga, libgnss_gnss->gga);

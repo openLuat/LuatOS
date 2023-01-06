@@ -197,8 +197,7 @@ static int l_libgnss_is_fix(lua_State *L) {
 @return int lng数据, 格式为 ddddddddd
 @return int speed数据
 @usage
--- 解析nmea
-libgnss.parse(indata)
+-- 建议用libgnss.getRmc(1)
 log.info("nmea", "loc", libgnss.getIntLocation())
  */
 static int l_libgnss_get_int_location(lua_State *L) {
@@ -221,8 +220,24 @@ static int l_libgnss_get_int_location(lua_State *L) {
 @return table 原始rmc数据
 @usage
 -- 解析nmea
-libgnss.parse(indata)
-log.info("nmea", "rmc", json.encode(libgnss.getRmc()))
+log.info("nmea", "rmc", json.encode(libgnss.getRmc(3)))
+-- 实例输出
+--[[
+{
+    "course":0,
+    "valid":true,   // true定位成功,false定位丢失
+    "lat":23.4067,  // 纬度, 正数为北纬, 负数为南纬
+    "lng":113.231,  // 经度, 正数为东经, 负数为西经
+    "variation":0,  // 地面航向，单位为度，从北向起顺时针计算
+    "speed":0       // 地面速度, 单位为"节"
+    "year":2023,    // 年份
+    "month":1,      // 月份, 1-12
+    "day":5,        // 月份天, 1-31
+    "hour":7,       // 小时,0-23
+    "min":23,       // 分钟,0-59
+    "sec":20,       // 秒,0-59
+}
+]]
  */
 static int l_libgnss_get_rmc(lua_State *L) {
     int mode = luaL_optinteger(L, 1, 0);
@@ -278,7 +293,7 @@ static int l_libgnss_get_rmc(lua_State *L) {
     return 1;
 }
 
-static void add_gsv(lua_State*L, struct minmea_sentence_gsv* gsvs, size_t *count) {
+static void add_gsv(lua_State*L, struct minmea_sentence_gsv* gsvs, size_t *count, int tp) {
 
     for (size_t i = 0; i < 3; i++)
     {
@@ -305,6 +320,10 @@ static void add_gsv(lua_State*L, struct minmea_sentence_gsv* gsvs, size_t *count
                 lua_pushinteger(L, gsvs[i].sats[j].azimuth);
                 lua_settable(L, -3);
 
+                lua_pushliteral(L, "tp");
+                lua_pushinteger(L, tp);
+                lua_settable(L, -3);
+
                 lua_settable(L, -3);
                 *count = *count + 1;
             }
@@ -318,8 +337,29 @@ static void add_gsv(lua_State*L, struct minmea_sentence_gsv* gsvs, size_t *count
 @return table 原始GSV数据
 @usage
 -- 解析nmea
-libgnss.parse(indata)
 log.info("nmea", "gsv", json.encode(libgnss.getGsv()))
+-- [[实例输出
+{
+    "total_sats":24,      // 总可见卫星数量
+    "sats":[
+        {
+            "snr":27,     // 信噪比
+            "azimuth":278, // 方向角
+            "elevation":59, // 仰角
+            "tp":0,        // 0 - GPS/SASS/QSZZ, 1 - BD
+            "nr":4         // 卫星编号
+        },
+        // 这里忽略了22个卫星的信息
+        {
+            "snr":0,
+            "azimuth":107,
+            "elevation":19,
+            "tp":1,
+            "nr":31
+        }
+    ]
+}
+]]
  */
 static int l_libgnss_get_gsv(lua_State *L) {
     lua_createtable(L, 0, 2);
@@ -330,17 +370,17 @@ static int l_libgnss_get_gsv(lua_State *L) {
 
     lua_createtable(L, 12, 0);
     if (libgnss_gnss->frame_gsv_gp->total_sats > 0) {
-        add_gsv(L, libgnss_gnss->frame_gsv_gp, &count);
+        add_gsv(L, libgnss_gnss->frame_gsv_gp, &count, 0);
     }
     if (libgnss_gnss->frame_gsv_gb->total_sats > 0) {
-        add_gsv(L, libgnss_gnss->frame_gsv_gb, &count);
+        add_gsv(L, libgnss_gnss->frame_gsv_gb, &count, 1);
     }
-    if (libgnss_gnss->frame_gsv_gl->total_sats > 0) {
-        add_gsv(L, libgnss_gnss->frame_gsv_gl, &count);
-    }
-    if (libgnss_gnss->frame_gsv_ga->total_sats > 0) {
-        add_gsv(L, libgnss_gnss->frame_gsv_ga, &count);
-    }
+    // if (libgnss_gnss->frame_gsv_gl->total_sats > 0) {
+    //     add_gsv(L, libgnss_gnss->frame_gsv_gl, &count);
+    // }
+    // if (libgnss_gnss->frame_gsv_ga->total_sats > 0) {
+    //     add_gsv(L, libgnss_gnss->frame_gsv_ga, &count);
+    // }
     lua_setfield(L, -2, "sats");
 
     lua_pushliteral(L, "total_sats");
@@ -357,9 +397,33 @@ static int l_libgnss_get_gsv(lua_State *L) {
 @int 坐标类数据的格式, 0-DDMM.MMM格式, 1-DDDDDDD格式, 2-DD.DDDDD格式
 @return table 原始GSA数据
 @usage
--- 解析nmea
-libgnss.parse(indata)
+-- 获取
 log.info("nmea", "gsa", json.encode(libgnss.getGsa()))
+-- 示例数据
+--[[
+{
+    "sats":[ // 正在使用的卫星编号
+        9,
+        6,
+        16,
+        16,
+        26,
+        21,
+        27,
+        27,
+        4,
+        36,
+        3,
+        7,
+        8,
+        194
+    ],
+    "vdop":0.03083333, // 垂直精度因子，0.00 - 99.99，不定位时值为 99.99
+    "pdop":0.0455,     // 水平精度因子，0.00 - 99.99，不定位时值为 99.99
+    "fix_type":3,      // 定位模式, 1-未定位, 2-2D定位, 3-3D定位
+    "hdop":0.0335      // 位置精度因子，0.00 - 99.99，不定位时值为 99.99
+}
+]]
  */
 static int l_libgnss_get_gsa(lua_State *L) {
     int mode = luaL_optinteger(L, 1, 0);
@@ -409,14 +473,22 @@ static int l_libgnss_get_gsa(lua_State *L) {
 
 
 /**
-获取原始VTA位置信息
+获取VTA速度信息
 @api libgnss.getVtg(data_mode)
 @int 坐标类数据的格式, 0-DDMM.MMM格式, 1-DDDDDDD格式, 2-DD.DDDDD格式
 @return table 原始VTA数据
 @usage
 -- 解析nmea
-libgnss.parse(indata)
 log.info("nmea", "vtg", json.encode(libgnss.getVtg()))
+-- 示例
+--[[
+{
+    "speed_knots":0,        // 速度, 英里/小时
+    "true_track_degrees":0,  // 真北方向角
+    "magnetic_track_degrees":0, // 磁北方向角
+    "speed_kph":0           // 速度, 千米/小时
+}
+]]
  */
 static int l_libgnss_get_vtg(lua_State *L) {
     int mode = luaL_optinteger(L, 1, 0);
@@ -424,25 +496,27 @@ static int l_libgnss_get_vtg(lua_State *L) {
     if (libgnss_gnss == NULL)
         return 0;
     lua_createtable(L, 0, 10);
+    struct minmea_sentence_vtg frame_vtg = {0};
+    minmea_parse_vtg(&frame_vtg, libgnss_gnss->vtg);
 
     // lua_pushliteral(L, "faa_mode");
     // lua_pushlstring(L, libgnss_gnss->frame_vtg.faa_mode, 1);
     // lua_settable(L, -3);
 
     lua_pushliteral(L, "true_track_degrees");
-    push_gnss_value(L, &(libgnss_gnss->frame_vtg.true_track_degrees), mode);
+    push_gnss_value(L, &(frame_vtg.true_track_degrees), mode);
     lua_settable(L, -3);
 
     lua_pushliteral(L, "magnetic_track_degrees");
-    push_gnss_value(L, &(libgnss_gnss->frame_vtg.magnetic_track_degrees), mode);
+    push_gnss_value(L, &(frame_vtg.magnetic_track_degrees), mode);
     lua_settable(L, -3);
 
     lua_pushliteral(L, "speed_knots");
-    push_gnss_value(L, &(libgnss_gnss->frame_vtg.speed_knots), mode);
+    push_gnss_value(L, &(frame_vtg.speed_knots), mode);
     lua_settable(L, -3);
 
     lua_pushliteral(L, "speed_kph");
-    push_gnss_value(L, &(libgnss_gnss->frame_vtg.speed_kph), mode);
+    push_gnss_value(L, &(frame_vtg.speed_kph), mode);
     lua_settable(L, -3);
 
     return 1;
@@ -453,25 +527,38 @@ static int l_libgnss_get_vtg(lua_State *L) {
 @api libgnss.getZda()
 @return table 原始zda数据
 @usage
--- 解析nmea
-libgnss.parse(indata)
 log.info("nmea", "zda", json.encode(libgnss.getZda()))
+-- 实例输出
+--[[
+{
+    "minute_offset":0,   // 本地时区的分钟, 一般固定输出0
+    "hour_offset":0,     // 本地时区的小时, 一般固定输出0
+    "year":2023         // UTC 年，四位数字
+    "month":1,          // UTC 月，两位，01 ~ 12
+    "day":5,            // UTC 日，两位数字，01 ~ 31
+    "hour":7,           // 小时
+    "min":50,           // 分
+    "sec":14,           // 秒
+}
+]]
  */
 static int l_libgnss_get_zda(lua_State *L) {
     lua_createtable(L, 0, 9);
     struct tm rtime = {0};
     if (libgnss_gnss != NULL) {
+        struct minmea_sentence_zda frame_zda = {0};
+        minmea_parse_zda(&frame_zda, libgnss_gnss->zda);
 
         lua_pushliteral(L, "hour_offset");
-        lua_pushinteger(L, libgnss_gnss->frame_zda.hour_offset);
+        lua_pushinteger(L, frame_zda.hour_offset);
         lua_settable(L, -3);
 
         lua_pushliteral(L, "minute_offset");
-        lua_pushinteger(L, libgnss_gnss->frame_zda.minute_offset);
+        lua_pushinteger(L, frame_zda.minute_offset);
         lua_settable(L, -3);
 
         // 时间相关
-        minmea_getdatetime(&rtime, &libgnss_gnss->frame_zda.date, &libgnss_gnss->frame_zda.time);
+        minmea_getdatetime(&rtime, &frame_zda.date, &frame_zda.time);
         put_datetime(L, &rtime);
     }
 
@@ -483,7 +570,7 @@ static int l_libgnss_get_zda(lua_State *L) {
 @api libgnss.debug(mode)
 @bool true开启调试,false关闭调试,默认为false
 @usage
--- 开启调试
+-- 开启调试, 会输出GNSS原始数据到日志中
 libgnss.debug(true)
 -- 关闭调试
 libgnss.debug(false)
@@ -510,10 +597,23 @@ static int l_libgnss_debug(lua_State *L) {
 @api libgnss.getGga(data_mode)
 @int 坐标类数据的格式, 0-DDMM.MMM格式, 1-DDDDDDD格式, 2-DD.DDDDD格式
 @return table GGA数据, 若如不存在会返回nil
-local gga = libgnss.getGga()
+local gga = libgnss.getGga(2)
 if gga then
     log.info("GGA", json.encode(gga))
 end
+--实例输出
+--[[
+{
+    "dgps_age":0,             // 差分校正时延，单位为秒
+    "fix_quality":1,          // 定位状态标识 0 - 无效,1 - 单点定位,2 - 差分定位
+    "satellites_tracked":14,  // 参与定位的卫星数量
+    "altitude":0.255,         // 海平面分离度
+    "hdop":0.0335,            // 水平精度因子，0.00 - 99.99，不定位时值为 99.99
+    "longitude":113.231,      // 经度, 正数为东经, 负数为西经
+    "latitude":23.4067,       // 纬度, 正数为北纬, 负数为南纬
+    "height":0                // 椭球高，固定输出 1 位小数
+}
+]]
 */
 static int l_libgnss_get_gga(lua_State* L) {
     int mode = luaL_optinteger(L, 1, 0);
@@ -521,37 +621,39 @@ static int l_libgnss_get_gga(lua_State* L) {
     if (libgnss_gnss == NULL)
         return 0;
     lua_newtable(L);
+    struct minmea_sentence_gga frame_gga = {0};
+    minmea_parse_gga(&frame_gga, libgnss_gnss->gga);
 
     lua_pushstring(L, "altitude");
-    push_gnss_value(L, &(libgnss_gnss->frame_gga.altitude), mode);
+    push_gnss_value(L, &(frame_gga.altitude), mode);
     lua_settable(L, -3);
 
     lua_pushstring(L, "latitude");
-    push_gnss_value(L, &(libgnss_gnss->frame_gga.latitude), mode);
+    push_gnss_value(L, &(frame_gga.latitude), mode);
     lua_settable(L, -3);
 
     lua_pushstring(L, "longitude");
-    push_gnss_value(L, &(libgnss_gnss->frame_gga.longitude), mode);
+    push_gnss_value(L, &(frame_gga.longitude), mode);
     lua_settable(L, -3);
 
     lua_pushstring(L, "fix_quality");
-    lua_pushinteger(L, libgnss_gnss->frame_gga.fix_quality);
+    lua_pushinteger(L, frame_gga.fix_quality);
     lua_settable(L, -3);
 
     lua_pushstring(L, "satellites_tracked");
-    lua_pushinteger(L, libgnss_gnss->frame_gga.satellites_tracked);
+    lua_pushinteger(L, frame_gga.satellites_tracked);
     lua_settable(L, -3);
 
     lua_pushstring(L, "hdop");
-    push_gnss_value(L, &(libgnss_gnss->frame_gga.hdop), mode);
+    push_gnss_value(L, &(frame_gga.hdop), mode);
     lua_settable(L, -3);
 
     lua_pushstring(L, "height");
-    push_gnss_value(L, &(libgnss_gnss->frame_gga.height), mode);
+    push_gnss_value(L, &(frame_gga.height), mode);
     lua_settable(L, -3);
 
     lua_pushstring(L, "dgps_age");
-    push_gnss_value(L, &(libgnss_gnss->frame_gga.dgps_age), mode);
+    push_gnss_value(L, &(frame_gga.dgps_age), mode);
     lua_settable(L, -3);
 
     return 1;
@@ -562,10 +664,23 @@ static int l_libgnss_get_gga(lua_State* L) {
 @api libgnss.getGll(data_mode)
 @int 坐标类数据的格式, 0-DDMM.MMM格式, 1-DDDDDDD格式, 2-DD.DDDDD格式
 @return table GLL数据, 若如不存在会返回nil
-local gll = libgnss.getGll()
+local gll = libgnss.getGll(2)
 if gll then
     log.info("GLL", json.encode(gll))
 end
+-- 实例数据
+--[[
+{
+    "status":"A",        // 定位状态, A有效, B无效
+    "mode":"A",          // 定位模式, V无效, A单点解, D差分解
+    "sec":20,            // 秒, UTC时间为准
+    "min":23,            // 分钟, UTC时间为准
+    "hour":7,            // 小时, UTC时间为准
+    "longitude":113.231, // 经度, 正数为东经, 负数为西经
+    "latitude":23.4067,  // 纬度, 正数为北纬, 负数为南纬
+    "us":0               // 微妙数, 通常为0
+}
+]]
 */
 static int l_libgnss_get_gll(lua_State* L) {
     int mode = luaL_optinteger(L, 1, 0);
@@ -573,34 +688,36 @@ static int l_libgnss_get_gll(lua_State* L) {
     if (libgnss_gnss == NULL)
         return 0;
     lua_newtable(L);
+    struct minmea_sentence_gll frame_gll = {0};
+    minmea_parse_gll(&frame_gll, libgnss_gnss->gll);
 
     lua_pushstring(L, "latitude");
-    push_gnss_value(L, &(libgnss_gnss->frame_gll.latitude), mode);
+    push_gnss_value(L, &(frame_gll.latitude), mode);
     lua_settable(L, -3);
 
     lua_pushstring(L, "longitude");
-    push_gnss_value(L, &(libgnss_gnss->frame_gll.longitude), mode);
+    push_gnss_value(L, &(frame_gll.longitude), mode);
     lua_settable(L, -3);
 
     lua_pushstring(L, "mode");
-    lua_pushfstring(L, "%c", libgnss_gnss->frame_gll.mode);
+    lua_pushfstring(L, "%c", frame_gll.mode);
     lua_settable(L, -3);
 
     lua_pushstring(L, "status");
-    lua_pushfstring(L, "%c", libgnss_gnss->frame_gll.status);
+    lua_pushfstring(L, "%c", frame_gll.status);
     lua_settable(L, -3);
 
     lua_pushstring(L, "hour");
-    lua_pushinteger(L, libgnss_gnss->frame_gll.time.hours);
+    lua_pushinteger(L, frame_gll.time.hours);
     lua_settable(L, -3);
     lua_pushstring(L, "us");
-    lua_pushinteger(L, libgnss_gnss->frame_gll.time.microseconds);
+    lua_pushinteger(L, frame_gll.time.microseconds);
     lua_settable(L, -3);
     lua_pushstring(L, "min");
-    lua_pushinteger(L, libgnss_gnss->frame_gll.time.minutes);
+    lua_pushinteger(L, frame_gll.time.minutes);
     lua_settable(L, -3);
     lua_pushstring(L, "sec");
-    lua_pushinteger(L, libgnss_gnss->frame_gll.time.seconds);
+    lua_pushinteger(L, frame_gll.time.seconds);
     lua_settable(L, -3);
 
     return 1;
@@ -610,6 +727,8 @@ static int l_libgnss_get_gll(lua_State* L) {
 清除历史定位数据
 @api libgnss.clear()
 @return nil 无返回值
+@usage
+-- 该操作会清除所有定位数据,包括调试配置
  */
 static int l_libgnss_clear(lua_State*L) {
     (void)L;
@@ -623,7 +742,7 @@ static int l_libgnss_clear(lua_State*L) {
 绑定uart端口进行GNSS数据读取
 @api libgnss.bind(id, next_id)
 @int uart端口号
-@int 转发到端口号, 例如虚拟UART. 
+@int 转发到uart的id, 例如虚拟uart.VUART_0
 @usage
 -- 配置串口信息, 通常为 115200 8N1
 uart.setup(2, 115200)
@@ -653,6 +772,15 @@ static int l_libgnss_bind(lua_State* L) {
     return 0;
 }
 
+
+/**
+获取位置字符串
+@api libgnss.locStr(mode)
+@int 字符串模式. 0- Air780EG所需的格式
+@return 指定模式的字符串
+@usage
+-- 仅推荐在定位成功后调用
+ */
 static int l_libgnss_locStr(lua_State *L) {
     int mode = luaL_optinteger(L, 1, 0);
     char buff[64] = {0};
@@ -661,10 +789,9 @@ static int l_libgnss_locStr(lua_State *L) {
     switch (mode)
     {
     case 0:
-        snprintf_(buff, 63, "%.7g,%c,%.7g,%c,%.7g", 
+        snprintf_(buff, 63, "%.7g,%c,%.7g,%c,1.0", 
                             fabs(lat_f), lat_f > 0 ? 'N' : 'S', 
-                            fabs(lng_f), lng_f > 0 ? 'E' : 'W',
-                            libgnss_gnss->frame_gga.height.value == 0 ? 1.0 : minmea_tofloat(&libgnss_gnss->frame_gga.height));
+                            fabs(lng_f), lng_f > 0 ? 'E' : 'W');
         break;
     case 1:
         snprintf_(buff, 63, "%d,%d", libgnss_gnss->frame_rmc.latitude.value, libgnss_gnss->frame_rmc.longitude.value);
@@ -676,6 +803,14 @@ static int l_libgnss_locStr(lua_State *L) {
     return 1;
 }
 
+/**
+定位成功后自动设置RTC
+@api libgnss.rtcAuto(enable)
+@bool 开启与否, 默认是false关闭
+@usage
+-- 开启自动设置RTC
+libgnss.rtcAuto(true)
+ */
 static int l_libgnss_rtc_auto(lua_State *L) {
     if (libgnss_gnss == NULL)
         return 0;

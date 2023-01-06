@@ -2683,6 +2683,17 @@ static int network_state_connecting(network_ctrl_t *ctrl, OS_EVENT *event, netwo
 			ctrl->ssl->p_bio = ctrl;
 			ctrl->ssl->f_send = tls_send;
 			ctrl->ssl->f_recv = tls_recv;
+			// add by wendal
+			// cloudflare的https需要设置hostname才能访问
+			if (ctrl->domain_name_len > 0 && ctrl->domain_name_len < 256) {
+				char host[257] = {0};
+				memcpy(host, ctrl->domain_name, ctrl->domain_name_len);
+				mbedtls_ssl_set_hostname(ctrl->ssl, host);
+				//LLOGD("CALL mbedtls_ssl_set_hostname(%s)", host);
+			}
+			else {
+				//LLOGD("skip mbedtls_ssl_set_hostname");
+			}
 
 			ctrl->state = NW_STATE_SHAKEHAND;
 	    	do

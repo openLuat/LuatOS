@@ -660,21 +660,21 @@ int minmea_getdatetime(struct tm *tm, const struct minmea_date *date, const stru
     return 0;
 }
 
-int minmea_gettime(struct timespec *ts, const struct minmea_date *date, const struct minmea_time *time_)
-{
-    struct tm tm;
-    if (minmea_getdatetime(&tm, date, time_))
-        return -1;
+// int minmea_gettime(struct timespec *ts, const struct minmea_date *date, const struct minmea_time *time_)
+// {
+//     struct tm tm;
+//     if (minmea_getdatetime(&tm, date, time_))
+//         return -1;
 
-    // time_t timestamp = timegm(&tm); /* See README.md if your system lacks timegm(). */
-    // if (timestamp != (time_t)-1) {
-    //     ts->tv_sec = timestamp;
-    //     ts->tv_nsec = time_->microseconds * 1000;
-    //     return 0;
-    // } else {
-    //     return -1;
-    // }
-    return 0;
-}
+//     // time_t timestamp = timegm(&tm); /* See README.md if your system lacks timegm(). */
+//     // if (timestamp != (time_t)-1) {
+//     //     ts->tv_sec = timestamp;
+//     //     ts->tv_nsec = time_->microseconds * 1000;
+//     //     return 0;
+//     // } else {
+//     //     return -1;
+//     // }
+//     return 0;
+// }
 
 /* vim: set ts=4 sw=4 et: */

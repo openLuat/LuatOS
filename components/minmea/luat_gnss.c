@@ -26,7 +26,7 @@ void luat_libgnss_uart_recv_cb(int uart_id, uint32_t data_len) {
     int len = 0;
     while (1) {
         len = luat_uart_read(uart_id, libgnss_recvbuff, RECV_BUFF_SIZE - 1);
-        if (len < 1 || len > RECV_BUFF_SIZE)
+        if (len < 1 || len >= RECV_BUFF_SIZE)
             break;
         if (libgnss_route_uart_id > 0) {
             luat_uart_write(libgnss_route_uart_id, libgnss_recvbuff, len);
@@ -37,7 +37,7 @@ void luat_libgnss_uart_recv_cb(int uart_id, uint32_t data_len) {
         if (libgnss_gnss == NULL)
             continue;
         if (libgnss_gnss->debug) {
-            //LLOGD("recv %s", libgnss_recvbuff);
+            // LLOGD(">> %s", libgnss_recvbuff);
         }
         luat_libgnss_parse_data(libgnss_recvbuff, len);
     }
@@ -69,7 +69,8 @@ int luat_libgnss_init(void) {
 
 int luat_libgnss_parse_data(const char* data, size_t len) {
     size_t prev = 0;
-    static char nmea_tmp_buff[86] = {0}; // nmea 最大长度82,含换行符
+    #define MAX_LEN (120)
+    static char nmea_tmp_buff[MAX_LEN] = {0}; // nmea 最大长度82,含换行符
     if (data[0] == 0xAA && data[1] == 0xF0) {
         LLOGD("EPH data resp?");
     }
@@ -85,12 +86,17 @@ int luat_libgnss_parse_data(const char* data, size_t len) {
                 prev = offset + 1;
                 continue;
             }
-            memcpy(nmea_tmp_buff, data + prev, offset - prev - 1);
-            nmea_tmp_buff[offset - prev - 1] = 0x00;
-            if (libgnss_gnss->debug) {
-                LLOGD(">> %s", nmea_tmp_buff);
+            if (offset - prev - 1 < MAX_LEN) {
+                memcpy(nmea_tmp_buff, data + prev, offset - prev - 1);
+                nmea_tmp_buff[offset - prev - 1] = 0x00;
+                if (libgnss_gnss->debug) {
+                    LLOGD(">> %s", nmea_tmp_buff);
+                }
+                luat_libgnss_parse_nmea((const char*)nmea_tmp_buff);
             }
-            luat_libgnss_parse_nmea((const char*)nmea_tmp_buff);
+            else {
+                // 超长了, 忽略
+            }
             prev = offset + 1;
         }
     }
@@ -98,9 +104,6 @@ int luat_libgnss_parse_data(const char* data, size_t len) {
 }
 
 int luat_libgnss_parse_nmea(const char* line) {
-    // $GNRMC,080313.00,A,2324.40756,N,11313.86184,E,0.284,,010720,,,A*68
-    //if (gnss != NULL && gnss->debug)
-    //    LLOGD("GNSS [%s]", line);
     if (libgnss_gnss == NULL && !luat_libgnss_init()) {
         return 0;
     }
@@ -153,11 +156,7 @@ int luat_libgnss_parse_nmea(const char* line) {
         } break;
 
         case MINMEA_SENTENCE_GGA: {
-            //struct minmea_sentence_gga frame_gga;
-            if (minmea_parse_gga(&libgnss_gnsstmp->frame_gga, line)) {
-                memcpy(&(libgnss_gnss->frame_gga), &libgnss_gnsstmp->frame_gga, sizeof(struct minmea_sentence_gga));
-                //LLOGD("$GGA: fix quality: %d", frame_gga.fix_quality);
-            }
+            memcpy(libgnss_gnss->gga, line, strlen(line) + 1);
         } break;
 
         case MINMEA_SENTENCE_GSA: {
@@ -176,16 +175,12 @@ int luat_libgnss_parse_nmea(const char* line) {
         } break;
 
         case MINMEA_SENTENCE_GLL: {
-            if (minmea_parse_gll(&(libgnss_gnss->frame_gll), line)) {
-                // memcpy(&(gnss->frame_gll), &frame_gll, sizeof(struct minmea_sentence_gsa));
-            }
+            memcpy(libgnss_gnss->gll, line, strlen(line) + 1);
         } break;
 
-        // case MINMEA_SENTENCE_GST: {
-        //     if (minmea_parse_gst(&gnsstmp->frame_gst, line)) {
-        //         memcpy(&(gnss->frame_gst), &gnsstmp->frame_gst, sizeof(struct minmea_sentence_gst));
-        //     }
-        // } break;
+        case MINMEA_SENTENCE_GST: {
+            memcpy(libgnss_gnss->gst, line, strlen(line) + 1);
+        } break;
 
         case MINMEA_SENTENCE_GSV: {
             //LLOGD("Got GSV : %s", line);
@@ -197,11 +192,14 @@ int luat_libgnss_parse_nmea(const char* line) {
                 else if (0 == memcmp("$GBGSV", line, strlen("$GBGSV"))) {
                     gsvs = libgnss_gnss->frame_gsv_gb;
                 }
-                else if (0 == memcmp("$GLGSV", line, strlen("$GLGSV"))) {
-                    gsvs = libgnss_gnss->frame_gsv_gl;
-                }
-                else if (0 == memcmp("$GAGSV", line, strlen("$GAGSV"))) {
-                    gsvs = libgnss_gnss->frame_gsv_ga;
+                // else if (0 == memcmp("$GLGSV", line, strlen("$GLGSV"))) {
+                //     gsvs = libgnss_gnss->frame_gsv_gl;
+                // }
+                // else if (0 == memcmp("$GAGSV", line, strlen("$GAGSV"))) {
+                //     gsvs = libgnss_gnss->frame_gsv_ga;
+                // }
+                else {
+                    break;
                 }
                 //LLOGD("$GSV: message %d of %d", frame_gsv.msg_nr, frame_gsv.total_msgs);
                 if (frame_gsv->msg_nr == 1) {
@@ -219,26 +217,10 @@ int luat_libgnss_parse_nmea(const char* line) {
         } break;
 
         case MINMEA_SENTENCE_VTG: {
-            //struct minmea_sentence_vtg frame_vtg;
-            if (minmea_parse_vtg(&(libgnss_gnsstmp->frame_vtg), line)) {
-                memcpy(&(libgnss_gnss->frame_vtg), &libgnss_gnsstmp->frame_vtg, sizeof(struct minmea_sentence_vtg));
-                //--------------------------------------
-                // 暂时不发GPS_MSG_REPORT
-                // lua_getglobal(L, "sys_pub");
-                // if (lua_isfunction(L, -1)) {
-                //     lua_pushstring(L, "GPS_MSG_REPORT");
-                //     lua_call(L, 1, 0);
-                // }
-                // else {
-                //     lua_pop(L, 1);
-                // }
-                //--------------------------------------
-            }
+            memcpy(libgnss_gnss->vtg, line, strlen(line) + 1);
         } break;
         case MINMEA_SENTENCE_ZDA: {
-            if (minmea_parse_zda(&(libgnss_gnsstmp->frame_zda), line)) {
-                memcpy(&(libgnss_gnss->frame_zda), &libgnss_gnsstmp->frame_zda, sizeof(struct minmea_sentence_zda));
-            }
+            memcpy(libgnss_gnss->zda, line, strlen(line) + 1);
         } break;
         default:
             //LLOGD("why happen");

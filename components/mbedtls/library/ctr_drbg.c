@@ -29,23 +29,14 @@
 #include "mbedtls/ctr_drbg.h"
 #include "mbedtls/platform_util.h"
 #include "mbedtls/error.h"
-#if (defined __LUATOS__) || (defined __USER_CODE__)
-#include "mbedtls/platform.h"
-#endif
+
 #include <string.h>
 
 #if defined(MBEDTLS_FS_IO)
 #include <stdio.h>
 #endif
 
-#if defined(MBEDTLS_SELF_TEST)
-#if defined(MBEDTLS_PLATFORM_C)
 #include "mbedtls/platform.h"
-#else
-#include <stdio.h>
-#define mbedtls_printf printf
-#endif /* MBEDTLS_PLATFORM_C */
-#endif /* MBEDTLS_SELF_TEST */
 
 /*
  * CTR_DRBG context initialization

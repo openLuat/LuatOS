@@ -49,15 +49,7 @@
 #include "mbedtls/psa_util.h"
 #endif
 
-#if defined(MBEDTLS_PLATFORM_C)
 #include "mbedtls/platform.h"
-#else
-#include <stdio.h>
-#include <stdlib.h>
-#define mbedtls_free       free
-#define mbedtls_calloc    calloc
-#define mbedtls_snprintf   snprintf
-#endif
 
 #if defined(MBEDTLS_THREADING_C)
 #include "mbedtls/threading.h"
@@ -1270,9 +1262,12 @@ static int x509_crt_parse_der_core( mbedtls_x509_crt *crt,
         }
     }
 
+    int extensions_allowed = 1;
 #if !defined(MBEDTLS_X509_ALLOW_EXTENSIONS_NON_V3)
-    if( crt->version == 3 )
+    if( crt->version != 3 )
+        extensions_allowed = 0;
 #endif
+    if( extensions_allowed )
     {
         ret = x509_get_crt_ext( &p, end, crt, cb, p_ctx );
         if( ret != 0 )
@@ -1789,6 +1784,7 @@ static int x509_info_subject_alt_name( char **buf, size_t *size,
                                        const char *prefix )
 {
     int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
+    size_t i;
     size_t n = *size;
     char *p = *buf;
     const mbedtls_x509_sequence *cur = subject_alt_name;
@@ -1841,18 +1837,11 @@ static int x509_info_subject_alt_name( char **buf, size_t *size,
                     ret = mbedtls_snprintf( p, n, "\n%s            hardware serial number : ", prefix );
                     MBEDTLS_X509_SAFE_SNPRINTF;
 
-                    if( other_name->value.hardware_module_name.val.len >= n )
+                    for( i = 0; i < other_name->value.hardware_module_name.val.len; i++ )
                     {
-                        *p = '\0';
-                        return( MBEDTLS_ERR_X509_BUFFER_TOO_SMALL );
+                        ret = mbedtls_snprintf( p, n, "%02X", other_name->value.hardware_module_name.val.p[i] );
+                        MBEDTLS_X509_SAFE_SNPRINTF;
                     }
-
-                    memcpy( p, other_name->value.hardware_module_name.val.p,
-                            other_name->value.hardware_module_name.val.len );
-                    p += other_name->value.hardware_module_name.val.len;
-
-                    n -= other_name->value.hardware_module_name.val.len;
-
                 }/* MBEDTLS_OID_ON_HW_MODULE_NAME */
             }
             break;

@@ -624,7 +624,7 @@ typedef int mbedtls_ssl_recv_t( void *ctx,
  * \param ctx      Context for the receive callback (typically a file descriptor)
  * \param buf      Buffer to write the received data to
  * \param len      Length of the receive buffer
- * \param timeout  Maximum nomber of millisecondes to wait for data
+ * \param timeout  Maximum number of milliseconds to wait for data
  *                 0 means no timeout (potentially waiting forever)
  *
  * \return         The callback must return the number of bytes received,
@@ -2000,7 +2000,7 @@ int mbedtls_ssl_check_record( mbedtls_ssl_context const *ssl,
  *                 here, except if using an event-driven style.
  *
  * \note           See also the "DTLS tutorial" article in our knowledge base.
- *                 https://tls.mbed.org/kb/how-to/dtls-tutorial
+ *                 https://mbed-tls.readthedocs.io/en/latest/kb/how-to/dtls-tutorial
  */
 void mbedtls_ssl_set_timer_cb( mbedtls_ssl_context *ssl,
                                void *p_timer,

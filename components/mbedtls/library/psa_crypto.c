@@ -51,10 +51,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include "mbedtls/platform.h"
-#if !defined(MBEDTLS_PLATFORM_C)
-#define mbedtls_calloc calloc
-#define mbedtls_free   free
-#endif
 
 #include "mbedtls/aes.h"
 #include "mbedtls/arc4.h"
@@ -3642,8 +3638,8 @@ psa_status_t psa_cipher_encrypt( mbedtls_svc_key_id_t key,
     status = psa_driver_wrapper_cipher_encrypt(
         &attributes, slot->key.data, slot->key.bytes,
         alg, local_iv, default_iv_length, input, input_length,
-        output + default_iv_length, output_size - default_iv_length,
-        output_length );
+        mbedtls_buffer_offset( output, default_iv_length ),
+        output_size - default_iv_length, output_length );
 
 exit:
     unlock_status = psa_unlock_key_slot( slot );
@@ -5137,7 +5133,7 @@ psa_status_t psa_generate_random( uint8_t *output,
     if( status != PSA_SUCCESS )
         return( status );
     /* Breaking up a request into smaller chunks is currently not supported
-     * for the extrernal RNG interface. */
+     * for the external RNG interface. */
     if( output_length != output_size )
         return( PSA_ERROR_INSUFFICIENT_ENTROPY );
     return( PSA_SUCCESS );

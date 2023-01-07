@@ -338,7 +338,7 @@ static void add_gsv(lua_State*L, struct minmea_sentence_gsv* gsvs, size_t *count
 @usage
 -- 解析nmea
 log.info("nmea", "gsv", json.encode(libgnss.getGsv()))
--- [[实例输出
+--[[实例输出
 {
     "total_sats":24,      // 总可见卫星数量
     "sats":[
@@ -601,6 +601,7 @@ static int l_libgnss_debug(lua_State *L) {
 @api libgnss.getGga(data_mode)
 @int 坐标类数据的格式, 0-DDMM.MMM格式, 1-DDDDDDD格式, 2-DD.DDDDD格式, 3-原始字符串
 @return table GGA数据, 若如不存在会返回nil
+@usage
 local gga = libgnss.getGga(2)
 if gga then
     log.info("GGA", json.encode(gga))
@@ -672,6 +673,7 @@ static int l_libgnss_get_gga(lua_State* L) {
 @api libgnss.getGll(data_mode)
 @int 坐标类数据的格式, 0-DDMM.MMM格式, 1-DDDDDDD格式, 2-DD.DDDDD格式
 @return table GLL数据, 若如不存在会返回nil
+@usage
 local gll = libgnss.getGll(2)
 if gll then
     log.info("GLL", json.encode(gll))

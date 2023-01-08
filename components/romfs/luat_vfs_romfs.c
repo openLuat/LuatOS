@@ -4,21 +4,17 @@
 #include "luat_malloc.h"
 #define LUAT_LOG_TAG "fs"
 #include "luat_log.h"
+#include "luat_romfs.h"
 
-typedef struct romfs_file
-{
-    uint32_t next_offset;
-    uint32_t spec;
-    uint32_t size;
-    uint32_t checksum;
-    char name[16];
-} romfs_file_t;
 
-typedef struct romfs_fd
-{
-    romfs_file_t *file;
-    size_t offset;
-} romfs_fd_t;
+static uint32_t toInt32(uint8_t buff[4]) {
+    uint32_t ret = 0;
+    ret += (buff[0] << 24);
+    ret += (buff[1] << 16);
+    ret += (buff[2] << 8);
+    ret += (buff[3] << 0);
+    return ret;
+}
 
 // typedef struct luat_fs_romfs
 // {
@@ -39,18 +35,14 @@ typedef struct romfs_head
 
 #ifdef LUAT_USE_FS_VFS
 
-FILE *luat_vfs_romfs_fopen(void *userdata, const char *filename, const char *mode)
-{
-    // LLOGD("open romfs %s", filename);
-    char *ptr = (char *)userdata;
-    romfs_file_t *file = (romfs_file_t *)(ptr + sizeof(romfs_head_t));
-    if (strcmp("r", mode) && strcmp("rb", mode))
-    {
-        return NULL; // romfs 是只读文件系统
-    }
-
+static int romfs_find(luat_romfs_ctx* fs, const char* filename, romfs_file_t *file) {
+    int ret = 0;
+    int offset = sizeof(romfs_head_t);
+    // LLOGD("romfs_find %s", filename);
+    ret = fs->read(fs->userdata, (char*)file, offset, sizeof(romfs_file_t));
     while (1)
     {
+        // LLOGD("name %s", file->name);
         if (!memcmp(".", file->name, 2) || !memcmp("..", file->name, 3))
         {
             // pass
@@ -59,20 +51,49 @@ FILE *luat_vfs_romfs_fopen(void *userdata, const char *filename, const char *mod
         {
             if (strcmp(file->name, filename) == 0)
             {
-                romfs_fd_t *fd = luat_heap_malloc(sizeof(romfs_fd_t));
-                if (fd == NULL)
-                {
-                    LLOGE("out of memory when malloc luat_fs_romfs_t");
-                    return NULL;
-                }
-                fd->offset = 0;
-                fd->file = file;
-                return (FILE *)fd;
+                // LLOGD("found %s", file->name);
+                return offset;
             }
         }
-        if ((file->next_offset & 0xFFFFFFF0) == 0)
+        if ((toInt32(file->next_offset) & 0xFFFFFFF0) == 0)
             break;
-        file = (romfs_file_t *)(ptr + sizeof(romfs_head_t) + (file->next_offset & 0xFFFFFFF0));
+        // LLOGD("file->next_offset %08X", toInt32(file->next_offset));
+        // LLOGD("head offset %08X", offset);
+        offset = sizeof(romfs_head_t) + (toInt32(file->next_offset) & 0xFFFFFFF0);
+        // LLOGD("Next offset %08X", offset);
+        ret = fs->read(fs->userdata, (char*)file, offset, sizeof(romfs_file_t));
+        if (ret < 0) {
+            LLOGD("romfs ERROR fexist %d", ret);
+            return -1;
+        }
+    }
+    return 0;
+}
+
+FILE *luat_vfs_romfs_fopen(void *userdata, const char *filename, const char *mode)
+{
+    // LLOGD("open romfs >> ============== %s", filename);
+    int ret = 0;
+    size_t offset = 0;
+    luat_romfs_ctx* fs = (luat_romfs_ctx*)userdata;
+    romfs_file_t tfile = {0};
+    if (strcmp("r", mode) && strcmp("rb", mode))
+    {
+        return NULL; // romfs 是只读文件系统
+    }
+    offset = romfs_find(fs, filename, &tfile);
+    if (offset > 0) {
+        romfs_fd_t *fd = luat_heap_malloc(sizeof(romfs_fd_t));
+        if (fd == NULL)
+        {
+            LLOGE("out of memory when malloc luat_fs_romfs_t");
+            return NULL;
+        }
+        fd->offset = 0;
+        fd->addr = offset;
+        // LLOGD("fopen addr %08X", fd->addr);
+        memcpy(&fd->file, &tfile, sizeof(romfs_file_t));
+        return (FILE *)fd;
     }
     return NULL;
 }
@@ -81,10 +102,12 @@ int luat_vfs_romfs_getc(void *userdata, FILE *stream)
 {
     // LLOGD("getc %p %p", userdata, stream);
     romfs_fd_t *fd = (romfs_fd_t *)stream;
+    luat_romfs_ctx* fs = (luat_romfs_ctx*)userdata;
     // LLOGD("getc %p %p %d %d", userdata, stream, fd->offset, fd->size);
-    if (fd->offset < fd->file->size)
+    char c = 0;
+    if (fd->offset < toInt32(fd->file.size))
     {
-        uint8_t c = FDATA(fd)[fd->offset];
+        fs->read(fs->userdata, &c, fd->offset + fd->addr + sizeof(romfs_file_t), 1);
         fd->offset++;
         // LLOGD("getc %02X", c);
         return c;
@@ -108,7 +131,7 @@ int luat_vfs_romfs_fseek(void *userdata, FILE *stream, long int offset, int orig
     }
     else
     {
-        fd->offset = fd->file->size - offset;
+        fd->offset = toInt32(fd->file.size) - offset;
         return 0;
     }
 }
@@ -132,7 +155,7 @@ int luat_vfs_romfs_feof(void *userdata, FILE *stream)
 {
     romfs_fd_t *fd = (romfs_fd_t *)stream;
     // LLOGD("feof %p %p %d %d", userdata, stream, fd->size, fd->offset);
-    return fd->offset >= fd->file->size ? 1 : 0;
+    return fd->offset >= toInt32(fd->file.size) ? 1 : 0;
 }
 
 int luat_vfs_romfs_ferror(void *userdata, FILE *stream)
@@ -143,14 +166,16 @@ int luat_vfs_romfs_ferror(void *userdata, FILE *stream)
 size_t luat_vfs_romfs_fread(void *userdata, void *ptr, size_t size, size_t nmemb, FILE *stream)
 {
     romfs_fd_t *fd = (romfs_fd_t *)stream;
+    luat_romfs_ctx* fs = (luat_romfs_ctx*)userdata;
     // LLOGD("fread %p %p %d %d", userdata, stream, fd->size, fd->offset);
     // LLOGD("fread2 %p %p %d %d", userdata, stream, size * nmemb, fd->offset);
     size_t read_size = size * nmemb;
-    if (fd->offset + read_size > FSIZE(fd))
+    if (fd->offset + read_size > toInt32(fd->file.size))
     {
-        read_size = FSIZE(fd) - fd->offset;
+        read_size = toInt32(fd->file.size) - fd->offset;
     }
-    memcpy(ptr, FDATA(fd) + fd->offset, read_size);
+    // memcpy(ptr, FDATA(fd) + fd->offset, read_size);
+    fs->read(fs->userdata, ptr, fd->offset + fd->addr + sizeof(romfs_file_t), read_size);
     fd->offset += read_size;
     return read_size;
 }
@@ -158,64 +183,40 @@ size_t luat_vfs_romfs_fread(void *userdata, void *ptr, size_t size, size_t nmemb
 int luat_vfs_romfs_fexist(void *userdata, const char *filename)
 {
     // LLOGD("open romfs %s", filename);
-    char *ptr = (char *)userdata;
-    romfs_file_t *file = (romfs_file_t *)(ptr + sizeof(romfs_head_t));
-
-    while (1)
-    {
-        if (!memcmp(".", file->name, 2) || !memcmp("..", file->name, 3))
-        {
-            // pass
-        }
-        else
-        {
-            if (strcmp(file->name, filename) == 0)
-            {
-                return 1;
-            }
-        }
-        if ((file->next_offset & 0xFFFFFFF0) == 0)
-            break;
-        file = (romfs_file_t *)(ptr + sizeof(romfs_head_t) + (file->next_offset & 0xFFFFFFF0));
-    }
-    return 0;
+    luat_romfs_ctx* fs = (luat_romfs_ctx*)userdata;
+    romfs_file_t file = {0};
+    int ret = romfs_find(fs, filename, &file);
+    // LLOGD("found? %s %d", filename, ret);
+    return ret > 0 ? 1 : 0;
 }
 
 size_t luat_vfs_romfs_fsize(void *userdata, const char *filename)
 {
     // LLOGD("open romfs %s", filename);
-    char *ptr = (char *)userdata;
-    romfs_file_t *file = (romfs_file_t *)(ptr + sizeof(romfs_head_t));
-
-    while (1)
-    {
-        if (!memcmp(".", file->name, 2) || !memcmp("..", file->name, 3))
-        {
-            // pass
-        }
-        else
-        {
-            if (strcmp(file->name, filename) == 0)
-            {
-                return file->size;
-            }
-        }
-        if ((file->next_offset & 0xFFFFFFF0) == 0)
-            break;
-        file = (romfs_file_t *)(ptr + sizeof(romfs_head_t) + (file->next_offset & 0xFFFFFFF0));
+    luat_romfs_ctx* fs = (luat_romfs_ctx*)userdata;
+    romfs_file_t file = {0};
+    int ret = romfs_find(fs, filename, &file);
+    if (ret > 0) {
+        return toInt32(file.size);
     }
     return 0;
 }
 
 int luat_vfs_romfs_mount(void **userdata, luat_fs_conf_t *conf)
 {
-    romfs_head_t *head = (romfs_head_t *)conf->busname;
-    if (memcmp(head->magic, "-rom1fs-", 8))
+    // LLOGD("luat_vfs_romfs_mount ==================");
+    luat_romfs_ctx* fs = (luat_romfs_ctx*)conf->busname;
+    // LLOGD("luat_romfs_ctx %p", fs);
+    // LLOGD("luat_romfs_ctx %p", fs->read);
+    // LLOGD("luat_romfs_ctx %p", fs->userdata);
+    romfs_head_t head = {0};
+    fs->read(fs->userdata, &head, 0, sizeof(romfs_head_t));
+    if (memcmp(head.magic, "-rom1fs-", 8))
     {
-        LLOGI("Not ROMFS at %p", head);
+        LLOGI("Not ROMFS at %p", &head);
         return -1;
     }
-    // TODO 加个 checkfs函数
+    // LLOGD("romfs mounted");
     *userdata = conf->busname;
     return 0;
 }
@@ -235,13 +236,17 @@ int luat_vfs_romfs_info(void *userdata, const char *path, luat_fs_info_t *conf)
     return 0;
 }
 
-int luat_vfs_romfs_lsdir(void *userdata, char const *_DirName, luat_fs_dirent_t *ents, size_t offset, size_t len)
+int luat_vfs_romfs_lsdir(void *userdata, char const *_DirName, luat_fs_dirent_t *ents, size_t ent_offset, size_t len)
 {
-    //romfs_head_t *head = (romfs_head_t *)userdata;
-    const char *ptr = (const char *)userdata;
+    luat_romfs_ctx* fs = (luat_romfs_ctx*)userdata;
+    int offset = sizeof(romfs_head_t);
+    // romfs_head_t head = {0};
+    romfs_file_t tfile = {0};
+    // fs->read(fs->addr, &head, sizeof(romfs_head_t));
     int counter = 0;
-    int count_down = offset;
-    romfs_file_t *file = (romfs_file_t *)(ptr + sizeof(romfs_head_t));
+    int count_down = ent_offset;
+    romfs_file_t *file = &tfile;
+    fs->read(fs->userdata, file, offset, sizeof(romfs_file_t));
     while (1)
     {
         if (counter >= len)
@@ -260,9 +265,10 @@ int luat_vfs_romfs_lsdir(void *userdata, char const *_DirName, luat_fs_dirent_t 
             strcpy(ents[counter].d_name, file->name);
             counter++;
         }
-        if ((file->next_offset & 0xFFFFFFF0) == 0)
+        if ((toInt32(file->next_offset) & 0xFFFFFFF0) == 0)
             break;
-        file = (romfs_file_t *)(ptr + sizeof(romfs_head_t) + (file->next_offset & 0xFFFFFFF0));
+        offset = sizeof(romfs_head_t) + (toInt32(file->next_offset) & 0xFFFFFFF0);
+        fs->read(fs->userdata, file, offset, sizeof(romfs_file_t));
     }
     return 0;
 }

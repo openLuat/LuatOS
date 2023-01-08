@@ -21,11 +21,6 @@ gpio.setup(pin.PA10, function()
     log.info("gpio", "PA10")
 end, gpio.PULLUP)
 
-sys.taskInit(function()
-    while 1 do
-        sys.wait(500)
-    end
-end)
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()

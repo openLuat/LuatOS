@@ -48,9 +48,6 @@ sys.taskInit(function()
     log.info("sfud.read",sfud.read(sfud_device,1024,4))
     log.info("sfud.mount",sfud.mount(sfud_device,"/sfud/", 1024*1024, 1024*1024))
     log.info("fsstat", fs.fsstat("/sfud/"))
-    while 1 do
-        sys.wait(1000)
-    end
 end)
 
 

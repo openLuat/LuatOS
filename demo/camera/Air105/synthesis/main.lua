@@ -141,9 +141,6 @@ sys.taskInit(function()
     --     1--停止位
     -- )
     -- uart.write(uartid, data) --找个能保存数据的串口工具保存成文件就能在电脑上看了
-    while 1 do
-        sys.wait(500)
-    end
 end)
 
 -- 用户代码已结束---------------------------------------------

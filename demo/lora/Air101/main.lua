@@ -52,9 +52,6 @@ sys.taskInit(function()
     )
 
     lora.send("PING")
-    while 1 do
-        sys.wait(1000)
-    end
 end)
 
 -- 用户代码已结束---------------------------------------------

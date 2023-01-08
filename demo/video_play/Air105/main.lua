@@ -69,10 +69,6 @@ sys.taskInit(function()
         sys.wait(30)
         file:close()
     end
-
-    while 1 do
-        sys.wait(1000)
-    end
 end)
 
 -- 主循环, 必须加

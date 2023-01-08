@@ -39,10 +39,6 @@ sys.taskInit(function()
     -- local bin = io.open(tar_path..bin_name, "rb")
     -- local bin_data = bin:read("*a")
     -- log.info(bin_name, "bin_data", bin_data)
-
-    while 1 do
-        sys.wait(1000)
-    end
 end)
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

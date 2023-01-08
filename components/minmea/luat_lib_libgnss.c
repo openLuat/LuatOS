@@ -177,8 +177,6 @@ static int l_libgnss_parse(lua_State *L) {
 @api libgnss.isFix()
 @return boolean 定位成功与否
 @usage
--- 解析nmea
-libgnss.parse(indata)
 log.info("nmea", "isFix", libgnss.isFix())
  */
 static int l_libgnss_is_fix(lua_State *L) {

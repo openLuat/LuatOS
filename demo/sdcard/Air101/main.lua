@@ -86,9 +86,6 @@ end
 
 sys.taskInit(function()
     fatfs_test() -- 每次开机,把记录的数值+1
-    while 1 do
-        sys.wait(500)
-    end
 end)
 
 -- 用户代码已结束---------------------------------------------

@@ -25,9 +25,6 @@ sys.taskInit(function()
                 :finish()
     -- 执行之,后续会支持后台执行
     sm:exec()
-    while 1 do
-        sys.wait(1000)
-    end
 end)
 
 

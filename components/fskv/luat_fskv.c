@@ -80,3 +80,21 @@ int luat_fskv_stat(size_t *using_sz, size_t *total, size_t *kv_count) {
     *kv_count = count;
     return 0;
 }
+
+int luat_fskv_size(const char* key, uint8_t buff[4]) {
+    lfs_file_t fd = {0};
+    int ret = 0;
+    ret = lfs_file_open(&sfd_lfs->lfs, &fd, key, LFS_O_RDONLY);
+    if (ret != LFS_ERR_OK) {
+        return 0;
+    }
+    ret = lfs_file_size(&sfd_lfs->lfs, &fd);
+    if (ret > 1 && ret < 256) {
+        int ret2 = lfs_file_read(&sfd_lfs->lfs, &fd, buff, ret);
+        if (ret2 != ret) {
+            ret = -2; // 读取失败,肯定有问题
+        }
+    }
+    lfs_file_close(&sfd_lfs->lfs, &fd);
+    return ret;
+}

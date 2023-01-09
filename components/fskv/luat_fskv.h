@@ -54,6 +54,8 @@ int luat_fskv_del(const char* key);
  */
 int luat_fskv_set(const char* key, void* data, size_t len);
 
+int luat_fskv_size(const char* key, uint8_t buff[4]);
+
 /**
  * @brief 读取指定key的数据
  * @param key[IN] 待读取的key值,不能为NULL,必须是\0结尾

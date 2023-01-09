@@ -43,7 +43,7 @@ fskv与fdb的实现机制导致的差异
 extern sfd_drv_t* sfd_onchip;
 extern luat_sfd_lfs_t* sfd_lfs;
 
-static char fskv_read_buff[LUAT_FSKV_MAX_SIZE];
+// static char fskv_read_buff[LUAT_FSKV_MAX_SIZE];
 
 /**
 初始化kv数据库
@@ -216,54 +216,69 @@ static int l_fskv_get(lua_State *L) {
     const char* key = luaL_checkstring(L, 1);
     const char* skey = luaL_optstring(L, 2, "");
     // luaL_buffinitsize(L, &buff, 8192);
-    char* buff = fskv_read_buff;
-    size_t read_len = luat_fskv_get(key, buff, LUAT_FSKV_MAX_SIZE);
-
-    if (read_len < 2) {
-        return 0;
+    char tmp[256] = {0};
+    char *buff = NULL;
+    char *rbuff = NULL;
+    int size = luat_fskv_size(key, tmp);
+    if (size < 2) {
+        return 0; // 对应的KEY不存在
+    }
+    if (size >= 256) {
+        rbuff = luat_heap_malloc(size);
+        if (rbuff == NULL) {
+            LLOGW("out of memory when malloc key-value buff");
+            return 0;
+        }
+        size_t read_len = luat_fskv_get(key, rbuff, size);
+        if (read_len != size) {
+            luat_heap_free(rbuff);
+            LLOGW("read key-value fail, ignore as not exist");
+            return 0;
+        }
+        buff = rbuff;
+    }
+    else {
+        buff = tmp;
     }
 
     lua_Integer *intVal;
     // lua_Number *numVal;
-
-    if (read_len) {
-        // LLOGD("KV value T=%02X", buff.b[0]);
-        switch(buff[0]) {
-        case LUA_TBOOLEAN:
-            lua_pushboolean(L, buff[1]);
-            break;
-        case LUA_TNUMBER:
-            lua_getglobal(L, "pack");
-            lua_getfield(L, -1, "unpack");
-            lua_pushlstring(L, (char*)(buff + 1), read_len - 1);
-            lua_pushstring(L, ">f");
-            lua_call(L, 2, 2);
-            // _, val = pack.unpack(data, ">f")
-            break;
-        case LUA_TINTEGER:
-            intVal = (lua_Integer*)(&buff[1]);
-            lua_pushinteger(L, *intVal);
-            break;
-        case LUA_TSTRING:
-            lua_pushlstring(L, (const char*)(buff + 1), read_len - 1);
-            break;
-        case LUA_TTABLE:
-            lua_getglobal(L, "json");
-            lua_getfield(L, -1, "decode");
-            lua_pushlstring(L, (const char*)(buff + 1), read_len - 1);
-            lua_call(L, 1, 1);
-            if (strlen(skey) > 0 && lua_istable(L, -1)) {
-                lua_getfield(L, -1, skey);
-            }
-            break;
-        default :
-            LLOGW("bad value prefix %02X", buff[0]);
-            lua_pushnil(L);
-            break;
+    // LLOGD("KV value T=%02X", buff.b[0]);
+    switch(buff[0]) {
+    case LUA_TBOOLEAN:
+        lua_pushboolean(L, buff[1]);
+        break;
+    case LUA_TNUMBER:
+        lua_getglobal(L, "pack");
+        lua_getfield(L, -1, "unpack");
+        lua_pushlstring(L, (char*)(buff + 1), size - 1);
+        lua_pushstring(L, ">f");
+        lua_call(L, 2, 2);
+        // _, val = pack.unpack(data, ">f")
+        break;
+    case LUA_TINTEGER:
+        intVal = (lua_Integer*)(&buff[1]);
+        lua_pushinteger(L, *intVal);
+        break;
+    case LUA_TSTRING:
+        lua_pushlstring(L, (const char*)(buff + 1), size - 1);
+        break;
+    case LUA_TTABLE:
+        lua_getglobal(L, "json");
+        lua_getfield(L, -1, "decode");
+        lua_pushlstring(L, (const char*)(buff + 1), size - 1);
+        lua_call(L, 1, 1);
+        if (strlen(skey) > 0 && lua_istable(L, -1)) {
+            lua_getfield(L, -1, skey);
         }
-        return 1;
+        break;
+    default :
+        LLOGW("bad value prefix %02X", buff[0]);
+        lua_pushnil(L);
+        break;
     }
-    lua_pushnil(L);
+    if (rbuff)
+        luat_heap_free(rbuff);
     return 1;
 }
 

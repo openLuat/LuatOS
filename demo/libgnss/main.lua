@@ -11,6 +11,8 @@ local sys = require("sys")
 require("sysplus")
 
 local gps_uart_id = 2
+local mqttc = nil
+
 libgnss.clear() -- 清空数据,兼初始化
 
 uart.setup(
@@ -51,31 +53,7 @@ sys.taskInit(function()
     end
 end)
 
-sys.taskInit(function()
-    -- Air780EG工程样品的GPS的默认波特率是9600, 量产版是115200,以下是临时代码
-    log.info("GPS", "start")
-    pm.power(pm.GPS, true)
-    -- 绑定uart,底层自动处理GNSS数据
-    -- 第二个参数是转发到虚拟UART, 方便上位机分析
-    libgnss.bind(gps_uart_id, uart.VUART_0)
-    libgnss.on("raw", function(data)
-        sys.publish("mqtt_pub", "$gnss/" .. mobile.imei() .. "/up/nmea", data, 1)
-    end)
-    sys.wait(200) -- GPNSS芯片启动需要时间
-    -- 调试日志,可选
-    libgnss.debug(true)
-    -- 显示串口配置
-    -- uart.write(gps_uart_id, "$CFGPRT,1\r\n")
-    -- sys.wait(20)
-    -- 增加显示的语句
-    uart.write(gps_uart_id, "$CFGMSG,0,1,1\r\n") -- GLL
-    sys.wait(20)
-    uart.write(gps_uart_id, "$CFGMSG,0,5,1\r\n") -- VTG
-    sys.wait(20)
-    uart.write(gps_uart_id, "$CFGMSG,0,6,1\r\n") -- ZDA
-    sys.wait(20)
-    -- 定位成功后,使用GNSS时间设置RTC, 暂不可用
-    -- libgnss.rtcAuto(true)
+function exec_agnss()
     if http then
         -- AGNSS 已调通
         while 1 do
@@ -121,6 +99,49 @@ sys.taskInit(function()
         -- TODO 发起基站定位
         uart.write(gps_uart_id, "$AIDPOS,3432.70,N,10885.25,E,1.0\r\n")
     end
+end
+
+function upload_stat()
+    if mqttc == nil or not mqttc:ready() then return end
+    local stat = {
+        csq = mobile.csq(),
+        rssi = mobile.rssi(),
+        rsrq = mobile.rsrq(),
+        rsrp = mobile.rsrp(),
+        --iccid = mobile.iccid(),
+        snr = mobile.snr()
+    }
+    sys.publish("mqtt_pub", "/gnss/" .. mobile.imei() .. "/up/stat", (json.encode(stat)), 1)
+end
+
+sys.timerLoopStart(upload_stat, 60*1000)
+
+sys.taskInit(function()
+    -- Air780EG工程样品的GPS的默认波特率是9600, 量产版是115200,以下是临时代码
+    log.info("GPS", "start")
+    pm.power(pm.GPS, true)
+    -- 绑定uart,底层自动处理GNSS数据
+    -- 第二个参数是转发到虚拟UART, 方便上位机分析
+    libgnss.bind(gps_uart_id, uart.VUART_0)
+    libgnss.on("raw", function(data)
+        sys.publish("mqtt_pub", "/gnss/" .. mobile.imei() .. "/up/nmea", data, 1)
+    end)
+    sys.wait(200) -- GPNSS芯片启动需要时间
+    -- 调试日志,可选
+    libgnss.debug(true)
+    -- 显示串口配置
+    -- uart.write(gps_uart_id, "$CFGPRT,1\r\n")
+    -- sys.wait(20)
+    -- 增加显示的语句
+    uart.write(gps_uart_id, "$CFGMSG,0,1,1\r\n") -- GLL
+    sys.wait(20)
+    uart.write(gps_uart_id, "$CFGMSG,0,5,1\r\n") -- VTG
+    sys.wait(20)
+    uart.write(gps_uart_id, "$CFGMSG,0,6,1\r\n") -- ZDA
+    sys.wait(20)
+    -- 定位成功后,使用GNSS时间设置RTC, 暂不可用
+    -- libgnss.rtcAuto(true)
+    exec_agnss()
 end)
 
 sys.taskInit(function()
@@ -134,12 +155,12 @@ sys.taskInit(function()
         -- uart.write(gps_uart_id, "$CFGSYS\r\n")
         -- uart.write(gps_uart_id, "$CFGMSG,6,4\r\n")
         log.info("RMC", json.encode(libgnss.getRmc(2) or {}))
-        log.info("GGA", json.encode(libgnss.getGga(2) or {}))
-        log.info("GLL", json.encode(libgnss.getGll(2) or {}))
-        log.info("GSA", json.encode(libgnss.getGsa(2) or {}))
-        log.info("GSV", json.encode(libgnss.getGsv(2) or {}))
-        log.info("VTG", json.encode(libgnss.getVtg(2) or {}))
-        log.info("ZDA", json.encode(libgnss.getZda(2) or {}))
+        -- log.info("GGA", libgnss.getGga(3))
+        -- log.info("GLL", json.encode(libgnss.getGll(2) or {}))
+        -- log.info("GSA", json.encode(libgnss.getGsa(2) or {}))
+        -- log.info("GSV", json.encode(libgnss.getGsv(2) or {}))
+        -- log.info("VTG", json.encode(libgnss.getVtg(2) or {}))
+        -- log.info("ZDA", json.encode(libgnss.getZda(2) or {}))
         -- log.info("date", os.date())
         log.info("sys", rtos.meminfo("sys"))
         log.info("lua", rtos.meminfo("lua"))
@@ -166,9 +187,10 @@ end)
 sys.taskInit(function()
 	sys.waitUntil("IP_READY", 15000)
 
-    mqttc = mqtt.create(nil, "lbsmqtt.airm2m.com", 1884)  --mqtt客户端创建
+    mqttc = mqtt.create(nil, "lbsmqtt.airm2m.com", 1886)  --mqtt客户端创建
 
-    mqttc:auth(mobile.imei(), mobile.imei(), mobile.imei()) --mqtt三元组配置
+    mqttc:auth(mobile.imei(), mobile.imei(), mobile.muid()) --mqtt三元组配置
+    log.info("mqtt", mobile.imei(), mobile.imei(), mobile.muid())
     mqttc:keepalive(30) -- 默认值240s
     mqttc:autoreconn(true, 3000) -- 自动重连机制
 
@@ -178,7 +200,7 @@ sys.taskInit(function()
         if event == "conack" then -- mqtt成功完成鉴权后的消息
             sys.publish("mqtt_conack") -- 小写字母的topic均为自定义topic
             -- 订阅不是必须的，但一般会有
-            mqtt_client:subscribe("$gnss/" .. mobile.imei() .. "/down/#")
+            mqtt_client:subscribe("/gnss/" .. mobile.imei() .. "/down/#")
         elseif event == "recv" then -- 服务器下发的数据
             log.info("mqtt", "downlink", "topic", data, "payload", payload)
             -- 这里继续加自定义的业务处理逻辑
@@ -191,6 +213,7 @@ sys.taskInit(function()
     mqttc:connect()
 	sys.waitUntil("mqtt_conack")
     log.info("mqtt连接成功")
+    sys.timerStart(upload_stat, 1000) -- 一秒后主动上传一次
     while true do
         -- 业务演示。等待其他task发过来的待上报数据
         -- 这里的mqtt_pub字符串是自定义的，与mqtt库没有直接联系
@@ -205,6 +228,20 @@ sys.taskInit(function()
     mqttc:close()
     mqttc = nil
 end)
+
+sys.taskInit(function()
+    while 1 do
+        sys.wait(3600*1000) -- 一小时检查一次
+        local fixed, time_fixed = libgnss.isFix()
+        if not fixed then
+            exec_agnss()
+        end
+    end
+end)
+
+sys.timerLoopStart(function()
+    upload_stat()
+end, 60000)
 
 -- sys.subscribe("NTP_UPDATE", function()
 --     if not libgnss.isFix() then

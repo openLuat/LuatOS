@@ -14,13 +14,37 @@ _G.sys = require("sys")
 
 --[[
 I2C0
-I2C0_SCL               (PA1)
-I2C0_SDA               (PA4)
+I2C0_SCL               (5)
+I2C0_SDA               (4)
 ]]
 
 --添加硬狗防止程序卡死
 wdt.init(9000)--初始化watchdog设置为9s
 sys.timerLoopStart(wdt.feed, 3000)--3s喂一次狗
+
+local rtos_bsp = rtos.bsp()
+
+-- hw_i2c_id,sw_i2c_scl,sw_i2c_sda,spi_id,spi_res,spi_dc,spi_cs
+function u8g2_pin()     
+    if rtos_bsp == "AIR101" then
+        return 0,pin.PA01,pin.PA04,0,pin.PB03,pin.PB01,pin.PB04
+    elseif rtos_bsp == "AIR103" then
+        return 0,pin.PA01,pin.PA04,0,pin.PB03,pin.PB01,pin.PB04
+    elseif rtos_bsp == "AIR105" then
+        return 0,pin.PE06,pin.PE07,5,pin.PC12,pin.PE08,pin.PC14
+    elseif rtos_bsp == "ESP32C3" then
+        return 0,5,4,2,10,9,7,11
+    elseif rtos_bsp == "ESP32S3" then
+        return 0,12,11,2,16,15,14,13
+    elseif rtos_bsp == "EC618" then
+        return 0,10,11,0,1,10,8,18
+    else
+        log.info("main", "bsp not support")
+        return
+    end
+end
+
+local hw_i2c_id,sw_i2c_scl,sw_i2c_sda,spi_id,spi_res,spi_dc,spi_cs = u8g2_pin() 
 
 -- 日志TAG, 非必须
 local TAG = "main"
@@ -29,9 +53,11 @@ local TAG = "main"
 log.info(TAG, "init ssd1306")
 
 -- 初始化硬件i2c的ssd1306
-u8g2.begin({ic = "ssd1306",direction = 0,mode="i2c_hw",i2c_id=0,i2c_speed = i2c.FAST}) -- direction 可选0 90 180 270
+u8g2.begin({ic = "ssd1306",direction = 0,mode="i2c_hw",i2c_id=hw_i2c_id,i2c_speed = i2c.FAST}) -- direction 可选0 90 180 270
 -- 初始化软件i2c的ssd1306
--- u8g2.begin({ic = "ssd1306",direction = 0,mode="i2c_sw", i2c_scl=1, i2c_sda=4}) -- 通过PA1 SCL / PA4 SDA模拟
+-- u8g2.begin({ic = "ssd1306",direction = 0,mode="i2c_sw", i2c_scl=sw_i2c_scl, i2c_sda=sw_i2c_sda})
+-- 初始化硬件spi的ssd1306
+-- u8g2.begin({ic = "ssd1306",direction = 0,mode="spi_hw_4pin",spi_id=spi_id,spi_res=spi_res,spi_dc=spi_dc,spi_cs=spi_cs})
 
 u8g2.SetFontMode(1)
 u8g2.ClearBuffer()
@@ -40,10 +66,10 @@ u8g2.DrawUTF8("U8g2+LuatOS", 32, 22)
 
 if u8g2.font_opposansm12_chinese then
     u8g2.SetFont(u8g2.font_opposansm12_chinese)
-else
+elseif u8g2.font_opposansm10_chinese then
     u8g2.SetFont(u8g2.font_opposansm10_chinese)
 end
-u8g2.SetFont(u8g2.font_opposansm12_chinese)
+
 u8g2.DrawUTF8("中文测试", 40, 38) -- 若中文不显示或乱码,代表所刷固件不带这个字号的字体数据, 可自行云编译一份. wiki.luatos.com 有文档.
 u8g2.SendBuffer()
 

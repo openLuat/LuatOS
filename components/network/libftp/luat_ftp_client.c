@@ -22,8 +22,7 @@ static luat_ftp_ctrl_t *ftp_ctrl = NULL;
 
 static uint32_t luat_ftp_close(luat_ftp_ctrl_t *ftp_ctrl) {
 	if (ftp_ctrl->cmd_netc){
-		network_close(ftp_ctrl->cmd_netc,0);
-		network_force_close_socket(ftp_ctrl->cmd_netc);
+		network_close(ftp_ctrl->cmd_netc,FTP_SOCKET_TIMEOUT);
 		network_release_ctrl(ftp_ctrl->cmd_netc);
 		ftp_ctrl->cmd_netc = NULL;
 	}

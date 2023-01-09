@@ -54,12 +54,12 @@ static uint32_t luat_ftp_close(luat_ftp_ctrl_t *ftp_ctrl) {
 	return 0;
 }
 
-static uint32_t luat_ftp_data_send(luat_ftp_ctrl_t *ftp_ctrl, uint8_t* send_data, uint32_t send_len,uint32_t timeout_ms) {
+static uint32_t luat_ftp_data_send(luat_ftp_ctrl_t *ftp_ctrl, uint8_t* send_data, uint32_t send_len) {
 	if (send_len == 0)
 		return 0;
 	uint32_t tx_len = 0;
-	// LLOGD("luat_ftp_data_send data:%.*s",send_len,send_data);
-	network_tx(ftp_ctrl->data_netc, send_data, send_len, 0, NULL, 0, &tx_len, timeout_ms);
+	LLOGD("luat_ftp_data_send data:%.*s",send_len,send_data);
+	network_tx(ftp_ctrl->data_netc, send_data, send_len, 0, NULL, 0, &tx_len, 0);
 	return tx_len;
 }
 
@@ -67,7 +67,7 @@ static uint32_t luat_ftp_cmd_send(luat_ftp_ctrl_t *ftp_ctrl, uint8_t* send_data,
 	if (send_len == 0)
 		return 0;
 	uint32_t tx_len = 0;
-	// LLOGD("luat_ftp_cmd_send data:%.*s",send_len,send_data);
+	LLOGD("luat_ftp_cmd_send data:%.*s",send_len,send_data);
 	network_tx(ftp_ctrl->cmd_netc, send_data, send_len, 0, NULL, 0, &tx_len, timeout_ms);
 	return tx_len;
 }
@@ -133,8 +133,8 @@ static int32_t luat_lib_ftp_callback(void *data, void *param){
 	OS_EVENT *event = (OS_EVENT *)data;
 	luat_ftp_ctrl_t *ftp_ctrl =(luat_ftp_ctrl_t *)param;
 	int ret = 0;
-	// LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
-	// LLOGD("luat_lib_ftp_callback %d %d",event->ID & 0x0fffffff,event->Param1);
+	LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
+	LLOGD("luat_lib_ftp_callback %d %d",event->ID & 0x0fffffff,event->Param1);
 	if (event->Param1){
 		LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
 		LLOGE("luat_lib_ftp_callback ftp_ctrl close %d %d",event->ID & 0x0fffffff,event->Param1);
@@ -201,7 +201,9 @@ next:
 		}
 
 	}else if(event->ID == EV_NW_RESULT_TX){
-
+		uint8_t ftp_event = FTP_QUEUE_DATA_TX_DONE;
+		luat_rtos_queue_send(ftp_ctrl->ftp_queue_handle, &ftp_event, sizeof(uint8_t), 0);
+		return 0;
 	}else if(event->ID == EV_NW_RESULT_CLOSE){
 		network_force_close_socket(ftp_ctrl->data_netc);
 		network_release_ctrl(ftp_ctrl->data_netc);
@@ -385,14 +387,14 @@ void ftp_task(void *param){
 			luat_rtos_queue_recv(ftp_ctrl->ftp_queue_handle, &event, sizeof(uint8_t), FTP_SOCKET_TIMEOUT);
 			if(event == FTP_QUEUE_DATA_CONNECT){
 				memset(ftp_ctrl->cmd_send_data,0,FTP_CMD_SEND_MAX);
-				snprintf_(ftp_ctrl->cmd_send_data, FTP_CMD_SEND_MAX, "STOR %s\r\n",ftp_ctrl->remote_name);
+				snprintf_(ftp_ctrl->cmd_send_data, FTP_CMD_SEND_MAX, "APPE %s\r\n",ftp_ctrl->remote_name);
 				luat_ftp_cmd_send(ftp_ctrl, ftp_ctrl->cmd_send_data, strlen(ftp_ctrl->cmd_send_data),FTP_SOCKET_TIMEOUT);
 				ret = luat_ftp_cmd_recv(ftp_ctrl,ftp_ctrl->cmd_recv_data,&ftp_ctrl->cmd_recv_len,FTP_SOCKET_TIMEOUT);
 				if (ret){
 					goto error;
 				}else{
 					if (memcmp(ftp_ctrl->cmd_recv_data, FTP_FILE_STATUS_OK, 3)){
-						LLOGD("ftp STOR wrong");
+						LLOGD("ftp APPE wrong");
 						goto error;
 					}
 				}
@@ -407,15 +409,17 @@ void ftp_task(void *param){
 				int len = luat_fs_fread(buff, sizeof(uint8_t), PUSH_BUFF_SIZE, ftp_ctrl->fd);
 				if (len < 1)
 					break;
-				luat_ftp_data_send(ftp_ctrl, buff, len,FTP_SOCKET_TIMEOUT);
+				luat_ftp_data_send(ftp_ctrl, buff, len);
 				offset += len;
 			}
 			luat_heap_free(buff);
 			LLOGD("offset:%d file_size:%d",offset,ftp_ctrl->local_file_size);
+			luat_rtos_queue_recv(ftp_ctrl->ftp_queue_handle, &event, sizeof(uint8_t), FTP_SOCKET_TIMEOUT);
+			if(event != FTP_QUEUE_DATA_TX_DONE){
+				goto error;
+			}
 			LLOGD("ftp APPE ok");
-
 			network_close(ftp_ctrl->data_netc, 0);
-
 			ret = luat_ftp_cmd_recv(ftp_ctrl,ftp_ctrl->cmd_recv_data,&ftp_ctrl->cmd_recv_len,FTP_SOCKET_TIMEOUT);
 			if (ret){
 				goto error;

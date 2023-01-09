@@ -51,22 +51,22 @@ static int romfs_find(luat_romfs_ctx* fs, const char* filename, romfs_file_t *fi
         {
             if (strcmp(file->name, filename) == 0)
             {
-                // LLOGD("found %s", file->name);
+                // LLOGD("found %s %08X %08X", file->name, toInt32(file->size), toInt32(file->next_offset));
                 return offset;
             }
         }
         if ((toInt32(file->next_offset) & 0xFFFFFFF0) == 0)
             break;
         // LLOGD("file->next_offset %08X", toInt32(file->next_offset));
-        // LLOGD("head offset %08X", offset);
         offset = sizeof(romfs_head_t) + (toInt32(file->next_offset) & 0xFFFFFFF0);
         // LLOGD("Next offset %08X", offset);
         ret = fs->read(fs->userdata, (char*)file, offset, sizeof(romfs_file_t));
         if (ret < 0) {
-            LLOGD("romfs ERROR fexist %d", ret);
+            LLOGD("romfs ERROR find %d", ret);
             return -1;
         }
     }
+    LLOGD("NOT found %s", filename);
     return 0;
 }
 
@@ -77,7 +77,7 @@ FILE *luat_vfs_romfs_fopen(void *userdata, const char *filename, const char *mod
     size_t offset = 0;
     luat_romfs_ctx* fs = (luat_romfs_ctx*)userdata;
     romfs_file_t tfile = {0};
-    if (strcmp("r", mode) && strcmp("rb", mode))
+    if (memcmp("r", mode, 1))
     {
         return NULL; // romfs 是只读文件系统
     }

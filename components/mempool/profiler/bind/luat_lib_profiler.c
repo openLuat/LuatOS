@@ -2,18 +2,22 @@
 #include "luat_malloc.h"
 #include "luat_malloc.h"
 #include "luat_timer.h"
+#include "luat_profiler.h"
 
 static int l_profiler_start(lua_State *L) {
+    (void)L;
     luat_profiler_start();
     return 0;
 }
 
 static int l_profiler_stop(lua_State *L) {
+    (void)L;
     luat_profiler_stop();
     return 0;
 }
 
 static int l_profiler_print(lua_State *L) {
+    (void)L;
     luat_profiler_print();
     return 0;
 }

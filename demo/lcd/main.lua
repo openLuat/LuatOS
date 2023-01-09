@@ -18,16 +18,16 @@ if mcu then
 end
 
 --[[
--- LCD接法示例, 以Air780E开发板为例
-LCD管脚       Air780E管脚
-GND          GND
-VCC          3.3V
-SCL          (GPIO11)
-SDA          (GPIO9)
-RES          (GPIO1)
-DC           (GPIO10)
-CS           (GPIO8)
-BL           (GPIO22)
+-- LCD接法示例
+LCD管脚       Air780E管脚    Air101/Air103管脚   Air105管脚         
+GND          GND            GND                 GND                 
+VCC          3.3V           3.3V                3.3V                
+SCL          (GPIO11)       (PB02/SPI0_SCK)     (PC15/HSPI_SCK)     
+SDA          (GPIO9)        (PB05/SPI0_MOSI)    (PC13/HSPI_MOSI)    
+RES          (GPIO1)        (PB03/GPIO19)       (PC12/HSPI_MISO)    
+DC           (GPIO10)       (PB01/GPIO17)       (PE08)              
+CS           (GPIO8)        (PB04/GPIO20)       (PC14/HSPI_CS)      
+BL           (GPIO22)       (PB00/GPIO16)       (PE09)              
 
 
 提示:
@@ -43,27 +43,51 @@ if wdt then
     sys.timerLoopStart(wdt.feed, 3000)--3s喂一次狗
 end
 
+local rtos_bsp = rtos.bsp()
+
+-- spi_id,pin_reset,pin_dc,pin_cs,bl
+function lcd_pin()     
+    if rtos_bsp == "AIR101" then
+        return 0,pin.PB03,pin.PB01,pin.PB04,pin.PB00
+    elseif rtos_bsp == "AIR103" then
+        return 0,pin.PB03,pin.PB01,pin.PB04,pin.PB00
+    elseif rtos_bsp == "AIR105" then
+        return 5,pin.PC12,pin.PE08,pin.PC14,pin.PE09
+    elseif rtos_bsp == "ESP32C3" then
+        return 2,10,9,7,11
+    elseif rtos_bsp == "ESP32S3" then
+        return 2,16,15,14,13
+    elseif rtos_bsp == "EC618" then
+        return 0,1,10,8,18
+    else
+        log.info("main", "bsp not support")
+        return
+    end
+end
+
+local spi_id,pin_reset,pin_dc,pin_cs,bl = lcd_pin() 
+
 -- v0006及以后版本可用pin方式, 请升级到最新固件 https://gitee.com/openLuat/LuatOS/releases
-spi_lcd = spi.deviceSetup(0,8,0,0,8,20*1000*1000,spi.MSB,1,1)
+spi_lcd = spi.deviceSetup(spi_id,pin_cs,0,0,8,20*1000*1000,spi.MSB,1,0)
 
 --[[ 此为合宙售卖的2.4寸TFT LCD 分辨率:240X320 屏幕ic:GC9306 购买地址:https://item.taobao.com/item.htm?spm=a1z10.5-c.w4002-24045920841.39.6c2275a1Pa8F9o&id=655959696358]]
--- lcd.init("gc9a01",{port = "device",pin_dc = 10, pin_pwr = 22, pin_rst = 1,direction = 0,w = 240,h = 320,xoffset = 0,yoffset = 0},spi_lcd)
+-- lcd.init("gc9a01",{port = "device",pin_dc = pin_dc, pin_pwr = bl, pin_rst = pin_reset,direction = 0,w = 240,h = 320,xoffset = 0,yoffset = 0},spi_lcd)
 
 --[[ 此为合宙售卖的1.8寸TFT LCD LCD 分辨率:128X160 屏幕ic:st7735 购买地址:https://item.taobao.com/item.htm?spm=a1z10.5-c.w4002-24045920841.19.6c2275a1Pa8F9o&id=560176729178]]
---lcd.init("st7735",{port = "device",pin_dc = 10, pin_pwr = 22, pin_rst = 1,direction = 0,w = 128,h = 160,xoffset = 0,yoffset = 0},spi_lcd)
+--lcd.init("st7735",{port = "device",pin_dc = pin_dc, pin_pwr = bl, pin_rst = pin_reset,direction = 0,w = 128,h = 160,xoffset = 0,yoffset = 0},spi_lcd)
 
 --[[ 此为合宙售卖的1.54寸TFT LCD LCD 分辨率:240X240 屏幕ic:st7789 购买地址:https://item.taobao.com/item.htm?spm=a1z10.5-c.w4002-24045920841.20.391445d5Ql4uJl&id=659456700222]]
--- lcd.init("st7789",{port = "device",pin_dc = 10, pin_pwr = 22, pin_rst = 1,direction = 0,w = 240,h = 240,xoffset = 0,yoffset = 0},spi_lcd)
+-- lcd.init("st7789",{port = "device",pin_dc = pin_dc, pin_pwr = bl, pin_rst = pin_reset,direction = 0,w = 240,h = 240,xoffset = 0,yoffset = 0},spi_lcd)
 
 --[[ 此为合宙售卖的0.96寸TFT LCD LCD 分辨率:160X80 屏幕ic:st7735s 购买地址:https://item.taobao.com/item.htm?id=661054472686]]
---lcd.init("st7735v",{port = "device",pin_dc = 10, pin_pwr = 22, pin_rst = 1,direction = 1,w = 160,h = 80,xoffset = 0,yoffset = 24},spi_lcd)
+--lcd.init("st7735v",{port = "device",pin_dc = pin_dc, pin_pwr = bl, pin_rst = pin_reset,direction = 1,w = 160,h = 80,xoffset = 0,yoffset = 24},spi_lcd)
 --如果显示颜色相反，请解开下面一行的注释，关闭反色
 --lcd.invoff()
 --如果显示依旧不正常，可以尝试老版本的板子的驱动
---lcd.init("st7735s",{port = "device",pin_dc = 10, pin_pwr = 22, pin_rst = 1,direction = 2,w = 160,h = 80,xoffset = 0,yoffset = 0},spi_lcd)
+--lcd.init("st7735s",{port = "device",pin_dc = pin_dc, pin_pwr = bl, pin_rst = pin_reset,direction = 2,w = 160,h = 80,xoffset = 0,yoffset = 0},spi_lcd)
 
 --[[ 此为合宙售卖的2.4寸TFT LCD 分辨率:240X320 屏幕ic:GC9306 购买地址:https://item.taobao.com/item.htm?spm=a1z10.5-c.w4002-24045920841.39.6c2275a1Pa8F9o&id=655959696358]]
-lcd.init("gc9306",{port = "device",pin_dc = 10 , pin_pwr = 22,pin_rst = 1,direction = 0,w = 240,h = 320,xoffset = 0,yoffset = 0},spi_lcd)
+lcd.init("gc9306",{port = "device",pin_dc = pin_dc , pin_pwr = bl,pin_rst = pin_reset,direction = 0,w = 240,h = 320,xoffset = 0,yoffset = 0},spi_lcd)
 
 -- 不在上述内置驱动的, 看demo/lcd_custom
 

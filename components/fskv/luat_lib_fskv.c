@@ -20,6 +20,9 @@ fskv与fdb的实现机制导致的差异
                     fskv          fdb
 1. value长度        4096           255
 2. key长度          63             64
+3. 空间利用率(对比)  较低            较高
+4. 读取速度         恒定           脏数据影响速度,非恒定
+5. 写入数据         恒定           脏数据影响速度,非恒定
 ]]
 */
 
@@ -82,7 +85,7 @@ static int l_fskvdb_init(lua_State *L) {
 设置一对kv数据
 @api fskv.kv_set(key, value)
 @string key的名称,必填,不能空字符串
-@string 用户数据,必填,不能nil, 支持字符串/数值/table/布尔值, 数据长度最大255字节
+@string 用户数据,必填,不能nil, 支持字符串/数值/table/布尔值, 数据长度最大4096字节
 @return boolean 成功返回true,否则返回false
 @return number 第二个为返回为flashdb的fdb_kv_set_blob返回详细状态,0：无错误 1:擦除错误 2:读错误 3:些错误 4:未找到 5:kv名字错误 6:kv名字存在 7:已保存 8:初始化错误
 @usage

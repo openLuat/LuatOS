@@ -1,3 +1,11 @@
+/*
+@module  ftp
+@summary ftp 客户端
+@version 1.0
+@date    2022.09.05
+@demo    socket
+@tag LUAT_USE_FTP
+*/
 
 #include "luat_base.h"
 
@@ -12,7 +20,7 @@
 #define LUAT_LOG_TAG "ftp"
 #include "luat_log.h"
 
-#define FTP_DEBUG 0
+#define FTP_DEBUG 1
 #if FTP_DEBUG == 0
 #undef LLOGD
 #define LLOGD(...)
@@ -466,11 +474,9 @@ FTP客户端
 @string username 用户名
 @string password 密码
 @bool/table  是否为ssl加密连接,默认不加密,true为无证书最简单的加密，table为有证书的加密 <br>server_cert 服务器ca证书数据 <br>client_cert 客户端ca证书数据 <br>client_key 客户端私钥加密数据 <br>client_password 客户端私钥口令数据
-@return int code
-@return tabal headers
-@return string body
+@return bool/string 成功返回true 失败返回string
 @usage
-ftp_login = ftp.login(ip_addr,port)
+ftp_login = ftp.login(nil,"xxx")
 */
 static int l_ftp_login(lua_State *L) {
 	size_t server_cert_len,client_cert_len, client_key_len, client_password_len,addr_len,username_len,password_len;
@@ -625,6 +631,15 @@ error:
 	return 0;
 }
 
+/*
+FTP客户端
+@api ftp.pull(local_name,remote_name)
+@string local_name 本地文件
+@string remote_name 服务器文件
+@return bool/string 成功返回true 失败返回string
+@usage
+ftp.pull("/1222.txt","/1222.txt").wait()
+*/
 static int l_ftp_pull(lua_State *L) {
 	size_t len;
 	ftp_ctrl->idp = luat_pushcwait(L);
@@ -656,6 +671,15 @@ error:
 	return 0;
 }
 
+/*
+FTP客户端
+@api ftp.push(local_name,remote_name)
+@string local_name 本地文件
+@string remote_name 服务器文件
+@return bool/string 成功返回true 失败返回string
+@usage
+ftp.push("/1222.txt","/1222.txt").wait()
+*/
 static int l_ftp_push(lua_State *L) {
 	size_t len;
 	ftp_ctrl->idp = luat_pushcwait(L);
@@ -686,6 +710,13 @@ error:
 	return 0;
 }
 
+/*
+FTP客户端
+@api ftp.close()
+@return bool/string 成功返回true 失败返回string
+@usage
+ftp.close().wait()
+*/
 static int l_ftp_close(lua_State *L) {
 	ftp_ctrl->idp = luat_pushcwait(L);
 	if (!ftp_ctrl){

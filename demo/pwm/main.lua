@@ -23,7 +23,11 @@ elseif rtos.bsp():startsWith("ESP32") then
     -- 注意, ESP32系列的PWM, PWM通道均与GPIO号相同
     -- 例如需要用GPIO1输出PWM, 对应的PWM通道就是1
     -- 需要用GPIO16输出PWM, 对应的PWM通道就是16
-    PWM_ID = 12 -- GPIO 12
+    if rtos.bsp() == "ESP32C3" then
+        PWM_ID = 12 -- GPIO 12
+    elseif rtos.bsp() == "ESP32S3" then
+        PWM_ID = 11 -- GPIO 11
+    end
 elseif rtos.bsp() == "AIR105" then
     PWM_ID = 1 -- GPIO 17
 end

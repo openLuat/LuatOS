@@ -15,8 +15,8 @@ for bsp in bsp_header_list:
     res = ""
     #有时候获取不到完整的数据，看看啥原因，后需要改 todo
     while len(res) < 200:
-        print(res)
         res = requests.get(bsp["url"]).text
+        print(res)
     bsp["url"] = res
     print("done "+ str(len(bsp["url"])) + " bytes")
 

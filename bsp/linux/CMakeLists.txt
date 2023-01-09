@@ -64,7 +64,6 @@ add_library(luat ${PORT_SRCS} ${LUA_SRCS} ${CJSON_SRCS} ${TOPROOT}/luat/modules/
                  ${TOPROOT}/luat/vfs/luat_fs_posix.c
                  ${TOPROOT}/luat/vfs/luat_fs_lfs2.c
                  ${TOPROOT}/luat/vfs/luat_fs_inline.c
-                 ${TOPROOT}/luat/vfs/luat_fs_romfs.c
                  ${TOPROOT}/luat/vfs/luat_inline_libs_64bit_size32.c
                  ${TOPROOT}/luat/vfs/luat_inline_libs_64bit_size64.c
                  ${TOPROOT}/luat/vfs/luat_luadb_mock.c

@@ -31,6 +31,8 @@ function eink_pin()
         return 5,pin.PC12,pin.PE08,pin.PC14,pin.PE09
     elseif rtos_bsp == "ESP32C3" then
         return 2,10,9,7,11
+    elseif rtos_bsp == "ESP32S3" then
+        return 2,16,15,14,13
     elseif rtos_bsp == "EC618" then
         return 0,1,10,8,18
     else
@@ -66,7 +68,7 @@ end)
 --     local spi_id,pin_reset,pin_dc,pin_cs,pin_busy,mode = eink_pin() 
 --     if spi_id then
 --         eink.async(1)
---         spi_eink = spi.deviceSetup(spi_id,pin_cs,0,0,8,20*1000*1000,spi.MSB,1,1)
+--         spi_eink = spi.deviceSetup(spi_id,pin_cs,0,0,8,20*1000*1000,spi.MSB,1,0)
 --         eink.init(eink.MODEL_1in54,
 --                 {port = "device",pin_dc = pin_dc, pin_busy = pin_busy,pin_rst = pin_reset},
 --                 spi_eink)

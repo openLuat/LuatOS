@@ -81,7 +81,7 @@ int luat_fskv_stat(size_t *using_sz, size_t *total, size_t *kv_count) {
     return 0;
 }
 
-int luat_fskv_size(const char* key, uint8_t buff[4]) {
+int luat_fskv_size(const char* key, char buff[4]) {
     lfs_file_t fd = {0};
     int ret = 0;
     ret = lfs_file_open(&sfd_lfs->lfs, &fd, key, LFS_O_RDONLY);

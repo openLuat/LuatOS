@@ -164,6 +164,12 @@ static int l_audio_play(lua_State *L) {
     if (lua_istable(L, 2))
     {
     	size_t len = lua_rawlen(L, 2); //返回数组的长度
+    	if (!len)
+    	{
+        	luat_audio_play_stop(multimedia_id);
+        	lua_pushboolean(L, 1);
+        	return 1;
+    	}
         uData_t *info = (uData_t *)luat_heap_malloc(len * sizeof(uData_t));
         for (size_t i = 0; i < len; i++)
         {

@@ -286,9 +286,8 @@ LUAT_WEAK luat_camera_video(int id, int w, int h, uint8_t uart_id) {
 
 /**
 camera拍照
-@api camera.capture(id, y_diff, save_path, quality)
+@api camera.capture(id, save_path, quality)
 @int camera id,例如0
-@int y_diff,Y分量校准量，0~255，越大越亮，根据实际情况修改，GC032A测试下来需要填0
 @string save_path,文件保存路径，空则写在上次路径里，默认是/capture.jpg
 @int quality, jpeg压缩质量，1最差，占用空间小，3最高，占用空间最大而且费时间，默认1
 @return boolean 成功返回true,否则返回false

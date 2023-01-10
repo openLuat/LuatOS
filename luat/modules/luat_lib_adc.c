@@ -135,9 +135,9 @@ static const rotable_Reg_t reg_adc[] =
     //@const CH_VBAT number VBAT供电电压的通道id
     { "CH_VBAT",         ROREG_INT(LUAT_ADC_CH_VBAT)},
 
-    //@const T1 number ADC1
+    //@const T1 number ADC1 (如存在多个adc可利用此常量使用多ADC 例如 adc.open(ADC1+2) 打开ADC1 channel 2)
     { "T1",             ROREG_INT(16)},
-    //@const T2 number ADC2
+    //@const T2 number ADC2 (如存在多个adc可利用此常量使用多ADC 例如 adc.open(ADC2+3) 打开ADC2 channel 3)
     { "T2",             ROREG_INT(32)},
 	{ NULL,              ROREG_INT(0) }
 };

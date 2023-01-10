@@ -1,8 +1,0 @@
-{
-    "type" : "lua",
-    "enterpoint" : "sys.lua",
-    "compatibility" : {
-        "soc" : true
-    },
-    "dependency" : []
-}

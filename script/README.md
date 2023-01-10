@@ -5,8 +5,8 @@
 |目录名称|目录内容|着重点|典型示例|
 |--------|-------|----|---------|
 |[libs](libs)|外部库合集|外设驱动或控制|将外设驱动做成标准化的库|[ADS1115](libs/peripheral/ADS1115)|
-|[demo](../demo) |内置库的实例|单一库API用法|[GPIO控制](../demo/gpio)|
 |[turnkey](turnkey)|准项目级方案|真实项目的演示|[扫码枪turnkey](turnkey/scanner_air105/)|
+|[corelib](corelib)|核心库|系统核心库|已内置在固件内|基本固件,不做修改|
 
 ## demo 简述
 

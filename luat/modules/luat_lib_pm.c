@@ -160,6 +160,7 @@ static int l_pm_dtimer_wakeup_id(lua_State *L) {
 @api pm.lastReson()
 @return int 0-上电/复位开机, 1-RTC开机, 2-WakeupIn/Pad/IO开机, 3-Wakeup/RTC开机
 @return int 0-普通开机(上电/复位),3-深睡眠开机,4-休眠开机，3和4说明程序已经复位了
+@return int 复位开机详细原因：0-powerkey或者上电开机 1-充电或者AT指令下载完成后开机 2-闹钟开机 3-软件重启 4-未知原因 5-RESET键 6-异常重启 7-工具控制重启 8-内部看门狗重启 9-外部重启 10-充电开机
 @usage
 -- 是哪种方式开机呢
 log.info("pm", "last power reson", pm.lastReson())
@@ -170,7 +171,8 @@ static int l_pm_last_reson(lua_State *L) {
     luat_pm_last_state(&lastState, &rtcOrPad);
     lua_pushinteger(L, rtcOrPad);
     lua_pushinteger(L, lastState);
-    return 2;
+    lua_pushinteger(L, luat_pm_get_poweron_reason());
+    return 3;
 }
 
 /**

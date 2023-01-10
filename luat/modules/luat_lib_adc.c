@@ -134,6 +134,11 @@ static const rotable_Reg_t reg_adc[] =
     { "CH_CPU",          ROREG_INT(LUAT_ADC_CH_CPU)},
     //@const CH_VBAT number VBAT供电电压的通道id
     { "CH_VBAT",         ROREG_INT(LUAT_ADC_CH_VBAT)},
+
+    //@const T1 number ADC1
+    { "T1",             ROREG_INT(16)},
+    //@const T2 number ADC2
+    { "T2",             ROREG_INT(32)},
 	{ NULL,              ROREG_INT(0) }
 };
 

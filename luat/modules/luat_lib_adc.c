@@ -131,9 +131,9 @@ static const rotable_Reg_t reg_adc[] =
 	{ "ADC_RANGE_1_8",   ROREG_INT(0)},
 
     //@const CH_CPU number CPU内部温度的通道id
-    { "CH_CPU",          ROREG_INT(10)},
+    { "CH_CPU",          ROREG_INT(LUAT_ADC_CH_CPU)},
     //@const CH_VBAT number VBAT供电电压的通道id
-    { "CH_VBAT",         ROREG_INT(11)},
+    { "CH_VBAT",         ROREG_INT(LUAT_ADC_CH_VBAT)},
 	{ NULL,              ROREG_INT(0) }
 };
 

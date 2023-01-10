@@ -8,6 +8,9 @@
 
 #include "luat_base.h"
 
+#define LUAT_ADC_CH_CPU		(-1)
+#define LUAT_ADC_CH_VBAT	(-2)
+
 typedef enum
 {
 	ADC_SET_GLOBAL_RANGE = 0x80,

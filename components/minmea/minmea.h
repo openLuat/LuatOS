@@ -281,6 +281,24 @@ static inline float minmea_tocoord(const struct minmea_float *f)
 }
 
 /**
+ * Convert a raw coordinate to a floating point DD.DDD... value.
+ * Returns NaN for "unknown" values.
+ */
+static inline uint32_t minmea_tocoord2(const struct minmea_float *f)
+{
+    if (f->scale == 0)
+        return 0;
+    if (f->scale  > (INT_LEAST32_MAX / 100))
+        return 0;
+    if (f->scale < (INT_LEAST32_MIN / 100))
+        return 0;
+    int_least32_t degrees = f->value / (f->scale * 100);
+    int_least32_t minutes = f->value % (f->scale * 100);
+    uint32_t ret = degrees * 10000000 + (uint32_t)(((float) minutes / (60 * f->scale)) * 10000000);
+    return ret;
+}
+
+/**
  * Check whether a character belongs to the set of characters allowed in a
  * sentence data field.
  */

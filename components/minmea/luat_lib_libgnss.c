@@ -64,12 +64,13 @@ static inline void push_gnss_value(lua_State *L, struct minmea_float *f, int mod
         lua_pushinteger(L, minmea_tofloat(f));
         break;
     case 1:
-        lua_pushinteger(L, f->value);
+        lua_pushinteger(L, minmea_tocoord2(f));
         break;
     case 2:
         lua_pushnumber(L, minmea_tocoord(f));
         break;
     default:
+        lua_pushnumber(L, minmea_tocoord(f));
         break;
     }
 }

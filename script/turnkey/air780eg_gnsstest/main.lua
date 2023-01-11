@@ -1,6 +1,6 @@
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "gnss"
-VERSION = "1.0.0"
+PROJECT = "gnsstest"
+VERSION = "1.0.1"
 
 --[[
 本demo需要很多流量!!!
@@ -94,11 +94,9 @@ sys.timerLoopStart(upload_stat, 60 * 1000)
 
 sys.taskInit(function()
     -- Air780EG默认波特率是115200
+    local nmea_topic = "/gnss/" .. mobile.imei() .. "/up/nmea"
     log.info("GPS", "start")
     pm.power(pm.GPS, true)
-    -- 绑定uart,底层自动处理GNSS数据
-    libgnss.bind(gps_uart_id)
-    local nmea_topic = "/gnss/" .. mobile.imei() .. "/up/nmea"
     libgnss.on("raw", function(data)
         sys.publish("uplink", nmea_topic, data, 1)
     end)
@@ -117,6 +115,10 @@ sys.taskInit(function()
     sys.wait(20)
     -- 定位成功后,使用GNSS时间设置RTC, 暂不可用
     -- libgnss.rtcAuto(true)
+    
+    -- 绑定uart,底层自动处理GNSS数据
+    -- 这里延后到设置命令发送完成后才开始处理数据,之前的数据就不上传了
+    libgnss.bind(gps_uart_id)
     exec_agnss()
 end)
 

@@ -240,7 +240,7 @@ static void LoadCode (LoadState *S, Proto *f) {
   #if LUAT_UNDUMP_DEBUG
 //  LLOGD("try mmap %p %p %p", S, S->Z, S->Z->data);
   #endif
-  char* ptr = (char*)luat_vfs_mmap(((LoadF*)S->Z->data)->f);
+  char* ptr = (char*)luat_fs_mmap(((LoadF*)S->Z->data)->f);
   Instruction inst[1];
   if (ptr) {
     f->code = ptr + ptr_offset;
@@ -341,7 +341,7 @@ static void LoadDebug (LoadState *S, Proto *f) {
   int i, n;
   n = LoadInt(S);
 #ifdef LUAT_USE_MEMORY_OPTIMIZATION_CODE_MMAP
-  uint8_t* ptr = (uint8_t*)luat_vfs_mmap(((LoadF*)S->Z->data)->f);
+  uint8_t* ptr = (uint8_t*)luat_fs_mmap(((LoadF*)S->Z->data)->f);
   int inst[1];
   if (ptr) {
 	  f->lineinfo = (int*)(ptr + ptr_offset);

@@ -331,15 +331,12 @@ int luat_fs_lsdir(char const* _DirName, luat_fs_dirent_t* ents, size_t offset, s
     return mount->fs->opts.lsdir(mount->userdata,  _DirName + strlen(mount->prefix), ents, offset, len);
 }
 
-extern const struct luat_vfs_filesystem vfs_fs_luadb;
-const char* luat_vfs_luadb_mmap(void* userdata, int fd);
-
-const char* luat_vfs_mmap(FILE* stream) {
+void* luat_fs_mmap(FILE* stream) {
     luat_vfs_fd_t* fd = getfd(stream);
     if (fd == NULL)
         return NULL;
-    if (fd->fsMount->fs == &vfs_fs_luadb) {
-        return luat_vfs_luadb_mmap(fd->fsMount->userdata, (int)fd->fd);
+    if (fd->fsMount->fs->fopts.mmap != NULL) {
+        return fd->fsMount->fs->fopts.mmap(fd->fsMount->userdata, (int)fd->fd);
     }
     return NULL;
 }

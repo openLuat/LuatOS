@@ -50,6 +50,7 @@ int luat_fs_rename(const char *old_filename, const char *new_filename);
 size_t luat_fs_fsize(const char *filename);
 int luat_fs_fexist(const char *filename);
 int luat_fs_readline(char * buf, int bufsize, FILE * stream);
+void* luat_fs_mmap(FILE * stream);
 
 // TODO 文件夹相关的API
 //int luat_fs_diropen(char const* _FileName);
@@ -90,6 +91,7 @@ struct luat_vfs_file_opts {
     int (*ferror)(void* fsdata, FILE *stream);
     size_t (*fread)(void* fsdata, void *ptr, size_t size, size_t nmemb, FILE *stream);
     size_t (*fwrite)(void* fsdata, const void *ptr, size_t size, size_t nmemb, FILE *stream);
+    void* (*mmap)(void* fsdata, FILE *stream);
 };
 
 struct luat_vfs_filesystem_opts {

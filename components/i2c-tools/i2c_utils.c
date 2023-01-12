@@ -57,9 +57,9 @@ void i2c_scan(void){
         for(unsigned char j=0; j<16; j++){
             char addr = i*16+j;
             if( i2c_probe(addr) == 1){
-                sprintf_(buff + 3 + j*2, "%02X ", addr);
+                sprintf_(buff + 4 + j*3, "%02X ", addr);
             }else{
-                sprintf_(buff + 3 + j*2, "-- ");
+                sprintf_(buff + 4 + j*3, "-- ");
             }
         }
         LLOGD("%s", buff);

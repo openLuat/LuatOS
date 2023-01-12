@@ -100,7 +100,7 @@ static int l_fonts_u8g2_load(lua_State *L) {
     }
 #ifdef LUAT_USE_FS_VFS
   //LLOGD("try mmap");
-  ptr = (char*)luat_vfs_mmap(fd);
+  ptr = (char*)luat_fs_mmap(fd);
   if (ptr != NULL) {
     LLOGD("load by mmap %s %p", path, ptr);
     lua_pushlightuserdata(L, ptr);

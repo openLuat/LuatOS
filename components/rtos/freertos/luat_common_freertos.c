@@ -11,9 +11,13 @@
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
 
+#define LUAT_LOG_TAG "rtos"
+#include "luat_log.h"
+
+
 typedef struct
 {
-	StaticTask_t TCB;
+	TaskHandle_t handle;
 	QueueHandle_t queue;
 	uint8_t is_run;
 }task_handle_t;
@@ -34,18 +38,19 @@ uint64_t GetSysTickMS(void)
 
 void *create_event_task(TaskFun_t task_fun, void *param, uint32_t stack_bytes, uint8_t priority, uint16_t event_max_cnt, const char *task_name)
 {
+	priority = configMAX_PRIORITIES * priority / 100;
+	if (!priority) priority = 2;
+	if (priority >= configMAX_PRIORITIES) priority -= 1;
 	stack_bytes = (stack_bytes + 3) >> 2;
-	uint32_t *stack_mem = luat_heap_malloc(stack_bytes * 4);
-	task_handle_t *handle = luat_heap_calloc(1, sizeof(task_handle_t));
-	priority = (priority * (23)) / 100 + 8;
+
+	task_handle_t *handle = luat_heap_zalloc(sizeof(task_handle_t));
 
 	if (event_max_cnt)
 	{
-		handle->queue = xQueueGenericCreate(event_max_cnt, sizeof(OS_EVENT), 0);
+		handle->queue = xQueueCreate(event_max_cnt, sizeof(OS_EVENT));
 		if (!handle->queue)
 		{
 			luat_heap_free(handle);
-			luat_heap_free(stack_mem);
 			return NULL;
 		}
 	}
@@ -54,14 +59,13 @@ void *create_event_task(TaskFun_t task_fun, void *param, uint32_t stack_bytes, u
 		handle->queue = NULL;
 	}
 
-	if (!xTaskCreateStatic(task_fun, task_name, stack_bytes, param, priority, stack_mem, &handle->TCB))
+	if (xTaskCreate(task_fun, task_name, stack_bytes * 4, param, priority, &handle->handle))
 	{
-		vQueueDelete(handle->queue);
+		if (handle->queue)
+			vQueueDelete(handle->queue);
 		luat_heap_free(handle);
-		luat_heap_free(stack_mem);
 		return NULL;
 	}
-	handle->TCB.uxDummy20 = 0;
 
 	handle->is_run = 1;
 	return handle;
@@ -79,7 +83,7 @@ void delete_event_task(void *task_handle)
 	handle->queue = NULL;
 	handle->is_run = 0;
 	luat_rtos_exit_critical(cr);
-	vTaskDelete(&handle->TCB);
+	vTaskDelete(handle->handle);
 }
 
 int send_event_to_task(void *task_handle, OS_EVENT *event, uint32_t event_id, uint32_t param1, uint32_t param2, uint32_t param3, uint32_t timeout_ms)

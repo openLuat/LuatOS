@@ -129,6 +129,11 @@ int luat_rtos_event_send(luat_rtos_task_handle task_handle, uint32_t id, uint32_
 	return send_event_to_task(task_handle, NULL, id, param1, param2, param3, timeout);
 }
 
+int luat_rtos_event_recv(luat_rtos_task_handle task_handle, uint32_t wait_event_id, luat_event_t *out_event, luat_rtos_event_wait_callback_t *callback_fun, uint32_t timeout){
+	if (!task_handle) return -1;
+	return get_event_from_task(task_handle, wait_event_id, (void *)out_event, callback_fun, timeout);
+}
+
 int luat_send_event_to_task(void *task_handle, uint32_t id, uint32_t param1, uint32_t param2, uint32_t param3)
 {
 	if (!task_handle) return -1;

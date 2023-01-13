@@ -15,6 +15,7 @@ enum
 	LUAT_PM_POWER_USB,
 	LUAT_PM_POWER_GPS,
 	LUAT_PM_POWER_GPS_ANT,
+	LUAT_PM_POWER_DAC_EN_PIN,
 };
 
 int luat_pm_request(int mode);

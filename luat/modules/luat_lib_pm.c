@@ -298,7 +298,8 @@ static const rotable_Reg_t reg_pm[] =
     { "GPS",            ROREG_INT(LUAT_PM_POWER_GPS)},
     //@const GPS_ANT number GPS的天线电源，有源天线才需要
     { "GPS_ANT",        ROREG_INT(LUAT_PM_POWER_GPS_ANT)},
-
+    //@const DAC_EN number Air780E和Air600E的DAC_EN，注意audio的默认配置会自动使用这个脚来控制CODEC的使能
+    { "DAC_EN",        ROREG_INT(LUAT_PM_POWER_DAC_EN_PIN)},
 	{ NULL,             ROREG_INT(0) }
 };
 

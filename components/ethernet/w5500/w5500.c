@@ -1788,7 +1788,7 @@ static void w5500_task(void *param)
 	}
 }
 
-int w5500_set_static_ip(uint32_t ipv4, uint32_t submask, uint32_t gateway)
+void w5500_set_static_ip(uint32_t ipv4, uint32_t submask, uint32_t gateway)
 {
 	if (prv_w5500_ctrl)
 	{

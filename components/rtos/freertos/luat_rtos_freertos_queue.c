@@ -6,16 +6,14 @@
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
 
+#define LUAT_LOG_TAG "rtos"
+#include "luat_log.h"
 
 int luat_rtos_queue_create(luat_rtos_queue_t *queue_handle, uint32_t item_count, uint32_t item_size)
 {
 	if (!queue_handle) return -1;
-	QueueHandle_t pxNewQueue;
-	pxNewQueue = xQueueCreate(item_count, item_size);
-	if (!pxNewQueue)
-		return -1;
-	*queue_handle = pxNewQueue;
-	return 0;
+	*queue_handle  = xQueueCreate(item_count, item_size);
+	return (*queue_handle)?0:-1;
 }
 
 int luat_rtos_queue_delete(luat_rtos_queue_t queue_handle)
@@ -31,14 +29,14 @@ int luat_rtos_queue_send(luat_rtos_queue_t queue_handle, void *item, uint32_t it
 	if (xPortInIsrContext())
 	{
 		BaseType_t pxHigherPriorityTaskWoken;
-		if (xQueueSendToBackFromISR(queue_handle, item, &pxHigherPriorityTaskWoken) != pdPASS)
+		if (xQueueSendFromISR(queue_handle, item, &pxHigherPriorityTaskWoken) != pdPASS)
 			return -1;
 		portYIELD_FROM_ISR(pxHigherPriorityTaskWoken);
 		return 0;
 	}
 	else
 	{
-		if (xQueueSendToBack (queue_handle, item, timeout) != pdPASS)
+		if (xQueueSend(queue_handle, item, timeout) != pdPASS)
 			return -1;
 	}
 	return 0;

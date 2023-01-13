@@ -28,7 +28,7 @@ void i2c_help(void){
 
 uint8_t i2c_init(const uint8_t i2c_id){
     i2c_tools_id = i2c_id;
-    return (luat_i2c_setup(i2c_tools_id, 1));
+    return (luat_i2c_setup(i2c_tools_id, 0));
 }
 
 uint8_t i2c_probe(char addr){
@@ -50,7 +50,7 @@ uint8_t i2c_read(uint8_t addr, uint8_t reg, uint8_t* buffer, uint8_t len){
 }
 
 void i2c_scan(void){
-    LLOGD("     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f");
+    LLOGD("ID  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f");
     char buff[64] = {0};
     for(unsigned char i=0; i<8; i++){
         sprintf_(buff, "%d0: ", i);

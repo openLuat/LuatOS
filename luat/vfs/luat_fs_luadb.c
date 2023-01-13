@@ -493,6 +493,7 @@ const struct luat_vfs_filesystem vfs_fs_luadb = {
         T(feof),
         T(ferror),
         T(fread),
+        T(mmap),
         .fwrite = NULL
     }
 };

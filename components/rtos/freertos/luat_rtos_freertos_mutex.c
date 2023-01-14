@@ -42,3 +42,26 @@ int luat_rtos_mutex_delete(luat_rtos_mutex_t mutex_handle)
 	return 0;
 }
 
+void *luat_mutex_create(void){
+	return xSemaphoreCreateRecursiveMutex();
+}
+
+int luat_mutex_lock(void *mutex){
+	if (!mutex) return -1;
+	if (pdFALSE == xSemaphoreTakeRecursive(mutex, portMAX_DELAY))
+		return -1;
+	return 0;
+}
+
+int luat_mutex_unlock(void *mutex){
+	if (!mutex) return -1;
+	if (pdFALSE == xSemaphoreGiveRecursive(mutex))
+		return -1;
+	return 0;
+}
+
+void luat_mutex_release(void *mutex){
+	if (!mutex) return;
+	vSemaphoreDelete(mutex);
+}
+

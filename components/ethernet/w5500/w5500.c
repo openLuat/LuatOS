@@ -6,7 +6,10 @@
 #include "luat_zbuff.h"
 #include "luat_gpio.h"
 #include "w5500_def.h"
-
+#include "luat_crypto.h"
+#include "luat_mcu.h"
+#include "luat_timer.h"
+#include "luat_malloc.h"
 
 #include "luat_network_adapter.h"
 
@@ -689,6 +692,7 @@ static int32_t w5500_irq(int pin, void *args)
 	{
 		platform_send_event(w5500->task_handle, EV_W5500_LINK, 0, 0, 0);
 	}
+	return 0;
 }
 
 static void w5500_callback_to_nw_task(w5500_ctrl_t *w5500, uint32_t event_id, uint32_t param1, uint32_t param2, uint32_t param3)
@@ -718,7 +722,7 @@ static void w5500_xfer(w5500_ctrl_t *w5500, uint16_t address, uint8_t ctrl, uint
 		memcpy(w5500->tx_buf + 3, data, len);
 	}
 	luat_gpio_set(w5500->cs_pin, 0);
-	luat_spi_transfer(w5500->spi_id, w5500->tx_buf, len + 3, w5500->rx_buf, len + 3);
+	luat_spi_transfer(w5500->spi_id, (const char* )w5500->tx_buf, len + 3, (char*)w5500->rx_buf, len + 3);
 	luat_gpio_set(w5500->cs_pin, 1);
 	if (data && len)
 	{
@@ -793,8 +797,8 @@ static void w5500_socket_close(w5500_ctrl_t *w5500, uint8_t socket_id)
 
 static int w5500_socket_config(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t is_tcp, uint16_t local_port)
 {
-	uint8_t delay_cnt;
-	uint8_t temp;
+	uint8_t delay_cnt = 0;
+	uint8_t temp = 0;
 	temp = w5500_socket_state(w5500, socket_id);
 	if (!w5500->device_on) return -1;
 	if (SOCK_CLOSED != temp)
@@ -875,7 +879,7 @@ static int w5500_socket_connect(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t 
 		}
 
 	}
-W5500_SOCKET_CONNECT_START:
+// W5500_SOCKET_CONNECT_START:
 	if (temp != SOCK_UDP)
 	{
 		uint8_t temp = is_listen?Sn_CR_LISTEN:Sn_CR_CONNECT;
@@ -1788,7 +1792,7 @@ static void w5500_task(void *param)
 	}
 }
 
-int w5500_set_static_ip(uint32_t ipv4, uint32_t submask, uint32_t gateway)
+void w5500_set_static_ip(uint32_t ipv4, uint32_t submask, uint32_t gateway)
 {
 	if (prv_w5500_ctrl)
 	{
@@ -1863,7 +1867,7 @@ void w5500_init(luat_spi_t* spi, uint8_t irq_pin, uint8_t rst_pin, uint8_t link_
 
 
 		char rands[4];
-		platform_random(rands, 4);
+		luat_crypto_trng(rands, 4);
 
 		for(i = 0; i < MAX_SOCK_NUM; i++)
 		{

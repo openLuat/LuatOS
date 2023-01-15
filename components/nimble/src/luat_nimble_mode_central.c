@@ -22,7 +22,7 @@
 
 /* BLE */
 #include "nimble/nimble_port.h"
-#include "nimble/nimble_port_freertos.h"
+// #include "nimble/nimble_port_freertos.h"
 
 /* Heart-rate configuration */
 #define GATT_HRS_UUID                           0x180D

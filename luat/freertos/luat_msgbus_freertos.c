@@ -1,8 +1,13 @@
 #include "luat_base.h"
 #include "luat_msgbus.h"
 
+#if (defined(CONFIG_IDF_CMAKE))
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
+#else
 #include "FreeRTOS.h"
 #include "queue.h"
+#endif
 
 static QueueHandle_t xQueue = {0};
 

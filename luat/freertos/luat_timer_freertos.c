@@ -3,9 +3,16 @@
 #include "luat_malloc.h"
 #include "luat_timer.h"
 #include "luat_msgbus.h"
+
+#if (defined(CONFIG_IDF_CMAKE))
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/timers.h"
+#else
 #include "FreeRTOS.h"
 #include "task.h"
 #include "timers.h"
+#endif
 
 #define LUAT_LOG_TAG "timer"
 #include "luat_log.h"

@@ -33,10 +33,6 @@ ntpDemo()
 -- SerDemo(14000)	--14000是本地端口
 -- UDPSerDemo(14000)	--UDP的server demo
 
--- require "mqtt_demo"
--- mqttDemo()
--- require "http_demo"
--- httpDemo()
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()

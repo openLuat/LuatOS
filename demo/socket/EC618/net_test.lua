@@ -5,9 +5,6 @@
 -- dtuDemo(1, "112.125.89.8", 35009)
 -- require "ntp_demo"
 -- ntpDemo()
--- require "http_demo"
--- httpDemo()
--- require "mqtt_demo"
 require "async_socket_demo"
 socketDemo()
 -- UDPDemo()

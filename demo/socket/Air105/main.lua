@@ -23,9 +23,18 @@ w5500.bind(socket.ETH0)
 --下面演示用阻塞方式做串口透传远程服务器，简单的串口DTU，用串口3，局域网内IP，IP可以换成域名，端口换成你自己的
 -- require "dtu_demo"
 -- dtuDemo(3, "10.0.0.3", 12000)
+
 -- 下面演示用回调方式实现NTP校准时间功能
-require "ntp_demo"
-ntpDemo()
+socket.sntp()
+--socket.sntp("ntp.aliyun.com") --自定义sntp服务器地址
+--socket.sntp({"ntp.aliyun.com","ntp1.aliyun.com","ntp2.aliyun.com"}) --sntp自定义服务器地址
+sys.subscribe("NTP_UPDATE", function()
+    log.info("sntp", "time", os.date())
+end)
+sys.subscribe("NTP_ERROR", function()
+    log.info("socket", "sntp error")
+    socket.sntp()
+end)
 
 -- require "ota_demo"
 -- otaDemo()

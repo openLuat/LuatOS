@@ -77,15 +77,17 @@ static void aliyun_token(const char* product_key,const char* device_name,const c
     memcpy(macSrc + strlen(macSrc), timestamp_value, strlen(timestamp_value));
     if (!strcmp("hmacmd5", method)||!strcmp("HMACMD5", method)) {
         luat_crypto_hmac_md5_simple(macSrc, strlen(macSrc),device_secret, strlen(device_secret),  macRes);
+        str_tohex(macRes, 16, password,1);
     }else if (!strcmp("hmacsha1", method)||!strcmp("HMACSHA1", method)) {
         luat_crypto_hmac_sha1_simple(macSrc, strlen(macSrc),device_secret, strlen(device_secret),  macRes);
+        str_tohex(macRes, 20, password,1);
     }else if (!strcmp("hmacsha256", method)||!strcmp("HMACSHA256", method)) {
         luat_crypto_hmac_sha256_simple(macSrc, strlen(macSrc),device_secret, strlen(device_secret),  macRes);
+        str_tohex(macRes, 32, password,1);
     }else{
         LLOGE("not support: %s",method);
         return;
     }
-    str_tohex(macRes, strlen(macRes), password,1);
 }
 
 /*
@@ -251,7 +253,7 @@ static void iotda_token(const char* device_id,const char* device_secret,long lon
     }
     snprintf_(client_id, CLIENT_ID_LEN, "%s_0_%d_%s", device_id,ins_timestamp,timestamp);
     luat_crypto_hmac_sha256_simple(device_secret, strlen(device_secret),timestamp, strlen(timestamp), hmac);
-    str_tohex(hmac, strlen(hmac), password,0);
+    str_tohex(hmac, 32, password,0);
 }
 
 /*
@@ -414,16 +416,17 @@ static void baidu_token(const char* iot_core_id,const char* device_key,const cha
         sprintf_(username, "thingidp@%s|%s|%lld|%s",iot_core_id,device_key,cur_timestamp,"MD5");
         snprintf_(token_temp, 100, "%s&%lld&%s%s",device_key,cur_timestamp,"MD5",device_secret);
         luat_crypto_md5_simple(token_temp, strlen(token_temp),crypto);
+        str_tohex(crypto, 16, password,0);
     }else if (!strcmp("SHA256", method)||!strcmp("sha256", method)) {
         sprintf_(username, "thingidp@%s|%s|%lld|%s",iot_core_id,device_key,cur_timestamp,"SHA256");
         snprintf_(token_temp, 100, "%s&%lld&%s%s",device_key,cur_timestamp,"SHA256",device_secret);
         luat_crypto_sha256_simple(token_temp, strlen(token_temp),crypto);
+        str_tohex(crypto, 32, password,0);
     }else{
         LLOGE("not support: %s",method);
-        return;
     }
-    str_tohex(crypto, strlen(crypto), password,0);
     luat_heap_free(token_temp);
+    return;
 }
 
 /*

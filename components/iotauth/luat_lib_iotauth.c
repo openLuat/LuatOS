@@ -299,13 +299,13 @@ static void get_next_conn_id(char *conn_id){
 }
 
 static void qcloud_token(const char* product_id,const char* device_name,const char* device_secret,long long cur_timestamp,const char* method,const char* sdk_appid,char* username,char* password){
-    char  conn_id[MAX_CONN_ID_LEN] = {};
-    char username_sign[41] = {0};
-    char   psk_base64decode[DECODE_PSK_LENGTH];
+    char  conn_id[MAX_CONN_ID_LEN] = {0};
+    char  username_sign[41] = {0};
+    char  psk_base64decode[DECODE_PSK_LENGTH];
     size_t psk_base64decode_len = 0;
     luat_str_base64_decode((unsigned char *)psk_base64decode, DECODE_PSK_LENGTH, &psk_base64decode_len,(unsigned char *)device_secret, strlen(device_secret));
     get_next_conn_id(conn_id);
-    sprintf_(username, "%s%s;%s;%s;%lld", product_id, device_name, sdk_appid,conn_id, cur_timestamp);
+    snprintf_(username, USER_NAME_LEN,"%s%s;%s;%s;%lld", product_id, device_name, sdk_appid,conn_id, cur_timestamp);
     if (!strcmp("sha1", method)||!strcmp("SHA1", method)) {
         luat_crypto_hmac_sha1_simple(username, strlen(username),psk_base64decode, psk_base64decode_len, username_sign);
     }else if (!strcmp("sha256", method)||!strcmp("SHA256", method)) {
@@ -318,9 +318,9 @@ static void qcloud_token(const char* product_id,const char* device_name,const ch
     memset(username_sign_hex, 0, strlen(username_sign)*2+1);
     str_tohex(username_sign, strlen(username_sign), username_sign_hex,0);
     if (!strcmp("sha1", method)||!strcmp("SHA1", method)) {
-        sprintf_(password, "%s;hmacsha1", username_sign_hex);
+        snprintf_(password, PASSWORD_LEN,"%s;hmacsha1", username_sign_hex);
     }else if (!strcmp("sha256", method)||!strcmp("SHA256", method)) {
-        sprintf_(password, "%s;hmacsha256", username_sign_hex);
+        snprintf_(password, PASSWORD_LEN,"%s;hmacsha256", username_sign_hex);
     }
     luat_heap_free(username_sign_hex);
 }
@@ -332,7 +332,7 @@ static void qcloud_token(const char* product_id,const char* device_name,const ch
 @string device_name
 @string device_secret
 @string method 加密方式,"sha1" "sha256" 可选,默认"sha256"
-@number cur_timestamp 可选
+@number cur_timestamp 可选 默认为 32472115200(2999-01-01 0:0:0)
 @string sdk_appid 可选 默认为"12010126"
 @return string mqtt三元组 client_id
 @return string mqtt三元组 user_name
@@ -350,7 +350,7 @@ static int l_iotauth_qcloud(lua_State *L) {
     const char* device_name = luaL_checklstring(L, 2, &len);
     const char* device_secret = luaL_checklstring(L, 3, &len);
     const char* method = luaL_optlstring(L, 4, "sha256", &len);
-    long long cur_timestamp = luaL_optinteger(L, 5,time(NULL) + 3600);
+    long long cur_timestamp = luaL_optinteger(L, 5,32472115200);
     const char* sdk_appid = luaL_optlstring(L, 6, "12010126", &len);
     qcloud_token(product_id, device_name,device_secret,cur_timestamp,method,sdk_appid,user_name,password);
     snprintf_(client_id, CLIENT_ID_LEN,"%s%s", product_id,device_name);

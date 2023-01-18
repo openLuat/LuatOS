@@ -21,5 +21,6 @@ int luat_i2s_setup(luat_i2s_conf_t *conf);
 int luat_i2s_send(uint8_t id, char* buff, size_t len);
 int luat_i2s_recv(uint8_t id, char* buff, size_t len);
 int luat_i2s_close(uint8_t id);
+int32_t luat_i2s_rx_cb(void *pdata, void *param);
 
 #endif

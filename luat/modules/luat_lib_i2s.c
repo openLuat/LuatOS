@@ -9,9 +9,64 @@
 #include "luat_malloc.h"
 #include "luat_i2s.h"
 #include "luat_zbuff.h"
-
+#include "c_common.h"
 #define LUAT_LOG_TAG "i2s"
 #include "luat_log.h"
+#ifndef I2S_DEVICE_MAX_CNT
+#define I2S_DEVICE_MAX_CNT 2
+#endif
+static int i2s_cbs[I2S_DEVICE_MAX_CNT];
+static luat_zbuff_t *i2s_rx_buffer[I2S_DEVICE_MAX_CNT];
+
+
+int l_i2s_handler(lua_State *L, void* ptr) {
+    (void)ptr;
+    //LLOGD("l_uart_handler");
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    lua_pop(L, 1);
+    int i2s_id = msg->arg1;
+    lua_geti(L, LUA_REGISTRYINDEX, i2s_cbs[i2s_id]);
+    if (lua_isfunction(L, -1)) {
+        if (msg->arg2 == 0) {
+            //LLOGD("uart%ld sent callback", i2s_id);
+    		lua_pushnil(L);
+    		lua_call(L, 1, 0);
+        }
+        else {
+        	lua_pushlightuserdata(L, i2s_rx_buffer[i2s_id]);
+            lua_call(L, 1, 0);
+        }
+    }
+    // 给rtos.recv方法返回个空数据
+    lua_pushinteger(L, 0);
+    return 1;
+}
+
+int32_t luat_i2s_rx_cb(void *pdata, void *param)
+{
+	Buffer_Struct *buffer = (Buffer_Struct *)pdata;
+	int id = (int)param;
+	if (!i2s_rx_buffer[id] || !i2s_cbs[id])
+	{
+		return -1;
+	}
+	if (buffer && (buffer->Pos))
+	{
+		uint32_t len = (buffer->Pos > i2s_rx_buffer[id]->len)?i2s_rx_buffer[id]->len:buffer->Pos;
+		memcpy(i2s_rx_buffer[id]->addr, buffer->Data, len);
+		i2s_rx_buffer[id]->used = len;
+        rtos_msg_t msg;
+        msg.handler = l_i2s_handler;
+        msg.ptr = NULL;
+        msg.arg1 = id;
+        msg.arg2 = len;
+        int re = luat_msgbus_put(&msg, 0);
+		buffer->Pos = 0;
+
+	}
+
+	return 0;
+}
 
 /*
 初始化i2s
@@ -87,20 +142,36 @@ static int l_i2s_send(lua_State *L) {
     return 2;
 }
 
-// 暂不支持读取
+/*
+接收i2s数据，注意在数据在回调时已经存放在zbuff里，目前只有air780e系列支持
+@api i2s.recv(id, buffer, len)
+@int 通道id
+@zbuff 数据缓存区
+@int 单次返回的数据长度,单位字节,必须与传入的zbuff的大小一致
+@return boolean 成功与否
+@usage
+local buffer = zbuff.create(3200)
+local succ = i2s.recv(0, buffer, 3200);
+*/
 static int l_i2s_recv(lua_State *L) {
     luaL_Buffer buff;
     int id = luaL_checkinteger(L, 1);
-    size_t len = luaL_checkinteger(L, 2);
-    char* buff2 = luaL_buffinitsize(L, &buff, len);
-    int ret = luat_i2s_recv(id, buff2, len);
-    if (ret > 0)
-        luaL_pushresultsize(&buff, ret);
-    else {
-        lua_pushstring(L, "");
+    if (id >= I2S_DEVICE_MAX_CNT)
+    {
+    	lua_pushboolean(L, 0);
+        return 1;
     }
-    lua_pushinteger(L, ret);
-    return 2;
+    if (lua_isuserdata(L, 2)) {
+        luat_zbuff_t* zbuff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+        i2s_rx_buffer[id] = zbuff;
+    }
+    else {
+    	i2s_rx_buffer[id] = NULL;
+    }
+
+    size_t len = luaL_checkinteger(L, 2);
+	lua_pushboolean(L, !luat_i2s_recv(id, NULL, len));
+    return 1;
 }
 
 /*
@@ -114,6 +185,41 @@ i2s.close(0)
 static int l_i2s_close(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
     luat_i2s_close(id);
+    return 0;
+}
+
+/*
+注册I2S事件回调
+@api    i2s.on(id, func)
+@int i2s id, i2s0写0, i2s1写1
+@function 回调方法
+@return nil 无返回值
+@usage
+i2s.on(0, function(id, buff)
+	if buff then
+		log.info("i2s get data in zbuff")
+	else
+		log.info("i2s tx one block done")
+	end
+end)
+*/
+static int l_i2s_on(lua_State *L) {
+    int i2s_id = luaL_checkinteger(L, 1);
+    int org_i2s_id = i2s_id;
+
+    if (i2s_id >= I2S_DEVICE_MAX_CNT)
+    {
+        lua_pushliteral(L, "no such i2s id");
+        return 1;
+    }
+    if (i2s_cbs[i2s_id] != 0)
+    {
+    	luaL_unref(L, LUA_REGISTRYINDEX, i2s_cbs[i2s_id]);
+    }
+    if (lua_isfunction(L, 2)) {
+        lua_pushvalue(L, 2);
+        i2s_cbs[i2s_id] = luaL_ref(L, LUA_REGISTRYINDEX);
+    }
     return 0;
 }
 
@@ -145,6 +251,7 @@ static const rotable_Reg_t reg_i2s[] =
     { "send",       ROREG_FUNC(l_i2s_send)},
     { "recv",       ROREG_FUNC(l_i2s_recv)},
     { "close",      ROREG_FUNC(l_i2s_close)},
+	{ "on",       ROREG_FUNC(l_i2s_on)},
     // 以下为兼容扩展功能,待定
     { "play",       ROREG_FUNC(l_i2s_play)},
     { "pause",      ROREG_FUNC(l_i2s_pause)},

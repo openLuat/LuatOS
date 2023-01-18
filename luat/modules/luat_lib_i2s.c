@@ -26,15 +26,18 @@ int l_i2s_handler(lua_State *L, void* ptr) {
     lua_pop(L, 1);
     int i2s_id = msg->arg1;
     lua_geti(L, LUA_REGISTRYINDEX, i2s_cbs[i2s_id]);
+
     if (lua_isfunction(L, -1)) {
         if (msg->arg2 == 0) {
             //LLOGD("uart%ld sent callback", i2s_id);
+        	lua_pushinteger(L, i2s_id);
     		lua_pushnil(L);
-    		lua_call(L, 1, 0);
+    		lua_call(L, 2, 0);
         }
         else {
+        	lua_pushinteger(L, i2s_id);
         	lua_pushlightuserdata(L, i2s_rx_buffer[i2s_id]);
-            lua_call(L, 1, 0);
+            lua_call(L, 2, 0);
         }
     }
     // 给rtos.recv方法返回个空数据
@@ -169,7 +172,7 @@ static int l_i2s_recv(lua_State *L) {
     	i2s_rx_buffer[id] = NULL;
     }
 
-    size_t len = luaL_checkinteger(L, 2);
+    size_t len = luaL_checkinteger(L, 3);
 	lua_pushboolean(L, !luat_i2s_recv(id, NULL, len));
     return 1;
 }
@@ -205,8 +208,6 @@ end)
 */
 static int l_i2s_on(lua_State *L) {
     int i2s_id = luaL_checkinteger(L, 1);
-    int org_i2s_id = i2s_id;
-
     if (i2s_id >= I2S_DEVICE_MAX_CNT)
     {
         lua_pushliteral(L, "no such i2s id");

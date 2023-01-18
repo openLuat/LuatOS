@@ -314,12 +314,13 @@ static void qcloud_token(const char* product_id,const char* device_name,const ch
         LLOGE("not support: %s",method);
         return;
     }
-    char *username_sign_hex  = (char *)luat_heap_malloc(strlen(username_sign)*2+1);
-    memset(username_sign_hex, 0, strlen(username_sign)*2+1);
-    str_tohex(username_sign, strlen(username_sign), username_sign_hex,0);
+    char *username_sign_hex  = (char *)luat_heap_malloc(100);
+    memset(username_sign_hex, 0, 100);
     if (!strcmp("sha1", method)||!strcmp("SHA1", method)) {
+        str_tohex(username_sign, 20, username_sign_hex,0);
         snprintf_(password, PASSWORD_LEN,"%s;hmacsha1", username_sign_hex);
     }else if (!strcmp("sha256", method)||!strcmp("SHA256", method)) {
+        str_tohex(username_sign, 32, username_sign_hex,0);
         snprintf_(password, PASSWORD_LEN,"%s;hmacsha256", username_sign_hex);
     }
     luat_heap_free(username_sign_hex);
@@ -371,9 +372,7 @@ static void tuya_token(const char* device_id,const char* device_secret,long long
     memset(token_temp, 0, 100);
     snprintf_(token_temp, 100, "deviceId=%s,timestamp=%lld,secureMode=1,accessType=1", device_id, cur_timestamp);
     luat_crypto_hmac_sha256_simple(token_temp, strlen(token_temp),device_secret, strlen(device_secret), hmac);
-    for (int i = 0; i < 32; i++) {
-        sprintf_(password + 2*i, "%02x", hmac[i]);
-    }
+    str_tohex(hmac, 32, password,0);
     luat_heap_free(token_temp);
 }
 

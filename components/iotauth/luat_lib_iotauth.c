@@ -42,22 +42,24 @@ static void str_tohex(const char* str, size_t str_len, char* hex,uint8_t upperca
     }
 }
 
-static void aliyun_token(const char* product_key,const char* device_name,const char* device_secret,long long cur_timestamp,const char* method,char* client_id, char* user_name, char* password){
+static void aliyun_token(const char* product_key,const char* device_name,const char* device_secret,long long cur_timestamp,const char* method,uint8_t is_tls,char* client_id, char* user_name, char* password){
     char deviceId[64] = {0};
     char macSrc[200] = {0};
     char macRes[32] = {0};
     char timestamp_value[20] = {0};
-
+    uint8_t securemode = 3;
+    if (is_tls){
+        securemode = 2;
+    }
     sprintf_(timestamp_value,"%lld",cur_timestamp);
     sprintf_(deviceId,"%s.%s",product_key,device_name);
-
     /* setup clientid */
     if (!strcmp("hmacmd5", method)||!strcmp("HMACMD5", method)) {
-        sprintf_(client_id,"%s|securemode=2,signmethod=hmacmd5,timestamp=%s|",deviceId,timestamp_value);
+        sprintf_(client_id,"%s|securemode=%d,signmethod=hmacmd5,timestamp=%s|",deviceId,securemode,timestamp_value);
     }else if (!strcmp("hmacsha1", method)||!strcmp("HMACSHA1", method)) {
-        sprintf_(client_id,"%s|securemode=2,signmethod=hmacsha1,timestamp=%s|",deviceId,timestamp_value);
+        sprintf_(client_id,"%s|securemode=%d,signmethod=hmacsha1,timestamp=%s|",deviceId,securemode,timestamp_value);
     }else if (!strcmp("hmacsha256", method)||!strcmp("HMACSHA256", method)) {
-        sprintf_(client_id,"%s|securemode=2,signmethod=hmacsha256,timestamp=%s|",deviceId,timestamp_value);
+        sprintf_(client_id,"%s|securemode=%d,signmethod=hmacsha256,timestamp=%s|",deviceId,securemode,timestamp_value);
     }else{
         LLOGE("not support: %s",method);
         return;
@@ -97,7 +99,8 @@ static void aliyun_token(const char* product_key,const char* device_name,const c
 @string device_name
 @string device_secret
 @string method 加密方式,"hmacmd5" "hmacsha1" "hmacsha256" 可选,默认"hmacmd5"
-@number cur_timestamp 可选
+@number cur_timestamp 可选 默认为 32472115200(2999-01-01 0:0:0)
+@bool istls 是否TLS直连 true:TLS直连  false:TCP直连模式 默认TCP直连模式
 @return string mqtt三元组 client_id
 @return string mqtt三元组 user_name
 @return string mqtt三元组 password
@@ -110,12 +113,19 @@ static int l_iotauth_aliyun(lua_State *L) {
     memset(user_name, 0, USER_NAME_LEN);
     memset(password, 0, PASSWORD_LEN);
     size_t len;
+    uint8_t is_tls = 0;
+    long long cur_timestamp = 32472115200;
     const char* product_key = luaL_checklstring(L, 1, &len);
     const char* device_name = luaL_checklstring(L, 2, &len);
     const char* device_secret = luaL_checklstring(L, 3, &len);
     const char* method = luaL_optlstring(L, 4, "hmacmd5", &len);
-    long long cur_timestamp = luaL_optinteger(L, 5,time(NULL) + 3600);
-    aliyun_token(product_key,device_name,device_secret,cur_timestamp,method,client_id,user_name,password);
+    if (lua_type(L, (5)) == LUA_TNUMBER){
+        cur_timestamp = luaL_checkinteger(L, 5);
+    }
+    if (lua_isboolean(L, 6)){
+		is_tls = lua_toboolean(L, 6);
+	}
+    aliyun_token(product_key,device_name,device_secret,cur_timestamp,method,is_tls,client_id,user_name,password);
     lua_pushlstring(L, client_id, strlen(client_id));
     lua_pushlstring(L, user_name, strlen(user_name));
     lua_pushlstring(L, password, strlen(password));
@@ -219,7 +229,7 @@ static void onenet_token(const char* product_id,const char* device_name,const ch
 @string device_name
 @string key
 @string method 加密方式,"md5" "sha1" "sha256" 可选,默认"md5"
-@number cur_timestamp 可选
+@number cur_timestamp 可选 默认为 32472115200(2999-01-01 0:0:0)
 @string version 可选 默认"2018-10-31"
 @return string mqtt三元组 client_id
 @return string mqtt三元组 user_name
@@ -231,11 +241,14 @@ print(client_id,user_name,password)
 static int l_iotauth_onenet(lua_State *L) {
     memset(password, 0, PASSWORD_LEN);
     size_t len;
+    long long cur_timestamp = 32472115200;
     const char* produt_id = luaL_checklstring(L, 1, &len);
     const char* device_name = luaL_checklstring(L, 2, &len);
     const char* key = luaL_checklstring(L, 3, &len);
     const char* method = luaL_optlstring(L, 4, "md5", &len);
-    long long cur_timestamp = luaL_optinteger(L, 5,time(NULL) + 3600);
+    if (lua_type(L, (5)) == LUA_TNUMBER){
+        cur_timestamp = luaL_checkinteger(L, 5);
+    }
     const char* version = luaL_optlstring(L, 6, "2018-10-31", &len);
     onenet_token(produt_id,device_name,key,cur_timestamp,method,version,password);
     lua_pushlstring(L, device_name, strlen(device_name));
@@ -258,27 +271,29 @@ static void iotda_token(const char* device_id,const char* device_secret,long lon
 
 /*
 华为物联网平台三元组生成
-@api iotauth.iotda(device_id,device_secret,ins_timestamp,cur_timestamp)
+@api iotauth.iotda(device_id,device_secret,cur_timestamp)
 @string device_id
 @string device_secret
-@number ins_timestamp 是否校验时间戳 1:校验 0:不校验
-@number cur_timestamp 可选
+@number cur_timestamp 可选 如不填则不校验时间戳
 @return string mqtt三元组 client_id
 @return string mqtt三元组 user_name
 @return string mqtt三元组 password
 @usage
-local client_id,user_name,password = iotauth.iotda("6203cc94c7fb24029b110408_88888888","123456789",1,1659495778)
+local client_id,user_name,password = iotauth.iotda("6203cc94c7fb24029b110408_88888888","123456789",1659495778)
 print(client_id,user_name,password)
 */
 static int l_iotauth_iotda(lua_State *L) {
     memset(client_id, 0, CLIENT_ID_LEN);
     memset(password, 0, PASSWORD_LEN);
     size_t len;
+    long long cur_timestamp = 0;
+    int ins_timestamp = 0;
     const char* device_id = luaL_checklstring(L, 1, &len);
     const char* device_secret = luaL_checklstring(L, 2, &len);
-    int ins_timestamp = luaL_optinteger(L, 3, 0);
-    long long cur_timestamp = luaL_optinteger(L, 4,time(NULL));
-    ins_timestamp = ins_timestamp==0?0:1;
+    if (lua_type(L, (3)) == LUA_TNUMBER){
+        cur_timestamp = luaL_checkinteger(L, 3);
+        ins_timestamp = 1;
+    }
     iotda_token(device_id,device_secret,cur_timestamp,ins_timestamp,client_id,password);
     lua_pushlstring(L, client_id, strlen(client_id));
     lua_pushlstring(L, device_id, strlen(device_id));
@@ -349,14 +364,12 @@ static int l_iotauth_qcloud(lua_State *L) {
     memset(user_name, 0, USER_NAME_LEN);
     memset(password, 0, PASSWORD_LEN);
     size_t len;
-    long long cur_timestamp;
+    long long cur_timestamp = 32472115200;
     const char* product_id = luaL_checklstring(L, 1, &len);
     const char* device_name = luaL_checklstring(L, 2, &len);
     const char* device_secret = luaL_checklstring(L, 3, &len);
     const char* method = luaL_optlstring(L, 4, "sha256", &len);
-    if (lua_isnil(L, 5)||lua_isnone(L, 5)) {
-        cur_timestamp = 32472115200;
-    }else{
+    if (lua_type(L, (5)) == LUA_TNUMBER){
         cur_timestamp = luaL_checkinteger(L, 5);
     }
     const char* sdk_appid = luaL_optlstring(L, 6, "12010126", &len);
@@ -383,7 +396,7 @@ static void tuya_token(const char* device_id,const char* device_secret,long long
 @api iotauth.tuya(device_id,device_secret,cur_timestamp)
 @string device_id
 @string device_secret
-@number cur_timestamp 可选
+@number cur_timestamp 可选 默认为 32472115200(2999-01-01 0:0:0)
 @return string mqtt三元组 client_id
 @return string mqtt三元组 user_name
 @return string mqtt三元组 password
@@ -396,9 +409,12 @@ static int l_iotauth_tuya(lua_State *L) {
     memset(user_name, 0, USER_NAME_LEN);
     memset(password, 0, PASSWORD_LEN);
     size_t len;
+    long long cur_timestamp = 32472115200;
     const char* device_id = luaL_checklstring(L, 1, &len);
     const char* device_secret = luaL_checklstring(L, 2, &len);
-    long long cur_timestamp = luaL_optinteger(L, 3,time(NULL) + 3600);
+    if (lua_type(L, (3)) == LUA_TNUMBER){
+        cur_timestamp = luaL_checkinteger(L, 3);
+    }
     tuya_token(device_id,device_secret,cur_timestamp,password);
     snprintf_(client_id, CLIENT_ID_LEN, "tuyalink_%s", device_id);
     snprintf_(user_name, USER_NAME_LEN, "%s|signMethod=hmacSha256,timestamp=%lld,secureMode=1,accessType=1", device_id,cur_timestamp);
@@ -413,12 +429,20 @@ static void baidu_token(const char* iot_core_id,const char* device_key,const cha
     char *token_temp  = (char *)luat_heap_malloc(100);
     memset(token_temp, 0, 100);
     if (!strcmp("MD5", method)||!strcmp("md5", method)) {
-        sprintf_(username, "thingidp@%s|%s|%lld|%s",iot_core_id,device_key,cur_timestamp,"MD5");
+        if (cur_timestamp){
+            snprintf_(username,USER_NAME_LEN, "thingidp@%s|%s|%lld|%s",iot_core_id,device_key,cur_timestamp,"MD5");
+        }else{
+            snprintf_(username,USER_NAME_LEN, "thingidp@%s|%s|%s",iot_core_id,device_key,"MD5");
+        }
         snprintf_(token_temp, 100, "%s&%lld&%s%s",device_key,cur_timestamp,"MD5",device_secret);
         luat_crypto_md5_simple(token_temp, strlen(token_temp),crypto);
         str_tohex(crypto, 16, password,0);
     }else if (!strcmp("SHA256", method)||!strcmp("sha256", method)) {
-        sprintf_(username, "thingidp@%s|%s|%lld|%s",iot_core_id,device_key,cur_timestamp,"SHA256");
+        if (cur_timestamp){
+            snprintf_(username,USER_NAME_LEN, "thingidp@%s|%s|%lld|%s",iot_core_id,device_key,cur_timestamp,"SHA256");
+        }else{
+            snprintf_(username,USER_NAME_LEN, "thingidp@%s|%s|%s",iot_core_id,device_key,"SHA256");
+        }
         snprintf_(token_temp, 100, "%s&%lld&%s%s",device_key,cur_timestamp,"SHA256",device_secret);
         luat_crypto_sha256_simple(token_temp, strlen(token_temp),crypto);
         str_tohex(crypto, 32, password,0);
@@ -436,7 +460,7 @@ static void baidu_token(const char* iot_core_id,const char* device_key,const cha
 @string device_key
 @string device_secret
 @string method 加密方式,"MD5" "SHA256" 可选,默认"MD5"
-@number cur_timestamp 可选
+@number cur_timestamp 可选 如不填则不校验时间戳
 @return string mqtt三元组 client_id
 @return string mqtt三元组 user_name
 @return string mqtt三元组 password
@@ -452,7 +476,7 @@ static int l_iotauth_baidu(lua_State *L) {
     const char* device_key = luaL_checklstring(L, 2, &len);
     const char* device_secret = luaL_checklstring(L, 3, &len);
     const char* method = luaL_optlstring(L, 4, "MD5", &len);
-    long long cur_timestamp = luaL_optinteger(L, 5,time(NULL) + 3600);
+    long long cur_timestamp = luaL_optinteger(L, 5, 0);
     baidu_token(iot_core_id,device_key,device_secret,method,cur_timestamp,user_name,password);
     lua_pushlstring(L, iot_core_id, strlen(iot_core_id));
     lua_pushlstring(L, user_name, strlen(user_name));

@@ -179,7 +179,7 @@ static int l_i2s_recv(lua_State *L) {
 
 /*
 关闭i2s
-@api i2s.close(id, data, len)
+@api i2s.close(id)
 @int 通道id
 @return nil 无返回值
 @usage

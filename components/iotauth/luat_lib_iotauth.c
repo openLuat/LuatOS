@@ -346,11 +346,16 @@ static int l_iotauth_qcloud(lua_State *L) {
     memset(user_name, 0, USER_NAME_LEN);
     memset(password, 0, PASSWORD_LEN);
     size_t len;
+    long long cur_timestamp;
     const char* product_id = luaL_checklstring(L, 1, &len);
     const char* device_name = luaL_checklstring(L, 2, &len);
     const char* device_secret = luaL_checklstring(L, 3, &len);
     const char* method = luaL_optlstring(L, 4, "sha256", &len);
-    long long cur_timestamp = luaL_optinteger(L, 5,32472115200);
+    if (lua_isnil(L, 5)||lua_isnone(L, 5)) {
+        cur_timestamp = 32472115200;
+    }else{
+        cur_timestamp = luaL_checkinteger(L, 5);
+    }
     const char* sdk_appid = luaL_optlstring(L, 6, "12010126", &len);
     qcloud_token(product_id, device_name,device_secret,cur_timestamp,method,sdk_appid,user_name,password);
     snprintf_(client_id, CLIENT_ID_LEN,"%s%s", product_id,device_name);

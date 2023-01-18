@@ -1,13 +1,16 @@
 #include "luat_base.h"
 #include "luat_rtos.h"
-
 #include "common.h"
 
+#if (defined(CONFIG_IDF_CMAKE))
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
-#include "freertos/semphr.h"
-#include "freertos/timers.h"
+#else
+#include "FreeRTOS.h"
+#include "task.h"
+#include "queue.h"
+#endif
 
 typedef struct
 {

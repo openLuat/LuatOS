@@ -1,29 +1,19 @@
-
+#include "luat_base.h"
 #include "luat_msgbus.h"
 
+#if (defined(CONFIG_IDF_CMAKE))
+#include "freertos/FreeRTOS.h"
+#include "freertos/queue.h"
+#else
 #include "FreeRTOS.h"
 #include "queue.h"
-
-#define QUEUE_LENGTH 0xFF
-#define ITEM_SIZE sizeof(rtos_msg_t)
-
-static StaticQueue_t xStaticQueue = {0};
-static QueueHandle_t xQueue = {0};
-
-#if configSUPPORT_STATIC_ALLOCATION
-static uint8_t ucQueueStorageArea[ QUEUE_LENGTH * ITEM_SIZE ];
 #endif
+
+static QueueHandle_t xQueue = {0};
 
 void luat_msgbus_init(void) {
     if (!xQueue) {
-        #if configSUPPORT_STATIC_ALLOCATION
-        xQueue = xQueueCreateStatic( QUEUE_LENGTH,
-                                 ITEM_SIZE,
-                                 ucQueueStorageArea,
-                                 &xStaticQueue );
-        #else
-        xQueue = xQueueCreate(QUEUE_LENGTH, ITEM_SIZE);
-        #endif
+        xQueue = xQueueCreate(256, sizeof(rtos_msg_t));
     }
 }
 uint32_t luat_msgbus_put(rtos_msg_t* msg, size_t timeout) {
@@ -34,10 +24,9 @@ uint32_t luat_msgbus_put(rtos_msg_t* msg, size_t timeout) {
 uint32_t luat_msgbus_get(rtos_msg_t* msg, size_t timeout) {
     if (xQueue == NULL)
         return 1;
-    return xQueueReceive(xQueue, msg, timeout) == pdTRUE ? 0 : 1; // 要不要除portTICK_RATE_MS呢?
+    return xQueueReceive(xQueue, msg, timeout) == pdTRUE ? 0 : 1;
 }
 uint32_t luat_msgbus_freesize(void) {
-    if (xQueue == NULL)
-        return 1;
     return 1;
 }
+

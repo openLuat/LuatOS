@@ -2,11 +2,13 @@
 #include "luat_rtos.h"
 #include "luat_malloc.h"
 
+#if (defined(CONFIG_IDF_CMAKE))
 #include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/queue.h"
-#include "freertos/semphr.h"
 #include "freertos/timers.h"
+#else
+#include "FreeRTOS.h"
+#include "timers.h"
+#endif
 
 typedef struct
 {
@@ -55,7 +57,7 @@ int luat_start_rtos_timer(void *timer, uint32_t ms, uint8_t is_repeat)
 
     if (xTimerIsTimerActive (htimer->timer))
 	{
-        if (xPortInIsrContext())
+        if (luat_rtos_get_ipsr())
         {
     		BaseType_t pxHigherPriorityTaskWoken;
     		if ((xTimerStopFromISR(htimer->timer, &pxHigherPriorityTaskWoken) != pdPASS))
@@ -70,7 +72,7 @@ int luat_start_rtos_timer(void *timer, uint32_t ms, uint8_t is_repeat)
         }
     }
     htimer->is_repeat = is_repeat;
-    if (xPortInIsrContext())
+    if (luat_rtos_get_ipsr())
     {
 		BaseType_t pxHigherPriorityTaskWoken;
 		if ((xTimerChangePeriodFromISR(htimer->timer, ms, &pxHigherPriorityTaskWoken) != pdPASS))
@@ -91,7 +93,7 @@ void luat_stop_rtos_timer(void *timer)
 	luat_rtos_user_timer_t *htimer = (luat_rtos_user_timer_t *)timer;
     if (xTimerIsTimerActive (htimer->timer))
 	{
-        if (xPortInIsrContext())
+        if (luat_rtos_get_ipsr())
         {
     		BaseType_t pxHigherPriorityTaskWoken;
     		if ((xTimerStopFromISR(htimer->timer, &pxHigherPriorityTaskWoken) != pdPASS))
@@ -134,7 +136,7 @@ int luat_rtos_timer_start(luat_rtos_timer_t timer_handle, uint32_t timeout, uint
 
     if (xTimerIsTimerActive (htimer->timer))
 	{
-        if (xPortInIsrContext())
+        if (luat_rtos_get_ipsr())
         {
     		BaseType_t pxHigherPriorityTaskWoken;
     		if ((xTimerStopFromISR(htimer->timer, &pxHigherPriorityTaskWoken) != pdPASS))
@@ -151,7 +153,7 @@ int luat_rtos_timer_start(luat_rtos_timer_t timer_handle, uint32_t timeout, uint
     htimer->is_repeat = repeat;
     htimer->call_back = callback_fun;
     htimer->user_param = user_param;
-    if (xPortInIsrContext())
+    if (luat_rtos_get_ipsr())
     {
 		BaseType_t pxHigherPriorityTaskWoken;
 		if ((xTimerChangePeriodFromISR(htimer->timer, timeout, &pxHigherPriorityTaskWoken) != pdPASS))

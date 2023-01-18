@@ -2,18 +2,18 @@
 #include "luat_rtos.h"
 #include "luat_mcu.h"
 #include "luat_malloc.h"
-
 #include "common.h"
 #include "c_common.h"
 
+#if (defined(CONFIG_IDF_CMAKE))
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
-#include "freertos/semphr.h"
-
-#define LUAT_LOG_TAG "rtos"
-#include "luat_log.h"
-
+#else
+#include "FreeRTOS.h"
+#include "task.h"
+#include "queue.h"
+#endif
 
 typedef struct
 {
@@ -106,7 +106,7 @@ int send_event_to_task(void *task_handle, OS_EVENT *event, uint32_t event_id, ui
 	}
 
 	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-	if (xPortInIsrContext())
+	if (luat_rtos_get_ipsr())
 	{
 		result = xQueueSendToBackFromISR(handle->queue, &Event, &xHigherPriorityTaskWoken);
 		if (xHigherPriorityTaskWoken)
@@ -132,7 +132,7 @@ int get_event_from_task(void *task_handle, uint32_t target_event_id, OS_EVENT *e
 	{
 		return -1;
 	}
-	if (xPortInIsrContext())
+	if (luat_rtos_get_ipsr())
 	{
 		return -ERROR_PERMISSION_DENIED;
 	}

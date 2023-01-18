@@ -1,13 +1,13 @@
 #include "luat_base.h"
 #include "luat_rtos.h"
 
+#if (defined(CONFIG_IDF_CMAKE))
 #include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "freertos/queue.h"
-#include "freertos/semphr.h"
-
-#define LUAT_LOG_TAG "rtos"
-#include "luat_log.h"
+#else
+#include "FreeRTOS.h"
+#include "queue.h"
+#endif
 
 int luat_rtos_queue_create(luat_rtos_queue_t *queue_handle, uint32_t item_count, uint32_t item_size)
 {
@@ -26,7 +26,7 @@ int luat_rtos_queue_delete(luat_rtos_queue_t queue_handle)
 int luat_rtos_queue_send(luat_rtos_queue_t queue_handle, void *item, uint32_t item_size, uint32_t timeout)
 {
 	if (!queue_handle || !item) return -1;
-	if (xPortInIsrContext())
+	if (luat_rtos_get_ipsr())
 	{
 		BaseType_t pxHigherPriorityTaskWoken;
 		if (xQueueSendFromISR(queue_handle, item, &pxHigherPriorityTaskWoken) != pdPASS)
@@ -47,7 +47,7 @@ int luat_rtos_queue_recv(luat_rtos_queue_t queue_handle, void *item, uint32_t it
 	if (!queue_handle || !item)
 		return -1;
 	BaseType_t yield = pdFALSE;
-	if (xPortInIsrContext())
+	if (luat_rtos_get_ipsr())
 	{
 		if (xQueueReceiveFromISR(queue_handle, item, &yield) != pdPASS)
 			return -1;

@@ -359,6 +359,9 @@ uint32_t luat_rtos_entry_critical(void);
  */
 void luat_rtos_exit_critical(uint32_t critical);
 /*------------------------------------------------ critical   end----------------------------------------------- */
+
+uint32_t luat_rtos_get_ipsr(void);
+
 /** @}*/
 /** @}*/
 #endif

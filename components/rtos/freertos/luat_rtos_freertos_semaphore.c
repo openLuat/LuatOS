@@ -1,13 +1,13 @@
 #include "luat_base.h"
 #include "luat_rtos.h"
-#include "luat_malloc.h"
 
+#if (defined(CONFIG_IDF_CMAKE))
 #include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/queue.h"
 #include "freertos/semphr.h"
-#include "freertos/timers.h"
-
+#else
+#include "FreeRTOS.h"
+#include "semphr.h"
+#endif
 
 int luat_rtos_semaphore_create(luat_rtos_semaphore_t *semaphore_handle, uint32_t init_count)
 {
@@ -49,7 +49,7 @@ int luat_rtos_semaphore_take(luat_rtos_semaphore_t semaphore_handle, uint32_t ti
 int luat_rtos_semaphore_release(luat_rtos_semaphore_t semaphore_handle)
 {
 	if (!semaphore_handle) return -1;
-	if (xPortInIsrContext())
+	if (luat_rtos_get_ipsr())
 	{
 		BaseType_t yield = pdFALSE;
 		if (pdTRUE == xSemaphoreGiveFromISR(semaphore_handle, &yield))

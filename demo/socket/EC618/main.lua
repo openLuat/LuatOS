@@ -18,7 +18,23 @@ end
 ----------------------------------------
 
 
-require "net_test"
+-- 如果运营商自带的DNS不好用，可以用下面的公用DNS
+-- socket.setDNS(nil,1,"223.5.5.5")	
+-- socket.setDNS(nil,2,"114.114.114.114")
+
+socket.sntp()
+--socket.sntp("ntp.aliyun.com") --自定义sntp服务器地址
+--socket.sntp({"ntp.aliyun.com","ntp1.aliyun.com","ntp2.aliyun.com"}) --sntp自定义服务器地址
+sys.subscribe("NTP_UPDATE", function()
+    log.info("sntp", "time", os.date())
+end)
+sys.subscribe("NTP_ERROR", function()
+    log.info("socket", "sntp error")
+    socket.sntp()
+end)
+
+require "async_socket_demo"
+socketDemo()
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

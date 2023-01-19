@@ -219,7 +219,7 @@ static int l_libgnss_get_int_location(lua_State *L) {
 @return table 原始rmc数据
 @usage
 -- 解析nmea
-log.info("nmea", "rmc", json.encode(libgnss.getRmc(3)))
+log.info("nmea", "rmc", json.encode(libgnss.getRmc(2)))
 -- 实例输出
 --[[
 {

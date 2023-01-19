@@ -14,8 +14,7 @@ enum
 
 enum
 {
-	FTP_COMMAND_PWD = 1	,
-	FTP_COMMAND_SYST 	,
+	FTP_COMMAND_SYST = 1,
 	FTP_COMMAND_PULL 	,
 	FTP_COMMAND_PUSH 	,
 	FTP_COMMAND_CLOSE 	,
@@ -51,7 +50,10 @@ enum
 #define FTP_CLOSE_CONNECT 		"226" //Closing data connection.
 #define FTP_ENTER_PASSIVE 		"227" //Entering Passive Mode (h1,h2,h3,h4,p1,p2).
 #define FTP_LOGIN_OK 			"230" //User logged in, proceed.
+#define FTP_FILE_REQUESTED_OK 	"250" //Requested file action okay, completed.
+#define FTP_PATHNAME_OK 		"257" //"PATHNAME" created.
 #define FTP_USERNAME_OK			"331" //User name okay, need password.
+#define FTP_DATA_CON_FAIL		"425" //Can't open data connection.
 
 #define FTP_CMD_SEND_MAX 	(128)
 #define FTP_CMD_RECV_MAX 	(1024)
@@ -70,7 +72,7 @@ typedef struct{
 	const char *password; 		// ftp password
 
 	uint8_t ftp_execute;             // 
-	const char *remote_name;
+	const char *remote_name;//去掉？
 	
     luat_rtos_task_handle ftp_task_handle;
     luat_rtos_queue_t ftp_queue_handle;

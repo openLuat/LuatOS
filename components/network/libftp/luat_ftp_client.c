@@ -20,7 +20,7 @@
 #define LUAT_LOG_TAG "ftp"
 #include "luat_log.h"
 
-#define FTP_DEBUG 1
+#define FTP_DEBUG 0
 #if FTP_DEBUG == 0
 #undef LLOGD
 #define LLOGD(...)
@@ -54,6 +54,7 @@ static uint32_t luat_ftp_close(luat_ftp_ctrl_t *ftp_ctrl) {
 		luat_heap_free(ftp_ctrl->data_recv);
 		ftp_ctrl->data_recv = NULL;
 	}
+	luat_rtos_task_delete(ftp_ctrl->ftp_task_handle);
 	if (ftp_ctrl){
 		luat_heap_free(ftp_ctrl);
 		ftp_ctrl = NULL;
@@ -112,26 +113,31 @@ next:
 
 static int32_t l_ftp_callback(lua_State *L, void* ptr){
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
-	LLOGD("l_ftp_callback arg1:%d arg2:%ld idp:%d",msg->arg1,msg->arg2,ftp_ctrl->idp);
+	LLOGD("l_ftp_callback arg1:%d arg2:%d idp:%lld",msg->arg1,msg->arg2,ftp_ctrl->idp);
 
 	uint64_t idp = ftp_ctrl->idp;
-	if (msg->arg1){
+	if (msg->arg1){		//error
+		lua_pushlstring(L,ftp_ctrl->cmd_recv_data,ftp_ctrl->cmd_recv_len);
+		luat_cbcwait(L, idp, 1);
+		luat_ftp_close(ftp_ctrl);
+	}else{
 		switch (msg->arg2)
 		{
 		case FTP_QUEUE_LOGIN:
-		case FTP_QUEUE_COMMAND:
 		case FTP_QUEUE_PULL:
 		case FTP_QUEUE_PUSH:
+		case FTP_QUEUE_COMMAND:
+			lua_pushlstring(L,ftp_ctrl->cmd_recv_data,ftp_ctrl->cmd_recv_len);
+			luat_cbcwait(L, idp, 1);
+			break;
 		case FTP_QUEUE_CLOSE:
-			lua_pushlstring(L,ftp_ctrl->cmd_recv_data,strlen(ftp_ctrl->cmd_recv_data));
+			lua_pushlstring(L,ftp_ctrl->cmd_recv_data,ftp_ctrl->cmd_recv_len);
 			luat_cbcwait(L, idp, 1);
 			luat_ftp_close(ftp_ctrl);
 			break;
 		default:
 			break;
 		}
-	}else{
-		luat_cbcwait(L, idp, 0);
 	}
 	return 0;
 }
@@ -289,6 +295,7 @@ void ftp_task(void *param){
 	msg.ptr = ftp_ctrl;
     while (1) {
         luat_rtos_queue_recv(ftp_ctrl->ftp_queue_handle, &event, sizeof(uint8_t), LUAT_WAIT_FOREVER);
+		msg.arg1 = 0;
 		msg.arg2 = event;
 		switch (event)
 		{
@@ -341,10 +348,7 @@ void ftp_task(void *param){
 					}
 				}
 				LLOGD("ftp login ok");
-				msg.arg1 = 0;
 				luat_msgbus_put(&msg, 0);
-			break;
-		case FTP_QUEUE_COMMAND:
 			break;
 		case FTP_QUEUE_PULL:
 			if(luat_ftp_pasv_connect(ftp_ctrl,FTP_SOCKET_TIMEOUT)){
@@ -382,7 +386,6 @@ void ftp_task(void *param){
 				luat_fs_fclose(ftp_ctrl->fd);
 				ftp_ctrl->fd = NULL;
 			}
-			msg.arg1 = 0;
 			luat_msgbus_put(&msg, 0);
 
 			break;
@@ -394,21 +397,20 @@ void ftp_task(void *param){
 			luat_rtos_queue_recv(ftp_ctrl->ftp_queue_handle, &event, sizeof(uint8_t), FTP_SOCKET_TIMEOUT);
 			if(event == FTP_QUEUE_DATA_CONNECT){
 				memset(ftp_ctrl->cmd_send_data,0,FTP_CMD_SEND_MAX);
-				snprintf_(ftp_ctrl->cmd_send_data, FTP_CMD_SEND_MAX, "APPE %s\r\n",ftp_ctrl->remote_name);
+				snprintf_(ftp_ctrl->cmd_send_data, FTP_CMD_SEND_MAX, "STOR %s\r\n",ftp_ctrl->remote_name);
 				luat_ftp_cmd_send(ftp_ctrl, ftp_ctrl->cmd_send_data, strlen(ftp_ctrl->cmd_send_data),FTP_SOCKET_TIMEOUT);
 				ret = luat_ftp_cmd_recv(ftp_ctrl,ftp_ctrl->cmd_recv_data,&ftp_ctrl->cmd_recv_len,FTP_SOCKET_TIMEOUT);
 				if (ret){
 					goto error;
 				}else{
 					if (memcmp(ftp_ctrl->cmd_recv_data, FTP_FILE_STATUS_OK, 3)){
-						LLOGD("ftp APPE wrong");
+						LLOGD("ftp STOR wrong");
 						goto error;
 					}
 				}
 			}else{
 				goto error;
 			}
-
 			uint8_t* buff = luat_heap_malloc(PUSH_BUFF_SIZE);
 			int offset = 0;
 			while (1) {
@@ -425,7 +427,7 @@ void ftp_task(void *param){
 			if(event != FTP_QUEUE_DATA_TX_DONE){
 				goto error;
 			}
-			LLOGD("ftp APPE ok");
+			LLOGD("ftp STOR ok");
 			network_close(ftp_ctrl->data_netc, 0);
 			ret = luat_ftp_cmd_recv(ftp_ctrl,ftp_ctrl->cmd_recv_data,&ftp_ctrl->cmd_recv_len,FTP_SOCKET_TIMEOUT);
 			if (ret){
@@ -440,20 +442,68 @@ void ftp_task(void *param){
 				luat_fs_fclose(ftp_ctrl->fd);
 				ftp_ctrl->fd = NULL;
 			}
-			msg.arg1 = 0;
 			luat_msgbus_put(&msg, 0);
 			break;
 		case FTP_QUEUE_CLOSE:
-				luat_ftp_cmd_send(ftp_ctrl, "QUIT\r\n", strlen("QUIT\r\n"),FTP_SOCKET_TIMEOUT);
-				ret = luat_ftp_cmd_recv(ftp_ctrl,ftp_ctrl->cmd_recv_data,&ftp_ctrl->cmd_recv_len,FTP_SOCKET_TIMEOUT);
-				if (ret){
+			luat_ftp_cmd_send(ftp_ctrl, "QUIT\r\n", strlen("QUIT\r\n"),FTP_SOCKET_TIMEOUT);
+			ret = luat_ftp_cmd_recv(ftp_ctrl,ftp_ctrl->cmd_recv_data,&ftp_ctrl->cmd_recv_len,FTP_SOCKET_TIMEOUT);
+			if (ret){
+				goto error;
+			}else{
+				if (memcmp(ftp_ctrl->cmd_recv_data, FTP_CLOSE_CONTROL, 3)){
+					LLOGD("ftp QUIT wrong");
 					goto error;
-				}else{
-					if (memcmp(ftp_ctrl->cmd_recv_data, FTP_CLOSE_CONTROL, 3)){
-						LLOGD("ftp QUIT wrong");
-						goto error;
-					}
 				}
+			}
+			luat_msgbus_put(&msg, 0);
+			break;
+		case FTP_QUEUE_COMMAND:
+			luat_ftp_cmd_send(ftp_ctrl, ftp_ctrl->cmd_send_data, strlen(ftp_ctrl->cmd_send_data),FTP_SOCKET_TIMEOUT);
+			ret = luat_ftp_cmd_recv(ftp_ctrl,ftp_ctrl->cmd_recv_data,&ftp_ctrl->cmd_recv_len,FTP_SOCKET_TIMEOUT);
+			if (ret){
+				goto error;
+			}else{
+				if (memcmp(ftp_ctrl->cmd_send_data, "NOOP", 4)==0){
+					if (memcmp(ftp_ctrl->cmd_recv_data, FTP_COMMAND_OK, 3)){
+						LLOGD("ftp COMMAND wrong");
+					}
+				}else if(memcmp(ftp_ctrl->cmd_send_data, "TYPE", 4)==0){
+					if (memcmp(ftp_ctrl->cmd_recv_data, FTP_COMMAND_OK, 3)){
+						LLOGD("ftp COMMAND wrong");
+					}
+				}else if(memcmp(ftp_ctrl->cmd_send_data, "SYST", 4)==0){
+					if (memcmp(ftp_ctrl->cmd_recv_data, FTP_SYSTEM_TYPE, 3)){
+						LLOGD("ftp COMMAND wrong");
+					}
+				}else if(memcmp(ftp_ctrl->cmd_send_data, "PWD", 3)==0){
+					if (memcmp(ftp_ctrl->cmd_recv_data, FTP_PATHNAME_OK, 3)){
+						LLOGD("ftp COMMAND wrong");
+					}
+				}else if(memcmp(ftp_ctrl->cmd_send_data, "MKD", 3)==0){
+					if (memcmp(ftp_ctrl->cmd_recv_data, FTP_PATHNAME_OK, 3)){
+						LLOGD("ftp COMMAND wrong");
+					}
+				}else if(memcmp(ftp_ctrl->cmd_send_data, "CWD", 3)==0){
+					if (memcmp(ftp_ctrl->cmd_recv_data, FTP_FILE_REQUESTED_OK, 3)){
+						LLOGD("ftp COMMAND wrong");
+					}
+				}else if(memcmp(ftp_ctrl->cmd_send_data, "CDUP", 4)==0){
+					if (memcmp(ftp_ctrl->cmd_recv_data, FTP_FILE_REQUESTED_OK, 3)){
+						LLOGD("ftp COMMAND wrong");
+					}
+				}else if(memcmp(ftp_ctrl->cmd_send_data, "RMD", 3)==0){
+					if (memcmp(ftp_ctrl->cmd_recv_data, FTP_FILE_REQUESTED_OK, 3)){
+						LLOGD("ftp COMMAND wrong");
+					}
+				}else if(memcmp(ftp_ctrl->cmd_send_data, "DELE", 4)==0){
+					if (memcmp(ftp_ctrl->cmd_recv_data, FTP_FILE_REQUESTED_OK, 3)){
+						LLOGD("ftp COMMAND wrong");
+					}
+				}else if (memcmp(ftp_ctrl->cmd_recv_data, FTP_DATA_CON_FAIL, 3)){
+					LLOGD("ftp COMMAND wrong");
+				}
+			}
+			luat_msgbus_put(&msg, 0);
 			break;
 		default:
 			break;
@@ -614,13 +664,56 @@ error:
 	return 0;
 }
 
+/*
+FTP命令
+@api ftp.command(cmd)
+@string cmd 命令 目前支持:NOOP SYST TYPE PWD MKD CWD CDUP RMD DELE
+@return string 成功返回true 失败返回string
+@usage
+    print(ftp.command("NOOP").wait())
+    print(ftp.command("SYST").wait())
+    print(ftp.command("TYPE I").wait())
+    print(ftp.command("PWD").wait())
+    print(ftp.command("MKD QWER").wait())
+    print(ftp.command("CWD /QWER").wait())
+    print(ftp.command("CDUP").wait())
+    print(ftp.command("RMD QWER").wait())
+	rint(ftp.command("DELE /1/12222.txt").wait())
+*/
 static int l_ftp_command(lua_State *L) {
-	ftp_ctrl->idp = luat_pushcwait(L);
 	if (!ftp_ctrl){
 		LLOGE("please login first");
 		goto error;
 	}
+	ftp_ctrl->idp = luat_pushcwait(L);
 	uint8_t event = FTP_QUEUE_COMMAND;
+	size_t len;
+	const char *cmd = luaL_checklstring(L, 1, &len);
+	if (memcmp(cmd, "NOOP", 4)==0){
+		LLOGD("command: NOOP");
+	}else if(memcmp(cmd, "SYST", 4)==0){
+		LLOGD("command: SYST");
+	}else if(memcmp(cmd, "MKD", 3)==0){
+		LLOGD("command: MKD");
+	}else if(memcmp(cmd, "CWD", 3)==0){
+		LLOGD("command: CWD");
+	}else if(memcmp(cmd, "CDUP", 4)==0){
+		LLOGD("command: CDUP");
+	}else if(memcmp(cmd, "RMD", 3)==0){
+		LLOGD("command: RMD");
+	}else if(memcmp(cmd, "PWD", 3)==0){
+		LLOGD("command: RMD");
+	}else if(memcmp(cmd, "DELE", 4)==0){
+		LLOGD("command: DELE");
+	}else if(memcmp(cmd, "TYPE", 4)==0){
+		LLOGD("command: TYPE");
+	}else{
+		lua_pushinteger(L,FTP_ERROR_FILE);
+		luat_pushcwait_error(L,1);
+		return 0;
+	}
+	memset(ftp_ctrl->cmd_send_data,0,FTP_CMD_SEND_MAX);
+	snprintf_(ftp_ctrl->cmd_send_data, FTP_CMD_SEND_MAX, "%s\r\n",cmd);
 	luat_rtos_queue_send(ftp_ctrl->ftp_queue_handle, &event, sizeof(uint8_t), 0);
 	return 1;
 error:
@@ -642,11 +735,11 @@ ftp.pull("/1222.txt","/1222.txt").wait()
 */
 static int l_ftp_pull(lua_State *L) {
 	size_t len;
-	ftp_ctrl->idp = luat_pushcwait(L);
 	if (!ftp_ctrl){
 		LLOGE("please login first");
 		goto error;
 	}
+	ftp_ctrl->idp = luat_pushcwait(L);
 	const char * local_name = luaL_optlstring(L, 1, "",&len);
 	luat_fs_remove(local_name);
 	ftp_ctrl->fd = luat_fs_fopen(local_name, "wb+");
@@ -682,11 +775,11 @@ ftp.push("/1222.txt","/1222.txt").wait()
 */
 static int l_ftp_push(lua_State *L) {
 	size_t len;
-	ftp_ctrl->idp = luat_pushcwait(L);
 	if (!ftp_ctrl){
 		LLOGE("please login first");
 		goto error;
 	}
+	ftp_ctrl->idp = luat_pushcwait(L);
 	const char * local_name = luaL_optlstring(L, 1, "",&len);
 	ftp_ctrl->fd = luat_fs_fopen(local_name, "rb");
 	if (ftp_ctrl->fd == NULL) {
@@ -718,11 +811,11 @@ FTP客户端
 ftp.close().wait()
 */
 static int l_ftp_close(lua_State *L) {
-	ftp_ctrl->idp = luat_pushcwait(L);
 	if (!ftp_ctrl){
 		LLOGE("please login first");
 		goto error;
 	}
+	ftp_ctrl->idp = luat_pushcwait(L);
 	uint8_t event = FTP_QUEUE_CLOSE;
 	luat_rtos_queue_send(ftp_ctrl->ftp_queue_handle, &event, sizeof(uint8_t), 0);
 	return 1;
@@ -742,8 +835,6 @@ static const rotable_Reg_t reg_ftp[] =
 	{"pull",			ROREG_FUNC(l_ftp_pull)},
 	{"push",			ROREG_FUNC(l_ftp_push)},
 	{"close",			ROREG_FUNC(l_ftp_close)},
-
-    {"PWD",            	ROREG_INT(FTP_COMMAND_PWD)},
 
 	{ NULL,             ROREG_INT(0)}
 };

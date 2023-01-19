@@ -127,7 +127,13 @@ static int32_t l_ftp_callback(lua_State *L, void* ptr){
 		case FTP_QUEUE_PULL:
 		case FTP_QUEUE_PUSH:
 		case FTP_QUEUE_COMMAND:
-			lua_pushlstring(L,ftp_ctrl->cmd_recv_data,ftp_ctrl->cmd_recv_len);
+			if(ftp_ctrl->data_recv){
+				lua_pushlstring(L,ftp_ctrl->data_recv,strlen(ftp_ctrl->data_recv));
+				luat_heap_free(ftp_ctrl->data_recv);
+				ftp_ctrl->data_recv = NULL;
+			}else{
+				lua_pushlstring(L,ftp_ctrl->cmd_recv_data,ftp_ctrl->cmd_recv_len);
+			}
 			luat_cbcwait(L, idp, 1);
 			break;
 		case FTP_QUEUE_CLOSE:
@@ -146,6 +152,10 @@ static int32_t luat_lib_ftp_callback(void *data, void *param){
 	OS_EVENT *event = (OS_EVENT *)data;
 	luat_ftp_ctrl_t *ftp_ctrl =(luat_ftp_ctrl_t *)param;
 	int ret = 0;
+	rtos_msg_t msg = {0};
+	msg.handler = l_ftp_callback;
+	msg.ptr = ftp_ctrl;
+	msg.arg1 = 0;
 	LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
 	LLOGD("luat_lib_ftp_callback %d %d",event->ID & 0x0fffffff,event->Param1);
 	if (event->Param1){
@@ -198,11 +208,15 @@ next:
 					}else{
 						LLOGD("ftp fd error");
 						luat_heap_free(ftp_ctrl->data_recv);
+						ftp_ctrl->data_recv = NULL;
 						network_close(ftp_ctrl->data_netc, 0);
 						return -1;
 					}
 					break;
-				
+				case FTP_QUEUE_COMMAND:
+					msg.arg2 = FTP_QUEUE_COMMAND;
+					luat_msgbus_put(&msg, 0);
+					break;
 				default:
 					break;
 				}
@@ -499,8 +513,25 @@ void ftp_task(void *param){
 					if (memcmp(ftp_ctrl->cmd_recv_data, FTP_FILE_REQUESTED_OK, 3)){
 						LLOGD("ftp COMMAND wrong");
 					}
-				}else if (memcmp(ftp_ctrl->cmd_recv_data, FTP_DATA_CON_FAIL, 3)){
-					LLOGD("ftp COMMAND wrong");
+				}else if (memcmp(ftp_ctrl->cmd_recv_data, FTP_DATA_CON_FAIL, 3)==0){
+					if(luat_ftp_pasv_connect(ftp_ctrl,FTP_SOCKET_TIMEOUT)){
+						LLOGD("ftp pasv_connect fail");
+						goto error;
+					}
+					luat_rtos_queue_recv(ftp_ctrl->ftp_queue_handle, &event, sizeof(uint8_t), FTP_SOCKET_TIMEOUT);
+					if(event == FTP_QUEUE_DATA_CONNECT){
+						luat_ftp_cmd_send(ftp_ctrl, ftp_ctrl->cmd_send_data, strlen(ftp_ctrl->cmd_send_data),FTP_SOCKET_TIMEOUT);
+						ret = luat_ftp_cmd_recv(ftp_ctrl,ftp_ctrl->cmd_recv_data,&ftp_ctrl->cmd_recv_len,FTP_SOCKET_TIMEOUT);
+						if (ret){
+							goto error;
+						}else{
+							if (memcmp(ftp_ctrl->cmd_recv_data, FTP_FILE_STATUS_OK, 3)){
+								LLOGD("ftp LIST wrong");
+							}else{
+								continue;
+							}
+						}
+					}
 				}
 			}
 			luat_msgbus_put(&msg, 0);
@@ -667,7 +698,7 @@ error:
 /*
 FTP命令
 @api ftp.command(cmd)
-@string cmd 命令 目前支持:NOOP SYST TYPE PWD MKD CWD CDUP RMD DELE
+@string cmd 命令 目前支持:NOOP SYST TYPE PWD MKD CWD CDUP RMD DELE LIST
 @return string 成功返回true 失败返回string
 @usage
     print(ftp.command("NOOP").wait())
@@ -687,6 +718,7 @@ static int l_ftp_command(lua_State *L) {
 	}
 	ftp_ctrl->idp = luat_pushcwait(L);
 	uint8_t event = FTP_QUEUE_COMMAND;
+	ftp_ctrl->ftp_execute = FTP_QUEUE_COMMAND;
 	size_t len;
 	const char *cmd = luaL_checklstring(L, 1, &len);
 	if (memcmp(cmd, "NOOP", 4)==0){
@@ -707,7 +739,10 @@ static int l_ftp_command(lua_State *L) {
 		LLOGD("command: DELE");
 	}else if(memcmp(cmd, "TYPE", 4)==0){
 		LLOGD("command: TYPE");
+	}else if(memcmp(cmd, "LIST", 4)==0){
+		LLOGD("command: LIST");
 	}else{
+		LLOGE("not support cmd:%s",cmd);
 		lua_pushinteger(L,FTP_ERROR_FILE);
 		luat_pushcwait_error(L,1);
 		return 0;
@@ -725,7 +760,7 @@ error:
 }
 
 /*
-FTP客户端
+FTP文件下载
 @api ftp.pull(local_name,remote_name)
 @string local_name 本地文件
 @string remote_name 服务器文件
@@ -765,7 +800,7 @@ error:
 }
 
 /*
-FTP客户端
+FTP文件上传
 @api ftp.push(local_name,remote_name)
 @string local_name 本地文件
 @string remote_name 服务器文件
@@ -804,7 +839,7 @@ error:
 }
 
 /*
-FTP客户端
+FTP客户端关闭
 @api ftp.close()
 @return bool/string 成功返回true 失败返回string
 @usage

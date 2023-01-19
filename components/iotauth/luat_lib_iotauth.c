@@ -237,7 +237,7 @@ static void onenet_token(const char* product_id,const char* device_name,const ch
 @return string mqtt三元组 user_name
 @return string mqtt三元组 password
 @usage
-local client_id,user_name,password = iotauth.onenet("123456789","test","KuF3NT/jUBJ62LNBB/A8XZA9CqS3Cu79B/ABmfA1UCw=","md5",1658920369,"2018-10-31")
+local client_id,user_name,password = iotauth.onenet("123456789","test","KuF3NT/jUBJ62LNBB/A8XZA9CqS3Cu79B/ABmfA1UCw=")
 print(client_id,user_name,password)
 */
 static int l_iotauth_onenet(lua_State *L) {
@@ -281,13 +281,13 @@ static void iotda_token(const char* device_id,const char* device_secret,long lon
 @return string mqtt三元组 user_name
 @return string mqtt三元组 password
 @usage
-local client_id,user_name,password = iotauth.iotda("6203cc94c7fb24029b110408_88888888","123456789",1659495778)
+local client_id,user_name,password = iotauth.iotda("6203cc94c7fb24029b110408_88888888","123456789")
 print(client_id,user_name,password)
 */
 static int l_iotauth_iotda(lua_State *L) {
-    char* client_id[CLIENT_ID_LEN] = {0};
-    char* password[PASSWORD_LEN] = {0};
-    size_t len;
+    char client_id[CLIENT_ID_LEN] = {0};
+    char password[PASSWORD_LEN] = {0};
+    size_t len = 0;
     long long cur_timestamp = 0;
     int ins_timestamp = 0;
     const char* device_id = luaL_checklstring(L, 1, &len);
@@ -398,7 +398,7 @@ static void tuya_token(const char* device_id,const char* device_secret,long long
 @return string mqtt三元组 user_name
 @return string mqtt三元组 password
 @usage
-local client_id,user_name,password = iotauth.tuya("6c95875d0f5ba69607nzfl","fb803786602df760",1607635284)
+local client_id,user_name,password = iotauth.tuya("6c95875d0f5ba69607nzfl","fb803786602df760")
 print(client_id,user_name,password)
 */
 static int l_iotauth_tuya(lua_State *L) {
@@ -458,13 +458,13 @@ static void baidu_token(const char* iot_core_id,const char* device_key,const cha
 @return string mqtt三元组 user_name
 @return string mqtt三元组 password
 @usage
-local client_id,user_name,password = iotauth.baidu("abcd123","mydevice","ImSeCrEt0I1M2jkl","MD5")
+local client_id,user_name,password = iotauth.baidu("abcd123","mydevice","ImSeCrEt0I1M2jkl")
 print(client_id,user_name,password)
 */
 static int l_iotauth_baidu(lua_State *L) {
-    char* user_name[USER_NAME_LEN] = {0};
-    char* password[PASSWORD_LEN] = {0};
-    size_t len;
+    char user_name[USER_NAME_LEN] = {0};
+    char password[PASSWORD_LEN] = {0};
+    size_t len = 0;
     const char* iot_core_id = luaL_checklstring(L, 1, &len);
     const char* device_key = luaL_checklstring(L, 2, &len);
     const char* device_secret = luaL_checklstring(L, 3, &len);

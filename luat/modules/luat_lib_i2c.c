@@ -214,8 +214,8 @@ static int l_i2c_setup(lua_State *L)
 /*
 新建一个软件i2c对象
 @api i2c.createSoft(scl,sda,slaveAddr)
-@int i2c SCL引脚编号
-@int i2c SDA引脚编号
+@int i2c SCL引脚编号(GPIO编号)
+@int i2c SDA引脚编号(GPIO编号)
 @int 从设备地址（7位）, 例如0x38
 @return 软件I2C对象 可当作i2c的id使用
 @usage

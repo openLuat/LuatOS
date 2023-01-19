@@ -156,8 +156,8 @@ static int32_t luat_lib_ftp_callback(void *data, void *param){
 	msg.handler = l_ftp_callback;
 	msg.ptr = ftp_ctrl;
 	msg.arg1 = 0;
-	LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
-	LLOGD("luat_lib_ftp_callback %d %d",event->ID & 0x0fffffff,event->Param1);
+	// LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
+	// LLOGD("luat_lib_ftp_callback %d %d",event->ID & 0x0fffffff,event->Param1);
 	if (event->Param1){
 		LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
 		LLOGE("luat_lib_ftp_callback ftp_ctrl close %d %d",event->ID & 0x0fffffff,event->Param1);
@@ -246,7 +246,7 @@ next:
 }
 
 static int luat_ftp_pasv_connect(luat_ftp_ctrl_t *ftp_ctrl,uint32_t timeout_ms){
-	char h1[4]={0},h2[4]={0},h3[4]={0},h4[4]={0},p1[4]={0},p2[4]={0},data_addr[14]={0};
+	char h1[4]={0},h2[4]={0},h3[4]={0},h4[4]={0},p1[4]={0},p2[4]={0},data_addr[20]={0};
 	uint8_t port1,port2;
 	uint16_t data_port;	
 	luat_ftp_cmd_send(ftp_ctrl, "PASV\r\n", strlen("PASV\r\n"),FTP_SOCKET_TIMEOUT);
@@ -273,7 +273,7 @@ static int luat_ftp_pasv_connect(luat_ftp_ctrl_t *ftp_ctrl,uint32_t timeout_ms){
     memcpy(p1, temp4+1, temp5-temp4-1);
     char *temp6 = memchr(temp5+1, ')', strlen(temp5)-1);
     memcpy(p2, temp5+1, temp6-temp5-1);
-	snprintf_(data_addr, 14, "%s.%s.%s.%s",h1,h2,h3,h4);
+	snprintf_(data_addr, 20, "%s.%s.%s.%s",h1,h2,h3,h4);
 	port1 = (uint8_t)atoi(p1);
 	port2 = (uint8_t)atoi(p2);
 	data_port = port1 * 256 + port2;
@@ -287,7 +287,6 @@ static int luat_ftp_pasv_connect(luat_ftp_ctrl_t *ftp_ctrl,uint32_t timeout_ms){
 	network_set_base_mode(ftp_ctrl->data_netc, 1, 10000, 0, 0, 0, 0);
 	network_set_local_port(ftp_ctrl->data_netc, 0);
 	network_deinit_tls(ftp_ctrl->data_netc);
-	//下面仅测试使用 ftp_ctrl->addr 实际应使用 data_addr,但是要不要使用ftp_ctrl->addr兼容呢？
 #ifdef LUAT_USE_LWIP
 	if(network_connect(ftp_ctrl->data_netc, data_addr, strlen(data_addr), (0xff == ftp_ctrl->ip_addr.type)?NULL:&(ftp_ctrl->ip_addr), data_port, 0)<0){
 #else
@@ -323,7 +322,6 @@ void ftp_task(void *param){
 					network_close(ftp_ctrl->cmd_netc, 0);
 					goto error;
 				}
-
 				ret = luat_ftp_cmd_recv(ftp_ctrl,ftp_ctrl->cmd_recv_data,&ftp_ctrl->cmd_recv_len,FTP_SOCKET_TIMEOUT);
 				if (ret){
 					goto error;
@@ -334,7 +332,6 @@ void ftp_task(void *param){
 					}
 				}
 				LLOGD("ftp connect ok");
-
 				memset(ftp_ctrl->cmd_send_data,0,FTP_CMD_SEND_MAX);
 				snprintf_(ftp_ctrl->cmd_send_data, FTP_CMD_SEND_MAX, "USER %s\r\n",ftp_ctrl->username);
 				luat_ftp_cmd_send(ftp_ctrl, ftp_ctrl->cmd_send_data, strlen(ftp_ctrl->cmd_send_data),FTP_SOCKET_TIMEOUT);
@@ -348,7 +345,6 @@ void ftp_task(void *param){
 					}
 				}
 				LLOGD("ftp username ok");
-				
 				memset(ftp_ctrl->cmd_send_data,0,FTP_CMD_SEND_MAX);
 				snprintf_(ftp_ctrl->cmd_send_data, FTP_CMD_SEND_MAX, "PASS %s\r\n",ftp_ctrl->password);
 				luat_ftp_cmd_send(ftp_ctrl, ftp_ctrl->cmd_send_data, strlen(ftp_ctrl->cmd_send_data),FTP_SOCKET_TIMEOUT);
@@ -528,6 +524,7 @@ void ftp_task(void *param){
 							if (memcmp(ftp_ctrl->cmd_recv_data, FTP_FILE_STATUS_OK, 3)){
 								LLOGD("ftp LIST wrong");
 							}else{
+								ret = luat_ftp_cmd_recv(ftp_ctrl,ftp_ctrl->cmd_recv_data,&ftp_ctrl->cmd_recv_len,1000);
 								continue;
 							}
 						}

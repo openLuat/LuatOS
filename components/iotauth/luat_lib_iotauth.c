@@ -17,13 +17,17 @@
 #define LUAT_LOG_TAG "iotauth"
 #include "luat_log.h"
 
-#define CLIENT_ID_LEN 128
-#define USER_NAME_LEN 128
+#define CLIENT_ID_LEN 192
+#define USER_NAME_LEN 192
 #define PASSWORD_LEN 256
 
-static char client_id[CLIENT_ID_LEN]={0};
-static char user_name[USER_NAME_LEN]={0};
-static char password[PASSWORD_LEN]={0};
+typedef struct iotauth_ctx
+{
+    char client_id[CLIENT_ID_LEN];
+    char user_name[USER_NAME_LEN];
+    char password[PASSWORD_LEN];
+}iotauth_ctx_t;
+
 
 static const unsigned char hexchars_s[] = "0123456789abcdef";
 static const unsigned char hexchars_u[] = "0123456789ABCDEF";
@@ -109,9 +113,7 @@ local client_id,user_name,password = iotauth.aliyun("123456789","abcdefg","Y877B
 print(client_id,user_name,password)
 */
 static int l_iotauth_aliyun(lua_State *L) {
-    memset(client_id, 0, CLIENT_ID_LEN);
-    memset(user_name, 0, USER_NAME_LEN);
-    memset(password, 0, PASSWORD_LEN);
+    iotauth_ctx_t ctx = {0};
     size_t len;
     uint8_t is_tls = 0;
     long long cur_timestamp = 32472115200;
@@ -125,10 +127,10 @@ static int l_iotauth_aliyun(lua_State *L) {
     if (lua_isboolean(L, 6)){
 		is_tls = lua_toboolean(L, 6);
 	}
-    aliyun_token(product_key,device_name,device_secret,cur_timestamp,method,is_tls,client_id,user_name,password);
-    lua_pushlstring(L, client_id, strlen(client_id));
-    lua_pushlstring(L, user_name, strlen(user_name));
-    lua_pushlstring(L, password, strlen(password));
+    aliyun_token(product_key,device_name,device_secret,cur_timestamp,method,is_tls,ctx.client_id,ctx.user_name,ctx.password);
+    lua_pushlstring(L, ctx.client_id, strlen(ctx.client_id));
+    lua_pushlstring(L, ctx.user_name, strlen(ctx.user_name));
+    lua_pushlstring(L, ctx.password, strlen(ctx.password));
     return 3;
 }
 
@@ -239,7 +241,7 @@ local client_id,user_name,password = iotauth.onenet("123456789","test","KuF3NT/j
 print(client_id,user_name,password)
 */
 static int l_iotauth_onenet(lua_State *L) {
-    memset(password, 0, PASSWORD_LEN);
+    char password[PASSWORD_LEN] = {0};
     size_t len;
     long long cur_timestamp = 32472115200;
     const char* produt_id = luaL_checklstring(L, 1, &len);
@@ -250,7 +252,7 @@ static int l_iotauth_onenet(lua_State *L) {
         cur_timestamp = luaL_checkinteger(L, 5);
     }
     const char* version = luaL_optlstring(L, 6, "2018-10-31", &len);
-    onenet_token(produt_id,device_name,key,cur_timestamp,method,version,password);
+    onenet_token(produt_id,device_name,key,cur_timestamp,method,version, password);
     lua_pushlstring(L, device_name, strlen(device_name));
     lua_pushlstring(L, produt_id, strlen(produt_id));
     lua_pushlstring(L, password, strlen(password));
@@ -283,8 +285,8 @@ local client_id,user_name,password = iotauth.iotda("6203cc94c7fb24029b110408_888
 print(client_id,user_name,password)
 */
 static int l_iotauth_iotda(lua_State *L) {
-    memset(client_id, 0, CLIENT_ID_LEN);
-    memset(password, 0, PASSWORD_LEN);
+    char* client_id[CLIENT_ID_LEN] = {0};
+    char* password[PASSWORD_LEN] = {0};
     size_t len;
     long long cur_timestamp = 0;
     int ins_timestamp = 0;
@@ -318,7 +320,7 @@ static void get_next_conn_id(char *conn_id){
 static void qcloud_token(const char* product_id,const char* device_name,const char* device_secret,long long cur_timestamp,const char* method,const char* sdk_appid,char* username,char* password){
     char  conn_id[MAX_CONN_ID_LEN] = {0};
     char  username_sign[41] = {0};
-    char  psk_base64decode[DECODE_PSK_LENGTH];
+    char  psk_base64decode[DECODE_PSK_LENGTH] = {0};
     size_t psk_base64decode_len = 0;
     luat_str_base64_decode((unsigned char *)psk_base64decode, DECODE_PSK_LENGTH, &psk_base64decode_len,(unsigned char *)device_secret, strlen(device_secret));
     get_next_conn_id(conn_id);
@@ -331,8 +333,7 @@ static void qcloud_token(const char* product_id,const char* device_name,const ch
         LLOGE("not support: %s",method);
         return;
     }
-    char *username_sign_hex  = (char *)luat_heap_malloc(100);
-    memset(username_sign_hex, 0, 100);
+    char username_sign_hex[100] = {0};
     if (!strcmp("sha1", method)||!strcmp("SHA1", method)) {
         str_tohex(username_sign, 20, username_sign_hex,0);
         snprintf_(password, PASSWORD_LEN,"%s;hmacsha1", username_sign_hex);
@@ -340,15 +341,14 @@ static void qcloud_token(const char* product_id,const char* device_name,const ch
         str_tohex(username_sign, 32, username_sign_hex,0);
         snprintf_(password, PASSWORD_LEN,"%s;hmacsha256", username_sign_hex);
     }
-    luat_heap_free(username_sign_hex);
 }
 
 /*
 腾讯联网平台三元组生成
 @api iotauth.qcloud(product_id, device_name,device_secret,method,cur_timestamp,sdk_appid)
-@string product_id
-@string device_name
-@string device_secret
+@string 产品id,创建项目后可以查看到,类似于LD8S5J1L07
+@string 设备名称,例如设备的imei号
+@string 设备密钥,创建设备后,查看设备详情可得到
 @string method 加密方式,"sha1" "sha256" 可选,默认"sha256"
 @number cur_timestamp 可选 默认为 32472115200(2999-01-01 0:0:0)
 @string sdk_appid 可选 默认为"12010126"
@@ -356,14 +356,12 @@ static void qcloud_token(const char* product_id,const char* device_name,const ch
 @return string mqtt三元组 user_name
 @return string mqtt三元组 password
 @usage
-local client_id,user_name,password = iotauth.qcloud("LD8S5J1L07","test","acyv3QDJrRa0fW5UE58KnQ==", "sha1",1660103393)
+local client_id,user_name,password = iotauth.qcloud("LD8S5J1L07","test","acyv3QDJrRa0fW5UE58KnQ==")
 print(client_id,user_name,password)
 */
 static int l_iotauth_qcloud(lua_State *L) {
-    memset(client_id, 0, CLIENT_ID_LEN);
-    memset(user_name, 0, USER_NAME_LEN);
-    memset(password, 0, PASSWORD_LEN);
-    size_t len;
+    iotauth_ctx_t ctx = {0};
+    size_t len = 0;
     long long cur_timestamp = 32472115200;
     const char* product_id = luaL_checklstring(L, 1, &len);
     const char* device_name = luaL_checklstring(L, 2, &len);
@@ -373,22 +371,21 @@ static int l_iotauth_qcloud(lua_State *L) {
         cur_timestamp = luaL_checkinteger(L, 5);
     }
     const char* sdk_appid = luaL_optlstring(L, 6, "12010126", &len);
-    qcloud_token(product_id, device_name,device_secret,cur_timestamp,method,sdk_appid,user_name,password);
-    snprintf_(client_id, CLIENT_ID_LEN,"%s%s", product_id,device_name);
-    lua_pushlstring(L, client_id, strlen(client_id));
-    lua_pushlstring(L, user_name, strlen(user_name));
-    lua_pushlstring(L, password, strlen(password));
+    qcloud_token(product_id, device_name,device_secret,cur_timestamp,method,sdk_appid,ctx.user_name,ctx.password);
+    snprintf_(ctx.client_id, CLIENT_ID_LEN,"%s%s", product_id,device_name);
+    lua_pushlstring(L, ctx.client_id, strlen(ctx.client_id));
+    lua_pushlstring(L, ctx.user_name, strlen(ctx.user_name));
+    lua_pushlstring(L, ctx.password, strlen(ctx.password));
     return 3;
 }
 
 static void tuya_token(const char* device_id,const char* device_secret,long long cur_timestamp,const char* password){
     char hmac[64] = {0};
-    char *token_temp  = (char *)luat_heap_malloc(100);
+    char token_temp[100]  = {0};
     memset(token_temp, 0, 100);
     snprintf_(token_temp, 100, "deviceId=%s,timestamp=%lld,secureMode=1,accessType=1", device_id, cur_timestamp);
     luat_crypto_hmac_sha256_simple(token_temp, strlen(token_temp),device_secret, strlen(device_secret), hmac);
     str_tohex(hmac, 32, password,0);
-    luat_heap_free(token_temp);
 }
 
 /*
@@ -405,29 +402,26 @@ local client_id,user_name,password = iotauth.tuya("6c95875d0f5ba69607nzfl","fb80
 print(client_id,user_name,password)
 */
 static int l_iotauth_tuya(lua_State *L) {
-    memset(client_id, 0, CLIENT_ID_LEN);
-    memset(user_name, 0, USER_NAME_LEN);
-    memset(password, 0, PASSWORD_LEN);
-    size_t len;
+    iotauth_ctx_t ctx = {0};
+    size_t len = 0;
     long long cur_timestamp = 32472115200;
     const char* device_id = luaL_checklstring(L, 1, &len);
     const char* device_secret = luaL_checklstring(L, 2, &len);
     if (lua_type(L, (3)) == LUA_TNUMBER){
         cur_timestamp = luaL_checkinteger(L, 3);
     }
-    tuya_token(device_id,device_secret,cur_timestamp,password);
-    snprintf_(client_id, CLIENT_ID_LEN, "tuyalink_%s", device_id);
-    snprintf_(user_name, USER_NAME_LEN, "%s|signMethod=hmacSha256,timestamp=%lld,secureMode=1,accessType=1", device_id,cur_timestamp);
-    lua_pushlstring(L, client_id, strlen(client_id));
-    lua_pushlstring(L, user_name, strlen(user_name));
-    lua_pushlstring(L, password, strlen(password));
+    tuya_token(device_id,device_secret,cur_timestamp,ctx.password);
+    snprintf_(ctx.client_id, CLIENT_ID_LEN, "tuyalink_%s", device_id);
+    snprintf_(ctx.user_name, USER_NAME_LEN, "%s|signMethod=hmacSha256,timestamp=%lld,secureMode=1,accessType=1", device_id,cur_timestamp);
+    lua_pushlstring(L, ctx.client_id, strlen(ctx.client_id));
+    lua_pushlstring(L, ctx.user_name, strlen(ctx.user_name));
+    lua_pushlstring(L, ctx.password, strlen(ctx.password));
     return 3;
 }
 
 static void baidu_token(const char* iot_core_id,const char* device_key,const char* device_secret,const char* method,long long cur_timestamp,char* username,char* password){
     char crypto[64] = {0};
-    char *token_temp  = (char *)luat_heap_malloc(100);
-    memset(token_temp, 0, 100);
+    char token_temp[100] = {0};
     if (!strcmp("MD5", method)||!strcmp("md5", method)) {
         if (cur_timestamp){
             snprintf_(username,USER_NAME_LEN, "thingidp@%s|%s|%lld|%s",iot_core_id,device_key,cur_timestamp,"MD5");
@@ -449,7 +443,6 @@ static void baidu_token(const char* iot_core_id,const char* device_key,const cha
     }else{
         LLOGE("not support: %s",method);
     }
-    luat_heap_free(token_temp);
     return;
 }
 
@@ -469,8 +462,8 @@ local client_id,user_name,password = iotauth.baidu("abcd123","mydevice","ImSeCrE
 print(client_id,user_name,password)
 */
 static int l_iotauth_baidu(lua_State *L) {
-    memset(user_name, 0, USER_NAME_LEN);
-    memset(password, 0, PASSWORD_LEN);
+    char* user_name[USER_NAME_LEN] = {0};
+    char* password[PASSWORD_LEN] = {0};
     size_t len;
     const char* iot_core_id = luaL_checklstring(L, 1, &len);
     const char* device_key = luaL_checklstring(L, 2, &len);

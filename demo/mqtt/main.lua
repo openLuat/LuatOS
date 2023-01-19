@@ -107,7 +107,7 @@ sys.taskInit(function()
 	local qos = 1
     while true do
         sys.wait(5000)
-        if mqttc:ready() then
+        if mqttc and mqttc:ready() then
 			-- mqttc:subscribe(topic)
             local pkgid = mqttc:publish(topic, data, qos)
             -- 也可以通过sys.publish发布到指定task去

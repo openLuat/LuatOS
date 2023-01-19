@@ -436,6 +436,28 @@ static int l_mqtt_connect(lua_State *L) {
 }
 
 /*
+断开服务器连接(不会释放资源)
+@api mqttc:disconnect()
+@return boolean 发起成功返回true, 否则返回false
+@usage
+-- 断开连接
+mqttc:disconnect()
+*/
+static int l_mqtt_disconnect(lua_State *L) {
+	luat_mqtt_ctrl_t * mqtt_ctrl = get_mqtt_ctrl(L);
+	mqtt_disconnect(&(mqtt_ctrl->broker));
+	if (mqtt_ctrl->netc){
+		network_force_close_socket(mqtt_ctrl->netc);
+	}
+	mqtt_ctrl->mqtt_state = 0;
+	luat_stop_rtos_timer(mqtt_ctrl->ping_timer);
+	luat_start_rtos_timer(mqtt_ctrl->reconnect_timer, mqtt_ctrl->reconnect_time, 0);
+	mqtt_ctrl->buffer_offset = 0;
+	lua_pushboolean(L, 1);
+	return 1;
+}
+
+/*
 自动重连
 @api mqttc:autoreconn(reconnect, reconnect_time)
 @bool 是否自动重连
@@ -575,6 +597,7 @@ static const rotable_Reg_t reg_mqtt[] =
 	{"publish",			ROREG_FUNC(l_mqtt_publish)},
 	{"subscribe",		ROREG_FUNC(l_mqtt_subscribe)},
 	{"unsubscribe",		ROREG_FUNC(l_mqtt_unsubscribe)},
+	{"disconnect",		ROREG_FUNC(l_mqtt_disconnect)},
 	{"close",			ROREG_FUNC(l_mqtt_close)},
 	{"ready",			ROREG_FUNC(l_mqtt_ready)},
 	{"will",			ROREG_FUNC(l_mqtt_will)},

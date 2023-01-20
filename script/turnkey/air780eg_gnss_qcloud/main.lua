@@ -32,13 +32,29 @@ local qcloud_port = 1883
 -- libgnss库初始化
 libgnss.clear() -- 清空数据,兼初始化
 
+-- 初始化存储
+fskv.init()
+
 -- LED和ADC初始化
 LED_GNSS = 24
 LED_VBAT = 26
+SWITCH_1 = 1
+SWITCH_2 = 22
 gpio.setup(LED_GNSS, 0) -- GNSS定位成功灯
 gpio.setup(LED_VBAT, 0) -- 低电压警告灯
 adc.open(adc.CH_VBAT)
 -- adc.open(adc.CH_CPU)
+
+-- 判断一下初始化配置
+if fskv.get("SWITCH_1") == nil then
+    fskv.set("SWITCH_1", 0)
+end
+if fskv.get("SWITCH_2") == nil then
+    fskv.set("SWITCH_2", 0)
+end
+
+gpio.setup(SWITCH_1, fskv.get("SWITCH_1"), gpio.PULLUP)
+gpio.setup(SWITCH_2, fskv.get("SWITCH_2"))
 
 -- 串口初始化
 uart.setup(gps_uart_id, 115200)
@@ -88,30 +104,61 @@ function exec_agnss()
     end
 end
 
-function upload_stat()
+function upload_stat(is_first)
     -- if mqttc == nil or not mqttc:ready() then return end
     local cell = mobile.getCellInfo()
     local rmc = libgnss.getRmc(2)
-    local params = {
-        networkType = 5
-    }
+    local params = {}
     if libgnss.isFix() then
         params["GPS_Info"]  = {
             longitude = rmc.lng,
             latitude = rmc.lat
         }
     end
+    if is_first then
+        params["switch_1"] = fskv.get("SWITCH_1")
+        params["switch_2"] = fskv.get("SWITCH_2")
+        params.networkType = 5
+    end
     if mqttc and mqttc:ready() then
         local topic = "$thing/up/property/" .. qcloud_pid .. "/" .. qcloud_dev
         local payload = json.encode({
             method = "report",
-            clientToken = "123",
+            clientToken = "0",
             params = params
         })
         mqttc:publish(topic, payload, 1)
     end
 end
 
+function on_downlink(topic, payload) 
+    local jdata = json.decode(payload)
+    if not jdata then
+        return
+    end
+    if jdata.method == "control" and jdata.params then
+        local changed = false
+        if jdata.params.switch_1 then
+            gpio.set(SWITCH_1, jdata.params.switch_1)
+            fskv.set("SWITCH_1", jdata.params.switch_1)
+            changed = true
+        end
+        if jdata.params.switch_2 then
+            gpio.set(SWITCH_2, jdata.params.switch_2)
+            fskv.set("SWITCH_2", jdata.params.switch_2)
+            changed = true
+        end
+
+        -- 回报结果
+        local topic = "$thing/up/property/" .. qcloud_pid .. "/" .. qcloud_dev
+        local payload = json.encode({
+            method = "report",
+            clientToken = jdata.clientToken,
+            params = jdata.params
+        })
+        mqttc:publish(topic, payload, 1)
+    end
+end
 
 sys.taskInit(function()
     -- Air780EG默认波特率是115200
@@ -177,9 +224,10 @@ sys.taskInit(function()
             mqtt_client:subscribe("$rrpc/rxd/" .. qcloud_pid .. "/" .. qcloud_dev .. "/+")
             -- 广播消息下行
             mqtt_client:subscribe("$broadcast/rxd/" .. qcloud_pid .. "/" .. qcloud_dev .. "/+")
-            upload_stat()
+            upload_stat(true)
         elseif event == "recv" then -- 服务器下发的数据
             log.info("mqtt", "downlink", "topic", data, "payload", payload)
+            on_downlink(data, payload)
         elseif event == "sent" then -- publish成功后的事件
             log.info("mqtt", "sent", "pkgid", data)
         end
@@ -211,7 +259,7 @@ end)
 sys.taskInit(function()
     while 1 do
         local vbat = adc.get(adc.CH_VBAT)
-        log.info("vbat", vbat)
+        -- log.info("vbat", vbat)
         if vbat < 3400 then
             gpio.set(LED_VBAT, 1)
             sys.wait(100)

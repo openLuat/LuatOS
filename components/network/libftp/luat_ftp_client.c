@@ -706,7 +706,7 @@ FTP命令
     print(ftp.command("CWD /QWER").wait())
     print(ftp.command("CDUP").wait())
     print(ftp.command("RMD QWER").wait())
-	rint(ftp.command("DELE /1/12222.txt").wait())
+	print(ftp.command("DELE /1/12222.txt").wait())
 */
 static int l_ftp_command(lua_State *L) {
 	if (!ftp_ctrl){

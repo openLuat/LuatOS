@@ -38,7 +38,8 @@ uart.on(uartid, "receive", function(id, len)
         end
     until s == ""
 end)
-
+local tx_buff = zbuff.create(4096)
+tx_buff:set(0, 0x31)
 -- 并非所有设备都支持sent事件
 uart.on(uartid, "sent", function(id)
     log.info("uart", "sent", id)
@@ -47,7 +48,8 @@ end)
 sys.taskInit(function()
 
     while 1 do
-        uart.write(uart.VUART_0, "hello test usb-uart\r\n")
+        -- uart.write(uart.VUART_0, "hello test usb-uart\r\n")
+        uart.tx(uart.VUART_0, tx_buff,0, tx_buff:len())
         sys.wait(1000)
     end
 end)

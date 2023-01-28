@@ -19,8 +19,8 @@ local wsc = nil
 
 sys.taskInit(function()
     if rtos.bsp():startsWith("ESP32") then
-        local ssid = "uiot123"
-        local password = "12348888"
+        local ssid = "uiot"
+        local password = "1234567890"
         log.info("wifi", ssid, password)
         -- TODO 改成esptouch配网
         LED = gpio.setup(12, 0, gpio.PULLUP)
@@ -46,6 +46,9 @@ sys.taskInit(function()
 
     -- 这是个测试服务, 当发送的是json,且action=echo,就会回显所发送的内容
     wsc = websocket.create(nil, "ws://echo.airtun.air32.cn/ws/echo")
+    if wsc.headers then
+        wsc:headers({Auth="Basic ABCDEGG"})
+    end
     wsc:autoreconn(true, 3000) -- 自动重连机制
     wsc:on(function(wsc, event, data, fin, optcode)
         -- event 事件, 当前有conack和recv

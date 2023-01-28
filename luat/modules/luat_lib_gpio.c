@@ -160,7 +160,7 @@ int l_gpio_handler(lua_State *L, void* ptr) {
 /*
 设置管脚功能
 @api gpio.setup(pin, mode, pull, irq)
-@int pin 针脚编号,必须是数值
+@int pin gpio编号,必须是数值
 @any mode 输入输出模式：<br>数字0/1代表输出模式<br>nil代表输入模式<br>function代表中断模式
 @int pull 上拉下列模式, 可以是gpio.PULLUP 或 gpio.PULLDOWN, 需要根据实际硬件选用
 @int irq 默认gpio.BOTH。中断触发模式<br>上升沿gpio.RISING<br>下降沿gpio.FALLING<br>上升和下降都要gpio.BOTH

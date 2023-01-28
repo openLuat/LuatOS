@@ -57,6 +57,7 @@ static luat_websocket_ctrl_t *get_websocket_ctrl(lua_State *L)
 
 static int32_t l_websocket_callback(lua_State *L, void *ptr)
 {
+	(void)ptr;
 	rtos_msg_t *msg = (rtos_msg_t *)lua_topointer(L, -1);
 	luat_websocket_ctrl_t *websocket_ctrl = (luat_websocket_ctrl_t *)msg->ptr;
 	luat_websocket_pkg_t pkg = {0};
@@ -198,7 +199,7 @@ static int l_websocket_create(lua_State *L)
 	luat_websocket_connopts_t opts = {0};
 
 	// 连接参数相关
-	const char *ip;
+	// const char *ip;
 	size_t ip_len = 0;
 #ifdef LUAT_USE_LWIP
 	websocket_ctrl->ip_addr.type = 0xff;
@@ -295,13 +296,13 @@ static int l_websocket_autoreconn(lua_State *L)
 @string 待发送的数据,必填
 @int 是否为最后一帧,默认1
 @int 操作码, 默认为字符串帧
-@return int 消息id, 当qos为1或2时会有效值. 若底层返回是否, 会返回nil
+@return bool 成功返回true,否则为false或者nil
 @usage
 wsc:publish("/luatos/123456", "123")
 */
 static int l_websocket_send(lua_State *L)
 {
-	uint32_t payload_len = 0;
+	size_t payload_len = 0;
 	luat_websocket_ctrl_t *websocket_ctrl = get_websocket_ctrl(L);
 	const char *payload = NULL;
 	luat_zbuff_t *buff = NULL;
@@ -327,7 +328,8 @@ static int l_websocket_send(lua_State *L)
 		.plen = payload_len,
 		.payload = payload};
 	ret = luat_websocket_send_frame(websocket_ctrl, &pkg);
-	return 0;
+	lua_pushboolean(L, ret == 0 ? 1 : 0);
+	return 1;
 }
 
 /*
@@ -355,12 +357,88 @@ websocket客户端是否就绪
 @api wsc:ready()
 @return bool 客户端是否就绪
 @usage
-local error = wsc:ready()
+local stat = wsc:ready()
 */
 static int l_websocket_ready(lua_State *L)
 {
 	luat_websocket_ctrl_t *websocket_ctrl = get_websocket_ctrl(L);
 	lua_pushboolean(L, websocket_ctrl->websocket_state > 0 ? 1 : 0);
+	return 1;
+}
+
+/*
+设置额外的headers
+@api wsc:headers(headers)
+@table/string 可以是table,也可以是字符串
+@return bool 客户端是否就绪
+@usage
+-- table形式
+wsc:headers({
+	Auth="Basic ABCDEFGG"
+})
+-- 字符串形式
+wsc:headers("Auth: Basic ABCDERG\r\n")
+*/
+static int l_websocket_headers(lua_State *L)
+{
+	luat_websocket_ctrl_t *websocket_ctrl = get_websocket_ctrl(L);
+	if (!lua_istable(L, 2) && !lua_isstring(L, 2)) {
+		return  0;
+	}
+	#define WS_HEADER_MAX (1024)
+	char* buff = luat_heap_malloc(WS_HEADER_MAX);
+	memset(buff, 0, WS_HEADER_MAX);
+	if (lua_istable(L, 2)) {
+		size_t name_sz = 0;
+		size_t value_sz = 0;
+		lua_pushnil(L);
+		while (lua_next(L, 2) != 0) {
+			const char *name = lua_tolstring(L, -2, &name_sz);
+			const char *value = lua_tolstring(L, -1, &value_sz);
+			if (name_sz == 0 || value_sz == 0 || name_sz + value_sz > 256) {
+				LLOGW("bad header %s %s", name, value);
+				luat_heap_free(buff);
+				return 0;
+			}
+			memcpy(buff + strlen(buff), name, name_sz);
+			memcpy(buff + strlen(buff), ":", 1);
+			if (WS_HEADER_MAX - strlen(buff) < value_sz * 2) {
+				LLOGW("bad header %s %s, too large", name, value);
+				luat_heap_free(buff);
+				return 0;
+			}
+			for (size_t i = 0; i < value_sz; i++)
+			{
+				switch (value[i])
+				{
+				case '*':
+				case '-':
+				case '.':
+				case '_':
+				case ' ':
+					sprintf_(buff + strlen(buff), "%%%02X", value[i]);
+					break;
+				default:
+					buff[strlen(buff)] = value[i];
+					break;
+				}
+			}
+			lua_pop(L, 1);
+			memcpy(buff + strlen(buff), "\r\n", 2);
+		}
+	}
+	else {
+		size_t len = 0;
+		const char* data = luaL_checklstring(L, 2, &len);
+		if (len > 1023) {
+			LLOGW("headers too large size %d", len);
+			luat_heap_free(buff);
+			return 0;
+		}
+		memcpy(buff, data, len);
+	}
+	luat_websocket_set_headers(websocket_ctrl, buff);
+	lua_pushboolean(L, 1);
 	return 1;
 }
 
@@ -377,19 +455,22 @@ void luat_websocket_struct_init(lua_State *L)
 #include "rotable2.h"
 const rotable_Reg_t reg_websocket[] =
 	{
-		{"create", ROREG_FUNC(l_websocket_create)},
-		{"on", ROREG_FUNC(l_websocket_on)},
-		{"connect", ROREG_FUNC(l_websocket_connect)},
-		{"autoreconn", ROREG_FUNC(l_websocket_autoreconn)},
-		{"send", ROREG_FUNC(l_websocket_send)},
-		{"close", ROREG_FUNC(l_websocket_close)},
-		{"ready", ROREG_FUNC(l_websocket_ready)},
+		{"create", 			ROREG_FUNC(l_websocket_create)},
+		{"on", 				ROREG_FUNC(l_websocket_on)},
+		{"connect", 		ROREG_FUNC(l_websocket_connect)},
+		{"autoreconn", 		ROREG_FUNC(l_websocket_autoreconn)},
+		{"send", 			ROREG_FUNC(l_websocket_send)},
+		{"close", 			ROREG_FUNC(l_websocket_close)},
+		{"ready", 			ROREG_FUNC(l_websocket_ready)},
+		{"headers", 		ROREG_FUNC(l_websocket_headers)},
+		{"debug",           ROREG_FUNC(l_websocket_set_debug)},
 
-		{NULL, ROREG_INT(0)}};
+		{NULL, 				ROREG_INT(0)}
+};
 
 int _websocket_struct_newindex(lua_State *L)
 {
-	rotable_Reg_t *reg = reg_websocket;
+	const rotable_Reg_t *reg = reg_websocket;
 	const char *key = luaL_checkstring(L, 2);
 	while (1)
 	{

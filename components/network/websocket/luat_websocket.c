@@ -281,12 +281,23 @@ void luat_websocket_release_socket(luat_websocket_ctrl_t *websocket_ctrl)
 		luat_release_rtos_timer(websocket_ctrl->reconnect_timer);
     	websocket_ctrl->reconnect_timer = NULL;
 	}
+	if (websocket_ctrl->headers) {
+		luat_heap_free(websocket_ctrl->headers);
+		websocket_ctrl->headers = NULL;
+	}
 	if (websocket_ctrl->netc)
 	{
 		network_release_ctrl(websocket_ctrl->netc);
 		websocket_ctrl->netc = NULL;
 	}
 }
+
+static const char* ws_headers = 
+						"Upgrade: websocket\r\n"
+						"Connection: Upgrade\r\n"
+						"Sec-WebSocket-Key: w4v7O6xFTi36lq3RNcgctw==\r\n"
+						"Sec-WebSocket-Version: 13\r\n"
+						"\r\n";
 
 static int websocket_connect(luat_websocket_ctrl_t *websocket_ctrl)
 {
@@ -295,15 +306,14 @@ static int websocket_connect(luat_websocket_ctrl_t *websocket_ctrl)
 	int ret = snprintf_((char*)websocket_ctrl->pkg_buff,
 						WEBSOCKET_RECV_BUF_LEN_MAX,
 						"GET %s HTTP/1.1\r\n"
-						"Host: %s\r\n"
-						"Upgrade: websocket\r\n"
-						"Connection: Upgrade\r\n"
-						"Sec-WebSocket-Key: w4v7O6xFTi36lq3RNcgctw==\r\n"
-						"Sec-WebSocket-Version: 13\r\n"
-						"\r\n",
+						"Host: %s\r\n",
 						websocket_ctrl->uri, websocket_ctrl->host);
-	LLOGD("Request %s", websocket_ctrl->pkg_buff);
+	//LLOGD("Request %s", websocket_ctrl->pkg_buff);
 	ret = luat_websocket_send_packet(websocket_ctrl, websocket_ctrl->pkg_buff, ret);
+	if (websocket_ctrl->headers) {
+		luat_websocket_send_packet(websocket_ctrl, websocket_ctrl->headers, strlen(websocket_ctrl->headers));
+	}
+	luat_websocket_send_packet(websocket_ctrl, ws_headers, strlen(ws_headers));
 	LLOGD("websocket_connect ret %d", ret);
 	return ret;
 }
@@ -441,7 +451,7 @@ static int websocket_parse(luat_websocket_ctrl_t *websocket_ctrl)
 			return -1;
 		}
 		memcpy(buff, buf, pkg_len);
-		l_luat_websocket_msg_cb(websocket_ctrl, WEBSOCKET_MSG_PUBLISH, buff);
+		l_luat_websocket_msg_cb(websocket_ctrl, WEBSOCKET_MSG_PUBLISH, (int)buff);
 	}
 
 	// 处理完成后, 如果还有数据, 移动数据, 继续处理
@@ -457,8 +467,8 @@ static int websocket_parse(luat_websocket_ctrl_t *websocket_ctrl)
 int luat_websocket_read_packet(luat_websocket_ctrl_t *websocket_ctrl)
 {
 	// LLOGD("luat_websocket_read_packet websocket_ctrl->buffer_offset:%d",websocket_ctrl->buffer_offset);
-	int ret = -1;
-	uint8_t *read_buff = NULL;
+	// int ret = -1;
+	// uint8_t *read_buff = NULL;
 	uint32_t total_len = 0;
 	uint32_t rx_len = 0;
 	int result = network_rx(websocket_ctrl->netc, NULL, 0, 0, NULL, NULL, &total_len);
@@ -625,6 +635,19 @@ int luat_websocket_connect(luat_websocket_ctrl_t *websocket_ctrl)
 	{
 		network_close(websocket_ctrl->netc, 0);
 		return -1;
+	}
+	return 0;
+}
+
+int luat_websocket_set_headers(luat_websocket_ctrl_t *websocket_ctrl, const char *headers) {
+	if (websocket_ctrl == NULL)
+		return 0;
+	if (websocket_ctrl->headers != NULL) {
+		luat_heap_free(websocket_ctrl->headers);
+		websocket_ctrl->headers = NULL;
+	}
+	if (headers) {
+		websocket_ctrl->headers = headers;
 	}
 	return 0;
 }

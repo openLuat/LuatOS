@@ -3,7 +3,7 @@
 @summary ftp 客户端
 @version 1.0
 @date    2022.09.05
-@demo    socket
+@demo    ftp
 @tag LUAT_USE_FTP
 */
 

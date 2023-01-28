@@ -416,11 +416,33 @@ static int l_sms_cb(lua_State *L) {
     return 0;
 }
 
+/**
+设置长短信的自动合并功能
+@api sms.autoLong(mode)
+@bool 是否自动合并,true为自动合并,为默认值
+@return bool 设置后的值
+@usage
+-- 禁用长短信的自动合并, 一般不需要禁用
+sms.autoLong(false)
+ */
+static int l_sms_auto_long(lua_State *L) {
+    if (lua_isboolean(L, 1)) {
+        lua_sms_recv_long = lua_toboolean(L, 1);
+    }
+    else if (lua_isinteger(L, 1))
+    {
+        lua_sms_recv_long = lua_toboolean(L, 1);
+    }
+    lua_pushboolean(L, lua_sms_recv_long == 0 ? 0 : 1);
+    return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_sms[] =
 {
     { "send",      ROREG_FUNC(l_sms_send)},
     { "setNewSmsCb", ROREG_FUNC(l_sms_cb)},
+    { "autoLong",  ROREG_FUNC(l_sms_auto_long)},
 	{ NULL,          ROREG_INT(0)}
 };
 

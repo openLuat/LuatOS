@@ -32,6 +32,7 @@ typedef struct
 	void *reconnect_timer;	 // websocket重连定时器
 	void *ping_timer;		 // websocket_ping定时器
 	int websocket_ref;		 // 强制引用自身避免被GC
+	char* headers;
 } luat_websocket_ctrl_t;
 
 typedef struct luat_websocket_connopts
@@ -69,5 +70,5 @@ int luat_websocket_init(luat_websocket_ctrl_t *websocket_ctrl, int adapter_index
 int luat_websocket_set_connopts(luat_websocket_ctrl_t *websocket_ctrl, const char *url);
 int luat_websocket_payload(char *buff, luat_websocket_pkg_t *pkg, size_t limit);
 int luat_websocket_send_frame(luat_websocket_ctrl_t *websocket_ctrl, luat_websocket_pkg_t *pkg);
-
+int luat_websocket_set_headers(luat_websocket_ctrl_t *websocket_ctrl, const char *headers);
 #endif

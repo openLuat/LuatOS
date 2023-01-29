@@ -164,6 +164,28 @@ int luat_mobile_active_apn(int sim_id, int cid, uint8_t state);
 int luat_mobile_active_netif(int sim_id, int cid);
 
 /**
+ * @brief 用户设置APN的基本信息，并且自动激活，注意不能和上述手动操作APN的API共用
+ *
+ * @param sim_id sim位置，对于双卡双待的设备，选0或者1，其他设备随意
+ * @param cid cid位置 2~6
+ * @param ip_type 激活类型 1 IPV4 2 IPV6 3 IPV4V6
+ * @param protocol_type 加密协议 0~2，0xff表示不需要
+ * @param apn_name apn name，如果留空则使用默认APN
+ * @param apn_name_len apn name 长度
+ * @param user_name 用户名
+ * @param user_name_len 用户名长度
+ * @param password 密码
+ * @param password_len 密码长度
+ * @return 无
+ */
+void luat_mobile_user_apn_auto_active(int sim_id, uint8_t cid,
+		uint8_t ip_type,
+		uint8_t protocol_type,
+		uint8_t *apn_name, uint8_t apn_name_len,
+		uint8_t *user, uint8_t user_len,
+		uint8_t *password, uint8_t password_len);
+
+/**
  * @brief 获取默认CID的apn name，并不一定支持
  * 
  * @param sim_id sim位置，对于双卡双待的设备，选0或者1，其他设备随意
@@ -406,11 +428,11 @@ typedef enum LUAT_MOBILE_REGISTER_STATUS
 	LUAT_MOBILE_STATUS_DENIED,  	/**< 网络注册被拒绝，或者正在搜网中*/
 	LUAT_MOBILE_STATUS_UNKNOW,		/**< 网络状态未知*/
 	LUAT_MOBILE_STATUS_REGISTERED_ROAMING, 	/**< 网络已注册，漫游*/
-	LUAT_MOBILE_STATUS_SMS_ONLY_REGISTERED, /**<  仅注册短信业务*/
-	LUAT_MOBILE_STATUS_SMS_ONLY_REGISTERED_ROAMING, /**<  仅注册短信业务，漫游*/
-	LUAT_MOBILE_STATUS_EMERGENCY_REGISTERED, /**< 仅紧急呼叫可用*/
-	LUAT_MOBILE_STATUS_CSFB_NOT_PREFERRED_REGISTERED, /**< 未优先注册电路域回落(语音通话)*/
-	LUAT_MOBILE_STATUS_CSFB_NOT_PREFERRED_REGISTERED_ROAMING,/**< 未优先注册电路域回落(语音通话)，漫游*/
+	LUAT_MOBILE_STATUS_SMS_ONLY_REGISTERED,
+	LUAT_MOBILE_STATUS_SMS_ONLY_REGISTERED_ROAMING,
+	LUAT_MOBILE_STATUS_EMERGENCY_REGISTERED,
+	LUAT_MOBILE_STATUS_CSFB_NOT_PREFERRED_REGISTERED,
+	LUAT_MOBILE_STATUS_CSFB_NOT_PREFERRED_REGISTERED_ROAMING,
 }LUAT_MOBILE_REGISTER_STATUS_E;
 
 typedef enum LUAT_MOBILE_CELL_INFO_STATUS

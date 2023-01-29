@@ -1314,6 +1314,20 @@ int network_get_local_ip_info(network_ctrl_t *ctrl, luat_ip_addr_t *ip, luat_ip_
 	return adapter->opt->get_local_ip_info(ip, submask, gateway, adapter->user_data);
 }
 
+int network_get_full_local_ip_info(network_ctrl_t *ctrl, uint8_t index, luat_ip_addr_t *ip, luat_ip_addr_t *submask, luat_ip_addr_t *gateway, luat_ip_addr_t *ipv6)
+{
+	network_adapter_t *adapter;
+	if (ctrl)
+	{
+		adapter = &prv_adapter_table[ctrl->adapter_index];
+	}
+	else
+	{
+		adapter = &prv_adapter_table[index];
+	}
+	return adapter->opt->get_full_ip_info(ip, submask, gateway, ipv6, adapter->user_data);
+}
+
 void network_force_close_socket(network_ctrl_t *ctrl)
 {
 #ifdef LUAT_USE_TLS

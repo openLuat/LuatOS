@@ -46,28 +46,40 @@ end)
 */
 static int l_socket_local_ip(lua_State *L)
 {
-	luat_ip_addr_t local_ip, net_mask, gate_way;
+	luat_ip_addr_t local_ip, net_mask, gate_way, ipv6;
 	int adapter_index = luaL_optinteger(L, 1, network_get_last_register_adapter());
 	if (adapter_index < 0 || adapter_index >= NW_ADAPTER_QTY)
 	{
 		return 0;
 	}
+#ifdef LUAT_USE_LWIP
+	ipv6.type = 0xff;
+	int ret = network_get_full_local_ip_info(NULL, adapter_index, &local_ip, &net_mask, &gate_way, &ipv6);
+#else
 	void* userdata = NULL;
 	network_adapter_info* info = network_adapter_fetch(adapter_index, &userdata);
 	if (info == NULL)
 		return 0;
+
 	int ret = info->get_local_ip_info(&local_ip, &net_mask, &gate_way, userdata);
+#endif
 	if (ret == 0) {
 #ifdef LUAT_USE_LWIP
 		lua_pushfstring(L, "%d.%d.%d.%d", (local_ip.u_addr.ip4.addr >> 24) & 0xFF, (local_ip.u_addr.ip4.addr >> 16) & 0xFF, (local_ip.u_addr.ip4.addr >> 8) & 0xFF, (local_ip.u_addr.ip4.addr >> 0) & 0xFF);
 		lua_pushfstring(L, "%d.%d.%d.%d", (net_mask.u_addr.ip4.addr >> 24) & 0xFF, (net_mask.u_addr.ip4.addr >> 16) & 0xFF, (net_mask.u_addr.ip4.addr >> 8) & 0xFF, (net_mask.u_addr.ip4.addr >> 0) & 0xFF);
 		lua_pushfstring(L, "%d.%d.%d.%d", (gate_way.u_addr.ip4.addr >> 24) & 0xFF, (gate_way.u_addr.ip4.addr >> 16) & 0xFF, (gate_way.u_addr.ip4.addr >> 8) & 0xFF, (gate_way.u_addr.ip4.addr >> 0) & 0xFF);
+		if (IPADDR_TYPE_V6 == ipv6.type)
+		{
+			char *ipv6_string = ip6addr_ntoa(&ipv6.u_addr.ip6);
+			lua_pushfstring(L, "%s", ipv6_string);
+		}
+		return 4;
 #else
 		lua_pushfstring(L, "%d.%d.%d.%d", (local_ip.ipv4 >> 24) & 0xFF, (local_ip.ipv4 >> 16) & 0xFF, (local_ip.ipv4 >> 8) & 0xFF, (local_ip.ipv4 >> 0) & 0xFF);
 		lua_pushfstring(L, "%d.%d.%d.%d", (net_mask.ipv4 >> 24) & 0xFF, (net_mask.ipv4 >> 16) & 0xFF, (net_mask.ipv4 >> 8) & 0xFF, (net_mask.ipv4 >> 0) & 0xFF);
 		lua_pushfstring(L, "%d.%d.%d.%d", (gate_way.ipv4 >> 24) & 0xFF, (gate_way.ipv4 >> 16) & 0xFF, (gate_way.ipv4 >> 8) & 0xFF, (gate_way.ipv4 >> 0) & 0xFF);
-#endif
 		return 3;
+#endif
 	}
 	return 0;
 }

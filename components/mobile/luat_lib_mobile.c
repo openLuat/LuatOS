@@ -222,29 +222,32 @@ static int l_mobile_set_auto_work(lua_State* L) {
 
 /**
 获取或设置APN
-@api mobile.apn(index, newvalue)
+@api mobile.apn(index, cid, newvalue)
 @int 编号,默认0. 在支持双卡的模块上才会出现0或1的情况
 @int cid, 默认0
 @string 新的APN. 不填就是获取APN, 填了就是设置APN, 是否支持设置取决于底层实现.
-@return string 当前的APN值,若失败返回nil
+@return string 获取到的默认APN值,失败返回nil
  */
 static int l_mobile_apn(lua_State* L) {
-    char buff[36] = {0};
-    // size_t len = 0;
-    // size_t wlen = 0;
+    char buff[64] = {0};
+    size_t len = 0;
+    size_t wlen = 0;
     int ret = 0;
     int index = luaL_optinteger(L, 1, 0);
     int cid = luaL_optinteger(L, 2, 0);
-    ret = luat_mobile_get_apn(index, cid, buff, 36);
-    // if (lua_isstring(L, 3)) {
-    //     const char* wbuff = luaL_checklstring(L, 3, &wlen);
-    //     if (wlen >= 15) {
-    //         ret = luat_mobile_set_apn(index, wbuff, wlen);
-    //         LLOGI("APN write %d %s ret %d", index, wbuff, ret);
-    //     }
-    // }
-    if (ret > 0) {        
-        buff[35] = 0x00; // 确保能结束
+    ret = luat_mobile_get_apn(index, cid, buff, sizeof(buff) - 1);
+	if (lua_isstring(L, 3)) {
+		const char* wbuff = luaL_checklstring(L, 3, &wlen);
+		if (wlen) {
+			luat_mobile_user_apn_auto_active(index, cid, 3, 0xff, wbuff, wlen, NULL, 0, NULL, 0);
+			LLOGI("APN write %d %s ret %d", index, wbuff, ret);
+		}
+		else
+		{
+			luat_mobile_user_apn_auto_active(index, cid, 3, 0xff, NULL, 0, NULL, 0, NULL, 0);
+		}
+	}
+    if (ret > 0) {
         lua_pushlstring(L, buff, strlen(buff));
     }
     else

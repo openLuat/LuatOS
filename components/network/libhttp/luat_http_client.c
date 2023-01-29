@@ -46,6 +46,10 @@ static int http_close(luat_http_ctrl_t *http_ctrl){
 		network_force_close_socket(http_ctrl->netc);
 		network_release_ctrl(http_ctrl->netc);
 	}
+	if (http_ctrl->timeout_timer){
+		luat_release_rtos_timer(http_ctrl->timeout_timer);
+    	http_ctrl->timeout_timer = NULL;
+	}
 	if (http_ctrl->host){
 		luat_heap_free(http_ctrl->host);
 	}
@@ -83,7 +87,9 @@ static int32_t l_http_callback(lua_State *L, void* ptr){
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)msg->ptr;
 	uint64_t idp = http_ctrl->idp;
-
+	if (http_ctrl->timeout_timer){
+		luat_stop_rtos_timer(http_ctrl->timeout_timer);
+	}
 	LLOGD("l_http_callback arg1:%d is_download:%d idp:%d",msg->arg1,http_ctrl->is_download,idp);
 	if (msg->arg1){
 		lua_pushinteger(L, msg->arg1); // 把错误码返回去
@@ -355,6 +361,11 @@ static void http_send_message(luat_http_ctrl_t *http_ctrl){
 	}
 }
 
+LUAT_RT_RET_TYPE luat_http_timer_callback(LUAT_RT_CB_PARAM){
+	luat_http_ctrl_t * http_ctrl = (luat_http_ctrl_t *)param;
+	http_resp_error(http_ctrl, HTTP_ERROR_TIMEOUT);
+}
+
 static int32_t luat_lib_http_callback(void *data, void *param){
 	OS_EVENT *event = (OS_EVENT *)data;
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)param;
@@ -370,6 +381,10 @@ static int32_t luat_lib_http_callback(void *data, void *param){
 	if (event->ID == EV_NW_RESULT_LINK){
 		return 0;
 	}else if(event->ID == EV_NW_RESULT_CONNECT){
+		if(http_ctrl->timeout){
+			http_ctrl->timeout_timer = luat_create_rtos_timer(luat_http_timer_callback, http_ctrl, NULL);
+			luat_start_rtos_timer(http_ctrl->timeout_timer, http_ctrl->timeout, 0);
+		}
 		http_send_message(http_ctrl);
 	}else if(event->ID == EV_NW_RESULT_EVENT){
 		uint32_t total_len = 0;
@@ -519,7 +534,7 @@ http客户端
 @string url地址
 @tabal  请求头 可选 例如{["Content-Type"] = "application/x-www-form-urlencoded"}
 @string body 可选
-@table  额外配置 可选 包含dst:下载路径,可选 adapter:选择使用网卡,可选 debug:是否打开debug信息,可选
+@table  额外配置 可选 包含 timeout:超时时间单位ms 可选,默认0即永久等待 dst:下载路径,可选 adapter:选择使用网卡,可选 debug:是否打开debug信息,可选
 @string 服务器ca证书数据
 @string 客户端ca证书数据
 @string 客户端私钥加密数据

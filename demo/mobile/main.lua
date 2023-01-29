@@ -33,7 +33,7 @@ sys.taskInit(function()
         log.info("rsrp", mobile.rsrp())
         log.info("snr", mobile.snr())
         log.info("simid", mobile.simid()) -- 这里是获取当前SIM卡槽
-        log.info("apn", mobile.apn(0,2))
+        log.info("apn", mobile.apn(0,1))
         log.info("ip", socket.localIP())
         sys.wait(15000)
     end

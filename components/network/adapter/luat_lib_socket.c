@@ -65,13 +65,17 @@ static int l_socket_local_ip(lua_State *L)
 #endif
 	if (ret == 0) {
 #ifdef LUAT_USE_LWIP
-		lua_pushfstring(L, "%d.%d.%d.%d", (local_ip.u_addr.ip4.addr >> 24) & 0xFF, (local_ip.u_addr.ip4.addr >> 16) & 0xFF, (local_ip.u_addr.ip4.addr >> 8) & 0xFF, (local_ip.u_addr.ip4.addr >> 0) & 0xFF);
-		lua_pushfstring(L, "%d.%d.%d.%d", (net_mask.u_addr.ip4.addr >> 24) & 0xFF, (net_mask.u_addr.ip4.addr >> 16) & 0xFF, (net_mask.u_addr.ip4.addr >> 8) & 0xFF, (net_mask.u_addr.ip4.addr >> 0) & 0xFF);
-		lua_pushfstring(L, "%d.%d.%d.%d", (gate_way.u_addr.ip4.addr >> 24) & 0xFF, (gate_way.u_addr.ip4.addr >> 16) & 0xFF, (gate_way.u_addr.ip4.addr >> 8) & 0xFF, (gate_way.u_addr.ip4.addr >> 0) & 0xFF);
+		lua_pushfstring(L, "%s", ipaddr_ntoa(&local_ip));
+		lua_pushfstring(L, "%s", ipaddr_ntoa(&net_mask));
+		lua_pushfstring(L, "%s", ipaddr_ntoa(&gate_way));
 		if (IPADDR_TYPE_V6 == ipv6.type)
 		{
 			char *ipv6_string = ip6addr_ntoa(&ipv6.u_addr.ip6);
 			lua_pushfstring(L, "%s", ipv6_string);
+		}
+		else
+		{
+			lua_pushnil(L);
 		}
 		return 4;
 #else

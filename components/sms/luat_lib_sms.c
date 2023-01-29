@@ -27,7 +27,17 @@ void luat_str_fromhex(char* str, size_t len, char* buff) ;
 #include "luat_log.h"
 static int lua_sms_ref = 0;
 static int lua_sms_recv_long = 1;
-static char* sms_long_buff[16];
+
+typedef struct long_sms
+{
+    uint8_t refNum;
+    uint8_t maxNum;
+    uint8_t seqNum;
+    char buff[1];
+}long_sms_t;
+
+#define LONG_SMS_CMAX (16)
+static long_sms_t* lngbuffs[LONG_SMS_CMAX];
 // static char* longsms = NULL;
 // static int longsms_refNum = -1;
 
@@ -84,13 +94,16 @@ static void push_sms_args(lua_State* L, LUAT_SMS_RECV_MSG_T* sms, char* dst, siz
     lua_pushstring(L, phone);
 
 
-    if (sms->maxNum > 0 && lua_sms_recv_long) {
+    if (dst == NULL) {
         luaL_Buffer buff;
         luaL_buffinit(L, &buff);
-        for (size_t i = 0; i < sms->maxNum; i++)
+        for (size_t j = 0; j < sms->maxNum; j++)
         {
-            if (sms_long_buff[i]) {
-                luaL_addstring(&buff, sms_long_buff[i]);
+            for (size_t i = 0; i < LONG_SMS_CMAX; i++)
+            {
+                if (lngbuffs[i] && lngbuffs[i]->refNum == dstlen && lngbuffs[i]->seqNum == j + 1) {
+                    luaL_addstring(&buff, lngbuffs[i]->buff);
+                }
             }
         }
         luaL_pushresult(&buff);
@@ -102,11 +115,14 @@ static void push_sms_args(lua_State* L, LUAT_SMS_RECV_MSG_T* sms, char* dst, siz
     lua_newtable(L);
 
     // 长短信总数
-    // lua_pushinteger(L, sms->refNum);
-    // lua_setfield(L, -2, "refNum");
-    // // 当前序号
-    // lua_pushinteger(L, sms->seqNum);
-    // lua_setfield(L, -2, "seqNum");
+    lua_pushinteger(L, sms->refNum);
+    lua_setfield(L, -2, "refNum");
+    // 当前序号
+    lua_pushinteger(L, sms->seqNum);
+    lua_setfield(L, -2, "seqNum");
+    // 当前序号
+    lua_pushinteger(L, sms->maxNum);
+    lua_setfield(L, -2, "maxNum");
 
     // 时间信息
     lua_pushinteger(L, sms->time.year);
@@ -145,27 +161,43 @@ static int l_sms_recv_handler(lua_State* L, void* ptr) {
     }
 
     if (sms->maxNum > 0 && lua_sms_recv_long) {
-        if (sms->maxNum > 16) {
-            LLOGE("max 16 long-sms supported!! %d", sms->maxNum);
+        int index = -1;
+        for (size_t i = 0; i < LONG_SMS_CMAX; i++)
+        {
+            if (lngbuffs[i] == NULL) {
+                index = i;
+                break;
+            }
+        }
+        if (index < 0) {
+            LLOGE("too many long-sms!!");
             goto exit;
         }
-        if (sms_long_buff[sms->seqNum - 1] == NULL) {
-            sms_long_buff[sms->seqNum - 1] = luat_heap_malloc(dstlen + 1);
-            if (sms_long_buff[sms->seqNum - 1] == NULL) {
-                LLOGE("out of memory when malloc long sms buff");
-                goto exit;
-            }
-            memcpy(sms_long_buff[sms->seqNum - 1], dst, dstlen);
-            sms_long_buff[sms->seqNum - 1][dstlen] = 0x00;
+        lngbuffs[index] = luat_heap_malloc(sizeof(long_sms_t) + dstlen);
+        if (lngbuffs[index] == NULL) {
+            LLOGE("out of memory when malloc long sms buff");
+            goto exit;
         }
-        for (size_t i = 0; i < sms->maxNum; i++)
+        lngbuffs[index]->maxNum = sms->maxNum;
+        lngbuffs[index]->seqNum = sms->seqNum;
+        lngbuffs[index]->refNum = sms->refNum;
+        memcpy(lngbuffs[index]->buff, dst, dstlen);
+        lngbuffs[index]->buff[dstlen] = 0x00;
+        size_t counter = (sms->maxNum + 1) *  sms->maxNum / 2;
+        for (size_t i = 0; i < LONG_SMS_CMAX; i++)
         {
-            if (sms_long_buff[i] == NULL) {
-                LLOGI("long-sms, wait more frags %d/%d", sms->seqNum, sms->maxNum);
-                goto exit;
+            if (lngbuffs[i] == NULL || lngbuffs[i]->refNum != sms->refNum) {
+                continue;
             }
+            counter -= sms->seqNum;
+        }
+        if (counter != 0) {
+            LLOGI("long-sms, wait more frags %d/%d", sms->seqNum, sms->maxNum);
+            goto exit;
         }
         LLOGI("long-sms is ok");
+        dst = NULL;
+        dstlen = sms->refNum;
     }
 
     // 先发系统消息
@@ -207,9 +239,9 @@ end)
     // 清理长短信的缓冲,如果有的话
     for (size_t i = 0; i < 16; i++)
     {
-        if (sms_long_buff[i]) {
-            luat_heap_free(sms_long_buff[i]);
-            sms_long_buff[i] = NULL;
+        if (lngbuffs[i] && lngbuffs[i]->refNum == sms->refNum) {
+            luat_heap_free(lngbuffs[i]);
+            lngbuffs[i] = NULL;
         }
     }
 

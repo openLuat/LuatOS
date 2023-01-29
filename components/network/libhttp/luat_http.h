@@ -12,6 +12,7 @@
 #define HTTP_ERROR_CLOSE 	(-5)
 #define HTTP_ERROR_RX 		(-6)
 #define HTTP_ERROR_DOWNLOAD (-7)
+#define HTTP_ERROR_TIMEOUT  (-8)
 
 #define HTTP_RE_REQUEST_MAX (3)
 
@@ -48,7 +49,8 @@ typedef struct{
 	// uint32_t resp_content_len;	//content 长度
 	FILE* fd;					//下载 FILE
 	uint64_t idp;
-	uint16_t timeout;
+	uint32_t timeout;
+	void* timeout_timer;			// timeout_timer 定时器
 	uint8_t headers_complete;
 	uint8_t close_state;
 }luat_http_ctrl_t;

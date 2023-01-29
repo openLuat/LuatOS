@@ -270,7 +270,7 @@ static int l_rtc_timer_stop(lua_State *L){
 }
 
 /*
-设置RTC基准年
+设置RTC基准年,不推荐
 @api rtc.setBaseYear(Base_year)
 @int 基准年Base_year,通常1900
 @usage
@@ -279,6 +279,35 @@ rtc.setBaseYear(1900)
 static int l_rtc_set_base_year(lua_State *L){
     Base_year = luaL_checkinteger(L, 1);
     return 0;
+}
+
+/*
+读取或设置时区
+@api rtc.timezone(tz)
+@int 时区值,注意单位是1/4时区.例如东八区是 32,而非8. 可以不传
+@return 当前/设置后的时区值
+@usage
+-- 设置为东8区
+rtc.timezone(32)
+-- 设置为东3区
+rtc.timezone(12)
+-- 设置为西4区
+rtc.timezone(-16)
+-- 注意: 无论设置时区是多少, rtc.get/set总是UTC时间
+-- 时区影响的是 os.date/os.time 函数
+-- 只有部分模块支持设置时区, 且默认值一般为32, 即东八区
+*/
+static int l_rtc_timezone(lua_State *L){
+    int timezone = 0;
+    if (lua_isinteger(L, 1)) {
+        timezone = luaL_checkinteger(L, 1);
+        timezone = luat_rtc_timezone(&timezone);
+    }
+    else {
+        timezone = luat_rtc_timezone(NULL);
+    }
+    lua_pushinteger(L, timezone);
+    return 1;
 }
 
 
@@ -290,6 +319,7 @@ static const rotable_Reg_t reg_rtc[] =
     { "timerStart", ROREG_FUNC(l_rtc_timer_start)},
     { "timerStop",  ROREG_FUNC(l_rtc_timer_stop)},
     { "setBaseYear", ROREG_FUNC(l_rtc_set_base_year)},
+    { "timezone",   ROREG_FUNC(l_rtc_timezone)},
 	{ NULL,         ROREG_INT(0) }
 };
 

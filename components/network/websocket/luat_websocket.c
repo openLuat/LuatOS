@@ -538,32 +538,13 @@ int luat_websocket_read_packet(luat_websocket_ctrl_t *websocket_ctrl)
 	return 0;
 }
 
-static const char *event2str(uint32_t id)
-{
-	switch (id)
-	{
-	case EV_NW_RESULT_LINK:
-		return "EV_NW_RESULT_LINK";
-	case EV_NW_RESULT_CONNECT:
-		return "EV_NW_RESULT_CONNECT";
-	case EV_NW_RESULT_EVENT:
-		return "EV_NW_RESULT_EVENT";
-	case EV_NW_RESULT_TX:
-		return "EV_NW_RESULT_TX";
-	case EV_NW_RESULT_CLOSE:
-		return "EV_NW_RESULT_CLOSE";
-	default:
-		return "UNKOWN";
-	}
-}
-
 int32_t luat_websocket_callback(void *data, void *param)
 {
 	OS_EVENT *event = (OS_EVENT *)data;
 	luat_websocket_ctrl_t *websocket_ctrl = (luat_websocket_ctrl_t *)param;
 	int ret = 0;
 	// LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
-	LLOGD("network websocket cb %8X %s %8X", event->ID & 0x0ffffffff, event2str(event->ID & 0x0ffffffff), event->Param1);
+	//LLOGD("network websocket cb %8X %s %8X", event->ID & 0x0ffffffff, network_ctrl_callback_event_string(event->ID), event->Param1);
 	if (event->ID == EV_NW_RESULT_LINK)
 	{
 		return 0; // 这里应该直接返回, 不能往下调用network_wait_event

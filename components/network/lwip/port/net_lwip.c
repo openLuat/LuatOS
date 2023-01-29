@@ -800,6 +800,27 @@ u32_t sys_now(void)
 	return (u32_t)luat_mcu_tick64_ms();
 }
 
+static ip_addr_t *net_lwip_get_ip6(void)
+{
+	int i;
+	for(i = 0; i < LWIP_IPV6_NUM_ADDRESSES; i++)
+	{
+		if (prvlwip.lwip_netif->ip6_addr_state[i] & IP6_ADDR_PREFERRED)
+		{
+			return &prvlwip.lwip_netif->ip6_addr[i];
+		}
+	}
+
+	for(i = 0; i < LWIP_IPV6_NUM_ADDRESSES; i++)
+	{
+		if (prvlwip.lwip_netif->ip6_addr_state[i] & IP6_ADDR_VALID)
+		{
+			return &prvlwip.lwip_netif->ip6_addr[i];
+		}
+	}
+
+	return NULL;
+}
 
 static void net_lwip_task(void *param)
 {
@@ -999,15 +1020,7 @@ static void net_lwip_task(void *param)
 			}
 			else
 			{
-				for (i = 0; i < LWIP_IPV6_NUM_ADDRESSES; i++)
-				{
-					if (prvlwip.lwip_netif[adapter_index]->ip6_addr_state[i] & IP6_ADDR_VALID)
-					{
-						local_ip = &prvlwip.lwip_netif[adapter_index]->ip6_addr[i];
-						break;
-					}
-				}
-
+				local_ip = net_lwip_get_ip6();
 			}
 			if (!local_ip)
 			{
@@ -1964,6 +1977,26 @@ static int net_lwip_get_local_ip_info(luat_ip_addr_t *ip, luat_ip_addr_t *submas
 	return 0;
 }
 
+static int net_lwip_get_full_ip_info(luat_ip_addr_t *ip, luat_ip_addr_t *submask, luat_ip_addr_t *gateway, luat_ip_addr_t *ipv6, void *user_data)
+{
+	uint8_t index = (uint32_t)user_data;
+	if (index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) return -1;
+	if (!prvlwip.lwip_netif) return -1;
+	*ip = prvlwip.lwip_netif->ip_addr;
+	*submask = prvlwip.lwip_netif->netmask;
+	*gateway = prvlwip.lwip_netif->gw;
+	luat_ip_addr_t *local_ip = net_lwip_get_ip6();
+	if (local_ip)
+	{
+		*ipv6 = *local_ip;
+	}
+	else
+	{
+		ipv6->type = 0xff;
+	}
+	return 0;
+}
+
 static int net_lwip_user_cmd(int socket_id, uint64_t tag, uint32_t cmd, uint32_t value, void *user_data)
 {
 	return 0;
@@ -2044,6 +2077,7 @@ static network_adapter_info prv_net_lwip_adapter =
 		.set_mac = net_lwip_set_mac,
 		.set_static_ip = net_lwip_set_static_ip,
 		.get_local_ip_info = net_lwip_get_local_ip_info,
+		.get_full_ip_info = net_lwip_get_full_ip_info,
 		.socket_set_callback = net_lwip_socket_set_callback,
 		.name = "lwip",
 		.max_socket_num = MAX_SOCK_NUM,

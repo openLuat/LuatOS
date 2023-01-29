@@ -49,7 +49,7 @@ typedef struct{
 	// uint32_t resp_content_len;	//content 长度
 	FILE* fd;					//下载 FILE
 	uint64_t idp;
-	uint16_t timeout;
+	uint32_t timeout;
 	void* timeout_timer;			// timeout_timer 定时器
 	uint8_t headers_complete;
 	uint8_t close_state;

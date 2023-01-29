@@ -189,7 +189,7 @@ static int l_sms_recv_handler(lua_State* L, void* ptr) {
             if (lngbuffs[i] == NULL || lngbuffs[i]->refNum != sms->refNum) {
                 continue;
             }
-            counter -= sms->seqNum;
+            counter -= lngbuffs[i]->seqNum;
         }
         if (counter != 0) {
             LLOGI("long-sms, wait more frags %d/%d", sms->seqNum, sms->maxNum);

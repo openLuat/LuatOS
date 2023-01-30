@@ -16,6 +16,8 @@
 
 #define HTTP_RE_REQUEST_MAX (3)
 
+#define HTTP_TIMEOUT 		(10*60*1000) // 10分钟
+
 typedef struct{
 	network_ctrl_t *netc;		// http netc
 	luat_ip_addr_t ip_addr;		// http ip

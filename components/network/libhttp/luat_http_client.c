@@ -381,10 +381,6 @@ static int32_t luat_lib_http_callback(void *data, void *param){
 	if (event->ID == EV_NW_RESULT_LINK){
 		return 0;
 	}else if(event->ID == EV_NW_RESULT_CONNECT){
-		if(http_ctrl->timeout){
-			http_ctrl->timeout_timer = luat_create_rtos_timer(luat_http_timer_callback, http_ctrl, NULL);
-			luat_start_rtos_timer(http_ctrl->timeout_timer, http_ctrl->timeout, 0);
-		}
 		http_send_message(http_ctrl);
 	}else if(event->ID == EV_NW_RESULT_EVENT){
 		uint32_t total_len = 0;
@@ -572,6 +568,8 @@ static int l_http_request(lua_State *L) {
 	}
 	memset(http_ctrl, 0, sizeof(luat_http_ctrl_t));
 
+	http_ctrl->timeout = HTTP_TIMEOUT;
+
 	if (lua_istable(L, 5)){
 		lua_pushstring(L, "adapter");
 		if (LUA_TNUMBER == lua_gettable(L, 5)) {
@@ -583,7 +581,7 @@ static int l_http_request(lua_State *L) {
 
 		lua_pushstring(L, "timeout");
 		if (LUA_TNUMBER == lua_gettable(L, 5)) {
-			http_ctrl->timeout = luaL_optinteger(L, -1, 10*60*1000);
+			http_ctrl->timeout = luaL_optinteger(L, -1, HTTP_TIMEOUT);
 		}
 		lua_pop(L, 1);
 
@@ -611,7 +609,6 @@ static int l_http_request(lua_State *L) {
 		LLOGD("bad network adapter index %d", adapter_index);
 		goto error;
 	}
-
 
 	http_ctrl->netc = network_alloc_ctrl(adapter_index);
 	if (!http_ctrl->netc){
@@ -717,6 +714,11 @@ static int l_http_request(lua_State *L) {
 	http_ctrl->ip_addr.is_ipv6 = 0xff;
 #endif
 	http_ctrl->idp = luat_pushcwait(L);
+
+	if(http_ctrl->timeout){
+		http_ctrl->timeout_timer = luat_create_rtos_timer(luat_http_timer_callback, http_ctrl, NULL);
+		luat_start_rtos_timer(http_ctrl->timeout_timer, http_ctrl->timeout, 0);
+	}
 
 #ifdef LUAT_USE_LWIP
 	if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), (0xff == http_ctrl->ip_addr.type)?NULL:&(http_ctrl->ip_addr), http_ctrl->remote_port, 0) < 0){

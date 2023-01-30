@@ -14,6 +14,7 @@ luat_libgnss_t *libgnss_gnss;
 luat_libgnss_tmp_t *libgnss_gnsstmp;
 char *libgnss_recvbuff;
 int libgnss_route_uart_id = -1;
+int gnss_debug = 0;
 
 // static int parse_nmea(const char* line);
 // static int parse_data(const char* data, size_t len);
@@ -32,12 +33,12 @@ void luat_libgnss_uart_recv_cb(int uart_id, uint32_t data_len) {
             luat_uart_write(libgnss_route_uart_id, libgnss_recvbuff, len);
         }
         luat_libgnss_on_rawdata(libgnss_recvbuff, len);
-        //LLOGD("uart recv %d", len);
         libgnss_recvbuff[len] = 0;
         if (libgnss_gnss == NULL)
             continue;
-        if (libgnss_gnss->debug) {
-            // LLOGD(">> %s", libgnss_recvbuff);
+        // LLOGD("uart recv %d %d", len, gnss_debug);
+        if (gnss_debug) {
+            LLOGD(">> %s", libgnss_recvbuff);
         }
         luat_libgnss_parse_data(libgnss_recvbuff, len);
     }
@@ -47,33 +48,33 @@ void luat_libgnss_uart_recv_cb(int uart_id, uint32_t data_len) {
 static uint32_t msg_counter[MINMEA_SENTENCE_MAX_ID];
 
 int luat_libgnss_init(void) {
+    if (libgnss_gnss)
+        return 0;
+    libgnss_gnss = luat_heap_malloc(sizeof(luat_libgnss_t));
     if (libgnss_gnss == NULL) {
-        libgnss_gnss = luat_heap_malloc(sizeof(luat_libgnss_t));
-        if (libgnss_gnss == NULL) {
-            LLOGW("out of memory for libgnss data parse");
-            return 0;
-        }
-        libgnss_gnsstmp = luat_heap_malloc(sizeof(luat_libgnss_tmp_t));
-        if (libgnss_gnsstmp == NULL) {
-            luat_heap_free(libgnss_gnss);
-            LLOGW("out of memory for libgnss data parse");
-            return 0;
-        }
-        // gnss->lua_ref = luaL_ref(L, LUA_REGISTRYINDEX);
-        memset(libgnss_gnss, 0, sizeof(luat_libgnss_t));
-        memset(libgnss_gnsstmp, 0, sizeof(luat_libgnss_tmp_t));
+        LLOGW("out of memory for libgnss data parse");
+        return -1;
     }
+    libgnss_gnsstmp = luat_heap_malloc(sizeof(luat_libgnss_tmp_t));
+    if (libgnss_gnsstmp == NULL) {
+        luat_heap_free(libgnss_gnss);
+        LLOGW("out of memory for libgnss data parse");
+        return -1;
+    }
+    // gnss->lua_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    memset(libgnss_gnss, 0, sizeof(luat_libgnss_t));
+    memset(libgnss_gnsstmp, 0, sizeof(luat_libgnss_tmp_t));
     //lua_pushboolean(L, 1);
-    return 1;
+    return 0;
 }
 
 int luat_libgnss_parse_data(const char* data, size_t len) {
     size_t prev = 0;
     #define MAX_LEN (120)
     static char nmea_tmp_buff[MAX_LEN] = {0}; // nmea 最大长度82,含换行符
-    if (data[0] == 0xAA && data[1] == 0xF0) {
-        LLOGD("EPH data resp?");
-    }
+    // if (data[0] == 0xAA && data[1] == 0xF0) {
+    //     LLOGD("EPH data resp?");
+    // }
 
     for (size_t offset = 0; offset < len; offset++)
     {
@@ -89,9 +90,9 @@ int luat_libgnss_parse_data(const char* data, size_t len) {
             if (offset - prev - 1 < MAX_LEN) {
                 memcpy(nmea_tmp_buff, data + prev, offset - prev - 1);
                 nmea_tmp_buff[offset - prev - 1] = 0x00;
-                if (libgnss_gnss->debug) {
-                    LLOGD(">> %s", nmea_tmp_buff);
-                }
+                // if (gnss_debug) {
+                //     LLOGD(">> %s", nmea_tmp_buff);
+                // }
                 luat_libgnss_parse_nmea((const char*)nmea_tmp_buff);
             }
             else {
@@ -104,7 +105,7 @@ int luat_libgnss_parse_data(const char* data, size_t len) {
 }
 
 int luat_libgnss_parse_nmea(const char* line) {
-    if (libgnss_gnss == NULL && !luat_libgnss_init()) {
+    if (libgnss_gnss == NULL && luat_libgnss_init()) {
         return 0;
     }
     struct minmea_sentence_gsv *frame_gsv = &libgnss_gnsstmp->frame_gsv;

@@ -50,6 +50,7 @@ extern luat_libgnss_t *libgnss_gnss;
 // extern luat_libgnss_t *libgnss_gnsstmp;
 extern char* libgnss_recvbuff;
 extern int libgnss_route_uart_id;
+extern int gnss_debug;
 
 void luat_uart_set_app_recv(int id, luat_uart_recv_callback_t cb);
 
@@ -584,12 +585,12 @@ static int l_libgnss_debug(lua_State *L) {
     }
     if (lua_isboolean(L, 1) && lua_toboolean(L, 1)) {
         LLOGD("Debug ON");
-        libgnss_gnss->debug = 1;
+        gnss_debug = 1;
     }
     else
     {
         LLOGD("Debug OFF");
-        libgnss_gnss->debug = 0;
+        gnss_debug = 0;
     }
 
     return 0;
@@ -745,7 +746,7 @@ static int l_libgnss_get_gll(lua_State* L) {
  */
 static int l_libgnss_clear(lua_State*L) {
     (void)L;
-    if (libgnss_gnss == NULL && !luat_libgnss_init())
+    if (libgnss_gnss == NULL && luat_libgnss_init())
         return 0;
     memset(libgnss_gnss, 0, sizeof(luat_libgnss_t));
     return 0;

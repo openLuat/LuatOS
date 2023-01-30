@@ -36,7 +36,7 @@ typedef struct long_sms
     char buff[1];
 }long_sms_t;
 
-#define LONG_SMS_CMAX (16)
+#define LONG_SMS_CMAX (128)
 static long_sms_t* lngbuffs[LONG_SMS_CMAX];
 // static char* longsms = NULL;
 // static int longsms_refNum = -1;
@@ -469,13 +469,35 @@ static int l_sms_auto_long(lua_State *L) {
     return 1;
 }
 
+/**
+清除长短信缓存
+@api sms.clearLong()
+@return int 清理掉的片段数量
+@usage
+sms.clearLong()
+ */
+static int l_sms_clear_long(lua_State *L) {
+    int counter = 0;
+    for (size_t i = 0; i < LONG_SMS_CMAX; i++)
+    {
+        if (lngbuffs[i]) {
+            counter ++;
+            luat_heap_free(lngbuffs[i]);
+            lngbuffs[i] = NULL;
+        }
+    }
+    lua_pushinteger(L, counter);
+    return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_sms[] =
 {
-    { "send",      ROREG_FUNC(l_sms_send)},
-    { "setNewSmsCb", ROREG_FUNC(l_sms_cb)},
-    { "autoLong",  ROREG_FUNC(l_sms_auto_long)},
-	{ NULL,          ROREG_INT(0)}
+    { "send",           ROREG_FUNC(l_sms_send)},
+    { "setNewSmsCb",    ROREG_FUNC(l_sms_cb)},
+    { "autoLong",       ROREG_FUNC(l_sms_auto_long)},
+    { "clearLong",      ROREG_FUNC(l_sms_clear_long)},
+	{ NULL,             ROREG_INT(0)}
 };
 
 

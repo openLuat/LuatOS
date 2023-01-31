@@ -275,11 +275,7 @@ static int l_rtos_meminfo(lua_State *L) {
 log.info("firmware", rtos.firmware())
 */
 static int l_rtos_firmware(lua_State *L) {
-#ifdef AIR302
-    lua_pushfstring(L, "LuatOS_%s_%s", luat_version_str(), luat_os_bsp());
-#else
     lua_pushfstring(L, "LuatOS-SoC_%s_%s", luat_version_str(), luat_os_bsp());
-#endif
     return 1;
 }
 

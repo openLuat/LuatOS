@@ -85,8 +85,18 @@ int luat_mobile_get_iccid(int sim_id, char* buff, size_t buf_len);
 int luat_mobile_get_imsi(int sim_id, char* buff, size_t buf_len);
 
 /**
+ * @brief 当前使用的SIM卡的手机号，注意，只有写入了手机号才能读出，因此有可能读出来是空的
+ *
+ * @param sim_id sim位置，对于双卡双待的设备，选0或者1，其他设备随意
+ * @param buff[OUT] sim_number数据
+ * @param buf_len 用户传入缓存的大小，如果底层数据量大于buf_len，只会传出buf_len大小的数据
+ * @return int <= 0错误 >0实际传出的大小
+ */
+int luat_mobile_get_sim_number(int sim_id, char* buff, size_t buf_len);
+
+/**
  * @brief 当前使用的SIM卡的位置，并不一定支持
- * 
+ *
  * @param id[OUT] sim位置，对于双卡双待的设备，输出0或者1，其他设备输出0
  * @return int =0成功，其他失败
  */
@@ -419,6 +429,8 @@ typedef enum LUAT_MOBILE_SIM_STATUS
 	LUAT_MOBILE_SIM_READY = 0,
 	LUAT_MOBILE_NO_SIM,
 	LUAT_MOBILE_SIM_NEED_PIN,
+	LUAT_MOBILE_SIM_ENTER_PIN_RESULT,
+	LUAT_MOBILE_SIM_NUMBER,
 }LUAT_MOBILE_SIM_STATUS_E;
 
 typedef enum LUAT_MOBILE_REGISTER_STATUS

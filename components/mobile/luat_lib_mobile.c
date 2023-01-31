@@ -171,6 +171,27 @@ static int l_mobile_iccid(lua_State* L) {
     return 1;
 }
 
+/**
+获取手机卡号，注意，只有写入了手机号才能读出，因此有可能读出来是空的
+@api mobile.number(id)
+@int SIM卡的编号, 例如0, 1, 默认0
+@return string number值,若失败返回nil
+ */
+static int l_mobile_number(lua_State* L) {
+    char buff[24] = {0};
+    // size_t len = 0;
+    // size_t wlen = 0;
+    int ret = 0;
+    int index = luaL_optinteger(L, 1, 0);
+    ret = luat_mobile_get_sim_number(index, buff, 24);
+    if (ret > 0) {
+        buff[23] = 0x00; // 确保能结束
+        lua_pushlstring(L, buff, strlen(buff));
+    }
+    else
+        lua_pushnil(L);
+    return 1;
+}
 
 /**
 获取当前SIM卡槽,或者切换卡槽
@@ -509,6 +530,7 @@ static const rotable_Reg_t reg_mobile[] = {
     {"imsi",        ROREG_FUNC(l_mobile_imsi)},
     {"sn",          ROREG_FUNC(l_mobile_sn)},
     {"iccid",       ROREG_FUNC(l_mobile_iccid)},
+	{"number",       ROREG_FUNC(l_mobile_number)},
     {"muid",        ROREG_FUNC(l_mobile_muid)},
     {"apn",         ROREG_FUNC(l_mobile_apn)},
     {"csq",         ROREG_FUNC(l_mobile_csq)},
@@ -601,6 +623,11 @@ end)
         case LUAT_MOBILE_SIM_NEED_PIN:
             lua_pushstring(L, "SIM_IND");
             lua_pushstring(L, "SIM_PIN");
+            lua_call(L, 2, 0);
+            break;
+        case LUAT_MOBILE_SIM_NUMBER:
+            lua_pushstring(L, "SIM_IND");
+            lua_pushstring(L, "GET_NUMBER");
             lua_call(L, 2, 0);
             break;
         default:

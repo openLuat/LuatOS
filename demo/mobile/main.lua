@@ -60,6 +60,9 @@ end)
 
 sys.subscribe("SIM_IND", function(status)
     log.info("sim status", status)
+    if status == 'GET_NUMBER' then
+        log.info("number", mobile.number(0))
+    end
 end)
 
 

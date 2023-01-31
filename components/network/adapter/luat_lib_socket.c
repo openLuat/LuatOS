@@ -356,15 +356,15 @@ static int l_socket_config(lua_State *L)
 等待网卡linkup
 @api socket.linkup(ctrl)
 @user_data socket.create得到的ctrl
-@return boolean true有异常发生，false没有异常，如果有error则不需要看下一个返回值了
+@return boolean true没有异常发生，false失败了，如果false则不需要看下一个返回值了
 @return boolean true已经linkup，false没有linkup，之后需要接收socket.LINK消息
-@usage local error, result = socket.linkup(ctrl)
+@usage local succ, result = socket.linkup(ctrl)
 */
 static int l_socket_linkup(lua_State *L)
 {
 	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	int result = network_wait_link_up(l_ctrl->netc, 0);
-	lua_pushboolean(L, result < 0);
+	lua_pushboolean(L, (result < 0)?0:1);
 	lua_pushboolean(L, result == 0);
 	return 2;
 
@@ -377,9 +377,9 @@ static int l_socket_linkup(lua_State *L)
 @user_data socket.create得到的ctrl
 @string or int ip或者域名，如果是IPV4，可以是大端格式的int值
 @int 服务器端口号，小端格式
-@return boolean true有异常发生，false没有异常，如果有error则不需要看下一个返回值了，如果有异常，后续要close
+@return boolean true没有异常发生，false失败了，如果false则不需要看下一个返回值了，如果有异常，后续要close
 @return boolean true已经connect，false没有connect，之后需要接收socket.ON_LINE消息
-@usage local error, result = socket.connect(ctrl, "xxx.xxx.xxx.xxx", xxxx)
+@usage local succ, result = socket.connect(ctrl, "xxx.xxx.xxx.xxx", xxxx)
 */
 static int l_socket_connect(lua_State *L)
 {
@@ -403,7 +403,7 @@ static int l_socket_connect(lua_State *L)
 	uint16_t remote_port = luaL_checkinteger(L, 3);
 	LLOGD("connect to %s,%d", ip, remote_port);
 	int result = network_connect(l_ctrl->netc, ip, ip_len, (ip_addr.type != IPADDR_TYPE_V4)?NULL:&ip_addr, remote_port, 0);
-	lua_pushboolean(L, result < 0);
+	lua_pushboolean(L, (result < 0)?0:1);
 	lua_pushboolean(L, result == 0);
 	return 2;
 }
@@ -412,16 +412,15 @@ static int l_socket_connect(lua_State *L)
 作为客户端断开连接
 @api socket.discon(ctrl)
 @user_data socket.create得到的ctrl
-@return
-boolean true有异常发生，false没有异常，如果有error则不需要看下一个返回值了
-boolean true已经断开，false没有断开，之后需要接收socket.CLOSED消息
-@usage local error, result = socket.discon(ctrl)
+@return boolean true没有异常发生，false失败了，如果false则不需要看下一个返回值了
+@return boolean true已经断开，false没有断开，之后需要接收socket.CLOSED消息
+@usage local succ, result = socket.discon(ctrl)
 */
 static int l_socket_disconnect(lua_State *L)
 {
 	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	int result = network_close(l_ctrl->netc, 0);
-	lua_pushboolean(L, result < 0);
+	lua_pushboolean(L, (result < 0)?0:1);
 	lua_pushboolean(L, result == 0);
 	return 2;
 }
@@ -446,10 +445,10 @@ static int l_socket_close(lua_State *L)
 @string or int 对端IP，如果是TCP应用则忽略，如果是UDP，如果留空则用connect时候的参数，如果是IPV4，可以是大端格式的int值
 @int 对端端口号，小端格式，如果是TCP应用则忽略，如果是UDP，如果留空则用connect时候的参数
 @int 发送参数，目前预留，不起作用
-@return boolean true有异常发生，false没有异常，如果有error则不需要看下一个返回值了，如果有异常，后续要close
-@return boolean true缓冲区满了，false没有异常，如果true，则需要等待一段时间或者等到socket.TX_OK消息后再尝试发送，同时忽略下一个返回值
+@return boolean true没有异常发生，false失败了，如果false则不需要看下一个返回值了，如果false，后续要close
+@return boolean true缓冲区满了，false没有满，如果true，则需要等待一段时间或者等到socket.TX_OK消息后再尝试发送，同时忽略下一个返回值
 @return boolean true已经收到应答，false没有收到应答，之后需要接收socket.TX_OK消息， 也可以忽略继续发送，直到full==true
-@usage local error, full, result = socket.tx(ctrl, "123456", "xxx.xxx.xxx.xxx", xxxx)
+@usage local succ, full, result = socket.tx(ctrl, "123456", "xxx.xxx.xxx.xxx", xxxx)
 */
 static int l_socket_tx(lua_State *L)
 {
@@ -488,7 +487,7 @@ static int l_socket_tx(lua_State *L)
 	}
 	uint32_t tx_len;
 	int result = network_tx(l_ctrl->netc, data, data_len, luaL_optinteger(L, 5, 0), (ip_addr.type != 0xff)?&ip_addr:NULL, luaL_optinteger(L, 4, 0), &tx_len, 0);
-	lua_pushboolean(L, result < 0);
+	lua_pushboolean(L, (result < 0)?0:1);
 	lua_pushboolean(L, tx_len != data_len);
 	lua_pushboolean(L, result == 0);
 	return 3;
@@ -500,11 +499,11 @@ static int l_socket_tx(lua_State *L)
 @user_data socket.create得到的ctrl
 @user_data zbuff 存放接收的数据，如果缓冲区不够大会自动扩容
 @int 接收参数，目前预留，不起作用
-@return boolean true有异常发生，false没有异常，如果有异常，后续要close
+@return boolean true没有异常发生，false失败了，如果false则不需要看下一个返回值了，如果false，后续要close
 @return int 本次接收到数据长度
 @return string 对端IP，只有UDP模式下才有意义，TCP模式返回nil，注意返回的格式，如果是IPV4，1byte 0x00 + 4byte地址 如果是IPV6，1byte 0x01 + 16byte地址
 @return int 对端port，只有UDP模式下才有意义，TCP模式返回0
-@usage local error, data_len, ip, port = socket.rx(ctrl, buff)
+@usage local succ, data_len, ip, port = socket.rx(ctrl, buff)
 */
 static int l_socket_rx(lua_State *L)
 {
@@ -520,14 +519,14 @@ static int l_socket_rx(lua_State *L)
 	int result = network_rx(l_ctrl->netc, NULL, 0, 0, NULL, NULL, &total_len);
 	if (result < 0)
 	{
-		lua_pushboolean(L, 1);
+		lua_pushboolean(L, 0);
 		lua_pushinteger(L, 0);
 		lua_pushnil(L);
 		lua_pushnil(L);
 	}
 	else if (!total_len)
 	{
-		lua_pushboolean(L, 0);
+		lua_pushboolean(L, 1);
 		lua_pushinteger(L, 0);
 		lua_pushnil(L);
 		lua_pushnil(L);
@@ -541,14 +540,14 @@ static int l_socket_rx(lua_State *L)
 		result = network_rx(l_ctrl->netc, buff->addr + buff->used, total_len, 0, &ip_addr, &port, &rx_len);
 		if (result < 0)
 		{
-			lua_pushboolean(L, 1);
+			lua_pushboolean(L, 0);
 			lua_pushinteger(L, 0);
 			lua_pushnil(L);
 			lua_pushnil(L);
 		}
 		else if (!rx_len)
 		{
-			lua_pushboolean(L, 0);
+			lua_pushboolean(L, 1);
 			lua_pushinteger(L, 0);
 			lua_pushnil(L);
 			lua_pushnil(L);
@@ -556,7 +555,7 @@ static int l_socket_rx(lua_State *L)
 		else
 		{
 			buff->used += rx_len;
-			lua_pushboolean(L, 0);
+			lua_pushboolean(L, 1);
 			lua_pushinteger(L, rx_len);
 			if (l_ctrl->netc->is_tcp)
 			{
@@ -588,15 +587,15 @@ static int l_socket_rx(lua_State *L)
 等待新的socket消息，在连接成功和发送数据成功后，使用一次将network状态转换到接收新数据
 @api socket.wait(ctrl)
 @user_data socket.create得到的ctrl
-@return boolean true有异常发生，false没有异常，如果有异常，后续要close
+@return boolean true没有异常发生，false失败了，如果false则不需要看下一个返回值了，如果false，后续要close
 @return boolean true有新的数据需要接收，false没有数据，之后需要接收socket.EVENT消息
-@usage local error, result = socket.wait(ctrl)
+@usage local succ, result = socket.wait(ctrl)
 */
 static int l_socket_wait(lua_State *L)
 {
 	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	int result = network_wait_event(l_ctrl->netc, NULL, 0, NULL);
-	lua_pushboolean(L, result < 0);
+	lua_pushboolean(L, (result < 0)?0:1);
 	lua_pushboolean(L, result == 0);
 	return 2;
 }
@@ -605,15 +604,15 @@ static int l_socket_wait(lua_State *L)
 作为服务端开始监听
 @api socket.listen(ctrl)
 @user_data socket.create得到的ctrl
-@return boolean true有异常发生，false没有异常，如果有error则不需要看下一个返回值了，如果有异常，后续要close
+@return boolean true没有异常发生，false失败了，如果false则不需要看下一个返回值了，如果false，后续要close
 @return boolean true已经connect，false没有connect，之后需要接收socket.ON_LINE消息
-@usage local error, result = socket.listen(ctrl)
+@usage local succ, result = socket.listen(ctrl)
 */
 static int l_socket_listen(lua_State *L)
 {
 	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	int result = network_listen(l_ctrl->netc, 0);
-	lua_pushboolean(L, result < 0);
+	lua_pushboolean(L, (result < 0)?0:1);
 	lua_pushboolean(L, result == 0);
 	return 2;
 }
@@ -623,9 +622,9 @@ static int l_socket_listen(lua_State *L)
 @api socket.accept(ctrl)
 @user_data socket.create得到的ctrl，这里是服务器端
 @string or function or nil string为消息通知的taskName，function则为回调函数，和socket.create参数一致
-@return boolean true有异常发生，false没有异常，如果有error则不需要看下一个返回值了，如果有异常，后续要close
+@return boolean true没有异常发生，false失败了，如果false则不需要看下一个返回值了，如果false，后续要close
 @return user_data or nil 如果支持1对多，则会返回新的ctrl，自动create，如果不支持则返回nil
-@usage local error, new_netc = socket.listen(ctrl, cb)
+@usage local succ, new_netc = socket.listen(ctrl, cb)
 */
 static int l_socket_accept(lua_State *L)
 {
@@ -983,7 +982,7 @@ static int l_socket_linkup(lua_State *L)
 {
 	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	int result = network_wait_link_up(l_ctrl->netc, 0);
-	lua_pushboolean(L, result < 0);
+	lua_pushboolean(L, (result < 0)?0:1);
 	lua_pushboolean(L, result == 0);
 	return 2;
 
@@ -1013,7 +1012,7 @@ static int l_socket_connect(lua_State *L)
 	uint16_t remote_port = luaL_checkinteger(L, 3);
 	LLOGD("connect to %s,%d", ip, remote_port);
 	int result = network_connect(l_ctrl->netc, ip, ip_len, ip_addr.is_ipv6?NULL:&ip_addr, remote_port, 0);
-	lua_pushboolean(L, result < 0);
+	lua_pushboolean(L, (result < 0)?0:1);
 	lua_pushboolean(L, result == 0);
 	return 2;
 }
@@ -1023,7 +1022,7 @@ static int l_socket_disconnect(lua_State *L)
 {
 	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	int result = network_close(l_ctrl->netc, 0);
-	lua_pushboolean(L, result < 0);
+	lua_pushboolean(L, (result < 0)?0:1);
 	lua_pushboolean(L, result == 0);
 	return 2;
 }
@@ -1083,7 +1082,7 @@ static int l_socket_tx(lua_State *L)
 	}
 	uint32_t tx_len;
 	int result = network_tx(l_ctrl->netc, (const uint8_t *)data, data_len, luaL_optinteger(L, 5, 0), (ip_addr.is_ipv6 != 0xff)?&ip_addr:NULL, luaL_optinteger(L, 4, 0), &tx_len, 0);
-	lua_pushboolean(L, result < 0);
+	lua_pushboolean(L, (result < 0)?0:1);
 	lua_pushboolean(L, tx_len != data_len);
 	lua_pushboolean(L, result == 0);
 	return 3;
@@ -1104,14 +1103,14 @@ static int l_socket_rx(lua_State *L)
 	int result = network_rx(l_ctrl->netc, NULL, 0, 0, NULL, NULL, &total_len);
 	if (result < 0)
 	{
-		lua_pushboolean(L, 1);
+		lua_pushboolean(L, 0);
 		lua_pushinteger(L, 0);
 		lua_pushnil(L);
 		lua_pushnil(L);
 	}
 	else if (!total_len)
 	{
-		lua_pushboolean(L, 0);
+		lua_pushboolean(L, 1);
 		lua_pushinteger(L, 0);
 		lua_pushnil(L);
 		lua_pushnil(L);
@@ -1125,14 +1124,14 @@ static int l_socket_rx(lua_State *L)
 		result = network_rx(l_ctrl->netc, buff->addr + buff->used, total_len, 0, &ip_addr, &port, &rx_len);
 		if (result < 0)
 		{
-			lua_pushboolean(L, 1);
+			lua_pushboolean(L, 0);
 			lua_pushinteger(L, 0);
 			lua_pushnil(L);
 			lua_pushnil(L);
 		}
 		else if (!rx_len)
 		{
-			lua_pushboolean(L, 0);
+			lua_pushboolean(L, 1);
 			lua_pushinteger(L, 0);
 			lua_pushnil(L);
 			lua_pushnil(L);
@@ -1140,7 +1139,7 @@ static int l_socket_rx(lua_State *L)
 		else
 		{
 			buff->used += rx_len;
-			lua_pushboolean(L, 0);
+			lua_pushboolean(L, 1);
 			lua_pushinteger(L, rx_len);
 			if (l_ctrl->netc->is_tcp)
 			{
@@ -1173,7 +1172,7 @@ static int l_socket_wait(lua_State *L)
 {
 	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	int result = network_wait_event(l_ctrl->netc, NULL, 0, NULL);
-	lua_pushboolean(L, result < 0);
+	lua_pushboolean(L, (result < 0)?0:1);
 	lua_pushboolean(L, result == 0);
 	return 2;
 }
@@ -1183,7 +1182,7 @@ static int l_socket_listen(lua_State *L)
 {
 	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	int result = network_listen(l_ctrl->netc, 0);
-	lua_pushboolean(L, result < 0);
+	lua_pushboolean(L, (result < 0)?0:1);
 	lua_pushboolean(L, result == 0);
 	return 2;
 }

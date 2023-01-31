@@ -223,7 +223,7 @@ static int l_gpio_setup(lua_State *L) {
 /*
 设置管脚电平
 @api gpio.set(pin, value)
-@int pin 针脚编号,必须是数值
+@int pin GPIO编号,必须是数值
 @int value 电平, 可以是 高电平gpio.HIGH, 低电平gpio.LOW, 或者直接写数值1或0
 @return nil 无返回值
 @usage
@@ -249,7 +249,7 @@ static int l_gpio_set(lua_State *L) {
 /*
 获取管脚电平
 @api gpio.get(pin)
-@int pin 针脚编号,必须是数值
+@int pin GPIO编号,必须是数值
 @return value 电平, 高电平gpio.HIGH, 低电平gpio.LOW, 对应数值1和0
 @usage
 -- 获取gpio17的当前电平
@@ -266,7 +266,7 @@ static int l_gpio_get(lua_State *L) {
 /*
 关闭管脚功能(高阻输入态),关掉中断
 @api gpio.close(pin)
-@int pin 针脚编号,必须是数值
+@int pin GPIO编号,必须是数值
 @return nil 无返回值,总是执行成功
 @usage
 -- 关闭gpio17

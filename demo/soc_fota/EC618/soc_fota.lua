@@ -5,9 +5,9 @@ local rbuff = zbuff.create(16384)
 local function uartRx(id, len)
     uart.rx(id, rbuff)
     if rbuff:used() > 0 then 
-        local isError,fotaDone,nCache = fota.run(rbuff)
+        local succ,fotaDone,nCache = fota.run(rbuff)
         
-        if not isError then
+        if succ then
             
         else
             log.error("fota写入异常，请至少在1秒后重试")
@@ -15,7 +15,7 @@ local function uartRx(id, len)
             return
         end
         rbuff:del()
-        -- log.info("收到服务器数据，长度", rbuff:used(), "fota结果", isError, done, "总共", filelen)
+        -- log.info("收到服务器数据，长度", rbuff:used(), "fota结果", succ, done, "总共", filelen)
         if fotaDone then
             log.info("下载完成")
             sys.publish("downloadOK")
@@ -35,7 +35,7 @@ local function otaTask()
     uart.write(3,"ready")
     sys.waitUntil("downloadOK")                       
     while true do
-        local isError,fotaDone  = fota.isDone()
+        local succ,fotaDone  = fota.isDone()
         if fotaDone then
             fota.finish(true)
             log.info("FOTA完成")
@@ -68,7 +68,7 @@ end
 
 local function otaTask()
     fota.init()
-    local isError, param, ip, port, total, findhead, filelen, rcvCache,d1,d2,statusCode,retry,rspHead,rcvChunked,done,fotaDone,nCache
+    local succ, param, ip, port, total, findhead, filelen, rcvCache,d1,d2,statusCode,retry,rspHead,rcvChunked,done,fotaDone,nCache
     local tbuff = zbuff.create(512)
     local rbuff = zbuff.create(4096)
     local netc = socket.create(nil, taskName)
@@ -98,16 +98,15 @@ local function otaTask()
         rbuff:del()
         findhead = false
         while result do
-            isError, param, ip, port = socket.rx(netc, rbuff)
-            if isError then
-                log.info("服务器断开了", isError, param, ip, port)
+            succ, param, ip, port = socket.rx(netc, rbuff)
+            if not succ then
+                log.info("服务器断开了", succ, param, ip, port)
                 break
             end
             if rbuff:used() > 0 then
                 if findhead then
-                    isError,fotaDone,nCache = fota.run(rbuff)
-                    
-                    if not isError then
+                    succ,fotaDone,nCache = fota.run(rbuff)
+                    if succ then
                         total = total + rbuff:used()
                     else
                         log.error("fota写入异常，请至少在1秒后重试")
@@ -115,12 +114,12 @@ local function otaTask()
                         done = true
                         break
                     end
-                    log.info("收到服务器数据，长度", rbuff:used(), "fota结果", isError, done, "总共", filelen)
+                    log.info("收到服务器数据，长度", rbuff:used(), "fota结果", succ, done, "总共", filelen)
                     rbuff:del()
                     if fotaDone then
                         log.info("下载完成")
                         while true do
-                            isError,fotaDone  = fota.isDone()
+                            succ,fotaDone  = fota.isDone()
                             if fotaDone then
                                 fota.finish(true)
                                 log.info("FOTA完成")
@@ -162,8 +161,8 @@ local function otaTask()
                         end
                         --未处理的body数据
                         rbuff:del(0, d2)
-                        isError,fotaDone,nCache = fota.run(rbuff)
-                        if not isError then
+                        succ,fotaDone,nCache = fota.run(rbuff)
+                        if succ then
                             total = total + rbuff:used()
                         else
                             log.error("fota写入异常，请至少在1秒后重试")
@@ -171,7 +170,7 @@ local function otaTask()
                             done = true
                             break
                         end
-                        log.info("收到服务器数据，长度", rbuff:used(), "fota结果", isError, done, "总共", filelen)
+                        log.info("收到服务器数据，长度", rbuff:used(), "fota结果", succ, done, "总共", filelen)
                         rbuff:del()
                     else
                         break

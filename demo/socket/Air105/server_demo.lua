@@ -10,7 +10,7 @@ local function serTask(port)
 	local tx_buff = zbuff.create(1024)
 	local rx_buff = zbuff.create(1024)
 	local netc 
-	local result, param, is_err, rIP, rPort
+	local result, param, succ, rIP, rPort
 	netc = socket.create(socket.ETH0, dName)
 	--socket.debug(netc, true)
 	socket.config(netc, port)
@@ -27,9 +27,9 @@ local function serTask(port)
             end
 		end
 		while result do
-			is_err, param, rIP, rPort = socket.rx(netc, rx_buff)
-			if is_err then
-				log.info("客户端断开了", is_err, param, ip, port)
+			succ, param, rIP, rPort = socket.rx(netc, rx_buff)
+			if not succ then
+				log.info("客户端断开了", succ, param, ip, port)
 				break
 			end
 			if rx_buff:used() > 0 then
@@ -70,7 +70,7 @@ local function UDPTask(port)
 	local rx_buff = zbuff.create(1024)
 	local remote_ip = zbuff.create(18)
 	local netc 
-	local result, param, is_err, rIP, rPort
+	local result, param, succ, rIP, rPort
 	netc = socket.create(socket.ETH0, dName)
 	socket.debug(netc, true)
 	socket.config(netc, port, true)
@@ -88,9 +88,9 @@ local function UDPTask(port)
 				log.info("客户端断开了", result, param)
 				break
 			end
-			is_err, param, rIP, rPort = socket.rx(netc, rx_buff)
-			if is_err then
-				log.info("客户端断开了", is_err, paramt)
+			succ, param, rIP, rPort = socket.rx(netc, rx_buff)
+			if not succ then
+				log.info("客户端断开了", succ, paramt)
 				break
 			end
 			if rx_buff:used() > 0 then

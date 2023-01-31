@@ -68,11 +68,11 @@ static int l_fota_wait(lua_State* L)
 写入fota数据
 @api fota.fotaRun(buff)
 @zbuff/string fota数据，尽量用zbuff，如果传入的是zbuff，写入成功后，自动清空zbuff内的数据
-@return boolean 有异常返回true
+@return boolean 有异常返回false，无异常返回true
 @return boolean 接收到最后一块返回true
 @return int 还未写入的数据量，超过64K必须做等待
 @usage
-local isError, isDone, cache = fota.fotaRun(buf) -- 写入fota流程
+local result, isDone, cache = fota.fotaRun(buf) -- 写入fota流程
 */
 static int l_fota_write(lua_State* L)
 {
@@ -91,17 +91,17 @@ static int l_fota_write(lua_State* L)
     }
     if (result > 0)
     {
-    	lua_pushboolean(L, 0);
+    	lua_pushboolean(L, 1);
     	lua_pushboolean(L, 0);
     }
     else if (result == 0)
     {
-    	lua_pushboolean(L, 0);
+    	lua_pushboolean(L, 1);
     	lua_pushboolean(L, 1);
     }
     else
     {
-    	lua_pushboolean(L, 1);
+    	lua_pushboolean(L, 0);
     	lua_pushboolean(L, 1);
     }
     lua_pushinteger(L, result);
@@ -111,28 +111,27 @@ static int l_fota_write(lua_State* L)
 /**
 等待底层fota流程完成
 @api fota.fotaDone()
-@boolean 是否完整走完流程，true 表示正确走完流程了
-@return boolean 有异常返回true
+@return boolean 有异常返回false，无异常返回true
 @return boolean 写入到最后一块返回true
 @usage
-local isError, isDone = mcu.fotaDone()
+local result, isDone = mcu.fotaDone()
 */
 static int l_fota_done(lua_State* L)
 {
 	int result = luat_fota_done();
     if (result > 0)
     {
-    	lua_pushboolean(L, 0);
+    	lua_pushboolean(L, 1);
     	lua_pushboolean(L, 0);
     }
     else if (result == 0)
     {
-    	lua_pushboolean(L, 0);
+    	lua_pushboolean(L, 1);
     	lua_pushboolean(L, 1);
     }
     else
     {
-    	lua_pushboolean(L, 1);
+    	lua_pushboolean(L, 0);
     	lua_pushboolean(L, 1);
     }
 	return 2;

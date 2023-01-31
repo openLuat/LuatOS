@@ -1,7 +1,7 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "my_test"
-VERSION = "1.1"
+PROJECT = "fota_test"
+VERSION = "1.2"
 PRODUCT_KEY = "s1uUnY6KA06ifIjcutm5oNbG3MZf5aUv" --换成自己的
 -- sys库是标配
 _G.sys = require("sys")

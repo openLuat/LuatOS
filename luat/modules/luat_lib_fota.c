@@ -16,15 +16,15 @@
 
 /**
 初始化fota流程
-@api fota.fotaInit(storge_location, len, param1)
+@api fota.init(storge_location, len, param1)
 @int/string fota数据存储的起始位置<br>如果是int，则是由芯片平台具体判断<br>如果是string，则存储在文件系统中<br>如果为nil，则由底层决定存储位置
 @int 数据存储的最大空间
 @userdata param1，如果数据存储在spiflash时,为spi_device
 @return boolean 成功返回true, 失败返回false
 @usage
 -- 初始化fota流程
-local result = mcu.fotaInit(0, 0x00300000, spi_device)	--由于105的flash从0x01000000开始，所以0就是外部spiflash
-local result = mcu.fotaInit()	--ec618使用固定内部地址，所以不需要参数了
+local result = fota.init(0, 0x00300000, spi_device)	--由于105的flash从0x01000000开始，所以0就是外部spiflash
+local result = fota.init()	--ec618使用固定内部地址，所以不需要参数了
 */
 static int l_fota_init(lua_State* L)
 {
@@ -52,11 +52,11 @@ static int l_fota_init(lua_State* L)
 
 /**
 等待底层fota流程准备好
-@api fota.fotaWait()
+@api fota.wait()
 @boolean 是否完整走完流程，true 表示正确走完流程了
 @return boolean 准备好返回true
 @usage
-local isDone = mcu.fotaWait()
+local isDone = fota.wait()
 */
 static int l_fota_wait(lua_State* L)
 {
@@ -66,13 +66,13 @@ static int l_fota_wait(lua_State* L)
 
 /**
 写入fota数据
-@api fota.fotaRun(buff)
+@api fota.run(buff)
 @zbuff/string fota数据，尽量用zbuff，如果传入的是zbuff，写入成功后，自动清空zbuff内的数据
 @return boolean 有异常返回false，无异常返回true
 @return boolean 接收到最后一块返回true
 @return int 还未写入的数据量，超过64K必须做等待
 @usage
-local result, isDone, cache = fota.fotaRun(buf) -- 写入fota流程
+local result, isDone, cache = fota.run(buf) -- 写入fota流程
 */
 static int l_fota_write(lua_State* L)
 {
@@ -110,11 +110,11 @@ static int l_fota_write(lua_State* L)
 
 /**
 等待底层fota流程完成
-@api fota.fotaDone()
+@api fota.isDone()
 @return boolean 有异常返回false，无异常返回true
 @return boolean 写入到最后一块返回true
 @usage
-local result, isDone = mcu.fotaDone()
+local result, isDone = fota.isDone()
 */
 static int l_fota_done(lua_State* L)
 {
@@ -139,12 +139,12 @@ static int l_fota_done(lua_State* L)
 
 /**
 结束fota流程
-@api fota.fotaEnd(is_ok)
+@api fota.finish(is_ok)
 @boolean 是否完整走完流程，true 表示正确走完流程了
 @return boolean 成功返回true, 失败返回false
 @usage
 -- 结束fota流程
-local result = mcu.fotaEnd(true)
+local result = fota.finish(true)
 */
 static int l_fota_end(lua_State* L)
 {

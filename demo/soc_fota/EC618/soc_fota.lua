@@ -172,6 +172,23 @@ local function otaTask()
                         end
                         log.info("收到服务器数据，长度", rbuff:used(), "fota结果", succ, done, "总共", filelen)
                         rbuff:del()
+
+                        if fotaDone then
+                            log.info("下载完成")
+                            while true do
+                                succ,fotaDone  = fota.isDone()
+                                if fotaDone then
+                                    fota.finish(true)
+                                    log.info("FOTA完成")
+                                    done = true
+                                    rtos.reboot()   --如果还有其他事情要做，就不要立刻reboot
+                                    break
+                                end
+                                sys.wait(100)
+                            end
+                            break
+                        end
+                        
                     else
                         break
                     end

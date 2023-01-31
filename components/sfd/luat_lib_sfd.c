@@ -19,7 +19,7 @@ extern const sdf_opts_t sfd_onchip_opts;
 /*
 初始化spi flash
 @api    sfd.init(type, spi_id, spi_cs)
-@string 类型, 可以是"spi", 也可以是"zbuff"
+@string 类型, 可以是"spi", 也可以是"zbuff", 或者"onchip"
 @int  SPI总线的id, 或者 zbuff实例
 @int  SPI FLASH的片选脚对应的GPIO, 当类型是spi时才需要传
 @return userdata 成功返回一个数据结构,否则返回nil
@@ -28,6 +28,13 @@ local drv = sfd.init("spi", 0, 17)
 if drv then
     log.info("sfd", "chip id", sfd.id(drv):toHex())
 end
+-- 2023.01.15之后的固件支持onchip类型, 支持直接读写片上flash的一小块区域,一般是64k
+-- 这块区域通常是fdb/fskv库所在的区域, 所以不要混着用
+local onchip = sfd.init("onchip")
+local data = sfd.read(onchip, 0x100, 256)
+sfd.erase(onchip, 0x100)
+sfd.write(onchip, 0x100, data or "Hi")
+
 */
 static int l_sfd_init(lua_State *L) {
 

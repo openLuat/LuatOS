@@ -1,6 +1,6 @@
 -- netlab.luatos.com上打开TCP，然后修改IP和端口号，自动回复netlab下发的数据，自收自发测试
-local server_ip = "112.125.89.8"
-local server_port = 33476
+local server_ip = "2603:c023:1:5fcc:c028:8ed:49a7:6e08"
+local server_port = 55619
 local UDP_port = 37834
 local ssl_port = 35528
 local rxbuf = zbuff.create(8192)
@@ -34,8 +34,8 @@ local function socketTask()
 	socket.debug(netc, true)
 	socket.config(netc, nil, nil, nil, 300, 5, 6)   --开启TCP保活，防止长时间无数据交互被运营商断线
     while true do
-        local isError, result = socket.connect(netc, server_ip, server_port)
-        if isError then
+        local succ, result = socket.connect(netc, server_ip, server_port)
+        if not succ then
             log.info("未知错误，5秒后重连")
         else
             local result, msg = sys.waitUntil("socket_disconnect")
@@ -52,8 +52,8 @@ local function UDPTask()
     socket.debug(netc, true)
     socket.config(netc, nil, true, nil, 300, 5, 6)   --开启TCP保活，防止长时间无数据交互被运营商断线
     while true do
-        local isError, result = socket.connect(netc, server_ip, UDP_port)
-        if isError then
+        local succ, result = socket.connect(netc, server_ip, UDP_port)
+        if not succ then
             log.info("未知错误，5秒后重连")
         else
             local result, msg = sys.waitUntil("socket_disconnect")
@@ -71,8 +71,8 @@ local function SSLTask()
     socket.debug(netc, true)
     socket.config(netc, nil, nil, true, 300, 5, 6)   --开启TCP保活，防止长时间无数据交互被运营商断线
     while true do
-        local isError, result = socket.connect(netc, server_ip, ssl_port)
-        if isError then
+        local succ, result = socket.connect(netc, server_ip, ssl_port)
+        if not succ then
             log.info("未知错误，5秒后重连")
         else
             local result, msg = sys.waitUntil("socket_disconnect")

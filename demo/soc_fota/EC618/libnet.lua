@@ -6,8 +6,8 @@ local libnet = {}
 -- @... 其他参数和socket.linkup一致
 -- @return 失败或者超时返回false 成功返回true
 function libnet.waitLink(taskName, timeout, ...)
-	local is_err, result = socket.linkup(...)
-	if is_err then
+	local succ, result = socket.linkup(...)
+	if not succ then
 		return false
 	end
 	if not result then
@@ -28,8 +28,8 @@ end
 -- @... 其他参数和socket.connect一致
 -- @return 失败或者超时返回false 成功返回true
 function libnet.connect(taskName,timeout, ... )
-	local is_err, result = socket.connect(...)
-	if is_err then
+	local succ, result = socket.connect(...)
+	if not succ then
 		return false
 	end
 	if not result then
@@ -50,8 +50,8 @@ end
 -- @... 其他参数和socket.listen一致
 -- @return 失败或者超时返回false 成功返回true
 function libnet.listen(taskName,timeout, ... )
-	local is_err, result = socket.listen(...)
-	if is_err then
+	local succ, result = socket.listen(...)
+	if not succ then
 		return false
 	end
 	if not result then
@@ -74,8 +74,8 @@ end
 -- @boolean 失败或者超时返回false，缓冲区满了或者成功返回true
 -- @boolean 缓存区是否满了
 function libnet.tx(taskName,timeout, ...)
-	local is_err, is_full, result = socket.tx(...)
-	if is_err then
+	local succ, is_full, result = socket.tx(...)
+	if not succ then
 		return false, is_full
 	end
 	if is_full then
@@ -101,14 +101,14 @@ end
 -- @boolean 网络异常返回false，其他返回true
 -- @table or boolean 超时返回false，有新的数据到返回true，被其他事件退出的，返回接收到的事件
 function libnet.wait(taskName,timeout, netc)
-	local is_err, result = socket.wait(netc)
-	if is_err then
-		return false, false
+	local succ, result = socket.wait(netc)
+	if not succ then
+		return false,false
 	end
 	if not result then
 		result = sys_wait(taskName, socket.EVENT, timeout)
 	else
-		return true, true
+		return true,true
 	end
 	if type(result) == 'table' then
 		if result[2] == 0 then
@@ -127,8 +127,8 @@ end
 -- @... 其他参数和socket.close一致
 -- @return 无
 function libnet.close(taskName,timeout, netc)
-	local is_err, result = socket.discon(netc)
-	if is_err then
+	local succ, result = socket.discon(netc)
+	if not succ then
 		socket.close(netc)
 		return
 	end

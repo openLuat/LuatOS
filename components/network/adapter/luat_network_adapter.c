@@ -1016,6 +1016,7 @@ network_ctrl_t *network_alloc_ctrl(uint8_t adapter_index)
 			adapter->ctrl_busy[i] = 1;
 			ctrl = &adapter->ctrl_table[i];
 			ctrl->adapter_index = adapter_index;
+			ctrl->domain_ipv6 = 0;
 			break;
 		}
 	}
@@ -1115,6 +1116,11 @@ void network_set_base_mode(network_ctrl_t *ctrl, uint8_t is_tcp, uint32_t tcp_ti
 	ctrl->tcp_keep_interval = keep_interval;
 	ctrl->tcp_keep_cnt = keep_cnt;
 	ctrl->tcp_timeout_ms = tcp_timeout_ms;
+}
+
+void network_connect_ipv6_domain(network_ctrl_t *ctrl, uint8_t onoff)
+{
+	ctrl->domain_ipv6 = onoff;
 }
 
 int network_set_local_port(network_ctrl_t *ctrl, uint16_t local_port)
@@ -1292,8 +1298,14 @@ int network_user_cmd(network_ctrl_t *ctrl,  uint32_t cmd, uint32_t value)
 int network_dns(network_ctrl_t *ctrl)
 {
 	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
-
-	return adapter->opt->dns(ctrl->domain_name, ctrl->domain_name_len, ctrl, adapter->user_data);
+	if (ctrl->domain_ipv6)
+	{
+		return adapter->opt->dns_ipv6(ctrl->domain_name, ctrl->domain_name_len, ctrl, adapter->user_data);
+	}
+	else
+	{
+		return adapter->opt->dns(ctrl->domain_name, ctrl->domain_name_len, ctrl, adapter->user_data);
+	}
 }
 
 int network_set_mac(uint8_t adapter_index, uint8_t *mac)

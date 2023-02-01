@@ -192,6 +192,7 @@ typedef struct
     uint8_t wait_target_state;
     uint8_t state;
     uint8_t is_debug;
+    uint8_t domain_ipv6;
 }network_ctrl_t;
 
 typedef struct
@@ -270,6 +271,9 @@ typedef struct
 	int (*user_cmd)(int socket_id, uint64_t tag, uint32_t cmd, uint32_t value, void *user_data);
 
 	int (*dns)(const char *domain_name, uint32_t len, void *param,  void *user_data);
+#ifdef LUAT_USE_LWIP
+	int (*dns_ipv6)(const char *domain_name, uint32_t len, void *param,  void *user_data);
+#endif
 	int (*set_dns_server)(uint8_t server_index, luat_ip_addr_t *ip, void *user_data);
 #ifdef LUAT_USE_LWIP
 	int (*set_mac)(uint8_t *mac, void *user_data);
@@ -325,6 +329,12 @@ void network_init_ctrl(network_ctrl_t *ctrl, HANDLE task_handle, CBFuncEx_t call
  * 设置必须在socket处于close状态，在进行connect和tls初始之前
  */
 void network_set_base_mode(network_ctrl_t *ctrl, uint8_t is_tcp, uint32_t tcp_timeout_ms, uint8_t keep_alive, uint32_t keep_idle, uint8_t keep_interval, uint8_t keep_cnt);
+
+/**
+ * 使用域名时是否选择IPV6地址
+ */
+void network_connect_ipv6_domain(network_ctrl_t *ctrl, uint8_t onoff);
+
 /*
  * 检查网络是否已经连接，注意不是socket
  * 返回非0是已连接，可以开始socket操作

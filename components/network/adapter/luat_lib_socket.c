@@ -376,6 +376,7 @@ static int l_socket_linkup(lua_State *L)
 @api socket.connect(ctrl, ip, remote_port)
 @user_data socket.create得到的ctrl
 @string or int ip或者域名，如果是IPV4，可以是大端格式的int值
+@boolean 域名解析是否要IPV6，true要，false不要，默认false不要，只有支持IPV6的协议栈才有效果
 @int 服务器端口号，小端格式
 @return boolean true没有异常发生，false失败了，如果false则不需要看下一个返回值了，如果有异常，后续要close
 @return boolean true已经connect，false没有connect，之后需要接收socket.ON_LINE消息
@@ -402,6 +403,17 @@ static int l_socket_connect(lua_State *L)
 	}
 	uint16_t remote_port = luaL_checkinteger(L, 3);
 	LLOGD("connect to %s,%d", ip, remote_port);
+	if (ip_addr.type != IPADDR_TYPE_V4)
+	{
+		if (LUA_TBOOLEAN == lua_type(L, 3))
+		{
+			network_connect_ipv6_domain(l_ctrl->netc, lua_toboolean(L, 3));
+		}
+		else
+		{
+			network_connect_ipv6_domain(l_ctrl->netc, 0);
+		}
+	}
 	int result = network_connect(l_ctrl->netc, ip, ip_len, (ip_addr.type != IPADDR_TYPE_V4)?NULL:&ip_addr, remote_port, 0);
 	lua_pushboolean(L, (result < 0)?0:1);
 	lua_pushboolean(L, result == 0);

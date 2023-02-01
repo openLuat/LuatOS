@@ -18,9 +18,9 @@ function libfota_cb(result)
     end
 end
 
---注意!!!:使用合宙iot平台,必须用luatools量产生成的.bin文件!!! 自建服务器可使用.soc文件!!!
---注意!!!:使用合宙iot平台,必须用luatools量产生成的.bin文件!!! 自建服务器可使用.soc文件!!!
---注意!!!:使用合宙iot平台,必须用luatools量产生成的.bin文件!!! 自建服务器可使用.soc文件!!!
+--注意!!!:使用合宙iot平台,必须用luatools量产生成的.bin文件!!! 自建服务器可使用.ota文件!!!
+--注意!!!:使用合宙iot平台,必须用luatools量产生成的.bin文件!!! 自建服务器可使用.ota文件!!!
+--注意!!!:使用合宙iot平台,必须用luatools量产生成的.bin文件!!! 自建服务器可使用.ota文件!!!
 
 --下方示例为合宙iot平台,地址:http://iot.openluat.com 
 libfota.request(libfota_cb,0,0,0,"http://iot.openluat.com/api/site/firmware_upgrade?project_key=" .. _G.PRODUCT_KEY .. "&imei=".. mobile.imei() .. "&device_key=&firmware_name=" .. _G.PROJECT.. "_LuatOS-SoC_" .. rtos.bsp() .. "&version=" .. rtos.version():sub(2) .. "." .. _G.VERSION)

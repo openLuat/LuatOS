@@ -67,7 +67,7 @@ sys.taskInit(function()
     for i=1, 10 do
         sys.wait(100)
         log.info("crypto", "真随机数",string.unpack("I",crypto.trng(4)))
-        log.info("crypto", "伪随机数",math.random())
+        -- log.info("crypto", "伪随机数",math.random()) -- 输出的是浮点数,不建议使用
     end
 
     -- totp的密钥

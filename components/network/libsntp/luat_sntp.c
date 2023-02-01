@@ -242,8 +242,8 @@ int l_sntp_get(lua_State *L){
         }
 	}else if(lua_istable(L, 1)){
         size_t count = lua_rawlen(L, 1);
-        if (count > sizeof(sntp_server)){
-            count = sizeof(sntp_server);
+        if (count > SNTP_SERVER_COUNT){
+            count = SNTP_SERVER_COUNT);
         }
 		for (size_t i = 1; i < count; i++){
 			lua_geti(L, 1, i);

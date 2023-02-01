@@ -83,6 +83,10 @@ int luat_mqtt_set_connopts(luat_mqtt_ctrl_t *mqtt_ctrl, luat_mqtt_connopts_t *op
 		network_deinit_tls(mqtt_ctrl->netc);
 	}
 
+	if (opts->is_ipv6) {
+		network_connect_ipv6_domain(mqtt_ctrl->netc, 1);
+	}
+
     mqtt_ctrl->broker.socket_info = mqtt_ctrl;
     mqtt_ctrl->broker.send = luat_mqtt_send_packet;
     return 0;

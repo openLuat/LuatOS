@@ -232,6 +232,7 @@ mqtt客户端创建
 @string 服务器地址,可以是域名, 也可以是ip
 @int  	端口号
 @bool/table  是否为ssl加密连接,默认不加密,true为无证书最简单的加密，table为有证书的加密 <br>server_cert 服务器ca证书数据 <br>client_cert 客户端ca证书数据 <br>client_key 客户端私钥加密数据 <br>client_password 客户端私钥口令数据
+@bool  是否为ipv6 默认不是
 @return userdata 若成功会返回mqtt客户端实例,否则返回nil
 @usage
 -- 普通TCP链接
@@ -327,6 +328,10 @@ static int l_mqtt_create(lua_State *L) {
 		lua_pop(L, 1);
 	}
 	
+	if (lua_isboolean(L, 5)){
+		opts.is_ipv6 = lua_toboolean(L, 5);
+	}
+
 	ret = luat_mqtt_set_connopts(mqtt_ctrl, &opts);
 
 	// TODO 判断ret, 如果初始化失败, 应该终止

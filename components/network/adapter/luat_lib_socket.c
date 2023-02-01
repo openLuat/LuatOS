@@ -405,9 +405,9 @@ static int l_socket_connect(lua_State *L)
 	LLOGD("connect to %s,%d", ip, remote_port);
 	if (ip_addr.type != IPADDR_TYPE_V4)
 	{
-		if (LUA_TBOOLEAN == lua_type(L, 3))
+		if (LUA_TBOOLEAN == lua_type(L, 4))
 		{
-			network_connect_ipv6_domain(l_ctrl->netc, lua_toboolean(L, 3));
+			network_connect_ipv6_domain(l_ctrl->netc, lua_toboolean(L, 4));
 		}
 		else
 		{

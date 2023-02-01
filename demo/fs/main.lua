@@ -33,8 +33,33 @@ local function fs_test()
     f:close()
     --end
 
+    log.info("io.writeFile", io.writeFile("/abc.txt", "ABCDEFG"))
+
+    log.info("io.readFile", io.readFile("/abc.txt"))
+    local f = io.open("/abc.txt", "rb")
+    local c = 0
+    if f then
+        local data = f:read("*a")
+        log.info("fs", "data2", data, data:toHex())
+        f:close()
+    end
+
+    -- seek和tell测试
+    local f = io.open("/abc.txt", "rb")
+    local c = 0
+    if f then
+        f:seek("end", 0)
+        f:seek("set", 0)
+        local data = f:read("*a")
+        log.info("fs", "data3", data, data:toHex())
+        f:close()
+    end
+
     if fs then
+        -- 根目录是可读写的
         log.info("fsstat", fs.fsstat("/"))
+        -- /luadb/ 是只读的
+        log.info("fsstat", fs.fsstat("/luadb/"))
     end
 
     local ret, files = io.lsdir("/")
@@ -42,7 +67,7 @@ local function fs_test()
 
     -- 读取刷机时加入的文件, 并演示按行读取
     -- 刷机时选取的非lua文件, 均存放在/luadb/目录下, 单层无子文件夹
-    f = io.open("/luadb/abc.txt", "a")
+    f = io.open("/luadb/abc.txt", "rb")
     if f then
         while true do
             local line = f:read("l")

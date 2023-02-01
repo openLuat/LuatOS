@@ -41,6 +41,7 @@ int luat_luadb_umount(luadb_fs_t *fs) {
 }
 
 int luat_luadb_remount(luadb_fs_t *fs, unsigned flags) {
+    (void)flags;
     memset(fs->fds, 0, sizeof(luadb_fd_t)*LUAT_LUADB_MAX_OPENFILE);
     return 0;
 }
@@ -64,6 +65,8 @@ static luadb_file_t* find_by_name(luadb_fs_t *fs, const char *path) {
 }
 
 int luat_luadb_open(luadb_fs_t *fs, const char *path, int flags, int /*mode_t*/ mode) {
+    (void)flags;
+    (void)mode;
     LLOGD("open luadb path = %s flags=%d", path, flags);
     int fd = -1;
     for (size_t j = 1; j < LUAT_LUADB_MAX_OPENFILE; j++)
@@ -139,7 +142,7 @@ luadb_fs_t* luat_luadb_mount(const char* _ptr) {
     int headok = 0;
     int dbver = 0;
     int headsize = 0;
-    int filecount = 0;
+    size_t filecount = 0;
 
     const char * ptr = (const char *)_ptr;
 
@@ -338,6 +341,12 @@ _after_head:
 #ifdef LUAT_USE_FS_VFS
 
 FILE* luat_vfs_luadb_fopen(void* userdata, const char *filename, const char *mode) {
+    if (!strcmp("r", mode) || !strcmp("rb", mode) || !strcmp("r+", mode) || !strcmp("rb+", mode)) {
+    }
+    else {
+        // 暂时只警告
+        LLOGW("/luadb is readonly %s %s", filename, mode);
+    }
     return (FILE*)luat_luadb_open((luadb_fs_t*)userdata, filename, 0, 0);
 }
 
@@ -363,6 +372,8 @@ int luat_vfs_luadb_feof(void* userdata, FILE* stream) {
     return cur >= end ? 1 : 0;
 }
 int luat_vfs_luadb_ferror(void* userdata, FILE *stream) {
+    (void)userdata;
+    (void)stream;
     return 0;
 }
 size_t luat_vfs_luadb_fread(void* userdata, void *ptr, size_t size, size_t nmemb, FILE *stream) {
@@ -378,12 +389,24 @@ int luat_vfs_luadb_getc(void* userdata, FILE* stream) {
     return -1;
 }
 size_t luat_vfs_luadb_fwrite(void* userdata, const void *ptr, size_t size, size_t nmemb, FILE *stream) {
+    (void)userdata;
+    (void)stream;
+    (void)ptr;
+    (void)size;
+    (void)nmemb;
     return 0;
 }
 int luat_vfs_luadb_remove(void* userdata, const char *filename) {
+    (void)userdata;
+    (void)filename;
+    LLOGW("/luadb is readonly %s", filename);
     return -1;
 }
 int luat_vfs_luadb_rename(void* userdata, const char *old_filename, const char *new_filename) {
+    (void)userdata;
+    (void)old_filename;
+    (void)new_filename;
+    LLOGW("/luadb is readonly %s", old_filename);
     return -1;
 }
 int luat_vfs_luadb_fexist(void* userdata, const char *filename) {
@@ -409,6 +432,8 @@ size_t luat_vfs_luadb_fsize(void* userdata, const char *filename) {
 
 int luat_vfs_luadb_mkfs(void* userdata, luat_fs_conf_t *conf) {
     //LLOGE("not support yet : mkfs");
+    (void)userdata;
+    (void)conf;
     return -1;
 }
 int luat_vfs_luadb_mount(void** userdata, luat_fs_conf_t *conf) {
@@ -420,20 +445,27 @@ int luat_vfs_luadb_mount(void** userdata, luat_fs_conf_t *conf) {
 }
 int luat_vfs_luadb_umount(void* userdata, luat_fs_conf_t *conf) {
     //LLOGE("not support yet : umount");
+    (void)userdata;
+    (void)conf;
     return 0;
 }
 
 int luat_vfs_luadb_mkdir(void* userdata, char const* _DirName) {
     //LLOGE("not support yet : mkdir");
+    (void)userdata;
+    (void)_DirName;
     return -1;
 }
 
 int luat_vfs_luadb_rmdir(void* userdata, char const* _DirName) {
     //LLOGE("not support yet : rmdir");
+    (void)userdata;
+    (void)_DirName;
     return -1;
 }
 
 int luat_vfs_luadb_lsdir(void* userdata, char const* _DirName, luat_fs_dirent_t* ents, size_t offset, size_t len) {
+    (void)_DirName;
     luadb_fs_t* fs = (luadb_fs_t*)userdata;
     if (fs->filecount > offset) {
         if (offset + len > fs->filecount)
@@ -449,21 +481,33 @@ int luat_vfs_luadb_lsdir(void* userdata, char const* _DirName, luat_fs_dirent_t*
 }
 
 int luat_vfs_luadb_info(void* userdata, const char* path, luat_fs_info_t *conf) {
+    (void)path;
     memcpy(conf->filesystem, "luadb", strlen("luadb")+1);
+    // 把luadb的第一个文件的偏移量估算为起始位置
+    // 最后一个文件的偏移量+文件大小, 作为结束位置
+    // 从而估算出luadb的实际用量
+    size_t used = 0;
+    luadb_fs_t* fs = (luadb_fs_t*)userdata;
+    if (fs != NULL && fs->filecount > 0) {
+        size_t begin = (size_t)fs->files[0].ptr;
+        size_t end = (size_t)(fs->files[fs->filecount - 1].ptr) +  fs->files[fs->filecount - 1].size;
+        used = end - begin + 512;
+    }
     conf->type = 0;
     conf->total_block = 0;
-    conf->block_used = 0;
+    conf->block_used = (used / 512) + 1;
     conf->block_size = 512;
     return 0;
 }
 
-const char* luat_vfs_luadb_mmap(void* userdata, int fd) {
+void* luat_vfs_luadb_mmap(void* userdata, FILE* f) {
     luadb_fs_t* fs = (luadb_fs_t*)userdata;
-    if (fd < 0 || fd >= LUAT_LUADB_MAX_OPENFILE || fs->fds[fd].file == NULL)
+    int fd = (int)f;
+    if (fd < 0 || fd >= LUAT_LUADB_MAX_OPENFILE || fs->fds[(int)fd].file == NULL)
         return 0;
-    luadb_fd_t *fdt = &fs->fds[fd];
+    luadb_fd_t *fdt = &fs->fds[(int)fd];
     if (fdt != NULL) {
-        return fdt->file->ptr;
+        return (void*)fdt->file->ptr;
     }
     return NULL;
 }

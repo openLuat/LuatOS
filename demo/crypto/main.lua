@@ -16,7 +16,7 @@ end
 
 sys.taskInit(function()
 
-    sys.wait(1000)
+    sys.wait(3000)
 
     -- MD5,输出结果已经hex编码
     log.info("md5", crypto.md5("abc"))

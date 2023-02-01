@@ -321,6 +321,7 @@ static int l_rtos_set_paths(lua_State *L) {
 rtos.nop()
 */
 static int l_rtos_nop(lua_State *L) {
+    (void)L;
     return 0;
 }
 

@@ -245,7 +245,7 @@ int l_sntp_get(lua_State *L){
         if (count > sizeof(sntp_server)){
             count = sizeof(sntp_server);
         }
-		for (size_t i = 0; i < count; i++){
+		for (size_t i = 1; i < count; i++){
 			lua_geti(L, 1, i);
 			const char * server_addr = luaL_checklstring(L, -1, &len);
             if (len < SNTP_SERVER_LEN_MAX){

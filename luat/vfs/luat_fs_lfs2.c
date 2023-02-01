@@ -170,15 +170,41 @@ int luat_vfs_lfs2_umount(void* userdata, luat_fs_conf_t *conf) {
     return 0;
 }
 
+static int dir2name(char* buff, char const* _DirName) {
+    size_t dirlen = strlen(_DirName);
+    if (dirlen > 63) {
+        LLOGE("dir too long!! %s", _DirName);
+        return -1;
+    }
+    else if (dirlen < 1) {
+        LLOGE("dir too short!! %s", _DirName);
+        return -1;
+    }
+    memcpy(buff, _DirName, dirlen);
+    if (buff[dirlen -1] == '/') {
+        buff[dirlen -1] = 0;
+    }
+    return 0;
+}
+
 int luat_vfs_lfs2_mkdir(void* userdata, char const* _DirName) {
     lfs_t* fs = (lfs_t*)userdata;
-    int ret = lfs_mkdir(fs, _DirName);
+    char buff[64] = {0};
+    if (dir2name(buff, _DirName)) {
+        return -1;
+    }
+    int ret = lfs_mkdir(fs, buff);
     return ret == LFS_ERR_OK ? 0 : -1;
 }
 
 int luat_vfs_lfs2_rmdir(void* userdata, char const* _DirName) {
     lfs_t* fs = (lfs_t*)userdata;
-    int ret = lfs_remove(fs, _DirName);
+
+    char buff[64] = {0};
+    if (dir2name(buff, _DirName)) {
+        return -1;
+    }
+    int ret = lfs_remove(fs, buff);
     return ret == LFS_ERR_OK ? 0 : -1;
 }
 
@@ -187,6 +213,13 @@ int luat_vfs_lfs2_lsdir(void* userdata, char const* _DirName, luat_fs_dirent_t* 
     int ret , num = 0;
     lfs_dir_t *dir;
     struct lfs_info info;
+    char buff[64] = {0};
+    if (strlen(_DirName) == 0) {
+        // OK的, 根目录嘛
+    }
+    else if (dir2name(buff, _DirName)) {
+        return -1;
+    }
     // if (fs->filecount > offset) {
         // if (offset + len > fs->filecount)
             // len = fs->filecount - offset;
@@ -195,7 +228,7 @@ int luat_vfs_lfs2_lsdir(void* userdata, char const* _DirName, luat_fs_dirent_t* 
             // LLOGE("out of memory when lsdir");
             return 0;
         }
-        ret = lfs_dir_open(fs, dir, _DirName);
+        ret = lfs_dir_open(fs, dir, buff);
         if (ret < 0) {
             luat_heap_free(dir);
             // LLOGE("no such dir %s _DirName");

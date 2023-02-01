@@ -887,7 +887,7 @@ static int io_writeFile (lua_State *L) {
 #ifdef LUAT_USE_ZBUFF
 #include "luat_zbuff.h"
 /*
-读取文件并填充到zbuff内
+读取文件并填充到zbuff内,但不移动指针位置
 @api io.fill(buff, offset, len)
 @userdata zbuff实体
 @int 写入的位置,默认是0

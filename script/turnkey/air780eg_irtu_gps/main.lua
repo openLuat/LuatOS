@@ -123,7 +123,7 @@ function gnsstask()
     local tx_buff = zbuff.create(1024)
 	local rx_buff = zbuff.create(1024)
 	local netc 
-	local result, param, is_err
+	local result, param, succ
     local host, port = "gps.nutz.cn", 19002
     local netc = socket.create(nil, taskName)
 	-- socket.debug(netc, true)
@@ -141,9 +141,9 @@ function gnsstask()
 			libnet.tx(taskName, 0, netc, data)
 		end
         while result do
-			is_err, param, _, _ = socket.rx(netc, rx_buff)
-			if is_err then
-				log.info("服务器断开了", is_err, param, ip, port)
+			succ, param = socket.rx(netc, rx_buff)
+			if not succ then
+				log.info("服务器断开了", succ, param, host, port)
 				break
 			end
 			if rx_buff:used() > 0 then

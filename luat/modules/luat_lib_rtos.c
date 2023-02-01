@@ -209,7 +209,7 @@ static int l_rtos_bsp(lua_State *L) {
 /*
  获取固件版本号
 @api    rtos.version()        
-@return string  固件版本号,例如"1.0.2"
+@return string  固件版本号,例如"V0001"
 @usage
 -- 读取版本号
 local luatos_version = rtos.version()
@@ -275,11 +275,7 @@ static int l_rtos_meminfo(lua_State *L) {
 log.info("firmware", rtos.firmware())
 */
 static int l_rtos_firmware(lua_State *L) {
-#ifdef AIR302
-    lua_pushfstring(L, "LuatOS_%s_%s", luat_version_str(), luat_os_bsp());
-#else
     lua_pushfstring(L, "LuatOS-SoC_%s_%s", luat_version_str(), luat_os_bsp());
-#endif
     return 1;
 }
 
@@ -325,6 +321,7 @@ static int l_rtos_set_paths(lua_State *L) {
 rtos.nop()
 */
 static int l_rtos_nop(lua_State *L) {
+    (void)L;
     return 0;
 }
 

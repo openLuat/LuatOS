@@ -16,7 +16,7 @@ end
 
 sys.taskInit(function()
 
-    sys.wait(1000)
+    sys.wait(3000)
 
     -- MD5,输出结果已经hex编码
     log.info("md5", crypto.md5("abc"))
@@ -67,7 +67,7 @@ sys.taskInit(function()
     for i=1, 10 do
         sys.wait(100)
         log.info("crypto", "真随机数",string.unpack("I",crypto.trng(4)))
-        log.info("crypto", "伪随机数",math.random())
+        -- log.info("crypto", "伪随机数",math.random()) -- 输出的是浮点数,不建议使用
     end
 
     -- totp的密钥

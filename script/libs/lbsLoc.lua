@@ -9,9 +9,6 @@
 --用法实例
 PRODUCT_KEY = "VmhtOb81EgZau6YyuuZJzwF6oUNGCbXi"
 local lbsLoc = require("lbsLoc")
-local function reqLbsLoc()
-    lbsLoc.request(getLocCb)
-end
 -- 功能:获取基站对应的经纬度后的回调函数
 -- 参数:-- result：number类型，0表示成功，1表示网络环境尚未就绪，2表示连接服务器失败，3表示发送数据失败，4表示接收服务器应答超时，5表示服务器返回查询失败；为0时，后面的5个参数才有意义
 		-- lat：string类型，纬度，整数部分3位，小数部分7位，例如031.2425864
@@ -32,83 +29,16 @@ function getLocCb(result, lat, lng, addr, time, locType)
         log.info("服务器返回的时间", time:toHex())
         log.info("定位类型,基站定位成功返回0", locType)
     end
-    sys.timerStart(lbsLoc,20000)
 end
-reqLbsLoc()
+lbsLoc.request(getLocCb)
 ]]
 
+local sys = require "sys"
+local sysplus = require("sysplus")
+local libnet = require("libnet")
+
 local lbsLoc = {}
-local d1Name = "D1_TASKL"
---- 阻塞等待网卡的网络连接上，只能用于任务函数中
--- @string 任务标志
--- @int 超时时间，如果==0或者空，则没有超时一致等待
--- @... 其他参数和socket.linkup一致
--- @return 失败或者超时返回false 成功返回true
-local function waitLink(taskName, timeout, ...)
-	local is_err, result = socket.linkup(...)
-	if is_err then
-		return false
-	end
-	if not result then
-		result = sys_wait(taskName, socket.LINK, timeout)
-	else
-		return true
-	end
-	if type(result) == 'table' and result[2] == 0 then
-		return true
-	else
-		return false
-	end
-end
-
---- 阻塞等待IP或者域名连接上，如果加密连接还要等握手完成，只能用于任务函数中
--- @string 任务标志
--- @int 超时时间，如果==0或者空，则没有超时一致等待
--- @... 其他参数和socket.connect一致
--- @return 失败或者超时返回false 成功返回true
-local function connect(taskName,timeout, ... )
-	local is_err, result = socket.connect(...)
-	if is_err then
-		return false
-	end
-	if not result then
-		result = sys_wait(taskName, socket.ON_LINE, timeout)
-	else
-		return true
-	end
-	if type(result) == 'table' and result[2] == 0 then
-		return true
-	else
-		return false
-	end
-end
-
---- 阻塞等待数据发送完成，只能用于任务函数中
--- @string 任务标志
--- @int 超时时间，如果==0或者空，则没有超时一致等待
--- @... 其他参数和socket.tx一致
--- @return
--- @boolean 失败或者超时返回false，缓冲区满了或者成功返回true
--- @boolean 缓存区是否满了
-local function tx(taskName,timeout, ...)
-	local is_err, is_full, result = socket.tx(...)
-	if is_err then
-		return false, is_full
-	end
-	if is_full then
-		return true, true
-	end
-	if not result then
-		result = sys_wait(taskName, socket.TX_OK, timeout)
-	else
-		return true, is_full
-	end
-	if type(result) == 'table' and result[2] == 0 then
-		return true, false
-	else
-		return false, is_full
-	end
-end
+local d1Name = "lbsLoc"
 
 --- ASCII字符串 转化为 BCD编码格式字符串(仅支持数字)
 -- @string inStr 待转换字符串
@@ -243,22 +173,23 @@ local function taskClient(cbFnc, reqAddr, timeout, productKey, host, port,reqTim
     local rx_buff = zbuff.create(17)
     -- sys.wait(5000)
     while true do
-        netc = socket.create(nil, d1Name) -- 创建socket对象
+        local result
+        local netc = socket.create(nil, d1Name) -- 创建socket对象
         if not netc then cbFnc(6) return end -- 创建socket失败
         socket.debug(netc, false)
         socket.config(netc, nil, true, nil)
-        waitLink(d1Name, 0, netc)
-        local result = connect(d1Name, 15000, netc, host, port)
+        result = libnet.waitLink(d1Name, 0, netc)
+        result = libnet.connect(d1Name, 15000, netc, host, port)
         if result then
             while true do
                 log.info(" lbsloc socket_service connect true")
                 sys.wait(2000);
-                local result, _ = tx(d1Name, 0, netc, reqStr) ---发送数据
+                result, _ = libnet.tx(d1Name, 0, netc, reqStr) ---发送数据
                 if result then
                     sys.wait(5000);
-                    local is_err, param, _, _ = socket.rx(netc, rx_buff) -- 接收数据
-                    log.info("是否接收和数据长度", not is_err, param)
-                    if not is_err then -- 如果接收成功
+                    local succ, param, _, _ = socket.rx(netc, rx_buff) -- 接收数据
+                    log.info("是否接收和数据长度", succ, param)
+                    if succ then -- 如果接收成功
                         socket.close(netc) -- 关闭连接
                         socket.release(netc)
                         local read_buff = rx_buff:toStr(0, param)

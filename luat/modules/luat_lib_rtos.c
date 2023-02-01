@@ -209,7 +209,7 @@ static int l_rtos_bsp(lua_State *L) {
 /*
  获取固件版本号
 @api    rtos.version()        
-@return string  固件版本号,例如"1.0.2"
+@return string  固件版本号,例如"V0001"
 @usage
 -- 读取版本号
 local luatos_version = rtos.version()

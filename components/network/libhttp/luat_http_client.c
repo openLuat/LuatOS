@@ -569,6 +569,7 @@ static int l_http_request(lua_State *L) {
 	memset(http_ctrl, 0, sizeof(luat_http_ctrl_t));
 
 	http_ctrl->timeout = HTTP_TIMEOUT;
+	int use_ipv6 = 0;
 
 	if (lua_istable(L, 5)){
 		lua_pushstring(L, "adapter");
@@ -601,6 +602,12 @@ static int l_http_request(lua_State *L) {
 		}
 		lua_pop(L, 1);
 
+		lua_pushstring(L, "ipv6");
+		if (LUA_TBOOLEAN == lua_gettable(L, 5) && lua_toboolean(L, -1)) {
+			use_ipv6 = 1;
+		}
+		lua_pop(L, 1);
+
 	}else{
 		adapter_index = network_get_last_register_adapter();
 	}
@@ -620,6 +627,10 @@ static int l_http_request(lua_State *L) {
 
 	network_set_base_mode(http_ctrl->netc, 1, 10000, 0, 0, 0, 0);
 	network_set_local_port(http_ctrl->netc, 0);
+	if (use_ipv6) {
+		LLOGI("enable ipv6 support for http request");
+		network_connect_ipv6_domain(http_ctrl->netc, 1);
+	}
 
 
     http_parser_init(&http_ctrl->parser, HTTP_RESPONSE);

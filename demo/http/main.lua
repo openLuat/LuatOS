@@ -57,16 +57,23 @@ sys.taskInit(function()
 
     while 1 do
         -- 最普通的Http GET请求
-        -- local code, headers, body = http.request("GET", "https://site0.cn/").wait()
-        -- local code, headers, body = http.request("GET", "https://air32.cn/").wait()
-        local code, headers, body = http.request("GET", "https://www.baidu.com/").wait() -- 留意末尾的.wait()
+        -- local code, headers, body = http.request("GET", "https://yanqiyu.info/").wait()
+        -- sys.wait(100)
+        local code, headers, body = http.request("GET", "https://www.air32.cn/").wait()
+        log.info("http.get", code, headers, body)
+        local code, headers, body = http.request("GET", "https://mirrors6.tuna.tsinghua.edu.cn/", nil, nil, {ipv6=true}).wait()
+        log.info("http.get", code, headers, body)
+        -- sys.wait(100)
+        -- local code, headers, body = http.request("GET", "https://www.baidu.com/").wait() -- 留意末尾的.wait()
+        -- sys.wait(100)
         -- local code, headers, body = http.request("GET", "https://www.luatos.com/").wait()
+        -- sys.wait(100)
 
         -- 按需打印
         -- code 响应值, 若大于等于 100 为服务器响应, 小于的均为错误代码
         -- headers是个table, 一般作为调试数据存在
         -- body是字符串. 注意lua的字符串是带长度的byte[]/char*, 是可以包含不可见字符的
-        log.info("http", code, json.encode(headers or {}), body)
+        -- log.info("http", code, json.encode(headers or {}), #body > 512 and #body or body)
 
         -- -- POST request 演示
         -- local req_headers = {}
@@ -101,7 +108,7 @@ sys.taskInit(function()
 
         log.info("sys", rtos.meminfo("sys"))
         log.info("lua", rtos.meminfo("lua"))
-        sys.wait(5000)
+        sys.wait(60000)
     end
 end)
 

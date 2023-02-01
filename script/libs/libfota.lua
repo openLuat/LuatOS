@@ -67,7 +67,7 @@ local function netCB(msg)
     end
 end
 
-local function fota_task(cbFnc,storge_location, len, param1,ota_url,ota_port,timeout)
+local function fota_task(cbFnc,storge_location, len, param1,ota_url,ota_port,timeout,tls,server_cert, client_cert, client_key, client_password)
     fota.init(storge_location, len, param1)
     -- 若ota_url没有传,那就是用合宙iot平台
     if ota_url == nil then
@@ -75,18 +75,17 @@ local function fota_task(cbFnc,storge_location, len, param1,ota_url,ota_port,tim
             -- 必须在main.lua定义 PRODUCT_KEY = "xxx"
             -- iot平台新建项目后, 项目详情中可以查到
             log.error("fota", "iot.openluat.com need PRODUCT_KEY!!!")
-            return
+        else
+            ota_url = "http://iot.openluat.com/api/site/firmware_upgrade?project_key=" .. _G.PRODUCT_KEY .. "&imei=".. mobile.imei() .. "&device_key=&firmware_name=" .. _G.PROJECT.. "_LuatOS-SoC_" .. rtos.bsp() .. "&version=" .. rtos.version():sub(2) .. "." .. _G.VERSION
         end
-        ota_url = "http://iot.openluat.com/api/site/firmware_upgrade?project_key=" .. _G.PRODUCT_KEY .. "&imei=".. mobile.imei() .. "&device_key=&firmware_name=" .. _G.PROJECT.. "_LuatOS-SoC_" .. rtos.bsp() .. "&version=" .. rtos.version():sub(2) .. "." .. _G.VERSION
     end
-
-    -- TODO ota_port 应该从url自动得出
 
     local succ, param, ip, port, total, findhead, filelen, rcvCache,d1,d2,statusCode,retry,rspHead,rcvChunked,done,fotaDone,nCache
     local tbuff = zbuff.create(512)
     local rbuff = zbuff.create(4096)
     local netc = socket.create(nil, taskName)
-    socket.config(netc, nil, nil, nil) -- http用的普通TCP连接
+
+    socket.config(netc, nil, nil, tls,server_cert, client_cert, client_key, client_password)
     filelen = 0
     total = 0
     retry = 0
@@ -94,9 +93,11 @@ local function fota_task(cbFnc,storge_location, len, param1,ota_url,ota_port,tim
     rspHead = {}
     local ret = 1
     local result = libnet.waitLink(taskName, 0, netc)
-    -- TODO 支持带端口号的url
-    -- TODO 支持https
-    local type,host,uri = string.match(ota_url,"(%a-)://(%S-)/(%S+)")
+    
+    local type,host,uri
+    if ota_url then
+        type,host,uri = string.match(ota_url,"(%a-)://(%S-)/(%S+)")
+    end
     while retry < 3 and not done do
         if type == nil or host == nil then
             ret = 2
@@ -107,6 +108,18 @@ local function fota_task(cbFnc,storge_location, len, param1,ota_url,ota_port,tim
                 break
             end
         end
+
+        if ota_port == nil then
+            local url_port = string.match(host,".:(%d+)")
+            if url_port then
+                ota_port = url_port
+            elseif type == "http" then
+                ota_port = 80
+            elseif type == "https" then
+                ota_port = 443
+            end
+        end
+
         result = libnet.connect(taskName, 30000, netc, host, ota_port) --后续出了http库则直接用http来处理
         tbuff:del()
         tbuff:copy(0, "GET /"..uri.."" .. " HTTP/1.1\r\n")
@@ -243,7 +256,7 @@ end
 
 --[[
 fota升级
-@api libfota.request(cbFnc,ota_url,storge_location, len, param1,ota_port,timeout)
+@api libfota.request(cbFnc,ota_url,storge_location, len, param1,ota_port,timeout,tls,server_cert, client_cert, client_key, client_password)
 @function cbFnc 用户回调函数，回调函数的调用形式为：cbFnc(result) , 必须传
 @string ota_url 升级URL, 若不填则自动使用合宙iot平台
 @number/string storge_location 可选,fota数据存储的起始位置<br>如果是int，则是由芯片平台具体判断<br>如果是string，则存储在文件系统中<br>如果为nil，则由底层决定存储位置
@@ -251,10 +264,15 @@ fota升级
 @userdata param1,可选,如果数据存储在spiflash时,为spi_device
 @number ota_port 可选,请求端口,默认80
 @number timeout 可选,请求超时时间,单位毫秒,默认20000毫秒
+@boolean tls    可选,是否是加密传输，默认false
+@string server_cert 可选,服务器ca证书数据
+@string client_cert 可选,客户端ca证书数据
+@string client_key 可选,客户端私钥加密数据
+@string client_password 可选,客户端私钥口令数据
 @return nil 无返回值
 ]]
-function libfota.request(cbFnc,ota_url,storge_location, len, param1,ota_port,timeout)
-    sysplus.taskInitEx(fota_task, taskName, netCB, cbFnc,storge_location, len, param1,ota_url, ota_port or 80,timeout or 30000)
+function libfota.request(cbFnc,ota_url,storge_location, len, param1,ota_port,timeout,tls,server_cert, client_cert, client_key, client_password)
+    sysplus.taskInitEx(fota_task, taskName, netCB, cbFnc,storge_location, len, param1,ota_url, ota_port,timeout or 30000,tls,server_cert, client_cert, client_key, client_password)
 end
 
 return libfota

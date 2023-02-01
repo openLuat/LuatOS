@@ -38,7 +38,7 @@ local sysplus = require("sysplus")
 local libnet = require("libnet")
 
 local lbsLoc = {}
-local d1Name = "D1_TASKL"
+local d1Name = "lbsLoc"
 
 --- ASCII字符串 转化为 BCD编码格式字符串(仅支持数字)
 -- @string inStr 待转换字符串

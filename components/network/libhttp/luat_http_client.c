@@ -317,8 +317,10 @@ static void http_send_message(luat_http_ctrl_t *http_ctrl){
 	snprintf_(http_ctrl->request_message, HTTP_REQUEST_BUF_LEN_MAX, "%s %s HTTP/1.1\r\n", http_ctrl->method, http_ctrl->uri);
 	http_send(http_ctrl, http_ctrl->request_message, strlen(http_ctrl->request_message));
 	// 强制添加host. TODO 判断自定义headers是否有host
-	snprintf_(http_ctrl->request_message, HTTP_REQUEST_BUF_LEN_MAX,  "Host: %s\r\n", http_ctrl->host);
-	http_send(http_ctrl, http_ctrl->request_message, strlen(http_ctrl->request_message));
+	if (http_ctrl->custom_host == 0) {
+		snprintf_(http_ctrl->request_message, HTTP_REQUEST_BUF_LEN_MAX,  "Host: %s\r\n", http_ctrl->host);
+		http_send(http_ctrl, http_ctrl->request_message, strlen(http_ctrl->request_message));
+	}
 
 	if (http_ctrl->headers_complete){
 		snprintf_(http_ctrl->request_message, HTTP_REQUEST_BUF_LEN_MAX,  "Range: bytes=%d-\r\n", http_ctrl->body_len+1);
@@ -672,6 +674,9 @@ static int l_http_request(lua_State *L) {
 		while (lua_next(L, 3) != 0) {
 			const char *name = lua_tostring(L, -2);
 			const char *value = lua_tostring(L, -1);
+			if (!strcmp("Host", name) || !strcmp("host", name)) {
+				http_ctrl->custom_host = 1;
+			}
 			http_add_header(http_ctrl,name,value);
 			lua_pop(L, 1);
 		}

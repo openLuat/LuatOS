@@ -33,6 +33,7 @@ typedef struct{
 	const char *req_header;
 	const char *req_body;		//发送body
 	size_t req_body_len;		//发送body长度
+	uint8_t custom_host;        // 是否自定义Host了
 
 	//下载相关
 	uint8_t is_download;		//是否下载

@@ -42,10 +42,15 @@ steps:
     - python3 /hdd/ci/build/luadb.py disk/
     - cd ..
 
+    - datename=$(date +%Y%m%d-%H%M%S)
+    - mkdir /hdd/ci/fw_bak/$datename
+    - cp build/out/AIR101.fls /hdd/ci/fw_bak/$datename/AIR101.fls
     - cp mklfs/disk.fs build/out/script.bin
     - /hdd/ci/build/wm_tool -b build/out/script.bin -it 1 -fc 0 -ih 20008000 -ra 81E0000 -ua 0 -nh 0  -un 0 -o build/out/script
     - ls build/out/ -la
+    - cp build/out/script.img /hdd/ci/fw_bak/$datename/script.img
     - cat build/out/script.img >> build/out/AIR101.fls
+    - cp build/out/AIR101.fls /hdd/ci/fw_bak/$datename/all.fls
     - ls build/out/ -la
     - rm /hdd/ci/flash/*
     - cp build/out/AIR101.fls /hdd/ci/flash

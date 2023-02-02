@@ -13,8 +13,8 @@ print("getting bsp.h files...")
 for bsp in bsp_header_list:
     print("getting "+bsp["name"]+"...")
     res = ""
-    #有时候获取不到完整的数据，看看啥原因，后需要改 todo
-    while len(res) < 200:
+    #有时候获取不到完整的数据，报错的页面就是html
+    while len(res) < 200 or res.find("</title>"):
         res = requests.get(bsp["url"]).text
         print(res)
     bsp["url"] = res

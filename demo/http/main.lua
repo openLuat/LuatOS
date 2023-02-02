@@ -43,6 +43,7 @@ sys.taskInit(function()
         --mobile.simid(2)
         LED = gpio.setup(27, 0, gpio.PULLUP)
         device_id = mobile.imei()
+        log.info("ipv6", mobile.ipv6(true))
         sys.waitUntil("IP_READY", 30000)
     end
 
@@ -54,7 +55,6 @@ sys.taskInit(function()
     -------------------------------------
     -------- HTTP 演示代码 --------------
     -------------------------------------
-
     while 1 do
         -- 最普通的Http GET请求
         -- local code, headers, body = http.request("GET", "https://yanqiyu.info/").wait()

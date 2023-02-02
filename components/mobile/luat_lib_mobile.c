@@ -277,6 +277,22 @@ static int l_mobile_apn(lua_State* L) {
 }
 
 /**
+是否默认开启IPV6功能，必须在LTE网络连接前就设置好
+@api mobile.ipv6(onff)
+@boolean 开关 true开启 false 关闭
+@return boolean true 当前是开启的，false 当前是关闭的
+ */
+static int l_mobile_ipv6(lua_State* L) {
+    // char buff[24] = {0};
+	uint8_t onoff;
+    if (LUA_TBOOLEAN == lua_type(L, 1)) {
+    	luat_mobile_set_default_pdn_ipv6(lua_toboolean(L, 1));
+    }
+    lua_pushboolean(L, luat_mobile_get_default_pdn_ipv6());
+    return 1;
+}
+
+/**
 获取csq
 @return int 当前CSQ值, 若失败返回0
  */
@@ -533,6 +549,7 @@ static const rotable_Reg_t reg_mobile[] = {
 	{"number",       ROREG_FUNC(l_mobile_number)},
     {"muid",        ROREG_FUNC(l_mobile_muid)},
     {"apn",         ROREG_FUNC(l_mobile_apn)},
+	{"ipv6",         ROREG_FUNC(l_mobile_ipv6)},
     {"csq",         ROREG_FUNC(l_mobile_csq)},
     {"rssi",        ROREG_FUNC(l_mobile_rssi)},
     {"rsrq",        ROREG_FUNC(l_mobile_rsrq)},

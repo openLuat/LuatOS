@@ -1,5 +1,6 @@
 -- netlab.luatos.com上打开TCP，然后修改IP和端口号，自动回复netlab下发的数据，自收自发测试
-local server_ip = "2603:c023:1:5fcc:c028:8ed:49a7:6e08"
+
+local server_ip = "152.70.80.204"
 local server_port = 55619
 local UDP_port = 37834
 local ssl_port = 35528

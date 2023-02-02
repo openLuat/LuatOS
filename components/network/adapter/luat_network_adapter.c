@@ -485,6 +485,7 @@ static int network_state_off_line(network_ctrl_t *ctrl, OS_EVENT *event, network
 static int network_state_wait_dns(network_ctrl_t *ctrl, OS_EVENT *event, network_adapter_t *adapter)
 {
 	if ((ctrl->need_close) || ctrl->wait_target_state != NW_WAIT_ON_LINE) return -1;
+	int i;
 	switch(event->ID)
 	{
 	case EV_NW_RESET:
@@ -502,6 +503,10 @@ static int network_state_wait_dns(network_ctrl_t *ctrl, OS_EVENT *event, network
 			//更新dns cache
 			ctrl->dns_ip = event->Param2;
 			ctrl->dns_ip_nums = event->Param1;
+			for(i = 0; i < ctrl->dns_ip_nums; i++)
+			{
+				DBG("dns ip%d, ttl %u, %s", i, ctrl->dns_ip[i].ttl_end, ipaddr_ntoa(&ctrl->dns_ip[i].ip));
+			}
 			network_update_dns_cache(ctrl);
 		}
 		else
@@ -549,6 +554,7 @@ static int network_state_connecting(network_ctrl_t *ctrl, OS_EVENT *event, netwo
 		ctrl->dns_ip_cnt++;
 		if (ctrl->dns_ip_cnt >= ctrl->dns_ip_nums)
 		{
+			DBG("all ip try connect failed");
 			return -1;
 		}
 		if (network_base_connect(ctrl, &ctrl->dns_ip[ctrl->dns_ip_cnt].ip))

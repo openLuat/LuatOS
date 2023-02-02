@@ -50,7 +50,9 @@ typedef struct
 	uint8_t dns_cnt;
 	uint8_t ip_nums;
 	uint8_t is_done;
+	uint8_t ipv6_mode;
 	uint8_t is_ipv6;
+	uint8_t ipv6_done;
 }dns_process_t;
 
 typedef struct xDNSMessage
@@ -73,6 +75,18 @@ static int32_t dns_find_process(void *pData, void *pParam)
 	}
 	return LIST_PASS;
 }
+
+static uint16_t dns_get_session_id(dns_client_t *client)
+{
+	client->session_id++;
+	if (!client->session_id)
+	{
+		client->session_id = 1;
+	}
+	return client->session_id;
+}
+
+
 
 static int32_t dns_skip_name_field(Buffer_Struct *buf)
 {
@@ -138,10 +152,7 @@ int32_t dns_get_ip(dns_client_t *client, Buffer_Struct *buf, uint16_t answer_num
 
 	uint32_t ttl;
 	uint8_t error = 0;
-	if (process)
-	{
-		process->ip_nums = 0;
-	}
+
 	for(i = 0; i < answer_num; i++)
 	{
 		if (dns_skip_name_field(buf) != ERROR_NONE)
@@ -202,6 +213,7 @@ int32_t dns_get_ip(dns_client_t *client, Buffer_Struct *buf, uint16_t answer_num
 			memcpy(ip_addr.u_addr.ip6.addr, buf->Data + buf->Pos, sizeof( uint32_t ) * 4);
 //			ip_addr.u_addr.ip6.zone = 0;
 			ip_addr.type = IPADDR_TYPE_V6;
+//			LLOGI("%s", ipaddr_ntoa(&ip_addr));
 #else
 			memcpy(ip_addr.ipv6_u8_addr, buf->Data + buf->Pos, sizeof( uint32_t ) * 4);
 			ip_addr.is_ipv6 = 1;
@@ -236,6 +248,19 @@ NET_DNSGETIP_DONE:
 	{
 		if (process)
 		{
+			if (process->ipv6_mode)
+			{
+				if (process->is_ipv6)
+				{
+					process->ipv6_done = 1;
+					process->session_id = dns_get_session_id(client);
+					process->is_ipv6 = 0;
+					process->timeout_ms = 0;
+					process->retry_cnt = 0;
+					LLOGI("dns ipv6 done, now dns ipv4");
+					return 0;
+				}
+			}
 			process->is_done = 1;
 			llist_traversal(&client->require_head, dns_set_result, process);
 		}
@@ -403,12 +428,7 @@ void dns_require(dns_client_t *client, const char *domain_name, uint32_t len, vo
 		process = zalloc(sizeof(dns_process_t));
 		Buffer_StaticInit(&process->uri_buf, require->uri.Data, require->uri.Pos);
 		process->uri_buf.Pos = require->uri.Pos;
-		client->session_id++;
-		if (!client->session_id)
-		{
-			client->session_id++;
-		}
-		process->session_id = client->session_id;
+		process->session_id = dns_get_session_id(client);
 		llist_add_tail(&process->node, &client->process_head);
 	}
 	llist_add_tail(&require->node, &client->require_head);
@@ -429,12 +449,7 @@ void dns_require_ex(dns_client_t *client, const char *domain_name, void *param, 
 		process = zalloc(sizeof(dns_process_t));
 		Buffer_StaticInit(&process->uri_buf, require->uri.Data, require->uri.Pos);
 		process->uri_buf.Pos = require->uri.Pos;
-		client->session_id++;
-		if (!client->session_id)
-		{
-			client->session_id++;
-		}
-		process->session_id = client->session_id;
+		process->session_id = dns_get_session_id(client);
 		llist_add_tail(&process->node, &client->process_head);
 	}
 	llist_add_tail(&require->node, &client->require_head);
@@ -455,12 +470,8 @@ void dns_require_ipv6(dns_client_t *client, const char *domain_name, void *param
 		process = zalloc(sizeof(dns_process_t));
 		Buffer_StaticInit(&process->uri_buf, require->uri.Data, require->uri.Pos);
 		process->uri_buf.Pos = require->uri.Pos;
-		client->session_id++;
-		if (!client->session_id)
-		{
-			client->session_id++;
-		}
-		process->session_id = client->session_id;
+		process->session_id = dns_get_session_id(client);
+		process->ipv6_mode = is_ipv6;
 		process->is_ipv6 = is_ipv6;
 		llist_add_tail(&process->node, &client->process_head);
 	}
@@ -512,7 +523,7 @@ void dns_run(dns_client_t *client, Buffer_Struct *in, Buffer_Struct *out, int *s
 		dns_clear(client);
 		if (client->is_run)
 		{
-			LLOGI("dns stop");
+			LLOGI("dns all done ,now stop");
 		}
 		client->is_run = 0;
 		return;
@@ -596,11 +607,40 @@ NET_DNS_TX:
 			if (process->retry_cnt >= DNS_TRY_MAX)
 			{
 				process->retry_cnt = 0;
+				if (process->ipv6_mode)
+				{
+					if (process->is_ipv6)
+					{
+						process->is_ipv6 = 0;
+						goto NET_DNS_TX_IPV4;
+					}
+					else
+					{
+						if (process->ipv6_done && process->ip_nums)
+						{
+							LLOGD("get ipv6, no ipv4");
+							process->ip_nums = 0;
+							process->is_done = 1;
+							client->new_result = 1;
+							llist_traversal(&client->require_head, dns_set_result, process);
+							llist_del(&process->node);
+							free(process);
+							goto NET_DNS_TX;
+						}
+						else
+						{
+							process->is_ipv6 = 1;
+						}
+					}
+				}
+
 				process->dns_cnt++;
 				if (process->dns_cnt >= MAX_DNS_SERVER)
 				{
+					LLOGE("no ipv6, no ipv4");
 					process->ip_nums = 0;
 					process->is_done = 1;
+					client->new_result = 1;
 					llist_traversal(&client->require_head, dns_set_result, process);
 					llist_del(&process->node);
 					free(process);
@@ -608,6 +648,7 @@ NET_DNS_TX:
 				}
 			}
 		}
+NET_DNS_TX_IPV4:
 #ifdef LUAT_USE_LWIP
 		while(0xff == client->dns_server[process->dns_cnt].type)
 #else
@@ -624,7 +665,7 @@ NET_DNS_TX:
 				goto NET_DNS_TX;
 			}
 		}
-		LLOGD("%.*s state %d use dns server%d, try %d", process->uri_buf.Pos, process->uri_buf.Data, process->is_done, process->dns_cnt, process->retry_cnt);
+		LLOGD("%.*s state %d id %d ipv6 %d use dns server%d, try %d", process->uri_buf.Pos, process->uri_buf.Data, process->is_done, process->session_id, process->is_ipv6, process->dns_cnt, process->retry_cnt);
 		process->is_done = 0;
 		OS_InitBuffer(out, 512);
 		dns_make(client, process, out);
@@ -641,7 +682,7 @@ NET_DNS_RX_OUT:
 	{
 		if (client->is_run)
 		{
-			LLOGD("dns stop");
+			LLOGI("dns all done ,now stop");
 		}
 		client->is_run = 0;
 		return;

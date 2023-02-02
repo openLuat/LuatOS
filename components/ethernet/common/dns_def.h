@@ -31,6 +31,7 @@ typedef struct
 	uint16_t session_id;
 	uint8_t is_static_dns[MAX_DNS_SERVER];
 	uint8_t is_run;
+	uint8_t new_result;
 }dns_client_t;
 void dns_init_client(dns_client_t *client);
 uint8_t dns_check_uri(const char *uri, uint32_t uri_len);

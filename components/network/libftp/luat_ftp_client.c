@@ -590,7 +590,7 @@ static int l_ftp_login(lua_State *L) {
 		goto error;
 	}
 
-	luat_rtos_task_create(&ftp_ctrl->ftp_task_handle, 2048, 50, "ftp", ftp_task, NULL, 0);
+	luat_rtos_task_create(&ftp_ctrl->ftp_task_handle, 2048, 50, "ftp", ftp_task, NULL, 64);
 	network_init_ctrl(ftp_ctrl->cmd_netc,ftp_ctrl->ftp_task_handle, NULL, NULL);
 
 	luat_rtos_queue_create(&ftp_ctrl->ftp_queue_handle, 10, sizeof(uint8_t));

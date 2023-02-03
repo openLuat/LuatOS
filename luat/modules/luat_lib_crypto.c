@@ -631,7 +631,7 @@ static int l_crypto_md_file(lua_State *L) {
 
 /**
 计算数据的hash值(md5/sha1/sha256及hmac形式)
-@api crypto.md_file(tp, data, hmac)
+@api crypto.md(tp, data, hmac)
 @string hash类型, 大小字母, 例如 "MD5" "SHA1" "SHA256"
 @string 待处理的数据
 @string hmac值,可选

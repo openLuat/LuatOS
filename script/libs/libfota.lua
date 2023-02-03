@@ -183,7 +183,7 @@ local function fota_task(cbFnc,storge_location, len, param1,ota_url,ota_port,tim
                         end
                         statusCode = tonumber(statusCode)
                         if statusCode ~= 200 and statusCode ~= 206 then
-                            log.info(tag, "http应答不OK", statusCode)
+                            log.info(tag, "http应答不OK", statusCode,rbuff:toStr(d2))
                             done = true
                             ret = 4
                             break

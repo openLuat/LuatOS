@@ -17,9 +17,9 @@
 
 /**
 创建编解码用的codec
-@api codec.create(codec.MP3)
+@api codec.create(codec.MP3, isDecoder)
 @int 多媒体类型，目前支持decode.MP3
-@boolean 是否是编码器，默认true，是解码器
+@boolean 是否是解码器，true解码器，false编码器，默认true，是解码器
 @return userdata 成功返回一个数据结构,否则返回nil
 @usage
 -- 创建decoder
@@ -61,13 +61,12 @@ decoder从文件中解析出音频信息
 @api codec.info(decoder, file_path)
 @coder 解码用的decoder
 @string 文件路径
-@return
-@boolean 是否成功解析
-@int 音频格式
-@int 声音通道数
-@int 采样频率
-@int 采样位数
-@boolean 是否有符号
+@return boolean 是否成功解析
+@return int 音频格式
+@return int 声音通道数
+@return int 采样频率
+@return int 采样位数
+@return boolean 是否有符号
 @usage
 local result, audio_format, num_channels, sample_rate, bits_per_sample, is_signed= codec.get_audio_info(coder, "xxx")
  */
@@ -189,7 +188,7 @@ static int l_codec_get_audio_info(lua_State *L) {
 }
 
 /**
-decoder从文件数据中解析出音频数据
+decoder从文件中解析出原始音频数据，比如从MP3文件里解析出PCM数据，这里的文件路径已经在codec.info传入，不需要再次传入
 @api codec.data(decoder, out_buff)
 @coder 解码用的decoder
 @zbuff 存放输出数据的zbuff，空间必须不少于16KB
@@ -318,7 +317,8 @@ static int l_codec_gc(lua_State *L)
 /**
 释放编解码用的coder
 @api codec.release(coder)
-@return
+@coder codec.create创建的编解码用的coder
+@usage
 codec.release(coder)
  */
 static int l_codec_release(lua_State *L) {

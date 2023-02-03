@@ -294,7 +294,6 @@ static int l_audio_play_get_last_error(lua_State *L) {
 @int 在DAC启动后，延迟多长时间打开PA，单位1ms
 @int 外部dac电源控制IO，如果不填，则表示使用平台默认IO，比如Air780E使用DACEN脚，air105则不启用
 @int 外部dac打开时，电源控制IO的电平，默认拉高
-@return
 @usage
 audio.config(0, pin.PC0, 1)	--PA控制脚是PC0，高电平打开，air105用这个配置就可以用了
 audio.config(0, 25, 1, 6, 200)	--PA控制脚是GPIO25，高电平打开，Air780E云喇叭板用这个配置就可以用了

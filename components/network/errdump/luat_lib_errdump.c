@@ -455,7 +455,7 @@ void luat_errdump_record_init(uint8_t enable, uint32_t upload_period)
 }
 
 /*
-读取异常日志，这里可以读取系统和用户的，主要用于用户发送给自己的服务器，如果配置了周期上传，请不要使用！！！
+手动读取异常日志，主要用于用户将日志发送给自己的服务器而不是IOT平台，如果在errDump.config配置了周期上传，则不能使用本函数
 @api    errDump.dump(zbuff, type, isDelete)
 @zbuff 日志信息缓存，如果为nil就不会读出，一般当
 @int 日志类型，目前只有errDump.TYPE_SYS和errDump.TYPE_USR

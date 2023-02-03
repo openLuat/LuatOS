@@ -17,7 +17,7 @@ local libfota = require("libfota")
 --   2表示url错误
 --   3表示服务器断开
 --   4表示接收报文错误
---   5表示使用iot平台VERSION需要使用 xxx.yyy形式
+--   5表示使用iot平台VERSION需要使用 xxx.yyy.zzz形式
 function libfota_cb(result)
     log.info("fota", "result", result)
     -- fota成功
@@ -99,11 +99,17 @@ local function fota_task(cbFnc,storge_location, len, param1,ota_url,ota_port,tim
         type,host,uri = string.match(ota_url,"(%a-)://(%S-)/(%S+)")
     end
     while retry < 3 and not done do
+        local version
         if type == nil or host == nil then
             ret = 2
             break
         elseif host == "iot.openluat.com" then
-            if string.match(_G.VERSION,"(%d+).(%d+).(%d+)") then
+            local x,y,z = string.match(_G.VERSION,"(%d+).(%d+).(%d+)")
+            if x and y and z then
+                version = x.."."..z
+                ota_url = "http://iot.openluat.com/api/site/firmware_upgrade?project_key=" .. _G.PRODUCT_KEY .. "&imei=".. mobile.imei() .. "&device_key=&firmware_name=" .. _G.PROJECT.. "_LuatOS-SoC_" .. rtos.bsp() .. "&version=" .. rtos.version():sub(2) .. "." .. version
+            else
+                log.error("fota", "_G.VERSION must be xxx.yyy.zzz!!!")
                 ret = 5
                 break
             end

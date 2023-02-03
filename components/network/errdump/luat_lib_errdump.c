@@ -6,6 +6,13 @@
 @date    2022.12.15
 @demo    errDump
 @tag     LUAT_CONF_ERRDUMP
+@usage
+-- 基本用法, 10分钟上报一次,如果有的话
+if errDump then
+    errDump.config(true, 600)
+end
+
+-- 附开源服务器端: https://gitee.com/openLuat/luatos-devlog
 */
 #include "luat_base.h"
 #include "luat_sys.h"

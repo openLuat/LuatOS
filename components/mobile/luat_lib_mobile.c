@@ -628,6 +628,11 @@ sim卡状态变化
 SIM_IND
 @usage
 sys.subscribe("SIM_IND", function(status)
+    -- status的取值有:
+    -- RDY SIM卡就绪
+    -- NORDY 无SIM卡
+    -- SIM_PIN 需要输入PIN
+    -- GET_NUMBER 获取到电话号码(不一定有值)
     log.info("sim status", status)
 end)
 */
@@ -702,7 +707,19 @@ end)
             lua_call(L, 1, 0);
 			break;
         case LUAT_MOBILE_NETIF_LINK_OFF:
-            LLOGD("NETIF_LINK_OFF");
+            LLOGD("NETIF_LINK_OFF -> IP_LOSE");
+/*
+@sys_pub mobile
+已断网
+IP_LOSE
+@usage
+-- 断网后会发一次这个消息
+sys.subscribe("IP_LOSE", function()
+    log.info("mobile", "IP_LOSE")
+end)
+*/
+            lua_pushstring(L, "IP_LOSE");
+            lua_call(L, 1, 0);
             break;
 		default:
 			break;

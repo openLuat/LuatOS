@@ -196,7 +196,8 @@ static int l_mobile_number(lua_State* L) {
 /**
 获取当前SIM卡槽,或者切换卡槽
 @api mobile.simid(id)
-@int SIM卡的编号, 例如0, 1，如果支持双卡，比如EC618，可以填2来自适应，但是会占用掉4个IO。如果不填就直接读取当前卡槽
+@int SIM卡的编号, 例如0, 1, 如果支持双卡，比如EC618，可以填2来自适应，但是会占用掉4个IO。如果不填就直接读取当前卡槽
+@boolean 是否优先用SIM0，只有SIM卡编号写2自适应才有用！！！。true优先用SIM0，false则优先用上一次探测到的，默认是false，必须在开机就配置，否则就无效了
 @return int 当前sim卡槽编号,若失败返回-1
  */
 static int l_mobile_simid(lua_State* L) {
@@ -206,6 +207,11 @@ static int l_mobile_simid(lua_State* L) {
     if (lua_isinteger(L, 1)) {
         ret = luat_mobile_set_sim_id(lua_tointeger(L, 1));
         LLOGI("sim set to %d , ret %d", lua_tointeger(L, 1), ret);
+    }
+    if (LUA_TBOOLEAN == lua_type(L, 2)) {
+    	if (lua_toboolean(L, 2)) {
+    		luat_mobile_set_sim_detect_sim0_fisrt();
+    	}
     }
     ret = luat_mobile_get_sim_id(&id);
     if (ret == 0) {

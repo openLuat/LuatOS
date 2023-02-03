@@ -111,6 +111,12 @@ int luat_mobile_get_sim_id(int *id);
 int luat_mobile_set_sim_id(int id);
 
 /**
+ * @brief 在自动选择模式时，开机后优先用sim0
+ *
+ */
+void luat_mobile_set_sim_detect_sim0_fisrt(void);
+
+/**
  * @brief 设置默认PDN激活时是否要IPV6网络，现在默认情况下不开
  * @param onoff 1开 0关
  * @return uint8_t 1开 0关

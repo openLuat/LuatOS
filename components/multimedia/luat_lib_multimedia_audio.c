@@ -123,11 +123,11 @@ static int l_audio_pause_raw(lua_State *L) {
 注册audio播放事件回调
 @api    audio.on(id, event, func)
 @int audio id, audio 0写0, audio 1写1
-@function 回调方法
+@function 回调方法，回调时传入参数为1、int 通道ID 2、int 消息值，只有audio.MORE_DATA和audio.DONE
 @return nil 无返回值
 @usage
-audio.on(0, function(id, str)
-    print(id, str)
+audio.on(0, function(audio_id, msg)
+    log.info("msg", audio_id, msg)
 end)
 */
 static int l_audio_raw_on(lua_State *L) {
@@ -253,7 +253,7 @@ static int l_audio_play_stop(lua_State *L) {
 
 /**
 检查当前文件是否已经播放结束
-@api audio.isEnd(id, path)
+@api audio.isEnd(id)
 @int 音频通道
 @return boolean 成功返回true,否则返回false
 @usage
@@ -270,10 +270,9 @@ static int l_audio_play_wait_end(lua_State *L) {
 获取最近一次播放结果，不是所有平台都支持的，目前只有EC618支持
 @api audio.getError(id)
 @int 音频通道
-@return
-@boolean 是否全部播放成功，true成功，false有文件播放失败
-@boolean 如果播放失败，是否是用户停止，true是，false不是
-@int 第几个文件失败了，从1开始
+@return boolean 是否全部播放成功，true成功，false有文件播放失败
+@return boolean 如果播放失败，是否是用户停止，true是，false不是
+@return int 第几个文件失败了，从1开始
 @usage
 local result, user_stop, file_no = audio.getError(0)
 */
@@ -295,7 +294,7 @@ static int l_audio_play_get_last_error(lua_State *L) {
 @int 在DAC启动后，延迟多长时间打开PA，单位1ms
 @int 外部dac电源控制IO，如果不填，则表示使用平台默认IO，比如Air780E使用DACEN脚，air105则不启用
 @int 外部dac打开时，电源控制IO的电平，默认拉高
-@return 无
+@return
 @usage
 audio.config(0, pin.PC0, 1)	--PA控制脚是PC0，高电平打开，air105用这个配置就可以用了
 audio.config(0, 25, 1, 6, 200)	--PA控制脚是GPIO25，高电平打开，Air780E云喇叭板用这个配置就可以用了

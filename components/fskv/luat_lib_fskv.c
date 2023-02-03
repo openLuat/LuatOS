@@ -48,8 +48,6 @@ extern luat_sfd_lfs_t* sfd_lfs;
 /**
 初始化kv数据库
 @api fskv.init()
-@string 数据库名,当前仅支持env
-@string FAL分区名,当前仅支持onchip_fdb
 @return boolean 成功返回true,否则返回false
 @usage
 if fskv.init() then
@@ -83,15 +81,17 @@ static int l_fskvdb_init(lua_State *L) {
 
 /**
 设置一对kv数据
-@api fskv.kv_set(key, value)
+@api fskv.set(key, value)
 @string key的名称,必填,不能空字符串
-@string 用户数据,必填,不能nil, 支持字符串/数值/table/布尔值, 数据长度最大4096字节
+@string 用户数据,必填,不能nil, 支持字符串/数值/table/布尔值, 数据长度最大4095字节
 @return boolean 成功返回true,否则返回false
-@return number 第二个为返回为flashdb的fdb_kv_set_blob返回详细状态,0：无错误 1:擦除错误 2:读错误 3:些错误 4:未找到 5:kv名字错误 6:kv名字存在 7:已保存 8:初始化错误
 @usage
-if fskv.kvdb_init("env", "onchip_fdb") then
-    log.info("fdb", fskv.kv_set("wendal", "goodgoodstudy"))
-end
+-- 设置数据, 字符串,数值,table,布尔值,均可
+-- 但不可以是nil, function, userdata, task
+log.info("fdb", fskv.set("wendal", "goodgoodstudy"))
+log.info("fdb", fskv.set("upgrade", true))
+log.info("fdb", fskv.set("timer", 1))
+log.info("fdb", fskv.set("bigd", {name="wendal",age=123}))
  */
 static int l_fskv_set(lua_State *L) {
     if (sfd_lfs == 0) {
@@ -192,15 +192,15 @@ static int l_fskv_set(lua_State *L) {
     }
     int ret = luat_fskv_set(key, buff.b, buff.n);
     lua_pushboolean(L, ret == buff.n ? 1 : 0);
-    lua_pushinteger(L, ret);
-    return 2;
+    // lua_pushinteger(L, ret);
+    return 1;
 }
 
 /**
 根据key获取对应的数据
-@api fskv.kv_get(key, skey)
+@api fskv.get(key, skey)
 @string key的名称,必填,不能空字符串
-@string 可选的次级key,仅当原始值为table时有效,相当于 fskv.kv_get(key)[skey]
+@string 可选的次级key,仅当原始值为table时有效,相当于 fskv.get(key)[skey]
 @return any 存在则返回数据,否则返回nil
 @usage
 if fskv.init() then
@@ -284,13 +284,11 @@ static int l_fskv_get(lua_State *L) {
 
 /**
 根据key删除数据
-@api fskv.kv_del(key)
+@api fskv.del(key)
 @string key的名称,必填,不能空字符串
 @return bool 成功返回true,否则返回false
 @usage
-if fskv.kvdb_init("env", "onchip_fdb") then
-    log.info("fdb", fskv.kv_del("wendal"))
-end
+log.info("fdb", fskv.del("wendal"))
  */
 static int l_fskv_del(lua_State *L) {
     if (sfd_lfs == NULL) {
@@ -309,11 +307,11 @@ static int l_fskv_del(lua_State *L) {
 
 /**
 清空整个kv数据库
-@api fskv.kv_clr()
+@api fskv.clear()
 @return bool 成功返回true,否则返回false
 @usage
 -- 清空
-fskv.kv_clr()
+fskv.clear()
  */
 static int l_fskv_clr(lua_State *L) {
     if (sfd_lfs == NULL) {
@@ -395,12 +393,12 @@ static int l_fskv_clr(lua_State *L) {
 
 /*
 获取kv数据库状态
-@api fskv.stat()
+@api fskv.status()
 @return int 已使用的空间,单位字节
 @return int 总可用空间, 单位字节
 @return int 总kv键值对数量, 单位个
 @usage
-local used, total,kv_count = fskv.stat()
+local used, total,kv_count = fskv.status()
 log.info("fdb", "kv", used,total,kv_count)
 */
 static int l_fskv_stat(lua_State *L) {
@@ -426,7 +424,9 @@ static const rotable_Reg_t reg_fskv[] =
     { "get",                ROREG_FUNC(l_fskv_get)},
     { "del",                ROREG_FUNC(l_fskv_del)},
     { "clr",                ROREG_FUNC(l_fskv_clr)},
+    { "clear",              ROREG_FUNC(l_fskv_clr)},
     { "stat",               ROREG_FUNC(l_fskv_stat)},
+    { "status",               ROREG_FUNC(l_fskv_stat)},
     // { "kv_iter",            ROREG_FUNC(l_fskv_iter)},
     // { "kv_next",            ROREG_FUNC(l_fskv_next)},
     // { "kv_stat",            ROREG_FUNC(l_fskv_stat)},

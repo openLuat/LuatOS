@@ -76,11 +76,12 @@ uint64_t luat_pushcwait(lua_State *L) {
         return 0;
     }
     c_wait_id++;
-    char* topic = (char*)luat_heap_malloc(1 + sizeof(uint64_t));
+//    char* topic = (char*)luat_heap_malloc(1 + sizeof(uint64_t));
+    char topic[10] = {0};
     topic[0] = 0x01;//前缀用一个不可见字符，防止和用户用的重复
     memcpy(topic + 1,&c_wait_id,sizeof(uint64_t));
     lua_pushlstring(L,topic,1 + sizeof(uint64_t));
-    luat_heap_free(topic);
+//    luat_heap_free(topic);
     lua_call(L,1,1);
     return c_wait_id;
 }

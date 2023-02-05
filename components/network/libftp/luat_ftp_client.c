@@ -899,7 +899,7 @@ error:
 	luat_ftp_close();
     lua_pushinteger(L, result);
 	luat_pushcwait_error(L,1);
-	return 0;
+	return 1;
 }
 
 /*
@@ -950,7 +950,7 @@ static int l_ftp_command(lua_State *L) {
 		LLOGE("not support cmd:%s",cmd);
 		lua_pushinteger(L,FTP_ERROR_FILE);
 		luat_pushcwait_error(L,1);
-		return 0;
+		return 1;
 	}
 	memset(g_s_ftp.network->cmd_send_data,0,FTP_CMD_SEND_MAX);
 	snprintf_(g_s_ftp.network->cmd_send_data, FTP_CMD_SEND_MAX, "%s\r\n",cmd);
@@ -960,7 +960,7 @@ error:
 	LLOGE("ftp command fail");
     lua_pushinteger(L,FTP_ERROR_FILE);
 	luat_pushcwait_error(L,1);
-	return 0;
+	return 1;
 }
 
 /*
@@ -1006,7 +1006,7 @@ error:
 	LLOGE("ftp pull fail");
     lua_pushinteger(L,FTP_ERROR_FILE);
 	luat_pushcwait_error(L,1);
-	return 0;
+	return 1;
 }
 
 /*
@@ -1051,7 +1051,7 @@ error:
 	LLOGE("ftp push fail");
     lua_pushinteger(L,FTP_ERROR_CONNECT);
 	luat_pushcwait_error(L,1);
-	return 0;
+	return 1;
 }
 
 /*
@@ -1072,7 +1072,7 @@ static int l_ftp_close(lua_State *L) {
 error:
     lua_pushinteger(L,FTP_ERROR_CONNECT);
 	luat_pushcwait_error(L,1);
-	return 0;
+	return 1;
 }
 
 #include "rotable2.h"

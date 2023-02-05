@@ -497,6 +497,31 @@ static int net_lwip_rx_data(int socket_id, struct pbuf *p, const ip_addr_t *addr
 	return is_mem_err;
 }
 
+static void net_lwip_tcp_close_done(uint8_t adapter_index, int socket_id, uint8_t notify)
+{
+	luat_network_cb_param_t cb_param;
+	SOCKET_LOCK(socket_id);
+	OS_LOCK;
+	cb_param.param = prvlwip.socket[socket_id].param;
+	cb_param.tag = prvlwip.socket[socket_id].tag;
+	prvlwip.socket[socket_id].pcb.ip = NULL;
+	prvlwip.socket[socket_id].remote_close = 0;
+	prvlwip.socket[socket_id].state = 0;
+	prvlwip.socket[socket_id].in_use = 0;
+	prvlwip.socket[socket_id].param = NULL;
+	prvlwip.socket[socket_id].rx_wait_size = 0;
+	prvlwip.socket[socket_id].tx_wait_size = 0;
+	llist_traversal(&prvlwip.socket[socket_id].wait_ack_head, net_lwip_del_data_cache, NULL);
+	llist_traversal(&prvlwip.socket[socket_id].tx_head, net_lwip_del_data_cache, NULL);
+	llist_traversal(&prvlwip.socket[socket_id].rx_head, net_lwip_del_data_cache, NULL);
+	prvlwip.socket_busy &= ~(1 << socket_id);
+	OS_UNLOCK;
+	SOCKET_UNLOCK(socket_id);
+	if (notify)
+	{
+		net_lwip_callback_to_nw_task(adapter_index, EV_NW_SOCKET_CLOSE_OK, socket_id, 0, &cb_param);
+	}
+}
 
 static err_t net_lwip_tcp_recv_cb(void *arg, struct tcp_pcb *tpcb,
                              struct pbuf *p, err_t err)
@@ -522,7 +547,16 @@ static err_t net_lwip_tcp_recv_cb(void *arg, struct tcp_pcb *tpcb,
 	}
 	else if (err == ERR_OK)
 	{
-		net_lwip_callback_to_nw_task(adapter_index, EV_NW_SOCKET_REMOTE_CLOSE, socket_id, 0, 0);
+		if (prvlwip.socket[socket_id].state)
+		{
+			tcp_abort(tpcb);
+			net_lwip_tcp_close_done(adapter_index, socket_id, 1);
+		}
+		else
+		{
+			net_lwip_callback_to_nw_task(adapter_index, EV_NW_SOCKET_REMOTE_CLOSE, socket_id, 0, 0);
+			prvlwip.socket[socket_id].remote_close = 1;
+		}
 	}
 	else
 	{
@@ -603,7 +637,7 @@ static err_t net_lwip_tcp_err_cb(void *arg, err_t err)
 		prvlwip.socket[socket_id].pcb.ip = NULL;
 		net_lwip_callback_to_nw_task(adapter_index, EV_NW_SOCKET_ERROR, socket_id, 0, 0);
 	}
-
+	return 0;
 }
 
 static err_t net_lwip_udp_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *p,
@@ -890,7 +924,7 @@ static void net_lwip_task(void *param)
 							}
 							else
 							{
-								NET_DBG("tcp buf is full, wait ack and send again");
+//								NET_DBG("tcp buf is full, wait ack and send again");
 								break;
 							}
 						}
@@ -1077,33 +1111,37 @@ static void net_lwip_task(void *param)
 			{
 				if (prvlwip.socket[socket_id].is_tcp)
 				{
-					tcp_abort(prvlwip.socket[socket_id].pcb.tcp);
+					if (event.Param2)
+					{
+						if (prvlwip.socket[socket_id].remote_close)
+						{
+							tcp_abort(prvlwip.socket[socket_id].pcb.tcp);
+						}
+						else
+						{
+							if (!tcp_close(prvlwip.socket[socket_id].pcb.tcp))
+							{
+								prvlwip.socket[socket_id].pcb.ip = NULL;
+								break;
+							}
+							else
+							{
+								NET_DBG("socket %d normal close failed", socket_id);
+								tcp_abort(prvlwip.socket[socket_id].pcb.tcp);
+							}
+						}
+					}
+					else
+					{
+						tcp_abort(prvlwip.socket[socket_id].pcb.tcp);
+					}
 				}
 				else
 				{
 					udp_remove(prvlwip.socket[socket_id].pcb.udp);
 				}
+				net_lwip_tcp_close_done(adapter_index, socket_id, event.Param2);
 			}
-			SOCKET_LOCK(socket_id);
-			OS_LOCK;
-			cb_param.param = prvlwip.socket[socket_id].param;
-			cb_param.tag = prvlwip.socket[socket_id].tag;
-			prvlwip.socket[socket_id].pcb.ip = NULL;
-			prvlwip.socket[socket_id].state = 0;
-			prvlwip.socket[socket_id].in_use = 0;
-			prvlwip.socket[socket_id].param = NULL;
-			prvlwip.socket[socket_id].rx_wait_size = 0;
-			prvlwip.socket[socket_id].tx_wait_size = 0;
-			llist_traversal(&prvlwip.socket[socket_id].wait_ack_head, net_lwip_del_data_cache, NULL);
-			llist_traversal(&prvlwip.socket[socket_id].tx_head, net_lwip_del_data_cache, NULL);
-			llist_traversal(&prvlwip.socket[socket_id].rx_head, net_lwip_del_data_cache, NULL);
-			OS_UNLOCK;
-			SOCKET_UNLOCK(socket_id);
-			if (event.Param2)
-			{
-				net_lwip_callback_to_nw_task(adapter_index, EV_NW_SOCKET_CLOSE_OK, socket_id, 0, &cb_param);
-			}
-
 			break;
 		case EV_LWIP_DHCP_TIMER:
 #if LWIP_DHCP
@@ -1585,7 +1623,7 @@ void net_lwip_socket_clean(int *vaild_socket_list, uint32_t num, void *user_data
 	int socket_list[MAX_SOCK_NUM];
 	memset(socket_list, 0, sizeof(socket_list));
 	uint32_t i;
-	for(i = 0; i < num + 1; i++)
+	for(i = 0; i < num; i++)
 	{
 		if ( (vaild_socket_list[i] > 0) && (vaild_socket_list[i] < MAX_SOCK_NUM) )
 		{

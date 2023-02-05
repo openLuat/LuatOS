@@ -1870,7 +1870,6 @@ int network_close(network_ctrl_t *ctrl, uint32_t timeout_ms)
 	while (!finish)
 	{
 		platform_wait_event(ctrl->task_handle, 0, &event, NULL, 0);
-		DBG("%x", event.ID);
 		switch (event.ID)
 		{
 		case EV_NW_RESULT_CLOSE:

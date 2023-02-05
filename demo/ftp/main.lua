@@ -50,37 +50,40 @@ sys.taskInit(function()
     -- if crypto.cipher_suites then
     --     log.info("cipher", "suites", json.encode(crypto.cipher_suites()))
     -- end
-
-    ftp.login(nil,"121.43.224.154",21,"ftp_user","3QujbiMG").wait()
+    while true do
+        print(ftp.login(nil,"121.43.224.154",21,"ftp_user","3QujbiMG").wait())
     
-    print(ftp.command("NOOP").wait())
-    print(ftp.command("SYST").wait())
+        print(ftp.command("NOOP").wait())
+        print(ftp.command("SYST").wait())
 
-    print(ftp.command("TYPE I").wait())
-    print(ftp.command("PWD").wait())
-    print(ftp.command("MKD QWER").wait())
-    print(ftp.command("CWD /QWER").wait())
+        print(ftp.command("TYPE I").wait())
+        print(ftp.command("PWD").wait())
+        print(ftp.command("MKD QWER").wait())
+        print(ftp.command("CWD /QWER").wait())
 
-    print(ftp.command("CDUP").wait())
-    print(ftp.command("RMD QWER").wait())
+        print(ftp.command("CDUP").wait())
+        print(ftp.command("RMD QWER").wait())
 
-    print(ftp.command("LIST").wait())
-    
-    ftp.pull("/1222.txt","/1222.txt").wait()
+        print(ftp.command("LIST").wait())
+        
+        print(ftp.pull("/1222.txt","/1222.txt").wait())
 
-    local f = io.open("/1222.txt", "r")
-    if f then
-        local data = f:read("*a")
-        f:close()
-        log.info("fs", "writed data", data)
-    else
-        log.info("fs", "open file for read failed")
+        local f = io.open("/1222.txt", "r")
+        if f then
+            local data = f:read("*a")
+            f:close()
+            log.info("fs", "writed data", data)
+        else
+            log.info("fs", "open file for read failed")
+        end
+
+        print(ftp.command("DELE /12222.txt").wait())
+        print(ftp.push("/1222.txt","/12222.txt").wait())
+        print(ftp.close().wait())
+        log.info("meminfo", rtos.meminfo("sys"))
+        sys.wait(15000)
     end
 
-    print(ftp.command("DELE /12222.txt").wait())
-    ftp.push("/1222.txt","/12222.txt").wait()
-
-    print(ftp.close().wait())
 
 end)
 

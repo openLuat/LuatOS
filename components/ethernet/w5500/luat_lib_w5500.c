@@ -25,6 +25,7 @@
 @int irq pin
 @int reset pin
 @int link 状态 pin，可以留空不使用，默认不使用
+@return string 当前的mac
 @usage
 w5500.init(spi.SPI_0, 24000000, pin.PB13, pin.PC08, pin.PC09)
 */
@@ -113,6 +114,20 @@ static int l_w5500_network_register(lua_State *L){
 	return 0;
 }
 
+/*
+获取w5500当前的MAC，必须在init之后用，如果config中设置了自己的MAC，需要延迟一点时间再读
+@api w5500.getMAC()
+@return string 当前的MAC
+@usage
+local mac = w5500.getMAC()
+log.info("w5500 mac", mac:toHex())
+*/
+static int l_w5500_get_mac(lua_State *L){
+	uint8_t mac[6];
+	w5500_get_mac(mac);
+	lua_pushlstring(L, mac, 6);
+	return 1;
+}
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_w5500[] =
@@ -122,6 +137,7 @@ static const rotable_Reg_t reg_w5500[] =
 	{ "config",           ROREG_FUNC(l_w5500_config)},
 #endif
 	{ "bind",           ROREG_FUNC(l_w5500_network_register)},
+	{ "getMac",           ROREG_FUNC(l_w5500_get_mac)},
 	{ NULL,            ROREG_INT(0)}
 };
 

@@ -1810,6 +1810,18 @@ void w5500_set_mac(uint8_t mac[6])
 	}
 }
 
+void w5500_get_mac(uint8_t mac[6])
+{
+	if (prv_w5500_ctrl)
+	{
+		memcpy(mac, prv_w5500_ctrl->mac, 6);
+	}
+	else
+	{
+		memset(mac, 0xff, 6);
+	}
+}
+
 void w5500_set_param(uint16_t timeout, uint8_t retry, uint8_t auto_speed, uint8_t force_arp)
 {
 	if (prv_w5500_ctrl)

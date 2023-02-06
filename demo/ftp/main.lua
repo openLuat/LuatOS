@@ -33,6 +33,7 @@ sys.taskInit(function()
     elseif rtos.bsp() == "AIR105" then
         -- w5500 以太网, 当前仅Air105支持
         w5500.init(spi.HSPI_0, 24000000, pin.PC14, pin.PC01, pin.PC00)
+        log.info("auto mac", w5500.getMac():toHex())
         w5500.config() --默认是DHCP模式
         w5500.bind(socket.ETH0)
         LED = gpio.setup(62, 0, gpio.PULLUP)

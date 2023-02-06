@@ -28,6 +28,7 @@
 
 void w5500_set_static_ip(uint32_t ipv4, uint32_t submask, uint32_t gateway);
 void w5500_set_mac(uint8_t mac[6]);
+void w5500_get_mac(uint8_t mac[6]);
 void w5500_set_param(uint16_t timeout, uint8_t retry, uint8_t auto_speed, uint8_t force_arp);
 int w5500_reset(void);
 void w5500_init(luat_spi_t* spi, uint8_t irq_pin, uint8_t rst_pin, uint8_t link_pin);

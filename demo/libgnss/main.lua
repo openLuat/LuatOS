@@ -7,6 +7,9 @@ VERSION = "1.0.0"
 本demo需要V1103及以上的固件!!
 注意: 室内无信号!! 无法定位!!! 到室外去, 起码天线要在室外.
 窗口只有少许信号, 无法保证定位成功
+
+这个demo需要的流量很多,可以注释这行
+sys.publish("mqtt_pub", "/gnss/" .. mobile.imei() .. "/up/nmea", data, 1)
 ]]
 
 -- sys库是标配
@@ -91,7 +94,8 @@ sys.taskInit(function()
     -- 第二个参数是转发到虚拟UART, 方便上位机分析
     libgnss.bind(gps_uart_id, uart.VUART_0)
     libgnss.on("raw", function(data)
-        sys.publish("mqtt_pub", "/gnss/" .. mobile.imei() .. "/up/nmea", data, 1)
+        -- 默认不上报, 需要的话自行打开
+        --sys.publish("mqtt_pub", "/gnss/" .. mobile.imei() .. "/up/nmea", data, 1)
     end)
     sys.wait(200) -- GPNSS芯片启动需要时间
     -- 调试日志,可选

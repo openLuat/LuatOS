@@ -4,6 +4,7 @@ VERSION = "1.0.1"
 
 --[[
 Air780EG 对接 腾讯连连
+注意: 室内无信号!! 无法定位!!!
 ]]
 
 -- sys库是标配
@@ -170,6 +171,7 @@ sys.taskInit(function()
     -- 绑定uart,底层自动处理GNSS数据
     -- 这里延后到设置命令发送完成后才开始处理数据,之前的数据就不上传了
     libgnss.bind(gps_uart_id)
+    log.debug("提醒", "室内无GNSS信号,定位不会成功, 要到空旷的室外,起码要看得到天空")
     exec_agnss()
 end)
 

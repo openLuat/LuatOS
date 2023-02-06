@@ -3,7 +3,10 @@ PROJECT = "gnss"
 VERSION = "1.0.0"
 
 --[[
-本demo是演示定位数据处理的
+本demo是演示定位数据处理的. script/turnkey目录有更完整的应用.
+本demo需要V1103及以上的固件!!
+注意: 室内无信号!! 无法定位!!! 到室外去, 起码天线要在室外.
+窗口只有少许信号, 无法保证定位成功
 ]]
 
 -- sys库是标配
@@ -15,43 +18,7 @@ local mqttc = nil
 
 libgnss.clear() -- 清空数据,兼初始化
 
-uart.setup(
-    uart.VUART_0,-- USB虚拟串口id
-    115200,--波特率
-    8,--数据位
-    1--停止位
-)
--- uart.on(uart.VUART_0, "recv", function(id, len)
---     log.info("uart", id, len);
---     -- while 1 do
---         -- local data = uart.read(uart.VUART_0, 1024)
---         -- if data and #data > 0 then
---         --     uart.write(gps_uart_id, data)
---         -- else
---         --     -- break
---         -- end
---     -- end
--- end)
-
-
 uart.setup(gps_uart_id, 115200)
--- uart.on(2, "sent", function(id, len)
---     log.info("uart", "event", "sent", id)
---     -- sys.publish("UART2_SEND", 2)
--- end)
-
-sys.taskInit(function()
-    while 1 do
-        local data = uart.read(uart.VUART_0, 1024)
-        if data and #data > 0 then
-            log.info("vuart", #data)
-            log.info("vuart", data:toHex())
-            uart.write(gps_uart_id, data)
-        else
-            sys.wait(30)
-        end
-    end
-end)
 
 function exec_agnss()
     if http then

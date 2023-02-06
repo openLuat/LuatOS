@@ -4,7 +4,7 @@
 @summary 底层固件升级
 @version core V0007
 @date    2022.05.26
-@demo ota
+@demo fota
 @tag LUAT_USE_FOTA
 */
 #include "luat_base.h"

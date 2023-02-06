@@ -24,6 +24,7 @@
 @int cs pin
 @int irq pin
 @int reset pin
+@int link 状态 pin，可以留空不使用，默认不使用
 @usage
 w5500.init(spi.SPI_0, 24000000, pin.PB13, pin.PC08, pin.PC09)
 */

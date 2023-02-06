@@ -1,3 +1,24 @@
+/*
+ * Copyright (c) 2022 OpenLuat & AirM2M
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of
+ * this software and associated documentation files (the "Software"), to deal in
+ * the Software without restriction, including without limitation the rights to
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+ * the Software, and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+
 #ifndef LUAT_RTOS_H
 #define LUAT_RTOS_H
 
@@ -17,6 +38,14 @@ typedef enum LUAT_RTOS_WAIT
 	LUAT_NO_WAIT = 0,						 /**< 超时时间为0 */
 	LUAT_WAIT_FOREVER = (uint32_t)0xFFFFFFFF /**< 最大超时时间0xFFFFFFFF*/
 } LUAT_RTOS_WAIT_E;
+
+typedef enum
+{
+	LUAT_FLAG_AND 		= 5,
+	LUAT_FLAG_AND_CLEAR 	= 6,
+	LUAT_FLAG_OR 			= 7,
+	LUAT_FLAG_OR_CLEAR	= 8
+} LUAT_FLAG_OP_E;
 
 /* ------------------------------------------------ task begin------------------------------------------------ */
 /**
@@ -95,6 +124,16 @@ void luat_rtos_task_sleep(uint32_t ms);
  * @return luat_rtos_task_handle 当前task的句柄
  */
 luat_rtos_task_handle luat_rtos_get_current_handle(void);
+
+/**
+ * @brief 获取task堆栈剩余的最小值，叫做“高水位线”
+ * 
+ * @param luat_rtos_task_handle task的句柄
+ * @return task堆栈剩余的最小值,单位为字
+ */
+
+uint32_t luat_rtos_task_get_high_water_mark(luat_rtos_task_handle task_handle);
+
 /** @}*/
 /* ------------------------------------------------ task   end------------------------------------------------ */
 /**
@@ -166,6 +205,9 @@ int luat_rtos_message_recv(luat_rtos_task_handle task_handle, uint32_t *message_
  */
 
 /* ---------------------------------------------- semaphore begin--------------------------------------------- */
+/**
+ * @brief 定义信号量句柄
+ */
 typedef void * luat_rtos_semaphore_t;
 /**
  * @brief 信号量创建，可以在中断中release
@@ -208,6 +250,9 @@ int luat_rtos_semaphore_release(luat_rtos_semaphore_t semaphore_handle);
  * @{
  */
 /* ------------------------------------------------ mutex begin----------------------------------------------- */
+/**
+ * @brief 定义mutex句柄
+ */
 typedef void * luat_rtos_mutex_t;
 /**
  * @brief 互斥锁创建，不能在中断中unlock
@@ -250,6 +295,10 @@ int luat_rtos_mutex_delete(luat_rtos_mutex_t mutex_handle);
  * @{
  */
 /* ------------------------------------------------ queue begin----------------------------------------------- */
+
+/**
+ * @brief 定义队列句柄
+ */
 typedef void * luat_rtos_queue_t;
 /**
  * @brief 创建队列
@@ -290,7 +339,60 @@ int luat_rtos_queue_send(luat_rtos_queue_t queue_handle, void *item, uint32_t it
  * @return int =0成功，其他失败
  */
 int luat_rtos_queue_recv(luat_rtos_queue_t queue_handle, void *item, uint32_t item_size, uint32_t timeout);
+
+/**
+ * @brief 查询队列中剩余未处理的元素数量
+ * 
+ * @param queue_handle 队列句柄
+ * @param item_cnt[OUT] 返回未处理的元素数量
+ * @return int =0成功，其他失败
+ */
+int luat_rtos_queue_get_cnt(luat_rtos_queue_t queue_handle, uint32_t *item_cnt);
 /* ------------------------------------------------ queue   end----------------------------------------------- */
+/** @}*/
+
+/**
+ * @defgroup  luatos_os_flag 事件接口函数
+ * @{
+ */
+/* ------------------------------------------------ flag begin----------------------------------------------- */
+
+/**
+ * @brief 定义事件句柄
+ */
+typedef void * luat_rtos_flag_t;
+/**
+ * @brief 创建事件
+ *
+ * @param flag_handle[OUT] 返回的事件句柄
+ * @return int =0成功，其他失败
+ */
+int luat_rtos_flag_create(luat_rtos_flag_t	*flag_handle);
+/**
+ * @brief 等待事件
+ * @param mask 等待的事件掩码
+ * @param operation 事件触发要求（与操作需要全部满足才触发，或操作有一个就触发）和操作（是否要清除）
+ * @param flags[OUT] 当前事件状态值
+ * @param timeout 超时时间
+ * @return int =0成功，其他失败
+ */
+int luat_rtos_flag_wait(luat_rtos_flag_t flag_handle, uint32_t mask, LUAT_FLAG_OP_E	operation, uint32_t *flags,uint32_t timeout);
+/**
+ * @brief 设置事件
+ * @param flag_handle 事件句柄
+ * @param mask 设置掩码
+ * @param operation 事件判断（与或）和操作（是否要清除），freertos支持或操作LUAT_FLAG_OR
+ * @return int =0成功，其他失败
+ */
+int luat_rtos_flag_release(luat_rtos_flag_t	flag_handle, uint32_t mask, LUAT_FLAG_OP_E operation);
+/**
+ * @brief 删除事件
+ *
+ * @param flag_handle 事件句柄
+ * @return int =0成功，其他失败
+ */
+int luat_rtos_flag_delete(luat_rtos_flag_t flag_handle);
+/* ------------------------------------------------ flag  end----------------------------------------------- */
 /** @}*/
 
 /**
@@ -299,7 +401,13 @@ int luat_rtos_queue_recv(luat_rtos_queue_t queue_handle, void *item, uint32_t it
  */
 
 /* ------------------------------------------------ timer begin----------------------------------------------- */
+/**
+ * @brief 定时器头数据类型
+ */
 typedef void * luat_rtos_timer_t;
+/**
+ * @brief 定义定时器处理函数
+ */
 typedef LUAT_RT_RET_TYPE (*luat_rtos_timer_callback_t)(LUAT_RT_CB_PARAM);
 /**
  * @brief 创建软件定时器
@@ -336,6 +444,15 @@ int luat_rtos_timer_start(luat_rtos_timer_t timer_handle, uint32_t timeout, uint
  * @return int =0成功，其他失败
  */
 int luat_rtos_timer_stop(luat_rtos_timer_t timer_handle);
+
+/**
+ * @brief 检测软件定时器是否处于激活状态
+ * 
+ * @param timer_handle 定时器句柄
+ * @return int =0未激活，1激活，其他失败
+ */
+int luat_rtos_timer_is_active(luat_rtos_timer_t timer_handle);
+
 /*------------------------------------------------ timer   end----------------------------------------------- */
 /** @}*/
 
@@ -358,10 +475,9 @@ uint32_t luat_rtos_entry_critical(void);
  * @param critical 进入临界保护时返回的参数
  */
 void luat_rtos_exit_critical(uint32_t critical);
-/*------------------------------------------------ critical   end----------------------------------------------- */
 
 uint32_t luat_rtos_get_ipsr(void);
-
+/*------------------------------------------------ critical   end----------------------------------------------- */
 /** @}*/
 /** @}*/
 #endif

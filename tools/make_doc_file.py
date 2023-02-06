@@ -14,7 +14,7 @@ for bsp in bsp_header_list:
     print("getting "+bsp["name"]+"...")
     res = ""
     #有时候获取不到完整的数据，报错的页面就是html
-    while len(res) < 200 or res.find("</title>"):
+    while len(res) < 200 or res.find("</title>") != -1:
         res = requests.get(bsp["url"]).text
         print(res)
     bsp["url"] = res

@@ -631,7 +631,7 @@ static err_t net_lwip_tcp_err_cb(void *arg, err_t err)
 {
 	int socket_id = ((uint32_t)arg) & 0x0000ffff;
 	uint8_t adapter_index = ((uint32_t)arg) >> 16;
-	if (!prvlwip.socket[socket_id].state)
+	if (!prvlwip.socket[socket_id].state && !prvlwip.socket[socket_id].remote_close)
 	{
 		NET_DBG("adapter %d socket %d not closing, but error %d", adapter_index, socket_id, err);
 		prvlwip.socket[socket_id].pcb.ip = NULL;
@@ -1202,6 +1202,12 @@ static void net_lwip_task(void *param)
 					udp_remove(prvlwip.socket[socket_id].pcb.udp);
 				}
 				net_lwip_tcp_close_done(adapter_index, socket_id, event.Param2);
+				break;
+			}
+			if (prvlwip.socket[socket_id].remote_close)
+			{
+				net_lwip_tcp_close_done(adapter_index, socket_id, event.Param2);
+				break;
 			}
 			break;
 		case EV_LWIP_DHCP_TIMER:

@@ -33,12 +33,12 @@ end
 
 -- 使用合宙iot平台进行升级
 libfota.request(fota_cb)
-sys.timerLoopStart(libfota, 3600000, fota_cb)
+sys.timerLoopStart(libfota.request, 3600000, fota_cb)
 
 -- 使用自建服务器进行升级
 -- local ota_url = "http://myserv.com/myapi/version=" .. _G.VERSION .. "&imei=" .. mobile.imei()
 -- libfota.request(fota_cb, ota_url)
--- sys.timerLoopStart(libfota, 3600000, fota_cb, ota_url)
+-- sys.timerLoopStart(libfota.request, 3600000, fota_cb, ota_url)
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

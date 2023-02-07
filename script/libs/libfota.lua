@@ -69,14 +69,27 @@ end
 
 local function fota_task(cbFnc,storge_location, len, param1,ota_url,ota_port,timeout,tls,server_cert, client_cert, client_key, client_password)
     fota.init(storge_location, len, param1)
+    if cbFnc == nil then
+        cbFnc = function() end
+    end
     -- 若ota_url没有传,那就是用合宙iot平台
     if ota_url == nil then
         if _G.PRODUCT_KEY == nil then
             -- 必须在main.lua定义 PRODUCT_KEY = "xxx"
             -- iot平台新建项目后, 项目详情中可以查到
             log.error("fota", "iot.openluat.com need PRODUCT_KEY!!!")
+            cbFnc(5)
+            return
         else
-            ota_url = "http://iot.openluat.com/api/site/firmware_upgrade?project_key=" .. _G.PRODUCT_KEY .. "&imei=".. mobile.imei() .. "&device_key=&firmware_name=" .. _G.PROJECT.. "_LuatOS-SoC_" .. rtos.bsp() .. "&version=" .. rtos.version():sub(2) .. "." .. _G.VERSION
+            local x,y,z = string.match(_G.VERSION,"(%d+).(%d+).(%d+)")
+            if x and y and z then
+                version = x.."."..z
+                ota_url = "http://iot.openluat.com/api/site/firmware_upgrade?project_key=" .. _G.PRODUCT_KEY .. "&imei=".. mobile.imei() .. "&device_key=&firmware_name=" .. _G.PROJECT.. "_LuatOS-SoC_" .. rtos.bsp() .. "&version=" .. rtos.version():sub(2) .. "." .. version
+            else
+                log.error("fota", "_G.VERSION must be xxx.yyy.zzz!!!")
+                cbFnc(5)
+                return
+            end
         end
     end
 
@@ -101,18 +114,8 @@ local function fota_task(cbFnc,storge_location, len, param1,ota_url,ota_port,tim
     while retry < 3 and not done do
         local version
         if type == nil or host == nil then
-            ret = 2
-            break
-        elseif host == "iot.openluat.com" then
-            local x,y,z = string.match(_G.VERSION,"(%d+).(%d+).(%d+)")
-            if x and y and z then
-                version = x.."."..z
-                ota_url = "http://iot.openluat.com/api/site/firmware_upgrade?project_key=" .. _G.PRODUCT_KEY .. "&imei=".. mobile.imei() .. "&device_key=&firmware_name=" .. _G.PROJECT.. "_LuatOS-SoC_" .. rtos.bsp() .. "&version=" .. rtos.version():sub(2) .. "." .. version
-            else
-                log.error("fota", "_G.VERSION must be xxx.yyy.zzz!!!")
-                ret = 5
-                break
-            end
+            cbFnc(2)
+            return
         end
 
         if ota_port == nil then

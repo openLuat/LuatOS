@@ -33,9 +33,10 @@ sys.subscribe("NTP_ERROR", function()
     socket.sntp()
 end)
 
-require "async_socket_demo"
-socketDemo()
-
+-- require "async_socket_demo"
+-- require "socket_demo"
+require "server_demo"
+SerDemo(15000)
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()

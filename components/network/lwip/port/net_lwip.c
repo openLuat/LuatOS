@@ -459,11 +459,10 @@ static err_t net_lwip_tcp_connected_cb(void *arg, struct tcp_pcb *tpcb, err_t er
 	return ERR_OK;
 }
 
-static err_t net_lwip_tcp_accept_cb(void *arg, struct tcp_pcb *newpcb, err_t err)
+static void net_lwip_tcp_error(uint8_t adapter_index, int socket_id)
 {
-	int socket_id = ((uint32_t)arg) & 0x0000ffff;
-	uint8_t adapter_index = ((uint32_t)arg) >> 16;
-	return ERR_OK;
+	prvlwip.socket[socket_id].remote_close = 1;
+	net_lwip_callback_to_nw_task(adapter_index, EV_NW_SOCKET_ERROR, socket_id, 0, 0);
 }
 
 static int net_lwip_rx_data(int socket_id, struct pbuf *p, const ip_addr_t *addr, u16_t port)
@@ -505,6 +504,7 @@ static void net_lwip_tcp_close_done(uint8_t adapter_index, int socket_id, uint8_
 	cb_param.param = prvlwip.socket[socket_id].param;
 	cb_param.tag = prvlwip.socket[socket_id].tag;
 	prvlwip.socket[socket_id].pcb.ip = NULL;
+	prvlwip.socket[socket_id].listen_tcp = NULL;
 	prvlwip.socket[socket_id].remote_close = 0;
 	prvlwip.socket[socket_id].state = 0;
 	prvlwip.socket[socket_id].in_use = 0;
@@ -554,13 +554,13 @@ static err_t net_lwip_tcp_recv_cb(void *arg, struct tcp_pcb *tpcb,
 		}
 		else
 		{
-			net_lwip_callback_to_nw_task(adapter_index, EV_NW_SOCKET_REMOTE_CLOSE, socket_id, 0, 0);
 			prvlwip.socket[socket_id].remote_close = 1;
+			net_lwip_callback_to_nw_task(adapter_index, EV_NW_SOCKET_REMOTE_CLOSE, socket_id, 0, 0);
 		}
 	}
 	else
 	{
-		net_lwip_callback_to_nw_task(adapter_index, EV_NW_SOCKET_ERROR, socket_id, 0, 0);
+		net_lwip_tcp_error(adapter_index, socket_id);
 	}
 
 	return ERR_OK;
@@ -623,7 +623,7 @@ static err_t net_lwip_tcp_sent_cb(void *arg, struct tcp_pcb *tpcb,
 	return ERR_OK;
 SOCEKT_ERROR:
 	SOCKET_UNLOCK(socket_id);
-	net_lwip_callback_to_nw_task(adapter_index, EV_NW_SOCKET_ERROR, socket_id, 0, 0);
+	net_lwip_tcp_error(adapter_index, socket_id);
 	return ERR_OK;
 }
 
@@ -635,9 +635,37 @@ static err_t net_lwip_tcp_err_cb(void *arg, err_t err)
 	{
 		NET_DBG("adapter %d socket %d not closing, but error %d", adapter_index, socket_id, err);
 		prvlwip.socket[socket_id].pcb.ip = NULL;
-		net_lwip_callback_to_nw_task(adapter_index, EV_NW_SOCKET_ERROR, socket_id, 0, 0);
+		net_lwip_tcp_error(adapter_index, socket_id);
 	}
 	return 0;
+}
+
+static err_t net_lwip_tcp_fast_accept_cb(void *arg, struct tcp_pcb *newpcb, err_t err)
+{
+	int socket_id = ((uint32_t)arg) & 0x0000ffff;
+	uint8_t adapter_index = ((uint32_t)arg) >> 16;
+	if (err || !newpcb)
+	{
+		net_lwip_tcp_error(adapter_index, socket_id);
+		return 0;
+	}
+	prvlwip.socket[socket_id].pcb.tcp = newpcb;
+	prvlwip.socket[socket_id].rx_wait_size = 0;
+	prvlwip.socket[socket_id].tx_wait_size = 0;
+	prvlwip.socket[socket_id].pcb.tcp->callback_arg = arg;
+	prvlwip.socket[socket_id].pcb.tcp->recv = net_lwip_tcp_recv_cb;
+	prvlwip.socket[socket_id].pcb.tcp->sent = net_lwip_tcp_sent_cb;
+	prvlwip.socket[socket_id].pcb.tcp->errf = net_lwip_tcp_err_cb;
+	prvlwip.socket[socket_id].pcb.tcp->so_options |= SOF_KEEPALIVE|SOF_REUSEADDR;
+	net_lwip_callback_to_nw_task(adapter_index, EV_NW_SOCKET_CONNECT_OK, socket_id, 0, 0);
+	return ERR_OK;
+}
+
+static err_t net_lwip_tcp_accept_cb(void *arg, struct tcp_pcb *newpcb, err_t err)
+{
+	int socket_id = ((uint32_t)arg) & 0x0000ffff;
+	uint8_t adapter_index = ((uint32_t)arg) >> 16;
+	return ERR_OK;
 }
 
 static err_t net_lwip_udp_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *p,
@@ -1060,7 +1088,7 @@ static void net_lwip_task(void *param)
 			if (!local_ip)
 			{
 				NET_DBG("netif no ip !!!!!!");
-				net_lwip_callback_to_nw_task(adapter_index, EV_NW_SOCKET_ERROR, socket_id, 0, 0);
+				net_lwip_tcp_error(adapter_index, socket_id);
 				break;
 			}
 			if (prvlwip.socket[socket_id].is_tcp)
@@ -1071,7 +1099,7 @@ static void net_lwip_task(void *param)
 				if (error)
 				{
 					NET_DBG("adapter %d socket %d connect error %d", adapter_index, socket_id, error);
-					net_lwip_callback_to_nw_task(adapter_index, EV_NW_SOCKET_ERROR, socket_id, 0, 0);
+					net_lwip_tcp_error(adapter_index, socket_id);
 				}
 			}
 			else
@@ -1096,15 +1124,48 @@ static void net_lwip_task(void *param)
 			net_lwip_dns_tx_next(&tx_msg_buf);
 			break;
 		case EV_LWIP_SOCKET_LISTEN:
-
+			if (!prvlwip.socket[socket_id].in_use || !prvlwip.socket[socket_id].pcb.ip)
+			{
+				NET_DBG("adapter %d socket %d cannot use! %d,%x", adapter_index, socket_id, prvlwip.socket[socket_id].in_use, prvlwip.socket[socket_id].pcb.ip);
+				net_lwip_callback_to_nw_task(adapter_index, EV_NW_SOCKET_ERROR, socket_id, 0, 0);
+				break;
+			}
+			net_lwip_create_socket_now(adapter_index, socket_id);
+			tcp_bind(prvlwip.socket[socket_id].pcb.tcp, NULL, prvlwip.socket[socket_id].local_port);
+	        IP_SET_TYPE_VAL(prvlwip.socket[socket_id].pcb.tcp->local_ip,  IPADDR_TYPE_ANY);
+	        IP_SET_TYPE_VAL(prvlwip.socket[socket_id].pcb.tcp->remote_ip, IPADDR_TYPE_ANY);
+			prvlwip.socket[socket_id].listen_tcp = tcp_listen_with_backlog(prvlwip.socket[socket_id].pcb.tcp, 1);
+	        if (!prvlwip.socket[socket_id].listen_tcp) {
+	        	NET_DBG("socket %d listen failed");
+	        	net_lwip_tcp_error(adapter_index, socket_id);
+	        } else {
+	        	PV_Union uPV;
+	        	uPV.u16[0] = socket_id;
+	        	uPV.u16[1] = adapter_index;
+	        	prvlwip.socket[socket_id].listen_tcp->callback_arg = uPV.u32;
+	        	prvlwip.socket[socket_id].listen_tcp->accept = net_lwip_tcp_fast_accept_cb;
+	        	prvlwip.socket[socket_id].pcb.tcp = NULL;
+	        	net_lwip_callback_to_nw_task(adapter_index, EV_NW_SOCKET_LISTEN, socket_id, 0, 0);
+	        }
 			break;
-		case EV_LWIP_SOCKET_ACCPET:
-
-			break;
+	//	case EV_LWIP_SOCKET_ACCPET:
+	//
+	//		break;
 		case EV_LWIP_SOCKET_CLOSE:
 			if (!prvlwip.socket[socket_id].in_use)
 			{
 				NET_DBG("socket %d no in use!,%x", socket_id);
+				break;
+			}
+			if (prvlwip.socket[socket_id].listen_tcp)
+			{
+				tcp_close(prvlwip.socket[socket_id].listen_tcp);
+				prvlwip.socket[socket_id].listen_tcp = NULL;
+				if (prvlwip.socket[socket_id].pcb.tcp)
+				{
+					tcp_abort(prvlwip.socket[socket_id].pcb.tcp);
+				}
+				net_lwip_tcp_close_done(adapter_index, socket_id, event.Param2);
 				break;
 			}
 			if (prvlwip.socket[socket_id].pcb.ip)
@@ -1462,20 +1523,17 @@ static int net_lwip_socket_listen(int socket_id, uint64_t tag,  uint16_t local_p
 {
 	int result = net_lwip_check_socket(user_data, socket_id, tag);
 	if (result) return result;
+	prvlwip.socket[socket_id].local_port = local_port;
 	platform_send_event(prvlwip.task_handle, EV_LWIP_SOCKET_LISTEN, socket_id, local_port, user_data);
 	return 0;
 }
 //作为server接受一个client
 static int net_lwip_socket_accept(int socket_id, uint64_t tag,  luat_ip_addr_t *remote_ip, uint16_t *remote_port, void *user_data)
 {
-//	uint8_t temp[16];
-//	int result = net_lwip_check_socket(user_data, socket_id, tag);
-//	if (result) return result;
-	platform_send_event(prvlwip.task_handle, EV_LWIP_SOCKET_ACCPET, socket_id, 0, user_data);
-//	remote_ip->is_ipv6 = 0;
-//	remote_ip->ipv4 = BytesGetLe32(temp);
-//	*remote_port = BytesGetBe16(temp + 4);
-//	NET_DBG("client %d.%d.%d.%d, %u", temp[0], temp[1], temp[2], temp[3], *remote_port);
+	int result = net_lwip_check_socket(user_data, socket_id, tag);
+	if (result) return result;
+	*remote_ip = prvlwip.socket[socket_id].pcb.tcp->remote_ip;
+	*remote_port = prvlwip.socket[socket_id].pcb.tcp->remote_port;
 	return 0;
 }
 //主动断开一个tcp连接，需要走完整个tcp流程，用户需要接收到close ok回调才能确认彻底断开
@@ -2131,7 +2189,7 @@ static network_adapter_info prv_net_lwip_adapter =
 		.socket_set_callback = net_lwip_socket_set_callback,
 		.name = "lwip",
 		.max_socket_num = MAX_SOCK_NUM,
-		.no_accept = 0,
+		.no_accept = 1,
 		.is_posix = 1,
 };
 

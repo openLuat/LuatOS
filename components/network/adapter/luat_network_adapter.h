@@ -212,6 +212,7 @@ typedef struct
 		struct udp_pcb *udp;
 		struct raw_pcb *raw;
 	} pcb;
+	struct tcp_pcb_listen *listen_tcp;
 	HANDLE mutex;
 	uint16_t local_port;
 	uint16_t remote_port;
@@ -454,7 +455,9 @@ int network_wait_link_up(network_ctrl_t *ctrl, uint32_t timeout_ms);
  * 使用前必须确保是在close状态，建议先用network_close
  */
 int network_connect(network_ctrl_t *ctrl, const char *domain_name, uint32_t domain_name_len, luat_ip_addr_t *remote_ip, uint16_t remote_port, uint32_t timeout_ms);
-
+/*
+ * timeout_ms = 0xffffffff 为永远等待
+ */
 int network_listen(network_ctrl_t *ctrl, uint32_t timeout_ms);
 
 int network_close(network_ctrl_t *ctrl, uint32_t timeout_ms);

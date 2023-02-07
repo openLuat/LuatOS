@@ -393,12 +393,10 @@ static int network_base_connect(network_ctrl_t *ctrl, luat_ip_addr_t *remote_ip)
 	}
 	else
 	{
-		luat_ip_addr_t local_ip, net_mask, gate_way;
-		network_get_local_ip_info(ctrl, &local_ip, &net_mask, &gate_way);
-		if (network_create_soceket(ctrl, IPADDR_TYPE_V6 == local_ip.type) < 0)
+		if (network_create_soceket(ctrl, 0) < 0)
 		{
 			network_clean_invaild_socket(ctrl->adapter_index);
-			if (network_create_soceket(ctrl, IPADDR_TYPE_V6 == local_ip.type) < 0)
+			if (network_create_soceket(ctrl, 0) < 0)
 			{
 				return -1;
 			}
@@ -1781,7 +1779,10 @@ NETWORK_LISTEN_WAIT:
 	int result;
 	//DBG_INFO("%s wait for active!,%u,%x", Net->Tag, To * SYS_TICK, Net->hTask);
 
-	platform_start_timer(ctrl->timer, timeout_ms, 0);
+	if (timeout_ms != 0xffffffff)
+	{
+		platform_start_timer(ctrl->timer, timeout_ms, 0);
+	}
 	while (!finish)
 	{
 		platform_wait_event(ctrl->task_handle, 0, &event, NULL, 0);
@@ -1803,7 +1804,10 @@ NETWORK_LISTEN_WAIT:
 			break;
 		}
 	}
-	platform_stop_timer(ctrl->timer);
+	if (timeout_ms != 0xffffffff)
+	{
+		platform_stop_timer(ctrl->timer);
+	}
 	return result;
 }
 

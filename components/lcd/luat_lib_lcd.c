@@ -940,6 +940,7 @@ extern void gtfont_draw_gray_hz(unsigned char *data,unsigned short x,unsigned sh
 @int x 横坐标
 @int y 竖坐标
 @usage
+-- 注意, gtfont是额外的字体芯片硬件, 需要外挂在SPI总线才能调用本函数的
 lcd.drawGtfontGb2312("啊啊啊",32,0,0)
 */
 static int l_lcd_draw_gtfont_gb2312(lua_State *L) {
@@ -980,6 +981,7 @@ static int l_lcd_draw_gtfont_gb2312(lua_State *L) {
 @int x 横坐标
 @int y 竖坐标
 @usage
+-- 注意, gtfont是额外的字体芯片硬件, 需要外挂在SPI总线才能调用本函数的
 lcd.drawGtfontGb2312Gray("啊啊啊",32,4,0,40)
 */
 static int l_lcd_draw_gtfont_gb2312_gray(lua_State* L) {

@@ -65,7 +65,7 @@ local function serTask(port)
 			if rx_buff:len() > 1024 then
 				rx_buff:resize(1024)
 			end
-			if cnt < 5 then
+			if cnt < 20 then
 				log.info(rtos.meminfo("sys"))
 				result, param = libnet.wait(dName, 30000, netc)
 				if not result then
@@ -73,7 +73,7 @@ local function serTask(port)
 					break
 				end
 			else
-				log.info("接收数据5次以上，演示主动断开连接")
+				log.info("接收数据20次以上，演示主动断开连接")
 				result = false
 			end
 			log.info(rtos.meminfo("sys"))

@@ -15,6 +15,17 @@ local function serTask(port)
 	netc = socket.create(nil, dName)
 	socket.debug(netc, true)
 	socket.config(netc, port)
+	result = libnet.waitLink(dName, 0, netc)
+	ip, mask, gw, ipv6 = socket.localIP()
+	if not ipv6 then
+		log.info("没有IPV6地址，无法演示")
+		libnet.close(dName, 5000, netc)
+		socket.release(netc)
+		sysplus.taskDel(dName)
+		return
+	else
+		log.info("本地IPV6地址", ipv6)
+	end
 	while true do
 		log.info("start server!")
 		log.info(rtos.meminfo("sys"))
@@ -206,7 +217,7 @@ end
 function SerDemo(port)
 	mobile.ipv6(true)
 	sysplus.taskInitEx(serTask, dName, netCB, port)
-	sysplus.taskInitEx(clientTask, d1Name, netCB, port)
+	sysplus.taskInitEx(clientTask, d1Name, netCB, port)	--回环测试，如果不需要，可以注释掉
 end
 
 -- function UDPSerDemo(port)

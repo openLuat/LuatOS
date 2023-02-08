@@ -101,7 +101,7 @@ sys.taskInit(function()
         end
         for k, v in pairs(data) do
             if v and v:startsWith("$GNRMC") then
-                sys.publish("mqtt_pub", "/gnss/" .. mobile.imei() .. "/up/nmea", v, 1)
+                sys.publish("mqtt_pub", "/gnss/" .. mobile.imei() .. "/up/nmea", v, 0)
             end
         end
     end)

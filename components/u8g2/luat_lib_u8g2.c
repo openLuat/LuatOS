@@ -665,6 +665,7 @@ static int l_u8g2_DrawDrcode(lua_State *L)
     if (ok){
         int qr_size = qrcodegen_getSize(qrcode);
         int scale = size / qr_size ;
+        if (!scale)scale = 1;
         int margin = (size - qr_size * scale) / 2;
         x+=margin;
         y+=margin;

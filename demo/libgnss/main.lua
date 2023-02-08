@@ -95,7 +95,15 @@ sys.taskInit(function()
     libgnss.bind(gps_uart_id, uart.VUART_0)
     libgnss.on("raw", function(data)
         -- 默认不上报, 需要的话自行打开
-        --sys.publish("mqtt_pub", "/gnss/" .. mobile.imei() .. "/up/nmea", data, 1)
+        data = data:split("\r\n")
+        if data == nil then
+            return
+        end
+        for k, v in pairs(data) do
+            if v and v:startsWith("$GNRMC") then
+                sys.publish("mqtt_pub", "/gnss/" .. mobile.imei() .. "/up/nmea", v, 1)
+            end
+        end
     end)
     sys.wait(200) -- GPNSS芯片启动需要时间
     -- 调试日志,可选

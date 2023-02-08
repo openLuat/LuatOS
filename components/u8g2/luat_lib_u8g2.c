@@ -640,7 +640,7 @@ static int l_u8g2_DrawXBM(lua_State *L){
 @int x坐标
 @int y坐标
 @string 二维码的内容
-@int 可选,显示大小,不可小于21,默认21
+@int 显示大小 (注意:二维码生成大小与要显示内容和纠错等级有关,生成版本为1-40(对应 21x21 - 177x177)的不定大小,如果和设置大小不同会自动在指定的区域中间显示二维码,如二维码未显示请查看日志提示)
 @return nil 无返回值
 */
 static int l_u8g2_DrawDrcode(lua_State *L)
@@ -649,7 +649,7 @@ static int l_u8g2_DrawDrcode(lua_State *L)
     int x           = luaL_checkinteger(L, 1);
     int y           = luaL_checkinteger(L, 2);
     const char* text = luaL_checklstring(L, 3, &len);
-    int size        = luaL_optinteger(L, 4,21);
+    int size        = luaL_checkinteger(L, 4);
     uint8_t *qrcode = luat_heap_malloc(qrcodegen_BUFFER_LEN_MAX);
     uint8_t *tempBuffer = luat_heap_malloc(qrcodegen_BUFFER_LEN_MAX);
     if (qrcode == NULL || tempBuffer == NULL) {
@@ -660,10 +660,14 @@ static int l_u8g2_DrawDrcode(lua_State *L)
         LLOGE("qrcode out of memory");
         return 0;
     }
-    bool ok = qrcodegen_encodeText(text, tempBuffer, qrcode, qrcodegen_Ecc_MEDIUM,
+    bool ok = qrcodegen_encodeText(text, tempBuffer, qrcode, qrcodegen_Ecc_LOW,
         qrcodegen_VERSION_MIN, qrcodegen_VERSION_MAX, qrcodegen_Mask_AUTO, true);
     if (ok){
         int qr_size = qrcodegen_getSize(qrcode);
+        if (size < qr_size){
+            LLOGE("size must be greater than qr_size %d",qr_size);
+            goto end;
+        }
         int scale = size / qr_size ;
         if (!scale)scale = 1;
         int margin = (size - qr_size * scale) / 2;
@@ -675,7 +679,10 @@ static int l_u8g2_DrawDrcode(lua_State *L)
                     u8g2_DrawBox(u8g2,x+i*scale,y+j*scale,scale,scale);
             }
         }
+    }else{
+        LLOGE("qrcodegen_encodeText false");
     }
+end:
     if (qrcode)
         luat_heap_free(qrcode);
     if (tempBuffer)

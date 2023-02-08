@@ -606,6 +606,7 @@ static const rotable_Reg_t reg_mqtt[] =
 	{"close",			ROREG_FUNC(l_mqtt_close)},
 	{"ready",			ROREG_FUNC(l_mqtt_ready)},
 	{"will",			ROREG_FUNC(l_mqtt_will)},
+	{"debug",			ROREG_FUNC(l_mqtt_set_debug)},
 
 	{ NULL,             ROREG_INT(0)}
 };

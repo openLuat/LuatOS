@@ -324,72 +324,62 @@ static int l_fskv_clr(lua_State *L) {
 }
 
 
-// /**
-// kv数据库迭代器
-// @api fskv.kv_iter()
-// @return userdata 成功返回迭代器指针,否则返回nil
-// @usage
-// -- 清空
-// local iter = fskv.kv_iter()
-// if iter then
-//     while 1 do
-//         local k = fskv.kv_next(iter)
-//         if not k then
-//             break
-//         end
-//         log.info("fdb", k, "value", fskv.kv_get(k))
-//     end
-// end
-//  */
-// static int l_fskv_iter(lua_State *L) {
-//     if (kvdb_inited == 0) {
-//         LLOGE("call fskv.kvdb_init first!!!");
-//         return 0;
-//     }
-//     fdb_kv_iterator_t iter = lua_newuserdata(L, sizeof(struct fdb_kv_iterator));
-//     if (iter == NULL) {
-//         return 0;
-//     }
-//     iter = fdb_kv_iterator_init(iter);
-//     if (iter != NULL) {
-//         return 1;
-//     }
-//     return 0;
-// }
+/**
+kv数据库迭代器
+@api fskv.iter()
+@return userdata 成功返回迭代器指针,否则返回nil
+@usage
+-- 清空
+local iter = fskv.iter()
+if iter then
+    while 1 do
+        local k = fskv.next(iter)
+        if not k then
+            break
+        end
+        log.info("fdb", k, "value", fskv.kv_get(k))
+    end
+end
+ */
+static int l_fskv_iter(lua_State *L) {
+    if (sfd_lfs == 0) {
+        LLOGE("call fskv.init first!!!");
+        return 0;
+    }
+    size_t *offset = lua_newuserdata(L, sizeof(size_t));
+    memset(offset, 0, sizeof(size_t));
+    return 1;
+}
 
-// /**
-// kv迭代器获取下一个key
-// @api fskv.kv_iter(iter)
-// @userdata fskv.kv_iter()返回的指针
-// @return string 成功返回字符串key值, 否则返回nil
-// @usage
-// -- 清空
-// local iter = fskv.kv_iter()
-// if iter then
-//     while 1 do
-//         local k = fskv.kv_next(iter)
-//         if not k then
-//             break
-//         end
-//         log.info("fdb", k, "value", fskv.kv_get(k))
-//     end
-// end
-//  */
-// static int l_fskv_next(lua_State *L) {
-//     fdb_kv_t cur_kv = NULL;
-//     fdb_kv_iterator_t iter = lua_touserdata(L, 1);
-//     if (iter == NULL) {
-//         return 0;
-//     }
-//     bool ret = fdb_kv_iterate(kvdb, iter);
-//     if (ret) {
-//         cur_kv = &(iter->curr_kv);
-//         lua_pushlstring(L, cur_kv->name, cur_kv->name_len);
-//         // TODO 把值也返回一下?
-//         return 1;
-//     }
-//     return 0;
-// }
+/**
+kv迭代器获取下一个key
+@api fskv.iter(iter)
+@userdata fskv.iter()返回的指针
+@return string 成功返回字符串key值, 否则返回nil
+@usage
+-- 清空
+local iter = fskv.iter()
+if iter then
+    while 1 do
+        local k = fskv.next(iter)
+        if not k then
+            break
+        end
+        log.info("fskv", k, "value", fskv.get(k))
+    end
+end
+ */
+static int l_fskv_next(lua_State *L) {
+    size_t *offset = lua_touserdata(L, 1);
+    char buff[256] = {0};
+    int ret = luat_fskv_next(buff, *offset);
+    if (ret == 0) {
+        lua_pushstring(L, buff);
+        *offset = *offset + 1;
+        return 1;
+    }
+    return 0;
+}
 
 /*
 获取kv数据库状态
@@ -426,10 +416,9 @@ static const rotable_Reg_t reg_fskv[] =
     { "clr",                ROREG_FUNC(l_fskv_clr)},
     { "clear",              ROREG_FUNC(l_fskv_clr)},
     { "stat",               ROREG_FUNC(l_fskv_stat)},
-    { "status",               ROREG_FUNC(l_fskv_stat)},
-    // { "kv_iter",            ROREG_FUNC(l_fskv_iter)},
-    // { "kv_next",            ROREG_FUNC(l_fskv_next)},
-    // { "kv_stat",            ROREG_FUNC(l_fskv_stat)},
+    { "status",             ROREG_FUNC(l_fskv_stat)},
+    { "iter",               ROREG_FUNC(l_fskv_iter)},
+    { "next",               ROREG_FUNC(l_fskv_next)},
 
     // -- 提供与fdb兼容的API
     { "kvdb_init" ,         ROREG_FUNC(l_fskvdb_init)},
@@ -438,6 +427,8 @@ static const rotable_Reg_t reg_fskv[] =
     { "kv_del",             ROREG_FUNC(l_fskv_del)},
     { "kv_clr",             ROREG_FUNC(l_fskv_clr)},
     { "kv_stat",            ROREG_FUNC(l_fskv_stat)},
+    { "kv_iter",            ROREG_FUNC(l_fskv_iter)},
+    { "kv_next",            ROREG_FUNC(l_fskv_next)},
     { NULL,                 ROREG_INT(0)}
 };
 

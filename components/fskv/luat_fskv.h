@@ -73,6 +73,8 @@ int luat_fskv_clear(void);
 
 int luat_fskv_stat(size_t *using_sz, size_t *max_sz, size_t *kv_count);
 
+int luat_fskv_next(char* buff, size_t offset);
+
 /**
  * @}
  */

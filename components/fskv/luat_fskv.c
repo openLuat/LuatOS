@@ -102,18 +102,20 @@ int luat_fskv_size(const char* key, char buff[4]) {
 int luat_fskv_next(char* buff, size_t offset) {
     lfs_dir_t dir = {0};
     struct lfs_info info = {0};
+    // offset要+2, 因为前2个值是"."和".."两个dir
+    offset += 2;
     int ret = lfs_dir_open(&sfd_lfs->lfs, &dir, "");
-    if (ret != LFS_ERR_OK) {
+    if (ret < 0) {
         LLOGW("lfs_dir_open ret %d", ret);
         return -1;
     }
     ret = lfs_dir_seek(&sfd_lfs->lfs, &dir, offset);
-    if (ret != LFS_ERR_OK) {
+    if (ret < 0) {
         lfs_dir_close(&sfd_lfs->lfs, &dir);
         return -2;
     }
     ret = lfs_dir_read(&sfd_lfs->lfs, &dir, &info);
-    if (ret != LFS_ERR_OK) {
+    if (ret <= 0) {
         lfs_dir_close(&sfd_lfs->lfs, &dir);
         return -3;
     }

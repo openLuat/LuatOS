@@ -373,6 +373,7 @@ static int l_fskv_next(lua_State *L) {
     size_t *offset = lua_touserdata(L, 1);
     char buff[256] = {0};
     int ret = luat_fskv_next(buff, *offset);
+    // LLOGD("fskv.next %d %d", *offset, ret);
     if (ret == 0) {
         lua_pushstring(L, buff);
         *offset = *offset + 1;

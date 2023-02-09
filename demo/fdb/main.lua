@@ -54,10 +54,37 @@ sys.taskInit(function()
     local t = fdb.kv_get("my_bool")
     log.info("fdb", "my_bool",      type(t),    t)
 
-    while true do
-        sys.wait(100)
+    if fdb.kv_iter then
+        local iter = fdb.kv_iter()
+        if iter then
+            while 1 do
+                local k = fdb.kv_next(iter)
+                if not k then
+                    log.info("fdb", "iter exit")
+                    break
+                end
+                log.info("fdb", k, "value", fdb.kv_get(k))
+            end
+        else
+            log.info("fdb", "iter is null")
+        end
+    else
+        log.info("fdb", "without iter")
     end
 
+    -- 压力测试
+    local start = mcu.ticks()
+    local count = 1000
+    while count > 0 do
+        -- sys.wait(10)
+        count = count - 1
+        -- fdb.kv_set("BENT1", "--" .. os.date() .. "--")
+        -- fdb.kv_set("BENT2", "--" .. os.date() .. "--")
+        -- fdb.kv_set("BENT3", "--" .. os.date() .. "--")
+        -- fdb.kv_set("BENT4", "--" .. os.date() .. "--")
+        fdb.kv_get("my_bool")
+    end
+    log.info("fdb", (mcu.ticks() - start) / 1000)
 end)
 
 -- 用户代码已结束---------------------------------------------

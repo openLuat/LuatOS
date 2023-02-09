@@ -43,6 +43,10 @@ void luat_log_log(int level, const char* tag, const char* _fmt, ...);
 #define luat_log_info(XTAG, format, ...)    luat_log_log(LUAT_LOG_INFO, XTAG, format, ##__VA_ARGS__)
 #define luat_log_debug(XTAG, format, ...)   luat_log_log(LUAT_LOG_DEBUG, XTAG, format, ##__VA_ARGS__)
 
+void luat_log_dump(const char* tag, void* ptr, size_t len);
+
+#define LLOGDUMP(ptr,len) luat_log_dump(LUAT_LOG_TAG, ptr, len)
+
 #endif
 
 #endif

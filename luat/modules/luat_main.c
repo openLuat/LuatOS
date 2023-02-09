@@ -6,6 +6,7 @@
 #include "stdio.h"
 #include "luat_msgbus.h"
 #include "luat_timer.h"
+#include "luat_rtos.h"
 
 #include "luat_ota.h"
 
@@ -33,6 +34,13 @@ void stopboot(void) {
 // lua_State * luat_get_state() {
 //   return L;
 // }
+
+luat_rtos_timer_t luar_error_timer;
+
+static LUAT_RT_RET_TYPE l_timer_error_cb(LUAT_RT_CB_PARAM) {
+  LLOGE("未找到main.lua,请刷入脚本以运行程序,luatos快速入门教程: https://wiki.luatos.com/boardGuide/roadmap.html");
+  LLOGE("The main.lua not found, please flash the script to run the program, luatos quick start: https://wiki.luatos.com/boardGuide/roadmap.html");
+}
 
 int luat_search_module(const char* name, char* filename);
 void luat_os_print_heapinfo(const char* tag);
@@ -73,18 +81,19 @@ static int pmain(lua_State *L) {
 #ifdef LUAT_HAS_CUSTOM_LIB_INIT
     luat_custom_init(L);
 #endif
-
     if (re == -2) {
       #ifndef LUAT_MAIN_DEMO
-      if (luat_search_module("main", filename) == 0) {
-        re = luaL_dofile(L, filename);
-      }
-      else {
-        re = -1;
-        luaL_error(L, "module '%s' not found", "main");
-      }
+        if (luat_search_module("main", filename) == 0) {
+          re = luaL_dofile(L, filename);
+        }
+        else {
+          re = -1;
+          luar_error_timer = luat_create_rtos_timer(l_timer_error_cb, NULL, NULL);
+          luat_start_rtos_timer(luar_error_timer, 1000, 1);
+          luaL_error(L, "module '%s' not found", "main");
+        }
       #else
-      re = luat_main_demo();
+        re = luat_main_demo();
       #endif
     }
         
@@ -203,7 +212,6 @@ int luat_main (void) {
     luat_os_reboot(5);
   }
 #endif
-
   luat_main_call();
   LLOGE("Lua VM exit!! reboot in %dms", LUAT_EXIT_REBOOT_DELAY);
   luat_ota_reboot(LUAT_EXIT_REBOOT_DELAY);

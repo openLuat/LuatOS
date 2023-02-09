@@ -17,6 +17,7 @@ enum
 	LUAT_PM_POWER_GPS_ANT,
 	LUAT_PM_POWER_CAMERA,
 	LUAT_PM_POWER_DAC_EN_PIN,
+	LUAT_PM_POWER_POWERKEY_MODE
 };
 
 int luat_pm_request(int mode);

@@ -302,6 +302,8 @@ static const rotable_Reg_t reg_pm[] =
     { "CAMERA",        ROREG_INT(LUAT_PM_POWER_CAMERA)},
     //@const DAC_EN number Air780E和Air600E的DAC_EN，注意audio的默认配置会自动使用这个脚来控制CODEC的使能
     { "DAC_EN",        ROREG_INT(LUAT_PM_POWER_DAC_EN_PIN)},
+    //@const PWK_MODE number 是否开启ec618的powerkey滤波模式，true开，注意滤波模式下reset变成直接关机
+    { "PWK_MODE",        ROREG_INT(LUAT_PM_POWER_POWERKEY_MODE)},
 	{ NULL,             ROREG_INT(0) }
 };
 

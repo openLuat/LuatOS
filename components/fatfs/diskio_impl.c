@@ -1,5 +1,5 @@
 /*-----------------------------------------------------------------------*/
-/* Low level disk I/O module skeleton for FatFs     (C)ChaN, 2016        */
+/* Low level disk I/O module SKELETON for FatFs     (C)ChaN, 2019        */
 /*-----------------------------------------------------------------------*/
 /* If a working storage control module is available, it should be        */
 /* attached to the FatFs via a glue function rather than modifying it.   */
@@ -102,3 +102,4 @@ DWORD get_fattime (void) {
 			| (0U >> 1) /* Sec = 0 */
 	;
 }
+

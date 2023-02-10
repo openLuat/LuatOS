@@ -16,11 +16,8 @@
 #include "ff.h"			/* Obtains integer types */
 #include "diskio.h"		/* Declarations of disk functions */
 
-#define LUAT_LOG_TAG "luat.fatfs"
+#define LUAT_LOG_TAG "fatfs"
 #include "luat_log.h"
-
-// 与 diskio_spitf.c 对齐
-
 
 extern BYTE FATFS_DEBUG; // debug log, 0 -- disable , 1 -- enable
 
@@ -30,20 +27,19 @@ extern BYTE FATFS_DEBUG; // debug log, 0 -- disable , 1 -- enable
 
 ---------------------------------------------------------------------------*/
 
-/* MMC/SD command (SPI mode) */
+/* MMC/SD command */
 #define CMD0	(0)			/* GO_IDLE_STATE */
-#define CMD1	(1)			/* SEND_OP_COND */
+#define CMD1	(1)			/* SEND_OP_COND (MMC) */
 #define	ACMD41	(0x80+41)	/* SEND_OP_COND (SDC) */
 #define CMD8	(8)			/* SEND_IF_COND */
 #define CMD9	(9)			/* SEND_CSD */
 #define CMD10	(10)		/* SEND_CID */
 #define CMD12	(12)		/* STOP_TRANSMISSION */
-#define CMD13	(13)		/* SEND_STATUS */
 #define ACMD13	(0x80+13)	/* SD_STATUS (SDC) */
 #define CMD16	(16)		/* SET_BLOCKLEN */
 #define CMD17	(17)		/* READ_SINGLE_BLOCK */
 #define CMD18	(18)		/* READ_MULTIPLE_BLOCK */
-#define CMD23	(23)		/* SET_BLOCK_COUNT */
+#define CMD23	(23)		/* SET_BLOCK_COUNT (MMC) */
 #define	ACMD23	(0x80+23)	/* SET_WR_BLK_ERASE_COUNT (SDC) */
 #define CMD24	(24)		/* WRITE_BLOCK */
 #define CMD25	(25)		/* WRITE_MULTIPLE_BLOCK */
@@ -53,128 +49,121 @@ extern BYTE FATFS_DEBUG; // debug log, 0 -- disable , 1 -- enable
 #define CMD55	(55)		/* APP_CMD */
 #define CMD58	(58)		/* READ_OCR */
 
+#define SD_ACMD_SD_SEND_OP_COND		  41 /*!< ACMD41*/
 
-static
-DSTATUS Stat = STA_NOINIT;	/* Disk status */
+/* MMC card type flags (MMC_GET_TYPE) */
+#define CT_MMC3		0x01		/* MMC ver 3 */
+#define CT_MMC4		0x02		/* MMC ver 4+ */
+#define CT_MMC		0x03		/* MMC */
+#define CT_SDC1		0x02		/* SDC ver 1 */
+#define CT_SDC2		0x04		/* SDC ver 2+ */
+#define CT_SDC		0x0C		/* SDC */
+#define CT_BLOCK	0x10		/* Block addressing */
+
+
+static volatile DSTATUS Stat = STA_NOINIT;	/* Physical drive status */
 
 static
 BYTE CardType;			/* b0:MMC, b1:SDv1, b2:SDv2, b3:Block addressing */
 
-
-// static void dly_us(BYTE us) {
-// 	if (us < 1) {
-// 		return;
-// 	}
-// 	us += 999;
-// 	luat_timer_mdelay(us/1000);
-// }
 #define dly_us luat_timer_us_delay
+#define dly_ms luat_timer_mdelay
+
+static void spitf_cs_low(luat_fatfs_spi_t* userdata){
+	if(userdata->type == 1){
+		luat_gpio_set(userdata->spi_device->spi_config.cs, 0);
+	}else{
+		luat_gpio_set(userdata->spi_cs, 0);
+	}
+}
+
+static void spitf_cs_high(luat_fatfs_spi_t* userdata){
+	if(userdata->type == 1){
+		luat_gpio_set(userdata->spi_device->spi_config.cs, 1);
+	}else{
+		luat_gpio_set(userdata->spi_cs, 1);
+	}
+}
+
+static void spitf_transfer(const char* send_buf, size_t send_length, char* recv_buf, size_t recv_length,luat_fatfs_spi_t* userdata){
+	if(userdata->type == 1){
+		luat_spi_device_transfer(userdata->spi_device, send_buf, send_length, recv_buf, recv_length);
+	}else{
+		luat_spi_transfer(userdata->spi_id, send_buf, send_length, recv_buf, recv_length);
+	}
+}
+
+static void spitf_send(const char *send_buf, size_t length,luat_fatfs_spi_t* userdata){
+	if(userdata->type == 1){
+		luat_spi_device_send(userdata->spi_device, send_buf, length);
+	}else{
+		luat_spi_send(userdata->spi_id, send_buf, length);
+	}
+}
+
+static void spitf_recv(char *recv_buf, size_t length,luat_fatfs_spi_t* userdata){
+	if(userdata->type == 1){
+		luat_spi_device_recv(userdata->spi_device, recv_buf, length);
+	}else{
+		luat_spi_recv(userdata->spi_id, recv_buf, length);
+	}
+}
+
+static uint8_t spitf_crc7(uint8_t * buf, int cnt){
+	int i,a;
+	uint8_t crc,Data;
+	crc=0;
+	for (a=0;a<cnt;a++){
+		Data=buf[a];
+		for (i=0;i<8;i++){
+		crc <<= 1;
+		if ((Data & 0x80)^(crc & 0x80))
+		crc ^=0x09;
+		Data <<= 1;
+		}
+	}
+	crc=(crc<<1)|1;
+	return(crc);
+}
+
+static uint8_t spitf_send_cmd(uint8_t cmd, uint32_t arg, uint8_t cs_high,luat_fatfs_spi_t* userdata){
+	uint32_t i = 0x00;
+	uint8_t r1;
+	spitf_cs_low(userdata);
+	userdata->transfer_buf[0] = (cmd | 0x40); /*!< Construct byte 1 */
+	userdata->transfer_buf[1] = (uint8_t)(arg >> 24); /*!< Construct byte 2 */
+	userdata->transfer_buf[2] = (uint8_t)(arg >> 16); /*!< Construct byte 3 */
+	userdata->transfer_buf[3] = (uint8_t)(arg >> 8); /*!< Construct byte 4 */
+	userdata->transfer_buf[4] = (uint8_t)(arg); /*!< Construct byte 5 */
+	userdata->transfer_buf[5] = spitf_crc7(userdata->transfer_buf,5); /*!< Construct CRC: byte 6 */
+	userdata->transfer_buf[6] = 0xFF;
+	spitf_send((const char *)(userdata->transfer_buf),7,userdata);
+
+	for (size_t i = 0; i < 10; i++){
+		spitf_recv(&r1, 1,userdata);
+		if ((r1&0x80) == 0) break;
+	}
+	if (cs_high){
+		spitf_cs_high(userdata);
+		userdata->transfer_buf[0] = 0xFF; 
+		spitf_send((const char *)(userdata->transfer_buf),1,userdata);
+	}
+	return r1;
+}
 
 /*-----------------------------------------------------------------------*/
 /* Transmit bytes to the card (bitbanging)                               */
 /*-----------------------------------------------------------------------*/
 
-static
-void xmit_mmc (
-	const BYTE* buff,	/* Data to be sent */
-	UINT bc,				/* Number of bytes to send */
+/* Exchange a byte */
+static BYTE xchg_spi (
+	BYTE dat,	/* Data to send */
 	luat_fatfs_spi_t* userdata
 )
 {
-	#if 0
-	BYTE d;
-
-
-	do {
-		d = *buff++;	/* Get a byte to be sent */
-		if (d & 0x80) DI_H(); else DI_L();	/* bit7 */
-		CK_H(); CK_L();
-		if (d & 0x40) DI_H(); else DI_L();	/* bit6 */
-		CK_H(); CK_L();
-		if (d & 0x20) DI_H(); else DI_L();	/* bit5 */
-		CK_H(); CK_L();
-		if (d & 0x10) DI_H(); else DI_L();	/* bit4 */
-		CK_H(); CK_L();
-		if (d & 0x08) DI_H(); else DI_L();	/* bit3 */
-		CK_H(); CK_L();
-		if (d & 0x04) DI_H(); else DI_L();	/* bit2 */
-		CK_H(); CK_L();
-		if (d & 0x02) DI_H(); else DI_L();	/* bit1 */
-		CK_H(); CK_L();
-		if (d & 0x01) DI_H(); else DI_L();	/* bit0 */
-		CK_H(); CK_L();
-	} while (--bc);
-	#endif
-	if (FATFS_DEBUG)
-		LLOGD("[FatFS]xmit_mmc bc=%d\r\n", bc);
-	if(userdata->type == 1){
-		luat_spi_device_send(userdata->spi_device, (char*)buff, bc);
-	}else{
-		luat_spi_send(userdata->spi_id, (const char*)buff, bc);
-	}
-	
-}
-
-
-
-/*-----------------------------------------------------------------------*/
-/* Receive bytes from the card (bitbanging)                              */
-/*-----------------------------------------------------------------------*/
-
-static
-void rcvr_mmc (
-	BYTE *buff,	/* Pointer to read buffer */
-	UINT bc,		/* Number of bytes to receive */
-	luat_fatfs_spi_t* userdata
-)
-{
-	#if 0
-	BYTE r;
-
-
-	DI_H();	/* Send 0xFF */
-
-	do {
-		r = 0;	 if (DO) r++;	/* bit7 */
-		CK_H(); CK_L();
-		r <<= 1; if (DO) r++;	/* bit6 */
-		CK_H(); CK_L();
-		r <<= 1; if (DO) r++;	/* bit5 */
-		CK_H(); CK_L();
-		r <<= 1; if (DO) r++;	/* bit4 */
-		CK_H(); CK_L();
-		r <<= 1; if (DO) r++;	/* bit3 */
-		CK_H(); CK_L();
-		r <<= 1; if (DO) r++;	/* bit2 */
-		CK_H(); CK_L();
-		r <<= 1; if (DO) r++;	/* bit1 */
-		CK_H(); CK_L();
-		r <<= 1; if (DO) r++;	/* bit0 */
-		CK_H(); CK_L();
-		*buff++ = r;			/* Store a received byte */
-	} while (--bc);
-	#endif
-	//u8* buf2 = 0x00;
-	//u8** buf = &buf2;
-	// BYTE tmp[bc];
-	
-	// for(size_t i = 0; i < bc; i++)
-	// {
-	// 	tmp[i] = 0xFF;
-	// }
-	
-	//DWORD t = luat_spi_transfer(userdata->spi_id, tmp, buff, bc);
-	//s32 t = platform_spi_recv(0, buf, bc);
-	if(userdata->type == 1){
-		luat_spi_device_recv(userdata->spi_device, (char*)buff, bc);
-	}else{
-		luat_spi_recv(userdata->spi_id, (char*)buff, bc);
-	}
-		
-	//memcpy(buff, buf2, bc);
-	//if (FATFS_DEBUG)
-	//	LLOGD("[FatFS]rcvr_mmc first resp byte=%02X, t=%d\r\n", buf2[0], t);
-	//free(buf2);
+	BYTE buff;
+	spitf_transfer((const char *)&dat, 1, (char *)&buff, 1, userdata);
+	return buff;
 }
 
 
@@ -184,19 +173,18 @@ void rcvr_mmc (
 /*-----------------------------------------------------------------------*/
 
 static
-int wait_ready (luat_fatfs_spi_t* userdata)	/* 1:OK, 0:Timeout */
+int wait_ready (UINT wt,luat_fatfs_spi_t* userdata)	/* 1:OK, 0:Timeout */
 {
 	BYTE d;
 	UINT tmr;
 
-
-	for (tmr = 5000; tmr; tmr--) {	/* Wait for ready in timeout of 500ms */
-		rcvr_mmc(&d, 1, userdata);
+	for (tmr = wt; tmr; tmr--) {	/* Wait for ready in timeout of 500ms */
+		d = xchg_spi(0xFF,userdata);
 		if (d == 0xFF) break;
-		dly_us(100);
+		dly_us(1000);
 	}
 
-	return tmr ? 1 : 0;
+	return (d == 0xFF) ? 1 : 0;
 }
 
 
@@ -208,15 +196,11 @@ int wait_ready (luat_fatfs_spi_t* userdata)	/* 1:OK, 0:Timeout */
 static
 void spi_cs_deselect (luat_fatfs_spi_t* userdata)
 {
-	BYTE d;
-
-	//CS_H();				/* Set CS# high */
-	//platform_pio_op(0, 1 << userdata->spi_cs, 0);
 	if(userdata->type == 1){
-		// rcvr_mmc(&d, 1);
+		// xchg_spi(userdata);
 	}else{
 		luat_gpio_set(userdata->spi_cs, 1);
-		rcvr_mmc(&d, 1, userdata);	/* Dummy clock (force DO hi-z for multiple slave SPI) */
+		xchg_spi(0xFF,userdata);	/* Dummy clock (force DO hi-z for multiple slave SPI) */
 	}
 	
 }
@@ -230,24 +214,47 @@ void spi_cs_deselect (luat_fatfs_spi_t* userdata)
 static
 int spi_cs_select (luat_fatfs_spi_t* userdata)	/* 1:OK, 0:Timeout */
 {
-	BYTE d;
-
-	//CS_L();				/* Set CS# low */
-	//platform_pio_op(0, 1 << userdata->spi_cs, 1);
 	if(userdata->type == 1){
-		rcvr_mmc(&d, 1, userdata);
+		xchg_spi(0xFF,userdata);
 	}else{
 		luat_gpio_set(userdata->spi_cs, 0);
-		rcvr_mmc(&d, 1, userdata);	/* Dummy clock (force DO enabled) */
+		xchg_spi(0xFF,userdata);	/* Dummy clock (force DO enabled) */
 	}
 	
-	if (wait_ready(userdata)) return 1;	/* Wait for card ready */
+	if (wait_ready(500,userdata)) return 1;	/* Wait for card ready */
 
 	spi_cs_deselect(userdata);
 	return 0;			/* Failed */
 }
 
 
+/* Receive multiple byte */
+static void rcvr_spi_multi (
+	BYTE *buff,		/* Pointer to data buffer */
+	UINT btr,		/* Number of bytes to receive (even number) */
+	luat_fatfs_spi_t* userdata
+)
+{
+	if(userdata->type == 1){
+		luat_spi_device_recv(userdata->spi_device, (char*)buff, btr);
+	}else{
+		luat_spi_recv(userdata->spi_id, (char*)buff, btr);
+	}
+}
+
+/* Send multiple byte */
+static void xmit_spi_multi (
+	const BYTE *buff,	/* Pointer to the data */
+	UINT btx,			/* Number of bytes to send (even number) */
+	luat_fatfs_spi_t* userdata
+)
+{
+	if(userdata->type == 1){
+		luat_spi_device_send(userdata->spi_device, (const char*)buff, btx);
+	}else{
+		luat_spi_send(userdata->spi_id, (const char*)buff, btx);
+	}
+}
 
 /*-----------------------------------------------------------------------*/
 /* Receive a data packet from the card                                   */
@@ -260,19 +267,20 @@ int rcvr_datablock (	/* 1:OK, 0:Failed */
 	luat_fatfs_spi_t* userdata
 )
 {
-	BYTE d[2];
+	BYTE token;
 	UINT tmr;
 
 
-	for (tmr = 1000; tmr; tmr--) {	/* Wait for data packet in timeout of 100ms */
-		rcvr_mmc(d, 1, userdata);
-		if (d[0] != 0xFF) break;
+	for (tmr = 2000; tmr; tmr--) {	/* Wait for data packet in timeout of 100ms */
+		token = xchg_spi(0xFF,userdata);
+		if (token != 0xFF) break;
 		dly_us(100);
 	}
-	if (d[0] != 0xFE) return 0;		/* If not valid data token, return with error */
+	if (token != 0xFE) return 0;		/* If not valid data token, return with error */
 
-	rcvr_mmc(buff, btr, userdata);			/* Receive the data block into buffer */
-	rcvr_mmc(d, 2, userdata);					/* Discard CRC */
+	rcvr_spi_multi(buff, btr, userdata);			/* Receive the data block into buffer */
+
+	xchg_spi(0xFF,userdata);xchg_spi(0xFF,userdata);					/* Discard CRC */
 
 	return 1;						/* Return with success */
 }
@@ -290,18 +298,15 @@ int xmit_datablock (	/* 1:OK, 0:Failed */
 	luat_fatfs_spi_t* userdata
 )
 {
-	BYTE d[2];
+	BYTE resp;
+	if (!wait_ready(500,userdata)) return 0;
 
-
-	if (!wait_ready(userdata)) return 0;
-
-	d[0] = token;
-	xmit_mmc(d, 1, userdata);				/* Xmit a token */
+	xchg_spi(token, userdata);				/* Xmit a token */
 	if (token != 0xFD) {		/* Is it data token? */
-		xmit_mmc(buff, 512, userdata);	/* Xmit the 512 byte data block to MMC */
-		rcvr_mmc(d, 2, userdata);			/* Xmit dummy CRC (0xFF,0xFF) */
-		rcvr_mmc(d, 1, userdata);			/* Receive data response */
-		if ((d[0] & 0x1F) != 0x05)	/* If not accepted, return with error */
+		xmit_spi_multi(buff, 512, userdata);	/* Data */
+		xchg_spi(0xFF, userdata);xchg_spi(0xFF, userdata);/* Dummy CRC */
+		resp = xchg_spi(0xFF, userdata);			/* Receive data response */
+		if ((resp & 0x1F) != 0x05)	/* If not accepted, return with error */
 			return 0;
 	}
 
@@ -321,13 +326,12 @@ BYTE send_cmd (		/* Returns command response (bit7==1:Send failed)*/
 	luat_fatfs_spi_t* userdata
 )
 {
-	BYTE n, d, buf[6];
-
+	BYTE n, res;
 
 	if (cmd & 0x80) {	/* ACMD<n> is the command sequense of CMD55-CMD<n> */
 		cmd &= 0x7F;
-		n = send_cmd(CMD55, 0, userdata);
-		if (n > 1) return n;
+		res = send_cmd(CMD55, 0, userdata);
+		if (res > 1) return res;
 	}
 
 	/* Select the card and wait for ready except to stop multiple block read */
@@ -337,25 +341,25 @@ BYTE send_cmd (		/* Returns command response (bit7==1:Send failed)*/
 	}
 
 	/* Send a command packet */
-	buf[0] = 0x40 | cmd;			/* Start + Command index */
-	buf[1] = (BYTE)(arg >> 24);		/* Argument[31..24] */
-	buf[2] = (BYTE)(arg >> 16);		/* Argument[23..16] */
-	buf[3] = (BYTE)(arg >> 8);		/* Argument[15..8] */
-	buf[4] = (BYTE)arg;				/* Argument[7..0] */
-	n = 0x01;						/* Dummy CRC + Stop */
+	xchg_spi((0x40 | cmd),userdata);				/* Start + command index */
+	xchg_spi((BYTE)(arg >> 24),userdata);		/* Argument[31..24] */
+	xchg_spi((BYTE)(arg >> 16),userdata);		/* Argument[23..16] */
+	xchg_spi((BYTE)(arg >> 8),userdata);			/* Argument[15..8] */
+	xchg_spi((BYTE)arg,userdata);				/* Argument[7..0] */
+	n = 0x01;							/* Dummy CRC + Stop */
 	if (cmd == CMD0) n = 0x95;		/* (valid CRC for CMD0(0)) */
 	if (cmd == CMD8) n = 0x87;		/* (valid CRC for CMD8(0x1AA)) */
-	buf[5] = n;
-	xmit_mmc(buf, 6, userdata);
+	if (cmd == CMD8 || cmd == CMD10 || cmd == CMD17|| cmd == CMD24) n = 0xFF;
+	xchg_spi(n,userdata);
 
 	/* Receive command response */
-	if (cmd == CMD12) rcvr_mmc(&d, 1, userdata);	/* Skip a stuff byte when stop reading */
+	if (cmd == CMD12) xchg_spi(0xFF,userdata);	/* Skip a stuff byte when stop reading */
 	n = 10;								/* Wait for a valid response in timeout of 10 attempts */
 	do
-		rcvr_mmc(&d, 1, userdata);
-	while ((d & 0x80) && --n);
+		res = xchg_spi(0xFF,userdata);
+	while ((res & 0x80) && --n);
 
-	return d;			/* Return with the response value */
+	return res;			/* Return with the response value */
 }
 
 
@@ -365,6 +369,83 @@ BYTE send_cmd (		/* Returns command response (bit7==1:Send failed)*/
    Public Functions
 
 ---------------------------------------------------------------------------*/
+
+static void FCLK_FAST(luat_fatfs_spi_t* userdata){
+	if(userdata->type == 1){
+		userdata->spi_device->spi_config.bandrate = userdata->fast_speed;
+		luat_spi_device_config(userdata->spi_device);
+	}else{
+		luat_spi_t fatfs_spi_conf = {
+			.id = userdata->spi_id,
+			.cs = 255,
+			.CPHA = 0,
+			.CPOL = 0,
+			.dataw = 8,
+			.bandrate = userdata->fast_speed,
+			.bit_dict = 1,
+			.master = 1,
+			.mode = 0,
+		};
+		luat_spi_setup(&fatfs_spi_conf);
+	}
+}
+
+DSTATUS spitf_initialize (
+	luat_fatfs_spi_t* userdata
+)
+{
+	DSTATUS ret = 1;
+	uint8_t r1 = 0;
+	char buf[4] = {0xFF}; 
+
+	CardType = 0;
+	spitf_cs_high(userdata);
+	for (uint8_t i = 0; i < 10; i++){
+		spitf_send(&buf,1,userdata);
+	} 
+	r1 = spitf_send_cmd(CMD0, 0, 1,userdata);		/* Idle state */
+	if (r1 != 0x01) return ret;
+
+	r1 = spitf_send_cmd(CMD8, 0x1AA, 0,userdata); 
+
+	if (r1 == 0x05){		// V1.0 or MMC
+		// r1 = spitf_send_cmd(CMD1, 0, 1,userdata); 
+		// if (r1 != 0x00) return ret;
+	}else if(r1 == 0x01){	// V2.0
+		LLOGD("card is V2.0");
+		spitf_recv(buf, 4, userdata);
+		if (buf[2] == 0x01 && buf[3] == 0xAA) {
+			for (size_t i = 0; i < 2000; i++){
+				r1 = spitf_send_cmd(CMD55,0, 1,userdata);
+				if (r1 != 0x01) continue;
+				r1 = spitf_send_cmd(SD_ACMD_SD_SEND_OP_COND,0x40000000, 1,userdata);
+				if (r1 == 0x00) break;
+				dly_us(1000);
+			}
+			if (r1 != 0x00) return ret;
+			for (size_t i = 0; i < 1000; i++){
+				r1 = spitf_send_cmd(CMD58,0, 0,userdata);
+				if (r1 == 0x00) break;
+				dly_us(1000);
+			}
+			if (r1 != 0x00) return ret;
+			spitf_recv(buf, 4,userdata);
+			CardType = (buf[0] & 0x40) ? CT_SDC2 | CT_BLOCK : CT_SDC2;	/* Card id SDv2 */
+		}
+	}
+
+	// LLOGD("CardType:%d",CardType);
+	spi_cs_deselect(userdata);
+
+	if (CardType) {			/* OK */
+		FCLK_FAST(userdata);			/* Set fast clock */
+		Stat &= ~STA_NOINIT;	/* Clear STA_NOINIT flag */
+	} else {			/* Failed */
+		Stat = STA_NOINIT;
+	}
+
+	return Stat;
+}
 
 
 /*-----------------------------------------------------------------------*/
@@ -380,82 +461,10 @@ DSTATUS spitf_status (
 	return Stat;
 }
 
-
-
-/*-----------------------------------------------------------------------*/
-/* Initialize Disk Drive                                                 */
-/*-----------------------------------------------------------------------*/
-
-DSTATUS spitf_initialize (
-	luat_fatfs_spi_t* userdata
-)
-{
-	BYTE n, ty, cmd, buf[4];
-	UINT tmr;
-	DSTATUS s;
-
-
-	//if (drv) return RES_NOTRDY;
-
-	//dly_us(10000);			/* 10ms */
-	//CS_INIT(); CS_H();		/* Initialize port pin tied to CS */
-	//CK_INIT(); CK_L();		/* Initialize port pin tied to SCLK */
-	//DI_INIT();				/* Initialize port pin tied to DI */
-	//DO_INIT();				/* Initialize port pin tied to DO */
-
-	//luat_spi_close(userdata->spi_id);
-	//luat_spi_setup(userdata->spi_id, 400*1000/*400khz*/, 0, 0, 8, 1, 1);
-
-	spi_cs_deselect(userdata);
-
-	for (n = 10; n; n--) rcvr_mmc(buf, 1, userdata);	/* Apply 80 dummy clocks and the card gets ready to receive command */
-
-	ty = 0;
-	if (send_cmd(CMD0, 0, userdata) == 1) {			/* Enter Idle state */
-		if (send_cmd(CMD8, 0x1AA, userdata) == 1) {	/* SDv2? */
-			rcvr_mmc(buf, 4, userdata);							/* Get trailing return value of R7 resp */
-			if (buf[2] == 0x01 && buf[3] == 0xAA) {		/* The card can work at vdd range of 2.7-3.6V */
-				for (tmr = 1000; tmr; tmr--) {			/* Wait for leaving idle state (ACMD41 with HCS bit) */
-					if (send_cmd(ACMD41, 1UL << 30, userdata) == 0) break;
-					dly_us(1000);
-				}
-				if (tmr && send_cmd(CMD58, 0, userdata) == 0) {	/* Check CCS bit in the OCR */
-					rcvr_mmc(buf, 4, userdata);
-					ty = (buf[0] & 0x40) ? CT_SD2 | CT_BLOCK : CT_SD2;	/* SDv2 */
-				}
-			}
-		} else {							/* SDv1 or MMCv3 */
-			if (send_cmd(ACMD41, 0, userdata) <= 1) 	{
-				ty = CT_SD1; cmd = ACMD41;	/* SDv1 */
-			} else {
-				ty = CT_MMC; cmd = CMD1;	/* MMCv3 */
-			}
-			for (tmr = 1000; tmr; tmr--) {			/* Wait for leaving idle state */
-				if (send_cmd(cmd, 0, userdata) == 0) break;
-				dly_us(1000);
-			}
-			if (!tmr || send_cmd(CMD16, 512, userdata) != 0)	/* Set R/W block length to 512 */
-				ty = 0;
-		}
-	}
-	CardType = ty;
-	s = ty ? 0 : STA_NOINIT;
-	Stat = s;
-
-	spi_cs_deselect(userdata);
-
-	//luat_spi_close(userdata->spi_id);
-	//spi.setup(id,0,0,8,400*1000,1)
-	//luat_spi_setup(userdata->spi_id, 1000*1000/*1Mhz*/, 0, 0, 8, 1, 1);
-
-	return s;
-}
-
-
-
 /*-----------------------------------------------------------------------*/
 /* Read Sector(s)                                                        */
 /*-----------------------------------------------------------------------*/
+
 
 DRESULT spitf_read (
 	luat_fatfs_spi_t* userdata,
@@ -464,20 +473,27 @@ DRESULT spitf_read (
 	UINT count			/* Sector count (1..128) */
 )
 {
-	BYTE cmd;
+	if (!count) return RES_PARERR;		/* Check parameter */
+	if (spitf_status(userdata) & STA_NOINIT) return RES_NOTRDY;	/* Check if drive is ready */
 
-
-	if (spitf_status(userdata) & STA_NOINIT) return RES_NOTRDY;
 	if (!(CardType & CT_BLOCK)) sector *= 512;	/* Convert LBA to byte address if needed */
 
-	cmd = count > 1 ? CMD18 : CMD17;			/*  READ_MULTIPLE_BLOCK : READ_SINGLE_BLOCK */
-	if (send_cmd(cmd, sector, userdata) == 0) {
-		do {
-			if (!rcvr_datablock(buff, 512, userdata)) break;
-			buff += 512;
-		} while (--count);
-		if (cmd == CMD18) send_cmd(CMD12, 0, userdata);	/* STOP_TRANSMISSION */
+	if (count == 1) {	/* Single sector read */
+		if ((send_cmd(CMD17,  sector, userdata) == 0)	/* READ_SINGLE_BLOCK */
+			&& rcvr_datablock(buff, 512, userdata)) {
+			count = 0;
+		}
 	}
+	else {				/* Multiple sector read */
+		if (send_cmd(CMD18,  sector, userdata) == 0) {	/* READ_MULTIPLE_BLOCK */
+			do {
+				if (!rcvr_datablock(buff, 512, userdata)) break;
+				buff += 512;
+			} while (--count);
+			send_cmd(CMD12, 0, userdata);				/* STOP_TRANSMISSION */
+		}
+	}
+
 	spi_cs_deselect(userdata);
 
 	return count ? RES_ERROR : RES_OK;
@@ -496,6 +512,7 @@ DRESULT spitf_write (
 	UINT count			/* Sector count (1..128) */
 )
 {
+	if (!count) return RES_PARERR;		/* Check parameter */
 	if (spitf_status(userdata) & STA_NOINIT) return RES_NOTRDY;
 	if (!(CardType & CT_BLOCK)) sector *= 512;	/* Convert LBA to byte address if needed */
 
@@ -525,6 +542,7 @@ DRESULT spitf_write (
 /* Miscellaneous Functions                                               */
 /*-----------------------------------------------------------------------*/
 
+
 DRESULT spitf_ioctl (
 	luat_fatfs_spi_t* userdata,
 	BYTE ctrl,		/* Control code */
@@ -533,12 +551,13 @@ DRESULT spitf_ioctl (
 {
 	DRESULT res;
 	BYTE n, csd[16];
-	DWORD cs;
-
+	DWORD st, ed, csize;
+	LBA_t *dp;
 
 	if (spitf_status(userdata) & STA_NOINIT) return RES_NOTRDY;	/* Check if card is in the socket */
 
 	res = RES_ERROR;
+
 	switch (ctrl) {
 		case CTRL_SYNC :		/* Make sure that no pending write process */
 			if (spi_cs_select(userdata)) res = RES_OK;
@@ -547,20 +566,83 @@ DRESULT spitf_ioctl (
 		case GET_SECTOR_COUNT :	/* Get number of sectors on the disk (DWORD) */
 			if ((send_cmd(CMD9, 0, userdata) == 0) && rcvr_datablock(csd, 16, userdata)) {
 				if ((csd[0] >> 6) == 1) {	/* SDC ver 2.00 */
-					cs = csd[9] + ((WORD)csd[8] << 8) + ((DWORD)(csd[7] & 63) << 16) + 1;
-					*(DWORD*)buff = cs << 10;
+					csize = csd[9] + ((WORD)csd[8] << 8) + ((DWORD)(csd[7] & 63) << 16) + 1;
+					*(DWORD*)buff = csize << 10;
 				} else {					/* SDC ver 1.XX or MMC */
 					n = (csd[5] & 15) + ((csd[10] & 128) >> 7) + ((csd[9] & 3) << 1) + 2;
-					cs = (csd[8] >> 6) + ((WORD)csd[7] << 2) + ((WORD)(csd[6] & 3) << 10) + 1;
-					*(DWORD*)buff = cs << (n - 9);
+					csize = (csd[8] >> 6) + ((WORD)csd[7] << 2) + ((WORD)(csd[6] & 3) << 10) + 1;
+					*(DWORD*)buff = csize << (n - 9);
 				}
 				res = RES_OK;
 			}
 			break;
 
 		case GET_BLOCK_SIZE :	/* Get erase block size in unit of sector (DWORD) */
-			*(DWORD*)buff = 128;
+			if (CardType & CT_SDC2) {	/* SDC ver 2+ */
+				if (send_cmd(ACMD13, 0, userdata) == 0) {	/* Read SD status */
+					xchg_spi(0xFF, userdata);
+					if (rcvr_datablock(csd, 16, userdata)) {				/* Read partial block */
+						for (n = 64 - 16; n; n--) xchg_spi(0xFF, userdata);	/* Purge trailing data */
+						*(DWORD*)buff = 16UL << (csd[10] >> 4);
+						res = RES_OK;
+					}
+				}
+			} else {					/* SDC ver 1 or MMC */
+				if ((send_cmd(CMD9, 0, userdata) == 0) && rcvr_datablock(csd, 16, userdata)) {	/* Read CSD */
+					if (CardType & CT_SDC1) {	/* SDC ver 1.XX */
+						*(DWORD*)buff = (((csd[10] & 63) << 1) + ((WORD)(csd[11] & 128) >> 7) + 1) << ((csd[13] >> 6) - 1);
+					} else {					/* MMC */
+						*(DWORD*)buff = ((WORD)((csd[10] & 124) >> 2) + 1) * (((csd[11] & 3) << 3) + ((csd[11] & 224) >> 5) + 1);
+					}
+					res = RES_OK;
+				}
+			}
+			break;
+
+		case CTRL_TRIM :	/* Erase a block of sectors (used when _USE_ERASE == 1) */
+			if (!(CardType & CT_SDC)) break;				/* Check if the card is SDC */
+			if (disk_ioctl(0, MMC_GET_CSD, csd)) break;	/* Get CSD */
+			if (!(csd[10] & 0x40)) break;					/* Check if ERASE_BLK_EN = 1 */
+			dp = buff; st = (DWORD)dp[0]; ed = (DWORD)dp[1];	/* Load sector block */
+			if (!(CardType & CT_BLOCK)) {
+				st *= 512; ed *= 512;
+			}
+			if (send_cmd(CMD32, st, userdata) == 0 && send_cmd(CMD33, ed, userdata) == 0 && send_cmd(CMD38, 0, userdata) == 0 && wait_ready(30000,userdata)) {	/* Erase sector block */
+				res = RES_OK;	/* FatFs does not check result of this command */
+			}
+			break;
+
+		/* Following commands are never used by FatFs module */
+
+		case MMC_GET_TYPE:		/* Get MMC/SDC type (BYTE) */
+			*(BYTE*)buff = CardType;
 			res = RES_OK;
+			break;
+
+		case MMC_GET_CSD:		/* Read CSD (16 bytes) */
+			if (send_cmd(CMD9, 0, userdata) == 0 && rcvr_datablock((BYTE*)buff, 16, userdata)) {	/* READ_CSD */
+				res = RES_OK;
+			}
+			break;
+
+		case MMC_GET_CID:		/* Read CID (16 bytes) */
+			if (send_cmd(CMD10, 0, userdata) == 0 && rcvr_datablock((BYTE*)buff, 16, userdata)) {	/* READ_CID */
+				res = RES_OK;
+			}
+			break;
+
+		case MMC_GET_OCR:		/* Read OCR (4 bytes) */
+			if (send_cmd(CMD58, 0, userdata) == 0) {	/* READ_OCR */
+				for (n = 0; n < 4; n++) *(((BYTE*)buff) + n) = xchg_spi(0xFF, userdata);
+				res = RES_OK;
+			}
+			break;
+
+		case MMC_GET_SDSTAT:	/* Read SD status (64 bytes) */
+			if (send_cmd(ACMD13, 0, userdata) == 0) {	/* SD_STATUS */
+				xchg_spi(0xFF, userdata);
+				if (rcvr_datablock((BYTE*)buff, 64, userdata)) res = RES_OK;
+			}
 			break;
 
 		default:

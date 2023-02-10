@@ -8,7 +8,7 @@
 */
 #include "luat_base.h"
 #include "luat_malloc.h"
-#ifdef LUAT_USE_NETWORK
+// #ifdef LUAT_USE_NETWORK
 #include "luat_network_adapter.h"
 #include "luat_rtos.h"
 #include "luat_zbuff.h"
@@ -498,7 +498,7 @@ static int l_socket_tx(lua_State *L)
 
 	}
 	uint32_t tx_len;
-	int result = network_tx(l_ctrl->netc, data, data_len, luaL_optinteger(L, 5, 0), (ip_addr.type != 0xff)?&ip_addr:NULL, luaL_optinteger(L, 4, 0), &tx_len, 0);
+	int result = network_tx(l_ctrl->netc, (const uint8_t *)data, data_len, luaL_optinteger(L, 5, 0), (ip_addr.type != 0xff)?&ip_addr:NULL, luaL_optinteger(L, 4, 0), &tx_len, 0);
 	lua_pushboolean(L, (result < 0)?0:1);
 	lua_pushboolean(L, tx_len != data_len);
 	lua_pushboolean(L, result == 0);
@@ -580,13 +580,13 @@ static int l_socket_rx(lua_State *L)
 				{
 					ip[0] = 0;
 					memcpy(ip + 1, &ip_addr.u_addr.ip4.addr, 4);
-					lua_pushlstring(L, ip, 5);
+					lua_pushlstring(L, (const char*)ip, 5);
 				}
 				else
 				{
 					ip[0] = 1;
 					memcpy(ip + 1, ip_addr.u_addr.ip6.addr, 16);
-					lua_pushlstring(L, ip, 17);
+					lua_pushlstring(L, (const char*)ip, 17);
 				}
 				lua_pushinteger(L, port);
 			}
@@ -760,7 +760,9 @@ static int l_socket_set_dns(lua_State *L)
 */
 static int l_socket_set_ssl_log(lua_State *L)
 {
+	#if defined(MBEDTLS_DEBUG_C)
 	mbedtls_debug_set_threshold(luaL_optinteger(L, 1, 1));
+	#endif
 	return 0;
 }
 
@@ -1382,4 +1384,4 @@ LUAMOD_API int luaopen_socket_adapter( lua_State *L ) {
     lua_pop(L, 1); /* pop new metatable */
     return 1;
 }
-#endif
+// #endif

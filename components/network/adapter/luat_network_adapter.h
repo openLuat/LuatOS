@@ -489,5 +489,8 @@ int network_wait_event(network_ctrl_t *ctrl, OS_EVENT *out_event, uint32_t timeo
  */
 int network_wait_rx(network_ctrl_t *ctrl, uint32_t timeout_ms, uint8_t *is_break, uint8_t *is_timeout);
 /****************************高级api结束********************************************************************/
+
+// 补充函数
+int network_get_full_local_ip_info(network_ctrl_t *ctrl, uint8_t index, luat_ip_addr_t *ip, luat_ip_addr_t *submask, luat_ip_addr_t *gateway, luat_ip_addr_t *ipv6);
 #endif
 // #endif

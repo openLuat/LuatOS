@@ -11,6 +11,11 @@
 #include "luat_network_adapter.h"
 #define LUAT_LOG_TAG "adapter"
 #include "luat_log.h"
+
+#ifndef LWIP_NUM_SOCKETS
+#define LWIP_NUM_SOCKETS 8
+#endif
+
 typedef struct
 {
 #ifdef LUAT_USE_LWIP
@@ -1517,7 +1522,7 @@ int network_cert_verify_result(network_ctrl_t *ctrl)
 static int tls_random( void *p_rng,
         unsigned char *output, size_t output_len )
 {
-	platform_random(output, output_len);
+	platform_random((char*)output, output_len);
 	return 0;
 }
 
@@ -1970,7 +1975,7 @@ int network_tx(network_ctrl_t *ctrl, const uint8_t *data, uint32_t len, int flag
 		}
 	}
 
-NETWORK_TX_WAIT:
+// NETWORK_TX_WAIT:
 	ctrl->wait_target_state = NW_WAIT_TX_OK;
 	NW_UNLOCK;
 

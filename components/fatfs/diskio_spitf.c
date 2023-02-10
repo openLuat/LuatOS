@@ -64,7 +64,7 @@ extern BYTE FATFS_DEBUG; // debug log, 0 -- disable , 1 -- enable
 static volatile DSTATUS Stat = STA_NOINIT;	/* Physical drive status */
 
 static
-BYTE CardType;			/* b0:MMC, b1:SDv1, b2:SDv2, b3:Block addressing */
+BYTE CardType = 0;			/* b0:MMC, b1:SDv1, b2:SDv2, b3:Block addressing */
 
 #define dly_us luat_timer_us_delay
 #define dly_ms luat_timer_mdelay
@@ -108,6 +108,19 @@ static void spitf_recv(char *recv_buf, size_t length,luat_fatfs_spi_t* userdata)
 		luat_spi_recv(userdata->spi_id, recv_buf, length);
 	}
 }
+
+static uint8_t spitf_transfer_byte(uint8_t data,luat_fatfs_spi_t* userdata)
+{
+	uint8_t recv_buf;
+	if(userdata->type == 1){
+		luat_spi_device_transfer(userdata->spi_device, &data, 1, &recv_buf, 1);
+	}else{
+		luat_spi_transfer(userdata->spi_id, &data, 1, &recv_buf, 1);
+	}
+	return recv_buf;
+}	  
+
+
 
 static uint8_t spitf_crc7(uint8_t * buf, int cnt){
 	int i,a;

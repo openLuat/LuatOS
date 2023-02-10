@@ -11,6 +11,7 @@
 */
 #include "luat_base.h"
 #include "luat_spi.h"
+#include "luat_sdio.h"
 #include "luat_timer.h"
 #include "luat_gpio.h"
 #include "luat_malloc.h"
@@ -25,15 +26,10 @@
 
 static FATFS *fs = NULL;		/* FatFs work area needed for each volume */
 extern BYTE FATFS_DEBUG; // debug log, 0 -- disable , 1 -- enable
-// extern BYTE FATFS_SPI_ID;
-// extern BYTE FATFS_SPI_TYPE;
-// extern BYTE FATFS_SPI_CS; // GPIO 3
-
-// extern luat_spi_device_t* fatfs_spi_device;
-// extern uint8_t fatfs_spi_port;
 
 DRESULT diskio_open_ramdisk(BYTE pdrv, size_t len);
 DRESULT diskio_open_spitf(BYTE pdrv, void* userdata);
+DRESULT diskio_open_sdio(BYTE pdrv, void* userdata);
 
 #ifdef LUAT_USE_FS_VFS
 extern const struct luat_vfs_filesystem vfs_fs_fatfs;
@@ -41,10 +37,11 @@ extern const struct luat_vfs_filesystem vfs_fs_fatfs;
 
 /*
 挂载fatfs
-@api fatfs.mount(mount_point, spiid_or_spidevice, spi_cs, spi_speed)
+@api fatfs.mount(mode,mount_point, spiid_or_spidevice, spi_cs, spi_speed)
+@int fatfs模式,可选fatfs.SPI,fatfs.SDIO,fatfs.RAM,fatfs.USB
 @string fatfs挂载点, 通常填""或者"SD", 底层会映射到vfs的 /sd 路径
-@int 传入spi device指针,或者spi的id
-@int 片选脚的GPIO 号, 若前一个参数传的是spi device,这个参数就不需要传
+@int 传入spi device指针,或者spi的id,或者sdio的id
+@int 片选脚的GPIO 号, spi模式有效,若前一个参数传的是spi device,这个参数就不需要传
 @int SPI最高速度,默认10M, 若前2个参数传的是spi device,这个参数就不需要传
 @return bool 成功返回true, 否则返回nil或者false
 @return string 失败的原因
@@ -63,7 +60,7 @@ extern const struct luat_vfs_filesystem vfs_fs_fatfs;
     gpio.setup(TF_CS, 1)
     --fatfs.debug(1) -- 若挂载失败,可以尝试打开调试信息,查找原因
 	-- 提醒, 若TF/SD模块带电平转换, 通常不支持10M以上的波特率!!
-    fatfs.mount("SD", spiId, TF_CS, 24000000)
+    fatfs.mount(fatfs.SPI,"SD", spiId, TF_CS, 24000000)
     local data, err = fatfs.getfree("SD")
     if data then
         log.info("fatfs", "getfree", json.encode(data))
@@ -88,36 +85,58 @@ static int fatfs_mount(lua_State *L)
 	}
 
 	// 挂载点
-	const char *mount_point = luaL_optstring(L, 1, "");
+	const char *mount_point = luaL_optstring(L, 2, "/fatfs");
 
-	luat_fatfs_spi_t *spit = luat_heap_malloc(sizeof(luat_fatfs_spi_t));
-	if (spit == NULL) {
-		lua_pushboolean(L, 0);
-			LLOGD("out of memory when malloc luat_fatfs_spi_t");
-		lua_pushstring(L, "out of memory when malloc luat_fatfs_spi_t");
-		return 2;
-	}
-	memset(spit, 0, sizeof(luat_fatfs_spi_t));
-	
-	if (lua_type(L, 2) == LUA_TUSERDATA){
-		spit->spi_device = (luat_spi_device_t*)lua_touserdata(L, 2);
-		spit->fast_speed = luaL_optinteger(L, 4, 10000000);
-        spit->type = 1;
-		diskio_open_spitf(0, (void*)spit);
-	} else {
-		spit->type = 0;
-		spit->spi_id = luaL_optinteger(L, 2, 0); // SPI_1
-		spit->spi_cs = luaL_optinteger(L, 3, 3); // GPIO_3
-		spit->fast_speed = luaL_optinteger(L, 4, 10000000);
-		if (!strcmp("ramdisk", mount_point) || !strcmp("ram", mount_point)) {
-			LLOGD("init ramdisk at FatFS");
-			diskio_open_ramdisk(0, luaL_optinteger(L, 2, 64*1024));
+	int fatfs_mode = luaL_checkinteger(L, 1);
+
+	if (fatfs_mode == DISK_SPI){
+		luat_fatfs_spi_t *spit = luat_heap_malloc(sizeof(luat_fatfs_spi_t));
+		if (spit == NULL) {
+			lua_pushboolean(L, 0);
+				LLOGD("out of memory when malloc luat_fatfs_spi_t");
+			lua_pushstring(L, "out of memory when malloc luat_fatfs_spi_t");
+			return 2;
+		}
+		memset(spit, 0, sizeof(luat_fatfs_spi_t));
+		
+		if (lua_type(L, 3) == LUA_TUSERDATA){
+			spit->spi_device = (luat_spi_device_t*)lua_touserdata(L, 3);
+			spit->fast_speed = luaL_optinteger(L, 4, 10000000);
+			spit->type = 1;
+			diskio_open_spitf(0, (void*)spit);
 		} else {
+			spit->type = 0;
+			spit->spi_id = luaL_optinteger(L, 3, 0); // SPI_1
+			spit->spi_cs = luaL_optinteger(L, 4, 3); // GPIO_3
+			spit->fast_speed = luaL_optinteger(L, 5, 10000000);
 			LLOGD("init sdcard at spi=%d cs=%d", spit->spi_id, spit->spi_cs);
 			diskio_open_spitf(0, (void*)spit);
 		}
+	}else if(fatfs_mode == DISK_SDIO){
+		luat_fatfs_sdio_t *fatfs_sdio = luat_heap_malloc(sizeof(luat_fatfs_sdio_t));
+		if (fatfs_sdio == NULL) {
+			lua_pushboolean(L, 0);
+				LLOGD("out of memory when malloc luat_fatfs_sdio_t");
+			lua_pushstring(L, "out of memory when malloc luat_fatfs_sdio_t");
+			return 2;
+		}
+		memset(fatfs_sdio, 0, sizeof(luat_fatfs_sdio_t));
+
+		fatfs_sdio->id = luaL_optinteger(L, 3, 0); // SDIO_ID
+
+		LLOGD("init FatFS at sdio");
+		diskio_open_sdio(0, (void*)fatfs_sdio);
+	}else if(fatfs_mode == DISK_RAM){
+		LLOGD("init ramdisk at FatFS");
+		diskio_open_ramdisk(0, luaL_optinteger(L, 3, 64*1024));
+	}else if(fatfs_mode == DISK_USB){
+
+	}else{
+		LLOGD("fatfs_mode error");
+		lua_pushboolean(L, 0);
+		lua_pushstring(L, "fatfs_mode error");
+		return 2;
 	}
-	
 	
 	FRESULT re = f_mount(fs, "/", 0);
 	
@@ -131,7 +150,7 @@ static int fatfs_mount(lua_State *L)
 		            .busname = (char*)fs,
 		            .type = "fatfs",
 		            .filesystem = "fatfs",
-		            .mount_point = "/sd",
+		            .mount_point = mount_point,
 	            };
 	            luat_fs_mount(&conf2);
 		#endif
@@ -548,48 +567,6 @@ static int fatfs_readfile(lua_State *L) {
 	return 2;
 }
 
-// static int fatfs_playmp3(lua_State *L) {
-// 	int luaType = lua_type( L, 1);
-// 	if(luaType != LUA_TSTRING) {
-// 		lua_pushinteger(L, -1);
-// 		lua_pushstring(L, "file path must string");
-// 		return 2;
-// 	}
-// 	FILINFO fileinfo;
-// 	u8 *path = lua_tostring(L, 1);
-// 	FRESULT re = f_stat(path, &fileinfo);
-// 	if (re) {
-// 		lua_pushinteger(L, re);
-// 		return 1;
-// 	}
-// 	FIL fil;
-// 	re = f_open(&fil, path, FA_READ);
-// 	if (re != FR_OK) {
-// 		lua_pushinteger(L, re);
-// 		return 1;
-// 	}
-
-// 	u8 buf[fileinfo.fsize];
-// 	UINT len;
-// 	FRESULT fr = f_read(&fil, buf, fileinfo.fsize, &len);
-// 	if (fr) {
-// 		lua_pushinteger(L, fr);
-// 		return 1;
-// 	}
-// 	f_close(&fil);
-// 	AudioPlayParam param;
-    
-//     param.isBuffer = TRUE;
-//     param.buffer.format = PLATFORM_AUD_MP3;
-//     param.buffer.loop = 0;
-//     param.buffer.data = buf;
-//     param.buffer.len = len;
-
-// 	re = platform_audio_play(&param);
-// 	lua_pushinteger(L, re);
-// 	return 1;
-// }
-
 static int fatfs_debug_mode(lua_State *L) {
 	FATFS_DEBUG = luaL_optinteger(L, 1, 1);
 	return 0;
@@ -622,6 +599,12 @@ static const rotable_Reg_t reg_fatfs[] =
   { "rename",	ROREG_FUNC(fatfs_rename)}, // 文件改名
 
   { "readfile",	ROREG_FUNC(fatfs_readfile)}, // 读取文件的简易方法
+
+  { "SPI",         ROREG_INT(DISK_SPI)},
+  { "SDIO",        ROREG_INT(DISK_SDIO)},
+  { "RAM",         ROREG_INT(DISK_RAM)},
+  { "USB",         ROREG_INT(DISK_USB)},
+
   { NULL,		ROREG_INT(0)}
 };
 

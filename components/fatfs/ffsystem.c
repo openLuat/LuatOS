@@ -3,8 +3,10 @@
 /*------------------------------------------------------------------------*/
 
 #include "ff.h"
-#include "luat_base.h"
-#include "luat_malloc.h"
+
+#ifdef __LUATOS__
+	#include "luat_base.h"
+#endif
 
 
 #if FF_USE_LFN == 3	/* Use dynamic memory allocation */
@@ -13,14 +15,21 @@
 /* Allocate/Free a Memory Block                                           */
 /*------------------------------------------------------------------------*/
 
-#include <stdlib.h>		/* with POSIX API */
-
+#ifdef __LUATOS__
+	#include "luat_malloc.h"
+#else
+	#include <stdlib.h>		/* with POSIX API */
+#endif
 
 void* ff_memalloc (	/* Returns pointer to the allocated memory block (null if not enough core) */
 	UINT msize		/* Number of bytes to allocate */
 )
 {
+#ifdef __LUATOS__
 	return luat_heap_malloc((size_t)msize);	/* Allocate a new memory block with POSIX API */
+#else
+	return malloc((size_t)msize);	/* Allocate a new memory block with POSIX API */
+#endif
 }
 
 
@@ -28,7 +37,11 @@ void ff_memfree (
 	void* mblock	/* Pointer to the memory block to free (no effect if null) */
 )
 {
+#ifdef __LUATOS__
 	luat_heap_free(mblock);	/* Free the memory block with POSIX API */
+#else
+	free(mblock);	/* Free the memory block with POSIX API */
+#endif
 }
 
 #endif
@@ -41,8 +54,11 @@ void ff_memfree (
 /* Definitions of Mutex                                                   */
 /*------------------------------------------------------------------------*/
 
-#define OS_TYPE	0	/* 0:Win32, 1:uITRON4.0, 2:uC/OS-II, 3:FreeRTOS, 4:CMSIS-RTOS */
-
+#ifdef __LUATOS__
+	#define OS_TYPE	5	/* 0:Win32, 1:uITRON4.0, 2:uC/OS-II, 3:FreeRTOS, 4:CMSIS-RTOS, 4:LUATOS */
+#else
+	#define OS_TYPE	0	/* 0:Win32, 1:uITRON4.0, 2:uC/OS-II, 3:FreeRTOS, 4:CMSIS-RTOS, 4:LUATOS */
+#endif
 
 #if   OS_TYPE == 0	/* Win32 */
 #include <windows.h>
@@ -65,6 +81,10 @@ static SemaphoreHandle_t Mutex[FF_VOLUMES + 1];	/* Table of mutex handle */
 #elif OS_TYPE == 4	/* CMSIS-RTOS */
 #include "cmsis_os.h"
 static osMutexId Mutex[FF_VOLUMES + 1];	/* Table of mutex ID */
+
+#elif OS_TYPE == 5	/* LUATOS */
+#include "luat_rtos.h"
+static luat_rtos_mutex_t Mutex[FF_VOLUMES + 1];	/* Table of mutex ID */
 
 #endif
 
@@ -108,6 +128,10 @@ int ff_mutex_create (	/* Returns 1:Function succeeded or 0:Could not create the 
 	Mutex[vol] = osMutexCreate(osMutex(cmsis_os_mutex));
 	return (int)(Mutex[vol] != NULL);
 
+#elif OS_TYPE == 5	/* LUATOS */
+	luat_rtos_mutex_create(&Mutex[vol]);
+	return (int)(Mutex[vol] != NULL);
+
 #endif
 }
 
@@ -139,6 +163,9 @@ void ff_mutex_delete (	/* Returns 1:Function succeeded or 0:Could not delete due
 
 #elif OS_TYPE == 4	/* CMSIS-RTOS */
 	osMutexDelete(Mutex[vol]);
+
+#elif OS_TYPE == 5	/* LUATOS */
+	luat_rtos_mutex_delete(Mutex[vol]);
 
 #endif
 }
@@ -173,6 +200,9 @@ int ff_mutex_take (	/* Returns 1:Succeeded or 0:Timeout */
 #elif OS_TYPE == 4	/* CMSIS-RTOS */
 	return (int)(osMutexWait(Mutex[vol], FF_FS_TIMEOUT) == osOK);
 
+#elif OS_TYPE == 5	/* LUATOS */
+	luat_rtos_mutex_lock(Mutex[vol], LUAT_WAIT_FOREVER);
+
 #endif
 }
 
@@ -202,6 +232,9 @@ void ff_mutex_give (
 
 #elif OS_TYPE == 4	/* CMSIS-RTOS */
 	osMutexRelease(Mutex[vol]);
+
+#elif OS_TYPE == 5	/* LUATOS */
+	luat_rtos_mutex_unlock(Mutex[vol]);
 
 #endif
 }

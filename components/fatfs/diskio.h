@@ -9,6 +9,13 @@
 extern "C" {
 #endif
 
+enum {
+	DISK_SPI = 0,	
+	DISK_SDIO,		
+	DISK_RAM,		
+	DISK_USB
+};
+
 /* Status of Disk Functions */
 typedef BYTE	DSTATUS;
 
@@ -20,17 +27,6 @@ typedef enum {
 	RES_NOTRDY,		/* 3: Not Ready */
 	RES_PARERR		/* 4: Invalid Parameter */
 } DRESULT;
-
-
-/*---------------------------------------*/
-/* Prototypes for disk control functions */
-
-
-DSTATUS disk_initialize (BYTE pdrv);
-DSTATUS disk_status (BYTE pdrv);
-DRESULT disk_read (BYTE pdrv, BYTE* buff, LBA_t sector, UINT count);
-DRESULT disk_write (BYTE pdrv, const BYTE* buff, LBA_t sector, UINT count);
-DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff);
 
 typedef struct block_disk_opts {
     DSTATUS (*initialize) (void* userdata);
@@ -47,6 +43,16 @@ typedef struct block_disk {
 
 DRESULT diskio_open(BYTE pdrv, block_disk_t * disk);
 DRESULT diskio_close(BYTE pdrv);
+
+/*---------------------------------------*/
+/* Prototypes for disk control functions */
+
+
+DSTATUS disk_initialize (BYTE pdrv);
+DSTATUS disk_status (BYTE pdrv);
+DRESULT disk_read (BYTE pdrv, BYTE* buff, LBA_t sector, UINT count);
+DRESULT disk_write (BYTE pdrv, const BYTE* buff, LBA_t sector, UINT count);
+DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff);
 
 /* Disk Status Bits (DSTATUS) */
 

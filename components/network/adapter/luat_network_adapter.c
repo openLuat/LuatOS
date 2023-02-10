@@ -1974,8 +1974,9 @@ int network_tx(network_ctrl_t *ctrl, const uint8_t *data, uint32_t len, int flag
 			return 0;
 		}
 	}
-
-// NETWORK_TX_WAIT:
+#ifdef LUAT_USE_TLS
+NETWORK_TX_WAIT:
+#endif
 	ctrl->wait_target_state = NW_WAIT_TX_OK;
 	NW_UNLOCK;
 

@@ -60,6 +60,7 @@ int luat_spi_recv(int spi_id, char* recv_buf, size_t length);
 //发SPI数据，返回发送字节数
 int luat_spi_send(int spi_id, const char* send_buf, size_t length);
 
+int luat_spi_change_speed(int spi_id, uint32_t speed);
 //非阻塞SPI收发数据
 int luat_spi_no_block_transfer(int spi_id, uint8_t *tx_buff, uint8_t *rx_buff, size_t len, void *CB, void *pParam);
 

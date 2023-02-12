@@ -9,6 +9,13 @@ typedef struct luat_sdio
     int rca;      // id
 } luat_sdio_t;
 
+typedef struct luat_fatfs_sdio
+{
+    int  id;      // id
+    int rca;      // id
+}luat_fatfs_sdio_t;
+
+
 int luat_sdio_init(int id);
 int luat_sdio_sd_read(int id, int rca, char* buff, size_t offset, size_t len);
 int luat_sdio_sd_write(int id, int rca, char* buff, size_t offset, size_t len);

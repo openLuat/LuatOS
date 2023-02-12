@@ -254,3 +254,27 @@ LUAMOD_API int luaopen_log( lua_State *L ) {
     luat_newlib2(L, reg_log);
     return 1;
 }
+
+void luat_log_dump(const char* tag, void* ptr, size_t len) {
+    if (ptr == NULL) {
+        luat_log_log(LUAT_LOG_DEBUG, tag, "ptr is NULL");
+        return;
+    }
+    if (len == 0) {
+        luat_log_log(LUAT_LOG_DEBUG, tag, "ptr len is 0");
+        return;
+    }
+    char buff[256] = {0};
+    char* ptr2 = ptr;
+    for (size_t i = 0; i < len; i++)
+    {
+        sprintf_(buff + strlen(buff), "%02X ", ptr2[i]);
+        if (i % 8 == 7) {
+            luat_log_log(LUAT_LOG_DEBUG, tag, "%s", buff);
+            buff[0] = 0;
+        }
+    }
+    if (strlen(buff)) {
+        luat_log_log(LUAT_LOG_DEBUG, tag, "%s", buff);
+    }
+}

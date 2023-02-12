@@ -9,6 +9,13 @@
 extern "C" {
 #endif
 
+enum {
+	DISK_SPI = 0,	
+	DISK_SDIO,		
+	DISK_RAM,		
+	DISK_USB
+};
+
 /* Status of Disk Functions */
 typedef BYTE	DSTATUS;
 
@@ -20,17 +27,6 @@ typedef enum {
 	RES_NOTRDY,		/* 3: Not Ready */
 	RES_PARERR		/* 4: Invalid Parameter */
 } DRESULT;
-
-
-/*---------------------------------------*/
-/* Prototypes for disk control functions */
-
-
-DSTATUS disk_initialize (BYTE pdrv);
-DSTATUS disk_status (BYTE pdrv);
-DRESULT disk_read (BYTE pdrv, BYTE* buff, LBA_t sector, UINT count);
-DRESULT disk_write (BYTE pdrv, const BYTE* buff, LBA_t sector, UINT count);
-DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff);
 
 typedef struct block_disk_opts {
     DSTATUS (*initialize) (void* userdata);
@@ -48,6 +44,16 @@ typedef struct block_disk {
 DRESULT diskio_open(BYTE pdrv, block_disk_t * disk);
 DRESULT diskio_close(BYTE pdrv);
 
+/*---------------------------------------*/
+/* Prototypes for disk control functions */
+
+
+DSTATUS disk_initialize (BYTE pdrv);
+DSTATUS disk_status (BYTE pdrv);
+DRESULT disk_read (BYTE pdrv, BYTE* buff, LBA_t sector, UINT count);
+DRESULT disk_write (BYTE pdrv, const BYTE* buff, LBA_t sector, UINT count);
+DRESULT disk_ioctl (BYTE pdrv, BYTE cmd, void* buff);
+
 /* Disk Status Bits (DSTATUS) */
 
 #define STA_NOINIT		0x01	/* Drive not initialized */
@@ -55,7 +61,7 @@ DRESULT diskio_close(BYTE pdrv);
 #define STA_PROTECT		0x04	/* Write protected */
 
 
-/* Command code for disk_ioctrl function */
+/* Command code for disk_ioctrl fucntion */
 
 /* Generic command (Used by FatFs) */
 #define CTRL_SYNC			0	/* Complete pending write process (needed at FF_FS_READONLY == 0) */
@@ -84,14 +90,6 @@ DRESULT diskio_close(BYTE pdrv);
 #define ATA_GET_REV			20	/* Get F/W revision */
 #define ATA_GET_MODEL		21	/* Get model name */
 #define ATA_GET_SN			22	/* Get serial number */
-
-/* MMC card type flags (MMC_GET_TYPE) */
-#define CT_MMC		0x01		/* MMC ver 3 */
-#define CT_SD1		0x02		/* SD ver 1 */
-#define CT_SD2		0x04		/* SD ver 2 */
-#define CT_SDC		(CT_SD1|CT_SD2)	/* SD */
-#define CT_BLOCK	0x08		/* Block addressing */
-
 
 #ifdef __cplusplus
 }

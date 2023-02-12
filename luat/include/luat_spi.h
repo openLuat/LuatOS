@@ -31,6 +31,7 @@ typedef struct luat_fatfs_spi
 	uint8_t spi_cs;
 	uint8_t nop;
 	uint32_t fast_speed;
+    uint8_t transfer_buf[7];
 	luat_spi_device_t * spi_device;
 }luat_fatfs_spi_t;
 

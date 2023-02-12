@@ -3,6 +3,7 @@
 
 #define HTTP_REQUEST_BUF_LEN_MAX 	(1024)
 #define HTTP_RESP_HEADER_MAX_SIZE 	(4096)
+#define HTTP_RESP_BUFF_SIZE 		(4096)
 
 #define HTTP_OK 			(0)
 #define HTTP_ERROR_STATE 	(-1)
@@ -40,7 +41,7 @@ typedef struct{
 	const char *dst;			//下载路径
 	//解析相关
 	http_parser  parser;
-	http_parser_settings parser_settings;
+	// http_parser_settings parser_settings;
 	char* headers;
 	uint32_t headers_len;		//headers缓存长度
 	char* body;
@@ -56,6 +57,13 @@ typedef struct{
 	void* timeout_timer;			// timeout_timer 定时器
 	uint8_t headers_complete;
 	uint8_t close_state;
+
+	char resp_buff[HTTP_RESP_BUFF_SIZE];
+	size_t resp_buff_offset;
+	size_t resp_headers_done;
 }luat_http_ctrl_t;
+
+int luat_http_client_init(luat_http_ctrl_t* http, int ipv6);
+int luat_http_client_start(luat_http_ctrl_t* http);
 
 #endif

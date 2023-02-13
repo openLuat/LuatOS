@@ -843,10 +843,10 @@ static void luat_spitf_write_blocks(luat_spitf_ctrl_t *spitf, const uint8_t *Buf
 	{
 		if (luat_spitf_cmd(spitf, CMD16, 512, 1))
 		{
-			goto SDHC_SPIREADBLOCKS_ERROR;
+			goto SDHC_SPIWRITEBLOCKS_ERROR;
 		}
 	}
-SDHC_SPIREADBLOCKS_START:
+SDHC_SPIWRITEBLOCKS_START:
 	if (spitf->SDSC)
 	{
 		address = (StartLBA + spitf->DataBuf.Pos) * 512;
@@ -857,11 +857,11 @@ SDHC_SPIREADBLOCKS_START:
 	}
 	if (luat_spitf_cmd(spitf, CMD25, address, 0))
 	{
-		goto SDHC_SPIREADBLOCKS_ERROR;
+		goto SDHC_SPIWRITEBLOCKS_ERROR;
 	}
 	if (luat_spitf_write_data(spitf))
 	{
-		goto SDHC_SPIREADBLOCKS_ERROR;
+		goto SDHC_SPIWRITEBLOCKS_ERROR;
 	}
 	if (spitf->DataBuf.Pos != spitf->DataBuf.MaxLen)
 	{
@@ -870,12 +870,12 @@ SDHC_SPIREADBLOCKS_START:
 		if (Retry > 3)
 		{
 			spitf->SDHCError = 1;
-			goto SDHC_SPIREADBLOCKS_ERROR;
+			goto SDHC_SPIWRITEBLOCKS_ERROR;
 		}
-		goto SDHC_SPIREADBLOCKS_START;
+		goto SDHC_SPIWRITEBLOCKS_START;
 	}
 	return;
-SDHC_SPIREADBLOCKS_ERROR:
+SDHC_SPIWRITEBLOCKS_ERROR:
 	luat_spitf_cs(spitf, 0);
 	LLOGD("write error!");
 	spitf->IsInitDone = 0;

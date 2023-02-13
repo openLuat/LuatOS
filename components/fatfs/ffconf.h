@@ -116,7 +116,9 @@
 #ifdef  LUAT_USE_FATFS_CHINESE
 #define FF_USE_LFN		2
 #else
-#define FF_USE_LFN		0
+#define FF_USE_LFN		2
+#undef FF_CODE_PAGE
+#define FF_CODE_PAGE	437
 #endif
 #define FF_MAX_LFN		255
 /* The FF_USE_LFN switches the support for LFN (long file name).

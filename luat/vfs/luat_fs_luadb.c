@@ -480,6 +480,9 @@ int luat_vfs_luadb_lsdir(void* userdata, char const* _DirName, luat_fs_dirent_t*
     return 0;
 }
 
+// 这个全局变量是给bsp自行设置的,名字不要动
+size_t luat_luadb_act_size;
+
 int luat_vfs_luadb_info(void* userdata, const char* path, luat_fs_info_t *conf) {
     (void)path;
     memcpy(conf->filesystem, "luadb", strlen("luadb")+1);
@@ -494,7 +497,7 @@ int luat_vfs_luadb_info(void* userdata, const char* path, luat_fs_info_t *conf) 
         used = end - begin + 512;
     }
     conf->type = 0;
-    conf->total_block = 0;
+    conf->total_block = luat_luadb_act_size / 512;
     conf->block_used = (used / 512) + 1;
     conf->block_size = 512;
     return 0;

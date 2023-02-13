@@ -113,8 +113,8 @@
 /     0 - Include all code pages above and configured by f_setcp()
 */
 
-#ifdef  LUAT_FF_USE_LFN
-#define FF_USE_LFN		LUAT_FF_USE_LFN
+#ifdef  LUAT_USE_FATFS_CHINESE
+#define FF_USE_LFN		2
 #else
 #define FF_USE_LFN		0
 #endif
@@ -136,8 +136,8 @@
 /  memory for the working buffer, memory management functions, ff_memalloc() and
 /  ff_memfree() exemplified in ffsystem.c, need to be added to the project. */
 
-#ifdef  LUAT_FF_LFN_UNICODE
-#define FF_LFN_UNICODE		LUAT_FF_LFN_UNICODE
+#ifdef  LUAT_USE_FATFS_CHINESE
+#define FF_LFN_UNICODE		2
 #else
 #define FF_LFN_UNICODE		0
 #endif

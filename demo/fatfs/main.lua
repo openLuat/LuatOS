@@ -19,32 +19,49 @@ PB5(SPI2_MISO)       MISO
 GND                  GND
 ]]
 
+-- 特别提醒, 由于FAT32是DOS时代的产物, 文件名超过8个字节是需要额外支持的(需要更大的ROM)
+-- 例如 /sd/boottime 是合法文件名, 而/sd/boot_time就不是合法文件名, 需要启用长文件名支持.
+
+local rtos_bsp = rtos.bsp()
+
+-- spi_id,pin_cs
+local function fatfs_spi_pin()     
+    if rtos_bsp == "AIR101" then
+        return 0,pin.PB04
+    elseif rtos_bsp == "AIR103" then
+        return 0,pin.PB04
+    elseif rtos_bsp == "AIR105" then
+        return 5,pin.PC14
+    elseif rtos_bsp == "ESP32C3" then
+        return 2,7
+    elseif rtos_bsp == "ESP32S3" then
+        return 2,14
+    elseif rtos_bsp == "EC618" then
+        return 0,8
+    else
+        log.info("main", "bsp not support")
+        return
+    end
+end
+
 sys.taskInit(function()
-    --sys.wait(1000) -- 启动延时
-    local spiId = 2
-    local result = spi.setup(
-        spiId,--串口id
-        255, -- 不使用默认CS脚
-        0,--CPHA
-        0,--CPOL
-        8,--数据宽度
-        400*1000  -- 初始化时使用较低的频率
-    )
-    local TF_CS = pin.PB3
-    gpio.setup(TF_CS, 1)
     --fatfs.debug(1) -- 若挂载失败,可以尝试打开调试信息,查找原因
-    fatfs.mount(fatfs.SPI,"SD", spiId, TF_CS, 24000000)
-    local data, err = fatfs.getfree("SD")
+
+    -- 此为spi方式
+    local spi_id,pin_cs = fatfs_spi_pin() 
+    spi.setup(spi_id,nil,0,0,8,400*1000)
+    gpio.setup(pin_cs, 1)
+    fatfs.mount(fatfs.SPI,"/sd", spi_id, pin_cs, 24*1000*1000)
+
+    -- 此为sdio方式,目前只101/103支持sdio,按需使用
+    -- fatfs.mount(fatfs.SDIO,"/sd")
+
+    local data, err = fatfs.getfree("/sd")
     if data then
         log.info("fatfs", "getfree", json.encode(data))
     else
         log.info("fatfs", "err", err)
     end
-
-    -- 重新设置spi,使用更高速率
-    -- spi.close(0)
-    -- sys.wait(100)
-    -- spi.setup(spiId, 255, 0, 0, 8, 24*1000*1000)
 
     -- #################################################
     -- 文件操作测试
@@ -58,6 +75,9 @@ sys.taskInit(function()
         f:close()
     end
     log.info("fs", "boot count", c)
+    if c == nil then
+        c = 0
+    end
     c = c + 1
     f = io.open("/sd/boottime", "wb")
     if f ~= nil then

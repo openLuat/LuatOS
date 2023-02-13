@@ -199,6 +199,7 @@ typedef struct
 #else
 #define SPI_TF_SLEEP(x)
 #endif
+#define SPI_TF_WAIT(x) luat_rtos_task_sleep(x)
 
 static luat_spitf_ctrl_t g_s_spitf;
 static void luat_spitf_read_config(luat_spitf_ctrl_t *spitf);
@@ -209,7 +210,7 @@ static void luat_spitf_cs(luat_spitf_ctrl_t *spitf, uint8_t OnOff)
 	luat_gpio_set(spitf->CSPin, !OnOff);
 	if (!OnOff)
 	{
-		luat_spi_transfer(spitf->SpiID, Temp, 1, Temp, 1);
+		luat_spi_send(spitf->SpiID, Temp, 1);
 	}
 
 }
@@ -273,7 +274,8 @@ static int32_t luat_spitf_cmd(luat_spitf_ctrl_t *spitf, uint8_t Cmd, uint32_t Ar
 	}
 	if (Result)
 	{
-		LLOGE("cmd %x arg %x result %d", Cmd, Arg, Result);
+		LLOGE("cmd %d arg %x result %d", Cmd, Arg, Result);
+		DBG_HexPrintf(spitf->TempData, TxLen);
 	}
 	return Result;
 }
@@ -545,7 +547,7 @@ WAIT_INIT_DONE:
 	{
 		goto INIT_DONE;
 	}
-	if (spitf->IsLow)
+	if (!spitf->IsLow)
 	{
 		if (luat_spitf_cmd(spitf, SD_CMD_SD_APP_OP_COND, 0x40000000, 1))
 		{
@@ -562,7 +564,7 @@ WAIT_INIT_DONE:
 	spitf->IsInitDone = !spitf->SDHCState;
 	if (!spitf->IsInitDone)
 	{
-		SPI_TF_SLEEP(10);
+		SPI_TF_WAIT(10);
 		goto WAIT_INIT_DONE;
 	}
 	if (luat_spitf_cmd(spitf, CMD58, 0, 1))
@@ -591,6 +593,7 @@ static void luat_spitf_read_config(luat_spitf_ctrl_t *spitf)
 	SD_CardInfo *pCardInfo = spitf->Info;
 	uint64_t Temp;
 	uint8_t flag_SDHC = (spitf->OCR & 0x40000000) >> 30;
+	spitf->IsLow = !flag_SDHC;
 	if (spitf->Info->CardCapacity) return;
 
 	if (luat_spitf_cmd(spitf, CMD9, 0, 0))
@@ -769,13 +772,6 @@ static void luat_spitf_read_blocks(luat_spitf_ctrl_t *spitf, uint8_t *Buf, uint3
 	uint8_t Retry = 0;
 	uint8_t error = 1;
 	Buffer_StaticInit(&spitf->DataBuf, Buf, BlockNums);
-	if (spitf->IsLow)
-	{
-		if (luat_spitf_cmd(spitf, CMD16, 512, 1))
-		{
-			goto SDHC_SPIREADBLOCKS_ERROR;
-		}
-	}
 SDHC_SPIREADBLOCKS_START:
 	if (luat_spitf_cmd(spitf, CMD18, StartLBA + spitf->DataBuf.Pos, 0))
 	{

@@ -27,26 +27,26 @@ errDump.config(true, 600, "user_id")	-- 默认是关闭，用这个可以额外�
 errDump.config(true, 0)
 local function test_user_log()
 	local buff = zbuff.create(4096)
-	local new_flag = log.dump(buff, log.TYPE_SYS)
+	local new_flag = errDump.dump(buff, log.TYPE_SYS)
 	if buff:used() > 0 then
 		log.info(buff:toStr(0, buff:used()))
 	end
-	new_flag = log.dump(buff, log.TYPE_SYS)
+	new_flag = errDump.dump(buff, log.TYPE_SYS)
 	if not new_flag then
 		log.info("没有新数据了，删除系统错误日志")
-		log.dump(nil, log.TYPE_SYS, true)
+		errDump.dump(nil, log.TYPE_SYS, true)
 	end
 	while true do
 		sys.wait(15000)
 		log.record("测试一下用户的记录功能")
-		local new_flag = log.dump(buff, log.TYPE_USR)
+		local new_flag = errDump.dump(buff, log.TYPE_USR)
 		if new_flag then
 			log.info(buff:toStr(0, buff:used()))
 		end
-		new_flag = log.dump(buff, log.TYPE_USR)
+		new_flag = errDump.dump(buff, log.TYPE_USR)
 		if not new_flag then
 			log.info("没有新数据了，删除用户错误日志")
-			log.dump(nil, log.TYPE_USR, true)
+			errDump.dump(nil, log.TYPE_USR, true)
 		end
 	end
 end

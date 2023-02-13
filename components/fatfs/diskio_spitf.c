@@ -11,6 +11,7 @@
 #include "luat_spi.h"
 #include "luat_timer.h"
 #include "luat_gpio.h"
+#include "luat_malloc.h"
 #include "lauxlib.h"
 
 #include "ff.h"			/* Obtains integer types */
@@ -205,7 +206,7 @@ static void luat_spitf_cs(luat_spitf_ctrl_t *spitf, uint8_t OnOff)
 	luat_gpio_set(spitf->CSPin, !OnOff);
 	if (!OnOff)
 	{
-		luat_spi_send(spitf->SpiID, Temp, 1);
+		luat_spi_send(spitf->SpiID, (const char *)Temp, 1);
 	}
 
 }
@@ -229,7 +230,7 @@ static uint8_t CRC7(uint8_t * chr, int cnt)
 	crc=(crc<<1)|1;
 	return(crc);
 }
-
+extern void DBG_HexPrintf(void *Data, unsigned int len);
 static int32_t luat_spitf_cmd(luat_spitf_ctrl_t *spitf, uint8_t Cmd, uint32_t Arg, uint8_t NeedStop)
 {
 	uint64_t OpEndTick;
@@ -246,7 +247,7 @@ static int32_t luat_spitf_cmd(luat_spitf_ctrl_t *spitf, uint8_t Cmd, uint32_t Ar
 
 	spitf->SPIError = 0;
 	spitf->SDHCError = 0;
-	luat_spi_transfer(spitf->SpiID, spitf->TempData, TxLen, spitf->TempData, TxLen);
+	luat_spi_transfer(spitf->SpiID, (const char *)spitf->TempData, TxLen, (char *)spitf->TempData, TxLen);
 
 	for(i = 7; i < TxLen; i++)
 	{
@@ -301,7 +302,7 @@ static int32_t luat_spitf_read_reg(luat_spitf_ctrl_t *spitf, uint8_t *RegDataBuf
 			DummyLen = spitf->ExternLen - i - offset;
 			memcpy(RegDataBuf, &spitf->ExternResult[i + offset], DummyLen);
 			memset(RegDataBuf + DummyLen, 0xff, DataLen - DummyLen);
-			luat_spi_transfer(spitf->SpiID, RegDataBuf + DummyLen, DataLen - DummyLen, RegDataBuf + DummyLen, DataLen - DummyLen);
+			luat_spi_transfer(spitf->SpiID, (const char *)(RegDataBuf + DummyLen), DataLen - DummyLen, (char *)(RegDataBuf + DummyLen), DataLen - DummyLen);
 			goto SDHC_SPIREADREGDATA_DONE;
 		}
 
@@ -309,7 +310,7 @@ static int32_t luat_spitf_read_reg(luat_spitf_ctrl_t *spitf, uint8_t *RegDataBuf
 	while((luat_mcu_tick64_ms() < OpEndTick) && !spitf->SDHCError)
 	{
 		memset(spitf->TempData, 0xff, 40);
-		luat_spi_transfer(spitf->SpiID, spitf->TempData, 40, spitf->TempData, 40);
+		luat_spi_transfer(spitf->SpiID, (const char *)spitf->TempData, 40, (char *)spitf->TempData, 40);
 
 		for(i = 0; i < 40; i++)
 		{
@@ -333,7 +334,7 @@ static int32_t luat_spitf_read_reg(luat_spitf_ctrl_t *spitf, uint8_t *RegDataBuf
 				{
 					memcpy(RegDataBuf, &spitf->TempData[i + offset], DummyLen);
 					memset(RegDataBuf + DummyLen, 0xff, DataLen - DummyLen);
-					luat_spi_transfer(spitf->SpiID, RegDataBuf + DummyLen, DataLen - DummyLen, RegDataBuf + DummyLen, DataLen - DummyLen);
+					luat_spi_transfer(spitf->SpiID, (const char *)(RegDataBuf + DummyLen), DataLen - DummyLen, (char *)(RegDataBuf + DummyLen), DataLen - DummyLen);
 					goto SDHC_SPIREADREGDATA_DONE;
 				}
 			}
@@ -370,7 +371,7 @@ static int32_t luat_spitf_write_data(luat_spitf_ctrl_t *spitf)
 		BytesPutBe16(spitf->TempData + 3 + __SDHC_BLOCK_LEN__, crc16);
 		spitf->TempData[5 + __SDHC_BLOCK_LEN__] = 0xff;
 		TxLen = 6 + __SDHC_BLOCK_LEN__;
-		luat_spi_transfer(spitf->SpiID, spitf->TempData, TxLen, spitf->TempData, TxLen);
+		luat_spi_transfer(spitf->SpiID, (const char *)spitf->TempData, TxLen, (char *)spitf->TempData, TxLen);
 		if ((spitf->TempData[5 + __SDHC_BLOCK_LEN__] & 0x1f) != 0x05)
 		{
 			LLOGD("write data error! %d %02x", spitf->DataBuf.Pos, spitf->TempData[5 + __SDHC_BLOCK_LEN__]);
@@ -383,7 +384,7 @@ static int32_t luat_spitf_write_data(luat_spitf_ctrl_t *spitf)
 		{
 			TxLen = spitf->WriteWaitCnt?spitf->WriteWaitCnt:80;
 			memset(spitf->TempData, 0xff, TxLen);
-			luat_spi_transfer(spitf->SpiID, spitf->TempData, TxLen, spitf->TempData, TxLen);
+			luat_spi_transfer(spitf->SpiID, (const char *)spitf->TempData, TxLen, (char *)spitf->TempData, TxLen);
 			for(i = 4; i < TxLen; i++)
 			{
 				if (spitf->TempData[i] == 0xff)
@@ -413,7 +414,7 @@ static int32_t luat_spitf_write_data(luat_spitf_ctrl_t *spitf)
 	Result = ERROR_NONE;
 SDHC_SPIWRITEBLOCKDATA_DONE:
 	spitf->TempData[0] = 0xfd;
-	luat_spi_send(spitf->SpiID, spitf->TempData, 1);
+	luat_spi_send(spitf->SpiID, (const char *)spitf->TempData, 1);
 
 	OpEndTick = luat_mcu_tick64_ms() + SPI_TF_WRITE_TO_MS;
 	DoneFlag = 0;
@@ -421,7 +422,7 @@ SDHC_SPIWRITEBLOCKDATA_DONE:
 	{
 		TxLen = 512;
 		memset(spitf->TempData, 0xff, TxLen);
-		luat_spi_transfer(spitf->SpiID, spitf->TempData, TxLen, spitf->TempData, TxLen);
+		luat_spi_transfer(spitf->SpiID, (const char *)spitf->TempData, TxLen, (char *)spitf->TempData, TxLen);
 		for(i = 4; i < TxLen; i++)
 		{
 			if (spitf->TempData[i] == 0xff)
@@ -451,7 +452,7 @@ static int32_t luat_spitf_read_data(luat_spitf_ctrl_t *spitf)
 		DummyLen = (__SDHC_BLOCK_LEN__ >> 1);
 		memset(spitf->TempData, 0xff, DummyLen);
 //		LLOGD("read blocks %u,%u", spitf->DataBuf.Pos, spitf->DataBuf.MaxLen);
-		luat_spi_transfer(spitf->SpiID, spitf->TempData, DummyLen, spitf->TempData, DummyLen);
+		luat_spi_transfer(spitf->SpiID, (const char *)spitf->TempData, DummyLen, (char *)spitf->TempData, DummyLen);
 		RemainingLen = 0;
 		for(i = 0; i < DummyLen; i++)
 		{
@@ -471,9 +472,9 @@ static int32_t luat_spitf_read_data(luat_spitf_ctrl_t *spitf)
 READ_REST_DATA:
 		pBuf = spitf->DataBuf.Data + spitf->DataBuf.Pos * __SDHC_BLOCK_LEN__ + ReadLen;
 		memset(pBuf, 0xff, RemainingLen);
-		luat_spi_transfer(spitf->SpiID, pBuf, RemainingLen, pBuf, RemainingLen);
+		luat_spi_transfer(spitf->SpiID, (const char *)pBuf, RemainingLen, (char *)pBuf, RemainingLen);
 		memset(spitf->TempData, 0xff, 2);
-		luat_spi_transfer(spitf->SpiID, spitf->TempData, 2, spitf->TempData, 2);
+		luat_spi_transfer(spitf->SpiID, (const char *)spitf->TempData, 2, (char *)spitf->TempData, 2);
 //		if (spitf->IsCRCCheck)
 		{
 			crc16 = CRC16Cal(spitf->DataBuf.Data + spitf->DataBuf.Pos * __SDHC_BLOCK_LEN__, __SDHC_BLOCK_LEN__, 0, CRC16_CCITT_GEN, 0);
@@ -513,10 +514,10 @@ static void luat_spitf_init(luat_spitf_ctrl_t *spitf)
 	spitf->Info->CardCapacity = 0;
 	spitf->WriteWaitCnt = 80;
 	luat_gpio_set(spitf->CSPin, 0);
-	luat_spi_transfer(spitf->SpiID, spitf->TempData, 40, spitf->TempData, 40);
+	luat_spi_transfer(spitf->SpiID, (const char *)spitf->TempData, 40, (char *)spitf->TempData, 40);
 	luat_gpio_set(spitf->CSPin, 1);
 	memset(spitf->TempData, 0xff, 40);
-	luat_spi_transfer(spitf->SpiID, spitf->TempData, 40, spitf->TempData, 40);
+	luat_spi_transfer(spitf->SpiID, (const char *)spitf->TempData, 40, (char *)spitf->TempData, 40);
 	spitf->SDSC = 0;
 	if (luat_spitf_cmd(spitf, CMD0, 0, 1))
 	{

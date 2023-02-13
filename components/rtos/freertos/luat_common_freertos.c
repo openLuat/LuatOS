@@ -15,6 +15,9 @@
 #include "queue.h"
 #endif
 
+#define LUAT_LOG_TAG "rtos"
+#include "luat_log.h"
+
 typedef struct
 {
 	TaskHandle_t handle;
@@ -127,7 +130,8 @@ int get_event_from_task(void *task_handle, uint32_t target_event_id, OS_EVENT *e
 	int32_t result = ERROR_NONE;
 	uint32_t wait_ms = timeout_ms;
 	task_handle_t *handle = (void *)task_handle;
-	if (xTaskGetCurrentTaskHandle() != handle)
+	int ret = 0;
+	if (xTaskGetCurrentTaskHandle() != handle->handle)
 	{
 		return -1;
 	}
@@ -142,7 +146,7 @@ int get_event_from_task(void *task_handle, uint32_t target_event_id, OS_EVENT *e
 		wait_ms = portMAX_DELAY;
 	}
 GET_NEW_EVENT:
-	if (xQueueReceive(handle->queue, event, wait_ms) != pdTRUE)
+	if ((ret = xQueueReceive(handle->queue, event, wait_ms)) != pdTRUE)
 	{
 		return -ERROR_OPERATION_FAILED;
 	}

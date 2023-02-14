@@ -8,8 +8,10 @@ log.info("main", PROJECT, VERSION)
 sys = require("sys")
 
 --添加硬狗防止程序卡死
-wdt.init(9000)--初始化watchdog设置为9s
-sys.timerLoopStart(wdt.feed, 3000)--3s喂一次狗
+if wdt then
+    wdt.init(9000)--初始化watchdog设置为9s
+    sys.timerLoopStart(wdt.feed, 3000)--3s喂一次狗
+end
 
 -- spi_id,pin_cs
 local function sfud_spi_pin()

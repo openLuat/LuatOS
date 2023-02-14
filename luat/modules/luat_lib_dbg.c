@@ -4,7 +4,6 @@
 #include "luat_malloc.h"
 #include "luat_dbg.h"
 #include "luat_cmux.h"
-#include "luat_conf_bsp.h"
 
 #define LUAT_LOG_TAG "dbg"
 #include "luat_log.h"

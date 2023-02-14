@@ -34,7 +34,7 @@ end
 sys.taskInit(function()
     local spi_id,pin_cs = sfud_spi_pin() 
 
-    local spi_flash = spi.deviceSetup(spi_id,pin_cs,0,0,8,20*1000*1000,spi.MSB,1,0)
+    spi_flash = spi.deviceSetup(spi_id,pin_cs,0,0,8,20*1000*1000,spi.MSB,1,0)
     local ret = sfud.init(spi_flash)
     if ret then
         log.info("sfud.init ok")

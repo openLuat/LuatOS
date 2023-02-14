@@ -12,7 +12,8 @@ wdt.init(9000)--初始化watchdog设置为9s
 sys.timerLoopStart(wdt.feed, 3000)--3s喂一次狗
 
 -- spi_id,pin_cs
-local function sfud_spi_pin()     
+local function sfud_spi_pin()
+    local rtos_bsp = rtos.bsp()
     if rtos_bsp == "AIR101" then
         return 0,pin.PB04
     elseif rtos_bsp == "AIR103" then
@@ -33,6 +34,12 @@ end
 
 sys.taskInit(function()
     local spi_id,pin_cs = sfud_spi_pin() 
+    if not spi_id then
+        while 1 do
+            sys.wait(1000)
+            log.info("main", "bsp not support yet")
+        end
+    end
 
     spi_flash = spi.deviceSetup(spi_id,pin_cs,0,0,8,20*1000*1000,spi.MSB,1,0)
     local ret = sfud.init(spi_flash)

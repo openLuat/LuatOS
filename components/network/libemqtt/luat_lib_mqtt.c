@@ -3,8 +3,8 @@
 @summary mqtt客户端
 @version 1.0
 @date    2022.08.25
-@demo socket
-@tag LUAT_USE_MQTT
+@demo mqtt
+@tag LUAT_USE_NETWORK
 */
 
 #include "luat_base.h"

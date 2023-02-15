@@ -7,7 +7,8 @@ bsp_header_list = [
 {"name":"Air101/Air103","url":"https://gitee.com/openLuat/luatos-soc-air101/raw/master/app/port/luat_conf_bsp.h"},
 {"name":"Air105","url":"https://gitee.com/openLuat/luatos-soc-air105/raw/master/application/include/luat_conf_bsp.h"},
 {"name":"ESP32C3","url":"https://gitee.com/openLuat/luatos-soc-idf5/raw/master/luatos/include/luat_conf_bsp.h"},
-{"name":"Air780","url":"https://gitee.com/openLuat/luatos-soc-2022/raw/master/project/luatos/inc/luat_conf_bsp.h"},
+{"name":"ESP32S3","url":"https://gitee.com/openLuat/luatos-soc-idf5/raw/master/luatos/include/luat_conf_bsp.h"},
+{"name":"Air780E","url":"https://gitee.com/openLuat/luatos-soc-2022/raw/master/project/luatos/inc/luat_conf_bsp.h"},
 ]
 print("getting bsp.h files...")
 for bsp in bsp_header_list:

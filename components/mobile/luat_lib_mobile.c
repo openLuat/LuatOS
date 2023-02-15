@@ -545,6 +545,16 @@ static int l_mobile_request_cell_info(lua_State* L) {
     return 0;
 }
 
+/**
+重启协议栈
+@api mobile.reset()
+@usage mobile.reset()
+ */
+static int l_mobile_reset(lua_State* L) {
+    luat_mobile_reset_stack();
+    return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_mobile[] = {
     {"status",      ROREG_FUNC(l_mobile_status)},
@@ -567,7 +577,7 @@ static const rotable_Reg_t reg_mobile[] = {
 	{"setAuto",       ROREG_FUNC(l_mobile_set_auto_work)},
     {"getCellInfo", ROREG_FUNC(l_mobile_get_cell_info)},
     {"reqCellInfo", ROREG_FUNC(l_mobile_request_cell_info)},
-
+	{"reset",      ROREG_FUNC(l_mobile_reset)},
     // const UNREGISTER 未注册
     {"UNREGISTER",                  ROREG_INT(LUAT_MOBILE_STATUS_UNREGISTER)},
     // const REGISTERED 已注册

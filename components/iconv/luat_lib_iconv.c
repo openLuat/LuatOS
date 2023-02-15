@@ -59,7 +59,7 @@
 #define ERROR_INCOMPLETE    3
 #define ERROR_UNKNOWN       4
 
-#if 0
+#if 1
 #include "iconv.h"
 
 static void push_iconv_t(lua_State *L, iconv_t cd) {

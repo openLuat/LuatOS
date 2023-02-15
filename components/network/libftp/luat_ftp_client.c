@@ -162,6 +162,7 @@ next:
 		LLOGE("ftp network_rx fail");
 		return -1;
 	}
+	return 0;
 }
 
 static int32_t l_ftp_callback(lua_State *L, void* ptr){
@@ -175,7 +176,7 @@ static int32_t l_ftp_callback(lua_State *L, void* ptr){
 		}
 		else if (msg->arg2)
 		{
-			lua_pushlstring(L,g_s_ftp.result_buffer.Data,g_s_ftp.result_buffer.Pos);
+			lua_pushlstring(L,(const char *)(g_s_ftp.result_buffer.Data),g_s_ftp.result_buffer.Pos);
 		}
 		else
 		{
@@ -311,13 +312,14 @@ static int32_t ftp_task_cb(void *pdata, void *param)
 //		LLOGE("ignore %x,%x,%x", event->ID, param, EV_NW_RESULT_EVENT);
 		break;
 	}
+	return 0;
 }
 
 static int luat_ftp_pasv_connect(luat_ftp_ctrl_t *ftp_ctrl,uint32_t timeout_ms){
 	char h1[4]={0},h2[4]={0},h3[4]={0},h4[4]={0},p1[4]={0},p2[4]={0},data_addr[20]={0};
 	uint8_t port1,port2;
 	uint16_t data_port;	
-	luat_ftp_cmd_send(g_s_ftp.network, "PASV\r\n", strlen("PASV\r\n"),FTP_SOCKET_TIMEOUT);
+	luat_ftp_cmd_send(g_s_ftp.network, (uint8_t*)"PASV\r\n", strlen("PASV\r\n"),FTP_SOCKET_TIMEOUT);
 	int ret = luat_ftp_cmd_recv(g_s_ftp.network,g_s_ftp.network->cmd_recv_data,&g_s_ftp.network->cmd_recv_len,FTP_SOCKET_TIMEOUT);
 	if (ret){
 		return -1;
@@ -328,7 +330,7 @@ static int luat_ftp_pasv_connect(luat_ftp_ctrl_t *ftp_ctrl,uint32_t timeout_ms){
 			return -1;
 		}
 	}
-    char *temp = memchr(g_s_ftp.network->cmd_recv_data, '(', strlen(g_s_ftp.network->cmd_recv_data));
+    char *temp = memchr(g_s_ftp.network->cmd_recv_data, '(', strlen((const char *)(g_s_ftp.network->cmd_recv_data)));
     char *temp1 = memchr(temp+1, ',', strlen(temp)-1);
     memcpy(h1, temp+1, temp1-temp-1);
     char *temp2 = memchr(temp1+1, ',', strlen(temp1)-1);
@@ -403,6 +405,7 @@ static int luat_ftp_pasv_connect(luat_ftp_ctrl_t *ftp_ctrl,uint32_t timeout_ms){
 		LLOGD("ftp pasv_connect ok");
 		return 0;
 	}
+	return -1;
 }
 
 
@@ -429,8 +432,8 @@ static int ftp_login(void)
 	}
 	LLOGD("ftp connect ok");
 	memset(g_s_ftp.network->cmd_send_data,0,FTP_CMD_SEND_MAX);
-	snprintf_(g_s_ftp.network->cmd_send_data, FTP_CMD_SEND_MAX, "USER %s\r\n",g_s_ftp.network->username);
-	luat_ftp_cmd_send(g_s_ftp.network, g_s_ftp.network->cmd_send_data, strlen(g_s_ftp.network->cmd_send_data),FTP_SOCKET_TIMEOUT);
+	snprintf_((char *)(g_s_ftp.network->cmd_send_data), FTP_CMD_SEND_MAX, "USER %s\r\n",g_s_ftp.network->username);
+	luat_ftp_cmd_send(g_s_ftp.network, g_s_ftp.network->cmd_send_data, strlen((const char *)(g_s_ftp.network->cmd_send_data)),FTP_SOCKET_TIMEOUT);
 	ret = luat_ftp_cmd_recv(g_s_ftp.network,g_s_ftp.network->cmd_recv_data,&g_s_ftp.network->cmd_recv_len,FTP_SOCKET_TIMEOUT);
 	if (ret){
 		LLOGE("ftp username wrong");
@@ -443,8 +446,8 @@ static int ftp_login(void)
 	}
 	LLOGD("ftp username ok");
 	memset(g_s_ftp.network->cmd_send_data,0,FTP_CMD_SEND_MAX);
-	snprintf_(g_s_ftp.network->cmd_send_data, FTP_CMD_SEND_MAX, "PASS %s\r\n",g_s_ftp.network->password);
-	luat_ftp_cmd_send(g_s_ftp.network, g_s_ftp.network->cmd_send_data, strlen(g_s_ftp.network->cmd_send_data),FTP_SOCKET_TIMEOUT);
+	snprintf_((char *)(g_s_ftp.network->cmd_send_data), FTP_CMD_SEND_MAX, "PASS %s\r\n",g_s_ftp.network->password);
+	luat_ftp_cmd_send(g_s_ftp.network, g_s_ftp.network->cmd_send_data, strlen((const char *)(g_s_ftp.network->cmd_send_data)),FTP_SOCKET_TIMEOUT);
 	ret = luat_ftp_cmd_recv(g_s_ftp.network,g_s_ftp.network->cmd_recv_data,&g_s_ftp.network->cmd_recv_len,FTP_SOCKET_TIMEOUT);
 	if (ret){
 		LLOGE("ftp login wrong");
@@ -519,8 +522,8 @@ static void ftp_task(void *param){
 				LLOGE("ftp pasv_connect fail");
 				goto operation_failed;
 			}
-			snprintf_(g_s_ftp.network->cmd_send_data, FTP_CMD_SEND_MAX, "RETR %s\r\n",g_s_ftp.network->remote_name);
-			luat_ftp_cmd_send(g_s_ftp.network, g_s_ftp.network->cmd_send_data, strlen(g_s_ftp.network->cmd_send_data),FTP_SOCKET_TIMEOUT);
+			snprintf_((char *)(g_s_ftp.network->cmd_send_data), FTP_CMD_SEND_MAX, "RETR %s\r\n",g_s_ftp.network->remote_name);
+			luat_ftp_cmd_send(g_s_ftp.network, g_s_ftp.network->cmd_send_data, strlen((const char *)g_s_ftp.network->cmd_send_data),FTP_SOCKET_TIMEOUT);
 			ret = luat_ftp_cmd_recv(g_s_ftp.network,g_s_ftp.network->cmd_recv_data,&g_s_ftp.network->cmd_recv_len,FTP_SOCKET_TIMEOUT);
 			if (ret){
 				goto operation_failed;
@@ -535,7 +538,7 @@ static void ftp_task(void *param){
 			{
 				g_s_ftp.network->cmd_recv_data[g_s_ftp.network->cmd_recv_len] = 0;
 				LLOGD("ftp RETR maybe done!");
-				if (strstr(g_s_ftp.network->cmd_recv_data, "226 Transfer complete"))
+				if (strstr((const char *)(g_s_ftp.network->cmd_recv_data), "226 Transfer complete"))
 				{
 					LLOGD("ftp RETR ok!");
 					if (g_s_ftp.fd){
@@ -568,8 +571,8 @@ static void ftp_task(void *param){
 			}
 
 			memset(g_s_ftp.network->cmd_send_data,0,FTP_CMD_SEND_MAX);
-			snprintf_(g_s_ftp.network->cmd_send_data, FTP_CMD_SEND_MAX, "STOR %s\r\n",g_s_ftp.network->remote_name);
-			luat_ftp_cmd_send(g_s_ftp.network, g_s_ftp.network->cmd_send_data, strlen(g_s_ftp.network->cmd_send_data),FTP_SOCKET_TIMEOUT);
+			snprintf_((char *)(g_s_ftp.network->cmd_send_data), FTP_CMD_SEND_MAX, "STOR %s\r\n",g_s_ftp.network->remote_name);
+			luat_ftp_cmd_send(g_s_ftp.network, g_s_ftp.network->cmd_send_data, strlen((const char *)g_s_ftp.network->cmd_send_data),FTP_SOCKET_TIMEOUT);
 			ret = luat_ftp_cmd_recv(g_s_ftp.network,g_s_ftp.network->cmd_recv_data,&g_s_ftp.network->cmd_recv_len,FTP_SOCKET_TIMEOUT);
 			if (ret){
 				goto operation_failed;
@@ -622,7 +625,7 @@ static void ftp_task(void *param){
 					LLOGD("ftp pasv_connect fail");
 					goto operation_failed;
 				}
-				luat_ftp_cmd_send(g_s_ftp.network, g_s_ftp.network->cmd_send_data, strlen(g_s_ftp.network->cmd_send_data),FTP_SOCKET_TIMEOUT);
+				luat_ftp_cmd_send(g_s_ftp.network, g_s_ftp.network->cmd_send_data, strlen((const char *)(g_s_ftp.network->cmd_send_data)),FTP_SOCKET_TIMEOUT);
 				ret = luat_ftp_cmd_recv(g_s_ftp.network,g_s_ftp.network->cmd_recv_data,&g_s_ftp.network->cmd_recv_len,FTP_SOCKET_TIMEOUT);
 				if (ret){
 					goto operation_failed;
@@ -636,7 +639,7 @@ static void ftp_task(void *param){
 				{
 					g_s_ftp.network->cmd_recv_data[g_s_ftp.network->cmd_recv_len] = 0;
 					LLOGD("ftp LIST maybe done!");
-					if (strstr(g_s_ftp.network->cmd_recv_data, FTP_CLOSE_CONNECT))
+					if (strstr((const char *)(g_s_ftp.network->cmd_recv_data), FTP_CLOSE_CONNECT))
 					{
 						LLOGD("ftp LIST ok!");
 						msg.arg2 = 1;
@@ -657,7 +660,7 @@ static void ftp_task(void *param){
 				luat_msgbus_put(&msg, 0);
 				break;
 			}
-			luat_ftp_cmd_send(g_s_ftp.network, g_s_ftp.network->cmd_send_data, strlen(g_s_ftp.network->cmd_send_data),FTP_SOCKET_TIMEOUT);
+			luat_ftp_cmd_send(g_s_ftp.network, g_s_ftp.network->cmd_send_data, strlen((const char *)(g_s_ftp.network->cmd_send_data)),FTP_SOCKET_TIMEOUT);
 			ret = luat_ftp_cmd_recv(g_s_ftp.network,g_s_ftp.network->cmd_recv_data,&g_s_ftp.network->cmd_recv_len,FTP_SOCKET_TIMEOUT);
 			if (ret){
 				goto operation_failed;
@@ -719,7 +722,7 @@ operation_failed:
 
 	msg.arg1 = 0;
 	msg.arg2 = 0;
-	luat_ftp_cmd_send(g_s_ftp.network, "QUIT\r\n", strlen("QUIT\r\n"),FTP_SOCKET_TIMEOUT);
+	luat_ftp_cmd_send(g_s_ftp.network, (uint8_t*)"QUIT\r\n", strlen("QUIT\r\n"),FTP_SOCKET_TIMEOUT);
 	ret = luat_ftp_cmd_recv(g_s_ftp.network,g_s_ftp.network->cmd_recv_data,&g_s_ftp.network->cmd_recv_len,FTP_SOCKET_TIMEOUT);
 	if (ret){
 		msg.arg1 = 1;
@@ -877,9 +880,9 @@ static int l_ftp_login(lua_State *L) {
 			network_set_server_cert(g_s_ftp.network->cmd_netc, (const unsigned char *)server_cert, server_cert_len+1);
 		}
 		if (client_cert){
-			network_set_client_cert(g_s_ftp.network->cmd_netc, client_cert, client_cert_len+1,
-					client_key, client_key_len+1,
-					client_password, client_password_len+1);
+			network_set_client_cert(g_s_ftp.network->cmd_netc, (const unsigned char *)client_cert, client_cert_len+1,
+					(const unsigned char *)client_key, client_key_len+1,
+					(const unsigned char *)client_password, client_password_len+1);
 		}
 	}else{
 		network_deinit_tls(g_s_ftp.network->cmd_netc);
@@ -953,7 +956,7 @@ static int l_ftp_command(lua_State *L) {
 		return 1;
 	}
 	memset(g_s_ftp.network->cmd_send_data,0,FTP_CMD_SEND_MAX);
-	snprintf_(g_s_ftp.network->cmd_send_data, FTP_CMD_SEND_MAX, "%s\r\n",cmd);
+	snprintf_((char *)(g_s_ftp.network->cmd_send_data), FTP_CMD_SEND_MAX, "%s\r\n",cmd);
 	luat_rtos_event_send(g_s_ftp.task_handle, FTP_EVENT_COMMAND, (uint32_t)g_s_ftp.idp, (uint32_t)(g_s_ftp.idp >> 32), 0, LUAT_WAIT_FOREVER);
 	return 1;
 error:
@@ -1076,6 +1079,7 @@ error:
 }
 
 #include "rotable2.h"
+#ifdef LUAT_USE_NETWORK
 static const rotable_Reg_t reg_ftp[] =
 {
 	{"login",			ROREG_FUNC(l_ftp_login)},
@@ -1086,11 +1090,12 @@ static const rotable_Reg_t reg_ftp[] =
 
 	{ NULL,             ROREG_INT(0)}
 };
-
+#else
 static const rotable_Reg_t reg_ftp_emtry[] =
 {
 	{ NULL,             ROREG_INT(0)}
 };
+#endif
 
 LUAMOD_API int luaopen_ftp( lua_State *L ) {
 #ifdef LUAT_USE_NETWORK

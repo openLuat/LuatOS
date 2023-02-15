@@ -121,14 +121,9 @@ sys.taskInit(function()
 
     while 1 do
         -- 最普通的Http GET请求
-        -- local code, headers, body = http.request("GET", "https://yanqiyu.info/").wait()
-        -- sys.wait(100)
         -- local code, headers, body = http.request("GET", "https://www.air32.cn/").wait()
         -- log.info("http.get", code, headers, body)
         -- local code, headers, body = http.request("GET", "https://mirrors6.tuna.tsinghua.edu.cn/", nil, nil, {ipv6=true}).wait()
-        -- log.info("http.get", code, headers, body)
-        -- sys.wait(100)
-        -- local code, headers, body = http.request("GET", "https://www.baidu.com/").wait() -- 留意末尾的.wait()
         -- log.info("http.get", code, headers, body)
         -- sys.wait(100)
         -- local code, headers, body = http.request("GET", "https://www.luatos.com/").wait()

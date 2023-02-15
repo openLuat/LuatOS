@@ -121,14 +121,9 @@ sys.taskInit(function()
 
     while 1 do
         -- 最普通的Http GET请求
-        -- local code, headers, body = http.request("GET", "https://yanqiyu.info/").wait()
-        -- sys.wait(100)
         -- local code, headers, body = http.request("GET", "https://www.air32.cn/").wait()
         -- log.info("http.get", code, headers, body)
         -- local code, headers, body = http.request("GET", "https://mirrors6.tuna.tsinghua.edu.cn/", nil, nil, {ipv6=true}).wait()
-        -- log.info("http.get", code, headers, body)
-        -- sys.wait(100)
-        -- local code, headers, body = http.request("GET", "https://www.baidu.com/").wait() -- 留意末尾的.wait()
         -- log.info("http.get", code, headers, body)
         -- sys.wait(100)
         -- local code, headers, body = http.request("GET", "https://www.luatos.com/").wait()
@@ -193,7 +188,7 @@ sys.taskInit(function()
         -- opts["dst"] = "/data.bin"       -- 下载路径,可选
         -- opts["timeout"] = 30            -- 超时时长,单位秒,可选
         -- opts["adapter"] = socket.ETH0  -- 使用哪个网卡,可选
-        -- local code, headers, body = http.request("POST","http://site0.cn/api/httptest/simple/date", e
+        -- local code, headers, body = http.request("POST","http://site0.cn/api/httptest/simple/date",
         --         {}, -- 请求所添加的 headers, 可以是nil
         --         "", 
         --         opts

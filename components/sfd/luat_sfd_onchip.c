@@ -34,7 +34,7 @@ int luat_sfd_onchip_init(void) {
     sfd_onchip->type = 2;
     sfd_onchip->userdata = onchip;
     int ret = sfd_onchip_init(onchip);
-    if (ret != NULL) {
+    if (ret != 0) {
         luat_heap_free(onchip);
         luat_heap_free(sfd_onchip);
         sfd_onchip = NULL;

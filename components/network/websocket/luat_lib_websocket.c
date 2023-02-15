@@ -4,6 +4,7 @@
 @version 1.0
 @date    2022.11.28
 @demo    websocket
+@tag LUAT_USE_NETWORK
 @usage
 local wsc = nil
 if websocket then

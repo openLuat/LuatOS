@@ -18,6 +18,27 @@ if wdt then
     sys.timerLoopStart(wdt.feed, 3000)--3s喂一次狗
 end
 
+--可选pwm,gpio,spi方式驱动,API详情查看wiki https://wiki.luatos.com/api/sensor.html
+
+-- mode pin/pwm_id/spi_id T0H T0L T1H T1L
+local function ws2812_conf()
+    local rtos_bsp = rtos.bsp()
+    if rtos_bsp == "AIR101" then
+        return "pin",pin.PA7,0,20,20,0      --此为pin方式直驱,注意air101主频设置240
+    elseif rtos_bsp == "AIR103" then
+        return "pin",pin.PA7,0,20,20,0      --此为pin方式直驱,注意air103主频设置240
+    elseif rtos_bsp == "AIR105" then
+        return "pin",pin.PD13,0,10,10,0     --此为pin方式直驱
+    elseif rtos_bsp == "ESP32C3" then
+        return "pin",2,0,10,10,0            --此为pin方式直驱
+    elseif rtos_bsp == "ESP32S3" then
+        return "pin",2,0,10,10,0            --此为pin方式直驱
+    else
+        log.info("main", "bsp not support")
+        return
+    end
+end
+
 local show_520 = {
     {0x0000ff,0x0000ff,0x0000ff,0x0000ff,0x0000ff,0x0000ff,0x0000ff,0x0000ff,0x0000ff,0x0000ff,0x0000ff,0x0000ff,0x0000ff,0x0000ff,0x0000ff,0x0000ff,0x0000ff,0x0000ff,0x0000ff,0x0000ff,0x0000ff,0x0000ff,0x0000ff,0x0000ff},
     {0x0000ff,0x00ff00,0x00ff00,0x0000ff,0x0000ff,0x00ff00,0x00ff00,0x0000ff,0x0000ff,0x0000ff,0x0000ff,0x0000ff,0x0000ff,0x0000ff,0x0000ff,0x0000ff,0x0000ff,0x0000ff,0x0000ff,0x0000ff,0x0000ff,0x0000ff,0x0000ff,0x0000ff},
@@ -59,10 +80,24 @@ local function ws2812_roll_show(show_data,data_w)
         end
         m = m+1
         if m==data_w then m=0 end
+
         --可选pwm,gpio,spi方式驱动,API详情查看wiki https://wiki.luatos.com/api/sensor.html
-        sensor.ws2812b(7,buff,0,20,20,0)--此处使用gpio方法驱动
-        -- sensor.ws2812b_pwm(5,buff)--此处使用pwm方法驱动
-        -- sensor.ws2812b_spi(0,buff)--此处使用spi方法驱动
+        local mode = ws2812_conf()
+        if mode == "pin" then
+            local _,pin,T0H,T0L,T1H,T1L = ws2812_conf()
+            sensor.ws2812b(pin,buff,T0H,T0L,T1H,T1L)
+        elseif mode == "pwm" then
+            local _,pwm_id = ws2812_conf()
+            sensor.ws2812b_pwm(pwm_id,buff)
+        elseif mode == "spi" then
+            local _,spi_id = ws2812_conf()
+            sensor.ws2812b_spi(spi_id,buff)
+        else
+            while 1 do
+                sys.wait(1000)
+                log.info("main", "bsp not support yet")
+            end
+        end
         sys.wait(300)
     end
 end

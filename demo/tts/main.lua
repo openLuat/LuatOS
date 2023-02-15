@@ -87,14 +87,18 @@ local function audio_task()
     gpio.setup(27, 0)
     gpio.setup(2, 0)
 
-    -- 初始化spi flash
-    spi_flash = spi.deviceSetup(0,8,0,0,8,25600000,spi.MSB,1,0)
-    local ret = sfud.init(spi_flash)
-    if ret then
-        log.info("sfud.init ok")
+    -- 初始化spi flash, 如果是极限版TTS_ONCHIP,就不需要初始化
+    if sfud then
+        spi_flash = spi.deviceSetup(0,8,0,0,8,25600000,spi.MSB,1,0)
+        local ret = sfud.init(spi_flash)
+        if ret then
+            log.info("sfud.init ok")
+        else
+            log.info("sfud.init error", ret)
+            return
+        end
     else
-        log.info("sfud.init error", ret)
-        return
+        log.info("tts", "TTS_ONCHIP?? skip sfud")
     end
 
     -- 本例子是按行播放 "千字文", 文本来源自wiki百科

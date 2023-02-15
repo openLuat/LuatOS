@@ -97,8 +97,11 @@ local function fota_task(cbFnc,storge_location, len, param1,ota_url,ota_port,tim
     local tbuff = zbuff.create(512)
     local rbuff = zbuff.create(4096)
     local netc = socket.create(nil, taskName)
-
-    socket.config(netc, nil, nil, tls,server_cert, client_cert, client_key, client_password)
+    local tls_get = false
+    if ota_url:sub(1,5) == "https" then
+        tls_get = true
+    end
+    socket.config(netc, nil, nil, tls or tls_get,server_cert, client_cert, client_key, client_password)
     filelen = 0
     total = 0
     retry = 0

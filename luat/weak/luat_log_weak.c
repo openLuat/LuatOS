@@ -4,7 +4,6 @@
 #include "luat_uart.h"
 #include "printf.h"
 #include "luat_cmux.h"
-#include "luat_conf_bsp.h"
 
 extern luat_cmux_t cmux_ctx;
 

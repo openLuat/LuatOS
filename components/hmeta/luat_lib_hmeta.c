@@ -4,6 +4,7 @@
 @version 1.0
 @date    2022.01.11
 @demo    hmeta
+@tag LUAT_USE_HMETA
 @usage
 -- 本库开发中
 --[[

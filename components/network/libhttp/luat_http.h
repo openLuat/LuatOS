@@ -31,8 +31,8 @@ typedef struct{
 
 	// 发送相关
 	uint8_t request_message[HTTP_REQUEST_BUF_LEN_MAX];
-	const char *req_header;
-	const char *req_body;		//发送body
+	char *req_header;
+	char *req_body;		//发送body
 	size_t req_body_len;		//发送body长度
 	uint8_t custom_host;        // 是否自定义Host了
 

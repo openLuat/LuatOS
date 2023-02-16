@@ -45,11 +45,13 @@ int http_set_url(luat_http_ctrl_t *http_ctrl, const char* url);
 static int http_add_header(luat_http_ctrl_t *http_ctrl, const char* name, const char* value){
 	// LLOGD("http_add_header name:%s value:%s",name,value);
 	// TODO 对value还需要进行urlencode
-	strncat(http_ctrl->req_header, name, strlen(name));
-	strncat(http_ctrl->req_header, ":", 1);
-	strncat(http_ctrl->req_header, value, strlen(value));
-	strncat(http_ctrl->req_header, "\r\n", 2);
+	sprintf_(http_ctrl->req_header + strlen((char*)http_ctrl->req_header), "%s:%s\r\n", name, value);
+	// strncat(http_ctrl->req_header, name, strlen(name));
+	// strncat(http_ctrl->req_header, ":", 1);
+	// strncat(http_ctrl->req_header, value, strlen(value));
+	// strncat(http_ctrl->req_header, "\r\n", 2);
 	// LLOGD("http_ctrl->req_header:%s",http_ctrl->req_header);
+	return 0;
 }
 
 /*
@@ -218,9 +220,9 @@ static int l_http_request(lua_State *L) {
 			network_set_server_cert(http_ctrl->netc, (const unsigned char *)server_cert, server_cert_len+1);
 		}
 		if (client_cert){
-			network_set_client_cert(http_ctrl->netc, client_cert, client_cert_len+1,
-					client_key, client_key_len+1,
-					client_password, client_password_len+1);
+			network_set_client_cert(http_ctrl->netc, (const unsigned char *)client_cert, client_cert_len+1,
+					(const unsigned char *)client_key, client_key_len+1,
+					(const unsigned char *)client_password, client_password_len+1);
 		}
 	}else{
 		network_deinit_tls(http_ctrl->netc);

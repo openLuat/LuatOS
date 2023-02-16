@@ -210,6 +210,7 @@ int luat_http_client_init(luat_http_ctrl_t* http_ctrl, int use_ipv6) {
 
     http_parser_init(&http_ctrl->parser, HTTP_RESPONSE);
 	http_ctrl->parser.data = http_ctrl;
+	return 0;
 }
 
 
@@ -225,29 +226,29 @@ static uint32_t http_send(luat_http_ctrl_t *http_ctrl, uint8_t* data, size_t len
 static void http_send_message(luat_http_ctrl_t *http_ctrl){
 	uint32_t tx_len = 0;
 	// 发送请求行
-	snprintf_(http_ctrl->request_message, HTTP_REQUEST_BUF_LEN_MAX, "%s %s HTTP/1.1\r\n", http_ctrl->method, http_ctrl->uri);
-	http_send(http_ctrl, http_ctrl->request_message, strlen(http_ctrl->request_message));
+	snprintf_((char*)http_ctrl->request_message, HTTP_REQUEST_BUF_LEN_MAX, "%s %s HTTP/1.1\r\n", http_ctrl->method, http_ctrl->uri);
+	http_send(http_ctrl, http_ctrl->request_message, strlen((char*)http_ctrl->request_message));
 	// 判断自定义headers是否有host
 	if (http_ctrl->custom_host == 0) {
-		snprintf_(http_ctrl->request_message, HTTP_REQUEST_BUF_LEN_MAX,  "Host: %s\r\n", http_ctrl->host);
-		http_send(http_ctrl, http_ctrl->request_message, strlen(http_ctrl->request_message));
+		snprintf_((char*)http_ctrl->request_message, HTTP_REQUEST_BUF_LEN_MAX,  "Host: %s\r\n", http_ctrl->host);
+		http_send(http_ctrl, (uint8_t*)http_ctrl->request_message, strlen((char*)http_ctrl->request_message));
 	}
 
 	if (http_ctrl->headers_complete){
-		snprintf_(http_ctrl->request_message, HTTP_REQUEST_BUF_LEN_MAX,  "Range: bytes=%d-\r\n", http_ctrl->body_len+1);
-		http_send(http_ctrl, http_ctrl->request_message, strlen(http_ctrl->request_message));
+		snprintf_((char*)http_ctrl->request_message, HTTP_REQUEST_BUF_LEN_MAX,  "Range: bytes=%d-\r\n", http_ctrl->body_len+1);
+		http_send(http_ctrl, (uint8_t*)http_ctrl->request_message, strlen((char*)http_ctrl->request_message));
 	}
 	
 	// 发送自定义头部
 	if (http_ctrl->req_header){
-		http_send(http_ctrl, http_ctrl->req_header, strlen(http_ctrl->req_header));
+		http_send(http_ctrl, (uint8_t*)http_ctrl->req_header, strlen((char*)http_ctrl->req_header));
 	}
 
 	// 结束头部
-	http_send(http_ctrl, "\r\n", 2);
+	http_send(http_ctrl, (uint8_t*)"\r\n", 2);
 	// 发送body
 	if (http_ctrl->req_body){
-		http_send(http_ctrl, http_ctrl->req_body, http_ctrl->req_body_len);
+		http_send(http_ctrl, (uint8_t*)http_ctrl->req_body, http_ctrl->req_body_len);
 	}
 }
 
@@ -299,7 +300,7 @@ int32_t luat_lib_http_callback(void *data, void *param){
 					return -1;
 				}
 			}
-			result = network_rx(http_ctrl->netc, http_ctrl->resp_buff, total_len, 0, NULL, NULL, &rx_len);
+			result = network_rx(http_ctrl->netc, (uint8_t*)http_ctrl->resp_buff, total_len, 0, NULL, NULL, &rx_len);
 			LLOGD("result:%d rx_len:%d",result,rx_len);
 			if (rx_len == 0||result!=0) {
 				http_resp_error(http_ctrl, HTTP_ERROR_RX);
@@ -307,12 +308,12 @@ int32_t luat_lib_http_callback(void *data, void *param){
 			}
 			http_ctrl->resp_buff_offset += rx_len;
 			// LLOGDUMP(http_ctrl->resp_buff, http_ctrl->resp_buff_offset);
-			uint8_t *tmp = http_ctrl->resp_buff;
+			uint8_t *tmp = (uint8_t*)http_ctrl->resp_buff;
 			// LLOGD("resp buff %.*s", http_ctrl->resp_buff_offset, http_ctrl->resp_buff);
 			if (0 == http_ctrl->resp_headers_done) {
 				LLOGD("search headers, buff len %d", http_ctrl->resp_buff_offset);
 				if (http_ctrl->resp_buff_offset > 4) {
-					uint8_t *tmp = http_ctrl->resp_buff;
+					uint8_t *tmp = (uint8_t*)http_ctrl->resp_buff;
 					size_t search = http_ctrl->resp_buff_offset - 4;
 					for (size_t i = 0; i < search; i++)
 					{

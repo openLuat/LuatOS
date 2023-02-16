@@ -236,7 +236,7 @@ static LUAT_RT_RET_TYPE tls_shorttimeout(LUAT_RT_CB_PARAM)
 	}
 	return LUAT_RT_RET;
 }
-
+#ifdef LUAT_USE_TLS
 static LUAT_RT_RET_TYPE tls_longtimeout(LUAT_RT_CB_PARAM)
 {
 	network_ctrl_t *ctrl = (network_ctrl_t *)param;
@@ -312,7 +312,7 @@ static int tls_send(void *ctx, const unsigned char *buf, size_t len )
 		return len;
 	}
 }
-
+#endif
 static int tls_recv(void *ctx, unsigned char *buf, size_t len )
 {
 #ifdef LUAT_USE_TLS

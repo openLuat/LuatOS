@@ -557,6 +557,51 @@ static int l_mobile_reset(lua_State* L) {
     return 0;
 }
 
+/**
+数据量流量处理
+@api mobile.dataTraffic(clearUplink, clearDownlink)
+@boolean 清空上行流量累计值，true清空，其他忽略
+@boolean 清空下行流量累计值，true清空，其他忽略
+@return int 上行流量GB
+@return int 上行流量B
+@return int 下行流量GB
+@return int 下行流量B
+@usage
+-- 获取上下行流量累计值
+-- 上行流量值Byte = uplinkGB * 1024 * 1024 * 1024 + uplinkB
+-- 下行流量值Byte = downlinkGB * 1024 * 1024 * 1024 + downlinkB
+local uplinkGB, uplinkB, downlinkGB, downlinkB = mobile.dataTraffic()
+
+-- 清空上下行流量累计值
+mobile.dataTraffic(true, true)
+ */
+static int l_mobile_data_traffic(lua_State* L) {
+    uint64_t uplink;
+    uint64_t downlink;
+    uint8_t clear_uplink = 0;
+    uint8_t clear_downlink = 0;
+    volatile uint32_t temp;
+    if (LUA_TBOOLEAN == lua_type(L, 1)) {
+    	clear_uplink = lua_toboolean(L, 1);
+    }
+    if (LUA_TBOOLEAN == lua_type(L, 2)) {
+    	clear_downlink = lua_toboolean(L, 2);
+    }
+    luat_mobile_get_ip_data_traffic(&uplink, &downlink);
+    if (clear_uplink || clear_downlink) {
+    	luat_mobile_clear_ip_data_traffic(clear_uplink, clear_downlink);
+    }
+    temp = (uint32_t)(uplink >> 30);
+    lua_pushinteger(L, temp);
+    temp = (((uint32_t)uplink) & 0x3FFFFFFF);
+    lua_pushinteger(L, temp);
+    temp = (uint32_t)(downlink >> 30);
+    lua_pushinteger(L, temp);
+    temp = (((uint32_t)downlink) & 0x3FFFFFFF);
+    lua_pushinteger(L, temp);
+    return 4;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_mobile[] = {
     {"status",      ROREG_FUNC(l_mobile_status)},
@@ -580,6 +625,7 @@ static const rotable_Reg_t reg_mobile[] = {
     {"getCellInfo", ROREG_FUNC(l_mobile_get_cell_info)},
     {"reqCellInfo", ROREG_FUNC(l_mobile_request_cell_info)},
 	{"reset",      ROREG_FUNC(l_mobile_reset)},
+	{"dataTraffic",      ROREG_FUNC(l_mobile_data_traffic)},
     // const UNREGISTER 未注册
     {"UNREGISTER",                  ROREG_INT(LUAT_MOBILE_STATUS_UNREGISTER)},
     // const REGISTERED 已注册

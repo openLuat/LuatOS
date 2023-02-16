@@ -587,13 +587,13 @@ int luat_mobile_set_period_work(uint32_t get_cell_period, uint32_t check_sim_per
  * @param downlink 下行流量
  * @return 无
  */
-void luat_mobile_get_ip_flow(uint64_t *uplink, uint64_t *downlink);
+void luat_mobile_get_ip_data_traffic(uint64_t *uplink, uint64_t *downlink);
 /**
  * @brief 清除IP流量数据
  * @param clear_uplink 清除上行流量
  * @param clear_downlink 清除下行流量
  * @return 无
  */
-void luat_mobile_clear_ip_flow(uint8_t clear_uplink, uint8_t clear_downlink);
+void luat_mobile_clear_ip_data_traffic(uint8_t clear_uplink, uint8_t clear_downlink);
 /** @}*/
 #endif

@@ -29,7 +29,7 @@ local function serTask(port)
 		while result do
 			succ, param, rIP, rPort = socket.rx(netc, rx_buff)
 			if not succ then
-				log.info("客户端断开了", succ, param, ip, port)
+				log.info("客户端断开了", succ, param, rIP, port)
 				break
 			end
 			if rx_buff:used() > 0 then
@@ -90,7 +90,7 @@ local function UDPTask(port)
 			end
 			succ, param, rIP, rPort = socket.rx(netc, rx_buff)
 			if not succ then
-				log.info("客户端断开了", succ, paramt)
+				log.info("客户端断开了", succ, param)
 				break
 			end
 			if rx_buff:used() > 0 then

@@ -263,7 +263,7 @@ int mqtt_connect(mqtt_broker_handle_t* broker)
 		LLOGE("out of memory when malloc connect packet");
 		return -2;
 	}
-	memset(packet, 0, sizeof(packet));
+	memset(packet, 0, packet_size);
 	memcpy(packet, fixed_header, sizeof(fixed_header));
 	offset += sizeof(fixed_header);
 	memcpy(packet+offset, var_header, sizeof(var_header));
@@ -341,7 +341,7 @@ int mqtt_publish(mqtt_broker_handle_t* broker, const char* topic, const char* ms
 int mqtt_publish_with_qos(mqtt_broker_handle_t* broker, const char* topic, const char* msg, uint32_t msg_len, uint8_t retain, uint8_t qos, uint16_t* message_id) {
 	uint16_t topiclen = strlen(topic);
 	uint32_t msglen = msg_len;
-	uint32_t tem_len;
+	// uint32_t tem_len;
 	uint8_t qos_flag = MQTT_QOS0_FLAG;
 	uint8_t qos_size = 0; // No QoS included
 	if(qos == 1) {
@@ -370,7 +370,7 @@ int mqtt_publish_with_qos(mqtt_broker_handle_t* broker, const char* topic, const
 
 	// Fixed header
 	uint32_t remainLen = sizeof(var_header)+msglen;
-	uint8_t buf[4];
+	uint8_t buf[4] = {0};
 	int rc = 0;
 	uint32_t length = remainLen;
 	do
@@ -380,10 +380,7 @@ int mqtt_publish_with_qos(mqtt_broker_handle_t* broker, const char* topic, const
 		/* if there are more digits to encode, set the top bit of this digit */
 		if (length > 0)
 			d |= 0x80;
-		if (buf)
-			buf[rc++] = d;
-		else
-			rc++;
+		buf[rc++] = d;
 	} while (length > 0);
 	uint8_t fixed_header[rc + 1];
     

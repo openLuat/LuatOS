@@ -36,6 +36,7 @@ int luat_mqtt_reconnect(luat_mqtt_ctrl_t *mqtt_ctrl) {
 		LLOGI("reconnect init socket ret=%d\n", ret);
 		luat_mqtt_close_socket(mqtt_ctrl);
 	}
+	return ret;
 }
 
 
@@ -138,7 +139,7 @@ static int mqtt_parse(luat_mqtt_ctrl_t *mqtt_ctrl) {
 		return 0;
 	}
 	// 判断数据长度, 前几个字节能判断出够不够读出mqtt的头
-	char* buf = mqtt_ctrl->mqtt_packet_buffer;
+	char* buf = (char*)mqtt_ctrl->mqtt_packet_buffer;
 	int num_bytes = 1;
 	if ((buf[1] & 0x80) == 0x80) {
 		num_bytes++;

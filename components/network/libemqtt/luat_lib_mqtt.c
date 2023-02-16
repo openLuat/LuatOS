@@ -625,7 +625,7 @@ static int _mqtt_struct_newindex(lua_State *L) {
 	}
     //return 0;
 }
-static const rotable_Reg_t reg_mqtt_emtry[] =
+const rotable_Reg_t reg_mqtt_emtry[] =
 {
 	{ NULL,             ROREG_INT(0)}
 };

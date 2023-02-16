@@ -275,7 +275,18 @@ static int tls_gettimer( void *data )
 	{
 		return -ERROR_PARAM_INVALID;
 	}
-	return ctrl->tls_timer_state;
+#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+	if(!mbedtls_ssl_is_handshake_over(ctrl->ssl))
+#else
+	if (ctrl->ssl->state != MBEDTLS_SSL_HANDSHAKE_OVER)
+#endif
+	{
+		return ctrl->tls_timer_state;
+	}
+	else
+	{
+		return 0;
+	}
 }
 
 static void tls_dbg(void *data, int level,

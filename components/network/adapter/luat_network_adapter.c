@@ -151,7 +151,8 @@ extern void DBG_Printf(const char* format, ...);
 extern void DBG_HexPrintf(void *Data, unsigned int len);
 //#define DBG(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
 //#define DBG_ERR(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
-
+static int tls_random( void *p_rng,
+        unsigned char *output, size_t output_len );
 
 #define __NW_DEBUG_ENABLE__
 #ifdef __NW_DEBUG_ENABLE__
@@ -591,12 +592,14 @@ static int network_state_connecting(network_ctrl_t *ctrl, OS_EVENT *event, netwo
 			mbedtls_ssl_free(ctrl->ssl);
 			memset(ctrl->ssl, 0, sizeof(mbedtls_ssl_context));
 			mbedtls_ssl_setup(ctrl->ssl, ctrl->config);
-			ctrl->ssl->f_set_timer = tls_settimer;
-			ctrl->ssl->f_get_timer = tls_gettimer;
-			ctrl->ssl->p_timer = ctrl;
-			ctrl->ssl->p_bio = ctrl;
-			ctrl->ssl->f_send = tls_send;
-			ctrl->ssl->f_recv = tls_recv;
+			// ctrl->ssl->f_set_timer = tls_settimer;
+			// ctrl->ssl->f_get_timer = tls_gettimer;
+			// ctrl->ssl->p_timer = ctrl;
+			mbedtls_ssl_set_timer_cb(ctrl->ssl, ctrl, tls_settimer, tls_gettimer);
+			// ctrl->ssl->p_bio = ctrl;
+			// ctrl->ssl->f_send = tls_send;
+			// ctrl->ssl->f_recv = tls_recv;
+			mbedtls_ssl_set_bio(ctrl->ssl, ctrl, tls_send, tls_recv, NULL);
 			// add by wendal
 			// cloudflare的https需要设置hostname才能访问
 			if (ctrl->domain_name_len > 0 && ctrl->domain_name_len < 256) {
@@ -620,10 +623,17 @@ static int network_state_connecting(network_ctrl_t *ctrl, OS_EVENT *event, netwo
 	    		case 0:
 	    			break;
 	    		default:
+					#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+					#else
 	    			DBG_ERR("0x%x, %d", -result, ctrl->ssl->state);
+					#endif
 	    			return -1;
 	    		}
+			#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+			}while(!mbedtls_ssl_is_handshake_over(ctrl->ssl));
+			#else
 	    	}while(ctrl->ssl->state != MBEDTLS_SSL_HANDSHAKE_OVER);
+			#endif
 	    	return 0;
 		}
 		else
@@ -677,11 +687,18 @@ static int network_state_shakehand(network_ctrl_t *ctrl, OS_EVENT *event, networ
     		case 0:
     			break;
     		default:
+				#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+				#else
     			DBG_ERR("0x%x, %d", -result, ctrl->ssl->state);
+				#endif
     			ctrl->need_close = 1;
     			return -1;
     		}
+		#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+		}while(!mbedtls_ssl_is_handshake_over(ctrl->ssl));
+		#else
     	}while(ctrl->ssl->state != MBEDTLS_SSL_HANDSHAKE_OVER);
+		#endif
     	ctrl->state = NW_STATE_ONLINE;
     	if (NW_WAIT_TX_OK == ctrl->wait_target_state)
     	{
@@ -1484,7 +1501,11 @@ int network_set_client_cert(network_ctrl_t *ctrl,
     	DBG("%08x", -ret);
     	goto ERROR_OUT;
     }
+	#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+	ret = mbedtls_pk_parse_key( pkey, key, keylen, pwd, pwdlen , tls_random, NULL);
+	#else
     ret = mbedtls_pk_parse_key( pkey, key, keylen, pwd, pwdlen );
+	#endif
     if (ret != 0)
     {
 		DBG("%08x", -ret);
@@ -1536,16 +1557,25 @@ void network_init_tls(network_ctrl_t *ctrl, int verify_mode)
 		ctrl->ca_cert = zalloc(sizeof(mbedtls_x509_crt));
 		ctrl->config = zalloc(sizeof(mbedtls_ssl_config));
 		mbedtls_ssl_config_defaults( ctrl->config, MBEDTLS_SSL_IS_CLIENT, ctrl->is_tcp?MBEDTLS_SSL_TRANSPORT_STREAM:MBEDTLS_SSL_TRANSPORT_DATAGRAM, MBEDTLS_SSL_PRESET_DEFAULT);
-		ctrl->config->authmode = verify_mode;
-		ctrl->config->hs_timeout_min = 20000;
-		ctrl->config->f_rng = tls_random;
-		ctrl->config->p_rng = NULL;
-		ctrl->config->f_dbg = tls_dbg;
-		ctrl->config->p_dbg = NULL;
-		ctrl->config->f_vrfy = tls_verify;
-		ctrl->config->p_vrfy = ctrl;
-		ctrl->config->ca_chain = ctrl->ca_cert;
-		ctrl->config->read_timeout = 20000;
+		// ctrl->config->authmode = verify_mode;
+		mbedtls_ssl_conf_authmode(ctrl->config, verify_mode);
+		// ctrl->config->hs_timeout_min = 20000;
+		#if defined(MBEDTLS_SSL_PROTO_DTLS)
+		mbedtls_ssl_conf_handshake_timeout(ctrl->config, 2000, MBEDTLS_SSL_DTLS_TIMEOUT_DFL_MAX);
+		#endif
+		// ctrl->config->f_rng = tls_random;
+		// ctrl->config->p_rng = NULL;
+		mbedtls_ssl_conf_rng(ctrl->config, tls_random, NULL);
+		// ctrl->config->f_dbg = tls_dbg;
+		// ctrl->config->p_dbg = NULL;
+		mbedtls_ssl_conf_dbg(ctrl->config, tls_dbg, NULL);
+		// ctrl->config->f_vrfy = tls_verify;
+		// ctrl->config->p_vrfy = ctrl;
+		mbedtls_ssl_conf_verify(ctrl->config, tls_verify, ctrl);
+		// ctrl->config->ca_chain = ctrl->ca_cert;
+		mbedtls_ssl_conf_ca_chain(ctrl->config, ctrl->ca_cert, NULL);
+		// ctrl->config->read_timeout = 20000;
+		mbedtls_ssl_conf_read_timeout(ctrl->config, 20000);
 	    ctrl->tls_long_timer = platform_create_timer(tls_longtimeout, ctrl, NULL);
 	    ctrl->tls_short_timer = platform_create_timer(tls_shorttimeout, ctrl, NULL);
 	}
@@ -1940,12 +1970,19 @@ int network_tx(network_ctrl_t *ctrl, const uint8_t *data, uint32_t len, int flag
 	    		case 0:
 	    			break;
 	    		default:
+					#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+					#else
 	    			DBG_ERR("0x%x, %d", -result, ctrl->ssl->state);
+					#endif
 	    			ctrl->need_close = 1;
 	    			NW_UNLOCK;
 	    			return -1;
 	    		}
-	    	}while(ctrl->ssl->state != MBEDTLS_SSL_HANDSHAKE_OVER);
+			#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+			}while(!mbedtls_ssl_is_handshake_over(ctrl->ssl));
+	    	#else
+			}while(ctrl->ssl->state != MBEDTLS_SSL_HANDSHAKE_OVER);
+			#endif
 		}
 		result = mbedtls_ssl_write(ctrl->ssl, data, len);
 	    if (result < 0)
@@ -2087,7 +2124,11 @@ int network_rx(network_ctrl_t *ctrl, uint8_t *data, uint32_t len, int flags, lua
 				}
 				else if (!result)
 				{
+					#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+					read_len = ctrl->ssl->MBEDTLS_PRIVATE(in_msglen);
+					#else
 					read_len = ctrl->ssl->in_msglen;
+					#endif
 					break;
 				}
 				else if ((MBEDTLS_ERR_SSL_WANT_READ) == result)

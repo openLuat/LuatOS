@@ -548,7 +548,9 @@ static int l_mobile_request_cell_info(lua_State* L) {
 /**
 重启协议栈
 @api mobile.reset()
-@usage mobile.reset()
+@usage
+-- 重启LTE协议栈
+mobile.reset()
  */
 static int l_mobile_reset(lua_State* L) {
     luat_mobile_reset_stack();

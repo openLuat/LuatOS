@@ -12,9 +12,9 @@ log.info("main", PROJECT, VERSION)
 -- sys库是标配
 _G.sys = require("sys")
 
--- UI带屏的项目一般不需要低功耗了吧, 设置到最高性能
-if mcu then
-    pm.request(pm.NONE)
+-- UI带屏的项目一般不需要低功耗了吧, Air101/Air103设置到最高性能
+if mcu and (rtos.bsp() == "AIR101" or rtos.bsp() == "AIR103") then
+    mcu.setClk(240)
 end
 
 --[[
@@ -74,7 +74,7 @@ spi_lcd = spi.deviceSetup(spi_id,pin_cs,0,0,8,20*1000*1000,spi.MSB,1,0)
 -- lcd.init("gc9a01",{port = "device",pin_dc = pin_dc, pin_pwr = bl, pin_rst = pin_reset,direction = 0,w = 240,h = 320,xoffset = 0,yoffset = 0},spi_lcd)
 
 --[[ 此为合宙售卖的1.8寸TFT LCD LCD 分辨率:128X160 屏幕ic:st7735 购买地址:https://item.taobao.com/item.htm?spm=a1z10.5-c.w4002-24045920841.19.6c2275a1Pa8F9o&id=560176729178]]
---lcd.init("st7735",{port = "device",pin_dc = pin_dc, pin_pwr = bl, pin_rst = pin_reset,direction = 0,w = 128,h = 160,xoffset = 0,yoffset = 0},spi_lcd)
+lcd.init("st7735",{port = "device",pin_dc = pin_dc, pin_pwr = bl, pin_rst = pin_reset,direction = 0,w = 128,h = 160,xoffset = 0,yoffset = 0},spi_lcd)
 
 --[[ 此为合宙售卖的1.54寸TFT LCD LCD 分辨率:240X240 屏幕ic:st7789 购买地址:https://item.taobao.com/item.htm?spm=a1z10.5-c.w4002-24045920841.20.391445d5Ql4uJl&id=659456700222]]
 -- lcd.init("st7789",{port = "device",pin_dc = pin_dc, pin_pwr = bl, pin_rst = pin_reset,direction = 0,w = 240,h = 240,xoffset = 0,yoffset = 0},spi_lcd)
@@ -87,20 +87,23 @@ spi_lcd = spi.deviceSetup(spi_id,pin_cs,0,0,8,20*1000*1000,spi.MSB,1,0)
 --lcd.init("st7735s",{port = "device",pin_dc = pin_dc, pin_pwr = bl, pin_rst = pin_reset,direction = 2,w = 160,h = 80,xoffset = 0,yoffset = 0},spi_lcd)
 
 --[[ 此为合宙售卖的2.4寸TFT LCD 分辨率:240X320 屏幕ic:GC9306 购买地址:https://item.taobao.com/item.htm?spm=a1z10.5-c.w4002-24045920841.39.6c2275a1Pa8F9o&id=655959696358]]
-lcd.init("gc9306",{port = "device",pin_dc = pin_dc , pin_pwr = bl,pin_rst = pin_reset,direction = 0,w = 240,h = 320,xoffset = 0,yoffset = 0},spi_lcd)
+-- lcd.init("gc9306",{port = "device",pin_dc = pin_dc , pin_pwr = bl,pin_rst = pin_reset,direction = 0,w = 240,h = 320,xoffset = 0,yoffset = 0},spi_lcd)
 
 -- 不在上述内置驱动的, 看demo/lcd_custom
 
 sys.taskInit(function()
-    -- sys.wait(1000)
-    -- API 文档 https://wiki.luatos.com/api/lcd.html
-    if lcd.showImage then
-        lcd.showImage(40,0,"/luadb/logo.jpg")
-        sys.wait(100)
-    else
+    while 1 do 
+        lcd.clear()
+        log.info("wiki", "https://wiki.luatos.com/api/lcd.html")
+        -- API 文档 https://wiki.luatos.com/api/lcd.html
+        if lcd.showImage then
+            lcd.showImage(40,0,"/luadb/logo.jpg")
+            sys.wait(100)
+        end
         log.info("lcd.drawLine", lcd.drawLine(20,20,150,20,0x001F))
         log.info("lcd.drawRectangle", lcd.drawRectangle(20,40,120,70,0xF800))
         log.info("lcd.drawCircle", lcd.drawCircle(50,50,20,0x0CE0))
+        sys.wait(1000)
     end
 end)
 

@@ -6,6 +6,7 @@
 #include "luat_msgbus.h"
 #include "luat_fs.h"
 #include <stdlib.h>
+#include <pthread.h>
 
 #include "bget.h"
 
@@ -14,6 +15,7 @@
 
 #define LUAT_HEAP_SIZE (1024*1024)
 uint8_t luavm_heap[LUAT_HEAP_SIZE] = {0};
+void *timer_thread_start(void *);
 
 // void luat_log_init_win32(void);
 
@@ -65,6 +67,9 @@ int main(int argc, char** argv) {
     lvgl_linux_init();
     xTaskCreate( _lvgl_handler, "lvgl", 1024*2, NULL, 23, NULL );
 #endif
+
+    pthread_t t;
+    pthread_create(&t, NULL, &timer_thread_start, NULL);
 
     // xTaskCreate( _luat_main, "luatos", 1024*16, NULL, 21, NULL );
     // vTaskStartScheduler();

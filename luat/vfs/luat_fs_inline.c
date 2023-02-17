@@ -26,8 +26,11 @@ FILE* luat_vfs_inline_fopen(void* userdata, const char *filename, const char *mo
     //LLOGD("open inline %s", filename);
     luadb_file_t* file = NULL;
 #ifdef LUAT_CONF_VM_64bit
+    #ifdef LUA_USE_LINUX
     file = luat_inline2_libs_64bit_size64;
+    #else
     file = luat_inline2_libs_64bit_size32;
+    #endif
 #else
     file = luat_inline2_libs;
 #endif
@@ -124,8 +127,11 @@ int luat_vfs_inline_fexist(void* userdata, const char *filename) {
     //LLOGD("open fexist %s", filename);
     luadb_file_t* file = NULL;
 #ifdef LUAT_CONF_VM_64bit
+    #ifdef LUA_USE_LINUX
     file = luat_inline2_libs_64bit_size64;
+    #else
     file = luat_inline2_libs_64bit_size32;
+    #endif
 #else
     file = luat_inline2_libs;
 #endif

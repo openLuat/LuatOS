@@ -1,8 +1,9 @@
-
+#define _POSIX_C_SOURCE 199309L
 #include "luat_base.h"
 #include "luat_malloc.h"
 #include "luat_timer.h"
 #include "luat_msgbus.h"
+#include <pthread.h>
 
 
 #define LUAT_LOG_TAG "timer"
@@ -12,7 +13,7 @@
 #include <math.h>
 #include <unistd.h>
 
-#define TIMER_COUNT 32
+#define TIMER_COUNT 128
 typedef struct sysp_timer {
     luat_timer_t* timer;
     uint32_t starttime;
@@ -22,7 +23,7 @@ static sysp_timer_t timers[TIMER_COUNT] = {0};
 
 // 获取当前时间
 uint32_t get_timestamp(void) {
-    struct timespec _t;
+    struct timespec _t = {0};
     clock_gettime(CLOCK_REALTIME, &_t);
     uint32_t timenow = _t.tv_sec*1000 + lround(_t.tv_nsec/1e6);
     //printf("time now > %u\n", timenow);
@@ -66,7 +67,7 @@ static int nextTimerSlot() {
 }
 
 int luat_timer_start(luat_timer_t* timer) {
-    int os_timer;
+    // int os_timer;
     int timerIndex;
     //LLOGD(">>luat_timer_start timeout=%ld", timer->timeout);
     timerIndex = nextTimerSlot();
@@ -74,7 +75,7 @@ int luat_timer_start(luat_timer_t* timer) {
     if (timerIndex < 0) {
         return 1; // too many timer!!
     }
-    os_timer = timerIndex;
+    // os_timer = timerIndex;
     //LLOGD("timer id=%ld, osTimerNew=%p", timerIndex, os_timer);
     timers[timerIndex].timer = timer;
     timers[timerIndex].starttime = get_timestamp();
@@ -115,3 +116,18 @@ int luat_timer_mdelay(size_t ms) {
 }
 
 
+static pthread_mutex_t mp;
+static pthread_cond_t cv;
+
+void *timer_thread_start(void *args) {
+    // printf("timer thread started\r\n");
+    struct timespec to = {0};
+    pthread_mutex_lock(&mp);
+    to.tv_sec = 0;
+    to.tv_nsec = 100;
+    while (1) {
+        pthread_cond_timedwait(&cv, &mp, &to);
+        luat_timer_check();
+    }
+    return NULL;
+}

@@ -84,6 +84,7 @@ static int luat_errdump_network_callback(void *data, void *param)
 		luat_msgbus_put(&msg, 0);
 		luat_rtos_timer_start(econf.upload_timer, econf.upload_period * 1000, 0, luat_errdump_timer_callback, NULL);
 		OS_DeInitBuffer(&econf.tx_buf);
+		return 0;
 	}
 	switch(event->ID)
 	{
@@ -284,10 +285,13 @@ static int32_t l_errdump_callback(lua_State *L, void* ptr)
 SOCKET_CLOSE:
 	luat_rtos_timer_stop(econf.network_timer);
 	econf.is_uploading = 0;
-	network_close(econf.netc, 0);
-	network_release_ctrl(econf.netc);
-	OS_DeInitBuffer(&econf.tx_buf);
-	econf.netc = NULL;
+	if (econf.netc)
+	{
+		network_close(econf.netc, 0);
+		network_release_ctrl(econf.netc);
+		OS_DeInitBuffer(&econf.tx_buf);
+		econf.netc = NULL;
+	}
 	return 0;
 }
 

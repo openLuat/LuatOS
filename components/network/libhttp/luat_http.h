@@ -1,7 +1,7 @@
 #ifndef LUAT_HTTP_H
 #define LUAT_HTTP_H
 
-#define HTTP_REQUEST_BUF_LEN_MAX 	(1024)
+// #define HTTP_REQUEST_BUF_LEN_MAX 	(1024)
 #define HTTP_RESP_HEADER_MAX_SIZE 	(4096)
 #define HTTP_RESP_BUFF_SIZE 		(4096)
 
@@ -30,7 +30,7 @@ typedef struct{
 	char method[12];			// method
 
 	// 发送相关
-	uint8_t request_message[HTTP_REQUEST_BUF_LEN_MAX];
+	// uint8_t request_message[HTTP_REQUEST_BUF_LEN_MAX];
 	char *req_header;
 	char *req_body;		//发送body
 	size_t req_body_len;		//发送body长度

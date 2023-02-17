@@ -37,8 +37,8 @@ int http_close(luat_http_ctrl_t *http_ctrl){
 	if (http_ctrl->host){
 		luat_heap_free(http_ctrl->host);
 	}
-	if (http_ctrl->uri){
-		luat_heap_free(http_ctrl->uri);
+	if (http_ctrl->request_line){
+		luat_heap_free(http_ctrl->request_line);
 	}
 	if (http_ctrl->req_header){
 		luat_heap_free(http_ctrl->req_header);
@@ -226,8 +226,7 @@ static uint32_t http_send(luat_http_ctrl_t *http_ctrl, uint8_t* data, size_t len
 static void http_send_message(luat_http_ctrl_t *http_ctrl){
 	uint32_t tx_len = 0;
 	// 发送请求行, 主要,这里都借用了resp_buff,但这并不会与resp冲突
-	snprintf_((char*)http_ctrl->resp_buff, HTTP_RESP_BUFF_SIZE, "%s %s HTTP/1.1\r\n", http_ctrl->method, http_ctrl->uri);
-	http_send(http_ctrl, http_ctrl->resp_buff, strlen((char*)http_ctrl->resp_buff));
+	http_send(http_ctrl, http_ctrl->request_line, strlen((char*)http_ctrl->request_line));
 	// 判断自定义headers是否有host
 	if (http_ctrl->custom_host == 0) {
 		snprintf_((char*)http_ctrl->resp_buff, HTTP_RESP_BUFF_SIZE,  "Host: %s\r\n", http_ctrl->host);
@@ -365,7 +364,7 @@ int32_t luat_lib_http_callback(void *data, void *param){
     return 0;
 }
 
-int http_set_url(luat_http_ctrl_t *http_ctrl, const char* url) {
+int http_set_url(luat_http_ctrl_t *http_ctrl, const char* url, const char* method) {
 	char *tmp = url;
     if (!strncmp("https://", url, strlen("https://"))) {
         http_ctrl->is_tls = 1;
@@ -431,16 +430,13 @@ int http_set_url(luat_http_ctrl_t *http_ctrl, const char* url) {
     }
     memcpy(http_ctrl->host, tmphost, strlen(tmphost) + 1);
 
-    http_ctrl->uri = luat_heap_malloc(strlen(tmpuri) + 1);
-    if (http_ctrl->uri == NULL) {
-        LLOGE("out of memory when malloc url");
+	size_t linelen = strlen((char*)method) + strlen((char*)tmpuri) + 16;
+    http_ctrl->request_line = luat_heap_malloc(linelen);
+    if (http_ctrl->request_line == NULL) {
+        LLOGE("out of memory when malloc url/request_line");
         return -1;
     }
-    memcpy(http_ctrl->uri, tmpuri, strlen(tmpuri) + 1);
-
-	// LLOGD("http_ctrl->uri:%s",http_ctrl->uri);
-	// LLOGD("http_ctrl->host:%s",http_ctrl->host);
-	// LLOGD("http_ctrl->port:%d",http_ctrl->remote_port);
+	snprintf_((char*)http_ctrl->request_line, 8192, "%s %s HTTP/1.1\r\n", method, tmpuri);
 	return 0;
 }
 

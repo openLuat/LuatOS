@@ -40,7 +40,7 @@ end)
 #endif
 
 int http_close(luat_http_ctrl_t *http_ctrl);
-int http_set_url(luat_http_ctrl_t *http_ctrl, const char* url);
+int http_set_url(luat_http_ctrl_t *http_ctrl, const char* url, const char* method);
 
 static int http_add_header(luat_http_ctrl_t *http_ctrl, const char* name, const char* value){
 	// LLOGD("http_add_header name:%s value:%s",name,value);
@@ -161,7 +161,7 @@ static int l_http_request(lua_State *L) {
 		LLOGE("method is too long %s", method);
 		goto error;
 	}
-	memcpy(http_ctrl->method, method, len + 1);
+	// memcpy(http_ctrl->method, method, len + 1);
 	// LLOGD("method:%s",http_ctrl->method);
 
 	const char *url = luaL_checklstring(L, 2, &len);
@@ -170,7 +170,7 @@ static int l_http_request(lua_State *L) {
 	// memcpy(http_ctrl->url, url, len);
     
 
-	int ret = http_set_url(http_ctrl, url);
+	int ret = http_set_url(http_ctrl, url, method);
 	if (ret){
 		goto error;
 	}

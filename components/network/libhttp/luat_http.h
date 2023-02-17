@@ -25,9 +25,10 @@ typedef struct{
 	uint8_t is_tls;             // 是否SSL
 	const char *host; 			// http host
 	uint16_t remote_port; 		// 远程端口号
-	const char *url;			// url
-	const char *uri;			// uri
-	char method[12];			// method
+	// const char *url;			// url
+	// const char *uri;			// uri
+	const char* request_line;
+	// char method[12];			// method
 
 	// 发送相关
 	// uint8_t request_message[HTTP_REQUEST_BUF_LEN_MAX];

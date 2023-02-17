@@ -3,9 +3,10 @@
 #include "luat_log.h"
 #include "luat_uart.h"
 #include "printf.h"
+#ifdef LUAT_USE_DBG
 #include "luat_cmux.h"
-
 extern luat_cmux_t cmux_ctx;
+#endif
 
 static uint8_t luat_log_uart_port = 0;
 static uint8_t luat_log_level_cur = LUAT_LOG_DEBUG;

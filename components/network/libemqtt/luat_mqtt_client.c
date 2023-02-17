@@ -100,6 +100,7 @@ static void mqtt_reconnect(luat_mqtt_ctrl_t *mqtt_ctrl){
 }
 
 void luat_mqtt_close_socket(luat_mqtt_ctrl_t *mqtt_ctrl){
+	l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_DISCONNECT, 0);
 	LLOGI("mqtt closing socket");
 	if (mqtt_ctrl->netc){
 		network_force_close_socket(mqtt_ctrl->netc);
@@ -303,7 +304,6 @@ static int luat_mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
         }
 		case MQTT_MSG_DISCONNECT : {
 			// LLOGD("MQTT_MSG_DISCONNECT");
-			l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_DISCONNECT, 0);
             break;
         }
         default : {

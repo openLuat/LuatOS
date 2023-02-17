@@ -36,19 +36,20 @@ static const luaL_Reg loadedlibs[] = {
   {"pack", luaopen_pack},             // pack.pack/pack.unpack
   {"json", luaopen_cjson},             // json
   {"zbuff", luaopen_zbuff},            // 
-// #ifdef LUA_USE_WINDOWS
-//   {"lfs", luaopen_lfs},                //
-// #endif
   {"crypto", luaopen_crypto},
 //   {"fatfs", luaopen_fatfs},
 //   {"sfd",   luaopen_sfd},
 //   {"lfs2",   luaopen_lfs2},
 //   {"gpio",   luaopen_gpio},
   {"rsa", luaopen_rsa},
-#ifdef LUAT_USE_LVGL
-  {"lvgl",   luaopen_lvgl},
-  {"lcd",    luaopen_lcd},
+#ifdef __XMAKE_BUILD__
+  {"protobuf", luaopen_protobuf},
+  {"iotauth", luaopen_iotauth},
 #endif
+// #ifdef LUAT_USE_LVGL
+//   {"lvgl",   luaopen_lvgl},
+//   {"lcd",    luaopen_lcd},
+// #endif
   {NULL, NULL}
 };
 

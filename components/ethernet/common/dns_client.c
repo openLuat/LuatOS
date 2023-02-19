@@ -1,3 +1,4 @@
+
 #include "luat_base.h"
 #include "luat_mcu.h"
 #include "luat_malloc.h"
@@ -152,6 +153,7 @@ int32_t dns_get_ip(dns_client_t *client, Buffer_Struct *buf, uint16_t answer_num
 
 	uint32_t ttl;
 	uint8_t error = 0;
+	PV_Union pvUn;
 
 	for(i = 0; i < answer_num; i++)
 	{
@@ -180,9 +182,13 @@ int32_t dns_get_ip(dns_client_t *client, Buffer_Struct *buf, uint16_t answer_num
 #ifdef LUAT_USE_LWIP
 			ip_addr.type = IPADDR_TYPE_V4;
 			ip_addr.u_addr.ip4.addr = BytesGetLe32(buf->Data + buf->Pos);
+			pvUn.u32 = ip_addr.u_addr.ip4.addr;
+			LLOGD("ipv4 result %s", ipaddr_ntoa(&ip_addr));
 #else
 			ip_addr.ipv4 = BytesGetLe32(buf->Data + buf->Pos);
 			ip_addr.is_ipv6 = 0;
+			pvUn.u32 = ip_addr.ipv4;
+			LLOGD("ipv4 result %d.%d.%d.%d", pvUn.u8[0], pvUn.u8[1], pvUn.u8[2], pvUn.u8[3] );
 #endif
 			buf->Pos += usTemp;
 			if (ttl > 0)
@@ -213,7 +219,7 @@ int32_t dns_get_ip(dns_client_t *client, Buffer_Struct *buf, uint16_t answer_num
 			memcpy(ip_addr.u_addr.ip6.addr, buf->Data + buf->Pos, sizeof( uint32_t ) * 4);
 //			ip_addr.u_addr.ip6.zone = 0;
 			ip_addr.type = IPADDR_TYPE_V6;
-//			LLOGI("%s", ipaddr_ntoa(&ip_addr));
+			LLOGI("ipv6 result %s", ipaddr_ntoa(&ip_addr));
 #else
 			memcpy(ip_addr.ipv6_u8_addr, buf->Data + buf->Pos, sizeof( uint32_t ) * 4);
 			ip_addr.is_ipv6 = 1;

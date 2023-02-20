@@ -9,7 +9,7 @@
 #include "bget.h"
 
 #include "windows.h"
-#include <unistd.h>
+#include <io.h>
 
 #define LUAT_LOG_TAG "main"
 #include "luat_log.h"

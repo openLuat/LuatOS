@@ -248,11 +248,15 @@ static int l_mobile_set_auto_work(lua_State* L) {
 }
 
 /**
-获取或设置APN
-@api mobile.apn(index, cid, newvalue)
+获取或设置APN，设置APN必须在入网前就设置好，比如在SIM卡识别完成前就设置好
+@api mobile.apn(index, cid, new_apn_name, user_name, password, ip_type, protocol)
 @int 编号,默认0. 在支持双卡的模块上才会出现0或1的情况
-@int cid, 默认0
-@string 新的APN. 不填就是获取APN, 填了就是设置APN, 是否支持设置取决于底层实现.
+@int cid, 默认0，如果要用非默认APN来激活，必须>1
+@string 新的APN,不填就是获取APN, 填了就是设置APN, 是否支持设置取决于底层实现
+@string 新的APN的username,可以为nil
+@string 新的APN的password,可以为nil
+@int 激活APN时的IP TYPE,1=IPV4 2=IPV6 3=IPV4V6,默认是1
+@int 激活APN时,如果需要username和password,就要写鉴权协议类型,0~2或者按照实际情况写。
 @return string 获取到的默认APN值,失败返回nil
  */
 static int l_mobile_apn(lua_State* L) {
@@ -265,13 +269,18 @@ static int l_mobile_apn(lua_State* L) {
     ret = luat_mobile_get_apn(index, cid, buff, sizeof(buff) - 1);
 	if (lua_isstring(L, 3)) {
 		const char* wbuff = luaL_checklstring(L, 3, &wlen);
+		size_t user_name_len = 0;
+		size_t password_len = 0;
+		const char* user_name = luaL_checklstring(L, 4, &user_name_len);
+		const char* password = luaL_checklstring(L, 5, &password_len);
+		uint8_t ip_type = luaL_optinteger(L, 6, 1);
+		uint8_t protocol = luaL_optinteger(L, 7, 0xff);
 		if (wlen) {
-			luat_mobile_user_apn_auto_active(index, cid, 3, 0xff, wbuff, wlen, NULL, 0, NULL, 0);
-			LLOGI("APN write %d %s ret %d", index, wbuff, ret);
+			luat_mobile_user_apn_auto_active(index, cid, ip_type, protocol, wbuff, wlen, user_name, user_name_len, password, password_len);
 		}
 		else
 		{
-			luat_mobile_user_apn_auto_active(index, cid, 3, 0xff, NULL, 0, NULL, 0, NULL, 0);
+			luat_mobile_user_apn_auto_active(index, cid, ip_type, 0xff, NULL, 0, NULL, 0, NULL, 0);
 		}
 	}
     if (ret > 0) {

@@ -23,7 +23,12 @@
 #include <pvamrwbdecoder.h>
 #include <pvamrwbdecoder_cnst.h>
 #include <dtx.h>
-
+#ifdef __LUATOS__
+#include "luat_base.h"
+#include "luat_malloc.h"
+#define malloc luat_heap_malloc
+#define free luat_heap_free
+#endif
 /* This is basically a C rewrite of decode_amr_wb.cpp */
 
 struct state {

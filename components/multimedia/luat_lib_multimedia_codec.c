@@ -13,7 +13,10 @@
 #include "luat_zbuff.h"
 #define LUAT_LOG_TAG "codec"
 #include "luat_log.h"
-
+#ifdef LUAT_SUPPORT_AMR
+#include "interf_enc.h"
+#include "interf_dec.h"
+#endif
 
 /**
 创建编解码用的codec
@@ -51,6 +54,22 @@ static int l_codec_create(lua_State *L) {
         	}
 
     	}
+    	else
+    	{
+        	switch (type) {
+#ifdef LUAT_SUPPORT_AMR
+        	case MULTIMEDIA_DATA_TYPE_AMR_NB:
+            	coder->amr_coder = Encoder_Interface_init(0);
+            	if (!coder->amr_coder) {
+            		lua_pushnil(L);
+            		return 1;
+            	}
+            	break;
+#endif
+        	default:
+        		break;
+        	}
+    	}
     	luaL_setmetatable(L, LUAT_M_CODE_TYPE);
     }
     return 1;
@@ -59,7 +78,7 @@ static int l_codec_create(lua_State *L) {
 /**
 decoder从文件中解析出音频信息
 @api codec.info(decoder, file_path)
-@coder 解码用的decoder
+@userdata 解码用的decoder
 @string 文件路径
 @return boolean 是否成功解析
 @return int 音频格式
@@ -190,7 +209,7 @@ static int l_codec_get_audio_info(lua_State *L) {
 /**
 decoder从文件中解析出原始音频数据，比如从MP3文件里解析出PCM数据，这里的文件路径已经在codec.info传入，不需要再次传入
 @api codec.data(decoder, out_buff)
-@coder 解码用的decoder
+@userdata 解码用的decoder
 @zbuff 存放输出数据的zbuff，空间必须不少于16KB
 @return
 @boolean 是否成功解析
@@ -291,6 +310,69 @@ GET_MP3_DATA:
 	return 1;
 }
 
+
+/**
+编码音频数据，由于flash和ram空间一般比较有限，目前只支持amr-nb编码
+@api codec.encode(coder, in_buffer, out_buffer, mode)
+@userdata codec.create创建的编解码用的coder
+@zbuff 输入的数据,zbuff形式,从0到used
+@zbuff 输出的数据,zbuff形式,自动添加到buff的尾部,如果空间大小不足,会自动扩展,但是会额外消耗时间,甚至会失败,所以尽量一开始就给足空间
+@int amr_nb的编码等级 0~7(即 MR475~MR122)值越大消耗的空间越多,音质越高,默认0
+@result boolean,成功返回true,失败返回false
+@usage
+codec.encode(amr_coder, inbuf, outbuf, codec.AMR_)
+ */
+static int l_codec_encode_audio_data(lua_State *L) {
+#ifdef LUAT_SUPPORT_AMR
+	luat_multimedia_codec_t *coder = (luat_multimedia_codec_t *)luaL_checkudata(L, 1, LUAT_M_CODE_TYPE);
+	luat_zbuff_t *in_buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+	luat_zbuff_t *out_buff = ((luat_zbuff_t *)luaL_checkudata(L, 3, LUAT_ZBUFF_TYPE));
+	int mode = luaL_optinteger(L, 4, MR475);
+	if (!coder || !in_buff || !out_buff || (coder->type != MULTIMEDIA_DATA_TYPE_AMR_NB) || coder->is_decoder)
+	{
+		lua_pushboolean(L, 0);
+		return 1;
+	}
+	if (mode > MR122)
+	{
+		mode = MR475;
+	}
+	uint8_t outbuf[64];
+	int16_t *pcm = (int16_t *)in_buff->addr;
+	uint32_t total_len = in_buff->used >> 1;
+	uint32_t done_len = 0;
+	int out_len;
+	while ((total_len - done_len) >= 160)
+	{
+		out_len = Encoder_Interface_Encode(coder->amr_coder, mode, &pcm[done_len], outbuf, 0);
+		if (out_len <= 0)
+		{
+			LLOGE("encode error in %d,result %d", done_len, out_len);
+		}
+		else
+		{
+			if ((out_buff->len - out_buff->used) < out_len)
+			{
+				if (__zbuff_resize(out_buff, out_buff->len * 2 + out_len))
+				{
+					lua_pushboolean(L, 0);
+					return 1;
+				}
+			}
+			memcpy(out_buff->addr + out_buff->used, outbuf, out_len);
+			out_buff->used += out_len;
+		}
+		done_len += 160;
+	}
+	lua_pushboolean(L, 1);
+	return 1;
+#else
+	lua_pushboolean(L, 0);
+	return 1;
+#endif
+}
+
+
 static int l_codec_gc(lua_State *L)
 {
 	luat_multimedia_codec_t *coder = ((luat_multimedia_codec_t *)luaL_checkudata(L, 1, LUAT_M_CODE_TYPE));
@@ -310,6 +392,14 @@ static int l_codec_gc(lua_State *L)
 			coder->mp3_decoder = NULL;
 		}
 		break;
+#ifdef LUAT_SUPPORT_AMR
+	case MULTIMEDIA_DATA_TYPE_AMR_NB:
+		if (!coder->is_decoder && coder->amr_coder) {
+			Encoder_Interface_exit(coder->amr_coder);
+			coder->amr_coder = NULL;
+		}
+		break;
+#endif
 	}
     return 0;
 }
@@ -331,11 +421,16 @@ static const rotable_Reg_t reg_codec[] =
 
     { "info" , 		 ROREG_FUNC(l_codec_get_audio_info)},
     { "data",  		 ROREG_FUNC(l_codec_get_audio_data)},
+	{ "encode",  		 ROREG_FUNC(l_codec_encode_audio_data)},
     { "release",         ROREG_FUNC(l_codec_release)},
     //@const MP3 number MP3格式
 	{ "MP3",             ROREG_INT(MULTIMEDIA_DATA_TYPE_MP3)},
     //@const WAV number WAV格式
 	{ "WAV",             ROREG_INT(MULTIMEDIA_DATA_TYPE_WAV)},
+	//@const AMR number AMR-NB格式，一般意义上的AMR
+	{ "AMR",             ROREG_INT(MULTIMEDIA_DATA_TYPE_AMR_NB)},
+	//@const AMR_WB number AMR-WB格式
+	{ "AMR_WB",             ROREG_INT(MULTIMEDIA_DATA_TYPE_AMR_WB)},
 	{ NULL,              {}}
 };
 

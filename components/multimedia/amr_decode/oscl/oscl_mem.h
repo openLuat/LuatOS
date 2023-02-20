@@ -25,12 +25,21 @@ extern "C" {
 
 #include <stdlib.h>
 #include <string.h>
+#ifdef __LUATOS__
+#include "luat_base.h"
+#include "luat_malloc.h"
+#define oscl_malloc luat_heap_malloc
+#define oscl_free luat_heap_free
+#define oscl_memset memset
+#define oscl_memmove memmove
+#define oscl_memcpy memcpy
+#else
 #define oscl_malloc malloc
 #define oscl_free free
 #define oscl_memset memset
 #define oscl_memmove memmove
 #define oscl_memcpy memcpy
-
+#endif
 #ifdef __cplusplus
 }
 #endif

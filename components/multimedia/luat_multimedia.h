@@ -38,7 +38,6 @@ int l_multimedia_raw_handler(lua_State *L, void* ptr);
 #include <stddef.h>
 #include "mp3_decode/minimp3.h"
 
-
 typedef struct
 {
 
@@ -46,6 +45,7 @@ typedef struct
 	{
 		mp3dec_t *mp3_decoder;
 		uint32_t read_len;
+		void *amr_coder;
 	};
 	FILE* fd;
 	luat_zbuff_t buff;

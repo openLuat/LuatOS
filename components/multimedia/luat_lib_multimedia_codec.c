@@ -211,8 +211,7 @@ decoder从文件中解析出原始音频数据，比如从MP3文件里解析出P
 @api codec.data(decoder, out_buff)
 @userdata 解码用的decoder
 @zbuff 存放输出数据的zbuff，空间必须不少于16KB
-@return
-@boolean 是否成功解析
+@return boolean 是否成功解析
 @usage
 local result = codec.get_audio_data(coder, zbuff)
  */
@@ -318,7 +317,7 @@ GET_MP3_DATA:
 @zbuff 输入的数据,zbuff形式,从0到used
 @zbuff 输出的数据,zbuff形式,自动添加到buff的尾部,如果空间大小不足,会自动扩展,但是会额外消耗时间,甚至会失败,所以尽量一开始就给足空间
 @int amr_nb的编码等级 0~7(即 MR475~MR122)值越大消耗的空间越多,音质越高,默认0
-@result boolean,成功返回true,失败返回false
+@return boolean,成功返回true,失败返回false
 @usage
 codec.encode(amr_coder, inbuf, outbuf, codec.AMR_)
  */

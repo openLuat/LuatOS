@@ -47,8 +47,7 @@
 |[multimedia](https://gitee.com/openLuat/LuatOS/tree/master/demo/multimedia/)|多媒体|decoder|air105|音频解码示例|
 |[network](https://gitee.com/openLuat/LuatOS/tree/master/demo/network/)|网络库|network|air105|与w5500配合,实现以太网访问|
 |[nimble](https://gitee.com/openLuat/LuatOS/tree/master/demo/nimble/)|蓝牙库|nimble|air101/air103|仅支持简单收发,功耗高|
-|[nvm](https://gitee.com/openLuat/LuatOS/tree/master/demo/nvm/)|数据持久化|io|所有|已废弃,推进使用fdb库|
-|[ota](https://gitee.com/openLuat/LuatOS/tree/master/demo/ota/)|固件更新|uart|所有||
+|[ota](https://gitee.com/openLuat/LuatOS/tree/master/demo/ota/)|固件更新|uart|自带网络的请使用libfota库,参考fota的demo||
 |[pm](https://gitee.com/openLuat/LuatOS/tree/master/demo/pm/)|功耗控制|pm|所有||
 |[pwm](https://gitee.com/openLuat/LuatOS/tree/master/demo/pwm/)|可控方波|pwm|所有||
 |[rtc](https://gitee.com/openLuat/LuatOS/tree/master/demo/rtc/)|内部时钟|rtc|所有||
@@ -67,5 +66,6 @@
 |[usb_uart](https://gitee.com/openLuat/LuatOS/tree/master/demo/usb_uart/)|USB虚拟串口|usbapp|air105||
 |[video_play](https://gitee.com/openLuat/LuatOS/tree/master/demo/video_play/)|视频播放|uart,sdio|所有|当前仅支持裸rgb565ble视频流|
 |[wdt](https://gitee.com/openLuat/LuatOS/tree/master/demo/wdt/)|硬狗|wdt|所有||
-|[ws2812](https://gitee.com/openLuat/LuatOS/tree/master/demo/ws2812/)|驱动WS2812B|pwm,spi|所有||
+|[ws2812](https://gitee.com/openLuat/LuatOS/tree/master/demo/ws2812/)|驱动WS2812B|gpio,pwm,spi|所有||
+|[wlan](https://gitee.com/openLuat/LuatOS/tree/master/demo/wlan/)|wifi相关|wlan|ESP32系列支持wifi,Air780E系列只支持wifi扫描||
 

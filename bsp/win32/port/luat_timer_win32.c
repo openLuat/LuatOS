@@ -14,7 +14,7 @@
 #include "luat_msgbus.h"
 
 #include "windows.h"
-#include <unistd.h>
+#include <io.h>
 
 #define LUAT_LOG_TAG "timer"
 #include "luat_log.h"
@@ -110,7 +110,6 @@ void luat_timer_us_delay(size_t us) {
 
 #include <time.h>
 #include <math.h>
-#include <unistd.h>
 
 // 获取当前时间
 uint32_t get_timestamp(void) {

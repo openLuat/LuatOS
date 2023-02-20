@@ -41,7 +41,7 @@ uint32_t luat_msgbus_put(rtos_msg_t* msg, size_t timeout) {
 uint32_t luat_msgbus_get(rtos_msg_t* rtmsg, size_t timeout) {
     MSG msg;
     rtos_msg_t* tmp;
-    WINBOOL ret = FALSE;
+    bool ret = FALSE;
     if ((ret = GetMessageA(&msg,NULL,0,0)) == 0) {
       exit(0);
       return 0;

@@ -83,7 +83,6 @@ void luat_uart_recv_cb(int id, int len)
     msg.arg1 = id;
     msg.arg2 = len;
     luat_msgbus_put(&msg, 1);
-    return 0;
 }
 
 int luat_setup_cb(int uartid, int received, int sent) {

@@ -186,10 +186,16 @@ local function taskClient(cbFnc, reqAddr, timeout, productKey, host, port,reqTim
                 sys.wait(2000);
                 result, _ = libnet.tx(d1Name, 0, netc, reqStr) ---发送数据
                 if result then
-                    sys.wait(5000);
-                    local succ, param, _, _ = socket.rx(netc, rx_buff) -- 接收数据
+                    local succ, param
+                    for i=1,10 do
+                        succ, param, _, _ = socket.rx(netc, rx_buff) -- 接收数据
+                        sys.wait(1000);
+                        if param ~= 0 then
+                            break
+                        end
+                    end
                     log.info("是否接收和数据长度", succ, param)
-                    if succ then -- 如果接收成功
+                    if param ~= 0 then -- 如果接收成功
                         socket.close(netc) -- 关闭连接
                         socket.release(netc)
                         local read_buff = rx_buff:toStr(0, param)

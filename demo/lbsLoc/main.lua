@@ -37,6 +37,8 @@ local function getLocCb(result, lat, lng, addr, time, locType)
         log.info("服务器返回的时间", time:toHex())
         log.info("定位类型,基站定位成功返回0", locType)
     end
+    -- 广播给其他需要定位数据的task
+    -- sys.publish("lbsloc_result", result, lat, lng)
 end
 
 sys.taskInit(function()
@@ -47,7 +49,7 @@ sys.taskInit(function()
     end
 end)
 
--- -- 以下为wifi定位
+-- -- 以下为基站+wifi混合定位
 -- sys.subscribe("WLAN_SCAN_DONE", function ()
 --     local results = wlan.scanResult()
 --     log.info("scan", "results", #results)
@@ -60,6 +62,8 @@ end)
 --             reqWifi[bssid]=v["rssi"]
 --         end
 --         lbsLoc.request(getLocCb,nil,nil,nil,nil,nil,nil,reqWifi)
+--     else
+--         lbsLoc.request(getLocCb) -- 没有wifi数据,进行普通定位
 --     end
 -- end)
 
@@ -68,7 +72,7 @@ end)
 --     wlan.init()
 --     while 1 do
 --         wlan.scan()
---         sys.wait(15000)
+--         sys.wait(60000)
 --     end
 -- end)
 

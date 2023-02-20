@@ -48,18 +48,14 @@ local d1Name = "lbsLoc"
 -- @usage
 local function numToBcdNum(inStr,destLen)
     local l,t,num = string.len(inStr or ""),{}
-
     destLen = destLen or (inStr:len()+1)/2
-
     for i=1,l,2 do
         num = tonumber(inStr:sub(i,i+1),16)
-
         if i==l then
             num = 0xf0+num
         else
             num = (num%0x10)*0x10 + (num-(num%0x10))/0x10
         end
-
         table.insert(t,num)
     end
 
@@ -184,9 +180,9 @@ local function taskClient(cbFnc, reqAddr, timeout, productKey, host, port,reqTim
         if result then
             while true do
                 log.info(" lbsloc socket_service connect true")
-                result, _ = libnet.tx(d1Name, 0, netc, reqStr) ---发送数据
+                result = libnet.tx(d1Name, 0, netc, reqStr) ---发送数据
                 if result then
-                    result, param = libnet.wait(d1Name, 10000, netc)
+                    result, param = libnet.wait(d1Name, 15000 + retryCnt * 5, netc)
                     if not result then
                         socket.close(netc)
                         socket.release(netc)

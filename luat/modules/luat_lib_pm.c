@@ -6,6 +6,46 @@
 @date    2020.07.02
 @demo pm
 @tag LUAT_USE_PM
+@usage
+--[[
+休眠模式简介
+
+-- IDLE 正常运行模式
+-- LIGHT 轻睡眠模式:
+        CPU暂停
+        RAM保持供电
+        定时器/网络事件/IO中断均可自动唤醒
+        唤醒后程序继续运行
+        GPIO保持电平
+-- DEEP 深睡眠模式
+        CPU暂停
+        核心RAM掉电, 保留RAM维持供电
+        普通GPIO掉电,外设驱动掉电
+        AON_GPIO保持休眠前的电平
+        dtimer定时器可唤醒
+        wakeup脚可唤醒
+        唤醒后程序从头运行,休眠前的运行时数据全丢
+-- HIB 休眠模式
+        CPU暂停
+        RAM掉电, 保留RAM也掉电
+        普通GPIO掉电,外设驱动掉电
+        AON_GPIO保持休眠前的电平
+        dtimer定时器可唤醒
+        wakeup脚可唤醒
+        唤醒后程序从头运行,休眠前的运行时数据全丢
+
+对部分模块,例如Air780E, DEEP/HIB对用户代码没有区别
+
+除pm.shutdown()外, RTC总是运行的, 除非掉电
+]]
+
+-- 定时器唤醒, 请使用 pm.dtimerStart()
+-- wakeup唤醒
+    -- 如Air101/Air103, 有独立的wakeup脚, 不需要配置,可直接控制唤醒
+    -- 如Air780E系列, 有多个wakeup可用, 通过gpio.setup(32)配置虚拟GPIO进行唤醒配置
+
+pm.request(pm.IDLE) -- 通过切换不同的值请求进入不同的休眠模式
+-- 对应Air780E系列, 执行后并不一定马上进入休眠模式, 如无后续数据传输需求,可先进入飞行模式,然后快速休眠
 */
 #include "lua.h"
 #include "lauxlib.h"

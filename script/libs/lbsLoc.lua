@@ -180,16 +180,18 @@ local function taskClient(cbFnc, reqAddr, timeout, productKey, host, port,reqTim
         socket.debug(netc, false)
         socket.config(netc, nil, true, nil)
         result = libnet.waitLink(d1Name, 0, netc)
-        result = libnet.connect(d1Name, 15000, netc, host, port)
+        result = libnet.connect(d1Name, 5000, netc, host, port)
         if result then
             while true do
                 log.info(" lbsloc socket_service connect true")
-                sys.wait(2000);
                 result, _ = libnet.tx(d1Name, 0, netc, reqStr) ---发送数据
                 if result then
                     result, param = libnet.wait(d1Name, 10000, netc)
                     if not result then
-                        log.info("服务器断开了", result, param)
+                        socket.close(netc)
+                        socket.release(netc)
+                        retryCnt = retryCnt+1
+                        if retryCnt>=3 then return cbFnc(4) end
                         break
                     end
                     succ, param, _, _ = socket.rx(netc, rx_buff) -- 接收数据

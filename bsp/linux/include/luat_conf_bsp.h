@@ -22,19 +22,13 @@
 #define LUAT_USE_CRYPTO 1
 #define LUAT_COMPILER_NOWEAK
 
-// #define LUAT_USE_LOG_ASYNC_THREAD 0
-
 //#define LUAT_USE_LVGL 1
-//#define USE_GTK 1
-
-// #define LUAT_USE_LIBTCPIP_POSIX
-// #define LUAT_USE_LIBTCPIP_MBEDTLS
+#define LUAT_USE_LVGL_SDL2 1
+#define LUAT_USE_LCD_SDL2 1
+#define LUAT_USE_LCD_CUSTOM_DRAW 1
 
 #define LV_TICK_CUSTOM     1
-#if LV_TICK_CUSTOM == 1
-#define LV_TICK_CUSTOM_INCLUDE  "exts/lv_drivers/gtkdrv/gtkdrv.h"       /*Header for the sys time function*/
-#define LV_TICK_CUSTOM_SYS_TIME_EXPR (gtkdrv_tick_get())     /*Expression evaluating to current systime in ms*/
-#endif   /*LV_TICK_CUSTOM*/
+#define LV_TICK_CUSTOM_SYS_TIME_EXPR (get_timestamp())     /*Expression evaluating to current systime in ms*/
 
 #define LV_FONT_OPPOSANS_M_8
 #define LV_FONT_OPPOSANS_M_10

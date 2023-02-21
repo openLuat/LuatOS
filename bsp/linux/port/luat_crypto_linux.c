@@ -4,6 +4,7 @@
 #define LUAT_LOG_TAG "crypto"
 #include "luat_log.h"
 #include <stdlib.h>
+#include <time.h>
 
 int luat_crypto_trng(char* buff, size_t len) {
     srand(time(NULL));

@@ -1476,7 +1476,6 @@ void w5500_init(luat_spi_t* spi, uint8_t irq_pin, uint8_t rst_pin, uint8_t link_
 		w5500->link_pin = link_pin;
 		spi->cs = 0xff;
 		luat_spi_setup(spi);
-		luat_spi_config_dma(w5500->spi_id, 0xffff, 0xffff);
 		luat_gpio_t gpio = {0};
 		gpio.pin = w5500->cs_pin;
 		gpio.mode = Luat_GPIO_OUTPUT;

@@ -217,7 +217,7 @@ end
 function SerDemo(port)
 	mobile.ipv6(true)
 	sysplus.taskInitEx(serTask, dName, netCB, port)
-	sysplus.taskInitEx(clientTask, d1Name, netCB, port)	--回环测试，如果不需要，可以注释掉
+	-- sysplus.taskInitEx(clientTask, d1Name, netCB, port)	--回环测试，如果不需要，可以注释掉
 end
 
 -- function UDPSerDemo(port)

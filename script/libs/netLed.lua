@@ -1,21 +1,21 @@
---- 模块功能：网络指示灯模块
--- @module netLed
--- @author openLuat
--- @license MIT
--- @copyright HH
--- @release 2023年2月2日
+--[[模块功能：网络指示灯模块
+@module netLed
+@author openLuat
+@license MIT
+@copyright HH
+@release 2023年2月2日]]
 netLed = {}
 
 
---SIM卡状态：true为异常，false或者nil为正常
+--[[SIM卡状态：true为异常，false或者nil为正常]]
 local simError
---是否处于飞行模式：true为是，false或者nil为否
+--[[是否处于飞行模式：true为是，false或者nil为否]]
 local flyMode
---是否注册上GSM网络，true为是，false或者nil为否
+--[[是否注册上GSM网络，true为是，false或者nil为否]]
 local gsmRegistered
---是否附着上GPRS网络，true为是，false或者nil为否
+--[[是否附着上GPRS网络，true为是，false或者nil为否]]
 local gprsAttached
---是否有socket连接上后台，true为是，false或者nil为否
+--[[是否有socket连接上后台，true为是，false或者nil为否]]
 local socketConnected
 
 --[[网络指示灯表示的工作状态

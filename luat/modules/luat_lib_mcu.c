@@ -134,7 +134,7 @@ static int l_mcu_x32(lua_State* L) {
 
 // #ifdef __LUATOS_TICK_64BIT__
 /*
-获取启动后的高精度tick,目前只有101/103/105能用
+获取启动后的高精度tick
 @api mcu.tick64()
 @return string 当前tick值,8个字节的uint64
 @return int 1us有几个tick,0表示未知
@@ -152,7 +152,7 @@ static int l_mcu_hw_tick64(lua_State* L) {
 }
 
 /*
-计算2个64bit tick的差值,目前只有105能用
+计算2个64bit tick的差值
 @api mcu.dtick64(tick1, tick2, check_value)
 @string 64bit的string
 @string 64bit的string

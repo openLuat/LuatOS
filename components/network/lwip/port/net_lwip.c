@@ -964,6 +964,11 @@ static void net_lwip_task(void *param)
 								break;
 							}
 						}
+						else
+						{
+//							NET_DBG("tcp buf is full, wait ack and send again");
+							break;
+						}
 					}
 					SOCKET_UNLOCK(socket_id);
 					tcp_output(prvlwip.socket[socket_id].pcb.tcp);

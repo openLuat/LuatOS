@@ -46,7 +46,6 @@ static int l_w5500_init(lua_State *L){
 	return 0;
 }
 
-#ifndef LUAT_USE_LWIP
 /*
 w5500配置网络信息
 @api w5500.config(ip, submask, gateway, mac, RTR, RCR, speed)
@@ -76,7 +75,15 @@ static int l_w5500_config(lua_State *L){
 	    const char* mask = luaL_checklstring(L, 2, &mask_len);
 	    size_t gateway_len = 0;
 	    const char* gateway = luaL_checklstring(L, 3, &gateway_len);
+#ifdef LUAT_USE_LWIP
+	    ip_addr_t lwip_ip,lwip_mask,lwip_gateway;
+	    ipaddr_aton(ip, &lwip_ip);
+	    ipaddr_aton(mask, &lwip_mask);
+	    ipaddr_aton(gateway, &lwip_gateway);
+	    w5500_set_static_ip(lwip_ip.u_addr.ip4.addr, lwip_mask.u_addr.ip4.addr, lwip_gateway.u_addr.ip4.addr);
+#else
 	    w5500_set_static_ip(network_string_to_ipv4(ip, ip_len), network_string_to_ipv4(mask, mask_len), network_string_to_ipv4(gateway, gateway_len));
+#endif
 	}
 	else
 	{
@@ -97,7 +104,6 @@ static int l_w5500_config(lua_State *L){
 	lua_pushboolean(L, 1);
 	return 1;
 }
-#endif
 /*
 将w5500注册进通用网络接口
 @api w5500.bind(id)
@@ -132,9 +138,7 @@ static int l_w5500_get_mac(lua_State *L){
 static const rotable_Reg_t reg_w5500[] =
 {
     { "init",           ROREG_FUNC(l_w5500_init)},
-#ifndef LUAT_USE_LWIP
 	{ "config",           ROREG_FUNC(l_w5500_config)},
-#endif
 	{ "bind",           ROREG_FUNC(l_w5500_network_register)},
 	{ "getMac",           ROREG_FUNC(l_w5500_get_mac)},
 	{ NULL,            ROREG_INT(0)}

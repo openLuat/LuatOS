@@ -7,15 +7,15 @@
 netLed = {}
 
 
---[[SIM卡状态：true为异常，false或者nil为正常]]
+--SIM卡状态：true为异常，false或者nil为正常
 local simError
---[[是否处于飞行模式：true为是，false或者nil为否]]
+--是否处于飞行模式：true为是，false或者nil为否
 local flyMode
---[[是否注册上GSM网络，true为是，false或者nil为否]]
+--是否注册上GSM网络，true为是，false或者nil为否
 local gsmRegistered
---[[是否附着上GPRS网络，true为是，false或者nil为否]]
+--是否附着上GPRS网络，true为是，false或者nil为否
 local gprsAttached
---[[是否有socket连接上后台，true为是，false或者nil为否]]
+--是否有socket连接上后台，true为是，false或者nil为否
 local socketConnected
 
 --[[网络指示灯表示的工作状态
@@ -28,25 +28,25 @@ GPRS：已附着GPRS数据网络
 SCK：socket已连接上后台]]
 local ledState = "NULL"
 local ON,OFF = 1,2
---[[各种工作状态下配置的点亮、熄灭时长（单位毫秒）]]
+--各种工作状态下配置的点亮、熄灭时长（单位毫秒）
 local ledBlinkTime =
 {
-    NULL = {0,0xFFFF},  --[[常灭]]
-    FLYMODE = {0,0xFFFF},  --[[常灭]]
-    SIMERR = {300,5700},  --[[亮300毫秒，灭5700毫秒]]
-    IDLE = {300,3700},  --[[亮300毫秒，灭3700毫秒]]
-    GSM = {300,1700},  --[[亮300毫秒，灭1700毫秒]]
-    GPRS = {300,700},  --[[亮300毫秒，灭700毫秒]]
-    SCK = {100,100},  --[[亮100毫秒，灭100毫秒]]
+    NULL = {0,0xFFFF},  --常灭
+    FLYMODE = {0,0xFFFF},  --常灭
+    SIMERR = {300,5700},  --亮300毫秒，灭5700毫秒
+    IDLE = {300,3700},  --亮300毫秒，灭3700毫秒
+    GSM = {300,1700},  --亮300毫秒，灭1700毫秒
+    GPRS = {300,700},  --亮300毫秒，灭700毫秒
+    SCK = {100,100},  --亮100毫秒，灭100毫秒
 }
 
---[[网络指示灯开关，true为打开，false或者nil为关闭]]
+--网络指示灯开关，true为打开，false或者nil为关闭
 local ledSwitch = false
---[[网络指示灯默认PIN脚（GPIO27）]]
+--网络指示灯默认PIN脚（GPIO27）
 local LEDPIN = 27
---[[LTE指示灯开关，true为打开，false或者nil为关闭]]
+--LTE指示灯开关，true为打开，false或者nil为关闭
 local lteSwitch = false
---[[LTE指示灯默认PIN脚（GPIO26）]]
+--LTE指示灯默认PIN脚（GPIO26）
 local LTEPIN = 26
 
 
@@ -178,7 +178,7 @@ end
 @usage led.breateLed(ledPin)
 @usage 调用函数需要使用任务支持]]
 function netLed.breateLed(ledPin)
-    -- [[呼吸灯的状态、PWM周期]]
+    -- 呼吸灯的状态、PWM周期
     local bLighting, bDarking, LED_PWM = false, true, 18
     if bLighting then
         for i = 1, LED_PWM - 1 do
@@ -212,7 +212,7 @@ sys.subscribe("IP_CLOSE", function() if gsmRegistered then gsmRegistered=false u
 sys.subscribe("IP_READY", function() if not gsmRegistered then gsmRegistered=true updateState() end end)
 sys.subscribe("IP_READY", function(attach) if gprsAttached~=attach then gprsAttached=attach updateState() end end)
 sys.subscribe("SOCKET_ACTIVE", function(active) if socketConnected~=active then socketConnected=active updateState() end end)
---[[sys.subscribe("NET_UPD_NET_MODE", function() if lteSwitch then sys.publish("LTE_LED_UPDATE",net.getNetMode()==net.NetMode_LTE) end end)]]
+--sys.subscribe("NET_UPD_NET_MODE", function() if lteSwitch then sys.publish("LTE_LED_UPDATE",net.getNetMode()==net.NetMode_LTE) end end)
 
 
 return netLed

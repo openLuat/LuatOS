@@ -273,15 +273,11 @@ typedef struct
 	int (*user_cmd)(int socket_id, uint64_t tag, uint32_t cmd, uint32_t value, void *user_data);
 
 	int (*dns)(const char *domain_name, uint32_t len, void *param,  void *user_data);
-#ifdef LUAT_USE_LWIP
 	int (*dns_ipv6)(const char *domain_name, uint32_t len, void *param,  void *user_data);
-#endif
 	int (*set_dns_server)(uint8_t server_index, luat_ip_addr_t *ip, void *user_data);
-#ifdef LUAT_USE_LWIP
 	int (*set_mac)(uint8_t *mac, void *user_data);
 	int (*set_static_ip)(luat_ip_addr_t *ip, luat_ip_addr_t *submask, luat_ip_addr_t *gateway, luat_ip_addr_t *ipv6, void *user_data);
 	int (*get_full_ip_info)(luat_ip_addr_t *ip, luat_ip_addr_t *submask, luat_ip_addr_t *gateway, luat_ip_addr_t *ipv6, void *user_data);
-#endif
 	int (*get_local_ip_info)(luat_ip_addr_t *ip, luat_ip_addr_t *submask, luat_ip_addr_t *gateway, void *user_data);
 	//所有网络消息都是通过cb_fun回调
 	//cb_fun回调时第一个参数为OS_EVENT，包含了socket的必要信息，第二个是luat_network_cb_param_t，其中的param是这里传入的param(就是适配器序号)

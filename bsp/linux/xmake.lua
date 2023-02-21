@@ -18,7 +18,7 @@ set_languages("c11", "cxx11")
 
 add_defines("__LUATOS__", "__XMAKE_BUILD__")
 add_cflags("-ffunction-sections","-fdata-sections", "-Wl,--gc-sections")
-add_ldflags("-ffunction-sections","-fdata-sections", "-Wl,--gc-sections", "-lreadline")
+add_ldflags("-ffunction-sections","-fdata-sections", "-Wl,--gc-sections", "-lreadline","-lm")
 
 target("luatos")
     -- set kind

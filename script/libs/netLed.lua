@@ -110,11 +110,11 @@ local function taskLed(ledPinSetFunc)
 end
 
 --[[
--- 模块功能：LTE指示灯模块的运行任务
--- 参数：
+模块功能：LTE指示灯模块的运行任务
+参数：
        ledPinSetFunc：指示灯GPIO的设置函数
--- 返回值：无
---]]
+ 返回值：无
+]]
 local function taskLte(ledPinSetFunc)
     while true do
         local _,arg = sys.waitUntil("LTE_LED_UPDATE")
@@ -124,13 +124,13 @@ local function taskLte(ledPinSetFunc)
     end
 end
 
---- 配置网络指示灯和LTE指示灯并且立即执行配置后的动作
--- @bool flag 是否打开网络指示灯和LTE指示灯功能，true为打开，false为关闭
--- @number ledPin 控制网络指示灯闪烁的GPIO引脚，例如pio.P0_1表示GPIO1
--- @number ltePin 控制LTE指示灯闪烁的GPIO引脚，例如pio.P0_4表示GPIO4
--- @return nil
--- @usage setup(true,26,27)表示打开网络指示灯和LTE指示灯功能，GPIO27控制网络指示灯，GPIO26控制LTE指示灯
--- @usage setup(false)表示关闭网络指示灯和LTE指示灯功能
+--[[配置网络指示灯和LTE指示灯并且立即执行配置后的动作
+@bool flag 是否打开网络指示灯和LTE指示灯功能，true为打开，false为关闭
+@number ledPin 控制网络指示灯闪烁的GPIO引脚，例如pio.P0_1表示GPIO1
+@number ltePin 控制LTE指示灯闪烁的GPIO引脚，例如pio.P0_4表示GPIO4
+@return nil
+@usage setup(true,26,27)表示打开网络指示灯和LTE指示灯功能，GPIO27控制网络指示灯，GPIO26控制LTE指示灯
+@usage setup(false)表示关闭网络指示灯和LTE指示灯功能]]
 function netLed.setup(flag,ledPin,ltePin)
     --log.info("netLed.setup",flag,pin,ledSwitch)    
     local oldSwitch = ledSwitch
@@ -149,14 +149,14 @@ function netLed.setup(flag,ledPin,ltePin)
     end	
 end
 
---- 配置某种工作状态下指示灯点亮和熄灭的时长（如果用户不配置，使用netLed.lua中ledBlinkTime配置的默认值）
--- @string state 某种工作状态，仅支持"FLYMODE"、"SIMERR"、"IDLE"、"GSM"、"GPRS"、"SCK"
--- @number on 指示灯点亮时长，单位毫秒，0xFFFF表示常亮，0表示常灭
--- @number off 指示灯熄灭时长，单位毫秒，0xFFFF表示常灭，0表示常亮
--- @return nil
--- @usage updateBlinkTime("FLYMODE",1000,500)表示飞行模式工作状态下，指示灯闪烁规律为：亮1秒，灭0.5秒
--- @usage updateBlinkTime("SCK",0xFFFF,0)表示有socket连接上后台的工作状态下，指示灯闪烁规律为：常亮
--- @usage updateBlinkTime("SIMERR",0,0xFFFF)表示SIM卡异常状态下，指示灯闪烁规律为：常灭
+--[[配置某种工作状态下指示灯点亮和熄灭的时长（如果用户不配置，使用netLed.lua中ledBlinkTime配置的默认值）
+@string state 某种工作状态，仅支持"FLYMODE"、"SIMERR"、"IDLE"、"GSM"、"GPRS"、"SCK"
+@number on 指示灯点亮时长，单位毫秒，0xFFFF表示常亮，0表示常灭
+@number off 指示灯熄灭时长，单位毫秒，0xFFFF表示常灭，0表示常亮
+@return nil
+@usage updateBlinkTime("FLYMODE",1000,500)表示飞行模式工作状态下，指示灯闪烁规律为：亮1秒，灭0.5秒
+@usage updateBlinkTime("SCK",0xFFFF,0)表示有socket连接上后台的工作状态下，指示灯闪烁规律为：常亮
+@usage updateBlinkTime("SIMERR",0,0xFFFF)表示SIM卡异常状态下，指示灯闪烁规律为：常灭]]
 function netLed.updateBlinkTime(state,on,off)
     if not ledBlinkTime[state] then log.error("netLed.updateBlinkTime") return end    
     local updated
@@ -172,11 +172,11 @@ function netLed.updateBlinkTime(state,on,off)
     if updated then sys.publish("NET_LED_UPDATE") end
 end
 
---- 呼吸灯
--- @function ledPin 呼吸灯的ledPin(1)用pins.setup注册返回的方法
--- @return nil
--- @usage led.breateLed(ledPin)
--- @usage 调用函数需要使用任务支持
+--[[ 呼吸灯
+@function ledPin 呼吸灯的ledPin(1)用pins.setup注册返回的方法
+@return nil
+@usage led.breateLed(ledPin)
+@usage 调用函数需要使用任务支持]]
 function netLed.breateLed(ledPin)
     -- 呼吸灯的状态、PWM周期
     local bLighting, bDarking, LED_PWM = false, true, 18
@@ -212,7 +212,7 @@ sys.subscribe("IP_CLOSE", function() if gsmRegistered then gsmRegistered=false u
 sys.subscribe("IP_READY", function() if not gsmRegistered then gsmRegistered=true updateState() end end)
 sys.subscribe("IP_READY", function(attach) if gprsAttached~=attach then gprsAttached=attach updateState() end end)
 sys.subscribe("SOCKET_ACTIVE", function(active) if socketConnected~=active then socketConnected=active updateState() end end)
--- sys.subscribe("NET_UPD_NET_MODE", function() if lteSwitch then sys.publish("LTE_LED_UPDATE",net.getNetMode()==net.NetMode_LTE) end end)
+--[[sys.subscribe("NET_UPD_NET_MODE", function() if lteSwitch then sys.publish("LTE_LED_UPDATE",net.getNetMode()==net.NetMode_LTE) end end)]]
 
 
 return netLed

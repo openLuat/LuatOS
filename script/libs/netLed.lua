@@ -18,43 +18,43 @@ local gprsAttached
 --是否有socket连接上后台，true为是，false或者nil为否
 local socketConnected
 
---网络指示灯表示的工作状态
---NULL：功能关闭状态
---FLYMODE：飞行模式
---SIMERR：未检测到SIM卡或者SIM卡锁pin码等SIM卡异常
---IDLE：未注册GSM网络
---GSM：已注册GSM网络
---GPRS：已附着GPRS数据网络
---SCK：socket已连接上后台
+--[[网络指示灯表示的工作状态
+NULL：功能关闭状态
+FLYMODE：飞行模式
+SIMERR：未检测到SIM卡或者SIM卡锁pin码等SIM卡异常
+IDLE：未注册GSM网络
+GSM：已注册GSM网络
+GPRS：已附着GPRS数据网络
+SCK：socket已连接上后台]]
 local ledState = "NULL"
 local ON,OFF = 1,2
---各种工作状态下配置的点亮、熄灭时长（单位毫秒）
+--[[各种工作状态下配置的点亮、熄灭时长（单位毫秒）]]
 local ledBlinkTime =
 {
-    NULL = {0,0xFFFF},  --常灭
-    FLYMODE = {0,0xFFFF},  --常灭
-    SIMERR = {300,5700},  --亮300毫秒，灭5700毫秒
-    IDLE = {300,3700},  --亮300毫秒，灭3700毫秒
-    GSM = {300,1700},  --亮300毫秒，灭1700毫秒
-    GPRS = {300,700},  --亮300毫秒，灭700毫秒
-    SCK = {100,100},  --亮100毫秒，灭100毫秒
+    NULL = {0,0xFFFF},  --[[常灭]]
+    FLYMODE = {0,0xFFFF},  --[[常灭]]
+    SIMERR = {300,5700},  --[[亮300毫秒，灭5700毫秒]]
+    IDLE = {300,3700},  --[[亮300毫秒，灭3700毫秒]]
+    GSM = {300,1700},  --[[亮300毫秒，灭1700毫秒]]
+    GPRS = {300,700},  --[[亮300毫秒，灭700毫秒]]
+    SCK = {100,100},  --[[亮100毫秒，灭100毫秒]]
 }
 
---网络指示灯开关，true为打开，false或者nil为关闭
+--[[网络指示灯开关，true为打开，false或者nil为关闭]]
 local ledSwitch = false
---网络指示灯默认PIN脚（GPIO27）
+--[[网络指示灯默认PIN脚（GPIO27）]]
 local LEDPIN = 27
---LTE指示灯开关，true为打开，false或者nil为关闭
+--[[LTE指示灯开关，true为打开，false或者nil为关闭]]
 local lteSwitch = false
---LTE指示灯默认PIN脚（GPIO26）
+--[[LTE指示灯默认PIN脚（GPIO26）]]
 local LTEPIN = 26
 
 
 --[[
--- 模块功能：更新网络指示灯表示的工作状态
--- 参数：无
--- 返回值：无
---]]
+模块功能：更新网络指示灯表示的工作状态
+参数：无
+返回值：无
+]]
 local function updateState()
     log.info("netLed.updateState",ledSwitch,ledState,flyMode,simError,gsmRegistered,gprsAttached,socketConnected)
     if ledSwitch then
@@ -79,11 +79,11 @@ local function updateState()
 end
 
 --[[
--- 模块功能：网络指示灯模块的运行任务
--- 参数：
+模块功能：网络指示灯模块的运行任务
+参数：
        ledPinSetFunc：指示灯GPIO的设置函数
--- 返回值：无
---]]
+返回值：无
+]]
 local function taskLed(ledPinSetFunc)
     while true do
         --log.info("netLed.taskLed",ledPinSetFunc,ledSwitch,ledState)
@@ -178,7 +178,7 @@ end
 @usage led.breateLed(ledPin)
 @usage 调用函数需要使用任务支持]]
 function netLed.breateLed(ledPin)
-    -- 呼吸灯的状态、PWM周期
+    -- [[呼吸灯的状态、PWM周期]]
     local bLighting, bDarking, LED_PWM = false, true, 18
     if bLighting then
         for i = 1, LED_PWM - 1 do

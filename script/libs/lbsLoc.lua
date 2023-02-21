@@ -7,7 +7,8 @@
 @usage
 --注意:因使用了sys.wait()所有api需要在协程中使用
 --用法实例
-PRODUCT_KEY = "VmhtOb81EgZau6YyuuZJzwF6oUNGCbXi"
+--注意：此处的PRODUCT_KEY仅供演示使用，不保证一直能用，量产项目中一定要使用自己在iot.openluat.com中创建的项目productKey
+PRODUCT_KEY = "v32xEAKsGTIEQxtqgwCldp5aPlcnPs3K"
 local lbsLoc = require("lbsLoc")
 -- 功能:获取基站对应的经纬度后的回调函数
 -- 参数:-- result：number类型，0表示成功，1表示网络环境尚未就绪，2表示连接服务器失败，3表示发送数据失败，4表示接收服务器应答超时，5表示服务器返回查询失败；为0时，后面的5个参数才有意义
@@ -47,18 +48,14 @@ local d1Name = "lbsLoc"
 -- @usage
 local function numToBcdNum(inStr,destLen)
     local l,t,num = string.len(inStr or ""),{}
-
     destLen = destLen or (inStr:len()+1)/2
-
     for i=1,l,2 do
         num = tonumber(inStr:sub(i,i+1),16)
-
         if i==l then
             num = 0xf0+num
         else
             num = (num%0x10)*0x10 + (num-(num%0x10))/0x10
         end
-
         table.insert(t,num)
     end
 
@@ -173,23 +170,29 @@ local function taskClient(cbFnc, reqAddr, timeout, productKey, host, port,reqTim
     local rx_buff = zbuff.create(17)
     -- sys.wait(5000)
     while true do
-        local result
+        local result,succ,param
         local netc = socket.create(nil, d1Name) -- 创建socket对象
         if not netc then cbFnc(6) return end -- 创建socket失败
         socket.debug(netc, false)
         socket.config(netc, nil, true, nil)
         result = libnet.waitLink(d1Name, 0, netc)
-        result = libnet.connect(d1Name, 15000, netc, host, port)
+        result = libnet.connect(d1Name, 5000, netc, host, port)
         if result then
             while true do
                 log.info(" lbsloc socket_service connect true")
-                sys.wait(2000);
-                result, _ = libnet.tx(d1Name, 0, netc, reqStr) ---发送数据
+                result = libnet.tx(d1Name, 0, netc, reqStr) ---发送数据
                 if result then
-                    sys.wait(5000);
-                    local succ, param, _, _ = socket.rx(netc, rx_buff) -- 接收数据
+                    result, param = libnet.wait(d1Name, 15000 + retryCnt * 5, netc)
+                    if not result then
+                        socket.close(netc)
+                        socket.release(netc)
+                        retryCnt = retryCnt+1
+                        if retryCnt>=3 then return cbFnc(4) end
+                        break
+                    end
+                    succ, param, _, _ = socket.rx(netc, rx_buff) -- 接收数据
                     log.info("是否接收和数据长度", succ, param)
-                    if succ then -- 如果接收成功
+                    if param ~= 0 then -- 如果接收成功
                         socket.close(netc) -- 关闭连接
                         socket.release(netc)
                         local read_buff = rx_buff:toStr(0, param)

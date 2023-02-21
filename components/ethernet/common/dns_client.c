@@ -23,9 +23,6 @@
 #define MAX_CHARACTER_NUM_PER_LABEL  63
 #define DNS_TO_BASE (900)
 #define DNS_TRY_MAX	(3)
-#ifdef LUAT_USE_LWIP
-#define GetSysTickMS luat_mcu_tick64_ms
-#endif
 
 //extern void DBG_Printf(const char* format, ...);
 //extern void DBG_HexPrintf(void *Data, unsigned int len);
@@ -196,7 +193,7 @@ int32_t dns_get_ip(dns_client_t *client, Buffer_Struct *buf, uint16_t answer_num
 				if (process && (process->ip_nums < MAX_DNS_IP))
 				{
 					process->ip_result[process->ip_nums].ip = ip_addr;
-					process->ip_result[process->ip_nums].ttl_end = ttl + ((uint32_t)(GetSysTickMS()/1000));
+					process->ip_result[process->ip_nums].ttl_end = ttl + ((uint32_t)(luat_mcu_tick64_ms()/1000));
 					process->ip_nums++;
 				}
 			}
@@ -229,7 +226,7 @@ int32_t dns_get_ip(dns_client_t *client, Buffer_Struct *buf, uint16_t answer_num
 				if (process && (process->ip_nums < MAX_DNS_IP))
 				{
 					process->ip_result[process->ip_nums].ip = ip_addr;
-					process->ip_result[process->ip_nums].ttl_end = ttl + ((uint32_t)(GetSysTickMS()/1000));
+					process->ip_result[process->ip_nums].ttl_end = ttl + ((uint32_t)(luat_mcu_tick64_ms()/1000));
 					process->ip_nums++;
 				}
 			}
@@ -401,7 +398,7 @@ int32_t dns_make(dns_client_t *client, dns_process_t *process, Buffer_Struct *ou
     }
     pucByte += sizeof( uint16_t );
     BytesPutBe16(pucByte, dnsCLASS);
-	process->timeout_ms = GetSysTickMS() + DNS_TO_BASE * (process->retry_cnt + 1);
+	process->timeout_ms = luat_mcu_tick64_ms() + DNS_TO_BASE * (process->retry_cnt + 1);
     return ERROR_NONE;
 }
 
@@ -505,7 +502,7 @@ static int32_t dns_clear_process(void *pData, void *pParam)
 
 void dns_clear(dns_client_t *client)
 {
-//	uint64_t now_time = GetSysTickMS();
+//	uint64_t now_time = luat_mcu_tick64_ms();
 	llist_traversal(&client->process_head, dns_clear_process, NULL);
 	llist_traversal(&client->require_head, dns_clear_require, NULL);
 }
@@ -513,7 +510,7 @@ void dns_clear(dns_client_t *client)
 static int32_t dns_find_need_tx_process(void *pData, void *pParam)
 {
 	dns_process_t *process = (dns_process_t *)pData;
-	if (!process->is_done && (process->timeout_ms < GetSysTickMS()))
+	if (!process->is_done && (process->timeout_ms < luat_mcu_tick64_ms()))
 	{
 		return LIST_FIND;
 	}

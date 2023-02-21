@@ -599,7 +599,11 @@ static void json_append_number(lua_State *l,
     if (json->is_err)
         return;
     if (lua_isinteger(l, lindex)) {
+        #ifdef LUAT_CONF_VM_64bit
+        len = snprintf_(strbuf_empty_ptr(json), FPCONV_G_FMT_BUFSIZE, "%lld", lua_tointeger(l, lindex));
+        #else
         len = snprintf_(strbuf_empty_ptr(json), FPCONV_G_FMT_BUFSIZE, "%ld", lua_tointeger(l, lindex));
+        #endif
     }
     else {
         len = snprintf_(strbuf_empty_ptr(json), FPCONV_G_FMT_BUFSIZE, float_fmt, lua_tonumber(l, lindex));
@@ -1003,7 +1007,7 @@ static void json_next_number_token(json_parse_t *json, json_token_t *token)
 {
     char *endptr;
     unsigned len = 0;
-    int int_val = 0;
+    lua_Integer int_val = 0;
     token->type = T_NUMBER;
     token->value.number = lua_str2number(json->ptr, &endptr);
     if (json->ptr == endptr)
@@ -1026,7 +1030,11 @@ static void json_next_number_token(json_parse_t *json, json_token_t *token)
             }
             if (int_val == 0) {
                 int_val = 0;
+                #ifdef LUAT_CONF_VM_64bit
+                int_val = strtoll(json->ptr, &endptr, 0);
+                #else
                 int_val = strtol(json->ptr, &endptr, 0);
+                #endif
                 if (int_val != 0) {
                     token->type = T_INTEGER;
                     token->value.lint = int_val;

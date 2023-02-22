@@ -4,10 +4,14 @@
 #ifdef LUAT_USE_DHCP
 #include "luat_network_adapter.h"
 #include "dhcp_def.h"
+#define LUAT_LOG_TAG "DHCP"
+#include "luat_log.h"
 #define DHCP_OPTION_138 138
-extern void DBG_Printf(const char* format, ...);
-extern void DBG_HexPrintf(void *Data, unsigned int len);
-#define DBG(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
+
+
+//extern void DBG_Printf(const char* format, ...);
+//extern void DBG_HexPrintf(void *Data, unsigned int len);
+//#define DBG(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
 
 void make_ip4_dhcp_msg_base(dhcp_client_info_t *dhcp, uint16_t flag, Buffer_Struct *out)
 {
@@ -141,27 +145,27 @@ int analyze_ip4_dhcp(dhcp_client_info_t *dhcp, Buffer_Struct *in)
 	uint64_t lease_time;
 	if (in->Data[0] != DHCP_BOOTREPLY)
 	{
-		DBG("head error");
+		LLOGD("head error");
 		return -1;
 	}
 	if (BytesGetBe32(&in->Data[DHCP_MSG_LEN]) != DHCP_MAGIC_COOKIE)
 	{
-		DBG("cookie error");
+		LLOGD("cookie error");
 		return -2;
 	}
 
 	if (BytesGetBe32(&in->Data[4]) != dhcp->xid)
 	{
-		DBG("xid error %x,%x", BytesGetBe32(&in->Data[4]), dhcp->xid);
+		LLOGD("xid error %x,%x", BytesGetBe32(&in->Data[4]), dhcp->xid);
 		return -3;
 	}
 	if (memcmp(dhcp->mac, &in->Data[28], 6))
 	{
-		DBG("mac error");
+		LLOGD("mac error");
 		return -4;
 	}
 	dhcp->temp_ip = BytesGetLe32(&in->Data[16]);
-	DBG("find ip %x", dhcp->temp_ip);
+	LLOGD("find ip %x", dhcp->temp_ip);
 	in->Pos = DHCP_OPTIONS_OFS;
 	while (in->Pos < in->MaxLen)
 	{
@@ -180,7 +184,7 @@ __CHECK:
 				dhcp->lease_time = BytesGetBe32(&in->Data[in->Pos + 2]);
 				lease_time = dhcp->lease_time;
 				lease_time *= 1000;
-				dhcp->lease_end_time = GetSysTickMS() + lease_time;
+				dhcp->lease_end_time = luat_mcu_tick64_ms() + lease_time;
 				dhcp->lease_p1_time = dhcp->lease_end_time - (lease_time >> 1);
 				dhcp->lease_p2_time = dhcp->lease_end_time - (lease_time >> 3);
 			}
@@ -203,7 +207,7 @@ __CHECK:
 		case DHCP_OPTION_END:
 			return ack;
 		default:
-			DBG("jump %d,%d", in->Data[in->Pos], in->Data[in->Pos+1]);
+			LLOGD("jump %d,%d", in->Data[in->Pos], in->Data[in->Pos+1]);
 			break;
 		}
 		in->Pos += 2 + in->Data[in->Pos+1];
@@ -219,7 +223,7 @@ int ip4_dhcp_run(dhcp_client_info_t *dhcp, Buffer_Struct *in, Buffer_Struct *out
 	if (in)
 	{
 		result = analyze_ip4_dhcp(dhcp, in);
-		DBG("result %d", result);
+		LLOGD("result %d", result);
 		if (result > 0)
 		{
 			if (result == DHCP_NAK)
@@ -240,11 +244,11 @@ int ip4_dhcp_run(dhcp_client_info_t *dhcp, Buffer_Struct *in, Buffer_Struct *out
 			return -1;
 		}
 	}
-//	DBG("%d,%d", dhcp->state, result);
+//	LLOGD("%d,%d", dhcp->state, result);
 	switch(dhcp->state)
 	{
 	case DHCP_STATE_WAIT_LEASE_P1:
-		if (GetSysTickMS() >= dhcp->lease_p1_time)
+		if (luat_mcu_tick64_ms() >= dhcp->lease_p1_time)
 		{
 			flag = 0;
 			*remote_ip = dhcp->server_ip;
@@ -255,18 +259,18 @@ int ip4_dhcp_run(dhcp_client_info_t *dhcp, Buffer_Struct *in, Buffer_Struct *out
 	case DHCP_STATE_WAIT_LEASE_P1_ACK:
 		if (in && (result == DHCP_ACK))
 		{
-			DBG("lease p1 require ip ok");
+			LLOGD("lease p1 require ip ok");
 			dhcp->state = DHCP_STATE_WAIT_LEASE_P1;
 			break;
 		}
-		if (GetSysTickMS() >= (dhcp->last_tx_time + 2500))
+		if (luat_mcu_tick64_ms() >= (dhcp->last_tx_time + 2500))
 		{
-			DBG("lease p1 require ip long time no ack");
+			LLOGD("lease p1 require ip long time no ack");
 			dhcp->state = DHCP_STATE_WAIT_LEASE_P2;
 		}
 		break;
 	case DHCP_STATE_WAIT_LEASE_P2:
-		if (GetSysTickMS() >= dhcp->lease_p2_time)
+		if (luat_mcu_tick64_ms() >= dhcp->lease_p2_time)
 		{
 			dhcp->state = DHCP_STATE_WAIT_SELECT_ACK;
 			goto DHCP_NEED_REQUIRE;
@@ -275,18 +279,18 @@ int ip4_dhcp_run(dhcp_client_info_t *dhcp, Buffer_Struct *in, Buffer_Struct *out
 	case DHCP_STATE_WAIT_LEASE_P2_ACK:
 		if (in && (result == DHCP_ACK))
 		{
-			DBG("lease p2 require ip ok");
+			LLOGD("lease p2 require ip ok");
 			dhcp->state = DHCP_STATE_WAIT_LEASE_P1;
 			break;
 		}
-		if (GetSysTickMS() >= (dhcp->last_tx_time + 2500))
+		if (luat_mcu_tick64_ms() >= (dhcp->last_tx_time + 2500))
 		{
-			DBG("lease p2 require ip long time no ack");
+			LLOGD("lease p2 require ip long time no ack");
 			dhcp->state = DHCP_STATE_WAIT_LEASE_END;
 		}
 		break;
 	case DHCP_STATE_WAIT_LEASE_END:
-		if (GetSysTickMS() >= dhcp->lease_end_time)
+		if (luat_mcu_tick64_ms() >= dhcp->lease_end_time)
 		{
 			dhcp->state = DHCP_STATE_WAIT_SELECT_ACK;
 			goto DHCP_NEED_REQUIRE;
@@ -295,58 +299,58 @@ int ip4_dhcp_run(dhcp_client_info_t *dhcp, Buffer_Struct *in, Buffer_Struct *out
 //	case DHCP_STATE_WAIT_REQUIRE_ACK:
 //		if (in && (result == DHCP_ACK))
 //		{
-//			DBG("require ip ok");
+//			LLOGD("require ip ok");
 //			dhcp->state = DHCP_STATE_WAIT_LEASE_P1;
 //			break;
 //		}
-//		if (GetSysTickMS() >= (dhcp->last_tx_time + 2500))
+//		if (luat_mcu_tick64_ms() >= (dhcp->last_tx_time + 2500))
 //		{
-//			DBG("require ip long time no ack");
+//			LLOGD("require ip long time no ack");
 //			OS_ReInitBuffer(out, 512);
 //			make_ip4_dhcp_discover_msg(dhcp, out);
-//			dhcp->last_tx_time = GetSysTickMS();
+//			dhcp->last_tx_time = luat_mcu_tick64_ms();
 //			dhcp->discover_cnt = 0;
 //			dhcp->state = DHCP_STATE_WAIT_OFFER;
 //		}
 //		break;
 	case DHCP_STATE_DISCOVER:
-		DBG("dhcp discover");
+		LLOGD("dhcp discover");
 		OS_ReInitBuffer(out, 512);
 		make_ip4_dhcp_discover_msg(dhcp, out);
-		dhcp->last_tx_time = GetSysTickMS();
+		dhcp->last_tx_time = luat_mcu_tick64_ms();
 		dhcp->state = DHCP_STATE_WAIT_OFFER;
 		break;
 	case DHCP_STATE_WAIT_OFFER:
 		if (in && (result == DHCP_OFFER))
 		{
-			DBG("select offer, wait ack");
+			LLOGD("select offer, wait ack");
 			dhcp->state = DHCP_STATE_WAIT_SELECT_ACK;
 			goto DHCP_NEED_REQUIRE;
 		}
-		if (GetSysTickMS() >= (dhcp->last_tx_time + (dhcp->discover_cnt * 500) + 900))
+		if (luat_mcu_tick64_ms() >= (dhcp->last_tx_time + (dhcp->discover_cnt * 500) + 900))
 		{
-			DBG("long time no offer, resend");
+			LLOGD("long time no offer, resend");
 			dhcp->discover_cnt++;
 			OS_ReInitBuffer(out, 512);
 			make_ip4_dhcp_discover_msg(dhcp, out);
-			dhcp->last_tx_time = GetSysTickMS();
+			dhcp->last_tx_time = luat_mcu_tick64_ms();
 		}
 		break;
 	case DHCP_STATE_WAIT_SELECT_ACK:
 		if (in && (result == DHCP_ACK))
 		{
-//			DBG("need check ip %x,%x,%x,%x", dhcp->temp_ip, dhcp->submask, dhcp->gateway, dhcp->server_ip);
+//			LLOGD("need check ip %x,%x,%x,%x", dhcp->temp_ip, dhcp->submask, dhcp->gateway, dhcp->server_ip);
 			dhcp->ip = dhcp->temp_ip;
 			dhcp->state = DHCP_STATE_CHECK;
-			DBG("DHCP get ip ready");
+			LLOGD("DHCP get ip ready");
 			break;
 		}
-		if (GetSysTickMS() >= (dhcp->last_tx_time + (dhcp->discover_cnt * 500) + 1100))
+		if (luat_mcu_tick64_ms() >= (dhcp->last_tx_time + (dhcp->discover_cnt * 500) + 1100))
 		{
-			DBG("select ip long time no ack");
+			LLOGD("select ip long time no ack");
 			OS_ReInitBuffer(out, 512);
 			make_ip4_dhcp_discover_msg(dhcp, out);
-			dhcp->last_tx_time = GetSysTickMS();
+			dhcp->last_tx_time = luat_mcu_tick64_ms();
 			dhcp->discover_cnt = 0;
 			dhcp->state = DHCP_STATE_WAIT_OFFER;
 		}
@@ -363,7 +367,7 @@ int ip4_dhcp_run(dhcp_client_info_t *dhcp, Buffer_Struct *in, Buffer_Struct *out
 		*remote_ip = dhcp->server_ip;
 		OS_ReInitBuffer(out, 512);
 		make_ip4_dhcp_decline_msg(dhcp, out);
-		dhcp->last_tx_time = GetSysTickMS();
+		dhcp->last_tx_time = luat_mcu_tick64_ms();
 		dhcp->state = DHCP_STATE_DISCOVER;
 		break;
 	case DHCP_STATE_NOT_WORK:
@@ -373,7 +377,7 @@ int ip4_dhcp_run(dhcp_client_info_t *dhcp, Buffer_Struct *in, Buffer_Struct *out
 DHCP_NEED_REQUIRE:
 	OS_ReInitBuffer(out, 512);
 	make_ip4_dhcp_select_msg(dhcp, flag, out);
-	dhcp->last_tx_time = GetSysTickMS();
+	dhcp->last_tx_time = luat_mcu_tick64_ms();
 	return 0;
 }
 

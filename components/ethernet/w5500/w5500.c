@@ -13,15 +13,18 @@
 
 #include "luat_network_adapter.h"
 
-extern void DBG_Printf(const char* format, ...);
-extern void DBG_HexPrintf(void *Data, unsigned int len);
-#if 0
-#define DBG(x,y...)
-#define DBG_ERR(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
-#else
-#define DBG(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
-#define DBG_ERR(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
-#endif
+//extern void DBG_Printf(const char* format, ...);
+//extern void DBG_HexPrintf(void *Data, unsigned int len);
+//#if 0
+//#define LLOGD(x,y...)
+//#define LLOGE(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
+//#else
+//#define LLOGD(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
+//#define LLOGE(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
+//#endif
+
+#define LUAT_LOG_TAG "W5500"
+#include "luat_log.h"
 
 #define socket_index(n)	(n << 5)
 #define common_reg	(0)
@@ -237,7 +240,7 @@ static int w5500_next_data_cache(void *p, void *u)
 	socket_data_t *pdata = (socket_data_t *)p;
 	if (socket->tag != pdata->tag)
 	{
-		DBG("tag error");
+		LLOGD("tag error");
 		free(pdata->data);
 		return LIST_DEL;
 	}
@@ -312,7 +315,7 @@ static uint8_t w5500_socket_state(w5500_ctrl_t *w5500, uint8_t socket_id)
 	if (retry >= 10)
 	{
 		w5500->inter_error++;
-		DBG_ERR("check too much times, error %d", w5500->inter_error);
+		LLOGE("check too much times, error %d", w5500->inter_error);
 
 	}
 	return temp[W5500_SOCKET_SR];
@@ -327,13 +330,13 @@ static void w5500_socket_disconnect(w5500_ctrl_t *w5500, uint8_t socket_id)
 	if (SOCK_CLOSED == temp)
 	{
 		w5500->socket[socket_id].state = W5500_SOCKET_OFFLINE;
-//		DBG("socket %d already closed");
+//		LLOGD("socket %d already closed");
 		return;
 	}
 //	if ((temp >= SOCK_FIN_WAIT) && (temp <= SOCK_LAST_ACK))
 //	{
 //		w5500->socket[socket_id].state = W5500_SOCKET_CLOSING;
-//		DBG("socket %d is closing");
+//		LLOGD("socket %d is closing");
 //		return;
 //
 //	}
@@ -351,7 +354,7 @@ static void w5500_socket_close(w5500_ctrl_t *w5500, uint8_t socket_id)
 //	if (SOCK_CLOSED == temp)
 //	{
 //		w5500->socket[socket_id].state = W5500_SOCKET_OFFLINE;
-////		DBG("socket %d already closed");
+////		LLOGD("socket %d already closed");
 //		return;
 //	}
 	temp = Sn_CR_CLOSE;
@@ -367,7 +370,7 @@ static int w5500_socket_config(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t i
 	if (!w5500->device_on) return -1;
 	if (SOCK_CLOSED != temp)
 	{
-		DBG_ERR("socket %d not closed state %x", socket_id, temp);
+		LLOGE("socket %d not closed state %x", socket_id, temp);
 		return -1;
 	}
 	uint8_t cmd[32];
@@ -386,7 +389,7 @@ static int w5500_socket_config(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t i
 		wtemp = BytesGetBe16(&cmd[W5500_SOCKET_SOURCE_PORT0]);
 		if (wtemp != local_port)
 		{
-			DBG_ERR("error port %u %u", wtemp, local_port);
+			LLOGE("error port %u %u", wtemp, local_port);
 		}
 		else
 		{
@@ -407,7 +410,7 @@ W5500_SOCKET_CONFIG_START:
 	if (delay_cnt >= 100)
 	{
 		w5500->inter_error++;
-		DBG_ERR("socket %d config timeout, error %d", socket_id, w5500->inter_error);
+		LLOGE("socket %d config timeout, error %d", socket_id, w5500->inter_error);
 		return -1;
 	}
 	w5500->socket[socket_id].state = is_tcp?W5500_SOCKET_CONFIG:W5500_SOCKET_ONLINE;
@@ -425,11 +428,11 @@ static int w5500_socket_connect(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t 
 	if (!w5500->device_on) return -1;
 	if ((temp != SOCK_INIT) && (temp != SOCK_UDP))
 	{
-		DBG("socket %d not config state %x", socket_id, temp);
+		LLOGD("socket %d not config state %x", socket_id, temp);
 		return -1;
 	}
 //	BytesPutLe32(cmd, remote_ip);
-//	DBG("%02d.%02d.%02d,%02d, %u, %d", cmd[0], cmd[1], cmd[2], cmd[3], remote_port, is_listen);
+//	LLOGD("%02d.%02d.%02d,%02d, %u, %d", cmd[0], cmd[1], cmd[2], cmd[3], remote_port, is_listen);
 	if (!is_listen)
 	{
 //		w5500_xfer(w5500, W5500_SOCKET_DEST_IP0, socket_index(socket_id)|socket_reg, cmd, 6);
@@ -471,7 +474,7 @@ static int w5500_socket_tx(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t *data
 	if (!w5500->device_on) return -1;
 	if ((temp != SOCK_ESTABLISHED) && (temp != SOCK_UDP))
 	{
-		DBG("socket %d not online state %x", socket_id, temp);
+		LLOGD("socket %d not online state %x", socket_id, temp);
 		return -1;
 	}
 	w5500->socket[socket_id].state = W5500_SOCKET_ONLINE;
@@ -486,7 +489,7 @@ static int w5500_socket_tx(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t *data
 	tx_point = BytesGetBe16(point + 4);
 //	if (tx_free != 2048)
 //	{
-//		DBG("%d,0x%04x,%u,%u", socket_id, tx_point, len,tx_free);
+//		LLOGD("%d,0x%04x,%u,%u", socket_id, tx_point, len,tx_free);
 //	}
 //	DBG_HexPrintf(data, len);
 	if (len > tx_free)
@@ -494,7 +497,7 @@ static int w5500_socket_tx(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t *data
 		len = tx_free;
 	}
 
-	w5500->last_tx_time = GetSysTickMS();
+	w5500->last_tx_time = luat_mcu_tick64_ms();
 	w5500_xfer(w5500, tx_point, socket_index(socket_id)|socket_tx|is_write, data, len);
 	tx_point += len;
 	BytesPutBe16(point, tx_point);
@@ -514,7 +517,7 @@ static int w5500_socket_rx(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t *data
 	if (!w5500->device_on) return -1;
 	if ((temp < SOCK_ESTABLISHED) || (temp > SOCK_UDP))
 	{
-		DBG("socket %d not config state %x", socket_id, temp);
+		LLOGD("socket %d not config state %x", socket_id, temp);
 		return -1;
 	}
 	w5500->socket[socket_id].state = W5500_SOCKET_ONLINE;
@@ -522,7 +525,7 @@ static int w5500_socket_rx(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t *data
 
 	rx_size = BytesGetBe16(point);
 	rx_point = BytesGetBe16(point + 2);
-//	DBG("%d,0x%04x,%u", socket_id, rx_point, rx_size);
+//	LLOGD("%d,0x%04x,%u", socket_id, rx_point, rx_size);
 	if (!rx_size) return 0;
 	if (rx_size < len)
 	{
@@ -549,20 +552,20 @@ static void w5500_nw_state(w5500_ctrl_t *w5500)
 			dns_clear(&w5500->dns_client);
 			w5500->socket[0].tx_wait_size = 0;	//dns可以继续发送了
 			w5500_callback_to_nw_task(w5500, EV_NW_STATE, 0, 1, 0);
-			DBG("network ready");
+			LLOGD("network ready");
 			for(i = 0; i < MAX_DNS_SERVER; i++)
 			{
 #ifdef LUAT_USE_LWIP
 				if (w5500->dns_client.dns_server[i].type != 0xff)
 				{
 					uIP.u32 = w5500->dns_client.dns_server[i].u_addr.ip4.addr;
-					DBG("DNS%d:%d.%d.%d.%d",i, uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
+					LLOGD("DNS%d:%d.%d.%d.%d",i, uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
 				}
 #else
 				if (w5500->dns_client.dns_server[i].is_ipv6 != 0xff)
 				{
 					uIP.u32 = w5500->dns_client.dns_server[i].ipv4;
-					DBG("DNS%d:%d.%d.%d.%d",i, uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
+					LLOGD("DNS%d:%d.%d.%d.%d",i, uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
 				}
 #endif
 			}
@@ -575,7 +578,7 @@ static void w5500_nw_state(w5500_ctrl_t *w5500)
 			w5500->network_ready = 0;
 			dns_clear(&w5500->dns_client);
 			w5500_callback_to_nw_task(w5500, EV_NW_STATE, 0, 0, 0);
-			DBG("network not ready");
+			LLOGD("network not ready");
 			for(i = 0; i < MAX_SOCK_NUM; i++)
 			{
 				w5500->socket[i].tx_wait_size = 0;
@@ -605,12 +608,12 @@ static void w5500_check_dhcp(w5500_ctrl_t *w5500)
 		w5500->dhcp_client.discover_cnt = 0;
 
 		uIP.u32 = w5500->dhcp_client.ip;
-		DBG("动态IP:%d.%d.%d.%d", uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
+		LLOGD("动态IP:%d.%d.%d.%d", uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
 		uIP.u32 = w5500->dhcp_client.submask;
-		DBG("子网掩码:%d.%d.%d.%d", uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
+		LLOGD("子网掩码:%d.%d.%d.%d", uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
 		uIP.u32 = w5500->dhcp_client.gateway;
-		DBG("网关:%d.%d.%d.%d", uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
-		DBG("租约时间:%u秒", w5500->dhcp_client.lease_time);
+		LLOGD("网关:%d.%d.%d.%d", uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
+		LLOGD("租约时间:%u秒", w5500->dhcp_client.lease_time);
 		int i;
 		for(i = 0; i < MAX_DNS_SERVER; i++)
 		{
@@ -650,7 +653,7 @@ PRINT_DNS:
 	}
 	if ((!w5500->last_udp_send_ok && w5500->dhcp_client.discover_cnt >= 1) || (w5500->last_udp_send_ok && w5500->dhcp_client.discover_cnt >= 3))
 	{
-		DBG("dhcp long time not get ip, reboot w5500");
+		LLOGD("dhcp long time not get ip, reboot w5500");
 		memset(&w5500->dhcp_client, 0, sizeof(w5500->dhcp_client));
 		platform_send_event(w5500->task_handle, EV_W5500_RE_INIT, 0, 0, 0);
 	}
@@ -665,7 +668,7 @@ static void w5500_link_state(w5500_ctrl_t *w5500, uint8_t check_state)
 	int result;
 	if (w5500->link_ready != check_state)
 	{
-		DBG("link %d -> %d", w5500->link_ready, check_state);
+		LLOGD("link %d -> %d", w5500->link_ready, check_state);
 		w5500->link_ready = check_state;
 
 		if (w5500->link_ready)
@@ -690,10 +693,10 @@ static void w5500_link_state(w5500_ctrl_t *w5500, uint8_t check_state)
 		}
 		else
 		{
-			if (GetSysTickMS() < (w5500->last_tx_time + 1500))
+			if (luat_mcu_tick64_ms() < (w5500->last_tx_time + 1500))
 			{
 				w5500->inter_error++;
-				DBG_ERR("link down too fast, error %u", w5500->inter_error);
+				LLOGE("link down too fast, error %u", w5500->inter_error);
 			}
 		}
 
@@ -706,7 +709,7 @@ static void w5500_ip_state(w5500_ctrl_t *w5500, uint8_t check_state)
 {
 	if (w5500->ip_ready != check_state)
 	{
-		DBG("ip %d -> %d", w5500->ip_ready, check_state);
+		LLOGD("ip %d -> %d", w5500->ip_ready, check_state);
 		w5500->ip_ready = check_state;
 		w5500_nw_state(w5500);
 	}
@@ -989,7 +992,7 @@ static void w5500_sys_socket_callback(w5500_ctrl_t *w5500, uint8_t socket_id, ui
 
 			if (p && !p->is_sending)
 			{
-				DBG_ERR("socket %d should sending!", socket_id);
+				LLOGE("socket %d should sending!", socket_id);
 				p->read_pos = 0;
 			}
 			if (p && (p->read_pos >= p->len))
@@ -1018,7 +1021,7 @@ static void w5500_sys_socket_callback(w5500_ctrl_t *w5500, uint8_t socket_id, ui
 	case Sn_IR_RECV:
 		if (socket_id && (w5500->socket[socket_id].rx_wait_size >= SOCK_BUF_LEN))
 		{
-			DBG("socket %d, wait %dbyte", socket_id, w5500->socket[socket_id].rx_wait_size);
+			LLOGD("socket %d, wait %dbyte", socket_id, w5500->socket[socket_id].rx_wait_size);
 			w5500_callback_to_nw_task(w5500, EV_NW_SOCKET_RX_FULL, socket_id, 0, 0);
 			w5500->socket[socket_id].rx_waiting = 1;
 			break;
@@ -1119,18 +1122,18 @@ static void w5500_sys_socket_callback(w5500_ctrl_t *w5500, uint8_t socket_id, ui
 		OS_DeInitBuffer(&rx_buf);
 		break;
 	case Sn_IR_TIMEOUT:
-		DBG_ERR("socket %d timeout", socket_id);
+		LLOGE("socket %d timeout", socket_id);
 		if (socket_id)
 		{
 			w5500_callback_to_nw_task(w5500, EV_NW_SOCKET_ERROR, socket_id, 0, 0);
 		}
 		break;
 	case Sn_IR_CON:
-		DBG("socket %d connected", socket_id);
+		LLOGD("socket %d connected", socket_id);
 		w5500_callback_to_nw_task(w5500, EV_NW_SOCKET_CONNECT_OK, socket_id, 0, 0);
 		break;
 	case Sn_IR_DISCON:
-		DBG_ERR("socket %d disconnect", socket_id);
+		LLOGE("socket %d disconnect", socket_id);
 		if (w5500_socket_state(w5500, socket_id) != SOCK_CLOSED)
 		{
 			w5500_callback_to_nw_task(w5500, EV_NW_SOCKET_REMOTE_CLOSE, socket_id, 0, 0);
@@ -1197,7 +1200,7 @@ RETRY:
 			{
 				w5500_xfer(w5500, W5500_SOCKET_IR, socket_index(i)|socket_reg, &socket_irqs[i], 1);
 				temp[0] = socket_irqs[i];
-//				DBG("%d,%x",i, socket_irqs[i]);
+//				LLOGD("%d,%x",i, socket_irqs[i]);
 				w5500_xfer(w5500, W5500_SOCKET_IR, socket_index(i)|socket_reg|is_write, temp, 1);
 			}
 		}
@@ -1226,7 +1229,7 @@ RETRY:
 
 	if (luat_gpio_get(w5500->irq_pin) != 1)
 	{
-//		DBG("irq not clear!");
+//		LLOGD("irq not clear!");
 		goto RETRY;
 	}
 }
@@ -1247,7 +1250,7 @@ static void w5500_task(void *param)
 	{
 		if (w5500->inter_error >= 2)
 		{
-			DBG("w5500 error too much, reboot");
+			LLOGD("error too much, reboot");
 			w5500_init_reg(w5500);
 		}
 		sleep_time = 100;
@@ -1325,7 +1328,7 @@ static void w5500_task(void *param)
 			if (event.Param1) W5500_UNLOCK;
 			if (p && p->is_sending)
 			{
-				DBG("socket %d is sending, need wait!", event.Param1);
+				LLOGD("socket %d is sending, need wait!", event.Param1);
 			}
 			else
 			{
@@ -1466,7 +1469,7 @@ void w5500_init(luat_spi_t* spi, uint8_t irq_pin, uint8_t rst_pin, uint8_t link_
 		w5500_ctrl_t *w5500 = malloc(sizeof(w5500_ctrl_t));
 		memset(w5500, 0, sizeof(w5500_ctrl_t));
 		w5500->socket_cb = w5500_dummy_callback;
-		w5500->tag = GetSysTickMS();
+		w5500->tag = luat_mcu_tick64_ms();
 		w5500->RCR = 8;
 		w5500->RTR = 2000;
 		w5500->spi_id = spi->id;
@@ -1608,7 +1611,7 @@ static int w5500_socket_connect_ex(int socket_id, uint64_t tag,  uint16_t local_
 	platform_send_event(prv_w5500_ctrl->task_handle, EV_W5500_SOCKET_CONNECT, socket_id, remote_ip->ipv4, uPV.u32);
 	uPV.u32 = remote_ip->ipv4;
 #endif
-//	DBG("%u.%u.%u.%u", uPV.u8[0], uPV.u8[1], uPV.u8[2], uPV.u8[3]);
+//	LLOGD("%u.%u.%u.%u", uPV.u8[0], uPV.u8[1], uPV.u8[2], uPV.u8[3]);
 	return 0;
 }
 //作为server绑定一个port，开始监听
@@ -1634,7 +1637,7 @@ static int w5500_socket_accept(int socket_id, uint64_t tag,  luat_ip_addr_t *rem
 	remote_ip->ipv4 = BytesGetLe32(temp);
 #endif
 	*remote_port = BytesGetBe16(temp + 4);
-	DBG("client %d.%d.%d.%d, %u", temp[0], temp[1], temp[2], temp[3], *remote_port);
+	LLOGD("client %d.%d.%d.%d, %u", temp[0], temp[1], temp[2], temp[3], *remote_port);
 	return 0;
 }
 //主动断开一个tcp连接，需要走完整个tcp流程，用户需要接收到close ok回调才能确认彻底断开
@@ -1725,7 +1728,7 @@ static int w5500_socket_receive(int socket_id, uint64_t tag,  uint8_t *buf, uint
 	if ((prv_w5500_ctrl->socket[socket_id].rx_wait_size < SOCK_BUF_LEN) && prv_w5500_ctrl->socket[socket_id].rx_waiting)
 	{
 		prv_w5500_ctrl->socket[socket_id].rx_waiting = 0;
-		DBG("read waiting data");
+		LLOGD("read waiting data");
 		w5500_sys_socket_callback(prv_w5500_ctrl, socket_id, Sn_IR_RECV);
 	}
 	return read_len;
@@ -1764,11 +1767,11 @@ void w5500_socket_clean(int *vaild_socket_list, uint32_t num, void *user_data)
 		{
 			socket_list[vaild_socket_list[i]] = 1;
 		}
-		DBG("%d,%d",i,vaild_socket_list[i]);
+		LLOGD("socket clean check %d,%d",i,vaild_socket_list[i]);
 	}
 	for(i = 1; i < MAX_SOCK_NUM; i++)
 	{
-		DBG("%d,%d",i,socket_list[i]);
+		LLOGD("socket clean %d,%d",i,socket_list[i]);
 		if ( !socket_list[i] )
 		{
 			W5500_LOCK;

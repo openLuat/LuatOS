@@ -217,7 +217,7 @@ sys.wait(5080) --延时5秒等待网络注册
 end)
 ]]
 function netLed.setupBreateLed(ledPin)
-    -- 呼吸灯的状态、PWM周期
+-- 呼吸灯的状态、PWM周期
     local bLighting, bDarking, LED_PWM = false, true, 18
     if bLighting then
         for i = 1, LED_PWM - 1 do

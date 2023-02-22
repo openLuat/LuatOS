@@ -468,13 +468,7 @@ mqttc:disconnect()
 static int l_mqtt_disconnect(lua_State *L) {
 	luat_mqtt_ctrl_t * mqtt_ctrl = get_mqtt_ctrl(L);
 	mqtt_disconnect(&(mqtt_ctrl->broker));
-	if (mqtt_ctrl->netc){
-		network_force_close_socket(mqtt_ctrl->netc);
-	}
-	mqtt_ctrl->mqtt_state = 0;
-	luat_stop_rtos_timer(mqtt_ctrl->ping_timer);
-	luat_start_rtos_timer(mqtt_ctrl->reconnect_timer, mqtt_ctrl->reconnect_time, 0);
-	mqtt_ctrl->buffer_offset = 0;
+	luat_mqtt_close_socket(mqtt_ctrl);
 	lua_pushboolean(L, 1);
 	return 1;
 }

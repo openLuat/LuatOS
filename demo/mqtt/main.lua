@@ -21,6 +21,10 @@ local client_id = "abc"
 local user_name = "user"
 local password = "password"
 
+local topic1 = "/luatos/1"
+local topic2 = "/luatos/2"
+local topic3 = "/luatos/3"
+
 local mqttc = nil
 
 sys.taskInit(function()
@@ -76,7 +80,8 @@ sys.taskInit(function()
         log.info("mqtt", "event", event, mqtt_client, data, payload)
         if event == "conack" then
             sys.publish("mqtt_conack")
-            mqtt_client:subscribe("/luatos/123456")
+            -- mqtt_client:subscribe(topic1)--单主题订阅
+            mqtt_client:subscribe({[topic1]=1,[topic2]=1,[topic3]=1})--多主题订阅
         elseif event == "recv" then
             log.info("mqtt", "downlink", "topic", data, "payload", payload)
         elseif event == "sent" then
@@ -102,14 +107,15 @@ sys.taskInit(function()
 end)
 
 sys.taskInit(function()
-	local topic = "/luatos/123456"
 	local data = "123"
 	local qos = 1
     while true do
         sys.wait(5000)
         if mqttc and mqttc:ready() then
 			-- mqttc:subscribe(topic)
-            local pkgid = mqttc:publish(topic, data, qos)
+            local pkgid = mqttc:publish(topic1, data, qos)
+            local pkgid = mqttc:publish(topic2, data, qos)
+            local pkgid = mqttc:publish(topic3, data, qos)
             -- 也可以通过sys.publish发布到指定task去
             -- sys.publish("mqtt_pub", topic, data, qos)
         end

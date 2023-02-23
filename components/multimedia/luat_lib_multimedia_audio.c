@@ -210,6 +210,8 @@ TTS播放或者停止
 @usage
 audio.tts(0, "测试一下")		--开始播放
 audio.tts(0)				--停止播放
+-- Air780E的TTS功能详细说明
+-- https://wiki.luatos.com/chips/air780e/tts.html
 */
 static int l_audio_play_tts(lua_State *L) {
     int multimedia_id = luaL_checkinteger(L, 1);

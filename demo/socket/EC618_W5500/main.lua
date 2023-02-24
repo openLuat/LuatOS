@@ -65,6 +65,14 @@ w5500.bind(socket.ETH0) -- 固定写法
 --     socket.sntp()
 -- end)
 
+-- 780E和W5500都有IP_READY/IP_LOSE消息,通过adapter区分
+sys.subscribe("IP_READY", function(ip, adapter)
+    log.info("ipready", ip, adapter) 
+end)
+sys.subscribe("IP_LOSE", function(adapter)
+    log.info("iplose", adapter)
+end)
+
 -----------------------------------------------------------------------------
 -- netlab.luatos.com上打开TCP，然后修改IP和端口号，自动回复netlab下发的数据，自收自发测试
 -- 以下端口号均为临时端口, 要改成自己的值

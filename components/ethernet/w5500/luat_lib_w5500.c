@@ -13,6 +13,7 @@
 #include "luat_spi.h"
 #define LUAT_LOG_TAG "w5500"
 #include "luat_log.h"
+#include "luat_msgbus.h"
 
 #include "w5500_def.h"
 #include "luat_network_adapter.h"
@@ -94,7 +95,7 @@ static int l_w5500_config(lua_State *L){
 	{
 		size_t mac_len = 0;
 		const char *mac = luaL_checklstring(L, 4, &mac_len);
-		w5500_set_mac(mac);
+		w5500_set_mac((uint8_t*)mac);
 	}
 
 	w5500_set_param(luaL_optinteger(L, 5, 2000), luaL_optinteger(L, 6, 8), luaL_optinteger(L, 7, 0), 0);
@@ -128,9 +129,9 @@ local mac = w5500.getMAC()
 log.info("w5500 mac", mac:toHex())
 */
 static int l_w5500_get_mac(lua_State *L){
-	uint8_t mac[6];
+	uint8_t mac[6] = {0};
 	w5500_get_mac(mac);
-	lua_pushlstring(L, mac, 6);
+	lua_pushlstring(L, (const char*)mac, 6);
 	return 1;
 }
 
@@ -147,6 +148,54 @@ static const rotable_Reg_t reg_w5500[] =
 LUAMOD_API int luaopen_w5500( lua_State *L ) {
     luat_newlib2(L, reg_w5500);
     return 1;
+}
+
+static int l_nw_state_handler(lua_State *L, void* ptr) {
+	(void)ptr;
+	rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+	lua_getglobal(L, "sys_pub");
+	if (msg->arg1) {
+/*
+@sys_pub w5500
+已联网
+IP_READY
+@usage
+-- 联网后会发一次这个消息
+sys.subscribe("IP_READY", function(ip, adapter)
+    log.info("w5500", "IP_READY", ip, (adapter or -1) == socket.LWIP_GP)
+end)
+*/
+		lua_pushliteral(L, "IP_READY");
+		uint32_t ip = msg->arg2;
+		lua_pushfstring(L, "%d.%d.%d.%d", (ip) & 0xFF, (ip >> 8) & 0xFF, (ip >> 16) & 0xFF, (ip >> 24) & 0xFF);
+		lua_pushinteger(L, NW_ADAPTER_INDEX_ETH0);
+		lua_call(L, 3, 0);
+	}
+	else {
+/*
+@sys_pub w5500
+已断网
+IP_LOSE
+@usage
+-- 断网后会发一次这个消息
+sys.subscribe("IP_LOSE", function(adapter)
+    log.info("w5500", "IP_LOSE", (adapter or -1) == socket.ETH0)
+end)
+*/
+		lua_pushliteral(L, "IP_LOSE");
+		lua_pushinteger(L, NW_ADAPTER_INDEX_ETH0);
+		lua_call(L, 2, 0);
+	}
+	return 0;
+}
+
+// W5500的状态回调函数
+void w5500_nw_state_cb(int state, uint32_t ip) {
+	rtos_msg_t msg = {0};
+	msg.handler = l_nw_state_handler;
+	msg.arg1 = state; // READY
+	msg.arg2 = ip;
+	luat_msgbus_put(&msg, 0);
 }
 
 #endif

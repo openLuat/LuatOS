@@ -6,6 +6,7 @@ add_rules("mode.debug", "mode.release")
 
 -- 这里用llvm和clang了,尝试一下
 add_requires("llvm")
+set_toolchains("@llvm")
 
 local luatos = "../../"
 
@@ -18,12 +19,14 @@ set_languages("c11", "cxx11")
 add_defines("__LUATOS__", "__XMAKE_BUILD__", "WIN32")
 add_ldflags("-lwinmm","-luser32","-lncrypt","-lAdvapi32","-lGdi32")
 
+add_requires("libsdl")
+add_packages("libsdl")
+
 target("luatos")
     -- set kind
     set_kind("binary")
     set_targetdir("$(buildir)/out")
-    set_toolchains("@llvm")
-
+    
     -- add deps
 
     add_files("src/*.c",{public = true})
@@ -48,19 +51,35 @@ target("luatos")
             ,luatos.."luat/modules/luat_lib_zbuff.c"
             ,luatos.."luat/modules/luat_lib_pack.c"
             ,luatos.."luat/modules/luat_lib_crypto.c"
+            ,luatos.."luat/modules/luat_lib_lfs2.c"
+            ,luatos.."luat/modules/luat_lib_libcoap.c"
             ,luatos.."luat/modules/luat_lib_uart.c"
             ,luatos.."luat/modules/luat_lib_gpio.c"
+            ,luatos.."luat/modules/luat_lib_i2c.c"
+            ,luatos.."luat/modules/luat_lib_spi.c"
+            ,luatos.."luat/modules/luat_irq.c"
             )
 
     add_files(luatos.."luat/vfs/*.c")
 
     add_files(luatos.."components/lfs/*.c")
+    add_files(luatos.."components/sfd/*.c")
 
     add_includedirs(luatos.."components/lua-cjson")
     add_files(luatos.."components/lua-cjson/*.c")
 
     add_includedirs(luatos.."components/miniz")
     add_files(luatos.."components/miniz/*.c")
+
+    -- add_includedirs(luatos.."components/common")
+    -- add_files(luatos.."components/common/*.c")
+
+    -- add_includedirs(luatos.."components/fatfs")
+    -- add_files(luatos.."components/fatfs/*.c")
+
+    -- sdl2
+    add_includedirs(luatos.."components/ui/sdl2")
+    add_files(luatos.."components/ui/sdl2/*.c")
 
     -- u8g2
     add_includedirs(luatos.."components/u8g2")
@@ -82,6 +101,9 @@ target("luatos")
     -- 默认不编译lv的demos, 节省大量的编译时间
     remove_files(luatos.."components/lvgl/lv_demos/**.c")
 
+    -- tjpgd
+    add_files(luatos.."components/tjpgd/*.c")
+    add_includedirs(luatos.."components/tjpgd")
 
     add_includedirs(luatos.."components/cjson",{public = true})
     add_files(luatos.."components/cjson/*.c")

@@ -109,7 +109,6 @@ static const u_char charmap[] = {
 	'\370', '\371', '\372', '\373', '\374', '\375', '\376', '\377',
 };
 
-#ifndef LUA_USE_WINDOWS
 int
 strcasecmp(const char *s1, const char *s2)
 {
@@ -140,7 +139,6 @@ strncasecmp(const char *s1, const char *s2, size_t n)
   }
 	return (0);
 }
-#endif
 
 #endif
 

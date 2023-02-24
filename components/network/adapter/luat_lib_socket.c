@@ -1327,6 +1327,34 @@ static int l_socket_set_ssl_log(lua_State *L)
 #include "luat_sntp.h"
 #endif
 
+/*
+查看网卡适配器的联网状态，设置默认网卡适配器
+@api socket.adapter(index, default)
+@int 需要查看的适配器序号，可以留空会查看默认网卡，如果指定网卡，只能是socket.ETH0（外置以太网），socket.LWIP_ETH（内置以太网），socket.LWIP_STA（内置WIFI的STA），socket.LWIP_AP（内置WIFI的AP），socket.LWIP_GP（内置蜂窝网络的GPRS），socket.USB（外置USB网卡）
+@int 需要设置的默认网卡适配器序号，一般情况下不需要设置，不需要填写
+@return boolean 被查看的适配器是否IP READY,true表示已经准备好可以联网了,false暂时不可以联网
+@return int 默认使用的适配器序号，即socket.create时不指定网卡的情况下，默认使用的网卡
+@usage
+--查看默认网卡是否IP READY
+local isReady,default = socket.adapter()
+--查看外置以太网（比如W5500）是否IP READY
+local isReady,default = socket.adapter(socket.ETH0)
+--设置外置以太网（比如W5500）为默认网卡
+local isReady,default = socket.adapter(nil, socket.ETH0)
+*/
+static int l_socket_adapter(lua_State *L)
+{
+	int new_index = luaL_optinteger(L, 2, -1);
+	if (new_index > NW_ADAPTER_INDEX_LWIP_NONE &&  new_index < NW_ADAPTER_QTY)
+	{
+		network_register_set_default(new_index);
+	}
+	int adapter_index = luaL_optinteger(L, 1, network_get_last_register_adapter());
+	lua_pushboolean(L, network_check_ready(NULL, adapter_index));
+	lua_pushinteger(L, network_get_last_register_adapter());
+	return 2;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_socket_adapter[] =
 {
@@ -1348,20 +1376,21 @@ static const rotable_Reg_t reg_socket_adapter[] =
 	{ "setDNS",           ROREG_FUNC(l_socket_set_dns)},
 	{ "sslLog",			ROREG_FUNC(l_socket_set_ssl_log)},
 	{"localIP",         	ROREG_FUNC(l_socket_local_ip)},
+	{"adapter",			ROREG_FUNC(l_socket_adapter)},
 #ifdef LUAT_USE_SNTP
 	{"sntp",         	ROREG_FUNC(l_sntp_get)},
 #endif
-	//@const ETH0 number 带硬件协议栈的ETH0
+	//@const ETH0 number 带硬件协议栈的ETH0，值为5
     { "ETH0",           ROREG_INT(NW_ADAPTER_INDEX_ETH0)},
-	//@const LWIP_ETH number 使用LWIP协议栈的以太网卡
+	//@const LWIP_ETH number 使用LWIP协议栈的以太网卡，值为4
 	{ "LWIP_ETH",          	ROREG_INT(NW_ADAPTER_INDEX_LWIP_ETH)},
-	//@const LWIP_STA number 使用LWIP协议栈的WIFI STA
+	//@const LWIP_STA number 使用LWIP协议栈的WIFI STA，值为2
 	{ "LWIP_STA",          	ROREG_INT(NW_ADAPTER_INDEX_LWIP_WIFI_STA)},
-	//@const LWIP_AP number 使用LWIP协议栈的WIFI AP
+	//@const LWIP_AP number 使用LWIP协议栈的WIFI AP，值为3
 	{ "LWIP_AP",     		ROREG_INT(NW_ADAPTER_INDEX_LWIP_WIFI_AP)},
-	//@const LWIP_GP number 使用LWIP协议栈的移动蜂窝模块
+	//@const LWIP_GP number 使用LWIP协议栈的移动蜂窝模块，值为1
 	{ "LWIP_GP",          	ROREG_INT(NW_ADAPTER_INDEX_LWIP_GPRS)},
-	//@const USB number 使用LWIP协议栈的USB网卡
+	//@const USB number 使用LWIP协议栈的USB网卡，值为6
 	{ "USB",     		ROREG_INT(NW_ADAPTER_INDEX_USB)},
 	//@const LINK number LINK事件
     { "LINK",           ROREG_INT(EV_NW_RESULT_LINK & 0x0fffffff)},

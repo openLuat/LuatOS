@@ -335,9 +335,10 @@ void network_connect_ipv6_domain(network_ctrl_t *ctrl, uint8_t onoff);
 
 /*
  * 检查网络是否已经连接，注意不是socket
+ * 如果ctrl为0，则会根据adapter_index去返回
  * 返回非0是已连接，可以开始socket操作
  */
-uint8_t network_check_ready(network_ctrl_t *ctrl);
+uint8_t network_check_ready(network_ctrl_t *ctrl, uint8_t adapter_index);
 
 /*
  * 设置本地port，注意不要用60000及以上，如果local_port为0，系统从60000开始随机抽一个

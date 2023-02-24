@@ -37,12 +37,11 @@ static const luaL_Reg loadedlibs[] = {
   {"json", luaopen_cjson},             // json
   {"win32", luaopen_win32},            // windows 32 tools
   {"zbuff", luaopen_zbuff},            // 
-  {"mqttcore", luaopen_mqttcore},      // 
-  {"libcoap", luaopen_libcoap},        // 
+  // {"libcoap", luaopen_libcoap},        // 
   {"crypto", luaopen_crypto},
-  {"fatfs", luaopen_fatfs},
-  {"sfd",   luaopen_sfd},
-  {"lfs2",   luaopen_lfs2},
+  // {"fatfs", luaopen_fatfs},
+  // {"sfd",   luaopen_sfd},
+  // {"lfs2",   luaopen_lfs2},
   {"gpio",   luaopen_gpio},
   // {"vmx",    luaopen_vmx},
   {"uart",    luaopen_uart},

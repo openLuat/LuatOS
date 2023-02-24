@@ -32,6 +32,8 @@
 
 #define LUAT_FORCE_WIN32 1
 
+#define LUAT_USE_LCD
+
 #define LV_COLOR_16_SWAP 1
 #define LV_COLOR_DEPTH 16
 

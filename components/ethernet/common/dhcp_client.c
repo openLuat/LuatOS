@@ -159,6 +159,7 @@ int analyze_ip4_dhcp(dhcp_client_info_t *dhcp, Buffer_Struct *in)
 		LLOGD("xid error %x,%x", BytesGetBe32(&in->Data[4]), dhcp->xid);
 		return -3;
 	}
+	dhcp->xid++;
 	if (memcmp(dhcp->mac, &in->Data[28], 6))
 	{
 		LLOGD("mac error");
@@ -220,6 +221,7 @@ int ip4_dhcp_run(dhcp_client_info_t *dhcp, Buffer_Struct *in, Buffer_Struct *out
 	uint16_t flag = 0x8000;
 	*remote_ip = 0xffffffff;
 	int result = 0;
+	LLOGD("dhcp state %d", dhcp->state);
 	if (in)
 	{
 		result = analyze_ip4_dhcp(dhcp, in);

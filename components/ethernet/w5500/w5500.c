@@ -219,6 +219,7 @@ typedef struct
 	uint8_t tx_buf[2048 + 8];
 	uint8_t mac[6];
 	uint8_t next_socket_index;
+	uint8_t self_index;
 }w5500_ctrl_t;
 
 static w5500_ctrl_t *prv_w5500_ctrl;
@@ -551,7 +552,7 @@ static void w5500_nw_state(w5500_ctrl_t *w5500)
 			w5500->network_ready = 1;
 			dns_clear(&w5500->dns_client);
 			w5500->socket[0].tx_wait_size = 0;	//dns可以继续发送了
-			w5500_callback_to_nw_task(w5500, EV_NW_STATE, 0, 1, 0);
+			w5500_callback_to_nw_task(w5500, EV_NW_STATE, 0, 1, w5500->self_index);
 			LLOGD("network ready");
 			for(i = 0; i < MAX_DNS_SERVER; i++)
 			{
@@ -577,7 +578,7 @@ static void w5500_nw_state(w5500_ctrl_t *w5500)
 		{
 			w5500->network_ready = 0;
 			dns_clear(&w5500->dns_client);
-			w5500_callback_to_nw_task(w5500, EV_NW_STATE, 0, 0, 0);
+			w5500_callback_to_nw_task(w5500, EV_NW_STATE, 0, 0, w5500->self_index);
 			LLOGD("network not ready");
 			for(i = 0; i < MAX_SOCK_NUM; i++)
 			{
@@ -746,7 +747,7 @@ static void w5500_init_reg(w5500_ctrl_t *w5500)
 			}
 		}
 	}
-	w5500_callback_to_nw_task(w5500, EV_NW_RESET, 0, 0, 0);
+	w5500_callback_to_nw_task(w5500, EV_NW_RESET, 0, 0, w5500->self_index);
 
 	luat_gpio_close(w5500->link_pin);
 	luat_gpio_close(w5500->irq_pin);
@@ -1504,8 +1505,18 @@ void w5500_init(luat_spi_t* spi, uint8_t irq_pin, uint8_t rst_pin, uint8_t link_
 
 		w5500->dhcp_client.xid = BytesGetBe32(rands);
 		w5500->dhcp_client.state = DHCP_STATE_NOT_WORK;
+#ifdef LUAT_USE_MOBILE
+		uint8_t imei[16];
+		luat_mobile_get_imei(0, imei, 16);
+		for(i = 0; i < 6; i++)
+		{
+			w5500->mac[i] = AsciiToU32(imei + i*2 + 2, 2);
+		}
+#else
 		uid = luat_mcu_unique_id(&t);
 		memcpy(w5500->mac, &uid[10], 6);
+#endif
+		w5500->mac[0] &= 0xfe;
 		platform_create_task(&w5500->task_handle, 4 * 1024, 30, "w5500", w5500_task, w5500, 64);
 		prv_w5500_ctrl = w5500;
 
@@ -1940,6 +1951,7 @@ void w5500_register_adapter(int index)
 {
 	if (prv_w5500_ctrl)
 	{
+		prv_w5500_ctrl->self_index = index;
 		network_register_adapter(index, &prv_w5500_adapter, prv_w5500_ctrl);
 	}
 }

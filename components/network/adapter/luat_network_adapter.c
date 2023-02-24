@@ -773,7 +773,14 @@ static int network_state_on_line(network_ctrl_t *ctrl, OS_EVENT *event, network_
 #ifdef LUAT_USE_LWIP
 				if (ctrl->is_tcp)
 				{
-					return net_lwip_check_all_ack(ctrl->socket_id);
+					if (ctrl->adapter_index < NW_ADAPTER_INDEX_LWIP_NETIF_QTY)
+					{
+						return net_lwip_check_all_ack(ctrl->socket_id);
+					}
+					else
+					{
+						return 0;
+					}
 				}
 				return 0;
 #else
@@ -1185,15 +1192,19 @@ int network_set_local_port(network_ctrl_t *ctrl, uint16_t local_port)
 	}
 	else
 	{
-//		OS_LOCK;
-//		adapter->port++;
-//		if (adapter->port < 60000)
-//		{
-//			adapter->port = 60000;
-//		}
-//		ctrl->local_port = adapter->port;
-//		OS_UNLOCK;
-		ctrl->local_port = 0;
+		if (ctrl->adapter_index < NW_ADAPTER_INDEX_LWIP_NETIF_QTY)
+		{
+			ctrl->local_port = 0;
+			return 0;
+		}
+		OS_LOCK;
+		adapter->port++;
+		if (adapter->port < 60000)
+		{
+			adapter->port = 60000;
+		}
+		ctrl->local_port = adapter->port;
+		OS_UNLOCK;
 		return 0;
 	}
 }

@@ -96,12 +96,22 @@ luat_timer_t* luat_timer_get(size_t timer_id) {
 
 int luat_timer_mdelay(size_t ms) {
     if (ms > 0) {
-        usleep(ms * 1000);
+        Sleep(1000);
     }
     return 0;
 }
 
+static void usleep(unsigned long usec)
+{
+    HANDLE timer;
+    LARGE_INTEGER interval;
+    interval.QuadPart = -(10 * usec);
 
+    timer = CreateWaitableTimer(NULL, TRUE, NULL);
+    SetWaitableTimer(timer, &interval, 0, NULL, NULL, 0);
+    WaitForSingleObject(timer, INFINITE);
+    CloseHandle(timer);
+}
 
 void luat_timer_us_delay(size_t us) {
     if (us)

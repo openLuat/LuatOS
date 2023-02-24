@@ -81,6 +81,7 @@ bsp/air302/air302_sdk/**
 /bsp/air724/sdk/prebuilts/win32
 
 *.cmake
+*.xmake
 
 debug.log
 

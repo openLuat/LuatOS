@@ -76,7 +76,9 @@ int luat_spi_send(int spi_id, const char* send_buf, size_t length) {
     return length;
 }
 
-
+int luat_spi_change_speed(int spi_id, uint32_t speed){
+    return 0;
+}
 
 
 

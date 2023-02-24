@@ -1209,31 +1209,6 @@ int network_set_local_port(network_ctrl_t *ctrl, uint16_t local_port)
 	}
 }
 
-uint8_t network_check_ready(network_ctrl_t *ctrl, uint8_t adapter_index)
-{
-	network_adapter_t *adapter;
-	if (ctrl)
-	{
-		adapter = &prv_adapter_table[ctrl->adapter_index];
-	}
-	else if (adapter_index < NW_ADAPTER_QTY)
-	{
-		adapter = &prv_adapter_table[adapter_index];
-	}
-	else
-	{
-		return 0;
-	}
-	if (adapter->opt)
-	{
-		return adapter->opt->check_ready(adapter->user_data);
-	}
-	else
-	{
-		return 0;
-	}
-}
-
 int network_create_soceket(network_ctrl_t *ctrl, uint8_t is_ipv6)
 {
 	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
@@ -3491,12 +3466,6 @@ int network_set_local_port(network_ctrl_t *ctrl, uint16_t local_port)
 	}
 }
 
-uint8_t network_check_ready(network_ctrl_t *ctrl)
-{
-	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
-	return adapter->opt->check_ready(adapter->user_data);
-}
-
 int network_create_soceket(network_ctrl_t *ctrl, uint8_t is_ipv6)
 {
 	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
@@ -3881,7 +3850,7 @@ int network_wait_link_up(network_ctrl_t *ctrl, uint32_t timeout_ms)
 	NW_LOCK;
 	ctrl->auto_mode = 1;
 	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
-	if (network_check_ready(ctrl))
+	if (network_check_ready(ctrl, 0))
 	{
 		ctrl->state = NW_STATE_OFF_LINE;
 		ctrl->wait_target_state = NW_WAIT_NONE;
@@ -3967,7 +3936,7 @@ int network_connect(network_ctrl_t *ctrl, const char *domain_name, uint32_t doma
 	ctrl->remote_port = remote_port;
 	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
 	ctrl->wait_target_state = NW_WAIT_ON_LINE;
-	if (!network_check_ready(ctrl))
+	if (!network_check_ready(ctrl, 0))
 	{
 
 		ctrl->state = NW_STATE_LINK_OFF;
@@ -4035,7 +4004,7 @@ int network_listen(network_ctrl_t *ctrl, uint32_t timeout_ms)
 	ctrl->need_close = 0;
 	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
 	ctrl->wait_target_state = NW_WAIT_ON_LINE;
-	if (!network_check_ready(ctrl))
+	if (!network_check_ready(ctrl, 0))
 	{
 
 		ctrl->state = NW_STATE_LINK_OFF;
@@ -4545,4 +4514,28 @@ int network_wait_rx(network_ctrl_t *ctrl, uint32_t timeout_ms, uint8_t *is_break
 
 #endif
 
+uint8_t network_check_ready(network_ctrl_t *ctrl, uint8_t adapter_index)
+{
+	network_adapter_t *adapter;
+	if (ctrl)
+	{
+		adapter = &prv_adapter_table[ctrl->adapter_index];
+	}
+	else if (adapter_index < NW_ADAPTER_QTY)
+	{
+		adapter = &prv_adapter_table[adapter_index];
+	}
+	else
+	{
+		return 0;
+	}
+	if (adapter->opt)
+	{
+		return adapter->opt->check_ready(adapter->user_data);
+	}
+	else
+	{
+		return 0;
+	}
+}
 #endif

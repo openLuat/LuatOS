@@ -42,6 +42,8 @@ end)
 #include "luat_nimble.h"
 
 #include "host/ble_gatt.h"
+#include "host/ble_hs_id.h"
+#include "host/util/util.h"
 
 #define LUAT_LOG_TAG "nimble"
 #include "luat_log.h"
@@ -249,6 +251,33 @@ static int l_nimble_set_uuid(lua_State *L) {
     return 1;
 }
 
+static int l_nimble_mac(lua_State *L) {
+    int rc;
+    uint8_t own_addr_type;
+    rc = ble_hs_util_ensure_addr(0);
+    if (rc != 0) {
+        LLOGW("fail to fetch BLE MAC, rc %d", rc);
+        return 0;
+    }
+
+    /* Figure out address to use while advertising (no privacy for now) */
+    rc = ble_hs_id_infer_auto(0, &own_addr_type);
+    if (rc != 0) {
+        LLOGE("error determining address type; rc=%d", rc);
+        return 0;
+    }
+
+    /* Printing ADDR */
+    uint8_t addr_val[6] = {0};
+    rc = ble_hs_id_copy_addr(own_addr_type, addr_val, NULL);
+    if (rc == 0) {
+        lua_pushlstring(L, (const char*)addr_val, 6);
+        return 1;
+    }
+    LLOGW("fail to fetch BLE MAC, rc %d", rc);
+    return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_nimble[] =
 {
@@ -263,6 +292,7 @@ static const rotable_Reg_t reg_nimble[] =
     { "server_deinit",  ROREG_FUNC(l_nimble_server_deinit)},
     { "send_msg",       ROREG_FUNC(l_nimble_send_msg)},
     { "setUUID",        ROREG_FUNC(l_nimble_set_uuid)},
+    { "mac",            ROREG_FUNC(l_nimble_mac)},
 
     // 中心模式, 扫描并连接外设
     { "scan",           ROREG_FUNC(l_nimble_scan)},

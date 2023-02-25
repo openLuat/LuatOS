@@ -60,17 +60,17 @@ sys.taskInit(function()
     -- nimble.init("LuatOS-Wendal") -- 蓝牙名称可修改,也有默认值LOS-$mac地址
     nimble.init() -- 蓝牙名称可修改,也有默认值LOS-$mac地址
 
+    sys.wait(500)
+    -- 打印MAC地址
+    local mac = nimble.mac()
+    log.info("ble", "mac", mac and mac:toHex() or "Unknwn")
+
     -- 发送数据
-    if nimble.send_msg then -- 老固件没这个API,请升级固件
-        while 1 do
-            sys.wait(3000)
-            nimble.send_msg(1, 0, string.char(0x5A, 0xA5, 0x12, 0x34, 0x56))
-        end
-    else
-        log.info("nimble", "no send_msg")
+    while 1 do
+        sys.wait(3000)
+        nimble.send_msg(1, 0, string.char(0x5A, 0xA5, 0x12, 0x34, 0x56))
     end
 end)
-
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

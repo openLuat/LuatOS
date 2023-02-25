@@ -111,7 +111,6 @@ target("luatos")
 
     add_includedirs(luatos.."components/lfs")
     
-    -- add_includedirs(luatos.."components/minmea")
     add_includedirs(luatos.."components/fatfs")
 
 
@@ -131,5 +130,13 @@ target("luatos")
     -- protobuf
     add_includedirs(luatos.."components/serialization/protobuf")
     add_files(luatos.."components/serialization/protobuf/*.c")
+
+    -- libgnss
+    add_includedirs(luatos.."components/minmea")
+    add_files(luatos.."components/minmea/*.c")
+
+    -- rsa
+    add_files(luatos.."components/rsa/**.c")
+
     
 target_end()

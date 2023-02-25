@@ -58,6 +58,8 @@ static const luaL_Reg loadedlibs[] = {
   {"iotauth", luaopen_iotauth},
   {"miniz", luaopen_miniz},
   {"protobuf", luaopen_protobuf},
+  {"libgnss", luaopen_libgnss},
+  {"rsa", luaopen_rsa},
   {NULL, NULL}
 };
 

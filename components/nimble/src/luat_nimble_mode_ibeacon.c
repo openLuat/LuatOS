@@ -90,6 +90,7 @@ ble_app_advertise(void)
     rc = ble_gap_adv_start(own_addr_type, NULL, BLE_HS_FOREVER,
                            &adv_params, bleprph_gap_event, NULL);
     LLOGD("ble_gap_adv_start rc %d", rc);
+    ble_ready = 1;
 }
 
 static void

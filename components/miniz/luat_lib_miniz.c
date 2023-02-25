@@ -142,7 +142,7 @@ static const rotable_Reg_t reg_miniz[] = {
     // 压缩参数-------------------------
     //@const WRITE_ZLIB_HEADER int 压缩参数,是否写入zlib头部数据,compress函数的默认值
     {"WRITE_ZLIB_HEADER", ROREG_INT(TDEFL_WRITE_ZLIB_HEADER)},
-    //@const COMPUTE_ADLER32 int 压缩参数,是否计算adler-32
+    //@const COMPUTE_ADLER32 int 压缩/解压参数,是否计算/校验adler-32
     {"COMPUTE_ADLER32", ROREG_INT(TDEFL_COMPUTE_ADLER32)},
     //@const GREEDY_PARSING_FLAG int 压缩参数,是否快速greedy处理, 默认使用较慢的处理模式
     {"GREEDY_PARSING_FLAG", ROREG_INT(TDEFL_GREEDY_PARSING_FLAG)},
@@ -165,7 +165,7 @@ static const rotable_Reg_t reg_miniz[] = {
     //@const USING_NON_WRAPPING_OUTPUT_BUF int 解压参数,解压区间是否够全部数据,,仅流式解压可用,暂不支持
     {"USING_NON_WRAPPING_OUTPUT_BUF", ROREG_INT(TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF)},
     //@const COMPUTE_ADLER32 int 解压参数,是否强制校验adler-32
-    {"COMPUTE_ADLER32", ROREG_INT(TINFL_FLAG_COMPUTE_ADLER32)},
+    // {"COMPUTE_ADLER32", ROREG_INT(TINFL_FLAG_COMPUTE_ADLER32)},
     
 
     {NULL, ROREG_INT(0)}

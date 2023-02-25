@@ -58,16 +58,19 @@ static uint16_t g_ble_attr_write_handle;
 extern uint16_t g_ble_conn_handle;
 extern uint16_t g_ble_state;
 
-#define WM_GATT_SVC_UUID      0xFFF0
-#define WM_GATT_INDICATE_UUID 0xFFF1
-#define WM_GATT_WRITE_UUID    0xFFF2
-#define WM_GATT_NOTIFY_UUID    0xFFF3
+// #define WM_GATT_SVC_UUID      0xFFF0
+// #define WM_GATT_INDICATE_UUID 0xFFF1
+// #define WM_GATT_WRITE_UUID    0xFFF2
+// #define WM_GATT_NOTIFY_UUID    0xFFF3
 
+extern ble_uuid_any_t ble_peripheral_srv_uuid;
+extern ble_uuid_any_t ble_peripheral_indicate_uuid;
+extern ble_uuid_any_t ble_peripheral_write_uuid;
 
 #define LUAT_LOG_TAG "nimble"
 #include "luat_log.h"
 
-static char selfname[32];
+static uint8_t ble_use_custom_name;
 // extern uint16_t g_ble_conn_handle;
 
 typedef struct ble_write_msg {
@@ -89,15 +92,17 @@ gatt_svr_chr_access_device_info(uint16_t conn_handle, uint16_t attr_handle,
 static int
 gatt_svr_chr_access_func(uint16_t conn_handle, uint16_t attr_handle,
                                struct ble_gatt_access_ctxt *ctxt, void *arg);
-
-static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
+#if 1
+static struct ble_gatt_svc_def gatt_svr_svcs[] = {
     {
         /* Service: Heart-rate */
         .type = BLE_GATT_SVC_TYPE_PRIMARY,
-        .uuid = BLE_UUID16_DECLARE(GATT_HRS_UUID),
+        // .uuid = BLE_UUID16_DECLARE(GATT_HRS_UUID),
+        // .uuid = BLE_UUID16_DECLARE(WM_GATT_SVC_UUID),
+        .uuid = &ble_peripheral_srv_uuid,
         .characteristics = (struct ble_gatt_chr_def[])
         { {
-#if 1
+#if 0
                 /* Characteristic: Heart-rate measurement */
                 .uuid = BLE_UUID16_DECLARE(GATT_HRS_MEASUREMENT_UUID),
                 .access_cb = gatt_svr_chr_access_heart_rate,
@@ -111,13 +116,15 @@ static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
             }, {
 #endif
                 /* Characteristic: Body sensor location */
-                .uuid = BLE_UUID16_DECLARE(WM_GATT_WRITE_UUID),
+                // .uuid = BLE_UUID16_DECLARE(WM_GATT_WRITE_UUID),
+                .uuid = &ble_peripheral_write_uuid,
                 .val_handle = &g_ble_attr_write_handle,
                 .access_cb = gatt_svr_chr_access_func,
                 .flags = BLE_GATT_CHR_F_WRITE,
             }, {
                 /* Characteristic: Body sensor location */
-                .uuid = BLE_UUID16_DECLARE(WM_GATT_INDICATE_UUID),
+                // .uuid = BLE_UUID16_DECLARE(WM_GATT_INDICATE_UUID),
+                .uuid = &ble_peripheral_indicate_uuid,
                 .val_handle = &g_ble_attr_indicate_handle,
                 .access_cb = gatt_svr_chr_access_func,
                 .flags = BLE_GATT_CHR_F_INDICATE | BLE_GATT_CHR_F_READ,
@@ -126,7 +133,7 @@ static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
             },
         }
     },
-#if 1
+#if 0
     {
         /* Service: Device Information */
         .type = BLE_GATT_SVC_TYPE_PRIMARY,
@@ -152,7 +159,9 @@ static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
         0, /* No more services */
     },
 };
+#endif
 
+#if 0
 static int
 gatt_svr_chr_access_heart_rate(uint16_t conn_handle, uint16_t attr_handle,
                                struct ble_gatt_access_ctxt *ctxt, void *arg)
@@ -196,6 +205,7 @@ gatt_svr_chr_access_device_info(uint16_t conn_handle, uint16_t attr_handle,
     assert(0);
     return BLE_ATT_ERR_UNLIKELY;
 }
+#endif
 
 static void gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt, void *arg)
 {
@@ -311,7 +321,7 @@ int luat_nimble_server_send(int id, char* data, size_t data_len) {
     }
     rc = ble_gattc_indicate_custom(g_ble_conn_handle,g_ble_attr_indicate_handle, om);
     LLOGD("ble_gattc_indicate_custom ret %d", rc);
-    return 0;
+    return rc;
 }
 
 
@@ -448,9 +458,10 @@ bleprph_advertise(void)
     fields.name_len = strlen(name);
     fields.name_is_complete = 1;
 
-    fields.uuids16 = (ble_uuid16_t[]) {
-        BLE_UUID16_INIT(GATT_SVR_SVC_ALERT_UUID)
-    };
+    // fields.uuids16 = (ble_uuid16_t[]) {
+    //     ble_peripheral_srv_uuid
+    // };
+    fields.uuids16 = (const ble_uuid16_t *)&ble_peripheral_srv_uuid;
     fields.num_uuids16 = 1;
     fields.uuids16_is_complete = 1;
 
@@ -690,6 +701,12 @@ bleprph_on_sync(void)
     rc = ble_hs_id_copy_addr(own_addr_type, addr_val, NULL);
 
     LLOGI("Device Address: " ADDR_FMT, ADDR_T(addr_val));
+    if (ble_use_custom_name == 0) {
+        char buff[32];
+        sprintf_(buff, "LOS-" ADDR_FMT, ADDR_T(addr_val));
+        LLOGD("BLE name: %s", buff);
+        rc = ble_svc_gap_device_name_set((const char*)buff);
+    }
     ble_gatts_start();
     //print_addr(addr_val);
     // LLOGI("\n");
@@ -710,18 +727,23 @@ int luat_nimble_init_peripheral(uint8_t uart_idx, char* name, int mode) {
     int rc = 0;
     nimble_port_init();
 
-    if (name == NULL || strlen(name) == 0) {
-        if (selfname[0] == 0) {
-            memcpy(selfname, "LuatOS", strlen("LuatOS") + 1);
-        }
-    }
-    else {
-        memcpy(selfname, name, strlen(name) + 1);
+    // if (name == NULL || strlen(name) == 0) {
+    //     if (selfname[0] == 0) {
+    //         memcpy(selfname, "LuatOS", strlen("LuatOS") + 1);
+    //     }
+    // }
+    // else {
+    //     memcpy(selfname, name, strlen(name) + 1);
+    // }
+    char buff[32] = {0};
+    // char mac[6] = {0};
+    /* Set the default device name. */
+    if (name != NULL && strlen(name)) {
+        rc = ble_svc_gap_device_name_set((const char*)name);
+        ble_use_custom_name = 1;
     }
 
-    /* Set the default device name. */
-    if (strlen(selfname))
-        rc = ble_svc_gap_device_name_set((const char*)selfname);
+        
 
 
     /* Initialize the NimBLE host configuration. */

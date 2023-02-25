@@ -39,8 +39,21 @@ end)
 
 sys.taskInit(function()
     sys.wait(2000)
-    nimble.debug(6)
-    nimble.init("LuatOS-Wendal") -- 蓝牙名称可修改,也有默认值LOS-$mac地址
+
+    -- BLE模式, 默认是SERVER/Peripheral,即外设模式, 等待被连接的设
+    -- nimble.mode(nimble.MODE_BLE_SERVER)
+
+    -- 设置SERVER/Peripheral模式下的UUID, 支持设置3个
+    -- 地址支持 2/4/16字节, 需要二进制数据, 例如 string.fromHex("AABB") 返回的是2个字节数据,0xAABB
+    if nimble.setUUID then -- 2023-02-25之后编译的固件支持本API
+        nimble.setUUID("srv", string.fromHex("380D"))      -- 服务主UUID         ,  默认值 180D
+        nimble.setUUID("write", string.fromHex("FF31"))    -- 往本设备写数据的UUID,  默认值 FFF1
+        nimble.setUUID("indicate", string.fromHex("FF32")) -- 订阅本设备的数据的UUID,默认值 FFF2
+    end
+
+    -- nimble.debug(6)
+    -- nimble.init("LuatOS-Wendal") -- 蓝牙名称可修改,也有默认值LOS-$mac地址
+    nimble.init() -- 蓝牙名称可修改,也有默认值LOS-$mac地址
 
     if nimble.send_msg then
         while 1 do

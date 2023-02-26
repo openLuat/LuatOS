@@ -8,6 +8,8 @@ BLE iBeacon示例
 支持的模块:
 1. Air101/Air103, 开发板的BLE天线未引出, 需要靠近使用, 且功耗高
 2. ESP32系列, 包括ESP32C3/ESP32S3
+
+-- 使用蓝牙小程序, BeaconController, 可搜索到,且能看到数据变化
 ]]
 
 log.info("main", PROJECT, VERSION)

@@ -4,7 +4,7 @@ PROJECT = "bledemo"
 VERSION = "1.0.0"
 
 --[[
-BLE peripheral的demo, 等待被连接的设备
+BLE centraldemo, 扫码并连接其他设备 ** 未完成 **
 支持的模块:
 1. Air101/Air103, 开发板的BLE天线未引出, 需要靠近使用, 且功耗高
 2. ESP32系列, 包括ESP32C3/ESP32S3
@@ -32,19 +32,19 @@ sys.subscribe("BLE_GATT_WRITE_CHR", function(info, data)
     log.info("ble", "data got!!", data:toHex())
 end)
 
+-- 接收扫描结果
+sys.subscribe("BLE_SCAN_RESULT", function(addr, name, uuids)
+    log.info("ble scan", (addr:toHex()), name, json.encode(uuids))
+    if name == "LOS-065614A23900" then
+        nimble.connect(addr)
+    end
+end)
+
 sys.taskInit(function()
     sys.wait(2000)
 
     -- BLE模式, 默认是SERVER/Peripheral,即外设模式, 等待被连接的设
-    -- nimble.mode(nimble.MODE_BLE_SERVER) -- 默认就是它, 不用调用
-
-    -- 设置SERVER/Peripheral模式下的UUID, 支持设置3个
-    -- 地址支持 2/4/16字节, 需要二进制数据, 例如 string.fromHex("AABB") 返回的是2个字节数据,0xAABB
-    if nimble.setUUID then -- 2023-02-25之后编译的固件支持本API
-        nimble.setUUID("srv", string.fromHex("380D"))      -- 服务主UUID         ,  默认值 180D
-        nimble.setUUID("write", string.fromHex("FF31"))    -- 往本设备写数据的UUID,  默认值 FFF1
-        nimble.setUUID("indicate", string.fromHex("FF32")) -- 订阅本设备的数据的UUID,默认值 FFF2
-    end
+    nimble.mode(nimble.CLIENT) -- 默认就是它, 不用调用
 
     -- 可以自定义名称
     -- nimble.init("LuatOS-Wendal") -- 蓝牙名称可修改,也有默认值LOS-$mac地址
@@ -54,11 +54,12 @@ sys.taskInit(function()
     -- 打印MAC地址
     local mac = nimble.mac()
     log.info("ble", "mac", mac and mac:toHex() or "Unknwn")
+    sys.wait(1000)
 
     -- 发送数据
     while 1 do
-        sys.wait(3000)
-        nimble.send_msg(1, 0, string.char(0x5A, 0xA5, 0x12, 0x34, 0x56))
+        nimble.scan()
+        sys.wait(120000)
     end
 end)
 

@@ -22,25 +22,6 @@
 
 /* BLE */
 #include "nimble/nimble_port.h"
-// #include "nimble/nimble_port_freertos.h"
-
-// /* Heart-rate configuration */
-// #define GATT_HRS_UUID                           0x180D
-// #define GATT_HRS_MEASUREMENT_UUID               0x2A37
-// #define GATT_HRS_BODY_SENSOR_LOC_UUID           0x2A38
-// #define GATT_DEVICE_INFO_UUID                   0x180A
-// #define GATT_MANUFACTURER_NAME_UUID             0x2A29
-// #define GATT_MODEL_NUMBER_UUID                  0x2A24
-
-// /** GATT server. */
-// #define GATT_SVR_SVC_ALERT_UUID               0x1811
-// #define GATT_SVR_CHR_SUP_NEW_ALERT_CAT_UUID   0x2A47
-// #define GATT_SVR_CHR_NEW_ALERT                0x2A46
-// #define GATT_SVR_CHR_SUP_UNR_ALERT_CAT_UUID   0x2A48
-// #define GATT_SVR_CHR_UNR_ALERT_STAT_UUID      0x2A45
-// #define GATT_SVR_CHR_ALERT_NOT_CTRL_PT        0x2A44
-
-// extern uint16_t hrs_hrm_handle;
 
 typedef void (*TaskFunction_t)( void * );
 
@@ -50,18 +31,10 @@ struct ble_gatt_register_ctxt;
 static void gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt, void *arg);
 static int gatt_svr_init(void);
 
-// static const char *manuf_name = "LuatOS";
-// static const char *model_num = "BLE Demo";
-// static uint16_t hrs_hrm_handle;
 static uint16_t g_ble_attr_indicate_handle;
 static uint16_t g_ble_attr_write_handle;
 extern uint16_t g_ble_conn_handle;
 extern uint16_t g_ble_state;
-
-// #define WM_GATT_SVC_UUID      0xFFF0
-// #define WM_GATT_INDICATE_UUID 0xFFF1
-// #define WM_GATT_WRITE_UUID    0xFFF2
-// #define WM_GATT_NOTIFY_UUID    0xFFF3
 
 extern ble_uuid_any_t ble_peripheral_srv_uuid;
 extern ble_uuid_any_t ble_peripheral_indicate_uuid;
@@ -102,19 +75,6 @@ static struct ble_gatt_svc_def gatt_svr_svcs[] = {
         .uuid = &ble_peripheral_srv_uuid,
         .characteristics = (struct ble_gatt_chr_def[])
         { {
-#if 0
-                /* Characteristic: Heart-rate measurement */
-                .uuid = BLE_UUID16_DECLARE(GATT_HRS_MEASUREMENT_UUID),
-                .access_cb = gatt_svr_chr_access_heart_rate,
-                .val_handle = &hrs_hrm_handle,
-                .flags = BLE_GATT_CHR_F_NOTIFY,
-            }, {
-                /* Characteristic: Body sensor location */
-                .uuid = BLE_UUID16_DECLARE(GATT_HRS_BODY_SENSOR_LOC_UUID),
-                .access_cb = gatt_svr_chr_access_heart_rate,
-                .flags = BLE_GATT_CHR_F_READ,
-            }, {
-#endif
                 /* Characteristic: Body sensor location */
                 // .uuid = BLE_UUID16_DECLARE(WM_GATT_WRITE_UUID),
                 .uuid = &ble_peripheral_write_uuid,
@@ -133,78 +93,10 @@ static struct ble_gatt_svc_def gatt_svr_svcs[] = {
             },
         }
     },
-#if 0
-    {
-        /* Service: Device Information */
-        .type = BLE_GATT_SVC_TYPE_PRIMARY,
-        .uuid = BLE_UUID16_DECLARE(GATT_DEVICE_INFO_UUID),
-        .characteristics = (struct ble_gatt_chr_def[])
-        { {
-                /* Characteristic: * Manufacturer name */
-                .uuid = BLE_UUID16_DECLARE(GATT_MANUFACTURER_NAME_UUID),
-                .access_cb = gatt_svr_chr_access_device_info,
-                .flags = BLE_GATT_CHR_F_READ,
-            }, {
-                /* Characteristic: Model number string */
-                .uuid = BLE_UUID16_DECLARE(GATT_MODEL_NUMBER_UUID),
-                .access_cb = gatt_svr_chr_access_device_info,
-                .flags = BLE_GATT_CHR_F_READ,
-            }, {
-                0, /* No more characteristics in this service */
-            },
-        }
-    },
-#endif
     {
         0, /* No more services */
     },
 };
-#endif
-
-#if 0
-static int
-gatt_svr_chr_access_heart_rate(uint16_t conn_handle, uint16_t attr_handle,
-                               struct ble_gatt_access_ctxt *ctxt, void *arg)
-{
-    /* Sensor location, set to "Chest" */
-    static uint8_t body_sens_loc = 0x01;
-    uint16_t uuid;
-    int rc;
-
-    uuid = ble_uuid_u16(ctxt->chr->uuid);
-
-    if (uuid == GATT_HRS_BODY_SENSOR_LOC_UUID) {
-        rc = os_mbuf_append(ctxt->om, &body_sens_loc, sizeof(body_sens_loc));
-
-        return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
-    }
-
-    assert(0);
-    return BLE_ATT_ERR_UNLIKELY;
-}
-
-static int
-gatt_svr_chr_access_device_info(uint16_t conn_handle, uint16_t attr_handle,
-                                struct ble_gatt_access_ctxt *ctxt, void *arg)
-{
-    uint16_t uuid;
-    int rc;
-
-    uuid = ble_uuid_u16(ctxt->chr->uuid);
-
-    if (uuid == GATT_MODEL_NUMBER_UUID) {
-        rc = os_mbuf_append(ctxt->om, model_num, strlen(model_num));
-        return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
-    }
-
-    if (uuid == GATT_MANUFACTURER_NAME_UUID) {
-        rc = os_mbuf_append(ctxt->om, manuf_name, strlen(manuf_name));
-        return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
-    }
-
-    assert(0);
-    return BLE_ATT_ERR_UNLIKELY;
-}
 #endif
 
 static void gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt, void *arg)

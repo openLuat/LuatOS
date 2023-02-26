@@ -274,8 +274,8 @@ static int l_nimble_mac(lua_State *L) {
 配置iBeacon的参数,仅iBeacon模式可用
 @api nimble.ibeacon(data, major, minor, measured_power)
 @string 数据, 必须是16字节
-@int 主版本号,默认2, 可选
-@int 次版本号,默认10,可选
+@int 主版本号,默认2, 可选, 范围 0 ~ 65536
+@int 次版本号,默认10,可选, 范围 0 ~ 65536
 @int 名义功率, 默认0, 范围 -126 到 20 
 @return bool 成功返回true,否则返回false
 @usage

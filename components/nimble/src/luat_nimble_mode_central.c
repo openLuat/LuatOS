@@ -22,32 +22,11 @@
 
 /* BLE */
 #include "nimble/nimble_port.h"
-// #include "nimble/nimble_port_freertos.h"
 
-/* Heart-rate configuration */
-#define GATT_HRS_UUID                           0x180D
-#define GATT_HRS_MEASUREMENT_UUID               0x2A37
-#define GATT_HRS_BODY_SENSOR_LOC_UUID           0x2A38
-#define GATT_DEVICE_INFO_UUID                   0x180A
-#define GATT_MANUFACTURER_NAME_UUID             0x2A29
-#define GATT_MODEL_NUMBER_UUID                  0x2A24
-
-/** GATT server. */
-#define GATT_SVR_SVC_ALERT_UUID               0x1811
-#define GATT_SVR_CHR_SUP_NEW_ALERT_CAT_UUID   0x2A47
-#define GATT_SVR_CHR_NEW_ALERT                0x2A46
-#define GATT_SVR_CHR_SUP_UNR_ALERT_CAT_UUID   0x2A48
-#define GATT_SVR_CHR_UNR_ALERT_STAT_UUID      0x2A45
-#define GATT_SVR_CHR_ALERT_NOT_CTRL_PT        0x2A44
-
-// extern uint16_t hrs_hrm_handle;
-
-typedef void (*TaskFunction_t)( void * );
+static int ble_gatt_svc_counter = 0;
 
 struct ble_hs_cfg;
 struct ble_gatt_register_ctxt;
-
-
 
 typedef struct luat_nimble_scan_result
 {
@@ -55,11 +34,8 @@ typedef struct luat_nimble_scan_result
     uint32_t uuids_32[16];
     uint8_t uuids_128[16][16];
     char name[64];
-    ble_addr_t addr;
+    char addr[7]; // 地址类型 + MAC地址
 }luat_nimble_scan_result_t;
-
-// static void gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt, void *arg);
-// static int gatt_svr_init(void);
 
 void rand_bytes(uint8_t *data, int len);
 
@@ -77,19 +53,8 @@ void print_conn_desc(const struct ble_gap_conn_desc *desc);
 
 void print_adv_fields(const struct ble_hs_adv_fields *fields);
 
-// static const char *manuf_name = "LuatOS";
-// static const char *model_num = "BLE Demo";
-// static uint16_t hrs_hrm_handle;
-// static uint16_t g_ble_attr_indicate_handle;
-// static uint16_t g_ble_attr_write_handle;
 extern uint16_t g_ble_conn_handle;
 extern uint16_t g_ble_state;
-
-#define WM_GATT_SVC_UUID      0xFFF0
-#define WM_GATT_INDICATE_UUID 0xFFF1
-#define WM_GATT_WRITE_UUID    0xFFF2
-#define WM_GATT_NOTIFY_UUID    0xFFF3
-
 
 #define LUAT_LOG_TAG "nimble"
 #include "luat_log.h"
@@ -182,6 +147,7 @@ int luat_nimble_blecent_connect(const char* _addr){
     int rc;
     ble_addr_t *addr;
     addr = (ble_addr_t *)_addr;
+    ble_gatt_svc_counter = 0;
 
     // 首先, 停止搜索
     rc = ble_gap_disc_cancel();
@@ -200,14 +166,16 @@ int luat_nimble_scan_cb(lua_State*L, void*ptr) {
 
     lua_pushliteral(L, "BLE_SCAN_RESULT");
 
-    lua_pushlstring(L, (const char*)&res->addr, 7);
-    lua_newtable(L);
-    // char buff[64];
+    lua_pushlstring(L, (const char*)res->addr, 7);
 
     if (res->name[0]) {
         lua_pushstring(L, res->name);
-        lua_setfield(L, -2, "name");
     }
+    else {
+        lua_pushliteral(L, ""); // 设备没有名字
+    }
+    lua_newtable(L);
+    // char buff[64];
 
     if (res->uuids_16[0]) {
         lua_newtable(L);
@@ -245,7 +213,7 @@ int luat_nimble_scan_cb(lua_State*L, void*ptr) {
     //     lua_setfield(L, -2, "uuids128");
     // }
     luat_heap_free(res);
-    lua_call(L, 3, 0);
+    lua_call(L, 4, 0);
     return 0;
 }
 
@@ -255,15 +223,17 @@ static int svc_disced(uint16_t conn_handle,
                                  void *arg) {
     LLOGD("ble_gatt_error status %d", error->status);
     if (error->status == BLE_HS_EDONE) {
-        LLOGD("service discovery done");
+        LLOGD("service discovery done count %d", ble_gatt_svc_counter);
         return 0;
     }
     if (error->status != 0) {
         return error->status;
     }
-
-
-
+    char buff[64] = {0};
+    ble_gatt_svc_counter ++;
+    LLOGD("service->start_handle %04X", service->start_handle);
+    LLOGD("service->end_handle %04X",   service->end_handle);
+    LLOGD("service->uuid %s",         ble_uuid_to_str(&service->uuid, buff));
     return 0;                
 }
 
@@ -292,22 +262,29 @@ static int blecent_gap_event(struct ble_gap_event *event, void *arg)
         if (res == NULL)
             return 0;
         memset(res, 0, sizeof(luat_nimble_scan_result_t));
+
+        char tmpbuff[64] = {0};
+
         for (i = 0; i < fields.num_uuids16 && i < 16; i++) {
+            LLOGD("uuids_16 %s", ble_uuid_to_str(&fields.uuids16[i], tmpbuff));
             res->uuids_16[i] = fields.uuids16[i].value;
         }
         for (i = 0; i < fields.num_uuids32 && i < 16; i++) {
+            LLOGD("uuids_32 %s", ble_uuid_to_str(&fields.uuids32[i], tmpbuff));
             res->uuids_32[i] = fields.uuids32[i].value;
         }
-        // for (i = 0; i < fields.num_uuids128 && i < 16; i++) {
-        //     memcpy(res->uuids_128[i], fields.uuids128[i].value, 16);
-        // }
-        memcpy(&res->addr, &event->disc.addr, sizeof(ble_addr_t));
+        for (i = 0; i < fields.num_uuids128 && i < 16; i++) {
+            LLOGD("uuids_128 %s", ble_uuid_to_str(&fields.uuids128[i], tmpbuff));
+            // memcpy(res->uuids_128[i], fields.uuids128[i].value, 16);
+        }
+        memcpy(res->addr, &event->disc.addr, 7);
         memcpy(res->name, fields.name, fields.name_len);
         LLOGD("addr %02X%02X%02X%02X%02X%02X", event->disc.addr.val[0], event->disc.addr.val[1], event->disc.addr.val[2], 
                                                event->disc.addr.val[3], event->disc.addr.val[4], event->disc.addr.val[5]);
         // for (i = 0; i < fields.num_uuids128 && i < 16; i++) {
         //     res->uuids_128[i] = fields.num_uuids128.value >> 32;
         // }
+        LLOGD("uuids 16=%d 32=%d 128=%d", fields.num_uuids16, fields.num_uuids32, fields.num_uuids128);
         msg.ptr = res;
         luat_msgbus_put(&msg, 0);
 

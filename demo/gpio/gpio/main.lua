@@ -14,6 +14,11 @@ if wdt then
     sys.timerLoopStart(wdt.feed, 3000)--3s喂一次狗
 end
 
+-- Air780E的AT固件默认会为开机键防抖, 导致部分用户刷机很麻烦
+if rtos.bsp() == "EC618" and pm and pm.PWK_MODE then
+    pm.power(pm.PWK_MODE, false)
+end
+
 --下面的GPIO引脚编号，请根据实际需要进行更改！
 -- Air101开发板的3个LED分别为 PB08/PB09/PB10
 -- Air103开发板的3个LED分别为 PB24/PB25/PB26
@@ -33,6 +38,8 @@ function pinx() -- 根据不同开发板，给LED赋值不同的gpio引脚编号
         return pin.PD14, pin.PD15, pin.PC3
     elseif rtos_bsp == "ESP32C3" then -- ESP32C3开发板的引脚
         return 12, 13, 255 -- 开发板上就2个灯
+    elseif rtos_bsp == "ESP32S3" then -- ESP32C3开发板的引脚
+        return 10, 11, 255 -- 开发板上就2个灯
     elseif rtos_bsp == "EC618" then -- Air780E开发板引脚
         return 27, 255, 255 -- AIR780E开发板上就一个灯
     else
@@ -67,6 +74,7 @@ sys.taskInit(function()
         log.info("GPIO", "Go Go Go", count, rtos.bsp())
         log.info("LuatOS:", "https://wiki.luatos.com")
         count = count + 1
+        timer.mdelay(100)
     end
 end)
 

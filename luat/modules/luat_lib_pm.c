@@ -317,38 +317,38 @@ static int l_pm_power_ctrl(lua_State *L) {
     return 1;
 }
 
-/**
-IO电平控制,当前仅EC618系列可用
-@api pm.ioVolt(id, val)
-@int 电平id, 例如 pm.IOVLOT_GPIO, pm.IOVLOT_AONGPIO
-@int 电平值,单位毫伏
-@return boolean 处理结果true成功，false失败
-@usage
--- EC618系列设置IO电平, 范围 1650 ~ 3400 , 单位毫伏, 步进50mv
--- 例如Air780E/Air600E/Air700E/Air780EG
--- 注意, 这里的设置优先级会高于硬件IOSEL脚的配置
--- 但开机时依然先使用硬件配置,直至调用本API进行配置, 所以io电平会变化
--- pm.ioVolt(pm.IOVLOT_GPIO, 3300)    -- 对应VDD_EXT电压域
--- pm.ioVolt(pm.IOVLOT_AONGPIO, 3300) -- 对应LDOAON电压域
- */
-static int l_pm_iovolt_ctrl(lua_State *L) {
-	int val = 3300;
-    int id = luaL_checkinteger(L, 1);
-    if (lua_isboolean(L, 2)) {
-    	val = lua_toboolean(L, 2);
-    }
-    else if (lua_isinteger(L, 2)) {
-        val = luaL_checkinteger(L, 2);
-    }
-    lua_pushboolean(L, !luat_pm_iovolt_ctrl(id, val));
-    return 1;
-}
+// /**
+// IO电平控制,当前仅EC618系列可用
+// @api pm.ioVolt(id, val)
+// @int 电平id, 例如 pm.IOVLOT_GPIO, pm.IOVLOT_AONGPIO
+// @int 电平值,单位毫伏
+// @return boolean 处理结果true成功，false失败
+// @usage
+// -- EC618系列设置IO电平, 范围 1650 ~ 3400 , 单位毫伏, 步进50mv
+// -- 例如Air780E/Air600E/Air700E/Air780EG
+// -- 注意, 这里的设置优先级会高于硬件IOSEL脚的配置
+// -- 但开机时依然先使用硬件配置,直至调用本API进行配置, 所以io电平会变化
+// -- pm.ioVolt(pm.IOVLOT_GPIO, 3300)    -- 对应VDD_EXT电压域
+// -- pm.ioVolt(pm.IOVLOT_AONGPIO, 3300) -- 对应LDOAON电压域
+//  */
+// static int l_pm_iovolt_ctrl(lua_State *L) {
+// 	int val = 3300;
+//     int id = luaL_checkinteger(L, 1);
+//     if (lua_isboolean(L, 2)) {
+//     	val = lua_toboolean(L, 2);
+//     }
+//     else if (lua_isinteger(L, 2)) {
+//         val = luaL_checkinteger(L, 2);
+//     }
+//     lua_pushboolean(L, !luat_pm_iovolt_ctrl(id, val));
+//     return 1;
+// }
 
-#ifndef LUAT_COMPILER_NOWEAK
-LUAT_WEAK int luat_pm_iovolt_ctrl(int id, int val) {
-    return -1;
-}
-#endif
+// #ifndef LUAT_COMPILER_NOWEAK
+// LUAT_WEAK int luat_pm_iovolt_ctrl(int id, int val) {
+//     return -1;
+// }
+// #endif
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_pm[] =
@@ -367,7 +367,7 @@ static const rotable_Reg_t reg_pm[] =
     { "shutdown",       ROREG_FUNC(l_pm_power_off)},
     { "reboot",         ROREG_FUNC(l_rtos_reboot)},
 	{ "power",          ROREG_FUNC(l_pm_power_ctrl)},
-    { "ioVolt",         ROREG_FUNC(l_pm_iovolt_ctrl)},
+    // { "ioVolt",         ROREG_FUNC(l_pm_iovolt_ctrl)},
 
 
     //@const NONE number 不休眠模式

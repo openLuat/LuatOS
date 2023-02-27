@@ -12,7 +12,7 @@ local GPIO_A = pin.PB02
 local GPIO_B = pin.PB05
 ec11.init(GPIO_A,GPIO_B)
 local count = 0
-local function EC11CallBack(direction)
+local function ec11_callBack(direction)
     if direction == "left" then
         count = count - 1
     else
@@ -21,7 +21,7 @@ local function EC11CallBack(direction)
     print(direction,count)
 end
 
-sys.subscribe("EC11",EC11CallBack)
+sys.subscribe("ec11",ec11_callBack)
 ]]
 
 
@@ -37,7 +37,7 @@ ec11
 @number GPIO_A A引脚
 @number GPIO_B B引脚
 @usage
-ec11.init(0)
+ec11.init(6,7)
 ]]
 function ec11.init(GPIO_A,GPIO_B)
     gpio.debounce(GPIO_A, 10)
@@ -45,7 +45,7 @@ function ec11.init(GPIO_A,GPIO_B)
 
     gpio.setup(GPIO_A, function()
         if B then
-            sys.publish("EC11","left")
+            sys.publish("ec11","left")
             A = false
             B = false
         else
@@ -55,7 +55,7 @@ function ec11.init(GPIO_A,GPIO_B)
 
     gpio.setup(GPIO_B, function()
         if A then
-            sys.publish("EC11","right")
+            sys.publish("ec11","right")
             A = false
             B = false
         else

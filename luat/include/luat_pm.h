@@ -10,6 +10,7 @@
 #define LUAT_PM_SLEEP_MODE_STANDBY	4	//待机模式，CPU 停止，设备上下文丢失(可保存至特殊外设)，唤醒后通常复位
 //#define LUAT_PM_SLEEP_MODE_SHUTDOWN	5	//关断模式，比 Standby 模式功耗更低， 上下文通常不可恢复， 唤醒后复位
 
+// 开关类
 enum
 {
 	LUAT_PM_POWER_USB,
@@ -18,6 +19,13 @@ enum
 	LUAT_PM_POWER_CAMERA,
 	LUAT_PM_POWER_DAC_EN_PIN,
 	LUAT_PM_POWER_POWERKEY_MODE
+};
+
+// 电平类
+enum
+{
+	LUAT_PM_IOVLOT_GPIO,
+	LUAT_PM_IOVLOT_AONGPIO
 };
 
 int luat_pm_request(int mode);
@@ -44,8 +52,10 @@ int luat_pm_dtimer_wakeup_id(int* id);
 
 int luat_pm_poweroff(void);
 
-int luat_pm_power_ctrl(int id, uint8_t onoff);
+int luat_pm_power_ctrl(int id, uint8_t val);
 
 int luat_pm_get_poweron_reason(void);
+
+int luat_pm_iovolt_ctrl(int id, int val);
 
 #endif

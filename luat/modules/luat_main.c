@@ -21,6 +21,10 @@
 #include "luat_profiler.h"
 #endif
 
+#ifdef LUAT_USE_WDT
+#include "luat_wdt.h"
+#endif
+
 static int report (lua_State *L, int status);
 
 lua_State *L;
@@ -214,7 +218,16 @@ int luat_main (void) {
 #endif
   luat_main_call();
   LLOGE("Lua VM exit!! reboot in %dms", LUAT_EXIT_REBOOT_DELAY);
+#ifdef LUAT_USE_WDT
+  for (size_t i = 1; i < LUAT_EXIT_REBOOT_DELAY / 1000; i++)
+  {
+    luat_wdt_feed();
+    luat_timer_mdelay(1000);
+  }
+  luat_ota_reboot(1000);
+#else
   luat_ota_reboot(LUAT_EXIT_REBOOT_DELAY);
+#endif
   // 往下是肯定不会被执行的
   return 0;
 }

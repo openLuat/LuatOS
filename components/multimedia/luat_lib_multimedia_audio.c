@@ -288,7 +288,7 @@ static int l_audio_play_get_last_error(lua_State *L) {
 
 /*
 配置一个音频通道的特性，比如实现自动控制PA开关。注意这个不是必须的，一般在调用play的时候才需要自动控制，其他情况比如你手动控制播放时，就可以自己控制PA开关
-@api audio.config(id, paPin, onLevel, dacDelay, paDelay, dacPin, dacLevel)
+@api audio.config(id, paPin, onLevel, dacDelay, paDelay, dacPin, dacLevel, dacTimeDelay)
 @int 音频通道
 @int PA控制IO
 @int PA打开时的电平
@@ -296,13 +296,14 @@ static int l_audio_play_get_last_error(lua_State *L) {
 @int 在DAC启动后，延迟多长时间打开PA，单位1ms
 @int 外部dac电源控制IO，如果不填，则表示使用平台默认IO，比如Air780E使用DACEN脚，air105则不启用
 @int 外部dac打开时，电源控制IO的电平，默认拉高
+@int 音频播放完毕时，PA与DAC关闭的时间间隔，单位1ms，默认20ms
 @usage
 audio.config(0, pin.PC0, 1)	--PA控制脚是PC0，高电平打开，air105用这个配置就可以用了
 audio.config(0, 25, 1, 6, 200)	--PA控制脚是GPIO25，高电平打开，Air780E云喇叭板用这个配置就可以用了
 */
 static int l_audio_config(lua_State *L) {
     luat_audio_config_pa(luaL_checkinteger(L, 1), luaL_optinteger(L, 2, 255), luaL_optinteger(L, 3, 1), luaL_optinteger(L, 4, 5), luaL_optinteger(L, 5, 200));
-    luat_audio_config_dac(luaL_checkinteger(L, 1), luaL_optinteger(L, 6, -1), luaL_optinteger(L, 7, 1));
+    luat_audio_config_dac(luaL_checkinteger(L, 1), luaL_optinteger(L, 6, -1), luaL_optinteger(L, 7, 1), luaL_optinteger(L, 8, 20));
     return 0;
 }
 

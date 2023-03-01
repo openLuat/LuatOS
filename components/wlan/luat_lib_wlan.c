@@ -247,6 +247,26 @@ static int l_wlan_get_mac(lua_State* L){
 
 
 /*
+设置mac
+@api wlan.setMac(tp, mac)
+@int 设置何种mac地址,对ESP32系列来说,只能设置STA的地址,即0
+@string 待设置的MAC地址
+@return bool 成功返回true,否则返回false
+@usage
+-- 设置MAC地址, 2023-03-01之后编译的固件可用
+local mac = string.fromHex("F01122334455")
+wlan.setMac(0, mac)
+*/
+static int l_wlan_set_mac(lua_State* L){
+    int id = luaL_optinteger(L, 1, 0);
+    const char* mac = luaL_checkstring(L, 2);
+    int ret = luat_wlan_set_mac(luaL_optinteger(L, 1, 0), mac);
+    lua_pushboolean(L, ret == 0 ? 1 : 0);
+    return 1;
+}
+
+
+/*
 获取ip,仅STATION或APSTA模式下有意义
 @api wlan.getIP()
 @return string ip地址,当前仅返回ipv4地址,例如 "192.168.1.25"
@@ -348,9 +368,10 @@ static const rotable_Reg_t reg_wlan[] =
     // 配网相关
     { "smartconfig",         ROREG_FUNC(l_wlan_smartconfig)},
 
-    { "getMac",              ROREG_FUNC(l_wlan_get_mac)},
     { "getIP",               ROREG_FUNC(l_wlan_get_ip)},
     { "getInfo",             ROREG_FUNC(l_wlan_get_info)},
+    { "getMac",              ROREG_FUNC(l_wlan_get_mac)},
+    { "setMac",              ROREG_FUNC(l_wlan_set_mac)},
 
     // AP相关
     { "createAP",            ROREG_FUNC(l_wlan_ap_start)},

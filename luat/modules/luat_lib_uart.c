@@ -339,7 +339,7 @@ static int l_uart_exist(lua_State *L)
 
 
 /*
-buff形式读串口，一次读出全部数据存入buff中，如果buff空间不够会自动扩展，目前只有air105支持这个操作
+buff形式读串口，一次读出全部数据存入buff中，如果buff空间不够会自动扩展，目前air105,air780e支持这个操作
 @api    uart.rx(id, buff)
 @int 串口id, uart0写0, uart1写1
 @zbuff zbuff对象
@@ -353,7 +353,7 @@ static int l_uart_rx(lua_State *L)
 
     if(lua_isuserdata(L, 2)){//zbuff对象特殊处理
     	luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
-        int result = luat_uart_read(id, NULL, 0);	//读出当前缓存的长度，目前只有105支持这个操作
+        int result = luat_uart_read(id, NULL, 0);
         if (result > (buff->len - buff->used))
         {
         	__zbuff_resize(buff, buff->len + result);
@@ -372,17 +372,17 @@ static int l_uart_rx(lua_State *L)
 }
 
 /*
-读串口Rx缓存中剩余数据量，目前只有air105支持这个操作
-@api    uart.rx_size(id)
+读串口Rx缓存中剩余数据量，目前air105,air780e支持这个操作
+@api    uart.rxSize(id)
 @int 串口id, uart0写0, uart1写1
 @return int 返回读到的长度
 @usage
-local size = uart.rx_size(1)
+local size = uart.rxSize(1)
 */
 static int l_uart_rx_size(lua_State *L)
 {
     uint8_t id = luaL_checkinteger(L, 1);
-    lua_pushinteger(L, luat_uart_read(id, NULL, 0));//读出当前缓存的长度，目前只有105支持这个操作
+    lua_pushinteger(L, luat_uart_read(id, NULL, 0));
     return 1;
 }
 
@@ -489,7 +489,7 @@ static const rotable_Reg_t reg_uart[] =
 
     { "tx",      ROREG_FUNC(l_uart_tx)},
     { "rx",       ROREG_FUNC(l_uart_rx)},
-	{ "rx_size",	ROREG_FUNC(l_uart_rx_size)},
+	{ "rxSize",	ROREG_FUNC(l_uart_rx_size)},
 
     //@const VUART_0 number 虚拟串口0
 	{ "VUART_0",        ROREG_INT(LUAT_VUART_ID_0)},

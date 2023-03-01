@@ -9,7 +9,7 @@
 -- 用法实例
 local netLed = require ("netLed")
 
-local LEDA= gpio.setup(27，8，gpio.PULLUP) --LED引脚判断赋值结束
+local LEDA= gpio.setup(27，1，gpio.PULLUP) --LED引脚判断赋值结束
 sys.taskInit(function()
 --呼吸灯
 sys.wait(5080) --延时5秒等待网络注册
@@ -95,10 +95,10 @@ end
 
 --[[
 网络指示灯模块的运行任务
-@api netLed.setup(flag,ledpin,ltepin)
+@api netled.taskLed(ledPinSetFunc)
 @return nil 无返回值
 @usage 
-local LEDA= gpio.setup(27，8，gpio.PULLUP) --LED引脚判断赋值结束
+local LEDA= gpio.setup(27，1，gpio.PULLUP) --LED引脚判断赋值结束
 netled.taskLed(LEDA)
 ]]
 function netled.taskLed(ledPinSetFunc)
@@ -131,7 +131,7 @@ LTE指示灯模块的运行任务
 @api netLed.taskLte(ledPinSetFunc)
 @return nil 无返回值
 @usage 
-local LEDA= gpio.setup(27，8，gpio.PULLUP) --LED引脚判断赋值结束
+local LEDA= gpio.setup(27，1，gpio.PULLUP) --LED引脚判断赋值结束
 netLed.taskLte(LEDA)
 ]]
  function netled.taskLte(ledPinSetFunc)
@@ -203,7 +203,7 @@ end
 @return nil 无返回值
 @usage 
 local netLed = require ("netLed")
-local LEDA= gpio.setup(27，8，gpio.PULLUP) --LED引脚判断赋值结束
+local LEDA= gpio.setup(27，1，gpio.PULLUP) --LED引脚判断赋值结束
 sys.taskInit(function()
 --呼吸灯
 sys.wait(5080) --延时5秒等待网络注册

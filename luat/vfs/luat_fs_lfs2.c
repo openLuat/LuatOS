@@ -16,6 +16,11 @@
 FILE* luat_vfs_lfs2_fopen(void* userdata, const char *filename, const char *mode) {
     lfs_t* fs = (lfs_t*)userdata;
     lfs_file_t *file = (lfs_file_t*)luat_heap_malloc(sizeof(lfs_file_t));
+    if (file == NULL) {
+        LLOGD("out of memory when open file %s", filename);
+        return NULL;
+    }
+    memset(file, 0, sizeof(lfs_file_t));
     int flag = 0;
 /*
 "r": 读模式（默认）；

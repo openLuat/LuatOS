@@ -340,24 +340,29 @@ static void LoadUpvalues (LoadState *S, Proto *f) {
 static void LoadDebug (LoadState *S, Proto *f) {
   int i, n;
   n = LoadInt(S);
+  f->sizelineinfo = n;
+  f->lineinfo = NULL;
 #ifdef LUAT_USE_MEMORY_OPTIMIZATION_CODE_MMAP
-  uint8_t* ptr = (uint8_t*)luat_fs_mmap(((LoadF*)S->Z->data)->f);
-  int inst[1];
-  if (ptr) {
-	  f->lineinfo = (int*)(ptr + ptr_offset);
-    for (size_t i = 0; i < n; i++)
-    {
-      LoadVector(S, &inst, 1);
+  if (n > 0) {
+    uint8_t* ptr = (uint8_t*)luat_fs_mmap(((LoadF*)S->Z->data)->f);
+    int inst[1];
+    if (ptr) {
+	    f->lineinfo = (int*)(ptr + ptr_offset);
+      for (size_t i = 0; i < n; i++)
+      {
+        LoadVector(S, &inst, 1);
+      }
     }
   }
-#else
-  f->lineinfo = luaM_newvector(S->L, n, int);
-  f->sizelineinfo = n;
-  LoadVector(S, f->lineinfo, n);
-#ifdef LUAT_UNDUMP_DEBUG
-  debug_size += (f->sizelineinfo * sizeof(int) + (8 - 1)) & (~(8 - 1));
 #endif
-#endif
+  if (n > 0 && f->lineinfo == NULL) {
+    f->lineinfo = luaM_newvector(S->L, n, int);
+    LoadVector(S, f->lineinfo, n);
+  }
+// #ifdef LUAT_UNDUMP_DEBUG
+//   debug_size += (f->sizelineinfo * sizeof(int) + (8 - 1)) & (~(8 - 1));
+// #endif
+// #endif
   n = LoadInt(S);
   f->locvars = luaM_newvector(S->L, n, LocVar);
   f->sizelocvars = n;

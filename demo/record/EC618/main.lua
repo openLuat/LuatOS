@@ -5,6 +5,11 @@ log.info("main", PROJECT, VERSION)
 log.style(1)
 -- sys库是标配
 _G.sys = require("sys")
+
+-- es8311 录音demo
 require "es8311"
+
+-- es8218e 录音demo
 -- require "es8218e"
+
 sys.run()

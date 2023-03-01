@@ -30,7 +30,7 @@ static uint64_t max30102_idp;
 
 /*
 初始化MAX30102传感器
-@api MAX30102.init(i2c_id,int)
+@api max30102.init(i2c_id,int)
 @int 传感器所在的i2c总线id,默认为0
 @int int引脚
 @return bool 成功返回true, 否则返回nil或者false

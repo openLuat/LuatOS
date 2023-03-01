@@ -136,7 +136,7 @@ void max30102_task(void *param){
 
 /*
 获取心率血氧(大概需要10s时间测量)
-@api max30102.get().wait()
+@api max30102.get()
 @return bool 成功返回true, 否则返回nil或者false
 @return number 心率
 @return number 血氧

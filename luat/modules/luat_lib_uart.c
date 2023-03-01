@@ -26,7 +26,27 @@ typedef struct luat_uart_cb {
 } luat_uart_cb_t;
 static luat_uart_cb_t uart_cbs[MAX_DEVICE_COUNT + MAX_USB_DEVICE_COUNT];
 static luat_uart_recv_callback_t uart_app_recvs[MAX_DEVICE_COUNT + MAX_USB_DEVICE_COUNT];
-
+#ifdef LUAT_USE_SOFT_UART
+#include "c_common.h"
+typedef struct luat_soft_uart {
+	uint32_t period;
+	Buffer_Struct tx_buffer;
+	uint16_t rx_bit;
+	uint16_t tx_bit;
+	uint8_t tx_shift_bits;
+	uint8_t rx_shift_bits;
+	uint8_t data_bits;
+	uint8_t stop_bits;
+	uint8_t parity;             /**< 奇偶校验位 */
+	uint8_t tx_pin;
+	uint8_t rx_pin;
+	uint8_t tx_hwtimer_id;
+	uint8_t rx_hwtimer_id;
+	uint8_t pin485;
+    uint8_t rs485_rx_level;           /**< 接收方向的电平 */
+}luat_soft_uart_t;
+static luat_soft_uart_t prv_soft_uart;
+#endif
 void luat_uart_set_app_recv(int id, luat_uart_recv_callback_t cb) {
     if (luat_uart_exist(id)) {
         uart_app_recvs[id] = cb;
@@ -429,6 +449,26 @@ static int l_uart_tx(lua_State *L)
     return 1;
 }
 
+/**
+设置软件uart的硬件配置，只有支持硬件定时器的SOC才能使用，目前只能设置一个。设置完成后，后续操作和普通uart一样，仍然需要setup
+@api uart.createSoft(tx_pin, tx_hwtimer_id, rx_pin, rx_hwtimer_id)
+@int 发送引脚编号
+@int 发送用的硬件定时器ID
+@int 接收引脚编号
+@int 接收用的硬件定时器ID
+@return int 软件uart的id，如果失败则返回nil
+@usage
+-- 初始化软件uart
+local uart_id = uart.createSoft(0, )
+*/
+static int l_uart_soft(lua_State *L) {
+#ifdef LUAT_USE_SOFT_UART
+
+#else
+	lua_pushnil(L);
+#endif
+    return 1;
+}
 
 /*
 获取可用串口号列表，当前仅限win32
@@ -490,7 +530,8 @@ static const rotable_Reg_t reg_uart[] =
     { "tx",      ROREG_FUNC(l_uart_tx)},
     { "rx",       ROREG_FUNC(l_uart_rx)},
 	{ "rxSize",	ROREG_FUNC(l_uart_rx_size)},
-
+	{ "rx_size",	ROREG_FUNC(l_uart_rx_size)},
+	{ "createSoft",	ROREG_FUNC(l_uart_soft)},
     //@const VUART_0 number 虚拟串口0
 	{ "VUART_0",        ROREG_INT(LUAT_VUART_ID_0)},
     { NULL,         ROREG_INT(0) }

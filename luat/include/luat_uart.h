@@ -54,14 +54,14 @@ typedef struct luat_uart {
     int baud_rate;              /**< 波特率 */
 
     uint8_t data_bits;          /**< 数据位 */
-    uint8_t stop_bits;          /**< 停止位 */ 
-    uint8_t bit_order;          /**< 高低位 */ 
-    uint8_t parity;             /**< 奇偶校验位 */ 
+    uint8_t stop_bits;          /**< 停止位 */
+    uint8_t bit_order;          /**< 高低位 */
+    uint8_t parity;             /**< 奇偶校验位 */
 
-    size_t bufsz;               /**< 接收数据缓冲区大小 */ 
-    uint32_t pin485;            /**< 转换485的pin, 如果没有则是0xffffffff*/ 
-    uint32_t delay;             /**< 485翻转延迟时间，单位us */ 
-    uint8_t rx_level;           /**< 接收方向的电平 */ 
+    size_t bufsz;               /**< 接收数据缓冲区大小 */
+    uint32_t pin485;            /**< 转换485的pin, 如果没有则是0xffffffff*/
+    uint32_t delay;             /**< 485翻转延迟时间，单位us */
+    uint8_t rx_level;           /**< 接收方向的电平 */
 } luat_uart_t;
 
 /**
@@ -149,6 +149,13 @@ typedef struct luat_uart_ctrl_param
  */
 int luat_uart_ctrl(int uart_id, LUAT_UART_CTRL_CMD_E cmd, void* param);
 
+#ifdef LUAT_USE_SOFT_UART
+#include "c_common.h"
+int luat_soft_uart_setup_hwtimer_callback(int hwtimer_id, CBFuncEx_t callback, void *param);
+void luat_soft_uart_gpio_fast_output(int pin, uint8_t value);
+uint8_t luat_soft_uart_gpio_fast_intput(int pin);
+void luat_soft_uart_hwtimer_onoff(int hwtimer_id, uint32_t period);
+#endif
 /** @}*/
 /** @}*/
 #endif

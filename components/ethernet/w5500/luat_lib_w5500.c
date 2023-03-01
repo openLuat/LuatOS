@@ -122,10 +122,10 @@ static int l_w5500_network_register(lua_State *L){
 
 /*
 获取w5500当前的MAC，必须在init之后用，如果config中设置了自己的MAC，需要延迟一点时间再读
-@api w5500.getMAC()
+@api w5500.getMac()
 @return string 当前的MAC
 @usage
-local mac = w5500.getMAC()
+local mac = w5500.getMac()
 log.info("w5500 mac", mac:toHex())
 */
 static int l_w5500_get_mac(lua_State *L){

@@ -34,5 +34,9 @@ int luat_nimble_blecent_scan(void);
 
 int luat_nimble_blecent_connect(const char* addr);
 
+
+int luat_nimble_ibeacon_setup(void *uuid128, uint16_t major,
+                         uint16_t minor, int8_t measured_power);
+
 #endif
 

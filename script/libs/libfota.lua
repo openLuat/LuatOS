@@ -93,6 +93,9 @@ local function fota_task(cbFnc,storge_location, len, param1,ota_url,ota_port,tim
         end
     end
 
+    error("why")
+    -- local abc = abc + 2
+
     local succ, param, ip, port, total, findhead, filelen, rcvCache,d1,d2,statusCode,retry,rspHead,rcvChunked,done,fotaDone,nCache
     local tbuff = zbuff.create(512)
     local rbuff = zbuff.create(4096)
@@ -247,7 +250,7 @@ local function fota_task(cbFnc,storge_location, len, param1,ota_url,ota_port,tim
                 end
             end 
             log.info(tag, "等待新数据到来")
-            result, param = libnet.wait(taskName, 5000, netc)
+            result, param = libnet.wait(taskName, 30000, netc)
             log.info(result, param)
             if not result then
                 log.info(tag, "服务器断开了", result, param)

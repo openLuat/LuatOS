@@ -6,32 +6,8 @@
 @demo    nimble
 @tag LUAT_USE_NIMBLE
 @usage
--- 本库当前支持Air101/Air103/ESP32/ESP32C3
--- 理论上支持ESP32C2/ESP32S2/ESP32S3,但尚未测试
-
--- 本库当前仅支持BLE Peripheral, 其他模式待添加
-sys.taskInit(function()
-    -- 初始化nimble, 因为当仅支持作为主机,也没有其他配置项
-    nimble.init("LuatOS-Wendal") -- 选取一个蓝牙设备名称
-    sys.wait(1000)
-
-    --local data = string.char(0x5A, 0xA5, 0x12, 0x34, 0x56)
-    local data = "1234567890"
-    while 1 do
-        sys.wait(5000)
-        -- Central端建立连接并订阅后, 可上报数据
-        nimble.send_msg(1, 0, data)
-    end
-end
-sys.subscribe("BLE_GATT_WRITE_CHR", function(info, data)
-    -- Central端建立连接后, 可往设备写入数据
-    log.info("ble", "Data Got", data:toHex())
-end)
-
--- 配合微信小程序 "LuatOS蓝牙调试"
--- 1. 若开发板无天线, 将手机尽量靠近芯片也能搜到
--- 2. 该小程序是开源的, 每次write会自动分包
--- https://gitee.com/openLuat/luatos-miniapps
+-- 本库当前支持Air101/Air103/ESP32/ESP32C3/ESP32S3
+-- 用法请查阅demo, API函数会归于指定的模式
 */
 
 #include "luat_base.h"
@@ -41,6 +17,10 @@ end)
 
 #include "luat_nimble.h"
 
+#include "host/ble_gatt.h"
+#include "host/ble_hs_id.h"
+#include "host/util/util.h"
+
 #define LUAT_LOG_TAG "nimble"
 #include "luat_log.h"
 
@@ -48,6 +28,16 @@ static uint32_t nimble_mode = 0;
 uint16_t g_ble_state;
 uint16_t g_ble_conn_handle;
 
+// peripheral, 被扫描, 被连接设备的UUID配置
+ble_uuid_any_t ble_peripheral_srv_uuid;
+ble_uuid_any_t ble_peripheral_indicate_uuid;
+ble_uuid_any_t ble_peripheral_write_uuid;
+
+#define WM_GATT_SVC_UUID      0x180D
+// #define WM_GATT_SVC_UUID      0xFFF0
+#define WM_GATT_INDICATE_UUID 0xFFF1
+#define WM_GATT_WRITE_UUID    0xFFF2
+// #define WM_GATT_NOTIFY_UUID    0xFFF3
 
 /*
 初始化BLE上下文,开始对外广播/扫描
@@ -56,6 +46,7 @@ uint16_t g_ble_conn_handle;
 @return bool 成功与否
 @usage
 -- 参考 demo/nimble
+-- 本函数对所有模式都适用
 */
 static int l_nimble_init(lua_State* L) {
     int rc = 0;
@@ -64,7 +55,7 @@ static int l_nimble_init(lua_State* L) {
     if(lua_isstring(L, 1)) {
         name = luaL_checklstring(L, 1, &len);
     }
-    LLOGD("init name %s mode %d", name, nimble_mode);
+    LLOGD("init name %s mode %d", name == NULL ? "-" : name, nimble_mode);
     rc = luat_nimble_init(0xFF, name, nimble_mode);
     if (rc) {
         lua_pushboolean(L, 0);
@@ -83,6 +74,7 @@ static int l_nimble_init(lua_State* L) {
 @return bool 成功与否
 @usage
 -- 仅部分设备支持,当前可能都不支持
+-- 本函数对所有模式都适用
 */
 static int l_nimble_deinit(lua_State* L) {
     int rc = 0;
@@ -128,6 +120,7 @@ static int l_nimble_server_deinit(lua_State* L) {
 @return bool 成功与否
 @usage
 -- 参考 demo/nimble
+-- 本函数对peripheral/从机模式适用
 */
 static int l_nimble_send_msg(lua_State *L) {
     int conn_id = luaL_checkinteger(L, 1);
@@ -147,6 +140,14 @@ static int l_nimble_send_msg(lua_State *L) {
     return 1;
 }
 
+/*
+扫描从机
+@api nimble.scan()
+@return bool 成功与否
+@usage
+-- 参考 demo/nimble
+-- 本函数对central/主机模式适用
+*/
 static int l_nimble_scan(lua_State *L) {
     int ret = luat_nimble_blecent_scan();
     lua_pushboolean(L, ret == 0 ? 1 : 0);
@@ -154,6 +155,16 @@ static int l_nimble_scan(lua_State *L) {
     return 1;
 }
 
+/*
+设置模式
+@api nimble.mode(tp)
+@int 模式, 默认server/peripheral, 可选 client/central模式 nimble.MODE_BLE_CLIENT
+@return bool 成功与否
+@usage
+-- 参考 demo/nimble
+-- 必须在nimble.init()之前调用
+-- nimble.mode(nimble.MODE_BLE_CLIENT) -- 简称从机模式,未完善
+*/
 static int l_nimble_mode(lua_State *L) {
     if (lua_isinteger(L, 1)) {
         nimble_mode = lua_tointeger(L, 1);
@@ -176,6 +187,119 @@ static int l_nimble_connok(lua_State *L) {
     return 1;
 }
 
+/*
+设置server/peripheral的UUID
+@api nimble.setUUID(tp, addr)
+@string 配置字符串,后面的示例有说明
+@string 地址字符串
+@return bool 成功与否
+@usage
+-- 参考 demo/nimble, 2023-02-25之后编译的固件支持本API
+-- 必须在nimble.init()之前调用
+-- 本函数对peripheral/从机模式适用
+
+-- 设置SERVER/Peripheral模式下的UUID, 支持设置3个
+-- 地址支持 2/4/16字节, 需要二进制数据
+-- 2字节地址示例: AABB, 写 string.fromHex("AABB") ,或者 string.char(0xAA, 0xBB)
+-- 4字节地址示例: AABBCCDD , 写 string.fromHex("AABBCCDD") ,或者 string.char(0xAA, 0xBB, 0xCC, 0xDD)
+nimble.setUUID("srv", string.fromHex("380D"))      -- 服务主UUID         ,  默认值 180D
+nimble.setUUID("write", string.fromHex("FF31"))    -- 往本设备写数据的UUID,  默认值 FFF1
+nimble.setUUID("indicate", string.fromHex("FF32")) -- 订阅本设备的数据的UUID,默认值 FFF2
+*/
+static int l_nimble_set_uuid(lua_State *L) {
+    size_t len = 0;
+    ble_uuid_any_t tmp = {0};
+    const char* key = luaL_checkstring(L, 1);
+    const char* uuid = luaL_checklstring(L, 2, &len);
+    int ret = ble_uuid_init_from_buf(&tmp, (const void*)uuid, len);
+    if (ret != 0) {
+        LLOGW("invaild UUID, len must be 2/4/16");
+        return 0;
+    }
+    if (!strcmp("srv", key)) {
+        memcpy(&ble_peripheral_srv_uuid, &tmp, sizeof(ble_uuid_any_t));
+    }
+    else if (!strcmp("write", key)) {
+        memcpy(&ble_peripheral_write_uuid, &tmp, sizeof(ble_uuid_any_t));
+    }
+    else if (!strcmp("indicate", key)) {
+        memcpy(&ble_peripheral_indicate_uuid, &tmp, sizeof(ble_uuid_any_t));
+    }
+    else {
+        LLOGW("only support srv/write/indicate");
+        return 0;
+    }
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+/*
+获取蓝牙MAC
+@api nimble.mac()
+@return string 蓝牙MAC地址,6字节
+@usage
+-- 参考 demo/nimble, 2023-02-25之后编译的固件支持本API
+-- 本函数对所有模式都适用
+local mac = nimble.mac()
+log.info("ble", "mac", mac and mac:toHex() or "Unknwn")
+*/
+static int l_nimble_mac(lua_State *L) {
+    int rc;
+    uint8_t own_addr_type;
+    rc = ble_hs_util_ensure_addr(0);
+    if (rc != 0) {
+        LLOGW("fail to fetch BLE MAC, rc %d", rc);
+        return 0;
+    }
+
+    /* Figure out address to use while advertising (no privacy for now) */
+    rc = ble_hs_id_infer_auto(0, &own_addr_type);
+    if (rc != 0) {
+        LLOGE("error determining address type; rc=%d", rc);
+        return 0;
+    }
+
+    /* Printing ADDR */
+    uint8_t addr_val[6] = {0};
+    rc = ble_hs_id_copy_addr(own_addr_type, addr_val, NULL);
+    if (rc == 0) {
+        lua_pushlstring(L, (const char*)addr_val, 6);
+        return 1;
+    }
+    LLOGW("fail to fetch BLE MAC, rc %d", rc);
+    return 0;
+}
+
+/*
+配置iBeacon的参数,仅iBeacon模式可用
+@api nimble.ibeacon(data, major, minor, measured_power)
+@string 数据, 必须是16字节
+@int 主版本号,默认2, 可选, 范围 0 ~ 65536
+@int 次版本号,默认10,可选, 范围 0 ~ 65536
+@int 名义功率, 默认0, 范围 -126 到 20 
+@return bool 成功返回true,否则返回false
+@usage
+-- 参考 demo/nimble, 2023-02-25之后编译的固件支持本API
+-- 本函数对ibeacon模式适用
+nimble.ibeacon(data, 2, 10, 0)
+nimble.init()
+*/
+static int l_nimble_ibeacon(lua_State *L) {
+    size_t len = 0;
+    const char* data = luaL_checklstring(L, 1, &len);
+    if (len != 16) {
+        LLOGE("ibeacon data MUST 16 bytes, but %d", len);
+        return 0;
+    }
+    uint16_t major = luaL_optinteger(L, 2, 2);
+    uint16_t minor = luaL_optinteger(L, 3, 10);
+    int8_t measured_power = luaL_optinteger(L, 4, 0);
+
+    int rc = luat_nimble_ibeacon_setup(data, major, minor, measured_power);
+    lua_pushboolean(L, rc == 0 ? 1 : 0);
+    return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_nimble[] =
 {
@@ -189,10 +313,15 @@ static const rotable_Reg_t reg_nimble[] =
     { "server_init",    ROREG_FUNC(l_nimble_server_init)},
     { "server_deinit",  ROREG_FUNC(l_nimble_server_deinit)},
     { "send_msg",       ROREG_FUNC(l_nimble_send_msg)},
+    { "setUUID",        ROREG_FUNC(l_nimble_set_uuid)},
+    { "mac",            ROREG_FUNC(l_nimble_mac)},
 
     // 中心模式, 扫描并连接外设
     { "scan",           ROREG_FUNC(l_nimble_scan)},
     { "connect",        ROREG_FUNC(l_nimble_connect)},
+
+    // ibeacon广播模式
+    { "ibeacon",        ROREG_FUNC(l_nimble_ibeacon)},
 
     // 放一些常量
     { "STATE_OFF",           ROREG_INT(BT_STATE_OFF)},
@@ -214,6 +343,9 @@ static const rotable_Reg_t reg_nimble[] =
 };
 
 LUAMOD_API int luaopen_nimble( lua_State *L ) {
+    memcpy(&ble_peripheral_srv_uuid, BLE_UUID16_DECLARE(WM_GATT_SVC_UUID), sizeof(ble_uuid16_t));
+    memcpy(&ble_peripheral_write_uuid, BLE_UUID16_DECLARE(WM_GATT_WRITE_UUID), sizeof(ble_uuid16_t));
+    memcpy(&ble_peripheral_indicate_uuid, BLE_UUID16_DECLARE(WM_GATT_INDICATE_UUID), sizeof(ble_uuid16_t));
     rotable2_newlib(L, reg_nimble);
     return 1;
 }

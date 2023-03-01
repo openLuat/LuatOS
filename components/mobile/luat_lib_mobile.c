@@ -30,6 +30,7 @@ log.info("simid", mobile.simid())
 #include "luat_msgbus.h"
 
 #include "luat_mobile.h"
+#include "luat_network_adapter.h"
 
 #define LUAT_LOG_TAG "mobile"
 #include "luat_log.h"
@@ -668,6 +669,7 @@ static int l_mobile_event_handle(lua_State* L, void* ptr) {
     LUAT_MOBILE_EVENT_E event;
     uint8_t index;
     uint8_t status;
+    int ret;
 
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     event = msg->arg1;
@@ -765,13 +767,35 @@ end)
 IP_READY
 @usage
 -- 联网后会发一次这个消息
--- 与wlan库不同, 本消息不带ip地址
-sys.subscribe("IP_READY", function()
-    log.info("mobile", "IP_READY")
+sys.subscribe("IP_READY", function(ip, adapter)
+    log.info("mobile", "IP_READY", ip, (adapter or -1) == socket.LWIP_GP)
 end)
 */
             lua_pushstring(L, "IP_READY");
-            lua_call(L, 1, 0);
+            luat_ip_addr_t local_ip, net_mask, gate_way, ipv6;
+            #ifdef LUAT_USE_LWIP
+	        ipv6.type = 0xff;
+	        int ret = network_get_full_local_ip_info(NULL, NW_ADAPTER_INDEX_LWIP_GPRS, &local_ip, &net_mask, &gate_way, &ipv6);
+            #else
+	        void* userdata = NULL;
+	        network_adapter_info* info = network_adapter_fetch(NW_ADAPTER_INDEX_LWIP_GPRS, &userdata);
+	        if (info == NULL)
+		        ret = -1;
+            else
+                ret = info->get_local_ip_info(&local_ip, &net_mask, &gate_way, userdata);
+            #endif
+            if (ret == 0) {
+                #ifdef LUAT_USE_LWIP
+		        lua_pushfstring(L, "%s", ipaddr_ntoa(&local_ip));
+                #else
+                lua_pushfstring(L, "%d.%d.%d.%d", (local_ip.ipv4 >> 24) & 0xFF, (local_ip.ipv4 >> 16) & 0xFF, (local_ip.ipv4 >> 8) & 0xFF, (local_ip.ipv4 >> 0) & 0xFF);
+                #endif
+            }
+            else {
+                lua_pushliteral(L, "0.0.0.0");
+            }
+            lua_pushinteger(L, NW_ADAPTER_INDEX_LWIP_GPRS);
+            lua_call(L, 3, 0);
 			break;
         case LUAT_MOBILE_NETIF_LINK_OFF:
             LLOGD("NETIF_LINK_OFF -> IP_LOSE");
@@ -781,12 +805,13 @@ end)
 IP_LOSE
 @usage
 -- 断网后会发一次这个消息
-sys.subscribe("IP_LOSE", function()
-    log.info("mobile", "IP_LOSE")
+sys.subscribe("IP_LOSE", function(adapter)
+    log.info("mobile", "IP_LOSE", (adapter or -1) == socket.LWIP_GP)
 end)
 */
             lua_pushstring(L, "IP_LOSE");
-            lua_call(L, 1, 0);
+            lua_pushinteger(L, NW_ADAPTER_INDEX_LWIP_GPRS);
+            lua_call(L, 2, 0);
             break;
 		default:
 			break;

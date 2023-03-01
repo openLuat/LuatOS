@@ -37,15 +37,18 @@ static const luaL_Reg loadedlibs[] = {
   {"json", luaopen_cjson},             // json
   {"win32", luaopen_win32},            // windows 32 tools
   {"zbuff", luaopen_zbuff},            // 
-  {"mqttcore", luaopen_mqttcore},      // 
   {"libcoap", luaopen_libcoap},        // 
   {"crypto", luaopen_crypto},
-  {"fatfs", luaopen_fatfs},
+// #ifdef LUAT_USE_FATFS
+//   {"fatfs", luaopen_fatfs},
+// #endif
   {"sfd",   luaopen_sfd},
   {"lfs2",   luaopen_lfs2},
   {"gpio",   luaopen_gpio},
-  // {"vmx",    luaopen_vmx},
+  {"i2c",   luaopen_i2c},
+  {"spi",   luaopen_spi},
   {"uart",    luaopen_uart},
+  // {"vmx",    luaopen_vmx},
 #ifdef LUAT_USE_LCD
   {"lcd",    luaopen_lcd},
 #endif
@@ -55,6 +58,8 @@ static const luaL_Reg loadedlibs[] = {
   {"iotauth", luaopen_iotauth},
   {"miniz", luaopen_miniz},
   {"protobuf", luaopen_protobuf},
+  {"libgnss", luaopen_libgnss},
+  {"rsa", luaopen_rsa},
   {NULL, NULL}
 };
 

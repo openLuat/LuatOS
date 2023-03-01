@@ -6,7 +6,7 @@
 #define LUAT_LOG_TAG "fatfs"
 #include "luat_log.h"
 
-#ifdef LUAT_USE_FS_VFS
+#if defined(LUAT_USE_FS_VFS) && defined(LUAT_USE_FATFS)
 
 #include "ff.h"
 #include "diskio.h"

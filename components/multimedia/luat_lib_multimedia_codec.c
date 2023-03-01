@@ -20,13 +20,15 @@
 
 /**
 创建编解码用的codec
-@api codec.create(codec.MP3, isDecoder)
-@int 多媒体类型，目前支持decode.MP3
+@api codec.create(type, isDecoder)
+@int 多媒体类型，目前支持codec.MP3 codec.AMR
 @boolean 是否是解码器，true解码器，false编码器，默认true，是解码器
 @return userdata 成功返回一个数据结构,否则返回nil
 @usage
--- 创建decoder
+-- 创建解码器
 local decoder = codec.create(codec.MP3)--创建一个mp3的decoder
+-- 创建编码器
+local encoder = codec.create(codec.AMR, false)--创建一个amr的encoder
  */
 static int l_codec_create(lua_State *L) {
     uint8_t type = luaL_optinteger(L, 1, MULTIMEDIA_DATA_TYPE_MP3);

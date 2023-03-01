@@ -8,11 +8,12 @@ VERSION = "2.0.0"
 
 ## 提醒:
 1. 本demo需要2022.12.21及之后的源码所编译的LuatOS固件
-2. 本demo必须有外挂的SPI Flash, 起码1M字节, 后面有刷写说明
+2. 本demo若使用外置TTS资源的LuatOS固件, 就必须有外挂的SPI Flash, 起码1M字节, 后面有刷写说明
 3. 下载脚本时, 把txt也加上一起下载
 4. 本demo需要音频扩展板, 780E只有I2S输出, 需要codec和PA才能驱动喇叭
+5. 内置TTS资源的LuatOS最低版本是V1104,且去掉了很多库, 尤其是UI方面的库
 
-## 使用本demo前,必须先刷tts.binpkg进行SPI Flash的刷写
+## 使用本demo前,如果是外置TTS资源的LuatOS固件, 必须先刷tts.binpkg进行SPI Flash的刷写
 1. 下载链接 https://gitee.com/openLuat/luatos-soc-2022/attach_files
 2. 在LuaTools主界面, 用"下载固件"按钮进行下载.
 3. 下载前需要接好SPI Flash!!

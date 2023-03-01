@@ -22,25 +22,6 @@
 
 /* BLE */
 #include "nimble/nimble_port.h"
-// #include "nimble/nimble_port_freertos.h"
-
-/* Heart-rate configuration */
-#define GATT_HRS_UUID                           0x180D
-#define GATT_HRS_MEASUREMENT_UUID               0x2A37
-#define GATT_HRS_BODY_SENSOR_LOC_UUID           0x2A38
-#define GATT_DEVICE_INFO_UUID                   0x180A
-#define GATT_MANUFACTURER_NAME_UUID             0x2A29
-#define GATT_MODEL_NUMBER_UUID                  0x2A24
-
-/** GATT server. */
-#define GATT_SVR_SVC_ALERT_UUID               0x1811
-#define GATT_SVR_CHR_SUP_NEW_ALERT_CAT_UUID   0x2A47
-#define GATT_SVR_CHR_NEW_ALERT                0x2A46
-#define GATT_SVR_CHR_SUP_UNR_ALERT_CAT_UUID   0x2A48
-#define GATT_SVR_CHR_UNR_ALERT_STAT_UUID      0x2A45
-#define GATT_SVR_CHR_ALERT_NOT_CTRL_PT        0x2A44
-
-// extern uint16_t hrs_hrm_handle;
 
 typedef void (*TaskFunction_t)( void * );
 
@@ -50,24 +31,19 @@ struct ble_gatt_register_ctxt;
 static void gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt, void *arg);
 static int gatt_svr_init(void);
 
-static const char *manuf_name = "LuatOS";
-static const char *model_num = "BLE Demo";
-static uint16_t hrs_hrm_handle;
 static uint16_t g_ble_attr_indicate_handle;
 static uint16_t g_ble_attr_write_handle;
 extern uint16_t g_ble_conn_handle;
 extern uint16_t g_ble_state;
 
-#define WM_GATT_SVC_UUID      0xFFF0
-#define WM_GATT_INDICATE_UUID 0xFFF1
-#define WM_GATT_WRITE_UUID    0xFFF2
-#define WM_GATT_NOTIFY_UUID    0xFFF3
-
+extern ble_uuid_any_t ble_peripheral_srv_uuid;
+extern ble_uuid_any_t ble_peripheral_indicate_uuid;
+extern ble_uuid_any_t ble_peripheral_write_uuid;
 
 #define LUAT_LOG_TAG "nimble"
 #include "luat_log.h"
 
-static char selfname[32];
+static uint8_t ble_use_custom_name;
 // extern uint16_t g_ble_conn_handle;
 
 typedef struct ble_write_msg {
@@ -78,46 +54,37 @@ typedef struct ble_write_msg {
     char buff[1];
 }ble_write_msg_t;
 
-static int
-gatt_svr_chr_access_heart_rate(uint16_t conn_handle, uint16_t attr_handle,
-                               struct ble_gatt_access_ctxt *ctxt, void *arg);
+// static int
+// gatt_svr_chr_access_heart_rate(uint16_t conn_handle, uint16_t attr_handle,
+//                                struct ble_gatt_access_ctxt *ctxt, void *arg);
 
-static int
-gatt_svr_chr_access_device_info(uint16_t conn_handle, uint16_t attr_handle,
-                                struct ble_gatt_access_ctxt *ctxt, void *arg);
+// static int
+// gatt_svr_chr_access_device_info(uint16_t conn_handle, uint16_t attr_handle,
+//                                 struct ble_gatt_access_ctxt *ctxt, void *arg);
 
 static int
 gatt_svr_chr_access_func(uint16_t conn_handle, uint16_t attr_handle,
                                struct ble_gatt_access_ctxt *ctxt, void *arg);
-
-static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
+#if 1
+static struct ble_gatt_svc_def gatt_svr_svcs[] = {
     {
         /* Service: Heart-rate */
         .type = BLE_GATT_SVC_TYPE_PRIMARY,
-        .uuid = BLE_UUID16_DECLARE(GATT_HRS_UUID),
+        // .uuid = BLE_UUID16_DECLARE(GATT_HRS_UUID),
+        // .uuid = BLE_UUID16_DECLARE(WM_GATT_SVC_UUID),
+        .uuid = &ble_peripheral_srv_uuid,
         .characteristics = (struct ble_gatt_chr_def[])
         { {
-#if 1
-                /* Characteristic: Heart-rate measurement */
-                .uuid = BLE_UUID16_DECLARE(GATT_HRS_MEASUREMENT_UUID),
-                .access_cb = gatt_svr_chr_access_heart_rate,
-                .val_handle = &hrs_hrm_handle,
-                .flags = BLE_GATT_CHR_F_NOTIFY,
-            }, {
                 /* Characteristic: Body sensor location */
-                .uuid = BLE_UUID16_DECLARE(GATT_HRS_BODY_SENSOR_LOC_UUID),
-                .access_cb = gatt_svr_chr_access_heart_rate,
-                .flags = BLE_GATT_CHR_F_READ,
-            }, {
-#endif
-                /* Characteristic: Body sensor location */
-                .uuid = BLE_UUID16_DECLARE(WM_GATT_WRITE_UUID),
+                // .uuid = BLE_UUID16_DECLARE(WM_GATT_WRITE_UUID),
+                .uuid = &ble_peripheral_write_uuid,
                 .val_handle = &g_ble_attr_write_handle,
                 .access_cb = gatt_svr_chr_access_func,
                 .flags = BLE_GATT_CHR_F_WRITE,
             }, {
                 /* Characteristic: Body sensor location */
-                .uuid = BLE_UUID16_DECLARE(WM_GATT_INDICATE_UUID),
+                // .uuid = BLE_UUID16_DECLARE(WM_GATT_INDICATE_UUID),
+                .uuid = &ble_peripheral_indicate_uuid,
                 .val_handle = &g_ble_attr_indicate_handle,
                 .access_cb = gatt_svr_chr_access_func,
                 .flags = BLE_GATT_CHR_F_INDICATE | BLE_GATT_CHR_F_READ,
@@ -126,76 +93,11 @@ static const struct ble_gatt_svc_def gatt_svr_svcs[] = {
             },
         }
     },
-#if 1
-    {
-        /* Service: Device Information */
-        .type = BLE_GATT_SVC_TYPE_PRIMARY,
-        .uuid = BLE_UUID16_DECLARE(GATT_DEVICE_INFO_UUID),
-        .characteristics = (struct ble_gatt_chr_def[])
-        { {
-                /* Characteristic: * Manufacturer name */
-                .uuid = BLE_UUID16_DECLARE(GATT_MANUFACTURER_NAME_UUID),
-                .access_cb = gatt_svr_chr_access_device_info,
-                .flags = BLE_GATT_CHR_F_READ,
-            }, {
-                /* Characteristic: Model number string */
-                .uuid = BLE_UUID16_DECLARE(GATT_MODEL_NUMBER_UUID),
-                .access_cb = gatt_svr_chr_access_device_info,
-                .flags = BLE_GATT_CHR_F_READ,
-            }, {
-                0, /* No more characteristics in this service */
-            },
-        }
-    },
-#endif
     {
         0, /* No more services */
     },
 };
-
-static int
-gatt_svr_chr_access_heart_rate(uint16_t conn_handle, uint16_t attr_handle,
-                               struct ble_gatt_access_ctxt *ctxt, void *arg)
-{
-    /* Sensor location, set to "Chest" */
-    static uint8_t body_sens_loc = 0x01;
-    uint16_t uuid;
-    int rc;
-
-    uuid = ble_uuid_u16(ctxt->chr->uuid);
-
-    if (uuid == GATT_HRS_BODY_SENSOR_LOC_UUID) {
-        rc = os_mbuf_append(ctxt->om, &body_sens_loc, sizeof(body_sens_loc));
-
-        return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
-    }
-
-    assert(0);
-    return BLE_ATT_ERR_UNLIKELY;
-}
-
-static int
-gatt_svr_chr_access_device_info(uint16_t conn_handle, uint16_t attr_handle,
-                                struct ble_gatt_access_ctxt *ctxt, void *arg)
-{
-    uint16_t uuid;
-    int rc;
-
-    uuid = ble_uuid_u16(ctxt->chr->uuid);
-
-    if (uuid == GATT_MODEL_NUMBER_UUID) {
-        rc = os_mbuf_append(ctxt->om, model_num, strlen(model_num));
-        return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
-    }
-
-    if (uuid == GATT_MANUFACTURER_NAME_UUID) {
-        rc = os_mbuf_append(ctxt->om, manuf_name, strlen(manuf_name));
-        return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
-    }
-
-    assert(0);
-    return BLE_ATT_ERR_UNLIKELY;
-}
+#endif
 
 static void gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt, void *arg)
 {
@@ -203,34 +105,34 @@ static void gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt, void *arg)
     LLOGD("gatt_svr_register_cb op %d", ctxt->op);
     switch (ctxt->op) {
     case BLE_GATT_REGISTER_OP_SVC:
-        LLOGD("registered service %s with handle=%d\n",
+        LLOGD("registered service %s with handle=%d",
                     ble_uuid_to_str(ctxt->svc.svc_def->uuid, buf),
                     ctxt->svc.handle);
         break;
 
     case BLE_GATT_REGISTER_OP_CHR:
         LLOGD("registering characteristic %s with "
-                    "def_handle=%d val_handle=%d\n",
+                    "def_handle=%d val_handle=%d",
                     ble_uuid_to_str(ctxt->chr.chr_def->uuid, buf),
                     ctxt->chr.def_handle,
                     ctxt->chr.val_handle);
         break;
 
     case BLE_GATT_REGISTER_OP_DSC:
-        LLOGD("registering descriptor %s with handle=%d\n",
+        LLOGD("registering descriptor %s with handle=%d",
                     ble_uuid_to_str(ctxt->dsc.dsc_def->uuid, buf),
                     ctxt->dsc.handle);
         break;
 
     default:
-        assert(0);
+        // assert(0);
         break;
     }
 }
 
 static int l_ble_chr_write_cb(lua_State* L, void* ptr) {
     ble_write_msg_t* wmsg = (ble_write_msg_t*)ptr;
-    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    // rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     lua_getglobal(L, "sys_pub");
     if (lua_isfunction(L, -1)) {
         lua_pushstring(L, "BLE_GATT_WRITE_CHR");
@@ -246,7 +148,7 @@ static int
 gatt_svr_chr_access_func(uint16_t conn_handle, uint16_t attr_handle,
                                struct ble_gatt_access_ctxt *ctxt, void *arg)
 {
-    int i = 0;
+    // int i = 0;
     struct os_mbuf *om = ctxt->om;
     ble_write_msg_t* wmsg;
     rtos_msg_t msg = {0};
@@ -270,7 +172,7 @@ gatt_svr_chr_access_func(uint16_t conn_handle, uint16_t attr_handle,
         case BLE_GATT_ACCESS_OP_READ_CHR:
             return 0;
         default:
-            assert(0);
+            // assert(0);
             return BLE_ATT_ERR_UNLIKELY;
     }
 }
@@ -311,7 +213,7 @@ int luat_nimble_server_send(int id, char* data, size_t data_len) {
     }
     rc = ble_gattc_indicate_custom(g_ble_conn_handle,g_ble_attr_indicate_handle, om);
     LLOGD("ble_gattc_indicate_custom ret %d", rc);
-    return 0;
+    return rc;
 }
 
 
@@ -342,7 +244,7 @@ bleprph_print_conn_desc(struct ble_gap_conn_desc *desc)
     LLOGI(" peer_ota_addr_type=%d peer_ota_addr=" ADDR_FMT, desc->peer_ota_addr.type, ADDR_T(desc->peer_ota_addr.val));
     LLOGI(" peer_id_addr_type=%d peer_id_addr=" ADDR_FMT, desc->peer_id_addr.type, ADDR_T(desc->peer_id_addr.val));
     LLOGI(" conn_itvl=%d conn_latency=%d supervision_timeout=%d "
-                "encrypted=%d authenticated=%d bonded=%d\n",
+                "encrypted=%d authenticated=%d bonded=%d",
                 desc->conn_itvl, desc->conn_latency,
                 desc->supervision_timeout,
                 desc->sec_state.encrypted,
@@ -448,15 +350,16 @@ bleprph_advertise(void)
     fields.name_len = strlen(name);
     fields.name_is_complete = 1;
 
-    fields.uuids16 = (ble_uuid16_t[]) {
-        BLE_UUID16_INIT(GATT_SVR_SVC_ALERT_UUID)
-    };
+    // fields.uuids16 = (ble_uuid16_t[]) {
+    //     ble_peripheral_srv_uuid
+    // };
+    fields.uuids16 = (const ble_uuid16_t *)&ble_peripheral_srv_uuid;
     fields.num_uuids16 = 1;
     fields.uuids16_is_complete = 1;
 
     rc = ble_gap_adv_set_fields(&fields);
     if (rc != 0) {
-        LLOGE("error setting advertisement data; rc=%d\n", rc);
+        LLOGE("error setting advertisement data; rc=%d", rc);
         return;
     }
 
@@ -467,7 +370,7 @@ bleprph_advertise(void)
     rc = ble_gap_adv_start(own_addr_type, NULL, BLE_HS_FOREVER,
                            &adv_params, bleprph_gap_event, NULL);
     if (rc != 0) {
-        LLOGE("error enabling advertisement; rc=%d\n", rc);
+        LLOGE("error enabling advertisement; rc=%d", rc);
         return;
     }
 }
@@ -510,7 +413,7 @@ bleprph_gap_event(struct ble_gap_event *event, void *arg)
         else {
             g_ble_state = BT_STATE_DISCONNECT;
         }
-        // LLOGI("\n");
+        // LLOGI("");
 
         if (event->connect.status != 0) {
             /* Connection failed; resume advertising. */
@@ -526,7 +429,7 @@ bleprph_gap_event(struct ble_gap_event *event, void *arg)
         g_ble_state = BT_STATE_DISCONNECT;
         LLOGI("disconnect; reason=%d ", event->disconnect.reason);
         bleprph_print_conn_desc(&event->disconnect.conn);
-        // LLOGI("\n");
+        // LLOGI("");
 
         /* Connection terminated; resume advertising. */
 #if CONFIG_EXAMPLE_EXTENDED_ADV
@@ -542,7 +445,7 @@ bleprph_gap_event(struct ble_gap_event *event, void *arg)
         rc = ble_gap_conn_find(event->conn_update.conn_handle, &desc);
         if (rc == 0)
             bleprph_print_conn_desc(&desc);
-        // LLOGI("\n");
+        // LLOGI("");
         return 0;
 
     case BLE_GAP_EVENT_ADV_COMPLETE:
@@ -559,12 +462,12 @@ bleprph_gap_event(struct ble_gap_event *event, void *arg)
         rc = ble_gap_conn_find(event->enc_change.conn_handle, &desc);
         if (rc == 0)
             bleprph_print_conn_desc(&desc);
-        // LLOGI("\n");
+        // LLOGI("");
         return 0;
 
     case BLE_GAP_EVENT_SUBSCRIBE:
         LLOGI("subscribe event; conn_handle=%d attr_handle=%d "
-                    "reason=%d prevn=%d curn=%d previ=%d curi=%d\n",
+                    "reason=%d prevn=%d curn=%d previ=%d curi=%d",
                     event->subscribe.conn_handle,
                     event->subscribe.attr_handle,
                     event->subscribe.reason,
@@ -575,7 +478,7 @@ bleprph_gap_event(struct ble_gap_event *event, void *arg)
         return 0;
 
     case BLE_GAP_EVENT_MTU:
-        LLOGI("mtu update event; conn_handle=%d cid=%d mtu=%d\n",
+        LLOGI("mtu update event; conn_handle=%d cid=%d mtu=%d",
                     event->mtu.conn_handle,
                     event->mtu.channel_id,
                     event->mtu.value);
@@ -589,7 +492,7 @@ bleprph_gap_event(struct ble_gap_event *event, void *arg)
 
         /* Delete the old bond. */
         rc = ble_gap_conn_find(event->repeat_pairing.conn_handle, &desc);
-        assert(rc == 0);
+        // assert(rc == 0);
         ble_store_util_delete_peer(&desc.peer_id_addr);
 
         /* Return BLE_GAP_REPEAT_PAIRING_RETRY to indicate that the host should
@@ -608,7 +511,7 @@ bleprph_gap_event(struct ble_gap_event *event, void *arg)
             pkey.passkey = 123456; // This is the passkey to be entered on peer
             // LLOGI("Enter passkey %d on the peer side", pkey.passkey);
             rc = ble_sm_inject_io(event->passkey.conn_handle, &pkey);
-            LLOGI("ble_sm_inject_io BLE_SM_IOACT_DISP result: %d\n", rc);
+            LLOGI("ble_sm_inject_io BLE_SM_IOACT_DISP result: %d", rc);
         } else if (event->passkey.params.action == BLE_SM_IOACT_NUMCMP) {
             LLOGI("Passkey on device's display: %d", event->passkey.params.numcmp);
             LLOGI("Accept or reject the passkey through console in this format -> key Y or key N");
@@ -621,7 +524,7 @@ bleprph_gap_event(struct ble_gap_event *event, void *arg)
             // }
             pkey.numcmp_accept = 1;
             rc = ble_sm_inject_io(event->passkey.conn_handle, &pkey);
-            LLOGI("ble_sm_inject_io BLE_SM_IOACT_NUMCMP result: %d\n", rc);
+            LLOGI("ble_sm_inject_io BLE_SM_IOACT_NUMCMP result: %d", rc);
         } else if (event->passkey.params.action == BLE_SM_IOACT_OOB) {
             static uint8_t tem_oob[16] = {0};
             pkey.action = event->passkey.params.action;
@@ -629,7 +532,7 @@ bleprph_gap_event(struct ble_gap_event *event, void *arg)
                 pkey.oob[i] = tem_oob[i];
             }
             rc = ble_sm_inject_io(event->passkey.conn_handle, &pkey);
-            LLOGI("ble_sm_inject_io BLE_SM_IOACT_OOB result: %d\n", rc);
+            LLOGI("ble_sm_inject_io BLE_SM_IOACT_OOB result: %d", rc);
         } else if (event->passkey.params.action == BLE_SM_IOACT_INPUT) {
             LLOGI("Passkey on device's display: %d", event->passkey.params.numcmp);
             LLOGI("Enter the passkey through console in this format-> key 123456");
@@ -642,7 +545,7 @@ bleprph_gap_event(struct ble_gap_event *event, void *arg)
             // }
             pkey.passkey = event->passkey.params.numcmp;
             rc = ble_sm_inject_io(event->passkey.conn_handle, &pkey);
-            LLOGI("ble_sm_inject_io BLE_SM_IOACT_INPUT result: %d\n", rc);
+            LLOGI("ble_sm_inject_io BLE_SM_IOACT_INPUT result: %d", rc);
         }
 #endif
         return 0;
@@ -676,7 +579,7 @@ bleprph_on_sync(void)
 #else
     rc = ble_hs_util_ensure_addr(0);
 #endif
-    assert(rc == 0);
+    // assert(rc == 0);
 
     /* Figure out address to use while advertising (no privacy for now) */
     rc = ble_hs_id_infer_auto(0, &own_addr_type);
@@ -690,9 +593,15 @@ bleprph_on_sync(void)
     rc = ble_hs_id_copy_addr(own_addr_type, addr_val, NULL);
 
     LLOGI("Device Address: " ADDR_FMT, ADDR_T(addr_val));
+    if (ble_use_custom_name == 0) {
+        char buff[32];
+        sprintf_(buff, "LOS-" ADDR_FMT, ADDR_T(addr_val));
+        LLOGD("BLE name: %s", buff);
+        rc = ble_svc_gap_device_name_set((const char*)buff);
+    }
     ble_gatts_start();
     //print_addr(addr_val);
-    // LLOGI("\n");
+    // LLOGI("");
     /* Begin advertising. */
 #if CONFIG_EXAMPLE_EXTENDED_ADV
     ext_bleprph_advertise();
@@ -710,19 +619,11 @@ int luat_nimble_init_peripheral(uint8_t uart_idx, char* name, int mode) {
     int rc = 0;
     nimble_port_init();
 
-    if (name == NULL || strlen(name) == 0) {
-        if (selfname[0] == 0) {
-            memcpy(selfname, "LuatOS", strlen("LuatOS") + 1);
-        }
-    }
-    else {
-        memcpy(selfname, name, strlen(name) + 1);
-    }
-
     /* Set the default device name. */
-    if (strlen(selfname))
-        rc = ble_svc_gap_device_name_set((const char*)selfname);
-
+    if (name != NULL && strlen(name)) {
+        rc = ble_svc_gap_device_name_set((const char*)name);
+        ble_use_custom_name = 1;
+    }
 
     /* Initialize the NimBLE host configuration. */
     ble_hs_cfg.reset_cb = bleprph_on_reset;
@@ -732,7 +633,6 @@ int luat_nimble_init_peripheral(uint8_t uart_idx, char* name, int mode) {
 
     ble_hs_cfg.sm_io_cap = BLE_SM_IO_CAP_NO_IO;
     ble_hs_cfg.sm_sc = 0;
-
 
     ble_svc_gap_init();
     ble_svc_gatt_init();

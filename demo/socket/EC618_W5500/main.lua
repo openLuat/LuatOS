@@ -33,8 +33,8 @@ GPIO10/SPI0_MISO   MISO,主机输入,从机输出
 -- 0            -- SPI0
 -- 25600000     -- 25.6M波特率, Air780E的最高波特率
 -- 8            -- CS片选脚
--- 18           -- RST复位脚
--- 1            -- INT/IRQ中断脚
+-- 18           -- INT/IRQ中断脚
+-- 1            -- RST复位脚
 w5500.init(0, 25600000, 8, 18, 1)
 w5500.config()	--默认是DHCP模式,其他模块请查阅w5500库的API
 w5500.bind(socket.ETH0) -- 固定写法
@@ -78,10 +78,10 @@ end)
 -- 以下端口号均为临时端口, 要改成自己的值
 -----------------------------------------------------------------------------
 
-server_ip = "112.125.89.8"
-server_port = 33165  -- TCP测试的端口
-UDP_port = 37834     -- UDP测试的端口
-ssl_port = 35528     -- TCP-SSL的测试端口
+server_ip = "152.70.80.204"
+server_port = 55026    -- TCP测试的端口
+UDP_port = 55026      -- UDP测试的端口
+ssl_port = 55026      -- TCP-SSL的测试端口
 
 -- 与日常写法最大的区别,就是创建socket/http/ftp/mqtt时需要指定网卡 socket.ETH0
 require "async_socket_demo"

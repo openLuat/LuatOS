@@ -11,6 +11,7 @@
 #include "luat_malloc.h"
 #include "luat_timer.h"
 #include "luat_gpio.h"
+#include "luat_rtos.h"
 
 #include "MAX30102.h"
 #include "algorithm.h"
@@ -20,6 +21,8 @@
 
 uint8_t max30102_i2c_id;
 static uint8_t max30102_int;
+static uint64_t max30102_idp;
+
 #define MAX30102_CHIP_ID        0x15
 
 #define SAMP_BUFF_LEN   1000
@@ -56,11 +59,19 @@ static int l_max30102_init(lua_State *L){
     return 0;
 }
 
-/*
-取一帧数据
-@api mlx90640.get()
-*/
-static int l_mlx90640_get(lua_State *L) {
+luat_rtos_task_handle max30102_task_handle = NULL;
+
+static int32_t l_max30102_callback(lua_State *L, void* ptr){
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    lua_pushboolean(L, 1);
+    lua_pushinteger(L, msg->arg1);
+    lua_pushinteger(L, msg->arg2);
+    luat_cbcwait(L, max30102_idp, 3);
+    max30102_idp = 0;
+    return 0;
+}
+
+void max30102_task(void *param){
     uint64_t red_sum = 0, ir_sum = 0;
     uint8_t red_avg_len = 0,ir_avg_len = 0;
     int32_t red_min = 0x3FFFF, red_max = 0,ir_min = 0x3FFFF, ir_max = 0, HR = 0,SpO2 = 0;
@@ -68,17 +79,17 @@ static int l_mlx90640_get(lua_State *L) {
     uint32_t* samples_buffer = luat_heap_malloc(sizeof(uint32_t) * SAMP_BUFF_LEN * 2);
     if (samples_buffer == NULL) {
         LLOGE("out of memory");
-        return 0;
+        return;
     }
     int32_t* avg_buffer = luat_heap_malloc(sizeof(int32_t) * AVG_BUFF_LEN * 2);
     if (avg_buffer == NULL) {
         LLOGE("out of memory");
         luat_heap_free(samples_buffer);
-        return 0;
+        return;
     }
 
     for(size_t i=0;i<SAMP_BUFF_LEN;i++){
-        while(luat_gpio_get(max30102_int) == 1);   //wait until the interrupt pin asserts
+        while(luat_gpio_get(max30102_int) == 1){luat_timer_mdelay(1);}   //wait until the interrupt pin asserts
         maxim_max30102_read_fifo((samples_buffer+i), (samples_buffer+SAMP_BUFF_LEN+i));  //read from MAX30102 FIFO
     }
 
@@ -110,12 +121,35 @@ static int l_mlx90640_get(lua_State *L) {
     luat_heap_free(samples_buffer);
     luat_heap_free(avg_buffer);
     if (HR!=0 && SpO2!=0){
-        lua_pushboolean(L, 1);
-        lua_pushinteger(L, HR);
-        lua_pushinteger(L, SpO2);
-        return 3;
+        rtos_msg_t msg = {
+            .handler = l_max30102_callback,
+            .arg1 = HR,
+            .arg2 = SpO2
+        };
+        luat_msgbus_put(&msg, 0);
+    }else{
+        luat_cbcwait_noarg(max30102_idp);
+        max30102_idp = 0;
     }
-    return 0;
+    luat_rtos_task_delete(max30102_task_handle);
+}
+
+/*
+获取心率血氧(大概需要10s时间测量)
+@api max30102.get().wait()
+@return bool 成功返回true, 否则返回nil或者false
+@return number 心率
+@return number 血氧
+*/
+static int l_max30102_get(lua_State *L) {
+    if (max30102_idp){
+        lua_pushboolean(L, 0);
+        luat_pushcwait_error(L,1);
+    }else{
+        max30102_idp = luat_pushcwait(L);
+        luat_rtos_task_create(&max30102_task_handle, 1024, 50, "max30102", max30102_task, NULL, 0);
+    }
+    return 1;
 }
 
 // /*
@@ -147,7 +181,7 @@ static int l_max30102_shutdown(lua_State *L) {
 static const rotable_Reg_t reg_max30102[] =
 {
     {"init",        ROREG_FUNC(l_max30102_init)},
-    {"get",         ROREG_FUNC(l_mlx90640_get)},
+    {"get",         ROREG_FUNC(l_max30102_get)},
     // {"temp",        ROREG_FUNC(l_max30102_temp)},
     {"shutdown",    ROREG_FUNC(l_max30102_shutdown)},
 

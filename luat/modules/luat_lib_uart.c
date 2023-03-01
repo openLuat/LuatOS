@@ -373,11 +373,11 @@ static int l_uart_rx(lua_State *L)
 
 /*
 读串口Rx缓存中剩余数据量，目前air105,air780e支持这个操作
-@api    uart.rx_size(id)
+@api    uart.rxSize(id)
 @int 串口id, uart0写0, uart1写1
 @return int 返回读到的长度
 @usage
-local size = uart.rx_size(1)
+local size = uart.rxSize(1)
 */
 static int l_uart_rx_size(lua_State *L)
 {
@@ -489,7 +489,7 @@ static const rotable_Reg_t reg_uart[] =
 
     { "tx",      ROREG_FUNC(l_uart_tx)},
     { "rx",       ROREG_FUNC(l_uart_rx)},
-	{ "rx_size",	ROREG_FUNC(l_uart_rx_size)},
+	{ "rxSize",	ROREG_FUNC(l_uart_rx_size)},
 
     //@const VUART_0 number 虚拟串口0
 	{ "VUART_0",        ROREG_INT(LUAT_VUART_ID_0)},

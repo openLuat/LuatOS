@@ -78,7 +78,7 @@ int luat_lv_font_get(lua_State *L) {
 @number sty_en 可选(使用高通矢量字库)
 @return userdata 字体指针
 @usage
-local font = lvgl.font_load("/font_simsun_32.bin")
+local font = lvgl.font_load("/font_32.bin")
 --local font = lvgl.font_load(spi_device,16)(高通矢量字库)
 */
 int luat_lv_font_load(lua_State *L) {
@@ -118,7 +118,7 @@ int luat_lv_font_load(lua_State *L) {
 @string 字体路径
 @return userdata 字体指针
 @usage
-local font = lvgl.font_load("/font_simsun_32.bin")
+local font = lvgl.font_load("/font_32.bin")
 -- N N N N 操作
 -- 确定字体不被使用,不被引用,且内存紧张需要释放
 lvgl.font_free(font)

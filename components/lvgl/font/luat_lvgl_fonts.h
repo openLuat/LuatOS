@@ -21,8 +21,6 @@ void lv_font_del_gt(lv_font_t *font);
 // LV_FONT_DECLARE(lv_font_opposans_m_18)
 // LV_FONT_DECLARE(lv_font_opposans_m_20)
 // LV_FONT_DECLARE(lv_font_opposans_m_22)
-// LV_FONT_DECLARE(lv_font_simsun_42)
-// LV_FONT_DECLARE(lv_font_simsun_48)
 
 #ifdef __cplusplus
 }

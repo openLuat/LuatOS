@@ -190,12 +190,6 @@ static const lv_font_reg_t lv_regs[] = {
 #ifdef LV_FONT_OPPOSANS_M_22
     {.name="opposans_m_22", .font=&lv_font_opposans_m_22},
 #endif
-#ifdef USE_LVGL_SIMSUN_42
-    {.name="simsun_42", .font=&lv_font_simsun_42},
-#endif
-#ifdef USE_LVGL_SIMSUN_48
-    {.name="simsun_48", &lv_font_simsun_48},
-#endif
 
 #ifdef LUAT_FONTS_CUSTOM_LVGL
     LUAT_FONTS_CUSTOM_LVGL

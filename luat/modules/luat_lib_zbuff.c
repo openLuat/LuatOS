@@ -1434,6 +1434,7 @@ static const luaL_Reg lib_zbuff[] = {
 	{"query",l_zbuff_query},
 	{"del", l_zbuff_del},
 	{"resize", l_zbuff_resize},
+	{"reSize", l_zbuff_resize},
 	{"used", l_zbuff_used},
 	{"isEqual", l_zbuff_equal},
     {NULL, NULL}};

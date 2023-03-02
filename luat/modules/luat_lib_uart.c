@@ -14,7 +14,7 @@
 #include "luat_fs.h"
 #include "string.h"
 #include "luat_zbuff.h"
-
+#include "luat_gpio.h"
 #define LUAT_LOG_TAG "uart"
 #include "luat_log.h"
 
@@ -28,24 +28,207 @@ static luat_uart_cb_t uart_cbs[MAX_DEVICE_COUNT + MAX_USB_DEVICE_COUNT];
 static luat_uart_recv_callback_t uart_app_recvs[MAX_DEVICE_COUNT + MAX_USB_DEVICE_COUNT];
 #ifdef LUAT_USE_SOFT_UART
 #include "c_common.h"
-typedef struct luat_soft_uart {
+#define LUAT_UART_SOFT_FIFO_CNT (128)
+typedef struct
+{
+	llist_head tx_node;
+	uint8_t *data;
+	uint32_t len;
+}luat_uart_soft_tx_node_t;
+
+typedef struct
+{
 	uint32_t period;
+	Buffer_Struct rx_buffer;
 	Buffer_Struct tx_buffer;
+	llist_head tx_queue_head;
 	uint16_t rx_bit;
-	uint16_t tx_bit;
+	uint16_t rx_buffer_size;
+	uint8_t tx_byte;
+	uint8_t rx_fifo[LUAT_UART_SOFT_FIFO_CNT];
+	uint8_t rx_fifo_cnt;
 	uint8_t tx_shift_bits;
 	uint8_t rx_shift_bits;
 	uint8_t data_bits;
 	uint8_t stop_bits;
+	uint8_t tx_parity_bit;
+	uint8_t rx_parity_bit;
 	uint8_t parity;             /**< 奇偶校验位 */
+	uint8_t parity_odd;             /**< 奇偶校验位 */
 	uint8_t tx_pin;
 	uint8_t rx_pin;
 	uint8_t tx_hwtimer_id;
 	uint8_t rx_hwtimer_id;
 	uint8_t pin485;
     uint8_t rs485_rx_level;           /**< 接收方向的电平 */
-}luat_soft_uart_t;
-static luat_soft_uart_t prv_soft_uart;
+    uint8_t uart_id;
+    uint8_t is_inited;
+}luat_uart_soft_t;
+static luat_uart_soft_t *prv_uart_soft;
+
+static int32_t luat_uart_soft_del_tx_queue(void *pdata, void *param)
+{
+	luat_uart_soft_tx_node_t *node = (luat_uart_soft_tx_node_t *)pdata;
+	luat_heap_alloc(NULL, node->data, 0, 0);
+	return LIST_DEL;
+}
+
+static int luat_uart_soft_recv_start_irq(int pin, void *param)
+{
+	luat_uart_soft_gpio_fast_irq_set(pin, 0);
+	luat_uart_soft_hwtimer_onoff(prv_uart_soft->rx_hwtimer_id, prv_uart_soft->period >> 1);
+	prv_uart_soft->rx_shift_bits = 0xff;
+	return 0;
+}
+
+static int luat_uart_soft_setup(luat_uart_t *uart)
+{
+	prv_uart_soft->rx_buffer_size = uart->bufsz;
+	luat_heap_alloc(NULL, prv_uart_soft->rx_buffer.Data, 0, 0);
+	prv_uart_soft->rx_buffer.Data = luat_heap_alloc(NULL, NULL, 0, prv_uart_soft->rx_buffer_size);
+	if (!prv_uart_soft->rx_buffer.Data)
+	{
+		LLOGE("soft uart no mem!");
+		prv_uart_soft->is_inited = 0;
+		return -1;
+	}
+	prv_uart_soft->is_inited = 1;
+	prv_uart_soft->data_bits = uart->data_bits;
+	switch(uart->parity)
+	{
+	case LUAT_PARITY_NONE:
+		prv_uart_soft->parity = 0;
+		break;
+	case LUAT_PARITY_ODD:
+		prv_uart_soft->parity = 1;
+		prv_uart_soft->parity_odd = 1;
+		break;
+	case LUAT_PARITY_EVEN:
+		prv_uart_soft->parity = 1;
+		prv_uart_soft->parity_odd = 0;
+		break;
+	}
+	prv_uart_soft->parity = uart->parity;
+	prv_uart_soft->stop_bits = uart->stop_bits;
+	switch(uart->stop_bits)
+	{
+	case LUAT_1_5_STOP_BITS:
+		prv_uart_soft->stop_bits = 3;
+		break;
+	case LUAT_0_5_STOP_BITS:
+		prv_uart_soft->stop_bits = 2;
+		break;
+	default:
+		prv_uart_soft->stop_bits = uart->stop_bits * 2;
+		break;
+	}
+	if (uart->pin485 != 0xffffffff)
+	{
+		prv_uart_soft->pin485 = uart->pin485;
+		prv_uart_soft->rs485_rx_level = uart->rx_level;
+	}
+	else
+	{
+		prv_uart_soft->pin485 = 0xff;
+	}
+	prv_uart_soft->period = luat_uart_soft_cal_baudrate(uart->baud_rate);
+	luat_gpio_t conf = {0};
+	conf.pin = prv_uart_soft->rx_pin;
+	conf.mode = Luat_GPIO_IRQ;
+	conf.irq_cb = luat_uart_soft_recv_start_irq;
+	conf.pull = LUAT_GPIO_PULLUP;
+	conf.irq = LUAT_GPIO_FALLING_IRQ;
+	luat_gpio_setup(&conf);
+	conf.pin = prv_uart_soft->tx_pin;
+	conf.mode = Luat_GPIO_OUTPUT;
+	luat_uart_soft_gpio_fast_output(prv_uart_soft->tx_pin, 1);
+	luat_gpio_setup(&conf);
+	if (prv_uart_soft->pin485 != 0xff)
+	{
+		conf.pin = prv_uart_soft->pin485;
+		conf.mode = Luat_GPIO_OUTPUT;
+		luat_gpio_set(prv_uart_soft->pin485, prv_uart_soft->rs485_rx_level);
+		luat_gpio_setup(&conf);
+	}
+	prv_uart_soft->rx_shift_bits = 0;
+	prv_uart_soft->tx_shift_bits = 0;
+	prv_uart_soft->rx_fifo_cnt = 0;
+	return 0;
+}
+
+static void luat_uart_soft_close(void)
+{
+	luat_uart_soft_hwtimer_onoff(prv_uart_soft->tx_hwtimer_id, 0);
+	luat_uart_soft_hwtimer_onoff(prv_uart_soft->rx_hwtimer_id, 0);
+	luat_uart_soft_setup_hwtimer_callback(prv_uart_soft->tx_hwtimer_id, NULL);
+	luat_uart_soft_setup_hwtimer_callback(prv_uart_soft->rx_hwtimer_id, NULL);
+	prv_uart_soft->is_inited = 0;
+	llist_traversal(&prv_uart_soft->tx_queue_head, luat_uart_soft_del_tx_queue, NULL);
+	luat_gpio_close(prv_uart_soft->rx_pin);
+	luat_gpio_close(prv_uart_soft->tx_pin);
+	if (prv_uart_soft->pin485 != 0xff)
+	{
+		luat_gpio_close(prv_uart_soft->pin485);
+	}
+	luat_heap_alloc(NULL, prv_uart_soft->rx_buffer.Data, 0, 0);
+	memset(&prv_uart_soft->rx_buffer, 0, sizeof(Buffer_Struct));
+}
+
+static uint32_t luat_uart_soft_read(uint8_t *data, uint32_t len)
+{
+//	if (!data) return prv_uart_soft->rx_buffer.Pos;
+	uint32_t read_len = (len > prv_uart_soft->rx_buffer.Pos)?prv_uart_soft->rx_buffer.Pos:len;
+	memcpy(data, prv_uart_soft->rx_buffer.Data, read_len);
+	if (read_len >= prv_uart_soft->rx_buffer.Pos)
+	{
+		prv_uart_soft->rx_buffer.Pos = 0;
+		if (prv_uart_soft->rx_buffer.MaxLen > prv_uart_soft->rx_buffer_size)
+		{
+			luat_heap_alloc(NULL, prv_uart_soft->rx_buffer.Data, 0, 0);
+			prv_uart_soft->rx_buffer.Data = luat_heap_alloc(NULL, NULL, 0, prv_uart_soft->rx_buffer_size);
+		}
+	}
+	else
+	{
+		uint32_t rest = prv_uart_soft->rx_buffer.Pos - read_len;
+		memmove(prv_uart_soft->rx_buffer.Data, prv_uart_soft->rx_buffer.Data + read_len, rest);
+		prv_uart_soft->rx_buffer.Pos = rest;
+	}
+	return read_len;
+}
+
+static int luat_uart_soft_write(const uint8_t *data, uint32_t len)
+{
+	luat_uart_soft_tx_node_t *node = luat_heap_alloc(NULL, NULL, 0, sizeof(luat_uart_soft_tx_node_t));
+	if (!node)
+	{
+		return -1;
+	}
+	node->data = luat_heap_alloc(NULL, NULL, 0, len);
+	if (!data)
+	{
+		luat_heap_alloc(NULL, node, 0, 0);
+		return -1;
+	}
+	memcpy(node->data, data, len);
+	llist_add_tail(&node->tx_node, &prv_uart_soft->tx_queue_head);
+	if (!prv_uart_soft->tx_buffer.Data)
+	{
+		if (prv_uart_soft->pin485 != 0xff)
+		{
+			luat_gpio_set(prv_uart_soft->pin485, !prv_uart_soft->rs485_rx_level);
+		}
+		node = (luat_uart_soft_tx_node_t *)prv_uart_soft->tx_queue_head.next;
+		Buffer_StaticInit(&prv_uart_soft->tx_buffer, node->data, node->len);
+		prv_uart_soft->tx_shift_bits = 0;
+		luat_uart_soft_gpio_fast_output(prv_uart_soft->tx_pin, 0);
+		luat_uart_soft_hwtimer_onoff(prv_uart_soft->tx_hwtimer_id, prv_uart_soft->period);
+		prv_uart_soft->tx_byte = prv_uart_soft->tx_buffer.Data[0];
+		prv_uart_soft->tx_parity_bit = prv_uart_soft->parity_odd;
+
+	}
+	return 0;
+}
 #endif
 void luat_uart_set_app_recv(int id, luat_uart_recv_callback_t cb) {
     if (luat_uart_exist(id)) {
@@ -189,8 +372,21 @@ static int l_uart_write(lua_State *L)
         if(len > l)
             len = l;
     }
+#ifdef LUAT_USE_SOFT_UART
+    int result;
+    if (prv_uart_soft && (prv_uart_soft->uart_id == id))
+    {
+    	result = luat_uart_soft_write(buf, len);
+    }
+    else
+    {
+    	result = luat_uart_write(id, (char*)buf, len);
+    }
+    lua_pushinteger(L, result);
+#else
     int result = luat_uart_write(id, (char*)buf, len);
     lua_pushinteger(L, result);
+#endif
     return 1;
 }
 
@@ -213,7 +409,19 @@ static int l_uart_read(lua_State *L)
         uint8_t* recv = buff->addr+buff->cursor;
         if(length > buff->len - buff->cursor)
             length = buff->len - buff->cursor;
+#ifdef LUAT_USE_SOFT_UART
+		int result;
+		if (prv_uart_soft && (prv_uart_soft->uart_id == id))
+		{
+			result = luat_uart_soft_read(recv, length);
+		}
+		else
+		{
+			result = luat_uart_read(id, recv, length);
+		}
+#else
         int result = luat_uart_read(id, recv, length);
+#endif
         if(result < 0)
             result = 0;
         buff->cursor += result;
@@ -232,7 +440,19 @@ static int l_uart_read(lua_State *L)
     uint32_t read_length = 0;
     while(read_length < length)//循环读完
     {
+#ifdef LUAT_USE_SOFT_UART
+		int result;
+		if (prv_uart_soft && (prv_uart_soft->uart_id == id))
+		{
+			result = luat_uart_soft_read((void*)(recv + read_length), length - read_length);
+		}
+		else
+		{
+			result = luat_uart_read(id, (void*)(recv + read_length), length - read_length);
+		}
+#else
         int result = luat_uart_read(id, (void*)(recv + read_length), length - read_length);
+#endif
         if (result > 0) {
             read_length += result;
         }
@@ -269,9 +489,23 @@ uart.close(1)
 */
 static int l_uart_close(lua_State *L)
 {
-    uint8_t result = luat_uart_close(luaL_checkinteger(L, 1));
-    lua_pushinteger(L, result);
-    return 1;
+#ifdef LUAT_USE_SOFT_UART
+	uint8_t id = luaL_checkinteger(L,1);
+	if (prv_uart_soft && (prv_uart_soft->uart_id == id))
+	{
+		luat_uart_soft_close();
+	}
+	else
+	{
+		luat_uart_close(id);
+	}
+	return 0;
+#else
+//    uint8_t result = luat_uart_close(luaL_checkinteger(L, 1));
+//    lua_pushinteger(L, result);
+	luat_uart_close(luaL_checkinteger(L, 1));
+    return 0;
+#endif
 }
 
 /*
@@ -290,10 +524,24 @@ end)
 static int l_uart_on(lua_State *L) {
     int uart_id = luaL_checkinteger(L, 1);
     int org_uart_id = uart_id;
+#ifdef LUAT_USE_SOFT_UART
+	if (prv_uart_soft && (prv_uart_soft->uart_id == (uint8_t)uart_id))
+	{
+		;
+	}
+	else
+	{
+		if (!luat_uart_exist(uart_id)) {
+			lua_pushliteral(L, "no such uart id");
+			return 1;
+		}
+	}
+#else
     if (!luat_uart_exist(uart_id)) {
         lua_pushliteral(L, "no such uart id");
         return 1;
     }
+#endif
     if (uart_id >= LUAT_VUART_ID_0)
     {
     	uart_id = MAX_DEVICE_COUNT + uart_id - LUAT_VUART_ID_0;
@@ -353,8 +601,21 @@ static int l_uart_wait485_tx_done(lua_State *L) {
 */
 static int l_uart_exist(lua_State *L)
 {
+#ifdef LUAT_USE_SOFT_UART
+	uint8_t id = luaL_checkinteger(L,1);
+	if (prv_uart_soft && (prv_uart_soft->uart_id == id))
+	{
+		lua_pushboolean(L, 1);
+	}
+	else
+	{
+		lua_pushboolean(L, luat_uart_exist(id));
+	}
+	return 1;
+#else
     lua_pushboolean(L, luat_uart_exist(luaL_checkinteger(L,1)));
     return 1;
+#endif
 }
 
 
@@ -373,12 +634,35 @@ static int l_uart_rx(lua_State *L)
 
     if(lua_isuserdata(L, 2)){//zbuff对象特殊处理
     	luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
-        int result = luat_uart_read(id, NULL, 0);
+#ifdef LUAT_USE_SOFT_UART
+		int result;
+		if (prv_uart_soft && (prv_uart_soft->uart_id == id))
+		{
+			result = prv_uart_soft->rx_buffer.Pos;
+		}
+		else
+		{
+			result = luat_uart_read(id, NULL, 0);
+		}
+#else
+    	int result = luat_uart_read(id, NULL, 0);
+#endif
         if (result > (buff->len - buff->used))
         {
         	__zbuff_resize(buff, buff->len + result);
         }
+#ifdef LUAT_USE_SOFT_UART
+		if (prv_uart_soft && (prv_uart_soft->uart_id == id))
+		{
+			luat_uart_soft_read(buff->addr + buff->used, result);
+		}
+		else
+		{
+			luat_uart_read(id, buff->addr + buff->used, result);
+		}
+#else
         luat_uart_read(id, buff->addr + buff->used, result);
+#endif
         lua_pushinteger(L, result);
         buff->used += result;
         return 1;
@@ -402,7 +686,20 @@ local size = uart.rxSize(1)
 static int l_uart_rx_size(lua_State *L)
 {
     uint8_t id = luaL_checkinteger(L, 1);
+#ifdef LUAT_USE_SOFT_UART
+	int result;
+	if (prv_uart_soft && (prv_uart_soft->uart_id == id))
+	{
+		result = prv_uart_soft->rx_buffer.Pos;
+	}
+	else
+	{
+		result = luat_uart_read(id, NULL, 0);
+	}
+	lua_pushinteger(L, result);
+#else
     lua_pushinteger(L, luat_uart_read(id, NULL, 0));
+#endif
     return 1;
 }
 
@@ -444,13 +741,267 @@ static int l_uart_tx(lua_State *L)
     {
     	len = buff->len - start;
     }
+#ifdef LUAT_USE_SOFT_UART
+    int result;
+    if (prv_uart_soft && (prv_uart_soft->uart_id == id))
+    {
+    	result = luat_uart_soft_write(buff->addr + start, len);
+    }
+    else
+    {
+    	result = luat_uart_write(id, buff->addr + start, len);
+    }
+    lua_pushinteger(L, result);
+#else
     int result = luat_uart_write(id, buff->addr + start, len);
     lua_pushinteger(L, result);
+#endif
     return 1;
 }
 
+
+#ifdef LUAT_USE_SOFT_UART
+static int l_uart_soft_handler_tx_done(lua_State *L, void* ptr)
+{
+	rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+	lua_pop(L, 1);
+	if (prv_uart_soft->is_inited)
+	{
+		luat_uart_soft_tx_node_t *node = (luat_uart_soft_tx_node_t *)(prv_uart_soft->tx_queue_head.next);
+		llist_del(&node->tx_node);
+		luat_heap_alloc(NULL, node->data, 0, 0);
+		luat_heap_alloc(NULL, node, 0, 0);
+		if (llist_empty(&prv_uart_soft->tx_queue_head))
+		{
+			if (prv_uart_soft->pin485 != 0xff)
+			{
+				luat_gpio_set(prv_uart_soft->pin485, prv_uart_soft->rs485_rx_level);
+			}
+	        if (uart_cbs[prv_uart_soft->uart_id].sent) {
+	            lua_geti(L, LUA_REGISTRYINDEX, uart_cbs[prv_uart_soft->uart_id].sent);
+	            if (lua_isfunction(L, -1)) {
+	                lua_pushinteger(L, prv_uart_soft->uart_id);
+	                lua_call(L, 1, 0);
+	            }
+	        }
+		}
+		else
+		{
+			node = (luat_uart_soft_tx_node_t *)prv_uart_soft->tx_queue_head.next;
+			Buffer_StaticInit(&prv_uart_soft->tx_buffer, node->data, node->len);
+			prv_uart_soft->tx_shift_bits = 0;
+			luat_uart_soft_gpio_fast_output(prv_uart_soft->tx_pin, 0);
+			luat_uart_soft_hwtimer_onoff(prv_uart_soft->tx_hwtimer_id, prv_uart_soft->period);
+			prv_uart_soft->tx_byte = prv_uart_soft->tx_buffer.Data[0];
+			prv_uart_soft->tx_parity_bit = prv_uart_soft->parity_odd;
+		}
+	}
+
+    lua_pushinteger(L, 0);
+    return 1;
+}
+
+static int l_uart_soft_handler_rx_done(lua_State *L, void* ptr)
+{
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    lua_pop(L, 1);
+	if (prv_uart_soft->is_inited)
+	{
+		if (msg->ptr && msg->arg1)
+		{
+			if (((uint32_t)msg->arg1 + prv_uart_soft->rx_buffer.Pos) > prv_uart_soft->rx_buffer.MaxLen)
+			{
+				uint8_t *new = luat_heap_alloc(NULL, NULL, 0, (prv_uart_soft->rx_buffer.MaxLen + (uint32_t)msg->arg1) * 2);
+				if (new)
+				{
+					prv_uart_soft->rx_buffer.MaxLen = (prv_uart_soft->rx_buffer.MaxLen + (uint32_t)msg->arg1) * 2;
+					memcpy(new, prv_uart_soft->rx_buffer.Data, prv_uart_soft->rx_buffer.Pos);
+					luat_heap_alloc(NULL, prv_uart_soft->rx_buffer.Data, 0, 0);
+					prv_uart_soft->rx_buffer.Data = new;
+					memcpy(prv_uart_soft->rx_buffer.Data + prv_uart_soft->rx_buffer.Pos, msg->ptr, (uint32_t)msg->arg1);
+					prv_uart_soft->rx_buffer.Pos += (uint32_t)msg->arg1;
+				}
+				else
+				{
+					LLOGE("soft uart resize no mem!");
+				}
+			}
+			else
+			{
+				memcpy(prv_uart_soft->rx_buffer.Data + prv_uart_soft->rx_buffer.Pos, msg->ptr, (uint32_t)msg->arg1);
+				prv_uart_soft->rx_buffer.Pos += (uint32_t)msg->arg1;
+			}
+		}
+		if ((prv_uart_soft->rx_buffer.Pos > prv_uart_soft->rx_buffer_size) || msg->arg2)
+		{
+			if (uart_app_recvs[prv_uart_soft->uart_id]) {
+				uart_app_recvs[prv_uart_soft->uart_id](prv_uart_soft->uart_id, msg->arg2);
+			}
+			if (uart_cbs[prv_uart_soft->uart_id].received) {
+				lua_geti(L, LUA_REGISTRYINDEX, uart_cbs[prv_uart_soft->uart_id].received);
+				if (lua_isfunction(L, -1)) {
+					lua_pushinteger(L, prv_uart_soft->uart_id);
+					lua_pushinteger(L, prv_uart_soft->rx_buffer.Pos);
+					lua_call(L, 2, 0);
+				}
+			}
+		}
+	}
+	if (msg->ptr)
+	{
+		luat_heap_alloc(NULL, msg->ptr, 0, 0);
+	}
+    lua_pushinteger(L, 0);
+    return 1;
+}
+
+static void luat_uart_soft_send_hwtimer_irq(void)
+{
+	if (prv_uart_soft->tx_shift_bits)
+	{
+		if (prv_uart_soft->tx_shift_bits >= (prv_uart_soft->data_bits + prv_uart_soft->parity + prv_uart_soft->stop_bits))
+		{
+			//停止位发送完成
+			prv_uart_soft->tx_buffer.Pos++;
+			//发送完了
+			if (prv_uart_soft->tx_buffer.Pos >= prv_uart_soft->tx_buffer.MaxLen)
+			{
+				luat_uart_soft_hwtimer_onoff(prv_uart_soft->tx_hwtimer_id, 0);
+		        rtos_msg_t msg;
+		        msg.handler = l_uart_soft_handler_tx_done;
+		        msg.ptr = NULL;
+		        msg.arg1 = NULL;
+		        msg.arg2 = NULL;
+		        luat_msgbus_put(&msg, 0);
+			}
+			else
+			{
+				//发送新的字节的起始位
+				luat_uart_soft_gpio_fast_output(prv_uart_soft->tx_pin, 0);
+				luat_uart_soft_hwtimer_onoff(prv_uart_soft->tx_hwtimer_id, prv_uart_soft->period);
+				prv_uart_soft->tx_parity_bit = prv_uart_soft->parity_odd;
+				prv_uart_soft->tx_byte = prv_uart_soft->tx_buffer.Data[prv_uart_soft->tx_buffer.Pos];
+				prv_uart_soft->tx_shift_bits = 0;
+			}
+			return;
+		}
+		if (prv_uart_soft->parity)
+		{
+			if (prv_uart_soft->tx_shift_bits > prv_uart_soft->data_bits)
+			{
+				//发送停止位
+				luat_uart_soft_gpio_fast_output(prv_uart_soft->tx_pin, 1);
+				luat_uart_soft_hwtimer_onoff(prv_uart_soft->tx_hwtimer_id, (prv_uart_soft->period * prv_uart_soft->stop_bits) >> 1 + 10);
+				prv_uart_soft->tx_shift_bits = prv_uart_soft->data_bits + prv_uart_soft->parity + prv_uart_soft->stop_bits;
+				return;
+			}
+		}
+
+		if (prv_uart_soft->tx_shift_bits >= prv_uart_soft->data_bits)
+		{
+			//准备发送奇偶校验位
+			if (prv_uart_soft->parity)
+			{
+				luat_uart_soft_gpio_fast_output(prv_uart_soft->tx_pin, prv_uart_soft->tx_parity_bit & 0x01);
+				prv_uart_soft->tx_shift_bits++;
+			}
+			else
+			{
+				//发送停止位
+				luat_uart_soft_gpio_fast_output(prv_uart_soft->tx_pin, 1);
+				luat_uart_soft_hwtimer_onoff(prv_uart_soft->tx_hwtimer_id, (prv_uart_soft->period * prv_uart_soft->stop_bits) >> 1 + 10);
+				prv_uart_soft->tx_shift_bits = prv_uart_soft->data_bits + prv_uart_soft->parity + prv_uart_soft->stop_bits;
+
+			}
+			return;
+		}
+	}
+	uint8_t bit = (prv_uart_soft->tx_byte >> prv_uart_soft->tx_shift_bits) & 0x01;
+	luat_uart_soft_gpio_fast_output(prv_uart_soft->tx_pin, bit);
+	prv_uart_soft->tx_shift_bits++;
+	prv_uart_soft->tx_parity_bit += bit;
+}
+
+static void luat_uart_soft_recv_hwtimer_irq(void)
+{
+	uint8_t bit = luat_uart_soft_gpio_fast_input(prv_uart_soft->rx_pin);
+	uint8_t is_end = 0;
+	if (0xef == prv_uart_soft->rx_shift_bits)	//RX检测超时了，没有新的起始位
+	{
+		is_end = 1;
+		goto UART_SOFT_RX_DONE;
+	}
+	if (0xff == prv_uart_soft->rx_shift_bits) //检测起始位
+	{
+		if (bit)	//起始位错误
+		{
+			is_end = 1;
+			goto UART_SOFT_RX_DONE;
+		}
+		else
+		{
+			prv_uart_soft->rx_shift_bits = 0;
+			prv_uart_soft->rx_bit = 0;
+			prv_uart_soft->rx_parity_bit = prv_uart_soft->parity_odd;
+		}
+		return;
+	}
+	if (prv_uart_soft->rx_shift_bits < prv_uart_soft->data_bits)
+	{
+		prv_uart_soft->rx_bit |= (bit << prv_uart_soft->rx_shift_bits);
+		prv_uart_soft->rx_shift_bits++;
+		prv_uart_soft->rx_parity_bit += bit;
+
+		if (prv_uart_soft->rx_shift_bits >= prv_uart_soft->data_bits)
+		{
+			if (!prv_uart_soft->parity)	//如果不做奇偶校验，就直接开始下一个字节
+			{
+				goto UART_SOFT_RX_BYTE_DONE;
+			}
+		}
+		return;
+	}
+	if ((prv_uart_soft->rx_parity_bit & 0x01) != bit) //奇偶校验错误
+	{
+		is_end = 1;
+		goto UART_SOFT_RX_DONE;
+	}
+UART_SOFT_RX_BYTE_DONE:
+	prv_uart_soft->rx_fifo[prv_uart_soft->rx_fifo_cnt] = prv_uart_soft->rx_bit;
+	luat_uart_soft_gpio_fast_irq_set(prv_uart_soft->rx_pin, 1);
+	prv_uart_soft->rx_shift_bits = 0xef;
+	luat_uart_soft_hwtimer_onoff(prv_uart_soft->rx_hwtimer_id, prv_uart_soft->period * prv_uart_soft->stop_bits * 5);	//这里做接收超时检测
+	if (prv_uart_soft->rx_fifo_cnt < LUAT_UART_SOFT_FIFO_CNT)	//接收fifo没有满，继续接收
+	{
+		return;
+	}
+UART_SOFT_RX_DONE:
+
+	if (prv_uart_soft->rx_fifo_cnt || is_end)
+	{
+        rtos_msg_t msg;
+        msg.handler = l_uart_soft_handler_rx_done;
+        msg.ptr = luat_heap_alloc(0, 0, 0, prv_uart_soft->rx_fifo_cnt);
+        msg.arg1 = prv_uart_soft->rx_fifo_cnt;
+        msg.arg2 = is_end;
+        if (msg.ptr)
+        {
+        	memcpy(msg.ptr, prv_uart_soft->rx_fifo, prv_uart_soft->rx_fifo_cnt);
+        }
+        prv_uart_soft->rx_fifo_cnt = 0;
+        luat_msgbus_put(&msg, 0);
+	}
+	if (is_end)
+	{
+		luat_uart_soft_gpio_fast_irq_set(prv_uart_soft->rx_pin, 1);
+		luat_uart_soft_hwtimer_onoff(prv_uart_soft->rx_hwtimer_id, 0);
+	}
+	return;
+}
+#endif
+
 /**
-设置软件uart的硬件配置，只有支持硬件定时器的SOC才能使用，目前只能设置一个。设置完成后，后续操作和普通uart一样，仍然需要setup
+设置软件uart的硬件配置，只有支持硬件定时器的SOC才能使用，目前只能设置一个，波特率不要超过115200，接收缓存不超过65535，不支持MSB，支持485自动控制。后续仍要setup操作
 @api uart.createSoft(tx_pin, tx_hwtimer_id, rx_pin, rx_hwtimer_id)
 @int 发送引脚编号
 @int 发送用的硬件定时器ID
@@ -459,14 +1010,69 @@ static int l_uart_tx(lua_State *L)
 @return int 软件uart的id，如果失败则返回nil
 @usage
 -- 初始化软件uart
-local uart_id = uart.createSoft(0, )
+local uart_id = uart.createSoft(21, 0, 1, 2) --air780e建议用定时器0和2，tx_pin最好用AGPIO，防止休眠时误触发对端RX
 */
 static int l_uart_soft(lua_State *L) {
 #ifdef LUAT_USE_SOFT_UART
+	if (!prv_uart_soft)
+	{
+		prv_uart_soft = luat_heap_alloc(NULL, NULL, 0, sizeof(luat_uart_soft_t));
+		if (prv_uart_soft)
+		{
+			memset(prv_uart_soft, 0, sizeof(luat_uart_soft_t));
+			INIT_LLIST_HEAD(&prv_uart_soft->tx_queue_head);
+			prv_uart_soft->uart_id = 0xff;
+		}
+		else
+		{
+			lua_pushnil(L);
+			goto CREATE_DONE;
+		}
+	}
+	if (prv_uart_soft->is_inited)
+	{
+		lua_pushnil(L);
+		goto CREATE_DONE;
+	}
+	for(int uart_id = 0; uart_id < MAX_DEVICE_COUNT; uart_id++)
+	{
+		if (!luat_uart_exist(uart_id))
+		{
+			LLOGD("find free uart id", uart_id);
+			prv_uart_soft->is_inited = 1;
+			prv_uart_soft->uart_id = uart_id;
+			break;
+		}
+	}
+	if (!prv_uart_soft->is_inited)
+	{
+		lua_pushnil(L);
+		goto CREATE_DONE;
+	}
 
+	prv_uart_soft->tx_pin = luaL_optinteger(L, 1, 0xff);
+	prv_uart_soft->tx_hwtimer_id = luaL_optinteger(L, 2, 0xff);
+	prv_uart_soft->rx_pin = luaL_optinteger(L, 3, 0xff);
+	prv_uart_soft->rx_hwtimer_id = luaL_optinteger(L, 4, 0xff);
+	if (luat_uart_soft_setup_hwtimer_callback(prv_uart_soft->tx_hwtimer_id, luat_uart_soft_send_hwtimer_irq))
+	{
+		prv_uart_soft->is_inited = 0;
+	}
+	if (luat_uart_soft_setup_hwtimer_callback(prv_uart_soft->rx_hwtimer_id, luat_uart_soft_recv_hwtimer_irq))
+	{
+		luat_uart_soft_setup_hwtimer_callback(prv_uart_soft->tx_hwtimer_id, NULL);
+		prv_uart_soft->is_inited = 0;
+	}
+	if (!prv_uart_soft->is_inited)
+	{
+		lua_pushnil(L);
+		goto CREATE_DONE;
+	}
+	lua_pushinteger(L, prv_uart_soft->uart_id);
 #else
 	lua_pushnil(L);
 #endif
+CREATE_DONE:
     return 1;
 }
 

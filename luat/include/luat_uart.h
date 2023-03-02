@@ -29,8 +29,8 @@
  * @brief 校验位
  */
 #define LUAT_PARITY_NONE                     0  /**< 无校验 */
-#define LUAT_PARITY_ODD                      1  /**< 偶校验 */
-#define LUAT_PARITY_EVEN                     2  /**< 奇校验 */
+#define LUAT_PARITY_ODD                      1  /**< 奇校验 */
+#define LUAT_PARITY_EVEN                     2  /**< 偶校验 */
 
 /**
  * @brief 高低位顺序
@@ -150,11 +150,35 @@ typedef struct luat_uart_ctrl_param
 int luat_uart_ctrl(int uart_id, LUAT_UART_CTRL_CMD_E cmd, void* param);
 
 #ifdef LUAT_USE_SOFT_UART
+#ifndef __BSP_COMMON_H__
 #include "c_common.h"
-int luat_soft_uart_setup_hwtimer_callback(int hwtimer_id, CBFuncEx_t callback, void *param);
-void luat_soft_uart_gpio_fast_output(int pin, uint8_t value);
-uint8_t luat_soft_uart_gpio_fast_intput(int pin);
-void luat_soft_uart_hwtimer_onoff(int hwtimer_id, uint32_t period);
+#endif
+/**
+ * @brief 软件串口所需硬件定时器配置
+ *
+ * @param hwtimer_id 硬件定时器id
+ * @param callback 定时回调，如果为NULL，则为释放定时器资源
+ * @return int 成功返回0，其他值则为失败
+ */
+int luat_uart_soft_setup_hwtimer_callback(int hwtimer_id, CommonFun_t callback);
+void luat_uart_soft_gpio_fast_output(int pin, uint8_t value);
+uint8_t luat_uart_soft_gpio_fast_input(int pin);
+void luat_uart_soft_gpio_fast_irq_set(int pin, uint8_t on_off);
+/**
+ * @brief 软件串口所需硬件定时周期
+ *
+ * @param baudrate 波特率
+ * @return uint32_t 计算到的定时周期
+ */
+uint32_t luat_uart_soft_cal_baudrate(uint32_t baudrate);
+/**
+ * @brief 软件串口所需硬件定时器开关
+ *
+ * @param hwtimer_id 硬件定时器id
+ * @param period 定时周期，通过luat_uart_soft_cal_baudrate计算
+ * @return int 成功返回0，其他值则为失败
+ */
+void luat_uart_soft_hwtimer_onoff(int hwtimer_id, uint32_t period);
 #endif
 /** @}*/
 /** @}*/

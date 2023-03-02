@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+    <header>
+        <meta charset="utf-8"/>
+        <title>Http Server Get-Start</title>
+        <!-- fetch api-->
+        <script type="text/javascript">
+            function led(key) {
+                fetch("/led/" + key)
+            }
+            function gpio1(key) {
+                fetch("/gpio1/" + key)
+            }
+            function gpio24(key) {
+                fetch("/gpio24/" + key)
+            }
+        </script>
+    </header>
+    <body>
+        <h2>点击按钮, led灯会亮起或熄灭</h2>
+        <div>
+            <div>
+                <button onclick="led(1)">LED亮</button>
+            </div>
+            <div>
+                <button onclick="led(0)">LED灭</button>
+            </div>
+            <div>
+                <button onclick="gpio1(1)">GPIO1 输出高电平</button>
+            </div>
+            <div>
+                <button onclick="gpio1(0)">GPIO1 输出低电平</button>
+            </div>
+            <div>
+                <button onclick="gpio24(1)">GPIO24 输出高电平</button>
+            </div>
+            <div>
+                <button onclick="gpio24(0)">GPIO24 输出低电平</button>
+            </div>
+        </div>
+        <div>
+            <h4>Power by <a href="https://wiki.luatos.com">LuatOS</a></h4>
+        </div>
+    </body>
+</html>

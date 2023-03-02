@@ -66,9 +66,9 @@ function ipv6task(d1Name, txqueue, rxtopic)
     -- 注意, 这里需要登录外网的netlab才有ipv6
     -- 网站链接: https://netlab.luatos.org/ 
     local host = "2603:c023:1:5fcc:c028:8ed:49a7:6e08"
-    local host = "112.125.89.8"
+    -- local host = "112.125.89.8"
     -- local host = "152.70.80.204"
-    local port = 36463 -- 页面点击"打开TCP" 后获取实际端口
+    local port = 55389 -- 页面点击"打开TCP" 后获取实际端口
 
 
     local rx_buff = zbuff.create(1024)

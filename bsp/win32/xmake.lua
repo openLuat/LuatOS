@@ -51,7 +51,6 @@ target("luatos")
             ,luatos.."luat/modules/luat_lib_zbuff.c"
             ,luatos.."luat/modules/luat_lib_pack.c"
             ,luatos.."luat/modules/luat_lib_crypto.c"
-            ,luatos.."luat/modules/luat_lib_lfs2.c"
             ,luatos.."luat/modules/luat_lib_libcoap.c"
             ,luatos.."luat/modules/luat_lib_uart.c"
             ,luatos.."luat/modules/luat_lib_gpio.c"

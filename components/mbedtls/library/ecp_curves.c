@@ -515,6 +515,7 @@ static const mbedtls_mpi_uint brainpoolP512r1_n[] = {
 };
 #endif /* MBEDTLS_ECP_DP_BP512R1_ENABLED */
 
+#ifdef __LUATOS__
 /* sm2 */
 #if defined(ECP_DP_SM2_256V1_ENABLED)
 static const mbedtls_mpi_uint sm2_256v1_p[] = {
@@ -579,7 +580,22 @@ static const mbedtls_mpi_uint sm2_256v1_n[] = {
 /* For these curves, we build the group parameters dynamically. */
 #define ECP_LOAD_GROUP
 #endif
-
+#else
+#if defined(MBEDTLS_ECP_DP_SECP192R1_ENABLED) ||   \
+    defined(MBEDTLS_ECP_DP_SECP224R1_ENABLED) ||   \
+    defined(MBEDTLS_ECP_DP_SECP256R1_ENABLED) ||   \
+    defined(MBEDTLS_ECP_DP_SECP384R1_ENABLED) ||   \
+    defined(MBEDTLS_ECP_DP_SECP521R1_ENABLED) ||   \
+    defined(MBEDTLS_ECP_DP_BP256R1_ENABLED)   ||   \
+    defined(MBEDTLS_ECP_DP_BP384R1_ENABLED)   ||   \
+    defined(MBEDTLS_ECP_DP_BP512R1_ENABLED)   ||   \
+    defined(MBEDTLS_ECP_DP_SECP192K1_ENABLED) ||   \
+    defined(MBEDTLS_ECP_DP_SECP224K1_ENABLED) ||   \
+    defined(MBEDTLS_ECP_DP_SECP256K1_ENABLED)
+/* For these curves, we build the group parameters dynamically. */
+#define ECP_LOAD_GROUP
+#endif
+#endif //__LUATOS__
 #if defined(ECP_LOAD_GROUP)
 /*
  * Create an MPI from embedded constants
@@ -880,12 +896,13 @@ int mbedtls_ecp_group_load( mbedtls_ecp_group *grp, mbedtls_ecp_group_id id )
             grp->modp = ecp_mod_p448;
             return( ecp_use_curve448( grp ) );
 #endif /* MBEDTLS_ECP_DP_CURVE448_ENABLED */
-
+#ifdef __LUATOS__
 #if defined(ECP_DP_SM2_256V1_ENABLED)
         case ECP_DP_SM2_256V1:
             //todo
             return (LOAD_GROUP_A(sm2_256v1));
 #endif
+#endif //__LUATOS__
         default:
             grp->id = MBEDTLS_ECP_DP_NONE;
             return( MBEDTLS_ERR_ECP_FEATURE_UNAVAILABLE );
@@ -1392,6 +1409,7 @@ cleanup:
 }
 #endif /* MBEDTLS_ECP_DP_CURVE448_ENABLED */
 
+#ifdef __LUATOS__
 #if defined(MBEDTLS_ECP_DP_SECP192K1_ENABLED) || \
     defined(MBEDTLS_ECP_DP_SECP224K1_ENABLED) || \
     defined(MBEDTLS_ECP_DP_SECP256K1_ENABLED)  || \
@@ -1473,7 +1491,88 @@ cleanup:
 #endif /* MBEDTLS_ECP_DP_SECP192K1_ENABLED) ||
           MBEDTLS_ECP_DP_SECP224K1_ENABLED) ||
           MBEDTLS_ECP_DP_SECP256K1_ENABLED) */
+#else
+#if defined(MBEDTLS_ECP_DP_SECP192K1_ENABLED) ||   \
+    defined(MBEDTLS_ECP_DP_SECP224K1_ENABLED) ||   \
+    defined(MBEDTLS_ECP_DP_SECP256K1_ENABLED)
+/*
+ * Fast quasi-reduction modulo P = 2^s - R,
+ * with R about 33 bits, used by the Koblitz curves.
+ *
+ * Write N as A0 + 2^224 A1, return A0 + R * A1.
+ * Actually do two passes, since R is big.
+ */
+#define P_KOBLITZ_MAX   ( 256 / 8 / sizeof( mbedtls_mpi_uint ) )  // Max limbs in P
+#define P_KOBLITZ_R     ( 8 / sizeof( mbedtls_mpi_uint ) )        // Limbs in R
+static inline int ecp_mod_koblitz( mbedtls_mpi *N, mbedtls_mpi_uint *Rp, size_t p_limbs,
+                                   size_t adjust, size_t shift, mbedtls_mpi_uint mask )
+{
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
+    size_t i;
+    mbedtls_mpi M, R;
+    mbedtls_mpi_uint Mp[P_KOBLITZ_MAX + P_KOBLITZ_R + 1];
 
+    if( N->n < p_limbs )
+        return( 0 );
+
+    /* Init R */
+    R.s = 1;
+    R.p = Rp;
+    R.n = P_KOBLITZ_R;
+
+    /* Common setup for M */
+    M.s = 1;
+    M.p = Mp;
+
+    /* M = A1 */
+    M.n = N->n - ( p_limbs - adjust );
+    if( M.n > p_limbs + adjust )
+        M.n = p_limbs + adjust;
+    memset( Mp, 0, sizeof Mp );
+    memcpy( Mp, N->p + p_limbs - adjust, M.n * sizeof( mbedtls_mpi_uint ) );
+    if( shift != 0 )
+        MBEDTLS_MPI_CHK( mbedtls_mpi_shift_r( &M, shift ) );
+    M.n += R.n; /* Make room for multiplication by R */
+
+    /* N = A0 */
+    if( mask != 0 )
+        N->p[p_limbs - 1] &= mask;
+    for( i = p_limbs; i < N->n; i++ )
+        N->p[i] = 0;
+
+    /* N = A0 + R * A1 */
+    MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mpi( &M, &M, &R ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_add_abs( N, N, &M ) );
+
+    /* Second pass */
+
+    /* M = A1 */
+    M.n = N->n - ( p_limbs - adjust );
+    if( M.n > p_limbs + adjust )
+        M.n = p_limbs + adjust;
+    memset( Mp, 0, sizeof Mp );
+    memcpy( Mp, N->p + p_limbs - adjust, M.n * sizeof( mbedtls_mpi_uint ) );
+    if( shift != 0 )
+        MBEDTLS_MPI_CHK( mbedtls_mpi_shift_r( &M, shift ) );
+    M.n += R.n; /* Make room for multiplication by R */
+
+    /* N = A0 */
+    if( mask != 0 )
+        N->p[p_limbs - 1] &= mask;
+    for( i = p_limbs; i < N->n; i++ )
+        N->p[i] = 0;
+
+    /* N = A0 + R * A1 */
+    MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mpi( &M, &M, &R ) );
+    MBEDTLS_MPI_CHK( mbedtls_mpi_add_abs( N, N, &M ) );
+
+cleanup:
+    return( ret );
+}
+#endif /* MBEDTLS_ECP_DP_SECP192K1_ENABLED) ||
+          MBEDTLS_ECP_DP_SECP224K1_ENABLED) ||
+          MBEDTLS_ECP_DP_SECP256K1_ENABLED) */
+#endif //__LUATOS__
 #if defined(MBEDTLS_ECP_DP_SECP192K1_ENABLED)
 /*
  * Fast quasi-reduction modulo p192k1 = 2^192 - R,

@@ -242,8 +242,6 @@ LV_FONT_DECLARE(lv_font_opposans_m_16)
 LV_FONT_DECLARE(lv_font_opposans_m_18)
 LV_FONT_DECLARE(lv_font_opposans_m_20)
 LV_FONT_DECLARE(lv_font_opposans_m_22)
-LV_FONT_DECLARE(lv_font_simsun_42)
-LV_FONT_DECLARE(lv_font_simsun_48)
 
 /*Declare the custom (user defined) fonts*/
 #ifdef LV_FONT_CUSTOM_DECLARE

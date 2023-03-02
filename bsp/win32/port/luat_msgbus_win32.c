@@ -61,7 +61,7 @@ uint32_t luat_msgbus_get(rtos_msg_t* rtmsg, size_t timeout) {
         if(msg.message == WM_LBUTTONDOWN || msg.message == WM_LBUTTONUP) {
             mouse_pressed = (msg.message == WM_LBUTTONDOWN);
         }
-        win32_set_mouse_state(mouse_x, mouse_y, mouse_pressed);
+        // win32_set_mouse_state(mouse_x, mouse_y, mouse_pressed);
         break;
     case WM_COMMAND:
         tmp = (rtos_msg_t*)msg.wParam;

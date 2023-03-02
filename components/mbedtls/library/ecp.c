@@ -542,6 +542,11 @@ static const mbedtls_ecp_curve_info ecp_supported_curves[] =
 #if defined(MBEDTLS_ECP_DP_CURVE448_ENABLED)
     { MBEDTLS_ECP_DP_CURVE448,     30,     448,    "x448"              },
 #endif
+#ifdef __LUATOS__
+#if defined(ECP_DP_SM2_256V1_ENABLED)
+    {ECP_DP_SM2_256V1,              2,     256,    "sm2_256v1"         },
+#endif
+#endif //__LUATOS__
     { MBEDTLS_ECP_DP_NONE,          0,     0,      NULL                },
 };
 

@@ -20,11 +20,11 @@
 /*
 获取内置字体
 @api lvgl.font_get(name)
-@string 字体名称+字号, 例如 opposans_m_10 simsun_48
+@string 字体名称+字号, 例如 opposans_m_10
 @return userdata 字体指针
 @usage
 
-local font = lvgl.font_get("simsun_48")
+local font = lvgl.font_get("opposans_m_12")
 */
 int luat_lv_font_get(lua_State *L) {
     lv_font_t* font = NULL;
@@ -58,12 +58,6 @@ int luat_lv_font_get(lua_State *L) {
 #ifdef LV_FONT_OPPOSANS_M_22
     else if (!strcmp("opposans_m_22", fontname)) { font = &lv_font_opposans_m_22;}
 #endif
-#ifdef USE_LVGL_SIMSUN_42
-    else if (!strcmp("simsun_42", fontname)) { font = &lv_font_simsun_42;}
-#endif
-#ifdef USE_LVGL_SIMSUN_48
-    else if (!strcmp("simsun_48", fontname)) { font = &lv_font_simsun_48;}
-#endif
 
     if (font) {
         lua_pushlightuserdata(L, font);
@@ -84,7 +78,7 @@ int luat_lv_font_get(lua_State *L) {
 @number sty_en 可选(使用高通矢量字库)
 @return userdata 字体指针
 @usage
-local font = lvgl.font_load("/font_simsun_32.bin")
+local font = lvgl.font_load("/font_32.bin")
 --local font = lvgl.font_load(spi_device,16)(高通矢量字库)
 */
 int luat_lv_font_load(lua_State *L) {
@@ -124,7 +118,7 @@ int luat_lv_font_load(lua_State *L) {
 @string 字体路径
 @return userdata 字体指针
 @usage
-local font = lvgl.font_load("/font_simsun_32.bin")
+local font = lvgl.font_load("/font_32.bin")
 -- N N N N 操作
 -- 确定字体不被使用,不被引用,且内存紧张需要释放
 lvgl.font_free(font)

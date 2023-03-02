@@ -55,22 +55,22 @@ int luat_lv_init(lua_State *L) {
     emulator_lvgl_init(w, h);
     return 0;
 }
-#elif defined(LUA_USE_WINDOWS)
-// win32遗留模式
-#include <windows.h>
-extern uint32_t WINDOW_HOR_RES;
-extern uint32_t WINDOW_VER_RES;
-int luat_lv_init(lua_State *L) {
-    if (lua_isnumber(L, 1) && lua_isnumber(L, 2)) {
-        WINDOW_HOR_RES = luaL_checkinteger(L, 1);
-        WINDOW_VER_RES = luaL_checkinteger(L, 2);
-    }
-    LLOGD("win32 lvgl init %d %d", WINDOW_HOR_RES, WINDOW_VER_RES);
-    HWND windrv_init(void);
-    windrv_init();
-    lua_pushboolean(L, 1);
-    return 1;
-}
+// #elif defined(LUA_USE_WINDOWS)
+// // win32遗留模式
+// #include <windows.h>
+// extern uint32_t WINDOW_HOR_RES;
+// extern uint32_t WINDOW_VER_RES;
+// int luat_lv_init(lua_State *L) {
+//     if (lua_isnumber(L, 1) && lua_isnumber(L, 2)) {
+//         WINDOW_HOR_RES = luaL_checkinteger(L, 1);
+//         WINDOW_VER_RES = luaL_checkinteger(L, 2);
+//     }
+//     LLOGD("win32 lvgl init %d %d", WINDOW_HOR_RES, WINDOW_VER_RES);
+//     HWND windrv_init(void);
+//     windrv_init();
+//     lua_pushboolean(L, 1);
+//     return 1;
+// }
 
 #elif defined(LUAT_USE_LVGL_INIT_CUSTOM)
 // 自定义模式, 这个由bsp自行实现了

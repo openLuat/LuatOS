@@ -110,10 +110,10 @@
 /*-----------------------------------
  *  Native Windows (including mouse)
  *----------------------------------*/
-#ifdef LUA_USE_WINDOWS
-#define USE_WINDOWS 1
-#define USE_WIN32DRV 1
-#endif
+// #ifdef LUA_USE_WINDOWS
+// #define USE_WINDOWS 1
+// #define USE_WIN32DRV 1
+// #endif
 
 #ifndef USE_WINDOWS
 #  define USE_WINDOWS       0

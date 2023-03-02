@@ -22,6 +22,8 @@
 #define LUAT_USE_CRYPTO 1
 #define LUAT_COMPILER_NOWEAK
 
+#define LUAT_USE_SM 1
+
 //#define LUAT_USE_LVGL 1
 #define LUAT_USE_LVGL_SDL2 1
 #define LUAT_USE_LCD_SDL2 1
@@ -38,7 +40,6 @@
 #define LV_FONT_OPPOSANS_M_18
 #define LV_FONT_OPPOSANS_M_20
 #define LV_FONT_OPPOSANS_M_22
-#define USE_LVGL_SIMSUN_48
 
 #define LUAT_USE_LVGL_ARC       1   //圆弧 无依赖
 #define LUAT_USE_LVGL_BAR       1   //进度条 无依赖

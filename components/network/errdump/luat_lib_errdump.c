@@ -352,32 +352,55 @@ static LUAT_RT_RET_TYPE luat_errdump_timer_callback(LUAT_RT_CB_PARAM)
 static void luat_errdump_save(const char *path, const uint8_t *data, uint32_t len)
 {
 	if (!econf.error_dump_enable) return;
-	FILE* fd = luat_fs_fopen(path, "a+");
-	if (!fd)
-	{
-		return;
-	}
 	size_t now_len = luat_fs_fsize(path);
-	if ((now_len + len) > ERR_DUMP_LEN_MAX)
-	{
-		uint8_t *buffer = luat_heap_malloc(now_len + len);
-		if (!buffer)
-		{
-			luat_fs_fclose(fd);
-			return;
+	FILE* fd = NULL;
+	// 分情况处理
+	if (len >= ERR_DUMP_LEN_MAX) {
+		// 新数据直接超过了最大长度, 那老数据没意义了
+		// 而且新数据必须截断
+		data += (len - ERR_DUMP_LEN_MAX);
+		len = ERR_DUMP_LEN_MAX;
+		fd = luat_fs_fopen(path, "w+"); // 这里会截断
+	}
+	else if (now_len + len > ERR_DUMP_LEN_MAX) {
+		// 新数据小于ERR_DUMP_LEN_MAX, 但新数据+老数据<ERR_DUMP_LEN_MAX
+		size_t keep_len = ERR_DUMP_LEN_MAX - len;// 老数据保留措施
+		uint8_t *buffer = luat_heap_malloc(keep_len); 
+		if (buffer) {
+			// 打开原文件,读取现有的数据
+			fd = luat_fs_fopen(path, "r");
+			if (fd) {
+				luat_fs_fseek(fd, now_len - keep_len, SEEK_SET);
+				luat_fs_fread(buffer, keep_len, 1, fd);
+				luat_fs_fclose(fd);
+				// 再次打开文件,进行写入
+				fd = luat_fs_fopen(path, "w+");
+				if (fd) {
+					luat_fs_fwrite(buffer, keep_len, 1, fd);
+				} // 老数据读不到就无视吧
+			} // 老数据读不到就无视吧
+			luat_heap_free(buffer);
 		}
-		luat_fs_fseek(fd, 0, SEEK_SET);
-		luat_fs_fread(buffer, now_len, 1, fd);
-		memcpy(buffer + now_len, data, len);
-		luat_fs_fseek(fd, 0, SEEK_SET);
-		luat_fs_fwrite(buffer + (now_len + len) - ERR_DUMP_LEN_MAX, ERR_DUMP_LEN_MAX, 1, fd);
-		luat_heap_free(buffer);
 	}
-	else
-	{
+	else {
+		// 数据直接追加就可以了
+		fd = luat_fs_fopen(path, "a+");
+	}
+	if (fd == NULL) {
+		// 最后的尝试
+		luat_fs_remove(path);
+		fd = luat_fs_fopen(path, "w+"); 
+	}
+
+	// 最后的最后, 写入新数据
+	if (fd) {
 		luat_fs_fwrite(data, len, 1, fd);
+		luat_fs_fclose(fd);
 	}
-	luat_fs_fclose(fd);
+	else {
+		// TODO 这里要return吗?
+	}
+
 	if (!econf.is_uploading  && econf.upload_period)
 	{
 		luat_rtos_timer_start(econf.upload_timer, 2000, 0, luat_errdump_timer_callback, NULL);

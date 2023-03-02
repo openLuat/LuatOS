@@ -21,14 +21,16 @@ sys.taskInit(function()
 
     -- SM2 , 非对称加密, 类似于RSA,但属于椭圆算法
     -- 就当前实现还是比较慢的
-    local originStr = "encryption standard"
-    local pkx = "191BFF8148006EEA72D857CB974DB9F4903B3CA3655D8D597AD4663F5044DCB1"
-    local pky = "E2F7888AF1FCD8C653A8059CD2F379855389F71A7709E2C1EE1E914C855EF119"
-    local private = "1649AB77A00637BD5E2EFE283FBF353534AA7F7CB89463F208DDBC2920BB0DA0"
-    local rand = "4C62EEFD6ECFC2B95B92FD6C3D9575148AFA17425546D49018E5388D49DD7B4F"
-    local encodeStr = gmssl.sm2encrypt(pkx,pky,rand,originStr,private)
-    print(originStr,"encrypt",string.toHex(encodeStr))
-    log.info("testsm.sm2decrypt",gmssl.sm2decrypt(private,encodeStr,pkx,pky))
+    if gmssl.sm2encrypt then -- 部分BSP不支持
+        local originStr = "encryption standard"
+        local pkx = "191BFF8148006EEA72D857CB974DB9F4903B3CA3655D8D597AD4663F5044DCB1"
+        local pky = "E2F7888AF1FCD8C653A8059CD2F379855389F71A7709E2C1EE1E914C855EF119"
+        local private = "1649AB77A00637BD5E2EFE283FBF353534AA7F7CB89463F208DDBC2920BB0DA0"
+        local rand = "4C62EEFD6ECFC2B95B92FD6C3D9575148AFA17425546D49018E5388D49DD7B4F"
+        local encodeStr = gmssl.sm2encrypt(pkx,pky,rand,originStr,private)
+        print(originStr,"encrypt",string.toHex(encodeStr))
+        log.info("testsm.sm2decrypt",gmssl.sm2decrypt(private,encodeStr,pkx,pky))
+    end
 
     -- SM3 算法, hash类
     encodeStr = gmssl.sm3update("lqlq666lqlq946")

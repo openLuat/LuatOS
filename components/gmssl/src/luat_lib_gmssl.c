@@ -467,8 +467,10 @@ static int l_sm4_decrypt(lua_State *L)
 #include "rotable2.h"
 static const rotable_Reg_t reg_gmssl[] =
 {
+#if defined(ECP_DP_SM2_256V1_ENABLED) && defined(MBEDTLS_ECP_C)
     { "sm2encrypt",      ROREG_FUNC(l_sm2_encrypt)},
     { "sm2decrypt",      ROREG_FUNC(l_sm2_decrypt)},
+#endif
     { "sm3update",       ROREG_FUNC(l_sm3_update)},
     { "sm4encrypt",      ROREG_FUNC(l_sm4_encrypt)},
     { "sm4decrypt",      ROREG_FUNC(l_sm4_decrypt)},

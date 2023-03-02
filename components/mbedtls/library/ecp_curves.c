@@ -516,8 +516,7 @@ static const mbedtls_mpi_uint brainpoolP512r1_n[] = {
 #endif /* MBEDTLS_ECP_DP_BP512R1_ENABLED */
 
 /* sm2 */
-//#if defined(ECP_DP_SM2_256V1_ENABLED)
-
+#if defined(ECP_DP_SM2_256V1_ENABLED)
 static const mbedtls_mpi_uint sm2_256v1_p[] = {
     MBEDTLS_BYTES_TO_T_UINT_8(0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF),
     MBEDTLS_BYTES_TO_T_UINT_8(0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF),
@@ -563,7 +562,7 @@ static const mbedtls_mpi_uint sm2_256v1_n[] = {
     MBEDTLS_BYTES_TO_T_UINT_8(0xFF, 0xFF, 0xFF, 0xFF, 0xFE, 0xFF, 0xFF, 0xFF),
 };
 
-//#endif  /*end sm2 */
+#endif  /*end sm2 */
 
 #if defined(MBEDTLS_ECP_DP_SECP192R1_ENABLED) ||   \
     defined(MBEDTLS_ECP_DP_SECP224R1_ENABLED) ||   \
@@ -882,11 +881,11 @@ int mbedtls_ecp_group_load( mbedtls_ecp_group *grp, mbedtls_ecp_group_id id )
             return( ecp_use_curve448( grp ) );
 #endif /* MBEDTLS_ECP_DP_CURVE448_ENABLED */
 
-//#if defined(ECP_DP_SM2_256V1_ENABLED)
+#if defined(ECP_DP_SM2_256V1_ENABLED)
         case ECP_DP_SM2_256V1:
             //todo
             return (LOAD_GROUP_A(sm2_256v1));
-//#endif
+#endif
         default:
             grp->id = MBEDTLS_ECP_DP_NONE;
             return( MBEDTLS_ERR_ECP_FEATURE_UNAVAILABLE );

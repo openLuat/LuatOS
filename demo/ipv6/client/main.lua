@@ -37,6 +37,9 @@ function ipv6test()
     log.info("ipv6", "联网完成")
     sys.wait(100)
 
+    socket.setDNS(nil, 1, "119.29.29.29")
+    socket.setDNS(nil, 2, "114.114.114.114")
+
     -- 开始正在的逻辑, 发起socket链接,等待数据/上报心跳
     local taskName = "ipv6client"
     local topic = taskName .. "_txrx"
@@ -63,13 +66,17 @@ end
 
 
 function ipv6task(d1Name, txqueue, rxtopic)
+    -- 测试方式1, 连netlab外网版,带ipv6
     -- 注意, 这里需要登录外网的netlab才有ipv6
     -- 网站链接: https://netlab.luatos.org/ 
-    local host = "2603:c023:1:5fcc:c028:8ed:49a7:6e08"
-    -- local host = "112.125.89.8"
-    -- local host = "152.70.80.204"
-    local port = 55389 -- 页面点击"打开TCP" 后获取实际端口
+    -- local host = "2603:c023:1:5fcc:c028:8ed:49a7:6e08"
+    -- local port = 55389 -- 页面点击"打开TCP" 后获取实际端口
 
+    -- 测试方式2, 连另外一个780e设备
+    local host = "864040064024194.dyndns.u8g2.com"
+    -- local host = "mirrors6.tuna.tsinghua.edu.cn"
+    -- local host = "2408:8456:e37:95d8::1"
+    local port = 14000
 
     local rx_buff = zbuff.create(1024)
     local netc = socket.create(nil, d1Name)

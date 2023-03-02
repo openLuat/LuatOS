@@ -1,5 +1,5 @@
 --[[
-IPv6客户端演示, 仅EC618系列支持, 例如Air780E/Air600E/Air780UG/Air700E
+IPv6服务端演示, 仅EC618系列支持, 例如Air780E/Air600E/Air780UG/Air700E
 ]]
 
 -- LuaTools需要PROJECT和VERSION这两个信息
@@ -37,6 +37,14 @@ function ipv6test()
     log.info("ipv6", "联网完成")
     sys.wait(100)
 
+    -- 打印一下本地ip
+    ip, mask, gw, ipv6 = socket.localIP()
+    log.info("本地IP地址", ip, ipv6)
+	if not ipv6 then
+		log.info("没有IPV6地址，无法演示")
+		-- return
+	end
+
     -- 开始正在的逻辑, 发起socket链接,等待数据/上报心跳
     local taskName = "ipv6client"
     local topic = taskName .. "_txrx"
@@ -63,27 +71,26 @@ end
 
 
 function ipv6task(d1Name, txqueue, rxtopic)
-    -- 注意, 这里需要登录外网的netlab才有ipv6
-    -- 网站链接: https://netlab.luatos.org/ 
-    local host = "2603:c023:1:5fcc:c028:8ed:49a7:6e08"
-    local host = "112.125.89.8"
-    -- local host = "152.70.80.204"
-    local port = 36463 -- 页面点击"打开TCP" 后获取实际端口
+    -- 本地监听的端口
+    local port = 14000
 
 
     local rx_buff = zbuff.create(1024)
     local netc = socket.create(nil, d1Name)
-    socket.config(netc)
+    socket.config(netc, 14000)
     log.info("任务id", d1Name)
 
     while true do
-        log.info("socket", "开始连接服务器")
-        local result = libnet.connect(d1Name, 15000, netc, host, port)
+        log.info("socket", "开始监控")
+        local result = libnet.listen(d1Name, 0, netc)
         if result then
-			log.info("socket", "服务器连上了")
-			libnet.tx(d1Name, 0, netc, "helloworld")
+			log.info("socket", "监听成功")
+            result = socket.accept(netc, nil)    --只支持1对1
+            if result then
+			    log.info("客户端连上了")
+            end
         else
-            log.info("socket", "服务器没连上了!!!")
+            log.info("socket", "监听失败!!")
 		end
 		while result do
             -- log.info("socket", "调用rx接收数据")

@@ -151,6 +151,11 @@ typedef enum
     MBEDTLS_ECP_DP_SECP224K1,      /*!< Domain parameters for 224-bit "Koblitz" curve. */
     MBEDTLS_ECP_DP_SECP256K1,      /*!< Domain parameters for 256-bit "Koblitz" curve. */
     MBEDTLS_ECP_DP_CURVE448,       /*!< Domain parameters for Curve448. */
+#ifdef __LUATOS__
+#if defined(ECP_DP_SM2_256V1_ENABLED)
+    ECP_DP_SM2_256V1,
+#endif
+#endif
 } mbedtls_ecp_group_id;
 
 /**

@@ -20,11 +20,11 @@
 /*
 获取内置字体
 @api lvgl.font_get(name)
-@string 字体名称+字号, 例如 opposans_m_10 simsun_48
+@string 字体名称+字号, 例如 opposans_m_10
 @return userdata 字体指针
 @usage
 
-local font = lvgl.font_get("simsun_48")
+local font = lvgl.font_get("opposans_m_12")
 */
 int luat_lv_font_get(lua_State *L) {
     lv_font_t* font = NULL;
@@ -57,12 +57,6 @@ int luat_lv_font_get(lua_State *L) {
 #endif
 #ifdef LV_FONT_OPPOSANS_M_22
     else if (!strcmp("opposans_m_22", fontname)) { font = &lv_font_opposans_m_22;}
-#endif
-#ifdef USE_LVGL_SIMSUN_42
-    else if (!strcmp("simsun_42", fontname)) { font = &lv_font_simsun_42;}
-#endif
-#ifdef USE_LVGL_SIMSUN_48
-    else if (!strcmp("simsun_48", fontname)) { font = &lv_font_simsun_48;}
 #endif
 
     if (font) {

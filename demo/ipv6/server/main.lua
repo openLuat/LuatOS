@@ -37,13 +37,19 @@ function ipv6test()
     log.info("ipv6", "联网完成")
     sys.wait(100)
 
-    -- 打印一下本地ip
+    -- 打印一下本地ip, 一般只有ipv6才可能是公网ip, ipv4基本不可能
+    -- 而且ipv6不一样是外网ip, 这是运营商决定的, 模块无能为力
     ip, mask, gw, ipv6 = socket.localIP()
     log.info("本地IP地址", ip, ipv6)
 	if not ipv6 then
 		log.info("没有IPV6地址，无法演示")
 		-- return
 	end
+
+    -- 这里给个演示用的ddns, 临时自建的, 仅供测试
+    http.request("GET", "http://81.70.22.216:8280/update?secret=luatos&domain=864040064024194.dyndns&addr=" .. ipv6).wait()
+    log.info("DDNS", "已映射", mobile.imei() .. ".dyndns.u8g2.com")
+    log.info("shell", "telnet -6 " .. mobile.imei() .. ".dyndns.u8g2.com 14000")
 
     -- 开始正在的逻辑, 发起socket链接,等待数据/上报心跳
     local taskName = "ipv6client"

@@ -22,6 +22,8 @@
 #define LUAT_USE_CRYPTO 1
 #define LUAT_COMPILER_NOWEAK
 
+#define LUAT_USE_SM 1
+
 //#define LUAT_USE_LVGL 1
 #define LUAT_USE_LVGL_SDL2 1
 #define LUAT_USE_LCD_SDL2 1

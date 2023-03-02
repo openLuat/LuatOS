@@ -515,6 +515,56 @@ static const mbedtls_mpi_uint brainpoolP512r1_n[] = {
 };
 #endif /* MBEDTLS_ECP_DP_BP512R1_ENABLED */
 
+/* sm2 */
+//#if defined(ECP_DP_SM2_256V1_ENABLED)
+
+static const mbedtls_mpi_uint sm2_256v1_p[] = {
+    MBEDTLS_BYTES_TO_T_UINT_8(0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF),
+    MBEDTLS_BYTES_TO_T_UINT_8(0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF),
+    MBEDTLS_BYTES_TO_T_UINT_8(0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF),
+    MBEDTLS_BYTES_TO_T_UINT_8(0xFF, 0xFF, 0xFF, 0xFF, 0xFE, 0xFF, 0xFF, 0xFF),
+
+};
+
+/* a */
+static const mbedtls_mpi_uint sm2_256v1_a[] = {
+    MBEDTLS_BYTES_TO_T_UINT_8(0xFC, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF),
+    MBEDTLS_BYTES_TO_T_UINT_8(0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF),
+    MBEDTLS_BYTES_TO_T_UINT_8(0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF),
+    MBEDTLS_BYTES_TO_T_UINT_8(0xFF, 0xFF, 0xFF, 0xFF, 0xFE, 0xFF, 0xFF, 0xFF),
+};
+
+/* b */
+static const mbedtls_mpi_uint sm2_256v1_b[] = {
+    MBEDTLS_BYTES_TO_T_UINT_8(0x93, 0x0E, 0x94, 0x4D, 0x41, 0xBD, 0xBC, 0xDD),
+    MBEDTLS_BYTES_TO_T_UINT_8(0x92, 0x8F, 0xAB, 0x15, 0xF5, 0x89, 0x97, 0xF3),
+    MBEDTLS_BYTES_TO_T_UINT_8(0xA7, 0x09, 0x65, 0xCF, 0x4B, 0x9E, 0x5A, 0x4D),
+    MBEDTLS_BYTES_TO_T_UINT_8(0x34, 0x5E, 0x9F, 0x9D, 0x9E, 0xFA, 0xE9, 0x28),
+};
+/* x */
+static const mbedtls_mpi_uint sm2_256v1_gx[] = {
+    MBEDTLS_BYTES_TO_T_UINT_8(0xC7, 0x74, 0x4C, 0x33, 0x89, 0x45, 0x5A, 0x71),
+    MBEDTLS_BYTES_TO_T_UINT_8(0xE1, 0x0B, 0x66, 0xF2, 0xBF, 0x0B, 0xE3, 0x8F),
+    MBEDTLS_BYTES_TO_T_UINT_8(0x94, 0xC9, 0x39, 0x6A, 0x46, 0x04, 0x99, 0x5F),
+    MBEDTLS_BYTES_TO_T_UINT_8(0x19, 0x81, 0x19, 0x1F, 0x2C, 0xAE, 0xC4, 0x32),
+};
+/* y */
+static const mbedtls_mpi_uint sm2_256v1_gy[] = {
+    MBEDTLS_BYTES_TO_T_UINT_8(0xA0, 0xF0, 0x39, 0x21, 0xE5, 0x32, 0xDF, 0x02),
+    MBEDTLS_BYTES_TO_T_UINT_8(0x40, 0x47, 0x2A, 0xC6, 0x7C, 0x87, 0xA9, 0xD0),
+    MBEDTLS_BYTES_TO_T_UINT_8(0x53, 0x21, 0x69, 0x6B, 0xE3, 0xCE, 0xBD, 0x59),
+    MBEDTLS_BYTES_TO_T_UINT_8(0x9C, 0x77, 0xF6, 0xF4, 0xA2, 0x36, 0x37, 0xBC),
+};
+/* n */
+static const mbedtls_mpi_uint sm2_256v1_n[] = {
+    MBEDTLS_BYTES_TO_T_UINT_8(0x23, 0x41, 0xD5, 0x39, 0x09, 0xF4, 0xBB, 0x53),
+    MBEDTLS_BYTES_TO_T_UINT_8(0x2B, 0x05, 0xC6, 0x21, 0x6B, 0xDF, 0x03, 0x72),
+    MBEDTLS_BYTES_TO_T_UINT_8(0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF),
+    MBEDTLS_BYTES_TO_T_UINT_8(0xFF, 0xFF, 0xFF, 0xFF, 0xFE, 0xFF, 0xFF, 0xFF),
+};
+
+//#endif  /*end sm2 */
+
 #if defined(MBEDTLS_ECP_DP_SECP192R1_ENABLED) ||   \
     defined(MBEDTLS_ECP_DP_SECP224R1_ENABLED) ||   \
     defined(MBEDTLS_ECP_DP_SECP256R1_ENABLED) ||   \
@@ -525,7 +575,8 @@ static const mbedtls_mpi_uint brainpoolP512r1_n[] = {
     defined(MBEDTLS_ECP_DP_BP512R1_ENABLED)   ||   \
     defined(MBEDTLS_ECP_DP_SECP192K1_ENABLED) ||   \
     defined(MBEDTLS_ECP_DP_SECP224K1_ENABLED) ||   \
-    defined(MBEDTLS_ECP_DP_SECP256K1_ENABLED)
+    defined(MBEDTLS_ECP_DP_SECP256K1_ENABLED) ||   \
+    defined(ECP_DP_SM2_256V1_ENABLED)
 /* For these curves, we build the group parameters dynamically. */
 #define ECP_LOAD_GROUP
 #endif
@@ -831,6 +882,11 @@ int mbedtls_ecp_group_load( mbedtls_ecp_group *grp, mbedtls_ecp_group_id id )
             return( ecp_use_curve448( grp ) );
 #endif /* MBEDTLS_ECP_DP_CURVE448_ENABLED */
 
+//#if defined(ECP_DP_SM2_256V1_ENABLED)
+        case ECP_DP_SM2_256V1:
+            //todo
+            return (LOAD_GROUP_A(sm2_256v1));
+//#endif
         default:
             grp->id = MBEDTLS_ECP_DP_NONE;
             return( MBEDTLS_ERR_ECP_FEATURE_UNAVAILABLE );
@@ -1337,9 +1393,10 @@ cleanup:
 }
 #endif /* MBEDTLS_ECP_DP_CURVE448_ENABLED */
 
-#if defined(MBEDTLS_ECP_DP_SECP192K1_ENABLED) ||   \
-    defined(MBEDTLS_ECP_DP_SECP224K1_ENABLED) ||   \
-    defined(MBEDTLS_ECP_DP_SECP256K1_ENABLED)
+#if defined(MBEDTLS_ECP_DP_SECP192K1_ENABLED) || \
+    defined(MBEDTLS_ECP_DP_SECP224K1_ENABLED) || \
+    defined(MBEDTLS_ECP_DP_SECP256K1_ENABLED)  || \
+    defined(ECP_DP_SM2_256V1_ENABLED)
 /*
  * Fast quasi-reduction modulo P = 2^s - R,
  * with R about 33 bits, used by the Koblitz curves.

@@ -37,7 +37,7 @@
  * This section sets system specific settings.
  * \{
  */
-
+#define ECP_DP_SM2_256V1_ENABLED
 /**
  * \def MBEDTLS_HAVE_ASM
  *

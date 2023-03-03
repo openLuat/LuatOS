@@ -18,26 +18,26 @@ log.info("main", "soft uart demo")
 local function resouce()     
     local rtos_bsp = rtos.bsp()
     if rtos_bsp == "AIR101" then
-        return nil,nil,nil,nil
+        return nil,nil,nil,nil,nil,nil,nil
     elseif rtos_bsp == "AIR103" then
-        return nil,nil,nil,nil
+        return nil,nil,nil,nil,nil,nil,nil
     elseif rtos_bsp == "AIR105" then
-        return pin.PA07,0,pin.PA06,1,38400
+        return pin.PA07,0,pin.PA06,1,115200,0,-10
     elseif rtos_bsp == "ESP32C3" then
-        return nil,nil,nil,nil
+        return nil,nil,nil,nil,nil,nil,nil
     elseif rtos_bsp == "ESP32S3" then
-        return nil,nil,nil,nil
+        return nil,nil,nil,nil,nil,nil,nil
     elseif rtos_bsp == "EC618" then
-        return 17,0,1,2,9600
+        return 17,0,1,2,19200,0,-50
     else
         log.info("main", "bsp not support")
         return
     end
 end
 
-local tx_pin,tx_timer,rx_pin,rx_timer,br = resouce() 
+local tx_pin,tx_timer,rx_pin,rx_timer,br,tx_adjust,rx_adjust = resouce() 
 
-local uartid = uart.createSoft(tx_pin,tx_timer,rx_pin,rx_timer)
+local uartid = uart.createSoft(tx_pin,tx_timer,rx_pin,rx_timer,tx_adjust,rx_adjust)
 --初始化
 local result = uart.setup(
     uartid,--串口id

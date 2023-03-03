@@ -27,6 +27,9 @@ typedef struct luat_uart_cb {
 static luat_uart_cb_t uart_cbs[MAX_DEVICE_COUNT + MAX_USB_DEVICE_COUNT];
 static luat_uart_recv_callback_t uart_app_recvs[MAX_DEVICE_COUNT + MAX_USB_DEVICE_COUNT];
 #ifdef LUAT_USE_SOFT_UART
+#ifndef __LUAT_C_CODE_IN_RAM__
+#define __LUAT_C_CODE_IN_RAM__
+#endif
 #ifndef __BSP_COMMON_H__
 #include "c_common.h"
 #endif
@@ -40,9 +43,11 @@ typedef struct
 
 typedef struct
 {
-	uint32_t period;
+	uint32_t tx_period;
+	uint32_t rx_period;
 	uint32_t stop_period;
-	int adjust_period;
+	int tx_adjust_period;
+	int rx_adjust_period;
 	Buffer_Struct rx_buffer;
 	Buffer_Struct tx_buffer;
 	llist_head tx_queue_head;
@@ -79,12 +84,11 @@ static int32_t luat_uart_soft_del_tx_queue(void *pdata, void *param)
 	return LIST_DEL;
 }
 
-static int luat_uart_soft_recv_start_irq(int pin, void *param)
+static int __LUAT_C_CODE_IN_RAM__ luat_uart_soft_recv_start_irq(int pin, void *param)
 {
-	luat_uart_soft_hwtimer_onoff(prv_uart_soft->rx_hwtimer_id, prv_uart_soft->period + (prv_uart_soft->period >> 2));
+	luat_uart_soft_hwtimer_onoff(prv_uart_soft->rx_hwtimer_id, prv_uart_soft->rx_period + (prv_uart_soft->rx_period >> 4));
 	prv_uart_soft->rx_shift_bits = 0;
 	prv_uart_soft->rx_parity_bit = prv_uart_soft->parity_odd;
-	prv_uart_soft->rx_bit = 0;
 	luat_uart_soft_gpio_fast_irq_set(pin, 0);
 	luat_uart_soft_sleep_enable(0);
 	return 0;
@@ -118,24 +122,33 @@ static int luat_uart_soft_setup(luat_uart_t *uart)
 		break;
 	}
 	prv_uart_soft->parity = uart->parity;
-	if (prv_uart_soft->adjust_period < 0)
+	if (prv_uart_soft->tx_adjust_period < 0)
 	{
-		prv_uart_soft->period = luat_uart_soft_cal_baudrate(uart->baud_rate) - (-prv_uart_soft->adjust_period);
+		prv_uart_soft->tx_period = luat_uart_soft_cal_baudrate(uart->baud_rate) - (-prv_uart_soft->tx_adjust_period);
 	}
 	else
 	{
-		prv_uart_soft->period = luat_uart_soft_cal_baudrate(uart->baud_rate) + prv_uart_soft->adjust_period;
+		prv_uart_soft->tx_period = luat_uart_soft_cal_baudrate(uart->baud_rate) + prv_uart_soft->tx_adjust_period;
+	}
+	if (prv_uart_soft->rx_adjust_period < 0)
+	{
+		prv_uart_soft->rx_period = luat_uart_soft_cal_baudrate(uart->baud_rate) - (-prv_uart_soft->rx_adjust_period);
+	}
+	else
+	{
+		prv_uart_soft->rx_period = luat_uart_soft_cal_baudrate(uart->baud_rate) + prv_uart_soft->rx_adjust_period;
 	}
 
+	LLOGD("soft uart period %u,%u!", prv_uart_soft->tx_period, prv_uart_soft->rx_period);
 	switch(uart->stop_bits)
 	{
 	case 2:
 		prv_uart_soft->total_bits = prv_uart_soft->data_bits + prv_uart_soft->parity + 4;
-		prv_uart_soft->stop_period = prv_uart_soft->period * 3;
+		prv_uart_soft->stop_period = luat_uart_soft_cal_baudrate(uart->baud_rate) * 3;
 		break;
 	default:
 		prv_uart_soft->total_bits = prv_uart_soft->data_bits + prv_uart_soft->parity + 2;
-		prv_uart_soft->stop_period = prv_uart_soft->period * 2;
+		prv_uart_soft->stop_period = luat_uart_soft_cal_baudrate(uart->baud_rate) * 2;
 		break;
 	}
 	if (uart->pin485 != 0xffffffff)
@@ -244,7 +257,7 @@ static int luat_uart_soft_write(const uint8_t *data, uint32_t len)
 		node = (luat_uart_soft_tx_node_t *)prv_uart_soft->tx_queue_head.next;
 		Buffer_StaticInit(&prv_uart_soft->tx_buffer, node->data, node->len);
 		prv_uart_soft->tx_shift_bits = 0;
-		luat_uart_soft_hwtimer_onoff(prv_uart_soft->tx_hwtimer_id, prv_uart_soft->period);
+		luat_uart_soft_hwtimer_onoff(prv_uart_soft->tx_hwtimer_id, prv_uart_soft->tx_period);
 		luat_uart_soft_gpio_fast_output(prv_uart_soft->tx_pin, 0);
 		prv_uart_soft->tx_byte = prv_uart_soft->tx_buffer.Data[0];
 		prv_uart_soft->tx_parity_bit = prv_uart_soft->parity_odd;
@@ -833,7 +846,7 @@ static int l_uart_soft_handler_tx_done(lua_State *L, void* ptr)
 			Buffer_StaticInit(&prv_uart_soft->tx_buffer, node->data, node->len);
 			prv_uart_soft->tx_shift_bits = 0;
 			luat_uart_soft_gpio_fast_output(prv_uart_soft->tx_pin, 0);
-			luat_uart_soft_hwtimer_onoff(prv_uart_soft->tx_hwtimer_id, prv_uart_soft->period);
+			luat_uart_soft_hwtimer_onoff(prv_uart_soft->tx_hwtimer_id, prv_uart_soft->tx_period);
 			prv_uart_soft->tx_byte = prv_uart_soft->tx_buffer.Data[0];
 			prv_uart_soft->tx_parity_bit = prv_uart_soft->parity_odd;
 		}
@@ -906,7 +919,7 @@ static int l_uart_soft_handler_rx_done(lua_State *L, void* ptr)
     return 1;
 }
 
-static void luat_uart_soft_send_hwtimer_irq(void)
+static void __LUAT_C_CODE_IN_RAM__ luat_uart_soft_send_hwtimer_irq(void)
 {
 	if (prv_uart_soft->tx_shift_bits)
 	{
@@ -929,7 +942,7 @@ static void luat_uart_soft_send_hwtimer_irq(void)
 			{
 				//发送新的字节的起始位
 				luat_uart_soft_gpio_fast_output(prv_uart_soft->tx_pin, 0);
-				luat_uart_soft_hwtimer_onoff(prv_uart_soft->tx_hwtimer_id, prv_uart_soft->period);
+				luat_uart_soft_hwtimer_onoff(prv_uart_soft->tx_hwtimer_id, prv_uart_soft->tx_period);
 				prv_uart_soft->tx_parity_bit = prv_uart_soft->parity_odd;
 				prv_uart_soft->tx_byte = prv_uart_soft->tx_buffer.Data[prv_uart_soft->tx_buffer.Pos];
 				prv_uart_soft->tx_shift_bits = 0;
@@ -973,13 +986,17 @@ static void luat_uart_soft_send_hwtimer_irq(void)
 	prv_uart_soft->tx_parity_bit += bit;
 }
 
-static void luat_uart_soft_recv_hwtimer_irq(void)
+static void __LUAT_C_CODE_IN_RAM__ luat_uart_soft_recv_hwtimer_irq(void)
 {
 	uint8_t bit = luat_uart_soft_gpio_fast_input(prv_uart_soft->rx_pin);
 	uint8_t is_end = 0;
 	if (!prv_uart_soft->rx_shift_bits) //检测起始位
 	{
-		luat_uart_soft_hwtimer_onoff(prv_uart_soft->rx_hwtimer_id, prv_uart_soft->period);
+		luat_uart_soft_hwtimer_onoff(prv_uart_soft->rx_hwtimer_id, prv_uart_soft->rx_period);
+		prv_uart_soft->rx_bit = bit;
+		prv_uart_soft->rx_shift_bits++;
+		prv_uart_soft->rx_parity_bit += bit;
+		return ;
 	}
 	else if (0xef == prv_uart_soft->rx_shift_bits)	//RX检测超时了，没有新的起始位
 	{
@@ -1047,7 +1064,8 @@ UART_SOFT_RX_DONE:
 @int 发送用的硬件定时器ID
 @int 接收引脚编号
 @int 接收用的硬件定时器ID
-@int 时序调整，单位是定时器时钟周期，默认是0，需要根据示波器或者逻辑分析仪进行微调
+@int 发送时序调整，单位是定时器时钟周期，默认是0，需要根据示波器或者逻辑分析仪进行微调
+@int 接收时序调整，单位是定时器时钟周期，默认是0，需要根据示波器或者逻辑分析仪进行微调
 @return int 软件uart的id，如果失败则返回nil
 @usage
 -- 初始化软件uart
@@ -1075,7 +1093,7 @@ static int l_uart_soft(lua_State *L) {
 		lua_pushnil(L);
 		goto CREATE_DONE;
 	}
-	for(int uart_id = 0; uart_id < MAX_DEVICE_COUNT; uart_id++)
+	for(int uart_id = 1; uart_id < MAX_DEVICE_COUNT; uart_id++)
 	{
 		if (!luat_uart_exist(uart_id))
 		{
@@ -1095,7 +1113,8 @@ static int l_uart_soft(lua_State *L) {
 	prv_uart_soft->tx_hwtimer_id = luaL_optinteger(L, 2, 0xff);
 	prv_uart_soft->rx_pin = luaL_optinteger(L, 3, 0xff);
 	prv_uart_soft->rx_hwtimer_id = luaL_optinteger(L, 4, 0xff);
-	prv_uart_soft->adjust_period = luaL_optinteger(L, 5, 0);
+	prv_uart_soft->tx_adjust_period = luaL_optinteger(L, 5, 0);
+	prv_uart_soft->rx_adjust_period = luaL_optinteger(L, 6, 0);
 	if (luat_uart_soft_setup_hwtimer_callback(prv_uart_soft->tx_hwtimer_id, luat_uart_soft_send_hwtimer_irq))
 	{
 		prv_uart_soft->is_inited = 0;

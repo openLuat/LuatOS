@@ -97,7 +97,7 @@ static iconv_t get_iconv_t(lua_State *L, int i) {
 @return table 编码转换函数的转换句柄
 @usage
 --unicode大端编码 转化为 utf8编码
-local cd = iconv.open("utf8", "ucs2be")
+local iconv = iconv.open("utf8", "ucs2be")
 */
 static int Liconv_open(lua_State *L) {
     const char *tocode = luaL_checkstring(L, 1);
@@ -118,8 +118,8 @@ static int Liconv_open(lua_State *L) {
 @usage
 --unicode大端编码 转化为 utf8编码
 function ucs2beToUtf8(ucs2s)
-    local cd = iconv.open("utf8", "ucs2be")
-    return cd:iconv(ucs2s)
+    local iconv = iconv.open("utf8", "ucs2be")
+    return iconv:iconv(ucs2s)
 end
 */
 static int Liconv(lua_State *L) {
@@ -219,8 +219,8 @@ static int Liconvlist(lua_State *L) {
 @return nil 无返回值
 @usage
 --关闭字符编码转换
-local cd = iconv.open("utf8", "ucs2be")
-iconv.close(cd)
+local iconv = iconv.open("utf8", "ucs2be")
+iconv.close(iconv)
 */
 static int Liconv_close(lua_State *L) {
     iconv_t cd = get_iconv_t(L, 1);

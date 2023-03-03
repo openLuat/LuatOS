@@ -17,6 +17,8 @@
 #include "sm3.h"
 #include "sm4.h"
 
+#include "luat_crypto.h"
+
 #define LUAT_LOG_TAG "sm"
 #include "luat_log.h"
 #define SM3_DIGEST_LENGTH    32
@@ -26,13 +28,7 @@
 
 static int myrand(void *ctx, unsigned char *msg, size_t size)
 {
-    // TODO 替换成crypto_trng
-	mbedtls_mpi k;
-	mbedtls_mpi_init(&k);
-	mbedtls_mpi_read_string(&k, HEX_CODE,
-							ctx);
-	mbedtls_mpi_write_binary(&k, msg, size);
-	mbedtls_mpi_free(&k);
+    luat_crypto_trng(msg, size);
 	return 0;
 }
 
@@ -83,10 +79,9 @@ static void DeletePaddingBuf(luaL_Buffer *B, uint8_t *pPadding, size_t nBufLen, 
 
 /*
 sm2算法加密
-@api sm.sm2encrypt(pkx,pky,rand,data)
+@api sm.sm2encrypt(pkx,pky,data)
 @string 公钥x,必选
 @string 公钥y,必选
-@string 随机数,必选
 @string 待计算的数据,必选
 @return string 加密后的字符串, 原样输出,未经HEX转换
 @usage
@@ -94,8 +89,7 @@ local originStr = "encryption standard"
 local pkx = "435B39CCA8F3B508C1488AFC67BE491A0F7BA07E581A0E4849A5CF70628A7E0A"
 local pky = "75DDBA78F15FEECB4C7895E2C1CDF5FE01DEBB2CDBADF45399CCF77BBA076A42"
 local private = "1649AB77A00637BD5E2EFE283FBF353534AA7F7CB89463F208DDBC2920BB0DA0"
-local rand = "4C62EEFD6ECFC2B95B92FD6C3D9575148AFA17425546D49018E5388D49DD7B4F"
-local encodeStr = gmssl.sm2encrypt(pkx,pky,rand,originStr)
+local encodeStr = gmssl.sm2encrypt(pkx,pky,originStr)
 print(originStr,"encrypt",string.toHex(encodeStr))
 log.info("testsm.sm2decrypt",gmssl.sm2decrypt(private,encodeStr))
 */
@@ -118,10 +112,6 @@ static int l_sm2_encrypt(lua_State *L)
     if((pkyLen!=64))
     {
         return luaL_error(L, "invalid pky password length=%d", pkyLen);
-    }
-    if((randLen!=64))
-    {
-        return luaL_error(L, "invalid rand length=%d", randLen);
     }
     
     // TODO 改为luaBuffer

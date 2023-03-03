@@ -57,7 +57,7 @@ LUAMOD_API int luaopen_pack( lua_State *L );
 LUAMOD_API int luaopen_mqttcore( lua_State *L );
 /** crypto库*/
 LUAMOD_API int luaopen_crypto( lua_State *L );
-LUAMOD_API int luaopen_sm( lua_State *L );
+LUAMOD_API int luaopen_gmssl( lua_State *L );
 /** 功耗调整 */
 LUAMOD_API int luaopen_pm( lua_State *L);
 LUAMOD_API int luaopen_m2m( lua_State *L);

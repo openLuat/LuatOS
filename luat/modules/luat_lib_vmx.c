@@ -69,8 +69,8 @@ static const luaL_Reg loadedlibs[] = {
 #ifdef LUAT_USE_ADC
   {"adc",   luaopen_adc},
 #endif
-#ifdef LUAT_USE_SM
-  {"sm",   luaopen_sm},
+#ifdef LUAT_USE_GMSSL
+  {"gmssl",   luaopen_gmssl},
 #endif
   {NULL, NULL}
 };

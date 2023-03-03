@@ -1,11 +1,12 @@
 
 /*
-@module  sm
+@module  gmssl
 @summary 国密算法
 @version 1.0
-@date    2020.07.03
-@demo sm
-@tag LUAT_USE_SM
+@date    2023.03.02
+@author  chenxudong1208
+@demo gmssl
+@tag LUAT_USE_GMSSL
 */
 #include "luat_base.h"
 #include "luat_malloc.h"
@@ -25,6 +26,7 @@
 
 static int myrand(void *ctx, unsigned char *msg, size_t size)
 {
+    // TODO 替换成crypto_trng
 	mbedtls_mpi k;
 	mbedtls_mpi_init(&k);
 	mbedtls_mpi_read_string(&k, HEX_CODE,
@@ -86,16 +88,16 @@ sm2算法加密
 @string 公钥y,必选
 @string 随机数,必选
 @string 待计算的数据,必选
-@return 
+@return string 加密后的字符串, 原样输出,未经HEX转换
 @usage
 local originStr = "encryption standard"
 local pkx = "435B39CCA8F3B508C1488AFC67BE491A0F7BA07E581A0E4849A5CF70628A7E0A"
 local pky = "75DDBA78F15FEECB4C7895E2C1CDF5FE01DEBB2CDBADF45399CCF77BBA076A42"
 local private = "1649AB77A00637BD5E2EFE283FBF353534AA7F7CB89463F208DDBC2920BB0DA0"
 local rand = "4C62EEFD6ECFC2B95B92FD6C3D9575148AFA17425546D49018E5388D49DD7B4F"
-local encodeStr = sm.sm2encrypt(pkx,pky,rand,originStr)
+local encodeStr = gmssl.sm2encrypt(pkx,pky,rand,originStr)
 print(originStr,"encrypt",string.toHex(encodeStr))
-log.info("testsm.sm2decrypt",sm.sm2decrypt(private,encodeStr))
+log.info("testsm.sm2decrypt",gmssl.sm2decrypt(private,encodeStr))
 */
 static int l_sm2_encrypt(lua_State *L)
 {    
@@ -122,6 +124,7 @@ static int l_sm2_encrypt(lua_State *L)
         return luaL_error(L, "invalid rand length=%d", randLen);
     }
     
+    // TODO 改为luaBuffer
     unsigned char *out = calloc(SM2_STR_LEN, sizeof(unsigned char));
     int ret = 0;
     size_t olen = 0;
@@ -149,16 +152,16 @@ sm2算法解密
 @api sm.sm2decrypt(private,data)
 @string 私钥,必选
 @string 待计算的数据,必选
-@return 
+@return string 解密后的字符串,未经HEX转换
 @usage
 local originStr = "encryption standard"
 local pkx = "435B39CCA8F3B508C1488AFC67BE491A0F7BA07E581A0E4849A5CF70628A7E0A"
 local pky = "75DDBA78F15FEECB4C7895E2C1CDF5FE01DEBB2CDBADF45399CCF77BBA076A42"
 local private = "1649AB77A00637BD5E2EFE283FBF353534AA7F7CB89463F208DDBC2920BB0DA0"
 local rand = "4C62EEFD6ECFC2B95B92FD6C3D9575148AFA17425546D49018E5388D49DD7B4F"
-local encodeStr = sm.sm2encrypt(pkx,pky,rand,originStr)
+local encodeStr = gmssl.sm2encrypt(pkx,pky,rand,originStr)
 print(originStr,"encrypt",string.toHex(encodeStr))
-log.info("testsm.sm2decrypt",sm.sm2decrypt(private,encodeStr))
+log.info("testsm.sm2decrypt",gmssl.sm2decrypt(private,encodeStr))
 */
 static int l_sm2_decrypt(lua_State *L)
 {    
@@ -198,9 +201,9 @@ static int l_sm2_decrypt(lua_State *L)
 流式sm3算法加密
 @api sm.sm3update(data)
 @string 待计算的数据,必选
-@return 
+@return string 对应的hash值
 @usage
-local encodeStr = sm.sm3update("lqlq666lqlq946")
+local encodeStr = gmssl.sm3update("lqlq666lqlq946")
 log.info("testsm.sm3update",string.toHex(encodeStr))
 */
 static int l_sm3_update(lua_State *L)
@@ -228,7 +231,7 @@ static int l_sm3_update(lua_State *L)
 
 /*
 SM4加密算法
-@api sm.sm4encrypt(mode,padding,originStr,password)
+@api gmssl.sm4encrypt(mode,padding,originStr,password)
 @number  加密模式   
 @number  填充方式 
 @string  加密的字符串
@@ -237,21 +240,21 @@ SM4加密算法
 @usage
 local originStr = "AES128 ECB ZeroPadding test"
 --加密模式：ECB；填充方式：ZeroPadding；密钥：1234567890123456；密钥长度：128 bit
-local encodeStr = sm.sm4encrypt("ECB","ZERO",originStr,"1234567890123456")
+local encodeStr = gmssl.sm4encrypt("ECB","ZERO",originStr,"1234567890123456")
 print(originStr,"encrypt",string.toHex(encodeStr))
-log.info("testsm.decrypt",sm.sm4decrypt("ECB","ZERO",encodeStr,"1234567890123456"))
+log.info("testsm.decrypt",gmssl.sm4decrypt("ECB","ZERO",encodeStr,"1234567890123456"))
 
 originStr = "AES128 ECB Pkcs5Padding test"
 --加密模式：ECB；填充方式：Pkcs5Padding；密钥：1234567890123456；密钥长度：128 bit
-encodeStr = sm.sm4encrypt("ECB","PKCS5",originStr,"1234567890123456")
+encodeStr = gmssl.sm4encrypt("ECB","PKCS5",originStr,"1234567890123456")
 print(originStr,"encrypt",string.toHex(encodeStr))
-log.info("testsm.decrypt",sm.sm4decrypt("ECB","PKCS5",encodeStr,"1234567890123456"))
+log.info("testsm.decrypt",gmssl.sm4decrypt("ECB","PKCS5",encodeStr,"1234567890123456"))
 
 originStr = "AES256 CBC Pkcs5Padding test"
 --加密模式：CBC；填充方式：Pkcs5Padding；密钥：1234567890123456；密钥长度：256 bit；偏移量：1234567890666666
-encodeStr = sm.sm4encrypt("CBC","PKCS5",originStr,"1234567890123456","1234567890666666")
+encodeStr = gmssl.sm4encrypt("CBC","PKCS5",originStr,"1234567890123456","1234567890666666")
 print(originStr,"encrypt",string.toHex(encodeStr))
-log.info("testsm.decrypt",sm.sm4decrypt("CBC","PKCS5",encodeStr,"1234567890123456","1234567890666666"))
+log.info("testsm.decrypt",gmssl.sm4decrypt("CBC","PKCS5",encodeStr,"1234567890123456","1234567890666666"))
 */
 static int l_sm4_encrypt(lua_State *L)
 {    
@@ -375,13 +378,14 @@ static int l_sm4_encrypt(lua_State *L)
 
 /*
 SM4解密算法
-@api sm.sm4_decrypt(mode,padding,encodeStr,password)
+@api gmssl.sm4decrypt(mode,padding,encodeStr,password)
 @number  加密模式   
 @number  填充方式 
 @string  已加密的字符串
 @string  密钥
 @return string 解密的字符串
 @usage
+-- 参考gmssl.sm4encrypt
 */
 static int l_sm4_decrypt(lua_State *L)
 {    
@@ -461,19 +465,21 @@ static int l_sm4_decrypt(lua_State *L)
 }
 
 #include "rotable2.h"
-static const rotable_Reg_t reg_sm[] =
+static const rotable_Reg_t reg_gmssl[] =
 {
+#if defined(ECP_DP_SM2_256V1_ENABLED) && defined(MBEDTLS_ECP_C)
     { "sm2encrypt",      ROREG_FUNC(l_sm2_encrypt)},
     { "sm2decrypt",      ROREG_FUNC(l_sm2_decrypt)},
-    { "sm3update",      ROREG_FUNC(l_sm3_update)},
+#endif
+    { "sm3update",       ROREG_FUNC(l_sm3_update)},
     { "sm4encrypt",      ROREG_FUNC(l_sm4_encrypt)},
     { "sm4decrypt",      ROREG_FUNC(l_sm4_decrypt)},
 
 	{ NULL,             ROREG_INT(0) }
 };
 
-LUAMOD_API int luaopen_sm( lua_State *L ) {
-    luat_newlib2(L, reg_sm);
+LUAMOD_API int luaopen_gmssl( lua_State *L ) {
+    luat_newlib2(L, reg_gmssl);
     return 1;
 }
 

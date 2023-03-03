@@ -48,10 +48,14 @@
  */
 int sm2_init(sm2_context *ctx)
 {
+#ifdef ECP_DP_SM2_256V1_ENABLED
 	memset(ctx, 0, sizeof(sm2_context));
 	mbedtls_ecp_point_init(&ctx->Pb);
 	mbedtls_mpi_init(&ctx->d);
 	return mbedtls_ecp_group_load(&(ctx->grp), ECP_DP_SM2_256V1);
+#else
+	return -1;
+#endif
 }
 
 /**

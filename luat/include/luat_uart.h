@@ -163,7 +163,7 @@ int luat_uart_ctrl(int uart_id, LUAT_UART_CTRL_CMD_E cmd, void* param);
 int luat_uart_soft_setup_hwtimer_callback(int hwtimer_id, CommonFun_t callback);
 void luat_uart_soft_gpio_fast_output(int pin, uint8_t value);
 uint8_t luat_uart_soft_gpio_fast_input(int pin);
-void luat_uart_soft_gpio_fast_irq_set(int pin, uint8_t on_off);
+void luat_uart_soft_gpio_fast_irq_set(int pin, uint8_t onoff);
 /**
  * @brief 软件串口所需硬件定时周期
  *
@@ -179,6 +179,8 @@ uint32_t luat_uart_soft_cal_baudrate(uint32_t baudrate);
  * @return int 成功返回0，其他值则为失败
  */
 void luat_uart_soft_hwtimer_onoff(int hwtimer_id, uint32_t period);
+
+void luat_uart_soft_sleep_enable(uint8_t is_enable);
 #endif
 /** @}*/
 /** @}*/

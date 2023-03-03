@@ -27,7 +27,9 @@ typedef struct luat_uart_cb {
 static luat_uart_cb_t uart_cbs[MAX_DEVICE_COUNT + MAX_USB_DEVICE_COUNT];
 static luat_uart_recv_callback_t uart_app_recvs[MAX_DEVICE_COUNT + MAX_USB_DEVICE_COUNT];
 #ifdef LUAT_USE_SOFT_UART
+#ifndef __BSP_COMMON_H__
 #include "c_common.h"
+#endif
 #define LUAT_UART_SOFT_FIFO_CNT (128)
 typedef struct
 {
@@ -155,8 +157,8 @@ static int luat_uart_soft_setup(luat_uart_t *uart)
 	luat_gpio_setup(&conf);
 	conf.pin = prv_uart_soft->tx_pin;
 	conf.mode = Luat_GPIO_OUTPUT;
-	luat_uart_soft_gpio_fast_output(prv_uart_soft->tx_pin, 1);
 	luat_gpio_setup(&conf);
+	luat_uart_soft_gpio_fast_output(prv_uart_soft->tx_pin, 1);
 	if (prv_uart_soft->pin485 != 0xff)
 	{
 		conf.pin = prv_uart_soft->pin485;

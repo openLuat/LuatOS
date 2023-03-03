@@ -14,11 +14,34 @@ if wdt then
 end
 
 log.info("main", "soft uart demo")
-local uartid = uart.createSoft(17,0,1,2)
+
+local function resouce()     
+    local rtos_bsp = rtos.bsp()
+    if rtos_bsp == "AIR101" then
+        return nil,nil,nil,nil
+    elseif rtos_bsp == "AIR103" then
+        return nil,nil,nil,nil
+    elseif rtos_bsp == "AIR105" then
+        return pin.PA07,0,pin.PA06,1,38400
+    elseif rtos_bsp == "ESP32C3" then
+        return nil,nil,nil,nil
+    elseif rtos_bsp == "ESP32S3" then
+        return nil,nil,nil,nil
+    elseif rtos_bsp == "EC618" then
+        return 17,0,1,2,9600
+    else
+        log.info("main", "bsp not support")
+        return
+    end
+end
+
+local tx_pin,tx_timer,rx_pin,rx_timer,br = resouce() 
+
+local uartid = uart.createSoft(tx_pin,tx_timer,rx_pin,rx_timer)
 --初始化
 local result = uart.setup(
     uartid,--串口id
-    9600,--软件串口波特率根据平台的软硬件配置有不同的极限
+    br,--软件串口波特率根据平台的软硬件配置有不同的极限
     8,--数据位
     1--停止位
 )
@@ -36,6 +59,7 @@ uart.on(uartid, "receive", function(id, len)
         if #s > 0 then -- #s 是取字符串的长度
             -- 如果传输二进制/十六进制数据, 部分字符不可见, 不代表没收到
             -- 关于收发hex值,请查阅 https://doc.openluat.com/article/583
+            log.info("uart", "receive", id, #s, s:toHex())
             uart.write(id, s)
         end
     until s == ""

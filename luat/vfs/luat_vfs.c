@@ -336,7 +336,7 @@ void* luat_fs_mmap(FILE* stream) {
     if (fd == NULL)
         return NULL;
     if (fd->fsMount->fs->fopts.mmap != NULL) {
-        return fd->fsMount->fs->fopts.mmap(fd->fsMount->userdata, (int)fd->fd);
+        return fd->fsMount->fs->fopts.mmap(fd->fsMount->userdata, fd->fd);
     }
     return NULL;
 }

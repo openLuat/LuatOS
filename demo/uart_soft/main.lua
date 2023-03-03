@@ -22,7 +22,7 @@ local function resouce()
     elseif rtos_bsp == "AIR103" then
         return nil,nil,nil,nil,nil,nil,nil
     elseif rtos_bsp == "AIR105" then
-        return pin.PA07,0,pin.PA06,1,115200,0,-10
+        return pin.PA07,0,pin.PA06,1,115200,-20,-10
     elseif rtos_bsp == "ESP32C3" then
         return nil,nil,nil,nil,nil,nil,nil
     elseif rtos_bsp == "ESP32S3" then
@@ -43,7 +43,8 @@ local result = uart.setup(
     uartid,--串口id
     br,--软件串口波特率根据平台的软硬件配置有不同的极限
     8,--数据位
-    1--停止位
+    1,--停止位
+    uart.ODD
 )
 
 

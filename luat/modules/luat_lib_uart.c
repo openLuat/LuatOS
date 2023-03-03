@@ -53,14 +53,13 @@ typedef struct
 	llist_head tx_queue_head;
 	uint16_t rx_bit;
 	uint16_t rx_buffer_size;
-	uint8_t tx_byte;
+	uint16_t tx_bit;
 	uint8_t rx_fifo[LUAT_UART_SOFT_FIFO_CNT];
 	uint8_t rx_fifo_cnt;
 	uint8_t tx_shift_bits;
 	uint8_t rx_shift_bits;
 	uint8_t data_bits;
 	uint8_t total_bits;
-	uint8_t tx_parity_bit;
 	uint8_t rx_parity_bit;
 	uint8_t parity;             /**< 奇偶校验位 */
 	uint8_t parity_odd;             /**< 奇偶校验位 */
@@ -82,6 +81,23 @@ static int32_t luat_uart_soft_del_tx_queue(void *pdata, void *param)
 	luat_uart_soft_tx_node_t *node = (luat_uart_soft_tx_node_t *)pdata;
 	luat_heap_alloc(NULL, node->data, 0, 0);
 	return LIST_DEL;
+}
+
+static uint16_t __LUAT_C_CODE_IN_RAM__ luat_uart_soft_check_party(uint8_t data, uint8_t data_bits, uint8_t is_odd)
+{
+	uint16_t data_bits2 = data_bits;
+	uint8_t party_bits = is_odd;
+	while(party_bits)
+	{
+		party_bits += (data & 0x01);
+		data >>= 1;
+		party_bits--;
+	};
+	if (party_bits & 0x01)
+	{
+		return 1 << data_bits2;
+	}
+	return 0;
 }
 
 static int __LUAT_C_CODE_IN_RAM__ luat_uart_soft_recv_start_irq(int pin, void *param)
@@ -259,9 +275,14 @@ static int luat_uart_soft_write(const uint8_t *data, uint32_t len)
 		prv_uart_soft->tx_shift_bits = 0;
 		luat_uart_soft_hwtimer_onoff(prv_uart_soft->tx_hwtimer_id, prv_uart_soft->tx_period);
 		luat_uart_soft_gpio_fast_output(prv_uart_soft->tx_pin, 0);
-		prv_uart_soft->tx_byte = prv_uart_soft->tx_buffer.Data[0];
-		prv_uart_soft->tx_parity_bit = prv_uart_soft->parity_odd;
-
+		if (prv_uart_soft->parity)
+		{
+			prv_uart_soft->tx_bit = (0xffff << prv_uart_soft->data_bits) | luat_uart_soft_check_party(prv_uart_soft->tx_buffer.Data[0], prv_uart_soft->data_bits, prv_uart_soft->parity_odd) | prv_uart_soft->tx_buffer.Data[0];
+		}
+		else
+		{
+			prv_uart_soft->tx_bit = (0xffff << prv_uart_soft->data_bits) | prv_uart_soft->tx_buffer.Data[0];
+		}
 	}
 	prv_uart_soft->is_tx_busy = 1;
 	luat_uart_soft_sleep_enable(0);
@@ -847,8 +868,14 @@ static int l_uart_soft_handler_tx_done(lua_State *L, void* ptr)
 			prv_uart_soft->tx_shift_bits = 0;
 			luat_uart_soft_gpio_fast_output(prv_uart_soft->tx_pin, 0);
 			luat_uart_soft_hwtimer_onoff(prv_uart_soft->tx_hwtimer_id, prv_uart_soft->tx_period);
-			prv_uart_soft->tx_byte = prv_uart_soft->tx_buffer.Data[0];
-			prv_uart_soft->tx_parity_bit = prv_uart_soft->parity_odd;
+			if (prv_uart_soft->parity)
+			{
+				prv_uart_soft->tx_bit = (0xffff << prv_uart_soft->data_bits) | luat_uart_soft_check_party(prv_uart_soft->tx_buffer.Data[0], prv_uart_soft->data_bits, prv_uart_soft->parity_odd) | prv_uart_soft->tx_buffer.Data[0];
+			}
+			else
+			{
+				prv_uart_soft->tx_bit = (0xffff << prv_uart_soft->data_bits) | prv_uart_soft->tx_buffer.Data[0];
+			}
 		}
 	}
 
@@ -921,69 +948,50 @@ static int l_uart_soft_handler_rx_done(lua_State *L, void* ptr)
 
 static void __LUAT_C_CODE_IN_RAM__ luat_uart_soft_send_hwtimer_irq(void)
 {
-	if (prv_uart_soft->tx_shift_bits)
+	if (prv_uart_soft->tx_shift_bits >= prv_uart_soft->total_bits)
 	{
-		if (prv_uart_soft->tx_shift_bits >= prv_uart_soft->total_bits)
+		//发送完了
+		if (prv_uart_soft->tx_buffer.Pos >= prv_uart_soft->tx_buffer.MaxLen)
 		{
-			//停止位发送完成
-			prv_uart_soft->tx_buffer.Pos++;
-			//发送完了
-			if (prv_uart_soft->tx_buffer.Pos >= prv_uart_soft->tx_buffer.MaxLen)
-			{
-				luat_uart_soft_hwtimer_onoff(prv_uart_soft->tx_hwtimer_id, 0);
-		        rtos_msg_t msg;
-		        msg.handler = l_uart_soft_handler_tx_done;
-		        msg.ptr = NULL;
-		        msg.arg1 = NULL;
-		        msg.arg2 = NULL;
-		        luat_msgbus_put(&msg, 0);
-			}
-			else
-			{
-				//发送新的字节的起始位
-				luat_uart_soft_gpio_fast_output(prv_uart_soft->tx_pin, 0);
-				luat_uart_soft_hwtimer_onoff(prv_uart_soft->tx_hwtimer_id, prv_uart_soft->tx_period);
-				prv_uart_soft->tx_parity_bit = prv_uart_soft->parity_odd;
-				prv_uart_soft->tx_byte = prv_uart_soft->tx_buffer.Data[prv_uart_soft->tx_buffer.Pos];
-				prv_uart_soft->tx_shift_bits = 0;
-			}
-			return;
+			luat_uart_soft_hwtimer_onoff(prv_uart_soft->tx_hwtimer_id, 0);
+			rtos_msg_t msg;
+			msg.handler = l_uart_soft_handler_tx_done;
+			msg.ptr = NULL;
+			msg.arg1 = NULL;
+			msg.arg2 = NULL;
+			luat_msgbus_put(&msg, 0);
 		}
-		if (prv_uart_soft->parity)
+		else
 		{
-			if (prv_uart_soft->tx_shift_bits > prv_uart_soft->data_bits)
-			{
-				//发送停止位
-				luat_uart_soft_gpio_fast_output(prv_uart_soft->tx_pin, 1);
-				luat_uart_soft_hwtimer_onoff(prv_uart_soft->tx_hwtimer_id, prv_uart_soft->stop_period);
-				prv_uart_soft->tx_shift_bits = prv_uart_soft->total_bits;
-				return;
-			}
+			//发送新的字节的起始位
+			luat_uart_soft_gpio_fast_output(prv_uart_soft->tx_pin, 0);
+			luat_uart_soft_hwtimer_onoff(prv_uart_soft->tx_hwtimer_id, prv_uart_soft->tx_period);
+			prv_uart_soft->tx_shift_bits = 0;
 		}
+		return;
+	}
 
-		if (prv_uart_soft->tx_shift_bits >= prv_uart_soft->data_bits)
+	luat_uart_soft_gpio_fast_output(prv_uart_soft->tx_pin, (prv_uart_soft->tx_bit >> prv_uart_soft->tx_shift_bits) & 0x01);
+	prv_uart_soft->tx_shift_bits++;
+
+	if (prv_uart_soft->tx_shift_bits > prv_uart_soft->data_bits)
+	{
+		luat_uart_soft_hwtimer_onoff(prv_uart_soft->tx_hwtimer_id, prv_uart_soft->stop_period);
+		prv_uart_soft->tx_shift_bits = prv_uart_soft->total_bits;
+		prv_uart_soft->tx_buffer.Pos++;
+		if (prv_uart_soft->tx_buffer.Pos < prv_uart_soft->tx_buffer.MaxLen)
 		{
-			//准备发送奇偶校验位
 			if (prv_uart_soft->parity)
 			{
-				luat_uart_soft_gpio_fast_output(prv_uart_soft->tx_pin, prv_uart_soft->tx_parity_bit & 0x01);
-				prv_uart_soft->tx_shift_bits++;
+				prv_uart_soft->tx_bit = (0xffff << prv_uart_soft->data_bits) | luat_uart_soft_check_party(prv_uart_soft->tx_buffer.Data[prv_uart_soft->tx_buffer.Pos], prv_uart_soft->data_bits, prv_uart_soft->parity_odd) | prv_uart_soft->tx_buffer.Data[prv_uart_soft->tx_buffer.Pos];
 			}
 			else
 			{
-				//发送停止位
-				luat_uart_soft_gpio_fast_output(prv_uart_soft->tx_pin, 1);
-				luat_uart_soft_hwtimer_onoff(prv_uart_soft->tx_hwtimer_id, prv_uart_soft->stop_period);
-				prv_uart_soft->tx_shift_bits = prv_uart_soft->total_bits;
-
+				prv_uart_soft->tx_bit = (0xffff << prv_uart_soft->data_bits) | prv_uart_soft->tx_buffer.Data[prv_uart_soft->tx_buffer.Pos];
 			}
-			return;
 		}
+
 	}
-	uint8_t bit = (prv_uart_soft->tx_byte >> prv_uart_soft->tx_shift_bits) & 0x01;
-	luat_uart_soft_gpio_fast_output(prv_uart_soft->tx_pin, bit);
-	prv_uart_soft->tx_shift_bits++;
-	prv_uart_soft->tx_parity_bit += bit;
 }
 
 static void __LUAT_C_CODE_IN_RAM__ luat_uart_soft_recv_hwtimer_irq(void)

@@ -85,7 +85,7 @@ function ipv6task(d1Name, txqueue, rxtopic)
 
     while true do
         log.info("socket", "开始连接服务器")
-        local result = libnet.connect(d1Name, 15000, netc, host, port)
+        local result = libnet.connect(d1Name, 15000, netc, host, port, true)
         if result then
 			log.info("socket", "服务器连上了")
 			libnet.tx(d1Name, 0, netc, "helloworld")

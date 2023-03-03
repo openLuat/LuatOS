@@ -4,7 +4,7 @@
 @catalog 外设API
 @version 1.0
 @date    2023.03.03
-@demo
+@demo iconv
 @tag LUAT_USE_ICONV
 */
 /*

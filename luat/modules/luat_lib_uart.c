@@ -1168,12 +1168,17 @@ static int l_uart_list(lua_State *L)
 #include "rotable2.h"
 static const rotable_Reg_t reg_uart[] =
 {
-    { "setup",      ROREG_FUNC(l_uart_setup)},
-    { "close",      ROREG_FUNC(l_uart_close)},
     { "write",      ROREG_FUNC(l_uart_write)},
     { "read",       ROREG_FUNC(l_uart_read)},
-    { "on",         ROREG_FUNC(l_uart_on)},
     { "wait485",    ROREG_FUNC(l_uart_wait485_tx_done)},
+    { "tx",      	ROREG_FUNC(l_uart_tx)},
+    { "rx",       	ROREG_FUNC(l_uart_rx)},
+	{ "rxSize",		ROREG_FUNC(l_uart_rx_size)},
+	{ "rx_size",	ROREG_FUNC(l_uart_rx_size)},
+	{ "createSoft",	ROREG_FUNC(l_uart_soft)},
+    { "close",      ROREG_FUNC(l_uart_close)},
+    { "on",         ROREG_FUNC(l_uart_on)},
+    { "setup",      ROREG_FUNC(l_uart_setup)},
     { "exist",      ROREG_FUNC(l_uart_exist)},
 #ifdef LUAT_FORCE_WIN32
     { "list",       ROREG_FUNC(l_uart_list)},
@@ -1196,13 +1201,8 @@ static const rotable_Reg_t reg_uart[] =
     //@const MSB number 大端模式
     { "MSB",        ROREG_INT(LUAT_BIT_ORDER_MSB)},
 
-    { "tx",      ROREG_FUNC(l_uart_tx)},
-    { "rx",       ROREG_FUNC(l_uart_rx)},
-	{ "rxSize",	ROREG_FUNC(l_uart_rx_size)},
-	{ "rx_size",	ROREG_FUNC(l_uart_rx_size)},
-	{ "createSoft",	ROREG_FUNC(l_uart_soft)},
     //@const VUART_0 number 虚拟串口0
-	{ "VUART_0",        ROREG_INT(LUAT_VUART_ID_0)},
+	{ "VUART_0",       ROREG_INT(LUAT_VUART_ID_0)},
     { NULL,         ROREG_INT(0) }
 };
 

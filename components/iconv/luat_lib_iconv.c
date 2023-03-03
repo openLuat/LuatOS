@@ -1,4 +1,13 @@
 /*
+@module  iconv
+@summary iconv操作
+@catalog 外设API
+@version 1.0
+@date    2023.03.03
+@demo
+@tag LUAT_USE_ICONV
+*/
+/*
  * luaiconv - Performs character set conversions in Lua
  * (c) 2005-08 Alexandre Erwin Ittner <aittner@gmail.com>
  *
@@ -80,7 +89,16 @@ static iconv_t get_iconv_t(lua_State *L, int i) {
     return NULL;
 }
 
-
+/*
+打开相应字符编码转换函数
+@api iconv.open(tocode, fromcode)
+@string 释义：目标编码格式<br>取值：gb2312/ucs2/ucs2be/utf8
+@string 释义：源编码格式<br>取值：gb2312/ucs2/ucs2be/utf8
+@return table 编码转换函数的转换句柄
+@usage
+--unicode大端编码 转化为 utf8编码
+local cd = iconv.open("utf8", "ucs2be")
+*/
 static int Liconv_open(lua_State *L) {
     const char *tocode = luaL_checkstring(L, 1);
     const char *fromcode = luaL_checkstring(L, 2);
@@ -92,14 +110,25 @@ static int Liconv_open(lua_State *L) {
     return 1;
 }
 
-
+/*
+字符编码转换
+@api iconv:iconv(inbuf)
+@string 释义：待转换字符串
+@return number 释义：返回编码转换后的结果<br>取值：0成功,-1失败
+@usage
+--unicode大端编码 转化为 utf8编码
+function ucs2beToUtf8(ucs2s)
+    local cd = iconv.open("utf8", "ucs2be")
+    return cd:iconv(ucs2s)
+end
+*/
 static int Liconv(lua_State *L) {
     iconv_t cd = get_iconv_t(L, 1);
     size_t ibleft = lua_rawlen(L, 2);
     char *inbuf = (char*) luaL_checkstring(L, 2);
     char *outbuf;
     char *outbufs;
-    size_t obsize = (ibleft > 256) ? ibleft : 256; 
+    size_t obsize = (ibleft > 256) ? ibleft : 256;
     size_t obleft = obsize;
     size_t ret = -1;
     int hasone = 0;
@@ -128,7 +157,7 @@ static int Liconv(lua_State *L) {
             //     free(outbufs);
             //     return 2;   /* Incomplete character sequence */
             // } else if (errno == E2BIG) {
-            //     obleft = obsize;    
+            //     obleft = obsize;
             //     outbuf = outbufs;
             // } else {
                 lua_pushnumber(L, ERROR_UNKNOWN);
@@ -155,7 +184,7 @@ static int push_one(unsigned int cnt, char *names[], void *data) {
     int i;
 
     /* Stack: <tbl> n */
-    lua_remove(L, -1);    
+    lua_remove(L, -1);
     for (i = 0; i < cnt; i++) {
         /* Stack> <tbl> */
         lua_pushnumber(L, n++);
@@ -165,7 +194,7 @@ static int push_one(unsigned int cnt, char *names[], void *data) {
     }
     lua_pushnumber(L, n);
     /* Stack: <tbl> n */
-    return 0;   
+    return 0;
 }
 
 
@@ -183,7 +212,16 @@ static int Liconvlist(lua_State *L) {
 
 #endif
 
-
+/*
+关闭字符编码转换
+@api iconv.close(cd)
+@string iconv.open返回的句柄
+@return nil 无返回值
+@usage
+--关闭字符编码转换
+local cd = iconv.open("utf8", "ucs2be")
+iconv.close(cd)
+*/
 static int Liconv_close(lua_State *L) {
     iconv_t cd = get_iconv_t(L, 1);
     if (iconv_close(cd) == 0)

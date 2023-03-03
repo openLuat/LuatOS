@@ -373,11 +373,11 @@ static int l_socket_linkup(lua_State *L)
 
 /*
 作为客户端连接服务器
-@api socket.connect(ctrl, ip, remote_port)
+@api socket.connect(ctrl, ip, remote_port, need_ipv6_dns)
 @user_data socket.create得到的ctrl
 @string or int ip或者域名，如果是IPV4，可以是大端格式的int值
-@boolean 域名解析是否要IPV6，true要，false不要，默认false不要，只有支持IPV6的协议栈才有效果
 @int 服务器端口号，小端格式
+@boolean 域名解析是否要IPV6，true要，false不要，默认false不要，只有支持IPV6的协议栈才有效果
 @return boolean true没有异常发生，false失败了，如果false则不需要看下一个返回值了，如果有异常，后续要close
 @return boolean true已经connect，false没有connect，之后需要接收socket.ON_LINE消息
 @usage local succ, result = socket.connect(ctrl, "xxx.xxx.xxx.xxx", xxxx)

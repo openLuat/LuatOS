@@ -813,7 +813,7 @@ static int l_uart_soft_handler_tx_done(lua_State *L, void* ptr)
 			prv_uart_soft->is_tx_busy = 0;
 			if (!prv_uart_soft->is_rx_busy)
 			{
-				luat_uart_soft_sleep_enable(0);
+				luat_uart_soft_sleep_enable(1);
 			}
 			if (prv_uart_soft->pin485 != 0xff)
 			{
@@ -893,7 +893,7 @@ static int l_uart_soft_handler_rx_done(lua_State *L, void* ptr)
 			prv_uart_soft->is_rx_busy = 0;
 			if (!prv_uart_soft->is_tx_busy)
 			{
-				luat_uart_soft_sleep_enable(0);
+				luat_uart_soft_sleep_enable(1);
 			}
 		}
 

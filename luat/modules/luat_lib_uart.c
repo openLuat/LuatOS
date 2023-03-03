@@ -1114,7 +1114,9 @@ static int l_uart_soft(lua_State *L) {
 #else
 	lua_pushnil(L);
 #endif
+#ifdef LUAT_USE_SOFT_UART
 CREATE_DONE:
+#endif
     return 1;
 }
 

@@ -217,8 +217,6 @@ static int l_sm3hmac_update(lua_State *L)
     return 1;
 }
 
-#if 1
-
 /*
 SM4加密算法
 @api gmssl.sm4encrypt(mode,padding,originStr,password)
@@ -431,7 +429,7 @@ static int l_sm4_decrypt(lua_State *L)
         memset(&sm4_key,0,sizeof(SM4_KEY));
         sm4_set_decrypt_key(&sm4_key,pPassword);
 
-        if(isECB == 0)
+        if(isECB)
         {
             //开始分组解密，每16字节一组
             while(nRmnLen>0)
@@ -452,19 +450,27 @@ static int l_sm4_decrypt(lua_State *L)
         else if (isCBC)
         {
             //待解密数据一次性传入
-            char *out = luat_heap_malloc(nBufLen);
-            // sm4_cbc_encrypt(pBuf,pBuf,nBufLen,&sm4_key,pIV,0);
-            sm4_cbc_decrypt(&sm4_key, pIV, pBuf, nBufLen/SM4_BLOCK_LEN, out);
-            DeletePaddingBuf(&b, pPadding, nBufLen, out, SM4_BLOCK_LEN);
-            luat_heap_free(out);
+            if (nBufLen <= 1024) {
+                char out[1024];
+                sm4_cbc_decrypt(&sm4_key, pIV, pBuf, nBufLen/SM4_BLOCK_LEN, out);
+                DeletePaddingBuf(&b, pPadding, nBufLen, out, SM4_BLOCK_LEN);
+            }
+            else {
+                char *out = luat_heap_malloc(nBufLen);
+                if (out == NULL) {
+                    LLOGE("out of memory when malloc SM4 decrypt buff");
+                    return 0;
+                }
+                sm4_cbc_decrypt(&sm4_key, pIV, pBuf, nBufLen/SM4_BLOCK_LEN, out);
+                DeletePaddingBuf(&b, pPadding, nBufLen, out, SM4_BLOCK_LEN);
+                luat_heap_free(out);
+            }
         }
 		
         luaL_pushresult( &b );
         return 1;
-    }    
+    }
 }
-
-#endif
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_gmssl[] =

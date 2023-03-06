@@ -17,8 +17,11 @@ set_optimize("fastest")
 set_languages("c11", "cxx11")
 
 add_defines("__LUATOS__", "__XMAKE_BUILD__")
-add_cflags("-ffunction-sections","-fdata-sections", "-Wl,--gc-sections")
+add_cflags("-ffunction-sections","-fdata-sections", "-Wl,--gc-sections","-D_POSIX_C_SOURCE=199309L")
 add_ldflags("-ffunction-sections","-fdata-sections", "-Wl,--gc-sections", "-lreadline","-lm")
+
+add_requires("libsdl")
+add_packages("libsdl")
 
 target("luatos")
     -- set kind
@@ -153,9 +156,9 @@ target("luatos")
     -- iotauth
     add_files(luatos.."components/iotauth/luat_lib_iotauth.c")
 
-    -- -- qrcode
-    -- add_includedirs(luatos.."components/qrcode",{public = true})
-    -- add_files(luatos.."components/qrcode/*.c")
+    -- qrcode
+    add_includedirs(luatos.."components/qrcode",{public = true})
+    add_files(luatos.."components/qrcode/*.c")
 
     -- -- lora
     -- add_includedirs(luatos.."components/lora",{public = true})
@@ -179,4 +182,33 @@ target("luatos")
     -- -- 添加fskv
     -- add_includedirs(luatos.."components/fskv")
     -- add_files(luatos.."components/fskv/*.c")
+
+    -- sdl2
+    add_includedirs(luatos.."components/ui/sdl2")
+    add_files(luatos.."components/ui/sdl2/*.c")
+
+    -- u8g2
+    add_includedirs(luatos.."components/u8g2")
+    add_files(luatos.."components/u8g2/*.c")
+
+    -- lcd
+    add_includedirs(luatos.."components/lcd")
+    add_files(luatos.."components/lcd/*.c")
+    
+    -- lvgl
+    add_includedirs(luatos.."components/lvgl")
+    add_includedirs(luatos.."components/lvgl/binding")
+    add_includedirs(luatos.."components/lvgl/gen")
+    add_includedirs(luatos.."components/lvgl/src")
+    add_includedirs(luatos.."components/lvgl/font")
+    add_includedirs(luatos.."components/lvgl/src/lv_font")
+
+    add_files(luatos.."components/lvgl/**.c")
+    -- 默认不编译lv的demos, 节省大量的编译时间
+    remove_files(luatos.."components/lvgl/lv_demos/**.c")
+
+    -- tjpgd
+    add_files(luatos.."components/tjpgd/*.c")
+    add_includedirs(luatos.."components/tjpgd")
+
 target_end()

@@ -515,72 +515,6 @@ static const mbedtls_mpi_uint brainpoolP512r1_n[] = {
 };
 #endif /* MBEDTLS_ECP_DP_BP512R1_ENABLED */
 
-#ifdef __LUATOS__
-/* sm2 */
-#if defined(ECP_DP_SM2_256V1_ENABLED)
-static const mbedtls_mpi_uint sm2_256v1_p[] = {
-    MBEDTLS_BYTES_TO_T_UINT_8(0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF),
-    MBEDTLS_BYTES_TO_T_UINT_8(0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF),
-    MBEDTLS_BYTES_TO_T_UINT_8(0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF),
-    MBEDTLS_BYTES_TO_T_UINT_8(0xFF, 0xFF, 0xFF, 0xFF, 0xFE, 0xFF, 0xFF, 0xFF),
-
-};
-
-/* a */
-static const mbedtls_mpi_uint sm2_256v1_a[] = {
-    MBEDTLS_BYTES_TO_T_UINT_8(0xFC, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF),
-    MBEDTLS_BYTES_TO_T_UINT_8(0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0xFF, 0xFF),
-    MBEDTLS_BYTES_TO_T_UINT_8(0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF),
-    MBEDTLS_BYTES_TO_T_UINT_8(0xFF, 0xFF, 0xFF, 0xFF, 0xFE, 0xFF, 0xFF, 0xFF),
-};
-
-/* b */
-static const mbedtls_mpi_uint sm2_256v1_b[] = {
-    MBEDTLS_BYTES_TO_T_UINT_8(0x93, 0x0E, 0x94, 0x4D, 0x41, 0xBD, 0xBC, 0xDD),
-    MBEDTLS_BYTES_TO_T_UINT_8(0x92, 0x8F, 0xAB, 0x15, 0xF5, 0x89, 0x97, 0xF3),
-    MBEDTLS_BYTES_TO_T_UINT_8(0xA7, 0x09, 0x65, 0xCF, 0x4B, 0x9E, 0x5A, 0x4D),
-    MBEDTLS_BYTES_TO_T_UINT_8(0x34, 0x5E, 0x9F, 0x9D, 0x9E, 0xFA, 0xE9, 0x28),
-};
-/* x */
-static const mbedtls_mpi_uint sm2_256v1_gx[] = {
-    MBEDTLS_BYTES_TO_T_UINT_8(0xC7, 0x74, 0x4C, 0x33, 0x89, 0x45, 0x5A, 0x71),
-    MBEDTLS_BYTES_TO_T_UINT_8(0xE1, 0x0B, 0x66, 0xF2, 0xBF, 0x0B, 0xE3, 0x8F),
-    MBEDTLS_BYTES_TO_T_UINT_8(0x94, 0xC9, 0x39, 0x6A, 0x46, 0x04, 0x99, 0x5F),
-    MBEDTLS_BYTES_TO_T_UINT_8(0x19, 0x81, 0x19, 0x1F, 0x2C, 0xAE, 0xC4, 0x32),
-};
-/* y */
-static const mbedtls_mpi_uint sm2_256v1_gy[] = {
-    MBEDTLS_BYTES_TO_T_UINT_8(0xA0, 0xF0, 0x39, 0x21, 0xE5, 0x32, 0xDF, 0x02),
-    MBEDTLS_BYTES_TO_T_UINT_8(0x40, 0x47, 0x2A, 0xC6, 0x7C, 0x87, 0xA9, 0xD0),
-    MBEDTLS_BYTES_TO_T_UINT_8(0x53, 0x21, 0x69, 0x6B, 0xE3, 0xCE, 0xBD, 0x59),
-    MBEDTLS_BYTES_TO_T_UINT_8(0x9C, 0x77, 0xF6, 0xF4, 0xA2, 0x36, 0x37, 0xBC),
-};
-/* n */
-static const mbedtls_mpi_uint sm2_256v1_n[] = {
-    MBEDTLS_BYTES_TO_T_UINT_8(0x23, 0x41, 0xD5, 0x39, 0x09, 0xF4, 0xBB, 0x53),
-    MBEDTLS_BYTES_TO_T_UINT_8(0x2B, 0x05, 0xC6, 0x21, 0x6B, 0xDF, 0x03, 0x72),
-    MBEDTLS_BYTES_TO_T_UINT_8(0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF),
-    MBEDTLS_BYTES_TO_T_UINT_8(0xFF, 0xFF, 0xFF, 0xFF, 0xFE, 0xFF, 0xFF, 0xFF),
-};
-
-#endif  /*end sm2 */
-
-#if defined(MBEDTLS_ECP_DP_SECP192R1_ENABLED) ||   \
-    defined(MBEDTLS_ECP_DP_SECP224R1_ENABLED) ||   \
-    defined(MBEDTLS_ECP_DP_SECP256R1_ENABLED) ||   \
-    defined(MBEDTLS_ECP_DP_SECP384R1_ENABLED) ||   \
-    defined(MBEDTLS_ECP_DP_SECP521R1_ENABLED) ||   \
-    defined(MBEDTLS_ECP_DP_BP256R1_ENABLED)   ||   \
-    defined(MBEDTLS_ECP_DP_BP384R1_ENABLED)   ||   \
-    defined(MBEDTLS_ECP_DP_BP512R1_ENABLED)   ||   \
-    defined(MBEDTLS_ECP_DP_SECP192K1_ENABLED) ||   \
-    defined(MBEDTLS_ECP_DP_SECP224K1_ENABLED) ||   \
-    defined(MBEDTLS_ECP_DP_SECP256K1_ENABLED) ||   \
-    defined(ECP_DP_SM2_256V1_ENABLED)
-/* For these curves, we build the group parameters dynamically. */
-#define ECP_LOAD_GROUP
-#endif
-#else
 #if defined(MBEDTLS_ECP_DP_SECP192R1_ENABLED) ||   \
     defined(MBEDTLS_ECP_DP_SECP224R1_ENABLED) ||   \
     defined(MBEDTLS_ECP_DP_SECP256R1_ENABLED) ||   \
@@ -595,7 +529,7 @@ static const mbedtls_mpi_uint sm2_256v1_n[] = {
 /* For these curves, we build the group parameters dynamically. */
 #define ECP_LOAD_GROUP
 #endif
-#endif //__LUATOS__
+
 #if defined(ECP_LOAD_GROUP)
 /*
  * Create an MPI from embedded constants
@@ -896,13 +830,7 @@ int mbedtls_ecp_group_load( mbedtls_ecp_group *grp, mbedtls_ecp_group_id id )
             grp->modp = ecp_mod_p448;
             return( ecp_use_curve448( grp ) );
 #endif /* MBEDTLS_ECP_DP_CURVE448_ENABLED */
-#ifdef __LUATOS__
-#if defined(ECP_DP_SM2_256V1_ENABLED)
-        case ECP_DP_SM2_256V1:
-            //todo
-            return (LOAD_GROUP_A(sm2_256v1));
-#endif
-#endif //__LUATOS__
+
         default:
             grp->id = MBEDTLS_ECP_DP_NONE;
             return( MBEDTLS_ERR_ECP_FEATURE_UNAVAILABLE );
@@ -1409,89 +1337,6 @@ cleanup:
 }
 #endif /* MBEDTLS_ECP_DP_CURVE448_ENABLED */
 
-#ifdef __LUATOS__
-#if defined(MBEDTLS_ECP_DP_SECP192K1_ENABLED) || \
-    defined(MBEDTLS_ECP_DP_SECP224K1_ENABLED) || \
-    defined(MBEDTLS_ECP_DP_SECP256K1_ENABLED)  || \
-    defined(ECP_DP_SM2_256V1_ENABLED)
-/*
- * Fast quasi-reduction modulo P = 2^s - R,
- * with R about 33 bits, used by the Koblitz curves.
- *
- * Write N as A0 + 2^224 A1, return A0 + R * A1.
- * Actually do two passes, since R is big.
- */
-#define P_KOBLITZ_MAX   ( 256 / 8 / sizeof( mbedtls_mpi_uint ) )  // Max limbs in P
-#define P_KOBLITZ_R     ( 8 / sizeof( mbedtls_mpi_uint ) )        // Limbs in R
-static inline int ecp_mod_koblitz( mbedtls_mpi *N, mbedtls_mpi_uint *Rp, size_t p_limbs,
-                                   size_t adjust, size_t shift, mbedtls_mpi_uint mask )
-{
-    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
-    size_t i;
-    mbedtls_mpi M, R;
-    mbedtls_mpi_uint Mp[P_KOBLITZ_MAX + P_KOBLITZ_R + 1];
-
-    if( N->n < p_limbs )
-        return( 0 );
-
-    /* Init R */
-    R.s = 1;
-    R.p = Rp;
-    R.n = P_KOBLITZ_R;
-
-    /* Common setup for M */
-    M.s = 1;
-    M.p = Mp;
-
-    /* M = A1 */
-    M.n = N->n - ( p_limbs - adjust );
-    if( M.n > p_limbs + adjust )
-        M.n = p_limbs + adjust;
-    memset( Mp, 0, sizeof Mp );
-    memcpy( Mp, N->p + p_limbs - adjust, M.n * sizeof( mbedtls_mpi_uint ) );
-    if( shift != 0 )
-        MBEDTLS_MPI_CHK( mbedtls_mpi_shift_r( &M, shift ) );
-    M.n += R.n; /* Make room for multiplication by R */
-
-    /* N = A0 */
-    if( mask != 0 )
-        N->p[p_limbs - 1] &= mask;
-    for( i = p_limbs; i < N->n; i++ )
-        N->p[i] = 0;
-
-    /* N = A0 + R * A1 */
-    MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mpi( &M, &M, &R ) );
-    MBEDTLS_MPI_CHK( mbedtls_mpi_add_abs( N, N, &M ) );
-
-    /* Second pass */
-
-    /* M = A1 */
-    M.n = N->n - ( p_limbs - adjust );
-    if( M.n > p_limbs + adjust )
-        M.n = p_limbs + adjust;
-    memset( Mp, 0, sizeof Mp );
-    memcpy( Mp, N->p + p_limbs - adjust, M.n * sizeof( mbedtls_mpi_uint ) );
-    if( shift != 0 )
-        MBEDTLS_MPI_CHK( mbedtls_mpi_shift_r( &M, shift ) );
-    M.n += R.n; /* Make room for multiplication by R */
-
-    /* N = A0 */
-    if( mask != 0 )
-        N->p[p_limbs - 1] &= mask;
-    for( i = p_limbs; i < N->n; i++ )
-        N->p[i] = 0;
-
-    /* N = A0 + R * A1 */
-    MBEDTLS_MPI_CHK( mbedtls_mpi_mul_mpi( &M, &M, &R ) );
-    MBEDTLS_MPI_CHK( mbedtls_mpi_add_abs( N, N, &M ) );
-
-cleanup:
-    return( ret );
-}
-#endif /* MBEDTLS_ECP_DP_SECP192K1_ENABLED) ||
-          MBEDTLS_ECP_DP_SECP224K1_ENABLED) ||
-          MBEDTLS_ECP_DP_SECP256K1_ENABLED) */
-#else
 #if defined(MBEDTLS_ECP_DP_SECP192K1_ENABLED) ||   \
     defined(MBEDTLS_ECP_DP_SECP224K1_ENABLED) ||   \
     defined(MBEDTLS_ECP_DP_SECP256K1_ENABLED)
@@ -1572,7 +1417,7 @@ cleanup:
 #endif /* MBEDTLS_ECP_DP_SECP192K1_ENABLED) ||
           MBEDTLS_ECP_DP_SECP224K1_ENABLED) ||
           MBEDTLS_ECP_DP_SECP256K1_ENABLED) */
-#endif //__LUATOS__
+
 #if defined(MBEDTLS_ECP_DP_SECP192K1_ENABLED)
 /*
  * Fast quasi-reduction modulo p192k1 = 2^192 - R,

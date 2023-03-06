@@ -93,9 +93,6 @@ local function fota_task(cbFnc,storge_location, len, param1,ota_url,ota_port,tim
         end
     end
 
-    error("why")
-    -- local abc = abc + 2
-
     local succ, param, ip, port, total, findhead, filelen, rcvCache,d1,d2,statusCode,retry,rspHead,rcvChunked,done,fotaDone,nCache
     local tbuff = zbuff.create(512)
     local rbuff = zbuff.create(4096)

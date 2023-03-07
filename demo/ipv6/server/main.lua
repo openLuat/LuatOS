@@ -52,8 +52,8 @@ function ipv6test()
 	end
 
     -- 这里给个演示用的ddns, 临时自建的, 仅供测试
-    http.request("GET", "http://81.70.22.216:8280/update?secret=luatos&domain=864040064024194.dyndns&addr=" .. ipv6).wait()
-    log.info("DDNS", "已映射", mobile.imei() .. ".dyndns.u8g2.com")
+    local code, headers, body = http.request("GET", "http://81.70.22.216:8280/update?secret=luatos&domain=" .. mobile.imei() ..".dyndns&addr=" .. ipv6).wait()
+    log.info("DDNS", "已映射", mobile.imei() .. ".dyndns.u8g2.com", code, body)
     log.info("shell", "telnet -6 " .. mobile.imei() .. ".dyndns.u8g2.com 14000")
 
     -- 开始正在的逻辑, 发起socket链接,等待数据/上报心跳

@@ -434,6 +434,7 @@ typedef enum LUAT_MOBILE_EVENT
 	LUAT_MOBILE_EVENT_TIME_SYNC, 	/**< 通过基站同步时间完成*/
 	LUAT_MOBILE_EVENT_CSCON, /**< RRC状态，0 idle 1 active*/
 	LUAT_MOBILE_EVENT_BEARER,/**< PDP承载状态*/
+	LUAT_MOBILE_EVENT_FATAL_ERROR,/**< 网络遇到严重故障*/
 }LUAT_MOBILE_EVENT_E;
 
 typedef enum LUAT_MOBILE_CFUN_STATUS
@@ -571,6 +572,12 @@ void luat_mobile_rrc_release_once(void);
  */
 int luat_mobile_reset_stack(void);
 
+/**
+ * @brief 遇到网络严重错误时允许自动重启协议栈
+ * @param onoff 0关闭 其他开启
+ * @return void
+ */
+void luat_mobile_fatal_error_auto_reset_stack(uint8_t onoff);
 /**
  * @brief 设置周期性辅助工作，包括周期性搜索小区基站，SIM卡短时间脱离卡槽后周期性尝试恢复，这个功能和luat_mobile_reset_stack是有可能冲突的。所有功能默认都是关闭的
  * 

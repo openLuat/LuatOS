@@ -180,18 +180,19 @@ int32_t dns_get_ip(dns_client_t *client, Buffer_Struct *buf, uint16_t answer_num
 			ip_addr.type = IPADDR_TYPE_V4;
 			ip_addr.u_addr.ip4.addr = BytesGetLe32(buf->Data + buf->Pos);
 			pvUn.u32 = ip_addr.u_addr.ip4.addr;
-			LLOGD("ipv4 result %s", ipaddr_ntoa(&ip_addr));
+//			LLOGD("ipv4 result %s", ipaddr_ntoa(&ip_addr));
 #else
 			ip_addr.ipv4 = BytesGetLe32(buf->Data + buf->Pos);
 			ip_addr.is_ipv6 = 0;
 			pvUn.u32 = ip_addr.ipv4;
-			LLOGD("ipv4 result %d.%d.%d.%d", pvUn.u8[0], pvUn.u8[1], pvUn.u8[2], pvUn.u8[3] );
+//			LLOGD("ipv4 result %d.%d.%d.%d", pvUn.u8[0], pvUn.u8[1], pvUn.u8[2], pvUn.u8[3] );
 #endif
 			buf->Pos += usTemp;
 			if (ttl > 0)
 			{
 				if (process && (process->ip_nums < MAX_DNS_IP))
 				{
+					LLOGD("ipv4 result%d,%d.%d.%d.%d", process->ip_nums, pvUn.u8[0], pvUn.u8[1], pvUn.u8[2], pvUn.u8[3] );
 					process->ip_result[process->ip_nums].ip = ip_addr;
 					process->ip_result[process->ip_nums].ttl_end = ttl + ((uint32_t)(luat_mcu_tick64_ms()/1000));
 					process->ip_nums++;
@@ -216,7 +217,7 @@ int32_t dns_get_ip(dns_client_t *client, Buffer_Struct *buf, uint16_t answer_num
 			memcpy(ip_addr.u_addr.ip6.addr, buf->Data + buf->Pos, sizeof( uint32_t ) * 4);
 //			ip_addr.u_addr.ip6.zone = 0;
 			ip_addr.type = IPADDR_TYPE_V6;
-			LLOGI("ipv6 result %s", ipaddr_ntoa(&ip_addr));
+//			LLOGI("ipv6 result %s", ipaddr_ntoa(&ip_addr));
 #else
 			memcpy(ip_addr.ipv6_u8_addr, buf->Data + buf->Pos, sizeof( uint32_t ) * 4);
 			ip_addr.is_ipv6 = 1;
@@ -225,6 +226,9 @@ int32_t dns_get_ip(dns_client_t *client, Buffer_Struct *buf, uint16_t answer_num
 			{
 				if (process && (process->ip_nums < MAX_DNS_IP))
 				{
+#ifdef LUAT_USE_LWIP
+					LLOGI("ipv6 result%d,%s", process->ip_nums, ipaddr_ntoa(&ip_addr));
+#endif
 					process->ip_result[process->ip_nums].ip = ip_addr;
 					process->ip_result[process->ip_nums].ttl_end = ttl + ((uint32_t)(luat_mcu_tick64_ms()/1000));
 					process->ip_nums++;

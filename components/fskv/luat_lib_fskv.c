@@ -241,7 +241,7 @@ static int l_fskv_get(lua_State *L) {
         buff = tmp;
     }
 
-    lua_Integer *intVal;
+    lua_Integer intVal;
     // lua_Number *numVal;
     // LLOGD("KV value T=%02X", buff.b[0]);
     switch(buff[0]) {
@@ -257,8 +257,11 @@ static int l_fskv_get(lua_State *L) {
         // _, val = pack.unpack(data, ">f")
         break;
     case LUA_TINTEGER:
-        intVal = (lua_Integer*)(&buff[1]);
-        lua_pushinteger(L, *intVal);
+    	//不能直接赋值，右边指针地址和左边的位宽不一致
+    	memcpy(&intVal, &buff[1], sizeof(lua_Integer));
+//        intVal = (lua_Integer*)(&buff[1]);
+//        lua_pushinteger(L, *intVal);
+        lua_pushinteger(L, intVal);
         break;
     case LUA_TSTRING:
         lua_pushlstring(L, (const char*)(buff + 1), size - 1);

@@ -404,6 +404,7 @@ const char *luaO_pushvfstring (lua_State *L, const char *fmt, va_list argp) {
   volatile uint32_t ap_value;
   uint32_t d1,d2;
   double f64;
+  unsigned long long u64;
 #endif
   for (;;) {
     const char *e = strchr(fmt, '%');
@@ -429,7 +430,26 @@ const char *luaO_pushvfstring (lua_State *L, const char *fmt, va_list argp) {
         goto top2str;
       }
       case 'I': {  /* a 'lua_Integer' */
+#if (defined __PRINT_ALIGNED_32BIT__) && (defined LUAT_CONF_VM_64bit)
+        // 针对EC618的va_arg取double出错的临时解决方案
+        // 直接调用 va_arg(argp, double) 会返回0
+        // 可能与某个gcc参数有关
+
+		ap_addr = (uint32_t *)&argp;
+		ap_value = (*ap_addr);
+		if (!(ap_value & 0x07))
+		{
+			d1 = va_arg(argp, uint32_t);
+		}
+		d1 = va_arg(argp, uint32_t);
+		d2 = va_arg(argp, uint32_t);
+        char* tmp = (char*)&u64;
+        memcpy(tmp, &d1, 4);
+        memcpy(tmp + 4, &d2, 4);
+        setivalue(L->top, (l_uacInt)u64);
+#else
         setivalue(L->top, cast(lua_Integer, va_arg(argp, l_uacInt)));
+#endif
         goto top2str;
       }
       case 'f': {  /* a 'lua_Number' */

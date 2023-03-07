@@ -188,7 +188,9 @@ static int l_http_request(lua_State *L) {
 			if (!strcmp("Host", name) || !strcmp("host", name)) {
 				http_ctrl->custom_host = 1;
 			}
-			http_add_header(http_ctrl,name,value);
+			if (strcmp("Content-Length", name)) {
+				http_add_header(http_ctrl,name,value);
+			}
 			lua_pop(L, 1);
 		}
 	}

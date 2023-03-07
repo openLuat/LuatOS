@@ -225,27 +225,42 @@ static int l_mobile_simid(lua_State* L) {
 }
 
 /**
-设置RRC自动释放时间间隔
-@api mobile.rtime(time)
+设置RRC自动释放时间间隔，当开启时后，遇到极弱信号+频繁数据操作可能会引起网络严重故障，因此需要额外设置自动重启协议栈
+@api mobile.rtime(time, auto_reset_stack)
 @int RRC自动释放时间，等同于Air724的AT+RTIME，单位秒，写0或者不写则是停用，不要超过20秒，没有意义
+@boolean 网络遇到严重故障时尝试自动恢复，和飞行模式/SIM卡切换冲突，true开启，false关闭，留空时，如果设置了时间则自动开启
 @return nil 无返回值
  */
 static int l_mobile_set_rrc_auto_release_time(lua_State* L) {
 	luat_mobile_set_rrc_auto_release_time(luaL_optinteger(L, 1, 0));
+    if (LUA_TBOOLEAN == lua_type(L, 2)) {
+    	luat_mobile_fatal_error_auto_reset_stack(lua_toboolean(L, 2));
+    }
+    else
+    {
+    	if (luaL_optinteger(L, 1, 0))
+    	{
+    		luat_mobile_fatal_error_auto_reset_stack(1);
+    	}
+    }
     return 0;
 }
 
 /**
-设置一些辅助周期性功能，目前支持SIM卡暂时脱离后恢复和周期性获取小区信息
-@api mobile.setAuto(check_sim_period, get_cell_period, search_cell_time)
+设置一些辅助周期性或者自动功能，目前支持SIM卡暂时脱离后恢复，周期性获取小区信息，网络遇到严重故障时尝试自动恢复
+@api mobile.setAuto(check_sim_period, get_cell_period, search_cell_time, auto_reset_stack)
 @int SIM卡自动恢复时间，单位毫秒，建议5000~10000，和飞行模式/SIM卡切换冲突，不能再同一时间使用，必须错开执行。写0或者不写则是关闭功能
 @int 周期性获取小区信息的时间间隔，单位毫秒。获取小区信息会增加部分功耗。写0或者不写则是关闭功能
 @int 每次搜索小区时最大搜索时间，单位秒。不要超过8秒
+@boolean 网络遇到严重故障时尝试自动恢复，和飞行模式/SIM卡切换冲突，true开启，false关闭，开始状态是false，留空则不做改变
 @return nil 无返回值
  */
 static int l_mobile_set_auto_work(lua_State* L) {
 	luat_mobile_set_period_work(luaL_optinteger(L, 2, 0), luaL_optinteger(L, 1, 0), luaL_optinteger(L, 3, 0));
-    return 0;
+    if (LUA_TBOOLEAN == lua_type(L, 4)) {
+    	luat_mobile_fatal_error_auto_reset_stack(lua_toboolean(L, 4));
+    }
+	return 0;
 }
 
 /**
@@ -300,7 +315,7 @@ static int l_mobile_apn(lua_State* L) {
  */
 static int l_mobile_ipv6(lua_State* L) {
     // char buff[24] = {0};
-	uint8_t onoff;
+//	uint8_t onoff;
     if (LUA_TBOOLEAN == lua_type(L, 1)) {
     	luat_mobile_set_default_pdn_ipv6(lua_toboolean(L, 1));
     }

@@ -93,9 +93,6 @@ local function fota_task(cbFnc,storge_location, len, param1,ota_url,ota_port,tim
         end
     end
 
-    error("why")
-    -- local abc = abc + 2
-
     local succ, param, ip, port, total, findhead, filelen, rcvCache,d1,d2,statusCode,retry,rspHead,rcvChunked,done,fotaDone,nCache
     local tbuff = zbuff.create(512)
     local rbuff = zbuff.create(4096)
@@ -125,9 +122,10 @@ local function fota_task(cbFnc,storge_location, len, param1,ota_url,ota_port,tim
         end
 
         if ota_port == nil then
-            local url_port = string.match(host,".:(%d+)")
+            local url_host,url_port = string.match(host,"(%g+):(%d+)")
             if url_port then
                 ota_port = url_port
+                host = url_host
             elseif type == "http" then
                 ota_port = 80
             elseif type == "https" then

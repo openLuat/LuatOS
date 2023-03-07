@@ -24,12 +24,21 @@
 
 #define LUAT_USE_SM 1
 
-//#define LUAT_USE_LVGL 1
+#define LUAT_USE_LCD
+#define LUAT_LCD_COLOR_DEPTH 16
+#define LUAT_USE_TJPGD
+
+#define LV_COLOR_16_SWAP 1
+#define LV_COLOR_DEPTH 16
+
+
+// #define LUAT_USE_LVGL 1
 #define LUAT_USE_LVGL_SDL2 1
 #define LUAT_USE_LCD_SDL2 1
 #define LUAT_USE_LCD_CUSTOM_DRAW 1
 
 #define LV_TICK_CUSTOM     1
+#define LV_TICK_CUSTOM_INCLUDE "stdio.h"
 #define LV_TICK_CUSTOM_SYS_TIME_EXPR (get_timestamp())     /*Expression evaluating to current systime in ms*/
 
 #define LV_FONT_OPPOSANS_M_8

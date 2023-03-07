@@ -12,16 +12,35 @@ log.info("main", PROJECT, VERSION)
 -- sys库是标配
 _G.sys = require("sys")
 
---[[
-HSPI
-HSPI_SCK                (PC15)
-HSPI_MISO               (PC12)
-HSPI_MOSI               (PC13)
-HSPI_CS                 (PC14)
-res                     (PE08)
-busy                    (PE09)
-dio1                    (PE06)
-]]
+--添加硬狗防止程序卡死
+if wdt then
+    wdt.init(9000)--初始化watchdog设置为9s
+    sys.timerLoopStart(wdt.feed, 3000)--3s喂一次狗
+end
+
+local rtos_bsp = rtos.bsp()
+
+-- spi_id,pin_cs,pin_reset,pin_busy,pin_dio1
+local function lora_pin()     
+    if rtos_bsp == "AIR101" then
+        return 0,pin.PB04,pin.PB00,pin.PB01,pin.PB06
+    elseif rtos_bsp == "AIR103" then
+        return 0,pin.PB04,pin.PB00,pin.PB01,pin.PB06
+    elseif rtos_bsp == "AIR105" then
+        return 5,pin.PC14,pin.PE08,pin.PE09,pin.PE06
+    elseif rtos_bsp == "ESP32C3" then
+        return 2,7,6,11,5
+    elseif rtos_bsp == "ESP32S3" then
+        return 2,14,15,13,12
+    elseif rtos_bsp == "EC618" then
+        return 0,8,1,18,19
+    else
+        log.info("main", "bsp not support")
+        return
+    end
+end
+
+local spi_id,pin_cs,pin_reset,pin_busy,pin_dio1 = lora_pin() 
 
 sys.subscribe("LORA_TX_DONE", function()
     lora.recive(1000)
@@ -37,7 +56,7 @@ sys.subscribe("LORA_RX_TIMEOUT", function()
 end)
 
 sys.taskInit(function()
-    lora.init("llcc68",{id = 5,cs = pin.PC14,res = pin.PE08,busy = pin.PE09,dio1 = pin.PE06})
+    lora.init("llcc68",{id = spi_id,cs = pin_cs,res = pin_reset,busy = pin_busy,dio1 = pin_dio1})
     
     lora.set_channel(433000000)
     lora.set_txconfig("llcc68",

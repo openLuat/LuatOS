@@ -41,15 +41,19 @@ static const luaL_Reg loadedlibs[] = {
 //   {"sfd",   luaopen_sfd},
 //   {"lfs2",   luaopen_lfs2},
 //   {"gpio",   luaopen_gpio},
+  {"spi",   luaopen_spi},
   {"rsa", luaopen_rsa},
 #ifdef __XMAKE_BUILD__
   {"protobuf", luaopen_protobuf},
   {"iotauth", luaopen_iotauth},
 #endif
-// #ifdef LUAT_USE_LVGL
-//   {"lvgl",   luaopen_lvgl},
-//   {"lcd",    luaopen_lcd},
-// #endif
+#ifdef LUAT_USE_LCD
+  {"lcd",    luaopen_lcd},
+#endif
+#ifdef LUAT_USE_LVGL
+  {"lvgl",   luaopen_lvgl},
+  {"lcd",    luaopen_lcd},
+#endif
   {NULL, NULL}
 };
 

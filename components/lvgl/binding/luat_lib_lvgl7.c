@@ -116,12 +116,18 @@ int luat_lv_init(lua_State *L) {
     else {
         lcd_conf = luat_lcd_get_default();
     }
-
     if (lcd_conf == NULL) {
+        #if defined(LUA_USE_LINUX) || defined(LUA_USE_WINDOWS)
+        if (w == 0 || h == 0) {
+            w = 800;
+            h = 640;
+        }
+        #else
         LLOGE("setup lcd first!!");
         return 0;
+        #endif
     }
-    else if (w == 0 || h == 0) {
+    if (w == 0 || h == 0) {
         w = lcd_conf->w;
         h = lcd_conf->h;
     }

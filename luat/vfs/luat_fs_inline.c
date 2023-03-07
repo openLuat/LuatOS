@@ -26,7 +26,7 @@ FILE* luat_vfs_inline_fopen(void* userdata, const char *filename, const char *mo
     //LLOGD("open inline %s", filename);
     luadb_file_t* file = NULL;
 #ifdef LUAT_CONF_VM_64bit
-    #ifdef LUA_USE_LINUX
+    #if defined(LUA_USE_LINUX) || (defined(LUA_USE_WINDOWS) && defined(__XMAKE_BUILD__))
     file = luat_inline2_libs_64bit_size64;
     #else
     file = luat_inline2_libs_64bit_size32;
@@ -124,10 +124,9 @@ size_t luat_vfs_inline_fread(void* userdata, void *ptr, size_t size, size_t nmem
 }
 
 int luat_vfs_inline_fexist(void* userdata, const char *filename) {
-    //LLOGD("open fexist %s", filename);
     luadb_file_t* file = NULL;
 #ifdef LUAT_CONF_VM_64bit
-    #ifdef LUA_USE_LINUX
+    #if defined(LUA_USE_LINUX) || (defined(LUA_USE_WINDOWS) && defined(__XMAKE_BUILD__))
     file = luat_inline2_libs_64bit_size64;
     #else
     file = luat_inline2_libs_64bit_size32;

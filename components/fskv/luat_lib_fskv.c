@@ -119,25 +119,27 @@ static int l_fskv_set(lua_State *L) {
         }
         else {
             luaL_addchar(&buff, LUA_TNUMBER);
-            lua_getglobal(L, "pack");
-            if (lua_isnil(L, -1)) {
-                LLOGW("float number need pack lib");
-                lua_pushboolean(L, 0);
-                return 1;
-            }
-            lua_getfield(L, -1, "pack");
-            lua_pushstring(L, ">f");
-            lua_pushvalue(L, 2);
-            lua_call(L, 2, 1);
-            if (lua_isstring(L, -1)) {
-                const char* val = luaL_checklstring(L, -1, &len);
-                luaL_addlstring(&buff, val, len);
-            }
-            else {
-                LLOGW("kdb store number fail!!");
-                lua_pushboolean(L, 0);
-                return 1;
-            }
+            lua_Number fval = luaL_checknumber(L, 2);
+            luaL_addlstring(&buff, (const char*)&fval, sizeof(fval));
+//            lua_getglobal(L, "pack");
+//            if (lua_isnil(L, -1)) {
+//                LLOGW("float number need pack lib");
+//                lua_pushboolean(L, 0);
+//                return 1;
+//            }
+//            lua_getfield(L, -1, "pack");
+//            lua_pushstring(L, ">f");
+//            lua_pushvalue(L, 2);
+//            lua_call(L, 2, 1);
+//            if (lua_isstring(L, -1)) {
+//                const char* val = luaL_checklstring(L, -1, &len);
+//                luaL_addlstring(&buff, val, len);
+//            }
+//            else {
+//                LLOGW("kdb store number fail!!");
+//                lua_pushboolean(L, 0);
+//                return 1;
+//            }
         }
         break;
     case LUA_TSTRING:
@@ -242,18 +244,22 @@ static int l_fskv_get(lua_State *L) {
     }
 
     lua_Integer intVal;
-    // lua_Number *numVal;
+    lua_Number numVal;
     // LLOGD("KV value T=%02X", buff.b[0]);
     switch(buff[0]) {
     case LUA_TBOOLEAN:
         lua_pushboolean(L, buff[1]);
         break;
     case LUA_TNUMBER:
-        lua_getglobal(L, "pack");
-        lua_getfield(L, -1, "unpack");
-        lua_pushlstring(L, (char*)(buff + 1), size - 1);
-        lua_pushstring(L, ">f");
-        lua_call(L, 2, 2);
+    	memcpy(&numVal, &buff[1], sizeof(lua_Number));
+//        intVal = (lua_Integer*)(&buff[1]);
+//        lua_pushinteger(L, *intVal);
+    	lua_pushnumber(L, numVal);
+//        lua_getglobal(L, "pack");
+//        lua_getfield(L, -1, "unpack");
+//        lua_pushlstring(L, (char*)(buff + 1), size - 1);
+//        lua_pushstring(L, ">f");
+//        lua_call(L, 2, 2);
         // _, val = pack.unpack(data, ">f")
         break;
     case LUA_TINTEGER:

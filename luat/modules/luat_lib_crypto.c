@@ -237,8 +237,8 @@ int l_crypto_cipher_xxx(lua_State *L, uint8_t flags);
 /**
 对称加密
 @api crypto.cipher_encrypt(type, padding, str, key, iv)
-@string 算法名称, 例如 AES-128-ECB/AES-128-CBC, 可查阅mbedtls的cipher_wrap.c
-@string 对齐方式, 当前仅支持PKCS7
+@string 算法名称, 例如 AES-128-ECB/AES-128-CBC, 可查阅crypto.cipher_list()
+@string 对齐方式, 支持PKCS7/ZERO/ONE_AND_ZEROS/ZEROS_AND_LEN/NONE
 @string 需要加密的数据
 @string 密钥,需要对应算法的密钥长度
 @string IV值, 非ECB算法需要
@@ -254,8 +254,8 @@ int l_crypto_cipher_encrypt(lua_State *L) {
 /**
 对称解密
 @api crypto.cipher_decrypt(type, padding, str, key, iv)
-@string 算法名称, 例如 AES-128-ECB/AES-128-CBC, 可查阅mbedtls的cipher_wrap.c
-@string 对齐方式, 当前仅支持PKCS7
+@string 算法名称, 例如 AES-128-ECB/AES-128-CBC, 可查阅crypto.cipher_list()
+@string 对齐方式, 支持PKCS7/ZERO/ONE_AND_ZEROS/ZEROS_AND_LEN/NONE
 @string 需要解密的数据
 @string 密钥,需要对应算法的密钥长度
 @string IV值, 非ECB算法需要

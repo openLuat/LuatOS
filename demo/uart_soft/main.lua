@@ -28,7 +28,7 @@ local function resouce()
     elseif rtos_bsp == "ESP32S3" then
         return nil,nil,nil,nil,nil,nil,nil
     elseif rtos_bsp == "EC618" then
-        return 17,0,1,2,19200,0,-50
+        return 17,0,1,2,19200,0,-10
     else
         log.info("main", "bsp not support")
         return

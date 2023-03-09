@@ -155,7 +155,7 @@ static int luat_uart_soft_setup(luat_uart_t *uart)
 		prv_uart_soft->rx_period = luat_uart_soft_cal_baudrate(uart->baud_rate) + prv_uart_soft->rx_adjust_period;
 	}
 
-	LLOGD("soft uart period %u,%u!", prv_uart_soft->tx_period, prv_uart_soft->rx_period);
+//	LLOGD("soft uart period %u,%u!", prv_uart_soft->tx_period, prv_uart_soft->rx_period);
 	switch(uart->stop_bits)
 	{
 	case 2:
@@ -1035,7 +1035,7 @@ UART_SOFT_RX_BYTE_DONE:
 	prv_uart_soft->rx_fifo_cnt++;
 	luat_uart_soft_gpio_fast_irq_set(prv_uart_soft->rx_pin, 1);
 	prv_uart_soft->rx_shift_bits = 0xef;
-	luat_uart_soft_hwtimer_onoff(prv_uart_soft->rx_hwtimer_id, prv_uart_soft->stop_period * 5);	//这里做接收超时检测
+	luat_uart_soft_hwtimer_onoff(prv_uart_soft->rx_hwtimer_id, prv_uart_soft->stop_period * 20);	//这里做接收超时检测
 	if (prv_uart_soft->rx_fifo_cnt < LUAT_UART_SOFT_FIFO_CNT)	//接收fifo没有满，继续接收
 	{
 		return;

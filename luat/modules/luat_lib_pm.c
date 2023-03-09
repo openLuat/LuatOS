@@ -350,6 +350,32 @@ static int l_pm_power_ctrl(lua_State *L) {
 // }
 // #endif
 
+
+/**
+配置唤醒引脚 (当前仅仅esp系列可用)
+@api pm.wakeupPin(pin,level)
+@int/table gpio引脚
+@int 唤醒电压 可选,默认低电平唤醒
+@return boolean 处理结果
+@usage
+pm.wakeupPin(8,0)
+ */
+static int l_pm_wakeup_pin(lua_State *L) {
+    int level = luaL_optinteger(L, 2,0);
+    if (lua_istable(L, 1)) {
+        size_t count = lua_rawlen(L, 1);
+		for (size_t i = 1; i <= count; i++){
+			lua_geti(L, 1, i);
+            luat_pm_wakeup_pin(luaL_checkinteger(L, -1), level);
+			lua_pop(L, 1);
+		}
+    }else if(lua_isnumber(L, 1)){
+        luat_pm_wakeup_pin(luaL_checkinteger(L, 1), level);
+    }
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_pm[] =
 {
@@ -368,6 +394,7 @@ static const rotable_Reg_t reg_pm[] =
     { "reboot",         ROREG_FUNC(l_rtos_reboot)},
 	{ "power",          ROREG_FUNC(l_pm_power_ctrl)},
     // { "ioVolt",         ROREG_FUNC(l_pm_iovolt_ctrl)},
+    { "wakeupPin",         ROREG_FUNC(l_pm_wakeup_pin)},
 
 
     //@const NONE number 不休眠模式

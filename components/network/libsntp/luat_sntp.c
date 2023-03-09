@@ -245,12 +245,12 @@ int l_sntp_get(lua_State *L){
         if (count > SNTP_SERVER_COUNT){
             count = SNTP_SERVER_COUNT;
         }
-		for (size_t i = 0; i <= count; i++){
-			lua_geti(L, 1, i+1);
+		for (size_t i = 1; i <= count; i++){
+			lua_geti(L, 1, i);
 			const char * server_addr = luaL_checklstring(L, -1, &len);
             if (len < SNTP_SERVER_LEN_MAX){
-                memcpy(sntp_server[i], server_addr, len);
-                sntp_server[i][len] = 0x00;
+                memcpy(sntp_server[i-1], server_addr, len);
+                sntp_server[i-1][len] = 0x00;
             }else{
                 LLOGE("server_addr too lang");
             }

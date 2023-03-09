@@ -10,50 +10,16 @@ log.info("main", PROJECT, VERSION)
 sys = require("sys")
 
 local uartid = 1 -- 根据实际设备选取不同的uartid
-
-local rbuff
-local ppb = 0
---初始化
-local result = uart.setup(
-    uartid,--串口id
-    9600,--波特率
-    8,--数据位
-    1--停止位
-)
-
--- 获取PPB值
--- 气体浓度值 (PPB)=( 气 体 浓 度 高 位 *256+ 气 体 浓 度 低 位 )
-function GetPPB()
-    if not rbuff then return nil end
-    ppb = rbuff:byte(5)*255 + rbuff:byte(6)
-    return ppb
-end
-
--- 获取PPM值
---百万分比浓度（PPM）= PPB / 1000
-function GetPPM()
-    return ppb / 1000
-end
-
-
--- 收取数据会触发回调, 这里的"receive" 是固定值
-uart.on(uartid, "receive", function(id, len)
-    local s = ""
-    s = uart.read(id, len)
-    if #s == 0 then return end
-
-    local hexStr, hexLen = s:toHex()
-    log.info("CH2O", "receive", hexStr, hexLen)
-    
-    if string.sub(hexStr,1,2) == "FF" and hexLen == 18 then
-        rbuff = s
-    end
-end)
+local ch2o = require "ze08g_ch2o"
 
 sys.taskInit(function ()
+    local result = ch2o.init(uartid)
+    if not result then return end
+
     while true do
         sys.wait(1000)
-        log.info("ppb:  ", GetPPB(), "ppm:    ", GetPPM(), string.format("USART_PM25:   %s mg/m3.", GetPPM() * 1.25))
+        log.info("气体浓度值 PPB：", ch2o.getPPB())
+        log.info("百万分比浓度 PPM：", ch2o.getPPM())
     end
 end)
 

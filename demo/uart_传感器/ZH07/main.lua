@@ -8,61 +8,19 @@ log.info("main", PROJECT, VERSION)
 
 -- 引入必要的库文件(lua编写), 内部库不需要require
 sys = require("sys")
+local zh07 = require "zh07"
 
 local uartid = 1 -- 根据实际设备选取不同的uartid
 
-local rbuff
---初始化
-local result = uart.setup(
-    uartid,--串口id
-    9600,--波特率
-    8,--数据位
-    1--停止位
-)
-
--- PM1.0
-function GetPM_1()
-    if not rbuff then return nil end
-
-    return rbuff:byte(11)*256 + rbuff:byte(12)
-end
-
--- PM2.5
-function GetPM_25()
-    if not rbuff then return nil end
-
-    return rbuff:byte(13)*256 + rbuff:byte(14)
-end
-
---PM10
-function GetPM_10()
-    if not rbuff then return nil end
-
-    return rbuff:byte(15)*256 + rbuff:byte(16)
-end
-
-
--- 收取数据会触发回调, 这里的"receive" 是固定值
-uart.on(uartid, "receive", function(id, len)
-    local s = ""
-    s = uart.read(id, len)
-    if #s == 0 then return end
-
-    local hexStr, hexLen = s:toHex()
-    log.info("ZH07", "receive", hexStr, hexLen)
-
-    if string.sub(hexStr,1,2) == "42" and hexLen == 64 then
-        rbuff = s
-    end
-
-end)
-
 sys.taskInit(function ()
+    local result = zh07.init(uartid)
+    if not result then return end
+
     while true do
         sys.wait(1000)
-        log.info(string.format("pm1.0  %sμg/m³", GetPM_1()))
-        log.info(string.format("pm2.5  %sμg/m³", GetPM_25()))
-        log.info(string.format("pm10   %sμg/m³", GetPM_10()))
+        log.info(string.format("pm1.0  %sμg/m³", zh07.getPM_1()))
+        log.info(string.format("pm2.5  %sμg/m³", zh07.getPM_2_5()))
+        log.info(string.format("pm10   %sμg/m³", zh07.getPM_10()))
     end
 end)
 

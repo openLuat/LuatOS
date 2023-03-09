@@ -58,4 +58,6 @@ int luat_pm_get_poweron_reason(void);
 
 int luat_pm_iovolt_ctrl(int id, int val);
 
+int luat_pm_wakeup_pin(int pin, int val);
+
 #endif

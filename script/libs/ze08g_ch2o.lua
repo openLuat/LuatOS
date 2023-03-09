@@ -1,6 +1,6 @@
 --[[
 @module ze08g_ch2o
-@summary ZE08G-CH2O 激光粉尘传感器
+@summary ZE08G-CH2O 电化学甲醛模组
 @version 1.0
 @date    2023.03.09
 @author  BaiShiyu

@@ -61,7 +61,7 @@ void *create_event_task(TaskFun_t task_fun, void *param, uint32_t stack_bytes, u
 	{
 		handle->queue = NULL;
 	}
-	if (pdPASS != xTaskCreate(task_fun, task_name, stack_bytes * 4, param, priority, &handle->handle))
+	if (pdPASS != xTaskCreate(task_fun, task_name, stack_bytes, param, priority, &handle->handle))
 	{
 		if (handle->queue)
 			vQueueDelete(handle->queue);

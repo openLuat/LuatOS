@@ -1,12 +1,19 @@
--- PROJECT = "aliyundemo"
--- VERSION = "1.0.0"
--- local sys = require "sys"
--- sys库是标配
-_G.sys = require("sys")
+--[[
+@module aliyun
+@summary aliyun 阿里云
+@version 1.0
+@date    2023.03.10
+@author  翟浩宇
+@usage
+-- 用法实例
+参考aliyun demo: https://gitee.com/openLuat/LuatOS/tree/master/demo/aliyun
+]]
+
+local sys = require "sys"
 --[[特别注意, 使用mqtt库需要下列语句]]
 _G.sysplus = require("sysplus")
 
-aLiyun = {}
+aliyun = {}
 
 local clientId,password,userName,DeviceSecret
 
@@ -57,12 +64,12 @@ local function procReceive(client)
         log.info("接收到消息之后传到处理方法里的数据",ret,data,payload,DeviceName,ProductKey)
         --接收到数据
         if ret then
-            log.info("aLiYun.procReceive",data.topic,string.toHex(data.payload))
+            log.info("aliyun.procReceive",data.topic,string.toHex(data.payload))
             --OTA消息
             if payload.topic=="/ota/device/upgrade/"..ProductKey.."/"..DeviceName then
                 log.info("进到OTA升级判断里了",payload.topic)
-                -- if aLiYunOta and aLiYunOta.upgrade then
-                --     aLiYunOta.upgrade(data.payload)
+                -- if aliyunOta and aliyunOta.upgrade then
+                --     aliyunOta.upgrade(data.payload)
                 -- end
             --其他消息
             else    
@@ -149,7 +156,7 @@ local function directProc(DeviceName,ProductKey,mqtt_host,mqtt_port,mqtt_isssl,R
         log.info("password",password)
 
         
-        log.info("aLiYun.directProc",clientId,userName,password)
+        log.info("aliyun.directProc",clientId,userName,password)
         
         clientDataTask(clientId,userName,password,mqtt_host,mqtt_port,mqtt_isssl,DeviceName,ProductKey)
     else
@@ -159,7 +166,7 @@ local function directProc(DeviceName,ProductKey,mqtt_host,mqtt_port,mqtt_isssl,R
         local userName = DeviceName.."&"..ProductKey
         local password = deviceToken
 
-        log.info("aLiYun.directProc",clientId,userName,password)
+        log.info("aliyun.directProc",clientId,userName,password)
         
         clientDataTask(clientId,userName,password,mqtt_host,mqtt_port,mqtt_isssl,DeviceName,ProductKey)
     end
@@ -225,7 +232,7 @@ local function clientEncryptionTask(Registration,DeviceName,ProductKey,ProductSe
 end
 
 
---底层libMQTT回调函数，上层的回调函数，通过 aLiYun.on注册
+--底层libMQTT回调函数，上层的回调函数，通过 aliyun.on注册
 local function mqtt_cbevent(mqtt_client, event, data, payload) 
     if event == "conack" then
         evtCb["connect"](true) 
@@ -315,7 +322,22 @@ local function clientTokenTask(DeviceName,ProductKey,mqtt_host,mqtt_port,mqtt_is
 end
 
 --根据掉电不消失的kv文件区来储存的deviceSecret，deviceToken来判断是进行正常连接还是
-function aLiyun.operation(Registration,DeviceName,ProductKey,ProductSecret,InstanceId,mqtt_host,mqtt_port,mqtt_isssl)
+
+--[[
+一型一密连接
+@api aliyun.operation(Registration,DeviceName,ProductKey,ProductSecret,InstanceId,mqtt_host,mqtt_port,mqtt_isssl)
+@bool Registration 是否预注册
+@string DeviceName 设备id
+@string ProductKey 产品key
+@string ProductSecret 产品秘钥
+@string InstanceId 实例id
+@string mqtt_host 公共实例的地址
+@string mqtt_port 端口
+@bool mqtt_isssl 是否为ssl加密连接,默认不加密,true为无证书最简单的加密，table为有证书的加密
+@usage
+aliyun.operation(Registration,DeviceName,ProductKey,ProductSecret,InstanceId,mqtt_host,mqtt_port,mqtt_isssl)
+]]
+function aliyun.operation(Registration,DeviceName,ProductKey,ProductSecret,InstanceId,mqtt_host,mqtt_port,mqtt_isssl)
     fskv.init()
     fskv.set("DeviceName",DeviceName)
     local name = fskv.get("DeviceName")
@@ -350,8 +372,19 @@ function aLiyun.operation(Registration,DeviceName,ProductKey,ProductSecret,Insta
     end
 end
 
---一机一密连接  ConfiDential
-function aLiyun.confiDentialTask(DeviceName,ProductKey,DeviceSecret,mqtt_host,mqtt_port,mqtt_isssl)
+--[[
+一机一密连接
+@api aliyun.confiDentialTask(DeviceName,ProductKey,DeviceSecret,mqtt_host,mqtt_port,mqtt_isssl)
+@string DeviceName 设备id
+@string ProductKey 产品key
+@string DeviceSecret 设备秘钥
+@string mqtt_host 公共实例的地址
+@string mqtt_port 端口
+@bool mqtt_isssl 是否为ssl加密连接,默认不加密,true为无证书最简单的加密，table为有证书的加密
+@usage
+aliyun.confiDentialTask(DeviceName,ProductKey,DeviceSecret,mqtt_host,mqtt_port,mqtt_isssl)
+]]
+function aliyun.confiDentialTask(DeviceName,ProductKey,DeviceSecret,mqtt_host,mqtt_port,mqtt_isssl)
     sys.taskInit(function()
         sys.wait(5000)
         if mobile.status() == 0 then
@@ -382,62 +415,48 @@ function aLiyun.confiDentialTask(DeviceName,ProductKey,DeviceSecret,mqtt_host,mq
     end)
 end
 
-
---- 订阅主题
--- @param topic，string或者table类型，一个主题时为string类型，多个主题时为table类型，主题内容为UTF8编码
--- @param qos，number或者nil，topic为一个主题时，qos为number类型(0/1，默认0)；topic为多个主题时，qos为nil
--- @return nil
--- @usage
--- aLiYun.subscriber("/b0FMK1Ga5cp/862991234567890/get", 0)
--- aLiYun.subscriber({["/b0FMK1Ga5cp/862991234567890/get"] = 0, ["/b0FMK1Ga5cp/862991234567890/get"] = 1})
-function aLiyun.subscriber(topic,qos)
+--[[
+订阅主题
+@api aliyun.subscriber(topic,qos)
+@string/table topic，string或者table类型，一个主题时为string类型，多个主题时为table类型，主题内容为UTF8编码
+@number qos，number或者nil，topic为一个主题时，qos为number类型(0/1，默认0)；topic为多个主题时，qos为nil
+@usage
+-- aliyun.subscriber("/b0FMK1Ga5cp/862991234567890/get", 0)
+-- aliyun.subscriber({["/b0FMK1Ga5cp/862991234567890/get"] = 0, ["/b0FMK1Ga5cp/862991234567890/get"] = 1})
+]]
+function aliyun.subscriber(topic,qos)
     insert("SUBSCRIBE",topic,qos)
     sys.publish("aliyun_publish_ind","send")
 end
 
---- 发布一条消息
--- @string topic，UTF8编码的主题
--- @string payload，负载
--- @number[opt=0] qos，质量等级，0/1，默认0
--- @function[opt=nil] cbFnc，消息发布结果的回调函数
--- 回调函数的调用形式为：cbFnc(result,cbPara)。result为true表示发布成功，false或者nil表示订阅失败；cbPara为本接口中的第5个参数
--- @param[opt=nil] cbPara，消息发布结果回调函数的回调参数
--- @return nil
--- @usage
--- aLiYun.publish("/b0FMK1Ga5cp/862991234567890/update","test",0)
--- aLiYun.publish("/b0FMK1Ga5cp/862991234567890/update","test",1,cbFnc,"cbFncPara")
-function aLiyun.publish(topic,qos,payload,retain)
+--[[
+发布一条消息
+@api aliyun.publish(topic,qos,payload,retain)
+@string topic，UTF8编码的主题
+@number qos，0/1，默认0
+@numberretain,是否存档, 0/1,默认0
+@number i2c_id i2c_id
+@usage
+aliyun.publish("/"..ProductKey.."/"..DeviceName.."/user/get",0,"LUATOS_CESHI")
+]]
+function aliyun.publish(topic,qos,payload,retain)
     insert("PUBLISH",topic,qos,payload,retain)
     sys.publish("aliyun_publish_ind","send")
     log.info("aliyun aliyun_publish_ind","publish")
 end
 
-
---- 注册事件的处理函数
--- @string evt 事件
--- "auth"表示鉴权服务器认证结果事件
--- "connect"表示接入服务器连接结果事件
--- "reconnect"表示重连事件
--- "receive"表示接收到接入服务器的消息事件
--- @function cbFnc 事件的处理函数
--- 当evt为"auth"时，cbFnc的调用形式为：cbFnc(result)，result为true表示认证成功，false或者nil表示认证失败
--- 当evt为"connect"时，cbFnc的调用形式为：cbFnc(result)，result为true表示连接成功，false或者nil表示连接失败
--- 当evt为"receive"时，cbFnc的调用形式为：cbFnc(topic,qos,payload)，topic为UTF8编码的主题(string类型)，qos为质量等级(number类型)，payload为原始编码的负载(string类型)
--- 当evt为"reconnect"时，cbFnc的调用形式为：cbFnc()，表示lib中在自动重连阿里云服务器
--- @return nil
--- @usage
--- aLiYun.on("connect",cbFnc)
-function aLiyun.on(evt,cbFnc)
+--[[
+注册事件的处理函数
+@api aliyun.on(evt,cbFnc)
+@string evt 事件 <br>"auth"表示鉴权服务器认证结果事件 <br>"connect"表示接入服务器连接结果事件 <br>"reconnect"表示重连事件 <br>"receive"表示接收到接入服务器的消息事件
+@function cbFnc 事件的处理函数  <br>当evt为"auth"时，cbFnc的调用形式为：cbFnc(result)，result为true表示认证成功，false或者nil表示认证失败 <br>当evt为"connect"时，cbFnc的调用形式为：cbFnc(result)，result为true表示连接成功，false或者nil表示连接失败 <br>当evt为"receive"时，cbFnc的调用形式为：cbFnc(topic,qos,payload)，topic为UTF8编码的主题(string类型)，qos为质量等级(number类型)，payload为原始编码的负载(string类型) <br>当evt为"reconnect"时，cbFnc的调用形式为：cbFnc()，表示lib中在自动重连阿里云服务器
+@usage
+aliyun.on("connect",cbFnc)
+]]
+function aliyun.on(evt,cbFnc)
 	evtCb[evt] = cbFnc
 end
 
 
+return aliyun
 
-
-
-
-
-
-
-return aLiyun
--- 用户代码已结束---------------------------------------------

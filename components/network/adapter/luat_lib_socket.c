@@ -755,8 +755,8 @@ static int l_socket_set_dns(lua_State *L)
 /*
 设置SSL的log
 @api    socket.sslLog(log_level)
-@int	mbedtls log等级，<=2基本不打印，不要超过9
-@usage socket.sslLog(3)
+@int	mbedtls log等级，0不打印，1只打印错误和警告，2大部分info，3及3以上详细的debug信息，过多的信息可能会造成内存碎片化
+@usage socket.sslLog(2)
 */
 static int l_socket_set_ssl_log(lua_State *L)
 {

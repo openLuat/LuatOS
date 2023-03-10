@@ -1627,7 +1627,18 @@ static int net_lwip_socket_receive(int socket_id, uint64_t tag,  uint8_t *buf, u
 		}
 		else
 		{
-			prvlwip.socket[socket_id].rx_wait_size -= net_lwip_socket_read_data(socket_id, buf + read_len, &read_len, len, p);
+			if (p)
+			{
+				if (remote_ip)
+				{
+					*remote_ip = p->ip;
+				}
+				if (remote_port)
+				{
+					*remote_port = p->port;
+				}
+				prvlwip.socket[socket_id].rx_wait_size -= net_lwip_socket_read_data(socket_id, buf + read_len, &read_len, len, p);
+			}
 		}
 		if (llist_empty(&prvlwip.socket[socket_id].rx_head))
 		{
@@ -2124,7 +2135,7 @@ static int net_lwip_dns(const char *domain_name, uint32_t len, void *param, void
 	return 0;
 }
 
-static int net_lwip_dns(const char *domain_name, uint32_t len, void *param, void *user_data)
+static int net_lwip_dns_ipv6(const char *domain_name, uint32_t len, void *param, void *user_data)
 {
 	if ((uint32_t)user_data >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) return -1;
 	char *prv_domain_name = (char *)zalloc(len + 1);

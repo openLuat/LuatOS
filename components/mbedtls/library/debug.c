@@ -102,6 +102,7 @@ void mbedtls_debug_print_ret( const mbedtls_ssl_context *ssl, int level,
     if( NULL == ssl              ||
         NULL == ssl->conf        ||
         NULL == ssl->conf->f_dbg ||
+	    MBEDTLS_ERR_SSL_WANT_READ ==  ret ||
         level > debug_threshold )
     {
         return;
@@ -112,11 +113,7 @@ void mbedtls_debug_print_ret( const mbedtls_ssl_context *ssl, int level,
      * the logs would be quickly flooded with WANT_READ, so ignore that.
      * Don't ignore WANT_WRITE however, since is is usually rare.
      */
-    if( ret == MBEDTLS_ERR_SSL_WANT_READ )
-    {
-    	mbedtls_free(str);
-    	return;
-    }
+
 
 #ifdef LUAT_LOG_NO_NEWLINE
     mbedtls_snprintf( str, DEBUG_BUF_SIZE, "%s() returned %d (-0x%04x)",

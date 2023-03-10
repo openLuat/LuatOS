@@ -53,11 +53,12 @@ static int l_adc_set_range(lua_State *L) {
 读取adc通道
 @api adc.read(id)
 @int 通道id,与具体设备有关,通常从0开始
-@return int 原始值
-@return int 从原始值换算得出的电压值，通常单位是mV
+@return int 原始值,一般没用,可以直接抛弃
+@return int 从原始值换算得出的实际值，通常单位是mV
 @usage
 -- 打开adc通道2,并读取
 if adc.open(2) then
+    -- 这里使用的是adc.read会返回2个值, 推荐走adc.get函数,直接取实际值
     log.info("adc", adc.read(2))
 end
 adc.close(2)

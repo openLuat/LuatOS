@@ -113,7 +113,11 @@ void mbedtls_debug_print_ret( const mbedtls_ssl_context *ssl, int level,
      * Don't ignore WANT_WRITE however, since is is usually rare.
      */
     if( ret == MBEDTLS_ERR_SSL_WANT_READ )
-        return;
+    {
+    	mbedtls_free(str);
+    	return;
+    }
+
 #ifdef LUAT_LOG_NO_NEWLINE
     mbedtls_snprintf( str, DEBUG_BUF_SIZE, "%s() returned %d (-0x%04x)",
               text, ret, (unsigned int) -ret );

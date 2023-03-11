@@ -1,7 +1,7 @@
 
 /*
 @module  max30102
-@summary 红外测温(MAX30102)
+@summary 心率模块(MAX30102)
 @version 1.0
 @date    2023.2.28
 @tag LUAT_USE_MAX30102

@@ -16,7 +16,7 @@ Air780E/Air600E/Air780EG等基于EC618的模块
 -- 引入必要的库文件(lua编写), 内部库不需要require
 sys = require("sys")
 require("sysplus")
-
+if mobile then mobile.rtime(1) end
 -- wifi扫描成功后, 会有WLAN_SCAN_DONE消息, 读取即可
 sys.subscribe("WLAN_SCAN_DONE", function ()
     local results = wlan.scanResult()
@@ -27,7 +27,7 @@ sys.subscribe("WLAN_SCAN_DONE", function ()
 end)
 
 sys.taskInit(function()
-    sys.wait(1000)
+    sys.wait(5000)
     wlan.init()
     while 1 do
         wlan.scan()

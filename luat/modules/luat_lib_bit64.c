@@ -17,7 +17,7 @@
 64bit数据转成32bit输出
 @api bit64.to32(data64bit)
 @string 9字节数据
-@return int/number
+@return any 根据64bit数据输出int或者number
  */
 static int l_bit64_to32(lua_State *L)
 {

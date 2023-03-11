@@ -69,6 +69,22 @@ sys.taskInit(function()
     log.info("rtc", json.encode(rtc.get()))
     sys.wait(3000)
 
+    -- 测试一下RTC唤醒
+    local t = rtc.get()
+    if t.sec < 30 then
+        log.info("rtc", "轻唤醒测试", "5秒后唤醒")
+        t.sec = t.sec + 5
+        rtc.timerStart(0, t)
+        pm.request(pm.LIGHT)
+        log.info("rtc", "轻唤醒测试", "唤醒成功")
+
+        -- RTC深度休眠+唤醒
+        -- t.sec = t.sec + 5
+        -- rtc.timerStart(0, t)
+        -- log.info("rtc", "深唤醒测试", "5秒后唤醒")
+        -- pm.request(pm.DEEP)
+    end
+
     -- 接着演示 DEEP模式休眠, RAM掉电, IO失效, 唤醒相当于复位重启
     -- 因为已经唤醒过,dtimer已经失效, 重新设置一个
     log.info("rtc", json.encode(rtc.get()))

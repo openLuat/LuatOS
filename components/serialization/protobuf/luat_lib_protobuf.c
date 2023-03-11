@@ -390,8 +390,16 @@ static void lpb_pushinteger(lua_State *L, int64_t n, int mode) {
         if (neg) *--p = '-';
         *--p = '#';
         lua_pushstring(L, p);
-    } else // 原版是判断lua_Integer是否8字节
+#ifdef LUAT_CONF_VM_64bit
+    }
+    else 
         lua_pushinteger(L, (lua_Integer)n);
+#else
+    } else if (LUA_VERSION_NUM >= 503 && (n >> 32) == 0)
+        lua_pushinteger(L, (lua_Integer)n);
+    else
+        lua_pushnumber(L, (lua_Number)n);
+#endif
 }
 
 typedef union lpb_Value {

@@ -1,11 +1,11 @@
 /*
 @module  bit64
-@summary 32位系统上对64位数据的基本算术运算和逻辑运算，64位数据用9字节string存储，byte7~byte0存数据，byte8=0表示整形，其他表示浮点
+@summary 32位系统上对64位数据的基本算术运算和逻辑运算
 @version 0.1
 @date    2023.03.11
-@video
 @tag LUAT_USE_BIT64
 @demo  bit64
+@note 64位数据用9字节string存储，byte7~byte0存数据，byte8=0表示整形，其他表示浮点
 */
 #include "luat_base.h"
 #include "luat_malloc.h"
@@ -17,7 +17,7 @@
 64bit数据转成32bit输出
 @api bit64.to32(data64bit)
 @string 9字节数据
-@return int or number
+@return any 根据64bit数据输出int或者number
  */
 static int l_bit64_to32(lua_State *L)
 {
@@ -73,7 +73,7 @@ static int l_bit64_to64(lua_State *L)
 /**
 64bit数据格式化打印成字符串，用于显示值
 @api bit64.show(a,type,flag)
-@string a
+@string 需要打印的64bit数据
 @int 进制，10=10进制，16=16进制，默认10，只支持10或者16
 @boolean 整形是否按照无符号方式打印，true是，false不是，默认false，浮点忽略
 @return string 可以打印的值
@@ -403,7 +403,7 @@ static int l_bit64_pide(lua_State *L)
 
 /**
 64bit数据位移 a>>b 或者 a<<b
-@api bit64.pide(a,b,flag)
+@api bit64.shift(a,b,flag)
 @string a
 @int b
 @boolean 位移方向，true左移<<，false右移>>，默认false

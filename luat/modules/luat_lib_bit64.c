@@ -12,6 +12,7 @@
 #define LUAT_LOG_TAG "bit64"
 #include "luat_log.h"
 #define D64_FLAG 0x01
+#ifdef LUAT_USE_BIT64
 /**
 64bit数据转成32bit输出
 @api bit64.to32(data64bit)
@@ -474,3 +475,4 @@ LUAMOD_API int luaopen_bit64(lua_State *L)
     luat_newlib2(L, reg_bit64);
     return 1;
 }
+#endif

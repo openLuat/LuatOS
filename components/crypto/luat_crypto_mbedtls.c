@@ -297,7 +297,7 @@ int luat_crypto_cipher_list(const char** list, size_t* len) {
 }
 
 int luat_crypto_cipher_suites(const char** list, size_t* len) {
-#ifdef MBEDTLS_SSL_TLS_C
+#if defined(MBEDTLS_SSL_TLS_C) && defined(LUAT_USE_NETWORK)
     size_t count = 0;
     size_t limit = *len;
     const int *suites = mbedtls_ssl_list_ciphersuites();

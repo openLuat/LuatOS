@@ -194,7 +194,12 @@ int luat_main (void) {
   #else
   LLOGI("LuatOS@%s base %s bsp %s 32bit", luat_os_bsp(), LUAT_VERSION, LUAT_BSP_VERSION);
   #endif
+  /// 支持时间无关的编译, 符合幂等性
+  #ifdef LUAT_BUILD_FINGER
+  LLOGI("ROM Finger: " LUAT_BUILD_FINGER);
+  #else
   LLOGI("ROM Build: " __DATE__ " " __TIME__);
+  #endif
   // #if LUAT_VERSION_BETA
   // LLOGD("This is a beta/snapshot version, for testing");
   // #endif

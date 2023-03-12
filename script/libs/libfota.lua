@@ -57,7 +57,7 @@ local tag = "fota"
 
 local function netCB(msg)
     if msg[1] == socket.EVENT then
-        log.info(tag, "socket网络状态变更")
+        --log.info(tag, "socket网络状态变更")
     elseif msg[1] == socket.TX_OK then
         log.info(tag, "socket发送完成")
     elseif msg[1] == socket.EV_NW_RESULT_CLOSE then

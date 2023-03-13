@@ -1,3 +1,18 @@
+audio.on(0, function(id, event)
+    --使用play来播放文件时只有播放完成回调
+    local succ,stop,file_cnt = audio.getError(0)
+    if not succ then
+        if stop then
+            log.info("用户停止播放")
+        else
+            log.info("第", file_cnt, "个文件解码失败")
+        end
+    end
+    -- log.info("播放完成一个音频")
+    sys.publish("AUDIO_PLAY_DONE")
+end)
+
+
 -- es8311器件地址
 local es8311_address = 0x18
 
@@ -47,6 +62,10 @@ local amr_buff = zbuff.create(10240)
 --创建一个amr的encoder
 local encoder = codec.create(codec.AMR, false)
 
+
+-- 录音文件路径
+local recordPath = "/record.amr"
+
 -- i2s数据接收回调
 local function record_cb(id, buff)
     if buff then
@@ -57,9 +76,10 @@ end
 
 
 
-function record_task()
+local function record_task()
+	audio.config(0, 25, 1, 6, 200)						
     sys.wait(5000)
-    uart.setup(1, 115200)								-- 开启串口1
+	pm.power(pm.DAC_EN, true)							-- 打开es8311芯片供电
     log.info("i2c initial",i2c.setup(0, i2c.FAST))		-- 开启i2c
     i2s.setup(0, 0, 8000, 16, 1, i2s.MODE_I2S)			-- 开启i2s
     i2s.on(0, record_cb) 								-- 注册i2s接收回调
@@ -73,9 +93,20 @@ function record_task()
     i2s.stop(0)											-- 停止接收
 
     log.info("录音5秒结束")
-    uart.write(1, "#!AMR\n")							-- 向串口发送amr文件标识数据
-    sys.wait(5)											-- 等待5ms确保发送成功
-    uart.write(1, amr_buff:query())						-- 向串口发送编码后的amr数据
+	io.writeFile(recordPath, "#!AMR\n")					-- 向文件写入amr文件标识数据
+	io.writeFile(recordPath, amr_buff:query(), "a+b")	-- 向文件写入编码后的amr数据
+
+	i2s.setup(0, 0, 0, 0, 0, i2s.MODE_MSB)
+   
+	local result = audio.play(0, {recordPath})			-- 请求音频播放
+	if result then
+		sys.waitUntil("AUDIO_PLAY_DONE")				-- 等待音频播放完毕
+	else
+														-- 音频播放出错	
+	end
+	
+	uart.setup(1, 115200)								-- 开启串口1
+    uart.write(1, io.readFile(recordPath))				-- 向串口发送录音文件
 end
-pm.power(pm.DAC_EN, true)								-- 打开es8311芯片供电
+
 sys.taskInit(record_task)

@@ -49,7 +49,7 @@ end
 
 
 
-function record_task()
+local function record_task()
     sys.wait(5000)
     uart.setup(1, 115200)                                       -- 开启串口1
     log.info("i2c initial",i2c.setup(0, i2c.FAST))              -- 开启i2c

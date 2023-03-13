@@ -55,24 +55,15 @@ static uint8_t w1_connect(int pin)
   return CONNECT_SUCCESS;
 }
 
-static uint8_t w1_read_bit(int pin)
-{
+static uint8_t w1_read_bit(int pin){
   uint8_t data;
-
   luat_gpio_mode(pin, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 0);
   luat_gpio_set(pin, Luat_GPIO_LOW);
   luat_timer_us_delay(2);
   luat_gpio_set(pin, Luat_GPIO_HIGH);
   luat_gpio_mode(pin, Luat_GPIO_INPUT, Luat_GPIO_PULLUP, 0);
-  luat_timer_us_delay(5);
-
-  if (luat_gpio_get(pin))
-    data = 1;
-  else
-    data = 0;
-
-  luat_timer_us_delay(50);
-
+  data = (uint8_t)luat_gpio_get(pin);
+  luat_timer_us_delay(60);
   return data;
 }
 
@@ -80,7 +71,7 @@ static uint8_t w1_read_byte(int pin)
 {
   uint8_t i, j, dat;
   dat = 0;
-
+  luat_timer_us_delay(90);
   //rt_base_t level;
   //level = rt_hw_interrupt_disable();
   for (i = 1; i <= 8; i++)
@@ -148,9 +139,8 @@ static int32_t ds18b20_get_temperature(int pin, int32_t *val, int check_crc)
 
   //ds18b20_start(pin);
   w1_reset(pin);
-  if (w1_connect(pin))
-  {
-    //LLOGD("ds18b20 connect fail");
+  if (w1_connect(pin)){
+    // LLOGD("ds18b20 connect fail");
     return -1;
   }
   w1_write_byte(pin, 0xcc); /* skip rom */
@@ -158,9 +148,8 @@ static int32_t ds18b20_get_temperature(int pin, int32_t *val, int check_crc)
 
   //ds18b20_init(pin);
   w1_reset(pin);
-  if (w1_connect(pin))
-  {
-    //LLOGD("ds18b20 connect fail");
+  if (w1_connect(pin)){
+    // LLOGD("ds18b20 connect fail");
     return -2;
   }
 
@@ -178,30 +167,26 @@ static int32_t ds18b20_get_temperature(int pin, int32_t *val, int check_crc)
   // 9个字节都读出来,校验CRC
   if (check_crc)
   {
-    for (size_t i = 2; i < 9; i++)
-    {
+    for (size_t i = 2; i < 9; i++){
       data[i] = w1_read_byte(pin);
     }
     uint8_t crc = 0;
-    for (size_t i = 0; i < 8; i++)
-    {
+    for (size_t i = 0; i < 8; i++){
       crc = crc8_maxim[crc ^ data[i]];
     }
     // LLOGD("ds18b20 %02X%02X%02X%02X%02X%02X%02X%02X [%02X %02X]",
     //            data[0], data[1], data[2], data[3],
     //            data[4], data[5], data[6], data[7],
     //            data[8], crc);
-    if (data[8] != crc)
-    {
-      //LLOGD("ds18b20 bad crc");
+    if (data[8] != crc){
+      // LLOGD("ds18b20 bad crc");
       return -4;
     }
   }
   TL = data[0];
   TH = data[1];
 
-  if (TH > 7)
-  {
+  if (TH > 7){
     TH = ~TH;
     TL = ~TL;
     tem = TH;
@@ -210,9 +195,7 @@ static int32_t ds18b20_get_temperature(int pin, int32_t *val, int check_crc)
     tem = (int32_t)(tem * 0.0625 * 10 + 0.5);
     *val = -tem;
     return 0;
-  }
-  else
-  {
+  }else{
     tem = TH;
     tem <<= 8;
     tem += TL;

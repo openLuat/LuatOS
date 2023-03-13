@@ -129,4 +129,11 @@ int luat_audio_play_tts_set_param(uint32_t multimedia_id, uint32_t param_id, uin
 void luat_audio_config_pa(uint8_t multimedia_id, uint32_t pin, int level, uint32_t dummy_time_len, uint32_t pa_delay_time);
 void luat_audio_config_dac(uint8_t multimedia_id, int pin, int level, uint32_t dac_off_delay_time);
 uint16_t luat_audio_vol(uint8_t multimedia_id, uint16_t vol);
+
+/**
+ * @brief 设置音频硬件输出类型
+ *
+ * @param bus_type 见MULTIMEDIA_AUDIO_BUS，目前只有0=DAC 1=I2S 2=SOFT_DAC
+ */
+void luat_audio_set_bus_type(uint8_t bus_type);
 #endif

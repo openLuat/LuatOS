@@ -26,6 +26,10 @@ enum
 	MULTIMEDIA_CB_DECODE_DONE,			//音频解码完成
 	MULTIMEDIA_CB_TTS_INIT,				//TTS做完了必要的初始化，用户可以通过audio_play_tts_set_param做个性化配置
 	MULTIMEDIA_CB_TTS_DONE,				//TTS编码完成了。注意不是播放完成
+
+	MULTIMEDIA_AUDIO_BUS_DAC=0,
+	MULTIMEDIA_AUDIO_BUS_I2S,
+	MULTIMEDIA_AUDIO_BUS_SOFT_DAC
 };
 int l_multimedia_raw_handler(lua_State *L, void* ptr);
 

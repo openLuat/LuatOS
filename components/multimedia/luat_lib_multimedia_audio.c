@@ -321,6 +321,23 @@ static int l_audio_vol(lua_State *L) {
     return 1;
 }
 
+/*
+配置一个音频通道的硬件输出总线，只有对应soc软硬件平台支持才设置对应类型
+@api audio.vol(id, bus_type)
+@int 音频通道
+@int 总线类型
+@return
+@usage
+audio.setBus(0, audio.BUS_SOFT_DAC)	--通道0的硬件输出通道设置为软件DAC
+audio.setBus(0, audio.BUS_I2S)	--通道0的硬件输出通道设置为I2S
+*/
+static int l_audio_set_output_bus(lua_State *L) {
+	luat_audio_set_bus_type(luaL_checkinteger(L, 1));
+    return 0;
+}
+
+
+
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_audio[] =
@@ -339,9 +356,19 @@ static const rotable_Reg_t reg_audio[] =
 	{ "config",			ROREG_FUNC(l_audio_config)},
 	{ "vol",			ROREG_FUNC(l_audio_vol)},
 	{ "getError",			ROREG_FUNC(l_audio_play_get_last_error)},
+	{ "setBus",			ROREG_FUNC(l_audio_set_output_bus)},
+	//@const PCM number PCM格式，即原始ADC数据
     { "PCM",           ROREG_INT(MULTIMEDIA_DATA_TYPE_PCM)},
+	//@const MORE_DATA number audio.on回调函数传入参数的值，表示底层播放完一段数据，可以传入更多数据
 	{ "MORE_DATA",     ROREG_INT(MULTIMEDIA_CB_AUDIO_NEED_DATA)},
+	//@const DONE number audio.on回调函数传入参数的值，表示底层播放完全部数据了
 	{ "DONE",          ROREG_INT(MULTIMEDIA_CB_AUDIO_DONE)},
+	//@const BUS_DAC number 硬件输出总线，DAC类型
+	{ "BUS_DAC", 		ROREG_INT(MULTIMEDIA_AUDIO_BUS_DAC)},
+	//@const BUS_I2S number 硬件输出总线，I2S类型
+	{ "BUS_I2S", 		ROREG_INT(MULTIMEDIA_AUDIO_BUS_I2S)},
+	//@const BUS_SOFT_DAC number 硬件输出总线，软件模式DAC类型
+	{ "BUS_SOFT_DAC", 		ROREG_INT(MULTIMEDIA_AUDIO_BUS_SOFT_DAC)},
 	{ NULL,            ROREG_INT(0)}
 };
 

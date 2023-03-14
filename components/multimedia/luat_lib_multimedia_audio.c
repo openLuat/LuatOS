@@ -332,7 +332,7 @@ audio.setBus(0, audio.BUS_SOFT_DAC)	--通道0的硬件输出通道设置为软�
 audio.setBus(0, audio.BUS_I2S)	--通道0的硬件输出通道设置为I2S
 */
 static int l_audio_set_output_bus(lua_State *L) {
-	luat_audio_set_bus_type(luaL_checkinteger(L, 1));
+	luat_audio_set_bus_type(luaL_checkinteger(L, 2));
     return 0;
 }
 

@@ -7,7 +7,6 @@ VERSION = "1.0.0"
     如果外挂了spi flash，就选用后缀是带外挂flash的固件。
     区别：不带外部flash的版本，因为内存空间小，删除了大部分功能，仅供测试web_audio使用
 	    带外部flash的版本功能齐全，和官方发布的固件功能相同。
-    固件下载地址：https://gitee.com/openLuat/LuatOS/attach_files
 ]]
 
 -- sys库是标配
@@ -88,9 +87,11 @@ sys.taskInit(function()
     sys.wait(1000)
     LED = gpio.setup(27, 0, gpio.PULLUP)
     device_id = mobile.imei()
-    sys.waitUntil("IP_READY", 30000)
+    local result= sys.waitUntil("IP_READY", 30000)
+    if not result then
+        log.info("网络连接失败")
+    end
     mqttc = mqtt.create(nil, mqtt_host, mqtt_port, mqtt_isssl, ca_file)
-
     mqttc:auth(client_id, user_name, password) -- client_id必填,其余选填
     mqttc:keepalive(30) -- 默认值240s
     mqttc:autoreconn(true, 3000) -- 自动重连机制
@@ -108,17 +109,19 @@ sys.taskInit(function()
             -- mqttmsg(payload)
         elseif event == "sent" then
             log.info("mqtt", "sent", "pkgid", data)
-            -- elseif event == "disconnect" then
-            --     -- 非自动重连时,按需重启mqttc
-            --     log.info("mqtt链接断开")
-            --     -- mqtt_client:connect()
+        -- elseif event == "disconnect" then
+        --     -- 非自动重连时,按需重启mqttc
+        --     log.info("mqtt链接断开")
+        --     -- mqtt_client:connect()
         end
     end)
-    local state = mqttc:connect()
-    if state then
-        log.info("mqtt 连接成功")
-    else
+    mqttc:connect()
+    sys.wait(1000)
+    local error = mqttc:ready()
+    if not error then
         log.info("mqtt 连接失败")
+    else
+        log.info("mqtt 连接成功")
     end
     sys.waitUntil("mqtt_conack")
     while true do

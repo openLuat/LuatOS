@@ -68,9 +68,13 @@ audio.on(0, function(id, event)
 end)
 
 local function audio_task()
-    local result
-    -- Air780E开发板配套
-    i2s.setup(0, 0, 0, 0, 0, i2s.MODE_MSB)
+    --Air780E开发板配套+音频扩展板. ES8211
+    --由于音频扩展板的PA是长供电的,有塔塔声音是正常的,做产品的话有额外的参考设计
+    --i2s.setup(0, 0, 0, 0, 0, i2s.MODE_MSB)
+    --如果用软件DAC，打开下面的注释
+    if audio.setBus then
+        audio.setBus(audio.BUS_SOFT_DAC)
+    end
     audio.config(0, 25, 1, 6, 200)
     gpio.setup(24, 0)
     gpio.setup(23, 0)
@@ -78,18 +82,17 @@ local function audio_task()
     gpio.setup(2, 0)
 
     -- 初始化spi flash, 如果是极限版TTS_ONCHIP,就不需要初始化
-    if sfud then
-        spi_flash = spi.deviceSetup(0,8,0,0,8,25600000,spi.MSB,1,0)
-        local ret = sfud.init(spi_flash)
-        if ret then
-            log.info("sfud.init ok")
-        else
-            log.info("sfud.init error", ret)
-            return
-        end
-    else
-        log.info("tts", "TTS_ONCHIP?? skip sfud")
-    end
+    -- if sfud then
+    --     spi_flash = spi.deviceSetup(0,8,0,0,8,25600000,spi.MSB,1,0)
+    --     local ret = sfud.init(spi_flash)
+    --     if ret then
+    --         log.info("sfud.init ok")
+    --     else
+    --         log.info("sfud.init error", ret)
+    --         return
+    --     end
+    -- end
+
     log.info("开始播放音频")
     result = audio.play(0, {"/audio.mp3"})
     if result then
@@ -117,28 +120,35 @@ local function audio_task()
     -- sys.wait(1000)
     sysplus.taskDel(taskName)
 end
+
+
 local function tts_task()
-    local result
-    -- Air780E开发板配套
-    i2s.setup(0, 0, 0, 0, 0, i2s.MODE_MSB)
+    --Air780E开发板配套+音频扩展板. ES8211
+    --由于音频扩展板的PA是长供电的,有塔塔声音是正常的,做产品的话有额外的参考设计
+    --i2s.setup(0, 0, 0, 0, 0, i2s.MODE_MSB)
+
+    --如果用软件DAC，打开下面的注释。  注意此功能适配pwm音频播放开发板,由于MP3文件是32K现在PWM还不支持，播出来的声音会比较慢
+    if audio.setBus then
+        audio.setBus(audio.BUS_SOFT_DAC)
+    end
+
     audio.config(0, 25, 1, 6, 200)
     gpio.setup(24, 0)
     gpio.setup(23, 0)
     gpio.setup(27, 0)
     gpio.setup(2, 0)
-    -- 初始化spi flash, 如果是极限版TTS_ONCHIP,就不需要初始化
-    if sfud then
-        spi_flash = spi.deviceSetup(0,8,0,0,8,25600000,spi.MSB,1,0)
-        local ret = sfud.init(spi_flash)
-        if ret then
-            log.info("sfud.init ok")
-        else
-            log.info("sfud.init error", ret)
-            return
-        end
-    else
-        log.info("tts", "TTS_ONCHIP?? skip sfud")
-    end
+    -- 初始化spi flash, 如果是极限版TTS_ONCHIP,就不需要初始化，
+    -- if sfud then
+    --     spi_flash = spi.deviceSetup(0,8,0,0,8,25600000,spi.MSB,1,0)
+    --     local ret = sfud.init(spi_flash)
+    --     if ret then
+    --         log.info("sfud.init ok")
+    --     else
+    --         log.info("sfud.init error", ret)
+    --         return
+    --     end
+    -- end
+
     log.info("开始播放TTS")
     local result, data = sys.waitUntil("TTS_msg")
     result = audio.tts(0, data)

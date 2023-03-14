@@ -807,7 +807,7 @@ static int l_ftp_login(lua_State *L) {
 		goto error;
 	}
 
-	luat_rtos_task_create(&g_s_ftp.task_handle, 2048, 40, "ftp", ftp_task, NULL, 64);
+	luat_rtos_task_create(&g_s_ftp.task_handle, 2048, 40, "ftp", ftp_task, NULL, 16);
 	network_init_ctrl(g_s_ftp.network->cmd_netc,g_s_ftp.task_handle, ftp_task_cb, NULL);
 	network_set_base_mode(g_s_ftp.network->cmd_netc, 1, 30000, 0, 0, 0, 0);
 	network_set_local_port(g_s_ftp.network->cmd_netc, 0);

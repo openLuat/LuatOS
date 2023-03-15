@@ -28,7 +28,7 @@ static char sntp_server[SNTP_SERVER_COUNT][SNTP_SERVER_LEN_MAX] = {
     "ntp2.aliyun.com"
 };
 
-static unsigned int sntp_server_num = 0;
+static size_t sntp_server_num = 0;
 
 static const uint8_t sntp_packet[48]={0x1b};
 
@@ -76,8 +76,9 @@ end)
 
 int luat_sntp_connect(network_ctrl_t *sntp_netc){
     int ret;
-    if (sntp_server_num >= sizeof(sntp_server))
+    if (sntp_server_num >= SNTP_SERVER_COUNT) {
         return -1;
+    }
 	ret = network_connect(sntp_netc, sntp_server[sntp_server_num], strlen(sntp_server[sntp_server_num]), NULL, 123, 1000);
     sntp_server_num++;
 	// LLOGD("network_connect ret %d", ret);

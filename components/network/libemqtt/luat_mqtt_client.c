@@ -387,11 +387,7 @@ int luat_mqtt_connect(luat_mqtt_ctrl_t *mqtt_ctrl) {
     uint16_t keepalive = mqtt_ctrl->keepalive;
     LLOGD("host %s port %d keepalive %d", hostname, port, keepalive);
     mqtt_set_alive(&(mqtt_ctrl->broker), keepalive);
-#ifdef LUAT_USE_LWIP
-	ret = network_connect(mqtt_ctrl->netc, hostname, strlen(hostname), (0xff == mqtt_ctrl->ip_addr.type)?NULL:&(mqtt_ctrl->ip_addr), port, 0) < 0;
-#else
-	ret = network_connect(mqtt_ctrl->netc, hostname, strlen(hostname), (0xff == mqtt_ctrl->ip_addr.is_ipv6)?NULL:&(mqtt_ctrl->ip_addr), port, 0) < 0;
-#endif
+	ret = network_connect(mqtt_ctrl->netc, hostname, strlen(hostname), NULL, port, 0) < 0;
 	LLOGD("network_connect ret %d", ret);
 	if (ret < 0) {
         network_close(mqtt_ctrl->netc, 0);

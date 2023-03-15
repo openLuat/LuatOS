@@ -370,7 +370,6 @@ static int network_get_host_by_name(network_ctrl_t *ctrl)
 {
 #ifdef LUAT_USE_LWIP
 	network_set_ip_invaild(&ctrl->remote_ip);
-	ctrl->remote_ip.type = 0xff;
 	if (ipaddr_aton(ctrl->domain_name, &ctrl->remote_ip))
 	{
 		return 0;
@@ -2595,7 +2594,7 @@ uint8_t network_check_ready(network_ctrl_t *ctrl, uint8_t adapter_index)
 void network_set_ip_invaild(luat_ip_addr_t *ip)
 {
 #ifdef LUAT_USE_LWIP
-#ifdef LWIP_IPV6
+#if LWIP_IPV6
 	ip->type = 0xff;
 #else
 	ip->addr = 0;
@@ -2608,7 +2607,7 @@ void network_set_ip_invaild(luat_ip_addr_t *ip)
 uint8_t network_ip_is_vaild(luat_ip_addr_t *ip)
 {
 #ifdef LUAT_USE_LWIP
-#ifdef LWIP_IPV6
+#if LWIP_IPV6
 	return (ip->type != 0xff);
 #else
 	return (ip->addr != 0);
@@ -2621,7 +2620,7 @@ uint8_t network_ip_is_vaild(luat_ip_addr_t *ip)
 uint8_t network_ip_is_ipv6(luat_ip_addr_t *ip)
 {
 #ifdef LUAT_USE_LWIP
-#ifdef LWIP_IPV6
+#if LWIP_IPV6
 	return (IPADDR_TYPE_V6 == ip->type);
 #else
 	return 0;
@@ -2635,7 +2634,7 @@ uint8_t network_ip_is_ipv6(luat_ip_addr_t *ip)
 uint8_t network_ip_is_vaild_ipv4(luat_ip_addr_t *ip)
 {
 #ifdef LUAT_USE_LWIP
-#ifdef LWIP_IPV6
+#if LWIP_IPV6
 	return (IPADDR_TYPE_V4 == ip->type);
 #else
 	return (ip->addr != 0);
@@ -2648,7 +2647,7 @@ uint8_t network_ip_is_vaild_ipv4(luat_ip_addr_t *ip)
 void network_set_ip_ipv4(luat_ip_addr_t *ip, uint32_t ipv4)
 {
 #ifdef LUAT_USE_LWIP
-#ifdef LWIP_IPV6
+#if LWIP_IPV6
 	ip->type = IPADDR_TYPE_V4;
 	ip->u_addr.ip4.addr = ipv4;
 #else

@@ -76,7 +76,7 @@ end)
 
 int luat_sntp_connect(network_ctrl_t *sntp_netc){
     int ret;
-    if (sntp_server_num >= sizeof(sntp_server))
+    if (sntp_server_num >= SNTP_SERVER_COUNT)
         return -1;
 	ret = network_connect(sntp_netc, sntp_server[sntp_server_num], strlen(sntp_server[sntp_server_num]), NULL, 123, 1000);
     sntp_server_num++;

@@ -369,12 +369,13 @@ TLS_RECV:
 static int network_get_host_by_name(network_ctrl_t *ctrl)
 {
 #ifdef LUAT_USE_LWIP
+	network_set_ip_invaild(&ctrl->remote_ip);
 	ctrl->remote_ip.type = 0xff;
 	if (ipaddr_aton(ctrl->domain_name, &ctrl->remote_ip))
 	{
 		return 0;
 	}
-	ctrl->remote_ip.type = 0xff;
+	network_set_ip_invaild(&ctrl->remote_ip);
 	return -1;
 #else
 	ctrl->remote_ip.is_ipv6 = 0xff;
@@ -421,10 +422,10 @@ static int network_base_connect(network_ctrl_t *ctrl, luat_ip_addr_t *remote_ip)
 	}
 	if (remote_ip)
 	{
-		if (network_create_soceket(ctrl, IPADDR_TYPE_V6 == remote_ip->type) < 0)
+		if (network_create_soceket(ctrl, network_ip_is_ipv6(remote_ip)) < 0)
 		{
 			network_clean_invaild_socket(ctrl->adapter_index);
-			if (network_create_soceket(ctrl, IPADDR_TYPE_V6 == remote_ip->type) < 0)
+			if (network_create_soceket(ctrl, network_ip_is_ipv6(remote_ip)) < 0)
 			{
 				return -1;
 			}
@@ -515,11 +516,8 @@ static int network_base_connect(network_ctrl_t *ctrl, luat_ip_addr_t *remote_ip)
 
 static int network_prepare_connect(network_ctrl_t *ctrl)
 {
-#ifdef LUAT_USE_LWIP
-	if (ctrl->remote_ip.type != 0xff)
-#else
-	if (ctrl->remote_ip.is_ipv6 != 0xff)
-#endif
+
+	if (network_ip_is_vaild(&ctrl->remote_ip))
 	{
 		;
 	}
@@ -657,11 +655,7 @@ static int network_state_connecting(network_ctrl_t *ctrl, OS_EVENT *event, netwo
 	case EV_NW_SOCKET_ERROR:
 	case EV_NW_SOCKET_REMOTE_CLOSE:
 	case EV_NW_SOCKET_CLOSE_OK:
-#ifdef LUAT_USE_LWIP
-		if (ctrl->remote_ip.type != 0xff)
-#else
-		if (ctrl->remote_ip.is_ipv6 != 0xff)
-#endif
+		if (network_ip_is_vaild(&ctrl->remote_ip))
 		{
 			return -1;
 		}
@@ -1380,11 +1374,7 @@ void network_init_ctrl(network_ctrl_t *ctrl, HANDLE task_handle, CBFuncEx_t call
 	ctrl->user_data = param;
 	ctrl->socket_id = -1;
 	ctrl->socket_param = ctrl;
-#ifdef LUAT_USE_LWIP
-	ctrl->remote_ip.type = 0xff;
-#else
-	ctrl->remote_ip.is_ipv6 = 0xff;
-#endif
+	network_set_ip_invaild(&ctrl->remote_ip);
 	ctrl->mutex = sem;
 	if (task_handle)
 	{
@@ -1975,11 +1965,7 @@ int network_connect(network_ctrl_t *ctrl, const char *domain_name, uint32_t doma
 	}
 	else
 	{
-#ifdef LUAT_USE_LWIP
-		ctrl->remote_ip.type = 0xff;
-#else
-		ctrl->remote_ip.is_ipv6 = 0xff;
-#endif
+		network_set_ip_invaild(&ctrl->remote_ip);
 	}
 	ctrl->auto_mode = 1;
 	ctrl->remote_port = remote_port;
@@ -2603,5 +2589,74 @@ uint8_t network_check_ready(network_ctrl_t *ctrl, uint8_t adapter_index)
 	{
 		return 0;
 	}
+}
+
+//将IP设置成无效状态
+void network_set_ip_invaild(luat_ip_addr_t *ip)
+{
+#ifdef LUAT_USE_LWIP
+#ifdef LWIP_IPV6
+	ip->type = 0xff;
+#else
+	ip->addr = 0;
+#endif
+#else
+	ip->is_ipv6 = 0xff;
+#endif
+}
+//检测IP是不是无效的，无效返回0
+uint8_t network_ip_is_vaild(luat_ip_addr_t *ip)
+{
+#ifdef LUAT_USE_LWIP
+#ifdef LWIP_IPV6
+	return (ip->type != 0xff);
+#else
+	return (ip->addr != 0);
+#endif
+#else
+	return (ip->is_ipv6 != 0xff);
+#endif
+}
+
+uint8_t network_ip_is_ipv6(luat_ip_addr_t *ip)
+{
+#ifdef LUAT_USE_LWIP
+#ifdef LWIP_IPV6
+	return (IPADDR_TYPE_V6 == ip->type);
+#else
+	return 0;
+#endif
+#else
+	return (ip->is_ipv6 && (ip->is_ipv6 != 0xff));
+#endif
+}
+
+//检测IP是不是有效的IPV4类型，不是返回0
+uint8_t network_ip_is_vaild_ipv4(luat_ip_addr_t *ip)
+{
+#ifdef LUAT_USE_LWIP
+#ifdef LWIP_IPV6
+	return (IPADDR_TYPE_V4 == ip->type);
+#else
+	return (ip->addr != 0);
+#endif
+#else
+	return !ip->is_ipv6;
+#endif
+}
+
+void network_set_ip_ipv4(luat_ip_addr_t *ip, uint32_t ipv4)
+{
+#ifdef LUAT_USE_LWIP
+#ifdef LWIP_IPV6
+	ip->type = IPADDR_TYPE_V4;
+	ip->u_addr.ip4.addr = ipv4;
+#else
+	ip->addr = ipv4;
+#endif
+#else
+	ip->is_ipv6 = 0;
+	ip->ipv4 = ipv4;
+#endif
 }
 #endif

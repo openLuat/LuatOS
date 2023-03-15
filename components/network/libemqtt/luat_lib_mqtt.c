@@ -289,19 +289,9 @@ static int l_mqtt_create(lua_State *L) {
 	// 连接参数相关
 	// const char *ip;
 	size_t ip_len = 0;
-#ifdef LUAT_USE_LWIP
-	mqtt_ctrl->ip_addr.type = 0xff;
-#else
-	mqtt_ctrl->ip_addr.is_ipv6 = 0xff;
-#endif
+	network_set_ip_invaild(&mqtt_ctrl->ip_addr);
 	if (lua_isinteger(L, 2)){
-#ifdef LUAT_USE_LWIP
-		mqtt_ctrl->ip_addr.type = IPADDR_TYPE_V4;
-		mqtt_ctrl->ip_addr.u_addr.ip4.addr = lua_tointeger(L, 2);
-#else
-		mqtt_ctrl->ip_addr.is_ipv6 = 0;
-		mqtt_ctrl->ip_addr.ipv4 = lua_tointeger(L, 2);
-#endif
+		network_set_ip_ipv4(&mqtt_ctrl->ip_addr, lua_tointeger(L, 2));
 		// ip = NULL;
 		ip_len = 0;
 	}else{
@@ -578,7 +568,7 @@ static int l_mqtt_ready(lua_State *L) {
 @string 遗嘱消息的retain, 默认0, 可以不填
 @return bool 成功返回true,否则返回false
 @usage
--- 要在connect之前调用 
+-- 要在connect之前调用
 mqttc:will("/xxx/xxx", "xxxxxx")
 */
 static int l_mqtt_will(lua_State *L) {

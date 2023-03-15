@@ -888,11 +888,7 @@ static int l_ftp_login(lua_State *L) {
 		network_deinit_tls(g_s_ftp.network->cmd_netc);
 	}
 
-#ifdef LUAT_USE_LWIP
-	g_s_ftp.network->ip_addr.type = 0xff;
-#else
-	g_s_ftp.network->ip_addr.is_ipv6 = 0xff;
-#endif
+	network_set_ip_invaild(&g_s_ftp.network->ip_addr);
 
 	g_s_ftp.idp = luat_pushcwait(L);
 	luat_rtos_event_send(g_s_ftp.task_handle, FTP_EVENT_LOGIN, 0, 0, 0, LUAT_WAIT_FOREVER);

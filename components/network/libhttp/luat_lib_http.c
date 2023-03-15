@@ -230,11 +230,7 @@ static int l_http_request(lua_State *L) {
 		network_deinit_tls(http_ctrl->netc);
 	}
 
-#ifdef LUAT_USE_LWIP
-	http_ctrl->ip_addr.type = 0xff;
-#else
-	http_ctrl->ip_addr.is_ipv6 = 0xff;
-#endif
+	network_set_ip_invaild(&http_ctrl->ip_addr);
 	http_ctrl->idp = luat_pushcwait(L);
 
     if (luat_http_client_start(http_ctrl)) {

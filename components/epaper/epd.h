@@ -21,6 +21,7 @@ enum EPD_MODEL {
         // MODEL_1in54f,
         MODEL_1in54_V2,
         MODEL_1in54_V3,
+        MODEL_1in54r,//红色三色屏
         MODEL_2in13,
         MODEL_2in13bc,
         MODEL_2in13b_V3,
@@ -63,6 +64,7 @@ enum EPD_MODEL {
 #include "EPD_1in54f.h"
 #include "EPD_1in54_V2.h"
 #include "EPD_1in54_V3.h"
+#include "EPD_1in54r.h"
 #include "EPD_2in13.h"
 #include "EPD_2in13bc.h"
 #include "EPD_2in13b_V3.h"

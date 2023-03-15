@@ -31,6 +31,7 @@ static const eink_reg_t eink_regs[] = {
         // {.tp=MODEL_1in54f,      .colors=1, .init=EPD_1IN54FF_Init, .w = EPD_1IN54F_WIDTH, .h = EPD_1IN54F_HEIGHT, .clear = EPD_1IN54FF_Clear, .sleep =EPD_1IN54FF_Sleep, .display=EPD_1IN54FF_Display},
         {.tp=MODEL_1in54_V2,    .colors=1, .init=EPD_1IN54_V2_Init, .w = EPD_1IN54_V2_WIDTH, .h = EPD_1IN54_V2_HEIGHT, .clear = EPD_1IN54_V2_Clear, .sleep =EPD_1IN54_V2_Sleep, .display=EPD_1IN54_V2_Display},       
         {.tp=MODEL_1in54_V3,    .colors=1, .init=EPD_1IN54_V3_Init, .w = EPD_1IN54_V3_WIDTH, .h = EPD_1IN54_V3_HEIGHT, .clear = EPD_1IN54_V3_Clear, .sleep =EPD_1IN54_V3_Sleep, .display=EPD_1IN54_V3_Display},       
+        {.tp=MODEL_1in54r,      .colors=2, .init=EPD_1IN54R_Init, .w = EPD_1IN54R_WIDTH, .h = EPD_1IN54R_HEIGHT, .clear = EPD_1IN54R_Clear, .sleep =EPD_1IN54R_Sleep, .display=EPD_1IN54R_Display},       
         {.tp=MODEL_2in13,       .colors=1, .init=EPD_2IN13_Init, .w = EPD_2IN13_WIDTH, .h = EPD_2IN13_HEIGHT, .clear = EPD_2IN13_Clear, .sleep =EPD_2IN13_Sleep, .display=EPD_2IN13_Display},
         {.tp=MODEL_2in13bc,     .colors=1, .init=EPD_2IN13BC_Init, .w = EPD_2IN13BC_WIDTH, .h = EPD_2IN13BC_HEIGHT, .clear = EPD_2IN13BC_Clear, .sleep =EPD_2IN13BC_Sleep, .display=EPD_2IN13BC_Display},
         {.tp=MODEL_2in13b_V3,   .colors=1, .init=EPD_2IN13B_V3_Init, .w = EPD_2IN13B_V3_WIDTH, .h = EPD_2IN13B_V3_HEIGHT, .clear = EPD_2IN13B_V3_Clear, .sleep =EPD_2IN13B_V3_Sleep, .display=EPD_2IN13B_V3_Display},  

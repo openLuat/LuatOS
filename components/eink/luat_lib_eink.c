@@ -1304,6 +1304,8 @@ static const rotable_Reg_t reg_eink[] =
     { "MODEL_1in54_V3",       ROREG_INT(MODEL_1in54_V3)},
     //@const MODEL_1in54c number 1.54寸c
     { "MODEL_1in54c",         ROREG_INT(MODEL_1in54c)},
+    //@const MODEL_1in54r number 1.54寸三色屏152*152
+    { "MODEL_1in54r",         ROREG_INT(MODEL_1in54r)},
     //@const MODEL_2in13 number 2.13寸
     { "MODEL_2in13",          ROREG_INT(MODEL_2in13)},
     //@const MODEL_2in13bc number 2.13寸bc

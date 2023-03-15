@@ -7,6 +7,7 @@ VERSION = "1.0.0"
     如果外挂了spi flash，就选用后缀是带外挂flash的固件。
     区别：不带外部flash的版本，因为内存空间小，删除了大部分功能，仅供测试web_audio使用
 	    带外部flash的版本功能齐全，和官方发布的固件功能相同。
+        固件地址：https://gitee.com/openLuat/LuatOS/attach_files/1342571/download
 ]]
 
 -- sys库是标配

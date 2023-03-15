@@ -76,19 +76,9 @@ end)
 
 int luat_sntp_connect(network_ctrl_t *sntp_netc){
     int ret;
-    luat_ip_addr_t ip_addr;
-#ifdef LUAT_USE_LWIP
-	ip_addr.type = 0xff;
-#else
-	ip_addr.is_ipv6 = 0xff;
-#endif
     if (sntp_server_num >= sizeof(sntp_server))
         return -1;
-#ifdef LUAT_USE_LWIP
-	ret = network_connect(sntp_netc, sntp_server[sntp_server_num], strlen(sntp_server[sntp_server_num]), (0xff == ip_addr.type)?NULL:&(ip_addr), 123, 1000);
-#else
-	ret = network_connect(sntp_netc, sntp_server[sntp_server_num], strlen(sntp_server[sntp_server_num]), (0xff == ip_addr.is_ipv6)?NULL:&(ip_addr), 123, 1000);
-#endif
+	ret = network_connect(sntp_netc, sntp_server[sntp_server_num], strlen(sntp_server[sntp_server_num]), NULL, 123, 1000);
     sntp_server_num++;
 	// LLOGD("network_connect ret %d", ret);
 	if (ret < 0) {

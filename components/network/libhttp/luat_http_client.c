@@ -63,11 +63,7 @@ static void http_resp_error(luat_http_ctrl_t *http_ctrl, int error_code) {
 	LLOGD("http_resp_error error_code:%d close_state:%d",error_code,http_ctrl->close_state);
 	if (http_ctrl->close_state == 0 && http_ctrl->headers_complete && http_ctrl->re_request_count < HTTP_RE_REQUEST_MAX){
 		http_ctrl->re_request_count++;
-#ifdef LUAT_USE_LWIP
-		if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), (0xff == http_ctrl->ip_addr.type)?NULL:&(http_ctrl->ip_addr), http_ctrl->remote_port, 0) < 0){
-#else
-		if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), (0xff == http_ctrl->ip_addr.is_ipv6)?NULL:&(http_ctrl->ip_addr), http_ctrl->remote_port, 0) < 0){
-#endif
+		if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), NULL, http_ctrl->remote_port, 0) < 0){
 			goto error;
 		}
 	}else if (http_ctrl->close_state==0){
@@ -446,11 +442,7 @@ int luat_http_client_start(luat_http_ctrl_t* http_ctrl) {
 		luat_start_rtos_timer(http_ctrl->timeout_timer, http_ctrl->timeout, 0);
 	}
 
-#ifdef LUAT_USE_LWIP
-	if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), (0xff == http_ctrl->ip_addr.type)?NULL:&(http_ctrl->ip_addr), http_ctrl->remote_port, 0) < 0){
-#else
-	if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), (0xff == http_ctrl->ip_addr.is_ipv6)?NULL:&(http_ctrl->ip_addr), http_ctrl->remote_port, 0) < 0){
-#endif
+	if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), NULL, http_ctrl->remote_port, 0) < 0){
 		network_close(http_ctrl->netc, 0);
 		return -1;
 	}

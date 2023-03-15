@@ -202,11 +202,7 @@ static int l_websocket_create(lua_State *L)
 	// 连接参数相关
 	// const char *ip;
 	size_t ip_len = 0;
-#ifdef LUAT_USE_LWIP
-	websocket_ctrl->ip_addr.type = 0xff;
-#else
-	websocket_ctrl->ip_addr.is_ipv6 = 0xff;
-#endif
+	network_set_ip_invaild(&websocket_ctrl->ip_addr);
 	opts.url = luaL_checklstring(L, 2, &ip_len);
 
 	ret = luat_websocket_set_connopts(websocket_ctrl, luaL_checklstring(L, 2, &ip_len));

@@ -362,11 +362,7 @@ static int luat_ftp_pasv_connect(luat_ftp_ctrl_t *ftp_ctrl,uint32_t timeout_ms){
 	network_set_base_mode(g_s_ftp.network->data_netc, 1, 10000, 0, 0, 0, 0);
 	network_set_local_port(g_s_ftp.network->data_netc, 0);
 	network_deinit_tls(g_s_ftp.network->data_netc);
-#ifdef LUAT_USE_LWIP
 	if(network_connect(g_s_ftp.network->data_netc, data_addr, strlen(data_addr), NULL, data_port, 0)<0){
-#else
-	if(network_connect(g_s_ftp.network->data_netc, data_addr, strlen(data_addr), NULL, data_port, 0)<0){
-#endif
 		LLOGE("ftp data network connect fail");
 		network_force_close_socket(g_s_ftp.network->data_netc);
 		network_release_ctrl(g_s_ftp.network->data_netc);
@@ -413,11 +409,7 @@ static int luat_ftp_pasv_connect(luat_ftp_ctrl_t *ftp_ctrl,uint32_t timeout_ms){
 static int ftp_login(void)
 {
 	int ret;
-#ifdef LUAT_USE_LWIP
-	if(network_connect(g_s_ftp.network->cmd_netc, g_s_ftp.network->addr, strlen(g_s_ftp.network->addr), (0xff == g_s_ftp.network->ip_addr.type)?NULL:&(g_s_ftp.network->ip_addr), g_s_ftp.network->port, FTP_SOCKET_TIMEOUT)){
-#else
-	if(network_connect(g_s_ftp.network->cmd_netc, g_s_ftp.network->addr, strlen(g_s_ftp.network->addr), (0xff == g_s_ftp.network->ip_addr.is_ipv6)?NULL:&(g_s_ftp.network->ip_addr), g_s_ftp.network->port, FTP_SOCKET_TIMEOUT)){
-#endif
+	if(network_connect(g_s_ftp.network->cmd_netc, g_s_ftp.network->addr, strlen(g_s_ftp.network->addr), NULL, g_s_ftp.network->port, FTP_SOCKET_TIMEOUT)){
 		LLOGE("ftp network_connect fail");
 		return -1;
 	}
@@ -888,11 +880,7 @@ static int l_ftp_login(lua_State *L) {
 		network_deinit_tls(g_s_ftp.network->cmd_netc);
 	}
 
-#ifdef LUAT_USE_LWIP
-	g_s_ftp.network->ip_addr.type = 0xff;
-#else
-	g_s_ftp.network->ip_addr.is_ipv6 = 0xff;
-#endif
+	network_set_ip_invaild(&g_s_ftp.network->ip_addr);
 
 	g_s_ftp.idp = luat_pushcwait(L);
 	luat_rtos_event_send(g_s_ftp.task_handle, FTP_EVENT_LOGIN, 0, 0, 0, LUAT_WAIT_FOREVER);

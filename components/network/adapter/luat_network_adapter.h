@@ -489,5 +489,16 @@ int network_wait_rx(network_ctrl_t *ctrl, uint32_t timeout_ms, uint8_t *is_break
 
 // 补充函数
 int network_get_full_local_ip_info(network_ctrl_t *ctrl, uint8_t index, luat_ip_addr_t *ip, luat_ip_addr_t *submask, luat_ip_addr_t *gateway, luat_ip_addr_t *ipv6);
+
+//将IP设置成无效状态
+void network_set_ip_invaild(luat_ip_addr_t *ip);
+//检测IP是不是无效的，无效返回0
+uint8_t network_ip_is_vaild(luat_ip_addr_t *ip);
+//检测IP是不是IPV6类型，不是返回0
+uint8_t network_ip_is_ipv6(luat_ip_addr_t *ip);
+//检测IP是不是有效的IPV4类型，不是返回0
+uint8_t network_ip_is_vaild_ipv4(luat_ip_addr_t *ip);
+//将IP设置成IPV4
+void network_set_ip_ipv4(luat_ip_addr_t *ip, uint32_t ipv4);
 #endif
 // #endif

@@ -1426,6 +1426,8 @@ int network_set_local_port(network_ctrl_t *ctrl, uint16_t local_port)
 	}
 	else
 	{
+		ctrl->local_port = 0;
+#if 0
 		if (ctrl->adapter_index < NW_ADAPTER_INDEX_LWIP_NETIF_QTY)
 		{
 			ctrl->local_port = 0;
@@ -1439,6 +1441,7 @@ int network_set_local_port(network_ctrl_t *ctrl, uint16_t local_port)
 		}
 		ctrl->local_port = adapter->port;
 		OS_UNLOCK;
+#endif
 		return 0;
 	}
 }
@@ -1460,7 +1463,26 @@ int network_socket_connect(network_ctrl_t *ctrl, luat_ip_addr_t *remote_ip)
 	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
 	ctrl->is_server_mode = 0;
 	ctrl->online_ip = remote_ip;
-	return adapter->opt->socket_connect(ctrl->socket_id, ctrl->tag, ctrl->local_port, remote_ip, ctrl->remote_port, adapter->user_data);
+	uint16_t local_port = ctrl->local_port;
+	if (!local_port)
+	{
+		if (ctrl->adapter_index >= NW_ADAPTER_INDEX_HW_PS_DEVICE)
+		{
+			adapter->port += 100;
+			local_port = adapter->port;
+			if (adapter->port < 60000)
+			{
+				adapter->port = 60000;
+			}
+			if (local_port < 60000)
+			{
+				local_port = 60000;
+			}
+			local_port += ctrl->socket_id;
+			DBG("%d,%d,%d", ctrl->socket_id, local_port, adapter->port);
+		}
+	}
+	return adapter->opt->socket_connect(ctrl->socket_id, ctrl->tag, local_port, remote_ip, ctrl->remote_port, adapter->user_data);
 }
 
 int network_socket_listen(network_ctrl_t *ctrl)

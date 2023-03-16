@@ -193,7 +193,11 @@ static uint8_t network_check_ip_same(luat_ip_addr_t *ip1, luat_ip_addr_t *ip2)
 #if defined ENABLE_PSIF
 	return ip_addr_cmp(ip1, ip2);
 #else
+#if LWIP_IPV6
 	return ip_addr_cmp_zoneless(ip1, ip2);
+#else
+	return ip_addr_cmp(ip1, ip2);
+#endif
 #endif
 #else
 	if (ip1->is_ipv6 != ip2->is_ipv6)

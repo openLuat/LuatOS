@@ -28,7 +28,7 @@ typedef struct
 network_adapter_info* network_adapter_fetch(int id, void** userdata);
 
 /*
-获取本地ip,当前仅支持IPV4的地址
+获取本地ip
 @api    socket.localIP(adapter)
 @int 适配器序号， 只能是socket.ETH0（外置以太网），socket.LWIP_ETH（内置以太网），socket.LWIP_STA（内置WIFI的STA），socket.LWIP_AP（内置WIFI的AP），socket.LWIP_GP（内置蜂窝网络的GPRS），socket.USB（外置USB网卡），如果不填，优先选择soc平台自带能上外网的适配器，若仍然没有，选择最后一个注册的适配器
 @return string 通常是内网ip, 也可能是外网ip, 取决于运营商的分配
@@ -81,9 +81,10 @@ static int l_socket_local_ip(lua_State *L)
 		}
 		return 4;
 #else
-		lua_pushfstring(L, "%d.%d.%d.%d", (local_ip.ipv4 >> 24) & 0xFF, (local_ip.ipv4 >> 16) & 0xFF, (local_ip.ipv4 >> 8) & 0xFF, (local_ip.ipv4 >> 0) & 0xFF);
-		lua_pushfstring(L, "%d.%d.%d.%d", (net_mask.ipv4 >> 24) & 0xFF, (net_mask.ipv4 >> 16) & 0xFF, (net_mask.ipv4 >> 8) & 0xFF, (net_mask.ipv4 >> 0) & 0xFF);
-		lua_pushfstring(L, "%d.%d.%d.%d", (gate_way.ipv4 >> 24) & 0xFF, (gate_way.ipv4 >> 16) & 0xFF, (gate_way.ipv4 >> 8) & 0xFF, (gate_way.ipv4 >> 0) & 0xFF);
+
+		lua_pushfstring(L, "%d.%d.%d.%d", (local_ip.ipv4 >> 0) & 0xFF, (local_ip.ipv4 >> 8) & 0xFF, (local_ip.ipv4 >> 16) & 0xFF, (local_ip.ipv4 >> 24) & 0xFF);
+		lua_pushfstring(L, "%d.%d.%d.%d", (net_mask.ipv4 >> 0) & 0xFF, (net_mask.ipv4 >> 8) & 0xFF, (net_mask.ipv4 >> 16) & 0xFF, (net_mask.ipv4 >> 24) & 0xFF);
+		lua_pushfstring(L, "%d.%d.%d.%d", (gate_way.ipv4 >> 0) & 0xFF, (gate_way.ipv4 >> 8) & 0xFF, (gate_way.ipv4 >> 16) & 0xFF, (gate_way.ipv4 >> 24) & 0xFF);
 		return 3;
 #endif
 	}
@@ -939,6 +940,58 @@ static int l_socket_adapter(lua_State *L)
 	return 2;
 }
 
+
+/*
+获取对端ip，必须在接收到socket.ON_LINE消息之后才可能获取到，最多返回4个IP。socket.connect里如果remote_port设置成0，则当DNS完成时就返回socket.ON_LINE消息
+@api    socket.remoteIP(ctrl)
+@user_data socket.create得到的ctrl
+@return string IP1，如果为nil，则表示没有获取到IP地址
+@return string IP2，如果为nil，则表示没有IP2
+@return string IP3，如果为nil，则表示没有IP3
+@return string IP4，如果为nil，则表示没有IP4
+@usage
+local ip1,ip2,ip3,ip4 = socket.remoteIP(ctrl)
+*/
+static int l_socket_remote_ip(lua_State *L)
+{
+	luat_socket_ctrl_t *ctrl = l_get_ctrl(L, 1);
+	PV_Union uPV;
+	uint8_t i;
+	uint8_t total;
+	if (!ctrl)
+	{
+		goto NO_REMOTE_IP;
+	}
+	if (!ctrl->netc->dns_ip_nums || !ctrl->netc->dns_ip)
+	{
+		goto NO_REMOTE_IP;
+	}
+	total = (ctrl->netc->dns_ip_nums > 4)?4:ctrl->netc->dns_ip_nums;
+	for(i = 0; i < total; i++)
+	{
+#ifdef LUAT_USE_LWIP
+		lua_pushfstring(L, "%s", ipaddr_ntoa(&ctrl->netc->dns_ip[i].ip));
+#else
+		uPV.u32 = &ctrl->netc->dns_ip[i].ip.ipv4;
+		lua_pushfstring(L, "%d.%d.%d.%d", uPV.u8[0], uPV.u8[1], uPV.u8[2], uPV.u8[3]);
+#endif
+	}
+	if (total < 4)
+	{
+		for(i = total; i < 4; i++)
+		{
+			lua_pushnil(L);
+		}
+	}
+	return 4;
+NO_REMOTE_IP:
+	lua_pushnil(L);
+	lua_pushnil(L);
+	lua_pushnil(L);
+	lua_pushnil(L);
+	return 4;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_socket_adapter[] =
 {
@@ -960,6 +1013,7 @@ static const rotable_Reg_t reg_socket_adapter[] =
 	{ "setDNS",           ROREG_FUNC(l_socket_set_dns)},
 	{ "sslLog",			ROREG_FUNC(l_socket_set_ssl_log)},
 	{"localIP",         	ROREG_FUNC(l_socket_local_ip)},
+	{"remoteIP",         	ROREG_FUNC(l_socket_remote_ip)},
 	{"adapter",			ROREG_FUNC(l_socket_adapter)},
 #ifdef LUAT_USE_SNTP
 	{"sntp",         	ROREG_FUNC(l_sntp_get)},

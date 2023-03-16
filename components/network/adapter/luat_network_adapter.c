@@ -631,6 +631,11 @@ static int network_state_wait_dns(network_ctrl_t *ctrl, OS_EVENT *event, network
 			}
 
 		}
+		if (!ctrl->remote_port)
+		{
+			ctrl->state = NW_STATE_OFF_LINE;
+			return 0;
+		}
 		ctrl->dns_ip_cnt = 0;
 		if (network_base_connect(ctrl, &ctrl->dns_ip[ctrl->dns_ip_cnt].ip))
 		{

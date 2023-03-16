@@ -349,12 +349,12 @@ int32_t luat_mqtt_callback(void *data, void *param) {
 		if (event->Param1==0){
 			ret = luat_mqtt_read_packet(mqtt_ctrl);
 			// LLOGD("luat_mqtt_read_packet ret:%d",ret);
-			luat_stop_rtos_timer(mqtt_ctrl->ping_timer);
-			luat_start_rtos_timer(mqtt_ctrl->ping_timer, mqtt_ctrl->keepalive*1000*0.75, 1);
+			// luat_stop_rtos_timer(mqtt_ctrl->ping_timer);
+			// luat_start_rtos_timer(mqtt_ctrl->ping_timer, mqtt_ctrl->keepalive*1000*0.75, 1);
 		}
 	}else if(event->ID == EV_NW_RESULT_TX){
-		luat_stop_rtos_timer(mqtt_ctrl->ping_timer);
-		luat_start_rtos_timer(mqtt_ctrl->ping_timer, mqtt_ctrl->keepalive*1000*0.75, 1);
+		// luat_stop_rtos_timer(mqtt_ctrl->ping_timer);
+		// luat_start_rtos_timer(mqtt_ctrl->ping_timer, mqtt_ctrl->keepalive*1000*0.75, 1);
 	}else if(event->ID == EV_NW_RESULT_CLOSE){
 
 	}

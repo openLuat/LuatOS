@@ -1,6 +1,6 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "gpiodemo"
+PROJECT = "netLeddemo"
 VERSION = "1.0.1"
 
 log.info("main", PROJECT, VERSION)
@@ -22,7 +22,7 @@ sys.taskInit(function()
     while true do
         if mobile.status() == 1 then
             sys.wait(600)
-            netLed.breateLed(LEDA)
+            netLed.setupBreateLed(LEDA)
         end
     end
 end)

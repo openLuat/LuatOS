@@ -70,7 +70,7 @@ local LTEPIN = 26         --LTE指示灯默认PIN脚（GPIO26）
 @usage
 netLed.setState()
 ]]
- function netled.setState()
+ function netLed.setState()
     log.info("netLed.setState",ledSwitch,ledState,flyMode,simError,gsmRegistered,gprsAttached,socketConnected)
     if ledSwitch then
         local newState = "IDLE"
@@ -101,7 +101,7 @@ end
 local LEDA= gpio.setup(27，1，gpio.PULLUP) --LED引脚判断赋值结束
 netled.taskLed(LEDA)
 ]]
-function netled.taskLed(ledPinSetFunc)
+function netLed.taskLed(ledPinSetFunc)
     while true do
         --log.info("netLed.taskLed",ledPinSetFunc,ledSwitch,ledState)
         if ledSwitch then
@@ -134,7 +134,7 @@ LTE指示灯模块的运行任务
 local LEDA= gpio.setup(27，1，gpio.PULLUP) --LED引脚判断赋值结束
 netLed.taskLte(LEDA)
 ]]
- function netled.taskLte(ledPinSetFunc)
+ function netLed.taskLte(ledPinSetFunc)
     while true do
         local _,arg = sys.waitUntil("LTE_LED_UPDATE")
         if lteSwitch then
@@ -245,12 +245,12 @@ function netLed.setupBreateLed(ledPin)
     end
 end
 
-sys.subscribe("FLYMODE", function(mode) if flyMode~=mode then flyMode=mode setState() end end)
-sys.subscribe("SIM_IND", function(para) if simError~=(para~="RDY") then simError=(para~="RDY") setState() end end)
-sys.subscribe("IP_CLOSE", function() if gsmRegistered then gsmRegistered=false setState() end end)
-sys.subscribe("IP_READY", function() if not gsmRegistered then gsmRegistered=true setState() end end)
-sys.subscribe("IP_READY", function(attach) if gprsAttached~=attach then gprsAttached=attach setState() end end)
-sys.subscribe("SOCKET_ACTIVE", function(active) if socketConnected~=active then socketConnected=active setState() end end)
+sys.subscribe("FLYMODE", function(mode) if flyMode~=mode then flyMode=mode netLed.setState() end end)
+sys.subscribe("SIM_IND", function(para) if simError~=(para~="RDY") then simError=(para~="RDY") netLed.setState() end end)
+sys.subscribe("IP_CLOSE", function() if gsmRegistered then gsmRegistered=false netLed.setState() end end)
+sys.subscribe("IP_READY", function() if not gsmRegistered then gsmRegistered=true netLed.setState() end end)
+sys.subscribe("IP_READY", function(attach) if gprsAttached~=attach then gprsAttached=attach netLed.setState() end end)
+sys.subscribe("SOCKET_ACTIVE", function(active) if socketConnected~=active then socketConnected=active netLed.setState() end end)
 --sys.subscribe("NET_UPD_NET_MODE", function() if lteSwitch then sys.publish("LTE_LED_UPDATE",net.getNetMode()==net.NetMode_LTE) end end)
 
 

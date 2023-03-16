@@ -3,17 +3,15 @@
 #ifdef LUAT_USE_DBG
 #include "luat_timer.h"
 #include "luat_malloc.h"
-#ifdef LUAT_USE_SHELL
 #include "luat_dbg.h"
+#ifdef LUAT_USE_SHELL
 #include "luat_cmux.h"
+extern luat_cmux_t cmux_ctx;
 #endif
 
 #define LUAT_LOG_TAG "dbg"
 #include "luat_log.h"
-#ifdef LUAT_USE_DBG
 #include "cJSON.h"
-#endif
-extern luat_cmux_t cmux_ctx;
 
 /**
  * 0 , disabled

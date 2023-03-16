@@ -560,9 +560,9 @@ static void w5500_nw_state(w5500_ctrl_t *w5500)
 			for(i = 0; i < MAX_DNS_SERVER; i++)
 			{
 #ifdef LUAT_USE_LWIP
-				if (w5500->dns_client.dns_server[i].type != 0xff)
+				if (network_ip_is_vaild_ipv4(&w5500->dns_client.dns_server[i]))
 				{
-					uIP.u32 = w5500->dns_client.dns_server[i].u_addr.ip4.addr;
+					uIP.u32 = ip_addr_get_ip4_u32(&w5500->dns_client.dns_server[i]);
 					LLOGD("DNS%d:%d.%d.%d.%d",i, uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
 				}
 #else
@@ -630,14 +630,12 @@ static void w5500_check_dhcp(w5500_ctrl_t *w5500)
 #ifdef LUAT_USE_LWIP
 		if (w5500->dhcp_client.dns_server[0])
 		{
-			w5500->dns_client.dns_server[0].u_addr.ip4.addr = w5500->dhcp_client.dns_server[0];
-			w5500->dns_client.dns_server[0].type = IPADDR_TYPE_V4;
+			network_set_ip_ipv4(&w5500->dns_client.dns_server[0], w5500->dhcp_client.dns_server[0]);
 		}
 
 		if (w5500->dhcp_client.dns_server[1])
 		{
-			w5500->dns_client.dns_server[1].u_addr.ip4.addr = w5500->dhcp_client.dns_server[1];
-			w5500->dns_client.dns_server[1].type = IPADDR_TYPE_V4;
+			network_set_ip_ipv4(&w5500->dns_client.dns_server[1], w5500->dhcp_client.dns_server[1]);
 		}
 #else
 		if (w5500->dhcp_client.dns_server[0])
@@ -834,7 +832,7 @@ static void w5500_init_reg(w5500_ctrl_t *w5500)
 		if (!w5500->dns_client.is_static_dns[i])
 		{
 #ifdef LUAT_USE_LWIP
-			w5500->dns_client.dns_server[i].type = 0xff;
+			network_set_ip_invaild(&w5500->dns_client.dns_server[i]);
 #else
 			w5500->dns_client.dns_server[i].is_ipv6 = 0xff;
 #endif
@@ -863,7 +861,7 @@ static socket_data_t * w5500_create_data_node(w5500_ctrl_t *w5500, uint8_t socke
 		else
 		{
 #ifdef 	LUAT_USE_LWIP
-			p->ip.type = 0xff;
+			network_set_ip_invaild(&p->ip);
 #else
 			p->ip.is_ipv6 = 0xff;
 #endif
@@ -896,7 +894,7 @@ static void w5500_socket_tx_next_data(w5500_ctrl_t *w5500, uint8_t socket_id)
 		if (!w5500->socket[socket_id].is_tcp)
 		{
 #ifdef 	LUAT_USE_LWIP
-			w5500_socket_connect(w5500, socket_id, 0, p->ip.u_addr.ip4.addr, p->port);
+			w5500_socket_connect(w5500, socket_id, 0, ip_addr_get_ip4_u32(&p->ip), p->port);
 #else
 			w5500_socket_connect(w5500, socket_id, 0, p->ip.ipv4, p->port);
 #endif
@@ -954,7 +952,7 @@ static void w5500_dns_tx_next(w5500_ctrl_t *w5500, Buffer_Struct *tx_msg_buf)
 	if (tx_msg_buf->Pos)
 	{
 #ifdef 	LUAT_USE_LWIP
-		w5500_socket_connect(w5500, SYS_SOCK_ID, 0, w5500->dns_client.dns_server[i].u_addr.ip4.addr, DNS_SERVER_PORT);
+		w5500_socket_connect(w5500, SYS_SOCK_ID, 0, ip_addr_get_ip4_u32(&w5500->dns_client.dns_server[i]), DNS_SERVER_PORT);
 #else
 		w5500_socket_connect(w5500, SYS_SOCK_ID, 0, w5500->dns_client.dns_server[i].ipv4, DNS_SERVER_PORT);
 #endif
@@ -1053,8 +1051,7 @@ static void w5500_sys_socket_callback(w5500_ctrl_t *w5500, uint8_t socket_id, ui
 					while (rx_buf.Pos < result)
 					{
 #ifdef LUAT_USE_LWIP
-						ip_addr.u_addr.ip4.addr = BytesGetLe32(rx_buf.Data + rx_buf.Pos);
-						ip_addr.type = IPADDR_TYPE_V4;
+						network_set_ip_ipv4(&ip_addr, BytesGetLe32(rx_buf.Data + rx_buf.Pos));
 #else
 						ip_addr.ipv4 = BytesGetLe32(rx_buf.Data + rx_buf.Pos);
 						ip_addr.is_ipv6 = 0;
@@ -1106,7 +1103,7 @@ static void w5500_sys_socket_callback(w5500_ctrl_t *w5500, uint8_t socket_id, ui
 							if (tx_msg_buf.Pos)
 							{
 #ifdef LUAT_USE_LWIP
-								w5500_socket_connect(w5500, SYS_SOCK_ID, 0, w5500->dns_client.dns_server[i].u_addr.ip4.addr, DNS_SERVER_PORT);
+								w5500_socket_connect(w5500, SYS_SOCK_ID, 0, ip_addr_get_ip4_u32(&w5500->dns_client.dns_server[i]), DNS_SERVER_PORT);
 #else
 								w5500_socket_connect(w5500, SYS_SOCK_ID, 0, w5500->dns_client.dns_server[i].ipv4, DNS_SERVER_PORT);
 #endif
@@ -1620,8 +1617,8 @@ static int w5500_socket_connect_ex(int socket_id, uint64_t tag,  uint16_t local_
 	llist_traversal(&prv_w5500_ctrl->socket[socket_id].rx_head, w5500_del_data_cache, NULL);
 	W5500_UNLOCK;
 #ifdef LUAT_USE_LWIP
-	platform_send_event(prv_w5500_ctrl->task_handle, EV_W5500_SOCKET_CONNECT, socket_id, remote_ip->u_addr.ip4.addr, uPV.u32);
-	uPV.u32 = remote_ip->u_addr.ip4.addr;
+	platform_send_event(prv_w5500_ctrl->task_handle, EV_W5500_SOCKET_CONNECT, socket_id, ip_addr_get_ip4_u32(remote_ip), uPV.u32);
+	uPV.u32 = ip_addr_get_ip4_u32(remote_ip);
 #else
 	platform_send_event(prv_w5500_ctrl->task_handle, EV_W5500_SOCKET_CONNECT, socket_id, remote_ip->ipv4, uPV.u32);
 	uPV.u32 = remote_ip->ipv4;
@@ -1645,8 +1642,7 @@ static int w5500_socket_accept(int socket_id, uint64_t tag,  luat_ip_addr_t *rem
 	if (result) return result;
 	w5500_xfer(user_data, W5500_SOCKET_DEST_IP0, socket_index(socket_id)|socket_reg, temp, 6);
 #ifdef LUAT_USE_LWIP
-	remote_ip->type = 0;
-	remote_ip->u_addr.ip4.addr = BytesGetLe32(temp);
+	network_set_ip_ipv4(remote_ip, BytesGetLe32(temp));
 #else
 	remote_ip->is_ipv6 = 0;
 	remote_ip->ipv4 = BytesGetLe32(temp);
@@ -1817,12 +1813,9 @@ static int w5500_get_local_ip_info(luat_ip_addr_t *ip, luat_ip_addr_t *submask, 
 	if (prv_w5500_ctrl->static_ip)
 	{
 #ifdef LUAT_USE_LWIP
-		ip->u_addr.ip4.addr = prv_w5500_ctrl->static_ip;
-		ip->type = IPADDR_TYPE_V4;
-		submask->u_addr.ip4.addr = prv_w5500_ctrl->static_submask;
-		submask->type = IPADDR_TYPE_V4;
-		gateway->u_addr.ip4.addr = prv_w5500_ctrl->static_gateway;
-		gateway->type = IPADDR_TYPE_V4;
+		network_set_ip_ipv4(ip, prv_w5500_ctrl->static_ip);
+		network_set_ip_ipv4(submask, prv_w5500_ctrl->static_submask);
+		network_set_ip_ipv4(gateway, prv_w5500_ctrl->static_gateway);
 #else
 		ip->ipv4 = prv_w5500_ctrl->static_ip;
 		ip->is_ipv6 = 0;
@@ -1840,12 +1833,9 @@ static int w5500_get_local_ip_info(luat_ip_addr_t *ip, luat_ip_addr_t *submask, 
 			return -1;
 		}
 #ifdef LUAT_USE_LWIP
-		ip->u_addr.ip4.addr = prv_w5500_ctrl->dhcp_client.ip;
-		ip->type = IPADDR_TYPE_V4;
-		submask->u_addr.ip4.addr = prv_w5500_ctrl->dhcp_client.submask;
-		submask->type = IPADDR_TYPE_V4;
-		gateway->u_addr.ip4.addr = prv_w5500_ctrl->dhcp_client.gateway;
-		gateway->type = IPADDR_TYPE_V4;
+		network_set_ip_ipv4(ip, prv_w5500_ctrl->dhcp_client.ip);
+		network_set_ip_ipv4(submask, prv_w5500_ctrl->dhcp_client.submask);
+		network_set_ip_ipv4(gateway, prv_w5500_ctrl->dhcp_client.gateway);
 #else
 		ip->ipv4 = prv_w5500_ctrl->dhcp_client.ip;
 		ip->is_ipv6 = 0;
@@ -1913,7 +1903,7 @@ static int w5500_get_full_ip_info_lwip(luat_ip_addr_t *ip, luat_ip_addr_t *subma
 {
 	if (user_data != prv_w5500_ctrl) return -1;
 #ifdef LUAT_USE_LWIP
-	ipv6->type = 0xff;
+	network_set_ip_invaild(ipv6);
 #else
 	ipv6->is_ipv6 = 0xff;
 #endif

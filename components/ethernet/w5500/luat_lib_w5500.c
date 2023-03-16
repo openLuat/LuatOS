@@ -81,7 +81,7 @@ static int l_w5500_config(lua_State *L){
 	    ipaddr_aton(ip, &lwip_ip);
 	    ipaddr_aton(mask, &lwip_mask);
 	    ipaddr_aton(gateway, &lwip_gateway);
-	    w5500_set_static_ip(lwip_ip.u_addr.ip4.addr, lwip_mask.u_addr.ip4.addr, lwip_gateway.u_addr.ip4.addr);
+	    w5500_set_static_ip(ip_addr_get_ip4_u32(&lwip_ip), ip_addr_get_ip4_u32(&lwip_mask), ip_addr_get_ip4_u32(&lwip_gateway));
 #else
 	    w5500_set_static_ip(network_string_to_ipv4(ip, ip_len), network_string_to_ipv4(mask, mask_len), network_string_to_ipv4(gateway, gateway_len));
 #endif

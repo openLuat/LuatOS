@@ -309,7 +309,7 @@ int32_t luat_lib_http_callback(void *data, void *param){
 				LLOGD("search headers, buff len %d", http_ctrl->resp_buff_offset);
 				if (http_ctrl->resp_buff_offset > 4) {
 					uint8_t *tmp = (uint8_t*)http_ctrl->resp_buff;
-					size_t search = http_ctrl->resp_buff_offset - 4;
+					size_t search = http_ctrl->resp_buff_offset;
 					for (size_t i = 0; i < search; i++)
 					{
 						// \\r\\n\\r\\n

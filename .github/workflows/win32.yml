@@ -22,7 +22,7 @@ jobs:
       with:
         msystem: MINGW64
         update: true
-        install: git mingw-w64-x86_64-gcc mingw-w64-x86_64-gdb mingw-w64-x86_64-toolchain python3 python-pip mingw-w64-clang-x86_64-toolchain mingw-w64-x86_64-xmake
+        install: git mingw-w64-x86_64-gcc mingw-w64-x86_64-gdb mingw-w64-x86_64-toolchain python3 python-pip mingw-w64-clang-x86_64-toolchain mingw-w64-x86_64-xmake p7zip
     - name: build
       run: |
         cd bsp/win32

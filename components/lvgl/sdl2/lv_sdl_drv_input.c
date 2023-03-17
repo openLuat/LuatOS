@@ -109,6 +109,7 @@ static bool sdl_input_read(lv_indev_drv_t *drv, lv_indev_data_t *data)
         if((e.type == SDL_WINDOWEVENT && e.window.event == SDL_WINDOWEVENT_CLOSE) ||
             e.type == SDL_QUIT) {
             quit_event = true;
+            exit(0);
         }
     }
 

@@ -409,18 +409,13 @@ static int l_u8g2_DrawLine(lua_State *L){
 @int 圆心位置
 @int 圆心位置
 @int 圆半径.
-@int 选择圆的部分或全部.
-右上： 0x01
-左上：  0x02
-左下： 0x04
-右下：  0x08
-完整圆： (0x01|0x02|0x04|0x08)
+@int 选择圆的部分或全部. 默认全画 可选 u8g2.DRAW_UPPER_RIGHT  u8g2.DRAW_UPPER_LEFT  u8g2.DRAW_LOWER_LEFT  u8g2.DRAW_LOWER_RIGHT  u8g2.DRAW_ALL
 @usage
-u8g2.DrawCircle(60,30,8,15)
+u8g2.DrawCircle(60,30,8,u8g2.DRAW_ALL)
 */
 static int l_u8g2_DrawCircle(lua_State *L){
     if (u8g2 == NULL) return 0;
-    u8g2_DrawCircle(u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_checkinteger(L, 4));
+    u8g2_DrawCircle(u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_optinteger(L, 4,U8G2_DRAW_ALL));
     return 0;
 }
 
@@ -430,18 +425,13 @@ static int l_u8g2_DrawCircle(lua_State *L){
 @int 圆心位置
 @int 圆心位置
 @int 圆半径.
-@int 选择圆的部分或全部.
-右上： 0x01
-左上：  0x02
-左下： 0x04
-右下：  0x08
-完整圆： (0x01|0x02|0x04|0x08)
+@int 选择圆的部分或全部. 默认全画 可选 u8g2.DRAW_UPPER_RIGHT  u8g2.DRAW_UPPER_LEFT  u8g2.DRAW_LOWER_LEFT  u8g2.DRAW_LOWER_RIGHT  u8g2.DRAW_ALL
 @usage
-u8g2.DrawDisc(60,30,8,15)
+u8g2.DrawDisc(60,30,8,u8g2.DRAW_ALL)
 */
 static int l_u8g2_DrawDisc(lua_State *L){
     if (u8g2 == NULL) return 0;
-    u8g2_DrawDisc(u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_checkinteger(L, 4));
+    u8g2_DrawDisc(u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_optinteger(L, 4,U8G2_DRAW_ALL));
     return 0;
 }
 
@@ -452,18 +442,13 @@ static int l_u8g2_DrawDisc(lua_State *L){
 @int 圆心位置
 @int 椭圆大小
 @int 椭圆大小
-@int 选择圆的部分或全部.
-右上： 0x01
-左上：  0x02
-左下： 0x04
-右下：  0x08
-完整圆： (0x01|0x02|0x04|0x08)
+@int 选择圆的部分或全部. 默认全画 可选 u8g2.DRAW_UPPER_RIGHT  u8g2.DRAW_UPPER_LEFT  u8g2.DRAW_LOWER_LEFT  u8g2.DRAW_LOWER_RIGHT  u8g2.DRAW_ALL
 @usage
-u8g2.DrawEllipse(60,30,8,15)
+u8g2.DrawEllipse(60,30,8,u8g2.DRAW_ALL)
 */
 static int l_u8g2_DrawEllipse(lua_State *L){
     if (u8g2 == NULL) return 0;
-    u8g2_DrawEllipse(u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_checkinteger(L, 4),luaL_checkinteger(L, 5));
+    u8g2_DrawEllipse(u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_checkinteger(L, 4),luaL_optinteger(L, 5,U8G2_DRAW_ALL));
     return 0;
 }
 
@@ -474,18 +459,13 @@ static int l_u8g2_DrawEllipse(lua_State *L){
 @int 圆心位置
 @int 椭圆大小
 @int 椭圆大小
-@int 选择圆的部分或全部.
-右上： 0x01
-左上：  0x02
-左下： 0x04
-右下：  0x08
-完整圆： (0x01|0x02|0x04|0x08)
+@int 选择圆的部分或全部. 默认全画 可选 u8g2.DRAW_UPPER_RIGHT  u8g2.DRAW_UPPER_LEFT  u8g2.DRAW_LOWER_LEFT  u8g2.DRAW_LOWER_RIGHT  u8g2.DRAW_ALL
 @usage
 u8g2.DrawFilledEllipse(60,30,8,15)
 */
 static int l_u8g2_DrawFilledEllipse(lua_State *L){
     if (u8g2 == NULL) return 0;
-    u8g2_DrawFilledEllipse(u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_checkinteger(L, 4),luaL_checkinteger(L, 5));
+    u8g2_DrawFilledEllipse(u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_checkinteger(L, 4),luaL_optinteger(L, 5,U8G2_DRAW_ALL));
     return 0;
 }
 
@@ -908,7 +888,16 @@ static const rotable_Reg_t reg_u8g2[] =
 #ifdef USE_U8G2_OPPOSANSM32_CHINESE
     { "font_opposansm32_chinese", ROREG_PTR((void*)u8g2_font_opposansm32_chinese)},
 #endif
-
+    //@const DRAW_UPPER_RIGHT number 上右
+    { "DRAW_UPPER_RIGHT",        ROREG_INT(U8G2_DRAW_UPPER_RIGHT)},
+    //@const DRAW_UPPER_LEFT number 上左
+    { "DRAW_UPPER_LEFT",        ROREG_INT(U8G2_DRAW_UPPER_LEFT)},
+    //@const DRAW_LOWER_LEFT number 下左
+    { "DRAW_LOWER_LEFT",        ROREG_INT(U8G2_DRAW_LOWER_LEFT)},
+    //@const DRAW_LOWER_RIGHT number 下右
+    { "DRAW_LOWER_RIGHT",        ROREG_INT(U8G2_DRAW_LOWER_RIGHT)},
+    //@const DRAW_ALL number 全部
+    { "DRAW_ALL",        ROREG_INT(U8G2_DRAW_ALL)},
 	{ NULL,  ROREG_INT(0)}
 };
 

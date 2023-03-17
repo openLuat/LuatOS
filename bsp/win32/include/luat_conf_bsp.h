@@ -35,8 +35,39 @@
 #define LUAT_USE_LOG_ASYNC_THREAD 0
 
 #define LUAT_FORCE_WIN32 1
+
+//---------------------
+// UI
+// LCD  是彩屏, 若使用LVGL就必须启用LCD
 #define LUAT_USE_LCD
 #define LUAT_LCD_COLOR_DEPTH 16
+// EINK 是墨水屏
+// #define LUAT_USE_EINK
+
+//---------------------
+// U8G2
+// 单色屏, 支持i2c/spi
+// #define LUAT_USE_DISP
+#define LUAT_USE_U8G2
+#define U8G2_USE_SH1106
+#define U8G2_USE_ST7567
+
+/**************FONT*****************/
+// Luat Fonts
+#define LUAT_USE_FONTS
+/**********U8G2&LCD FONT*************/
+#define USE_U8G2_OPPOSANSM_ENGLISH
+#define USE_U8G2_UNIFONT_SYMBOLS
+#define USE_U8G2_OPPOSANSM8_CHINESE
+#define USE_U8G2_OPPOSANSM10_CHINESE
+#define USE_U8G2_OPPOSANSM12_CHINESE
+#define USE_U8G2_OPPOSANSM14_CHINESE
+#define USE_U8G2_OPPOSANSM16_CHINESE
+#define USE_U8G2_OPPOSANSM18_CHINESE
+#define USE_U8G2_OPPOSANSM20_CHINESE
+#define USE_U8G2_OPPOSANSM22_CHINESE
+#define USE_U8G2_OPPOSANSM24_CHINESE
+#define USE_U8G2_OPPOSANSM32_CHINESE
 
 #define LUAT_USE_TJPGD
 

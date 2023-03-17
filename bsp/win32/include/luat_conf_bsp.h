@@ -30,34 +30,33 @@
 
 // #define LUAT_MEMORY_OPT_G_FUNCS 1
 
+#define LUAT_COMPILER_NOWEAK 1
+
 #define LUAT_USE_LOG_ASYNC_THREAD 0
 
 #define LUAT_FORCE_WIN32 1
-
-#define LUAT_USE_LVGL_SDL2 1
-#define LUAT_USE_LCD_SDL2 1
-#define LUAT_USE_LCD_CUSTOM_DRAW 1
-
 #define LUAT_USE_LCD
 #define LUAT_LCD_COLOR_DEPTH 16
 
 #define LUAT_USE_TJPGD
-
-#define LV_COLOR_16_SWAP 1
-#define LV_COLOR_DEPTH 16
-
-#define LUAT_USE_LVGL 1
-#define LV_MEM_CUSTOM 1
-#define LUAT_LV_DEBUG 0
-#define LUAT_USE_LVGL_INDEV 1
-
-#define LUAT_COMPILER_NOWEAK 1
 
 #define LV_TICK_CUSTOM     1
 #define LV_TICK_CUSTOM_INCLUDE "stdio.h"
 unsigned int get_timestamp(void);
 #define LV_TICK_CUSTOM_SYS_TIME_EXPR ((uint32_t)get_timestamp())     /*Expression evaluating to current system time in ms*/
 
+#define LV_COLOR_16_SWAP 1
+#define LV_COLOR_DEPTH 16
+
+#define LUAT_USE_LVGL_SDL2 1
+#define LUAT_USE_LCD_SDL2 1
+#define LUAT_USE_LCD_CUSTOM_DRAW 1
+
+#define LUAT_USE_LVGL 1
+#define LV_MEM_CUSTOM 1
+#define LUAT_LV_DEBUG 0
+#define LUAT_USE_LVGL_INDEV 1
+#define LV_USE_LOG 1
 
 #define LUAT_USE_LVGL_ARC   //圆弧 无依赖
 #define LUAT_USE_LVGL_BAR   //进度条 无依赖

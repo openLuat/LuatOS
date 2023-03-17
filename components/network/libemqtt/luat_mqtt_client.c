@@ -361,6 +361,7 @@ int32_t luat_mqtt_callback(void *data, void *param) {
 	if (event->Param1){
 		LLOGW("mqtt_callback param1 %d, closing socket", event->Param1);
 		luat_mqtt_close_socket(mqtt_ctrl);
+		return -1;
 	}
 	ret = network_wait_event(mqtt_ctrl->netc, NULL, 0, NULL);
 	if (ret < 0){

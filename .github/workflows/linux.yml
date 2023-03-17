@@ -27,8 +27,8 @@ jobs:
       run: |
         cd bsp/linux
         xmake -y
-        mkdir ../../../luatosfw
-        mv build/out/luatos ../../../luatosfw/
+        mkdir ../../luatosfw
+        mv build/out/luatos ../../luatosfw/
     - name: Upload artifact
       uses: actions/upload-artifact@v1
       with:

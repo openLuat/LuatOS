@@ -22,18 +22,14 @@ jobs:
       with:
         msystem: MINGW64
         update: true
-        install: git mingw-w64-x86_64-gcc mingw-w64-x86_64-gdb mingw-w64-x86_64-cmake mingw-w64-x86_64-make mingw-w64-x86_64-toolchain python3 python-pip
+        install: git mingw-w64-x86_64-gcc mingw-w64-x86_64-gdb mingw-w64-x86_64-toolchain python3 python-pip mingw-w64-clang-x86_64-toolchain mingw-w64-x86_64-xmake
     - name: build
       run: |
         cd bsp/win32
-        mkdir build
-        cd build
-        cmake -G "MinGW Makefiles" -D CMAKE_C_COMPILER="gcc" -D CMAKE_CXX_COMPILER="g++" ..
-        mingw32-make -j2
-        cd ..
+        xmake -y
         mkdir luatos_win32/
-        cp build/luatos.exe luatos_win32/
-        cp build/luatos.exe module_test/
+        cp build/out/luatos.exe luatos_win32/
+        cp build/out/luatos.exe module_test/
         cp lib/sys.lua luatos_win32/
         cp lib/sys.lua module_test/
         echo -e "local sys = require 'sys'\r\n\r\nlog.info('sys', 'from win32')\r\n\r\nsys.taskInit(function ()\r\n    while true do\r\n        log.info('hi', os.date())\r\n        log.info('sys', rtos.meminfo('sys'))\r\n        log.info('lua', rtos.meminfo('lua'))\r\n        sys.wait(1000)\r\n    end\r\nend)\r\n\r\nsys.run()" > luatos_win32/main.lua

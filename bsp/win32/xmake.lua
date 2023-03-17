@@ -91,9 +91,15 @@ target("luatos")
     add_includedirs(luatos.."components/lvgl/src")
     add_includedirs(luatos.."components/lvgl/font")
     add_includedirs(luatos.."components/lvgl/src/lv_font")
+    add_includedirs(luatos.."components/lvgl/sdl2")
     add_files(luatos.."components/lvgl/**.c")
     -- 默认不编译lv的demos, 节省大量的编译时间
     remove_files(luatos.."components/lvgl/lv_demos/**.c")
+    -- -- eink
+    -- add_includedirs(luatos.."components/eink")
+    -- add_includedirs(luatos.."components/epaper")
+    -- add_files(luatos.."components/eink/*.c")
+    -- add_files(luatos.."components/epaper/*.c")
     -- tjpgd
     add_files(luatos.."components/tjpgd/*.c")
     add_includedirs(luatos.."components/tjpgd")

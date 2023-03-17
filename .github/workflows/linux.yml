@@ -18,7 +18,7 @@ jobs:
     - name: prepare software
       run: |
         sudo apt-get update
-        sudo apt install git gcc-multilib libc6 libgcc1 libstdc++5 libstdc++6 libsdl-dev p7zip-full binutils llvm -y
+        sudo apt install git gcc-multilib libc6 libgcc1 libstdc++5 libstdc++6 libsdl-dev p7zip-full binutils llvm libsdl2-dev -y
         sudo apt install libncurses5-dev cmake -y
         sudo add-apt-repository ppa:xmake-io/xmake -y
         sudo apt update

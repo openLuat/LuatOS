@@ -6,16 +6,16 @@
 
 #else
 #include "mp3_decode/minimp3.h"
-void *mp3_decoder_create(void)
+LUAT_WEAK void *mp3_decoder_create(void)
 {
 	return luat_heap_malloc(sizeof(mp3dec_t));
 }
-void mp3_decoder_init(void *decoder)
+LUAT_WEAK  void mp3_decoder_init(void *decoder)
 {
 	memset(decoder, 0, sizeof(mp3dec_t));
 	mp3dec_init(decoder);
 }
-int mp3_decoder_get_info(void *decoder, const uint8_t *input, uint32_t len, uint32_t *hz, uint8_t *channel)
+LUAT_WEAK  int mp3_decoder_get_info(void *decoder, const uint8_t *input, uint32_t len, uint32_t *hz, uint8_t *channel)
 {
 
 	mp3dec_frame_info_t info;
@@ -32,7 +32,7 @@ int mp3_decoder_get_info(void *decoder, const uint8_t *input, uint32_t len, uint
 
 
 }
-int mp3_decoder_get_data(void *decoder, const uint8_t *input, uint32_t len, int16_t *pcm, uint32_t *out_len, uint32_t *hz, uint32_t *used)
+LUAT_WEAK  int mp3_decoder_get_data(void *decoder, const uint8_t *input, uint32_t len, int16_t *pcm, uint32_t *out_len, uint32_t *hz, uint32_t *used)
 {
 	mp3dec_frame_info_t info;
 	int result = mp3dec_decode_frame(decoder, input, len, pcm, &info);

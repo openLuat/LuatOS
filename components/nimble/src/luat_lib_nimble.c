@@ -303,8 +303,9 @@ static int l_nimble_ibeacon(lua_State *L) {
 
 /*
 配置广播数据,仅iBeacon模式可用
-@api nimble.advData(data)
+@api nimble.advData(data, flags)
 @string 广播数据, 当前最高128字节
+@int 广播标识, 可选, 默认值是 0x06,即 不支持传统蓝牙(0x04) + 普通发现模式(0x02)
 @return bool 成功返回true,否则返回false
 @usage
 -- 参考 demo/nimble/adv_free, 2023-03-18之后编译的固件支持本API

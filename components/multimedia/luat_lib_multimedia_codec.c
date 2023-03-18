@@ -17,7 +17,9 @@
 #include "interf_enc.h"
 #include "interf_dec.h"
 #endif
-
+#ifndef MINIMP3_MAX_SAMPLES_PER_FRAME
+#define MINIMP3_MAX_SAMPLES_PER_FRAME (2*1152)
+#endif
 /**
 创建编解码用的codec
 @api codec.create(type, isDecoder)
@@ -47,7 +49,7 @@ static int l_codec_create(lua_State *L) {
     	{
         	switch (type) {
         	case MULTIMEDIA_DATA_TYPE_MP3:
-            	coder->mp3_decoder = luat_heap_malloc(sizeof(mp3dec_t));
+            	coder->mp3_decoder = mp3_decoder_create();
             	if (!coder->mp3_decoder) {
             		lua_pushnil(L);
             		return 1;
@@ -97,13 +99,12 @@ static int l_codec_get_audio_info(lua_State *L) {
 	uint8_t temp[16];
 	int result = 0;
 	int audio_format;
-	int num_channels;
-	int sample_rate;
+	uint8_t num_channels;
+	uint32_t sample_rate;
 	int bits_per_sample = 16;
 	uint32_t align;
 	int is_signed = 1;
     size_t len;
-    mp3dec_frame_info_t info;
     const char *file_path = luaL_checklstring(L, 2, &len);
     FILE *fd = luat_fs_fopen(file_path, "r");
     if (fd && coder)
@@ -112,7 +113,7 @@ static int l_codec_get_audio_info(lua_State *L) {
 		switch(coder->type)
 		{
 		case MULTIMEDIA_DATA_TYPE_MP3:
-			mp3dec_init(coder->mp3_decoder);
+			mp3_decoder_init(coder->mp3_decoder);
 			coder->buff.addr = luat_heap_malloc(MP3_FRAME_LEN);
 
 			coder->buff.len = MP3_FRAME_LEN;
@@ -134,11 +135,9 @@ static int l_codec_get_audio_info(lua_State *L) {
 
 			}
 			coder->buff.used = luat_fs_fread(coder->buff.addr, MP3_FRAME_LEN, 1, fd);
-			result = mp3dec_decode_frame(coder->mp3_decoder, coder->buff.addr, coder->buff.used, NULL, &info);
-			memset(coder->mp3_decoder, 0, sizeof(mp3dec_t));
+			result = mp3_decoder_get_info(coder->mp3_decoder, coder->buff.addr, coder->buff.used, &sample_rate, &num_channels);
+			mp3_decoder_init(coder->mp3_decoder);
 			audio_format = MULTIMEDIA_DATA_TYPE_PCM;
-			num_channels = info.channels;
-			sample_rate = info.hz;
 			break;
 		case MULTIMEDIA_DATA_TYPE_WAV:
 			luat_fs_fread(temp, 12, 1, fd);
@@ -224,7 +223,7 @@ static int l_codec_get_audio_data(lua_State *L) {
 	int result;
 	luat_zbuff_t *out_buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
 	uint32_t is_not_end = 1;
-	mp3dec_frame_info_t info;
+	uint32_t hz, out_len, used;
 	out_buff->used = 0;
 	if (coder)
     {
@@ -246,13 +245,16 @@ GET_MP3_DATA:
 			}
 			do
 			{
-				memset(&info, 0, sizeof(info));
-				result = mp3dec_decode_frame(coder->mp3_decoder, coder->buff.addr + pos, coder->buff.used - pos, out_buff->addr + out_buff->used, &info);
-				out_buff->used += (result * info.channels * 2);
+				result = mp3_decoder_get_data(coder->mp3_decoder, coder->buff.addr + pos, coder->buff.used - pos, out_buff->addr + out_buff->used, &out_len, &hz, &used);
+				if (result > 0)
+				{
+					out_buff->used += out_len;
+				}
+
 //				if (!result) {
 //					LLOGD("jump %dbyte", info.frame_bytes);
 //				}
-				pos += info.frame_bytes;
+				pos += used;
 				if ((out_buff->len - out_buff->used) < (MINIMP3_MAX_SAMPLES_PER_FRAME * 2))
 				{
 					break;

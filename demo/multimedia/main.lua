@@ -66,7 +66,7 @@ local function audio_task()
     -- mp3 可播放采样率 16k/32k
     -- 如需在同一个table内混播, 需要使用相同的采样率
     -- 此mp3无版权,合宙自录音频,若测试音质请使用其他高清mp3,并使用转码到32k采样率
-    local mp3s = {"/luadb/1.mp3","/luadb/2.mp3","/luadb/3.mp3","/luadb/4.mp3","/luadb/5.mp3"} 
+    local mp3s = {"/luadb/test.mp3"} 
     local counter = 0
     while true do
         log.info("开始播放")

@@ -27,6 +27,8 @@
 #include "nimble/nimble_port.h"
 // #include "nimble/nimble_port_freertos.h"
 
+#define BLE_IBEACON_MFG_DATA_SIZE       25
+
 #define ADDR_FMT "%02X%02X%02X%02X%02X%02X"
 #define ADDR_T(addr) addr[0],addr[1],addr[2],addr[3],addr[4],addr[5]
 
@@ -35,28 +37,58 @@ static uint8_t own_addr_type;
 static uint8_t ble_ready;
 void ble_store_config_init(void);
 
-typedef struct ibeacon_data
-{
-    char data[16];
-    uint16_t major;
-    uint16_t minor;
-    int8_t measured_power;
-}ibeacon_data_t;
+static uint8_t adv_buff[128];
+static int adv_buff_len = 0;
+static struct ble_hs_adv_fields adv_fields;
 
-static ibeacon_data_t ibdata;
 static void ble_app_advertise(void);
 
 int luat_nimble_ibeacon_setup(void *uuid128, uint16_t major,
                          uint16_t minor, int8_t measured_power) {
-    memcpy(ibdata.data, uuid128, 16);
-    ibdata.major = major;
-    ibdata.minor = minor;
-    ibdata.measured_power = measured_power;
-    if (ble_ready) {
-        int rc = ble_ibeacon_set_adv_data(ibdata.data, ibdata.major, ibdata.minor, ibdata.measured_power);
-        LLOGD("ble_ibeacon_set_adv_data rc %d", rc);
+    uint8_t buf[BLE_IBEACON_MFG_DATA_SIZE];
+    int rc;
+    /** Company identifier (Apple). */
+    buf[0] = 0x4c;
+    buf[1] = 0x00;
+    /** iBeacon indicator. */
+    buf[2] = 0x02;
+    buf[3] = 0x15;
+    /** UUID. */
+    memcpy(buf + 4, uuid128, 16);
+    /** Version number. */
+    put_be16(buf + 20, major);
+    put_be16(buf + 22, minor);
+
+    /* Measured Power ranging data (Calibrated tx power at 1 meters). */
+    if(measured_power < -126 || measured_power > 20) {
+        return BLE_HS_EINVAL;
     }
-    return 0;
+
+    buf[24] = measured_power;
+    int flags = BLE_HS_ADV_F_DISC_GEN | BLE_HS_ADV_F_BREDR_UNSUP;
+    return luat_nimble_set_adv_data((char* )buf, BLE_IBEACON_MFG_DATA_SIZE, flags);
+}
+
+int luat_nimble_set_adv_data(char* buff, size_t len, int flags) {
+    if (buff == NULL)
+        return -1;
+    int rc = 0;
+    if (len > 128)
+        len = 128;
+    adv_buff_len = len;
+    memcpy(adv_buff, buff, len);
+    memset(&adv_fields, 0, sizeof adv_fields);
+    adv_fields.mfg_data = adv_buff;
+    adv_fields.mfg_data_len = adv_buff_len;
+    adv_fields.flags = flags;
+
+    if (ble_ready) {
+        rc = ble_gap_adv_set_fields(&adv_fields);
+        LLOGD("ble_gap_adv_set_fields rc %d", rc);
+        return rc;
+    }
+
+    return rc;
 }
 
 static int
@@ -77,13 +109,8 @@ ble_app_advertise(void)
     // uint8_t uuid128[16];
     int rc;
 
-    // /* Arbitrarily set the UUID to a string of 0x11 bytes. */
-    // memset(uuid128, 0x11, sizeof uuid128);
-
-    /* Major version=2; minor version=10. */
-    rc = ble_ibeacon_set_adv_data(ibdata.data, ibdata.major, ibdata.minor, ibdata.measured_power);
-    LLOGD("ble_ibeacon_set_adv_data rc %d", rc);
-    // assert(rc == 0);
+    rc = ble_gap_adv_set_fields(&adv_fields);
+    LLOGD("ble_gap_adv_set_fields rc %d", rc);
 
     /* Begin advertising. */
     // adv_params = (struct ble_gap_adv_params){ 0 };
@@ -96,7 +123,7 @@ ble_app_advertise(void)
 static void
 bleprph_on_sync(void)
 {
-    LLOGD("iBeacon GoGoGo");
+    // LLOGD("iBeacon GoGoGo");
     int rc;
     ble_hs_id_infer_auto(0, &own_addr_type);
     /* Printing ADDR */
@@ -123,16 +150,6 @@ int luat_nimble_init_ibeacon(uint8_t uart_idx, char* name, int mode) {
     if (name != NULL && strlen(name)) {
         rc = ble_svc_gap_device_name_set((const char*)name);
         ble_use_custom_name = 1;
-    }
-
-    if (ibdata.major == 0) {
-        ibdata.major = 2;
-    }
-    if (ibdata.minor == 0) {
-        ibdata.minor = 10;
-    }
-    if (ibdata.data[0] == 0) {
-        memset(ibdata.data, 0x11, 16);
     }
 
     /* Initialize the NimBLE host configuration. */

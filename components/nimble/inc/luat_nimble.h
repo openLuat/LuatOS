@@ -34,9 +34,12 @@ int luat_nimble_blecent_scan(void);
 
 int luat_nimble_blecent_connect(const char* addr);
 
-
+// 直接设置标准的ibeacon数据
 int luat_nimble_ibeacon_setup(void *uuid128, uint16_t major,
                          uint16_t minor, int8_t measured_power);
+
+// 自由设置广播数据, 比ibeacon更自由
+int luat_nimble_set_adv_data(char* buff, size_t len, int flags);
 
 #endif
 

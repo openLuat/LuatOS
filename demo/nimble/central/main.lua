@@ -4,7 +4,14 @@ PROJECT = "bledemo"
 VERSION = "1.0.0"
 
 --[[
-BLE centraldemo, 扫码并连接其他设备 ** 未完成 **
+BLE 中心/从机模式
+状态: 
+1. 扫描, 可用
+2. 接收扫描结果, 可用
+3. 连接到指定设备, 可用
+4. 获取已连接设备的描述符, 暂不可用
+5. 发送数据, 暂不可用
+
 支持的模块:
 1. Air101/Air103, 开发板的BLE天线未引出, 需要靠近使用, 且功耗高
 2. ESP32系列, 包括ESP32C3/ESP32S3
@@ -33,8 +40,14 @@ sys.subscribe("BLE_GATT_WRITE_CHR", function(info, data)
 end)
 
 -- 接收扫描结果
-sys.subscribe("BLE_SCAN_RESULT", function(addr, name, uuids)
-    log.info("ble scan", (addr:toHex()), name, json.encode(uuids))
+sys.subscribe("BLE_SCAN_RESULT", function(addr, name, uuids, mfg_data)
+    -- addr 蓝牙设备的地址, 7字节
+    --      首字节是地址类型, 0 代表 随机地址, 1 代表真实地址
+    --      后6字节是蓝牙地址
+    -- name 设备名称, 不一定有
+    -- uuids 服务id
+    -- mfg_data 工厂默认信息, 主要是iBeacon或者自由广播的数据, 2023-03-19添加
+    log.info("ble scan", (addr:toHex()), name, json.encode(uuids), mfg_data and mfg_data:toHex() or "")
     if name == "LOS-065614A23900" then
         nimble.connect(addr)
     end
@@ -59,6 +72,7 @@ sys.taskInit(function()
     -- 发送数据
     while 1 do
         nimble.scan()
+        -- TODO 扫描到指定设备后, 应跳出循环
         sys.wait(120000)
     end
 end)

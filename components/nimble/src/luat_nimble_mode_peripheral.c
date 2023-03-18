@@ -43,8 +43,9 @@ extern ble_uuid_any_t ble_peripheral_write_uuid;
 #define LUAT_LOG_TAG "nimble"
 #include "luat_log.h"
 
-static uint8_t ble_use_custom_name;
-// extern uint16_t g_ble_conn_handle;
+extern uint8_t luat_ble_dev_name[];
+extern size_t  luat_ble_dev_name_len;
+extern struct ble_gap_adv_params adv_params;
 
 typedef struct ble_write_msg {
     // uint16_t conn_handle,
@@ -316,7 +317,7 @@ ext_bleprph_advertise(void)
 static void
 bleprph_advertise(void)
 {
-    struct ble_gap_adv_params adv_params;
+    // struct ble_gap_adv_params adv_params;
     struct ble_hs_adv_fields fields;
     const char *name;
     int rc;
@@ -364,7 +365,7 @@ bleprph_advertise(void)
     }
 
     /* Begin advertising. */
-    memset(&adv_params, 0, sizeof adv_params);
+    // memset(&adv_params, 0, sizeof adv_params);
     adv_params.conn_mode = BLE_GAP_CONN_MODE_UND;
     adv_params.disc_mode = BLE_GAP_DISC_MODE_GEN;
     rc = ble_gap_adv_start(own_addr_type, NULL, BLE_HS_FOREVER,
@@ -593,15 +594,14 @@ bleprph_on_sync(void)
     rc = ble_hs_id_copy_addr(own_addr_type, addr_val, NULL);
 
     LLOGI("Device Address: " ADDR_FMT, ADDR_T(addr_val));
-    if (ble_use_custom_name == 0) {
-        char buff[32];
-        sprintf_(buff, "LOS-" ADDR_FMT, ADDR_T(addr_val));
-        LLOGD("BLE name: %s", buff);
-        rc = ble_svc_gap_device_name_set((const char*)buff);
+    if (luat_ble_dev_name_len == 0) {
+        sprintf_((char*)luat_ble_dev_name, "LOS-" ADDR_FMT, ADDR_T(addr_val));
+        LLOGD("BLE name: %s", luat_ble_dev_name);
+        luat_ble_dev_name_len = strlen((const char*)luat_ble_dev_name);
+        rc = ble_svc_gap_device_name_set((const char*)luat_ble_dev_name);
     }
     ble_gatts_start();
-    //print_addr(addr_val);
-    // LLOGI("");
+
     /* Begin advertising. */
 #if CONFIG_EXAMPLE_EXTENDED_ADV
     ext_bleprph_advertise();
@@ -622,7 +622,6 @@ int luat_nimble_init_peripheral(uint8_t uart_idx, char* name, int mode) {
     /* Set the default device name. */
     if (name != NULL && strlen(name)) {
         rc = ble_svc_gap_device_name_set((const char*)name);
-        ble_use_custom_name = 1;
     }
 
     /* Initialize the NimBLE host configuration. */

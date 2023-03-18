@@ -33,8 +33,10 @@ typedef struct luat_nimble_scan_result
     uint16_t uuids_16[16];
     uint32_t uuids_32[16];
     uint8_t uuids_128[16][16];
+    uint8_t mfg_data[128];
     char name[64];
     char addr[7]; // 地址类型 + MAC地址
+    uint8_t mfg_data_len;
 }luat_nimble_scan_result_t;
 
 void rand_bytes(uint8_t *data, int len);
@@ -212,8 +214,14 @@ int luat_nimble_scan_cb(lua_State*L, void*ptr) {
     //     }
     //     lua_setfield(L, -2, "uuids128");
     // }
+    if (res->mfg_data_len) {
+        lua_pushlstring(L, (const char*)res->mfg_data, res->mfg_data_len);
+    }
+    else {
+        lua_pushnil(L);
+    }
     luat_heap_free(res);
-    lua_call(L, 4, 0);
+    lua_call(L, 5, 0);
     return 0;
 }
 
@@ -279,6 +287,10 @@ static int blecent_gap_event(struct ble_gap_event *event, void *arg)
         }
         memcpy(res->addr, &event->disc.addr, 7);
         memcpy(res->name, fields.name, fields.name_len);
+        if (fields.mfg_data_len) {
+            memcpy(res->mfg_data, fields.mfg_data, fields.mfg_data_len);
+            res->mfg_data_len = fields.mfg_data_len;
+        }
         LLOGD("addr %02X%02X%02X%02X%02X%02X", event->disc.addr.val[0], event->disc.addr.val[1], event->disc.addr.val[2], 
                                                event->disc.addr.val[3], event->disc.addr.val[4], event->disc.addr.val[5]);
         // for (i = 0; i < fields.num_uuids128 && i < 16; i++) {

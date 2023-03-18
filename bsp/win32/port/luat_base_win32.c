@@ -52,6 +52,9 @@ static const luaL_Reg loadedlibs[] = {
 #ifdef LUAT_USE_LCD
   {"lcd",    luaopen_lcd},
 #endif
+#ifdef LUAT_USE_LCD
+  {"u8g2", luaopen_u8g2},
+#endif
 #ifdef LUAT_USE_LVGL
   {"lvgl",   luaopen_lvgl},
 #endif

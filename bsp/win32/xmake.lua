@@ -33,9 +33,6 @@ target("luatos")
     add_files("port/*.c",{public = true})
     add_includedirs("include",{public = true})
 
-    add_includedirs("lv_drivers",{public = true})
-    add_files("lv_drivers/*.c")
-
     add_includedirs(luatos.."lua/include",{public = true})
     add_files(luatos.."lua/src/*.c")
 
@@ -60,13 +57,15 @@ target("luatos")
             )
 
     add_files(luatos.."luat/vfs/*.c")
-
+    -- lfs
+    add_includedirs(luatos.."components/lfs")
     add_files(luatos.."components/lfs/*.c")
-    add_files(luatos.."components/sfd/*.c")
 
+    add_files(luatos.."components/sfd/*.c")
+    -- lua-cjson
     add_includedirs(luatos.."components/lua-cjson")
     add_files(luatos.."components/lua-cjson/*.c")
-
+    -- miniz
     add_includedirs(luatos.."components/miniz")
     add_files(luatos.."components/miniz/*.c")
 
@@ -79,15 +78,12 @@ target("luatos")
     -- sdl2
     add_includedirs(luatos.."components/ui/sdl2")
     add_files(luatos.."components/ui/sdl2/*.c")
-
     -- u8g2
     add_includedirs(luatos.."components/u8g2")
     add_files(luatos.."components/u8g2/*.c")
-
     -- lcd
     add_includedirs(luatos.."components/lcd")
     add_files(luatos.."components/lcd/*.c")
-    
     -- lvgl
     add_includedirs(luatos.."components/lvgl")
     add_includedirs(luatos.."components/lvgl/binding")
@@ -95,47 +91,38 @@ target("luatos")
     add_includedirs(luatos.."components/lvgl/src")
     add_includedirs(luatos.."components/lvgl/font")
     add_includedirs(luatos.."components/lvgl/src/lv_font")
-
+    add_includedirs(luatos.."components/lvgl/sdl2")
     add_files(luatos.."components/lvgl/**.c")
     -- 默认不编译lv的demos, 节省大量的编译时间
     remove_files(luatos.."components/lvgl/lv_demos/**.c")
-
+    -- -- eink
+    -- add_includedirs(luatos.."components/eink")
+    -- add_includedirs(luatos.."components/epaper")
+    -- add_files(luatos.."components/eink/*.c")
+    -- add_files(luatos.."components/epaper/*.c")
     -- tjpgd
     add_files(luatos.."components/tjpgd/*.c")
     add_includedirs(luatos.."components/tjpgd")
-
-    add_includedirs(luatos.."components/cjson",{public = true})
+    -- cjson
+    add_includedirs(luatos.."components/cjson")
     add_files(luatos.."components/cjson/*.c")
-    
-
-    add_includedirs(luatos.."components/lfs")
-    
-    add_includedirs(luatos.."components/fatfs")
-
-
+    -- mbedtls
     add_files(luatos.."components/mbedtls/library/*.c")
     add_includedirs(luatos.."components/mbedtls/include")
-
     -- iotauth
     add_files(luatos.."components/iotauth/luat_lib_iotauth.c")
-
     -- qrcode
-    add_includedirs(luatos.."components/qrcode",{public = true})
+    add_includedirs(luatos.."components/qrcode")
     add_files(luatos.."components/qrcode/*.c")
-
     -- crypto
     add_files(luatos.."components/crypto/**.c")
-
     -- protobuf
     add_includedirs(luatos.."components/serialization/protobuf")
     add_files(luatos.."components/serialization/protobuf/*.c")
-
     -- libgnss
     add_includedirs(luatos.."components/minmea")
     add_files(luatos.."components/minmea/*.c")
-
     -- rsa
     add_files(luatos.."components/rsa/**.c")
-
     
 target_end()

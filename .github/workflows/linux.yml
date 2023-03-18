@@ -18,17 +18,17 @@ jobs:
     - name: prepare software
       run: |
         sudo apt-get update
-        sudo apt install git gcc-multilib libc6 libgcc1 libstdc++5 libstdc++6 libsdl-dev p7zip-full -y
+        sudo apt install git gcc-multilib libc6 libgcc1 libstdc++5 libstdc++6 p7zip-full binutils llvm libsdl2-dev -y
         sudo apt install libncurses5-dev cmake -y
+        sudo add-apt-repository ppa:xmake-io/xmake -y
+        sudo apt update
+        sudo apt install xmake
     - name: make
       run: |
         cd bsp/linux
-        mkdir build
-        cd build
-        cmake ..
-        make
-        mkdir ../../../luatosfw
-        mv luatos ../../../luatosfw/
+        xmake -y
+        mkdir ../../luatosfw
+        mv build/out/luatos ../../luatosfw/
     - name: Upload artifact
       uses: actions/upload-artifact@v1
       with:

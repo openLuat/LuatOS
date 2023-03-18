@@ -12,4 +12,7 @@ require "es8311"
 -- es8218e 录音demo
 -- require "es8218e"
 
+-- es7243e 录音demo
+-- require "es7243e"
+
 sys.run()

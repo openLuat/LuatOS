@@ -20,9 +20,6 @@
 #define LUAT_LOG_TAG "msgbus"
 #include "luat_log.h"
 
-#ifdef LUAT_USE_LVGL
-extern void win32_set_mouse_state(int x, int y, bool pressed);
-#endif
 
 static DWORD luat_main_thread_id;
 
@@ -52,17 +49,6 @@ uint32_t luat_msgbus_get(rtos_msg_t* rtmsg, size_t timeout) {
     bool mouse_pressed;
     switch (msg.message)
     {
-    case WM_MOUSEMOVE:
-    case WM_LBUTTONDOWN:
-    case WM_LBUTTONUP:
-        TranslateMessage(&msg);
-        mouse_x = GET_X_LPARAM(msg.lParam);
-        mouse_y = GET_Y_LPARAM(msg.lParam);
-        if(msg.message == WM_LBUTTONDOWN || msg.message == WM_LBUTTONUP) {
-            mouse_pressed = (msg.message == WM_LBUTTONDOWN);
-        }
-        // win32_set_mouse_state(mouse_x, mouse_y, mouse_pressed);
-        break;
     case WM_COMMAND:
         tmp = (rtos_msg_t*)msg.wParam;
         if (tmp != NULL) {

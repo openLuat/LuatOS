@@ -20,6 +20,7 @@
 #include "host/ble_gatt.h"
 #include "host/ble_hs_id.h"
 #include "host/util/util.h"
+#include "host/ble_hs_adv.h"
 
 #define LUAT_LOG_TAG "nimble"
 #include "luat_log.h"
@@ -300,6 +301,38 @@ static int l_nimble_ibeacon(lua_State *L) {
     return 1;
 }
 
+/*
+配置广播数据,仅iBeacon模式可用
+@api nimble.advData(data)
+@string 广播数据, 当前最高128字节
+@return bool 成功返回true,否则返回false
+@usage
+-- 参考 demo/nimble/adv_free, 2023-03-18之后编译的固件支持本API
+-- 本函数对ibeacon模式适用
+-- 数据来源可以多种多样
+local data = string.fromHex("123487651234876512348765123487651234876512348765")
+-- local data = crypto.trng(25)
+-- local data = string.char(0x11, 0x13, 0xA3, 0x5A, 0x11, 0x13, 0xA3, 0x5A, 0x11, 0x13, 0xA3, 0x5A, 0x11, 0x13, 0xA3, 0x5A)
+nimble.advData(data)
+nimble.init()
+
+-- nimble支持在init之后的任意时刻再次调用, 以实现数据更新
+-- 例如 1分钟变一次
+while 1 do
+    sys.wait(60000)
+    local data = crypto.trng(25)
+    nimble.advData(data)
+end
+*/
+static int l_nimble_set_adv_data(lua_State *L) {
+    size_t len = 0;
+    const char* data = luaL_checklstring(L, 1, &len);
+    int flags = luaL_optinteger(L, 2, BLE_HS_ADV_F_DISC_GEN | BLE_HS_ADV_F_BREDR_UNSUP);
+    int rc = luat_nimble_set_adv_data(data, len, flags);
+    lua_pushboolean(L, rc == 0 ? 1 : 0);
+    return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_nimble[] =
 {
@@ -322,6 +355,7 @@ static const rotable_Reg_t reg_nimble[] =
 
     // ibeacon广播模式
     { "ibeacon",        ROREG_FUNC(l_nimble_ibeacon)},
+    { "advData",        ROREG_FUNC(l_nimble_set_adv_data)},
 
     // 放一些常量
     { "STATE_OFF",           ROREG_INT(BT_STATE_OFF)},

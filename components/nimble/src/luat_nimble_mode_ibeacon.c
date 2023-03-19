@@ -37,9 +37,14 @@ static uint8_t own_addr_type;
 static uint8_t ble_ready;
 void ble_store_config_init(void);
 
-static uint8_t adv_buff[128];
-static int adv_buff_len = 0;
-static struct ble_hs_adv_fields adv_fields;
+
+extern uint8_t luat_ble_dev_name[];
+extern size_t  luat_ble_dev_name_len;
+
+extern uint8_t adv_buff[];
+extern int adv_buff_len;
+extern struct ble_hs_adv_fields adv_fields;
+extern struct ble_gap_adv_params adv_params;
 
 static void ble_app_advertise(void);
 
@@ -82,6 +87,18 @@ int luat_nimble_set_adv_data(char* buff, size_t len, int flags) {
     adv_fields.mfg_data_len = adv_buff_len;
     adv_fields.flags = flags;
 
+    if (luat_ble_dev_name_len == 0) {
+        const char * name = ble_svc_gap_device_name();
+        adv_fields.name = (uint8_t *)name;
+        adv_fields.name_len = strlen(name);
+        adv_fields.name_is_complete = 1;
+    }
+    else {
+        adv_fields.name = (uint8_t *)luat_ble_dev_name;
+        adv_fields.name_len = luat_ble_dev_name_len;
+        adv_fields.name_is_complete = 1;
+    }
+
     if (ble_ready) {
         rc = ble_gap_adv_set_fields(&adv_fields);
         LLOGD("ble_gap_adv_set_fields rc %d", rc);
@@ -105,7 +122,6 @@ bleprph_gap_event(struct ble_gap_event *event, void *arg)
 static void
 ble_app_advertise(void)
 {
-    struct ble_gap_adv_params adv_params = {0};
     // uint8_t uuid128[16];
     int rc;
 
@@ -131,11 +147,12 @@ bleprph_on_sync(void)
     rc = ble_hs_id_copy_addr(own_addr_type, addr_val, NULL);
 
     LLOGI("Device Address: " ADDR_FMT, ADDR_T(addr_val));
-    if (ble_use_custom_name == 0) {
-        char buff[32];
-        sprintf_(buff, "LOS-" ADDR_FMT, ADDR_T(addr_val));
-        LLOGD("BLE name: %s", buff);
-        rc = ble_svc_gap_device_name_set((const char*)buff);
+    if (luat_ble_dev_name_len == 0) {
+        sprintf_((char*)luat_ble_dev_name, "LOS-" ADDR_FMT, ADDR_T(addr_val));
+        LLOGD("BLE name: %s", luat_ble_dev_name);
+        luat_ble_dev_name_len = strlen((const char*)luat_ble_dev_name);
+        rc = ble_svc_gap_device_name_set((const char*)luat_ble_dev_name);
+        
     }
 
     /* Advertise indefinitely. */

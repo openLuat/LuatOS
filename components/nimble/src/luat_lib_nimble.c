@@ -21,6 +21,7 @@
 #include "host/ble_hs_id.h"
 #include "host/util/util.h"
 #include "host/ble_hs_adv.h"
+#include "host/ble_gap.h"
 
 #define LUAT_LOG_TAG "nimble"
 #include "luat_log.h"
@@ -40,6 +41,15 @@ ble_uuid_any_t ble_peripheral_write_uuid;
 #define WM_GATT_WRITE_UUID    0xFFF2
 // #define WM_GATT_NOTIFY_UUID    0xFFF3
 
+
+uint8_t luat_ble_dev_name[32];
+size_t  luat_ble_dev_name_len;
+
+uint8_t adv_buff[128];
+int adv_buff_len = 0;
+struct ble_hs_adv_fields adv_fields;
+struct ble_gap_adv_params adv_params = {0};
+
 /*
 初始化BLE上下文,开始对外广播/扫描
 @api nimble.init(name)
@@ -55,6 +65,10 @@ static int l_nimble_init(lua_State* L) {
     const char* name = NULL;
     if(lua_isstring(L, 1)) {
         name = luaL_checklstring(L, 1, &len);
+        if (len > 0) {
+            memcpy(luat_ble_dev_name, name, len);
+            luat_ble_dev_name_len = len;
+        }
     }
     LLOGD("init name %s mode %d", name == NULL ? "-" : name, nimble_mode);
     rc = luat_nimble_init(0xFF, name, nimble_mode);
@@ -148,6 +162,7 @@ static int l_nimble_send_msg(lua_State *L) {
 @usage
 -- 参考 demo/nimble
 -- 本函数对central/主机模式适用
+-- 本函数会直接返回, 然后通过异步回调返回结果
 */
 static int l_nimble_scan(lua_State *L) {
     int ret = luat_nimble_blecent_scan();
@@ -303,8 +318,9 @@ static int l_nimble_ibeacon(lua_State *L) {
 
 /*
 配置广播数据,仅iBeacon模式可用
-@api nimble.advData(data)
+@api nimble.advData(data, flags)
 @string 广播数据, 当前最高128字节
+@int 广播标识, 可选, 默认值是 0x06,即 不支持传统蓝牙(0x04) + 普通发现模式(0x02)
 @return bool 成功返回true,否则返回false
 @usage
 -- 参考 demo/nimble/adv_free, 2023-03-18之后编译的固件支持本API
@@ -333,6 +349,55 @@ static int l_nimble_set_adv_data(lua_State *L) {
     return 1;
 }
 
+
+/*
+设置广播参数
+@api nimble.advParams(conn_mode, disc_mode, itvl_min, itvl_max, channel_map, filter_policy, high_duty_cycle)
+@int 广播模式, 0 - 不可连接, 1 - 定向连接, 2 - 未定向连接, 默认0
+@int 发现模式, 0 - 不可发现, 1 - 限制发现, 3 - 通用发现, 默认0
+@int 最小广播间隔, 0 - 使用默认值, 范围 1 - 65535, 单位0.625ms, 默认0
+@int 最大广播间隔, 0 - 使用默认值, 范围 1 - 65535, 单位0.625ms, 默认0
+@int 广播通道, 默认0, 一般不需要设置
+@int 过滤规则, 默认0, 一般不需要设置
+@int 当广播模式为"定向连接"时,是否使用高占空比模式, 默认0, 可选1
+@return nil 无返回值
+@usage
+-- 当前仅ibeacon模式/peripheral/从机可使用
+-- 例如设置 不可连接 + 限制发现
+-- 需要在nimble.init之前设置好
+nimble.advParams(0, 1)
+-- 注意peripheral模式下自动配置 conn_mode 和 disc_mode
+*/
+static int l_nimble_set_adv_params(lua_State *L) {
+    /** Advertising mode. Can be one of following constants:
+     *  - BLE_GAP_CONN_MODE_NON (non-connectable; 3.C.9.3.2).
+     *  - BLE_GAP_CONN_MODE_DIR (directed-connectable; 3.C.9.3.3).
+     *  - BLE_GAP_CONN_MODE_UND (undirected-connectable; 3.C.9.3.4).
+     */
+    adv_params.conn_mode = luaL_optinteger(L, 1, 0);
+    /** Discoverable mode. Can be one of following constants:
+     *  - BLE_GAP_DISC_MODE_NON  (non-discoverable; 3.C.9.2.2).
+     *  - BLE_GAP_DISC_MODE_LTD (limited-discoverable; 3.C.9.2.3).
+     *  - BLE_GAP_DISC_MODE_GEN (general-discoverable; 3.C.9.2.4).
+     */
+    adv_params.disc_mode = luaL_optinteger(L, 2, 0);
+
+    /** Minimum advertising interval, if 0 stack use sane defaults */
+    adv_params.itvl_min = luaL_optinteger(L, 3, 0);
+    /** Maximum advertising interval, if 0 stack use sane defaults */
+    adv_params.itvl_max = luaL_optinteger(L, 4, 0);
+    /** Advertising channel map , if 0 stack use sane defaults */
+    adv_params.channel_map = luaL_optinteger(L, 5, 0);
+
+    /** Advertising  Filter policy */
+    adv_params.filter_policy = luaL_optinteger(L, 6, 0);
+
+    /** If do High Duty cycle for Directed Advertising */
+    adv_params.high_duty_cycle = luaL_optinteger(L, 7, 0);
+
+    return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_nimble[] =
 {
@@ -355,7 +420,10 @@ static const rotable_Reg_t reg_nimble[] =
 
     // ibeacon广播模式
     { "ibeacon",        ROREG_FUNC(l_nimble_ibeacon)},
+
+    // 广播数据
     { "advData",        ROREG_FUNC(l_nimble_set_adv_data)},
+    { "advParams",        ROREG_FUNC(l_nimble_set_adv_params)},
 
     // 放一些常量
     { "STATE_OFF",           ROREG_INT(BT_STATE_OFF)},

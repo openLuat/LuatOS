@@ -1,6 +1,6 @@
 #include "luat_base.h"
 #include "luat_mem.h"
-
+#include "luat_multimedia.h"
 #ifdef LUAT_BSP_NOT_SUPPORT_FLOAT
 
 
@@ -15,6 +15,11 @@ LUAT_WEAK  void mp3_decoder_init(void *decoder)
 	memset(decoder, 0, sizeof(mp3dec_t));
 	mp3dec_init(decoder);
 }
+LUAT_WEAK void mp3_decoder_set_debug(void *decoder, uint8_t onoff)
+{
+
+}
+
 LUAT_WEAK  int mp3_decoder_get_info(void *decoder, const uint8_t *input, uint32_t len, uint32_t *hz, uint8_t *channel)
 {
 

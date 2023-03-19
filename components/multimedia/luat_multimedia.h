@@ -66,6 +66,7 @@ typedef struct luat_multimedia_cb {
 
 void *mp3_decoder_create(void);
 void mp3_decoder_init(void *decoder);
+void mp3_decoder_set_debug(void *decoder, uint8_t onoff);
 int mp3_decoder_get_info(void *decoder, const uint8_t *input, uint32_t len, uint32_t *hz, uint8_t *channel);
 int mp3_decoder_get_data(void *decoder, const uint8_t *input, uint32_t len, int16_t *pcm, uint32_t *out_len, uint32_t *hz, uint32_t *used);
 #endif

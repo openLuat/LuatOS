@@ -538,8 +538,8 @@ int mqtt_set_will(mqtt_broker_handle_t* broker, const char* topic,
 		luat_heap_free(broker->will_data);
 		broker->will_data = NULL;
 	}
-	if (topic == NULL || payload == NULL || payload_len == 0) {
-		LLOGI("will topic/payload is NULL");
+	if (topic == NULL) {
+		LLOGI("will topic is NULL");
 		return 0;
 	}
 	size_t topic_len = strlen(topic);
@@ -553,7 +553,8 @@ int mqtt_set_will(mqtt_broker_handle_t* broker, const char* topic,
 	
 	broker->will_data[2  + topic_len] = (uint8_t)(payload_len >> 8);
 	broker->will_data[2  + topic_len + 1] = (uint8_t)(payload_len & 0xFF);
-	memcpy(broker->will_data + 2 + topic_len + 2, payload, payload_len);
+	if (payload_len)
+		memcpy(broker->will_data + 2 + topic_len + 2, payload, payload_len);
 
 	broker->will_qos = qos > 2 ? 0 : qos;
 	broker->will_retain = retain;

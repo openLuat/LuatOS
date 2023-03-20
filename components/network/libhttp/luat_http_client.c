@@ -36,24 +36,31 @@ int http_close(luat_http_ctrl_t *http_ctrl){
 	}
 	if (http_ctrl->host){
 		luat_heap_free(http_ctrl->host);
+		http_ctrl->host = NULL;
 	}
 	if (http_ctrl->request_line){
 		luat_heap_free(http_ctrl->request_line);
+		http_ctrl->request_line = NULL;
 	}
 	if (http_ctrl->req_header){
 		luat_heap_free(http_ctrl->req_header);
+		http_ctrl->req_header = NULL;
 	}
 	if (http_ctrl->req_body){
 		luat_heap_free(http_ctrl->req_body);
+		http_ctrl->req_body = NULL;
 	}
 	if (http_ctrl->dst){
 		luat_heap_free(http_ctrl->dst);
+		http_ctrl->dst = NULL;
 	}
 	if (http_ctrl->headers){
 		luat_heap_free(http_ctrl->headers);
+		http_ctrl->headers = NULL;
 	}
 	if (http_ctrl->body){
 		luat_heap_free(http_ctrl->body);
+		http_ctrl->body = NULL;
 	}
 	luat_heap_free(http_ctrl);
 	return 0;

@@ -25,6 +25,10 @@ if reason > 0 then
     end)
 else
     log.info("普通复位，开始测试")
+    --测试最低功耗，需要下面3个GPIO操作
+    gpio.setup(23,nil)
+    gpio.close(33)
+    gpio.close(35) --这里pwrkey接地才需要，不接地通过按键控制的不需要
     sys.taskInit(function()
         pm.power(pm.GPS, true) --打开780EG内部GPS电源，注意如果真的用GPS，需要初始化UART2
         pm.power(pm.GPS_ANT, true) --打开780EG内部GPS天线电源，注意如果真的用GPS，需要初始化UART2

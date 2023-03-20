@@ -26,7 +26,8 @@
 
 static FATFS *fs = NULL;		/* FatFs work area needed for each volume */
 extern BYTE FATFS_DEBUG; // debug log, 0 -- disable , 1 -- enable
-
+extern BYTE FATFS_POWER_PIN;
+extern uint16_t FATFS_POWER_DELAY;
 DRESULT diskio_open_ramdisk(BYTE pdrv, size_t len);
 DRESULT diskio_open_spitf(BYTE pdrv, void* userdata);
 DRESULT diskio_open_sdio(BYTE pdrv, void* userdata);
@@ -37,12 +38,14 @@ extern const struct luat_vfs_filesystem vfs_fs_fatfs;
 
 /*
 挂载fatfs
-@api fatfs.mount(mode,mount_point, spiid_or_spidevice, spi_cs, spi_speed)
+@api fatfs.mount(mode,mount_point, spiid_or_spidevice, spi_cs, spi_speed, power_pin, power_on_delay)
 @int fatfs模式,可选fatfs.SPI,fatfs.SDIO,fatfs.RAM,fatfs.USB
 @string fatfs挂载点, 通常填""或者"SD", 底层会映射到vfs的 /sd 路径
 @int 传入spi device指针,或者spi的id,或者sdio的id
 @int 片选脚的GPIO 号, spi模式有效,若前一个参数传的是spi device,这个参数就不需要传
 @int SPI最高速度,默认10M, 若前2个参数传的是spi device,这个参数就不需要传
+@int TF卡电源控制脚,TF卡初始前先拉低复位再拉高,如果没有,或者是内置电源控制方式,这个参数就不需要传
+@int TF卡电源复位过程时间,单位ms,默认值是1
 @return bool 成功返回true, 否则返回nil或者false
 @return string 失败的原因
 @usage
@@ -88,7 +91,8 @@ static int fatfs_mount(lua_State *L)
 	const char *mount_point = luaL_optstring(L, 2, "/fatfs");
 
 	int fatfs_mode = luaL_checkinteger(L, 1);
-
+	FATFS_POWER_PIN = luaL_optinteger(L, 6, 0xff);
+	FATFS_POWER_DELAY = luaL_optinteger(L, 7, 1);
 	if (fatfs_mode == DISK_SPI){
 		luat_fatfs_spi_t *spit = luat_heap_malloc(sizeof(luat_fatfs_spi_t));
 		if (spit == NULL) {

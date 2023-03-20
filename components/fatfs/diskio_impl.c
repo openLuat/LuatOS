@@ -18,8 +18,9 @@
 
 #define LUAT_LOG_TAG "luat.fatfs"
 #include "luat_log.h"
-
+uint16_t FATFS_POWER_DELAY = 1;
 BYTE FATFS_DEBUG = 0; // debug log, 0 -- disable , 1 -- enable
+BYTE FATFS_POWER_PIN = 0xff;
 
 static block_disk_t disks[FF_VOLUMES+1] = {0};
 
@@ -29,6 +30,12 @@ DSTATUS disk_initialize (BYTE pdrv) {
 	if (pdrv >= FF_VOLUMES || disks[pdrv].opts == NULL) {
 		LLOGD("NOTRDY >> %d", pdrv);
 		return RES_NOTRDY;
+	}
+	if (FATFS_POWER_PIN != 0xff)
+	{
+		luat_gpio_mode(FATFS_POWER_PIN, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, 0);
+		luat_timer_mdelay(FATFS_POWER_DELAY);
+		luat_gpio_mode(FATFS_POWER_PIN, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, 1);
 	}
 	return disks[pdrv].opts->initialize(disks[pdrv].userdata);
 }

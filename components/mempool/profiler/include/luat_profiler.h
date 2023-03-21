@@ -24,4 +24,12 @@ int luat_profiler_stop(void);
 
 void luat_profiler_print(void);
 
+typedef struct luat_profiler_mem
+{
+    uint32_t addr;
+    size_t len;
+}luat_profiler_mem_t;
+
+#define LUAT_PROFILER_MEMDEBUG_ADDR_COUNT (1024)
+
 #endif

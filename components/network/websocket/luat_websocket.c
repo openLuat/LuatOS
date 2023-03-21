@@ -100,6 +100,8 @@ int luat_websocket_send_packet(void *socket_info, const void *buf, unsigned int 
 
 void luat_websocket_ping(luat_websocket_ctrl_t *websocket_ctrl)
 {
+	if (websocket_ctrl->websocket_state != 0)
+		return;
 	luat_websocket_pkg_t pkg = {
 		.FIN = 1,
 		.OPT_CODE = WebSocket_OP_PING,

@@ -457,12 +457,7 @@ static const rotable_Reg_t reg_gpio[] =
     //@const HIGH number 高电平
     { "HIGH",           ROREG_INT(Luat_GPIO_HIGH)},
 
-    //@const OUTPUT number 输出模式
-    { "OUTPUT",         ROREG_INT(Luat_GPIO_OUTPUT)},
-    //@const INPUT number 输入模式
-    { "INPUT",          ROREG_INT(Luat_GPIO_INPUT)},
-    //@const IRQ number 中断模式
-    { "IRQ",            ROREG_INT(Luat_GPIO_IRQ)},
+    { "OUTPUT",         ROREG_INT(Luat_GPIO_OUTPUT)}, // 留着做兼容
 
     //@const PULLUP number 上拉
     { "PULLUP",         ROREG_INT(Luat_GPIO_PULLUP)},

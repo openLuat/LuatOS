@@ -8,14 +8,20 @@ log.info("main", PROJECT, VERSION)
 
 -- 引入必要的库文件(lua编写), 内部库不需要require
 sys = require("sys")
+local ch2o = require "ze08g_ch2o"
 
 local uartid = 1 -- 根据实际设备选取不同的uartid
-local ch2o = require "ze08g_ch2o"
+
+-- 下面是模拟uart的配置
+-- local tx_pin = 11       -- tx的pin脚
+-- local rx_pin = 9        -- rx的pin脚
+-- local uartid = uart.createSoft(tx_pin,0,rx_pin,2)
 
 sys.taskInit(function ()
     local result = ch2o.init(uartid)
     if not result then return end
-
+    
+    log.info("result:", result)
     while true do
         sys.wait(1000)
         log.info("气体浓度值 PPB：", ch2o.getPPB())

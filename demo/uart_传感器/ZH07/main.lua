@@ -12,6 +12,11 @@ local zh07 = require "zh07"
 
 local uartid = 1 -- 根据实际设备选取不同的uartid
 
+-- 下面是模拟uart的配置
+-- local tx_pin = 11       -- tx的pin脚
+-- local rx_pin = 9        -- rx的pin脚
+-- local uartid = uart.createSoft(tx_pin,0,rx_pin,2)
+
 sys.taskInit(function ()
     local result = zh07.init(uartid)
     if not result then return end

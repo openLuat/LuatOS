@@ -37,14 +37,14 @@ function audio_setup()
         -- if audio.setBus then
         --     audio.setBus(0, audio.BUS_SOFT_DAC)
         -- end
-        audio.config(0, 25, 1, 3, 180)
+        audio.config(0, 25, 1, 3, 100)
         gpio.setup(24, 0)
         gpio.setup(23, 0)
         gpio.setup(27, 0)
         gpio.setup(2, 0)
     elseif bsp == "AIR105" then
         -- Air105开发板支持DAC直接输出
-        audio.config(0, 25, 1, 3, 180)
+        audio.config(0, 25, 1, 3, 100)
     else
         -- 其他板子未支持
         while 1 do

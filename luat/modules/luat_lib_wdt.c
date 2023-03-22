@@ -15,7 +15,7 @@
 @int 超时时长,单位为毫秒
 @return bool 成功返回true,否则返回false(例如底层不支持)
 @usage
-wdt.init(10000)
+wdt.init(9000)
 sys.timerLoopStart(wdt.feed, 3000)
 */
 static int l_wdt_init(lua_State *L) {

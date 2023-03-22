@@ -464,7 +464,7 @@ static void httpsrv_main_task(void* arg) {
         // client->sem = xSemaphoreCreateMutex();
         client->client_fd = cliend_fd;
         client->id = (int)arg;
-        ret = xTaskCreate(httpsrv_client_task, "httpdc", 16*1024, (void*)client, tskIDLE_PRIORITY+3, NULL);
+        ret = xTaskCreate(httpsrv_client_task, "httpdc", 2*1024, (void*)client, tskIDLE_PRIORITY+3, NULL);
         if (ret != pdPASS) {
             LLOGE("start client socket thread failed!!");
             close(cliend_fd);

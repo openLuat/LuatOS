@@ -11,6 +11,8 @@
 #include "windows.h"
 #include <io.h>
 
+#include "SDL.h"
+
 #define LUAT_LOG_TAG "main"
 #include "luat_log.h"
 
@@ -73,7 +75,9 @@ int main(int argc, char** argv) {
             }
         }
     }
-
+    
+	SDL_Init(SDL_INIT_VIDEO| SDL_INIT_TIMER | SDL_INIT_EVENTS);
+    
     luat_log_init_win32();
     luat_uart_initial_win32();
 

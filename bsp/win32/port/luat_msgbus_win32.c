@@ -12,58 +12,39 @@
 #include "luat_msgbus.h"
 #include "luat_timer.h"
 #include "luat_malloc.h"
-#include <stdbool.h>
 
-#include "windows.h"
-#include "windowsx.h"
+#include "SDL.h"
 
 #define LUAT_LOG_TAG "msgbus"
 #include "luat_log.h"
 
-
-static DWORD luat_main_thread_id;
-
 void luat_msgbus_init(void) {
-    luat_main_thread_id = GetCurrentThreadId();
-    // LLOGD("main thread id %d", luat_main_thread_id);
+
 }
 uint32_t luat_msgbus_put(rtos_msg_t* msg, size_t timeout) {
-    rtos_msg_t* tmp = luat_heap_malloc(sizeof(rtos_msg_t));
-    memcpy(tmp, msg, sizeof(rtos_msg_t));
-    PostThreadMessageA(luat_main_thread_id, WM_COMMAND, (WPARAM)tmp, 0);
+    // LLOGD("luat_msgbus_put  msg handler:%08X arg1:%d arg2:%d", msg->handler,msg->arg1,msg->arg2);
+    SDL_Event event;
+    event.type = SDL_USEREVENT;
+    event.user.data1 = luat_heap_malloc(sizeof(rtos_msg_t));
+    memcpy(event.user.data1, msg, sizeof(rtos_msg_t));
+    SDL_PushEvent(&event);
+    SDL_PumpEvents();
     return 0;
 }
 
 
 uint32_t luat_msgbus_get(rtos_msg_t* rtmsg, size_t timeout) {
-    MSG msg;
-    rtos_msg_t* tmp;
-    bool ret = FALSE;
-    if ((ret = GetMessageA(&msg,NULL,0,0)) == 0) {
-      exit(0);
-      return 0;
+    SDL_Event event;
+    if (SDL_WaitEventTimeout(&event,timeout) != 1){
+        exit(0);
+        return -1;
     }
-    
-    
-    int mouse_x, mouse_y;
-    bool mouse_pressed;
-    switch (msg.message)
-    {
-    case WM_COMMAND:
-        tmp = (rtos_msg_t*)msg.wParam;
-        if (tmp != NULL) {
-            memcpy(rtmsg, tmp, sizeof(rtos_msg_t));
-            luat_heap_free(tmp);
-            return 0;
-        }
-        break;
-    default:
-        DispatchMessage(&msg);
-        break;
-    }
-    return 1;
+    memcpy(rtmsg, event.user.data1, sizeof(rtos_msg_t));
+    // LLOGD("luat_msgbus_get  tmp handler:%08X arg1:%d arg2:%d", rtmsg->handler,rtmsg->arg1,rtmsg->arg2);
+    luat_heap_free(event.user.data1);
+    return 0;
 }
 
-// uint32_t luat_msgbus_freesize(void) {
-//     return 1;
-// }
+uint32_t luat_msgbus_freesize(void) {
+    return 1;
+}

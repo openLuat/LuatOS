@@ -108,4 +108,21 @@ void luat_ota_reboot(int timeout_ms) {
   exit(0);
 }
 
+#include "windows.h"
+#include <io.h>
+
+#include <time.h>
+#include <math.h>
+
+// 获取当前时间
+uint32_t get_timestamp(void) {
+    // struct timespec _t;
+    // clock_gettime(CLOCK_REALTIME, &_t);
+    // uint32_t timenow = _t.tv_sec*1000 + lround(_t.tv_nsec/1e6);
+    // //printf("time now > %u\n", timenow);
+    LARGE_INTEGER ticks;
+    QueryPerformanceCounter(&ticks);
+    return ticks.QuadPart;
+}
+
 

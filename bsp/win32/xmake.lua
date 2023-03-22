@@ -37,6 +37,7 @@ target("luatos")
     add_files(luatos.."lua/src/*.c")
 
     add_includedirs(luatos.."luat/include",{public = true})
+    add_files(luatos.."luat/sdl/*.c")
     -- add_files(luatos.."luat/modules/*.c")
 
     add_files(luatos.."luat/modules/crc.c"

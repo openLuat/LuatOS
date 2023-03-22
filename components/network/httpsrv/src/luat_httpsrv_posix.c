@@ -524,7 +524,7 @@ int luat_httpsrv_start(luat_httpsrv_ctx_t* ctx) {
         return -3;
     }
 
-    int ret = xTaskCreate(httpsrv_main_task, "httpd", 16*1024, (void*)id, tskIDLE_PRIORITY+3, NULL);
+    int ret = xTaskCreate(httpsrv_main_task, "httpd", 4*1024, (void*)id, tskIDLE_PRIORITY+3, NULL);
     if (ret != pdPASS) {
         LLOGE("start server socket thread failed!!");
         luat_httpsrv_stop(ctx->port);

@@ -58,6 +58,9 @@ static int l_httpsrv_start(lua_State *L) {
         .lua_ref_id = lua_ref_id
     };
     int ret = luat_httpsrv_start(&ctx);
+    if (ret == 0) {
+        LLOGI("http listen at 0.0.0.0:%d", ctx.port);
+    }
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }

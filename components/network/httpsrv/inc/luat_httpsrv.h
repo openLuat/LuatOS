@@ -18,8 +18,10 @@ typedef struct http_code_str
     const char* msg;
 }http_code_str_t;
 
+// https://developer.mozilla.org/en-US/docs/Web/HTTP/Status
 static const http_code_str_t http_codes[] = {
     {200, "OK"},
+    {301, "Moved Permanently"},
     {302, "Found"},
     {400, "Bad Request"},
     {401, "Unauthorized"},

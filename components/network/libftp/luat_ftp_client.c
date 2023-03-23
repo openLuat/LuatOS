@@ -867,7 +867,11 @@ static int l_ftp_login(lua_State *L) {
 		if (lua_isstring(L, 9)){
 			client_password = luaL_checklstring(L, 9, &client_password_len);
 		}
-		network_init_tls(g_s_ftp.network->cmd_netc, (server_cert || client_cert)?2:0);
+		if (network_init_tls(g_s_ftp.network->cmd_netc, (server_cert || client_cert)?2:0)){
+			result = FTP_ERROR_CLOSE;
+			goto error;
+		}
+		
 		if (server_cert){
 			network_set_server_cert(g_s_ftp.network->cmd_netc, (const unsigned char *)server_cert, server_cert_len+1);
 		}

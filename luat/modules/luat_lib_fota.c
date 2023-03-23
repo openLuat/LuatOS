@@ -11,6 +11,9 @@
 #include "luat_fota.h"
 #include "luat_zbuff.h"
 #include "luat_spi.h"
+#include "luat_fs.h"
+#include "luat_malloc.h"
+
 #define LUAT_LOG_TAG "fota"
 #include "luat_log.h"
 
@@ -109,6 +112,79 @@ static int l_fota_write(lua_State* L)
 }
 
 /**
+从指定文件读取fota数据
+@api fota.file(path)
+@string 文件路径
+@return boolean 有异常返回false，无异常返回true
+@return boolean 接收到最后一块返回true
+@return int 还未写入的数据量，超过64K必须做等待
+@usage
+local result, isDone, cache = fota.file("/xxx.bin") -- 写入fota流程
+-- 本API于2023.03.23 添加
+*/
+static int l_fota_file(lua_State* L)
+{
+    int result = 0;
+	const char *path = luaL_checkstring(L, 1);
+    FILE* fd = luat_fs_fopen(path, "rb");
+    if (fd == NULL) {
+        LLOGE("no such file for FOTA %s", path);
+        lua_pushboolean(L, 0);
+    	lua_pushboolean(L, 0);
+        lua_pushinteger(L, 0);
+        return 3;
+    }
+    #define BUFF_SIZE (4096)
+    char buff = luat_heap_malloc(BUFF_SIZE);
+    if (buff == NULL) {
+        luat_fs_fclose(fd);
+        LLOGE("out of memory when reading file %s", path);
+        lua_pushboolean(L, 0);
+    	lua_pushboolean(L, 0);
+        lua_pushinteger(L, 0);
+        return 3;
+    }
+    size_t len  = 0;
+    while (1) {
+        len = luat_fs_fread(buff + len, BUFF_SIZE - len, 1, fd);
+        if (len < 1) {
+            // EOF 结束了
+            break;
+        }
+        result = luat_fota_write((uint8_t*)buff, len);
+        if (result < 0) {
+            break;
+        }
+        result = len;
+        if (len >= BUFF_SIZE) {
+            LLOGD("too many data to write! bug??");
+            result = -7;
+            break;
+        }
+    }
+    luat_heap_free(buff);
+    luat_fs_fclose(fd);
+
+    if (result > 0)
+    {
+    	lua_pushboolean(L, 1);
+    	lua_pushboolean(L, 0);
+    }
+    else if (result == 0)
+    {
+    	lua_pushboolean(L, 1);
+    	lua_pushboolean(L, 1);
+    }
+    else
+    {
+    	lua_pushboolean(L, 0);
+    	lua_pushboolean(L, 1);
+    }
+    lua_pushinteger(L, result);
+	return 3;
+}
+
+/**
 等待底层fota流程完成
 @api fota.isDone()
 @return boolean 有异常返回false，无异常返回true
@@ -160,6 +236,7 @@ static const rotable_Reg_t reg_fota[] =
 	{ "run",		ROREG_FUNC(l_fota_write)},
 	{ "isDone",		ROREG_FUNC(l_fota_done)},
 	{ "finish",		ROREG_FUNC(l_fota_end)},
+    { "file",       ROREG_FUNC(l_fota_file)},
 	{ NULL,         ROREG_INT(0) }
 };
 

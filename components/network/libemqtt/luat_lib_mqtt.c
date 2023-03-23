@@ -407,10 +407,21 @@ static int l_mqtt_keepalive(lua_State *L) {
 @function cb mqtt回调,参数包括mqtt_client, event, data, payload
 @return nil 无返回值
 @usage 
-mqttc:on(function(mqtt_client, event, data, payload)
+mqttc:on(function(mqtt_client, event, data, payload, metas)
 	-- 用户自定义代码
 	log.info("mqtt", "event", event, mqtt_client, data, payload)
 end)
+--[[
+event可能出现的值有
+  conack -- 服务器鉴权完成,mqtt连接已经建立, 可以订阅和发布数据了,没有附加数据
+  recv   -- 接收到数据,由服务器下发, data为topic值(string), payload为业务数据(string).metas是元数据(table), 一般不处理. 
+             -- metas包含以下内容
+			 -- qos 取值范围0,1,2
+			 -- retain 取值范围 0,1
+			 -- dup 取值范围 0,1
+  sent   -- 发送完成, qos0会马上通知, qos1/qos2会在服务器应答会回调, data为消息id
+  disconnect -- 服务器断开连接,网络问题或服务器踢了客户端,例如clientId重复,超时未上报业务数据
+]]
 */
 static int l_mqtt_on(lua_State *L) {
 	luat_mqtt_ctrl_t * mqtt_ctrl = get_mqtt_ctrl(L);

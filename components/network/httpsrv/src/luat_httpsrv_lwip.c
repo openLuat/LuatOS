@@ -87,7 +87,11 @@ static void client_write(client_socket_ctx_t* client, char* buff, size_t len) {
     if (len == 0)
         return;
     // client->send_size += len;
+#if ENABLE_PSIF
+    tcp_write(client->pcb, (const void*)buff, len, TCP_WRITE_FLAG_COPY, 0, 0, 0);
+#else
     tcp_write(client->pcb, (const void*)buff, len, TCP_WRITE_FLAG_COPY);
+#endif
 }
 
 static void client_resp(void* arg) {

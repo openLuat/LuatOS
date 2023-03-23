@@ -194,9 +194,9 @@ static int luat_client_cb(lua_State* L, void* ptr) {
         memcpy(client->body, body, body_size);
     }
     client->code = code;
-    int ret = tcpip_try_callback(client_resp, client);
+    int ret = tcpip_callback(client_resp, client);
     if (ret) {
-        LLOGE("tcpip_try_callback %d", ret);
+        LLOGE("tcpip_callback %d", ret);
         tcp_abort(client->pcb);
         client_cleanup(client);
     }

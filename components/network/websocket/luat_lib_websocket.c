@@ -206,7 +206,11 @@ static int l_websocket_create(lua_State *L)
 	opts.url = luaL_checklstring(L, 2, &ip_len);
 
 	ret = luat_websocket_set_connopts(websocket_ctrl, luaL_checklstring(L, 2, &ip_len));
-
+	if (ret){
+		luat_websocket_release_socket(websocket_ctrl);
+		return 0;
+	}
+	
 	// TODO 判断ret, 如果初始化失败, 应该终止
 
 	luaL_setmetatable(L, LUAT_WEBSOCKET_CTRL_TYPE);

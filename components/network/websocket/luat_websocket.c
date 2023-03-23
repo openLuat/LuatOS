@@ -240,7 +240,9 @@ int luat_websocket_set_connopts(luat_websocket_ctrl_t *websocket_ctrl, const cha
 
 	if (is_tls)
 	{
-		network_init_tls(websocket_ctrl->netc, 0);
+		if (network_init_tls(websocket_ctrl->netc, 0)){
+			return -1;
+		}
 	}
 	else
 	{

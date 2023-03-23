@@ -1828,7 +1828,7 @@ static int tls_random( void *p_rng,
 	return 0;
 }
 
-void network_init_tls(network_ctrl_t *ctrl, int verify_mode)
+int network_init_tls(network_ctrl_t *ctrl, int verify_mode)
 {
 #ifdef LUAT_USE_TLS
 	ctrl->tls_mode = 1;
@@ -1861,6 +1861,10 @@ void network_init_tls(network_ctrl_t *ctrl, int verify_mode)
 	    ctrl->tls_short_timer = platform_create_timer(tls_shorttimeout, ctrl, NULL);
 	}
 	ctrl->tls_timer_state = -1;
+	return 0;
+#else
+	LLOGE("NOT SUPPORT TLS");
+	return -1;
 #endif
 }
 

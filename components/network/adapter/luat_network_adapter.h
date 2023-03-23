@@ -425,7 +425,7 @@ int network_cert_verify_result(network_ctrl_t *ctrl);
  * 初始化加密传输
  * verify_mode参考MBEDTLS_SSL_VERIFY_XXX
  */
-void network_init_tls(network_ctrl_t *ctrl, int verify_mode);
+int network_init_tls(network_ctrl_t *ctrl, int verify_mode);
 /*
  * 结束加密传输模式，恢复成正常模式
  */

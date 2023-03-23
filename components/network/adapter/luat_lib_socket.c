@@ -272,7 +272,7 @@ static int l_socket_set_debug(lua_State *L)
 @string TCP模式下的客户端ca证书数据，UDP模式下的PSK-ID，TCP模式下如果不需要验证客户端证书时，忽略，一般不需要验证客户端证书
 @string TCP模式下的客户端私钥加密数据
 @string TCP模式下的客户端私钥口令数据
-@return boolean 成功返回true，失败返回nil
+@return boolean 成功返回true，失败返回false
 @usage socket.config(ctrl)	--最普通的TCP传输
 socket.config(ctrl, nil, nil ,true)	--最普通的加密TCP传输，证书都不用验证的那种
 */
@@ -299,6 +299,12 @@ static int l_socket_config(lua_State *L)
 	{
 		is_tls = lua_toboolean(L, param_pos);
 	}
+#ifndef LUAT_USE_TLS
+	if (is_tls){
+		lua_pushboolean(L, 0);
+		return 1;
+	}
+#endif
 	keep_idle = luaL_optinteger(L, ++param_pos, 0);
 	keep_interval = luaL_optinteger(L, ++param_pos, 0);
 	keep_cnt = luaL_optinteger(L, ++param_pos, 0);
@@ -323,11 +329,11 @@ static int l_socket_config(lua_State *L)
 		client_password_len = 0;
 		client_password = luaL_checklstring(L, param_pos, &client_password_len);
 	}
+	network_set_base_mode(l_ctrl->netc, !is_udp, 10000, keep_idle, keep_idle, keep_interval, keep_cnt);
+	network_set_local_port(l_ctrl->netc, local_port);
 	if (is_tls)
 	{
-		if (network_init_tls(l_ctrl->netc, (server_cert || client_cert)?2:0)){
-			return 0;
-		}
+		network_init_tls(l_ctrl->netc, (server_cert || client_cert)?2:0);
 		if (is_udp)
 		{
 			network_set_psk_info(l_ctrl->netc, (const unsigned char *)server_cert, server_cert_len, (const unsigned char *)client_key, client_key_len);
@@ -350,8 +356,6 @@ static int l_socket_config(lua_State *L)
 	{
 		network_deinit_tls(l_ctrl->netc);
 	}
-	network_set_base_mode(l_ctrl->netc, !is_udp, 10000, keep_idle, keep_idle, keep_interval, keep_cnt);
-	network_set_local_port(l_ctrl->netc, local_port);
 	lua_pushboolean(L, 1);
 	return 1;
 }

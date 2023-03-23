@@ -340,9 +340,10 @@ static int l_mqtt_create(lua_State *L) {
 	}
 
 	ret = luat_mqtt_set_connopts(mqtt_ctrl, &opts);
-
-	// TODO 判断ret, 如果初始化失败, 应该终止
-
+	if (ret){
+		luat_mqtt_release_socket(mqtt_ctrl);
+		return 0;
+	}
 	luaL_setmetatable(L, LUAT_MQTT_CTRL_TYPE);
 	lua_pushvalue(L, -1);
 	mqtt_ctrl->mqtt_ref = luaL_ref(L, LUA_REGISTRYINDEX);

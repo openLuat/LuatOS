@@ -301,6 +301,7 @@ static int l_socket_config(lua_State *L)
 	}
 #ifndef LUAT_USE_TLS
 	if (is_tls){
+		LLOGE("NOT SUPPORT TLS");
 		lua_pushboolean(L, 0);
 		return 1;
 	}

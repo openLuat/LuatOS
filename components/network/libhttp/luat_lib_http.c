@@ -90,6 +90,7 @@ static int l_http_request(lua_State *L) {
 	int adapter_index = -1;
 	char body_len[6] = {0};
 	// mbedtls_debug_set_threshold(4);
+
 	luat_http_ctrl_t *http_ctrl = (luat_http_ctrl_t *)luat_heap_malloc(sizeof(luat_http_ctrl_t));
 	if (!http_ctrl){
 		LLOGE("out of memory when malloc http_ctrl");
@@ -176,7 +177,12 @@ static int l_http_request(lua_State *L) {
 	}
 
 	// LLOGD("http_ctrl->url:%s",http_ctrl->url);
-
+#ifndef LUAT_USE_TLS
+		if (http_ctrl->is_tls){
+			LLOGE("NOT SUPPORT TLS");
+			goto error;
+		}
+#endif
 	http_ctrl->req_header = luat_heap_malloc(HTTP_RESP_HEADER_MAX_SIZE);
 	memset(http_ctrl->req_header, 0, HTTP_RESP_HEADER_MAX_SIZE);
 

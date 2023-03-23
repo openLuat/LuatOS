@@ -315,7 +315,7 @@ int luat_httpsrv_stop(int port) {
 }
 
 int luat_httpsrv_start(luat_httpsrv_ctx_t* ctx) {
-    if (srvpcb == NULL) {
+    if (srvpcb != NULL) {
         LLOGE("only allow 1 httpsrv");
         return -10;
     }

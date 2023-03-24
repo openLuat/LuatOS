@@ -42,4 +42,4 @@ jobs:
       run: |
         cd tools
         pip install paho-mqtt gitpython requests -t ./
-        if [ "$STATUS" = "failure" ];then python3 ciNotify.py $MQTTADDR $MQTTPORT $MQTTTOPIC "https://github.com/openLuat/LuatOS/actions/runs/$GITHUB_RUN_ID" "win32" "$DD_APPKEY" "$DD_APPSECRET" "$DD_NOTIFY_LIST" "$DD_API_TOKEN" "$DD_API_SEND"; fi
+        if($env:STATUS = "failure"){ python ciNotify.py $env:MQTTADDR $env:MQTTPORT $env:MQTTTOPIC "https://github.com/openLuat/LuatOS/actions/runs/$GITHUB_RUN_ID" "win32" "$env:DD_APPKEY" "$env:DD_APPSECRET" "$env:DD_NOTIFY_LIST" "$env:DD_API_TOKEN" "$env:DD_API_SEND"; }

@@ -257,9 +257,9 @@ LUALIB_API int luaL_fileresult (lua_State *L, int stat, const char *fname) {
   else {
     lua_pushnil(L);
     if (fname)
-      lua_pushfstring(L, "%s: %s", fname, strerror(en));
+      lua_pushfstring(L, "%s: %d", fname, en);
     else
-      lua_pushstring(L, strerror(en));
+      lua_pushfstring(L, "%d", en);
     lua_pushinteger(L, en);
     return 3;
   }
@@ -676,9 +676,9 @@ static const char *getF (lua_State *L, void *ud, size_t *size) {
 
 
 static int errfile (lua_State *L, const char *what, int fnameindex) {
-  const char *serr = strerror(errno);
+  // const char *serr = strerror(errno);
   const char *filename = lua_tostring(L, fnameindex) + 1;
-  lua_pushfstring(L, "cannot %s %s: %s", what, filename, serr);
+  lua_pushfstring(L, "cannot %s %s: %d", what, filename, errno);
   lua_remove(L, fnameindex);
   return LUA_ERRFILE;
 }

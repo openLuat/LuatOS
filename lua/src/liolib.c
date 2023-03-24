@@ -313,7 +313,7 @@ static void opencheck (lua_State *L, const char *fname, const char *mode) {
   LStream *p = newfile(L);
   p->f = fopen(fname, mode);
   if (p->f == NULL)
-    luaL_error(L, "cannot open file '%s' (%s)", fname, strerror(errno));
+    luaL_error(L, "cannot open file '%s' (%d)", fname, errno);
 }
 
 
@@ -571,12 +571,14 @@ static int test_eof (lua_State *L, FILE *f) {
 static int read_line (lua_State *L, FILE *f, int chop) {
   luaL_Buffer b;
   int c = '\0';
-  luaL_buffinit(L, &b);
+  #define READLINE_BUFF_SIZE (2048)
+  luaL_buffinitsize(L, &b, READLINE_BUFF_SIZE);
+  // luaL_buffinit(L, &b);
   while (c != EOF && c != '\n') {  /* repeat until end of line */
-    char *buff = luaL_prepbuffer(&b);  /* preallocate buffer */
+    char *buff = luaL_prepbuffsize(&b, READLINE_BUFF_SIZE);  /* preallocate buffer */
     int i = 0;
     l_lockfile(f);  /* no memory errors can happen inside the lock */
-    while (i < LUAL_BUFFERSIZE && (c = l_getc(f)) != EOF && c != '\n')
+    while (i < READLINE_BUFF_SIZE && (c = l_getc(f)) != EOF && c != '\n')
       buff[i++] = c;
     l_unlockfile(f);
     luaL_addsize(&b, i);

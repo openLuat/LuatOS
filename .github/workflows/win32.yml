@@ -21,7 +21,7 @@ jobs:
         cd bsp/win32
         xmake -y
         cd build/out
-        wget https://github.com/openLuat/LuatOS/releases/download/v0.0.1/luat_uart.dll
+        Invoke-WebRequest -Uri "https://github.com/openLuat/LuatOS/releases/download/v0.0.1/luat_uart.dll" -OutFile "luat_uart.dll"
     - name: Upload artifact
       uses: actions/upload-artifact@v1
       with:

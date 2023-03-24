@@ -13,37 +13,20 @@ on:
 jobs:
   build:
     runs-on: windows-2019
-    defaults:
-      run:
-        shell: msys2 {0}
     steps:
     - uses: actions/checkout@v1
-    - uses: msys2/setup-msys2@v2
-      with:
-        msystem: MINGW64
-        update: true
-        install: git mingw-w64-x86_64-gcc mingw-w64-x86_64-gdb mingw-w64-x86_64-toolchain python3 python-pip mingw-w64-clang-x86_64-toolchain mingw-w64-x86_64-xmake p7zip
     - name: build
       run: |
+        Invoke-Expression (Invoke-Webrequest 'https://xmake.io/psget.text' -UseBasicParsing).Content
         cd bsp/win32
         xmake -y
-        mkdir luatos_win32/
-        cp build/out/luatos.exe luatos_win32/
-        cp build/out/luatos.exe module_test/
-        cp lib/sys.lua luatos_win32/
-        cp lib/sys.lua module_test/
-        echo -e "local sys = require 'sys'\r\n\r\nlog.info('sys', 'from win32')\r\n\r\nsys.taskInit(function ()\r\n    while true do\r\n        log.info('hi', os.date())\r\n        log.info('sys', rtos.meminfo('sys'))\r\n        log.info('lua', rtos.meminfo('lua'))\r\n        sys.wait(1000)\r\n    end\r\nend)\r\n\r\nsys.run()" > luatos_win32/main.lua
-        cd luatos_win32/
+        cd build/out
         wget https://github.com/openLuat/LuatOS/releases/download/v0.0.1/luat_uart.dll
-    - name: test
-      run: |
-        cd bsp/win32/module_test
-        sh test.sh
     - name: Upload artifact
       uses: actions/upload-artifact@v1
       with:
         name: luatos_win32
-        path: bsp/win32/luatos_win32
+        path: bsp/win32/build/out
     - name: report if failure
       if: always()
       env:

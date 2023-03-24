@@ -571,7 +571,7 @@ static int test_eof (lua_State *L, FILE *f) {
 static int read_line (lua_State *L, FILE *f, int chop) {
   luaL_Buffer b;
   int c = '\0';
-  #define READLINE_BUFF_SIZE (2048)
+  #define READLINE_BUFF_SIZE (1024)
   luaL_buffinitsize(L, &b, READLINE_BUFF_SIZE);
   // luaL_buffinit(L, &b);
   while (c != EOF && c != '\n') {  /* repeat until end of line */

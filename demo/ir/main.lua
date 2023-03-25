@@ -1,6 +1,6 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "i2c 24c02 demo"
+PROJECT = "irdemo"
 VERSION = "1.0.0"
 
 -- sys库是标配

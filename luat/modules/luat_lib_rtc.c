@@ -14,9 +14,11 @@
 
 int Base_year = 1900;
 
+#ifndef LUAT_COMPILER_NOWEAK
 void LUAT_WEAK luat_rtc_set_tamp32(uint32_t tamp) {
     LLOGD("not support yet");
 }
+#endif
 
 /*
 设置时钟
@@ -25,7 +27,8 @@ void LUAT_WEAK luat_rtc_set_tamp32(uint32_t tamp) {
 @return bool 成功返回true,否则返回nil或false
 @usage
 rtc.set({year=2021,mon=8,day=31,hour=17,min=8,sec=43})
-rtc.set(1652230554)	--目前只有105支持时间戳方式
+--目前只有Air101/Air103/Air105/EC618系列支持时间戳方式
+rtc.set(1652230554)
 */
 static int l_rtc_set(lua_State *L){
     struct tm tblock = {0};

@@ -7,6 +7,10 @@
 @demo libgnss
 @tag LUAT_USE_LIBGNSS
 @usage
+-- 提醒: 本库输出的坐标,均为 WGS84 坐标系
+-- 如需要在国内地图使用, 要转换成对应地图的坐标系, 例如 GCJ02 BD09
+-- 相关链接: https://lbsyun.baidu.com/index.php?title=coordinate
+
 -- 方案1, 经lua层进行数据中转
 uart.setup(2, 115200)
 uart.on(2, "recv", function(id, len)

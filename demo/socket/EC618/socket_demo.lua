@@ -17,7 +17,7 @@ local function dtuTask(uart_id, ip, port)
 	result = uart.setup(uart_id,115200,8,1)
 	uart.on(uart_id, "receive", function(id, len)
 	    uart.rx(id, com_buff)
-	    if d1Online then
+	    if d1Online then	-- 如果已经在线了，则发送socket.EVENT消息来打断任务里的阻塞等待状态，让任务循环继续
 	    	sys_send(d1Name, socket.EVENT, 0)
 	    end
 	end)
@@ -67,6 +67,7 @@ local function dtuTask(uart_id, ip, port)
 				rx_buff:resize(1024)
 			end
 			log.info(rtos.meminfo("sys"))
+			-- 阻塞等待新的消息到来，比如服务器下发，串口接收到数据
 			result, param = libnet.wait(d1Name, 15000, netc)
 			if not result then
 				log.info("服务器断开了", result, param)

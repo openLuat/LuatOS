@@ -773,6 +773,36 @@ static int l_uart_rx_size(lua_State *L)
     return 1;
 }
 
+LUAT_WEAK void luat_uart_clear_rx_cache(int uart_id)
+{
+
+}
+/*
+清除串口Rx缓存中剩余数据量，目前air105,air780e支持这个操作
+@api    uart.rxClear(id)
+@int 串口id, uart0写0, uart1写1
+@usage
+uart.rxClear(1)
+*/
+static int l_uart_rx_clear(lua_State *L)
+{
+    uint8_t id = luaL_checkinteger(L, 1);
+#ifdef LUAT_USE_SOFT_UART
+
+	if (prv_uart_soft && (prv_uart_soft->uart_id == id))
+	{
+		prv_uart_soft->rx_buffer.Pos = 0;
+	}
+	else
+	{
+		luat_uart_clear_rx_cache(id);
+	}
+
+#else
+	luat_uart_clear_rx_cache(id);
+#endif
+    return 0;
+}
 
 /*
 buff形式写串口,等同于c语言uart_tx(uart_id, &buff[start], len);
@@ -1181,6 +1211,7 @@ static const rotable_Reg_t reg_uart[] =
     { "wait485",    ROREG_FUNC(l_uart_wait485_tx_done)},
     { "tx",      	ROREG_FUNC(l_uart_tx)},
     { "rx",       	ROREG_FUNC(l_uart_rx)},
+	{ "rxClear",	ROREG_FUNC(l_uart_rx_clear)},
 	{ "rxSize",		ROREG_FUNC(l_uart_rx_size)},
 	{ "rx_size",	ROREG_FUNC(l_uart_rx_size)},
 	{ "createSoft",	ROREG_FUNC(l_uart_soft)},

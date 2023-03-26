@@ -93,6 +93,12 @@ int luat_uart_write(int uart_id, void* data, size_t length);
 int luat_uart_read(int uart_id, void* buffer, size_t length);
 
 /**
+ * @brief 清除uart的接收缓存数据
+ * @return int
+ */
+void luat_uart_clear_rx_cache(int uart_id);
+
+/**
  * @brief 关闭串口
  * 
  * @param uart_id 串口id

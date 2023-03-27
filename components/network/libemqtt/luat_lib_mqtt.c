@@ -248,7 +248,7 @@ mqtt客户端创建
 @int 适配器序号, 只能是socket.ETH0, socket.STA, socket.AP,如果不填,会选择平台自带的方式,然后是最后一个注册的适配器
 @string 服务器地址,可以是域名, 也可以是ip
 @int  	端口号
-@bool/table  是否为ssl加密连接,默认不加密,true为无证书最简单的加密，table为有证书的加密 <br>server_cert 服务器ca证书数据 <br>client_cert 客户端ca证书数据 <br>client_key 客户端私钥加密数据 <br>client_password 客户端私钥口令数据 <br>insist 是否强制校验 0不校验/1可选校验/2强制校验 默认2
+@bool/table  是否为ssl加密连接,默认不加密,true为无证书最简单的加密，table为有证书的加密 <br>server_cert 服务器ca证书数据 <br>client_cert 客户端ca证书数据 <br>client_key 客户端私钥加密数据 <br>client_password 客户端私钥口令数据 <br>verify 是否强制校验 0不校验/1可选校验/2强制校验 默认2
 @bool  是否为ipv6 默认不是
 @return userdata 若成功会返回mqtt客户端实例,否则返回nil
 @usage
@@ -309,10 +309,10 @@ static int l_mqtt_create(lua_State *L) {
 
 	if (lua_istable(L, 4)){
 		opts.is_tls = 1;
-		opts.insist = 2;
-		lua_pushstring(L, "insist");
+		opts.verify = 2;
+		lua_pushstring(L, "verify");
 		if (LUA_TNUMBER == lua_gettable(L, 4)) {
-			opts.insist = luaL_checknumber(L, -1);
+			opts.verify = luaL_checknumber(L, -1);
 		}
 		lua_pop(L, 1);
 

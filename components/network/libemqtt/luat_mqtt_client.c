@@ -70,7 +70,7 @@ int luat_mqtt_set_connopts(luat_mqtt_ctrl_t *mqtt_ctrl, luat_mqtt_connopts_t *op
     memcpy(mqtt_ctrl->host, opts->host, strlen(opts->host) + 1);
     mqtt_ctrl->remote_port = opts->port;
 	if (opts->is_tls){
-		if (network_init_tls(mqtt_ctrl->netc, opts->insist)){
+		if (network_init_tls(mqtt_ctrl->netc, opts->verify)){
 			return -1;
 		}
 		if (opts->server_cert){

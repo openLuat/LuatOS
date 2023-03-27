@@ -39,7 +39,7 @@ typedef struct luat_mqtt_connopts
     uint16_t port;
     uint8_t is_tls;
 	uint8_t is_ipv6;
-	uint8_t insist;
+	uint8_t verify;
     const char* server_cert;
     size_t server_cert_len;
     const char* client_cert;

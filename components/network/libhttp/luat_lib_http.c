@@ -3,7 +3,7 @@
 @summary http 客户端
 @version 1.0
 @date    2022.09.05
-@demo    socket
+@demo    http
 @tag LUAT_USE_NETWORK
 @usage
 -- 使用http库,需要引入sysplus库, 且需要在task内使用

@@ -584,7 +584,7 @@ libgnss.debug(true)
 libgnss.debug(false)
  */
 static int l_libgnss_debug(lua_State *L) {
-    if (libgnss_gnss == NULL && luat_libgnss_init()) {
+    if (libgnss_gnss == NULL && luat_libgnss_init(0)) {
         return 0;
     }
     if (lua_isboolean(L, 1) && lua_toboolean(L, 1)) {
@@ -746,11 +746,11 @@ static int l_libgnss_get_gll(lua_State* L) {
 @api libgnss.clear()
 @return nil 无返回值
 @usage
--- 该操作会清除所有定位数据,包括调试配置
+-- 该操作会清除所有定位数据
  */
 static int l_libgnss_clear(lua_State*L) {
     (void)L;
-    if (libgnss_gnss == NULL && luat_libgnss_init())
+    if (libgnss_gnss == NULL && luat_libgnss_init(1))
         return 0;
     memset(libgnss_gnss, 0, sizeof(luat_libgnss_t));
     return 0;

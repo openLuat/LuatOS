@@ -290,7 +290,23 @@ static void w5500_xfer(w5500_ctrl_t *w5500, uint16_t address, uint8_t ctrl, uint
 		memcpy(w5500->tx_buf + 3, data, len);
 	}
 	luat_gpio_set(w5500->cs_pin, 0);
+	// TODO 选个更通用的宏
+	#if defined(AIR101) || defined(AIR103)
+	// 不支持全双工的BSP,通过半双工API读写
+	if (ctrl & is_write) {
+		// 整体传输就行
+		luat_spi_send(w5500->spi_id, (const char* )w5500->tx_buf, len + 3);
+	}
+	else {
+		// 先发3字的控制块
+		luat_spi_send(w5500->spi_id, (const char* )w5500->tx_buf, 3);
+		// 然后按len读取数据
+		if (data && len)
+			luat_spi_recv(w5500->spi_id, (const char* )w5500->rx_buf + 3, len);
+	}
+	#else
 	luat_spi_transfer(w5500->spi_id, (const char* )w5500->tx_buf, len + 3, (char*)w5500->rx_buf, len + 3);
+	#endif
 	luat_gpio_set(w5500->cs_pin, 1);
 	if (data && len)
 	{

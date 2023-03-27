@@ -486,7 +486,7 @@ static int l_mobile_get_cell_info(lua_State* L) {
     //LLOGD("cid %d neighbor %d", info->lte_service_info.cid, info->lte_neighbor_info_num);
 
     // 当前仅返回lte信息
-    if (info->lte_info_valid == 0 && info->lte_service_info.cid == 0) {
+    if (info->lte_info_valid == 0 || info->lte_service_info.cid == 0) {
         LLOGI("lte cell info not found");
         goto exit;
     }

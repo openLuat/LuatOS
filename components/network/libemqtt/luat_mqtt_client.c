@@ -282,19 +282,21 @@ static int luat_mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
             break;
         }
         case MQTT_MSG_PUBACK : {
-			// LLOGD("MQTT_MSG_PUBACK");
-            l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_PUBACK, mqtt_parse_msg_id(mqtt_ctrl->mqtt_packet_buffer));
+			msg_id = mqtt_parse_msg_id(&(mqtt_ctrl->mqtt_packet_buffer));
+			LLOGD("MQTT_MSG_PUBACK %d", msg_id);
+            l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_PUBACK, msg_id);
 			break;
 		}
 		case MQTT_MSG_PUBREC : {
-			msg_id = mqtt_parse_msg_id(&(mqtt_ctrl->broker));
+			msg_id = mqtt_parse_msg_id(&(mqtt_ctrl->mqtt_packet_buffer));
 			mqtt_pubrel(&(mqtt_ctrl->broker), msg_id);
-			// LLOGD("MQTT_MSG_PUBREC");
+			LLOGD("MQTT_MSG_PUBREC %d", msg_id);
 			break;
 		}
 		case MQTT_MSG_PUBCOMP : {
-			// LLOGD("MQTT_MSG_PUBCOMP");
-            l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_PUBCOMP, mqtt_parse_msg_id(mqtt_ctrl->mqtt_packet_buffer));
+			msg_id = mqtt_parse_msg_id(&(mqtt_ctrl->mqtt_packet_buffer));
+			LLOGD("MQTT_MSG_PUBCOMP %d", msg_id);
+            l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_PUBCOMP, msg_id);
 			break;
 		}
         case MQTT_MSG_SUBACK : {

@@ -70,17 +70,22 @@ int luat_mqtt_set_connopts(luat_mqtt_ctrl_t *mqtt_ctrl, luat_mqtt_connopts_t *op
     memcpy(mqtt_ctrl->host, opts->host, strlen(opts->host) + 1);
     mqtt_ctrl->remote_port = opts->port;
 	if (opts->is_tls){
-		if (network_init_tls(mqtt_ctrl->netc, (opts->server_cert || opts->client_cert)?2:0)){
+		if (network_init_tls(mqtt_ctrl->netc, opts->insist)){
 			return -1;
 		}
 		if (opts->server_cert){
-			network_set_server_cert(mqtt_ctrl->netc, (const unsigned char *)opts->server_cert, opts->server_cert_len+1);
+			if (network_set_server_cert(mqtt_ctrl->netc, (const unsigned char *)opts->server_cert, opts->server_cert_len+1)){
+				LLOGE("network_set_server_cert error");
+				return -1;
+			}
 		}
 		if (opts->client_cert){
-			
-			network_set_client_cert(mqtt_ctrl->netc, (const unsigned char*)opts->client_cert, opts->client_cert_len+1,
+			if (network_set_client_cert(mqtt_ctrl->netc, (const unsigned char*)opts->client_cert, opts->client_cert_len+1,
 					(const unsigned char*)opts->client_key, opts->client_key_len+1,
-					(const unsigned char*)opts->client_password, opts->client_password_len+1);
+					(const unsigned char*)opts->client_password, opts->client_password_len+1)){
+				LLOGE("network_set_client_cert error");
+				return -1;
+			}
 		}
 	} else {
 		network_deinit_tls(mqtt_ctrl->netc);

@@ -244,7 +244,7 @@ static int l_mqtt_set_debug(lua_State *L){
 
 /*
 mqtt客户端创建
-@api mqtt.create(adapter,host,port,isssl,ca_file)
+@api mqtt.create(adapter,host,port,ssl,isipv6)
 @int 适配器序号, 只能是socket.ETH0, socket.STA, socket.AP,如果不填,会选择平台自带的方式,然后是最后一个注册的适配器
 @string 服务器地址,可以是域名, 也可以是ip
 @int  	端口号

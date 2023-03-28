@@ -68,14 +68,14 @@ int luat_lv_font_get(lua_State *L) {
 
 /*
 从文件系统加载字体
-@api lvgl.font_load(path/spi_device)
+@api lvgl.font_load(path/spi_device,size,bpp,thickness,cache_size,sty_zh,sty_en)
 @string/userdata 字体路径/spi_device (spi_device为使用外置高通矢量字库芯片)
-@number size 可选(使用高通矢量字库)
-@number bpp 可选(使用高通矢量字库)
-@number thickness 可选(使用高通矢量字库)
-@number cache_size 可选(使用高通矢量字库)
-@number sty_zh 可选(使用高通矢量字库)
-@number sty_en 可选(使用高通矢量字库)
+@number size 可选,字号 16-192 默认16(使用高通矢量字库)
+@number bpp 可选 深度 默认4(使用高通矢量字库)
+@number thickness 可选 粗细值 默认size * bpp(使用高通矢量字库)
+@number cache_size 可选 默认0(使用高通矢量字库)
+@number sty_zh 可选 选择字体 默认1(使用高通矢量字库)
+@number sty_en 可选 选择字体 默认3(使用高通矢量字库)
 @return userdata 字体指针
 @usage
 local font = lvgl.font_load("/font_32.bin")

@@ -446,6 +446,40 @@ int mqtt_puback(mqtt_broker_handle_t* broker, uint16_t message_id) {
 	return 1;
 }
 
+int mqtt_pubrec(mqtt_broker_handle_t* broker, uint16_t message_id) {
+	uint8_t packet[] = {
+		MQTT_MSG_PUBREC | MQTT_QOS0_FLAG, // Message Type, DUP flag, QoS level, Retain
+		0x02, // Remaining length
+		message_id>>8,
+		message_id&0xFF
+	};
+
+	// Send the packet
+	if(broker->send(broker->socket_info, packet, sizeof(packet)) < sizeof(packet)) {
+		return -1;
+	}
+
+	return 1;
+}
+
+
+
+int mqtt_pubcomp(mqtt_broker_handle_t* broker, uint16_t message_id) {
+	uint8_t packet[] = {
+		MQTT_MSG_PUBCOMP | MQTT_QOS0_FLAG, // Message Type, DUP flag, QoS level, Retain
+		0x02, // Remaining length
+		message_id>>8,
+		message_id&0xFF
+	};
+
+	// Send the packet
+	if(broker->send(broker->socket_info, packet, sizeof(packet)) < sizeof(packet)) {
+		return -1;
+	}
+
+	return 1;
+}
+
 int mqtt_subscribe(mqtt_broker_handle_t* broker, const char* topic, uint16_t* message_id, uint8_t qos) {
 	uint16_t topiclen = strlen(topic);
 	if (qos>2) qos=0;

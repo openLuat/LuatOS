@@ -291,4 +291,8 @@ int mqtt_ping(mqtt_broker_handle_t* broker);
 
 int mqtt_puback(mqtt_broker_handle_t* broker, uint16_t message_id);
 
+int mqtt_pubrec(mqtt_broker_handle_t* broker, uint16_t message_id);
+
+int mqtt_pubcomp(mqtt_broker_handle_t* broker, uint16_t message_id);
+
 #endif // __LIBEMQTT_H__

@@ -584,12 +584,13 @@ static void dht_reset(int pin)
   luat_timer_mdelay(100);
   luat_gpio_set(pin, Luat_GPIO_LOW);
   luat_timer_mdelay(20);
+  luat_gpio_set(pin, Luat_GPIO_HIGH);
 }
 
 //主机发送开始信号结束后,延时等待20-40us后, 读取DHT11的响应信号
 static uint8_t dht_connect(int pin)
 {
-  luat_gpio_mode(pin, Luat_GPIO_INPUT, Luat_GPIO_PULLUP, 0);
+  luat_gpio_mode(pin, Luat_GPIO_INPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
   luat_timer_us_delay(10);
   uint8_t retry = 0;
   while (luat_gpio_get(pin) && retry < 100)

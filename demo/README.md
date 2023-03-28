@@ -22,8 +22,6 @@
 |[coremark](https://gitee.com/openLuat/LuatOS/tree/master/demo/coremark/)|跑分|coremark|所有|生产固件均不带该库,可自行编译或云编译|
 |[crypto](https://gitee.com/openLuat/LuatOS/tree/master/demo/crypto/)|加解密|crypto|所有||
 |[dht12](https://gitee.com/openLuat/LuatOS/tree/master/demo/dht12/)|温湿度传感器|i2c|所有||
-|[disp](https://gitee.com/openLuat/LuatOS/tree/master/demo/disp/)|简易显示库框架|disp,spi|所有|已合并到u8g2库|
-|[ds18b20](https://gitee.com/openLuat/LuatOS/tree/master/demo/ds18b20/)|单总线温度传感器|sensor|通用||
 |[eink](https://gitee.com/openLuat/LuatOS/tree/master/demo/eink/)|电子墨水屏|eink|所有||
 |[fatfs](https://gitee.com/openLuat/LuatOS/tree/master/demo/fatfs/)|挂载sd卡|fatfs,sdio|所有|部分模块支持sdio挂载,其余支持spi挂载|
 |[fdb](https://gitee.com/openLuat/LuatOS/tree/master/demo/fdb/)|持久化kv存储|fdb|所有||

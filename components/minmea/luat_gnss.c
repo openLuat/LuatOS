@@ -45,25 +45,30 @@ void luat_libgnss_uart_recv_cb(int uart_id, uint32_t data_len) {
 }
 
 
-static uint32_t msg_counter[MINMEA_SENTENCE_MAX_ID];
+// static uint32_t msg_counter[MINMEA_SENTENCE_MAX_ID];
 
-int luat_libgnss_init(void) {
-    if (libgnss_gnss)
-        return 0;
-    libgnss_gnss = luat_heap_malloc(sizeof(luat_libgnss_t));
+int luat_libgnss_init(int clear) {
     if (libgnss_gnss == NULL) {
-        LLOGW("out of memory for libgnss data parse");
-        return -1;
+        libgnss_gnss = luat_heap_malloc(sizeof(luat_libgnss_t));
+        if (libgnss_gnss == NULL) {
+            LLOGW("out of memory for libgnss data parse");
+            return -1;
+        }
     }
-    libgnss_gnsstmp = luat_heap_malloc(sizeof(luat_libgnss_tmp_t));
     if (libgnss_gnsstmp == NULL) {
-        luat_heap_free(libgnss_gnss);
-        LLOGW("out of memory for libgnss data parse");
-        return -1;
+        libgnss_gnsstmp = luat_heap_malloc(sizeof(luat_libgnss_tmp_t));
+        if (libgnss_gnsstmp == NULL) {
+            luat_heap_free(libgnss_gnss);
+            libgnss_gnss = NULL;
+            LLOGW("out of memory for libgnss data parse");
+            return -1;
+        }
     }
     // gnss->lua_ref = luaL_ref(L, LUA_REGISTRYINDEX);
-    memset(libgnss_gnss, 0, sizeof(luat_libgnss_t));
-    memset(libgnss_gnsstmp, 0, sizeof(luat_libgnss_tmp_t));
+    if (clear) {
+        memset(libgnss_gnss, 0, sizeof(luat_libgnss_t));
+        memset(libgnss_gnsstmp, 0, sizeof(luat_libgnss_tmp_t));
+    }
     //lua_pushboolean(L, 1);
     return 0;
 }
@@ -105,14 +110,14 @@ int luat_libgnss_parse_data(const char* data, size_t len) {
 }
 
 int luat_libgnss_parse_nmea(const char* line) {
-    if (libgnss_gnss == NULL && luat_libgnss_init()) {
+    if (libgnss_gnss == NULL && luat_libgnss_init(0)) {
         return 0;
     }
     struct minmea_sentence_gsv *frame_gsv = &libgnss_gnsstmp->frame_gsv;
     enum minmea_sentence_id id = minmea_sentence_id(line, false);
     if (id == MINMEA_UNKNOWN || id >= MINMEA_SENTENCE_MAX_ID || id == MINMEA_INVALID)
         return -1;
-    msg_counter[id] ++;
+    // msg_counter[id] ++;
     // int ticks = 0;
     struct tm tblock = {0};
     int ticks = luat_mcu_ticks();

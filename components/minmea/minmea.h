@@ -313,7 +313,7 @@ static inline bool minmea_isfield(char c) {
 #define FRAME_GSA_MAX   (6)
 #define FRAME_GSV_MAX   (5)
 
-int luat_libgnss_init(void);
+int luat_libgnss_init(int clear);
 int luat_libgnss_parse_data(const char* data, size_t len);
 int luat_libgnss_parse_nmea(const char* line);
 void luat_libgnss_uart_recv_cb(int uart_id, uint32_t data_len);

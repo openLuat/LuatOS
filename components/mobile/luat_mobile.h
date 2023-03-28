@@ -164,7 +164,7 @@ int luat_mobile_set_apn_base_info(int sim_id, int cid, uint8_t type, uint8_t* ap
  *
  * @param sim_id sim位置，对于双卡双待的设备，选0或者1，其他设备随意
  * @param cid cid位置 2~6
- * @param protocol 加密协议 0~2，0xff表示不需要
+ * @param protocol 加密协议 1~3，0和0xff表示不需要
  * @param user_name 用户名
  * @param user_name_len 用户名长度
  * @param password 密码
@@ -193,10 +193,10 @@ int luat_mobile_active_apn(int sim_id, int cid, uint8_t state);
 int luat_mobile_active_netif(int sim_id, int cid);
 
 /**
- * @brief 用户设置APN的基本信息，并且自动激活，注意不能和上述手动操作APN的API共用
+ * @brief 用户设置APN的基本信息，并且自动激活，注意不能和上述手动操作APN的API共用，专网卡如果不能用公网apn激活默认承载的必须用这个
  *
  * @param sim_id sim位置，对于双卡双待的设备，选0或者1，其他设备随意
- * @param cid cid位置 2~6
+ * @param cid cid位置 1~6
  * @param ip_type 激活类型 1 IPV4 2 IPV6 3 IPV4V6
  * @param protocol_type 加密协议 0~2，0xff表示不需要
  * @param apn_name apn name，如果留空则使用默认APN
@@ -224,6 +224,15 @@ void luat_mobile_user_apn_auto_active(int sim_id, uint8_t cid,
  */
 int luat_mobile_get_default_apn(int sim_id, char* buff, size_t buf_len);
 
+/**
+ * @brief 删除定义好的apn
+ *
+ * @param sim_id sim位置，对于双卡双待的设备，选0或者1，其他设备随意
+ * @param cid cid位置 1~6
+ * @param is_dedicated 是否是专用的,不清楚的写0
+ * @return int =0成功，其他失败
+ */
+int luat_mobile_del_apn(int sim_id, uint8_t cid, uint8_t is_dedicated);
 
 /**
  * @brief 进出飞行模式

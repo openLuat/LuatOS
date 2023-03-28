@@ -267,12 +267,13 @@ static int l_mobile_set_auto_work(lua_State* L) {
 获取或设置APN，设置APN必须在入网前就设置好，比如在SIM卡识别完成前就设置好
 @api mobile.apn(index, cid, new_apn_name, user_name, password, ip_type, protocol)
 @int 编号,默认0. 在支持双卡的模块上才会出现0或1的情况
-@int cid, 默认0，如果要用非默认APN来激活，必须>1
+@int cid, 默认0，如果要用非默认APN来激活，必须>0
 @string 新的APN,不填就是获取APN, 填了就是设置APN, 是否支持设置取决于底层实现
 @string 新的APN的username,可以为nil
 @string 新的APN的password,可以为nil
 @int 激活APN时的IP TYPE,1=IPV4 2=IPV6 3=IPV4V6,默认是1
-@int 激活APN时,如果需要username和password,就要写鉴权协议类型,0~2或者按照实际情况写。
+@int 激活APN时,如果需要username和password,就要写鉴权协议类型,1~3,默认3,代表1和2都尝试一下
+@boolean 是否删除APN,true是,其他都否,只有参数3新的APN不是string的时候才有效果
 @return string 获取到的默认APN值,失败返回nil
  */
 static int l_mobile_apn(lua_State* L) {
@@ -290,7 +291,11 @@ static int l_mobile_apn(lua_State* L) {
 		const char* user_name = luaL_checklstring(L, 4, &user_name_len);
 		const char* password = luaL_checklstring(L, 5, &password_len);
 		uint8_t ip_type = luaL_optinteger(L, 6, 1);
-		uint8_t protocol = luaL_optinteger(L, 7, 0xff);
+		uint8_t protocol = luaL_optinteger(L, 7, 3);
+		if (!user_name_len && !password_len)
+		{
+			protocol = 0;
+		}
 		if (wlen) {
 			luat_mobile_user_apn_auto_active(index, cid, ip_type, protocol, wbuff, wlen, user_name, user_name_len, password, password_len);
 		}
@@ -298,6 +303,13 @@ static int l_mobile_apn(lua_State* L) {
 		{
 			luat_mobile_user_apn_auto_active(index, cid, ip_type, 0xff, NULL, 0, NULL, 0, NULL, 0);
 		}
+	}
+	else
+	{
+    	if (lua_isboolean(L, 8) && lua_toboolean(L, 8))
+    	{
+    		luat_mobile_del_apn(index, cid, 0);
+    	}
 	}
     if (ret > 0) {
         lua_pushlstring(L, buff, strlen(buff));
@@ -770,6 +782,7 @@ end)
         }
 		break;
 	case LUAT_MOBILE_EVENT_PDP:
+		LLOGD("cid%d, state%d", index, status);
 		break;
 	case LUAT_MOBILE_EVENT_NETIF:
 		switch (status)
@@ -849,6 +862,9 @@ end)
 		break;
 	case LUAT_MOBILE_EVENT_CSCON:
 		LLOGD("CSCON %d", status);
+		break;
+	case LUAT_MOBILE_EVENT_BEARER:
+		LLOGD("bearer act %d, result %d",status, index);
 		break;
 	default:
 		break;

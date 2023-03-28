@@ -20,11 +20,11 @@
 /*
 初始化w5500
 @api w5500.init(spiid, speed, cs_pin, irq_pin, rst_pin, link_pin)
-@int spi通道号
-@int spi速度
-@int cs pin
-@int irq pin
-@int reset pin
+@int spi通道号, 例如 0, 1, 5, 按设备实际情况选
+@int spi速度, 可以设置到对应SPI的最高速度
+@int cs pin, 片选脚, 对应W5500的SCS
+@int irq pin, 中断脚, 对应W5500的INT
+@int reset pin, 复位脚, 对应W5500的RST
 @int link 状态 pin，可以留空不使用，默认不使用
 @usage
 w5500.init(spi.SPI_0, 24000000, pin.PB13, pin.PC08, pin.PC09)

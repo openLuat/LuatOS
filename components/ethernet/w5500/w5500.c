@@ -295,7 +295,10 @@ static void w5500_xfer(w5500_ctrl_t *w5500, uint16_t address, uint8_t ctrl, uint
 	// 不支持全双工的BSP,通过半双工API读写
 	if (ctrl & is_write) {
 		// 整体传输就行
-		luat_spi_send(w5500->spi_id, (const char* )w5500->tx_buf, len + 3);
+		if (data && len)
+			luat_spi_send(w5500->spi_id, (const char* )w5500->tx_buf, len + 3);
+		else
+			luat_spi_send(w5500->spi_id, (const char* )w5500->tx_buf, 3);
 	}
 	else {
 		// 先发3字的控制块

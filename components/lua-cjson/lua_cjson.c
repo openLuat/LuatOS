@@ -54,6 +54,7 @@
 #include "strbuf.h"
 #include "fpconv.h"
 #include "printf.h"
+#include "float.h"
 
 #define MIN_OPT_LEVEL 2
 
@@ -604,15 +605,18 @@ static void json_append_number(lua_State *l,
         #endif
     }
     else {
-        len = snprintf_(strbuf_empty_ptr(json), FPCONV_G_FMT_BUFSIZE, float_fmt, lua_tonumber(l, lindex));
-        // if (json_easy_config.encode_number_precision_mode == 'f')
-        // {
-        // 	len = fpconv_f_fmt(strbuf_empty_ptr(json), num, json_easy_config.encode_number_precision);
-        // }
-        // else
-        // {
-        // 	len = fpconv_g_fmt(strbuf_empty_ptr(json), num, json_easy_config.encode_number_precision);
-        // }
+        lua_Number v = lua_tonumber(l, lindex);
+        #ifdef LUAT_CONF_VM_64bit
+        if (v <= DBL_EPSILON  && v >= -DBL_EPSILON) {
+        #else
+        if (v <= FLT_EPSILON  && v >= -FLT_EPSILON) {
+        #endif
+            memcpy(strbuf_empty_ptr(json), "0.0\x00", 4);
+            len = 1;
+        }
+        else {
+            len = snprintf_(strbuf_empty_ptr(json), FPCONV_G_FMT_BUFSIZE, float_fmt, v);
+        }
     }
     //len = fpconv_g_fmt(strbuf_empty_ptr(json), num, DEFAULT_ENCODE_NUMBER_PRECISION);
     strbuf_extend_length(json, len);

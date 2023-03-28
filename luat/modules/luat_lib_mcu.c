@@ -134,9 +134,10 @@ static int l_mcu_x32(lua_State* L) {
 
 // #ifdef __LUATOS_TICK_64BIT__
 /*
-获取启动后的高精度tick
+获取启动后的高精度tick，如果支持bit64库，可以直接输出转换好的bit64结构
 @api mcu.tick64()
-@return string 当前tick值,8个字节的uint64
+@boolean 是否输出bit64结构,true是,其他都是false,留空也是false,用于兼容旧的demo
+@return string 当前tick值,8个字节的uint64,如果支持64bit库,同时要求输出64bit结构的话,会输出9字节的string
 @return int 1us有几个tick,0表示未知
 @usage
 local tick_str, tick_per = mcu.tick64()
@@ -146,7 +147,16 @@ static int l_mcu_hw_tick64(lua_State* L) {
 
     uint64_t tick = luat_mcu_tick64();
     uint32_t us_period = luat_mcu_us_period();
+#ifdef LUAT_USE_BIT64
+	if (lua_isboolean(L, 1) && lua_toboolean(L, 1))
+	{
+		uint8_t data[9] = {0};
+		memcpy(data, &tick, 8);
+		lua_pushlstring(L, data, 9);
+	}
+#else
     lua_pushlstring(L, (const char*)&tick, 8);
+#endif
     lua_pushinteger(L, us_period);
     return 2;
 }

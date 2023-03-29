@@ -667,7 +667,9 @@ static const rotable_Reg_t reg_mobile[] = {
     {"UNREGISTER",                  ROREG_INT(LUAT_MOBILE_STATUS_UNREGISTER)},
     // const REGISTERED 已注册
     {"REGISTERED",                  ROREG_INT(LUAT_MOBILE_STATUS_REGISTERED)},
-    // const DENIED 注册被拒绝
+	// const SEARCH 正在搜索中
+	{"SEARCH",                      ROREG_INT(LUAT_MOBILE_STATUS_SEARCHING)},
+	// const DENIED 注册被拒绝
     {"DENIED",                      ROREG_INT(LUAT_MOBILE_STATUS_DENIED)},
     // const UNKNOW 未知
     {"UNKNOW",                      ROREG_INT(LUAT_MOBILE_STATUS_UNKNOW)},

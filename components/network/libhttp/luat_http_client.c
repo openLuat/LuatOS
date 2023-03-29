@@ -168,6 +168,8 @@ static int on_body(http_parser* parser, const char *at, size_t length){
 	else if(http_ctrl->isfota){
 		if (luat_fota_write((uint8_t*)at, length) < 0){
 			luat_fota_end(0);
+			http_resp_error(http_ctrl, HTTP_ERROR_FOTA);
+			return -1;
 		}
 	}
 #endif
@@ -202,7 +204,8 @@ static int on_message_complete(http_parser* parser){
 			luat_fota_end(1);
 		}else{
 			luat_fota_end(0);
-			//失败
+			http_resp_error(http_ctrl, HTTP_ERROR_FOTA);
+			return -1;
 		}
 	}
 #endif

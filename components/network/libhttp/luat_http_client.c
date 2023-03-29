@@ -68,10 +68,11 @@ int http_close(luat_http_ctrl_t *http_ctrl){
 
 static void http_resp_error(luat_http_ctrl_t *http_ctrl, int error_code) {
 	LLOGD("http_resp_error error_code:%d close_state:%d",error_code,http_ctrl->close_state);
+#ifdef LUAT_USE_FOTA
 	if (http_ctrl->isfota){
 		luat_fota_end(0);
 	}
-	
+#endif
 	if (http_ctrl->close_state == 0 && http_ctrl->headers_complete && http_ctrl->re_request_count < HTTP_RE_REQUEST_MAX){
 		http_ctrl->re_request_count++;
 		if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), NULL, http_ctrl->remote_port, 0) < 0){
@@ -137,9 +138,12 @@ static int on_headers_complete(http_parser* parser){
 		if (http_ctrl->fd == NULL) {
 			LLOGE("open download file fail %s", http_ctrl->dst);
 		}
-	}else if(http_ctrl->isfota){
+	}
+#ifdef LUAT_USE_FOTA
+	else if(http_ctrl->isfota){
 		luat_fota_init(http_ctrl->address, http_ctrl->length, http_ctrl->spi_device, NULL, 0);
 	}
+#endif
 	http_ctrl->headers_complete = 1;
     return 0;
 }
@@ -159,11 +163,15 @@ static int on_body(http_parser* parser, const char *at, size_t length){
 			}
 		}
 		luat_fs_fwrite(at, length, 1, http_ctrl->fd);
-	}else if(http_ctrl->isfota){
+	}
+#ifdef LUAT_USE_FOTA
+	else if(http_ctrl->isfota){
 		if (luat_fota_write((uint8_t*)at, length) < 0){
 			luat_fota_end(0);
 		}
-	}else{
+	}
+#endif
+	else{
 		if (!http_ctrl->body){
 			http_ctrl->body = luat_heap_malloc(length+1);
 		}else{
@@ -182,7 +190,9 @@ static int on_message_complete(http_parser* parser){
 	if (http_ctrl->fd != NULL) {
 		luat_fs_fclose(http_ctrl->fd);
 		http_ctrl->fd = NULL;
-	}else if(http_ctrl->isfota){
+	}
+#ifdef LUAT_USE_FOTA
+	else if(http_ctrl->isfota){
 		int result = luat_fota_done();
 		while (result>0){
 			luat_timer_mdelay(100);
@@ -195,6 +205,7 @@ static int on_message_complete(http_parser* parser){
 			//失败
 		}
 	}
+#endif
 	LLOGD("status_code:%d",parser->status_code);
 	LLOGD("content_length:%lld",parser->content_length);
 	http_ctrl->close_state = 1;

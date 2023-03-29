@@ -136,7 +136,7 @@ static int l_http_request(lua_State *L) {
 			http_ctrl->netc->is_debug = lua_toboolean(L, -1);
 		}
 		lua_pop(L, 1);
-
+#ifdef LUAT_USE_FOTA
 		http_ctrl->address = 0xffffffff;
 		http_ctrl->length = 0;
 		lua_pushstring(L, "fota");
@@ -162,7 +162,7 @@ static int l_http_request(lua_State *L) {
 			lua_pop(L, 1);
 		}
 		lua_pop(L, 1);
-
+#endif
 		lua_pushstring(L, "ipv6");
 		if (LUA_TBOOLEAN == lua_gettable(L, 5) && lua_toboolean(L, -1)) {
 			use_ipv6 = 1;
@@ -172,12 +172,12 @@ static int l_http_request(lua_State *L) {
 	}else{
 		adapter_index = network_get_last_register_adapter();
 	}
-	
+#ifdef LUAT_USE_FOTA
 	if (http_ctrl->isfota == 1 && http_ctrl->is_download == 1){
 		LLOGE("Only one can be selected for FOTA and Download");
 		goto error;
 	}
-
+#endif
 	if (adapter_index < 0 || adapter_index >= NW_ADAPTER_QTY){
 		LLOGE("bad network adapter index %d", adapter_index);
 		goto error;
@@ -333,10 +333,12 @@ int32_t l_http_callback(lua_State *L, void* ptr){
 	}
 
 	lua_pushinteger(L, http_ctrl->parser.status_code);
+#ifdef LUAT_USE_FOTA
 	if(http_ctrl->isfota){
 		luat_cbcwait(L, idp, 1);
 		goto exit;
 	}
+#endif
 	lua_newtable(L);
 	// LLOGD("http_ctrl->headers:%.*s",http_ctrl->headers_len,http_ctrl->headers);
 	header = http_ctrl->headers;

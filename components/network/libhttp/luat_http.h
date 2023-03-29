@@ -36,11 +36,14 @@ typedef struct{
 	char *req_body;				//发送body
 	size_t req_body_len;		//发送body长度
 	uint8_t custom_host;        // 是否自定义Host了
+	
+#ifdef LUAT_USE_FOTA
 	//OTA相关
 	uint8_t isfota;				//是否为ota下载
 	uint32_t address;			
 	uint32_t length;		
 	luat_spi_device_t* spi_device;
+#endif
 
 	//下载相关
 	uint8_t is_download;		//是否下载

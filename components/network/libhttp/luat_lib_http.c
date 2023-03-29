@@ -19,7 +19,7 @@ end)
 */
 
 #include "luat_base.h"
-
+#include "luat_spi.h"
 #include "luat_network_adapter.h"
 #include "luat_rtos.h"
 #include "luat_msgbus.h"
@@ -137,6 +137,32 @@ static int l_http_request(lua_State *L) {
 		}
 		lua_pop(L, 1);
 
+		http_ctrl->address = 0xffffffff;
+		http_ctrl->length = 0;
+		lua_pushstring(L, "fota");
+		int type = lua_gettable(L, 5);
+		if (LUA_TBOOLEAN == type) {
+			http_ctrl->isfota = lua_toboolean(L, -1);
+		}else if (LUA_TTABLE == type) {
+			http_ctrl->isfota = 1;
+			lua_pushstring(L, "address");
+			if (LUA_TNUMBER == lua_gettable(L, -2)) {
+				http_ctrl->address = luaL_checkinteger(L, -1);
+			}
+			lua_pop(L, 1);
+			lua_pushstring(L, "length");
+			if (LUA_TNUMBER == lua_gettable(L, -2)) {
+				http_ctrl->length = luaL_checkinteger(L, -1);
+			}
+			lua_pop(L, 1);
+			lua_pushstring(L, "param1");
+			if (LUA_TUSERDATA == lua_gettable(L, -2)) {
+				http_ctrl->spi_device = (luat_spi_device_t*)lua_touserdata(L, -1);
+			}
+			lua_pop(L, 1);
+		}
+		lua_pop(L, 1);
+
 		lua_pushstring(L, "ipv6");
 		if (LUA_TBOOLEAN == lua_gettable(L, 5) && lua_toboolean(L, -1)) {
 			use_ipv6 = 1;
@@ -146,9 +172,14 @@ static int l_http_request(lua_State *L) {
 	}else{
 		adapter_index = network_get_last_register_adapter();
 	}
+	
+	if (http_ctrl->isfota == 1 && http_ctrl->is_download == 1){
+		LLOGE("Only one can be selected for FOTA and Download");
+		goto error;
+	}
 
 	if (adapter_index < 0 || adapter_index >= NW_ADAPTER_QTY){
-		LLOGD("bad network adapter index %d", adapter_index);
+		LLOGE("bad network adapter index %d", adapter_index);
 		goto error;
 	}
 
@@ -302,6 +333,10 @@ int32_t l_http_callback(lua_State *L, void* ptr){
 	}
 
 	lua_pushinteger(L, http_ctrl->parser.status_code);
+	if(http_ctrl->isfota){
+		luat_cbcwait(L, idp, 1);
+		goto exit;
+	}
 	lua_newtable(L);
 	// LLOGD("http_ctrl->headers:%.*s",http_ctrl->headers_len,http_ctrl->headers);
 	header = http_ctrl->headers;
@@ -339,7 +374,7 @@ int32_t l_http_callback(lua_State *L, void* ptr){
 		lua_pushinteger(L, -1);
 		luat_cbcwait(L, idp, 3); // code, headers, body
 		goto exit;
-	} else {
+	}else {
 		// 非下载模式
 		lua_pushlstring(L, http_ctrl->body, http_ctrl->body_len);
 		luat_cbcwait(L, idp, 3); // code, headers, body

@@ -173,9 +173,11 @@ int ll_require (lua_State *L) {
   if (searcher_Lua(L) == 2) {
     //luat_os_print_heapinfo("go-call");
     //LLOGD("module %s , found OK!!!",name);
+    lua_gc(L, LUA_GCCOLLECT, 0);
     lua_pushstring(L, name);
     lua_call(L, 2, 1);
     //luat_os_print_heapinfo("after-call");
+    lua_gc(L, LUA_GCCOLLECT, 0);
   }
   else {
     luaL_error(L, "module '%s' not found", name);

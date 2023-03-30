@@ -77,7 +77,7 @@ static int pmain(lua_State *L) {
 
     // 加载内置库
     luat_openlibs(L);
-
+    lua_gc(L, LUA_GCCOLLECT, 0);
     luat_os_print_heapinfo("loadlibs");
 
     lua_gc(L, LUA_GCSETPAUSE, 90); // 设置`垃圾收集器间歇率`要低于100%

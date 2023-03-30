@@ -135,7 +135,7 @@ static int l_fota_file(lua_State* L)
         return 3;
     }
     #define BUFF_SIZE (4096)
-    char buff = luat_heap_malloc(BUFF_SIZE);
+    char *buff = luat_heap_malloc(BUFF_SIZE);
     if (buff == NULL) {
         luat_fs_fclose(fd);
         LLOGE("out of memory when reading file %s", path);

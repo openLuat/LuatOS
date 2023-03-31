@@ -135,7 +135,7 @@ static int l_fota_file(lua_State* L)
         return 3;
     }
     #define BUFF_SIZE (4096)
-    char buff = luat_heap_malloc(BUFF_SIZE);
+    char *buff = luat_heap_malloc(BUFF_SIZE);
     if (buff == NULL) {
         luat_fs_fclose(fd);
         LLOGE("out of memory when reading file %s", path);
@@ -144,21 +144,15 @@ static int l_fota_file(lua_State* L)
         lua_pushinteger(L, 0);
         return 3;
     }
-    size_t len  = 0;
+    int len  = 0;
     while (1) {
-        len = luat_fs_fread(buff + len, BUFF_SIZE - len, 1, fd);
+        len = luat_fs_fread(buff , BUFF_SIZE, 1, fd);
         if (len < 1) {
             // EOF 结束了
             break;
         }
         result = luat_fota_write((uint8_t*)buff, len);
         if (result < 0) {
-            break;
-        }
-        result = len;
-        if (len >= BUFF_SIZE) {
-            LLOGD("too many data to write! bug??");
-            result = -7;
             break;
         }
     }

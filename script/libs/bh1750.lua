@@ -84,7 +84,7 @@ end
 --[[
 获取bh1750数据
 @api bh1750.get_data()
-@return number 光照强度数据
+@return number 光照强度数据, 若读取失败会返回-1
 @usage
 local bh1750_data = bh1750.read_light()
 log.info("bh1750_read_light", bh1750_data)
@@ -93,6 +93,9 @@ function bh1750.read_light()
     bh1750_set_measure_mode(BH1750_CON_H_RES_MODE, 180)
     -- local _,light = pack.unpack(i2c_recv(2),">h") -- 极端情况下数据溢出导致的光照出现负值, 如string.toHex(i2c_recv(2)) == "FFFF"
     local _,light = pack.unpack(i2c_recv(2),">H")
+    if not light then
+        return -1
+    end
     return light / 1.2
 end
 

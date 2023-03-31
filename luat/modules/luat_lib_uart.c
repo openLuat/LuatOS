@@ -1169,6 +1169,7 @@ static int l_uart_soft(lua_State *L) {
 	}
 	lua_pushinteger(L, prv_uart_soft->uart_id);
 #else
+	LLOGE("not support soft uart");
 	lua_pushnil(L);
 #endif
 #ifdef LUAT_USE_SOFT_UART

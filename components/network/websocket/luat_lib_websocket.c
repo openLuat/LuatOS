@@ -124,6 +124,34 @@ static int32_t l_websocket_callback(lua_State *L, void *ptr)
 		}
 		break;
 	}
+	case WEBSOCKET_MSG_SENT :
+	{
+		if (websocket_ctrl->websocket_cb)
+		{
+			lua_geti(L, LUA_REGISTRYINDEX, websocket_ctrl->websocket_cb);
+			if (lua_isfunction(L, -1))
+			{
+				lua_geti(L, LUA_REGISTRYINDEX, websocket_ctrl->websocket_ref);
+				lua_pushstring(L, "sent");
+				lua_call(L, 2, 0);
+			}
+		}
+		break;
+	}
+	case WEBSOCKET_MSG_DISCONNECT : 
+	{
+		if (websocket_ctrl->websocket_cb)
+		{
+			lua_geti(L, LUA_REGISTRYINDEX, websocket_ctrl->websocket_cb);
+			if (lua_isfunction(L, -1))
+			{
+				lua_geti(L, LUA_REGISTRYINDEX, websocket_ctrl->websocket_ref);
+				lua_pushstring(L, "disconnect");
+				lua_call(L, 2, 0);
+			}
+		}
+		break;
+	}
 	default:
 	{
 		LLOGD("l_websocket_callback error arg1:%d", msg->arg1);
@@ -226,9 +254,18 @@ static int l_websocket_create(lua_State *L)
 @return nil 无返回值
 @usage
 wsc:on(function(websocket_client, event, data, payload)
-	-- 用户自定义代码
-	log.info("websocket", "event", event, websocket_client, data, payload)
+	-- 打印各种事件
+	log.info("websocket", "event", event, data, payload)
 end)
+--[[
+event的值有:
+	conack 连接服务器成功,已经收到websocket协议头部信息,通信已建立
+	recv   收到服务器下发的信息, data, payload 不为nil
+	sent   send函数发送的消息,服务器在TCP协议层已确认收到
+	disconnect 服务器连接已断开
+
+其中 sent/disconnect 事件在 2023.04.01 新增
+]]
 */
 static int l_websocket_on(lua_State *L)
 {
@@ -334,7 +371,11 @@ static int l_websocket_send(lua_State *L)
 		lua_pushboolean(L, 0);
 		return 1;
 	}
+	websocket_ctrl->frame_wait ++;
 	ret = luat_websocket_send_frame(websocket_ctrl, &pkg);
+	if (ret < 1) {
+		websocket_ctrl->frame_wait --;// 发送失败
+	}
 	lua_pushboolean(L, ret == 0 ? 1 : 0);
 	return 1;
 }

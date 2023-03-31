@@ -8,6 +8,8 @@ enum
 	WEBSOCKET_MSG_TIMER_PING = 2,
 	WEBSOCKET_MSG_CONNACK = 3,
 	WEBSOCKET_MSG_RECONNECT = 4,
+	WEBSOCKET_MSG_SENT = 5,
+	WEBSOCKET_MSG_DISCONNECT = 6
 };
 
 #define WEBSOCKET_RECV_BUF_LEN_MAX 4096
@@ -33,6 +35,7 @@ typedef struct
 	void *ping_timer;		 // websocket_ping定时器
 	int websocket_ref;		 // 强制引用自身避免被GC
 	char* headers;
+	int frame_wait;
 } luat_websocket_ctrl_t;
 
 typedef struct luat_websocket_connopts

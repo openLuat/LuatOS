@@ -7,6 +7,8 @@
 @date    2022.09.30
 @demo wlan
 @tag LUAT_USE_WLAN
+@usage
+--提醒, 对于仅支持wifiscan的模块, 仅 init/scan/scanResult 函数是可用的
 */
 
 #include "luat_base.h"
@@ -353,6 +355,27 @@ static int l_wlan_get_info(lua_State *L) {
     return 1;
 }
 
+/*
+读取或设置省电模式
+@api wlan.powerSave(mode)
+@int 省电模式,可选, 设置就传支持, 例如wlan.PS_NONE
+@return int 当前省电模式/设置后的省电模式
+@usage
+-- 请查阅常量表  PS_NONE/PS_MIN_MODEM/PS_MAX_MODEM
+log.info("wlan", "PS", wlan.powerSave(wlan.PS_NONE))
+-- 本API于 2023.03.31 新增
+*/
+static int l_wlan_powerSave(lua_State *L) {
+    int mode = 0;
+    if (lua_isinteger(L, 1)) {
+        mode = luaL_checkinteger(L, 1);
+        luat_wlan_set_ps(mode);
+    }
+    mode = luat_wlan_get_ps();
+    lua_pushinteger(L, mode);
+    return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_wlan[] =
 {
@@ -373,9 +396,10 @@ static const rotable_Reg_t reg_wlan[] =
     { "getMac",              ROREG_FUNC(l_wlan_get_mac)},
     { "setMac",              ROREG_FUNC(l_wlan_set_mac)},
 
+    { "powerSave",           ROREG_FUNC(l_wlan_powerSave)},
+
     // AP相关
     { "createAP",            ROREG_FUNC(l_wlan_ap_start)},
-#endif
     // wifi模式
     //@const NONE WLAN模式,停用
     {"NONE",                ROREG_INT(LUAT_WLAN_MODE_NULL)},
@@ -397,6 +421,15 @@ static const rotable_Reg_t reg_wlan[] =
     {"ESPTOUCH_AIRKISS",    ROREG_INT(LUAT_SC_TYPE_ESPTOUCH_AIRKISS)},
     //@const ESPTOUCH_V2 esptouch配网, V2, 未测试
     {"ESPTOUCH_V2",         ROREG_INT(LUAT_SC_TYPE_ESPTOUCH_V2)},
+
+    //@const PS_NONE 关闭省电模式
+    {"PS_NONE",             ROREG_INT(0)},
+    //@const PS_MIN_MODEM 最小Modem省电模式
+    {"PS_MIN_MODEM",        ROREG_INT(1)},
+    //@const PS_MAX_MODEM 最大Modem省电模式
+    {"PS_MAX_MODEM",        ROREG_INT(2)},
+
+#endif
 	{ NULL,                 ROREG_INT(0)}
 };
 

@@ -32,11 +32,13 @@ sys.taskInit(function()
 
     while true do
         --第一种方式
-        i2c.send(id, addr, string.char(0xe3))
+        i2c.send(id, addr, string.char(0xF3))
+        sys.wait(100)
         tmp = i2c.recv(id, addr, 2)
         log.info("SHT20", "read tem data", tmp:toHex())
 
-        i2c.send(id, addr, string.char(0xe5))
+        i2c.send(id, addr, string.char(0xF5))
+        sys.wait(100)
         hum = i2c.recv(id, addr, 2)
         log.info("SHT20", "read hum data", hum:toHex())
         local _,tval = pack.unpack(tmp,'>H')

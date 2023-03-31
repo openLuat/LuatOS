@@ -9,9 +9,10 @@ _G.sysplus = require("sysplus")
 
 
 -- 产品ID和产品动态注册秘钥
-local ProductId = "KRVMTJQRMC"
-local ProductSecret = "pwYWG7ZkcngFW5iUccDnBQoO"
+local ProductId = "SU83PBK5YF"
+local ProductSecret = "DliTrlLmab4zo2FiZFNOyLsQ"
 local mqttc
+local mqtt_isssl = false
 
 --[[
 函数名：getDeviceName
@@ -25,10 +26,8 @@ local function getDeviceName()
 end
 
 
--- 无网络重启时间
-local rstTim= 600000
 
-local function device_enrol()
+function device_enrol()
     local deviceName = getDeviceName()
     local nonce = math.random(1, 100)
     local timestamp = os.time()
@@ -52,12 +51,17 @@ local function device_enrol()
         }, tx_body_json, { timeout = 30000 }).wait()
     log.info("http.post", code, headers, body)
     if code == 200 then
-        m = json.decode(body)
+        local m, result, err = json.decode(body)
+        log.info(" m,result,err", m, result, err)
+        if result == 0 then
+            log.info("json解析失败", err)
+            device_enrol()
+        end
         if m.message == "success" then
             log.info("腾讯云注册设备成功:", body)
             log.info("http.body.message", m.message)
             local result = io.writeFile("/txiot.dat", body)
-            log.info("写入成功", result)
+            log.info("密钥写入结果", result)
         else
             log.info("腾讯云注册设备失败:失败原因", m.message)
         end
@@ -65,43 +69,6 @@ local function device_enrol()
         log.info("http请求失败:", body)
     end
 end
-
-
-
-sys.taskInit(function()
-    sys.wait(500)
-    if mobile.status() ~= 1 and not sys.waitUntil("IP_READY", rstTim) then
-        log.info("网络初始化失败！")
-    end
-    log.info("io.exists", io.exists("/txiot.dat"))
-    if not io.exists("/txiot.dat") then
-        device_enrol()
-        while enrol_end do sys.wait(100) end
-    end
-    if not io.exists("/txiot.dat") then
-        device_enrol()
-        log.warn("设备注册失败或设备已注册")
-        return
-    end
-    local dat = json.decode(io.readFile("/txiot.dat"))
-    log.info("dat", dat)
-    log.info("dat.payload", dat.payload)
-    local payload = json.decode(crypto.cipher_decrypt("AES-128-CBC", "ZERO", crypto.base64_decode(dat.payload),
-    string.sub(ProductSecret, 1, 16), "0000000000000000"))
-    log.info("payload[encryptionType]", payload.encryptionType)
-    log.info("payload[psk]", payload.psk)
-    if payload.encryptionType == 2 then
-        local clientid, username, password = iotauth.qcloud(ProductId, getDeviceName(), payload.psk)
-        sys.publish("MQTT_SIGN_AUTH", clientid, username, password) --签名认证
-    elseif payload.encryptionType == 1 then
-        log.info("payload date ", payload.encryptionType,payload.psk,payload.clientCert,payload.clientKey)
-        io.writeFile("/client.crt", payload.clientCert)
-        io.writeFile("/client.key", payload.clientKey)
-        sys.publish("MQTT_CERT_AUTH") --证书认证
-    end
-end)
-
-
 
 sys.subscribe("MQTT_SIGN_AUTH", function(clientid, username, password)
     sys.taskInit(function()
@@ -117,6 +84,7 @@ sys.subscribe("MQTT_SIGN_AUTH", function(clientid, username, password)
             log.info("mqtt", "event", event, mqtt_client, data, payload)
             if event == "conack" then
                 log.info("mqtt", "sent", "pkgid", data)
+                --连上了
                 sys.publish("mqtt_conack")
                 local txiot_subscribetopic = {
                     ["$thing/down/property/" .. ProductId .. "/" .. getDeviceName()] = 0
@@ -131,42 +99,39 @@ sys.subscribe("MQTT_SIGN_AUTH", function(clientid, username, password)
                     0)
             elseif event == "sent" then
                 log.info("mqtt", "sent", "pkgid", data)
-                -- elseif event == "disconnect" then
+            elseif event == "disconnect" then
+                log.info("连接失败")
                 --     --非自动重连时,按需重启mqttc
                 --     mqtt_client:connect()
             end
         end)
-
         mqttc:connect()
-        sys.wait(1000)
-        local error = mqttc:ready()
-        if not error then
-            log.info("mqtt 连接失败")
-        else
-            log.info("mqtt 连接成功")
+        sys.waitUntil("mqtt_conack")
+        while true do
+            -- 如果没有其他task上报, 可以写个空等待
+            sys.wait(60000000)
         end
     end)
 end)
 
 
-sys.subscribe("MQTT_CERT_AUTH", function()   ---证书认证连接
+sys.subscribe("MQTT_CERT_AUTH", function() ---证书认证连接
     sys.taskInit(function()
-        -- log.info("clientid,username,password", result, clientid, username, password, payload)
         local clientid = ProductId .. getDeviceName()
-        --local connid = math.random(10000, 99999)
-        --log.info("connid类型", type(connid))
         local connid = math.random(10000, 99999)
         log.info("connid类型", type(connid))
         local expiry = "32472115200"
         local username = string.format("%s;12010126;%s;%s", clientid, connid, expiry) --生成 MQTT 的 username 部分, 格式为 ${clientid};${sdkappid};${connid};${expiry}
         local password = 123                                                          --证书认证不会验证password
-        log.info("clientid1,username1,password1",clientid, username, password)
+        log.info("clientid1,username1,password1", clientid, username, password)
         local mqtt_host = ProductId .. ".iotcloud.tencentdevices.com"
-        mqttc = mqtt.create(nil, mqtt_host, 8883, { client_cert = io.readFile("/client.crt"), client_key =io.readFile("/client.key")})
+        mqttc = mqtt.create(nil, mqtt_host, 8883,
+        { server_cert = io.readFile("/luadb/ca.crt"),
+        client_cert = io.readFile("/client.crt"),
+        client_key = io.readFile("/client.key") })
         mqttc:auth(clientid, username, password) -- client_id必填,其余选填
         mqttc:keepalive(300)                     -- 默认值300s
         mqttc:autoreconn(true, 20000)            -- 自动重连机制
-        mqttc:debug(true)  ------打开debug信息
 
 
         mqttc:on(function(mqtt_client, event, data, payload)
@@ -174,6 +139,7 @@ sys.subscribe("MQTT_CERT_AUTH", function()   ---证书认证连接
             log.info("mqtt", "event", event, mqtt_client, data, payload)
             if event == "conack" then
                 log.info("mqtt", "sent", "pkgid", data)
+                --连上了
                 sys.publish("mqtt_conack")
                 local txiot_subscribetopic = {
                     ["$thing/down/property/" .. ProductId .. "/" .. getDeviceName()] = 0
@@ -188,24 +154,56 @@ sys.subscribe("MQTT_CERT_AUTH", function()   ---证书认证连接
                     0)
             elseif event == "sent" then
                 log.info("mqtt", "sent", "pkgid", data)
-            -- elseif event == "disconnect" then
-            --     --非自动重连时,按需重启mqttc
-            --     mqtt_client:connect()
+            elseif event == "disconnect" then
+                log.info("连接失败")
+                --     --非自动重连时,按需重启mqttc
+                --     mqtt_client:connect()
             end
         end)
-
         local result = mqttc:connect()
         log.info("connect.result", result)
-        --sys.wait(300)
-        local error = mqttc:ready()
-        log.info("ready.result", error)
-        if not error then
-            log.info("mqtt 连接失败")
-        else
-            log.info("mqtt 连接成功")
+        sys.waitUntil("mqtt_conack")
+
+        while true do
+            -- 如果没有其他task上报, 可以写个空等待
+            sys.wait(60000000)
         end
     end)
 end)
+
+sys.taskInit(function()
+    if mobile.status() ~= 1 and not sys.waitUntil("IP_READY", 600000) then
+        log.info("网络初始化失败！")
+    end
+    log.info("io.exists", io.exists("/txiot.dat"))
+    if not io.exists("/txiot.dat") then
+        device_enrol()
+    end
+    local dat, result, err = json.decode(io.readFile("/txiot.dat"))
+    log.info("dat,result,err", dat, result, err)
+    if result == 0 then
+        log.info("json解码失败", err)
+        device_enrol() --解析失败重新下载文件
+        local dat, result, err = json.decode(io.readFile("/txiot.dat"))
+    end
+    local payload = json.decode(crypto.cipher_decrypt("AES-128-CBC", "ZERO", crypto.base64_decode(dat.payload),
+        string.sub(ProductSecret, 1, 16), "0000000000000000"))
+    log.info("payload[encryptionType]", payload.encryptionType)
+    log.info("payload[psk]", payload.psk)
+    if payload.encryptionType == 2 then
+        local clientid, username, password = iotauth.qcloud(ProductId, getDeviceName(), payload.psk)
+        sys.publish("MQTT_SIGN_AUTH", clientid, username, password) --签名认证
+    elseif payload.encryptionType == 1 then
+        log.info("payload date ", payload.encryptionType, payload.psk, payload.clientCert, payload.clientKey)
+        io.writeFile("/client.crt", payload.clientCert)
+        io.writeFile("/client.key", payload.clientKey)
+        sys.publish("MQTT_CERT_AUTH") --证书认证
+    end
+end)
+
+
+
+
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()

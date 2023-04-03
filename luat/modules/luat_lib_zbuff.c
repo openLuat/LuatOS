@@ -561,6 +561,8 @@ static int l_zbuff_unpack(lua_State *L)
             }
         }
         while (N--)
+            if (!lua_checkstack(L, n))
+                return luaL_error(L, "too many results to unpack");
             switch (c)
             {
             case OP_LITTLEENDIAN:

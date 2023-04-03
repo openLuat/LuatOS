@@ -156,57 +156,62 @@ static int l_unpack(lua_State *L)
    while (isdigit(*f)) N=10*N+(*f++)-'0';
    if (N==0 && c==OP_STRING) { lua_pushliteral(L,""); ++n; }
   }
-  while (N--) switch (c)
-  {
-   case OP_LITTLEENDIAN:
-   case OP_BIGENDIAN:
-   case OP_NATIVE:
+  while (N--) {
+   if (!lua_checkstack(L, n))
+    return luaL_error(L, "too many results to unpack");
+   switch (c)
    {
-    swap=doendian(c);
-    N=0;
-    break;
+      
+      case OP_LITTLEENDIAN:
+      case OP_BIGENDIAN:
+      case OP_NATIVE:
+      {
+      swap=doendian(c);
+      N=0;
+      break;
+      }
+      case OP_STRING:
+      {
+      ++N;
+      if (i+N>len) goto done;
+      lua_pushlstring(L,s+i,N);
+      i+=N;
+      ++n;
+      N=0;
+      break;
+      }
+      case OP_ZSTRING:
+      {
+      size_t l;
+      if (i>=len) goto done;
+      l=strlen(s+i);
+      lua_pushlstring(L,s+i,l);
+      i+=l+1;
+      ++n;
+      break;
+      }
+      UNPACKSTRING(OP_BSTRING, unsigned char)
+      UNPACKSTRING(OP_WSTRING, unsigned short)
+      UNPACKSTRING(OP_SSTRING, size_t)
+      UNPACKNUMBER(OP_NUMBER, lua_Number)
+   #ifndef LUA_NUMBER_INTEGRAL   
+      UNPACKNUMBER(OP_DOUBLE, double)
+      UNPACKNUMBER(OP_FLOAT, float)
+   #endif   
+      UNPACKINT8(OP_CHAR, char)
+      UNPACKINT(OP_BYTE, unsigned char)
+      UNPACKINT(OP_SHORT, short)
+      UNPACKINT(OP_USHORT, unsigned short)
+      UNPACKINT(OP_INT, int)
+      UNPACKINT(OP_UINT, unsigned int)
+      UNPACKINT(OP_LONG, long)
+      UNPACKINT(OP_ULONG, unsigned long)
+      case ' ': case ',':
+      break;
+      default:
+      badcode(L,c);
+      break;
    }
-   case OP_STRING:
-   {
-    ++N;
-    if (i+N>len) goto done;
-    lua_pushlstring(L,s+i,N);
-    i+=N;
-    ++n;
-    N=0;
-    break;
-   }
-   case OP_ZSTRING:
-   {
-    size_t l;
-    if (i>=len) goto done;
-    l=strlen(s+i);
-    lua_pushlstring(L,s+i,l);
-    i+=l+1;
-    ++n;
-    break;
-   }
-   UNPACKSTRING(OP_BSTRING, unsigned char)
-   UNPACKSTRING(OP_WSTRING, unsigned short)
-   UNPACKSTRING(OP_SSTRING, size_t)
-   UNPACKNUMBER(OP_NUMBER, lua_Number)
-#ifndef LUA_NUMBER_INTEGRAL   
-   UNPACKNUMBER(OP_DOUBLE, double)
-   UNPACKNUMBER(OP_FLOAT, float)
-#endif   
-   UNPACKINT8(OP_CHAR, char)
-   UNPACKINT(OP_BYTE, unsigned char)
-   UNPACKINT(OP_SHORT, short)
-   UNPACKINT(OP_USHORT, unsigned short)
-   UNPACKINT(OP_INT, int)
-   UNPACKINT(OP_UINT, unsigned int)
-   UNPACKINT(OP_LONG, long)
-   UNPACKINT(OP_ULONG, unsigned long)
-   case ' ': case ',':
-    break;
-   default:
-    badcode(L,c);
-    break;
   }
  }
 done:

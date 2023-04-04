@@ -560,7 +560,7 @@ static int l_zbuff_unpack(lua_State *L)
                 ++n;
             }
         }
-        while (N--)
+        while (N--){
             if (!lua_checkstack(L, n))
                 return luaL_error(L, "too many results to unpack");
             switch (c)
@@ -602,6 +602,7 @@ static int l_zbuff_unpack(lua_State *L)
                 badcode(L, c);
                 break;
             }
+        }
     }
 done:
     buff->cursor += i;

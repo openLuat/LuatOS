@@ -31,7 +31,7 @@ libgnss.bind(2)
 -- libgnss.debug(true)
 
 sys.subscribe("GNSS_STATE", function(event, ticks)
-    -- event取值有 
+    -- event取值有
     -- FIXED 定位成功
     -- LOSE  定位丢失
     -- ticks是事件发生的时间,一般可以忽略
@@ -93,7 +93,7 @@ GNSS状态变化
 GNSS_STATE
 @usage
 sys.subscribe("GNSS_STATE", function(event, ticks)
-    -- event取值有 
+    -- event取值有
     -- FIXED 定位成功
     -- LOSE  定位丢失
     -- ticks是事件发生的时间,一般可以忽略
@@ -160,6 +160,21 @@ static void put_datetime(lua_State*L, struct tm* rtime) {
     lua_settable(L, -3);
 }
 
+static int32_t l_gnss_callback(lua_State *L, void* ptr){
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    luat_libgnss_uart_recv_cb(msg->arg1, msg->arg2);
+	return 0;
+}
+
+static void l_libgnss_uart_recv_cb(int uart_id, uint32_t data_len)
+{
+    rtos_msg_t msg = {0};
+    msg.handler = l_gnss_callback;
+    msg.arg1 = uart_id;
+    msg.arg2 = data_len;
+    luat_msgbus_put(&msg, 0);
+
+}
 /**
 处理nmea数据
 @api libgnss.parse(str)
@@ -782,7 +797,7 @@ static int l_libgnss_bind(lua_State* L) {
     }
     if (luat_uart_exist(uart_id)) {
         //uart_app_recvs[uart_id] = nmea_uart_recv_cb;
-        luat_uart_set_app_recv(uart_id, luat_libgnss_uart_recv_cb);
+        luat_uart_set_app_recv(uart_id, l_libgnss_uart_recv_cb);
     }
     if (lua_isinteger(L, 2)) {
         libgnss_route_uart_id = luaL_checkinteger(L, 2);

@@ -1428,6 +1428,52 @@ static const rotable_Reg_t reg_eink[] =
     { "font_opposansm32_chinese", ROREG_PTR((void*)u8g2_font_opposansm32_chinese)},
 #endif
 
+#ifdef USE_U8G2_SARASA_ENGLISH
+    { "font_sarasa_m8_ascii", ROREG_PTR((void*)u8g2_font_sarasa_m8_ascii)},
+    { "font_sarasa_m10_ascii", ROREG_PTR((void*)u8g2_font_sarasa_m10_ascii)},
+    { "font_sarasa_m12_ascii", ROREG_PTR((void*)u8g2_font_sarasa_m12_ascii)},
+    { "font_sarasa_m14_ascii", ROREG_PTR((void*)u8g2_font_sarasa_m14_ascii)},
+    { "font_sarasa_m16_ascii", ROREG_PTR((void*)u8g2_font_sarasa_m16_ascii)},
+    { "font_sarasa_m18_ascii", ROREG_PTR((void*)u8g2_font_sarasa_m18_ascii)},
+    { "font_sarasa_m20_ascii", ROREG_PTR((void*)u8g2_font_sarasa_m20_ascii)},
+    { "font_sarasa_m22_ascii", ROREG_PTR((void*)u8g2_font_sarasa_m22_ascii)},
+    //再大的很少用到先不加了
+#endif
+
+#ifdef USE_U8G2_SARASA_M8_CHINESE
+    { "font_sarasa_m8_chinese", ROREG_PTR((void*)u8g2_font_sarasa_m8_chinese)},
+#endif
+#ifdef USE_U8G2_SARASA_M10_CHINESE
+    { "font_sarasa_m10_chinese", ROREG_PTR((void*)u8g2_font_sarasa_m10_chinese)},
+#endif
+#ifdef USE_U8G2_SARASA_M12_CHINESE
+    { "font_sarasa_m12_chinese", ROREG_PTR((void*)u8g2_font_sarasa_m12_chinese)},
+#endif
+#ifdef USE_U8G2_SARASA_M14_CHINESE
+    { "font_sarasa_m14_chinese", ROREG_PTR((void*)u8g2_font_sarasa_m14_chinese)},
+#endif
+#ifdef USE_U8G2_SARASA_M16_CHINESE
+    { "font_sarasa_m16_chinese", ROREG_PTR((void*)u8g2_font_sarasa_m16_chinese)},
+#endif
+#ifdef USE_U8G2_SARASA_M18_CHINESE
+    { "font_sarasa_m18_chinese", ROREG_PTR((void*)u8g2_font_sarasa_m18_chinese)},
+#endif
+#ifdef USE_U8G2_SARASA_M20_CHINESE
+    { "font_sarasa_m20_chinese", ROREG_PTR((void*)u8g2_font_sarasa_m20_chinese)},
+#endif
+#ifdef USE_U8G2_SARASA_M22_CHINESE
+    { "font_sarasa_m22_chinese", ROREG_PTR((void*)u8g2_font_sarasa_m22_chinese)},
+#endif
+#ifdef USE_U8G2_SARASA_M24_CHINESE
+    { "font_sarasa_m24_chinese", ROREG_PTR((void*)u8g2_font_sarasa_m24_chinese)},
+#endif
+#ifdef USE_U8G2_SARASA_M26_CHINESE
+    { "font_sarasa_m26_chinese", ROREG_PTR((void*)u8g2_font_sarasa_m26_chinese)},
+#endif
+#ifdef USE_U8G2_SARASA_M28_CHINESE
+    { "font_sarasa_m28_chinese", ROREG_PTR((void*)u8g2_font_sarasa_m28_chinese)},
+#endif
+
     { NULL,                    ROREG_INT(0)}
 };
 

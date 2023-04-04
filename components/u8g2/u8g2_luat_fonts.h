@@ -54,6 +54,14 @@ extern const uint8_t u8g2_font_sarasa_m32_ascii[] U8G2_FONT_SECTION("u8g2_font_s
 extern const uint8_t u8g2_font_sarasa_m8_chinese[] U8G2_FONT_SECTION("u8g2_font_sarasa_m8_chinese");
 extern const uint8_t u8g2_font_sarasa_m10_chinese[] U8G2_FONT_SECTION("u8g2_font_sarasa_m10_chinese");
 extern const uint8_t u8g2_font_sarasa_m12_chinese[] U8G2_FONT_SECTION("u8g2_font_sarasa_m12_chinese");
+extern const uint8_t u8g2_font_sarasa_m14_chinese[] U8G2_FONT_SECTION("u8g2_font_sarasa_m14_chinese");
+extern const uint8_t u8g2_font_sarasa_m16_chinese[] U8G2_FONT_SECTION("u8g2_font_sarasa_m16_chinese");
+extern const uint8_t u8g2_font_sarasa_m18_chinese[] U8G2_FONT_SECTION("u8g2_font_sarasa_m18_chinese");
+extern const uint8_t u8g2_font_sarasa_m20_chinese[] U8G2_FONT_SECTION("u8g2_font_sarasa_m20_chinese");
+extern const uint8_t u8g2_font_sarasa_m22_chinese[] U8G2_FONT_SECTION("u8g2_font_sarasa_m22_chinese");
+extern const uint8_t u8g2_font_sarasa_m24_chinese[] U8G2_FONT_SECTION("u8g2_font_sarasa_m24_chinese");
+extern const uint8_t u8g2_font_sarasa_m26_chinese[] U8G2_FONT_SECTION("u8g2_font_sarasa_m26_chinese");
+extern const uint8_t u8g2_font_sarasa_m28_chinese[] U8G2_FONT_SECTION("u8g2_font_sarasa_m28_chinese");
 
 // include custom fonts
 #include "luat_u8g2_fonts_custom.h"

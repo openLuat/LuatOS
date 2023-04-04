@@ -83,8 +83,8 @@ end
 
 --[[
 获取bh1750数据
-@api bh1750.get_data()
-@return number 光照强度数据, 若读取失败会返回-1
+@api bh1750.read_light()
+@return number 光照强度数据, 若读取失败会返回nil
 @usage
 local bh1750_data = bh1750.read_light()
 log.info("bh1750_read_light", bh1750_data)

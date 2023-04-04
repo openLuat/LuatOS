@@ -258,7 +258,7 @@ static int gc9a01_init(luat_lcd_conf_t* conf) {
     luat_lcd_wakeup(conf);
     /* wait for power stability */
     luat_timer_mdelay(100);
-    luat_lcd_clear(conf,WHITE);
+    luat_lcd_clear(conf,BLACK);
     /* display on */
     luat_lcd_display_on(conf);
     return 0;

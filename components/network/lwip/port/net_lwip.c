@@ -1481,13 +1481,25 @@ static int net_lwip_create_socket(uint8_t is_tcp, uint64_t *tag, void *param, ui
 	}
 	else
 	{
-		for (i = 0; i < MAX_SOCK_NUM; i++)
+		for (i = (prvlwip.next_socket_index + 1); i < MAX_SOCK_NUM; i++)
 		{
 			if (!prvlwip.socket[i].in_use)
 			{
 				socket_id = i;
 				prvlwip.next_socket_index = i + 1;
 				break;
+			}
+		}
+		if (socket_id < 0)
+		{
+			for (i = 0; i < MAX_SOCK_NUM; i++)
+			{
+				if (!prvlwip.socket[i].in_use)
+				{
+					socket_id = i;
+					prvlwip.next_socket_index = i + 1;
+					break;
+				}
 			}
 		}
 	}

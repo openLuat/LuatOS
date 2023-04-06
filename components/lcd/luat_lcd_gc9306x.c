@@ -39,7 +39,7 @@ static int gc9306x_init(luat_lcd_conf_t* conf) {
     if(conf->direction==0)lcd_write_data(conf,0x48);
     else if(conf->direction==1)lcd_write_data(conf,0xE8);
     else if(conf->direction==2)lcd_write_data(conf,0x28);
-    else lcd_write_data(conf,0x38);
+    else lcd_write_data(conf,0xF8);
 
     lcd_write_cmd(conf,0x3a);
     lcd_write_data(conf,0x05);

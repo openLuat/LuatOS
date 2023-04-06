@@ -666,8 +666,6 @@ extern int luat_mobile_config(item, value);
 mobile.flymode(0,true)
 mobile.config(mobile.CONF_RESELTOWEAKNCELL, 15)
 mobile.flymode(0,false)
--- 清空上下行流量累计值
-mobile.dataTraffic(true, true)
  */
 static int l_mobile_config(lua_State* L) {
     uint8_t item = luaL_optinteger(L, 1, 0);

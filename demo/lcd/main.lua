@@ -23,11 +23,11 @@ LCD管脚       Air780E管脚    Air101/Air103管脚   Air105管脚
 GND          GND            GND                 GND                 
 VCC          3.3V           3.3V                3.3V                
 SCL          (GPIO11)       (PB02/SPI0_SCK)     (PC15/HSPI_SCK)     
-SDA          (GPIO9)        (PB05/SPI0_MOSI)    (PC13/HSPI_MOSI)    
-RES          (GPIO1)        (PB03/GPIO19)       (PC12/HSPI_MISO)    
+SDA          (GPIO09)       (PB05/SPI0_MOSI)    (PC13/HSPI_MOSI)    
+RES          (GPIO01)       (PB03/GPIO19)       (PC12/HSPI_MISO)    
 DC           (GPIO10)       (PB01/GPIO17)       (PE08)              
-CS           (GPIO8)        (PB04/GPIO20)       (PC14/HSPI_CS)      
-BL           (GPIO22)       (PB00/GPIO16)       (PE09)              
+CS           (GPIO08)       (PB04/GPIO20)       (PC14/HSPI_CS)      
+BL(可以不接)  (GPIO22)       (PB00/GPIO16)       (PE09)              
 
 
 提示:
@@ -45,8 +45,9 @@ end
 
 local rtos_bsp = rtos.bsp()
 
+-- 根据不同的BSP返回不同的值
 -- spi_id,pin_reset,pin_dc,pin_cs,bl
-function lcd_pin()     
+function lcd_pin()
     if rtos_bsp == "AIR101" then
         return 0,pin.PB03,pin.PB01,pin.PB04,pin.PB00
     elseif rtos_bsp == "AIR103" then
@@ -58,7 +59,7 @@ function lcd_pin()
     elseif rtos_bsp == "ESP32S3" then
         return 2,16,15,14,13
     elseif rtos_bsp == "EC618" then
-        return 0,1,10,8,18
+        return 0,1,10,8,22
     else
         log.info("main", "bsp not support")
         return

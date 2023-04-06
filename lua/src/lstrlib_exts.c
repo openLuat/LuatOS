@@ -12,6 +12,8 @@
 #include "luat_log.h"
 
 /* }====================================================== */
+#define IsHex(c)      (((c >= 'a') && (c <= 'f')) || ((c >= 'A') && (c <= 'F')))
+#define IsDigit(c)        ((c >= '0') && (c <= '9'))
 
 static unsigned char hexchars[] = "0123456789ABCDEF";
 void luat_str_tohexwithsep(char* str, size_t len, char* separator, size_t len_j, char* buff) {
@@ -41,6 +43,40 @@ void luat_str_fromhex(char* str, size_t len, char* buff) {
       buff[i] = (a << 4) + b;
   }
 }
+
+size_t luat_str_fromhex_ex(char* str, size_t len, char* buff) {
+	size_t out_len = 0;
+	uint8_t temp = 0;
+	uint8_t is_full = 0;
+	uint8_t a;
+	for(size_t i = 0; i < len; i++)
+	{
+		a = str[i];
+		if (IsDigit(a)||IsHex(a))
+		{
+			if (is_full)
+			{
+				temp = (temp << 4) + ((a <= '9') ? a - '0' : (a & 0x7) + 9);
+				buff[out_len] = (char)temp;
+				out_len++;
+				temp = 0;
+				is_full = 0;
+			}
+			else
+			{
+				temp = ((a <= '9') ? a - '0' : (a & 0x7) + 9);
+				is_full = 1;
+			}
+		}
+		else
+		{
+			temp = 0;
+			is_full = 0;
+		}
+	}
+	return out_len;
+}
+
 /*
 将字符串转成HEX
 @api string.toHex(str, separator)
@@ -81,8 +117,9 @@ int l_str_fromHex (lua_State *L) {
   const char *str = luaL_checklstring(L, 1, &len);
   luaL_Buffer buff;
   luaL_buffinitsize(L, &buff, len / 2);
-  luat_str_fromhex((char*)str, len, buff.b);
-  buff.n = len / 2;
+//  luat_str_fromhex((char*)str, len, buff.b);
+//  buff.n = len / 2;
+  buff.n = luat_str_fromhex_ex((char*)str, len, buff.b);
   luaL_pushresult(&buff);
   return 1;
 }

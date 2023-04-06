@@ -424,6 +424,14 @@ int luat_mobile_get_last_notify_signal_strength_info(luat_mobile_signal_strength
  * @return int =0成功，其他失败
  */
 int luat_mobile_get_last_notify_signal_strength(uint8_t *csq);
+
+/**
+ * @brief 获取当前服务小区的cellid
+ *
+ * @param cellid
+ * @return int =0成功，其他失败
+ */
+int luat_mobile_get_service_cellid(uint32_t *cell_id);
 /* --------------------------------------------------- cell info end --------------------------------------------------- */
 
 

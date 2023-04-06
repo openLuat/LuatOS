@@ -14,8 +14,8 @@ log.style(1)
 
 Air780E            W5500
 GND(任意)          GND
-GPIO01             IRQ/INT,中断
-GPIO18             RST, 复位
+GPIO18             IRQ/INT,中断
+GPIO01             RST, 复位
 GPIO08/SPI0_CS     CS/SCS,片选    
 GPIO11/SPI0_SLK    SLK,时钟
 GPIO09/SPI0_MOSI   MOSI,主机输出,从机输入

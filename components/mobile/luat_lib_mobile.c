@@ -654,6 +654,36 @@ static int l_mobile_data_traffic(lua_State* L) {
     lua_pushinteger(L, temp);
     return 4;
 }
+extern int luat_mobile_config(item, value);
+/**
+网络特殊配置，针对不同平台有不同的配置，谨慎使用，目前只有EC618
+@api mobile.config(item, value)
+@int 配置项目，看CONF_XXX
+@int 配置值
+@return boolean 是否成功
+@usage
+-- EC618配置小区重选信号差值门限，不能大于15dbm，必须在飞行模式下才能用
+mobile.flymode(0,true)
+mobile.config(mobile.CONF_RESELTOWEAKNCELL, 15)
+mobile.flymode(0,false)
+-- 清空上下行流量累计值
+mobile.dataTraffic(true, true)
+ */
+static int l_mobile_config(lua_State* L) {
+    uint8_t item = luaL_optinteger(L, 1, 0);
+    uint32_t value = luaL_optinteger(L, 2, 0);
+    if (!item)
+    {
+    	lua_pushboolean(L, 0);
+    }
+    else
+    {
+    	lua_pushboolean(L, !luat_mobile_config(item, value));
+    }
+    return 1;
+}
+
+
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_mobile[] = {
@@ -680,7 +710,8 @@ static const rotable_Reg_t reg_mobile[] = {
     {"reqCellInfo", ROREG_FUNC(l_mobile_request_cell_info)},
 	{"reset",      ROREG_FUNC(l_mobile_reset)},
 	{"dataTraffic",      ROREG_FUNC(l_mobile_data_traffic)},
-    // const UNREGISTER 未注册
+	{"config",      ROREG_FUNC(l_mobile_config)},
+	// const UNREGISTER 未注册
     {"UNREGISTER",                  ROREG_INT(LUAT_MOBILE_STATUS_UNREGISTER)},
     // const REGISTERED 已注册
     {"REGISTERED",                  ROREG_INT(LUAT_MOBILE_STATUS_REGISTERED)},
@@ -702,7 +733,8 @@ static const rotable_Reg_t reg_mobile[] = {
     {"CSFB_NOT_PREFERRED_REGISTERED",  ROREG_INT(LUAT_MOBILE_STATUS_CSFB_NOT_PREFERRED_REGISTERED)},
     // const CSFB_NOT_PREFERRED_REGISTERED_ROAMING 已注册,非主要服务,漫游
     {"CSFB_NOT_PREFERRED_REGISTERED_ROAMING",  ROREG_INT(LUAT_MOBILE_STATUS_CSFB_NOT_PREFERRED_REGISTERED_ROAMING)},
-
+	// const CONF_RESELTOWEAKNCELL 小区重选信号差值门限
+	{"CONF_RESELTOWEAKNCELL",  ROREG_INT(MOBILE_CONF_RESELTOWEAKNCELL)},
     {NULL,          ROREG_INT(0)}
 };
 

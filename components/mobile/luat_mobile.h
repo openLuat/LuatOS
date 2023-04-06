@@ -621,4 +621,10 @@ void luat_mobile_get_ip_data_traffic(uint64_t *uplink, uint64_t *downlink);
  */
 void luat_mobile_clear_ip_data_traffic(uint8_t clear_uplink, uint8_t clear_downlink);
 /** @}*/
+
+enum
+{
+	MOBILE_CONF_RESELTOWEAKNCELL = 1,
+};
+
 #endif

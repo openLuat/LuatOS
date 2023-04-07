@@ -5,6 +5,7 @@
 @date    2023.04.06
 @author  Dozingfiretruck
 @usage
+--注意:校准和算法根据自己设计情况进行调节
 --注意:因使用了sys.wait()所有api需要在协程中使用
 -- 用法实例
 local ina226 = require "ina226"
@@ -74,7 +75,10 @@ ina226.init(0)
 function ina226.init(ina226_i2c)
     i2cid = ina226_i2c
     if chip_check() then
-        ina226_send(INA226_CONFIG_REG,0x45,0x27)-- 0100 1000 0010 0111
+        ina226_send(INA226_CONFIG_REG,0x80,0x00)
+        sys.wait(20)
+        ina226_send(INA226_CONFIG_REG,0x47,0x27)-- 0100 0111 0010 0111
+        ina226_send(INA226_CALIBRA_REG,0x0A,0x00)--5.12 / (0.1 * 0.02)
         return true
     end
 end
@@ -90,15 +94,19 @@ log.info("ina226_data", "shunt_voltage",ina226_data.shunt_voltage,"bus_voltage",
 function ina226.get_data()
     local ina226_data = {}
     local shunt = ina226_recv_short(INA226_SHUNT_VOL_REG)
+    print("shunt",shunt)
     if shunt == 0 then ina226_data.shunt_voltage = 0 else ina226_data.shunt_voltage = shunt*0.0025 end
 
     local bus = ina226_recv_short(INA226_BUS_VOL_REG)
+    print("bus",bus)
     if bus == 0 then ina226_data.bus_voltage = 0 else ina226_data.bus_voltage = bus*1.25 end
 
     local power = ina226_recv_short(INA226_POWER_REG)
+    print("power",power)
     if power == 0 then ina226_data.power = 0 else ina226_data.power = power*0.5 end
 
     local current = ina226_recv_short(INA226_CURRENT_REG)
+    print("current",current)
     if current == 0 then ina226_data.current = 0 else ina226_data.current = current*0.02 end
     return ina226_data
 end

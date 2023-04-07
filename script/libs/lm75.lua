@@ -41,7 +41,7 @@ local LM75_THYST               =   0x02 --滞后寄存器
 --[[
 lm75_data 初始化
 @api lm75_data.init(i2c_id)
-@number i2c_id i2c_id
+@number 所在的i2c总线id
 @return bool   成功返回true
 @usage
 lm75_data.init(0)

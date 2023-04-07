@@ -38,7 +38,7 @@ local AHT10_STATE                 =   0x71 --状态字.
 --[[
 aht10初始化
 @api aht10.init(i2c_id)
-@number i2c_id i2c_id
+@number 所在的i2c总线id
 @return bool   成功返回true
 @usage
 aht10.init(0)

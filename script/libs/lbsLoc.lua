@@ -95,7 +95,7 @@ end
 
 
 local function netCB(msg)
-	log.info("未处理消息", msg[1], msg[2], msg[3], msg[4])
+	--log.info("未处理消息", msg[1], msg[2], msg[3], msg[4])
 end
 
 
@@ -129,10 +129,10 @@ local function enCellInfo(s)
 end
 
 local function enWifiInfo(tWifi)
-    local ret,cnt,k,v = "",0
+    local ret,cnt = "", 0
     if tWifi then
         for k,v in pairs(tWifi) do
-            log.info("lbsLoc.enWifiInfo",k,v)
+            -- log.info("lbsLoc.enWifiInfo",k,v)
             ret = ret..pack.pack("Ab",(k:gsub(":","")):fromHex(),(v<0) and (v+255) or v)
             cnt = cnt+1
         end
@@ -156,17 +156,17 @@ end
 
 
 local function taskClient(cbFnc, reqAddr, timeout, productKey, host, port,reqTime, reqWifi)
-    while mobile.status() == 0 do
+    if mobile.status() == 0 then
         if not sys.waitUntil("IP_READY", timeout) then return cbFnc(1) end
+        sys.wait(500)
     end
     local retryCnt  = 0
-    sys.wait(3000)
     local reqStr = pack.pack("bAbAAAAA", productKey:len(), productKey,
                              (reqAddr and 2 or 0) + (reqTime and 4 or 0) + 8 +(reqWifi and 16 or 0) + 32, "",
                              numToBcdNum(mobile.imei()), enMuid(),
                              enCellInfo(mobile.getCellInfo()),
                              enWifiInfo(reqWifi))
-    log.info("reqStr", reqStr:toHex())
+    log.debug("reqStr", reqStr:toHex())
     local rx_buff = zbuff.create(17)
     -- sys.wait(5000)
     while true do
@@ -179,7 +179,7 @@ local function taskClient(cbFnc, reqAddr, timeout, productKey, host, port,reqTim
         result = libnet.connect(d1Name, 5000, netc, host, port)
         if result then
             while true do
-                log.info(" lbsloc socket_service connect true")
+                -- log.info(" lbsloc socket_service connect true")
                 result = libnet.tx(d1Name, 0, netc, reqStr) ---发送数据
                 if result then
                     result, param = libnet.wait(d1Name, 15000 + retryCnt * 5, netc)
@@ -191,7 +191,7 @@ local function taskClient(cbFnc, reqAddr, timeout, productKey, host, port,reqTim
                         break
                     end
                     succ, param, _, _ = socket.rx(netc, rx_buff) -- 接收数据
-                    log.info("是否接收和数据长度", succ, param)
+                    -- log.info("是否接收和数据长度", succ, param)
                     if param ~= 0 then -- 如果接收成功
                         socket.close(netc) -- 关闭连接
                         socket.release(netc)

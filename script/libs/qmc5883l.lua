@@ -81,7 +81,7 @@ end
 --[[
 qmc5883l 初始化
 @api qmc5883l.init(i2c_id)
-@number i2c_id i2c_id
+@number 所在的i2c总线id
 @return bool   成功返回true
 @usage
 qmc5883l.init(0)

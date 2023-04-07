@@ -630,7 +630,7 @@ function rc522.init(spi_id,cs,rst)
     rc522_rst(1)
     rc522.reset()
     rc522_config_isotype()
-    print("rc522.version",rc522.version())
+    log.debug("rc522.version",rc522.version())
     return true
 end
 

@@ -298,7 +298,7 @@ si24r1 接收
 @api si24r1.rxpacket()
 @return number len,buff 长度 数据
 @usage
-local i,data = si24r1.rxpacket( );		--接收字节
+local i,data = si24r1.rxpacket()		--接收字节
 print("rxbuf",i,data)
 ]]
 function si24r1.rxpacket()

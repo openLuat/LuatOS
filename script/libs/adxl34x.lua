@@ -105,7 +105,7 @@ end
 --[[
 adxl34x 初始化
 @api adxl34x.init(i2c_id)
-@number i2c_id i2c_id
+@number 所在的i2c总线id
 @return bool   成功返回true
 @usage
 adxl34x.init(0)
@@ -140,7 +140,7 @@ function adxl34x.get_data()
     _,accel.y = pack.unpack(i2c.recv(i2cid, ADXL34X_ADDRESS_ADR, 2),">h")
     i2c.send(i2cid, ADXL34X_ADDRESS_ADR,ADXL34X_DATAZ0)
     _,accel.z = pack.unpack(i2c.recv(i2cid, ADXL34X_ADDRESS_ADR, 2),">h")
-    return accel or 0
+    return accel
 end
 
 return adxl34x

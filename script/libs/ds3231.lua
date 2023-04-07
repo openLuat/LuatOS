@@ -81,7 +81,7 @@ end
 --[[
 ds3231初始化
 @api ds3231.init(i2c_id)
-@number i2c_id i2c_id
+@number 所在的i2c总线id
 @return bool   成功返回true
 @usage
 ds3231.init(0)

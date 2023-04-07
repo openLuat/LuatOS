@@ -16,7 +16,7 @@ sys.taskInit(function()
     ads1115.init(i2cid)--初始化,传入i2c_id
     while 1 do
         local ads1115_data = ads1115.get_val()
-        log.info("ads1115_get_val", ads1115_data)
+        log.info("ads1115", ads1115_data)
         sys.wait(1000)
     end
 end)
@@ -120,7 +120,7 @@ local ADS1115_CONF_LCMD	            =   0x83  	-- 128sps 传统比较器 输出�
 --[[
 ADS1115初始化
 @api ads1115.init(i2c_id)
-@number i2c_id i2c_id
+@number 所在的i2c总线id
 @return bool   成功返回true
 @usage
 ads1115.init(0)
@@ -128,23 +128,26 @@ ads1115.init(0)
 function ads1115.init(i2c_id)
     i2cid = i2c_id
     -- i2cslaveaddr = ADS1115_ADDRESS_AD0_LOW
-    log.info("ADS1115 init_ok")
+    log.info("ADS1115", "init_ok")
     return true
 end
 
 --[[
 获取ADS1115数据
 @api ads1115.get_val()
-@return number 光照强度数据
+@return number 光照强度数据,若读取失败会返回nil
 @usage
 local ads1115_data = ads1115.get_val()
-log.info("ads1115_get_val", ads1115_data)
+log.info("ads1115", ads1115_data)
 ]]
 function ads1115.get_val()
     i2c.send(i2cid, ADS1115_ADDRESS_AD0_LOW,{ADS1115_CONF_REG,ADS1115_CONF_HCMD,ADS1115_CONF_LCMD})
     sys.wait(5)
     i2c.send(i2cid, ADS1115_ADDRESS_AD0_LOW, ADS1115_DATA_REG)
     local _,val_data_raw = pack.unpack(i2c.recv(i2cid, ADS1115_ADDRESS_AD0_LOW, 2), ">h")
+    if not val_data_raw then
+        return
+    end
     if val_data_raw>=0x8000 then
         return ((0xffff-val_data_raw)/32767.0)*4.096
     else

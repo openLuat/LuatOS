@@ -127,7 +127,7 @@ end
 --[[
 mpu6xxx初始化
 @api mpu6xxx.init(i2c_id)
-@number i2c_id i2c_id
+@number 所在的i2c总线id
 @return bool   成功返回true
 @usage
 mpu6xxx.init(0)

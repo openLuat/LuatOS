@@ -36,7 +36,7 @@ local MLX90614_TOBJ2                =   0x08
 --[[
 mlx90614 初始化
 @api mlx90614.init(i2c_id)
-@number i2c_id i2c_id
+@number 所在的i2c总线id
 @return bool   成功返回true
 @usage
 mlx90614.init(0)

@@ -11,9 +11,8 @@
 local ina226 = require "ina226"
 
 local i2cid = 0
-i2c_speed = i2c.FAST
 sys.taskInit(function()
-    i2c.setup(i2cid,i2c_speed)
+    i2c.setup(i2cid, i2c.FAST)
     ina226.init(i2cid)
     while 1 do
         local ina226_data = ina226.get_data()
@@ -66,19 +65,28 @@ end
 
 --[[
 ina226初始化
-@api ina226.init(ina226_i2c)
-@number ina226_i2c i2c_id
+@api ina226.init(ina226_i2c, conf, cal)
+@number 挂载ina226的i2c总线id
+@table 配置数据, 默认值 {0x47,0x27}, 即0100 0111 0010 0111
+@table 校准数据, 默认值 {0x0A,0x00}, 即5.12 / (0.1 * 0.02)
 @return bool   成功返回true
 @usage
+-- 使用默认值进行初始化
 ina226.init(0)
 ]]
-function ina226.init(ina226_i2c)
+function ina226.init(ina226_i2c, conf, cal)
     i2cid = ina226_i2c
+    if not conf then
+        conf = {0x47,0x27}
+    end
+    if not cal then
+        cal =  {0x0A,0x00}
+    end
     if chip_check() then
         ina226_send(INA226_CONFIG_REG,0x80,0x00)
         sys.wait(20)
-        ina226_send(INA226_CONFIG_REG,0x47,0x27)-- 0100 0111 0010 0111
-        ina226_send(INA226_CALIBRA_REG,0x0A,0x00)--5.12 / (0.1 * 0.02)
+        ina226_send(INA226_CONFIG_REG, table.unpack(conf))-- 0100 0111 0010 0111
+        ina226_send(INA226_CALIBRA_REG, table.unpack(cal))--5.12 / (0.1 * 0.02)
         return true
     end
 end
@@ -94,19 +102,19 @@ log.info("ina226_data", "shunt_voltage",ina226_data.shunt_voltage,"bus_voltage",
 function ina226.get_data()
     local ina226_data = {}
     local shunt = ina226_recv_short(INA226_SHUNT_VOL_REG)
-    print("shunt",shunt)
+    -- print("shunt",shunt)
     if shunt == 0 then ina226_data.shunt_voltage = 0 else ina226_data.shunt_voltage = shunt*0.0025 end
 
     local bus = ina226_recv_short(INA226_BUS_VOL_REG)
-    print("bus",bus)
+    -- print("bus",bus)
     if bus == 0 then ina226_data.bus_voltage = 0 else ina226_data.bus_voltage = bus*1.25 end
 
     local power = ina226_recv_short(INA226_POWER_REG)
-    print("power",power)
+    -- print("power",power)
     if power == 0 then ina226_data.power = 0 else ina226_data.power = power*0.5 end
 
     local current = ina226_recv_short(INA226_CURRENT_REG)
-    print("current",current)
+    -- print("current",current)
     if current == 0 then ina226_data.current = 0 else ina226_data.current = current*0.02 end
     return ina226_data
 end

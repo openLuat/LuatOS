@@ -96,7 +96,7 @@ end
 --[[
 tsl2561 初始化
 @api tsl2561.init(i2c_id)
-@number i2c_id i2c_id
+@number 所在的i2c总线id
 @return bool   成功返回true
 @usage
 tsl2561.init(0)

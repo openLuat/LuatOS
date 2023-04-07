@@ -347,7 +347,7 @@ unsigned long ReadCount(int date,int clk) //增益128
   return count;
 }
 /*
-获取Hx711的温度数据
+获取Hx711的压力传感数据
 @api    sensor.hx711(pin_date,pin_clk)
 @int    数据的gpio端口号
 @int    时钟的gpio端口号

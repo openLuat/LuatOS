@@ -625,10 +625,16 @@ static err_t net_lwip_tcp_err_cb(void *arg, err_t err)
 {
 	int socket_id = ((uint32_t)arg) & 0x0000ffff;
 	uint8_t adapter_index = ((uint32_t)arg) >> 16;
+	if (prvlwip.socket[socket_id].is_tcp)
+	{
+		if (prvlwip.socket[socket_id].pcb.tcp)
+		{
+			prvlwip.socket[socket_id].pcb.tcp = NULL;
+		}
+	}
 	if (!prvlwip.socket[socket_id].state && !prvlwip.socket[socket_id].remote_close)
 	{
 		NET_DBG("adapter %d socket %d not closing, but error %d", adapter_index, socket_id, err);
-		prvlwip.socket[socket_id].pcb.ip = NULL;
 		net_lwip_tcp_error(adapter_index, socket_id);
 	}
 	return 0;
@@ -890,6 +896,7 @@ static void net_lwip_close_tcp(int socket_id)
 	{
 		tcp_abort(prvlwip.socket[socket_id].pcb.tcp);
 	}
+	prvlwip.socket[socket_id].pcb.tcp = NULL;
 }
 
 static void net_lwip_task(void *param)

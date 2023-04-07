@@ -625,6 +625,7 @@ void luat_mobile_clear_ip_data_traffic(uint8_t clear_uplink, uint8_t clear_downl
 enum
 {
 	MOBILE_CONF_RESELTOWEAKNCELL = 1,
+	MOBILE_CONF_STATICCONFIG,
 };
 
 #endif

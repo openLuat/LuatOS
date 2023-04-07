@@ -654,7 +654,7 @@ static int l_mobile_data_traffic(lua_State* L) {
     lua_pushinteger(L, temp);
     return 4;
 }
-extern int luat_mobile_config(item, value);
+extern int luat_mobile_config(uint8_t item, uint32_t value);
 /**
 网络特殊配置，针对不同平台有不同的配置，谨慎使用，目前只有EC618
 @api mobile.config(item, value)
@@ -665,6 +665,7 @@ extern int luat_mobile_config(item, value);
 -- EC618配置小区重选信号差值门限，不能大于15dbm，必须在飞行模式下才能用
 mobile.flymode(0,true)
 mobile.config(mobile.CONF_RESELTOWEAKNCELL, 15)
+mobile.config(mobile.CONF_STATICCONFIG, 1) --开启网络静态优化
 mobile.flymode(0,false)
  */
 static int l_mobile_config(lua_State* L) {
@@ -733,6 +734,8 @@ static const rotable_Reg_t reg_mobile[] = {
     {"CSFB_NOT_PREFERRED_REGISTERED_ROAMING",  ROREG_INT(LUAT_MOBILE_STATUS_CSFB_NOT_PREFERRED_REGISTERED_ROAMING)},
 	// const CONF_RESELTOWEAKNCELL 小区重选信号差值门限
 	{"CONF_RESELTOWEAKNCELL",  ROREG_INT(MOBILE_CONF_RESELTOWEAKNCELL)},
+	// const MOBILE_CONF_STATICCONFIG 网络静态模式优化
+	{"CONF_STATICCONFIG",  ROREG_INT(MOBILE_CONF_STATICCONFIG)},
     {NULL,          ROREG_INT(0)}
 };
 

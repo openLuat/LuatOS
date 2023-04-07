@@ -24,6 +24,7 @@ typedef struct
 	uint8_t adapter_index;
 }luat_socket_ctrl_t;
 
+#define L_CTRL_CHECK 	do {if (!l_ctrl){return 0;}}while(0)
 
 network_adapter_info* network_adapter_fetch(int id, void** userdata);
 
@@ -163,6 +164,7 @@ static luat_socket_ctrl_t * l_get_ctrl(lua_State *L, int index)
 static int l_socket_gc(lua_State *L)
 {
 	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	L_CTRL_CHECK;
     if (l_ctrl->netc)
     {
     	network_force_close_socket(l_ctrl->netc);
@@ -251,6 +253,7 @@ static int l_socket_create(lua_State *L)
 static int l_socket_set_debug(lua_State *L)
 {
 	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	L_CTRL_CHECK;
 	if (lua_isboolean(L, 2))
 	{
 		l_ctrl->netc->is_debug = lua_toboolean(L, 2);
@@ -279,11 +282,11 @@ socket.config(ctrl, nil, nil ,true)	--最普通的加密TCP传输，证书都不
 static int l_socket_config(lua_State *L)
 {
 	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	L_CTRL_CHECK;
 	uint8_t is_udp = 0;
 	uint8_t is_tls = 0;
 	int param_pos = 1;
 	uint32_t keep_idle, keep_interval, keep_cnt;
-
 	const char *server_cert = NULL;
 	const char *client_cert = NULL;
 	const char *client_key = NULL;
@@ -372,6 +375,7 @@ static int l_socket_config(lua_State *L)
 static int l_socket_linkup(lua_State *L)
 {
 	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	L_CTRL_CHECK;
 	int result = network_wait_link_up(l_ctrl->netc, 0);
 	lua_pushboolean(L, (result < 0)?0:1);
 	lua_pushboolean(L, result == 0);
@@ -395,6 +399,7 @@ static int l_socket_connect(lua_State *L)
 {
 #ifdef LUAT_USE_LWIP
 	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	L_CTRL_CHECK;
 	luat_ip_addr_t ip_addr;
 	const char *ip = NULL;
 	size_t ip_len;
@@ -429,6 +434,7 @@ static int l_socket_connect(lua_State *L)
 	return 2;
 #else
 	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	L_CTRL_CHECK;
 	luat_ip_addr_t ip_addr;
 	const char *ip = NULL;
 	size_t ip_len;
@@ -465,6 +471,7 @@ static int l_socket_connect(lua_State *L)
 static int l_socket_disconnect(lua_State *L)
 {
 	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	L_CTRL_CHECK;
 	int result = network_close(l_ctrl->netc, 0);
 	lua_pushboolean(L, (result < 0)?0:1);
 	lua_pushboolean(L, result == 0);
@@ -479,6 +486,7 @@ static int l_socket_disconnect(lua_State *L)
 static int l_socket_close(lua_State *L)
 {
 	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	L_CTRL_CHECK;
 	network_force_close_socket(l_ctrl->netc);
 	return 0;
 }
@@ -501,6 +509,7 @@ static int l_socket_tx(lua_State *L)
 #ifdef LUAT_USE_LWIP
 	char ip_buf[68] = {0};
 	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	L_CTRL_CHECK;
 	luat_ip_addr_t ip_addr = {0};
 	luat_zbuff_t *buff = NULL;
 	const char *ip = NULL;
@@ -535,6 +544,7 @@ static int l_socket_tx(lua_State *L)
 	int result = network_tx(l_ctrl->netc, (const uint8_t *)data, data_len, luaL_optinteger(L, 5, 0), network_ip_is_vaild(&ip_addr)?&ip_addr:NULL, luaL_optinteger(L, 4, 0), &tx_len, 0);
 #else
 	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	L_CTRL_CHECK;
 	luat_ip_addr_t ip_addr = {0};
 	luat_zbuff_t *buff = NULL;
 	const char *ip = NULL;
@@ -600,8 +610,8 @@ static int l_socket_tx(lua_State *L)
 static int l_socket_rx(lua_State *L)
 {
 	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	L_CTRL_CHECK;
 	luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
-
 	luat_ip_addr_t ip_addr;
 	uint8_t ip[17];
 	uint16_t port;
@@ -707,6 +717,7 @@ static int l_socket_rx(lua_State *L)
 static int l_socket_wait(lua_State *L)
 {
 	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	L_CTRL_CHECK;
 	int result = network_wait_event(l_ctrl->netc, NULL, 0, NULL);
 	lua_pushboolean(L, (result < 0)?0:1);
 	lua_pushboolean(L, result == 0);
@@ -724,6 +735,7 @@ static int l_socket_wait(lua_State *L)
 static int l_socket_listen(lua_State *L)
 {
 	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	L_CTRL_CHECK;
 	int result = network_listen(l_ctrl->netc, 0);
 	lua_pushboolean(L, (result < 0)?0:1);
 	lua_pushboolean(L, result == 0);
@@ -742,6 +754,7 @@ static int l_socket_listen(lua_State *L)
 static int l_socket_accept(lua_State *L)
 {
 	luat_socket_ctrl_t *old_ctrl = l_get_ctrl(L, 1);
+	if (!old_ctrl) return 0;
 	if (network_accept_enable(old_ctrl->netc))
 	{
 		luat_socket_ctrl_t *new_ctrl = (luat_socket_ctrl_t *)lua_newuserdata(L, sizeof(luat_socket_ctrl_t));

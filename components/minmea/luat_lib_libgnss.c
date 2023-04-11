@@ -66,7 +66,7 @@ static inline void push_gnss_value(lua_State *L, struct minmea_float *f, int mod
     switch (mode)
     {
     case 0:
-        lua_pushinteger(L, minmea_tofloat(f));
+        lua_pushnumber(L, minmea_tofloat(f));
         break;
     case 1:
         lua_pushinteger(L, minmea_tocoord2(f));
@@ -284,21 +284,21 @@ static int l_libgnss_get_rmc(lua_State *L) {
         lua_setfield(L, -2, "lng");
 
         if (libgnss_gnss->frame_rmc.valid) {
-            push_gnss_value(L, &(libgnss_gnss->frame_rmc.speed), mode);
+            push_gnss_value(L, &(libgnss_gnss->frame_rmc.speed), 0);
         }
         else
             lua_pushinteger(L, 0);
         lua_setfield(L, -2, "speed");
 
         if (libgnss_gnss->frame_rmc.valid) {
-            push_gnss_value(L, &(libgnss_gnss->frame_rmc.course), mode);
+            push_gnss_value(L, &(libgnss_gnss->frame_rmc.course), 0);
         }
         else
             lua_pushinteger(L, 0);
         lua_setfield(L, -2, "course");
 
         if (libgnss_gnss->frame_rmc.valid) {
-            push_gnss_value(L, &(libgnss_gnss->frame_rmc.variation), mode);
+            push_gnss_value(L, &(libgnss_gnss->frame_rmc.variation), 0);
         }
         else
             lua_pushinteger(L, 0);
@@ -460,15 +460,15 @@ static int l_libgnss_get_gsa(lua_State *L) {
     lua_settable(L, -3);
 
     lua_pushliteral(L, "pdop");
-    push_gnss_value(L, &(libgnss_gnss->frame_gsa[0].pdop), mode);
+    push_gnss_value(L, &(libgnss_gnss->frame_gsa[0].pdop), 0);
     lua_settable(L, -3);
 
     lua_pushliteral(L, "hdop");
-    push_gnss_value(L, &(libgnss_gnss->frame_gsa[0].hdop), mode);
+    push_gnss_value(L, &(libgnss_gnss->frame_gsa[0].hdop), 0);
     lua_settable(L, -3);
 
     lua_pushliteral(L, "vdop");
-    push_gnss_value(L, &(libgnss_gnss->frame_gsa[0].vdop), mode);
+    push_gnss_value(L, &(libgnss_gnss->frame_gsa[0].vdop), 0);
     lua_settable(L, -3);
 
     lua_pushliteral(L, "sats");
@@ -494,7 +494,7 @@ static int l_libgnss_get_gsa(lua_State *L) {
 /**
 获取VTA速度信息
 @api libgnss.getVtg(data_mode)
-@int 坐标类数据的格式, 0-DDMM.MMM格式, 1-DDDDDDD格式, 2-DD.DDDDD格式
+@int 可选, 3-原始字符串, 不传或者传其他值, 则返回浮点值
 @return table 原始VTA数据
 @usage
 -- 解析nmea
@@ -527,19 +527,19 @@ static int l_libgnss_get_vtg(lua_State *L) {
     // lua_settable(L, -3);
 
     lua_pushliteral(L, "true_track_degrees");
-    push_gnss_value(L, &(frame_vtg.true_track_degrees), mode);
+    push_gnss_value(L, &(frame_vtg.true_track_degrees), 0);
     lua_settable(L, -3);
 
     lua_pushliteral(L, "magnetic_track_degrees");
-    push_gnss_value(L, &(frame_vtg.magnetic_track_degrees), mode);
+    push_gnss_value(L, &(frame_vtg.magnetic_track_degrees), 0);
     lua_settable(L, -3);
 
     lua_pushliteral(L, "speed_knots");
-    push_gnss_value(L, &(frame_vtg.speed_knots), mode);
+    push_gnss_value(L, &(frame_vtg.speed_knots), 0);
     lua_settable(L, -3);
 
     lua_pushliteral(L, "speed_kph");
-    push_gnss_value(L, &(frame_vtg.speed_kph), mode);
+    push_gnss_value(L, &(frame_vtg.speed_kph), 0);
     lua_settable(L, -3);
 
     return 1;
@@ -653,7 +653,7 @@ static int l_libgnss_get_gga(lua_State* L) {
     minmea_parse_gga(&frame_gga, libgnss_gnss->gga);
 
     lua_pushstring(L, "altitude");
-    push_gnss_value(L, &(frame_gga.altitude), mode);
+    push_gnss_value(L, &(frame_gga.altitude), 0);
     lua_settable(L, -3);
 
     lua_pushstring(L, "latitude");
@@ -673,15 +673,15 @@ static int l_libgnss_get_gga(lua_State* L) {
     lua_settable(L, -3);
 
     lua_pushstring(L, "hdop");
-    push_gnss_value(L, &(frame_gga.hdop), mode);
+    push_gnss_value(L, &(frame_gga.hdop), 0);
     lua_settable(L, -3);
 
     lua_pushstring(L, "height");
-    push_gnss_value(L, &(frame_gga.height), mode);
+    push_gnss_value(L, &(frame_gga.height), 0);
     lua_settable(L, -3);
 
     lua_pushstring(L, "dgps_age");
-    push_gnss_value(L, &(frame_gga.dgps_age), mode);
+    push_gnss_value(L, &(frame_gga.dgps_age), 0);
     lua_settable(L, -3);
 
     return 1;

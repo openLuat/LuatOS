@@ -428,9 +428,9 @@ static int l_mobile_snr(lua_State* L) {
 @return int 当前cellid值,若失败返回-1
  */
 static int l_mobile_cellid(lua_State* L) {
-    uint32_t cellid;
-    if (luat_mobile_get_service_cellid(&cellid) == 0) {
-        lua_pushinteger(L, cellid);
+    uint32_t cei;
+    if (luat_mobile_get_service_cei(&cei) == 0) {
+        lua_pushinteger(L, cei&0xff);
     }
     else {
         lua_pushinteger(L, -1);

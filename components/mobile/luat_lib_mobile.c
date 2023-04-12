@@ -430,7 +430,7 @@ static int l_mobile_snr(lua_State* L) {
 static int l_mobile_cellid(lua_State* L) {
     uint32_t cei;
     if (luat_mobile_get_service_cei(&cei) == 0) {
-        lua_pushinteger(L, cei&0xff);
+        lua_pushinteger(L, cei);
     }
     else {
         lua_pushinteger(L, -1);

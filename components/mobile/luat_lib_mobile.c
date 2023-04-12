@@ -455,22 +455,6 @@ static int l_mobile_enbid(lua_State* L) {
 }
 
 /**
-获取cellid
-@api mobile.cellid()
-@return int 当前cellid值,若失败返回-1
- */
-static int l_mobile_cellid(lua_State* L) {
-    uint32_t cei;
-    if (luat_mobile_get_service_cei(&cei) == 0) {
-        lua_pushinteger(L, cei);
-    }
-    else {
-        lua_pushinteger(L, -1);
-    }
-    return 1;
-}
-
-/**
 进出飞行模式
 @api mobile.flymode(index, enable)
 @int 编号,默认0. 在支持双卡的模块上才会出现0或1的情况

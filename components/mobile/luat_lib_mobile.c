@@ -423,6 +423,38 @@ static int l_mobile_snr(lua_State* L) {
 }
 
 /**
+获取cei
+@api mobile.cei()
+@return int 当前cei值,若失败返回-1
+ */
+static int l_mobile_cei(lua_State* L) {
+    uint32_t cei;
+    if (luat_mobile_get_service_cei(&cei) == 0) {
+        lua_pushinteger(L, cei);
+    }
+    else {
+        lua_pushinteger(L, -1);
+    }
+    return 1;
+}
+
+/**
+获取enbid
+@api mobile.enbid()
+@return int 当前enbid值,若失败返回-1
+ */
+static int l_mobile_enbid(lua_State* L) {
+    uint32_t cei;
+    if (luat_mobile_get_service_cei(&cei) == 0) {
+        lua_pushinteger(L, cei>>8);
+    }
+    else {
+        lua_pushinteger(L, -1);
+    }
+    return 1;
+}
+
+/**
 获取cellid
 @api mobile.cellid()
 @return int 当前cellid值,若失败返回-1
@@ -707,7 +739,9 @@ static const rotable_Reg_t reg_mobile[] = {
     {"rsrq",        ROREG_FUNC(l_mobile_rsrq)},
     {"rsrp",        ROREG_FUNC(l_mobile_rsrp)},
     {"snr",         ROREG_FUNC(l_mobile_snr)},
-	{"cellid",         ROREG_FUNC(l_mobile_cellid)},
+    {"cei",         ROREG_FUNC(l_mobile_cei)},
+    {"enbid",      ROREG_FUNC(l_mobile_enbid)},
+	{"cellid",      ROREG_FUNC(l_mobile_cellid)},
     {"flymode",     ROREG_FUNC(l_mobile_flymode)},
     {"simid",       ROREG_FUNC(l_mobile_simid)},
 	{"rtime",       ROREG_FUNC(l_mobile_set_rrc_auto_release_time)},

@@ -9,7 +9,7 @@
 -- 用法实例
 local netLed = require ("netLed")
 
-local LEDA= gpio.setup(27，1，gpio.PULLUP) --LED引脚判断赋值结束
+local LEDA = gpio.setup(27,1,gpio.PULLUP) --LED引脚判断赋值结束
 sys.taskInit(function()
 --呼吸灯
 sys.wait(5080) --延时5秒等待网络注册
@@ -26,11 +26,11 @@ end)
 netLed = {}
 
 
-local simError        --SIM卡状态：true为异常，false或者nil为正常
-local flyMode         --是否处于飞行模式：true为是，false或者nil为否
-local gsmRegistered   --是否注册上GSM网络，true为是，false或者nil为否
-local gprsAttached    --是否附着上GPRS网络，true为是，false或者nil为否
-local socketConnected --是否有socket连接上后台，true为是，false或者nil为否
+local simError        --SIM卡状态：true为异常,false或者nil为正常
+local flyMode         --是否处于飞行模式：true为是,false或者nil为否
+local gsmRegistered   --是否注册上GSM网络,true为是,false或者nil为否
+local gprsAttached    --是否附着上GPRS网络,true为是,false或者nil为否
+local socketConnected --是否有socket连接上后台,true为是,false或者nil为否
 
 --[[
 网络指示灯表示的工作状态
@@ -49,23 +49,23 @@ local ledBlinkTime =
 {
     NULL = {0,0xFFFF},  --常灭
     FLYMODE = {0,0xFFFF},  --常灭
-    SIMERR = {300,5700},  --亮300毫秒，灭5700毫秒
-    IDLE = {300,3700},  --亮300毫秒，灭3700毫秒
-    GSM = {300,1700},  --亮300毫秒，灭1700毫秒
-    GPRS = {300,700},  --亮300毫秒，灭700毫秒
-    SCK = {100,100},  --亮100毫秒，灭100毫秒
+    SIMERR = {300,5700},  --亮300毫秒,灭5700毫秒
+    IDLE = {300,3700},  --亮300毫秒,灭3700毫秒
+    GSM = {300,1700},  --亮300毫秒,灭1700毫秒
+    GPRS = {300,700},  --亮300毫秒,灭700毫秒
+    SCK = {100,100},  --亮100毫秒,灭100毫秒
 }
 
 
-local ledSwitch = false   --网络指示灯开关，true为打开，false或者nil为关闭
+local ledSwitch = false   --网络指示灯开关,true为打开,false或者nil为关闭
 local LEDPIN = 27         --网络指示灯默认PIN脚（GPIO27）
-local lteSwitch = false   --LTE指示灯开关，true为打开，false或者nil为关闭
+local lteSwitch = false   --LTE指示灯开关,true为打开,false或者nil为关闭
 local LTEPIN = 26         --LTE指示灯默认PIN脚（GPIO26）
 
 
 --[[
 更新网络指示灯表示的工作状态
-@api netled.setState
+@api netLed.setState
 @return nil 无返回值
 @usage
 netLed.setState()
@@ -95,10 +95,10 @@ end
 
 --[[
 网络指示灯模块的运行任务
-@api netled.taskLed(ledPinSetFunc)
+@api netLed.taskLed(ledPinSetFunc)
 @return nil 无返回值
 @usage 
-local LEDA= gpio.setup(27，1，gpio.PULLUP) --LED引脚判断赋值结束
+local LEDA = gpio.setup(27,1,gpio.PULLUP) --LED引脚判断赋值结束
 netled.taskLed(LEDA)
 ]]
 function netLed.taskLed(ledPinSetFunc)
@@ -131,7 +131,7 @@ LTE指示灯模块的运行任务
 @api netLed.taskLte(ledPinSetFunc)
 @return nil 无返回值
 @usage 
-local LEDA= gpio.setup(27，1，gpio.PULLUP) --LED引脚判断赋值结束
+local LEDA = gpio.setup(27,1,gpio.PULLUP) --LED引脚判断赋值结束
 netLed.taskLte(LEDA)
 ]]
  function netLed.taskLte(ledPinSetFunc)
@@ -146,12 +146,12 @@ end
 --[[
 配置网络指示灯和LTE指示灯并且立即执行配置后的动作
 @api netLed.setup(flag,ledpin,ltepin)
-@bool flag 是否打开网络指示灯和LTE指示灯功能，true为打开，false为关闭
-@number ledPin 控制网络指示灯闪烁的GPIO引脚，例如pio.P0_1表示GPIO1
-@number ltePin 控制LTE指示灯闪烁的GPIO引脚，例如pio.P0_4表示GPIO4
+@bool flag 是否打开网络指示灯和LTE指示灯功能,true为打开,false为关闭
+@number ledPin 控制网络指示灯闪烁的GPIO引脚,例如pio.P0_1表示GPIO1
+@number ltePin 控制LTE指示灯闪烁的GPIO引脚,例如pio.P0_4表示GPIO4
 @return nil 无返回值
 @usage 
-netLed.setup(true，27，0)
+netLed.setup(true,27,0)
 ]]
 function netLed.setup(flag,ledPin,ltePin)
     --log.info("netLed.setup",flag,pin,ledSwitch)    
@@ -172,14 +172,14 @@ function netLed.setup(flag,ledPin,ltePin)
 end
 
 --[[
-配置某种工作状态下指示灯点亮和熄灭的时长（如果用户不配置，使用netLed.lua中ledBlinkTime配置的默认值）
+配置某种工作状态下指示灯点亮和熄灭的时长（如果用户不配置,使用netLed.lua中ledBlinkTime配置的默认值）
 @api netLed.setBlinkTime(state,on,off)
-@string state 某种工作状态，仅支持"FLYMODE"、"SIMERR"、"IDLE"、"GSM"、"GPRS"、"SCK"
-@number on 指示灯点亮时长，单位毫秒，0xFFFF表示常亮，0表示常灭
-@number off 指示灯熄灭时长，单位毫秒，0xFFFF表示常灭，0表示常亮
+@string state 某种工作状态,仅支持"FLYMODE"、"SIMERR"、"IDLE"、"GSM"、"GPRS"、"SCK"
+@number on 指示灯点亮时长,单位毫秒,0xFFFF表示常亮,0表示常灭
+@number off 指示灯熄灭时长,单位毫秒,0xFFFF表示常灭,0表示常亮
 @return nil 无返回值 
 @usage 
-netLed.setBlinkTime(("FLYMODE",1000,500) --表示飞行模式工作状态下，指示灯闪烁规律为: 亮1秒，灭8.5秒
+netLed.setBlinkTime(("FLYMODE",1000,500) --表示飞行模式工作状态下,指示灯闪烁规律为: 亮1秒,灭8.5秒
 ]]
 function netLed.setBlinkTime(state,on,off)
     if not ledBlinkTime[state] then log.error("netLed.setBlinkTime") return end    
@@ -203,7 +203,7 @@ end
 @return nil 无返回值
 @usage 
 local netLed = require ("netLed")
-local LEDA= gpio.setup(27，1，gpio.PULLUP) --LED引脚判断赋值结束
+local LEDA = gpio.setup(27,1,gpio.PULLUP) --LED引脚判断赋值结束
 sys.taskInit(function()
 --呼吸灯
 sys.wait(5080) --延时5秒等待网络注册
@@ -246,10 +246,11 @@ function netLed.setupBreateLed(ledPin)
 end
 
 sys.subscribe("FLYMODE", function(mode) if flyMode~=mode then flyMode=mode netLed.setState() end end)
-sys.subscribe("SIM_IND", function(para) if simError~=(para~="RDY") then simError=(para~="RDY") netLed.setState() end end)
-sys.subscribe("IP_CLOSE", function() if gsmRegistered then gsmRegistered=false netLed.setState() end end)
+-- sys.subscribe("SIM_IND", function(para) if simError~=(para~="RDY") then simError=(para~="RDY") netLed.setState() end end)
+sys.subscribe("SIM_IND", function(para) if simError~=(para~="RDY") and simError~=(para~="GET_NUMBER") then simError=(para~="RDY") netLed.setState() end log.info("sim status", para) end)
+sys.subscribe("IP_LOSE", function() if gsmRegistered then gsmRegistered=false netLed.setState() end end)
 sys.subscribe("IP_READY", function() if not gsmRegistered then gsmRegistered=true netLed.setState() end end)
-sys.subscribe("IP_READY", function(attach) if gprsAttached~=attach then gprsAttached=attach netLed.setState() end end)
+sys.subscribe("IP_READY", function(ip, attach) if gprsAttached~=attach then gprsAttached=attach netLed.setState() end log.info("mobile", "IP_READY", ip, (attach or -1) == socket.LWIP_GP) end)
 sys.subscribe("SOCKET_ACTIVE", function(active) if socketConnected~=active then socketConnected=active netLed.setState() end end)
 --sys.subscribe("NET_UPD_NET_MODE", function() if lteSwitch then sys.publish("LTE_LED_UPDATE",net.getNetMode()==net.NetMode_LTE) end end)
 

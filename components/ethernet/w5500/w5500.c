@@ -1912,11 +1912,13 @@ static int w5500_set_mac_lwip(uint8_t *mac, void *user_data)
 {
 	if (user_data != prv_w5500_ctrl) return -1;
 	w5500_set_mac(mac);
+	return 0;
 }
 static int w5500_set_static_ip_lwip(luat_ip_addr_t *ip, luat_ip_addr_t *submask, luat_ip_addr_t *gateway, luat_ip_addr_t *ipv6, void *user_data)
 {
 	if (user_data != prv_w5500_ctrl) return -1;
 	w5500_set_static_ip(ip, submask, gateway);
+	return 0;
 }
 static int w5500_get_full_ip_info_lwip(luat_ip_addr_t *ip, luat_ip_addr_t *submask, luat_ip_addr_t *gateway, luat_ip_addr_t *ipv6, void *user_data)
 {

@@ -363,16 +363,13 @@ function mt:connect(address, port, timeout)
             self.error = nil
         end
 
-        require "http"
+        -- require "http"
         -- 请求腾讯云免费HttpDns解析
-        http.request("GET", "119.29.29.29/d?dn=" .. address, nil, nil, nil, 40000, function(result, statusCode, head, body)
-            log.info("socket.httpDnsCb", result, statusCode, head, body)
-            sys.publish("SOCKET_HTTPDNS_RESULT_" .. address .. "_" .. port, result, statusCode, head, body)
-        end)
-        local _, result, statusCode, head, body = sys.waitUntil("SOCKET_HTTPDNS_RESULT_" .. address .. "_" .. port)
+        
+        local statusCode, head, body = http.request("GET", "119.29.29.29/d?dn=" .. address).wait()
 
         -- DNS解析成功
-        if result and statusCode == "200" and body and body:match("^[%d%.]+") then
+        if result and statusCode == 200 and body and body:match("^[%d%.]+") then
             return self:connect(body:match("^([%d%.]+)"), port)
             -- DNS解析失败
         else

@@ -446,7 +446,7 @@ static int l_uart_write(lua_State *L)
     int result;
     if (prv_uart_soft && (prv_uart_soft->uart_id == id))
     {
-    	result = luat_uart_soft_write(buf, len);
+    	result = luat_uart_soft_write((const uint8_t*)buf, len);
     }
     else
     {
@@ -845,7 +845,7 @@ static int l_uart_tx(lua_State *L)
     int result;
     if (prv_uart_soft && (prv_uart_soft->uart_id == id))
     {
-    	result = luat_uart_soft_write(buff->addr + start, len);
+    	result = luat_uart_soft_write((const uint8_t*)(buff->addr + start), len);
     }
     else
     {

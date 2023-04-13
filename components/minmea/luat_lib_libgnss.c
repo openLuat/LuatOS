@@ -314,7 +314,7 @@ static int l_libgnss_get_rmc(lua_State *L) {
 
 static void add_gsv(lua_State*L, struct minmea_sentence_gsv* gsvs, size_t *count, int tp) {
 
-    for (size_t i = 0; i < 3; i++)
+    for (size_t i = 0; i < FRAME_GSV_MAX; i++)
     {
         for (size_t j = 0; j < 4; j++)
         {

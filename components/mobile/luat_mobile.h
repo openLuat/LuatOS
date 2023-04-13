@@ -426,12 +426,12 @@ int luat_mobile_get_last_notify_signal_strength_info(luat_mobile_signal_strength
 int luat_mobile_get_last_notify_signal_strength(uint8_t *csq);
 
 /**
- * @brief 获取当前服务小区的cellid
- *
- * @param cellid
+ * @brief 获取当前服务小区的ECI
+ * 
+ * @param eci
  * @return int =0成功，其他失败
  */
-int luat_mobile_get_service_cellid(uint32_t *cell_id);
+int luat_mobile_get_service_cell_identifier(uint32_t *eci);
 /* --------------------------------------------------- cell info end --------------------------------------------------- */
 
 
@@ -626,6 +626,7 @@ enum
 {
 	MOBILE_CONF_RESELTOWEAKNCELL = 1,
 	MOBILE_CONF_STATICCONFIG,
+	MOBILE_CONF_QUALITYFIRST,
 };
 
 #endif

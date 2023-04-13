@@ -2,6 +2,7 @@
 @module  string
 @summary 字符串操作函数
 @tag LUAT_CONF_BSP
+@demo    string
 */
 #include "luat_base.h"
 #include "luat_malloc.h"
@@ -126,16 +127,26 @@ int l_str_fromHex (lua_State *L) {
 
 /*
 按照指定分隔符分割字符串
-@api string.split(str, delimiter)
+@api string.split(str, delimiter, keepEmtry)
 @string 输入字符串
-@string 分隔符
+@string 分隔符,可选,默认 ","
+@bool 是否保留空白片段,默认为false,不保留. 2023.4.11之后的固件可用
 @return table 分割后的字符串表
 @usage
-("123,456,789"):split(',') --> {'123','456','789'}
+local tmp = string.split("123,233333,122")
+log.info("tmp", json.encode(tmp))
+local tmp = ("123,456,789"):split(',') --> {'123','456','789'}
+log.info("tmp", json.encode(tmp))
+
+-- 保留空片段, 2023.4.11之后的固件可用
+local str = "/tmp//def/1234/"
+local tmp = str:split("/", true) 
+log.info("str.split", #tmp, json.encode(tmp))
 */
 int l_str_split (lua_State *L) {
   size_t len = 0;
-  const char *tmp = luaL_checklstring(L, 1, &len);
+  int keepEmtry = 0;
+  const char *str = luaL_checklstring(L, 1, &len);
   if (len == 0) {
     lua_newtable(L);
     return 1;
@@ -145,32 +156,44 @@ int l_str_split (lua_State *L) {
   const char *delimiters = luaL_checklstring(L, 2, &dlen);
   if (dlen < 1) {
     delimiters = ",";
+    dlen = 1;
   }
-
-  // 因为strtok会修改字符串, 所以需要把str临时拷贝一份
-  char* str = (char*)luat_heap_malloc(len + 1);
-  char* ptr = str;
-  if (str == NULL) {
-    lua_newtable(L);
-    LLOGW("out of memory when split");
-    return 1;
+  if (lua_isboolean(L, 3) && lua_toboolean(L, 3)) {
+    keepEmtry = 1;
   }
-  memset(str, 0, len + 1);
-  memcpy(str, tmp, len);
-
-  char *token;
-  size_t count = 0;
-  token = strtok(str, delimiters);
   lua_newtable(L);
-  while( token != NULL ) {
-    lua_pushnumber(L,count+1);
-    lua_pushstring(L, token);
-    lua_settable(L,-3);
-    // printf("%s - %ld\n", token, count);
-    count ++;
-    token = strtok(NULL, delimiters);
+  int prev = -1;
+  size_t count = 1;
+  for (int i = 0; i < len; i++)
+  {
+    // LLOGD("d[%s] [%.*s] %d", delimiters, dlen, str+i, dlen);
+    if (!memcmp(delimiters, str+i, dlen)) {
+      // LLOGD("match %d %i %d",prev, i, keepEmtry);
+      if ((prev+1) != i || (keepEmtry)) {
+        lua_pushinteger(L, count);
+        lua_pushlstring(L, str + prev + 1, i - prev - 1);
+        // LLOGD("add %d [%.*s]", count, i - prev, str+prev);
+        lua_settable(L, -3);
+        count += 1;
+      }
+      i += (dlen - 1);
+      prev = i;
+      if (i == len - 1 && keepEmtry) {
+        lua_pushinteger(L, count);
+        lua_pushlstring(L, "", 0);
+        lua_settable(L, -3);
+        break;
+      }
+    }
+    else {
+      if (i == len - 1) {
+        // 最后一个字符了
+        lua_pushinteger(L, count);
+        lua_pushlstring(L, str + prev + 1, len - prev - 1);
+        lua_settable(L, -3);
+      }
+    }
   }
-  luat_heap_free(ptr);
   return 1;
 }
 

@@ -423,14 +423,30 @@ static int l_mobile_snr(lua_State* L) {
 }
 
 /**
-获取cellid
-@api mobile.cellid()
-@return int 当前cellid值,若失败返回-1
+获取当前服务小区的ECI(E-UTRAN Cell Identifier)
+@api mobile.eci()
+@return int 当前eci值,若失败返回-1
  */
-static int l_mobile_cellid(lua_State* L) {
-    uint32_t cellid;
-    if (luat_mobile_get_service_cellid(&cellid) == 0) {
-        lua_pushinteger(L, cellid);
+static int l_mobile_eci(lua_State* L) {
+    uint32_t eci;
+    if (luat_mobile_get_service_cell_identifier(&eci) == 0) {
+        lua_pushinteger(L, eci);
+    }
+    else {
+        lua_pushinteger(L, -1);
+    }
+    return 1;
+}
+
+/**
+获取当前服务小区的eNBID(eNodeB Identifier)
+@api mobile.enbid()
+@return int 当前enbid值,若失败返回-1
+ */
+static int l_mobile_enbid(lua_State* L) {
+    uint32_t eci;
+    if (luat_mobile_get_service_cell_identifier(&eci) == 0) {
+        lua_pushinteger(L, eci>>8);
     }
     else {
         lua_pushinteger(L, -1);
@@ -707,7 +723,8 @@ static const rotable_Reg_t reg_mobile[] = {
     {"rsrq",        ROREG_FUNC(l_mobile_rsrq)},
     {"rsrp",        ROREG_FUNC(l_mobile_rsrp)},
     {"snr",         ROREG_FUNC(l_mobile_snr)},
-	{"cellid",         ROREG_FUNC(l_mobile_cellid)},
+    {"eci",         ROREG_FUNC(l_mobile_eci)},
+    {"enbid",      ROREG_FUNC(l_mobile_enbid)},
     {"flymode",     ROREG_FUNC(l_mobile_flymode)},
     {"simid",       ROREG_FUNC(l_mobile_simid)},
 	{"rtime",       ROREG_FUNC(l_mobile_set_rrc_auto_release_time)},
@@ -741,8 +758,10 @@ static const rotable_Reg_t reg_mobile[] = {
     {"CSFB_NOT_PREFERRED_REGISTERED_ROAMING",  ROREG_INT(LUAT_MOBILE_STATUS_CSFB_NOT_PREFERRED_REGISTERED_ROAMING)},
 	// const CONF_RESELTOWEAKNCELL 小区重选信号差值门限
 	{"CONF_RESELTOWEAKNCELL",  ROREG_INT(MOBILE_CONF_RESELTOWEAKNCELL)},
-	// const MOBILE_CONF_STATICCONFIG 网络静态模式优化
+	// const CONF_STATICCONFIG 网络静态模式优化
 	{"CONF_STATICCONFIG",  ROREG_INT(MOBILE_CONF_STATICCONFIG)},
+	// const CONF_QUALITYFIRST 网络切换以信号质量优先
+	{"CONF_QUALITYFIRST",  ROREG_INT(MOBILE_CONF_QUALITYFIRST)},
     {NULL,          ROREG_INT(0)}
 };
 

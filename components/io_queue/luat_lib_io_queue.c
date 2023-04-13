@@ -113,7 +113,7 @@ static int l_io_queue_delay(lua_State *L) {
 @return 无
 @usage
 ioqueue.setgpio(0,pin.PB01,true,gpio.PULLUP,0) --PB01设置成上拉输入
-ioqueue.setgpio(0,pin.PB01,false,0,1)--PB01设置成上拉输出高电平
+ioqueue.setgpio(0,pin.PB01,false,0,1)--PB01设置成默认上下拉输出高电平
 */
 static int l_io_queue_set_gpio(lua_State *L) {
 	uint8_t timer_id = luaL_optinteger(L, 1, 0);

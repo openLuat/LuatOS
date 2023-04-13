@@ -325,8 +325,12 @@ static int websocket_connect(luat_websocket_ctrl_t *websocket_ctrl)
 
 int luat_websocket_send_frame(luat_websocket_ctrl_t *websocket_ctrl, luat_websocket_pkg_t *pkg)
 {
-	char *dst = luat_heap_malloc(pkg->plen + 6);
-	memset(dst, 0, pkg->plen + 6);
+	char *dst = luat_heap_malloc(pkg->plen + 8);
+	if (dst == NULL) {
+		LLOGE("out of memory when send_frame");
+		return -2;
+	}
+	memset(dst, 0, pkg->plen + 8);
 	size_t offset = 0;
 	size_t ret = 0;
 	// first byte, FIN and OPTCODE
@@ -341,8 +345,13 @@ int luat_websocket_send_frame(luat_websocket_ctrl_t *websocket_ctrl, luat_websoc
 	{
 		dst[1] = 126;
 		dst[2] = pkg->plen >> 8;
-		dst[4] = pkg->plen & 0xFF;
+		dst[3] = pkg->plen & 0xFF;
 		offset = 4;
+	}
+	else {
+		LLOGE("pkg too large %d", pkg->plen);
+		luat_heap_free(dst);
+		return -1;
 	}
 	dst[1] |= 1 << 7;
 

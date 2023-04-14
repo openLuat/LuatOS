@@ -122,7 +122,7 @@ local function directProc(DeviceName,ProductKey,mqtt_host,mqtt_port,mqtt_isssl,R
         
         local content = "ClientId"..DeviceName.."deviceName"..DeviceName.."productKey"..ProductKey.."timestamp789"
         local signKey= SetDeviceSecretFnc
-        PassWord =crypto.hmac_md5(content,signKey)
+        PassWord = crypto.hmac_md5(content,signKey)
         
         clientDataTask(ClientId,UserName,PassWord,mqtt_host,mqtt_port,mqtt_isssl,DeviceName,ProductKey)
     else
@@ -163,7 +163,7 @@ local function clientEncryptionTask(Registration,DeviceName,ProductKey,ProductSe
                         if not Registration then
                             --预注册
                             if res and tJsonDecode["deviceName"] and tJsonDecode["deviceSecret"] then
-
+                                
                                 SetDeviceSecretFnc = tJsonDecode["deviceSecret"]
                                 mqttClient:disconnect()
                                 directProc(DeviceName,ProductKey,mqtt_host,mqtt_port,mqtt_isssl,Registration)
@@ -225,24 +225,29 @@ function mqtt_cbevent(mqtt_client, event, data, payload)
     end
 end
 
---- 配置阿里云物联网套件的产品信息和设备信息
--- @table tPara，填写设备信息的表函数
--- 一机一密认证方案时，ProductSecret参数传入nil
--- 一型一密认证方案时，ProductSecret参数传入真实的产品密钥
--- @table tPara[Registration] ,是否是预注册 已预注册为false，未预注册为true
--- @table tPara[DeviceName] ,设备名称
--- @table tPara[ProductKey] ,产品key
--- @table tPara[ProductSecret] ,产品secret，根据此信息判断是一机一密还是一型一密
--- @table tPara[DeviceSecret] ,设备secret
--- @table tPara[InstanceId] ,如果没有注册需要填写实例id，在实例详情页面
--- @table tPara[mqtt_host] ,mqtt服务器
--- @table tPara[mqtt_port] ,mqtt端口
--- @table tPara[mqtt_isssl] ,是否使用ssl加密连接，true为无证书最简单的加密
+
+--[[
+配置阿里云物联网套件的产品信息和设备信息
+@api aliyun.setup(tPara)
+@table tPara，填写设备信息的表函数
+@usage
+一机一密认证方案时，ProductSecret参数传入nil
+一型一密认证方案时，ProductSecret参数传入真实的产品密钥
+tPara[Registration] ,是否是预注册 已预注册为false，未预注册为true
+tPara[DeviceName] ,设备名称
+tPara[ProductKey] ,产品key
+tPara[ProductSecret] ,产品secret，根据此信息判断是一机一密还是一型一密
+tPara[DeviceSecret] ,设备secret
+tPara[InstanceId] ,如果没有注册需要填写实例id，在实例详情页面
+tPara[mqtt_port] ,mqtt端口
+tPara[mqtt_isssl] ,是否使用ssl加密连接，true为无证书最简单的加密
+]]
 function aliyun.setup(tPara)
+    mqtt_host = tPara.InstanceId..".mqtt.iothub.aliyuncs.com"
     if tPara.ProductSecret == "" or tPara.ProductSecret == nil then
-        confiDentialTask(tPara.DeviceName,tPara.ProductKey,tPara.DeviceSecret,tPara.mqtt_host,tPara.mqtt_port,tPara.mqtt_isssl)
+        confiDentialTask(tPara.DeviceName,tPara.ProductKey,tPara.DeviceSecret,mqtt_host,tPara.mqtt_port,tPara.mqtt_isssl)
     else
-        clientEncryptionTask(tPara.Registration,tPara.DeviceName,tPara.ProductKey,tPara.ProductSecret,tPara.InstanceId,tPara.mqtt_host,tPara.mqtt_port,tPara.mqtt_isssl)
+        clientEncryptionTask(tPara.Registration,tPara.DeviceName,tPara.ProductKey,tPara.ProductSecret,tPara.InstanceId,mqtt_host,tPara.mqtt_port,tPara.mqtt_isssl)
     end
 end
 
@@ -288,45 +293,55 @@ function confiDentialTask(DeviceName,ProductKey,DeviceSecret,mqtt_host,mqtt_port
     end)
 end
 
---- 订阅主题
--- @param topic，string类型，主题内容为UTF8编码
--- @param qos，number，qos为number类型(0/1，默认0)；
--- @return nil
--- @usage
--- aliyun.subscribe("/b0FMK1Ga5cp/862991234567890/get", 0)
+
+--[[
+订阅主题
+@api aliyun.subscribe(topic,qos)
+@param topic，string类型，主题内容为UTF8编码
+@param qos，number，qos为number类型(0/1，默认0)；
+@return nil
+@usage
+aliyun.subscribe("/b0FMK1Ga5cp/862991234567890/get", 0)
+]]
 function aliyun.subscribe(topic,qos)
     insert("SUBSCRIBE",topic,qos)
 end
 
---- 发布一条消息
--- @string topic，UTF8编码的主题
--- @number[opt=0] qos，质量等级，0/1，默认0
--- @string payload，负载内容，UTF8编码
--- @function[opt=nil] cbFnc，消息发布结果的回调函数
--- 回调函数的调用形式为：cbFnc(result,cbPara)。result为true表示发布成功，false或者nil表示订阅失败；cbPara为本接口中的第5个参数
--- @param[opt=nil] cbPara，消息发布结果回调函数的回调参数
--- @return nil
--- @usage
--- aliyun.publish("/b0FMK1Ga5cp/862991234567890/update","test",0)
--- aliyun.publish("/b0FMK1Ga5cp/862991234567890/update","test",1,cbFnc,"cbFncPara")
+
+--[[
+发布一条消息
+@api aliyun.publish(topic,qos,payload,cbFnc,cbPara)
+@string topic，UTF8编码的主题
+@number[opt=0] qos，质量等级，0/1，默认0
+@string payload，负载内容，UTF8编码
+@function[opt=nil] cbFnc，消息发布结果的回调函数,回调函数的调用形式为：cbFnc(result,cbPara)。result为true表示发布成功，false或者nil表示订阅失败；cbPara为本接口中的第5个参数
+@param[opt=nil] cbPara，消息发布结果回调函数的回调参数
+@return nil
+@usage
+aliyun.publish("/b0FMK1Ga5cp/862991234567890/update","test",0)
+aliyun.publish("/b0FMK1Ga5cp/862991234567890/update","test",1,cbFnc,"cbFncPara")
+]]
 function aliyun.publish(topic,qos,payload,cbFnc,cbPara)
     insert("PUBLISH",topic,qos,payload,cbFnc,cbPara)
     sys.publish("ALIYUN_PUB")
 end
 
 
---- 注册事件的处理函数
--- @string evt 事件
--- "connect"表示接入服务器连接结果事件
--- "receive"表示接收到接入服务器的消息事件
--- "publish"表示发送消息的结果事件
--- @function cbFnc 事件的处理函数
--- 当evt为"connect"时，cbFnc的调用形式为：cbFnc(result)，result为true表示连接成功，false或者nil表示连接失败
--- 当evt为"receive"时，cbFnc的调用形式为：cbFnc(topic,payload)，topic为UTF8编码的主题(string类型)，payload为原始编码的负载(string类型)
--- 当evt为"publish"时，cbFnc的调用形式为：cbFnc(result)，result为true表示发送成功，false或者nil表示发送失败
--- @return nil
--- @usage
--- aliyun.on("connect",cbFnc)
+--[[
+注册事件的处理函数
+@api aliyun.on(evt,cbFnc)
+@string evt 事件
+"connect"表示接入服务器连接结果事件
+"receive"表示接收到接入服务器的消息事件
+"publish"表示发送消息的结果事件
+@function cbFnc 事件的处理函数
+当evt为"connect"时，cbFnc的调用形式为：cbFnc(result)，result为true表示连接成功，false或者nil表示连接失败
+当evt为"receive"时，cbFnc的调用形式为：cbFnc(topic,payload)，topic为UTF8编码的主题(string类型)，payload为原始编码的负载(string类型)
+当evt为"publish"时，cbFnc的调用形式为：cbFnc(result)，result为true表示发送成功，false或者nil表示发送失败
+@return nil
+@usage
+aliyun.on("connect",cbFnc)
+]]
 function aliyun.on(evt,cbFnc)
 	EvtCb[evt] = cbFnc
 end

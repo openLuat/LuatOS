@@ -28,7 +28,7 @@ sys.taskInit(function()
     -- 按实际修改哦
     local id = 0
 
-    log.info("i2c", "initial",i2c.setup(0))
+    log.info("i2c", "initial",i2c.setup(id))
 
     while true do
         --第一种方式

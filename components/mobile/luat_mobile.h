@@ -620,8 +620,30 @@ void luat_mobile_get_ip_data_traffic(uint64_t *uplink, uint64_t *downlink);
  * @return 无
  */
 void luat_mobile_clear_ip_data_traffic(uint8_t clear_uplink, uint8_t clear_downlink);
-/** @}*/
 
+/**
+ * @brief 获取模块能支持的频段
+ * @param band 存放输出频段值的缓存，至少需要CMI_DEV_SUPPORT_MAX_BAND_NUM字节的空间
+ * @param total_num 频段数量
+ * @return 成功返回0，其他失败
+ */
+int luat_mobile_get_support_band(uint8_t *band,  uint8_t *total_num);
+/**
+ * @brief 获取模块当前设置使用的频段
+ * @param band 存放输出频段值的缓存，至少需要CMI_DEV_SUPPORT_MAX_BAND_NUM字节的空间
+ * @param total_num 频段数量
+ * @return 成功返回0，其他失败
+ */
+int luat_mobile_get_band(uint8_t *band,  uint8_t *total_num);
+/**
+ * @brief 设置模块使用的频段
+ * @param band 设置的频段，需要至少total_num数量的空间
+ * @param total_num 频段数量
+ * @return 成功返回0，其他失败
+ */
+int luat_mobile_set_band(uint8_t *band,  uint8_t total_num);
+
+/** @}*/
 enum
 {
 	MOBILE_CONF_RESELTOWEAKNCELL = 1,

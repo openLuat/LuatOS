@@ -12,14 +12,14 @@ local netLed = require ("netLed")
 local LEDA = gpio.setup(27,1,gpio.PULLUP) --LED引脚判断赋值结束
 sys.taskInit(function()
 --呼吸灯
-sys.wait(5080) --延时5秒等待网络注册
-    log.info("mobile.status()", mobile.status())
+sys.wait(5080)--延时5秒等待网络注册
+log.info("mobile.status()", mobile.status())
   while true do
- if mobile.status() == 1 --已注册
-    thensys.wait(688)
-  netLed.setupBreateLed(LEDA)
-  end
- end
+        if mobile.status() == 1--已注册
+        thensys.wait(688)
+        netLed.setupBreateLed(LEDA)
+     end
+   end
 end)
 ]]
  
@@ -28,7 +28,6 @@ netLed = {}
 
 local simError        --SIM卡状态：true为异常,false或者nil为正常
 local flyMode         --是否处于飞行模式：true为是,false或者nil为否
-local gsmRegistered   --是否注册上GSM网络,true为是,false或者nil为否
 local gprsAttached    --是否附着上GPRS网络,true为是,false或者nil为否
 local socketConnected --是否有socket连接上后台,true为是,false或者nil为否
 
@@ -37,8 +36,7 @@ local socketConnected --是否有socket连接上后台,true为是,false或者nil
 NULL：功能关闭状态
 FLYMODE：飞行模式
 SIMERR：未检测到SIM卡或者SIM卡锁pin码等SIM卡异常
-IDLE：未注册GSM网络
-GSM：已注册GSM网络
+IDLE：未注册GPRS网络
 GPRS：已附着GPRS数据网络
 SCK：socket已连接上后台
 ]]
@@ -51,7 +49,6 @@ local ledBlinkTime =
     FLYMODE = {0,0xFFFF},  --常灭
     SIMERR = {300,5700},  --亮300毫秒,灭5700毫秒
     IDLE = {300,3700},  --亮300毫秒,灭3700毫秒
-    GSM = {300,1700},  --亮300毫秒,灭1700毫秒
     GPRS = {300,700},  --亮300毫秒,灭700毫秒
     SCK = {100,100},  --亮100毫秒,灭100毫秒
 }
@@ -71,7 +68,7 @@ local LTEPIN = 26         --LTE指示灯默认PIN脚（GPIO26）
 netLed.setState()
 ]]
  function netLed.setState()
-    log.info("netLed.setState",ledSwitch,ledState,flyMode,simError,gsmRegistered,gprsAttached,socketConnected)
+    log.info("netLed.setState",ledSwitch,ledState,flyMode,simError,gprsAttached,socketConnected)
     if ledSwitch then
         local newState = "IDLE"
         if flyMode then
@@ -82,8 +79,6 @@ netLed.setState()
             newState = "SCK"
         elseif gprsAttached then
             newState = "GPRS"
-        elseif gsmRegistered then
-            newState = "GSM"	
         end
         --指示灯状态发生变化
         if newState~=ledState then
@@ -99,7 +94,7 @@ end
 @return nil 无返回值
 @usage 
 local LEDA = gpio.setup(27,1,gpio.PULLUP) --LED引脚判断赋值结束
-netled.taskLed(LEDA)
+netLed.taskLed(LEDA)
 ]]
 function netLed.taskLed(ledPinSetFunc)
     while true do
@@ -206,14 +201,14 @@ local netLed = require ("netLed")
 local LEDA = gpio.setup(27,1,gpio.PULLUP) --LED引脚判断赋值结束
 sys.taskInit(function()
 --呼吸灯
-sys.wait(5080) --延时5秒等待网络注册
-    log.info("mobile.status()", mobile.status())
+sys.wait(5080)--延时5秒等待网络注册
+log.info("mobile.status()", mobile.status())
   while true do
- if mobile.status() == 1 --已注册
-    thensys.wait(688)
-  netLed.setupBreateLed(LEDA)
-  end
- end
+        if mobile.status() == 1--已注册
+        thensys.wait(688)
+        netLed.setupBreateLed(LEDA)
+     end
+   end
 end)
 ]]
 function netLed.setupBreateLed(ledPin)
@@ -246,13 +241,9 @@ function netLed.setupBreateLed(ledPin)
 end
 
 sys.subscribe("FLYMODE", function(mode) if flyMode~=mode then flyMode=mode netLed.setState() end end)
--- sys.subscribe("SIM_IND", function(para) if simError~=(para~="RDY") then simError=(para~="RDY") netLed.setState() end end)
 sys.subscribe("SIM_IND", function(para) if simError~=(para~="RDY") and simError~=(para~="GET_NUMBER") then simError=(para~="RDY") netLed.setState() end log.info("sim status", para) end)
-sys.subscribe("IP_LOSE", function() if gsmRegistered then gsmRegistered=false netLed.setState() end end)
-sys.subscribe("IP_READY", function() if not gsmRegistered then gsmRegistered=true netLed.setState() end end)
-sys.subscribe("IP_READY", function(ip, attach) if gprsAttached~=attach then gprsAttached=attach netLed.setState() end log.info("mobile", "IP_READY", ip, (attach or -1) == socket.LWIP_GP) end)
+sys.subscribe("IP_LOSE", function() if gprsAttached then gprsAttached=false netLed.setState() end log.info("mobile", "IP_LOSE", (adapter or -1) == socket.LWIP_GP) end)
+sys.subscribe("IP_READY", function(ip, adapter) if gprsAttached~=adapter then gprsAttached=adapter netLed.setState() end log.info("mobile", "IP_READY", ip, (adapter or -1) == socket.LWIP_GP) end)
 sys.subscribe("SOCKET_ACTIVE", function(active) if socketConnected~=active then socketConnected=active netLed.setState() end end)
---sys.subscribe("NET_UPD_NET_MODE", function() if lteSwitch then sys.publish("LTE_LED_UPDATE",net.getNetMode()==net.NetMode_LTE) end end)
-
 
 return netLed

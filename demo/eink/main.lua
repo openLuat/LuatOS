@@ -34,7 +34,7 @@ function eink_pin()
     elseif rtos_bsp == "ESP32S3" then
         return 2,16,15,14,13
     elseif rtos_bsp == "EC618" then
-        return 0,1,10,8,18
+        return 0,1,10,8,22
     else
         log.info("main", "bsp not support")
         return

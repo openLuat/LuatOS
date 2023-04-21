@@ -5,6 +5,7 @@
 *.pdf
 .vscode
 vscode.code-workspace
+.idea
 
 # Object files
 *.o

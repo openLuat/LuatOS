@@ -231,30 +231,31 @@ static int Liconv_close(lua_State *L) {
     return 1;
 }
 
-#include "rotable.h"
-static const rotable_Reg inconvFuncs[] = {
-    { "open",   Liconv_open , 0},
-    { "new",    Liconv_open , 0},
-    { "iconv",  Liconv ,      0},
+// #include "rotable.h"
+#include "rotable2.h"
+static const rotable_Reg_t inconvFuncs[] = {
+    { "open",   ROREG_FUNC(Liconv_open)},
+    { "new",    ROREG_FUNC(Liconv_open)},
+    { "iconv",  ROREG_FUNC(Liconv)},
 #ifdef HAS_ICONVLIST
-    { "list",   Liconvlist , 0},
+    { "list",   ROREG_FUNC(Liconvlist)},
 #endif
-    { "ERROR_NO_MEMORY", NULL, ERROR_NO_MEMORY},
-    { "ERROR_INVALID", NULL, ERROR_INVALID},
-    { "ERROR_INCOMPLETE", NULL, ERROR_INCOMPLETE},
-    { "ERROR_UNKNOWN", NULL, ERROR_UNKNOWN},
-    { NULL, NULL, NULL}
+    { "ERROR_NO_MEMORY",  ROREG_INT(ERROR_NO_MEMORY)},
+    { "ERROR_INVALID",    ROREG_INT(ERROR_INVALID)},
+    { "ERROR_INCOMPLETE", ROREG_INT(ERROR_INCOMPLETE)},
+    { "ERROR_UNKNOWN",    ROREG_INT(ERROR_UNKNOWN)},
+    { NULL, ROREG_INT(0)}
 };
 
 
-static const rotable_Reg iconvMT[] = {
-    { "__gc", Liconv_close , 0},
-    { NULL, NULL, NULL}
-};
+// static const rotable_Reg iconvMT[] = {
+//     { "__gc", Liconv_close , 0},
+//     { NULL, NULL, NULL}
+// };
 
 
 LUAMOD_API int luaopen_iconv(lua_State *L) {
-    luat_newlib(L, inconvFuncs);
+    luat_newlib2(L, inconvFuncs);
 
     // luaL_newmetatable(L, ICONV_TYPENAME);
     // lua_pushliteral(L, "__index");

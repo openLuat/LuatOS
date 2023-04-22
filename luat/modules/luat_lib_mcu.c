@@ -214,6 +214,21 @@ static int l_mcu_set_xtal(lua_State* L) {
     return 0;
 }
 // #endif
+LUAT_WEAK void luat_mcu_set_hardfault_mode(int mode) {;}
+/*
+mcu死机时处理模式，目前只有EC618平台适用
+@api mcu.hardfault(mode)
+@int 处理模式，0死机停机，1死机后重启，2死机后尽量将错误信息提交给外部工具后重启
+@usage
+mcu.hardfault(0)	--死机后停机，一般用于调试状态
+mcu.hardfault(1)	--死机后重启，一般用于正式产品
+mcu.hardfault(2)	--死机后尽量将错误信息提交给外部工具后重启，一般用于压力测试或者正式产品
+*/
+static int l_mcu_set_hardfault_mode(lua_State* L)
+{
+	luat_mcu_set_hardfault_mode(luaL_optinteger(L, 1, 0));
+	return 0;
+}
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_mcu[] =
@@ -229,6 +244,7 @@ static const rotable_Reg_t reg_mcu[] =
 	{ "tick64",			ROREG_FUNC(l_mcu_hw_tick64)},
 	{ "dtick64",		ROREG_FUNC(l_mcu_hw_diff_tick64)},
 	{ "setXTAL",		ROREG_FUNC(l_mcu_set_xtal)},
+	{ "hardfault",	ROREG_FUNC(l_mcu_set_hardfault_mode)},
 // #endif
 	{ NULL,             ROREG_INT(0) }
 };

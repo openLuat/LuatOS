@@ -286,8 +286,8 @@ typedef uint32_t sys_prot_t;
 
 #define TCP_MAXRTX                      12
 #define TCP_SYNMAXRTX                   6
-#define TCP_SND_BUF                     (2 * TCP_MSS)
-#define TCP_WND                         (4 * TCP_MSS)
+#define TCP_SND_BUF                     (32 * TCP_MSS)
+#define TCP_WND                         (32 * TCP_MSS)
 #define MEM_SIZE 						8192 * 3
 
 #define TCP_MORE_DELAY					0

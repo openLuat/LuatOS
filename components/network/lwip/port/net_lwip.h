@@ -18,4 +18,6 @@ void net_lwip_set_link_state(uint8_t adapter_index, uint8_t updown);
  * GPRS网卡专用，user_data填adapter_index，不从network_adapter走
  */
 int net_lwip_set_static_ip(ip_addr_t *ip, ip_addr_t *submask, ip_addr_t *gateway, ip_addr_t *ipv6, void *user_data);
+
+void net_lwip_set_rx_fast_ack(uint8_t adapter_index, uint8_t onoff);
 #endif

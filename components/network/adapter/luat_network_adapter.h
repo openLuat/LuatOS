@@ -224,6 +224,7 @@ typedef struct
 	uint8_t in_use;
 	uint8_t rx_waiting;
 	uint8_t remote_close;
+	uint8_t fast_rx_ack;	//TCP快速应答
 }socket_ctrl_t;		//推荐底层协议栈适配用的socket状态结构
 
 /*

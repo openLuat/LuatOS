@@ -762,6 +762,8 @@ static const rotable_Reg_t reg_mobile[] = {
 	{"CONF_STATICCONFIG",  ROREG_INT(MOBILE_CONF_STATICCONFIG)},
 	// const CONF_QUALITYFIRST 网络切换以信号质量优先
 	{"CONF_QUALITYFIRST",  ROREG_INT(MOBILE_CONF_QUALITYFIRST)},
+	// const CONF_USERDRXCYCLE LTE跳paging,谨慎使用,0是不设置,1~7增大或减小DrxCycle周期倍数,1:1/8倍 2:1/4倍 3:1/2倍 4:2倍 5:4倍 6:8倍 7:16倍,8~12配置固定的DrxCycle周期,仅当该周期大于网络分配的DrxCycle周期时该配置才会生效,8:320ms 9:640ms 10:1280ms 11:2560ms 12:5120ms
+	{"CONF_USERDRXCYCLE",  ROREG_INT(MOBILE_CONF_USERDRXCYCLE)},
     {NULL,          ROREG_INT(0)}
 };
 

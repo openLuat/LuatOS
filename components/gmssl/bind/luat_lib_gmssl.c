@@ -30,16 +30,16 @@ extern void luat_str_fromhex(char* str, size_t len, char* buff);
 static void DeletePaddingBuf(luaL_Buffer *B, uint8_t *pPadding, size_t nBufLen, uint8_t *pBuf, uint8_t pPaddLen)
 {
     uint8_t nPadLen;
-    if((strcmp(pPadding, "PKCS5")==0) || (strcmp(pPadding, "PKCS7")==0))
+    if((strcmp((char*)pPadding, "PKCS5")==0) || (strcmp((char*)pPadding, "PKCS7")==0))
     {
         nPadLen = *(pBuf+nBufLen-1);
         //printf("aes DeletePaddingBuf length=%d\n", nPadLen);
         if((pPaddLen-nPadLen) >= 0)
         {
-            luaL_addlstring(B, pBuf, nBufLen-nPadLen);
+            luaL_addlstring(B, (char*)pBuf, nBufLen-nPadLen);
         }
     }
-    else if(strcmp(pPadding, "ZERO")==0)
+    else if(strcmp((char*)pPadding, "ZERO")==0)
     {                        
         uint8_t *pEnd = pBuf+nBufLen-1;
         nPadLen = 0;
@@ -62,12 +62,12 @@ static void DeletePaddingBuf(luaL_Buffer *B, uint8_t *pPadding, size_t nBufLen, 
         //printf("aes DeletePaddingBuf length=%d\n", nPadLen);
         if((pPaddLen-nPadLen) >= 0)
         {
-            luaL_addlstring(B, pBuf, nBufLen-nPadLen);
+            luaL_addlstring(B, (char*)pBuf, nBufLen-nPadLen);
         }
     }
     else
     {
-        luaL_addlstring(B, pBuf, nBufLen);
+        luaL_addlstring(B, (char*)pBuf, nBufLen);
     }
 }
 
@@ -117,8 +117,8 @@ static int l_sm2_encrypt(lua_State *L)
     const SM2_POINT point;
     char x[32];
     char y[32];
-    luat_str_fromhex(pkx, 64, point.x);
-    luat_str_fromhex(pky, 64, point.y);
+    luat_str_fromhex((char*)pkx, 64, point.x);
+    luat_str_fromhex((char*)pky, 64, point.y);
     ret = sm2_key_set_public_key(&sm2.public_key, &point);
     LLOGD("sm2_key_set_public_key %d", ret);
 
@@ -127,7 +127,7 @@ static int l_sm2_encrypt(lua_State *L)
 
     ret = sm2_encrypt(&sm2, (const unsigned char *)pBuf, pBufLen, out, &olen);
     LLOGD("sm2_encrypt ret %d", ret);
-    lua_pushlstring(L, out, olen);
+    lua_pushlstring(L, (char*)out, olen);
     return 1;
 }
 
@@ -164,11 +164,11 @@ static int l_sm2_decrypt(lua_State *L)
     SM2_KEY sm2 = {0};
     char out[512] = {0};
     size_t olen = 0;
-    luat_str_fromhex(private, 64, sm2.private_key);
+    luat_str_fromhex((char*)private, 64, (char*)sm2.private_key);
 
-    ret = sm2_decrypt(&sm2, pBuf, pBufLen, out, &olen);
+    ret = sm2_decrypt(&sm2, pBuf, pBufLen, (uint8_t*)out, &olen);
     LLOGD("sm2_decrypt ret %d", ret);
-    lua_pushlstring(L, out, olen);
+    lua_pushlstring(L, (char*)out, olen);
     return 1;
 }
 
@@ -187,9 +187,9 @@ static int l_sm3_update(lua_State *L)
     size_t inputLen = 0;
     uint8_t dgst[SM3_DIGEST_LENGTH];
     const char *inputData = lua_tolstring(L,1,&inputLen);
-    sm3_digest(inputData, inputLen, dgst);
+    sm3_digest((uint8_t*)inputData, inputLen, dgst);
 
-    lua_pushlstring(L, dgst, SM3_DIGEST_LENGTH);   
+    lua_pushlstring(L, (char*)dgst, SM3_DIGEST_LENGTH);   
     return 1;
 }
 
@@ -211,9 +211,9 @@ static int l_sm3hmac_update(lua_State *L)
     uint8_t dgst[SM3_DIGEST_LENGTH];
     const char *inputData = lua_tolstring(L, 1, &inputLen);
     const char *keyData = lua_tolstring(L, 2, &keyLen);
-    sm3_hmac(keyData, keyLen, inputData, inputLen, dgst);
+    sm3_hmac((uint8_t*)keyData, keyLen, (uint8_t*)inputData, inputLen, dgst);
 
-    lua_pushlstring(L, dgst, SM3_DIGEST_LENGTH);   
+    lua_pushlstring(L, (char*)dgst, SM3_DIGEST_LENGTH);   
     return 1;
 }
 
@@ -264,31 +264,31 @@ static int l_sm4_encrypt(lua_State *L)
     {
         return luaL_error(L, "invalid password length=%d, only support 128bit Password", nPswdLen);
     }
-    if((strcmp(pMode, "ECB")!=0) && (strcmp(pMode, "CBC")!=0))
+    if((strcmp((char*)pMode, "ECB")!=0) && (strcmp((char*)pMode, "CBC")!=0))
     {
         return luaL_error(L, "invalid mode=%s, only support ECB,CBC", pMode);
     }
-    if((strcmp(pPadding, "NONE")!=0) && (strcmp(pPadding, "PKCS5")!=0) && (strcmp(pPadding, "PKCS7")!=0) && (strcmp(pPadding, "ZERO")!=0))
+    if((strcmp((char*)pPadding, "NONE")!=0) && (strcmp((char*)pPadding, "PKCS5")!=0) && (strcmp((char*)pPadding, "PKCS7")!=0) && (strcmp((char*)pPadding, "ZERO")!=0))
     {
         return luaL_error(L, "invalid padding=%s, only support NONE,PKCS5,PKCS7,ZERO", pPadding);
     }
-    if(((strcmp(pMode, "CBC")==0)) && (nIVLen!=16))
+    if(((strcmp((char*)pMode, "CBC")==0)) && (nIVLen!=16))
     {
         return luaL_error(L, "invalid iv length=%d, only support 128bit IV", nIVLen);
     }
 
     //构造填充数据
-    if((strcmp(pPadding, "PKCS5")==0) || (strcmp(pPadding, "PKCS7")==0))
+    if((strcmp((char*)pPadding, "PKCS5")==0) || (strcmp((char*)pPadding, "PKCS7")==0))
     {
         memset(pPadBuf, nPadLen, sizeof(pPadBuf));
     }
-    else if(strcmp(pPadding, "ZERO")==0)
+    else if(strcmp((char*)pPadding, "ZERO")==0)
     {
         memset(pPadBuf, 0, sizeof(pPadBuf));
     }   
-	else if(strcmp(pPadding, "NONE")==0)
+	else if(strcmp((char*)pPadding, "NONE")==0)
     {
-    	if((strcmp(pMode, "CBC")==0) || (strcmp(pMode, "ECB")==0)){
+    	if((strcmp((char*)pMode, "CBC")==0) || (strcmp((char*)pMode, "ECB")==0)){
 	        if(nBufLen%SM4_BLOCK_LEN != 0)
 	        {
 	            return luaL_error(L, "buf len should be multiple of 16, len=%d", nBufLen);
@@ -304,9 +304,9 @@ static int l_sm4_encrypt(lua_State *L)
         luaL_buffinit( L, &b );
 
          //原始数据和填充数据拼接在一起
-        if (strcmp(pPadding, "NONE")!=0)
+        if (strcmp((char*)pPadding, "NONE")!=0)
         {
-            pInBuf = malloc(nBufLen+nPadLen);
+            pInBuf = luat_heap_malloc(nBufLen+nPadLen);
             if(pInBuf == NULL)
             {
                 //LLOGD("aes_encrypt malloc error!!!\n");
@@ -320,7 +320,7 @@ static int l_sm4_encrypt(lua_State *L)
         }
         else
         {
-            pInBuf =  malloc(nBufLen);
+            pInBuf =  luat_heap_malloc(nBufLen);
 			nRmnLen = nBufLen;
             if(pInBuf == NULL)
             {
@@ -335,31 +335,31 @@ static int l_sm4_encrypt(lua_State *L)
         memset(&sm4_key,0,sizeof(SM4_KEY));
 		sm4_set_encrypt_key(&sm4_key,pPassword);
 
-        if(strcmp(pMode, "ECB") == 0)
+        if(strcmp((char*)pMode, "ECB") == 0)
         {
             //开始分组加密，每16字节一组
             while(nRmnLen>0)
             {
                 // sm4_ecb_encrypt(pInBuf+nBufLen-nRmnLen,pInBuf+nBufLen-nRmnLen,&sm4_key,1);
                 char out[SM4_BLOCK_LEN];
-                sm4_encrypt(&sm4_key,pBuf+nBufLen-nRmnLen, out);
+                sm4_encrypt(&sm4_key,pBuf+nBufLen-nRmnLen, (uint8_t*)out);
                 luaL_addlstring(&b, out, SM4_BLOCK_LEN);
                 nRmnLen -= SM4_BLOCK_LEN;
             }
         }
-        else if((strcmp(pMode, "CBC") == 0))
+        else if((strcmp((char*)pMode, "CBC") == 0))
         {
             //待加密数据一次性传入
             // sm4_cbc_encrypt(pInBuf,pInBuf,nBufLen,&sm4_key,pIV,1);
             char *out = luat_heap_malloc(nBufLen);
-            sm4_cbc_encrypt(&sm4_key, pIV, pInBuf, nBufLen / SM4_BLOCK_LEN, out);
+            sm4_cbc_encrypt(&sm4_key, pIV, pInBuf, nBufLen / SM4_BLOCK_LEN, (uint8_t*)out);
             luaL_addlstring(&b, out, nBufLen);
             luat_heap_free(out);
         }
 
         if(pInBuf != NULL)
         {
-            free(pInBuf);
+            luat_heap_free(pInBuf);
             pInBuf = NULL;
         }
 
@@ -394,8 +394,8 @@ static int l_sm4_decrypt(lua_State *L)
     char out[SM4_BLOCK_LEN];
 
     //检查参数合法性
-    int isCBC = strcmp(pMode, "CBC") == 0;
-    int isECB = strcmp(pMode, "ECB") == 0;
+    int isCBC = strcmp((char*)pMode, "CBC") == 0;
+    int isECB = strcmp((char*)pMode, "ECB") == 0;
     if(isCBC || isECB){
 	    if((nBufLen % 16) != 0){
 			return luaL_error(L, "invalid BufLen length=%d, BufLen must be Integer multiples of 16", nBufLen);
@@ -409,7 +409,7 @@ static int l_sm4_decrypt(lua_State *L)
     {
         return luaL_error(L, "invalid mode=%s, only support ECB,CBC,CTR", pMode);
     }
-    if((strcmp(pPadding, "NONE")!=0) && (strcmp(pPadding, "PKCS5")!=0) && (strcmp(pPadding, "PKCS7")!=0) && (strcmp(pPadding, "ZERO")!=0))
+    if((strcmp((char*)pPadding, "NONE")!=0) && (strcmp((char*)pPadding, "PKCS5")!=0) && (strcmp((char*)pPadding, "PKCS7")!=0) && (strcmp((char*)pPadding, "ZERO")!=0))
     {
         return luaL_error(L, "invalid padding=%s, only support NONE,PKCS5,PKCS7,ZERO", pPadding);
     }
@@ -434,11 +434,11 @@ static int l_sm4_decrypt(lua_State *L)
             //开始分组解密，每16字节一组
             while(nRmnLen>0)
             {
-                sm4_decrypt(&sm4_key,pBuf+nBufLen-nRmnLen, out);
+                sm4_decrypt(&sm4_key,pBuf+nBufLen-nRmnLen, (uint8_t*)out);
                 //删除填充数据
                 if(nRmnLen==SM4_BLOCK_LEN)
                 {
-                    DeletePaddingBuf(&b, pPadding, SM4_BLOCK_LEN, out, SM4_BLOCK_LEN);
+                    DeletePaddingBuf(&b, pPadding, SM4_BLOCK_LEN, (uint8_t*)out, SM4_BLOCK_LEN);
                 }
                 else
                 {
@@ -452,8 +452,8 @@ static int l_sm4_decrypt(lua_State *L)
             //待解密数据一次性传入
             if (nBufLen <= 1024) {
                 char out[1024];
-                sm4_cbc_decrypt(&sm4_key, pIV, pBuf, nBufLen/SM4_BLOCK_LEN, out);
-                DeletePaddingBuf(&b, pPadding, nBufLen, out, SM4_BLOCK_LEN);
+                sm4_cbc_decrypt(&sm4_key, pIV, pBuf, nBufLen/SM4_BLOCK_LEN, (uint8_t*)out);
+                DeletePaddingBuf(&b, pPadding, nBufLen, (uint8_t*)out, SM4_BLOCK_LEN);
             }
             else {
                 char *out = luat_heap_malloc(nBufLen);
@@ -461,8 +461,8 @@ static int l_sm4_decrypt(lua_State *L)
                     LLOGE("out of memory when malloc SM4 decrypt buff");
                     return 0;
                 }
-                sm4_cbc_decrypt(&sm4_key, pIV, pBuf, nBufLen/SM4_BLOCK_LEN, out);
-                DeletePaddingBuf(&b, pPadding, nBufLen, out, SM4_BLOCK_LEN);
+                sm4_cbc_decrypt(&sm4_key, pIV, pBuf, nBufLen/SM4_BLOCK_LEN, (uint8_t*)out);
+                DeletePaddingBuf(&b, pPadding, nBufLen, (uint8_t*)out, SM4_BLOCK_LEN);
                 luat_heap_free(out);
             }
         }

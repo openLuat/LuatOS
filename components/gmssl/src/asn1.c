@@ -843,7 +843,7 @@ int asn1_bits_from_der_ex(int tag, int *bits, const uint8_t **in, size_t *inlen)
 {
 	int ret;
 	const uint8_t *p;
-	uint8_t c;
+	uint8_t c = 0;
 	size_t nbits;
 	size_t i;
 
@@ -873,7 +873,7 @@ int asn1_bits_from_der_ex(int tag, int *bits, const uint8_t **in, size_t *inlen)
 	}
 	return 1;
 }
-
+#if 0
 int asn1_bits_print(FILE *fp, int fmt, int ind, const char *label, const char **names, size_t names_cnt, int bits)
 {
 	size_t i;
@@ -891,7 +891,7 @@ int asn1_bits_print(FILE *fp, int fmt, int ind, const char *label, const char **
 	}
 	return 1;
 }
-
+#endif
 const char *asn1_null_name(void)
 {
 	return "null";
@@ -1137,7 +1137,7 @@ int asn1_object_identifier_equ(const uint32_t *a, size_t a_cnt, const uint32_t *
 	}
 	return 1;
 }
-
+#if 0
 int asn1_object_identifier_print(FILE *fp, int format, int indent, const char *label, const char *name,
 	const uint32_t *nodes, size_t nodes_cnt)
 {
@@ -1153,7 +1153,7 @@ int asn1_object_identifier_print(FILE *fp, int format, int indent, const char *l
 	fprintf(fp, "\n");
 	return 1;
 }
-
+#endif
 const ASN1_OID_INFO *asn1_oid_info_from_name(const ASN1_OID_INFO *infos, size_t infos_cnt, const char *name)
 {
 	size_t i;
@@ -1240,6 +1240,7 @@ utf-8 character encoding
 	3-byte: 1110xxxx 10xxxxxx 10xxxxxx
 	4-byte: 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
 */
+#if 0
 static int asn1_utf8char_from_bytes(uint32_t *c, const uint8_t **pin, size_t *pinlen)
 {
 	uint32_t utf8char;
@@ -1299,6 +1300,7 @@ int asn1_string_is_utf8_string(const char *a, size_t alen)
 	}
 	return 1;
 }
+#endif
 
 int asn1_utf8_string_to_der_ex(int tag, const char *d, size_t dlen, uint8_t **out, size_t *outlen)
 {
@@ -1469,7 +1471,7 @@ int asn1_ia5_string_from_der_ex(int tag, const char **a, size_t *alen, const uin
 	}
 	return 1;
 }
-
+#if 0
 int asn1_string_print(FILE *fp, int fmt, int ind, const char *label, int tag, const uint8_t *d, size_t dlen)
 {
 	format_print(fp, fmt, ind, "%s: ", label);
@@ -1479,7 +1481,7 @@ int asn1_string_print(FILE *fp, int fmt, int ind, const char *label, int tag, co
 	fprintf(fp, "\n");
 	return 1;
 }
-
+#endif
 static int is_leap_year(int year) {
 	return ((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)) ? 1 : 0;
 }

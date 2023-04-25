@@ -830,8 +830,7 @@ static int l_socket_release(lua_State *L)
 @int dns服务器序号，从1开始
 @string or int dns，如果是IPV4，可以是大端格式的int值
 @return boolean 成功返回true，失败返回false
-@usage
-socket.setDNS(socket.ETH0, 1, "114.114.114.114")
+@usage socket.setDNS(socket.ETH0, 1, "114.114.114.114")
 */
 static int l_socket_set_dns(lua_State *L)
 {

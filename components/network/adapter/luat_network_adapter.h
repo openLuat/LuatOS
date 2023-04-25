@@ -193,7 +193,6 @@ typedef struct
     uint8_t state;
     uint8_t is_debug;
     uint8_t domain_ipv6;
-    uint8_t event_cnt;
 }network_ctrl_t;
 
 typedef struct

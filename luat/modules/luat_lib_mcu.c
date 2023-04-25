@@ -230,6 +230,38 @@ static int l_mcu_set_hardfault_mode(lua_State* L)
 	return 0;
 }
 
+LUAT_WEAK int luat_uart_pre_setup(int uart_id, uint8_t use_alt_type){;}
+LUAT_WEAK int luat_i2c_set_iomux(int id, uint8_t value){;}
+/*
+在外设打开前，将外设IO复用到非默认配置上，目前只支持Air780E的部分外设复用到其他配置，这是一个临时接口，如果后续有更合适的api，本接口将不再更新
+@api mcu.iomux(type, channel, value)
+@int 外设类型，目前只有mcu.UART,mcu.I2C
+@int 总线序号，0~N，
+@int 新的配置，这个需要根据具体平台决定
+@usage
+mcu.iomux(mcu.UART, 2, 1)	-- Air780E的UART2复用到gpio12和gpio13(Air780EG默认是这个复用，不要动)
+mcu.iomux(mcu.UART, 2, 2)	-- Air780E的UART2复用到gpio6和gpio7
+mcu.iomux(mcu.I2C, 0, 1)	-- Air780E的I2C0复用到gpio12和gpio13
+mcu.iomux(mcu.I2C, 0, 2)	-- Air780E的I2C0复用到gpio16和gpio17
+mcu.iomux(mcu.I2C, 1, 1)	-- Air780E的I2C1复用到gpio4和gpio5
+ */
+static int l_mcu_iomux(lua_State* L)
+{
+	int type = luaL_optinteger(L, 1, 0xff);
+	int channel = luaL_optinteger(L, 2, 0xff);
+	int value = luaL_optinteger(L, 3, 0);
+	LLOGD("mcu iomux %d,%d,%d", type, channel, value);
+	switch(type)
+	{
+	case LUAT_MCU_PERIPHERAL_UART:
+		luat_uart_pre_setup(channel, value);
+		break;
+	case LUAT_MCU_PERIPHERAL_I2C:
+		luat_i2c_set_iomux(channel, value);
+		break;
+	}
+	return 0;
+}
 #include "rotable2.h"
 static const rotable_Reg_t reg_mcu[] =
 {
@@ -245,7 +277,14 @@ static const rotable_Reg_t reg_mcu[] =
 	{ "dtick64",		ROREG_FUNC(l_mcu_hw_diff_tick64)},
 	{ "setXTAL",		ROREG_FUNC(l_mcu_set_xtal)},
 	{ "hardfault",	ROREG_FUNC(l_mcu_set_hardfault_mode)},
+	{ "iomux",	ROREG_FUNC(l_mcu_iomux)},
 // #endif
+	//@const UART number 外设类型-串口
+	{ "UART",             ROREG_INT(LUAT_MCU_PERIPHERAL_UART) },
+	//@const UART number 外设类型-I2C
+	{ "I2C",             ROREG_INT(LUAT_MCU_PERIPHERAL_I2C) },
+	//@const UART number 外设类型-SPI
+	{ "SPI",             ROREG_INT(LUAT_MCU_PERIPHERAL_SPI) },
 	{ NULL,             ROREG_INT(0) }
 };
 

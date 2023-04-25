@@ -2,6 +2,13 @@
 #define LUAT_MCU_H
 #include "luat_base.h"
 
+enum
+{
+	LUAT_MCU_PERIPHERAL_UART,
+	LUAT_MCU_PERIPHERAL_I2C,
+	LUAT_MCU_PERIPHERAL_SPI,
+};
+
 int luat_mcu_set_clk(size_t mhz);
 int luat_mcu_get_clk(void);
 

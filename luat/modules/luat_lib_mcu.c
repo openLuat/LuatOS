@@ -281,9 +281,9 @@ static const rotable_Reg_t reg_mcu[] =
 // #endif
 	//@const UART number 外设类型-串口
 	{ "UART",             ROREG_INT(LUAT_MCU_PERIPHERAL_UART) },
-	//@const UART number 外设类型-I2C
+	//@const I2C number 外设类型-I2C
 	{ "I2C",             ROREG_INT(LUAT_MCU_PERIPHERAL_I2C) },
-	//@const UART number 外设类型-SPI
+	//@const SPI number 外设类型-SPI
 	{ "SPI",             ROREG_INT(LUAT_MCU_PERIPHERAL_SPI) },
 	{ NULL,             ROREG_INT(0) }
 };

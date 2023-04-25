@@ -199,7 +199,7 @@ static int l_pm_dtimer_wakeup_id(lua_State *L) {
 开机原因,用于判断是从休眠模块开机,还是电源/复位开机
 @api pm.lastReson()
 @return int 0-上电/复位开机, 1-RTC开机, 2-WakeupIn/Pad/IO开机, 3-Wakeup/RTC开机
-@return int 0-普通开机(上电/复位),3-深睡眠开机,4-休眠开机，3和4说明程序已经复位了
+@return int 0-普通开机(上电/复位),3-深睡眠开机,4-休眠开机
 @return int 复位开机详细原因：0-powerkey或者上电开机 1-充电或者AT指令下载完成后开机 2-闹钟开机 3-软件重启 4-未知原因 5-RESET键 6-异常重启 7-工具控制重启 8-内部看门狗重启 9-外部重启 10-充电开机
 @usage
 -- 是哪种方式开机呢

@@ -343,7 +343,7 @@ void sm3_update(SM3_CTX *ctx, const uint8_t *data, size_t data_len)
 	}
 }
 
-void sm3_finish(SM3_CTX *ctx, uint8_t *digest)
+void sm3_finish(SM3_CTX *ctx, uint8_t digest[SM3_DIGEST_SIZE])
 {
 	int i;
 

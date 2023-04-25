@@ -7,7 +7,7 @@
  *  http://www.apache.org/licenses/LICENSE-2.0
  */
 
-
+#if 0
 
 #include <string.h>
 #include <gmssl/md5.h>
@@ -148,7 +148,7 @@ void md5_update(MD5_CTX *ctx, const unsigned char *data, size_t datalen)
 	}
 }
 
-void md5_finish(MD5_CTX *ctx, unsigned char *dgst)
+void md5_finish(MD5_CTX *ctx, uint8_t dgst[MD5_DIGEST_SIZE])
 {
 	int i;
 
@@ -179,3 +179,5 @@ void md5_digest(const unsigned char *data, size_t datalen,
 	md5_update(&ctx, data, datalen);
 	md5_finish(&ctx, dgst);
 }
+
+#endif

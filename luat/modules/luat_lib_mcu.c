@@ -152,7 +152,7 @@ static int l_mcu_hw_tick64(lua_State* L) {
 	{
 		uint8_t data[9] = {0};
 		memcpy(data, &tick, 8);
-		lua_pushlstring(L, data, 9);
+		lua_pushlstring(L, (const char*)data, 9);
 	}
 #else
     lua_pushlstring(L, (const char*)&tick, 8);

@@ -66,7 +66,7 @@ static int l_bit64_to64(lua_State *L)
 		memcpy(data, &d64, 8);
 
 	}
-	lua_pushlstring(L, data, 9);
+	lua_pushlstring(L, (const char*)data, 9);
 	return 1;
 }
 
@@ -108,17 +108,17 @@ static int l_bit64_show(lua_State *L)
 	{
 		if (string[8])
 		{
-			len = snprintf_(data, 63, "%f", d64);
+			len = snprintf_((char*)data, 63, "%f", d64);
 		}
 		else
 		{
 			if (flag)
 			{
-				len = snprintf_(data, 63, "%llu", i64);
+				len = snprintf_((char*)data, 63, "%llu", i64);
 			}
 			else
 			{
-				len = snprintf_(data, 63, "%lld", (uint64_t)i64);
+				len = snprintf_((char*)data, 63, "%lld", (uint64_t)i64);
 			}
 		}
 	}
@@ -126,14 +126,14 @@ static int l_bit64_show(lua_State *L)
 	{
 		if (string[8])
 		{
-			len = snprintf_(data, 63, "0x%llx", d64);
+			len = snprintf_((char*)data, 63, "0x%llx", d64);
 		}
 		else
 		{
-			len = snprintf_(data, 63, "0x%llx", i64);
+			len = snprintf_((char*)data, 63, "0x%llx", i64);
 		}
 	}
-	lua_pushlstring(L, data, len);
+	lua_pushlstring(L, (const char*)data, len);
 	return 1;
 }
 
@@ -340,7 +340,7 @@ FLOAT_OP:
 	}
 	goto DONE;
 DONE:
-	lua_pushlstring(L, data, 9);
+	lua_pushlstring(L, (const char*)data, 9);
 	return 1;
 }
 
@@ -450,10 +450,10 @@ static int l_bit64_shift(lua_State *L)
 	}
     data[8] = string[8];
     memcpy(data, &u64, 8);
-	lua_pushlstring(L, data, 9);
+	lua_pushlstring(L, (const char*)data, 9);
 	return 1;
 DONE:
-	lua_pushlstring(L, string, len);
+	lua_pushlstring(L, (const char*)string, len);
 	return 1;
 }
 

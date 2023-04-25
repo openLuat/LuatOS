@@ -18,6 +18,6 @@ extern int luat_crypto_trng(char* buff, size_t len);
 
 int rand_bytes(uint8_t *buf, size_t len)
 {
-	luat_crypto_trng(buf, len);
+	luat_crypto_trng((char*)buf, len);
 	return 1;
 }

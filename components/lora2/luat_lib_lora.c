@@ -135,20 +135,13 @@ static void OnRxError( lora_device_t* lora_device ){
 #define META_SPI "SPI*"
 /*
 lora初始化
-@api lora.init(ic, loraconfig,spiconfig)
+@api lora2.init(ic, loraconfig,spiconfig)
 @string lora 型号，当前支持：<br>llcc68<br>sx1268
 @table lora配置参数,与具体设备有关
+@return userdata 若成功会返回lora对象,否则返回nil
 @usage
-lora.init("llcc68",
-    {
-        id = 0,           -- SPI id
-        cs = pin.PB04,    -- SPI 片选的GPIO号,如果没有pin库,填GPIO数字编号就行
-        res = pin.PB00,   -- 复位脚连接的GPIO号,如果没有pin库,填GPIO数字编号就行
-        busy = pin.PB01,  -- 忙检测脚的GPIO号
-        dio1 = pin.PB06,  -- 数据输入中断脚
-        lora_init = true  -- 是否发送初始化命令. 如果是唤醒后直接读取, 就传false
-    }
-)
+spi_lora = spi.deviceSetup(spi_id,pin_cs,0,0,8,10*1000*1000,spi.MSB,1,0)
+lora_device = lora2.init("llcc68",{res = pin_reset,busy = pin_busy,dio1 = pin_dio1},spi_lora)
 */
 static int luat_lora_init(lua_State *L){
     size_t len = 0;
@@ -200,18 +193,6 @@ static int luat_lora_init(lua_State *L){
             lora_device->lora_spi_id = 255;
             lora_device->lora_spi_device = (luat_spi_device_t*)lua_touserdata(L, 3);
         }else{
-            lora_device->lora_spi_id = 0;
-            luat_spi_t sx126x_spi = {0};
-            sx126x_spi.id = id;
-            sx126x_spi.CPHA = 0;
-            sx126x_spi.CPOL = 0;
-            sx126x_spi.dataw = 8;
-            sx126x_spi.bit_dict = 1;
-            sx126x_spi.master = 1;
-            sx126x_spi.mode = 0;
-            sx126x_spi.bandrate = 10*1000*1000;
-            sx126x_spi.cs = Luat_GPIO_MAX_ID;
-            luat_spi_setup(&sx126x_spi);
             lora_device->lora_spi_id = id;
             lora_device->lora_pin_cs = cs;
             luat_gpio_mode(lora_device->lora_pin_cs, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);

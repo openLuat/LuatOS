@@ -364,7 +364,7 @@ typedef struct
 /*!
  * Precomputed FSK bandwidth registers values
  */
-const FskBandwidth_t FskBandwidths[] =
+static const FskBandwidth_t FskBandwidths[] =
 {
     { 4800  , 0x1F },
     { 5800  , 0x17 },
@@ -390,7 +390,7 @@ const FskBandwidth_t FskBandwidths[] =
     { 500000, 0x00 }, // Invalid Bandwidth
 };
 
-const RadioLoRaBandwidths_t Bandwidths[] = { LORA_BW_125, LORA_BW_250, LORA_BW_500 };
+static const RadioLoRaBandwidths_t Bandwidths[] = { LORA_BW_125, LORA_BW_250, LORA_BW_500 };
 
 //                                          SF12    SF11    SF10    SF9    SF8    SF7
 static double RadioLoRaSymbTime[3][6] = {{ 32.768, 16.384, 8.192, 4.096, 2.048, 1.024 },  // 125 KHz

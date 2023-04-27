@@ -72,17 +72,17 @@ typedef struct lora_device
 /*!
  * \brief HW Reset of the radio
  */
-void SX126xReset( lora_device_t* lora_device );
+void SX126xReset2( lora_device_t* lora_device );
 
 /*!
  * \brief Blocking loop to wait while the Busy pin in high
  */
-void SX126xWaitOnBusy( lora_device_t* lora_device );
+void SX126xWaitOnBusy2( lora_device_t* lora_device );
 
 /*!
  * \brief Wakes up the radio
  */
-void SX126xWakeup( lora_device_t* lora_device );
+void SX126xWakeup2( lora_device_t* lora_device );
 
 /*!
  * \brief Send a command that write data to the radio
@@ -91,7 +91,7 @@ void SX126xWakeup( lora_device_t* lora_device );
  * \param [in]  buffer        Buffer to be send to the radio
  * \param [in]  size          Size of the buffer to send
  */
-void SX126xWriteCommand( lora_device_t* lora_device,RadioCommands_t opcode, uint8_t *buffer, uint16_t size );
+void SX126xWriteCommand2( lora_device_t* lora_device,RadioCommands_t opcode, uint8_t *buffer, uint16_t size );
 
 /*!
  * \brief Send a command that read data from the radio
@@ -100,7 +100,7 @@ void SX126xWriteCommand( lora_device_t* lora_device,RadioCommands_t opcode, uint
  * \param [out] buffer        Buffer holding data from the radio
  * \param [in]  size          Size of the buffer
  */
-void SX126xReadCommand( lora_device_t* lora_device,RadioCommands_t opcode, uint8_t *buffer, uint16_t size );
+void SX126xReadCommand2( lora_device_t* lora_device,RadioCommands_t opcode, uint8_t *buffer, uint16_t size );
 
 /*!
  * \brief Write a single byte of data to the radio memory
@@ -108,7 +108,7 @@ void SX126xReadCommand( lora_device_t* lora_device,RadioCommands_t opcode, uint8
  * \param [in]  address       The address of the first byte to write in the radio
  * \param [in]  value         The data to be written in radio's memory
  */
-void SX126xWriteRegister( lora_device_t* lora_device,uint16_t address, uint8_t value );
+void SX126xWriteRegister2( lora_device_t* lora_device,uint16_t address, uint8_t value );
 
 /*!
  * \brief Read a single byte of data from the radio memory
@@ -117,14 +117,14 @@ void SX126xWriteRegister( lora_device_t* lora_device,uint16_t address, uint8_t v
  *
  * \retval      value         The value of the byte at the given address in radio's memory
  */
-uint8_t SX126xReadRegister( lora_device_t* lora_device,uint16_t address );
+uint8_t SX126xReadRegister2( lora_device_t* lora_device,uint16_t address );
 
 /*!
  * \brief Sets the radio output power.
  *
  * \param [IN] power Sets the RF output power
  */
-void SX126xSetRfTxPower( lora_device_t* lora_device,int8_t power );
+void SX126xSetRfTxPower2( lora_device_t* lora_device,int8_t power );
 
 /*!
  * \brief Gets the board PA selection configuration
@@ -132,19 +132,19 @@ void SX126xSetRfTxPower( lora_device_t* lora_device,int8_t power );
  * \param [IN] channel Channel frequency in Hz
  * \retval PaSelect RegPaConfig PaSelect value
  */
-uint8_t SX126xGetPaSelect( lora_device_t* lora_device,uint32_t channel );
+uint8_t SX126xGetPaSelect2( lora_device_t* lora_device,uint32_t channel );
 
 /*!
  * \brief Initializes the RF Switch I/Os pins interface
  */
-void SX126xAntSwOn( lora_device_t* lora_device );
+void SX126xAntSwOn2( lora_device_t* lora_device );
 
 /*!
  * \brief De-initializes the RF Switch I/Os pins interface
  *
  * \remark Needed to decrease the power consumption in MCU low power modes
  */
-void SX126xAntSwOff( lora_device_t* lora_device );
+void SX126xAntSwOff2( lora_device_t* lora_device );
 
 /*!
  * \brief Checks if the given RF frequency is supported by the hardware
@@ -152,13 +152,13 @@ void SX126xAntSwOff( lora_device_t* lora_device );
  * \param [IN] frequency RF frequency to be checked
  * \retval isSupported [true: supported, false: unsupported]
  */
-bool SX126xCheckRfFrequency( lora_device_t* lora_device,uint32_t frequency );
+bool SX126xCheckRfFrequency2( lora_device_t* lora_device,uint32_t frequency );
 
-void SX126xDelayMs(uint32_t ms);
-uint8_t SX126xGetIrqFired( lora_device_t* lora_device );
+void SX126xDelayMs2(uint32_t ms);
+uint8_t SX126xGetIrqFired2( lora_device_t* lora_device );
 /*!
  * Radio hardware and global parameters
  */
-extern SX126x_t SX126x;
+// extern SX126x_t SX126x;
 
 #endif // __SX126x_ARCH_H__

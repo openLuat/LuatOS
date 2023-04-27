@@ -370,13 +370,13 @@ struct Radio_s
      */
     void ( *SetRxDutyCycle ) (lora_device_t* lora_device, uint32_t rxTime, uint32_t sleepTime );
 };
-void RadioEventsInit(lora_device_t* lora_device,RadioEvents_t *events);
+void RadioEventsInit2(lora_device_t* lora_device,RadioEvents_t *events);
 /*!
  * \brief Radio driver
  *
  * \remark This variable is defined and initialized in the specific radio
  *         board implementation
  */
-extern const struct Radio_s Radio;
+extern const struct Radio_s Radio2;
 
 #endif // __RADIO_H__

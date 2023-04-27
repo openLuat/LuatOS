@@ -117,7 +117,7 @@ end)
     return 0;
 }
 
-void OnTxDone( void ){
+static void OnTxDone( void ){
     rtos_msg_t msg = {0};
     msg.handler = l_lora_handler;
     msg.ptr = NULL;
@@ -126,7 +126,7 @@ void OnTxDone( void ){
     luat_msgbus_put(&msg, 1);
 }
 
-void OnRxDone( uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr ){
+static void OnRxDone( uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr ){
     // printf("RxDone size:%d rssi:%d snr:%d\n",size,rssi,snr);
     // printf("RxDone payload: %.*s",size,payload);
     char* rx_buff = luat_heap_malloc(size);
@@ -140,7 +140,7 @@ void OnRxDone( uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr ){
     luat_msgbus_put(&msg, 1);
 }
 
-void OnTxTimeout( void ){
+static void OnTxTimeout( void ){
     rtos_msg_t msg = {0};
     msg.handler = l_lora_handler;
     msg.ptr = NULL;
@@ -149,7 +149,7 @@ void OnTxTimeout( void ){
     luat_msgbus_put(&msg, 1);
 }
 
-void OnRxTimeout( void ){
+static void OnRxTimeout( void ){
     rtos_msg_t msg = {0};
     msg.handler = l_lora_handler;
     msg.ptr = NULL;
@@ -158,7 +158,7 @@ void OnRxTimeout( void ){
     luat_msgbus_put(&msg, 1);
 }
 
-void OnRxError( void ){
+static void OnRxError( void ){
     rtos_msg_t msg = {0};
     msg.handler = l_lora_handler;
     msg.ptr = NULL;

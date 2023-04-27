@@ -695,25 +695,6 @@ typedef void ( DioIrqHandler )( void );
 #define FREQ_DIV                                    ( double )pow( 2.0, 25.0 )
 #define FREQ_STEP                                   ( double )( XTAL_FREQ / FREQ_DIV )
 
-#define RX_BUFFER_SIZE                              256
-
-/*!
- * \brief The radio callbacks structure
- * Holds function pointers to be called on radio interrupts
- */
-typedef struct
-{
-    void ( *txDone )( void );                       //!< Pointer to a function run on successful transmission
-    void ( *rxDone )( void );                       //!< Pointer to a function run on successful reception
-    void ( *rxPreambleDetect )( void );             //!< Pointer to a function run on successful Preamble detection
-    void ( *rxSyncWordDone )( void );               //!< Pointer to a function run on successful SyncWord reception
-    void ( *rxHeaderDone )( bool isOk );            //!< Pointer to a function run on successful Header reception
-    void ( *txTimeout )( void );                    //!< Pointer to a function run on transmission timeout
-    void ( *rxTimeout )( void );                    //!< Pointer to a function run on reception timeout
-    void ( *rxError )( IrqErrorCode_t errCode );    //!< Pointer to a function run on reception error
-    void ( *cadDone )( bool cadFlag );              //!< Pointer to a function run on channel activity detected
-}SX126xCallbacks_t;
-
 /*!
  * ============================================================================
  * Public functions prototypes
@@ -723,19 +704,19 @@ typedef struct
 /*!
  * \brief Initializes the radio driver
  */
-void SX126xInit( lora_device_t* lora_device,DioIrqHandler dioIrq );
+void SX126xInit2( lora_device_t* lora_device,DioIrqHandler dioIrq );
 
 /*!
  * \brief Gets the current Operation Mode of the Radio
  *
  * \retval      RadioOperatingModes_t last operating mode
  */
-RadioOperatingModes_t SX126xGetOperatingMode( lora_device_t* lora_device );
+RadioOperatingModes_t SX126xGetOperatingMode2( lora_device_t* lora_device );
 
 /*!
  * \brief Wakeup the radio if it is in Sleep mode and check that Busy is low
  */
-void SX126xCheckDeviceReady( lora_device_t* lora_device );
+void SX126xCheckDeviceReady2( lora_device_t* lora_device );
 
 /*!
  * \brief Saves the payload to be send in the radio buffer
@@ -743,7 +724,7 @@ void SX126xCheckDeviceReady( lora_device_t* lora_device );
  * \param [in]  payload       A pointer to the payload
  * \param [in]  size          The size of the payload
  */
-void SX126xSetPayload( lora_device_t* lora_device,uint8_t *payload, uint8_t size );
+void SX126xSetPayload2( lora_device_t* lora_device,uint8_t *payload, uint8_t size );
 
 /*!
  * \brief Reads the payload received. If the received payload is longer
@@ -753,7 +734,7 @@ void SX126xSetPayload( lora_device_t* lora_device,uint8_t *payload, uint8_t size
  * \param [out] size          A pointer to the size of the payload received
  * \param [in]  maxSize       The maximal size allowed to copy into the buffer
  */
-uint8_t SX126xGetPayload( lora_device_t* lora_device,uint8_t *payload, uint8_t *size, uint8_t maxSize );
+uint8_t SX126xGetPayload2( lora_device_t* lora_device,uint8_t *payload, uint8_t *size, uint8_t maxSize );
 
 /*!
  * \brief Sends a payload
@@ -762,7 +743,7 @@ uint8_t SX126xGetPayload( lora_device_t* lora_device,uint8_t *payload, uint8_t *
  * \param [in]  size          The size of the payload to send
  * \param [in]  timeout       The timeout for Tx operation
  */
-void SX126xSendPayload( lora_device_t* lora_device,uint8_t *payload, uint8_t size, uint32_t timeout );
+void SX126xSendPayload2( lora_device_t* lora_device,uint8_t *payload, uint8_t size, uint32_t timeout );
 
 /*!
  * \brief Sets the Sync Word given by index used in GFSK
@@ -771,7 +752,7 @@ void SX126xSendPayload( lora_device_t* lora_device,uint8_t *payload, uint8_t siz
  *
  * \retval      status        [0: OK, 1: NOK]
  */
-uint8_t SX126xSetSyncWord( lora_device_t* lora_device,uint8_t *syncWord );
+uint8_t SX126xSetSyncWord2( lora_device_t* lora_device,uint8_t *syncWord );
 
 /*!
  * \brief Sets the Initial value for the LFSR used for the CRC calculation
@@ -779,7 +760,7 @@ uint8_t SX126xSetSyncWord( lora_device_t* lora_device,uint8_t *syncWord );
  * \param [in]  seed          Initial LFSR value ( 2 bytes )
  *
  */
-void SX126xSetCrcSeed( lora_device_t* lora_device,uint16_t seed );
+void SX126xSetCrcSeed2( lora_device_t* lora_device,uint16_t seed );
 
 /*!
  * \brief Sets the seed used for the CRC calculation
@@ -787,14 +768,14 @@ void SX126xSetCrcSeed( lora_device_t* lora_device,uint16_t seed );
  * \param [in]  seed          The seed value
  *
  */
-void SX126xSetCrcPolynomial( lora_device_t* lora_device,uint16_t polynomial );
+void SX126xSetCrcPolynomial2( lora_device_t* lora_device,uint16_t polynomial );
 
 /*!
  * \brief Sets the Initial value of the LFSR used for the whitening in GFSK protocols
  *
  * \param [in]  seed          Initial LFSR value
  */
-void SX126xSetWhiteningSeed( lora_device_t* lora_device,uint16_t seed );
+void SX126xSetWhiteningSeed2( lora_device_t* lora_device,uint16_t seed );
 
 /*!
  * \brief Gets a 32 bits random value generated by the radio
@@ -803,7 +784,7 @@ void SX126xSetWhiteningSeed( lora_device_t* lora_device,uint16_t seed );
  *
  * \retval randomValue    32 bits random value
  */
-uint32_t SX126xGetRandom( lora_device_t* lora_device );
+uint32_t SX126xGetRandom2( lora_device_t* lora_device );
 
 /*!
  * \brief Sets the radio in sleep mode
@@ -811,40 +792,40 @@ uint32_t SX126xGetRandom( lora_device_t* lora_device );
  * \param [in]  sleepConfig   The sleep configuration describing data
  *                            retention and RTC wake-up
  */
-void SX126xSetSleep( lora_device_t* lora_device,SleepParams_t sleepConfig );
+void SX126xSetSleep2( lora_device_t* lora_device,SleepParams_t sleepConfig );
 
 /*!
  * \brief Sets the radio in configuration mode
  *
  * \param [in]  mode          The standby mode to put the radio into
  */
-void SX126xSetStandby( lora_device_t* lora_device,RadioStandbyModes_t mode );
+void SX126xSetStandby2( lora_device_t* lora_device,RadioStandbyModes_t mode );
 
 /*!
  * \brief Sets the radio in FS mode
  */
-void SX126xSetFs( lora_device_t* lora_device );
+void SX126xSetFs2( lora_device_t* lora_device );
 
 /*!
  * \brief Sets the radio in transmission mode
  *
  * \param [in]  timeout       Structure describing the transmission timeout value
  */
-void SX126xSetTx( lora_device_t* lora_device,uint32_t timeout );
+void SX126xSetTx2( lora_device_t* lora_device,uint32_t timeout );
 
 /*!
  * \brief Sets the radio in reception mode
  *
  * \param [in]  timeout       Structure describing the reception timeout value
  */
-void SX126xSetRx( lora_device_t* lora_device,uint32_t timeout );
+void SX126xSetRx2( lora_device_t* lora_device,uint32_t timeout );
 
 /*!
  * \brief Sets the radio in reception mode with Boosted LNA gain
  *
  * \param [in]  timeout       Structure describing the reception timeout value
  */
-void SX126xSetRxBoosted( lora_device_t* lora_device,uint32_t timeout );
+void SX126xSetRxBoosted2( lora_device_t* lora_device,uint32_t timeout );
 
 /*!
  * \brief Sets the Rx duty cycle management parameters
@@ -852,22 +833,22 @@ void SX126xSetRxBoosted( lora_device_t* lora_device,uint32_t timeout );
  * \param [in]  rxTime        Structure describing reception timeout value
  * \param [in]  sleepTime     Structure describing sleep timeout value
  */
-void SX126xSetRxDutyCycle( lora_device_t* lora_device,uint32_t rxTime, uint32_t sleepTime );
+void SX126xSetRxDutyCycle2( lora_device_t* lora_device,uint32_t rxTime, uint32_t sleepTime );
 
 /*!
  * \brief Sets the radio in CAD mode
  */
-void SX126xSetCad( lora_device_t* lora_device );
+void SX126xSetCad2( lora_device_t* lora_device );
 
 /*!
  * \brief Sets the radio in continuous wave transmission mode
  */
-void SX126xSetTxContinuousWave( lora_device_t* lora_device );
+void SX126xSetTx2ContinuousWave2( lora_device_t* lora_device );
 
 /*!
  * \brief Sets the radio in continuous preamble transmission mode
  */
-void SX126xSetTxInfinitePreamble( lora_device_t* lora_device );
+void SX126xSetTx2InfinitePreamble2( lora_device_t* lora_device );
 
 /*!
  * \brief Decide which interrupt will stop the internal radio rx timer.
@@ -875,42 +856,42 @@ void SX126xSetTxInfinitePreamble( lora_device_t* lora_device );
  * \param [in]  enable          [0: Timer stop after header/syncword detection
  *                               1: Timer stop after preamble detection]
  */
-void SX126xSetStopRxTimerOnPreambleDetect(lora_device_t* lora_device, bool enable );
+void SX126xSetStopRxTimerOnPreambleDetect2(lora_device_t* lora_device, bool enable );
 
 /*!
  * \brief Set the number of symbol the radio will wait to validate a reception
  *
  * \param [in]  SymbNum          number of LoRa symbols
  */
-void SX126xSetLoRaSymbNumTimeout( lora_device_t* lora_device,uint8_t SymbNum );
+void SX126xSetLoRaSymbNumTimeout2( lora_device_t* lora_device,uint8_t SymbNum );
 
 /*!
  * \brief Sets the power regulators operating mode
  *
  * \param [in]  mode          [0: LDO, 1:DC_DC]
  */
-void SX126xSetRegulatorMode(lora_device_t* lora_device, RadioRegulatorMode_t mode );
+void SX126xSetRegulatorMode2(lora_device_t* lora_device, RadioRegulatorMode_t mode );
 
 /*!
  * \brief Calibrates the given radio block
  *
  * \param [in]  calibParam    The description of blocks to be calibrated
  */
-void SX126xCalibrate( lora_device_t* lora_device,CalibrationParams_t calibParam );
+void SX126xCalibrate2( lora_device_t* lora_device,CalibrationParams_t calibParam );
 
 /*!
  * \brief Calibrates the Image rejection depending of the frequency
  *
  * \param [in]  freq    The operating frequency
  */
-void SX126xCalibrateImage( lora_device_t* lora_device,uint32_t freq );
+void SX126xCalibrateImage2( lora_device_t* lora_device,uint32_t freq );
 
 /*!
  * \brief Activate the extention of the timeout when long preamble is used
  *
  * \param [in]  enable      The radio will extend the timeout to cope with long preamble
  */
-void SX126xSetLongPreamble( lora_device_t* lora_device,uint8_t enable );
+void SX126xSetLongPreamble2( lora_device_t* lora_device,uint8_t enable );
 
 /*!
  * \brief Sets the transmission parameters
@@ -920,14 +901,14 @@ void SX126xSetLongPreamble( lora_device_t* lora_device,uint8_t enable );
  * \param [in]  deviceSel       1 for sx1261, 0 for sx1262
  * \param [in]  paLut           0 for 14dBm LUT, 1 for 22dBm LUT
  */
-void SX126xSetPaConfig( lora_device_t* lora_device,uint8_t paDutyCycle, uint8_t hpMax, uint8_t deviceSel, uint8_t paLut );
+void SX126xSetPaConfig2( lora_device_t* lora_device,uint8_t paDutyCycle, uint8_t hpMax, uint8_t deviceSel, uint8_t paLut );
 
 /*!
  * \brief Defines into which mode the chip goes after a TX / RX done
  *
  * \param [in]  fallbackMode    The mode in which the radio goes
  */
-void SX126xSetRxTxFallbackMode( lora_device_t* lora_device,uint8_t fallbackMode );
+void SX126xSetRx2TxFallbackMode2( lora_device_t* lora_device,uint8_t fallbackMode );
 
 /*!
  * \brief Write data to the radio memory
@@ -936,7 +917,7 @@ void SX126xSetRxTxFallbackMode( lora_device_t* lora_device,uint8_t fallbackMode 
  * \param [in]  buffer        The data to be written in radio's memory
  * \param [in]  size          The number of bytes to write in radio's memory
  */
-void SX126xWriteRegisters( lora_device_t* lora_device,uint16_t address, uint8_t *buffer, uint16_t size );
+void SX126xWriteRegister2s2( lora_device_t* lora_device,uint16_t address, uint8_t *buffer, uint16_t size );
 
 /*!
  * \brief Read data from the radio memory
@@ -945,7 +926,7 @@ void SX126xWriteRegisters( lora_device_t* lora_device,uint16_t address, uint8_t 
  * \param [out] buffer        The buffer that holds data read from radio
  * \param [in]  size          The number of bytes to read from radio's memory
  */
-void SX126xReadRegisters( lora_device_t* lora_device,uint16_t address, uint8_t *buffer, uint16_t size );
+void SX126xReadRegister2s2( lora_device_t* lora_device,uint16_t address, uint8_t *buffer, uint16_t size );
 
 /*!
  * \brief Write data to the buffer holding the payload in the radio
@@ -954,7 +935,7 @@ void SX126xReadRegisters( lora_device_t* lora_device,uint16_t address, uint8_t *
  * \param [in]  buffer        The data to be written (the payload)
  * \param [in]  size          The number of byte to be written
  */
-void SX126xWriteBuffer( lora_device_t* lora_device,uint8_t offset, uint8_t *buffer, uint8_t size );
+void SX126xWriteBuffer2( lora_device_t* lora_device,uint8_t offset, uint8_t *buffer, uint8_t size );
 
 /*!
  * \brief Read data from the buffer holding the payload in the radio
@@ -963,7 +944,7 @@ void SX126xWriteBuffer( lora_device_t* lora_device,uint8_t offset, uint8_t *buff
  * \param [out] buffer        A pointer to a buffer holding the data from the radio
  * \param [in]  size          The number of byte to be read
  */
-void SX126xReadBuffer( lora_device_t* lora_device,uint8_t offset, uint8_t *buffer, uint8_t size );
+void SX126xReadBuffer2( lora_device_t* lora_device,uint8_t offset, uint8_t *buffer, uint8_t size );
 
 /*!
  * \brief   Sets the IRQ mask and DIO masks
@@ -973,21 +954,21 @@ void SX126xReadBuffer( lora_device_t* lora_device,uint8_t offset, uint8_t *buffe
  * \param [in]  dio2Mask      DIO2 mask
  * \param [in]  dio3Mask      DIO3 mask
  */
-void SX126xSetDioIrqParams( lora_device_t* lora_device,uint16_t irqMask, uint16_t dio1Mask, uint16_t dio2Mask, uint16_t dio3Mask );
+void SX126xSetDioIrqParams2( lora_device_t* lora_device,uint16_t irqMask, uint16_t dio1Mask, uint16_t dio2Mask, uint16_t dio3Mask );
 
 /*!
  * \brief Returns the current IRQ status
  *
  * \retval      irqStatus     IRQ status
  */
-uint16_t SX126xGetIrqStatus( lora_device_t* lora_device );
+uint16_t SX126xGetIrqStatus2( lora_device_t* lora_device );
 
 /*!
  * \brief Indicates if DIO2 is used to control an RF Switch
  *
  * \param [in] enable     true of false
  */
-void SX126xSetDio2AsRfSwitchCtrl( lora_device_t* lora_device,uint8_t enable );
+void SX126xSetDio2AsRfSwitchCtrl2( lora_device_t* lora_device,uint8_t enable );
 
 /*!
  * \brief Indicates if the Radio main clock is supplied from a tcxo
@@ -995,14 +976,14 @@ void SX126xSetDio2AsRfSwitchCtrl( lora_device_t* lora_device,uint8_t enable );
  * \param [in] tcxoVoltage     voltage used to control the TCXO
  * \param [in] timeout         time given to the TCXO to go to 32MHz
  */
-void SX126xSetDio3AsTcxoCtrl( lora_device_t* lora_device,RadioTcxoCtrlVoltage_t tcxoVoltage, uint32_t timeout );
+void SX126xSetDio3AsTcxoCtrl2( lora_device_t* lora_device,RadioTcxoCtrlVoltage_t tcxoVoltage, uint32_t timeout );
 
 /*!
  * \brief Sets the RF frequency
  *
  * \param [in]  frequency     RF frequency [Hz]
  */
-void SX126xSetRfFrequency( lora_device_t* lora_device,uint32_t frequency );
+void SX126xSetRfFrequency2( lora_device_t* lora_device,uint32_t frequency );
 
 /*!
  * \brief Sets the radio for the given protocol
@@ -1012,14 +993,14 @@ void SX126xSetRfFrequency( lora_device_t* lora_device,uint32_t frequency );
  * \remark This method has to be called before SetRfFrequency,
  *         SetModulationParams and SetPacketParams
  */
-void SX126xSetPacketType( lora_device_t* lora_device,RadioPacketTypes_t packetType );
+void SX126xSetPacketType2( lora_device_t* lora_device,RadioPacketTypes_t packetType );
 
 /*!
  * \brief Gets the current radio protocol
  *
  * \retval      packetType    [PACKET_TYPE_GFSK, PACKET_TYPE_LORA]
  */
-RadioPacketTypes_t SX126xGetPacketType( lora_device_t* lora_device );
+RadioPacketTypes_t SX126xGetPacketType2( lora_device_t* lora_device );
 
 /*!
  * \brief Sets the transmission parameters
@@ -1027,21 +1008,21 @@ RadioPacketTypes_t SX126xGetPacketType( lora_device_t* lora_device );
  * \param [in]  power         RF output power [-18..13] dBm
  * \param [in]  rampTime      Transmission ramp up time
  */
-void SX126xSetTxParams( lora_device_t* lora_device,int8_t power, RadioRampTimes_t rampTime );
+void SX126xSetTx2Params2( lora_device_t* lora_device,int8_t power, RadioRampTimes_t rampTime );
 
 /*!
  * \brief Set the modulation parameters
  *
  * \param [in]  modParams     A structure describing the modulation parameters
  */
-void SX126xSetModulationParams(lora_device_t* lora_device, ModulationParams_t *modParams );
+void SX126xSetModulationParams2(lora_device_t* lora_device, ModulationParams_t *modParams );
 
 /*!
  * \brief Sets the packet parameters
  *
  * \param [in]  packetParams  A structure describing the packet parameters
  */
-void SX126xSetPacketParams( lora_device_t* lora_device,PacketParams_t *packetParams );
+void SX126xSetPacketParams2( lora_device_t* lora_device,PacketParams_t *packetParams );
 
 /*!
  * \brief Sets the Channel Activity Detection (CAD) parameters
@@ -1056,7 +1037,7 @@ void SX126xSetPacketParams( lora_device_t* lora_device,PacketParams_t *packetPar
  *                             [LORA_CAD_ONLY, LORA_CAD_RX, LORA_CAD_LBT]
  * \param [in]  cadTimeout     Defines the timeout value to abort the CAD activity
  */
-void SX126xSetCadParams( lora_device_t* lora_device,RadioLoRaCadSymbols_t cadSymbolNum, uint8_t cadDetPeak, uint8_t cadDetMin, RadioCadExitModes_t cadExitMode, uint32_t cadTimeout );
+void SX126xSetCad2Params2( lora_device_t* lora_device,RadioLoRaCadSymbols_t cadSymbolNum, uint8_t cadDetPeak, uint8_t cadDetMin, RadioCadExitModes_t cadExitMode, uint32_t cadTimeout );
 
 /*!
  * \brief Sets the data buffer base address for transmission and reception
@@ -1064,21 +1045,21 @@ void SX126xSetCadParams( lora_device_t* lora_device,RadioLoRaCadSymbols_t cadSym
  * \param [in]  txBaseAddress Transmission base address
  * \param [in]  rxBaseAddress Reception base address
  */
-void SX126xSetBufferBaseAddress( lora_device_t* lora_device,uint8_t txBaseAddress, uint8_t rxBaseAddress );
+void SX126xSetBufferBaseAddress2( lora_device_t* lora_device,uint8_t txBaseAddress, uint8_t rxBaseAddress );
 
 /*!
  * \brief Gets the current radio status
  *
  * \retval      status        Radio status
  */
-RadioStatus_t SX126xGetStatus( lora_device_t* lora_device );
+RadioStatus_t SX126xGetStatus2( lora_device_t* lora_device );
 
 /*!
  * \brief Returns the instantaneous RSSI value for the last packet received
  *
  * \retval      rssiInst      Instantaneous RSSI
  */
-int8_t SX126xGetRssiInst( lora_device_t* lora_device );
+int8_t SX126xGetRssiInst2( lora_device_t* lora_device );
 
 /*!
  * \brief Gets the last received packet buffer status
@@ -1086,32 +1067,32 @@ int8_t SX126xGetRssiInst( lora_device_t* lora_device );
  * \param [out] payloadLength Last received packet payload length
  * \param [out] rxStartBuffer Last received packet buffer address pointer
  */
-void SX126xGetRxBufferStatus( lora_device_t* lora_device,uint8_t *payloadLength, uint8_t *rxStartBuffer );
+void SX126xGetRxBufferStatus2( lora_device_t* lora_device,uint8_t *payloadLength, uint8_t *rxStartBuffer );
 
 /*!
  * \brief Gets the last received packet payload length
  *
  * \param [out] pktStatus     A structure of packet status
  */
-void SX126xGetPacketStatus( lora_device_t* lora_device,PacketStatus_t *pktStatus );
+void SX126xGetPacketStatus2( lora_device_t* lora_device,PacketStatus_t *pktStatus );
 
 /*!
  * \brief Returns the possible system errors
  *
  * \retval sysErrors Value representing the possible sys failures
  */
-RadioError_t SX126xGetDeviceErrors( lora_device_t* lora_device );
+RadioError_t SX126xGetDeviceErrors2( lora_device_t* lora_device );
 
 /*!
  * \brief Clear all the errors in the device
  */
-void SX126xClearDeviceErrors( lora_device_t* lora_device );
+void SX126xClearDeviceErrors2( lora_device_t* lora_device );
 
 /*!
  * \brief Clears the IRQs
  *
  * \param [in]  irq           IRQ(s) to be cleared
  */
-void SX126xClearIrqStatus( lora_device_t* lora_device,uint16_t irq );
+void SX126xClearIrqStatus2( lora_device_t* lora_device,uint16_t irq );
 
 #endif // __SX126x_H__

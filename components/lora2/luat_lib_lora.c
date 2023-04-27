@@ -211,11 +211,11 @@ static int luat_lora_init(lua_State *L){
         RadioEvents.TxTimeout = OnTxTimeout;
         RadioEvents.RxTimeout = OnRxTimeout;
         RadioEvents.RxError = OnRxError;
-        RadioEventsInit(lora_device,&RadioEvents);
-        if (lora_device->lora_init) Radio.Init( lora_device,&RadioEvents );
+        RadioEventsInit2(lora_device,&RadioEvents);
+        if (lora_device->lora_init) Radio2.Init( lora_device,&RadioEvents );
 
         luat_rtos_timer_create(&lora_device->timer);
-        luat_rtos_timer_start(lora_device->timer, 10, 1, Radio.IrqProcess, lora_device);
+        luat_rtos_timer_start(lora_device->timer, 10, 1, Radio2.IrqProcess, lora_device);
 
         luaL_setmetatable(L, LUAT_LORA_TYPE);
         lua_pushvalue(L, -1);
@@ -238,16 +238,16 @@ lora_device:set_channel(433000000)
 static int luat_lora_set_channel(lua_State *L){
     lora_device_t  * lora_device = get_lora_device(L);
     uint32_t freq = luaL_optinteger(L, 2,433000000);
-    Radio.SetChannel(lora_device,freq);
+    Radio2.SetChannel(lora_device,freq);
     return 0;
 }
 
 /*
 lora配置发送参数
-@api lora.set_txconfig(txconfig)
+@api lora_device:set_txconfig(txconfig)
 @table lora发送配置参数,与具体设备有关
 @usage
-lora.set_txconfig(
+lora_device:set_txconfig(
     {
         mode=1,
         power=22,
@@ -340,7 +340,7 @@ static int luat_lora_set_txconfig(lua_State *L){
         lua_pop(L, 1);
     }
     
-    Radio.SetTxConfig( lora_device,mode, power, fdev, bandwidth,
+    Radio2.SetTxConfig( lora_device,mode, power, fdev, bandwidth,
                         datarate, coderate,
                         preambleLen, fixLen,
                         crcOn, freqHopOn, hopPeriod, iqInverted, timeout );
@@ -350,10 +350,10 @@ static int luat_lora_set_txconfig(lua_State *L){
 
 /*
 lora配置接收参数
-@api lora.set_rxconfig(set_rxconfig)
+@api lora_device:set_rxconfig(set_rxconfig)
 @table lora接收配置参数,与具体设备有关
 @usage
-lora.set_rxconfig(
+lora_device:set_rxconfig(
     {
         mode=1,
         bandwidth=0,
@@ -450,7 +450,7 @@ static int luat_lora_set_rxconfig(lua_State *L){
         lua_pop(L, 1);
     }
 
-    Radio.SetRxConfig( lora_device,mode, bandwidth, datarate,
+    Radio2.SetRxConfig( lora_device,mode, bandwidth, datarate,
                         coderate, bandwidthAfc, preambleLen,
                         symbTimeout, fixLen,
                         payloadLen, crcOn, freqHopOn, hopPeriod, iqInverted, rxContinuous );
@@ -469,8 +469,8 @@ static int luat_lora_send(lua_State *L){
     lora_device_t  * lora_device = get_lora_device(L);
     size_t len;
     const char* send_buff = luaL_checklstring(L, 2, &len);
-    Radio.Standby(lora_device);
-    Radio.Send( lora_device,send_buff, len);
+    Radio2.Standby(lora_device);
+    Radio2.Send( lora_device,send_buff, len);
     return 0;
 }
 
@@ -488,8 +488,8 @@ lora_device:recv(1000)
 static int luat_lora_recv(lua_State *L){
     lora_device_t  * lora_device = get_lora_device(L);
     int rx_timeout = luaL_optinteger(L, 2, 1000);
-    Radio.Standby(lora_device);
-    Radio.Rx(lora_device,rx_timeout);
+    Radio2.Standby(lora_device);
+    Radio2.Rx(lora_device,rx_timeout);
     return 0;
 }
 
@@ -504,13 +504,42 @@ static int luat_lora_mode(lua_State *L){
     lora_device_t  * lora_device = get_lora_device(L);
     int mode = luaL_optinteger(L, 2, 1);
     if (mode == 1){
-        Radio.Standby(lora_device);
+        Radio2.Standby(lora_device);
     }else if (mode == 0){
-        Radio.Sleep(lora_device);
+        Radio2.Sleep(lora_device);
     }
     return 0;
 }
 
+/*
+注册lora回调
+@api lora_device:on(cb)
+@function cb lora回调,参数包括lora_device, event, data, size
+@return nil 无返回值
+@usage 
+lora_device:on(function(lora_device, event, data, size)
+    log.info("lora", "event", event, lora_device, data, size)
+    if event == "tx_done" then
+        lora_device:recv(1000)
+    elseif event == "rx_done" then
+        lora_device:send("PING")
+    elseif event == "tx_timeout" then
+
+    elseif event == "rx_timeout" then
+        lora_device:recv(1000)
+    elseif event == "rx_error" then
+
+    end
+end)
+--[[
+event可能出现的值有
+    tx_done         -- 发送完成
+    rx_done         -- 接收完成
+    tx_timeout      -- 发送超时
+    rx_timeout      -- 接收超时
+    rx_error        -- 接收错误
+]]
+*/
 static int luat_lora_on(lua_State *L){
     lora_device_t *lora_device = get_lora_device(L);
 	if (lora_device->lora_cb != 0) {

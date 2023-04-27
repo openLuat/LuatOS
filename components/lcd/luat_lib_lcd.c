@@ -1689,7 +1689,7 @@ static const rotable_Reg_t reg_lcd[] =
     { "font_opposansm8_chinese", ROREG_PTR((void*)u8g2_font_opposansm8_chinese)},
 #endif
 #ifdef USE_U8G2_OPPOSANSM10_CHINESE
-    //@const font_opposansm8_chinese font 10号中文字体
+    //@const font_opposansm10_chinese font 10号中文字体
     { "font_opposansm10_chinese", ROREG_PTR((void*)u8g2_font_opposansm10_chinese)},
 #endif
 #ifdef USE_U8G2_OPPOSANSM12_CHINESE

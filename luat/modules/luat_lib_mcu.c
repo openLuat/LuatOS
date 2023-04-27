@@ -230,8 +230,8 @@ static int l_mcu_set_hardfault_mode(lua_State* L)
 	return 0;
 }
 
-LUAT_WEAK int luat_uart_pre_setup(int uart_id, uint8_t use_alt_type){;}
-LUAT_WEAK int luat_i2c_set_iomux(int id, uint8_t value){;}
+LUAT_WEAK int luat_uart_pre_setup(int uart_id, uint8_t use_alt_type){return -1;}
+LUAT_WEAK int luat_i2c_set_iomux(int id, uint8_t value){return -1;}
 /*
 在外设打开前，将外设IO复用到非默认配置上，目前只支持Air780E的部分外设复用到其他配置，这是一个临时接口，如果后续有更合适的api，本接口将不再更新
 @api mcu.iomux(type, channel, value)

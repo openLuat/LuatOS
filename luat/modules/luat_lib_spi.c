@@ -231,7 +231,7 @@ static int l_spi_setup(lua_State *L) {
 @int 数据宽度，默认8bit
 @int 大小端，默认spi.MSB, 可选spi.LSB
 @int 主从设置，默认主1, 可选从机0. 通常只支持主机模式
-@int 工作模式，全双工1，半双工0，默认全双工
+@int 工作模式，全双工1，半双工0，默认半双工
 @return 软件SPI对象 可当作SPI的id使用
 @usage
 -- 初始化软件spi

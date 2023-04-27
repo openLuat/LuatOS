@@ -394,7 +394,7 @@ static int32_t luat_spitf_write_data(luat_spitf_ctrl_t *spitf)
 					{
 						if ((i + waitCnt) != spitf->WriteWaitCnt)
 						{
-							spitf->WriteWaitCnt = i + waitCnt;
+							spitf->WriteWaitCnt = i + waitCnt + 8;
 						}
 					}
 					break;

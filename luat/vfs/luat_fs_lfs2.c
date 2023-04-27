@@ -262,7 +262,7 @@ int luat_vfs_lfs2_lsdir(void* userdata, char const* _DirName, luat_fs_dirent_t* 
             if (ret == 0) {
                 break;
             }
-            if (info.type == 2 && (memcmp(info.name, ".", 2) !=0 ||memcmp(info.name, "..", 3)!=0))
+            if (info.type == 2 && (memcmp(info.name, ".", 2) ==0 ||memcmp(info.name, "..", 3)==0))
                 continue;
             ents[num].d_type = info.type - 1; // lfs file =1, dir=2
             strcpy(ents[num].d_name, info.name);

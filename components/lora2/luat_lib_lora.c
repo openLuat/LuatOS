@@ -268,7 +268,7 @@ lora_device:set_txconfig(
 static int luat_lora_set_txconfig(lua_State *L){
     uint8_t mode = 1,power = 0,fdev = 0,bandwidth = 0,datarate = 9,coderate = 4,preambleLen = 8,freqHopOn = 0,hopPeriod = 0;
     uint32_t timeout = 0;
-    bool fixLen = false,crcOn = true,iqInverted = false;
+    bool fixLen = false,crcOn = true,iqInverted = false,rateOptimize = false;
     lora_device_t  * lora_device = get_lora_device(L);
 
     if (lua_istable(L, 2)) {
@@ -338,12 +338,17 @@ static int luat_lora_set_txconfig(lua_State *L){
             timeout = luaL_optinteger(L, -1,3000);
         }
         lua_pop(L, 1);
+        lua_pushstring(L, "rateOptimize");
+        if (LUA_TBOOLEAN == lua_gettable(L, 2)) {
+            rateOptimize = lua_toboolean(L, -1);
+        }
+        lua_pop(L, 1);
     }
     
     Radio2.SetTxConfig( lora_device,mode, power, fdev, bandwidth,
                         datarate, coderate,
                         preambleLen, fixLen,
-                        crcOn, freqHopOn, hopPeriod, iqInverted, timeout );
+                        crcOn, freqHopOn, hopPeriod, iqInverted, timeout ,rateOptimize);
 
     return 0;
 }
@@ -375,7 +380,7 @@ lora_device:set_rxconfig(
 static int luat_lora_set_rxconfig(lua_State *L){
     uint8_t mode = 1,bandwidth = 0,datarate = 9,coderate = 4,bandwidthAfc = 0,preambleLen = 8,symbTimeout = 0,payloadLen = 0,freqHopOn = 0,hopPeriod = 0;
     uint32_t frequency = 433000000,timeout = 0;
-    bool fixLen = false,crcOn = true,iqInverted = false,rxContinuous = false;
+    bool fixLen = false,crcOn = true,iqInverted = false,rxContinuous = false,rateOptimize = false;
     lora_device_t  * lora_device = get_lora_device(L);
     if (lua_istable(L, 2)) {
         lua_pushstring(L, "mode");
@@ -448,12 +453,17 @@ static int luat_lora_set_rxconfig(lua_State *L){
             rxContinuous = lua_toboolean(L, -1);
         }
         lua_pop(L, 1);
+        lua_pushstring(L, "rateOptimize");
+        if (LUA_TBOOLEAN == lua_gettable(L, 2)) {
+            rateOptimize = lua_toboolean(L, -1);
+        }
+        lua_pop(L, 1);
     }
 
     Radio2.SetRxConfig( lora_device,mode, bandwidth, datarate,
                         coderate, bandwidthAfc, preambleLen,
                         symbTimeout, fixLen,
-                        payloadLen, crcOn, freqHopOn, hopPeriod, iqInverted, rxContinuous );
+                        payloadLen, crcOn, freqHopOn, hopPeriod, iqInverted, rxContinuous ,rateOptimize);
 
     return 0;
 }

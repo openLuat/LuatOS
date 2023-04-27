@@ -307,7 +307,7 @@ static int luat_lora_set_txconfig(lua_State *L){
     if(strcmp("llcc68",lora_ic)== 0||strcmp("LLCC68",lora_ic)== 0||strcmp("sx1268",lora_ic)== 0||strcmp("SX1268",lora_ic)== 0){
         uint8_t mode = 1,power = 0,fdev = 0,bandwidth = 0,datarate = 9,coderate = 4,preambleLen = 8,freqHopOn = 0,hopPeriod = 0;
         uint32_t timeout = 0;
-        bool fixLen = false,crcOn = true,iqInverted = false;
+        bool fixLen = false,crcOn = true,iqInverted = false,rateOptimize = false;
 
         if (lua_istable(L, 2)) {
             lua_pushstring(L, "mode");
@@ -376,11 +376,16 @@ static int luat_lora_set_txconfig(lua_State *L){
                 timeout = luaL_optinteger(L, -1,3000);
             }
             lua_pop(L, 1);
+            lua_pushstring(L, "rateOptimize");
+            if (LUA_TBOOLEAN == lua_gettable(L, 2)) {
+                rateOptimize = lua_toboolean(L, -1);
+            }
+            lua_pop(L, 1);
         }
         Radio.SetTxConfig( mode, power, fdev, bandwidth,
                             datarate, coderate,
                             preambleLen, fixLen,
-                            crcOn, freqHopOn, hopPeriod, iqInverted, timeout );
+                            crcOn, freqHopOn, hopPeriod, iqInverted, timeout ,rateOptimize);
     }
     else {
         LLOGE("no such ic %s", lora_ic);
@@ -419,7 +424,7 @@ static int luat_lora_set_rxconfig(lua_State *L){
     if(strcmp("llcc68",lora_ic)== 0||strcmp("LLCC68",lora_ic)== 0||strcmp("sx1268",lora_ic)== 0||strcmp("SX1268",lora_ic)== 0){
         uint8_t mode = 1,bandwidth = 0,datarate = 9,coderate = 4,bandwidthAfc = 0,preambleLen = 8,symbTimeout = 0,payloadLen = 0,freqHopOn = 0,hopPeriod = 0;
         uint32_t frequency = 433000000,timeout = 0;
-        bool fixLen = false,crcOn = true,iqInverted = false,rxContinuous = false;
+        bool fixLen = false,crcOn = true,iqInverted = false,rxContinuous = false,rateOptimize = false;
 
         if (lua_istable(L, 2)) {
             lua_pushstring(L, "mode");
@@ -492,12 +497,17 @@ static int luat_lora_set_rxconfig(lua_State *L){
                 rxContinuous = lua_toboolean(L, -1);
             }
             lua_pop(L, 1);
+            lua_pushstring(L, "rateOptimize");
+            if (LUA_TBOOLEAN == lua_gettable(L, 2)) {
+                rateOptimize = lua_toboolean(L, -1);
+            }
+            lua_pop(L, 1);
         }
 
         Radio.SetRxConfig( mode, bandwidth, datarate,
                             coderate, bandwidthAfc, preambleLen,
                             symbTimeout, fixLen,
-                            payloadLen, crcOn, freqHopOn, hopPeriod, iqInverted, rxContinuous );
+                            payloadLen, crcOn, freqHopOn, hopPeriod, iqInverted, rxContinuous ,rateOptimize);
     }
     else {
         LLOGE("no such ic %s", lora_ic);

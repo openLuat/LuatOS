@@ -124,7 +124,7 @@ void RadioSetRxConfig( RadioModems_t modem, uint32_t bandwidth,
                           uint16_t symbTimeout, bool fixLen,
                           uint8_t payloadLen,
                           bool crcOn, bool FreqHopOn, uint8_t HopPeriod,
-                          bool iqInverted, bool rxContinuous );
+                          bool iqInverted, bool rxContinuous ,bool LowDatarateOptimize);
 
 /*!
  * \brief Sets the transmission parameters
@@ -165,7 +165,7 @@ void RadioSetTxConfig( RadioModems_t modem, int8_t power, uint32_t fdev,
                           uint32_t bandwidth, uint32_t datarate,
                           uint8_t coderate, uint16_t preambleLen,
                           bool fixLen, bool crcOn, bool FreqHopOn,
-                          uint8_t HopPeriod, bool iqInverted, uint32_t timeout );
+                          uint8_t HopPeriod, bool iqInverted, uint32_t timeout ,bool LowDatarateOptimize);
 
 /*!
  * \brief Checks if the given RF frequency is supported by the hardware
@@ -614,7 +614,7 @@ void RadioSetRxConfig( RadioModems_t modem, uint32_t bandwidth,
                          uint16_t symbTimeout, bool fixLen,
                          uint8_t payloadLen,
                          bool crcOn, bool freqHopOn, uint8_t hopPeriod,
-                         bool iqInverted, bool rxContinuous )
+                         bool iqInverted, bool rxContinuous ,bool LowDatarateOptimize)
 {
 
     RxContinuous = rxContinuous;
@@ -673,16 +673,20 @@ void RadioSetRxConfig( RadioModems_t modem, uint32_t bandwidth,
             SX126x.ModulationParams.Params.LoRa.Bandwidth = Bandwidths[bandwidth];
             SX126x.ModulationParams.Params.LoRa.CodingRate = ( RadioLoRaCodingRates_t )coderate;
 
-            if( ( ( bandwidth == 0 ) && ( ( datarate == 11 ) || ( datarate == 12 ) ) ) ||
-            ( ( bandwidth == 1 ) && ( datarate == 12 ) ) )
-            {
+            if (LowDatarateOptimize){
                 SX126x.ModulationParams.Params.LoRa.LowDatarateOptimize = 0x01;
+            }else{
+                if( ( ( bandwidth == 0 ) && ( ( datarate == 11 ) || ( datarate == 12 ) ) ) ||
+                ( ( bandwidth == 1 ) && ( datarate == 12 ) ) )
+                {
+                    SX126x.ModulationParams.Params.LoRa.LowDatarateOptimize = 0x01;
+                }
+                else
+                {
+                    SX126x.ModulationParams.Params.LoRa.LowDatarateOptimize = 0x00;
+                }
             }
-            else
-            {
-                SX126x.ModulationParams.Params.LoRa.LowDatarateOptimize = 0x00;
-            }
-
+            
             SX126x.PacketParams.PacketType = PACKET_TYPE_LORA;
 
             if( ( SX126x.ModulationParams.Params.LoRa.SpreadingFactor == LORA_SF5 ) ||
@@ -723,7 +727,7 @@ void RadioSetTxConfig( RadioModems_t modem, int8_t power, uint32_t fdev,
                         uint32_t bandwidth, uint32_t datarate,
                         uint8_t coderate, uint16_t preambleLen,
                         bool fixLen, bool crcOn, bool freqHopOn,
-                        uint8_t hopPeriod, bool iqInverted, uint32_t timeout )
+                        uint8_t hopPeriod, bool iqInverted, uint32_t timeout ,bool LowDatarateOptimize)
 {
 
     switch( modem )
@@ -767,14 +771,18 @@ void RadioSetTxConfig( RadioModems_t modem, int8_t power, uint32_t fdev,
             SX126x.ModulationParams.Params.LoRa.Bandwidth =  Bandwidths[bandwidth];
             SX126x.ModulationParams.Params.LoRa.CodingRate= ( RadioLoRaCodingRates_t )coderate;
 
-            if( ( ( bandwidth == 0 ) && ( ( datarate == 11 ) || ( datarate == 12 ) ) ) ||
-            ( ( bandwidth == 1 ) && ( datarate == 12 ) ) )
-            {
+            if (LowDatarateOptimize){
                 SX126x.ModulationParams.Params.LoRa.LowDatarateOptimize = 0x01;
-            }
-            else
-            {
-                SX126x.ModulationParams.Params.LoRa.LowDatarateOptimize = 0x00;
+            }else{
+                if( ( ( bandwidth == 0 ) && ( ( datarate == 11 ) || ( datarate == 12 ) ) ) ||
+                ( ( bandwidth == 1 ) && ( datarate == 12 ) ) )
+                {
+                    SX126x.ModulationParams.Params.LoRa.LowDatarateOptimize = 0x01;
+                }
+                else
+                {
+                    SX126x.ModulationParams.Params.LoRa.LowDatarateOptimize = 0x00;
+                }
             }
 
             SX126x.PacketParams.PacketType = PACKET_TYPE_LORA;

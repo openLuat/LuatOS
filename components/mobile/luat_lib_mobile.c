@@ -232,6 +232,45 @@ static int l_mobile_simid(lua_State* L) {
 }
 
 /**
+检测当前SIM卡是否准备好，对SIM卡的PIN码做相关操作
+@api mobile.simPin(id,operation,pin1,pin2)
+@int SIM卡的编号, 例如0, 1, 支持双卡双待的才需要选择
+@int PIN码操作类型，只能是mobile.PIN_XXXX，不操作就留空
+@string 更换pin时操作的pin码，或者验证操作的pin码，或者解锁pin码时的PUK，4~8字节
+@string 更换pin码操作时的新的pin码，解锁pin码时的新PIN，4~8字节
+@return boolean 当无PIN操作时，返回SIM卡是否准备好，有PIN操作时，返回是否成功
+@usage
+local cpin_is_ready = mobile.simPin() -- 当前sim卡是否准备好，一般返回false就是没卡
+local succ = mobile.simPin(0, mobile.PIN_VERIFY, "1234")	-- 输入pin码验证
+ */
+static int l_mobile_sim_pin(lua_State* L) {
+    char old[9] = {0};
+    char new[9] = {0};
+    int id = luaL_optinteger(L, 1, 0);
+    int operation = luaL_optinteger(L, 2, -1);
+    size_t old_len, new_len;
+    if (lua_isstring(L, 3))
+    {
+    	const char *old_pin = lua_tolstring(L, 3, &old_len);
+    	memcpy(old, old_pin, (old_len > 8)?8:old_len);
+    }
+    if (lua_isstring(L, 4))
+    {
+    	const char *new_pin = lua_tolstring(L, 4, &new_len);
+    	memcpy(new, new_pin, (new_len > 8)?8:new_len);
+    }
+    if (operation != -1)
+    {
+    	lua_pushboolean(L, (luat_mobile_set_sim_pin(id, operation, old, new) == 0));
+    }
+    else
+    {
+    	lua_pushboolean(L, (luat_mobile_get_sim_ready(id) == 1));
+    }
+    return 1;
+}
+
+/**
 设置RRC自动释放时间间隔，当开启时后，遇到极弱信号+频繁数据操作可能会引起网络严重故障，因此需要额外设置自动重启协议栈
 @api mobile.rtime(time, auto_reset_stack)
 @int RRC自动释放时间，等同于Air724的AT+RTIME，单位秒，写0或者不写则是停用，不要超过20秒，没有意义
@@ -727,6 +766,7 @@ static const rotable_Reg_t reg_mobile[] = {
     {"enbid",      ROREG_FUNC(l_mobile_enbid)},
     {"flymode",     ROREG_FUNC(l_mobile_flymode)},
     {"simid",       ROREG_FUNC(l_mobile_simid)},
+	{"simPin",       ROREG_FUNC(l_mobile_sim_pin)},
 	{"rtime",       ROREG_FUNC(l_mobile_set_rrc_auto_release_time)},
 	{"setAuto",       ROREG_FUNC(l_mobile_set_auto_work)},
     {"getCellInfo", ROREG_FUNC(l_mobile_get_cell_info)},
@@ -764,6 +804,16 @@ static const rotable_Reg_t reg_mobile[] = {
 	{"CONF_QUALITYFIRST",  ROREG_INT(MOBILE_CONF_QUALITYFIRST)},
 	// const CONF_USERDRXCYCLE LTE跳paging,谨慎使用,0是不设置,1~7增大或减小DrxCycle周期倍数,1:1/8倍 2:1/4倍 3:1/2倍 4:2倍 5:4倍 6:8倍 7:16倍,8~12配置固定的DrxCycle周期,仅当该周期大于网络分配的DrxCycle周期时该配置才会生效,8:320ms 9:640ms 10:1280ms 11:2560ms 12:5120ms
 	{"CONF_USERDRXCYCLE",  ROREG_INT(MOBILE_CONF_USERDRXCYCLE)},
+	// const PIN_VERIFY 验证PIN码操作
+	{"PIN_VERIFY",  ROREG_INT(LUAT_SIM_PIN_VERIFY)},
+	// const PIN_CHANGE 更换PIN码操作
+	{"PIN_CHANGE",  ROREG_INT(LUAT_SIM_PIN_CHANGE)},
+	// const PIN_ENABLE 使能PIN码验证
+	{"PIN_ENABLE",  ROREG_INT(LUAT_SIM_PIN_ENABLE)},
+	// const PIN_DISABLE 关闭PIN码验证
+	{"PIN_DISABLE",  ROREG_INT(LUAT_SIM_PIN_DISABLE)},
+	// const PIN_UNBLOCK 解锁PIN码
+	{"PIN_UNBLOCK",  ROREG_INT(LUAT_SIM_PIN_UNBLOCK)},
     {NULL,          ROREG_INT(0)}
 };
 

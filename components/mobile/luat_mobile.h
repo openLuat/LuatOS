@@ -110,6 +110,35 @@ int luat_mobile_get_sim_id(int *id);
  */
 int luat_mobile_set_sim_id(int id);
 
+typedef enum LUAT_MOBILE_SIM_PIN_OP
+{
+    LUAT_SIM_PIN_VERIFY = 0,       /* verify pin code */
+	LUAT_SIM_PIN_CHANGE,       /* change pin code */
+	LUAT_SIM_PIN_ENABLE,       /* enable the pin1 state for verification */
+	LUAT_SIM_PIN_DISABLE,      /* disable the pin1 state */
+	LUAT_SIM_PIN_UNBLOCK,      /* unblock pin code */
+//	LUAT_SIM_PIN_QUERY,        /* query pin1 state, enable or disable */
+}LUAT_MOBILE_SIM_PIN_OP_E;
+
+/**
+ * @brief 对SIM卡的pin码做操作
+ *
+ * @param id sim位置，对于双卡的设备，选0或者1，其他为自动选择模式，但是0和1的优先级是一致的。非双卡的设备不支持
+ * @param operation 操作码，见LUAT_MOBILE_SIM_PIN_OP_E
+ * @param pin1 旧的pin码，或者验证的pin码，解锁pin码时的PUK，参考手机操作
+ * @param pin2 更换pin码操作时的新的pin码，解锁pin码时的新PIN，参考手机操作
+ * @return int =0成功，其他失败
+ */
+int luat_mobile_set_sim_pin(int id, uint8_t operation, char pin1[9], char pin2[9]);
+
+/**
+ * @brief 检查SIM卡是否准备好
+ *
+ * @param id sim位置，对于双卡的设备，选0或者1，其他为自动选择模式，但是0和1的优先级是一致的。非双卡的设备不支持
+ * @return =1准备好，其他未准备好，或者SIM卡不在位
+ */
+uint8_t luat_mobile_get_sim_ready(int id);
+
 /**
  * @brief 在自动选择模式时，开机后优先用sim0
  *

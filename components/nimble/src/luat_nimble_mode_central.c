@@ -98,7 +98,7 @@ int luat_nimble_blecent_scan(void)
      * Perform a passive scan.  I.e., don't send follow-up scan requests to
      * each advertiser.
      */
-    disc_params.passive = 1;
+    disc_params.passive = 0;
 
     /* Use defaults for the rest of the parameters. */
     disc_params.itvl = 0;

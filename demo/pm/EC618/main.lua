@@ -1,5 +1,7 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
+--[[
+-- 演示一下pm相关API的功能
 PROJECT = "pmdemo"
 VERSION = "1.0.0"
 
@@ -64,6 +66,54 @@ else
         log.info("深度休眠测试失败")
     end)
 end
+]]
+-- 演示一下周期性工作-休眠的demo
+PROJECT = "sleepdemo"
+VERSION = "1.0.1"
+
+log.info("main", PROJECT, VERSION)
+
+-- sys库是标配
+_G.sys = require("sys")
+log.style(1)
+-- 注意:本demo使用luatools下载!!!
+-- 注意:本demo使用luatools下载!!!
+-- 注意:本demo使用luatools下载!!!
+
+
+-- 启动时对rtc进行判断和初始化
+local reason, slp_state = pm.lastReson()
+log.info("wakeup state", pm.lastReson())
+if reason > 0 then
+    pm.request(pm.LIGHT)
+	mobile.flymode(0, false)
+    log.info("已经从深度休眠唤醒")
+end
+--测试最低功耗，需要下面3个GPIO操作
+gpio.setup(23,nil)
+-- gpio.close(33) --如果功耗偏高，开始尝试关闭WAKEUPPAD1
+gpio.close(35) --这里pwrkey接地才需要，不接地通过按键控制的不需要
+
+sys.taskInit(function()
+	log.info("工作14秒后进入深度休眠")
+	sys.wait(14000)
+	mobile.flymode(0, true)
+	log.info("深度休眠测试用DTIMER来唤醒")
+	sys.wait(100)
+	pm.power(pm.USB, false) -- 如果是插着USB测试，需要关闭USB
+	pm.force(pm.HIB)
+	pm.dtimerStart(3, 40000)
+	sys.wait(5000)
+	pm.power(pm.USB, true) -- 如果是插着USB测试，需要关闭USB
+	log.info("深度休眠测试失败")
+	mobile.flymode(0, false)
+	pm.request(pm.LIGHT)
+
+	while true do
+		sys.wait(5000)
+		log.info("深度休眠测试失败")
+	end
+end)
 
 
 

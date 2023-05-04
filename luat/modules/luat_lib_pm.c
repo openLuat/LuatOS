@@ -333,7 +333,7 @@ IO高电平电压控制,当前仅EC618系列可用
 */
 static int l_pm_iovolt_ctrl(lua_State *L) {
 int val = 3300;
- int id = luaL_checkinteger(L, LUAT_PM_ALL_GPIO);
+ int id = luaL_optinteger(L, 1, LUAT_PM_ALL_GPIO);
  if (lua_isboolean(L, 2)) {
 	val = lua_toboolean(L, 2);
  }

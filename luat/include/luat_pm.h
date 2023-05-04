@@ -24,8 +24,7 @@ enum
 // 电平类
 enum
 {
-	LUAT_PM_IOVLOT_GPIO,
-	LUAT_PM_IOVLOT_AONGPIO
+	LUAT_PM_ALL_GPIO,
 };
 
 int luat_pm_request(int mode);

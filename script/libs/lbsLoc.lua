@@ -25,7 +25,7 @@ local lbsLoc = require("lbsLoc")
         -- locType：numble类型或者nil，定位类型，0表示基站定位成功，255表示WIFI定位成功
 function getLocCb(result, lat, lng, addr, time, locType)
     log.info("testLbsLoc.getLocCb", result, lat, lng)
-    -- 获取经纬度成功
+    -- 获取经纬度成功, 坐标系WSG84
     if result == 0 then
         log.info("服务器返回的时间", time:toHex())
         log.info("定位类型,基站定位成功返回0", locType)
@@ -256,6 +256,8 @@ end
 @table reqWifi 搜索到的WIFI热点信息(MAC地址和信号强度)，如果传入了此参数，后台会查询WIFI热点对应的经纬度，此参数格式如下：
 {["1a:fe:34:9e:a1:77"] = -63,["8c:be:be:2d:cd:e9"] = -81,["20:4e:7f:82:c2:c4"] = -70,}
 @return nil
+@usage
+-- 提醒: 返回的坐标值, 是WSG84坐标系
 ]]
 function lbsLoc.request(cbFnc,reqAddr,timeout,productKey,host,port,reqTime,reqWifi)
     sysplus.taskInitEx(taskClient, d1Name, netCB, cbFnc,reqAddr or nil,timeout or 20000,productKey or _G.PRODUCT_KEY,host or "bs.openluat.com",port or "12411",reqTime,reqWifi)

@@ -8,7 +8,7 @@ log.info("main", PROJECT, VERSION)
 sys = require("sys")
 
 sys.taskInit(function()
-    sys.wait(2000)
+    sys.wait(3000)
     -- zbuff可以理解为char[], char*, uint8_t*
     -- 为了与lua更好的融合, zbuff带长度,带指针位置,可动态扩容
     local buff = zbuff.create(1024)
@@ -53,6 +53,12 @@ sys.taskInit(function()
     log.info("zbuff", "len", buff:len())
     -- 获取其指针位置
     log.info("zbuff", "len", buff:used())
+
+    -- 测试writeF32, 注意, EC618系列(Air780E等), V1106会死机, 在V1107修复
+    buff:seek(0, zbuff.SEEK_SET)
+    buff:writeF32(1.2)
+    buff:seek(0, zbuff.SEEK_SET)
+    log.info("buff", "rw", "f32", buff:readF32())
 
     -- 更多用法请查阅api文档
 

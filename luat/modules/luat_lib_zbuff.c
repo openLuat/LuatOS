@@ -623,10 +623,12 @@ local data = buff:readU32()
 #define zread(n, t, f)                                       \
     static int l_zbuff_read_##n(lua_State *L)                \
     {                                                        \
-        luat_zbuff_t *buff = tozbuff(L);                       \
+        luat_zbuff_t *buff = tozbuff(L);                      \
         if (buff->len - buff->cursor < sizeof(t))            \
             return 0;                                        \
-        lua_push##f(L, *((t *)(buff->addr + buff->cursor))); \
+        t tmp;                                              \
+        memcpy(&tmp, buff->addr + buff->cursor, sizeof(t));  \
+        lua_push##f(L, tmp);                                 \
         buff->cursor += sizeof(t);                           \
         return 1;                                            \
     }
@@ -660,7 +662,8 @@ local len = buff:writeU32(1024)
             lua_pushinteger(L, 0);                                    \
             return 1;                                                 \
         }                                                             \
-        *((t *)(buff->addr + buff->cursor)) = (t)luaL_check##f(L, 2); \
+        t tmp =   (t)luaL_check##f(L, 2);                             \
+        memcpy(buff->addr + buff->cursor, &(tmp), sizeof(t));            \
         buff->cursor += sizeof(t);                                    \
         lua_pushinteger(L, sizeof(t));                                \
         return 1;                                                     \

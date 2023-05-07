@@ -63,12 +63,11 @@ local function audio_task()
     local result
     -- amr 可播放采样率 8k/16k
     local amrs = {"/luadb/alipay.amr", "/luadb/2.amr", "/luadb/10.amr", "/luadb/yuan.amr"}
-    -- mp3 可播放采样率 16k/32k
     -- 如需在同一个table内混播, 需要使用相同的采样率
-    -- 此mp3为自由文件,无版权问题,合宙自录音频,若测试音质请使用其他高清mp3,并使用转码到16k采样率
-    -- 注意, ec618系列(例如Air780E/Air700E)只能使用16k
-    local mp3s = {"/luadb/test_16k.mp3"}
+    -- 此mp3为自由文件,无版权问题,合宙自录音频,若测试音质请使用其他高清mp3
     -- local mp3s = {"/luadb/test_32k.mp3"}
+	-- ec618的固件需要用非full版本才能放下44k的MP3
+    local mp3s = {"/luadb/test_44k.mp3"}	
     local counter = 0
     while true do
         log.info("开始播放")

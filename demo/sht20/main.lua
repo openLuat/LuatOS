@@ -44,8 +44,8 @@ sys.taskInit(function()
         local _,tval = pack.unpack(tmp,'>H')
         local _,hval = pack.unpack(hum,'>H')
         if tval and hval then
-            temp = ((1750*(tval)/65535-450))/10
-            hump = ((1000*(hval)/65535))/10
+            temp = (((17572 * tval) >> 16) - 4685)/100
+            hump = (((12500 * hval) >> 16) - 600)/100
             log.info("SHT20", "temp,humi",temp,hump)
         end
         sys.wait(1000)

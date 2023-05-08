@@ -17,7 +17,7 @@ sys.taskInit(function()
     print("i2c",i2c.setup(i2cid,i2c_speed)) 
 
     -- 软件i2c 此方式通用
-    --i2cid = i2c.createSoft(18,19,0x38)
+    --i2cid = i2c.createSoft(18,19)
 
     mlx90614.init(i2cid)
     while 1 do

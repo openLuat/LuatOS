@@ -16,7 +16,7 @@ sys.taskInit(function()
     i2c_speed = i2c.SLOW
     print("i2c",i2c.setup(i2cid,i2c_speed)) 
 
-    -- 软件i2c 此方式通用
+    -- 软件i2c 此方式通用,需要 2023.5.8之后编译的固件
     --i2cid = i2c.createSoft(18,19)
 
     mlx90614.init(i2cid)

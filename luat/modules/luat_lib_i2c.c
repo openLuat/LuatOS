@@ -24,7 +24,6 @@
 typedef struct luat_ei2c {
     int sda;
     int scl;
-    unsigned char addr;
 } luat_ei2c;//软件i2c
 
 static void i2c_soft_start(luat_ei2c *ei2c)
@@ -216,13 +215,12 @@ static int l_i2c_setup(lua_State *L)
 @api i2c.createSoft(scl,sda,slaveAddr)
 @int i2c SCL引脚编号(GPIO编号)
 @int i2c SDA引脚编号(GPIO编号)
-@int 从设备地址（7位）, 例如0x38
 @return 软件I2C对象 可当作i2c的id使用
 @usage
 -- 注意！这个接口是软件模拟i2c，速度可能会比硬件的慢
 -- 不需要调用i2c.close接口
 -- 初始化软件i2c
-local softI2C = i2c.createSoft(1,2,0x38)
+local softI2C = i2c.createSoft(1,2)
 i2c.send(softI2C, 0x5C, string.char(0x0F, 0x2F))
 */
 static int l_i2c_soft(lua_State *L)
@@ -230,7 +228,6 @@ static int l_i2c_soft(lua_State *L)
     luat_ei2c *ei2c = (luat_ei2c *)lua_newuserdata(L, sizeof(luat_ei2c));
     ei2c->scl = luaL_checkinteger(L, 1);
     ei2c->sda = luaL_checkinteger(L, 2);
-    ei2c->addr = luaL_checkinteger(L, 3);
     luat_gpio_mode(ei2c->scl, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 1);
     luat_gpio_mode(ei2c->sda, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 1);
     i2c_soft_stop(ei2c);
@@ -598,19 +595,19 @@ static int l_i2c_readSHT30(lua_State *L)
     float hum = 0x00;
 
     int result = -1;
+    int addr = luaL_optinteger(L, 2, 0x44);
     if (lua_isuserdata(L, 1))
     {
         luat_ei2c *ei2c = toei2c(L);
-        i2c_soft_send(ei2c, ei2c->addr, buff, 2,1);
+
+        i2c_soft_send(ei2c, addr, buff, 2,1);
         luat_timer_mdelay(13);
 
-        result = i2c_soft_recv(ei2c, ei2c->addr, buff, 6);
+        result = i2c_soft_recv(ei2c, addr, buff, 6);
     }
     else
     {
         int id = luaL_optinteger(L, 1, 0);
-        int addr = luaL_optinteger(L, 2, 0x44);
-
         luat_i2c_send(id, addr, &buff, 2,1);
         luat_timer_mdelay(1);
         result = luat_i2c_recv(id, addr, buff, 6);

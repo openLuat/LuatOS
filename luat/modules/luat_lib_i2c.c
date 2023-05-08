@@ -752,14 +752,16 @@ static int l_i2c_transfer(lua_State *L)
 		} else {
 			result = luat_i2c_transfer(id, addr, NULL, 0, tx_buff, tx_len);
 		}
-	}
+	}else if (lua_isuserdata(L, 1)){
+        luat_ei2c *ei2c = toei2c(L);
+		if (tx_buff && tx_len) {
+            result = i2c_soft_send(ei2c, addr, tx_buff, tx_len,0);
+		} 
+        result = i2c_soft_recv(ei2c, addr, rx_buff, rx_len);
+    }
 	if (tx_heap_flag) {
 		luat_heap_free(tx_buff);
 	}
-//	else if (lua_isuserdata(L, 1))
-//    {
-//        luat_ei2c *ei2c = toei2c(L);
-//    }
 	lua_pushboolean(L, !result);
 	if (rx_buff && rx_len) {
 		if (rbuff) {

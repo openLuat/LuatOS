@@ -2366,13 +2366,17 @@ int network_rx(network_ctrl_t *ctrl, uint8_t *data, uint32_t len, int flags, lua
 					is_error = 1;
 					break;
 				}
-				else
+				else if (result > 0)
 				{
 					read_len += result;
 					if (read_len >= len)
 					{
 						break;
 					}
+				}
+				else
+				{
+					break;
 				}
 			}while(network_socket_receive(ctrl, NULL, len, flags, remote_ip, remote_port) > 0);
 

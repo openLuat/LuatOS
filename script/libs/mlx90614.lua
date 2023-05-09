@@ -9,10 +9,16 @@
 -- 用法实例
 local mlx90614 = require "mlx90614"
 
-local i2cid = 0
-local i2c_speed = i2c.SLOW
+
 sys.taskInit(function()
+    -- 硬件i2c方式 618不支持此方式因为618发送会发送停止信号
+    i2cid = 0
+    i2c_speed = i2c.SLOW
     print("i2c",i2c.setup(i2cid,i2c_speed)) 
+
+    -- 软件i2c 此方式通用,需要 2023.5.8之后编译的固件
+    --i2cid = i2c.createSoft(18,19)
+
     mlx90614.init(i2cid)
     while 1 do
         print("mlx90614 ambient",mlx90614.ambient()) 
@@ -36,7 +42,7 @@ local MLX90614_TOBJ2                =   0x08
 --[[
 mlx90614 初始化
 @api mlx90614.init(i2c_id)
-@number 所在的i2c总线id
+@number 所在的i2c总线硬件/软件id
 @return bool   成功返回true
 @usage
 mlx90614.init(0)

@@ -9,7 +9,7 @@ log.info("main", PROJECT, VERSION)
 _G.sys = require("sys")
 
 
-gpio.setup(35, function()
+gpio.setup(35, function() -- 35是虚拟GPIO，见https://wiki.luatos.com/chips/air780e/iomux.html#id1
     log.info("pwrkey", gpio.get(35))
 end, gpio.PULLUP)
 

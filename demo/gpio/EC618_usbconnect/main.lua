@@ -9,7 +9,7 @@ log.info("main", PROJECT, VERSION)
 _G.sys = require("sys")
 led = gpio.setup(24, 1) --如果真的把USB拔出，可能无法打印出信息，所以拿个IO输出和USB一样状态的电平
 
-gpio.setup(33, function()
+gpio.setup(33, function() -- 33是虚拟GPIO，见https://wiki.luatos.com/chips/air780e/iomux.html#id1
     log.info("usb", gpio.get(33))
     led(gpio.get(33))   --IO输出和USB一样的状态
 end, gpio.PULLUP, gpio.BOTH)

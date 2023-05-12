@@ -41,3 +41,26 @@ sysplus.sendMsg('a', 'b')
 -- 注意, 本函数会自动注册成全局函数 sys_send
 */
 void doc_sysplus_send(void){};
+
+/*
+创建一个任务线程,在模块最末行调用该函数并注册模块中的任务函数,main.lua导入该模块即可
+@api sysplus.taskInitEx(fun, taskName, cbFun, ...)
+@function 任务函数名,用于resume唤醒时调用
+@string  任务名称,用于唤醒任务的id
+@function 接收到非目标消息时的回调函数
+@any ... 任务函数fun的可变参数
+@return number 返回该任务的线程号
+@usage
+sysplus.taskInitEx(task1,'a',callback)
+*/
+void doc_sysplus_taskInitEx(void){};
+
+/*
+删除由taskInitEx创建的任务线程
+@api sysplus.sendMsg(taskName, param1, param2, param3, param4)
+@string  任务名称,用于唤醒任务的id
+@usage
+sysplus.taskDel('a')
+*/
+void doc_sysplus_taskDel(void){};
+

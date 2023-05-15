@@ -498,9 +498,21 @@ static int l_uart_read(lua_State *L)
         lua_pushinteger(L, result);
         return 1;
     }
-    if (length < 512)
-        length = 512;
-    uint8_t* recv = luat_heap_malloc(length);
+	// 不再限制最小读取数量
+    // if (length < 512)
+    //     length = 512;
+	// 若读取0字节, 直接返回空串
+	if (length < 1) {
+		lua_pushliteral(L, "");
+		return 1;
+	}
+	uint8_t tmpbuff[128];
+	uint8_t* recv = tmpbuff;
+	uint8_t* rr = NULL;
+	if (length > 128) { // 如果读取量比较大,就malloc
+		rr = luat_heap_malloc(length);
+		recv = rr;
+	}
     if (recv == NULL) {
         LLOGE("system is out of memory!!!");
         lua_pushstring(L, "");
@@ -545,7 +557,8 @@ static int l_uart_read(lua_State *L)
     {
         lua_pushstring(L, "");
     }
-    luat_heap_free(recv);
+	if (rr != NULL)
+    	luat_heap_free(rr);
     return 1;
 }
 

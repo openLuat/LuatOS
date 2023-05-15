@@ -18,15 +18,8 @@
 #define LUAT_LOG_TAG "i2c"
 #include "luat_log.h"
 
-#define LUAT_EI2C_TYPE "EI2C*"
-#define toei2c(L) ((luat_ei2c *)luaL_checkudata(L, 1, LUAT_EI2C_TYPE))
 
-typedef struct luat_ei2c {
-    int sda;
-    int scl;
-} luat_ei2c;//软件i2c
-
-static void i2c_soft_start(luat_ei2c *ei2c)
+void i2c_soft_start(luat_ei2c *ei2c)
 {
     luat_gpio_mode(ei2c->sda, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 1);
     luat_timer_us_delay(5);
@@ -128,7 +121,7 @@ static char i2c_soft_recv_byte(luat_ei2c *ei2c)
     luat_gpio_set(ei2c->scl, Luat_GPIO_LOW);
     return (data);
 }
-static char i2c_soft_recv(luat_ei2c *ei2c, unsigned char addr, char *buff, size_t len)
+char i2c_soft_recv(luat_ei2c *ei2c, unsigned char addr, char *buff, size_t len)
 {
     size_t i;
     i2c_soft_start(ei2c);
@@ -149,7 +142,7 @@ static char i2c_soft_recv(luat_ei2c *ei2c, unsigned char addr, char *buff, size_
     i2c_soft_stop(ei2c);
     return 0;
 }
-static char i2c_soft_send(luat_ei2c *ei2c, unsigned char addr, char *data, size_t len, uint8_t stop)
+char i2c_soft_send(luat_ei2c *ei2c, unsigned char addr, char *data, size_t len, uint8_t stop)
 {
     size_t i;
     i2c_soft_start(ei2c);

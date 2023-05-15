@@ -94,19 +94,18 @@ float map(float val, float I_Min, float I_Max, float O_Min, float O_Max){
 #define constrain(amt, low, high) ((amt)<(low)?(low):((amt)>(high)?(high):(amt)))
 
 static paramsMLX90640* mlx90640;
-uint8_t mlx90640_i2c_id;
-uint8_t mlx90640_i2c_speed;
+mlx90640_i2c_t mlx90640_i2c;
+
 static uint8_t mlx90640_refresh_rate;
 /*
 初始化MLX90640传感器
-@api mlx90640.init(i2c_id,i2c_speed,refresh_rate)
-@int 传感器所在的i2c总线id,默认为0
-@int 传感器所在的i2c总线速度,默认为i2c.FAST
+@api mlx90640.init(i2c_id,refresh_rate) (注意:2023.5.15之后使用此接口,用户需要自行初始化i2c接口)
+@int 传感器所在的i2c总线id或者软i2c对象,默认为0
 @int 传感器的测量速率,默认为4Hz
 @return bool 成功返回true, 否则返回nil或者false
 @usage
-
-if mlx90640.init(0,i2c.FAST,mlx90640.FPS4HZ) then
+i2c.setup(i2cid,i2c_speed)
+if mlx90640.init(0,mlx90640.FPS4HZ) then
     log.info("mlx90640", "init ok")
     sys.wait(500) -- 稍等片刻
     while 1 do
@@ -120,9 +119,13 @@ end
 
 */
 static int l_mlx90640_init(lua_State *L){
-    mlx90640_i2c_id = luaL_optinteger(L, 1 , 0);
-    mlx90640_i2c_speed = luaL_optinteger(L, 2 , 1);
-    mlx90640_refresh_rate = luaL_optinteger(L, 3 , 3);
+    mlx90640_i2c.i2c_id = -1;
+    if (!lua_isuserdata(L, 1)) {
+		mlx90640_i2c.i2c_id = luaL_optinteger(L, 1 , 0);
+	}else if (lua_isuserdata(L, 1)){
+        mlx90640_i2c.ei2c = toei2c(L);
+    }
+    mlx90640_refresh_rate = luaL_optinteger(L, 2 , FPS4HZ);
     lcd_conf = luat_lcd_get_default();
 
     if (ctx == NULL) {

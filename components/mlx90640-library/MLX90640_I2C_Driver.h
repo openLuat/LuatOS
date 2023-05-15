@@ -19,9 +19,18 @@
 
 #include <stdint.h>
 
-    void MLX90640_I2CInit(void);
-    int MLX90640_I2CGeneralReset(void);
-    int MLX90640_I2CRead(uint8_t slaveAddr,uint16_t startAddress, uint16_t nMemAddressRead, uint16_t *data);
-    int MLX90640_I2CWrite(uint8_t slaveAddr,uint16_t writeAddress, uint16_t data);
-    void MLX90640_I2CFreqSet(int freq);
+#include "luat_i2c.h"
+
+typedef struct mlx90640_i2c {
+    int i2c_id;
+    luat_ei2c* ei2c;
+} mlx90640_i2c_t;
+
+
+void MLX90640_I2CInit(void);
+int MLX90640_I2CGeneralReset(void);
+int MLX90640_I2CRead(uint8_t slaveAddr,uint16_t startAddress, uint16_t nMemAddressRead, uint16_t *data);
+int MLX90640_I2CWrite(uint8_t slaveAddr,uint16_t writeAddress, uint16_t data);
+void MLX90640_I2CFreqSet(int freq);
+
 #endif

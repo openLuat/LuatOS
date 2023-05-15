@@ -15,16 +15,15 @@
  *
  */
 
-#include "luat_i2c.h"
+#include "luat_base.h"
 #include "luat_malloc.h"
 #include "MLX90640_I2C_Driver.h"
 
-extern uint8_t mlx90640_i2c_id;
-extern uint8_t mlx90640_i2c_speed;
+extern mlx90640_i2c_t mlx90640_i2c;
 
 void MLX90640_I2CInit(void)
 {   
-    luat_i2c_setup(mlx90640_i2c_id, mlx90640_i2c_speed);
+
 }
 
 int MLX90640_I2CRead(uint8_t slaveAddr, uint16_t startAddress, uint16_t nMemAddressRead, uint16_t *data)
@@ -40,8 +39,14 @@ int MLX90640_I2CRead(uint8_t slaveAddr, uint16_t startAddress, uint16_t nMemAddr
     cmd[1] = startAddress & 0x00FF;
 
     i2cData = (char *)luat_heap_malloc(2*nMemAddressRead);
-    ret = luat_i2c_transfer(mlx90640_i2c_id, slaveAddr, (uint8_t*)cmd, 2, (uint8_t*)i2cData, 2*nMemAddressRead);
-
+    
+    if (mlx90640_i2c.i2c_id == -1){
+        ret = i2c_soft_send(mlx90640_i2c.ei2c, slaveAddr, (char*)cmd, 2,0);
+        ret = i2c_soft_recv(mlx90640_i2c.ei2c, slaveAddr, (char*)i2cData, 2*nMemAddressRead);
+    }else{
+        ret = luat_i2c_transfer(mlx90640_i2c.i2c_id, slaveAddr, (uint8_t*)cmd, 2, (uint8_t*)i2cData, 2*nMemAddressRead);
+    }
+    
     if (ret != 0){
         luat_heap_free(i2cData);
         return -1;
@@ -65,12 +70,15 @@ int MLX90640_I2CWrite(uint8_t slaveAddr, uint16_t writeAddress, uint16_t data)
     cmd[2] = data >> 8;
     cmd[3] = data & 0x00FF;
 
-    ret = luat_i2c_send(mlx90640_i2c_id, slaveAddr, cmd, 4,0);
-    if (ret != 0)return -1;
-    
+    if (mlx90640_i2c.i2c_id == -1){
+        ret = i2c_soft_send(mlx90640_i2c.ei2c, slaveAddr, (char*)cmd, 4,0);
+    }else{
+        ret = luat_i2c_send(mlx90640_i2c.i2c_id, slaveAddr, cmd, 4,0);
+        if (ret != 0)return -1;
+    }
     ret = MLX90640_I2CRead(slaveAddr,writeAddress,1, &dataCheck);
     if (ret != 0)return -1;
-    
+
     if ( dataCheck != data)
     {
         return -2;

@@ -319,8 +319,8 @@ static int l_w1_read_byte(lua_State *L)
 }
 unsigned long ReadCount(int date,int clk) //增益128
 {
-  unsigned long count;
-  unsigned char i;
+  unsigned long count = 0;
+  unsigned char i = 0;
   luat_gpio_mode(date, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 0);
   luat_gpio_set(date, Luat_GPIO_HIGH);
   luat_timer_us_delay(1);
@@ -329,8 +329,11 @@ unsigned long ReadCount(int date,int clk) //增益128
   luat_gpio_mode(date, Luat_GPIO_INPUT, Luat_GPIO_PULLUP, 0);
   luat_timer_us_delay(1);
   count = 0;
-  while (luat_gpio_get(date))
-    ; // TODO 用tick或者us_delay统计timeout
+  int retry = 50; // 最多等待5ms == 50 * 100us
+  while (retry > 0 && luat_gpio_get(date)) {
+    luat_timer_us_delay(100);
+    retry --;
+  }
   for (i = 0; i < 24; i++)
   {
     luat_gpio_set(clk, Luat_GPIO_HIGH);
@@ -370,8 +373,8 @@ sys.taskInit(
 static int l_sensor_hx711(lua_State *L)
 {
   // unsigned int j;
-  unsigned long hx711_dat;
-  unsigned int temp;
+  unsigned long hx711_dat = 0;
+  unsigned int temp = 0;
   int date = luaL_checkinteger(L, 1);
   int clk = luaL_checkinteger(L, 2);
   //for (j = 0; j < 5; j++)

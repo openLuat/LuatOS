@@ -5,6 +5,8 @@
 @version 1.0
 @date    2021.09.02
 @tag LUAT_USE_SDIO
+@usage
+-- 本sdio库挂载tf卡到文件系统功能已经被fatfs的sdio模式取代
 */
 #include "luat_base.h"
 #include "luat_sdio.h"

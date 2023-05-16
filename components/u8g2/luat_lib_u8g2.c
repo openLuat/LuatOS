@@ -48,7 +48,7 @@ static const char* mode_strs[] = {
 /*
 u8g2显示屏初始化
 @api u8g2.begin(conf)
-@table conf 配置信息
+@table conf 配置信息 ic:支持 ssd1306 ssd1309 ssd1322 sh1106 sh1107 sh1108 st7567 uc1701 ssd1306_128x32, direction:方向,可选0 90 180 270 默认0 mode:模式,可选i2c_sw:软件i2c i2c_hw:硬件i2c spi_hw_4pin:硬件spi i2c_id:硬件i2c时有效 i2c_scl=1、i2c_sda:软件i2c时有效 spi_id、spi_res、spi_dc、spi_cs:硬件spi时生效
 @return int 正常初始化1,已经初始化过2,内存不够3,初始化失败返回4
 @usage
 -- 初始化硬件i2c的ssd1306

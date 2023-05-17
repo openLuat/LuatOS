@@ -994,7 +994,7 @@ static const luat_u8g2_dev_reg_t devregs[] = {
     {.name="st7567",  .w=128, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_st7567_jlx12864_f},                 // st7567 128x64
     {.name="uc1701",  .w=128, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_uc1701_mini12864_f},                // uc1701
     {.name="ssd1306_128x32", .w=128, .h=32, .spi_i2c=0, .devcb=u8g2_Setup_ssd1306_i2c_128x32_univision_f},       // ssd1306 128x32,I2C
-    {.name="st7565", .w=132, .h=64, .spi_i2c=0, .devcb=u8g2_Setup_st7565_ea_dogm132_f},       // st7565 128x32,I2C
+    {.name="st7565", .w=132, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_st7565_ea_dogm132_f},       // st7565 128x32,SPI
     {.name=NULL} // 结尾用,必须加.
 };
 
@@ -1138,7 +1138,7 @@ int hw_spi_begin(uint8_t spi_mode, uint32_t max_hz, uint8_t cs_pin )
     u8g2_spi.dataw = 8;
     u8g2_spi.bit_dict = 1;
     u8g2_spi.master = 1;
-    u8g2_spi.mode = 1;
+    u8g2_spi.mode = 0;
     u8g2_spi.bandrate = max_hz;
     u8g2_spi.cs = -1;
     LLOGI("spi_mode:%d bandrate:%d cs_pin:%d",spi_mode,max_hz,cs_pin);

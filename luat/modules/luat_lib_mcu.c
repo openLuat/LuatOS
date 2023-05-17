@@ -81,9 +81,9 @@ static int l_mcu_ticks(lua_State* L) {
 /*
 获取每秒的tick数量
 @api mcu.hz()
-@return int 每秒的tick数量
+@return int 每秒的tick数量,通常为1000
 @usage
-local tick = mcu.hz()
+local hz = mcu.hz()
 print("mcu.hz", hz)
 */
 static int l_mcu_hz(lua_State* L) {

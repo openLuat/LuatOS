@@ -116,7 +116,7 @@ local function enCellInfo(s)
             if not handle then
                 table.insert(t,{mcc=mcc,mnc=mnc,lac=lac,rssici={{rssi=rssi,ci=ci}}})
             end
-            log.info("rssi、mcc、mnc、lac、ci", rssi,mcc,mnc,lac,ci)
+            log.debug("rssi、mcc、mnc、lac、ci", rssi,mcc,mnc,lac,ci)
         end
         for k,v in pairs(t) do
             ret = ret .. pack.pack(">HHb",v.lac,v.mcc,v.mnc)
@@ -160,6 +160,9 @@ local function taskClient(cbFnc, reqAddr, timeout, productKey, host, port,reqTim
         if not sys.waitUntil("IP_READY", timeout) then return cbFnc(1) end
         sys.wait(500)
     end
+    if productKey == nil then
+        productKey = ""
+    end
     local retryCnt  = 0
     local reqStr = pack.pack("bAbAAAAA", productKey:len(), productKey,
                              (reqAddr and 2 or 0) + (reqTime and 4 or 0) + 8 +(reqWifi and 16 or 0) + 32, "",
@@ -197,7 +200,7 @@ local function taskClient(cbFnc, reqAddr, timeout, productKey, host, port,reqTim
                         socket.release(netc)
                         local read_buff = rx_buff:toStr(0, param)
                         rx_buff:clear()
-                        log.info("lbsLoc receive", read_buff:toHex())
+                        log.debug("lbsLoc receive", read_buff:toHex())
                         if read_buff:len() >= 11 and(read_buff:byte(1) == 0 or read_buff:byte(1) == 0xFF) then
                             local locType = read_buff:byte(1)
                             cbFnc(0, trans(bcdNumToNum(read_buff:sub(2, 6))),
@@ -211,9 +214,9 @@ local function taskClient(cbFnc, reqAddr, timeout, productKey, host, port,reqTim
                                 log.warn("lbsLoc.query","main.lua中的PRODUCT_KEY和此设备在iot.openluat.com中所属项目的ProductKey必须一致，请去检查")
                             else
                                 log.warn("lbsLoc.query","基站数据库查询不到所有小区的位置信息")
-                                log.warn("lbsLoc.query","在trace中向上搜索encellinfo，然后在电脑浏览器中打开http://bs.openluat.com/，手动查找encellinfo后的所有小区位置")
-                                log.warn("lbsLoc.query","如果手动可以查到位置，则服务器存在BUG，直接向技术人员反映问题")
-                                log.warn("lbsLoc.query","如果手动无法查到位置，则基站数据库还没有收录当前设备的小区位置信息，向技术人员反馈，我们会尽快收录")
+                                -- log.warn("lbsLoc.query","在trace中向上搜索encellinfo，然后在电脑浏览器中打开http://bs.openluat.com/，手动查找encellinfo后的所有小区位置")
+                                -- log.warn("lbsLoc.query","如果手动可以查到位置，则服务器存在BUG，直接向技术人员反映问题")
+                                -- log.warn("lbsLoc.query","如果手动无法查到位置，则基站数据库还没有收录当前设备的小区位置信息，向技术人员反馈，我们会尽快收录")
                             end
                             cbFnc(5)
                         end

@@ -383,6 +383,7 @@ static int l_mobile_ipv6(lua_State* L) {
 
 /**
 获取csq
+@api mobile.csq()
 @return int 当前CSQ值, 若失败返回0
  */
 static int l_mobile_csq(lua_State* L) {

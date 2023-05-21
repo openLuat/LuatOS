@@ -1,20 +1,22 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "dingdingdemo"
+PROJECT = "feishudemo"
 VERSION = "1.0.0"
 
 --[[
-本demo是演示钉钉的 "自定义webhook机器人"
+本demo是演示飞书的 "自定义机器人"
 ]]
 
 --------------------------------------------------------------------------------------
 -- webhook和secret要换成你自己机器人的值
 -- webhook是钉钉分配给机器人的URL
 -- secret是选取 "加签", 自动生成的密钥
--- 下面的给LuatOS的一个测试群发消息, 随时可能关掉, 换成你自己的值
-local webhook = "https://oapi.dingtalk.com/robot/send?access_token=b8e5ec7e2700e579bf23066e18d838454fa2aa26d81bdeb67f58571a334407df"
-local secret = "SEC7ffc9d9e41367a578265f3cc3288af6f0e0ab820295a427957c1d11447f56e3f"
+-- 下面的给一个测试群发消息, 随时可能关掉, 换成你自己的值
+local webhook = "https://open.feishu.cn/open-apis/bot/v2/hook/568bfe5a-eda5-4a79-8348-9d21c572cc3b"
+local secret = "XRtUovKq24De3zkNS9VHVf"
 --------------------------------------------------------------------------------------
+
+-- 飞书关于机器人的文档 https://open.feishu.cn/document/ukTMukTMukTM/ucTM5YjL3ETO24yNxkjN?lang=zh-CN
 
 -- sys库是标配
 _G.sys = require("sys")
@@ -86,7 +88,8 @@ sys.taskInit(function()
     local rheaders = {}
     rheaders["Content-Type"] = "application/json"
     while 1 do
-        local timestamp = tostring(os.time()) .. "000" -- LuatOS的时间戳只到秒,但钉钉需要毫秒，补3个零
+        -- LuatOS的时间戳只到秒,飞书也只需要秒, 这点与钉钉机器人不同, 钉钉是需要毫秒
+        local timestamp = tostring(os.time())
         -- timestamp = "1684673085314"
         local tmp = crypto.hmac_sha256(timestamp .. "\n" .. secret, secret)
         -- log.info("tmp", "hmac_sha256", tmp)
@@ -94,16 +97,20 @@ sys.taskInit(function()
         local sign = crypto.hmac_sha256(timestamp .. "\n" .. secret, secret):fromHex():toBase64():urlEncode()
         log.info("timestamp", timestamp)
         log.info("sign", sign)
-        local url = webhook .. "&timestamp=" .. timestamp .. "&sign=" .. sign
+        -- 注意, 这里的参数跟钉钉不同, 钉钉有个access_token参数, 飞书没有
+        local url = webhook
         log.info("url", url)
-        local data = {msgtype="text"}
-        -- content就是要发送的文本内容, 其他格式按钉钉的要求拼接table就好了
-        local content = "我的id是" .. tostring(device_id) .. "," .. (os.date()) .. "," .. rtos.bsp()
-        data["text"] = {content=content}
+        -- json格式也需要按飞书的来
+        local data = {msg_type="text"}
+        data["timestamp"] = timestamp
+        data["sign"] = sign
+        -- text就是要发送的文本内容, 其他格式按飞书的要求拼接table就好了
+        local text = "我的id是" .. tostring(device_id) .. "," .. (os.date()) .. "," .. rtos.bsp()
+        data["content"] = {text=text}
         local code,headers, body = http.request("POST", url, rheaders, (json.encode(data))).wait()
-        -- 正常会返回 200, {"errcode":0,"errmsg":"ok"}
+        -- 正常会返回 200, {"StatusCode":0,"StatusMessage":"success","code":0,"data":{},"msg":"success"}
         -- 其他错误, 一般是密钥错了, 仔细检查吧
-        log.info("dingding", code, body)
+        log.info("feishu", code, body)
         sys.wait(60000)
     end
 end)

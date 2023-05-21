@@ -42,6 +42,8 @@ function sms_handler(num, txt)
     http_post("http://www.luatos.com/api/sms/blackhole", headers, body)
     -- http演示3, 不需要headers,直接发
     http_post("http://www.luatos.com/api/sms/blackhole", nil, num .. "," .. txt)
+    -- 如需发送到钉钉, 参考 demo/dingding
+    -- 如需发送到飞书, 参考 demo/feishu
 end
 
 --------------------------------------------------------------------

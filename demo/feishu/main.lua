@@ -83,18 +83,18 @@ sys.taskInit(function()
     local _, device_id = sys.waitUntil("net_ready")
     sys.wait(500)
     socket.sntp() -- 如果是联网卡, 这里是需要sntp的, 否则时间不对
-    sys.wait(1000)
+    sys.waitUntil("NTP_UPDATE", 5000)
 
     local rheaders = {}
     rheaders["Content-Type"] = "application/json"
     while 1 do
-        -- LuatOS的时间戳只到秒,飞书也只需要秒, 这点与钉钉机器人不同, 钉钉是需要毫秒
+        -- LuatOS的时间戳只到秒,飞书也只需要秒
         local timestamp = tostring(os.time())
         -- timestamp = "1684673085314"
-        local tmp = crypto.hmac_sha256(timestamp .. "\n" .. secret, secret)
+        local tmp = crypto.hmac_sha256("", timestamp .. "\n" .. secret)
         -- log.info("tmp", "hmac_sha256", tmp)
         -- log.info("tmp", "base64", tmp:fromHex():toBase64())
-        local sign = crypto.hmac_sha256(timestamp .. "\n" .. secret, secret):fromHex():toBase64():urlEncode()
+        local sign = crypto.hmac_sha256("", timestamp .. "\n" .. secret):fromHex():toBase64()
         log.info("timestamp", timestamp)
         log.info("sign", sign)
         -- 注意, 这里的参数跟钉钉不同, 钉钉有个access_token参数, 飞书没有
@@ -107,7 +107,9 @@ sys.taskInit(function()
         -- text就是要发送的文本内容, 其他格式按飞书的要求拼接table就好了
         local text = "我的id是" .. tostring(device_id) .. "," .. (os.date()) .. "," .. rtos.bsp()
         data["content"] = {text=text}
-        local code,headers, body = http.request("POST", url, rheaders, (json.encode(data))).wait()
+        local rbody = (json.encode(data))
+        log.info("feishu", rbody)
+        local code,headers, body = http.request("POST", url, rheaders, rbody).wait()
         -- 正常会返回 200, {"StatusCode":0,"StatusMessage":"success","code":0,"data":{},"msg":"success"}
         -- 其他错误, 一般是密钥错了, 仔细检查吧
         log.info("feishu", code, body)

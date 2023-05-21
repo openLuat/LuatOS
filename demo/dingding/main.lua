@@ -81,7 +81,7 @@ sys.taskInit(function()
     local _, device_id = sys.waitUntil("net_ready")
     sys.wait(500)
     socket.sntp() -- 如果是联网卡, 这里是需要sntp的, 否则时间不对
-    sys.wait(1000)
+    sys.waitUntil("NTP_UPDATE", 5000)
 
     local rheaders = {}
     rheaders["Content-Type"] = "application/json"

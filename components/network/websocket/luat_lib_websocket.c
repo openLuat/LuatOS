@@ -332,11 +332,16 @@ static int l_websocket_autoreconn(lua_State *L)
 发布消息
 @api wsc:send(data, fin, opt)
 @string 待发送的数据,必填
-@int 是否为最后一帧,默认1
-@int 操作码, 默认为字符串帧
+@int 是否为最后一帧,默认1,即马上设置为最后一帧, 也就是单帧发送
+@int 操作码, 默认为字符串帧0, 可选1
 @return bool 成功返回true,否则为false或者nil
 @usage
-wsc:publish("/luatos/123456", "123")
+-- 简单发送数据
+wsc:send("123")
+-- 分段发送数据, 最后要用1(即FIN帧结束)
+wsc:send("123", 0)
+wsc:send("456", 0)
+wsc:send("789", 1)
 */
 static int l_websocket_send(lua_State *L)
 {

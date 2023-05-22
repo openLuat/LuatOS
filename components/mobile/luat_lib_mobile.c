@@ -775,49 +775,49 @@ static const rotable_Reg_t reg_mobile[] = {
 	{"reset",      ROREG_FUNC(l_mobile_reset)},
 	{"dataTraffic",      ROREG_FUNC(l_mobile_data_traffic)},
 	{"config",      ROREG_FUNC(l_mobile_config)},
-	// const UNREGISTER number 未注册
+	//@const UNREGISTER number 未注册
     {"UNREGISTER",                  ROREG_INT(LUAT_MOBILE_STATUS_UNREGISTER)},
-    // const REGISTERED number 已注册
+    //@const REGISTERED number 已注册
     {"REGISTERED",                  ROREG_INT(LUAT_MOBILE_STATUS_REGISTERED)},
-	// const SEARCH number 正在搜索中
+	//@const SEARCH number 正在搜索中
 	{"SEARCH",                      ROREG_INT(LUAT_MOBILE_STATUS_SEARCHING)},
-	// const DENIED number 注册被拒绝
+	//@const DENIED number 注册被拒绝
     {"DENIED",                      ROREG_INT(LUAT_MOBILE_STATUS_DENIED)},
-    // const UNKNOW number 未知
+    //@const UNKNOW number 未知
     {"UNKNOW",                      ROREG_INT(LUAT_MOBILE_STATUS_UNKNOW)},
-    // const REGISTERED_ROAMING number 已注册,漫游
+    //@const REGISTERED_ROAMING number 已注册,漫游
     {"REGISTERED_ROAMING",          ROREG_INT(LUAT_MOBILE_STATUS_REGISTERED_ROAMING)},
-    // const SMS_ONLY_REGISTERED number 已注册,仅SMS
+    //@const SMS_ONLY_REGISTERED number 已注册,仅SMS
     {"SMS_ONLY_REGISTERED",         ROREG_INT(LUAT_MOBILE_STATUS_SMS_ONLY_REGISTERED)},
-    // const SMS_ONLY_REGISTERED_ROAMING number 已注册,漫游,仅SMS
+    //@const SMS_ONLY_REGISTERED_ROAMING number 已注册,漫游,仅SMS
     {"SMS_ONLY_REGISTERED_ROAMING", ROREG_INT(LUAT_MOBILE_STATUS_SMS_ONLY_REGISTERED_ROAMING)},
-    // const EMERGENCY_REGISTERED number 已注册,紧急服务
+    //@const EMERGENCY_REGISTERED number 已注册,紧急服务
     {"EMERGENCY_REGISTERED",        ROREG_INT(LUAT_MOBILE_STATUS_EMERGENCY_REGISTERED)},
-    // const CSFB_NOT_PREFERRED_REGISTERED number 已注册,非主要服务
+    //@const CSFB_NOT_PREFERRED_REGISTERED number 已注册,非主要服务
     {"CSFB_NOT_PREFERRED_REGISTERED",  ROREG_INT(LUAT_MOBILE_STATUS_CSFB_NOT_PREFERRED_REGISTERED)},
-    // const CSFB_NOT_PREFERRED_REGISTERED_ROAMING number 已注册,非主要服务,漫游
+    //@const CSFB_NOT_PREFERRED_REGISTERED_ROAMING number 已注册,非主要服务,漫游
     {"CSFB_NOT_PREFERRED_REGISTERED_ROAMING",  ROREG_INT(LUAT_MOBILE_STATUS_CSFB_NOT_PREFERRED_REGISTERED_ROAMING)},
-	// const CONF_RESELTOWEAKNCELL number 小区重选信号差值门限
+	//@const CONF_RESELTOWEAKNCELL number 小区重选信号差值门限
 	{"CONF_RESELTOWEAKNCELL",  ROREG_INT(MOBILE_CONF_RESELTOWEAKNCELL)},
-	// const CONF_STATICCONFIG number 网络静态模式优化
+	//@const CONF_STATICCONFIG number 网络静态模式优化
 	{"CONF_STATICCONFIG",  ROREG_INT(MOBILE_CONF_STATICCONFIG)},
-	// const CONF_QUALITYFIRST number 网络切换以信号质量优先
+	//@const CONF_QUALITYFIRST number 网络切换以信号质量优先
 	{"CONF_QUALITYFIRST",  ROREG_INT(MOBILE_CONF_QUALITYFIRST)},
-	// const CONF_USERDRXCYCLE number LTE跳paging,谨慎使用,0是不设置,1~7增大或减小DrxCycle周期倍数,1:1/8倍 2:1/4倍 3:1/2倍 4:2倍 5:4倍 6:8倍 7:16倍,8~12配置固定的DrxCycle周期,仅当该周期大于网络分配的DrxCycle周期时该配置才会生效,8:320ms 9:640ms 10:1280ms 11:2560ms 12:5120ms
+	//@const CONF_USERDRXCYCLE number LTE跳paging,谨慎使用,0是不设置,1~7增大或减小DrxCycle周期倍数,1:1/8倍 2:1/4倍 3:1/2倍 4:2倍 5:4倍 6:8倍 7:16倍,8~12配置固定的DrxCycle周期,仅当该周期大于网络分配的DrxCycle周期时该配置才会生效,8:320ms 9:640ms 10:1280ms 11:2560ms 12:5120ms
 	{"CONF_USERDRXCYCLE",  ROREG_INT(MOBILE_CONF_USERDRXCYCLE)},
-	// const CONF_T3324MAXVALUE number PSM模式中的T3324时间,单位S
+	//@const CONF_T3324MAXVALUE number PSM模式中的T3324时间,单位S
 	{"CONF_T3324MAXVALUE",  ROREG_INT(MOBILE_CONF_T3324MAXVALUE)},
-	// const CONF_PSM_MODE number PSM模式开关,0关,1开
+	//@const CONF_PSM_MODE number PSM模式开关,0关,1开
 	{"CONF_PSM_MODE",  ROREG_INT(MOBILE_CONF_PSM_MODE)},
-	// const PIN_VERIFY number 验证PIN码操作
+	//@const PIN_VERIFY number 验证PIN码操作
 	{"PIN_VERIFY",  ROREG_INT(LUAT_SIM_PIN_VERIFY)},
-	// const PIN_CHANGE number 更换PIN码操作
+	//@const PIN_CHANGE number 更换PIN码操作
 	{"PIN_CHANGE",  ROREG_INT(LUAT_SIM_PIN_CHANGE)},
-	// const PIN_ENABLE number 使能PIN码验证
+	//@const PIN_ENABLE number 使能PIN码验证
 	{"PIN_ENABLE",  ROREG_INT(LUAT_SIM_PIN_ENABLE)},
-	// const PIN_DISABLE number 关闭PIN码验证
+	//@const PIN_DISABLE number 关闭PIN码验证
 	{"PIN_DISABLE",  ROREG_INT(LUAT_SIM_PIN_DISABLE)},
-	// const PIN_UNBLOCK number 解锁PIN码
+	//@const PIN_UNBLOCK number 解锁PIN码
 	{"PIN_UNBLOCK",  ROREG_INT(LUAT_SIM_PIN_UNBLOCK)},
     {NULL,          ROREG_INT(0)}
 };

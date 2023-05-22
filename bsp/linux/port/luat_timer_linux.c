@@ -115,6 +115,10 @@ int luat_timer_mdelay(size_t ms) {
     return 0;
 }
 
+void luat_timer_us_delay(size_t us) {
+    if (us)
+        usleep(us);
+}
 
 static pthread_mutex_t mp;
 static pthread_cond_t cv;

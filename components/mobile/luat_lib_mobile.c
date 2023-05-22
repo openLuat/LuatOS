@@ -805,6 +805,10 @@ static const rotable_Reg_t reg_mobile[] = {
 	{"CONF_QUALITYFIRST",  ROREG_INT(MOBILE_CONF_QUALITYFIRST)},
 	// const CONF_USERDRXCYCLE LTE跳paging,谨慎使用,0是不设置,1~7增大或减小DrxCycle周期倍数,1:1/8倍 2:1/4倍 3:1/2倍 4:2倍 5:4倍 6:8倍 7:16倍,8~12配置固定的DrxCycle周期,仅当该周期大于网络分配的DrxCycle周期时该配置才会生效,8:320ms 9:640ms 10:1280ms 11:2560ms 12:5120ms
 	{"CONF_USERDRXCYCLE",  ROREG_INT(MOBILE_CONF_USERDRXCYCLE)},
+	// const CONF_T3324MAXVALUE PSM模式中的T3324时间，单位S
+	{"CONF_T3324MAXVALUE",  ROREG_INT(MOBILE_CONF_T3324MAXVALUE)},
+	// const CONF_PSM_MODE PSM模式开关，0关，1开
+	{"CONF_PSM_MODE",  ROREG_INT(MOBILE_CONF_PSM_MODE)},
 	// const PIN_VERIFY 验证PIN码操作
 	{"PIN_VERIFY",  ROREG_INT(LUAT_SIM_PIN_VERIFY)},
 	// const PIN_CHANGE 更换PIN码操作

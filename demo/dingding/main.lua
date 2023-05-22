@@ -12,8 +12,8 @@ VERSION = "1.0.0"
 -- webhook是钉钉分配给机器人的URL
 -- secret是选取 "加签", 自动生成的密钥
 -- 下面的给LuatOS的一个测试群发消息, 随时可能关掉, 换成你自己的值
-local webhook = "https://oapi.dingtalk.com/robot/send?access_token=b8e5ec7e2700e579bf23066e18d838454fa2aa26d81bdeb67f58571a334407df"
-local secret = "SEC7ffc9d9e41367a578265f3cc3288af6f0e0ab820295a427957c1d11447f56e3f"
+local webhook = "https://oapi.dingtalk.com/robot/send?access_token=7ddc72eeb8fb7dcb4898834c318cfec994a1c33faea05dfc8031d22ce56131cf"
+local secret = "SECf1d8a3a5abc32671f5353ed095d3135580357ef26a1b43f841e620cdf498d384"
 --------------------------------------------------------------------------------------
 
 -- sys库是标配

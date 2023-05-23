@@ -93,6 +93,7 @@ sys.taskInit(function()
 
     if crypto.checksum then
         log.info("checksum", "OK", string.char(crypto.checksum("OK")):toHex())
+        log.info("checksum", "357E", string.char(crypto.checksum("357E", 1)):toHex())
     end
 
     log.info("crypto", "ALL Done")

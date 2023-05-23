@@ -49,33 +49,6 @@ sys.taskInit(function()
     end
 end)
 
--- -- 以下为基站+wifi混合定位
--- sys.subscribe("WLAN_SCAN_DONE", function ()
---     local results = wlan.scanResult()
---     log.info("scan", "results", #results)
---     if #results > 0 then
---         local reqWifi = {}
---         for k,v in pairs(results) do
---             log.info("scan", v["ssid"], v["rssi"], v["bssid"]:toHex())
---             local bssid = v["bssid"]:toHex()
---             bssid = string.format ("%s:%s:%s:%s:%s:%s", bssid:sub(1,2), bssid:sub(3,4), bssid:sub(5,6), bssid:sub(7,8), bssid:sub(9,10), bssid:sub(11,12))
---             reqWifi[bssid]=v["rssi"]
---         end
---         lbsLoc.request(getLocCb,nil,nil,nil,nil,nil,nil,reqWifi)
---     else
---         lbsLoc.request(getLocCb) -- 没有wifi数据,进行普通定位
---     end
--- end)
-
--- sys.taskInit(function()
---     sys.waitUntil("IP_READY", 30000)
---     wlan.init()
---     while 1 do
---         wlan.scan()
---         sys.wait(60000)
---     end
--- end)
-
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()

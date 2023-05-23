@@ -299,6 +299,7 @@ static int l_mobile_set_rrc_auto_release_time(lua_State* L) {
 @int 周期性获取小区信息的时间间隔，单位毫秒。获取小区信息会增加部分功耗。写0或者不写则是关闭功能
 @int 每次搜索小区时最大搜索时间，单位秒。不要超过8秒
 @boolean 网络遇到严重故障时尝试自动恢复，和飞行模式/SIM卡切换冲突，true开启，false关闭，开始状态是false，留空则不做改变
+@int 设置定时检测网络是否正常并且在检测到长时间无网时通过重启协议栈来恢复，无网恢复时长，单位ms，建议60000以上，为网络搜索网络保留足够的时间，留空则不做更改
 @return nil 无返回值
  */
 static int l_mobile_set_auto_work(lua_State* L) {
@@ -306,6 +307,10 @@ static int l_mobile_set_auto_work(lua_State* L) {
     if (LUA_TBOOLEAN == lua_type(L, 4)) {
     	luat_mobile_fatal_error_auto_reset_stack(lua_toboolean(L, 4));
     }
+    if (lua_isinteger(L, 5)) {
+    	luat_mobile_set_check_network_period(luaL_optinteger(L, 5, 0));
+    }
+
 	return 0;
 }
 

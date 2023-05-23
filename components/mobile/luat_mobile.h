@@ -634,7 +634,13 @@ void luat_mobile_fatal_error_auto_reset_stack(uint8_t onoff);
  * @return int 
  */
 int luat_mobile_set_period_work(uint32_t get_cell_period, uint32_t check_sim_period, uint8_t search_cell_time);
-
+/**
+ * @brief 设置定时检测网络是否正常并且在检测到长时间无网时通过重启协议栈来恢复，但是不能保证一定成功，这个功能和luat_mobile_reset_stack是有可能冲突的。所有功能默认都是关闭的
+ *
+ * @param period 无网时长，单位ms，不可以太短，建议60000以上，为网络搜索网络保留足够的时间
+ * @return void
+ */
+void luat_mobile_set_check_network_period(uint32_t period);
 /**
  * @brief 获取累计的IP流量数据
  * @param uplink 上行流量

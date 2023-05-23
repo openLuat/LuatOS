@@ -721,7 +721,7 @@ extern int luat_mobile_config(uint8_t item, uint32_t value);
 /**
 网络特殊配置，针对不同平台有不同的配置，谨慎使用，目前只有EC618
 @api mobile.config(item, value)
-@int 配置项目，看CONF_XXX
+@int 配置项目，看mobile.CONF_XXX
 @int 配置值
 @return boolean 是否成功
 @usage
@@ -797,18 +797,20 @@ static const rotable_Reg_t reg_mobile[] = {
     {"CSFB_NOT_PREFERRED_REGISTERED",  ROREG_INT(LUAT_MOBILE_STATUS_CSFB_NOT_PREFERRED_REGISTERED)},
     //@const CSFB_NOT_PREFERRED_REGISTERED_ROAMING number 已注册,非主要服务,漫游
     {"CSFB_NOT_PREFERRED_REGISTERED_ROAMING",  ROREG_INT(LUAT_MOBILE_STATUS_CSFB_NOT_PREFERRED_REGISTERED_ROAMING)},
-	//@const CONF_RESELTOWEAKNCELL number 小区重选信号差值门限
+	//@const CONF_RESELTOWEAKNCELL number 小区重选信号差值门限,需要飞行模式设置
 	{"CONF_RESELTOWEAKNCELL",  ROREG_INT(MOBILE_CONF_RESELTOWEAKNCELL)},
-	//@const CONF_STATICCONFIG number 网络静态模式优化
+	//@const CONF_STATICCONFIG number 网络静态模式优化,需要飞行模式设置
 	{"CONF_STATICCONFIG",  ROREG_INT(MOBILE_CONF_STATICCONFIG)},
-	//@const CONF_QUALITYFIRST number 网络切换以信号质量优先
+	//@const CONF_QUALITYFIRST number 网络切换以信号质量优先,需要飞行模式设置
 	{"CONF_QUALITYFIRST",  ROREG_INT(MOBILE_CONF_QUALITYFIRST)},
-	//@const CONF_USERDRXCYCLE number LTE跳paging,谨慎使用,0是不设置,1~7增大或减小DrxCycle周期倍数,1:1/8倍 2:1/4倍 3:1/2倍 4:2倍 5:4倍 6:8倍 7:16倍,8~12配置固定的DrxCycle周期,仅当该周期大于网络分配的DrxCycle周期时该配置才会生效,8:320ms 9:640ms 10:1280ms 11:2560ms 12:5120ms
+	//@const CONF_USERDRXCYCLE number LTE跳paging,需要飞行模式设置,谨慎使用,0是不设置,1~7增大或减小DrxCycle周期倍数,1:1/8倍 2:1/4倍 3:1/2倍 4:2倍 5:4倍 6:8倍 7:16倍,8~12配置固定的DrxCycle周期,仅当该周期大于网络分配的DrxCycle周期时该配置才会生效,8:320ms 9:640ms 10:1280ms 11:2560ms 12:5120ms
 	{"CONF_USERDRXCYCLE",  ROREG_INT(MOBILE_CONF_USERDRXCYCLE)},
 	//@const CONF_T3324MAXVALUE number PSM模式中的T3324时间,单位S
 	{"CONF_T3324MAXVALUE",  ROREG_INT(MOBILE_CONF_T3324MAXVALUE)},
 	//@const CONF_PSM_MODE number PSM模式开关,0关,1开
 	{"CONF_PSM_MODE",  ROREG_INT(MOBILE_CONF_PSM_MODE)},
+	//@const CONF_CE_MODE number attach模式，0为EPS ONLY 2为混合，遇到IMSI detach脱网问题，设置为0，注意设置为EPS ONLY时会取消短信功能
+	{"CONF_CE_MODE",  ROREG_INT(MOBILE_CONF_CE_MODE)},
 	//@const PIN_VERIFY number 验证PIN码操作
 	{"PIN_VERIFY",  ROREG_INT(LUAT_SIM_PIN_VERIFY)},
 	//@const PIN_CHANGE number 更换PIN码操作

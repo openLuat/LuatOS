@@ -218,7 +218,7 @@ static int l_mobile_simid(lua_State* L) {
     }
     if (LUA_TBOOLEAN == lua_type(L, 2)) {
     	if (lua_toboolean(L, 2)) {
-    		luat_mobile_set_sim_detect_sim0_fisrt();
+    		luat_mobile_set_sim_detect_sim0_first();
     	}
     }
     ret = luat_mobile_get_sim_id(&id);

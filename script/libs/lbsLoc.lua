@@ -116,7 +116,7 @@ local function enCellInfo(s)
             if not handle then
                 table.insert(t,{mcc=mcc,mnc=mnc,lac=lac,rssici={{rssi=rssi,ci=ci}}})
             end
-            log.debug("rssi、mcc、mnc、lac、ci", rssi,mcc,mnc,lac,ci)
+            log.debug("rssi,mcc,mnc,lac,ci", rssi,mcc,mnc,lac,ci)
         end
         for k,v in pairs(t) do
             ret = ret .. pack.pack(">HHb",v.lac,v.mcc,v.mnc)
@@ -193,7 +193,7 @@ local function taskClient(cbFnc, reqAddr, timeout, productKey, host, port,reqTim
                         if retryCnt>=3 then return cbFnc(4) end
                         break
                     end
-                    succ, param, _, _ = socket.rx(netc, rx_buff) -- 接收数据
+                    succ, param = socket.rx(netc, rx_buff) -- 接收数据
                     -- log.info("是否接收和数据长度", succ, param)
                     if param ~= 0 then -- 如果接收成功
                         socket.close(netc) -- 关闭连接
@@ -206,7 +206,7 @@ local function taskClient(cbFnc, reqAddr, timeout, productKey, host, port,reqTim
                             cbFnc(0, trans(bcdNumToNum(read_buff:sub(2, 6))),
                                 trans(bcdNumToNum(read_buff:sub(7, 11))), reqAddr and
                                 read_buff:sub(13, 12 + read_buff:byte(12)) or nil,
-                                read_buff:sub(reqAddr and (13 + read_buff:byte(12)) or 12, -1),
+                                reqTime and read_buff:sub(reqAddr and (13 + read_buff:byte(12)) or 12, -1) or "",
                                 locType)
                         else
                             log.warn("lbsLoc.query", "根据基站查询经纬度失败")
@@ -260,7 +260,7 @@ end
 -- 提醒: 返回的坐标值, 是WGS84坐标系
 ]]
 function lbsLoc.request(cbFnc,reqAddr,timeout,productKey,host,port,reqTime,reqWifi)
-    sysplus.taskInitEx(taskClient, d1Name, netCB, cbFnc, reqAddr,timeout or 20000,productKey or _G.PRODUCT_KEY,host or "bs.openluat.com",port or "12411")
+    sysplus.taskInitEx(taskClient, d1Name, netCB, cbFnc, reqAddr,timeout or 20000,productKey or _G.PRODUCT_KEY,host or "bs.openluat.com",port or "12411", reqTime == nil and true or reqTime)
 end
 
 return lbsLoc

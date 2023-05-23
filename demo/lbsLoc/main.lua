@@ -6,7 +6,7 @@ VERSION = "1.0.0"
 --注意:因使用了sys.wait()所有api需要在协程中使用
 
 --[[注意：此处的PRODUCT_KEY仅供演示使用，不保证一直能用，量产项目中一定要使用自己在iot.openluat.com中创建的项目productKey]]
-PRODUCT_KEY = "v32xEAKsGTIEQxtqgwCldp5aPlcnPs3K"
+PRODUCT_KEY = ""
 
 --[[本demo需要lbsLoc库与libnet库, 库位于script\libs, 需require]]
 local lbsLoc = require("lbsLoc")

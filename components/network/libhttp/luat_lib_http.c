@@ -333,12 +333,6 @@ int32_t l_http_callback(lua_State *L, void* ptr){
 	}
 
 	lua_pushinteger(L, http_ctrl->parser.status_code);
-#ifdef LUAT_USE_FOTA
-	if(http_ctrl->isfota){
-		luat_cbcwait(L, idp, 1);
-		goto exit;
-	}
-#endif
 	lua_newtable(L);
 	// LLOGD("http_ctrl->headers:%.*s",http_ctrl->headers_len,http_ctrl->headers);
 	header = http_ctrl->headers;
@@ -378,7 +372,7 @@ int32_t l_http_callback(lua_State *L, void* ptr){
 		goto exit;
 	}
 #ifdef LUAT_USE_FOTA
-	else if(http_ctrl->isfota){
+	else if(http_ctrl->isfota && http_ctrl->parser.status_code == 200){
 		lua_pushinteger(L, http_ctrl->body_len);
 		luat_cbcwait(L, idp, 3); // code, headers, body
 	}

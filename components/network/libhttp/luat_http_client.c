@@ -71,6 +71,10 @@ static void http_resp_error(luat_http_ctrl_t *http_ctrl, int error_code) {
 #ifdef LUAT_USE_FOTA
 	if (http_ctrl->isfota){
 		luat_fota_end(0);
+		if (http_ctrl->parser.status_code){
+			error_code = 0;
+			http_ctrl->body_len = 0;
+		}
 	}
 #endif
 	if (http_ctrl->close_state == 0 && http_ctrl->headers_complete && http_ctrl->re_request_count < HTTP_RE_REQUEST_MAX){
@@ -165,7 +169,7 @@ static int on_body(http_parser* parser, const char *at, size_t length){
 		luat_fs_fwrite(at, length, 1, http_ctrl->fd);
 	}
 #ifdef LUAT_USE_FOTA
-	else if(http_ctrl->isfota){
+	else if(http_ctrl->isfota && parser->status_code == 200){
 		if (luat_fota_write((uint8_t*)at, length) < 0){
 			luat_fota_end(0);
 			http_resp_error(http_ctrl, HTTP_ERROR_FOTA);
@@ -195,17 +199,22 @@ static int on_message_complete(http_parser* parser){
 	}
 #ifdef LUAT_USE_FOTA
 	else if(http_ctrl->isfota){
-		int result = luat_fota_done();
-		while (result>0){
-			luat_timer_mdelay(100);
-			result = luat_fota_done();
-		}
-		if (result==0){
-			luat_fota_end(1);
+		if (parser->status_code == 200){
+			int result = luat_fota_done();
+			while (result>0){
+				luat_timer_mdelay(100);
+				result = luat_fota_done();
+			}
+			if (result==0){
+				luat_fota_end(1);
+			}else{
+				luat_fota_end(0);
+				http_resp_error(http_ctrl, HTTP_ERROR_FOTA);
+				return -1;
+			}
 		}else{
 			luat_fota_end(0);
 			http_resp_error(http_ctrl, HTTP_ERROR_FOTA);
-			return -1;
 		}
 	}
 #endif

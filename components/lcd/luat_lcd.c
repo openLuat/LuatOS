@@ -260,7 +260,7 @@ int luat_lcd_clear(luat_lcd_conf_t* conf, luat_color_t color){
 
 int luat_lcd_draw_fill(luat_lcd_conf_t* conf,uint16_t x1,uint16_t y1,uint16_t x2,uint16_t y2, luat_color_t color) {          
 	uint16_t i;
-	for(i=y1;i<y2;i++)
+	for(i=y1;i<=y2;i++)
 	{
 		luat_lcd_draw_line(conf, x1, i, x2, i, color);
 	}

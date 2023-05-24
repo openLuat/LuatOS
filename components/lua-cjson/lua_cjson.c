@@ -1404,8 +1404,7 @@ json.encode(obj,"12f")-->浮点数用%.12f的方式转换为字符串
 static int l_json_encode_safe(lua_State *L) {
     // int top = lua_gettop(L);
     if (lua_isnil(L, 1)) {
-        lua_pushnil(L);
-        lua_pushliteral(L, "obj is nil");
+        lua_pushliteral(L, "");
         return 1;
     }
     memcpy(float_fmt, "%.7g", strlen("%.7g") + 1);

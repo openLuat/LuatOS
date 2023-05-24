@@ -421,7 +421,19 @@ static int network_base_connect(network_ctrl_t *ctrl, luat_ip_addr_t *remote_ip)
 	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
 	if (ctrl->socket_id >= 0)
 	{
-		network_force_close_socket(ctrl);
+	#ifdef LUAT_USE_TLS
+		if (ctrl->tls_mode)
+		{
+			mbedtls_ssl_free(ctrl->ssl);
+		}
+	#endif
+		if (network_socket_close(ctrl))
+		{
+			network_clean_invaild_socket(ctrl->adapter_index);
+			network_socket_force_close(ctrl);
+		}
+		ctrl->need_close = 0;
+		ctrl->socket_id = -1;
 	}
 	if (remote_ip)
 	{
@@ -667,7 +679,7 @@ static int network_state_connecting(network_ctrl_t *ctrl, OS_EVENT *event, netwo
 		{
 			return -1;
 		}
-		DBG("dns ip %d no connect!", ctrl->dns_ip_cnt);
+		DBG("dns ip %d no connect!,%d", ctrl->dns_ip_cnt, ctrl->dns_ip_nums);
 		ctrl->dns_ip_cnt++;
 		if (ctrl->dns_ip_cnt >= ctrl->dns_ip_nums)
 		{

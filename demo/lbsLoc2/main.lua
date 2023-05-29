@@ -9,6 +9,11 @@ sys = require("sys")
 
 local lbsLoc2 = require("lbsLoc2")
 
+-- Air780E的AT固件默认会为开机键防抖, 导致部分用户刷机很麻烦
+if rtos.bsp() == "EC618" and pm and pm.PWK_MODE then
+    pm.power(pm.PWK_MODE, false)
+end
+
 sys.taskInit(function()
     sys.waitUntil("IP_READY", 3000)
     while module do -- 没有mobile库就没有基站定位

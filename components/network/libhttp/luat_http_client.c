@@ -155,7 +155,6 @@ static int on_headers_complete(http_parser* parser){
 static int on_body(http_parser* parser, const char *at, size_t length){
 	LLOGD("on_body:%.*s",length,at);
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
-
 	if (http_ctrl->is_download){
 		if (http_ctrl->fd == NULL){
 			luat_fs_remove(http_ctrl->dst);
@@ -214,7 +213,10 @@ static int on_message_complete(http_parser* parser){
 			}
 		}else{
 			luat_fota_end(0);
+			http_ctrl->close_state = 1;
+			network_close(http_ctrl->netc, 0);
 			http_resp_error(http_ctrl, HTTP_ERROR_FOTA);
+			return -1;
 		}
 	}
 #endif
@@ -266,7 +268,7 @@ static uint32_t http_send(luat_http_ctrl_t *http_ctrl, uint8_t* data, size_t len
 	if (len == 0)
 		return 0;
 	uint32_t tx_len = 0;
-	// LLOGD("http_send data:%.*s",len,data);
+	LLOGD("http_send data:%.*s",len,data);
 	network_tx(http_ctrl->netc, data, len, 0, NULL, 0, &tx_len, 0);
 	return tx_len;
 }

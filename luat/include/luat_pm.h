@@ -18,7 +18,8 @@ enum
 	LUAT_PM_POWER_GPS_ANT,
 	LUAT_PM_POWER_CAMERA,
 	LUAT_PM_POWER_DAC_EN_PIN,
-	LUAT_PM_POWER_POWERKEY_MODE
+	LUAT_PM_POWER_POWERKEY_MODE,
+	LUAT_PM_POWER_WORK_MODE
 };
 
 // 电平类
@@ -58,5 +59,12 @@ int luat_pm_get_poweron_reason(void);
 int luat_pm_iovolt_ctrl(int id, int val);
 
 int luat_pm_wakeup_pin(int pin, int val);
-
+/**
+ * @brief 设置联网低功耗模式，等同于AT+POWERMODE
+ * @param 低功耗主模式 见LUAT_PM_POWER_MODE_XXX
+ * @param 预留，低功耗次级模式，当主模式设置成LUAT_PM_POWER_MODE_BALANCED，可以微调功耗模式，当前不可用
+ * @return int =0成功，其他失败
+ * @note 和luat_pm_set_sleep_mode，luat_pm_set_usb_power冲突，不可以同时使用
+ */
+int luat_pm_set_power_mode(uint8_t mode, uint8_t sub_mode);
 #endif

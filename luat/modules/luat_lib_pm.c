@@ -296,7 +296,7 @@ int l_rtos_standby(lua_State *L);
 开启内部的电源控制，注意不是所有的平台都支持，可能部分平台支持部分选项，看硬件
 @api pm.power(id, onoff)
 @int 电源控制id,pm.USB pm.GPS之类
-@boolean 开关true开，false关，默认关. 部分选项支持数值
+@boolean or int 开关true/1开，false/0关，默认关，部分选项支持数值
 @return boolean 处理结果true成功，false失败
 @usage
 -- 关闭USB电源, 反之开启就是传true
@@ -314,6 +314,10 @@ static int l_pm_power_ctrl(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
     if (lua_isboolean(L, 2)) {
     	onoff = lua_toboolean(L, 2);
+    }
+    else
+    {
+    	onoff = lua_tointeger(L, 2);
     }
     lua_pushboolean(L, !luat_pm_power_ctrl(id, onoff));
     return 1;
@@ -421,8 +425,11 @@ static const rotable_Reg_t reg_pm[] =
     { "DAC_EN",         ROREG_INT(LUAT_PM_POWER_DAC_EN_PIN)},
     //@const PWK_MODE number 是否开启ec618的powerkey滤波模式，true开，注意滤波模式下reset变成直接关机
     { "PWK_MODE",       ROREG_INT(LUAT_PM_POWER_POWERKEY_MODE)},
-    //@const IOVL 所有GPIO高电平电压控制,当前仅ec618系列可用
+    //@const WORK_MODE number ec618的节能模式，0~3，0完全关闭，1性能优先，2平衡，3极致功耗
+    { "WORK_MODE",    ROREG_INT(LUAT_PM_POWER_WORK_MODE)},
+	//@const IOVL number 所有GPIO高电平电压控制,当前仅ec618系列可用
     { "IOVOL_ALL_GPIO",    ROREG_INT(LUAT_PM_ALL_GPIO)},
+
 	{ NULL,             ROREG_INT(0) }
 };
 

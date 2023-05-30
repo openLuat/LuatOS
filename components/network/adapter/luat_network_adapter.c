@@ -2352,7 +2352,7 @@ NETWORK_TX_WAIT:
  */
 int network_rx(network_ctrl_t *ctrl, uint8_t *data, uint32_t len, int flags, luat_ip_addr_t *remote_ip, uint16_t *remote_port, uint32_t *rx_len)
 {
-	if (((ctrl->need_close) || (ctrl->socket_id < 0) || (ctrl->state != NW_STATE_ONLINE)))
+	if (((ctrl->need_close && !ctrl->new_rx_flag) || (ctrl->socket_id < 0) || (ctrl->state != NW_STATE_ONLINE)))
 	{
 		return -1;
 	}

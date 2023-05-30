@@ -73,8 +73,8 @@ static void http_resp_error(luat_http_ctrl_t *http_ctrl, int error_code) {
 		luat_fota_end(0);
 		if (http_ctrl->parser.status_code){
 			error_code = 0;
-			http_ctrl->body_len = 0;
 		}
+		luat_http_client_onevent(http_ctrl, error_code, 0);
 	}
 #endif
 	if (http_ctrl->close_state == 0 && http_ctrl->headers_complete && http_ctrl->re_request_count < HTTP_RE_REQUEST_MAX){

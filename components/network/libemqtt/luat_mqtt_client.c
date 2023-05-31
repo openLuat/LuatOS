@@ -387,9 +387,6 @@ int32_t luat_mqtt_callback(void *data, void *param) {
 		LLOGW("network_wait_event ret %d, closing socket", ret);
 		luat_mqtt_close_socket(mqtt_ctrl);
 		return -1;
-	}else if (ret == 0)
-	{
-		ret = luat_mqtt_read_packet(mqtt_ctrl);
 	}
 	
     return 0;

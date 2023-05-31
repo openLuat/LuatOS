@@ -17,6 +17,12 @@
 #define LUAT_LOG_TAG "gt"
 #include "luat_log.h"
 
+#ifdef LUAT_USE_LCD
+extern luat_color_t lcd_str_fg_color,lcd_str_bg_color;
+#else
+static luat_color_t lcd_str_fg_color  = WHITE ,lcd_str_bg_color  = BLACK ;
+#endif
+
 extern luat_spi_device_t* gt_spi_dev;
 
 //横置横排显示
@@ -31,11 +37,11 @@ void gtfont_draw_w(unsigned char *pBits,unsigned int x,unsigned int y,unsigned i
 			for(k = 0;k < 8;k++){
 				if(((temp << k)& 0x80) == 0 ){
 					/* 显示一个像素点 */
-					if (mode == 0)point((luat_lcd_conf_t *)userdata, x+k+(j*8), y+i, 0xFFFF);
+					if (mode == 0)point((luat_lcd_conf_t *)userdata, x+k+(j*8), y+i, lcd_str_bg_color);
 					else if (mode == 1)point((Paint *)userdata, x+k+(j*8), y+i, 0xFFFF);
 				}else{
 					/* 显示一个像素点 */
-					if (mode == 0)point((luat_lcd_conf_t *)userdata, x+k+(j*8), y+i, 0x0000);
+					if (mode == 0)point((luat_lcd_conf_t *)userdata, x+k+(j*8), y+i, lcd_str_fg_color);
 					else if (mode == 1)point((Paint *)userdata, x+k+(j*8), y+i, 0x0000);
 					else if (mode == 2)point((u8g2_t *)userdata, x+k+(j*8), y+i, 0x0000);
 				}

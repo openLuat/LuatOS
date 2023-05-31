@@ -72,7 +72,7 @@ static void lcd_auto_flush(luat_lcd_conf_t *conf) {
   luat_lcd_flush(conf);
 }
 
-static luat_color_t lcd_str_fg_color,lcd_str_bg_color;
+luat_color_t lcd_str_fg_color,lcd_str_bg_color;
 /*
 lcd显示屏初始化
 @api lcd.init(tp, args)
@@ -960,6 +960,8 @@ static int l_lcd_draw_gtfont_gb2312(lua_State *L) {
   unsigned char size = luaL_checkinteger(L, 2);
 	int x = luaL_checkinteger(L, 3);
 	int y = luaL_checkinteger(L, 4);
+  lcd_str_fg_color = (luat_color_t)luaL_optinteger(L, 5,FORE_COLOR);
+  lcd_str_bg_color = (luat_color_t)luaL_optinteger(L, 6,BACK_COLOR);
 	while ( i < len){
 		strhigh = *fontCode;
 		fontCode++;
@@ -1002,6 +1004,8 @@ static int l_lcd_draw_gtfont_gb2312_gray(lua_State* L) {
 	unsigned char font_g = luaL_checkinteger(L, 3);
 	int x = luaL_checkinteger(L, 4);
 	int y = luaL_checkinteger(L, 5);
+  lcd_str_fg_color = (luat_color_t)luaL_optinteger(L, 6,FORE_COLOR);
+  lcd_str_bg_color = (luat_color_t)luaL_optinteger(L, 7,BACK_COLOR);
 	while ( i < len){
 		strhigh = *fontCode;
 		fontCode++;
@@ -1045,6 +1049,8 @@ static int l_lcd_draw_gtfont_utf8(lua_State *L) {
     unsigned char size = luaL_checkinteger(L, 2);
     int x = luaL_checkinteger(L, 3);
     int y = luaL_checkinteger(L, 4);
+    lcd_str_fg_color = (luat_color_t)luaL_optinteger(L, 5,FORE_COLOR);
+    lcd_str_bg_color = (luat_color_t)luaL_optinteger(L, 6,BACK_COLOR);
     for(;;){
       e = utf8_next((uint8_t)*fontCode);
       if ( e == 0x0ffff )
@@ -1087,6 +1093,8 @@ static int l_lcd_draw_gtfont_utf8_gray(lua_State* L) {
 	unsigned char font_g = luaL_checkinteger(L, 3);
 	int x = luaL_checkinteger(L, 4);
 	int y = luaL_checkinteger(L, 5);
+  lcd_str_fg_color = (luat_color_t)luaL_optinteger(L, 6,FORE_COLOR);
+  lcd_str_bg_color = (luat_color_t)luaL_optinteger(L, 7,BACK_COLOR);
 	for(;;){
         e = utf8_next((uint8_t)*fontCode);
         if ( e == 0x0ffff )

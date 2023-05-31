@@ -1013,6 +1013,12 @@ static void network_default_statemachine(network_ctrl_t *ctrl, OS_EVENT *event, 
 		if (result > 0)
 		{
 			NW_UNLOCK;
+			if (ctrl->new_rx_flag && ctrl->user_callback)
+			{
+				event->ID = NW_WAIT_EVENT + EV_NW_RESULT_BASE;
+				event->Param1 = 0;
+				ctrl->user_callback(event, ctrl->user_data);
+			}
 			return ;
 		}
 		event->ID = (ctrl->wait_target_state?ctrl->wait_target_state:NW_WAIT_EVENT) + EV_NW_RESULT_BASE;

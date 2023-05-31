@@ -20,7 +20,7 @@
 #ifdef LUAT_USE_LCD
 extern luat_color_t lcd_str_fg_color,lcd_str_bg_color;
 #else
-luat_color_t lcd_str_fg_color  = WHITE ,lcd_str_bg_color  = BLACK ;
+static luat_color_t lcd_str_fg_color  = WHITE ,lcd_str_bg_color  = BLACK ;
 #endif
 
 extern luat_spi_device_t* gt_spi_dev;

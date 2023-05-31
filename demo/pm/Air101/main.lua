@@ -51,7 +51,7 @@ end)
 sys.taskInit(function()
     -- 对于air101/air103来说, request之后马上就会休眠
     -- 如果没有休眠, 请检查wakeup脚的电平
-    -- 休眠分2种情况, RAM不掉电的LIGHT 和 RAM不掉电的HIB
+    -- 休眠分2种情况, RAM不掉电的LIGHT 和 RAM掉电的HIB
 
     -- 这里的sys.wait是为了开机后不会马上休眠
     -- 实际情况是跑业务代码, 条件符合后休眠,这里是sys.wait只是演示业务执行

@@ -7,7 +7,7 @@ PRODUCT_KEY = "123" --换成自己的
 _G.sys = require("sys")
 _G.sysplus = require("sysplus")
 log.style(1)
-local server_ip = "112.125.89.8"    --换成自己的
+local server_ip = "112.125.89.8"    --换成自己的，demo用UDP服务器，如果用TCP服务器，目前需要在用极致功耗模式时先断开服务器
 local server_port = 34352 --换成自己的
 local period = 1800000 --默认30分钟变化一次模式
 
@@ -32,6 +32,9 @@ else
         pm.dtimerStart(3, period)
         gpio.setup(23,nil)
         gpio.close(35)
+		gpio.setup(20, function()
+			log.info("gpio")
+		end, gpio.PULLUP, gpio.FALLING)
         sys.wait(period)
     end)
 end
@@ -51,7 +54,7 @@ local function testTask(ip, port)
 	local result, param, is_err
 	netc = socket.create(nil, d1Name)
 	socket.debug(netc, false)
-	socket.config(netc, nil, nil, nil)
+	socket.config(netc, nil, true, nil) -- demo用UDP服务器，如果用TCP服务器，目前需要在用极致功耗模式时先断开服务器
 	-- socket.config(netc, nil, true)
 	while true do
 
@@ -67,6 +70,9 @@ local function testTask(ip, port)
                 pm.dtimerStart(3, period)
                 gpio.setup(23,nil)
                 gpio.close(35)
+				gpio.setup(20, function()
+					log.info("gpio")
+				end, gpio.PULLUP, gpio.FALLING)
                 sys.wait(period) 
             end
 		end

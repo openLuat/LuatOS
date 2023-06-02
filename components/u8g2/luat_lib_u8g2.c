@@ -673,7 +673,7 @@ end:
 #ifdef LUAT_USE_GTFONT
 
 #include "GT5SLCD2E_1A.h"
-extern void gtfont_draw_w(unsigned char *pBits,unsigned int x,unsigned int y,unsigned int widt,unsigned int high,int(*point)(void*),void* userdata,int mode);
+extern void gtfont_draw_w(unsigned char *pBits,unsigned int x,unsigned int y,unsigned int size,unsigned int widt,unsigned int high,int(*point)(void*),void* userdata,int mode);
 extern void gtfont_draw_gray_hz(unsigned char *data,unsigned short x,unsigned short y,unsigned short w ,unsigned short h,unsigned char grade, unsigned char HB_par,int(*point)(void*,uint16_t, uint16_t, uint32_t),void* userdata,int mode);
 
 static int gtfont_u8g2_DrawPixel(u8g2_t *u8g2, uint16_t x, uint16_t y,uint32_t color){
@@ -709,7 +709,7 @@ static int l_u8g2_draw_gtfont_gb2312(lua_State *L) {
 		str = (strhigh<<8)|strlow;
 		fontCode++;
 		get_font(buf, 1, str, size, size, size);
-		gtfont_draw_w(buf , x ,y , size , size,gtfont_u8g2_DrawPixel,u8g2,2);
+		gtfont_draw_w(buf , x ,y , font_size,size , size,gtfont_u8g2_DrawPixel,u8g2,2);
 		x+=size;
 		i+=2;
 	}
@@ -800,7 +800,7 @@ static int l_u8g2_draw_gtfont_utf8(lua_State *L) {
         if ( e != 0x0fffe ){
             uint16_t str = unicodetogb2312(e);
             get_font(buf, 1, str, size, size, size);
-            gtfont_draw_w(buf , x ,y , size , size,gtfont_u8g2_DrawPixel,u8g2,2);
+            gtfont_draw_w(buf , x ,y , font_size,size , size,gtfont_u8g2_DrawPixel,u8g2,2);
             x+=size;
         }
     }

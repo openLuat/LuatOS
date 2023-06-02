@@ -708,7 +708,11 @@ static int l_u8g2_draw_gtfont_gb2312(lua_State *L) {
 		strlow = *fontCode;
 		str = (strhigh<<8)|strlow;
 		fontCode++;
-		get_font(buf, 1, str, size, size, size);
+		int font_size = get_font(buf, 1, str, size, size, size);
+        if(font_size == 0){
+            LLOGW("get gtfont error size:%d font_size:%d",size,font_size);
+            return 0;
+        }
 		gtfont_draw_w(buf , x ,y , font_size,size , size,gtfont_u8g2_DrawPixel,u8g2,2);
 		x+=size;
 		i+=2;
@@ -799,7 +803,11 @@ static int l_u8g2_draw_gtfont_utf8(lua_State *L) {
         fontCode++;
         if ( e != 0x0fffe ){
             uint16_t str = unicodetogb2312(e);
-            get_font(buf, 1, str, size, size, size);
+            int font_size = get_font(buf, 1, str, size, size, size);
+            if(font_size == 0){
+                LLOGW("get gtfont error size:%d font_size:%d",size,font_size);
+                return 0;
+            }
             gtfont_draw_w(buf , x ,y , font_size,size , size,gtfont_u8g2_DrawPixel,u8g2,2);
             x+=size;
         }

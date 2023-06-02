@@ -936,7 +936,7 @@ static int l_lcd_draw_str(lua_State* L) {
 #ifdef LUAT_USE_GTFONT
 
 #include "GT5SLCD2E_1A.h"
-extern void gtfont_draw_w(unsigned char *pBits,unsigned int x,unsigned int y,unsigned int widt,unsigned int high,int(*point)(void*),void* userdata,int mode);
+extern void gtfont_draw_w(unsigned char *pBits,unsigned int x,unsigned int y,unsigned int size,unsigned int widt,unsigned int high,int(*point)(void*),void* userdata,int mode);
 extern void gtfont_draw_gray_hz(unsigned char *data,unsigned short x,unsigned short y,unsigned short w ,unsigned short h,unsigned char grade, unsigned char HB_par,int(*point)(void*,uint16_t, uint16_t, uint32_t),void* userdata,int mode);
 
 /*
@@ -969,11 +969,11 @@ static int l_lcd_draw_gtfont_gb2312(lua_State *L) {
 		str = (strhigh<<8)|strlow;
 		fontCode++;
 		int font_size = get_font(buf, 1, str, size, size, size);
-    if(font_size != size){
-      LLOGW("get gtfont error");
+    if(font_size == 0){
+      LLOGW("get gtfont error size:%d font_size:%d",size,font_size);
       return 0;
     }
-		gtfont_draw_w(buf , x ,y , size , size,luat_lcd_draw_point,default_conf,0);
+		gtfont_draw_w(buf , x ,y , font_size,size , size,luat_lcd_draw_point,default_conf,0);
 		x+=size;
 		i+=2;
 	}
@@ -1014,7 +1014,7 @@ static int l_lcd_draw_gtfont_gb2312_gray(lua_State* L) {
 		fontCode++;
 		int font_size = get_font(buf, 1, str, size*font_g, size*font_g, size*font_g);
     if(font_size != size*font_g){
-      LLOGW("get gtfont error");
+      LLOGW("get gtfont error size:%d font_size:%d",size,font_size);
       return 0;
     }
 		Gray_Process(buf,size,size,font_g);
@@ -1040,7 +1040,7 @@ extern unsigned short unicodetogb2312 ( unsigned short	chr);
 lcd.drawGtfontUtf8("啊啊啊",32,0,0)
 */
 static int l_lcd_draw_gtfont_utf8(lua_State *L) {
-    unsigned char buf[128];
+    unsigned char buf[128] = {0};
     size_t len;
     int i = 0;
     uint8_t strhigh,strlow ;
@@ -1058,12 +1058,13 @@ static int l_lcd_draw_gtfont_utf8(lua_State *L) {
       fontCode++;
       if ( e != 0x0fffe ){
         uint16_t str = unicodetogb2312(e);
+        memset(buf,0,128);
         int font_size = get_font(buf, 1, str, size, size, size);
-        if(font_size != size){
-          LLOGW("get gtfont error");
+        if(font_size == 0){
+          LLOGW("get gtfont error size:%d font_size:%d",size,font_size);
           return 0;
         }
-        gtfont_draw_w(buf , x ,y , size , size,luat_lcd_draw_point,default_conf,0);
+        gtfont_draw_w(buf , x ,y , font_size,size , size,luat_lcd_draw_point,default_conf,0);
         x+=size;
       }
     }
@@ -1083,7 +1084,7 @@ static int l_lcd_draw_gtfont_utf8(lua_State *L) {
 lcd.drawGtfontUtf8Gray("啊啊啊",32,4,0,40)
 */
 static int l_lcd_draw_gtfont_utf8_gray(lua_State* L) {
-	unsigned char buf[2048];
+	unsigned char buf[2048] = {0};
 	size_t len;
 	int i = 0;
 	uint8_t strhigh,strlow ;
@@ -1104,7 +1105,7 @@ static int l_lcd_draw_gtfont_utf8_gray(lua_State* L) {
 			uint16_t str = unicodetogb2312(e);
 			int font_size = get_font(buf, 1, str, size*font_g, size*font_g, size*font_g);
       if(font_size != size*font_g){
-        LLOGW("get gtfont error");
+        LLOGW("get gtfont error size:%d font_size:%d",size,font_size);
         return 0;
       }
 			Gray_Process(buf,size,size,font_g);

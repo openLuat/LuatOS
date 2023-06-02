@@ -20,21 +20,26 @@
 #ifdef LUAT_USE_LCD
 extern luat_color_t lcd_str_fg_color,lcd_str_bg_color;
 #else
-static luat_color_t lcd_str_fg_color  = WHITE ,lcd_str_bg_color  = BLACK ;
+static luat_color_t lcd_str_fg_color  = BLACK ,lcd_str_bg_color  = WHITE ;
 #endif
 
 extern luat_spi_device_t* gt_spi_dev;
 
 //横置横排显示
-void gtfont_draw_w(unsigned char *pBits,unsigned int x,unsigned int y,unsigned int widt,unsigned int high,int(*point)(void*,uint16_t, uint16_t, uint32_t),void* userdata,int mode){
+void gtfont_draw_w(unsigned char *pBits,unsigned int x,unsigned int y,unsigned int size,unsigned int widt,unsigned int high,int(*point)(void*,uint16_t, uint16_t, uint32_t),void* userdata,int mode){
 	unsigned int i,j,k,n;
 	unsigned char temp;
 	n = 0;
-
+	int w = ((widt+7)>> 3);
 	for( i = 0;i < high; i++){
-		for( j = 0;j < ((widt+7)>> 3);j++){
+		for( j = 0;j < w;j++){
 			temp = pBits[n++];
 			for(k = 0;k < 8;k++){
+				if (widt < size){
+					if (j==(w-1) && k==widt%8){
+						break;
+					}
+				}
 				if(((temp << k)& 0x80) == 0 ){
 					/* 显示一个像素点 */
 					if (mode == 0)point((luat_lcd_conf_t *)userdata, x+k+(j*8), y+i, lcd_str_bg_color);
@@ -46,6 +51,9 @@ void gtfont_draw_w(unsigned char *pBits,unsigned int x,unsigned int y,unsigned i
 					else if (mode == 2)point((u8g2_t *)userdata, x+k+(j*8), y+i, 0x0000);
 				}
 			}
+		}
+		if (widt < size){
+			n += (size-widt)>>3;
 		}
 	}
 }

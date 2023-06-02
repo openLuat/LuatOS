@@ -89,6 +89,7 @@ local function iot_cloud_auto_enrol(iot_cloudc)
             signature=signature,
         }
         local cloud_body_json = json.encode(cloud_body)
+        log.info("cloud_body_json", cloud_body_json)
         local code, headers, body = http.request("POST","https://ap-guangzhou.gateway.tencentdevices.com/register/dev", 
                 {["Content-Type"]="application/json; charset=UTF-8"},
                 cloud_body_json
@@ -153,8 +154,8 @@ function iot_cloud.new(cloud,iot_config,connect_config)
             if data.encryptionType == 1 then                -- 证书认证
                 iot_cloudc.ip = 8883
                 isssl = true
-                ca_file = {server_cert = tencent_ca_crt,client_cert = data.clientCert,client_key = data.clientKey}
-                iot_cloudc.client_id,iot_cloudc.user_name,iot_cloudc.password = iotauth.qcloud(iot_cloudc.produt_id,iot_cloudc.device_name,"")
+                ca_file = {client_cert = data.clientCert,client_key = data.clientKey}
+                iot_cloudc.client_id,iot_cloudc.user_name = iotauth.qcloud(iot_cloudc.produt_id,iot_cloudc.device_name,"")
             elseif data.encryptionType == 2 then            -- 密钥认证
                 iot_cloudc.ip = 1883
                 iot_config.key = data.psk
@@ -167,8 +168,8 @@ function iot_cloud.new(cloud,iot_config,connect_config)
             elseif connect_config.tls then                  --证书认证
                 iot_cloudc.ip = 8883
                 isssl = true
-                ca_file = {server_cert = tencent_ca_crt,client_cert = connect_config.tls.client_cert}
-                iot_cloudc.client_id,iot_cloudc.user_name,iot_cloudc.password = iotauth.qcloud(iot_cloudc.produt_id,iot_cloudc.device_name,"")
+                ca_file = {client_cert = connect_config.tls.client_cert}
+                iot_cloudc.client_id,iot_cloudc.user_name = iotauth.qcloud(iot_cloudc.produt_id,iot_cloudc.device_name,"")
             else                                            --密钥证书都没有
                 return false
             end

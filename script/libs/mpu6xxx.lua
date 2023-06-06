@@ -149,6 +149,9 @@ function mpu6xxx.init(i2c_id)
         --i2c.send(i2cid, i2cslaveaddr, {MPU6XXX_RA_USER_CTRL, 0x00})--I2C主模式关闭
         i2c.send(i2cid, i2cslaveaddr, {MPU6XXX_RA_PWR_MGMT_1, 0x01})--设置x轴的pll为参考
         i2c.send(i2cid, i2cslaveaddr, {MPU6XXX_RA_PWR_MGMT_2, 0x00})--加速度计与陀螺仪开启
+        if deviceid == MPU9250_WHO_AM_I then
+            i2c.send(i2cid, i2cslaveaddr, {MPU6XXX_RA_INT_PIN_CFG, 0x02})--开启直通模式
+        end
         log.info("mpu6xxx init_ok")
         return true
     end

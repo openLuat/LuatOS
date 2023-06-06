@@ -57,7 +57,7 @@ void doc_sysplus_taskInitEx(void){};
 
 /*
 删除由taskInitEx创建的任务线程
-@api sysplus.sendMsg(taskName, param1, param2, param3, param4)
+@api sysplus.taskDel(taskName)
 @string  任务名称,用于唤醒任务的id
 @usage
 sysplus.taskDel('a')

@@ -26,6 +26,8 @@ extern "C" {
 #define MINMEA_MAX_SENTENCE_LENGTH 80
 #endif
 
+#define FRAME_TXT_MAX_LEN (79)
+
 enum minmea_sentence_id {
     MINMEA_INVALID = -1,
     MINMEA_UNKNOWN = 0,
@@ -38,6 +40,7 @@ enum minmea_sentence_id {
     MINMEA_SENTENCE_RMC,
     MINMEA_SENTENCE_VTG,
     MINMEA_SENTENCE_ZDA,
+    MINMEA_SENTENCE_TXT,
 
     MINMEA_SENTENCE_MAX_ID
 };
@@ -178,6 +181,12 @@ struct minmea_sentence_zda {
     int minute_offset;
 };
 
+struct minmea_sentence_txt {
+    int count;
+    int index;
+    char txt[FRAME_TXT_MAX_LEN + 1];
+};
+
 /**
  * Calculate raw sentence checksum. Does not check sentence integrity.
  */
@@ -226,6 +235,7 @@ bool minmea_parse_gst(struct minmea_sentence_gst *frame, const char *sentence);
 bool minmea_parse_gsv(struct minmea_sentence_gsv *frame, const char *sentence);
 bool minmea_parse_vtg(struct minmea_sentence_vtg *frame, const char *sentence);
 bool minmea_parse_zda(struct minmea_sentence_zda *frame, const char *sentence);
+bool minmea_parse_txt(struct minmea_sentence_txt *frame, const char *sentence);
 
 /**
  * Convert GPS UTC date/time representation to a UNIX calendar time.
@@ -312,6 +322,7 @@ static inline bool minmea_isfield(char c) {
 #define RECV_BUFF_SIZE (2048)
 #define FRAME_GSA_MAX   (6)
 #define FRAME_GSV_MAX   (5)
+#define FRAME_TXT_MAX   (80)
 
 int luat_libgnss_init(int clear);
 int luat_libgnss_parse_data(const char* data, size_t len);
@@ -349,6 +360,7 @@ typedef struct luat_libgnss
     // struct minmea_sentence_vtg frame_vtg;
     struct minmea_sentence_gsa frame_gsa[FRAME_GSA_MAX];
     // struct minmea_sentence_zda frame_zda;
+    struct minmea_sentence_txt txt;
     uint8_t debug;
     uint8_t rtc_auto;
 } luat_libgnss_t;

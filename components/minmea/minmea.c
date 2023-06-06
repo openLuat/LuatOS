@@ -375,6 +375,8 @@ enum minmea_sentence_id minmea_sentence_id(const char *sentence, bool strict)
         return MINMEA_SENTENCE_VTG;
     if (!strcmp(type+2, "ZDA"))
         return MINMEA_SENTENCE_ZDA;
+    if (!strcmp(type+2, "TXT"))
+        return MINMEA_SENTENCE_TXT;
 
     return MINMEA_UNKNOWN;
 }
@@ -635,6 +637,15 @@ bool minmea_parse_zda(struct minmea_sentence_zda *frame, const char *sentence)
       frame->minute_offset < 0)
       return false;
 
+  return true;
+}
+
+bool minmea_parse_txt(struct minmea_sentence_txt *frame, const char *sentence) {
+    char type[6];
+    if(!minmea_scan(sentence, "t___s",
+          type,
+          frame->txt))
+      return false;
   return true;
 }
 

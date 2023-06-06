@@ -895,6 +895,16 @@ int luat_libgnss_on_rawdata(const char* data, size_t len) {
     return 0;
 }
 
+/**
+底层事件回调
+@api libgnss.on(tp, fn)
+@string 事件类型,当前支持"raw"
+@usage
+-- 本函数一般用于调试, 用于获取底层实际收到的数据
+libgnss.on("raw", function(data)
+    log.info("GNSS", data)
+end)
+ */
 static int l_libgnss_on(lua_State *L) {
     size_t len = 0;
     const char* tp = luaL_checklstring(L, 1, &len);
@@ -909,6 +919,32 @@ static int l_libgnss_on(lua_State *L) {
         }
     }
     return 0;
+}
+
+/**
+获取非标的GPTXT数据
+@api libgnss.getTxt()
+@return GPTXT所携带的字符串
+@usage
+-- 本函数于2023.6.6 添加
+log.info("gnss", "txt", libgnss.getTxt())
+
+-- 测试语句
+libgnss.parse("$GPTXT,01,01,01,ANTENNA SHORT*63\r\n")
+log.info("GNSS", libgnss.getTxt())
+libgnss.parse("$GPTXT,01,01,01,ANTENNA OPEN*25\r\n")
+log.info("GNSS", libgnss.getTxt())
+libgnss.parse("$GPTXT,01,01,01,ANTENNA OK*35\r\n")
+log.info("GNSS", libgnss.getTxt())
+ */
+static int l_libgnss_get_txt(lua_State *L) {
+    if (libgnss_gnss == NULL) {
+        lua_pushliteral(L, "");
+        return 1;
+    }
+    libgnss_gnss->txt.txt[FRAME_TXT_MAX_LEN] = 0x00;
+    lua_pushstring(L, libgnss_gnss->txt.txt);
+    return 1;
 }
 
 #include "rotable2.h"
@@ -931,6 +967,8 @@ static const rotable_Reg_t reg_libgnss[] =
     { "debug",  ROREG_FUNC(l_libgnss_debug)},
     { "clear",  ROREG_FUNC(l_libgnss_clear)},
     { "bind",   ROREG_FUNC(l_libgnss_bind)},
+
+    { "getTxt", ROREG_FUNC(l_libgnss_get_txt)},
 
 	{ NULL,      ROREG_INT(0)}
 };

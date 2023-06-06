@@ -228,6 +228,12 @@ int luat_libgnss_parse_nmea(const char* line) {
         case MINMEA_SENTENCE_ZDA: {
             memcpy(libgnss_gnss->zda, line, strlen(line) + 1);
         } break;
+        case MINMEA_SENTENCE_TXT: {
+            // LLOGI("解析TXT %s", line);
+            memset(libgnss_gnss->txt.txt, 0, FRAME_TXT_MAX_LEN + 1);
+            minmea_parse_txt(&(libgnss_gnss->txt), line);
+            break;
+        }
         default:
             //LLOGD("why happen");
             break;

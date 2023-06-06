@@ -836,27 +836,42 @@ static int io_fileSize (lua_State *L) {
 
 /**
 读取整个文件,请注意内存消耗
-@api io.readFile(path)
+@api io.readFile(path, mode, offset, len)
 @string 文件路径
+@string 读取模式, 默认 "rb"
+@int    起始位置,默认0
+@int    读取长度,默认整个文件
 @return string 文件数据,若文件不存在会返回nil
 @usage
 local data = io.readFile("/bootime")
+-- 注意: offset和len参数是 2023.6.6添加的
+-- 读取abc.txt, 先跳过128字节, 然后读取512字节数据
+local data = io.readFile("/abc.txt", "rb", 128, 512)
  */
 static int io_readFile (lua_State *L) {
   const char *filename = luaL_checkstring(L, 1);
   const char *mode = luaL_optstring(L, 2, "rb");
+  int offset = luaL_optinteger(L, 3, 0);
+  int rlen   = luaL_optinteger(L, 4, 1 << 30);
   FILE* f = fopen(filename, mode);
   if(f == NULL)
     return 0;
-  char buff[256];
+  char buff[512];
   luaL_Buffer b;
   luaL_buffinit(L, &b);
   int ret = 0;
-  while (1) {
-    ret = fread(buff, 1, 256, f);
+  if (offset > 0) {
+    luat_fs_fseek(f, offset, SEEK_SET);
+  }
+  while (rlen > 0) {
+    if (rlen > 512)
+      ret = fread(buff, 1, 512, f);
+    else
+      ret = fread(buff, 1, rlen, f);
     if (ret < 1)
       break;
     luaL_addlstring(&b, (const char*)buff, ret);
+    rlen -= ret;
   }
   fclose(f);
   luaL_pushresult(&b);

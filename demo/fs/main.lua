@@ -100,6 +100,10 @@ local function fs_test()
     else
         log.info("fs", "open file for read failed")
     end
+
+    -- 2023.6.6 新增 io.readFile支持配置起始位置和长度
+    io.writeFile("/test.txt", "0123456789")
+    log.info("stream", io.readFile("/test.txt", "rb", 3, 5))
 end
 
 

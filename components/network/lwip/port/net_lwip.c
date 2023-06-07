@@ -1158,6 +1158,10 @@ static void net_lwip_task(void *param)
 				}
 				else
 				{
+					if (!prvlwip.socket[socket_id].remote_port)
+					{
+						prvlwip.socket[socket_id].pcb.udp->flags &= ~UDP_FLAGS_CONNECTED;
+					}
 					net_lwip_callback_to_nw_task(adapter_index, EV_NW_SOCKET_CONNECT_OK, socket_id, 0, 0);
 				}
 

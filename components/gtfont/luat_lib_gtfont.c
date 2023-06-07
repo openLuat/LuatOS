@@ -40,10 +40,10 @@ void gtfont_draw_w(unsigned char *pBits,unsigned int x,unsigned int y,unsigned i
 						break;
 					}
 				}
-				if(((temp << k)& 0x80) == 0 ){
-					/* 显示一个像素点 */
-					if (mode == 0)point((luat_lcd_conf_t *)userdata, x+k+(j*8), y+i, lcd_str_bg_color);
-					else if (mode == 1)point((Paint *)userdata, x+k+(j*8), y+i, 0xFFFF);
+				if(((temp << k)& 0x80) == 0 ){//背景色
+					// /* 显示一个像素点 */
+					// if (mode == 0)point((luat_lcd_conf_t *)userdata, x+k+(j*8), y+i, lcd_str_bg_color);
+					// else if (mode == 1)point((Paint *)userdata, x+k+(j*8), y+i, 0xFFFF);
 				}else{
 					/* 显示一个像素点 */
 					if (mode == 0)point((luat_lcd_conf_t *)userdata, x+k+(j*8), y+i, lcd_str_fg_color);

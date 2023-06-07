@@ -936,7 +936,7 @@ static int l_lcd_draw_str(lua_State* L) {
 #ifdef LUAT_USE_GTFONT
 
 #include "GT5SLCD2E_1A.h"
-extern void gtfont_draw_w(unsigned char *pBits,unsigned int x,unsigned int y,unsigned int size,unsigned int widt,unsigned int high,int(*point)(void*),void* userdata,int mode);
+extern unsigned int gtfont_draw_w(unsigned char *pBits,unsigned int x,unsigned int y,unsigned int size,unsigned int widt,unsigned int high,int(*point)(void*),void* userdata,int mode);
 extern void gtfont_draw_gray_hz(unsigned char *data,unsigned short x,unsigned short y,unsigned short w ,unsigned short h,unsigned char grade, unsigned char HB_par,int(*point)(void*,uint16_t, uint16_t, uint32_t),void* userdata,int mode);
 
 /*
@@ -1064,8 +1064,8 @@ static int l_lcd_draw_gtfont_utf8(lua_State *L) {
           LLOGW("get gtfont error size:%d font_size:%d",size,font_size);
           return 0;
         }
-        gtfont_draw_w(buf , x ,y , font_size,size , size,luat_lcd_draw_point,default_conf,0);
-        x+=size;
+        unsigned int dw = gtfont_draw_w(buf , x ,y , font_size,size , size,luat_lcd_draw_point,default_conf,0);
+        x+=str<0x80?dw:size;
       }
     }
     lcd_auto_flush(default_conf);

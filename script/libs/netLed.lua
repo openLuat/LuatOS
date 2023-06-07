@@ -156,7 +156,7 @@ function netLed.setup(flag,ledPin,ltePin)
         sys.publish("NET_LED_UPDATE")
     end
     if flag and not oldSwitch then
-        sys.taskInit(taskLed, gpio.setup(ledPin or LEDPIN, 0))
+        sys.taskInit(netLed.taskLed, gpio.setup(ledPin or LEDPIN, 0))
     end
     if flag~=lteSwitch then
         lteSwitch = flag	

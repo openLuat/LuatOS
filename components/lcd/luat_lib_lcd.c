@@ -961,14 +961,14 @@ static int l_lcd_draw_gtfont_gb2312(lua_State *L) {
 	int x = luaL_checkinteger(L, 3);
 	int y = luaL_checkinteger(L, 4);
   lcd_str_fg_color = (luat_color_t)luaL_optinteger(L, 5,FORE_COLOR);
-  lcd_str_bg_color = (luat_color_t)luaL_optinteger(L, 6,BACK_COLOR);
+  // lcd_str_bg_color = (luat_color_t)luaL_optinteger(L, 6,BACK_COLOR);
 	while ( i < len){
 		strhigh = *fontCode;
 		fontCode++;
 		strlow = *fontCode;
 		str = (strhigh<<8)|strlow;
 		fontCode++;
-		int font_size = get_font(buf, 1, str, size, size, size);
+		int font_size = get_font(buf, str<0x80?VEC_HZ_ASCII_STY:VEC_BLACK_STY, str, size, size, size);
     if(font_size == 0){
       LLOGW("get gtfont error size:%d font_size:%d",size,font_size);
       return 0;
@@ -1005,14 +1005,14 @@ static int l_lcd_draw_gtfont_gb2312_gray(lua_State* L) {
 	int x = luaL_checkinteger(L, 4);
 	int y = luaL_checkinteger(L, 5);
   lcd_str_fg_color = (luat_color_t)luaL_optinteger(L, 6,FORE_COLOR);
-  lcd_str_bg_color = (luat_color_t)luaL_optinteger(L, 7,BACK_COLOR);
+  // lcd_str_bg_color = (luat_color_t)luaL_optinteger(L, 7,BACK_COLOR);
 	while ( i < len){
 		strhigh = *fontCode;
 		fontCode++;
 		strlow = *fontCode;
 		str = (strhigh<<8)|strlow;
 		fontCode++;
-		int font_size = get_font(buf, 1, str, size*font_g, size*font_g, size*font_g);
+		int font_size = get_font(buf, str<0x80?VEC_HZ_ASCII_STY:VEC_BLACK_STY, str, size*font_g, size*font_g, size*font_g);
     if(font_size != size*font_g){
       LLOGW("get gtfont error size:%d font_size:%d",size,font_size);
       return 0;
@@ -1050,7 +1050,7 @@ static int l_lcd_draw_gtfont_utf8(lua_State *L) {
     int x = luaL_checkinteger(L, 3);
     int y = luaL_checkinteger(L, 4);
     lcd_str_fg_color = (luat_color_t)luaL_optinteger(L, 5,FORE_COLOR);
-    lcd_str_bg_color = (luat_color_t)luaL_optinteger(L, 6,BACK_COLOR);
+    // lcd_str_bg_color = (luat_color_t)luaL_optinteger(L, 6,BACK_COLOR);
     for(;;){
       e = utf8_next((uint8_t)*fontCode);
       if ( e == 0x0ffff )
@@ -1059,7 +1059,7 @@ static int l_lcd_draw_gtfont_utf8(lua_State *L) {
       if ( e != 0x0fffe ){
         uint16_t str = unicodetogb2312(e);
         memset(buf,0,128);
-        int font_size = get_font(buf, 1, str, size, size, size);
+        int font_size = get_font(buf, str<0x80?VEC_HZ_ASCII_STY:VEC_BLACK_STY, str, size, size, size);
         if(font_size == 0){
           LLOGW("get gtfont error size:%d font_size:%d",size,font_size);
           return 0;
@@ -1095,7 +1095,7 @@ static int l_lcd_draw_gtfont_utf8_gray(lua_State* L) {
 	int x = luaL_checkinteger(L, 4);
 	int y = luaL_checkinteger(L, 5);
   lcd_str_fg_color = (luat_color_t)luaL_optinteger(L, 6,FORE_COLOR);
-  lcd_str_bg_color = (luat_color_t)luaL_optinteger(L, 7,BACK_COLOR);
+  // lcd_str_bg_color = (luat_color_t)luaL_optinteger(L, 7,BACK_COLOR);
 	for(;;){
         e = utf8_next((uint8_t)*fontCode);
         if ( e == 0x0ffff )
@@ -1103,7 +1103,7 @@ static int l_lcd_draw_gtfont_utf8_gray(lua_State* L) {
         fontCode++;
         if ( e != 0x0fffe ){
 			uint16_t str = unicodetogb2312(e);
-			int font_size = get_font(buf, 1, str, size*font_g, size*font_g, size*font_g);
+			int font_size = get_font(buf, str<0x80?VEC_HZ_ASCII_STY:VEC_BLACK_STY, str, size*font_g, size*font_g, size*font_g);
       if(font_size != size*font_g){
         LLOGW("get gtfont error size:%d font_size:%d",size,font_size);
         return 0;

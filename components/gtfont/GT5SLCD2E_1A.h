@@ -2,8 +2,8 @@
  *创建时间：2020-03-27
  *创建人：	yang
 **/
-#ifndef _GT5SLCD2E_1A_H_
-#define _GT5SLCD2E_1A_H_
+#ifndef _GT5SLCD2E1A_H_
+#define _GT5SLCD2E1A_H_
 
 /* 外部函数声明 */
 extern unsigned long r_dat_bat(unsigned long address,unsigned long DataLen,unsigned char *pBuff);
@@ -16,23 +16,13 @@ int GT_Font_Init(void);
 
 /********************* 矢量公用部分 *********************/
 //中文
-#define VEC_SONG_STY		1		//宋体
+#define VEC_BLACK_STY		1		//黑体
 
 //ASCII码
-#define VEC_FT_ASCII_STY 	5
-#define VEC_DZ_ASCII_STY 	6
-#define VEC_CH_ASCII_STY 	7
-#define VEC_BX_ASCII_STY 	8
-#define VEC_BZ_ASCII_STY 	9
-#define VEC_FX_ASCII_STY 	10
-#define VEC_GD_ASCII_STY 	11
-#define VEC_HZ_ASCII_STY 	12
-#define VEC_MS_ASCII_STY 	13
-#define VEC_SX_ASCII_STY 	14
-#define VEC_ZY_ASCII_STY 	15
-#define VEC_TM_ASCII_STY 	16
-//拉丁文
-#define VEC_YJ_LATIN_STY	17
+#define VEC_FT_ASCII_STY 	3
+#define VEC_HZ_ASCII_STY 	4
+#define VEC_CH_ASCII_STY 	5
+#define VEC_TIMES_STY		6
 
 /******************* 两种调用模式配置 *******************/
 
@@ -54,7 +44,7 @@ int GT_Font_Init(void);
     typedef struct vecFont
     {
         unsigned long fontCode;		//字符编码中文:GB18030, ASCII/外文: unicode
-        unsigned char type;			//字体	@矢量公用部分
+        unsigned char type;			//字体
         unsigned char size;			//文字大小
         unsigned char thick;		//文字粗细
         unsigned char zkBuffer[ZK_BUFFER_LEN];	//数据存储
@@ -68,8 +58,8 @@ int GT_Font_Init(void);
 	 *函数名：	get_font()
 	 *功能：		矢量文字读取函数
 	 *参数：pBits		数据存储
-	 *		sty			文字字体选择  @矢量公用部分
-	 *		fontCode	字符编码中文:GB18030, ASCII/外文: unicode
+	 *		sty			文字字体选择
+	 *		fontCode	文字编码
 	 *		width		文字宽度
 	 *		height		文字高度
 	 *		thick		文字粗细

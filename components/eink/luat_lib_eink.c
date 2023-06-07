@@ -1055,7 +1055,7 @@ static int l_eink_draw_gtfont_gb2312(lua_State *L) {
 		strlow = *fontCode;
 		str = (strhigh<<8)|strlow;
 		fontCode++;
-		int font_size = get_font(buf, 1, str, size, size, size);
+		int font_size = get_font(buf, str<0x80?VEC_HZ_ASCII_STY:VEC_BLACK_STY, str, size, size, size);
     if(font_size == 0){
       LLOGW("get gtfont error size:%d font_size:%d",size,font_size);
       return 0;
@@ -1084,7 +1084,7 @@ static int l_eink_draw_gtfont_gb2312_gray(lua_State* L) {
 		strlow = *fontCode;
 		str = (strhigh<<8)|strlow;
 		fontCode++;
-		get_font(buf, 1, str, size*font_g, size*font_g, size*font_g);
+		get_font(buf, str<0x80?VEC_HZ_ASCII_STY:VEC_BLACK_STY, str, size*font_g, size*font_g, size*font_g);
 		Gray_Process(buf,size,size,font_g);
 		gtfont_draw_gray_hz(buf, x, y, size , size, font_g, 1,Paint_DrawPixel,&econf.ctxs[econf.ctx_index]->paint,1);
 		x+=size;
@@ -1112,7 +1112,7 @@ static int l_eink_draw_gtfont_utf8(lua_State *L) {
       fontCode++;
       if ( e != 0x0fffe ){
         uint16_t str = unicodetogb2312(e);
-        int font_size = get_font(buf, 1, str, size, size, size);
+        int font_size = get_font(buf, str<0x80?VEC_HZ_ASCII_STY:VEC_BLACK_STY, str, size, size, size);
         if(font_size == 0){
           LLOGW("get gtfont error size:%d font_size:%d",size,font_size);
           return 0;
@@ -1142,7 +1142,7 @@ static int l_eink_draw_gtfont_utf8_gray(lua_State* L) {
         fontCode++;
         if ( e != 0x0fffe ){
 			uint16_t str = unicodetogb2312(e);
-			get_font(buf, 1, str, size*font_g, size*font_g, size*font_g);
+			get_font(buf, str<0x80?VEC_HZ_ASCII_STY:VEC_BLACK_STY, str, size*font_g, size*font_g, size*font_g);
 			Gray_Process(buf,size,size,font_g);
       gtfont_draw_gray_hz(buf, x, y, size , size, font_g, 1,Paint_DrawPixel,&econf.ctxs[econf.ctx_index]->paint,1);
         	x+=size;

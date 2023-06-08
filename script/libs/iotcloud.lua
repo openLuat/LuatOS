@@ -182,10 +182,18 @@ function iotcloud.new(cloud,iot_config,connect_config)
         end
     end
 
-    print("mqtt create",iotcloudc.host, iotcloudc.ip, isssl, ca_file)
-    print("mqtt auth"," client_id:",iotcloudc.client_id," user_name:",iotcloudc.user_name," password:",iotcloudc.password)
+    if ca_file then
+        if ca_file.client_cert then
+            ca_file.client_cert = ca_file.client_cert:gsub("\b", "\n")
+        end
+        if ca_file.client_key then
+            ca_file.client_key = ca_file.client_key:gsub("\b", "\n")
+        end
+    end
 
-    iotcloudc.mqttc = mqtt.create(nil, iotcloudc.host, iotcloudc.ip, isssl, ca_file)
+    ca_file.verify = 1
+
+    iotcloudc.mqttc = mqtt.create(nil, iotcloudc.host, iotcloudc.ip, isssl and ca_file or nil)
     iotcloudc.mqttc:auth(iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password)
     iotcloudc.mqttc:keepalive(300)                         -- 默认值240s
     iotcloudc.mqttc:autoreconn(true, 3000)                 -- 自动重连机制

@@ -105,6 +105,7 @@ static int l_http_request(lua_State *L) {
 
 	http_ctrl->timeout = HTTP_TIMEOUT;
 	int use_ipv6 = 0;
+	int is_debug = 0;
 
 	if (lua_istable(L, 5)){
 		lua_pushstring(L, "adapter");
@@ -133,7 +134,7 @@ static int l_http_request(lua_State *L) {
 
 		lua_pushstring(L, "debug");
 		if (LUA_TBOOLEAN == lua_gettable(L, 5)) {
-			http_ctrl->netc->is_debug = lua_toboolean(L, -1);
+			is_debug = lua_toboolean(L, -1);
 		}
 		lua_pop(L, 1);
 #ifdef LUAT_USE_FOTA
@@ -188,6 +189,7 @@ static int l_http_request(lua_State *L) {
 		LLOGE("netc create fail");
 		goto error;
 	}
+	http_ctrl->netc->is_debug = is_debug;
 
     luat_http_client_init(http_ctrl, use_ipv6);
 

@@ -5,7 +5,11 @@
 #define MQTT_MSG_TIMER_PING 2
 #define MQTT_MSG_RECONNECT  3
 
+#ifdef CHIP_EC618
+#define MQTT_RECV_BUF_LEN_MAX 8192
+#else
 #define MQTT_RECV_BUF_LEN_MAX 4096
+#endif
 
 
 typedef struct{

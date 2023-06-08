@@ -42,6 +42,13 @@ sys.taskInit(function()
         -- 限制小数点到1位
         log.info("json", json.encode({abc=1234.300}, "1f"))
 
+        -- 2023.6.8 处理\n在encode之后变成\b的问题
+        local tmp = "ABC\r\nDEF\r\n"
+        local tmp2 = json.encode({str=tmp})
+        log.info("json", tmp2)
+        local tmp3 = json.decode(tmp2)
+        log.info("json", "tmp3", tmp3.str, tmp3.str == tmp)
+        -- break
     end
 end)
 

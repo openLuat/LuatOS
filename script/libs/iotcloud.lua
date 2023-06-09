@@ -146,9 +146,9 @@ function iotcloud.new(cloud,iot_config,connect_config)
         iotcloudc.produt_id = iot_config.produt_id
         if iot_config.product_secret then                   --有product_secret说明是动态注册
             iotcloudc.product_secret = iot_config.product_secret
-            if not fskv.get("iotcloud_tencent") then 
+            -- if not fskv.get("iotcloud_tencent") then 
                 if not iotcloud_auto_enrol(iotcloudc) then return false end
-            end
+            -- end
             local data = fskv.get("iotcloud_tencent")
             -- print("payload",data.encryptionType,data.psk,data.clientCert,data.clientKey)
             if data.encryptionType == 1 then                -- 证书认证
@@ -185,12 +185,6 @@ function iotcloud.new(cloud,iot_config,connect_config)
     if ca_file then
         ca_file.verify = 1
         -- ca_file.server_cert = tencent_ca_crt
-        if ca_file.client_cert then
-            ca_file.client_cert = ca_file.client_cert:gsub("\b", "\n")
-        end
-        if ca_file.client_key then
-            ca_file.client_key = ca_file.client_key:gsub("\b", "\n")
-        end
     end
     iotcloudc.mqttc = mqtt.create(nil, iotcloudc.host, iotcloudc.ip, isssl and ca_file or nil)
     iotcloudc.mqttc:auth(iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password)

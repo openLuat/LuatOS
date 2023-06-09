@@ -95,8 +95,8 @@ end
 @number 服务器地址,有默认值,可以是域名,一般不需要填
 @number 服务器端口,默认12411,一般不需要填
 @bool   是否要求返回服务器时间
-@return string  若成功,返回定位坐标的纬度,是WGS84坐标系
-@return string  若成功,返回定位坐标的精度,是WGS84坐标系
+@return string  若成功,返回定位坐标的纬度,是WGS84坐标系,否则会返还nil
+@return string  若成功,返回定位坐标的精度,是WGS84坐标系,否则会返还nil
 @return table   服务器时间,东八区时间. 当reqTime为true且定位成功才会返回
 @usage
 sys.taskInit(function()
@@ -111,7 +111,7 @@ function lbsLoc2.request(timeout, host, port, reqTime)
     if mobile.status() == 0 then
         return
     end
-    local hosts = host and {host} or {"bs.air32.cn", "bs.openluat.com"}
+    local hosts = host and {host} or {"free.bs.air32.cn", "bs.openluat.com"}
     port = port and tonumber(port) or 12411
     local sc = socket.create(nil, function(sc, event)
         -- log.info("lbsLoc", "event", event)

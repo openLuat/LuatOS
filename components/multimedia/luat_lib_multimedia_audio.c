@@ -341,13 +341,12 @@ LUAT_WEAK void luat_audio_set_debug(uint8_t on_off)
 }
 /*
 配置调试信息输出
-@api audio.debug(id, on_off)
+@api audio.debug(on_off)
 @boolean true开 false关
-@int 总线类型
 @return
 @usage
-audio.debug(0, true)	--开启调试信息输出
-audio.debug(0, false)	--关闭调试信息输出
+audio.debug(true)	--开启调试信息输出
+audio.debug(false)	--关闭调试信息输出
 */
 static int l_audio_set_debug(lua_State *L) {
 	luat_audio_set_debug(lua_toboolean(L, 1));

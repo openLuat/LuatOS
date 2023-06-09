@@ -722,7 +722,7 @@ static int l_mobile_data_traffic(lua_State* L) {
     lua_pushinteger(L, temp);
     return 4;
 }
-extern int luat_mobile_config(uint8_t item, uint32_t value);
+
 /**
 网络特殊配置，针对不同平台有不同的配置，谨慎使用，目前只有EC618
 @api mobile.config(item, value)
@@ -750,7 +750,22 @@ static int l_mobile_config(lua_State* L) {
     return 1;
 }
 
-
+/**
+RF测试开关和配置，开启测试时自动进入飞行模式，关闭自动退出飞行模式
+@api mobile.rfTest(onoff, uart_id, br)
+@boolean true开启测试模式，false关闭
+@int 串口号
+@int 波特率，如果是USB虚拟串口，随意填写
+@return nil 无返回值
+@usage
+mobile.rfTest(true, uart.VUART_0, 0)	--打开测试模式，并且用虚拟串口收发命令
+mobile.rfTest(false) --关闭测试模式
+ */
+#include "luat_uart.h"
+static int l_mobile_rf_test(lua_State* L) {
+    luat_mobile_rf_test_mode(luaL_optinteger(L, 2, LUAT_VUART_ID_0), luaL_optinteger(L, 3, 115200), lua_toboolean(L, 1));
+    return 0;
+}
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_mobile[] = {
@@ -780,6 +795,7 @@ static const rotable_Reg_t reg_mobile[] = {
 	{"reset",      ROREG_FUNC(l_mobile_reset)},
 	{"dataTraffic",      ROREG_FUNC(l_mobile_data_traffic)},
 	{"config",      ROREG_FUNC(l_mobile_config)},
+	{"rfTest",      ROREG_FUNC(l_mobile_rf_test)},
 	//@const UNREGISTER number 未注册
     {"UNREGISTER",                  ROREG_INT(LUAT_MOBILE_STATUS_UNREGISTER)},
     //@const REGISTERED number 已注册

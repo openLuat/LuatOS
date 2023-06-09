@@ -678,6 +678,22 @@ int luat_mobile_get_band(uint8_t *band,  uint8_t *total_num);
  */
 int luat_mobile_set_band(uint8_t *band,  uint8_t total_num);
 
+/**
+ * @brief LTE协议栈功能特殊配置
+ * @param item 见MOBILE_CONF_XXX
+ * @param value 配置值
+ * @return 成功返回0，其他失败
+ */
+int luat_mobile_config(uint8_t item, uint32_t value);
+
+/**
+ * @brief RF测试模式，进入测试模式自动进入飞行模式，请不要在测试过程中退出飞行模式
+ * @param uart_id 测试命令输入的串口ID
+ * @param br 串口波特率，如果是USB虚拟串口，则随意填写
+ * @param on_off 进出测试模式，0退出 其他进入
+ * @return 无
+ */
+void luat_mobile_rf_test_mode(uint8_t uart_id, uint32_t br, uint8_t on_off);
 /** @}*/
 enum
 {

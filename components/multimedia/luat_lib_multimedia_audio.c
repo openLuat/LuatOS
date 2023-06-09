@@ -335,8 +335,24 @@ static int l_audio_set_output_bus(lua_State *L) {
 	luat_audio_set_bus_type(luaL_checkinteger(L, 2));
     return 0;
 }
-
-
+LUAT_WEAK void luat_audio_set_debug(uint8_t on_off)
+{
+	;
+}
+/*
+配置调试信息输出
+@api audio.debug(id, on_off)
+@boolean true开 false关
+@int 总线类型
+@return
+@usage
+audio.debug(0, true)	--开启调试信息输出
+audio.debug(0, false)	--关闭调试信息输出
+*/
+static int l_audio_set_debug(lua_State *L) {
+	luat_audio_set_debug(lua_toboolean(L, 1));
+    return 0;
+}
 
 
 #include "rotable2.h"
@@ -357,6 +373,7 @@ static const rotable_Reg_t reg_audio[] =
 	{ "vol",			ROREG_FUNC(l_audio_vol)},
 	{ "getError",			ROREG_FUNC(l_audio_play_get_last_error)},
 	{ "setBus",			ROREG_FUNC(l_audio_set_output_bus)},
+	{ "debug",			ROREG_FUNC(l_audio_set_debug)},
 	//@const PCM number PCM格式，即原始ADC数据
     { "PCM",           ROREG_INT(MULTIMEDIA_DATA_TYPE_PCM)},
 	//@const MORE_DATA number audio.on回调函数传入参数的值，表示底层播放完一段数据，可以传入更多数据

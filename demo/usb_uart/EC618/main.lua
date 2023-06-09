@@ -8,15 +8,34 @@ log.info("main", PROJECT, VERSION)
 sys = require("sys")
 
 
-log.info("main", "usb uart demo")
+--[[
+参考用的上位机, 用py演示, 需要pyserial库
 
+import os, sys, serial.tools.list_ports, time
+
+for item in serial.tools.list_ports.comports():
+    if not item.pid or not item.location :
+        continue
+    if item.vid == 0x19d1 and item.pid == 0x0001 and "x.6" in item.location :
+        print(dir(item))
+        print(item.name)
+        with serial.Serial(item.name, 115200, timeout=1) as ser:
+            while 1:
+                data = ser.read(128)
+                if data :
+                    print( str(time.time()) + ">> " + str(data))
+                else :
+                    ser.write("Hi from PC".encode())
+]]
+
+log.info("main", "usb uart demo")
 
 local uartid = uart.VUART_0 -- USB虚拟串口的固定id
 
 --初始化
 local result = uart.setup(
     uartid,--串口id
-    115200,--波特率
+    115200,--波特率,其实无所谓, 纯虚拟串口
     8,--数据位
     1--停止位
 )
@@ -38,7 +57,7 @@ uart.on(uartid, "receive", function(id, len)
         end
     until s == ""
 end)
-local tx_buff = zbuff.create(4096)
+local tx_buff = zbuff.create(24)
 tx_buff:set(0, 0x31)
 -- 并非所有设备都支持sent事件
 uart.on(uartid, "sent", function(id)

@@ -15,7 +15,7 @@ end)
 
 -- es8311器件地址
 local es8311_address = 0x18
-
+local record_cnt = 0
 -- es8311初始化寄存器配置
 local es8311_reg = {
 	{0x45,0x00},
@@ -26,21 +26,21 @@ local es8311_reg = {
 	{0x16,0x24},
 	{0x04,0x20},
 	{0x05,0x00},
-	{0x06,(0<<5) + 4 -1},
+	{0x06,3},
 	{0x07,0x00},
 	{0x08,0xFF},
 	{0x09,0x0C},
 	{0x0A,0x0C},
 	{0x0B,0x00},
 	{0x0C,0x00},
-	{0x10,(0x1C*0) + (0x60*0x00) + 0x03},
+	{0x10,0x03},
 	{0x11,0x7F},
-	{0x00,0x80 + (0<<6)},
+	{0x00,0x80},
 	{0x0D,0x01},
-	{0x01,0x3F + (0x00<<7)},
-	{0x14,(0<<6) + (1<<4) + 10},
+	{0x01,0x3F},
+	{0x14,0x1a},
 	{0x12,0x28},
-	{0x13,0x00 + (0<<4)},
+	{0x13,0x00},
 	{0x0E,0x02},
 	{0x0F,0x44},
 	{0x15,0x00},
@@ -50,7 +50,6 @@ local es8311_reg = {
 	{0x44,(0 <<7)},
 	{0x17,210},
 	{0x32,200},
-    {0x00,0x80 + (1<<6)},
 }
 
 -- i2s数据接收buffer
@@ -71,27 +70,30 @@ local function record_cb(id, buff)
     if buff then
         log.info("I2S", id, "接收了", rx_buff:used())
         codec.encode(encoder, rx_buff, amr_buff)		-- 对录音数据进行amr编码，成功的话这个接口会返回true
+		record_cnt = record_cnt + 1
+		if record_cnt >= 25 then	--超过5秒后停止
+			log.info("I2S", "stop") 
+			i2s.stop(0)	
+		end
     end
 end
 
 
 
 local function record_task()
+	os.remove(recordPath)
 	audio.config(0, 25, 1, 6, 200)						
-    sys.wait(5000)
 	pm.power(pm.DAC_EN, true)							-- 打开es8311芯片供电
     log.info("i2c initial",i2c.setup(0, i2c.FAST))		-- 开启i2c
-    i2s.setup(0, 0, 8000, 16, 1, i2s.MODE_I2S)			-- 开启i2s
-    i2s.on(0, record_cb) 								-- 注册i2s接收回调
-    i2s.recv(0, rx_buff, 3200)
-    sys.wait(300)
     for i, v in pairs(es8311_reg) do					-- 初始化es8311
         i2c.send(0,es8311_address,v,1)
     end
-    sys.wait(5000)
-    i2c.send(0, es8311_address,{0x00, 0x80 + (0<<6)},1)	-- 停止录音
-    i2s.stop(0)											-- 停止接收
-
+	i2s.setup(0, 0, 8000, 16, 1, i2s.MODE_I2S)			-- 开启i2s
+    i2s.on(0, record_cb) 								-- 注册i2s接收回调
+    i2s.recv(0, rx_buff, 3200)
+	i2c.send(0,es8311_address,{0x00, 0xc0},1)
+    sys.wait(6000)
+    i2c.send(0, es8311_address,{0x00, 0x80},1)	-- ES8311停止录音
     log.info("录音5秒结束")
 	io.writeFile(recordPath, "#!AMR\n")					-- 向文件写入amr文件标识数据
 	io.writeFile(recordPath, amr_buff:query(), "a+b")	-- 向文件写入编码后的amr数据

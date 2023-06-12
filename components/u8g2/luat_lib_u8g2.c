@@ -105,7 +105,7 @@ static int l_u8g2_begin(lua_State *L) {
             case 270:
                 conf.direction = U8G2_R3;
                 break;
-            
+
             default:
                 conf.direction = U8G2_R0;
                 break;
@@ -670,6 +670,20 @@ end:
     return 0;
 }
 
+/**
+调整屏幕对比度
+@api u8g2.SetContrast(contrast)
+@int 对比度（取值范围与IC有关，如st7567为0-63）
+@return nil 无返回值
+*/
+static int l_u8g2_SetContrast(lua_State *L)
+{
+    if (u8g2 == NULL) return 0;
+    u8g2_SetContrast(u8g2,luaL_checkinteger(L, 1));
+    return 0;
+}
+
+
 #ifdef LUAT_USE_GTFONT
 
 #include "GT5SLCD2E_1A.h"
@@ -848,6 +862,7 @@ static const rotable_Reg_t reg_u8g2[] =
     { "SetBitmapMode",ROREG_FUNC(l_u8g2_SetBitmapMode)},
     { "DrawXBM",      ROREG_FUNC(l_u8g2_DrawXBM)},
     { "DrawDrcode",   ROREG_FUNC(l_u8g2_DrawDrcode)},
+    { "SetContrast",  ROREG_FUNC(l_u8g2_SetContrast)},
 #ifdef LUAT_USE_GTFONT
     { "drawGtfontGb2312", ROREG_FUNC(l_u8g2_draw_gtfont_gb2312)},
 #ifdef LUAT_USE_GTFONT_UTF8

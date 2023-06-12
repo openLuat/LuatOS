@@ -205,7 +205,11 @@ static int on_message_complete(http_parser* parser){
 				result = luat_fota_done();
 			}
 			if (result==0){
-				luat_fota_end(1);
+				if (luat_fota_end(1)){
+					LLOGE("fota finish error");
+					http_resp_error(http_ctrl, HTTP_ERROR_FOTA);
+					return -1;
+				}
 			}else{
 				luat_fota_end(0);
 				http_resp_error(http_ctrl, HTTP_ERROR_FOTA);

@@ -20,9 +20,13 @@ uart.on(gps_uart_id, "recv", function(id, len)
 end)
 
 -- Air530Z默认波特率是9600, 主动切换一次
-uart.setup(gps_uart_id, 9600)
-uart.write(gps_uart_id, "$PCAS01,5*19\r\n")
-uart.setup(gps_uart_id, 115200)
+sys.taskInit(function()
+    uart.setup(gps_uart_id, 9600)
+    uart.write(gps_uart_id, "$PCAS01,5*19\r\n")
+    sys.wait(200)
+    uart.stop(gps_uart_id)
+    uart.setup(gps_uart_id, 115200)
+end)
 
 sys.timerLoopStart(function()
     log.info("GPS", libgnss.getIntLocation())

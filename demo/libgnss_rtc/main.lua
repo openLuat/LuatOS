@@ -24,7 +24,7 @@ sys.taskInit(function()
     uart.setup(gps_uart_id, 9600)
     uart.write(gps_uart_id, "$PCAS01,5*19\r\n")
     sys.wait(200)
-    uart.stop(gps_uart_id)
+    uart.close(gps_uart_id)
     uart.setup(gps_uart_id, 115200)
 end)
 

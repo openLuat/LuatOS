@@ -328,13 +328,13 @@ int32_t l_http_callback(lua_State *L, void* ptr){
 		luat_stop_rtos_timer(http_ctrl->timeout_timer);
 	}
 	LLOGD("l_http_callback arg1:%d is_download:%d idp:%d",msg->arg1,http_ctrl->is_download,idp);
-	if (msg->arg1){
+	if (msg->arg1!=0 && msg->arg1!=HTTP_ERROR_FOTA ){
 		lua_pushinteger(L, msg->arg1); // 把错误码返回去
 		luat_cbcwait(L, idp, 1);
 		goto exit;
 	}
-
-	lua_pushinteger(L, http_ctrl->parser.status_code);
+	
+	lua_pushinteger(L, msg->arg1==HTTP_ERROR_FOTA?HTTP_ERROR_FOTA:http_ctrl->parser.status_code);
 	lua_newtable(L);
 	// LLOGD("http_ctrl->headers:%.*s",http_ctrl->headers_len,http_ctrl->headers);
 	header = http_ctrl->headers;

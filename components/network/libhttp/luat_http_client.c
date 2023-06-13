@@ -84,7 +84,6 @@ static void http_resp_error(luat_http_ctrl_t *http_ctrl, int error_code) {
 	LLOGD("http_resp_error headers_complete:%d re_request_count:%d",http_ctrl->headers_complete,http_ctrl->re_request_count);
 	if (http_ctrl->close_state == 0 && http_ctrl->headers_complete==1 && http_ctrl->re_request_count < HTTP_RE_REQUEST_MAX){
 		http_ctrl->re_request_count++;
-
 		network_close(http_ctrl->netc, 0);
 		network_force_close_socket(http_ctrl->netc);
 		if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), NULL, http_ctrl->remote_port, 0) < 0){
@@ -164,7 +163,7 @@ static int on_headers_complete(http_parser* parser){
 static int on_body(http_parser* parser, const char *at, size_t length){
 	// LLOGD("on_body:%.*s",length,at);
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
-	LLOGD("on_body length:%d http_ctrl->body_len:%d",length,http_ctrl->body_len+length);
+	LLOGD("on_body length:%d http_ctrl->body_len:%d status_code:%d",length,http_ctrl->body_len+length,parser->status_code);
 	if (http_ctrl->is_download){
 		if (http_ctrl->fd == NULL){
 			luat_fs_remove(http_ctrl->dst);
@@ -178,7 +177,7 @@ static int on_body(http_parser* parser, const char *at, size_t length){
 		luat_fs_fwrite(at, length, 1, http_ctrl->fd);
 	}
 #ifdef LUAT_USE_FOTA
-	else if(http_ctrl->isfota && parser->status_code == 200){
+	else if(http_ctrl->isfota && (parser->status_code == 200 || parser->status_code == 206)){
 		if (luat_fota_write((uint8_t*)at, length) < 0){
 			luat_fota_end(0);
 			http_resp_error(http_ctrl, HTTP_ERROR_FOTA);
@@ -217,6 +216,7 @@ static int on_message_complete(http_parser* parser){
 #ifdef LUAT_USE_FOTA
 	else if(http_ctrl->isfota){
 		if (parser->status_code == 200 || parser->status_code == 206){
+			parser->status_code = 200;
 			int result = luat_fota_done();
 			LLOGD("result1:%d",result);
 			while (result>0){
@@ -300,7 +300,7 @@ static void http_send_message(luat_http_ctrl_t *http_ctrl){
 	}
 
 	if (http_ctrl->headers_complete){
-		snprintf_((char*)http_ctrl->resp_buff, HTTP_RESP_BUFF_SIZE,  "Range: bytes=%d-\r\n", http_ctrl->body_len+1);
+		snprintf_((char*)http_ctrl->resp_buff, HTTP_RESP_BUFF_SIZE,  "Range: bytes=%d-\r\n", http_ctrl->body_len);
 		http_send(http_ctrl, (uint8_t*)http_ctrl->resp_buff, strlen((char*)http_ctrl->resp_buff));
 	}
 	

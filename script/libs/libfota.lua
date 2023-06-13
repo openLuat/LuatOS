@@ -82,7 +82,7 @@ local function fota_task(cbFnc,storge_location, len, param1,ota_url,ota_port,lib
     end
     local code, headers, body = http.request("GET", ota_url, nil, nil, {fota=true,timeout = libfota_timeout},server_cert, client_cert, client_key, client_password).wait()
     log.info("http fota", code, headers, body)
-    if code == 200 then
+    if code == 200 or code == 206 then
         if body == 0 then
             ret = 4
         else

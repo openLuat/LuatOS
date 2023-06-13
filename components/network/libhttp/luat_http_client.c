@@ -17,6 +17,9 @@
 #if HTTP_DEBUG == 0
 #undef LLOGD
 #define LLOGD(...)
+// #else
+// #undef LLOGD
+// #define LLOGD	DBG
 #endif
 
 static void http_send_message(luat_http_ctrl_t *http_ctrl);
@@ -69,17 +72,23 @@ int http_close(luat_http_ctrl_t *http_ctrl){
 static void http_resp_error(luat_http_ctrl_t *http_ctrl, int error_code) {
 	LLOGD("http_resp_error error_code:%d close_state:%d",error_code,http_ctrl->close_state);
 #ifdef LUAT_USE_FOTA
-	if (http_ctrl->isfota){
+	if (http_ctrl->isfota!=0 && error_code == HTTP_ERROR_FOTA){
 		luat_fota_end(0);
-		if (http_ctrl->parser.status_code){
-			error_code = 0;
-		}
+		// if (http_ctrl->parser.status_code){
+		// 	error_code = 0;
+		// }
 		luat_http_client_onevent(http_ctrl, error_code, 0);
+		return;
 	}
 #endif
-	if (http_ctrl->close_state == 0 && http_ctrl->headers_complete && http_ctrl->re_request_count < HTTP_RE_REQUEST_MAX){
+	LLOGD("http_resp_error headers_complete:%d re_request_count:%d",http_ctrl->headers_complete,http_ctrl->re_request_count);
+	if (http_ctrl->close_state == 0 && http_ctrl->headers_complete==1 && http_ctrl->re_request_count < HTTP_RE_REQUEST_MAX){
 		http_ctrl->re_request_count++;
+
+		network_close(http_ctrl->netc, 0);
+		network_force_close_socket(http_ctrl->netc);
 		if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), NULL, http_ctrl->remote_port, 0) < 0){
+			LLOGE("http_resp_error network_connect error");
 			goto error;
 		}
 	}else if (http_ctrl->close_state==0){
@@ -151,10 +160,11 @@ static int on_headers_complete(http_parser* parser){
 	http_ctrl->headers_complete = 1;
     return 0;
 }
-
+// static int aaa = 1;
 static int on_body(http_parser* parser, const char *at, size_t length){
-	LLOGD("on_body:%.*s",length,at);
+	// LLOGD("on_body:%.*s",length,at);
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
+	LLOGD("on_body length:%d http_ctrl->body_len:%d",length,http_ctrl->body_len+length);
 	if (http_ctrl->is_download){
 		if (http_ctrl->fd == NULL){
 			luat_fs_remove(http_ctrl->dst);
@@ -185,6 +195,12 @@ static int on_body(http_parser* parser, const char *at, size_t length){
 		memcpy(http_ctrl->body+http_ctrl->body_len,at,length);
 	}
 	http_ctrl->body_len += length;
+
+	// if (http_ctrl->body_len>80000 && aaa){
+	// 	aaa = 0;
+	// 	network_close(http_ctrl->netc, 0);
+	// 	// network_force_close_socket(http_ctrl->netc);
+	// }
     return 0;
 }
 
@@ -192,18 +208,22 @@ static int on_message_complete(http_parser* parser){
     LLOGD("on_message_complete");
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
 	// http_ctrl->body[http_ctrl->body_len] = 0x00;
+	LLOGD("status_code:%d",parser->status_code);
+	LLOGD("content_length:%lld",parser->content_length);
 	if (http_ctrl->fd != NULL) {
 		luat_fs_fclose(http_ctrl->fd);
 		http_ctrl->fd = NULL;
 	}
 #ifdef LUAT_USE_FOTA
 	else if(http_ctrl->isfota){
-		if (parser->status_code == 200){
+		if (parser->status_code == 200 || parser->status_code == 206){
 			int result = luat_fota_done();
+			LLOGD("result1:%d",result);
 			while (result>0){
 				luat_timer_mdelay(100);
 				result = luat_fota_done();
 			}
+			LLOGD("result2:%d",result);
 			if (result==0){
 				if (luat_fota_end(1)){
 					LLOGE("fota finish error");
@@ -224,8 +244,6 @@ static int on_message_complete(http_parser* parser){
 		}
 	}
 #endif
-	LLOGD("status_code:%d",parser->status_code);
-	LLOGD("content_length:%lld",parser->content_length);
 	http_ctrl->close_state = 1;
 	network_close(http_ctrl->netc, 0);
 	luat_http_client_onevent(http_ctrl, HTTP_OK, 0);
@@ -250,9 +268,7 @@ static const http_parser_settings parser_settings = {
 };
 
 int luat_http_client_init(luat_http_ctrl_t* http_ctrl, int use_ipv6) {
-	
 	network_init_ctrl(http_ctrl->netc, NULL, luat_lib_http_callback, http_ctrl);
-
 
 	network_set_base_mode(http_ctrl->netc, 1, 10000, 0, 0, 0, 0);
 	network_set_local_port(http_ctrl->netc, 0);
@@ -260,10 +276,6 @@ int luat_http_client_init(luat_http_ctrl_t* http_ctrl, int use_ipv6) {
 		LLOGI("enable ipv6 support for http request");
 		network_connect_ipv6_domain(http_ctrl->netc, 1);
 	}
-
-
-    http_parser_init(&http_ctrl->parser, HTTP_RESPONSE);
-	http_ctrl->parser.data = http_ctrl;
 	return 0;
 }
 
@@ -327,6 +339,10 @@ int32_t luat_lib_http_callback(void *data, void *param){
 	}else if(event->ID == EV_NW_RESULT_CONNECT){
 		http_ctrl->resp_buff_offset = 0; // 复位resp缓冲区
 		http_ctrl->resp_headers_done = 0;
+
+		http_parser_init(&http_ctrl->parser, HTTP_RESPONSE);
+		http_ctrl->parser.data = http_ctrl;
+
 		// TODO header 保持原始数据,在lua回调时才导出数据
 		// if (http_ctrl->resp_headers) {
 		// 	luat_heap_free(http_ctrl->resp_headers);
@@ -380,11 +396,9 @@ int32_t luat_lib_http_callback(void *data, void *param){
 							LLOGD("found headers end at %d", i);
 							break;
 						}
-
 					}
 				}
 			}
-			
 			if (http_ctrl->resp_headers_done) {
 				int nParseBytes = http_parser_execute(&http_ctrl->parser, &parser_settings, http_ctrl->resp_buff, http_ctrl->resp_buff_offset);
 				LLOGD("nParseBytes %d resp_buff_offset %d", nParseBytes, http_ctrl->resp_buff_offset);

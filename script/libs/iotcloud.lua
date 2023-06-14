@@ -4,12 +4,15 @@
 
 local iotcloud = {}
 --云平台
-iotcloud.TENCENT = "tencent"
+iotcloud.TENCENT            = "tencent"
 --认证方式
-iotcloud.certificate = "certificate"
-iotcloud.key = "key"
+local iotcloud_certificate  = "certificate"
+local iotcloud_key          = "key"
 -- event
-iotcloud.connect = "connect"
+iotcloud.CONNECT            = "connect"     --连接上服务器
+iotcloud.RECEIVE            = "receive"     --接收到消息
+iotcloud.OTA                = "ota"         --ota消息
+iotcloud.DISCONNECT         = "disconnect"  --服务器连接断开
 
 -- local tencent_ca_crt = [[-----BEGIN CERTIFICATE-----
 -- MIIDxTCCAq2gAwIBAgIJALM1winYO2xzMA0GCSqGSIb3DQEBCwUAMHkxCzAJBgNV
@@ -59,7 +62,7 @@ local function iotcloud_mqtt_callback(mqtt_client, event, data, payload)
     log.info("mqtt", "event", event, mqtt_client, data, payload)
     if event == "conack" then                   --连接成功
         iotcloud_connect(iotcloudc)
-        sys.publish("iotcloud",iotcloudc,iotcloud.connect, data, payload)
+        sys.publish("iotcloud",iotcloudc,iotcloud.CONNECT, data, payload)
     elseif event == "recv" then
         log.info("mqtt", "downlink", "topic", data, "payload", payload)
         sys.publish("mqtt_payload", data, payload)
@@ -102,9 +105,9 @@ local function iotcloud_auto_enrol(iotcloudc)
                     local payload = json.decode(payload)
                     fskv.set("iotcloud_tencent", payload)
                     if payload.encryptionType == 1 then     -- 证书认证
-                        iotcloudc.authentication = iotcloud.certificate
+                        iotcloudc.authentication = iotcloud_certificate
                     elseif payload.encryptionType == 2 then -- 密钥认证
-                        iotcloudc.authentication = iotcloud.key
+                        iotcloudc.authentication = iotcloud_key
                     end
                     return true
                 else

@@ -159,7 +159,7 @@ static int on_headers_complete(http_parser* parser){
 	http_ctrl->headers_complete = 1;
     return 0;
 }
-// static int aaa = 1;
+
 static int on_body(http_parser* parser, const char *at, size_t length){
 	// LLOGD("on_body:%.*s",length,at);
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
@@ -194,12 +194,6 @@ static int on_body(http_parser* parser, const char *at, size_t length){
 		memcpy(http_ctrl->body+http_ctrl->body_len,at,length);
 	}
 	http_ctrl->body_len += length;
-
-	// if (http_ctrl->body_len>80000 && aaa){
-	// 	aaa = 0;
-	// 	network_close(http_ctrl->netc, 0);
-	// 	// network_force_close_socket(http_ctrl->netc);
-	// }
     return 0;
 }
 

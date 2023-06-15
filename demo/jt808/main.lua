@@ -1,12 +1,14 @@
 -- LuaTools需要PROJECT和VERSION这两个信息
 PROJECT = "my_test"
 VERSION = "1.2"
-PRODUCT_KEY = "s1uUnY6KA06ifIjcutm5oNbG3MZf5aUv" --换成自己的
+PRODUCT_KEY = " " --自己iot平台下的PRODUCT_KEY
 -- sys库是标配
 _G.sys = require("sys")
 _G.sysplus = require("sysplus")
 
-
+--[[本demo实现了jt808协议的基本框架，可以通过tcp上报位置信息和心跳包，后续功能可按照此框架添加即可；
+    使用前需修改下tcp的ip地址和端口；
+    如果是780eg模块，可以直接烧录，如果是780e外挂定位模块，需要注意串口号!]]--
 ----------------------------------------
 -- 报错信息自动上报到平台,默认是iot.openluat.com
 -- 支持自定义, 详细配置请查阅API手册

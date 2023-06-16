@@ -94,6 +94,8 @@ const luat_shell_cmd_reg_t cmd_regs[] = {
     {NULL, NULL}
 };
 
+#ifdef LUAT_USE_SHELL
+
 void luat_shell_push(char* uart_buff, size_t rcount) {
 
     if (!rcount)
@@ -104,6 +106,8 @@ void luat_shell_push(char* uart_buff, size_t rcount) {
     }
     luat_shell_exec(uart_buff, rcount);
 }
+
+#endif
 
 void luat_shell_exec(char* uart_buff, size_t rcount) {
     int cmd_index = 0;

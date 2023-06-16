@@ -17,7 +17,7 @@ static int mulitline_mode;
 
 #define luat_repl_write luat_shell_write
 
-static const char* repl_tips = "";
+// static const char* repl_tips = "";
 static int repl_enable = 1;
 
 int luat_repl_enable(int enable) {
@@ -137,7 +137,7 @@ static int find2run(void) {
                 luat_heap_free(mulitline_buff);
                 mulitline_buff = NULL;
                 luat_repl_write("REPL: out of memory\r\n", strlen("REPL: out of memory\r\n"));
-                return;
+                return 1;
             }
             memcpy(buff, mulitline_buff, i);
             rtos_msg_t msg = {
@@ -160,9 +160,9 @@ void luat_shell_push(char* uart_buff, size_t rcount) {
     // LLOGD("收到数据长度 %d", rcount);
     if (rcount == 0 || !repl_enable)
         return;
-    rtos_msg_t msg = {
-        .handler = repl_handle
-    };
+    // rtos_msg_t msg = {
+    //     .handler = repl_handle
+    // };
     if (mulitline_buff == NULL) { // 全新的?
         mulitline_buff_size = rcount > 1024 ? rcount : 1024;
         mulitline_buff  = luat_heap_malloc(mulitline_buff_size);

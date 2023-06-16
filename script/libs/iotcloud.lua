@@ -4,7 +4,8 @@
 
 local iotcloud = {}
 --云平台
-iotcloud.TENCENT            = "tencent"
+iotcloud.TENCENT            = "tencent"     -- 腾讯云
+iotcloud.ALIYUN             = "aliyun"      -- 阿里云
 --认证方式
 local iotcloud_certificate  = "certificate" -- 秘钥认证
 local iotcloud_key          = "key"         -- 证书认证
@@ -52,7 +53,7 @@ local function iotcloud_ota_download(iotcloudc,ota_url,config,version)
     end
 end
 
--- mqtt回调函数
+-- iotcloud mqtt回调函数
 local function iotcloud_mqtt_callback(mqtt_client, event, data, payload)
     local iotcloudc = nil
     -- 遍历出 iotcloudc
@@ -134,6 +135,37 @@ local function iotcloud_tencent_autoenrol(iotcloudc)
     end
 end
 
+
+local function iotcloud_aliyun_callback(mqtt_client, event, data, payload)
+    -- log.info("mqtt", "event", event, mqtt_client, data, payload)
+    if data == "/ext/regnwl" then sys.publish("aliyun_autoenrol", payload) end
+    if event == "disconnect" then mqtt_client:close() end
+end
+
+-- 阿里云自动注册
+local function iotcloud_aliyun_autoenrol(iotcloudc)
+    local random = math.random(1,999)
+    local data = "deviceName"..iotcloudc.device_name.."productKey"..iotcloudc.produt_id.."random"..random
+    local mqttClientId = iotcloudc.device_name.."|securemode=-2,authType=regnwl,random="..random..",signmethod=hmacsha1|"
+    local mqttUserName = iotcloudc.device_name.."&"..iotcloudc.produt_id
+    local mqttPassword = crypto.hmac_sha1(data,iotcloudc.product_secret):lower()
+    -- print("iotcloud_aliyun_autoenrol",mqttClientId,mqttUserName,mqttPassword)
+    aliyun_mqttc = mqtt.create(nil, iotcloudc.produt_id..".iot-as-mqtt.cn-shanghai.aliyuncs.com", 443,true)
+    aliyun_mqttc:auth(mqttClientId,mqttUserName,mqttPassword)
+    aliyun_mqttc:on(iotcloud_aliyun_callback)
+    aliyun_mqttc:connect()
+    local result, payload = sys.waitUntil("aliyun_autoenrol", 30000)
+    -- print("aliyun_autoenrol",result, payload)
+    if result then
+        local payload = json.decode(payload)
+        fskv.set("iotcloud_aliyun", payload)
+        -- print("aliyun_autoenrol payload",payload.clientId, payload.deviceToken)
+        return true
+    else
+        return false
+    end
+end
+
 -- 腾讯云参数配置逻辑
 local function iotcloud_tencent_config(iotcloudc,iot_config,connect_config)
     iotcloudc.cloud = iotcloud.TENCENT
@@ -177,6 +209,39 @@ local function iotcloud_tencent_config(iotcloudc,iot_config,connect_config)
     return true
 end
 
+-- 阿里云参数配置逻辑
+local function iotcloud_aliyun_config(iotcloudc,iot_config,connect_config)
+    iotcloudc.cloud = iotcloud.ALIYUN
+    iotcloudc.produt_id = iot_config.produt_id
+    iotcloudc.host = iotcloudc.produt_id..".iot-as-mqtt.cn-shanghai.aliyuncs.com"
+    if iot_config.product_secret then                       -- 有product_secret说明是动态注册
+        iotcloudc.product_secret = iot_config.product_secret
+        if not fskv.get("iotcloud_aliyun") then 
+            if not iotcloud_aliyun_autoenrol(iotcloudc) then return false end
+        end
+        local data = fskv.get("iotcloud_aliyun")
+        -- print("aliyun_autoenrol payload",data.clientId, data.deviceToken)
+        iotcloudc.client_id = data.clientId.."|securemode=-2,authType=connwl|"
+        iotcloudc.user_name = iotcloudc.device_name.."&"..iotcloudc.produt_id
+        iotcloudc.password = data.deviceToken
+        iotcloudc.ip = 1883
+    else                                                    -- 否则为非动态注册
+        if iot_config.key then                              -- 密钥认证
+            iotcloudc.ip = 1883
+            iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password = iotauth.aliyun(iotcloudc.produt_id,iotcloudc.device_name,iot_config.key,iot_config.method)
+        -- elseif connect_config.tls then                      -- 证书认证
+        --     iotcloudc.ip = 443
+        --     iotcloudc.isssl = true
+        --     iotcloudc.ca_file = {client_cert = connect_config.tls.client_cert}
+        --     iotcloudc.client_id,iotcloudc.user_name = iotauth.aliyun(iotcloudc.produt_id,iotcloudc.device_name,"",iot_config.method,nil,true)
+        else                                                -- 密钥证书都没有
+            return false
+        end
+    end
+
+    return true
+end
+
 function iotcloud.new(cloud,iot_config,connect_config)
     local iotcloudc = setmetatable({
         cloud = nil,                                        -- 云平台
@@ -203,6 +268,8 @@ function iotcloud.new(cloud,iot_config,connect_config)
     end
     if cloud == iotcloud.TENCENT or cloud == "qcloud" then  -- 此为腾讯云
         if not iotcloud_tencent_config(iotcloudc,iot_config,connect_config) then return false end
+    elseif cloud == iotcloud.ALIYUN then
+        if not iotcloud_aliyun_config(iotcloudc,iot_config,connect_config) then return false end
     else
         log.error("iotcloud","cloud not support",cloud)
     end

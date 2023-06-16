@@ -72,7 +72,11 @@ local function audio_task()
     while true do
         log.info("开始播放")
         -- 两个列表前后播放
-        result = audio.play(0, counter % 2 == 1 and amrs or mp3s)
+        if rtos.bsp() == "AIR105" then
+            result = audio.play(0, "/luadb/test_32k.mp3")
+        else
+            result = audio.play(0, counter % 2 == 1 and amrs or mp3s)
+        end
         counter = counter + 1
         if result then
         --等待音频通道的回调消息，或者切换歌曲的消息

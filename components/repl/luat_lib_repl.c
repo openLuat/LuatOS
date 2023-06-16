@@ -1,6 +1,6 @@
 
 /*
-@module   
+@module  repl
 @summary "读取-求值-输出" 循环
 @date    2023.06.16
 @tag LUAT_USE_REPL
@@ -40,6 +40,7 @@ EOF
 ]]
 */
 #include "luat_base.h"
+#include "luat_shell.h"
 #include "luat_repl.h"
 #define LUAT_LOG_TAG "repl"
 #include "luat_log.h"
@@ -71,11 +72,31 @@ static int l_repl_enable(lua_State* L) {
     return 1;
 }
 
+/*
+主动推送待处理的数据到底层
+@api repl.push(data)
+@string 待处理的数据,通常从串口来
+@return nil 无返回值
+@usage
+-- 虚拟串口的设备才需要这个函数
+*/
+static int l_repl_push(lua_State* L) {
+    if (lua_isstring(L, 1)) {
+        size_t len = 0;
+        const char* buff = luaL_checklstring(L, 1, &len);
+        if (len > 0) {
+            luat_shell_push(buff, len);
+        }
+    }
+    return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_repl[] =
 {
     { "print" ,         ROREG_FUNC(l_repl_print)},
     { "enable" ,        ROREG_FUNC(l_repl_enable)},
+    { "push" ,          ROREG_FUNC(l_repl_push)},
 	{ NULL,             ROREG_INT(0) }
 };
 

@@ -188,9 +188,9 @@ void luat_shell_push(char* uart_buff, size_t rcount) {
     memcpy(mulitline_buff + mulitline_buff_offset, uart_buff, rcount);
     mulitline_buff_offset += rcount;
 
-    // 查找第一个\r或者\n
+    // 查找指令
     while (find2run() == 0) {
-        LLOGD("继续下一个查询循环");
+        // LLOGD("继续下一个查询循环");
     }
     return;
 }

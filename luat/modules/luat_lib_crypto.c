@@ -537,10 +537,6 @@ int l_crypto_cipher_list(lua_State *L) {
     const char* list[64] = {0};
     size_t len = 64;
     lua_newtable(L);
-    if (list == NULL) {
-        LLOGD("out of memory when cipher_list");
-        return 1;
-    }
     int ret = luat_crypto_cipher_list(list, &len);
     if (ret == 0) {
         for (size_t i = 0; i < len; i++){
@@ -569,10 +565,6 @@ int l_crypto_cipher_suites(lua_State *L) {
     const char* list[128] = {0};
     size_t len = 128;
     lua_newtable(L);
-    if (list == NULL) {
-        LLOGD("out of memory when cipher_list");
-        return 1;
-    }
     int ret = luat_crypto_cipher_suites(list, &len);
     if (ret == 0) {
         for (size_t i = 0; i < len; i++){

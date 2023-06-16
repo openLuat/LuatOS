@@ -148,4 +148,6 @@ LUAMOD_API int luaopen_fskv( lua_State *L );
 LUAMOD_API int luaopen_max30102( lua_State *L );
 
 LUAMOD_API int luaopen_bit64( lua_State *L );
+
+LUAMOD_API int luaopen_repl( lua_State *L );
 #endif

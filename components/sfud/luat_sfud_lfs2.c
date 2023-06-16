@@ -10,12 +10,10 @@
 #ifdef LUAT_USE_FS_VFS
 #include "lfs.h"
 #include "sfud.h"
-#define LFS_BLOCK_SIZE (4096)
+
 #define LFS_BLOCK_DEVICE_READ_SIZE (256)
 #define LFS_BLOCK_DEVICE_PROG_SIZE (256)
 #define LFS_BLOCK_DEVICE_CACHE_SIZE (256)
-#define LFS_BLOCK_DEVICE_ERASE_SIZE (4096) // one sector 4KB
-//#define LFS_BLOCK_DEVICE_TOTOAL_SIZE (FLASH_FS_REGION_SIZE)
 #define LFS_BLOCK_DEVICE_LOOK_AHEAD (16)
 
 static size_t sfud_offset = 0;
@@ -23,21 +21,21 @@ static size_t sfud_offset = 0;
 // Read a block
 static int sfud_block_device_read(const struct lfs_config *cfg, lfs_block_t block, lfs_off_t off, void *buffer, lfs_size_t size) {
     sfud_flash* flash = (sfud_flash*)cfg->context;
-    int ret = sfud_read(flash, sfud_offset + block * LFS_BLOCK_SIZE + off, size, buffer);
+    int ret = sfud_read(flash, sfud_offset + block * flash->chip.erase_gran + off, size, buffer);
     //LLOGD("sfud_block_device_read ret %d", ret);
     return LFS_ERR_OK;
 }
 
 static int sfud_block_device_prog(const struct lfs_config *cfg, lfs_block_t block, lfs_off_t off, const void *buffer, lfs_size_t size) {
     sfud_flash* flash = (sfud_flash*)cfg->context;
-    int ret = sfud_write(flash, sfud_offset + block * LFS_BLOCK_SIZE + off, size, buffer);
+    int ret = sfud_write(flash, sfud_offset + block * flash->chip.erase_gran + off, size, buffer);
     //LLOGD("sfud_block_device_prog ret %d", ret);
     return LFS_ERR_OK;
 }
 
 static int sfud_block_device_erase(const struct lfs_config *cfg, lfs_block_t block) {
     sfud_flash* flash = (sfud_flash*)cfg->context;
-    int ret = sfud_erase(flash, sfud_offset + block * LFS_BLOCK_SIZE, LFS_BLOCK_SIZE);
+    int ret = sfud_erase(flash, sfud_offset + block * flash->chip.erase_gran, flash->chip.erase_gran);
     //LLOGD("sfud_block_device_erase ret %d", ret);
     return LFS_ERR_OK;
 }

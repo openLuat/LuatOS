@@ -33,9 +33,10 @@
  */
 typedef enum LUAT_DEBUG_FAULT_MODE
 {
-	LUAT_DEBUG_FAULT_RESET, /**< 出现异常后重启 */
-	LUAT_DEBUG_FAULT_HANG, /**< 出现异常后死机 */
-	LUAT_DEBUG_FAULT_HANG_RESET /**< 出现异常后尝试上传死机信息给PC工具，上传成功或者超时后重启 */
+	LUAT_DEBUG_FAULT_RESET, /**< 出现异常后重启，批量产品强烈建议用 */
+	LUAT_DEBUG_FAULT_HANG, /**< 出现异常后死机，测试阶段强烈建议用 */
+	LUAT_DEBUG_FAULT_HANG_RESET, /**< 出现异常后尝试上传死机信息给PC工具，上传成功或者超时后重启 */
+	LUAT_DEBUG_FAULT_SAVE_RESET /**< 出现异常后保存信息到flash，然后重启 */
 }LUAT_DEBUG_FAULT_MODE_E;
 
 /**

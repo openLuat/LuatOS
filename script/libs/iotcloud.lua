@@ -58,6 +58,7 @@ local function iotcloud_ota_download(iotcloudc,ota_url,config,version)
             
         end
     end
+    sys.publish("iotcloud", iotcloudc, iotcloud.OTA,code == 200 or code == 206)
 end
 
 -- iotcloud mqtt回调函数

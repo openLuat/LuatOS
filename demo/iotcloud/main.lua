@@ -73,7 +73,7 @@ sys.taskInit(function()
 
 
 
-    
+
     -- 阿里云  
     -- 动态注册(免预注册)
     iotcloudc = iotcloud.new(iotcloud.ALIYUN,{produt_id = "xxx",product_secret = "xxx"})
@@ -95,7 +95,9 @@ sys.subscribe("iotcloud", function(cloudc,event,data,payload)
             print("iotcloud","topic", data, "payload", payload)
             -- 用户处理代码
     elseif event ==  iotcloud.OTA then
-            -- rtos.reboot()
+        if data then
+            rtos.reboot()
+        end
     elseif event == iotcloud.DISCONNECT then -- 云平台断开了
             -- 用户处理代码
     end

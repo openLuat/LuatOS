@@ -23,7 +23,7 @@
 
 typedef struct mlx90640_i2c {
     int i2c_id;
-    luat_ei2c* ei2c;
+    luat_ei2c_t* ei2c;
 } mlx90640_i2c_t;
 
 

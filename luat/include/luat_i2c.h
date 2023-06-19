@@ -18,15 +18,15 @@ int luat_i2c_set_iomux(int id, uint8_t value);
 
 
 #define LUAT_EI2C_TYPE "EI2C*"
-#define toei2c(L) ((luat_ei2c *)luaL_checkudata(L, 1, LUAT_EI2C_TYPE))
 
 typedef struct luat_ei2c {
-    int sda;
-    int scl;
-} luat_ei2c;//软件i2c
+    int8_t sda;
+    int8_t scl;
+    int16_t udelay;
+} luat_ei2c_t;//软件i2c
 
-void i2c_soft_start(luat_ei2c *ei2c);
-char i2c_soft_recv(luat_ei2c *ei2c, unsigned char addr, char *buff, size_t len);
-char i2c_soft_send(luat_ei2c *ei2c, unsigned char addr, char *data, size_t len, uint8_t stop);
+void i2c_soft_start(luat_ei2c_t *ei2c);
+char i2c_soft_recv(luat_ei2c_t *ei2c, unsigned char addr, char *buff, size_t len);
+char i2c_soft_send(luat_ei2c_t *ei2c, unsigned char addr, char *data, size_t len, uint8_t stop);
 
 #endif

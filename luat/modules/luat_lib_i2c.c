@@ -19,36 +19,39 @@
 #include "luat_log.h"
 
 
-void i2c_soft_start(luat_ei2c *ei2c)
+#define toei2c(L) ((luat_ei2c_t *)luaL_checkudata(L, 1, LUAT_EI2C_TYPE))
+
+
+void i2c_soft_start(luat_ei2c_t *ei2c)
 {
     luat_gpio_mode(ei2c->sda, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 1);
-    luat_timer_us_delay(5);
+    luat_timer_us_delay(ei2c->udelay);
     luat_gpio_set(ei2c->scl, Luat_GPIO_HIGH);
-    luat_timer_us_delay(5);
+    luat_timer_us_delay(ei2c->udelay);
     luat_gpio_set(ei2c->sda, Luat_GPIO_LOW);
-    luat_timer_us_delay(5);
+    luat_timer_us_delay(ei2c->udelay);
     luat_gpio_set(ei2c->scl, Luat_GPIO_LOW);
-    luat_timer_us_delay(5);
+    luat_timer_us_delay(ei2c->udelay);
 }
-static void i2c_soft_stop(luat_ei2c *ei2c)
+static void i2c_soft_stop(luat_ei2c_t *ei2c)
 {
     luat_gpio_mode(ei2c->sda, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 1);
     luat_gpio_set(ei2c->scl, Luat_GPIO_LOW);
-    luat_timer_us_delay(5);
+    luat_timer_us_delay(ei2c->udelay);
     luat_gpio_set(ei2c->sda, Luat_GPIO_LOW);
-    luat_timer_us_delay(5);
+    luat_timer_us_delay(ei2c->udelay);
     luat_gpio_set(ei2c->scl, Luat_GPIO_HIGH);
-    luat_timer_us_delay(5);
+    luat_timer_us_delay(ei2c->udelay);
     luat_gpio_set(ei2c->sda, Luat_GPIO_HIGH);
-    luat_timer_us_delay(5);
+    luat_timer_us_delay(ei2c->udelay);
 }
-static unsigned char i2c_soft_wait_ack(luat_ei2c *ei2c)
+static unsigned char i2c_soft_wait_ack(luat_ei2c_t *ei2c)
 {
     luat_gpio_set(ei2c->sda, Luat_GPIO_HIGH);
     luat_gpio_mode(ei2c->sda, Luat_GPIO_INPUT, Luat_GPIO_PULLUP, 1);
-    luat_timer_us_delay(5);
+    luat_timer_us_delay(ei2c->udelay);
     luat_gpio_set(ei2c->scl, Luat_GPIO_HIGH);
-    luat_timer_us_delay(15);
+    luat_timer_us_delay(ei2c->udelay * 3);
     int max_wait_time = 3000;
     while (max_wait_time--)
     {
@@ -62,30 +65,30 @@ static unsigned char i2c_soft_wait_ack(luat_ei2c *ei2c)
     i2c_soft_stop(ei2c);
     return 0;
 }
-static void i2c_soft_send_ack(luat_ei2c *ei2c)
+static void i2c_soft_send_ack(luat_ei2c_t *ei2c)
 {
     luat_gpio_mode(ei2c->sda, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 0);
-    luat_timer_us_delay(5);
+    luat_timer_us_delay(ei2c->udelay);
     luat_gpio_set(ei2c->scl, Luat_GPIO_HIGH);
-    luat_timer_us_delay(5);
+    luat_timer_us_delay(ei2c->udelay);
     luat_gpio_set(ei2c->scl, Luat_GPIO_LOW);
 }
-static void i2c_soft_send_noack(luat_ei2c *ei2c)
+static void i2c_soft_send_noack(luat_ei2c_t *ei2c)
 {
     luat_gpio_mode(ei2c->sda, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 1);
-    luat_timer_us_delay(5);
+    luat_timer_us_delay(ei2c->udelay);
     luat_gpio_set(ei2c->scl, Luat_GPIO_HIGH);
-    luat_timer_us_delay(5);
+    luat_timer_us_delay(ei2c->udelay);
     luat_gpio_set(ei2c->scl, Luat_GPIO_LOW);
 }
-static void i2c_soft_send_byte(luat_ei2c *ei2c, unsigned char data)
+static void i2c_soft_send_byte(luat_ei2c_t *ei2c, unsigned char data)
 {
     unsigned char i = 8;
     luat_gpio_mode(ei2c->sda, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 0);
     while (i--)
     {
         luat_gpio_set(ei2c->scl, Luat_GPIO_LOW);
-        luat_timer_us_delay(10);
+        luat_timer_us_delay(ei2c->udelay * 2);
         if (data & 0x80)
         {
             luat_gpio_set(ei2c->sda, Luat_GPIO_HIGH);
@@ -94,15 +97,15 @@ static void i2c_soft_send_byte(luat_ei2c *ei2c, unsigned char data)
         {
             luat_gpio_set(ei2c->sda, Luat_GPIO_LOW);
         }
-        luat_timer_us_delay(5);
+        luat_timer_us_delay(ei2c->udelay);
         data <<= 1;
         luat_gpio_set(ei2c->scl, Luat_GPIO_HIGH);
-        luat_timer_us_delay(5);
+        luat_timer_us_delay(ei2c->udelay);
         luat_gpio_set(ei2c->scl, Luat_GPIO_LOW);
-        luat_timer_us_delay(5);
+        luat_timer_us_delay(ei2c->udelay);
     }
 }
-static char i2c_soft_recv_byte(luat_ei2c *ei2c)
+static char i2c_soft_recv_byte(luat_ei2c_t *ei2c)
 {
     unsigned char i = 8;
     unsigned char data = 0;
@@ -112,16 +115,16 @@ static char i2c_soft_recv_byte(luat_ei2c *ei2c)
     {
         data <<= 1;
         luat_gpio_set(ei2c->scl, Luat_GPIO_LOW);
-        luat_timer_us_delay(5);
+        luat_timer_us_delay(ei2c->udelay);
         luat_gpio_set(ei2c->scl, Luat_GPIO_HIGH);
-        luat_timer_us_delay(5);
+        luat_timer_us_delay(ei2c->udelay);
         if (luat_gpio_get(ei2c->sda))
             data |= 0x01;
     }
     luat_gpio_set(ei2c->scl, Luat_GPIO_LOW);
     return (data);
 }
-char i2c_soft_recv(luat_ei2c *ei2c, unsigned char addr, char *buff, size_t len)
+char i2c_soft_recv(luat_ei2c_t *ei2c, unsigned char addr, char *buff, size_t len)
 {
     size_t i;
     i2c_soft_start(ei2c);
@@ -131,7 +134,7 @@ char i2c_soft_recv(luat_ei2c *ei2c, unsigned char addr, char *buff, size_t len)
         i2c_soft_stop(ei2c);
         return -1;
     }
-    luat_timer_us_delay(50);
+    luat_timer_us_delay(ei2c->udelay * 10);
     for (i = 0; i < len; i++)
     {
         *buff++ = i2c_soft_recv_byte(ei2c);
@@ -142,7 +145,7 @@ char i2c_soft_recv(luat_ei2c *ei2c, unsigned char addr, char *buff, size_t len)
     i2c_soft_stop(ei2c);
     return 0;
 }
-char i2c_soft_send(luat_ei2c *ei2c, unsigned char addr, char *data, size_t len, uint8_t stop)
+char i2c_soft_send(luat_ei2c_t *ei2c, unsigned char addr, char *data, size_t len, uint8_t stop)
 {
     size_t i;
     i2c_soft_start(ei2c);
@@ -205,9 +208,10 @@ static int l_i2c_setup(lua_State *L)
 
 /*
 新建一个软件i2c对象
-@api i2c.createSoft(scl,sda,slaveAddr)
+@api i2c.createSoft(scl,sda,delay)
 @int i2c SCL引脚编号(GPIO编号)
 @int i2c SDA引脚编号(GPIO编号)
+@int 每个操作的延时, 单位us, 默认5
 @return 软件I2C对象 可当作i2c的id使用
 @usage
 -- 注意！这个接口是软件模拟i2c，速度可能会比硬件的慢
@@ -215,12 +219,17 @@ static int l_i2c_setup(lua_State *L)
 -- 初始化软件i2c
 local softI2C = i2c.createSoft(1,2)
 i2c.send(softI2C, 0x5C, string.char(0x0F, 0x2F))
+-- 注意, 第3个参数是 2023.06.19 添加的delay
+-- 通过调整delay参数的值, 可增加或降低I2C的速度
 */
 static int l_i2c_soft(lua_State *L)
 {
-    luat_ei2c *ei2c = (luat_ei2c *)lua_newuserdata(L, sizeof(luat_ei2c));
+    luat_ei2c_t *ei2c = (luat_ei2c_t *)lua_newuserdata(L, sizeof(luat_ei2c_t));
     ei2c->scl = luaL_checkinteger(L, 1);
     ei2c->sda = luaL_checkinteger(L, 2);
+    ei2c->udelay = luaL_optinteger(L, 3, 5);
+    if (ei2c->udelay < 1)
+        ei2c->udelay = 1;
     luat_gpio_mode(ei2c->scl, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 1);
     luat_gpio_mode(ei2c->sda, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 1);
     i2c_soft_stop(ei2c);
@@ -260,7 +269,7 @@ static int l_i2c_send(lua_State *L)
         char buff = (char)luaL_checkinteger(L, 3);
         if (lua_isuserdata(L, 1))
         {
-            luat_ei2c *ei2c = toei2c(L);
+            luat_ei2c_t *ei2c = toei2c(L);
             result = i2c_soft_send(ei2c, addr, &buff, 1,stop);
         }
         else
@@ -274,7 +283,7 @@ static int l_i2c_send(lua_State *L)
         const char *buff = luaL_checklstring(L, 3, &len);
         if (lua_isuserdata(L, 1))
         {
-            luat_ei2c *ei2c = toei2c(L);
+            luat_ei2c_t *ei2c = toei2c(L);
             result = i2c_soft_send(ei2c, addr, (char *)buff, len,stop);
         }
         else
@@ -295,7 +304,7 @@ static int l_i2c_send(lua_State *L)
         }
         if (lua_isuserdata(L, 1))
         {
-            luat_ei2c *ei2c = toei2c(L);
+            luat_ei2c_t *ei2c = toei2c(L);
             result = i2c_soft_send(ei2c, addr, buff, len,stop);
         }
         else
@@ -308,7 +317,7 @@ static int l_i2c_send(lua_State *L)
     {
         if (lua_isuserdata(L, 1))
         {
-            luat_ei2c *ei2c = toei2c(L);
+            luat_ei2c_t *ei2c = toei2c(L);
             result = i2c_soft_send(ei2c, addr, NULL, 0,stop);
         }
         else
@@ -344,7 +353,7 @@ static int l_i2c_recv(lua_State *L)
     int result;
     if (lua_isuserdata(L, 1))
     {
-        luat_ei2c *ei2c = toei2c(L);
+        luat_ei2c_t *ei2c = toei2c(L);
         result = i2c_soft_recv(ei2c, addr, buff, len);
     }
     else
@@ -392,7 +401,7 @@ static int l_i2c_write_reg(lua_State *L)
     int result;
     if (lua_isuserdata(L, 1))
     {
-        luat_ei2c *ei2c = toei2c(L);
+        luat_ei2c_t *ei2c = toei2c(L);
         result = i2c_soft_send(ei2c, addr, buff, len + 1,stop);
     }
     else
@@ -432,7 +441,7 @@ static int l_i2c_read_reg(lua_State *L)
     int result;
     if (lua_isuserdata(L, 1))
     {
-        luat_ei2c *ei2c = toei2c(L);
+        luat_ei2c_t *ei2c = toei2c(L);
         result = i2c_soft_send(ei2c, addr, &temp, 1,stop);
     }
     else
@@ -448,7 +457,7 @@ static int l_i2c_read_reg(lua_State *L)
     char *buff = (char *)luat_heap_malloc(sizeof(char) * len);
     if (lua_isuserdata(L, 1))
     {
-        luat_ei2c *ei2c = toei2c(L);
+        luat_ei2c_t *ei2c = toei2c(L);
         result = i2c_soft_recv(ei2c, addr, buff, len);
     }
     else
@@ -510,7 +519,7 @@ static int l_i2c_readDHT12(lua_State *L)
     int result = -1;
     if (lua_isuserdata(L, 1))
     {
-        luat_ei2c *ei2c = toei2c(L);
+        luat_ei2c_t *ei2c = toei2c(L);
         result = i2c_soft_send(ei2c, addr, &temp, 1,1);
     }
     else
@@ -525,7 +534,7 @@ static int l_i2c_readDHT12(lua_State *L)
     }
     if (lua_isuserdata(L, 1))
     {
-        luat_ei2c *ei2c = toei2c(L);
+        luat_ei2c_t *ei2c = toei2c(L);
         result = i2c_soft_recv(ei2c, addr, buff, 5);
     }
     else
@@ -591,7 +600,7 @@ static int l_i2c_readSHT30(lua_State *L)
     int addr = luaL_optinteger(L, 2, 0x44);
     if (lua_isuserdata(L, 1))
     {
-        luat_ei2c *ei2c = toei2c(L);
+        luat_ei2c_t *ei2c = toei2c(L);
 
         i2c_soft_send(ei2c, addr, buff, 2,1);
         luat_timer_mdelay(13);
@@ -743,7 +752,7 @@ static int l_i2c_transfer(lua_State *L)
 			result = luat_i2c_transfer(id, addr, NULL, 0, tx_buff, tx_len);
 		}
 	}else if (lua_isuserdata(L, 1)){
-        luat_ei2c *ei2c = toei2c(L);
+        luat_ei2c_t *ei2c = toei2c(L);
 		if (tx_buff && tx_len) {
             result = i2c_soft_send(ei2c, addr, (char*)tx_buff, tx_len,0);
 		} 

@@ -11,6 +11,11 @@ VERSION = "1.0.1"
 local sys = require("sys")
 require("sysplus")
 
+-- Air780E的AT固件默认会为开机键防抖, 导致部分用户刷机很麻烦
+if rtos.bsp() == "EC618" and pm and pm.PWK_MODE then
+    pm.power(pm.PWK_MODE, false)
+end
+
 local gps_uart_id = 2
 local mqttc = nil
 

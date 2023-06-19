@@ -19,6 +19,12 @@ end
 ----------------------------------------
 
 
+-- Air780E的AT固件默认会为开机键防抖, 导致部分用户刷机很麻烦
+if rtos.bsp() == "EC618" and pm and pm.PWK_MODE then
+    pm.power(pm.PWK_MODE, false)
+end
+
+
 -- 如果运营商自带的DNS不好用，可以用下面的公用DNS
 -- socket.setDNS(nil,1,"223.5.5.5")
 -- socket.setDNS(nil,2,"114.114.114.114")

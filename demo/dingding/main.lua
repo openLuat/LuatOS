@@ -21,9 +21,16 @@ _G.sys = require("sys")
 --[[特别注意, 使用http库需要下列语句]]
 _G.sysplus = require("sysplus")
 
+-- Air780E的AT固件默认会为开机键防抖, 导致部分用户刷机很麻烦
+if rtos.bsp() == "EC618" and pm and pm.PWK_MODE then
+    pm.power(pm.PWK_MODE, false)
+end
 
-wdt.init(3000)
-sys.timerLoopStart(wdt.feed, 1000)
+
+if wdt then
+    wdt.init(3000)
+    sys.timerLoopStart(wdt.feed, 1000)
+end
 
 -- 因为这个demo适合所有能联网的设备
 -- 统一联网函数, 按需要增删

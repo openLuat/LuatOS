@@ -81,6 +81,12 @@ log.style(1)
 -- 注意:本demo使用luatools下载!!!
 
 
+-- Air780E的AT固件默认会为开机键防抖, 导致部分用户刷机很麻烦
+if rtos.bsp() == "EC618" and pm and pm.PWK_MODE then
+    pm.power(pm.PWK_MODE, false)
+end
+
+
 -- 启动时对rtc进行判断和初始化
 local reason, slp_state = pm.lastReson()
 log.info("wakeup state", pm.lastReson())

@@ -59,6 +59,12 @@ CS    -- 10脚, GPIO08/SPI0_CS/LCD_CS,片选.
 _G.sys = require("sys")
 _G.sysplus = require("sysplus")
 
+
+-- Air780E的AT固件默认会为开机键防抖, 导致部分用户刷机很麻烦
+if rtos.bsp() == "EC618" and pm and pm.PWK_MODE then
+    pm.power(pm.PWK_MODE, false)
+end
+
 local taskName = "task_audio"
 
 local MSG_MD = "moreData"   -- 播放缓存有空余

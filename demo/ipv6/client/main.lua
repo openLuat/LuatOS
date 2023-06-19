@@ -13,6 +13,12 @@ sys = require("sys")
 sysplus = require("sysplus")
 libnet = require "libnet"
 
+
+-- Air780E的AT固件默认会为开机键防抖, 导致部分用户刷机很麻烦
+if rtos.bsp() == "EC618" and pm and pm.PWK_MODE then
+    pm.power(pm.PWK_MODE, false)
+end
+
 -- 处理未识别的网络消息
 local function netCB(msg)
 	log.info("未处理消息", msg[1], msg[2], msg[3], msg[4])

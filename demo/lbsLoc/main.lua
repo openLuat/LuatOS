@@ -17,6 +17,12 @@ _G.sys = require("sys")
 _G.sysplus = require("sysplus")
 
 
+-- Air780E的AT固件默认会为开机键防抖, 导致部分用户刷机很麻烦
+if rtos.bsp() == "EC618" and pm and pm.PWK_MODE then
+    pm.power(pm.PWK_MODE, false)
+end
+
+
 -- 功能:获取基站对应的经纬度后的回调函数
 -- 参数:-- result：number类型，0表示成功，1表示网络环境尚未就绪，2表示连接服务器失败，3表示发送数据失败，4表示接收服务器应答超时，5表示服务器返回查询失败；为0时，后面的5个参数才有意义
 		-- lat：string类型，纬度，整数部分3位，小数部分7位，例如031.2425864

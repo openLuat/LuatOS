@@ -6,6 +6,12 @@ VERSION = "1.0.0"
 _G.sys = require("sys")
 -- _G.sysplus = require("sysplus")
 
+
+-- Air780E的AT固件默认会为开机键防抖, 导致部分用户刷机很麻烦
+if rtos.bsp() == "EC618" and pm and pm.PWK_MODE then
+    pm.power(pm.PWK_MODE, false)
+end
+
 ----------------------------------------
 -- 报错信息自动上报到平台,默认是iot.openluat.com
 -- 支持自定义, 详细配置请查阅API手册

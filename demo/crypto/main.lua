@@ -8,6 +8,12 @@ log.info("main", PROJECT, VERSION)
 -- sys库是标配
 _G.sys = require("sys")
 
+-- Air780E的AT固件默认会为开机键防抖, 导致部分用户刷机很麻烦
+if rtos.bsp() == "EC618" and pm and pm.PWK_MODE then
+    pm.power(pm.PWK_MODE, false)
+end
+
+
 if wdt then
     --添加硬狗防止程序卡死，在支持的设备上启用这个功能
     wdt.init(9000)--初始化watchdog设置为9s

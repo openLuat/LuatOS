@@ -7,10 +7,21 @@ log.info("main", PROJECT, VERSION)
 
 -- sys库是标配
 _G.sys = require("sys")
+
+
+
+-- Air780E的AT固件默认会为开机键防抖, 导致部分用户刷机很麻烦
+if rtos.bsp() == "EC618" and pm and pm.PWK_MODE then
+    pm.power(pm.PWK_MODE, false)
+end
+
+
 -- 对于双卡的设备, 可以设置为自动选sim卡
 -- 但是, 这样SIM1所在管脚就强制复用为SIM功能, 不可以再复用为GPIO
 -- mobile.simid(2)
 mobile.simid(2,true)--优先用SIM0
+
+
 sys.taskInit(function()
     -- mobile.apn(0,2,"") -- 使用默认APN激活CID2
     mobile.rtime(2) -- 在无数据交互时，RRC2秒后自动释放

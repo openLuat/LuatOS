@@ -355,6 +355,15 @@ function cloudc:subscribe(topic, qos)
 end
 
 --[[
+云平台取消订阅
+@api cloudc:unsubscribe(topic)
+@string/table 主题
+]]
+function cloudc:unsubscribe(topic)
+    self.mqttc:unsubscribe(topic)
+end
+
+--[[
 云平台发布
 @api cloudc:publish(topic,data,qos,retain)
 @string/table 主题

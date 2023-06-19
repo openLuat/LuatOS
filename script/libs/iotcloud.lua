@@ -22,14 +22,17 @@ cloudc.__index = cloudc
 
 -- 云平台连接成功处理函数,此处可订阅一些主题或者上报版本等默认操作
 local function iotcloud_connect(iotcloudc)
-    if iotcloudc.cloud == iotcloud.TENCENT then      -- 腾讯云
-        -- 订阅ota主题
-        iotcloudc:subscribe("$ota/update/"..iotcloudc.produt_id.."/"..iotcloudc.device_name)    
-        -- 上报ota版本信息
-        iotcloudc:publish("$ota/report/"..iotcloudc.produt_id.."/"..iotcloudc.device_name,"{\"type\":\"report_version\",\"report\":{\"version\": \"".._G.VERSION.."\"}}")
+    -- mqtt_client:subscribe({[topic1]=1,[topic2]=1,[topic3]=1})--多主题订阅
+    if iotcloudc.cloud == iotcloud.TENCENT then     -- 腾讯云
+        iotcloudc:subscribe("$ota/update/"..iotcloudc.produt_id.."/"..iotcloudc.device_name)    -- 订阅ota主题
+        iotcloudc:publish("$ota/report/"..iotcloudc.produt_id.."/"..iotcloudc.device_name,"{\"type\":\"report_version\",\"report\":{\"version\": \"".._G.VERSION.."\"}}")   -- 上报ota版本信息
+    elseif iotcloudc.cloud == iotcloud.ALIYUN then  -- 阿里云
+        
+        iotcloudc:subscribe("/ota/device/upgrade/"..iotcloudc.produt_id.."/"..iotcloudc.device_name)    -- 订阅ota主题
+        iotcloudc:publish("/ota/device/inform/"..iotcloudc.produt_id.."/"..iotcloudc.device_name,"{\"id\":1,\"params\":{\"version\":\"".._G.VERSION.."\"}}")   -- 上报ota版本信息
     end
-        -- mqtt_client:subscribe({[topic1]=1,[topic2]=1,[topic3]=1})--多主题订阅
 end
+
 
 local function iotcloud_ota_download(iotcloudc,ota_url,config,version)
     local code, headers, body = http.request("GET", ota_url, nil, nil, config).wait()
@@ -44,11 +47,15 @@ local function iotcloud_ota_download(iotcloudc,ota_url,config,version)
             iotcloudc:publish("$ota/report/"..iotcloudc.produt_id.."/"..iotcloudc.device_name,"{\"type\":\"report_progress\",\"report\":{\"progress\":{\"state\": \"done\",\"result_code\": \"0\",\"result_msg\": \"\"}},\"version\": \""..version.."\"}")
             
             -- iotcloudc:publish("$ota/report/"..iotcloudc.produt_id.."/"..iotcloudc.device_name,"{\"type\":\"report_version\",\"report\":{\"version\": \"0.0.2\"}}")
+        elseif iotcloudc.cloud == iotcloud.ALIYUN then -- 此为阿里云
+            
         end
     else
         if iotcloudc.cloud == iotcloud.TENCENT then  -- 此为腾讯云
             -- 升级失败     type：消息类型 state：状态为失败 result_code：错误码，-1：下载超时；-2：文件不存在；-3：签名过期；-4:MD5不匹配；-5：更新固件失败 result_msg：错误消息
             iotcloudc:publish("$ota/report/"..iotcloudc.produt_id.."/"..iotcloudc.device_name,"{\"type\":\"report_progress\",\"report\":{\"progress\":{\"state\": \"fail\",\"result_code\": \"-5\",\"result_msg\": \"ota_fail\"}},\"version\": \""..version.."\"}")
+        elseif iotcloudc.cloud == iotcloud.ALIYUN then  -- 此为阿里云
+            
         end
     end
 end
@@ -62,14 +69,14 @@ local function iotcloud_mqtt_callback(mqtt_client, event, data, payload)
             iotcloudc = v
         end
     end
-
+    -- print("iotcloud_mqtt_callback",mqtt_client, event, data, payload)
     -- 用户自定义代码
     log.info("mqtt", "event", event, mqtt_client, data, payload)
     if event == "conack" then                               -- 连接上服务器
         iotcloud_connect(iotcloudc)
         sys.publish("iotcloud",iotcloudc,iotcloud.CONNECT, data, payload)
     elseif event == "recv" then                             -- 接收到消息
-        if data == "$ota/update/"..iotcloudc.produt_id.."/"..iotcloudc.device_name then
+        if iotcloudc.cloud == iotcloud.TENCENT and data == "$ota/update/"..iotcloudc.produt_id.."/"..iotcloudc.device_name then -- 腾讯云ota
             local ota_payload = json.decode(payload)
             if ota_payload.type == "update_firmware" then
                 print("ota url",ota_payload.url)
@@ -77,7 +84,16 @@ local function iotcloud_mqtt_callback(mqtt_client, event, data, payload)
                 if fota then isfota = true else otadst = "/update.bin" end
                 -- otadst = "/update.bin"--test
                 sys.taskInit(iotcloud_ota_download,iotcloudc,ota_payload.url,{fota=isfota,dst=otadst,timeout = 120000},ota_payload.version)
-
+                
+            end
+        elseif iotcloudc.cloud == iotcloud.ALIYUN and data == "/ota/device/upgrade/"..iotcloudc.produt_id.."/"..iotcloudc.device_name then -- 阿里云ota
+            local ota_payload = json.decode(payload)
+            if ota_payload.message == "success" then
+                print("ota url",ota_payload.data.url)
+                local isfota,otadst
+                if fota then isfota = true else otadst = "/update.bin" end
+                -- otadst = "/update.bin"--test
+                sys.taskInit(iotcloud_ota_download,iotcloudc,ota_payload.data.url,{fota=isfota,dst=otadst,timeout = 120000},ota_payload.version)
             end
         else
             sys.publish("iotcloud", iotcloudc, iotcloud.RECEIVE,data,payload)

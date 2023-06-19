@@ -8,8 +8,9 @@ _G.sysplus = require("sysplus")
 log.style(1)
 
 
--- require "functionTest"
-require "psm_plus"
+require "functionTest"
+-- require "psm_plus"
+-- require "remote_net_wakeup"
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

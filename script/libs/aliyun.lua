@@ -72,7 +72,8 @@ local function procSend(client)
 end
 
 --二次连接
-local function clientDataTask(ClientId,user,PassWord,mqtt_host,mqtt_port,mqtt_isssl,DeviceName,ProductKey)
+-- local function clientDataTask(ClientId,user,PassWord,mqtt_host,mqtt_port,mqtt_isssl,DeviceName,ProductKey)
+local function clientDataTask(DeviceName,ProductKey,mqtt_host,mqtt_port,mqtt_isssl)
     Key = ProductKey
     Dname = DeviceName
     sys.taskInit(function()
@@ -80,8 +81,12 @@ local function clientDataTask(ClientId,user,PassWord,mqtt_host,mqtt_port,mqtt_is
             sys.waitUntil("IP_READY",30000)
         end
         if mobile.status() == 1 then
-            local mqttc = mqtt.create(nil,mqtt_host,mqtt_port,mqtt_isssl)  --客户端创建
-            mqttc:auth(ClientId,user,PassWord) --三元组配置
+            local client_id,user_name,password = iotauth.aliyun(ProductKey,DeviceName,SetDeviceSecretFnc)
+            mqttc = mqtt.create(nil,mqtt_host, mqtt_port,mqtt_isssl)  --mqtt客户端创建
+            mqttc:auth(client_id,user_name,password) --mqtt三元组配置
+
+            -- local mqttc = mqtt.create(nil,mqtt_host,mqtt_port,mqtt_isssl)  --客户端创建
+            -- mqttc:auth(ClientId,user,PassWord) --三元组配置
             mqttc:keepalive(30) -- 默认值240s
             mqttc:autoreconn(true, 3000) -- 自动重连机制
             mqttc:connect()
@@ -117,7 +122,7 @@ end
 --根据返回的数据进行二次加密
 local function directProc(DeviceName,ProductKey,mqtt_host,mqtt_port,mqtt_isssl,Registration)
     if not Registration then
-        local ClientId = DeviceName.."|securemode=2,signmethod=hmacmd5,timestamp=789|"
+        local ClientId = DeviceName.."|securemode=3,signmethod=hmacmd5,timestamp=789|"
         local UserName = DeviceName.."&"..ProductKey
         
         local content = "ClientId"..DeviceName.."deviceName"..DeviceName.."productKey"..ProductKey.."timestamp789"
@@ -166,7 +171,8 @@ local function clientEncryptionTask(Registration,DeviceName,ProductKey,ProductSe
                                 
                                 SetDeviceSecretFnc = tJsonDecode["deviceSecret"]
                                 mqttClient:disconnect()
-                                directProc(DeviceName,ProductKey,mqtt_host,mqtt_port,mqtt_isssl,Registration)
+                                -- directProc(DeviceName,ProductKey,mqtt_host,mqtt_port,mqtt_isssl,Registration)
+                                clientDataTask(DeviceName,ProductKey,mqtt_host,mqtt_port,mqtt_isssl)
                             end
                         else
                              --免预注册

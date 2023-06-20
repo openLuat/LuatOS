@@ -137,6 +137,7 @@ static int l_http_request(lua_State *L) {
 			is_debug = lua_toboolean(L, -1);
 		}
 		lua_pop(L, 1);
+
 #ifdef LUAT_USE_FOTA
 		http_ctrl->address = 0xffffffff;
 		http_ctrl->length = 0;
@@ -170,6 +171,11 @@ static int l_http_request(lua_State *L) {
 		}
 		lua_pop(L, 1);
 
+		lua_pushstring(L, "callback");
+		if (LUA_TFUNCTION == lua_gettable(L, 5)) {
+			http_ctrl->http_cb = luaL_ref(L, LUA_REGISTRYINDEX);
+		}
+		lua_pop(L, 1);
 	}else{
 		adapter_index = network_get_last_register_adapter();
 	}
@@ -280,7 +286,6 @@ static int l_http_request(lua_State *L) {
     }
     return 1;
 error:
-
 	if (http_ctrl->timeout_timer){
 		luat_stop_rtos_timer(http_ctrl->timeout_timer);
 	}
@@ -329,9 +334,18 @@ int32_t l_http_callback(lua_State *L, void* ptr){
 	}
 	LLOGD("l_http_callback arg1:%d is_download:%d idp:%d",msg->arg1,http_ctrl->is_download,idp);
 	if (msg->arg1!=0 && msg->arg1!=HTTP_ERROR_FOTA ){
-		lua_pushinteger(L, msg->arg1); // 把错误码返回去
-		luat_cbcwait(L, idp, 1);
-		goto exit;
+		if (msg->arg1 == HTTP_CALLBACK){
+			lua_geti(L, LUA_REGISTRYINDEX, http_ctrl->http_cb);
+			if (lua_isfunction(L, -1)) {
+				lua_pushinteger(L, http_ctrl->resp_content_len);
+				lua_pushinteger(L, http_ctrl->body_len);
+				lua_call(L, 2, 0);
+			}
+		}else{
+			lua_pushinteger(L, msg->arg1); // 把错误码返回去
+			luat_cbcwait(L, idp, 1);
+			goto exit;
+		}
 	}
 	
 	lua_pushinteger(L, msg->arg1==HTTP_ERROR_FOTA?HTTP_ERROR_FOTA:http_ctrl->parser.status_code);
@@ -385,6 +399,10 @@ int32_t l_http_callback(lua_State *L, void* ptr){
 		luat_cbcwait(L, idp, 3); // code, headers, body
 	}
 exit:
+	if (http_ctrl->http_cb){
+		luaL_unref(L, LUA_REGISTRYINDEX, http_ctrl->http_cb);
+		http_ctrl->http_cb = 0;
+	}
 	http_close(http_ctrl);
 	return 0;
 }

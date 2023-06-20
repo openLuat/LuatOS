@@ -16,6 +16,8 @@
 #define HTTP_ERROR_TIMEOUT  (-8)
 #define HTTP_ERROR_FOTA  	(-9)
 
+#define HTTP_CALLBACK 		(1)
+
 #define HTTP_RE_REQUEST_MAX (3)
 
 #define HTTP_TIMEOUT 		(10*60*1000) // 10分钟
@@ -45,7 +47,7 @@ typedef struct{
 	uint32_t length;		
 	luat_spi_device_t* spi_device;
 #endif
-
+	int http_cb;				// http lua回调函数
 	//下载相关
 	uint8_t is_download;		//是否下载
 	const char *dst;			//下载路径
@@ -60,7 +62,7 @@ typedef struct{
 	uint8_t re_request_count;
 
 	// 响应相关
-	// uint32_t resp_content_len;	//content 长度
+	uint32_t resp_content_len;	//content 长度
 	FILE* fd;					//下载 FILE
 	uint64_t idp;
 	uint32_t timeout;

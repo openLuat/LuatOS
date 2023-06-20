@@ -104,9 +104,9 @@ static int on_header_field(http_parser* parser, const char *at, size_t length){
 	if (http_ctrl->headers_complete){
 		return 0;
 	}
-	// if(!strncasecmp(at, "Content-Length: ", 16)){
-	// 	http_ctrl->resp_content_len = -1;
-	// }
+	if(!strncasecmp(at, "Content-Length: ", 16) && http_ctrl->resp_content_len == 0){
+		http_ctrl->resp_content_len = -1;
+	}
 	if (!http_ctrl->headers){
 		http_ctrl->headers = luat_heap_malloc(length+2);
 	}else{
@@ -125,11 +125,11 @@ static int on_header_value(http_parser* parser, const char *at, size_t length){
 	if (http_ctrl->headers_complete){
 		return 0;
 	}
-	// if(http_ctrl->resp_content_len == -1){
-	// 	memcpy(tmp, at, length);
-	// 	http_ctrl->resp_content_len = atoi(tmp);
-	// 	LLOGD("http_ctrl->resp_content_len:%d",http_ctrl->resp_content_len);
-	// }
+	if(http_ctrl->resp_content_len == -1){
+		memcpy(tmp, at, length);
+		http_ctrl->resp_content_len = atoi(tmp);
+		LLOGD("http_ctrl->resp_content_len:%d",http_ctrl->resp_content_len);
+	}
 	http_ctrl->headers = luat_heap_realloc(http_ctrl->headers,http_ctrl->headers_len+length+3);
 	memcpy(http_ctrl->headers+http_ctrl->headers_len,at,length);
 	memcpy(http_ctrl->headers+http_ctrl->headers_len+length, "\r\n", 2);
@@ -158,6 +158,13 @@ static int on_headers_complete(http_parser* parser){
 #endif
 	http_ctrl->headers_complete = 1;
     return 0;
+}
+
+static void luat_http_callback(luat_http_ctrl_t *http_ctrl){
+	if (http_ctrl->http_cb){
+		luat_http_client_onevent(http_ctrl, HTTP_CALLBACK, 0);
+		// LLOGD("luat_http_callback content_length:%ld body_len:%ld",http_ctrl->resp_content_len, http_ctrl->body_len);
+	}
 }
 
 static int on_body(http_parser* parser, const char *at, size_t length){
@@ -194,6 +201,7 @@ static int on_body(http_parser* parser, const char *at, size_t length){
 		memcpy(http_ctrl->body+http_ctrl->body_len,at,length);
 	}
 	http_ctrl->body_len += length;
+	luat_http_callback(http_ctrl);
     return 0;
 }
 

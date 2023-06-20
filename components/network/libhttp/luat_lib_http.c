@@ -341,6 +341,7 @@ int32_t l_http_callback(lua_State *L, void* ptr){
 				lua_pushinteger(L, http_ctrl->body_len);
 				lua_call(L, 2, 0);
 			}
+			return 0;
 		}else{
 			lua_pushinteger(L, msg->arg1); // 把错误码返回去
 			luat_cbcwait(L, idp, 1);

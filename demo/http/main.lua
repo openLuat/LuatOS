@@ -110,8 +110,8 @@ function demo_http_download()
     -- POST and download, task内的同步操作
     local opts = {}                 -- 额外的配置项
     opts["dst"] = "/data.bin"       -- 下载路径,可选
-    opts["timeout"] = 30            -- 超时时长,单位秒,可选
-    opts["adapter"] = socket.ETH0  -- 使用哪个网卡,可选
+    opts["timeout"] = 30000         -- 超时时长,单位ms,可选
+    -- opts["adapter"] = socket.ETH0  -- 使用哪个网卡,可选
     local code, headers, body = http.request("POST","http://site0.cn/api/httptest/simple/date",
             {}, -- 请求所添加的 headers, 可以是nil
             "", 

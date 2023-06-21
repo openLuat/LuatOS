@@ -14,6 +14,25 @@
 #define LUAT_PM_POWER_MODE_BALANCED (2) ///< 性能和功耗平衡，使用LUAT_PM_SLEEP_MODE_LIGHT
 #define LUAT_PM_POWER_MODE_POWER_SAVER (3) ///< 超低功耗，使用LUAT_PM_SLEEP_MODE_STANDBY，进入PSM模式
 
+
+/**
+ * @brief 开机原因
+ */
+typedef enum LUAT_PM_POWERON_REASON
+{
+	LUAT_PM_POWERON_REASON_NORMAL = 0,			/**<powerkey或者上电开机*/
+	LUAT_PM_POWERON_REASON_FOTA,				/**<充电或者AT指令下载完成后开机*/
+	LUAT_PM_POWERON_REASON_ALARM,				/**<闹钟开机*/
+	LUAT_PM_POWERON_REASON_SWRESET,				/**<软件重启*/
+	LUAT_PM_POWERON_REASON_UNKNOWN,				/**<未知原因*/
+	LUAT_PM_POWERON_REASON_HWRESET,				/**<RESET键重启*/
+	LUAT_PM_POWERON_REASON_EXCEPTION,			/**<异常重启*/
+	LUAT_PM_POWERON_REASON_TOOL,				/**<工具控制重启*/
+	LUAT_PM_POWERON_REASON_WDT,					/**<内部看门狗重启*/
+	LUAT_PM_POWERON_REASON_EXTERNAL,			/**<外部重启*/
+	LUAT_PM_POWERON_REASON_CHARGING,			/**<充电开机*/
+} LUAT_PM_POWERON_REASON_E;
+
 // 开关类
 enum
 {

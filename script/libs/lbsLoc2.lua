@@ -114,7 +114,7 @@ function lbsLoc2.request(timeout, host, port, reqTime)
     local hosts = host and {host} or {"free.bs.air32.cn", "bs.openluat.com"}
     port = port and tonumber(port) or 12411
     local sc = socket.create(nil, function(sc, event)
-        -- log.info("lbsLoc", "event", event)
+        -- log.info("lbsLoc", "event", event, socket.ON_LINE, socket.TX_OK, socket.EVENT)
         if event == socket.ON_LINE then
             --log.info("lbsLoc", "已连接")
             sys.publish("LBS_CONACK")
@@ -129,7 +129,8 @@ function lbsLoc2.request(timeout, host, port, reqTime)
     if sc == nil then
         return
     end
-    socket.config(sc, nil, true)
+    -- socket.debug(sc, true)
+    socket.config(sc, nil, true, 12411)
     local rxbuff = zbuff.create(64)
     for k, rhost in pairs(hosts) do
         local cells = mobile.getCellInfo()
@@ -150,20 +151,21 @@ function lbsLoc2.request(timeout, host, port, reqTime)
                         socket.close(sc)
                         break
                     else
-                        -- log.debug("lbsLoc", "rx数据失败")
+                        log.debug("lbsLoc", "rx数据失败", rhost)
                     end
                 else
-                    -- log.debug("lbsLoc", "等待数据超时")
+                    log.debug("lbsLoc", "等待数据超时", rhost)
                 end
             else
-                -- log.debug("lbsLoc", "tx调用失败或TX_ACK超时")
+                log.debug("lbsLoc", "tx调用失败或TX_ACK超时", rhost)
             end
         else
-            -- log.debug("lbsLoc", "connect调用失败或CONACK超时")
+            log.debug("lbsLoc", "connect调用失败或CONACK超时", rhost)
         end
         socket.close(sc)
-        sys.wait(100)
+        --sys.wait(100)
     end
+    sys.wait(100)
     socket.release(sc)
     if rxbuff:used() > 0 then
         local resp = rxbuff:toStr(0, rxbuff:used())
@@ -185,6 +187,7 @@ function lbsLoc2.request(timeout, host, port, reqTime)
             return lat, lng, t
         end
     end
+    rxbuff:del()
 end
 
 return lbsLoc2

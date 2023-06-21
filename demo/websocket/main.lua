@@ -54,6 +54,8 @@ sys.taskInit(function()
     wsc = websocket.create(nil, "ws://echo.airtun.air32.cn/ws/echo")
     -- 这是另外一个测试服务, 能响应websocket的二进制帧
     -- wsc = websocket.create(nil, "ws://echo.airtun.air32.cn/ws/echo2")
+    -- 以上两个测试服务是Java写的, 源码在 https://gitee.com/openLuat/luatos-airtun/tree/master/server/src/main/java/com/luatos/airtun/ws
+
     if wsc.headers then
         wsc:headers({Auth="Basic ABCDEGG"})
     end
@@ -66,6 +68,8 @@ sys.taskInit(function()
         -- 因为lua并不区分文本和二进制数据, 所以optcode通常可以无视
         -- 若数据不多, 小于1400字节, 那么fid通常也是1, 同样可以忽略
         log.info("wsc", event, data, fin, optcode)
+        -- 显示二进制数据
+        -- log.info("wsc", event, data and data:toHex() or "", fin, optcode)
         if event == "conack" then -- 连接websocket服务后, 会有这个事件
             wsc:send((json.encode({action="echo", device_id=device_id})))
             sys.publish("wsc_conack")

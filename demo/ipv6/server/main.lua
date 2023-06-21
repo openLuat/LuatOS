@@ -3,7 +3,7 @@ IPv6服务端演示, 仅EC618系列支持, 例如Air780E/Air600E/Air780UG/Air700
 ]]
 
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "ipv6_client"
+PROJECT = "ipv6_server"
 VERSION = "1.0.0"
 
 log.info("main", PROJECT, VERSION)
@@ -46,7 +46,7 @@ function ipv6test()
     log.info("ipv6", "等待联网")
     sys.waitUntil("IP_READY")
     log.info("ipv6", "联网完成")
-    sys.wait(100)
+    sys.wait(1000)
 
     -- 打印一下本地ip, 一般只有ipv6才可能是公网ip, ipv4基本不可能
     -- 而且ipv6不一样是外网ip, 这是运营商决定的, 模块无能为力
@@ -59,11 +59,15 @@ function ipv6test()
 
     -- 这里给个演示用的ddns, 临时自建的, 仅供测试
     local code, headers, body = http.request("GET", "http://81.70.22.216:8280/update?secret=luatos&domain=" .. mobile.imei() ..".dyndns&addr=" .. ipv6).wait()
-    log.info("DDNS", "已映射", mobile.imei() .. ".dyndns.u8g2.com", code, body)
-    log.info("shell", "telnet -6 " .. mobile.imei() .. ".dyndns.u8g2.com 14000")
+    if code == 200 then
+        log.info("DDNS", "已映射", mobile.imei() .. ".dyndns.u8g2.com", code, body)
+        log.info("shell", "telnet -6 " .. mobile.imei() .. ".dyndns.u8g2.com 14000")
+    else
+        log.info("shell", "telnet -6 " .. ipv6 .. " 14000")
+    end
 
     -- 开始正在的逻辑, 发起socket链接,等待数据/上报心跳
-    local taskName = "ipv6client"
+    local taskName = "ipv6server"
     local topic = taskName .. "_txrx"
     local txqueue = {}
     sysplus.taskInitEx(ipv6task, taskName, netCB, taskName, txqueue, topic)

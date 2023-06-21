@@ -196,7 +196,7 @@ sys.taskInit(function()
 
     while 1 do
         -- 演示GET请求
-        -- demo_http_get()
+        demo_http_get()
         -- 表单提交
         -- demo_http_post_form()
         -- POST一个json字符串
@@ -204,7 +204,7 @@ sys.taskInit(function()
         -- 上传文件, mulitform形式
         -- demo_http_post_file()
         -- 文件下载
-        demo_http_download()
+        -- demo_http_download()
 
         sys.wait(1000)
         -- 打印一下内存状态

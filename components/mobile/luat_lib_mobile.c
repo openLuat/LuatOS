@@ -40,6 +40,8 @@ log.info("simid", mobile.simid())
 @api mobile.imei(index)
 @int 编号,默认0. 在支持双卡的模块上才会出现0或1的情况
 @return string 当前的IMEI值,若失败返回nil
+@usgae
+-- 注意, 当前所有模块只支持单待,所以IMEI总是同一个
  */
 static int l_mobile_imei(lua_State* L) {
     char buff[24] = {0};
@@ -69,6 +71,8 @@ static int l_mobile_imei(lua_State* L) {
 @api mobile.imsi(index)
 @int 编号,默认0. 在支持双卡的模块上才会出现0或1的情况
 @return string 当前的IMSI值,若失败返回nil
+@usgae
+-- 注意, 当前所有模块只支持单待,所以IMSI总是同一个
  */
 static int l_mobile_imsi(lua_State* L) {
     char buff[24] = {0};
@@ -99,6 +103,10 @@ static int l_mobile_imsi(lua_State* L) {
 获取SN
 @api mobile.sn()
 @return string 当前的SN值,若失败返回nil. 注意, SN可能包含不可见字符
+@usage
+-- 注意, 出厂未必有写SN
+-- 一般用途的唯一id, 可以用mobile.imei()代替
+-- 如需要真正的唯一ID, 使用 mcu.unique_id()
  */
 static int l_mobile_sn(lua_State* L) {
     char buff[32] = {0};
@@ -375,6 +383,8 @@ static int l_mobile_apn(lua_State* L) {
 @api mobile.ipv6(onff)
 @boolean 开关 true开启 false 关闭
 @return boolean true 当前是开启的，false 当前是关闭的
+@usage
+-- 注意, 开启ipv6后, 开机联网会慢2~3秒
  */
 static int l_mobile_ipv6(lua_State* L) {
     // char buff[24] = {0};
@@ -389,7 +399,9 @@ static int l_mobile_ipv6(lua_State* L) {
 /**
 获取csq
 @api mobile.csq()
-@return int 当前CSQ值, 若失败返回0
+@return int 当前CSQ值, 若失败返回0. 范围 0 - 31, 越大越好
+@usage
+-- 注意, 4G模块的CSQ值仅供参考, rsrp/rsrq才是真正的信号强度指标
  */
 static int l_mobile_csq(lua_State* L) {
     // luat_mobile_signal_strength_info_t info = {0};
@@ -406,7 +418,7 @@ static int l_mobile_csq(lua_State* L) {
 /**
 获取rssi
 @api mobile.rssi()
-@return int 当前rssi值,若失败返回0
+@return int 当前rssi值,若失败返回0. 范围 0 到 -114, 越小越好
  */
 static int l_mobile_rssi(lua_State* L) {
     luat_mobile_signal_strength_info_t info = {0};
@@ -420,9 +432,9 @@ static int l_mobile_rssi(lua_State* L) {
 }
 
 /**
-获取rsrp
+获取rsrp,参考信号接收功率
 @api mobile.rsrp()
-@return int 当前rsrp值,若失败返回0
+@return int 当前rsrp值,若失败返回0. 取值范围: -44 ~ -140 ，值越大越好
  */
 static int l_mobile_rsrp(lua_State* L) {
     luat_mobile_signal_strength_info_t info = {0};
@@ -436,9 +448,9 @@ static int l_mobile_rsrp(lua_State* L) {
 }
 
 /**
-获取rsrq
+获取rsrq,参考信号发送功率
 @api mobile.rsrq()
-@return int 当前rsrq值,若失败返回0
+@return int 当前rsrq值,若失败返回0.  取值范围: -3 ~ -19.5 ，值越大越好
  */
 static int l_mobile_rsrq(lua_State* L) {
     luat_mobile_signal_strength_info_t info = {0};
@@ -452,9 +464,9 @@ static int l_mobile_rsrq(lua_State* L) {
 }
 
 /**
-获取snr
+获取snr,信噪比
 @api mobile.snr()
-@return int 当前snq值,若失败返回0
+@return int 当前snq值,若失败返回0.范围 0 - 30, 越大越好
  */
 static int l_mobile_snr(lua_State* L) {
     luat_mobile_signal_strength_info_t info = {0};
@@ -542,6 +554,8 @@ static inline uint16_t u162bcd(uint16_t src) {
 @api mobile.getCellInfo()
 @return table 包含基站数据的数组
 @usage
+-- 注意: 从2023.06.20开始, 需要主动请求一次reqCellInfo才会有基站数据.
+
 --示例输出
 --[[
 [
@@ -551,6 +565,7 @@ static inline uint16_t u162bcd(uint16_t src) {
 ]
 ]]
 
+mobile.reqCellInfo(60)
 -- 订阅式
 sys.subscribe("CELL_INFO_UPDATE", function()
     log.info("cell", json.encode(mobile.getCellInfo()))

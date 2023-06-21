@@ -52,6 +52,8 @@ sys.taskInit(function()
 
     -- 这是个测试服务, 当发送的是json,且action=echo,就会回显所发送的内容
     wsc = websocket.create(nil, "ws://echo.airtun.air32.cn/ws/echo")
+    -- 这是另外一个测试服务, 能响应websocket的二进制帧
+    -- wsc = websocket.create(nil, "ws://echo.airtun.air32.cn/ws/echo2")
     if wsc.headers then
         wsc:headers({Auth="Basic ABCDEGG"})
     end
@@ -74,9 +76,12 @@ sys.taskInit(function()
     --sys.waitUntil("wsc_conack", 15000)
     -- 定期发业务ping也是可选的, 但为了保存连接, 也为了继续持有wsc对象, 这里周期性发数据
     while true do
-        sys.wait(45000)
+        sys.wait(15000)
+        -- 发送文本帧
         -- wsc:send("{\"room\":\"topic:okfd7qcob2iujp1br83nn7lcg5\",\"action\":\"join\"}")
         wsc:send((json.encode({action="echo", msg=os.date()})))
+        -- 发送二进制帧, 2023.06.21 之后编译的固件支持
+        -- wsc:send(string.char(0xA5, 0x5A, 0xAA, 0xF2), 1, 1)
     end
     wsc:close()
     wsc = nil

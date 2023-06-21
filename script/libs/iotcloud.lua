@@ -19,9 +19,11 @@ local iotcloud_certificate  = "certificate" -- 秘钥认证
 local iotcloud_key          = "key"         -- 证书认证
 -- event
 iotcloud.CONNECT            = "connect"     -- 连接上服务器
+iotcloud.SEND               = "SEND"        -- 发送消息
 iotcloud.RECEIVE            = "receive"     -- 接收到消息
-iotcloud.OTA                = "ota"         -- ota消息
 iotcloud.DISCONNECT         = "disconnect"  -- 服务器连接断开
+iotcloud.OTA                = "ota"         -- ota消息
+
 
 local cloudc_table = {}     -- iotcloudc 对象表
 
@@ -41,27 +43,34 @@ local function iotcloud_connect(iotcloudc)
     end
 end
 
+local function http_downloald_callback(content_len,body_len,iotcloudc)
+    if iotcloudc.cloud == iotcloud.TENCENT then
+        if body_len == 0 then
+            -- 开始升级     type：消息类型 state：状态为烧制中
+            iotcloudc:publish("$ota/report/"..iotcloudc.produt_id.."/"..iotcloudc.device_name,"{\"type\":\"report_progress\",\"report\":{\"progress\":{\"state\": \"burning\",\"result_code\": \"0\",\"result_msg\": \"\"}},\"version\": \""..iotcloudc.ota_version.."\"}")
+        else
+            -- 下载进度     type：消息类型 state：状态为正在下载中 percent：当前下载进度，百分比
+            iotcloudc:publish("$ota/report/"..iotcloudc.produt_id.."/"..iotcloudc.device_name,"{\"type\":\"report_progress\",\"report\":{\"progress\":{\"state\": \"downloading\",\"percent\": \""..body_len*100//content_len.."\",\"result_code\": \"0\",\"result_msg\": \"\"}},\"version\": \""..iotcloudc.ota_version.."\"}")
+        end
+    end
+end 
 
-local function iotcloud_ota_download(iotcloudc,ota_url,config,version)
+local function iotcloud_ota_download(iotcloudc,ota_url,config)
+    config.callback = http_downloald_callback
+    config.userdata = iotcloudc
     local code, headers, body = http.request("GET", ota_url, nil, nil, config).wait()
-    log.info("ota download", code, headers, body) -- 只返回code和headers
+    -- log.info("ota download", code, headers, body) -- 只返回code和headers
     if code == 200 or code == 206 then
         if iotcloudc.cloud == iotcloud.TENCENT then  -- 此为腾讯云
-            -- 下载进度     type：消息类型 state：状态为正在下载中 percent：当前下载进度，百分比
-            iotcloudc:publish("$ota/report/"..iotcloudc.produt_id.."/"..iotcloudc.device_name,"{\"type\":\"report_progress\",\"report\":{\"progress\":{\"state\": \"downloading\",\"percent\": \"100\",\"result_code\": \"0\",\"result_msg\": \"\"}},\"version\": \""..version.."\"}")
-            -- 开始升级     type：消息类型 state：状态为烧制中
-            iotcloudc:publish("$ota/report/"..iotcloudc.produt_id.."/"..iotcloudc.device_name,"{\"type\":\"report_progress\",\"report\":{\"progress\":{\"state\": \"burning\",\"result_code\": \"0\",\"result_msg\": \"\"}},\"version\": \""..version.."\"}")
             -- 升级成功     type：消息类型 state：状态为已完成
-            iotcloudc:publish("$ota/report/"..iotcloudc.produt_id.."/"..iotcloudc.device_name,"{\"type\":\"report_progress\",\"report\":{\"progress\":{\"state\": \"done\",\"result_code\": \"0\",\"result_msg\": \"\"}},\"version\": \""..version.."\"}")
-            
-            -- iotcloudc:publish("$ota/report/"..iotcloudc.produt_id.."/"..iotcloudc.device_name,"{\"type\":\"report_version\",\"report\":{\"version\": \"0.0.2\"}}")
+            iotcloudc:publish("$ota/report/"..iotcloudc.produt_id.."/"..iotcloudc.device_name,"{\"type\":\"report_progress\",\"report\":{\"progress\":{\"state\": \"done\",\"result_code\": \"0\",\"result_msg\": \"\"}},\"version\": \""..iotcloudc.ota_version.."\"}")
         elseif iotcloudc.cloud == iotcloud.ALIYUN then -- 此为阿里云
             
         end
     else
         if iotcloudc.cloud == iotcloud.TENCENT then  -- 此为腾讯云
             -- 升级失败     type：消息类型 state：状态为失败 result_code：错误码，-1：下载超时；-2：文件不存在；-3：签名过期；-4:MD5不匹配；-5：更新固件失败 result_msg：错误消息
-            iotcloudc:publish("$ota/report/"..iotcloudc.produt_id.."/"..iotcloudc.device_name,"{\"type\":\"report_progress\",\"report\":{\"progress\":{\"state\": \"fail\",\"result_code\": \"-5\",\"result_msg\": \"ota_fail\"}},\"version\": \""..version.."\"}")
+            iotcloudc:publish("$ota/report/"..iotcloudc.produt_id.."/"..iotcloudc.device_name,"{\"type\":\"report_progress\",\"report\":{\"progress\":{\"state\": \"fail\",\"result_code\": \"-5\",\"result_msg\": \"ota_fail\"}},\"version\": \""..iotcloudc.ota_version.."\"}")
         elseif iotcloudc.cloud == iotcloud.ALIYUN then  -- 此为阿里云
             
         end
@@ -88,28 +97,29 @@ local function iotcloud_mqtt_callback(mqtt_client, event, data, payload)
         if iotcloudc.cloud == iotcloud.TENCENT and data == "$ota/update/"..iotcloudc.produt_id.."/"..iotcloudc.device_name then -- 腾讯云ota
             local ota_payload = json.decode(payload)
             if ota_payload.type == "update_firmware" then
-                print("ota url",ota_payload.url)
+                -- print("ota url",ota_payload.url)
+                iotcloudc.ota_version = ota_payload.version
                 local isfota,otadst
                 if fota then isfota = true else otadst = "/update.bin" end
                 -- otadst = "/update.bin"--test
-                sys.taskInit(iotcloud_ota_download,iotcloudc,ota_payload.url,{fota=isfota,dst=otadst,timeout = 120000},ota_payload.version)
+                sys.taskInit(iotcloud_ota_download,iotcloudc,ota_payload.url,{fota=isfota,dst=otadst,timeout = 120000})
                 
             end
         elseif iotcloudc.cloud == iotcloud.ALIYUN and data == "/ota/device/upgrade/"..iotcloudc.produt_id.."/"..iotcloudc.device_name then -- 阿里云ota
             local ota_payload = json.decode(payload)
             if ota_payload.message == "success" then
-                print("ota url",ota_payload.data.url)
+                -- print("ota url",ota_payload.data.url)
+                iotcloudc.ota_version = ota_payload.version
                 local isfota,otadst
                 if fota then isfota = true else otadst = "/update.bin" end
                 -- otadst = "/update.bin"--test
-                sys.taskInit(iotcloud_ota_download,iotcloudc,ota_payload.data.url,{fota=isfota,dst=otadst,timeout = 120000},ota_payload.version)
+                sys.taskInit(iotcloud_ota_download,iotcloudc,ota_payload.data.url,{fota=isfota,dst=otadst,timeout = 120000})
             end
         else
             sys.publish("iotcloud", iotcloudc, iotcloud.RECEIVE,data,payload)
         end
-    elseif event == "sent" then                             -- ota消息
-        log.info("mqtt", "sent", "pkgid", data)
-        sys.publish("iotcloud", iotcloudc, iotcloud.OTA)
+    elseif event == "sent" then                             -- 发送消息
+        sys.publish("iotcloud", iotcloudc, iotcloud.SEND,data,payload)
     elseif event == "disconnect" then                       -- 服务器连接断开
         sys.publish("iotcloud", iotcloudc, iotcloud.DISCONNECT)
     end
@@ -276,7 +286,7 @@ end
 @api iotcloud.new(cloud,iot_config,connect_config)
 @string 云平台 iotcloud.TENCENT:腾讯云 iotcloud.ALIYUN:阿里云
 @table iot云平台配置, device_name:可选，默认为imei否则为unique_id iot_config.produt_id:产品id(阿里云则为产品key) iot_config.product_secret:产品密钥,有此项则为动态注册 iot_config.key:设备秘钥,有此项则为秘钥连接 
-@table mqtt配置, host:可选,默认为平台默认host ip:可选,默认为平台默认ip tls:加密,若有此项一般为产品认证
+@table mqtt配置, host:可选,默认为平台默认host ip:可选,默认为平台默认ip tls:加密,若有此项一般为产品认证 
 @return table 云平台对象
 @usage
 -- 阿里云动态注册
@@ -297,6 +307,7 @@ function iotcloud.new(cloud,iot_config,connect_config)
         authentication = nil,                               -- 认证方式:密钥认证/证书认证 
         isssl = nil,                                        -- 是否加密
         ca_file = nil,                                      -- 证书 
+        ota_version = nil,                                  -- ota时目标版本
     }, cloudc)
     if fskv then fskv.init() else return false end
     if iot_config.device_name then                          -- 设定了就使用指定的device_name

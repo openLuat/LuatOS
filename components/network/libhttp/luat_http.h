@@ -48,6 +48,7 @@ typedef struct{
 	luat_spi_device_t* spi_device;
 #endif
 	int http_cb;				// http lua回调函数
+	int http_cb_userdata;				// http lua回调函数用户传参
 	//下载相关
 	uint8_t is_download;		//是否下载
 	const char *dst;			//下载路径

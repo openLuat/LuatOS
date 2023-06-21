@@ -61,7 +61,7 @@ http客户端
 @string url地址, 支持 http和https, 支持域名, 支持自定义端口
 @tabal  请求头 可选 例如 {["Content-Type"] = "application/x-www-form-urlencoded"}
 @string body 可选, 对POST/PUT等请求方式有效
-@table  额外配置 可选 包含 timeout:超时时间单位ms 可选,默认10分钟,写0即永久等待 dst:下载路径,可选 adapter:选择使用网卡,可选 debug:是否打开debug信息,可选,ipv6:是否为ipv6 默认不是,可选 callback:下载回调函数,参数 content_len:总长度 body_len以下载长度,可选 
+@table  额外配置 可选 包含 timeout:超时时间单位ms 可选,默认10分钟,写0即永久等待 dst:下载路径,可选 adapter:选择使用网卡,可选 debug:是否打开debug信息,可选,ipv6:是否为ipv6 默认不是,可选 callback:下载回调函数,参数 content_len:总长度 body_len:以下载长度 userdata 用户传参,可选 userdata:回调自定义传参  
 @string 服务器ca证书数据, 可选, 一般不需要
 @string 客户端ca证书数据, 可选, 一般不需要, 双向https认证才需要
 @string 客户端私钥加密数据, 可选, 一般不需要, 双向https认证才需要
@@ -175,7 +175,12 @@ static int l_http_request(lua_State *L) {
 		if (LUA_TFUNCTION == lua_gettable(L, 5)) {
 			http_ctrl->http_cb = luaL_ref(L, LUA_REGISTRYINDEX);
 		}
-		lua_pop(L, 1);
+
+		if (http_ctrl->http_cb){
+			lua_pushstring(L, "userdata");
+			lua_gettable(L, 5);
+			http_ctrl->http_cb_userdata = luaL_ref(L, LUA_REGISTRYINDEX);
+		}
 	}else{
 		adapter_index = network_get_last_register_adapter();
 	}
@@ -336,10 +341,17 @@ int32_t l_http_callback(lua_State *L, void* ptr){
 	if (msg->arg1!=0 && msg->arg1!=HTTP_ERROR_FOTA ){
 		if (msg->arg1 == HTTP_CALLBACK){
 			lua_geti(L, LUA_REGISTRYINDEX, http_ctrl->http_cb);
+			int userdata_type = lua_type(L, -2);
 			if (lua_isfunction(L, -1)) {
 				lua_pushinteger(L, http_ctrl->resp_content_len);
 				lua_pushinteger(L, http_ctrl->body_len);
-				lua_call(L, 2, 0);
+				if (http_ctrl->http_cb_userdata){
+					LLOGE("http_ctrl->http_cb_userdata :%d",http_ctrl->http_cb_userdata);
+					lua_geti(L, LUA_REGISTRYINDEX, http_ctrl->http_cb_userdata);
+					lua_call(L, 3, 0);
+				}else{
+					lua_call(L, 2, 0);
+				}
 			}
 			return 0;
 		}else{
@@ -403,6 +415,10 @@ exit:
 	if (http_ctrl->http_cb){
 		luaL_unref(L, LUA_REGISTRYINDEX, http_ctrl->http_cb);
 		http_ctrl->http_cb = 0;
+		if (http_ctrl->http_cb_userdata){
+			luaL_unref(L, LUA_REGISTRYINDEX, http_ctrl->http_cb_userdata);
+			http_ctrl->http_cb_userdata = 0;
+		}
 	}
 	http_close(http_ctrl);
 	return 0;

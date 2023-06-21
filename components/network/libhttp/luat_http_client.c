@@ -98,6 +98,14 @@ error:
 	}
 }
 
+
+static void luat_http_callback(luat_http_ctrl_t *http_ctrl){
+	if (http_ctrl->http_cb){
+		luat_http_client_onevent(http_ctrl, HTTP_CALLBACK, 0);
+		// LLOGD("luat_http_callback content_length:%ld body_len:%ld",http_ctrl->resp_content_len, http_ctrl->body_len);
+	}
+}
+
 static int on_header_field(http_parser* parser, const char *at, size_t length){
     LLOGD("on_header_field:%.*s",length,at);
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
@@ -157,14 +165,8 @@ static int on_headers_complete(http_parser* parser){
 	}
 #endif
 	http_ctrl->headers_complete = 1;
+	luat_http_callback(http_ctrl);
     return 0;
-}
-
-static void luat_http_callback(luat_http_ctrl_t *http_ctrl){
-	if (http_ctrl->http_cb){
-		luat_http_client_onevent(http_ctrl, HTTP_CALLBACK, 0);
-		// LLOGD("luat_http_callback content_length:%ld body_len:%ld",http_ctrl->resp_content_len, http_ctrl->body_len);
-	}
 }
 
 static int on_body(http_parser* parser, const char *at, size_t length){

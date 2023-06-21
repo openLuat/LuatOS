@@ -307,12 +307,22 @@ static const char* ws_headers =
 static int websocket_connect(luat_websocket_ctrl_t *websocket_ctrl)
 {
 	LLOGD("request host %s port %d uri %s", websocket_ctrl->host, websocket_ctrl->remote_port, websocket_ctrl->uri);
+	int ret = 0;
 	// 借用pkg_buff
-	int ret = snprintf_((char*)websocket_ctrl->pkg_buff,
+	if (websocket_ctrl->remote_port != 80 && websocket_ctrl->remote_port != 443) {
+		ret = snprintf_((char*)websocket_ctrl->pkg_buff,
 						WEBSOCKET_RECV_BUF_LEN_MAX,
 						"GET %s HTTP/1.1\r\n"
 						"Host: %s\r\n",
 						websocket_ctrl->uri, websocket_ctrl->host);
+	}
+	else {
+		ret = snprintf_((char*)websocket_ctrl->pkg_buff,
+						WEBSOCKET_RECV_BUF_LEN_MAX,
+						"GET %s HTTP/1.1\r\n"
+						"Host: %s:%d\r\n",
+						websocket_ctrl->uri, websocket_ctrl->host, websocket_ctrl->remote_port);
+	}
 	//LLOGD("Request %s", websocket_ctrl->pkg_buff);
 	ret = luat_websocket_send_packet(websocket_ctrl, websocket_ctrl->pkg_buff, ret);
 	if (websocket_ctrl->headers) {

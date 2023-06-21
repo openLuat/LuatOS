@@ -369,6 +369,9 @@ static int l_websocket_send(lua_State *L)
 		.OPT_CODE = 0x01,
 		.plen = payload_len,
 		.payload = payload};
+	if (lua_isinteger(L, 3) && lua_tointeger(L, 3) == 1) {
+		pkg.OPT_CODE = 0x02;
+	}
 	
 	if (websocket_ctrl->websocket_state != 1) {
 		LLOGI("not ready yet");

@@ -345,7 +345,7 @@ int luat_websocket_send_frame(luat_websocket_ctrl_t *websocket_ctrl, luat_websoc
 	size_t ret = 0;
 	// first byte, FIN and OPTCODE
 	dst[0] = pkg->FIN << 7;
-	dst[0] |= pkg->OPT_CODE & 0xF;
+	dst[0] |= (pkg->OPT_CODE & 0xF);
 	if (pkg->plen < 126)
 	{
 		dst[1] = pkg->plen;

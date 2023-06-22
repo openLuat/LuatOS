@@ -279,7 +279,7 @@ function rc522.anticoll(id)
     write_rawrc( rc522_bit_framing, 0x00);
     rc522.clear_bit_mask (rc522_coll, 0x80);			  
     local status, back_data = rc522.command(rc522_transceive,{0x93,0x20})
-    if status == true then		            
+    if back_data and #back_data >= 5 then		            
         for i=1,4 do
             check = bit.bxor(check,back_data[i])
         end

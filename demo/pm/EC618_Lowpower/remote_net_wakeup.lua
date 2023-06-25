@@ -4,6 +4,8 @@ local server_ip = "112.125.89.8"
 local server_port = 45471
 local rxbuf = zbuff.create(8192)
 
+local socketIsConnected = false
+
 local socketTxCycle = 5 * 1000
 local socketWaitTxSuccess = 15 * 1000
 local socketTxQueue = {}
@@ -26,13 +28,16 @@ end
 local function netCB(netc, event, param)
     log.info("netc", netc, event, param)
     if param ~= 0 then
+        socketIsConnected = false
         sys.timerStop(heartTimerCb)
         sys.publish("socket_disconnect")
         return
     end
 	if event == socket.LINK then
 	elseif event == socket.ON_LINE then
+        socketIsConnected = true
         sys.timerLoopStart(heartTimerCb, 60000)
+        sys.publish("SOCKET_APP_IS_READY")
         insertData("hello,luatos!")
 	elseif event == socket.EVENT then
         socket.rx(netc, rxbuf)
@@ -46,6 +51,7 @@ local function netCB(netc, event, param)
         log.info("发送完成")
         sys.publish("SOCKET_TX_OK")
 	elseif event == socket.CLOSE then
+        socketIsConnected = false
         sys.timerStop(heartTimerCb)
         sys.publish("socket_disconnect")
     end
@@ -54,7 +60,6 @@ end
 local netc = socket.create(nil, netCB)
 
 local function socketTask()
-
 	socket.debug(netc, true)
 	socket.config(netc, nil, nil, nil, 300, 5, 6)   --开启TCP保活，防止长时间无数据交互被运营商断线
     while true do
@@ -74,18 +79,22 @@ end
 sys.taskInit(function ()
     local needWait
     while true do
-        if #socketTxQueue >= 1 then
-            local txData = table.remove(socketTxQueue, 1)
-            local succ, full, result = socket.tx(netc, txData)
-            if succ then
-                needWait = true
-            end
-            if needWait then
-                local result = sys.waitUntil("SOCKET_TX_OK", socketWaitTxSuccess)
-                log.info("result", result)
+        if socketIsConnected then
+            if #socketTxQueue >= 1 then
+                local txData = table.remove(socketTxQueue, 1)
+                local succ, full, result = socket.tx(netc, txData)
+                if succ then
+                    local result = sys.waitUntil("SOCKET_TX_OK", socketWaitTxSuccess)
+                    log.info("result", result)
+                else
+                    socketIsConnected = false
+                    sys.publish("socket_disconnect")
+                end
+            else
+                sys.waitUntil("SOCKET_APP_NEW_SOCKET")
             end
         else
-            sys.waitUntil("SOCKET_APP_NEW_SOCKET")
+            sys.waitUntil("SOCKET_APP_IS_READY") 
         end
     end
 end)

@@ -4,6 +4,12 @@
 @version core V0007
 @date    2022.05.26
 @tag LUAT_USE_I2S
+@demo    multimedia
+@usage
+-- 这个库属于底层适配库, 具体用法请查阅示例
+-- demo/multimedia
+-- demo/tts
+-- demo/record
 */
 #include "luat_base.h"
 #include "luat_malloc.h"
@@ -83,7 +89,6 @@ int32_t luat_i2s_rx_cb(void *pdata, void *param)
 @return boolean 成功与否
 @return int 底层返回值
 @usage
--- 这个库处于开发阶段, 尚不可用
 -- 以默认参数初始化i2s
 i2s.setup(0)
 -- 以详细参数初始化i2s, 示例为默认值

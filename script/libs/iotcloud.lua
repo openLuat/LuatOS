@@ -14,6 +14,7 @@ local iotcloud = {}
 --云平台
 iotcloud.TENCENT            = "tencent"     -- 腾讯云
 iotcloud.ALIYUN             = "aliyun"      -- 阿里云
+iotcloud.ONENET             = "onenet"      -- 中国移动云
 --认证方式
 local iotcloud_certificate  = "certificate" -- 秘钥认证
 local iotcloud_key          = "key"         -- 证书认证
@@ -281,6 +282,77 @@ local function iotcloud_aliyun_config(iotcloudc,iot_config,connect_config)
     return true
 end
 
+-- 中国移动云自动注册
+local function iotcloud_onenet_autoenrol(iotcloudc,userid,userkey)
+    local version = '2022-05-01'
+    local res = "userid/"..userid
+    local et = '32472115200'
+    local method = 'SHA256'
+    local key = crypto.base64_decode(userkey)
+    local StringForSignature  = et .. '\n' .. method .. '\n' .. res ..'\n' .. version
+    local sign1 = crypto.hmac_sha256(StringForSignature,key)
+    local sign2 = sign1:fromHex()
+    local sign = crypto.base64_encode(sign2)
+    sign = string.urlEncode(sign)
+    res = string.urlEncode(res)
+    local token = string.format('version=%s&res=%s&et=%s&method=%s&sign=%s',version, res, et, method, sign)
+    local code, headers, body = http.request("POST","https://iot-api.heclouds.com/device/create", 
+            {["Content-Type"]="application/json; charset=UTF-8",["authorization"]=token},
+            "{\"product_id\":\""..iotcloudc.produt_id.."\",\"device_name\":\""..iotcloudc.device_name.."\"}"
+    ).wait()
+    if code == 200 then
+        local dat, result, errinfo = json.decode(body)
+        if result then
+            if dat.code==0 then
+                fskv.set("iotcloud_onenet", dat.data.sec_key)
+                return true
+            else
+                log.info("http.post", code, headers, body)
+                return false
+            end
+        end
+    else
+        log.info("http.post", code, headers, body)
+        return false
+    end
+end
+
+-- 中国移动云参数配置逻辑
+local function iotcloud_onenet_config(iotcloudc,iot_config,connect_config)
+    iotcloudc.cloud = iotcloud.ONENET
+    iotcloudc.produt_id = iot_config.produt_id
+    iotcloudc.host  = "mqtts.heclouds.com"
+    iotcloudc.ip    = 1883
+    if iot_config.userid and iot_config.userkey then        -- 动态注册
+        if not fskv.get("iotcloud_onenet") then 
+            if not iotcloud_onenet_autoenrol(iotcloudc,iot_config.userid,iot_config.userkey) then return false end
+        end
+        local data = fskv.get("iotcloud_onenet")
+        print("fskv.get data",data)
+        iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password = iotauth.onenet(iotcloudc.produt_id,iotcloudc.device_name,data)
+    elseif iot_config.product_secret then                   -- 一型一密
+        iotcloudc.product_secret = iot_config.product_secret
+        local version = '2018-10-31'
+        local res = "products/"..iotcloudc.produt_id
+        local et = '32472115200'
+        local method = 'sha256'
+        local key = crypto.base64_decode(iotcloudc.product_secret)
+        local StringForSignature  = et .. '\n' .. method .. '\n' .. res ..'\n' .. version
+        local sign1 = crypto.hmac_sha256(StringForSignature,key)
+        local sign2 = sign1:fromHex()
+        local sign = crypto.base64_encode(sign2)
+        sign = string.urlEncode(sign)
+        res = string.urlEncode(res)
+        local token = string.format('version=%s&res=%s&et=%s&method=%s&sign=%s',version, res, et, method, sign)
+        iotcloudc.client_id = iotcloudc.device_name
+        iotcloudc.user_name = iotcloudc.produt_id
+        iotcloudc.password = token
+    else                                                    -- 一机一密
+        iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password = iotauth.onenet(iotcloudc.produt_id,iotcloudc.device_name,iot_config.key)
+    end
+    return true
+end
+
 --[[
 创建云平台对象
 @api iotcloud.new(cloud,iot_config,connect_config)
@@ -293,6 +365,7 @@ end
 iotcloudc = iotcloud.new(iotcloud.ALIYUN,{produt_id = "xxx",product_secret = "xxx"})
 ]]
 function iotcloud.new(cloud,iot_config,connect_config)
+    if not connect_config then connect_config = {} end
     local iotcloudc = setmetatable({
         cloud = nil,                                        -- 云平台
         host = nil,                                         -- host
@@ -321,6 +394,8 @@ function iotcloud.new(cloud,iot_config,connect_config)
         if not iotcloud_tencent_config(iotcloudc,iot_config,connect_config) then return false end
     elseif cloud == iotcloud.ALIYUN then
         if not iotcloud_aliyun_config(iotcloudc,iot_config,connect_config) then return false end
+    elseif cloud == iotcloud.ONENET then
+        if not iotcloud_onenet_config(iotcloudc,iot_config,connect_config) then return false end
     else
         log.error("iotcloud","cloud not support",cloud)
     end

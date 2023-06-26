@@ -55,8 +55,8 @@ local es8311_reg = {
 -- i2s数据接收buffer
 local rx_buff = zbuff.create(3200)
 
--- amr数据存放buffer，尽可能地给大一些
-local amr_buff = zbuff.create(10240)
+-- amr数据存放buffer，尽可能地给大一些，对于MR475编码等级来说，一秒文件大小为0.6k左右，理论上录音五秒需要的空间为5 * 0.6 = 3k， 这里尽可能给大一点
+local amr_buff = zbuff.create(5 * 1024)
 
 --创建一个amr的encoder
 local encoder = codec.create(codec.AMR, false)
@@ -69,7 +69,7 @@ local recordPath = "/record.amr"
 local function record_cb(id, buff)
     if buff then
         log.info("I2S", id, "接收了", rx_buff:used())
-        codec.encode(encoder, rx_buff, amr_buff)		-- 对录音数据进行amr编码，成功的话这个接口会返回true
+        codec.encode(encoder, rx_buff, amr_buff)		-- 对录音数据进行amr编码，成功的话这个接口会返回true, 默认编码等级为MR475
 		record_cnt = record_cnt + 1
 		if record_cnt >= 25 then	--超过5秒后停止
 			log.info("I2S", "stop") 

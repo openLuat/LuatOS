@@ -391,24 +391,36 @@ int mqtt_publish_with_qos(mqtt_broker_handle_t* broker, const char* topic, const
    	}
 	memcpy(fixed_header+1, buf, rc);
 
+	#define SMALL_PUB (1400)
 
-
-	uint8_t packet[sizeof(fixed_header)+sizeof(var_header)];
+	uint8_t header_size = sizeof(fixed_header)+sizeof(var_header);
+	uint32_t total_size = header_size + msg_len;
+	int ret = 0;
+	uint8_t packet[total_size > SMALL_PUB ? header_size : total_size];
 	memset(packet, 0, sizeof(packet));
 	memcpy(packet, fixed_header, sizeof(fixed_header));
 	memcpy(packet+sizeof(fixed_header), var_header, sizeof(var_header));
 	//memcpy(packet+sizeof(fixed_header)+sizeof(var_header), msg, msglen);
 
 	// Send the packet
-	int ret = broker->send(broker->socket_info, packet, sizeof(packet));
-	//LLOGD("publish packet header %d ret %d", sizeof(packet), ret);
-	if(ret < 0 || ret < sizeof(packet)) {
-		return -1;
+	if (total_size <= SMALL_PUB) { // 针对小包的情况进行优化, 减少TCP交互
+		memcpy(packet + header_size, msg, msg_len);
+		ret = broker->send(broker->socket_info, packet, total_size);
+		if(ret < 0 || ret < total_size) {
+			return -1;
+		}
 	}
-	ret = broker->send(broker->socket_info, msg, msg_len);
-	//LLOGD("publish packet body %d ret %d", msg_len, ret);
-	if(ret < 0 || ret < msg_len) {
-		return -1;
+	else {
+		ret = broker->send(broker->socket_info, packet, sizeof(packet));
+		//LLOGD("publish packet header %d ret %d", sizeof(packet), ret);
+		if(ret < 0 || ret < sizeof(packet)) {
+			return -1;
+		}
+		ret = broker->send(broker->socket_info, msg, msg_len);
+		//LLOGD("publish packet body %d ret %d", msg_len, ret);
+		if(ret < 0 || ret < msg_len) {
+			return -1;
+		}
 	}
 
 	return 1;

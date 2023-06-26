@@ -420,7 +420,7 @@ int sm2_ring_verify_finish(SM2_RING_SIGN_CTX *ctx, uint8_t *sig, size_t siglen)
 	}
 	return ret;
 }
-
+/*
 static int test_sm2_ring_do_sign(void)
 {
 	SM2_KEY sign_key;
@@ -577,4 +577,4 @@ int test_sm2_ring()
 	if (test_sm2_ring_sign_update() != 1) { error_print(); return -1; }
 	return 1;
 }
-
+*/

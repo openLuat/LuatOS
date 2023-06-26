@@ -44,7 +44,7 @@ end
 -- 测试网站 https://netlab.luatos.com/ 点击 打开TCP 获取测试端口号
 -- 要按实际情况修改
 local host = "112.125.89.8" -- 服务器ip或者域名, 都可以的
-local port = 35721          -- 服务器端口号
+local port = 43255          -- 服务器端口号
 local is_udp = false        -- 如果是UDP, 要改成true, false就是TCP
 local is_tls = false        -- 加密与否, 要看服务器的实际情况
 --=============================================================
@@ -97,13 +97,17 @@ local function sockettest()
     -- 等待联网
     sys.waitUntil("net_ready")
 
+    socket.sntp()
+
     -- 开始正在的逻辑, 发起socket链接,等待数据/上报心跳
     local taskName = "sc"
     local topic = taskName .. "_txrx"
+    log.info("topic", topic)
     local txqueue = {}
     sysplus.taskInitEx(sockettask, taskName, netCB, taskName, txqueue, topic)
     while 1 do
         local result, tp, data = sys.waitUntil(topic, 30000)
+        log.info("event", result, tp, data)
         if not result then
             -- 等很久了,没数据上传/下发, 发个日期心跳包吧
             table.insert(txqueue, string.char(0))
@@ -135,6 +139,7 @@ function sockettask(d1Name, txqueue, rxtopic)
     while true do
         -- 连接服务器, 15秒超时
         log.info("socket", "开始连接服务器")
+        sysplus.cleanMsg(d1Name)
         local result = libnet.connect(d1Name, 15000, netc, host, port)
         if result then
 			log.info("socket", "服务器连上了")
@@ -190,6 +195,29 @@ function sockettask(d1Name, txqueue, rxtopic)
 end
 
 sys.taskInit(sockettest)
+
+-- 演示定时上报数据, 不需要就注释掉
+sys.taskInit(function()
+    sys.wait(5000)
+    while 1 do
+        sys.publish("sc_txrx", "uplink", os.date())
+        sys.wait(3000)
+    end
+end)
+
+-- 演示uart数据上报, 不需要就注释掉
+if rtos.bsp() == "EC618" then
+    uart.setup(1, 115200) -- 注意, 是UART1, 不是虚拟串口, 演示目的
+    uart.on(1, "recvice", function(id, len)
+        while 1 do
+            local s = uart.read(1, 1024)
+            if #s == 0 then
+                break
+            end
+            sys.publish("sc_txrx", "uplink", s)
+        end
+    end)
+end
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

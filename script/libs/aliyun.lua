@@ -73,20 +73,22 @@ end
 
 --二次连接
 -- local function clientDataTask(ClientId,user,PassWord,mqtt_host,mqtt_port,mqtt_isssl,DeviceName,ProductKey)
-local function clientDataTask(DeviceName,ProductKey,mqtt_host,mqtt_port,mqtt_isssl)
-    Key = ProductKey
-    Dname = DeviceName
+local function clientDataTask(DeviceName,ProductKey,mqtt_host,mqtt_port,mqtt_isssl,passtoken,Registration)
+        log.info("二次连接",DeviceName,ProductKey,mqtt_host,mqtt_port,mqtt_isssl,passtoken,Registration)
     sys.taskInit(function()
         if mobile.status() == 0 then
             sys.waitUntil("IP_READY",30000)
         end
         if mobile.status() == 1 then
-            local client_id,user_name,password = iotauth.aliyun(ProductKey,DeviceName,SetDeviceSecretFnc)
-            mqttc = mqtt.create(nil,mqtt_host, mqtt_port,mqtt_isssl)  --mqtt客户端创建
-            mqttc:auth(client_id,user_name,password) --mqtt三元组配置
+            if not Registration then
+                local client_id,user_name,password = iotauth.aliyun(ProductKey,DeviceName,SetDeviceSecretFnc)
+                mqttc = mqtt.create(nil,mqtt_host, mqtt_port,mqtt_isssl)  --mqtt客户端创建
+                mqttc:auth(client_id,user_name,password) --mqtt三元组配置
+            else
+                mqttc = mqtt.create(nil,mqtt_host, mqtt_port,mqtt_isssl)  --mqtt客户端创建
+                mqttc:auth(DeviceName,ProductKey,passtoken) --mqtt三元组配置
+            end
 
-            -- local mqttc = mqtt.create(nil,mqtt_host,mqtt_port,mqtt_isssl)  --客户端创建
-            -- mqttc:auth(ClientId,user,PassWord) --三元组配置
             mqttc:keepalive(30) -- 默认值240s
             mqttc:autoreconn(true, 3000) -- 自动重连机制
             mqttc:connect()
@@ -131,11 +133,12 @@ local function directProc(DeviceName,ProductKey,mqtt_host,mqtt_port,mqtt_isssl,R
         
         clientDataTask(ClientId,UserName,PassWord,mqtt_host,mqtt_port,mqtt_isssl,DeviceName,ProductKey)
     else
+        log.info("免预注册")
         local ClientId = SetClientidFnc.."|securemode=-2,authType=connwl|"
         local UserName = DeviceName.."&"..ProductKey
         local PassWord = SetDeviceTokenFnc
         
-        clientDataTask(ClientId,UserName,PassWord,mqtt_host,mqtt_port,mqtt_isssl,DeviceName,ProductKey)
+        clientDataTask(ClientId,UserName,mqtt_host,mqtt_port,mqtt_isssl,PassWord,Registration)
     end
 end
 

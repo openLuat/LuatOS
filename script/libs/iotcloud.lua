@@ -41,6 +41,7 @@ local function iotcloud_connect(iotcloudc)
         
         iotcloudc:subscribe("/ota/device/upgrade/"..iotcloudc.produt_id.."/"..iotcloudc.device_name)    -- 订阅ota主题
         iotcloudc:publish("/ota/device/inform/"..iotcloudc.produt_id.."/"..iotcloudc.device_name,"{\"id\":1,\"params\":{\"version\":\"".._G.VERSION.."\"}}")   -- 上报ota版本信息
+    elseif iotcloudc.cloud == iotcloud.ONENET then  -- 中国移动云
     end
 end
 
@@ -283,12 +284,12 @@ local function iotcloud_aliyun_config(iotcloudc,iot_config,connect_config)
 end
 
 -- 中国移动云自动注册
-local function iotcloud_onenet_autoenrol(iotcloudc,userid,userkey)
+local function iotcloud_onenet_autoenrol(iotcloudc)
     local version = '2022-05-01'
-    local res = "userid/"..userid
+    local res = "userid/"..iotcloudc.userid
     local et = '32472115200'
     local method = 'SHA256'
-    local key = crypto.base64_decode(userkey)
+    local key = crypto.base64_decode(iotcloudc.userkey)
     local StringForSignature  = et .. '\n' .. method .. '\n' .. res ..'\n' .. version
     local sign1 = crypto.hmac_sha256(StringForSignature,key)
     local sign2 = sign1:fromHex()
@@ -323,14 +324,7 @@ local function iotcloud_onenet_config(iotcloudc,iot_config,connect_config)
     iotcloudc.produt_id = iot_config.produt_id
     iotcloudc.host  = "mqtts.heclouds.com"
     iotcloudc.ip    = 1883
-    if iot_config.userid and iot_config.userkey then        -- 动态注册
-        if not fskv.get("iotcloud_onenet") then 
-            if not iotcloud_onenet_autoenrol(iotcloudc,iot_config.userid,iot_config.userkey) then return false end
-        end
-        local data = fskv.get("iotcloud_onenet")
-        print("fskv.get data",data)
-        iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password = iotauth.onenet(iotcloudc.produt_id,iotcloudc.device_name,data)
-    elseif iot_config.product_secret then                   -- 一型一密
+    if iot_config.product_secret then                       -- 一型一密
         iotcloudc.product_secret = iot_config.product_secret
         local version = '2018-10-31'
         local res = "products/"..iotcloudc.produt_id
@@ -347,8 +341,17 @@ local function iotcloud_onenet_config(iotcloudc,iot_config,connect_config)
         iotcloudc.client_id = iotcloudc.device_name
         iotcloudc.user_name = iotcloudc.produt_id
         iotcloudc.password = token
-    else                                                    -- 一机一密
+    elseif iot_config.key then                              -- 一机一密
         iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password = iotauth.onenet(iotcloudc.produt_id,iotcloudc.device_name,iot_config.key)
+    elseif iot_config.userid and iot_config.userkey then    -- 动态注册
+        iotcloudc.userid = iot_config.userid
+        iotcloudc.userkey = iot_config.userkey
+        if not fskv.get("iotcloud_onenet") then 
+            if not iotcloud_onenet_autoenrol(iotcloudc) then return false end
+        end
+        local data = fskv.get("iotcloud_onenet")
+        print("fskv.get data",data)
+        iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password = iotauth.onenet(iotcloudc.produt_id,iotcloudc.device_name,data)
     end
     return true
 end
@@ -381,6 +384,8 @@ function iotcloud.new(cloud,iot_config,connect_config)
         isssl = nil,                                        -- 是否加密
         ca_file = nil,                                      -- 证书 
         ota_version = nil,                                  -- ota时目标版本
+        userid = nil,                                       -- onenet专用
+        userkey = nil,                                      -- onenet专用
     }, cloudc)
     if fskv then fskv.init() else return false end
     if iot_config.device_name then                          -- 设定了就使用指定的device_name

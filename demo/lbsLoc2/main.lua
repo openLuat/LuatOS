@@ -18,7 +18,7 @@ sys.taskInit(function()
     sys.waitUntil("IP_READY", 30000)
     mobile.reqCellInfo(60)
     sys.wait(1000)
-    while module do -- 没有mobile库就没有基站定位
+    while mobile do -- 没有mobile库就没有基站定位
         local lat, lng, t = lbsLoc2.request(5000)
         -- local lat, lng, t = lbsLoc2.request(5000, "bs.openluat.com")
         log.info("lbsLoc2", lat, lng, (json.encode(t or {})))

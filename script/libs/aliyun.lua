@@ -74,7 +74,7 @@ end
 --二次连接
 -- local function clientDataTask(ClientId,user,PassWord,mqtt_host,mqtt_port,mqtt_isssl,DeviceName,ProductKey)
 local function clientDataTask(DeviceName,ProductKey,mqtt_host,mqtt_port,mqtt_isssl,passtoken,Registration)
-        log.info("二次连接",DeviceName,ProductKey,mqtt_host,mqtt_port,mqtt_isssl,passtoken,Registration)
+
     sys.taskInit(function()
         if mobile.status() == 0 then
             sys.waitUntil("IP_READY",30000)
@@ -133,7 +133,6 @@ local function directProc(DeviceName,ProductKey,mqtt_host,mqtt_port,mqtt_isssl,R
         
         clientDataTask(ClientId,UserName,PassWord,mqtt_host,mqtt_port,mqtt_isssl,DeviceName,ProductKey)
     else
-        log.info("免预注册")
         local ClientId = SetClientidFnc.."|securemode=-2,authType=connwl|"
         local UserName = DeviceName.."&"..ProductKey
         local PassWord = SetDeviceTokenFnc
@@ -356,10 +355,32 @@ function aliyun.on(evt,cbFnc)
 end
 
 
+--[[
+@api aliyun.getDeviceSecret()
+@function 预注册一型一密阿里云返回的DeviceSecret
+可以在应用层使用kv区来保存该参数并使用判断来避免重启后无法连接
+]]
+function aliyun.getDeviceSecret()
+    return SetDeviceSecretFnc
+end
 
+--[[
+@api aliyun.getDeviceToken()
+@function 免预注册一型一密阿里云返回的DeviceToken
+可以在应用层使用kv区来保存该参数并使用判断来避免重启后无法连接
+]]
+function aliyun.getDeviceToken()
+    return SetDeviceTokenFnc
+end
 
-
-
+--[[
+@api aliyun.getClientid()
+@function 免预注册一型一密阿里云返回的Clientid
+可以在应用层使用kv区来保存该参数并使用判断来避免重启后无法连接
+]]
+function aliyun.getClientid()
+    return SetClientidFnc
+end
 
 
 

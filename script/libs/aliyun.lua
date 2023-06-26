@@ -73,20 +73,22 @@ end
 
 --二次连接
 -- local function clientDataTask(ClientId,user,PassWord,mqtt_host,mqtt_port,mqtt_isssl,DeviceName,ProductKey)
-local function clientDataTask(DeviceName,ProductKey,mqtt_host,mqtt_port,mqtt_isssl)
-    Key = ProductKey
-    Dname = DeviceName
+local function clientDataTask(DeviceName,ProductKey,mqtt_host,mqtt_port,mqtt_isssl,passtoken,Registration)
+
     sys.taskInit(function()
         if mobile.status() == 0 then
             sys.waitUntil("IP_READY",30000)
         end
         if mobile.status() == 1 then
-            local client_id,user_name,password = iotauth.aliyun(ProductKey,DeviceName,SetDeviceSecretFnc)
-            mqttc = mqtt.create(nil,mqtt_host, mqtt_port,mqtt_isssl)  --mqtt客户端创建
-            mqttc:auth(client_id,user_name,password) --mqtt三元组配置
+            if not Registration then
+                local client_id,user_name,password = iotauth.aliyun(ProductKey,DeviceName,SetDeviceSecretFnc)
+                mqttc = mqtt.create(nil,mqtt_host, mqtt_port,mqtt_isssl)  --mqtt客户端创建
+                mqttc:auth(client_id,user_name,password) --mqtt三元组配置
+            else
+                mqttc = mqtt.create(nil,mqtt_host, mqtt_port,mqtt_isssl)  --mqtt客户端创建
+                mqttc:auth(DeviceName,ProductKey,passtoken) --mqtt三元组配置
+            end
 
-            -- local mqttc = mqtt.create(nil,mqtt_host,mqtt_port,mqtt_isssl)  --客户端创建
-            -- mqttc:auth(ClientId,user,PassWord) --三元组配置
             mqttc:keepalive(30) -- 默认值240s
             mqttc:autoreconn(true, 3000) -- 自动重连机制
             mqttc:connect()
@@ -135,7 +137,7 @@ local function directProc(DeviceName,ProductKey,mqtt_host,mqtt_port,mqtt_isssl,R
         local UserName = DeviceName.."&"..ProductKey
         local PassWord = SetDeviceTokenFnc
         
-        clientDataTask(ClientId,UserName,PassWord,mqtt_host,mqtt_port,mqtt_isssl,DeviceName,ProductKey)
+        clientDataTask(ClientId,UserName,mqtt_host,mqtt_port,mqtt_isssl,PassWord,Registration)
     end
 end
 
@@ -353,10 +355,32 @@ function aliyun.on(evt,cbFnc)
 end
 
 
+--[[
+@api aliyun.getDeviceSecret()
+@function 预注册一型一密阿里云返回的DeviceSecret
+可以在应用层使用kv区来保存该参数并使用判断来避免重启后无法连接
+]]
+function aliyun.getDeviceSecret()
+    return SetDeviceSecretFnc
+end
 
+--[[
+@api aliyun.getDeviceToken()
+@function 免预注册一型一密阿里云返回的DeviceToken
+可以在应用层使用kv区来保存该参数并使用判断来避免重启后无法连接
+]]
+function aliyun.getDeviceToken()
+    return SetDeviceTokenFnc
+end
 
-
-
+--[[
+@api aliyun.getClientid()
+@function 免预注册一型一密阿里云返回的Clientid
+可以在应用层使用kv区来保存该参数并使用判断来避免重启后无法连接
+]]
+function aliyun.getClientid()
+    return SetClientidFnc
+end
 
 
 

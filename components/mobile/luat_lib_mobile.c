@@ -765,20 +765,37 @@ static int l_mobile_config(lua_State* L) {
     return 1;
 }
 
+#include "luat_uart.h"
+#include "luat_zbuff.h"
 /**
-RF测试开关和配置，开启测试时自动进入飞行模式，关闭自动退出飞行模式
-@api mobile.rfTest(onoff, uart_id, br)
+RF测试开关和配置
+@api mobile.rfTest(onoff, uart_id)
 @boolean true开启测试模式，false关闭
 @int 串口号
-@int 波特率，如果是USB虚拟串口，随意填写
 @return nil 无返回值
 @usage
-mobile.rfTest(true, uart.VUART_0, 0)	--打开测试模式，并且用虚拟串口收发命令
+mobile.rfTest(true, uart.VUART_0)	--打开测试模式，并且用虚拟串口发送结果
 mobile.rfTest(false) --关闭测试模式
  */
-#include "luat_uart.h"
-static int l_mobile_rf_test(lua_State* L) {
-    luat_mobile_rf_test_mode(luaL_optinteger(L, 2, LUAT_VUART_ID_0), luaL_optinteger(L, 3, 115200), lua_toboolean(L, 1));
+static int l_mobile_nst_test_onoff(lua_State* L) {
+    luat_mobile_rf_test_mode(luaL_optinteger(L, 2, LUAT_VUART_ID_0), lua_toboolean(L, 1));
+    return 0;
+}
+
+static int l_mobile_nst_data_input(lua_State* L) {
+    size_t len = 0;
+    const char *buf = NULL;
+    if(lua_isuserdata(L, 1))
+    {
+        luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 1, LUAT_ZBUFF_TYPE));
+        len = buff->used;
+        buf = buff->addr;
+    }
+    else if (lua_isstring(L, 1))
+    {
+        buf = lua_tolstring(L, 1, &len);//取出字符串数据
+    }
+	luat_mobile_rf_test_input(buf, len);
     return 0;
 }
 
@@ -810,7 +827,8 @@ static const rotable_Reg_t reg_mobile[] = {
 	{"reset",           ROREG_FUNC(l_mobile_reset)},
 	{"dataTraffic",     ROREG_FUNC(l_mobile_data_traffic)},
 	{"config",          ROREG_FUNC(l_mobile_config)},
-	{"rfTest",          ROREG_FUNC(l_mobile_rf_test)},
+	{"nstOnOff",          ROREG_FUNC(l_mobile_nst_test_onoff)},
+	{"nstInput",          ROREG_FUNC(l_mobile_nst_data_input)},
 	//@const UNREGISTER number 未注册
     {"UNREGISTER",                  ROREG_INT(LUAT_MOBILE_STATUS_UNREGISTER)},
     //@const REGISTERED number 已注册

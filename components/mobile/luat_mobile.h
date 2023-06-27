@@ -687,13 +687,19 @@ int luat_mobile_set_band(uint8_t *band,  uint8_t total_num);
 int luat_mobile_config(uint8_t item, uint32_t value);
 
 /**
- * @brief RF测试模式，进入测试模式自动进入飞行模式，请不要在测试过程中退出飞行模式
- * @param uart_id 测试命令输入的串口ID
- * @param br 串口波特率，如果是USB虚拟串口，则随意填写
+ * @brief RF测试模式
+ * @param uart_id 测试结果输出的串口ID
  * @param on_off 进出测试模式，0退出 其他进入
  * @return 无
  */
-void luat_mobile_rf_test_mode(uint8_t uart_id, uint32_t br, uint8_t on_off);
+void luat_mobile_rf_test_mode(uint8_t uart_id, uint8_t on_off);
+/**
+ * @brief RF测试的指令或者数据输入
+ * @param data 数据，可以为空，只有为空的时候才会真正开始处理指令
+ * @param data_len 数据长度，可以为0，只有为0的时候才会真正开始处理指令
+ * @return 无
+ */
+void luat_mobile_rf_test_input(char *data, uint32_t data_len);
 /** @}*/
 enum
 {

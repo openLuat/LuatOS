@@ -10,7 +10,32 @@ PRODUCT_KEY = "1111"
 
 _G.sys = require("sys")
 
-mobile.rfTest(true,uart.VUART_0,0)
+local uartid = uart.VUART_0 -- USB虚拟串口的固定id
+
+--初始化
+local result = uart.setup(
+    uartid,--串口id
+    115200,--波特率,其实无所谓, 纯虚拟串口
+    8,--数据位
+    1--停止位
+)
+
+
+-- 收取数据会触发回调, 这里的"receive" 是固定值
+uart.on(uartid, "receive", function(id, len)
+    local s = ""
+    repeat
+        s = uart.read(id, len)
+        if s and #s > 0 then -- #s 是取字符串的长度
+           log.info("uart", "receive", id, #s, s:toHex())
+		   mobile.nstInput(s)
+        end
+    until s == ""
+	mobile.nstInput(nil)
+end)
+
+
+mobile.nstOnOff(true,uart.VUART_0)
 -- 结尾总是这一句
 
 sys.run()

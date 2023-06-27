@@ -18,7 +18,7 @@ function ota_task()
         local dst_path = "/update.bin"
         os.remove(dst_path)
         local url = "http://site0.cn/api/esp32/ota?mac=" .. wlan.getMac()
-        local code = http.request("GET", url, nil, nil, {dst=dst_path})
+        local code = http.request("GET", url, nil, nil, {dst=dst_path}).wait()
         if code and code == 200 then
             log.info("ota", "OTA 下载完成, 3秒后重启")
             sys.wait(3000)

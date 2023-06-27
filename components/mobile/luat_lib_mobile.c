@@ -769,19 +769,27 @@ static int l_mobile_config(lua_State* L) {
 #include "luat_zbuff.h"
 /**
 RF测试开关和配置
-@api mobile.rfTest(onoff, uart_id)
+@api mobile.nstOnOff(onoff, uart_id)
 @boolean true开启测试模式，false关闭
 @int 串口号
 @return nil 无返回值
 @usage
-mobile.rfTest(true, uart.VUART_0)	--打开测试模式，并且用虚拟串口发送结果
-mobile.rfTest(false) --关闭测试模式
+mobile.nstOnOff(true, uart.VUART_0)	--打开测试模式，并且用虚拟串口发送结果
+mobile.nstOnOff(false) --关闭测试模式
  */
 static int l_mobile_nst_test_onoff(lua_State* L) {
     luat_mobile_rf_test_mode(luaL_optinteger(L, 2, LUAT_VUART_ID_0), lua_toboolean(L, 1));
     return 0;
 }
-
+/**
+RF测试数据输入
+@api mobile.nstInput(data)
+@string or zbuff 用户从串口获取的数据，注意，当获取完所有数据后，需要再传一个nil来作为传输结束
+@return nil 无返回值
+@usage
+mobile.nstInput(uart_data)
+mobile.nstInput(nil)
+ */
 static int l_mobile_nst_data_input(lua_State* L) {
     size_t len = 0;
     const char *buf = NULL;

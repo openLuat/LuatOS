@@ -83,6 +83,7 @@ int32_t luat_i2s_rx_cb(void *pdata, void *param)
 @int i2s通道号,与具体设备有关
 @int 模式, 当前仅支持0, MASTER|TX|RX 模式, 暂不支持slave. 可选
 @int 采样率,默认44100. 可选
+@int 数据位数,默认16, 可以是8的倍数
 @int 声道, 0 左声道, 1 右声道, 2 双声道. 可选
 @int 格式, 可选MODE_I2S, MODE_LSB, MODE_MSB
 @int mclk频率, 默认 8M. 可选

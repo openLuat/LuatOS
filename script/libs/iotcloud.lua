@@ -12,25 +12,25 @@
 
 local iotcloud = {}
 --云平台
---//@const iotcloud.TENCENT string 腾讯云
+--//@const TENCENT string 腾讯云
 iotcloud.TENCENT            = "tencent"     -- 腾讯云
---//@const iotcloud.ALIYUN string 阿里云
+--//@const ALIYUN string 阿里云
 iotcloud.ALIYUN             = "aliyun"      -- 阿里云
---//@const iotcloud.ONENET string 中国移动云
+--//@const ONENET string 中国移动云
 iotcloud.ONENET             = "onenet"      -- 中国移动云
 --认证方式
 local iotcloud_certificate  = "certificate" -- 秘钥认证
 local iotcloud_key          = "key"         -- 证书认证
 -- event
---//@const iotcloud.CONNECT string 连接上服务器
+--//@const CONNECT string 连接上服务器
 iotcloud.CONNECT            = "connect"     -- 连接上服务器
---//@const iotcloud.SEND string 发送消息
+--//@const SEND string 发送消息
 iotcloud.SEND               = "SEND"        -- 发送消息
---//@const iotcloud.RECEIVE string 接收到消息
+--//@const RECEIVE string 接收到消息
 iotcloud.RECEIVE            = "receive"     -- 接收到消息
---//@const iotcloud.DISCONNECT string 服务器连接断开
+--//@const DISCONNECT string 服务器连接断开
 iotcloud.DISCONNECT         = "disconnect"  -- 服务器连接断开
---//@const iotcloud.OTA string ota消息
+--//@const OTA string ota消息
 iotcloud.OTA                = "ota"         -- ota消息
 
 

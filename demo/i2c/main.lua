@@ -13,7 +13,7 @@ local addr = 0x50
 local i2cid = 0
 
 sys.taskInit(function()
-    log.info("i2c initial",i2c.setup(0))
+    log.info("i2c initial",i2c.setup(i2cid))
     while true do
         --第一种方式
         i2c.send(i2cid, addr, string.char(0x01).."1234abcd")

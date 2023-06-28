@@ -85,7 +85,7 @@ lcd.init("st7735",{port = "device",pin_dc = pin_dc, pin_pwr = bl, pin_rst = pin_
 --如果显示颜色相反，请解开下面一行的注释，关闭反色
 --lcd.invoff()
 --如果显示依旧不正常，可以尝试老版本的板子的驱动
---lcd.init("st7735s",{port = "device",pin_dc = pin_dc, pin_pwr = bl, pin_rst = pin_reset,direction = 2,w = 160,h = 80,xoffset = 0,yoffset = 0},spi_lcd)
+-- lcd.init("st7735s",{port = "device",pin_dc = pin_dc, pin_pwr = bl, pin_rst = pin_reset,direction = 2,w = 160,h = 80,xoffset = 0,yoffset = 0},spi_lcd)
 
 --[[ 此为合宙售卖的2.4寸TFT LCD 分辨率:240X320 屏幕ic:GC9306 购买地址:https://item.taobao.com/item.htm?spm=a1z10.5-c.w4002-24045920841.39.6c2275a1Pa8F9o&id=655959696358]]
 -- lcd.init("gc9306",{port = "device",pin_dc = pin_dc , pin_pwr = bl,pin_rst = pin_reset,direction = 0,w = 240,h = 320,xoffset = 0,yoffset = 0},spi_lcd)
@@ -93,6 +93,11 @@ lcd.init("st7735",{port = "device",pin_dc = pin_dc, pin_pwr = bl, pin_rst = pin_
 -- 不在上述内置驱动的, 看demo/lcd_custom
 
 sys.taskInit(function()
+    -- 开启缓冲区, 刷屏速度回加快, 但也消耗2倍屏幕分辨率的内存
+    -- lcd.setupBuff()          -- 使用lua内存
+    -- lcd.setupBuff(nil, true) -- 使用sys内存, 只需要选一种
+    -- lcd.autoFlush(false)
+
     while 1 do 
         lcd.clear()
         log.info("wiki", "https://wiki.luatos.com/api/lcd.html")

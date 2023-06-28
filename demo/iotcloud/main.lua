@@ -62,6 +62,8 @@ sys.taskInit(function()
     -- 等待联网
     local ret, device_id = sys.waitUntil("net_ready")
 
+    --------    以下接入方式根据自己需要修改,相关参数修改为自己的    ---------
+
     -- 腾讯云 
     -- 动态注册
     -- iotcloudc = iotcloud.new(iotcloud.TENCENT,{produt_id = "xxx" ,product_secret = "xxx"})
@@ -74,14 +76,14 @@ sys.taskInit(function()
 
     -- 阿里云  
     -- 动态注册(免预注册)
-    iotcloudc = iotcloud.new(iotcloud.ALIYUN,{produt_id = "xxx",product_secret = "xxx"})
+    -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{produt_id = "xxx",product_secret = "xxx"})
     -- 密钥校验 (预注册)
     -- iotcloudc = iotcloud.new(iotcloud.ALIYUN,{produt_id = "xxx",device_name = "xxx",key = "xxx"})
 
 
     -- onenet
     -- 动态注册
-    iotcloudc = iotcloud.new(iotcloud.ONENET,{produt_id = "xxx",userid = "xxx",userkey = "xxx"})
+    -- iotcloudc = iotcloud.new(iotcloud.ONENET,{produt_id = "xxx",userid = "xxx",userkey = "xxx"})
     -- 一型一密
     -- iotcloudc = iotcloud.new(iotcloud.ONENET,{produt_id = "xxx",product_secret = "xxx"})
     -- 一机一密

@@ -364,11 +364,12 @@ local function iotcloud_onenet_config(iotcloudc,iot_config,connect_config)
     return true
 end
 
+
 --[[
 创建云平台对象
 @api iotcloud.new(cloud,iot_config,connect_config)
 @string 云平台 iotcloud.TENCENT:腾讯云 iotcloud.ALIYUN:阿里云
-@table iot云平台配置, device_name:可选，默认为imei否则为unique_id iot_config.produt_id:产品id(阿里云则为产品key) iot_config.product_secret:产品密钥,有此项则为动态注册 iot_config.key:设备秘钥,有此项则为秘钥连接 
+@table iot云平台配置, device_name:可选，默认为imei否则为unique_id iot_config.produt_id:产品id(阿里云则为产品key) iot_config.product_secret:产品密钥,有此项则为动态注册 iot_config.key:设备秘钥,有此项则为秘钥连接  userid:用户ID,onenet专用,动态注册使用  userkey:用户Accesskey,onenet专用,动态注册使用
 @table mqtt配置, host:可选,默认为平台默认host ip:可选,默认为平台默认ip tls:加密,若有此项一般为产品认证 keepalive:心跳时间,单位s 可选,默认240
 @return table 云平台对象
 @usage

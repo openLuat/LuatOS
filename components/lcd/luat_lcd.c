@@ -221,8 +221,8 @@ int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, 
         return 0;
     }
     // buff模式
-    if (x1 > conf->w || y1 > conf->h) {
-        LLOGE("out of lcd range");
+    if (x1 >= conf->w || y1 >= conf->h) {
+        // LLOGE("out of lcd buff range");
         return -1;
     }
     uint16_t x_end = x2 > conf->w?conf->w:x2;

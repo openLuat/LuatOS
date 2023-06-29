@@ -794,14 +794,9 @@ static int network_state_shakehand(network_ctrl_t *ctrl, OS_EVENT *event, networ
 		break;
 	case EV_NW_SOCKET_TX_OK:
 		ctrl->ack_size += event->Param2;
-		if (ctrl->is_debug)
-		{
-			DBG("%llu,%llu",ctrl->tx_size, ctrl->ack_size);
-		}
 		break;
 #ifdef LUAT_USE_TLS
 	case EV_NW_SOCKET_RX_NEW:
-
     	do
     	{
     		int result = mbedtls_ssl_handshake_step( ctrl->ssl );
@@ -813,6 +808,7 @@ static int network_state_shakehand(network_ctrl_t *ctrl, OS_EVENT *event, networ
     			break;
     		default:
 				#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+    			DBG_ERR("0x%x", -result);
 				#else
     			DBG_ERR("0x%x, %d", -result, ctrl->ssl->state);
 				#endif
@@ -904,6 +900,39 @@ static int network_state_on_line(network_ctrl_t *ctrl, OS_EVENT *event, network_
 		}
 		break;
 	case EV_NW_SOCKET_RX_NEW:
+#ifdef LUAT_USE_TLS
+#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+		if (ctrl->tls_mode && !mbedtls_ssl_is_handshake_over(ctrl->ssl))
+#else
+		if (ctrl->tls_mode && (ctrl->ssl->state != MBEDTLS_SSL_HANDSHAKE_OVER))
+#endif
+		{
+			DBG("rehandshaking");
+	    	do
+	    	{
+	    		int result = mbedtls_ssl_handshake_step( ctrl->ssl );
+	    		switch(result)
+	    		{
+	    		case MBEDTLS_ERR_SSL_WANT_READ:
+	    			return 1;
+	    		case 0:
+	    			break;
+	    		default:
+#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+	    			DBG_ERR("0x%x", -result);
+#else
+	    			DBG_ERR("0x%x, %d", -result, ctrl->ssl->state);
+#endif
+	    			ctrl->need_close = 1;
+	    			return -1;
+	    		}
+#if MBEDTLS_VERSION_NUMBER >= 0x03000000
+			}while(!mbedtls_ssl_is_handshake_over(ctrl->ssl));
+#else
+			}while(ctrl->ssl->state != MBEDTLS_SSL_HANDSHAKE_OVER);
+#endif
+		}
+#endif
 		ctrl->new_rx_flag = 1;
 		if (NW_WAIT_TX_OK != ctrl->wait_target_state)
 		{
@@ -1875,6 +1904,8 @@ int network_init_tls(network_ctrl_t *ctrl, int verify_mode)
 		mbedtls_ssl_conf_ca_chain(ctrl->config, ctrl->ca_cert, NULL);
 		// ctrl->config->read_timeout = 20000;
 		mbedtls_ssl_conf_read_timeout(ctrl->config, 20000);
+		mbedtls_ssl_conf_renegotiation(ctrl->config, MBEDTLS_SSL_RENEGOTIATION_ENABLED);
+		mbedtls_ssl_conf_legacy_renegotiation(ctrl->config, MBEDTLS_SSL_LEGACY_ALLOW_RENEGOTIATION);
 	    ctrl->tls_long_timer = platform_create_timer(tls_longtimeout, ctrl, NULL);
 	    ctrl->tls_short_timer = platform_create_timer(tls_shorttimeout, ctrl, NULL);
 	}

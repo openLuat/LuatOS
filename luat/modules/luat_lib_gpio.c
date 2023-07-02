@@ -202,23 +202,10 @@ static int l_gpio_setup(lua_State *L) {
     }
     conf.pull = luaL_optinteger(L, 3, default_gpio_pull);
     conf.irq_cb = 0;
-#ifdef CHIP_EC618
-    int re;
     if (lua_isinteger(L, 5)) {
-    	cfg.alt_fun = luaL_optinteger(L, 5, 0);
-    	cfg.pin = conf.pin;
-    	cfg.pull = conf.pull;
-    	cfg.mode = conf.mode;
-    	cfg.irq_type = conf.irq;
-    	cfg.output_level = conf.irq;
-    	re = luat_gpio_open(&cfg);
+        conf.alt_func = luaL_checkinteger(L, 5);
     }
-    else {
-    	re = luat_gpio_setup(&conf);
-    }
-#else
     int re = luat_gpio_setup(&conf);
-#endif
     if (re != 0) {
         LLOGW("gpio setup fail pin=%d", conf.pin);
         return 0;

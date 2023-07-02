@@ -32,13 +32,14 @@ typedef int (*luat_gpio_irq_cb)(int pin, void* args);
 
 typedef struct luat_gpio
 {
-    int pin;
-    int mode;
-    int pull;
-    int irq;
+    int pin;/**<引脚*/
+    int mode;/**<GPIO模式*/
+    int pull;/**<GPIO上下拉模式*/
+    int irq;/**<GPIO中断模式*/
     int lua_ref;
-    luat_gpio_irq_cb irq_cb;
+    luat_gpio_irq_cb irq_cb;/**<中断处理函数*/
     void* irq_args;
+    int alt_func;
 } luat_gpio_t;
 
 int luat_gpio_setup(luat_gpio_t* gpio);

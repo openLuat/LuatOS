@@ -164,6 +164,7 @@ int l_gpio_handler(lua_State *L, void* ptr) {
 @any mode 输入输出模式：<br>数字0/1代表输出模式<br>nil代表输入模式<br>function代表中断模式
 @int pull 上拉下列模式, 可以是gpio.PULLUP 或 gpio.PULLDOWN, 需要根据实际硬件选用
 @int irq 中断触发模式,默认gpio.BOTH。中断触发模式<br>上升沿gpio.RISING<br>下降沿gpio.FALLING<br>上升和下降都触发gpio.BOTH 
+@int alt 复用选项，目前只有EC618平台需要这个参数，有些GPIO可以复用到不同引脚上，可以选择复用选项（0或者4）从而复用到对应的引脚上
 @return any 输出模式返回设置电平的闭包, 输入模式和中断模式返回获取电平的闭包
 @usage
 -- 设置gpio17为输入
@@ -174,9 +175,14 @@ gpio.setup(17, 0)
 gpio.setup(17, 1, gpio.PULLUP)
 -- 设置gpio27为中断
 gpio.setup(27, function(val) print("IRQ_27",val) end, gpio.PULLUP)
+-- 设置gpio27为中断
+gpio.setup(27, function(val) print("IRQ_27",val) end, gpio.PULLUP)
+-- 设置AIR780E的PIN33复用成gpio18，方向输出,且初始化电平为低,使用硬件默认上下拉配置
+gpio.setup(18, 0, nil, nil, 4)
 */
 static int l_gpio_setup(lua_State *L) {
     luat_gpio_t conf;
+    luat_gpio_cfg_t cfg = {0};
     conf.pin = luaL_checkinteger(L, 1);
     //conf->mode = luaL_checkinteger(L, 2);
     conf.lua_ref = 0;
@@ -196,7 +202,23 @@ static int l_gpio_setup(lua_State *L) {
     }
     conf.pull = luaL_optinteger(L, 3, default_gpio_pull);
     conf.irq_cb = 0;
+#ifdef CHIP_EC618
+    int re;
+    if (lua_isinteger(L, 5)) {
+    	cfg.alt_fun = luaL_optinteger(L, 5, 0);
+    	cfg.pin = conf.pin;
+    	cfg.pull = conf.pull;
+    	cfg.mode = conf.mode;
+    	cfg.irq_type = conf.irq;
+    	cfg.output_level = conf.irq;
+    	re = luat_gpio_open(&cfg);
+    }
+    else {
+    	re = luat_gpio_setup(&conf);
+    }
+#else
     int re = luat_gpio_setup(&conf);
+#endif
     if (re != 0) {
         LLOGW("gpio setup fail pin=%d", conf.pin);
         return 0;

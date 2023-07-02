@@ -767,6 +767,59 @@ static int l_mobile_config(lua_State* L) {
 
 #include "luat_uart.h"
 #include "luat_zbuff.h"
+
+/**
+获取当前使用/支持的band
+@api mobile.getBand(band, is_default)
+@zbuff 输出band
+@boolean true默认支持，false当前支持的，默认是false，当前是预留功能，不要写true
+@return boolean 成功返回true，失败放回false
+@usage
+local buff = zbuff.create(40)
+mobile.getBand(buff) --输出当前使用的band，band号放在buff内，buff[0]，buff[1]，buff[2] .. buff[buff:used() - 1]
+ */
+static int l_mobile_get_band(lua_State* L) {
+    luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 1, LUAT_ZBUFF_TYPE));
+    uint8_t total_num;
+    int re;
+    if (buff->len < 40)
+    {
+    	__zbuff_resize(buff, 40);
+    }
+    if (lua_isboolean(L, 2) && lua_toboolean(L, 2))
+    {
+    	re = luat_mobile_get_support_band(buff->addr,  &total_num);
+    }
+    else
+    {
+    	re = luat_mobile_get_band(buff->addr,  &total_num);
+    }
+    buff->used = total_num;
+    lua_pushboolean(L, !re);
+    return 1;
+}
+
+/**
+设置使用的band
+@api mobile.setBand(band, num)
+@zbuff 输入使用的band
+@int band数量
+@return boolean 成功返回true，失败放回false
+@usage
+local buff = zbuff.create(40)
+buff[0] = 3
+buff[1] = 5
+buff[2] = 8
+buff[3] = 40
+mobile.setBand(buff, 4) --设置使用的band一共4个，为3,5,8,40
+ */
+static int l_mobile_set_band(lua_State* L) {
+	luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 1, LUAT_ZBUFF_TYPE));
+	int num = luaL_optinteger(L, 2, 1);
+	lua_pushboolean(L, !luat_mobile_set_band(buff->addr,  num));
+	return 1;
+}
+
 /**
 RF测试开关和配置
 @api mobile.nstOnOff(onoff, uart_id)
@@ -835,6 +888,8 @@ static const rotable_Reg_t reg_mobile[] = {
 	{"reset",           ROREG_FUNC(l_mobile_reset)},
 	{"dataTraffic",     ROREG_FUNC(l_mobile_data_traffic)},
 	{"config",          ROREG_FUNC(l_mobile_config)},
+	{"getBand",          ROREG_FUNC(l_mobile_get_band)},
+	{"setBand",          ROREG_FUNC(l_mobile_set_band)},
 	{"nstOnOff",          ROREG_FUNC(l_mobile_nst_test_onoff)},
 	{"nstInput",          ROREG_FUNC(l_mobile_nst_data_input)},
 	//@const UNREGISTER number 未注册

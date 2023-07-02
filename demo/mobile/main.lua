@@ -23,6 +23,31 @@ mobile.simid(2,true)--优先用SIM0
 
 
 sys.taskInit(function()
+    local band = zbuff.create(40)
+    local band1 = zbuff.create(40)
+    mobile.getBand(band)
+    log.info("当前使用的band:")
+    for i=0,band:used()-1 do
+        log.info("band", band[i])
+    end
+    band1[0] = 38
+    band1[1] = 39
+    band1[2] = 40
+    mobile.setBand(band1, 3)    --改成使用38,39,40
+    band1:clear()
+    mobile.getBand(band1)
+    log.info("修改后使用的band:")
+    for i=0,band1:used()-1 do
+        log.info("band", band1[i])
+    end
+    mobile.setBand(band, band:used())    --改回原先使用的band，也可以下载的时候选择清除fs
+
+    mobile.getBand(band1)
+    log.info("修改回默认使用的band:")
+    for i=0,band1:used()-1 do
+        log.info("band", band1[i])
+    end
+
     -- mobile.apn(0,2,"") -- 使用默认APN激活CID2
     mobile.rtime(2) -- 在无数据交互时，RRC2秒后自动释放
     -- 下面是配置自动搜索小区间隔，和轮询搜索冲突，开启1个就可以了

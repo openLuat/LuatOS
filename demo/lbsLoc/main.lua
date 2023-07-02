@@ -49,9 +49,9 @@ end
 
 sys.taskInit(function()
     sys.waitUntil("IP_READY", 30000)
-    mobile.reqCellInfo(60)
     while 1 do
-        sys.wait(1000)
+        mobile.reqCellInfo(15)
+        sys.waitUntil("CELL_INFO_UPDATE", 3000)
         lbsLoc.request(getLocCb)
         sys.wait(60000)
     end

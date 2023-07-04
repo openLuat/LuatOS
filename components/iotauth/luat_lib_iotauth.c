@@ -260,8 +260,8 @@ static int l_iotauth_onenet(lua_State *L) {
 }
 
 static void iotda_token(const char* device_id,const char* device_secret,long long cur_timestamp,int ins_timestamp,char* client_id,const char* password){
-    char hmac[64] = {0};
-    char timestamp[12] = {0};
+    char hmac[65] = {0};
+    char timestamp[13] = {0};
     struct tm *timeinfo = localtime( &cur_timestamp );
     if(snprintf_(timestamp, 12, "%04d%02d%02d%02d", (timeinfo->tm_year)+1900,timeinfo->tm_mon+1,timeinfo->tm_mday,timeinfo->tm_hour)<0){
         return;

@@ -1,9 +1,8 @@
 #ifndef LUAT_HTTP_H
 #define LUAT_HTTP_H
 
-// #define HTTP_REQUEST_BUF_LEN_MAX 	(1024)
 #define HTTP_RESP_HEADER_MAX_SIZE 	(4096)
-#define HTTP_RESP_BUFF_SIZE 		(4096)
+#define HTTP_RESP_BUFF_SIZE 		(8192)
 
 #define HTTP_OK 			(0)
 #define HTTP_ERROR_STATE 	(-1)

@@ -380,9 +380,9 @@ int32_t luat_lib_http_callback(void *data, void *param){
 				return -1;
 			}
 			http_ctrl->resp_buff_offset += rx_len;
-			// LLOGDUMP(http_ctrl->resp_buff, http_ctrl->resp_buff_offset);
+			//LLOGD("resp_buff_offset:%d resp_buff:%s",http_ctrl->resp_buff_offset,http_ctrl->resp_buff);
 			uint8_t *tmp = (uint8_t*)http_ctrl->resp_buff;
-			// LLOGD("resp buff %.*s", http_ctrl->resp_buff_offset, http_ctrl->resp_buff);
+			//LLOGD("resp buff %.*s", http_ctrl->resp_buff_offset, http_ctrl->resp_buff);
 			if (0 == http_ctrl->resp_headers_done) {
 				LLOGD("search headers, buff len %d", http_ctrl->resp_buff_offset);
 				if (http_ctrl->resp_buff_offset > 4) {

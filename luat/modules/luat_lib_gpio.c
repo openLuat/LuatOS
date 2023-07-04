@@ -183,7 +183,7 @@ gpio.setup(27, function(val) print("IRQ_27",val) end, gpio.PULLUP)
 gpio.setup(18, 0, nil, nil, 4)
 */
 static int l_gpio_setup(lua_State *L) {
-    luat_gpio_t conf;
+    luat_gpio_t conf = {0};
     conf.pin = luaL_checkinteger(L, 1);
     //conf->mode = luaL_checkinteger(L, 2);
     conf.lua_ref = 0;
@@ -372,8 +372,8 @@ gpio.pulse(pin.PB06,0xA9, 8, 0)
 */
 static int l_gpio_pulse(lua_State *L) {
     int pin,delay = 0;
-    char tmp;
-    size_t len;
+    char tmp = 0;
+    size_t len = 0;
     char* level = NULL;
     if (lua_isinteger(L, lua_upvalueindex(1))){
         pin = lua_tointeger(L, lua_upvalueindex(1));

@@ -25,7 +25,7 @@ end
 -- 根据自己的设备修改以下参数
 ----------------------------------------------
 -- OneNet Studio
-mqtt_host = "studio-mqtt.heclouds.com"
+mqtt_host = "mqtts.heclouds.com"
 mqtt_port = 1883
 mqtt_isssl = false
 local pid = "KzUSNA8BPh" -- 产品id

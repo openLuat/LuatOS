@@ -15,10 +15,15 @@ end
 
 
 -- 产品ID和产品动态注册秘钥
-local ProductId = "SU83PBK5YF"
-local ProductSecret = "DliTrlLmab4zo2FiZFNOyLsQ"
+-- https://console.cloud.tencent.com/iotexplorer
+-- 要在项目详情里启用 "动态注册配置", "动态注册"和"自动创建设备"都需要启用
+-- 下列参数是测试用的,要改成自己的值
+local ProductId = "T7ASGCON0H"
+local ProductSecret = "cAnsvBBNquvTWYIihUPoxkp2"
 local mqttc
 local mqtt_isssl = false
+
+-- 这个demo属于纯手写, 还可以参考  iotcloud 库及其demo/iotcloud获取更一致的云服务体验
 
 --[[
 函数名：getDeviceName
@@ -184,6 +189,10 @@ sys.taskInit(function()
     log.info("io.exists", io.exists("/txiot.dat"))
     if not io.exists("/txiot.dat") then
         device_enrol()
+    end
+    if not io.exists("/txiot.dat") then
+        log.info("txiot", "注册失败")
+        return
     end
     local dat, result, err = json.decode(io.readFile("/txiot.dat"))
     log.info("dat,result,err", dat, result, err)

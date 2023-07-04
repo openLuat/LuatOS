@@ -130,7 +130,10 @@ static const rotable_Reg_t reg_adc[] =
 	{ "ADC_RANGE_3_6",   ROREG_INT(1)},
 	//@const ADC_RANGE_1_8 number air105的ADC分压电阻关闭，范围0~1.88V
 	{ "ADC_RANGE_1_8",   ROREG_INT(0)},
-
+	//@const ADC_RANGE_3_8 number air780E开启ADC0,1分压电阻，范围0~3.8V
+	{ "ADC_RANGE_3_8",   ROREG_INT(7)},
+	//@const ADC_RANGE_1_2 number air780E关闭ADC0,1分压电阻，范围0~1.2V
+	{ "ADC_RANGE_1_2",   ROREG_INT(0)},
     //@const CH_CPU number CPU内部温度的通道id
     { "CH_CPU",          ROREG_INT(LUAT_ADC_CH_CPU)},
     //@const CH_VBAT number VBAT供电电压的通道id

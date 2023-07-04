@@ -848,12 +848,18 @@ static int l_i2c_no_block_transfer(lua_State *L)
 -- 有些BSP在指定addr无响应时会输出日志,导致输出会被打乱
 i2c.scan()
 */
+#if !defined(LUA_USE_WINDOWS) || !defined(LUA_USE_LINUX)
 static int l_i2c_scan(lua_State *L) {
     int id = luaL_optinteger(L, 1, 0);
     i2c_init(id);
     i2c_scan();
     return 0;
 }
+#else
+static int l_i2c_scan(lua_State *L) {
+    return 0;
+}
+#endif
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_i2c[] =

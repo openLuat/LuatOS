@@ -1,3 +1,4 @@
+#include "luat_base.h"
 #include "i2c_utils.h"
 #include "luat_malloc.h"
 

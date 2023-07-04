@@ -184,9 +184,6 @@ gpio.setup(18, 0, nil, nil, 4)
 */
 static int l_gpio_setup(lua_State *L) {
     luat_gpio_t conf;
-    luat_gpio_cfg_t cfg = {
-        .alt_fun = -1
-    };
     conf.pin = luaL_checkinteger(L, 1);
     //conf->mode = luaL_checkinteger(L, 2);
     conf.lua_ref = 0;
@@ -208,6 +205,10 @@ static int l_gpio_setup(lua_State *L) {
     conf.irq_cb = 0;
     if (lua_isinteger(L, 5)) {
         conf.alt_func = luaL_checkinteger(L, 5);
+    }
+    else
+    {
+    	conf.alt_func = -1;
     }
     int re = luat_gpio_setup(&conf);
     if (re != 0) {
@@ -509,6 +510,7 @@ void luat_gpio_mode(int pin, int mode, int pull, int initOutput) {
     conf.irq = initOutput;
     conf.lua_ref = 0;
     conf.irq_cb = 0;
+    conf.alt_func = -1;
     luat_gpio_setup(&conf);
     if (conf.mode == Luat_GPIO_OUTPUT)
         luat_gpio_set(pin, initOutput);

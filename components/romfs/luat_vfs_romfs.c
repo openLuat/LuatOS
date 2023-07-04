@@ -2,9 +2,15 @@
 #include "luat_fs.h"
 
 #include "luat_malloc.h"
-#define LUAT_LOG_TAG "fs"
+#define LUAT_LOG_TAG "romfs"
 #include "luat_log.h"
 #include "luat_romfs.h"
+
+#define ROMFS_DEBUG 0
+#if ROMFS_DEBUG != 0
+#undef LLOGD
+#define LLOGD(...)
+#endif
 
 
 static uint32_t toInt32(uint8_t buff[4]) {
@@ -62,7 +68,7 @@ static int romfs_find(luat_romfs_ctx* fs, const char* filename, romfs_file_t *fi
         // LLOGD("Next offset %08X", offset);
         ret = fs->read(fs->userdata, (char*)file, offset, sizeof(romfs_file_t));
         if (ret < 0) {
-            LLOGD("romfs ERROR find %d", ret);
+            LLOGW("romfs ERROR find %d", ret);
             return -1;
         }
     }

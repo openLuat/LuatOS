@@ -18,6 +18,9 @@ iotcloud.TENCENT            = "tencent"     -- 腾讯云
 iotcloud.ALIYUN             = "aliyun"      -- 阿里云
 --//@const ONENET string 中国移动云
 iotcloud.ONENET             = "onenet"      -- 中国移动云
+--//@const HUAWEI string 华为云
+iotcloud.HUAWEI             = "huawei"      -- 华为云
+
 --认证方式
 local iotcloud_certificate  = "certificate" -- 秘钥认证
 local iotcloud_key          = "key"         -- 证书认证
@@ -358,12 +361,76 @@ local function iotcloud_onenet_config(iotcloudc,iot_config,connect_config)
             if not iotcloud_onenet_autoenrol(iotcloudc) then return false end
         end
         local data = fskv.get("iotcloud_onenet")
-        print("fskv.get data",data)
-        iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password = iotauth.onenet(iotcloudc.produt_id,iotcloudc.device_name,data)
+        -- print("fskv.get data",data)
+        iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password = iotauth.iotda(iotcloudc.produt_id,iotcloudc.device_name,data)
     end
     return true
 end
 
+-- 华为云自动注册
+local function iotcloud_huawei_autoenrol(iotcloudc)
+    local code, headers, body = http.request("POST","https://iam.myhuaweicloud.com/v3/auth/tokens", 
+            {["Content-Type"]="application/json; charset=UTF-8"},
+            "{\"auth\":{\"identity\":{\"methods\":[\"password\"],\"password\":{\"user\":{\"domain\":{\"name\":\""..iotcloudc.iam_domain.."\"},\"name\":\""..iotcloudc.iam_password.."\",\"password\":\""..iotcloudc.iam_password.."\"}}},\"scope\":{\"domain\":{\"name\":\""..iotcloudc.iam_domain.."\"}}}}"
+    ).wait()
+    print("iotcloud_huawei_autoenrol",code, headers, body)
+
+    -- local http_url = "https://"..iotcloudc.endpoint..".iotda."..iotcloudc.region..".myhuaweicloud.com/v5/iot/"..iotcloudc.project_id.."/devices"
+    -- local code, headers, body = http.request("POST",http_url, 
+    --         {["Content-Type"]="application/json; charset=UTF-8",["X-Auth-Token"]=token},
+    --         "{\"node_id\": \""..iotcloudc.device_name.."\",\"product_id\": \""..iotcloudc.produt_id.."\"}"
+    -- ).wait()
+    -- print("iotcloud_huawei_autoenrol",code, headers, body)
+    -- if code == 200 then
+    --     local dat, result, errinfo = json.decode(body)
+    --     if result then
+    --         if dat.code==0 then
+    --             fskv.set("iotcloud_onenet", dat.data.sec_key)
+    --             return true
+    --         else
+    --             log.info("http.post", code, headers, body)
+    --             return false
+    --         end
+    --     end
+    -- else
+    --     log.info("http.post", code, headers, body)
+    --     return false
+    -- end
+end
+
+local function iotcloud_huawei_config(iotcloudc,iot_config,connect_config)
+    iotcloudc.cloud = iotcloud.HUAWEI
+    iotcloudc.region = iot_config.region or "cn-north-4"
+    iotcloudc.endpoint = iot_config.endpoint
+    iotcloudc.produt_id = iot_config.produt_id
+    iotcloudc.project_id = iot_config.project_id
+    iotcloudc.iam_username = iot_config.iam_username
+    iotcloudc.iam_password = iot_config.iam_password
+    iotcloudc.iam_domain = iot_config.iam_domain
+    iotcloudc.device_id = iotcloudc.produt_id.."_"..iotcloudc.device_name
+    iotcloudc.device_secret = iot_config.device_secret
+    iotcloudc.ip = 1883
+    print(iotcloudc.iam_username,iotcloudc.iam_password,iotcloudc.iam_domain)
+    if iotcloudc.endpoint then
+        iotcloudc.host  = iotcloudc.endpoint..".iot-mqtts."..iotcloudc.region..".myhuaweicloud.com"
+    else
+        log.error("iotcloud","huawei","endpoint is nil")
+        return false
+    end
+    if iotcloudc.device_secret then                         -- 一机一密
+        iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password = iotauth.iotda(iotcloudc.device_id,iotcloudc.device_secret)
+    elseif iotcloudc.produt_id and iotcloudc.project_id and iotcloudc.iam_username and iotcloudc.iam_password and iotcloudc.iam_domain then-- 一型一密(自动注册)
+        -- if not fskv.get("iotcloud_huawei") then 
+            if not iotcloud_huawei_autoenrol(iotcloudc) then return false end
+        -- end
+        -- local data = fskv.get("iotcloud_huawei")
+        -- print("fskv.get data",data)
+
+    else
+        return false
+    end
+    return true
+end
 
 --[[
 创建云平台对象
@@ -383,18 +450,27 @@ function iotcloud.new(cloud,iot_config,connect_config)
         host = nil,                                         -- host
         ip = nil,                                           -- ip
         mqttc = nil,                                        -- mqtt对象
+        device_name = nil,                                  -- 设备名(一般为设备id)
         produt_id = nil,                                    -- 产品id
-        device_name = nil,                                  -- 设备名
         product_secret = nil,                               -- 产品秘钥
-        client_id = nil,                                    -- 设备id
+        device_id = nil,                                    -- 设备id(一般为设备名)
+        device_secret = nil,                                -- 设备秘钥
+        region = nil,                                       -- 云区域
+        client_id = nil,                                    -- mqtt客户端id
         user_name = nil,                                    -- mqtt用户名
         password = nil,                                     -- mqtt密码
         authentication = nil,                               -- 认证方式:密钥认证/证书认证 
         isssl = nil,                                        -- 是否加密
         ca_file = nil,                                      -- 证书 
         ota_version = nil,                                  -- ota时目标版本
-        userid = nil,                                       -- onenet专用
-        userkey = nil,                                      -- onenet专用
+        userid = nil,                                       -- onenet API专用
+        userkey = nil,                                      -- onenet API专用
+        iam_username = nil,                                 -- 华为云 API专用 IAM用户名
+        iam_password = nil,                                 -- 华为云 API专用 华为云密码
+        iam_domain = nil,                                   -- 华为云 API专用 账号名
+        endpoint = nil,                                     -- 华为云 API专用
+        project_id = nil,                                   -- 华为云 API专用
+        
     }, cloudc)
     if fskv then fskv.init() else return false end
     if iot_config.device_name then                          -- 设定了就使用指定的device_name
@@ -410,10 +486,13 @@ function iotcloud.new(cloud,iot_config,connect_config)
         if not iotcloud_aliyun_config(iotcloudc,iot_config,connect_config) then return false end
     elseif cloud == iotcloud.ONENET then
         if not iotcloud_onenet_config(iotcloudc,iot_config,connect_config) then return false end
+    elseif cloud == iotcloud.HUAWEI then
+        if not iotcloud_huawei_config(iotcloudc,iot_config,connect_config) then return false end
     else
         log.error("iotcloud","cloud not support",cloud)
     end
-
+    -- print("iotauth.mqtt",iotcloudc.host,iotcloudc.ip)
+    -- print("iotauth.auth",iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password)
     if iotcloudc.ca_file then iotcloudc.ca_file.verify = 1 end
     iotcloudc.mqttc = mqtt.create(nil, iotcloudc.host, iotcloudc.ip, iotcloudc.isssl and iotcloudc.ca_file or nil)
     iotcloudc.mqttc:auth(iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password)

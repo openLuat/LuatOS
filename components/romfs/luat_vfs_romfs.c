@@ -7,7 +7,7 @@
 #include "luat_romfs.h"
 
 #define ROMFS_DEBUG 0
-#if ROMFS_DEBUG != 0
+#if ROMFS_DEBUG == 0
 #undef LLOGD
 #define LLOGD(...)
 #endif

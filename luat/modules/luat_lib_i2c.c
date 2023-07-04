@@ -835,6 +835,26 @@ static int l_i2c_no_block_transfer(lua_State *L)
 
 }
 
+#include "i2c_utils.h"
+
+/**
+扫描i2c设备
+@api i2c.scan(id)
+@int 设备id, 例如i2c1的id为1, i2c2的id为2
+@return nil 当前无返回值
+@usage
+-- 本函数于2023.07.04添加
+-- 这个函数的主要目标是为了在开发期扫描i2c设备
+-- 有些BSP在指定addr无响应时会输出日志,导致输出会被打乱
+i2c.scan()
+*/
+static int l_i2c_scan(lua_State *L) {
+    int id = luaL_optinteger(L, 1, 0);
+    i2c_init(id);
+    i2c_scan();
+    return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_i2c[] =
 {
@@ -855,8 +875,11 @@ static const rotable_Reg_t reg_i2c[] =
     { "readDHT12",  ROREG_FUNC(l_i2c_readDHT12)},
     { "readSHT30",  ROREG_FUNC(l_i2c_readSHT30)},
 
-	{ "xfer",	ROREG_FUNC(l_i2c_no_block_transfer)},
-	{ "HSMODE",       ROREG_INT(3)},
+	{ "xfer",	    ROREG_FUNC(l_i2c_no_block_transfer)},
+
+    
+	{ "scan",	    ROREG_FUNC(l_i2c_scan)},
+	{ "HSMODE",     ROREG_INT(3)},
 	{ "PLUS",       ROREG_INT(2)},
     //@const FAST number 高速
     { "FAST",       ROREG_INT(1)},

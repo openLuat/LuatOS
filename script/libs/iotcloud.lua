@@ -156,7 +156,7 @@ local function iotcloud_tencent_autoenrol(iotcloudc)
     }
     local cloud_body_json = json.encode(cloud_body)
     local code, headers, body = http.request("POST","https://ap-guangzhou.gateway.tencentdevices.com/register/dev", 
-            {["Content-Type"]="application/json; charset=UTF-8"},
+            {["Content-Type"]="application/json;charset=UTF-8"},
             cloud_body_json
     ).wait()
     if code == 200 then
@@ -309,7 +309,7 @@ local function iotcloud_onenet_autoenrol(iotcloudc)
     res = string.urlEncode(res)
     local token = string.format('version=%s&res=%s&et=%s&method=%s&sign=%s',version, res, et, method, sign)
     local code, headers, body = http.request("POST","https://iot-api.heclouds.com/device/create", 
-            {["Content-Type"]="application/json; charset=UTF-8",["authorization"]=token},
+            {["Content-Type"]="application/json;charset=UTF-8",["authorization"]=token},
             "{\"product_id\":\""..iotcloudc.produt_id.."\",\"device_name\":\""..iotcloudc.device_name.."\"}"
     ).wait()
     if code == 200 then
@@ -369,33 +369,31 @@ end
 
 -- 华为云自动注册
 local function iotcloud_huawei_autoenrol(iotcloudc)
-    local code, headers, body = http.request("POST","https://iam.myhuaweicloud.com/v3/auth/tokens", 
-            {["Content-Type"]="application/json; charset=UTF-8"},
-            "{\"auth\":{\"identity\":{\"methods\":[\"password\"],\"password\":{\"user\":{\"domain\":{\"name\":\""..iotcloudc.iam_domain.."\"},\"name\":\""..iotcloudc.iam_password.."\",\"password\":\""..iotcloudc.iam_password.."\"}}},\"scope\":{\"domain\":{\"name\":\""..iotcloudc.iam_domain.."\"}}}}"
+    local token_code, token_headers, token_body = http.request("POST","https://iam."..iotcloudc.region..".myhuaweicloud.com/v3/auth/tokens", 
+            {["Content-Type"]="application/json;charset=UTF-8"},
+            "{\"auth\":{\"identity\":{\"methods\":[\"password\"],\"password\":{\"user\":{\"domain\":{\"name\":\""..iotcloudc.iam_domain.."\"},\"name\":\""..iotcloudc.iam_username.."\",\"password\":\""..iotcloudc.iam_password.."\"}}},\"scope\":{\"project\":{\"name\":\""..iotcloudc.region.."\"}}}}"
     ).wait()
-    print("iotcloud_huawei_autoenrol",code, headers, body)
+    if token_code ~= 201 then
+        log.error("iotcloud_huawei_autoenrol",token_body)
+        return false
+    end
 
-    -- local http_url = "https://"..iotcloudc.endpoint..".iotda."..iotcloudc.region..".myhuaweicloud.com/v5/iot/"..iotcloudc.project_id.."/devices"
-    -- local code, headers, body = http.request("POST",http_url, 
-    --         {["Content-Type"]="application/json; charset=UTF-8",["X-Auth-Token"]=token},
-    --         "{\"node_id\": \""..iotcloudc.device_name.."\",\"product_id\": \""..iotcloudc.produt_id.."\"}"
-    -- ).wait()
-    -- print("iotcloud_huawei_autoenrol",code, headers, body)
-    -- if code == 200 then
-    --     local dat, result, errinfo = json.decode(body)
-    --     if result then
-    --         if dat.code==0 then
-    --             fskv.set("iotcloud_onenet", dat.data.sec_key)
-    --             return true
-    --         else
-    --             log.info("http.post", code, headers, body)
-    --             return false
-    --         end
-    --     end
-    -- else
-    --     log.info("http.post", code, headers, body)
-    --     return false
-    -- end
+    local http_url = "https://"..iotcloudc.endpoint..".iotda."..iotcloudc.region..".myhuaweicloud.com/v5/iot/"..iotcloudc.project_id.."/devices"
+    local code, headers, body = http.request("POST",http_url, 
+            {["Content-Type"]="application/json;charset=UTF-8",["X-Auth-Token"]=token_headers["X-Subject-Token"]},
+            "{\"node_id\": \""..iotcloudc.device_name.."\",\"product_id\": \""..iotcloudc.produt_id.."\"}"
+    ).wait()
+    print("iotcloud_huawei_autoenrol", code, headers, body)
+    if code == 201 then
+        local dat, result, errinfo = json.decode(body)
+        if result then
+            fskv.set("iotcloud_huawei", dat.auth_info.secret)
+            return true
+        end
+    else
+        log.error("iotcloud_huawei_autoenrol", code, headers, body)
+        return false
+    end
 end
 
 local function iotcloud_huawei_config(iotcloudc,iot_config,connect_config)
@@ -410,22 +408,23 @@ local function iotcloud_huawei_config(iotcloudc,iot_config,connect_config)
     iotcloudc.device_id = iotcloudc.produt_id.."_"..iotcloudc.device_name
     iotcloudc.device_secret = iot_config.device_secret
     iotcloudc.ip = 1883
-    print(iotcloudc.iam_username,iotcloudc.iam_password,iotcloudc.iam_domain)
+
     if iotcloudc.endpoint then
         iotcloudc.host  = iotcloudc.endpoint..".iot-mqtts."..iotcloudc.region..".myhuaweicloud.com"
     else
         log.error("iotcloud","huawei","endpoint is nil")
         return false
     end
+    -- 一型一密(自动注册) 最终会获取设备秘钥
+    if iotcloudc.produt_id and iotcloudc.project_id and iotcloudc.iam_username and iotcloudc.iam_password and iotcloudc.iam_domain then
+        if not fskv.get("iotcloud_huawei") then 
+            if not iotcloud_huawei_autoenrol(iotcloudc) then return false end
+        end
+        iotcloudc.device_secret = fskv.get("iotcloud_huawei")
+    end
+
     if iotcloudc.device_secret then                         -- 一机一密
         iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password = iotauth.iotda(iotcloudc.device_id,iotcloudc.device_secret)
-    elseif iotcloudc.produt_id and iotcloudc.project_id and iotcloudc.iam_username and iotcloudc.iam_password and iotcloudc.iam_domain then-- 一型一密(自动注册)
-        -- if not fskv.get("iotcloud_huawei") then 
-            if not iotcloud_huawei_autoenrol(iotcloudc) then return false end
-        -- end
-        -- local data = fskv.get("iotcloud_huawei")
-        -- print("fskv.get data",data)
-
     else
         return false
     end

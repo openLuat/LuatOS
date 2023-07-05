@@ -1,6 +1,6 @@
 --[[
 @module iotcloud
-@summary iotcloud 云平台库 (已支持: 腾讯云 阿里云 onenet 其他也会支持,有用到的提issue会加速支持)  
+@summary iotcloud 云平台库 (已支持: 腾讯云 阿里云 onenet 华为云 其他也会支持,有用到的提issue会加速支持)  
 @version 1.0
 @date    2023.06.19
 @author  Dozingfiretruck

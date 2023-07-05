@@ -89,6 +89,16 @@ sys.taskInit(function()
     -- 一机一密
     -- iotcloudc = iotcloud.new(iotcloud.ONENET,{produt_id = "xxx",device_name = "xxx",key = "xxx"})
 
+    -- 华为云
+    -- 动态注册(免预注册)
+    -- iotcloudc = iotcloud.new(iotcloud.HUAWEI,{produt_id = "xxx",project_id = "xxx",endpoint = "xxx",
+    --                         iam_username="xxx",iam_password="xxx",iam_domain="xxx"})
+    -- 密钥校验 (预注册)
+    -- iotcloudc = iotcloud.new(iotcloud.HUAWEI,{produt_id = "xxx",endpoint = "xxx",device_name = "xxx",device_secret = "xxx"})
+
+
+
+
     if iotcloudc then
         iotcloudc:connect()
     end

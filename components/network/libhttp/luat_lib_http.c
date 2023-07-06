@@ -346,7 +346,6 @@ int32_t l_http_callback(lua_State *L, void* ptr){
 				lua_pushinteger(L, http_ctrl->resp_content_len);
 				lua_pushinteger(L, http_ctrl->body_len);
 				if (http_ctrl->http_cb_userdata){
-					LLOGE("http_ctrl->http_cb_userdata :%d",http_ctrl->http_cb_userdata);
 					lua_geti(L, LUA_REGISTRYINDEX, http_ctrl->http_cb_userdata);
 					lua_call(L, 3, 0);
 				}else{

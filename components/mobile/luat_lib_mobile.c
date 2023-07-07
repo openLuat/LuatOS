@@ -328,8 +328,8 @@ static int l_mobile_set_auto_work(lua_State* L) {
 @int 编号,默认0. 在支持双卡的模块上才会出现0或1的情况
 @int cid, 默认0，如果要用非默认APN来激活，必须>0
 @string 新的APN,不填就是获取APN, 填了就是设置APN, 是否支持设置取决于底层实现
-@string 新的APN的username,可以为nil
-@string 新的APN的password,可以为nil
+@string 新的APN的username,如果APN不是空,那必须填写,如果没有留个空字符串""。如果APN是空的，那可以nil
+@string 新的APN的password,如果APN不是空,那必须填写,如果没有留个空字符串""。如果APN是空的，那可以nil
 @int 激活APN时的IP TYPE,1=IPV4 2=IPV6 3=IPV4V6,默认是1
 @int 激活APN时,如果需要username和password,就要写鉴权协议类型,1~3,默认3,代表1和2都尝试一下
 @boolean 是否删除APN,true是,其他都否,只有参数3新的APN不是string的时候才有效果

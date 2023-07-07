@@ -53,10 +53,16 @@ local function iotcloud_connect(iotcloudc)
         iotcloudc:subscribe("/ota/device/upgrade/"..iotcloudc.produt_id.."/"..iotcloudc.device_name)    -- 订阅ota主题
         iotcloudc:publish("/ota/device/inform/"..iotcloudc.produt_id.."/"..iotcloudc.device_name,"{\"id\":1,\"params\":{\"version\":\"".._G.VERSION.."\"}}")   -- 上报ota版本信息
     elseif iotcloudc.cloud == iotcloud.ONENET then  -- 中国移动云
+    elseif iotcloudc.cloud == iotcloud.HUAWEI then  -- 华为云
+        iotcloudc:subscribe("$oc/devices/"..iotcloudc.device_id.."/sys/events/down")    -- 订阅ota主题
+        iotcloudc:publish("$oc/devices/"..iotcloudc.device_id.."/sys/events/up","{\"services\":[{\"service_id\":\"$ota\",\"event_type\":\"version_report\",\"paras\":{\"fw_version\":\"".._G.VERSION.."\"}}]}")   -- 上报ota版本信息
     end
 end
 
+
+
 local function http_downloald_callback(content_len,body_len,iotcloudc)
+    -- print("http_downloald_callback-------------------",content_len,body_len)
     if iotcloudc.cloud == iotcloud.TENCENT then
         if body_len == 0 then
             -- 开始升级     type：消息类型 state：状态为烧制中
@@ -65,13 +71,28 @@ local function http_downloald_callback(content_len,body_len,iotcloudc)
             -- 下载进度     type：消息类型 state：状态为正在下载中 percent：当前下载进度，百分比
             iotcloudc:publish("$ota/report/"..iotcloudc.produt_id.."/"..iotcloudc.device_name,"{\"type\":\"report_progress\",\"report\":{\"progress\":{\"state\": \"downloading\",\"percent\": \""..body_len*100//content_len.."\",\"result_code\": \"0\",\"result_msg\": \"\"}},\"version\": \""..iotcloudc.ota_version.."\"}")
         end
+    elseif iotcloudc.cloud == iotcloud.HUAWEI then
+        iotcloudc:publish("$oc/devices/"..iotcloudc.device_id.."/sys/events/up","{\"services\":[{\"service_id\":\"$ota\",\"event_type\":\"upgrade_progress_report\",\"paras\":{\"result_code\":\"0\",\"version\":\"".._G.VERSION.."\",\"progress\":\""..(body_len*100//content_len - 1).."\"}}]}")   -- 上报ota版本信息
     end
 end 
 
-local function iotcloud_ota_download(iotcloudc,ota_url,config)
+local function iotcloud_ota_download(iotcloudc,ota_payload,config)
+    local ota_url = nil
+    local ota_headers = nil
+    local body_ota = nil
     config.callback = http_downloald_callback
     config.userdata = iotcloudc
-    local code, headers, body = http.request("GET", ota_url, nil, nil, config).wait()
+
+    if iotcloudc.cloud == iotcloud.TENCENT then
+        ota_url = ota_payload.url
+    elseif iotcloudc.cloud == iotcloud.ALIYUN then
+        ota_url = ota_payload.data.url
+    elseif iotcloudc.cloud == iotcloud.HUAWEI then
+        ota_url = ota_payload.services[1].paras.url
+        ota_headers = {["Content-Type"]="application/json;charset=UTF-8",["Authorization"]="Bearer "..ota_payload.services[1].paras.access_token}
+    end
+
+    local code, headers, body = http.request("GET", ota_url, ota_headers, body_ota, config).wait()
     -- log.info("ota download", code, headers, body) -- 只返回code和headers
     if code == 200 or code == 206 then
         if iotcloudc.cloud == iotcloud.TENCENT then  -- 此为腾讯云
@@ -79,6 +100,8 @@ local function iotcloud_ota_download(iotcloudc,ota_url,config)
             iotcloudc:publish("$ota/report/"..iotcloudc.produt_id.."/"..iotcloudc.device_name,"{\"type\":\"report_progress\",\"report\":{\"progress\":{\"state\": \"done\",\"result_code\": \"0\",\"result_msg\": \"\"}},\"version\": \""..iotcloudc.ota_version.."\"}")
         elseif iotcloudc.cloud == iotcloud.ALIYUN then -- 此为阿里云
             
+        elseif iotcloudc.cloud == iotcloud.HUAWEI then
+            iotcloudc:publish("$oc/devices/"..iotcloudc.device_id.."/sys/events/up","{\"services\":[{\"service_id\":\"$ota\",\"event_type\":\"upgrade_progress_report\",\"paras\":{\"result_code\":\"0\",\"version\":\""..iotcloudc.ota_version.."\",\"progress\":\"100\"}}]}")   -- 上报ota版本信息
         end
     else
         if iotcloudc.cloud == iotcloud.TENCENT then  -- 此为腾讯云
@@ -86,6 +109,8 @@ local function iotcloud_ota_download(iotcloudc,ota_url,config)
             iotcloudc:publish("$ota/report/"..iotcloudc.produt_id.."/"..iotcloudc.device_name,"{\"type\":\"report_progress\",\"report\":{\"progress\":{\"state\": \"fail\",\"result_code\": \"-5\",\"result_msg\": \"ota_fail\"}},\"version\": \""..iotcloudc.ota_version.."\"}")
         elseif iotcloudc.cloud == iotcloud.ALIYUN then  -- 此为阿里云
             
+        elseif iotcloudc.cloud == iotcloud.HUAWEI then
+            iotcloudc:publish("$oc/devices/"..iotcloudc.device_id.."/sys/events/up","{\"services\":[{\"service_id\":\"$ota\",\"event_type\":\"upgrade_progress_report\",\"paras\":{\"result_code\":\"255\"}}]}")   -- 上报ota版本信息
         end
     end
     sys.publish("iotcloud", iotcloudc, iotcloud.OTA,code == 200 or code == 206)
@@ -100,9 +125,13 @@ local function iotcloud_mqtt_callback(mqtt_client, event, data, payload)
             iotcloudc = v
         end
     end
+
+    local isfota,otadst
+    if fota then isfota = true else otadst = "/update.bin" end
+    -- otadst = "/update.bin"--test
+
     -- print("iotcloud_mqtt_callback",mqtt_client, event, data, payload)
     -- 用户自定义代码
-    log.info("mqtt", "event", event, mqtt_client, data, payload)
     if event == "conack" then                               -- 连接上服务器
         iotcloud_connect(iotcloudc)
         sys.publish("iotcloud",iotcloudc,iotcloud.CONNECT, data, payload)
@@ -110,23 +139,23 @@ local function iotcloud_mqtt_callback(mqtt_client, event, data, payload)
         if iotcloudc.cloud == iotcloud.TENCENT and data == "$ota/update/"..iotcloudc.produt_id.."/"..iotcloudc.device_name then -- 腾讯云ota
             local ota_payload = json.decode(payload)
             if ota_payload.type == "update_firmware" then
-                -- print("ota url",ota_payload.url)
                 iotcloudc.ota_version = ota_payload.version
-                local isfota,otadst
-                if fota then isfota = true else otadst = "/update.bin" end
-                -- otadst = "/update.bin"--test
-                sys.taskInit(iotcloud_ota_download,iotcloudc,ota_payload.url,{fota=isfota,dst=otadst,timeout = 120000})
+                sys.taskInit(iotcloud_ota_download,iotcloudc,ota_payload,{fota=isfota,dst=otadst,timeout = 120000})
                 
             end
         elseif iotcloudc.cloud == iotcloud.ALIYUN and data == "/ota/device/upgrade/"..iotcloudc.produt_id.."/"..iotcloudc.device_name then -- 阿里云ota
             local ota_payload = json.decode(payload)
             if ota_payload.message == "success" then
-                -- print("ota url",ota_payload.data.url)
                 iotcloudc.ota_version = ota_payload.version
-                local isfota,otadst
-                if fota then isfota = true else otadst = "/update.bin" end
-                -- otadst = "/update.bin"--test
-                sys.taskInit(iotcloud_ota_download,iotcloudc,ota_payload.data.url,{fota=isfota,dst=otadst,timeout = 120000})
+                sys.taskInit(iotcloud_ota_download,iotcloudc,ota_payload,{fota=isfota,dst=otadst,timeout = 120000})
+            end
+        elseif iotcloudc.cloud == iotcloud.HUAWEI and data == "$oc/devices/"..iotcloudc.device_id.."/sys/events/down" then -- 华为云ota
+            local ota_payload = json.decode(payload)
+            if ota_payload.services[1].event_type == "version_query" then
+                iotcloudc:publish("$oc/devices/"..iotcloudc.device_id.."/sys/events/up","{\"services\":[{\"service_id\":\"$ota\",\"event_type\":\"version_report\",\"paras\":{\"fw_version\":\"".._G.VERSION.."\"}}]}")   -- 上报ota版本信息
+            elseif ota_payload.services[1].event_type == "firmware_upgrade" then
+                iotcloudc.ota_version = ota_payload.services[1].paras.version
+                sys.taskInit(iotcloud_ota_download,iotcloudc,ota_payload,{fota=isfota,dst=otadst,timeout = 120000})
             end
         else
             sys.publish("iotcloud", iotcloudc, iotcloud.RECEIVE,data,payload)
@@ -383,7 +412,7 @@ local function iotcloud_huawei_autoenrol(iotcloudc)
             {["Content-Type"]="application/json;charset=UTF-8",["X-Auth-Token"]=token_headers["X-Subject-Token"]},
             "{\"node_id\": \""..iotcloudc.device_name.."\",\"product_id\": \""..iotcloudc.produt_id.."\"}"
     ).wait()
-    print("iotcloud_huawei_autoenrol", code, headers, body)
+    -- print("iotcloud_huawei_autoenrol", code, headers, body)
     if code == 201 then
         local dat, result, errinfo = json.decode(body)
         if result then

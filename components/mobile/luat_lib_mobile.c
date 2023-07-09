@@ -496,6 +496,24 @@ static int l_mobile_eci(lua_State* L) {
 }
 
 /**
+获取当前服务小区的TAC或者LAC
+@api mobile.tac()
+@return int 当前eci值,若失败返回-1. 如果尚未注册到网络,会返回0
+@usage
+-- 本API于 2023.7.9 新增
+ */
+static int l_mobile_tac(lua_State* L) {
+    uint32_t tac;
+    if (luat_mobile_get_service_tac_or_lac(&tac) == 0) {
+        lua_pushinteger(L, tac);
+    }
+    else {
+        lua_pushinteger(L, -1);
+    }
+    return 1;
+}
+
+/**
 获取当前服务小区的eNBID(eNodeB Identifier)
 @api mobile.enbid()
 @return int 当前enbid值,若失败返回-1
@@ -566,7 +584,7 @@ static inline uint16_t u162bcd(uint16_t src) {
 ]]
 
 mobile.reqCellInfo(60)
--- 订阅式
+-- 订阅
 sys.subscribe("CELL_INFO_UPDATE", function()
     log.info("cell", json.encode(mobile.getCellInfo()))
 end)
@@ -598,7 +616,12 @@ static int l_mobile_get_cell_info(lua_State* L) {
 
     // 当前仅返回lte信息
     if (info->lte_info_valid == 0 || info->lte_service_info.cid == 0) {
-        LLOGI("lte cell info not found");
+        if (0 == luat_mobile_get_service_cell_identifier(&info->lte_service_info.cid) && info->lte_service_info.cid) {
+            LLOGW("pls call mobile.reqCellInfo() and wait for CELL_INFO_UPDATE");
+        }
+        else {
+            LLOGI("lte cell info not found");
+        }
         goto exit;
     }
     
@@ -877,6 +900,7 @@ static const rotable_Reg_t reg_mobile[] = {
     {"rsrp",            ROREG_FUNC(l_mobile_rsrp)},
     {"snr",             ROREG_FUNC(l_mobile_snr)},
     {"eci",             ROREG_FUNC(l_mobile_eci)},
+    {"tac",             ROREG_FUNC(l_mobile_tac)},
     {"enbid",           ROREG_FUNC(l_mobile_enbid)},
     {"flymode",         ROREG_FUNC(l_mobile_flymode)},
     {"simid",           ROREG_FUNC(l_mobile_simid)},

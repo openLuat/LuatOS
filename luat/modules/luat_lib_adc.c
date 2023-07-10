@@ -34,7 +34,7 @@ static int l_adc_open(lua_State *L) {
 }
 
 /**
-设置ADC的测量范围，注意这个和具体芯片有关，目前只支持air105
+设置ADC的测量范围，注意这个和具体芯片有关，目前只支持air105/Air780E系列
 @api adc.setRange(range)
 @int range参数,与具体设备有关,比如air105填adc.ADC_RANGE_1_8和adc.ADC_RANGE_3_6
 @return nil

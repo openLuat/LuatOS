@@ -7,18 +7,18 @@ _G.sysplus = require("sysplus")
 log.style(1)
 
 --下面演示自动发送
-errDump.config(true, 600, "user_id")	-- 默认是关闭，用这个可以额外添加用户标识，比如用户自定义的ID之类
+-- errDump.config(true, 600, "user_id")	-- 默认是关闭，用这个可以额外添加用户标识，比如用户自定义的ID之类
 
 -- local function test_user_log()
 -- 	while true do
 -- 		sys.wait(15000)
--- 		log.record("测试一下用户的记录功能")
+-- 		errDump.record("测试一下用户的记录功能")
 -- 	end
 -- end
 
 -- local function test_error_log()
 -- 	sys.wait(60000)
--- 	lllllllllog.record("测试一下用户的记录功能") --默认写错代码死机
+-- 	-- lllllllllog.record("测试一下用户的记录功能") --默认写错代码死机
 -- end
 
 

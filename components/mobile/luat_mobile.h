@@ -461,6 +461,14 @@ int luat_mobile_get_last_notify_signal_strength(uint8_t *csq);
  * @return int =0成功，其他失败
  */
 int luat_mobile_get_service_cell_identifier(uint32_t *eci);
+
+/**
+ * @brief 获取当前服务小区的TAC或LAC
+ * 
+ * @param tac
+ * @return int =0成功，其他失败
+ */
+int luat_mobile_get_service_tac_or_lac(uint16_t *tac);
 /* --------------------------------------------------- cell info end --------------------------------------------------- */
 
 

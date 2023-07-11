@@ -74,7 +74,6 @@ sys.taskInit(function()
         log.info("GPIO", "Go Go Go", count, rtos.bsp())
         log.info("LuatOS:", "https://wiki.luatos.com")
         count = count + 1
-        timer.mdelay(100)
     end
 end)
 

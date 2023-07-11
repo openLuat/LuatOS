@@ -380,9 +380,8 @@ static int l_iotauth_qcloud(lua_State *L) {
 }
 
 static void tuya_token(const char* device_id,const char* device_secret,long long cur_timestamp,const char* password){
-    char hmac[64] = {0};
+    char hmac[65] = {0};
     char token_temp[100]  = {0};
-    memset(token_temp, 0, 100);
     snprintf_(token_temp, 100, "deviceId=%s,timestamp=%lld,secureMode=1,accessType=1", device_id, cur_timestamp);
     luat_crypto_hmac_sha256_simple(token_temp, strlen(token_temp),device_secret, strlen(device_secret), hmac);
     str_tohex(hmac, 32, password,0);
@@ -393,7 +392,7 @@ static void tuya_token(const char* device_id,const char* device_secret,long long
 @api iotauth.tuya(device_id,device_secret,cur_timestamp)
 @string device_id
 @string device_secret
-@number cur_timestamp 可选 默认为 32472115200(2999-01-01 0:0:0)
+@number cur_timestamp 可选 默认7258089600(2200-01-01 0:0:0)
 @return string mqtt三元组 client_id
 @return string mqtt三元组 user_name
 @return string mqtt三元组 password
@@ -404,7 +403,7 @@ print(client_id,user_name,password)
 static int l_iotauth_tuya(lua_State *L) {
     iotauth_ctx_t ctx = {0};
     size_t len = 0;
-    long long cur_timestamp = 32472115200;
+    long long cur_timestamp = 7258089600;
     const char* device_id = luaL_checklstring(L, 1, &len);
     const char* device_secret = luaL_checklstring(L, 2, &len);
     if (lua_type(L, (3)) == LUA_TNUMBER){

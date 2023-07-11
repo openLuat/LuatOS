@@ -86,13 +86,18 @@ end)
 
 local function audio_task()
     local result
-    --Air780E开发板配套
+    --Air780E开发板配套+音频扩展板. ES8211
+    --由于音频扩展板的PA是长供电的,有塔塔声音是正常的,做产品的话有额外的参考设计
     i2s.setup(0, 0, 0, 0, 0, i2s.MODE_MSB)
+    --如果用软件DAC，打开下面的注释
+    -- if audio.setBus then
+    --     audio.setBus(0, audio.BUS_SOFT_DAC)
+    -- end
     audio.config(0, 25, 1, 6, 200)
-    gpio.setup(24, 0)
-    gpio.setup(23, 0)
-    gpio.setup(27, 0)
-    gpio.setup(2, 0)
+    -- gpio.setup(24, 0)
+    -- gpio.setup(23, 0)
+    -- gpio.setup(27, 0)
+    -- gpio.setup(2, 0)
 
     -- 初始化spi flash, 如果是极限版TTS_ONCHIP,就不需要初始化
     if sfud then

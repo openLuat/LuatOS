@@ -23,6 +23,12 @@
 /* BLE */
 #include "nimble/nimble_port.h"
 
+// #define LUAT_NIMBLE_DEBUG 0
+// #if LUAT_NIMBLE_DEBUG == 0 
+// #undef LLOGD
+// #define LLOGD(...) 
+// #endif
+
 static int ble_gatt_svc_counter = 0;
 
 struct ble_hs_cfg;
@@ -76,10 +82,10 @@ static void gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt, void *arg)
 /**
  * Initiates the GAP general discovery procedure.
  */
-int luat_nimble_blecent_scan(void)
+int luat_nimble_blecent_scan(int timeout)
 {
     uint8_t own_addr_type;
-    struct ble_gap_disc_params disc_params;
+    struct ble_gap_disc_params disc_params = {0};
     int rc;
 
     /* Figure out address to use while advertising (no privacy for now) */
@@ -106,7 +112,7 @@ int luat_nimble_blecent_scan(void)
     disc_params.filter_policy = 0;
     disc_params.limited = 0;
 
-    rc = ble_gap_disc(own_addr_type, 28*1000, &disc_params,
+    rc = ble_gap_disc(own_addr_type, timeout*1000, &disc_params,
                       blecent_gap_event, NULL);
     if (rc != 0) {
         LLOGE("Error initiating GAP discovery procedure; rc=%d", rc);
@@ -117,11 +123,11 @@ int luat_nimble_blecent_scan(void)
 
 // static const char *tag = "NimBLE_BLE_PRPH";
 static int bleprph_gap_event(struct ble_gap_event *event, void *arg);
-#if CONFIG_EXAMPLE_RANDOM_ADDR
-static uint8_t own_addr_type = BLE_OWN_ADDR_RANDOM;
-#else
-static uint8_t own_addr_type;
-#endif
+// #if CONFIG_EXAMPLE_RANDOM_ADDR
+// static uint8_t own_addr_type = BLE_OWN_ADDR_RANDOM;
+// #else
+// static uint8_t own_addr_type;
+// #endif
 
 
 #define ADDR_FMT "%02X%02X%02X%02X%02X%02X"
@@ -253,36 +259,43 @@ static int blecent_gap_event(struct ble_gap_event *event, void *arg)
     int i = 0;
     rtos_msg_t msg = {.handler=luat_nimble_scan_cb};
 
-    LLOGD("blecent_gap_event %d", event->type);
+    // LLOGD("blecent_gap_event %d", event->type);
 
     switch (event->type) {
+    case BLE_GAP_EVENT_DISC_COMPLETE:
+        LLOGD("ble scan complete");
+        return 0;
     case BLE_GAP_EVENT_DISC:
         rc = ble_hs_adv_parse_fields(&fields, event->disc.data,
                                      event->disc.length_data);
         if (rc != 0) {
+            LLOGI("ble_hs_adv_parse_fields rc %d", rc);
             return 0;
         }
-        if (event->disc.event_type != BLE_HCI_ADV_RPT_EVTYPE_ADV_IND &&
-                event->disc.event_type != BLE_HCI_ADV_RPT_EVTYPE_DIR_IND) {
-            return 0;
-        }
+        // if (event->disc.event_type != BLE_HCI_ADV_RPT_EVTYPE_ADV_IND &&
+        //         event->disc.event_type != BLE_HCI_ADV_RPT_EVTYPE_DIR_IND) {
+        //     LLOGI("disc event_type Not ADC or DIR %d", event->disc.event_type);
+        //     return 0;
+        // }
         luat_nimble_scan_result_t* res = luat_heap_malloc(sizeof(luat_nimble_scan_result_t));
-        if (res == NULL)
+        if (res == NULL) {
+            LLOGI("out of memory when malloc luat_nimble_scan_result_t");
             return 0;
+        }
         memset(res, 0, sizeof(luat_nimble_scan_result_t));
 
-        char tmpbuff[64] = {0};
+        // char tmpbuff[64] = {0};
 
         for (i = 0; i < fields.num_uuids16 && i < 16; i++) {
-            LLOGD("uuids_16 %s", ble_uuid_to_str(&fields.uuids16[i], tmpbuff));
+            // LLOGD("uuids_16 %s", ble_uuid_to_str(&fields.uuids16[i], tmpbuff));
             res->uuids_16[i] = fields.uuids16[i].value;
         }
         for (i = 0; i < fields.num_uuids32 && i < 16; i++) {
-            LLOGD("uuids_32 %s", ble_uuid_to_str(&fields.uuids32[i], tmpbuff));
+            // LLOGD("uuids_32 %s", ble_uuid_to_str(&fields.uuids32[i], tmpbuff));
             res->uuids_32[i] = fields.uuids32[i].value;
         }
         for (i = 0; i < fields.num_uuids128 && i < 16; i++) {
-            LLOGD("uuids_128 %s", ble_uuid_to_str(&fields.uuids128[i], tmpbuff));
+            // LLOGD("uuids_128 %s", ble_uuid_to_str(&fields.uuids128[i], tmpbuff));
             // memcpy(res->uuids_128[i], fields.uuids128[i].value, 16);
         }
         memcpy(res->addr, &event->disc.addr, 7);
@@ -291,12 +304,12 @@ static int blecent_gap_event(struct ble_gap_event *event, void *arg)
             memcpy(res->mfg_data, fields.mfg_data, fields.mfg_data_len);
             res->mfg_data_len = fields.mfg_data_len;
         }
-        LLOGD("addr %02X%02X%02X%02X%02X%02X", event->disc.addr.val[0], event->disc.addr.val[1], event->disc.addr.val[2], 
-                                               event->disc.addr.val[3], event->disc.addr.val[4], event->disc.addr.val[5]);
+        // LLOGD("addr %02X%02X%02X%02X%02X%02X", event->disc.addr.val[0], event->disc.addr.val[1], event->disc.addr.val[2], 
+        //                                        event->disc.addr.val[3], event->disc.addr.val[4], event->disc.addr.val[5]);
         // for (i = 0; i < fields.num_uuids128 && i < 16; i++) {
         //     res->uuids_128[i] = fields.num_uuids128.value >> 32;
         // }
-        LLOGD("uuids 16=%d 32=%d 128=%d", fields.num_uuids16, fields.num_uuids32, fields.num_uuids128);
+        // LLOGD("uuids 16=%d 32=%d 128=%d", fields.num_uuids16, fields.num_uuids32, fields.num_uuids128);
         msg.ptr = res;
         luat_msgbus_put(&msg, 0);
 
@@ -405,16 +418,16 @@ blecent_on_reset(int reason)
 static void
 blecent_on_sync(void)
 {
-    int rc;
+    // int rc;
 
     /* Make sure we have proper identity address set (public preferred) */
-    rc = ble_hs_util_ensure_addr(0);
+    ble_hs_util_ensure_addr(0);
 }
 
 
 
 int luat_nimble_init_central(uint8_t uart_idx, char* name, int mode) {
-    int rc = 0;
+    // int rc = 0;
     nimble_port_init();
 
     if (name == NULL || strlen(name) == 0) {
@@ -428,7 +441,7 @@ int luat_nimble_init_central(uint8_t uart_idx, char* name, int mode) {
 
     /* Set the default device name. */
     if (strlen(selfname))
-        rc = ble_svc_gap_device_name_set((const char*)selfname);
+        ble_svc_gap_device_name_set((const char*)selfname);
 
 
     /* Initialize the NimBLE host configuration. */
@@ -523,22 +536,22 @@ print_conn_desc(const struct ble_gap_conn_desc *desc)
 void
 print_adv_fields(const struct ble_hs_adv_fields *fields)
 {
-    char s[BLE_HS_ADV_MAX_SZ];
-    const uint8_t *u8p;
-    int i;
+    // char s[BLE_HS_ADV_MAX_SZ];
+    // const uint8_t *u8p;
+    // int i;
 
     // if (fields->flags != 0) {
     //     LLOGD("    flags=0x%02x", fields->flags);
     // }
 
-    if (fields->uuids16 != NULL) {
-        LLOGD("    uuids16(%scomplete)=",
-                    fields->uuids16_is_complete ? "" : "in");
-        for (i = 0; i < fields->num_uuids16; i++) {
-            print_uuid(&fields->uuids16[i].u);
-            //LLOGD(" ");
-        }
-    }
+    // if (fields->uuids16 != NULL) {
+    //     LLOGD("    uuids16(%scomplete)=",
+    //                 fields->uuids16_is_complete ? "" : "in");
+    //     for (i = 0; i < fields->num_uuids16; i++) {
+    //         print_uuid(&fields->uuids16[i].u);
+    //         //LLOGD(" ");
+    //     }
+    // }
 
     // if (fields->uuids32 != NULL) {
     //     LLOGD("    uuids32(%scomplete)=",

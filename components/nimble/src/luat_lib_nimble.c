@@ -157,15 +157,23 @@ static int l_nimble_send_msg(lua_State *L) {
 
 /*
 扫描从机
-@api nimble.scan()
-@return bool 成功与否
+@api nimble.scan(timeout)
+@int 超时时间,单位秒,默认28秒
+@return bool 启动扫描成功与否
 @usage
--- 参考 demo/nimble
+-- 参考 demo/nimble/scan
 -- 本函数对central/主机模式适用
 -- 本函数会直接返回, 然后通过异步回调返回结果
+
+-- 调用本函数前, 需要先确保已经nimble.init()
+nimble.scan()
+-- timeout参数于 2023.7.11 添加
 */
 static int l_nimble_scan(lua_State *L) {
-    int ret = luat_nimble_blecent_scan();
+    int timeout = luaL_optinteger(L, 1, 28);
+    if (timeout < 1)
+        timeout = 1;
+    int ret = luat_nimble_blecent_scan(timeout);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     // lua_pushinteger(L, ret);
     return 1;

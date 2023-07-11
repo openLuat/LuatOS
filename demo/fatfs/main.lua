@@ -31,7 +31,7 @@ local function fatfs_spi_pin()
     elseif rtos_bsp == "AIR103" then
         return 0,pin.PB04
     elseif rtos_bsp == "AIR105" then
-        return 5,pin.PC14
+        return 2,pin.PB03
     elseif rtos_bsp == "ESP32C3" then
         return 2,7
     elseif rtos_bsp == "ESP32S3" then

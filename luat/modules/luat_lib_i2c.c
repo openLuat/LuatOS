@@ -835,7 +835,6 @@ static int l_i2c_no_block_transfer(lua_State *L)
 
 }
 
-#include "i2c_utils.h"
 
 /**
 扫描i2c设备
@@ -849,6 +848,7 @@ static int l_i2c_no_block_transfer(lua_State *L)
 i2c.scan()
 */
 #if !defined(LUA_USE_WINDOWS) || !defined(LUA_USE_LINUX)
+#include "i2c_utils.h"
 static int l_i2c_scan(lua_State *L) {
     int id = luaL_optinteger(L, 1, 0);
     i2c_init(id);

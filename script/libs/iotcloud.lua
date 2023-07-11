@@ -20,6 +20,8 @@ iotcloud.ALIYUN             = "aliyun"      -- 阿里云
 iotcloud.ONENET             = "onenet"      -- 中国移动云
 --//@const HUAWEI string 华为云
 iotcloud.HUAWEI             = "huawei"      -- 华为云
+--//@const TUYA string 涂鸦云
+iotcloud.TUYA               = "tuya"        -- 涂鸦云
 
 --认证方式
 local iotcloud_certificate  = "certificate" -- 秘钥认证
@@ -439,7 +441,7 @@ local function iotcloud_huawei_config(iotcloudc,iot_config,connect_config)
     iotcloudc.ip = 1883
 
     if iotcloudc.endpoint then
-        iotcloudc.host  = iotcloudc.endpoint..".iot-mqtts."..iotcloudc.region..".myhuaweicloud.com"
+        iotcloudc.host = iotcloudc.endpoint..".iot-mqtts."..iotcloudc.region..".myhuaweicloud.com"
     else
         log.error("iotcloud","huawei","endpoint is nil")
         return false
@@ -460,10 +462,23 @@ local function iotcloud_huawei_config(iotcloudc,iot_config,connect_config)
     return true
 end
 
+local function iotcloud_tuya_config(iotcloudc,iot_config,connect_config)
+    iotcloudc.host = "m1.tuyacn.com"
+    iotcloudc.ip = 8883
+    iotcloudc.isssl = true
+    iotcloudc.device_secret = iot_config.device_secret
+    if iotcloudc.device_secret then
+        iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password = iotauth.tuya(iotcloudc.device_name,iotcloudc.device_secret)
+    else
+        return false
+    end
+    return true
+end
+
 --[[
 创建云平台对象
 @api iotcloud.new(cloud,iot_config,connect_config)
-@string 云平台 iotcloud.TENCENT:腾讯云 iotcloud.ALIYUN:阿里云
+@string 云平台 iotcloud.TENCENT:腾讯云 iotcloud.ALIYUN:阿里云 iotcloud.ONENET:中国移动云 iotcloud.HUAWEI:华为云 iotcloud.TUYA:涂鸦云
 @table iot云平台配置, device_name:可选，默认为imei否则为unique_id iot_config.produt_id:产品id(阿里云则为产品key) iot_config.product_secret:产品密钥,有此项则为动态注册 iot_config.key:设备秘钥,有此项则为秘钥连接  userid:用户ID,onenet专用,动态注册使用  userkey:用户Accesskey,onenet专用,动态注册使用
 @table mqtt配置, host:可选,默认为平台默认host ip:可选,默认为平台默认ip tls:加密,若有此项一般为产品认证 keepalive:心跳时间,单位s 可选,默认240
 @return table 云平台对象
@@ -473,6 +488,7 @@ iotcloudc = iotcloud.new(iotcloud.ALIYUN,{produt_id = "xxx",product_secret = "xx
 ]]
 function iotcloud.new(cloud,iot_config,connect_config)
     if not connect_config then connect_config = {} end
+    local mqtt_ssl = nil
     local iotcloudc = setmetatable({
         cloud = nil,                                        -- 云平台
         host = nil,                                         -- host
@@ -516,13 +532,21 @@ function iotcloud.new(cloud,iot_config,connect_config)
         if not iotcloud_onenet_config(iotcloudc,iot_config,connect_config) then return false end
     elseif cloud == iotcloud.HUAWEI then
         if not iotcloud_huawei_config(iotcloudc,iot_config,connect_config) then return false end
+    elseif cloud == iotcloud.TUYA then
+        if not iotcloud_tuya_config(iotcloudc,iot_config,connect_config) then return false end
     else
         log.error("iotcloud","cloud not support",cloud)
     end
-    -- print("iotauth.mqtt",iotcloudc.host,iotcloudc.ip)
+    -- print("iotauth.mqtt",iotcloudc.host,iotcloudc.ip,iotcloudc.isssl)
     -- print("iotauth.auth",iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password)
-    if iotcloudc.ca_file then iotcloudc.ca_file.verify = 1 end
-    iotcloudc.mqttc = mqtt.create(nil, iotcloudc.host, iotcloudc.ip, iotcloudc.isssl and iotcloudc.ca_file or nil)
+    if iotcloudc.ca_file then
+        iotcloudc.ca_file.verify = 1  
+        mqtt_ssl = iotcloudc.ca_file
+    elseif iotcloudc.isssl then
+        mqtt_ssl = iotcloudc.isssl
+    end
+    iotcloudc.mqttc = mqtt.create(nil, iotcloudc.host, iotcloudc.ip, mqtt_ssl)
+    -- iotcloudc.mqttc:debug(true)
     iotcloudc.mqttc:auth(iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password)
     iotcloudc.mqttc:keepalive(connect_config.keepalive or 240)
     iotcloudc.mqttc:autoreconn(true, 3000)                  -- 自动重连机制

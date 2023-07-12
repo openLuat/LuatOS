@@ -156,7 +156,7 @@ local function clientEncryptionTask(Registration,DeviceName,ProductKey,ProductSe
             UserName = DeviceName.."&"..ProductKey
             local content = "deviceName"..DeviceName.."productKey"..ProductKey.."random"..tm
             PassWord = crypto.hmac_md5(content,ProductSecret)
-    
+            
             local mqttClient = mqtt.create(nil,mqtt_host,mqtt_port,mqtt_isssl)  --客户端创建
             mqttClient:auth(ClientId,UserName,PassWord) --三元组配置
             mqttClient:on(function(mqtt_client, event, data, payload)  --mqtt回调注册
@@ -271,6 +271,59 @@ function confiDentialTask(DeviceName,ProductKey,DeviceSecret,mqtt_host,mqtt_port
             local client_id,user_name,password = iotauth.aliyun(ProductKey,DeviceName,DeviceSecret)
             mqttc = mqtt.create(nil,mqtt_host, mqtt_port,mqtt_isssl)  --mqtt客户端创建
             mqttc:auth(client_id,user_name,password) --mqtt三元组配置
+
+
+            mqttc:keepalive(30) -- 默认值240s
+            mqttc:autoreconn(true, 3000) -- 自动重连机制
+            mqttc:connect()
+            mqttc:on(mqtt_cbevent)  --mqtt回调注册
+
+            local conres = sys.waitUntil("mqtt_conack",30000)
+            if mqttc:ready() and conres then
+                -- if connectCb then connectCb(true,ProductKey,DeviceName) end
+                -- if EvtCb["connect"] then EvtCb["connect"](true) end
+
+                local result,prompt = procSubscribe(mqttc)
+                if result then
+                    while true do
+                        procSend(mqttc)
+                    end
+                end
+
+                -- if connectCb then connectCb(false,ProductKey,DeviceName) end
+                -- if EvtCb["connect"] then EvtCb["connect"](false) end
+            end
+
+        else
+            --进入飞行模式，20秒之后，退出飞行模式
+            mobile.flymode(0,true)
+            sys.wait(20000)
+            mobile.flymode(0,false)
+        end
+    end)
+end
+
+
+--正常连接 预注册一型一密获取DeviceSecret后就是正常的一机一密连接   
+function aliyun.clientGetDirectDataTask(DeviceName,ProductKey,mqtt_host,mqtt_port,mqtt_isssl,Registration,DeviceSecret,deviceToken,cid)
+    sys.taskInit(function()
+        if mobile.status() == 0 then
+            sys.waitUntil("IP_READY",30000)
+        end
+        if mobile.status() == 1 then
+            if not Registration then
+                local client_id,user_name,password = iotauth.aliyun(ProductKey,DeviceName,DeviceSecret)
+                mqttc = mqtt.create(nil,mqtt_host, mqtt_port,mqtt_isssl)  --mqtt客户端创建
+                mqttc:auth(client_id,user_name,password) --mqtt三元组配置
+            else
+                local clientId = cid.."|securemode=-2,authType=connwl|"
+    
+                local client_id,user_name,password = iotauth.aliyun(ProductKey,DeviceName,deviceToken)
+                mqttc = mqtt.create(nil,mqtt_host, mqtt_port,mqtt_isssl)  --mqtt客户端创建
+        
+                mqttc:auth(clientId,user_name,deviceToken) --mqtt三元组配置
+            end
+
             mqttc:keepalive(30) -- 默认值240s
             mqttc:autoreconn(true, 3000) -- 自动重连机制
             mqttc:connect()

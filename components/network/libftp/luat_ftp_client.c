@@ -348,6 +348,12 @@ static int luat_ftp_pasv_connect(luat_ftp_ctrl_t *ftp_ctrl,uint32_t timeout_ms){
 	port2 = (uint8_t)atoi(p2);
 	data_port = port1 * 256 + port2;
 	LLOGD("data_addr:%s data_port:%d",data_addr,data_port);
+	if (memcmp(data_addr,"172.",4)==0||memcmp(data_addr,"192.",4)==0||memcmp(data_addr,"10.",3)==0||memcmp(data_addr,"127.0.0.1",9)==0||memcmp(data_addr,"169.254.0.0",11)==0||memcmp(data_addr,"169.254.0.16",12)==0){
+		memset(data_addr,0,20);
+		LLOGD("g_s_ftp.network->addr:%s",g_s_ftp.network->addr);
+		memcpy(data_addr, g_s_ftp.network->addr, strlen(g_s_ftp.network->addr)+1);
+	}
+	LLOGD("data_addr:%s data_port:%d",data_addr,data_port);
 	if (g_s_ftp.network->data_netc)
 	{
 		LLOGE("data_netc already create");

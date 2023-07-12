@@ -323,10 +323,10 @@ static int l_audio_vol(lua_State *L) {
 
 /*
 配置一个音频通道的硬件输出总线，只有对应soc软硬件平台支持才设置对应类型
-@api audio.vol(id, bus_type)
-@int 音频通道
-@int 总线类型
-@return
+@api audio.setBus(id, bus_type)
+@int 音频通道,例如0
+@int 总线类型, 例如 audio.BUS_SOFT_DAC
+@return nil 无返回值
 @usage
 audio.setBus(0, audio.BUS_SOFT_DAC)	--通道0的硬件输出通道设置为软件DAC
 audio.setBus(0, audio.BUS_I2S)	--通道0的硬件输出通道设置为I2S

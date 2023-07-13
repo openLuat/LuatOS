@@ -306,7 +306,6 @@ static int l_wlan_ap_start(lua_State *L) {
     const char* password = luaL_optlstring(L, 2, "", &password_len);
     const char* gateway = luaL_optstring(L, 3, "192.168.4.1");
     const char* netmask = luaL_optstring(L, 4, "255.255.255.0");
-    ip_addr_t tmp = {0};
     if (strlen(gateway) > 7) {
         uint32_t tmpip = ipaddr_addr(gateway);
         apinfo.gateway[3] = (tmpip >> 24) & 0xFF;

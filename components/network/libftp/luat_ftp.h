@@ -24,7 +24,7 @@ enum
 #define FTP_ERROR_NETWORK 	(-10)
 #define FTP_RX_TIMEOUT 		(-6)
 
-#define FTP_SOCKET_TIMEOUT 		(30000)
+#define FTP_SOCKET_TIMEOUT 		(40000)
 
 #define FTP_RESTART_MARKER 		"110" //Restart marker reply.
 #define FTP_SERVICE_MIN_OK 		"120" //Service ready in nnn minutes.

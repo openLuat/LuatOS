@@ -202,7 +202,7 @@ static int32_t luat_ftp_data_callback(void *data, void *param){
 	{
 		return 0;
 	}
-	// LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
+	// LLOGD("event->ID %d LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",event->ID,EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
 	LLOGD("luat_ftp_data_callback %d %d",event->ID - EV_NW_RESULT_BASE, event->Param1);
 	if (event->Param1){
 		if (EV_NW_RESULT_CONNECT == event->ID)
@@ -225,6 +225,7 @@ static int32_t luat_ftp_data_callback(void *data, void *param){
 		do
 		{
 			ret = network_rx(g_s_ftp.network->data_netc, rx_buffer, 4096, 0, NULL, NULL, &rx_len);
+			// LLOGD("luat_ftp_data_callback network_rx ret:%d rx_len:%d",ret,rx_len);
 			if (!ret && rx_len > 0)
 			{
 				if (g_s_ftp.fd)
@@ -536,7 +537,7 @@ static void ftp_task(void *param){
 			{
 				g_s_ftp.network->cmd_recv_data[g_s_ftp.network->cmd_recv_len] = 0;
 				LLOGD("ftp RETR maybe done!");
-				if (strstr((const char *)(g_s_ftp.network->cmd_recv_data), "226 Transfer complete"))
+				if (strstr((const char *)(g_s_ftp.network->cmd_recv_data), "226 "))
 				{
 					LLOGD("ftp RETR ok!");
 					if (g_s_ftp.fd){
@@ -556,6 +557,7 @@ static void ftp_task(void *param){
 					goto operation_failed;
 				}
 			}
+			luat_ftp_cmd_recv(g_s_ftp.network,g_s_ftp.network->cmd_recv_data,&g_s_ftp.network->cmd_recv_len,FTP_SOCKET_TIMEOUT/10);
 			if (g_s_ftp.fd){
 				luat_fs_fclose(g_s_ftp.fd);
 				g_s_ftp.fd = NULL;
@@ -606,6 +608,7 @@ static void ftp_task(void *param){
 					LLOGD("ftp STOR wrong");
 				}
 			}
+			luat_ftp_cmd_recv(g_s_ftp.network,g_s_ftp.network->cmd_recv_data,&g_s_ftp.network->cmd_recv_len,FTP_SOCKET_TIMEOUT/10);
 			if (g_s_ftp.fd){
 				luat_fs_fclose(g_s_ftp.fd);
 				g_s_ftp.fd = NULL;

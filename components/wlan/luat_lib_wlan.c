@@ -260,7 +260,7 @@ local mac = string.fromHex("F01122334455")
 wlan.setMac(0, mac)
 */
 static int l_wlan_set_mac(lua_State* L){
-    int id = luaL_optinteger(L, 1, 0);
+    // int id = luaL_optinteger(L, 1, 0);
     const char* mac = luaL_checkstring(L, 2);
     int ret = luat_wlan_set_mac(luaL_optinteger(L, 1, 0), mac);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
@@ -282,20 +282,47 @@ static int l_wlan_get_ip(lua_State* L){
 
 /*
 启动AP
-@api wlan.createAP(ssid, passwd)
+@api wlan.createAP(ssid, passwd, gateway, netmask, channel)
 @string AP的SSID,必填
 @string AP的密码,可选
+@string AP的网关地址, 默认192.168.4.1
+@string AP的网关掩码, 默认255.255.255.0
+@int    AP建立的通道, 默认6
 @return bool 成功创建返回true,否则返回false
 @usage
 -- 注意, 调用本AP时,若wifi模式为STATION,会自动切换成 APSTA
 wlan.createAP("uiot", "12345678")
+-- 设置网关IP,掩码, 通道, 2023.7.13 新增, BSP未必支持
+-- wlan.createAP("uiot", "12345678", "192.168.4.1", "255.255.255.0", 6)
 */
+#include "lwip/opt.h"
+#include "lwip/ip_addr.h"
+#include "lwip/netif.h"
 static int l_wlan_ap_start(lua_State *L) {
     size_t ssid_len = 0;
     size_t password_len = 0;
     luat_wlan_apinfo_t apinfo = {0};
     const char* ssid = luaL_checklstring(L, 1, &ssid_len);
     const char* password = luaL_optlstring(L, 2, "", &password_len);
+    const char* gateway = luaL_optstring(L, 3, "192.168.4.1");
+    const char* netmask = luaL_optstring(L, 4, "255.255.255.0");
+    ip_addr_t tmp = {0};
+    if (strlen(gateway) > 7) {
+        uint32_t tmpip = ipaddr_addr(gateway);
+        apinfo.gateway[3] = (tmpip >> 24) & 0xFF;
+        apinfo.gateway[2] = (tmpip >> 16) & 0xFF;
+        apinfo.gateway[1] = (tmpip >> 8) & 0xFF;
+        apinfo.gateway[0] = (tmpip >> 0) & 0xFF;
+    }
+    if (strlen(netmask) > 7) {
+        uint32_t tmpip = ipaddr_addr(netmask);
+        apinfo.netmask[3] = (tmpip >> 24) & 0xFF;
+        apinfo.netmask[2] = (tmpip >> 16) & 0xFF;
+        apinfo.netmask[1] = (tmpip >> 8) & 0xFF;
+        apinfo.netmask[0] = (tmpip >> 0) & 0xFF;
+    }
+
+    apinfo.channel = (uint8_t)luaL_optinteger(L, 5, 6);
     if (ssid_len < 1) {
         LLOGE("ssid MUST NOT EMTRY");
         return 0;

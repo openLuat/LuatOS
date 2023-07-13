@@ -21,6 +21,10 @@ typedef struct luat_wlan_apinfo
 {
     char ssid[36];
     char password[64];
+    uint8_t gateway[4];
+    uint8_t netmask[4];
+    uint8_t channel;
+    uint8_t encrypt;
 }luat_wlan_apinfo_t;
 
 enum LUAT_WLAN_MODE {
@@ -29,6 +33,14 @@ enum LUAT_WLAN_MODE {
     LUAT_WLAN_MODE_AP,
     LUAT_WLAN_MODE_APSTA,
     LUAT_WLAN_MODE_MAX
+};
+
+
+enum LUAT_WLAN_ENCRYPT_MODE {
+    LUAT_WLAN_ENCRYPT_AUTO,
+    LUAT_WLAN_ENCRYPT_NONE,
+    LUAT_WLAN_ENCRYPT_WPA,
+    LUAT_WLAN_ENCRYPT_WPA2
 };
 
 typedef struct luat_wlan_scan_result

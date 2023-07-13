@@ -24,7 +24,7 @@ sys.taskInit(function()
     -----------------------------
     -- 统一联网函数, 可自行删减
     ----------------------------
-    if rtos.bsp():startsWith("ESP32") then
+    if wlan and wlan.connect then
         -- wifi 联网, ESP32系列均支持
         local ssid = "uiot"
         local password = "12345678"

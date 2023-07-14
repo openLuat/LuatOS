@@ -476,6 +476,13 @@ int _lvgl_struct_img_dsc_t_newindex(lua_State *L) {
 
 //--------------------------------------------
 
+int _lvgl_struct_style_t_gc(lua_State *L) {
+    lv_style_t *style = (lv_style_t *) lua_touserdata(L, 1);
+    if (style != NULL) {
+        lv_style_reset(style);
+    }
+    return 0;
+}
 
 void luat_lvgl_struct_init(lua_State *L) {
 
@@ -526,5 +533,11 @@ void luat_lvgl_struct_init(lua_State *L) {
     luaL_newmetatable(L, META_LV_LINE_DSC_T);
     lua_pushcfunction(L, _lvgl_struct_draw_line_dsc_t_newindex);
     lua_setfield( L, -2, "__newindex" );
+    lua_pop(L, 1);
+
+    
+    luaL_newmetatable(L, "LV_STYLE_T*");
+    lua_pushcfunction(L, _lvgl_struct_style_t_gc);
+    lua_setfield( L, -2, "__gc" );
     lua_pop(L, 1);
 }

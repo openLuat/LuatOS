@@ -24,6 +24,7 @@ int luat_lv_style_t(lua_State *L) {
         LLOGE("out of memory when create lv_style_t");
         return 0;
     }
+    luaL_setmetatable(L, "LV_STYLE_T*");
     return 1;
 }
 

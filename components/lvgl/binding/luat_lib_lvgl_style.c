@@ -19,12 +19,11 @@ local style = lvgl.style_t()
 lvgl.style_init(style)
 */
 int luat_lv_style_t(lua_State *L) {
-    lv_style_t* style = (lv_style_t*)luat_heap_malloc(sizeof(lv_style_t));
+    lv_style_t* style = (lv_style_t*)lua_newuserdata(L, sizeof(lv_style_t));
     if (style == NULL) {
         LLOGE("out of memory when create lv_style_t");
         return 0;
     }
-    lua_pushlightuserdata(L, style);
     return 1;
 }
 
@@ -36,13 +35,13 @@ int luat_lv_style_t(lua_State *L) {
 local style = lvgl.style_create()
 */
 int luat_lv_style_create(lua_State *L) {
-    lv_style_t* style = (lv_style_t*)luat_heap_malloc(sizeof(lv_style_t));
+    lv_style_t* style = (lv_style_t*)lua_newuserdata(L, sizeof(lv_style_t));
     if (style == NULL) {
         LLOGE("out of memory when create lv_style_t");
         return 0;
     }
     lv_style_init(style);
-    lua_pushlightuserdata(L, style);
+    // lua_pushlightuserdata(L, style);
     return 1;
 }
 
@@ -86,10 +85,10 @@ local style = lvgl.style_create()
 -- lvgl.style_delete(style)
 */
 int luat_lv_style_delete(lua_State *L) {
-    lv_style_t* style = (lv_style_t*)lua_touserdata(L, 1);
-    if (style != NULL) {
-        luat_heap_free(style);
-    }
+    // lv_style_t* style = (lv_style_t*)lua_touserdata(L, 1);
+    // if (style != NULL) {
+    //     luat_heap_free(style);
+    // }
     return 0;
 }
 

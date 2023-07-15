@@ -75,6 +75,14 @@ sys.coresume = function(...)
     return wrapper(arg[1], coroutine.resume(...))
 end
 
+function sys.check_task()
+    local co, ismain = coroutine.running()
+    if ismain then
+        error(debug.traceback("attempt to yield from outside a coroutine"))
+    end
+    return co
+end
+
 --- Task任务延时函数，只能用于任务函数中
 -- @number ms  整数，最大等待126322567毫秒
 -- @return 定时结束返回nil,被其他线程唤起返回调用线程传入的参数
@@ -83,6 +91,7 @@ function sys.wait(ms)
     -- 参数检测，参数不能为负值
     --assert(ms > 0, "The wait time cannot be negative!")
     -- 选一个未使用的定时器ID给该任务线程
+    local co = sys.check_task()
     while true do
         if taskTimerId >= TASK_TIMER_ID_MAX - 1 then
             taskTimerId = 0
@@ -94,15 +103,15 @@ function sys.wait(ms)
         end
     end
     local timerid = taskTimerId
-    taskTimerPool[coroutine.running()] = timerid
-    timerPool[timerid] = coroutine.running()
+    taskTimerPool[co] = timerid
+    timerPool[timerid] = co
     -- 调用core的rtos定时器
     if 1 ~= rtos.timer_start(timerid, ms) then log.debug("rtos.timer_start error") return end
     -- 挂起调用的任务线程
     local message = {coroutine.yield()}
     if #message ~= 0 then
         rtos.timer_stop(timerid)
-        taskTimerPool[coroutine.running()] = nil
+        taskTimerPool[co] = nil
         timerPool[timerid] = nil
         return unpack(message)
     end
@@ -115,17 +124,19 @@ end
 -- @return data 接收到消息返回消息参数
 -- @usage result, data = sys.waitUntil("SIM_IND", 120000)
 function sys.waitUntil(id, ms)
-    sys.subscribe(id, coroutine.running())
+    local co = sys.check_task()
+    sys.subscribe(id, co)
     local message = ms and {sys.wait(ms)} or {coroutine.yield()}
-    sys.unsubscribe(id, coroutine.running())
+    sys.unsubscribe(id, co)
     return message[1] ~= nil, unpack(message, 2, #message)
 end
 
 --- 同上，但不返回等待结果
 function sys.waitUntilMsg(id)
-    sys.subscribe(id, coroutine.running())
+    local co = check_task()
+    sys.subscribe(id, co)
     local message = {coroutine.yield()}
-    sys.unsubscribe(id, coroutine.running())
+    sys.unsubscribe(id, co)
     return unpack(message, 2, #message)
 end
 
@@ -136,9 +147,10 @@ end
 -- @return data 接收到消息返回消息参数
 -- @usage result, data = sys.waitUntilExt("SIM_IND", 120000)
 function sys.waitUntilExt(id, ms)
-    sys.subscribe(id, coroutine.running())
+    local co = sys.check_task()
+    sys.subscribe(id, co)
     local message = ms and {sys.wait(ms)} or {coroutine.yield()}
-    sys.unsubscribe(id, coroutine.running())
+    sys.unsubscribe(id, co)
     if message[1] ~= nil then return unpack(message) end
     return false
 end
@@ -184,7 +196,7 @@ end
 function sys.timerStop(val, ...)
     -- val 为定时器ID
     if type(val) == 'number' then
-        timerPool[val], para[val] = nil
+        timerPool[val], para[val] = nil, nil
         rtos.timer_stop(val)
     else
         for k, v in pairs(timerPool) do
@@ -193,7 +205,7 @@ function sys.timerStop(val, ...)
                 -- 可变参数相同
                 if cmpTable({...}, para[k]) then
                     rtos.timer_stop(k)
-                    timerPool[k], para[k] = nil
+                    timerPool[k], para[k] = nil, nil
                     break
                 end
             end
@@ -209,7 +221,7 @@ function sys.timerStopAll(fnc)
     for k, v in pairs(timerPool) do
         if type(v) == "table" and v.cb == fnc or v == fnc then
             rtos.timer_stop(k)
-            timerPool[k], para[k] = nil
+            timerPool[k], para[k] = nil, nil
         end
     end
 end

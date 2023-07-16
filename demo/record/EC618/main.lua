@@ -5,7 +5,7 @@ log.info("main", PROJECT, VERSION)
 log.style(1)
 -- sys库是标配
 _G.sys = require("sys")
-
+_G.sysplus = require("sysplus")
 -- es8311 录音demo
 require "es8311"
 

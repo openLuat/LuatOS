@@ -133,7 +133,7 @@ end
 
 --- 同上，但不返回等待结果
 function sys.waitUntilMsg(id)
-    local co = check_task()
+    local co = sys.check_task()
     sys.subscribe(id, co)
     local message = {coroutine.yield()}
     sys.unsubscribe(id, co)

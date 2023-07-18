@@ -19,7 +19,7 @@ require "audio_play"
 local mqtt_host = "lbsmqtt.airm2m.com"
 local mqtt_port = 1883
 local mqtt_isssl = false
-local client_id = "audio"
+local client_id = mcu.unique_id():toHex()
 local user_name = "username"
 local password = "password"
 

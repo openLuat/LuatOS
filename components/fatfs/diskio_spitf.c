@@ -993,7 +993,10 @@ __attribute__((weak)) void luat_spi_set_sdhc_ctrl(
 		g_s_spitf.SpiID = userdata->spi_id;
 		g_s_spitf.SpiSpeed = userdata->fast_speed;
 	}
-	g_s_spitf.locker = luat_mutex_create();
+	if (!g_s_spitf.locker)
+	{
+		g_s_spitf.locker = luat_mutex_create();
+	}
 	luat_heap_free(disk->userdata);
 	disk->userdata = NULL;
 	disk->opts = &spitf_disk_opts;

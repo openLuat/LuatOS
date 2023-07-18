@@ -201,10 +201,10 @@ int luat_vfs_fatfs_lsdir(void* userdata, char const* _DirName, luat_fs_dirent_t*
         };
         count ++;
         if (fno.fattrib & AM_DIR) {
-            ents[i].d_type = 2;
+            ents[i].d_type = 1;
         }
         else {
-            ents[i].d_type = 1;
+            ents[i].d_type = 0;
         }
         if (strlen(fno.fname) < 255)
             memcpy(&ents[i].d_name, fno.fname, strlen(fno.fname) + 1);

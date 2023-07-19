@@ -1,6 +1,6 @@
 --[[
 @module iotcloud
-@summary iotcloud 云平台库 (已支持: 腾讯云 阿里云 onenet 华为云 其他也会支持,有用到的提issue会加速支持)  
+@summary iotcloud 云平台库 (已支持: 腾讯云 阿里云 onenet 华为云 涂鸦云 百度云 其他也会支持,有用到的提issue会加速支持)  
 @version 1.0
 @date    2023.06.19
 @author  Dozingfiretruck
@@ -22,6 +22,8 @@ iotcloud.ONENET             = "onenet"      -- 中国移动云
 iotcloud.HUAWEI             = "huawei"      -- 华为云
 --//@const TUYA string 涂鸦云
 iotcloud.TUYA               = "tuya"        -- 涂鸦云
+--//@const BAIDU string 百度云
+iotcloud.BAIDU               = "baidu"      -- 百度云
 
 --认证方式
 local iotcloud_certificate  = "certificate" -- 秘钥认证
@@ -58,6 +60,7 @@ local function iotcloud_connect(iotcloudc)
     elseif iotcloudc.cloud == iotcloud.HUAWEI then  -- 华为云
         iotcloudc:subscribe("$oc/devices/"..iotcloudc.device_id.."/sys/events/down")    -- 订阅ota主题
         iotcloudc:publish("$oc/devices/"..iotcloudc.device_id.."/sys/events/up","{\"services\":[{\"service_id\":\"$ota\",\"event_type\":\"version_report\",\"paras\":{\"fw_version\":\"".._G.VERSION.."\"}}]}")   -- 上报ota版本信息
+    elseif iotcloudc.cloud == iotcloud.TUYA then  -- 涂鸦云
     end
 end
 
@@ -463,6 +466,7 @@ local function iotcloud_huawei_config(iotcloudc,iot_config,connect_config)
 end
 
 local function iotcloud_tuya_config(iotcloudc,iot_config,connect_config)
+    iotcloudc.cloud = iotcloud.TUYA
     iotcloudc.host = "m1.tuyacn.com"
     iotcloudc.ip = 8883
     iotcloudc.isssl = true
@@ -474,6 +478,24 @@ local function iotcloud_tuya_config(iotcloudc,iot_config,connect_config)
     end
     return true
 end
+
+local function iotcloud_baidu_config(iotcloudc,iot_config,connect_config)
+    iotcloudc.cloud = iotcloud.BAIDU
+    iotcloudc.produt_id = iot_config.produt_id
+    iotcloudc.region = iot_config.region or "gz"
+    iotcloudc.host = iotcloudc.produt_id..".iot."..iotcloudc.region..".baidubce.com"
+    iotcloudc.ip = 1883
+    -- iotcloudc.isssl = true
+    iotcloudc.device_secret = iot_config.device_secret
+    if iotcloudc.device_secret then
+        iotcloudc.client_id,iotcloudc.user_name,iotcloudc.password = iotauth.baidu(iotcloudc.produt_id,iotcloudc.device_name,iotcloudc.device_secret)
+    else
+        return false
+    end
+    return true
+end
+
+
 
 --[[
 创建云平台对象
@@ -534,6 +556,8 @@ function iotcloud.new(cloud,iot_config,connect_config)
         if not iotcloud_huawei_config(iotcloudc,iot_config,connect_config) then return false end
     elseif cloud == iotcloud.TUYA then
         if not iotcloud_tuya_config(iotcloudc,iot_config,connect_config) then return false end
+    elseif cloud == iotcloud.BAIDU then
+        if not iotcloud_baidu_config(iotcloudc,iot_config,connect_config) then return false end
     else
         log.error("iotcloud","cloud not support",cloud)
     end

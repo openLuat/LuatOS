@@ -32,6 +32,7 @@ static void gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt, void *arg)
 static int gatt_svr_init(void);
 
 static uint16_t g_ble_attr_indicate_handle;
+static uint16_t g_ble_attr_notify_handle;
 static uint16_t g_ble_attr_write_handle;
 extern uint16_t g_ble_conn_handle;
 extern uint16_t g_ble_state;
@@ -39,6 +40,7 @@ extern uint16_t g_ble_state;
 extern ble_uuid_any_t ble_peripheral_srv_uuid;
 extern ble_uuid_any_t ble_peripheral_indicate_uuid;
 extern ble_uuid_any_t ble_peripheral_write_uuid;
+extern ble_uuid_any_t ble_peripheral_notify_uuid;
 
 #define LUAT_LOG_TAG "nimble"
 #include "luat_log.h"
@@ -46,6 +48,9 @@ extern ble_uuid_any_t ble_peripheral_write_uuid;
 extern uint8_t luat_ble_dev_name[];
 extern size_t  luat_ble_dev_name_len;
 extern struct ble_gap_adv_params adv_params;
+
+static uint8_t buff_for_read[256];
+static uint8_t buff_for_read_size;
 
 typedef struct ble_write_msg {
     // uint16_t conn_handle,
@@ -89,6 +94,11 @@ static struct ble_gatt_svc_def gatt_svr_svcs[] = {
                 .val_handle = &g_ble_attr_indicate_handle,
                 .access_cb = gatt_svr_chr_access_func,
                 .flags = BLE_GATT_CHR_F_INDICATE | BLE_GATT_CHR_F_READ,
+            }, {
+                .uuid = &ble_peripheral_notify_uuid,
+                .val_handle = &g_ble_attr_notify_handle,
+                .access_cb = gatt_svr_chr_access_func,
+                .flags = BLE_GATT_CHR_F_NOTIFY,
             }, {
                 0, /* No more characteristics in this service */
             },
@@ -145,11 +155,22 @@ static int l_ble_chr_write_cb(lua_State* L, void* ptr) {
     return 0;
 }
 
+
+
+static int l_ble_chr_read_cb(lua_State* L, void* ptr) {
+    lua_getglobal(L, "sys_pub");
+    if (lua_isfunction(L, -1)) {
+        lua_pushstring(L, "BLE_GATT_READ_CHR");
+        lua_call(L, 2, 0);
+    }
+    return 0;
+}
+
 static int
 gatt_svr_chr_access_func(uint16_t conn_handle, uint16_t attr_handle,
                                struct ble_gatt_access_ctxt *ctxt, void *arg)
 {
-    // int i = 0;
+    int rc = 0;
     struct os_mbuf *om = ctxt->om;
     ble_write_msg_t* wmsg;
     rtos_msg_t msg = {0};
@@ -171,6 +192,14 @@ gatt_svr_chr_access_func(uint16_t conn_handle, uint16_t attr_handle,
               }
               return 0;
         case BLE_GATT_ACCESS_OP_READ_CHR:
+            LLOGD("gatt svr read size = %d", buff_for_read_size);
+            if (buff_for_read_size) {
+                rc = os_mbuf_append(ctxt->om, buff_for_read, buff_for_read_size);
+                buff_for_read_size = 0;
+                msg.handler = l_ble_chr_read_cb;
+                luat_msgbus_put(&msg, 0);
+                return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
+            }
             return 0;
         default:
             // assert(0);
@@ -206,7 +235,16 @@ int luat_nimble_server_send(int id, char* data, size_t data_len) {
         //LLOGI("Not connected yet");
         return -1;
     }
+    if (data_len <= 256) {
+        memcpy(buff_for_read, data, data_len);
+        buff_for_read_size = data_len;
+    }
+    else {
+        LLOGW("BLE package limit to 256 bytes");
+        return 1;
+    }
 
+    // 先发indicate, TODO 判断是否有监听
     om = ble_hs_mbuf_from_flat((const void*)data, (uint16_t)data_len);
     if (!om) {
         LLOGE("ble_hs_mbuf_from_flat return NULL!!");
@@ -214,6 +252,13 @@ int luat_nimble_server_send(int id, char* data, size_t data_len) {
     }
     rc = ble_gattc_indicate_custom(g_ble_conn_handle,g_ble_attr_indicate_handle, om);
     LLOGD("ble_gattc_indicate_custom ret %d", rc);
+
+    // 然后发notify, TODO 判断是否有监听
+    om = ble_hs_mbuf_from_flat((const void*)data, (uint16_t)data_len);
+    if (om) {
+        rc = ble_gattc_notify_custom(g_ble_conn_handle,  g_ble_attr_notify_handle, om);
+        LLOGD("ble_gattc_notify_custom ret %d", rc);
+    }
     return rc;
 }
 

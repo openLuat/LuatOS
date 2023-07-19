@@ -34,12 +34,13 @@ uint16_t g_ble_conn_handle;
 ble_uuid_any_t ble_peripheral_srv_uuid;
 ble_uuid_any_t ble_peripheral_indicate_uuid;
 ble_uuid_any_t ble_peripheral_write_uuid;
+ble_uuid_any_t ble_peripheral_notify_uuid;
 
 #define WM_GATT_SVC_UUID      0x180D
 // #define WM_GATT_SVC_UUID      0xFFF0
 #define WM_GATT_INDICATE_UUID 0xFFF1
 #define WM_GATT_WRITE_UUID    0xFFF2
-// #define WM_GATT_NOTIFY_UUID    0xFFF3
+#define WM_GATT_NOTIFY_UUID    0xFFF3
 
 
 uint8_t luat_ble_dev_name[32];
@@ -249,8 +250,11 @@ static int l_nimble_set_uuid(lua_State *L) {
     else if (!strcmp("indicate", key)) {
         memcpy(&ble_peripheral_indicate_uuid, &tmp, sizeof(ble_uuid_any_t));
     }
+    else if (!strcmp("notify", key)) {
+        memcpy(&ble_peripheral_notify_uuid, &tmp, sizeof(ble_uuid_any_t));
+    }
     else {
-        LLOGW("only support srv/write/indicate");
+        LLOGW("only support srv/write/indicate/notify");
         return 0;
     }
     lua_pushboolean(L, 1);
@@ -456,6 +460,7 @@ LUAMOD_API int luaopen_nimble( lua_State *L ) {
     memcpy(&ble_peripheral_srv_uuid, BLE_UUID16_DECLARE(WM_GATT_SVC_UUID), sizeof(ble_uuid16_t));
     memcpy(&ble_peripheral_write_uuid, BLE_UUID16_DECLARE(WM_GATT_WRITE_UUID), sizeof(ble_uuid16_t));
     memcpy(&ble_peripheral_indicate_uuid, BLE_UUID16_DECLARE(WM_GATT_INDICATE_UUID), sizeof(ble_uuid16_t));
+    memcpy(&ble_peripheral_notify_uuid, BLE_UUID16_DECLARE(WM_GATT_NOTIFY_UUID), sizeof(ble_uuid16_t));
     rotable2_newlib(L, reg_nimble);
     return 1;
 }

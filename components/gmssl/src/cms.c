@@ -1852,7 +1852,7 @@ int cms_signed_and_enveloped_data_decipher_from_der(
 	const uint8_t *extra_crls, size_t extra_crls_len,
 	const uint8_t **in, size_t *inlen)
 {
-	int ret;
+	int ret = 0;
 	int version;
 	const uint8_t *rcpt_infos;
 	size_t rcpt_infos_len;

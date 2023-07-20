@@ -10,10 +10,13 @@
 #define LUAT_LOG_TAG "repl"
 #include "luat_log.h"
 
+
+#ifdef LUAT_USE_REPL
+
 static char* mulitline_buff;
 static size_t mulitline_buff_size;
 static size_t mulitline_buff_offset;
-static int mulitline_mode;
+// static int mulitline_mode;
 
 #define luat_repl_write luat_shell_write
 
@@ -154,8 +157,6 @@ static int find2run(void) {
     return 1;
 }
 
-#ifdef LUAT_USE_REPL
-
 void luat_shell_push(char* uart_buff, size_t rcount) {
     // LLOGD("收到数据长度 %d", rcount);
     if (rcount == 0 || !repl_enable)
@@ -167,7 +168,7 @@ void luat_shell_push(char* uart_buff, size_t rcount) {
         mulitline_buff_size = rcount > 1024 ? rcount : 1024;
         mulitline_buff  = luat_heap_malloc(mulitline_buff_size);
         if (mulitline_buff == NULL) {
-            mulitline_mode = 0;
+            // mulitline_mode = 0;
             mulitline_buff_offset = 0;
             mulitline_buff_size = 0;
             luat_repl_write("REPL: out of memory\r\n", strlen("REPL: out of memory\r\n"));
@@ -178,7 +179,7 @@ void luat_shell_push(char* uart_buff, size_t rcount) {
         void* tmpptr = luat_heap_realloc(mulitline_buff, mulitline_buff_offset + rcount + 256);
         if (tmpptr == NULL) {
             luat_heap_free(mulitline_buff);
-            mulitline_mode = 0;
+            // mulitline_mode = 0;
             mulitline_buff_offset = 0;
             mulitline_buff_size = 0;
             luat_repl_write("REPL: out of memory\r\n", strlen("REPL: out of memory\r\n"));

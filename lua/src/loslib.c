@@ -337,7 +337,17 @@ static int os_time (lua_State *L) {
     ts.tm_min = getfield(L, "min", 0, 0);
     ts.tm_hour = getfield(L, "hour", 12, 0);
     ts.tm_mday = getfield(L, "day", -1, 0);
-    ts.tm_mon = getfield(L, "month", -1, 1);
+    // 兼容RTC库的mon属性, 当初我咋就没想到呢
+    // https://gitee.com/openLuat/LuatOS/issues/I7MYRS
+    lua_getfield(L, 1, "mon");
+    if (lua_isinteger(L, -1)) {
+      ts.tm_mon = lua_tointeger(L, -1);
+      lua_settop(L, 1);
+    }
+    else {
+      lua_settop(L, 1);
+      ts.tm_mon = getfield(L, "month", -1, 1900);
+    }
     ts.tm_year = getfield(L, "year", -1, 1900);
     ts.tm_isdst = getboolfield(L, "isdst");
     t = mktime(&ts);

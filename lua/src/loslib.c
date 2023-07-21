@@ -324,8 +324,7 @@ static int os_date (lua_State *L) {
   return 1;
 }
 
-#define LUAT_LOG_TAG "os"
-#include "luat_log.h"
+
 static int os_time (lua_State *L) {
   time_t t;
   if (lua_isnoneornil(L, 1))  /* called without args? */
@@ -350,7 +349,6 @@ static int os_time (lua_State *L) {
       lua_settop(L, 1);
       ts.tm_mon = getfield(L, "month", -1, 1);
     }
-    LLOGD("ts %d-%d-%d %d:%d:%d", ts.tm_year, ts.tm_mon, ts.tm_mday, ts.tm_hour, ts.tm_min, ts.tm_min);
     t = mktime(&ts);
     setallfields(L, &ts);  /* update fields with normalized values */
   }

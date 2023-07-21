@@ -324,7 +324,8 @@ static int os_date (lua_State *L) {
   return 1;
 }
 
-
+#define LUAT_LOG_TAG "os"
+#include "luat_log.h"
 static int os_time (lua_State *L) {
   time_t t;
   if (lua_isnoneornil(L, 1))  /* called without args? */
@@ -337,19 +338,19 @@ static int os_time (lua_State *L) {
     ts.tm_min = getfield(L, "min", 0, 0);
     ts.tm_hour = getfield(L, "hour", 12, 0);
     ts.tm_mday = getfield(L, "day", -1, 0);
+    ts.tm_year = getfield(L, "year", -1, 1900);
+    ts.tm_isdst = getboolfield(L, "isdst");
     // 兼容RTC库的mon属性, 当初我咋就没想到呢
     // https://gitee.com/openLuat/LuatOS/issues/I7MYRS
-    lua_getfield(L, 1, "mon");
-    if (lua_isinteger(L, -1)) {
-      ts.tm_mon = lua_tointeger(L, -1);
-      lua_settop(L, 1);
+    if (lua_getfield(L, 1, "mon") != LUA_TNIL) {
+      ts.tm_mon = lua_tointeger(L, -1) -1;
+      lua_pop(L, 1);
     }
     else {
       lua_settop(L, 1);
       ts.tm_mon = getfield(L, "month", -1, 1);
     }
-    ts.tm_year = getfield(L, "year", -1, 1900);
-    ts.tm_isdst = getboolfield(L, "isdst");
+    LLOGD("ts %d-%d-%d %d:%d:%d", ts.tm_year, ts.tm_mon, ts.tm_mday, ts.tm_hour, ts.tm_min, ts.tm_min);
     t = mktime(&ts);
     setallfields(L, &ts);  /* update fields with normalized values */
   }

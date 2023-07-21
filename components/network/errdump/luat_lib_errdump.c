@@ -134,10 +134,23 @@ static void luat_errdump_make_data(lua_State *L)
     {
     	file_len[LUAT_ERRDUMP_RECORD_TYPE_SYS] = 0;
     }
+    if (file_len[LUAT_ERRDUMP_RECORD_TYPE_SYS] > (ERR_DUMP_LEN_MAX * 2))
+    {
+    	LLOGE("sys record file len %d too much, drop", file_len[LUAT_ERRDUMP_RECORD_TYPE_SYS]);
+    	luat_fs_remove(sys_error_log_file_path);
+    	file_len[LUAT_ERRDUMP_RECORD_TYPE_SYS] = 0;
+    }
     if (file_len[LUAT_ERRDUMP_RECORD_TYPE_USR] < 0)
     {
     	file_len[LUAT_ERRDUMP_RECORD_TYPE_USR] = 0;
     }
+    if (file_len[LUAT_ERRDUMP_RECORD_TYPE_USR] > (ERR_DUMP_LEN_MAX * 2))
+    {
+    	LLOGE("user record file len %d too much, drop", file_len[LUAT_ERRDUMP_RECORD_TYPE_USR]);
+    	luat_fs_remove(user_error_log_file_path);
+    	file_len[LUAT_ERRDUMP_RECORD_TYPE_USR] = 0;
+    }
+
     if (econf.user_string)
     {
     	sn = econf.user_string;

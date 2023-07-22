@@ -27,6 +27,7 @@ void* luat_heap_zalloc(size_t len);
 #endif
 
 static int network_state = 0;
+static int net_lwip_set_dns_server(uint8_t server_index, luat_ip_addr_t *ip, void *user_data);
 
 enum
 {
@@ -68,7 +69,7 @@ static uint32_t register_statue;
 
 static LUAT_RT_RET_TYPE net_lwip_timer_cb(LUAT_RT_CB_PARAM)
 {
-	platform_send_event(NULL, EV_LWIP_COMMON_TIMER, 0, 0, (uint32_t)param);
+	platform_send_event(NULL, (uint32_t)EV_LWIP_COMMON_TIMER, 0, 0, (uint32_t)param);
 	return LUAT_RT_RET;
 }
 
@@ -108,7 +109,7 @@ void net_lwip_set_netif(struct netif * lwip_netif, uint8_t adapter_index) {
 		prvlwip.dns_udp = udp_new();
 		prvlwip.dns_udp->recv = net_lwip_dns_recv_cb;
 		prvlwip.dns_udp->recv_arg = adapter_index;
-		// udp_bind(prvlwip.dns_udp, NULL, 55);
+		//udp_bind(prvlwip.dns_udp, &lwip_netif->gw, 55);
 		dns_init_client(&prvlwip.dns_client);
 	}
 
@@ -922,43 +923,40 @@ static void net_lwip_check_network_ready(uint8_t adapter_index)
 		prvlwip.netif_network_ready[adapter_index] = active_flag;
 		if (!active_flag)
 		{
-			dns_clear(&prvlwip.dns_client);
-			prvlwip.dns_client.is_run = 0;
+			if (prvlwip.dns_adapter_index == adapter_index) {
+				dns_clear(&prvlwip.dns_client);
+				prvlwip.dns_client.is_run = 0;
+			}
 //			NET_DBG("network not ready");
 			net_lwip_callback_to_nw_task(adapter_index, EV_NW_STATE, 0, 0, adapter_index);
 		}
 		else
 		{
 			NET_DBG("network ready");
-			// TODO 设置为本地的DNS配置
-			PV_Union puTmp = {.u8 = {223,5,5,5}};
-			#if LWIP_IPV6
-			prvlwip.dns_client.dns_server[0].u_addr.ip4.addr = puTmp.u32;
-			prvlwip.dns_client.dns_server[0].type = IPADDR_TYPE_V4;
-			#else
-			prvlwip.dns_client.dns_server[0].addr = puTmp.u32;
-			#endif
-			prvlwip.dns_client.is_static_dns[0] = 1;
-			PV_Union puTmp2 = {.u8 = {114,114,114,114}};
-			#if LWIP_IPV6
-			prvlwip.dns_client.dns_server[1].u_addr.ip4.addr = puTmp2.u32;
-			prvlwip.dns_client.dns_server[1].type = IPADDR_TYPE_V4;
-			#else
-			prvlwip.dns_client.dns_server[1].addr = puTmp2.u32;
-			#endif
-			prvlwip.dns_client.is_static_dns[1] = 1;
-
-			for(i = 0; i < MAX_DNS_SERVER; i++)
-			{
-				#if LWIP_IPV6
-				if (prvlwip.dns_client.dns_server[i].type != 0xff)
-				#else
-				if (prvlwip.dns_client.dns_server[i].addr != 0)
-				#endif
-				{
-					NET_DBG("DNS%d:%s",i, ipaddr_ntoa_r(&prvlwip.dns_client.dns_server[i], ip_string, sizeof(ip_string)));
+			if (prvlwip.dns_adapter_index == adapter_index) {
+				luat_ip_addr_t addr = {
+					.addr = 0
+				};
+				if (prvlwip.lwip_netif[adapter_index] != 0) {
+					net_lwip_set_dns_server(0, &prvlwip.lwip_netif[adapter_index]->gw, (void*)adapter_index);
 				}
+				ip4addr_aton("114.114.114.114", &addr);
+				net_lwip_set_dns_server(2, &addr, (void*)adapter_index);
+				ip4addr_aton("223.5.5.5", &addr);
+				net_lwip_set_dns_server(3, &addr, (void*)adapter_index);
 			}
+
+			// for(i = 0; i < MAX_DNS_SERVER; i++)
+			// {
+			// 	#if LWIP_IPV6
+			// 	if (prvlwip.dns_client.dns_server[i].type != 0xff)
+			// 	#else
+			// 	if (prvlwip.dns_client.dns_server[i].addr != 0)
+			// 	#endif
+			// 	{
+			// 		NET_DBG("DNS%d:%s",i, ipaddr_ntoa_r(&prvlwip.dns_client.dns_server[i], ip_string, sizeof(ip_string)));
+			// 	}
+			// }
 			net_lwip_callback_to_nw_task(adapter_index, EV_NW_STATE, 0, 1, adapter_index);
 		}
 

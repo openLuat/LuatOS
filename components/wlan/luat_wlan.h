@@ -78,6 +78,8 @@ int luat_wlan_smartconfig_stop(void);
 int luat_wlan_get_mac(int id, char* mac);
 int luat_wlan_set_mac(int id, char* mac);
 int luat_wlan_get_ip(int type, char* data);
+const char* luat_wlan_get_hostname(int id);
+int luat_wlan_set_hostname(int id, char* hostname);
 
 // 设置和获取省电模式
 int luat_wlan_set_ps(int mode);

@@ -1904,8 +1904,10 @@ int network_init_tls(network_ctrl_t *ctrl, int verify_mode)
 		mbedtls_ssl_conf_ca_chain(ctrl->config, ctrl->ca_cert, NULL);
 		// ctrl->config->read_timeout = 20000;
 		mbedtls_ssl_conf_read_timeout(ctrl->config, 20000);
+		#ifdef MBEDTLS_SSL_RENEGOTIATION
 		mbedtls_ssl_conf_renegotiation(ctrl->config, MBEDTLS_SSL_RENEGOTIATION_ENABLED);
 		mbedtls_ssl_conf_legacy_renegotiation(ctrl->config, MBEDTLS_SSL_LEGACY_ALLOW_RENEGOTIATION);
+		#endif
 	    ctrl->tls_long_timer = platform_create_timer(tls_longtimeout, ctrl, NULL);
 	    ctrl->tls_short_timer = platform_create_timer(tls_shorttimeout, ctrl, NULL);
 	}

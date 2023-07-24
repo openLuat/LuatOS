@@ -1,13 +1,37 @@
+
+/*
+@module  ymodem
+@summary ymodem协议
+@version 1.0
+@date    2022.09.30
+@author  Dozingfiretruck
+@tag LUAT_USE_YMODEM
+@usage
+-- 本库的用途是接收数据, 若需要发送文件, 建议用xmodem库
+local handler = ymodem.create("/")
+uart.on(1, "recvice", function(id, len)
+	while 1 do
+		local data = uart.read(id, 512)
+		if not data or #data == 0 then
+			break
+		end
+		ymodem.receive(handler, data)
+	end
+end)
+*/
+
 #include "luat_base.h"
 #include "luat_malloc.h"
 #include "luat_ymodem.h"
 #include "luat_zbuff.h"
-#define LUAT_LOG_TAG "ymodem_lib"
+#define LUAT_LOG_TAG "ymodem"
 #include "luat_log.h"
+
 typedef struct
 {
 	void *ctrl;
 }ymodem_handler;
+
 /*
 创建一个ymodem处理句柄
 @api ymodem.create(dir_path,file_path)
@@ -17,7 +41,6 @@ typedef struct
 @usage
 local handler = ymodem.create("/")
 */
-
 static int l_ymodem_create(lua_State *L){
 	ymodem_handler *handler = (ymodem_handler *)lua_newuserdata(L, sizeof(ymodem_handler));
 	size_t len;
@@ -48,15 +71,15 @@ static int l_ymodem_create(lua_State *L){
 /*
 ymodem接收文件数据并保存
 @api ymodem.receive(handler, data)
-@userdata handler
+@userdata ymodem处理句柄
 @zbuff or string输入的数据
-@return
-boolean 成功true，失败false
-int ack值，需要通过串口/网络等途径返回发送方
-int flag值，需要通过串口/网络等途径返回发送方
-boolean, 一个文件接收完成true，传输中false
-boolean, 整个传输完成true 否则false
+@return boolean 成功true，失败false
+@return int ack值，需要通过串口/网络等途径返回发送方
+@return int flag值，需要通过串口/网络等途径返回发送方
+@return boolean, 一个文件接收完成true，传输中false
+@return boolean, 整个传输完成true 否则false
 @usage
+-- 注意, 数据来源不限, 通常是uart.read得到data
 */
 
 static int l_ymodem_receive(lua_State *L){
@@ -102,13 +125,13 @@ static int l_ymodem_receive(lua_State *L){
 }
 
 /*
-重置ymodem处理过程，恢复到初始状态，一般用于接收出错后重置，从而进行下一次接收
+重置ymodem处理过程
 @api ymodem.reset(handler)
-@userdata handler
+@userdata ymodem处理句柄
 @usage
+-- 恢复到初始状态，一般用于接收出错后重置，从而进行下一次接收
 ymodem.reset(handler)
 */
-
 static int l_ymodem_reset(lua_State *L){
 	ymodem_handler *handler = (ymodem_handler *)lua_touserdata(L, 1);
 	if (handler && handler->ctrl) luat_ymodem_reset(handler->ctrl);

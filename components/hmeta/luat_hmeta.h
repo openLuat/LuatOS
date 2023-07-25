@@ -4,6 +4,8 @@
 
 // 获取模块的设备类型, 原始需求是区分Air780E和Air600E
 int luat_hmeta_model_name(char* buff);
+// 获取硬件版本号, 例如A11, A14
+int luat_hmeta_hwversion(char* buff);
 
 
 // -------------------------------------------------------

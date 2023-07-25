@@ -46,20 +46,48 @@ static int l_hmeta_model(lua_State *L) {
     return 1;
 }
 
-static int l_hmeta_gpio(lua_State *L) {
-    return 0;
+/*
+获取模组的硬件版本号
+@api hmeta.hwver()
+@return string 若能识别到,返回模组类型, 否则会是nil
+@usage
+sys.taskInit(function()
+    while 1 do
+        sys.wait(3000)
+        -- hmeta识别底层模组类型的
+        -- 不同的模组可以使用相同的bsp,但根据封装的不同,根据内部数据仍可识别出具体模块
+        log.info("hmeta", hmeta.model(), hmeta.hwver())
+        log.info("bsp",   rtos.bsp())
+    end
+end)
+*/
+static int l_hmeta_hwver(lua_State *L) {
+    char buff[40] = {0};
+    luat_hmeta_hwversion(buff);
+    if (strlen(buff)) {
+        lua_pushstring(L, buff);
+    }
+    else {
+        lua_pushnil(L);
+    }
+    return 1;
 }
 
-static int l_hmeta_uart(lua_State *L) {
-    return 0;
-}
+// static int l_hmeta_gpio(lua_State *L) {
+//     return 0;
+// }
+
+// static int l_hmeta_uart(lua_State *L) {
+//     return 0;
+// }
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_hmeta[] =
 {
     { "model" ,           ROREG_FUNC(l_hmeta_model)},
-    { "gpio" ,            ROREG_FUNC(l_hmeta_gpio)},
-    { "uart" ,            ROREG_FUNC(l_hmeta_uart)},
+    { "hwver" ,           ROREG_FUNC(l_hmeta_hwver)},
+    // { "gpio" ,            ROREG_FUNC(l_hmeta_gpio)},
+    // { "uart" ,            ROREG_FUNC(l_hmeta_uart)},
 	{ NULL,               ROREG_INT(0)}
 };
 

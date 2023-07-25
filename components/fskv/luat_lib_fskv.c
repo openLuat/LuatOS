@@ -10,6 +10,7 @@
 -- 本库的目标是替代fdb库
 -- 1. 兼容fdb的函数
 -- 2. 使用fdb的flash空间,启用时也会替代fdb库
+-- 3. 功能上与EEPROM是类似的
 fskv.init()
 fskv.set("wendal", 1234)
 log.info("fskv", "wendal", fskv.get("wendal"))
@@ -20,9 +21,10 @@ fskv与fdb的实现机制导致的差异
                     fskv          fdb
 1. value长度        4096           255
 2. key长度          63             64
-3. 空间利用率(对比)  较低            较高
+3. 空间利用率(对比)  较低           较高
 4. 读取速度         恒定           脏数据影响速度,非恒定
 5. 写入数据         恒定           脏数据影响速度,非恒定
+6. 均衡擦除         自动           自动
 ]]
 */
 

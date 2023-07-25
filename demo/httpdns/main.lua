@@ -52,7 +52,7 @@ sys.taskInit(function()
         --mobile.simid(2)
         LED = gpio.setup(27, 0, gpio.PULLUP)
         device_id = mobile.imei()
-        log.info("ipv6", mobile.ipv6(true))
+        -- log.info("ipv6", mobile.ipv6(true))
         sys.waitUntil("IP_READY", 30000)
     end
     log.info("已联网")

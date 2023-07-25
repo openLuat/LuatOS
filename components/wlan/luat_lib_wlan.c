@@ -384,7 +384,7 @@ static int l_wlan_get_info(lua_State *L) {
 /*
 读取或设置省电模式
 @api wlan.powerSave(mode)
-@int 省电模式,可选, 设置就传支持, 例如wlan.PS_NONE
+@int 省电模式,可选, 传入就是设置, 例如wlan.PS_NONE
 @return int 当前省电模式/设置后的省电模式
 @usage
 -- 请查阅常量表  PS_NONE/PS_MIN_MODEM/PS_MAX_MODEM
@@ -399,6 +399,36 @@ static int l_wlan_powerSave(lua_State *L) {
     }
     mode = luat_wlan_get_ps();
     lua_pushinteger(L, mode);
+    return 1;
+}
+
+/*
+读取或设置Hostname
+@api wlan.hostname(new_name)
+@string 新的hostname,可选, 传入就是设置
+@return string 当前的hostname或者设置后的hostname
+@usage
+-- 本API于 2023.07.23 新增
+-- 本函数应该在wlan.init之前设置好, 最晚应早于wlan.connect
+-- hostname的默认值是  "LUATOS_" + 设备的MAC值
+-- 例如: LUATOS_0022EECC2399
+
+wlan.hostname("我的wifi物联网设备")
+*/
+static int l_wlan_get_set_hostname(lua_State *L) {
+    if (lua_isstring(L, 1)) {
+        size_t len = 0;
+        const char* hostname = luaL_checklstring(L, 1, &len);
+        if (len > 0) {
+            if (len > 31) {
+                LLOGE("hostname is too long");
+                return 0;
+            }
+            luat_wlan_set_hostname(0, hostname);
+        }
+    }
+    const char* tmp = luat_wlan_get_hostname(0);
+    lua_pushstring(L, tmp);
     return 1;
 }
 
@@ -421,6 +451,7 @@ static const rotable_Reg_t reg_wlan[] =
     { "getInfo",             ROREG_FUNC(l_wlan_get_info)},
     { "getMac",              ROREG_FUNC(l_wlan_get_mac)},
     { "setMac",              ROREG_FUNC(l_wlan_set_mac)},
+    { "hostname",            ROREG_FUNC(l_wlan_get_set_hostname)},
 
     { "powerSave",           ROREG_FUNC(l_wlan_powerSave)},
 

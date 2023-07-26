@@ -199,6 +199,84 @@ static int l_fskv_set(lua_State *L) {
 }
 
 /**
+设置table内的键值对数据
+@api fskv.sett(key, skey, value)
+@string key的名称,必填,不能空字符串
+@string table的key名称, 必填, 不能是空字符串
+@string 用户数据,必填,不能nil, 支持字符串/数值/table/布尔值, 数据长度最大4095字节
+@return boolean 成功返回true,否则返回false/nil
+@usage
+-- 本API在2023.7.26新增,注意与set函数区别
+-- 设置数据, 字符串,数值,table,布尔值,均可
+-- 但不可以是nil, function, userdata, task
+log.info("fdb", fskv.sett("mytable", "wendal", "goodgoodstudy"))
+log.info("fdb", fskv.sett("mytable", "upgrade", true))
+log.info("fdb", fskv.sett("mytable", "timer", 1))
+log.info("fdb", fskv.sett("mytable", "bigd", {name="wendal",age=123}))
+
+-- 下列语句将打印出4个元素的table
+log.info("fdb", fskv.get("mytable"), json.encode(fskv.get("mytable")))
+-- 注意: 如果key不存在, 或者原本的值不是table类型,将会完全覆盖
+-- 例如下列写法,最终获取到的是table,而非第一行的字符串
+log.info("fdb", fskv.set("mykv", "123")
+log.info("fdb", fskv.sett("mykv", "age", "123")) -- 保存的将是 {age:"123"}
+-- 
+ */
+static int l_fskv_sett(lua_State *L) {
+    if (sfd_lfs == 0) {
+        LLOGE("call fskv.init() first!!!");
+        return 0;
+    }
+    const char* key = luaL_checkstring(L, 1);
+    const char* skey = luaL_checkstring(L, 2);
+    if (lua_gettop(L) < 3) {
+        LLOGD("require key skey value");
+        return 0;
+    }
+    char tmp[256] = {0};
+    char *buff = NULL;
+    char *rbuff = NULL;
+    int size = luat_fskv_size(key, tmp);
+    if (size >= 256) {
+        rbuff = luat_heap_malloc(size);
+        if (rbuff == NULL) {
+            LLOGW("out of memory when malloc key-value buff");
+            return 0;
+        }
+        size_t read_len = luat_fskv_get(key, rbuff, size);
+        if (read_len != size) {
+            luat_heap_free(rbuff);
+            LLOGW("read key-value fail, ignore as not exist");
+            return 0;
+        }
+        buff = rbuff;
+    }
+    else {
+        buff = tmp;
+    }
+    if (buff[0] == LUA_TTABLE) {
+        lua_getglobal(L, "json");
+        lua_getfield(L, -1, "decode");
+        lua_pushlstring(L, (const char*)(buff + 1), size - 1);
+        lua_call(L, 1, 1);
+        if (lua_type(L, -1) != LUA_TTABLE) {
+            lua_pop(L, 1);
+            lua_newtable(L);
+        }
+    }
+    else {
+        lua_newtable(L);
+    }
+    lua_pushvalue(L, 3);
+    lua_setfield(L, -2, skey);
+    lua_pushcfunction(L, l_fskv_set);
+    lua_pushvalue(L, 1);
+    lua_pushvalue(L, -3);
+    lua_call(L, 2, 1);
+    return 1;
+}
+
+/**
 根据key获取对应的数据
 @api fskv.get(key, skey)
 @string key的名称,必填,不能空字符串
@@ -428,6 +506,7 @@ static const rotable_Reg_t reg_fskv[] =
     { "status",             ROREG_FUNC(l_fskv_stat)},
     { "iter",               ROREG_FUNC(l_fskv_iter)},
     { "next",               ROREG_FUNC(l_fskv_next)},
+    { "sett",               ROREG_FUNC(l_fskv_sett)},
 
     // -- 提供与fdb兼容的API
     { "kvdb_init" ,         ROREG_FUNC(l_fskvdb_init)},

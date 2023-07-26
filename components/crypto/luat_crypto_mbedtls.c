@@ -129,6 +129,10 @@ int l_crypto_cipher_xxx(lua_State *L, uint8_t flags) {
     if ((cipher_mode == MBEDTLS_MODE_ECB) && !strcmp("PKCS7", pad) && (flags & 0x1)) {
     	uint32_t new_len  = ((str_size / block_size) + 1) * block_size;
     	temp = luat_heap_malloc(new_len);
+        if (temp == NULL) {
+            LLOGE("out of memory when malloc cipher buffer");
+            goto _exit;
+        }
     	memcpy(temp, str, str_size);
     	add_pkcs_padding(temp + str_size - str_size % block_size, block_size, str_size % block_size);
     	str_size = new_len;
@@ -143,7 +147,13 @@ int l_crypto_cipher_xxx(lua_State *L, uint8_t flags) {
         else if ((cipher_mode == MBEDTLS_MODE_ECB) && !strcmp("PKCS7", pad) && !flags)
         {
         	ret = mbedtls_cipher_update(&ctx, (const unsigned char *)(str+i), input_size, output, &output_size);
-        	get_pkcs_padding(output, output_size, &output_size);
+            if (ret == 0) {
+                ret = get_pkcs_padding(output, output_size, &output_size);
+                if (ret) {
+                    LLOGE("get_pkcs_padding fail 0x%04X %s", -ret, cipher);
+                    goto _exit;
+                }
+            }
         }
         else {
         	ret = mbedtls_cipher_update(&ctx, (const unsigned char *)(str+i), input_size, output, &output_size);

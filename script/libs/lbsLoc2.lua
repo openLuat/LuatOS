@@ -4,6 +4,7 @@
 @version 1.0
 @date    2023.5.23
 @author  wendal
+@demo    lbsLoc2
 @usage
 -- 注意:
 -- 1. 因使用了sys.wait()所有api需要在协程中使用
@@ -130,7 +131,7 @@ function lbsLoc2.request(timeout, host, port, reqTime)
         return
     end
     -- socket.debug(sc, true)
-    socket.config(sc, nil, true, 12411)
+    socket.config(sc, nil, true)
     local rxbuff = zbuff.create(64)
     for k, rhost in pairs(hosts) do
         local cells = mobile.getCellInfo()

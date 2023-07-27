@@ -378,8 +378,16 @@ int luat_mqtt_send_packet(void* socket_info, const void* buf, unsigned int count
     luat_mqtt_ctrl_t * mqtt_ctrl = (luat_mqtt_ctrl_t *)socket_info;
 	uint32_t tx_len = 0;
 	int ret = network_tx(mqtt_ctrl->netc, buf, count, 0, NULL, 0, &tx_len, 0);
-	if (ret < 0)
+	if (ret < 0) {
+		LLOGW("network_tx ret %d, closing socket", ret);
+		luat_mqtt_close_socket(mqtt_ctrl);
 		return 0;
+	}
+	if (tx_len != count) {
+		LLOGW("network_tx expect %d but %d", count, tx_len);
+		luat_mqtt_close_socket(mqtt_ctrl);
+		return 0;
+	}
 	return count;
 }
 

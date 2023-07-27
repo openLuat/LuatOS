@@ -132,6 +132,7 @@ int luat_ymodem_receive(void *handler, uint8_t *data, uint32_t len, uint8_t *ack
 					if (!ctrl->packet_data[XMODEM_DATA_POS])
 					{
 						luat_ymodem_reset(handler);
+						*flag = 0;
 						*ack = XMODEM_ACK;
 						*all_done = 1;
 						return 0;
@@ -279,11 +280,20 @@ YMODEM_DATA_CHECK:
 		}
 		break;
 	case 2:
-		ctrl->state++;
-		ctrl->data_pos = 0;
-		*ack = XMODEM_NAK;
+		if (data[0] == XMODEM_EOT)
+		{
+			ctrl->state++;
+			ctrl->data_pos = 0;
+			*flag = 0;
+			*ack = XMODEM_NAK;
+			if (ctrl->fd) luat_fs_fclose(ctrl->fd);
+			ctrl->fd = NULL;
+		}
+		else
+		{
+			goto DATA_RECIEVE_ERROR;
+		}
 		return 0;
-
 	case 3:
 		if (data[0] == XMODEM_EOT)
 		{

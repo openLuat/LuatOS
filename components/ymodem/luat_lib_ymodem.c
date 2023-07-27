@@ -72,14 +72,15 @@ static int l_ymodem_create(lua_State *L){
 ymodem接收文件数据并保存
 @api ymodem.receive(handler, data)
 @userdata ymodem处理句柄
-@zbuff or string输入的数据
+@zbuff/string 输入的数据
 @return boolean 成功true，失败false
 @return int ack值，需要通过串口/网络等途径返回发送方
-@return int flag值，需要通过串口/网络等途径返回发送方
+@return int flag值，需要通过串口/网络等途径返回发送方，如果有ack值则不发送flag
 @return boolean, 一个文件接收完成true，传输中false
 @return boolean, 整个传输完成true 否则false
 @usage
 -- 注意, 数据来源不限, 通常是uart.read得到data
+no_error,ack,flag,file_done,all_done = ymodem.receive(handler, data)
 */
 
 static int l_ymodem_receive(lua_State *L){
@@ -109,12 +110,20 @@ static int l_ymodem_receive(lua_State *L){
 		result = luat_ymodem_receive(handler->ctrl, (uint8_t*)data, len, &ack, &flag, &file_ok, &all_done);
 		lua_pushboolean(L, !result);
 		lua_pushinteger(L, ack);
-		lua_pushinteger(L, flag);
+		if (flag)
+		{
+			lua_pushinteger(L, flag);
+		}
+		else
+		{
+			lua_pushnil(L);
+		}
 		lua_pushboolean(L, file_ok);
 		lua_pushboolean(L, all_done);
 	}
 	else
 	{
+		LLOGE("%x,%x", handler, handler->ctrl);
 		lua_pushboolean(L, 0);
 		lua_pushnil(L);
 		lua_pushnil(L);

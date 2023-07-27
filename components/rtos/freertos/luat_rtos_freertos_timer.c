@@ -35,13 +35,13 @@ static void s_timer_callback(TimerHandle_t hTimer)
 
 void *luat_create_rtos_timer(void *cb, void *param, void *task_handle)
 {
-	luat_rtos_user_timer_t *timer = malloc(sizeof(luat_rtos_user_timer_t));
+	luat_rtos_user_timer_t *timer = luat_heap_malloc(sizeof(luat_rtos_user_timer_t));
 	if (timer)
 	{
 		timer->timer = xTimerCreate(NULL, 1, 1, timer, s_timer_callback);
 		if (!timer->timer)
 		{
-			free(timer);
+			luat_heap_free(timer);
 			return NULL;
 		}
 		timer->call_back = cb;
@@ -112,7 +112,7 @@ void luat_release_rtos_timer(void *timer)
 {
 	luat_rtos_user_timer_t *htimer = (luat_rtos_user_timer_t *)timer;
 	xTimerDelete(htimer->timer, LUAT_WAIT_FOREVER);
-	free(htimer);
+	luat_heap_free(htimer);
 }
 
 int luat_rtos_timer_create(luat_rtos_timer_t *timer_handle)

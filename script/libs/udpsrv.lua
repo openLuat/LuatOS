@@ -17,23 +17,28 @@ local udpsrv = {}
 创建UDP服务器
 @api udpsrv.create(port, topic)
 @int 端口号, 必填, 必须大于0小于65525
-@string 收取UDP数据的topic
+@string 收取UDP数据的topic,必填
+@int 网络适配编号, 默认为nil,可选
 @return table UDP服务的实体, 若创建失败会返回nil
 ]]
-function udpsrv.create(port, topic)
+function udpsrv.create(port, topic, adapter)
     local srv = {}
     -- udpsrv.port = port
     -- srv.topic = topic
     srv.rxbuff = zbuff.create(1500)
-    local sc = socket.create(nil, function(sc, event)
+    local sc = socket.create(adapter, function(sc, event)
         -- log.info("udpsrv", sc, event)
         if event == socket.EVENT then
             local rxbuff = srv.rxbuff
-            local succ, data_len = socket.rx(sc, rxbuff)
-            if succ and data_len and data_len > 0 then
-                local resp = rxbuff:toStr(0, rxbuff:used())
-                rxbuff:del()
-                sys.publish(udpsrv.topic, resp)
+            while 1 do
+                local succ, data_len = socket.rx(sc, rxbuff)
+                if succ and data_len and data_len > 0 then
+                    local resp = rxbuff:toStr(0, rxbuff:used())
+                    rxbuff:del()
+                    sys.publish(topic, resp)
+                else
+                    break
+                end
             end
         end
     end)
@@ -43,11 +48,11 @@ function udpsrv.create(port, topic)
     srv.sc = sc
     -- socket.debug(sc, true)
     socket.config(sc, port, true)
-    if socket.connect(sc, "0.0.0.0", 0) then
+    if socket.connect(sc, "255.255.255.255", 0) then
         srv.send = function(self, data, ip, port)
             if self.sc and data then
                 -- log.info("why?", self.sc, data, ip, port)
-                return socket.tx(self.sc, data, ip or "0.0.0.0", port)
+                return socket.tx(self.sc, data, ip, port)
             end
         end
         srv.close = function(self)
@@ -59,9 +64,9 @@ function udpsrv.create(port, topic)
         -- log.info("udpsrv", "监听开始")
         return srv
     end
-    socket.close(udpsrv.sc)
+    socket.close(sc)
     -- sys.wait(200)
-    socket.release(udpsrv.sc)
+    socket.release(sc)
     -- log.info("udpsrv", "监听失败")
 end
 

@@ -34,11 +34,12 @@ int l_gpio_handler(lua_State *L, void* ptr) ;
 typedef struct gpio_ctx
 {
     int lua_ref; // irq下的回调函数
+    luat_rtos_timer_t timer;
     uint32_t latest_tick; // 防抖功能的最后tick数
     uint16_t conf_tick;   // 防抖设置的超时tick数
     uint8_t debounce_mode;
     uint8_t latest_state;
-    luat_rtos_timer_t timer;
+    uint8_t irq_type;
 }gpio_ctx_t;
 
 // 保存中断回调的数组
@@ -81,6 +82,21 @@ int l_gpio_debounce_timer_handler(lua_State *L, void* ptr) {
         return 0; // 早关掉了
     if (gpios[pin].latest_state != luat_gpio_get(pin))
         return 0; // 电平变了
+    if (gpios[pin].debounce_mode)
+    {
+        switch(gpios[pin].irq_type)
+        {
+        case Luat_GPIO_RISING:
+        case Luat_GPIO_HIGH_IRQ:
+        	if (!gpios[pin].latest_state) return 0;
+        	break;
+        case Luat_GPIO_FALLING:
+        case Luat_GPIO_LOW_IRQ:
+        	if (gpios[pin].latest_state) return 0;
+        	break;
+        }
+    }
+
     lua_geti(L, LUA_REGISTRYINDEX, gpios[pin].lua_ref);
     if (!lua_isnil(L, -1)) {
         lua_pushinteger(L, gpios[pin].latest_state);
@@ -188,11 +204,13 @@ static int l_gpio_setup(lua_State *L) {
     //conf->mode = luaL_checkinteger(L, 2);
     conf.lua_ref = 0;
     conf.irq = 0;
+    gpios[conf.pin].irq_type = 0xff;
     if (lua_isfunction(L, 2)) {
         conf.mode = Luat_GPIO_IRQ;
         lua_pushvalue(L, 2);
         conf.lua_ref = luaL_ref(L, LUA_REGISTRYINDEX);
         conf.irq = luaL_optinteger(L, 4, Luat_GPIO_BOTH);
+        gpios[conf.pin].irq_type = conf.irq;
     }
     else if (lua_isinteger(L, 2)) {
         conf.mode = Luat_GPIO_OUTPUT;

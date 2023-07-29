@@ -570,9 +570,18 @@ static void net_lwip_dns_tx_next(Buffer_Struct *tx_msg_buf)
 			// }
 			// prvlwip.dns_udp->local_ip = prvlwip.lwip_netif->ip_addr;
 			err = udp_connect(prvlwip.dns_udp, &prvlwip.dns_client.dns_server[i], DNS_SERVER_PORT);
+			if (err) {
+				LLOGI("udp_connect ret %d");
+			}
+			else {
+				err = udp_sendto(prvlwip.dns_udp, p, &prvlwip.dns_client.dns_server[i], DNS_SERVER_PORT);
+				if (err) {
+					LLOGI("udp_sendto ret %d");
+				}
+			}
 			// NET_DBG("udp_connect dns_udp %d:%s",i, ipaddr_ntoa_r(&prvlwip.dns_client.dns_server[i], ip_string, sizeof(ip_string)), err);
 			// LLOGD("udp_sendto dns_udp");
-			err = udp_sendto(prvlwip.dns_udp, p, &prvlwip.dns_client.dns_server[i], DNS_SERVER_PORT);
+			// err = udp_sendto(prvlwip.dns_udp, p, &prvlwip.dns_client.dns_server[i], DNS_SERVER_PORT);
 			// NET_DBG("udp_sendto dns_udp %d:%s ret %d",i, ipaddr_ntoa_r(&prvlwip.dns_client.dns_server[i], ip_string, sizeof(ip_string)), err);
 			pbuf_free(p);
 		}
@@ -1352,6 +1361,26 @@ static int net_lwip_get_local_ip_info(luat_ip_addr_t *ip, luat_ip_addr_t *submas
 	return 0;
 }
 
+static int net_lwip_get_full_ip_info(luat_ip_addr_t *ip, luat_ip_addr_t *submask, luat_ip_addr_t *gateway, luat_ip_addr_t *ipv6, void *user_data)
+{
+	uint8_t adapter_index = (uint32_t)user_data;
+	if (adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) return -1;
+	if (!prvlwip.lwip_netif[adapter_index]) return -1;
+	*ip = prvlwip.lwip_netif[adapter_index]->ip_addr;
+	*submask = prvlwip.lwip_netif[adapter_index]->netmask;
+	*gateway = prvlwip.lwip_netif[adapter_index]->gw;
+	// luat_ip_addr_t *local_ip = net_lwip_get_ip6();
+	// if (local_ip)
+	// {
+	// 	*ipv6 = *local_ip;
+	// }
+	// else
+	// {
+	// 	ipv6->type = 0xff;
+	// }
+	return 0;
+}
+
 static int net_lwip_user_cmd(int socket_id, uint64_t tag, uint32_t cmd, uint32_t value, void *user_data)
 {
 	return 0;
@@ -1463,6 +1492,7 @@ static const network_adapter_info prv_net_lwip_adapter =
 		.set_mac = net_lwip_set_mac,
 		.set_static_ip = net_lwip_set_static_ip,
 		.get_local_ip_info = net_lwip_get_local_ip_info,
+		.get_full_ip_info = net_lwip_get_full_ip_info,
 		.socket_set_callback = net_lwip_socket_set_callback,
 		.name = "lwip",
 		.max_socket_num = MAX_SOCK_NUM,

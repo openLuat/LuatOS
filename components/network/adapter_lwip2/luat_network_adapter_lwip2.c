@@ -112,6 +112,10 @@ void net_lwip_set_netif(struct netif * lwip_netif, uint8_t adapter_index) {
 		//udp_bind(prvlwip.dns_udp, &lwip_netif->gw, 55);
 		dns_init_client(&prvlwip.dns_client);
 	}
+	if (adapter_index == NW_ADAPTER_INDEX_LWIP_WIFI_STA && prvlwip.dns_adapter_index == NW_ADAPTER_INDEX_LWIP_WIFI_AP) {
+		prvlwip.dns_adapter_index = adapter_index;
+		prvlwip.dns_udp->recv_arg = adapter_index;
+	}
 
 	prvlwip.lwip_netif[adapter_index] = lwip_netif;
 }

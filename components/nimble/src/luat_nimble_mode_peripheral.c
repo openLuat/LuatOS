@@ -161,7 +161,7 @@ static int l_ble_chr_read_cb(lua_State* L, void* ptr) {
     lua_getglobal(L, "sys_pub");
     if (lua_isfunction(L, -1)) {
         lua_pushstring(L, "BLE_GATT_READ_CHR");
-        lua_call(L, 2, 0);
+        lua_call(L, 1, 0);
     }
     return 0;
 }

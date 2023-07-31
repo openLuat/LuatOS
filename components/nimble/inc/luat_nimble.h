@@ -53,7 +53,7 @@ int luat_nimble_ibeacon_setup(void *uuid128, uint16_t major,
 int luat_nimble_set_adv_data(char* buff, size_t len, int flags);
 
 
-int luat_nimble_peripheral_set_char(int index, ble_uuid_any_t* chr_uuid, int flags);
+int luat_nimble_peripheral_set_chr(int index, ble_uuid_any_t* chr_uuid, int flags);
 
 #endif
 

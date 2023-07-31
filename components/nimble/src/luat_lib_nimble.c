@@ -8,6 +8,15 @@
 @usage
 -- 本库当前支持Air101/Air103/ESP32/ESP32C3/ESP32S3
 -- 用法请查阅demo, API函数会归于指定的模式
+
+-- 名称解释:
+-- peripheral 外设模式, 或者成为从机模式, 是被连接的设备
+-- central    中心模式, 或者成为主机模式, 是扫描并连接其他设备
+-- ibeacon    周期性的beacon广播
+
+-- UUID       设备的服务(service)和特征(characteristic)会以UUID作为标识,支持 2字节/4字节/16字节,通常用2字节的缩短版本
+-- chr        设备的服务(service)由多个特征(characteristic)组成, 简称chr
+-- characteristic 特征由UUID和flags组成, 其中UUID做标识, flags代表该特征可以支持的功能
 */
 
 #include "luat_base.h"
@@ -228,6 +237,13 @@ static int l_nimble_connect(lua_State *L) {
     return 0;
 }
 
+/*
+是否已经建立连接
+@api nimble.connok()
+@return bool 已连接返回true,否则返回false
+@usage
+log.info("ble", "connected?", nimble.connok())
+*/
 static int l_nimble_connok(lua_State *L) {
     lua_pushboolean(L, g_ble_state == BT_STATE_CONNECTED ? 1 : 0);
     return 1;
@@ -382,6 +398,18 @@ static int l_nimble_set_adv_data(lua_State *L) {
     return 1;
 }
 
+/*
+发送notify
+@api nimble.sendNotify(srv_uuid, chr_uuid, data)
+@string 服务的UUID,预留,当前填nil就行
+@string 特征的UUID,必须填写
+@string 数据, 必填, 跟MTU大小相关, 一般不要超过256字节
+@return bool 成功返回true,否则返回false
+@usage
+-- 本API于 2023.07.31 新增
+-- 本函数对peripheral模式适用
+nimble.sendNotify(nil, string.fromHex("FF01"), string.char(0x31, 0x32, 0x33, 0x34, 0x35))
+*/
 static int l_nimble_send_notify(lua_State *L) {
     size_t tmp_size = 0;
     size_t data_len = 0;
@@ -398,6 +426,18 @@ static int l_nimble_send_notify(lua_State *L) {
     return 1;
 }
 
+/*
+发送indicate
+@api nimble.sendIndicate(srv_uuid, chr_uuid, data)
+@string 服务的UUID,预留,当前填nil就行
+@string 特征的UUID,必须填写
+@string 数据, 必填, 跟MTU大小相关, 一般不要超过256字节
+@return bool 成功返回true,否则返回false
+@usage
+-- 本API于 2023.07.31 新增
+-- 本函数对peripheral模式适用
+nimble.sendIndicate(nil, string.fromHex("FF01"), string.char(0x31, 0x32, 0x33, 0x34, 0x35))
+*/
 static int l_nimble_send_indicate(lua_State *L) {
     size_t tmp_size = 0;
     size_t data_len = 0;
@@ -463,6 +503,20 @@ static int l_nimble_set_adv_params(lua_State *L) {
     return 0;
 }
 
+/*
+设置chr的特征
+@api nimble.setChr(index, uuid, flags)
+@int chr的索引, 默认0-3
+@int chr的UUID, 可以是2/4/16字节
+@int chr的FLAGS, 请查阅常量表
+@return nil 无返回值
+@usage
+-- 仅peripheral/从机可使用
+nimble.setChr(0, string.fromHex("FF01"), nimble.CHR_F_WRITE_NO_RSP | nimble.CHR_F_NOTIFY)
+nimble.setChr(1, string.fromHex("FF02"), nimble.CHR_F_READ | nimble.CHR_F_NOTIFY)
+nimble.setChr(2, string.fromHex("FF03"), nimble.CHR_F_WRITE_NO_RSP)
+-- 可查阅 demo/nimble/kt6368a
+*/
 static int l_nimble_set_chr(lua_State *L) {
     size_t tmp_size = 0;
     // ble_uuid_any_t srv_uuid = {0};
@@ -479,10 +533,23 @@ static int l_nimble_set_chr(lua_State *L) {
     }
     int flags = luaL_checkinteger(L, 3);
 
-    luat_nimble_peripheral_set_char(index, &chr_uuid, flags);
+    luat_nimble_peripheral_set_chr(index, &chr_uuid, flags);
     return 0;
 }
 
+/*
+设置chr的特征
+@api nimble.config(id, value)
+@int 配置的id,请查阅常量表
+@any 根据配置的不同, 有不同的可选值
+@return nil 无返回值
+@usage
+-- 本函数在任意模式可用
+-- 本API于 2023.07.31 新增
+-- 例如设置地址转换的大小端, 默认是0, 兼容老的代码
+-- 设置成1, 服务UUID和chr的UUID更直观
+nimble.config(nimble.CFG_ADDR_ORDER, 1)
+*/
 static int l_nimble_config(lua_State *L) {
     int conf = luaL_checkinteger(L, 1);
     if (conf == CFG_ADDR_ORDER) {
@@ -542,13 +609,19 @@ static const rotable_Reg_t reg_nimble[] =
     { "MESH",                      ROREG_INT(BT_MODE_BLE_MESH)},
 
     // FLAGS
+    //@const CHR_F_WRITE number chr的FLAGS值, 可写, 且需要响应
     {"CHR_F_WRITE",                ROREG_INT(BLE_GATT_CHR_F_WRITE)},
+    //@const CHR_F_WRITE number chr的FLAGS值, 可读
     {"CHR_F_READ",                 ROREG_INT(BLE_GATT_CHR_F_READ)},
+    //@const CHR_F_WRITE number chr的FLAGS值, 可写, 不需要响应
     {"CHR_F_WRITE_NO_RSP",         ROREG_INT(BLE_GATT_CHR_F_WRITE_NO_RSP)},
+    //@const CHR_F_WRITE number chr的FLAGS值, 可订阅, 不需要回复
     {"CHR_F_NOTIFY",               ROREG_INT(BLE_GATT_CHR_F_NOTIFY)},
+    //@const CHR_F_WRITE number chr的FLAGS值, 可订阅, 需要回复
     {"CHR_F_INDICATE",             ROREG_INT(BLE_GATT_CHR_F_INDICATE)},
 
     // CONFIG
+    //@const CFG_ADDR_ORDER number UUID的转换的大小端, 结合config函数使用, 默认0, 可选0/1
     {"CFG_ADDR_ORDER",                ROREG_INT(CFG_ADDR_ORDER)},
 
 	{ NULL,             ROREG_INT(0)}

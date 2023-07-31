@@ -65,8 +65,8 @@ gatt_svr_chr_access_func(uint16_t conn_handle, uint16_t attr_handle,
                                struct ble_gatt_access_ctxt *ctxt, void *arg);
 
 
-int luat_nimble_peripheral_set_char(int index, ble_uuid_any_t* chr_uuid, int flags) {
-    if (index < 0 || index > LUAT_BLE_MAX_CHR)
+int luat_nimble_peripheral_set_chr(int index, ble_uuid_any_t* chr_uuid, int flags) {
+    if (index < 0 || index >= LUAT_BLE_MAX_CHR)
         return -1;
     char buff[BLE_UUID_STR_LEN + 1];
     ble_uuid_to_str(chr_uuid, buff);

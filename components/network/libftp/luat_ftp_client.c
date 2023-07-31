@@ -463,6 +463,7 @@ static int ftp_login(void)
 
 static void ftp_task(void *param){
 	int ret;
+	int count = 0;
 	luat_rtos_task_handle task_handle = g_s_ftp.task_handle;
 	OS_EVENT task_event;
 	rtos_msg_t msg = {0};
@@ -557,7 +558,10 @@ static void ftp_task(void *param){
 					goto operation_failed;
 				}
 			}
-			luat_ftp_cmd_recv(g_s_ftp.network,g_s_ftp.network->cmd_recv_data,&g_s_ftp.network->cmd_recv_len,FTP_SOCKET_TIMEOUT/10);
+			while (count<3 && g_s_ftp.network->data_netc_online!=0){
+				luat_ftp_cmd_recv(g_s_ftp.network,g_s_ftp.network->cmd_recv_data,&g_s_ftp.network->cmd_recv_len,FTP_SOCKET_TIMEOUT/3);
+				count++;
+			}
 			if (g_s_ftp.fd){
 				luat_fs_fclose(g_s_ftp.fd);
 				g_s_ftp.fd = NULL;
@@ -608,7 +612,10 @@ static void ftp_task(void *param){
 					LLOGD("ftp STOR wrong");
 				}
 			}
-			luat_ftp_cmd_recv(g_s_ftp.network,g_s_ftp.network->cmd_recv_data,&g_s_ftp.network->cmd_recv_len,FTP_SOCKET_TIMEOUT/10);
+			while (count<3 && g_s_ftp.network->data_netc_online!=0){
+				luat_ftp_cmd_recv(g_s_ftp.network,g_s_ftp.network->cmd_recv_data,&g_s_ftp.network->cmd_recv_len,FTP_SOCKET_TIMEOUT/3);
+				count++;
+			}
 			if (g_s_ftp.fd){
 				luat_fs_fclose(g_s_ftp.fd);
 				g_s_ftp.fd = NULL;

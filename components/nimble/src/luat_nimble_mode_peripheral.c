@@ -542,6 +542,9 @@ bleprph_gap_event(struct ble_gap_event *event, void *arg)
     int rc;
     // LLOGD("gap event->type %d", event->type);
     char buff[BLE_UUID_STR_LEN + 1] = {0};
+    rtos_msg_t msg = {
+        .handler = l_ble_state_cb
+    };
     switch (event->type) {
     case BLE_GAP_EVENT_CONNECT:
         /* A new connection was established or a connection attempt failed. */
@@ -558,10 +561,7 @@ bleprph_gap_event(struct ble_gap_event *event, void *arg)
         else {
             g_ble_state = BT_STATE_DISCONNECT;
         }
-        rtos_msg_t msg = {
-            .handler = l_ble_state_cb,
-            .arg1 = g_ble_state
-        };
+        msg.arg1 = g_ble_state;
         luat_msgbus_put(&msg, 0);
         // LLOGI("");
 
@@ -584,6 +584,9 @@ bleprph_gap_event(struct ble_gap_event *event, void *arg)
             s_chr_notify_states[i] = 0;
             s_chr_indicate_states[i] = 0;
         }
+        
+        msg.arg1 = g_ble_state;
+        luat_msgbus_put(&msg, 0);
 
         /* Connection terminated; resume advertising. */
 #if CONFIG_EXAMPLE_EXTENDED_ADV

@@ -8,6 +8,15 @@
 @usage
 -- 本库当前支持Air101/Air103/ESP32/ESP32C3/ESP32S3
 -- 用法请查阅demo, API函数会归于指定的模式
+
+-- 名称解释:
+-- peripheral 外设模式, 或者成为从机模式, 是被连接的设备
+-- central    中心模式, 或者成为主机模式, 是扫描并连接其他设备
+-- ibeacon    周期性的beacon广播
+
+-- UUID       设备的服务(service)和特征(characteristic)会以UUID作为标识,支持 2字节/4字节/16字节,通常用2字节的缩短版本
+-- chr        设备的服务(service)由多个特征(characteristic)组成, 简称chr
+-- characteristic 特征由UUID和flags组成, 其中UUID做标识, flags代表该特征可以支持的功能
 */
 
 #include "luat_base.h"
@@ -15,7 +24,6 @@
 #include "luat_malloc.h"
 #include "luat_spi.h"
 
-#include "luat_nimble.h"
 
 #include "host/ble_gatt.h"
 #include "host/ble_hs_id.h"
@@ -23,8 +31,12 @@
 #include "host/ble_hs_adv.h"
 #include "host/ble_gap.h"
 
+#include "luat_nimble.h"
+
 #define LUAT_LOG_TAG "nimble"
 #include "luat_log.h"
+
+#define CFG_ADDR_ORDER 1
 
 static uint32_t nimble_mode = 0;
 uint16_t g_ble_state;
@@ -32,9 +44,11 @@ uint16_t g_ble_conn_handle;
 
 // peripheral, 被扫描, 被连接设备的UUID配置
 ble_uuid_any_t ble_peripheral_srv_uuid;
-ble_uuid_any_t ble_peripheral_indicate_uuid;
-ble_uuid_any_t ble_peripheral_write_uuid;
-ble_uuid_any_t ble_peripheral_notify_uuid;
+uint16_t s_chr_flags[LUAT_BLE_MAX_CHR];
+uint16_t s_chr_val_handles[LUAT_BLE_MAX_CHR];
+ble_uuid_any_t s_chr_uuids[LUAT_BLE_MAX_CHR];
+uint8_t s_chr_notify_states[LUAT_BLE_MAX_CHR];
+uint8_t s_chr_indicate_states[LUAT_BLE_MAX_CHR];
 
 #define WM_GATT_SVC_UUID      0x180D
 // #define WM_GATT_SVC_UUID      0xFFF0
@@ -50,6 +64,22 @@ uint8_t adv_buff[128];
 int adv_buff_len = 0;
 struct ble_hs_adv_fields adv_fields;
 struct ble_gap_adv_params adv_params = {0};
+
+static uint8_t ble_uuid_addr_conv = 0; // BLE的地址需要反序, 就蛋疼了
+
+static int buff2uuid(ble_uuid_any_t* uuid, const char* data, size_t data_len) {
+    if (data_len > 16)
+        return -1;
+    char tmp[data_len];
+    for (size_t i = 0; i < data_len; i++)
+    {
+        if (ble_uuid_addr_conv == 0)
+            tmp[i] = data[i];
+        else
+            tmp[i] = data[data_len - i - 1];
+    }
+    return ble_uuid_init_from_buf(uuid, tmp, data_len);
+}
 
 /*
 初始化BLE上下文,开始对外广播/扫描
@@ -207,6 +237,13 @@ static int l_nimble_connect(lua_State *L) {
     return 0;
 }
 
+/*
+是否已经建立连接
+@api nimble.connok()
+@return bool 已连接返回true,否则返回false
+@usage
+log.info("ble", "connected?", nimble.connok())
+*/
 static int l_nimble_connok(lua_State *L) {
     lua_pushboolean(L, g_ble_state == BT_STATE_CONNECTED ? 1 : 0);
     return 1;
@@ -236,7 +273,7 @@ static int l_nimble_set_uuid(lua_State *L) {
     ble_uuid_any_t tmp = {0};
     const char* key = luaL_checkstring(L, 1);
     const char* uuid = luaL_checklstring(L, 2, &len);
-    int ret = ble_uuid_init_from_buf(&tmp, (const void*)uuid, len);
+    int ret = buff2uuid(&tmp, (const void*)uuid, len);
     if (ret != 0) {
         LLOGW("invaild UUID, len must be 2/4/16");
         return 0;
@@ -245,13 +282,13 @@ static int l_nimble_set_uuid(lua_State *L) {
         memcpy(&ble_peripheral_srv_uuid, &tmp, sizeof(ble_uuid_any_t));
     }
     else if (!strcmp("write", key)) {
-        memcpy(&ble_peripheral_write_uuid, &tmp, sizeof(ble_uuid_any_t));
+        memcpy(&s_chr_uuids[0], &tmp, sizeof(ble_uuid_any_t));
     }
     else if (!strcmp("indicate", key)) {
-        memcpy(&ble_peripheral_indicate_uuid, &tmp, sizeof(ble_uuid_any_t));
+        memcpy(&s_chr_uuids[1], &tmp, sizeof(ble_uuid_any_t));
     }
     else if (!strcmp("notify", key)) {
-        memcpy(&ble_peripheral_notify_uuid, &tmp, sizeof(ble_uuid_any_t));
+        memcpy(&s_chr_uuids[2], &tmp, sizeof(ble_uuid_any_t));
     }
     else {
         LLOGW("only support srv/write/indicate/notify");
@@ -361,6 +398,62 @@ static int l_nimble_set_adv_data(lua_State *L) {
     return 1;
 }
 
+/*
+发送notify
+@api nimble.sendNotify(srv_uuid, chr_uuid, data)
+@string 服务的UUID,预留,当前填nil就行
+@string 特征的UUID,必须填写
+@string 数据, 必填, 跟MTU大小相关, 一般不要超过256字节
+@return bool 成功返回true,否则返回false
+@usage
+-- 本API于 2023.07.31 新增
+-- 本函数对peripheral模式适用
+nimble.sendNotify(nil, string.fromHex("FF01"), string.char(0x31, 0x32, 0x33, 0x34, 0x35))
+*/
+static int l_nimble_send_notify(lua_State *L) {
+    size_t tmp_size = 0;
+    size_t data_len = 0;
+    ble_uuid_any_t chr_uuid;
+    const char* tmp = luaL_checklstring(L, 2, &tmp_size);
+    int ret = buff2uuid(&chr_uuid, tmp, tmp_size);
+    if (ret) {
+        LLOGE("ble_uuid_init_from_buf rc %d", ret);
+        return 0;
+    }
+    const char* data = luaL_checklstring(L, 3, &data_len);
+    ret = luat_nimble_server_send_notify(NULL, &chr_uuid, data, data_len);
+    lua_pushboolean(L, ret == 0 ? 1 : 0);
+    return 1;
+}
+
+/*
+发送indicate
+@api nimble.sendIndicate(srv_uuid, chr_uuid, data)
+@string 服务的UUID,预留,当前填nil就行
+@string 特征的UUID,必须填写
+@string 数据, 必填, 跟MTU大小相关, 一般不要超过256字节
+@return bool 成功返回true,否则返回false
+@usage
+-- 本API于 2023.07.31 新增
+-- 本函数对peripheral模式适用
+nimble.sendIndicate(nil, string.fromHex("FF01"), string.char(0x31, 0x32, 0x33, 0x34, 0x35))
+*/
+static int l_nimble_send_indicate(lua_State *L) {
+    size_t tmp_size = 0;
+    size_t data_len = 0;
+    ble_uuid_any_t chr_uuid;
+    const char* tmp = luaL_checklstring(L, 2, &tmp_size);
+    int ret = buff2uuid(&chr_uuid, tmp, tmp_size);
+    if (ret) {
+        LLOGE("ble_uuid_init_from_buf rc %d", ret);
+        return 0;
+    }
+    const char* data = luaL_checklstring(L, 3, &data_len);
+    ret = luat_nimble_server_send_indicate(NULL, &chr_uuid, data, data_len);
+    lua_pushboolean(L, ret == 0 ? 1 : 0);
+    return 1;
+}
+
 
 /*
 设置广播参数
@@ -410,6 +503,64 @@ static int l_nimble_set_adv_params(lua_State *L) {
     return 0;
 }
 
+/*
+设置chr的特征
+@api nimble.setChr(index, uuid, flags)
+@int chr的索引, 默认0-3
+@int chr的UUID, 可以是2/4/16字节
+@int chr的FLAGS, 请查阅常量表
+@return nil 无返回值
+@usage
+-- 仅peripheral/从机可使用
+nimble.setChr(0, string.fromHex("FF01"), nimble.CHR_F_WRITE_NO_RSP | nimble.CHR_F_NOTIFY)
+nimble.setChr(1, string.fromHex("FF02"), nimble.CHR_F_READ | nimble.CHR_F_NOTIFY)
+nimble.setChr(2, string.fromHex("FF03"), nimble.CHR_F_WRITE_NO_RSP)
+-- 可查阅 demo/nimble/kt6368a
+*/
+static int l_nimble_set_chr(lua_State *L) {
+    size_t tmp_size = 0;
+    // ble_uuid_any_t srv_uuid = {0};
+    ble_uuid_any_t chr_uuid = {0};
+    const char* tmp;
+    int ret = 0;
+    int index = luaL_checkinteger(L, 1);
+    tmp = luaL_checklstring(L, 2, &tmp_size);
+    // LLOGD("chr? %02X%02X %d", tmp[0], tmp[1], tmp_size);
+    ret = buff2uuid(&chr_uuid, tmp, tmp_size);
+    if (ret) {
+        LLOGE("ble_uuid_init_from_buf rc %d", ret);
+        return 0;
+    }
+    int flags = luaL_checkinteger(L, 3);
+
+    luat_nimble_peripheral_set_chr(index, &chr_uuid, flags);
+    return 0;
+}
+
+/*
+设置chr的特征
+@api nimble.config(id, value)
+@int 配置的id,请查阅常量表
+@any 根据配置的不同, 有不同的可选值
+@return nil 无返回值
+@usage
+-- 本函数在任意模式可用
+-- 本API于 2023.07.31 新增
+-- 例如设置地址转换的大小端, 默认是0, 兼容老的代码
+-- 设置成1, 服务UUID和chr的UUID更直观
+nimble.config(nimble.CFG_ADDR_ORDER, 1)
+*/
+static int l_nimble_config(lua_State *L) {
+    int conf = luaL_checkinteger(L, 1);
+    if (conf == CFG_ADDR_ORDER) {
+        if (lua_isboolean(L, 2))
+            ble_uuid_addr_conv = lua_toboolean(L, 2);
+        else if (lua_isinteger(L, 2))
+            ble_uuid_addr_conv = lua_tointeger(L, 2);
+    }
+    return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_nimble[] =
 {
@@ -418,13 +569,17 @@ static const rotable_Reg_t reg_nimble[] =
     { "debug",          ROREG_FUNC(l_nimble_debug)},
     { "mode",           ROREG_FUNC(l_nimble_mode)},
     { "connok",         ROREG_FUNC(l_nimble_connok)},
+    { "config",         ROREG_FUNC(l_nimble_config)},
 
     // 外设模式, 广播并等待连接
+    { "send_msg",       ROREG_FUNC(l_nimble_send_msg)},
+    { "sendNotify",     ROREG_FUNC(l_nimble_send_notify)},
+    { "sendIndicate",   ROREG_FUNC(l_nimble_send_indicate)},
+    { "setUUID",        ROREG_FUNC(l_nimble_set_uuid)},
+    { "setChr",         ROREG_FUNC(l_nimble_set_chr)},
+    { "mac",            ROREG_FUNC(l_nimble_mac)},
     { "server_init",    ROREG_FUNC(l_nimble_server_init)},
     { "server_deinit",  ROREG_FUNC(l_nimble_server_deinit)},
-    { "send_msg",       ROREG_FUNC(l_nimble_send_msg)},
-    { "setUUID",        ROREG_FUNC(l_nimble_set_uuid)},
-    { "mac",            ROREG_FUNC(l_nimble_mac)},
 
     // 中心模式, 扫描并连接外设
     { "scan",           ROREG_FUNC(l_nimble_scan)},
@@ -453,14 +608,35 @@ static const rotable_Reg_t reg_nimble[] =
     { "BEACON",                    ROREG_INT(BT_MODE_BLE_BEACON)},
     { "MESH",                      ROREG_INT(BT_MODE_BLE_MESH)},
 
+    // FLAGS
+    //@const CHR_F_WRITE number chr的FLAGS值, 可写, 且需要响应
+    {"CHR_F_WRITE",                ROREG_INT(BLE_GATT_CHR_F_WRITE)},
+    //@const CHR_F_WRITE number chr的FLAGS值, 可读
+    {"CHR_F_READ",                 ROREG_INT(BLE_GATT_CHR_F_READ)},
+    //@const CHR_F_WRITE number chr的FLAGS值, 可写, 不需要响应
+    {"CHR_F_WRITE_NO_RSP",         ROREG_INT(BLE_GATT_CHR_F_WRITE_NO_RSP)},
+    //@const CHR_F_WRITE number chr的FLAGS值, 可订阅, 不需要回复
+    {"CHR_F_NOTIFY",               ROREG_INT(BLE_GATT_CHR_F_NOTIFY)},
+    //@const CHR_F_WRITE number chr的FLAGS值, 可订阅, 需要回复
+    {"CHR_F_INDICATE",             ROREG_INT(BLE_GATT_CHR_F_INDICATE)},
+
+    // CONFIG
+    //@const CFG_ADDR_ORDER number UUID的转换的大小端, 结合config函数使用, 默认0, 可选0/1
+    {"CFG_ADDR_ORDER",                ROREG_INT(CFG_ADDR_ORDER)},
+
 	{ NULL,             ROREG_INT(0)}
 };
 
 LUAMOD_API int luaopen_nimble( lua_State *L ) {
     memcpy(&ble_peripheral_srv_uuid, BLE_UUID16_DECLARE(WM_GATT_SVC_UUID), sizeof(ble_uuid16_t));
-    memcpy(&ble_peripheral_write_uuid, BLE_UUID16_DECLARE(WM_GATT_WRITE_UUID), sizeof(ble_uuid16_t));
-    memcpy(&ble_peripheral_indicate_uuid, BLE_UUID16_DECLARE(WM_GATT_INDICATE_UUID), sizeof(ble_uuid16_t));
-    memcpy(&ble_peripheral_notify_uuid, BLE_UUID16_DECLARE(WM_GATT_NOTIFY_UUID), sizeof(ble_uuid16_t));
+    memcpy(&s_chr_uuids[0], BLE_UUID16_DECLARE(WM_GATT_WRITE_UUID), sizeof(ble_uuid16_t));
+    memcpy(&s_chr_uuids[1], BLE_UUID16_DECLARE(WM_GATT_INDICATE_UUID), sizeof(ble_uuid16_t));
+    memcpy(&s_chr_uuids[2], BLE_UUID16_DECLARE(WM_GATT_NOTIFY_UUID), sizeof(ble_uuid16_t));
+
+    s_chr_flags[0] = BLE_GATT_CHR_F_WRITE;
+    s_chr_flags[1] = BLE_GATT_CHR_F_INDICATE;
+    s_chr_flags[2] = BLE_GATT_CHR_F_NOTIFY;
+
     rotable2_newlib(L, reg_nimble);
     return 1;
 }

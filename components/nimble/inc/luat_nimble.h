@@ -4,6 +4,9 @@
 #include "luat_base.h"
 #include "luat_msgbus.h"
 
+#include "host/ble_uuid.h"
+
+#define LUAT_BLE_MAX_CHR (3)
 
 /** Bluetooth Adapter State */
 typedef enum
@@ -30,6 +33,14 @@ int luat_nimble_deinit();
 
 int luat_nimble_server_send(int id, char* data, size_t len);
 
+int luat_nimble_server_send_notify(ble_uuid_any_t* srv, ble_uuid_any_t* chr, char* data, size_t len);
+
+int luat_nimble_server_send_indicate(ble_uuid_any_t* srv, ble_uuid_any_t* chr, char* data, size_t len);
+
+
+
+int luat_nimble_server_send2(ble_uuid_any_t* srv, ble_uuid_any_t* chr, char* data, size_t len, int type);
+
 int luat_nimble_blecent_scan(int timeout);
 
 int luat_nimble_blecent_connect(const char* addr);
@@ -40,6 +51,9 @@ int luat_nimble_ibeacon_setup(void *uuid128, uint16_t major,
 
 // 自由设置广播数据, 比ibeacon更自由
 int luat_nimble_set_adv_data(char* buff, size_t len, int flags);
+
+
+int luat_nimble_peripheral_set_chr(int index, ble_uuid_any_t* chr_uuid, int flags);
 
 #endif
 

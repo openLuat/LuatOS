@@ -24,16 +24,17 @@ end
 local wsc = nil
 
 sys.taskInit(function()
-    if rtos.bsp():startsWith("ESP32") then
-        local ssid = "uiot"
-        local password = "1234567890"
+    if wlan and wlan.connect then
+        local ssid = "luatos1234"
+        local password = "12341234"
         log.info("wifi", ssid, password)
         -- TODO 改成esptouch配网
         LED = gpio.setup(12, 0, gpio.PULLUP)
         wlan.init()
-        wlan.setMode(wlan.STATION)
+        -- wlan.setMode(wlan.STATION)
         wlan.connect(ssid, password, 1)
         local result, data = sys.waitUntil("IP_READY", 30000)
+        socket.sntp()
         log.info("wlan", "IP_READY", result, data)
         device_id = wlan.getMac()
     elseif rtos.bsp() == "AIR105" then

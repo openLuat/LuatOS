@@ -5,6 +5,7 @@
 @date    2023.7.28
 @author  wendal
 @demo    socket
+@tag LUAT_USE_NETWORK
 @usage
 -- 具体用法请查阅demo
 ]]

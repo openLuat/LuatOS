@@ -4,6 +4,7 @@
 @version 1.0
 @date    2023.07.17
 @author  wendal
+@tag LUAT_USE_NETWORK
 @usage
 -- 本API正在开发测试中
 

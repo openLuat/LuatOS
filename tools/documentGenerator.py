@@ -65,7 +65,7 @@ make_doc_file.make("../../luatos-wiki/api/",modules,"🍴 LuatOS-SOC接口文档
 modules = api_get.get_modules(api_get.get_file_list([source_path+"/../script/libs"]))
 modules.extend(api_get.get_modules(api_get.get_file_list([source_path+"/../script/libs"],".lua"),"--[[","]]"))
 
-make_doc_file.make("../../luatos-wiki/api/libs/",modules,"🥢 社区库接口文档\n"+
+make_doc_file.make("../../luatos-wiki/api/libs/",modules,"🥢 扩展库接口文档\n"+
                                                         "==============\n\n"+
                                                         "请点击左侧列表，查看各个接口。如需搜索，请直接使用搜索框进行搜索。\n\n"+
                                                         ".. toctree::\n\n")

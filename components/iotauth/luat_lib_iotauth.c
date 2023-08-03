@@ -199,7 +199,7 @@ static int url_encoding_for_token(sign_msg* msg,char *token){
 }
 
 static void onenet_token(const char* product_id,const char* device_name,const char* device_secret,long long cur_timestamp,char * method,char * version,char *token){
-    size_t  declen = 0, enclen =  0;
+    size_t  declen = 0, enclen =  0,hmac_len = 0;
     char plaintext[64]     = { 0 };
     char hmac[64]          = { 0 };
     char StringForSignature[256] = { 0 };
@@ -212,15 +212,19 @@ static void onenet_token(const char* product_id,const char* device_name,const ch
     sprintf_(StringForSignature, "%s\n%s\n%s\n%s", sign.et, sign.method, sign.res, sign.version);
     if (!strcmp("md5", method)||!strcmp("MD5", method)) {
         luat_crypto_hmac_md5_simple(StringForSignature, strlen(StringForSignature), plaintext, declen, hmac);
+        hmac_len = 16;
     }else if (!strcmp("sha1", method)||!strcmp("SHA1", method)) {
         luat_crypto_hmac_sha1_simple(StringForSignature, strlen(StringForSignature),plaintext, declen,  hmac);
+        hmac_len = 20;
     }else if (!strcmp("sha256", method)||!strcmp("SHA256", method)) {
         luat_crypto_hmac_sha256_simple(StringForSignature, strlen(StringForSignature),plaintext, declen,  hmac);
+        hmac_len = 32;
     }else{
         LLOGE("not support: %s",method);
         return;
     }
-    luat_str_base64_encode((unsigned char *)sign.sign, sizeof(sign.sign), &enclen, (const unsigned char * )hmac, strlen(hmac));
+    
+    luat_str_base64_encode((unsigned char *)sign.sign, sizeof(sign.sign), &enclen, (const unsigned char * )hmac, hmac_len);
     url_encoding_for_token(&sign,token);
 }
 

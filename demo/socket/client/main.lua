@@ -61,8 +61,8 @@ sys.taskInit(function()
     ----------------------------
     if wlan and wlan.connect then
         -- wifi 联网, ESP32系列均支持, 要根据实际情况修改ssid和password!!
-        local ssid = "uiot"
-        local password = "123456"
+        local ssid = "luatos1234"
+        local password = "12341234"
         log.info("wifi", ssid, password)
         -- TODO 改成自动配网
         wlan.init()

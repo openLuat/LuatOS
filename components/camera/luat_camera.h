@@ -29,6 +29,22 @@ typedef struct luat_camera_conf
     luat_lcd_conf_t* lcd_conf;
 } luat_camera_conf_t;
 
+typedef struct
+{
+	size_t  camera_speed;			//提供给camera时钟频率
+    uint16_t sensor_width;			//camera的最大宽度
+    uint16_t sensor_height;			//camera的最大高度
+    uint16_t one_buf_height;		//1个接收缓存的高度，接收缓存大小=sensor_width * one_buf_height * (1 or 2，only_y=1), 底层根据实际情况会做调整，从而修改这个值
+    uint8_t only_y;
+	uint8_t rowScaleRatio;
+	uint8_t colScaleRatio;
+	uint8_t scaleBytes;
+	uint8_t spi_mode;
+	uint8_t is_msb;	//0 or 1;
+	uint8_t is_two_line_rx; //0 or 1;
+	uint8_t seq_type;	//0 or 1
+} luat_spi_camera_t;
+
 int l_camera_handler(lua_State *L, void* ptr);
 int luat_camera_init(luat_camera_conf_t *conf);
 int luat_camera_start(int id);

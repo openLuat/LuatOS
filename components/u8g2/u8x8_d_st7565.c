@@ -1279,3 +1279,60 @@ uint8_t u8x8_d_st7565_ea_dogm132(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, voi
   }
   return 1;
 }
+
+/*================================================*/
+// 2023年8月4日 晶联讯12864G-109-PC,12864G-139-P
+static const uint8_t u8x8_d_st7565_jlx12864g109pc_init_seq[] = {
+    
+  U8X8_START_TRANSFER(),        /* enable chip, delay is part of the transfer start */  
+
+    U8X8_C(0x0e2), // 软复位
+    U8X8_C(0x02c), // 升压1
+    U8X8_C(0x02e), // 升压2
+    U8X8_C(0x02f), // 升压3
+
+    U8X8_C(0x023), // 粗条对比度
+    U8X8_C(0x081), // 微调对比度
+    U8X8_C(0x027), // 微调对比度的值，可设置范围 0x00～0x3f
+    U8X8_C(0x0a2), // 偏压比（bias）
+    U8X8_C(0x0c8), // 行扫描顺序：从上到下
+    U8X8_C(0x0a0), // 列扫描顺序：从左到右
+    U8X8_C(0x060), // 起始行：第一行开始
+  
+  U8X8_END_TRANSFER(),        /* disable chip */
+  U8X8_END()             			/* end of sequence */
+};
+
+uint8_t u8x8_d_st7565_jlx12864g109pc(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr)
+{
+  /* call common procedure first and handle messages there */
+  if ( u8x8_d_st7565_common(u8x8, msg, arg_int, arg_ptr) == 0 )
+  {
+    /* msg not handled, then try here */
+    switch(msg)
+    {
+      case U8X8_MSG_DISPLAY_SETUP_MEMORY:
+	u8x8_d_helper_display_setup_memory(u8x8, &u8x8_st7565_128x64_display_info);
+	break;
+      case U8X8_MSG_DISPLAY_INIT:
+	u8x8_d_helper_display_init(u8x8);
+	u8x8_cad_SendSequence(u8x8, u8x8_d_st7565_jlx12864g109pc_init_seq);
+	break;
+      case U8X8_MSG_DISPLAY_SET_FLIP_MODE:
+	if ( arg_int == 0 )
+	{
+	  u8x8_cad_SendSequence(u8x8, u8x8_d_st7565_flip0_seq);
+	  u8x8->x_offset = u8x8->display_info->default_x_offset;
+	}
+	else
+	{
+	  u8x8_cad_SendSequence(u8x8, u8x8_d_st7565_flip1_seq);
+	  u8x8->x_offset = u8x8->display_info->flipmode_x_offset;
+	}	
+	break;
+      default:
+	return 0;		/* msg unknown */
+    }
+  }
+  return 1;
+}

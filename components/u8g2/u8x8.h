@@ -986,7 +986,7 @@ uint8_t u8x8_d_max7219_8x8(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg
 uint8_t u8x8_d_s1d15e06_160100(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr);
 uint8_t u8x8_d_s1d15721_240x64(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr);
 uint8_t u8x8_d_gu800_128x64(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr);
-
+uint8_t u8x8_d_st7565_jlx12864g109pc(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr); // 2023年8月4日 晶联讯12864G-109-PC,12864G-139-P
 
 
 /*==========================================*/

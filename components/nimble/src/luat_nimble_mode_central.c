@@ -43,6 +43,7 @@ typedef struct luat_nimble_scan_result
     char name[64];
     char addr[7]; // 地址类型 + MAC地址
     uint8_t mfg_data_len;
+    int8_t rssi;
 }luat_nimble_scan_result_t;
 
 void rand_bytes(uint8_t *data, int len);
@@ -185,6 +186,11 @@ int luat_nimble_scan_cb(lua_State*L, void*ptr) {
     lua_newtable(L);
     // char buff[64];
 
+    // https://gitee.com/openLuat/LuatOS/issues/I7QSJP
+    // 添加RSSI
+    lua_pushinteger(L, res->rssi);
+    lua_setfield(L, -2, "rssi");
+
     if (res->uuids_16[0]) {
         lua_newtable(L);
         for (size_t i = 0; i < 16; i++)
@@ -283,6 +289,8 @@ static int blecent_gap_event(struct ble_gap_event *event, void *arg)
             return 0;
         }
         memset(res, 0, sizeof(luat_nimble_scan_result_t));
+
+        res->rssi = event->disc.rssi;
 
         // char tmpbuff[64] = {0};
 

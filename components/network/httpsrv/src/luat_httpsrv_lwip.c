@@ -44,7 +44,13 @@ typedef struct client_socket_ctx
     char *buff;
     size_t buff_offset;
     struct tcp_pcb* pcb;
-    // size_t send_size;
+    size_t send_size;
+    size_t sent_size;
+
+    FILE* fd;
+    char sbuff[512];
+    uint32_t sbuff_offset;
+    uint8_t write_done;
 }client_socket_ctx_t;
 
 static struct tcp_pcb* srvpcb;
@@ -86,12 +92,19 @@ static const struct http_parser_settings hp_settings = {
 static void client_write(client_socket_ctx_t* client, char* buff, size_t len) {
     if (len == 0)
         return;
-    // client->send_size += len;
+    int ret = 0;
 #if ENABLE_PSIF
-    tcp_write(client->pcb, (const void*)buff, len, TCP_WRITE_FLAG_COPY, 0, 0, 0);
+    ret = tcp_write(client->pcb, (const void*)buff, len, TCP_WRITE_FLAG_COPY, 0, 0, 0);
 #else
-    tcp_write(client->pcb, (const void*)buff, len, TCP_WRITE_FLAG_COPY);
+    ret = tcp_write(client->pcb, (const void*)buff, len, TCP_WRITE_FLAG_COPY);
 #endif
+    if (ret == 0) {
+        client->send_size += len;
+    }
+    else {
+        LLOGE("client_write err %d", ret);
+    }
+    // LLOGD("Client Write len %d ret %d", len, ret);
 }
 
 static void client_resp(void* arg) {
@@ -137,14 +150,16 @@ static void client_resp(void* arg) {
         LLOGD("send body %d", body_size);
         client_write(client, client->body, body_size);
     }
-    client_cleanup(client);
-    tcp_output(pcb);
-    tcp_close(pcb);
+    // client_cleanup(client);
+    // tcp_output(pcb);
+    // tcp_close(pcb);
+    client->write_done = 1;
 }
 
 //================================
 
 static void client_cleanup(client_socket_ctx_t *client) {
+    LLOGD("client cleanup!!!");
     if (client->uri) {
         luat_heap_free(client->uri);
         client->uri = NULL;
@@ -155,8 +170,11 @@ static void client_cleanup(client_socket_ctx_t *client) {
         luat_heap_free(client->body);
         client->body = NULL;
     }
+    if (client->fd) {
+        luat_fs_fclose(client->fd);
+        client->fd = NULL;
+    }
     luat_heap_free(client);
-    LLOGD("client cleanup!!!");
 }
 
 static int luat_client_cb(lua_State* L, void* ptr) {
@@ -196,7 +214,7 @@ static int luat_client_cb(lua_State* L, void* ptr) {
     client->code = code;
     int ret = tcpip_callback(client_resp, client);
     if (ret) {
-        LLOGE("tcpip_callback %d", ret);
+        LLOGE("tcpip_callback %d", ret); // 这就很不好搞了
         tcp_abort(client->pcb);
         client_cleanup(client);
     }
@@ -252,7 +270,7 @@ static err_t client_recv_cb(void *arg, struct tcp_pcb *tpcb,
         }
         ctx->recv_done = 0;
         if (handle_static_file(ctx)) {
-            tcp_close(tpcb);
+            // tcp_close(tpcb);
             return ERR_OK;
         }
         rtos_msg_t msg = {
@@ -267,23 +285,63 @@ static err_t client_recv_cb(void *arg, struct tcp_pcb *tpcb,
 
     return ERR_OK;
 }
-// static err_t client_sent_cb(void *arg, struct tcp_pcb *tpcb, u16_t len) {
-//     client_socket_ctx_t* ctx = (client_socket_ctx_t*)arg;
-//     LLOGD("sent %d/%d", len, ctx->send_size);
-//     // ctx->send_size -= len;
-//     // if (ctx->send_size == 0) {
-//     //     // tcp_err(tpcb, NULL);
-//     //     // if (tcp_close(tpcb)) {
-//     //     //     tcp_abort(tpcb);
-//     //     // };
-//     //     // client_cleanup(ctx);
-//     // }
-//     return ERR_OK;
-// }
-// static err_t client_err_cb(void *arg, err_t err) {
-//     LLOGD("client err %d", err);
-//     return ERR_OK;
-// }
+static err_t client_sent_cb(void *arg, struct tcp_pcb *tpcb, u16_t len) {
+    // LLOGD("client_sent_cb len %d", len);
+    client_socket_ctx_t* ctx = (client_socket_ctx_t*)arg;
+    ctx->sent_size += len;
+    int ret = 0;
+    if (ctx->fd) {
+        if (ctx->sbuff_offset) {
+            ret = tcp_write(ctx->pcb, ctx->sbuff, ctx->sbuff_offset, TCP_WRITE_FLAG_COPY);
+            if (ret == 0) {
+                ctx->send_size += ctx->sbuff_offset;
+                ctx->sbuff_offset = 0;
+            }
+        }
+        else {
+            ret = luat_fs_fread(ctx->sbuff, 512, 1, ctx->fd);
+            if (ret < 1) {
+                luat_fs_fclose(ctx->fd);
+                ctx->fd = NULL;
+                // tcp_err(ctx->pcb, NULL);
+                // tcp_sent(ctx->pcb, NULL);
+                // tcp_close(ctx->pcb);
+                // client_cleanup(ctx);
+                ctx->write_done = 1;
+            }
+            else {
+                ctx->sbuff_offset = ret;
+                ret = tcp_write(ctx->pcb, ctx->sbuff, ctx->sbuff_offset, TCP_WRITE_FLAG_COPY);
+                if (ret == 0) {
+                    ctx->send_size += ctx->sbuff_offset;
+                    ctx->sbuff_offset = 0;
+                }
+            }
+        }
+    }
+    if (ctx->write_done && ctx->send_size == ctx->sent_size) {
+        tcp_err(ctx->pcb, NULL);
+        tcp_sent(ctx->pcb, NULL);
+        tcp_close(ctx->pcb);
+        client_cleanup(ctx);
+    }
+    // LLOGD("sent %d/%d", ctx->sent_size, ctx->send_size);
+    // ctx->send_size -= len;
+    // if (ctx->send_size == 0) {
+    //     // tcp_err(tpcb, NULL);
+    //     // if (tcp_close(tpcb)) {
+    //     //     tcp_abort(tpcb);
+    //     // };
+    //     // client_cleanup(ctx);
+    // }
+    return ERR_OK;
+}
+static err_t client_err_cb(void *arg, err_t err) {
+    LLOGD("client cb %d", err);
+    client_socket_ctx_t* client = (client_socket_ctx_t*)arg;
+    client_cleanup(client);
+    return ERR_OK;
+}
 
 static err_t srv_accept_cb(void *arg, struct tcp_pcb *newpcb, err_t err) {
     if (err) {
@@ -301,8 +359,8 @@ static err_t srv_accept_cb(void *arg, struct tcp_pcb *newpcb, err_t err) {
     ctx->pcb = newpcb;
     tcp_arg(newpcb, ctx);
     tcp_recv(newpcb, client_recv_cb);
-    // tcp_sent(newpcb, client_sent_cb);
-    // tcp_err(newpcb, client_err_cb);
+    tcp_sent(newpcb, client_sent_cb);
+    tcp_err(newpcb, client_err_cb);
     return ERR_OK;
 }
 
@@ -343,7 +401,7 @@ int luat_httpsrv_start(luat_httpsrv_ctx_t* ctx) {
 static int client_send_static_file(client_socket_ctx_t *client, char* path, size_t len, uint8_t is_gz) {
     LLOGD("sending %s", path);
     // 发送文件, 需要区分gz, 还得解析出content-type
-    char buff[512] = {0};
+    char *buff = client->sbuff;
     // 首先, 发送状态行
     client_write(client, "HTTP/1.0 200 OK\r\n", strlen("HTTP/1.0 200 OK\r\n"));
     // 发送长度
@@ -388,16 +446,12 @@ static int client_send_static_file(client_socket_ctx_t *client, char* path, size
     // 发送body
     FILE*  fd = luat_fs_fopen(path, "rb");
     if (fd == NULL) {
+        tcp_close(client->pcb);
         LLOGE("open %s FAIL!!", path);
         return 1;
     }
-    while (1) {
-        int slen = luat_fs_fread(buff, 512, 1, fd);
-        if (slen < 1)
-            break;
-        client_write(client, buff, slen);
-    }
-    luat_fs_fclose(fd);
+    client->fd = fd;
+    client->sbuff_offset = 0;
     return 0;
 }
 
@@ -421,7 +475,7 @@ static int handle_static_file(client_socket_ctx_t *client) {
     }
 
     client_send_static_file(client, path, fz, is_gz);
-    client_cleanup(client);
+    // client_cleanup(client);
     return 1;
 }
 

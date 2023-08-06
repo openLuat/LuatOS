@@ -97,7 +97,8 @@ sys.subscribe("IP_READY", function()
         local device = wlan.getMac()
         local params = "device=" .. device .. "&token=" .. token
         params = params .. "&key=ip&value=" .. (socket.localIP())
-        http.request("GET", "http://rtkv.air32.cn/api/rtkv/set?" .. params, {timeout=3000}).wait()
+        local code = http.request("GET", "http://rtkv.air32.cn/api/rtkv/set?" .. params, {timeout=3000}).wait()
+        log.info("上报结果", code)
     end)
 end)
 

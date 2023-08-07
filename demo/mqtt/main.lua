@@ -53,7 +53,7 @@ sys.taskInit(function()
         -- LED = gpio.setup(12, 0, gpio.PULLUP)
         wlan.init()
         wlan.setMode(wlan.STATION) -- 默认也是这个模式,不调用也可以
-        device_id = wlan.getMac():toHex()
+        device_id = wlan.getMac()
         wlan.connect(ssid, password, 1)
     elseif mobile then
         -- Air780E/Air600E系列
@@ -129,7 +129,7 @@ sys.taskInit(function()
             log.info("mqtt", "downlink", "topic", data, "payload", payload)
             sys.publish("mqtt_payload", data, payload)
         elseif event == "sent" then
-            log.info("mqtt", "sent", "pkgid", data)
+            -- log.info("mqtt", "sent", "pkgid", data)
         -- elseif event == "disconnect" then
             -- 非自动重连时,按需重启mqttc
             -- mqtt_client:connect()
@@ -156,10 +156,11 @@ end)
 
 -- 这里演示在另一个task里上报数据, 会定时上报数据,不需要就注释掉
 sys.taskInit(function()
+    sys.wait(3000)
 	local data = "123,"
 	local qos = 1 -- QOS0不带puback, QOS1是带puback的
     while true do
-        sys.wait(60000)
+        sys.wait(30)
         if mqttc and mqttc:ready() then
             local pkgid = mqttc:publish(pub_topic, data .. os.date(), qos)
             -- local pkgid = mqttc:publish(topic2, data, qos)
@@ -186,6 +187,14 @@ end)
 sys.subscribe("mqtt_payload", function(topic, payload)
     log.info("uart", "uart发送数据长度", #payload)
     uart.write(1, payload)
+end)
+
+sys.taskInit(function ()
+    while true do
+        sys.wait(3000)
+        log.info("lua", rtos.meminfo())
+        log.info("sys", rtos.meminfo("sys"))
+    end
 end)
 
 

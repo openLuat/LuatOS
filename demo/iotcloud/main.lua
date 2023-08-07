@@ -30,7 +30,7 @@ sys.taskInit(function()
         -- LED = gpio.setup(12, 0, gpio.PULLUP)
         wlan.init()
         wlan.setMode(wlan.STATION) -- 默认也是这个模式,不调用也可以
-        device_id = wlan.getMac():toHex()
+        device_id = wlan.getMac()
         wlan.connect(ssid, password, 1)
     elseif mobile then
         -- Air780E/Air600E系列

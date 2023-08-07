@@ -13,7 +13,7 @@ log.info("main", PROJECT, VERSION)
 _G.sys = require("sys")
 
 -- UI带屏的项目一般不需要低功耗了吧, Air101/Air103设置到最高性能
-if mcu and (rtos.bsp() == "AIR101" or rtos.bsp() == "AIR103") then
+if mcu and (rtos.bsp() == "AIR101" or rtos.bsp() == "AIR103" or rtos.bsp() == "AIR601" ) then
     mcu.setClk(240)
 end
 

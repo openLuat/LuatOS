@@ -23,10 +23,6 @@ if rtos.bsp() == "EC618" and pm and pm.PWK_MODE then
     pm.power(pm.PWK_MODE, false)
 end
 
-if mcu and rtos.bsp() == "AIR101" or rtos.bsp() == "AIR103" then
-    mcu.setClk(240)
-end
-
 
 sys.taskInit(function()
     -----------------------------

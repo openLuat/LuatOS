@@ -15,7 +15,7 @@ if wdt then
 end
 
 -- Air101/Air103默认80M主频, 跑国密算法会很慢的,调整到240M
-if mcu and (rtos.bsp() == "AIR101" or rtos.bsp() == "AIR103") then
+if mcu and (rtos.bsp() == "AIR101" or rtos.bsp() == "AIR103" or rtos.bsp() == "AIR601" ) then
     mcu.setClk(240)
 end
 

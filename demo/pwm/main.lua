@@ -17,7 +17,7 @@ end
 local PWM_ID = 0
 if rtos.bsp() == "EC618" then
     PWM_ID = 4 -- GPIO 27, NetLed
-elseif rtos.bsp() == "AIR101" or rtos.bsp() == "AIR103" then
+elseif rtos.bsp() == "AIR101" or rtos.bsp() == "AIR103" or rtos.bsp() == "AIR601"  then
     PWM_ID = 4 -- GPIO 4
 elseif rtos.bsp():startsWith("ESP32") then
     -- 注意, ESP32系列的PWM, PWM通道均与GPIO号相同

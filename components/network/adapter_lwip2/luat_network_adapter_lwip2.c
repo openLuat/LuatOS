@@ -837,7 +837,11 @@ static void net_lwip_task(void *param)
 			net_lwip_callback_to_nw_task(adapter_index, EV_NW_SOCKET_ERROR, socket_id, 0, 0);
 			break;
 		}
-		//tcp_bind(prvlwip.socket[socket_id].pcb.tcp, NULL, prvlwip.socket[socket_id].local_port);
+		error = tcp_bind(prvlwip.socket[socket_id].pcb.tcp, NULL, prvlwip.socket[socket_id].local_port);
+		if (error) {
+			LLOGE("tcp listen port %d ret %d", prvlwip.socket[socket_id].local_port, error);
+        	net_lwip_tcp_error(adapter_index, socket_id);
+		}
         IP_SET_TYPE_VAL(prvlwip.socket[socket_id].pcb.tcp->local_ip,  IPADDR_TYPE_ANY);
         IP_SET_TYPE_VAL(prvlwip.socket[socket_id].pcb.tcp->remote_ip, IPADDR_TYPE_ANY);
         // prvlwip.socket[socket_id].pcb.tcp->sockid = -1;

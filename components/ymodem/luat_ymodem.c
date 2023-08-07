@@ -67,8 +67,16 @@ void *luat_ymodem_create_handler(const char *save_path, const char *force_save_p
 		memset(handler, 0, sizeof(ymodem_ctrlstruct));
 		if (save_path)
 		{
-			handler->save_path = luat_heap_malloc(strlen(save_path) + 1);
-			strcpy(handler->save_path, save_path);
+			if (save_path[strlen(save_path)-1] == '/'){
+				handler->save_path = luat_heap_malloc(strlen(save_path) + 1);
+				strcpy(handler->save_path, save_path);
+				handler->save_path[strlen(save_path)] = 0;
+			}else{
+				handler->save_path = luat_heap_malloc(strlen(save_path) + 2);
+				strcpy(handler->save_path, save_path);
+				handler->save_path[strlen(save_path)] = '/';
+				handler->save_path[strlen(save_path)+1] = 0;
+			}
 		}
 		if (force_save_path)
 		{

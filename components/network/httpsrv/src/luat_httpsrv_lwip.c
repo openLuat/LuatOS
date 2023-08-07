@@ -292,7 +292,11 @@ static err_t client_sent_cb(void *arg, struct tcp_pcb *tpcb, u16_t len) {
     int ret = 0;
     if (ctx->fd) {
         if (ctx->sbuff_offset) {
-            ret = tcp_write(ctx->pcb, ctx->sbuff, ctx->sbuff_offset, TCP_WRITE_FLAG_COPY);
+            #if ENABLE_PSIF
+            ret = tcp_write(ctx->pcb, (const void*)ctx->sbuff, ctx->sbuff_offset, TCP_WRITE_FLAG_COPY, 0, 0, 0);
+            #else
+            ret = tcp_write(ctx->pcb, (const void*)ctx->sbuff, ctx->sbuff_offset, TCP_WRITE_FLAG_COPY);
+            #endif
             if (ret == 0) {
                 ctx->send_size += ctx->sbuff_offset;
                 ctx->sbuff_offset = 0;
@@ -311,7 +315,11 @@ static err_t client_sent_cb(void *arg, struct tcp_pcb *tpcb, u16_t len) {
             }
             else {
                 ctx->sbuff_offset = ret;
-                ret = tcp_write(ctx->pcb, ctx->sbuff, ctx->sbuff_offset, TCP_WRITE_FLAG_COPY);
+                #if ENABLE_PSIF
+                ret = tcp_write(ctx->pcb, (const void*)ctx->sbuff, ctx->sbuff_offset, TCP_WRITE_FLAG_COPY, 0, 0, 0);
+                #else
+                ret = tcp_write(ctx->pcb, (const void*)ctx->sbuff, ctx->sbuff_offset, TCP_WRITE_FLAG_COPY);
+                #endif
                 if (ret == 0) {
                     ctx->send_size += ctx->sbuff_offset;
                     ctx->sbuff_offset = 0;

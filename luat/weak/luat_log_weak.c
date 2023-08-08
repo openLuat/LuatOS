@@ -12,7 +12,7 @@ static uint8_t luat_log_uart_port = 0;
 static uint8_t luat_log_level_cur = LUAT_LOG_DEBUG;
 
 #define LOGLOG_SIZE 1024
-static char log_printf_buff[LOGLOG_SIZE]  = {0};
+// static char log_printf_buff[LOGLOG_SIZE]  = {0};
 
 LUAT_WEAK void luat_log_set_uart_port(int port) {
     luat_log_uart_port = port;
@@ -53,39 +53,35 @@ LUAT_WEAK int luat_log_get_level() {
 
 LUAT_WEAK void luat_log_log(int level, const char* tag, const char* _fmt, ...) {
     if (luat_log_level_cur > level) return;
+    char log_printf_buff[LOGLOG_SIZE]  = {0};
     char *tmp = (char *)log_printf_buff;
     switch (level)
         {
         case LUAT_LOG_DEBUG:
-            log_printf_buff[0] = 'D';
+            luat_log_write("D/", 2);
             break;
         case LUAT_LOG_INFO:
-            log_printf_buff[0] = 'I';
+            luat_log_write("I/", 2);
             break;
         case LUAT_LOG_WARN:
-            log_printf_buff[0] = 'W';
+            luat_log_write("W/", 2);
             break;
         case LUAT_LOG_ERROR:
-            log_printf_buff[0] = 'E';
+            luat_log_write("E/", 2);
             break;
         default:
-            log_printf_buff[0] = '?';
+            luat_log_write("D/", 2);
             break;
         }
-    log_printf_buff[1] = '/';
-    tmp += 2;
-    memcpy(tmp, tag, strlen(tag));
-    log_printf_buff[2+strlen(tag)] = ' ';
-    tmp += strlen(tag) + 1;
+    luat_log_write(tag, strlen(tag));
+    luat_log_write(" ", 1);
 
     va_list args;
     va_start(args, _fmt);
-    size_t len = vsnprintf_(tmp, LOGLOG_SIZE - (2 + strlen(tag) + 1 + 1 + 1), _fmt, args);
+    int len = vsnprintf_(tmp, LOGLOG_SIZE - 1, _fmt, args);
     va_end(args);
     if (len > 0) {
-        len += 2 + strlen(tag) + 1;
-        log_printf_buff[len] = '\n';
-        luat_log_write(log_printf_buff, len+1);
+        luat_log_write(log_printf_buff, len);
     }
 }
 
@@ -93,8 +89,9 @@ LUAT_WEAK void luat_log_printf(int level, const char* _fmt, ...) {
     size_t len;
     va_list args;
     if (luat_log_level_cur > level) return;
+    char log_printf_buff[LOGLOG_SIZE]  = {0};
     va_start(args, _fmt);
-    len = vsnprintf_(log_printf_buff, LOGLOG_SIZE, _fmt, args);
+    len = vsnprintf_(log_printf_buff, LOGLOG_SIZE - 1, _fmt, args);
     va_end(args);
     if (len > 0) {
         luat_log_write(log_printf_buff, len);

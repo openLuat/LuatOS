@@ -230,8 +230,9 @@ static int l_http_request(lua_State *L) {
 			goto error;
 		}
 #endif
-	http_ctrl->req_header = luat_heap_malloc(HTTP_RESP_HEADER_MAX_SIZE);
-	memset(http_ctrl->req_header, 0, HTTP_RESP_HEADER_MAX_SIZE);
+	// TODO 应该改成按需malloc
+	http_ctrl->req_header = luat_heap_malloc(HTTP_REQ_HEADER_MAX_SIZE);
+	memset(http_ctrl->req_header, 0, HTTP_REQ_HEADER_MAX_SIZE);
 
 	if (lua_istable(L, 3)) {
 		lua_pushnil(L);
@@ -250,6 +251,7 @@ static int l_http_request(lua_State *L) {
 	if (lua_isstring(L, 4)) {
 		const char *body = luaL_checklstring(L, 4, &(http_ctrl->req_body_len));
 		http_ctrl->req_body = luat_heap_malloc((http_ctrl->req_body_len) + 1);
+		// TODO 检测req_body是否为NULL
 		memset(http_ctrl->req_body, 0, (http_ctrl->req_body_len) + 1);
 		memcpy(http_ctrl->req_body, body, (http_ctrl->req_body_len));
 		snprintf_(body_len, 6,"%d",(http_ctrl->req_body_len));

@@ -1,8 +1,13 @@
 #ifndef LUAT_HTTP_H
 #define LUAT_HTTP_H
 
-#define HTTP_RESP_HEADER_MAX_SIZE 	(8192)
+#if defined(AIR101) || defined(AIR103)
+#define HTTP_REQ_HEADER_MAX_SIZE 	(2048)
+#define HTTP_RESP_BUFF_SIZE 		(4096)
+#else
+#define HTTP_REQ_HEADER_MAX_SIZE 	(8192)
 #define HTTP_RESP_BUFF_SIZE 		(8192)
+#endif
 
 #define HTTP_OK 			(0)
 #define HTTP_ERROR_STATE 	(-1)

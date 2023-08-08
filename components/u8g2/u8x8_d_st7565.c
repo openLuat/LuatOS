@@ -1291,7 +1291,7 @@ static const uint8_t u8x8_d_st7565_jlx12864g109pc_init_seq[] = {
     U8X8_C(0x02e), // 升压2
     U8X8_C(0x02f), // 升压3
 
-    U8X8_C(0x023), // 粗条对比度
+    U8X8_C(0x023), // 粗调对比度
     U8X8_C(0x081), // 微调对比度
     U8X8_C(0x027), // 微调对比度的值，可设置范围 0x00～0x3f
     U8X8_C(0x0a2), // 偏压比（bias）
@@ -1305,6 +1305,7 @@ static const uint8_t u8x8_d_st7565_jlx12864g109pc_init_seq[] = {
 
 uint8_t u8x8_d_st7565_jlx12864g109pc(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr)
 {
+    u8x8->x_offset = 1; // 2023年8月8日 屏幕最右侧会出现一条竖线，加上这一行可以解决问题
   /* call common procedure first and handle messages there */
   if ( u8x8_d_st7565_common(u8x8, msg, arg_int, arg_ptr) == 0 )
   {

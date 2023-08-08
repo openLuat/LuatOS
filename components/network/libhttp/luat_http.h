@@ -2,10 +2,10 @@
 #define LUAT_HTTP_H
 
 #if defined(AIR101) || defined(AIR103)
-#define HTTP_REQ_HEADER_MAX_SIZE 	(2048)
-#define HTTP_RESP_BUFF_SIZE 		(4096)
+// #define HTTP_REQ_HEADER_MAX_SIZE 	(2048)
+#define HTTP_RESP_BUFF_SIZE 		(2048)
 #else
-#define HTTP_REQ_HEADER_MAX_SIZE 	(8192)
+// #define HTTP_REQ_HEADER_MAX_SIZE 	(8192)
 #define HTTP_RESP_BUFF_SIZE 		(8192)
 #endif
 

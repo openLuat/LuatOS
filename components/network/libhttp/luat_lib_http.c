@@ -43,14 +43,30 @@ int http_close(luat_http_ctrl_t *http_ctrl);
 int http_set_url(luat_http_ctrl_t *http_ctrl, const char* url, const char* method);
 
 static int http_add_header(luat_http_ctrl_t *http_ctrl, const char* name, const char* value){
-	// LLOGD("http_add_header name:%s value:%s",name,value);
 	// TODO 对value还需要进行urlencode
-	sprintf_(http_ctrl->req_header + strlen((char*)http_ctrl->req_header), "%s:%s\r\n", name, value);
-	// strncat(http_ctrl->req_header, name, strlen(name));
-	// strncat(http_ctrl->req_header, ":", 1);
-	// strncat(http_ctrl->req_header, value, strlen(value));
-	// strncat(http_ctrl->req_header, "\r\n", 2);
-	// LLOGD("http_ctrl->req_header:%s",http_ctrl->req_header);
+	char tmp[1024] = {0};
+	int ret = snprintf(tmp, 1023, "%s:%s\r\n", name, value);
+	// LLOGI("snprintf %d", ret);
+	if (ret < 1) {
+		return 0;
+	}
+	if (http_ctrl->req_header == NULL) {
+		http_ctrl->req_header = luat_heap_malloc(strlen(tmp)+1);
+		if (http_ctrl->req_header == NULL) {
+			LLOGE("out of memory when malloc custom headers");
+			return 0;
+		}
+		http_ctrl->req_header[0] = 0;
+	}
+	else {
+		void *ptr = luat_heap_realloc(http_ctrl->req_header, strlen(http_ctrl->req_header) + strlen(tmp) + 1);
+		if (ptr == NULL) {
+			LLOGE("out of memory when malloc custom headers");
+			return 0;
+		}
+		http_ctrl->req_header = ptr;
+	}
+	memcpy(http_ctrl->req_header + strlen(http_ctrl->req_header), tmp, strlen(tmp) + 1);
 	return 0;
 }
 
@@ -230,9 +246,6 @@ static int l_http_request(lua_State *L) {
 			goto error;
 		}
 #endif
-	// TODO 应该改成按需malloc
-	http_ctrl->req_header = luat_heap_malloc(HTTP_REQ_HEADER_MAX_SIZE);
-	memset(http_ctrl->req_header, 0, HTTP_REQ_HEADER_MAX_SIZE);
 
 	if (lua_istable(L, 3)) {
 		lua_pushnil(L);
@@ -247,6 +260,7 @@ static int l_http_request(lua_State *L) {
 			}
 			lua_pop(L, 1);
 		}
+		lua_pop(L, 1);
 	}
 	if (lua_isstring(L, 4)) {
 		const char *body = luaL_checklstring(L, 4, &(http_ctrl->req_body_len));
@@ -257,6 +271,7 @@ static int l_http_request(lua_State *L) {
 		snprintf_(body_len, 6,"%d",(http_ctrl->req_body_len));
 		http_add_header(http_ctrl,"Content-Length",body_len);
 	}
+
     // TODO 对 req_header进行realloc
 
 	if (http_ctrl->is_tls){

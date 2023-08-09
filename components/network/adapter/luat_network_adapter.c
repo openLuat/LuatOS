@@ -1709,6 +1709,7 @@ void network_force_close_socket(network_ctrl_t *ctrl)
 	}
 	ctrl->need_close = 0;
 	ctrl->socket_id = -1;
+	ctrl->new_rx_flag = 0;
 	if (ctrl->dns_ip)
 	{
 		free(ctrl->dns_ip);
@@ -2193,6 +2194,7 @@ int network_close(network_ctrl_t *ctrl, uint32_t timeout_ms)
 	uint8_t old_state = ctrl->state;
 	ctrl->auto_mode = 1;
 	ctrl->need_close = 0;
+	ctrl->new_rx_flag = 0;
 	network_adapter_t *adapter = &prv_adapter_table[ctrl->adapter_index];
 #ifdef LUAT_USE_TLS
 	if (ctrl->tls_mode)

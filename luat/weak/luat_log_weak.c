@@ -82,6 +82,7 @@ LUAT_WEAK void luat_log_log(int level, const char* tag, const char* _fmt, ...) {
     va_end(args);
     if (len > 0) {
         luat_log_write(log_printf_buff, len);
+        luat_log_write("\n", 1);
     }
 }
 
@@ -95,5 +96,6 @@ LUAT_WEAK void luat_log_printf(int level, const char* _fmt, ...) {
     va_end(args);
     if (len > 0) {
         luat_log_write(log_printf_buff, len);
+        luat_log_write("\n", 1);
     }
 }

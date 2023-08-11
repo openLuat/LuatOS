@@ -78,11 +78,11 @@ LUAT_WEAK void luat_log_log(int level, const char* tag, const char* _fmt, ...) {
 
     va_list args;
     va_start(args, _fmt);
-    int len = vsnprintf_(tmp, LOGLOG_SIZE - 1, _fmt, args);
+    int len = vsnprintf_(tmp, LOGLOG_SIZE - 2, _fmt, args);
     va_end(args);
     if (len > 0) {
-        luat_log_write(log_printf_buff, len);
-        luat_log_write("\n", 1);
+        tmp[len] = '\n';
+        luat_log_write(tmp, len+1);
     }
 }
 
@@ -92,10 +92,10 @@ LUAT_WEAK void luat_log_printf(int level, const char* _fmt, ...) {
     if (luat_log_level_cur > level) return;
     char log_printf_buff[LOGLOG_SIZE]  = {0};
     va_start(args, _fmt);
-    len = vsnprintf_(log_printf_buff, LOGLOG_SIZE - 1, _fmt, args);
+    len = vsnprintf_(log_printf_buff, LOGLOG_SIZE - 2, _fmt, args);
     va_end(args);
     if (len > 0) {
-        luat_log_write(log_printf_buff, len);
-        luat_log_write("\n", 1);
+        log_printf_buff[len] = '\n';
+        luat_log_write(log_printf_buff, len + 1);
     }
 }

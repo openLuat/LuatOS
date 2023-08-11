@@ -1476,6 +1476,7 @@ static const rotable_Reg_t reg_json[] = {
         // { "encode_invalid_numbers", json_cfg_encode_invalid_numbers },
         // { "decode_invalid_numbers", json_cfg_decode_invalid_numbers },
         // { "new", lua_cjson_new },
+        { "null",  ROREG_PTR(NULL)},
         { NULL, ROREG_INT(0)}
     };
 

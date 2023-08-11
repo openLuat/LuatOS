@@ -9,7 +9,7 @@ typedef struct luat_i2s_conf
     uint8_t bits_per_sample;
     uint8_t channel_format;
     uint8_t communication_format;
-    uint8_t mclk;
+    uint32_t mclk;
     //uint8_t intr_alloc_flags;
     // uint8_t dma_buf_count;
     // uint8_t dma_buf_len;

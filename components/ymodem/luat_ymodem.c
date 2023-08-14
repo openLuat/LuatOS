@@ -220,6 +220,7 @@ int luat_ymodem_receive(void *handler, uint8_t *data, uint32_t len, uint8_t *ack
 				break;
 			}
 			memcpy(ctrl->packet_data, data, len);
+			ctrl->data_pos += len;
 			if (len >= ctrl->data_max) goto YMODEM_DATA_CHECK;
 		}
 		else

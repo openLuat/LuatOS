@@ -49,6 +49,16 @@ sys.taskInit(function()
         local tmp3 = json.decode(tmp2)
         log.info("json", "tmp3", tmp3.str, tmp3.str == tmp)
         -- break
+
+        log.info("json.null", json.encode({name=json.null}))
+        log.info("json.null", json.decode("{\"abc\":null}").abc == json.null)
+        log.info("json.null", json.decode("{\"abc\":null}").abc == nil)
+
+        -- 以下代码仅64bit固件可正确运行
+        local tmp = [[{ "timestamp": 1691998307973}]]
+        local abc, err = json.decode(tmp)
+        log.info("json", abc, err)
+        log.info("json", abc and abc.timestamp)
     end
 end)
 

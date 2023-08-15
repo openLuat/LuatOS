@@ -29,7 +29,7 @@ sys.taskInit(function()
                 break
             end
             audio.write(0, data)
-            sys.wait(100)
+            sys.wait(50)
         end
         f:close()
     end

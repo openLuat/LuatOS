@@ -554,7 +554,7 @@ end
 rc522.write_datablock(addr,data)
 ]]
 function rc522.write_datablock(addr,data)
-    if #data ~= 6 then
+    if #data ~= 16 then
         return false
     end
     local status,array_id = rc522.request(rc522.reqall)

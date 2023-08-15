@@ -102,6 +102,89 @@ sys.taskInit(function()
         log.info("checksum", "357E", string.char(crypto.checksum("357E", 1)):toHex())
     end
 
+            -- 流式hash测试
+    if crypto.hash_init then
+        -- MD5
+        local md5_obj = crypto.hash_init("MD5")
+        crypto.hash_update(md5_obj, "1234567890")
+        crypto.hash_update(md5_obj, "1234567890")
+        crypto.hash_update(md5_obj, "1234567890")
+        crypto.hash_update(md5_obj, "1234567890")
+        local md5_result = crypto.hash_finish(md5_obj)
+        log.info("md5_stream", md5_result)
+        log.info("md5", crypto.md5("1234567890123456789012345678901234567890"))
+
+        -- HMAC_MD5
+        local hmac_md5_obj = crypto.hash_init("MD5", "1234567890")
+        crypto.hash_update(hmac_md5_obj, "1234567890")
+        crypto.hash_update(hmac_md5_obj, "1234567890")
+        crypto.hash_update(hmac_md5_obj, "1234567890")
+        crypto.hash_update(hmac_md5_obj, "1234567890")
+        local hmac_md5_result = crypto.hash_finish(hmac_md5_obj)
+        log.info("hmac_md5_stream", hmac_md5_result)
+        log.info("hmac_md5", crypto.hmac_md5("1234567890123456789012345678901234567890", "1234567890"))
+
+        -- SHA1
+        local sha1_obj = crypto.hash_init("SHA1")
+        crypto.hash_update(sha1_obj, "1234567890")
+        crypto.hash_update(sha1_obj, "1234567890")
+        crypto.hash_update(sha1_obj, "1234567890")
+        crypto.hash_update(sha1_obj, "1234567890")
+        local sha1_result = crypto.hash_finish(sha1_obj)
+        log.info("sha1_stream", sha1_result)
+        log.info("sha1", crypto.sha1("1234567890123456789012345678901234567890"))
+
+        -- HMAC_SHA1
+        local hmac_sha1_obj = crypto.hash_init("SHA1", "1234567890")
+        crypto.hash_update(hmac_sha1_obj, "1234567890")
+        crypto.hash_update(hmac_sha1_obj, "1234567890")
+        crypto.hash_update(hmac_sha1_obj, "1234567890")
+        crypto.hash_update(hmac_sha1_obj, "1234567890")
+        local hmac_sha1_result = crypto.hash_finish(hmac_sha1_obj)
+        log.info("hmac_sha1_stream", hmac_sha1_result)
+        log.info("hmac_sha1", crypto.hmac_sha1("1234567890123456789012345678901234567890", "1234567890"))
+
+        -- SHA256
+        local sha256_obj = crypto.hash_init("SHA256")
+        crypto.hash_update(sha256_obj, "1234567890")
+        crypto.hash_update(sha256_obj, "1234567890")
+        crypto.hash_update(sha256_obj, "1234567890")
+        crypto.hash_update(sha256_obj, "1234567890")
+        local sha256_result = crypto.hash_finish(sha256_obj)
+        log.info("sha256_stream", sha256_result)
+        log.info("sha256", crypto.sha256("1234567890123456789012345678901234567890"))
+
+        -- HMAC_SHA256
+        local hmac_sha256_obj = crypto.hash_init("SHA256", "1234567890")
+        crypto.hash_update(hmac_sha256_obj, "1234567890")
+        crypto.hash_update(hmac_sha256_obj, "1234567890")
+        crypto.hash_update(hmac_sha256_obj, "1234567890")
+        crypto.hash_update(hmac_sha256_obj, "1234567890")
+        local hmac_sha256_result = crypto.hash_finish(hmac_sha256_obj)
+        log.info("hmac_sha256_stream", hmac_sha256_result)
+        log.info("hmac_sha256", crypto.hmac_sha256("1234567890123456789012345678901234567890", "1234567890"))
+
+        -- SHA512
+        local sha512_obj = crypto.hash_init("SHA512")
+        crypto.hash_update(sha512_obj, "1234567890")
+        crypto.hash_update(sha512_obj, "1234567890")
+        crypto.hash_update(sha512_obj, "1234567890")
+        crypto.hash_update(sha512_obj, "1234567890")
+        local sha512_result = crypto.hash_finish(sha512_obj)
+        log.info("sha512_stream", sha512_result)
+        log.info("sha512", crypto.sha512("1234567890123456789012345678901234567890"))
+
+        -- HMAC_SHA512
+        local hmac_sha512_obj = crypto.hash_init("SHA512", "1234567890")
+        crypto.hash_update(hmac_sha512_obj, "1234567890")
+        crypto.hash_update(hmac_sha512_obj, "1234567890")
+        crypto.hash_update(hmac_sha512_obj, "1234567890")
+        crypto.hash_update(hmac_sha512_obj, "1234567890")
+        local hmac_sha512_result = crypto.hash_finish(hmac_sha512_obj)
+        log.info("hmac_sha512_stream", hmac_sha512_result)
+        log.info("hmac_sha512", crypto.hmac_sha512("1234567890123456789012345678901234567890", "1234567890"))
+    end
+
     log.info("crypto", "ALL Done")
     sys.wait(100000)
 end)

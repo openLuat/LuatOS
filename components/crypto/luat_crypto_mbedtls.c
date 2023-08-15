@@ -257,6 +257,64 @@ int luat_crypto_md_file(const char* md, void* out_ptr, const char* key, size_t k
     return ret;
 }
 
+int luat_crypto_md_init(const char* md, const char* key, luat_crypt_stream_t *stream) {
+    const mbedtls_md_info_t * info = mbedtls_md_info_from_string(md);
+    if (info == NULL) {
+        return -1;
+    }
+    stream->ctx = luat_heap_malloc(sizeof(mbedtls_md_context_t));
+    mbedtls_md_init(stream->ctx);
+    mbedtls_md_setup(stream->ctx, info, stream->key_len > 0 ? 1 : 0);
+    if (stream->key_len > 0){
+        mbedtls_md_hmac_starts(stream->ctx, (const unsigned char*)key, stream->key_len);
+    }
+    else {
+        mbedtls_md_starts(stream->ctx);
+    }
+    return 0;
+}
+
+int luat_crypto_md_update(const char * md, const char* str, size_t str_size, luat_crypt_stream_t *stream) {
+    const mbedtls_md_info_t * info = mbedtls_md_info_from_string(md);
+    if (info == NULL) {
+        return -1;
+    }
+    if (stream->key_len > 0){
+        mbedtls_md_hmac_update(stream->ctx, (const unsigned char*)str, str_size);
+    }
+    else {
+        mbedtls_md_update(stream->ctx, (const unsigned char*)str, str_size);
+    }
+    return 0;
+}
+
+int luat_crypto_md_finish(const char* md, void* out_ptr, luat_crypt_stream_t *stream) {
+    const mbedtls_md_info_t * info = mbedtls_md_info_from_string(md);
+    if (info == NULL) {
+        return -1;
+    }
+    int ret = 0;
+
+    if (stream->key_len > 0) {
+        ret = mbedtls_md_hmac_finish(stream->ctx, out_ptr);
+    }
+    else {
+        ret = mbedtls_md_finish(stream->ctx, out_ptr);
+    }
+    if (ret == 0) {
+        unsigned char size = mbedtls_md_get_size(info);
+        mbedtls_md_free(stream->ctx);
+        luat_heap_free(stream->ctx);
+        stream->ctx = NULL;
+        return size;
+    }
+    mbedtls_md_free(stream->ctx);
+    luat_heap_free(stream->ctx);
+    stream->ctx = NULL;
+    LLOGI("md finish ret %d", ret);
+    return ret;
+}
+
 int luat_crypto_md5_simple(const char* str, size_t str_size, void* out_ptr) {
     return luat_crypto_md("MD5", str, str_size, out_ptr, NULL, 0);
 }

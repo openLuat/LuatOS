@@ -274,17 +274,25 @@ int luat_crypto_md_stream_init(const char* md, const char* key, luat_crypt_strea
     return 0;
 }
 
-int luat_crypto_md_stream_update(const char* str, size_t str_size, luat_crypt_stream_t *stream) {
+int luat_crypto_md_stream_update(const char * md, const char* str, size_t str_size, luat_crypt_stream_t *stream) {
+    const mbedtls_md_info_t * info = mbedtls_md_info_from_string(md);
+    if (info == NULL) {
+        return -1;
+    }
     if (stream->key_len > 0){
         mbedtls_md_hmac_update(stream->ctx, (const unsigned char*)str, str_size);
     }
     else {
-        mbedtls_md_update(stream->ctx, str, str_size);
+        mbedtls_md_update(stream->ctx, (const unsigned char*)str, str_size);
     }
     return 0;
 }
 
-int luat_crypto_md_stream_finish(void* out_ptr, luat_crypt_stream_t *stream) {
+int luat_crypto_md_stream_finish(const char* md, void* out_ptr, luat_crypt_stream_t *stream) {
+    const mbedtls_md_info_t * info = mbedtls_md_info_from_string(md);
+    if (info == NULL) {
+        return -1;
+    }
     int ret = 0;
 
     if (stream->key_len > 0) {
@@ -294,7 +302,7 @@ int luat_crypto_md_stream_finish(void* out_ptr, luat_crypt_stream_t *stream) {
         ret = mbedtls_md_finish(stream->ctx, out_ptr);
     }
     if (ret == 0) {
-        unsigned char size = mbedtls_md_get_size(stream->ctx->md_info);
+        unsigned char size = mbedtls_md_get_size(info);
         mbedtls_md_free(stream->ctx);
         luat_heap_free(stream->ctx);
         stream->ctx = NULL;

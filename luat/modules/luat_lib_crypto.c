@@ -692,7 +692,7 @@ static int l_crypt_hash_init(lua_State *L) {
         const char* md = luaL_checkstring(L, 1);
         strncpy(stream->tp, md, strlen(md));
         if(lua_type(L, 2) == LUA_TSTRING) {
-            key = luaL_checklstring(L, 3, &(stream->key_len));
+            key = luaL_checklstring(L, 2, &(stream->key_len));
         }
         int ret = luat_crypto_md_init(md, key, stream);
         if (ret < 0) {

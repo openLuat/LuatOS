@@ -31,6 +31,7 @@ int net_lwip_check_all_ack(int socket_id);
 void net_lwip_set_netif(uint8_t adapter_index, struct netif *netif, void *init, uint8_t is_default);
 struct netif * net_lwip_get_netif(uint8_t adapter_index);
 void net_lwip_input_packets(struct netif *netif, struct pbuf *p);
+void net_lwip_ping_response(struct netif *inp, struct pbuf *p, uint8_t type);
 /*
  * 如果是需要使用静态IP，则需要先设置好IP，再设置linkup
  * 如果之前设置了静态IP，现在想用动态IP，需要先删掉静态IP，再linkup

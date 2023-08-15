@@ -15,6 +15,7 @@
 
 typedef struct
 {
+    char tp[16];
     size_t key_len;
 	mbedtls_md_context_t *ctx;
 }luat_crypt_stream_t;
@@ -39,7 +40,7 @@ int luat_crypto_cipher_suites(const char** list, size_t* len);
 int luat_crypto_md(const char* md, const char* str, size_t str_size, void* out_ptr, const char* key, size_t key_len);
 int luat_crypto_md_file(const char* md, void* out_ptr, const char* key, size_t key_len, const char* path);
 
-int luat_crypto_md_stream_init(const char* md, const char* key, luat_crypt_stream_t *stream);
-int luat_crypto_md_stream_update(const char* md, const char* str, size_t str_size, luat_crypt_stream_t *stream);
-int luat_crypto_md_stream_finish(const char* md, void* out_ptr, luat_crypt_stream_t *stream);
+int luat_crypto_md_init(const char* md, const char* key, luat_crypt_stream_t *stream);
+int luat_crypto_md_update(const char* md, const char* str, size_t str_size, luat_crypt_stream_t *stream);
+int luat_crypto_md_finish(const char* md, void* out_ptr, luat_crypt_stream_t *stream);
 #endif

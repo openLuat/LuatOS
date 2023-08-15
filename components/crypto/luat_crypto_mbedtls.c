@@ -257,7 +257,7 @@ int luat_crypto_md_file(const char* md, void* out_ptr, const char* key, size_t k
     return ret;
 }
 
-int luat_crypto_md_stream_init(const char* md, const char* key, luat_crypt_stream_t *stream) {
+int luat_crypto_md_init(const char* md, const char* key, luat_crypt_stream_t *stream) {
     const mbedtls_md_info_t * info = mbedtls_md_info_from_string(md);
     if (info == NULL) {
         return -1;
@@ -274,7 +274,7 @@ int luat_crypto_md_stream_init(const char* md, const char* key, luat_crypt_strea
     return 0;
 }
 
-int luat_crypto_md_stream_update(const char * md, const char* str, size_t str_size, luat_crypt_stream_t *stream) {
+int luat_crypto_md_update(const char * md, const char* str, size_t str_size, luat_crypt_stream_t *stream) {
     const mbedtls_md_info_t * info = mbedtls_md_info_from_string(md);
     if (info == NULL) {
         return -1;
@@ -288,7 +288,7 @@ int luat_crypto_md_stream_update(const char * md, const char* str, size_t str_si
     return 0;
 }
 
-int luat_crypto_md_stream_finish(const char* md, void* out_ptr, luat_crypt_stream_t *stream) {
+int luat_crypto_md_finish(const char* md, void* out_ptr, luat_crypt_stream_t *stream) {
     const mbedtls_md_info_t * info = mbedtls_md_info_from_string(md);
     if (info == NULL) {
         return -1;

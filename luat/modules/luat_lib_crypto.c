@@ -666,23 +666,23 @@ static int l_crypto_md(lua_State *L) {
 
 /*
 创建流式hash用的stream
-@api crypto.hash_stream_init(tp)
+@api crypto.hash_init(tp)
 @string hash类型, 大写字母, 例如 "MD5" "SHA1" "SHA256"
 @string hmac值，可选
 @return userdata 成功返回一个数据结构,否则返回nil
 @usage
 -- 无hmac的hash stream
-log.info("md5", crypto.hash_stream_init("MD5"))
-log.info("sha1", crypto.hash_stream_init("SHA1"))
-log.info("sha256", crypto.hash_stream_init("SHA256"))
+log.info("md5", crypto.hash_init("MD5"))
+log.info("sha1", crypto.hash_init("SHA1"))
+log.info("sha256", crypto.hash_init("SHA256"))
 
 -- 带hmac的hash stream
-log.info("hmac_md5", crypto.hash_stream_init("MD5", "123456"))
-log.info("hmac_sha1", crypto.hash_stream_init("SHA1", "123456"))
-log.info("hmac_sha256", crypto.hash_stream_init("SHA256", "123456"))
-local stream = crypto.hash_stream_init()
+log.info("hmac_md5", crypto.hash_init("MD5", "123456"))
+log.info("hmac_sha1", crypto.hash_init("SHA1", "123456"))
+log.info("hmac_sha256", crypto.hash_init("SHA256", "123456"))
+local stream = crypto.hash_init()
 */
-static int l_crypt_hash_stream_init(lua_State *L) {
+static int l_crypt_hash_init(lua_State *L) {
     luat_crypt_stream_t *stream = (luat_crypt_stream_t *)lua_newuserdata(L, sizeof(luat_crypt_stream_t));
     if(stream == NULL) {
         lua_pushnil(L);
@@ -690,10 +690,11 @@ static int l_crypt_hash_stream_init(lua_State *L) {
         memset(stream, 0x00, sizeof(luat_crypt_stream_t));
         const char* key = NULL;
         const char* md = luaL_checkstring(L, 1);
+        strncpy(stream->tp, md, strlen(md));
         if(lua_type(L, 2) == LUA_TSTRING) {
             key = luaL_checklstring(L, 3, &(stream->key_len));
         }
-        int ret = luat_crypto_md_stream_init(md, key, stream);
+        int ret = luat_crypto_md_init(md, key, stream);
         if (ret < 0) {
             lua_pushnil(L);
         } else {
@@ -705,38 +706,34 @@ static int l_crypt_hash_stream_init(lua_State *L) {
 
 /*
 流式hash更新数据
-@api crypto.hash_stream_update(tp, stream, data)
-@string hash类型, 大写字母, 例如 "MD5" "SHA1" "SHA256"
-@userdata crypto.hash_stream_init()创建的stream, 必选
+@api crypto.hash_update(stream, data)
+@userdata crypto.hash_init()创建的stream, 必选
 @string 待计算的数据,必选
 @return 无
 @usage
-crypto.hash_stream_update("MD5", stream, "OK")
+crypto.hash_update(stream, "OK")
 */
-static int l_crypt_hash_stream_update(lua_State *L) {
-    const char* md = luaL_checkstring(L, 1);
-    luat_crypt_stream_t *stream = (luat_crypt_stream_t *)luaL_checkudata(L, 2, LUAT_CRYPTO_TYPE);
+static int l_crypt_hash_update(lua_State *L) {
+    luat_crypt_stream_t *stream = (luat_crypt_stream_t *)luaL_checkudata(L, 1, LUAT_CRYPTO_TYPE);
     size_t data_len = 0;
-    const char *data = luaL_checklstring(L, 3, &data_len);
-    luat_crypto_md_stream_update(md, data, data_len ,stream);
+    const char *data = luaL_checklstring(L, 2, &data_len);
+    luat_crypto_md_update(stream->tp, data, data_len ,stream);
     return 0;
 }
 
 /*
 获取流式hash校验值并释放创建的stream
-@api crypto.l_crypt_hash_stream_finish(tp, stream)
-@string hash类型, 大写字母, 例如 "MD5" "SHA1" "SHA256"
-@userdata crypto.hash_stream_init()创建的stream,必选
+@api crypto.l_crypt_hash_finish(stream)
+@userdata crypto.hash_init()创建的stream,必选
 @return string 成功返回计算得出的流式hash值的hex字符串，失败无返回
 @usage
-local hashResult = crypto.hash_stream_finish("MD5", stream)
+local hashResult = crypto.hash_finish("MD5", stream)
 */
-static int l_crypt_hash_stream_finish(lua_State *L) {
-    const char* md = luaL_checkstring(L, 1);
-    luat_crypt_stream_t *stream = (luat_crypt_stream_t *)luaL_checkudata(L, 2, LUAT_CRYPTO_TYPE);
+static int l_crypt_hash_finish(lua_State *L) {
+    luat_crypt_stream_t *stream = (luat_crypt_stream_t *)luaL_checkudata(L, 1, LUAT_CRYPTO_TYPE);
     char buff[128] = {0};
     char output[64];
-    int ret = luat_crypto_md_stream_finish(md, output, stream);
+    int ret = luat_crypto_md_finish(stream->tp, output, stream);
     LLOGD("finish result %d", ret);
     if (ret < 1) {
         return 0;
@@ -810,9 +807,9 @@ static const rotable_Reg_t reg_crypto[] =
     { "md_file",        ROREG_FUNC(l_crypto_md_file)},
     { "md",             ROREG_FUNC(l_crypto_md)},
     { "checksum",       ROREG_FUNC(l_crypt_checksum)},
-    { "hash_stream_init",ROREG_FUNC(l_crypt_hash_stream_init)},
-    { "hash_stream_update",ROREG_FUNC(l_crypt_hash_stream_update)},
-    { "hash_stream_finish",ROREG_FUNC(l_crypt_hash_stream_finish)},
+    { "hash_init",      ROREG_FUNC(l_crypt_hash_init)},
+    { "hash_update",    ROREG_FUNC(l_crypt_hash_update)},
+    { "hash_finish",    ROREG_FUNC(l_crypt_hash_finish)},
 
 	{ NULL,             ROREG_INT(0) }
 };

@@ -672,15 +672,14 @@ static int l_crypto_md(lua_State *L) {
 @return userdata 成功返回一个数据结构,否则返回nil
 @usage
 -- 无hmac的hash stream
-log.info("md5", crypto.hash_init("MD5"))
-log.info("sha1", crypto.hash_init("SHA1"))
-log.info("sha256", crypto.hash_init("SHA256"))
+local md5_stream = crypto.hash_init("MD5")
+local sha1_stream = crypto.hash_init("SHA1")
+local sha256_stream = crypto.hash_init("SHA256")
 
 -- 带hmac的hash stream
-log.info("hmac_md5", crypto.hash_init("MD5", "123456"))
-log.info("hmac_sha1", crypto.hash_init("SHA1", "123456"))
-log.info("hmac_sha256", crypto.hash_init("SHA256", "123456"))
-local stream = crypto.hash_init()
+local md5_stream = crypto.hash_init("MD5", "123456")
+local sha1_stream = crypto.hash_init("SHA1", "123456")
+local sha256_stream = crypto.hash_init("SHA256", "123456")
 */
 static int l_crypt_hash_init(lua_State *L) {
     luat_crypt_stream_t *stream = (luat_crypt_stream_t *)lua_newuserdata(L, sizeof(luat_crypt_stream_t));
@@ -727,7 +726,7 @@ static int l_crypt_hash_update(lua_State *L) {
 @userdata crypto.hash_init()创建的stream,必选
 @return string 成功返回计算得出的流式hash值的hex字符串，失败无返回
 @usage
-local hashResult = crypto.hash_finish("MD5", stream)
+local hashResult = crypto.hash_finish(stream)
 */
 static int l_crypt_hash_finish(lua_State *L) {
     luat_crypt_stream_t *stream = (luat_crypt_stream_t *)luaL_checkudata(L, 1, LUAT_CRYPTO_TYPE);

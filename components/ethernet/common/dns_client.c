@@ -24,18 +24,23 @@
 #define DNS_TO_BASE (900)
 #define DNS_TRY_MAX	(3)
 
-//extern void DBG_Printf(const char* format, ...);
-//extern void DBG_HexPrintf(void *Data, unsigned int len);
-//#ifdef LUAT_LOG_NO_NEWLINE
-//#define DBG(x,y...)		DBG_Printf("%s %d:"x, __FUNCTION__,__LINE__,##y)
-//#define DBG_ERR(x,y...)		DBG_Printf("%s %d:"x, __FUNCTION__,__LINE__,##y)
-//#else
-//#define DBG(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
-//#define DBG_ERR(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
-//#endif
+#ifdef LUAT_USE_STD_STRING
+extern void DBG_Printf(const char* format, ...);
+#ifdef LUAT_LOG_NO_NEWLINE
+#define DBG(x,y...)		DBG_Printf("%s %d:"x, __FUNCTION__,__LINE__,##y)
+#define DBG_ERR(x,y...)		DBG_Printf("%s %d:"x, __FUNCTION__,__LINE__,##y)
+#else
+#define DBG(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
+#define DBG_ERR(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
+#endif
+#define LLOGD	DBG
+#define LLOGI	DBG
+#define LLOGE	DBG
+#define LLOGE	DBG
+#else
 #define LUAT_LOG_TAG "DNS"
 #include "luat_log.h"
-
+#endif
 
 typedef struct
 {

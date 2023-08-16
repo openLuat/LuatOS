@@ -1,7 +1,12 @@
+/**
+ * 尽量适配第三方SDK的lwip
+ */
 #ifdef __USE_SDK_LWIP__
 #ifndef __NET_LWIP_H__
 #define __NET_LWIP_H__
-#include "bsp_common.h"
+#ifndef __BSP_COMMON_H__
+#include "c_common.h"
+#endif
 enum
 {
 	EV_LWIP_EVENT_START = USER_EVENT_ID_START + 0x2000000,
@@ -9,7 +14,7 @@ enum
 	EV_LWIP_NETIF_INPUT,
 	EV_LWIP_RUN_USER_API,
 //	EV_LWIP_TCP_TIMER,
-//	EV_LWIP_COMMON_TIMER,
+	EV_LWIP_COMMON_TIMER,
 	EV_LWIP_SOCKET_RX_DONE,
 	EV_LWIP_SOCKET_CREATE,
 	EV_LWIP_SOCKET_CONNECT,
@@ -27,8 +32,9 @@ enum
 
 void net_lwip_register_adapter(uint8_t adapter_index);
 void net_lwip_init(void);
+void net_lwip_set_dns_adapter(uint8_t adapter_index);
 int net_lwip_check_all_ack(int socket_id);
-void net_lwip_set_netif(uint8_t adapter_index, struct netif *netif, void *init, uint8_t is_default);
+void net_lwip_set_netif(uint8_t adapter_index, struct netif *netif);
 struct netif * net_lwip_get_netif(uint8_t adapter_index);
 void net_lwip_input_packets(struct netif *netif, struct pbuf *p);
 void net_lwip_ping_response(struct netif *inp, struct pbuf *p, uint8_t type);
@@ -48,5 +54,10 @@ int net_lwip_set_static_ip(ip_addr_t *ip, ip_addr_t *submask, ip_addr_t *gateway
 void net_lwip_set_rx_fast_ack(uint8_t adapter_index, uint8_t onoff);
 //设置TCP接收窗口大小，影响接收速度，tcp_mss_num越大越快，但是同样会消耗更多ram
 void net_lwip_set_tcp_rx_cache(uint8_t adapter_index, uint16_t tcp_mss_num);
+//传递给SDK的lwip任务的消息，需要由sdk发送
+void net_lwip_sdk_send_event(uint32_t id, uint32_t param1, uint32_t param2, uint32_t param3);
+void net_lwip_do_event(OS_EVENT event);
+//是否在SDK的lwip任务内
+uint8_t net_lwip_check_in_sdk_task(void);
 #endif
 #endif

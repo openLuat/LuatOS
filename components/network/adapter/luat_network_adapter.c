@@ -9,8 +9,6 @@
 #include "platform_def.h"
 #include "ctype.h"
 #include "luat_network_adapter.h"
-#define LUAT_LOG_TAG "adapter"
-#include "luat_log.h"
 
 #ifndef LWIP_NUM_SOCKETS
 #define LWIP_NUM_SOCKETS 8

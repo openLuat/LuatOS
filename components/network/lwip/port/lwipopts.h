@@ -1,7 +1,8 @@
 
 #ifndef LWIP_HDR_LWIPOPTS_H
 #define LWIP_HDR_LWIPOPTS_H
-
+#ifdef __USE_SDK_LWIP__
+#else
 #include "stdlib.h"
 #ifndef __BSP_COMMON_H__
 #include "c_common.h"
@@ -295,5 +296,5 @@ typedef uint32_t sys_prot_t;
 #ifdef LWIP_USER_CONFIG_FILE
 #include LWIP_USER_CONFIG_FILE
 #endif
-
+#endif
 #endif /* LWIP_HDR_LWIPOPTS_H */

@@ -9,7 +9,7 @@
 -- 本sdio库挂载tf卡到文件系统功能已经被fatfs的sdio模式取代
 -- 本sdio库仅保留直接读写TF卡的函数
 -- 例如 使用 sdio 0 挂载TF卡
-fatfs.mount(fatfs.DISK_SDIO, "/sd", 0)
+fatfs.mount(fatfs.SDIO, "/sd", 0)
 
 -- 挂载完成后, 使用 io 库的相关函数来操作就行
 local f = io.open("/sd/abc.txt")

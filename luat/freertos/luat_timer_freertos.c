@@ -20,6 +20,16 @@
 #define FREERTOS_TIMER_COUNT 32
 static luat_timer_t* timers[FREERTOS_TIMER_COUNT] = {0};
 
+static int inline MS2T(int ms) {
+    if (ms <= 0)
+        return 0;
+    if ((configTICK_RATE_HZ) == 1000)
+        return ms;
+    if ((configTICK_RATE_HZ) == 500)
+        return (ms + 1) / 2;
+    return ms;
+}
+
 static void luat_timer_callback(TimerHandle_t xTimer) {
     //LLOGD("timer callback");
     rtos_msg_t msg;
@@ -55,7 +65,7 @@ int luat_timer_start(luat_timer_t* timer) {
         LLOGE("too many timers");
         return 1; // too many timer!!
     }
-    os_timer = xTimerCreate("luat_timer", timer->timeout, timer->repeat, (void*)(timer->id), luat_timer_callback);
+    os_timer = xTimerCreate("luat_timer", MS2T(timer->timeout), timer->repeat, (void*)(timer->id), luat_timer_callback);
     //LLOGD("timer id=%ld, osTimerNew=%p", timerIndex, os_timer);
     if (!os_timer) {
         LLOGE("xTimerCreate FAIL");
@@ -103,7 +113,7 @@ luat_timer_t* luat_timer_get(size_t timer_id) {
 
 int luat_timer_mdelay(size_t ms) {
     if (ms > 0) {
-        vTaskDelay(ms);
+        vTaskDelay(MS2T(ms));
     }
     return 0;
 }

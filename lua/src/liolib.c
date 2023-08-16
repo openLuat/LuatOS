@@ -1082,7 +1082,16 @@ LUAMOD_API int luaopen_io (lua_State *L) {
   return 1;
 }
 
-// dir method
+/*
+格式化文件系统,需指定挂载点
+@api io.mkfs(path)
+@string 挂载点
+@return bool 成功与否
+@return int 底层返回值
+@usage
+local ret, errio = io.mkfs("/sd")
+log.info("fs", "mkfs", ret, errio)
+*/
 static int io_mkfs (lua_State *L) {
   luat_fs_conf_t conf = {0};
   conf.mount_point = (char*)luaL_checkstring(L, 1);

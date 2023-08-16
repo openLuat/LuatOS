@@ -38,14 +38,15 @@ extern const struct luat_vfs_filesystem vfs_fs_fatfs;
 
 /*
 挂载fatfs
-@api fatfs.mount(mode,mount_point, spiid_or_spidevice, spi_cs, spi_speed, power_pin, power_on_delay)
+@api fatfs.mount(mode,mount_point, spiid_or_spidevice, spi_cs, spi_speed, power_pin, power_on_delay, auto_format)
 @int fatfs模式,可选fatfs.SPI,fatfs.SDIO,fatfs.RAM,fatfs.USB
-@string fatfs挂载点, 通常填""或者"SD", 底层会映射到vfs的 /sd 路径
+@string 虚拟文件系统的挂载点, 默认是 /fatfs
 @int 传入spi device指针,或者spi的id,或者sdio的id
 @int 片选脚的GPIO 号, spi模式有效,若前一个参数传的是spi device,这个参数就不需要传
 @int SPI最高速度,默认10M, 若前2个参数传的是spi device,这个参数就不需要传
 @int TF卡电源控制脚,TF卡初始前先拉低复位再拉高,如果没有,或者是内置电源控制方式,这个参数就不需要传
 @int TF卡电源复位过程时间,单位ms,默认值是1
+@bool 挂载失败是否尝试格式化,默认是true,即自动格式化. 本参数在2023.8.16添加
 @return bool 成功返回true, 否则返回nil或者false
 @return string 失败的原因
 @usage
@@ -143,8 +144,30 @@ static int fatfs_mount(lua_State *L)
 	}
 	
 	FRESULT re = f_mount(fs, "/", 0);
+	if (re != FR_OK) {
+		if (lua_isboolean(L, 8) && lua_toboolean(L, 8) == 0) {
+			LLOGI("sd/tf mount failed %d but auto-format is disabled", re);
+		}
+		else {
+			LLOGD("mount failed, try auto format");
+			MKFS_PARM parm = {
+				.fmt = FM_ANY, // 暂时应付一下ramdisk
+				.au_size = 0,
+				.align = 0,
+				.n_fat = 0,
+				.n_root = 0,
+			};
+			BYTE work[FF_MAX_SS] = {0};
+			re = f_mkfs("/", &parm, work, FF_MAX_SS);
+			LLOGD("auto format ret %d", re);
+			if (re == FR_OK) {
+				re = f_mount(fs, "/", 0);
+				LLOGD("remount again %d", re);
+			}
+		}
+	}
 	
-	lua_pushboolean(L, re == 0);
+	lua_pushboolean(L, re == FR_OK);
 	lua_pushinteger(L, re);
 	if (re == FR_OK) {
 		if (FATFS_DEBUG)
@@ -582,10 +605,11 @@ static const rotable_Reg_t reg_fatfs[] =
 { 
   { "init",		ROREG_FUNC(fatfs_mount)}, //初始化,挂载, 别名方法
   { "mount",	ROREG_FUNC(fatfs_mount)}, //初始化,挂载
+  { "getfree",	ROREG_FUNC(fatfs_getfree)}, // 获取文件系统大小,剩余空间
+#if 0
   { "unmount",	ROREG_FUNC(fatfs_unmount)}, // 取消挂载
   { "mkfs",		ROREG_FUNC(fatfs_mkfs)}, // 格式化!!!
   //{ "test",  fatfs_test)},
-  { "getfree",	ROREG_FUNC(fatfs_getfree)}, // 获取文件系统大小,剩余空间
   { "debug",	ROREG_FUNC(fatfs_debug_mode)}, // 调试模式,打印更多日志
 
   { "lsdir",	ROREG_FUNC(fatfs_lsdir)}, // 列举目录下的文件,名称,大小,日期,属性
@@ -603,11 +627,11 @@ static const rotable_Reg_t reg_fatfs[] =
   { "rename",	ROREG_FUNC(fatfs_rename)}, // 文件改名
 
   { "readfile",	ROREG_FUNC(fatfs_readfile)}, // 读取文件的简易方法
-
+#endif
   { "SPI",         ROREG_INT(DISK_SPI)},
   { "SDIO",        ROREG_INT(DISK_SDIO)},
   { "RAM",         ROREG_INT(DISK_RAM)},
-  { "USB",         ROREG_INT(DISK_USB)},
+//  { "USB",         ROREG_INT(DISK_USB)},
 
   { NULL,		ROREG_INT(0)}
 };

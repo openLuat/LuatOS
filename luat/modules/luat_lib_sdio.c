@@ -7,6 +7,12 @@
 @tag LUAT_USE_SDIO
 @usage
 -- 本sdio库挂载tf卡到文件系统功能已经被fatfs的sdio模式取代
+-- 本sdio库仅保留直接读写TF卡的函数
+-- 例如 使用 sdio 0 挂载TF卡
+fatfs.mount(fatfs.SDIO, "/sd", 0)
+
+-- 挂载完成后, 使用 io 库的相关函数来操作就行
+local f = io.open("/sd/abc.txt")
 */
 #include "luat_base.h"
 #include "luat_sdio.h"
@@ -92,63 +98,15 @@ static int l_sdio_write(lua_State *L) {
     return 1;
 }
 
-/*
-挂载SD卡, 使用FATFS文件系统
-@api sdio.sd_mount(id, path, auto_format)
-@int sdio总线id
-@string 挂载路径, 默认"/sd", 不允许以"/"结尾
-@bool 是否自动格式化,默认是true
-@return bool 挂载成功返回true,否则返回false
-@return int 底层返回的具体结果码,用于调试
-*/
-static int l_sdio_sd_mount(lua_State *L) {
-    int id = luaL_optinteger(L, 1, 0);
-    const char* path = luaL_optstring(L, 2, "/sd");
-    int auto_format = luaL_optinteger(L, 3, 1);
-    int ret = luat_sdio_sd_mount(id, &sdio_t[id].rca, (char*)path, auto_format);
-    lua_pushboolean(L, ret == 0 ? 1: 0);
-    lua_pushinteger(L, ret);
-    return 2;
-}
-
-/*
-卸载SD卡(视硬件情况, 不一定支持)
-@api sdio.sd_umount(id, path)
-@int sdio总线id
-@string 挂载路径, 默认"/sd", 不允许以"/"结尾
-@return bool 挂载成功返回true,否则返回false
-*/
-static int l_sdio_sd_umount(lua_State *L) {
-    int id = luaL_checkinteger(L, 1);
-    //int auto_format = luaL_checkinteger(L, 2);
-    int ret = luat_sdio_sd_unmount(id, sdio_t[id].rca);
-    lua_pushboolean(L, ret == 0 ? 1: 0);
-    return 1;
-}
-
-/*
-格式化SD卡
-@api sdio.sd_format(id)
-@int sdio总线id
-@return bool 挂载成功返回true,否则返回false
-*/
-static int l_sdio_sd_format(lua_State *L) {
-    int id = luaL_checkinteger(L, 1);
-    //int auto_format = luaL_checkinteger(L, 2);
-    int ret = luat_sdio_sd_format(id, sdio_t[id].rca);
-    lua_pushboolean(L, ret == 0 ? 1: 0);
-    return 1;
-}
-
 #include "rotable2.h"
 static const rotable_Reg_t reg_sdio[] =
 {
     { "init" ,          ROREG_FUNC(l_sdio_init )},
     { "sd_read" ,       ROREG_FUNC(l_sdio_read )},
     { "sd_write" ,      ROREG_FUNC(l_sdio_write)},
-    { "sd_mount" ,      ROREG_FUNC(l_sdio_sd_mount)},
-    { "sd_umount" ,     ROREG_FUNC(l_sdio_sd_umount)},
-    { "sd_format" ,     ROREG_FUNC(l_sdio_sd_format)},
+    // { "sd_mount" ,      ROREG_FUNC(l_sdio_sd_mount)},
+    // { "sd_umount" ,     ROREG_FUNC(l_sdio_sd_umount)},
+    // { "sd_format" ,     ROREG_FUNC(l_sdio_sd_format)},
 	{ NULL,             ROREG_INT(0) }
 };
 

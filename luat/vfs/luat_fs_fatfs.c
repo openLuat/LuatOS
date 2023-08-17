@@ -148,8 +148,19 @@ size_t luat_vfs_fatfs_fsize(void* userdata, const char *filename) {
 }
 
 int luat_vfs_fatfs_mkfs(void* userdata, luat_fs_conf_t *conf) {
-    LLOGE("not support yet : mkfs");
-    return -1;
+    (void)userdata;
+    (void)conf;
+    MKFS_PARM parm = {
+				.fmt = FM_ANY, // 暂时应付一下ramdisk
+				.au_size = 0,
+				.align = 0,
+				.n_fat = 0,
+				.n_root = 0,
+	};
+	BYTE work[FF_MAX_SS] = {0};
+	int re = f_mkfs("/", &parm, work, FF_MAX_SS);
+	LLOGD("format ret %d", re);
+    return re;
 }
 int luat_vfs_fatfs_mount(void** userdata, luat_fs_conf_t *conf) {
     *userdata = (void*)conf->busname;

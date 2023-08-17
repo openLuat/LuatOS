@@ -221,26 +221,45 @@ static int32_t luat_ftp_data_callback(void *data, void *param){
 		luat_rtos_event_send(g_s_ftp.task_handle, FTP_EVENT_DATA_TX_DONE, 0, 0, 0, LUAT_WAIT_FOREVER);
 		break;
 	case EV_NW_RESULT_EVENT:
-		rx_buffer = luat_heap_malloc(4096);
+		rx_buffer = NULL;
+		uint8_t tmpbuff[4];
 		do
 		{
-			ret = network_rx(g_s_ftp.network->data_netc, rx_buffer, 4096, 0, NULL, NULL, &rx_len);
+			// 先读取长度
+			ret = network_rx(g_s_ftp.network->data_netc, NULL, 0, 0, NULL, NULL, &rx_len);
+			if (rx_len <= 0) {
+				// 没数据? 那也读一次, 然后退出
+				network_rx(g_s_ftp.network->data_netc, tmpbuff, 4, 0, NULL, NULL, &rx_len);
+				break;
+			}
+			rx_buffer = luat_heap_malloc(rx_len > 2048 ? 2048 : rx_len);
+			// 如果rx_buffer == NULL, 内存炸了
+			if (rx_buffer == NULL) {
+				LLOGE("out of memory when malloc ftp buff");
+				network_close(g_s_ftp.network->data_netc, 0);
+				return -1;
+			}
+			ret = network_rx(g_s_ftp.network->data_netc, rx_buffer, rx_len, 0, NULL, NULL, &rx_len);
 			// LLOGD("luat_ftp_data_callback network_rx ret:%d rx_len:%d",ret,rx_len);
 			if (!ret && rx_len > 0)
 			{
 				if (g_s_ftp.fd)
 				{
 					luat_rtos_event_send(g_s_ftp.task_handle, FTP_EVENT_DATA_WRITE_FILE, rx_buffer, rx_len, 0, LUAT_WAIT_FOREVER);
-					rx_buffer = luat_heap_malloc(4096);
+					rx_buffer = NULL;
+					continue;
 				}
 				else
 				{
 					OS_BufferWrite(&g_s_ftp.result_buffer, rx_buffer, rx_len);
 				}
 			}
+			luat_heap_free(rx_buffer);
+			rx_buffer = NULL;
 		} while (!ret && rx_len);
-		luat_heap_free(rx_buffer);
-
+		if (rx_buffer)
+			luat_heap_free(rx_buffer);
+		rx_buffer = NULL;
 		break;
 	case EV_NW_RESULT_CLOSE:
 		luat_rtos_event_send(g_s_ftp.task_handle, FTP_EVENT_DATA_CLOSED, 0, 0, 0, LUAT_WAIT_FOREVER);

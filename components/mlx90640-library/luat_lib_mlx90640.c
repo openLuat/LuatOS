@@ -329,7 +329,7 @@ static uint8_t * luat_interpolation_double(uint8_t *src, uint16_t rows,uint16_t 
     int w2 = w1*2;
     //int h2 = h1*2;
     uint8_t* dst = (uint8_t*)luat_heap_malloc(rows*cols*4);
-    LLOGD("luat_interpolation_double src:%p rows:%d cols:%d rows*cols*4:%d dst:%p ",src,rows,cols,rows*cols*4,dst);
+    // LLOGD("luat_interpolation_double src:%p rows:%d cols:%d rows*cols*4:%d dst:%p ",src,rows,cols,rows*cols*4,dst);
     for (size_t y = 0; y < h1; y++){
         for (size_t x = 0; x < w1; x++){
             dst[y*2*w2+x*2] = src[y*w1+x];

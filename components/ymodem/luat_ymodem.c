@@ -247,7 +247,7 @@ YMODEM_DATA_CHECK:
 						goto DATA_RECIEVE_ERROR;
 					}
 					LenEnd = ((ctrl->file_size - ctrl->write_size) > XMODEM_SOH_DATA_LEN)?XMODEM_SOH_DATA_LEN:(ctrl->file_size - ctrl->write_size);
-					luat_fs_fwrite(ctrl->packet_data, LenEnd, 1, ctrl->fd);
+					luat_fs_fwrite(ctrl->packet_data+3, LenEnd, 1, ctrl->fd);
 					ctrl->write_size += LenEnd;
 					goto DATA_RECIEVE_OK;
 					break;
@@ -268,7 +268,7 @@ YMODEM_DATA_CHECK:
 					}
 					//写入
 					LenEnd = ((ctrl->file_size - ctrl->write_size) > XMODEM_STX_DATA_LEN)?XMODEM_STX_DATA_LEN:(ctrl->file_size - ctrl->write_size);
-					luat_fs_fwrite(ctrl->packet_data, LenEnd, 1, ctrl->fd);
+					luat_fs_fwrite(ctrl->packet_data+3, LenEnd, 1, ctrl->fd);
 					ctrl->write_size += LenEnd;
 					goto DATA_RECIEVE_OK;
 					break;

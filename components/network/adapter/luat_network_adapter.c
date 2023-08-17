@@ -1913,7 +1913,7 @@ int network_init_tls(network_ctrl_t *ctrl, int verify_mode)
 	ctrl->tls_timer_state = -1;
 	return 0;
 #else
-	LLOGE("NOT SUPPORT TLS");
+	DBG("NOT SUPPORT TLS");
 	return -1;
 #endif
 }

@@ -182,7 +182,7 @@ static void l_libgnss_uart_recv_cb(int uart_id, uint32_t data_len)
 @usage
 -- 解析nmea数据
 libgnss.parse(indata)
-log.info("nmea", json.encode(libgnss.getRmc()))
+log.info("nmea", json.encode(libgnss.getRmc(), "11g"))
  */
 static int l_libgnss_parse(lua_State *L) {
     size_t len = 0;
@@ -417,7 +417,7 @@ static int l_libgnss_get_gsv(lua_State *L) {
 @return table 原始GSA数据
 @usage
 -- 获取
-log.info("nmea", "gsa", json.encode(libgnss.getGsa()))
+log.info("nmea", "gsa", json.encode(libgnss.getGsa(), "11g"))
 -- 示例数据
 --[[
 {
@@ -623,7 +623,7 @@ static int l_libgnss_debug(lua_State *L) {
 @usage
 local gga = libgnss.getGga(2)
 if gga then
-    log.info("GGA", json.encode(gga))
+    log.info("GGA", json.encode(gga, "11g"))
 end
 --实例输出
 --[[
@@ -695,7 +695,7 @@ static int l_libgnss_get_gga(lua_State* L) {
 @usage
 local gll = libgnss.getGll(2)
 if gll then
-    log.info("GLL", json.encode(gll))
+    log.info("GLL", json.encode(gll, "11g"))
 end
 -- 实例数据
 --[[

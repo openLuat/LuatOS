@@ -147,7 +147,7 @@ static int l_max30102_get(lua_State *L) {
         luat_pushcwait_error(L,1);
     }else{
         max30102_idp = luat_pushcwait(L);
-        luat_rtos_task_create(&max30102_task_handle, 1024, 50, "max30102", max30102_task, NULL, 0);
+        luat_rtos_task_create(&max30102_task_handle, 2048, 50, "max30102", max30102_task, NULL, 0);
     }
     return 1;
 }

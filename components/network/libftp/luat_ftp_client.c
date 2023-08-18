@@ -232,7 +232,9 @@ static int32_t luat_ftp_data_callback(void *data, void *param){
 				network_rx(g_s_ftp.network->data_netc, tmpbuff, 4, 0, NULL, NULL, &rx_len);
 				break;
 			}
-			rx_buffer = luat_heap_malloc(rx_len > 2048 ? 2048 : rx_len);
+			if (rx_len > 2048)
+				rx_len = 2048;
+			rx_buffer = luat_heap_malloc(rx_len);
 			// 如果rx_buffer == NULL, 内存炸了
 			if (rx_buffer == NULL) {
 				LLOGE("out of memory when malloc ftp buff");

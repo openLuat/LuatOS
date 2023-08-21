@@ -23,9 +23,10 @@ _G.sys = require("sys")
 --[[特别注意, 使用http库需要下列语句]]
 _G.sysplus = require("sysplus")
 
-
-wdt.init(3000)
-sys.timerLoopStart(wdt.feed, 1000)
+if wdt then
+    wdt.init(3000)
+    sys.timerLoopStart(wdt.feed, 1000)
+end
 
 -- 因为这个demo适合所有能联网的设备
 -- 统一联网函数, 按需要增删

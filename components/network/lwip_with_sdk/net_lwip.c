@@ -2106,6 +2106,7 @@ void net_lwip_set_dns_adapter(uint8_t adapter_index)
 		udp_bind(prvlwip.dns_udp, NULL, 55);
 
 	}
+	prvlwip.dns_adapter_index = adapter_index;
 	udp_bind_netif(prvlwip.dns_udp, prvlwip.lwip_netif[adapter_index]);
 }
 

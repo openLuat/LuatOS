@@ -334,6 +334,9 @@ static int l_mobile_set_auto_work(lua_State* L) {
 @int 激活APN时,如果需要username和password,就要写鉴权协议类型,1~3,默认3,代表1和2都尝试一下
 @boolean 是否删除APN,true是,其他都否,只有参数3新的APN不是string的时候才有效果
 @return string 获取到的默认APN值,失败返回nil
+@usage
+local mobile.apn(0,1,"cmiot","","",nil,0) -- 移动公网卡设置APN为cmiot,一般不用设置
+local mobile.apn(0,1,"name","user","password",nil,3) -- 专网卡设置的demo，name，user，password联系卡商获取
  */
 static int l_mobile_apn(lua_State* L) {
     char buff[64] = {0};

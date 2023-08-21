@@ -32,7 +32,7 @@ sys.taskInit(function()
         local password = "12341234"
         log.info("wifi", ssid, password)
         -- TODO 改成esptouch配网
-        LED = gpio.setup(12, 0, gpio.PULLUP)
+        -- LED = gpio.setup(12, 0, gpio.PULLUP)
         wlan.init()
         -- wlan.setMode(wlan.STATION)
         wlan.connect(ssid, password, 1)
@@ -44,13 +44,13 @@ sys.taskInit(function()
         w5500.init(spi.HSPI_0, 24000000, pin.PC14, pin.PC01, pin.PC00)
         w5500.config() --默认是DHCP模式
         w5500.bind(socket.ETH0)
-        LED = gpio.setup(62, 0, gpio.PULLUP)
+        -- LED = gpio.setup(62, 0, gpio.PULLUP)
         sys.wait(1000)
         -- TODO 获取mac地址作为device_id
-    elseif rtos.bsp() == "EC618" then
+    elseif mobile then
         -- Air780E/Air600E系列
         --mobile.simid(2)
-        LED = gpio.setup(27, 0, gpio.PULLUP)
+        -- LED = gpio.setup(27, 0, gpio.PULLUP)
         device_id = mobile.imei()
         -- log.info("ipv6", mobile.ipv6(true))
         sys.waitUntil("IP_READY", 30000)

@@ -286,7 +286,7 @@ int mbedtls_nv_seed_poll( void *data,
 }
 #endif /* MBEDTLS_ENTROPY_NV_SEED */
 #if defined(MBEDTLS_ENTROPY_HARDWARE_ALT)
-#include "luat_crypto.h"
+int luat_crypto_trng(char* buff, size_t len);
 int mbedtls_hardware_poll( void *data,
                            unsigned char *output, size_t len, size_t *olen ){
 

@@ -187,8 +187,10 @@ next:
     return 0;
 }
 
-int ntp_get(void){
-	int adapter_index = network_get_last_register_adapter();
+int ntp_get(int adapter_index){
+    if (-1 == adapter_index){
+        adapter_index = network_get_last_register_adapter();
+    }
 	if (adapter_index < 0 || adapter_index >= NW_ADAPTER_QTY){
 		return -1;
 	}
@@ -209,10 +211,12 @@ sntp时间同步
 @api    socket.sntp(sntp_server)
 @tag LUAT_USE_SNTP
 @string/table sntp服务器地址 选填
+@int 适配器序号， 只能是socket.ETH0（外置以太网），socket.LWIP_ETH（内置以太网），socket.LWIP_STA（内置WIFI的STA），socket.LWIP_AP（内置WIFI的AP），socket.LWIP_GP（内置蜂窝网络的GPRS），socket.USB（外置USB网卡），如果不填，优先选择soc平台自带能上外网的适配器，若仍然没有，选择最后一个注册的适配器
 @usage
 socket.sntp()
 --socket.sntp("ntp.aliyun.com") --自定义sntp服务器地址
 --socket.sntp({"ntp.aliyun.com","ntp1.aliyun.com","ntp2.aliyun.com"}) --sntp自定义服务器地址
+--socket.sntp(nil, socket.ETH0) --sntp自定义适配器序号
 sys.subscribe("NTP_UPDATE", function()
     log.info("sntp", "time", os.date())
 end)
@@ -248,7 +252,8 @@ int l_sntp_get(lua_State *L){
 			lua_pop(L, 1);
 		}
 	}
-    ntp_get();
+    int adapter_index = luaL_optinteger(L, 2, network_get_last_register_adapter());
+    ntp_get(adapter_index);
 	return 0;
 }
 

@@ -23,6 +23,10 @@ mobile.simid(2,true)--优先用SIM0
 
 
 sys.taskInit(function()
+
+	if rtos.bsp() == "UIS8850BM" then
+		sys.wait(2000)
+	end
     local band = zbuff.create(40)
     local band1 = zbuff.create(40)
     mobile.getBand(band)

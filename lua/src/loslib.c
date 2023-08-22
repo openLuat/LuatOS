@@ -288,15 +288,16 @@ static int os_date (lua_State *L) {
   size_t slen;
   const char *s = luaL_optlstring(L, 1, "%c", &slen);
   time_t t = luaL_opt(L, l_checktime, 2, time(NULL));
-  t += timezone*60*60;
   const char *se = s + slen;  /* 's' end */
   struct tm tmr, *stm;
   if (*s == '!') {  /* UTC? */
     stm = l_gmtime(&t, &tmr);
     s++;  /* skip '!' */
   }
-  else
+  else{
+    t += timezone*60*60;
     stm = l_localtime(&t, &tmr);
+  }
   if (stm == NULL)  /* invalid date? */
     return luaL_error(L,
                  "time result cannot be represented in this installation");

@@ -282,7 +282,7 @@ static const char *checkoption (lua_State *L, const char *conv,
 /* maximum size for an individual 'strftime' item */
 #define SIZETIMEFMT	250
 
-static int timezone = 8;
+static int timezone = 0;
 
 static int os_date (lua_State *L) {
   size_t slen;
@@ -425,7 +425,7 @@ static const rotable_Reg_t syslib[] = {
   {"remove",    ROREG_FUNC(os_remove)},
   {"rename",    ROREG_FUNC(os_rename)},
   {"time",      ROREG_FUNC(os_time)},
-  {"timezone",  ROREG_FUNC(os_timezone)},
+  // {"timezone",  ROREG_FUNC(os_timezone)},
   {NULL, ROREG_INT(0) }
 };
 

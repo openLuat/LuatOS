@@ -94,6 +94,10 @@ static int l_nimble_init(lua_State* L) {
     int rc = 0;
     size_t len = 0;
     const char* name = NULL;
+
+    lua_gc(L, LUA_GCCOLLECT, 0);
+    lua_gc(L, LUA_GCCOLLECT, 0);
+
     if(lua_isstring(L, 1)) {
         name = luaL_checklstring(L, 1, &len);
         if (len > 0) {

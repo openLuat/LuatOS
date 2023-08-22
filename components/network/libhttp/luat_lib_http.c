@@ -260,7 +260,6 @@ static int l_http_request(lua_State *L) {
 			}
 			lua_pop(L, 1);
 		}
-		lua_pop(L, 1);
 	}
 	if (lua_isstring(L, 4)) {
 		const char *body = luaL_checklstring(L, 4, &(http_ctrl->req_body_len));

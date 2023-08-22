@@ -45,7 +45,7 @@ function adc_pin() -- 根据不同开发板，设置ADC编号
         return 0,1,255,255,adc.CH_CPU ,adc.CH_VBAT 
     else
         log.info("main", "define ADC pin in main.lua")
-        return 0, 0,0,0,0,0
+        return 255,255,255,255, adc.CH_CPU ,adc.CH_VBAT 
     end
 end
 local adc_pin_0,adc_pin_1,adc_pin_2,adc_pin_3,adc_pin_temp,adc_pin_vbat=adc_pin()
@@ -81,7 +81,7 @@ sys.taskInit(function()
         if adc_pin_vbat and adc_pin_vbat ~= 255 then
             log.debug("adc", "VBAT", adc.get(adc_pin_vbat))
         end
-        sys.wait(500)
+        sys.wait(1000)
     end
 
     -- 若不再读取, 可关掉adc, 降低功耗, 非必须

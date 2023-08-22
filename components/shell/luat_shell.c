@@ -216,7 +216,7 @@ static void cmd_i2c_tools(char* uart_buff, size_t len) {
 #ifdef LUAT_USE_SNTP
 #include "luat_sntp.h"
 static void cmd_sntp(char* uart_buff, size_t len){
-    ntp_get();
+    ntp_get(-1);
 }
 #endif
 

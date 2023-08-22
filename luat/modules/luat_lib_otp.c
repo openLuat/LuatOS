@@ -5,6 +5,7 @@
 @version 1.0
 @date    2021.12.08
 @tag LUAT_USE_OTP
+@demo    otp
 */
 #include "luat_base.h"
 #include "luat_otp.h"

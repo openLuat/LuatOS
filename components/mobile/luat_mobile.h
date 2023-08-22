@@ -346,7 +346,13 @@ typedef struct luat_mobile_lte_cell_info
 	uint16_t mnc;           /**This field should be ignored when cid is not present*/
 	uint16_t tac;           /**Tracing area code (This field should be ignored when cid is not present). */
 	uint16_t pci;           /**Physical cell ID. Range: 0 to 503. */
-    uint32_t earfcn;        /**E-UTRA absolute radio frequency channel number of the cell. RANGE: 0 TO 65535. */
+	union
+	{
+		uint32_t earfcn;        /**E-UTRA absolute radio frequency channel number of the cell. RANGE: 0 TO 65535. */
+		uint32_t frequency;
+	};
+    uint16_t bandwidth;
+    uint16_t celltype; /*0:intra lte ncell, 1:inter lte ncell */
     int16_t rsrp;
 	int16_t rsrq;
 	int16_t snr;
@@ -358,10 +364,12 @@ typedef struct luat_mobile_cell_info
     luat_mobile_gsm_cell_info_t    gsm_info[LUAT_MOBILE_CELL_MAX_NUM];    /**<   GSM cell information (Serving and neighbor. */
     luat_mobile_lte_service_cell_info_t lte_service_info;
     luat_mobile_lte_cell_info_t    lte_info[LUAT_MOBILE_CELL_MAX_NUM];    /**<   LTE cell information (Serving and neighbor). */
+    uint32_t 						version;
     uint8_t                         gsm_info_valid;                         /**< Must be set to TRUE if gsm_info is being passed. */
     uint8_t                         gsm_neighbor_info_num;                           /**< Must be set to the number of elements in entry*/
     uint8_t                         lte_info_valid;                         /**< Must be set to TRUE if lte_info is being passed. */
     uint8_t                     	lte_neighbor_info_num;                           /**< Must be set to the number of elements in entry*/
+
 }luat_mobile_cell_info_t;
 
 /**

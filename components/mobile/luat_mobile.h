@@ -356,6 +356,7 @@ typedef struct luat_mobile_lte_cell_info
     int16_t rsrp;
 	int16_t rsrq;
 	int16_t snr;
+	int16_t rssi;
 }luat_mobile_lte_cell_info_t;
 
 typedef struct luat_mobile_cell_info

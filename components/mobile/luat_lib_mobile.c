@@ -653,6 +653,10 @@ static int l_mobile_get_cell_info(lua_State* L) {
     lua_setfield(L, -2, "tac");
     lua_pushinteger(L, info->lte_service_info.band);
     lua_setfield(L, -2, "band");
+    lua_pushinteger(L, info->lte_service_info.ulbandwidth);
+    lua_setfield(L, -2, "ulbandwidth");
+    lua_pushinteger(L, info->lte_service_info.dlbandwidth);
+    lua_setfield(L, -2, "dlbandwidth");
     lua_seti(L, -2, 1);
 
     if (info->lte_neighbor_info_num > 0) {
@@ -665,6 +669,15 @@ static int l_mobile_get_cell_info(lua_State* L) {
             lua_setfield(L, -2, "pci");
             lua_pushinteger(L, info->lte_info[i].cid);
             lua_setfield(L, -2, "cid");
+            if (0x8850 == info->version)
+            {
+                lua_pushinteger(L, info->lte_info[i].rssi);
+                lua_setfield(L, -2, "rssi");
+                lua_pushinteger(L, info->lte_info[i].celltype);
+                lua_setfield(L, -2, "celltype");
+                lua_pushinteger(L, info->lte_info[i].bandwidth);
+                lua_setfield(L, -2, "bandwidth");
+            }
             lua_pushinteger(L, info->lte_info[i].earfcn);
             lua_setfield(L, -2, "earfcn");
             lua_pushinteger(L, info->lte_info[i].rsrp);

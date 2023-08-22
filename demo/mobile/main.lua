@@ -83,10 +83,10 @@ end)
 
 -- 轮询式, 包含临近小区信息，这是手动搜索，和上面的自动搜索冲突，开启一个就行
 sys.taskInit(function()
-    sys.wait(3000)
+    sys.wait(5000)
     while 1 do
-        mobile.reqCellInfo(60)
-        sys.wait(30000)
+        mobile.reqCellInfo(10)
+        sys.wait(11000)
         log.info("cell", json.encode(mobile.getCellInfo()))
     end
 end)

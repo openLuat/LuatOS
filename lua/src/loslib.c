@@ -282,7 +282,9 @@ static const char *checkoption (lua_State *L, const char *conv,
 /* maximum size for an individual 'strftime' item */
 #define SIZETIMEFMT	250
 
-static int timezone = 0;
+#ifdef LUAT_USE_RTC
+#include "luat_rtc.h"
+#endif
 
 static int os_date (lua_State *L) {
   size_t slen;
@@ -295,8 +297,12 @@ static int os_date (lua_State *L) {
     s++;  /* skip '!' */
   }
   else{
-    t += timezone*60*60;
+    #ifdef LUAT_USE_RTC
+    t += (luat_rtc_timezone(NULL) / 4) * 3600;
+    stm = l_gmtime(&t, &tmr);
+    #else
     stm = l_localtime(&t, &tmr);
+    #endif
   }
   if (stm == NULL)  /* invalid date? */
     return luaL_error(L,
@@ -333,7 +339,6 @@ static int os_time (lua_State *L) {
   if (lua_isnoneornil(L, 1))  /* called without args? */
   {
     t = time(NULL);  /* get current time */
-    t += timezone*60*60;
   }
   else {
     struct tm ts;
@@ -363,17 +368,6 @@ static int os_time (lua_State *L) {
                   "time result cannot be represented in this installation");
   l_pushtime(L, t);
   return 1;
-}
-
-static int os_timezone (lua_State *L) {
-    if (lua_isinteger(L, 1)) {
-        int timezone_temp = luaL_checkinteger(L, 1);
-        if (timezone_temp <= 12 && timezone_temp >= -12){
-          timezone = timezone_temp;
-        }
-    }
-    lua_pushinteger(L, timezone);
-    return 1;
 }
 
 static int os_difftime (lua_State *L) {
@@ -425,7 +419,6 @@ static const rotable_Reg_t syslib[] = {
   {"remove",    ROREG_FUNC(os_remove)},
   {"rename",    ROREG_FUNC(os_rename)},
   {"time",      ROREG_FUNC(os_time)},
-  // {"timezone",  ROREG_FUNC(os_timezone)},
   {NULL, ROREG_INT(0) }
 };
 

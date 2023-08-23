@@ -37,7 +37,7 @@ jobs:
         gcc -o tools/xt804/wm_tool tools/xt804/wm_tool.c -pthread
         chmod +x tools/xt804/wm_tool
         mkdir /home/runner/toolchains
-        wget -q https://github.com/openLuat/LuatOS/releases/download/v0.0.1/csky-elfabiv2-tools-x86_64-minilibc-20210423.tar.gz -O /home/runner/toolchains/csky-elfabiv2-tools-x86_64-minilibc-20210423.tar.gz
+        wget -q https://github.com/openLuat/LuatOS/releases/download/v0.0.1/csky-elfabiv2-tools-x86_64-minilibc-20230301.tar.gz -O /home/runner/toolchains/csky-elfabiv2-tools-x86_64-minilibc-20230301.tar.gz
         xmake g --pkg_searchdirs=/home/runner/toolchains
         xmake -y
         mkdir ../LuatOS/luatosfw

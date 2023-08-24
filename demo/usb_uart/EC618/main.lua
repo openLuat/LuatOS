@@ -9,6 +9,10 @@ sys = require("sys")
 
 
 --[[
+注意: 若使用普通串口调试功能, 需要以下条件之一才能收到数据
+1. 把DTR设置为高电平
+2. 先发送一次数据
+
 参考用的上位机, 用py演示, 需要pyserial库
 
 import os, sys, serial.tools.list_ports, time

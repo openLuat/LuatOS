@@ -2919,7 +2919,7 @@ common_exit:
     }
     return status;
 }
-
+#if 0
 /* Higher level helper functions. */
 void *tinfl_decompress_mem_to_heap(const void *pSrc_buf, size_t src_buf_len, size_t *pOut_len, int flags)
 {
@@ -2997,7 +2997,7 @@ int tinfl_decompress_mem_to_callback(const void *pIn_buf, size_t *pIn_buf_size, 
     *pIn_buf_size = in_buf_ofs;
     return result;
 }
-
+#endif
 #ifndef MINIZ_NO_MALLOC
 tinfl_decompressor *tinfl_decompressor_alloc(void)
 {

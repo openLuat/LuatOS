@@ -331,7 +331,7 @@ static int l_mobile_set_auto_work(lua_State* L) {
 @string 新的APN的username,如果APN不是空,那必须填写,如果没有留个空字符串""。如果APN是空的，那可以nil
 @string 新的APN的password,如果APN不是空,那必须填写,如果没有留个空字符串""。如果APN是空的，那可以nil
 @int 激活APN时的IP TYPE,1=IPV4 2=IPV6 3=IPV4V6,默认是1
-@int 激活APN时,如果需要username和password,就要写鉴权协议类型,1~3,默认3,代表1和2都尝试一下
+@int 激活APN时,如果需要username和password,就要写鉴权协议类型,1~3,默认3,代表1和2都尝试一下。不需要鉴权的写0
 @boolean 是否删除APN,true是,其他都否,只有参数3新的APN不是string的时候才有效果
 @return string 获取到的默认APN值,失败返回nil
 @usage

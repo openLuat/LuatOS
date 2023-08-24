@@ -280,6 +280,19 @@ static int fatfs_getfree(lua_State *L)
 	return 1;
 }
 
+/**
+设置调试模式
+@api fatfs.debug(value)
+@bool 是否进入调试模式,true代表进入调试模式,增加调试日志
+@return nil 无返回值
+ */
+static int fatfs_debug_mode(lua_State *L) {
+	FATFS_DEBUG = luaL_optinteger(L, 1, 1);
+	return 0;
+}
+
+#if 0
+
 // ------------------------------------------------
 // ------------------------------------------------
 
@@ -593,11 +606,7 @@ static int fatfs_readfile(lua_State *L) {
 		LLOGD("[FatFS]readfile seek=%d limit=%d len=%d", seek, limit, len);
 	return 2;
 }
-
-static int fatfs_debug_mode(lua_State *L) {
-	FATFS_DEBUG = luaL_optinteger(L, 1, 1);
-	return 0;
-}
+#endif
 
 // Module function map
 #include "rotable2.h"
@@ -606,11 +615,11 @@ static const rotable_Reg_t reg_fatfs[] =
   { "init",		ROREG_FUNC(fatfs_mount)}, //初始化,挂载, 别名方法
   { "mount",	ROREG_FUNC(fatfs_mount)}, //初始化,挂载
   { "getfree",	ROREG_FUNC(fatfs_getfree)}, // 获取文件系统大小,剩余空间
+  { "debug",	ROREG_FUNC(fatfs_debug_mode)}, // 调试模式,打印更多日志
 #if 0
   { "unmount",	ROREG_FUNC(fatfs_unmount)}, // 取消挂载
   { "mkfs",		ROREG_FUNC(fatfs_mkfs)}, // 格式化!!!
   //{ "test",  fatfs_test)},
-  { "debug",	ROREG_FUNC(fatfs_debug_mode)}, // 调试模式,打印更多日志
 
   { "lsdir",	ROREG_FUNC(fatfs_lsdir)}, // 列举目录下的文件,名称,大小,日期,属性
   { "mkdir",	ROREG_FUNC(fatfs_mkdir)}, // 列举目录下的文件,名称,大小,日期,属性

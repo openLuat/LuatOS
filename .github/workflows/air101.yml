@@ -27,6 +27,9 @@ jobs:
         sudo apt update
         sudo apt install xmake
     - name: clone 101
+      env:
+        gitee_u: ${{ secrets.GITEE_U }}
+        gitee_p: ${{ secrets.GITEE_P }}
       run: |
         sudo sh -c "curl https://raw.githubusercontent.com/kadwanev/retry/master/retry -o /usr/local/bin/retry && chmod +x /usr/local/bin/retry"
         cd ..
@@ -35,7 +38,7 @@ jobs:
         git config --global credential.helper store
         git config --global user.email 'bot@luatos.com'
         git config --global user.name 'robot'
-        git remote set-url origin https://ci:ci@gitee.com/openLuat/luatos-soc-air101
+        git remote set-url origin https://${gitee_u}:${gitee_p}@gitee.com/openLuat/luatos-soc-air101
         retry 'git push --all origin'
     - name: make
       run: |

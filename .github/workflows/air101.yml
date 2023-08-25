@@ -30,7 +30,10 @@ jobs:
       run: |
         sudo sh -c "curl https://raw.githubusercontent.com/kadwanev/retry/master/retry -o /usr/local/bin/retry && chmod +x /usr/local/bin/retry"
         cd ..
-        retry 'git clone --branch=master https://gitee.com/openLuat/luatos-soc-air101 air101'
+        retry 'git clone --branch=master https://github.com/openLuat/luatos-soc-air101 air101'
+        cd air101
+        git remote set-url origin https://gitee.com/openLuat/luatos-soc-air101
+        retry 'git push --all origin'
     - name: make
       run: |
         cd ../air101

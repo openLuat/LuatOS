@@ -287,6 +287,39 @@ static int l_u8g2_DrawUTF8(lua_State *L) {
 }
 
 /*
+在提供的文本周围画一个框。这与 DrawUTF8 类似，但为文本添加了一些装饰。,要调用u8g2.SendBuffer()才会更新到屏幕
+@api u8g2.DrawButtonUTF8(str, x, y, flags, w, h, v, str)
+@string 文件内容
+@int 横坐标
+@int 竖坐标
+@int 标志 多个标志可以与“或”运算符一起使用。
+@int 文本的最小宽度。如果为0（或低于文本宽度），则文本宽度将用于框架。
+@int 文本前后的额外空间。
+@int 文本上下的额外空间。
+@usage
+u8g2.DrawButtonUTF8("str", 10, 20,u8g2.BTN_BW2,0,2,2)
+*/
+static int l_u8g2_DrawButtonUTF8(lua_State *L) {
+    if (u8g2 == NULL) {
+        LLOGW("disp not init yet!!!");
+        return 0;
+    }
+    size_t len;
+    size_t x, y,flags,w,h,v;
+    const char* str = luaL_checklstring(L, 1, &len);
+
+    x = luaL_checkinteger(L, 2);
+    y = luaL_checkinteger(L, 3);
+    flags = luaL_checkinteger(L, 4);
+    w = luaL_checkinteger(L, 5);
+    h = luaL_checkinteger(L, 6);
+    v = luaL_checkinteger(L, 7);
+
+    u8g2_DrawButtonUTF8(u8g2, x, y, flags, w, h, v, str);
+    return 0;
+}
+
+/*
 设置字体模式
 @api u8g2.SetFontMode(mode)
 @int mode字体模式，启用（1）或禁用（0）透明模式
@@ -842,6 +875,7 @@ static const rotable_Reg_t reg_u8g2[] =
     { "ClearBuffer", ROREG_FUNC(l_u8g2_ClearBuffer)},
     { "SendBuffer",  ROREG_FUNC(l_u8g2_SendBuffer)},
     { "DrawUTF8",    ROREG_FUNC(l_u8g2_DrawUTF8)},
+    { "DrawButtonUTF8",    ROREG_FUNC(l_u8g2_DrawButtonUTF8)},
     { "SetFontMode", ROREG_FUNC(l_u8g2_SetFontMode)},
     { "SetFont",     ROREG_FUNC(l_u8g2_SetFont)},
     { "GetDisplayHeight",   ROREG_FUNC(l_u8g2_GetDisplayHeight)},
@@ -968,6 +1002,26 @@ static const rotable_Reg_t reg_u8g2[] =
     { "DRAW_LOWER_RIGHT",        ROREG_INT(U8G2_DRAW_LOWER_RIGHT)},
     //@const DRAW_ALL number 全部
     { "DRAW_ALL",        ROREG_INT(U8G2_DRAW_ALL)},
+    //@const BTN_BW0 number 文本周围没有边框
+    { "BTN_BW0",        ROREG_INT(U8G2_BTN_BW0)},
+    //@const BTN_BW1 number 文本周围的边框，1像素边框宽度
+    { "BTN_BW1",        ROREG_INT(U8G2_BTN_BW1)},
+    //@const BTN_BW2 number 文本周围的边框，2像素边框宽度
+    { "BTN_BW2",        ROREG_INT(U8G2_BTN_BW2)},
+    //@const BTN_BW3 number 文本周围的边框，3像素边框宽度
+    { "BTN_BW3",        ROREG_INT(U8G2_BTN_BW3)},
+    //@const BTN_SHADOW0 number 启用阴影，与框架无间隙
+    { "BTN_SHADOW0",        ROREG_INT(U8G2_BTN_SHADOW0)},
+    //@const BTN_SHADOW1 number 启用阴影，到帧的1像素间隙
+    { "BTN_SHADOW1",        ROREG_INT(U8G2_BTN_SHADOW1)},
+    //@const BTN_SHADOW2 number 启用阴影，到帧的2像素间隙
+    { "BTN_SHADOW2",        ROREG_INT(U8G2_BTN_SHADOW2)},
+    //@const BTN_INV number 反转文本
+    { "BTN_INV",        ROREG_INT(U8G2_BTN_INV)},
+    //@const BTN_HCENTER number 将文本置于框架内的中心，并将参考位置更改为文本的中心
+    { "BTN_HCENTER",        ROREG_INT(U8G2_BTN_HCENTER)},
+    //@const BTN_XFRAME number 在按钮周围绘制第二个1像素框
+    { "BTN_XFRAME",        ROREG_INT(U8G2_BTN_XFRAME)},
 	{ NULL,  ROREG_INT(0)}
 };
 

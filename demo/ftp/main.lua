@@ -53,6 +53,8 @@ sys.taskInit(function()
     --     log.info("cipher", "suites", json.encode(crypto.cipher_suites()))
     -- end
     while true do
+        sys.wait(1000)
+        log.info("ftp 启动")
         print(ftp.login(nil,"121.43.224.154",21,"ftp_user","3QujbiMG").wait())
     
         print(ftp.command("NOOP").wait())
@@ -67,10 +69,13 @@ sys.taskInit(function()
         print(ftp.command("RMD QWER").wait())
 
         print(ftp.command("LIST").wait())
-        
-        print(ftp.pull("/1222.txt","/1222.txt").wait())
 
-        local f = io.open("/1222.txt", "r")
+        -- io.writeFile("/1222.txt", "23noianfdiasfhnpqw39fhawe;fuibnnpw3fheaios;fna;osfhisao;fadsfl")
+        -- print(ftp.push("/1222.txt","/12222.txt").wait())
+        
+        print(ftp.pull("/122224.txt","/122224.txt").wait())
+
+        local f = io.open("/122224.txt", "r")
         if f then
             local data = f:read("*a")
             f:close()
@@ -80,7 +85,7 @@ sys.taskInit(function()
         end
 
         print(ftp.command("DELE /12222.txt").wait())
-        print(ftp.push("/1222.txt","/12222.txt").wait())
+        print(ftp.push("/122224.txt","/12222.txt").wait())
         print(ftp.close().wait())
         log.info("meminfo", rtos.meminfo("sys"))
         sys.wait(15000)

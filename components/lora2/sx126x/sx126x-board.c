@@ -44,17 +44,17 @@ void SX126xSetNss2(lora_device_t* lora_device,uint8_t lev ){
     luat_gpio_set( lora_device->lora_pin_cs, lev);
 }
 
-void lora_spi_transfer(lora_device_t* lora_device, const char* send_buf, size_t send_length, char* recv_buf, size_t recv_length){
+void lora_spi_transfer(lora_device_t* lora_device, const uint8_t* send_buf, size_t send_length, uint8_t* recv_buf, size_t recv_length){
     if (lora_device->lora_spi_id == 255){
-        luat_spi_device_transfer(lora_device->lora_spi_device, send_buf, send_length, recv_buf, recv_length);
+        luat_spi_device_transfer(lora_device->lora_spi_device, (const char *)send_buf, send_length, (char *)recv_buf, recv_length);
     }else{
         SX126xSetNss2(lora_device,0);
         // luat_spi_transfer(lora_device->lora_spi_id, send_buf, send_length, recv_buf, recv_length);
         if (send_length){
-            luat_spi_send(lora_device->lora_spi_id, send_buf, send_length);
+            luat_spi_send(lora_device->lora_spi_id, (const char *)send_buf, send_length);
         }
         if (recv_length){
-            luat_spi_recv(lora_device->lora_spi_id, recv_buf, recv_length);
+            luat_spi_recv(lora_device->lora_spi_id, (char *)recv_buf, recv_length);
         }
         SX126xSetNss2(lora_device,1);
     }

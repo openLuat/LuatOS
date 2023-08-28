@@ -5,7 +5,7 @@ set_version("0.0.3", {build = "%Y%m%d%H%M"})
 add_rules("mode.debug", "mode.release")
 
 -- 这里用llvm和clang了,尝试一下
-add_requires("llvm")
+add_requires("llvm 15.0.7")
 set_toolchains("@llvm")
 
 local luatos = "../../"

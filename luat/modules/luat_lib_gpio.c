@@ -117,8 +117,11 @@ static LUAT_RT_RET_TYPE l_gpio_debounce_mode1_cb(LUAT_RT_CB_PARAM) {
 
 int luat_gpio_irq_default(int pin, void* args) {
     rtos_msg_t msg = {0};
-
+#ifdef LUAT_GPIO_PIN_MAX
+    if (pin < 0 || pin >= LUAT_GPIO_PIN_MAX) {
+#else
     if (pin < 0 || pin >= Luat_GPIO_MAX_ID) {
+#endif
         return 0;
     }
 

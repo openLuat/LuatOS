@@ -206,14 +206,13 @@ static int l_mobile_number(lua_State* L) {
 获取当前SIM卡槽,或者切换卡槽
 @api mobile.simid(id)
 @int SIM卡的编号, 例如0, 1, 如果支持双卡，比如EC618，可以填2来自适应，但是会占用掉4个IO(gpio4/5/6/23)。如果不填就直接读取当前卡槽
-@boolean 是否优先用SIM0，只有SIM卡编号写2自适应才有用！！！。true优先用SIM0，false则优先用上一次探测到的，默认是false，必须在开机就配置，否则就无效了
+@boolean 是否优先用SIM0，只有SIM卡编号写2自适应才有用！！！。true优先用SIM0，false则由具体平台决定，支持双卡双待SIM0优先，不支持的是上一次检测到的优先，默认是false，必须在开机就配置，否则就无效了
 @return int 当前sim卡槽编号,若失败返回-1
 @usage
--- 注意, SIM1会占用GPIO4/5/6/23
 mobile.simid(0) -- 固定使用SIM0
 mobile.simid(1) -- 固件使用SIM1
-mobile.simid(2) -- 自动识别SIM0, SIM1, 且SIM0优先
-mobile.simid(2, true) -- -- 自动识别SIM0, SIM1, 且SIM1优先
+mobile.simid(2) -- 自动识别SIM0, SIM1, 优先级看具体平台
+mobile.simid(2, true) -- -- 自动识别SIM0, SIM1, 且SIM0优先
 -- 提醒, 自动识别是会增加时间的
  */
 static int l_mobile_simid(lua_State* L) {
@@ -331,7 +330,7 @@ static int l_mobile_set_auto_work(lua_State* L) {
 @string 新的APN的username,如果APN不是空,那必须填写,如果没有留个空字符串""。如果APN是空的，那可以nil
 @string 新的APN的password,如果APN不是空,那必须填写,如果没有留个空字符串""。如果APN是空的，那可以nil
 @int 激活APN时的IP TYPE,1=IPV4 2=IPV6 3=IPV4V6,默认是1
-@int 激活APN时,如果需要username和password,就要写鉴权协议类型,1~3,默认3,代表1和2都尝试一下
+@int 激活APN时,如果需要username和password,就要写鉴权协议类型,1~3,默认3,代表1和2都尝试一下。不需要鉴权的写0
 @boolean 是否删除APN,true是,其他都否,只有参数3新的APN不是string的时候才有效果
 @return string 获取到的默认APN值,失败返回nil
 @usage
@@ -653,6 +652,10 @@ static int l_mobile_get_cell_info(lua_State* L) {
     lua_setfield(L, -2, "tac");
     lua_pushinteger(L, info->lte_service_info.band);
     lua_setfield(L, -2, "band");
+    lua_pushinteger(L, info->lte_service_info.ulbandwidth);
+    lua_setfield(L, -2, "ulbandwidth");
+    lua_pushinteger(L, info->lte_service_info.dlbandwidth);
+    lua_setfield(L, -2, "dlbandwidth");
     lua_seti(L, -2, 1);
 
     if (info->lte_neighbor_info_num > 0) {
@@ -665,6 +668,15 @@ static int l_mobile_get_cell_info(lua_State* L) {
             lua_setfield(L, -2, "pci");
             lua_pushinteger(L, info->lte_info[i].cid);
             lua_setfield(L, -2, "cid");
+            if (0x8850 == info->version)
+            {
+                lua_pushinteger(L, info->lte_info[i].rssi);
+                lua_setfield(L, -2, "rssi");
+                lua_pushinteger(L, info->lte_info[i].celltype);
+                lua_setfield(L, -2, "celltype");
+                lua_pushinteger(L, info->lte_info[i].bandwidth);
+                lua_setfield(L, -2, "bandwidth");
+            }
             lua_pushinteger(L, info->lte_info[i].earfcn);
             lua_setfield(L, -2, "earfcn");
             lua_pushinteger(L, info->lte_info[i].rsrp);

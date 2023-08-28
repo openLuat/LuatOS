@@ -1175,12 +1175,12 @@ static void net_lwip_check_network_ready(uint8_t adapter_index)
 		{
 			dns_clear(&prvlwip.dns_client);
 			prvlwip.dns_client.is_run = 0;
-			NET_DBG("network not ready");
+//			NET_DBG("network not ready");
 			net_lwip_callback_to_nw_task(adapter_index, EV_NW_STATE, 0, 0, adapter_index);
 		}
 		else
 		{
-			NET_DBG("network ready");
+//			NET_DBG("network ready");
 //			for(i = 0; i < MAX_DNS_SERVER; i++)
 //			{
 //				if (prvlwip.dns_client.dns_server[i].type != 0xff)

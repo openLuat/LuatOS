@@ -740,12 +740,12 @@ static int _vsnprintf(out_fct_type out, char* buffer, const size_t maxlen, const
             }
             d1 = va_arg(va, uint32_t);
             d2 = va_arg(va, uint32_t);
-            value = d2;
-            value = (value << 32) | d1;
+            long long value2 = d2;
+            value2 = (value2 << 32) | d1;
 #else
-            const long long value = va_arg(va, long long);
+            const long long value2 = va_arg(va, long long);
 #endif
-            idx = _ntoa_long_long(out, buffer, idx, maxlen, (unsigned long long)(value > 0 ? value : 0 - value), value < 0, base, precision, width, flags);
+            idx = _ntoa_long_long(out, buffer, idx, maxlen, (unsigned long long)(value2 > 0 ? value2 : 0 - value2), value2 < 0, base, precision, width, flags);
 #endif
           }
           else if (flags & FLAGS_LONG) {

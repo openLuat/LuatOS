@@ -75,6 +75,8 @@ int luat_pm_dtimer_wakeup_id(int* id);
 
 int luat_pm_poweroff(void);
 
+int luat_pm_reset(void);
+
 int luat_pm_power_ctrl(int id, uint8_t val);
 
 int luat_pm_get_poweron_reason(void);

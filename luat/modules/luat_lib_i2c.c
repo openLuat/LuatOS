@@ -224,9 +224,14 @@ static int l_i2c_soft(lua_State *L)
     luat_ei2c_t *ei2c = (luat_ei2c_t *)lua_newuserdata(L, sizeof(luat_ei2c_t));
     ei2c->scl = luaL_checkinteger(L, 1);
     ei2c->sda = luaL_checkinteger(L, 2);
-    ei2c->udelay = luaL_optinteger(L, 3, 5);
-    if (ei2c->udelay < 1)
-        ei2c->udelay = 1;
+    if (lua_isinteger(L, 3)) {
+        ei2c->udelay = luaL_checkinteger(L, 3);
+        if (ei2c->udelay < 1)
+            ei2c->udelay = 1;
+        }
+    else {
+        ei2c->udelay = 5;
+    }
     luat_gpio_mode(ei2c->scl, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 1);
     luat_gpio_mode(ei2c->sda, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 1);
     i2c_soft_stop(ei2c);

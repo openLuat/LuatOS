@@ -218,7 +218,10 @@ static int l_mcu_set_xtal(lua_State* L) {
     return 0;
 }
 // #endif
+#ifdef LUAT_COMPILER_NOWEAK
+#else
 LUAT_WEAK void luat_mcu_set_hardfault_mode(int mode) {;}
+#endif
 /*
 mcu死机时处理模式，目前只有EC618平台适用
 @api mcu.hardfault(mode)
@@ -266,6 +269,47 @@ static int l_mcu_iomux(lua_State* L)
 	}
 	return 0;
 }
+
+/*
+IO外设功能复用选择，注意普通MCU是以GPIO号为序号，但是专用SOC，比如CAT1的，是以PAD号为序号。本函数不是所有平台适用
+@api mcu.altfun(type, sn, pad_index, alt_fun, is_input)
+@int 外设类型，目前有mcu.UART,mcu.I2C,mcu.SPI,mcu.PWM,mcu.GPIO,mcu.I2S,mcu.LCD,mcu.CAM，具体需要看平台
+@int 总线序号，0~N，如果是mcu.GPIO，则是GPIO号。具体看平台的IOMUX复用表
+@int pad号，如果留空不写，则表示清除配置，使用平台的默认配置。具体看平台的IOMUX复用表
+@int 复用功能序号，0~N。具体看平台的IOMUX复用表
+@boolean 是否是输入功能，true是，留空是false
+@usage
+mcu.altfun(mcu.GPIO, 46, 32, 1, 0)
+mcu.altfun(mcu.GPIO, 46)
+ */
+static int l_mcu_alt_ctrl(lua_State* L)
+{
+#ifdef LUAT_MCU_IOMUX_CTRL
+	int type = luaL_optinteger(L, 1, 0xff);
+	int sn = luaL_optinteger(L, 2, 0xff);
+	int pad = luaL_optinteger(L, 3, -1);
+	int alt_fun = luaL_optinteger(L, 4, 0);
+	uint8_t is_input = 0;
+	if (lua_isboolean(L, 5))
+	{
+		is_input = lua_toboolean(L, 5);
+	}
+	LLOGD("mcu altfun %d,%d,%d,%d,%d", type, sn, pad, alt_fun, is_input);
+	switch(type)
+	{
+	case LUAT_MCU_PERIPHERAL_UART:
+		break;
+	case LUAT_MCU_PERIPHERAL_I2C:
+		break;
+	case LUAT_MCU_PERIPHERAL_GPIO:
+		luat_gpio_iomux(sn, pad, alt_fun);
+		break;
+	}
+#else
+	LLOGW("no support mcu.altfun");
+#endif
+	return 0;
+}
 #include "rotable2.h"
 static const rotable_Reg_t reg_mcu[] =
 {
@@ -281,7 +325,11 @@ static const rotable_Reg_t reg_mcu[] =
 	{ "dtick64",		ROREG_FUNC(l_mcu_hw_diff_tick64)},
 	{ "setXTAL",		ROREG_FUNC(l_mcu_set_xtal)},
 	{ "hardfault",	ROREG_FUNC(l_mcu_set_hardfault_mode)},
+#ifdef LUAT_MCU_IOMUX_CTRL
+	{ "altfun",	ROREG_FUNC(l_mcu_alt_ctrl)},
+#else
 	{ "iomux",	ROREG_FUNC(l_mcu_iomux)},
+#endif
 // #endif
 	//@const UART number 外设类型-串口
 	{ "UART",             ROREG_INT(LUAT_MCU_PERIPHERAL_UART) },
@@ -289,6 +337,17 @@ static const rotable_Reg_t reg_mcu[] =
 	{ "I2C",             ROREG_INT(LUAT_MCU_PERIPHERAL_I2C) },
 	//@const SPI number 外设类型-SPI
 	{ "SPI",             ROREG_INT(LUAT_MCU_PERIPHERAL_SPI) },
+	//@const PWM number 外设类型-PWM
+	{ "PWM",             ROREG_INT(LUAT_MCU_PERIPHERAL_PWM) },
+	//@const GPIO number 外设类型-GPIO
+	{ "GPIO",             ROREG_INT(LUAT_MCU_PERIPHERAL_GPIO) },
+	//@const I2S number 外设类型-I2S
+	{ "I2S",             ROREG_INT(LUAT_MCU_PERIPHERAL_I2S) },
+	//@const LCD number 外设类型-LCD
+	{ "LCD",             ROREG_INT(LUAT_MCU_PERIPHERAL_LCD) },
+	//@const CAM number 外设类型-CAM
+	{ "CAM",             ROREG_INT(LUAT_MCU_PERIPHERAL_CAM) },
+
 	{ NULL,             ROREG_INT(0) }
 };
 

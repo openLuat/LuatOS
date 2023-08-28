@@ -7,6 +7,11 @@ enum
 	LUAT_MCU_PERIPHERAL_UART,
 	LUAT_MCU_PERIPHERAL_I2C,
 	LUAT_MCU_PERIPHERAL_SPI,
+	LUAT_MCU_PERIPHERAL_PWM,
+	LUAT_MCU_PERIPHERAL_GPIO,
+	LUAT_MCU_PERIPHERAL_I2S,
+	LUAT_MCU_PERIPHERAL_LCD,
+	LUAT_MCU_PERIPHERAL_CAM,
 };
 
 int luat_mcu_set_clk(size_t mhz);
@@ -22,5 +27,6 @@ int luat_mcu_us_period(void);
 uint64_t luat_mcu_tick64_ms(void);
 void luat_mcu_set_clk_source(uint8_t source_main, uint8_t source_32k, uint32_t delay);
 
+void luat_mcu_iomux_ctrl(uint8_t type, uint8_t sn, int pad_index, uint8_t alt, uint8_t is_input);
 #endif
 

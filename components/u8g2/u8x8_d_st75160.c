@@ -31,7 +31,10 @@
   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF 
   ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.  
 
-  https://github.com/olikraus/u8g2/issues/1642
+  REQUESTED IN
+    https://github.com/olikraus/u8g2/issues/1642
+    
+  STATUS 13 Aug 2022: NOT TESTED, MAY NOT WORK..
 
 
   0x030	ext 00
@@ -84,29 +87,32 @@ static const uint8_t u8x8_d_st75256_256x128_powersave1_seq[] = {
   U8X8_END()             			/* end of sequence */
 };
 
-// static const uint8_t u8x8_d_st75256_jlx256128_flip0_seq[] = {
-//   U8X8_START_TRANSFER(),             	/* enable chip, delay is part of the transfer start */
-//   U8X8_C( 0x030 ),				/* select 00 commands */
-//   U8X8_CA( 0xbc, 0x00 ),			/* data scan dir */
-//   U8X8_A( 0xa6 ),				/* ??? */
+/* marked as unused to avoid compiler warning, issue 1802 */
+#ifdef NOT_USED
+static const uint8_t u8x8_d_st75256_jlx256128_flip0_seq[] = {
+  U8X8_START_TRANSFER(),             	/* enable chip, delay is part of the transfer start */
+  U8X8_C( 0x030 ),				/* select 00 commands */
+  U8X8_CA( 0xbc, 0x00 ),			/* data scan dir */
+  U8X8_A( 0xa6 ),				/* ??? */
 
-//   //U8X8_C( 0x030 ),				/* select 00 commands */
-//   U8X8_C( 0x00c ),				/* data format LSB top */
-//   U8X8_END_TRANSFER(),             	/* disable chip */
-//   U8X8_END()             			/* end of sequence */
-// };
+  //U8X8_C( 0x030 ),				/* select 00 commands */
+  U8X8_C( 0x00c ),				/* data format LSB top */
+  U8X8_END_TRANSFER(),             	/* disable chip */
+  U8X8_END()             			/* end of sequence */
+};
 
-// static const uint8_t u8x8_d_st75256_jlx256128_flip1_seq[] = {
-//   U8X8_START_TRANSFER(),             	/* enable chip, delay is part of the transfer start */
-//   U8X8_C( 0x030 ),				/* select 00 commands */
-//   U8X8_CA( 0xbc, 0x03 ),			/* data scan dir */
-//   U8X8_A( 0xa6 ),				/* ??? */
+static const uint8_t u8x8_d_st75256_jlx256128_flip1_seq[] = {
+  U8X8_START_TRANSFER(),             	/* enable chip, delay is part of the transfer start */
+  U8X8_C( 0x030 ),				/* select 00 commands */
+  U8X8_CA( 0xbc, 0x03 ),			/* data scan dir */
+  U8X8_A( 0xa6 ),				/* ??? */
 
-//   //U8X8_C( 0x030 ),				/* select 00 commands */
-//   U8X8_C( 0x008 ),				/* data format MSB top */
-//   U8X8_END_TRANSFER(),             	/* disable chip */
-//   U8X8_END()             			/* end of sequence */
-// };
+  //U8X8_C( 0x030 ),				/* select 00 commands */
+  U8X8_C( 0x008 ),				/* data format MSB top */
+  U8X8_END_TRANSFER(),             	/* disable chip */
+  U8X8_END()             			/* end of sequence */
+};
+#endif
 
 static const uint8_t u8x8_d_st75256_jlx172104_flip0_seq[] = {
   U8X8_START_TRANSFER(),             	/* enable chip, delay is part of the transfer start */
@@ -132,30 +138,32 @@ static const uint8_t u8x8_d_st75256_jlx172104_flip1_seq[] = {
   U8X8_END()             			/* end of sequence */
 };
 
-// static const uint8_t u8x8_d_st75256_jlx256160_flip0_seq[] = {
-//   U8X8_START_TRANSFER(),             	/* enable chip, delay is part of the transfer start */
-//   U8X8_C( 0x030 ),				/* select 00 commands */
-//   U8X8_CA( 0xbc, 0x00 ),			/* data scan dir */
-//   U8X8_A( 0xa6 ),				/* ??? */
+/* marked as unused to avoid compiler warning, issue 1802 */
+#ifdef NOT_USED
+static const uint8_t u8x8_d_st75256_jlx256160_flip0_seq[] = {
+  U8X8_START_TRANSFER(),             	/* enable chip, delay is part of the transfer start */
+  U8X8_C( 0x030 ),				/* select 00 commands */
+  U8X8_CA( 0xbc, 0x00 ),			/* data scan dir */
+  U8X8_A( 0xa6 ),				/* ??? */
 
-//   //U8X8_C( 0x030 ),				/* select 00 commands */
-//   U8X8_C( 0x00c ),				/* data format LSB top */
-//   U8X8_END_TRANSFER(),             	/* disable chip */
-//   U8X8_END()             			/* end of sequence */
-// };
+  //U8X8_C( 0x030 ),				/* select 00 commands */
+  U8X8_C( 0x00c ),				/* data format LSB top */
+  U8X8_END_TRANSFER(),             	/* disable chip */
+  U8X8_END()             			/* end of sequence */
+};
 
-// static const uint8_t u8x8_d_st75256_jlx256160_flip1_seq[] = {
-//   U8X8_START_TRANSFER(),             	/* enable chip, delay is part of the transfer start */
-//   U8X8_C( 0x030 ),				/* select 00 commands */
-//   U8X8_CA( 0xbc, 0x03 ),			/* data scan dir */
-//   U8X8_A( 0xa6 ),				/* ??? */
+static const uint8_t u8x8_d_st75256_jlx256160_flip1_seq[] = {
+  U8X8_START_TRANSFER(),             	/* enable chip, delay is part of the transfer start */
+  U8X8_C( 0x030 ),				/* select 00 commands */
+  U8X8_CA( 0xbc, 0x03 ),			/* data scan dir */
+  U8X8_A( 0xa6 ),				/* ??? */
 
-//   //U8X8_C( 0x030 ),				/* select 00 commands */
-//   U8X8_C( 0x008 ),				/* data format MSB top */
-//   U8X8_END_TRANSFER(),             	/* disable chip */
-//   U8X8_END()             			/* end of sequence */
-// };
-
+  //U8X8_C( 0x030 ),				/* select 00 commands */
+  U8X8_C( 0x008 ),				/* data format MSB top */
+  U8X8_END_TRANSFER(),             	/* disable chip */
+  U8X8_END()             			/* end of sequence */
+};
+#endif
 
 
 /*=============================================*/
@@ -178,7 +186,7 @@ static const u8x8_display_info_t u8x8_st75160_jm16096_display_info =
   /* data_setup_time_ns = */ 15,
   /* write_pulse_width_ns = */ 70,	
   /* tile_width = */ 20,
-  /* tile_hight = */ 12,
+  /* tile_height = */ 12,
   /* default_x_offset = */ 0,	/*  x offset in flipmode 0 */
   /* flipmode_x_offset = */ 0,		/* */
   /* pixel_width = */ 160,

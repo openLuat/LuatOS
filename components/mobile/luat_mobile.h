@@ -346,10 +346,17 @@ typedef struct luat_mobile_lte_cell_info
 	uint16_t mnc;           /**This field should be ignored when cid is not present*/
 	uint16_t tac;           /**Tracing area code (This field should be ignored when cid is not present). */
 	uint16_t pci;           /**Physical cell ID. Range: 0 to 503. */
-    uint32_t earfcn;        /**E-UTRA absolute radio frequency channel number of the cell. RANGE: 0 TO 65535. */
+	union
+	{
+		uint32_t earfcn;        /**E-UTRA absolute radio frequency channel number of the cell. RANGE: 0 TO 65535. */
+		uint32_t frequency;
+	};
+    uint16_t bandwidth;
+    uint16_t celltype; /*0:intra lte ncell, 1:inter lte ncell */
     int16_t rsrp;
 	int16_t rsrq;
 	int16_t snr;
+	int16_t rssi;
 }luat_mobile_lte_cell_info_t;
 
 typedef struct luat_mobile_cell_info
@@ -358,10 +365,12 @@ typedef struct luat_mobile_cell_info
     luat_mobile_gsm_cell_info_t    gsm_info[LUAT_MOBILE_CELL_MAX_NUM];    /**<   GSM cell information (Serving and neighbor. */
     luat_mobile_lte_service_cell_info_t lte_service_info;
     luat_mobile_lte_cell_info_t    lte_info[LUAT_MOBILE_CELL_MAX_NUM];    /**<   LTE cell information (Serving and neighbor). */
+    uint32_t 						version;
     uint8_t                         gsm_info_valid;                         /**< Must be set to TRUE if gsm_info is being passed. */
     uint8_t                         gsm_neighbor_info_num;                           /**< Must be set to the number of elements in entry*/
     uint8_t                         lte_info_valid;                         /**< Must be set to TRUE if lte_info is being passed. */
     uint8_t                     	lte_neighbor_info_num;                           /**< Must be set to the number of elements in entry*/
+
 }luat_mobile_cell_info_t;
 
 /**
@@ -381,14 +390,36 @@ int luat_mobile_get_cell_info(luat_mobile_cell_info_t  *info);
 int luat_mobile_get_cell_info_async(uint8_t max_time);
 
 /**
+ * @brief 双卡双待设备，立刻搜索一次周围小区基站信息，通过LUAT_MOBILE_CELL_INFO_UPDATE返回搜索完成消息，luat_mobile_get_last_notify_cell_info获取详细信息
+ *
+ * @param sim_id sim卡槽
+ * @return int =0成功，其他失败
+ */
+int luat_mobile_get_cell_info_async_with_sim_id(uint8_t sim_id);
+/**
  * @brief 获取上一次异步搜索周围小区基站信息，包括周期性搜索和异步搜索，在LUAT_MOBILE_CELL_INFO_UPDATE到来后用本函数获取信息
  *
+ * @param info 当前移动网络信号状态详细信息
+ * @return int =0成功，其他失败
+ */
+int luat_mobile_get_last_notify_cell_info(luat_mobile_cell_info_t  *info);
+/**
+ * @brief 双卡双待设备，获取上一次异步搜索周围小区基站信息，包括周期性搜索和异步搜索，在LUAT_MOBILE_CELL_INFO_UPDATE到来后用本函数获取信息
+ *
+ * @param sim_id sim卡槽
  * @param info 当前移动网络信号状态详细信息
  * @param max_time 搜索的最大时间
  * @return int =0成功，其他失败
  */
-int luat_mobile_get_last_notify_cell_info(luat_mobile_cell_info_t  *info);
+int luat_mobile_get_last_notify_cell_info_with_sim_id(uint8_t sim_id, luat_mobile_cell_info_t  *info);
 
+/**
+ * @brief 打印指定sim卡槽搜索到的详细基站信息，与平台有关
+ *
+ * @param sim_id sim卡槽
+ * @return
+ */
+void luat_mobile_print_last_notify_cell_info_with_sim_id(uint8_t sim_id);
 
 typedef struct luat_mobile_gw_signal_strength_info
 {
@@ -642,6 +673,13 @@ void luat_mobile_fatal_error_auto_reset_stack(uint8_t onoff);
  * @return int 
  */
 int luat_mobile_set_period_work(uint32_t get_cell_period, uint32_t check_sim_period, uint8_t search_cell_time);
+/**
+ * @brief 设置SIM卡短时间脱离卡槽后周期性尝试恢复，luat_mobile_set_period_work的简化版本
+ *
+ * @param check_sim_period SIM卡短时间脱离卡槽后尝试恢复的时间间隔，单位ms，建议在5000~10000，或者写0，当SIM卡移除的消息上来后手动重启协议栈
+ * @return int
+ */
+int luat_mobile_set_check_sim(uint32_t check_sim_period);
 /**
  * @brief 设置定时检测网络是否正常并且在检测到长时间无网时通过重启协议栈来恢复，但是不能保证一定成功，这个功能和luat_mobile_reset_stack是有可能冲突的。所有功能默认都是关闭的
  *

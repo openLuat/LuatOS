@@ -87,6 +87,10 @@ uint8_t u8x8_d_s1d15721_common(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void 
       u8x8_cad_SendCmd(u8x8, 0x13);	/* col */
       u8x8_cad_SendArg(u8x8, x);
 
+      /* 4 Mar 2022: added the missing page address, issue 1802 */
+      u8x8_cad_SendCmd(u8x8, 0xb1);	/* page address */
+      u8x8_cad_SendArg(u8x8, y);
+
 	  u8x8_cad_SendCmd(u8x8, 0x1D );	//Data Write
 
       c = ((u8x8_tile_t *)arg_ptr)->cnt;
@@ -157,7 +161,7 @@ static const u8x8_display_info_t u8x8_s1d15721_240x64_display_info =
   /* data_setup_time_ns = */ 30,	         /*  */
   /* write_pulse_width_ns = */ 65,	/* */
   /* tile_width = */ 30,		                /* width of 20*8=160 pixel (30*8 = 240) */
-  /* tile_hight = */ 8,                 /* height 8*8 = 64*/
+  /* tile_height = */ 8,                 /* height 8*8 = 64*/
   /* default_x_offset = */ 1,	
   /* flipmode_x_offset = */ 1,	
   /* pixel_width = */ 240,

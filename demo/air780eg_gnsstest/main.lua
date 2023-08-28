@@ -5,6 +5,8 @@ VERSION = "1.0.1"
 --[[
 本demo需要很多流量!!!
 注意: 室内无信号!! 无法定位!!!
+
+本demo对应的网页是 https://iot.openluat.com/iot/device-gnss
 ]]
 
 -- sys库是标配
@@ -344,19 +346,6 @@ if socket.sntp then
     end)
 end
 
--- 休眠测试, V1103会有问题
--- mobile.flymode(0, false)
--- sys.taskInit(function()
---     while 1 do
---         sys.wait(60000)
---         if libgnss.isFix() then
---             pm.dtimerStart(0, 30000)
---             pm.request(pm.HIB)
---             pm.power(pm.USB, false)
---             mobile.flymode(0, true)
---         end
---     end
--- end)
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

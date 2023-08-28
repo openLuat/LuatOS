@@ -5,6 +5,8 @@ VERSION = "1.0.1"
 --[[
 本demo需要很多流量!!!
 注意: 室内无信号!! 无法定位!!!
+
+本demo对应的网页是 https://iot.openluat.com/iot/device-gnss
 ]]
 
 -- sys库是标配

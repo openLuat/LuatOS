@@ -105,7 +105,7 @@ static const u8x8_display_info_t u8x8_st7565_128x64_display_info =
   /* data_setup_time_ns = */ 40,	/* st7565 datasheet, table 24, tds8 */
   /* write_pulse_width_ns = */ 80,	/* st7565 datasheet, table 24, tcclw */
   /* tile_width = */ 16,		/* width of 16*8=128 pixel */
-  /* tile_hight = */ 8,
+  /* tile_height = */ 8,
   /* default_x_offset = */ 0,
   /* flipmode_x_offset = */ 4,
   /* pixel_width = */ 128,
@@ -393,7 +393,7 @@ static const u8x8_display_info_t u8x8_st7565_64128n_display_info =
   /* data_setup_time_ns = */ 40,	/* st7565 datasheet, table 24, tds8 */
   /* write_pulse_width_ns = */ 80,	/* st7565 datasheet, table 24, tcclw */
   /* tile_width = */ 16,		/* width of 16*8=128 pixel */
-  /* tile_hight = */ 8,
+  /* tile_height = */ 8,
   /* default_x_offset = */ 4,
   /* flipmode_x_offset = */ 0,
   /* pixel_width = */ 128,
@@ -521,7 +521,7 @@ static const u8x8_display_info_t u8x8_st7565_128x32_display_info =
   /* data_setup_time_ns = */ 40,	/* st7565 datasheet, table 24, tds8 */
   /* write_pulse_width_ns = */ 80,	/* st7565 datasheet, table 24, tcclw */
   /* tile_width = */ 16,		/* width of 16*8=128 pixel */
-  /* tile_hight = */ 4,
+  /* tile_height = */ 4,
   /* default_x_offset = */ 4,
   /* flipmode_x_offset = */ 0,
   /* pixel_width = */ 128,
@@ -611,7 +611,7 @@ static const u8x8_display_info_t u8x8_st7565_nhd_c12864_display_info =
   /* data_setup_time_ns = */ 40,	/* st7565 datasheet, table 24, tds8 */
   /* write_pulse_width_ns = */ 80,	/* st7565 datasheet, table 24, tcclw */
   /* tile_width = */ 16,		/* width of 16*8=128 pixel */
-  /* tile_hight = */ 8,
+  /* tile_height = */ 8,
   /* default_x_offset = */ 4,
   /* flipmode_x_offset = */ 0,
   /* pixel_width = */ 128,
@@ -637,8 +637,8 @@ static const uint8_t u8x8_d_st7565_nhd_c12864_init_seq[] = {
   U8X8_C(0x0a2),		                /* LCD bias 1/9 */
   U8X8_C(0x02f),		                /* all power  control circuits on */
   U8X8_CA(0x0f8, 0x000),		/* set booster ratio to 4x */
-  U8X8_C(0x023),		                /* set V0 voltage resistor ratio to large*/
-  U8X8_CA(0x081, 180),			/* set contrast, contrast value NHD C12864, see issue 186, increased contrast to 180 (issue 219) */
+  U8X8_C(0x025),		                /* set V0 voltage resistor ratio to large,  issue 1678: changed from 0x23 to 0x25 */
+  U8X8_CA(0x081, 170),			/* set contrast, contrast value NHD C12864, see issue 186, increased contrast to 180 (issue 219), reduced to 170 (issue 1678) */
   
   U8X8_C(0x0ae),		                /* display off */
   U8X8_C(0x0a5),		                /* enter powersafe: all pixel on, issue 142 */
@@ -739,7 +739,7 @@ static const u8x8_display_info_t u8x8_st7565_lm6059_display_info =
   /* data_setup_time_ns = */ 40,	/* st7565 datasheet, table 24, tds8 */
   /* write_pulse_width_ns = */ 80,	/* st7565 datasheet, table 24, tcclw */
   /* tile_width = */ 16,		/* width of 16*8=128 pixel */
-  /* tile_hight = */ 8,
+  /* tile_height = */ 8,
   /* default_x_offset = */ 1,	/* not sure... */
   /* flipmode_x_offset = */ 3,
   /* pixel_width = */ 128,
@@ -819,12 +819,12 @@ uint8_t u8x8_d_st7565_ks0713(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *a
       case U8X8_MSG_DISPLAY_SET_FLIP_MODE:
 	if ( arg_int == 0 )
 	{
-	  u8x8_cad_SendSequence(u8x8, u8x8_d_st7565_flip1_seq);
+	  u8x8_cad_SendSequence(u8x8, u8x8_d_st7565_zflip1_seq);
 	  u8x8->x_offset = u8x8->display_info->default_x_offset;
 	}
 	else
 	{
-	  u8x8_cad_SendSequence(u8x8, u8x8_d_st7565_flip0_seq);
+	  u8x8_cad_SendSequence(u8x8, u8x8_d_st7565_zflip0_seq);
 	  u8x8->x_offset = u8x8->display_info->flipmode_x_offset;
 	}	
 	break;
@@ -886,7 +886,7 @@ static const u8x8_display_info_t u8x8_st7565_lx12864_display_info =
   /* data_setup_time_ns = */ 40,	/* st7565 datasheet, table 24, tds8 */
   /* write_pulse_width_ns = */ 80,	/* st7565 datasheet, table 24, tcclw */
   /* tile_width = */ 16,		/* width of 16*8=128 pixel */
-  /* tile_hight = */ 8,
+  /* tile_height = */ 8,
   /* default_x_offset = */ 1,	/* not sure... */
   /* flipmode_x_offset = */ 3,
   /* pixel_width = */ 128,
@@ -978,7 +978,7 @@ static const u8x8_display_info_t u8x8_st7565_erc12864_display_info =
   /* data_setup_time_ns = */ 40,	/* st7565 datasheet, table 24, tds8 */
   /* write_pulse_width_ns = */ 80,	/* st7565 datasheet, table 24, tcclw */
   /* tile_width = */ 16,		/* width of 16*8=128 pixel */
-  /* tile_hight = */ 8,
+  /* tile_height = */ 8,
   /* default_x_offset = */ 0,
   /* flipmode_x_offset = */ 4,
   /* pixel_width = */ 128,
@@ -1210,7 +1210,7 @@ static const u8x8_display_info_t u8x8_st7565_dogm132_display_info =
   /* data_setup_time_ns = */ 40,	/* st7565 datasheet, table 24, tds8 */
   /* write_pulse_width_ns = */ 80,	/* st7565 datasheet, table 24, tcclw */
   /* tile_width = */ 17,		/* width of 16*8=136 pixel */
-  /* tile_hight = */ 4,
+  /* tile_height = */ 4,
   /* default_x_offset = */ 0,
   /* flipmode_x_offset = */ 0,
   /* pixel_width = */ 132,

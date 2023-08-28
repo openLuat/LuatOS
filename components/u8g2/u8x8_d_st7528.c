@@ -243,6 +243,7 @@ static const uint8_t u8x8_d_st7528_nhd_c160100_init_seq[] = {
   U8X8_C(0x0a0),		                /* ADC */
   U8X8_C(0x0c8),		                /* SHL */
   U8X8_CA(0x044, 0x000),		/* initial Com0 */
+  U8X8_CA(0x040, 0x000),		/* y shift, issue https://github.com/olikraus/u8g2/issues/1828 */
   U8X8_C(0x0ab),		                /* start oscillator */
   U8X8_C(0x026),		                /* Select the internal resistance ratio of the regulator resistor */
   U8X8_CA(0x081, 0x015),		/* volumn */
@@ -262,8 +263,6 @@ static const uint8_t u8x8_d_st7528_nhd_c160100_init_seq[] = {
   U8X8_END()             			/* end of sequence */
 };
 
-
-
 static const u8x8_display_info_t u8x8_st7528_160x100_display_info =
 {
   /* chip_enable_level = */ 0,
@@ -282,7 +281,7 @@ static const u8x8_display_info_t u8x8_st7528_160x100_display_info =
   /* data_setup_time_ns = */ 40,
   /* write_pulse_width_ns = */ 80,	/* st7528 */
   /* tile_width = */ 20,
-  /* tile_hight = */ 13,
+  /* tile_height = */ 13,
   /* default_x_offset = */ 0,		/* x_offset is used as y offset for the ssd1326 */
   /* flipmode_x_offset = */ 0,		/* x_offset is used as y offset for the ssd1326 */
   /* pixel_width = */ 160,
@@ -434,7 +433,7 @@ static const u8x8_display_info_t u8x8_st7528_erc16064_display_info =
   /* data_setup_time_ns = */ 40,
   /* write_pulse_width_ns = */ 80,	/* st7528 */
   /* tile_width = */ 20,
-  /* tile_hight = */ 8,
+  /* tile_height = */ 8,
   /* default_x_offset = */ 0,		/* x_offset is used as y offset for the ssd1326 */
   /* flipmode_x_offset = */ 0,		/* x_offset is used as y offset for the ssd1326 */
   /* pixel_width = */ 160,

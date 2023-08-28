@@ -32,7 +32,7 @@
   ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.  
 
 */
-#if 0
+
 #include "u8x8.h"
 
 #include <stdio.h>
@@ -99,4 +99,3 @@ void u8x8_SetupStdio(u8x8_t *u8x8)
   u8x8->display_cb = u8x8_d_stdio;
 }
 
-#endif

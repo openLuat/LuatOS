@@ -1,6 +1,6 @@
--- 添加i2c.writeReg的使用方法，添加at24cxxx EEPROM 的demo 
+
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "i2c 24c02 demo"
+PROJECT = "at24cdemo"
 VERSION = "1.0.0"
 -- sys库是标配
 sys = require("sys")

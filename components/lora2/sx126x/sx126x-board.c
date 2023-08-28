@@ -124,7 +124,7 @@ void SX126xWriteBuffer2( lora_device_t* lora_device,uint8_t offset, uint8_t *buf
     cmd[0] = RADIO_WRITE_BUFFER;
     cmd[1] = offset;
     memcpy(cmd+2,buffer,size);
-    luat_spi_send(lora_device->lora_spi_id, cmd, 2+size);
+    luat_spi_send(lora_device->lora_spi_id, (const char *)cmd, 2+size);
     lora_spi_transfer(lora_device, cmd, 2+size,NULL,0);
     SX126xWaitOnBusy2(lora_device );
 }

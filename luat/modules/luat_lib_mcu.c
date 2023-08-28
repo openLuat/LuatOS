@@ -295,16 +295,7 @@ static int l_mcu_alt_ctrl(lua_State* L)
 		is_input = lua_toboolean(L, 5);
 	}
 	LLOGD("mcu altfun %d,%d,%d,%d,%d", type, sn, pad, alt_fun, is_input);
-	switch(type)
-	{
-	case LUAT_MCU_PERIPHERAL_UART:
-		break;
-	case LUAT_MCU_PERIPHERAL_I2C:
-		break;
-	case LUAT_MCU_PERIPHERAL_GPIO:
-		luat_gpio_iomux(sn, pad, alt_fun);
-		break;
-	}
+	luat_mcu_iomux_ctrl(type, sn, pad, alt_fun, is_input);
 #else
 	LLOGW("no support mcu.altfun");
 #endif

@@ -218,7 +218,10 @@ static int l_mcu_set_xtal(lua_State* L) {
     return 0;
 }
 // #endif
+#ifdef LUAT_COMPILER_NOWEAK
+#else
 LUAT_WEAK void luat_mcu_set_hardfault_mode(int mode) {;}
+#endif
 /*
 mcu死机时处理模式，目前只有EC618平台适用
 @api mcu.hardfault(mode)

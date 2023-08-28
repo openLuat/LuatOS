@@ -44,6 +44,6 @@ typedef struct luat_gpio
 
 int luat_gpio_setup(luat_gpio_t* gpio);
 void luat_gpio_mode(int pin, int mode, int pull, int initOutput);
-
+int luat_gpio_irq_default(int pin, void* args);
 
 #endif

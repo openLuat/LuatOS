@@ -344,19 +344,6 @@ if socket.sntp then
     end)
 end
 
--- 休眠测试, V1103会有问题
--- mobile.flymode(0, false)
--- sys.taskInit(function()
---     while 1 do
---         sys.wait(60000)
---         if libgnss.isFix() then
---             pm.dtimerStart(0, 30000)
---             pm.request(pm.HIB)
---             pm.power(pm.USB, false)
---             mobile.flymode(0, true)
---         end
---     end
--- end)
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

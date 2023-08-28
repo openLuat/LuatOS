@@ -1742,8 +1742,14 @@ static int w5500_socket_receive(int socket_id, uint64_t tag,  uint8_t *buf, uint
 		else
 		{
 			prv_w5500_ctrl->socket[socket_id].rx_wait_size -= w5500_socket_read_data(buf + read_len, &read_len, len, p);
-			*remote_ip = p->ip;
-			*remote_port = p->port;
+			if (remote_ip)
+			{
+				*remote_ip = p->ip;
+			}
+			if (remote_port)
+			{
+				*remote_port = p->port;
+			}
 		}
 		if (llist_empty(&prv_w5500_ctrl->socket[socket_id].rx_head))
 		{

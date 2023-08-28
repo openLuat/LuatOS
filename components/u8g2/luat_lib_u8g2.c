@@ -22,8 +22,8 @@
 #define LUAT_LOG_TAG "u8g2"
 #include "luat_log.h"
 
-static u8g2_t* u8g2 = NULL;
-static int u8g2_lua_ref = 0;
+static luat_u8g2_conf_t* conf = NULL;
+
 uint8_t pinType = 255; // I2C_SW = 1, I2C_HW = 2, SPI_SW_3PIN = 3, SPI_SW_4PIN = 4, SPI_HW_4PIN=5, P8080 = 6
 static uint8_t i2c_id;
 static uint8_t i2c_speed;
@@ -35,14 +35,46 @@ static uint8_t spi_res;
 static uint8_t spi_dc;
 static uint8_t spi_cs;
 
-static uint8_t * buff_ptr = NULL;
-
 static const char* mode_strs[] = {
     "i2c_sw",
     "i2c_hw",
     "spi_sw_3pin",
     "spi_sw_4pin",
     "spi_hw_4pin"
+};
+
+typedef void (*dev_setup_cb)(u8g2_t *u8g2, const u8g2_cb_t *rotation, u8x8_msg_cb byte_cb, u8x8_msg_cb gpio_and_delay_cb);
+
+typedef struct luat_u8g2_dev_reg
+{
+    const char* name;
+    dev_setup_cb devcb;
+    uint16_t w; // 屏幕宽, 最大值
+    uint16_t h; // 屏幕高, 最大值
+    uint16_t spi_i2c; // 使用 I2C 0, 使用 SPI 1
+}luat_u8g2_dev_reg_t;
+
+static const luat_u8g2_dev_reg_t custom_devregs = {
+    .name="custom", 
+    .devcb=u8g2_Setup_ssd1306_i2c_128x64_noname_f
+};
+
+static const luat_u8g2_dev_reg_t devregs[] = {
+    // ssd1306是默认值
+    {.name="ssd1306", .w=128, .h=64, .spi_i2c=0, .devcb=u8g2_Setup_ssd1306_i2c_128x64_noname_f},       // ssd1306 128x64,I2C
+    {.name="ssd1306", .w=128, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_ssd1306_128x64_noname_f},           // ssd1306 128x64,SPI
+    {.name="ssd1309", .w=128, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_ssd1309_128x64_noname2_f},           // ssd1309 128x64,SPI
+    {.name="ssd1322", .w=256, .h=64, .spi_i2c=0, .devcb=u8g2_Setup_ssd1322_nhd_256x64_f},              // ssd1322 128x64
+    {.name="sh1106",  .w=128, .h=64, .spi_i2c=0, .devcb=u8g2_Setup_sh1106_i2c_128x64_noname_f},        // sh1106 128x64,I2C
+    {.name="sh1106",  .w=128, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_sh1106_128x64_noname_f},        // sh1106 128x64,SPI
+    {.name="sh1107",  .w=64, .h=128, .spi_i2c=0, .devcb=u8g2_Setup_ssd1306_i2c_128x64_noname_f},       // sh1107 64x128
+    {.name="sh1108",  .w=160, .h=160, .spi_i2c=0, .devcb=u8g2_Setup_sh1108_i2c_160x160_f},          // sh1108 160x160
+    {.name="st7567",  .w=128, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_st7567_jlx12864_f},                 // st7567 128x64
+    {.name="uc1701",  .w=128, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_uc1701_mini12864_f},                // uc1701
+    {.name="ssd1306_128x32", .w=128, .h=32, .spi_i2c=0, .devcb=u8g2_Setup_ssd1306_i2c_128x32_univision_f},       // ssd1306 128x32,I2C
+    {.name="st7565", .w=132, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_st7565_ea_dogm132_f},       // st7565 128x32,SPI
+    {.name="st7565_jlx12864g109pc",  .w=128, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_st7565_jlx12864g109pc_f}, // 2023年8月4日 晶联讯12864G-109-PC,12864G-139-P
+    {.name=NULL} // 结尾用,必须加.
 };
 
 /*
@@ -60,21 +92,19 @@ u8g2.begin({ic = "ssd1306",direction = 0,mode="i2c_sw", i2c_scl=1, i2c_sda=4}) -
 
 */
 static int l_u8g2_begin(lua_State *L) {
-    if (u8g2 != NULL) {
+    if (conf != NULL) {
         LLOGW("disp is aready inited");
         lua_pushinteger(L, 2);
         return 1;
     }
-    u8g2 = (u8g2_t*)lua_newuserdata(L, sizeof(u8g2_t));
-    if (u8g2 == NULL) {
+    conf = (u8g2_t*)lua_newuserdata(L, sizeof(luat_u8g2_conf_t));
+    if (conf == NULL) {
         LLOGE("lua_newuserdata return NULL, out of memory ?!");
         lua_pushinteger(L, 3);
         return 1;
     }
-
-    luat_u8g2_conf_t conf = {0};
-    conf.ptr = u8g2;
-    conf.direction = U8G2_R0;
+    conf->u8g2.u8x8.user_ptr = conf;
+    conf->direction = U8G2_R0;
     char mode[12] = {0};
     size_t mode_len = 0;
     if (lua_istable(L, 1)) {
@@ -82,7 +112,7 @@ static int l_u8g2_begin(lua_State *L) {
         lua_pushliteral(L, "ic");
         lua_gettable(L, 1);
         if (lua_isstring(L, -1)) {
-            conf.cname = (char*)luaL_checkstring(L, -1);
+            conf->cname = (char*)luaL_checkstring(L, -1);
             //LLOGD("using ic: %s",conf.cname);
         }
         lua_pop(L, 1);
@@ -94,20 +124,20 @@ static int l_u8g2_begin(lua_State *L) {
             switch (direction)
             {
             case 0:
-                conf.direction = U8G2_R0;
+                conf->direction = U8G2_R0;
                 break;
             case 90:
-                conf.direction = U8G2_R1;
+                conf->direction = U8G2_R1;
                 break;
             case 180:
-                conf.direction = U8G2_R2;
+                conf->direction = U8G2_R2;
                 break;
             case 270:
-                conf.direction = U8G2_R3;
+                conf->direction = U8G2_R3;
                 break;
 
             default:
-                conf.direction = U8G2_R0;
+                conf->direction = U8G2_R0;
                 break;
             }
         }
@@ -195,16 +225,17 @@ static int l_u8g2_begin(lua_State *L) {
         lua_pop(L, 1);
 
     }
-    LLOGD("driver %s mode %s", conf.cname, mode);
-    if (luat_u8g2_setup(&conf)) {
-        u8g2 = NULL;
+    LLOGD("driver %s mode %s", conf->cname, mode);
+    if (luat_u8g2_setup(conf)) {
+        luat_heap_free(conf);
+        conf = NULL;
         LLOGW("disp init fail");
         lua_pushinteger(L, 4);
         return 1; // 初始化失败
     }
     LLOGD("setup done");
-    u8g2_lua_ref = luaL_ref(L, LUA_REGISTRYINDEX);
-    u8g2_SetFont(u8g2, u8g2_font_ncenB08_tr); // 设置默认字体
+    conf->lua_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    u8g2_SetFont(&conf->u8g2, u8g2_font_ncenB08_tr); // 设置默认字体
     lua_pushinteger(L, 1);
     return 1;
 }
@@ -217,21 +248,24 @@ static int l_u8g2_begin(lua_State *L) {
 u8g2.close()
 */
 static int l_u8g2_close(lua_State *L) {
-    if (u8g2_lua_ref != 0) {
-        lua_geti(L, LUA_REGISTRYINDEX, u8g2_lua_ref);
+    if (conf == NULL) return 0;
+    if (conf->lua_ref != 0) {
+        lua_geti(L, LUA_REGISTRYINDEX, conf->lua_ref);
         if (lua_isuserdata(L, -1)) {
-            luaL_unref(L, LUA_REGISTRYINDEX, u8g2_lua_ref);
+            luaL_unref(L, LUA_REGISTRYINDEX, conf->lua_ref);
         }
-        u8g2_lua_ref = 0;
+        conf->lua_ref = 0;
     }
     // buff也得释放掉
-    if (buff_ptr != NULL) {
-        luat_heap_free(buff_ptr);
-        buff_ptr = NULL;
+    if (conf->buff_ptr != NULL) {
+        luat_heap_free(conf->buff_ptr);
+        conf->buff_ptr = NULL;
     }
+
     lua_gc(L, LUA_GCCOLLECT, 0);
     lua_gc(L, LUA_GCCOLLECT, 0);
-    u8g2 = NULL;
+    luat_heap_free(conf);
+    conf = NULL;
     return 0;
 }
 
@@ -243,8 +277,8 @@ static int l_u8g2_close(lua_State *L) {
 u8g2.ClearBuffer()
 */
 static int l_u8g2_ClearBuffer(lua_State *L) {
-    if (u8g2 == NULL) return 0;
-    u8g2_ClearBuffer(u8g2);
+    if (conf == NULL) return 0;
+    u8g2_ClearBuffer(&conf->u8g2);
     return 0;
 }
 
@@ -256,8 +290,8 @@ static int l_u8g2_ClearBuffer(lua_State *L) {
 u8g2.SendBuffer()
 */
 static int l_u8g2_SendBuffer(lua_State *L) {
-    if (u8g2 == NULL) return 0;
-    u8g2_SendBuffer(u8g2);
+    if (conf == NULL) return 0;
+    u8g2_SendBuffer(&conf->u8g2);
     return 0;
 }
 
@@ -271,7 +305,7 @@ static int l_u8g2_SendBuffer(lua_State *L) {
 u8g2.DrawUTF8("wifi is ready", 10, 20)
 */
 static int l_u8g2_DrawUTF8(lua_State *L) {
-    if (u8g2 == NULL) {
+    if (conf == NULL) {
         LLOGW("disp not init yet!!!");
         return 0;
     }
@@ -282,7 +316,7 @@ static int l_u8g2_DrawUTF8(lua_State *L) {
     x = luaL_checkinteger(L, 2);
     y = luaL_checkinteger(L, 3);
 
-    u8g2_DrawUTF8(u8g2, x, y, str);
+    u8g2_DrawUTF8(&conf->u8g2, x, y, str);
     return 0;
 }
 
@@ -300,7 +334,7 @@ static int l_u8g2_DrawUTF8(lua_State *L) {
 u8g2.DrawButtonUTF8("str", 10, 20,u8g2.BTN_BW2,0,2,2)
 */
 static int l_u8g2_DrawButtonUTF8(lua_State *L) {
-    if (u8g2 == NULL) {
+    if (conf == NULL) {
         LLOGW("disp not init yet!!!");
         return 0;
     }
@@ -315,7 +349,7 @@ static int l_u8g2_DrawButtonUTF8(lua_State *L) {
     h = luaL_checkinteger(L, 6);
     v = luaL_checkinteger(L, 7);
 
-    u8g2_DrawButtonUTF8(u8g2, x, y, flags, w, h, v, str);
+    u8g2_DrawButtonUTF8(&conf->u8g2, x, y, flags, w, h, v, str);
     return 0;
 }
 
@@ -327,13 +361,13 @@ static int l_u8g2_DrawButtonUTF8(lua_State *L) {
 u8g2.SetFontMode(1)
 */
 static int l_u8g2_SetFontMode(lua_State *L){
-    if (u8g2 == NULL) return 0;
+    if (conf == NULL) return 0;
     int font_mode = luaL_checkinteger(L, 1);
     if (font_mode < 0) {
         lua_pushboolean(L, 0);
     }
-    u8g2_SetFontMode(u8g2, font_mode);
-    u8g2_SetFontDirection(u8g2, 0);
+    u8g2_SetFontMode(&conf->u8g2, font_mode);
+    u8g2_SetFontDirection(&conf->u8g2, 0);
     lua_pushboolean(L, 1);
     return 1;
 }
@@ -347,7 +381,7 @@ static int l_u8g2_SetFontMode(lua_State *L){
 u8g2.SetFont(u8g2.font_opposansm12)
 */
 static int l_u8g2_SetFont(lua_State *L) {
-    if (u8g2 == NULL) {
+    if (conf == NULL) {
         LLOGI("u8g2 not init yet!!!");
         lua_pushboolean(L, 0);
         return 1;
@@ -361,7 +395,7 @@ static int l_u8g2_SetFont(lua_State *L) {
         LLOGE("only font pointer is allow");
         return 0;
     }
-    u8g2_SetFont(u8g2, ptr);
+    u8g2_SetFont(&conf->u8g2, ptr);
     lua_pushboolean(L, 1);
     return 1;
 }
@@ -374,8 +408,8 @@ static int l_u8g2_SetFont(lua_State *L) {
 u8g2.GetDisplayHeight()
 */
 static int l_u8g2_GetDisplayHeight(lua_State *L){
-    if (u8g2 == NULL) return 0;
-    lua_pushinteger(L, u8g2_GetDisplayHeight(u8g2));
+    if (conf == NULL) return 0;
+    lua_pushinteger(L, u8g2_GetDisplayHeight(&conf->u8g2));
     return 1;
 }
 
@@ -387,8 +421,8 @@ static int l_u8g2_GetDisplayHeight(lua_State *L){
 u8g2.GetDisplayWidth()
 */
 static int l_u8g2_GetDisplayWidth(lua_State *L){
-    if (u8g2 == NULL) return 0;
-    lua_pushinteger(L, u8g2_GetDisplayWidth(u8g2));
+    if (conf == NULL) return 0;
+    lua_pushinteger(L, u8g2_GetDisplayWidth(&conf->u8g2));
     return 1;
 }
 
@@ -400,8 +434,8 @@ static int l_u8g2_GetDisplayWidth(lua_State *L){
 u8g2.SetDrawColor(0)
 */
 static int l_u8g2_SetDrawColor(lua_State *L){
-    if (u8g2 == NULL) return 0;
-    u8g2_SetDrawColor(u8g2,luaL_checkinteger(L, 1));
+    if (conf == NULL) return 0;
+    u8g2_SetDrawColor(&conf->u8g2,luaL_checkinteger(L, 1));
     return 0;
 }
 
@@ -415,8 +449,8 @@ static int l_u8g2_SetDrawColor(lua_State *L){
 u8g2.DrawPixel(20, 5)
 */
 static int l_u8g2_DrawPixel(lua_State *L){
-    if (u8g2 == NULL) return 0;
-    u8g2_DrawPixel(u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2));
+    if (conf == NULL) return 0;
+    u8g2_DrawPixel(&conf->u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2));
     return 0;
 }
 
@@ -431,8 +465,8 @@ static int l_u8g2_DrawPixel(lua_State *L){
 u8g2.DrawLine(20, 5, 5, 32)
 */
 static int l_u8g2_DrawLine(lua_State *L){
-    if (u8g2 == NULL) return 0;
-    u8g2_DrawLine(u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_checkinteger(L, 4));
+    if (conf == NULL) return 0;
+    u8g2_DrawLine(&conf->u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_checkinteger(L, 4));
     return 0;
 }
 
@@ -447,8 +481,8 @@ static int l_u8g2_DrawLine(lua_State *L){
 u8g2.DrawCircle(60,30,8,u8g2.DRAW_ALL)
 */
 static int l_u8g2_DrawCircle(lua_State *L){
-    if (u8g2 == NULL) return 0;
-    u8g2_DrawCircle(u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_optinteger(L, 4,U8G2_DRAW_ALL));
+    if (conf == NULL) return 0;
+    u8g2_DrawCircle(&conf->u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_optinteger(L, 4,U8G2_DRAW_ALL));
     return 0;
 }
 
@@ -463,8 +497,8 @@ static int l_u8g2_DrawCircle(lua_State *L){
 u8g2.DrawDisc(60,30,8,u8g2.DRAW_ALL)
 */
 static int l_u8g2_DrawDisc(lua_State *L){
-    if (u8g2 == NULL) return 0;
-    u8g2_DrawDisc(u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_optinteger(L, 4,U8G2_DRAW_ALL));
+    if (conf == NULL) return 0;
+    u8g2_DrawDisc(&conf->u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_optinteger(L, 4,U8G2_DRAW_ALL));
     return 0;
 }
 
@@ -480,8 +514,8 @@ static int l_u8g2_DrawDisc(lua_State *L){
 u8g2.DrawEllipse(60,30,8,u8g2.DRAW_ALL)
 */
 static int l_u8g2_DrawEllipse(lua_State *L){
-    if (u8g2 == NULL) return 0;
-    u8g2_DrawEllipse(u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_checkinteger(L, 4),luaL_optinteger(L, 5,U8G2_DRAW_ALL));
+    if (conf == NULL) return 0;
+    u8g2_DrawEllipse(&conf->u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_checkinteger(L, 4),luaL_optinteger(L, 5,U8G2_DRAW_ALL));
     return 0;
 }
 
@@ -497,8 +531,8 @@ static int l_u8g2_DrawEllipse(lua_State *L){
 u8g2.DrawFilledEllipse(60,30,8,15)
 */
 static int l_u8g2_DrawFilledEllipse(lua_State *L){
-    if (u8g2 == NULL) return 0;
-    u8g2_DrawFilledEllipse(u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_checkinteger(L, 4),luaL_optinteger(L, 5,U8G2_DRAW_ALL));
+    if (conf == NULL) return 0;
+    u8g2_DrawFilledEllipse(&conf->u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_checkinteger(L, 4),luaL_optinteger(L, 5,U8G2_DRAW_ALL));
     return 0;
 }
 
@@ -513,8 +547,8 @@ static int l_u8g2_DrawFilledEllipse(lua_State *L){
 u8g2.DrawBox(3,7,25,15)
 */
 static int l_u8g2_DrawBox(lua_State *L){
-    if (u8g2 == NULL) return 0;
-    u8g2_DrawBox(u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_checkinteger(L, 4));
+    if (conf == NULL) return 0;
+    u8g2_DrawBox(&conf->u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_checkinteger(L, 4));
     return 0;
 }
 
@@ -529,8 +563,8 @@ static int l_u8g2_DrawBox(lua_State *L){
 u8g2.DrawFrame(3,7,25,15)
 */
 static int l_u8g2_DrawFrame(lua_State *L){
-    if (u8g2 == NULL) return 0;
-    u8g2_DrawFrame(u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_checkinteger(L, 4));
+    if (conf == NULL) return 0;
+    u8g2_DrawFrame(&conf->u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_checkinteger(L, 4));
     return 0;
 }
 
@@ -546,8 +580,8 @@ static int l_u8g2_DrawFrame(lua_State *L){
 u8g2.DrawRBox(3,7,25,15)
 */
 static int l_u8g2_DrawRBox(lua_State *L){
-    if (u8g2 == NULL) return 0;
-    u8g2_DrawRBox(u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_checkinteger(L, 4),luaL_checkinteger(L, 5));
+    if (conf == NULL) return 0;
+    u8g2_DrawRBox(&conf->u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_checkinteger(L, 4),luaL_checkinteger(L, 5));
     return 0;
 }
 
@@ -563,8 +597,8 @@ static int l_u8g2_DrawRBox(lua_State *L){
 u8g2.DrawRFrame(3,7,25,15)
 */
 static int l_u8g2_DrawRFrame(lua_State *L){
-    if (u8g2 == NULL) return 0;
-    u8g2_DrawRFrame(u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_checkinteger(L, 4),luaL_checkinteger(L, 5));
+    if (conf == NULL) return 0;
+    u8g2_DrawRFrame(&conf->u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_checkinteger(L, 4),luaL_checkinteger(L, 5));
     return 0;
 }
 
@@ -579,8 +613,8 @@ u8g2.SetFont(u8g2_font_unifont_t_symbols)
 u8g2.DrawGlyph(5, 20, 0x2603)	-- dec 9731/hex 2603 Snowman
 */
 static int l_u8g2_DrawGlyph(lua_State *L){
-    if (u8g2 == NULL) return 0;
-    u8g2_DrawGlyph(u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3));
+    if (conf == NULL) return 0;
+    u8g2_DrawGlyph(&conf->u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3));
     return 0;
 }
 
@@ -597,8 +631,8 @@ static int l_u8g2_DrawGlyph(lua_State *L){
 u8g2.DrawTriangle(20,5, 27,50, 5,32)
 */
 static int l_u8g2_DrawTriangle(lua_State *L){
-    if (u8g2 == NULL) return 0;
-    u8g2_DrawTriangle(u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_checkinteger(L, 4),luaL_checkinteger(L, 5),luaL_checkinteger(L, 6));
+    if (conf == NULL) return 0;
+    u8g2_DrawTriangle(&conf->u8g2,luaL_checkinteger(L, 1),luaL_checkinteger(L, 2),luaL_checkinteger(L, 3),luaL_checkinteger(L, 4),luaL_checkinteger(L, 5),luaL_checkinteger(L, 6));
     return 0;
 }
 
@@ -610,8 +644,8 @@ static int l_u8g2_DrawTriangle(lua_State *L){
 u8g2.SetBitmapMode(1)
 */
 static int l_u8g2_SetBitmapMode(lua_State *L){
-    if (u8g2 == NULL) return 0;
-    u8g2_SetBitmapMode(u8g2,luaL_checkinteger(L, 1));
+    if (conf == NULL) return 0;
+    u8g2_SetBitmapMode(&conf->u8g2,luaL_checkinteger(L, 1));
     return 0;
 }
 
@@ -632,7 +666,7 @@ u8g2.DrawXBM(0, 0, 16,16, string.char(
 ))
 */
 static int l_u8g2_DrawXBM(lua_State *L){
-    if (u8g2 == NULL) return 0;
+    if (conf == NULL) return 0;
     int x = luaL_checkinteger(L, 1);
     int y = luaL_checkinteger(L, 2);
     int w = luaL_checkinteger(L, 3);
@@ -642,7 +676,7 @@ static int l_u8g2_DrawXBM(lua_State *L){
     if (h < 1) return 0; // 行数必须大于0
     if (len*8/h < w) return 0; // 起码要填满一行
     if (len != h*w/8)return 0;
-    u8g2_DrawXBM(u8g2, x, y, w, h, (const uint8_t*)data);
+    u8g2_DrawXBM(&conf->u8g2, x, y, w, h, (const uint8_t*)data);
     lua_pushboolean(L, 1);
     return 1;
 }
@@ -689,7 +723,7 @@ static int l_u8g2_DrawDrcode(lua_State *L)
         for (int j = 0; j < qr_size; j++) {
             for (int i = 0; i < qr_size; i++) {
                 if (qrcodegen_getModule(qrcode, i, j))
-                    u8g2_DrawBox(u8g2,x+i*scale,y+j*scale,scale,scale);
+                    u8g2_DrawBox(&conf->u8g2,x+i*scale,y+j*scale,scale,scale);
             }
         }
     }else{
@@ -711,8 +745,8 @@ end:
 */
 static int l_u8g2_SetContrast(lua_State *L)
 {
-    if (u8g2 == NULL) return 0;
-    u8g2_SetContrast(u8g2,luaL_checkinteger(L, 1));
+    if (conf == NULL) return 0;
+    u8g2_SetContrast(&conf->u8g2,luaL_checkinteger(L, 1));
     return 0;
 }
 
@@ -724,7 +758,7 @@ extern unsigned int gtfont_draw_w(unsigned char *pBits,unsigned int x,unsigned i
 extern void gtfont_draw_gray_hz(unsigned char *data,unsigned short x,unsigned short y,unsigned short w ,unsigned short h,unsigned char grade, unsigned char HB_par,int(*point)(void*,uint16_t, uint16_t, uint32_t),void* userdata,int mode);
 
 static int gtfont_u8g2_DrawPixel(u8g2_t *u8g2, uint16_t x, uint16_t y,uint32_t color){
-    u8g2_DrawPixel(u8g2,x, y);
+    u8g2_DrawPixel(&conf->u8g2,x, y);
     return 1;
 }
 
@@ -760,7 +794,7 @@ static int l_u8g2_draw_gtfont_gb2312(lua_State *L) {
             LLOGW("get gtfont error size:%d font_size:%d",size,font_size);
             return 0;
         }
-		gtfont_draw_w(buf , x ,y , font_size,size , size,gtfont_u8g2_DrawPixel,u8g2,2);
+		gtfont_draw_w(buf , x ,y , font_size,size , size,gtfont_u8g2_DrawPixel,&conf->u8g2,2);
 		x+=size;
 		i+=2;
 	}
@@ -855,7 +889,7 @@ static int l_u8g2_draw_gtfont_utf8(lua_State *L) {
                 LLOGW("get gtfont error size:%d font_size:%d",size,font_size);
                 return 0;
             }
-            gtfont_draw_w(buf , x ,y , font_size,size , size,gtfont_u8g2_DrawPixel,u8g2,2);
+            gtfont_draw_w(buf , x ,y , font_size,size , size,gtfont_u8g2_DrawPixel,&conf->u8g2,2);
             x+=size;
         }
     }
@@ -1047,35 +1081,6 @@ uint8_t u8x8_luat_byte_4wire_hw_spi_default(u8x8_t *u8x8, uint8_t msg, uint8_t a
 
 int luat_u8g2_setup_default(luat_u8g2_conf_t *conf);
 
-typedef void (*dev_setup_cb)(u8g2_t *u8g2, const u8g2_cb_t *rotation, u8x8_msg_cb byte_cb, u8x8_msg_cb gpio_and_delay_cb);
-
-typedef struct luat_u8g2_dev_reg
-{
-    const char* name;
-    dev_setup_cb devcb;
-    uint16_t w; // 屏幕宽, 最大值
-    uint16_t h; // 屏幕高, 最大值
-    uint16_t spi_i2c; // 使用 I2C 0, 使用 SPI 1
-}luat_u8g2_dev_reg_t;
-
-static const luat_u8g2_dev_reg_t devregs[] = {
-    // ssd1306是默认值
-    {.name="ssd1306", .w=128, .h=64, .spi_i2c=0, .devcb=u8g2_Setup_ssd1306_i2c_128x64_noname_f},       // ssd1306 128x64,I2C
-    {.name="ssd1306", .w=128, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_ssd1306_128x64_noname_f},           // ssd1306 128x64,SPI
-    {.name="ssd1309", .w=128, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_ssd1309_128x64_noname2_f},           // ssd1309 128x64,SPI
-    {.name="ssd1322", .w=256, .h=64, .spi_i2c=0, .devcb=u8g2_Setup_ssd1322_nhd_256x64_f},              // ssd1322 128x64
-    {.name="sh1106",  .w=128, .h=64, .spi_i2c=0, .devcb=u8g2_Setup_sh1106_i2c_128x64_noname_f},        // sh1106 128x64,I2C
-    {.name="sh1106",  .w=128, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_sh1106_128x64_noname_f},        // sh1106 128x64,SPI
-    {.name="sh1107",  .w=64, .h=128, .spi_i2c=0, .devcb=u8g2_Setup_ssd1306_i2c_128x64_noname_f},       // sh1107 64x128
-    {.name="sh1108",  .w=160, .h=160, .spi_i2c=0, .devcb=u8g2_Setup_sh1108_i2c_160x160_f},          // sh1108 160x160
-    {.name="st7567",  .w=128, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_st7567_jlx12864_f},                 // st7567 128x64
-    {.name="uc1701",  .w=128, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_uc1701_mini12864_f},                // uc1701
-    {.name="ssd1306_128x32", .w=128, .h=32, .spi_i2c=0, .devcb=u8g2_Setup_ssd1306_i2c_128x32_univision_f},       // ssd1306 128x32,I2C
-    {.name="st7565", .w=132, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_st7565_ea_dogm132_f},       // st7565 128x32,SPI
-    {.name="st7565_jlx12864g109pc",  .w=128, .h=64, .spi_i2c=1, .devcb=u8g2_Setup_st7565_jlx12864g109pc_f}, // 2023年8月4日 晶联讯12864G-109-PC,12864G-139-P
-    {.name=NULL} // 结尾用,必须加.
-};
-
 static const luat_u8g2_dev_reg_t* search_dev_reg(luat_u8g2_conf_t *conf, uint16_t spi_i2c) {
     size_t dev_reg_index = 0;
     while (devregs[dev_reg_index].name != NULL){
@@ -1103,63 +1108,43 @@ LUAT_WEAK uint8_t u8x8_luat_byte_4wire_hw_spi(u8x8_t *u8x8, uint8_t msg, uint8_t
 #endif
 
 int luat_u8g2_setup_default(luat_u8g2_conf_t *conf) {
-    u8g2_t* u8g2 = (u8g2_t*)conf->ptr;
+    u8g2_t* u8g2 = &conf->u8g2;
     const luat_u8g2_dev_reg_t* devreg = NULL;
-    // LLOGD("conf->pinType %d", conf->pinType);
-    if (pinType == 1) {
+    LLOGD("pinType %d", pinType);
+    if (strcmp("custom", conf->cname) == 0){
+        LLOGD("custom dev %s", conf->cname);
+        devreg = &custom_devregs;
+    }else{
         devreg = search_dev_reg(conf, 0);
         if (devreg == NULL) {
             LLOGD("unkown dev %s", conf->cname);
             return -1;
         }
+    }
+    if (pinType == 1) {
         devreg->devcb(u8g2, conf->direction, u8x8_byte_sw_i2c, u8x8_luat_gpio_and_delay_default);
-        #ifdef U8G2_USE_DYNAMIC_ALLOC
-        buff_ptr = (uint8_t *)luat_heap_malloc(u8g2_GetBufferSize(u8g2));
-        u8g2_SetBufferPtr(u8g2, buff_ptr);
-        #endif
         u8g2->u8x8.pins[U8X8_PIN_I2C_CLOCK] = i2c_scl;
         u8g2->u8x8.pins[U8X8_PIN_I2C_DATA] = i2c_sda;
-        u8g2_InitDisplay(u8g2);
-        u8g2_SetPowerSave(u8g2, 0);
-        return 0;
     }else if (pinType == 2) {
-        devreg = search_dev_reg(conf, 0);
-        if (devreg == NULL) {
-            LLOGD("unkown dev %s", conf->cname);
-            return -1;
-        }
         devreg->devcb(u8g2, conf->direction, u8x8_luat_byte_hw_i2c_default, u8x8_luat_gpio_and_delay_default);
-        #ifdef U8G2_USE_DYNAMIC_ALLOC
-        buff_ptr = (uint8_t *)luat_heap_malloc(u8g2_GetBufferSize(u8g2));
-        u8g2_SetBufferPtr(u8g2, buff_ptr);
-        #endif
         //LLOGD("setup disp i2c.hw");
-        u8g2_InitDisplay(u8g2);
-        u8g2_SetPowerSave(u8g2, 0);
-        return 0;
     }else if (pinType == 5) {
-        devreg = search_dev_reg(conf, 1);
-        if (devreg == NULL) {
-            LLOGD("unkown dev %s", conf->cname);
-            return -1;
-        }
         devreg->devcb(u8g2, conf->direction, u8x8_luat_byte_4wire_hw_spi_default, u8x8_luat_gpio_and_delay_default);
-        #ifdef U8G2_USE_DYNAMIC_ALLOC
-        buff_ptr = (uint8_t *)luat_heap_malloc(u8g2_GetBufferSize(u8g2));
-        u8g2_SetBufferPtr(u8g2, buff_ptr);
-        #endif
         LLOGD("setup disp spi.hw  spi_id=%d spi_dc=%d spi_cs=%d spi_res=%d",spi_id,spi_dc,spi_cs,spi_res);
         u8x8_SetPin(u8g2_GetU8x8(u8g2), U8X8_PIN_CS, spi_cs);
         u8x8_SetPin(u8g2_GetU8x8(u8g2), U8X8_PIN_DC, spi_dc);
         u8x8_SetPin(u8g2_GetU8x8(u8g2), U8X8_PIN_RESET, spi_res);
-        u8g2_InitDisplay(u8g2);
-        u8g2_SetPowerSave(u8g2, 0);
-        return 0;
-    }
-    else {
+    } else {
         LLOGI("no such u8g2 mode!!");
+        return -1;
     }
-    return -1;
+    #ifdef U8G2_USE_DYNAMIC_ALLOC
+    conf->buff_ptr = (uint8_t *)luat_heap_malloc(u8g2_GetBufferSize(u8g2));
+    u8g2_SetBufferPtr(u8g2, conf->buff_ptr);
+    #endif
+    u8g2_InitDisplay(u8g2);
+    u8g2_SetPowerSave(u8g2, 0);
+    return 0;
 }
 
 LUAT_WEAK int luat_u8g2_close(luat_u8g2_conf_t *conf) {

@@ -525,6 +525,9 @@ end
 status = rc522.select(id)
 ]]
 function rc522.select(id)
+    if not id then
+        return false
+    end
     local buff = {}
     buff[1]=rc522_anticoll1
     buff[2]=0x70

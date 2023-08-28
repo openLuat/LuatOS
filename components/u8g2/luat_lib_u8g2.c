@@ -227,7 +227,6 @@ static int l_u8g2_begin(lua_State *L) {
     }
     LLOGD("driver %s mode %s", conf->cname, mode);
     if (luat_u8g2_setup(conf)) {
-        luat_heap_free(conf);
         conf = NULL;
         LLOGW("disp init fail");
         lua_pushinteger(L, 4);
@@ -261,11 +260,9 @@ static int l_u8g2_close(lua_State *L) {
         luat_heap_free(conf->buff_ptr);
         conf->buff_ptr = NULL;
     }
-
-    lua_gc(L, LUA_GCCOLLECT, 0);
-    lua_gc(L, LUA_GCCOLLECT, 0);
-    luat_heap_free(conf);
     conf = NULL;
+    lua_gc(L, LUA_GCCOLLECT, 0);
+    lua_gc(L, LUA_GCCOLLECT, 0);
     return 0;
 }
 

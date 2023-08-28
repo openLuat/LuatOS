@@ -49,6 +49,18 @@ sys.taskInit(function()
     log.info("fdb", "my_str_int",     type(fdb.kv_get("my_str_int")),   fdb.kv_get("my_str_int"))
     log.info("fdb", "1 byte key",     type(fdb.kv_get("1")),   json.encode(fdb.kv_get("1")))
 
+    if fdb.sett then
+        local ret = fdb.sett("mytable", "wendal", 123)
+        log.info("ret", ret, json.encode(ret))
+        ret = fdb.sett("mytable", "age", 18)
+        log.info("ret", ret, json.encode(ret))
+        ret = fdb.sett("mytable", "city", "guangzhou")
+        log.info("ret", ret, json.encode(ret))
+        ret = fdb.sett("mytable", "nickname", "wendal")
+        log.info("ret", ret, json.encode(ret))
+        log.info("fdb", "mytable",     type(fdb.kv_get("mytable")),   json.encode(fdb.kv_get("mytable")))
+    end
+
     -- 删除测试
     fdb.kv_del("my_bool")
     local t = fdb.kv_get("my_bool")

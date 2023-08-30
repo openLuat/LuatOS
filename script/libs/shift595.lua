@@ -90,7 +90,7 @@ function shift595.out(dat,endian)
     end
 end
 
---
+
 --[[
 给74hc595芯片的RCLK线一个高脉冲，使得移位寄存器中的数据转移到锁存器中，当OE使能时，数据就输出到QA~QH引脚上。
 如果初始化时没用到rclk引脚则此函数调用无效。

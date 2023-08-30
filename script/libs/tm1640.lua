@@ -121,6 +121,8 @@ end
 --[[
 向TM1640的一个指定的位(grid)对应的显存发送指定的段数据进行显示
 @api tm1640.sendDisplayData(grid,seg_data)
+@number grid，定义位选参数，取值为tm1640.GRID1~tm1640.GRID16
+@number seg_data，定义段数据参数
 @usage
 tm1640.sendDisplayData(tm1640.GRID1,0xff)
 ]]

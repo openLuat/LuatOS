@@ -200,13 +200,16 @@ end
 
 
 sys.taskInit(function()
-    testucs2ToGb2312(string.fromHex("1162")) -- "1162"是"我"字的ucs2编码，这里调用了string.fromHex将参数转化为二进制，也就是两个字节。
-    testgb2312ToUcs2(string.fromHex("CED2")) -- "CED2"是"我"字的gb22312编码
-    testucs2beToGb2312(string.fromHex("6211")) -- "6211"是"我"字的ucs2be编码
-    testgb2312ToUcs2be(string.fromHex("CED2"))
-    testucs2ToUtf8(string.fromHex("1162"))
-    testutf8ToGb2312(string.fromHex("E68891")) -- "E68891"是"我"字的utf8编码
-    testgb2312ToUtf8(string.fromHex("CED2"))
+    while 1 do
+        sys.wait(1000)
+        testucs2ToGb2312(string.fromHex("1162")) -- "1162"是"我"字的ucs2编码，这里调用了string.fromHex将参数转化为二进制，也就是两个字节。
+        testgb2312ToUcs2(string.fromHex("CED2")) -- "CED2"是"我"字的gb22312编码
+        testucs2beToGb2312(string.fromHex("6211")) -- "6211"是"我"字的ucs2be编码
+        testgb2312ToUcs2be(string.fromHex("CED2"))
+        testucs2ToUtf8(string.fromHex("1162"))
+        testutf8ToGb2312(string.fromHex("E68891")) -- "E68891"是"我"字的utf8编码
+        testgb2312ToUtf8(string.fromHex("CED2"))
+    end
 end)
 
 -- 用户代码已结束---------------------------------------------

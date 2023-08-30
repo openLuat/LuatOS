@@ -170,7 +170,7 @@ static int Liconv(lua_State *L) {
     lua_pushlstring(L, outbufs, obsize - obleft);
     if (hasone == 1)
         lua_concat(L, 2);
-    free(outbufs);
+    luat_heap_free(outbufs);
     return 1;   /* Done */
 }
 

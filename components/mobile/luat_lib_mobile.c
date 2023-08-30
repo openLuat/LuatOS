@@ -788,6 +788,22 @@ mobile.flymode(0,true)
 mobile.config(mobile.CONF_RESELTOWEAKNCELL, 15)
 mobile.config(mobile.CONF_STATICCONFIG, 1) --开启网络静态优化
 mobile.flymode(0,false)
+
+-- EC618设置SIM写入次数的统计
+-- 关闭统计
+mobile.config(mobile.CONF_SIM_WC_MODE, 0)
+-- 开启统计, 默认也是开启的.
+mobile.config(mobile.CONF_SIM_WC_MODE, 1)
+-- 读取统计值,异步, 需要通过系统消息SIM_IND获取
+sys.subscribe("SIM_IND", function(stats, value)
+    log.info("SIM_IND", stats)
+    if stats == "SIM_WC" then
+        log.info("sim", "write counter", value)
+    end
+end)
+mobile.config(mobile.CONF_SIM_WC_MODE, 2)
+-- 清空统计值
+mobile.config(mobile.CONF_SIM_WC_MODE, 3)
  */
 static int l_mobile_config(lua_State* L) {
     uint8_t item = luaL_optinteger(L, 1, 0);
@@ -967,6 +983,8 @@ static const rotable_Reg_t reg_mobile[] = {
 	{"CONF_PSM_MODE",           ROREG_INT(MOBILE_CONF_PSM_MODE)},
 	//@const CONF_CE_MODE number attach模式，0为EPS ONLY 2为混合，遇到IMSI detach脱网问题，设置为0，注意设置为EPS ONLY时会取消短信功能
 	{"CONF_CE_MODE",            ROREG_INT(MOBILE_CONF_CE_MODE)},
+    //@const CONF_SIM_WC_MODE number SIM写入次数的配置和读取
+    {"CONF_SIM_WC_MODE",        ROREG_INT(MOBILE_CONF_SIM_WC_MODE)},
 	//@const PIN_VERIFY number 验证PIN码操作
 	{"PIN_VERIFY",              ROREG_INT(LUAT_SIM_PIN_VERIFY)},
 	//@const PIN_CHANGE number 更换PIN码操作
@@ -990,6 +1008,7 @@ static int l_mobile_event_handle(lua_State* L, void* ptr) {
     uint8_t index;
     uint8_t status;
     int ret;
+
 
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     event = msg->arg1;
@@ -1016,13 +1035,14 @@ static int l_mobile_event_handle(lua_State* L, void* ptr) {
 sim卡状态变化
 SIM_IND
 @usage
-sys.subscribe("SIM_IND", function(status)
+sys.subscribe("SIM_IND", function(status, value)
     -- status的取值有:
-    -- RDY SIM卡就绪
-    -- NORDY 无SIM卡
-    -- SIM_PIN 需要输入PIN
-    -- GET_NUMBER 获取到电话号码(不一定有值)
-    log.info("sim status", status)
+    -- RDY SIM卡就绪, value为nil
+    -- NORDY 无SIM卡, value为nil
+    -- SIM_PIN 需要输入PIN, value为nil
+    -- GET_NUMBER 获取到电话号码(不一定有值), value为nil
+    -- SIM_WC SIM卡的写入次数统计,掉电归0, value为统计值
+    log.info("sim status", status, value)
 end)
 */
         switch (status)
@@ -1046,6 +1066,14 @@ end)
             lua_pushstring(L, "SIM_IND");
             lua_pushstring(L, "GET_NUMBER");
             lua_call(L, 2, 0);
+            break;
+        case LUAT_MOBILE_SIM_WC:
+            lua_pushstring(L, "SIM_IND");
+            lua_pushstring(L, "SIM_WC");
+            uint32_t tmp = 0;
+            memcpy(&tmp, ptr, 4);
+            lua_pushinteger(L, tmp);
+            lua_call(L, 3, 0);
             break;
         default:
             break;
@@ -1166,12 +1194,12 @@ end)
 }
 
 // 给luat_mobile_event_register_handler 注册用, 给lua层发消息
-void luat_mobile_event_cb(LUAT_MOBILE_EVENT_E event, uint8_t index, uint8_t status) {
+void luat_mobile_event_cb(LUAT_MOBILE_EVENT_E event, uint8_t index, uint8_t status, void* ptr) {
     rtos_msg_t msg = {
         .handler = l_mobile_event_handle,
         .arg1 = event,
         .arg2 = (index << 8) + status ,
-        .ptr = NULL
+        .ptr = ptr
     };
     luat_msgbus_put(&msg, 0);
 }

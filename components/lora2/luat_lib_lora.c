@@ -59,7 +59,7 @@ static int l_lora_handler(lua_State* L, void* ptr) {
             case LORA_RX_DONE:
                 lua_pushstring(L, "rx_done");
                 lora_data_t* rx_buff = (lora_data_t*)msg->arg2;
-                lua_pushlstring(L, rx_buff->payload,rx_buff->size);
+                lua_pushlstring(L, (const char *)rx_buff->payload,rx_buff->size);
                 lua_pushinteger(L, rx_buff->size);
                 lua_call(L, 4, 0);
                 luat_heap_free(rx_buff);

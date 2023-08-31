@@ -8,7 +8,7 @@ _G.sys = require("sys")
 _G.sysplus = require("sysplus")
 
 
-srv = require("server_demo")
+srv = require("tcpsrv")
 
 
 -- 因为这是通用demo, air101/air103跑满速才不至于太慢-_-

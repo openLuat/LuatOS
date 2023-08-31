@@ -157,7 +157,7 @@ static int l_max30102_get(lua_State *L) {
         #if (defined(CONFIG_IDF_CMAKE))
         int ret = luat_rtos_task_create(&max30102_task_handle, 8*1024, 50, "max30102", max30102_task, NULL, 0);
         #else
-        int ret = luat_rtos_task_create(&max30102_task_handle, 2*1024, 10, "max30102", max30102_task, NULL, 0);
+        int ret = luat_rtos_task_create(&max30102_task_handle, 4*1024, 10, "max30102", max30102_task, NULL, 0);
         #endif
         if (ret) {
             LLOGE("max30102线程启动失败 %d", ret);

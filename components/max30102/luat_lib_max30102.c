@@ -89,7 +89,14 @@ void max30102_task(void *param){
     }
 
     for(size_t i=0;i<SAMP_BUFF_LEN;i++){
-        while(luat_gpio_get(max30102_int) == 1){luat_timer_mdelay(1);}   //wait until the interrupt pin asserts
+        int timeout = 30;
+        while(luat_gpio_get(max30102_int) == 1){
+            luat_timer_mdelay(1);
+            timeout --;
+            if (timeout == 0) {
+                LLOGE("超时了,读取失败");
+            }
+        }   //wait until the interrupt pin asserts
         maxim_max30102_read_fifo((samples_buffer+i), (samples_buffer+SAMP_BUFF_LEN+i));  //read from MAX30102 FIFO
     }
 
@@ -147,7 +154,11 @@ static int l_max30102_get(lua_State *L) {
         luat_pushcwait_error(L,1);
     }else{
         max30102_idp = luat_pushcwait(L);
-        luat_rtos_task_create(&max30102_task_handle, 2048, 50, "max30102", max30102_task, NULL, 0);
+        int ret = luat_rtos_task_create(&max30102_task_handle, 3*1024, 10, "max30102", max30102_task, NULL, 0);
+        if (ret) {
+            LLOGE("max30102线程启动失败 %d", ret);
+            luat_pushcwait_error(L,1);
+        }
     }
     return 1;
 }

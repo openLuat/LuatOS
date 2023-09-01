@@ -76,7 +76,7 @@ end
 local function clientDataTask(DeviceName,ProductKey,mqtt_host,mqtt_port,mqtt_isssl,passtoken,Registration)
 
     sys.taskInit(function()
-        if mobile.status() == 0 then
+        if not mobile.status() == 1 then
             sys.waitUntil("IP_READY",30000)
         end
         if mobile.status() == 1 then
@@ -264,7 +264,7 @@ function confiDentialTask(DeviceName,ProductKey,DeviceSecret,mqtt_host,mqtt_port
     Key = ProductKey
     Dname = DeviceName
     sys.taskInit(function()
-        if mobile.status() == 0 then
+        if not mobile.status() == 1 then
             sys.waitUntil("IP_READY",30000)
         end
         if mobile.status() == 1 then
@@ -307,7 +307,7 @@ end
 --正常连接 预注册一型一密获取DeviceSecret后就是正常的一机一密连接   
 function aliyun.clientGetDirectDataTask(DeviceName,ProductKey,mqtt_host,mqtt_port,mqtt_isssl,Registration,DeviceSecret,deviceToken,cid)
     sys.taskInit(function()
-        if mobile.status() == 0 then
+        if not mobile.status() == 1 then
             sys.waitUntil("IP_READY",30000)
         end
         if mobile.status() == 1 then

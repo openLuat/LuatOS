@@ -43,6 +43,7 @@ static int l_w5500_init(lua_State *L){
 	uint32_t irq_pin = luaL_checkinteger(L, 4);
 	uint32_t reset_pin = luaL_checkinteger(L, 5);
 	uint32_t link_pin = luaL_optinteger(L, 6, 0xff);
+	LLOGD("cs %d irq %d reset %d link %d", spi.cs, irq_pin, reset_pin, link_pin);
 	w5500_init(&spi, irq_pin, reset_pin, link_pin);
 	return 0;
 }

@@ -290,22 +290,19 @@ static void w5500_xfer(w5500_ctrl_t *w5500, uint16_t address, uint8_t ctrl, uint
 		memcpy(w5500->tx_buf + 3, data, len);
 	}
 	luat_gpio_set(w5500->cs_pin, 0);
-	// TODO 选个更通用的宏
-	#if defined(AIR101) || defined(AIR103)
+	#if defined(LUAT_CONF_SPI_HALF_DUPLEX_ONLY)
 	// 不支持全双工的BSP,通过半双工API读写
+	// 先发3字节的控制块
+	// char* tmp = (char* )w5500->tx_buf;
+	// LLOGD("先发控制块 %02X%02X%02X", tmp[0], tmp[1], tmp[2]);
 	if (ctrl & is_write) {
-		// 整体传输就行
-		if (data && len)
-			luat_spi_send(w5500->spi_id, (const char* )w5500->tx_buf, len + 3);
-		else
-			luat_spi_send(w5500->spi_id, (const char* )w5500->tx_buf, 3);
+		luat_spi_send(w5500->spi_id, (const char* )w5500->tx_buf, len + 3);
 	}
 	else {
-		// 先发3字的控制块
 		luat_spi_send(w5500->spi_id, (const char* )w5500->tx_buf, 3);
-		// 然后按len读取数据
-		if (data && len)
-			luat_spi_recv(w5500->spi_id, (const char* )w5500->rx_buf + 3, len);
+		// LLOGD("读取数据长度 %d", len);
+		luat_spi_recv(w5500->spi_id, (const char* )w5500->rx_buf + 3, len);
+		// LLOGDUMP((const char* )w5500->rx_buf + 3, len);
 	}
 	#else
 	luat_spi_transfer(w5500->spi_id, (const char* )w5500->tx_buf, len + 3, (char*)w5500->rx_buf, len + 3);
@@ -826,12 +823,14 @@ static void w5500_init_reg(w5500_ctrl_t *w5500)
 	gpio.irq_args = w5500;
 	luat_gpio_setup(&gpio);
 
-	gpio.pin = w5500->link_pin;
-	gpio.pull = Luat_GPIO_DEFAULT;
-	gpio.irq = Luat_GPIO_BOTH;
-	gpio.irq_cb = w5500_irq;
-	gpio.irq_args = w5500;
-	luat_gpio_setup(&gpio);
+	if (w5500->link_pin != 0xff) {
+		gpio.pin = w5500->link_pin;
+		gpio.pull = Luat_GPIO_DEFAULT;
+		gpio.irq = Luat_GPIO_BOTH;
+		gpio.irq_cb = w5500_irq;
+		gpio.irq_args = w5500;
+		luat_gpio_setup(&gpio);
+	}
 
 	w5500_socket_auto_heart(w5500, SYS_SOCK_ID, 2);
 	w5500_socket_config(w5500, SYS_SOCK_ID, 0, DHCP_CLIENT_PORT);
@@ -1534,10 +1533,12 @@ void w5500_init(luat_spi_t* spi, uint8_t irq_pin, uint8_t rst_pin, uint8_t link_
 		}
 #else
 		uid = luat_mcu_unique_id(&t);
-		memcpy(w5500->mac, &uid[10], 6);
+		memcpy(w5500->mac, &uid[t - 6], 6);
 #endif
 		w5500->mac[0] &= 0xfe;
-		platform_create_task(&w5500->task_handle, 4 * 1024, 30, "w5500", w5500_task, w5500, 64);
+		LLOGD("default MAC %02X%02X%02X%02X%02X%02X", w5500->mac[0], w5500->mac[1], w5500->mac[2], w5500->mac[3], w5500->mac[4], w5500->mac[5]);
+		int ret = platform_create_task(&w5500->task_handle, 4 * 1024, 30, "w5500", w5500_task, w5500, 64);
+		LLOGD("w5500 task ret %d", ret); // TODO 处理启动失败的情况
 		prv_w5500_ctrl = w5500;
 
 		prv_w5500_ctrl->device_on = 1;

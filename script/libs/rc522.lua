@@ -566,7 +566,10 @@ function rc522.write_datablock(addr,data)
     end
     if status == true then
         local status,uid = rc522.anticoll(array_id)
-        if status == true then
+        if not uid then
+            return false
+        end
+        if status == true and uid then
             rc522.select(uid)
             status = authstate( rc522_authent1b, addr,Key_B,uid )
             if status == true then
@@ -599,7 +602,7 @@ function rc522.read_datablock(addr)
     end
     if status == true then
         local status,uid = rc522.anticoll(array_id)
-        if status == true then
+        if status == true and uid then
             rc522.select(uid)
             status = authstate( rc522_authent1b, addr,Key_B,uid )
             if status == true then

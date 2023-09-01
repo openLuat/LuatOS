@@ -1531,10 +1531,12 @@ void w5500_init(luat_spi_t* spi, uint8_t irq_pin, uint8_t rst_pin, uint8_t link_
 		}
 #else
 		uid = luat_mcu_unique_id(&t);
-		memcpy(w5500->mac, &uid[10], 6);
+		memcpy(w5500->mac, &uid[t - 6], 6);
 #endif
 		w5500->mac[0] &= 0xfe;
-		platform_create_task(&w5500->task_handle, 4 * 1024, 30, "w5500", w5500_task, w5500, 64);
+		LLOGD("default MAC %02X%02X%02X%02X%02X%02X", w5500->mac[0], w5500->mac[1], w5500->mac[2], w5500->mac[3], w5500->mac[4], w5500->mac[5]);
+		int ret = platform_create_task(&w5500->task_handle, 4 * 1024, 30, "w5500", w5500_task, w5500, 64);
+		LLOGD("w5500 task ret %d", ret); // TODO 处理启动失败的情况
 		prv_w5500_ctrl = w5500;
 
 		prv_w5500_ctrl->device_on = 1;

@@ -44,7 +44,24 @@ void *create_event_task(TaskFun_t task_fun, void *param, uint32_t stack_bytes, u
 	priority = configMAX_PRIORITIES * priority / 100;
 	if (!priority) priority = 2;
 	if (priority >= configMAX_PRIORITIES) priority -= 1;
-	stack_bytes = (stack_bytes + 3) >> 2;
+
+	// 不同的BSP的StackType_t大小不一样,这导致stack_bytes需要适配
+	if (sizeof(StackType_t) == 1) {
+		// nop
+	}
+	else if (sizeof(StackType_t) == 2) {
+		stack_bytes = (stack_bytes + 1) >> 1;
+	}
+	else if (sizeof(StackType_t) == 4) {
+		stack_bytes = (stack_bytes + 3) >> 2;
+	}
+	else if (sizeof(StackType_t) == 8) {
+		stack_bytes = (stack_bytes + 7) >> 3;
+	}
+	else {
+		LLOGW("unkown sizeof(StackType_t) , fallback to 4");
+		stack_bytes = (stack_bytes + 3) >> 2;
+	}
 
 	task_handle_t *handle = luat_heap_zalloc(sizeof(task_handle_t));
 

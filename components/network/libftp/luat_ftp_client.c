@@ -895,11 +895,7 @@ static int l_ftp_login(lua_State *L) {
 	}
 
 	network_set_ip_invaild(&g_s_ftp.network->ip_addr);
-#if (defined(CONFIG_IDF_CMAKE))
-	result = luat_rtos_task_create(&g_s_ftp.task_handle, 8*1024, 10, "ftp", ftp_task, NULL, 16);
-#else
 	result = luat_rtos_task_create(&g_s_ftp.task_handle, 2*1024, 10, "ftp", ftp_task, NULL, 16);
-#endif
 	if (result) {
 		LLOGE("创建ftp task失败!! %d", result);
 		goto error;

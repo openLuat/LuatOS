@@ -15,10 +15,10 @@ sys.taskInit(function()
 sys.wait(5080)--延时5秒等待网络注册
 log.info("mobile.status()", mobile.status())
   while true do
-        if mobile.status() == 1--已注册
-        thensys.wait(688)
-        netLed.setupBreateLed(LEDA)
-     end
+        if mobile.status() == 1 then--已注册
+            sys.wait(688)
+            netLed.setupBreateLed(LEDA)
+        end
    end
 end)
 ]]
@@ -204,10 +204,10 @@ sys.taskInit(function()
 sys.wait(5080)--延时5秒等待网络注册
 log.info("mobile.status()", mobile.status())
   while true do
-        if mobile.status() == 1--已注册
-        thensys.wait(688)
-        netLed.setupBreateLed(LEDA)
-     end
+        if mobile.status() == 1 then--已注册
+            sys.wait(688)
+            netLed.setupBreateLed(LEDA)
+        end
    end
 end)
 ]]

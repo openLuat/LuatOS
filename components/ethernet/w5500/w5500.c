@@ -823,12 +823,14 @@ static void w5500_init_reg(w5500_ctrl_t *w5500)
 	gpio.irq_args = w5500;
 	luat_gpio_setup(&gpio);
 
-	gpio.pin = w5500->link_pin;
-	gpio.pull = Luat_GPIO_DEFAULT;
-	gpio.irq = Luat_GPIO_BOTH;
-	gpio.irq_cb = w5500_irq;
-	gpio.irq_args = w5500;
-	luat_gpio_setup(&gpio);
+	if (w5500->link_pin != 0xff) {
+		gpio.pin = w5500->link_pin;
+		gpio.pull = Luat_GPIO_DEFAULT;
+		gpio.irq = Luat_GPIO_BOTH;
+		gpio.irq_cb = w5500_irq;
+		gpio.irq_args = w5500;
+		luat_gpio_setup(&gpio);
+	}
 
 	w5500_socket_auto_heart(w5500, SYS_SOCK_ID, 2);
 	w5500_socket_config(w5500, SYS_SOCK_ID, 0, DHCP_CLIENT_PORT);

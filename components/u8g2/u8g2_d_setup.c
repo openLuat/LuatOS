@@ -3,6 +3,8 @@
 
 #include "u8g2.h"
 
+#if defined(__LUATOS__)
+#include "luat_u8g2.h"
 /* custom f */
 void u8g2_Setup_custom_i2c_noname_f(u8g2_t *u8g2, const u8g2_cb_t *rotation, u8x8_msg_cb byte_cb, u8x8_msg_cb gpio_and_delay_cb)
 {
@@ -15,13 +17,12 @@ void u8g2_Setup_custom_i2c_noname_f(u8g2_t *u8g2, const u8g2_cb_t *rotation, u8x
 }
 void u8g2_Setup_custom_noname_f(u8g2_t *u8g2, const u8g2_cb_t *rotation, u8x8_msg_cb byte_cb, u8x8_msg_cb gpio_and_delay_cb)
 {
-  uint8_t tile_buf_height;
-  uint8_t *buf;
-  // u8g2_SetupDisplay(u8g2, u8x8_d_custom_noname, u8x8_cad_001, byte_cb, gpio_and_delay_cb);
-  u8g2_SetupDisplay(u8g2, u8x8_d_ssd1306_128x64_noname, u8x8_cad_001, byte_cb, gpio_and_delay_cb);
-  buf = u8g2_m_16_8_f(&tile_buf_height);
-  u8g2_SetupBuffer(u8g2, buf, tile_buf_height, u8g2_ll_hvline_vertical_top_lsb, rotation);
+  luat_u8g2_conf_t* conf = (luat_u8g2_conf_t*)u8g2->u8x8.user_ptr;
+  u8g2_SetupDisplay(u8g2, u8x8_d_custom_noname, u8x8_cad_001, byte_cb, gpio_and_delay_cb);
+  u8g2_SetupBuffer(u8g2, 0, conf->h/8, u8g2_ll_hvline_vertical_top_lsb, rotation);
 }
+#endif
+
 /* ssd1305 */
 /* ssd1305 1 */
 void u8g2_Setup_ssd1305_128x32_noname_1(u8g2_t *u8g2, const u8g2_cb_t *rotation, u8x8_msg_cb byte_cb, u8x8_msg_cb gpio_and_delay_cb)

@@ -9,14 +9,14 @@ typedef struct luat_u8g2_custom {
 
 typedef struct luat_u8g2_conf
 {
-    size_t w;
-    size_t h;
+    uint16_t w;
+    uint16_t h;
+    uint8_t sleepcmd;
+    uint8_t wakecmd;
     int lua_ref;
     char* cname; // 控制器名称, 例如SSD1306
-    u8g2_cb_t* direction;//方向 
     u8g2_t u8g2;
-    uint16_t sleepcmd;
-    uint16_t wakecmd;
+    u8g2_cb_t* direction;//方向 
     uint8_t* buff_ptr;
     void* userdata;
 } luat_u8g2_conf_t;

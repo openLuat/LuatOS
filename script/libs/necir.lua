@@ -1,7 +1,7 @@
 --[[
 @module necir
 @summary necir NEC协议红外接收
-@version 2.0
+@version 3.0
 @date    2023.09.02
 @author  lulipro
 @usage
@@ -11,14 +11,26 @@
 --实现了NEC红外数据接收，发送请使用LuatOS底层固件自带的ir.sendNEC()函数
 --硬件模块：VS1838及其兼容的一体化接收头
 --接线示意图：
+--
+--支持单IO模式，即仅使用一个SPI_MISO引脚，此时necir.init的irq_pin参数必须是SPI_MISO所在引脚
 --  ____________________              ____________________
+-- |                    |    单IO    |                    |
+-- |           SPI_MISO |------------| OUT                |
+-- | Air10x             |            |       VS1838       |
+-- |                    |            |     一体化接收头    |
 -- |                    |            |                    |
+-- |____________________|            |____________________| 
+--
+--双IO模式，即单独用另一个IO做中断检测。单IO和双IO没有功能差异，具体如何选择取决于实际情况
+-- ***一般情况下没必要用双IO模式***
+--  ____________________              ____________________
+-- |                    |    双IO    |                    |
 -- |           SPI_MISO |------------| OUT                |
 -- | Air10x             |   |        |       VS1838       |
 -- |           IRQ_GPIO |---         |     一体化接收头    |
 -- |                    |            |                    |
 -- |____________________|            |____________________| 
---
+
 --用法实例：
 local necir = require("necir")
 
@@ -27,7 +39,7 @@ local function my_ir_cb(frameTab)
 end
 
 sys.taskInit(function()
-    necir.init(spi.SPI_0,pin.PA00,my_ir_cb)
+    necir.init(spi.SPI_0,pin.PB03,my_ir_cb)
 
     while 1 do
         sys.wait(1000)
@@ -49,7 +61,7 @@ local recvBuff              --SPI接收数据缓冲区
 local recvNECFrame={}       --依次存储：地址码，地址码取反，数据码，数据码取反
 
 local recvCallback          --NEC报文接收成功后的用户回调函数
-local recvTaskRun   = true  --接收任务是否需要继续运行的标志
+local isRecvTaskRun         --接收任务是否需要继续运行的标志
 
 --[[
 ==============实现原理================================================
@@ -157,19 +169,20 @@ end
 
 --检测引导产生的上升沿的的中断函数
 local function irq_func()
-    gpio.setup(NECIR_IRQ_PIN,nil,gpio.PULLUP)  --将中断引脚改为普通输入模式，防止反复触发中断
+    gpio.close(NECIR_IRQ_PIN)  --关闭GPIO功能，防止中断反复触发
+    spi.setup(NECIR_SPI_ID,nil,0,0,8,NECIR_SPI_BAUDRATE,spi.MSB,spi.master,1)--重新打开SPI接口
+
     recvBuff =  spi.recv(NECIR_SPI_ID, NECIR_SPI_RECV_BUFF_LEN) --通过SPI接收红外接收头输出的解调数据
     sys.publish('NECIR_SPI_DONE')  --发布消息，让任务对收到的SPI数据分析处理
 end
 
 
 local function recvTaskFunc()
-    --spi接口初始化
-    spi.setup(NECIR_SPI_ID, nil, 0,0 , 8, NECIR_SPI_BAUDRATE, spi.MSB, spi.master, 1)
     
-    while recvTaskRun do
-        --将引脚设置输入上升沿中断模式，检测引导码产生的第二个沿（上升沿）
-        gpio.setup(NECIR_IRQ_PIN,irq_func,gpio.PULLUP ,gpio.RISING)
+    while isRecvTaskRun do
+        
+        spi.close(NECIR_SPI_ID)  --关闭SPI接口在，这样才能把MISO空出来做中断检测
+        gpio.setup(NECIR_IRQ_PIN,irq_func,gpio.PULLUP ,gpio.RISING)--打开GPIO中断检测功能
 
         local result, _ = sys.waitUntil('NECIR_SPI_DONE',1000)
         if result then  --SPI完成采集，开始解析数据
@@ -179,8 +192,8 @@ local function recvTaskFunc()
     end
 
     --任务结束时做清理工作
-    gpio.setup(NECIR_IRQ_PIN,nil,gpio.PULLUP)  --将中断引脚改为普通输入模式
-    spi.close(NECIR_SPI_ID)  --关闭SPI接口
+    gpio.close(NECIR_IRQ_PIN)  --关闭GPIO功能
+    spi.close(NECIR_SPI_ID)   --关闭SPI接口
     --log.info('necir recv task close')
 end
 
@@ -189,14 +202,14 @@ end
 necir初始化，开启数据接收任务
 @api necir.init(spi_id,irq_pin,recv_cb)
 @number spi_id,使用的SPI接口的ID
-@number irq_pin,使用的中断引脚
+@number irq_pin,使用的中断引脚，这个引脚可以是SPI的MISO引脚（单IO模式）
 @function recv_cb,红外数据接收完成后的回调函数，回调函数有1个table类型参数，分别存储了地址码，地址码取反，数据码，数据码取反
 @usage
 local function my_ir_cb(frameTab)
     log.info('get ir msg','addr=',frameTab[1],'data=',frameTab[3])
 end
 
-necir.init(spi.SPI_0,pin.PA00,my_ir_cb)
+necir.init(spi.SPI_0,pin.PB03,my_ir_cb)
 ]]
 function necir.init(spi_id,irq_pin,recv_cb)
     NECIR_SPI_ID     = spi_id
@@ -204,7 +217,7 @@ function necir.init(spi_id,irq_pin,recv_cb)
     recvCallback     = recv_cb
 
     --启动红外数据接收任务
-    recvTaskRun      = true
+    isRecvTaskRun      = true
     sys.taskInit(recvTaskFunc)
 end
 
@@ -215,7 +228,8 @@ end
 necir.close()
 ]]
 function necir.close()
-    recvTaskRun = false
+    isRecvTaskRun = false
 end
+
 
 return necir

@@ -224,7 +224,6 @@ static int l_u8g2_begin(lua_State *L) {
     }
 
     if (lua_istable(L, 2) && strcmp("custom", conf->cname) == 0){
-        LLOGD("table 2 custom");
         lua_pushliteral(L, "width");
         lua_gettable(L, 2);
         if (lua_isinteger(L, -1)) {

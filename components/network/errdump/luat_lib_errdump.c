@@ -434,7 +434,7 @@ static void luat_errdump_load(const char *path, Buffer_Struct *buffer)
 	{
 		return;
 	}
-	FILE* fd = luat_fs_fopen(path, "a+");
+	FILE* fd = luat_fs_fopen(path, "rb");
 	if (buffer->MaxLen < len)
 	{
 		OS_ReInitBuffer(buffer, len);

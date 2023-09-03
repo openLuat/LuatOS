@@ -827,7 +827,7 @@ static ip_addr_t *net_lwip_get_ip6(uint8_t adapter_index)
 	int i;
 	for(i = 0; i < LWIP_IPV6_NUM_ADDRESSES; i++)
 	{
-		if (prvlwip.lwip_netif[adapter_index]->ip6_addr_state[i] & IP6_ADDR_PREFERRED)
+		if (IP6_ADDR_PREFERRED == (prvlwip.lwip_netif[adapter_index]->ip6_addr_state[i] & IP6_ADDR_PREFERRED))
 		{
 			return &prvlwip.lwip_netif[adapter_index]->ip6_addr[i];
 		}
@@ -1000,6 +1000,10 @@ void net_lwip_do_event(OS_EVENT event)
 		else
 		{
 			local_ip = net_lwip_get_ip6(adapter_index);
+			if (local_ip)
+			{
+				NET_DBG("%s", ipaddr_ntoa(local_ip));
+			}
 		}
 		if (!local_ip)
 		{

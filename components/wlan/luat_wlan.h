@@ -76,7 +76,7 @@ int luat_wlan_smartconfig_stop(void);
 
 // 数据类
 int luat_wlan_get_mac(int id, char* mac);
-int luat_wlan_set_mac(int id, char* mac);
+int luat_wlan_set_mac(int id, const char* mac);
 int luat_wlan_get_ip(int type, char* data);
 const char* luat_wlan_get_hostname(int id);
 int luat_wlan_set_hostname(int id, char* hostname);
@@ -91,4 +91,4 @@ int luat_wlan_get_ap_gateway(char* buff);
 
 // AP类
 int luat_wlan_ap_start(luat_wlan_apinfo_t *apinfo);
-
+int luat_wlan_ap_stop(void);

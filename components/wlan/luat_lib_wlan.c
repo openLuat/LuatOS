@@ -126,6 +126,7 @@ static int l_wlan_connect(lua_State* L){
 @api wlan.disconnect()
 */
 static int l_wlan_disconnect(lua_State* L){
+    (void)L;
     luat_wlan_disconnect();
     return 0;
 }
@@ -156,6 +157,7 @@ sys.taskInit(function()
 end)
 */
 static int l_wlan_scan(lua_State* L){
+    (void)L;
     luat_wlan_scan();
     return 0;
 }
@@ -181,7 +183,7 @@ static int l_wlan_scan_result(lua_State* L) {
     }
     memset(results, 0, sizeof(luat_wlan_scan_result_t) * ap_limit);
     int len = luat_wlan_scan_get_result(results, ap_limit);
-    for (size_t i = 0; i < len; i++)
+    for (int i = 0; i < len; i++)
     {
         lua_newtable(L);
 
@@ -344,6 +346,20 @@ static int l_wlan_ap_start(lua_State *L) {
     return 1;
 }
 
+/**
+关闭AP功能
+@api wlan.stopAP()
+@return bool 成功创建返回true,否则返回false
+@usage
+wlan.stopAP()
+*/
+static int l_wlan_ap_stop(lua_State *L) {
+    int ret = luat_wlan_ap_stop();
+    LLOGD("apstop ret %d", ret);
+    lua_pushboolean(L, ret == 0 ? 1 : 0);
+    return 1;
+}
+
 /*
 获取信息,如AP的bssid,信号强度
 @api wlan.getInfo()
@@ -457,6 +473,7 @@ static const rotable_Reg_t reg_wlan[] =
 
     // AP相关
     { "createAP",            ROREG_FUNC(l_wlan_ap_start)},
+    { "stopAP",              ROREG_FUNC(l_wlan_ap_stop)},
     // wifi模式
     //@const NONE WLAN模式,停用
     {"NONE",                ROREG_INT(LUAT_WLAN_MODE_NULL)},

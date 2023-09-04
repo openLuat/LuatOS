@@ -49,8 +49,8 @@ typedef struct luat_lcd_conf {
     uint8_t pin_pwr;
     uint8_t pin_rst;
 
-    uint32_t w;
-    uint32_t h;
+    int16_t w;
+    int16_t h;
     uint32_t buffer_size;
     uint32_t dc_delay_us;
     uint8_t xoffset;//偏移
@@ -66,8 +66,8 @@ typedef struct luat_lcd_conf {
     // buff 相关
     luat_color_t* buff;
     int buff_ref;
-    uint16_t flush_y_min;
-    uint16_t flush_y_max;
+    int16_t flush_y_min;
+    int16_t flush_y_max;
     uint8_t is_init_done;
 } luat_lcd_conf_t;
 
@@ -90,20 +90,20 @@ int luat_lcd_sleep(luat_lcd_conf_t* conf);
 int luat_lcd_wakeup(luat_lcd_conf_t* conf);
 int luat_lcd_inv_off(luat_lcd_conf_t* conf);
 int luat_lcd_inv_on(luat_lcd_conf_t* conf);
-int luat_lcd_set_address(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2);
+int luat_lcd_set_address(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2);
 int luat_lcd_set_color(luat_color_t back, luat_color_t fore);
 luat_color_t color_swap(luat_color_t color);
-int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, luat_color_t* color);
+int luat_lcd_draw(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t* color);
 int luat_lcd_flush(luat_lcd_conf_t* conf);
-int luat_lcd_draw_no_block(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, luat_color_t* color, uint8_t last_flush);
-int luat_lcd_clear(luat_lcd_conf_t* conf,luat_color_t color);
-int luat_lcd_draw_fill(luat_lcd_conf_t* conf,uint16_t x1,uint16_t y1,uint16_t x2,uint16_t y2,luat_color_t color);
-int luat_lcd_draw_point(luat_lcd_conf_t* conf, uint16_t x, uint16_t y, luat_color_t color);
-int luat_lcd_draw_line(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, luat_color_t color);
-int luat_lcd_draw_vline(luat_lcd_conf_t* conf, uint16_t x, uint16_t y,uint16_t h, luat_color_t color);
-int luat_lcd_draw_hline(luat_lcd_conf_t* conf, uint16_t x, uint16_t y,uint16_t h, luat_color_t color);
-int luat_lcd_draw_rectangle(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, luat_color_t color);
-int luat_lcd_draw_circle(luat_lcd_conf_t* conf,uint16_t x0, uint16_t y0, uint8_t r, luat_color_t color);
+int luat_lcd_draw_no_block(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t* color, uint8_t last_flush);
+int luat_lcd_clear(luat_lcd_conf_t* conf, luat_color_t color);
+int luat_lcd_draw_fill(luat_lcd_conf_t* conf, int16_t x1,int16_t y1,int16_t x2,int16_t y2,luat_color_t color);
+int luat_lcd_draw_point(luat_lcd_conf_t* conf, int16_t x, int16_t y, luat_color_t color);
+int luat_lcd_draw_line(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t color);
+int luat_lcd_draw_vline(luat_lcd_conf_t* conf, int16_t x, int16_t y,int16_t h, luat_color_t color);
+int luat_lcd_draw_hline(luat_lcd_conf_t* conf, int16_t x, int16_t y,int16_t h, luat_color_t color);
+int luat_lcd_draw_rectangle(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t color);
+int luat_lcd_draw_circle(luat_lcd_conf_t* conf, int16_t x0, int16_t y0, uint8_t r, luat_color_t color);
 
 void luat_lcd_execute_cmds(luat_lcd_conf_t* conf, uint32_t* cmds, uint32_t count);
 

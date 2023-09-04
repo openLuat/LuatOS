@@ -422,7 +422,7 @@ local buff = zbuff.create({201,1,16},0x001F)
 lcd.draw(20,30,220,30,buff)
 */
 static int l_lcd_draw(lua_State* L) {
-    uint16_t x1, y1, x2, y2;
+    int16_t x1, y1, x2, y2;
     int ret;
     // luat_color_t *color = NULL;
     luat_zbuff_t *buff;
@@ -432,7 +432,7 @@ static int l_lcd_draw(lua_State* L) {
     y2 = luaL_checkinteger(L, 4);
     if (lua_isinteger(L, 5)) {
         // color = (luat_color_t *)luaL_checkstring(L, 5);
-        luat_color_t color = (uint32_t)luaL_checkinteger(L, 1);
+        luat_color_t color = (luat_color_t)luaL_checkinteger(L, 1);
         ret = luat_lcd_draw(default_conf, x1, y1, x2, y2, &color);
     }
     else if (lua_isuserdata(L, 5)) {
@@ -465,7 +465,7 @@ static int l_lcd_clear(lua_State* L) {
     //size_t len = 0;
     luat_color_t color = BACK_COLOR;
     if (lua_gettop(L) > 0)
-        color = (uint32_t)luaL_checkinteger(L, 1);
+        color = (luat_color_t)luaL_checkinteger(L, 1);
     int ret = luat_lcd_clear(default_conf, color);
     lcd_auto_flush(default_conf);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
@@ -485,7 +485,7 @@ lcd颜色填充
 lcd.fill(20,30,220,30,0x0000)
 */
 static int l_lcd_draw_fill(lua_State* L) {
-    uint16_t x1, y1, x2, y2;
+    int16_t x1, y1, x2, y2;
     luat_color_t color = BACK_COLOR;
     x1 = luaL_checkinteger(L, 1);
     y1 = luaL_checkinteger(L, 2);
@@ -509,7 +509,7 @@ static int l_lcd_draw_fill(lua_State* L) {
 lcd.drawPoint(20,30,0x001F)
 */
 static int l_lcd_draw_point(lua_State* L) {
-    uint16_t x, y;
+    int16_t x, y;
     luat_color_t color = FORE_COLOR;
     x = luaL_checkinteger(L, 1);
     y = luaL_checkinteger(L, 2);
@@ -533,7 +533,7 @@ static int l_lcd_draw_point(lua_State* L) {
 lcd.drawLine(20,30,220,30,0x001F)
 */
 static int l_lcd_draw_line(lua_State* L) {
-    uint16_t x1, y1, x2, y2;
+    int16_t x1, y1, x2, y2;
     luat_color_t color = FORE_COLOR;
     x1 = luaL_checkinteger(L, 1);
     y1 = luaL_checkinteger(L, 2);
@@ -559,7 +559,7 @@ static int l_lcd_draw_line(lua_State* L) {
 lcd.drawRectangle(20,40,220,80,0x001F)
 */
 static int l_lcd_draw_rectangle(lua_State* L) {
-    uint16_t x1, y1, x2, y2;
+    int16_t x1, y1, x2, y2;
     luat_color_t color = FORE_COLOR;
     x1 = luaL_checkinteger(L, 1);
     y1 = luaL_checkinteger(L, 2);
@@ -584,7 +584,7 @@ static int l_lcd_draw_rectangle(lua_State* L) {
 lcd.drawCircle(120,120,20,0x001F)
 */
 static int l_lcd_draw_circle(lua_State* L) {
-    uint16_t x0, y0, r;
+    int16_t x0, y0, r;
     luat_color_t color = FORE_COLOR;
     x0 = luaL_checkinteger(L, 1);
     y0 = luaL_checkinteger(L, 2);
@@ -1184,8 +1184,8 @@ lcd.drawXbm(0, 0, 16,16, string.char(
 static int l_lcd_drawxbm(lua_State *L){
     int x = luaL_checkinteger(L, 1);
     int y = luaL_checkinteger(L, 2);
-    int w = luaL_checkinteger(L, 3);
-    int h = luaL_checkinteger(L, 4);
+    size_t w = luaL_checkinteger(L, 3);
+    size_t h = luaL_checkinteger(L, 4);
     size_t len = 0;
     const char* data = luaL_checklstring(L, 5, &len);
     uint8_t mask = 1;
@@ -1230,7 +1230,7 @@ typedef struct {
     int y;
     // int width;
     // int height;
-    uint16_t buff[16*16]
+    uint16_t buff[16*16];
 } IODEV;
 
 static unsigned int file_in_func (JDEC* jd, uint8_t* buff, unsigned int nbyte){
@@ -1244,7 +1244,7 @@ static unsigned int file_in_func (JDEC* jd, uint8_t* buff, unsigned int nbyte){
     }
 }
 
-static unsigned int lcd_out_func (JDEC* jd, void* bitmap, JRECT* rect){
+static int lcd_out_func (JDEC* jd, void* bitmap, JRECT* rect){
     IODEV *dev = (IODEV*)jd->device;
     uint16_t* tmp = (uint16_t*)bitmap;
 

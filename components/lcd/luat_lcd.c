@@ -160,7 +160,7 @@ int luat_lcd_inv_on(luat_lcd_conf_t* conf) {
     return 0;
 }
 
-int luat_lcd_set_address(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2) {
+int luat_lcd_set_address(luat_lcd_conf_t* conf,int16_t x1, int16_t y1, int16_t x2, int16_t y2) {
     lcd_write_cmd(conf,0x2a);
     lcd_write_data(conf,(x1+conf->xoffset)>>8);
     lcd_write_data(conf,x1+conf->xoffset);
@@ -208,30 +208,86 @@ int luat_lcd_flush(luat_lcd_conf_t* conf) {
     return 0;
 }
 
-int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, luat_color_t* color) {
+int luat_lcd_draw(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t* color) {
+    if (x1 >= conf->w || y1 >= conf->h || x2 < 0 || y2 < 0 || x2 < x1 || y2 < y1) {
+        // LLOGE("out of lcd buff range %d %d %d %d", x1, y1, x2, y2);
+        // LLOGE("out of lcd buff range %d %d %d %d %d", x1 >= conf->w, y1 >= conf->h, y2 < 0, x2 < x1, y2 < y1);
+        return 0;
+    }
+    if (y2 > conf->h) {
+        y2 = conf->h;
+    }
     // 直接刷屏模式
     if (conf->buff == NULL) {
-        uint32_t size = (x2 - x1 + 1) * (y2 - y1 + 1) * 2;
-        luat_lcd_set_address(conf, x1, y1, x2, y2);
-	    if (conf->port == LUAT_LCD_SPI_DEVICE){
-		    luat_spi_device_send((luat_spi_device_t*)(conf->lcd_spi_device), (const char*)color, size);
-	    }else{
-		    luat_spi_send(conf->port, (const char*)color, size);
-	    }
+        // 常规数据, 整体传输
+        if (x1 >= 0 && y1 >= 0 && x2 <= conf->w && y2 <= conf->h) {
+            uint32_t size = (x2 - x1 + 1) * (y2 - y1 + 1);
+            // LLOGD("draw %dx%d %dx%d %d", x1, y1, x2, y2, size);
+            luat_lcd_set_address(conf, x1, y1, x2, y2);
+	        if (conf->port == LUAT_LCD_SPI_DEVICE){
+		        luat_spi_device_send((luat_spi_device_t*)(conf->lcd_spi_device), (const char*)color, size* sizeof(luat_color_t));
+	        }else{
+		        luat_spi_send(conf->port, (const char*)color, size * sizeof(luat_color_t));
+	        }
+        }
+        // 超出边界的数据, 按行传输
+        else {
+            int line_size = (x2 - x1 + 1);
+            // LLOGD("want draw %dx%d %dx%d %d", x1, y1, x2, y2, line_size);
+            luat_color_t* ptr = (luat_color_t*)color;
+            for (int i = y1; i <= y2; i++)
+            {
+                if (i < 0) {
+                    ptr += line_size;
+                    continue;
+                }
+                luat_color_t* line = ptr;
+                int lsize = line_size;
+                int tmp_x1 = x1;
+                int tmp_x2 = x2;
+                if (x1 < 0) {
+                    line += ( - x1);
+                    lsize += (x1);
+                    tmp_x1 = 0;
+                }
+                if (x2 > conf->w) {
+                    lsize -= (conf->w - x2);
+                    tmp_x2 = conf->w;
+                }
+                // LLOGD("action draw %dx%d %dx%d %d", tmp_x1, i, tmp_x2, i, lsize);
+                luat_lcd_set_address(conf, tmp_x1, i, tmp_x2, i);
+	            if (conf->port == LUAT_LCD_SPI_DEVICE){
+		            luat_spi_device_send((luat_spi_device_t*)(conf->lcd_spi_device), (const char*)line, lsize * sizeof(luat_color_t));
+	            }else{
+		            luat_spi_send(conf->port, (const char*)line, lsize * sizeof(luat_color_t));
+	            }
+                ptr += line_size;
+            }
+            
+            // TODO
+            // LLOGD("超出边界,特殊处理");
+        }
         return 0;
     }
     // buff模式
-    if (x1 >= conf->w || y1 >= conf->h) {
-        // LLOGE("out of lcd buff range");
-        return -1;
-    }
-    uint16_t x_end = x2 > conf->w?conf->w:x2;
-    uint16_t y_end = y2 > conf->h?conf->h:y2;
+    int16_t x_end = x2 > conf->w?conf->w:x2;
+    int16_t y_end = y2 > conf->h?conf->h:y2;
     luat_color_t* dst = (conf->buff + x1 + conf->w * y1);
     luat_color_t* src = (color);
     size_t lsize = (x_end - x1 + 1);
-    for (size_t i = y1; i <= y_end; i++) {
-        memcpy(dst, src, lsize * sizeof(luat_color_t));
+    for (int16_t i = y1; i <= y_end; i++) {
+        if (i > 0 && i < conf->h) {
+            int tmp_lsize = lsize;
+            luat_color_t* tmp = src;
+            if (x1 < 0) {
+                tmp += ( - x1);
+                tmp_lsize += (x1);
+            }
+            if (x2 > conf->w) {
+                tmp_lsize -= (conf->w - x2);
+            }
+            memcpy(dst, tmp, tmp_lsize * sizeof(luat_color_t));
+        }
         dst += conf->w;  // 移动到下一行
         src += lsize;    // 移动数据
         if (x2 > conf->w){
@@ -239,27 +295,31 @@ int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, 
         }
     }
     // 存储需要刷新的区域
-    if (y1 < conf->flush_y_min)
-        conf->flush_y_min = y1;
+    if (y1 < conf->flush_y_min) {
+        if (y1 >= 0)
+            conf->flush_y_min = y1;
+        else
+            conf->flush_y_min = 0;
+    }
     if (y_end > conf->flush_y_max)
         conf->flush_y_max = y_end;
     return 0;
 }
 #endif
 
-int luat_lcd_draw_point(luat_lcd_conf_t* conf, uint16_t x, uint16_t y, luat_color_t color) {
+int luat_lcd_draw_point(luat_lcd_conf_t* conf, int16_t x, int16_t y, luat_color_t color) {
     // 注意, 这里需要把颜色swap了
     luat_color_t tmp = color_swap(color);
     return luat_lcd_draw(conf, x, y, x, y, &tmp);
 }
 
 int luat_lcd_clear(luat_lcd_conf_t* conf, luat_color_t color){
-    luat_lcd_draw_fill(conf, 0, 0, conf->w, conf->h, color);
+    luat_lcd_draw_fill(conf, 0, 0, conf->w - 1, conf->h - 1, color);
     return 0;
 }
 
-int luat_lcd_draw_fill(luat_lcd_conf_t* conf,uint16_t x1,uint16_t y1,uint16_t x2,uint16_t y2, luat_color_t color) {          
-	uint16_t i;
+int luat_lcd_draw_fill(luat_lcd_conf_t* conf,int16_t x1,int16_t y1,int16_t x2,int16_t y2, luat_color_t color) {          
+	int16_t i;
 	for(i=y1;i<y2;i++)
 	{
 		luat_lcd_draw_line(conf, x1, i, x2, i, color);
@@ -267,18 +327,18 @@ int luat_lcd_draw_fill(luat_lcd_conf_t* conf,uint16_t x1,uint16_t y1,uint16_t x2
     return 0;			  	    
 }
 
-int luat_lcd_draw_vline(luat_lcd_conf_t* conf, uint16_t x, uint16_t y,uint16_t h, luat_color_t color) {
-    if (h==0) return 0;
+int luat_lcd_draw_vline(luat_lcd_conf_t* conf, int16_t x, int16_t y,int16_t h, luat_color_t color) {
+    if (h<=0) return 0;
     return luat_lcd_draw_line(conf, x, y, x, y + h - 1, color);
 }
 
-int luat_lcd_draw_hline(luat_lcd_conf_t* conf, uint16_t x, uint16_t y,uint16_t w, luat_color_t color) {
-    if (w==0) return 0;
+int luat_lcd_draw_hline(luat_lcd_conf_t* conf, int16_t x, int16_t y,int16_t w, luat_color_t color) {
+    if (w<=0) return 0;
     return luat_lcd_draw_line(conf, x, y, x + w - 1, y, color);
 }
 
-int luat_lcd_draw_line(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2,luat_color_t color) {
-    uint16_t t;
+int luat_lcd_draw_line(luat_lcd_conf_t* conf,int16_t x1, int16_t y1, int16_t x2, int16_t y2,luat_color_t color) {
+    int16_t t;
     uint32_t i = 0;
     int xerr = 0, yerr = 0, delta_x, delta_y, distance;
     int incx, incy, row, col;
@@ -338,7 +398,7 @@ int luat_lcd_draw_line(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t 
     return 0;
 }
 
-int luat_lcd_draw_rectangle(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, luat_color_t color){
+int luat_lcd_draw_rectangle(luat_lcd_conf_t* conf,int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t color){
     luat_lcd_draw_line(conf,x1, y1, x2, y1, color);
     luat_lcd_draw_line(conf,x1, y1, x1, y2, color);
     luat_lcd_draw_line(conf,x1, y2, x2, y2, color);
@@ -346,7 +406,7 @@ int luat_lcd_draw_rectangle(luat_lcd_conf_t* conf,uint16_t x1, uint16_t y1, uint
     return 0;
 }
 
-int luat_lcd_draw_circle(luat_lcd_conf_t* conf,uint16_t x0, uint16_t y0, uint8_t r, luat_color_t color){
+int luat_lcd_draw_circle(luat_lcd_conf_t* conf,int16_t x0, int16_t y0, uint8_t r, luat_color_t color){
     int a, b;
     int di;
     a = 0;

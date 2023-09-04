@@ -223,7 +223,8 @@ static int l_libgnss_get_int_location(lua_State *L) {
     if (libgnss_gnss != NULL && libgnss_gnss->frame_rmc.valid) {
         lua_pushinteger(L, libgnss_gnss->frame_rmc.latitude.value);
         lua_pushinteger(L, libgnss_gnss->frame_rmc.longitude.value);
-        lua_pushinteger(L, libgnss_gnss->frame_rmc.speed.value);
+        // lua_pushinteger(L, libgnss_gnss->frame_rmc.speed.value);
+        push_gnss_value(L, &libgnss_gnss->frame_rmc.speed, 1);
     } else {
         lua_pushinteger(L, 0);
         lua_pushinteger(L, 0);

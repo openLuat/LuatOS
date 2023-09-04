@@ -379,8 +379,8 @@ end
 @param[opt=nil] cbPara，消息发布结果回调函数的回调参数
 @return nil
 @usage
-aliyun.publish("/b0FMK1Ga5cp/862991234567890/update","test",0)
-aliyun.publish("/b0FMK1Ga5cp/862991234567890/update","test",1,cbFnc,"cbFncPara")
+aliyun.publish("/b0FMK1Ga5cp/862991234567890/update",0,"test")
+aliyun.publish("/b0FMK1Ga5cp/862991234567890/update",1,"test",cbFnc,"cbFncPara")
 ]]
 function aliyun.publish(topic,qos,payload,cbFnc,cbPara)
     insert("PUBLISH",topic,qos,payload,cbFnc,cbPara)

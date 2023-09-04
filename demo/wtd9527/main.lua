@@ -1,26 +1,26 @@
-PROJECT = 'wtd9520'
+PROJECT = 'air153C_wtd'
 VERSION = '2.0.0'
 LOG_LEVEL = log.LOG_INFO
 log.setLevel(LOG_LEVEL )
-require 'wtd9520'
+require 'air153C_wtd'
 local sys = require "sys"
 _G.sysplus = require("sysplus")
 
 --[[
     对于喂狗以及关闭喂狗，调用函数时需要等待对应的时间
     例如:   1. 喂狗是410ms，那么需要等待至少400ms，即
-            wtd9520.feed_dog(pin)
+            air153C_wtd.feed_dog(pin)
             sys.wait(410ms)
             2. 关闭喂狗是710ms，那么需要等待至少700ms
-            wtd9520.close_watch_dog(pin)
+            air153C_wtd.close_watch_dog(pin)
             sys.wait(710ms)
 ]]
 
 sys.taskInit(function ()
     log.info("main","taskInit")
     local flag = 0
-    wtd9520.init(28)
-    wtd9520.feed_dog(28)--模块开机第一步需要喂狗一次
+    air153C_wtd.init(28)
+    air153C_wtd.feed_dog(28)--模块开机第一步需要喂狗一次
     sys.wait(3000)--此处延时3s，防止1s内喂狗2次导致进入测试模式
 
 
@@ -36,7 +36,7 @@ sys.taskInit(function ()
     --喂狗
     -- log.info("WTD","eatdog test start!")
     -- while 1 do
-    -- wtd9520.feed_dog(28)--28为看门狗控制引脚
+    -- air153C_wtd.feed_dog(28)--28为看门狗控制引脚
     -- log.info("main","feed dog")
     -- sys.wait(200000)
     -- end
@@ -44,7 +44,7 @@ sys.taskInit(function ()
     
     --关闭喂狗
     -- log.info("WTD","close eatdog test start!")
-    -- wtd9520.close_watch_dog(28)--28为看门狗控制引脚
+    -- air153C_wtd.close_watch_dog(28)--28为看门狗控制引脚
     -- sys.wait(1000)
     
 
@@ -54,13 +54,13 @@ sys.taskInit(function ()
     --     if flag==0 then
     --         flag = 1
     --         log.info("main","close watch dog")
-    --         wtd9520.close_watch_dog(28)--28为看门狗控制引脚
+    --         air153C_wtd.close_watch_dog(28)--28为看门狗控制引脚
     --         sys.wait(30000) --方便观察设置的时间长一点
     --     end
     --     flag=flag+1
     --     if flag == 280 then
     --         log.info("main","feed dog")
-    --         wtd9520.feed_dog(28)
+    --         air153C_wtd.feed_dog(28)
     --     end
     --     sys.wait(1000)
     --     log.info("Timer count(1s):", flag);
@@ -72,7 +72,7 @@ sys.taskInit(function ()
     -- log.info("WTD","testmode test start!")
     -- while flag<2 do
     -- flag =flag+ 1
-    -- wtd9520.feed_dog(28)--28为看门狗控制引脚
+    -- air153C_wtd.feed_dog(28)--28为看门狗控制引脚
     -- log.info("main","feed dog")
     -- sys.wait(500)
     -- end

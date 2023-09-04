@@ -4,6 +4,7 @@
 @version 1.0
 @date    2022.04.11
 @tag LUAT_USE_W5500
+@demo    w5500
 */
 
 #include "luat_base.h"

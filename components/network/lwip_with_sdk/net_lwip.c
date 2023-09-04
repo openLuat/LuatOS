@@ -1000,10 +1000,6 @@ void net_lwip_do_event(OS_EVENT event)
 		else
 		{
 			local_ip = net_lwip_get_ip6(adapter_index);
-			if (local_ip)
-			{
-				NET_DBG("%s", ipaddr_ntoa(local_ip));
-			}
 		}
 		if (!local_ip)
 		{

@@ -29,6 +29,13 @@
 #define __LIBEMQTT_H__
 
 #include <stdint.h>
+/**
+ * @defgroup luatos_MQTT  MQTT相关接口
+ * @{
+ */
+#ifndef MQTT_CONF_CLIENT_ID_LENGTH
+	#define MQTT_CONF_CLIENT_ID_LENGTH 192 
+#endif
 
 #ifndef MQTT_CONF_USERNAME_LENGTH
 	#define MQTT_CONF_USERNAME_LENGTH 192 // Recommended by MQTT Specification (12 + '\0')
@@ -157,7 +164,7 @@ typedef struct {
 	void* socket_info;
 	int (*send)(void* socket_info, const void* buf, unsigned int count);
 	// Connection info
-	char clientid[192];
+	char clientid[MQTT_CONF_CLIENT_ID_LENGTH];
 	// Auth fields
 	char username[MQTT_CONF_USERNAME_LENGTH];
 	char password[MQTT_CONF_PASSWORD_LENGTH];
@@ -294,5 +301,5 @@ int mqtt_puback(mqtt_broker_handle_t* broker, uint16_t message_id);
 int mqtt_pubrec(mqtt_broker_handle_t* broker, uint16_t message_id);
 
 int mqtt_pubcomp(mqtt_broker_handle_t* broker, uint16_t message_id);
-
+/** @}*/
 #endif // __LIBEMQTT_H__

@@ -2,6 +2,8 @@
 #ifndef LUAT_CONF_BSP
 #define LUAT_CONF_BSP
 
+#include "stdint.h"
+
 #define LUAT_BSP_VERSION "V0003"
 #define LUAT_USE_CMDLINE_ARGS 1
 // 启用64位虚拟机

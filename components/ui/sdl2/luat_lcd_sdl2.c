@@ -66,7 +66,7 @@ int luat_lcd_flush(luat_lcd_conf_t* conf) {
     return 0;
 }
 
-int luat_lcd_draw(luat_lcd_conf_t* conf, uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, luat_color_t* color_p) {
+int luat_lcd_draw(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t* color_p) {
     size_t rw = x2 - x1 + 1;
     size_t rh = y2 - y1 + 1;
 

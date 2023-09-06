@@ -251,7 +251,7 @@ int luat_lcd_draw(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int
                     tmp_x1 = 0;
                 }
                 if (x2 > conf->w) {
-                    lsize -= (conf->w - x2);
+                    lsize -= (x2 - conf->w);
                     tmp_x2 = conf->w;
                 }
                 // LLOGD("action draw %dx%d %dx%d %d", tmp_x1, i, tmp_x2, i, lsize);
@@ -284,7 +284,7 @@ int luat_lcd_draw(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int
                 tmp_lsize += (x1);
             }
             if (x2 > conf->w) {
-                tmp_lsize -= (conf->w - x2);
+                tmp_lsize -= (x2 - conf->w);
             }
             memcpy(dst, tmp, tmp_lsize * sizeof(luat_color_t));
         }

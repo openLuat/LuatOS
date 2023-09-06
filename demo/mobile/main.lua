@@ -53,7 +53,7 @@ sys.taskInit(function()
     end
 
     -- mobile.apn(0,2,"") -- 使用默认APN激活CID2
-    mobile.rtime(2) -- 在无数据交互时，RRC2秒后自动释放
+    -- mobile.rtime(3) -- 在无数据交互时，RRC 3秒后自动释放
     -- 下面是配置自动搜索小区间隔，和轮询搜索冲突，开启1个就可以了
     -- mobile.setAuto(10000,30000, 5) -- SIM暂时脱离后自动恢复，30秒搜索一次周围小区信息
     sys.wait(2000)

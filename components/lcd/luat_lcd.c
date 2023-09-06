@@ -314,7 +314,7 @@ int luat_lcd_draw_point(luat_lcd_conf_t* conf, int16_t x, int16_t y, luat_color_
 }
 
 int luat_lcd_clear(luat_lcd_conf_t* conf, luat_color_t color){
-    luat_lcd_draw_fill(conf, 0, 0, conf->w - 1, conf->h - 1, color);
+    luat_lcd_draw_fill(conf, 0, 0, conf->w - 1, conf->h, color);
     return 0;
 }
 

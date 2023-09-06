@@ -2,7 +2,7 @@ local server_ip = "112.125.89.8"    --如果用TCP服务器，目前需要在用
 local server_port = 41101 --换成自己的
 local period = 1 * 60 * 1000 --一分钟唤醒一次
 
-local reason, slp_state = pm.lastReson()
+local reason, slp_state = pm.lastReson()    --获取唤醒原因
 log.info("wakeup state", pm.lastReson())
 local libnet = require "libnet"
 
@@ -23,10 +23,10 @@ local function testTask(ip, port)
         txData = "uart1 wakeup"
     end
 
-    gpio.close(32)
+    gpio.close(32)                  
 
 	local netc, needBreak
-	local result, param, is_err
+	local result, param
 	netc = socket.create(nil, d1Name)
 	socket.debug(netc, false)
 	socket.config(netc) -- demo用TCP服务器，目前需要在用极致功耗模式时先断开服务器
@@ -54,17 +54,15 @@ local function testTask(ip, port)
         end
 	end
 
-    uart.setup(1, 9600)
-    gpio.setup(23,nil)
-    gpio.close(35)
-    gpio.setup(32, function()
+    uart.setup(1, 9600)         --配置uart1，外部唤醒用
+    gpio.setup(23, nil)         
+    gpio.close(35)              --这里pwrkey接地才需要，不接地通过按键控制的不需要
+    gpio.setup(32, function()   --配置wakeup中断，外部唤醒用
         log.info("gpio")
     end, gpio.PULLUP, gpio.FALLING)
-    pm.dtimerStart(3, period)
-    pm.power(pm.WORK_MODE,3)
-    log.info(rtos.meminfo("sys"))
-    sys.wait(15000)
-    log.info("进入极致功耗模式失败，尝试重启")
+    pm.dtimerStart(3, period)   --启动深度休眠定时器
+    pm.power(pm.WORK_MODE,3)    --进入极致功耗模式
+    sys.wait(15000)             --demo演示唤醒时间是一分钟，如果15s后模块重启，则说明进入极致功耗模式失败，
     rtos.reboot()
 end
 sysplus.taskInitEx(testTask, d1Name, netCB, server_ip, server_port)

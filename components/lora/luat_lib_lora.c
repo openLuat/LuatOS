@@ -27,6 +27,15 @@ extern uint8_t SX126xBusyPin;
 extern uint8_t SX126xDio1Pin;
 static RadioEvents_t RadioEvents;
 
+typedef struct lora_rx_data
+{
+    uint16_t size;
+    int16_t rssi;
+    int8_t snr;
+    char buff[1];
+}lora_rx_data_t;
+
+
 enum{
 LORA_TX_DONE,
 LORA_RX_DONE,
@@ -63,15 +72,19 @@ end)
 LORA 接收完成
 LORA_RX_DONE
 @usage
-sys.subscribe("LORA_RX_DONE", function(data, size)
-    log.info("LORA_RX_DONE: ", data, size)
+sys.subscribe("LORA_RX_DONE", function(data, size, rssi, snr)
+    -- rssi 和  snr 于 2023-09-06 新增
+    log.info("LORA_RX_DONE: ", data, size, rssi, snr)
     lora.send("PING")
 end)
 */
         lua_pushstring(L, "LORA_RX_DONE");
-        lua_pushlstring(L, (const char *)msg->ptr,msg->arg2);
-        lua_pushinteger(L, msg->arg2);
-        lua_call(L, 3, 0);
+        lora_rx_data_t* rx_data = (lora_rx_data_t*)msg->ptr;
+        lua_pushlstring(L, (const char *)rx_data->buff, rx_data->size);
+        lua_pushinteger(L, rx_data->size);
+        lua_pushinteger(L, rx_data->rssi);
+        lua_pushinteger(L, rx_data->snr);
+        lua_call(L, 5, 0);
         luat_heap_free(msg->ptr);
         break;
     case LORA_TX_TIMEOUT:
@@ -129,14 +142,17 @@ static void OnTxDone( void ){
 static void OnRxDone( uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr ){
     // printf("RxDone size:%d rssi:%d snr:%d\n",size,rssi,snr);
     // printf("RxDone payload: %.*s",size,payload);
-    char* rx_buff = luat_heap_malloc(size);
-    memcpy( rx_buff, payload, size );
+    lora_rx_data_t* rx_data = luat_heap_malloc(size + sizeof(lora_rx_data_t));
+    memcpy( rx_data->buff, payload, size );
+    rx_data->size = size;
+    rx_data->rssi = rssi;
+    rx_data->snr = snr;
 
     rtos_msg_t msg = {0};
     msg.handler = l_lora_handler;
-    msg.ptr = rx_buff;
+    msg.ptr = rx_data;
     msg.arg1 = LORA_RX_DONE;
-    msg.arg2 = size;
+    msg.arg2 = 0;
     luat_msgbus_put(&msg, 1);
 }
 

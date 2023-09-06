@@ -20,6 +20,14 @@
 #define LUAT_LOG_TAG "lora"
 #include "luat_log.h"
 
+typedef struct lora_rx_data
+{
+    uint16_t size;
+    int16_t rssi;
+    int8_t snr;
+    char buff[1];
+}lora_rx_data_t;
+
 enum{
 LORA_TX_DONE,
 LORA_RX_DONE,
@@ -38,11 +46,6 @@ static lora_device_t * get_lora_device(lua_State *L){
 	}
 }
 
-typedef struct lora_data{
-    uint16_t size;
-    uint8_t payload[];
-}lora_data_t;
-
 static int l_lora_handler(lua_State* L, void* ptr) {
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     lora_device_t *lora_device =(lora_device_t *)msg->ptr;
@@ -59,9 +62,11 @@ static int l_lora_handler(lua_State* L, void* ptr) {
             case LORA_RX_DONE:
                 lua_pushstring(L, "rx_done");
                 lora_data_t* rx_buff = (lora_data_t*)msg->arg2;
-                lua_pushlstring(L, (const char *)rx_buff->payload,rx_buff->size);
+                lua_pushlstring(L, (const char *)rx_buff->buff,rx_buff->size);
                 lua_pushinteger(L, rx_buff->size);
-                lua_call(L, 4, 0);
+                lua_pushinteger(L, rx_buff->rssi);
+                lua_pushinteger(L, rx_buff->snr);
+                lua_call(L, 6, 0);
                 luat_heap_free(rx_buff);
                 break;
             case LORA_TX_TIMEOUT:
@@ -93,9 +98,11 @@ static void OnTxDone( lora_device_t* lora_device ){
 static void OnRxDone( lora_device_t* lora_device,uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr ){
     // LLOGD("RxDone size:%d rssi:%d snr:%d",size,rssi,snr);
     // LLOGD("RxDone payload: %.*s",size,payload);
-    lora_data_t* rx_buff = luat_heap_malloc(sizeof(lora_data_t)+ size);
+    lora_rx_data* rx_buff = luat_heap_malloc(sizeof(lora_data_t)+ size);
     rx_buff->size = size;
-    memcpy( rx_buff->payload, payload, size );
+    rx_buff->rssi = rssi;
+    rx_buff->snr = snr;
+    memcpy( rx_buff->buff, payload, size );
 
     rtos_msg_t msg = {0};
     msg.handler = l_lora_handler;

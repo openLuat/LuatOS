@@ -39,6 +39,7 @@ end
 function publishTest()
     if sConnected then
         --注意：在此处自己去控制payload的内容编码，aLiYun库中不会对payload的内容做任何编码转换
+        -- aliyun.publish(topic,qos,payload,cbFnc,cbPara)
         aliyun.publish("/"..tPara.ProductKey.."/"..tPara.DeviceName.."/user/get",1,"LUATOS_CESHI",publishTestCb,"publishTest_"..publishCnt)
     end
 end
@@ -58,6 +59,7 @@ local function connectCbFnc(result)
     if result then
         --订阅主题
         --根据自己的项目需要订阅主题，下面注释掉的一行代码中的主题是非法的，所以不能打开，一旦打开，会导致订阅失败
+        -- aliyun.subscribe(topic,qos)
         -- aliyun.subscribe("/"..tPara.ProductKey.."/"..tPara.DeviceName.."/user/ceshi",1)
         
         --使用掉电不消失的kv文件区来储存的deviceSecret，deviceToken

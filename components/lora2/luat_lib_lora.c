@@ -61,7 +61,7 @@ static int l_lora_handler(lua_State* L, void* ptr) {
                 break;
             case LORA_RX_DONE:
                 lua_pushstring(L, "rx_done");
-                lora_data_t* rx_buff = (lora_data_t*)msg->arg2;
+                lora_rx_data_t* rx_buff = (lora_rx_data_t*)msg->arg2;
                 lua_pushlstring(L, (const char *)rx_buff->buff,rx_buff->size);
                 lua_pushinteger(L, rx_buff->size);
                 lua_pushinteger(L, rx_buff->rssi);
@@ -98,7 +98,7 @@ static void OnTxDone( lora_device_t* lora_device ){
 static void OnRxDone( lora_device_t* lora_device,uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr ){
     // LLOGD("RxDone size:%d rssi:%d snr:%d",size,rssi,snr);
     // LLOGD("RxDone payload: %.*s",size,payload);
-    lora_rx_data* rx_buff = luat_heap_malloc(sizeof(lora_data_t)+ size);
+    lora_rx_data_t* rx_buff = luat_heap_malloc(sizeof(lora_rx_data_t)+ size);
     rx_buff->size = size;
     rx_buff->rssi = rssi;
     rx_buff->snr = snr;

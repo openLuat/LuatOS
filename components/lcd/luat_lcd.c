@@ -214,8 +214,8 @@ int luat_lcd_draw(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int
         // LLOGE("out of lcd buff range %d %d %d %d %d", x1 >= conf->w, y1 >= conf->h, y2 < 0, x2 < x1, y2 < y1);
         return 0;
     }
-    if (y2 > conf->h) {
-        y2 = conf->h;
+    if (y2 >= conf->h) {
+        y2 = conf->h - 1;
     }
     // 直接刷屏模式
     if (conf->buff == NULL) {
@@ -270,28 +270,18 @@ int luat_lcd_draw(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int
         return 0;
     }
     // buff模式
-    int16_t x_end = x2 > conf->w?conf->w:x2;
-    int16_t y_end = y2 > conf->h?conf->h:y2;
-    luat_color_t* dst = (conf->buff + x1 + conf->w * y1);
-    luat_color_t* src = (color);
-    size_t lsize = (x_end - x1 + 1);
-    for (int16_t i = y1; i <= y_end; i++) {
-        if (i > 0 && i < conf->h) {
-            int tmp_lsize = lsize;
-            luat_color_t* tmp = src;
-            if (x1 < 0) {
-                tmp += ( - x1);
-                tmp_lsize += (x1);
-            }
-            if (x2 > conf->w) {
-                tmp_lsize -= (x2 - conf->w);
-            }
-            memcpy(dst, tmp, tmp_lsize * sizeof(luat_color_t));
-        }
-        dst += conf->w;  // 移动到下一行
-        src += lsize;    // 移动数据
-        if (x2 > conf->w){
-            src+=x2 - conf->w;
+    int16_t x_end = x2 >= conf->w?  (conf->w - 1):x2;
+    luat_color_t* dst = (conf->buff);
+    size_t lsize = (x2 - x1 + 1);
+    for (int16_t x = x1; x <= x2; x++)
+    {
+        if (x < 0 || x >= conf->w)
+            continue;
+        for (int16_t y = y1; y <= y2; y++)
+        {
+            if (y < 0 || y >= conf->h)
+                continue;
+            memcpy((char*)(dst + (conf->w * y + x)), (char*)(color + (lsize * (y-y1) + (x-x1))), sizeof(luat_color_t));
         }
     }
     // 存储需要刷新的区域
@@ -301,8 +291,9 @@ int luat_lcd_draw(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int
         else
             conf->flush_y_min = 0;
     }
-    if (y_end > conf->flush_y_max)
-        conf->flush_y_max = y_end;
+    if (y2 > conf->flush_y_max) {
+        conf->flush_y_max = y2;
+    }
     return 0;
 }
 #endif

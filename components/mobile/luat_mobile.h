@@ -519,7 +519,7 @@ typedef enum LUAT_MOBILE_EVENT
 	LUAT_MOBILE_EVENT_TIME_SYNC, 	/**< 通过基站同步时间完成*/
 	LUAT_MOBILE_EVENT_CSCON, /**< RRC状态，0 idle 1 active*/
 	LUAT_MOBILE_EVENT_BEARER,/**< PDP承载状态*/
-	LUAT_MOBILE_EVENT_FATAL_ERROR,/**< 网络遇到严重故障*/
+	LUAT_MOBILE_EVENT_FATAL_ERROR = 0xff,/**< 网络遇到严重故障*/
 }LUAT_MOBILE_EVENT_E;
 
 typedef enum LUAT_MOBILE_CFUN_STATUS

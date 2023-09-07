@@ -33,7 +33,7 @@
 --                            |____S________|
 --                                 |
 --                                GND
---用法实例： 
+--用法实例：演示用同一个SPI接口驱动VS1838和W25QXX
 local necir = require("necir")
 
 --定义用户回调函数
@@ -42,12 +42,12 @@ local function my_ir_cb(frameTab)
 end
 
 sys.taskInit(function()
-    
-    local NECIR_CS = gpio.setup(pin.PA07,0)  --VS1838使能引脚(NMOS控制其GND)
+    local CS = gpio.setup(pin.PA07,0)  --VS1838(NMOS控制其GND)与W25QXX共用的片选引脚
 
     while 1 do
-        log.info('necir start')
-        NECIR_CS(1)     --使能VS1838
+        --===============================
+        log.info('------necir start------')
+        CS(1)     --使能VS1838
         necir.init(spi.SPI_0,pin.PB03,my_ir_cb)
         sys.wait(10000)
         log.info('necir request to close')
@@ -55,9 +55,28 @@ sys.taskInit(function()
         while not (necir.isClosed()) do
             sys.wait(200)
         end
-        NECIR_CS(0)    --除能VS1838
+        CS(0)    --除能VS1838
         log.info('necir closed')
-        sys.wait(5000)
+        sys.wait(1000)
+
+        --===============================
+        log.info('------setup to read w25qxx chip id------')
+        spi.setup(spi.SPI_0,nil,
+            0,--CPHA
+            0,--CPOL
+            8,--数据宽度
+            100000,--频率
+            spi.MSB,--高低位顺序  
+            spi.master,--主模式
+            spi.full--全双工
+        )
+        --读取W25QXX chi id，0XEF15,表示芯片型号为W25Q32，0XEF16,表示芯片型号为W25Q64
+        CS(0)   --片选W25QXX
+        spi.send(spi.SPI_0,string.char(0x90)..string.char(0x00)..string.char(0x00)..string.char(0x00))
+        local chip_id = spi.recv(spi.SPI_0,2)
+        log.info('w25qxx id=',chip_id:toHex())
+        CS(1)   --取消片选W25QXX
+        sys.wait(1000)
     end
 end)
 ]]

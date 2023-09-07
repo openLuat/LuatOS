@@ -1129,9 +1129,9 @@ static int l_zbuff_copy(lua_State *L)
 }
 
 /**
-获取zbuff的实际数据量大小，注意这个不同于分配的空间大小
+获取zbuff里最后一个数据位置指针到首地址的偏移量，来表示zbuff内已有有效数据量大小，注意这个不同于分配的空间大小，由于seek()会改变最后一个数据位置指针，因此也会影响到used()返回值。
 @api buff:used()
-@return int zbuff的实际数据量大小
+@return int 有效数据量大小
 @usage
 buff:used()
 */

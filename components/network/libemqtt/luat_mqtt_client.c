@@ -104,14 +104,16 @@ int luat_mqtt_set_connopts(luat_mqtt_ctrl_t *mqtt_ctrl, luat_mqtt_connopts_t *op
 void luat_mqtt_close_socket(luat_mqtt_ctrl_t *mqtt_ctrl){
 	LLOGI("mqtt closing socket netc:%p mqtt_state:%d",mqtt_ctrl->netc,mqtt_ctrl->mqtt_state);
 	if (mqtt_ctrl->netc && mqtt_ctrl->mqtt_state){
-		l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_DISCONNECT, 0);
 		network_force_close_socket(mqtt_ctrl->netc);
+		l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_DISCONNECT, mqtt_ctrl->error_state==0?MQTT_ERROR_STATE_SOCKET:mqtt_ctrl->error_state);
 	}
 	luat_stop_rtos_timer(mqtt_ctrl->ping_timer);
 	mqtt_ctrl->buffer_offset = 0;
 	mqtt_ctrl->mqtt_state = 0;
 	if (mqtt_ctrl->reconnect && mqtt_ctrl->reconnect_time > 0){
 		luat_start_rtos_timer(mqtt_ctrl->reconnect_timer, mqtt_ctrl->reconnect_time, 0);
+	}else{
+		l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_CLOSE, 0);
 	}
 }
 
@@ -254,6 +256,7 @@ static int luat_mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
 			mqtt_ctrl->mqtt_state = 1;
 			if(mqtt_ctrl->mqtt_packet_buffer[3] != 0x00){
 				LLOGW("CONACK 0x%02x",mqtt_ctrl->mqtt_packet_buffer[3]);
+				mqtt_ctrl->error_state = mqtt_ctrl->mqtt_packet_buffer[3];
                 luat_mqtt_close_socket(mqtt_ctrl);
                 return -1;
             }
@@ -319,6 +322,7 @@ static int luat_mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
         }
 		case MQTT_MSG_DISCONNECT : {
 			LLOGD("MQTT_MSG_DISCONNECT");
+			mqtt_ctrl->error_state = MQTT_ERROR_STATE_DISCONNECT;
             break;
         }
         default : {
@@ -392,6 +396,7 @@ int luat_mqtt_send_packet(void* socket_info, const void* buf, unsigned int count
 
 int luat_mqtt_connect(luat_mqtt_ctrl_t *mqtt_ctrl) {
 	int ret = 0;
+	mqtt_ctrl->error_state=0;
     const char *hostname = mqtt_ctrl->host;
     uint16_t port = mqtt_ctrl->remote_port;
     uint16_t keepalive = mqtt_ctrl->keepalive;

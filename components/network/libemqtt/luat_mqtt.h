@@ -9,6 +9,9 @@
 #define MQTT_MSG_RECONNECT  	3
 #define MQTT_MSG_CLOSE 			4
 
+#define MQTT_ERROR_STATE_SOCKET		-1
+#define MQTT_ERROR_STATE_DISCONNECT	-2
+
 #ifdef CHIP_EC618
 #define MQTT_RECV_BUF_LEN_MAX 8192 ///< MQTT 接收BUFF大小
 #else
@@ -26,6 +29,7 @@ typedef struct{
 	uint16_t buffer_offset; 	/**< 用于标识mqtt_packet_buffer当前有多少数据*/
 	uint8_t mqtt_packet_buffer[MQTT_RECV_BUF_LEN_MAX + 4];/**< 接收BUFF*/
 	int mqtt_cb;			/**< mqtt 回调函数*/
+	int8_t error_state;    		/**< mqtt 错误状态*/
 	uint16_t remote_port; 		/**< 远程端口号*/
 	uint32_t keepalive;   		/**< 心跳时长 单位s*/
 	uint8_t adapter_index; 		/**< 适配器索引号, 似乎并没有什么用*/

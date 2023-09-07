@@ -119,19 +119,32 @@ static int32_t l_mqtt_callback(lua_State *L, void* ptr){
             }
             break;
         }
+		case MQTT_MSG_CLOSE: {
+			if (mqtt_ctrl->mqtt_ref) {
+				lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_cb);
+				if (lua_isfunction(L, -1)) {
+					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
+					lua_pushstring(L, "close");
+					lua_call(L, 2, 0);
+				}
+            }
+            break;
+        }
 		case MQTT_MSG_DISCONNECT: {
 			if (mqtt_ctrl->mqtt_cb) {
 				lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_cb);
 				if (lua_isfunction(L, -1)) {
 					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
 					lua_pushstring(L, "disconnect");
-					lua_call(L, 2, 0);
+					lua_pushnumber(L, mqtt_ctrl->error_state);
+					lua_call(L, 3, 0);
 				}
 				lua_getglobal(L, "sys_pub");
 				if (lua_isfunction(L, -1)) {
 					lua_pushstring(L, "MQTT_DISCONNECT");
 					lua_geti(L, LUA_REGISTRYINDEX, mqtt_ctrl->mqtt_ref);
-					lua_call(L, 2, 0);
+					lua_pushnumber(L, mqtt_ctrl->error_state);
+					lua_call(L, 3, 0);
 				}
             }
             break;

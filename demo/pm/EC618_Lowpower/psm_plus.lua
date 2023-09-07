@@ -22,7 +22,9 @@ local function testTask(ip, port)
     elseif reason == 3 then
         txData = "uart1 wakeup"
     end
-    mobile.flymode(0,false)--关闭飞行模式，进入psm+模式大于54分钟会进行一次跟基站交互，会退出PSM+模式，导致跑一遍代码,所以下面要进入飞行模式，这边在唤醒的时候退出 
+    if slp_state>0 then
+        mobile.flymode(0,false)--关闭飞行模式，进入psm+模式大于54分钟会进行一次跟基站交互，会退出PSM+模式，导致跑一遍代码,所以下面要进入飞行模式，这边在唤醒的时候退出 
+    end
 
     gpio.close(32)
 

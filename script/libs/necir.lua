@@ -9,19 +9,31 @@
 --1、本库在Air101和Air103测试通过，Air105由于SPI传输帧与帧之间存在间隔因此暂不支持。
 --2、本库实现了NEC红外数据接收，发送请使用LuatOS底层固件自带的ir.sendNEC()函数。
 --3、由于本库基于标准四线SPI接口实现，所以虽然只用到了MISO引脚，但是其他3个SPI相关引脚在使用期间
---  无法作为其他用途，除非执行necir.close()后，中断引脚和SPI都将完全释放，才可以用于其他用途。
+--  无法作为其他用途，除非执行necir.close()并等待necir.isClosed()为true后，SPI将完全释放，才可以用于其他用途。
 --硬件模块：VS1838及其兼容的一体化接收头
 --接线示意图：
---支持单IO模式，即仅使用一个SPI_MISO引脚，此时necir.init的irq_pin参数必须是SPI_MISO所在引脚
---  ____________________              ____________________
--- |                    |    单IO    |                    |
--- |           SPI_MISO |------------| OUT                |
--- | Air10x             |            |       VS1838       |
--- |                    |            |     一体化接收头    |
--- |                    |            |                    |
--- |____________________|            |____________________| 
---
---用法实例：
+--1、支持单IO模式，即仅使用一个SPI_MISO引脚，此时necir.init的irq_pin参数必须是SPI_MISO所在引脚。
+--2、支持多从机，如果SPI总线上需要挂接其他从设备，为了在不使用红外通信期间，避免VS1838干扰总线的MISO，则可以用
+--  一个NMOS（例如AO3400）控制VS1838的电源地，如下所示，GPIO充当VS1838的片选信号，当GPIO输出低
+--  则禁用VS1838，此时VS1838不工作，其OUT引脚为高阻，不会干扰MISO；当GPIO输出高，则启用VS1838，
+--  此时其OUT引脚会输出红外通信信号到单片机。由于一般的SPI从机片选逻辑为低使能，因此这样可以用
+--  同一个片选GPIO来控制VS1838以及另一个SPI从机，因为片选逻辑是相反的。配合necir库的necir.close()
+--  和necir.isClosed()可以最大化的复用SPI接口，避免SPI的独占而浪费。
+--  ____________________                ____________________
+-- |                    |    单IO      |                    |
+-- |           SPI_MISO |--------------| OUT                |
+-- | Air10x             |              |       VS1838       |
+-- |                    |              |     一体化接收头    |
+-- |               GPIO |----      ----| GND                |
+-- |____________________|   |      |   |____________________| 
+--                          |      |
+--                          |  ____|________ 
+--                          | |    D        |
+--                          --| G      NMOS | 
+--                            |____S________|
+--                                 |
+--                                GND
+--用法实例： 
 local necir = require("necir")
 
 --定义用户回调函数
@@ -29,8 +41,25 @@ local function my_ir_cb(frameTab)
     log.info('get ir msg','addr=',frameTab[1],frameTab[2],'data=',frameTab[3])
 end
 
---启动红外数据接收任务（单IO模式，PB03为SPI0_MISO）
-necir.init(spi.SPI_0,pin.PB03,my_ir_cb)
+sys.taskInit(function()
+    
+    local NECIR_CS = gpio.setup(pin.PA07,0)  --VS1838使能引脚(NMOS控制其GND)
+
+    while 1 do
+        log.info('necir start')
+        NECIR_CS(1)     --使能VS1838
+        necir.init(spi.SPI_0,pin.PB03,my_ir_cb)
+        sys.wait(10000)
+        log.info('necir request to close')
+        necir.close()   --请求关闭necir
+        while not (necir.isClosed()) do
+            sys.wait(200)
+        end
+        NECIR_CS(0)    --除能VS1838
+        log.info('necir closed')
+        sys.wait(5000)
+    end
+end)
 ]]
 
 local necir = {}
@@ -47,7 +76,7 @@ local recvNECFrame={}       --依次存储：地址码，地址码取反，数�
 
 local recvCallback          --NEC报文接收成功后的用户回调函数
 local isRecvTaskRun         --接收任务是否需要继续运行的标志
-
+local isClosed              --necir是否已经完全关闭
 --[[
 ==============实现原理================================================
 NEC协议中无论是引导信号，逻辑0还是逻辑1，都由若干个562.5us的周期组成。
@@ -173,9 +202,8 @@ end
 
 
 local function recvTaskFunc()
-    
+
     while isRecvTaskRun do
-        
         spi.close(NECIR_SPI_ID)  --关闭SPI接口在，这样才能把MISO空出来做中断检测
         gpio.setup(NECIR_IRQ_PIN,irq_func,gpio.PULLUP ,gpio.RISING)--打开GPIO中断检测功能
 
@@ -183,15 +211,14 @@ local function recvTaskFunc()
         if result then  --SPI完成采集，开始解析数据
             parseRecvData()
         end
-        sys.wait(200)
     end
 
     --任务结束时做清理工作
     gpio.close(NECIR_IRQ_PIN)  --关闭GPIO功能
     spi.close(NECIR_SPI_ID)   --关闭SPI接口
+    isClosed = true
     --log.info('necir recv task close')
 end
-
 
 --[[
 necir初始化，开启数据接收任务
@@ -213,11 +240,12 @@ function necir.init(spi_id,irq_pin,recv_cb)
 
     --启动红外数据接收任务
     isRecvTaskRun      = true
+    isClosed           = false
     sys.taskInit(recvTaskFunc)
 end
 
 --[[
-关闭necir数据接收过程。如需再次开启，则需要再次调用necir.init(spi_id,irq_pin,recv_cb)
+请求关闭necir数据接收过程。此函数执行后并不能保证立刻关闭，具体是否已经关闭需要使用necir.isClosed()来查询。
 @api necir.close()
 @usage
 necir.close()
@@ -226,5 +254,15 @@ function necir.close()
     isRecvTaskRun = false
 end
 
+--[[
+判断necir是否已经完全关闭，关闭后所使用的SPI接口将释放，可以复用为其他功能。如需再次开启，则需要再次调用necir.init(spi_id,irq_pin,recv_cb)
+@api necir.close()
+@return bool   关闭成功返回true
+@usage
+necir.close()
+]]
+function necir.isClosed()
+    return isClosed
+end
 
 return necir

@@ -722,7 +722,7 @@ static int l_crypt_hash_update(lua_State *L) {
 
 /*
 获取流式hash校验值并释放创建的stream
-@api crypto.l_crypt_hash_finish(stream)
+@api crypto.hash_finish(stream)
 @userdata crypto.hash_init()创建的stream,必选
 @return string 成功返回计算得出的流式hash值的hex字符串，失败无返回
 @usage

@@ -186,8 +186,6 @@ static int mqtt_parse(luat_mqtt_ctrl_t *mqtt_ctrl) {
 
 int luat_mqtt_read_packet(luat_mqtt_ctrl_t *mqtt_ctrl){
 	LLOGD("luat_mqtt_read_packet mqtt_ctrl->buffer_offset:%d",mqtt_ctrl->buffer_offset);
-	int ret = -1;
-	uint8_t *read_buff = NULL;
 	uint32_t total_len = 0;
 	uint32_t rx_len = 0;
 	int result = network_rx(mqtt_ctrl->netc, NULL, 0, 0, NULL, NULL, &total_len);
@@ -247,8 +245,6 @@ further:
 
 
 static int luat_mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
-	rtos_msg_t msg = {0};
-    // msg.handler = l_mqtt_callback;
     uint8_t msg_tp = MQTTParseMessageType(mqtt_ctrl->mqtt_packet_buffer);
 	uint16_t msg_id = 0;
 	uint8_t qos = 0;
@@ -274,7 +270,7 @@ static int luat_mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
 			luat_mqtt_msg_t *mqtt_msg = (luat_mqtt_msg_t *)luat_heap_malloc(sizeof(luat_mqtt_msg_t)+topic_len+payload_len);
 			mqtt_msg->topic_len = mqtt_parse_pub_topic(mqtt_ctrl->mqtt_packet_buffer, mqtt_msg->data);
             mqtt_msg->payload_len = mqtt_parse_publish_msg(mqtt_ctrl->mqtt_packet_buffer, mqtt_msg->data+topic_len);
-			l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_PUBLISH, mqtt_msg);
+			l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_PUBLISH, (int)mqtt_msg);
 			msg_id = mqtt_parse_msg_id(mqtt_ctrl->mqtt_packet_buffer);
 			LLOGD("msg %d qos %d", msg_id, qos);
 			// 还要回复puback
@@ -287,25 +283,25 @@ static int luat_mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
             break;
         }
         case MQTT_MSG_PUBACK : {
-			msg_id = mqtt_parse_msg_id(&(mqtt_ctrl->mqtt_packet_buffer));
+			msg_id = mqtt_parse_msg_id(mqtt_ctrl->mqtt_packet_buffer);
 			LLOGD("MQTT_MSG_PUBACK %d", msg_id);
             l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_PUBACK, msg_id);
 			break;
 		}
 		case MQTT_MSG_PUBREC : {
-			msg_id = mqtt_parse_msg_id(&(mqtt_ctrl->mqtt_packet_buffer));
+			msg_id = mqtt_parse_msg_id(mqtt_ctrl->mqtt_packet_buffer);
 			mqtt_pubrel(&(mqtt_ctrl->broker), msg_id);
 			LLOGD("MQTT_MSG_PUBREC %d", msg_id);
 			break;
 		}
 		case MQTT_MSG_PUBCOMP : {
-			msg_id = mqtt_parse_msg_id(&(mqtt_ctrl->mqtt_packet_buffer));
+			msg_id = mqtt_parse_msg_id(mqtt_ctrl->mqtt_packet_buffer);
 			LLOGD("MQTT_MSG_PUBCOMP %d", msg_id);
             l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_PUBCOMP, msg_id);
 			break;
 		}
 		case MQTT_MSG_PUBREL : {
-			msg_id = mqtt_parse_msg_id(&(mqtt_ctrl->mqtt_packet_buffer));
+			msg_id = mqtt_parse_msg_id(mqtt_ctrl->mqtt_packet_buffer);
 			LLOGD("MQTT_MSG_PUBREL %d", msg_id);
             mqtt_pubcomp(&(mqtt_ctrl->broker), msg_id);
 			break;

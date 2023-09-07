@@ -1070,8 +1070,7 @@ end)
         case LUAT_MOBILE_SIM_WC:
             lua_pushstring(L, "SIM_IND");
             lua_pushstring(L, "SIM_WC");
-            uint32_t tmp = 0;
-            memcpy(&tmp, ptr, 4);
+            uint32_t tmp = (uint32_t)ptr;
             lua_pushinteger(L, tmp);
             lua_call(L, 3, 0);
             break;

@@ -88,22 +88,26 @@ end)
 -- 轮询式, 包含临近小区信息，这是手动搜索，和上面的自动搜索冲突，开启一个就行
 sys.taskInit(function()
     sys.wait(5000)
+	mobile.config(mobile.CONF_SIM_WC_MODE, 2)
     while 1 do
         mobile.reqCellInfo(10)
         sys.wait(11000)
         log.info("cell", json.encode(mobile.getCellInfo()))
+		mobile.config(mobile.CONF_SIM_WC_MODE, 2)
     end
 end)
 
 -- 获取sim卡的状态
 
-sys.subscribe("SIM_IND", function(status)
+sys.subscribe("SIM_IND", function(status, value)
     log.info("sim status", status)
     if status == 'GET_NUMBER' then
         log.info("number", mobile.number(0))
     end
+	if status == "SIM_WC" then
+        log.info("sim", "write counter", value)
+    end
 end)
-
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

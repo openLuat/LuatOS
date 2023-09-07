@@ -356,7 +356,11 @@ local function dispatch()
         end
         local message = table.remove(messageQueue, 1)
         if subscribers[message[1]] then
+            local tmpt = {}
             for callback, _ in pairs(subscribers[message[1]]) do
+                table.insert(tmpt, callback)
+            end
+            for _, callback in ipairs(tmpt) do
                 if type(callback) == "function" then
                     callback(unpack(message, 2, #message))
                 elseif type(callback) == "thread" then

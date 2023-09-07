@@ -101,7 +101,7 @@ error:
 
 static void luat_http_callback(luat_http_ctrl_t *http_ctrl){
 	if (http_ctrl->http_cb){
-		luat_http_client_onevent(http_ctrl, HTTP_CALLBACK, 0);
+		luat_http_client_onevent(http_ctrl, HTTP_CALLBACK, http_ctrl->body_len);
 		// LLOGD("luat_http_callback content_length:%ld body_len:%ld",http_ctrl->resp_content_len, http_ctrl->body_len);
 	}
 }

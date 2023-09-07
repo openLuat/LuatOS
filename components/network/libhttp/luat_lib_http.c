@@ -360,7 +360,7 @@ int32_t l_http_callback(lua_State *L, void* ptr){
 			int userdata_type = lua_type(L, -2);
 			if (lua_isfunction(L, -1)) {
 				lua_pushinteger(L, http_ctrl->resp_content_len);
-				lua_pushinteger(L, http_ctrl->body_len);
+				lua_pushinteger(L, msg->arg2);
 				if (http_ctrl->http_cb_userdata){
 					lua_geti(L, LUA_REGISTRYINDEX, http_ctrl->http_cb_userdata);
 					lua_call(L, 3, 0);

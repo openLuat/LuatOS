@@ -59,7 +59,7 @@
 #define MQTT_MSG_UNSUBACK     11<<4
 #define MQTT_MSG_PINGREQ      12<<4
 #define MQTT_MSG_PINGRESP     13<<4
-#define MQTT_MSG_DISCONNECT   14<<4
+#define MQTT_MSG_DISCONNECT   14<<4 /**< mqtt 关闭断开消息(只要有断开就会上报,无论是否重连) */
 
 
 /** Extract the message type from buffer.

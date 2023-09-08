@@ -4,10 +4,10 @@
  * @defgroup luatos_MQTT  MQTT相关接口
  * @{
  */
-#define MQTT_MSG_RELEASE 		0
-#define MQTT_MSG_TIMER_PING 	2
-#define MQTT_MSG_RECONNECT  	3
-#define MQTT_MSG_CLOSE 			4
+#define MQTT_MSG_RELEASE 		0	/**< mqtt 释放资源前回调消息 */
+#define MQTT_MSG_TIMER_PING 	2	/**< mqtt ping前回调消息 */
+#define MQTT_MSG_RECONNECT  	3	/**< mqtt 重连前回调消息 */
+#define MQTT_MSG_CLOSE 			4	/**< mqtt 关闭回调消息(不会再重连) */
 
 #define MQTT_ERROR_STATE_SOCKET		-1
 #define MQTT_ERROR_STATE_DISCONNECT	-2
@@ -82,13 +82,21 @@ int32_t luat_mqtt_callback(void *data, void *param);
 LUAT_RT_RET_TYPE luat_mqtt_timer_callback(LUAT_RT_CB_PARAM);
 // int luat_mqtt_read_packet(luat_mqtt_ctrl_t *mqtt_ctrl);
 int luat_mqtt_send_packet(void* socket_info, const void* buf, unsigned int count);
+
 /**
  *@brief 关闭MQTT连接，如果设置了自动重连，回重新自动连接
  *@param mqtt_ctrl luatos_mqtt对象实例
  *@return 成功为0，其他值失败
  */
 void luat_mqtt_close_socket(luat_mqtt_ctrl_t *mqtt_ctrl);
+
+/**
+ *@brief 释放MQTT资源，释放后luatos_mqtt对象不可用
+ *@param mqtt_ctrl luatos_mqtt对象实例
+ *@return 成功为0，其他值失败
+ */
 void luat_mqtt_release_socket(luat_mqtt_ctrl_t *mqtt_ctrl);
+
 /**
  *@brief 初始化luatos_mqtt(初始化MQTT)
  *@param mqtt_ctrl luatos_mqtt对象实例
@@ -96,6 +104,7 @@ void luat_mqtt_release_socket(luat_mqtt_ctrl_t *mqtt_ctrl);
  *@return 成功为0，其他值失败
  */
 int luat_mqtt_init(luat_mqtt_ctrl_t *mqtt_ctrl, int adapter_index);
+
 /**
  *@brief 设置MQTT服务器信息、加密信息函数
  *@param mqtt_ctrl luatos_mqtt对象实例
@@ -117,6 +126,12 @@ int luat_mqtt_set_connopts(luat_mqtt_ctrl_t *mqtt_ctrl, luat_mqtt_connopts_t *op
  *@return 成功为0，其他值失败
  */
 int luat_mqtt_reconnect(luat_mqtt_ctrl_t *mqtt_ctrl);
+
+/**
+ *@brief 发送ping包
+ *@param mqtt_ctrl luatos_mqtt对象实例
+ *@return 成功为0，其他值失败
+ */
 int luat_mqtt_ping(luat_mqtt_ctrl_t *mqtt_ctrl);
 
 /**

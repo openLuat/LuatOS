@@ -6,11 +6,10 @@
 @author  lulipro
 @usage
 --注意:
-1、tm1640驱动的数码管应该选用共阴数码管
-2、tm1640也可以驱动LED，如果是LED，则应该将LED连接成共阴数码管内部相同的电路
-3、AIR101官方核心板，底层为LuatOS-SoC_V0017_AIR101.soc，经测试此脚本库的串行时钟频率为20KHz
-
--- 用法实例
+--1、tm1640驱动的数码管应该选用共阴数码管
+--2、tm1640也可以驱动LED，如果是LED，则应该将LED连接成共阴数码管内部相同的电路
+--3、AIR101官方核心板，底层为LuatOS-SoC_V0017_AIR101.soc，经测试此脚本库的串行时钟频率为20KHz
+-- 用法实例：
 local tm1640 = require("tm1640")
 
 sys.taskInit(function ()

@@ -301,7 +301,7 @@ static int l_mobile_set_rrc_auto_release_time(lua_State* L) {
 
 /**
 设置一些辅助周期性或者自动功能，目前支持SIM卡暂时脱离后恢复，周期性获取小区信息，网络遇到严重故障时尝试自动恢复
-@api mobile.setAuto(check_sim_period, get_cell_period, search_cell_time, auto_reset_stack)
+@api mobile.setAuto(check_sim_period, get_cell_period, search_cell_time, auto_reset_stack, network_check_period)
 @int SIM卡自动恢复时间，单位毫秒，建议5000~10000，和飞行模式/SIM卡切换冲突，不能再同一时间使用，必须错开执行。写0或者不写则是关闭功能
 @int 周期性获取小区信息的时间间隔，单位毫秒。获取小区信息会增加部分功耗。写0或者不写则是关闭功能
 @int 每次搜索小区时最大搜索时间，单位秒。不要超过8秒

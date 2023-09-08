@@ -9,18 +9,31 @@
 --1、本库在Air101和Air103测试通过，Air105由于SPI传输帧与帧之间存在间隔因此暂不支持。
 --2、本库实现了NEC红外数据接收，发送请使用LuatOS底层固件自带的ir.sendNEC()函数。
 --3、由于本库基于标准四线SPI接口实现，所以虽然只用到了MISO引脚，但是其他3个SPI相关引脚在使用期间
---  无法作为其他用途，除非执行necir.close()后，中断引脚和SPI都将完全释放，才可以用于其他用途。
+--  无法作为其他用途，除非执行necir.close()并等待necir.isClosed()为true后，SPI将完全释放，才可以用于其他用途。
 --硬件模块：VS1838及其兼容的一体化接收头
 --接线示意图：
---支持单IO模式，即仅使用一个SPI_MISO引脚，此时necir.init的irq_pin参数必须是SPI_MISO所在引脚
---  ____________________              ____________________
--- |                    |    单IO    |                    |
--- |           SPI_MISO |------------| OUT                |
--- | Air10x             |            |       VS1838       |
--- |                    |            |     一体化接收头    |
--- |                    |            |                    |
--- |____________________|            |____________________| 
---
+--1、支持单IO模式，即仅使用一个SPI_MISO引脚，此时necir.init的irq_pin参数必须是SPI_MISO所在引脚。
+--2、支持多从机，如果SPI总线上需要挂接其他从设备，为了在不使用红外通信期间，避免VS1838干扰总线的MISO，则可以用
+--  一个NMOS（例如AO3400）控制VS1838的电源地，如下所示，GPIO充当VS1838的片选信号，当GPIO输出低
+--  则禁用VS1838，此时VS1838不工作，其OUT引脚为高阻，不会干扰MISO；当GPIO输出高，则启用VS1838，
+--  此时其OUT引脚会输出红外通信信号到单片机。由于一般的SPI从机片选逻辑为低使能，因此这样可以用
+--  同一个片选GPIO来控制VS1838以及另一个SPI从机，因为片选逻辑是相反的。配合necir库的necir.close()
+--  和necir.isClosed()可以最大化的复用SPI接口，避免SPI的独占而浪费。
+--  ____________________                ____________________
+-- |                    |    单IO      |                    |
+-- |           SPI_MISO |--------------| OUT                |
+-- | Air10x             |              |       VS1838       |
+-- |                    |              |     一体化接收头    |
+-- |               GPIO |----      ----| GND                |
+-- |____________________|   |      |   |____________________| 
+--                          |      |
+--                          |  ____|________ 
+--                          | |    D        |
+--                          --| G      NMOS | 
+--                            |____S________|
+--                                 |
+--                                GND
+--用法实例：演示用同一个SPI接口驱动VS1838和W25QXX
 --用法实例：
 local necir = require("necir")
 
@@ -29,8 +42,45 @@ local function my_ir_cb(frameTab)
     log.info('get ir msg','addr=',frameTab[1],frameTab[2],'data=',frameTab[3])
 end
 
---启动红外数据接收任务（单IO模式，PB03为SPI0_MISO）
-necir.init(spi.SPI_0,pin.PB03,my_ir_cb)
+sys.taskInit(function()
+    local CS = gpio.setup(pin.PA07,0)  --VS1838(NMOS控制其GND)与W25QXX共用的片选引脚
+    necir.init(spi.SPI_0,pin.PB03,my_ir_cb)
+
+    while 1 do
+        --===============================
+        log.info('------necir start------')
+        CS(1)     --使能VS1838
+        necir.start()  --开启necir数据接收过程
+        sys.wait(10000)
+        log.info('necir request to close')
+        necir.close()   --请求关闭necir
+        while not (necir.isClosed()) do
+            sys.wait(200)
+        end
+        CS(0)    --除能VS1838
+        log.info('necir closed')
+        sys.wait(1000)
+
+        --===============================
+        log.info('------setup to read w25qxx chip id------')
+        spi.setup(spi.SPI_0,nil,
+            0,--CPHA
+            0,--CPOL
+            8,--数据宽度
+            100000,--频率
+            spi.MSB,--高低位顺序  
+            spi.master,--主模式
+            spi.full--全双工
+        )
+        --读取W25QXX chi id，0XEF15,表示芯片型号为W25Q32，0XEF16,表示芯片型号为W25Q64
+        CS(0)   --片选W25QXX
+        spi.send(spi.SPI_0,string.char(0x90)..string.char(0x00)..string.char(0x00)..string.char(0x00))
+        local chip_id = spi.recv(spi.SPI_0,2)
+        log.info('w25qxx id=',chip_id:toHex())
+        CS(1)   --取消片选W25QXX
+        sys.wait(1000)
+    end
+end)
 ]]
 
 local necir = {}
@@ -46,8 +96,8 @@ local recvBuff              --SPI接收数据缓冲区
 local recvNECFrame={}       --依次存储：地址码，地址码取反，数据码，数据码取反
 
 local recvCallback          --NEC报文接收成功后的用户回调函数
-local isRecvTaskRun         --接收任务是否需要继续运行的标志
-
+local isNeedTaskFlag        --接收任务是否需要运行的标志
+local isClosedFlag          --necir是否已经完全关闭的标志
 --[[
 ==============实现原理================================================
 NEC协议中无论是引导信号，逻辑0还是逻辑1，都由若干个562.5us的周期组成。
@@ -155,7 +205,7 @@ local function parseRecvData()
     --对收到的红外数据进行校验并调用 用户回调函数
     --有的遥控的2个地址字节不是相互取反的关系，因此这里不对地址码校验
     if ((recvNECFrame[3]+recvNECFrame[4]) == 255) then
-        --log.info('DataValid,go CallBack')
+        --log.info('necir','DataValid,go CallBack')
         if recvCallback then recvCallback(recvNECFrame) end
     end
     --log.info('necir',recvNECFrame[1],recvNECFrame[2],recvNECFrame[3],recvNECFrame[4])
@@ -165,7 +215,7 @@ end
 --检测引导产生的上升沿的的中断函数
 local function irq_func()    
     gpio.close(NECIR_IRQ_PIN)  --关闭GPIO功能，防止中断反复触发
-    spi.setup(NECIR_SPI_ID,nil,0,0,8,NECIR_SPI_BAUDRATE,spi.MSB,spi.master,1)--重新打开SPI接口
+    spi.setup(NECIR_SPI_ID,nil,0,0,8,NECIR_SPI_BAUDRATE,spi.MSB,spi.master,spi.full)--重新打开SPI接口
     
     recvBuff =  spi.recv(NECIR_SPI_ID, NECIR_SPI_RECV_BUFF_LEN) --通过SPI接收红外接收头输出的解调数据
     sys.publish('NECIR_SPI_DONE')  --发布消息，让任务对收到的SPI数据分析处理
@@ -173,28 +223,31 @@ end
 
 
 local function recvTaskFunc()
+
+    while true do
+        sys.waitUntil('NECIR_START',5000)
+
+        while isNeedTaskFlag do
+            spi.close(NECIR_SPI_ID)  --关闭SPI接口在，这样才能把MISO空出来做中断检测
+            gpio.setup(NECIR_IRQ_PIN,irq_func,gpio.PULLUP ,gpio.RISING)--打开GPIO中断检测功能
     
-    while isRecvTaskRun do
-        
-        spi.close(NECIR_SPI_ID)  --关闭SPI接口在，这样才能把MISO空出来做中断检测
-        gpio.setup(NECIR_IRQ_PIN,irq_func,gpio.PULLUP ,gpio.RISING)--打开GPIO中断检测功能
-
-        local result, _ = sys.waitUntil('NECIR_SPI_DONE',1000)
-        if result then  --SPI完成采集，开始解析数据
-            parseRecvData()
+            local result, _ = sys.waitUntil('NECIR_SPI_DONE',1000)
+            if result then  --SPI完成采集，开始解析数据
+                parseRecvData()
+            end
         end
-        sys.wait(200)
-    end
-
-    --任务结束时做清理工作
-    gpio.close(NECIR_IRQ_PIN)  --关闭GPIO功能
-    spi.close(NECIR_SPI_ID)   --关闭SPI接口
-    --log.info('necir recv task close')
+        --关闭接收过程时做清理工作
+        if not isClosedFlag then
+            gpio.close(NECIR_IRQ_PIN)  --关闭GPIO功能
+            spi.close(NECIR_SPI_ID)   --关闭SPI接口
+            isClosedFlag = true
+            --log.info('necir','recv task closed')
+        end
+    end --task main loop
 end
 
-
 --[[
-necir初始化，开启数据接收任务
+necir初始化
 @api necir.init(spi_id,irq_pin,recv_cb)
 @number spi_id,使用的SPI接口的ID
 @number irq_pin,使用的中断引脚，在单IO模式下这个引脚必须是SPI的MISO引脚
@@ -211,20 +264,43 @@ function necir.init(spi_id,irq_pin,recv_cb)
     NECIR_IRQ_PIN    = irq_pin
     recvCallback     = recv_cb
 
+    isNeedTaskFlag = false      --接收任务是否需要运行的标志
+    isClosedFlag   = true       --necir是否已经完全关闭的标志
     --启动红外数据接收任务
-    isRecvTaskRun      = true
     sys.taskInit(recvTaskFunc)
 end
 
 --[[
-关闭necir数据接收过程。如需再次开启，则需要再次调用necir.init(spi_id,irq_pin,recv_cb)
+开启necir数据接收过程
+@api necir.start()
+@usage
+necir.start()
+]]
+function necir.start()
+    isNeedTaskFlag     = true
+    isClosedFlag       = false
+    sys.publish('NECIR_START')
+end
+
+--[[
+请求关闭necir数据接收过程。此函数执行后并不能保证立刻关闭，具体是否已经关闭需要使用necir.isClosed()来查询。
 @api necir.close()
 @usage
 necir.close()
 ]]
 function necir.close()
-    isRecvTaskRun = false
+    isNeedTaskFlag = false
 end
 
+--[[
+判断necir是否已经完全关闭，关闭后所使用的SPI接口将释放，可以复用为其他功能。如需再次开启，则需要再次调用necir.start()
+@api necir.isClosed()
+@return bool   关闭成功返回true
+@usage
+necir.isClosed()
+]]
+function necir.isClosed()
+    return isClosedFlag
+end
 
 return necir

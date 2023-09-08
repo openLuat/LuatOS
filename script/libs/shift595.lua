@@ -6,10 +6,9 @@
 @author  lulipro
 @usage
 --注意:
-1、初始化时必须提供sclk移位时钟引脚和dat数据引脚，rclk根据应用需求可选
-2、AIR101官方核心板，底层为LuatOS-SoC_V0017_AIR101.soc，经测试此脚本库的串行时钟频率为18KHz
-
---用法实例
+--1、初始化时必须提供sclk移位时钟引脚和dat数据引脚，rclk根据应用需求可选
+--2、AIR101官方核心板，底层为LuatOS-SoC_V0017_AIR101.soc，经测试此脚本库的串行时钟频率为18KHz
+--用法实例：
 --硬件模块：双595驱动的共阳极4位数码管
 local shift595 = require("shift595")
 sys.taskInit(function() 
@@ -29,9 +28,6 @@ sys.taskInit(function()
     end
 end
 )
-
-
-
 ]]
 
 local shift595 = {}

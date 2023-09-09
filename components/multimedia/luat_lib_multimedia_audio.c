@@ -14,6 +14,8 @@
 #include "luat_log.h"
 
 #include "luat_multimedia.h"
+#include "luat_audio.h"
+#include "luat_malloc.h"
 
 #ifndef __BSP_COMMON_H__
 #include "c_common.h"
@@ -23,8 +25,8 @@
 static luat_multimedia_cb_t multimedia_cbs[MAX_DEVICE_COUNT];
 
 int l_multimedia_raw_handler(lua_State *L, void* ptr) {
+    (void)ptr;
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
-    lua_pop(L, 1);
     if (multimedia_cbs[msg->arg2].function_ref) {
         lua_geti(L, LUA_REGISTRYINDEX, multimedia_cbs[msg->arg2].function_ref);
         if (lua_isfunction(L, -1)) {
@@ -76,7 +78,7 @@ audio.write(0, "xxxxxx")
 static int l_audio_write_raw(lua_State *L) {
     int multimedia_id = luaL_checkinteger(L, 1);
     size_t len;
-    uint8_t *buf;
+    const char *buf;
     if(lua_isuserdata(L, 2))
     {
         luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
@@ -87,7 +89,7 @@ static int l_audio_write_raw(lua_State *L) {
     {
         buf = lua_tolstring(L, 2, &len);//取出字符串数据
     }
-	lua_pushboolean(L, !luat_audio_write_raw(multimedia_id, buf, len));
+	lua_pushboolean(L, !luat_audio_write_raw(multimedia_id, (uint8_t*)buf, len));
     return 1;
 }
 
@@ -100,7 +102,8 @@ static int l_audio_write_raw(lua_State *L) {
 audio.stop(0)
 */
 static int l_audio_stop_raw(lua_State *L) {
-    lua_pushboolean(L, !luat_audio_stop_raw(luaL_checkinteger(L, 1)));
+    int id = luaL_checkinteger(L, 1);
+    lua_pushboolean(L, !luat_audio_stop_raw(id));
     return 1;
 }
 
@@ -115,7 +118,8 @@ audio.pause(0, true) --暂停通道0
 audio.pause(0, false) --恢复通道0
 */
 static int l_audio_pause_raw(lua_State *L) {
-    lua_pushboolean(L, !luat_audio_pause_raw(luaL_checkinteger(L, 1), lua_toboolean(L, 2)));
+    int id = luaL_checkinteger(L, 1);
+    lua_pushboolean(L, !luat_audio_pause_raw(id, lua_toboolean(L, 2)));
     return 1;
 }
 
@@ -157,9 +161,9 @@ audio.play(0)				--停止播放某个文件
 */
 static int l_audio_play(lua_State *L) {
     int multimedia_id = luaL_checkinteger(L, 1);
-    size_t len, i;
+    size_t len = 0;
     int result = 0;
-    const uint8_t *buf;
+    const char *buf;
     uint8_t is_error_stop = 1;
     if (lua_istable(L, 2))
     {
@@ -174,7 +178,7 @@ static int l_audio_play(lua_State *L) {
         for (size_t i = 0; i < len; i++)
         {
             lua_rawgeti(L, 2, 1 + i);
-            info[i].value.asBuffer.buffer = lua_tolstring(L, -1, &info[i].value.asBuffer.length);
+            info[i].value.asBuffer.buffer = (void*)lua_tolstring(L, -1, &info[i].value.asBuffer.length);
             info[i].Type = UDATA_TYPE_OPAQUE;
             lua_pop(L, 1); //将刚刚获取的元素值从栈中弹出
         }
@@ -215,14 +219,13 @@ audio.tts(0)				--停止播放
 */
 static int l_audio_play_tts(lua_State *L) {
     int multimedia_id = luaL_checkinteger(L, 1);
-    size_t len, i;
+    size_t len = 0;
     int result = 0;
-    const uint8_t *buf;
-    uint8_t is_error_stop = 1;
+    const char *buf;
     if (LUA_TSTRING == (lua_type(L, (2))))
     {
         buf = lua_tolstring(L, 2, &len);//取出字符串数据
-        result = luat_audio_play_tts_text(multimedia_id, buf, len);
+        result = luat_audio_play_tts_text(multimedia_id, (void*)buf, len);
     	lua_pushboolean(L, !result);
     }
     else if(lua_isuserdata(L, 2))
@@ -279,7 +282,8 @@ static int l_audio_play_wait_end(lua_State *L) {
 local result, user_stop, file_no = audio.getError(0)
 */
 static int l_audio_play_get_last_error(lua_State *L) {
-	int result = luat_audio_play_get_last_error(luaL_checkinteger(L, 1));
+    int multimedia_id = luaL_checkinteger(L, 1);
+	int result = luat_audio_play_get_last_error(multimedia_id);
 	lua_pushboolean(L, 0 == result);
 	lua_pushboolean(L, result < 0);
 	lua_pushinteger(L, result > 0?result:0);
@@ -302,8 +306,22 @@ audio.config(0, pin.PC0, 1)	--PA控制脚是PC0，高电平打开，air105用这
 audio.config(0, 25, 1, 6, 200)	--PA控制脚是GPIO25，高电平打开，Air780E云喇叭板用这个配置就可以用了
 */
 static int l_audio_config(lua_State *L) {
-    luat_audio_config_pa(luaL_checkinteger(L, 1), luaL_optinteger(L, 2, 255), luaL_optinteger(L, 3, 1), luaL_optinteger(L, 4, 5), luaL_optinteger(L, 5, 200));
-    luat_audio_config_dac(luaL_checkinteger(L, 1), luaL_optinteger(L, 6, -1), luaL_optinteger(L, 7, 1), luaL_optinteger(L, 8, 0));
+    int id = luaL_checkinteger(L, 1);
+    int pa_pin = luaL_optinteger(L, 2, 255);
+    int level = luaL_optinteger(L, 3, 1);
+    int dac_pre_delay = luaL_optinteger(L, 4, 5);
+    int dac_last_delay = luaL_optinteger(L, 5, 200);
+    int dac_power_pin = luaL_optinteger(L, 6, -1);
+    int dac_power_level = luaL_optinteger(L, 7, 1);
+    int pa_dac_delay = luaL_optinteger(L, 8, 0);
+    if (pa_dac_delay < 0)
+        pa_dac_delay = 0;
+    if (dac_pre_delay < 0)
+        dac_pre_delay = 0;
+    if (dac_last_delay < 0)
+        dac_last_delay = 0;
+    luat_audio_config_pa(id, pa_pin, level, (uint32_t)dac_pre_delay, (uint32_t)dac_last_delay);
+    luat_audio_config_dac(id, dac_power_pin, dac_power_level, (uint32_t)pa_dac_delay);
     return 0;
 }
 
@@ -317,7 +335,9 @@ static int l_audio_config(lua_State *L) {
 local result = audio.vol(0, 90)	--通道0的音量调节到90%，result存放了调节后的音量水平，有可能仍然是100
 */
 static int l_audio_vol(lua_State *L) {
-    lua_pushinteger(L, luat_audio_vol(luaL_checkinteger(L, 1), luaL_optinteger(L, 2, 100)));
+    int id = luaL_checkinteger(L, 1);
+    int vol = luaL_optinteger(L, 2, 100);
+    lua_pushinteger(L, luat_audio_vol(id, vol));
     return 1;
 }
 
@@ -332,12 +352,13 @@ audio.setBus(0, audio.BUS_SOFT_DAC)	--通道0的硬件输出通道设置为软�
 audio.setBus(0, audio.BUS_I2S)	--通道0的硬件输出通道设置为I2S
 */
 static int l_audio_set_output_bus(lua_State *L) {
-	luat_audio_set_bus_type(luaL_checkinteger(L, 2));
+    int tp = luaL_checkinteger(L, 2);
+	luat_audio_set_bus_type(tp);
     return 0;
 }
 LUAT_WEAK void luat_audio_set_debug(uint8_t on_off)
 {
-	;
+	(void)on_off;
 }
 /*
 配置调试信息输出

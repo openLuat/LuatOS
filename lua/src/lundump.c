@@ -453,6 +453,7 @@ extern void luat_os_print_heapinfo(const char* tag);
 LClosure *luaU_undump(lua_State *L, ZIO *Z, const char *name) {
   LoadState S;
   LClosure *cl;
+  TString *ts;
 
   // 复位偏移量数据
   ptr_offset = 0;
@@ -471,7 +472,15 @@ LClosure *luaU_undump(lua_State *L, ZIO *Z, const char *name) {
   luaD_inctop(L);
   cl->p = luaF_newproto(L);
   luaC_objbarrier(L, cl, cl->p); // add by wendal, refer: https://github.com/lua/lua/commit/f5eb809d3f1da13683cd02184042e67228206205
-  LoadFunction(&S, cl->p, NULL);
+  if (*name == '@') {
+    // 既然是从文件加载,那它就能作为调试信息中的源文件名
+    size_t size = strlen(name);
+    if (size > 0 && size <= LUAI_MAXSHORTLEN) {
+      ts = luaS_newlstr(S.L, name, size);
+    }
+  }
+  LoadFunction(&S, cl->p, ts);
+
   lua_assert(cl->nupvalues == cl->p->sizeupvalues);
   luai_verifycode(L, buff, cl->p);
 

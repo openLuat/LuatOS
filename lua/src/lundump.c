@@ -453,7 +453,7 @@ extern void luat_os_print_heapinfo(const char* tag);
 LClosure *luaU_undump(lua_State *L, ZIO *Z, const char *name) {
   LoadState S;
   LClosure *cl;
-  TString *ts;
+  TString *ts = NULL;
 
   // 复位偏移量数据
   ptr_offset = 0;

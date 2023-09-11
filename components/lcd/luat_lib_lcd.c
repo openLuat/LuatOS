@@ -950,7 +950,18 @@ extern void gtfont_draw_gray_hz(unsigned char *data,unsigned short x,unsigned sh
 -- 注意, gtfont是额外的字体芯片硬件, 需要外挂在SPI总线才能调用本函数的
 lcd.drawGtfontGb2312("啊啊啊",32,0,0)
 */
-static int l_lcd_draw_gtfont_gb2312(lua_State *L) {
+/*
+使用gtfont显示gbk字符串
+@api lcd.drawGtfontGbk(str,size,x,y)
+@string str 显示字符串
+@int size 字体大小 (支持16-192号大小字体)
+@int x 横坐标
+@int y 竖坐标
+@usage
+-- 注意, gtfont是额外的字体芯片硬件, 需要外挂在SPI总线才能调用本函数的
+lcd.drawGtfontGbk("啊啊啊",32,0,0)
+*/
+static int l_lcd_draw_gtfont_gbk(lua_State *L) {
     unsigned char buf[128];
 	size_t len;
 	int i = 0;
@@ -993,7 +1004,19 @@ static int l_lcd_draw_gtfont_gb2312(lua_State *L) {
 -- 注意, gtfont是额外的字体芯片硬件, 需要外挂在SPI总线才能调用本函数的
 lcd.drawGtfontGb2312Gray("啊啊啊",32,4,0,40)
 */
-static int l_lcd_draw_gtfont_gb2312_gray(lua_State* L) {
+/*
+使用gtfont灰度显示gbk字符串
+@api lcd.drawGtfontGbkGray(str,size,gray,x,y)
+@string str 显示字符串
+@int size 字体大小 (支持16-192号大小字体)
+@int gray 灰度[1阶/2阶/3阶/4阶]
+@int x 横坐标
+@int y 竖坐标
+@usage
+-- 注意, gtfont是额外的字体芯片硬件, 需要外挂在SPI总线才能调用本函数的
+lcd.drawGtfontGbkGray("啊啊啊",32,4,0,40)
+*/
+static int l_lcd_draw_gtfont_gbk_gray(lua_State* L) {
 	unsigned char buf[2048];
 	size_t len;
 	int i = 0;
@@ -1660,8 +1683,10 @@ static const rotable_Reg_t reg_lcd[] =
     { "showImage",    ROREG_FUNC(l_lcd_showimage)},
 #endif
 #ifdef LUAT_USE_GTFONT
-    { "drawGtfontGb2312", ROREG_FUNC(l_lcd_draw_gtfont_gb2312)},
-    { "drawGtfontGb2312Gray", ROREG_FUNC(l_lcd_draw_gtfont_gb2312_gray)},
+    { "drawGtfontGb2312", ROREG_FUNC(l_lcd_draw_gtfont_gbk)},
+    { "drawGtfontGb2312Gray", ROREG_FUNC(l_lcd_draw_gtfont_gbk_gray)},
+    { "drawGtfontGbk", ROREG_FUNC(l_lcd_draw_gtfont_gbk)},
+    { "drawGtfontGbkGray", ROREG_FUNC(l_lcd_draw_gtfont_gbk_gray)},
 #ifdef LUAT_USE_GTFONT_UTF8
     { "drawGtfontUtf8", ROREG_FUNC(l_lcd_draw_gtfont_utf8)},
     { "drawGtfontUtf8Gray", ROREG_FUNC(l_lcd_draw_gtfont_utf8_gray)},

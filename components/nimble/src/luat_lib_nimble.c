@@ -635,7 +635,7 @@ static int l_nimble_disc_chr(lua_State *L)  {
         if (peer_servs[i] == NULL)
             break;
         if (0 == ble_uuid_cmp(&peer_servs[i]->uuid, &svr_uuid)) {
-            LLOGD("找到匹配的UUID, 查询其特征值");
+            // LLOGD("找到匹配的UUID, 查询其特征值");
             lua_pushboolean(L, 1);
             luat_nimble_central_disc_char(peer_servs[i]);
             return 1;

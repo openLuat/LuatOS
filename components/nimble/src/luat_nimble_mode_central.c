@@ -276,9 +276,9 @@ static int svc_disced(uint16_t conn_handle,
                                  const struct ble_gatt_svc *service,
                                  void *arg) {
     rtos_msg_t msg = {.handler=luat_nimble_connect_cb};
-    LLOGD("svc_disced status %d", error->status);
+    // LLOGD("svc_disced status %d", error->status);
     if (error->status == BLE_HS_EDONE) {
-        LLOGD("service discovery done count %d", ble_gatt_svc_counter);
+        // LLOGD("service discovery done count %d", ble_gatt_svc_counter);
         msg.arg1 = 0;
         msg.arg2 = ble_gatt_svc_counter;
         luat_msgbus_put(&msg, 0);
@@ -297,7 +297,7 @@ static int svc_disced(uint16_t conn_handle,
     }
     memcpy(peer_servs[ble_gatt_svc_counter], service, sizeof(struct ble_gatt_svc));
     
-    char buff[64] = {0};
+    // char buff[64] = {0};
     // LLOGD("service->start_handle %04X", service->start_handle);
     // LLOGD("service->end_handle %04X",   service->end_handle);
     // LLOGD("service->uuid %s",         ble_uuid_to_str(&service->uuid, buff));
@@ -309,11 +309,11 @@ static int chr_disced(uint16_t conn_handle,
                             const struct ble_gatt_error *error,
                             const struct ble_gatt_chr *chr, void *arg) {
     rtos_msg_t msg = {.handler=luat_nimble_chr_disc_cb};
-    LLOGD("chr_disced status %d", error->status);
+    // LLOGD("chr_disced status %d", error->status);
     if (error->status == BLE_HS_EDONE) {
-        LLOGD("chr discovery done count %d", ble_gatt_chr_counter);
+        // LLOGD("chr discovery done count %d", ble_gatt_chr_counter);
         msg.arg1 = 0;
-        // msg.arg2 = ble_gatt_svc_counter;
+        msg.arg2 = ble_gatt_chr_counter;
         luat_msgbus_put(&msg, 0);
         return 0;
     }
@@ -335,7 +335,7 @@ static int chr_disced(uint16_t conn_handle,
                 peer_chrs[i*MAX_PER_SERV+ble_gatt_chr_counter] = luat_heap_malloc(sizeof(struct ble_gatt_chr));
             }
             memcpy(peer_chrs[i*MAX_PER_SERV+ble_gatt_chr_counter], chr, sizeof(struct ble_gatt_chr));
-            LLOGD("特征值 %s flags %d", ble_uuid_to_str(&chr->uuid, buff), chr->properties);
+            // LLOGD("特征值 %s flags %d", ble_uuid_to_str(&chr->uuid, buff), chr->properties);
             ble_gatt_chr_counter ++;
         }
     }

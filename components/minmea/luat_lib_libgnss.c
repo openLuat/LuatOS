@@ -10,6 +10,7 @@
 -- 提醒: 本库输出的坐标,均为 WGS84 坐标系
 -- 如需要在国内地图使用, 要转换成对应地图的坐标系, 例如 GCJ02 BD09
 -- 相关链接: https://lbsyun.baidu.com/index.php?title=coordinate
+-- 相关链接: https://www.openluat.com/GPS-Offset.html
 
 -- 方案1, 经lua层进行数据中转
 uart.setup(2, 115200)

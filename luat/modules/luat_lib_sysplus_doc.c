@@ -64,3 +64,11 @@ sysplus.taskDel('a')
 */
 void doc_sysplus_taskDel(void){};
 
+/*
+清除指定task的消息队列
+@api sysplus.cleanMsg(taskName)
+@string  任务名称
+@usage
+sysplus.cleanMsg('a')
+*/
+void doc_sysplus_cleanMsg(void){};

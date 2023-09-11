@@ -285,6 +285,7 @@ static int l_mqtt_create(lua_State *L) {
 	int ret = 0;
 	int adapter_index = luaL_optinteger(L, 1, network_get_last_register_adapter());
 	if (adapter_index < 0 || adapter_index >= NW_ADAPTER_QTY){
+		LLOGE("尚无已注册的网络适配器");
 		return 0;
 	}
 	luat_mqtt_ctrl_t *mqtt_ctrl = (luat_mqtt_ctrl_t *)lua_newuserdata(L, sizeof(luat_mqtt_ctrl_t));
@@ -362,6 +363,7 @@ static int l_mqtt_create(lua_State *L) {
 
 	ret = luat_mqtt_set_connopts(mqtt_ctrl, &opts);
 	if (ret){
+		LLOGE("设置mqtt参数失败");
 		luat_mqtt_release_socket(mqtt_ctrl);
 		return 0;
 	}

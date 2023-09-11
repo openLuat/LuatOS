@@ -47,15 +47,28 @@ sys.subscribe("BLE_SCAN_RESULT", function(addr, name, uuids, mfg_data)
     -- name 设备名称, 不一定有
     -- uuids 服务id
     -- mfg_data 工厂默认信息, 主要是iBeacon或者自由广播的数据, 2023-03-19添加
-    log.info("ble scan", (addr:toHex()), name, json.encode(uuids), mfg_data and mfg_data:toHex() or "")
-    if name == "LOS-065614A23900" then
+    -- log.info("ble scan", (addr:toHex()), name, json.encode(uuids), mfg_data and mfg_data:toHex() or "")
+    if name == "KT6368A-BLE-1.9" then
+        log.info("ble", "发现目标设备,发起连接")
         nimble.connect(addr)
     end
+end)
+
+sys.subscribe("BLE_CONN_RESULT", function(succ, ret, serv_count)
+    log.info("ble", "连接结果", succ, "底层结果", ret, "服务特征数量", serv_count);
+    log.info("ble", "设备的服务UUID列表", json.encode(nimble.listSvr()))
+    nimble.discChr(string.fromHex("FF00"))
+end)
+
+sys.subscribe("BLE_CHR_DISC_RESULT", function(succ, ret, serv_count)
+    log.info("ble", "特征值扫描结果", succ, "底层结果", ret, "特征数量", serv_count);
+    log.info("ble", "特征值列表", json.encode(nimble.listChr(string.fromHex("FF00"))))
 end)
 
 sys.taskInit(function()
     sys.wait(2000)
 
+    nimble.config(nimble.CFG_ADDR_ORDER, 1)
     -- BLE模式, 默认是SERVER/Peripheral,即外设模式, 等待被连接的设
     nimble.mode(nimble.CLIENT) -- 默认就是它, 不用调用
 

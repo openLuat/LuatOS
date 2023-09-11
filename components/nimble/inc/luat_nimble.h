@@ -8,6 +8,8 @@
 
 #define LUAT_BLE_MAX_CHR (3)
 
+#define MAX_PER_SERV (8)
+
 /** Bluetooth Adapter State */
 typedef enum
 {
@@ -54,6 +56,8 @@ int luat_nimble_set_adv_data(char* buff, size_t len, int flags);
 
 
 int luat_nimble_peripheral_set_chr(int index, ble_uuid_any_t* chr_uuid, int flags);
+
+int luat_nimble_central_disc_char(struct ble_gatt_svc *service);
 
 #endif
 

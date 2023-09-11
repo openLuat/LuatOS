@@ -67,6 +67,9 @@ struct ble_gap_adv_params adv_params = {0};
 
 static uint8_t ble_uuid_addr_conv = 0; // BLE的地址需要反序, 就蛋疼了
 
+struct ble_gatt_svc *peer_servs[MAX_PER_SERV];
+struct ble_gatt_chr *peer_chrs[MAX_PER_SERV*MAX_PER_SERV];
+
 static int buff2uuid(ble_uuid_any_t* uuid, const char* data, size_t data_len) {
     if (data_len > 16)
         return -1;
@@ -565,6 +568,84 @@ static int l_nimble_config(lua_State *L) {
     return 0;
 }
 
+static int l_nimble_list_svr(lua_State *L)  {
+    lua_newtable(L);
+    char buff[64];
+    size_t i;
+    for (i = 0; i < MAX_PER_SERV; i++)
+    {
+        if (peer_servs[i] == NULL)
+            break;
+        lua_pushstring(L, ble_uuid_to_str(&peer_servs[i]->uuid, buff));
+        lua_seti(L, -2, i+1);
+    }
+    return 1;
+}
+
+
+
+static int l_nimble_list_chr(lua_State *L)  {
+    size_t tmp_size = 0;
+    size_t data_len = 0;
+    ble_uuid_any_t svr_uuid;
+    const char* tmp = luaL_checklstring(L, 1, &tmp_size);
+    int ret = buff2uuid(&svr_uuid, tmp, tmp_size);
+    if (ret) {
+        return 0;
+    }
+    size_t i;
+    char buff[64];
+    lua_newtable(L);
+    for (i = 0; i < MAX_PER_SERV; i++)
+    {
+        if (peer_servs[i] == NULL)
+            continue;
+        if (0 == ble_uuid_cmp(&peer_servs[i]->uuid, &svr_uuid)) {
+            for (size_t j = 0; j < MAX_PER_SERV; j++)
+            {
+                if (peer_chrs[i*MAX_PER_SERV + j] == NULL)
+                    break;
+                lua_newtable(L);
+                lua_pushstring(L, ble_uuid_to_str(&(peer_chrs[i*MAX_PER_SERV+j]->uuid), buff));
+                lua_setfield(L, -2, "uuid");
+                lua_pushinteger(L, peer_chrs[i*MAX_PER_SERV+j]->properties);
+                lua_setfield(L, -2, "flags");
+
+                lua_seti(L, -2, j + 1);
+            }
+            return 1;
+        }
+    }
+    return 1;
+}
+
+static int l_nimble_disc_chr(lua_State *L)  {
+    size_t tmp_size = 0;
+    size_t data_len = 0;
+    ble_uuid_any_t svr_uuid;
+    const char* tmp = luaL_checklstring(L, 1, &tmp_size);
+    int ret = buff2uuid(&svr_uuid, tmp, tmp_size);
+    if (ret) {
+        return 0;
+    }
+    size_t i;
+    char buff[64];
+    for (i = 0; i < MAX_PER_SERV; i++)
+    {
+        if (peer_servs[i] == NULL)
+            break;
+        if (0 == ble_uuid_cmp(&peer_servs[i]->uuid, &svr_uuid)) {
+            LLOGD("找到匹配的UUID, 查询其特征值");
+            lua_pushboolean(L, 1);
+            luat_nimble_central_disc_char(peer_servs[i]);
+            return 1;
+        }
+        // LLOGD("期望的服务id %s", ble_uuid_to_str(&svr_uuid, buff));
+        // LLOGD("实际的服务id %s", ble_uuid_to_str(&peer_servs[i]->uuid, buff));
+    }
+    return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_nimble[] =
 {
@@ -588,6 +669,9 @@ static const rotable_Reg_t reg_nimble[] =
     // 中心模式, 扫描并连接外设
     { "scan",           ROREG_FUNC(l_nimble_scan)},
     { "connect",        ROREG_FUNC(l_nimble_connect)},
+    { "listSvr",        ROREG_FUNC(l_nimble_list_svr)},
+    { "discChr",        ROREG_FUNC(l_nimble_disc_chr)},
+    { "listChr",        ROREG_FUNC(l_nimble_list_chr)},
 
     // ibeacon广播模式
     { "ibeacon",        ROREG_FUNC(l_nimble_ibeacon)},

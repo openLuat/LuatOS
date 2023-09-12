@@ -10,8 +10,9 @@ BLE 扫描
 2. 接收扫描结果, 可用
 
 支持的模块:
-1. Air101/Air103, 开发板的BLE天线未引出, 需要靠近使用, 且功耗高
+1. Air601
 2. ESP32系列, 包括ESP32C3/ESP32S3
+3. Air101/Air103 开发板天线未引出, 天线未校准, 能用但功耗高
 ]]
 
 log.info("main", PROJECT, VERSION)

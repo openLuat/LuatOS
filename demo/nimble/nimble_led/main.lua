@@ -9,6 +9,13 @@ log.info("main", PROJECT, VERSION)
 -- 一定要添加sys.lua !!!!
 sys = require("sys")
 
+--[[
+支持的模块:
+1. Air601
+2. ESP32系列, 包括ESP32C3/ESP32S3
+3. Air101/Air103 开发板天线未引出, 天线未校准, 能用但功耗高
+]]
+
 --添加硬狗防止程序卡死
 if wdt then
     wdt.init(9000)--初始化watchdog设置为9s

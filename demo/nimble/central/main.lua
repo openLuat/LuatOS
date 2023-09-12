@@ -16,6 +16,7 @@ BLE 中心/从机模式 -- 还没完成,还在测试
 支持的模块:
 1. Air601
 2. ESP32系列, 包括ESP32C3/ESP32S3
+3. Air101/Air103 开发板天线未引出, 天线未校准, 能用但功耗高
 ]]
 
 log.info("main", PROJECT, VERSION)

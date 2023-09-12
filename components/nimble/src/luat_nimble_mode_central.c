@@ -38,6 +38,8 @@ struct ble_gatt_register_ctxt;
 extern struct ble_gatt_svc *peer_servs[];
 extern struct ble_gatt_chr *peer_chrs[];
 
+static uint16_t peer_dscs[MAX_PER_SERV * MAX_PER_SERV];
+
 extern uint16_t g_ble_conn_handle;
 extern uint16_t g_ble_state;
 
@@ -86,6 +88,7 @@ static int svc_disced(uint16_t conn_handle,
                                  void *arg);
 
 static void gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt, void *arg) {
+    (void)arg;
     LLOGD("gatt_svr_register_cb op %d", ctxt->op);
 }
 
@@ -129,15 +132,6 @@ int luat_nimble_blecent_scan(int timeout)
     }
     return rc;
 }
-
-
-// static const char *tag = "NimBLE_BLE_PRPH";
-static int bleprph_gap_event(struct ble_gap_event *event, void *arg);
-// #if CONFIG_EXAMPLE_RANDOM_ADDR
-// static uint8_t own_addr_type = BLE_OWN_ADDR_RANDOM;
-// #else
-// static uint8_t own_addr_type;
-// #endif
 
 
 #define ADDR_FMT "%02X%02X%02X%02X%02X%02X"
@@ -195,6 +189,7 @@ int luat_nimble_blecent_connect(const char* _addr){
 
 
 int luat_nimble_blecent_disconnect(int id) {
+    (void)id;
     if (!g_ble_conn_handle) {
         return 0;
     }
@@ -202,6 +197,7 @@ int luat_nimble_blecent_disconnect(int id) {
 }
 
 int luat_nimble_central_disc_srv(int id) {
+    (void)id;
     if (!g_ble_conn_handle) {
         LLOGW("尚未建立连接");
         return -1;
@@ -210,6 +206,7 @@ int luat_nimble_central_disc_srv(int id) {
 }
 
 int luat_nimble_status_cb(lua_State*L, void*ptr) {
+    (void)ptr;
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     lua_getglobal(L,"sys_pub");
     lua_pushliteral(L, "BLE_CONN_STATUS");
@@ -289,6 +286,7 @@ int luat_nimble_scan_cb(lua_State*L, void*ptr) {
 }
 
 int luat_nimble_connect_cb(lua_State*L, void*ptr) {
+    (void)ptr;
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     lua_getglobal(L,"sys_pub");
     lua_pushliteral(L, "BLE_CONN_RESULT");
@@ -300,6 +298,7 @@ int luat_nimble_connect_cb(lua_State*L, void*ptr) {
 }
 
 int luat_nimble_chr_disc_cb(lua_State*L, void*ptr) {
+    (void)ptr;
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     lua_getglobal(L,"sys_pub");
     lua_pushliteral(L, "BLE_CHR_DISC_RESULT");
@@ -314,6 +313,8 @@ static int svc_disced(uint16_t conn_handle,
                                  const struct ble_gatt_error *error,
                                  const struct ble_gatt_svc *service,
                                  void *arg) {
+    (void)conn_handle;
+    (void)arg;
     rtos_msg_t msg = {.handler=luat_nimble_connect_cb};
     // LLOGD("svc_disced status %d", error->status);
     if (error->status == BLE_HS_EDONE) {
@@ -344,6 +345,32 @@ static int svc_disced(uint16_t conn_handle,
     return 0;
 }
 
+static const ble_uuid_t *uuid_ccc =
+                BLE_UUID16_DECLARE(BLE_GATT_DSC_CLT_CFG_UUID16);
+
+static int dsc_disced(uint16_t conn_handle, const struct ble_gatt_error *error,
+                uint16_t chr_val_handle, const struct ble_gatt_dsc *dsc,
+                void *arg) {
+    // LLOGD("dsc_disced status %d", error->status);
+    if (error->status == 0) {
+        struct ble_gatt_chr *chr = (struct ble_gatt_chr *)(arg);
+        // char buff[64];
+        // LLOGD("dsc_disced %d %d %s", chr_val_handle, dsc->handle, ble_uuid_to_str(&dsc->uuid, buff));
+        for (size_t i = 0; i < MAX_PER_SERV * MAX_PER_SERV; i++)
+        {
+            if (peer_chrs[i] == NULL || peer_chrs[i] != chr) {
+                continue;
+            }
+            if (0 == ble_uuid_cmp(uuid_ccc, &dsc->uuid)) {
+                // LLOGD("设置chr %d dsc handle %d", peer_chrs[i]->val_handle, dsc->handle);
+                peer_dscs[i] = dsc->handle;
+                break;
+            }
+        }
+    }
+    return 0;
+}
+
 static int chr_disced(uint16_t conn_handle,
                             const struct ble_gatt_error *error,
                             const struct ble_gatt_chr *chr, void *arg) {
@@ -364,7 +391,7 @@ static int chr_disced(uint16_t conn_handle,
     if (ble_gatt_chr_counter >= MAX_PER_SERV) {
         return 0; // 太多了
     }
-    char buff[64];
+    // char buff[64];
     for (size_t i = 0; i < MAX_PER_SERV; i++)
     {
         if (peer_servs[i] == NULL)
@@ -381,9 +408,18 @@ static int chr_disced(uint16_t conn_handle,
     return 0;
 }
 
-int luat_nimble_central_disc_char(struct ble_gatt_svc *service) {
+int luat_nimble_central_disc_chr(int id, struct ble_gatt_svc *service) {
+    (void)id;
     ble_gatt_chr_counter = 0;
     return ble_gattc_disc_all_chrs(g_ble_conn_handle, service->start_handle, service->end_handle, chr_disced, service);
+}
+
+int luat_nimble_central_disc_dsc(int id, struct ble_gatt_svc *service, struct ble_gatt_chr *chr) {
+    (void)id;
+    // LLOGD("service %d %d chr %d %d", service->start_handle, service->end_handle, chr->val_handle, chr->def_handle);
+    int ret = ble_gattc_disc_all_dscs(g_ble_conn_handle, chr->val_handle, service->end_handle, dsc_disced, chr);
+    // LLOGD("ble_gattc_disc_all_dscs %d", ret);
+    return ret;
 }
 
 static int l_ble_chr_read_cb(lua_State* L, void* ptr) {
@@ -391,7 +427,6 @@ static int l_ble_chr_read_cb(lua_State* L, void* ptr) {
     lua_getglobal(L, "sys_pub");
     if (lua_isfunction(L, -1)) {
         lua_pushstring(L, "BLE_GATT_READ_CHR");
-        lua_newtable(L);
         if (msg->ptr) {
             lua_pushlstring(L, msg->ptr, msg->arg2);
         }
@@ -464,10 +499,43 @@ int luat_nimble_central_read(int id, struct ble_gatt_chr *chr) {
 }
 
 int luat_nimble_central_subscribe(int id, struct ble_gatt_chr * chr, int onoff) {
-    char buff[2] = {0};
-    buff[0] = onoff == 0 ? 0x00 : 0x02;
-    buff[1] = 0x00;
-    return ble_gattc_write_flat(g_ble_conn_handle, chr->def_handle, buff, 2, write_attr_cb, NULL);
+    char buff[2] = {0, 0};
+    if (onoff) {
+        if (chr->properties & BLE_GATT_CHR_F_NOTIFY) {
+            buff[0] |= 0x01;
+        }
+        if (chr->properties & BLE_GATT_CHR_F_INDICATE) {
+            buff[0] |= 0x02;
+        }
+    }
+    for (size_t i = 0; i < MAX_PER_SERV * MAX_PER_SERV; i++)
+    {
+        if (peer_chrs[i] == NULL || peer_chrs[i] != chr) {
+            continue;
+        }
+        // LLOGD("subscribe %d %d %d", onoff, g_ble_conn_handle, peer_dscs[i]);
+        return ble_gattc_write_flat(g_ble_conn_handle, 13, buff, 2, write_attr_cb, chr);
+    }
+    return -1;
+}
+
+static int luat_blecent_tx_cb(lua_State *L, void* ptr) {
+rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    lua_getglobal(L, "sys_pub");
+    if (lua_isfunction(L, -1)) {
+        lua_pushstring(L, "BLE_GATT_TX_DATA");
+        if (msg->ptr) {
+            lua_pushlstring(L, msg->ptr, msg->arg1);
+        }
+        else {
+            lua_pushnil(L);
+        }
+        // lua_pushinteger(L, msg->arg1);
+        lua_call(L, 2, 0);
+    }
+    if (ptr)
+        luat_heap_free(ptr);
+    return 0;
 }
 
 static int blecent_gap_event(struct ble_gap_event *event, void *arg)
@@ -477,8 +545,11 @@ static int blecent_gap_event(struct ble_gap_event *event, void *arg)
     int rc = 0;
     int i = 0;
     rtos_msg_t msg = {0};
+    struct os_mbuf *om;
+    size_t offset = 0;
+    char* ptr;
 
-    // LLOGD("blecent_gap_event %d", event->type);
+    // LLOGD("blecent_gap_event %d", event->type);ble_gattc_disc_all_dscs
 
     switch (event->type) {
     case BLE_GAP_EVENT_DISC_COMPLETE:
@@ -628,6 +699,31 @@ static int blecent_gap_event(struct ble_gap_event *event, void *arg)
 
     case BLE_GAP_EVENT_PASSKEY_ACTION:
         LLOGI("PASSKEY_ACTION_EVENT started");
+        return 0;
+
+    case BLE_GAP_EVENT_NOTIFY_RX :
+        // LLOGD("BLE_GAP_EVENT_NOTIFY_RX");
+        om = event->notify_rx.om;
+        ptr = luat_heap_malloc(1024);
+        if (ptr == NULL) {
+            LLOGE("out of memory when malloc buff");
+            return 0;
+        }
+        while(om != NULL) {
+            if (offset + om->om_len > 1024) {
+                LLOGD("data too big");
+                break;
+            }
+            memcpy(ptr + offset, om->om_data, om->om_len);
+            offset += om->om_len;
+            om = SLIST_NEXT(om, om_next);
+        }
+        msg.handler = luat_blecent_tx_cb;
+        msg.arg1 = offset;
+        msg.ptr = ptr;
+        msg.arg2 = event->notify_rx.attr_handle;
+        // msg.arg2 = event->connect.conn_handle;
+        luat_msgbus_put(&msg, 0);
         return 0;
     }
 

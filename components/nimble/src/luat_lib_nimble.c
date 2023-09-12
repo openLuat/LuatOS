@@ -668,7 +668,7 @@ static int l_nimble_disc_chr(lua_State *L) {
         if (0 == ble_uuid_cmp(&peer_servs[i]->uuid, &svr_uuid)) {
             // LLOGD("找到匹配的UUID, 查询其特征值");
             lua_pushboolean(L, 1);
-            luat_nimble_central_disc_char(peer_servs[i]);
+            luat_nimble_central_disc_chr(0, peer_servs[i]);
             return 1;
         }
         // LLOGD("期望的服务id %s", ble_uuid_to_str(&svr_uuid, buff));
@@ -720,7 +720,7 @@ static int l_nimble_list_chr(lua_State *L) {
     return 1;
 }
 
-static int find_chr(lua_State *L) {
+static int find_chr(lua_State *L, struct ble_gatt_svc **svc, struct ble_gatt_chr **chr) {
     size_t tmp_size = 0;
     int32_t ret = 0;
     const char* tmp;
@@ -730,31 +730,60 @@ static int find_chr(lua_State *L) {
     tmp = luaL_checklstring(L, 1, &tmp_size);
     ret = buff2uuid(&svr_uuid, tmp, tmp_size);
     if (ret) {
-        return NULL;
+        return -1;
     }
     // 特征的UUUID
     tmp = luaL_checklstring(L, 2, &tmp_size);
     ret = buff2uuid(&chr_uuid, tmp, tmp_size);
     if (ret) {
-        return NULL;
+        return -1;
     }
     for (size_t i = 0; i < MAX_PER_SERV; i++)
     {
         if (peer_servs[i] == NULL)
             continue;
         if (0 == ble_uuid_cmp(&peer_servs[i]->uuid, &svr_uuid)) {
+            *svc = peer_servs[i];
             for (size_t j = 0; j < MAX_PER_SERV; j++)
             {
                 if (peer_chrs[i*MAX_PER_SERV + j] == NULL)
                     break;
                 if (0 == ble_uuid_cmp(&peer_chrs[i*MAX_PER_SERV + j]->uuid, &chr_uuid)) {
-                    return peer_chrs[i*MAX_PER_SERV + j];
+                    *chr = peer_chrs[i*MAX_PER_SERV + j];
+                    return 0;
                 }
             }
         }
     }
-    return NULL;
+    return -1;
 }
+
+/*
+扫描从机的指定服务的特征值的其他属性
+@api nimble.discDsc(svr_uuid, chr_uuid)
+@string 指定服务的UUID值
+@string 特征值的UUID值
+@return boolean 成功启动扫描与否
+@usage
+-- 本函数对central/主机模式适用
+*/
+static int l_nimble_disc_dsc(lua_State *L) {
+    int ret;
+    struct ble_gatt_svc *svc;
+    struct ble_gatt_chr *chr;
+    ret = find_chr(L, &svc, &chr);
+    if (ret) {
+        LLOGW("bad svr/chr UUID");
+        return 0;
+    }
+    ret = luat_nimble_central_disc_dsc(0, svc, chr);
+    if (ret == 0) {
+        lua_pushboolean(L, 1);
+        return 1;
+    }
+    return 0;
+}
+
 
 /*
 往指定的服务的指定特征值写入数据
@@ -770,9 +799,10 @@ static int l_nimble_write_chr(lua_State *L) {
     size_t tmp_size = 0;
     int32_t ret = 0;
     const char* tmp;
-    struct ble_gatt_chr * chr = NULL;
-    chr = find_chr(L);
-    if (chr == NULL) {
+    struct ble_gatt_svc *svc;
+    struct ble_gatt_chr *chr;
+    ret = find_chr(L, &svc, &chr);
+    if (ret) {
         LLOGW("bad svr/chr UUID");
         return 0;
     }
@@ -798,10 +828,10 @@ static int l_nimble_write_chr(lua_State *L) {
 */
 static int l_nimble_read_chr(lua_State *L) {
     int32_t ret = 0;
-    const char* tmp;
-    struct ble_gatt_chr * chr = NULL;
-    chr = find_chr(L);
-    if (chr == NULL) {
+    struct ble_gatt_svc *svc;
+    struct ble_gatt_chr *chr;
+    ret = find_chr(L, &svc, &chr);
+    if (ret) {
         LLOGW("bad svr/chr UUID");
         return 0;
     }
@@ -825,18 +855,20 @@ static int l_nimble_read_chr(lua_State *L) {
 */
 static int l_nimble_subscribe_chr(lua_State *L) {
     int32_t ret = 0;
-    const char* tmp;
-    struct ble_gatt_chr * chr = NULL;
-    chr = find_chr(L);
-    if (chr == NULL) {
+    struct ble_gatt_svc *svc;
+    struct ble_gatt_chr *chr;
+    ret = find_chr(L, &svc, &chr);
+    if (ret) {
         LLOGW("bad svr/chr UUID");
         return 0;
     }
     ret = luat_nimble_central_subscribe(0, chr, 1);
     if (ret == 0) {
+        LLOGD("订阅成功");
         lua_pushboolean(L, 1);
         return 1;
     }
+    LLOGD("订阅失败 %d", ret);
     return 0;
 }
 
@@ -852,10 +884,10 @@ static int l_nimble_subscribe_chr(lua_State *L) {
 */
 static int l_nimble_unsubscribe_chr(lua_State *L) {
     int32_t ret = 0;
-    const char* tmp;
-    struct ble_gatt_chr * chr = NULL;
-    chr = find_chr(L);
-    if (chr == NULL) {
+    struct ble_gatt_svc *svc;
+    struct ble_gatt_chr *chr;
+    ret = find_chr(L, &svc, &chr);
+    if (ret) {
         LLOGW("bad svr/chr UUID");
         return 0;
     }
@@ -893,6 +925,7 @@ static const rotable_Reg_t reg_nimble[] =
     { "disconnect",     ROREG_FUNC(l_nimble_disconnect)},
     { "discSvr",        ROREG_FUNC(l_nimble_disc_svr)},
     { "discChr",        ROREG_FUNC(l_nimble_disc_chr)},
+    { "discDsc",        ROREG_FUNC(l_nimble_disc_dsc)},
     { "listSvr",        ROREG_FUNC(l_nimble_list_svr)},
     { "listChr",        ROREG_FUNC(l_nimble_list_chr)},
     { "readChr",        ROREG_FUNC(l_nimble_read_chr)},

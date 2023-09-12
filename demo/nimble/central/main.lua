@@ -63,12 +63,20 @@ sys.subscribe("BLE_CHR_DISC_RESULT", function(succ, ret, chr_count)
     log.info("ble", "特征值扫描结果", succ, "底层结果", ret, "特征数量", chr_count)
     if succ then
         log.info("ble", "特征值列表", json.encode(nimble.listChr(string.fromHex("FF00"))))
-        nimble.subChr(string.fromHex("FF00"), string.fromHex("FF01"))
+        nimble.discDsc(string.fromHex("FF00"), string.fromHex("FF01"))
+        sys.taskInit(function()
+            sys.wait(500)
+            nimble.subChr(string.fromHex("FF00"), string.fromHex("FF01"))
+        end)
     end
 end)
 
 sys.subscribe("BLE_GATT_READ_CHR", function(data)
     log.info("ble", "read result", data)
+end)
+
+sys.subscribe("BLE_GATT_TX_DATA", function(data)
+    log.info("ble", "tx data", data)
 end)
 
 sys.taskInit(function()
@@ -98,7 +106,7 @@ sys.taskInit(function()
         log.info("ble", "结束扫描, 进入数据传输测试")
         sys.wait(500)
         while nimble.connok() do
-            log.info("已连接", "尝试写入数据")
+            -- log.info("已连接", "尝试写入数据")
             nimble.writeChr(string.fromHex("FF00"), string.fromHex("FF01"), "from LuatOS")
             sys.wait(1000)
         end

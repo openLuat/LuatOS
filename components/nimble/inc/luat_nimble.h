@@ -59,7 +59,8 @@ int luat_nimble_set_adv_data(char* buff, size_t len, int flags);
 int luat_nimble_peripheral_set_chr(int index, ble_uuid_any_t* chr_uuid, int flags);
 
 int luat_nimble_central_disc_srv(int id);
-int luat_nimble_central_disc_char(struct ble_gatt_svc *service);
+int luat_nimble_central_disc_chr(int id, struct ble_gatt_svc *service);
+int luat_nimble_central_disc_dsc(int id, struct ble_gatt_svc *service, struct ble_gatt_chr *chr);
 
 int luat_nimble_central_write(int id, struct ble_gatt_chr * chr, char* data, size_t len);
 int luat_nimble_central_read(int id, struct ble_gatt_chr *);

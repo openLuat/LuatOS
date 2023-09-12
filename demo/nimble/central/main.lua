@@ -4,22 +4,18 @@ PROJECT = "bledemo"
 VERSION = "1.0.0"
 
 --[[
-BLE 中心/从机模式
+BLE 中心/从机模式 -- 还没完成,还在测试
 状态: 
 1. 扫描, 可用
 2. 接收扫描结果, 可用
 3. 连接到指定设备, 可用
-4. 获取已连接设备的描述符, 暂不可用
-5. 发送数据, 暂不可用
+4. 获取已连接设备的描述符
+5. 订阅特征值
+6. 发送数据
 
 支持的模块:
-1. Air101/Air103, 开发板的BLE天线未引出, 需要靠近使用, 且功耗高
+1. Air601
 2. ESP32系列, 包括ESP32C3/ESP32S3
-
--- 配合微信小程序 "LuatOS蓝牙调试"
--- 1. 若开发板无天线, 将手机尽量靠近芯片也能搜到
--- 2. 该小程序是开源的, 每次write会自动分包
--- https://gitee.com/openLuat/luatos-miniapps
 ]]
 
 log.info("main", PROJECT, VERSION)
@@ -55,14 +51,23 @@ sys.subscribe("BLE_SCAN_RESULT", function(addr, name, uuids, mfg_data)
 end)
 
 sys.subscribe("BLE_CONN_RESULT", function(succ, ret, serv_count)
-    log.info("ble", "连接结果", succ, "底层结果", ret, "服务特征数量", serv_count);
-    log.info("ble", "设备的服务UUID列表", json.encode(nimble.listSvr()))
-    nimble.discChr(string.fromHex("FF00"))
+    log.info("ble", "连接结果", succ, "底层结果", ret, "服务特征数量", serv_count)
+    if succ then
+        log.info("ble", "设备的服务UUID列表", json.encode(nimble.listSvr()))
+        nimble.discChr(string.fromHex("FF00"))
+    end
 end)
 
-sys.subscribe("BLE_CHR_DISC_RESULT", function(succ, ret, serv_count)
-    log.info("ble", "特征值扫描结果", succ, "底层结果", ret, "特征数量", serv_count);
-    log.info("ble", "特征值列表", json.encode(nimble.listChr(string.fromHex("FF00"))))
+sys.subscribe("BLE_CHR_DISC_RESULT", function(succ, ret, chr_count)
+    log.info("ble", "特征值扫描结果", succ, "底层结果", ret, "特征数量", chr_count)
+    if succ then
+        log.info("ble", "特征值列表", json.encode(nimble.listChr(string.fromHex("FF00"))))
+        nimble.subChr(string.fromHex("FF00"), string.fromHex("FF01"))
+    end
+end)
+
+sys.subscribe("BLE_GATT_READ_CHR", function(data)
+    log.info("ble", "read result", data)
 end)
 
 sys.taskInit(function()
@@ -79,14 +84,23 @@ sys.taskInit(function()
     sys.wait(500)
     -- 打印MAC地址
     local mac = nimble.mac()
-    log.info("ble", "mac", mac and mac:toHex() or "Unknwn")
+    log.info("ble", "mac", mac:toHex())
     sys.wait(1000)
 
     -- 发送数据
-    while 1 do
-        nimble.scan()
-        -- TODO 扫描到指定设备后, 应跳出循环
-        sys.wait(120000)
+    while 1 do 
+        sys.wait(500)
+        while not nimble.connok() do
+            nimble.scan()
+            sys.waitUntil("BLE_CONN_RESULT", 60000)
+        end
+        log.info("ble", "结束扫描, 进入数据传输测试")
+        sys.wait(500)
+        while nimble.connok() do
+            log.info("已连接", "尝试写入数据")
+            nimble.writeChr(string.fromHex("FF00"), string.fromHex("FF01"), "from LuatOS")
+            sys.wait(1000)
+        end
     end
 end)
 

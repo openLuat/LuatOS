@@ -590,7 +590,20 @@ local error = mqttc:ready()
 */
 static int l_mqtt_ready(lua_State *L) {
 	luat_mqtt_ctrl_t * mqtt_ctrl = get_mqtt_ctrl(L);
-	lua_pushboolean(L, mqtt_ctrl->mqtt_state > 0 ? 1 : 0);
+	lua_pushboolean(L, mqtt_ctrl->mqtt_state == MQTT_STATE_READY ? 1 : 0);
+	return 1;
+}
+
+/*
+mqtt客户端状态
+@api mqttc:state()
+@return number 客户端状态
+@usage 
+local state = mqttc:state()
+*/
+static int l_mqtt_state(lua_State *L) {
+	luat_mqtt_ctrl_t * mqtt_ctrl = get_mqtt_ctrl(L);
+	lua_pushinteger(L, mqtt_ctrl->mqtt_state);
 	return 1;
 }
 
@@ -643,7 +656,16 @@ static const rotable_Reg_t reg_mqtt[] =
 	{"ready",			ROREG_FUNC(l_mqtt_ready)},
 	{"will",			ROREG_FUNC(l_mqtt_will)},
 	{"debug",			ROREG_FUNC(l_mqtt_set_debug)},
+	{"state",			ROREG_FUNC(l_mqtt_state)},
 
+    //@const STATE_DISCONNECT number mqtt 断开
+    {"STATE_DISCONNECT",ROREG_INT(MQTT_STATE_DISCONNECT)},
+	//@const STATE_SCONNECT number mqtt socket连接中
+	{"STATE_SCONNECT",	ROREG_INT(MQTT_STATE_SCONNECT)},
+	//@const STATE_MQTT number mqtt socket已连接 mqtt连接中
+	{"STATE_MQTT",  	ROREG_INT(MQTT_STATE_MQTT)},
+	//@const STATE_READY number mqtt mqtt已连接
+	{"STATE_READY",  	ROREG_INT(MQTT_STATE_READY)},
 	{ NULL,             ROREG_INT(0)}
 };
 

@@ -12,6 +12,7 @@
 #include <MLX90640_I2C_Driver.h>
 #include <MLX90640_API.h>
 #include <math.h>
+#include "luat_zbuff.h"
 #include "luat_lcd.h"
 #define LUAT_LOG_TAG "mlx90640"
 #include "luat_log.h"
@@ -200,13 +201,27 @@ static int l_mlx90640_raw_data(lua_State *L) {
         LLOGE("mlx90640 NOT init yet");
         return 0;
     }
-    lua_createtable(L, RAW_DATA_SIZE, 0);
-    for (size_t i = 0; i < RAW_DATA_SIZE; i++)
-    {
-        lua_pushnumber(L, ctx->mlx90640To[i]);
-        lua_seti(L, -2, i + 1);
+    if(lua_isuserdata(L, 1)){
+        luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 1, LUAT_ZBUFF_TYPE));
+        if (buff->used + RAW_DATA_SIZE > buff->len){
+            if (__zbuff_resize(buff, buff->used + RAW_DATA_SIZE)){
+    	        return 0;
+        	}
+        }
+        memcpy(buff->addr + buff->used, ctx->mlx90640To, RAW_DATA_SIZE);
+        buff->used += RAW_DATA_SIZE;
+        lua_pushboolean(L , 1);
+        return 1;
+    }else{
+        lua_createtable(L, RAW_DATA_SIZE, 0);
+        for (size_t i = 0; i < RAW_DATA_SIZE; i++)
+        {
+            lua_pushnumber(L, ctx->mlx90640To[i]);
+            lua_seti(L, -2, i + 1);
+        }
+        return 1;
     }
-    return 1;
+    return 0;
 }
 
 /*

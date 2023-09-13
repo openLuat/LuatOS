@@ -237,15 +237,24 @@ static int l_wlan_smartconfig(lua_State *L) {
 
 /*
 获取mac
-@api wlan.getMac()
-@return string MAC地址,十六进制字符串形式 "AABBCCDDEEFF"
+@api wlan.getMac(tp, hexstr)
+@int 设置何种mac地址,对ESP32系列来说,只能设置STA的地址,即0,默认值也是0
+@bool 是否转HEX字符, 默认是true,即输出hex字符串
+@return string MAC地址,十六进制字符串形式 "AABBCCDDEEFF" 或原始数据
+
+log.info("wlan mac", wlan.getMac())
 */
 static int l_wlan_get_mac(lua_State* L){
     char tmp[6] = {0};
     char tmpbuff[16] = {0};
     luat_wlan_get_mac(luaL_optinteger(L, 1, 0), tmp);
-    sprintf_(tmpbuff, "%02X%02X%02X%02X%02X%02X", tmp[0], tmp[1], tmp[2], tmp[3], tmp[4], tmp[5]);
-    lua_pushstring(L, tmpbuff);
+    if (lua_isboolean(L, 2) && !lua_toboolean(L, 2)) {
+        lua_pushlstring(L, tmp, 6);
+    }
+    else {
+        sprintf_(tmpbuff, "%02X%02X%02X%02X%02X%02X", tmp[0], tmp[1], tmp[2], tmp[3], tmp[4], tmp[5]);
+        lua_pushstring(L, tmpbuff);
+    }
     return 1;
 }
 
@@ -254,7 +263,7 @@ static int l_wlan_get_mac(lua_State* L){
 设置mac
 @api wlan.setMac(tp, mac)
 @int 设置何种mac地址,对ESP32系列来说,只能设置STA的地址,即0
-@string 待设置的MAC地址
+@string 待设置的MAC地址,长度6字节
 @return bool 成功返回true,否则返回false
 @usage
 -- 设置MAC地址, 2023-03-01之后编译的固件可用

@@ -1,0 +1,70 @@
+name: "🐛 上报bug / Bug report"
+description: "提交bug以让改进软件功能 / Create a report to help us improve"
+title: "[🐛Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢对项目的支持与关注。在提出问题之前，请确保你已查看相关开发或使用文档！ / Thanks for taking the time to fill out this bug report!
+  - type: textarea
+    id: bug_description
+    attributes:
+      label: 描述一下这个bug / Describe the bug
+      description: 请使用简介并详细的语句，来描述这个bug。 / A clear and concise description of what the bug is.
+      placeholder: 我准备……我想要……但是实际上它……了 / I am doing ... What I expect is ... What actually happening is ...
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 复现步骤 / To Reproduce
+      description: 按照下面的步骤，可以复现bug / Steps to reproduce the behavior
+      placeholder: 首先……然后……接着…… / Go to '...', Click on '....', Scroll down to '....'
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 如果正常，应该是什么样 / Expected behavior
+      description: 清楚简洁地描述，按这个步骤下来，本来应该运行得到的结果。 / A clear and concise description of what you expected to happen.
+      placeholder: 它应该打印…… / It should be...
+    validations:
+      required: true
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: 截图 / Screenshots
+      description: 请放上你的截图，请给出完整的截图。 / Add screenshots to help explain your problem.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志 / Logs
+      description: 日志贴到这里，请给出完整的日志。 / Upload your log files.
+      placeholder: |
+        ```log
+        日志贴在这里 / logs here
+        ```
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: PACK包版本 / Version
+      placeholder: 1.0.1.1
+    validations:
+      required: true
+  - type: checkboxes
+    id: checkboxes
+    attributes:
+      label: 验证
+      description: 提交前请确认已经做过以下操作 / Before submitting the issue, please make sure you do the following
+      options:
+        - label: 检查过该问题，之前没有人提过 / Check that there isn't already an issue that reports the same bug to avoid creating a duplicate.
+          required: true
+        - label: 提供了最小可复现工程或详细的复现步骤，确保开发者可以复现 / The provided reproduction is a [minimal reproducible example](https://stackoverflow.com/help/minimal-reproducible-example) of the bug.
+          required: true
+        - label: 已经提供了完整的报错信息、日志、截图，没有经过删减。
+          required: true

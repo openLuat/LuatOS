@@ -8,6 +8,8 @@
 
 #define LUAT_BLE_MAX_CHR (3)
 
+#define MAX_PER_SERV (4)
+
 /** Bluetooth Adapter State */
 typedef enum
 {
@@ -44,6 +46,7 @@ int luat_nimble_server_send2(ble_uuid_any_t* srv, ble_uuid_any_t* chr, char* dat
 int luat_nimble_blecent_scan(int timeout);
 
 int luat_nimble_blecent_connect(const char* addr);
+int luat_nimble_blecent_disconnect(int id);
 
 // 直接设置标准的ibeacon数据
 int luat_nimble_ibeacon_setup(void *uuid128, uint16_t major,
@@ -54,6 +57,16 @@ int luat_nimble_set_adv_data(char* buff, size_t len, int flags);
 
 
 int luat_nimble_peripheral_set_chr(int index, ble_uuid_any_t* chr_uuid, int flags);
+
+int luat_nimble_central_disc_srv(int id);
+int luat_nimble_central_disc_chr(int id, struct ble_gatt_svc *service);
+int luat_nimble_central_disc_dsc(int id, struct ble_gatt_svc *service, struct ble_gatt_chr *chr);
+
+int luat_nimble_central_write(int id, struct ble_gatt_chr * chr, char* data, size_t len);
+int luat_nimble_central_read(int id, struct ble_gatt_chr *);
+
+
+int luat_nimble_central_subscribe(int id, struct ble_gatt_chr * chr, int onoff);
 
 #endif
 

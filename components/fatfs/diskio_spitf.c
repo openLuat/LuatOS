@@ -233,7 +233,6 @@ static uint8_t CRC7(uint8_t * chr, int cnt)
 extern void DBG_HexPrintf(void *Data, unsigned int len);
 static int32_t luat_spitf_cmd(luat_spitf_ctrl_t *spitf, uint8_t Cmd, uint32_t Arg, uint8_t NeedStop)
 {
-	uint64_t OpEndTick;
 	uint8_t i, TxLen, DummyLen;
 	int32_t Result = -ERROR_OPERATION_FAILED;
 	luat_spitf_cs(spitf, 1);
@@ -281,11 +280,10 @@ static int32_t luat_spitf_read_reg(luat_spitf_ctrl_t *spitf, uint8_t *RegDataBuf
 	uint64_t OpEndTick;
 	int Result = ERROR_NONE;
 	uint16_t DummyLen;
-	uint16_t i,findResult,offset;
+	uint16_t i,offset;
 	spitf->SPIError = 0;
 	spitf->SDHCError = 0;
 	OpEndTick = luat_mcu_tick64_ms() + SPI_TF_READ_TO_MS * 4;
-	findResult = 0;
 	offset = 0;
 	for(i = 0; i < spitf->ExternLen; i++)
 	{
@@ -356,7 +354,6 @@ static int32_t luat_spitf_write_data(luat_spitf_ctrl_t *spitf)
 	int Result = -ERROR_OPERATION_FAILED;
 	uint16_t TxLen, DoneFlag, waitCnt;
 	uint16_t i, crc16;
-	uint8_t *pBuf;
 	spitf->SPIError = 0;
 	spitf->SDHCError = 0;
 	OpEndTick = luat_mcu_tick64_ms() + SPI_TF_WRITE_TO_MS;
@@ -497,7 +494,6 @@ SDHC_SPIREADBLOCKDATA_DONE:
 
 static void luat_spitf_init(luat_spitf_ctrl_t *spitf)
 {
-	uint8_t i;
 	uint64_t OpEndTick;
 	if (!spitf->Info)
 	{
@@ -579,9 +575,7 @@ INIT_DONE:
 static void luat_spitf_read_config(luat_spitf_ctrl_t *spitf)
 {
 	uint8_t CSD_Tab[18];
-	uint8_t CID_Tab[18];
 	SD_CSD* Csd = &spitf->Info->Csd;
-	SD_CID* Cid = &spitf->Info->Cid;
 	SD_CardInfo *pCardInfo = spitf->Info;
 	uint64_t Temp;
 	uint8_t flag_SDHC = (spitf->OCR & 0x40000000) >> 30;

@@ -1,6 +1,6 @@
 /*
 @module  gtfont
-@summary gtfont高通字库模块
+@summary gtfont高通字库模块 (测试高通字库芯片型号:GT5SLCD1E-1A)
 @version 1.0
 @date    2021.11.11
 @tag LUAT_USE_GTFONT

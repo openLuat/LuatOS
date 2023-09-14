@@ -10,6 +10,7 @@
 -- 提醒: 本库输出的坐标,均为 WGS84 坐标系
 -- 如需要在国内地图使用, 要转换成对应地图的坐标系, 例如 GCJ02 BD09
 -- 相关链接: https://lbsyun.baidu.com/index.php?title=coordinate
+-- 相关链接: https://www.openluat.com/GPS-Offset.html
 
 -- 方案1, 经lua层进行数据中转
 uart.setup(2, 115200)
@@ -632,7 +633,7 @@ end
     "dgps_age":0,             // 差分校正时延，单位为秒
     "fix_quality":1,          // 定位状态标识 0 - 无效,1 - 单点定位,2 - 差分定位
     "satellites_tracked":14,  // 参与定位的卫星数量
-    "altitude":0.255,         // 海平面分离度
+    "altitude":0.255,         // 海平面分离度, 或者成为海拔, 单位是米,
     "hdop":0.0335,            // 水平精度因子，0.00 - 99.99，不定位时值为 99.99
     "longitude":113.231,      // 经度, 正数为东经, 负数为西经
     "latitude":23.4067,       // 纬度, 正数为北纬, 负数为南纬

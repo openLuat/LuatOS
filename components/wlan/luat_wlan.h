@@ -59,7 +59,7 @@ int luat_wlan_ready(void);
 int luat_wlan_connect(luat_wlan_conninfo_t* info);
 int luat_wlan_disconnect(void);
 int luat_wlan_scan(void);
-int luat_wlan_scan_get_result(luat_wlan_scan_result_t *results, int ap_limit);
+int luat_wlan_scan_get_result(luat_wlan_scan_result_t *results, size_t ap_limit);
 
 // 配网相关
 // --- smartconfig 配网
@@ -79,7 +79,7 @@ int luat_wlan_get_mac(int id, char* mac);
 int luat_wlan_set_mac(int id, const char* mac);
 int luat_wlan_get_ip(int type, char* data);
 const char* luat_wlan_get_hostname(int id);
-int luat_wlan_set_hostname(int id, char* hostname);
+int luat_wlan_set_hostname(int id, const char* hostname);
 
 // 设置和获取省电模式
 int luat_wlan_set_ps(int mode);

@@ -67,6 +67,9 @@ struct ble_gap_adv_params adv_params = {0};
 
 static uint8_t ble_uuid_addr_conv = 0; // BLE的地址需要反序, 就蛋疼了
 
+struct ble_gatt_svc *peer_servs[MAX_PER_SERV];
+struct ble_gatt_chr *peer_chrs[MAX_PER_SERV*MAX_PER_SERV];
+
 static int buff2uuid(ble_uuid_any_t* uuid, const char* data, size_t data_len) {
     if (data_len > 16)
         return -1;
@@ -80,6 +83,10 @@ static int buff2uuid(ble_uuid_any_t* uuid, const char* data, size_t data_len) {
     }
     return ble_uuid_init_from_buf(uuid, tmp, data_len);
 }
+
+
+//              通用API, 适合全部模式
+//--------------------------------------------------
 
 /*
 初始化BLE上下文,开始对外广播/扫描
@@ -141,12 +148,8 @@ static int l_nimble_deinit(lua_State* L) {
 }
 
 static int l_nimble_debug(lua_State* L) {
-    int level = 0;
-    // if (lua_gettop(L) > 0)
-    //     level = luat_nimble_trace_level(luaL_checkinteger(L, 1));
-    // else
-    //     level = luat_nimble_trace_level(-1);
-    lua_pushinteger(L, level);
+    LLOGI("nimble.debug is removed");
+    lua_pushinteger(L, 0);
     return 1;
 }
 
@@ -155,11 +158,47 @@ static int l_nimble_server_init(lua_State* L) {
     return 0;
 }
 
-
 static int l_nimble_server_deinit(lua_State* L) {
     LLOGI("nimble.server_deinit is removed");
     return 0;
 }
+
+/*
+设置模式
+@api nimble.mode(tp)
+@int 模式, 默认server/peripheral, 可选 client/central模式 nimble.MODE_BLE_CLIENT
+@return bool 成功与否
+@usage
+-- 参考 demo/nimble
+-- 必须在nimble.init()之前调用
+-- nimble.mode(nimble.MODE_BLE_CLIENT) -- 简称从机模式,未完善
+*/
+static int l_nimble_mode(lua_State *L) {
+    if (lua_isinteger(L, 1)) {
+        nimble_mode = lua_tointeger(L, 1);
+    }
+    lua_pushinteger(L, nimble_mode);
+    return 1;
+}
+
+/*
+是否已经建立连接
+@api nimble.connok()
+@return bool 已连接返回true,否则返回false
+@usage
+log.info("ble", "connected?", nimble.connok())
+-- 从机peripheral模式, 设备是否已经被连接
+-- 主机central模式, 是否已经连接到设备
+-- ibeacon模式, 无意义
+*/
+static int l_nimble_connok(lua_State *L) {
+    lua_pushboolean(L, g_ble_state == BT_STATE_CONNECTED ? 1 : 0);
+    return 1;
+}
+
+
+//--------------------------------------------------
+//             从机peripheral模式系列API
 
 /*
 发送信息
@@ -190,68 +229,6 @@ static int l_nimble_send_msg(lua_State *L) {
     return 1;
 }
 
-/*
-扫描从机
-@api nimble.scan(timeout)
-@int 超时时间,单位秒,默认28秒
-@return bool 启动扫描成功与否
-@usage
--- 参考 demo/nimble/scan
--- 本函数对central/主机模式适用
--- 本函数会直接返回, 然后通过异步回调返回结果
-
--- 调用本函数前, 需要先确保已经nimble.init()
-nimble.scan()
--- timeout参数于 2023.7.11 添加
-*/
-static int l_nimble_scan(lua_State *L) {
-    int timeout = luaL_optinteger(L, 1, 28);
-    if (timeout < 1)
-        timeout = 1;
-    int ret = luat_nimble_blecent_scan(timeout);
-    lua_pushboolean(L, ret == 0 ? 1 : 0);
-    // lua_pushinteger(L, ret);
-    return 1;
-}
-
-/*
-设置模式
-@api nimble.mode(tp)
-@int 模式, 默认server/peripheral, 可选 client/central模式 nimble.MODE_BLE_CLIENT
-@return bool 成功与否
-@usage
--- 参考 demo/nimble
--- 必须在nimble.init()之前调用
--- nimble.mode(nimble.MODE_BLE_CLIENT) -- 简称从机模式,未完善
-*/
-static int l_nimble_mode(lua_State *L) {
-    if (lua_isinteger(L, 1)) {
-        nimble_mode = lua_tointeger(L, 1);
-    }
-    lua_pushinteger(L, nimble_mode);
-    return 1;
-}
-
-static int l_nimble_connect(lua_State *L) {
-    size_t len = 0;
-    const char* addr = luaL_checklstring(L, 1, &len);
-    if (addr == NULL)
-        return 0;
-    luat_nimble_blecent_connect(addr);
-    return 0;
-}
-
-/*
-是否已经建立连接
-@api nimble.connok()
-@return bool 已连接返回true,否则返回false
-@usage
-log.info("ble", "connected?", nimble.connok())
-*/
-static int l_nimble_connok(lua_State *L) {
-    lua_pushboolean(L, g_ble_state == BT_STATE_CONNECTED ? 1 : 0);
-    return 1;
-}
 
 /*
 设置server/peripheral的UUID
@@ -339,68 +316,6 @@ static int l_nimble_mac(lua_State *L) {
     return 0;
 }
 
-/*
-配置iBeacon的参数,仅iBeacon模式可用
-@api nimble.ibeacon(data, major, minor, measured_power)
-@string 数据, 必须是16字节
-@int 主版本号,默认2, 可选, 范围 0 ~ 65536
-@int 次版本号,默认10,可选, 范围 0 ~ 65536
-@int 名义功率, 默认0, 范围 -126 到 20 
-@return bool 成功返回true,否则返回false
-@usage
--- 参考 demo/nimble, 2023-02-25之后编译的固件支持本API
--- 本函数对ibeacon模式适用
-nimble.ibeacon(data, 2, 10, 0)
-nimble.init()
-*/
-static int l_nimble_ibeacon(lua_State *L) {
-    size_t len = 0;
-    const char* data = luaL_checklstring(L, 1, &len);
-    if (len != 16) {
-        LLOGE("ibeacon data MUST 16 bytes, but %d", len);
-        return 0;
-    }
-    uint16_t major = luaL_optinteger(L, 2, 2);
-    uint16_t minor = luaL_optinteger(L, 3, 10);
-    int8_t measured_power = luaL_optinteger(L, 4, 0);
-
-    int rc = luat_nimble_ibeacon_setup(data, major, minor, measured_power);
-    lua_pushboolean(L, rc == 0 ? 1 : 0);
-    return 1;
-}
-
-/*
-配置广播数据,仅iBeacon模式可用
-@api nimble.advData(data, flags)
-@string 广播数据, 当前最高128字节
-@int 广播标识, 可选, 默认值是 0x06,即 不支持传统蓝牙(0x04) + 普通发现模式(0x02)
-@return bool 成功返回true,否则返回false
-@usage
--- 参考 demo/nimble/adv_free, 2023-03-18之后编译的固件支持本API
--- 本函数对ibeacon模式适用
--- 数据来源可以多种多样
-local data = string.fromHex("123487651234876512348765123487651234876512348765")
--- local data = crypto.trng(25)
--- local data = string.char(0x11, 0x13, 0xA3, 0x5A, 0x11, 0x13, 0xA3, 0x5A, 0x11, 0x13, 0xA3, 0x5A, 0x11, 0x13, 0xA3, 0x5A)
-nimble.advData(data)
-nimble.init()
-
--- nimble支持在init之后的任意时刻再次调用, 以实现数据更新
--- 例如 1分钟变一次
-while 1 do
-    sys.wait(60000)
-    local data = crypto.trng(25)
-    nimble.advData(data)
-end
-*/
-static int l_nimble_set_adv_data(lua_State *L) {
-    size_t len = 0;
-    const char* data = luaL_checklstring(L, 1, &len);
-    int flags = luaL_optinteger(L, 2, BLE_HS_ADV_F_DISC_GEN | BLE_HS_ADV_F_BREDR_UNSUP);
-    int rc = luat_nimble_set_adv_data(data, len, flags);
-    lua_pushboolean(L, rc == 0 ? 1 : 0);
-    return 1;
-}
 
 /*
 发送notify
@@ -565,6 +480,425 @@ static int l_nimble_config(lua_State *L) {
     return 0;
 }
 
+//-------------------------------------
+//              ibeacon系列API
+
+
+/*
+配置iBeacon的参数,仅iBeacon模式可用
+@api nimble.ibeacon(data, major, minor, measured_power)
+@string 数据, 必须是16字节
+@int 主版本号,默认2, 可选, 范围 0 ~ 65536
+@int 次版本号,默认10,可选, 范围 0 ~ 65536
+@int 名义功率, 默认0, 范围 -126 到 20 
+@return bool 成功返回true,否则返回false
+@usage
+-- 参考 demo/nimble, 2023-02-25之后编译的固件支持本API
+-- 本函数对ibeacon模式适用
+nimble.ibeacon(data, 2, 10, 0)
+nimble.init()
+*/
+static int l_nimble_ibeacon(lua_State *L) {
+    size_t len = 0;
+    const char* data = luaL_checklstring(L, 1, &len);
+    if (len != 16) {
+        LLOGE("ibeacon data MUST 16 bytes, but %d", len);
+        return 0;
+    }
+    uint16_t major = luaL_optinteger(L, 2, 2);
+    uint16_t minor = luaL_optinteger(L, 3, 10);
+    int8_t measured_power = luaL_optinteger(L, 4, 0);
+
+    int rc = luat_nimble_ibeacon_setup(data, major, minor, measured_power);
+    lua_pushboolean(L, rc == 0 ? 1 : 0);
+    return 1;
+}
+
+/*
+配置广播数据,仅iBeacon模式可用
+@api nimble.advData(data, flags)
+@string 广播数据, 当前最高128字节
+@int 广播标识, 可选, 默认值是 0x06,即 不支持传统蓝牙(0x04) + 普通发现模式(0x02)
+@return bool 成功返回true,否则返回false
+@usage
+-- 参考 demo/nimble/adv_free, 2023-03-18之后编译的固件支持本API
+-- 本函数对ibeacon模式适用
+-- 数据来源可以多种多样
+local data = string.fromHex("123487651234876512348765123487651234876512348765")
+-- local data = crypto.trng(25)
+-- local data = string.char(0x11, 0x13, 0xA3, 0x5A, 0x11, 0x13, 0xA3, 0x5A, 0x11, 0x13, 0xA3, 0x5A, 0x11, 0x13, 0xA3, 0x5A)
+nimble.advData(data)
+nimble.init()
+
+-- nimble支持在init之后的任意时刻再次调用, 以实现数据更新
+-- 例如 1分钟变一次
+while 1 do
+    sys.wait(60000)
+    local data = crypto.trng(25)
+    nimble.advData(data)
+end
+*/
+static int l_nimble_set_adv_data(lua_State *L) {
+    size_t len = 0;
+    const char* data = luaL_checklstring(L, 1, &len);
+    int flags = luaL_optinteger(L, 2, BLE_HS_ADV_F_DISC_GEN | BLE_HS_ADV_F_BREDR_UNSUP);
+    int rc = luat_nimble_set_adv_data(data, len, flags);
+    lua_pushboolean(L, rc == 0 ? 1 : 0);
+    return 1;
+}
+
+//-----------------------------------------------------
+//              主机central模式API
+
+/*
+扫描从机
+@api nimble.scan(timeout)
+@int 超时时间,单位秒,默认28秒
+@return bool 启动扫描成功与否
+@usage
+-- 参考 demo/nimble/scan
+-- 本函数对central/主机模式适用
+-- 本函数会直接返回, 然后通过异步回调返回结果
+
+-- 调用本函数前, 需要先确保已经nimble.init()
+nimble.scan()
+-- timeout参数于 2023.7.11 添加
+*/
+static int l_nimble_scan(lua_State *L) {
+    int timeout = luaL_optinteger(L, 1, 28);
+    if (timeout < 1)
+        timeout = 1;
+    int ret = luat_nimble_blecent_scan(timeout);
+    lua_pushboolean(L, ret == 0 ? 1 : 0);
+    // lua_pushinteger(L, ret);
+    return 1;
+}
+
+/*
+连接到从机
+@api nimble.connect(mac)
+@string 设备的MAC地址
+@return bool 启动连接成功与否
+@usage
+-- 本函数对central/主机模式适用
+-- 本函数会直接返回, 然后通过异步回调返回结果
+*/
+static int l_nimble_connect(lua_State *L) {
+    size_t len = 0;
+    const char* addr = luaL_checklstring(L, 1, &len);
+    if (addr == NULL)
+        return 0;
+    luat_nimble_blecent_connect(addr);
+    return 0;
+}
+
+/*
+断开与从机的连接
+@api nimble.disconnect()
+@return nil 无返回值
+@usage
+-- 本函数对central/主机模式适用
+-- 本函数会直接返回
+*/
+static int l_nimble_disconnect(lua_State *L) {
+    int id = luaL_optinteger(L, 1, 0);
+    luat_nimble_blecent_disconnect(id);
+    return 0;
+}
+
+/*
+扫描从机的服务列表
+@api nimble.discSvr()
+@return nil 无返回值
+@usage
+-- 本函数对central/主机模式适用
+-- 本函数会直接返回,然后异步返回结果
+-- 这个API通常不需要调用, 在连接从机完成后,会主动调用一次
+*/
+static int l_nimble_disc_svr(lua_State *L) {
+    int id = luaL_optinteger(L, 1, 0);
+    luat_nimble_central_disc_srv(id);
+    return 0;
+}
+
+/*
+获取从机的服务列表
+@api nimble.listSvr()
+@return table 服务UUID的数组
+@usage
+-- 本函数对central/主机模式适用
+*/
+static int l_nimble_list_svr(lua_State *L) {
+    lua_newtable(L);
+    char buff[64];
+    size_t i;
+    for (i = 0; i < MAX_PER_SERV; i++)
+    {
+        if (peer_servs[i] == NULL)
+            break;
+        lua_pushstring(L, ble_uuid_to_str(&peer_servs[i]->uuid, buff));
+        lua_seti(L, -2, i+1);
+    }
+    return 1;
+}
+
+/*
+扫描从机的指定服务的特征值
+@api nimble.discChr(svr_uuid)
+@string 指定服务的UUID值
+@return boolean 成功启动扫描与否
+@usage
+-- 本函数对central/主机模式适用
+*/
+static int l_nimble_disc_chr(lua_State *L) {
+    size_t tmp_size = 0;
+    size_t data_len = 0;
+    ble_uuid_any_t svr_uuid;
+    const char* tmp = luaL_checklstring(L, 1, &tmp_size);
+    int ret = buff2uuid(&svr_uuid, tmp, tmp_size);
+    if (ret) {
+        return 0;
+    }
+    size_t i;
+    char buff[64];
+    for (i = 0; i < MAX_PER_SERV; i++)
+    {
+        if (peer_servs[i] == NULL)
+            break;
+        if (0 == ble_uuid_cmp(&peer_servs[i]->uuid, &svr_uuid)) {
+            // LLOGD("找到匹配的UUID, 查询其特征值");
+            lua_pushboolean(L, 1);
+            luat_nimble_central_disc_chr(0, peer_servs[i]);
+            return 1;
+        }
+        // LLOGD("期望的服务id %s", ble_uuid_to_str(&svr_uuid, buff));
+        // LLOGD("实际的服务id %s", ble_uuid_to_str(&peer_servs[i]->uuid, buff));
+    }
+    return 0;
+}
+
+/*
+获取从机的指定服务的特征值列表
+@api nimble.listChr(svr_uuid)
+@string 指定服务的UUID值
+@return table 特征值列表,包含UUID和flags
+@usage
+-- 本函数对central/主机模式适用
+*/
+static int l_nimble_list_chr(lua_State *L) {
+    size_t tmp_size = 0;
+    size_t data_len = 0;
+    ble_uuid_any_t svr_uuid;
+    const char* tmp = luaL_checklstring(L, 1, &tmp_size);
+    int ret = buff2uuid(&svr_uuid, tmp, tmp_size);
+    if (ret) {
+        return 0;
+    }
+    size_t i;
+    char buff[64];
+    lua_newtable(L);
+    for (i = 0; i < MAX_PER_SERV; i++)
+    {
+        if (peer_servs[i] == NULL)
+            continue;
+        if (0 == ble_uuid_cmp(&peer_servs[i]->uuid, &svr_uuid)) {
+            for (size_t j = 0; j < MAX_PER_SERV; j++)
+            {
+                if (peer_chrs[i*MAX_PER_SERV + j] == NULL)
+                    break;
+                lua_newtable(L);
+                lua_pushstring(L, ble_uuid_to_str(&(peer_chrs[i*MAX_PER_SERV+j]->uuid), buff));
+                lua_setfield(L, -2, "uuid");
+                lua_pushinteger(L, peer_chrs[i*MAX_PER_SERV+j]->properties);
+                lua_setfield(L, -2, "flags");
+
+                lua_seti(L, -2, j + 1);
+            }
+            return 1;
+        }
+    }
+    return 1;
+}
+
+static int find_chr(lua_State *L, struct ble_gatt_svc **svc, struct ble_gatt_chr **chr) {
+    size_t tmp_size = 0;
+    int32_t ret = 0;
+    const char* tmp;
+    ble_uuid_any_t svr_uuid;
+    ble_uuid_any_t chr_uuid;
+    // 服务的UUID
+    tmp = luaL_checklstring(L, 1, &tmp_size);
+    ret = buff2uuid(&svr_uuid, tmp, tmp_size);
+    if (ret) {
+        return -1;
+    }
+    // 特征的UUUID
+    tmp = luaL_checklstring(L, 2, &tmp_size);
+    ret = buff2uuid(&chr_uuid, tmp, tmp_size);
+    if (ret) {
+        return -1;
+    }
+    for (size_t i = 0; i < MAX_PER_SERV; i++)
+    {
+        if (peer_servs[i] == NULL)
+            continue;
+        if (0 == ble_uuid_cmp(&peer_servs[i]->uuid, &svr_uuid)) {
+            *svc = peer_servs[i];
+            for (size_t j = 0; j < MAX_PER_SERV; j++)
+            {
+                if (peer_chrs[i*MAX_PER_SERV + j] == NULL)
+                    break;
+                if (0 == ble_uuid_cmp(&peer_chrs[i*MAX_PER_SERV + j]->uuid, &chr_uuid)) {
+                    *chr = peer_chrs[i*MAX_PER_SERV + j];
+                    return 0;
+                }
+            }
+        }
+    }
+    return -1;
+}
+
+/*
+扫描从机的指定服务的特征值的其他属性
+@api nimble.discDsc(svr_uuid, chr_uuid)
+@string 指定服务的UUID值
+@string 特征值的UUID值
+@return boolean 成功启动扫描与否
+@usage
+-- 本函数对central/主机模式适用
+*/
+static int l_nimble_disc_dsc(lua_State *L) {
+    int ret;
+    struct ble_gatt_svc *svc;
+    struct ble_gatt_chr *chr;
+    ret = find_chr(L, &svc, &chr);
+    if (ret) {
+        LLOGW("bad svr/chr UUID");
+        return 0;
+    }
+    ret = luat_nimble_central_disc_dsc(0, svc, chr);
+    if (ret == 0) {
+        lua_pushboolean(L, 1);
+        return 1;
+    }
+    return 0;
+}
+
+
+/*
+往指定的服务的指定特征值写入数据
+@api nimble.writeChr(svr_uuid, chr_uuid, data)
+@string 指定服务的UUID值
+@string 指定特征值的UUID值
+@string 待写入的数据
+@return boolean 成功启动写入与否
+@usage
+-- 本函数对central/主机模式适用
+*/
+static int l_nimble_write_chr(lua_State *L) {
+    size_t tmp_size = 0;
+    int32_t ret = 0;
+    const char* tmp;
+    struct ble_gatt_svc *svc;
+    struct ble_gatt_chr *chr;
+    ret = find_chr(L, &svc, &chr);
+    if (ret) {
+        LLOGW("bad svr/chr UUID");
+        return 0;
+    }
+    // 数据
+    tmp = luaL_checklstring(L, 3, &tmp_size);
+    ret = luat_nimble_central_write(0, chr, tmp, tmp_size);
+    if (ret == 0) {
+        lua_pushboolean(L, 1);
+        return 1;
+    }
+    return 0;
+}
+
+/*
+从指定的服务的指定特征值读取数据(异步)
+@api nimble.writeChr(svr_uuid, chr_uuid)
+@string 指定服务的UUID值
+@string 指定特征值的UUID值
+@return boolean 成功启动写入与否
+@usage
+-- 本函数对central/主机模式适用
+-- 详细用法请参数 demo/nimble/central
+*/
+static int l_nimble_read_chr(lua_State *L) {
+    int32_t ret = 0;
+    struct ble_gatt_svc *svc;
+    struct ble_gatt_chr *chr;
+    ret = find_chr(L, &svc, &chr);
+    if (ret) {
+        LLOGW("bad svr/chr UUID");
+        return 0;
+    }
+    ret = luat_nimble_central_read(0, chr);
+    if (ret == 0) {
+        lua_pushboolean(L, 1);
+        return 1;
+    }
+    return 0;
+}
+
+/*
+订阅指定的服务的指定特征值
+@api nimble.subChr(svr_uuid, chr_uuid)
+@string 指定服务的UUID值
+@string 指定特征值的UUID值
+@return boolean 成功启动订阅与否
+@usage
+-- 本函数对central/主机模式适用
+-- 详细用法请参数 demo/nimble/central
+*/
+static int l_nimble_subscribe_chr(lua_State *L) {
+    int32_t ret = 0;
+    struct ble_gatt_svc *svc;
+    struct ble_gatt_chr *chr;
+    ret = find_chr(L, &svc, &chr);
+    if (ret) {
+        LLOGW("bad svr/chr UUID");
+        return 0;
+    }
+    ret = luat_nimble_central_subscribe(0, chr, 1);
+    if (ret == 0) {
+        LLOGD("订阅成功");
+        lua_pushboolean(L, 1);
+        return 1;
+    }
+    LLOGD("订阅失败 %d", ret);
+    return 0;
+}
+
+/*
+取消订阅指定的服务的指定特征值
+@api nimble.unsubChr(svr_uuid, chr_uuid)
+@string 指定服务的UUID值
+@string 指定特征值的UUID值
+@return boolean 成功启动取消订阅与否
+@usage
+-- 本函数对central/主机模式适用
+-- 详细用法请参数 demo/nimble/central
+*/
+static int l_nimble_unsubscribe_chr(lua_State *L) {
+    int32_t ret = 0;
+    struct ble_gatt_svc *svc;
+    struct ble_gatt_chr *chr;
+    ret = find_chr(L, &svc, &chr);
+    if (ret) {
+        LLOGW("bad svr/chr UUID");
+        return 0;
+    }
+    ret = luat_nimble_central_subscribe(0, chr, 0);
+    if (ret == 0) {
+        lua_pushboolean(L, 1);
+        return 1;
+    }
+    return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_nimble[] =
 {
@@ -588,6 +922,16 @@ static const rotable_Reg_t reg_nimble[] =
     // 中心模式, 扫描并连接外设
     { "scan",           ROREG_FUNC(l_nimble_scan)},
     { "connect",        ROREG_FUNC(l_nimble_connect)},
+    { "disconnect",     ROREG_FUNC(l_nimble_disconnect)},
+    { "discSvr",        ROREG_FUNC(l_nimble_disc_svr)},
+    { "discChr",        ROREG_FUNC(l_nimble_disc_chr)},
+    { "discDsc",        ROREG_FUNC(l_nimble_disc_dsc)},
+    { "listSvr",        ROREG_FUNC(l_nimble_list_svr)},
+    { "listChr",        ROREG_FUNC(l_nimble_list_chr)},
+    { "readChr",        ROREG_FUNC(l_nimble_read_chr)},
+    { "writeChr",       ROREG_FUNC(l_nimble_write_chr)},
+    { "subChr",         ROREG_FUNC(l_nimble_subscribe_chr)},
+    { "unsubChr",       ROREG_FUNC(l_nimble_unsubscribe_chr)},
 
     // ibeacon广播模式
     { "ibeacon",        ROREG_FUNC(l_nimble_ibeacon)},

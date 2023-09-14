@@ -29,10 +29,26 @@
 // #define LLOGD(...) 
 // #endif
 
-static int ble_gatt_svc_counter = 0;
+static size_t ble_gatt_svc_counter = 0;
+static size_t ble_gatt_chr_counter = 0;
 
 struct ble_hs_cfg;
 struct ble_gatt_register_ctxt;
+
+extern struct ble_gatt_svc *peer_servs[];
+extern struct ble_gatt_chr *peer_chrs[];
+
+static uint16_t peer_dscs[MAX_PER_SERV * MAX_PER_SERV];
+
+extern uint16_t g_ble_conn_handle;
+extern uint16_t g_ble_state;
+
+#define LUAT_LOG_TAG "nimble"
+#include "luat_log.h"
+
+static char selfname[32];
+// extern uint16_t g_ble_conn_handle;
+// static uint16_t g_ble_state;
 
 typedef struct luat_nimble_scan_result
 {
@@ -62,21 +78,17 @@ void print_conn_desc(const struct ble_gap_conn_desc *desc);
 
 void print_adv_fields(const struct ble_hs_adv_fields *fields);
 
-extern uint16_t g_ble_conn_handle;
-extern uint16_t g_ble_state;
-
-#define LUAT_LOG_TAG "nimble"
-#include "luat_log.h"
-
-static char selfname[32];
-// extern uint16_t g_ble_conn_handle;
-// static uint16_t g_ble_state;
 
 void ble_store_config_init(void);
 
 static int blecent_gap_event(struct ble_gap_event *event, void *arg);
+static int svc_disced(uint16_t conn_handle,
+                                 const struct ble_gatt_error *error,
+                                 const struct ble_gatt_svc *service,
+                                 void *arg);
 
 static void gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt, void *arg) {
+    (void)arg;
     LLOGD("gatt_svr_register_cb op %d", ctxt->op);
 }
 
@@ -122,15 +134,6 @@ int luat_nimble_blecent_scan(int timeout)
 }
 
 
-// static const char *tag = "NimBLE_BLE_PRPH";
-static int bleprph_gap_event(struct ble_gap_event *event, void *arg);
-// #if CONFIG_EXAMPLE_RANDOM_ADDR
-// static uint8_t own_addr_type = BLE_OWN_ADDR_RANDOM;
-// #else
-// static uint8_t own_addr_type;
-// #endif
-
-
 #define ADDR_FMT "%02X%02X%02X%02X%02X%02X"
 #define ADDR_T(addr) addr[0],addr[1],addr[2],addr[3],addr[4],addr[5]
 
@@ -156,7 +159,23 @@ int luat_nimble_blecent_connect(const char* _addr){
     int rc;
     ble_addr_t *addr;
     addr = (ble_addr_t *)_addr;
+    for (size_t i = 0; i < ble_gatt_svc_counter; i++)
+    {
+        if (peer_servs[i]) {
+            luat_heap_free(peer_servs[i]);
+            peer_servs[i] = NULL;
+        }
+    }
     ble_gatt_svc_counter = 0;
+    for (size_t i = 0; i < MAX_PER_SERV*MAX_PER_SERV; i++)
+    {
+        if (peer_chrs[i]) {
+            luat_heap_free(peer_chrs[i]);
+            peer_chrs[i] = NULL;
+        }
+    }
+    ble_gatt_chr_counter = 0;
+    
 
     // 首先, 停止搜索
     rc = ble_gap_disc_cancel();
@@ -168,6 +187,35 @@ int luat_nimble_blecent_connect(const char* _addr){
     return rc;
 }
 
+
+int luat_nimble_blecent_disconnect(int id) {
+    (void)id;
+    if (!g_ble_conn_handle) {
+        return 0;
+    }
+    return ble_gap_terminate(g_ble_conn_handle, BLE_ERR_REM_USER_CONN_TERM);
+}
+
+int luat_nimble_central_disc_srv(int id) {
+    (void)id;
+    if (!g_ble_conn_handle) {
+        LLOGW("尚未建立连接");
+        return -1;
+    }
+    return ble_gattc_disc_all_svcs(g_ble_conn_handle, svc_disced, NULL);
+}
+
+int luat_nimble_status_cb(lua_State*L, void*ptr) {
+    (void)ptr;
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    lua_getglobal(L,"sys_pub");
+    lua_pushliteral(L, "BLE_CONN_STATUS");
+    lua_pushboolean(L, msg->arg1 == 0 ? 1 : 0);
+    lua_pushinteger(L, msg->arg1);
+    lua_pushinteger(L, msg->arg2);
+    lua_call(L, 4, 0);
+    return 0;
+}
 
 int luat_nimble_scan_cb(lua_State*L, void*ptr) {
     luat_nimble_scan_result_t* res = (luat_nimble_scan_result_t*)ptr;
@@ -237,24 +285,257 @@ int luat_nimble_scan_cb(lua_State*L, void*ptr) {
     return 0;
 }
 
+int luat_nimble_connect_cb(lua_State*L, void*ptr) {
+    (void)ptr;
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    lua_getglobal(L,"sys_pub");
+    lua_pushliteral(L, "BLE_CONN_RESULT");
+    lua_pushboolean(L, msg->arg1 == 0 ? 1 : 0);
+    lua_pushinteger(L, msg->arg1);
+    lua_pushinteger(L, msg->arg2);
+    lua_call(L, 4, 0);
+    return 0;
+}
+
+int luat_nimble_chr_disc_cb(lua_State*L, void*ptr) {
+    (void)ptr;
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    lua_getglobal(L,"sys_pub");
+    lua_pushliteral(L, "BLE_CHR_DISC_RESULT");
+    lua_pushboolean(L, msg->arg1 == 0 ? 1 : 0);
+    lua_pushinteger(L, msg->arg1);
+    lua_pushinteger(L, msg->arg2);
+    lua_call(L, 4, 0);
+    return 0;
+}
+
 static int svc_disced(uint16_t conn_handle,
                                  const struct ble_gatt_error *error,
                                  const struct ble_gatt_svc *service,
                                  void *arg) {
-    LLOGD("ble_gatt_error status %d", error->status);
+    (void)conn_handle;
+    (void)arg;
+    rtos_msg_t msg = {.handler=luat_nimble_connect_cb};
+    // LLOGD("svc_disced status %d", error->status);
     if (error->status == BLE_HS_EDONE) {
-        LLOGD("service discovery done count %d", ble_gatt_svc_counter);
+        // LLOGD("service discovery done count %d", ble_gatt_svc_counter);
+        msg.arg1 = 0;
+        msg.arg2 = ble_gatt_svc_counter;
+        luat_msgbus_put(&msg, 0);
         return 0;
     }
     if (error->status != 0) {
+        msg.arg1 = error->status;
+        luat_msgbus_put(&msg, 0);
         return error->status;
     }
-    char buff[64] = {0};
+    if (ble_gatt_svc_counter >= MAX_PER_SERV) {
+        return 0;
+    }
+    if (peer_servs[ble_gatt_svc_counter] == NULL) {
+        peer_servs[ble_gatt_svc_counter] = luat_heap_malloc(sizeof(struct ble_gatt_svc));
+    }
+    memcpy(peer_servs[ble_gatt_svc_counter], service, sizeof(struct ble_gatt_svc));
+    
+    // char buff[64] = {0};
+    // LLOGD("service->start_handle %04X", service->start_handle);
+    // LLOGD("service->end_handle %04X",   service->end_handle);
+    // LLOGD("service->uuid %s",         ble_uuid_to_str(&service->uuid, buff));
     ble_gatt_svc_counter ++;
-    LLOGD("service->start_handle %04X", service->start_handle);
-    LLOGD("service->end_handle %04X",   service->end_handle);
-    LLOGD("service->uuid %s",         ble_uuid_to_str(&service->uuid, buff));
-    return 0;                
+    return 0;
+}
+
+static const ble_uuid_t *uuid_ccc =
+                BLE_UUID16_DECLARE(BLE_GATT_DSC_CLT_CFG_UUID16);
+
+static int dsc_disced(uint16_t conn_handle, const struct ble_gatt_error *error,
+                uint16_t chr_val_handle, const struct ble_gatt_dsc *dsc,
+                void *arg) {
+    // LLOGD("dsc_disced status %d", error->status);
+    if (error->status == 0) {
+        struct ble_gatt_chr *chr = (struct ble_gatt_chr *)(arg);
+        // char buff[64];
+        // LLOGD("dsc_disced %d %d %s", chr_val_handle, dsc->handle, ble_uuid_to_str(&dsc->uuid, buff));
+        for (size_t i = 0; i < MAX_PER_SERV * MAX_PER_SERV; i++)
+        {
+            if (peer_chrs[i] == NULL || peer_chrs[i] != chr) {
+                continue;
+            }
+            if (0 == ble_uuid_cmp(uuid_ccc, &dsc->uuid)) {
+                // LLOGD("设置chr %d dsc handle %d", peer_chrs[i]->val_handle, dsc->handle);
+                peer_dscs[i] = dsc->handle;
+                break;
+            }
+        }
+    }
+    return 0;
+}
+
+static int chr_disced(uint16_t conn_handle,
+                            const struct ble_gatt_error *error,
+                            const struct ble_gatt_chr *chr, void *arg) {
+    rtos_msg_t msg = {.handler=luat_nimble_chr_disc_cb};
+    // LLOGD("chr_disced status %d", error->status);
+    if (error->status == BLE_HS_EDONE) {
+        // LLOGD("chr discovery done count %d", ble_gatt_chr_counter);
+        msg.arg1 = 0;
+        msg.arg2 = ble_gatt_chr_counter;
+        luat_msgbus_put(&msg, 0);
+        return 0;
+    }
+    if (error->status != 0) {
+        msg.arg1 = error->status;
+        luat_msgbus_put(&msg, 0);
+        return error->status;
+    }
+    if (ble_gatt_chr_counter >= MAX_PER_SERV) {
+        return 0; // 太多了
+    }
+    // char buff[64];
+    for (size_t i = 0; i < MAX_PER_SERV; i++)
+    {
+        if (peer_servs[i] == NULL)
+            continue;
+        if (peer_servs[i] == arg) {
+            if (peer_chrs[i*MAX_PER_SERV+ble_gatt_chr_counter] == NULL) {
+                peer_chrs[i*MAX_PER_SERV+ble_gatt_chr_counter] = luat_heap_malloc(sizeof(struct ble_gatt_chr));
+            }
+            memcpy(peer_chrs[i*MAX_PER_SERV+ble_gatt_chr_counter], chr, sizeof(struct ble_gatt_chr));
+            // LLOGD("特征值 %s flags %d", ble_uuid_to_str(&chr->uuid, buff), chr->properties);
+            ble_gatt_chr_counter ++;
+        }
+    }
+    return 0;
+}
+
+int luat_nimble_central_disc_chr(int id, struct ble_gatt_svc *service) {
+    (void)id;
+    ble_gatt_chr_counter = 0;
+    return ble_gattc_disc_all_chrs(g_ble_conn_handle, service->start_handle, service->end_handle, chr_disced, service);
+}
+
+int luat_nimble_central_disc_dsc(int id, struct ble_gatt_svc *service, struct ble_gatt_chr *chr) {
+    (void)id;
+    // LLOGD("service %d %d chr %d %d", service->start_handle, service->end_handle, chr->val_handle, chr->def_handle);
+    int ret = ble_gattc_disc_all_dscs(g_ble_conn_handle, chr->val_handle, service->end_handle, dsc_disced, chr);
+    // LLOGD("ble_gattc_disc_all_dscs %d", ret);
+    return ret;
+}
+
+static int l_ble_chr_read_cb(lua_State* L, void* ptr) {
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    lua_getglobal(L, "sys_pub");
+    if (lua_isfunction(L, -1)) {
+        lua_pushstring(L, "BLE_GATT_READ_CHR");
+        if (msg->ptr) {
+            lua_pushlstring(L, msg->ptr, msg->arg2);
+        }
+        else {
+            lua_pushnil(L);
+        }
+        // lua_pushinteger(L, msg->arg1);
+        lua_call(L, 2, 0);
+    }
+    if (ptr)
+        luat_heap_free(ptr);
+    return 0;
+}
+
+static int write_attr_cb(uint16_t conn_handle,
+                             const struct ble_gatt_error *error,
+                             struct ble_gatt_attr *attr,
+                             void *arg) {
+    LLOGD("write_attr_cb %d", error->status);
+    return 0;
+}
+
+
+static int read_attr_cb(uint16_t conn_handle,
+                        const struct ble_gatt_error *error,
+                        struct ble_gatt_attr *attr,
+                        void *arg) {
+    LLOGD("read_attr_cb %d", error->status);
+    const struct os_mbuf *om = attr->om;
+    
+    rtos_msg_t msg = {.handler=l_ble_chr_read_cb};
+    msg.arg1 = error->status;
+    if (error->status == 0) {
+        char* ptr = luat_heap_malloc(1024);
+        size_t act = 0;
+        while(om != NULL && ptr != NULL) {
+            if (om->om_len > 0) {
+                if (act + om->om_len > 1024) {
+                    LLOGE("too many data, skip");
+                    break;
+                }
+                memcpy(ptr + act, om->om_data, om->om_len);
+                act += om->om_len;
+            }
+            om = SLIST_NEXT(om, om_next);
+        }
+        msg.arg2 = act;
+        msg.ptr = ptr;
+    }
+    luat_msgbus_put(&msg, 0);
+    return 0;
+}
+
+int luat_nimble_central_write(int id, struct ble_gatt_chr *chr, char* data, size_t data_len) {
+    struct os_mbuf *om;
+    int rc;
+    om = ble_hs_mbuf_from_flat(data, data_len);
+
+    if(om == NULL) {
+        return BLE_HS_ENOMEM;
+    }
+    if (chr->properties & BLE_GATT_CHR_F_WRITE_NO_RSP)
+        return ble_gattc_write_no_rsp(g_ble_conn_handle, chr->val_handle, om);
+    else
+        return ble_gattc_write(g_ble_conn_handle, chr->val_handle, om, write_attr_cb, NULL);
+}
+
+int luat_nimble_central_read(int id, struct ble_gatt_chr *chr) {
+    return ble_gattc_read(g_ble_conn_handle, chr->val_handle, read_attr_cb, NULL);
+}
+
+int luat_nimble_central_subscribe(int id, struct ble_gatt_chr * chr, int onoff) {
+    char buff[2] = {0, 0};
+    if (onoff) {
+        if (chr->properties & BLE_GATT_CHR_F_NOTIFY) {
+            buff[0] |= 0x01;
+        }
+        if (chr->properties & BLE_GATT_CHR_F_INDICATE) {
+            buff[0] |= 0x02;
+        }
+    }
+    for (size_t i = 0; i < MAX_PER_SERV * MAX_PER_SERV; i++)
+    {
+        if (peer_chrs[i] == NULL || peer_chrs[i] != chr) {
+            continue;
+        }
+        // LLOGD("subscribe %d %d %d", onoff, g_ble_conn_handle, peer_dscs[i]);
+        return ble_gattc_write_flat(g_ble_conn_handle, 13, buff, 2, write_attr_cb, chr);
+    }
+    return -1;
+}
+
+static int luat_blecent_tx_cb(lua_State *L, void* ptr) {
+rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    lua_getglobal(L, "sys_pub");
+    if (lua_isfunction(L, -1)) {
+        lua_pushstring(L, "BLE_GATT_TX_DATA");
+        if (msg->ptr) {
+            lua_pushlstring(L, msg->ptr, msg->arg1);
+        }
+        else {
+            lua_pushnil(L);
+        }
+        // lua_pushinteger(L, msg->arg1);
+        lua_call(L, 2, 0);
+    }
+    if (ptr)
+        luat_heap_free(ptr);
+    return 0;
 }
 
 static int blecent_gap_event(struct ble_gap_event *event, void *arg)
@@ -263,9 +544,12 @@ static int blecent_gap_event(struct ble_gap_event *event, void *arg)
     struct ble_gap_conn_desc desc;
     int rc = 0;
     int i = 0;
-    rtos_msg_t msg = {.handler=luat_nimble_scan_cb};
+    rtos_msg_t msg = {0};
+    struct os_mbuf *om;
+    size_t offset = 0;
+    char* ptr;
 
-    // LLOGD("blecent_gap_event %d", event->type);
+    // LLOGD("blecent_gap_event %d", event->type);ble_gattc_disc_all_dscs
 
     switch (event->type) {
     case BLE_GAP_EVENT_DISC_COMPLETE:
@@ -318,6 +602,7 @@ static int blecent_gap_event(struct ble_gap_event *event, void *arg)
         //     res->uuids_128[i] = fields.num_uuids128.value >> 32;
         // }
         // LLOGD("uuids 16=%d 32=%d 128=%d", fields.num_uuids16, fields.num_uuids32, fields.num_uuids128);
+        msg.handler=luat_nimble_scan_cb;
         msg.ptr = res;
         luat_msgbus_put(&msg, 0);
 
@@ -332,6 +617,10 @@ static int blecent_gap_event(struct ble_gap_event *event, void *arg)
         LLOGI("connection %s; status=%d ",
                     event->connect.status == 0 ? "established" : "failed",
                     event->connect.status);
+        msg.handler = luat_nimble_status_cb;
+        msg.arg1 = event->connect.status;
+        // msg.arg2 = event->connect.conn_handle;
+        luat_msgbus_put(&msg, 0);
         if (event->connect.status == 0) {
             g_ble_conn_handle = event->connect.conn_handle;
             rc = ble_gap_conn_find(event->connect.conn_handle, &desc);
@@ -349,25 +638,27 @@ static int blecent_gap_event(struct ble_gap_event *event, void *arg)
     case BLE_GAP_EVENT_DISCONNECT:
         g_ble_state = BT_STATE_DISCONNECT;
         LLOGI("disconnect; reason=%d ", event->disconnect.reason);
-        bleprph_print_conn_desc(&event->disconnect.conn);
+        // bleprph_print_conn_desc(&event->disconnect.conn);
+        msg.handler = luat_nimble_status_cb;
+        msg.arg1 = 0xff;
+        // msg.arg2 = event->connect.conn_handle;
+        luat_msgbus_put(&msg, 0);
         return 0;
 
     case BLE_GAP_EVENT_CONN_UPDATE:
         /* The central has updated the connection parameters. */
         LLOGI("connection updated; status=%d ", event->conn_update.status);
-        rc = ble_gap_conn_find(event->conn_update.conn_handle, &desc);
-        if (rc == 0)
-            bleprph_print_conn_desc(&desc);
-        // LLOGI("");
+        // rc = ble_gap_conn_find(event->conn_update.conn_handle, &desc);
+        // if (rc == 0)
+        //     bleprph_print_conn_desc(&desc);
         return 0;
 
     case BLE_GAP_EVENT_ENC_CHANGE:
         /* Encryption has been enabled or disabled for this connection. */
-        LLOGI("encryption change event; status=%d ",
-                    event->enc_change.status);
-        rc = ble_gap_conn_find(event->enc_change.conn_handle, &desc);
-        if (rc == 0)
-            bleprph_print_conn_desc(&desc);
+        LLOGI("encryption change event; status=%d ", event->enc_change.status);
+        // rc = ble_gap_conn_find(event->enc_change.conn_handle, &desc);
+        // if (rc == 0)
+        //     bleprph_print_conn_desc(&desc);
         // LLOGI("");
         return 0;
 
@@ -408,6 +699,31 @@ static int blecent_gap_event(struct ble_gap_event *event, void *arg)
 
     case BLE_GAP_EVENT_PASSKEY_ACTION:
         LLOGI("PASSKEY_ACTION_EVENT started");
+        return 0;
+
+    case BLE_GAP_EVENT_NOTIFY_RX :
+        // LLOGD("BLE_GAP_EVENT_NOTIFY_RX");
+        om = event->notify_rx.om;
+        ptr = luat_heap_malloc(1024);
+        if (ptr == NULL) {
+            LLOGE("out of memory when malloc buff");
+            return 0;
+        }
+        while(om != NULL) {
+            if (offset + om->om_len > 1024) {
+                LLOGD("data too big");
+                break;
+            }
+            memcpy(ptr + offset, om->om_data, om->om_len);
+            offset += om->om_len;
+            om = SLIST_NEXT(om, om_next);
+        }
+        msg.handler = luat_blecent_tx_cb;
+        msg.arg1 = offset;
+        msg.ptr = ptr;
+        msg.arg2 = event->notify_rx.attr_handle;
+        // msg.arg2 = event->connect.conn_handle;
+        luat_msgbus_put(&msg, 0);
         return 0;
     }
 

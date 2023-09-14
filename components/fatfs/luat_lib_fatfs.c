@@ -191,7 +191,7 @@ static int fatfs_mount(lua_State *L)
 		LLOGD("fatfs_init<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<");
     return 2;
 }
-
+/*
 static int fatfs_unmount(lua_State *L) {
 	const char *mount_point = luaL_optstring(L, 1, "");
 	FRESULT re = f_unmount(mount_point);
@@ -222,6 +222,7 @@ static int fatfs_mkfs(lua_State *L) {
 		LLOGI("mkfs ret %d", re);
 	return 1;
 }
+*/
 
 /**
 获取可用空间信息

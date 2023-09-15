@@ -98,8 +98,14 @@ void *luaM_realloc_ (lua_State *L, void *block, size_t osize, size_t nsize) {
       luaC_fullgc(L, 1);  /* try to free some memory... */
       newblock = (*g->frealloc)(g->ud, block, osize, nsize);  /* try again */
     }
-    if (newblock == NULL)
-      luaD_throw(L, LUA_ERRMEM);
+    if (newblock == NULL) {
+      size_t total = 0;
+      size_t used = 0;
+      size_t max_used = 0;
+      luat_meminfo_luavm(&total, &used, &max_used);
+      luaG_runerror(L, "memory allocation failed total %d, used %d, alloc %d", total, used, nsize);
+      luaD_throw(L, LUA_ERRMEM);  /* rethrow memory error */
+    }
   }
   lua_assert((nsize == 0) == (newblock == NULL));
   g->GCdebt = (g->GCdebt + nsize) - realosize;

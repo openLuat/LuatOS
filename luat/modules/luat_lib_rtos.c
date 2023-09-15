@@ -13,10 +13,16 @@
 
 #define LUAT_LOG_TAG "rtos"
 #include "luat_log.h"
-
+static uint32_t autogc_high_water = 90;
+static uint32_t autogc_mid_water = 80;
 static uint16_t autogc_config = 100; // TODO 通过API可配置
 static uint16_t autogc_counter = 0;
-
+#ifndef LUAT_COMPILER_NOWEAK
+LUAT_WEAK uint8_t luat_msgbus_is_empty(void)
+{
+	return 0;
+}
+#endif
 /*
 接受并处理底层消息队列.
 @api    rtos.receive(timeout)   
@@ -31,22 +37,42 @@ static int l_rtos_receive(lua_State *L) {
     size_t total = 0;
     size_t used = 0;
     size_t max_used = 0;
-    if (autogc_config > 0) {
-        if (autogc_counter >= autogc_config) {
-            autogc_counter = 0;
-            luat_meminfo_luavm(&total, &used, &max_used);
-            if ( (used * 100) >= (total * 90))
-            {
-                //LLOGD("luavm ram too high! used %d, total %d. Trigger Force-GC", used, total);
-                // 需要执行2次, 因为userdata在第二次才会被回收
-                lua_gc(L, LUA_GCCOLLECT, 0);
-                lua_gc(L, LUA_GCCOLLECT, 0);
+    //系统空闲且设置了自动收集功能
+    if (luat_msgbus_is_empty() && autogc_config)
+    {
+    	//LLOGD("auto collect check %d,%d", luat_msgbus_is_empty(), autogc_config);
+    	luat_meminfo_luavm(&total, &used, &max_used);
+    	//达到强制线就直接收集了
+        if ( (used * 100) >= (total * autogc_high_water))
+        {
+            //LLOGD("luavm ram too high! used %d, total %d. Trigger Force-GC", used, total);
+            // 需要执行2次, 因为userdata在第二次才会被回收
+            lua_gc(L, LUA_GCCOLLECT, 0);
+            lua_gc(L, LUA_GCCOLLECT, 0);
+        }
+        else
+        {
+
+            if (autogc_counter >= autogc_config) {
+                autogc_counter = 0;
+                if ( (used * 100) >= (total * autogc_mid_water))
+                {
+                    //LLOGD("luavm ram too high! used %d, total %d. Trigger Force-GC", used, total);
+                    // 需要执行2次, 因为userdata在第二次才会被回收
+                    lua_gc(L, LUA_GCCOLLECT, 0);
+                    lua_gc(L, LUA_GCCOLLECT, 0);
+                }
+            }
+            else {
+                autogc_counter ++;
             }
         }
-        else {
-            autogc_counter ++;
-        }
     }
+    else
+    {
+    	autogc_counter = 0;	//这里也许可以不清零
+    }
+
 
     re = luat_msgbus_get(&msg, luaL_checkinteger(L, 1));
     if (!re) {
@@ -325,6 +351,39 @@ static int l_rtos_nop(lua_State *L) {
     return 0;
 }
 
+/*
+内存自动收集配置，是lua本身收集机制的一种补充，不是必要的，而且只在luavm空闲时触发
+@api    rtos.autoCollectMem(period, warning_level, force_level)
+@int	自动收集的周期，等同于receive调用次数，0~60000。如果是0，则关闭自动收集功能，默认是100
+@int	内存使用警戒水位线，是总luavm内存量的百分比，50~95，内存达到(>=)警戒线时才会开始判断是否要收集。默认是80
+@int	内存使用强制收集水位线，是总luavm内存量的百分比，50~95，内存达到(>=)强制收集线时会强制收集。默认是90，必须比警戒水位线大
+@return nil 无返回值
+@usage
+rtos.autoCollectMem(100, 80, 90)
+*/
+static int l_rtos_auto_colloect_mem(lua_State *L) {
+    uint32_t period = luaL_optinteger(L, 1, 100);
+    uint32_t mid = luaL_optinteger(L, 2, 80);
+    uint32_t high = luaL_optinteger(L, 3, 90);
+    if (period > 60000) {
+    	return 0;
+    }
+    if (mid > 95 || high > 95) {
+    	return 0;
+    }
+    if (mid < 50 || high < 50) {
+    	return 0;
+    }
+    if (mid >= high) {
+    	return 0;
+    }
+    LLOGD("mem collect param %u,%u,%u -> %u,%u,%u", autogc_config, autogc_mid_water, autogc_high_water, period, mid, high);
+    autogc_config = period;
+	autogc_mid_water = mid;
+	autogc_high_water = high;
+    return 0;
+}
+
 // TODO 部分平台不支持LUAT_WEAK
 LUAT_WEAK int luat_poweron_reason(void) {
     return 0;
@@ -357,7 +416,7 @@ static const rotable_Reg_t reg_rtos[] =
     { "firmware",          ROREG_FUNC(l_rtos_firmware)},
     { "setPaths",          ROREG_FUNC(l_rtos_set_paths)},
     { "nop",               ROREG_FUNC(l_rtos_nop)},
-
+	{ "autoCollectMem",          ROREG_FUNC(l_rtos_auto_colloect_mem)},
     { "INF_TIMEOUT",       ROREG_INT(-1)},
 
     { "MSG_TIMER",         ROREG_INT(MSG_TIMER)},

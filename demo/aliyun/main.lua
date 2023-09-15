@@ -55,8 +55,8 @@ sys.taskInit(function()
         end
     end
     -- 默认都等到联网成功
-    -- sys.waitUntil("IP_READY")
-    sys.publish("IP_READY", device_id)
+    sys.waitUntil("IP_READY")
+    sys.publish("net_ready", device_id)
 end)
 
  --阿里云客户端是否处于连接状态
@@ -141,7 +141,7 @@ aliyun.on("connect",connectCbFnc)
 
 --根据掉电不消失的kv文件区来储存的deviceSecret,clientid,deviceToken来判断是进行正常连接还是掉电重连
 sys.taskInit(function()
-    local _, device_id = sys.waitUntil("IP_READY")
+    local _, device_id = sys.waitUntil("net_ready")
     socket.sntp()
     sys.wait(500)
     log.info("已联网", "开始初始化aliyun库")

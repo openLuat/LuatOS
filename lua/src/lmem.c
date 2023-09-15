@@ -21,7 +21,7 @@
 #include "lobject.h"
 #include "lstate.h"
 
-
+#include "luat_malloc.h"
 
 /*
 ** About the realloc function:

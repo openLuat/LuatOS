@@ -5,12 +5,12 @@ require "aliyun"
 
 --根据自己的服务器修改以下参数
 tPara = {
- Registration = true,           --是否是预注册 已预注册为false  true or false,
- DeviceName = "861551056421746", --设备名称
- ProductKey = "ht6f7kmyFFQ",     --产品key
- ProductSecret = "dAmJgeQyBe57AkGM",             --产品secret
- DeviceSecret = "", --设备secret
- InstanceId = "iot-06z00bm5n8dzc26",   --如果没有注册需要填写实例id，在实例详情页面
+ Registration = false,           --是否是预注册 已预注册为false  true or false,
+ DeviceName = "你的设备名称", --设备名称
+ ProductKey = "产品key",     --产品key
+ ProductSecret = "产品secret",             --产品secret
+ DeviceSecret = "设备secret", --设备secret
+ InstanceId = "iot-你的实例id",   --如果没有注册需要填写实例id，在实例详情页面
  --新版已经合并, 没有了地域, 1883同时兼容加密和非加密通信，非加密会下线  阿里云资料：https://help.aliyun.com/document_detail/147356.htm?spm=a2c4g.73742.0.0.4782214ch6jkXb#section-rtu-6kn-kru
  mqtt_port = 1883,                 --mqtt端口
  mqtt_isssl = true,                --是否使用ssl加密连接，true为无证书最简单的加密
@@ -24,8 +24,8 @@ sys.taskInit(function()
     ----------------------------
     if wlan and wlan.connect then
         -- wifi 联网, ESP32系列均支持
-        local ssid = "luatos1234"
-        local password = "12341234"
+        local ssid = "kfyy123"
+        local password = "kfyy123456"
         log.info("wifi", ssid, password)
         -- TODO 改成自动配网
         -- LED = gpio.setup(12, 0, gpio.PULLUP)
@@ -55,8 +55,8 @@ sys.taskInit(function()
         end
     end
     -- 默认都等到联网成功
-    sys.waitUntil("IP_READY")
-    sys.publish("net_ready", device_id)
+    -- sys.waitUntil("IP_READY")
+    sys.publish("IP_READY", device_id)
 end)
 
  --阿里云客户端是否处于连接状态
@@ -141,7 +141,7 @@ aliyun.on("connect",connectCbFnc)
 
 --根据掉电不消失的kv文件区来储存的deviceSecret,clientid,deviceToken来判断是进行正常连接还是掉电重连
 sys.taskInit(function()
-    sys.waitUntil("IP_READY")
+    local _, device_id = sys.waitUntil("IP_READY")
     socket.sntp()
     sys.wait(500)
     log.info("已联网", "开始初始化aliyun库")

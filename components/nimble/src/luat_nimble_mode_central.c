@@ -4,7 +4,7 @@
 #include <string.h>
 
 #include "luat_base.h"
-#if (defined(TLS_CONFIG_CPU_XT804) || defined(AIR103))
+#if (defined(TLS_CONFIG_CPU_XT804))
 #include "FreeRTOS.h"
 #else
 #include "freertos/FreeRTOS.h"

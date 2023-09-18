@@ -375,7 +375,7 @@ static int l_bit64_minus(lua_State *L)
 
 /**
 64bit数据乘,a*b,a和b中有一个为浮点，则按照浮点运算
-@api bit64.mult(a,b,flag1,flag2)
+@api bit64.multi(a,b,flag1,flag2)
 @string a
 @string/int/number b
 @boolean 整形运算时是否按照无符号方式，true是，false不是，默认false，浮点运算忽略

@@ -86,6 +86,12 @@ static int svc_disced(uint16_t conn_handle,
                                  const struct ble_gatt_error *error,
                                  const struct ble_gatt_svc *service,
                                  void *arg);
+static int chr_disced(uint16_t conn_handle,
+                            const struct ble_gatt_error *error,
+                            const struct ble_gatt_chr *chr, void *arg);
+static int dsc_disced(uint16_t conn_handle, const struct ble_gatt_error *error,
+                uint16_t chr_val_handle, const struct ble_gatt_dsc *dsc,
+                void *arg);
 
 static void gatt_svr_register_cb(struct ble_gatt_register_ctxt *ctxt, void *arg) {
     (void)arg;
@@ -322,6 +328,8 @@ static int svc_disced(uint16_t conn_handle,
         msg.arg1 = 0;
         msg.arg2 = ble_gatt_svc_counter;
         luat_msgbus_put(&msg, 0);
+        int ret = ble_gattc_disc_all_chrs(g_ble_conn_handle, service->start_handle, service->end_handle, chr_disced, service);
+        LLOGD("ble_gattc_disc_all_chrs ret %d", ret);
         return 0;
     }
     if (error->status != 0) {
@@ -352,21 +360,33 @@ static int dsc_disced(uint16_t conn_handle, const struct ble_gatt_error *error,
                 uint16_t chr_val_handle, const struct ble_gatt_dsc *dsc,
                 void *arg) {
     // LLOGD("dsc_disced status %d", error->status);
+    rtos_msg_t msg = {.handler=luat_nimble_chr_disc_cb};
+    if (error->status == BLE_HS_EDONE) {
+        msg.arg1 = 0;
+        msg.arg2 = ble_gatt_chr_counter;
+        luat_msgbus_put(&msg, 0);
+        return 0;
+    }
     if (error->status == 0) {
         struct ble_gatt_chr *chr = (struct ble_gatt_chr *)(arg);
         // char buff[64];
         // LLOGD("dsc_disced %d %d %s", chr_val_handle, dsc->handle, ble_uuid_to_str(&dsc->uuid, buff));
         for (size_t i = 0; i < MAX_PER_SERV * MAX_PER_SERV; i++)
         {
-            if (peer_chrs[i] == NULL || peer_chrs[i] != chr) {
+            if (peer_chrs[i] == NULL || peer_chrs[i]->val_handle != chr_val_handle) {
                 continue;
             }
             if (0 == ble_uuid_cmp(uuid_ccc, &dsc->uuid)) {
-                // LLOGD("设置chr %d dsc handle %d", peer_chrs[i]->val_handle, dsc->handle);
+                LLOGD("设置chr %d dsc handle %d", peer_chrs[i]->val_handle, dsc->handle);
                 peer_dscs[i] = dsc->handle;
-                break;
             }
         }
+    }
+    else {
+        msg.arg1 = error->status;
+        msg.arg2 = ble_gatt_chr_counter;
+        luat_msgbus_put(&msg, 0);
+        return 0;
     }
     return 0;
 }
@@ -375,13 +395,20 @@ static int chr_disced(uint16_t conn_handle,
                             const struct ble_gatt_error *error,
                             const struct ble_gatt_chr *chr, void *arg) {
     rtos_msg_t msg = {.handler=luat_nimble_chr_disc_cb};
+    struct ble_gatt_svc *service = (struct ble_gatt_svc *)arg;
     // LLOGD("chr_disced status %d", error->status);
     if (error->status == BLE_HS_EDONE) {
         // LLOGD("chr discovery done count %d", ble_gatt_chr_counter);
-        msg.arg1 = 0;
-        msg.arg2 = ble_gatt_chr_counter;
-        luat_msgbus_put(&msg, 0);
-        return 0;
+        int ret = ble_gattc_disc_all_dscs(g_ble_conn_handle, service->start_handle, service->end_handle, dsc_disced, service);
+        LLOGD("ble_gattc_disc_all_dscs %d", ret);
+        if (ret == 0)
+            return 0;
+        else {
+            msg.arg1 = -80;
+            msg.arg2 = ble_gatt_chr_counter;
+            luat_msgbus_put(&msg, 0);
+            return 0;
+        }
     }
     if (error->status != 0) {
         msg.arg1 = error->status;
@@ -417,9 +444,10 @@ int luat_nimble_central_disc_chr(int id, struct ble_gatt_svc *service) {
 int luat_nimble_central_disc_dsc(int id, struct ble_gatt_svc *service, struct ble_gatt_chr *chr) {
     (void)id;
     // LLOGD("service %d %d chr %d %d", service->start_handle, service->end_handle, chr->val_handle, chr->def_handle);
-    int ret = ble_gattc_disc_all_dscs(g_ble_conn_handle, chr->val_handle, service->end_handle, dsc_disced, chr);
-    // LLOGD("ble_gattc_disc_all_dscs %d", ret);
+    int ret = ble_gattc_disc_all_dscs(g_ble_conn_handle, service->start_handle, service->end_handle, dsc_disced, chr);
+    LLOGD("ble_gattc_disc_all_dscs %d", ret);
     return ret;
+    // return 0;
 }
 
 static int l_ble_chr_read_cb(lua_State* L, void* ptr) {

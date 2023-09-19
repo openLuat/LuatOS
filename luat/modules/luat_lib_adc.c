@@ -43,6 +43,11 @@ static int l_adc_open(lua_State *L) {
 adc.setRange(adc.ADC_RANGE_1_8)
 -- 打开air105内部分压
 adc.setRange(adc.ADC_RANGE_3_6)
+
+
+-- EC618系列(Air780E等)支持2种
+adc.setRange(adc.ADC_RANGE_1_2) -- 关闭分压
+adc.setRange(adc.ADC_RANGE_3_8) -- 启用分压
  */
 static int l_adc_set_range(lua_State *L) {
 	luat_adc_global_config(ADC_SET_GLOBAL_RANGE, luaL_checkinteger(L, 1));

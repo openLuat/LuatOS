@@ -63,11 +63,7 @@ sys.subscribe("BLE_CHR_DISC_RESULT", function(succ, ret, chr_count)
     log.info("ble", "特征值扫描结果", succ, "底层结果", ret, "特征数量", chr_count)
     if succ then
         log.info("ble", "特征值列表", json.encode(nimble.listChr(string.fromHex("FF00"))))
-        nimble.discDsc(string.fromHex("FF00"), string.fromHex("FF01"))
-        sys.taskInit(function()
-            sys.wait(500)
-            nimble.subChr(string.fromHex("FF00"), string.fromHex("FF01"))
-        end)
+        nimble.subChr(string.fromHex("FF00"), string.fromHex("FF01"))
     end
 end)
 

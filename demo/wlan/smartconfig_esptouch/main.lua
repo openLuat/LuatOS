@@ -54,20 +54,17 @@ sys.taskInit(function()
         else
             -- 获取配网后, ssid和passwd会有值
             log.info("smartconfig", ssid, passwd)
-            -- 值得注意的是, 存在ssid和passwd填错的情况, 这里按获取到IP来算成功
-            local ret = sys.waitUntil("IP_READY", 30000)
-            if ret then
-                -- 获取IP成功, 将配网信息存入fdb, 做持久化存储
-                log.info("fdb", "save ssid and passwd")
-                fdb.kv_set("wlan_ssid", ssid)
-                fdb.kv_set("wlan_passwd", passwd)
-                -- 等3秒再重启, 因为esptouch联网后会发生广播, 告知APP配网成功
-                log.info("wifi", "wait 3s to reboot")
-                sys.wait(3000)
-                -- 这里建议重启, 当然这也不是强制的
-                -- 重启后有配网信息, 所以就自动连接
-                rtos.reboot()
-            end
+            log.info("fdb", "save ssid and passwd")
+            -- fdb.kv_set("wlan_ssid", ssid)
+            -- fdb.kv_set("wlan_passwd", passwd)
+
+            -- 等3秒再重启, 因为esptouch联网后会发生广播, 告知APP配网成功
+            -- log.info("wifi", "wait 3s to reboot")
+            -- sys.wait(3000)
+            -- 这里建议重启, 当然这也不是强制的
+            -- 重启后有配网信息, 所以就自动连接
+            -- rtos.reboot()
+            break
         end
     end
 end)

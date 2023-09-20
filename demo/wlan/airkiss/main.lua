@@ -11,6 +11,13 @@ https://gitee.com/openLuat/LuatOS/releases
 sys = require("sys")
 require("sysplus")
 
+if wdt then
+    --添加硬狗防止程序卡死，在支持的设备上启用这个功能
+    wdt.init(9000)--初始化watchdog设置为9s
+    sys.timerLoopStart(wdt.feed, 3000)--3s喂一次狗
+end
+
+
 sys.subscribe("IP_READY", function(ip)
     log.info("wlan", "ip ready", ip)
     -- 联网成功, 可以发起http, mqtt, 等请求了
@@ -24,6 +31,10 @@ gpio.debounce(BTN_BOOT, 1000)
 gpio.setup(BTN_BOOT, function()
     log.info("gpio", "boot button pressed")
     sys.publish("BTN_BOOT")
+end)
+
+sys.subscribe("SC_RESULT", function(ssid, password)
+    log.info("why", ssid, password)
 end)
 
 sys.taskInit(function()
@@ -55,21 +66,17 @@ sys.taskInit(function()
         else
             -- 获取配网后, ssid和passwd会有值
             log.info("smartconfig", ssid, passwd)
+            -- 获取IP成功, 将配网信息存入fdb, 做持久化存储
+            log.info("fdb", "save ssid and passwd")
+            -- fdb.kv_set("wlan_ssid", ssid)
+            -- fdb.kv_set("wlan_passwd", passwd)
+
+            -- 这里建议重启, 当然这也不是强制的
+            -- log.info("wifi", "wait 3s to reboot")
+            -- sys.wait(3000)
+            -- 重启后有配网信息, 所以就自动连接
+            --rtos.reboot()
             break
-            -- 值得注意的是, 存在ssid和passwd填错的情况, 这里按获取到IP来算成功
-            local ret = sys.waitUntil("IP_READY", 30000)
-            if ret then
-                -- 获取IP成功, 将配网信息存入fdb, 做持久化存储
-                log.info("fdb", "save ssid and passwd")
-                fdb.kv_set("wlan_ssid", ssid)
-                fdb.kv_set("wlan_passwd", passwd)
-                -- 等3秒再重启, 因为esptouch联网后会发生广播, 告知APP配网成功
-                log.info("wifi", "wait 3s to reboot")
-                sys.wait(3000)
-                -- 这里建议重启, 当然这也不是强制的
-                -- 重启后有配网信息, 所以就自动连接
-                rtos.reboot()
-            end
         end
     end
 end)

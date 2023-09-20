@@ -732,7 +732,7 @@ static void luat_spitf_read_config(luat_spitf_ctrl_t *spitf)
     {
 		pCardInfo->LogBlockSize = 512;
 		pCardInfo->CardBlockSize = 512;
-		Temp = 1024 * pCardInfo->LogBlockSize;
+		Temp = pCardInfo->LogBlockSize;
 		pCardInfo->CardCapacity = (pCardInfo->Csd.version.v2.DeviceSize + 1) * Temp;
 		pCardInfo->LogBlockNbr = (pCardInfo->Csd.version.v2.DeviceSize + 1) * 1024;
     }

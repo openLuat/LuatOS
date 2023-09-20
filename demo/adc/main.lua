@@ -34,6 +34,8 @@ function adc_pin() -- 根据不同开发板，设置ADC编号
     elseif rtos_bsp == "AIR103" then -- Air103开发板ADC编号
         return 0,1,2,3,adc.CH_CPU ,adc.CH_VBAT 
     elseif rtos_bsp == "AIR105" then -- Air105开发板ADC编号
+        -- 默认不开启分压,范围是0-1.8v精度高
+        -- adc.setRange(adc.ADC_RANGE_3_6)
         return 0,5,6,255,255,255
     elseif rtos_bsp == "ESP32C3" then -- ESP32C3开发板ADC编号
         return 0,1,2,3,adc.CH_CPU , 255
@@ -42,6 +44,8 @@ function adc_pin() -- 根据不同开发板，设置ADC编号
     elseif rtos_bsp == "ESP32S3" then -- ESP32S3开发板ADC编号
         return 0,1,2,3,adc.CH_CPU , 255
     elseif rtos_bsp == "EC618" then --Air780E开发板ADC编号
+        -- 默认不开启分压,范围是0-1.2v精度高
+        -- adc.setRange(adc.ADC_RANGE_3_8)
         return 0,1,255,255,adc.CH_CPU ,adc.CH_VBAT 
     else
         log.info("main", "define ADC pin in main.lua")

@@ -239,9 +239,9 @@ int luat_vfs_fatfs_info(void* userdata, const char* path, luat_fs_info_t *conf) 
 
     memcpy(conf->filesystem, "fatfs", strlen("fatfs")+1);
     conf->type = 0;
-    conf->total_block = (fs->n_fatent - 2);
-    conf->block_used = fs->free_clst;
-    conf->block_size = fs->csize;
+    conf->total_block = (fs->n_fatent - 2) * fs->csize;
+    conf->block_used = (fs->n_fatent - 2 - fs->free_clst) * fs->csize;
+    conf->block_size = 512;
     return 0;
 }
 

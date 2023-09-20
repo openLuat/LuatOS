@@ -48,7 +48,7 @@ typedef struct luat_wlan_scan_result
     char ssid[33];
     char bssid[6];
     int16_t rssi;
-    int8_t ch;
+    uint8_t ch;
 }luat_wlan_scan_result_t;
 
 

@@ -81,6 +81,13 @@ sys.taskInit(function()
             log.info("sntp", "时间同步成功", "本地时间", os.date())
             log.info("sntp", "时间同步成功", "UTC时间", os.date("!%c"))
             log.info("sntp", "时间同步成功", "RTC时钟(UTC时间)", json.encode(rtc.get()))
+            -- os.time(rtc.get()) 需要 2023.07.21 之后的版本, 因为月份的命名差异mon/month
+            -- log.info("sntp", "时间同步成功", "utc时间戳", os.time(rtc.get()))
+            log.info("sntp", "时间同步成功", "本地时间戳", os.time())
+            local t = os.date("*t")
+            log.info("sntp", "时间同步成功", "本地时间os.date() json格式", json.encode(t))
+            log.info("sntp", "时间同步成功", "本地时间os.date(os.time())", os.time(t))
+            -- log.info("sntp", "时间同步成功", "本地时间", os.time())
             -- 正常使用, 一小时一次, 已经足够了, 甚至1天一次也可以
             -- sys.wait(3600000) 
             -- 这里为了演示, 用1分钟一次

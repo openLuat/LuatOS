@@ -95,13 +95,13 @@ sys.taskInit(function()
         w5500.init(spi.HSPI_0, 24000000, pin.PC14, pin.PC01, pin.PC00)
         w5500.config() --默认是DHCP模式
         w5500.bind(socket.ETH0)
-        LED = gpio.setup(62, 0, gpio.PULLUP)
+        -- LED = gpio.setup(62, 0, gpio.PULLUP)
         gpio.debounce(pin.PA10, 100, 1)
         BTN = gpio.setup(pin.PA10, on_btn, gpio.PULLUP, gpio.FALLING) -- BOOT按键当按钮用
         sys.wait(1000)
-    elseif rtos.bsp() == "EC618" then -- Air780E,走4G一堆网络
+    elseif mobile then -- Air780E,走4G一堆网络
         -- mobile.simid(2) -- 自动选卡, 如果不清楚在哪个卡槽,就取消注释
-        LED = gpio.setup(27, 0, gpio.PULLUP)
+        -- LED = gpio.setup(27, 0, gpio.PULLUP)
         gpio.debounce(0, 100, 1)
         BTN = gpio.setup(0, on_btn, gpio.PULLUP, gpio.FALLING) -- BOOT按键当按钮用
     else

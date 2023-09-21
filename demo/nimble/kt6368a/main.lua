@@ -1,10 +1,10 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "kt6368ademo"
+PROJECT = "bletest"
 VERSION = "1.0.0"
 
 --[[
-这是使用BLE功能模拟KT6368A的demo, 从机模式
+这是使用BLE功能模拟KT6368A的demo, 从机模式, UART1透传
 
 支持的模块:
 1. Air601
@@ -44,10 +44,12 @@ function pinx() -- 根据不同开发板，给LED赋值不同的gpio引脚编号
 end
 local ledpin, uart_id = pinx()
 LED = gpio.setup(ledpin, 0, gpio.PULLUP)
-uart.on(uart_id, "recvice", function()
+uart.setup(uart_id, 9600)
+uart.on(uart_id, "receive", function(id, len)
+    gpio.toggle(ledpin)
     local s = ""
     repeat
-        s = uart.read(id, len)
+        s = uart.read(uart_id, 128)
         if #s > 0 then -- #s 是取字符串的长度
             -- 如果传输二进制/十六进制数据, 部分字符不可见, 不代表没收到
             -- 关于收发hex值,请查阅 https://doc.openluat.com/article/583
@@ -55,15 +57,13 @@ uart.on(uart_id, "recvice", function()
             -- TODO 判断是否为AT指令, 如果是的话还需要解析
             if nimble.connok() then
                 -- nimble.send_msg(1, 0, s)
-                nimble.sendNotify(nil, string.fromHex("FF01"), string.char(0x31, 0x32, 0x33, 0x34, 0x35))
+                -- nimble.sendNotify(nil, string.fromHex("FF01"), string.char(0x31, 0x32, 0x33, 0x34, 0x35))
+                nimble.sendNotify(nil, string.fromHex("FF01"), s)
             end
         end
-        if #s == len then
-            break
-        end
     until s == ""
+    gpio.toggle(ledpin)
 end)
-uart.setup(uart_id, 9600)
 
 -- 监听GATT服务器的WRITE_CHR, 也就是收取数据的回调
 sys.subscribe("BLE_GATT_WRITE_CHR", function(info, data)
@@ -88,22 +88,6 @@ sys.taskInit(function()
     nimble.setChr(2, string.fromHex("FF03"), nimble.CHR_F_WRITE_NO_RSP)
 
     nimble.init("KT6368A-BLE-1.9", 1)
-
-    -- sys.wait(500)
-    -- 打印MAC地址
-    -- local mac = nimble.mac()
-    -- log.info("ble", "mac", mac and mac:toHex() or "Unknwn")
-
-    -- 发送数据
-    while 1 do
-        sys.wait(3000)
-        if nimble.connok() then
-            -- nimble.send_msg(1, 0, string.char(0x31, 0x32, 0x33, 0x34, 0x35))
-            nimble.sendNotify(nil, string.fromHex("FF01"), string.char(0x31, 0x32, 0x33, 0x34, 0x35))
-        else
-            -- log.info("ble", "未连接")
-        end
-    end
 end)
 
 -- 用户代码已结束---------------------------------------------

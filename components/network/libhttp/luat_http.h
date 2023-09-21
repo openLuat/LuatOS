@@ -67,7 +67,7 @@ typedef struct{
 	uint8_t re_request_count;
 
 	// 响应相关
-	uint32_t resp_content_len;	//content 长度
+	int32_t resp_content_len;	//content 长度
 	FILE* fd;					//下载 FILE
 	uint64_t idp;
 	uint32_t timeout;

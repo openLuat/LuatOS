@@ -1,6 +1,6 @@
 
 #include "luat_base.h"
-
+#include <string.h>
 #include "luat_network_adapter.h"
 #include "luat_rtos.h"
 // #include "luat_msgbus.h"

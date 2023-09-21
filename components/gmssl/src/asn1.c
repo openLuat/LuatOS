@@ -22,7 +22,7 @@
 #include <gmssl/error.h>
 #include <gmssl/endian.h>
 
-int isascii(int c);
+
 static const char *asn1_tag_index[] = {
 	"[0]",  "[1]",  "[2]",  "[3]",  "[4]",  "[5]",  "[6]",  "[7]",  "[8]",  "[9]",
 	"[10]", "[11]", "[12]", "[13]", "[14]", "[15]", "[16]", "[17]", "[18]", "[19]",
@@ -1428,16 +1428,16 @@ int asn1_printable_string_from_der_ex(int tag, const char **a, size_t *alen, con
 	return 1;
 }
 
-int asn1_string_is_ia5_string(const char *a, size_t alen)
-{
-	size_t i;
-	for (i = 0; i < alen; i++) {
-		if (!isascii(a[i])) {
-			return 0;
-		}
-	}
-	return 1;
-}
+// int asn1_string_is_ia5_string(const char *a, size_t alen)
+// {
+// 	size_t i;
+// 	for (i = 0; i < alen; i++) {
+// 		if (!isascii(a[i])) {
+// 			return 0;
+// 		}
+// 	}
+// 	return 1;
+// }
 
 int asn1_ia5_string_to_der_ex(int tag, const char *d, size_t dlen, uint8_t **out, size_t *outlen)
 {

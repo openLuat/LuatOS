@@ -126,6 +126,10 @@ static int l_mlx90640_init(lua_State *L){
 	}else if (lua_isuserdata(L, 1)){
         mlx90640_i2c.ei2c = toei2c(L);
     }
+    else {
+        LLOGE("bad i2c arg!!!");
+        return 0;
+    }
     mlx90640_refresh_rate = luaL_optinteger(L, 2 , FPS4HZ);
     lcd_conf = luat_lcd_get_default();
 

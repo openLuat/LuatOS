@@ -39,6 +39,12 @@ if rtos.bsp() == "EC618" and pm and pm.PWK_MODE then
     pm.power(pm.PWK_MODE, false)
 end
 
+if wdt then
+    --添加硬狗防止程序卡死，在支持的设备上启用这个功能
+    wdt.init(9000)--初始化watchdog设置为9s
+    sys.timerLoopStart(wdt.feed, 3000)--3s喂一次狗
+end
+
 
 --=============================================================
 -- 测试网站 https://netlab.luatos.com/ 点击 打开TCP 获取测试端口号
@@ -208,13 +214,16 @@ end)
 -- 演示uart数据上报, 不需要就注释掉
 if rtos.bsp() == "EC618" then
     uart.setup(1, 115200) -- 注意, 是UART1, 不是虚拟串口, 演示目的
-    uart.on(1, "recvice", function(id, len)
+    uart.on(1, "receive", function(id, len)
         while 1 do
             local s = uart.read(1, 1024)
             if #s == 0 then
                 break
             end
             sys.publish("sc_txrx", "uplink", s)
+            if #s == len then
+                break
+            end
         end
     end)
 end

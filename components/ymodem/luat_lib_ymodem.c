@@ -9,7 +9,8 @@
 @usage
 -- 本库的用途是接收数据, 若需要发送文件, 建议用xmodem库
 local handler = ymodem.create("/")
-uart.on(1, "recvice", function(id, len)
+uart.setup(1, 115200)
+uart.on(1, "receive", function(id, len)
 	while 1 do
 		local data = uart.read(id, 512)
 		if not data or #data == 0 then

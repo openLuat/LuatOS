@@ -270,21 +270,29 @@ void luat_sms_recv_cb(uint32_t event, void *param)
 
 /*
 发送短信
-@api sms.send(phone, msg)
+@api sms.send(phone, msg, auto_phone_fix)
 @string 电话号码,必填
 @string 短信内容,必填
+@bool   是否自动处理电话号号码的格式,默认是按短信内容和号码格式进行自动判断, 设置为false可禁用
 @return bool 成功返回true,否则返回false或nil
 @usgae
 -- 短信号码支持2种形式
 -- +XXYYYYYYY 其中XX代表国家代码, 中国是86, 推荐使用这种
 -- YYYYYYYYY  直接填目标号码, 例如10010, 10086, 或者国内的手机号码
 log.info("sms", sms.send("+8613416121234", "Hi, LuatOS - " .. os.date()))
+
+-- 直接使用目标号码, 不做任何自动化处理. 2023.09.21新增
+log.info("sms", sms.send("85513416121234", "Hi, LuatOS - " .. os.date()), false)
 */
 static int l_sms_send(lua_State *L) {
     size_t phone_len = 0;
     size_t payload_len = 0;
     const char* phone = luaL_checklstring(L, 1, &phone_len);
     const char* payload = luaL_checklstring(L, 2, &payload_len);
+    int auto_phone = 1;
+    if (lua_isboolean(L, 3) && !lua_toboolean(L, 3)) {
+        auto_phone = 0;
+    }
     int ret = 0;
     char phone_buff[32] = {0};
 
@@ -312,36 +320,42 @@ static int l_sms_send(lua_State *L) {
         return 0;
     }
     // +8613416121234
-    if (pdu_mode) { // PDU模式下, 必须带上国家代码
-        if (phone[0] == '+') {
-            memcpy(phone_buff, phone + 1, phone_len - 1);
-        }
-        // 13416121234
-        else if (phone[0] != '8' && phone[1] != '6') {
-            phone_buff[0] = '8';
-            phone_buff[1] = '6';
-            memcpy(phone_buff + 2, phone, phone_len);
+    if (auto_phone) {
+
+        if (pdu_mode) { // PDU模式下, 必须带上国家代码
+            if (phone[0] == '+') {
+                memcpy(phone_buff, phone + 1, phone_len - 1);
+            }
+            // 13416121234
+            else if (phone[0] != '8' && phone[1] != '6') {
+                phone_buff[0] = '8';
+                phone_buff[1] = '6';
+                memcpy(phone_buff + 2, phone, phone_len);
+            }
+            else {
+                memcpy(phone_buff, phone, phone_len);
+            }
         }
         else {
-            memcpy(phone_buff, phone, phone_len);
+            if (phone[0] == '+') {
+                memcpy(phone_buff, phone + 3, phone_len - 3);
+            }
+            else if (phone[0] == '8' && phone[1] == '6') {
+                memcpy(phone_buff, phone+2, phone_len - 2);
+            }
+            else {
+                memcpy(phone_buff, phone, phone_len);
+            }
         }
     }
     else {
-        if (phone[0] == '+') {
-            memcpy(phone_buff, phone + 3, phone_len - 3);
-        }
-        else if (phone[0] == '8' && phone[1] == '6') {
-            memcpy(phone_buff, phone+2, phone_len - 2);
-        }
-        else {
-            memcpy(phone_buff, phone, phone_len);
-        }
+        memcpy(phone_buff, phone, phone_len);
     }
     
     
     phone_len = strlen(phone_buff);
     phone = phone_buff;
-    LLOGD("phone %s", phone);
+    LLOGD("phone [%s]", phone);
     if (pdu_mode) {
         char pdu[280 + 100] = {0};
         // 首先, 填充PDU头部

@@ -5,6 +5,7 @@ LuatOS cmux
 #include "luat_base.h"
 #include "luat_msgbus.h"
 #include "luat_malloc.h"
+#include "stdlib.h"
 
 #define LUAT_LOG_TAG "cmux"
 #include "luat_log.h"

@@ -11,6 +11,8 @@
 #include "luat_multimedia.h"
 #include "luat_msgbus.h"
 #include "luat_zbuff.h"
+#include "luat_fs.h"
+#include "luat_malloc.h"
 #define LUAT_LOG_TAG "codec"
 #include "luat_log.h"
 #ifdef LUAT_SUPPORT_AMR

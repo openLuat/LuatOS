@@ -1,6 +1,9 @@
+#include "luat_base.h"
+#include "stdlib.h"
 #include "luat_ymodem.h"
 #include "luat_fs.h"
 #include "luat_malloc.h"
+#include "luat_timer.h"
 
 #define LUAT_LOG_TAG "ymodem"
 #include "luat_log.h"

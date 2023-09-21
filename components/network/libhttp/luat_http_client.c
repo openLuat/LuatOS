@@ -1,6 +1,5 @@
 
 #include "luat_base.h"
-#include <string.h>
 #include "luat_network_adapter.h"
 #include "luat_rtos.h"
 // #include "luat_msgbus.h"
@@ -21,6 +20,8 @@
 // #undef LLOGD
 // #define LLOGD	DBG
 #endif
+
+int strncasecmp(const char *string1, const char *string2, size_t count);
 
 static void http_send_message(luat_http_ctrl_t *http_ctrl);
 int32_t luat_lib_http_callback(void *data, void *param);

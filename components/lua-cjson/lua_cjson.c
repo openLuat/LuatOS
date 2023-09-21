@@ -64,6 +64,8 @@
 //#include <lrodefs.h>
 //#include <auxmods.h>
 
+int strncasecmp(const char *string1, const char *string2, size_t count);
+
 static char float_fmt[12];
 
 #ifdef WIN32

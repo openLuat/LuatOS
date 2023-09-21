@@ -1,5 +1,6 @@
 
 #include "mp3_decode/minimp3.h"
+#include "luat_malloc.h"
 extern void DBG_Printf(const char* format, ...);
 #define DBG(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
 #define _MINIMP3_IMPLEMENTATION_GUARD

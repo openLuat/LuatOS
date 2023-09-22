@@ -31,7 +31,9 @@ target("luatos")
     add_files("src/*.c",{public = true})
     add_files("port/*.c",{public = true})
     add_includedirs("include",{public = true})
-
+    -- printf
+    add_includedirs(luatos.."components/printf",{public = true})
+    add_files(luatos.."components/printf/*.c")
     add_files(luatos.."lua/src/*.c")
     add_files(luatos.."luat/modules/*.c")
     add_files(luatos.."luat/vfs/*.c")

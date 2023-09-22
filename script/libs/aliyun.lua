@@ -86,7 +86,7 @@ local function clientDataTask(DeviceName,ProductKey,mqtt_host,mqtt_port,mqtt_iss
         end
 
         mqttc:keepalive(30) -- 默认值240s
-        mqttc:autoreconn(true, 3000) -- 自动重连机制
+        mqttc:autoreconn(true, 20000) -- 自动重连机制
         mqttc:connect()
         mqttc:on(mqtt_cbevent)  --mqtt回调注册
 
@@ -238,7 +238,6 @@ tPara[mqtt_port] ,mqtt端口
 tPara[mqtt_isssl] ,是否使用ssl加密连接，true为无证书最简单的加密
 ]]
 function aliyun.setup(tPara)
-    log.info("调用setup")
     mqtt_host = tPara.InstanceId..".mqtt.iothub.aliyuncs.com"
     if tPara.ProductSecret == "" or tPara.ProductSecret == nil then
         confiDentialTask(tPara.DeviceName,tPara.ProductKey,tPara.DeviceSecret,mqtt_host,tPara.mqtt_port,tPara.mqtt_isssl)
@@ -258,7 +257,7 @@ function confiDentialTask(DeviceName,ProductKey,DeviceSecret,mqtt_host,mqtt_port
 
 
         mqttc:keepalive(30) -- 默认值240s
-        mqttc:autoreconn(true, 3000) -- 自动重连机制
+        mqttc:autoreconn(true, 20000) -- 自动重连机制
         mqttc:connect()
         mqttc:on(mqtt_cbevent)  --mqtt回调注册
 
@@ -298,7 +297,7 @@ function aliyun.clientGetDirectDataTask(DeviceName,ProductKey,mqtt_host,mqtt_por
         end
 
         mqttc:keepalive(30) -- 默认值240s
-        mqttc:autoreconn(true, 3000) -- 自动重连机制
+        mqttc:autoreconn(true, 20000) -- 自动重连机制
         mqttc:connect()
         mqttc:on(mqtt_cbevent)  --mqtt回调注册
 

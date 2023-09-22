@@ -20,7 +20,13 @@ end
 #include "luat_zbuff.h"
 #include "ldebug.h"
 #include "luat_rtos.h"
+#ifdef LUAT_USE_MOBILE
 #include "luat_mobile.h"
+#endif
+#include "luat_mcu.h"
+
+#ifdef LUAT_USE_NETWORK
+
 #include "luat_network_adapter.h"
 #define LUAT_ERRDUMP_TAG "log"
 #include "luat_errdump.h"
@@ -60,6 +66,7 @@ typedef struct luat_errdump_conf
 	uint8_t is_uploading;
 	uint8_t error_dump_enable;
 	uint8_t upload_poweron_reason_done;
+	char custom_id[49];
 }luat_errdump_conf_t;
 
 static luat_errdump_conf_t econf;
@@ -110,10 +117,24 @@ static void luat_errdump_make_data(lua_State *L)
 	const char *project = "unkonw";
 	const char *version = "";
 	char imei[16] = {0};
+	char *selfid = econf.custom_id;
 	char *sn = version;
-	FILE* fd;
-	size_t len;
-	luat_mobile_get_imei(0, imei, 15);
+	FILE* fd = NULL;
+	size_t len = 0;
+	if (econf.custom_id[0] == 0) {
+		#ifdef LUAT_USE_MOBILE
+		luat_mobile_get_imei(0, imei, 15);
+		selfid = imei;
+		#else
+    	const char* id = luat_mcu_unique_id(&len);
+		if (id != NULL && len > 0 && len < 24) {
+			for (size_t i = 0; i < len; i++)
+			{
+				sprintf_(econf.custom_id + i*2, "%02X", econf.custom_id[i]);
+			}
+		}
+		#endif
+	}
     lua_getglobal(L, "PROJECT");
     size_t version_len, project_len;
     if (LUA_TSTRING == lua_type(L, -1))
@@ -156,7 +177,7 @@ static void luat_errdump_make_data(lua_State *L)
     	sn = econf.user_string;
     }
     OS_ReInitBuffer(&econf.tx_buf, file_len[LUAT_ERRDUMP_RECORD_TYPE_USR] + file_len[LUAT_ERRDUMP_RECORD_TYPE_SYS] + 128);
-    econf.tx_buf.Pos = sprintf_(econf.tx_buf.Data, "%s_LuatOS-SoC_%s_%s,%s,%s,%s,\r\n", project, luat_version_str(), luat_os_bsp(), version, imei, sn);
+    econf.tx_buf.Pos = sprintf_(econf.tx_buf.Data, "%s_LuatOS-SoC_%s_%s,%s,%s,%s,\r\n", project, luat_version_str(), luat_os_bsp(), version, selfid, sn);
     if (!econf.upload_poweron_reason_done)
     {
     	econf.tx_buf.Pos += sprintf_(econf.tx_buf.Data + econf.tx_buf.Pos, "poweron reason:%d\r\n", luat_pm_get_poweron_reason());
@@ -589,15 +610,18 @@ static int l_errdump_record(lua_State *L) {
 
 /*
 配置关键日志上传IOT平台，这里的日志包括引起luavm异常退出的日志和用户通过record写入的日志，类似于air的errDump
-@api    errDump.config(enable, period, user_flag)
+@api    errDump.config(enable, period, user_flag, custom_id)
 @boolean  是否启用记录功能，false的话将不会记录任何日志
 @int     定时上传周期，单位秒，默认600秒，这个是自动上传时候后的重试时间时间，在开机后或者有record操作后会很快尝试上传到合宙IOT平台一次，如果为0，则不会上传，由用户dump后自己上传自己的平台
 @string 用户的特殊标识，可以为空
+@string 设备识别号, 4G设备默认是imei,其他设备默认是mcu.unique_id
 @return nil 无返回值
 @usage
 errDump.config(true, 3600, "12345678")	--一个小时尝试上次一次，上传时会在imei后附加上12345678
 errDump.config(false)	--关闭记录功能，不再上传
 errDump.config(true, 0)	--记录，但是不会主动上传，由用户实现上传功能
+-- 2023.09.22新增custom_id参数
+errDump.config(true, 3600, nil, "ABC")	--一个小时尝试上次一次，上传时使用自定义的设备识别号ABC
 */
 static int l_errdump_upload_config(lua_State *L) {
 	if (LUA_TBOOLEAN == lua_type(L, 1))
@@ -606,10 +630,11 @@ static int l_errdump_upload_config(lua_State *L) {
 	}
 	if (econf.error_dump_enable)
 	{
+		size_t len = 0;
+		const char *str;
 		if (LUA_TSTRING == lua_type(L, 3))
 		{
-			size_t len = 0;
-			const char *str = luaL_tolstring(L, 3, &len);
+			str = luaL_tolstring(L, 3, &len);
 			if (econf.user_string)
 			{
 				luat_heap_free(econf.user_string);
@@ -617,6 +642,11 @@ static int l_errdump_upload_config(lua_State *L) {
 			}
 			econf.user_string = luat_heap_malloc(len + 1);
 			memcpy(econf.user_string, str, len + 1);
+		}
+		if (LUA_TSTRING == lua_type(L, 4)) {
+			str = luaL_tolstring(L, 4, &len);
+			if (len < 48) 
+				memcpy(econf.custom_id, str, len + 1);
 		}
 	}
 	return 0;
@@ -637,3 +667,5 @@ LUAMOD_API int luaopen_errdump( lua_State *L ) {
     luat_newlib2(L, reg_errdump);
     return 1;
 }
+
+#endif

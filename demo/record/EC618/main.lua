@@ -8,7 +8,8 @@ _G.sys = require("sys")
 _G.sysplus = require("sysplus")
 -- es8311 录音demo
 require "es8311"
-
+-- es8311 循环录音demo
+-- require "es8311_loop"
 -- es8218e 录音demo
 -- require "es8218e"
 

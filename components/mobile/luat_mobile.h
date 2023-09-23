@@ -361,10 +361,10 @@ typedef struct luat_mobile_lte_cell_info
 
 typedef struct luat_mobile_cell_info
 {
-    luat_mobile_gsm_service_cell_info_t gsm_service_info;
-    luat_mobile_gsm_cell_info_t    gsm_info[LUAT_MOBILE_CELL_MAX_NUM];    /**<   GSM cell information (Serving and neighbor. */
-    luat_mobile_lte_service_cell_info_t lte_service_info;
-    luat_mobile_lte_cell_info_t    lte_info[LUAT_MOBILE_CELL_MAX_NUM];    /**<   LTE cell information (Serving and neighbor). */
+    luat_mobile_gsm_service_cell_info_t gsm_service_info;					/**<   GSM cell information (Serving). */
+    luat_mobile_gsm_cell_info_t    gsm_info[LUAT_MOBILE_CELL_MAX_NUM];    /**<   GSM cell information (neighbor). */
+    luat_mobile_lte_service_cell_info_t lte_service_info;					/**<   LTE cell information (Serving). */
+    luat_mobile_lte_cell_info_t    lte_info[LUAT_MOBILE_CELL_MAX_NUM];    /**<   LTE cell information (neighbor). */
     uint32_t 						version;
     uint8_t                         gsm_info_valid;                         /**< Must be set to TRUE if gsm_info is being passed. */
     uint8_t                         gsm_neighbor_info_num;                           /**< Must be set to the number of elements in entry*/

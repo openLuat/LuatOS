@@ -56,7 +56,7 @@ def make(path,modules,index_text):
     # 创建表格
     if is_api :
         doc = open(path+"supported.md", "w+",encoding='utf-8')
-        doc.write("#适配状态\n\n")
+        doc.write("# 适配状态\n\n")
         doc.write("|BSP/库|简介")
         for bsp in bsp_header_list:
             doc.write("|" + bsp["name"])

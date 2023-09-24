@@ -69,7 +69,7 @@ def make(path,modules,index_text):
 
         for module in modules:
             name = module["module"]
-            doc.write("|[{}]({}.html)|`{}`".format(name, name, module["summary"]))
+            doc.write("|[{}]({}.md)|`{}`".format(name, name, module["summary"]))
             for bsp in bsp_header_list:
                 if len(module["tag"]) == 0 :
                     doc.write("|?")
@@ -79,7 +79,7 @@ def make(path,modules,index_text):
                 else:
                     doc.write("|X")
             doc.write("|\n")
-    
+        doc.close()
     doc = open(path+"index.rst", "a+",encoding='utf-8')
     doc.write(index_text)
     # 创建toctree

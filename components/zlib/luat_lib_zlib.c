@@ -1,9 +1,11 @@
 /*
 @module  zlib
-@summary zlib压缩/解压缩
+@summary zlib压缩/解压缩(已废弃)
 @version 1.0
 @date    2022.01.06
 @tag LUAT_USE_ZLIB
+@usage
+-- 这个库已经废弃了, 请使用miniz或者fastlz库
 */
 
 #include "luat_base.h"

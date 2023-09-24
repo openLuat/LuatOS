@@ -437,10 +437,10 @@ static void json_encode_exception(lua_State *l, strbuf_t *json, int lindex,
  * Returns nothing. Doesn't remove string from Lua stack */
 static void json_append_string(lua_State *l, strbuf_t *json, int lindex)
 {
-    const char *escstr;
-    int i;
-    const char *str;
-    size_t len;
+    const char *escstr = NULL;
+    size_t i = 0;
+    const char *str = NULL;
+    size_t len = 0;
 
     str = lua_tolstring(l, lindex, &len);
 
@@ -1363,7 +1363,7 @@ static void luaL_setfuncs (lua_State *l, const luaL_Reg *reg, int nup)
     lua_pop(l, nup);  /* remove upvalues */
 }
 #endif
-
+#if 0
 /* Call target function in protected mode with all supplied args.
  * Assumes target function only returns a single non-nil value.
  * Convert and return thrown errors as: nil, "error message" */
@@ -1391,7 +1391,7 @@ static int json_protect_conversion(lua_State *l)
      * errors are memory related */
     return luaL_error(l, "Memory allocation error in CJSON protected call");
 }
-
+#endif
 /*
 将对象序列化为json字符串
 @api json.encode(obj,t)
@@ -1411,8 +1411,8 @@ static int l_json_encode_safe(lua_State *L) {
     }
     memcpy(float_fmt, "%.7g", strlen("%.7g") + 1);
     size_t len = 0;
-	int prec = 0;
-    char buff[6] = {0};
+	// int prec = 0;
+    // char buff[6] = {0};
 	if (lua_isstring(L, 2)) {
 		const char* mode = luaL_checklstring(L, 2, &len);
         //LLOGD("json format ? %s", mode);

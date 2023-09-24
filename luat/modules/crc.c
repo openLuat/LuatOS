@@ -61,7 +61,7 @@ BOOL input_reverse; //输入数据反转
 BOOL output_reverse; //输出数据反转
 } crc16method;
 
-const static crc16method crc16method_table[] = 
+static const crc16method crc16method_table[] = 
 {
     {(const char*)"IBM", 0x8005, 0x0000, 0x0000, TRUE, TRUE},
     {(const char*)"MAXIM", 0x8005, 0x0000, 0xffff, TRUE, TRUE}, 

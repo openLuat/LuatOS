@@ -110,12 +110,12 @@ static inline void strbuf_extend_length(strbuf_t *s, int len)
 {
     s->length += len;
 }
-
+#if 0
 static inline int strbuf_length(strbuf_t *s)
 {
     return s->length;
 }
-
+#endif
 static inline void strbuf_append_char(strbuf_t *s, const char c)
 {
     strbuf_ensure_empty_length(s, 1);

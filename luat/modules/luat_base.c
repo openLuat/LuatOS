@@ -130,6 +130,7 @@ int luat_cbcwait(lua_State *L, uint64_t id, int arg_num) {
 --此为系统内部使用的消息，请勿在外部使用
 */
 static int luat_cbcwait_cb(lua_State *L, void* ptr) {
+    (void)ptr;
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     if(lua_getglobal(L, "sys_pub") != LUA_TFUNCTION)
         return 0;

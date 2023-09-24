@@ -117,11 +117,13 @@ int luat_fs_rmdir(char const* _DirName) {
 
 FILE* luat_vfs_posix_fopen(void* userdata, const char *filename, const char *mode) {
     //LLOGD("fopen %s %s", filename + FILENAME_OFFSET, mode);
+    (void)userdata;
     return fopen(filename + FILENAME_OFFSET, mode);
 }
 
 int luat_vfs_posix_getc(void* userdata, FILE* stream) {
     //LLOGD("posix_getc %p", stream);
+    (void)userdata;
     #ifdef LUAT_FS_NO_POSIX_GETC
     uint8_t buff = 0;
     int ret = luat_fs_fread(&buff, 1, 1, stream);
@@ -135,33 +137,41 @@ int luat_vfs_posix_getc(void* userdata, FILE* stream) {
 }
 
 int luat_vfs_posix_fseek(void* userdata, FILE* stream, long int offset, int origin) {
+    (void)userdata;
     return fseek(stream, offset, origin);
 }
 
 int luat_vfs_posix_ftell(void* userdata, FILE* stream) {
+    (void)userdata;
     return ftell(stream);
 }
 
 int luat_vfs_posix_fclose(void* userdata, FILE* stream) {
+    (void)userdata;
     return fclose(stream);
 }
 int luat_vfs_posix_feof(void* userdata, FILE* stream) {
+    (void)userdata;
     return feof(stream);
 }
 int luat_vfs_posix_ferror(void* userdata, FILE *stream) {
+    (void)userdata;
     return ferror(stream);
 }
 size_t luat_vfs_posix_fread(void* userdata, void *ptr, size_t size, size_t nmemb, FILE *stream) {
-    
+    (void)userdata;
     return fread(ptr, size, nmemb, stream);
 }
 size_t luat_vfs_posix_fwrite(void* userdata, const void *ptr, size_t size, size_t nmemb, FILE *stream) {
+    (void)userdata;
     return fwrite(ptr, size, nmemb, stream);
 }
 int luat_vfs_posix_remove(void* userdata, const char *filename) {
+    (void)userdata;
     return remove(filename + FILENAME_OFFSET);
 }
 int luat_vfs_posix_rename(void* userdata, const char *old_filename, const char *new_filename) {
+    (void)userdata;
 #if LUA_USE_VFS_FILENAME_OFFSET
     return rename(old_filename + (old_filename[0] == '/' ? 1 : 0), new_filename + (new_filename[0] == '/' ? 1 : 0));
 #else
@@ -190,14 +200,20 @@ size_t luat_vfs_posix_fsize(void* userdata, const char *filename) {
 }
 
 int luat_vfs_posix_mkfs(void* userdata, luat_fs_conf_t *conf) {
+    (void)userdata;
+    (void)conf;
     LLOGE("not support yet : mkfs");
     return -1;
 }
 int luat_vfs_posix_mount(void** userdata, luat_fs_conf_t *conf) {
+    (void)userdata;
+    (void)conf;
     //LLOGE("not support yet : mount");
     return 0;
 }
 int luat_vfs_posix_umount(void* userdata, luat_fs_conf_t *conf) {
+    (void)userdata;
+    (void)conf;
     //LLOGE("not support yet : umount");
     return 0;
 }
@@ -206,16 +222,22 @@ int luat_vfs_posix_umount(void* userdata, luat_fs_conf_t *conf) {
 #include <stdio.h>
 #include <sys/types.h>
 #include <dirent.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #endif
 
 int luat_vfs_posix_mkdir(void* userdata, char const* _DirName) {
-#if defined(LUA_USE_LINUX) || defined(LUA_USE_WINDOWS) || defined(LUA_USE_MACOSX)
+    (void)userdata;
+#if defined(LUA_USE_WINDOWS)
     return mkdir(_DirName);
+#elif defined(LUA_USE_LINUX) || defined(LUA_USE_MACOSX)
+    return mkdir(_DirName, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 #else
     return -1;
 #endif
 }
 int luat_vfs_posix_rmdir(void* userdata, char const* _DirName) {
+    (void)userdata;
 #if defined(LUA_USE_LINUX) || defined(LUA_USE_WINDOWS) || defined(LUA_USE_MACOSX)
     return rmdir(_DirName);
 #else
@@ -223,7 +245,9 @@ int luat_vfs_posix_rmdir(void* userdata, char const* _DirName) {
 #endif
 }
 int luat_vfs_posix_info(void* userdata, const char* path, luat_fs_info_t *conf) {
-
+    (void)userdata;
+    (void)path;
+    (void)conf;
     memcpy(conf->filesystem, "posix", strlen("posix")+1);
     conf->type = 0;
     conf->total_block = 0;
@@ -234,6 +258,7 @@ int luat_vfs_posix_info(void* userdata, const char* path, luat_fs_info_t *conf) 
 
 #if defined(LUA_USE_LINUX) || defined(LUA_USE_WINDOWS) || defined(LUA_USE_MACOSX)
 int luat_vfs_posix_lsdir(void* fsdata, char const* _DirName, luat_fs_dirent_t* ents, size_t offset, size_t len) {
+    (void)fsdata;
     DIR *dp;
     struct dirent *ep;
     int index = 0;
@@ -251,12 +276,16 @@ int luat_vfs_posix_lsdir(void* fsdata, char const* _DirName, luat_fs_dirent_t* e
             }
             if (len > 0) {
                 memcpy(ents[index].d_name, ep->d_name, strlen(ep->d_name) + 1);
+                #ifdef LUA_USE_WINDOWS
+                ents[index].d_type = 0;
+                #else
                 if (ep->d_type == DT_REG) {
                     ents[index].d_type = 0;
                 }
                 else {
                     ents[index].d_type = 1;
                 }
+                #endif
                 index++;
                 len --;
             }

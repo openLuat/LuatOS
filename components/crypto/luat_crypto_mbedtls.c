@@ -386,6 +386,7 @@ int luat_crypto_cipher_suites(const char** list, size_t* len) {
     }
     *len = count;
 #else
+    (void)list;
     *len = 0;
 #endif
     return 0;

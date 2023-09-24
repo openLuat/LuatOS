@@ -1,10 +1,12 @@
 /*
 @module  disp
-@summary disp库已合并到u8g2库,API等价
+@summary disp库(已废弃)
 @version 1.0
 @date    2020.03.30
 @demo u8g2
 @tag LUAT_USE_DISP
+@usage
+-- disp库已合并到u8g2库,API等价
 */
 #include "luat_base.h"
 #include "luat_malloc.h"

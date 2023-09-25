@@ -140,12 +140,16 @@ static int enc_utf8_to_unicode_one(const char* pInput, char* pOutput, int endian
                 *pOutput = 0x00;
             }
             return 2;
-        break;
+            //break;
         case 2:
             b1 = *pInput;
             b2 = *(pInput + 1);
-            if ( (b2 & 0xE0) != 0x80 )
-            return -1;
+            /*+\BUG\wangyuan\2020.11.18\遇到一些特殊字符会返回错误*/
+			/*UTF-8二进制形式为 1100xxxx 10xxxxxx
+			例如:'·'的  UTF-8编码 11000010 10110111*/
+            if ( (b2 & 0xC0) != 0x80 )
+            	return -1;
+			/*-\BUG\wangyuan\2020.11.18\遇到一些特殊字符会返回错误*/
             if(endian)
             {
                 *pOutput++ = (b1 >> 2) & 0x07;
@@ -157,7 +161,7 @@ static int enc_utf8_to_unicode_one(const char* pInput, char* pOutput, int endian
                 *pOutput = (b1 >> 2) & 0x07;
             }
             return 2;
-        break;
+            //break;
         case 3:
             b1 = *pInput;
             b2 = *(pInput + 1);
@@ -175,7 +179,7 @@ static int enc_utf8_to_unicode_one(const char* pInput, char* pOutput, int endian
                 *pOutput = (b1 << 4) + ((b2 >> 2) & 0x0F);
             }
             return 2;
-        break;
+            //break;
 #if 0
         case 4:
             b1 = *pInput;
@@ -237,7 +241,8 @@ static size_t enc_utf8_to_unicode(char **_inbuf, size_t *inbytesleft, char **_ou
     char *src = *_inbuf;
     char *dst = *_outbuf;
     size_t iPos, oPos;
-    size_t utfbytes = 0, unicodeBytes = 0;
+    size_t utfbytes = 0;
+    size_t unicodeBytes = 0;
     int result = 0;
 
     for(iPos = 0, oPos = 0; iPos < iLen; )

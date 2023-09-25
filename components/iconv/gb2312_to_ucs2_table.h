@@ -1,7 +1,4 @@
-#include "luat_base.h"
-#define u16 uint16_t
-#define u8 uint8_t
-const u16 gb2312_to_ucs2_table[] = {
+const uint16_t gb2312_to_ucs2_table[] = {
     /* 0xA0A1   */ 0x724E,
     /* 0xA0A2   */ 0x724F,
     /* 0xA0A3   */ 0x7250,

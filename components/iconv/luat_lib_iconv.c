@@ -142,7 +142,7 @@ static int Liconv(lua_State *L) {
     outbufs = outbuf;
 
     do {
-        ret = iconv(cd, &inbuf, &ibleft, &outbuf, &obleft);
+        ret = iconv_convert(cd, &inbuf, &ibleft, &outbuf, &obleft);
         if (ret == (size_t)(-1)) {
             lua_pushlstring(L, outbufs, obsize - obleft);
             if (hasone == 1)

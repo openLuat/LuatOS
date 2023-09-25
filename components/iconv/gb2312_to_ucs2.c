@@ -9,22 +9,36 @@
  * Description:
  *          gb2312 ×ª»» ucs2
  **************************************************************************/
-
+#include <stdint.h>
 #include "stdio.h"
 #include "errno.h"
-#include "luat_base.h"
 
 #include "gb2312_to_ucs2_table.h"
 
-#define u16 uint16_t
-#define u8 uint8_t
+uint16_t gb2312_to_ucs(uint16_t gb2312)
+{
+    uint16_t ucs;
+    uint8_t gb = gb2312;
+
+    if (gb < 0x80)
+    {
+        ucs = gb;
+    }
+    else
+    {
+        uint16_t offset = ((gb2312 >> 8) - 0xA0) * 94 + ((gb2312 & 0x00ff) - 0xA1);
+        ucs = gb2312_to_ucs2_table[offset];
+    }
+
+    return ucs;
+}
 
 size_t iconv_gb2312_to_ucs2_endian(char **_inbuf, size_t *inbytesleft, char **_outbuf, size_t *outbytesleft, int endian)
 {
-    u16 offset,gb2312;
+    uint16_t offset,gb2312;
     char *gbbuf = *_inbuf;
-    u16 *ucs2buf = (u16*)*_outbuf;
-    u16 ucs2;
+    uint16_t *ucs2buf = (uint16_t*)*_outbuf;
+    uint16_t ucs2;
     size_t ucs2len = 0;
     size_t inlen = *inbytesleft;
     size_t outlen = *outbytesleft;

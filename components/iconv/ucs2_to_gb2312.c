@@ -10,17 +10,14 @@
  *          ucs2 ×ª»» gb2312
  **************************************************************************/
 
+#include <stdint.h>
 #include "stdio.h"
 #include "errno.h"
-#include "luat_base.h"
-#define u16 uint16_t
-#define u8 uint8_t
 
 #include "ucs2_to_gb2312_table.h"
-
 #include "ucs2_to_gb2312_offset.h"
 
-const u8 number_of_bit_1[256] = 
+const uint8_t number_of_bit_1[256] = 
 {
     0x00, 0x01, 0x01, 0x02, 0x01, 0x02, 0x02, 0x03,
     0x01, 0x02, 0x02, 0x03, 0x02, 0x03, 0x03, 0x04,
@@ -57,17 +54,17 @@ const u8 number_of_bit_1[256] =
 };
 
 /* 0x4E00 <= ucs2 < 0xA000 */ 
-static u16 get_ucs2_offset(u16 ucs2)
+static uint16_t get_ucs2_offset(uint16_t ucs2)
 {
-    u16   offset, page, tmp;
-    u8    *mirror_ptr, ch;
+    uint16_t   offset, page, tmp;
+    uint8_t    *mirror_ptr, ch;
 
     page = (ucs2>>8) - 0x4E;
     ucs2 &= 0xFF;
 
     tmp        = ucs2>>6; /* now 0 <= tmp < 4  */ 
     offset     = ucs2_index_table_4E00_9FFF[page][tmp];  
-    mirror_ptr = (u8*)&ucs2_mirror_4E00_9FFF[page][tmp<<3]; /* [0, 8, 16, 24] */ 
+    mirror_ptr = (uint8_t*)&ucs2_mirror_4E00_9FFF[page][tmp<<3]; /* [0, 8, 16, 24] */ 
 
     tmp = ucs2&0x3F; /* mod 64 */ 
 
@@ -91,16 +88,50 @@ static u16 get_ucs2_offset(u16 ucs2)
         return offset;
     }
 
-    return (u16)(-1);
+    return (uint16_t)(-1);
+}
+
+uint16_t unicode_to_gb2312(uint16_t ucs2, uint8_t marks)
+{
+	uint16_t gb = 0xA1A1;
+	if(0x80 > ucs2)
+    {
+        // can be convert to ASCII char
+        gb = ucs2;
+    }
+    else
+    {
+        if((0x4E00 <= ucs2) && (0xA000 > ucs2))
+        {
+            uint16_t offset = get_ucs2_offset(ucs2);
+            if((uint16_t)(-1) != offset)
+            {
+                gb = ucs2_to_gb2312_table[offset];
+            }
+        }
+        else if (marks == 0)
+        {
+            uint16_t u16count = sizeof(tab_UCS2_to_GBK)/4;
+            for(uint16_t ui=0; ui < u16count; ui++)
+            {
+                if(ucs2 == tab_UCS2_to_GBK[ui][0])
+                {
+                    gb = tab_UCS2_to_GBK[ui][1];
+                }
+            }
+                
+        }
+    }
+	return gb;
 }
 
 /*+\NEW\liweiqiang\2013.11.26\ÍêÉÆgb2312<->ucs2(ucs2be)±àÂë×ª»»*/
-size_t iconv_ucs2_to_gb2312_endian(char **_inbuf, size_t *inbytesleft, char **_outbuf, size_t *outbytesleft, int endian)
+static size_t iconv_ucs2_to_gb2312_endian(char **_inbuf, size_t *inbytesleft, char **_outbuf, size_t *outbytesleft, int endian)
 {
-    u16 offset, gb2312 = 0xA1A1; 
-    u16 ucs2;
+    uint16_t gb2312 = 0xA1A1; 
+    uint16_t ucs2;
     size_t gb_length = 0;
-    u16 *ucs2buf = (u16*)*_inbuf;
+    uint16_t *ucs2buf = (uint16_t*)*_inbuf;
     char *outbuf = (char *)*_outbuf;
     size_t inlen = *inbytesleft/2;
     size_t outlen = *outbytesleft;
@@ -120,57 +151,19 @@ size_t iconv_ucs2_to_gb2312_endian(char **_inbuf, size_t *inbytesleft, char **_o
         if(endian == 1)
             ucs2 = (ucs2<<8)|(ucs2>>8);
 
-        gb2312 = 0xA1A1;
+        gb2312 = unicode_to_gb2312(ucs2, 0);
         //End 7205
-  
-        if(0x80 > ucs2)
+
+        if(0x80 > gb2312)
         {
             // can be convert to ASCII char
-            *outbuf++ = (u8)ucs2;
+            *outbuf++ = (uint8_t)gb2312;
             gb_length++;
         }
         else
         {
-            if((0x4E00 <= ucs2) && (0xA000 > ucs2))
-            {
-                offset = get_ucs2_offset(ucs2);
-                if((u16)(-1) != offset)
-                {
-                    gb2312 = ucs2_to_gb2312_table[offset];
-                }
-            }
-            else
-            {
-                u16 u16count = sizeof(tab_UCS2_to_GBK)/4;
-                u16 ui = 0;
-                for(ui=0;ui<u16count;ui++)
-                {
-                    if(ucs2 == tab_UCS2_to_GBK[ui][0])
-                    {
-                        gb2312 = tab_UCS2_to_GBK[ui][1];
-                    }
-                }
-                
-            }
-#if 0
-            else
-            {
-                // Is chinese symbol ?
-                // try search another table
-                for( offset = 0; offset < 94 * 16; offset++ )
-                {
-                    if( ucs2 == gb2312_to_ucs2_table[ offset ] )
-                    {
-                        gb2312 = offset / 94 + 0xA0;             
-                        gb2312 = (gb2312 << 8) + (offset % 94 + 0xA1);
-                        break;
-                    }
-                }
-            }
-#endif
- 
-            *outbuf++ = (u8)(gb2312>>8);
-            *outbuf++ = (u8)(gb2312);
+            *outbuf++ = (uint8_t)(gb2312>>8);
+            *outbuf++ = (uint8_t)(gb2312);
             gb_length += 2;
         }
         

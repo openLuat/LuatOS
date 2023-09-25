@@ -62,7 +62,7 @@ typedef void (*luat_rtos_task_entry) (void*);
  */
 typedef void * luat_rtos_task_handle;
 /**
- * @brief 创建一个可以带mailbox机制的task
+ * @brief 创建一个可以带mailbox机制的task，mailbox是message和event的基础，但是和queue无关
  * 
  * @param task_handle[OUT] 返回创建的句柄
  * @param stack_size task的栈空间大小，单位byte，必须4字节对齐
@@ -70,7 +70,7 @@ typedef void * luat_rtos_task_handle;
  * @param task_name task名字
  * @param task_fun task的入口函数
  * @param user_data task的入口参数
- * @param event_cout =0表示不需要使用mailbox机制，>0表示启用mailbox，可以使用下列event和massage api，同时如果底层SDK不支持mailbox，会创建一个queue模拟mailbox，queue里元素为luat_event_t，数量为event_cout
+ * @param event_cout 如果OS允许在中断里malloc，或者不使用message和event机制的，这个参数无视，如果OS不允许在中断里malloc，则这里填写预分配的event空间用于中断里使用，如果写0会使用公共event
  * @return int =0成功，其他失败
  */
 int luat_rtos_task_create(luat_rtos_task_handle *task_handle, uint32_t stack_size, uint8_t priority, const char *task_name, luat_rtos_task_entry task_fun, void* user_data, uint16_t event_cout);
@@ -148,14 +148,14 @@ uint32_t luat_rtos_task_get_high_water_mark(luat_rtos_task_handle task_handle);
 typedef LUAT_RT_RET_TYPE (*luat_rtos_event_wait_callback_t)(LUAT_RT_CB_PARAM);
 
 /**
- * @brief 发送一个event给task的mailbox，只有设置了mailbox启用的task能接收
+ * @brief 发送一个event给task的mailbox，只有设置了mailbox启用的task能接收，如果缓存了超过1024个event会断言
  * 
  * @param task_handle 需要接收event的task句柄
  * @param id event id
  * @param param1 event参数1
  * @param param2 event参数2
  * @param param3 event参数3
- * @param timeout 发送超时，在task发送才有，单位ms，特殊值见LUAT_RTOS_WAIT_E
+ * @param timeout 发送超时，已经废弃了
  * @return int =0成功，其他失败
  */
 int luat_rtos_event_send(luat_rtos_task_handle task_handle, uint32_t id, uint32_t param1, uint32_t param2, uint32_t param3, uint32_t timeout);
@@ -176,7 +176,7 @@ int luat_rtos_event_recv(luat_rtos_task_handle task_handle, uint32_t wait_event_
 
 /* ----------------------------------------------- message begin---------------------------------------------- */
 /**
- * @brief 发送一个message给task的mailbox，只有设置了mailbox启用的task能接收，message可以动态创建的，可以任意大小
+ * @brief 发送一个message给task的mailbox，只有设置了mailbox启用的task能接收，message可以动态创建的，可以任意大小，如果缓存了超过1024个message会断言
  * 
  * @param task_handle 需要接收massage的task句柄
  * @param message_id message id

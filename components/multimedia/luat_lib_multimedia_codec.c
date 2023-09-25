@@ -93,7 +93,7 @@ decoder从文件中解析出音频信息
 @return int 采样位数
 @return boolean 是否有符号
 @usage
-local result, audio_format, num_channels, sample_rate, bits_per_sample, is_signed= codec.get_audio_info(coder, "xxx")
+local result, audio_format, num_channels, sample_rate, bits_per_sample, is_signed= codec.info(coder, "xxx")
  */
 static int l_codec_get_audio_info(lua_State *L) {
 	luat_multimedia_codec_t *coder = (luat_multimedia_codec_t *)luaL_checkudata(L, 1, LUAT_M_CODE_TYPE);
@@ -216,7 +216,7 @@ decoder从文件中解析出原始音频数据，比如从MP3文件里解析出P
 @zbuff 存放输出数据的zbuff，空间必须不少于16KB
 @return boolean 是否成功解析
 @usage
-local result = codec.get_audio_data(coder, zbuff)
+local result = codec.data(coder, zbuff)
  */
 static int l_codec_get_audio_data(lua_State *L) {
 	luat_multimedia_codec_t *coder = (luat_multimedia_codec_t *)luaL_checkudata(L, 1, LUAT_M_CODE_TYPE);
@@ -424,8 +424,8 @@ static const rotable_Reg_t reg_codec[] =
 {
     { "create" ,         ROREG_FUNC(l_codec_create)},
 
-    { "info" , 		 ROREG_FUNC(l_codec_get_audio_info)},
-    { "data",  		 ROREG_FUNC(l_codec_get_audio_data)},
+    { "info" , 		 	 ROREG_FUNC(l_codec_get_audio_info)},
+    { "data",  		 	 ROREG_FUNC(l_codec_get_audio_data)},
 	{ "encode",  		 ROREG_FUNC(l_codec_encode_audio_data)},
     { "release",         ROREG_FUNC(l_codec_release)},
     //@const MP3 number MP3格式
@@ -435,7 +435,7 @@ static const rotable_Reg_t reg_codec[] =
 	//@const AMR number AMR-NB格式，一般意义上的AMR
 	{ "AMR",             ROREG_INT(MULTIMEDIA_DATA_TYPE_AMR_NB)},
 	//@const AMR_WB number AMR-WB格式
-	{ "AMR_WB",             ROREG_INT(MULTIMEDIA_DATA_TYPE_AMR_WB)},
+	{ "AMR_WB",          ROREG_INT(MULTIMEDIA_DATA_TYPE_AMR_WB)},
 	{ NULL,              {}}
 };
 

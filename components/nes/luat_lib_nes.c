@@ -4,6 +4,7 @@
 @summary nes模拟器
 @version 1.0
 @date    2023.4.10
+@tag     LUAT_USE_NES
 */
 
 #include "luat_base.h"

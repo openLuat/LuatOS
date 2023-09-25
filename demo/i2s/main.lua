@@ -22,7 +22,7 @@ sys.taskInit(function()
     audio.config(0, 20, 1, 0, 20)
     audio.setBus(0, audio.BUS_I2S)
     audio.start(0, audio.PCM, 1, 16000, 16)
-    audio.vol(0, 10)
+    audio.vol(0, 50)
 
     local file_size = fs.fsize("/luadb/test.pcm")
     -- print("/luadb/test.pcm size",file_size)   
@@ -35,7 +35,7 @@ sys.taskInit(function()
                 break
             end
             audio.write(0, data)
-            sys.wait(50)
+            sys.wait(100)
         end
         f:close()
     end
@@ -78,6 +78,7 @@ end)
 sys.taskInit(function()
     while 1 do
         sys.wait(1000)
+        log.info("lua", rtos.meminfo())
         log.info("sys", rtos.meminfo("sys"))
     end
 end)

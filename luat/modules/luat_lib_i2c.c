@@ -214,7 +214,7 @@ static int l_i2c_setup(lua_State *L)
 -- 注意！这个接口是软件模拟i2c，速度可能会比硬件的慢
 -- 不需要调用i2c.close接口
 -- 初始化软件i2c
-local softI2C = i2c.createSoft(1,2)
+local softI2C = i2c.createSoft(1, 2, 5)
 i2c.send(softI2C, 0x5C, string.char(0x0F, 0x2F))
 -- 注意, 第3个参数是 2023.06.19 添加的delay
 -- 通过调整delay参数的值, 可增加或降低I2C的速度

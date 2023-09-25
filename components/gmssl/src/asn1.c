@@ -22,7 +22,7 @@
 #include <gmssl/error.h>
 #include <gmssl/endian.h>
 
-
+#if 0
 static const char *asn1_tag_index[] = {
 	"[0]",  "[1]",  "[2]",  "[3]",  "[4]",  "[5]",  "[6]",  "[7]",  "[8]",  "[9]",
 	"[10]", "[11]", "[12]", "[13]", "[14]", "[15]", "[16]", "[17]", "[18]", "[19]",
@@ -122,7 +122,7 @@ int asn1_tag_from_der(int *tag, const uint8_t **in, size_t *inlen)
 	(*inlen)--;
 	return 1;
 }
-
+#endif
 int asn1_tag_from_der_readonly(int *tag, const uint8_t **in, size_t *inlen)
 {
 	if (!tag || !in || !(*in) || !inlen) {

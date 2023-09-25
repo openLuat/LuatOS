@@ -1186,6 +1186,21 @@ end)
 	case LUAT_MOBILE_EVENT_BEARER:
 		LLOGD("bearer act %d, result %d",status, index);
 		break;
+	case LUAT_MOBILE_EVENT_SMS:
+		switch(status)
+		{
+		case LUAT_MOBILE_SMS_READY:
+			LLOGI("sim%d sms ready", index);
+			break;
+		case LUAT_MOBILE_NEW_SMS:
+			break;
+		case LUAT_MOBILE_SMS_SEND_DONE:
+			break;
+		case LUAT_MOBILE_SMS_ACK:
+			break;
+		}
+
+		break;
 	default:
 		break;
 	}

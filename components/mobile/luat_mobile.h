@@ -519,6 +519,7 @@ typedef enum LUAT_MOBILE_EVENT
 	LUAT_MOBILE_EVENT_TIME_SYNC, 	/**< 通过基站同步时间完成*/
 	LUAT_MOBILE_EVENT_CSCON, /**< RRC状态，0 idle 1 active*/
 	LUAT_MOBILE_EVENT_BEARER,/**< PDP承载状态*/
+	LUAT_MOBILE_EVENT_SMS,	/**< SMS短信 >*/
 	LUAT_MOBILE_EVENT_FATAL_ERROR = 0xff,/**< 网络遇到严重故障*/
 }LUAT_MOBILE_EVENT_E;
 
@@ -583,6 +584,13 @@ typedef enum LUAT_MOBILE_BEARER_STATUS
 	LUAT_MOBILE_BEARER_SET_ACT_STATE_DONE,/**< APN激活/去激活完成*/
 }LUAT_MOBILE_BEARER_STATUS_E;
 
+typedef enum LUAT_MOBILE_SMS_STATUS
+{
+	LUAT_MOBILE_SMS_READY = 0, /**< 短信功能初始化完成*/
+	LUAT_MOBILE_NEW_SMS, /**< 接收到新的短信*/
+	LUAT_MOBILE_SMS_SEND_DONE, /**< 短信发送到运营商*/
+	LUAT_MOBILE_SMS_ACK, /**< 短信已经被接收*/
+}LUAT_MOBILE_SMS_STATUS_E;
 /**
  * @brief 获取当前移动网络注册状态
  * 

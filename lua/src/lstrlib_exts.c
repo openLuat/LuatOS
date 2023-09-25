@@ -16,8 +16,8 @@
 #define IsHex(c)      (((c >= 'a') && (c <= 'f')) || ((c >= 'A') && (c <= 'F')))
 #define IsDigit(c)        ((c >= '0') && (c <= '9'))
 
-static unsigned char hexchars[] = "0123456789ABCDEF";
-void luat_str_tohexwithsep(char* str, size_t len, char* separator, size_t len_j, char* buff) {
+static const unsigned char hexchars[] = "0123456789ABCDEF";
+void luat_str_tohexwithsep(const char* str, size_t len, const char* separator, size_t len_j, char* buff) {
   for (size_t i = 0; i < len; i++)
   {
     char ch = *(str+i);
@@ -29,10 +29,11 @@ void luat_str_tohexwithsep(char* str, size_t len, char* separator, size_t len_j,
   }
 }
 
-void luat_str_tohex(char* str, size_t len, char* buff) {
+void luat_str_tohex(const char* str, size_t len, char* buff) {
   luat_str_tohexwithsep(str, len, NULL, 0, buff);
 }
-void luat_str_fromhex(char* str, size_t len, char* buff) {
+
+void luat_str_fromhex(const char* str, size_t len, char* buff) {
   for (size_t i = 0; i < len/2; i++)
   {
     char a = *(str + i*2);
@@ -40,12 +41,11 @@ void luat_str_fromhex(char* str, size_t len, char* buff) {
     //printf("%d %c %c\r\n", i, a, b);
     a = (a <= '9') ? a - '0' : (a & 0x7) + 9;
     b = (b <= '9') ? b - '0' : (b & 0x7) + 9;
-    if (a >=0 && b >= 0)
-      buff[i] = (a << 4) + b;
+    buff[i] = (a << 4) + b;
   }
 }
 
-size_t luat_str_fromhex_ex(char* str, size_t len, char* buff) {
+size_t luat_str_fromhex_ex(const char* str, size_t len, char* buff) {
 	size_t out_len = 0;
 	uint8_t temp = 0;
 	uint8_t is_full = 0;
@@ -97,7 +97,7 @@ int l_str_toHex (lua_State *L) {
   const char *separator = luaL_optlstring(L, 2, "", &len_j);
   luaL_Buffer buff;
   luaL_buffinitsize(L, &buff, (2+len_j)*len);
-  luat_str_tohexwithsep((char*)str, len, (char*)separator, len_j, buff.b);
+  luat_str_tohexwithsep(str, len, separator, len_j, buff.b);
   buff.n = len * (2 + len_j);
   luaL_pushresult(&buff);
   lua_pushinteger(L, len*2);
@@ -120,7 +120,7 @@ int l_str_fromHex (lua_State *L) {
   luaL_buffinitsize(L, &buff, len / 2);
 //  luat_str_fromhex((char*)str, len, buff.b);
 //  buff.n = len / 2;
-  buff.n = luat_str_fromhex_ex((char*)str, len, buff.b);
+  buff.n = luat_str_fromhex_ex(str, len, buff.b);
   luaL_pushresult(&buff);
   return 1;
 }
@@ -164,7 +164,7 @@ int l_str_split (lua_State *L) {
   lua_newtable(L);
   int prev = -1;
   size_t count = 1;
-  for (int i = 0; i < len; i++)
+  for (size_t i = 0; i < len; i++)
   {
     // LLOGD("d[%s] [%.*s] %d", delimiters, dlen, str+i, dlen);
     if (!memcmp(delimiters, str+i, dlen)) {

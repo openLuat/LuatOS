@@ -53,6 +53,7 @@ end
 #include "mbedtls/md.h"
 
 static int myrand( void *rng_state, unsigned char *output, size_t len ) {
+    (void)rng_state;
     luat_crypto_trng((char*)output, len);
     return 0;
 }

@@ -1,10 +1,12 @@
 /*
 @module  disp
-@summary disp库已合并到u8g2库,API等价
+@summary disp库(已废弃)
 @version 1.0
 @date    2020.03.30
 @demo u8g2
 @tag LUAT_USE_DISP
+@usage
+-- disp库已合并到u8g2库,API等价
 */
 #include "luat_base.h"
 #include "luat_malloc.h"
@@ -18,7 +20,7 @@
 -- disp库的所有API均已合并到u8g2库
 -- disp库已经映射为u8g2库,所有API均代理到u8g2,请查阅u8g2库的API
 */
-static int l_disp_init(lua_State *L) {
+int l_disp_init(lua_State *L) {
     return 0;
 }
 

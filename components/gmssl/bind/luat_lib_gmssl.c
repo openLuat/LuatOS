@@ -25,12 +25,12 @@
 #define SM2_STR_LEN 300
 #define HEX_CODE 16
 
-extern void luat_str_fromhex(char* str, size_t len, char* buff);
+extern void luat_str_fromhex(const char* str, size_t len, char* buff);
 
-static void DeletePaddingBuf(luaL_Buffer *B, uint8_t *pPadding, size_t nBufLen, uint8_t *pBuf, uint8_t pPaddLen)
+static void DeletePaddingBuf(luaL_Buffer *B, const char *pPadding, size_t nBufLen, uint8_t *pBuf, uint8_t pPaddLen)
 {
     uint8_t nPadLen;
-    if((strcmp((char*)pPadding, "PKCS5")==0) || (strcmp((char*)pPadding, "PKCS7")==0))
+    if((strcmp(pPadding, "PKCS5")==0) || (strcmp(pPadding, "PKCS7")==0))
     {
         nPadLen = *(pBuf+nBufLen-1);
         //printf("aes DeletePaddingBuf length=%d\n", nPadLen);
@@ -39,7 +39,7 @@ static void DeletePaddingBuf(luaL_Buffer *B, uint8_t *pPadding, size_t nBufLen, 
             luaL_addlstring(B, (char*)pBuf, nBufLen-nPadLen);
         }
     }
-    else if(strcmp((char*)pPadding, "ZERO")==0)
+    else if(strcmp(pPadding, "ZERO")==0)
     {                        
         uint8_t *pEnd = pBuf+nBufLen-1;
         nPadLen = 0;
@@ -90,13 +90,13 @@ log.info("testsm.sm2decrypt",gmssl.sm2decrypt(private,encodeStr))
 */
 static int l_sm2_encrypt(lua_State *L)
 {    
-    size_t randLen = 0;
+    // size_t randLen = 0;
     size_t pkxLen = 0;
     size_t pkyLen = 0;
     size_t pBufLen = 0;
-    uint8_t *pkx = lua_tolstring(L, 1,&pkxLen);
-    uint8_t *pky = lua_tolstring(L, 2,&pkyLen);
-    uint8_t *pBuf = lua_tolstring(L, 3,&pBufLen);
+    const char *pkx = lua_tolstring(L, 1,&pkxLen);
+    const char *pky = lua_tolstring(L, 2,&pkyLen);
+    const char *pBuf = lua_tolstring(L, 3,&pBufLen);
     int ret = 0;
 
     //检查参数合法性
@@ -114,12 +114,10 @@ static int l_sm2_encrypt(lua_State *L)
     }
 
     SM2_KEY sm2 = {0};
-    const SM2_POINT point;
-    char x[32];
-    char y[32];
-    luat_str_fromhex((char*)pkx, 64, point.x);
-    luat_str_fromhex((char*)pky, 64, point.y);
-    ret = sm2_key_set_public_key(&sm2.public_key, &point);
+    SM2_POINT point;
+    luat_str_fromhex(pkx, 64, (char*)point.x);
+    luat_str_fromhex(pky, 64, (char*)point.y);
+    ret = sm2_key_set_public_key(&sm2, (const SM2_POINT*)&point);
     LLOGD("sm2_key_set_public_key %d", ret);
 
     unsigned char out[SM2_MAX_CIPHERTEXT_SIZE] = {0};
@@ -151,8 +149,8 @@ static int l_sm2_decrypt(lua_State *L)
 {    
     size_t privateLen = 0;
     size_t pBufLen = 0;
-    uint8_t *private = lua_tolstring(L, 1,&privateLen);
-    uint8_t *pBuf = lua_tolstring(L, 2,&pBufLen);
+    const char *private = lua_tolstring(L, 1,&privateLen);
+    const char *pBuf = lua_tolstring(L, 2,&pBufLen);
     int ret = 0;
 
     //检查参数合法性
@@ -164,9 +162,9 @@ static int l_sm2_decrypt(lua_State *L)
     SM2_KEY sm2 = {0};
     char out[512] = {0};
     size_t olen = 0;
-    luat_str_fromhex((char*)private, 64, (char*)sm2.private_key);
+    luat_str_fromhex(private, 64, (char*)sm2.private_key);
 
-    ret = sm2_decrypt(&sm2, pBuf, pBufLen, (uint8_t*)out, &olen);
+    ret = sm2_decrypt(&sm2, (uint8_t*)pBuf, pBufLen, (uint8_t*)out, &olen);
     LLOGD("sm2_decrypt ret %d", ret);
     lua_pushlstring(L, (char*)out, olen);
     return 1;
@@ -246,14 +244,14 @@ log.info("testsm.decrypt",gmssl.sm4decrypt("CBC","PKCS5",encodeStr,"123456789012
 */
 static int l_sm4_encrypt(lua_State *L)
 {    
-    uint8_t *pMode = luaL_checkstring(L, 1);
-    uint8_t *pPadding = luaL_checkstring(L, 2);
+    const char *pMode = luaL_checkstring(L, 1);
+    const char *pPadding = luaL_checkstring(L, 2);
     size_t nBufLen = 0;
-    uint8_t *pBuf = lua_tolstring(L, 3, &nBufLen);
+    const char *pBuf = lua_tolstring(L, 3, &nBufLen);
     size_t nPswdLen = 0;
-    uint8_t *pPassword = lua_tolstring(L, 4, &nPswdLen);
+    const char *pPassword = lua_tolstring(L, 4, &nPswdLen);
     size_t nIVLen = 0;
-    uint8_t *pIV =  lua_tolstring(L, 5, &nIVLen);
+    const char *pIV =  lua_tolstring(L, 5, &nIVLen);
 
     int nPadLen = SM4_BLOCK_LEN-(nBufLen%SM4_BLOCK_LEN);
     uint8_t pPadBuf[SM4_BLOCK_LEN] = {0};
@@ -264,31 +262,31 @@ static int l_sm4_encrypt(lua_State *L)
     {
         return luaL_error(L, "invalid password length=%d, only support 128bit Password", nPswdLen);
     }
-    if((strcmp((char*)pMode, "ECB")!=0) && (strcmp((char*)pMode, "CBC")!=0))
+    if((strcmp(pMode, "ECB")!=0) && (strcmp(pMode, "CBC")!=0))
     {
         return luaL_error(L, "invalid mode=%s, only support ECB,CBC", pMode);
     }
-    if((strcmp((char*)pPadding, "NONE")!=0) && (strcmp((char*)pPadding, "PKCS5")!=0) && (strcmp((char*)pPadding, "PKCS7")!=0) && (strcmp((char*)pPadding, "ZERO")!=0))
+    if((strcmp(pPadding, "NONE")!=0) && (strcmp(pPadding, "PKCS5")!=0) && (strcmp(pPadding, "PKCS7")!=0) && (strcmp((char*)pPadding, "ZERO")!=0))
     {
         return luaL_error(L, "invalid padding=%s, only support NONE,PKCS5,PKCS7,ZERO", pPadding);
     }
-    if(((strcmp((char*)pMode, "CBC")==0)) && (nIVLen!=16))
+    if(((strcmp(pMode, "CBC")==0)) && (nIVLen!=16))
     {
         return luaL_error(L, "invalid iv length=%d, only support 128bit IV", nIVLen);
     }
 
     //构造填充数据
-    if((strcmp((char*)pPadding, "PKCS5")==0) || (strcmp((char*)pPadding, "PKCS7")==0))
+    if((strcmp(pPadding, "PKCS5")==0) || (strcmp(pPadding, "PKCS7")==0))
     {
         memset(pPadBuf, nPadLen, sizeof(pPadBuf));
     }
-    else if(strcmp((char*)pPadding, "ZERO")==0)
+    else if(strcmp(pPadding, "ZERO")==0)
     {
         memset(pPadBuf, 0, sizeof(pPadBuf));
     }   
-	else if(strcmp((char*)pPadding, "NONE")==0)
+	else if(strcmp(pPadding, "NONE")==0)
     {
-    	if((strcmp((char*)pMode, "CBC")==0) || (strcmp((char*)pMode, "ECB")==0)){
+    	if((strcmp(pMode, "CBC")==0) || (strcmp(pMode, "ECB")==0)){
 	        if(nBufLen%SM4_BLOCK_LEN != 0)
 	        {
 	            return luaL_error(L, "buf len should be multiple of 16, len=%d", nBufLen);
@@ -333,26 +331,26 @@ static int l_sm4_encrypt(lua_State *L)
 
 		SM4_KEY sm4_key;
         memset(&sm4_key,0,sizeof(SM4_KEY));
-		sm4_set_encrypt_key(&sm4_key,pPassword);
+		sm4_set_encrypt_key(&sm4_key, (uint8_t*)pPassword);
 
-        if(strcmp((char*)pMode, "ECB") == 0)
+        if(strcmp(pMode, "ECB") == 0)
         {
             //开始分组加密，每16字节一组
             while(nRmnLen>0)
             {
                 // sm4_ecb_encrypt(pInBuf+nBufLen-nRmnLen,pInBuf+nBufLen-nRmnLen,&sm4_key,1);
                 char out[SM4_BLOCK_LEN];
-                sm4_encrypt(&sm4_key,pBuf+nBufLen-nRmnLen, (uint8_t*)out);
+                sm4_encrypt(&sm4_key, (uint8_t*)(pBuf+nBufLen-nRmnLen), (uint8_t*)out);
                 luaL_addlstring(&b, out, SM4_BLOCK_LEN);
                 nRmnLen -= SM4_BLOCK_LEN;
             }
         }
-        else if((strcmp((char*)pMode, "CBC") == 0))
+        else if((strcmp(pMode, "CBC") == 0))
         {
             //待加密数据一次性传入
             // sm4_cbc_encrypt(pInBuf,pInBuf,nBufLen,&sm4_key,pIV,1);
             char *out = luat_heap_malloc(nBufLen);
-            sm4_cbc_encrypt(&sm4_key, pIV, pInBuf, nBufLen / SM4_BLOCK_LEN, (uint8_t*)out);
+            sm4_cbc_encrypt(&sm4_key, (uint8_t*)pIV, pInBuf, nBufLen / SM4_BLOCK_LEN, (uint8_t*)out);
             luaL_addlstring(&b, out, nBufLen);
             luat_heap_free(out);
         }
@@ -383,14 +381,14 @@ SM4解密算法
 static int l_sm4_decrypt(lua_State *L)
 {    
     
-    uint8_t *pMode = luaL_checkstring(L, 1);
-    uint8_t *pPadding = luaL_checkstring(L, 2);
+    const char *pMode = luaL_checkstring(L, 1);
+    const char *pPadding = luaL_checkstring(L, 2);
     size_t nBufLen = 0;
-    uint8_t *pBuf = lua_tolstring(L, 3, &nBufLen);
+    const char *pBuf = lua_tolstring(L, 3, &nBufLen);
     size_t nPswdLen = 0;
-    uint8_t *pPassword = lua_tolstring(L, 4, &nPswdLen);
+    const char *pPassword = lua_tolstring(L, 4, &nPswdLen);
     size_t nIVLen = 0;
-    uint8_t *pIV =  lua_tolstring(L, 5, &nIVLen);
+    const char *pIV =  lua_tolstring(L, 5, &nIVLen);
     char out[SM4_BLOCK_LEN];
 
     //检查参数合法性
@@ -409,7 +407,7 @@ static int l_sm4_decrypt(lua_State *L)
     {
         return luaL_error(L, "invalid mode=%s, only support ECB,CBC,CTR", pMode);
     }
-    if((strcmp((char*)pPadding, "NONE")!=0) && (strcmp((char*)pPadding, "PKCS5")!=0) && (strcmp((char*)pPadding, "PKCS7")!=0) && (strcmp((char*)pPadding, "ZERO")!=0))
+    if((strcmp(pPadding, "NONE")!=0) && (strcmp(pPadding, "PKCS5")!=0) && (strcmp(pPadding, "PKCS7")!=0) && (strcmp((char*)pPadding, "ZERO")!=0))
     {
         return luaL_error(L, "invalid padding=%s, only support NONE,PKCS5,PKCS7,ZERO", pPadding);
     }
@@ -427,14 +425,14 @@ static int l_sm4_decrypt(lua_State *L)
         nRmnLen = nBufLen;
 		SM4_KEY sm4_key;
         memset(&sm4_key,0,sizeof(SM4_KEY));
-        sm4_set_decrypt_key(&sm4_key,pPassword);
+        sm4_set_decrypt_key(&sm4_key,(uint8_t*)pPassword);
 
         if(isECB)
         {
             //开始分组解密，每16字节一组
             while(nRmnLen>0)
             {
-                sm4_decrypt(&sm4_key,pBuf+nBufLen-nRmnLen, (uint8_t*)out);
+                sm4_decrypt(&sm4_key,(uint8_t*)(pBuf+nBufLen-nRmnLen), (uint8_t*)out);
                 //删除填充数据
                 if(nRmnLen==SM4_BLOCK_LEN)
                 {
@@ -452,7 +450,7 @@ static int l_sm4_decrypt(lua_State *L)
             //待解密数据一次性传入
             if (nBufLen <= 1024) {
                 char out[1024];
-                sm4_cbc_decrypt(&sm4_key, pIV, pBuf, nBufLen/SM4_BLOCK_LEN, (uint8_t*)out);
+                sm4_cbc_decrypt(&sm4_key, (uint8_t*)pIV, (uint8_t*)pBuf, nBufLen/SM4_BLOCK_LEN, (uint8_t*)out);
                 DeletePaddingBuf(&b, pPadding, nBufLen, (uint8_t*)out, SM4_BLOCK_LEN);
             }
             else {
@@ -461,7 +459,7 @@ static int l_sm4_decrypt(lua_State *L)
                     LLOGE("out of memory when malloc SM4 decrypt buff");
                     return 0;
                 }
-                sm4_cbc_decrypt(&sm4_key, pIV, pBuf, nBufLen/SM4_BLOCK_LEN, (uint8_t*)out);
+                sm4_cbc_decrypt(&sm4_key, (uint8_t*)pIV, (uint8_t*)pBuf, nBufLen/SM4_BLOCK_LEN, (uint8_t*)out);
                 DeletePaddingBuf(&b, pPadding, nBufLen, (uint8_t*)out, SM4_BLOCK_LEN);
                 luat_heap_free(out);
             }

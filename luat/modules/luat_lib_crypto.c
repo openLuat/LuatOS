@@ -689,7 +689,7 @@ static int l_crypt_hash_init(lua_State *L) {
         memset(stream, 0x00, sizeof(luat_crypt_stream_t));
         const char* key = NULL;
         const char* md = luaL_checkstring(L, 1);
-        strncpy(stream->tp, md, strlen(md));
+        memcpy(stream->tp, md, strlen(md)+1);
         if(lua_type(L, 2) == LUA_TSTRING) {
             key = luaL_checklstring(L, 2, &(stream->key_len));
         }

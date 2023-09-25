@@ -79,7 +79,7 @@ static int romfs_find(luat_romfs_ctx* fs, const char* filename, romfs_file_t *fi
 FILE *luat_vfs_romfs_fopen(void *userdata, const char *filename, const char *mode)
 {
     // LLOGD("open romfs >> ============== %s", filename);
-    int ret = 0;
+    // int ret = 0;
     size_t offset = 0;
     luat_romfs_ctx* fs = (luat_romfs_ctx*)userdata;
     romfs_file_t tfile = {0};
@@ -216,7 +216,7 @@ int luat_vfs_romfs_mount(void **userdata, luat_fs_conf_t *conf)
     // LLOGD("luat_romfs_ctx %p", fs->read);
     // LLOGD("luat_romfs_ctx %p", fs->userdata);
     romfs_head_t head = {0};
-    fs->read(fs->userdata, &head, 0, sizeof(romfs_head_t));
+    fs->read(fs->userdata, (char*)&head, 0, sizeof(romfs_head_t));
     if (memcmp(head.magic, "-rom1fs-", 8))
     {
         LLOGI("Not ROMFS at %p", &head);
@@ -252,7 +252,7 @@ int luat_vfs_romfs_lsdir(void *userdata, char const *_DirName, luat_fs_dirent_t 
     int counter = 0;
     int count_down = ent_offset;
     romfs_file_t *file = &tfile;
-    fs->read(fs->userdata, file, offset, sizeof(romfs_file_t));
+    fs->read(fs->userdata, (char*)file, offset, sizeof(romfs_file_t));
     while (1)
     {
         if (counter >= len)
@@ -274,7 +274,7 @@ int luat_vfs_romfs_lsdir(void *userdata, char const *_DirName, luat_fs_dirent_t 
         if ((toInt32(file->next_offset) & 0xFFFFFFF0) == 0)
             break;
         offset = sizeof(romfs_head_t) + (toInt32(file->next_offset) & 0xFFFFFFF0);
-        fs->read(fs->userdata, file, offset, sizeof(romfs_file_t));
+        fs->read(fs->userdata, (char*)file, offset, sizeof(romfs_file_t));
     }
     return 0;
 }

@@ -5,7 +5,7 @@
 @version 1.0
 @date    2022.12.15
 @demo    errDump
-@tag     LUAT_CONF_ERRDUMP
+@tag     LUAT_USE_ERRDUMP
 @usage
 -- 基本用法, 10分钟上报一次,如果有的话
 if errDump then

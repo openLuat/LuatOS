@@ -25,6 +25,7 @@ extern const struct luat_vfs_filesystem vfs_fs_inline;
 static luat_vfs_t vfs= {0};
 
 int luat_vfs_init(void* params) {
+    (void)params;
     memset(&vfs, 0, sizeof(vfs));
     luat_vfs_reg(&vfs_fs_inline);
     return 0;
@@ -107,7 +108,7 @@ int luat_fs_mount(luat_fs_conf_t *conf) {
                         memcpy(vfs.mounted[j].prefix, conf->mount_point, strlen(conf->mount_point) + 1);
                         if (j == 0) {
                             // 挂载内嵌文件系统
-                            vfs.mounted[j+1].fs = &vfs_fs_inline;
+                            vfs.mounted[j+1].fs = (struct luat_vfs_filesystem*)&vfs_fs_inline;
                             vfs.mounted[j+1].ok = 1;
                             memcpy(vfs.mounted[j+1].prefix, "/lua/", strlen("/lua/") + 1);
                         }
@@ -289,7 +290,11 @@ int luat_fs_fexist(const char *filename) {
 int luat_fs_readline(char * buf, int bufsize, FILE * stream){
     int get_len = 0;
     char buff[2];
-    for (size_t i = 0; i <= bufsize; i++){
+    if (buf == NULL || bufsize < 1) {
+        return 0;
+    }
+    size_t tmp = (size_t)bufsize;
+    for (size_t i = 0; i <= tmp; i++){
         memset(buff, 0, 2);
         int len = luat_fs_fread(buff, sizeof(char), 1, stream);
         if (len>0){

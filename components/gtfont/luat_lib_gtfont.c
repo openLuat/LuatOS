@@ -70,9 +70,9 @@ unsigned int gtfont_draw_w(unsigned char *pBits,unsigned int x,unsigned int y,un
  *------------------------------------------------------------------------------------------*/
 void gtfont_draw_gray_hz (unsigned char *data,unsigned short x,unsigned short y,unsigned short w ,unsigned short h,unsigned char grade, unsigned char HB_par,int(*point)(void*,uint16_t, uint16_t, uint32_t),void* userdata,int mode){
 	unsigned int temp=0,gray,x_temp=x;
-	unsigned int i=0,j=0,k=0,t;
+	unsigned int i=0,j=0,t;
 	unsigned char c,c2,*p;
-	unsigned long color8bit,color4bit,color3bit[8],color2bit,color;
+	unsigned long color4bit,color3bit[8],color2bit,color;
 	t=(w+7)/8*grade;//
 	p=data;
 	if(grade==2){
@@ -199,6 +199,7 @@ static int l_gtfont_init(lua_State* L) {
 	const char data = 0xff;
 	luat_spi_device_send(gt_spi_dev, &data, 1);
 	int font_init = GT_Font_Init();
+	lua_pushboolean(L, font_init == 0 ? 1 : 0);
     return 1;
 }
 

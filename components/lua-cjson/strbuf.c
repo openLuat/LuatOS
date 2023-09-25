@@ -105,7 +105,7 @@ void strbuf_free(strbuf_t *s)
 
 static int calculate_new_size(strbuf_t *s, int len)
 {
-    int reqsize, newsize;
+    int reqsize;
 
     // if (len <= 0)
     //     die("BUG: Invalid strbuf length requested");
@@ -117,7 +117,7 @@ static int calculate_new_size(strbuf_t *s, int len)
     if (s->size > reqsize)
         return reqsize;
 
-    newsize = s->size;
+    // newsize = s->size;
     if (reqsize - s->size < 1023) {
         reqsize = s->size + 1023;
     }

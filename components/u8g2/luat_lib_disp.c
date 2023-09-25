@@ -20,7 +20,7 @@
 -- disp库的所有API均已合并到u8g2库
 -- disp库已经映射为u8g2库,所有API均代理到u8g2,请查阅u8g2库的API
 */
-static int l_disp_init(lua_State *L) {
+int l_disp_init(lua_State *L) {
     return 0;
 }
 

@@ -106,7 +106,7 @@ int sm2_bn_is_one(const SM2_BN a)
 void sm2_bn_to_bytes(const SM2_BN a, uint8_t out[32])
 {
 	int i;
-	uint8_t *p = out;
+	// uint8_t *p = out;
 
 	/*
 	fprintf(stderr, "sm2_bn_to_bytes:\n");
@@ -819,7 +819,7 @@ void sm2_jacobian_point_get_xy(const SM2_JACOBIAN_POINT *P, SM2_BN x, SM2_BN y)
 
 int sm2_jacobian_pointpoint_print(FILE *fp, int fmt, int ind, const char *label, const SM2_JACOBIAN_POINT *P)
 {
-	int len = 0;
+	// int len = 0;
 	SM2_BN x;
 	SM2_BN y;
 

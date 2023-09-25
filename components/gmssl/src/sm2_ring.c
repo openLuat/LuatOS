@@ -43,7 +43,7 @@ static int sm2_ring_sort_public_keys(SM2_POINT *points, size_t points_cnt)
 int sm2_ring_signature_to_der(const sm2_bn_t r, const sm2_bn_t *s, size_t s_cnt, uint8_t **out, size_t *outlen)
 {
 	size_t i, len = 0;
-	uint8_t *p = *out;
+	// uint8_t *p = *out;
 
 	if (asn1_integer_to_der(r, 32, NULL, &len) != 1) {
 		error_print();

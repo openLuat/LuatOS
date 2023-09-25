@@ -15,7 +15,7 @@ set_languages("c11", "cxx11")
 add_defines("__LUATOS__", "__XMAKE_BUILD__")
 add_defines("MBEDTLS_CONFIG_FILE=\"mbedtls_config_mini.h\"")
 
-add_ldflags("-Wl,-gc-sections")
+--add_ldflags("-Wl,-gc-sections")
 
 if is_host("windows") then
     add_defines("LUA_USE_WINDOWS")

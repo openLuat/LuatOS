@@ -5,6 +5,7 @@
 #include "luat_malloc.h"
 #include "luat_msgbus.h"
 #include "luat_fs.h"
+#include <stdlib.h>
 
 #include "bget.h"
 
@@ -23,7 +24,7 @@ void luat_log_init_win32(void);
 void luat_uart_initial_win32(void);
 
 static void _luat_main(void* args) {
-    //luat_main();
+    (void)args;
     luat_fs_init();
     lua_main(cmdline_argc, cmdline_argv);
     exit(0);

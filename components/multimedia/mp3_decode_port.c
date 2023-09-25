@@ -43,9 +43,14 @@ LUAT_WEAK  int mp3_decoder_get_data(void *decoder, const uint8_t *input, uint32_
 {
 	mp3dec_frame_info_t info;
 	int result = mp3dec_decode_frame(decoder, input, len, pcm, &info);
-	*hz = info.hz;
-	*out_len = (result * info.channels * 2);
-	*used = info.frame_bytes;
+	if (result >= 0) {
+		*hz = info.hz;
+		*out_len = (result * info.channels * 2);
+		*used = info.frame_bytes;
+	}
+	else {
+		*out_len = 0;
+	}
 	return result;
 }
 #endif

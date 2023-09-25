@@ -214,9 +214,15 @@ decoder从文件中解析出原始音频数据，比如从MP3文件里解析出P
 @api codec.data(decoder, out_buff)
 @userdata 解码用的decoder
 @zbuff 存放输出数据的zbuff，空间必须不少于16KB
+@int   最少解码出多少字节的音频数据,默认16384
 @return boolean 是否成功解析
 @usage
-local result = codec.data(coder, zbuff)
+-- 大内存设备
+local buff = zbuff.create(16*1024)
+local result = codec.data(coder, buff)
+-- 小内存设备
+local buff = zbuff.create(8*1024)
+local result = codec.data(coder, buff, 4096)
  */
 static int l_codec_get_audio_data(lua_State *L) {
 	luat_multimedia_codec_t *coder = (luat_multimedia_codec_t *)luaL_checkudata(L, 1, LUAT_M_CODE_TYPE);
@@ -226,6 +232,11 @@ static int l_codec_get_audio_data(lua_State *L) {
 	luat_zbuff_t *out_buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
 	uint32_t is_not_end = 1;
 	uint32_t hz, out_len, used;
+	size_t mini_output = luaL_optinteger(L, 3, 16384);
+	if (mini_output > 16384)
+		mini_output = 16384;
+	else if (mini_output < 4 * 1024)
+		mini_output = 4 * 1024;
 	out_buff->used = 0;
 	if (coder)
     {
@@ -252,7 +263,9 @@ GET_MP3_DATA:
 				{
 					out_buff->used += out_len;
 				}
-
+				if (result < 0) {
+					return 0;
+				}
 //				if (!result) {
 //					LLOGD("jump %dbyte", info.frame_bytes);
 //				}
@@ -286,7 +299,7 @@ GET_MP3_DATA:
 			}
 			else
 			{
-				if ((out_buff->used < 16384) && is_not_end)
+				if ((out_buff->used < mini_output) && is_not_end)
 				{
 					goto GET_MP3_DATA;
 				}
@@ -388,6 +401,7 @@ static int l_codec_gc(lua_State *L)
 	if (coder->buff.addr)
 	{
 		luat_heap_free(coder->buff.addr);
+		coder->buff.addr = NULL;
 		memset(&coder->buff, 0, sizeof(luat_zbuff_t));
 	}
 	switch(coder->type) {

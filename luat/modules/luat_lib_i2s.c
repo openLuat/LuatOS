@@ -69,7 +69,7 @@ int32_t luat_i2s_rx_cb(void *pdata, void *param)
         msg.ptr = NULL;
         msg.arg1 = id;
         msg.arg2 = len;
-        int re = luat_msgbus_put(&msg, 0);
+        luat_msgbus_put(&msg, 0);
 		buffer->Pos = 0;
 
 	}
@@ -163,7 +163,6 @@ local buffer = zbuff.create(3200)
 local succ = i2s.recv(0, buffer, 3200);
 */
 static int l_i2s_recv(lua_State *L) {
-    luaL_Buffer buff;
     int id = luaL_checkinteger(L, 1);
     if (id >= I2S_DEVICE_MAX_CNT)
     {
@@ -230,24 +229,32 @@ static int l_i2s_on(lua_State *L) {
     return 0;
 }
 
-int l_i2s_play(lua_State *L);
-int l_i2s_pause(lua_State *L);
-int l_i2s_stop(lua_State *L);
+/*
+获取i2s的发送缓冲区状态
+@api    i2s.txStat(id)
+@int i2s id, i2s0写0, i2s1写1
+@return 底层缓冲区的总大小
+@return 底层缓冲区的剩余待发送数据
+@usage
+-- 读取发送缓冲区的状态, 从而判断是否需要继续传入音频数据
+local max, remain = i2s.txStat(0)
+log.info("i2s发送缓冲区状态", max, remain)
+*/
+static int l_i2s_tx_stat(lua_State *L) {
+    int i2s_id = luaL_checkinteger(L, 1);
+    size_t buffsize = 0, remain = 0;
+    luat_i2s_tx_stat(i2s_id, &buffsize, &remain);
+    lua_pushinteger(L, buffsize);
+    lua_pushinteger(L, remain);
+    return 2;
+}
 
 #ifndef LUAT_COMPILER_NOWEAK
-LUAT_WEAK int l_i2s_play(lua_State *L) {
-    LLOGE("not support yet");
-    return 0;
-}
-
-LUAT_WEAK int l_i2s_pause(lua_State *L) {
-    LLOGE("not support yet");
-    return 0;
-}
-
-LUAT_WEAK int l_i2s_stop(lua_State *L) {
-    LLOGE("not support yet");
-    return 0;
+LUAT_WEAK int luat_i2s_tx_stat(uint8_t id, size_t *buffsize, size_t* remain) {
+    (void)id;
+    (void)buffsize;
+    (void)remain;
+    return -1;
 }
 #endif
 
@@ -258,11 +265,12 @@ static const rotable_Reg_t reg_i2s[] =
     { "send",       ROREG_FUNC(l_i2s_send)},
     { "recv",       ROREG_FUNC(l_i2s_recv)},
     { "close",      ROREG_FUNC(l_i2s_close)},
-	{ "on",       ROREG_FUNC(l_i2s_on)},
+	{ "on",         ROREG_FUNC(l_i2s_on)},
+    { "txStat",     ROREG_FUNC(l_i2s_tx_stat)},
     // 以下为兼容扩展功能,待定
-    { "play",       ROREG_FUNC(l_i2s_play)},
-    { "pause",      ROREG_FUNC(l_i2s_pause)},
-    { "stop",       ROREG_FUNC(l_i2s_stop)},
+    // { "play",       ROREG_FUNC(l_i2s_play)},
+    // { "pause",      ROREG_FUNC(l_i2s_pause)},
+    // { "stop",       ROREG_FUNC(l_i2s_stop)},
 	//@const MODE_I2S number I2S标准，比如ES7149
 	{ "MODE_I2S", 	ROREG_INT(0)},
 	//@const MODE_LSB number LSB格式

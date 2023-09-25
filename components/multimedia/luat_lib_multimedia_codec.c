@@ -228,7 +228,7 @@ static int l_codec_get_audio_data(lua_State *L) {
 	luat_multimedia_codec_t *coder = (luat_multimedia_codec_t *)luaL_checkudata(L, 1, LUAT_M_CODE_TYPE);
 	uint32_t pos = 0;
 	int read_len;
-	int result;
+	int result = 0;
 	luat_zbuff_t *out_buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
 	uint32_t is_not_end = 1;
 	uint32_t hz, out_len, used;
@@ -246,7 +246,7 @@ static int l_codec_get_audio_data(lua_State *L) {
 GET_MP3_DATA:
 			if (coder->buff.used < MINIMP3_MAX_SAMPLES_PER_FRAME)
 			{
-				read_len = luat_fs_fread(coder->buff.addr + coder->buff.used, MINIMP3_MAX_SAMPLES_PER_FRAME, 1, coder->fd);
+				read_len = luat_fs_fread((void*)(coder->buff.addr + coder->buff.used), MINIMP3_MAX_SAMPLES_PER_FRAME, 1, coder->fd);
 				if (read_len > 0)
 				{
 					coder->buff.used += read_len;

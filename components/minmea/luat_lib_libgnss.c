@@ -161,7 +161,8 @@ static void put_datetime(lua_State*L, struct tm* rtime) {
     lua_settable(L, -3);
 }
 
-static int32_t l_gnss_callback(lua_State *L, void* ptr){
+static int l_gnss_callback(lua_State *L, void* ptr){
+    (void)ptr;
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     luat_libgnss_uart_recv_cb(msg->arg1, msg->arg2);
 	return 0;
@@ -215,7 +216,7 @@ static int l_libgnss_is_fix(lua_State *L) {
 @api libgnss.getIntLocation()
 @return int lat数据, 格式为 ddddddddd
 @return int lng数据, 格式为 ddddddddd
-@return int speed数据
+@return int speed数据, 单位米. 于2023.9.26修正
 @usage
 -- 建议用libgnss.getRmc(1)
 log.info("nmea", "loc", libgnss.getIntLocation())
@@ -224,8 +225,7 @@ static int l_libgnss_get_int_location(lua_State *L) {
     if (libgnss_gnss != NULL && libgnss_gnss->frame_rmc.valid) {
         lua_pushinteger(L, libgnss_gnss->frame_rmc.latitude.value);
         lua_pushinteger(L, libgnss_gnss->frame_rmc.longitude.value);
-        // lua_pushinteger(L, libgnss_gnss->frame_rmc.speed.value);
-        push_gnss_value(L, &libgnss_gnss->frame_rmc.speed, 1);
+        lua_pushinteger(L, (int32_t)(minmea_tofloat(&(libgnss_gnss->frame_rmc.speed)) * 1852));
     } else {
         lua_pushinteger(L, 0);
         lua_pushinteger(L, 0);
@@ -447,7 +447,7 @@ log.info("nmea", "gsa", json.encode(libgnss.getGsa(), "11g"))
 ]]
  */
 static int l_libgnss_get_gsa(lua_State *L) {
-    int mode = luaL_optinteger(L, 1, 0);
+    // int mode = luaL_optinteger(L, 1, 0);
     lua_settop(L, 0);
     if (libgnss_gnss == NULL)
         return 0;

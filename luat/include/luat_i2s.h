@@ -23,4 +23,6 @@ int luat_i2s_recv(uint8_t id, char* buff, size_t len);
 int luat_i2s_close(uint8_t id);
 int32_t luat_i2s_rx_cb(void *pdata, void *param);
 
+int luat_i2s_tx_stat(uint8_t id, size_t *buffsize, size_t* remain);
+
 #endif

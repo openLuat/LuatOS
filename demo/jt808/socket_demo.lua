@@ -149,7 +149,7 @@ local function socketTask(ip, port)
 	-- socket.config(netc, nil, true)
 	while true do
 		-- log.info(rtos.meminfo("sys"))
-		result = libnet.waitLink(d1Name, 0, netc)
+		--result = libnet.waitLink(d1Name, 0, netc)
 		result = libnet.connect(d1Name, 15000, netc, ip, port)
 		-- result = libnet.connect(d1Name, 5000, netc, "112.125.89.8",34607)
 		d1Online = result

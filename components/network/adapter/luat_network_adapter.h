@@ -3,7 +3,6 @@
 #include "luat_base.h"
 // #ifdef LUAT_USE_NETWORK
 #include "luat_rtos.h"
-#include "bsp_common.h"
 #ifdef LUAT_USE_TLS
 #include "mbedtls/ssl.h"
 #include "mbedtls/platform.h"

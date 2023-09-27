@@ -14,10 +14,12 @@ local i2cid = 0
 sys.taskInit(function()
     log.info("i2c initial",i2c.setup(i2cid))
     while true do
-        i2c.writeReg(i2cid, addr, 0x01, "abcd1234")
+        i2c.send(i2cid, addr, string.char(0x01, 0x00) .. "12345678")
         sys.wait(100)
-        local data = i2c.readReg(i2cid, addr, 0x01, 8)
-        log.info("i2c", "data2",data:toHex(),data)
+        i2c.send(i2cid, addr, string.char(0x01, 0x00))
+        sys.wait(100)
+        local data = i2c.recv(i2cid, addr, 8)
+        log.info("i2c", "data2", data:toHex(), #data)
         sys.wait(1000)
     end
 

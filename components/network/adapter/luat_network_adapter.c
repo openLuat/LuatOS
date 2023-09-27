@@ -3,7 +3,6 @@
 #include "luat_malloc.h"
 #include "luat_crypto.h"
 #include "luat_rtos.h"
-#include "common_api.h"
 #ifdef LUAT_USE_NETWORK
 #include "luat_rtos.h"
 #include "platform_def.h"
@@ -152,13 +151,10 @@ extern void DBG_Printf(const char* format, ...);
 extern void DBG_HexPrintf(void *Data, unsigned int len);
 //#define DBG(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
 //#define DBG_ERR(x,y...)		DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
-//#ifndef LUAT_EC7XX_CSDK
 static int tls_random( void *p_rng,
         unsigned char *output, size_t output_len );
-//#endif
 
 #define __NW_DEBUG_ENABLE__
-#define LUAT_LOG_NO_NEWLINE
 #ifdef __NW_DEBUG_ENABLE__
 #ifdef LUAT_LOG_NO_NEWLINE
 #define DBG(x,y...)	do {if (ctrl->is_debug) {DBG_Printf("%s %d:"x, __FUNCTION__,__LINE__,##y);}} while(0)
@@ -374,21 +370,12 @@ TLS_RECV:
 static int network_get_host_by_name(network_ctrl_t *ctrl)
 {
 #ifdef LUAT_USE_LWIP
-	//#ifdef LUAT_EC7XX_CSDK
-	//ctrl->remote_ip.type = 0xff;
-	//#else
 	network_set_ip_invaild(&ctrl->remote_ip);
-	//#endif
-	
 	if (ipaddr_aton(ctrl->domain_name, &ctrl->remote_ip))
 	{
 		return 0;
 	}
-	//#ifdef LUAT_EC7XX_CSDK
-	//ctrl->remote_ip.type = 0xff;
-	//#else
 	network_set_ip_invaild(&ctrl->remote_ip);
-	//#endif
 	return -1;
 #else
 	ctrl->remote_ip.is_ipv6 = 0xff;
@@ -447,7 +434,6 @@ static int network_base_connect(network_ctrl_t *ctrl, luat_ip_addr_t *remote_ip)
 	}
 	if (remote_ip)
 	{
-		//#ifndef LUAT_EC7XX_CSDK
 		if (network_create_soceket(ctrl, network_ip_is_ipv6(remote_ip)) < 0)
 		{
 			network_clean_invaild_socket(ctrl->adapter_index);
@@ -456,16 +442,6 @@ static int network_base_connect(network_ctrl_t *ctrl, luat_ip_addr_t *remote_ip)
 				return -1;
 			}
 		}
-		// #else
-		// if (network_create_soceket(ctrl, IPADDR_TYPE_V6 == remote_ip->type) < 0)
-		// {
-		// 	network_clean_invaild_socket(ctrl->adapter_index);
-		// 	if (network_create_soceket(ctrl, IPADDR_TYPE_V6 == remote_ip->type) < 0)
-		// 	{
-		// 		return -1;
-		// 	}
-		// }
-		// #endif
 		if (adapter->opt->is_posix)
 		{
 			volatile uint32_t val;
@@ -552,17 +528,11 @@ static int network_base_connect(network_ctrl_t *ctrl, luat_ip_addr_t *remote_ip)
 
 static int network_prepare_connect(network_ctrl_t *ctrl)
 {
-    //#ifndef LUAT_EC7XX_CSDK
+   
 	if (network_ip_is_vaild(&ctrl->remote_ip))
 	{
 		;
 	}
-	// #else
-	// if (ctrl->remote_ip.type != 0xff)
-	// {
-	// 	;
-	// }
-	// #endif
 	else if (ctrl->domain_name)
 	{
 		if (network_get_host_by_name(ctrl))
@@ -702,17 +672,11 @@ static int network_state_connecting(network_ctrl_t *ctrl, OS_EVENT *event, netwo
 	case EV_NW_SOCKET_ERROR:
 	case EV_NW_SOCKET_REMOTE_CLOSE:
 	case EV_NW_SOCKET_CLOSE_OK:
-		//#ifndef LUAT_EC7XX_CSDK
+		
 		if (network_ip_is_vaild(&ctrl->remote_ip))
 		{
 			return -1;
 		}
-		// #elif
-		// if (ctrl->remote_ip.type != 0xff)
-		// {
-		// 	return -1;
-		// }
-		// #endif
 		DBG("dns ip %d no connect!,%d", ctrl->dns_ip_cnt, ctrl->dns_ip_nums);
 		ctrl->dns_ip_cnt++;
 		if (ctrl->dns_ip_cnt >= ctrl->dns_ip_nums)

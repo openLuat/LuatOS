@@ -180,7 +180,7 @@ local function taskClient(cbFnc, reqAddr, timeout, productKey, host, port,reqTim
         if not netc then cbFnc(6) return end -- 创建socket失败
         socket.debug(netc, false)
         socket.config(netc, nil, true, nil)
-        -- result = libnet.waitLink(d1Name, 0, netc)
+        result = libnet.waitLink(d1Name, 0, netc)
         result = libnet.connect(d1Name, 5000, netc, host, port)
         if result then
             while true do

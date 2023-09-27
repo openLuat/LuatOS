@@ -2,6 +2,9 @@
 #define __LUAT_NW_ADAPTER_H__
 #include "luat_base.h"
 // #ifdef LUAT_USE_NETWORK
+#ifdef LUAT_EC7XX_CSDK
+#include "bsp_common.h"
+#endif
 #include "luat_rtos.h"
 #ifdef LUAT_USE_TLS
 #include "mbedtls/ssl.h"

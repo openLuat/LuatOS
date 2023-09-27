@@ -187,7 +187,7 @@ int32_t dns_get_ip(dns_client_t *client, Buffer_Struct *buf, uint16_t answer_num
 			{
 				if (process && (process->ip_nums < MAX_DNS_IP))
 				{
-//					LLOGD("ipv4 result%d,%d.%d.%d.%d", process->ip_nums, pvUn.u8[0], pvUn.u8[1], pvUn.u8[2], pvUn.u8[3] );
+//					//LLOGD("ipv4 result%d,%d.%d.%d.%d", process->ip_nums, pvUn.u8[0], pvUn.u8[1], pvUn.u8[2], pvUn.u8[3] );
 					process->ip_result[process->ip_nums].ip = ip_addr;
 					process->ip_result[process->ip_nums].ttl_end = ttl + ((uint32_t)(luat_mcu_tick64_ms()/1000));
 					process->ip_nums++;
@@ -258,7 +258,7 @@ NET_DNSGETIP_DONE:
 					process->is_ipv6 = 0;
 					process->timeout_ms = 0;
 					process->retry_cnt = 0;
-					LLOGI("dns ipv6 done, now dns ipv4");
+					//LLOGI("dns ipv6 done, now dns ipv4");
 					return 0;
 				}
 			}
@@ -524,7 +524,7 @@ void dns_run(dns_client_t *client, Buffer_Struct *in, Buffer_Struct *out, int *s
 		dns_clear(client);
 		if (client->is_run)
 		{
-			LLOGI("dns all done ,now stop");
+			//LLOGI("dns all done ,now stop");
 		}
 		client->is_run = 0;
 		return;
@@ -619,7 +619,7 @@ NET_DNS_TX:
 					{
 						if (process->ipv6_done && process->ip_nums)
 						{
-							LLOGD("get ipv6, no ipv4");
+							//LLOGD("get ipv6, no ipv4");
 							process->ip_nums = 0;
 							process->is_done = 1;
 							client->new_result = 1;
@@ -638,7 +638,7 @@ NET_DNS_TX:
 				process->dns_cnt++;
 				if (process->dns_cnt >= MAX_DNS_SERVER)
 				{
-					LLOGE("no ipv6, no ipv4");
+					//LLOGE("no ipv6, no ipv4");
 					process->ip_nums = 0;
 					process->is_done = 1;
 					client->new_result = 1;
@@ -662,7 +662,7 @@ NET_DNS_TX_IPV4:
 				goto NET_DNS_TX;
 			}
 		}
-		LLOGD("%.*s state %d id %d ipv6 %d use dns server%d, try %d", process->uri_buf.Pos, process->uri_buf.Data, process->is_done, process->session_id, process->is_ipv6, process->dns_cnt, process->retry_cnt);
+		//LLOGD("%.*s state %d id %d ipv6 %d use dns server%d, try %d", process->uri_buf.Pos, process->uri_buf.Data, process->is_done, process->session_id, process->is_ipv6, process->dns_cnt, process->retry_cnt);
 		process->is_done = 0;
 		OS_InitBuffer(out, 512);
 		dns_make(client, process, out);
@@ -679,7 +679,7 @@ NET_DNS_RX_OUT:
 	{
 		if (client->is_run)
 		{
-			LLOGI("dns all done ,now stop");
+			//LLOGI("dns all done ,now stop");
 		}
 		client->is_run = 0;
 		return;

@@ -443,6 +443,7 @@ exit:
 }
 
 void luat_http_client_onevent(luat_http_ctrl_t *http_ctrl, int arg1, int arg2) {
+	// network_close(http_ctrl->netc, 0);
 	rtos_msg_t msg = {0};
 	msg.handler = l_http_callback;
 	msg.ptr = http_ctrl;

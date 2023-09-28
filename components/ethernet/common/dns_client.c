@@ -155,7 +155,7 @@ int32_t dns_get_ip(dns_client_t *client, Buffer_Struct *buf, uint16_t answer_num
 
 	uint32_t ttl;
 	uint8_t error = 0;
-	PV_Union pvUn;
+	PV_Union pvUn = {0};
 
 	for(i = 0; i < answer_num; i++)
 	{

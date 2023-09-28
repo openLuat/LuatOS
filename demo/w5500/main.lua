@@ -63,6 +63,7 @@ sys.taskInit(function()
     end
     w5500.config() --默认是DHCP模式
     -- w5500.config("192.168.1.29", "255.255.255.0", "192.168.1.1") --静态IP模式
+    -- w5500.config("192.168.1.122", "255.255.255.0", "192.168.1.1", string.fromHex("102a3b4c5d6e"))
     w5500.bind(socket.ETH0)
     -- 提示: 要接上网线, 否则可能没有任何日志打印
     -- 默认都等到联网成功
@@ -84,11 +85,14 @@ local function sockettest()
     local opts = {}
     opts["adapter"] = socket.ETH0
     while 1 do
-        local code, headers, body = http.request("http://httpbin.air32.cn/get", nil, nil, opts).wait()
+        log.info("发起http请求")
+        local code, headers, body = http.request("GET", "http://httpbin.air32.cn/get", nil, nil, opts).wait()
         log.info("http", code, body)
         sys.wait(5000)
     end
 end
+
+sys.taskInit(sockettest)
 
 
 -- 用户代码已结束---------------------------------------------

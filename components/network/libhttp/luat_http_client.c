@@ -8,6 +8,8 @@
 #include "http_parser.h"
 #include "luat_spi.h"
 #include "luat_http.h"
+#include "luat_fota.h"
+#include "luat_timer.h"
 
 #define LUAT_LOG_TAG "http"
 #include "luat_log.h"
@@ -94,7 +96,7 @@ static void http_resp_error(luat_http_ctrl_t *http_ctrl, int error_code) {
 	}else if (http_ctrl->close_state==0){
 error:
 		http_ctrl->close_state=1;
-		network_close(http_ctrl->netc, 0);
+		// network_close(http_ctrl->netc, 0);
 		luat_http_client_onevent(http_ctrl, error_code, 0);
 	}
 }
@@ -208,9 +210,8 @@ static int on_body(http_parser* parser, const char *at, size_t length){
     return 0;
 }
 
-static int on_message_complete(http_parser* parser){
-    LLOGD("on_message_complete");
-	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
+static int on_complete(http_parser* parser, luat_http_ctrl_t *http_ctrl){
+    LLOGD("on_complete");
 	// http_ctrl->body[http_ctrl->body_len] = 0x00;
 	LLOGD("status_code:%d",parser->status_code);
 	LLOGD("content_length:%lld",parser->content_length);
@@ -224,7 +225,7 @@ static int on_message_complete(http_parser* parser){
 			parser->status_code = 200;
 			int result = luat_fota_done();
 			LLOGD("result1:%d",result);
-			while (result>0){
+			while (result>0){ // TODO 应该有超时机制
 				luat_timer_mdelay(100);
 				result = luat_fota_done();
 			}
@@ -243,19 +244,27 @@ static int on_message_complete(http_parser* parser){
 		}else{
 			luat_fota_end(0);
 			http_ctrl->close_state = 1;
-			network_close(http_ctrl->netc, 0);
+			// network_close(http_ctrl->netc, 0);
 			http_resp_error(http_ctrl, HTTP_ERROR_FOTA);
 			return -1;
 		}
 	}
 #endif
-	http_ctrl->close_state = 1;
-	network_close(http_ctrl->netc, 0);
+	// http_ctrl->close_state = 1;
+	// network_close(http_ctrl->netc, 0);
 	luat_http_client_onevent(http_ctrl, HTTP_OK, 0);
     return 0;
 }
 
+static int on_message_complete(http_parser* parser){
+    LLOGD("on_message_complete");
+	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
+	http_ctrl->close_state = 1;
+	return 0;
+}
+
 static int on_chunk_header(http_parser* parser){
+	(void)parser;
 	LLOGD("on_chunk_header");
 	LLOGD("content_length:%lld",parser->content_length);
 	// luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
@@ -295,9 +304,9 @@ static uint32_t http_send(luat_http_ctrl_t *http_ctrl, uint8_t* data, size_t len
 }
 
 static void http_send_message(luat_http_ctrl_t *http_ctrl){
-	uint32_t tx_len = 0;
+	// uint32_t tx_len = 0;
 	// 发送请求行, 主要,这里都借用了resp_buff,但这并不会与resp冲突
-	http_send(http_ctrl, http_ctrl->request_line, strlen((char*)http_ctrl->request_line));
+	http_send(http_ctrl, (uint8_t*)http_ctrl->request_line, strlen((char*)http_ctrl->request_line));
 	// 判断自定义headers是否有host
 	if (http_ctrl->custom_host == 0) {
 		snprintf_((char*)http_ctrl->resp_buff, HTTP_RESP_BUFF_SIZE,  "Host: %s\r\n", http_ctrl->host);
@@ -332,7 +341,7 @@ int32_t luat_lib_http_callback(void *data, void *param){
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)param;
 	int ret = 0;
 	// LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
-	// LLOGD("luat_lib_http_callback %d %d",event->ID & 0x0fffffff,event->Param1);
+	// LLOGD("luat_lib_http_callback %d %d %p",event->ID & 0x0fffffff,event->Param1, http_ctrl);
 	if (event->Param1){
 		LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
 		LLOGE("http_ctrl close %08X %d",event->ID & 0x0fffffff, event->Param1);
@@ -382,7 +391,7 @@ int32_t luat_lib_http_callback(void *data, void *param){
 			}
 			http_ctrl->resp_buff_offset += rx_len;
 			//LLOGD("resp_buff_offset:%d resp_buff:%s",http_ctrl->resp_buff_offset,http_ctrl->resp_buff);
-			uint8_t *tmp = (uint8_t*)http_ctrl->resp_buff;
+			// uint8_t *tmp = (uint8_t*)http_ctrl->resp_buff;
 			//LLOGD("resp buff %.*s", http_ctrl->resp_buff_offset, http_ctrl->resp_buff);
 			if (0 == http_ctrl->resp_headers_done) {
 				LLOGD("search headers, buff len %d", http_ctrl->resp_buff_offset);
@@ -405,8 +414,13 @@ int32_t luat_lib_http_callback(void *data, void *param){
 				}
 			}
 			if (http_ctrl->resp_headers_done) {
-				int nParseBytes = http_parser_execute(&http_ctrl->parser, &parser_settings, http_ctrl->resp_buff, http_ctrl->resp_buff_offset);
+				size_t nParseBytes = http_parser_execute(&http_ctrl->parser, &parser_settings, http_ctrl->resp_buff, http_ctrl->resp_buff_offset);
 				LLOGD("nParseBytes %d resp_buff_offset %d", nParseBytes, http_ctrl->resp_buff_offset);
+				if (http_ctrl->close_state) {
+					http_ctrl->resp_buff_offset = 0;
+					on_complete(&http_ctrl->parser, http_ctrl);
+					return 0;
+				}
 				if (http_ctrl->resp_buff_offset <= nParseBytes) {
 					http_ctrl->resp_buff_offset = 0;
 				}
@@ -438,7 +452,7 @@ int32_t luat_lib_http_callback(void *data, void *param){
 }
 
 int http_set_url(luat_http_ctrl_t *http_ctrl, const char* url, const char* method) {
-	char *tmp = url;
+	const char *tmp = url;
     if (!strncmp("https://", url, strlen("https://"))) {
         http_ctrl->is_tls = 1;
         tmp += strlen("https://");
@@ -452,13 +466,13 @@ int http_set_url(luat_http_ctrl_t *http_ctrl, const char* url, const char* metho
         return -1;
     }
 
-	int tmplen = strlen(tmp);
+	size_t tmplen = strlen(tmp);
 	if (tmplen < 5) {
         LLOGI("url too short %s", url);
         return -1;
     }
 	char tmphost[256] = {0};
-    char *tmpuri = NULL;
+    const char *tmpuri = NULL;
     for (size_t i = 0; i < tmplen; i++){
         if (tmp[i] == '/') {
 			if (i > 255) {
@@ -520,7 +534,7 @@ int luat_http_client_start(luat_http_ctrl_t* http_ctrl) {
 	}
 
 	if(network_connect(http_ctrl->netc, http_ctrl->host, strlen(http_ctrl->host), NULL, http_ctrl->remote_port, 0) < 0){
-		network_close(http_ctrl->netc, 0);
+		// network_close(http_ctrl->netc, 0);
 		return -1;
 	}
 	return 0;

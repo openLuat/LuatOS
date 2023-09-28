@@ -30,11 +30,11 @@ typedef struct{
 	network_ctrl_t *netc;		// http netc
 	luat_ip_addr_t ip_addr;		// http ip
 	uint8_t is_tls;             // 是否SSL
-	const char *host; 			// http host
+	char *host; 			// http host
 	uint16_t remote_port; 		// 远程端口号
 	// const char *url;			// url
 	// const char *uri;			// uri
-	const char* request_line;
+	char* request_line;
 	// char method[12];			// method
 
 	// 发送相关
@@ -55,7 +55,7 @@ typedef struct{
 	int http_cb_userdata;				// http lua回调函数用户传参
 	//下载相关
 	uint8_t is_download;		//是否下载
-	const char *dst;			//下载路径
+	char *dst;			//下载路径
 	//解析相关
 	http_parser  parser;
 	// http_parser_settings parser_settings;

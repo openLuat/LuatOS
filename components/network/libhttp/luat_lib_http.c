@@ -307,9 +307,9 @@ static int l_http_request(lua_State *L) {
     }
     return 1;
 error:
-	if (http_ctrl->timeout_timer){
-		luat_stop_rtos_timer(http_ctrl->timeout_timer);
-	}
+	// if (http_ctrl->timeout_timer){
+	// 	luat_stop_rtos_timer(http_ctrl->timeout_timer);
+	// }
 	http_close(http_ctrl);
     lua_pushinteger(L,HTTP_ERROR_CONNECT);
 	luat_pushcwait_error(L,1);
@@ -342,6 +342,7 @@ LUAMOD_API int luaopen_http( lua_State *L ) {
 
 //------------------------------------------------------
 int32_t l_http_callback(lua_State *L, void* ptr){
+	(void)ptr;
 	char* temp;
 	char* header;
 	char* value;
@@ -352,12 +353,13 @@ int32_t l_http_callback(lua_State *L, void* ptr){
 	uint64_t idp = http_ctrl->idp;
 	if (http_ctrl->timeout_timer){
 		luat_stop_rtos_timer(http_ctrl->timeout_timer);
+		http_ctrl->timeout_timer = NULL;
 	}
 	LLOGD("l_http_callback arg1:%d is_download:%d idp:%d",msg->arg1,http_ctrl->is_download,idp);
 	if (msg->arg1!=0 && msg->arg1!=HTTP_ERROR_FOTA ){
 		if (msg->arg1 == HTTP_CALLBACK){
 			lua_geti(L, LUA_REGISTRYINDEX, http_ctrl->http_cb);
-			int userdata_type = lua_type(L, -2);
+			// int userdata_type = lua_type(L, -2);
 			if (lua_isfunction(L, -1)) {
 				lua_pushinteger(L, http_ctrl->resp_content_len);
 				lua_pushinteger(L, msg->arg2);

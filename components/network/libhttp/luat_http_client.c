@@ -32,7 +32,7 @@ void luat_http_client_onevent(luat_http_ctrl_t *http_ctrl, int arg1, int arg2);
 int http_close(luat_http_ctrl_t *http_ctrl){
 	LLOGD("http close %p", http_ctrl);
 	if (http_ctrl->netc){
-		network_force_close_socket(http_ctrl->netc);
+		network_close(http_ctrl->netc, 0);
 		network_release_ctrl(http_ctrl->netc);
 		http_ctrl->netc = NULL;
 	}

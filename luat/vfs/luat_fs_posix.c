@@ -223,6 +223,8 @@ int luat_vfs_posix_umount(void* userdata, luat_fs_conf_t *conf) {
 #include <sys/types.h>
 #include <dirent.h>
 #include <sys/stat.h>
+#endif
+#if defined(LUA_USE_LINUX) || defined(LUA_USE_MACOSX)
 #include <unistd.h>
 #endif
 

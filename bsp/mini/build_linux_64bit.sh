@@ -1,3 +1,4 @@
 xmake clean -a
-xmake f -p linux  -a x86_64
+export VM_64bit=1
+xmake f -p linux  -a i386
 xmake -w

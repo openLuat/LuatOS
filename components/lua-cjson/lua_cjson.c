@@ -68,7 +68,7 @@ int strncasecmp(const char *string1, const char *string2, size_t count);
 
 static char float_fmt[12];
 
-#ifdef WIN32
+#ifdef LUA_USE_WINDOWS
 #define snprintf _snprintf
 typedef unsigned char u_char;
 

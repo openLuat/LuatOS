@@ -16,34 +16,62 @@ add_defines("__LUATOS__", "__XMAKE_BUILD__")
 add_defines("MBEDTLS_CONFIG_FILE=\"mbedtls_config_mini.h\"")
 
 --add_ldflags("-Wl,-gc-sections")
-
-if is_host("windows") then
-    add_defines("LUA_USE_WINDOWS")
-    add_ldflags("-static")
-elseif is_host("linux") then
-    add_defines("LUA_USE_LINUX")
-elseif is_host("macos") then
-    add_defines("LUA_USE_MACOSX")
+if os.getenv("VM_64bit") == "1" then
+    add_defines("LUAT_CONF_VM_64bit")
 end
 
-target("luatos")
+if is_host("windows") then
+    -- add_defines("LUA_USE_WINDOWS")
+    add_cflags("/utf-8")
+    -- add_ldflags("-static")
+-- elseif is_host("linux") then
+--     add_defines("LUA_USE_LINUX")
+-- elseif is_host("macos") then
+--     add_defines("LUA_USE_MACOSX")
+end
+
+
+add_includedirs("include",{public = true})
+add_includedirs(luatos.."lua/include",{public = true})
+add_includedirs(luatos.."luat/include",{public = true})
+
+
+
+target("luatos-lua")
     -- set kind
     set_kind("binary")
     set_targetdir("$(buildir)/out")
-    
-    -- add deps
 
     add_files("src/*.c",{public = true})
-    add_files("port/*.c",{public = true})
-    add_includedirs("include",{public = true})
+    add_deps("luatos")
+target_end()
 
-    add_includedirs(luatos.."lua/include",{public = true})
+
+
+target("luatos-luac")
+    -- set kind
+    set_kind("binary")
+    set_targetdir("$(buildir)/out")
+
+    add_files("src/*.c",{public = true})
+    add_deps("luatos")
+    add_defines("LUAT_USE_LUAC")
+target_end()
+
+
+target("luatos")
+    -- set kind
+    set_kind("static")
+    set_targetdir("$(buildir)/out")
+    
+    -- add deps
+    add_files("port/*.c",{public = true})
+
     add_files(luatos.."lua/src/*.c")
     -- printf
     add_includedirs(luatos.."components/printf",{public = true})
     add_files(luatos.."components/printf/*.c")
     
-    add_includedirs(luatos.."luat/include",{public = true})
     -- add_files(luatos.."luat/modules/*.c")
 
     add_files(luatos.."luat/modules/crc.c"
@@ -77,7 +105,7 @@ target("luatos")
     add_files(luatos.."components/mbedtls/library/*.c")
     add_includedirs(luatos.."components/mbedtls/include")
     -- iotauth
-    -- add_files(luatos.."components/iotauth/luat_lib_iotauth.c")
+    add_files(luatos.."components/iotauth/luat_lib_iotauth.c")
     -- crypto
     add_files(luatos.."components/crypto/**.c")
     -- protobuf

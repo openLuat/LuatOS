@@ -19,7 +19,7 @@ jobs:
       run: |
         Invoke-Expression (Invoke-Webrequest 'https://xmake.io/psget.text' -UseBasicParsing).Content
         cd bsp/win32
-        xmake -y -v
+        xmake -y -w
         cd build/out
         Invoke-WebRequest -Uri "https://github.com/openLuat/LuatOS/releases/download/v0.0.1/luat_uart.dll" -OutFile "luat_uart.dll"
     - name: Upload artifact

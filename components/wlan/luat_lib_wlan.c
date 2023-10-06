@@ -17,6 +17,16 @@
 #define LUAT_LOG_TAG "wlan"
 #include "luat_log.h"
 
+uint32_t ipaddr_addr(const char *cp);
+
+static inline void to_ipv4(const char* data, uint8_t* dst) {
+    uint32_t tmpip = ipaddr_addr(data);
+    dst[3] = (tmpip >> 24) & 0xFF;
+    dst[2] = (tmpip >> 16) & 0xFF;
+    dst[1] = (tmpip >> 8) & 0xFF;
+    dst[0] = (tmpip >> 0) & 0xFF;
+}
+
 /*
 初始化
 @api wlan.init()
@@ -318,18 +328,10 @@ static int l_wlan_ap_start(lua_State *L) {
     const char* gateway = luaL_optstring(L, 3, "192.168.4.1");
     const char* netmask = luaL_optstring(L, 4, "255.255.255.0");
     if (strlen(gateway) > 7) {
-        uint32_t tmpip = ipaddr_addr(gateway);
-        apinfo.gateway[3] = (tmpip >> 24) & 0xFF;
-        apinfo.gateway[2] = (tmpip >> 16) & 0xFF;
-        apinfo.gateway[1] = (tmpip >> 8) & 0xFF;
-        apinfo.gateway[0] = (tmpip >> 0) & 0xFF;
+        to_ipv4(gateway,  apinfo.gateway);
     }
     if (strlen(netmask) > 7) {
-        uint32_t tmpip = ipaddr_addr(netmask);
-        apinfo.netmask[3] = (tmpip >> 24) & 0xFF;
-        apinfo.netmask[2] = (tmpip >> 16) & 0xFF;
-        apinfo.netmask[1] = (tmpip >> 8) & 0xFF;
-        apinfo.netmask[0] = (tmpip >> 0) & 0xFF;
+        to_ipv4(netmask,  apinfo.netmask);
     }
 
     apinfo.channel = (uint8_t)luaL_optinteger(L, 5, 6);
@@ -457,6 +459,52 @@ static int l_wlan_get_set_hostname(lua_State *L) {
     return 1;
 }
 
+/*
+设置Station模式下的IP获取模式
+@api wlan.staIp(dhcp_enable, ip, netmask, gateway)
+@bool 是否启用DHCP,默认是true
+@string 本机IP地址,例如192.168.2.200, 禁用DHCP时必填
+@string 本机IP掩码,例如255.255.255.0, 禁用DHCP时必填
+@string 本机IP网关,例如192.168.2.1, 禁用DHCP时必填
+@return bool 成功返回true,否则返回false
+@usage
+-- 本API于 2023.10.06 新增
+-- 本函数需要在wlan.init之后才允许调用
+
+-- 启用DHCP, 默认也是启用DHCP,这里是演示API使用
+wlan.staIp(true)
+-- 禁用DHCP,自行设置IP/掩码/网关
+wlan.staIp(false, "192.168.2.200", "255.255.255.0", "192.168.2.1")
+*/
+static int l_wlan_set_sta_ip(lua_State *L) {
+    luat_wlan_station_info_t info = {
+        .dhcp_enable = 1
+    };
+    const char *data = NULL;
+    size_t len = 0;
+    // 是否DHCP
+    if (lua_isinteger(L, 1))
+        info.dhcp_enable = luaL_optinteger(L, 1, 1);
+    else if (lua_isboolean(L, 1))
+        info.dhcp_enable = lua_toboolean(L, 1);
+
+    // 本地IP
+    data = luaL_optlstring(L, 2, "192.168.1.201", &len);
+    to_ipv4(data, info.ipv4_addr);
+
+    // 掩码
+    data = luaL_optlstring(L, 3, "255.255.255.0", &len);
+    to_ipv4(data, info.ipv4_netmask);
+
+    // 网关
+    data = luaL_optlstring(L, 4, "192.168.1.1", &len);
+    to_ipv4(data, info.ipv4_gateway);
+
+    int ret = luat_wlan_set_station_ip(&info);
+    lua_pushboolean(L, ret == 0 ? 1 : 0);
+    return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_wlan[] =
 {
@@ -469,6 +517,7 @@ static const rotable_Reg_t reg_wlan[] =
     { "ready",              ROREG_FUNC(l_wlan_ready)},
     { "connect",            ROREG_FUNC(l_wlan_connect)},
     { "disconnect",         ROREG_FUNC(l_wlan_disconnect)},
+
     // 配网相关
     { "smartconfig",         ROREG_FUNC(l_wlan_smartconfig)},
 
@@ -479,6 +528,8 @@ static const rotable_Reg_t reg_wlan[] =
     { "hostname",            ROREG_FUNC(l_wlan_get_set_hostname)},
 
     { "powerSave",           ROREG_FUNC(l_wlan_powerSave)},
+
+    { "staIp",               ROREG_FUNC(l_wlan_set_sta_ip)},
 
     // AP相关
     { "createAP",            ROREG_FUNC(l_wlan_ap_start)},

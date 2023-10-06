@@ -67,3 +67,7 @@ uint32_t luat_msgbus_get(rtos_msg_t* rtmsg, size_t timeout) {
 uint32_t luat_msgbus_freesize(void) {
     return 1;
 }
+
+uint8_t luat_msgbus_is_empty(void) {
+    return 1;
+}

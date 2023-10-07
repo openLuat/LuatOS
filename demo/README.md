@@ -49,7 +49,6 @@
 |[pm](https://gitee.com/openLuat/LuatOS/tree/master/demo/pm/)|功耗控制|pm|所有||
 |[pwm](https://gitee.com/openLuat/LuatOS/tree/master/demo/pwm/)|可控方波|pwm|所有||
 |[rtc](https://gitee.com/openLuat/LuatOS/tree/master/demo/rtc/)|内部时钟|rtc|所有||
-|[sdcard](https://gitee.com/openLuat/LuatOS/tree/master/demo/sdcard/)|挂载SD卡|spi,sdio|air101|与fatfs类似|
 |[sfud](https://gitee.com/openLuat/LuatOS/tree/master/demo/sfud/)|通用FLASH读写|sfud,spi|所有||
 |[sht20](https://gitee.com/openLuat/LuatOS/tree/master/demo/sht20/)|温湿度传感器|i2c|所有||
 |[sht30](https://gitee.com/openLuat/LuatOS/tree/master/demo/sht30/)|温湿度传感器|i2c|所有||

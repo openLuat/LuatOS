@@ -185,6 +185,11 @@ sys.taskInit(function()
         log.info("hmac_sha512", crypto.hmac_sha512("1234567890123456789012345678901234567890", "1234567890"))
     end
 
+    if crypto.crc7 then
+        local result = crypto.crc7(string.char(0xAA), 0xE5, 0x00)
+        log.info("crc7测试", result, string.format("%02X", result))
+    end
+
     log.info("crypto", "ALL Done")
     sys.wait(100000)
 end)

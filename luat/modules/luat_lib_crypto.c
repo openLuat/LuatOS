@@ -350,7 +350,7 @@ static int l_crypto_crc32(lua_State *L)
 
 /**
 计算crc8值
-@api crypto.crc8(data)
+@api crypto.crc8(data, poly, start, revert)
 @string 数据
 @int crc多项式，可选，如果不写，将忽略除了数据外所有参数
 @int crc初始值，可选，默认0
@@ -427,6 +427,48 @@ static int l_crypto_crc8(lua_State *L)
 		}
 		lua_pushinteger(L, CRC8);
     }
+    return 1;
+}
+
+
+
+static inline unsigned char crc7(const unsigned char* message, int length, unsigned char CRCPoly, unsigned char CRC)
+{
+    // unsigned char CRCPoly = 0xe5;
+    unsigned char CRCTable[256];
+    // unsigned char CRC = 0x00;
+    for (int i = 0; i < 256; i++){
+        CRCTable[i] = (i & 0x80) ? i ^ CRCPoly : i;
+        for (int j = 1; j < 8; j++){
+            CRCTable[i] <<= 1;
+            if (CRCTable[i] & 0x80)
+                CRCTable[i] ^= CRCPoly;
+        }
+    }
+    for (int i = 0; i < length; i++)
+        CRC = CRCTable[(CRC << 1) ^ message[i]];
+    return CRC<< 1;
+}
+
+/**
+计算crc7值
+@api crypto.crc7(data, poly, start)
+@string 数据
+@int crc多项式，可选，默认0xE5
+@int crc初始值，可选，默认0x00
+@return int 对应的CRC7值
+@usage
+-- 计算CRC7, 本API于2023.10.07新增
+local crc = crypto.crc7(data)
+local crc = crypto.crc7(data, 0x31, 0xff)
+ */
+static int l_crypto_crc7(lua_State* L) {
+    size_t len = 0;
+    const unsigned char *inputData = (const unsigned char*)luaL_checklstring(L, 1, &len);
+    unsigned char poly = luaL_optinteger(L, 2, 0xe5);
+    unsigned char start = luaL_optinteger(L, 3, 0);
+    unsigned char result = crc7(inputData, len, poly, start);
+    lua_pushinteger(L, result);
     return 1;
 }
 
@@ -799,6 +841,7 @@ static const rotable_Reg_t reg_crypto[] =
     { "crc16_modbus",   ROREG_FUNC(l_crypto_crc16_modbus   )},
     { "crc32",          ROREG_FUNC(l_crypto_crc32          )},
     { "crc8",           ROREG_FUNC(l_crypto_crc8           )},
+    { "crc7",           ROREG_FUNC(l_crypto_crc7           )},
     { "trng",           ROREG_FUNC(l_crypto_trng           )},
     { "totp",           ROREG_FUNC(l_crypto_totp           )},
     { "base64_encode",  ROREG_FUNC(l_str_toBase64)},

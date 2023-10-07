@@ -29,7 +29,7 @@ static luat_mqtt_ctrl_t * get_mqtt_ctrl(lua_State *L){
 	}
 }
 
-static int32_t l_mqtt_callback(lua_State *L, void* ptr){
+int32_t luatos_mqtt_callback(lua_State *L, void* ptr){
 	(void)ptr;
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     luat_mqtt_ctrl_t *mqtt_ctrl =(luat_mqtt_ctrl_t *)msg->ptr;
@@ -156,17 +156,6 @@ static int32_t l_mqtt_callback(lua_State *L, void* ptr){
     }
     // lua_pushinteger(L, 0);
     return 0;
-}
-
-int l_luat_mqtt_msg_cb(luat_mqtt_ctrl_t * ptr, int arg1, int arg2) {
-	rtos_msg_t msg = {
-		.handler = l_mqtt_callback,
-		.ptr = ptr,
-		.arg1 = arg1,
-		.arg2 = arg2
-	};
-	luat_msgbus_put(&msg, 0);
-	return 0;
 }
 
 /*
@@ -553,7 +542,7 @@ static int l_mqtt_publish(lua_State *L) {
 	}
 	if (qos == 0){
 		rtos_msg_t msg = {0};
-    	msg.handler = l_mqtt_callback;
+    	msg.handler = luatos_mqtt_callback;
 		msg.ptr = mqtt_ctrl;
 		msg.arg1 = MQTT_MSG_PUBACK;
 		msg.arg2 = message_id;

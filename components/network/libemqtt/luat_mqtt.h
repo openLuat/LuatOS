@@ -80,6 +80,7 @@ typedef struct luat_mqtt_connopts
 }luat_mqtt_connopts_t;
 
 typedef void (*luat_mqtt_cb_t)(luat_mqtt_ctrl_t *luat_mqtt_ctrl, uint16_t event);
+
 /**
  *@brief 发起MQTT连接
  *@param mqtt_ctrl luatos_mqtt对象实例

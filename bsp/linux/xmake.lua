@@ -20,8 +20,8 @@ add_defines("__LUATOS__", "__XMAKE_BUILD__")
 add_cflags("-ffunction-sections","-fdata-sections", "-Wl,--gc-sections","-D_POSIX_C_SOURCE=199309L")
 add_ldflags("-ffunction-sections","-fdata-sections", "-Wl,--gc-sections", "-lreadline","-lm","-pthread")
 
-add_requires("libsdl")
-add_packages("libsdl")
+add_requires("libsdl2")
+add_packages("libsdl2")
 
 target("luatos")
     -- set kind

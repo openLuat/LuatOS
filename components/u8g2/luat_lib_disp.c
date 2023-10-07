@@ -21,6 +21,7 @@
 -- disp库已经映射为u8g2库,所有API均代理到u8g2,请查阅u8g2库的API
 */
 int l_disp_init(lua_State *L) {
+    (void)L;
     return 0;
 }
 

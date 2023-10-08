@@ -76,7 +76,7 @@ luat_color_t lcd_str_fg_color,lcd_str_bg_color;
 /*
 lcd显示屏初始化
 @api lcd.init(tp, args)
-@string lcd类型，当前支持：<br>st7796<br>st7789<br>st7735<br>st7735v<br>st7735s<br>gc9a01<br>gc9106l<br>gc9306x<br>ili9341<br>ili9486<br>custom
+@string lcd类型，当前支持：<br>st7796<br>st7789<br>st7735<br>st7735v<br>st7735s<br>gc9a01<br>gc9106l<br>gc9306x<br>ili9486<br>custom
 @table 附加参数,与具体设备有关：<br>pin_pwr（背光）为可选项,可不设置<br>port：spi端口,例如0,1,2...如果为device方式则为"device"<br>pin_dc：lcd数据/命令选择引脚<br>pin_rst：lcd复位引脚<br>pin_pwr：lcd背光引脚 可选项,可不设置<br>direction：lcd屏幕方向 0:0° 1:180° 2:270° 3:90°<br>w：lcd 水平分辨率<br>h：lcd 竖直分辨率<br>xoffset：x偏移(不同屏幕ic 不同屏幕方向会有差异)<br>yoffset：y偏移(不同屏幕ic 不同屏幕方向会有差异)
 @userdata spi设备,当port = "device"时有效
 @usage

@@ -349,7 +349,7 @@ struct _u_data_t
 	uint8_t Type;
 };
 
-__attribute__((weak)) uint8_t OS_CheckInIrq(void);
+uint8_t OS_CheckInIrq(void);
 #ifdef __BUILD_OS__
 HANDLE OS_MutexCreate(void);
 HANDLE OS_MutexCreateUnlock(void);

@@ -1080,6 +1080,11 @@ static int32_t network_default_socket_callback(void *data, void *param)
 	{
 		if (ctrl && ((ctrl->tag == cb_param->tag) || (event->ID == EV_NW_DNS_RESULT)))
 		{
+			if ((event->ID == EV_NW_DNS_RESULT) && (ctrl->wait_target_state != NW_WAIT_ON_LINE))
+			{
+				DBG("socket %s %s", network_ctrl_event_id_string(event->ID), network_ctrl_wait_state_string(ctrl->wait_target_state));
+				return 0;
+			}
 			if (ctrl->auto_mode)
 			{
 				DBG("socket %d,%s,%s,%s", ctrl->socket_id, network_ctrl_event_id_string(event->ID),
@@ -1720,6 +1725,7 @@ void network_force_close_socket(network_ctrl_t *ctrl)
 	}
 	ctrl->dns_ip_cnt = 0;
 	ctrl->dns_ip_nums = 0;
+	ctrl->wait_target_state = NW_WAIT_NONE;
 }
 
 void network_clean_invaild_socket(uint8_t adapter_index)

@@ -51,6 +51,13 @@ typedef struct luat_wlan_scan_result
     uint8_t ch;
 }luat_wlan_scan_result_t;
 
+typedef struct luat_wlan_station_info
+{
+    uint8_t ipv4_addr[4];
+    uint8_t ipv4_netmask[4];
+    uint8_t ipv4_gateway[4];
+    uint8_t dhcp_enable;
+}luat_wlan_station_info_t;
 
 
 int luat_wlan_init(luat_wlan_config_t *conf);
@@ -60,6 +67,8 @@ int luat_wlan_connect(luat_wlan_conninfo_t* info);
 int luat_wlan_disconnect(void);
 int luat_wlan_scan(void);
 int luat_wlan_scan_get_result(luat_wlan_scan_result_t *results, size_t ap_limit);
+
+int luat_wlan_set_station_ip(luat_wlan_station_info_t *info);
 
 // 配网相关
 // --- smartconfig 配网

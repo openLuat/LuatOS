@@ -41,7 +41,7 @@
 static const char *funcnamefromcode (lua_State *L, CallInfo *ci,
                                     const char **name);
 
-static int getfuncline(Proto *p, int pc)	{
+int getfuncline(Proto *p, int pc)	{
   int tmp2 = -1;
   if (p->lineinfo) {
     memcpy(&tmp2, &p->lineinfo[pc], sizeof(tmp2));

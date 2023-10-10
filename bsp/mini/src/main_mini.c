@@ -23,15 +23,15 @@ int lua_main (int argc, char **argv);
 void luat_log_init_win32(void);
 void luat_uart_initial_win32(void);
 
-static void _luat_main(void* args) {
-    (void)args;
-    luat_fs_init();
-    lua_main(cmdline_argc, cmdline_argv);
-    exit(0);
-}
-
 // boot
-int main(int argc, char** argv) {
+int main(int argc, char** argv) {   
+    luat_log_init_win32();
+    bpool(luavm_heap, LUAT_HEAP_SIZE);
+    luat_fs_init();
+#ifdef LUAT_USE_LUAC
+    extern int luac_main(int argc, char* argv[]);
+    luac_main(argc, argv);
+#else
     cmdline_argc = argc;
     cmdline_argv = argv;
     if (cmdline_argc > 1) {
@@ -43,10 +43,7 @@ int main(int argc, char** argv) {
             }
         }
     }
-    
-    luat_log_init_win32();
-
-    bpool(luavm_heap, LUAT_HEAP_SIZE);
-    _luat_main(NULL);
+    lua_main(cmdline_argc, cmdline_argv);
+#endif
     return 0;
 }

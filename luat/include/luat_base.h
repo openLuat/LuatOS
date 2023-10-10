@@ -12,7 +12,11 @@
 // 调试开关, 预留
 #define LUAT_DEBUG 0
 
+#if !defined(LUA_USE_C89) && defined(_WIN32) && !defined(_WIN32_WCE)
+#define LUAT_WEAK
+#else
 #define LUAT_WEAK                     __attribute__((weak))
+#endif
 
 //-------------------------------
 // 通用头文件

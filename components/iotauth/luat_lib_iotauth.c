@@ -33,7 +33,7 @@ static const unsigned char hexchars_s[] = "0123456789abcdef";
 static const unsigned char hexchars_u[] = "0123456789ABCDEF";
 
 static void str_tohex(const char* str, size_t str_len, char* hex,uint8_t uppercase) {
-    unsigned char* hexchars = NULL;
+    const unsigned char* hexchars = NULL;
     if (uppercase)
         hexchars = hexchars_u;
     else

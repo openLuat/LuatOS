@@ -3,7 +3,6 @@
 #include "luat_network_adapter.h"
 #include "libemqtt.h"
 #include "luat_rtos.h"
-#include "luat_zbuff.h"
 #include "luat_malloc.h"
 #include "luat_mqtt.h"
 
@@ -19,6 +18,29 @@
 
 static int luat_mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl);
 
+#ifdef __LUATOS__
+#include "luat_msgbus.h"
+int32_t luatos_mqtt_callback(lua_State *L, void* ptr);
+#endif
+
+int l_luat_mqtt_msg_cb(luat_mqtt_ctrl_t * ptr, int arg1, int arg2) {
+#ifdef __LUATOS__
+	rtos_msg_t msg = {
+		.handler = luatos_mqtt_callback,
+		.ptr = ptr,
+		.arg1 = arg1,
+		.arg2 = arg2
+	};
+	luat_msgbus_put(&msg, 0);
+#else
+	luat_mqtt_ctrl_t *mqtt_ctrl =(luat_mqtt_ctrl_t *)ptr;
+	if (mqtt_ctrl->mqtt_cb){
+		luat_mqtt_cb_t mqtt_cb = mqtt_ctrl->mqtt_cb;
+		mqtt_cb(mqtt_ctrl, arg1);
+	}
+#endif
+	return 0;
+}
 
 LUAT_RT_RET_TYPE luat_mqtt_timer_callback(LUAT_RT_CB_PARAM){
 	luat_mqtt_ctrl_t * mqtt_ctrl = (luat_mqtt_ctrl_t *)param;

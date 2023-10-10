@@ -353,6 +353,7 @@ int32_t l_http_callback(lua_State *L, void* ptr){
 	uint64_t idp = http_ctrl->idp;
 	if (http_ctrl->timeout_timer){
 		luat_stop_rtos_timer(http_ctrl->timeout_timer);
+		luat_release_rtos_timer(http_ctrl->timeout_timer);
 		http_ctrl->timeout_timer = NULL;
 	}
 	LLOGD("l_http_callback arg1:%d is_download:%d idp:%d",msg->arg1,http_ctrl->is_download,idp);
@@ -442,6 +443,7 @@ exit:
 }
 
 void luat_http_client_onevent(luat_http_ctrl_t *http_ctrl, int arg1, int arg2) {
+	// network_close(http_ctrl->netc, 0);
 	rtos_msg_t msg = {0};
 	msg.handler = l_http_callback;
 	msg.ptr = http_ctrl;

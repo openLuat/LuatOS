@@ -20,14 +20,18 @@
 #undef ferror
 #endif
 
+#ifdef __LUATOS__
 extern const struct luat_vfs_filesystem vfs_fs_inline;
+#endif
 
 static luat_vfs_t vfs= {0};
 
 int luat_vfs_init(void* params) {
     (void)params;
     memset(&vfs, 0, sizeof(vfs));
+#ifdef __LUATOS__
     luat_vfs_reg(&vfs_fs_inline);
+#endif
     return 0;
 }
 
@@ -106,12 +110,14 @@ int luat_fs_mount(luat_fs_conf_t *conf) {
                         vfs.mounted[j].fs = vfs.fsList[i];
                         vfs.mounted[j].ok = 1;
                         memcpy(vfs.mounted[j].prefix, conf->mount_point, strlen(conf->mount_point) + 1);
+#ifdef __LUATOS__
                         if (j == 0) {
                             // 挂载内嵌文件系统
                             vfs.mounted[j+1].fs = (struct luat_vfs_filesystem*)&vfs_fs_inline;
                             vfs.mounted[j+1].ok = 1;
                             memcpy(vfs.mounted[j+1].prefix, "/lua/", strlen("/lua/") + 1);
                         }
+#endif
                     }
                     else
                         LLOGD("mount error ret %d", ret);

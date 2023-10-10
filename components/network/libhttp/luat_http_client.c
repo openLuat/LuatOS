@@ -32,11 +32,13 @@ void luat_http_client_onevent(luat_http_ctrl_t *http_ctrl, int arg1, int arg2);
 int http_close(luat_http_ctrl_t *http_ctrl){
 	LLOGD("http close %p", http_ctrl);
 	if (http_ctrl->netc){
+		network_close(http_ctrl->netc, 0);
 		network_force_close_socket(http_ctrl->netc);
 		network_release_ctrl(http_ctrl->netc);
 		http_ctrl->netc = NULL;
 	}
 	if (http_ctrl->timeout_timer){
+		luat_stop_rtos_timer(http_ctrl->timeout_timer);
 		luat_release_rtos_timer(http_ctrl->timeout_timer);
     	http_ctrl->timeout_timer = NULL;
 	}
@@ -251,7 +253,7 @@ static int on_complete(http_parser* parser, luat_http_ctrl_t *http_ctrl){
 	}
 #endif
 	// http_ctrl->close_state = 1;
-	// network_close(http_ctrl->netc, 0);
+	network_close(http_ctrl->netc, 0);
 	luat_http_client_onevent(http_ctrl, HTTP_OK, 0);
     return 0;
 }

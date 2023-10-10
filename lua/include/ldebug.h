@@ -14,7 +14,7 @@
 #define pcRel(pc, p)	(cast(int, (pc) - (p)->code) - 1)
 
 // #define getfuncline(f,pc)	(((f)->lineinfo) ? (f)->lineinfo[pc] : -1)
-
+int getfuncline(Proto *p, int pc);
 #define resethookcount(L)	(L->hookcount = L->basehookcount)
 
 

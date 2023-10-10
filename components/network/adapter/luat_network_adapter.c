@@ -157,15 +157,15 @@ static int tls_random( void *p_rng,
 #define __NW_DEBUG_ENABLE__
 #ifdef __NW_DEBUG_ENABLE__
 #ifdef LUAT_LOG_NO_NEWLINE
-#define DBG(x,y...)	do {if (ctrl->is_debug) {DBG_Printf("%s %d:"x, __FUNCTION__,__LINE__,##y);}} while(0)
-#define DBG_ERR(x,y...) DBG_Printf("%s %d:"x, __FUNCTION__,__LINE__,##y)
+#define DBG(x,...)	do {if (ctrl->is_debug) {DBG_Printf("%s %d:"x, __FUNCTION__,__LINE__,##__VA_ARGS__);}} while(0)
+#define DBG_ERR(x,...) DBG_Printf("%s %d:"x, __FUNCTION__,__LINE__,##__VA_ARGS__)
 #else
-#define DBG(x,y...)	do {if (ctrl->is_debug) {DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y);}} while(0)
-#define DBG_ERR(x,y...) DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##y)
+#define DBG(x,...)	do {if (ctrl->is_debug) {DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##__VA_ARGS__);}} while(0)
+#define DBG_ERR(x,...) DBG_Printf("%s %d:"x"\r\n", __FUNCTION__,__LINE__,##__VA_ARGS__)
 #endif
 #else
-#define DBG(x,y...)
-#define DBG_ERR(x,y...)
+#define DBG(x,...)
+#define DBG_ERR(x,...)
 #endif
 #define NW_LOCK		platform_lock_mutex(ctrl->mutex)
 #define NW_UNLOCK	platform_unlock_mutex(ctrl->mutex)

@@ -177,7 +177,7 @@ void mqtt_init(mqtt_broker_handle_t* broker, const char* clientid) {
 	memset(broker->username, 0, sizeof(broker->username));
 	memset(broker->password, 0, sizeof(broker->password));
 	if(clientid) {
-		strncpy(broker->clientid, clientid, strlen(clientid));
+		memcpy(broker->clientid, clientid, strlen(clientid));
 	}
 	// Will topic
 	broker->clean_session = 1;
@@ -185,9 +185,9 @@ void mqtt_init(mqtt_broker_handle_t* broker, const char* clientid) {
 
 void mqtt_init_auth(mqtt_broker_handle_t* broker, const char* username, const char* password) {
 	if(username && username[0] != '\0')
-		strncpy(broker->username, username, strlen(username));
+		memcpy(broker->username, username, strlen(username)+1);
 	if(password && password[0] != '\0')
-		strncpy(broker->password, password, strlen(password));
+		memcpy(broker->password, password, strlen(password)+1);
 }
 
 void mqtt_set_alive(mqtt_broker_handle_t* broker, uint16_t alive) {
@@ -355,7 +355,11 @@ int mqtt_publish_with_qos(mqtt_broker_handle_t* broker, const char* topic, const
 
 	// Variable header
 	size_t var_header_len = topiclen+2+qos_size;
-	uint8_t var_header[512]; // Topic size (2 bytes), utf-encoded topic
+	uint8_t *var_header = luat_heap_malloc(var_header_len); // Topic size (2 bytes), utf-encoded topic
+	if (var_header == NULL) {
+		LLOGE("out of memory when malloc publish var_header");
+		return -1;
+	}
 	memset(var_header, 0, var_header_len);
 	var_header[0] = topiclen>>8;
 	var_header[1] = topiclen&0xFF;
@@ -398,7 +402,12 @@ int mqtt_publish_with_qos(mqtt_broker_handle_t* broker, const char* topic, const
 	uint8_t header_size = fixed_header_len+var_header_len;
 	uint32_t total_size = header_size + msg_len;
 	int ret = 0;
-	uint8_t packet[SMALL_PUB];
+	uint8_t *packet = luat_heap_malloc(total_size <= SMALL_PUB ? total_size : SMALL_PUB);
+	if (packet == NULL) {
+		luat_heap_free(var_header);
+		LLOGE("out of memory when malloc publish packet");
+		return -1;
+	}
 	memset(packet, 0, header_size);
 	memcpy(packet, fixed_header, fixed_header_len);
 	memcpy(packet+fixed_header_len, var_header, var_header_len);
@@ -409,6 +418,8 @@ int mqtt_publish_with_qos(mqtt_broker_handle_t* broker, const char* topic, const
 		memcpy(packet + header_size, msg, msg_len);
 		ret = broker->send(broker->socket_info, packet, total_size);
 		if(ret < 0 || ret < total_size) {
+			luat_heap_free(packet);
+			luat_heap_free(var_header);
 			return -1;
 		}
 	}
@@ -416,15 +427,20 @@ int mqtt_publish_with_qos(mqtt_broker_handle_t* broker, const char* topic, const
 		ret = broker->send(broker->socket_info, packet, header_size);
 		//LLOGD("publish packet header %d ret %d", sizeof(packet), ret);
 		if(ret < 0 || ret < header_size) {
+			luat_heap_free(packet);
+			luat_heap_free(var_header);
 			return -1;
 		}
 		ret = broker->send(broker->socket_info, msg, msg_len);
 		//LLOGD("publish packet body %d ret %d", msg_len, ret);
 		if(ret < 0 || ret < msg_len) {
+			luat_heap_free(packet);
+			luat_heap_free(var_header);
 			return -1;
 		}
 	}
-
+	luat_heap_free(packet);
+	luat_heap_free(var_header);
 	return 1;
 }
 
@@ -509,7 +525,11 @@ int mqtt_subscribe(mqtt_broker_handle_t* broker, const char* topic, uint16_t* me
 
 	// utf topic
 	size_t utf_topic_len = topiclen + 3;
-	uint8_t utf_topic[512]; // Topic size (2 bytes), utf-encoded topic, QoS byte
+	uint8_t *utf_topic = luat_heap_malloc(utf_topic_len); // Topic size (2 bytes), utf-encoded topic, QoS byte
+	if (utf_topic == NULL) {
+		LLOGE("out of memory when malloc subscribe utf_topic");
+		return -1;
+	}
 	memset(utf_topic, 0, utf_topic_len);
 	utf_topic[0] = topiclen>>8;
 	utf_topic[1] = topiclen&0xFF;
@@ -522,7 +542,11 @@ int mqtt_subscribe(mqtt_broker_handle_t* broker, const char* topic, uint16_t* me
 		sizeof(var_header)+utf_topic_len
 	};
 	size_t packet_len = sizeof(var_header)+sizeof(fixed_header)+utf_topic_len;
-	uint8_t packet[1024];
+	uint8_t *packet = luat_heap_malloc(packet_len);
+	if (packet == NULL) {
+		LLOGE("out of memory when malloc subscribe packet");
+		return -1;
+	}
 	memset(packet, 0, packet_len);
 	memcpy(packet, fixed_header, sizeof(fixed_header));
 	memcpy(packet+sizeof(fixed_header), var_header, sizeof(var_header));
@@ -530,9 +554,12 @@ int mqtt_subscribe(mqtt_broker_handle_t* broker, const char* topic, uint16_t* me
 
 	// Send the packet
 	if(broker->send(broker->socket_info, packet, packet_len) < packet_len) {
+		luat_heap_free(utf_topic);
+		luat_heap_free(packet);
 		return -1;
 	}
-
+	luat_heap_free(utf_topic);
+	luat_heap_free(packet);
 	return 1;
 }
 
@@ -550,7 +577,11 @@ int mqtt_unsubscribe(mqtt_broker_handle_t* broker, const char* topic, uint16_t* 
 
 	// utf topic
 	size_t utf_topic_len = topiclen + 2;
-	uint8_t utf_topic[512]; // Topic size (2 bytes), utf-encoded topic
+	uint8_t *utf_topic = luat_heap_malloc(utf_topic_len); // Topic size (2 bytes), utf-encoded topic
+	if (utf_topic == NULL) {
+		LLOGE("out of memory when malloc subscribe utf_topic");
+		return -1;
+	}
 	memset(utf_topic, 0, utf_topic_len);
 	utf_topic[0] = topiclen>>8;
 	utf_topic[1] = topiclen&0xFF;
@@ -570,9 +601,10 @@ int mqtt_unsubscribe(mqtt_broker_handle_t* broker, const char* topic, uint16_t* 
 
 	// Send the packet
 	if(broker->send(broker->socket_info, packet, packet_len) < packet_len) {
+		luat_heap_free(utf_topic);
 		return -1;
 	}
-
+	luat_heap_free(utf_topic);
 	return 1;
 }
 
@@ -612,3 +644,4 @@ int mqtt_set_will(mqtt_broker_handle_t* broker, const char* topic,
 	//LLOGD("will len %d", broker->will_len);
 	return 0;
 }
+

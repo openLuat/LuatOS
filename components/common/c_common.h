@@ -183,10 +183,10 @@ enum
 	ERROR_BUFFER_FULL,
 	ERROR_NO_MEMORY,
 	ERROR_CMD_NOT_SUPPORT,
-	ERROR_NO_DATA,
+	ERROR_NO_DATA1,
 	ERROR_NO_FLASH,
 	ERROR_NO_TIMER,
-	ERROR_TIMEOUT,
+	ERROR_TIMEOUT1,
 	ERROR_SSL_HANDSHAKE,
 	ERROR_PROTOCL,
 	ERROR_ID_INVALID,
@@ -232,8 +232,6 @@ enum
 
 };
 
-#define INVALID_HANDLE_VALUE  ((void *)0xffffffff)
-#define INVALID_PARAM  (0xffffffff)
 #define CRC32_GEN		(0x04C11DB7)
 #define CRC32_START		(0xffffffff)
 #define CRC16_CCITT_GEN		(0x1021)
@@ -241,7 +239,11 @@ enum
 #define CRC16_START		(0xffff)
 #define CRC16_IBM_SEED	(0xffff)
 #define CRC16_CCITT_SEED		(0x1D0F)
+#ifndef HANDLE
 #define HANDLE			void *
+#define INVALID_HANDLE_VALUE  ((void *)0xffffffff)
+#define INVALID_PARAM  (0xffffffff)
+#endif
 #ifndef BIT
 #define BIT(n)      (1UL << (n))
 #endif

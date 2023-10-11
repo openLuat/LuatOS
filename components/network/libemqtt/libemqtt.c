@@ -240,7 +240,7 @@ int mqtt_connect(mqtt_broker_handle_t* broker)
     if (remainLen > 127) {
         fixedHeaderSize++;          // add an additional byte for Remaining Length
     }
-    uint8_t fixed_header[fixedHeaderSize];
+    uint8_t fixed_header[3];
     
     // Message Type
     fixed_header[0] = MQTT_MSG_CONNECT;
@@ -257,15 +257,15 @@ int mqtt_connect(mqtt_broker_handle_t* broker)
     }
 
 	uint16_t offset = 0;
-	uint32_t packet_size = sizeof(fixed_header)+sizeof(var_header)+payload_len;
+	uint32_t packet_size = fixedHeaderSize+sizeof(var_header)+payload_len;
 	uint8_t *packet = luat_heap_malloc(packet_size);
 	if (packet == NULL) {
 		LLOGE("out of memory when malloc connect packet");
 		return -2;
 	}
 	memset(packet, 0, packet_size);
-	memcpy(packet, fixed_header, sizeof(fixed_header));
-	offset += sizeof(fixed_header);
+	memcpy(packet, fixed_header, fixedHeaderSize);
+	offset += fixedHeaderSize;
 	memcpy(packet+offset, var_header, sizeof(var_header));
 	offset += sizeof(var_header);
 	// Client ID - UTF encoded
@@ -354,8 +354,9 @@ int mqtt_publish_with_qos(mqtt_broker_handle_t* broker, const char* topic, const
 	}
 
 	// Variable header
-	uint8_t var_header[topiclen+2+qos_size]; // Topic size (2 bytes), utf-encoded topic
-	memset(var_header, 0, sizeof(var_header));
+	size_t var_header_len = topiclen+2+qos_size;
+	uint8_t var_header[512]; // Topic size (2 bytes), utf-encoded topic
+	memset(var_header, 0, var_header_len);
 	var_header[0] = topiclen>>8;
 	var_header[1] = topiclen&0xFF;
 	memcpy(var_header+2, topic, topiclen);
@@ -369,7 +370,7 @@ int mqtt_publish_with_qos(mqtt_broker_handle_t* broker, const char* topic, const
 	}
 
 	// Fixed header
-	uint32_t remainLen = sizeof(var_header)+msglen;
+	uint32_t remainLen = var_header_len+msglen;
 	uint8_t buf[4] = {0};
 	int rc = 0;
 	uint32_t length = remainLen;
@@ -382,7 +383,8 @@ int mqtt_publish_with_qos(mqtt_broker_handle_t* broker, const char* topic, const
 			d |= 0x80;
 		buf[rc++] = d;
 	} while (length > 0);
-	uint8_t fixed_header[rc + 1];
+	size_t fixed_header_len = rc + 1;
+	uint8_t fixed_header[8];
     
    	// Message Type, DUP flag, QoS level, Retain
    	fixed_header[0] = MQTT_MSG_PUBLISH | qos_flag;
@@ -393,13 +395,13 @@ int mqtt_publish_with_qos(mqtt_broker_handle_t* broker, const char* topic, const
 
 	#define SMALL_PUB (1400)
 
-	uint8_t header_size = sizeof(fixed_header)+sizeof(var_header);
+	uint8_t header_size = fixed_header_len+var_header_len;
 	uint32_t total_size = header_size + msg_len;
 	int ret = 0;
-	uint8_t packet[total_size > SMALL_PUB ? header_size : total_size];
-	memset(packet, 0, sizeof(packet));
-	memcpy(packet, fixed_header, sizeof(fixed_header));
-	memcpy(packet+sizeof(fixed_header), var_header, sizeof(var_header));
+	uint8_t packet[SMALL_PUB];
+	memset(packet, 0, header_size);
+	memcpy(packet, fixed_header, fixed_header_len);
+	memcpy(packet+fixed_header_len, var_header, var_header_len);
 	//memcpy(packet+sizeof(fixed_header)+sizeof(var_header), msg, msglen);
 
 	// Send the packet
@@ -411,9 +413,9 @@ int mqtt_publish_with_qos(mqtt_broker_handle_t* broker, const char* topic, const
 		}
 	}
 	else {
-		ret = broker->send(broker->socket_info, packet, sizeof(packet));
+		ret = broker->send(broker->socket_info, packet, header_size);
 		//LLOGD("publish packet header %d ret %d", sizeof(packet), ret);
-		if(ret < 0 || ret < sizeof(packet)) {
+		if(ret < 0 || ret < header_size) {
 			return -1;
 		}
 		ret = broker->send(broker->socket_info, msg, msg_len);
@@ -506,8 +508,9 @@ int mqtt_subscribe(mqtt_broker_handle_t* broker, const char* topic, uint16_t* me
 	broker->seq++;
 
 	// utf topic
-	uint8_t utf_topic[topiclen+3]; // Topic size (2 bytes), utf-encoded topic, QoS byte
-	memset(utf_topic, 0, sizeof(utf_topic));
+	size_t utf_topic_len = topiclen + 3;
+	uint8_t utf_topic[512]; // Topic size (2 bytes), utf-encoded topic, QoS byte
+	memset(utf_topic, 0, utf_topic_len);
 	utf_topic[0] = topiclen>>8;
 	utf_topic[1] = topiclen&0xFF;
 	memcpy(utf_topic+2, topic, topiclen);
@@ -516,17 +519,17 @@ int mqtt_subscribe(mqtt_broker_handle_t* broker, const char* topic, uint16_t* me
 	// Fixed header
 	uint8_t fixed_header[] = {
 		MQTT_MSG_SUBSCRIBE | MQTT_QOS1_FLAG, // Message Type, DUP flag, QoS level, Retain
-		sizeof(var_header)+sizeof(utf_topic)
+		sizeof(var_header)+utf_topic_len
 	};
-
-	uint8_t packet[sizeof(var_header)+sizeof(fixed_header)+sizeof(utf_topic)];
-	memset(packet, 0, sizeof(packet));
+	size_t packet_len = sizeof(var_header)+sizeof(fixed_header)+utf_topic_len;
+	uint8_t packet[1024];
+	memset(packet, 0, packet_len);
 	memcpy(packet, fixed_header, sizeof(fixed_header));
 	memcpy(packet+sizeof(fixed_header), var_header, sizeof(var_header));
-	memcpy(packet+sizeof(fixed_header)+sizeof(var_header), utf_topic, sizeof(utf_topic));
+	memcpy(packet+sizeof(fixed_header)+sizeof(var_header), utf_topic, utf_topic_len);
 
 	// Send the packet
-	if(broker->send(broker->socket_info, packet, sizeof(packet)) < sizeof(packet)) {
+	if(broker->send(broker->socket_info, packet, packet_len) < packet_len) {
 		return -1;
 	}
 
@@ -546,8 +549,9 @@ int mqtt_unsubscribe(mqtt_broker_handle_t* broker, const char* topic, uint16_t* 
 	broker->seq++;
 
 	// utf topic
-	uint8_t utf_topic[topiclen+2]; // Topic size (2 bytes), utf-encoded topic
-	memset(utf_topic, 0, sizeof(utf_topic));
+	size_t utf_topic_len = topiclen + 2;
+	uint8_t utf_topic[512]; // Topic size (2 bytes), utf-encoded topic
+	memset(utf_topic, 0, utf_topic_len);
 	utf_topic[0] = topiclen>>8;
 	utf_topic[1] = topiclen&0xFF;
 	memcpy(utf_topic+2, topic, topiclen);
@@ -555,17 +559,17 @@ int mqtt_unsubscribe(mqtt_broker_handle_t* broker, const char* topic, uint16_t* 
 	// Fixed header
 	uint8_t fixed_header[] = {
 		MQTT_MSG_UNSUBSCRIBE | MQTT_QOS1_FLAG, // Message Type, DUP flag, QoS level, Retain
-		sizeof(var_header)+sizeof(utf_topic)
+		sizeof(var_header)+utf_topic_len
 	};
-
-	uint8_t packet[sizeof(var_header)+sizeof(fixed_header)+sizeof(utf_topic)];
-	memset(packet, 0, sizeof(packet));
+	size_t packet_len = sizeof(var_header)+sizeof(fixed_header)+utf_topic_len;
+	uint8_t packet[1024];
+	memset(packet, 0, packet_len);
 	memcpy(packet, fixed_header, sizeof(fixed_header));
 	memcpy(packet+sizeof(fixed_header), var_header, sizeof(var_header));
-	memcpy(packet+sizeof(fixed_header)+sizeof(var_header), utf_topic, sizeof(utf_topic));
+	memcpy(packet+sizeof(fixed_header)+sizeof(var_header), utf_topic, utf_topic_len);
 
 	// Send the packet
-	if(broker->send(broker->socket_info, packet, sizeof(packet)) < sizeof(packet)) {
+	if(broker->send(broker->socket_info, packet, packet_len) < packet_len) {
 		return -1;
 	}
 

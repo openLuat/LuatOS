@@ -50,6 +50,8 @@
 #define LIB_VERSION             LIB_NAME " r5"
 #define ICONV_TYPENAME          "iconv_t"
 
+#define LUAT_LOG_TAG "iconv"
+#include "luat_log.h"
 
 /* Emulates lua_(un)boxpointer from Lua 5.0 (don't exists on Lua 5.1) */
 #define boxptr(L, p)   (*(void**)(lua_newuserdata(L, sizeof(void*))) = (p))
@@ -124,14 +126,13 @@ end
 */
 static int Liconv(lua_State *L) {
     iconv_t cd = get_iconv_t(L, 1);
-    size_t ibleft = lua_rawlen(L, 2);
-    char *inbuf = (char*) luaL_checkstring(L, 2);
+    size_t ibleft = 0;
+    char *inbuf = (char*) luaL_checklstring(L, 2, &ibleft);
     char *outbuf;
     char *outbufs;
-    size_t obsize = (ibleft > 256) ? ibleft : 256;
+    size_t obsize = ibleft * 2.1;
     size_t obleft = obsize;
-    size_t ret = -1;
-    int hasone = 0;
+    size_t ret = 0;
 
     outbuf = (char*) luat_heap_malloc(obsize * sizeof(char));
     if (outbuf == NULL) {
@@ -140,36 +141,16 @@ static int Liconv(lua_State *L) {
         return 2;
     }
     outbufs = outbuf;
+    // LLOGD("转换前的各种参数 ibleft %d obleft %d", ibleft, obleft);
+    ret = iconv_convert(cd, &inbuf, &ibleft, &outbuf, &obleft);
+    // LLOGD("转换后的各种参数 ibleft %d obleft %d", ibleft, obleft);
+    if (ret == 0) {
+        lua_pushlstring(L, outbufs, obsize - obleft);
+    }
+    else {
+        lua_pushstring(L, "");
+    }
 
-    do {
-        ret = iconv_convert(cd, &inbuf, &ibleft, &outbuf, &obleft);
-        if (ret == (size_t)(-1)) {
-            lua_pushlstring(L, outbufs, obsize - obleft);
-            if (hasone == 1)
-                lua_concat(L, 2);
-            hasone = 1;
-            // if (errno == EILSEQ) {
-            //     lua_pushnumber(L, ERROR_INVALID);
-            //     free(outbufs);
-            //     return 2;   /* Invalid character sequence */
-            // } else if (errno == EINVAL) {
-            //     lua_pushnumber(L, ERROR_INCOMPLETE);
-            //     free(outbufs);
-            //     return 2;   /* Incomplete character sequence */
-            // } else if (errno == E2BIG) {
-            //     obleft = obsize;
-            //     outbuf = outbufs;
-            // } else {
-                lua_pushnumber(L, ERROR_UNKNOWN);
-                luat_heap_free(outbufs);
-                return 2; /* Unknown error */
-            // }
-        }
-    } while (ret != (size_t) 0);
-
-    lua_pushlstring(L, outbufs, obsize - obleft);
-    if (hasone == 1)
-        lua_concat(L, 2);
     luat_heap_free(outbufs);
     return 1;   /* Done */
 }

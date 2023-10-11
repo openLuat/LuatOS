@@ -54,7 +54,7 @@ int l_camera_handler(lua_State *L, void* ptr);
  * @param param 中断回调时用户的参数
  * @return 0成功，其他失败
  */
-int luat_camera_setup(int id, luat_spi_camera_t *conf, CBFuncEx_t callback, void *param);
+int luat_camera_setup(int id, luat_spi_camera_t *conf, void* callback, void *param);
 /**
  * @brief 配置camera并且初始化camera
  * @param conf camera相关配置

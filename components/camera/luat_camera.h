@@ -46,9 +46,38 @@ typedef struct
 } luat_spi_camera_t;
 
 int l_camera_handler(lua_State *L, void* ptr);
+/**
+ * @brief 配置spi camera并且初始化camera
+ * @param id camera接收数据总线ID，ec618上有2条，0和1
+ * @param conf camera相关配置
+ * @param callback camera接收中断回调，注意这是在中断里的回调
+ * @param param 中断回调时用户的参数
+ * @return 0成功，其他失败
+ */
+int luat_camera_setup(int id, luat_spi_camera_t *conf, CBFuncEx_t callback, void *param);
+/**
+ * @brief 配置camera并且初始化camera
+ * @param conf camera相关配置
+ * @return 0成功，其他失败
+ */
 int luat_camera_init(luat_camera_conf_t *conf);
+/**
+ * @brief 开始接收camera数据
+ * @param id camera接收数据总线ID
+ * @return 0成功，其他失败
+ */
 int luat_camera_start(int id);
+/**
+ * @brief 停止接收camera数据
+ * @param id camera接收数据总线ID
+ * @return 0成功，其他失败
+ */
 int luat_camera_stop(int id);
+/**
+ * @brief 关闭camera并且释放资源
+ * @param id camera接收数据总线ID
+ * @return 0成功，其他失败
+ */
 int luat_camera_close(int id);
 int luat_camera_capture(int id, uint8_t quality, const char *path);
 

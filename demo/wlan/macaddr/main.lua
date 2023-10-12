@@ -11,7 +11,7 @@ require("sysplus")
 @content
 备注:
 
-1. 对应ESP32系列, 均为临时设置, 掉电后会丢失, 所以建议将自定义MAC存储到fskv或其他配置文件
+1. 对应ESP32系列, 自定义mac地址存储在nvs分区
 2. 对Air601/Air103/Air101, 设置后需要重启才能生效
 
 本demo于 2023.10.12 添加, 需要该日期或之后的编译的固件才能正常工作
@@ -23,6 +23,7 @@ sys.taskInit(function()
         log.info("wlan", "这个demo不适合当前模块或当前模块未编译wlan库")
     end
     wlan.init()
+    sys.wait(100)
     local macaddr = wlan.getMac()
     log.info("macaddr", macaddr)
 

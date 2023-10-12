@@ -62,13 +62,14 @@ sys.taskInit(function()
     local srv = udpsrv.create(12345, mytopic)
     if srv then
         -- 单播
-        srv:send("I am UP", "192.168.1.16", 777)
+        srv:send("I am UP", "192.168.1.12", 777)
         -- 广播
         srv:send("I am UP", "255.255.255.255", 777)
         while 1 do
-            local ret, data = sys.waitUntil(mytopic, 15000)
+            local ret, data, remote_ip, remote_port = sys.waitUntil(mytopic, 15000)
             if ret then
-                log.info("udpsrv", "收到数据", data:toHex())
+                -- remote_ip, remote_port 是2023.10.12新增的返回值
+                log.info("udpsrv", "收到数据", data:toHex(), remote_ip, remote_port)
                 -- 按业务处理收到的数据
             else
                 log.info("udpsrv", "没数据,那广播一条")

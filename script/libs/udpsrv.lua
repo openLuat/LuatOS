@@ -32,11 +32,17 @@ function udpsrv.create(port, topic, adapter)
         if event == socket.EVENT then
             local rxbuff = srv.rxbuff
             while 1 do
-                local succ, data_len = socket.rx(sc, rxbuff)
+                local succ, data_len, remote_ip, remote_port = socket.rx(sc, rxbuff)
                 if succ and data_len and data_len > 0 then
                     local resp = rxbuff:toStr(0, rxbuff:used())
                     rxbuff:del()
-                    sys.publish(topic, resp)
+                    if remote_ip and #remote_ip == 5 then
+                        local ip1,ip2,ip3,ip4 = remote_ip:byte(2),remote_ip:byte(3),remote_ip:byte(4),remote_ip:byte(5)
+                        remote_ip = string.format("%d.%d.%d.%d", ip1, ip2, ip3, ip4)
+                    else
+                        remote_ip = nil
+                    end
+                    sys.publish(topic, resp, remote_ip, remote_port)
                 else
                     break
                 end

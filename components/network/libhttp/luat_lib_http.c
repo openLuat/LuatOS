@@ -86,6 +86,20 @@ http客户端
 @return tabal headers 当code>100时, 代表服务器返回的头部数据 
 @return string/int body 服务器响应的内容字符串,如果是下载模式, 则返回文件大小
 @usage
+
+--[[
+code报错信息列表:
+-1 HTTP_ERROR_STATE 错误的状态, 一般是底层异常,请报issue
+-2 HTTP_ERROR_HEADER 错误的响应头部, 通常是服务器问题
+-3 HTTP_ERROR_BODY 错误的响应体,通常是服务器问题
+-4 HTTP_ERROR_CONNECT 连接服务器失败, 未联网,地址错误,域名错误
+-5 HTTP_ERROR_CLOSE 提前断开了连接, 网络或服务器问题
+-6 HTTP_ERROR_RX 接收数据报错, 网络问题
+-7 HTTP_ERROR_DOWNLOAD 下载文件过程报错, 网络问题或下载路径问题
+-8 HTTP_ERROR_TIMEOUT 超时, 包括连接超时,读取数据超时
+-9 HTTP_ERROR_FOTA fota功能报错,通常是更新包不合法
+]]
+
 -- GET请求
 local code, headers, body = http.request("GET","http://site0.cn/api/httptest/simple/time").wait()
 log.info("http.get", code, headers, body)

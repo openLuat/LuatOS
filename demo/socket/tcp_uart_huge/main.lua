@@ -133,8 +133,8 @@ local function sockettest()
             --sys_send(taskName, socket.EVENT, 0)
         elseif tp == "uplink" then
             -- 上行数据, 主动上报的数据,那就发送呀
-            table.insert(txqueue, data)
-            sys_send(taskName, socket.EVENT, 0)
+            -- table.insert(txqueue, data)
+            -- sys_send(taskName, socket.EVENT, 0)
         elseif tp == "downlink" then
             -- 下行数据,接收的数据, 从ipv6task来的
             -- 其他代码可以通过 sys.publish()
@@ -176,7 +176,7 @@ function sockettask(d1Name, txqueue, rxtopic)
 				break
 			end
             -- 如果服务器有下发数据, used()就必然大于0, 进行处理
-			if rx_buff:used() > 0 then
+			while rx_buff:used() > 0 do
 				log.info("socket", "收到服务器数据，长度", rx_buff:used())
                 data_counter = data_counter + rx_buff:used()
                 -- local data = rx_buff:query() -- 获取数据
@@ -188,11 +188,13 @@ function sockettask(d1Name, txqueue, rxtopic)
                     -- sys.wait(10) -- 再等10ms
                 end
 				rx_buff:del()
+                sysplus.cleanMsg(d1Name)
+                socket.rx(netc, rx_buff)
 			end
             -- log.info("libnet", "调用wait开始等待消息")
             -- 等待事件, 例如: 服务器下发数据, 有数据准备上报, 服务器断开连接
-			result, param, param2 = libnet.wait(d1Name, 15000, netc)
-            log.info("libnet", "wait", result, param, param2)
+			result, param, param2 = libnet.wait(d1Name, 500, netc)
+            -- log.info("libnet", "wait", result, param, param2)
 			if not result then
                 -- 网络异常了, 那就断开了, 执行清理工作
 				log.info("socket", "服务器断开了", result, param)

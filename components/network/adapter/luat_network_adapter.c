@@ -1082,16 +1082,16 @@ static int32_t network_default_socket_callback(void *data, void *param)
 		{
 			if ((event->ID == EV_NW_DNS_RESULT) && (ctrl->wait_target_state != NW_WAIT_ON_LINE))
 			{
-				DBG("socket %s %s", network_ctrl_event_id_string(event->ID), network_ctrl_wait_state_string(ctrl->wait_target_state));
+				DBG("socket event:%s,wait:%s", network_ctrl_event_id_string(event->ID), network_ctrl_wait_state_string(ctrl->wait_target_state));
 				return 0;
 			}
 			if (ctrl->auto_mode)
 			{
-				DBG("socket %d,%s,%s,%s", ctrl->socket_id, network_ctrl_event_id_string(event->ID),
+				DBG("socket %d,event:%s,state:%s,wait:%s", ctrl->socket_id, network_ctrl_event_id_string(event->ID),
 						network_ctrl_state_string(ctrl->state),
 						network_ctrl_wait_state_string(ctrl->wait_target_state));
 				network_default_statemachine(ctrl, event, adapter);
-				DBG("%s,%s",network_ctrl_state_string(ctrl->state),network_ctrl_wait_state_string(ctrl->wait_target_state));
+				DBG("socket %d,state:%s,wait:%s", ctrl->socket_id, network_ctrl_state_string(ctrl->state),network_ctrl_wait_state_string(ctrl->wait_target_state));
 			}
 			else if (ctrl->task_handle)
 			{
@@ -1121,11 +1121,11 @@ static int32_t network_default_socket_callback(void *data, void *param)
 				{
 					if (ctrl->auto_mode)
 					{
-						DBG("socket %d,%s,%s,%s", ctrl->socket_id, network_ctrl_event_id_string(event->ID),
+						DBG("socket %d,event:%s,state:%s,wait:%s", ctrl->socket_id, network_ctrl_event_id_string(event->ID),
 								network_ctrl_state_string(ctrl->state),
 								network_ctrl_wait_state_string(ctrl->wait_target_state));
 						network_default_statemachine(ctrl, &temp_event, adapter);
-						DBG("%s,%s",network_ctrl_state_string(ctrl->state),	network_ctrl_wait_state_string(ctrl->wait_target_state));
+						DBG("socket %d,event:%s,wait:%s", ctrl->socket_id, network_ctrl_state_string(ctrl->state),	network_ctrl_wait_state_string(ctrl->wait_target_state));
 					}
 					else if (ctrl->task_handle)
 					{

@@ -187,7 +187,7 @@ int32_t dns_get_ip(dns_client_t *client, Buffer_Struct *buf, uint16_t answer_num
 			{
 				if (process && (process->ip_nums < MAX_DNS_IP))
 				{
-					LLOGD("ipv4 result%d,%d.%d.%d.%d", process->ip_nums, pvUn.u8[0], pvUn.u8[1], pvUn.u8[2], pvUn.u8[3] );
+					//LLOGD("ipv4 result%d,%d.%d.%d.%d", process->ip_nums, pvUn.u8[0], pvUn.u8[1], pvUn.u8[2], pvUn.u8[3] );
 					process->ip_result[process->ip_nums].ip = ip_addr;
 					process->ip_result[process->ip_nums].ttl_end = ttl + ((uint32_t)(luat_mcu_tick64_ms()/1000));
 					process->ip_nums++;

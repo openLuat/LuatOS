@@ -160,7 +160,7 @@ sys.taskInit(function()
 	local data = "123,"
 	local qos = 1 -- QOS0不带puback, QOS1是带puback的
     while true do
-        sys.wait(30)
+        sys.wait(3000)
         if mqttc and mqttc:ready() then
             local pkgid = mqttc:publish(pub_topic, data .. os.date(), qos)
             -- local pkgid = mqttc:publish(topic2, data, qos)

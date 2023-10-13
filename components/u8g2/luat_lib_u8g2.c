@@ -94,7 +94,7 @@ static int l_u8g2_begin(lua_State *L) {
         lua_pushinteger(L, 2);
         return 1;
     }
-    conf = (u8g2_t*)lua_newuserdata(L, sizeof(luat_u8g2_conf_t));
+    conf = (luat_u8g2_conf_t*)lua_newuserdata(L, sizeof(luat_u8g2_conf_t));
     if (conf == NULL) {
         LLOGE("lua_newuserdata return NULL, out of memory ?!");
         lua_pushinteger(L, 3);
@@ -940,6 +940,40 @@ static int l_u8g2_draw_gtfont_utf8(lua_State *L) {
 
 #endif // LUAT_USE_GTFONT
 
+/*
+获取底层图像缓冲区
+@api u8g2.CopyBuffer(buff)
+@userdata zbuff实例,空间要大于等于底层buff的大小
+@return int 成功返回buff大小,否则返回nil
+@usage
+-- 本函数在u8g2初始化之后才能调用
+
+-- 获取大小
+local sz = u8g2.CopyBuffer()
+
+-- 拷贝底层buff
+local buff = zbuff.create(sz)
+u8g2.CopyBuffer(buff)
+
+*/
+#include "luat_zbuff.h"
+static int l_u8g2_CopyBuffer(lua_State *L) {
+    if (conf == NULL) return 0;
+    if (conf->buff_ptr == NULL) return 0;
+    size_t len = u8g2_GetBufferSize(&conf->u8g2);
+    if (lua_isnil(L, 1)) {
+        lua_pushinteger(L, len);
+        return 1;
+    }
+    luat_zbuff_t* buff = tozbuff(L);
+    if (buff->len <= len) {
+        return 0;
+    }
+    memcpy(buff->addr, conf->buff_ptr, len);
+    lua_pushinteger(L, len);
+    return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_u8g2[] =
 {
@@ -971,6 +1005,7 @@ static const rotable_Reg_t reg_u8g2[] =
     { "DrawXBM",      ROREG_FUNC(l_u8g2_DrawXBM)},
     { "DrawDrcode",   ROREG_FUNC(l_u8g2_DrawDrcode)},
     { "SetContrast",  ROREG_FUNC(l_u8g2_SetContrast)},
+    { "CopyBuffer",   ROREG_FUNC(l_u8g2_CopyBuffer)},
 #ifdef LUAT_USE_GTFONT
     { "drawGtfontGb2312", ROREG_FUNC(l_u8g2_draw_gtfont_gb2312)},
 #ifdef LUAT_USE_GTFONT_UTF8

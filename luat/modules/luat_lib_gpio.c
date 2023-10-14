@@ -43,12 +43,12 @@ typedef struct gpio_ctx
 }gpio_ctx_t;
 
 // 保存中断回调的数组
-static gpio_ctx_t gpios[LUAT_GPIO_PIN_MAX] __attribute__((aligned (16)));
+static gpio_ctx_t gpios[LUAT_GPIO_PIN_MAX];
 static uint32_t default_gpio_pull = Luat_GPIO_DEFAULT;
 
 
 // 记录GPIO电平,仅OUTPUT时可用
-static uint8_t gpio_out_levels[(LUAT_GPIO_PIN_MAX + 7) / 8] __attribute__((aligned (16)));
+static uint8_t gpio_out_levels[(LUAT_GPIO_PIN_MAX + 7) / 8];
 
 static uint8_t gpio_bit_get(int pin) {
     if (pin < 0 || pin >= LUAT_GPIO_PIN_MAX)

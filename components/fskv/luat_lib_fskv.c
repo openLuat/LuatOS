@@ -42,8 +42,11 @@ fskv与fdb的实现机制导致的差异
 
 #define LUAT_FSKV_MAX_SIZE (4096)
 
+#ifndef LUAT_CONF_FSKV_CUSTOM
 extern sfd_drv_t* sfd_onchip;
 extern luat_sfd_lfs_t* sfd_lfs;
+#endif
+static int fskv_inited;
 
 // static char fskv_read_buff[LUAT_FSKV_MAX_SIZE];
 
@@ -61,7 +64,8 @@ end
 -- 写一个main.lua, 执行 fskv.kvdb_init 后 执行 fskv.clear() 即可全清fdb数据.
  */
 static int l_fskvdb_init(lua_State *L) {
-    if (sfd_lfs == NULL) {
+    if (fskv_inited == 0) {
+#ifndef LUAT_CONF_FSKV_CUSTOM
         if (sfd_onchip == NULL) {
             luat_sfd_onchip_init();
         }
@@ -76,8 +80,12 @@ static int l_fskvdb_init(lua_State *L) {
             LLOGE("sfd-onchip lfs int failed");
             return 0;
         }
+        fskv_inited = 1;
+#else
+        fskv_inited = luat_fskv_init();
+#endif
     }
-    lua_pushboolean(L, 1);
+    lua_pushboolean(L, fskv_inited);
     return 1;
 }
 
@@ -96,7 +104,7 @@ log.info("fdb", fskv.set("timer", 1))
 log.info("fdb", fskv.set("bigd", {name="wendal",age=123}))
  */
 static int l_fskv_set(lua_State *L) {
-    if (sfd_lfs == 0) {
+    if (fskv_inited == 0) {
         LLOGE("call fskv.init() first!!!");
         return 0;
     }
@@ -223,7 +231,7 @@ log.info("fdb", fskv.sett("mykv", "age", "123")) -- 保存的将是 {age:"123"}
 -- 
  */
 static int l_fskv_sett(lua_State *L) {
-    if (sfd_lfs == 0) {
+    if (fskv_inited == 0) {
         LLOGE("call fskv.init() first!!!");
         return 0;
     }
@@ -291,7 +299,7 @@ end
 local v = fskv.get("wendal") or "123"
  */
 static int l_fskv_get(lua_State *L) {
-    if (sfd_lfs == NULL) {
+    if (fskv_inited == 0) {
         LLOGE("call fskv.init() first!!!");
         return 0;
     }
@@ -377,7 +385,7 @@ static int l_fskv_get(lua_State *L) {
 log.info("fdb", fskv.del("wendal"))
  */
 static int l_fskv_del(lua_State *L) {
-    if (sfd_lfs == NULL) {
+    if (fskv_inited == 0) {
         LLOGE("call fskv.init() first!!!");
         return 0;
     }
@@ -400,7 +408,7 @@ static int l_fskv_del(lua_State *L) {
 fskv.clear()
  */
 static int l_fskv_clr(lua_State *L) {
-    if (sfd_lfs == NULL) {
+    if (fskv_inited == 0) {
         LLOGE("call fskv.init() first!!!");
         return 0;
     }
@@ -428,8 +436,8 @@ if iter then
 end
  */
 static int l_fskv_iter(lua_State *L) {
-    if (sfd_lfs == 0) {
-        LLOGE("call fskv.init first!!!");
+    if (fskv_inited == 0) {
+        LLOGE("call fskv.init() first!!!");
         return 0;
     }
     size_t *offset = lua_newuserdata(L, sizeof(size_t));
@@ -482,7 +490,7 @@ static int l_fskv_stat(lua_State *L) {
     size_t using_sz = 0;
     size_t max_sz = 0;
     size_t kv_count = 0;
-    if (sfd_lfs == 0) {
+    if (fskv_inited == 0) {
         LLOGE("call fskv.init() first!!!");
         return 0;
     }

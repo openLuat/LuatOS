@@ -6,6 +6,10 @@ VERSION = "1.0.0"
 --[[
 本demo暂时只在air101/103/601测试过
 对于EC618系列的模块,例如Air780E/Air700E,请使用audio库进行快捷播放
+
+本demo需要外挂ES8311 codec芯片, 可使用海凌科的w800音频开发板进行测试
+
+https://detail.tmall.com/item.htm?abbucket=2&id=670202333872
 ]]
 
 -- sys库是标配

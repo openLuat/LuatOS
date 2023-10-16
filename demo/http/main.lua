@@ -52,6 +52,13 @@ sys.taskInit(function()
         device_id = mobile.imei()
         log.info("ipv6", mobile.ipv6(true))
         sys.waitUntil("IP_READY", 30000)
+    elseif http then
+        sys.waitUntil("IP_READY")
+    else
+        while 1 do
+            sys.wait(1000)
+            log.info("http", "当前固件未包含http库")
+        end
     end
     log.info("已联网")
     sys.publish("net_ready")

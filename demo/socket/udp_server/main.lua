@@ -21,12 +21,13 @@ sys.taskInit(function()
     ----------------------------
     if wlan and wlan.connect then
         -- wifi 联网, ESP32系列均支持
-        local ssid = "luatos1234"
-        local password = "12341234"
+        local ssid = "uiot"
+        local password = "czcjhp1985cbm"
         log.info("wifi", ssid, password)
         -- TODO 改成自动配网
         -- LED = gpio.setup(12, 0, gpio.PULLUP)
         wlan.init()
+        wlan.setMac(0, string.fromHex("6055F9779010"))
         wlan.setMode(wlan.STATION) -- 默认也是这个模式,不调用也可以
         device_id = wlan.getMac()
         wlan.connect(ssid, password, 1)
@@ -59,7 +60,10 @@ end)
 sys.taskInit(function()
     sys.waitUntil("net_ready")
     local mytopic = "my_udpsrv"
+    -- 注意, udpsrv.create有3个参数, 最后一个参数是网络适配器编号
     local srv = udpsrv.create(12345, mytopic)
+    -- 在wifi模组中,通常有STA和AP两个适配器, 若需要在AP监听,则需要指定编号
+    -- local srv = udpsrv.create(12345, mytopic, socket.LWIP_AP)
     if srv then
         -- 单播
         srv:send("I am UP", "192.168.1.12", 777)

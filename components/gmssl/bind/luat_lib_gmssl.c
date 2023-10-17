@@ -279,19 +279,19 @@ SM4加密算法
 @string  密钥
 @return string 加密后的数据
 @usage
-local originStr = "AES128 ECB ZeroPadding test"
+local originStr = "SM4 ECB ZeroPadding test"
 --加密模式：ECB；填充方式：ZeroPadding；密钥：1234567890123456；密钥长度：128 bit
 local encodeStr = gmssl.sm4encrypt("ECB","ZERO",originStr,"1234567890123456")
 print(originStr,"encrypt",string.toHex(encodeStr))
 log.info("testsm.decrypt",gmssl.sm4decrypt("ECB","ZERO",encodeStr,"1234567890123456"))
 
-originStr = "AES128 ECB Pkcs5Padding test"
+originStr = "SM4 ECB Pkcs5Padding test"
 --加密模式：ECB；填充方式：Pkcs5Padding；密钥：1234567890123456；密钥长度：128 bit
 encodeStr = gmssl.sm4encrypt("ECB","PKCS5",originStr,"1234567890123456")
 print(originStr,"encrypt",string.toHex(encodeStr))
 log.info("testsm.decrypt",gmssl.sm4decrypt("ECB","PKCS5",encodeStr,"1234567890123456"))
 
-originStr = "AES256 CBC Pkcs5Padding test"
+originStr = "SM4 CBC Pkcs5Padding test"
 --加密模式：CBC；填充方式：Pkcs5Padding；密钥：1234567890123456；密钥长度：256 bit；偏移量：1234567890666666
 encodeStr = gmssl.sm4encrypt("CBC","PKCS5",originStr,"1234567890123456","1234567890666666")
 print(originStr,"encrypt",string.toHex(encodeStr))
@@ -456,7 +456,7 @@ static int l_sm4_decrypt(lua_State *L)
 	}
     if((nPswdLen!=16))
     {
-        return luaL_error(L, "invalid password length=%d, only support AES128,AES192,AES256", nPswdLen);
+        return luaL_error(L, "invalid password length=%d, only support 128, 192, 256 bits", nPswdLen);
     }
     if(!isCBC && !isECB)
     {

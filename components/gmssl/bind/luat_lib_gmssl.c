@@ -74,12 +74,14 @@ static void DeletePaddingBuf(luaL_Buffer *B, const char *pPadding, size_t nBufLe
 
 /*
 sm2算法加密
-@api sm.sm2encrypt(pkx,pky,data)
-@string 公钥x,必选
-@string 公钥y,必选
-@string 待计算的数据,必选,最长255字节
-@return string 加密后的字符串, 原样输出,未经HEX转换
+@api sm.sm2encrypt(pkx,pky,data, mode)
+@string 公钥x,必选. HEX字符串
+@string 公钥y,必选. HEX字符串
+@string 待计算的数据,必选,最长32字节, 非HEX字符串
+@boolean 输出模式,默认false. false-GMSSL默认格式, true-网站兼容模式
+@return string 加密后的字符串, 原样输出,未经HEX转换. 若加密失败会返回nil或空字符串
 @usage
+-- 提示 mode 参数是 2023.10.17 新增
 local originStr = "encryption standard"
 local pkx = "435B39CCA8F3B508C1488AFC67BE491A0F7BA07E581A0E4849A5CF70628A7E0A"
 local pky = "75DDBA78F15FEECB4C7895E2C1CDF5FE01DEBB2CDBADF45399CCF77BBA076A42"
@@ -102,40 +104,67 @@ static int l_sm2_encrypt(lua_State *L)
     //检查参数合法性
     if((pkxLen!=64))
     {
-        return luaL_error(L, "invalid pkx password length=%d", pkxLen);
+        LLOGE("invalid pkx password length=%d", pkxLen);
+        return 0;
     }
     if((pkyLen!=64))
     {
-        return luaL_error(L, "invalid pky password length=%d", pkyLen);
+        LLOGE("invalid pky password length=%d", pkyLen);
+        return 0;
     }
     if (pBufLen > SM2_MAX_PLAINTEXT_SIZE) {
         LLOGD("data too large max %d but %d", SM2_MAX_PLAINTEXT_SIZE, pBufLen);
         return 0;
     }
 
+    int mode = 0;
+    if (lua_isboolean(L, 4)) {
+        mode = lua_toboolean(L, 4);
+    }
+
     SM2_KEY sm2 = {0};
-    SM2_POINT point;
+    SM2_POINT point = {0};
     luat_str_fromhex(pkx, 64, (char*)point.x);
     luat_str_fromhex(pky, 64, (char*)point.y);
     ret = sm2_key_set_public_key(&sm2, (const SM2_POINT*)&point);
-    LLOGD("sm2_key_set_public_key %d", ret);
+    if (ret != 1) {
+        LLOGD("sm2_key_set_public_key %d", ret);
+        return 0;
+    }
 
-    unsigned char out[SM2_MAX_CIPHERTEXT_SIZE] = {0};
+    uint8_t out[SM2_MAX_CIPHERTEXT_SIZE] = {0};
     size_t olen = 0;
-
-    ret = sm2_encrypt(&sm2, (const unsigned char *)pBuf, pBufLen, out, &olen);
-    LLOGD("sm2_encrypt ret %d", ret);
+    if (mode) {
+        SM2_CIPHERTEXT C = {0};
+        ret = sm2_do_encrypt(&sm2, (const uint8_t *)pBuf, pBufLen, &C);
+        // LLOGD("sm2_do_encrypt ret %d", ret);
+        // LLOGD("C->ciphertext_size %04X", C.ciphertext_size);
+        memcpy(out, &C.point.x, 32);
+        memcpy(out + 32, &C.point.y, 32);
+        memcpy(out + 64, C.hash, 32);
+        memcpy(out + 96, C.ciphertext, C.ciphertext_size);
+        olen = 96 + C.ciphertext_size;
+    }
+    else {
+        ret = sm2_encrypt(&sm2, (const uint8_t *)pBuf, pBufLen, out, &olen);
+    }
+    if (ret != 1) {
+        LLOGD("sm2_encrypt ret %d", ret);
+        return 0;
+    }
     lua_pushlstring(L, (char*)out, olen);
     return 1;
 }
 
 /*
 sm2算法解密
-@api sm.sm2decrypt(private,data)
-@string 私钥,必选
-@string 待计算的数据,必选
-@return string 解密后的字符串,未经HEX转换
+@api sm.sm2decrypt(private,data,mode)
+@string 私钥,必选,HEX字符串
+@string 待计算的数据,必选,原始数据,非HEX字符串
+@boolean 输出模式,默认false. false-GMSSL默认格式, true-网站兼容模式
+@return string 解密后的字符串,未经HEX转换.若解密失败会返回nil或空字符串
 @usage
+-- 提示 mode 参数是 2023.10.17 新增
 local originStr = "encryption standard"
 local pkx = "435B39CCA8F3B508C1488AFC67BE491A0F7BA07E581A0E4849A5CF70628A7E0A"
 local pky = "75DDBA78F15FEECB4C7895E2C1CDF5FE01DEBB2CDBADF45399CCF77BBA076A42"
@@ -153,10 +182,20 @@ static int l_sm2_decrypt(lua_State *L)
     const char *pBuf = lua_tolstring(L, 2,&pBufLen);
     int ret = 0;
 
+    int mode = 0;
+    if (lua_isboolean(L, 3)) {
+        mode = lua_toboolean(L, 3);
+    }
+
     //检查参数合法性
     if((privateLen!=64))
     {
-        return luaL_error(L, "invalid private password length=%d", privateLen);
+        LLOGE("invalid private password length=%d", privateLen);
+        return 0;
+    }
+    if (pBufLen < 97) {
+        LLOGE("待数据太短,应该要97字节以上");
+        return 0;
     }
     
     SM2_KEY sm2 = {0};
@@ -164,8 +203,24 @@ static int l_sm2_decrypt(lua_State *L)
     size_t olen = 0;
     luat_str_fromhex(private, 64, (char*)sm2.private_key);
 
-    ret = sm2_decrypt(&sm2, (uint8_t*)pBuf, pBufLen, (uint8_t*)out, &olen);
-    LLOGD("sm2_decrypt ret %d", ret);
+    if (mode) {
+        // LLOGD("网站兼容模式");
+        SM2_CIPHERTEXT C = {0};
+        C.ciphertext_size = (uint8_t)(pBufLen - 96);
+        memcpy(&C.point.x, pBuf, 32);
+        memcpy(&C.point.y, pBuf + 32, 32);
+        memcpy(C.hash, pBuf + 64, 32);
+        memcpy(C.ciphertext, pBuf + 96, C.ciphertext_size);
+        ret = sm2_do_decrypt(&sm2, &C, (uint8_t *)out, &olen);
+    }
+    else {
+        // LLOGD("GMSSL默认模式");
+        ret = sm2_decrypt(&sm2, (uint8_t*)pBuf, pBufLen, (uint8_t*)out, &olen);
+    }
+    if (ret != 1) {
+        LLOGD("sm2_decrypt ret %d", ret);
+        return 0;
+    }
     lua_pushlstring(L, (char*)out, olen);
     return 1;
 }

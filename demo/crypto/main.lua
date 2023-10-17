@@ -70,6 +70,8 @@ sys.taskInit(function()
         log.info("cipher", "suites", json.encode(crypto.cipher_suites()))
     end
 
+    ---------------------------------------
+    log.info("随机数测试")
     for i=1, 10 do
         sys.wait(100)
         log.info("crypto", "真随机数",string.unpack("I",crypto.trng(4)))
@@ -77,6 +79,7 @@ sys.taskInit(function()
     end
 
     -- totp的密钥
+    log.info("totp的密钥")
     local secret = "VK54ZXPO74ISEM2E"
     --写死时间戳用来测试
     local ts = 1646796576
@@ -87,6 +90,8 @@ sys.taskInit(function()
         log.info("totp", string.format("%06d" ,r),time.hour,time.min,time.sec)
     end
 
+    -- 文件测试
+    log.info("文件hash值测试")
     if crypto.md_file then
         log.info("md5", crypto.md_file("MD5", "/luadb/logo.jpg"))
         log.info("sha1", crypto.md_file("SHA1", "/luadb/logo.jpg"))
@@ -102,7 +107,8 @@ sys.taskInit(function()
         log.info("checksum", "357E", string.char(crypto.checksum("357E", 1)):toHex())
     end
 
-            -- 流式hash测试
+    -- 流式hash测试
+    log.info("流式hash测试")
     if crypto.hash_init then
         -- MD5
         local md5_obj = crypto.hash_init("MD5")
@@ -166,25 +172,30 @@ sys.taskInit(function()
 
         -- SHA512
         local sha512_obj = crypto.hash_init("SHA512")
-        crypto.hash_update(sha512_obj, "1234567890")
-        crypto.hash_update(sha512_obj, "1234567890")
-        crypto.hash_update(sha512_obj, "1234567890")
-        crypto.hash_update(sha512_obj, "1234567890")
-        local sha512_result = crypto.hash_finish(sha512_obj)
-        log.info("sha512_stream", sha512_result)
-        log.info("sha512", crypto.sha512("1234567890123456789012345678901234567890"))
+        if sha512_obj then
+            crypto.hash_update(sha512_obj, "1234567890")
+            crypto.hash_update(sha512_obj, "1234567890")
+            crypto.hash_update(sha512_obj, "1234567890")
+            crypto.hash_update(sha512_obj, "1234567890")
+            local sha512_result = crypto.hash_finish(sha512_obj)
+            log.info("sha512_stream", sha512_result)
+            log.info("sha512", crypto.sha512("1234567890123456789012345678901234567890"))
+        end
 
         -- HMAC_SHA512
         local hmac_sha512_obj = crypto.hash_init("SHA512", "1234567890")
-        crypto.hash_update(hmac_sha512_obj, "1234567890")
-        crypto.hash_update(hmac_sha512_obj, "1234567890")
-        crypto.hash_update(hmac_sha512_obj, "1234567890")
-        crypto.hash_update(hmac_sha512_obj, "1234567890")
-        local hmac_sha512_result = crypto.hash_finish(hmac_sha512_obj)
-        log.info("hmac_sha512_stream", hmac_sha512_result)
-        log.info("hmac_sha512", crypto.hmac_sha512("1234567890123456789012345678901234567890", "1234567890"))
+        if hmac_sha512_obj then
+            crypto.hash_update(hmac_sha512_obj, "1234567890")
+            crypto.hash_update(hmac_sha512_obj, "1234567890")
+            crypto.hash_update(hmac_sha512_obj, "1234567890")
+            crypto.hash_update(hmac_sha512_obj, "1234567890")
+            local hmac_sha512_result = crypto.hash_finish(hmac_sha512_obj)
+            log.info("hmac_sha512_stream", hmac_sha512_result)
+            log.info("hmac_sha512", crypto.hmac_sha512("1234567890123456789012345678901234567890", "1234567890"))
+        end
     end
 
+    log.info("crc7测试")
     if crypto.crc7 then
         local result = crypto.crc7(string.char(0xAA), 0xE5, 0x00)
         log.info("crc7测试", result, string.format("%02X", result))

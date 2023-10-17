@@ -56,9 +56,9 @@ sys.taskInit(function()
     -- DES-ECB 加解密
     local data1 = crypto.cipher_encrypt("DES-ECB", "PKCS7", "abcdefg", "12345678")
     if data1 then -- DES-ECB 在某些平台不支持的
-        print(data1:toHex())
+        log.info("des", data1:toHex())
         local data2 = crypto.cipher_decrypt("DES-ECB", "PKCS7", data1, "12345678")
-        print(data2)
+        log.info("des", data2)
     end
 
     -- 打印所有支持的cipher

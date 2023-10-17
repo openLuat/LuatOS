@@ -42,7 +42,7 @@ sys.taskInit(function()
         -- 密钥格式 C1C3C2
         log.info("==== SM2 网站兼容模式")
         local encodeStr = gmssl.sm2encrypt(pkx,pky,originStr, true)
-        print(originStr,"encrypt",string.toHex(encodeStr))
+        log.info("sm2", originStr,"encrypt",string.toHex(encodeStr))
         log.info("gmssl.sm2decrypt",gmssl.sm2decrypt(private,encodeStr,true))
     end
 
@@ -61,19 +61,19 @@ sys.taskInit(function()
         originStr = ">>SM4 ECB ZeroPadding test<<"
         --加密模式：ECB；填充方式：ZeroPadding；密钥：1234567890123456；密钥长度：128 bit
         encodeStr = gmssl.sm4encrypt("ECB","ZERO",originStr,passwd)
-        print(originStr,"encrypt",string.toHex(encodeStr))
+        log.info("加密对比", originStr,"encrypt",string.toHex(encodeStr))
         log.info("gmssl.sm4decrypt",gmssl.sm4decrypt("ECB","ZERO",encodeStr,passwd))
 
         originStr = ">>SM4 ECB Pkcs5Padding test<<"
         --加密模式：ECB；填充方式：Pkcs5Padding；密钥：1234567890123456；密钥长度：128 bit
         encodeStr = gmssl.sm4encrypt("ECB","PKCS5",originStr,passwd)
-        print(originStr,"encrypt",string.toHex(encodeStr))
+        log.info("加密对比", originStr,"encrypt",string.toHex(encodeStr))
         log.info("gmssl.sm4decrypt",gmssl.sm4decrypt("ECB","PKCS5",encodeStr,passwd))
 
         originStr = ">>SM4 CBC Pkcs5Padding test<<"
         --加密模式：CBC；填充方式：Pkcs5Padding；密钥：1234567890123456；密钥长度：128 bit；偏移量：1234567890666666
         encodeStr = gmssl.sm4encrypt("CBC","PKCS5",originStr,passwd,iv)
-        print(originStr,"encrypt",string.toHex(encodeStr))
+        log.info("加密对比", originStr,"encrypt",string.toHex(encodeStr))
         log.info("gmssl.sm4decrypt",gmssl.sm4decrypt("CBC","PKCS5",encodeStr,passwd, iv))
     end
 

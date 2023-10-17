@@ -24,6 +24,9 @@ end
 #include "luat_mobile.h"
 #endif
 #include "luat_mcu.h"
+#include "luat_fs.h"
+#include "luat_pm.h"
+#include "luat_malloc.h"
 
 #ifdef LUAT_USE_NETWORK
 
@@ -79,9 +82,9 @@ static LUAT_RT_RET_TYPE luat_errdump_rx_timer_callback(LUAT_RT_CB_PARAM);
 static int luat_errdump_network_callback(void *data, void *param)
 {
 	OS_EVENT *event = (OS_EVENT *)data;
-	int ret = 0;
+	// int ret = 0;
 	rtos_msg_t msg = {0};
-
+	(void)param;
 	if (event->Param1)
 	{
 		LLOGE("errdump fail, after %d second retry", econf.upload_period);
@@ -116,9 +119,11 @@ static void luat_errdump_make_data(lua_State *L)
 {
 	const char *project = "unkonw";
 	const char *version = "";
+#ifdef LUAT_USE_MOBILE
 	char imei[16] = {0};
+#endif
 	char *selfid = econf.custom_id;
-	char *sn = version;
+	const char *sn = version;
 	FILE* fd = NULL;
 	size_t len = 0;
 	if (econf.custom_id[0] == 0) {
@@ -177,15 +182,15 @@ static void luat_errdump_make_data(lua_State *L)
     	sn = econf.user_string;
     }
     OS_ReInitBuffer(&econf.tx_buf, file_len[LUAT_ERRDUMP_RECORD_TYPE_USR] + file_len[LUAT_ERRDUMP_RECORD_TYPE_SYS] + 128);
-    econf.tx_buf.Pos = sprintf_(econf.tx_buf.Data, "%s_LuatOS-SoC_%s_%s,%s,%s,%s,\r\n", project, luat_version_str(), luat_os_bsp(), version, selfid, sn);
+    econf.tx_buf.Pos = sprintf_((char*)econf.tx_buf.Data, "%s_LuatOS-SoC_%s_%s,%s,%s,%s,\r\n", project, luat_version_str(), luat_os_bsp(), version, selfid, sn);
     if (!econf.upload_poweron_reason_done)
     {
-    	econf.tx_buf.Pos += sprintf_(econf.tx_buf.Data + econf.tx_buf.Pos, "poweron reason:%d\r\n", luat_pm_get_poweron_reason());
+    	econf.tx_buf.Pos += sprintf_((char*)(econf.tx_buf.Data + econf.tx_buf.Pos), "poweron reason:%d\r\n", luat_pm_get_poweron_reason());
     }
     if (file_len[LUAT_ERRDUMP_RECORD_TYPE_SYS] > 0)
     {
     	fd = luat_fs_fopen(sys_error_log_file_path, "r");
-    	len = luat_fs_fread(econf.tx_buf.Data + econf.tx_buf.Pos, file_len[LUAT_ERRDUMP_RECORD_TYPE_SYS], 1, fd);
+    	len = luat_fs_fread((char*)(econf.tx_buf.Data + econf.tx_buf.Pos), file_len[LUAT_ERRDUMP_RECORD_TYPE_SYS], 1, fd);
     	if (len > 0)
     	{
     		econf.tx_buf.Pos += len;
@@ -212,6 +217,7 @@ static void luat_errdump_make_data(lua_State *L)
 
 static int32_t l_errdump_callback(lua_State *L, void* ptr)
 {
+	(void)ptr;
 	uint8_t response[16];
 	luat_ip_addr_t remote_ip;
 	uint16_t remote_port;
@@ -365,7 +371,7 @@ static LUAT_RT_RET_TYPE luat_errdump_rx_timer_callback(LUAT_RT_CB_PARAM)
 
 static LUAT_RT_RET_TYPE luat_errdump_timer_callback(LUAT_RT_CB_PARAM)
 {
-
+	(void)param;
 	if (!econf.upload_poweron_reason_done || luat_fs_fsize(sys_error_log_file_path) > 0 || luat_fs_fsize(user_error_log_file_path) > 0)
 	{
 		econf.is_uploading = 1;
@@ -601,7 +607,7 @@ static int l_errdump_record(lua_State *L) {
 		if (len)
 		{
 			econf.user_error_w_cnt++;
-			luat_errdump_save(user_error_log_file_path, str, len);
+			luat_errdump_save(user_error_log_file_path, (const uint8_t *)str, len);
 			econf.user_error_w_cnt++;
 		}
 	}

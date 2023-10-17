@@ -98,7 +98,7 @@ local function sys_run_time()
 	end
 end
 
-if mcu.tick64() then
+if mcu.tick64 then
 	sys.taskInit(sys_run_time)
 end
 

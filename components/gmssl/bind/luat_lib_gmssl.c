@@ -74,14 +74,15 @@ static void DeletePaddingBuf(luaL_Buffer *B, const char *pPadding, size_t nBufLe
 
 /*
 sm2算法加密
-@api sm.sm2encrypt(pkx,pky,data, mode)
+@api sm.sm2encrypt(pkx,pky,data, mode, mode2)
 @string 公钥x,必选. HEX字符串
 @string 公钥y,必选. HEX字符串
 @string 待计算的数据,必选,最长32字节, 非HEX字符串
 @boolean 输出模式,默认false. false-GMSSL默认格式, true-网站兼容模式
+@boolean 标准版本,默认false. false-C1C3C2新国际, true-C1C2C3老国际
 @return string 加密后的字符串, 原样输出,未经HEX转换. 若加密失败会返回nil或空字符串
 @usage
--- 提示 mode 参数是 2023.10.17 新增
+-- 提示 mode/mode2 参数是 2023.10.17 新增
 local originStr = "encryption standard"
 local pkx = "435B39CCA8F3B508C1488AFC67BE491A0F7BA07E581A0E4849A5CF70628A7E0A"
 local pky = "75DDBA78F15FEECB4C7895E2C1CDF5FE01DEBB2CDBADF45399CCF77BBA076A42"
@@ -121,6 +122,10 @@ static int l_sm2_encrypt(lua_State *L)
     if (lua_isboolean(L, 4)) {
         mode = lua_toboolean(L, 4);
     }
+    int mode2 = 0;
+    if (lua_isboolean(L, 5)) {
+        mode2 = lua_toboolean(L, 5);
+    }
 
     SM2_KEY sm2 = {0};
     SM2_POINT point = {0};
@@ -137,13 +142,23 @@ static int l_sm2_encrypt(lua_State *L)
     if (mode) {
         SM2_CIPHERTEXT C = {0};
         ret = sm2_do_encrypt(&sm2, (const uint8_t *)pBuf, pBufLen, &C);
-        // LLOGD("sm2_do_encrypt ret %d", ret);
-        // LLOGD("C->ciphertext_size %04X", C.ciphertext_size);
-        memcpy(out, &C.point.x, 32);
-        memcpy(out + 32, &C.point.y, 32);
-        memcpy(out + 64, C.hash, 32);
-        memcpy(out + 96, C.ciphertext, C.ciphertext_size);
-        olen = 96 + C.ciphertext_size;
+        if (ret == 0) {
+            if (mode2 == 0) {
+                memcpy(out, &C.point.x, 32);
+                memcpy(out + 32, &C.point.y, 32);
+                memcpy(out + 64, C.hash, 32);
+                memcpy(out + 96, C.ciphertext, C.ciphertext_size);
+                olen = 96 + C.ciphertext_size;
+            }
+            else {
+                out[0] = 0x04;
+                memcpy(out + 1, &C.point.x, 32);
+                memcpy(out + 32 + 1, &C.point.y, 32);
+                memcpy(out + 64 + 1, C.ciphertext, C.ciphertext_size);
+                memcpy(out + 64 + C.ciphertext_size + 1, C.hash, 32);
+                olen = 96 + C.ciphertext_size + 1;
+            }
+        }
     }
     else {
         ret = sm2_encrypt(&sm2, (const uint8_t *)pBuf, pBufLen, out, &olen);
@@ -158,13 +173,14 @@ static int l_sm2_encrypt(lua_State *L)
 
 /*
 sm2算法解密
-@api sm.sm2decrypt(private,data,mode)
+@api sm.sm2decrypt(private,data,mode,mode2)
 @string 私钥,必选,HEX字符串
 @string 待计算的数据,必选,原始数据,非HEX字符串
 @boolean 输出模式,默认false. false-GMSSL默认格式, true-网站兼容模式
+@boolean 标准版本,默认false. false-C1C3C2新国际, true-C1C2C3老国际
 @return string 解密后的字符串,未经HEX转换.若解密失败会返回nil或空字符串
 @usage
--- 提示 mode 参数是 2023.10.17 新增
+-- 提示 mode/mode2 参数是 2023.10.17 新增
 local originStr = "encryption standard"
 local pkx = "435B39CCA8F3B508C1488AFC67BE491A0F7BA07E581A0E4849A5CF70628A7E0A"
 local pky = "75DDBA78F15FEECB4C7895E2C1CDF5FE01DEBB2CDBADF45399CCF77BBA076A42"
@@ -186,6 +202,11 @@ static int l_sm2_decrypt(lua_State *L)
     if (lua_isboolean(L, 3)) {
         mode = lua_toboolean(L, 3);
     }
+    int mode2 = 0;
+    if (lua_isboolean(L, 4)) {
+        mode2 = lua_toboolean(L, 4);
+    }
+
 
     //检查参数合法性
     if((privateLen!=64))
@@ -206,11 +227,26 @@ static int l_sm2_decrypt(lua_State *L)
     if (mode) {
         // LLOGD("网站兼容模式");
         SM2_CIPHERTEXT C = {0};
-        C.ciphertext_size = (uint8_t)(pBufLen - 96);
-        memcpy(&C.point.x, pBuf, 32);
-        memcpy(&C.point.y, pBuf + 32, 32);
-        memcpy(C.hash, pBuf + 64, 32);
-        memcpy(C.ciphertext, pBuf + 96, C.ciphertext_size);
+        if (mode2 == 0) {
+            // LLOGD("C1C3C2");
+            C.ciphertext_size = (uint8_t)(pBufLen - 96);
+            // LLOGD("pBufLen %d ciphertext_size %d", pBufLen, C.ciphertext_size);
+            memcpy(&C.point.x, pBuf, 32);
+            memcpy(&C.point.y, pBuf + 32, 32);
+            memcpy(C.hash, pBuf + 64, 32);
+            memcpy(C.ciphertext, pBuf + 96, C.ciphertext_size);
+        }
+        else {
+            // LLOGD("C1C2C3");
+            pBuf ++;
+            pBufLen --;
+            C.ciphertext_size = (uint8_t)(pBufLen - 96);
+            // LLOGD("pBufLen %d ciphertext_size %d", pBufLen, C.ciphertext_size);
+            memcpy(&C.point.x, pBuf, 32);
+            memcpy(&C.point.y, pBuf + 32, 32);
+            memcpy(C.ciphertext, pBuf + 64, C.ciphertext_size);
+            memcpy(C.hash, pBuf + 64 + C.ciphertext_size, 32);
+        }
         ret = sm2_do_decrypt(&sm2, &C, (uint8_t *)out, &olen);
     }
     else {

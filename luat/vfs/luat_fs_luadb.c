@@ -84,7 +84,7 @@ int luat_luadb_open(luadb_fs_t *fs, const char *path, int flags, int /*mode_t*/ 
     if (f != NULL) {
         fs->fds[fd].fd_pos = 0;
         fs->fds[fd].file = f;
-        LLOGD("open luadb path = %s fd=%d", path, j);
+        LLOGD("open luadb path = %s fd=%d", path, fd);
         return fd;
     }
     return 0;

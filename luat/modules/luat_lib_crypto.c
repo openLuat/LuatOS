@@ -516,12 +516,20 @@ static int l_crypto_totp(lua_State *L) {
     char * secret = (char *)luat_heap_malloc(len+1);
     len = (size_t)luat_str_base32_decode((const uint8_t * )secret_base32,(uint8_t*)secret,len+1);
 
-    uint64_t t = (uint64_t)(luaL_optinteger(L,2,(lua_Integer)time(NULL))/30);
-    uint8_t data[sizeof(t)] = {0};
-    for(size_t i=0;i<sizeof(t);i++)
-        data[sizeof(t)-1-i] = *(((uint8_t*)&t)+i);
+    uint64_t t = 0;
+    if (lua_isinteger(L, 2)) {
+        t = (uint64_t)(luaL_checkinteger(L, 2))/30;
+    }
+    else {
+        t = (uint64_t)(time(NULL)/30);
+    }
+    uint8_t data[sizeof(uint64_t)] = {0};
+    for(size_t i=0;i<sizeof(uint64_t);i++)
+        data[sizeof(uint64_t)-1-i] = *(((uint8_t*)&t)+i);
     uint8_t hmac[20] = {0};
-    if(luat_crypto_hmac_sha1_simple((const char *)data, sizeof(data), (const char *)secret, len, hmac) == 0)
+    int ret = luat_crypto_hmac_sha1_simple((const char *)data, sizeof(data), (const char *)secret, len, hmac);
+    luat_heap_free(secret);
+    if(ret == 0)
     {
         uint8_t offset = hmac[19] & 0x0f;
         uint32_t r = (

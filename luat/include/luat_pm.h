@@ -62,35 +62,95 @@ enum
 	LUAT_PM_LDO_TYPE_QTY,
 };
 
+/**
+ * @brief 请求进入指定的休眠模式
+ * @param mode 休眠模式 见LUAT_PM_SLEEP_MODE_XXX
+ * @return int =0成功，其他失败
+ */
 int luat_pm_request(int mode);
 
 int luat_pm_release(int mode);
 
+/**
+ * @brief 启动底层定时器,在休眠模式下依然生效. 只触发一次
+ * @param id 定时器id, 通常为0-3
+ * @param timeout 定时时长, 单位毫秒
+ * @return int =0成功，其他失败
+ */
 int luat_pm_dtimer_start(int id, size_t timeout);
 
+/**
+ * @brief 停止底层定时器
+ * @param id 定时器id, 通常为0-3
+ * @return int =0成功，其他失败
+ */
 int luat_pm_dtimer_stop(int id);
 
+/**
+ * @brief 检查底层定时器运行状态
+ * @param id 定时器id, 通常为0-3
+ * @return int =1正在运行，0为未运行
+ */
 int luat_pm_dtimer_check(int id);
 
 // void luat_pm_cb(int event, int arg, void* args);
 
+/**
+ * @brief 唤醒原因,用于判断是从开机是否是由休眠状态下开机/唤醒
+ * @param lastState 0-上电/复位开机, 1-RTC开机, 2-WakeupIn/Pad/IO开机, 3-Wakeup/RTC开机
+ * @param rtcOrPad 0-普通开机(上电/复位),3-深睡眠开机,4-休眠开机
+ * @return int =0成功，其他失败
+ */
 int luat_pm_last_state(int *lastState, int *rtcOrPad);
 
+/**
+ * @brief 强制进入指定的休眠模式，忽略某些外设的影响，比如USB
+ * @param mode 休眠模式 见LUAT_PM_SLEEP_MODE_XXX
+ * @return int =0成功，其他失败
+ */
 int luat_pm_force(int mode);
 
+/**
+ * @brief 检查休眠状态
+ * @return int ，见LUAT_PM_SLEEP_MODE_XXX
+ */
 int luat_pm_check(void);
 
 int luat_pm_dtimer_list(size_t* count, size_t* list);
 
+/**
+ * @brief 获取唤醒定时器id
+ * @param id  唤醒的定时id
+ * @return int =0成功，其他失败
+ */
 int luat_pm_dtimer_wakeup_id(int* id);
 
+/**
+ * @brief 关机
+ * 
+ */
 int luat_pm_poweroff(void);
 
+/**
+ * @brief 重启
+ * 
+ */
 int luat_pm_reset(void);
 
+/**
+ * @brief 开启内部的电源控制，注意不是所有的平台都支持，可能部分平台支持部分选项，看硬件
+ * @param id  电源控制id, 见LUAT_PM_POWER_XXX 
+ * @param val  开关true/1开，false/0关，默认关，部分选项支持数值
+ * @return int =0成功，其他失败
+ */
 int luat_pm_power_ctrl(int id, uint8_t val);
 
+/**
+ * @brief 开机原因
+ * @return int ，见LUAT_PM_POWERON_REASON
+ */
 int luat_pm_get_poweron_reason(void);
+
 
 int luat_pm_iovolt_ctrl(int id, int val);
 

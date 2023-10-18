@@ -391,11 +391,10 @@ static int l_sm4_encrypt(lua_State *L)
         if(strcmp(pMode, "ECB") == 0)
         {
             //开始分组加密，每16字节一组
+            char out[SM4_BLOCK_LEN];
             while(nRmnLen>0)
             {
-                // sm4_ecb_encrypt(pInBuf+nBufLen-nRmnLen,pInBuf+nBufLen-nRmnLen,&sm4_key,1);
-                char out[SM4_BLOCK_LEN];
-                sm4_encrypt(&sm4_key, (uint8_t*)(pBuf+nBufLen-nRmnLen), (uint8_t*)out);
+                sm4_encrypt(&sm4_key, (uint8_t*)(pInBuf+nBufLen-nRmnLen), (uint8_t*)out);
                 luaL_addlstring(&b, out, SM4_BLOCK_LEN);
                 nRmnLen -= SM4_BLOCK_LEN;
             }

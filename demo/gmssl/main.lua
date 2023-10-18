@@ -21,7 +21,7 @@ end
 
 sys.taskInit(function()
 
-    sys.wait(3000)
+    sys.wait(1000)
     log.info("gmssl", "start")
 
     -- SM2 , 非对称加密, 类似于RSA,但属于椭圆算法
@@ -75,6 +75,17 @@ sys.taskInit(function()
         encodeStr = gmssl.sm4encrypt("CBC","PKCS5",originStr,passwd,iv)
         log.info("加密对比", originStr,"encrypt",string.toHex(encodeStr))
         log.info("gmssl.sm4decrypt",gmssl.sm4decrypt("CBC","PKCS5",encodeStr,passwd, iv))
+
+        -- 完全对齐16字节的对比测试
+        originStr = "1234567890123456"
+        encodeStr = gmssl.sm4encrypt("ECB","PKCS7",originStr,passwd)
+        log.info("sm4.ecb.pkcs7", encodeStr:toHex())
+        encodeStr = gmssl.sm4encrypt("ECB","PKCS5",originStr,passwd)
+        log.info("sm4.ecb.pkcs5", encodeStr:toHex())
+        encodeStr = gmssl.sm4encrypt("ECB","ZERO",originStr,passwd)
+        log.info("sm4.ecb.zero", encodeStr:toHex())
+        encodeStr = gmssl.sm4encrypt("ECB","NONE",originStr,passwd)
+        log.info("sm4.ecb.none", encodeStr:toHex())
     end
 
     log.info("gmssl", "ALL Done")

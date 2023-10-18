@@ -469,7 +469,7 @@ int network_close(network_ctrl_t *ctrl, uint32_t timeout_ms);
  * timeout_ms=0时，为非阻塞接口
  * UDP的时候，remote_ip和remote_port和connect不一致的时候才需要remote_ip和remote_port
  * TCP不看remote_ip和remote_port
- * 则塞模式，*tx_len不需要看，非则塞模式需要看*tx_len的实际长度是不是和len一致
+ * 阻塞模式，*tx_len不需要看，非阻塞模式需要看*tx_len的实际长度是不是和len一致
  */
 int network_tx(network_ctrl_t *ctrl, const uint8_t *data, uint32_t len, int flags, luat_ip_addr_t *remote_ip, uint16_t remote_port, uint32_t *tx_len, uint32_t timeout_ms);
 /*

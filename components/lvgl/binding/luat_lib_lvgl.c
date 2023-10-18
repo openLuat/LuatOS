@@ -74,7 +74,7 @@ static int luat_lv_scr_load(lua_State *L) {
 };
 /*
 载入指定的screen并使用指定的转场动画
-@api lvgl.scr_load(scr)
+@api lvgl.scr_load_anim(scr)
 @userdata screen指针
 @usage
     local scr = lvgl.obj_create(nil, nil)

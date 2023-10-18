@@ -82,7 +82,7 @@ static int l_fskvdb_init(lua_State *L) {
         }
         fskv_inited = 1;
 #else
-        fskv_inited = luat_fskv_init();
+        fskv_inited = luat_fskv_init() == 0;
 #endif
     }
     lua_pushboolean(L, fskv_inited);

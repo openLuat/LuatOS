@@ -1,6 +1,6 @@
 #ifndef LUAT_MEM_H
 #define LUAT_MEM_H
-
+#include "luat_malloc.h"
 
 #define LUAT_MEM_MALLOC luat_heap_malloc
 #define LUAT_MEM_FREE luat_heap_free

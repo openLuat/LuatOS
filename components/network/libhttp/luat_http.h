@@ -43,6 +43,7 @@ typedef struct{
 	char *req_body;				//发送body
 	size_t req_body_len;		//发送body长度
 	uint8_t custom_host;        // 是否自定义Host了
+	char *req_auth;
 
 #ifdef LUAT_USE_FOTA
 	//OTA相关

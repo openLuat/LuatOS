@@ -10,7 +10,7 @@
 #include "luat_http.h"
 #include "luat_fota.h"
 #include "luat_timer.h"
-
+#include "luat_str.h"
 #define LUAT_LOG_TAG "http"
 #include "luat_log.h"
 
@@ -69,6 +69,10 @@ int http_close(luat_http_ctrl_t *http_ctrl){
 	if (http_ctrl->body){
 		luat_heap_free(http_ctrl->body);
 		http_ctrl->body = NULL;
+	}
+	if (http_ctrl->req_auth) {
+		luat_heap_free(http_ctrl->req_auth);
+		http_ctrl->req_auth = NULL;
 	}
 	luat_heap_free(http_ctrl);
 	return 0;
@@ -216,11 +220,12 @@ static int on_complete(http_parser* parser, luat_http_ctrl_t *http_ctrl){
     LLOGD("on_complete");
 	// http_ctrl->body[http_ctrl->body_len] = 0x00;
 	LLOGD("status_code:%d",parser->status_code);
-	LLOGD("content_length:%lld",parser->content_length);
+	// LLOGD("content_length:%lld",parser->content_length);
 	if (http_ctrl->fd != NULL) {
 		luat_fs_fclose(http_ctrl->fd);
 		http_ctrl->fd = NULL;
 	}
+	(void)parser;
 #ifdef LUAT_USE_FOTA
 	else if(http_ctrl->isfota){
 		if (parser->status_code == 200 || parser->status_code == 206){
@@ -318,6 +323,10 @@ static void http_send_message(luat_http_ctrl_t *http_ctrl){
 	if (http_ctrl->headers_complete){
 		snprintf_((char*)http_ctrl->resp_buff, HTTP_RESP_BUFF_SIZE,  "Range: bytes=%d-\r\n", http_ctrl->body_len);
 		http_send(http_ctrl, (uint8_t*)http_ctrl->resp_buff, strlen((char*)http_ctrl->resp_buff));
+	}
+
+	if (http_ctrl->req_auth) {
+		http_send(http_ctrl, (uint8_t*)http_ctrl->req_auth, strlen((char*)http_ctrl->req_auth));
 	}
 	
 	// 发送自定义头部
@@ -473,7 +482,10 @@ int http_set_url(luat_http_ctrl_t *http_ctrl, const char* url, const char* metho
         LLOGI("url too short %s", url);
         return -1;
     }
-	char tmphost[256] = {0};
+	#define HOST_MAX_LEN (256)
+	#define AUTH_MAX_LEN (128)
+	char tmphost[HOST_MAX_LEN] = {0};
+	char tmpauth[AUTH_MAX_LEN] = {0};
     const char *tmpuri = NULL;
     for (size_t i = 0; i < tmplen; i++){
         if (tmp[i] == '/') {
@@ -496,8 +508,19 @@ int http_set_url(luat_http_ctrl_t *http_ctrl, const char* url, const char* metho
     if (strlen(tmpuri) == 0) {
         tmpuri = "/";
     }
+	// 先判断有无鉴权信息
+	for (size_t i = 1; i < AUTH_MAX_LEN; i++){
+		if (tmphost[i] == '@') {
+			memcpy(tmpauth, tmphost, i);
+			memmove(tmphost, tmphost + i + 1, strlen(tmphost) - i - 1);
+			tmphost[strlen(tmphost) - i - 1] = 0x00;
+			break;
+		}
+    }
     // LLOGD("tmphost:%s",tmphost);
+	// LLOGD("tmpauth:%s", tmpauth);
 	// LLOGD("tmpuri:%s",tmpuri);
+
     for (size_t i = 1; i < strlen(tmphost); i++){
 		if (tmphost[i] == ':') {
 			tmphost[i] = '\0';
@@ -517,6 +540,19 @@ int http_set_url(luat_http_ctrl_t *http_ctrl, const char* url, const char* metho
         LLOGE("out of memory when malloc host");
         return -1;
     }
+	if (tmpauth[0]) {
+		size_t tmplen = 0;
+		http_ctrl->req_auth = luat_heap_malloc(strlen(tmpauth) * 2 + 64);
+		if (http_ctrl->req_auth == NULL) {
+        	LLOGE("out of memory when malloc auth");
+        	return -1;
+    	}
+		memset(http_ctrl->req_auth, 0, strlen(tmpauth) * 2 + 64);
+		memcpy(http_ctrl->req_auth, "Authorization: Basic ", strlen("Authorization: Basic "));
+		luat_str_base64_encode((unsigned char *)http_ctrl->req_auth + strlen(http_ctrl->req_auth), 
+			strlen(tmpauth) * 2, &tmplen, (const unsigned char *)tmpauth, strlen(tmpauth));
+		memcpy(http_ctrl->req_auth + strlen(http_ctrl->req_auth), "\r\n", 2);
+	}
     memcpy(http_ctrl->host, tmphost, strlen(tmphost) + 1);
 
 	size_t linelen = strlen((char*)method) + strlen((char*)tmpuri) + 16;

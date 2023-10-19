@@ -38,6 +38,13 @@ int luat_flash_erase(size_t addr, size_t len);
 
 
 /**
+ * @brief 获取kv起始地址与长度
+ * @param len kv大小, 与具体设备相关
+ * @return size_t = 0错误 !=0 正常
+ */
+size_t luat_flash_get_fskv_addr(size_t *len);
+
+/**
  * @}
  */
 #endif

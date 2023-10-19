@@ -139,7 +139,7 @@ static int l_sm2_encrypt(lua_State *L)
 
     uint8_t out[SM2_MAX_CIPHERTEXT_SIZE] = {0};
     size_t olen = 0;
-    if (mode) {
+    if (mode == 1) {
         SM2_CIPHERTEXT C = {0};
         ret = sm2_do_encrypt(&sm2, (const uint8_t *)pBuf, pBufLen, &C);
         if (ret == 1) {
@@ -185,8 +185,7 @@ local originStr = "encryption standard"
 local pkx = "435B39CCA8F3B508C1488AFC67BE491A0F7BA07E581A0E4849A5CF70628A7E0A"
 local pky = "75DDBA78F15FEECB4C7895E2C1CDF5FE01DEBB2CDBADF45399CCF77BBA076A42"
 local private = "1649AB77A00637BD5E2EFE283FBF353534AA7F7CB89463F208DDBC2920BB0DA0"
-local rand = "4C62EEFD6ECFC2B95B92FD6C3D9575148AFA17425546D49018E5388D49DD7B4F"
-local encodeStr = gmssl.sm2encrypt(pkx,pky,rand,originStr)
+local encodeStr = gmssl.sm2encrypt(pkx,pky,originStr)
 print(originStr,"encrypt",string.toHex(encodeStr))
 log.info("testsm.sm2decrypt",gmssl.sm2decrypt(private,encodeStr))
 */
@@ -560,6 +559,121 @@ static int l_sm4_decrypt(lua_State *L)
     }
 }
 
+
+/*
+sm2算法签名
+@api sm.sm2sign(private,data,id)
+@string 私钥,必选,HEX字符串
+@string 待计算的数据,必选,原始数据,非HEX字符串
+@string id值,非HEX字符串,可选,不填就是nil
+@return string 前面字符串,未经HEX转换.若签名失败会返回nil
+@usage
+-- 本API于 2023.10.19 新增
+-- 具体用法请查阅demo
+*/
+static int l_sm2_sign(lua_State *L)
+{
+    int ret = 0;
+    size_t pkLen = 0;
+    size_t pBufLen = 0;
+    size_t idLen = 0;
+    uint8_t sig[SM2_MAX_SIGNATURE_SIZE];
+    size_t siglen = 0;
+    const char *pk =   luaL_checklstring(L, 1, &pkLen);
+    const char *pBuf = luaL_checklstring(L, 2 ,&pBufLen);
+    const char *id =   luaL_optlstring(L, 3, "", &idLen);
+
+    SM2_SIGN_CTX ctx = {0};
+    SM2_KEY key = {0};
+    uint8_t pkey[32] = {0};
+    if (pkLen != 64) {
+        LLOGW("private key len must be 64 byte HEX string");
+        return 0;
+    }
+
+    luat_str_fromhex(pk, 64, (char*)pkey);
+    sm2_key_set_private_key(&key, (const uint8_t*)pkey);
+    ret = sm2_sign_init(&ctx, &key, idLen > 0 ? id : NULL, idLen);
+    if (ret != 1) {
+        LLOGW("sm2_sign_init %d", ret);
+        return 0;
+    }
+    ret = sm2_sign_update(&ctx, (const uint8_t*)pBuf, pBufLen);
+    if (ret != 1) {
+        LLOGW("sm2_sign_update %d", ret);
+        return 0;
+    }
+    ret = sm2_sign_finish(&ctx, (uint8_t*)sig, &siglen);
+    if (ret != 1) {
+        LLOGW("sm2_sign_finish %d", ret);
+        return 0;
+    }
+    if (ret == 1) {
+        lua_pushlstring(L, (const char*)sig, siglen);
+        return 1;
+    }
+    return 0;
+}
+
+
+
+/*
+sm2算法验签
+@api sm.sm2verify(pkx, pky, data, id, sig)
+@string 公钥X,必选,HEX字符串
+@string 公钥Y,必选,HEX字符串
+@string 待计算的数据,必选,原始数据,非HEX字符串
+@string id值,非HEX字符串,可选,不填就是nil
+@string 签名数据,通常是72字节,非HEX字符串
+@return boolean 验证成功返回true,否则返回nil
+@usage
+-- 本API于 2023.10.19 新增
+-- 具体用法请查阅demo
+*/
+static int l_sm2_verify(lua_State *L)
+{    
+    int ret = 0;
+    size_t pkxLen = 0;
+    size_t pkyLen = 0;
+    size_t pBufLen = 0;
+    size_t idLen = 0;
+    size_t siglen = 0;
+    const char *pkx =  luaL_checklstring(L, 1, &pkxLen);
+    const char *pky =  luaL_checklstring(L, 2, &pkyLen);
+    const char *pBuf = luaL_checklstring(L, 3, &pBufLen);
+    const char *id =   luaL_optlstring(L, 4, "", &idLen);
+    const char *sig = luaL_checklstring(L, 5, &siglen);
+
+    if (pkxLen != 64 || pkyLen != 64) {
+        LLOGW("public key x/y len must be 64 byte HEX string");
+        return 0;
+    }
+
+    SM2_SIGN_CTX ctx = {0};
+    SM2_KEY key = {0};
+    
+    luat_str_fromhex(pkx, 64, (char*)key.public_key.x);
+    luat_str_fromhex(pky, 64, (char*)key.public_key.y);
+
+    ret = sm2_verify_init(&ctx, &key, idLen > 0 ? id : NULL, idLen);
+    if (ret != 1) {
+        LLOGW("sm2_verify_init %d", ret);
+        return 0;
+    }
+    ret = sm2_verify_update(&ctx, (const uint8_t*)pBuf, pBufLen);
+    if (ret != 1) {
+        LLOGW("sm2_verify_update %d", ret);
+        return 0;
+    }
+    ret = sm2_verify_finish(&ctx, (const uint8_t*)sig, siglen);
+    if (ret != 1) {
+        LLOGW("sm2_verify_finish %d", ret);
+        return 0;
+    }
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_gmssl[] =
 {
@@ -570,6 +684,8 @@ static const rotable_Reg_t reg_gmssl[] =
     { "sm3hmac",         ROREG_FUNC(l_sm3hmac_update)},
     { "sm4encrypt",      ROREG_FUNC(l_sm4_encrypt)},
     { "sm4decrypt",      ROREG_FUNC(l_sm4_decrypt)},
+    { "sm2sign",         ROREG_FUNC(l_sm2_sign)},
+    { "sm2verify",       ROREG_FUNC(l_sm2_verify)},
 
 	{ NULL,             ROREG_INT(0) }
 };

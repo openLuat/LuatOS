@@ -142,7 +142,7 @@ static int l_sm2_encrypt(lua_State *L)
     if (mode) {
         SM2_CIPHERTEXT C = {0};
         ret = sm2_do_encrypt(&sm2, (const uint8_t *)pBuf, pBufLen, &C);
-        if (ret == 0) {
+        if (ret == 1) {
             if (mode2 == 0) {
                 memcpy(out, &C.point.x, 32);
                 memcpy(out + 32, &C.point.y, 32);

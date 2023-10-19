@@ -1,3 +1,4 @@
+#ifdef __LUATOS__
 #include "luat_base.h"
 #include "luat_fskv.h"
 #include "luat_malloc.h"
@@ -123,3 +124,4 @@ int luat_fskv_next(char* buff, size_t offset) {
     lfs_dir_close(&sfd_lfs->lfs, &dir);
     return 0;
 }
+#endif

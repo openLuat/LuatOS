@@ -1,3 +1,4 @@
+#ifndef __LUATOS__
 #include "luat_base.h"
 #include "luat_fskv.h"
 #include "lfs.h"
@@ -232,3 +233,4 @@ int luat_fskv_init(void)
     return 0;
 
 }
+#endif

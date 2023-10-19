@@ -221,11 +221,11 @@ static int on_complete(http_parser* parser, luat_http_ctrl_t *http_ctrl){
 	// http_ctrl->body[http_ctrl->body_len] = 0x00;
 	LLOGD("status_code:%d",parser->status_code);
 	// LLOGD("content_length:%lld",parser->content_length);
+	(void)parser;
 	if (http_ctrl->fd != NULL) {
 		luat_fs_fclose(http_ctrl->fd);
 		http_ctrl->fd = NULL;
 	}
-	(void)parser;
 #ifdef LUAT_USE_FOTA
 	else if(http_ctrl->isfota){
 		if (parser->status_code == 200 || parser->status_code == 206){

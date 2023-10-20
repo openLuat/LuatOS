@@ -7,8 +7,9 @@
 #define Luat_CAMERA_H
 
 #include "luat_base.h"
+#ifdef __LUATOS__
 #include "luat_lcd.h"
-
+#endif
 typedef struct luat_camera_conf
 {
     uint8_t id;
@@ -26,7 +27,11 @@ typedef struct luat_camera_conf
 	uint8_t id_value;
     size_t init_cmd_size;
     uint8_t *init_cmd;
+#ifdef __LUATOS__
     luat_lcd_conf_t* lcd_conf;
+#else
+    void *lcd_conf;
+#endif
 } luat_camera_conf_t;
 
 typedef struct
@@ -44,8 +49,9 @@ typedef struct
 	uint8_t is_two_line_rx; //0 or 1;
 	uint8_t seq_type;	//0 or 1
 } luat_spi_camera_t;
-
+#ifdef __LUATOS__
 int l_camera_handler(lua_State *L, void* ptr);
+#endif
 /**
  * @brief 配置spi camera并且初始化camera
  * @param id camera接收数据总线ID，ec618上有2条，0和1

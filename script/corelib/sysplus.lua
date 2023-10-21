@@ -89,6 +89,10 @@ end
 -- @return msg or false 成功返回table型的msg，超时返回false
 -- @usage sysplus.waitMsg('a', 'b', 1000)
 function sysplus.waitMsg(taskName, target, ms)
+    if taskList[taskName] == nil then
+        log.error("sysplus", "sys.taskInitEx启动的task才能使用waitMsg")
+        return false
+    end
     local msg = false
     local message = nil
     if #taskList[taskName].msgQueue > 0 then

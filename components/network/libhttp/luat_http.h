@@ -63,7 +63,7 @@ typedef void (*luat_http_cb)(int status, void *data, uint32_t data_len, void *us
 
 typedef struct{
 	network_ctrl_t *netc;		// http netc
-	http_parser  parser;
+	http_parser  parser;	    //解析相关
 	char *host; 			/**< http host，需要释放 */
 	char* request_line;	/**< 需要释放，http请求的首行数据*/
 	uint16_t remote_port; 		/**< 远程端口号 */
@@ -84,8 +84,6 @@ typedef struct{
 	char *req_body;				//发送body
 	size_t req_body_len;		//发送body长度
 	char *req_auth;
-	//解析相关
-	http_parser  parser;
 #ifdef LUAT_USE_FOTA
 	//OTA相关
 	uint8_t isfota;				//是否为ota下载

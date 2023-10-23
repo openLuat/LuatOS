@@ -447,7 +447,7 @@ static int l_fskv_iter(lua_State *L) {
 
 /**
 kv迭代器获取下一个key
-@api fskv.iter(iter)
+@api fskv.next(iter)
 @userdata fskv.iter()返回的指针
 @return string 成功返回字符串key值, 否则返回nil
 @usage

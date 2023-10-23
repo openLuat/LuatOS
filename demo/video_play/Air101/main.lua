@@ -18,7 +18,7 @@ _G.sys = require("sys")
 
 sys.taskInit(function()
     sdio.init(0)
-    sdio.sd_mount(0,"/sd",0)
+    sdio.sd_mount(fatfs.SDIO, "/sd", 0)
 
     spi_lcd = spi.deviceSetup(0,pin.PB04,0,0,8,20*1000*1000,spi.MSB,1,1)
     lcd.init("st7735s",{port = "device",pin_dc = pin.PB01, pin_pwr = pin.PB00, pin_rst = pin.PB03,direction = 2,w = 160,h = 80,xoffset = 1,yoffset = 26},spi_lcd)

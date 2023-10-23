@@ -10,13 +10,20 @@ _G.sys = require("sys")
 接线要求:
 
 SPI 使用常规4线解法
-Air105开发板         TF模块
-PB3                  CS
-PB2(SPI2_CLK)        CLK
-PB4(SPI2_MISO)       MOSI
-PB5(SPI2_MISO)       MISO
-3.3V                 VCC
-GND                  GND
+开发板(Air105)         TF模块
+PB3                    CS
+PB2(SPI2_CLK)          CLK
+PB4(SPI2_MISO)         MOSI
+PB5(SPI2_MISO)         MISO
+3.3V                   VCC
+GND                    GND
+
+核心要义: 找对应SPI端口的3个脚, CLK时钟, MISO和MOSI, CS脚可以选硬件默认的,也可以自选一个普通GPIO
+
+SD/TF模块请选不带电平装好的版本!!
+https://detail.tmall.com/item.htm?abbucket=10&id=634710962749&ns=1&spm=a21n57.1.0.0.696f523csnpBFA&skuId=4710673879054
+
+如果是带电平转换的, SPI波特率要限制在10M或以下
 ]]
 
 -- 特别提醒, 由于FAT32是DOS时代的产物, 文件名超过8个字节是需要额外支持的(需要更大的ROM)
@@ -45,7 +52,8 @@ local function fatfs_spi_pin()
 end
 
 sys.taskInit(function()
-    --fatfs.debug(1) -- 若挂载失败,可以尝试打开调试信息,查找原因
+    sys.wait(1000)
+    -- fatfs.debug(1) -- 若挂载失败,可以尝试打开调试信息,查找原因
 
     -- 此为spi方式
     local spi_id,pin_cs = fatfs_spi_pin() 

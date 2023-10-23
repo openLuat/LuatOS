@@ -36,7 +36,7 @@ sys.taskInit(function()
     local TF_CS = pin.PB3
     gpio.setup(TF_CS, 1)
     --fatfs.debug(1) -- 若挂载失败,可以尝试打开调试信息,查找原因
-    fatfs.mount("SD", spiId, TF_CS, 24000000)
+    fatfs.mount(fatfs.SPI,"/sd", spiId, TF_CS, 24000000)
     local data, err = fatfs.getfree("SD")
     if data then
         log.info("fatfs", "getfree", json.encode(data))

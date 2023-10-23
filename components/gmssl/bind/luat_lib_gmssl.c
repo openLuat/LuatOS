@@ -590,6 +590,10 @@ static int l_sm2_sign(lua_State *L)
         LLOGW("private key len must be 64 byte HEX string");
         return 0;
     }
+    if (pBufLen < 1) {
+        LLOGW("待签名数据不能为空字符串");
+        return 0;
+    }
 
     luat_str_fromhex(pk, 64, (char*)pkey);
     sm2_key_set_private_key(&key, (const uint8_t*)pkey);
@@ -646,6 +650,14 @@ static int l_sm2_verify(lua_State *L)
 
     if (pkxLen != 64 || pkyLen != 64) {
         LLOGW("public key x/y len must be 64 byte HEX string");
+        return 0;
+    }
+    if (pBufLen < 1) {
+        LLOGW("待签名数据不能为空字符串");
+        return 0;
+    }
+    if (siglen < SM2_signature_compact_size || siglen > SM2_signature_max_size) {
+        LLOGW("sig数据长度应该在70到72之间,当前传入值的长度不合法");
         return 0;
     }
 

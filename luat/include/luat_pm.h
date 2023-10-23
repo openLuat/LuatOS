@@ -97,8 +97,8 @@ int luat_pm_dtimer_check(int id);
 
 /**
  * @brief 唤醒原因,用于判断是从开机是否是由休眠状态下开机/唤醒
- * @param lastState 0-上电/复位开机, 1-RTC开机, 2-WakeupIn/Pad/IO开机, 3-Wakeup/RTC开机
- * @param rtcOrPad 0-普通开机(上电/复位),3-深睡眠开机,4-休眠开机
+ * @param lastState 0-普通开机(上电/复位),3-深睡眠开机,4-休眠开机
+ * @param rtcOrPad 0-上电/复位开机, 1-RTC开机, 2-WakeupIn/Pad/IO开机, 3-Wakeup/RTC开机
  * @return int =0成功，其他失败
  */
 int luat_pm_last_state(int *lastState, int *rtcOrPad);

@@ -312,7 +312,7 @@ static void tls_dbg(void *data, int level,
         const char *file, int line,
         const char *str)
 {
-	DBG_Printf("%s %d:%s", file, line, str);
+	(void)data;(void)level;DBG_Printf("%s %d:%s", file, line, str);
 }
 
 static int tls_send(void *ctx, const unsigned char *buf, size_t len )
@@ -1104,7 +1104,7 @@ static int32_t network_default_socket_callback(void *data, void *param)
 		}
 		else
 		{
-			DBG_ERR("cb ctrl invaild %x", ctrl);
+			DBG_ERR("cb ctrl invaild %x %08X", ctrl, event->ID);
 			DBG_HexPrintf(&ctrl->tag, 8);
 			DBG_HexPrintf(&cb_param->tag, 8);
 		}
@@ -2082,7 +2082,7 @@ NETWORK_CONNECT_WAIT:
 		return 1;
 	}
 	uint8_t finish = 0;
-	OS_EVENT event;
+	OS_EVENT event = {0};
 	int result;
 	//DBG_INFO("%s wait for active!,%u,%x", Net->Tag, To * SYS_TICK, Net->hTask);
 

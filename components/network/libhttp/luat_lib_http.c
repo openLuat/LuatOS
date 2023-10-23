@@ -115,7 +115,7 @@ log.info("http.get", code, headers, body)
 http.request("GET","http://httpbin.com/", nil, nil, {timeout=5000}).wait()
 */
 static int l_http_request(lua_State *L) {
-	size_t server_cert_len,client_cert_len, client_key_len, client_password_len,len;
+	size_t server_cert_len = 0,client_cert_len = 0, client_key_len = 0, client_password_len = 0,len = 0;
 	const char *server_cert = NULL;
 	const char *client_cert = NULL;
 	const char *client_key = NULL;
@@ -225,12 +225,12 @@ static int l_http_request(lua_State *L) {
 		goto error;
 	}
 
-	http_ctrl->netc = network_alloc_ctrl(adapter_index);
+	http_ctrl->netc = network_alloc_ctrl((uint8_t)adapter_index);
 	if (!http_ctrl->netc){
 		LLOGE("netc create fail");
 		goto error;
 	}
-	http_ctrl->netc->is_debug = is_debug;
+	http_ctrl->netc->is_debug = (uint8_t)is_debug;
 
     luat_http_client_init(http_ctrl, use_ipv6);
 
@@ -403,8 +403,8 @@ int32_t l_http_callback(lua_State *L, void* ptr){
 			value++;
 		}
 		temp = strstr(value,"\r\n")+2;
-		header_len = value-header-1;
-		value_len = temp-value-2;
+		header_len = (uint16_t)(value-header)-1;
+		value_len = (uint16_t)(temp-value)-2;
 		LLOGD("header:%.*s",header_len,header);
 		LLOGD("value:%.*s",value_len,value);
 		lua_pushlstring(L, header,header_len);

@@ -48,7 +48,14 @@ typedef struct
 	uint8_t is_msb;	//0 or 1;
 	uint8_t is_two_line_rx; //0 or 1;
 	uint8_t seq_type;	//0 or 1
+    uint8_t image_scan;
+    uint8_t draw_lcd;
 	uint8_t plat_param[4];
+#ifdef __LUATOS__
+    luat_lcd_conf_t* lcd_conf;
+#else
+    void *lcd_conf;
+#endif
 } luat_spi_camera_t;
 #ifdef __LUATOS__
 int l_camera_handler(lua_State *L, void* ptr);

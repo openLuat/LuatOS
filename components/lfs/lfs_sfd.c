@@ -2,8 +2,6 @@
 #
 #include "luat_base.h"
 #include "luat_sfd.h"
-#include "luat_spi.h"
-#include "luat_gpio.h"
 #include "luat_malloc.h"
 
 #include "lfs.h"

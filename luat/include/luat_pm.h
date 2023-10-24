@@ -2,7 +2,10 @@
 #ifndef LUAT_PM_H
 #define LUAT_PM_H
 #include "luat_base.h"
-
+/**
+ * @defgroup luatos_device_pm 电源管理类（低功耗）
+ * @{
+*/
 #define LUAT_PM_SLEEP_MODE_NONE     0	//系统处于活跃状态，未采取任何的降低功耗状态
 #define LUAT_PM_SLEEP_MODE_IDLE     1	//空闲模式，该模式在系统空闲时停止 CPU 和部分时钟，任意事件或中断均可以唤醒
 #define LUAT_PM_SLEEP_MODE_LIGHT    2	//轻度睡眠模式，CPU 停止，多数时钟和外设停止
@@ -163,4 +166,5 @@ int luat_pm_wakeup_pin(int pin, int val);
  * @note 和luat_pm_set_sleep_mode，luat_pm_set_usb_power冲突，不可以同时使用
  */
 int luat_pm_set_power_mode(uint8_t mode, uint8_t sub_mode);
+/** @}*/
 #endif

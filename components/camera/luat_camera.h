@@ -94,5 +94,21 @@ int luat_camera_stop(int id);
  */
 int luat_camera_close(int id);
 int luat_camera_capture(int id, uint8_t quality, const char *path);
+/*
+ * @brief 扫码库初始化
+ * @param type 扫码库型号，目前只支持0
+ * @param stack 扫码库任务的堆栈地址
+ * @param stack_length 扫码库任务的堆栈深度，type=0时需要至少220KB
+ * @param priority 扫码库任务优先级
+ * @return 0成功，其他失败
+ */
+int luat_camera_image_decode_init(uint8_t type, void *stack, uint32_t stack_length, uint32_t priority);
 
+
+int luat_camera_image_decode_once(uint8_t *data, uint16_t image_w, uint16_t image_h, uint32_t timeout, void *callback, void *param);
+
+
+void luat_camera_image_decode_deinit(void);
+
+int luat_camera_image_decode_get_result(uint8_t *buf);
 #endif

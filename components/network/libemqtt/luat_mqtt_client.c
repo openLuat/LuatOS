@@ -372,7 +372,7 @@ int32_t luat_mqtt_callback(void *data, void *param) {
 		mqtt_ctrl->mqtt_state = MQTT_STATE_MQTT;
 		ret = mqtt_connect(&(mqtt_ctrl->broker));
 		if(ret==1){
-			luat_start_rtos_timer(mqtt_ctrl->ping_timer, mqtt_ctrl->keepalive*1000*0.75, 1);
+			luat_start_rtos_timer(mqtt_ctrl->ping_timer, mqtt_ctrl->keepalive*1000*3/4, 1);
 		}
 	}else if(event->ID == EV_NW_RESULT_EVENT){
 		if (event->Param1==0){

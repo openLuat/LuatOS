@@ -596,7 +596,7 @@ static int l_sm2_sign(lua_State *L)
         sm2_compute_z(z, &ctx.key.public_key, id, idLen);
 		sm3_update(&ctx.sm3_ctx, z, sizeof(z));
     }
-    sm3_update(&ctx.sm3_ctx, pBuf, pBufLen);
+    sm3_update(&ctx.sm3_ctx, (const uint8_t*)pBuf, pBufLen);
     sm3_finish(&ctx.sm3_ctx, dgst);
     ret = sm2_do_sign(&ctx.key, dgst, &sig);
     if (ret == 1) {
@@ -662,7 +662,7 @@ static int l_sm2_verify(lua_State *L)
         sm2_compute_z(z, &ctx.key.public_key, id, idLen);
 		sm3_update(&ctx.sm3_ctx, z, sizeof(z));
     }
-    sm3_update(&ctx.sm3_ctx, pBuf, pBufLen);
+    sm3_update(&ctx.sm3_ctx, (const uint8_t*)pBuf, pBufLen);
     sm3_finish(&ctx.sm3_ctx, dgst);
     ret = sm2_do_verify(&ctx.key, dgst, &sigT);
     lua_pushboolean(L, ret == 1 ? 1 : 0);

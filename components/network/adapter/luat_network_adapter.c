@@ -2326,15 +2326,22 @@ int network_tx(network_ctrl_t *ctrl, const uint8_t *data, uint32_t len, int flag
 			}while(ctrl->ssl->state != MBEDTLS_SSL_HANDSHAKE_OVER);
 			#endif
 		}
-		result = mbedtls_ssl_write(ctrl->ssl, data, len);
-	    if (result < 0)
+
+	    uint32_t done = 0;
+	    while(done < len)
 	    {
-	    	DBG("%08x", -result);
-			ctrl->need_close = 1;
-			NW_UNLOCK;
-			return -1;
+			result = mbedtls_ssl_write(ctrl->ssl, data + done, len - done);
+		    if (result < 0)
+		    {
+		    	DBG("%08x", -result);
+				ctrl->need_close = 1;
+				NW_UNLOCK;
+				return -1;
+		    }
+		    done += result;
 	    }
-	    *tx_len = result;
+
+	    *tx_len = done;
 	}
 	else
 #endif

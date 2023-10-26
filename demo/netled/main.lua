@@ -29,6 +29,9 @@ sys.taskInit(function()
         if mobile.status() == 1 then
             sys.wait(600)
             netLed.setupBreateLed(LEDA)
+        else
+            sys.wait(3000)
+            log.info("net fail")
         end
     end
 end)

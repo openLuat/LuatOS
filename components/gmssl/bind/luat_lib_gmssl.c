@@ -78,18 +78,12 @@ sm2算法加密
 @string 公钥x,必选. HEX字符串
 @string 公钥y,必选. HEX字符串
 @string 待计算的数据,必选,最长32字节, 非HEX字符串
-@boolean 输出模式,默认false. false-GMSSL默认格式, true-网站兼容模式
+@boolean 输出模式,默认false. false-GMSSL默认格式DER, true-网站兼容模式
 @boolean 标准版本,默认false. false-C1C3C2新国际, true-C1C2C3老国际
 @return string 加密后的字符串, 原样输出,未经HEX转换. 若加密失败会返回nil或空字符串
 @usage
 -- 提示 mode/mode2 参数是 2023.10.17 新增
-local originStr = "encryption standard"
-local pkx = "435B39CCA8F3B508C1488AFC67BE491A0F7BA07E581A0E4849A5CF70628A7E0A"
-local pky = "75DDBA78F15FEECB4C7895E2C1CDF5FE01DEBB2CDBADF45399CCF77BBA076A42"
-local private = "1649AB77A00637BD5E2EFE283FBF353534AA7F7CB89463F208DDBC2920BB0DA0"
-local encodeStr = gmssl.sm2encrypt(pkx,pky,originStr)
-print(originStr,"encrypt",string.toHex(encodeStr))
-log.info("testsm.sm2decrypt",gmssl.sm2decrypt(private,encodeStr))
+-- 由于SM2在各平台的实现都有差异,用法务必参考demo
 */
 static int l_sm2_encrypt(lua_State *L)
 {    
@@ -176,18 +170,12 @@ sm2算法解密
 @api sm.sm2decrypt(private,data,mode,mode2)
 @string 私钥,必选,HEX字符串
 @string 待计算的数据,必选,原始数据,非HEX字符串
-@boolean 输出模式,默认false. false-GMSSL默认格式, true-网站兼容模式
+@boolean 输出模式,默认false. false-GMSSL默认格式DER, true-网站兼容模式
 @boolean 标准版本,默认false. false-C1C3C2新国际, true-C1C2C3老国际
 @return string 解密后的字符串,未经HEX转换.若解密失败会返回nil或空字符串
 @usage
 -- 提示 mode/mode2 参数是 2023.10.17 新增
-local originStr = "encryption standard"
-local pkx = "435B39CCA8F3B508C1488AFC67BE491A0F7BA07E581A0E4849A5CF70628A7E0A"
-local pky = "75DDBA78F15FEECB4C7895E2C1CDF5FE01DEBB2CDBADF45399CCF77BBA076A42"
-local private = "1649AB77A00637BD5E2EFE283FBF353534AA7F7CB89463F208DDBC2920BB0DA0"
-local encodeStr = gmssl.sm2encrypt(pkx,pky,originStr)
-print(originStr,"encrypt",string.toHex(encodeStr))
-log.info("testsm.sm2decrypt",gmssl.sm2decrypt(private,encodeStr))
+-- 由于SM2在各平台的实现都有差异,用法务必参考demo
 */
 static int l_sm2_decrypt(lua_State *L)
 {    
@@ -565,7 +553,7 @@ sm2算法签名
 @api sm.sm2sign(private,data,id)
 @string 私钥,必选,HEX字符串
 @string 待计算的数据,必选,原始数据,非HEX字符串
-@string id值,非HEX字符串,可选,不填就是nil
+@string id值,非HEX字符串,可选,默认值"1234567812345678"
 @return string 前面字符串,未经HEX转换.若签名失败会返回nil
 @usage
 -- 本API于 2023.10.19 新增
@@ -577,14 +565,15 @@ static int l_sm2_sign(lua_State *L)
     size_t pkLen = 0;
     size_t pBufLen = 0;
     size_t idLen = 0;
-    uint8_t sig[SM2_MAX_SIGNATURE_SIZE];
-    size_t siglen = 0;
+    // uint8_t sig[SM2_MAX_SIGNATURE_SIZE];
+    // size_t siglen = 0;
     const char *pk =   luaL_checklstring(L, 1, &pkLen);
     const char *pBuf = luaL_checklstring(L, 2 ,&pBufLen);
-    const char *id =   luaL_optlstring(L, 3, "", &idLen);
+    const char *id =   luaL_optlstring(L, 3, "1234567812345678", &idLen);
 
     SM2_SIGN_CTX ctx = {0};
-    SM2_KEY key = {0};
+    uint8_t dgst[SM3_DIGEST_SIZE];
+    SM2_SIGNATURE sig;
     uint8_t pkey[32] = {0};
     if (pkLen != 64) {
         LLOGW("private key len must be 64 byte HEX string");
@@ -596,24 +585,22 @@ static int l_sm2_sign(lua_State *L)
     }
 
     luat_str_fromhex(pk, 64, (char*)pkey);
-    sm2_key_set_private_key(&key, (const uint8_t*)pkey);
-    ret = sm2_sign_init(&ctx, &key, idLen > 0 ? id : NULL, idLen);
+    ret = sm2_key_set_private_key(&ctx.key, (const uint8_t*)pkey);
     if (ret != 1) {
-        LLOGW("sm2_sign_init %d", ret);
+        LLOGW("sm2_key_set_private_key %d", ret);
         return 0;
     }
-    ret = sm2_sign_update(&ctx, (const uint8_t*)pBuf, pBufLen);
-    if (ret != 1) {
-        LLOGW("sm2_sign_update %d", ret);
-        return 0;
+    sm3_init(&ctx.sm3_ctx);
+    if (id && idLen > 0) {
+        uint8_t z[SM3_DIGEST_SIZE];
+        sm2_compute_z(z, &ctx.key.public_key, id, idLen);
+		sm3_update(&ctx.sm3_ctx, z, sizeof(z));
     }
-    ret = sm2_sign_finish(&ctx, (uint8_t*)sig, &siglen);
-    if (ret != 1) {
-        LLOGW("sm2_sign_finish %d", ret);
-        return 0;
-    }
+    sm3_update(&ctx.sm3_ctx, (const uint8_t*)pBuf, pBufLen);
+    sm3_finish(&ctx.sm3_ctx, dgst);
+    ret = sm2_do_sign(&ctx.key, dgst, &sig);
     if (ret == 1) {
-        lua_pushlstring(L, (const char*)sig, siglen);
+        lua_pushlstring(L, (const char*)sig.r, 64);
         return 1;
     }
     return 0;
@@ -627,8 +614,8 @@ sm2算法验签
 @string 公钥X,必选,HEX字符串
 @string 公钥Y,必选,HEX字符串
 @string 待计算的数据,必选,原始数据,非HEX字符串
-@string id值,非HEX字符串,可选,不填就是nil
-@string 签名数据,通常是72字节,非HEX字符串
+@string id值,非HEX字符串,可选,默认值"1234567812345678"
+@string 签名数据,必须64字节,非HEX字符串
 @return boolean 验证成功返回true,否则返回nil
 @usage
 -- 本API于 2023.10.19 新增
@@ -645,7 +632,7 @@ static int l_sm2_verify(lua_State *L)
     const char *pkx =  luaL_checklstring(L, 1, &pkxLen);
     const char *pky =  luaL_checklstring(L, 2, &pkyLen);
     const char *pBuf = luaL_checklstring(L, 3, &pBufLen);
-    const char *id =   luaL_optlstring(L, 4, "", &idLen);
+    const char *id =   luaL_optlstring(L, 4, "1234567812345678", &idLen);
     const char *sig = luaL_checklstring(L, 5, &siglen);
 
     if (pkxLen != 64 || pkyLen != 64) {
@@ -656,33 +643,29 @@ static int l_sm2_verify(lua_State *L)
         LLOGW("待签名数据不能为空字符串");
         return 0;
     }
-    if (siglen < SM2_signature_compact_size || siglen > SM2_signature_max_size) {
-        LLOGW("sig数据长度应该在70到72之间,当前传入值的长度不合法");
+    if (siglen != 64) {
+        LLOGW("sig数据长度应该在64字节");
         return 0;
     }
 
     SM2_SIGN_CTX ctx = {0};
-    SM2_KEY key = {0};
+    uint8_t dgst[SM3_DIGEST_SIZE];
+    SM2_SIGNATURE sigT = {0};
     
-    luat_str_fromhex(pkx, 64, (char*)key.public_key.x);
-    luat_str_fromhex(pky, 64, (char*)key.public_key.y);
+    luat_str_fromhex(pkx, 64, (char*)ctx.key.public_key.x);
+    luat_str_fromhex(pky, 64, (char*)ctx.key.public_key.y);
+    memcpy(sigT.r, sig, 64);
 
-    ret = sm2_verify_init(&ctx, &key, idLen > 0 ? id : NULL, idLen);
-    if (ret != 1) {
-        LLOGW("sm2_verify_init %d", ret);
-        return 0;
+    sm3_init(&ctx.sm3_ctx);
+    if (id && idLen > 0) {
+        uint8_t z[SM3_DIGEST_SIZE];
+        sm2_compute_z(z, &ctx.key.public_key, id, idLen);
+		sm3_update(&ctx.sm3_ctx, z, sizeof(z));
     }
-    ret = sm2_verify_update(&ctx, (const uint8_t*)pBuf, pBufLen);
-    if (ret != 1) {
-        LLOGW("sm2_verify_update %d", ret);
-        return 0;
-    }
-    ret = sm2_verify_finish(&ctx, (const uint8_t*)sig, siglen);
-    if (ret != 1) {
-        LLOGW("sm2_verify_finish %d", ret);
-        return 0;
-    }
-    lua_pushboolean(L, 1);
+    sm3_update(&ctx.sm3_ctx, (const uint8_t*)pBuf, pBufLen);
+    sm3_finish(&ctx.sm3_ctx, dgst);
+    ret = sm2_do_verify(&ctx.key, dgst, &sigT);
+    lua_pushboolean(L, ret == 1 ? 1 : 0);
     return 1;
 }
 

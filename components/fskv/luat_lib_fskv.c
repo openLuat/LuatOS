@@ -275,6 +275,10 @@ static int l_fskv_sett(lua_State *L) {
     else {
         lua_newtable(L);
     }
+    if (rbuff) {
+        luat_heap_free(rbuff);
+        rbuff = NULL;
+    }
     lua_pushvalue(L, 3);
     lua_setfield(L, -2, skey);
     lua_pushcfunction(L, l_fskv_set);

@@ -249,12 +249,31 @@ static int l_i2s_tx_stat(lua_State *L) {
     return 2;
 }
 
+int l_i2s_play(lua_State *L);
+int l_i2s_pause(lua_State *L);
+int l_i2s_stop(lua_State *L);
+int luat_i2s_tx_stat(uint8_t id, size_t *buffsize, size_t* remain);
+
 #ifndef LUAT_COMPILER_NOWEAK
 LUAT_WEAK int luat_i2s_tx_stat(uint8_t id, size_t *buffsize, size_t* remain) {
     (void)id;
     (void)buffsize;
     (void)remain;
     return -1;
+}
+LUAT_WEAK int l_i2s_play(lua_State *L) {
+    LLOGE("not support yet");
+    return 0;
+}
+
+LUAT_WEAK int l_i2s_pause(lua_State *L) {
+    LLOGE("not support yet");
+    return 0;
+}
+
+LUAT_WEAK int l_i2s_stop(lua_State *L) {
+    LLOGE("not support yet");
+    return 0;
 }
 #endif
 
@@ -268,9 +287,9 @@ static const rotable_Reg_t reg_i2s[] =
 	{ "on",         ROREG_FUNC(l_i2s_on)},
     { "txStat",     ROREG_FUNC(l_i2s_tx_stat)},
     // 以下为兼容扩展功能,待定
-    // { "play",       ROREG_FUNC(l_i2s_play)},
-    // { "pause",      ROREG_FUNC(l_i2s_pause)},
-    // { "stop",       ROREG_FUNC(l_i2s_stop)},
+    { "play",       ROREG_FUNC(l_i2s_play)},
+    { "pause",      ROREG_FUNC(l_i2s_pause)},
+    { "stop",       ROREG_FUNC(l_i2s_stop)},
 	//@const MODE_I2S number I2S标准，比如ES7149
 	{ "MODE_I2S", 	ROREG_INT(0)},
 	//@const MODE_LSB number LSB格式

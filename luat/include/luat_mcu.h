@@ -31,7 +31,7 @@ void luat_mcu_set_clk_source(uint8_t source_main, uint8_t source_32k, uint32_t d
  * @brief 用户是否设置了外设的IOMUX
  * @param type 外设类型 LUAT_MCU_PERIPHERAL_XXX
  * @param sn 外设序号，0~7
- * @return 0 用户没有配置 1用户配置了
+ * @return 0 用户配置了 1用户没配置
  */
 uint8_t luat_mcu_iomux_is_default(uint8_t type, uint8_t sn);
 /**

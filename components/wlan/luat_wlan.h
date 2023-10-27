@@ -1,7 +1,8 @@
 #include "luat_base.h"
+#ifdef __LUATOS__
 #include "luat_msgbus.h"
 #include "luat_malloc.h"
-
+#endif
 typedef struct luat_wlan_config
 {
     uint32_t mode;

@@ -11,6 +11,8 @@
 #include "luat_malloc.h"
 #define LUAT_LOG_TAG "bit64"
 #include "luat_log.h"
+#include <stdlib.h>
+
 #define D64_FLAG 0x01
 #ifdef LUAT_USE_BIT64
 /**
@@ -80,9 +82,9 @@ static int l_bit64_to64(lua_State *L)
  */
 static int l_bit64_show(lua_State *L)
 {
-	int64_t i64;
-	double d64;
-    size_t len;
+	int64_t i64 = 0;
+	double d64 = 0;
+    size_t len = 0;
     uint8_t data[64] = {0};
     uint8_t flag = 0;
     const char *string = luaL_checklstring(L, 1, &len);
@@ -139,14 +141,14 @@ static int l_bit64_show(lua_State *L)
 
 static int l_bit64_calculate(lua_State *L, uint8_t op)
 {
-	double d64_a,d64_b;
-	int64_t i64_a, i64_b;
-	uint64_t u64;
-    size_t len;
+	double d64_a = 0,d64_b = 0;
+	int64_t i64_a = 0, i64_b = 0;
+	uint64_t u64 = 0;
+    size_t len = 0;
     uint8_t data[9] = {0};
     uint8_t flag1 = 0;
     uint8_t flag2 = 0;
-    uint8_t fa,fb;
+    uint8_t fa= 0,fb =0;
     const char *string = luaL_checklstring(L, 1, &len);
     if (len != 9)
     {
@@ -457,6 +459,37 @@ DONE:
 	return 1;
 }
 
+/*
+将字符串转为LongLong数据
+@api bit64.strtoll(data, base)
+@string 待转换的数据,必须存在
+@int 转换进制, 默认10, 可选16或8
+@return string 9字节数据
+@usage
+-- 本API于 2023.10.27 添加
+-- 提醒, 如果转换失败, 是返回9个字节的0x00
+local data = bit64.strtoll("864040064024194", 10)
+log.info("data", data:toHex())
+log.info("data", bit64.show(data))
+*/
+static int l_bit64_strtoll(lua_State *L) {
+	size_t len = 0;
+	int64_t value = 0;
+	int base = 0;
+	char* stopstring;
+	uint8_t re[9] = {0};
+	const char* data = luaL_checklstring(L, 1, &len);
+	base = luaL_optinteger(L, 2, 10);
+	if (len == 0) {
+		return 0;
+	}
+	value = strtoll(data, &stopstring, base);
+	re[8] = 0;
+	memcpy(re, (const char*)&value, 8);
+	lua_pushlstring(L, (const char*)re, 9);
+	return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_bit64[] = {
 	{"to32", ROREG_FUNC(l_bit64_to32)},
@@ -467,6 +500,7 @@ static const rotable_Reg_t reg_bit64[] = {
 	{"pide", ROREG_FUNC(l_bit64_pide)},
 	{"shift", ROREG_FUNC(l_bit64_shift)},
 	{"show", ROREG_FUNC(l_bit64_show)},
+	{"strtoll", ROREG_FUNC(l_bit64_strtoll)},
 	{NULL,       ROREG_INT(0)}
 };
 

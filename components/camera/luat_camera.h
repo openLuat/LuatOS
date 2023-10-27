@@ -37,7 +37,6 @@ typedef struct luat_camera_conf
 typedef struct
 {
 	size_t  camera_speed;			//提供给camera时钟频率
-    void *buf[2];					//2个全图像缓存区指针，780EP需要
 	uint16_t sensor_width;			//camera的最大宽度
     uint16_t sensor_height;			//camera的最大高度
     uint16_t one_buf_height;		//1个接收缓存的高度，接收缓存大小=sensor_width * one_buf_height * (1 or 2，only_y=1), 底层根据实际情况会做调整，从而修改这个值，目前废弃
@@ -95,6 +94,10 @@ int luat_camera_stop(int id);
  */
 int luat_camera_close(int id);
 int luat_camera_capture(int id, uint8_t quality, const char *path);
+
+int luat_camera_start_with_buffer(int id, void *buf);
+void luat_camera_continue_with_buffer(int id, void *buf);
+
 /*
  * @brief 扫码库初始化
  * @param type 扫码库型号，目前只支持0

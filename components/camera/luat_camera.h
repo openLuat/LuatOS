@@ -69,6 +69,9 @@ int l_camera_handler(lua_State *L, void* ptr);
  * @return 0成功，其他失败
  */
 int luat_camera_setup(int id, luat_spi_camera_t *conf, void* callback, void *param);
+
+int luat_camera_set_image_w_h(int id, uint16_t w, uint16_t h);
+
 /**
  * @brief 配置camera并且初始化camera
  * @param conf camera相关配置

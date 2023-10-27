@@ -211,12 +211,12 @@ static int l_fskv_set(lua_State *L) {
 @api fskv.sett(key, skey, value)
 @string key的名称,必填,不能空字符串
 @string table的key名称, 必填, 不能是空字符串
-@string 用户数据,必填,不能nil, 支持字符串/数值/table/布尔值, 数据长度最大4095字节
+@string 用户数据,必填,支持字符串/数值/table/布尔值, 数据长度最大4095字节
 @return boolean 成功返回true,否则返回false/nil
 @usage
 -- 本API在2023.7.26新增,注意与set函数区别
 -- 设置数据, 字符串,数值,table,布尔值,均可
--- 但不可以是nil, function, userdata, task
+-- 但不可以是function, userdata, task
 log.info("fdb", fskv.sett("mytable", "wendal", "goodgoodstudy"))
 log.info("fdb", fskv.sett("mytable", "upgrade", true))
 log.info("fdb", fskv.sett("mytable", "timer", 1))
@@ -226,8 +226,13 @@ log.info("fdb", fskv.sett("mytable", "bigd", {name="wendal",age=123}))
 log.info("fdb", fskv.get("mytable"), json.encode(fskv.get("mytable")))
 -- 注意: 如果key不存在, 或者原本的值不是table类型,将会完全覆盖
 -- 例如下列写法,最终获取到的是table,而非第一行的字符串
-log.info("fdb", fskv.set("mykv", "123")
+log.info("fdb", fskv.set("mykv", "123"))
 log.info("fdb", fskv.sett("mykv", "age", "123")) -- 保存的将是 {age:"123"}
+
+
+-- 如果设置的数据填nil, 代表删除对应的key
+log.info("fdb", fskv.sett("mykv", "name", "wendal"))
+log.info("fdb", fskv.sett("mykv", "name")) -- 相当于删除
 -- 
  */
 static int l_fskv_sett(lua_State *L) {

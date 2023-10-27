@@ -76,6 +76,27 @@ sys.taskInit(function()
     --     fskv.get("my_bool")
     -- end
     -- log.info("fskv", mcu.ticks() - start)
+
+    if fskv.sett then
+        -- 设置数据, 字符串,数值,table,布尔值,均可
+        -- 但不可以是nil, function, userdata, task
+        log.info("fdb", fskv.sett("mytable", "wendal", "goodgoodstudy"))
+        log.info("fdb", fskv.sett("mytable", "upgrade", true))
+        log.info("fdb", fskv.sett("mytable", "timer", 1))
+        log.info("fdb", fskv.sett("mytable", "bigd", {name="wendal",age=123}))
+        
+        -- 下列语句将打印出4个元素的table
+        log.info("fdb", fskv.get("mytable"), json.encode(fskv.get("mytable")))
+        -- 注意: 如果key不存在, 或者原本的值不是table类型,将会完全覆盖
+        -- 例如下列写法,最终获取到的是table,而非第一行的字符串
+        log.info("fdb", fskv.set("mykv", "123"))
+        log.info("fdb", fskv.sett("mykv", "age", "123")) -- 保存的将是 {age:"123"}
+
+        -- 删除测试
+        log.info("fdb", fskv.set("mytable", {age=18, name="wendal"}))
+        log.info("fdb", fskv.sett("mytable", "name", nil))
+        log.info("fdb", fskv.get("mytable"), json.encode(fskv.get("mytable")))
+    end
 end)
 
 -- 用户代码已结束---------------------------------------------

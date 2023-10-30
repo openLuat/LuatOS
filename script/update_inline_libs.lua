@@ -17,6 +17,7 @@ luatos_32bit.exe update_inline_libs.lua
 
 -- local bittype = "64bit_size32"
 local bittype = "32bit"
+-- local bittype = "source"
 
 
 local typename = bittype
@@ -90,8 +91,13 @@ f:write("\r\n\r\n")
 
 kvs = {}
 for _, value in ipairs(files) do
-    local lf = loadfile("corelib\\" .. value)
-    local data = string.dump(lf, true)
+    local data = nil
+    if bittype == "source" then
+        data = io.readFile("corelib\\" .. value)
+    else
+        local lf = loadfile("corelib\\" .. value)
+        data = string.dump(lf, true)
+    end
     -- local cmd = 
     -- io.popen("luac_" .. bittype .. ".exe -s -o tmp.luac " .. "core\\" .. value):read("*a")
     -- local data = io.readFile("tmp.luac")

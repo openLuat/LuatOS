@@ -1327,18 +1327,15 @@ uint8_t u8x8_luat_gpio_and_delay_default(u8x8_t *u8x8, uint8_t msg, uint8_t arg_
     switch(msg)
     {
         case U8X8_MSG_DELAY_NANO:            // delay arg_int * 1 nano second
-            __asm__ volatile("nop");
+            luat_timer_us_delay(1);
             break;
 
         case U8X8_MSG_DELAY_100NANO:        // delay arg_int * 100 nano seconds
-            __asm__ volatile("nop");
+            luat_timer_us_delay(1);
             break;
 
         case U8X8_MSG_DELAY_10MICRO:        // delay arg_int * 10 micro seconds
-            for (uint16_t n = 0; n < 320; n++)
-            {
-                __asm__ volatile("nop");
-            }
+            luat_timer_us_delay(1);
         break;
 
         case U8X8_MSG_DELAY_MILLI:            // delay arg_int * 1 milli second
@@ -1404,9 +1401,11 @@ uint8_t u8x8_luat_gpio_and_delay_default(u8x8_t *u8x8, uint8_t msg, uint8_t arg_
         case U8X8_MSG_DELAY_I2C:
             // arg_int is the I2C speed in 100KHz, e.g. 4 = 400 KHz
             // arg_int=1: delay by 5us, arg_int = 4: delay by 1.25us
-            for (uint16_t n = 0; n < (arg_int<=2?160:40); n++)
-            {
-                __asm__ volatile("nop");
+            if (arg_int<=2) {
+                luat_timer_us_delay(5);
+            }
+            else {
+                luat_timer_us_delay(2);
             }
             break;
 

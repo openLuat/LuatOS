@@ -194,9 +194,14 @@ param1为申请的network_ctrl
 param2为具体的消息，只能是socket.RESET, socket.LINK, socket.ON_LINE, socket.TX_OK, socket.RX_NEW, socket.CLOSE等等
 param3为消息对应的参数
 @return userdata 成功返回network_ctrl，失败返回nil
-@usage local netc = socket.create(socket.ETH0, socket_cb_fun)	--以太网网卡上申请一个network_ctrl,通过socket_cb_fun回调相关消息
-local netc = socket.create(socket.ETH0, "IOT_TASK")	--以太网网卡上申请一个network_ctrl,通过sendMsg方式通知taskName为"IOT_TASK"回调相关消息
+@usage
+--以太网网卡上申请一个network_ctrl,通过socket_cb_fun回调相关消息
+local netc = socket.create(socket.ETH0, socket_cb_fun)
+--以太网网卡上申请一个network_ctrl,通过sendMsg方式通知taskName为"IOT_TASK"回调相关消息
+local netc = socket.create(socket.ETH0, "IOT_TASK")
 
+-- 在默认网络适配器上创建一个network_ctrl
+local netc = socket.create(nil, "MySocket")
 */
 static int l_socket_create(lua_State *L)
 {
@@ -248,7 +253,9 @@ static int l_socket_create(lua_State *L)
 @user_data socket.create得到的ctrl
 @boolean true 打开debug开关
 @return nil 无返回值
-@usage socket.debug(ctrl, true)
+@usage 
+-- 打开调试信息,默认是关闭状态
+socket.debug(ctrl, true)
 */
 static int l_socket_set_debug(lua_State *L)
 {
@@ -276,8 +283,11 @@ static int l_socket_set_debug(lua_State *L)
 @string TCP模式下的客户端私钥加密数据
 @string TCP模式下的客户端私钥口令数据
 @return boolean 成功返回true，失败返回false
-@usage socket.config(ctrl)	--最普通的TCP传输
-socket.config(ctrl, nil, nil ,true)	--最普通的加密TCP传输，证书都不用验证的那种
+@usage 
+--最普通的TCP传输
+socket.config(ctrl)
+--最普通的加密TCP传输，证书都不用验证的那种
+socket.config(ctrl, nil, nil ,true)
 */
 static int l_socket_config(lua_State *L)
 {
@@ -370,7 +380,9 @@ static int l_socket_config(lua_State *L)
 @user_data socket.create得到的ctrl
 @return boolean true没有异常发生，false失败了，如果false则不需要看下一个返回值了
 @return boolean true已经linkup，false没有linkup，之后需要接收socket.LINK消息
-@usage local succ, result = socket.linkup(ctrl)
+@usage 
+-- 判断一下是否已经联网
+local succ, result = socket.linkup(ctrl)
 */
 static int l_socket_linkup(lua_State *L)
 {
@@ -393,7 +405,19 @@ static int l_socket_linkup(lua_State *L)
 @boolean 域名解析是否要IPV6，true要，false不要，默认false不要，只有支持IPV6的协议栈才有效果
 @return boolean true没有异常发生，false失败了，如果false则不需要看下一个返回值了，如果有异常，后续要close
 @return boolean true已经connect，false没有connect，之后需要接收socket.ON_LINE消息
-@usage local succ, result = socket.connect(ctrl, "xxx.xxx.xxx.xxx", xxxx)
+@usage
+
+local succ, result = socket.connect(ctrl, "netlab.luatos.com", 40123)
+
+--[[
+常见的连接失败的code值, 会在日志中显示
+-1 底层内存不足
+-3 超时
+-8 端口已经被占用
+-11 链接未建立
+-13 模块主动断开连接
+-14 服务器主动断开连接
+]]
 */
 static int l_socket_connect(lua_State *L)
 {
@@ -466,7 +490,8 @@ static int l_socket_connect(lua_State *L)
 @user_data socket.create得到的ctrl
 @return boolean true没有异常发生，false失败了，如果false则不需要看下一个返回值了
 @return boolean true已经断开，false没有断开，之后需要接收socket.CLOSED消息
-@usage local succ, result = socket.discon(ctrl)
+@usage 
+local succ, result = socket.discon(ctrl)
 */
 static int l_socket_disconnect(lua_State *L)
 {
@@ -482,6 +507,7 @@ static int l_socket_disconnect(lua_State *L)
 强制关闭socket
 @api socket.close(ctrl)
 @user_data socket.create得到的ctrl
+@return nil 无返回值
 */
 static int l_socket_close(lua_State *L)
 {
@@ -502,7 +528,9 @@ static int l_socket_close(lua_State *L)
 @return boolean true没有异常发生，false失败了，如果false则不需要看下一个返回值了，如果false，后续要close
 @return boolean true缓冲区满了，false没有满，如果true，则需要等待一段时间或者等到socket.TX_OK消息后再尝试发送，同时忽略下一个返回值
 @return boolean true已经收到应答，false没有收到应答，之后需要接收socket.TX_OK消息， 也可以忽略继续发送，直到full==true
-@usage local succ, full, result = socket.tx(ctrl, "123456", "xxx.xxx.xxx.xxx", xxxx)
+@usage 
+
+local succ, full, result = socket.tx(ctrl, "123456", "xxx.xxx.xxx.xxx", xxxx)
 */
 static int l_socket_tx(lua_State *L)
 {
@@ -605,7 +633,8 @@ static int l_socket_tx(lua_State *L)
 @return int 本次接收到数据长度
 @return string 对端IP，只有UDP模式下才有意义，TCP模式返回nil，注意返回的格式，如果是IPV4，1byte 0x00 + 4byte地址 如果是IPV6，1byte 0x01 + 16byte地址
 @return int 对端port，只有UDP模式下才有意义，TCP模式返回0
-@usage local succ, data_len, ip, port = socket.rx(ctrl, buff)
+@usage 
+local succ, data_len, ip, port = socket.rx(ctrl, buff)
 */
 static int l_socket_rx(lua_State *L)
 {
@@ -712,7 +741,8 @@ static int l_socket_rx(lua_State *L)
 @user_data socket.create得到的ctrl
 @return boolean true没有异常发生，false失败了，如果false则不需要看下一个返回值了，如果false，后续要close
 @return boolean true有新的数据需要接收，false没有数据，之后需要接收socket.EVENT消息
-@usage local succ, result = socket.wait(ctrl)
+@usage 
+local succ, result = socket.wait(ctrl)
 */
 static int l_socket_wait(lua_State *L)
 {
@@ -730,7 +760,8 @@ static int l_socket_wait(lua_State *L)
 @user_data socket.create得到的ctrl
 @return boolean true没有异常发生，false失败了，如果false则不需要看下一个返回值了，如果false，后续要close
 @return boolean true已经connect，false没有connect，之后需要接收socket.ON_LINE消息
-@usage local succ, result = socket.listen(ctrl)
+@usage 
+local succ, result = socket.listen(ctrl)
 */
 static int l_socket_listen(lua_State *L)
 {
@@ -749,7 +780,8 @@ static int l_socket_listen(lua_State *L)
 @string or function or nil string为消息通知的taskName，function则为回调函数，和socket.create参数一致
 @return boolean true没有异常发生，false失败了，如果false则不需要看下一个返回值了，如果false，后续要close
 @return user_data or nil 如果支持1对多，则会返回新的ctrl，自动create，如果不支持则返回nil
-@usage local succ, new_netc = socket.listen(ctrl, cb)
+@usage 
+local succ, new_netc = socket.listen(ctrl, cb)
 */
 static int l_socket_accept(lua_State *L)
 {
@@ -816,7 +848,9 @@ static int l_socket_accept(lua_State *L)
 主动释放掉network_ctrl
 @api    socket.release(ctrl)
 @user_data	socket.create得到的ctrl
-@usage socket.release(ctrl)
+@usage
+-- 释放后就不能再使用了
+socket.release(ctrl)
 */
 static int l_socket_release(lua_State *L)
 {
@@ -831,6 +865,9 @@ static int l_socket_release(lua_State *L)
 @string or int dns，如果是IPV4，可以是大端格式的int值
 @return boolean 成功返回true，失败返回false
 @usage
+-- 设置默认网络适配器的DNS配置
+socket.setDNS(nil, 1, "114.114.114.114")
+-- 设置制定网络适配器的DNS配置
 socket.setDNS(socket.ETH0, 1, "114.114.114.114")
 */
 static int l_socket_set_dns(lua_State *L)
@@ -906,10 +943,22 @@ static int l_socket_set_dns(lua_State *L)
 }
 
 /*
-设置SSL的log
+设置SSL的log登记
 @api    socket.sslLog(log_level)
-@int	mbedtls log等级，0不打印，1只打印错误和警告，2大部分info，3及3以上详细的debug信息，过多的信息可能会造成内存碎片化
-@usage socket.sslLog(2)
+@int	mbedtls log等级
+@return nil 无返回值
+@usage
+--[[
+SSL/TLS log级别说明
+0不打印
+1只打印错误和警
+2大部分info
+3及3以上详细的debug
+
+过多的信息可能会造成内存碎片化
+]]
+-- 打印大部分info日志
+socket.sslLog(2)
 */
 static int l_socket_set_ssl_log(lua_State *L)
 {
@@ -964,7 +1013,7 @@ static int l_socket_adapter(lua_State *L)
 
 
 /*
-获取对端ip，必须在接收到socket.ON_LINE消息之后才可能获取到，最多返回4个IP。socket.connect里如果remote_port设置成0，则当DNS完成时就返回socket.ON_LINE消息
+获取对端ip
 @api    socket.remoteIP(ctrl)
 @user_data socket.create得到的ctrl
 @return string IP1，如果为nil，则表示没有获取到IP地址
@@ -972,6 +1021,8 @@ static int l_socket_adapter(lua_State *L)
 @return string IP3，如果为nil，则表示没有IP3
 @return string IP4，如果为nil，则表示没有IP4
 @usage
+-- 注意: ，必须在接收到socket.ON_LINE消息之后才可能获取到，最多返回4个IP。
+-- socket.connect里如果remote_port设置成0，则当DNS完成时就返回socket.ON_LINE消息
 local ip1,ip2,ip3,ip4 = socket.remoteIP(ctrl)
 */
 static int l_socket_remote_ip(lua_State *L)

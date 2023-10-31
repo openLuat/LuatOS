@@ -3,5 +3,5 @@
 #include "luat_pwm.h"
 
 LUAT_WEAK int luat_pwm_setup(luat_pwm_conf_t* conf) {
-    return luat_pwm_open(conf->channel, conf->period, conf->pulse, conf->pnum);
+    return luat_pwm_open(conf->channel, conf->period, conf->pulse, conf->pnum, conf->reverse, conf->stop_level);
 }

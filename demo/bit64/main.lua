@@ -86,6 +86,12 @@ if bit64 then
 	log.info("0xc000000000*2=", bit64.show(bit64.multi(a,b), 16))
 	log.info("0xc000000000/2=", bit64.show(bit64.pide(a,b), 16))
 	log.style(0)
+
+	if bit64.strtoll then
+		local data = bit64.strtoll("864040064024194", 10)
+		log.info("data", data:toHex())
+		log.info("data", bit64.show(data))
+	end
 end
 
 local function sys_run_time()

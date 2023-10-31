@@ -10,6 +10,14 @@
 #ifdef __LUATOS__
 #include "luat_lcd.h"
 #endif
+enum
+{
+	LUAT_CAMERA_FRAME_START = 0,
+	LUAT_CAMERA_FRAME_END,
+	LUAT_CAMERA_FRAME_RX_DONE,
+	LUAT_CAMARA_FRAME_ERROR,
+};
+
 typedef struct luat_camera_conf
 {
     uint8_t id;

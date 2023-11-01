@@ -8,8 +8,7 @@
 [![air105](https://pg.air32.cn/openLuat/LuatOS/actions/workflows/air105.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/air105/master)
 [![esp32](https://pg.air32.cn/openLuat/LuatOS/actions/workflows/esp32-idf5.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/esp32-idf5/master)
 [![win32](https://pg.air32.cn/openLuat/LuatOS/actions/workflows/win32.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/win32/master)
-[![linux](https://pg.air32.cn/openLuat/LuatOS/actions/workflows/linux.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/linux/master)
-![ec618,Air780E](http://luat.papapoi.com:23380/api/badges/openLuat/LuatOS/status.svg)
+![ec618,Air780E](https://github.com/openLuat/luatos-soc-2022/actions/workflows/ci.yaml/badge.svg)
 
 LuatOS : Powerful embedded Lua Engine for IoT devices, with many components and low memory requirements (16K RAM, 128K Flash)
 

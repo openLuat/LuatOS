@@ -26,57 +26,7 @@
 #define LLOGD(...)
 #endif
 
-enum
-{
-	FTP_REQ_LOGIN = 1,
-	FTP_REQ_COMMAND 	,
-	FTP_REQ_PULL 		,
-	FTP_REQ_PUSH 		,
-	FTP_REQ_CLOSE 	,
-
-
-	FTP_EVENT_LOGIN = USER_EVENT_ID_START + FTP_REQ_LOGIN,
-	FTP_EVENT_COMMAND 	,
-	FTP_EVENT_PULL 		,
-	FTP_EVENT_PUSH 		,
-	FTP_EVENT_CLOSE 	,
-	FTP_EVENT_DATA_CONNECT 	,
-	FTP_EVENT_DATA_TX_DONE 	,
-	FTP_EVENT_DATA_WRITE_FILE 	,
-	FTP_EVENT_DATA_CLOSED 	,
-};
-
-typedef struct{
-	network_ctrl_t *cmd_netc;		// ftp netc
-	network_ctrl_t *data_netc;	// ftp data_netc
-	luat_ip_addr_t ip_addr;		// ftp ip
-	char addr[64]; 			// ftp addr
-	char username[64]; 		// ftp username
-	char password[64]; 		// ftp password
-	char remote_name[64];//去掉？
-    size_t upload_done_size;
-	size_t local_file_size;
-	uint8_t cmd_send_data[FTP_CMD_SEND_MAX];
-	uint32_t cmd_send_len;
-	uint8_t cmd_recv_data[FTP_CMD_RECV_MAX];
-	uint32_t cmd_recv_len;
-	uint16_t port; 				// 端口号
-	uint8_t adapter_index;
-	uint8_t data_netc_online;
-	uint8_t data_netc_connecting;
-}luat_ftp_network_t;
-
-typedef struct{
-	uint64_t idp;
-	luat_rtos_task_handle task_handle;
-	luat_ftp_network_t *network;
-	FILE* fd;					//下载 FILE
-	Buffer_Struct result_buffer;
-	uint8_t is_run;
-}luat_ftp_ctrl_t;
-
-
-static luat_ftp_ctrl_t g_s_ftp;
+luat_ftp_ctrl_t g_s_ftp;
 
 uint32_t luat_ftp_release(void) {
 	if (!g_s_ftp.network) return 0;
@@ -820,93 +770,6 @@ int luat_ftp_login(uint8_t adapter,const char * ip_addr,uint16_t port,const char
 	return 0;
 }
 
-/*
-FTP客户端
-@api ftp.login(adapter,ip_addr,port,username,password)
-@int 适配器序号, 只能是socket.ETH0, socket.STA, socket.AP,如果不填,会选择平台自带的方式,然后是最后一个注册的适配器
-@string ip_addr 地址
-@string port 端口,默认21
-@string username 用户名
-@string password 密码
-@bool/table  是否为ssl加密连接,默认不加密,true为无证书最简单的加密，table为有证书的加密 <br>server_cert 服务器ca证书数据 <br>client_cert 客户端ca证书数据 <br>client_key 客户端私钥加密数据 <br>client_password 客户端私钥口令数据
-@return bool/string 成功返回true 失败返回string
-@usage
-ftp_login = ftp.login(nil,"xxx")
-*/
-static int l_ftp_login(lua_State *L) {
-	int result = 0;
-	size_t len = 0;
-	luat_ftp_tls_t* luat_ftp_tls = NULL;
-	uint8_t adapter = luaL_optinteger(L, 1, network_get_last_register_adapter());
-	const char *ip_addr = luaL_checklstring(L, 2, &len);
-	uint16_t port = luaL_optinteger(L, 3, 21);
-	const char *username = luaL_optlstring(L, 4, "",&len);
-	const char *password = luaL_optlstring(L, 5, "",&len);
-
-	// 加密相关
-	if (lua_isboolean(L, 6)){
-		if (lua_toboolean(L, 6)){
-			luat_ftp_tls = (luat_ftp_tls_t *)luat_heap_malloc(sizeof(luat_ftp_tls_t));
-		}
-	}else if (lua_istable(L, 6)){
-		if (luat_ftp_tls == NULL){
-			luat_ftp_tls = (luat_ftp_tls_t *)luat_heap_malloc(sizeof(luat_ftp_tls_t));
-		}
-		
-		lua_pushstring(L, "server_cert");
-		if (LUA_TSTRING == lua_gettable(L, 6)) {
-			luat_ftp_tls->server_cert = luaL_checklstring(L, -1, &len);
-		}
-		lua_pop(L, 1);
-
-		lua_pushstring(L, "client_cert");
-		if (LUA_TSTRING == lua_gettable(L, 6)) {
-			luat_ftp_tls->client_cert = luaL_checklstring(L, -1, &len);
-		}
-		lua_pop(L, 1);
-
-		lua_pushstring(L, "client_key");
-		if (LUA_TSTRING == lua_gettable(L, 6)) {
-			luat_ftp_tls->client_key = luaL_checklstring(L, -1, &len);
-		}
-		lua_pop(L, 1);
-
-		lua_pushstring(L, "client_password");
-		if (LUA_TSTRING == lua_gettable(L, 6)) {
-			luat_ftp_tls->client_password = luaL_checklstring(L, -1, &len);
-		}
-		lua_pop(L, 1);
-	}
-
-	if (luat_ftp_tls!=NULL){
-		if (lua_isstring(L, 6)){
-			luat_ftp_tls->server_cert = luaL_checklstring(L, 6, &len);
-		}
-		if (lua_isstring(L, 7)){
-			luat_ftp_tls->client_cert = luaL_checklstring(L, 7, &len);
-		}
-		if (lua_isstring(L, 8)){
-			luat_ftp_tls->client_key = luaL_checklstring(L, 8, &len);
-		}
-		if (lua_isstring(L, 9)){
-			luat_ftp_tls->client_password = luaL_checklstring(L, 9, &len);
-		}
-	}
-	
-	if (0!=(result = luat_ftp_login(adapter,ip_addr,port,username,password,luat_ftp_tls))){
-		LLOGE("ftp login fail");
-		luat_ftp_release();
-		lua_pushinteger(L,result);
-		luat_pushcwait_error(L,1);
-	}else{
-		g_s_ftp.idp = luat_pushcwait(L);
-	}
-	if (luat_ftp_tls){
-		luat_heap_free(luat_ftp_tls);
-	}
-	return 1;
-}
-
 int luat_ftp_command(const char * command){
 	if (!g_s_ftp.network){
 		LLOGE("please login first");
@@ -942,36 +805,6 @@ int luat_ftp_command(const char * command){
 	return 0;
 }
 
-
-/*
-FTP命令
-@api ftp.command(cmd)
-@string cmd 命令 目前支持:NOOP SYST TYPE PWD MKD CWD CDUP RMD DELE LIST
-@return string 成功返回true 失败返回string
-@usage
-    print(ftp.command("NOOP").wait())
-    print(ftp.command("SYST").wait())
-    print(ftp.command("TYPE I").wait())
-    print(ftp.command("PWD").wait())
-    print(ftp.command("MKD QWER").wait())
-    print(ftp.command("CWD /QWER").wait())
-    print(ftp.command("CDUP").wait())
-    print(ftp.command("RMD QWER").wait())
-	print(ftp.command("DELE /1/12222.txt").wait())
-*/
-static int l_ftp_command(lua_State *L) {
-	size_t len;
-	const char * command = luaL_optlstring(L, 1, "",&len);
-	if (luat_ftp_command(command)){
-		LLOGE("ftp command fail");
-		lua_pushinteger(L,FTP_ERROR_FILE);
-		luat_pushcwait_error(L,1);
-	}else{
-		g_s_ftp.idp = luat_pushcwait(L);
-	}
-	return 1;
-}
-
 int luat_ftp_pull(const char * local_name,const char * remote_name){
 	if (!g_s_ftp.network){
 		LLOGE("please login first");
@@ -992,29 +825,6 @@ int luat_ftp_pull(const char * local_name,const char * remote_name){
 	memcpy(g_s_ftp.network->remote_name, remote_name, strlen(remote_name) + 1);
 	luat_rtos_event_send(g_s_ftp.task_handle, FTP_EVENT_PULL, 0, 0, 0, 0);
 	return 0;
-}
-
-/*
-FTP文件下载
-@api ftp.pull(local_name,remote_name)
-@string local_name 本地文件
-@string remote_name 服务器文件
-@return bool/string 成功返回true 失败返回string
-@usage
-ftp.pull("/1222.txt","/1222.txt").wait()
-*/
-static int l_ftp_pull(lua_State *L) {
-	size_t len;
-	const char * local_name = luaL_optlstring(L, 1, "",&len);
-	const char * remote_name = luaL_optlstring(L, 2, "",&len);
-	if (luat_ftp_pull(local_name,remote_name)){
-		LLOGE("ftp pull fail");
-		lua_pushinteger(L,FTP_ERROR_FILE);
-		luat_pushcwait_error(L,1);
-	}else{
-		g_s_ftp.idp = luat_pushcwait(L);
-	}
-	return 1;
 }
 
 int luat_ftp_close(void){
@@ -1045,73 +855,4 @@ int luat_ftp_push(const char * local_name,const char * remote_name){
 	memcpy(g_s_ftp.network->remote_name, remote_name, strlen(remote_name) + 1);
 	luat_rtos_event_send(g_s_ftp.task_handle, FTP_EVENT_PUSH, 0, 0, 0, LUAT_WAIT_FOREVER);
 	return 0;
-}
-
-/*
-FTP文件上传
-@api ftp.push(local_name,remote_name)
-@string local_name 本地文件
-@string remote_name 服务器文件
-@return bool/string 成功返回true 失败返回string
-@usage
-ftp.push("/1222.txt","/1222.txt").wait()
-*/
-static int l_ftp_push(lua_State *L) {
-	size_t len;
-	const char * local_name = luaL_optlstring(L, 1, "",&len);
-	const char * remote_name = luaL_optlstring(L, 2, "",&len);
-	if (luat_ftp_push(local_name,remote_name)){
-		LLOGE("ftp push fail");
-		lua_pushinteger(L,FTP_ERROR_CONNECT);
-		luat_pushcwait_error(L,1);
-	}else{
-		g_s_ftp.idp = luat_pushcwait(L);
-	}
-	return 1;
-}
-
-/*
-FTP客户端关闭
-@api ftp.close()
-@return bool/string 成功返回true 失败返回string
-@usage
-ftp.close().wait()
-*/
-static int l_ftp_close(lua_State *L) {
-	if (luat_ftp_close()){
-		lua_pushinteger(L,FTP_ERROR_CONNECT);
-		luat_pushcwait_error(L,1);
-	}else{
-		g_s_ftp.idp = luat_pushcwait(L);
-	}
-	return 1;
-}
-
-#include "rotable2.h"
-#ifdef LUAT_USE_NETWORK
-static const rotable_Reg_t reg_ftp[] =
-{
-	{"login",			ROREG_FUNC(l_ftp_login)},
-	{"command",			ROREG_FUNC(l_ftp_command)},
-	{"pull",			ROREG_FUNC(l_ftp_pull)},
-	{"push",			ROREG_FUNC(l_ftp_push)},
-	{"close",			ROREG_FUNC(l_ftp_close)},
-
-	{ NULL,             ROREG_INT(0)}
-};
-#else
-static const rotable_Reg_t reg_ftp_emtry[] =
-{
-	{ NULL,             ROREG_INT(0)}
-};
-#endif
-
-LUAMOD_API int luaopen_ftp( lua_State *L ) {
-#ifdef LUAT_USE_NETWORK
-    luat_newlib2(L, reg_ftp);
-#else
-    luat_newlib2(L, reg_ftp_emtry);
-	LLOGE("ftp require network enable!!");
-#endif
-    return 1;
 }

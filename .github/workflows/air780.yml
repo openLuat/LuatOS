@@ -29,7 +29,11 @@ jobs:
       run: |
         sudo sh -c "curl https://raw.githubusercontent.com/kadwanev/retry/master/retry -o /usr/local/bin/retry && chmod +x /usr/local/bin/retry"
         cd ..
-        retry 'git clone --branch=master https://gitee.com/openLuat/luatos-soc-2022.git air780'
+        git clone https://github.com/openLuat/luatos-soc-2022.git air780
+        cd air780
+        git remote add gitee https://gitee.com/openLuat/luatos-soc-2022.git
+        retry 'git pull gitee master'
+        git checkout master origin/master
     - name: make
       run: |
         cd ../air780

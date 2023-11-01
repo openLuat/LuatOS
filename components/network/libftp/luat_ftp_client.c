@@ -61,7 +61,6 @@ typedef struct{
 	uint8_t cmd_recv_data[FTP_CMD_RECV_MAX];
 	uint32_t cmd_recv_len;
 	uint16_t port; 				// 端口号
-	uint8_t is_tls;             // 是否SSL
 	uint8_t adapter_index;
 	uint8_t data_netc_online;
 	uint8_t data_netc_connecting;
@@ -79,7 +78,7 @@ typedef struct{
 
 static luat_ftp_ctrl_t g_s_ftp;
 
-static uint32_t luat_ftp_close(void) {
+uint32_t luat_ftp_release(void) {
 	if (!g_s_ftp.network) return 0;
 	if (g_s_ftp.network->cmd_netc){
 		if (network_close(g_s_ftp.network->cmd_netc,FTP_SOCKET_TIMEOUT) < 0)
@@ -476,7 +475,7 @@ static void ftp_task(void *param){
 	if (ftp_login())
 	{
 		LLOGE("ftp login fail");
-		luat_ftp_close();
+		luat_ftp_release();
 		msg.arg1 = 1;
 		luat_msgbus_put(&msg, 0);
 		g_s_ftp.task_handle = NULL;
@@ -743,7 +742,7 @@ operation_failed:
 	}
 	OS_BufferWrite(&g_s_ftp.result_buffer, g_s_ftp.network->cmd_recv_data, g_s_ftp.network->cmd_recv_len);
 	msg.arg2 = 1;
-	luat_ftp_close();
+	luat_ftp_release();
 	luat_msgbus_put(&msg, 0);
 	g_s_ftp.task_handle = NULL;
 	luat_rtos_task_delete(task_handle);
@@ -754,7 +753,7 @@ wait_event_and_out:
 		luat_rtos_event_recv(g_s_ftp.task_handle, 0, &task_event, NULL, LUAT_WAIT_FOREVER);
 		if (task_event.ID >= FTP_EVENT_LOGIN && task_event.ID <= FTP_EVENT_CLOSE)
 		{
-			luat_ftp_close();
+			luat_ftp_release();
 			msg.arg1 = 1;
 			luat_msgbus_put(&msg, 0);
 			g_s_ftp.task_handle = NULL;
@@ -762,6 +761,63 @@ wait_event_and_out:
 			return;
 		}
 	}
+}
+
+
+int luat_ftp_login(uint8_t adapter,const char * ip_addr,uint16_t port,const char * username,const char * password,luat_ftp_tls_t* luat_ftp_tls){
+	if (g_s_ftp.network){
+		LLOGE("ftp already login, please close first");
+		return FTP_ERROR_STATE;
+	}
+	g_s_ftp.network = (luat_ftp_network_t *)luat_heap_malloc(sizeof(luat_ftp_network_t));
+	if (!g_s_ftp.network){
+		LLOGE("out of memory when malloc g_s_ftp.network");
+		return FTP_ERROR_NO_MEM;
+	}
+	memset(g_s_ftp.network, 0, sizeof(luat_ftp_network_t));
+	g_s_ftp.network->adapter_index = adapter;
+	if (g_s_ftp.network->adapter_index >= NW_ADAPTER_QTY){
+		LLOGE("bad network adapter index %d", g_s_ftp.network->adapter_index);
+		return FTP_ERROR_STATE;
+	}
+	g_s_ftp.network->cmd_netc = network_alloc_ctrl(g_s_ftp.network->adapter_index);
+	if (!g_s_ftp.network->cmd_netc){
+		LLOGE("cmd_netc create fail");
+		return FTP_ERROR_NO_MEM;
+	}
+	g_s_ftp.network->port = port;
+	if (strlen(ip_addr) > 0 && strlen(ip_addr) < 64)
+		memcpy(g_s_ftp.network->addr, ip_addr, strlen(ip_addr) + 1);
+	if (strlen(username) > 0 && strlen(username) < 64)
+		memcpy(g_s_ftp.network->username, username, strlen(username) + 1);
+	if (strlen(password) > 0 && strlen(password) < 64)
+		memcpy(g_s_ftp.network->password, password, strlen(password) + 1);
+	if (luat_ftp_tls == NULL){
+		network_deinit_tls(g_s_ftp.network->cmd_netc);
+	}else{
+		if (network_init_tls(g_s_ftp.network->cmd_netc, (luat_ftp_tls->server_cert || luat_ftp_tls->client_cert)?2:0)){
+			return FTP_ERROR_CLOSE;
+		}
+		if (luat_ftp_tls->server_cert){
+			network_set_server_cert(g_s_ftp.network->cmd_netc, (const unsigned char *)luat_ftp_tls->server_cert, strlen(luat_ftp_tls->server_cert)+1);
+		}
+		if (luat_ftp_tls->client_cert){
+			network_set_client_cert(g_s_ftp.network->cmd_netc, (const unsigned char *)luat_ftp_tls->client_cert, strlen(luat_ftp_tls->client_cert)+1,
+					(const unsigned char *)luat_ftp_tls->client_key, strlen(luat_ftp_tls->client_key)+1,
+					(const unsigned char *)luat_ftp_tls->client_password, strlen(luat_ftp_tls->client_password)+1);
+		}
+	}
+	network_set_ip_invaild(&g_s_ftp.network->ip_addr);
+	int result = luat_rtos_task_create(&g_s_ftp.task_handle, 2*1024, 10, "ftp", ftp_task, NULL, 16);
+	if (result) {
+		LLOGE("创建ftp task失败!! %d", result);
+		return result;
+	}
+	network_init_ctrl(g_s_ftp.network->cmd_netc,g_s_ftp.task_handle, ftp_task_cb, NULL);
+	network_set_base_mode(g_s_ftp.network->cmd_netc, 1, 30000, 0, 0, 0, 0);
+	network_set_local_port(g_s_ftp.network->cmd_netc, 0);
+	luat_rtos_event_send(g_s_ftp.task_handle, FTP_EVENT_LOGIN, 0, 0, 0, LUAT_WAIT_FOREVER);
+	return 0;
 }
 
 /*
@@ -778,142 +834,114 @@ FTP客户端
 ftp_login = ftp.login(nil,"xxx")
 */
 static int l_ftp_login(lua_State *L) {
-	size_t server_cert_len,client_cert_len, client_key_len, client_password_len;
-	size_t len = 0;
-	const char *server_cert = NULL;
-	const char *client_cert = NULL;
-	const char *client_key = NULL;
-	const char *client_password = NULL;
-	const char *username = NULL;
-	const char *password = NULL;
 	int result = 0;
-	// mbedtls_debug_set_threshold(4);
-	if (g_s_ftp.network){
-		LLOGE("ftp already login, please close first");
-		result = FTP_ERROR_STATE;
-	    goto error;
-	}
-	
-	g_s_ftp.network = (luat_ftp_network_t *)luat_heap_malloc(sizeof(luat_ftp_network_t));
-	if (!g_s_ftp.network){
-		LLOGE("out of memory when malloc g_s_ftp.network");
-		result = FTP_ERROR_NO_MEM;
-        goto error;
-	}
-	memset(g_s_ftp.network, 0, sizeof(luat_ftp_network_t));
-
-	g_s_ftp.network->adapter_index = luaL_optinteger(L, 1, network_get_last_register_adapter());
-	if (g_s_ftp.network->adapter_index >= NW_ADAPTER_QTY){
-		LLOGE("bad network adapter index %d", g_s_ftp.network->adapter_index);
-		result = FTP_ERROR_STATE;
-		goto error;
-	}
-	
-	g_s_ftp.network->cmd_netc = network_alloc_ctrl(g_s_ftp.network->adapter_index);
-	if (!g_s_ftp.network->cmd_netc){
-		LLOGE("cmd_netc create fail");
-		result = FTP_ERROR_NO_MEM;
-		goto error;
-	}
-
-
-	const char *addr = luaL_checklstring(L, 2, &len);
-	if (len > 0 && len < 64)
-		memcpy(g_s_ftp.network->addr, addr, len + 1);
-
-	g_s_ftp.network->port = luaL_optinteger(L, 3, 21);
-
-	username = luaL_optlstring(L, 4, "",&len);
-	if (len > 0 && len < 64)
-		memcpy(g_s_ftp.network->username, username, len + 1);
-
-	password = luaL_optlstring(L, 5, "",&len);
-	if (len > 0 && len < 64)
-		memcpy(g_s_ftp.network->password, password, len + 1);
+	size_t len = 0;
+	luat_ftp_tls_t* luat_ftp_tls = NULL;
+	uint8_t adapter = luaL_optinteger(L, 1, network_get_last_register_adapter());
+	const char *ip_addr = luaL_checklstring(L, 2, &len);
+	uint16_t port = luaL_optinteger(L, 3, 21);
+	const char *username = luaL_optlstring(L, 4, "",&len);
+	const char *password = luaL_optlstring(L, 5, "",&len);
 
 	// 加密相关
 	if (lua_isboolean(L, 6)){
-		g_s_ftp.network->is_tls = lua_toboolean(L, 6);
-	}
-
-	if (lua_istable(L, 6)){
-		g_s_ftp.network->is_tls = 1;
-
+		if (lua_toboolean(L, 6)){
+			luat_ftp_tls = (luat_ftp_tls_t *)luat_heap_malloc(sizeof(luat_ftp_tls_t));
+		}
+	}else if (lua_istable(L, 6)){
+		if (luat_ftp_tls == NULL){
+			luat_ftp_tls = (luat_ftp_tls_t *)luat_heap_malloc(sizeof(luat_ftp_tls_t));
+		}
+		
 		lua_pushstring(L, "server_cert");
 		if (LUA_TSTRING == lua_gettable(L, 6)) {
-			server_cert = luaL_checklstring(L, -1, &server_cert_len);
+			luat_ftp_tls->server_cert = luaL_checklstring(L, -1, &len);
 		}
 		lua_pop(L, 1);
 
 		lua_pushstring(L, "client_cert");
 		if (LUA_TSTRING == lua_gettable(L, 6)) {
-			client_cert = luaL_checklstring(L, -1, &client_cert_len);
+			luat_ftp_tls->client_cert = luaL_checklstring(L, -1, &len);
 		}
 		lua_pop(L, 1);
 
 		lua_pushstring(L, "client_key");
 		if (LUA_TSTRING == lua_gettable(L, 6)) {
-			client_key = luaL_checklstring(L, -1, &client_key_len);
+			luat_ftp_tls->client_key = luaL_checklstring(L, -1, &len);
 		}
 		lua_pop(L, 1);
 
 		lua_pushstring(L, "client_password");
 		if (LUA_TSTRING == lua_gettable(L, 6)) {
-			client_password = luaL_checklstring(L, -1, &client_password_len);
+			luat_ftp_tls->client_password = luaL_checklstring(L, -1, &len);
 		}
 		lua_pop(L, 1);
 	}
 
-	if (g_s_ftp.network->is_tls){
+	if (luat_ftp_tls!=NULL){
 		if (lua_isstring(L, 6)){
-			server_cert = luaL_checklstring(L, 6, &server_cert_len);
+			luat_ftp_tls->server_cert = luaL_checklstring(L, 6, &len);
 		}
 		if (lua_isstring(L, 7)){
-			client_cert = luaL_checklstring(L, 7, &client_cert_len);
+			luat_ftp_tls->client_cert = luaL_checklstring(L, 7, &len);
 		}
 		if (lua_isstring(L, 8)){
-			client_key = luaL_checklstring(L, 8, &client_key_len);
+			luat_ftp_tls->client_key = luaL_checklstring(L, 8, &len);
 		}
 		if (lua_isstring(L, 9)){
-			client_password = luaL_checklstring(L, 9, &client_password_len);
+			luat_ftp_tls->client_password = luaL_checklstring(L, 9, &len);
 		}
-		if (network_init_tls(g_s_ftp.network->cmd_netc, (server_cert || client_cert)?2:0)){
-			result = FTP_ERROR_CLOSE;
-			goto error;
-		}
-		
-		if (server_cert){
-			network_set_server_cert(g_s_ftp.network->cmd_netc, (const unsigned char *)server_cert, server_cert_len+1);
-		}
-		if (client_cert){
-			network_set_client_cert(g_s_ftp.network->cmd_netc, (const unsigned char *)client_cert, client_cert_len+1,
-					(const unsigned char *)client_key, client_key_len+1,
-					(const unsigned char *)client_password, client_password_len+1);
-		}
+	}
+	
+	if (0!=(result = luat_ftp_login(adapter,ip_addr,port,username,password,luat_ftp_tls))){
+		LLOGE("ftp login fail");
+		luat_ftp_release();
+		lua_pushinteger(L,result);
+		luat_pushcwait_error(L,1);
 	}else{
-		network_deinit_tls(g_s_ftp.network->cmd_netc);
+		g_s_ftp.idp = luat_pushcwait(L);
 	}
-
-	network_set_ip_invaild(&g_s_ftp.network->ip_addr);
-	result = luat_rtos_task_create(&g_s_ftp.task_handle, 2*1024, 10, "ftp", ftp_task, NULL, 16);
-	if (result) {
-		LLOGE("创建ftp task失败!! %d", result);
-		goto error;
+	if (luat_ftp_tls){
+		luat_heap_free(luat_ftp_tls);
 	}
-	network_init_ctrl(g_s_ftp.network->cmd_netc,g_s_ftp.task_handle, ftp_task_cb, NULL);
-	network_set_base_mode(g_s_ftp.network->cmd_netc, 1, 30000, 0, 0, 0, 0);
-	network_set_local_port(g_s_ftp.network->cmd_netc, 0);
-
-	g_s_ftp.idp = luat_pushcwait(L);
-	luat_rtos_event_send(g_s_ftp.task_handle, FTP_EVENT_LOGIN, 0, 0, 0, LUAT_WAIT_FOREVER);
-    return 1;
-error:
-	LLOGE("ftp login fail");
-	luat_ftp_close();
-    lua_pushinteger(L, result);
-	luat_pushcwait_error(L,1);
 	return 1;
 }
+
+int luat_ftp_command(const char * command){
+	if (!g_s_ftp.network){
+		LLOGE("please login first");
+		return -1;
+	}
+	if (memcmp(command, "NOOP", 4)==0){
+		LLOGD("command: NOOP");
+	}else if(memcmp(command, "SYST", 4)==0){
+		LLOGD("command: SYST");
+	}else if(memcmp(command, "MKD", 3)==0){
+		LLOGD("command: MKD");
+	}else if(memcmp(command, "CWD", 3)==0){
+		LLOGD("command: CWD");
+	}else if(memcmp(command, "CDUP", 4)==0){
+		LLOGD("command: CDUP");
+	}else if(memcmp(command, "RMD", 3)==0){
+		LLOGD("command: RMD");
+	}else if(memcmp(command, "PWD", 3)==0){
+		LLOGD("command: RMD");
+	}else if(memcmp(command, "DELE", 4)==0){
+		LLOGD("command: DELE");
+	}else if(memcmp(command, "TYPE", 4)==0){
+		LLOGD("command: TYPE");
+	}else if(memcmp(command, "LIST", 4)==0){
+		LLOGD("command: LIST");
+	}else{
+		LLOGE("not support cmd:%s",command);
+		return -1;
+	}
+	memset(g_s_ftp.network->cmd_send_data,0,FTP_CMD_SEND_MAX);
+	snprintf_((char *)(g_s_ftp.network->cmd_send_data), FTP_CMD_SEND_MAX, "%s\r\n",command);
+	luat_rtos_event_send(g_s_ftp.task_handle, FTP_EVENT_COMMAND, (uint32_t)g_s_ftp.idp, (uint32_t)(g_s_ftp.idp >> 32), 0, LUAT_WAIT_FOREVER);
+	return 0;
+}
+
 
 /*
 FTP命令
@@ -932,48 +960,38 @@ FTP命令
 	print(ftp.command("DELE /1/12222.txt").wait())
 */
 static int l_ftp_command(lua_State *L) {
-	if (!g_s_ftp.network){
-		LLOGE("please login first");
-		goto error;
-	}
-	g_s_ftp.idp = luat_pushcwait(L);
 	size_t len;
-	const char *cmd = luaL_checklstring(L, 1, &len);
-	if (memcmp(cmd, "NOOP", 4)==0){
-		LLOGD("command: NOOP");
-	}else if(memcmp(cmd, "SYST", 4)==0){
-		LLOGD("command: SYST");
-	}else if(memcmp(cmd, "MKD", 3)==0){
-		LLOGD("command: MKD");
-	}else if(memcmp(cmd, "CWD", 3)==0){
-		LLOGD("command: CWD");
-	}else if(memcmp(cmd, "CDUP", 4)==0){
-		LLOGD("command: CDUP");
-	}else if(memcmp(cmd, "RMD", 3)==0){
-		LLOGD("command: RMD");
-	}else if(memcmp(cmd, "PWD", 3)==0){
-		LLOGD("command: RMD");
-	}else if(memcmp(cmd, "DELE", 4)==0){
-		LLOGD("command: DELE");
-	}else if(memcmp(cmd, "TYPE", 4)==0){
-		LLOGD("command: TYPE");
-	}else if(memcmp(cmd, "LIST", 4)==0){
-		LLOGD("command: LIST");
-	}else{
-		LLOGE("not support cmd:%s",cmd);
+	const char * command = luaL_optlstring(L, 1, "",&len);
+	if (luat_ftp_command(command)){
+		LLOGE("ftp command fail");
 		lua_pushinteger(L,FTP_ERROR_FILE);
 		luat_pushcwait_error(L,1);
-		return 1;
+	}else{
+		g_s_ftp.idp = luat_pushcwait(L);
 	}
-	memset(g_s_ftp.network->cmd_send_data,0,FTP_CMD_SEND_MAX);
-	snprintf_((char *)(g_s_ftp.network->cmd_send_data), FTP_CMD_SEND_MAX, "%s\r\n",cmd);
-	luat_rtos_event_send(g_s_ftp.task_handle, FTP_EVENT_COMMAND, (uint32_t)g_s_ftp.idp, (uint32_t)(g_s_ftp.idp >> 32), 0, LUAT_WAIT_FOREVER);
 	return 1;
-error:
-	LLOGE("ftp command fail");
-    lua_pushinteger(L,FTP_ERROR_FILE);
-	luat_pushcwait_error(L,1);
-	return 1;
+}
+
+int luat_ftp_pull(const char * local_name,const char * remote_name){
+	if (!g_s_ftp.network){
+		LLOGE("please login first");
+		return -1;
+	}
+	luat_fs_remove(local_name);
+	if (g_s_ftp.fd)
+	{
+		luat_fs_fclose(g_s_ftp.fd);
+		g_s_ftp.fd = NULL;
+	}
+	g_s_ftp.fd = luat_fs_fopen(local_name, "wb+");
+	if (g_s_ftp.fd == NULL) {
+		LLOGE("open download file fail %s", local_name);
+		return -1;
+	}
+	g_s_ftp.network->local_file_size = luat_fs_fsize(local_name);
+	memcpy(g_s_ftp.network->remote_name, remote_name, strlen(remote_name) + 1);
+	luat_rtos_event_send(g_s_ftp.task_handle, FTP_EVENT_PULL, 0, 0, 0, 0);
+	return 0;
 }
 
 /*
@@ -987,33 +1005,46 @@ ftp.pull("/1222.txt","/1222.txt").wait()
 */
 static int l_ftp_pull(lua_State *L) {
 	size_t len;
+	const char * local_name = luaL_optlstring(L, 1, "",&len);
+	const char * remote_name = luaL_optlstring(L, 2, "",&len);
+	if (luat_ftp_pull(local_name,remote_name)){
+		LLOGE("ftp pull fail");
+		lua_pushinteger(L,FTP_ERROR_FILE);
+		luat_pushcwait_error(L,1);
+	}else{
+		g_s_ftp.idp = luat_pushcwait(L);
+	}
+	return 1;
+}
+
+int luat_ftp_close(void){
 	if (!g_s_ftp.network){
 		LLOGE("please login first");
-		goto error;
+		return -1;
 	}
-	g_s_ftp.idp = luat_pushcwait(L);
-	const char * local_name = luaL_optlstring(L, 1, "",&len);
-	luat_fs_remove(local_name);
+	luat_rtos_event_send(g_s_ftp.task_handle, FTP_EVENT_CLOSE, 0, 0, 0, LUAT_WAIT_FOREVER);
+	return 0;
+}
+
+int luat_ftp_push(const char * local_name,const char * remote_name){
+	if (!g_s_ftp.network){
+		LLOGE("please login first");
+		return -1;
+	}
 	if (g_s_ftp.fd)
 	{
 		luat_fs_fclose(g_s_ftp.fd);
 		g_s_ftp.fd = NULL;
 	}
-	g_s_ftp.fd = luat_fs_fopen(local_name, "wb+");
+	g_s_ftp.fd = luat_fs_fopen(local_name, "rb");
 	if (g_s_ftp.fd == NULL) {
 		LLOGE("open download file fail %s", local_name);
-		goto error;
+		return -1;
 	}
 	g_s_ftp.network->local_file_size = luat_fs_fsize(local_name);
-	const char * remote_name = luaL_optlstring(L, 2, "",&len);
-	memcpy(g_s_ftp.network->remote_name, remote_name, len + 1);
-	luat_rtos_event_send(g_s_ftp.task_handle, FTP_EVENT_PULL, 0, 0, 0, 0);
-	return 1;
-error:
-	LLOGE("ftp pull fail");
-    lua_pushinteger(L,FTP_ERROR_FILE);
-	luat_pushcwait_error(L,1);
-	return 1;
+	memcpy(g_s_ftp.network->remote_name, remote_name, strlen(remote_name) + 1);
+	luat_rtos_event_send(g_s_ftp.task_handle, FTP_EVENT_PUSH, 0, 0, 0, LUAT_WAIT_FOREVER);
+	return 0;
 }
 
 /*
@@ -1027,31 +1058,15 @@ ftp.push("/1222.txt","/1222.txt").wait()
 */
 static int l_ftp_push(lua_State *L) {
 	size_t len;
-	if (!g_s_ftp.network){
-		LLOGE("please login first");
-		goto error;
-	}
-	g_s_ftp.idp = luat_pushcwait(L);
 	const char * local_name = luaL_optlstring(L, 1, "",&len);
-	if (g_s_ftp.fd)
-	{
-		luat_fs_fclose(g_s_ftp.fd);
-		g_s_ftp.fd = NULL;
-	}
-	g_s_ftp.fd = luat_fs_fopen(local_name, "rb");
-	if (g_s_ftp.fd == NULL) {
-		LLOGE("open download file fail %s", local_name);
-		goto error;
-	}
-	g_s_ftp.network->local_file_size = luat_fs_fsize(local_name);
 	const char * remote_name = luaL_optlstring(L, 2, "",&len);
-	memcpy(g_s_ftp.network->remote_name, remote_name, len + 1);
-	luat_rtos_event_send(g_s_ftp.task_handle, FTP_EVENT_PUSH, 0, 0, 0, LUAT_WAIT_FOREVER);
-	return 1;
-error:
-	LLOGE("ftp push fail");
-    lua_pushinteger(L,FTP_ERROR_CONNECT);
-	luat_pushcwait_error(L,1);
+	if (luat_ftp_push(local_name,remote_name)){
+		LLOGE("ftp push fail");
+		lua_pushinteger(L,FTP_ERROR_CONNECT);
+		luat_pushcwait_error(L,1);
+	}else{
+		g_s_ftp.idp = luat_pushcwait(L);
+	}
 	return 1;
 }
 
@@ -1063,16 +1078,12 @@ FTP客户端关闭
 ftp.close().wait()
 */
 static int l_ftp_close(lua_State *L) {
-	if (!g_s_ftp.network){
-		LLOGE("please login first");
-		goto error;
+	if (luat_ftp_close()){
+		lua_pushinteger(L,FTP_ERROR_CONNECT);
+		luat_pushcwait_error(L,1);
+	}else{
+		g_s_ftp.idp = luat_pushcwait(L);
 	}
-	g_s_ftp.idp = luat_pushcwait(L);
-	luat_rtos_event_send(g_s_ftp.task_handle, FTP_EVENT_CLOSE, 0, 0, 0, LUAT_WAIT_FOREVER);
-	return 1;
-error:
-    lua_pushinteger(L,FTP_ERROR_CONNECT);
-	luat_pushcwait_error(L,1);
 	return 1;
 }
 

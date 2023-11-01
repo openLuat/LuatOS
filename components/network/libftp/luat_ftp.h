@@ -48,6 +48,55 @@ enum
 	FTP_COMMAND_CLOSE 	,
 };
 
+enum
+{
+	FTP_REQ_LOGIN = 1,
+	FTP_REQ_COMMAND 	,
+	FTP_REQ_PULL 		,
+	FTP_REQ_PUSH 		,
+	FTP_REQ_CLOSE 	,
+
+
+	FTP_EVENT_LOGIN = USER_EVENT_ID_START + FTP_REQ_LOGIN,
+	FTP_EVENT_COMMAND 	,
+	FTP_EVENT_PULL 		,
+	FTP_EVENT_PUSH 		,
+	FTP_EVENT_CLOSE 	,
+	FTP_EVENT_DATA_CONNECT 	,
+	FTP_EVENT_DATA_TX_DONE 	,
+	FTP_EVENT_DATA_WRITE_FILE 	,
+	FTP_EVENT_DATA_CLOSED 	,
+};
+
+typedef struct{
+	network_ctrl_t *cmd_netc;		// ftp netc
+	network_ctrl_t *data_netc;	// ftp data_netc
+	luat_ip_addr_t ip_addr;		// ftp ip
+	char addr[64]; 			// ftp addr
+	char username[64]; 		// ftp username
+	char password[64]; 		// ftp password
+	char remote_name[64];//去掉？
+    size_t upload_done_size;
+	size_t local_file_size;
+	uint8_t cmd_send_data[FTP_CMD_SEND_MAX];
+	uint32_t cmd_send_len;
+	uint8_t cmd_recv_data[FTP_CMD_RECV_MAX];
+	uint32_t cmd_recv_len;
+	uint16_t port; 				// 端口号
+	uint8_t adapter_index;
+	uint8_t data_netc_online;
+	uint8_t data_netc_connecting;
+}luat_ftp_network_t;
+
+typedef struct{
+	uint64_t idp;
+	luat_rtos_task_handle task_handle;
+	luat_ftp_network_t *network;
+	FILE* fd;					//下载 FILE
+	Buffer_Struct result_buffer;
+	uint8_t is_run;
+}luat_ftp_ctrl_t;
+
 typedef struct{
 	char *server_cert;
 	char *client_cert;

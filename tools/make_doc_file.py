@@ -80,15 +80,16 @@ def make(path,modules,index_text):
                     doc.write("|X")
             doc.write("|\n")
         doc.close()
-    doc = open(path+"index.rst", "a+",encoding='utf-8')
+    doc = open(path+"index.md", "a+",encoding='utf-8')
     doc.write(index_text)
     # 创建toctree
     doc.write("\n\n请点击左侧列表，查看各个接口。如需搜索，请使用F5进行搜索。\n\n"+
-                                                    ".. toctree::\n\n")
+                                                    "```{toctree}\n")
     if is_api:
-        doc.write("   supported\n")
+        doc.write("supported\n")
     for module in modules:
-        doc.write("   "+module["module"]+"\n")
+        doc.write(module["module"]+"\n")
+    doc.write("```\n")
     doc.close()
 
     for module in modules:

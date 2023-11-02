@@ -2,7 +2,7 @@
 #define __LUAT_NW_ADAPTER_H__
 #include "luat_base.h"
 // #ifdef LUAT_USE_NETWORK
-#if defined(LUAT_EC7XX_CSDK) || defined(CHIP_EC618)
+#if defined(LUAT_EC7XX_CSDK) || defined(CHIP_EC618) || defined(__AIR105_BSP__)
 #include "bsp_common.h"
 #endif
 #include "luat_rtos.h"

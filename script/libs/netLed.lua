@@ -24,6 +24,8 @@ end)
 ]]
  
 netLed = {}
+-- 引用sys库
+local sys = require("sys")
 
 
 local simError        --SIM卡状态：true为异常,false或者nil为正常

@@ -202,7 +202,7 @@ int luat_lv_init(lua_State *L) {
 
 #ifdef LUAT_USE_LVGL_SDL2
     if (lcd_conf == NULL) {
-        LLOGD("use LVGL-SDL2");
+        LLOGD("use LVGL-SDL2 分辨率 %dx%d", w, h);
         LV.disp =lv_sdl_init_display("LuatOS", w, h);
         lv_sdl_init_input();
         lua_pushboolean(L, LV.disp != NULL ? 1 : 0);

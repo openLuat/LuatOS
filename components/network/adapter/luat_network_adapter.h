@@ -2,10 +2,13 @@
 #define __LUAT_NW_ADAPTER_H__
 #include "luat_base.h"
 // #ifdef LUAT_USE_NETWORK
-#ifdef LUAT_EC7XX_CSDK
+#if defined(LUAT_EC7XX_CSDK) || defined(CHIP_EC618) || defined(__AIR105_BSP__)
 #include "bsp_common.h"
 #endif
 #include "luat_rtos.h"
+#ifndef __BSP_COMMON_H__
+#include "c_common.h"
+#endif
 #ifdef LUAT_USE_TLS
 #include "mbedtls/ssl.h"
 #include "mbedtls/platform.h"
@@ -40,9 +43,6 @@
 #include "lwip/sys.h"
 #include "lwip/pbuf.h"
 #include "lwip/inet.h"
-#endif
-#ifndef __BSP_COMMON_H__
-#include "c_common.h"
 #endif
 #define MAX_DNS_IP		(4)	//每个URL最多保留4个IP
 

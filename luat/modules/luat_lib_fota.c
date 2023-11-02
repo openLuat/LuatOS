@@ -110,12 +110,14 @@ static int l_fota_wait(lua_State* L)
 /**
 写入fota数据
 @api fota.run(buff)
-@zbuff/string fota数据，尽量用zbuff，如果传入的是zbuff，写入成功后，自动清空zbuff内的数据
+@zbuff/string fota数据，尽量用zbuff
 @return boolean 有异常返回false，无异常返回true
 @return boolean 接收到最后一块返回true
 @return int 还未写入的数据量，超过64K必须做等待
 @usage
 local result, isDone, cache = fota.run(buf) -- 写入fota流程
+
+-- 提示: ，如果传入的是zbuff，写入成功后，请自行清空zbuff内的数据
 */
 static int l_fota_write(lua_State* L)
 {

@@ -33,7 +33,7 @@ jobs:
         cd air780
         git remote add gitee https://gitee.com/openLuat/luatos-soc-2022.git
         retry 'git pull gitee master'
-        git checkout master origin/master
+        git checkout gitee/master
     - name: make
       run: |
         cd ../air780

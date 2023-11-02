@@ -2,10 +2,14 @@
 #define __LUAT_YMODEM_H__
 
 #include "luat_base.h"
-
+#ifdef __LUATOS__
 //save_path为保存文件夹路径
 //force_save_path强制保存文件路径，优先于save_path
 void *luat_ymodem_create_handler(const char *save_path, const char *force_save_path);
+#else
+typedef void(* luat_ymodem_callback)(uint8_t *Data, uint32_t Len);
+void *luat_ymodem_create_handler(luat_ymodem_callback cb);
+#endif
 //收文件
 //握手阶段，data为NULL,ack='c'
 //数据阶段，如果收完一整个包，根据解析结果ack返回成功或者失败符号，如果不完整，则ack=0

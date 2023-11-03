@@ -638,6 +638,10 @@ int luat_mobile_event_deregister_handler(void);
  * @return int =0成功，其他失败
  */
 int luat_mobile_sms_sdk_event_register_handler(luat_mobile_sms_event_callback_t callback_fun);
+/*
+ * @brief 和luat_mobile_sms_sdk_event_register_handler一样，只是为了兼容老的BSP
+ */
+int luat_mobile_sms_event_register_handler(luat_mobile_sms_event_callback_t callback_fun);
 /* ------------------------------------------------- mobile status end ------------------------------------------------ */
 
 /**

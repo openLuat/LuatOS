@@ -974,6 +974,31 @@ static int l_u8g2_CopyBuffer(lua_State *L) {
     return 1;
 }
 
+/*
+设置省电模式
+@api u8g2.SetPowerSave(is_enable)
+@boolean 启用与否. true 启用, false禁用
+@return nil 无返回值
+@usage
+-- 本API于2023.11.02新增
+-- 开启省电
+u8g2.SetPowerSave(true)
+-- 关闭省电
+u8g2.SetPowerSave(false)
+*/
+static int l_u8g2_SetPowerSave(lua_State *L) {
+    if (conf == NULL) return 0;
+    int is_enable = 0;
+    if (lua_isinteger(L, 1)) {
+        is_enable = lua_tointeger(L, 1);
+    }
+    else if (lua_isboolean(L, 1)) {
+        is_enable = lua_toboolean(L, 1);
+    }
+    u8g2_SetPowerSave(&conf->u8g2, is_enable);
+    return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_u8g2[] =
 {
@@ -1006,6 +1031,7 @@ static const rotable_Reg_t reg_u8g2[] =
     { "DrawDrcode",   ROREG_FUNC(l_u8g2_DrawDrcode)},
     { "SetContrast",  ROREG_FUNC(l_u8g2_SetContrast)},
     { "CopyBuffer",   ROREG_FUNC(l_u8g2_CopyBuffer)},
+    { "SetPowerSave", ROREG_FUNC(l_u8g2_SetPowerSave)},
 #ifdef LUAT_USE_GTFONT
     { "drawGtfontGb2312", ROREG_FUNC(l_u8g2_draw_gtfont_gb2312)},
 #ifdef LUAT_USE_GTFONT_UTF8

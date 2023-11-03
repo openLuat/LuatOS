@@ -54,8 +54,7 @@ s = io.open(snippet_path,"w")
 s.write(json.dumps(snippet))
 s.close()
 
-make_doc_file.make("../../luatos-wiki/api/",modules,"🍴 LuatOS-SOC接口文档\n"+
-                                                    "==============\n\n")
+make_doc_file.make("../../luatos-wiki/api/",modules,"# 🍴 LuatOS-SOC接口文档\n")
 
 
 
@@ -63,5 +62,4 @@ make_doc_file.make("../../luatos-wiki/api/",modules,"🍴 LuatOS-SOC接口文档
 modules = api_get.get_modules(api_get.get_file_list([source_path+"/../script/libs"]))
 modules.extend(api_get.get_modules(api_get.get_file_list([source_path+"/../script/libs"],".lua"),"--[[","]]"))
 
-make_doc_file.make("../../luatos-wiki/api/libs/",modules,"🥢 扩展库接口文档\n"+
-                                                        "==============\n\n")
+make_doc_file.make("../../luatos-wiki/api/libs/",modules,"# 🥢 扩展库接口文档\n")

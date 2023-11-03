@@ -10,6 +10,7 @@
 #include "luat_base.h"
 
 #include "luat_network_adapter.h"
+#include "luat_msgbus.h"
 #include "luat_malloc.h"
 #include "luat_ftp.h"
 
@@ -17,6 +18,38 @@
 #include "luat_log.h"
 
 extern luat_ftp_ctrl_t g_s_ftp;
+
+static int32_t l_ftp_callback(lua_State *L, void* ptr){
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+	// LLOGD("l_ftp_callback arg1:%d arg2:%d idp:%lld",msg->arg1,msg->arg2,g_s_ftp.idp);
+	if (g_s_ftp.idp)
+	{
+		if (msg->arg1 == FTP_ERROR)
+		{
+			lua_pushboolean(L, 0);
+		}
+		else if (msg->arg1 == FTP_SUCCESS_DATE)
+		{
+			lua_pushlstring(L,(const char *)(g_s_ftp.result_buffer.Data),g_s_ftp.result_buffer.Pos);
+		}
+		else
+		{
+			lua_pushboolean(L, 1);
+		}
+		luat_cbcwait(L, g_s_ftp.idp, 1);
+		g_s_ftp.idp = 0;
+	}
+	OS_DeInitBuffer(&g_s_ftp.result_buffer);
+	return 0;
+}
+
+
+static void luat_ftp_cb(luat_ftp_ctrl_t *luat_ftp_ctrl, uint16_t event){
+	rtos_msg_t msg = {0};
+	msg.handler = l_ftp_callback;
+	msg.arg1 = event;
+	luat_msgbus_put(&msg, 0);
+}
 
 /*
 FTP客户端
@@ -91,7 +124,7 @@ static int l_ftp_login(lua_State *L) {
 		}
 	}
 	
-	if (0!=(result = luat_ftp_login(adapter,ip_addr,port,username,password,luat_ftp_tls))){
+	if (0!=(result = luat_ftp_login(adapter,ip_addr,port,username,password,luat_ftp_tls,luat_ftp_cb))){
 		LLOGE("ftp login fail");
 		luat_ftp_release();
 		lua_pushinteger(L,result);

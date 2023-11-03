@@ -82,16 +82,13 @@ local function SSLTask()
 end
 
 function socketDemo()
-    mobile.rtime(1)
 	sys.taskInit(socketTask)
 end
 
 function UDPDemo()
-    mobile.rtime(1)
     sys.taskInit(UDPTask)
 end
 
 function SSLDemo()
-    mobile.rtime(1)
     sys.taskInit(SSLTask)
 end

@@ -171,12 +171,15 @@ uint8_t luat_mobile_get_default_pdn_ipv6(void);
 int luat_mobile_get_apn(int sim_id, int cid, char* buff, size_t buf_len);
 
 /**
- * @brief 用户控制APN激活过程。只有使用了本函数后，才能通过手动激活用户的APN并加装网卡。只有EC618支持
+ * @brief 用户控制APN激活过程。只有使用了本函数后，才能通过手动激活用户的APN并加装网卡。只有EC618/EC7XX支持
  */
 void luat_mobile_user_ctrl_apn(void);
-
 /**
- * @brief 手动设置APN激活所需的最小信息，如果需要更详细的设置，可以自行修改本函数。，只有EC618支持
+ * @brief 解除用户控制APN激活过程
+ */
+void luat_mobile_user_ctrl_apn_stop(void);
+/**
+ * @brief 手动设置APN激活所需的最小信息，如果需要更详细的设置，可以自行修改本函数。，只有EC618/EC7XX支持
  *
  * @param sim_id sim位置，对于双卡双待的设备，选0或者1，其他设备随意
  * @param cid cid位置 2~6
@@ -189,7 +192,7 @@ int luat_mobile_set_apn_base_info(int sim_id, int cid, uint8_t type, uint8_t* ap
 
 
 /**
- * @brief 手动设置APN激活所需的加密信息，如果需要更详细的设置，可以自行修改本函数。大部分情况下不需要加密信息，定向卡可能需要。只有EC618支持
+ * @brief 手动设置APN激活所需的加密信息，如果需要更详细的设置，可以自行修改本函数。大部分情况下不需要加密信息，定向卡可能需要。只有EC618/EC7XX支持
  *
  * @param sim_id sim位置，对于双卡双待的设备，选0或者1，其他设备随意
  * @param cid cid位置 2~6
@@ -203,7 +206,7 @@ int luat_mobile_set_apn_base_info(int sim_id, int cid, uint8_t type, uint8_t* ap
 int luat_mobile_set_apn_auth_info(int sim_id, int cid, uint8_t protocol, uint8_t *user_name, uint8_t user_name_len, uint8_t *password, uint8_t password_len);
 
 /**
- * @brief 手动激活/去激活APN。只有EC618支持
+ * @brief 手动激活/去激活APN。只有EC618/EC7XX支持
  *
  * @param sim_id sim位置，对于双卡双待的设备，选0或者1，其他设备随意
  * @param cid cid位置 2~6

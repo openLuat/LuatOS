@@ -93,13 +93,13 @@ function pcf8563t.read()
     if not data or #data ~= 7 then
         return time_data
     end
-    time_data.year  = bcd_to_hex(data:byte(7)) + baseyear
-    time_data.mon   = bcd_to_hex(bit.band(data:byte(6),0x7f))
-    time_data.wday  = bcd_to_hex(data:byte(5)) + 1
-    time_data.day   = bcd_to_hex(data:byte(4))
-    time_data.hour  = bcd_to_hex(data:byte(3))
-    time_data.min   = bcd_to_hex(data:byte(2))
-    time_data.sec   = bcd_to_hex(data:byte(1) & 0x7F)
+    time_data.year = bcd_to_hex(data:byte(7)) + baseyear
+    time_data.mon = bcd_to_hex(data:byte(6) & 0x9F)
+    time_data.wday = bcd_to_hex(data:byte(5) & 0x07) + 1
+    time_data.day = bcd_to_hex(data:byte(4) & 0x3F)
+    time_data.hour = bcd_to_hex(data:byte(3) & 0x3F)
+    time_data.min = bcd_to_hex(data:byte(2) & 0x7F)
+    time_data.sec = bcd_to_hex(data:byte(1) & 0x7F)
 	return time_data
 end
 

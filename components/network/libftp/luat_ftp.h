@@ -93,7 +93,6 @@ typedef struct{
 }luat_ftp_network_t;
 
 typedef struct{
-	uint64_t idp;
 	luat_rtos_task_handle task_handle;
 	luat_ftp_network_t *network;
 	FILE* fd;					//下载 FILE

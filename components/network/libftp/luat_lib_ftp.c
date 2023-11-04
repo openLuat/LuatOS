@@ -17,36 +17,31 @@
 #define LUAT_LOG_TAG "ftp"
 #include "luat_log.h"
 
-extern luat_ftp_ctrl_t g_s_ftp;
+static uint64_t ftp_idp = 0;
 
 static int32_t l_ftp_callback(lua_State *L, void* ptr){
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
-	// LLOGD("l_ftp_callback arg1:%d arg2:%d idp:%lld",msg->arg1,msg->arg2,g_s_ftp.idp);
-	if (g_s_ftp.idp)
-	{
-		if (msg->arg1 == FTP_ERROR)
-		{
+	luat_ftp_ctrl_t *luat_ftp_ctrl = (luat_ftp_ctrl_t *)msg->ptr;
+	// LLOGD("l_ftp_callback arg1:%d arg2:%d idp:%lld",msg->arg1,msg->arg2,ftp_idp);
+	if (ftp_idp){
+		if (msg->arg1 == FTP_ERROR){
 			lua_pushboolean(L, 0);
-		}
-		else if (msg->arg1 == FTP_SUCCESS_DATE)
-		{
-			lua_pushlstring(L,(const char *)(g_s_ftp.result_buffer.Data),g_s_ftp.result_buffer.Pos);
-		}
-		else
-		{
+		}else if (msg->arg1 == FTP_SUCCESS_DATE){
+			lua_pushlstring(L,(const char *)(luat_ftp_ctrl->result_buffer.Data),luat_ftp_ctrl->result_buffer.Pos);
+		}else{
 			lua_pushboolean(L, 1);
 		}
-		luat_cbcwait(L, g_s_ftp.idp, 1);
-		g_s_ftp.idp = 0;
+		luat_cbcwait(L, ftp_idp, 1);
+		ftp_idp = 0;
 	}
-	OS_DeInitBuffer(&g_s_ftp.result_buffer);
 	return 0;
 }
 
 
-static void luat_ftp_cb(luat_ftp_ctrl_t *luat_ftp_ctrl, uint16_t event){
+static void luat_ftp_cb(luat_ftp_ctrl_t *luat_ftp_ctrl, FTP_SUCCESS_STATE_e event){
 	rtos_msg_t msg = {0};
 	msg.handler = l_ftp_callback;
+	msg.ptr = luat_ftp_ctrl;
 	msg.arg1 = event;
 	luat_msgbus_put(&msg, 0);
 }
@@ -130,7 +125,7 @@ static int l_ftp_login(lua_State *L) {
 		lua_pushinteger(L,result);
 		luat_pushcwait_error(L,1);
 	}else{
-		g_s_ftp.idp = luat_pushcwait(L);
+		ftp_idp = luat_pushcwait(L);
 	}
 	if (luat_ftp_tls){
 		luat_heap_free(luat_ftp_tls);
@@ -162,7 +157,7 @@ static int l_ftp_command(lua_State *L) {
 		lua_pushinteger(L,FTP_ERROR_FILE);
 		luat_pushcwait_error(L,1);
 	}else{
-		g_s_ftp.idp = luat_pushcwait(L);
+		ftp_idp = luat_pushcwait(L);
 	}
 	return 1;
 }
@@ -185,7 +180,7 @@ static int l_ftp_pull(lua_State *L) {
 		lua_pushinteger(L,FTP_ERROR_FILE);
 		luat_pushcwait_error(L,1);
 	}else{
-		g_s_ftp.idp = luat_pushcwait(L);
+		ftp_idp = luat_pushcwait(L);
 	}
 	return 1;
 }
@@ -209,7 +204,7 @@ static int l_ftp_push(lua_State *L) {
 		lua_pushinteger(L,FTP_ERROR_CONNECT);
 		luat_pushcwait_error(L,1);
 	}else{
-		g_s_ftp.idp = luat_pushcwait(L);
+		ftp_idp = luat_pushcwait(L);
 	}
 	return 1;
 }
@@ -226,7 +221,7 @@ static int l_ftp_close(lua_State *L) {
 		lua_pushinteger(L,FTP_ERROR_CONNECT);
 		luat_pushcwait_error(L,1);
 	}else{
-		g_s_ftp.idp = luat_pushcwait(L);
+		ftp_idp = luat_pushcwait(L);
 	}
 	return 1;
 }

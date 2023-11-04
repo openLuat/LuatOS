@@ -385,10 +385,7 @@ static void l_ftp_cb(FTP_SUCCESS_STATE_e state){
 		luat_ftp_cb_t ftp_cb = g_s_ftp.network->ftp_cb;
 		ftp_cb(&g_s_ftp,state);
 	}
-	// if (g_s_ftp.fd){
-	// 	luat_fs_fclose(g_s_ftp.fd);
-	// 	g_s_ftp.fd = NULL;
-	// }
+	OS_DeInitBuffer(&g_s_ftp.result_buffer);
 }
 
 static void ftp_task(void *param){

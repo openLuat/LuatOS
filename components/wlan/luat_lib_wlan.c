@@ -110,9 +110,10 @@ static int l_wlan_ready(lua_State* L){
 
 /*
 作为STATION时,连接到指定AP
-@api wlan.connect(ssid, password)
+@api wlan.connect(ssid, password, auto_reconnect)
 @string AP的ssid
 @string AP的password,可选
+@int    0关闭自动重连,1开启自动重连.当前强制开启自动重连
 @return bool 发起连接成功返回true,否则返回false.注意,不代表连接AP成功!!
 @usage
 

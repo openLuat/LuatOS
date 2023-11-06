@@ -1,7 +1,7 @@
 #include "luat_base.h"
 #include "luat_msgbus.h"
 
-#if (defined(CONFIG_IDF_CMAKE))
+#ifdef LUAT_FREERTOS_FULL_INCLUDE
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #else

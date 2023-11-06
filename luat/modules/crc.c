@@ -98,10 +98,10 @@ static void InvertUint16(uint16_t *dBuf,uint16_t *srcBuf)
     }  
     dBuf[0] = tmp[0];  
 } 
-uint16_t calcCRC16_modbus(const uint8_t *data, uint32_t length)
+uint16_t calcCRC16_modbus(const uint8_t *data, uint32_t length, uint16_t crc_init)
 {
-    uint8_t crcHi = 0xFF;
-    uint8_t crcLo = 0xFF;
+    uint8_t crcHi = crc_init >> 8;
+    uint8_t crcLo = crc_init & 0xFF;
     uint8_t index;
     
     while(length--)

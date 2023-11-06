@@ -29,7 +29,7 @@ LUAT_WEAK int luat_rtos_event_recv(luat_rtos_task_handle task_handle, uint32_t w
 LUAT_WEAK int luat_rtos_message_send(luat_rtos_task_handle task_handle, uint32_t message_id, void *p_message)
 {
 	if (!task_handle) return -1;
-	return luat_send_event_to_task(task_handle, message_id, p_message, 0, 0);
+	return luat_send_event_to_task(task_handle, message_id, (uint32_t)p_message, 0, 0);
 }
 LUAT_WEAK int luat_rtos_message_recv(luat_rtos_task_handle task_handle, uint32_t *message_id, void **p_p_message, uint32_t timeout)
 {

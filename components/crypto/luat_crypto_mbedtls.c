@@ -1,4 +1,7 @@
 // crypto库的软件实现, 基于mbedtls
+#ifdef CHIP_EC616
+#include "FreeRTOS.h"
+#endif
 
 #include "luat_base.h"
 #include "luat_crypto.h"
@@ -61,6 +64,7 @@ int l_crypto_cipher_xxx(lua_State *L, uint8_t flags) {
     const char* iv = luaL_optlstring(L, 5, "", &iv_size);
     uint8_t *temp = NULL;
     int ret = 0;
+    int cipher_mode = 0;
 
     unsigned char output[32] = {0};
     size_t input_size = 0;
@@ -121,9 +125,9 @@ int l_crypto_cipher_xxx(lua_State *L, uint8_t flags) {
     block_size = mbedtls_cipher_get_block_size(&ctx);
 
     #if MBEDTLS_VERSION_NUMBER >= 0x03000000
-    int cipher_mode = mbedtls_cipher_info_get_mode(_cipher);
+    cipher_mode = mbedtls_cipher_info_get_mode(_cipher);
     #else
-    int cipher_mode = _cipher->mode;
+    cipher_mode = _cipher->mode;
     #endif
 
     if ((cipher_mode == MBEDTLS_MODE_ECB) && !strcmp("PKCS7", pad) && (flags & 0x1)) {

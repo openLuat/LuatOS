@@ -1,13 +1,21 @@
-#include "luat_base.h"
-#include "luat_rtos.h"
 
-#if (defined(CONFIG_IDF_CMAKE))
+
+#ifdef LUAT_FREERTOS_FULL_INCLUDE
 #include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/queue.h"
 #include "freertos/semphr.h"
+#include "freertos/timers.h"
 #else
 #include "FreeRTOS.h"
+#include "task.h"
+#include "queue.h"
 #include "semphr.h"
+#include "timers.h"
 #endif
+
+#include "luat_base.h"
+#include "luat_rtos.h"
 
 int luat_rtos_mutex_create(luat_rtos_mutex_t *mutex_handle)
 {

@@ -1,13 +1,21 @@
+
+#ifdef LUAT_FREERTOS_FULL_INCLUDE
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/queue.h"
+#include "freertos/semphr.h"
+#include "freertos/timers.h"
+#else
+#include "FreeRTOS.h"
+#include "task.h"
+#include "queue.h"
+#include "semphr.h"
+#include "timers.h"
+#endif
+
 #include "luat_base.h"
 #include "luat_rtos.h"
 
-#if (defined(CONFIG_IDF_CMAKE))
-#include "freertos/FreeRTOS.h"
-#include "freertos/queue.h"
-#else
-#include "FreeRTOS.h"
-#include "queue.h"
-#endif
 
 int luat_rtos_queue_create(luat_rtos_queue_t *queue_handle, uint32_t item_count, uint32_t item_size)
 {

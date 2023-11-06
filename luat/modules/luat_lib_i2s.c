@@ -15,6 +15,9 @@
 #include "luat_malloc.h"
 #include "luat_i2s.h"
 #include "luat_zbuff.h"
+
+#ifdef LUAT_USE_I2S
+
 #include "c_common.h"
 #define LUAT_LOG_TAG "i2s"
 #include "luat_log.h"
@@ -304,4 +307,6 @@ LUAMOD_API int luaopen_i2s(lua_State *L)
     luat_newlib2(L, reg_i2s);
     return 1;
 }
+
+#endif
 

@@ -1235,11 +1235,11 @@ int luat_u8g2_setup_default(luat_u8g2_conf_t *conf) {
         LLOGI("no such u8g2 mode!!");
         return -1;
     }
+    u8g2_InitDisplay(u8g2);
 #ifdef U8G2_USE_DYNAMIC_ALLOC
     conf->buff_ptr = (uint8_t *)luat_heap_malloc(u8g2_GetBufferSize(u8g2));
     u8g2_SetBufferPtr(u8g2, conf->buff_ptr);
 #endif
-    u8g2_InitDisplay(u8g2);
     u8g2_SetPowerSave(u8g2, 0);
     return 0;
 }

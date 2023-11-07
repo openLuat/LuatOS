@@ -40,22 +40,25 @@
 #define FTP_USERNAME_OK			"331" //User name okay, need password.
 #define FTP_DATA_CON_FAIL		"425" //Can't open data connection.
 
-enum
-{
+typedef enum{
+	FTP_ERROR 			,
+	FTP_SUCCESS_NO_DATE ,
+	FTP_SUCCESS_DATE 	,
+}FTP_SUCCESS_STATE_e;
+
+enum{
 	FTP_COMMAND_SYST = 1,
 	FTP_COMMAND_PULL 	,
 	FTP_COMMAND_PUSH 	,
 	FTP_COMMAND_CLOSE 	,
 };
 
-enum
-{
-	FTP_REQ_LOGIN = 1,
+enum{
+	FTP_REQ_LOGIN = 1	,
 	FTP_REQ_COMMAND 	,
 	FTP_REQ_PULL 		,
 	FTP_REQ_PUSH 		,
-	FTP_REQ_CLOSE 	,
-
+	FTP_REQ_CLOSE 		,
 
 	FTP_EVENT_LOGIN = USER_EVENT_ID_START + FTP_REQ_LOGIN,
 	FTP_EVENT_COMMAND 	,
@@ -86,10 +89,10 @@ typedef struct{
 	uint8_t adapter_index;
 	uint8_t data_netc_online;
 	uint8_t data_netc_connecting;
+	void* ftp_cb;			/**< mqtt 回调函数*/
 }luat_ftp_network_t;
 
 typedef struct{
-	uint64_t idp;
 	luat_rtos_task_handle task_handle;
 	luat_ftp_network_t *network;
 	FILE* fd;					//下载 FILE
@@ -104,11 +107,11 @@ typedef struct{
 	char *client_password;
 }luat_ftp_tls_t;
 
-
+typedef void (*luat_ftp_cb_t)(luat_ftp_ctrl_t *luat_ftp_ctrl, FTP_SUCCESS_STATE_e event);
 
 uint32_t luat_ftp_release(void);
 int luat_ftp_close(void);
-int luat_ftp_login(uint8_t adapter,const char * ip_addr,uint16_t port,const char * username,const char * password,luat_ftp_tls_t* luat_ftp_tls);
+int luat_ftp_login(uint8_t adapter,const char * ip_addr,uint16_t port,const char * username,const char * password,luat_ftp_tls_t* luat_ftp_tls,luat_ftp_cb_t ftp_cb);
 int luat_ftp_command(const char * command);
 int luat_ftp_pull(const char * local_name,const char * remote_name);
 int luat_ftp_push(const char * local_name,const char * remote_name);

@@ -314,19 +314,23 @@ static int l_crypto_crc16(lua_State *L)
 
 /**
 直接计算modbus的crc16值
-@api crypto.crc16_modbus(data)
+@api crypto.crc16_modbus(data, start)
 @string 数据
+@int 初始化值,默认0xFFFF
 @return int 对应的CRC16值
 @usage
 -- 计算CRC16 modbus
 local crc = crypto.crc16_modbus(data)
+-- 2023.11.06 新增初始值设置
+crc = crypto.crc16_modbus(data, 0xFFFF)
  */
 static int l_crypto_crc16_modbus(lua_State *L)
 {
     size_t len = 0;
     const unsigned char *inputData = (const unsigned char*)luaL_checklstring(L, 1, &len);
+    uint16_t crc_init = luaL_optinteger(L, 2, 0xFFFF);
 
-    lua_pushinteger(L, calcCRC16_modbus(inputData, len));
+    lua_pushinteger(L, calcCRC16_modbus(inputData, len, crc_init));
     return 1;
 }
 

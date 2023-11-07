@@ -8,7 +8,7 @@
 
 typedef struct luat_fs_inline
 {
-    char* ptr;
+    const char* ptr;
     uint32_t  size;
     uint32_t  offset;
 }luat_fs_inline_t;
@@ -25,7 +25,7 @@ extern const luadb_file_t luat_inline2_libs_source[];
 
 FILE* luat_vfs_inline_fopen(void* userdata, const char *filename, const char *mode) {
     //LLOGD("open inline %s", filename);
-    luadb_file_t* file = NULL;
+    const luadb_file_t* file = NULL;
 #ifdef LUAT_CONF_USE_LIBSYS_SOURCE
     file = luat_inline2_libs_source;
 #else
@@ -129,7 +129,7 @@ size_t luat_vfs_inline_fread(void* userdata, void *ptr, size_t size, size_t nmem
 }
 
 int luat_vfs_inline_fexist(void* userdata, const char *filename) {
-    luadb_file_t* file = NULL;
+    const luadb_file_t* file = NULL;
 #ifdef LUAT_CONF_VM_64bit
     #if defined(LUA_USE_LINUX) || (defined(LUA_USE_WINDOWS) && defined(__XMAKE_BUILD__))
     file = luat_inline2_libs_64bit_size64;

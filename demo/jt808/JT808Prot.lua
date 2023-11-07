@@ -44,7 +44,7 @@ end
 local function calCrc(d)
     local sum = 0
     for i=1,d:len() do
-        sum = sum^d:byte(i)
+        sum = sum~d:byte(i)
     end
     return sum
 end

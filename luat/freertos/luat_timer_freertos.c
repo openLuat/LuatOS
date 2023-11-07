@@ -4,7 +4,7 @@
 #include "luat_timer.h"
 #include "luat_msgbus.h"
 
-#if (defined(CONFIG_IDF_CMAKE))
+#ifdef LUAT_FREERTOS_FULL_INCLUDE
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/timers.h"

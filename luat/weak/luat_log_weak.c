@@ -73,7 +73,7 @@ LUAT_WEAK void luat_log_log(int level, const char* tag, const char* _fmt, ...) {
             luat_log_write("D/", 2);
             break;
         }
-    luat_log_write(tag, strlen(tag));
+    luat_log_write((char*)tag, strlen(tag));
     luat_log_write(" ", 1);
 
     va_list args;

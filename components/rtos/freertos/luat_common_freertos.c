@@ -1,19 +1,24 @@
-#include "luat_base.h"
-#include "luat_rtos.h"
-#include "luat_mcu.h"
-#include "luat_malloc.h"
-#include "common.h"
-#include "c_common.h"
 
-#if (defined(CONFIG_IDF_CMAKE))
+
+#ifdef LUAT_FREERTOS_FULL_INCLUDE
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/queue.h"
+#include "freertos/semphr.h"
+#include "freertos/timers.h"
 #else
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
+#include "semphr.h"
+#include "timers.h"
 #endif
+
+#include "luat_base.h"
+#include "luat_rtos.h"
+#include "luat_mcu.h"
+#include "luat_malloc.h"
+#include "c_common.h"
 
 #define LUAT_LOG_TAG "rtos"
 #include "luat_log.h"

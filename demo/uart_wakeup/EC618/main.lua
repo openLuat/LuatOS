@@ -60,7 +60,6 @@ sys.taskInit(function()
     end
 end)
 
-mobile.rtime(1)
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()

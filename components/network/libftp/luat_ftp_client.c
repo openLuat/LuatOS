@@ -11,7 +11,6 @@
 
 #include "luat_network_adapter.h"
 #include "luat_rtos.h"
-#include "luat_msgbus.h"
 #include "luat_fs.h"
 #include "luat_malloc.h"
 
@@ -31,10 +30,7 @@ luat_ftp_ctrl_t g_s_ftp;
 uint32_t luat_ftp_release(void) {
 	if (!g_s_ftp.network) return 0;
 	if (g_s_ftp.network->cmd_netc){
-		if (network_close(g_s_ftp.network->cmd_netc,FTP_SOCKET_TIMEOUT) < 0)
-		{
-			network_force_close_socket(g_s_ftp.network->cmd_netc);
-		}
+		network_force_close_socket(g_s_ftp.network->cmd_netc);
 		network_release_ctrl(g_s_ftp.network->cmd_netc);
 		g_s_ftp.network->cmd_netc = NULL;
 	}
@@ -94,34 +90,6 @@ next:
 	}else{
 		LLOGE("ftp network_rx fail");
 		return -1;
-	}
-	return 0;
-}
-
-static int32_t l_ftp_callback(lua_State *L, void* ptr){
-    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
-	LLOGD("l_ftp_callback arg1:%d arg2:%d idp:%lld",msg->arg1,msg->arg2,g_s_ftp.idp);
-	if (g_s_ftp.idp)
-	{
-		if (msg->arg1)
-		{
-			lua_pushboolean(L, 0);
-		}
-		else if (msg->arg2)
-		{
-			lua_pushlstring(L,(const char *)(g_s_ftp.result_buffer.Data),g_s_ftp.result_buffer.Pos);
-		}
-		else
-		{
-			lua_pushboolean(L, 1);
-		}
-		luat_cbcwait(L, g_s_ftp.idp, 1);
-		g_s_ftp.idp = 0;
-	}
-	OS_DeInitBuffer(&g_s_ftp.result_buffer);
-	if (g_s_ftp.fd){
-		luat_fs_fclose(g_s_ftp.fd);
-		g_s_ftp.fd = NULL;
 	}
 	return 0;
 }
@@ -412,51 +380,48 @@ static int ftp_login(void)
 	return 0;
 }
 
+static void l_ftp_cb(FTP_SUCCESS_STATE_e state){
+	if (g_s_ftp.network->ftp_cb){
+		luat_ftp_cb_t ftp_cb = g_s_ftp.network->ftp_cb;
+		ftp_cb(&g_s_ftp,state);
+	}
+	OS_DeInitBuffer(&g_s_ftp.result_buffer);
+}
+
 static void ftp_task(void *param){
+	FTP_SUCCESS_STATE_e ftp_state = FTP_SUCCESS_NO_DATE;
 	int ret;
 	int count = 0;
 	luat_rtos_task_handle task_handle = g_s_ftp.task_handle;
 	OS_EVENT task_event;
-	rtos_msg_t msg = {0};
 	uint8_t is_timeout = 0;
 	g_s_ftp.is_run = 1;
-    msg.handler = l_ftp_callback;
 	luat_rtos_event_recv(g_s_ftp.task_handle, FTP_EVENT_LOGIN, &task_event, NULL, LUAT_WAIT_FOREVER);
-	if (ftp_login())
-	{
+	if (ftp_login()){
 		LLOGE("ftp login fail");
 		luat_ftp_release();
-		msg.arg1 = 1;
-		luat_msgbus_put(&msg, 0);
+		ftp_state = FTP_ERROR;
+		l_ftp_cb(ftp_state);
 		g_s_ftp.task_handle = NULL;
 		luat_rtos_task_delete(task_handle);
 		return;
-	}
-	else
-	{
-		msg.arg1 = 0;
-		msg.arg2 = 0;
-		luat_msgbus_put(&msg, 0);
+	}else{
+		l_ftp_cb(ftp_state);
 	}
     while (g_s_ftp.is_run) {
     	is_timeout = 0;
     	ret = network_wait_event(g_s_ftp.network->cmd_netc, &task_event, 3600000, &is_timeout);
-    	if (ret < 0)
-    	{
-    		LLOGE("ftp network error");
+    	if (ret < 0){    		
+			LLOGE("ftp network error");
     		goto wait_event_and_out;
-    	}
-    	else if (is_timeout || !task_event.ID)
-    	{
-        	if (g_s_ftp.network->cmd_netc->new_rx_flag)
-        	{
+    	}else if (is_timeout || !task_event.ID){
+        	if (g_s_ftp.network->cmd_netc->new_rx_flag){
         		network_rx(g_s_ftp.network->cmd_netc, g_s_ftp.network->cmd_recv_data, 1024, 0, NULL, NULL, &ret);
         		LLOGD("ftp rx %dbyte", ret);
         	}
     		continue;
     	}
-    	msg.arg1 = 0;
-    	msg.arg2 = 0;
+    	ftp_state = FTP_SUCCESS_NO_DATE;
 		switch (task_event.ID)
 		{
 		case FTP_EVENT_LOGIN:
@@ -495,7 +460,7 @@ static void ftp_task(void *param){
 						luat_fs_fclose(g_s_ftp.fd);
 						g_s_ftp.fd = NULL;
 					}
-					luat_msgbus_put(&msg, 0);
+					l_ftp_cb(ftp_state);
 					break;
 				}
 			}
@@ -516,7 +481,7 @@ static void ftp_task(void *param){
 				luat_fs_fclose(g_s_ftp.fd);
 				g_s_ftp.fd = NULL;
 			}
-			luat_msgbus_put(&msg, 0);
+			l_ftp_cb(ftp_state);
 			break;
 		case FTP_EVENT_PUSH:
 			if(luat_ftp_pasv_connect(&g_s_ftp,FTP_SOCKET_TIMEOUT)){
@@ -570,7 +535,7 @@ static void ftp_task(void *param){
 				luat_fs_fclose(g_s_ftp.fd);
 				g_s_ftp.fd = NULL;
 			}
-			luat_msgbus_put(&msg, 0);
+			l_ftp_cb(ftp_state);
 			break;
 		case FTP_EVENT_CLOSE:
 			g_s_ftp.is_run = 0;
@@ -600,8 +565,8 @@ static void ftp_task(void *param){
 					if (strstr((const char *)(g_s_ftp.network->cmd_recv_data), FTP_CLOSE_CONNECT))
 					{
 						LLOGD("ftp LIST ok!");
-						msg.arg2 = 1;
-						luat_msgbus_put(&msg, 0);
+						ftp_state = FTP_SUCCESS_DATE;
+						l_ftp_cb(ftp_state);
 						break;
 					}
 				}
@@ -614,8 +579,8 @@ static void ftp_task(void *param){
 						goto operation_failed;
 					}
 				}
-				msg.arg2 = 1;
-				luat_msgbus_put(&msg, 0);
+				ftp_state = FTP_SUCCESS_DATE;
+				l_ftp_cb(ftp_state);
 				break;
 			}
 			luat_ftp_cmd_send(&g_s_ftp, g_s_ftp.network->cmd_send_data, strlen((const char *)(g_s_ftp.network->cmd_send_data)),FTP_SOCKET_TIMEOUT);
@@ -666,34 +631,32 @@ static void ftp_task(void *param){
 				}
 			}
 			OS_BufferWrite(&g_s_ftp.result_buffer, g_s_ftp.network->cmd_recv_data, g_s_ftp.network->cmd_recv_len);
-			msg.arg2 = 1;
-			luat_msgbus_put(&msg, 0);
+			ftp_state = FTP_SUCCESS_DATE;
+			l_ftp_cb(ftp_state);
 			break;
 		default:
 			break;
 		}
 		continue;
 operation_failed:
-		msg.arg1 = 1;
-		luat_msgbus_put(&msg, 0);
+		ftp_state = FTP_ERROR;
+		l_ftp_cb(ftp_state);
 	}
-
-	msg.arg1 = 0;
-	msg.arg2 = 0;
+	ftp_state = FTP_SUCCESS_NO_DATE;
 	luat_ftp_cmd_send(&g_s_ftp, (uint8_t*)"QUIT\r\n", strlen("QUIT\r\n"),FTP_SOCKET_TIMEOUT);
 	ret = luat_ftp_cmd_recv(&g_s_ftp,g_s_ftp.network->cmd_recv_data,&g_s_ftp.network->cmd_recv_len,FTP_SOCKET_TIMEOUT);
 	if (ret){
-		msg.arg1 = 1;
+		ftp_state = FTP_ERROR;
 	}else{
 		if (memcmp(g_s_ftp.network->cmd_recv_data, FTP_CLOSE_CONTROL, 3)){
 			LLOGE("ftp QUIT wrong");
-			msg.arg1 = 1;
+			ftp_state = FTP_ERROR;
 		}
 	}
 	OS_BufferWrite(&g_s_ftp.result_buffer, g_s_ftp.network->cmd_recv_data, g_s_ftp.network->cmd_recv_len);
-	msg.arg2 = 1;
+	if (ftp_state == FTP_SUCCESS_NO_DATE) ftp_state = FTP_SUCCESS_DATE;
+	l_ftp_cb(ftp_state);
 	luat_ftp_release();
-	luat_msgbus_put(&msg, 0);
 	g_s_ftp.task_handle = NULL;
 	luat_rtos_task_delete(task_handle);
 	return;
@@ -704,8 +667,8 @@ wait_event_and_out:
 		if (task_event.ID >= FTP_EVENT_LOGIN && task_event.ID <= FTP_EVENT_CLOSE)
 		{
 			luat_ftp_release();
-			msg.arg1 = 1;
-			luat_msgbus_put(&msg, 0);
+			ftp_state = FTP_ERROR;
+			l_ftp_cb(ftp_state);
 			g_s_ftp.task_handle = NULL;
 			luat_rtos_task_delete(task_handle);
 			return;
@@ -714,7 +677,7 @@ wait_event_and_out:
 }
 
 
-int luat_ftp_login(uint8_t adapter,const char * ip_addr,uint16_t port,const char * username,const char * password,luat_ftp_tls_t* luat_ftp_tls){
+int luat_ftp_login(uint8_t adapter,const char * ip_addr,uint16_t port,const char * username,const char * password,luat_ftp_tls_t* luat_ftp_tls,luat_ftp_cb_t ftp_cb){
 	if (g_s_ftp.network){
 		LLOGE("ftp already login, please close first");
 		return FTP_ERROR_STATE;
@@ -725,6 +688,9 @@ int luat_ftp_login(uint8_t adapter,const char * ip_addr,uint16_t port,const char
 		return FTP_ERROR_NO_MEM;
 	}
 	memset(g_s_ftp.network, 0, sizeof(luat_ftp_network_t));
+	if (ftp_cb){
+		g_s_ftp.network->ftp_cb = ftp_cb;
+	}
 	g_s_ftp.network->adapter_index = adapter;
 	if (g_s_ftp.network->adapter_index >= NW_ADAPTER_QTY){
 		LLOGE("bad network adapter index %d", g_s_ftp.network->adapter_index);
@@ -801,7 +767,7 @@ int luat_ftp_command(const char * command){
 	}
 	memset(g_s_ftp.network->cmd_send_data,0,FTP_CMD_SEND_MAX);
 	snprintf_((char *)(g_s_ftp.network->cmd_send_data), FTP_CMD_SEND_MAX, "%s\r\n",command);
-	luat_rtos_event_send(g_s_ftp.task_handle, FTP_EVENT_COMMAND, (uint32_t)g_s_ftp.idp, (uint32_t)(g_s_ftp.idp >> 32), 0, LUAT_WAIT_FOREVER);
+	luat_rtos_event_send(g_s_ftp.task_handle, FTP_EVENT_COMMAND, 0, 0, 0, 0);
 	return 0;
 }
 

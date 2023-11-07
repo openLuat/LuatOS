@@ -777,4 +777,29 @@ enum
 
 uint32_t luat_mobile_sim_write_counter(void);
 
+enum
+{
+	LUAT_MOBILE_ISP_UNKNOW,
+	LUAT_MOBILE_ISP_CMCC,	/*中国移动*/
+	LUAT_MOBILE_ISP_CTCC,	/*中国电信*/
+	LUAT_MOBILE_ISP_CUCC,	/*中国联通*/
+	LUAT_MOBILE_ISP_CRCC,	/*中国广电*/
+};
+
+/**
+ * @brief 通过PLMN判断运营商，目前只支持国内三大运营商及广电
+ * @param mcc MCC码，3位10进制数字，目前只有中国460是支持的
+ * @param mnc MNC码，2位10进制数字
+ * @return < 0 发生错误，其他见LUAT_MOBILE_ISP_XXX
+ */
+int luat_mobile_get_isp_from_plmn(uint16_t mcc, uint8_t mnc);
+
+/**
+ * @brief 通过IMSI提取PLMN
+ * @param imsi IMSI号码
+ * @param mcc MCC码，3位10进制数字
+ * @param mnc MNC码，2位10进制数字
+ * @return =0成功，其他错误
+ */
+int luat_mobile_get_plmn_from_imsi(char *imsi, uint16_t *mcc, uint8_t *mnc);
 #endif

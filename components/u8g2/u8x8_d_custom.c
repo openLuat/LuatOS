@@ -202,17 +202,11 @@ uint8_t u8x8_d_custom_noname(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *a
   if ( u8x8_d_custom_generic(u8x8, msg, arg_int, arg_ptr) != 0 )
     return 1;
   luat_u8g2_custom_t* u8g2_custom = NULL;
-  printf("u8x8_d_custom_noname msg:%d\n",msg);
+  // printf("u8x8_d_custom_noname msg:%d\n",msg);
   switch(msg)
   {
     case U8X8_MSG_DISPLAY_INIT:
-      conf = (luat_u8g2_conf_t*)u8x8->user_ptr;
-      u8x8_custom_noname_display_info.pixel_width = conf->w;
-      u8x8_custom_noname_display_info.pixel_height = conf->h;
-      u8x8_custom_noname_display_info.tile_width = conf->w/8;
-      u8x8_custom_noname_display_info.tile_height = conf->h/8;
       u8x8_d_helper_display_init(u8x8);
-      // printf("conf w:%d h:%d\n",conf->w,conf->h);
       // u8x8_cad_SendSequence(u8x8, u8x8_d_custom_noname_init_seq);    
       u8g2_custom = (luat_u8g2_custom_t*)conf->userdata;
       u8x8_cad_StartTransfer(u8x8);
@@ -238,6 +232,11 @@ uint8_t u8x8_d_custom_noname(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *a
       u8x8_cad_EndTransfer(u8x8);
       break;
     case U8X8_MSG_DISPLAY_SETUP_MEMORY:
+      conf = (luat_u8g2_conf_t*)u8x8->user_ptr;
+      u8x8_custom_noname_display_info.pixel_width = conf->w;
+      u8x8_custom_noname_display_info.pixel_height = conf->h;
+      u8x8_custom_noname_display_info.tile_width = conf->w/8;
+      u8x8_custom_noname_display_info.tile_height = conf->h/8;
       u8x8_d_helper_display_setup_memory(u8x8, &u8x8_custom_noname_display_info);
       break;
     default:

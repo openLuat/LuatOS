@@ -3,7 +3,7 @@
 #include "luat_gpio.h"
 #include "luat_spi.h"
 #include "luat_malloc.h"
-#include "luat_timer.h"
+#include "luat_rtos.h"
 
 #define LUAT_LOG_TAG "gc9106l"
 #include "luat_log.h"
@@ -28,9 +28,9 @@ static int gc9106l_init(luat_lcd_conf_t* conf) {
     if (conf->pin_pwr != 255)
         luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
     luat_gpio_set(conf->pin_rst, Luat_GPIO_LOW);
-    luat_timer_mdelay(100);
+    luat_rtos_task_sleep(100);
     luat_gpio_set(conf->pin_rst, Luat_GPIO_HIGH);
-    luat_timer_mdelay(120);
+    luat_rtos_task_sleep(120);
     // 发送初始化命令
     //------------------------------------gc9106lS Frame Rate-----------------------------------------//
     lcd_write_cmd(conf,0xFE);
@@ -88,7 +88,7 @@ static int gc9106l_init(luat_lcd_conf_t* conf) {
     /* Sleep Out */
     lcd_write_cmd(conf,0x11);
     /* wait for power stability */
-    luat_timer_mdelay(100);
+    luat_rtos_task_sleep(100);
     luat_lcd_clear(conf,BLACK);
     /* display on */
     luat_lcd_display_on(conf);

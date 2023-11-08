@@ -58,7 +58,7 @@ typedef struct luat_lcd_conf {
     uint8_t auto_flush;
     uint8_t direction;//方向
     u8g2_t luat_lcd_u8g2 ;
-    struct luat_lcd_opts* opts;
+    const struct luat_lcd_opts* opts;
     luat_spi_device_t* lcd_spi_device;
     int lcd_spi_ref;
     void* userdata;

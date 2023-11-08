@@ -3,7 +3,7 @@
 #include "luat_gpio.h"
 #include "luat_spi.h"
 #include "luat_malloc.h"
-#include "luat_timer.h"
+#include "luat_rtos.h"
 
 #define LUAT_LOG_TAG "st7735s"
 #include "luat_log.h"
@@ -28,12 +28,12 @@ static int st7735s_init(luat_lcd_conf_t* conf) {
 	if (conf->pin_pwr != 255)
     	luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
     luat_gpio_set(conf->pin_rst, Luat_GPIO_LOW);
-    luat_timer_mdelay(100);
+    luat_rtos_task_sleep(100);
     luat_gpio_set(conf->pin_rst, Luat_GPIO_HIGH);
-    luat_timer_mdelay(120);
+    luat_rtos_task_sleep(120);
 	
 	lcd_write_cmd(conf,0x11);     //Sleep out
-	luat_timer_mdelay(120);                //Delay 120ms
+	luat_rtos_task_sleep(120);                //Delay 120ms
 	lcd_write_cmd(conf,0xB1);     //Normal mode
 	lcd_write_data(conf,0x05);
 	lcd_write_data(conf,0x3C);

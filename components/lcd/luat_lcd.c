@@ -3,7 +3,7 @@
 #include "luat_gpio.h"
 #include "luat_spi.h"
 #include "luat_malloc.h"
-#include "luat_timer.h"
+#include "luat_rtos.h"
 
 #define LUAT_LOG_TAG "lcd"
 #include "luat_log.h"
@@ -28,7 +28,7 @@ void luat_lcd_execute_cmds(luat_lcd_conf_t* conf, uint32_t* cmds, uint32_t count
                 lcd_write_cmd(conf, (const uint8_t)(cmd & 0xFF));
                 break;
             case 0x0001 :
-                luat_timer_mdelay(cmd & 0xFF);
+                luat_rtos_task_sleep(cmd & 0xFF);
                 break;
             case 0x0002 :
                 lcd_write_cmd(conf, (const uint8_t)(cmd & 0xFF));
@@ -137,7 +137,7 @@ int luat_lcd_display_on(luat_lcd_conf_t* conf) {
 int luat_lcd_sleep(luat_lcd_conf_t* conf) {
     if (conf->pin_pwr != 255)
         luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
-    luat_timer_mdelay(5);
+    luat_rtos_task_sleep(5);
     lcd_write_cmd(conf,0x10);
     return 0;
 }
@@ -145,7 +145,7 @@ int luat_lcd_sleep(luat_lcd_conf_t* conf) {
 int luat_lcd_wakeup(luat_lcd_conf_t* conf) {
     if (conf->pin_pwr != 255)
         luat_gpio_set(conf->pin_pwr, Luat_GPIO_HIGH);
-    luat_timer_mdelay(5);
+    luat_rtos_task_sleep(5);
     lcd_write_cmd(conf,0x11);
     return 0;
 }

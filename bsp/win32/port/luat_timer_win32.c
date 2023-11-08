@@ -117,3 +117,9 @@ void luat_timer_us_delay(size_t us) {
     if (us)
         usleep(us);
 }
+
+void luat_rtos_task_sleep(uint32_t ms) {
+    if (ms > 0) {
+        Sleep(1000);
+    }
+}

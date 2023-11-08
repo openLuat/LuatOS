@@ -23,7 +23,10 @@
 #define LUAT_SMS_H
 
 #include "luat_base.h"
-
+/**
+ * @defgroup LUAT_SMS  SMS接口
+ * @{
+ */
 #define LUAT_MSG_MAX_ADDR_LEN 80
 #define LUAT_SMS_MAX_TXT_SIZE 640
 #define LUAT_SMS_MAX_PDU_SIZE 180
@@ -106,10 +109,7 @@ typedef struct
     uint8_t seqNum;
 }LUAT_SMS_RECV_MSG_T;
 
-/**
- * @defgroup luatos_sms 短信功能
- * @{
- */
+
 /**
  * @brief 初始化短信
  */
@@ -137,5 +137,5 @@ void luat_sms_recv_msg_register_handler(LUAT_SMS_HANDLE_CB callback_fun);
  * @param callback_fun    回调函数
  */
 void luat_sms_send_msg_register_handler(LUAT_SMS_HANDLE_SEND_CB callback_fun);
-
+/**@}*/
 #endif

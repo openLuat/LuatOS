@@ -15,7 +15,10 @@
 #define HTTP_RESP_BUFF_SIZE 	(4096)
 
 #endif
-
+/**
+ * @defgroup luatos_HTTP  HTTP(S)相关接口
+ * @{
+ */
 enum
 {
 	HTTP_STATE_IDLE,
@@ -246,5 +249,6 @@ int luat_http_client_pause(luat_http_ctrl_t *http_ctrl, uint8_t is_pause);
  */
 int luat_http_client_set_get_offset(luat_http_ctrl_t *http_ctrl, uint32_t offset);
 // int luat_http_client_start(luat_http_ctrl_t *http_ctrl, const char *url, uint8_t is_post, uint8_t ipv6, uint8_t data_mode);
+/** @}*/
 #endif
 #endif

@@ -10,6 +10,10 @@
 #ifdef __LUATOS__
 #include "luat_lcd.h"
 #endif
+/**
+ * @defgroup CAMERA  CAMERA设备(CAMERA)
+ * @{
+ */
 enum
 {
 	LUAT_CAMERA_FRAME_START = 0,
@@ -126,4 +130,6 @@ int luat_camera_image_decode_once(uint8_t *data, uint16_t image_w, uint16_t imag
 void luat_camera_image_decode_deinit(void);
 
 int luat_camera_image_decode_get_result(uint8_t *buf);
+
+/** @}*/
 #endif

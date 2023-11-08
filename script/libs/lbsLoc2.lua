@@ -96,10 +96,14 @@ end
 @number 服务器地址,有默认值,可以是域名,一般不需要填
 @number 服务器端口,默认12411,一般不需要填
 @bool   是否要求返回服务器时间
-@return string  若成功,返回定位坐标的纬度,是WGS84坐标系,否则会返还nil
-@return string  若成功,返回定位坐标的精度,是WGS84坐标系,否则会返还nil
+@return string  若成功,返回定位坐标的纬度,否则会返还nil
+@return string  若成功,返回定位坐标的精度,否则会返还nil
 @return table   服务器时间,东八区时间. 当reqTime为true且定位成功才会返回
 @usage
+-- 关于坐标系
+-- 大部分情况下会返回GCJ02坐标系, 少数情况返回的WGS84坐标
+-- 历史数据已经无法分辨具体坐标系
+-- 鉴于两种坐标系之间的误差并不大,小于基站定位本身的误差, 纠偏的意义不大
 sys.taskInit(function()
     if mobile.status() == 0 then
         sys.waitUntil("IP_READY", 3000)

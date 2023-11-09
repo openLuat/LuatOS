@@ -115,7 +115,6 @@ void make_ip4_dhcp_select_msg(dhcp_client_info_t *dhcp, uint16_t flag, Buffer_St
 			  31,33,43,44,46,47,
 			  DHCP_OPTION_SERVER_ID,
 			  DHCP_OPTION_LEASE_TIME,
-			  DHCP_OPTION_IP_TTL,
 			  119,121,249,252
 			  //DHCP_OPTION_138,
 	  };
@@ -280,6 +279,8 @@ int ip4_dhcp_run(dhcp_client_info_t *dhcp, Buffer_Struct *in, Buffer_Struct *out
 				dhcp->last_tx_time = 0;
 				dhcp->lease_p1_time = 0;
 				dhcp->lease_p2_time = 0;
+				dhcp->weak_temp_ip = 0;
+				dhcp->weak_server_ip = 0;
 			}
 		}
 		else
@@ -367,7 +368,6 @@ int ip4_dhcp_run(dhcp_client_info_t *dhcp, Buffer_Struct *in, Buffer_Struct *out
 		if (in && (result == DHCP_OFFER))
 		{
 			LLOGD("select offer, wait ack");
-			dhcp->xid++;
 			dhcp->state = DHCP_STATE_WAIT_SELECT_ACK;
 			dhcp->wait_selec_ack_cnt = 0;
 			goto DHCP_NEED_REQUIRE;
@@ -420,7 +420,7 @@ int ip4_dhcp_run(dhcp_client_info_t *dhcp, Buffer_Struct *in, Buffer_Struct *out
 		}
 		else
 		{
-			if (luat_mcu_tick64_ms() >= (dhcp->last_tx_time + 2100))
+			if (luat_mcu_tick64_ms() >= (dhcp->last_tx_time + 1900))
 			{
 				dhcp->wait_selec_ack_cnt++;
 				LLOGD("select ip no ack,resend %d", dhcp->wait_selec_ack_cnt);

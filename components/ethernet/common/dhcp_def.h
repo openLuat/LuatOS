@@ -37,10 +37,14 @@ typedef struct
 	uint32_t dns_server[2];
 	uint32_t xid;
 	uint32_t lease_time;
+	uint32_t weak_server_ip;
+	uint32_t weak_temp_ip;
 	char name[32];
 	uint8_t mac[6];
 	uint8_t state;
 	uint8_t discover_cnt;
+	uint8_t wait_selec_ack_cnt;
+
 }dhcp_client_info_t;
 
 typedef struct

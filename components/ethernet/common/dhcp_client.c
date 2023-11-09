@@ -15,13 +15,17 @@
 
 void make_ip4_dhcp_msg_base(dhcp_client_info_t *dhcp, uint16_t flag, Buffer_Struct *out)
 {
-	dhcp->xid++;
+	uint16_t escape_time = 0;
+	if (dhcp->last_tx_time)
+	{
+		escape_time = (luat_mcu_tick64_ms() - dhcp->last_tx_time) / 1000;
+	}
 	BytesPut8ToBuf(out, DHCP_BOOTREQUEST);
 	BytesPut8ToBuf(out, DHCP_HTYPE_ETH);
 	BytesPut8ToBuf(out, 6);
 	BytesPut8ToBuf(out, 0);
 	BytesPutBe32ToBuf(out, dhcp->xid);
-	BytesPutBe16ToBuf(out, 0);
+	BytesPutBe16ToBuf(out, escape_time);
 	BytesPutBe16ToBuf(out, flag);
 	BytesPutLe32ToBuf(out, dhcp->ip);
 	BytesPutLe32ToBuf(out, 0);
@@ -84,6 +88,7 @@ void make_ip4_dhcp_discover_msg(dhcp_client_info_t *dhcp, Buffer_Struct *out)
 			  DHCP_OPTION_IP_TTL,
 	};
 	out->Pos = 0;
+	dhcp->xid++;
 	make_ip4_dhcp_msg_base(dhcp, 0x8000, out);
 	ip4_dhcp_msg_add_integer_option(DHCP_OPTION_MESSAGE_TYPE, DHCP_OPTION_MESSAGE_TYPE_LEN, DHCP_DISCOVER, out);
 	ip4_dhcp_msg_add_bytes_option(DHCP_OPTION_PARAMETER_REQUEST_LIST, dhcp_discover_request_options, sizeof(dhcp_discover_request_options), out);
@@ -105,31 +110,60 @@ void make_ip4_dhcp_select_msg(dhcp_client_info_t *dhcp, uint16_t flag, Buffer_St
 	uint8_t dhcp_discover_request_options[] = {
 			  DHCP_OPTION_SUBNET_MASK,
 			  DHCP_OPTION_ROUTER,
-			  DHCP_OPTION_BROADCAST,
+			  DHCP_OPTION_DNS_SERVER,
+			  15,
+			  31,33,43,44,46,47,
 			  DHCP_OPTION_SERVER_ID,
 			  DHCP_OPTION_LEASE_TIME,
-			  DHCP_OPTION_DNS_SERVER,
 			  DHCP_OPTION_IP_TTL,
-			  DHCP_OPTION_138,
+			  119,121,249,252
+			  //DHCP_OPTION_138,
 	  };
 	out->Pos = 0;
+	uint8_t full_name[35] = {0};
 	make_ip4_dhcp_msg_base(dhcp, flag, out);
 	ip4_dhcp_msg_add_integer_option(DHCP_OPTION_MESSAGE_TYPE, DHCP_OPTION_MESSAGE_TYPE_LEN, DHCP_REQUEST, out);
+	ip4_dhcp_msg_add_client_id_option(DHCP_OPTION_CLIENT_ID, (uint8_t*)dhcp->mac, 6, out);
 	ip4_dhcp_msg_add_ip_option(DHCP_OPTION_REQUESTED_IP, dhcp->temp_ip, out);
 	if (!flag)
 	{
 		ip4_dhcp_msg_add_ip_option(DHCP_OPTION_SERVER_ID, dhcp->server_ip, out);
 	}
-	ip4_dhcp_msg_add_bytes_option(DHCP_OPTION_PARAMETER_REQUEST_LIST, dhcp_discover_request_options, sizeof(dhcp_discover_request_options), out);
 	ip4_dhcp_msg_add_bytes_option(DHCP_OPTION_HOSTNAME, (uint8_t*)dhcp->name, strlen(dhcp->name), out);
-	ip4_dhcp_msg_add_client_id_option(DHCP_OPTION_CLIENT_ID, (uint8_t*)dhcp->mac, 6, out);
+	memcpy(full_name + 3, (uint8_t*)dhcp->name, strlen(dhcp->name));
+	ip4_dhcp_msg_add_bytes_option(81, full_name, strlen(dhcp->name) + 3, out);
+	ip4_dhcp_msg_add_bytes_option(60, "MSFT 5.0", 8, out);
+	ip4_dhcp_msg_add_bytes_option(DHCP_OPTION_PARAMETER_REQUEST_LIST, dhcp_discover_request_options, sizeof(dhcp_discover_request_options), out);
 	BytesPut8ToBuf(out, 0xff);
 }
+
+//void make_ip4_dhcp_info_msg(dhcp_client_info_t *dhcp, Buffer_Struct *out)
+//{
+//	uint8_t dhcp_discover_request_options[] = {
+//			  DHCP_OPTION_SUBNET_MASK,
+//			  DHCP_OPTION_ROUTER,
+//			  DHCP_OPTION_BROADCAST,
+//			  DHCP_OPTION_SERVER_ID,
+//			  DHCP_OPTION_LEASE_TIME,
+//			  DHCP_OPTION_DNS_SERVER,
+//			  DHCP_OPTION_IP_TTL,
+//			  DHCP_OPTION_138,
+//	  };
+//	out->Pos = 0;
+//	dhcp->xid++;
+//	make_ip4_dhcp_msg_base(dhcp, 0x8000, out);
+//	ip4_dhcp_msg_add_integer_option(DHCP_OPTION_MESSAGE_TYPE, DHCP_OPTION_MESSAGE_TYPE_LEN, DHCP_INFORM, out);
+//	ip4_dhcp_msg_add_bytes_option(DHCP_OPTION_HOSTNAME, (uint8_t*)dhcp->name, strlen(dhcp->name), out);
+//	ip4_dhcp_msg_add_client_id_option(DHCP_OPTION_CLIENT_ID, (uint8_t*)dhcp->mac, 6, out);
+//	ip4_dhcp_msg_add_bytes_option(DHCP_OPTION_PARAMETER_REQUEST_LIST, dhcp_discover_request_options, sizeof(dhcp_discover_request_options), out);
+//	BytesPut8ToBuf(out, 0xff);
+//}
 
 void make_ip4_dhcp_decline_msg(dhcp_client_info_t *dhcp, Buffer_Struct *out)
 {
 
 	out->Pos = 0;
+	dhcp->xid++;
 	make_ip4_dhcp_msg_base(dhcp, 0, out);
 	ip4_dhcp_msg_add_integer_option(DHCP_OPTION_MESSAGE_TYPE, DHCP_OPTION_MESSAGE_TYPE_LEN, DHCP_DECLINE, out);
 	ip4_dhcp_msg_add_ip_option(DHCP_OPTION_REQUESTED_IP, dhcp->temp_ip, out);
@@ -165,7 +199,6 @@ int analyze_ip4_dhcp(dhcp_client_info_t *dhcp, Buffer_Struct *in)
 		LLOGD("xid error %x,%x", BytesGetBe32(&in->Data[4]), dhcp->xid);
 		return -3;
 	}
-	dhcp->xid++;
 	if (memcmp(dhcp->mac, &in->Data[28], 6))
 	{
 		LLOGD("mac error");
@@ -173,6 +206,8 @@ int analyze_ip4_dhcp(dhcp_client_info_t *dhcp, Buffer_Struct *in)
 	}
 	dhcp->temp_ip = BytesGetLe32(&in->Data[16]);
 	LLOGD("find ip %x", dhcp->temp_ip);
+
+
 	in->Pos = DHCP_OPTIONS_OFS;
 	while (in->Pos < in->MaxLen)
 	{
@@ -332,7 +367,9 @@ int ip4_dhcp_run(dhcp_client_info_t *dhcp, Buffer_Struct *in, Buffer_Struct *out
 		if (in && (result == DHCP_OFFER))
 		{
 			LLOGD("select offer, wait ack");
+			dhcp->xid++;
 			dhcp->state = DHCP_STATE_WAIT_SELECT_ACK;
+			dhcp->wait_selec_ack_cnt = 0;
 			goto DHCP_NEED_REQUIRE;
 		}
 		if (luat_mcu_tick64_ms() >= (dhcp->last_tx_time + (dhcp->discover_cnt * 500) + 900))
@@ -350,18 +387,47 @@ int ip4_dhcp_run(dhcp_client_info_t *dhcp, Buffer_Struct *in, Buffer_Struct *out
 //			LLOGD("need check ip %x,%x,%x,%x", dhcp->temp_ip, dhcp->submask, dhcp->gateway, dhcp->server_ip);
 			dhcp->ip = dhcp->temp_ip;
 			dhcp->state = DHCP_STATE_CHECK;
+
+			dhcp->weak_temp_ip = 0;
+			dhcp->weak_server_ip = 0;
+
 			LLOGD("DHCP get ip ready");
 			break;
 		}
-		if (luat_mcu_tick64_ms() >= (dhcp->last_tx_time + (dhcp->discover_cnt * 500) + 1100))
+		if (dhcp->wait_selec_ack_cnt > 2)
 		{
 			LLOGD("select ip long time no ack");
+			if ((dhcp->weak_temp_ip == dhcp->temp_ip) && (dhcp->weak_server_ip == dhcp->server_ip))
+			{
+				LLOGD("get same ip and server, maybe dhcp server error, use old ip");
+				dhcp->ip = dhcp->temp_ip;
+				dhcp->state = DHCP_STATE_CHECK;
+
+				dhcp->weak_temp_ip = 0;
+				dhcp->weak_server_ip = 0;
+				break;
+			}
+			else
+			{
+				dhcp->weak_temp_ip = dhcp->temp_ip;
+				dhcp->weak_server_ip = dhcp->server_ip;
+			}
 			OS_ReInitBuffer(out, 512);
 			make_ip4_dhcp_discover_msg(dhcp, out);
 			dhcp->last_tx_time = luat_mcu_tick64_ms();
 			dhcp->discover_cnt = 0;
 			dhcp->state = DHCP_STATE_WAIT_OFFER;
 		}
+		else
+		{
+			if (luat_mcu_tick64_ms() >= (dhcp->last_tx_time + 2100))
+			{
+				dhcp->wait_selec_ack_cnt++;
+				LLOGD("select ip no ack,resend %d", dhcp->wait_selec_ack_cnt);
+				goto DHCP_NEED_REQUIRE;
+			}
+		}
+
 		break;
 	case DHCP_STATE_REQUIRE:
 	case DHCP_STATE_SELECT:
@@ -371,12 +437,15 @@ int ip4_dhcp_run(dhcp_client_info_t *dhcp, Buffer_Struct *in, Buffer_Struct *out
 	case DHCP_STATE_CHECK:
 		break;
 	case DHCP_STATE_DECLINE:
+		dhcp->weak_temp_ip = 0;
+		dhcp->weak_server_ip = 0;
 		flag = 0;
 		*remote_ip = dhcp->server_ip;
 		OS_ReInitBuffer(out, 512);
 		make_ip4_dhcp_decline_msg(dhcp, out);
 		dhcp->last_tx_time = luat_mcu_tick64_ms();
 		dhcp->state = DHCP_STATE_DISCOVER;
+
 		break;
 	case DHCP_STATE_NOT_WORK:
 		break;

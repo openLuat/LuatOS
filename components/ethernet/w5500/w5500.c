@@ -1197,9 +1197,14 @@ RETRY:
 	{
 		if (common_irq & IR_CONFLICT)
 		{
+			w5500->inter_error++;
+			LLOGE("w5500 detect ip conflct");
 			memset(temp, 0, 4);
 			w5500_xfer(w5500, W5500_COMMON_IP0, is_write, temp, 4);
-			w5500->dhcp_client.state = DHCP_STATE_DECLINE;
+			if (w5500->dhcp_client.state != DHCP_STATE_DISCOVER)
+			{
+				w5500->dhcp_client.state = DHCP_STATE_DECLINE;
+			}
 			ip4_dhcp_run(&w5500->dhcp_client, NULL, &tx_msg_buf, &remote_ip);
 			if (tx_msg_buf.Pos)
 			{
@@ -1246,7 +1251,12 @@ RETRY:
 			}
 		}
 	}
-
+	if (w5500->inter_error >= 2)
+	{
+		LLOGD("error too much, reboot");
+		w5500_init_reg(w5500);
+		return;
+	}
 	if (luat_gpio_get(w5500->irq_pin) != 1)
 	{
 //		LLOGD("irq not clear!");

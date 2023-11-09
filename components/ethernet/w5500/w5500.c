@@ -3,7 +3,9 @@
 #include "luat_spi.h"
 #ifdef LUAT_USE_W5500
 #include "luat_rtos.h"
+#ifdef __LUATOS__
 #include "luat_zbuff.h"
+#endif
 #include "luat_gpio.h"
 #include "w5500_def.h"
 #include "luat_crypto.h"

@@ -596,13 +596,13 @@ int32_t luat_websocket_callback(void *data, void *param)
 			}
 			// LLOGD("luat_websocket_read_packet ret:%d",ret);
 			luat_stop_rtos_timer(websocket_ctrl->ping_timer);
-			luat_start_rtos_timer(websocket_ctrl->ping_timer, websocket_ctrl->keepalive * 1000 * 0.75, 1);
+			luat_start_rtos_timer(websocket_ctrl->ping_timer, websocket_ctrl->keepalive * 1000, 1);
 		}
 	}
 	else if (event->ID == EV_NW_RESULT_TX)
 	{
 		luat_stop_rtos_timer(websocket_ctrl->ping_timer);
-		luat_start_rtos_timer(websocket_ctrl->ping_timer, websocket_ctrl->keepalive * 1000 * 0.75, 1);
+		luat_start_rtos_timer(websocket_ctrl->ping_timer, websocket_ctrl->keepalive * 1000, 1);
 		if (websocket_ctrl->frame_wait) {
 			websocket_ctrl->frame_wait --;
 			l_luat_websocket_msg_cb(websocket_ctrl, WEBSOCKET_MSG_SENT, 0);

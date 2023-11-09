@@ -131,7 +131,7 @@ void make_ip4_dhcp_select_msg(dhcp_client_info_t *dhcp, uint16_t flag, Buffer_St
 	ip4_dhcp_msg_add_bytes_option(DHCP_OPTION_HOSTNAME, (uint8_t*)dhcp->name, strlen(dhcp->name), out);
 	memcpy(full_name + 3, (uint8_t*)dhcp->name, strlen(dhcp->name));
 	ip4_dhcp_msg_add_bytes_option(81, full_name, strlen(dhcp->name) + 3, out);
-	ip4_dhcp_msg_add_bytes_option(60, "MSFT 5.0", 8, out);
+	ip4_dhcp_msg_add_bytes_option(60, (uint8_t *)"MSFT 5.0", 8, out);
 	ip4_dhcp_msg_add_bytes_option(DHCP_OPTION_PARAMETER_REQUEST_LIST, dhcp_discover_request_options, sizeof(dhcp_discover_request_options), out);
 	BytesPut8ToBuf(out, 0xff);
 }

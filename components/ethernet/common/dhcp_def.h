@@ -91,8 +91,9 @@ enum {
 /** DHCP hardware type, currently only ethernet is supported */
 #define DHCP_HTYPE_10MB				1
 #define DHCP_HTYPE_100MB			2
+#ifndef DHCP_HTYPE_ETH
 #define DHCP_HTYPE_ETH              DHCP_HTYPE_10MB
-
+#endif
 #define DHCP_MAGIC_COOKIE           0x63825363UL
 
 /* This is a list of options for BOOTP and DHCP, see RFC 2132 for descriptions */

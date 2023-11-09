@@ -14,7 +14,9 @@
 #include "luat_malloc.h"
 
 #include "luat_network_adapter.h"
-
+#ifdef LUAT_USE_MOBILE
+#include "luat_mobile.h"
+#endif
 //extern void DBG_Printf(const char* format, ...);
 //extern void DBG_HexPrintf(void *Data, unsigned int len);
 //#if 0
@@ -230,14 +232,14 @@ static void w5500_ip_state(w5500_ctrl_t *w5500, uint8_t check_state);
 static void w5500_check_dhcp(w5500_ctrl_t *w5500);
 static void w5500_init_reg(w5500_ctrl_t *w5500);
 
-static int w5500_del_data_cache(void *p, void *u)
+static int32_t w5500_del_data_cache(void *p, void *u)
 {
 	socket_data_t *pdata = (socket_data_t *)p;
 	free(pdata->data);
 	return LIST_DEL;
 }
 
-static int w5500_next_data_cache(void *p, void *u)
+static int32_t w5500_next_data_cache(void *p, void *u)
 {
 	socket_ctrl_t *socket = (socket_ctrl_t *)u;
 	socket_data_t *pdata = (socket_data_t *)p;
@@ -251,7 +253,7 @@ static int w5500_next_data_cache(void *p, void *u)
 }
 
 
-static int32_t w5500_irq(int pin, void *args)
+static int w5500_irq(int pin, void *args)
 {
 	w5500_ctrl_t *w5500 = (w5500_ctrl_t *)args;
 	if ((pin & 0x00ff) == w5500->irq_pin)
@@ -271,7 +273,7 @@ static void w5500_callback_to_nw_task(w5500_ctrl_t *w5500, uint32_t event_id, ui
 	OS_EVENT event = { .ID = event_id, .Param1 = param1, .Param2 = param2, .Param3 = param3};
 	if (event_id > EV_NW_DNS_RESULT)
 	{
-		event.Param3 = prv_w5500_ctrl->socket[param1].param;
+		event.Param3 = (uint32_t)prv_w5500_ctrl->socket[param1].param;
 		param.tag = prv_w5500_ctrl->socket[param1].tag;
 		if (EV_NW_SOCKET_CLOSE_OK == event_id)
 		{
@@ -949,11 +951,11 @@ static int32_t w5500_dns_check_result(void *data, void *param)
 			{
 				ip_result[i] = require->ip_result[i];
 			}
-			w5500_callback_to_nw_task(param, EV_NW_DNS_RESULT, require->result, ip_result, require->param);
+			w5500_callback_to_nw_task(param, EV_NW_DNS_RESULT, require->result, (uint32_t)ip_result, (uint32_t)require->param);
 		}
 		else
 		{
-			w5500_callback_to_nw_task(param, EV_NW_DNS_RESULT, 0, 0, require->param);
+			w5500_callback_to_nw_task(param, EV_NW_DNS_RESULT, 0, 0, (uint32_t)require->param);
 		}
 
 		return LIST_DEL;
@@ -1305,7 +1307,7 @@ static void w5500_task(void *param)
 		{
 			sleep_time = 0;
 		}
-		result = platform_wait_event(w5500->task_handle, 0, &event, NULL, sleep_time);
+		result = platform_wait_event(w5500->task_handle, 0, (luat_event_t *)&event, NULL, sleep_time);
 		w5500_xfer(w5500, W5500_COMMON_MR, 0, NULL, W5500_COMMON_QTY);
 		w5500->device_on = (0x04 == w5500->rx_buf[3 + W5500_COMMON_VERSIONR])?1:0;
 		if (w5500->device_on && w5500->rx_buf[3 + W5500_COMMON_IMR] != (IR_CONFLICT|IR_UNREACH|IR_MAGIC))
@@ -1420,7 +1422,7 @@ static void w5500_task(void *param)
 		case EV_W5500_SOCKET_DNS:
 			if (w5500->network_ready)
 			{
-				dns_require(&w5500->dns_client, event.Param1, event.Param2, event.Param3);
+				dns_require(&w5500->dns_client, (const char *)event.Param1, event.Param2, (void *)event.Param3);
 				w5500_dns_tx_next(w5500, &tx_msg_buf);
 			}
 			break;
@@ -1663,7 +1665,7 @@ static int w5500_socket_listen(int socket_id, uint64_t tag,  uint16_t local_port
 {
 	int result = w5500_check_socket(user_data, socket_id, tag);
 	if (result) return result;
-	platform_send_event(prv_w5500_ctrl->task_handle, EV_W5500_SOCKET_LISTEN, socket_id, local_port, NULL);
+	platform_send_event(prv_w5500_ctrl->task_handle, EV_W5500_SOCKET_LISTEN, socket_id, local_port, 0);
 	return 0;
 }
 //作为server接受一个client
@@ -1788,7 +1790,7 @@ static int w5500_socket_send(int socket_id, uint64_t tag, const uint8_t *buf, ui
 	if (result) return result;
 	if (prv_w5500_ctrl->socket[socket_id].tx_wait_size >= SOCK_BUF_LEN) return 0;
 
-	socket_data_t *p = w5500_create_data_node(prv_w5500_ctrl, socket_id, buf, len, remote_ip, remote_port);
+	socket_data_t *p = w5500_create_data_node(prv_w5500_ctrl, socket_id, (uint8_t *)buf, len, remote_ip, remote_port);
 	if (p)
 	{
 		W5500_LOCK;
@@ -1907,7 +1909,7 @@ static int w5500_dns(const char *domain_name, uint32_t len, void *param, void *u
 	if (user_data != prv_w5500_ctrl) return -1;
 	char *prv_domain_name = (char *)malloc(len);
 	memcpy(prv_domain_name, domain_name, len);
-	platform_send_event(prv_w5500_ctrl->task_handle, EV_W5500_SOCKET_DNS, prv_domain_name, len, param);
+	platform_send_event(prv_w5500_ctrl->task_handle, EV_W5500_SOCKET_DNS, (uint32_t)prv_domain_name, len, (uint32_t)param);
 	return 0;
 }
 
@@ -1936,7 +1938,7 @@ static int w5500_set_mac_lwip(uint8_t *mac, void *user_data)
 static int w5500_set_static_ip_lwip(luat_ip_addr_t *ip, luat_ip_addr_t *submask, luat_ip_addr_t *gateway, luat_ip_addr_t *ipv6, void *user_data)
 {
 	if (user_data != prv_w5500_ctrl) return -1;
-	w5500_set_static_ip(ip, submask, gateway);
+	w5500_set_static_ip((uint32_t)ip, (uint32_t)submask, (uint32_t)gateway);
 	return 0;
 }
 static int w5500_get_full_ip_info_lwip(luat_ip_addr_t *ip, luat_ip_addr_t *submask, luat_ip_addr_t *gateway, luat_ip_addr_t *ipv6, void *user_data)

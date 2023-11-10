@@ -112,5 +112,9 @@ typedef struct luat_lcd_custom {
     uint32_t *initcmd; // 实际命令长度与init_cmd_count相同
 }luat_lcd_custom_t;
 
+void luat_lcd_service_init(uint32_t pro);
+void luat_lcd_run(void *CB, void *data, uint32_t param, uint32_t timeout);
+void luat_lcd_draw(void *data);
+uint32_t luat_lcd_cache_len(void);
 #endif
 

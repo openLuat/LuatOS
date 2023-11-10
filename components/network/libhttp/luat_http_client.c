@@ -300,7 +300,11 @@ static int on_body(http_parser* parser, const char *at, size_t length){
 				return -1;
 			}
 		}
-		luat_fs_fwrite(at, length, 1, http_ctrl->fd);
+		if (length != luat_fs_fwrite(at, length, 1, http_ctrl->fd)) {
+			LLOGE("err when fwrite %s", http_ctrl->dst);
+			http_resp_error(http_ctrl, HTTP_ERROR_DOWNLOAD);
+			return -1;
+		}
 	}
 #ifdef LUAT_USE_FOTA
 	else if(http_ctrl->isfota && (parser->status_code == 200 || parser->status_code == 206)){
@@ -342,6 +346,10 @@ static int on_complete(http_parser* parser, luat_http_ctrl_t *http_ctrl){
 	if (http_ctrl->fd != NULL) {
 		luat_fs_fclose(http_ctrl->fd);
 		http_ctrl->fd = NULL;
+		if (parser->status_code > 299 && http_ctrl->dst) {
+			LLOGW("download fail, remove file %s", http_ctrl->dst);
+			luat_fs_remove(http_ctrl->dst);
+		}
 	}
 #ifdef LUAT_USE_FOTA
 	else if(http_ctrl->isfota){

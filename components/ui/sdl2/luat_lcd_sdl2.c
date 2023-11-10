@@ -17,7 +17,7 @@ static int sdl2_init(luat_lcd_conf_t* conf) {
     };
     luat_sdl2_init(&sdl2_conf);
     fb = luat_heap_malloc(sizeof(uint32_t) * conf->w * conf->h);
-    luat_lcd_clear(conf, WHITE);
+    luat_lcd_clear(conf, LCD_WHITE);
     // printf("ARGB8888 0xFFFF %08X\n", luat_color_565to8888(0xFFFF));
     // printf("ARGB8888 0X001F %08X\n", luat_color_565to8888(0X001F));
     // printf("ARGB8888 0xF800 %08X\n", luat_color_565to8888(0xF800));

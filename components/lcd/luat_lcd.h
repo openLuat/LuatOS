@@ -98,8 +98,8 @@ typedef struct luat_lcd_custom {
 }luat_lcd_custom_t;
 
 void luat_lcd_service_init(uint32_t pro);
-void luat_lcd_run(void *CB, void *data, uint32_t param, uint32_t timeout);
-void luat_lcd_draw(void *data);
-uint32_t luat_lcd_cache_len(void);
+void luat_lcd_service_run(void *CB, void *data, uint32_t param, uint32_t timeout);
+void luat_lcd_service_draw(void *data);
+uint32_t luat_lcd_service_cache_len(void);
 #endif
 

@@ -78,16 +78,25 @@ static const luat_u8g2_dev_reg_t devregs[] = {
 /*
 u8g2显示屏初始化
 @api u8g2.begin(conf)
-@table conf 配置信息 ic:支持 custom(自定义命令) ssd1306(默认) ssd1309 ssd1322 sh1106 sh1107 sh1108 st7567 uc1701 ssd1306_128x32, direction:方向,可选0 90 180 270 默认0 mode:模式,可选i2c_sw:软件i2c i2c_hw:硬件i2c spi_hw_4pin:硬件spi i2c_id:硬件i2c时有效 i2c_scl=1、i2c_sda:软件i2c时有效 spi_id、spi_res、spi_dc、spi_cs:硬件spi时生效
+@table conf 配置信息,详细配置看下面的例子
 @return int 正常初始化1,已经初始化过2,内存不够3,初始化失败返回4
 @usage
+-- conf配置项说明
+-- ic 字符串,主控芯片类型, 支持custom(自定义命令) ssd1306(默认) ssd1309 ssd1322 sh1106 sh1107 sh1108 st7567 uc1701 ssd1306_128x32
+-- direction 数值,方向,可选0 90 180 270 默认0
+-- mode 字符串,模式,可选i2c_sw:软件i2c i2c_hw:硬件i2c,spi_hw_4pin: 硬件spi
+-- i2c_id: 数值,硬件i2c时有效
+-- i2c_scl: 数值,软件i2c时时钟线的GPIO编号
+-- i2c_sda: 数值软件i2c时数据线的GPIO编号
+-- spi_id、spi_res、spi_dc、spi_cs: 数值,硬件spi的SPI编号,复位GPIO编号,DC线的GPIO编号, CS线的GPIO编号
+-- x_offset: 数值,X轴偏移量,默认按驱动走, 2023.11.10新增的配置项
+
 -- 初始化硬件i2c的ssd1306
 u8g2.begin({ic = "ssd1306",direction = 0,mode="i2c_hw",i2c_id=0}) -- direction 可选0 90 180 270
 -- 初始化硬件spi的ssd1306
 u8g2.begin({ic = "ssd1306",direction = 0,mode="spi_hw_4pin",spi_id=0,spi_res=pin.PB03,spi_dc=pin.PB01,spi_cs=pin.PB04}) -- direction 可选0 90 180 270
 -- 初始化软件i2c的ssd1306
 u8g2.begin({ic = "ssd1306",direction = 0,mode="i2c_sw", i2c_scl=1, i2c_sda=4}) -- 通过PA1 SCL / PA4 SDA模拟
-
 */
 static int l_u8g2_begin(lua_State *L) {
     if (conf != NULL) {
@@ -105,6 +114,7 @@ static int l_u8g2_begin(lua_State *L) {
     conf->direction = U8G2_R0;
     char mode[12] = {0};
     size_t mode_len = 0;
+    int x_offset = -255;
     if (lua_istable(L, 1)) {
         // 参数解析
         lua_pushliteral(L, "ic");
@@ -222,6 +232,12 @@ static int l_u8g2_begin(lua_State *L) {
         }
         lua_pop(L, 1);
         
+        lua_pushliteral(L, "x_offset");
+        lua_gettable(L, 1);
+        if (lua_isinteger(L, -1)) {
+            x_offset = luaL_checkinteger(L, -1);
+        }
+        lua_pop(L, 1);
     }
 
     if (lua_istable(L, 2) && strcmp("custom", conf->cname) == 0){
@@ -275,6 +291,10 @@ static int l_u8g2_begin(lua_State *L) {
         LLOGW("disp init fail");
         lua_pushinteger(L, 4);
         return 1; // 初始化失败
+    }
+    if (x_offset != -255) {
+        LLOGD("设置x偏移量 %d", x_offset);
+        conf->u8g2.u8x8.x_offset = x_offset;
     }
     LLOGD("setup done");
     conf->lua_ref = luaL_ref(L, LUA_REGISTRYINDEX);

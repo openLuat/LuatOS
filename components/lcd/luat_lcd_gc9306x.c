@@ -162,7 +162,7 @@ static int gc9306x_init(luat_lcd_conf_t* conf) {
     /* wait for power stability */
     luat_rtos_task_sleep(100);
     lcd_write_cmd(conf,0x2c);
-    luat_lcd_clear(conf,BLACK);
+    luat_lcd_clear(conf,LCD_BLACK);
     /* display on */
     luat_lcd_display_on(conf);
     lcd_write_cmd(conf,0x2c);

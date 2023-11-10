@@ -2,7 +2,6 @@
 #include "luat_gpio.h"
 #include "luat_spi.h"
 
-#define LUAT_WEAK                     __attribute__((weak))
 #define LUAT_SPI_CS_SELECT 0
 #define LUAT_SPI_CS_CLEAR  1
 

@@ -127,7 +127,7 @@ static int st7735s_init(luat_lcd_conf_t* conf) {
 	lcd_write_data(conf,conf->h+conf->yoffset-1);    //160
 	lcd_write_cmd(conf,0x2C);
 
-    luat_lcd_clear(conf,BLACK);
+    luat_lcd_clear(conf,LCD_BLACK);
     /* display on */
     luat_lcd_display_on(conf);
     return 0;

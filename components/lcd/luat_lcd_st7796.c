@@ -156,7 +156,7 @@ static int st7796_init(luat_lcd_conf_t* conf) {
     lcd_write_data(conf,0x69);
 
     luat_rtos_task_sleep(100);
-    luat_lcd_clear(conf,BLACK);
+    luat_lcd_clear(conf,LCD_BLACK);
     /* display on */
     luat_lcd_display_on(conf);
     return 0;

@@ -4,11 +4,12 @@
 [![fork](https://gitee.com/openLuat/LuatOS/badge/fork.svg?theme=gvp)](https://gitee.com/openLuat/LuatOS/members)
 [![license](https://img.shields.io/github/license/openLuat/LuatOS)](/LICENSE)
 
-[![air101](https://pg.air32.cn/openLuat/LuatOS/actions/workflows/air101.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/air101/master)
-[![air105](https://pg.air32.cn/openLuat/LuatOS/actions/workflows/air105.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/air105/master)
-[![esp32](https://pg.air32.cn/openLuat/LuatOS/actions/workflows/esp32-idf5.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/esp32-idf5/master)
+[![air101](https://pg.air32.cn/openLuat/LuatOS/actions/workflows/air101.yml/badge.svg)](https://wiki.luatos.com/chips/air101/index.html)
+[![air105](https://pg.air32.cn/openLuat/LuatOS/actions/workflows/air105.yml/badge.svg)](https://wiki.luatos.com/chips/air105/index.html)
+[![esp32](https://pg.air32.cn/openLuat/LuatOS/actions/workflows/esp32-idf5.yml/badge.svg)](https://wiki.luatos.com/chips/esp32c3/index.html)
 [![win32](https://pg.air32.cn/openLuat/LuatOS/actions/workflows/win32.yml/badge.svg)](https://nightly.link/openLuat/LuatOS/workflows/win32/master)
-![ec618,Air780E](https://github.com/openLuat/luatos-soc-2022/actions/workflows/ci.yaml/badge.svg)
+[![ec618,Air780E](https://github.com/openLuat/luatos-soc-2022/actions/workflows/ci.yaml/badge.svg)](https://wiki.luatos.com/chips/air780e/index.html)
+[![ec7xx](https://github.com/openLuat/luatos-soc-2023/actions/workflows/ci.yaml/badge.svg)](https://gitee.com/openLuat/luatos-soc-2023)
 
 LuatOS : Powerful embedded Lua Engine for IoT devices, with many components and low memory requirements (16K RAM, 128K Flash)
 
@@ -23,6 +24,7 @@ LuatOS : Powerful embedded Lua Engine for IoT devices, with many components and 
     * [Air105 - MCU开发板](https://luat.taobao.com)
     * [Air601 - wifi开发板](https://luat.taobao.com)
     * [ESP32C3 - wifi开发板](https://luat.taobao.com)
+    * [PC - 无需开发板的模拟器](https://gitee.com/openLuat/luatos-soc-pc)
 2. 掌握[刷机](https://wiki.luatos.com/boardGuide/flash.html)
 3. 尝试[各种demo](https://gitee.com/openLuat/LuatOS/tree/master/demo), 浏览[API](https://wiki.luatos.com/api/index.html), [30分钟入门lua语法(视频)](https://www.bilibili.com/video/BV1vf4y1L7Rb?spm_id_from=333.999.0.0)
 4. 愉快地写业务代码

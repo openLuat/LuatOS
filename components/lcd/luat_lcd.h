@@ -6,24 +6,8 @@
 #include "luat_spi.h"
 #include "u8g2.h"
 
-#define WHITE            0xFFFF
-#define BLACK            0x0000
-#define BLUE             0x001F
-#define BRED             0XF81F
-#define GRED             0XFFE0
-#define GBLUE            0X07FF
-#define RED              0xF800
-#define MAGENTA          0xF81F
-#define GREEN            0x07E0
-#define CYAN             0x7FFF
-#define YELLOW           0xFFE0
-#define BROWN            0XBC40
-#define BRRED            0XFC07
-#define GRAY             0X8430
-#define GRAY175          0XAD75
-#define GRAY151          0X94B2
-#define GRAY187          0XBDD7
-#define GRAY240          0XF79E
+#define LCD_WHITE            0xFFFF
+#define LCD_BLACK            0x0000
 
 #ifndef LUAT_LCD_COLOR_DEPTH
 #define LUAT_LCD_COLOR_DEPTH 16
@@ -74,11 +58,12 @@ typedef struct luat_lcd_conf {
 typedef struct luat_lcd_opts {
     const char* name;
     int (*init)(luat_lcd_conf_t* conf);
+    int (*write_cmd)(luat_lcd_conf_t* conf,const uint8_t cmd);
+    int (*write_data)(luat_lcd_conf_t* conf,const uint8_t data);
 } luat_lcd_opts_t;
 
 int lcd_write_cmd(luat_lcd_conf_t* conf,const uint8_t cmd);
 int lcd_write_data(luat_lcd_conf_t* conf,const uint8_t data);
-int lcd_write_half_word(luat_lcd_conf_t* conf,const luat_color_t da);
 
 luat_lcd_conf_t* luat_lcd_get_default(void);
 const char* luat_lcd_name(luat_lcd_conf_t* conf);

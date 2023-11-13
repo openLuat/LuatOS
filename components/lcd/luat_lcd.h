@@ -52,7 +52,7 @@ typedef struct luat_lcd_conf {
     uint8_t auto_flush;
     uint8_t direction;//方向
     u8g2_t luat_lcd_u8g2 ;
-    const struct luat_lcd_opts* opts;
+    struct luat_lcd_opts* opts;
     luat_spi_device_t* lcd_spi_device;
     int lcd_spi_ref;
     void* userdata;
@@ -68,6 +68,8 @@ typedef struct luat_lcd_conf {
 } luat_lcd_conf_t;
 
 typedef struct luat_lcd_opts {
+    uint32_t init_cmds_len;
+    uint32_t* init_cmds;
     const char* name;
     int (*init)(luat_lcd_conf_t* conf);
     int (*write_cmd_data)(luat_lcd_conf_t* conf,const uint8_t cmd, const uint8_t *data, uint8_t data_len);
@@ -76,6 +78,8 @@ typedef struct luat_lcd_opts {
 
 int lcd_write_cmd(luat_lcd_conf_t* conf,const uint8_t cmd);
 int lcd_write_data(luat_lcd_conf_t* conf,const uint8_t data);
+
+void luat_lcd_execute_cmds(luat_lcd_conf_t* conf);
 
 int lcd_write_cmd_data(luat_lcd_conf_t* conf,const uint8_t cmd, const uint8_t *data, uint8_t data_len);
 int lcd_read_cmd_data(luat_lcd_conf_t* conf,const uint8_t cmd, const uint8_t *data, uint8_t data_len, uint8_t dummy_bit);
@@ -104,13 +108,6 @@ int luat_lcd_draw_vline(luat_lcd_conf_t* conf, int16_t x, int16_t y,int16_t h, l
 int luat_lcd_draw_hline(luat_lcd_conf_t* conf, int16_t x, int16_t y,int16_t h, luat_color_t color);
 int luat_lcd_draw_rectangle(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t color);
 int luat_lcd_draw_circle(luat_lcd_conf_t* conf, int16_t x0, int16_t y0, uint8_t r, luat_color_t color);
-
-void luat_lcd_execute_cmds(luat_lcd_conf_t* conf, uint32_t* cmds, uint32_t count);
-
-typedef struct luat_lcd_custom {
-    size_t init_cmd_count;
-    uint32_t *initcmd; // 实际命令长度与init_cmd_count相同
-}luat_lcd_custom_t;
 
 void luat_lcd_service_init(uint32_t pro);
 void luat_lcd_service_run(void *CB, void *data, uint32_t param, uint32_t timeout);

@@ -18,10 +18,10 @@ luat_color_t color_swap(luat_color_t color) {
     return tmp;
 }
 
-void luat_lcd_execute_cmds(luat_lcd_conf_t* conf, uint32_t* cmds, uint32_t count) {
+void luat_lcd_execute_cmds(luat_lcd_conf_t* conf) {
     uint32_t cmd = 0;
-    for (size_t i = 0; i < count; i++){
-        cmd = cmds[i];
+    for (size_t i = 0; i < conf->opts->init_cmds_len; i++){
+        cmd = conf->opts->init_cmds[i];
         switch(((cmd >> 16) & 0xFFFF)) {
             case 0x0000 :
             case 0x0002 :

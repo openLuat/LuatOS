@@ -13,7 +13,6 @@
 #define LCD_DIRECTION 0
 
 static int custom_init(luat_lcd_conf_t* conf) {
-
     if (conf->w == 0)
         conf->w = LCD_W;
     if (conf->h == 0)
@@ -35,8 +34,7 @@ static int custom_init(luat_lcd_conf_t* conf) {
     luat_lcd_wakeup(conf);
     luat_rtos_task_sleep(120);
     // 发送初始化命令
-    luat_lcd_custom_t * cst = (luat_lcd_custom_t *)conf->userdata;
-    luat_lcd_execute_cmds(conf, cst->initcmd, cst->init_cmd_count);
+    luat_lcd_execute_cmds(conf);
     
     luat_lcd_wakeup(conf);
     /* wait for power stability */

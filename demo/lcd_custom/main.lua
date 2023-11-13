@@ -28,21 +28,48 @@ end
     ===============================================
 ]]
 
--- 按实际情况修改, spi的id, cs脚, 波特率, 都要按实际情况改
-spi_lcd = spi.deviceSetup(5,pin.PC14,0,0,8,48*1000*1000,spi.MSB,1,1)
+local rtos_bsp = rtos.bsp()
+
+-- 根据不同的BSP返回不同的值
+-- spi_id,pin_reset,pin_dc,pin_cs,bl
+local function lcd_pin()
+    if rtos_bsp == "AIR101" then
+        return 0,pin.PB03,pin.PB01,pin.PB04,pin.PB00
+    elseif rtos_bsp == "AIR103" then
+        return 0,pin.PB03,pin.PB01,pin.PB04,pin.PB00
+    elseif rtos_bsp == "AIR105" then
+        return 5,pin.PC12,pin.PE08,pin.PC14,pin.PE09
+    elseif rtos_bsp == "ESP32C3" then
+        return 2,10,6,7,11
+    elseif rtos_bsp == "ESP32S3" then
+        return 2,16,15,14,13
+    elseif rtos_bsp == "EC618" then
+        return 0,1,10,8,22
+    else
+        log.info("main", "bsp not support")
+        return
+    end
+end
+
+local spi_id,pin_reset,pin_dc,pin_cs,bl = lcd_pin() 
+
+-- v0006及以后版本可用pin方式, 请升级到最新固件 https://gitee.com/openLuat/LuatOS/releases
+spi_lcd = spi.deviceSetup(spi_id,pin_cs,0,0,8,20*1000*1000,spi.MSB,1,0)
 
 --[[ 下面为custom方式示例,自己传入lcd指令来实现驱动,示例以st7735s做展示 ]]
--- [[ 注意修改下面的pin_xx对应的gpio信息, 数值与pin.XXX 均可]]
--- initcmd的含义, 分3种指令, 每个指令都是int32, 前2个字节是命令, 后2个字节是值
--- 0001 delay  延时, 例如 00010002 , 延时2ms
--- 0002 cmd    发命令, 例如 0002004, dc设置为CMD模式, SPI发送 0x04
--- 0003 data   发数据, 例如 0003004, dc设置为DATA模式, SPI发送 0x04
+--[[ 注意修改下面的pin_xx对应的gpio信息, 数值与pin.XXX 均可]]
+--[[
+    initcmd的含义, 分3种指令, 每个指令都是int32, 前2个字节是命令, 后2个字节是值
+    0001 delay      延时,   例如 0x00010002 , 延时2ms
+    0000/0002 cmd   发命令, 例如 0x0002004
+    0003 data       发数据, 例如 0x0003004
+]]
 
 -- lcd.init("custom",{
 --     port = "device",
---     pin_dc = pin.PB01, 
---     pin_pwr = pin.PB00,
---     pin_rst = pin.PB03,
+--     pin_dc = pin_dc, 
+--     pin_pwr = bl,
+--     pin_rst = pin_reset,
 --     direction = 0,
 --     w = 128,
 --     h = 160,
@@ -78,8 +105,8 @@ spi_lcd = spi.deviceSetup(5,pin.PC14,0,0,8,48*1000*1000,spi.MSB,1,1)
 --         0x00030010,0x0002003A,0x00030005,
 --         0x00020029,
 --     },
---     },
---     spi_lcd)
+-- },
+-- spi_lcd)
 
 --[[ 下面为custom方式示例,自己传入lcd指令来实现驱动,示例以st7789做展示 ]]
 -- lcd.init("custom",{

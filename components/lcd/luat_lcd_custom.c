@@ -13,7 +13,6 @@
 #define LCD_DIRECTION 0
 
 static int custom_init(luat_lcd_conf_t* conf) {
-
     if (conf->w == 0)
         conf->w = LCD_W;
     if (conf->h == 0)

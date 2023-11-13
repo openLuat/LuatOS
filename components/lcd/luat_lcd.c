@@ -22,7 +22,7 @@ void luat_lcd_execute_cmds(luat_lcd_conf_t* conf) {
     uint32_t cmd = 0;
     for (size_t i = 0; i < conf->opts->init_cmds_len; i++){
         cmd = conf->opts->init_cmds[i];
-        switch(((cmd >> 16) & 0xFFFF)) {
+        switch(((cmd >> 8) & 0xFF)) {
             case 0x0000 :
             case 0x0002 :
                 lcd_write_cmd(conf, (const uint8_t)(cmd & 0xFF));

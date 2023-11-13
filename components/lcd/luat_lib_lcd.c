@@ -372,7 +372,7 @@ lcd命令
 lcd.cmd(0x21)
 */
 static int l_lcd_write_cmd(lua_State* L) {
-    int ret = lcd_write_cmd(default_conf,(const uint8_t)luaL_checkinteger(L, 1));
+    int ret = lcd_write_cmd_data(default_conf,(uint8_t)luaL_checkinteger(L, 1), NULL, 0);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }

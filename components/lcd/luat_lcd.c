@@ -19,51 +19,41 @@ luat_color_t color_swap(luat_color_t color) {
 }
 
 void luat_lcd_execute_cmds(luat_lcd_conf_t* conf) {
-    uint32_t cmd = 0;
+    uint16_t cmd = 0,cmd_len = 0;
+    uint8_t cmd_send = 0;
+    uint8_t cmds[32]={0};
     for (size_t i = 0; i < conf->opts->init_cmds_len; i++){
         cmd = conf->opts->init_cmds[i];
         switch(((cmd >> 8) & 0xFF)) {
-            case 0x0000 :
-            case 0x0002 :
-                lcd_write_cmd(conf, (const uint8_t)(cmd & 0xFF));
+            case 0x0000:
+            case 0x0002:
+                if (i!=0){
+                    if (cmd_len){
+                        lcd_write_cmd_data(conf,cmd_send, cmds, cmd_len);
+                    }else{
+                        lcd_write_cmd_data(conf,cmd_send, NULL, 0);
+                    }
+                }
+                cmd_send = (uint8_t)(cmd & 0xFF);
+                cmd_len = 0;
                 break;
-            case 0x0001 :
+            case 0x0001:
                 luat_rtos_task_sleep(cmd & 0xFF);
                 break;
-            case 0x0003 :
-                lcd_write_data(conf, (const uint8_t)(cmd & 0xFF));
+            case 0x0003:
+                cmds[cmd_len]= (uint8_t)(cmd & 0xFF);
+                cmd_len++;
                 break;
             default:
                 break;
         }
-    }
-}
-
-
-int lcd_write_cmd(luat_lcd_conf_t* conf, const uint8_t cmd){
-    size_t len;
-    luat_gpio_set(conf->pin_dc, Luat_GPIO_LOW);
-#ifdef LUAT_LCD_CMD_DELAY_US
-    if (conf->dc_delay_us){
-    	luat_timer_us_delay(conf->dc_delay_us);
-    }
-#endif
-    if (conf->port == LUAT_LCD_SPI_DEVICE){
-        len = luat_spi_device_send((luat_spi_device_t*)(conf->lcd_spi_device),  (const char*)&cmd, 1);
-    }else{
-        len = luat_spi_send(conf->port, (const char*)&cmd, 1);
-    }
-    luat_gpio_set(conf->pin_dc, Luat_GPIO_HIGH);
-    if (len != 1){
-        LLOGI("lcd_write_cmd error. %d", len);
-        return -1;
-    }else{
-        #ifdef LUAT_LCD_CMD_DELAY_US
-        if (conf->dc_delay_us){
-        	luat_timer_us_delay(conf->dc_delay_us);
+        if (i==conf->opts->init_cmds_len-1){
+            if (cmd_len){
+                lcd_write_cmd_data(conf,cmd_send, cmds, cmd_len);
+            }else{
+                lcd_write_cmd_data(conf,cmd_send, NULL, 0);
+            }
         }
-        #endif
-        return 0;
     }
 }
 
@@ -157,7 +147,7 @@ int luat_lcd_init(luat_lcd_conf_t* conf) {
     luat_rtos_task_sleep(120);
     luat_lcd_wakeup(conf);
     luat_rtos_task_sleep(120);
-    
+
     // 发送初始化命令
     if (conf->opts->init){
         conf->opts->init(conf);

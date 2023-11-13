@@ -77,7 +77,8 @@ int lcd_write_cmd_data(luat_lcd_conf_t* conf,const uint8_t cmd, const uint8_t *d
         return conf->opts->write_cmd_data(conf,cmd,data,data_len);
     }
     size_t len;
-    luat_gpio_set(conf->pin_dc, Luat_GPIO_LOW);
+    if (conf->interface_mode==LUAT_LCD_IM_4_WIRE_8_BIT_INTERFACE_I || conf->interface_mode==LUAT_LCD_IM_4_WIRE_8_BIT_INTERFACE_II)
+        luat_gpio_set(conf->pin_dc, Luat_GPIO_LOW);
 #ifdef LUAT_LCD_CMD_DELAY_US
     if (conf->dc_delay_us){
     	luat_timer_us_delay(conf->dc_delay_us);
@@ -88,7 +89,8 @@ int lcd_write_cmd_data(luat_lcd_conf_t* conf,const uint8_t cmd, const uint8_t *d
     }else{
         len = luat_spi_send(conf->port, (const char*)&cmd, 1);
     }
-    luat_gpio_set(conf->pin_dc, Luat_GPIO_HIGH);
+    if (conf->interface_mode==LUAT_LCD_IM_4_WIRE_8_BIT_INTERFACE_I || conf->interface_mode==LUAT_LCD_IM_4_WIRE_8_BIT_INTERFACE_II)
+        luat_gpio_set(conf->pin_dc, Luat_GPIO_HIGH);
     if (len != 1){
         LLOGI("lcd_write_cmd error. %d", len);
         return -1;
@@ -136,7 +138,8 @@ int luat_lcd_init(luat_lcd_conf_t* conf) {
 
     if (conf->pin_pwr != 255)
         luat_gpio_mode(conf->pin_pwr, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW); // POWER
-    luat_gpio_mode(conf->pin_dc, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_HIGH); // DC
+    if (conf->interface_mode==LUAT_LCD_IM_4_WIRE_8_BIT_INTERFACE_I || conf->interface_mode==LUAT_LCD_IM_4_WIRE_8_BIT_INTERFACE_II)
+        luat_gpio_mode(conf->pin_dc, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_HIGH); // DC
     luat_gpio_mode(conf->pin_rst, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW); // RST
 
     if (conf->pin_pwr != 255)

@@ -316,6 +316,8 @@ int luat_vfs_posix_lsdir(void* fsdata, char const* _DirName, luat_fs_dirent_t* e
 }
 #endif
 
+int truncate(const char *path, off_t length);
+
 int luat_vfs_posix_truncate(void* fsdata, char const* path, size_t len) {
     #if defined(LUA_USE_WINDOWS)
     FILE* fd = fopen(path, "wb");

@@ -186,6 +186,8 @@ int luat_fs_rmdir(char const* _DirName);
 
 int luat_fs_lsdir(char const* _DirName, luat_fs_dirent_t* ents, size_t offset, size_t len);
 
+int luat_fs_truncate(const char* filename, size_t len);
+
 /** @}*/
 #ifdef LUAT_USE_FS_VFS
 
@@ -228,6 +230,8 @@ struct luat_vfs_filesystem_opts {
     int (*mkdir)(void* fsdata, char const* _DirName);
     int (*rmdir)(void* fsdata, char const* _DirName);
     int (*lsdir)(void* fsdata, char const* _DirName, luat_fs_dirent_t* ents, size_t offset, size_t len);
+
+    int (*truncate)(void* fsdata, char const* _DirName, size_t nsize);
 };
 
 typedef struct luat_vfs_filesystem {

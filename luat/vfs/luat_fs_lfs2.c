@@ -287,6 +287,17 @@ int luat_vfs_lfs2_info(void* userdata, const char* path, luat_fs_info_t *conf) {
     return 0;
 }
 
+int luat_vfs_lfs2_truncate(void* userdata, const char *filename, size_t len) {
+    FILE *fd;
+    int ret = -1;
+    fd = luat_vfs_lfs2_fopen(userdata, filename, "wb");
+    if (fd) {
+        ret = lfs_file_truncate((lfs_t*)userdata, (lfs_file_t*)fd ,(lfs_off_t)len);
+        luat_vfs_lfs2_fclose(userdata, fd);
+    }
+    return ret;
+}
+
 #define T(name) .name = luat_vfs_lfs2_##name
 
 const struct luat_vfs_filesystem vfs_fs_lfs2 = {
@@ -302,7 +313,8 @@ const struct luat_vfs_filesystem vfs_fs_lfs2 = {
         T(rename),
         T(fsize),
         T(fexist),
-        T(info)
+        T(info),
+        T(truncate)
     },
     .fopts = {
         T(fopen),

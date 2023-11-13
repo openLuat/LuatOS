@@ -356,4 +356,13 @@ luat_vfs_t* luat_vfs_self(void) {
     return &vfs;
 }
 
+int luat_fs_truncate(const char* filename, size_t len) {
+    luat_vfs_mount_t *mount = getmount(filename);
+    if (mount == NULL ) return -1;
+    if (mount->fs->opts.truncate) {
+        return mount->fs->opts.truncate(mount->userdata, filename, len);
+    }
+    return -1;
+}
+
 #endif

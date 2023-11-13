@@ -310,6 +310,20 @@ int luat_vfs_posix_lsdir(void* fsdata, char const* _DirName, luat_fs_dirent_t* e
 }
 #endif
 
+int luat_vfs_posix_truncate(void* fsdata, char const* path, size_t len) {
+    #if defined(LUA_USE_WINDOWS)
+    FILE* fd = fopen(path, "wb");
+    if (fd) {
+        _chsize( fileno(fd), len);
+        fclose(fd);
+    }
+    #else
+    truncate(path, len);
+    #endif
+    return 0;
+}
+
+
 #define T(name) .name = luat_vfs_posix_##name
 const struct luat_vfs_filesystem vfs_fs_posix = {
     .name = "posix",
@@ -324,7 +338,8 @@ const struct luat_vfs_filesystem vfs_fs_posix = {
         T(rename),
         T(fsize),
         T(fexist),
-        T(info)
+        T(info),
+        T(truncate)
     },
     .fopts = {
         T(fopen),

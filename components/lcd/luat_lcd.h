@@ -70,8 +70,6 @@ typedef struct luat_lcd_conf {
 typedef struct luat_lcd_opts {
     const char* name;
     int (*init)(luat_lcd_conf_t* conf);
-    int (*write_cmd)(luat_lcd_conf_t* conf,const uint8_t cmd);
-    int (*write_data)(luat_lcd_conf_t* conf,const uint8_t data);
     int (*write_cmd_data)(luat_lcd_conf_t* conf,const uint8_t cmd, const uint8_t *data, uint8_t data_len);
     int (*read_cmd_data)(luat_lcd_conf_t* conf,const uint8_t cmd, const uint8_t *data, uint8_t data_len, uint8_t dummy_bit);
 } luat_lcd_opts_t;

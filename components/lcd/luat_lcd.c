@@ -44,9 +44,6 @@ void luat_lcd_execute_cmds(luat_lcd_conf_t* conf, uint32_t* cmds, uint32_t count
 
 
 int lcd_write_cmd(luat_lcd_conf_t* conf, const uint8_t cmd){
-    if (conf->opts->write_cmd){
-        return conf->opts->write_cmd(conf,cmd);
-    }
     size_t len;
     luat_gpio_set(conf->pin_dc, Luat_GPIO_LOW);
 #ifdef LUAT_LCD_CMD_DELAY_US
@@ -74,9 +71,6 @@ int lcd_write_cmd(luat_lcd_conf_t* conf, const uint8_t cmd){
 }
 
 int lcd_write_data(luat_lcd_conf_t* conf, const uint8_t data){
-    if (conf->opts->write_cmd){
-        return conf->opts->write_data(conf,data);
-    }
     size_t len;
     if (conf->port == LUAT_LCD_SPI_DEVICE){
         len = luat_spi_device_send((luat_spi_device_t*)(conf->lcd_spi_device),  (const char*)&data, 1);
@@ -89,6 +83,47 @@ int lcd_write_data(luat_lcd_conf_t* conf, const uint8_t data){
     }else{
         return 0;
     }
+}
+
+int lcd_write_cmd_data(luat_lcd_conf_t* conf,const uint8_t cmd, const uint8_t *data, uint8_t data_len){
+    if (conf->opts->write_cmd_data){
+        return conf->opts->write_cmd_data(conf,cmd,data,data_len);
+    }
+    size_t len;
+    luat_gpio_set(conf->pin_dc, Luat_GPIO_LOW);
+#ifdef LUAT_LCD_CMD_DELAY_US
+    if (conf->dc_delay_us){
+    	luat_timer_us_delay(conf->dc_delay_us);
+    }
+#endif
+    if (conf->port == LUAT_LCD_SPI_DEVICE){
+        len = luat_spi_device_send((luat_spi_device_t*)(conf->lcd_spi_device),  (const char*)&cmd, 1);
+    }else{
+        len = luat_spi_send(conf->port, (const char*)&cmd, 1);
+    }
+    luat_gpio_set(conf->pin_dc, Luat_GPIO_HIGH);
+    if (len != 1){
+        LLOGI("lcd_write_cmd error. %d", len);
+        return -1;
+    }else{
+        #ifdef LUAT_LCD_CMD_DELAY_US
+        if (conf->dc_delay_us){
+        	luat_timer_us_delay(conf->dc_delay_us);
+        }
+        #endif
+    }
+    if (data_len){
+        if (conf->port == LUAT_LCD_SPI_DEVICE){
+            len = luat_spi_device_send((luat_spi_device_t*)(conf->lcd_spi_device),  (const char*)&data, 1);
+        }else{
+            len = luat_spi_send(conf->port,  (const char*)data, data_len);
+        }
+        if (len != data_len){
+            LLOGI("lcd_write_data error. %d", len);
+            return -1;
+        }
+    }
+    return 0;
 }
 
 luat_lcd_conf_t* luat_lcd_get_default(void) {

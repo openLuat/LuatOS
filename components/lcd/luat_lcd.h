@@ -24,8 +24,18 @@
 #endif
 
 #define LUAT_LCD_SPI_DEVICE 255
+#define LUAT_LCD_HW_INFERFACE_ID 0x20	//专用LCD接口的SPI ID
 
 struct luat_lcd_opts;
+
+enum
+{
+	LUAT_LCD_IM_3_WIRE_9_BIT_INTERFACE_I = 5,
+	LUAT_LCD_IM_4_WIRE_8_BIT_INTERFACE_I = 6,
+	LUAT_LCD_IM_3_WIRE_9_BIT_INTERFACE_II = 13,
+	LUAT_LCD_IM_4_WIRE_8_BIT_INTERFACE_II = 14,
+	LUAT_LCD_IM_2_DATA_LANE = 16,
+};
 
 typedef struct luat_lcd_conf {
     uint8_t port;
@@ -53,6 +63,8 @@ typedef struct luat_lcd_conf {
     int16_t flush_y_min;
     int16_t flush_y_max;
     uint8_t is_init_done;
+
+    uint8_t interface_mode;	// LUAT_LCD_IM_XXX
 } luat_lcd_conf_t;
 
 typedef struct luat_lcd_opts {
@@ -60,10 +72,15 @@ typedef struct luat_lcd_opts {
     int (*init)(luat_lcd_conf_t* conf);
     int (*write_cmd)(luat_lcd_conf_t* conf,const uint8_t cmd);
     int (*write_data)(luat_lcd_conf_t* conf,const uint8_t data);
+    int (*write_cmd_data)(luat_lcd_conf_t* conf,const uint8_t cmd, const uint8_t *data, uint8_t data_len);
+    int (*read_cmd_data)(luat_lcd_conf_t* conf,const uint8_t cmd, const uint8_t *data, uint8_t data_len, uint8_t dummy_bit);
 } luat_lcd_opts_t;
 
 int lcd_write_cmd(luat_lcd_conf_t* conf,const uint8_t cmd);
 int lcd_write_data(luat_lcd_conf_t* conf,const uint8_t data);
+
+int lcd_write_cmd_data(luat_lcd_conf_t* conf,const uint8_t cmd, const uint8_t *data, uint8_t data_len);
+int lcd_read_cmd_data(luat_lcd_conf_t* conf,const uint8_t cmd, const uint8_t *data, uint8_t data_len, uint8_t dummy_bit);
 
 luat_lcd_conf_t* luat_lcd_get_default(void);
 const char* luat_lcd_name(luat_lcd_conf_t* conf);

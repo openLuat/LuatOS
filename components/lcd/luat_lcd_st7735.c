@@ -1,132 +1,37 @@
 #include "luat_base.h"
 #include "luat_lcd.h"
-#include "luat_gpio.h"
-#include "luat_spi.h"
-#include "luat_malloc.h"
-#include "luat_rtos.h"
 
 #define LUAT_LOG_TAG "st7735"
 #include "luat_log.h"
 
-#define LCD_W 128
-#define LCD_H 160
-#define LCD_DIRECTION 0
-
-static int st7735_init(luat_lcd_conf_t* conf) {
-    if (conf->w == 0)
-        conf->w = LCD_W;
-    if (conf->h == 0)
-        conf->h = LCD_H;
-    if (conf->direction == 0)
-        conf->direction = LCD_DIRECTION;
-
-    if (conf->pin_pwr != 255)
-        luat_gpio_mode(conf->pin_pwr, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW); // POWER
-    luat_gpio_mode(conf->pin_dc, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_HIGH); // DC
-    luat_gpio_mode(conf->pin_rst, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW); // RST
-
-    if (conf->pin_pwr != 255)
-    luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
-    luat_gpio_set(conf->pin_rst, Luat_GPIO_LOW);
-    luat_rtos_task_sleep(100);
-    luat_gpio_set(conf->pin_rst, Luat_GPIO_HIGH);
-    luat_rtos_task_sleep(120);
-    // 发送初始化命令
-    //------------------------------------ST7735S Frame Rate-----------------------------------------//
-    lcd_write_cmd(conf,0xB1);
-    lcd_write_data(conf,0x05);
-    lcd_write_data(conf,0x3C);
-    lcd_write_data(conf,0x3C);
-    lcd_write_cmd(conf,0xB2);
-    lcd_write_data(conf,0x05);
-    lcd_write_data(conf,0x3C);
-    lcd_write_data(conf,0x3C);
-    lcd_write_cmd(conf,0xB3);
-    lcd_write_data(conf,0x05);
-    lcd_write_data(conf,0x3C);
-    lcd_write_data(conf,0x3C);
-    lcd_write_data(conf,0x05);
-    lcd_write_data(conf,0x3C);
-    lcd_write_data(conf,0x3C);
+static const uint16_t st7735_init_cmds[] = {
+    0x02B1,0x0305,0x033C,0x033C,
+    0x02B2,0x0305,0x033C,0x033C,
+    0x02B3,0x0305,0x033C,0x033C,0x0305,0x033C,0x033C,
     //------------------------------------End ST7735S Frame Rate---------------------------------//
-    lcd_write_cmd(conf,0xB4);
-    lcd_write_data(conf,0x03);
+    0x02B4,0x0303,
 	//------------------------------------ST7735S Power Sequence---------------------------------//
-    lcd_write_cmd(conf,0xC0);
-    lcd_write_data(conf,0x28);
-    lcd_write_data(conf,0x08);
-    lcd_write_data(conf,0x04);
-    lcd_write_cmd(conf,0xC1);
-    lcd_write_data(conf,0XC0);
-    lcd_write_cmd(conf,0xC2);
-    lcd_write_data(conf,0x0D);
-    lcd_write_data(conf,0x00);
-    lcd_write_cmd(conf,0xC3);
-    lcd_write_data(conf,0x8D);
-    lcd_write_data(conf,0x2A);
-    lcd_write_cmd(conf,0xC4);
-    lcd_write_data(conf,0x8D);
-    lcd_write_data(conf,0xEE);
+    0x02C0,0x0328,0x0308,0x0304,
+    0x02C1,0x03C0,
+    0x02C2,0x030D,0x0300,
+    0x02C3,0x038D,0x032A,
+    0x02C4,0x038D,0x03EE,
 	//---------------------------------End ST7735S Power Sequence-------------------------------------//
-    lcd_write_cmd(conf,0xC5);
-    lcd_write_data(conf,0x1A);
-
-    lcd_write_cmd(conf,0x36);
-    if(conf->direction==0)lcd_write_data(conf,0xC0);
-    else if(conf->direction==1)lcd_write_data(conf,0x70);
-    else if(conf->direction==2)lcd_write_data(conf,0x00);
-    else lcd_write_data(conf,0xA0);
+    0x02C5,0x031A,
 	//------------------------------------ST7735S Gamma Sequence---------------------------------//
-	lcd_write_cmd(conf,0xE0);
-    lcd_write_data(conf,0x04);
-    lcd_write_data(conf,0x22);
-    lcd_write_data(conf,0x07);
-    lcd_write_data(conf,0x0A);
-    lcd_write_data(conf,0x2E);
-    lcd_write_data(conf,0x30);
-    lcd_write_data(conf,0x25);
-    lcd_write_data(conf,0x2A);
-    lcd_write_data(conf,0x28);
-    lcd_write_data(conf,0x26);
-    lcd_write_data(conf,0x2E);
-    lcd_write_data(conf,0x3A);
-    lcd_write_data(conf,0x00);
-    lcd_write_data(conf,0x01);
-    lcd_write_data(conf,0x03);
-    lcd_write_data(conf,0x13);
-    lcd_write_cmd(conf,0xE1);
-    lcd_write_data(conf,0x04);
-    lcd_write_data(conf,0x16);
-    lcd_write_data(conf,0x06);
-    lcd_write_data(conf,0x0D);
-    lcd_write_data(conf,0x2D);
-    lcd_write_data(conf,0x26);
-    lcd_write_data(conf,0x23);
-    lcd_write_data(conf,0x27);
-    lcd_write_data(conf,0x27);
-    lcd_write_data(conf,0x25);
-    lcd_write_data(conf,0x2D);
-    lcd_write_data(conf,0x3B);
-    lcd_write_data(conf,0x00);
-    lcd_write_data(conf,0x01);
-    lcd_write_data(conf,0x04);
-    lcd_write_data(conf,0x13);
-
-    lcd_write_cmd(conf,0x3A);
-    lcd_write_data(conf,0x05);
-
-    /* Sleep Out */
-    lcd_write_cmd(conf,0x11);
-    /* wait for power stability */
-    luat_rtos_task_sleep(100);
-    luat_lcd_clear(conf,LCD_BLACK);
-    /* display on */
-    luat_lcd_display_on(conf);
-    return 0;
+	0x02E0,0x0304,0x0322,0x0307,0x030A,0x032E,0x0330,0x0325,0x032A,0x0328,0x0326,0x032E,0x033A,0x0300,0x0301,0x0303,0x0313,
+    0x02E1,0x0304,0x0316,0x0306,0x030D,0x032D,0x0326,0x0323,0x0327,0x0327,0x0325,0x032D,0x033B,0x0300,0x0301,0x0304,0x0313,
+    0x023A,0x0305,
 };
+
 
 const luat_lcd_opts_t lcd_opts_st7735 = {
     .name = "st7735",
-    .init = st7735_init,
+    .init_cmds_len = sizeof(st7735_init_cmds)/sizeof(st7735_init_cmds[0]),
+    .init_cmds = st7735_init_cmds,
+    .direction0 = 0xC0,
+    .direction90 = 0x70,
+    .direction180 = 0x00,
+    .direction270 = 0xA0
 };
 

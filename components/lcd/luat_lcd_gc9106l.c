@@ -1,102 +1,30 @@
 #include "luat_base.h"
 #include "luat_lcd.h"
-#include "luat_gpio.h"
-#include "luat_spi.h"
-#include "luat_malloc.h"
-#include "luat_rtos.h"
 
 #define LUAT_LOG_TAG "gc9106l"
 #include "luat_log.h"
 
-#define LCD_W 128
-#define LCD_H 160
-#define LCD_DIRECTION 0
-
-static int gc9106l_init(luat_lcd_conf_t* conf) {
-    if (conf->w == 0)
-        conf->w = LCD_W;
-    if (conf->h == 0)
-        conf->h = LCD_H;
-    if (conf->direction == 0)
-        conf->direction = LCD_DIRECTION;
-
-    if (conf->pin_pwr != 255)
-        luat_gpio_mode(conf->pin_pwr, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW); // POWER
-    luat_gpio_mode(conf->pin_dc, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_HIGH); // DC
-    luat_gpio_mode(conf->pin_rst, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW); // RST
-
-    if (conf->pin_pwr != 255)
-        luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
-    luat_gpio_set(conf->pin_rst, Luat_GPIO_LOW);
-    luat_rtos_task_sleep(100);
-    luat_gpio_set(conf->pin_rst, Luat_GPIO_HIGH);
-    luat_rtos_task_sleep(120);
-    // 发送初始化命令
-    //------------------------------------gc9106lS Frame Rate-----------------------------------------//
-    lcd_write_cmd(conf,0xFE);
-    lcd_write_cmd(conf,0xEF);
-    lcd_write_cmd(conf,0xB3);
-    lcd_write_data(conf,0x03);
-
-    lcd_write_cmd(conf,0x21);
-    lcd_write_cmd(conf,0x36);
-    if(conf->direction==0)lcd_write_data(conf,0xC8);
-    else if(conf->direction==1)lcd_write_data(conf,0x08);
-    else if(conf->direction==2)lcd_write_data(conf,0x68);
-    else lcd_write_data(conf,0xA8);
-
-    lcd_write_cmd(conf,0x3A);
-    lcd_write_data(conf,0x05);
-    lcd_write_cmd(conf,0xB4);
-    lcd_write_data(conf,0x21);
-
-    lcd_write_cmd(conf,0xF0);
-    lcd_write_data(conf,0x2D);
-    lcd_write_data(conf,0x54);
-    lcd_write_data(conf,0x24);
-    lcd_write_data(conf,0x61);
-    lcd_write_data(conf,0xAB);
-	lcd_write_data(conf,0x2E);
-    lcd_write_data(conf,0x2F);
-    lcd_write_data(conf,0x00);
-    lcd_write_data(conf,0x20);
-    lcd_write_data(conf,0x10);
-    lcd_write_data(conf,0X10);
-    lcd_write_data(conf,0x17);
-    lcd_write_data(conf,0x13);
-    lcd_write_data(conf,0x0F);
-
-    lcd_write_cmd(conf,0xF1);
-    lcd_write_data(conf,0x02);
-    lcd_write_data(conf,0x22);
-    lcd_write_data(conf,0x25);
-    lcd_write_data(conf,0x35);
-    lcd_write_data(conf,0xA8);
-	lcd_write_data(conf,0x08);
-    lcd_write_data(conf,0x08);
-    lcd_write_data(conf,0x00);
-    lcd_write_data(conf,0x00);
-    lcd_write_data(conf,0x09);
-    lcd_write_data(conf,0X09);
-    lcd_write_data(conf,0x17);
-    lcd_write_data(conf,0x18);
-    lcd_write_data(conf,0x0F);
-
-    lcd_write_cmd(conf,0xFE);
-    lcd_write_cmd(conf,0xFF);
-
-    /* Sleep Out */
-    lcd_write_cmd(conf,0x11);
-    /* wait for power stability */
-    luat_rtos_task_sleep(100);
-    luat_lcd_clear(conf,LCD_BLACK);
-    /* display on */
-    luat_lcd_display_on(conf);
-    return 0;
+static const uint16_t gc9106l_init_cmds[] = {
+   //------------------------------------gc9106lS Frame Rate-----------------------------------------//
+    0x02FE,
+    0x02EF,
+    0x02B3,0x0303,
+    0x0221,
+    0x023A,0x0305,
+    0x02B4,0x0321,
+    0x02F0,0x032D,0x0354,0x0324,0x0361,0x03AB,0x032E,0x032F,0x0300,0x0320,0x0310,0x0310,0x0317,0x0313,0x030F,
+    0x02F1,0x0302,0x0322,0x0325,0x0335,0x03A8,0x0308,0x0308,0x0300,0x0300,0x0309,0x0309,0x0317,0x0318,0x030F,
+    0x02FE,
+    0x02FF,
 };
+
 
 const luat_lcd_opts_t lcd_opts_gc9106l = {
     .name = "gc9106l",
-    .init = gc9106l_init,
+    .init_cmds_len = sizeof(gc9106l_init_cmds)/sizeof(gc9106l_init_cmds[0]),
+    .init_cmds = gc9106l_init_cmds,
+    .direction0 = 0xC8,
+    .direction90 = 0x08,
+    .direction180 = 0x68,
+    .direction270 = 0xA8
 };
-

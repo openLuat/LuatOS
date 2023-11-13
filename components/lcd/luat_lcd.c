@@ -137,19 +137,54 @@ const char* luat_lcd_name(luat_lcd_conf_t* conf) {
 }
 
 int luat_lcd_init(luat_lcd_conf_t* conf) {
+    uint8_t direction_date = 0;
 	conf->is_init_done = 0;
-    int ret = conf->opts->init(conf);
-    if (ret == 0) {
-    	conf->is_init_done = 1;
-        for (size_t i = 0; i < LUAT_LCD_CONF_COUNT; i++)
-        {
-            if (confs[i] == NULL) {
-                confs[i] = conf;
-                break;
-            }
+    if (conf->w == 0)
+        conf->w = LCD_W;
+    if (conf->h == 0)
+        conf->h = LCD_H;
+
+    if (conf->pin_pwr != 255)
+        luat_gpio_mode(conf->pin_pwr, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW); // POWER
+    luat_gpio_mode(conf->pin_dc, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_HIGH); // DC
+    luat_gpio_mode(conf->pin_rst, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW); // RST
+
+    if (conf->pin_pwr != 255)
+        luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
+    luat_gpio_set(conf->pin_rst, Luat_GPIO_LOW);
+    luat_rtos_task_sleep(100);
+    luat_gpio_set(conf->pin_rst, Luat_GPIO_HIGH);
+    luat_rtos_task_sleep(120);
+    luat_lcd_wakeup(conf);
+    luat_rtos_task_sleep(120);
+    
+    // 发送初始化命令
+    if (conf->opts->init){
+        conf->opts->init(conf);
+    }else{
+        luat_lcd_execute_cmds(conf);
+        if(conf->direction==0) direction_date = conf->opts->direction0;
+        else if(conf->direction==1) direction_date = conf->opts->direction90;
+        else if(conf->direction==2) direction_date = conf->opts->direction180;
+        else direction_date = conf->opts->direction270;
+        lcd_write_cmd_data(conf,0x36, &direction_date, 1);
+    }
+
+    luat_lcd_wakeup(conf);
+    /* wait for power stability */
+    luat_rtos_task_sleep(100);
+    luat_lcd_clear(conf,LCD_BLACK);
+    /* display on */
+    luat_lcd_display_on(conf);
+
+    conf->is_init_done = 1;
+    for (size_t i = 0; i < LUAT_LCD_CONF_COUNT; i++){
+        if (confs[i] == NULL) {
+            confs[i] = conf;
+            return 0;
         }
     }
-    return ret;
+    return -1;
 }
 
 int luat_lcd_close(luat_lcd_conf_t* conf) {

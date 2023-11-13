@@ -6,6 +6,10 @@
 #include "luat_spi.h"
 #include "u8g2.h"
 
+#define LCD_W 240
+#define LCD_H 320
+#define LCD_DIRECTION 0
+
 #define LCD_WHITE            0xFFFF
 #define LCD_BLACK            0x0000
 
@@ -68,9 +72,13 @@ typedef struct luat_lcd_conf {
 } luat_lcd_conf_t;
 
 typedef struct luat_lcd_opts {
+    const char* name;
+    uint8_t direction0;
+    uint8_t direction90;
+    uint8_t direction180;
+    uint8_t direction270;
     uint16_t init_cmds_len;
     uint16_t* init_cmds;
-    const char* name;
     int (*init)(luat_lcd_conf_t* conf);
     int (*write_cmd_data)(luat_lcd_conf_t* conf,const uint8_t cmd, const uint8_t *data, uint8_t data_len);
     int (*read_cmd_data)(luat_lcd_conf_t* conf,const uint8_t cmd, const uint8_t *data, uint8_t data_len, uint8_t dummy_bit);

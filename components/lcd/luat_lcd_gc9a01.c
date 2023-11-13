@@ -1,271 +1,67 @@
 #include "luat_base.h"
 #include "luat_lcd.h"
-#include "luat_gpio.h"
-#include "luat_spi.h"
-#include "luat_malloc.h"
-#include "luat_rtos.h"
 
 #define LUAT_LOG_TAG "gc9a01"
 #include "luat_log.h"
 
-#define LCD_W 240
-#define LCD_H 240
-#define LCD_DIRECTION 0
-
-static int gc9a01_init(luat_lcd_conf_t* conf) {
-    if (conf->w == 0)
-        conf->w = LCD_W;
-    if (conf->h == 0)
-        conf->h = LCD_H;
-    if (conf->direction == 0)
-        conf->direction = LCD_DIRECTION;
-
-    if (conf->pin_pwr != 255)
-        luat_gpio_mode(conf->pin_pwr, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW); // POWER
-    luat_gpio_mode(conf->pin_dc, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_HIGH); // DC
-    luat_gpio_mode(conf->pin_rst, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW); // RST
-
-    if (conf->pin_pwr != 255)
-        luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
-    luat_gpio_set(conf->pin_rst, Luat_GPIO_LOW);
-    luat_rtos_task_sleep(100);
-    luat_gpio_set(conf->pin_rst, Luat_GPIO_HIGH);
-    luat_rtos_task_sleep(120);
-    luat_lcd_wakeup(conf);
-    luat_rtos_task_sleep(120);
-    // 发送初始化命令
-    lcd_write_cmd(conf,0xEF);
-    lcd_write_cmd(conf,0xEB);
-    lcd_write_data(conf,0x14);
-
-    lcd_write_cmd(conf,0xFE);
-    lcd_write_cmd(conf,0xEF);
-
-    lcd_write_cmd(conf,0xEB);
-    lcd_write_data(conf,0x14);
-
-    lcd_write_cmd(conf,0x84);
-    lcd_write_data(conf,0x40);
-
-    lcd_write_cmd(conf,0x85);
-    lcd_write_data(conf,0xFF);
-
-    lcd_write_cmd(conf,0x86);
-    lcd_write_data(conf,0xFF);
-    lcd_write_cmd(conf,0x87);
-    lcd_write_data(conf,0xFF);
-    lcd_write_cmd(conf,0x88);
-    lcd_write_data(conf,0x0A);
-
-    lcd_write_cmd(conf,0x89);
-    lcd_write_data(conf,0x21);
-
-    lcd_write_cmd(conf,0x8A);
-    lcd_write_data(conf,0x00);
-
-    lcd_write_cmd(conf,0x8B);
-    lcd_write_data(conf,0x80);
-
-    lcd_write_cmd(conf,0x8C);
-    lcd_write_data(conf,0x01);
-    lcd_write_cmd(conf,0x8D);
-    lcd_write_data(conf,0x01);
-    lcd_write_cmd(conf,0x8E);
-    lcd_write_data(conf,0xFF);
-
-    lcd_write_cmd(conf,0x8F);
-    lcd_write_data(conf,0xFF);
-
-    lcd_write_cmd(conf,0xB6);
-    lcd_write_data(conf,0x00);
-    lcd_write_data(conf,0x20);
-
-    lcd_write_cmd(conf,0x36);
-    if(conf->direction==0)lcd_write_data(conf,0x08);
-    else if(conf->direction==1)lcd_write_data(conf,0xC8);
-    else if(conf->direction==2)lcd_write_data(conf,0x68);
-    else lcd_write_data(conf,0xA8);
-
-    lcd_write_cmd(conf,0x3A);
-    lcd_write_data(conf,0x05);
-
-    lcd_write_cmd(conf,0x90);
-    lcd_write_data(conf,0x08);
-    lcd_write_data(conf,0x08);
-    lcd_write_data(conf,0x08);
-    lcd_write_data(conf,0x08);
-
-    lcd_write_cmd(conf,0xBD);
-    lcd_write_data(conf,0x06);
-    lcd_write_cmd(conf,0xBC);
-    lcd_write_data(conf,0x00);
-    lcd_write_cmd(conf,0xFF);
-    lcd_write_data(conf,0x60);
-    lcd_write_data(conf,0x01);
-    lcd_write_data(conf,0x04);
-
-    lcd_write_cmd(conf,0xC3);
-    lcd_write_data(conf,0x13);
-    lcd_write_cmd(conf,0xC4);
-    lcd_write_data(conf,0x13);
-
-    lcd_write_cmd(conf,0xC9);
-    lcd_write_data(conf,0x22);
-    lcd_write_cmd(conf,0xBE);
-    lcd_write_data(conf,0x11);
-
-    lcd_write_cmd(conf,0xE1);
-    lcd_write_data(conf,0x10);
-    lcd_write_data(conf,0x0E);
-
-    lcd_write_cmd(conf,0xDF);
-    lcd_write_data(conf,0x21);
-    lcd_write_data(conf,0x0c);
-    lcd_write_data(conf,0x02);
-
-    lcd_write_cmd(conf,0xF0);
-    lcd_write_data(conf,0x45);
-    lcd_write_data(conf,0x09);
-    lcd_write_data(conf,0x08);
-    lcd_write_data(conf,0x08);
-    lcd_write_data(conf,0x26);
-    lcd_write_data(conf,0x2A);
-
-    lcd_write_cmd(conf,0xF1);
-    lcd_write_data(conf,0x43);
-    lcd_write_data(conf,0x70);
-    lcd_write_data(conf,0x72);
-    lcd_write_data(conf,0x36);
-    lcd_write_data(conf,0x37);
-    lcd_write_data(conf,0x6F);
-
-    lcd_write_cmd(conf,0xF2);
-    lcd_write_data(conf,0x45);
-    lcd_write_data(conf,0x09);
-    lcd_write_data(conf,0x08);
-    lcd_write_data(conf,0x08);
-    lcd_write_data(conf,0x26);
-    lcd_write_data(conf,0x2A);
-
-    lcd_write_cmd(conf,0xF3);
-    lcd_write_data(conf,0x43);
-    lcd_write_data(conf,0x70);
-    lcd_write_data(conf,0x72);
-    lcd_write_data(conf,0x36);
-    lcd_write_data(conf,0x37);
-    lcd_write_data(conf,0x6F);
-
-    lcd_write_cmd(conf,0xED);
-    lcd_write_data(conf,0x1B);
-    lcd_write_data(conf,0x0B);
-    lcd_write_cmd(conf,0xAE);
-    lcd_write_data(conf,0x77);
-    lcd_write_cmd(conf,0xCD);
-    lcd_write_data(conf,0x63);
-
-    lcd_write_cmd(conf,0x70);
-    lcd_write_data(conf,0x07);
-    lcd_write_data(conf,0x07);
-    lcd_write_data(conf,0x04);
-    lcd_write_data(conf,0x0E);
-    lcd_write_data(conf,0x0F);
-    lcd_write_data(conf,0x09);
-    lcd_write_data(conf,0x07);
-    lcd_write_data(conf,0x08);
-    lcd_write_data(conf,0x03);
-
-    lcd_write_cmd(conf,0xE8);
-    lcd_write_data(conf,0x34);
-
-    lcd_write_cmd(conf,0x62);
-    lcd_write_data(conf,0x18);
-    lcd_write_data(conf,0x0D);
-    lcd_write_data(conf,0x71);
-    lcd_write_data(conf,0xED);
-    lcd_write_data(conf,0x70);
-    lcd_write_data(conf,0x70);
-    lcd_write_data(conf,0x18);
-    lcd_write_data(conf,0x0F);
-    lcd_write_data(conf,0x71);
-    lcd_write_data(conf,0xEF);
-    lcd_write_data(conf,0x70);
-    lcd_write_data(conf,0x70);
-
-    lcd_write_cmd(conf,0x63);
-    lcd_write_data(conf,0x18);
-    lcd_write_data(conf,0x11);
-    lcd_write_data(conf,0x71);
-    lcd_write_data(conf,0xF1);
-    lcd_write_data(conf,0x70);
-    lcd_write_data(conf,0x70);
-    lcd_write_data(conf,0x18);
-    lcd_write_data(conf,0x13);
-    lcd_write_data(conf,0x71);
-    lcd_write_data(conf,0xF3);
-    lcd_write_data(conf,0x70);
-    lcd_write_data(conf,0x70);
-
-    lcd_write_cmd(conf,0x64);
-    lcd_write_data(conf,0x28);
-    lcd_write_data(conf,0x29);
-    lcd_write_data(conf,0xF1);
-    lcd_write_data(conf,0x01);
-    lcd_write_data(conf,0xF1);
-    lcd_write_data(conf,0x00);
-    lcd_write_data(conf,0x07);
-
-    lcd_write_cmd(conf,0x66);
-    lcd_write_data(conf,0x3C);
-    lcd_write_data(conf,0x00);
-    lcd_write_data(conf,0xCD);
-    lcd_write_data(conf,0x67);
-    lcd_write_data(conf,0x45);
-    lcd_write_data(conf,0x45);
-    lcd_write_data(conf,0x10);
-    lcd_write_data(conf,0x00);
-    lcd_write_data(conf,0x00);
-    lcd_write_data(conf,0x00);
-
-    lcd_write_cmd(conf,0x67);
-    lcd_write_data(conf,0x00);
-    lcd_write_data(conf,0x3C);
-    lcd_write_data(conf,0x00);
-    lcd_write_data(conf,0x00);
-    lcd_write_data(conf,0x00);
-    lcd_write_data(conf,0x01);
-    lcd_write_data(conf,0x54);
-    lcd_write_data(conf,0x10);
-    lcd_write_data(conf,0x32);
-    lcd_write_data(conf,0x98);
-
-    lcd_write_cmd(conf,0x74);
-    lcd_write_data(conf,0x10);
-    lcd_write_data(conf,0x85);
-    lcd_write_data(conf,0x80);
-    lcd_write_data(conf,0x00);
-    lcd_write_data(conf,0x00);
-    lcd_write_data(conf,0x4E);
-    lcd_write_data(conf,0x00);
-
-    lcd_write_cmd(conf,0x98);
-    lcd_write_data(conf,0x3e);
-    lcd_write_data(conf,0x07);
-
-    lcd_write_cmd(conf,0x35);
-    lcd_write_cmd(conf,0x21);
-
-    /* Sleep Out */
-    luat_lcd_wakeup(conf);
-    /* wait for power stability */
-    luat_rtos_task_sleep(100);
-    luat_lcd_clear(conf,LCD_BLACK);
-    /* display on */
-    luat_lcd_display_on(conf);
-    return 0;
+static const uint16_t gc9a01_init_cmds[] = {
+    0x02EF,
+    0x02EB,0x0314,
+    0x02FE,
+    0x02EF,
+    0x02EB,0x0314,
+    0x0284,0x0340,
+    0x0285,0x03FF,
+    0x0286,0x03FF,
+    0x0287,0x03FF,
+    0x0288,0x030A,
+    0x0289,0x0321,
+    0x028A,0x0300,
+    0x028B,0x0380,
+    0x028C,0x0301,
+    0x028D,0x0301,
+    0x028E,0x03FF,
+    0x028F,0x03FF,
+    0x02B6,0x0300,0x0320,
+    0x023A,0x0305,
+    0x0290,0x0308,0x0308,0x0308,0x0308,
+    0x02BD,0x0306,
+    0x02BC,0x0300,
+    0x02FF,0x0360,0x0301,0x0304,
+    0x02C3,0x0313,
+    0x02C4,0x0313,
+    0x02C9,0x0322,
+    0x02BE,0x0311,
+    0x02E1,0x0310,0x030E,
+    0x02DF,0x0321,0x030c,0x0302,
+    0x02F0,0x0345,0x0309,0x0308,0x0308,0x0326,0x032A,
+    0x02F1,0x0343,0x0370,0x0372,0x0336,0x0337,0x036F,
+    0x02F2,0x0345,0x0309,0x0308,0x0308,0x0326,0x032A,
+    0x02F3,0x0343,0x0370,0x0372,0x0336,0x0337,0x036F,
+    0x02ED,0x031B,0x030B,
+    0x02AE,0x0377,
+    0x02CD,0x0363,
+    0x0270,0x0307,0x0307,0x0304,0x030E,0x030F,0x0309,0x0307,0x0308,0x0303,
+    0x02E8,0x0334,
+    0x0262,0x0318,0x030D,0x0371,0x03ED,0x0370,0x0370,0x0318,0x030F,0x0371,0x03EF,0x0370,0x0370,
+    0x0263,0x0318,0x0311,0x0371,0x03F1,0x0370,0x0370,0x0318,0x0313,0x0371,0x03F3,0x0370,0x0370,
+    0x0264,0x0328,0x0329,0x03F1,0x0301,0x03F1,0x0300,0x0307,
+    0x0266,0x033C,0x0300,0x03CD,0x0367,0x0345,0x0345,0x0310,0x0300,0x0300,0x0300,
+    0x0267,0x0300,0x033C,0x0300,0x0300,0x0300,0x0301,0x0354,0x0310,0x0332,0x0398,
+    0x0274,0x0310,0x0385,0x0380,0x0300,0x0300,0x034E,0x0300,
+    0x0298,0x033e,0x0307,
+    0x0235,
+    0x0221,
 };
+
 
 const luat_lcd_opts_t lcd_opts_gc9a01 = {
     .name = "gc9a01",
-    .init = gc9a01_init,
+    .init_cmds_len = sizeof(gc9a01_init_cmds)/sizeof(gc9a01_init_cmds[0]),
+    .init_cmds = gc9a01_init_cmds,
+    .direction0 = 0x08,
+    .direction90 = 0xC8,
+    .direction180 = 0x68,
+    .direction270 = 0xA8
 };
 

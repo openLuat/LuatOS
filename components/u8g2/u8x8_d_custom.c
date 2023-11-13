@@ -188,12 +188,12 @@ static u8x8_display_info_t u8x8_custom_noname_display_info =
   /* i2c_bus_clock_100kHz = */ 4,
   /* data_setup_time_ns = */ 40,
   /* write_pulse_width_ns = */ 150,	/* SSD1306: cycle time is 300ns, so use 300/2 = 150 */
-  // /* tile_width = */ 16,
-  // /* tile_height = */ 8,
+  /* tile_width = */ 16,
+  /* tile_height = */ 8,
   /* default_x_offset = */ 0,
-  /* flipmode_x_offset = */ 0
-  // /* pixel_width = */ 128,
-  // /* pixel_height = */ 64
+  /* flipmode_x_offset = */ 0,
+  /* pixel_width = */ 128,
+  /* pixel_height = */ 64
 };
 
 uint8_t u8x8_d_custom_noname(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, void *arg_ptr)

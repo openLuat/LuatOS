@@ -1,128 +1,33 @@
 #include "luat_base.h"
 #include "luat_lcd.h"
-#include "luat_gpio.h"
-#include "luat_spi.h"
-#include "luat_malloc.h"
-#include "luat_rtos.h"
 
 #define LUAT_LOG_TAG "ili9486"
 #include "luat_log.h"
 
-#define LCD_W 320
-#define LCD_H 480
-#define LCD_DIRECTION 0
-
-static int ili9486_init(luat_lcd_conf_t* conf) {
-    if (conf->w == 0)
-        conf->w = LCD_W;
-    if (conf->h == 0)
-        conf->h = LCD_H;
-    if (conf->direction == 0)
-        conf->direction = LCD_DIRECTION;
-
-    if (conf->pin_pwr != 255)
-        luat_gpio_mode(conf->pin_pwr, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW); // POWER
-    luat_gpio_mode(conf->pin_dc, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_HIGH); // DC
-    luat_gpio_mode(conf->pin_rst, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW); // RST
-
-    if (conf->pin_pwr != 255)
-        luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
-    luat_gpio_set(conf->pin_rst, Luat_GPIO_LOW);
-    luat_rtos_task_sleep(100);
-    luat_gpio_set(conf->pin_rst, Luat_GPIO_HIGH);
-    luat_rtos_task_sleep(120);
-
-    // // 发送初始化命令
-    lcd_write_cmd(conf,0xE0);
-    lcd_write_data(conf,0x00);
-    lcd_write_data(conf,0x07);
-    lcd_write_data(conf,0x0f);
-    lcd_write_data(conf,0x0D);
-    lcd_write_data(conf,0x1B);
-    lcd_write_data(conf,0x0A);
-    lcd_write_data(conf,0x3c);
-    lcd_write_data(conf,0x78);
-    lcd_write_data(conf,0x4A);
-    lcd_write_data(conf,0x07);
-    lcd_write_data(conf,0x0E);
-    lcd_write_data(conf,0x09);
-    lcd_write_data(conf,0x1B);
-    lcd_write_data(conf,0x1e);
-    lcd_write_data(conf,0x0f);
-
-    lcd_write_cmd(conf,0xE1);
-    lcd_write_data(conf,0x00);
-    lcd_write_data(conf,0x22);
-    lcd_write_data(conf,0x24);
-    lcd_write_data(conf,0x06);
-    lcd_write_data(conf,0x12);
-    lcd_write_data(conf,0x07);
-    lcd_write_data(conf,0x36);
-    lcd_write_data(conf,0x47);
-    lcd_write_data(conf,0x47);
-    lcd_write_data(conf,0x06);
-    lcd_write_data(conf,0x0a);
-    lcd_write_data(conf,0x07);
-    lcd_write_data(conf,0x30);
-    lcd_write_data(conf,0x37);
-    lcd_write_data(conf,0x0f);
-
-    lcd_write_cmd(conf,0xC0);
-    lcd_write_data(conf,0x10);
-    lcd_write_data(conf,0x10);
-
-    lcd_write_cmd(conf,0xC1);
-    lcd_write_data(conf,0x41);
-
-    lcd_write_cmd(conf,0xC5);
-    lcd_write_data(conf,0x00);
-    lcd_write_data(conf,0x22);
-    lcd_write_data(conf,0x80);
-
-    lcd_write_cmd(conf,0x36);
-    if(conf->direction==0)lcd_write_data(conf,0x48);
-    else if(conf->direction==1)lcd_write_data(conf,0x88);
-    else if(conf->direction==2)lcd_write_data(conf,0x28);
-    else lcd_write_data(conf,0xE8);
-
-    lcd_write_cmd(conf,0x3A);
-    lcd_write_data(conf,0x55);
-
-    lcd_write_cmd(conf,0XB0);
-    lcd_write_data(conf,0x00);
-    lcd_write_cmd(conf,0xB1);
-    lcd_write_data(conf,0xB0);
-    lcd_write_data(conf,0x11);
-    lcd_write_cmd(conf,0xB4);
-    lcd_write_data(conf,0x02);
-    lcd_write_cmd(conf,0xB6);
-    lcd_write_data(conf,0x02);
-    lcd_write_data(conf,0x02);
-
-    lcd_write_cmd(conf,0xB7);
-    lcd_write_data(conf,0xC6);
-
-    lcd_write_cmd(conf,0xE9);
-    lcd_write_data(conf,0x00);
-
-    lcd_write_cmd(conf,0XF7);
-    lcd_write_data(conf,0xA9);
-    lcd_write_data(conf,0x51);
-    lcd_write_data(conf,0x2C);
-    lcd_write_data(conf,0x82);
-
-    /* Sleep Out */
-    lcd_write_cmd(conf,0x11);
-    /* wait for power stability */
-    luat_rtos_task_sleep(100);
-    luat_lcd_clear(conf,LCD_BLACK);
-    /* display on */
-    luat_lcd_display_on(conf);
-    return 0;
+static const uint16_t ili9486_init_cmds[] = {
+    0x02E0,0x0300,0x0307,0x030f,0x030D,0x031B,0x030A,0x033c,0x0378,0x034A,0x0307,0x030E,0x0309,0x031B,0x031e,0x030f,
+    0x02E1,0x0300,0x0322,0x0324,0x0306,0x0312,0x0307,0x0336,0x0347,0x0347,0x0306,0x030a,0x0307,0x0330,0x0337,0x030f,
+    0x02C0,0x0310,0x0310,
+    0x02C1,0x0341,
+    0x02C5,0x0300,0x0322,0x0380,
+    0x023A,0x0355,
+    0x02B0,0x0300,
+    0x02B1,0x03B0,0x0311,
+    0x02B4,0x0302,
+    0x02B6,0x0302,0x0302,
+    0x02B7,0x03C6,
+    0x02E9,0x0300,
+    0x02F7,0x03A9,0x0351,0x032C,0x0382,
 };
+
 
 const luat_lcd_opts_t lcd_opts_ili9486 = {
     .name = "ili9486",
-    .init = ili9486_init,
+    .init_cmds_len = sizeof(ili9486_init_cmds)/sizeof(ili9486_init_cmds[0]),
+    .init_cmds = ili9486_init_cmds,
+    .direction0 = 0x48,
+    .direction90 = 0x88,
+    .direction180 = 0x28,
+    .direction270 = 0xE8
 };
 

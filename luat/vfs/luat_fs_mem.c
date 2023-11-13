@@ -49,7 +49,7 @@ FILE* luat_vfs_ram_fopen(void* userdata, const char *filename, const char *mode)
         return NULL;
     }
     // 写文件
-    if (!strcmp("w", mode) || !strcmp("wb", mode) || !strcmp("w+", mode) || !strcmp("wb+", mode) ) {
+    if (!strcmp("w", mode) || !strcmp("wb", mode) || !strcmp("w+", mode) || !strcmp("wb+", mode) || !strcmp("r+", mode) || !strcmp("rb+", mode)) {
         // 先看看是否存在, 如果存在就重用老的
         for (size_t i = 0; i < RAM_FILE_MAX; i++)
         {
@@ -179,7 +179,10 @@ size_t luat_vfs_ram_fread(void* userdata, void *ptr, size_t size, size_t nmemb, 
     //LLOGD("fread %p %p %d %d", userdata, stream, fd->size, fd->offset);
     //LLOGD("fread2 %p %p %d %d", userdata, stream, size * nmemb, fd->offset);
     size_t read_size = size*nmemb;
-    if (fd->offset + read_size > fd->file->size) {
+    if (fd->offset >= fd->file->size) {
+        return 0;
+    }
+    if (fd->offset + read_size >= fd->file->size) {
         read_size = fd->file->size - fd->offset;
     }
     memcpy(ptr, fd->file->ptr + fd->offset, read_size);

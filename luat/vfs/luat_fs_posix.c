@@ -55,10 +55,16 @@ int luat_fs_ferror(FILE *stream) {
 }
 size_t luat_fs_fread(void *ptr, size_t size, size_t nmemb, FILE *stream) {
     //LLOGD("posix_fread %d %p", size*nmemb, stream);
-    return fread(ptr, size, nmemb, stream);
+    int ret = fread(ptr, size, nmemb, stream);
+    if (ret < 0)
+        return 0;
+    return size * nmemb; 
 }
 size_t luat_fs_fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream) {
-    return fwrite(ptr, size, nmemb, stream);
+    int ret = fwrite(ptr, size, nmemb, stream);
+    if (ret < 0)
+        return 0;
+    return size * nmemb; 
 }
 int luat_fs_remove(const char *filename) {
     return remove(filename + FILENAME_OFFSET);

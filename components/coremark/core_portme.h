@@ -207,7 +207,9 @@ void portable_fini(core_portable *p);
 
 int ee_printf(const char *fmt, ...);
 
+#ifndef ITERATIONS
 #define ITERATIONS 10000
+#endif
 
 #define CLOCKS_PER_SEC 1000
 

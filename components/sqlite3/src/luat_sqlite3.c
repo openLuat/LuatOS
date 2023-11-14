@@ -123,12 +123,11 @@ static FILE* sopen(const char* zName, int flags) {
     size_t len = luat_fs_fsize(zName);
     LLOGD("打开文件 %s %d %d", zName, flags, len);
     FILE* fd = NULL;
-    fd = luat_fs_fopen(zName, "rb");
-    if (fd == NULL) {
+    if (!luat_fs_fexist(zName)) {
         fd = luat_fs_fopen(zName, "wb");
-    }
-    if (fd) {
-        luat_fs_fclose(fd);
+        if (fd) {
+            luat_fs_fclose(fd);
+        }
     }
     fd = luat_fs_fopen(zName, "rb+");
     if (fd == NULL) {

@@ -29,33 +29,22 @@
 #ifndef _SFUD_CFG_H_
 #define _SFUD_CFG_H_
 
-#define LUAT_TYPE_SPI           0
-#define LUAT_TYPE_SPI_DEVICE    1
-
-typedef struct luat_sfud_flash
-{
-    int luat_spi;     // bus
-    void *user_data;// some user data
-} luat_sfud_flash_t;
-
 // #define SFUD_DEBUG_MODE
 
 #define SFUD_USING_SFDP
 
 #define SFUD_USING_FLASH_INFO_TABLE
 
-#define SFUD_FLASH_DEVICE_TABLE {0}
-
-/*
+#ifndef SFUD_FLASH_DEVICE_TABLE
 enum {
     SFUD_XXXX_DEVICE_INDEX = 0,
 };
 
- #define SFUD_FLASH_DEVICE_TABLE                                                \
- {                                                                              \
-     [SFUD_XXXX_DEVICE_INDEX] = {.name = "XXXX", .spi.name = "SPIX"},           \
+#define SFUD_FLASH_DEVICE_TABLE                                                \
+{                                                                              \
+    [SFUD_XXXX_DEVICE_INDEX] = {.name = "LuatOS-sfud", .spi.name = "SPIX"},           \
 }
-*/
+#endif
 
 // #define SFUD_USING_QSPI
 

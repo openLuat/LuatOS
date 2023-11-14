@@ -31,10 +31,7 @@
 
 #include "luat_spi.h"
 
-#define LUAT_LOG_TAG "sfud"
-#include "luat_log.h"
-
-
+// static char log_buf[256];
 
 // void sfud_log_debug(const char *file, const long line, const char *format, ...);
 
@@ -51,7 +48,7 @@ static sfud_err spi_write_read(const sfud_spi *spi, const uint8_t *write_buf, si
         SFUD_ASSERT(read_buf);
     }
     int type = (*(luat_sfud_flash_t*)(spi->user_data)).luat_spi;
-    if ( type == 0 ) {
+    if ( type == LUAT_TYPE_SPI ) {
         luat_spi_t* spi_flash = (luat_spi_t*) ((*(luat_sfud_flash_t*)(spi->user_data)).user_data);
         if (write_size && read_size) {
             if (luat_spi_transfer(spi_flash -> id, (const char*)write_buf, write_size, (char*)read_buf, read_size) <= 0) {
@@ -67,7 +64,7 @@ static sfud_err spi_write_read(const sfud_spi *spi, const uint8_t *write_buf, si
             }
         }
     }
-    else if ( type == 1 ) {
+    else if ( type == LUAT_TYPE_SPI_DEVICE ) {
         luat_spi_device_t* spi_dev = (luat_spi_device_t*) ((*(luat_sfud_flash_t*)(spi->user_data)).user_data);
         if (write_size && read_size) {
             if (luat_spi_device_transfer(spi_dev , (const char*)write_buf, write_size, (char*)read_buf, read_size) <= 0) {
@@ -111,17 +108,13 @@ static void retry_delay_100us(void) {
 sfud_err sfud_spi_port_init(sfud_flash *flash) {
     sfud_err result = SFUD_SUCCESS;
 
-    extern luat_sfud_flash_t luat_sfud;
     /* port SPI device interface */
     flash->spi.wr = spi_write_read;
-    // flash->spi.user_data = flash;
-    flash->spi.user_data = &luat_sfud;
+    flash->spi.user_data = &(flash->luat_sfud);
     /* 100 microsecond delay */
     flash->retry.delay = retry_delay_100us;
     /* 60 seconds timeout */
     flash->retry.times = 60 * 10000;
-
-    flash->name = "LuatOS-sfud";
 
     return result;
 }
@@ -135,16 +128,14 @@ sfud_err sfud_spi_port_init(sfud_flash *flash) {
 //  * @param ... args
 //  */
 // void sfud_log_debug(const char *file, const long line, const char *format, ...) {
-//     char log_buf[256] = {0};
 //     va_list args;
 
 //     /* args point to the first variable parameter */
 //     va_start(args, format);
-//     // printf("[SFUD](%s:%ld) ", file, line);
+//     printf("[SFUD](%s:%ld) ", file, line);
 //     /* must use vprintf to print */
 //     vsnprintf(log_buf, sizeof(log_buf), format, args);
-//     // printf("%s\n", log_buf);
-//     LLOGD("%s ", log_buf);
+//     printf("%s\n", log_buf);
 //     va_end(args);
 // }
 
@@ -155,15 +146,13 @@ sfud_err sfud_spi_port_init(sfud_flash *flash) {
 //  * @param ... args
 //  */
 // void sfud_log_info(const char *format, ...) {
-//     char log_buf[256] = {0};
 //     va_list args;
 
 //     /* args point to the first variable parameter */
 //     va_start(args, format);
-//     // printf("[SFUD]");
+//     printf("[SFUD]");
 //     /* must use vprintf to print */
 //     vsnprintf(log_buf, sizeof(log_buf), format, args);
-//     // printf("%s\n", log_buf);
-//     LLOGD("%s ", log_buf);
+//     printf("%s\n", log_buf);
 //     va_end(args);
 // }

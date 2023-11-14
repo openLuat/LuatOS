@@ -137,9 +137,11 @@ static const rotable_Reg_t reg_sqlite3[] =
 	{ NULL,               ROREG_INT(0)}
 };
 
+extern int luat_sqlite3_init(void);
+
 LUAMOD_API int luaopen_sqlite3( lua_State *L ) {
     luat_newlib2(L, reg_sqlite3);
-    sqlite3_initialize();
+    luat_sqlite3_init();
     return 1;
 }
 

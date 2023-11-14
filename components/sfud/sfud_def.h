@@ -46,6 +46,16 @@
 extern "C" {
 #endif
 
+#define LUAT_TYPE_SPI           0
+#define LUAT_TYPE_SPI_DEVICE    1
+
+typedef struct luat_sfud_flash
+{
+    int luat_spi;     // bus
+    void *user_data;// some user data
+} luat_sfud_flash_t;
+
+
 /* debug print function. Must be implement by user. */
 #ifdef SFUD_DEBUG_MODE
 #ifndef SFUD_DEBUG
@@ -124,11 +134,11 @@ if (!(EXPR))                                                                   \
 #define SFUD_CMD_READ_DATA                             0x03
 #endif
 
-#ifndef SFUD_CMD_DUAL_OUTPUT_READ_DATA 
+#ifndef SFUD_CMD_DUAL_OUTPUT_READ_DATA
 #define SFUD_CMD_DUAL_OUTPUT_READ_DATA                 0x3B
 #endif
 
-#ifndef SFUD_CMD_DUAL_IO_READ_DATA 
+#ifndef SFUD_CMD_DUAL_IO_READ_DATA
 #define SFUD_CMD_DUAL_IO_READ_DATA                     0xBB
 #endif
 
@@ -283,6 +293,7 @@ typedef struct {
         void (*delay)(void);                     /**< every retry's delay */
         size_t times;                            /**< default times for error retry */
     } retry;
+    luat_sfud_flash_t luat_sfud;
     void *user_data;                             /**< some user data */
 
 #ifdef SFUD_USING_QSPI

@@ -94,16 +94,40 @@ int sqlite3_os_end(void) {
     return 0;
 }
 
+static void * luat_sqlite3_Malloc(int);         /* Memory allocation function */
+static  void luat_sqlite3_Free(void*);          /* Free a prior allocation */
+static  void *luat_sqlite3_Realloc(void*,int);  /* Resize an allocation */
+static  int luat_sqlite3_Size(void*);           /* Return the size of an allocation */
+static  int luat_sqlite3_Roundup(int);          /* Round up request size to allocation size */
+static  int luat_sqlite3_Init(void*);           /* Initialize the memory allocator */
+static  void luat_sqlite3_xShutdown(void*);      /* Deinitialize the memory allocator */
+
+
+static const sqlite3_mem_methods mems = {
+  .xMalloc = luat_sqlite3_Malloc,
+  .xFree = luat_sqlite3_Free,
+  .xRealloc = luat_sqlite3_Realloc,
+  .xSize = luat_sqlite3_Size,
+  .xRoundup = luat_sqlite3_Roundup,
+  .xInit = luat_sqlite3_Init,
+  .xShutdown = luat_sqlite3_xShutdown,
+  NULL
+};
+
+int luat_sqlite3_init(void) {
+    // sqlite3_config(SQLITE_CONFIG_MALLOC, &mems);
+    sqlite3_initialize();
+}
+
 static FILE* sopen(const char* zName, int flags) {
     size_t len = luat_fs_fsize(zName);
     LLOGD("打开文件 %s %d %d", zName, flags, len);
     FILE* fd = NULL;
-    fd = luat_fs_fopen(zName, "rb");
-    if (fd == NULL) {
+    if (!luat_fs_fexist(zName)) {
         fd = luat_fs_fopen(zName, "wb");
-    }
-    if (fd) {
-        luat_fs_fclose(fd);
+        if (fd) {
+            luat_fs_fclose(fd);
+        }
     }
     fd = luat_fs_fopen(zName, "rb+");
     if (fd == NULL) {
@@ -182,16 +206,16 @@ static int svfs_io_Read(sqlite3_file* f, void* data, int iAmt, sqlite3_int64 iOf
     ret = luat_fs_fseek(fd, iOfst, SEEK_SET);
     if (ret < 0) {
         luat_fs_fclose(fd);
-        LLOGD("读取位置seek失败 %s %d", t->path, ret);
+        LLOGE("读取位置seek失败 %s %d", t->path, ret);
         return SQLITE_IOERR_READ;
     }
     ret = luat_fs_fread(data, iAmt, 1, fd);
     if (ret < 0) {
         luat_fs_fclose(fd);
-        LLOGD("读取数据失败 %s %d", t->path, ret);
+        LLOGE("读取数据失败 %s %d", t->path, ret);
         return SQLITE_IOERR_READ;
     }
-    if (ret <= 0) {
+    if (ret != iAmt) {
         luat_fs_fclose(fd);
         LLOGD("读取的长度不足 %s %d %d", t->path, ret, iAmt);
         return SQLITE_IOERR_SHORT_READ;
@@ -219,18 +243,18 @@ static int svfs_io_Write(sqlite3_file* f, const void* data, int iAmt, sqlite3_in
     ret = luat_fs_fseek(fd, iOfst, SEEK_SET);
     if (ret < 0) {
         luat_fs_fclose(fd);
-        LLOGD("文件写入设置偏移量失败 %d", ret);
+        LLOGE("文件写入设置偏移量失败 %d", ret);
         return SQLITE_IOERR_WRITE;
     }
     ret = luat_fs_fwrite(data, iAmt, 1, fd);
     if (ret < 0) {
         luat_fs_fclose(fd);
-        LLOGD("文件写入失败 %s %d", t->path, ret);
+        LLOGE("文件写入失败 %s %d", t->path, ret);
         return SQLITE_IOERR_WRITE;
     }
-    if (ret <= 0) {
+    if (ret != iAmt) {
         luat_fs_fclose(fd);
-        LLOGD("文件写入长度不足 结果 %d 长度 %d", ret, iAmt);
+        LLOGE("文件写入长度不足 结果 %d 长度 %d", ret, iAmt);
         return SQLITE_IOERR_WRITE;
     }
     LLOGD("文件写入完成 %s 长度 %d 偏移量 %d", t->path, iAmt, iOfst);
@@ -281,4 +305,64 @@ static int svfs_io_SectorSize(sqlite3_file* f) {
 
 static int svfs_io_DeviceCharacteristics(sqlite3_file* f) {
     return SQLITE_IOCAP_ATOMIC;
+}
+
+// 内存函数
+
+static void * luat_sqlite3_Malloc(int len) {
+    if (len == 0) {
+        return NULL;
+    }
+    char* ptr = luat_heap_malloc(len + sizeof(int));
+    if (ptr == NULL) {
+        return ptr;
+    }
+    memcpy(ptr, &len, sizeof(int));
+    return ptr + sizeof(int);
+}
+
+static void luat_sqlite3_Free(void* ptr) {
+    if (ptr == NULL)
+        return;
+    char* tmp = ptr;
+    tmp -= sizeof(int);
+    luat_heap_free(tmp);
+}
+static void *luat_sqlite3_Realloc(void* ptr,int nsize) {
+    char* tmp = ptr;
+    tmp -= sizeof(int);
+    tmp = luat_heap_realloc(tmp, nsize);
+    if (tmp == NULL) {
+        return NULL;
+    }
+    memcpy(tmp, &nsize, sizeof(int));
+    tmp += sizeof(int);
+    return tmp;
+}
+
+static int luat_sqlite3_Size(void* ptr) {
+    if (ptr == NULL) {
+        return 0;
+    }
+    char* tmp = ptr;
+    tmp -= sizeof(int);
+    int size = 0;
+    memcpy(&size, tmp, sizeof(int));
+    return size;
+}
+static int luat_sqlite3_Roundup(int len) {
+    if (len == 0) {
+        return 0;
+    }
+    len = (len + 7) / 8 ;
+    len = len * 8;
+    return len;
+}
+
+static  int luat_sqlite3_Init(void* args) {
+    return 0;
+}
+
+static  void luat_sqlite3_xShutdown(void* args) {
+    return;
 }

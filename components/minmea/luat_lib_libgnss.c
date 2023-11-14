@@ -949,6 +949,85 @@ static int l_libgnss_get_txt(lua_State *L) {
     return 1;
 }
 
+/*
+合成Air530Z所需要的辅助定位数据
+@api libgnss.casic_aid(dt, loc)
+@table 时间信息
+@table 经纬度及海拔
+@return string 辅助定位数据
+@usage
+-- 本函数适合CASIC系列GNSS模块的辅助定位信息的合成
+-- 本函数 2023.11.14 新增
+
+-- 首先是时间信息,注意是UTC时间
+-- 时间来源很多, 一般建议socket.sntp()时间同步后的系统时间
+local dt = os.date("!*t")
+
+-- 然后是辅助定位坐标
+-- 来源有很多方式:
+-- 1. 从历史定位数据得到, 例如之前定位成功后保存到本地文件系统了
+-- 2. 通过基站定位或者wifi定位获取到
+-- 3. 通过IP定位获取到大概坐标
+-- 坐标系是WGS84, 但鉴于是辅助定位,精度不是关键因素
+local lla = {
+    lat = 23.12,
+    lng = 114.12
+}
+
+local aid = libgnss.casic_aid(dt, lla)
+*/
+#include "luat_casic_gnss.h"
+static int l_libgnss_casic_aid(lua_State* L) {
+    DATETIME_STR dt = {0};
+    POS_LLA_STR lla = {0};
+
+    if (lua_istable(L, 1)) {
+        if (LUA_TNUMBER == lua_getfield(L, 1, "day")) {
+            dt.day = lua_tointeger(L, -1);
+        };
+        lua_pop(L, 1);
+        if (LUA_TNUMBER == lua_getfield(L, 1, "mom")) {
+            dt.month = lua_tointeger(L, -1);
+        };
+        lua_pop(L, 1);
+        if (LUA_TNUMBER == lua_getfield(L, 1, "year")) {
+            dt.year = lua_tointeger(L, -1);
+        };
+        lua_pop(L, 1);
+        if (LUA_TNUMBER == lua_getfield(L, 1, "hour")) {
+            dt.hour = lua_tointeger(L, -1);
+        };
+        lua_pop(L, 1);
+        if (LUA_TNUMBER == lua_getfield(L, 1, "min")) {
+            dt.minute = lua_tointeger(L, -1);
+        };
+        lua_pop(L, 1);
+        if (LUA_TNUMBER == lua_getfield(L, 1, "sec")) {
+            dt.second = lua_tointeger(L, -1);
+        };
+        lua_pop(L, 1);
+        dt.valid = 1;
+    }
+    if (lua_istable(L, 2)) {
+        if (LUA_TNUMBER == lua_getfield(L, 1, "lat")) {
+            lla.lat = lua_tonumber(L, -1);
+        };
+        lua_pop(L, 1);
+        if (LUA_TNUMBER == lua_getfield(L, 1, "lng")) {
+            lla.lon = lua_tonumber(L, -1);
+        };
+        lua_pop(L, 1);
+        if (LUA_TNUMBER == lua_getfield(L, 1, "alt")) {
+            lla.alt = lua_tonumber(L, -1);
+        };
+        lla.valid = 1;
+    }
+    char tmp[66];
+    casicAgnssAidIni(&dt, &lla, tmp);
+    lua_pushlstring(L, tmp, 66);
+    return 1;
+};
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_libgnss[] =
 {
@@ -971,6 +1050,8 @@ static const rotable_Reg_t reg_libgnss[] =
     { "bind",   ROREG_FUNC(l_libgnss_bind)},
 
     { "getTxt", ROREG_FUNC(l_libgnss_get_txt)},
+
+    { "casic_aid",   ROREG_FUNC(l_libgnss_casic_aid)},
 
 	{ NULL,      ROREG_INT(0)}
 };

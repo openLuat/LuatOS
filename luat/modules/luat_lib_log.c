@@ -265,7 +265,7 @@ void luat_log_dump(const char* tag, void* ptr, size_t len) {
         return;
     }
     char buff[256] = {0};
-    char* ptr2 = ptr;
+    uint8_t* ptr2 = (uint8_t*)ptr;
     for (size_t i = 0; i < len; i++)
     {
         sprintf_(buff + strlen(buff), "%02X ", ptr2[i]);

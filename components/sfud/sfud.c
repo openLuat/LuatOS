@@ -37,7 +37,7 @@
 #endif
 
 /* user configured flash device information table */
-static sfud_flash flash_table[] = SFUD_FLASH_DEVICE_TABLE;
+sfud_flash flash_table[] = SFUD_FLASH_DEVICE_TABLE;
 /* supported manufacturer information table */
 static const sfud_mf mf_table[] = SFUD_MF_TABLE;
 

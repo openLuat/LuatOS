@@ -15,8 +15,7 @@
 #include "luat_log.h"
 #include "sfud.h"
 
-luat_sfud_flash_t luat_sfud;
-
+extern sfud_flash flash_table[];
 /*
 初始化sfud
 @api  sfud.init(spi_id, spi_cs, spi_bandrate)/sfud.init(spi_device)
@@ -35,7 +34,7 @@ static int luat_sfud_init(lua_State *L){
     static luat_spi_t sfud_spi_flash;
     static luat_spi_device_t* sfud_spi_device_flash = NULL;
     if (lua_type(L, 1) == LUA_TNUMBER){
-        luat_sfud.luat_spi = LUAT_TYPE_SPI;
+        flash_table[0].luat_sfud.luat_spi = LUAT_TYPE_SPI;
         sfud_spi_flash.id = luaL_checkinteger(L, 1);
         sfud_spi_flash.cs = luaL_checkinteger(L, 2);
         sfud_spi_flash.bandrate = luaL_checkinteger(L, 3);
@@ -46,11 +45,11 @@ static int luat_sfud_init(lua_State *L){
         sfud_spi_flash.master = 1; // master=1,slave=0
         sfud_spi_flash.mode = 0; // FULL=1, half=0
         luat_spi_setup(&sfud_spi_flash);
-        luat_sfud.user_data = &sfud_spi_flash;
+        flash_table[0].luat_sfud.user_data = &sfud_spi_flash;
     }else if (lua_type(L, 1) == LUA_TUSERDATA){
-        luat_sfud.luat_spi = LUAT_TYPE_SPI_DEVICE;
+        flash_table[0].luat_sfud.luat_spi = LUAT_TYPE_SPI_DEVICE;
         sfud_spi_device_flash = (luat_spi_device_t*)lua_touserdata(L, 1);
-        luat_sfud.user_data = sfud_spi_device_flash;
+        flash_table[0].luat_sfud.user_data = sfud_spi_device_flash;
     }
     
     int re = sfud_init();

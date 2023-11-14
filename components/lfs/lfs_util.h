@@ -36,8 +36,6 @@
 #define LFS_NO_ERROR 1
 #define LFS_NO_ERROR 1
 // #define LFS_YES_TRACE
-#define LUAT_LOG_TAG "lfs"
-#include "luat_log.h"
 //--------------------------------
 
 #ifndef LFS_NO_MALLOC
@@ -51,6 +49,8 @@
         !defined(LFS_NO_ERROR) || \
         defined(LFS_YES_TRACE)
 #include <stdio.h>
+#define LUAT_LOG_TAG "lfs"
+#include "luat_log.h"
 #endif
 
 #ifdef __cplusplus

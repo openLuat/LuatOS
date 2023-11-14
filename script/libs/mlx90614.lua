@@ -5,7 +5,6 @@
 @date    2023.01.12
 @author  Dozingfiretruck
 @usage
---注意:因使用了sys.wait()所有api需要在协程中使用
 -- 用法实例
 local mlx90614 = require "mlx90614"
 

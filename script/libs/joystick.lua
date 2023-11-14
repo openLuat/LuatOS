@@ -5,7 +5,6 @@
 @date    2023.04.10
 @author  Dozingfiretruck
 @usage
---注意:因使用了sys.wait()所有api需要在协程中使用
 -- 用法实例
 
 local joystick = require "joystick"

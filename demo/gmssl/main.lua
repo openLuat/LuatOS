@@ -23,11 +23,12 @@ sys.taskInit(function()
 
     sys.wait(1000)
     log.info("gmssl", "start")
+    -- 未加密字符串
+    local originStr = "!!from LuatOS!!"
 
     -- SM2 , 非对称加密, 类似于RSA,但属于椭圆算法
     -- 就当前实现还是比较慢的
     if gmssl.sm2encrypt then -- 部分BSP不支持
-        local originStr = "!!from LuatOS!!"
         local pkx = "ABE87C924B7ECFDEA1748A06E89003C9F7F4DC5C3563873CE2CAE46F66DE8141"
         local pky = "9514733D38CC026F2452A6A3A3A4DA0C28F864AFA5FE2C45E0EB6B761FBB5286"
         local private = "129EDC282CD2E9C1144C2E7315F926D772BC96600D2771E8BE02060313FE00D5"

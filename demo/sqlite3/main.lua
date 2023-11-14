@@ -11,6 +11,8 @@ _G.sys = require("sys")
 本demo需要sqlite3库, 默认固件都不会带这个库, 需要云编译
 云编译地址: https://wiki.luatos.com/develop/compile/Cloud_compilation.html
 
+大部分MCU模组都跑不了这个库, 莫念
+
 在嵌入式环境中, sqlite3能跑, 但不要对性能和可靠性有太高的期待.
 1. 不建议存放超过2000条记录
 2. 务必遵循 open -- sql操作 -- close 的闭环操作
@@ -30,15 +32,19 @@ sys.taskInit(function()
     end
     sys.wait(1000)
     -- 第一步, 打开数据库连接
-    local db = sqlite3.open("/test.db")
+    local db = sqlite3.open("/ram/test.db")
     log.info("sqlite3", db)
     if db then -- 打开成功返回数据库指针,否则返回nil的
         -- 执行建表语句
         sqlite3.exec(db, "CREATE TABLE devs(ID INT PRIMARY KEY NOT NULL, name CHAR(50))")
+        log.info("sys", rtos.meminfo("sys"))
         -- 插入多条数据
         sqlite3.exec(db, "insert into devs values(1, \"ABC\")")
+        log.info("sys", rtos.meminfo("sys"))
         sqlite3.exec(db, "insert into devs values(2, \"DEF\")")
+        log.info("sys", rtos.meminfo("sys"))
         sqlite3.exec(db, "insert into devs values(3, \"HIJ\")")
+        log.info("sys", rtos.meminfo("sys"))
         -- 执行查询语句
         local ret, data = sqlite3.exec(db, "select * from devs where id > 1 order by id desc limit 2")
         log.info("查询结果", ret, data)
@@ -48,6 +54,7 @@ sys.taskInit(function()
                 log.info("数据", json.encode(v))
             end
         end
+        log.info("sys", rtos.meminfo("sys"))
         -- 执行全部操作后,一定要关闭数据库连接哦
         sqlite3.close(db)
     end

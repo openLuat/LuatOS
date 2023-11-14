@@ -300,6 +300,7 @@ SM4加密算法
 @string  填充方式, NONE/ZERO/PKCS5/PKCS7
 @string  加密的字符串
 @string  密钥
+@string  偏移量
 @return string 加密后的数据
 @usage
 local originStr = "SM4 ECB ZeroPadding test"
@@ -451,6 +452,7 @@ SM4解密算法
 @string  填充方式, NONE/ZERO/PKCS5/PKCS7
 @string  已加密的字符串
 @string  密钥
+@string  偏移量
 @return string 解密的字符串
 @usage
 -- 参考gmssl.sm4encrypt

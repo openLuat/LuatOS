@@ -69,6 +69,7 @@ typedef struct luat_lcd_conf {
     uint8_t is_init_done;
 
     uint8_t interface_mode;	// LUAT_LCD_IM_XXX
+    uint8_t lcd_cs_pin;		//注意不用的时候写0xff
 } luat_lcd_conf_t;
 
 typedef struct luat_lcd_opts {
@@ -117,9 +118,16 @@ int luat_lcd_draw_hline(luat_lcd_conf_t* conf, int16_t x, int16_t y,int16_t h, l
 int luat_lcd_draw_rectangle(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t color);
 int luat_lcd_draw_circle(luat_lcd_conf_t* conf, int16_t x0, int16_t y0, uint8_t r, luat_color_t color);
 
+/*
+ * csdk适配用
+ */
 void luat_lcd_service_init(uint32_t pro);
-void luat_lcd_service_run(void *CB, void *data, uint32_t param, uint32_t timeout);
-void luat_lcd_service_draw(void *data);
+void luat_lcd_service_run(void *api, void *data, uint32_t param, uint32_t timeout);
+int luat_lcd_service_draw(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t *data, uint8_t is_static_buf);
 uint32_t luat_lcd_service_cache_len(void);
+void luat_lcd_IF_init(luat_lcd_conf_t* conf);
+int luat_lcd_IF_write_cmd_data(luat_lcd_conf_t* conf,const uint8_t cmd, const uint8_t *data, uint8_t data_len);
+int luat_lcd_IF_read_cmd_data(luat_lcd_conf_t* conf,const uint8_t cmd, uint8_t *data, uint8_t data_len, uint8_t dummy_bit);
+
 #endif
 

@@ -33,7 +33,7 @@ function u8g2_pin()
     elseif rtos_bsp == "AIR105" then
         return 0,pin.PE06,pin.PE07,5,pin.PC12,pin.PE08,pin.PC14
     elseif rtos_bsp == "ESP32C3" then
-        return 0,5,4,2,10,9,7,11
+        return 0,5,4,2,10,6,7
     elseif rtos_bsp == "ESP32S3" then
         return 0,12,11,2,16,15,14,13
     elseif rtos_bsp == "EC618" then

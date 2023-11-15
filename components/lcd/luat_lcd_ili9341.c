@@ -33,7 +33,6 @@ const luat_lcd_opts_t lcd_opts_ili9341 = {
     .name = "ili9341",
     .init_cmds_len = sizeof(ili9341_init_cmds)/sizeof(ili9341_init_cmds[0]),
     .init_cmds = ili9341_init_cmds,
-    .interface_mode = LUAT_LCD_IM_4_WIRE_8_BIT_INTERFACE_I,
     .direction0 = 0x08,
     .direction90 = 0xC8,
     .direction180 = 0x78,

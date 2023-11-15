@@ -277,6 +277,8 @@ int luat_lcd_draw(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int
     if (y2 >= conf->h) {
         y2 = conf->h - 1;
     }
+    if (conf->opts->lcd_draw)
+    	return conf->opts->lcd_draw(conf, x1, y1, x2, y2, color);
     // 直接刷屏模式
     if (conf->buff == NULL) {
         // 常规数据, 整体传输

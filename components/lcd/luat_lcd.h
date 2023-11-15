@@ -33,11 +33,12 @@
 struct luat_lcd_opts;
 
 enum{
-    LUAT_LCD_IM_4_WIRE_8_BIT_INTERFACE_I,
-	LUAT_LCD_IM_3_WIRE_9_BIT_INTERFACE_I,
-	LUAT_LCD_IM_4_WIRE_8_BIT_INTERFACE_II,
-	LUAT_LCD_IM_3_WIRE_9_BIT_INTERFACE_II,
-	LUAT_LCD_IM_2_DATA_LANE,
+
+	LUAT_LCD_IM_3_WIRE_9_BIT_INTERFACE_I = 5,
+	LUAT_LCD_IM_4_WIRE_8_BIT_INTERFACE_I = 6,
+	LUAT_LCD_IM_3_WIRE_9_BIT_INTERFACE_II = 13,
+	LUAT_LCD_IM_4_WIRE_8_BIT_INTERFACE_II = 14,
+	LUAT_LCD_IM_2_DATA_LANE = 16,
 };
 
 typedef struct luat_lcd_conf {
@@ -82,6 +83,7 @@ typedef struct luat_lcd_opts {
     int (*init)(luat_lcd_conf_t* conf);
     int (*write_cmd_data)(luat_lcd_conf_t* conf,const uint8_t cmd, const uint8_t *data, uint8_t data_len);
     int (*read_cmd_data)(luat_lcd_conf_t* conf,const uint8_t cmd, const uint8_t *data, uint8_t data_len, uint8_t dummy_bit);
+    int (*lcd_draw)(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t* color);
 } luat_lcd_opts_t;
 
 int lcd_write_cmd(luat_lcd_conf_t* conf,const uint8_t cmd);
@@ -127,6 +129,7 @@ uint32_t luat_lcd_service_cache_len(void);
 void luat_lcd_IF_init(luat_lcd_conf_t* conf);
 int luat_lcd_IF_write_cmd_data(luat_lcd_conf_t* conf,const uint8_t cmd, const uint8_t *data, uint8_t data_len);
 int luat_lcd_IF_read_cmd_data(luat_lcd_conf_t* conf,const uint8_t cmd, uint8_t *data, uint8_t data_len, uint8_t dummy_bit);
+int luat_lcd_IF_draw(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t* color);
 
 #endif
 

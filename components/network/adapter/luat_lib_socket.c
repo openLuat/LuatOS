@@ -1090,6 +1090,7 @@ static const rotable_Reg_t reg_socket_adapter[] =
 	{"adapter",			ROREG_FUNC(l_socket_adapter)},
 #ifdef LUAT_USE_SNTP
 	{"sntp",         	ROREG_FUNC(l_sntp_get)},
+	{"ntptm",           ROREG_FUNC(l_sntp_tm)},
 #endif
 	//@const ETH0 number 带硬件协议栈的ETH0，值为5
     { "ETH0",           ROREG_INT(NW_ADAPTER_INDEX_ETH0)},

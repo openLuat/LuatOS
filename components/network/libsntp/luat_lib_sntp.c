@@ -145,6 +145,8 @@ int l_sntp_get(lua_State *L) {
 @usage
 -- 本API于 2023.11.15 新增
 -- 注意, 本函数在执行socket.sntp()且获取到NTP时间后才有效
+-- 而且是2次sntp之后才是比较准确的值
+-- 网络波动越小, 该时间戳越稳定
 local tm = socket.ntptm()
 
 -- 对应的table包含多个数据, 均为整数值

@@ -68,12 +68,12 @@ typedef struct luat_lcd_conf {
     int16_t flush_y_max;
     uint8_t is_init_done;
 
-    uint8_t interface_mode;	// LUAT_LCD_IM_XXX
     uint8_t lcd_cs_pin;		//注意不用的时候写0xff
 } luat_lcd_conf_t;
 
 typedef struct luat_lcd_opts {
     const char* name;
+    uint8_t interface_mode;	// LUAT_LCD_IM_XXX
     uint8_t direction0;
     uint8_t direction90;
     uint8_t direction180;

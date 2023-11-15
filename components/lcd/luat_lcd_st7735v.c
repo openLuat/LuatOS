@@ -20,7 +20,7 @@ static const uint16_t st7735v_init_cmds[] = {
     0x023A,0x0305,
 };
 
-const luat_lcd_opts_t lcd_opts_st7735v = {
+luat_lcd_opts_t lcd_opts_st7735v = {
     .name = "st7735v",
     .init_cmds_len = sizeof(st7735v_init_cmds)/sizeof(st7735v_init_cmds[0]),
     .init_cmds = st7735v_init_cmds,

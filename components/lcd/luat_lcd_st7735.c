@@ -25,7 +25,7 @@ static const uint16_t st7735_init_cmds[] = {
 };
 
 
-const luat_lcd_opts_t lcd_opts_st7735 = {
+luat_lcd_opts_t lcd_opts_st7735 = {
     .name = "st7735",
     .init_cmds_len = sizeof(st7735_init_cmds)/sizeof(st7735_init_cmds[0]),
     .init_cmds = st7735_init_cmds,

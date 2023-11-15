@@ -55,7 +55,7 @@ static const uint16_t gc9a01_init_cmds[] = {
 };
 
 
-const luat_lcd_opts_t lcd_opts_gc9a01 = {
+luat_lcd_opts_t lcd_opts_gc9a01 = {
     .name = "gc9a01",
     .init_cmds_len = sizeof(gc9a01_init_cmds)/sizeof(gc9a01_init_cmds[0]),
     .init_cmds = gc9a01_init_cmds,

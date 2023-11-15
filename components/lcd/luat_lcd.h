@@ -86,16 +86,16 @@ typedef struct luat_lcd_opts {
     int (*lcd_draw)(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t* color);
 } luat_lcd_opts_t;
 
-extern const luat_lcd_opts_t lcd_opts_gc9106l;
-extern const luat_lcd_opts_t lcd_opts_gc9306x;
-extern const luat_lcd_opts_t lcd_opts_gc9a01;
-extern const luat_lcd_opts_t lcd_opts_ili9341;
-extern const luat_lcd_opts_t lcd_opts_ili9486;
-extern const luat_lcd_opts_t lcd_opts_st7735;
-extern const luat_lcd_opts_t lcd_opts_st7735s;
-extern const luat_lcd_opts_t lcd_opts_st7735v;
-extern const luat_lcd_opts_t lcd_opts_st7789;
-extern const luat_lcd_opts_t lcd_opts_st7796;
+extern luat_lcd_opts_t lcd_opts_gc9106l;
+extern luat_lcd_opts_t lcd_opts_gc9306x;
+extern luat_lcd_opts_t lcd_opts_gc9a01;
+extern luat_lcd_opts_t lcd_opts_ili9341;
+extern luat_lcd_opts_t lcd_opts_ili9486;
+extern luat_lcd_opts_t lcd_opts_st7735;
+extern luat_lcd_opts_t lcd_opts_st7735s;
+extern luat_lcd_opts_t lcd_opts_st7735v;
+extern luat_lcd_opts_t lcd_opts_st7789;
+extern luat_lcd_opts_t lcd_opts_st7796;
 
 
 int lcd_write_cmd(luat_lcd_conf_t* conf,const uint8_t cmd);

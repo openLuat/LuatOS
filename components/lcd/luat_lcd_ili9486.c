@@ -21,7 +21,7 @@ static const uint16_t ili9486_init_cmds[] = {
 };
 
 
-const luat_lcd_opts_t lcd_opts_ili9486 = {
+luat_lcd_opts_t lcd_opts_ili9486 = {
     .name = "ili9486",
     .init_cmds_len = sizeof(ili9486_init_cmds)/sizeof(ili9486_init_cmds[0]),
     .init_cmds = ili9486_init_cmds,

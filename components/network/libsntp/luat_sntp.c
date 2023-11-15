@@ -234,43 +234,45 @@ int32_t luat_sntp_callback(void *data, void *param) {
             uint32_t ot_sec = ntptime2u32((uint8_t*)&smsg.originate_timestamp[0], 1);
             uint32_t ot_us = ntptime2u32((uint8_t*)&smsg.originate_timestamp[1], 0);
             uint32_t ot_ms = (uint32_t)((ot_us / 1000));
+            uint64_t ot_tt = ((uint64_t)ot_sec) * 1000 + ot_ms;
             // uint32_t ot_ms = ((((uint64_t)ot_us) * 1000L * 1000L) >> 32 & 0xFFFFFFFF) / 1000;
             // 服务器接收时间戳receive_timestamp == rt
             uint32_t rt_sec = ntptime2u32((uint8_t*)&smsg.receive_timestamp[0], 1);
             uint32_t rt_us = ntptime2u32((uint8_t*)&smsg.receive_timestamp[1], 0);
             uint32_t rt_ms = (uint32_t)((rt_us / 1000));
+            uint64_t rt_tt = ((uint64_t)rt_sec) * 1000 + rt_ms;
             // uint32_t rt_ms = ((((uint64_t)rt_us) * 1000L * 1000L) >> 32 & 0xFFFFFFFF) / 1000;
             // 服务响应时间戳transmit_timestamp == tt
             uint32_t tt_sec = ntptime2u32((uint8_t*)&smsg.transmit_timestamp[0], 1);
             uint32_t tt_us = ntptime2u32((uint8_t*)&smsg.transmit_timestamp[1], 0);
             uint32_t tt_ms = (uint32_t)((tt_us / 1000));
+            uint64_t tt_tt = ((uint64_t)tt_sec) * 1000 + tt_ms;
             // uint32_t tt_ms = ((((uint64_t)tt_us) * 1000L * 1000L) >> 32 & 0xFFFFFFFF) / 1000;
             // 名义接收时间戳 mean_timestamp == mt
-            uint32_t mt_sec = (g_sntp_ctx.sysboot_diff_sec & 0xFFFFFFFF) + ll_sec;
-            uint32_t mt_ms = g_sntp_ctx.sysboot_diff_ms + ll_ms;
+            uint64_t mt_tt = (g_sntp_ctx.sysboot_diff_sec & 0xFFFFFFFF) + ll_sec;
+            mt_tt = mt_tt * 1000 + g_sntp_ctx.sysboot_diff_ms + ll_ms;
+            // uint32_t mt_sec = mt_tt / 1000;
+            // uint32_t mt_ms = (mt_tt % 1000) & 0xFFFF;
 
             // 上行耗时
-            int32_t uplink_diff_ms = (rt_sec * 1000) + rt_ms - ((ot_sec * 1000) + ot_ms);
-            // LLOGD("上行差值(ms) %d", uplink_diff_ms);
-            int32_t downlink_diff_ms = (tt_sec * 1000) + tt_ms - ((mt_sec * 1000) + mt_ms);
-            // LLOGD("下行差值(ms) %d", downlink_diff_ms);
+            int64_t uplink_diff_ms = rt_tt - ot_tt;
+            int64_t downlink_diff_ms = mt_tt - tt_tt; 
 
-            int32_t total_diff_ms = (uplink_diff_ms + downlink_diff_ms) / 2;
+            int32_t total_diff_ms = (int32_t)(uplink_diff_ms + downlink_diff_ms) / 2;
+            // LLOGD("下行差值(ms) %d", downlink_diff_ms);
+            // LLOGD("上行差值(ms) %d", uplink_diff_ms);
             // LLOGD("上下行平均偏差 %d 差值 %d", total_diff_ms, total_diff_ms - g_sntp_ctx.network_delay_ms);
 
-            // 1. 发起传输时, 使用0时间戳, 就是第一次
-            if (ot_sec == 0) {
-                g_sntp_ctx.sysboot_diff_sec = (uint32_t)(tt_sec - ll_sec);
-                if (tt_ms < ll_ms) {
-                    g_sntp_ctx.sysboot_diff_sec --;
-                    g_sntp_ctx.sysboot_diff_ms = ll_ms - tt_ms;
-                }
-                else {
-                    g_sntp_ctx.sysboot_diff_ms = tt_ms - ll_ms;
-                }
-                // LLOGD("tick64偏移量(s) %u.%03u 初始网络延时(ms) %d", g_sntp_ctx.sysboot_diff_sec, g_sntp_ctx.sysboot_diff_ms, g_sntp_ctx.network_delay_ms);
+            g_sntp_ctx.sysboot_diff_sec = (uint32_t)(tt_sec - ll_sec);
+            if (tt_ms < ll_ms) {
+                g_sntp_ctx.sysboot_diff_sec --;
+                g_sntp_ctx.sysboot_diff_ms = ll_ms - tt_ms;
             }
             else {
+                g_sntp_ctx.sysboot_diff_ms = tt_ms - ll_ms;
+            }
+            // 1. 发起传输时, 使用0时间戳, 就是第一次
+            if (ot_sec != 0) {
                 // 修正本地偏移量
                 if (g_sntp_ctx.ndelay_c == 0) {
                     g_sntp_ctx.ndelay_c = NTP_NETWORK_DELAY_CMAX;
@@ -278,7 +280,7 @@ int32_t luat_sntp_callback(void *data, void *param) {
                 if (g_sntp_ctx.network_delay_ms == 0) {
                     for (size_t ik = 0; ik < NTP_NETWORK_DELAY_CMAX; ik++)
                     {
-                        g_sntp_ctx.ndelay_array[ik] = total_diff_ms / 2;
+                        g_sntp_ctx.ndelay_array[ik] = total_diff_ms;
                     }
                 }
                 else {
@@ -293,6 +295,9 @@ int32_t luat_sntp_callback(void *data, void *param) {
                 for (size_t iv = 0; iv < g_sntp_ctx.ndelay_c; iv++)
                 {
                     ttt += g_sntp_ctx.ndelay_array[iv];
+                }
+                if (ttt < 0) {
+                    ttt = 0;
                 }
                 LLOGD("修正网络延时(ms) %d -> %d", g_sntp_ctx.network_delay_ms, ttt / g_sntp_ctx.ndelay_c);
                 g_sntp_ctx.network_delay_ms = ttt / g_sntp_ctx.ndelay_c;

@@ -13,11 +13,17 @@ sys.publish("mqtt_pub", "/gnss/" .. mobile.imei() .. "/up/nmea", data, 1)
 ]]
 
 -- sys库是标配
+local lbsLoc = require("lbsLoc")
 local sys = require("sys")
 require("sysplus")
 
 local gps_uart_id = 2
 local mqttc = nil
+
+local lla = {
+    lat,
+    lng
+}
 
 libgnss.clear() -- 清空数据,兼初始化
 
@@ -48,26 +54,53 @@ function exec_agnss()
         end
     end
     sys.wait(20)
-    -- "$AIDTIME,year,month,day,hour,minute,second,millisecond"
-    local date = os.date("!*t")
-    if date.year > 2022 then
-        local str = string.format("$AIDTIME,%d,%d,%d,%d,%d,%d,000", 
-                         date["year"], date["month"], date["day"], date["hour"], date["min"], date["sec"])
-        log.info("gnss", str)
-        uart.write(gps_uart_id, str .. "\r\n") 
-        sys.wait(20)
-    end
     -- 读取之前的位置信息
-    local gnssloc = io.readFile("/gnssloc")
-    if gnssloc then
-        str = "$AIDPOS," .. gnssloc
-        log.info("POS", str)
-        uart.write(gps_uart_id, str .. "\r\n")
+    local str = io.readFile("/gnssrmc")
+    if str then
+        -- 首先是时间信息,注意是UTC时间
+        -- 时间来源很多, 一般建议socket.sntp()时间同步后的系统时间
+        local dt = os.date("!*t")
+        lla = json.decode(str)
+        -- 然后是辅助定位坐标
+        -- 来源有很多方式:
+        -- 1. 从历史定位数据得到, 例如之前定位成功后保存到本地文件系统了
+        -- 2. 通过基站定位或者wifi定位获取到
+        -- 3. 通过IP定位获取到大概坐标
+        -- 坐标系是WGS84, 但鉴于是辅助定位,精度不是关键因素
+        local aid = libgnss.casic_aid(dt, lla)
+        uart.write(gps_uart_id, aid.."\r\n")
         str = nil
-        gnssloc = nil
     else
         -- TODO 发起基站定位
-        uart.write(gps_uart_id, "$AIDPOS,3432.70,N,10885.25,E,1.0\r\n")
+        mobile.reqCellInfo(15)
+        sys.waitUntil("CELL_INFO_UPDATE", 3000)
+        lbsLoc.request(getLocCb)
+    end
+end
+
+-- 功能:获取基站对应的经纬度后的回调函数
+-- 参数:-- result：number类型，0表示成功，1表示网络环境尚未就绪，2表示连接服务器失败，3表示发送数据失败，4表示接收服务器应答超时，5表示服务器返回查询失败；为0时，后面的5个参数才有意义
+        -- lat：string类型，纬度，整数部分3位，小数部分7位，例如031.2425864
+        -- lng：string类型，经度，整数部分3位，小数部分7位，例如121.4736522
+        -- addr：目前无意义
+        -- time：string类型或者nil，服务器返回的时间，6个字节，年月日时分秒，需要转为十六进制读取
+            -- 第一个字节：年减去2000，例如2017年，则为0x11
+            -- 第二个字节：月，例如7月则为0x07，12月则为0x0C
+            -- 第三个字节：日，例如11日则为0x0B
+            -- 第四个字节：时，例如18时则为0x12
+            -- 第五个字节：分，例如59分则为0x3B
+            -- 第六个字节：秒，例如48秒则为0x30
+        -- locType：numble类型或者nil，定位类型，0表示基站定位成功，255表示WIFI定位成功
+function getLocCb(result, lat, lng, addr, time, locType)
+    local dt = os.date("!*t")
+    local locStr = { lat ,lng }
+    locStr.lat = lat
+    locStr.lng = lng
+    log.info("testLbsLoc",locStr.lat ,locStr.lng)
+    -- 获取经纬度成功, 坐标系WGS84
+    if result == 0 then
+        local aid = libgnss.casic_aid(dt, locStr)
+        uart.write(gps_uart_id, aid.."\r\n")
     end
 end
 
@@ -112,11 +145,7 @@ sys.taskInit(function()
     -- uart.write(gps_uart_id, "$CFGPRT,1\r\n")
     -- sys.wait(20)
     -- 增加显示的语句
-    uart.write(gps_uart_id, "$CFGMSG,0,1,1\r\n") -- GLL
-    sys.wait(20)
-    uart.write(gps_uart_id, "$CFGMSG,0,5,1\r\n") -- VTG
-    sys.wait(20)
-    uart.write(gps_uart_id, "$CFGMSG,0,6,1\r\n") -- ZDA
+    uart.write(gps_uart_id, "$PCAS03,1,1,1,1,1,1,1,1,0,0,1,1,1*33\r\n") -- 默认所有name语句都打开
     sys.wait(20)
     -- 定位成功后,使用GNSS时间设置RTC, 暂不可用
     -- libgnss.rtcAuto(true)
@@ -154,11 +183,13 @@ sys.subscribe("GNSS_STATE", function(event, ticks)
     -- ticks是事件发生的时间,一般可以忽略
     log.info("gnss", "state", event, ticks)
     if event == "FIXED" then
-        local locStr = libgnss.locStr()
-        log.info("gnss", "locStr", locStr)
-        if locStr then
-            io.writeFile("/gnssloc", locStr)
-        end
+        local rmc = libgnss.getRmc(2)
+        local locStr = { lat ,lng }
+        locStr.lat = rmc.lat
+        locStr.lng = rmc.lng
+        local str = json.encode(locStr, "7f")
+        io.writeFile("/gnssrmc", str)
+        log.info("gnss", "rmc", str)
     end
 end)
 

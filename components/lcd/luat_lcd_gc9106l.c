@@ -23,6 +23,7 @@ const luat_lcd_opts_t lcd_opts_gc9106l = {
     .name = "gc9106l",
     .init_cmds_len = sizeof(gc9106l_init_cmds)/sizeof(gc9106l_init_cmds[0]),
     .init_cmds = gc9106l_init_cmds,
+    .interface_mode = LUAT_LCD_IM_4_WIRE_8_BIT_INTERFACE_I,
     .direction0 = 0xC8,
     .direction90 = 0x08,
     .direction180 = 0x68,

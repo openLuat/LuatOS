@@ -24,6 +24,7 @@ const luat_lcd_opts_t lcd_opts_st7735v = {
     .name = "st7735v",
     .init_cmds_len = sizeof(st7735v_init_cmds)/sizeof(st7735v_init_cmds[0]),
     .init_cmds = st7735v_init_cmds,
+    .interface_mode = LUAT_LCD_IM_4_WIRE_8_BIT_INTERFACE_I,
     .direction0 = 0xC8,
     .direction90 = 0x78,
     .direction180 = 0x08,

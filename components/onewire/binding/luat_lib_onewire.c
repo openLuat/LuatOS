@@ -53,12 +53,12 @@ static int l_onewire_ds18b20(lua_State *L)
     ctx.id = luaL_checkinteger(L, 2);
     int check_crc = lua_toboolean(L, 3);
     // 初始化单总线
+    luat_os_entry_cri();
     ret = luat_onewire_setup(&ctx);
     if (ret)
     {
-        luat_onewire_close(&ctx);
         LLOGW("setup失败 mode %d id %d ret %d", ctx.mode, ctx.id, ret);
-        return 0;
+        goto exit;
     }
     // 复位设备
     ret = luat_onewire_reset(&ctx);
@@ -70,9 +70,8 @@ static int l_onewire_ds18b20(lua_State *L)
     ret = luat_onewire_connect(&ctx);
     if (ret)
     {
-        luat_onewire_close(&ctx);
         LLOGW("connect失败 mode %d id %d ret %d", ctx.mode, ctx.id, ret);
-        return 0;
+        goto exit;
     }
     // 写入2字节的数据
     char wdata[] = {0xCC, 0x44}; /* skip rom */ /* convert */
@@ -84,9 +83,8 @@ static int l_onewire_ds18b20(lua_State *L)
     ret = luat_onewire_connect(&ctx);
     if (ret)
     {
-        luat_onewire_close(&ctx);
         LLOGW("connect失败2 mode %d id %d ret %d", ctx.mode, ctx.id, ret);
-        return 0;
+        goto exit;
     }
 
     wdata[1] = 0xCE;
@@ -98,9 +96,8 @@ static int l_onewire_ds18b20(lua_State *L)
     luat_onewire_close(&ctx); // 后续不需要读取的
     if (ret != 9)
     {
-        luat_onewire_close(&ctx);
         LLOGW("read失败2 mode %d id %d ret %d", ctx.mode, ctx.id, ret);
-        return 0;
+        goto exit;
     }
 
     if (check_crc)
@@ -114,6 +111,9 @@ static int l_onewire_ds18b20(lua_State *L)
 
     TL = data[0];
     TH = data[1];
+
+    LLOGD("读出的数据");
+    LLOGDUMP(data, 9);
 
     if (TH > 7)
     {
@@ -134,7 +134,12 @@ static int l_onewire_ds18b20(lua_State *L)
         val = tem;
     }
     lua_pushinteger(L, val);
+    luat_os_exit_cri();
     return 1;
+exit:
+    luat_onewire_close(&ctx); // 清理并关闭
+    luat_os_exit_cri();
+    return 0;
 }
 
 #include "rotable2.h"

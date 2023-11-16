@@ -14,7 +14,7 @@ static const luat_onewire_opt_t opt_gpio = {
     .connect = luat_onewire_connect_gpio,
     .read = luat_onewire_read_gpio,
     .write = luat_onewire_write_gpio,
-    .close = luat_onewire_close
+    .close = luat_onewire_close_gpio
 };
 
 int luat_onewire_set_hw_opt(const luat_onewire_opt_t* opt) {

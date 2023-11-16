@@ -162,4 +162,6 @@ LUAMOD_API int luaopen_sqlite3( lua_State *L );
 
 LUAMOD_API int luaopen_ws2812( lua_State *L );
 
+LUAMOD_API int luaopen_onewire( lua_State *L );
+
 #endif

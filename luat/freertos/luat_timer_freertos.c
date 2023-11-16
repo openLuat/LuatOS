@@ -59,13 +59,13 @@ static int nextTimerSlot() {
 int luat_timer_start(luat_timer_t* timer) {
     TimerHandle_t os_timer;
     int timerIndex;
-    //LLOGD(">>luat_timer_start timeout=%ld", timer->timeout);
+    // LLOGD(">>luat_timer_start timeout=%ld xTimerPeriodInTicks=%d repeat=%d", timer->timeout,MS2T(timer->timeout),timer->repeat);
     timerIndex = nextTimerSlot();
     if (timerIndex < 0) {
         LLOGE("too many timers");
         return 1; // too many timer!!
     }
-    os_timer = xTimerCreate("luat_timer", MS2T(timer->timeout), timer->repeat, (void*)(timer->id), luat_timer_callback);
+    os_timer = xTimerCreate("luat_timer", MS2T(timer->timeout), timer->repeat==0?pdFALSE:pdTRUE, (void*)(timer->id), luat_timer_callback);
     //LLOGD("timer id=%ld, osTimerNew=%p", timerIndex, os_timer);
     if (!os_timer) {
         LLOGE("xTimerCreate FAIL");

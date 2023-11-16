@@ -14,6 +14,7 @@
 #include "mbedtls/cipher.h"
 #include "mbedtls/md.h"
 #include "mbedtls/ssl_ciphersuites.h"
+#include "mbedtls/base64.h"
 
 
 static void add_pkcs_padding( unsigned char *output, size_t output_len,
@@ -373,3 +374,34 @@ int luat_crypto_cipher_suites(const char** list, size_t* len) {
 #endif
     return 0;
 }
+
+/**
+ * @brief BASE64加密
+ * @param dst buffer
+ * @param dlen buffer长度
+ * @param olen 写入的字节数
+ * @param src 加密密钥
+ * @param slen 加密密钥长度
+ * @return 0成功
+ */
+int luat_crypto_base64_encode( unsigned char *dst, size_t dlen, size_t *olen, const unsigned char *src, size_t slen )
+{
+    mbedtls_base64_encode(dst, dlen, olen, src, slen);
+    return 0;
+}
+
+/**
+ * @brief BASE64解密
+ * @param dst buffer
+ * @param dlen buffer长度
+ * @param olen 写入的字节数
+ * @param src 密钥
+ * @param slen 密钥长度
+ * @return 0成功
+ */
+int luat_crypto_base64_decode( unsigned char *dst, size_t dlen, size_t *olen, const unsigned char *src, size_t slen )
+{
+    mbedtls_base64_decode(dst, dlen, olen, src, slen);
+    return 0;
+}
+

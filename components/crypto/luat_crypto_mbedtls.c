@@ -51,6 +51,8 @@ static int get_pkcs_padding( unsigned char *input, size_t input_len,
     return( MBEDTLS_ERR_CIPHER_INVALID_PADDING * ( bad != 0 ) );
 }
 
+#ifdef __LUATOS__
+// TODO 把这个函数与LuatOS解耦
 int l_crypto_cipher_xxx(lua_State *L, uint8_t flags) {
     size_t cipher_size = 0;
     size_t pad_size = 0;
@@ -192,6 +194,7 @@ _error_exit:
 	mbedtls_cipher_free(&ctx);
 	return 0;
 }
+#endif
 
 int luat_crypto_md(const char* md, const char* str, size_t str_size, void* out_ptr, const char* key, size_t key_len) {
     const mbedtls_md_info_t * info = mbedtls_md_info_from_string(md);

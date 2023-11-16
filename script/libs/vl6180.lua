@@ -1,48 +1,48 @@
 --[[
-    @module  VL6180
-    @summary VL6180激光测距传感器 
-    @version 1.0
-    @date    2023.11.14
-    @author  Dozingfiretruck
-    @usage
+@module  vl6180
+@summary VL6180激光测距传感器 
+@version 1.0
+@date    2023.11.14
+@author  dingshuaifei
+@usage
 
-    接线说明：
-    MCU                        VL6180
-    3V3                        VIN
-    GND                        GND
-    I2CSCL                     SCL
-    I2CSDA                     SDA
-    GPIO                       GPIO1(SHDN/中断输出)
-    GPIO                       GPIO0(CE)
+--MCU                        vl6180
+--3V3                        VIN
+--GND                        GND
+--I2CSCL                     SCL
+--I2CSDA                     SDA
+--GPIO                       GPIO1(SHDN/中断输出)
+--GPIO                       GPIO0(CE)
 
-    VL6180测量说明：
-    1、只能单次测量，测量0-10cm的绝对距离
-    3、测量有效范围在20-30cm
+vl6180测量说明：
+1、只能单次测量，测量0-10cm的绝对距离
+2、测量有效范围在20-30cm
 
-    --注意:因使用了sys.wait()所有api需要在协程中使用
-    --注意:因使用了GPIO中断，所以在中断内打印数据
-
-    -- 用法实例
-    VL_6180=require"VL_6180"
-    sys.taskInit(function()
-        sys.wait(2000)
-        log.info('初始化')
-        VL_6180.vl6180_init()
-        while true do
-            sys.wait(200)
-            --单次测量开始
-            VL_6180.odd_measuring_short()
-        end
-    end)
+--注意:因使用了sys.wait()所有api需要在协程中使用
+-- 用法实例
+vl6180=require"vl6180"
+local CE=4
+local INT=21
+local I2C_ID=0
+sys.taskInit(function()
+    sys.wait(2000)
+    log.info('初始化')
+    vl6180.Init(CE,INT,I2C_ID)
+    while true do
+        sys.wait(200)
+        --单次测量开始
+        log.info('距离:',vl6180.odd_measuring_short())
+    end
+end)
 ]]
 
-VL_6180={}
+vl6180={}
 
 --配置GPIO为CE和INT
-local CE=4    --gpio 4
-local INT=21  --gpio 21
+local CE   --gpio
+local INT  --gpio
 --i2c id
-local i2c_id=0
+local i2c_id
 --设备地址
 local addr=0x29
 --测量距离数据
@@ -54,8 +54,7 @@ local function it_ce_init()
     gpio.setup(CE, 0, gpio.PULLUP)
     --设置INT引脚中断，测量完成后会进入回调
     gpio.setup(INT, function(val) 
-        --若不使用中断则关闭该打印
-        log.info('距离',vldata)
+        sys.publish("IT_OK")
     end, gpio.PULLUP)
 end
 
@@ -93,15 +92,11 @@ local function read_register(regaddr,bit)
 end
 
 --[[
-    系统功能配置：
+    系统功能配置
 ]]
 local function SetMode()
     --设置GPIO1为中断输出，极性低
     write_register(0x0011,0x10)
-    
-    --系统高低阈值
---   write_register(0x001A,0x0A)
---   write_register(0x0019,0xC8)
 
     --复位平均采样周期
     write_register(0x010A,0x30)
@@ -123,8 +118,27 @@ local function SetMode()
     write_register(0x0014,0x24)
 end
 
---初始化VL6180
-function VL_6180.vl6180_init()
+--[[
+vl6180初始化
+@api vl6180.Init(ce,int,id)
+@number  ce gpio编号[控制] 
+@number  int gpio编号[中断]
+@number  id i2c总线id 
+@return  bool 成功返回true失败返回false
+@usage
+vl6180.Init(4,21,0)
+]]
+function vl6180.Init(ce,int,i2cid)
+
+    --判断id是否存在
+    if i2c.exist(i2cid)~=true then 
+        log.info('i2c不存在')
+        return false
+    end
+    --赋值
+    CE       =ce
+    INT      =int
+    i2c_id   =i2cid
 
     --初始化INT和CE
     it_ce_init()
@@ -137,50 +151,53 @@ function VL_6180.vl6180_init()
     gpio.set(CE, 1)
  
     --读设备号
-    i2c.send(i2c_id,addr,string.char(0x00,0x00))
+    local send_s=i2c.send(i2c_id,addr,string.char(0x00,0x00))
+    if send_s ~=true then 
+        log.info('设备不存在')
+        return false
+    end
     local recv_data=i2c.recv(i2c_id,addr,1)
     log.info('设备号:',string.toHex(recv_data))
 
-    --读设备身份日期
-    recv_data=read_register(0x0006,1)
-    log.info('身份日期',recv_data & 0xF,'月')
-
     --系统模式配置
     SetMode()
-
-    log.info('开始测量')
+    return true
 
 end
 
---单次测距
-function VL_6180.odd_measuring_short()
+--[[
+vl6180获取测量距离值 单位:mm
+@api vl6180.odd_measuring_short()
+@return number 成功返回vl6180数据，失败返回0
+@usage
+local data=vl6180.odd_measuring_short()
+log.info("measuring val:",data)
+]]
+function vl6180.odd_measuring_short()
     --等待设备就绪
-    recv_data=read_register(0x004D,1)
+    local recv_data=read_register(0x004D,1)
     if recv_data & 0x1 ~=0 then
-        --log.info('设备准备就绪')
-
-        --启动测量，连续测距
-        --i2c.send(i2c_id,addr,string.char(0x00,0x18,0x03))
         --启动测量，单次测距
         i2c.send(i2c_id,addr,string.char(0x00,0x18,0x01))
-        --log.info('0x0018位值',read_register(0x0018,1))
-
         --判断ALS低阈值事件
         recv_data=read_register(0x004F,1)
         if recv_data & 0x04 ~= 0 then
-            --log.info('低阈值实践准备就绪')
             --读取距离数据，单位mm
             vldata = read_register(0x0062,1)
             --清除全部中断标志位
             i2c.send(i2c_id,addr,string.char(0x00,0x15,0x07))
-            --若不使用中断则打开
-            --return vldata
+            if sys.waitUntil("IT_OK")  then
+                return vldata
+            else
+                return 0
+            end
         else
-            log.info('低阈值')
+            log.info('低阈值事件等待就绪')
         end
     else
         log.info('设备忙')
+        return 0
     end
 end
 
-return VL_6180
+return vl6180

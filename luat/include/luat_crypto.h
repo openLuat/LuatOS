@@ -111,4 +111,25 @@ int luat_crypto_md_file(const char* md, void* out_ptr, const char* key, size_t k
 int luat_crypto_md_init(const char* md, const char* key, luat_crypt_stream_t *stream);
 int luat_crypto_md_update(const char* md, const char* str, size_t str_size, luat_crypt_stream_t *stream);
 int luat_crypto_md_finish(const char* md, void* out_ptr, luat_crypt_stream_t *stream);
+
+typedef struct luat_crypto_cipher_ctx
+{
+    const char* cipher;
+    const char* pad;
+    const char* str;
+    const char* key;
+    const char* iv;
+    
+    size_t cipher_size;
+    size_t pad_size;
+    size_t str_size;
+    size_t key_size;
+    size_t iv_size;
+    char* outbuff;
+    size_t outlen;
+    uint8_t flags;
+}luat_crypto_cipher_ctx_t;
+
+int luat_crypto_cipher_xxx(luat_crypto_cipher_ctx_t* cctx);
+
 #endif

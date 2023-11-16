@@ -234,7 +234,26 @@ static int l_crypto_hmac_sha512(lua_State *L) {
     return 0;
 }
 
-int l_crypto_cipher_xxx(lua_State *L, uint8_t flags);
+int l_crypto_cipher_xxx(lua_State *L, uint8_t flags) {
+    luat_crypto_cipher_ctx_t cctx = {0};
+    cctx.cipher = luaL_optlstring(L, 1, "AES-128-ECB", &cctx.cipher_size);
+    cctx.pad = luaL_optlstring(L, 2, "PKCS7", &cctx.pad_size);
+    cctx.str = luaL_checklstring(L, 3, &cctx.str_size);
+    cctx.key = luaL_checklstring(L, 4, &cctx.key_size);
+    cctx.iv = luaL_optlstring(L, 5, "", &cctx.iv_size);
+    cctx.flags = flags;
+
+    luaL_Buffer buff;
+    luaL_buffinitsize(L, &buff, cctx.str_size + 16);
+    cctx.outbuff = buff.b;
+
+    int ret = luat_crypto_cipher_xxx(&cctx);
+    if (ret) {
+        return 0;
+    }
+    luaL_pushresultsize(&buff, cctx.outlen);
+    return 1;
+}
 
 /**
 对称加密

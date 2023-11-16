@@ -757,18 +757,17 @@ local sha256_stream = crypto.hash_init("SHA256", "123456")
 static int l_crypt_hash_init(lua_State *L) {
     luat_crypt_stream_t *stream = (luat_crypt_stream_t *)lua_newuserdata(L, sizeof(luat_crypt_stream_t));
     if(stream == NULL) {
-        lua_pushnil(L);
+        return 0;
     } else {
         memset(stream, 0x00, sizeof(luat_crypt_stream_t));
         const char* key = NULL;
         const char* md = luaL_checkstring(L, 1);
-        memcpy(stream->tp, md, strlen(md)+1);
         if(lua_type(L, 2) == LUA_TSTRING) {
             key = luaL_checklstring(L, 2, &(stream->key_len));
         }
         int ret = luat_crypto_md_init(md, key, stream);
         if (ret < 0) {
-            lua_pushnil(L);
+            return 0;
         } else {
             luaL_setmetatable(L, LUAT_CRYPTO_TYPE);
         }
@@ -789,7 +788,7 @@ static int l_crypt_hash_update(lua_State *L) {
     luat_crypt_stream_t *stream = (luat_crypt_stream_t *)luaL_checkudata(L, 1, LUAT_CRYPTO_TYPE);
     size_t data_len = 0;
     const char *data = luaL_checklstring(L, 2, &data_len);
-    luat_crypto_md_update(stream->tp, data, data_len ,stream);
+    luat_crypto_md_update(data, data_len ,stream);
     return 0;
 }
 
@@ -805,8 +804,8 @@ static int l_crypt_hash_finish(lua_State *L) {
     luat_crypt_stream_t *stream = (luat_crypt_stream_t *)luaL_checkudata(L, 1, LUAT_CRYPTO_TYPE);
     char buff[128] = {0};
     char output[64];
-    int ret = luat_crypto_md_finish(stream->tp, output, stream);
-    LLOGD("finish result %d", ret);
+    int ret = luat_crypto_md_finish(output, stream);
+    //LLOGD("finish result %d", ret);
     if (ret < 1) {
         return 0;
     }

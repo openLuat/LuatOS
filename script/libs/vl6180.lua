@@ -27,11 +27,11 @@ local I2C_ID=0
 sys.taskInit(function()
     sys.wait(2000)
     log.info('初始化')
-    vl6180.Init(CE,INT,I2C_ID)
+    vl6180.init(CE,INT,I2C_ID)
     while true do
         sys.wait(200)
         --单次测量开始
-        log.info('距离:',vl6180.odd_measuring_short())
+        log.info('距离:',vl6180.get())
     end
 end)
 ]]
@@ -54,7 +54,7 @@ local function it_ce_init()
     gpio.setup(CE, 0, gpio.PULLUP)
     --设置INT引脚中断，测量完成后会进入回调
     gpio.setup(INT, function(val) 
-        sys.publish("IT_OK")
+        sys.publish("VL6180_INC")
     end, gpio.PULLUP)
 end
 
@@ -120,7 +120,7 @@ end
 
 --[[
 vl6180初始化
-@api vl6180.Init(ce,int,id)
+@api vl6180.init(ce,int,id)
 @number  ce gpio编号[控制] 
 @number  int gpio编号[中断]
 @number  id i2c总线id 
@@ -128,7 +128,7 @@ vl6180初始化
 @usage
 vl6180.Init(4,21,0)
 ]]
-function vl6180.Init(ce,int,i2cid)
+function vl6180.init(ce,int,i2cid)
 
     --判断id是否存在
     if i2c.exist(i2cid)~=true then 
@@ -167,13 +167,13 @@ end
 
 --[[
 vl6180获取测量距离值 单位:mm
-@api vl6180.odd_measuring_short()
+@api vl6180.get()
 @return number 成功返回vl6180数据，失败返回0
 @usage
-local data=vl6180.odd_measuring_short()
+local data=vl6180.get()
 log.info("measuring val:",data)
 ]]
-function vl6180.odd_measuring_short()
+function vl6180.get()
     --等待设备就绪
     local recv_data=read_register(0x004D,1)
     if recv_data & 0x1 ~=0 then
@@ -186,7 +186,7 @@ function vl6180.odd_measuring_short()
             vldata = read_register(0x0062,1)
             --清除全部中断标志位
             i2c.send(i2c_id,addr,string.char(0x00,0x15,0x07))
-            if sys.waitUntil("IT_OK")  then
+            if sys.waitUntil("VL6180_INC")  then
                 return vldata
             else
                 return 0

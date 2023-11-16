@@ -12,27 +12,26 @@
 --注意:因使用了sys.wait()所有api需要在协程中使用
 -- 用法实例
 gy53l1=require"gy53l1"
---uart id
 local uart2=2
 sys.taskInit(function()
 
     sys.wait(2000)
     --初始化
-    gy53l1.Init(uart2)
+    gy53l1.init(uart2)
     
     --设置模式，不设置为默认模式,设置模式要有一定的间隔时间
     sys.wait(1000)
-    gy53l1.Set_Mode(uart2,gy53l1.measuring_short)
+    gy53l1.mode(uart2,gy53l1.measuring_short)
     sys.wait(1000)
-    gy53l1.Set_Mode(uart2,gy53l1.measuring_time_1)
+    gy53l1.mode(uart2,gy53l1.measuring_time_1)
 
     local data,mode,time
     while true do
         sys.wait(100)
         --设置单次测量，设置一次返回一次值
-        --gy53l1.Set_Mode(uart2,gy53l1.out_mode_query)
+        --gy53l1.mode(uart2,gy53l1.out_mode_query)
 
-        data,mode,time=gy53l1.GetVal()
+        data,mode,time=gy53l1.get()
         log.info('距离',data,'模式',mode,'时间',time)
     end
 end)
@@ -127,13 +126,13 @@ end
 
 --[[
 gy53l1初始化
-@api gy53l1.Init(id)
+@api gy53l1.init(id)
 @number  id 串口id
 @return  bool 成功返回true失败返回false
 @usage
-gy53l1.Init(2) 
+gy53l1.init(2) 
 ]]
-function gy53l1.Init(id)
+function gy53l1.init(id)
     -- 初始化
     local uart_s=uart.setup(id, 9600, 8, 1)
     if uart_s ~=0 then 
@@ -164,16 +163,16 @@ end
 
 --[[
 gy53l1设置工作模式
-@api gy53l1.Set_Mode(id,mode)
+@api gy53l1.mode(id,mode)
 @number id 串口id
 @string mode 可选择配置模式
 @return  bool 成功返回true失败返回false
 @usage
-gy53l1.Set_Mode(2,gy53l1.save)--掉电保存当前配置
-gy53l1.Set_Mode(2,gy53l1.measuring_time_3)--测量时间 300ms
-gy53l1.Set_Mode(2,gy53l1.measuring_long)--测量距离选择
+gy53l1.mode(2,gy53l1.save)--掉电保存当前配置
+gy53l1.mode(2,gy53l1.measuring_time_3)--测量时间 300ms
+gy53l1.mode(2,gy53l1.measuring_long)--测量距离选择
 ]]
-function gy53l1.Set_Mode(id,mode)
+function gy53l1.mode(id,mode)
     local ret_data=uart.write(id,mode)
     if recv_data ~=0 then
         return true
@@ -184,15 +183,15 @@ end
 
 --[[
 gy53l1获取数据
-@api gy53l1.GetVal()
+@api gy53l1.get()
 @return number data 距离数据
 @return number mode 当前测量模式
 @return number time 当前测量时间
 @usage
-local data,mode,timer=gy53l1.GetVal()
+local data,mode,timer=gy53l1.get()
 log.info("距离",data,"模式",mode,"时间",timer)
 ]]
-function gy53l1.GetVal()
+function gy53l1.get()
     local data,mode,time= range , recv_data.mode & 0x03 , (recv_data.mode>>2) & 0x03
     return data,mode,time
 end

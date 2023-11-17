@@ -20,7 +20,7 @@
 #define FREERTOS_TIMER_COUNT 32
 static luat_timer_t* timers[FREERTOS_TIMER_COUNT] = {0};
 
-static int inline MS2T(int ms) {
+static inline int MS2T(int ms) {
     if (ms <= 0)
         return 0;
     if ((configTICK_RATE_HZ) == 1000)

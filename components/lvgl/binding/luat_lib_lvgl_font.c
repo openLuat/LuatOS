@@ -17,6 +17,41 @@
     extern luat_spi_device_t* gt_spi_dev;
 #endif
 
+typedef struct lvfont
+{
+    const char* name;
+    const void* data;
+}lvfont_t;
+
+static const lvfont_t fonts[] = {
+    {.name="montserrat_14", .data=&lv_font_montserrat_14},
+#ifdef LV_FONT_OPPOSANS_M_8
+    {.name="opposans_m_8", .data=&lv_font_opposans_m_8},
+#endif
+#ifdef LV_FONT_OPPOSANS_M_10
+    {.name="opposans_m_10", .data=&lv_font_opposans_m_10},
+#endif
+#ifdef LV_FONT_OPPOSANS_M_12
+    {.name="opposans_m_12", .data=&lv_font_opposans_m_12},
+#endif
+#ifdef LV_FONT_OPPOSANS_M_14
+    {.name="opposans_m_14", .data=&lv_font_opposans_m_14},
+#endif
+#ifdef LV_FONT_OPPOSANS_M_16
+    {.name="opposans_m_16", .data=&lv_font_opposans_m_16},
+#endif
+#ifdef LV_FONT_OPPOSANS_M_18
+    {.name="opposans_m_18", .data=&lv_font_opposans_m_18},
+#endif
+#ifdef LV_FONT_OPPOSANS_M_20
+    {.name="opposans_m_20", .data=&lv_font_opposans_m_20},
+#endif
+#ifdef LV_FONT_OPPOSANS_M_22
+    {.name="opposans_m_22", .data=&lv_font_opposans_m_22},
+#endif
+    {.name=NULL, .data=NULL}
+};
+
 /*
 获取内置字体
 @api lvgl.font_get(name)
@@ -30,38 +65,26 @@ int luat_lv_font_get(lua_State *L) {
     lv_font_t* font = NULL;
     const char* fontname = luaL_checkstring(L, 1);
     if (!strcmp("", fontname)) {
+        LLOGE("字体名称不能是空字符串");
+        return 0;
     }
-#ifdef LV_FONT_MONTSERRAT_14
-    else if (!strcmp("montserrat_14", fontname)) { font = &lv_font_montserrat_14;}
-#endif
-#ifdef LV_FONT_OPPOSANS_M_8
-    else if (!strcmp("opposans_m_8", fontname)) { font = &lv_font_opposans_m_8;}
-#endif
-#ifdef LV_FONT_OPPOSANS_M_10
-    else if (!strcmp("opposans_m_10", fontname)) { font = &lv_font_opposans_m_10;}
-#endif
-#ifdef LV_FONT_OPPOSANS_M_12
-    else if (!strcmp("opposans_m_12", fontname)) { font = &lv_font_opposans_m_12;}
-#endif
-#ifdef LV_FONT_OPPOSANS_M_14
-    else if (!strcmp("opposans_m_14", fontname)) { font = &lv_font_opposans_m_14;}
-#endif
-#ifdef LV_FONT_OPPOSANS_M_16
-    else if (!strcmp("opposans_m_16", fontname)) { font = &lv_font_opposans_m_16;}
-#endif
-#ifdef LV_FONT_OPPOSANS_M_18
-    else if (!strcmp("opposans_m_18", fontname)) { font = &lv_font_opposans_m_18;}
-#endif
-#ifdef LV_FONT_OPPOSANS_M_20
-    else if (!strcmp("opposans_m_20", fontname)) { font = &lv_font_opposans_m_20;}
-#endif
-#ifdef LV_FONT_OPPOSANS_M_22
-    else if (!strcmp("opposans_m_22", fontname)) { font = &lv_font_opposans_m_22;}
-#endif
-
-    if (font) {
-        lua_pushlightuserdata(L, font);
-        return 1;
+    for (size_t i = 0; i < sizeof(fonts) / sizeof(lvfont_t); i++)
+    {
+        if (fonts[i].name == NULL) {
+            break;
+        }
+        if (!strcmp(fontname, fonts[i].name)) {
+            lua_pushlightuserdata(L, fonts[i].data);
+            return 1;
+        }
+    }
+    LLOGE("没有找到对应的字体名称 %s", fontname);
+    for (size_t i = 0; i < sizeof(fonts) / sizeof(lvfont_t); i++)
+    {
+        if (fonts[i].name == NULL) {
+            break;
+        }
+        LLOGI("本固件支持的字体名称: %s", fonts[i].name);
     }
     return 0;
 }
@@ -100,10 +123,16 @@ int luat_lv_font_load(lua_State *L) {
                 gt_spi_dev = lua_touserdata(L, 1);
             }
             font = lv_font_new_gt(sty_zh, sty_en, size, bpp, thickness, cache_size);
+        #else
+        LLOGE("本固件没有包含高通字体芯片的驱动");
         #endif
     } else {
-        const char* fontname = luaL_checkstring(L, 1);
-        font = lv_font_load(fontname);
+        const char* path = luaL_checkstring(L, 1);
+        LLOGD("从文件加载lvgl字体 %s", path);
+        font = lv_font_load(path);
+        if (!font) {
+            LLOGE("从文件加载lvgl字体 %s 失败", path);
+        }
     }
     if (font) {
         lua_pushlightuserdata(L, font);

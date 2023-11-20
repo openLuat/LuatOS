@@ -234,7 +234,26 @@ static int l_crypto_hmac_sha512(lua_State *L) {
     return 0;
 }
 
-int l_crypto_cipher_xxx(lua_State *L, uint8_t flags);
+int l_crypto_cipher_xxx(lua_State *L, uint8_t flags) {
+    luat_crypto_cipher_ctx_t cctx = {0};
+    cctx.cipher = luaL_optlstring(L, 1, "AES-128-ECB", &cctx.cipher_size);
+    cctx.pad = luaL_optlstring(L, 2, "PKCS7", &cctx.pad_size);
+    cctx.str = luaL_checklstring(L, 3, &cctx.str_size);
+    cctx.key = luaL_checklstring(L, 4, &cctx.key_size);
+    cctx.iv = luaL_optlstring(L, 5, "", &cctx.iv_size);
+    cctx.flags = flags;
+
+    luaL_Buffer buff;
+    luaL_buffinitsize(L, &buff, cctx.str_size + 16);
+    cctx.outbuff = buff.b;
+
+    int ret = luat_crypto_cipher_xxx(&cctx);
+    if (ret) {
+        return 0;
+    }
+    luaL_pushresultsize(&buff, cctx.outlen);
+    return 1;
+}
 
 /**
 对称加密
@@ -738,18 +757,17 @@ local sha256_stream = crypto.hash_init("SHA256", "123456")
 static int l_crypt_hash_init(lua_State *L) {
     luat_crypt_stream_t *stream = (luat_crypt_stream_t *)lua_newuserdata(L, sizeof(luat_crypt_stream_t));
     if(stream == NULL) {
-        lua_pushnil(L);
+        return 0;
     } else {
         memset(stream, 0x00, sizeof(luat_crypt_stream_t));
         const char* key = NULL;
         const char* md = luaL_checkstring(L, 1);
-        memcpy(stream->tp, md, strlen(md)+1);
         if(lua_type(L, 2) == LUA_TSTRING) {
             key = luaL_checklstring(L, 2, &(stream->key_len));
         }
         int ret = luat_crypto_md_init(md, key, stream);
         if (ret < 0) {
-            lua_pushnil(L);
+            return 0;
         } else {
             luaL_setmetatable(L, LUAT_CRYPTO_TYPE);
         }
@@ -770,7 +788,7 @@ static int l_crypt_hash_update(lua_State *L) {
     luat_crypt_stream_t *stream = (luat_crypt_stream_t *)luaL_checkudata(L, 1, LUAT_CRYPTO_TYPE);
     size_t data_len = 0;
     const char *data = luaL_checklstring(L, 2, &data_len);
-    luat_crypto_md_update(stream->tp, data, data_len ,stream);
+    luat_crypto_md_update(data, data_len ,stream);
     return 0;
 }
 
@@ -786,8 +804,8 @@ static int l_crypt_hash_finish(lua_State *L) {
     luat_crypt_stream_t *stream = (luat_crypt_stream_t *)luaL_checkudata(L, 1, LUAT_CRYPTO_TYPE);
     char buff[128] = {0};
     char output[64];
-    int ret = luat_crypto_md_finish(stream->tp, output, stream);
-    LLOGD("finish result %d", ret);
+    int ret = luat_crypto_md_finish(output, stream);
+    //LLOGD("finish result %d", ret);
     if (ret < 1) {
         return 0;
     }

@@ -12,11 +12,18 @@
 #include "luat_timer.h"
 #include "luat_gpio.h"
 #include "luat_malloc.h"
+#ifdef __LUATOS__
 #include "lauxlib.h"
-
+#endif
 #include "ff.h"			/* Obtains integer types */
 #include "diskio.h"		/* Declarations of disk functions */
+#ifdef __LUATOS__
 #include "c_common.h"
+#else
+#if defined(LUAT_EC7XX_CSDK) || defined(CHIP_EC618)
+#include "bsp_common.h"
+#endif
+#endif
 #include "luat_rtos.h"
 #include "luat_mcu.h"
 #define LUAT_LOG_TAG "SPI_TF"
@@ -833,7 +840,7 @@ static void luat_spitf_write_blocks(luat_spitf_ctrl_t *spitf, const uint8_t *Buf
 {
 	uint8_t Retry = 0;
 	uint32_t address;
-	Buffer_StaticInit(&spitf->DataBuf, Buf, BlockNums);
+	Buffer_StaticInit(&spitf->DataBuf, (void *)Buf, BlockNums);
 	if (spitf->SDSC)
 	{
 		if (luat_spitf_cmd(spitf, CMD16, 512, 1))
@@ -892,7 +899,7 @@ static uint8_t luat_spitf_is_ready(luat_spitf_ctrl_t *spitf)
 	}
 }
 
-static DSTATUS luat_spitf_initialize(luat_fatfs_spi_t* userdata)
+static DSTATUS luat_spitf_initialize(void* userdata)
 {
 	luat_mutex_lock(g_s_spitf.locker);
 	luat_spitf_init(&g_s_spitf);
@@ -900,12 +907,12 @@ static DSTATUS luat_spitf_initialize(luat_fatfs_spi_t* userdata)
 	return luat_spitf_is_ready(&g_s_spitf)?0:STA_NOINIT;
 }
 
-static DSTATUS luat_spitf_status(luat_fatfs_spi_t* userdata)
+static DSTATUS luat_spitf_status(void* userdata)
 {
 	return luat_spitf_is_ready(&g_s_spitf)?0:STA_NOINIT;
 }
 
-static DRESULT luat_spitf_read(luat_fatfs_spi_t* userdata, uint8_t* buff, uint32_t sector, uint32_t count)
+static DRESULT luat_spitf_read(void* userdata, uint8_t* buff, LBA_t sector, UINT count)
 {
 	luat_mutex_lock(g_s_spitf.locker);
 	if (!luat_spitf_is_ready(&g_s_spitf))
@@ -918,7 +925,7 @@ static DRESULT luat_spitf_read(luat_fatfs_spi_t* userdata, uint8_t* buff, uint32
 	return luat_spitf_is_ready(&g_s_spitf)?RES_OK:RES_ERROR;
 }
 
-static DRESULT luat_spitf_write(luat_fatfs_spi_t* userdata, const uint8_t* buff, uint32_t sector, uint32_t count)
+static DRESULT luat_spitf_write(void* userdata, const uint8_t* buff, LBA_t sector, UINT count)
 {
 	luat_mutex_lock(g_s_spitf.locker);
 	if (!luat_spitf_is_ready(&g_s_spitf))
@@ -931,7 +938,7 @@ static DRESULT luat_spitf_write(luat_fatfs_spi_t* userdata, const uint8_t* buff,
 	return luat_spitf_is_ready(&g_s_spitf)?RES_OK:RES_ERROR;
 }
 
-static DRESULT luat_spitf_ioctl(luat_fatfs_spi_t* userdata, uint8_t ctrl, void* buff)
+static DRESULT luat_spitf_ioctl(void* userdata, uint8_t ctrl, void* buff)
 {
 	luat_mutex_lock(g_s_spitf.locker);
 	if (!luat_spitf_is_ready(&g_s_spitf))

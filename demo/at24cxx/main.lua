@@ -5,6 +5,10 @@ VERSION = "1.0.0"
 -- sys库是标配
 sys = require("sys")
 
+
+--经过测试，该demo对相同引脚的一些Flash同样支持  
+--目前测试发现的Flash型号：FM24CL64-GTR
+
 --1010 000x
 --7bit地址，不包含最后一位读写位
 local addr = 0x50

@@ -532,6 +532,11 @@ typedef void * lv_font_user_data_t;
 #define LV_THEME_DEFAULT_FONT_NORMAL        &lv_font_opposans_m_16
 #define LV_THEME_DEFAULT_FONT_SUBTITLE      &lv_font_opposans_m_16
 #define LV_THEME_DEFAULT_FONT_TITLE         &lv_font_opposans_m_16
+#elif defined(LV_FONT_OPPOSANS_M_12)
+#define LV_THEME_DEFAULT_FONT_SMALL         &lv_font_opposans_m_12
+#define LV_THEME_DEFAULT_FONT_NORMAL        &lv_font_opposans_m_12
+#define LV_THEME_DEFAULT_FONT_SUBTITLE      &lv_font_opposans_m_12
+#define LV_THEME_DEFAULT_FONT_TITLE         &lv_font_opposans_m_12
 #else
 #define LV_THEME_DEFAULT_FONT_SMALL         &lv_font_montserrat_14
 #define LV_THEME_DEFAULT_FONT_NORMAL        &lv_font_montserrat_14

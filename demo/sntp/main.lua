@@ -47,7 +47,7 @@ sys.taskInit(function()
         w5500.config() --默认是DHCP模式
         w5500.bind(socket.ETH0)
         -- LED = gpio.setup(62, 0, gpio.PULLUP)
-    elseif socket or mqtt then
+    elseif socket then
         -- 适配的socket库也OK
         -- 没有其他操作, 单纯给个注释说明
     else
@@ -71,9 +71,11 @@ sys.taskInit(function()
     -- sntp内置了几个常用的ntp服务器, 也支持自选服务器
     while 1 do
         -- 使用内置的ntp服务器地址, 包括阿里ntp
+        log.info("开始执行SNTP")
         socket.sntp()
         -- 自定义ntp地址
         -- socket.sntp("ntp.aliyun.com")
+        -- socket.sntp({"baidu.com", "abc.com", "ntp.air32.cn"})
         -- 通常只需要几百毫秒就能成功
         local ret = sys.waitUntil("NTP_UPDATE", 5000)
         if ret then
@@ -90,25 +92,29 @@ sys.taskInit(function()
             -- log.info("sntp", "时间同步成功", "本地时间", os.time())
             -- 正常使用, 一小时一次, 已经足够了, 甚至1天一次也可以
             -- sys.wait(3600000) 
-            -- 这里为了演示, 用1分钟一次
-            sys.wait(60000)
+            -- 这里为了演示, 用5秒一次
+            sys.wait(5000)
         else
             log.info("sntp", "时间同步失败")
             sys.wait(60000) -- 1分钟后重试
         end
+
+        -- 时间戳, 精确到毫秒. 2023.11.15 新增
+        -- 注意, 至少成功完成2次sntp,该时间戳才比较准确
+        -- 如果仅完成了一次sntp, 时间戳比标准时间会慢一个网络延时的时长(10~500ms)不等
+        if socket.ntptm then
+            local tm = socket.ntptm()
+            log.info("tm数据", json.encode(tm))
+            log.info("时间戳", string.format("%u.%03d", tm.tsec, tm.tms))
+            sys.wait(5000)
+        end
     end
 end)
 
--- 打印内存状态并回收
--- sys.taskInit(function ()
---     while true do
---         sys.wait(3000)
---         log.info("lua", rtos.meminfo())
---         log.info("sys", rtos.meminfo("sys"))
---         collectgarbage()
---         collectgarbage()
---     end
--- end)
+sys.subscribe("NTP_ERROR", function()
+    log.info("socket", "sntp error")
+    -- socket.sntp()
+end)
 
 
 -- 用户代码已结束---------------------------------------------

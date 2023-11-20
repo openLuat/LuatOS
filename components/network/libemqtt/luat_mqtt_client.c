@@ -213,7 +213,7 @@ int luat_mqtt_read_packet(luat_mqtt_ctrl_t *mqtt_ctrl){
 	uint32_t total_len = 0;
 	uint32_t rx_len = 0;
 	int result = network_rx(mqtt_ctrl->netc, NULL, 0, 0, NULL, NULL, &total_len);
-	if (total_len > 0xFFF) {
+	if (total_len > MQTT_RECV_BUF_LEN_MAX - mqtt_ctrl->buffer_offset) {
 		LLOGE("too many data wait for recv %d", total_len);
 		luat_mqtt_close_socket(mqtt_ctrl);
 		return -1;

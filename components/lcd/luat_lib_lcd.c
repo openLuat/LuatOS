@@ -26,16 +26,6 @@ uint8_t u8g2_font_decode_get_unsigned_bits(u8g2_font_decode_t *f, uint8_t cnt);
 
 extern luat_color_t BACK_COLOR , FORE_COLOR ;
 
-extern const luat_lcd_opts_t lcd_opts_st7735;
-extern const luat_lcd_opts_t lcd_opts_st7735v;
-extern const luat_lcd_opts_t lcd_opts_st7735s;
-extern const luat_lcd_opts_t lcd_opts_st7789;
-extern const luat_lcd_opts_t lcd_opts_st7796;
-extern const luat_lcd_opts_t lcd_opts_gc9a01;
-extern const luat_lcd_opts_t lcd_opts_gc9106l;
-extern const luat_lcd_opts_t lcd_opts_gc9306x;
-extern const luat_lcd_opts_t lcd_opts_ili9341;
-extern const luat_lcd_opts_t lcd_opts_ili9486;
 extern const luat_lcd_opts_t lcd_opts_custom;
 
 typedef struct lcd_reg {

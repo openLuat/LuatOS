@@ -8,7 +8,7 @@
 #define LUAT_LOG_TAG "custom"
 #include "luat_log.h"
 
-const luat_lcd_opts_t lcd_opts_custom = {
+luat_lcd_opts_t lcd_opts_custom = {
     .name = "custom",
 };
 

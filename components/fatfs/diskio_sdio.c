@@ -18,7 +18,7 @@
 
 
 DSTATUS sdio_initialize (
-	luat_fatfs_sdio_t* userdata
+	void* userdata
 )
 {
 	return 0;
@@ -30,7 +30,7 @@ DSTATUS sdio_initialize (
 /*-----------------------------------------------------------------------*/
 
 DSTATUS sdio_status (
-	luat_fatfs_sdio_t* userdata
+	void* userdata
 )
 {
 	//if (drv) return STA_NOINIT;
@@ -44,7 +44,7 @@ DSTATUS sdio_status (
 
 
 DRESULT sdio_read (
-	luat_fatfs_sdio_t* userdata,
+	void* userdata,
 	BYTE *buff,			/* Pointer to the data buffer to store read data */
 	DWORD sector,		/* Start sector number (LBA) */
 	UINT count			/* Sector count (1..128) */
@@ -60,7 +60,7 @@ DRESULT sdio_read (
 /*-----------------------------------------------------------------------*/
 
 DRESULT sdio_write (
-	luat_fatfs_sdio_t* userdata,
+	void* userdata,
 	const BYTE *buff,	/* Pointer to the data to be written */
 	DWORD sector,		/* Start sector number (LBA) */
 	UINT count			/* Sector count (1..128) */
@@ -76,7 +76,7 @@ DRESULT sdio_write (
 
 
 DRESULT sdio_ioctl (
-	luat_fatfs_sdio_t* userdata,
+	void* userdata,
 	BYTE ctrl,		/* Control code */
 	void *buff		/* Buffer to send/receive control data */
 )

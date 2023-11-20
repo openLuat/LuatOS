@@ -14,6 +14,7 @@
 #include "mbedtls/cipher.h"
 #include "mbedtls/md.h"
 #include "mbedtls/ssl_ciphersuites.h"
+#include "mbedtls/base64.h"
 
 
 static void add_pkcs_padding( unsigned char *output, size_t output_len,
@@ -51,17 +52,8 @@ static int get_pkcs_padding( unsigned char *input, size_t input_len,
     return( MBEDTLS_ERR_CIPHER_INVALID_PADDING * ( bad != 0 ) );
 }
 
-int l_crypto_cipher_xxx(lua_State *L, uint8_t flags) {
-    size_t cipher_size = 0;
-    size_t pad_size = 0;
-    size_t str_size = 0;
-    size_t key_size = 0;
-    size_t iv_size = 0;
-    const char* cipher = luaL_optlstring(L, 1, "AES-128-ECB", &cipher_size);
-    const char* pad = luaL_optlstring(L, 2, "PKCS7", &pad_size);
-    const char* str = luaL_checklstring(L, 3, &str_size);
-    const char* key = luaL_checklstring(L, 4, &key_size);
-    const char* iv = luaL_optlstring(L, 5, "", &iv_size);
+
+int luat_crypto_cipher_xxx(luat_crypto_cipher_ctx_t* cctx) {
     uint8_t *temp = NULL;
     int ret = 0;
     int cipher_mode = 0;
@@ -71,50 +63,47 @@ int l_crypto_cipher_xxx(lua_State *L, uint8_t flags) {
     size_t output_size = 0;
     size_t block_size = 0;
 
-    luaL_Buffer buff;
-    luaL_buffinit(L, &buff);
-
     mbedtls_cipher_context_t ctx;
     mbedtls_cipher_init(&ctx);
 
-    const mbedtls_cipher_info_t * _cipher = mbedtls_cipher_info_from_string(cipher);
+    const mbedtls_cipher_info_t * _cipher = mbedtls_cipher_info_from_string(cctx->cipher);
     if (_cipher == NULL) {
-    	LLOGE("mbedtls_cipher_info fail %s not support", cipher);
+    	LLOGE("mbedtls_cipher_info fail %s not support", cctx->cipher);
         goto _error_exit;
     }
 
 
 	ret = mbedtls_cipher_setup(&ctx, _cipher);
     if (ret) {
-        LLOGE("mbedtls_cipher_setup fail -0x%04x %s", -ret, cipher);
+        LLOGE("mbedtls_cipher_setup fail -0x%04x %s", -ret, cctx->cipher);
         goto _error_exit;
     }
-    ret = mbedtls_cipher_setkey(&ctx, (const unsigned char*)key, key_size * 8, flags & 0x1);
+    ret = mbedtls_cipher_setkey(&ctx, (const unsigned char*)cctx->key, cctx->key_size * 8, cctx->flags & 0x1);
     if (ret) {
-        LLOGE("mbedtls_cipher_setkey fail -0x%04x %s", -ret, cipher);
+        LLOGE("mbedtls_cipher_setkey fail -0x%04x %s", -ret, cctx->cipher);
         goto _error_exit;
     }
 
-    if (iv_size) {
-        ret = mbedtls_cipher_set_iv(&ctx, (const unsigned char*)iv, iv_size);
+    if (cctx->iv_size) {
+        ret = mbedtls_cipher_set_iv(&ctx, (const unsigned char*)cctx->iv, cctx->iv_size);
         if (ret) {
-            LLOGE("mbedtls_cipher_set_iv fail -0x%04x %s", -ret, cipher);
+            LLOGE("mbedtls_cipher_set_iv fail -0x%04x %s", -ret, cctx->cipher);
             goto _error_exit;
         }
     }
 
     mbedtls_cipher_reset(&ctx);
 
-    if (!strcmp("PKCS7", pad)) {
+    if (!strcmp("PKCS7", cctx->pad)) {
         mbedtls_cipher_set_padding_mode(&ctx, MBEDTLS_PADDING_PKCS7);
     }
-    else if (!strcmp("ZERO", pad) || !strcmp("ZEROS", pad)) {
+    else if (!strcmp("ZERO", cctx->pad) || !strcmp("ZEROS", cctx->pad)) {
         mbedtls_cipher_set_padding_mode(&ctx, MBEDTLS_PADDING_ZEROS);
     }
-    else if (!strcmp("ONE_AND_ZEROS", pad)) {
+    else if (!strcmp("ONE_AND_ZEROS", cctx->pad)) {
         mbedtls_cipher_set_padding_mode(&ctx, MBEDTLS_PADDING_ONE_AND_ZEROS);
     }
-    else if (!strcmp("ZEROS_AND_LEN", pad)) {
+    else if (!strcmp("ZEROS_AND_LEN", cctx->pad)) {
         mbedtls_cipher_set_padding_mode(&ctx, MBEDTLS_PADDING_ZEROS_AND_LEN);
     }
     else {
@@ -130,67 +119,69 @@ int l_crypto_cipher_xxx(lua_State *L, uint8_t flags) {
     cipher_mode = _cipher->mode;
     #endif
 
-    if ((cipher_mode == MBEDTLS_MODE_ECB) && !strcmp("PKCS7", pad) && (flags & 0x1)) {
-    	uint32_t new_len  = ((str_size / block_size) + 1) * block_size;
+    if ((cipher_mode == MBEDTLS_MODE_ECB) && !strcmp("PKCS7", cctx->pad) && (cctx->flags & 0x1)) {
+    	uint32_t new_len  = ((cctx->str_size / block_size) + 1) * block_size;
     	temp = luat_heap_malloc(new_len);
         if (temp == NULL) {
             LLOGE("out of memory when malloc cipher buffer");
             goto _exit;
         }
-    	memcpy(temp, str, str_size);
-    	add_pkcs_padding(temp + str_size - str_size % block_size, block_size, str_size % block_size);
-    	str_size = new_len;
-    	str = (const char*)temp;
+    	memcpy(temp, cctx->str, cctx->str_size);
+    	add_pkcs_padding(temp + cctx->str_size - cctx->str_size % block_size, block_size, cctx->str_size % block_size);
+    	cctx->str_size = new_len;
+    	cctx->str = (const char*)temp;
     }
-    for (size_t i = 0; i < str_size; i+=block_size) {
-        input_size = str_size - i;
+    for (size_t i = 0; i < cctx->str_size; i+=block_size) {
+        input_size = cctx->str_size - i;
         if (input_size > block_size) {
             input_size = block_size;
-            ret = mbedtls_cipher_update(&ctx, (const unsigned char *)(str+i), input_size, output, &output_size);
+            ret = mbedtls_cipher_update(&ctx, (const unsigned char *)(cctx->str+i), input_size, output, &output_size);
         }
-        else if ((cipher_mode == MBEDTLS_MODE_ECB) && !strcmp("PKCS7", pad) && !flags)
+        else if ((cipher_mode == MBEDTLS_MODE_ECB) && !strcmp("PKCS7", cctx->pad) && !cctx->flags)
         {
-        	ret = mbedtls_cipher_update(&ctx, (const unsigned char *)(str+i), input_size, output, &output_size);
+        	ret = mbedtls_cipher_update(&ctx, (const unsigned char *)(cctx->str+i), input_size, output, &output_size);
             if (ret == 0) {
                 ret = get_pkcs_padding(output, output_size, &output_size);
                 if (ret) {
-                    LLOGE("get_pkcs_padding fail 0x%04X %s", -ret, cipher);
+                    LLOGE("get_pkcs_padding fail 0x%04X %s", -ret, cctx->cipher);
                     goto _exit;
                 }
             }
         }
         else {
-        	ret = mbedtls_cipher_update(&ctx, (const unsigned char *)(str+i), input_size, output, &output_size);
+        	ret = mbedtls_cipher_update(&ctx, (const unsigned char *)(cctx->str+i), input_size, output, &output_size);
         }
         if (ret) {
-            LLOGE("mbedtls_cipher_update fail 0x%04X %s", -ret, cipher);
+            LLOGE("mbedtls_cipher_update fail 0x%04X %s", -ret, cctx->cipher);
             goto _exit;
         }
         //else LLOGD("mbedtls_cipher_update, output size=%ld", output_size);
         if (output_size > 0) {
-            luaL_addlstring(&buff, (const char*)output, output_size);
+            memcpy(cctx->outbuff + cctx->outlen, (const char*)output, output_size);
+            cctx->outlen += output_size;
         }
         output_size = 0;
     }
     output_size = 0;
     ret = mbedtls_cipher_finish(&ctx, (unsigned char *)output, &output_size);
     if (ret) {
-        LLOGE("mbedtls_cipher_finish fail 0x%04X %s", -ret, cipher);
+        LLOGE("mbedtls_cipher_finish fail 0x%04X %s", -ret, cctx->cipher);
         goto _exit;
     }
     //else LLOGD("mbedtls_cipher_finish, output size=%ld", output_size);
-    if (output_size > 0)
-        luaL_addlstring(&buff, (const char*)output, output_size);
+    if (output_size > 0) {
+        memcpy(cctx->outbuff + cctx->outlen, (const char*)output, output_size);
+        cctx->outlen += output_size;
+    }
 
 _exit:
 	luat_heap_free(temp);
     mbedtls_cipher_free(&ctx);
-    luaL_pushresult(&buff);
-    return 1;
+    return 0;
 _error_exit:
 	luat_heap_free(temp);
 	mbedtls_cipher_free(&ctx);
-	return 0;
+	return -1;
 }
 
 int luat_crypto_md(const char* md, const char* str, size_t str_size, void* out_ptr, const char* key, size_t key_len) {
@@ -267,54 +258,42 @@ int luat_crypto_md_init(const char* md, const char* key, luat_crypt_stream_t *st
         return -1;
     }
     stream->ctx = luat_heap_malloc(sizeof(mbedtls_md_context_t));
-    mbedtls_md_init(stream->ctx);
-    mbedtls_md_setup(stream->ctx, info, stream->key_len > 0 ? 1 : 0);
+    mbedtls_md_init((mbedtls_md_context_t *)stream->ctx);
+    mbedtls_md_setup((mbedtls_md_context_t *)stream->ctx, info, stream->key_len > 0 ? 1 : 0);
+    stream->result_size = mbedtls_md_get_size(info);
     if (stream->key_len > 0){
-        mbedtls_md_hmac_starts(stream->ctx, (const unsigned char*)key, stream->key_len);
+        mbedtls_md_hmac_starts((mbedtls_md_context_t *)stream->ctx, (const unsigned char*)key, stream->key_len);
     }
     else {
-        mbedtls_md_starts(stream->ctx);
+        mbedtls_md_starts((mbedtls_md_context_t *)stream->ctx);
     }
     return 0;
 }
 
-int luat_crypto_md_update(const char * md, const char* str, size_t str_size, luat_crypt_stream_t *stream) {
-    const mbedtls_md_info_t * info = mbedtls_md_info_from_string(md);
-    if (info == NULL) {
-        return -1;
-    }
+int luat_crypto_md_update(const char* str, size_t str_size, luat_crypt_stream_t *stream) {
     if (stream->key_len > 0){
-        mbedtls_md_hmac_update(stream->ctx, (const unsigned char*)str, str_size);
+        mbedtls_md_hmac_update((mbedtls_md_context_t *)stream->ctx, (const unsigned char*)str, str_size);
     }
     else {
-        mbedtls_md_update(stream->ctx, (const unsigned char*)str, str_size);
+        mbedtls_md_update((mbedtls_md_context_t *)stream->ctx, (const unsigned char*)str, str_size);
     }
     return 0;
 }
 
-int luat_crypto_md_finish(const char* md, void* out_ptr, luat_crypt_stream_t *stream) {
-    const mbedtls_md_info_t * info = mbedtls_md_info_from_string(md);
-    if (info == NULL) {
-        return -1;
-    }
+int luat_crypto_md_finish(void* out_ptr, luat_crypt_stream_t *stream) {
     int ret = 0;
-
     if (stream->key_len > 0) {
-        ret = mbedtls_md_hmac_finish(stream->ctx, out_ptr);
+        ret = mbedtls_md_hmac_finish((mbedtls_md_context_t *)stream->ctx, out_ptr);
     }
     else {
-        ret = mbedtls_md_finish(stream->ctx, out_ptr);
+        ret = mbedtls_md_finish((mbedtls_md_context_t *)stream->ctx, out_ptr);
     }
-    if (ret == 0) {
-        unsigned char size = mbedtls_md_get_size(info);
-        mbedtls_md_free(stream->ctx);
-        luat_heap_free(stream->ctx);
-        stream->ctx = NULL;
-        return size;
-    }
-    mbedtls_md_free(stream->ctx);
-    luat_heap_free(stream->ctx);
+    mbedtls_md_free((mbedtls_md_context_t *)stream->ctx);
+    luat_heap_free((mbedtls_md_context_t *)stream->ctx);
     stream->ctx = NULL;
+    if (ret == 0) {
+        return stream->result_size;
+    }
     LLOGI("md finish ret %d", ret);
     return ret;
 }
@@ -395,3 +374,34 @@ int luat_crypto_cipher_suites(const char** list, size_t* len) {
 #endif
     return 0;
 }
+
+/**
+ * @brief BASE64加密
+ * @param dst buffer
+ * @param dlen buffer长度
+ * @param olen 写入的字节数
+ * @param src 加密密钥
+ * @param slen 加密密钥长度
+ * @return 0成功
+ */
+int luat_crypto_base64_encode( unsigned char *dst, size_t dlen, size_t *olen, const unsigned char *src, size_t slen )
+{
+    mbedtls_base64_encode(dst, dlen, olen, src, slen);
+    return 0;
+}
+
+/**
+ * @brief BASE64解密
+ * @param dst buffer
+ * @param dlen buffer长度
+ * @param olen 写入的字节数
+ * @param src 密钥
+ * @param slen 密钥长度
+ * @return 0成功
+ */
+int luat_crypto_base64_decode( unsigned char *dst, size_t dlen, size_t *olen, const unsigned char *src, size_t slen )
+{
+    mbedtls_base64_decode(dst, dlen, olen, src, slen);
+    return 0;
+}
+

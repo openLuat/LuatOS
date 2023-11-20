@@ -125,7 +125,7 @@ static int l_ws2812_send(lua_State* L) {
 
 /*
 配置额外参数
-@api ws2812.send(leds, arg0, arg1, arg2, arg3, arg4)
+@api ws2812.args(leds, arg0, arg1, arg2, arg3, arg4)
 @userdata 通过ws2812.create获取到的上下文
 @int 额外参数0
 @int 额外参数1

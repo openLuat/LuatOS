@@ -33,7 +33,7 @@ static const uint16_t st7789_init_cmds[] = {
     0x0221,
 };
 
-const luat_lcd_opts_t lcd_opts_st7789 = {
+luat_lcd_opts_t lcd_opts_st7789 = {
     .name = "st7789",
     .init_cmds_len = sizeof(st7789_init_cmds)/sizeof(st7789_init_cmds[0]),
     .init_cmds = st7789_init_cmds,

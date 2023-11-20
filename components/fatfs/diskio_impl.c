@@ -11,7 +11,10 @@
 #include "luat_spi.h"
 #include "luat_timer.h"
 #include "luat_gpio.h"
+
+#ifdef __LUATOS__
 #include "lauxlib.h"
+#endif
 
 #include "ff.h"			/* Obtains integer types */
 #include "diskio.h"		/* Declarations of disk functions */

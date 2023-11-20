@@ -619,7 +619,7 @@ static int l_mobile_get_cell_info(lua_State* L) {
     // 当前仅返回lte信息
     if (info->lte_info_valid == 0 || info->lte_service_info.cid == 0) {
         if (0 == luat_mobile_get_service_cell_identifier(&info->lte_service_info.cid) && info->lte_service_info.cid) {
-            LLOGW("pls call mobile.reqCellInfo() and wait for CELL_INFO_UPDATE");
+            LLOGW("请先调用 mobile.reqCellInfo()!!");
         }
         else {
             LLOGI("lte cell info not found");

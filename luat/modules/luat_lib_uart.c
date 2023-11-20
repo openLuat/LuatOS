@@ -112,7 +112,8 @@ static int __LUAT_C_CODE_IN_RAM__ luat_uart_soft_recv_start_irq(int pin, void *p
 
 static int luat_uart_soft_setup(luat_uart_t *uart)
 {
-	prv_uart_soft->rx_buffer_size = uart->bufsz;
+	prv_uart_soft->rx_buffer_size = uart->bufsz * 2;
+	prv_uart_soft->rx_buffer.MaxLen = uart->bufsz * 2;
 	luat_heap_alloc(NULL, prv_uart_soft->rx_buffer.Data, 0, 0);
 	prv_uart_soft->rx_buffer.Data = luat_heap_alloc(NULL, NULL, 0, prv_uart_soft->rx_buffer_size);
 	if (!prv_uart_soft->rx_buffer.Data)
@@ -233,11 +234,11 @@ static uint32_t luat_uart_soft_read(uint8_t *data, uint32_t len)
 	if (read_len >= prv_uart_soft->rx_buffer.Pos)
 	{
 		prv_uart_soft->rx_buffer.Pos = 0;
-		if (prv_uart_soft->rx_buffer.MaxLen > prv_uart_soft->rx_buffer_size)
-		{
-			luat_heap_alloc(NULL, prv_uart_soft->rx_buffer.Data, 0, 0);
-			prv_uart_soft->rx_buffer.Data = luat_heap_alloc(NULL, NULL, 0, prv_uart_soft->rx_buffer_size);
-		}
+//		if (prv_uart_soft->rx_buffer.MaxLen > prv_uart_soft->rx_buffer_size)
+//		{
+//			luat_heap_alloc(NULL, prv_uart_soft->rx_buffer.Data, 0, 0);
+//			prv_uart_soft->rx_buffer.Data = luat_heap_alloc(NULL, NULL, 0, prv_uart_soft->rx_buffer_size);
+//		}
 	}
 	else
 	{
@@ -932,32 +933,33 @@ static int l_uart_soft_handler_rx_done(lua_State *L, void* ptr)
     lua_pop(L, 1);
 	if (prv_uart_soft->is_inited)
 	{
-		if (msg->ptr && msg->arg1)
-		{
-			if (((uint32_t)msg->arg1 + prv_uart_soft->rx_buffer.Pos) > prv_uart_soft->rx_buffer.MaxLen)
-			{
-				uint8_t *new = luat_heap_alloc(NULL, NULL, 0, (prv_uart_soft->rx_buffer.MaxLen + (uint32_t)msg->arg1) * 2);
-				if (new)
-				{
-					prv_uart_soft->rx_buffer.MaxLen = (prv_uart_soft->rx_buffer.MaxLen + (uint32_t)msg->arg1) * 2;
-					memcpy(new, prv_uart_soft->rx_buffer.Data, prv_uart_soft->rx_buffer.Pos);
-					luat_heap_alloc(NULL, prv_uart_soft->rx_buffer.Data, 0, 0);
-					prv_uart_soft->rx_buffer.Data = new;
-					memcpy(prv_uart_soft->rx_buffer.Data + prv_uart_soft->rx_buffer.Pos, msg->ptr, (uint32_t)msg->arg1);
-					prv_uart_soft->rx_buffer.Pos += (uint32_t)msg->arg1;
-				}
-				else
-				{
-					LLOGE("soft uart resize no mem!");
-				}
-			}
-			else
-			{
-				memcpy(prv_uart_soft->rx_buffer.Data + prv_uart_soft->rx_buffer.Pos, msg->ptr, (uint32_t)msg->arg1);
-				prv_uart_soft->rx_buffer.Pos += (uint32_t)msg->arg1;
-			}
-		}
-		if ((prv_uart_soft->rx_buffer.Pos > prv_uart_soft->rx_buffer_size) || msg->arg2)
+//		if (msg->ptr && msg->arg1)
+//		{
+//			if (((uint32_t)msg->arg1 + prv_uart_soft->rx_buffer.Pos) > prv_uart_soft->rx_buffer.MaxLen)
+//			{
+//				uint8_t *new = luat_heap_alloc(NULL, NULL, 0, (prv_uart_soft->rx_buffer.MaxLen + (uint32_t)msg->arg1) * 2);
+//				if (new)
+//				{
+//					prv_uart_soft->rx_buffer.MaxLen = (prv_uart_soft->rx_buffer.MaxLen + (uint32_t)msg->arg1) * 2;
+//					memcpy(new, prv_uart_soft->rx_buffer.Data, prv_uart_soft->rx_buffer.Pos);
+//					luat_heap_alloc(NULL, prv_uart_soft->rx_buffer.Data, 0, 0);
+//					prv_uart_soft->rx_buffer.Data = new;
+//					memcpy(prv_uart_soft->rx_buffer.Data + prv_uart_soft->rx_buffer.Pos, msg->ptr, (uint32_t)msg->arg1);
+//					prv_uart_soft->rx_buffer.Pos += (uint32_t)msg->arg1;
+//				}
+//				else
+//				{
+//					LLOGE("soft uart resize no mem!");
+//				}
+//			}
+//			else
+//			{
+//				memcpy(prv_uart_soft->rx_buffer.Data + prv_uart_soft->rx_buffer.Pos, msg->ptr, (uint32_t)msg->arg1);
+//				prv_uart_soft->rx_buffer.Pos += (uint32_t)msg->arg1;
+//			}
+//		}
+//		LLOGD("%d,%d", prv_uart_soft->rx_buffer.Pos, msg->arg2);
+		if (prv_uart_soft->rx_buffer.Pos || msg->arg2)
 		{
 			if (uart_app_recvs[prv_uart_soft->uart_id]) {
 				uart_app_recvs[prv_uart_soft->uart_id](prv_uart_soft->uart_id, msg->arg2);
@@ -981,10 +983,10 @@ static int l_uart_soft_handler_rx_done(lua_State *L, void* ptr)
 		}
 
 	}
-	if (msg->ptr)
-	{
-		luat_heap_alloc(NULL, msg->ptr, 0, 0);
-	}
+//	if (msg->ptr)
+//	{
+//		luat_heap_alloc(NULL, msg->ptr, 0, 0);
+//	}
     lua_pushinteger(L, 0);
     return 1;
 }
@@ -1087,15 +1089,16 @@ UART_SOFT_RX_DONE:
 
 	if (prv_uart_soft->rx_fifo_cnt || is_end)
 	{
-        rtos_msg_t msg;
+        rtos_msg_t msg = {0};
         msg.handler = l_uart_soft_handler_rx_done;
-        msg.ptr = luat_heap_alloc(0, 0, 0, prv_uart_soft->rx_fifo_cnt);
+//        msg.ptr = luat_heap_alloc(0, 0, 0, prv_uart_soft->rx_fifo_cnt);
         msg.arg1 = prv_uart_soft->rx_fifo_cnt;
         msg.arg2 = is_end;
-        if (msg.ptr)
-        {
-        	memcpy(msg.ptr, prv_uart_soft->rx_fifo, prv_uart_soft->rx_fifo_cnt);
-        }
+//        if (msg.ptr)
+//        {
+//        	memcpy(msg.ptr, prv_uart_soft->rx_fifo, prv_uart_soft->rx_fifo_cnt);
+//        }
+        OS_BufferWriteLimit(&prv_uart_soft->rx_buffer, prv_uart_soft->rx_fifo, prv_uart_soft->rx_fifo_cnt);
         prv_uart_soft->rx_fifo_cnt = 0;
         luat_msgbus_put(&msg, 0);
 	}

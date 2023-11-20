@@ -89,6 +89,7 @@ static int l_lcd_init(lua_State* L) {
     }
     memset(conf, 0, sizeof(luat_lcd_conf_t)); // 填充0,保证无脏数据
     conf->pin_pwr = 255;
+    conf->interface_mode = LUAT_LCD_IM_4_WIRE_8_BIT_INTERFACE_I;
     if (lua_type(L, 3) == LUA_TUSERDATA){
         // 如果是SPI Device模式, 就可能出现变量为local, 从而在某个时间点被GC掉的可能性
         conf->lcd_spi_device = (luat_spi_device_t*)lua_touserdata(L, 3);

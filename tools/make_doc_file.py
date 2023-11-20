@@ -10,6 +10,8 @@ bsp_header_list = [
 {"name":"ESP32C3","url":"https://gitee.com/openLuat/luatos-soc-idf5/raw/master/luatos/include/luat_conf_bsp.h"},
 {"name":"ESP32S3","url":"https://gitee.com/openLuat/luatos-soc-idf5/raw/master/luatos/include/luat_conf_bsp.h"},
 {"name":"Air780E/Air700E","url":"https://gitee.com/openLuat/luatos-soc-2022/raw/master/project/luatos/inc/luat_conf_bsp.h"},
+{"name":"Air780EP","url":"https://gitee.com/openLuat/luatos-soc-2023/raw/master/project/luatos/inc/luat_conf_bsp.h"},
+
 ]
 print("getting bsp.h files...")
 for bsp in bsp_header_list:

@@ -89,12 +89,19 @@ static const struct http_parser_settings hp_settings = {
 };
 //================================
 
-static void client_write(client_socket_ctx_t* client, char* buff, size_t len) {
+static int client_write(client_socket_ctx_t* client, const char* buff, size_t len) {
     if (len == 0)
-        return;
+        return 0;
     int ret = 0;
 #if ENABLE_PSIF
-    ret = tcp_write(client->pcb, (const void*)buff, len, TCP_WRITE_FLAG_COPY, 0, 0, 0);
+    sockdataflag_t dataflag={0};
+	dataflag.bExceptData=0;
+    dataflag.dataRai=0;
+    #if (LWIP_VERSION_MAJOR * 100 + LWIP_VERSION_MINOR * 10) >= 210
+    ret = tcp_write(client->pcb, (const void*)buff, len, TCP_WRITE_FLAG_COPY, dataflag, 0, 0);
+    #else
+    ret = tcp_write(client->pcb, (const void*)buff, len, TCP_WRITE_FLAG_COPY, dataflag, 0);
+    #endif
 #else
     ret = tcp_write(client->pcb, (const void*)buff, len, TCP_WRITE_FLAG_COPY);
 #endif
@@ -105,6 +112,7 @@ static void client_write(client_socket_ctx_t* client, char* buff, size_t len) {
         LLOGE("client_write err %d", ret);
     }
     // LLOGD("Client Write len %d ret %d", len, ret);
+    return ret;
 }
 
 static void client_resp(void* arg) {
@@ -113,7 +121,7 @@ static void client_resp(void* arg) {
     // const char* headers = NULL;
     // const char* body = client->body;
     size_t body_size = client->body_size;
-    struct tcp_pcb* pcb = client->pcb;
+    //struct tcp_pcb* pcb = client->pcb;
     const char* msg = "";
     for (size_t i = 0; i < sizeof(http_codes)/sizeof(http_code_str_t); i++)
     {
@@ -256,6 +264,9 @@ static err_t client_recv_cb(void *arg, struct tcp_pcb *tpcb,
     ctx->parser.data = ctx;
     http_parser_init(&ctx->parser, HTTP_REQUEST);
     size_t ret = http_parser_execute(&ctx->parser, &hp_settings, (const char*)ctx->buff, ctx->buff_offset);
+    if (ret) {
+        // 暂时不管
+    }
 
     if (ctx->recv_done) {
         // 停止接收更多的数据
@@ -286,17 +297,13 @@ static err_t client_recv_cb(void *arg, struct tcp_pcb *tpcb,
     return ERR_OK;
 }
 static err_t client_sent_cb(void *arg, struct tcp_pcb *tpcb, u16_t len) {
-    // LLOGD("client_sent_cb len %d", len);
+    (void)tpcb;
     client_socket_ctx_t* ctx = (client_socket_ctx_t*)arg;
     ctx->sent_size += len;
     int ret = 0;
     if (ctx->fd) {
         if (ctx->sbuff_offset) {
-            #if ENABLE_PSIF
-            ret = tcp_write(ctx->pcb, (const void*)ctx->sbuff, ctx->sbuff_offset, TCP_WRITE_FLAG_COPY, 0, 0, 0);
-            #else
-            ret = tcp_write(ctx->pcb, (const void*)ctx->sbuff, ctx->sbuff_offset, TCP_WRITE_FLAG_COPY);
-            #endif
+            ret = client_write(ctx, (const char*)ctx->sbuff, ctx->sbuff_offset);
             if (ret == 0) {
                 ctx->send_size += ctx->sbuff_offset;
                 ctx->sbuff_offset = 0;
@@ -315,11 +322,7 @@ static err_t client_sent_cb(void *arg, struct tcp_pcb *tpcb, u16_t len) {
             }
             else {
                 ctx->sbuff_offset = ret;
-                #if ENABLE_PSIF
-                ret = tcp_write(ctx->pcb, (const void*)ctx->sbuff, ctx->sbuff_offset, TCP_WRITE_FLAG_COPY, 0, 0, 0);
-                #else
-                ret = tcp_write(ctx->pcb, (const void*)ctx->sbuff, ctx->sbuff_offset, TCP_WRITE_FLAG_COPY);
-                #endif
+                ret = client_write(ctx, (const char*)ctx->sbuff, ctx->sbuff_offset);
                 if (ret == 0) {
                     ctx->send_size += ctx->sbuff_offset;
                     ctx->sbuff_offset = 0;
@@ -344,14 +347,14 @@ static err_t client_sent_cb(void *arg, struct tcp_pcb *tpcb, u16_t len) {
     // }
     return ERR_OK;
 }
-static err_t client_err_cb(void *arg, err_t err) {
+static void client_err_cb(void *arg, err_t err) {
     LLOGD("client cb %d", err);
     client_socket_ctx_t* client = (client_socket_ctx_t*)arg;
     client_cleanup(client);
-    return ERR_OK;
 }
 
 static err_t srv_accept_cb(void *arg, struct tcp_pcb *newpcb, err_t err) {
+    (void)arg;
     if (err) {
         LLOGD("accpet err %d", err);
         return ERR_OK;
@@ -373,6 +376,7 @@ static err_t srv_accept_cb(void *arg, struct tcp_pcb *newpcb, err_t err) {
 }
 
 int luat_httpsrv_stop(int port) {
+    (void)port;
     if (srvpcb != NULL) {
         tcp_close(srvpcb);
         srvpcb = NULL;

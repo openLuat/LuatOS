@@ -9,7 +9,9 @@
 #include "lv_demo_benchmark.h"
 
 #if LV_USE_DEMO_BENCHMARK
-
+#ifdef __LUATOS__
+extern unsigned int luat_lv_benchmark_fps;
+#endif
 /*********************
  *      DEFINES
  *********************/
@@ -824,7 +826,9 @@ static void generate_report(void)
 
     subtitle = lv_label_create(lv_scr_act());
     lv_label_set_text_fmt(subtitle, "Opa. speed: %"LV_PRIu32"%%", opa_speed_pct);
-
+#ifdef __LUATOS__
+    luat_lv_benchmark_fps = fps_weighted;
+#endif
     lv_coord_t w = lv_obj_get_content_width(lv_scr_act());
     lv_obj_t * table = lv_table_create(lv_scr_act());
     //        lv_obj_clean_style_list(table, LV_PART_MAIN);

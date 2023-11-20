@@ -1,3 +1,30 @@
+--[[
+
+@module FM17622
+@summary FM17622的LPCD和读写驱动
+@author  杨壮壮
+@data    2023/11/20
+@usage
+    FM17622=require "FM17622"
+    i2c.setup(1, i2c.FAST)
+    FM17622.setup(1, 0x28,20,32,function()
+
+        local Key_A = string.char(0x01,0x02,0x03,0x04,0x05,0x06)
+        local wdata = {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00}
+        FM17622.write_datablock(4,wdata,0,Key_A)
+        local strat,rdata=FM17622.read_datablock(4,0,Key_A)
+        if strat then
+            log.info(json.encode(rdata))     
+        end
+
+    end,true)
+]]
+]]
+
+
+
+
+
 local FM17622 = {}
 
 local sys = require "sys"
@@ -9,112 +36,112 @@ local nfc_Data = {}
 local nfc_work=false--防冲突
 
 -- LPCD配置信息
-LPCD_THRSH_H = 0x00
-LPCD_THRSH_L = 0x10
-LPCD_CWP = 10 -- LPCD PMOS输出驱动 0~63
-LPCD_CWN = 10 -- LPCD NMOS输出驱动 0~15
-LPCD_SLEEPTIME = 10 -- LPCD 唤醒间隔时间，每一档为32ms，休眠时间：(16+1)*32=544ms
+local LPCD_THRSH_H = 0x00
+local LPCD_THRSH_L = 0x10
+local LPCD_CWP = 10 -- LPCD PMOS输出驱动 0~63
+local LPCD_CWN = 10 -- LPCD NMOS输出驱动 0~15
+local LPCD_SLEEPTIME = 10 --LPCD 唤醒间隔时间，每一档为32ms，休眠时间：(16+1)*32=544ms
 
-TX1_TX2_CW_DISABLE = 0
-TX1_CW_ENABLE = 1
-TX2_CW_ENABLE = 2
-TX1_TX2_CW_ENABLE = 3
+local TX1_TX2_CW_DISABLE = 0
+local TX1_CW_ENABLE = 1
+local TX2_CW_ENABLE = 2
+local TX1_TX2_CW_ENABLE = 3
 
-JREG_PAGE0 = 0x00 -- Page register in page 0
-JREG_COMMAND = 0x01 -- Contains Command bits, PowerDown bit and bit to switch receiver off.
-JREG_COMMIEN = 0x02 -- Contains Communication interrupt enable bits andbit for Interrupt inversion.
-JREG_DIVIEN = 0x03 -- Contains RfOn, RfOff, CRC and Mode Interrupt enable and bit to switch Interrupt pin to PushPull mode.
-JREG_COMMIRQ = 0x04 -- Contains Communication interrupt request bits.
-JREG_DIVIRQ = 0x05 -- Contains RfOn, RfOff, CRC and Mode Interrupt request.
-JREG_ERROR = 0x06 -- Contains Protocol, Parity, CRC, Collision, Buffer overflow, Temperature and RF error flags.
-JREG_STATUS1 = 0x07 -- Contains status information about Lo- and HiAlert, RF-field on, Timer, Interrupt request and CRC status.
-JREG_STATUS2 = 0x08 -- Contains information about internal states (Modemstate),Mifare states and possibility to switch Temperature sensor off.
-JREG_FIFODATA = 0x09 -- Gives access to FIFO. Writing to register increments theFIFO level (register =0x0A), reading decrements it.
-JREG_FIFOLEVEL = 0x0A -- Contains the actual level of the FIFO.     
-JREG_WATERLEVEL = 0x0B -- Contains the Waterlevel value for the FIFO 
-JREG_CONTROL = 0x0C -- Contains information about last received bits, Initiator mode bit, bit to copy NFCID to FIFO and to Start and stopthe Timer unit.
-JREG_BITFRAMING = 0x0D -- Contains information of last bits to send, to align received bits in FIFO and activate sending in Transceive]]
-JREG_COLL = 0x0E -- Contains all necessary bits for Collission handling 
-JREG_RFU0F = 0x0F -- Currently not used.                                 
+local JREG_PAGE0 = 0x00 -- Page register in page 0
+local JREG_COMMAND = 0x01 -- Contains Command bits, PowerDown bit and bit to switch receiver off.
+local JREG_COMMIEN = 0x02 -- Contains Communication interrupt enable bits andbit for Interrupt inversion.
+local JREG_DIVIEN = 0x03 -- Contains RfOn, RfOff, CRC and Mode Interrupt enable and bit to switch Interrupt pin to PushPull mode.
+local JREG_COMMIRQ = 0x04 -- Contains Communication interrupt request bits.
+local JREG_DIVIRQ = 0x05 -- Contains RfOn, RfOff, CRC and Mode Interrupt request.
+local JREG_ERROR = 0x06 -- Contains Protocol, Parity, CRC, Collision, Buffer overflow, Temperature and RF error flags.
+local JREG_STATUS1 = 0x07 -- Contains status information about Lo- and HiAlert, RF-field on, Timer, Interrupt request and CRC status.
+local JREG_STATUS2 = 0x08 -- Contains information about internal states (Modemstate),Mifare states and possibility to switch Temperature sensor off.
+local JREG_FIFODATA = 0x09 -- Gives access to FIFO. Writing to register increments theFIFO level (register =0x0A), reading decrements it.
+local JREG_FIFOLEVEL = 0x0A -- Contains the actual level of the FIFO.     
+local JREG_WATERLEVEL = 0x0B -- Contains the Waterlevel value for the FIFO 
+local JREG_CONTROL = 0x0C -- Contains information about last received bits, Initiator mode bit, bit to copy NFCID to FIFO and to Start and stopthe Timer unit.
+local JREG_BITFRAMING = 0x0D -- Contains information of last bits to send, to align received bits in FIFO and activate sending in Transceive]]
+local JREG_COLL = 0x0E -- Contains all necessary bits for Collission handling 
+local JREG_RFU0F = 0x0F -- Currently not used.                                 
 
-JREG_PAGE1 = 0x10 -- Page register in page 1
-JREG_MODE = 0x11 -- Contains bits for auto wait on Rf, to detect SYNC byte in NFC mode and MSB first for CRC calculation
-JREG_TXMODE = 0x12 -- Contains Transmit Framing, Speed, CRC enable, bit for inverse mode and TXMix bit.                            
-JREG_RXMODE = 0x13 -- Contains Transmit Framing, Speed, CRC enable, bit for multiple receive and to filter errors.                 
-JREG_TXCONTROL = 0x14 -- Contains bits to activate and configure Tx1 and Tx2 and bit to activate 100% modulation.                      
-JREG_TXAUTO = 0x15 -- Contains bits to automatically switch on/off the Rf and to do the collission avoidance and the initial rf-on.
-JREG_TXSEL = 0x16 -- Contains SigoutSel, DriverSel and LoadModSel bits.
-JREG_RXSEL = 0x17 -- Contains UartSel and RxWait bits.                 
-JREG_RXTRESHOLD = 0x18 -- Contains MinLevel and CollLevel for detection.    
-JREG_DEMOD = 0x19 -- Contains bits for time constants, hysteresis and IQ demodulator settings. 
-JREG_FELICANFC = 0x1A -- Contains bits for minimum FeliCa length received and for FeliCa syncronisation length.
-JREG_FELICANFC2 = 0x1B -- Contains bits for maximum FeliCa length received.      
-JREG_MIFARE = 0x1C -- Contains Miller settings, TxWait settings and MIFARE halted mode bit.
-JREG_MANUALRCV = 0x1D -- Currently not used.                          
-JREG_RFU1E = 0x1E -- Currently not used.                          
-JREG_SERIALSPEED = 0x1F -- Contains speed settings for serila interface.
+local JREG_PAGE1 = 0x10 -- Page register in page 1
+local JREG_MODE = 0x11 -- Contains bits for auto wait on Rf, to detect SYNC byte in NFC mode and MSB first for CRC calculation
+local JREG_TXMODE = 0x12 -- Contains Transmit Framing, Speed, CRC enable, bit for inverse mode and TXMix bit.                            
+local JREG_RXMODE = 0x13 -- Contains Transmit Framing, Speed, CRC enable, bit for multiple receive and to filter errors.                 
+local JREG_TXCONTROL = 0x14 -- Contains bits to activate and configure Tx1 and Tx2 and bit to activate 100% modulation.                      
+local JREG_TXAUTO = 0x15 -- Contains bits to automatically switch on/off the Rf and to do the collission avoidance and the initial rf-on.
+local JREG_TXSEL = 0x16 -- Contains SigoutSel, DriverSel and LoadModSel bits.
+local JREG_RXSEL = 0x17 -- Contains UartSel and RxWait bits.                 
+local JREG_RXTRESHOLD = 0x18 -- Contains MinLevel and CollLevel for detection.    
+local JREG_DEMOD = 0x19 -- Contains bits for time constants, hysteresis and IQ demodulator settings. 
+local JREG_FELICANFC = 0x1A -- Contains bits for minimum FeliCa length received and for FeliCa syncronisation length.
+local JREG_FELICANFC2 = 0x1B -- Contains bits for maximum FeliCa length received.      
+local JREG_MIFARE = 0x1C -- Contains Miller settings, TxWait settings and MIFARE halted mode bit.
+local JREG_MANUALRCV = 0x1D -- Currently not used.                          
+local JREG_RFU1E = 0x1E -- Currently not used.                          
+local JREG_SERIALSPEED = 0x1F -- Contains speed settings for serila interface.
 
-JREG_PAGE2 = 0x20 -- Page register in page 2 
-JREG_CRCRESULT1 = 0x21 -- Contains MSByte of CRC Result.                
-JREG_CRCRESULT2 = 0x22 -- Contains LSByte of CRC Result.                
-JREG_GSNLOADMOD = 0x23 -- Contains the conductance and the modulation settings for the N-MOS transistor only for load modulation (See difference to JREG_GSN!). 
-JREG_MODWIDTH = 0x24 -- Contains modulation width setting.                    
-JREG_TXBITPHASE = 0x25 -- Contains TxBitphase settings and receive clock change.
-JREG_RFCFG = 0x26 -- Contains sensitivity of Rf Level detector, the receiver gain factor and the RfLevelAmp.
-JREG_GSN = 0x27 -- Contains the conductance and the modulation settings for the N-MOS transistor during active modulation (no load modulation setting!).
-JREG_CWGSP = 0x28 -- Contains the conductance for the P-Mos transistor.    
-JREG_MODGSP = 0x29 -- Contains the modulation index for the PMos transistor.
-JREG_TMODE = 0x2A -- Contains all settings for the timer and the highest 4 bits of the prescaler.
-JREG_TPRESCALER = 0x2B -- Contais the lowest byte of the prescaler.   
-JREG_TRELOADHI = 0x2C -- Contains the high byte of the reload value. 
-JREG_TRELOADLO = 0x2D -- Contains the low byte of the reload value.  
-JREG_TCOUNTERVALHI = 0x2E -- Contains the high byte of the counter value.
-JREG_TCOUNTERVALLO = 0x2F -- Contains the low byte of the counter value. 
+local JREG_PAGE2 = 0x20 -- Page register in page 2 
+local JREG_CRCRESULT1 = 0x21 -- Contains MSByte of CRC Result.                
+local JREG_CRCRESULT2 = 0x22 -- Contains LSByte of CRC Result.                
+local JREG_GSNLOADMOD = 0x23 -- Contains the conductance and the modulation settings for the N-MOS transistor only for load modulation (See difference to JREG_GSN!). 
+local JREG_MODWIDTH = 0x24 -- Contains modulation width setting.                    
+local JREG_TXBITPHASE = 0x25 -- Contains TxBitphase settings and receive clock change.
+local JREG_RFCFG = 0x26 -- Contains sensitivity of Rf Level detector, the receiver gain factor and the RfLevelAmp.
+local JREG_GSN = 0x27 -- Contains the conductance and the modulation settings for the N-MOS transistor during active modulation (no load modulation setting!).
+local JREG_CWGSP = 0x28 -- Contains the conductance for the P-Mos transistor.    
+local JREG_MODGSP = 0x29 -- Contains the modulation index for the PMos transistor.
+local JREG_TMODE = 0x2A -- Contains all settings for the timer and the highest 4 bits of the prescaler.
+local JREG_TPRESCALER = 0x2B -- Contais the lowest byte of the prescaler.   
+local JREG_TRELOADHI = 0x2C -- Contains the high byte of the reload value. 
+local JREG_TRELOADLO = 0x2D -- Contains the low byte of the reload value.  
+local JREG_TCOUNTERVALHI = 0x2E -- Contains the high byte of the counter value.
+local JREG_TCOUNTERVALLO = 0x2F -- Contains the low byte of the counter value. 
 
-JREG_PAGE3 = 0x30 -- Page register in page 3
-JREG_TESTSEL1 = 0x31 -- Test register                              
-JREG_TESTSEL2 = 0x32 -- Test register                              
-JREG_TESTPINEN = 0x33 -- Test register                              
-JREG_TESTPINVALUE = 0x34 -- Test register                              
-JREG_TESTBUS = 0x35 -- Test register                              
-JREG_AUTOTEST = 0x36 -- Test register                              
-JREG_VERSION = 0x37 -- Contains the product number and the version .
-JREG_ANALOGTEST = 0x38 -- Test register                              
-JREG_TESTSUP1 = 0x39 -- Test register                              
-JREG_TESTSUP2 = 0x3A -- Test register                              
-JREG_TESTADC = 0x3B -- Test register                              
-JREG_ANALOGUETEST1 = 0x3C -- Test register                              
-JREG_ANALOGUETEST0 = 0x3D -- Test register                              
-JREG_ANALOGUETPD_A = 0x3E -- Test register                              
-JREG_ANALOGUETPD_B = 0x3F -- Test register                              
+local JREG_PAGE3 = 0x30 -- Page register in page 3
+local JREG_TESTSEL1 = 0x31 -- Test register                              
+local JREG_TESTSEL2 = 0x32 -- Test register                              
+local JREG_TESTPINEN = 0x33 -- Test register                              
+local JREG_TESTPINVALUE = 0x34 -- Test register                              
+local JREG_TESTBUS = 0x35 -- Test register                              
+local JREG_AUTOTEST = 0x36 -- Test register                              
+local JREG_VERSION = 0x37 -- Contains the product number and the version .
+local JREG_ANALOGTEST = 0x38 -- Test register                              
+local JREG_TESTSUP1 = 0x39 -- Test register                              
+local JREG_TESTSUP2 = 0x3A -- Test register                              
+local JREG_TESTADC = 0x3B -- Test register                              
+local JREG_ANALOGUETEST1 = 0x3C -- Test register                              
+local JREG_ANALOGUETEST0 = 0x3D -- Test register                              
+local JREG_ANALOGUETPD_A = 0x3E -- Test register                              
+local JREG_ANALOGUETPD_B = 0x3F -- Test register                              
 
-CMD_MASK = 0xF0
+local CMD_MASK = 0xF0
 
-CMD_IDLE = 0x00
-CMD_CONFIGURE = 0x01
-CMD_GEN_RAND_ID = 0x02
-CMD_CALC_CRC = 0x03
-CMD_TRANSMIT = 0x04
-CMD_NOCMDCHANGE = 0x07
-CMD_RECEIVE = 0x08
-CMD_TRANSCEIVE = 0x0C
-CMD_AUTOCOLL = 0x0D
-CMD_AUTHENT = 0x0E
-CMD_SOFT_RESET = 0x0F
+local CMD_IDLE = 0x00
+local CMD_CONFIGURE = 0x01
+local CMD_GEN_RAND_ID = 0x02
+local CMD_CALC_CRC = 0x03
+local CMD_TRANSMIT = 0x04
+local CMD_NOCMDCHANGE = 0x07
+local CMD_RECEIVE = 0x08
+local CMD_TRANSCEIVE = 0x0C
+local CMD_AUTOCOLL = 0x0D
+local CMD_AUTHENT = 0x0E
+local CMD_SOFT_RESET = 0x0F
 -- ============================================================================
-JREG_EXT_REG_ENTRANCE = 0x0F -- ext register entrance
+local JREG_EXT_REG_ENTRANCE = 0x0F -- ext register entrance
 -- ============================================================================
-JBIT_EXT_REG_WR_ADDR = 0x40 -- wrire address cycle
-JBIT_EXT_REG_RD_ADDR = 0x80 -- read address cycle
-JBIT_EXT_REG_WR_DATA = 0xC0 -- write data cycle
-JBIT_EXT_REG_RD_DATA = 0x00 -- read data cycle
-
--- ============================================================================
-JREG_LPCDTEST = 0x21
--- ============================================================================
+local JBIT_EXT_REG_WR_ADDR = 0x40 -- wrire address cycle
+local JBIT_EXT_REG_RD_ADDR = 0x80 -- read address cycle
+local JBIT_EXT_REG_WR_DATA = 0xC0 -- write data cycle
+local JBIT_EXT_REG_RD_DATA = 0x00 -- read data cycle
 
 -- ============================================================================
-JREG_LPCDGMSEL = 0x24
+local JREG_LPCDTEST = 0x21
+-- ============================================================================
+
+-- ============================================================================
+local JREG_LPCDGMSEL = 0x24
 -- ============================================================================
 -- LPCD_ENB_AGC_AVDD = 0x00
 -- LPCD_ENB_AGC_DVDD = 0x10
@@ -128,7 +155,7 @@ JREG_LPCDGMSEL = 0x24
 -- LPCD_GM_SEL_3 = 0x03
 
 -- ============================================================================
-JREG_LPCDSARADC1 = 0x25
+local JREG_LPCDSARADC1 = 0x25
 -- ============================================================================
 -- SARADC_SOC_CFG_4 = 0x00
 -- SARADC_SOC_CFG_8 = 0x01
@@ -136,47 +163,47 @@ JREG_LPCDSARADC1 = 0x25
 -- SARADC_SOC_CFG_24 = 0x03
 
 -- ============================================================================
-JREG_LPCDDELTA_HI = 0x26
+local JREG_LPCDDELTA_HI = 0x26
 -- ============================================================================
 
 -- ============================================================================
-JREG_LPCDDELTA_LO = 0x27
+local JREG_LPCDDELTA_LO = 0x27
 -- ============================================================================
 
 -- ============================================================================
-JREG_LPCDICURR_HI = 0x28
+local JREG_LPCDICURR_HI = 0x28
 -- ============================================================================
 
 -- ============================================================================
-JREG_LPCDICURR_LO = 0x29
+local JREG_LPCDICURR_LO = 0x29
 -- ============================================================================
 
 -- ============================================================================
-JREG_LPCDQCURR_HI = 0x2A
+local JREG_LPCDQCURR_HI = 0x2A
 -- ============================================================================
 
 -- ============================================================================
-JREG_LPCDQCURR_LO = 0x2B
+local JREG_LPCDQCURR_LO = 0x2B
 -- ============================================================================
 
 -- ============================================================================
-JREG_LPCDILAST_HI = 0x2C
+local JREG_LPCDILAST_HI = 0x2C
 -- ============================================================================
 
 -- ============================================================================
-JREG_LPCDILAST_LO = 0x2D
+local JREG_LPCDILAST_LO = 0x2D
 -- ============================================================================
 
 -- ============================================================================
-JREG_LPCDQLAST_HI = 0x2E
+local JREG_LPCDQLAST_HI = 0x2E
 -- ============================================================================
 
 -- ============================================================================
-JREG_LPCDQLAST_LO = 0x2F
+local JREG_LPCDQLAST_LO = 0x2F
 -- ============================================================================
 
 -- ============================================================================
-JREG_LPCDAUX = 0x30
+local JREG_LPCDAUX = 0x30
 -- ============================================================================
 -- IBN2U = 0x00
 -- TEST_BG = 0x01
@@ -197,29 +224,29 @@ JREG_LPCDAUX = 0x30
 -- FLOAT_IN = 0x10
 
 -- ============================================================================
-JREG_LPCDMISSWUP = 0x31
+local JREG_LPCDMISSWUP = 0x31
 -- ============================================================================
 
 -- ============================================================================
-JREG_LPCDFLAGINV = 0x32
+local JREG_LPCDFLAGINV = 0x32
 -- ============================================================================
 -- LPCD_FLAG_INV_DISABLE = 0x00
 -- LPCD_FLAG_INV_ENABLE = 0x20
 
 -- ============================================================================
-JREG_LPCDSLEEPTIMER = 0x33
+local JREG_LPCDSLEEPTIMER = 0x33
 -- ============================================================================
 
 -- ============================================================================
-JREG_LPCDTHRESH_H = 0x34
+local JREG_LPCDTHRESH_H = 0x34
 -- ============================================================================
 
 -- ============================================================================
-JREG_LPCDTHRESH_L = 0x35
+local JREG_LPCDTHRESH_L = 0x35
 -- ============================================================================
 
 -- ============================================================================
-JREG_LPCDREQATIMER = 0x37
+local JREG_LPCDREQATIMER = 0x37
 -- ============================================================================
 -- LPCD_IRQMISSWUP_ENABLE = 0x20
 -- LPCD_IRQMISSWUP_DISABLE = 0x00
@@ -247,7 +274,7 @@ JREG_LPCDREQATIMER = 0x37
 -- LPCD_REQA_TIME_7ms = 0x14
 
 -- ============================================================================
-JREG_LPCDREQAANA = 0x38
+local JREG_LPCDREQAANA = 0x38
 -- ============================================================================
 -- LPCD_RXGAIN_23DB = 0x00
 -- LPCD_RXGAIN_33DB = 0x10 -- default
@@ -263,7 +290,7 @@ JREG_LPCDREQAANA = 0x38
 -- LPCD_MODWIDTH_38 = 0x02
 
 -- ============================================================================
-JREG_LPCDDETECTMODE = 0x39
+local JREG_LPCDDETECTMODE = 0x39
 -- ============================================================================
 -- LPCD_TXSCALE_0 = 0x00 -- 1/8 of the TX power configured by CWGSP/CWGSNON
 -- LPCD_TXSCALE_1 = 0x08 -- 1/4 of the TX power configured by CWGSP/CWGSNON
@@ -279,7 +306,7 @@ JREG_LPCDDETECTMODE = 0x39
 -- LPCD_COMBINE_MODE = 0x02
 
 -- ============================================================================
-JREG_LPCDCTRLMODE = 0x3A
+local JREG_LPCDCTRLMODE = 0x3A
 -- ============================================================================
 -- RF_DET_ENABLE = 0x40
 -- RF_DET_DISABLE = 0x00
@@ -293,11 +320,11 @@ JREG_LPCDCTRLMODE = 0x3A
 -- LPCD_ENABLE = 0x02
 
 -- ============================================================================
-JREG_LPCDIRQ = 0x3B
+local JREG_LPCDIRQ = 0x3B
 -- ============================================================================
 
 -- ============================================================================
-JREG_LPCDRFTIMER = 0x3C
+local JREG_LPCDRFTIMER = 0x3C
 -- ============================================================================
 -- LPCD_IRQINV_ENABLE = 0x20
 -- LPCD_IRQINV_DISABLE = 0x00
@@ -323,7 +350,7 @@ JREG_LPCDRFTIMER = 0x3C
 -- LPCD_RFTIME_200us = 0x0F
 
 -- ============================================================================
-JREG_LPCDTXCTRL1 = 0x3D
+local JREG_LPCDTXCTRL1 = 0x3D
 -- ============================================================================
 -- LPCD_TX2_ENABLE = 0x20
 -- LPCD_TX2_DISABLE = 0x00
@@ -344,11 +371,11 @@ JREG_LPCDTXCTRL1 = 0x3D
 -- LPCD_TX1OFF_INV_DISABLE = 0x00
 
 -- ============================================================================
-JREG_LPCDTXCTRL2 = 0x3E
+local JREG_LPCDTXCTRL2 = 0x3E
 -- ============================================================================
 
 -- ============================================================================
-JREG_LPCDTXCTRL3 = 0x3F
+local JREG_LPCDTXCTRL3 = 0x3F
 -- ============================================================================
 -- LPCD_FLAG_TOUT_ENABLE = 0x20 -- TOUT Pad, set while LPCD DETECT, clear while LPCD SLEEP/SETUP(LPCD_TXEN_FLAG_INV = 0);
 -- LPCD_FLAG_TOUT_DISABLE = 0x00 -- disable TOUT Pad as the LPCD DETECT flag.
@@ -356,8 +383,8 @@ JREG_LPCDTXCTRL3 = 0x3F
 -- LPCD_FLAG_D3_ENABLE = 0x10 -- D3 Pad, set while LPCD DETECT, clear while LPCD SLEEP/SETUP(LPCD_TXEN_FLAG_INV = 0);
 -- LPCD_FLAG_D3_DISABLE = 0x00 -- disable D3 Pad as the LPCD DETECT flag.
 
-FM17622_SUCCESS = 0x00
-FM17622_COMM_ERR = 0xf4
+local FM17622_SUCCESS = 0x00
+local FM17622_COMM_ERR = 0xf4
 
 --[[
 写FM17622寄存器
@@ -429,12 +456,12 @@ BIT6 = 0x40
 BIT7 = 0x80
 --[[
 对rc522寄存器置位
-@api FM17622.set_bit_mask(address, mask)
+@api ModifyReg(address, mask)
 @number address 地址
 @number mask    置位值
 @number set     选择置位还是清位
 @usage
-FM17622.set_bit_mask (rc522_fifo_level, 0x80)	
+ModifyReg (rc522_fifo_level, 0x80)	
 ]]
 local function ModifyReg(addr, mask, set)
     local regdata = GetReg(addr)
@@ -448,13 +475,13 @@ end
 
 --[[
 对FM17622寄存器置位
-@api FM17622.set_bit_mask(address, mask)
+@api set_bit_mask(address, mask)
 @number address 地址
 @number mask    置位值
 @usage
-FM17622.set_bit_mask (rc522_fifo_level, 0x80)	
+
 ]]
-function FM17622.set_bit_mask(address, mask)
+function set_bit_mask(address, mask)
     ModifyReg(address, mask, 1)
 end
 
@@ -466,7 +493,7 @@ end
 @usage
 FM17622.clear_bit_mask(rc522_com_irq, 0x80 )
 ]]
-function FM17622.clear_bit_mask(address, mask)
+function clear_bit_mask(address, mask)
     ModifyReg(address, mask, 0)
 end
 
@@ -635,13 +662,12 @@ end
 
 --[[ 
 FM17622 发送命令通讯
-@api FM17622.command()
+@api command()
 @number command 发送（0x0e）还是放松并接受（0x0c）
 @number data  发送是数据
-
 ]]
 
-function FM17622.command(cmd, data)
+function command(cmd, data)
     local out_data = {}
     local irqEn
     local waitFor
@@ -656,7 +682,7 @@ function FM17622.command(cmd, data)
     SetReg(JREG_BITFRAMING, 0x80) -- Start Send
 
     sys.wait(25)
-    FM17622.clear_bit_mask(JREG_BITFRAMING, 0x80)
+    clear_bit_mask(JREG_BITFRAMING, 0x80)
 
     local reg_data = GetReg(JREG_FIFOLEVEL)
 
@@ -816,18 +842,15 @@ function Lpcd_IRQ_Event()
 end
 
 --[[
-FM17622 初始化
-@module FM17622.setup(iic_id, iic_addr, NPD,IRQ,ENDCall)
-@summary FM17622初始化
-@author  杨壮壮
-
+FM17622初始化
+@api  FM17622.setup(iic_id, iic_addr, NPD,IRQ,ENDCall)
 @number iic_id iic端口号
 @number iic_addr   iic地址
 @number NPD     rst引脚
 @number  IRQ    INT引脚
 @number  Debug  是否调试
 @number ENDCall 终端回调执行不用可未空
-@return bool 初始化结果
+@return boolean 初始化结果
 @usage
     FM17622=require "FM17622"
     i2c.setup(1, i2c.FAST)
@@ -887,13 +910,13 @@ function FM17622.setup(iic_id, iic_addr, NPD,IRQ,ENDCall,Debug)
 end
 
 --[[
-@module  write_datablock
-@summary 写入ic卡数据
-@author  杨壮壮
+写入ic卡数据
+@api  write_datablock(addr, data, mode, key)
 @number addr    ic卡地址块0到64
 @number data    写入数据
 @number A/B密码选择   A为0，B为1
 @number key      密码字符串
+@return boolean  true为成功，false失败
 @usage
 local Key_A = string.char(0x01,0x02,0x03,0x04,0x05,0x06)
         local wdata = {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00}
@@ -923,7 +946,7 @@ function FM17622.write_datablock(addr, data, mode, key)
     for i = 1, 4 do
         buff[i + 8] = nfc_Data["UID"][i]
     end
-    FM17622.command(0x0E, buff)
+    command(0x0E, buff)
     if (GetReg(JREG_STATUS2) & 0x08) == 0 then
         log.info("密码错误", (GetReg(JREG_STATUS2) & 0x08))
         return false
@@ -932,20 +955,20 @@ function FM17622.write_datablock(addr, data, mode, key)
     buff = {}
     buff[1] = 0xa0
     buff[2] = addr
-    FM17622.command(0x0C, buff)
-    FM17622.command(0x0C, data)
-    
+    command(0x0C, buff)
+    command(0x0C, data)
+    return true
 
 end
 
 --[[
-@module  read_datablock
-@summary 读取ic卡数据
-@author  杨壮壮
+读取ic卡数据
+@api   FM17622.read_datablock(addr, mode, key)
 @number addr    ic卡地址块0到64
 @number A/B密码选择   A为0，B为1
 @number key      密码字符串
-
+@return boolean  true为成功，false失败
+@return table  读取到的值
 @usage
 local Key_A = string.char(0x01,0x02,0x03,0x04,0x05,0x06)
 local strat,rdata=FM17622.read_datablock(4,0,Key_A)
@@ -974,7 +997,7 @@ function FM17622.read_datablock(addr, mode, key)
     for i = 1, 4 do
         buff[i + 8] = nfc_Data["UID"][i]
     end
-    FM17622.command(0x0E, buff)
+    command(0x0E, buff)
     if (GetReg(JREG_STATUS2) & 0x08) == 0 then
         log.info("密码错误", (GetReg(JREG_STATUS2) & 0x08))
         return false
@@ -984,7 +1007,7 @@ function FM17622.read_datablock(addr, mode, key)
     local buff = {}
     buff[1] = 0x30
     buff[2] = addr
-    return true, FM17622.command(0x0C, buff)
+    return true, command(0x0C, buff)
 
 end
 

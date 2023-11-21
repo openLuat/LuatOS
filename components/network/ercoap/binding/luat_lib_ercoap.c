@@ -156,7 +156,7 @@ static void add_random_token(coap_packet_t* pkt, uint16_t mid)
 {
     // generate a token
     uint8_t  temp_token[8];
-    uint64_t tv_sec = luat_mcu_tick64_ms();
+    uint64_t tv_sec = luat_mcu_tick64();
 
     temp_token[0] = (uint8_t)(mid | (tv_sec >> 2));
     temp_token[1] = (uint8_t)(mid | (tv_sec >> 4));

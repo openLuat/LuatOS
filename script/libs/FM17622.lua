@@ -388,7 +388,7 @@ local FM17622_COMM_ERR = 0xf4
 
 --[[
 写FM17622寄存器
-@api FM17622.SetReg(address, value)
+SetReg(address, value)
 @number address 地址
 @number value    值
 @usage
@@ -403,7 +403,7 @@ end
 
 --[[
 读FM17622寄存器
-@api FM17622.GetReg(address,len)
+GetReg(address,len)
 @number address 地址
 @number len 读取长度
 @return number 寄存器值
@@ -475,49 +475,27 @@ end
 
 --[[
 对FM17622寄存器置位
-@api set_bit_mask(address, mask)
+set_bit_mask(address, mask)
 @number address 地址
 @number mask    置位值
 @usage
 
 ]]
-function set_bit_mask(address, mask)
+local function set_bit_mask(address, mask)
     ModifyReg(address, mask, 1)
 end
 
 --[[
 对FM17622寄存器清位
-@api FM17622.clear_bit_mask(address, mask)
+clear_bit_mask(address, mask)
 @number address 地址
 @number mask    清位值
 @usage
-FM17622.clear_bit_mask(rc522_com_irq, 0x80 )
+clear_bit_mask(rc522_com_irq, 0x80 )
 ]]
-function clear_bit_mask(address, mask)
+local function clear_bit_mask(address, mask)
     ModifyReg(address, mask, 0)
 end
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 -- //*************************************
 -- //函数  名：FM17622_Initial_ReaderA
@@ -662,12 +640,11 @@ end
 
 --[[ 
 FM17622 发送命令通讯
-@api command()
 @number command 发送（0x0e）还是放松并接受（0x0c）
 @number data  发送是数据
 ]]
 
-function command(cmd, data)
+local function command(cmd, data)
     local out_data = {}
     local irqEn
     local waitFor
@@ -697,11 +674,8 @@ end
 
 --[[ 
 FM17622 LPCD初始化
-@api FM17622.LPCD_setup()
-@usage
-FM17622.LPCD_setup()
 ]]
-function LPCD_setup()
+function FM17622.LPCD_setup()
 
     SetReg(JREG_COMMAND, CMD_SOFT_RESET)
     sys.wait(5)
@@ -794,7 +768,7 @@ end
 -- //入口参数：
 -- //出口参数：
 -- //***********************************************
-function Lpcd_IRQ_Event()
+function FM17622.Lpcd_IRQ_Event()
     log.debug("FM17622.Lpcd_IRQ_Event");
     gpio.set(FM17622_NPD, 1)
     sys.wait(5)
@@ -828,7 +802,7 @@ function Lpcd_IRQ_Event()
     gpio.set(FM17622_NPD, 1)
     sys.wait(5)
     for i = 1, 10, 1 do
-        if LPCD_setup() == true then
+        if FM17622.LPCD_setup() == true then
             break
         end
         gpio.set(FM17622_NPD, 0)
@@ -866,9 +840,6 @@ FM17622初始化
 
     end,true)
 ]]
-
-
-
 function FM17622.setup(iic_id, iic_addr, NPD,IRQ,ENDCall,Debug)
     FM17622_iic_id = iic_id
     FM17622_iic_addr = iic_addr
@@ -888,7 +859,7 @@ function FM17622.setup(iic_id, iic_addr, NPD,IRQ,ENDCall,Debug)
         if nfc_work==false then
             nfc_work=true;
             sys.taskInit(function()
-                Lpcd_IRQ_Event()
+                FM17622.Lpcd_IRQ_Event()
                 nfc_work=false
             end)
             
@@ -899,7 +870,7 @@ function FM17622.setup(iic_id, iic_addr, NPD,IRQ,ENDCall,Debug)
 
     if GetReg(JREG_VERSION) == 0xA2 then
         log.debug("IC Version = FM17622 or FM17610 \r\n")
-        LPCD_setup()
+        FM17622.LPCD_setup()
         sys.wait(5)
         gpio.set(FM17622_NPD, 0)
         return true

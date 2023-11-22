@@ -101,6 +101,11 @@ void casicAgnssAidIni(DATETIME_STR *dateTime, POS_LLA_STR *lla, char aidIniMsg[6
 
 	gregorian2SvTime(dateTime, &aidIni);
 
+	LLOGD("date time %d %d %d %d %d %d", dateTime->year, dateTime->month, dateTime->day, dateTime->hour, dateTime->minute, dateTime->second);
+	LLOGD("lat %7f", lla->lat);
+	LLOGD("lng %7f", lla->lon);
+	LLOGD("lls %s, time %s", lla->valid ? "ok" : "no", dateTime->valid ? "ok" : "no");
+
 	aidIni.df = 0;
 	aidIni.xOrLat = lla->lat;
 	aidIni.yOrLon = lla->lon;

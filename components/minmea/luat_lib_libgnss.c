@@ -977,9 +977,11 @@ local lla = {
 local aid = libgnss.casic_aid(dt, lla)
 */
 #include "luat_casic_gnss.h"
+double strtod(const char *s,char **ptr);
 static int l_libgnss_casic_aid(lua_State* L) {
     DATETIME_STR dt = {0};
     POS_LLA_STR lla = {0};
+    const char* data = "";
 
     if (lua_istable(L, 1)) {
         if (LUA_TNUMBER == lua_getfield(L, 1, "day")) {
@@ -1016,19 +1018,32 @@ static int l_libgnss_casic_aid(lua_State* L) {
         lua_pop(L, 1);
     }
     if (lua_istable(L, 2)) {
-        if (LUA_TNUMBER == lua_getfield(L, 2, "lat")) {
+        lua_getfield(L, 2, "lat");
+        if (LUA_TNUMBER == lua_type(L, -1)) {
             lla.lat = lua_tonumber(L, -1);
-            lla.valid = 1;
-        };
+        }
+        else if (LUA_TSTRING == lua_type(L, -1)) {
+            data = luaL_checkstring(L, -1);
+            lla.lat = strtod(data, NULL);
+        }
         lua_pop(L, 1);
-        if (LUA_TNUMBER == lua_getfield(L, 2, "lng")) {
+
+        lua_getfield(L, 2, "lng");
+        if (LUA_TNUMBER == lua_type(L, -1)) {
             lla.lon = lua_tonumber(L, -1);
-            lla.valid = 1;
-        };
+        }
+        else if (LUA_TSTRING == lua_type(L, -1)) {
+            data = luaL_checkstring(L, -1);
+            lla.lon = strtod(data, NULL);
+        }
         lua_pop(L, 1);
         if (LUA_TNUMBER == lua_getfield(L, 2, "alt")) {
             lla.alt = lua_tonumber(L, -1);
         };
+
+        if (lla.lat > 0.001 || lla.lat < -0.01)
+            if (lla.lon > 0.001 || lla.lon < -0.01)
+                lla.valid = 1;
     }
     char tmp[66] = {0};
     casicAgnssAidIni(&dt, &lla, tmp);

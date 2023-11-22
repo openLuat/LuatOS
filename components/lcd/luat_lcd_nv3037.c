@@ -120,6 +120,7 @@ static const uint16_t nv3037_init_cmds[] = {
     0x0355,
     0x0246,
     0x0310,
+    0x0221,
 };
 
 luat_lcd_opts_t lcd_opts_nv3037 = {

@@ -5,6 +5,28 @@
 @date    2021.12.20
 @video https://www.bilibili.com/video/BV1Sr4y1n7bP
 @tag LUAT_USE_PACK
+@usage
+--[[
+ '<' 设为小端编码 
+ '>' 设为大端编码 
+ '=' 大小端遵循本地设置 
+ 'z' 空字符串,0字节
+ 'a' size_t字符串,前4字节表达长度,然后接着是N字节的数据
+ 'A' 指定长度字符串, 例如A8, 代表8字节的数据
+ 'f' float, 4字节
+ 'd' double , 8字节
+ 'n' Lua number , 32bit固件4字节, 64bit固件8字节
+ 'c' char , 1字节
+ 'b' byte = unsigned char  , 1字节
+ 'h' short  , 2字节
+ 'H' unsigned short  , 2字节
+ 'i' int  , 4字节
+ 'I' unsigned int , 4字节
+ 'l' long , 8字节, 仅64bit固件能正确获取
+ 'L' unsigned long , 8字节, 仅64bit固件能正确获取
+]]
+
+-- 详细用法请查看demo
 */
 
 #define	OP_ZSTRING	      'z'		/* zero-terminated string */
@@ -130,7 +152,7 @@ static void doswap(int swap, void *p, size_t n)
 解包字符串
 @api pack.unpack( string, format, init)
 @string 需解包的字符串
-@string 格式化符号 '<':设为小端编码 '>':设为大端编码 '=':大小端遵循本地设置 'z':空字符串 'p':byte字符串 'P':word字符串 'a':size_t字符串 'A':指定长度字符串 'f':float 'd':double 'n':Lua number 'c':char 'b':byte = unsigned char 'h':short 'H':unsigned short 'i':int 'I':unsigned int 'l':long 'L':unsigned long
+@string 格式化符号
 @int 默认值为1，标记解包开始的位置
 @return int 字符串标记的位置
 @return any 第一个解包的值, 根据format值,可能有N个返回值
@@ -253,7 +275,7 @@ done:
 /*
 打包字符串的值
 @api pack.pack( format, val1, val2, val3, valn )
-@string format 格式化符号 '<':设为小端编码 '>':设为大端编码 '=':大小端遵循本地设置 'z':空字符串 'p':byte字符串 'P':word字符串 'a':size_t字符串 'A':指定长度字符串 'f':float 'd':double 'n':Lua number 'c':char 'b':byte = unsigned char 'h':short 'H':unsigned short 'i':int 'I':unsigned int 'l':long 'L':unsigned long
+@string format 格式化符号
 @any 第一个需打包的值
 @any 第二个需打包的值
 @any 第二个需打包的值

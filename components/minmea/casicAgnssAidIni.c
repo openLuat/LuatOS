@@ -95,7 +95,7 @@ static void gregorian2SvTime(DATETIME_STR *pDateTime, AID_INI_STR *pAidIni)
 *************************************************************************/
 void casicAgnssAidIni(DATETIME_STR *dateTime, POS_LLA_STR *lla, char aidIniMsg[66])
 {
-	AID_INI_STR aidIni;
+	AID_INI_STR aidIni = {0};
 	int ckSum, i;
 	int *pDataBuff = (int *)&aidIni;
 

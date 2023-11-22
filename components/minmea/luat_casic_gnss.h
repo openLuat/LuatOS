@@ -1,6 +1,8 @@
 #ifndef LUAT_CASIC_GNSS_H
 #define LUAT_CASIC_GNSS_H
 
+#include "luat_base.h"
+
 // 位置结构体
 typedef struct
 {

@@ -986,10 +986,16 @@ static int l_libgnss_casic_aid(lua_State* L) {
             dt.day = lua_tointeger(L, -1);
         };
         lua_pop(L, 1);
-        if (LUA_TNUMBER == lua_getfield(L, 1, "mom")) {
+        // 这里兼容month和mon两种, os.date 和 rtc.get
+        if (LUA_TNUMBER == lua_getfield(L, 1, "month")) {
             dt.month = lua_tointeger(L, -1);
         };
         lua_pop(L, 1);
+        if (LUA_TNUMBER == lua_getfield(L, 1, "mon")) {
+            dt.month = lua_tointeger(L, -1);
+        };
+        lua_pop(L, 1);
+
         if (LUA_TNUMBER == lua_getfield(L, 1, "year")) {
             dt.year = lua_tointeger(L, -1);
             if (dt.year > 2022)
@@ -1024,7 +1030,7 @@ static int l_libgnss_casic_aid(lua_State* L) {
             lla.alt = lua_tonumber(L, -1);
         };
     }
-    char tmp[66];
+    char tmp[66] = {0};
     casicAgnssAidIni(&dt, &lla, tmp);
     lua_pushlstring(L, tmp, 66);
     return 1;

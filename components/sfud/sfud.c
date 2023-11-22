@@ -37,7 +37,7 @@
 #endif
 
 /* user configured flash device information table */
-sfud_flash flash_table[] = SFUD_FLASH_DEVICE_TABLE;
+sfud_flash sfud_flash_tables[] = SFUD_FLASH_DEVICE_TABLE;
 /* supported manufacturer information table */
 static const sfud_mf mf_table[] = SFUD_MF_TABLE;
 
@@ -116,10 +116,10 @@ sfud_err sfud_init(void) {
     SFUD_DEBUG("Start initialize Serial Flash Universal Driver(SFUD) V%s.", SFUD_SW_VERSION);
     SFUD_DEBUG("You can get the latest version on https://github.com/armink/SFUD .");
     /* initialize all flash device in flash device table */
-    for (i = 0; i < sizeof(flash_table) / sizeof(sfud_flash); i++) {
+    for (i = 0; i < sizeof(sfud_flash_tables) / sizeof(sfud_flash); i++) {
         /* initialize flash device index of flash device information table */
-        flash_table[i].index = i;
-        cur_flash_result = sfud_device_init(&flash_table[i]);
+        sfud_flash_tables[i].index = i;
+        cur_flash_result = sfud_device_init(&sfud_flash_tables[i]);
 
         if (cur_flash_result != SFUD_SUCCESS) {
             all_flash_result = cur_flash_result;
@@ -138,7 +138,7 @@ sfud_err sfud_init(void) {
  */
 sfud_flash *sfud_get_device(size_t index) {
     if (index < sfud_get_device_num()) {
-        return &flash_table[index];
+        return &sfud_flash_tables[index];
     } else {
         return NULL;
     }
@@ -150,7 +150,7 @@ sfud_flash *sfud_get_device(size_t index) {
  * @return flash device total number
  */
 size_t sfud_get_device_num(void) {
-    return sizeof(flash_table) / sizeof(sfud_flash);
+    return sizeof(sfud_flash_tables) / sizeof(sfud_flash);
 }
 
 /**
@@ -159,7 +159,7 @@ size_t sfud_get_device_num(void) {
  * @return flash device table pointer
  */
 const sfud_flash *sfud_get_device_table(void) {
-    return flash_table;
+    return sfud_flash_tables;
 }
 
 #ifdef SFUD_USING_QSPI

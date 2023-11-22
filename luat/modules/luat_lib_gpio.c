@@ -596,8 +596,9 @@ static const rotable_Reg_t reg_gpio[] =
     { "debounce",       ROREG_FUNC(l_gpio_debounce)},
     { "pulse",          ROREG_FUNC(l_gpio_pulse)},
     { "setDefaultPull", ROREG_FUNC(l_gpio_set_default_pull)},
+#ifdef LUAT_USE_MCU
     { "caplevel" ,      ROREG_FUNC(l_gpio_caplevel)},
-
+#endif
     //@const LOW number 低电平
     { "LOW",            ROREG_INT(Luat_GPIO_LOW)},
     //@const HIGH number 高电平

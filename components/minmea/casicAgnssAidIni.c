@@ -1,6 +1,9 @@
 #include "luat_base.h"
 #include "luat_casic_gnss.h"
 
+#define LUAT_LOG_TAG "casic"
+#include "luat_log.h"
+
 /************************************************************
 函数名称：isLeapYear
 函数功能：闰年判断。判断规则：四年一闰，百年不闰，四百年再闰。
@@ -40,10 +43,10 @@ static void gregorian2SvTime(DATETIME_STR *pDateTime, AID_INI_STR *pAidIni)
 {
 	int DayMonthTable[12] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 	int i, dn, wn;
-	double tod, tow;
+	uint64_t tod, tow;
 
 	// 天内时间
-	tod = pDateTime->hour * 3600 + pDateTime->minute * 60 + pDateTime->second + pDateTime->ms / 1000.0;
+	tod = pDateTime->hour * 3600 + pDateTime->minute * 60 + pDateTime->second;
 
 	// 参考时间: 1980.1.6
 	dn = pDateTime->day;

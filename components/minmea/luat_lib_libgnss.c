@@ -992,6 +992,8 @@ static int l_libgnss_casic_aid(lua_State* L) {
         lua_pop(L, 1);
         if (LUA_TNUMBER == lua_getfield(L, 1, "year")) {
             dt.year = lua_tointeger(L, -1);
+            if (dt.year > 2022)
+                dt.valid = 1;
         };
         lua_pop(L, 1);
         if (LUA_TNUMBER == lua_getfield(L, 1, "hour")) {
@@ -1006,21 +1008,21 @@ static int l_libgnss_casic_aid(lua_State* L) {
             dt.second = lua_tointeger(L, -1);
         };
         lua_pop(L, 1);
-        dt.valid = 1;
     }
     if (lua_istable(L, 2)) {
-        if (LUA_TNUMBER == lua_getfield(L, 1, "lat")) {
+        if (LUA_TNUMBER == lua_getfield(L, 2, "lat")) {
             lla.lat = lua_tonumber(L, -1);
+            lla.valid = 1;
         };
         lua_pop(L, 1);
-        if (LUA_TNUMBER == lua_getfield(L, 1, "lng")) {
+        if (LUA_TNUMBER == lua_getfield(L, 2, "lng")) {
             lla.lon = lua_tonumber(L, -1);
+            lla.valid = 1;
         };
         lua_pop(L, 1);
-        if (LUA_TNUMBER == lua_getfield(L, 1, "alt")) {
+        if (LUA_TNUMBER == lua_getfield(L, 2, "alt")) {
             lla.alt = lua_tonumber(L, -1);
         };
-        lla.valid = 1;
     }
     char tmp[66];
     casicAgnssAidIni(&dt, &lla, tmp);

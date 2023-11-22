@@ -16,6 +16,7 @@
 #include "luat_msgbus.h"
 #include "luat_timer.h"
 #include "luat_rtos.h"
+#include "luat_mcu.h"
 #include <math.h>
 
 #define LUAT_LOG_TAG "gpio"
@@ -256,7 +257,114 @@ static int l_gpio_setup(lua_State *L) {
     }
     return 1;
 }
+static int cap_target_level;//捕获目标电平
+static uint64_t rising_tick,falling_tick;//捕获电平时记录到的系统tick64
+int l_caplevel_handler(lua_State *L, void* ptr) {
+    (void)ptr; // unused
+    // 给 sys.publish方法发送数据
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    int pin = msg->arg1;
+    if (pin < 0 || pin >= LUAT_GPIO_PIN_MAX)
+        return 0;
+    if (gpios[pin].lua_ref == 0)
+        return 0;
+    lua_geti(L, LUA_REGISTRYINDEX, gpios[pin].lua_ref);
+    if (!lua_isnil(L, -1)) {
+        if(cap_target_level == 1){
+            lua_pushnumber(L, (float)(falling_tick-rising_tick)/luat_mcu_us_period());
+        }else{
+            lua_pushnumber(L, (float)(rising_tick-falling_tick)/luat_mcu_us_period());
+        }
+        lua_call(L, 1, 0);
+    }  
+    return 0;
+}
+int luat_caplevel_irq_cb(int pin, void* args) {
+    rtos_msg_t msg = {0};
+    msg.handler = l_caplevel_handler;
+    msg.ptr = NULL;
+    msg.arg1 = pin;
+#ifdef LUAT_GPIO_PIN_MAX
+    if (pin < 0 || pin >= LUAT_GPIO_PIN_MAX) {
+#else
+    if (pin < 0 || pin >= Luat_GPIO_MAX_ID) {
+#endif
+        return 0;
+    }
+    luat_gpio_t conf={0};
+    conf.pin = pin;
+    conf.mode = Luat_GPIO_IRQ;
+    conf.irq_cb = luat_caplevel_irq_cb;
+    conf.alt_func = -1;
+    conf.pull=Luat_GPIO_DEFAULT;
+    if(gpios[pin].irq_type == Luat_GPIO_RISING){
+        rising_tick = luat_mcu_tick64();
+        conf.irq =Luat_GPIO_FALLING;
+        luat_gpio_setup(&conf);
+        gpios[pin].irq_type = Luat_GPIO_FALLING;
+        if(cap_target_level == 1){
+            return 1;
+        }else{
+            return luat_msgbus_put(&msg, 0); 
+        }
+        
+    }else{
+        falling_tick = luat_mcu_tick64();
+        conf.irq =Luat_GPIO_RISING;
+        luat_gpio_setup(&conf);
+        gpios[pin].irq_type = Luat_GPIO_RISING;
+        if(cap_target_level == 1){
+            return luat_msgbus_put(&msg, 0);
+        }else{
+            return 1;
+        }
+    }
 
+}
+/*
+捕获管脚电平持续时长，单位us
+@api gpio.caplevel(pin, level,func)
+@int pin GPIO编号,必须是数值
+@int level 需要捕获的电平, 可以是 高电平gpio.HIGH, 低电平gpio.LOW, 或者直接写数值1或0，即管脚上正常时间处于level的反，捕获设定的level持续时间
+@function func 完成捕获后的回调函数，仅一个参数，参数为捕获到的时间长度number型数值，单位us
+@return any 返回获取电平的闭包
+@usage
+-- 捕获pin.PA07为高电平的持续时间
+gpio.caplevel(pin.PA07,1,function(val) print(val) end)
+*/
+static int l_gpio_caplevel(lua_State *L){
+    luat_gpio_t conf = {0};
+    conf.pin = luaL_checkinteger(L, 1);
+    cap_target_level = luaL_checkinteger(L,2);
+    //根据目标电平，配置管脚首先处理的沿
+    if(cap_target_level == 1){//目标是捕获高电平
+        conf.irq = Luat_GPIO_RISING;//管脚首先处理上升沿
+    }else{
+        conf.irq = Luat_GPIO_FALLING;
+    }
+    conf.mode=Luat_GPIO_IRQ;
+    if (lua_isfunction(L, 3)) {
+        lua_pushvalue(L, 3);
+        conf.lua_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+        if (gpios[conf.pin].lua_ref && gpios[conf.pin].lua_ref != conf.lua_ref) {
+            luaL_unref(L, LUA_REGISTRYINDEX, gpios[conf.pin].lua_ref);
+        }
+        gpios[conf.pin].irq_type = conf.irq;
+        gpios[conf.pin].lua_ref = conf.lua_ref;
+    }else{
+        return 0;
+    }
+    conf.irq_cb = luat_caplevel_irq_cb;
+    int re = luat_gpio_setup(&conf);
+    if (re != 0) {
+        LLOGW("gpio setup fail pin=%d", conf.pin);
+        return 0;
+    }
+    // 生成闭包
+    lua_settop(L, 1);
+    lua_pushcclosure(L, l_gpio_get, 1);
+    return 1;
+}
 /*
 设置管脚电平
 @api gpio.set(pin, value)
@@ -488,6 +596,7 @@ static const rotable_Reg_t reg_gpio[] =
     { "debounce",       ROREG_FUNC(l_gpio_debounce)},
     { "pulse",          ROREG_FUNC(l_gpio_pulse)},
     { "setDefaultPull", ROREG_FUNC(l_gpio_set_default_pull)},
+    { "caplevel" ,      ROREG_FUNC(l_gpio_caplevel)},
 
     //@const LOW number 低电平
     { "LOW",            ROREG_INT(Luat_GPIO_LOW)},

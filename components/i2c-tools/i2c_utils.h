@@ -9,7 +9,7 @@
 uint8_t strtonum(const char* str);
 
 void i2c_help(void);
-uint8_t i2c_init(const uint8_t i2c_id);
+uint8_t i2c_init(const uint8_t i2c_id, int speed);
 uint8_t i2c_probe(char addr);
 uint8_t i2c_write(char addr, uint8_t* data, int len);
 uint8_t i2c_read(uint8_t addr, uint8_t reg, uint8_t* buffer, uint8_t len);

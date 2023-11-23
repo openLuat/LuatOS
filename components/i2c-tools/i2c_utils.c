@@ -2,6 +2,7 @@
 #include "luat_base.h"
 #include "i2c_utils.h"
 #include "luat_i2c.h"
+#include "luat_malloc.h"
 
 #define LUAT_LOG_TAG "i2c"
 #include "luat_log.h"
@@ -26,9 +27,9 @@ void i2c_help(void){
     LLOGD("i2c tools send i2c_id address [register] data_0 data_1 ...");
 }
 
-uint8_t i2c_init(const uint8_t i2c_id){
+uint8_t i2c_init(const uint8_t i2c_id, int speed){
     i2c_tools_id = i2c_id;
-    return (luat_i2c_setup(i2c_tools_id, 0));
+    return (luat_i2c_setup(i2c_tools_id, speed));
 }
 
 uint8_t i2c_probe(char addr){
@@ -50,18 +51,25 @@ uint8_t i2c_read(uint8_t addr, uint8_t reg, uint8_t* buffer, uint8_t len){
 }
 
 void i2c_scan(void){
-    LLOGD("ID  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f");
-    char buff[64] = {0};
+    uint16_t len = 0;
+    char *scan_buff = luat_heap_malloc(512);
+    memset(scan_buff, 0, 512);
     for(unsigned char i=0; i<8; i++){
-        sprintf_(buff, "%d0: ", i);
+        sprintf_(scan_buff + len, "%d0: ", i);
+        len++;
         for(unsigned char j=0; j<16; j++){
             char addr = i*16+j;
+            len+=3;
             if( i2c_probe(addr) == 1){
-                sprintf_(buff + 4 + j*3, "%02X ", addr);
+                sprintf_(scan_buff + len, "%02X ", addr);
             }else{
-                sprintf_(buff + 4 + j*3, "-- ");
+                sprintf_(scan_buff + len, "-- ");
             }
         }
-        LLOGD("%s", buff);
+        len+=3;
+        sprintf_(scan_buff + len, "\n");
+        len++;
     }
+    LLOGD("\nID  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f\n%s",scan_buff);
+    luat_heap_free(scan_buff);
 }

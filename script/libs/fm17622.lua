@@ -1,18 +1,18 @@
 --[[
 
-@module FM17622
-@summary FM17622的LPCD和读写驱动
+@module fm17622
+@summary fm17622的LPCD和读写驱动
 @author  杨壮壮
 @data    2023/11/20
 @usage
-    FM17622=require "FM17622"
+    fm17622=require "fm17622"
     i2c.setup(1, i2c.FAST)
-    FM17622.setup(1, 0x28,20,32,function()
+    fm17622.setup(1, 0x28,20,32,function()
 
         local Key_A = string.char(0x01,0x02,0x03,0x04,0x05,0x06)
         local wdata = {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00}
-        FM17622.write_datablock(4,wdata,0,Key_A)
-        local strat,rdata=FM17622.read_datablock(4,0,Key_A)
+        fm17622.write_datablock(4,wdata,0,Key_A)
+        local strat,rdata=fm17622.read_datablock(4,0,Key_A)
         if strat then
             log.info(json.encode(rdata))     
         end
@@ -25,11 +25,11 @@
 
 
 
-local FM17622 = {}
+local fm17622 = {}
 
 local sys = require "sys"
 
-local FM17622_iic_id, FM17622_iic_addr, FM17622_NPD,debug
+local fm17622_iic_id, fm17622_iic_addr, fm17622_NPD,debug
 local endcall
 local nfc_Data = {}
 
@@ -383,32 +383,32 @@ local JREG_LPCDTXCTRL3 = 0x3F
 -- LPCD_FLAG_D3_ENABLE = 0x10 -- D3 Pad, set while LPCD DETECT, clear while LPCD SLEEP/SETUP(LPCD_TXEN_FLAG_INV = 0);
 -- LPCD_FLAG_D3_DISABLE = 0x00 -- disable D3 Pad as the LPCD DETECT flag.
 
-local FM17622_SUCCESS = 0x00
-local FM17622_COMM_ERR = 0xf4
+local fm17622_SUCCESS = 0x00
+local fm17622_COMM_ERR = 0xf4
 
 --[[
-写FM17622寄存器
+写fm17622寄存器
 SetReg(address, value)
 @number address 地址
 @number value    值
 @usage
-write_rawrc(FM17622_bit_framing,0x07)
+write_rawrc(fm17622_bit_framing,0x07)
 ]]
 local function SetReg(address, value)
 
     -- log.info("寄存器写：0x",string.format("%X",address),"值为0x",string.format("%X",value))
 
-    i2c.writeReg(FM17622_iic_id, FM17622_iic_addr, address, string.char(value))
+    i2c.writeReg(fm17622_iic_id, fm17622_iic_addr, address, string.char(value))
 end
 
 --[[
-读FM17622寄存器
+读fm17622寄存器
 GetReg(address,len)
 @number address 地址
 @number len 读取长度
 @return number 寄存器值
 @usage
-local n = read_rawrc(FM17622_com_irq,1) 
+local n = read_rawrc(fm17622_com_irq,1) 
 ]]
 
 local function GetReg(address, len)
@@ -416,7 +416,7 @@ local function GetReg(address, len)
         len = 1
     end
 
-    local val = i2c.readReg(FM17622_iic_id, FM17622_iic_addr, address, len)
+    local val = i2c.readReg(fm17622_iic_id, fm17622_iic_addr, address, len)
 
     -- log.info("iic",val,type(val),#val)
     if #val == 0 then
@@ -474,7 +474,7 @@ local function ModifyReg(addr, mask, set)
 end
 
 --[[
-对FM17622寄存器置位
+对fm17622寄存器置位
 set_bit_mask(address, mask)
 @number address 地址
 @number mask    置位值
@@ -486,7 +486,7 @@ local function set_bit_mask(address, mask)
 end
 
 --[[
-对FM17622寄存器清位
+对fm17622寄存器清位
 clear_bit_mask(address, mask)
 @number address 地址
 @number mask    清位值
@@ -498,12 +498,12 @@ local function clear_bit_mask(address, mask)
 end
 
 -- //*************************************
--- //函数  名：FM17622_Initial_ReaderA
+-- //函数  名：fm17622_Initial_ReaderA
 -- 设置A卡模式
 -- //入口参数：
 -- //出口参数：
 -- //*************************************
-local function FM17622_Initial_ReaderA()
+local function fm17622_Initial_ReaderA()
     SetReg(JREG_MODWIDTH, 0x26) -- MODWIDTH = 106kbps
     ModifyReg(JREG_TXAUTO, BIT6, 1) -- Force 100ASK = 1
     SetReg(JREG_GSN, (0x0f << 4)) -- Config GSN Config ModGSN 	
@@ -526,9 +526,9 @@ local function ReaderA_Request()
     if reg_data == 2 then
         -- 
         nfc_Data["ATQA"] = GetReg(JREG_FIFODATA) * 256 + GetReg(JREG_FIFODATA)
-        return FM17622_SUCCESS
+        return fm17622_SUCCESS
     end
-    return FM17622_COMM_ERR
+    return fm17622_COMM_ERR
 end
 local function ReaderA_AntiColl()
     SetReg(JREG_TXMODE, 0) -- Disable TxCRC
@@ -560,12 +560,12 @@ local function ReaderA_AntiColl()
         nfc_Data["BCC"] = GetReg(JREG_FIFODATA)
 
         if (uid1 ~ uid2 ~ uid3 ~ uid4) == nfc_Data["BCC"] then
-            return FM17622_SUCCESS
+            return fm17622_SUCCESS
         end
 
-        return FM17622_COMM_ERR
+        return fm17622_COMM_ERR
     end
-    return FM17622_COMM_ERR
+    return fm17622_COMM_ERR
 end
 
 local function ReaderA_Select()
@@ -586,32 +586,32 @@ local function ReaderA_Select()
     local reg_data = GetReg(JREG_FIFOLEVEL)
     if reg_data == 1 then
         nfc_Data["SAK"] = GetReg(JREG_FIFODATA)
-        return FM17622_SUCCESS
+        return fm17622_SUCCESS
     end
-    return FM17622_COMM_ERR
+    return fm17622_COMM_ERR
 end
 
 -- *************************************
 -- 函数  名：ReaderA_CardActivate
 -- 开始寻卡，找卡选卡
 -- 入口参数：
--- 出口参数：FM17622_SUCCESS, FM17622_COMM_ERR
+-- 出口参数：fm17622_SUCCESS, fm17622_COMM_ERR
 -- *************************************
 
 local function ReaderA_CardActivate()
     local result = ReaderA_Request()
-    if result ~= FM17622_SUCCESS then
-        return FM17622_COMM_ERR
+    if result ~= fm17622_SUCCESS then
+        return fm17622_COMM_ERR
     end
 
     result = ReaderA_AntiColl()
-    if result ~= FM17622_SUCCESS then
-        return FM17622_COMM_ERR
+    if result ~= fm17622_SUCCESS then
+        return fm17622_COMM_ERR
     end
 
     result = ReaderA_Select()
-    if result ~= FM17622_SUCCESS then
-        return FM17622_COMM_ERR
+    if result ~= fm17622_SUCCESS then
+        return fm17622_COMM_ERR
     end
 
     return result
@@ -639,7 +639,7 @@ local function SetCW(cw_mode)
 end
 
 --[[ 
-FM17622 发送命令通讯
+fm17622 发送命令通讯
 @number command 发送（0x0e）还是放松并接受（0x0c）
 @number data  发送是数据
 ]]
@@ -673,9 +673,9 @@ local function command(cmd, data)
 end
 
 --[[ 
-FM17622 LPCD初始化
+fm17622 LPCD初始化
 ]]
-function FM17622.LPCD_setup()
+function fm17622.LPCD_setup()
 
     SetReg(JREG_COMMAND, CMD_SOFT_RESET)
     sys.wait(5)
@@ -749,11 +749,11 @@ end
 -- //***********************************************
 
 local function Lpcd_Card_Event()
-    FM17622_Initial_ReaderA()
+    fm17622_Initial_ReaderA()
     SetCW(TX1_TX2_CW_ENABLE)
     nfc_Data = {}--清空选卡
     result = ReaderA_CardActivate()
-    if result == FM17622_SUCCESS then
+    if result == fm17622_SUCCESS then
         if endcall ~= nil then
             endcall()
         end
@@ -768,18 +768,18 @@ end
 -- //入口参数：
 -- //出口参数：
 -- //***********************************************
-function FM17622.Lpcd_IRQ_Event()
-    log.debug("FM17622.Lpcd_IRQ_Event");
-    gpio.set(FM17622_NPD, 1)
+function fm17622.Lpcd_IRQ_Event()
+    log.debug("fm17622.Lpcd_IRQ_Event");
+    gpio.set(fm17622_NPD, 1)
     sys.wait(5)
     local reg = GetReg_Ext(JREG_LPCDIRQ) -- 读取LPCD中断标志，LPCD中断需要判断LPCD IRQ RXCHANGE(0x04)是否置位
     SetReg_Ext(JREG_LPCDIRQ, reg) -- CLEAR LPCD IRQ
 
     if (reg & 0x08) ~= 0 then
-        log.debug("FM17622.Lpcd_IRQ_Event", "-> LPCD IRQ RFDET SET!\r\n");
+        log.debug("fm17622.Lpcd_IRQ_Event", "-> LPCD IRQ RFDET SET!\r\n");
     end
     if (reg & 0x04) ~= 0 then
-        log.debug("FM17622.Lpcd_IRQ_Event", "-> LPCD IRQ RXCHANGE SET!\r\n"); -- LPCD中断标志
+        log.debug("fm17622.Lpcd_IRQ_Event", "-> LPCD IRQ RXCHANGE SET!\r\n"); -- LPCD中断标志
         if debug~=nil then
             if debug==true then
                 Lpcd_Get_ADC_Value()
@@ -791,33 +791,33 @@ function FM17622.Lpcd_IRQ_Event()
 
     end
     if (reg & 0x02) ~= 0 then
-        log.debug("FM17622.Lpcd_IRQ_Event", "-> LPCD IRQ ATQAREC SET!\r\n");
+        log.debug("fm17622.Lpcd_IRQ_Event", "-> LPCD IRQ ATQAREC SET!\r\n");
     end
     if (reg & 0x10) ~= 0 then
-        log.debug("FM17622.Lpcd_IRQ_Event", "-> LPCD IRQ MISSWUP SET!\r\n");
+        log.debug("fm17622.Lpcd_IRQ_Event", "-> LPCD IRQ MISSWUP SET!\r\n");
     end
 
-    gpio.set(FM17622_NPD, 0)
+    gpio.set(fm17622_NPD, 0)
     sys.wait(5)
-    gpio.set(FM17622_NPD, 1)
+    gpio.set(fm17622_NPD, 1)
     sys.wait(5)
     for i = 1, 10, 1 do
-        if FM17622.LPCD_setup() == true then
+        if fm17622.LPCD_setup() == true then
             break
         end
-        gpio.set(FM17622_NPD, 0)
+        gpio.set(fm17622_NPD, 0)
         sys.wait(5)
-        gpio.set(FM17622_NPD, 1)
+        gpio.set(fm17622_NPD, 1)
         sys.wait(5)
     end
 
     sys.wait(5)
-    gpio.set(FM17622_NPD, 0)
+    gpio.set(fm17622_NPD, 0)
 end
 
 --[[
-FM17622初始化
-@api  FM17622.setup(iic_id, iic_addr, NPD,IRQ,ENDCall)
+fm17622初始化
+@api  fm17622.setup(iic_id, iic_addr, NPD,IRQ,ENDCall)
 @number iic_id iic端口号
 @number iic_addr   iic地址
 @number NPD     rst引脚
@@ -826,30 +826,30 @@ FM17622初始化
 @number ENDCall 终端回调执行不用可未空
 @return boolean 初始化结果
 @usage
-    FM17622=require "FM17622"
+    fm17622=require "fm17622"
     i2c.setup(1, i2c.FAST)
-    FM17622.setup(1, 0x28,20,32,function()
+    fm17622.setup(1, 0x28,20,32,function()
 
         local Key_A = string.char(0x01,0x02,0x03,0x04,0x05,0x06)
         local wdata = {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00}
-        FM17622.write_datablock(4,wdata,0,Key_A)
-        local strat,rdata=FM17622.read_datablock(4,0,Key_A)
+        fm17622.write_datablock(4,wdata,0,Key_A)
+        local strat,rdata=fm17622.read_datablock(4,0,Key_A)
         if strat then
             log.info(json.encode(rdata))     
         end
 
     end,true)
 ]]
-function FM17622.setup(iic_id, iic_addr, NPD,IRQ,ENDCall,Debug)
-    FM17622_iic_id = iic_id
-    FM17622_iic_addr = iic_addr
-    FM17622_NPD = NPD
+function fm17622.setup(iic_id, iic_addr, NPD,IRQ,ENDCall,Debug)
+    fm17622_iic_id = iic_id
+    fm17622_iic_addr = iic_addr
+    fm17622_NPD = NPD
     endcall=ENDCall
     debug=Debug;
 
-    gpio.setup(FM17622_NPD, 0, gpio.PULLUP)
+    gpio.setup(fm17622_NPD, 0, gpio.PULLUP)
     sys.wait(5)
-    gpio.set(FM17622_NPD, 1)
+    gpio.set(fm17622_NPD, 1)
     sys.wait(5)
 
 
@@ -859,7 +859,7 @@ function FM17622.setup(iic_id, iic_addr, NPD,IRQ,ENDCall,Debug)
         if nfc_work==false then
             nfc_work=true;
             sys.taskInit(function()
-                FM17622.Lpcd_IRQ_Event()
+                fm17622.Lpcd_IRQ_Event()
                 nfc_work=false
             end)
             
@@ -869,10 +869,10 @@ function FM17622.setup(iic_id, iic_addr, NPD,IRQ,ENDCall,Debug)
 
 
     if GetReg(JREG_VERSION) == 0xA2 then
-        log.debug("IC Version = FM17622 or FM17610 \r\n")
-        FM17622.LPCD_setup()
+        log.debug("IC Version = fm17622 or FM17610 \r\n")
+        fm17622.LPCD_setup()
         sys.wait(5)
-        gpio.set(FM17622_NPD, 0)
+        gpio.set(fm17622_NPD, 0)
         return true
     end
 
@@ -891,9 +891,9 @@ end
 @usage
 local Key_A = string.char(0x01,0x02,0x03,0x04,0x05,0x06)
         local wdata = {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00}
-        FM17622.write_datablock(4,wdata,0,Key_A)
+        fm17622.write_datablock(4,wdata,0,Key_A)
 ]]
-function FM17622.write_datablock(addr, data, mode, key)
+function fm17622.write_datablock(addr, data, mode, key)
     if #data ~= 16 then
         log.error("data must be 16 bytes")
         return false
@@ -934,7 +934,7 @@ end
 
 --[[
 读取ic卡数据
-@api   FM17622.read_datablock(addr, mode, key)
+@api   fm17622.read_datablock(addr, mode, key)
 @number addr    ic卡地址块0到64
 @number A/B密码选择   A为0，B为1
 @number key      密码字符串
@@ -942,12 +942,12 @@ end
 @return table  读取到的值
 @usage
 local Key_A = string.char(0x01,0x02,0x03,0x04,0x05,0x06)
-local strat,rdata=FM17622.read_datablock(4,0,Key_A)
+local strat,rdata=fm17622.read_datablock(4,0,Key_A)
         if strat then
             log.info(json.encode(rdata))     
         end
 ]]
-function FM17622.read_datablock(addr, mode, key)
+function fm17622.read_datablock(addr, mode, key)
 
     if nfc_Data["UID"] == nil then
         log.error("UID 不能为空")
@@ -982,4 +982,4 @@ function FM17622.read_datablock(addr, mode, key)
 
 end
 
-return FM17622
+return fm17622

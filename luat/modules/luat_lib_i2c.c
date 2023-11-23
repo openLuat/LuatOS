@@ -844,8 +844,9 @@ static int l_i2c_no_block_transfer(lua_State *L)
 
 /**
 扫描i2c设备
-@api i2c.scan(id)
+@api i2c.scan(id,speed)
 @int 设备id, 例如i2c1的id为1, i2c2的id为2
+@int 速度, 可选i2c.SLOW i2c.FAST i2c.PLUS i2c.HSMODE 默认为i2c.SLOW,如探测不到则修改此项
 @return nil 当前无返回值
 @usage
 -- 本函数于2023.07.04添加
@@ -861,7 +862,7 @@ static int l_i2c_scan(lua_State *L) {
 #include "i2c_utils.h"
 static int l_i2c_scan(lua_State *L) {
     int id = luaL_optinteger(L, 1, 0);
-    i2c_init(id);
+    i2c_init(id,luaL_optinteger(L, 2, 0));
     i2c_scan();
     return 0;
 }

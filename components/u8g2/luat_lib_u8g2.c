@@ -1286,7 +1286,6 @@ uint8_t u8x8_luat_byte_hw_i2c_default(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int
       }
       break;
     case U8X8_MSG_BYTE_INIT:
-      //i2c_init(u8x8);			/* init i2c communication */
       luat_i2c_setup(i2c_id,i2c_speed);
       break;
     case U8X8_MSG_BYTE_SET_DC:

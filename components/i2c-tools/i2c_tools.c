@@ -12,7 +12,7 @@ void i2c_tools(const char * data,size_t len){
     char *command = strtok(i2c_tools_data, " ");
     if (memcmp("send", command, 4) == 0){
         int i2c_id = atoi(strtok(NULL, " "));
-        i2c_init(i2c_id);
+        i2c_init(i2c_id,0);
         uint8_t address = strtonum(strtok(NULL, " "));
         uint8_t send_buff[16];
         uint8_t len = 0;
@@ -28,7 +28,7 @@ void i2c_tools(const char * data,size_t len){
         }
     }else if(memcmp("recv",command,4) == 0){
         int i2c_id = atoi(strtok(NULL, " "));
-        i2c_init(i2c_id);
+        i2c_init(i2c_id,0);
         uint8_t address = strtonum(strtok(NULL, " "));
         uint8_t reg = strtonum(strtok(NULL, " "));
         uint8_t len = atoi(strtok(NULL, " "));
@@ -50,7 +50,7 @@ void i2c_tools(const char * data,size_t len){
         luat_heap_free(buffer);
     }else if(memcmp("scan",command,4) == 0){
         int i2c_id = atoi(strtok(NULL, " "));
-        i2c_init(i2c_id);
+        i2c_init(i2c_id,0);
         i2c_scan();
     }else{
         i2c_help();

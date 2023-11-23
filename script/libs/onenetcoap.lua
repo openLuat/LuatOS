@@ -4,9 +4,10 @@
 @version 1.0
 @date    2023.11.17
 @author  wendal
+@demo    onenet/coap
 @tag LUAT_USE_NETWORK
 @usage
--- 开发中,未可用
+-- 使用方法请查阅demo
 ]]
 
 
@@ -37,16 +38,21 @@ function onenet.setup(conf)
     end
     if not conf.product_id then
         log.error(TAG, "配置信息缺product_id")
+        return
     end
     if not conf.device_name then
         log.error(TAG, "配置信息缺device_name")
+        return
     end
     if not conf.device_key then
         log.error(TAG, "配置信息缺device_key")
+        return
     end
     onenet.product_id = conf.product_id
     onenet.device_name = conf.device_name
-    onenet.login_token = iotauth.onenet(onenet.product_id, onenet.device_name, conf.device_key)
+    -- log.info(">>", onenet.product_id, onenet.device_name, conf.device_key)
+    _, _, onenet.login_token = iotauth.onenet(onenet.product_id, onenet.device_name, conf.device_key, "sha1")
+    -- log.info("onenet.login_token", onenet.login_token)
 
     onenet.host = conf.host or "183.230.102.122"
     onenet.port = conf.port or 5683
@@ -78,7 +84,7 @@ function onenet.netc_cb(sc, event)
             ercoap.print(data)
             local resp = ercoap.parse(data)
             if resp and resp.code == 201 then
-                log.info(TAg, "login success", resp.code, resp.payload:toHex())
+                log.info(TAG, "login success", resp.code, resp.payload:toHex())
                 -- 这里非常重要, 获取其他请求所需要的token值
                 onenet.post_token = resp.payload
                 onenet.state = 2
@@ -101,7 +107,8 @@ function onenet.netc_cb(sc, event)
     elseif event == socket.ON_LINE then
         log.info(TAG, "UDP已准备就绪,可以上行")
         -- 上行登陆包
-        local data = ercoap.onenet("login", onenet.produt_id, onenet.device_name, onenet.login_token)
+        -- log.info("登陆参数", onenet.product_id, onenet.device_name, onenet.login_token)
+        local data = ercoap.onenet("login", onenet.product_id, onenet.device_name, onenet.login_token)
         -- log.info("上行登陆包", data:toHex())
         socket.tx(sc, data)
     else
@@ -163,8 +170,10 @@ function onenet.uplink(tp, payload)
     if type(payload) == "table" then
         payload = json.encode(payload, "7f")
     end
-    local tmp = ercoap.onenet(tp, onenet.product_id, onenet.device_name, payload)
-    socket.tx(netc, tmp)
+    -- log.info("uplink", onenet.product_id, onenet.device_name, onenet.post_token:toHex(), payload)
+    local tmp = ercoap.onenet(tp, onenet.product_id, onenet.device_name, onenet.post_token, payload)
+    -- log.info("uplink", tp, tmp:toHex())
+    socket.tx(onenet.netc, tmp)
     return true
 end
 

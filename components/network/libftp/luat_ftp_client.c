@@ -385,7 +385,9 @@ static void l_ftp_cb(FTP_SUCCESS_STATE_e state){
 		luat_ftp_cb_t ftp_cb = g_s_ftp.network->ftp_cb;
 		ftp_cb(&g_s_ftp,state);
 	}
+#ifndef __LUATOS__
 	OS_DeInitBuffer(&g_s_ftp.result_buffer);
+#endif
 }
 
 static void ftp_task(void *param){

@@ -34,6 +34,7 @@ static int32_t l_ftp_callback(lua_State *L, void* ptr){
 		luat_cbcwait(L, ftp_idp, 1);
 		ftp_idp = 0;
 	}
+	OS_DeInitBuffer(&luat_ftp_ctrl->result_buffer);
 	return 0;
 }
 

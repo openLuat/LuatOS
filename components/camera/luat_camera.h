@@ -112,7 +112,13 @@ int luat_camera_capture(int id, uint8_t quality, const char *path);
 
 int luat_camera_start_with_buffer(int id, void *buf);
 void luat_camera_continue_with_buffer(int id, void *buf);
-
+/**
+ * @brief 暂停接收camera数据
+ * @param id camera接收数据总线ID
+ * @param is_pause 非0暂停，0恢复
+ * @return 0成功，其他失败
+ */
+int luat_camera_pause(int id, uint8_t is_pause);
 /*
  * @brief 扫码库初始化
  * @param type 扫码库型号，目前只支持0

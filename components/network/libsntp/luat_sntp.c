@@ -1,9 +1,9 @@
-
 #include "luat_base.h"
-
 #include "luat_network_adapter.h"
 #include "luat_rtos.h"
+#ifdef __LUATOS__
 #include "luat_msgbus.h"
+#endif
 #include "luat_mcu.h"
 #include "luat_malloc.h"
 #include "luat_rtc.h"
@@ -30,9 +30,14 @@ sntp_ctx_t g_sntp_ctx;
 int luat_ntp_on_result(network_ctrl_t *sntp_netc, int result);
 
 
-
 #ifdef __LUATOS__
 int l_sntp_event_handle(lua_State* L, void* ptr);
+#else
+luat_ntp_callback g_ntp_callback = NULL;
+int ntp_register_callback(luat_ntp_callback cb)
+{
+    g_ntp_callback = cb;
+}
 #endif
 
 void ntp_cleanup(void) {
@@ -64,6 +69,10 @@ void ntp_timeout_cb(LUAT_RT_CB_PARAM) {
         msg.arg1 = NTP_TIMEOUT;
         luat_msgbus_put(&msg, 0);
 #else
+        if (g_ntp_callback)
+        {
+           g_ntp_callback(NTP_TIMEOUT, NULL);
+        }
         ntp_cleanup();
 #endif
     }
@@ -128,6 +137,10 @@ int luat_ntp_on_result(network_ctrl_t *sntp_netc, int result) {
     msg.arg1 = result;
     luat_msgbus_put(&msg, 0);
 #else
+    if (g_ntp_callback)
+    {
+       g_ntp_callback(result, NULL);
+    }
     ntp_cleanup();
 #endif
     return 0;
@@ -303,6 +316,12 @@ int32_t luat_sntp_callback(void *data, void *param) {
                 g_sntp_ctx.network_delay_ms = ttt / g_sntp_ctx.ndelay_c;
             }
             LLOGD("Unix timestamp: %d",time);
+            #ifndef __LUATOS__
+            if (g_ntp_callback)
+            {
+               g_ntp_callback(NTP_UPDATE, time);
+            }
+            #endif
             luat_ntp_on_result(sntp_netc, NTP_UPDATE);
             return 0;
 		}else{

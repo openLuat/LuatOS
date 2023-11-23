@@ -235,7 +235,9 @@ int32_t luat_sntp_callback(void *data, void *param) {
             // LLOGD("transmit_timestamp  %d %06u", ntptime2u32((uint8_t*)&smsg.transmit_timestamp[0], 1),  ntptime2u32((uint8_t*)&smsg.transmit_timestamp[1], 0));
             // uint32_t time =  ((uint32_t)p[0] << 24) | ((uint32_t)p[1] << 16) | ((uint32_t)p[2] << 8) | (uint32_t)p[3];
             uint32_t time = ntptime2u32(p, 1);
+            #ifdef __LUATOS__
             luat_rtc_set_tamp32(time);
+            #endif
             // 计算误差
 
             // 参考时间戳reference_timestamp == rft

@@ -87,3 +87,9 @@ int main(int argc, char** argv) {
     _luat_main(NULL);
     return 0;
 }
+
+static uint64_t tick64;
+uint64_t luat_mcu_tick64(void) {
+    tick64 ++;
+    return tick64;
+}

@@ -47,13 +47,7 @@ typedef struct sntp_ctx
 
 int ntp_get(int adapter_index);
 void ntp_cleanup(void);
-
-#ifdef __LUATOS__
 int l_sntp_get(lua_State *L);
 int l_sntp_tm(lua_State *L);
-#else
-typedef void (*luat_ntp_callback)(int result, uint64_t time);
-int ntp_register_callback(luat_ntp_callback cb);
-#endif
 
 #endif

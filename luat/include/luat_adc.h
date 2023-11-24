@@ -99,5 +99,15 @@ int luat_adc_close(int pin);
  * @return 0 成功, 其他值为失败
  */
 int luat_adc_global_config(int tp, int val);
+
+/**
+ * luat_adc_ctrl
+ * Description: 设置ADC参数，部分功能会与luat_adc_global_config有相同的想过
+ * @param id[in] adc通道的序号
+ * @param cmd[in]  参数类型
+ * @param param[in] 参数值
+ * @return 0 成功, 其他值为失败
+ */
+int luat_adc_ctrl(int id, LUAT_ADC_CTRL_CMD_E cmd, luat_adc_ctrl_param_t param);
 /** @}*/
 #endif

@@ -7,6 +7,8 @@
 @tag LUAT_USE_SMS
 @usage
 -- 注意, Air780E/Air600E/Air780EG/Air780EG均不支持电信卡的短信!!
+-- 意思是, 当上述模块搭配电信SIM卡, 无法从模块发出短信, 也无法在模块接收短信
+-- 如果是联通卡或者移动卡, 均可收取短信, 但实名制的卡才能发送短信
 */
 
 #include "luat_base.h"

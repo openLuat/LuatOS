@@ -120,6 +120,7 @@ LV_ATTRIBUTE_FAST_MEM void lv_draw_label(const lv_area_t * coords, const lv_area
     if(dsc->opa <= LV_OPA_MIN) return;
     const lv_font_t * font = dsc->font;
     int32_t w;
+    lv_color_t color = dsc->color;
 
     /*No need to waste processor time if string is empty*/
     if(txt[0] == '\0')  return;
@@ -304,7 +305,7 @@ LV_ATTRIBUTE_FAST_MEM void lv_draw_label(const lv_area_t * coords, const lv_area
                 }
             }
 
-            lv_color_t color = dsc->color;
+            
 
             if(cmd_state == CMD_STATE_IN) color = recolor;
 

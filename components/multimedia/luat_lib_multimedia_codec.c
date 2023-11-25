@@ -100,7 +100,7 @@ static int l_codec_get_audio_info(lua_State *L) {
 	uint32_t jump, i;
 	uint8_t temp[16];
 	int result = 0;
-	int audio_format;
+	int audio_format = MULTIMEDIA_DATA_TYPE_NONE;
 	uint8_t num_channels;
 	uint32_t sample_rate;
 	int bits_per_sample = 16;

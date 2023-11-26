@@ -54,6 +54,7 @@ int luat_libgnss_init(int clear) {
             LLOGW("out of memory for libgnss data parse");
             return -1;
         }
+        memset(libgnss_gnss, 0, sizeof(luat_libgnss_t));
     }
     if (libgnss_gnsstmp == NULL) {
         libgnss_gnsstmp = luat_heap_malloc(sizeof(luat_libgnss_tmp_t));
@@ -63,6 +64,7 @@ int luat_libgnss_init(int clear) {
             LLOGW("out of memory for libgnss data parse");
             return -1;
         }
+        memset(libgnss_gnsstmp, 0, sizeof(luat_libgnss_tmp_t));
     }
     // gnss->lua_ref = luaL_ref(L, LUA_REGISTRYINDEX);
     if (clear) {

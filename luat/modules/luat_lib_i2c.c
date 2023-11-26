@@ -193,11 +193,16 @@ i2c初始化
 @return int 成功就返回1,否则返回0
 @usage
 -- 初始化i2c1
-i2c.setup(1, i2c.FAST) -- 端口正确就一定成功
+i2c.setup(1, i2c.FAST) -- id正确就一定成功
 -- 如需判断i2c id是否合法, 请使用 i2c.exist 函数
 */
 static int l_i2c_setup(lua_State *L)
 {
+    if (lua_isuserdata(L, 1)) {
+        LLOGD("软件i2c不需要再执行i2c.setup");
+        lua_pushinteger(L, 1);
+        return 1;
+    }
     int re = luat_i2c_setup(luaL_checkinteger(L, 1), luaL_optinteger(L, 2, 0));
     lua_pushinteger(L, re == 0 ? 1 : 0);
     return 1;

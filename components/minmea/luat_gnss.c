@@ -151,12 +151,12 @@ int luat_libgnss_parse_nmea(const char* line) {
                     }
                     libgnss_gnss->fix_at_ticks = 0;
                     libgnss_gnss->frame_rmc.valid = 0;
-                    if (libgnss_gnsstmp->frame_rmc.date.year > 0) {
+                    // if (libgnss_gnsstmp->frame_rmc.date.year > 0) {
                         memcpy(&(libgnss_gnss->frame_rmc.date), &(libgnss_gnsstmp->frame_rmc.date), sizeof(struct minmea_date));
-                    }
-                    if (libgnss_gnsstmp->frame_rmc.time.hours > 0) {
+                    // }
+                    // if (libgnss_gnsstmp->frame_rmc.time.hours > 0) {
                         memcpy(&(libgnss_gnss->frame_rmc.time), &(libgnss_gnsstmp->frame_rmc.time), sizeof(struct minmea_time));
-                    }
+                    // }
                 }
             }
         } break;

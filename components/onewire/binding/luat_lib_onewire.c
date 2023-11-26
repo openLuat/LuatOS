@@ -126,7 +126,7 @@ static int l_onewire_ds18b20(lua_State *L)
         }
         if (crc != data[8]) {
             LLOGD("crc %02X %02X", crc, data[8]);
-            return 0;
+            goto exit;
         }
     }
 

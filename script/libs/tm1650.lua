@@ -196,8 +196,8 @@ tm1650.init(pin.PB06,pin.PB07,tm1650.MODE_KEY_INPUT,pin.PB08,tm1650_kcb)  --æŒ‰é
 ]]
 function tm1650.init(scl_pin,sda_pin,mode,irq_pin,key_cb)
 
-    TM1650_SCL =  gpio.setup(scl_pin, 1)
-    TM1650_SDA =  gpio.setup(sda_pin, 1)
+    TM1650_SCL =  gpio.setup(scl_pin, 1, gpio.PULLUP)
+    TM1650_SDA =  gpio.setup(sda_pin, 1, gpio.PULLUP)
     TM650_SDA_PIN = sda_pin
 
     if mode == tm1650.MODE_KEY_INPUT then

@@ -28,6 +28,7 @@ int luat_i2s_tx_stat(uint8_t id, size_t *buffsize, size_t* remain);
 //csdk专用
 void luat_i2s_init(void);
 void luat_i2s_base_setup(uint8_t bus_id, uint8_t mode,  uint8_t frame_size);
+void luat_i2s_set_lr_channel(uint8_t bus_id, uint8_t lr_channel);
 int luat_i2s_start(uint8_t bus_id, uint8_t is_play, uint32_t sample, uint8_t channel_num);
 int luat_i2s_transfer_start(uint8_t bus_id, uint32_t sample, uint8_t channel_num, uint32_t byte_len, void *cb, void *param);
 void luat_i2s_no_block_tx(uint8_t bus_id, uint8_t* address, uint32_t byte_len, void * cb, void *param);

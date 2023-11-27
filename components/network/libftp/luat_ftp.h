@@ -101,10 +101,10 @@ typedef struct{
 }luat_ftp_ctrl_t;
 
 typedef struct{
-	char *server_cert;
-	char *client_cert;
-	char *client_key;
-	char *client_password;
+	const char *server_cert;
+	const char *client_cert;
+	const char *client_key;
+	const char *client_password;
 }luat_ftp_tls_t;
 
 typedef void (*luat_ftp_cb_t)(luat_ftp_ctrl_t *luat_ftp_ctrl, FTP_SUCCESS_STATE_e event);

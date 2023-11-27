@@ -6,6 +6,9 @@
 #define LUAT_LOG_TAG "onewire"
 #include "luat_log.h"
 
+#define CONNECT_FAILED -1
+#define CONNECT_SUCCESS 0
+
 static luat_onewire_opt_t* opt_hw;
 static const luat_onewire_opt_t opt_gpio = {
     .mode = LUAT_ONEWIRE_MODE_GPIO,
@@ -297,5 +300,121 @@ exit:
     luat_onewire_close(ctx); // 清理并关闭
     luat_os_exit_cri();
     return -1;
+}
+
+
+//------------------------------------------------------------------
+// DHT系列
+
+
+//总线空闲状态为高电平,主机把总线拉低等待DHT11响应,主机把总线拉低必须大于18毫秒
+static void dht_reset(int pin)
+{
+  luat_gpio_mode(pin, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+  luat_gpio_set(pin, Luat_GPIO_HIGH);
+  luat_timer_mdelay(100);
+  luat_gpio_set(pin, Luat_GPIO_LOW);
+  luat_timer_mdelay(20);
+  luat_gpio_set(pin, Luat_GPIO_HIGH);
+}
+
+
+//主机发送开始信号结束后,延时等待20-40us后, 读取DHT11的响应信号
+static uint8_t dht_connect(int pin)
+{
+  luat_gpio_mode(pin, Luat_GPIO_INPUT, Luat_GPIO_PULLUP, Luat_GPIO_HIGH);
+  luat_timer_us_delay(10);
+  uint8_t retry = 0;
+  while (luat_gpio_get(pin) && retry < 100)
+  {
+    retry++;
+    luat_timer_us_delay(1);
+  };
+  if (retry >= 100)
+    return CONNECT_FAILED;
+
+  retry = 0;
+  while (!luat_gpio_get(pin) && retry < 100)
+  {
+    retry++;
+    luat_timer_us_delay(1);
+  };
+  if (retry >= 100)
+    return CONNECT_FAILED;
+
+  //相应完后等变低
+  while (luat_gpio_get(pin) && retry < 200)
+  {
+    retry++;
+    luat_timer_us_delay(1);
+  };
+  return CONNECT_SUCCESS;
+}
+
+//总线为低电平,说明DHT11发送响应信号,DHT11发送响应信号后,再把总线拉高80us,准备发送数据,每一bit数据都以50us低电平时隙开始,高电平的长短决定了数据位是0还是1
+static uint8_t dht_read_bit(int pin)
+{
+  uint8_t retry=0,d=0;
+  while (!luat_gpio_get(pin) && retry < 200)
+  {
+    retry++;
+    luat_timer_us_delay(1);
+  };
+  luat_timer_us_delay(30);
+  d = luat_gpio_get(pin);
+  retry=0;
+  while (luat_gpio_get(pin) && retry < 200)
+  {
+    retry++;
+    luat_timer_us_delay(1);
+  };
+  return d;
+}
+
+static uint8_t dht_read_byte(int pin)
+{
+  uint8_t i, dat;
+  dat = 0;
+  for (i = 0; i < 8; i++)//MSB
+  {
+    dat<<=1;
+    dat+=dht_read_bit(pin);
+  }
+  return dat;
+}
+
+
+
+int luat_onewire_dht(luat_onewire_ctx_t* ctx, int32_t* temp, int32_t* hm, int check_crc) {
+    uint8_t buff[5];
+    dht_reset(ctx->id);
+    luat_os_entry_cri();
+    if(dht_connect(ctx->id))//没连上
+    {
+        luat_os_exit_cri();
+        return -1;
+    }
+  
+    for (size_t i = 0; i < 5; i++)
+    {
+        buff[i] = dht_read_byte(ctx->id);
+    }
+    
+    luat_os_exit_cri();
+
+    // LLOGD("读出的数据 %02X%02X%02X%02X%02X", buff[0], buff[1], buff[2], buff[3], buff[4]);
+    *hm = buff[0]*100+buff[1];
+    *temp = buff[2]*100+buff[3];
+
+    if (check_crc) {
+        uint8_t check_r = 0;
+        check_r = buff[0]+buff[1]+buff[2]+buff[3];
+        if (check_r != buff[4]) {
+            // LLOGD("crc校验不成功");
+            return -2;
+        }
+        // LLOGD("crc校验成功");
+    }
+    return 0;
 }
 

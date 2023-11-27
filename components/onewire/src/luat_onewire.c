@@ -403,8 +403,6 @@ int luat_onewire_dht(luat_onewire_ctx_t* ctx, int32_t* temp, int32_t* hm, int ch
     luat_os_exit_cri();
 
     // LLOGD("读出的数据 %02X%02X%02X%02X%02X", buff[0], buff[1], buff[2], buff[3], buff[4]);
-    *hm = buff[0]*100+buff[1];
-    *temp = buff[2]*100+buff[3];
 
     if (check_crc) {
         uint8_t check_r = 0;
@@ -415,6 +413,8 @@ int luat_onewire_dht(luat_onewire_ctx_t* ctx, int32_t* temp, int32_t* hm, int ch
         }
         // LLOGD("crc校验成功");
     }
+    *temp = buff[0]*100+buff[1];
+    *hm = buff[2]*100+buff[3];
     return 0;
 }
 

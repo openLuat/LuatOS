@@ -52,7 +52,7 @@ static int l_onewire_ds18b20(lua_State *L)
     int ret = 0;
     ctx.id = luaL_checkinteger(L, 1);
     int check_crc = lua_toboolean(L, 2);
-    ctx.mode = luaL_checkinteger(L, 3);
+    ctx.mode = luaL_optinteger(L, 3, LUAT_ONEWIRE_MODE_GPIO);
     int32_t val = 0;
     ret = luat_onewire_ds18b20(&ctx, check_crc, &val);
     if (ret) {
@@ -81,13 +81,13 @@ else
 end
 
 */
-static int l_onewire_dht(lua_State *L)
+static int l_onewire_dht1x(lua_State *L)
 {
     luat_onewire_ctx_t ctx = {0};
     int ret = 0;
     ctx.id = luaL_checkinteger(L, 1);
     int check_crc = lua_toboolean(L, 2);
-    ctx.mode = luaL_checkinteger(L, 3);
+    ctx.mode = luaL_optinteger(L, 3, LUAT_ONEWIRE_MODE_GPIO);
     int32_t temp = 0;
     int32_t hm = 0;
     ret = luat_onewire_dht(&ctx, &temp, &hm, check_crc);
@@ -103,7 +103,7 @@ static int l_onewire_dht(lua_State *L)
 static const rotable_Reg_t reg_onewire[] =
     {
         {"ds18b20", ROREG_FUNC(l_onewire_ds18b20)},
-        {"dht1x", ROREG_FUNC(l_onewire_dht)},
+        {"dht1x", ROREG_FUNC(l_onewire_dht1x)},
         {"open", ROREG_FUNC(l_onewire_open)},
         {"close", ROREG_FUNC(l_onewire_close)},
 

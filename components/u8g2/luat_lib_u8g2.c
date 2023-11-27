@@ -1080,6 +1080,9 @@ static const rotable_Reg_t reg_u8g2[] =
 #ifdef USE_U8G2_OPPOSANSM10_CHINESE
     { "font_opposansm10_chinese", ROREG_PTR((void*)u8g2_font_opposansm10_chinese)},
 #endif
+#ifdef USE_U8G2_OPPOSANSM14_CHINESE
+    { "font_opposansm14_chinese", ROREG_PTR((void*)u8g2_font_opposansm14_chinese)},
+#endif
 #ifdef USE_U8G2_OPPOSANSM12_CHINESE
     { "font_opposansm12_chinese", ROREG_PTR((void*)u8g2_font_opposansm12_chinese)},
 #endif

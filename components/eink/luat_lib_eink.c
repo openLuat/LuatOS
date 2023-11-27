@@ -1411,6 +1411,10 @@ static const rotable_Reg_t reg_eink[] =
     //@const font_opposansm12_chinese font 12号中文字体
     { "font_opposansm12_chinese", ROREG_PTR((void*)u8g2_font_opposansm12_chinese)},
 #endif
+#ifdef USE_U8G2_OPPOSANSM14_CHINESE
+    //@const font_opposansm14_chinese font 14号中文字体
+    { "font_opposansm14_chinese", ROREG_PTR((void*)u8g2_font_opposansm14_chinese)},
+#endif
 #ifdef USE_U8G2_OPPOSANSM16_CHINESE
     //@const font_opposansm16_chinese font 16号中文字体
     { "font_opposansm16_chinese", ROREG_PTR((void*)u8g2_font_opposansm16_chinese)},

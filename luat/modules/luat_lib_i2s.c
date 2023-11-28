@@ -89,6 +89,7 @@ int32_t luat_i2s_rx_cb(void *pdata, void *param)
 @int 数据位数,默认16, 可以是8的倍数
 @int 声道, 0 左声道, 1 右声道, 2 双声道. 可选
 @int 格式, 可选MODE_I2S, MODE_LSB, MODE_MSB
+@int 1个声道的BCLK数量, 可选16和32
 @int mclk频率, 默认 8M. 可选
 @return boolean 成功与否
 @return int 底层返回值
@@ -106,7 +107,8 @@ static int l_i2s_setup(lua_State *L) {
     conf.bits_per_sample = luaL_optinteger(L, 4, 16); // 通常就是16bit
     conf.channel_format = luaL_optinteger(L, 5, 0); // 1 右声道, 0 左声道
     conf.communication_format = luaL_optinteger(L, 6, 0); // 0 - I2S 标准, 当前只支持这种就行
-    conf.mclk = luaL_optinteger(L, 7, 0);
+    conf.channel_bits = luaL_optinteger(L, 7, 16); //
+    conf.mclk = luaL_optinteger(L, 8, 0);
     // conf.intr_alloc_flags = luaL_optinteger(L, 8, 0);
     int ret = luat_i2s_setup(&conf);
     lua_pushboolean(L, ret == 0 ? 1 : 0);

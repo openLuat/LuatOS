@@ -144,14 +144,14 @@ function lbsLoc2.request(timeout, host, port, reqTime)
             return
         end
         local reqStr = string.char(0, (reqTime and 4 or 0) +8) .. lbsLoc2.imei .. enCellInfo(cells)
-        log.debug("lbsLoc", "待发送数据", (reqStr:toHex()))
-        log.debug("lbsLoc", rhost, port)
+        -- log.debug("lbsLoc2", "待发送数据", (reqStr:toHex()))
+        log.debug("lbsLoc2", rhost, port)
         if socket.connect(sc, rhost, port) and sys.waitUntil("LBS_CONACK", 1000) then
             if socket.tx(sc, reqStr) and sys.waitUntil("LBS_TX", 1000) then
                 socket.wait(sc)
                 if sys.waitUntil("LBS_RX", timeout or 15000) then
                     local succ, data_len = socket.rx(sc, rxbuff)
-                    log.debug("lbsLoc", "rx", succ, data_len)
+                    -- log.debug("lbsLoc", "rx", succ, data_len)
                     if succ and data_len > 0 then
                         socket.close(sc)
                         break
@@ -174,7 +174,7 @@ function lbsLoc2.request(timeout, host, port, reqTime)
     socket.release(sc)
     if rxbuff:used() > 0 then
         local resp = rxbuff:toStr(0, rxbuff:used())
-        log.debug("lbsLoc", "rx", (resp:toHex()))
+        log.debug("lbsLoc2", "rx", (resp:toHex()))
         if resp:len() >= 11 and(resp:byte(1) == 0 or resp:byte(1) == 0xFF) then
             local lat = trans(bcdNumToNum(resp:sub(2, 6)))
             local lng = trans(bcdNumToNum(resp:sub(7, 11)))

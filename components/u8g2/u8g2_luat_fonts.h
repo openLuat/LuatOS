@@ -21,6 +21,7 @@ extern "C" {
 extern const uint8_t u8g2_font_opposansm8[] U8G2_FONT_SECTION("u8g2_font_opposansm8");
 extern const uint8_t u8g2_font_opposansm10[] U8G2_FONT_SECTION("u8g2_font_opposansm10");
 extern const uint8_t u8g2_font_opposansm12[] U8G2_FONT_SECTION("u8g2_font_opposansm12");
+extern const uint8_t u8g2_font_opposansm14[] U8G2_FONT_SECTION("u8g2_font_opposansm14");
 extern const uint8_t u8g2_font_opposansm16[] U8G2_FONT_SECTION("u8g2_font_opposansm16");
 extern const uint8_t u8g2_font_opposansm18[] U8G2_FONT_SECTION("u8g2_font_opposansm18");
 extern const uint8_t u8g2_font_opposansm20[] U8G2_FONT_SECTION("u8g2_font_opposansm20");

@@ -82,7 +82,7 @@ int32_t luat_i2s_rx_cb(void *pdata, void *param)
 
 /*
 初始化i2s
-@api i2s.setup(id, mode, sample, bitw, channel, format, mclk)
+@api i2s.setup(id, mode, sample, bitw, channel, format, framebit, mclk)
 @int i2s通道号,与具体设备有关
 @int 模式, 当前仅支持0, MASTER|TX|RX 模式, 暂不支持slave. 可选
 @int 采样率,默认44100. 可选

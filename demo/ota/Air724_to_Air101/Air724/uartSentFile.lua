@@ -38,14 +38,14 @@ sys.taskInit(function()
         "http://iot.openluat.com/api/site/firmware_upgrade?project_key=" ..
             PRODUCT_KEY .. "&imei=" .. imei .. "&firmware_name=" .. bsp ..
             "&version=" .. ver
-    http.request("GET", url, nil, nil, nil, 30000, httpCbFnc, "/lua/update.bin")
+    http.request("GET", url, nil, nil, nil, 30000, httpCbFnc, "/update.bin")
     sys.waitUntil("HTTP_GET_SUCCESS")
-    local fileHandle = io.open("/lua/update.bin", "rb")
+    local fileHandle = io.open("/update.bin", "rb")
     if not fileHandle then
         log.error("open updateFile error")
         return
     end
-    local size = io.fileSize("/lua/update.bin")
+    local size = io.fileSize("/update.bin")
     log.info("打印大小", size)
     pm.wake("UART1_SENT101")
     uart.write(uartID, "###" .. size .. "&&&")
@@ -60,7 +60,7 @@ sys.taskInit(function()
     uart.close(uartID)
     pm.sleep("UART1_SENT101")
     fileHandle:close()
-    os.remove("/lua/update.bin")
+    os.remove("/update.bin")
     checkSwitch = false
 end)
 local rdbuf = ""

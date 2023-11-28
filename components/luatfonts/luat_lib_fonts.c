@@ -45,6 +45,9 @@ static const u8g2_font_t u8g2_fonts[] = {
 #ifdef USE_U8G2_OPPOSANSM12_CHINESE
     {.name="opposansm12_chinese", .font=u8g2_font_opposansm12_chinese},
 #endif
+#ifdef USE_U8G2_OPPOSANSM14_CHINESE
+    {.name="opposansm14_chinese", .font=u8g2_font_opposansm14_chinese},
+#endif
 #ifdef USE_U8G2_OPPOSANSM16_CHINESE
     {.name="opposansm16_chinese", .font=u8g2_font_opposansm16_chinese},
 #endif

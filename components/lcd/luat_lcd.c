@@ -161,11 +161,7 @@ int luat_lcd_init(luat_lcd_conf_t* conf) {
         if(strcmp(conf->opts->name,"custom") == 0){
             luat_heap_free(conf->opts->init_cmds);
         }
-        if(conf->direction==0) direction_date = conf->opts->direction0;
-        else if(conf->direction==1) direction_date = conf->opts->direction90;
-        else if(conf->direction==2) direction_date = conf->opts->direction180;
-        else direction_date = conf->opts->direction270;
-        lcd_write_cmd_data(conf,0x36, &direction_date, 1);
+        luat_lcd_set_direction(conf,conf->direction);
     }
 
     luat_lcd_wakeup(conf);
@@ -243,6 +239,16 @@ int luat_lcd_set_address(luat_lcd_conf_t* conf,int16_t x1, int16_t y1, int16_t x
 int luat_lcd_set_color(luat_color_t back, luat_color_t fore){
     BACK_COLOR = back;
     FORE_COLOR = fore;
+    return 0;
+}
+
+int luat_lcd_set_direction(luat_lcd_conf_t* conf, uint8_t direction){
+    uint8_t direction_date = 0;
+    if(direction==0) direction_date = conf->opts->direction0;
+    else if(direction==1) direction_date = conf->opts->direction90;
+    else if(direction==2) direction_date = conf->opts->direction180;
+    else direction_date = conf->opts->direction270;
+    lcd_write_cmd_data(conf,0x36, &direction_date, 1);
     return 0;
 }
 

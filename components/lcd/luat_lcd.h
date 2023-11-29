@@ -32,8 +32,10 @@
 
 struct luat_lcd_opts;
 
-enum{
+#define LUAT_LCD_DEFAULT_SLEEP  0X10
+#define LUAT_LCD_DEFAULT_WAKEUP 0X11
 
+enum{
 	LUAT_LCD_IM_3_WIRE_9_BIT_INTERFACE_I = 5,
 	LUAT_LCD_IM_4_WIRE_8_BIT_INTERFACE_I = 6,
 	LUAT_LCD_IM_3_WIRE_9_BIT_INTERFACE_II = 13,
@@ -74,6 +76,8 @@ typedef struct luat_lcd_conf {
 
 typedef struct luat_lcd_opts {
     const char* name;
+    uint8_t sleep_cmd;
+    uint8_t wakeup_cmd;
     uint8_t direction0;
     uint8_t direction90;
     uint8_t direction180;

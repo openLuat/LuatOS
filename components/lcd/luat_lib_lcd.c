@@ -231,7 +231,6 @@ static int l_lcd_init(lua_State* L) {
                   LLOGE("init_cmd fail open error");
               }
             }
-            luat_heap_free(conf->opts->init_cmds);
             lua_pop(L, 1);
         }
         // 默认自动flush,即使没有buff

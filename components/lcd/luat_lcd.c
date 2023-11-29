@@ -137,7 +137,6 @@ int luat_lcd_init(luat_lcd_conf_t* conf) {
         conf->w = LCD_W;
     if (conf->h == 0)
         conf->h = LCD_H;
-    LLOGD("interface_mode:%d",conf->interface_mode);
     if (conf->pin_pwr != 255)
         luat_gpio_mode(conf->pin_pwr, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW); // POWER
     if (conf->interface_mode==LUAT_LCD_IM_4_WIRE_8_BIT_INTERFACE_I || conf->interface_mode==LUAT_LCD_IM_4_WIRE_8_BIT_INTERFACE_II){
@@ -159,6 +158,9 @@ int luat_lcd_init(luat_lcd_conf_t* conf) {
         conf->opts->init(conf);
     }else{
         luat_lcd_execute_cmds(conf);
+        if(strcmp(conf->opts->name,"custom") == 0){
+            luat_heap_free(conf->opts->init_cmds);
+        }
         if(conf->direction==0) direction_date = conf->opts->direction0;
         else if(conf->direction==1) direction_date = conf->opts->direction90;
         else if(conf->direction==2) direction_date = conf->opts->direction180;

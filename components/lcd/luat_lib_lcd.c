@@ -429,6 +429,12 @@ static int l_lcd_set_color(lua_State* L) {
     return 1;
 }
 
+static int l_lcd_set_direction(lua_State* L) {
+    int ret = luat_lcd_set_direction(default_conf, (uint8_t)luaL_checkinteger(L, 1));
+    lua_pushboolean(L, ret == 0 ? 1 : 0);
+    return 1;
+}
+
 /*
 lcd颜色填充
 @api lcd.draw(x1, y1, x2, y2,color)
@@ -1825,7 +1831,11 @@ static const rotable_Reg_t reg_lcd[] =
 #ifdef USE_U8G2_SARASA_M28_CHINESE
     { "font_sarasa_m28_chinese", ROREG_PTR((void*)u8g2_font_sarasa_m28_chinese)},
 #endif
-
+    { "set_direction",  ROREG_FUNC(l_lcd_set_direction)},
+    { "direction_0",    ROREG_INT(0)},
+    { "direction_90",   ROREG_INT(1)},
+    { "direction_180",  ROREG_INT(2)},
+    { "direction_270",  ROREG_INT(3)},
 	  {NULL, ROREG_INT(0)}
 };
 

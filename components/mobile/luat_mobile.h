@@ -594,6 +594,14 @@ typedef enum LUAT_MOBILE_SMS_STATUS
 	LUAT_MOBILE_SMS_SEND_DONE, /**< 短信发送到运营商*/
 	LUAT_MOBILE_SMS_ACK, /**< 短信已经被接收*/
 }LUAT_MOBILE_SMS_STATUS_E;
+
+/**
+ * @brief 获取当前SIM卡状态
+ *
+ * @return 见@enum LUAT_MOBILE_SIM_STATUS_E
+ */
+LUAT_MOBILE_SIM_STATUS_E luat_mobile_get_sim_status(void);
+
 /**
  * @brief 获取当前移动网络注册状态
  * 

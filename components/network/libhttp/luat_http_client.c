@@ -18,14 +18,12 @@
 
 #define LUAT_LOG_TAG "http"
 #include "luat_log.h"
-
-#define HTTP_DEBUG 0
-#if HTTP_DEBUG == 0
+#ifndef LUAT_HTTP_DEBUG
+#define LUAT_HTTP_DEBUG 0
+#endif
+#if LUAT_HTTP_DEBUG == 0
 #undef LLOGD
 #define LLOGD(...)
-// #else
-// #undef LLOGD
-// #define LLOGD	LLOGD
 #endif
 
 static void http_send_message(luat_http_ctrl_t *http_ctrl);
@@ -288,8 +286,8 @@ static int on_headers_complete(http_parser* parser){
 static int on_body(http_parser* parser, const char *at, size_t length){
 	// LLOGD("on_body:%.*s",length,at);
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)parser->data;
-	LLOGD("on_body length:%d http_ctrl->body_len:%d status_code:%d",length,http_ctrl->body_len+length,parser->status_code);
 #ifdef __LUATOS__
+	LLOGD("on_body length:%d http_ctrl->body_len:%d status_code:%d",length,http_ctrl->body_len+length,parser->status_code);
 	if (http_ctrl->is_download){
 		if (http_ctrl->fd == NULL){
 			luat_fs_remove(http_ctrl->dst);
@@ -454,7 +452,7 @@ static void http_send_message(luat_http_ctrl_t *http_ctrl){
 	http_send(http_ctrl, (uint8_t*)http_ctrl->request_line, strlen((char*)http_ctrl->request_line));
 	// 判断自定义headers是否有host
 	if (http_ctrl->custom_host == 0) {
-		snprintf_((char*)http_ctrl->resp_buff, HTTP_RESP_BUFF_SIZE,  "Host: %s\r\n", http_ctrl->host);
+		snprintf_((char*)http_ctrl->resp_buff, HTTP_RESP_BUFF_SIZE,  "Host: %s:%d\r\n", http_ctrl->host, http_ctrl->remote_port);
 		http_send(http_ctrl, (uint8_t*)http_ctrl->resp_buff, strlen((char*)http_ctrl->resp_buff));
 	}
 
@@ -833,8 +831,8 @@ int luat_http_client_ssl_config(luat_http_ctrl_t* http_ctrl, int mode, const cha
 		return -ERROR_PARAM_INVALID;
 	}
 	int result;
-	network_init_tls(http_ctrl->netc, (server_cert || client_cert)?2:0);
-
+	// network_init_tls(http_ctrl->netc, (server_cert || client_cert)?2:0);
+	network_init_tls(http_ctrl->netc, 0);
 	if (server_cert){
 		result = network_set_server_cert(http_ctrl->netc, (const unsigned char *)server_cert, server_cert_len);
 		if (result)

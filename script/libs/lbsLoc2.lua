@@ -105,12 +105,18 @@ end
 -- 历史数据已经无法分辨具体坐标系
 -- 鉴于两种坐标系之间的误差并不大,小于基站定位本身的误差, 纠偏的意义不大
 sys.taskInit(function()
-    if mobile.status() == 0 then
-        sys.waitUntil("IP_READY", 3000)
+    sys.waitUntil("IP_READY", 30000)
+    -- mobile.reqCellInfo(60)
+    -- sys.wait(1000)
+    while mobile do -- 没有mobile库就没有基站定位
+        mobile.reqCellInfo(15)
+        sys.waitUntil("CELL_INFO_UPDATE", 3000)
+        local lat, lng, t = lbsLoc2.request(5000)
+        -- local lat, lng, t = lbsLoc2.request(5000, "bs.openluat.com")
+        log.info("lbsLoc2", lat, lng, (json.encode(t or {})))
+        sys.wait(15000)
     end
-    local lat,lng,t = lbsLoc2.request(3000)
-    log.info("lbs", lat, lng, json.encode(t or {}))
-end
+end)
 ]]
 function lbsLoc2.request(timeout, host, port, reqTime)
     if mobile.status() == 0 then

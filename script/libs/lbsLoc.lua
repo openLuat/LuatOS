@@ -33,7 +33,16 @@ function getLocCb(result, lat, lng, addr, time, locType)
         log.info("定位类型,基站定位成功返回0", locType)
     end
 end
-lbsLoc.request(getLocCb)
+
+sys.taskInit(function()
+    sys.waitUntil("IP_READY", 30000)
+    while 1 do
+        mobile.reqCellInfo(15)
+        sys.waitUntil("CELL_INFO_UPDATE", 3000)
+        lbsLoc.request(getLocCb)
+        sys.wait(60000)
+    end
+end)
 ]]
 
 local sys = require "sys"

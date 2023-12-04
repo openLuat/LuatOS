@@ -24,7 +24,7 @@ sys.taskInit(function()
         local lat, lng, t = lbsLoc2.request(5000)
         -- local lat, lng, t = lbsLoc2.request(5000, "bs.openluat.com")
         log.info("lbsLoc2", lat, lng, (json.encode(t or {})))
-        sys.wait(15000)
+        sys.wait(60000)
     end
 end)
 

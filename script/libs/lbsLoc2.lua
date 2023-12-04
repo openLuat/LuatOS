@@ -11,12 +11,18 @@
 -- 2. 仅支持单基站定位, 即当前联网的基站
 -- 3. 本服务当前处于测试状态
 sys.taskInit(function()
-    if mobile.status() == 0 then
-        sys.waitUntil("IP_READY", 3000)
+    sys.waitUntil("IP_READY", 30000)
+    -- mobile.reqCellInfo(60)
+    -- sys.wait(1000)
+    while mobile do -- 没有mobile库就没有基站定位
+        mobile.reqCellInfo(15)
+        sys.waitUntil("CELL_INFO_UPDATE", 3000)
+        local lat, lng, t = lbsLoc2.request(5000)
+        -- local lat, lng, t = lbsLoc2.request(5000, "bs.openluat.com")
+        log.info("lbsLoc2", lat, lng, (json.encode(t or {})))
+        sys.wait(60000)
     end
-    local lat,lng,t = lbsLoc2.request(3000)
-    log.info("lbs", lat, lng, json.encode(t or {}))
-end
+end)
 ]]
 
 local sys = require "sys"
@@ -114,7 +120,7 @@ sys.taskInit(function()
         local lat, lng, t = lbsLoc2.request(5000)
         -- local lat, lng, t = lbsLoc2.request(5000, "bs.openluat.com")
         log.info("lbsLoc2", lat, lng, (json.encode(t or {})))
-        sys.wait(15000)
+        sys.wait(60000)
     end
 end)
 ]]

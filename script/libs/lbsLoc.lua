@@ -7,8 +7,8 @@
 @usage
 --注意:因使用了sys.wait()所有api需要在协程中使用
 --用法实例
---注意：此处的PRODUCT_KEY仅供演示使用，不保证一直能用
---量产项目中一定要使用自己在iot.openluat.com中创建的项目productKey,项目详情里
+--注意：此处的PRODUCT_KEY仅供演示使用，不能用于生产环境
+--量产项目中一定要使用自己在iot.openluat.com中创建的项目productKey,项目详情里可以查看
 --基站定位的坐标系是 WSG84
 PRODUCT_KEY = "v32xEAKsGTIEQxtqgwCldp5aPlcnPs3K"
 local lbsLoc = require("lbsLoc")

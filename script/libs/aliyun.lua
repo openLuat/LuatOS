@@ -185,12 +185,12 @@ end
 
 
 --底层libMQTT回调函数，上层的回调函数，通过 aliyun.on注册
-function mqtt_cbevent(mqtt_client, event, data, payload)
+function mqtt_cbevent(mqtt_client, event, data, payload,metas)
     if event == "conack" then
         sys.publish("mqtt_conack")
         EvtCb["connect"](true) 
     elseif event == "recv" then -- 服务器下发的数据
-        log.info("mqtt", "downlink", "topic", data, "payload", payload)
+        log.info("mqtt", "downlink", "topic", data, "payload", payload,"qos",metas.qos,"retain",metas.retain,"dup",metas.dup)
 
         -- log.info("aliyun.procReceive",data,string.toHex(payload))
         -- --OTA消息
@@ -202,7 +202,7 @@ function mqtt_cbevent(mqtt_client, event, data, payload)
         -- end
 
         if EvtCb["receive"] then
-            EvtCb["receive"](data, payload)
+            EvtCb["receive"](data, payload,metas.qos,metas.retain,metas.dup)
         end
     elseif event == "sent" then
         if type(data) == "number" then

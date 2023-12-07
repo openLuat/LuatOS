@@ -6,9 +6,9 @@ require "aliyun"
 --根据自己的服务器修改以下参数
 tPara = {
  Registration = false,           --是否是预注册 已预注册为false  true or false,
- DeviceName = "你的设备名称", --设备名称
+ DeviceName = "设备名称", --设备名称
  ProductKey = "产品key",     --产品key
- ProductSecret = "产品secret",             --产品secret
+ ProductSecret = "产品secret",  --产品secret
  DeviceSecret = "设备secret", --设备secret
  InstanceId = "iot-你的实例id",   --如果没有注册需要填写实例id，在实例详情页面
  --新版已经合并, 没有了地域, 1883同时兼容加密和非加密通信，非加密会下线  阿里云资料：https://help.aliyun.com/document_detail/147356.htm?spm=a2c4g.73742.0.0.4782214ch6jkXb#section-rtu-6kn-kru
@@ -90,8 +90,8 @@ end
 ---数据接收的处理函数
 -- @string topic，UTF8编码的消息主题
 -- @string payload，原始编码的消息负载
-local function rcvCbFnc(topic,payload,qos)
-    log.info("testALiYun.rcvCbFnc",topic,payload)
+local function rcvCbFnc(topic,payload,qos,retain,dup)
+    log.info("testALiYun.rcvCbFnc",topic,payload,qos,retain,dup)
 end
 
 --- 连接结果的处理函数

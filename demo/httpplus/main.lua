@@ -118,9 +118,10 @@ function test_httpplus()
     log.info("http", code, resp)
     if code == 200 then
         log.info("http", "headers", json.encode(resp.headers))
-        log.info("http", "body", resp.body:query():toHex())
-        log.info("http", "body", resp.body:query())
-        log.info("http", "body", json.decode(resp.body:query()))
+        local body = resp.body:query()
+        log.info("http", "body", body:toHex())
+        log.info("http", "body", body)
+        log.info("http", "body", json.decode(body:trim()))
         -- log.info("http", "body", json.decode(resp.body))
     end
 end

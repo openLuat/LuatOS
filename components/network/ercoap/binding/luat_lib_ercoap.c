@@ -96,7 +96,7 @@ static int l_ercoap_print(lua_State *L)
             coap_packet->code & 0x1F,
             coap_packet->mid);
     if (coap_packet->payload_len > 0) {
-        LLOGD("!Payload! %.*s", coap_packet->payload_len, coap_packet->payload);
+        //LLOGD("!Payload! %.*s", coap_packet->payload_len, coap_packet->payload);
     }
     lua_pushboolean(L, 1);
     return 1;
@@ -198,11 +198,12 @@ static int l_ercoap_onenet(lua_State *L)
     uint16_t mid = 0;
     size_t len = 0;
     size_t payload_len = 0;
+    size_t token_len = 0;
     coap_packet_t message[1] = { 0 };
     const char* type = luaL_checklstring(L, 1, &len);
     const char* product_id = luaL_checklstring(L, 2, &len);
     const char* dev_name = luaL_checklstring(L, 3, &len);
-    const char* saastoken = luaL_checklstring(L, 4, &len);
+    const char* saastoken = luaL_checklstring(L, 4, &token_len);
     const char* payload = luaL_optlstring(L, 5, "", &payload_len);
     int lifetime = 3600;
 
@@ -223,7 +224,7 @@ static int l_ercoap_onenet(lua_State *L)
         coap_set_header_accept(message, APPLICATION_JSON);
         coap_set_header_content_type(message, APPLICATION_JSON);
         coap_set_payload(message, (const void*)payload, payload_len);
-        coap_set_header_token(message, saastoken, strlen(saastoken));
+        coap_set_header_token(message, saastoken, token_len);
     }
     else {
         ret = payload_add_lifetime_and_saastoken(message, lifetime, saastoken);

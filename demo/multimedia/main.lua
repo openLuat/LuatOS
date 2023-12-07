@@ -48,10 +48,10 @@ function audio_setup()
         --     audio.setBus(0, audio.BUS_SOFT_DAC)
         -- end
         audio.config(0, 25, 1, 3, 100)
-        -- gpio.setup(24, 0)
-        -- gpio.setup(23, 0)
-        -- gpio.setup(27, 0)
-        -- gpio.setup(2, 0)
+    elseif bsp == "EC718P" then
+        --如果用TM8211，打开下面的注释
+        i2s.setup(0, 0, 0, 0, 0, i2s.MODE_MSB)
+        audio.config(0, 25, 1, 3, 100)
     elseif bsp == "AIR105" then
         -- Air105开发板支持DAC直接输出
         audio.config(0, 25, 1, 3, 100)

@@ -337,7 +337,7 @@ local function resp_parse(opts)
                         -- opts.log(TAG, "chunked分片长度2", clen)
                         if clen == 0 then
                             -- 末尾了
-                            opts.rx_buff:resize(coffset - 1)
+                            opts.rx_buff:resize(coffset)
                             crun = false
                         else
                             -- 先删除chunked块

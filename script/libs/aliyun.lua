@@ -185,12 +185,12 @@ end
 
 
 --底层libMQTT回调函数，上层的回调函数，通过 aliyun.on注册
-function mqtt_cbevent(mqtt_client, event, data, payload)
+function mqtt_cbevent(mqtt_client, event, data, payload,metas)
     if event == "conack" then
         sys.publish("mqtt_conack")
         EvtCb["connect"](true) 
     elseif event == "recv" then -- 服务器下发的数据
-        log.info("mqtt", "downlink", "topic", data, "payload", payload)
+        log.info("mqtt", "downlink", "topic", data, "payload", payload,"qos",metas.qos,"retain",metas.retain,"dup",metas.dup)
 
         -- log.info("aliyun.procReceive",data,string.toHex(payload))
         -- --OTA消息
@@ -202,7 +202,7 @@ function mqtt_cbevent(mqtt_client, event, data, payload)
         -- end
 
         if EvtCb["receive"] then
-            EvtCb["receive"](data, payload)
+            EvtCb["receive"](data, payload,metas.qos,metas.retain,metas.dup)
         end
     elseif event == "sent" then
         if type(data) == "number" then
@@ -238,7 +238,7 @@ tPara[mqtt_port] ,mqtt端口
 tPara[mqtt_isssl] ,是否使用ssl加密连接，true为无证书最简单的加密
 ]]
 function aliyun.setup(tPara)
-    mqtt_host = tPara.InstanceId..".mqtt.iothub.aliyuncs.com"
+    mqtt_host = tPara.host or tPara.InstanceId..".mqtt.iothub.aliyuncs.com"
     if tPara.ProductSecret == "" or tPara.ProductSecret == nil then
         confiDentialTask(tPara.DeviceName,tPara.ProductKey,tPara.DeviceSecret,mqtt_host,tPara.mqtt_port,tPara.mqtt_isssl)
     else

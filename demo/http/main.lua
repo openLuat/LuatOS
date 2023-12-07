@@ -6,6 +6,9 @@ VERSION = "1.0.0"
 --[[
 本demo需要http库, 大部分能联网的设备都具有这个库
 http也是内置库, 无需require
+
+1. 如需上传大文件,请使用 httpplus 库, 对应demo/httpplus
+2. 
 ]]
 
 -- sys库是标配
@@ -188,6 +191,27 @@ function demo_http_post_file()
 end
 
 
+local function demo_http_get_gzip()
+    -- 这里用 和风天气 的API做演示
+    -- 这个API的响应, 总会gzip压缩过, 需要配合miniz库进行解压
+    local code, headers, body = http.request("GET", "https://devapi.qweather.com/v7/weather/now?location=101010100&key=0e8c72015e2b4a1dbff1688ad54053de").wait()
+    log.info("http.gzip", code)
+    if code == 200 then
+        local re = miniz.uncompress(body:sub(11), 0)
+        log.info("和风天气", re)
+        if re then
+            local jdata = json.decode(re)
+            log.info("jdata", jdata)
+            if jdata then
+                log.info("和风天气", jdata.code)
+                if jdata.now then
+                    log.info("和风天气", "天气", jdata.now.text)
+                    log.info("和风天气", "温度", jdata.now.temp)
+                end
+            end
+        end
+    end
+end
 
 sys.taskInit(function()
     sys.wait(100)
@@ -212,6 +236,8 @@ sys.taskInit(function()
         -- demo_http_post_file()
         -- 文件下载
         -- demo_http_download()
+        -- gzip压缩的响应, 以和风天气为例
+        -- demo_http_get_gzip()
 
         sys.wait(1000)
         -- 打印一下内存状态

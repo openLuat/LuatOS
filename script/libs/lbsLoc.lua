@@ -7,8 +7,8 @@
 @usage
 --注意:因使用了sys.wait()所有api需要在协程中使用
 --用法实例
---注意：此处的PRODUCT_KEY仅供演示使用，不保证一直能用
---量产项目中一定要使用自己在iot.openluat.com中创建的项目productKey,项目详情里
+--注意：此处的PRODUCT_KEY仅供演示使用，不能用于生产环境
+--量产项目中一定要使用自己在iot.openluat.com中创建的项目productKey,项目详情里可以查看
 --基站定位的坐标系是 WSG84
 PRODUCT_KEY = "v32xEAKsGTIEQxtqgwCldp5aPlcnPs3K"
 local lbsLoc = require("lbsLoc")
@@ -33,7 +33,16 @@ function getLocCb(result, lat, lng, addr, time, locType)
         log.info("定位类型,基站定位成功返回0", locType)
     end
 end
-lbsLoc.request(getLocCb)
+
+sys.taskInit(function()
+    sys.waitUntil("IP_READY", 30000)
+    while 1 do
+        mobile.reqCellInfo(15)
+        sys.waitUntil("CELL_INFO_UPDATE", 3000)
+        lbsLoc.request(getLocCb)
+        sys.wait(60000)
+    end
+end)
 ]]
 
 local sys = require "sys"

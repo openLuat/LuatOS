@@ -63,7 +63,7 @@ FILE* luat_vfs_ram_fopen(void* userdata, const char *filename, const char *mode)
                     // 截断模式
                     char* tmp = luat_heap_realloc(files[i], sizeof(ram_file_t));
                     if (tmp) {
-                        files[i] = tmp;
+                        files[i] = (ram_file_t*)tmp;
                     }
                     files[i]->size = 0;
                 }
@@ -205,7 +205,7 @@ size_t luat_vfs_ram_fwrite(void* userdata, const void *ptr, size_t size, size_t 
             LLOGW("/ram out of sys memory!!");
             return 0;
         }
-        files[fd->fid] = ptr;
+        files[fd->fid] = (ram_file_t*)ptr;
         files[fd->fid]->size = fd->offset + write_size;
     }
     memcpy(files[fd->fid]->ptr + fd->offset, ptr, write_size);
@@ -357,7 +357,7 @@ int luat_vfs_ram_truncate(void* fsdata, char const* path, size_t nsize) {
                 files[i]->size = nsize;
                 char* ptr = luat_heap_realloc(files[i], nsize + sizeof(ram_file_t));
                 if (ptr) {
-                    files[i] = ptr;
+                    files[i] = (ram_file_t*)ptr;
                 }
             }
             return 0;

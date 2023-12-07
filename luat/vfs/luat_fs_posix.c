@@ -328,6 +328,11 @@ int luat_vfs_posix_lsdir(void* fsdata, char const* _DirName, luat_fs_dirent_t* e
 }
 #endif
 
+#ifdef AIR302
+int luat_vfs_posix_truncate(void* fsdata, char const* path, size_t len) {
+    return -1;
+}
+#else
 int truncate(const char *path, off_t length);
 
 int luat_vfs_posix_truncate(void* fsdata, char const* path, size_t len) {
@@ -342,7 +347,7 @@ int luat_vfs_posix_truncate(void* fsdata, char const* path, size_t len) {
     #endif
     return 0;
 }
-
+#endif
 
 #define T(name) .name = luat_vfs_posix_##name
 const struct luat_vfs_filesystem vfs_fs_posix = {

@@ -196,7 +196,7 @@ int luat_nimble_blecent_connect(const char* _addr){
 
 int luat_nimble_blecent_disconnect(int id) {
     (void)id;
-    if (!g_ble_conn_handle) {
+    if (0 == g_ble_conn_handle) {
         return 0;
     }
     return ble_gap_terminate(g_ble_conn_handle, BLE_ERR_REM_USER_CONN_TERM);

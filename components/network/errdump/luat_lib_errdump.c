@@ -70,6 +70,8 @@ typedef struct luat_errdump_conf
 	uint8_t error_dump_enable;
 	uint8_t upload_poweron_reason_done;
 	char custom_id[49];
+	char custom_domain_host[49];
+	uint16_t custom_domain_port;
 }luat_errdump_conf_t;
 
 static luat_errdump_conf_t econf;
@@ -241,7 +243,16 @@ static int32_t l_errdump_callback(lua_State *L, void* ptr)
     		network_init_ctrl(econf.netc, NULL, luat_errdump_network_callback, NULL);
     		network_set_base_mode(econf.netc, 0, 0, 0, 0, 0, 0);
     		luat_rtos_timer_start(econf.network_timer, 30000, 0, luat_errdump_rx_timer_callback, NULL);
-    		network_connect(econf.netc, luat_errdump_domain, sizeof(luat_errdump_domain), NULL, LUAT_ERRDUMP_PORT, 0);
+			if (econf.custom_domain_host[0]) {
+				if (econf.custom_domain_port < 1) {
+					econf.custom_domain_port = LUAT_ERRDUMP_PORT;
+				}
+				network_connect(econf.netc, econf.custom_domain_host, strlen(econf.custom_domain_host), NULL, econf.custom_domain_port, 0);
+			}
+			else {
+				network_connect(econf.netc, luat_errdump_domain, sizeof(luat_errdump_domain), NULL, LUAT_ERRDUMP_PORT, 0);
+			}
+    		
     	}
     	break;
     case LUAT_ERRDUMP_TX:
@@ -616,18 +627,24 @@ static int l_errdump_record(lua_State *L) {
 
 /*
 配置关键日志上传IOT平台，这里的日志包括引起luavm异常退出的日志和用户通过record写入的日志，类似于air的errDump
-@api    errDump.config(enable, period, user_flag, custom_id)
+@api    errDump.config(enable, period, user_flag, custom_id, host, port)
 @boolean  是否启用记录功能，false的话将不会记录任何日志
 @int     定时上传周期，单位秒，默认600秒，这个是自动上传时候后的重试时间时间，在开机后或者有record操作后会很快尝试上传到合宙IOT平台一次，如果为0，则不会上传，由用户dump后自己上传自己的平台
 @string 用户的特殊标识，可以为空
 @string 设备识别号, 4G设备默认是imei,其他设备默认是mcu.unique_id
+@string 服务器域名,默认dev_msg1.openluat.com
+@int    服务器端口,默认
 @return nil 无返回值
 @usage
 errDump.config(true, 3600, "12345678")	--一个小时尝试上次一次，上传时会在imei后附加上12345678
 errDump.config(false)	--关闭记录功能，不再上传
 errDump.config(true, 0)	--记录，但是不会主动上传，由用户实现上传功能
+
 -- 2023.09.22新增custom_id参数
 errDump.config(true, 3600, nil, "ABC")	--一个小时尝试上次一次，上传时使用自定义的设备识别号ABC
+
+-- 2023.12.8 新增host和port参数
+errDump.config(true, 3600, nil, nil, "dev_msg1.openluat.com", 12425)
 */
 static int l_errdump_upload_config(lua_State *L) {
 	if (LUA_TBOOLEAN == lua_type(L, 1))
@@ -653,6 +670,14 @@ static int l_errdump_upload_config(lua_State *L) {
 			str = luaL_tolstring(L, 4, &len);
 			if (len < 48) 
 				memcpy(econf.custom_id, str, len + 1);
+		}
+		if (LUA_TSTRING == lua_type(L, 5)) {
+			str = luaL_tolstring(L, 4, &len);
+			if (len < 48) 
+				memcpy(econf.custom_domain_host, str, len + 1); 
+			if (lua_isinteger(L, 6)) {
+				econf.custom_domain_port = lua_tointeger(L, 6);
+			}
 		}
 	}
 	return 0;

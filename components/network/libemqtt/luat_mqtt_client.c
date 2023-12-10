@@ -38,6 +38,7 @@ int l_luat_mqtt_msg_cb(luat_mqtt_ctrl_t * ptr, int arg1, int arg2) {
 		luat_mqtt_cb_t mqtt_cb = mqtt_ctrl->mqtt_cb;
 		mqtt_cb(mqtt_ctrl, arg1);
 	}
+
 #endif
 	return 0;
 }
@@ -287,6 +288,7 @@ static int luat_mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
         }
         case MQTT_MSG_PUBLISH : {
 			LLOGD("MQTT_MSG_PUBLISH");
+#ifdef __LUATOS__
 			const uint8_t* ptr;
 			qos = MQTTParseMessageQos(mqtt_ctrl->mqtt_packet_buffer);
 			uint16_t topic_len = mqtt_parse_pub_topic_ptr(mqtt_ctrl->mqtt_packet_buffer, &ptr);
@@ -295,6 +297,9 @@ static int luat_mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
 			mqtt_msg->topic_len = mqtt_parse_pub_topic(mqtt_ctrl->mqtt_packet_buffer, mqtt_msg->data);
             mqtt_msg->payload_len = mqtt_parse_publish_msg(mqtt_ctrl->mqtt_packet_buffer, mqtt_msg->data+topic_len);
 			l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_PUBLISH, (int)mqtt_msg);
+#else
+			l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_PUBLISH, 0);
+#endif
 			msg_id = mqtt_parse_msg_id(mqtt_ctrl->mqtt_packet_buffer);
 			LLOGD("msg %d qos %d", msg_id, qos);
 			// 还要回复puback

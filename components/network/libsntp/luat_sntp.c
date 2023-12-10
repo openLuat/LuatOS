@@ -18,11 +18,11 @@
 
 
 
-
-char sntp_servers[SNTP_SERVER_COUNT][SNTP_SERVER_LEN_MAX] = {
-    "ntp.aliyun.com",
-    "ntp.ntsc.ac.cn",
-    "time1.cloud.tencent.com"
+static char ntp1 [SNTP_SERVER_LEN_MAX] = "ntp.aliyun.com";
+static char ntp2 [SNTP_SERVER_LEN_MAX] = "ntp.ntsc.ac.cn";
+static char ntp3 [SNTP_SERVER_LEN_MAX] = "time1.cloud.tencent.com";
+char* sntp_servers[SNTP_SERVER_COUNT] = {
+    ntp1, ntp2, ntp3
 };
 
 sntp_ctx_t g_sntp_ctx;

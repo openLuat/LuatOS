@@ -178,7 +178,7 @@ sys.taskInit(function()
     -- qrcode测试
     sys.wait(1000)
     u8g2.ClearBuffer()
-    u8g2.DrawDrcode(4, 4, "https://wiki.luatos.com/chips/air101/mcu.html", 10);
+    u8g2.DrawDrcode(4, 4, "https://wiki.luatos.com", 30);
 
     u8g2.SendBuffer()
 

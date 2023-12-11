@@ -213,19 +213,53 @@ static int l_libgnss_is_fix(lua_State *L) {
 
 /**
 获取位置信息
-@api libgnss.getIntLocation()
+@api libgnss.getIntLocation(speed_type)
+@int 速度单位,默认是m/h
 @return int lat数据, 格式为 ddddddddd
 @return int lng数据, 格式为 ddddddddd
 @return int speed数据, 单位米. 于2023.9.26修正
 @usage
 -- 建议用libgnss.getRmc(1)
 log.info("nmea", "loc", libgnss.getIntLocation())
+
+-- 2023.12.11 新增speed_type参数
+--[[
+速度单位可选值
+0 - m/h 米/小时, 默认值, 整型
+1 - m/s 米/秒, 浮点数
+2 - km/h 千米/小时, 浮点数
+3 - kn/h 英里/小时, 浮点数
+]]
+-- 默认 米/小时
+log.info("nmea", "loc", libgnss.getIntLocation())
+-- 米/秒
+log.info("nmea", "loc", libgnss.getIntLocation(1))
+-- 千米/小时
+log.info("nmea", "loc", libgnss.getIntLocation(2))
+-- 英里/小时
+log.info("nmea", "loc", libgnss.getIntLocation(3))
  */
 static int l_libgnss_get_int_location(lua_State *L) {
     if (libgnss_gnss != NULL && libgnss_gnss->frame_rmc.valid) {
         lua_pushinteger(L, libgnss_gnss->frame_rmc.latitude.value);
         lua_pushinteger(L, libgnss_gnss->frame_rmc.longitude.value);
-        lua_pushinteger(L, (int32_t)(minmea_tofloat(&(libgnss_gnss->frame_rmc.speed)) * 1852));
+        int speed_type = luaL_optinteger(L, 1, 0);
+        switch (speed_type)
+        {
+        case 1: // 米/秒
+            lua_pushnumber(L, (minmea_tofloat(&(libgnss_gnss->frame_rmc.speed)) * 1852 / 3600));
+            break;
+        case 2: // 千米/小时
+            lua_pushnumber(L, (minmea_tofloat(&(libgnss_gnss->frame_rmc.speed)) * 1.852));
+            break;
+        case 3: // 英里/小时
+            lua_pushnumber(L, minmea_tofloat(&(libgnss_gnss->frame_rmc.speed)));
+            break;
+        default: // 米/小时
+            lua_pushinteger(L, (int32_t)(minmea_tofloat(&(libgnss_gnss->frame_rmc.speed)) * 1852));
+            break;
+        }
+        
     } else {
         lua_pushinteger(L, 0);
         lua_pushinteger(L, 0);

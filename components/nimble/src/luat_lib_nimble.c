@@ -959,13 +959,13 @@ static const rotable_Reg_t reg_nimble[] =
     // FLAGS
     //@const CHR_F_WRITE number chr的FLAGS值, 可写, 且需要响应
     {"CHR_F_WRITE",                ROREG_INT(BLE_GATT_CHR_F_WRITE)},
-    //@const CHR_F_WRITE number chr的FLAGS值, 可读
+    //@const CHR_F_READ number chr的FLAGS值, 可读
     {"CHR_F_READ",                 ROREG_INT(BLE_GATT_CHR_F_READ)},
-    //@const CHR_F_WRITE number chr的FLAGS值, 可写, 不需要响应
+    //@const CHR_F_WRITE_NO_RSP number chr的FLAGS值, 可写, 不需要响应
     {"CHR_F_WRITE_NO_RSP",         ROREG_INT(BLE_GATT_CHR_F_WRITE_NO_RSP)},
-    //@const CHR_F_WRITE number chr的FLAGS值, 可订阅, 不需要回复
+    //@const CHR_F_NOTIFY number chr的FLAGS值, 可订阅, 不需要回复
     {"CHR_F_NOTIFY",               ROREG_INT(BLE_GATT_CHR_F_NOTIFY)},
-    //@const CHR_F_WRITE number chr的FLAGS值, 可订阅, 需要回复
+    //@const CHR_F_INDICATE number chr的FLAGS值, 可订阅, 需要回复
     {"CHR_F_INDICATE",             ROREG_INT(BLE_GATT_CHR_F_INDICATE)},
 
     // CONFIG

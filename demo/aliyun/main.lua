@@ -111,10 +111,14 @@ local function connectCbFnc(result)
         local cid = fskv.get("clientid")
         --储存到kv分区的返回值
         -- log.info("kv分区的返回值",used,total,cid)
-
         local Secret = aliyun.getDeviceSecret()
         local Token = aliyun.getDeviceToken()
         local Clid = aliyun.getClientid()
+        --如果三元组不为空，就把三元组写入到kv区
+        if tPara.DeviceName and tPara.ProductKey then
+            fskv.set("DeviceName",tPara.DeviceName)
+            fskv.set("ProductKey",tPara.ProductKey)
+        end
         if not tPara.Registration then
             if Secret == nil then
                 log.info("掉电重连")
@@ -146,11 +150,6 @@ sys.taskInit(function()
     sys.wait(500)
     log.info("已联网", "开始初始化aliyun库")
     fskv.init()
-    --如果三元组不为空，就把三元组写入到kv区
-    if not tPara.DeviceName and not tPara.ProductKey then
-        fskv.set("DeviceName",tPara.DeviceName)
-        fskv.set("ProductKey",tPara.ProductKey)
-    end
     local name = fskv.get("DeviceName")
     local key = fskv.get("ProductKey")
     local used = fskv.get("deviceSecret")

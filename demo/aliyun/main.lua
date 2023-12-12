@@ -146,15 +146,19 @@ sys.taskInit(function()
     sys.wait(500)
     log.info("已联网", "开始初始化aliyun库")
     fskv.init()
-    fskv.set("DeviceName",tPara.DeviceName)
+    --如果三元组不为空，就把三元组写入到kv区
+    if not tPara.DeviceName and not tPara.ProductKey then
+        fskv.set("DeviceName",tPara.DeviceName)
+        fskv.set("ProductKey",tPara.ProductKey)
+    end
     local name = fskv.get("DeviceName")
+    local key = fskv.get("ProductKey")
     local used = fskv.get("deviceSecret")
     local total = fskv.get("deviceToken")
     local cid = fskv.get("clientid")
     local host = tPara.InstanceId..".mqtt.iothub.aliyuncs.com"
-    --判断是否是同一DeviceName，不是的话就重新连接
-    if name == tPara.DeviceName then
-        -- fskv.del("deviceSecret")
+    --判断是否是同一三元组，不是的话就重新连接
+    if name == tPara.DeviceName and key == tPara.ProductKey then
         if not tPara.Registration then
             if used == nil then
                 aliyun.setup(tPara)
@@ -173,6 +177,7 @@ sys.taskInit(function()
         fskv.del("clientid")
         fskv.del("DeviceName")
         fskv.del("deviceSecret")
+        fskv.del("ProductKey")
         --删除kv区的数据，重新建立连接
         aliyun.setup(tPara)
     end

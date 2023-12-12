@@ -818,7 +818,7 @@ static int l_nimble_write_chr(lua_State *L) {
 
 /*
 从指定的服务的指定特征值读取数据(异步)
-@api nimble.writeChr(svr_uuid, chr_uuid)
+@api nimble.readChr(svr_uuid, chr_uuid)
 @string 指定服务的UUID值
 @string 指定特征值的UUID值
 @return boolean 成功启动写入与否

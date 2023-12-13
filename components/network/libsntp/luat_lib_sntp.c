@@ -177,8 +177,9 @@ int l_sntp_tm(lua_State *L) {
     lua_setfield(L, -2, "sms");
 
     uint64_t tick64 = luat_mcu_tick64();
-    uint64_t ll_sec = tick64 / 1000 / 1000;
-    uint64_t ll_ms  = (tick64 / 1000) % 1000;
+    uint32_t us_period = luat_mcu_us_period();
+    uint64_t ll_sec = tick64 /us_period/ 1000 / 1000;
+    uint64_t ll_ms  = (tick64 /us_period/ 1000) % 1000;
     uint64_t tmp = ll_sec + g_sntp_ctx.sysboot_diff_sec;
     tmp *= 1000;
     tmp += ll_ms + g_sntp_ctx.sysboot_diff_ms;

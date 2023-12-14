@@ -12,6 +12,8 @@ audio.on(0, function(id, event)
     sys.publish("AUDIO_PLAY_DONE")
 end)
 
+local i2c_id = 0
+local i2s_id = 0
 
 -- es8311器件地址
 local es8311_address = 0x18
@@ -69,11 +71,11 @@ local recordPath = "/record.amr"
 local function record_cb(id, buff)
     if buff then
         log.info("I2S", id, "接收了", rx_buff:used())
-        codec.encode(encoder, rx_buff, amr_buff)		-- 对录音数据进行amr编码，成功的话这个接口会返回true, 默认编码等级为MR475
+        log.info("编码结果", codec.encode(encoder, rx_buff, amr_buff))		-- 对录音数据进行amr编码，成功的话这个接口会返回true, 默认编码等级为MR475
 		record_cnt = record_cnt + 1
 		if record_cnt >= 25 then	--超过5秒后停止
 			log.info("I2S", "stop") 
-			i2s.stop(0)	
+			i2s.stop(i2s_id)	
 		end
     end
 end
@@ -85,7 +87,7 @@ end
 local function postMultipartFormData(url, filename, filePath)
     local boundary = "----WebKitFormBoundary"..os.time()
     local req_headers = {
-        ["Content-Type"] = "multipart/form-data; boundary="..boundary,
+        ["Content-Type"] = "multipart/form-data; boundary=" .. boundary,
     }
     local body = {}
     table.insert(body, "--"..boundary.."\r\nContent-Disposition: form-data; name=\"file\"; filename=\"".. filename .."\"\r\n\r\n")
@@ -108,21 +110,21 @@ local function record_task()
 	gpio.setup(26, 1)									-- 打开录音开发板mic供电
 	audio.config(0, 25, 1, 6, 200)						
 	pm.power(pm.DAC_EN, true)							-- 打开es8311芯片供电
-    log.info("i2c initial",i2c.setup(0, i2c.FAST))		-- 开启i2c
+    log.info("i2c initial", i2c.setup(i2c_id, i2c.FAST))		-- 开启i2c
     for i, v in pairs(es8311_reg) do					-- 初始化es8311
-        i2c.send(0,es8311_address,v,1)
+        i2c.send(i2c_id, es8311_address, v, 1)
     end
-	i2s.setup(0, 0, 8000, 16, 1, i2s.MODE_I2S)			-- 开启i2s
-    i2s.on(0, record_cb) 								-- 注册i2s接收回调
-    i2s.recv(0, rx_buff, 3200)
-	i2c.send(0,es8311_address,{0x00, 0xc0},1)
+	i2s.setup(i2s_id, 0, 8000, 16, 1, i2s.MODE_I2S)			-- 开启i2s
+    i2s.on(i2s_id, record_cb) 								-- 注册i2s接收回调
+    i2s.recv(i2s_id, rx_buff, 3200)
+	i2c.send(i2c_id, es8311_address, {0x00, 0xc0}, 1)
     sys.wait(6000)
-    i2c.send(0, es8311_address,{0x00, 0x80},1)			-- ES8311停止录音
+    i2c.send(i2c_id, es8311_address, {0x00, 0x80}, 1)			-- ES8311停止录音
     log.info("录音5秒结束")
 	io.writeFile(recordPath, "#!AMR\n")					-- 向文件写入amr文件标识数据
 	io.writeFile(recordPath, amr_buff:query(), "a+b")	-- 向文件写入编码后的amr数据
 
-	i2s.setup(0, 0, 0, 0, 0, i2s.MODE_MSB)
+	i2s.setup(i2s_id, 0, 0, 0, 0, i2s.MODE_MSB)
    
 	local result = audio.play(0, {recordPath})			-- 请求音频播放
 	log.info("音频播放结果", result)

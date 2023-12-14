@@ -33,8 +33,8 @@ _G.sys = require ("sys")
 
 ads1115 = {}    --定义存放程序的TABLE 全局变量
 
-i2cid=1
-i2cslaveaddr = 0x48
+local i2cid=1
+local i2cslaveaddr = 0x48
 
 
 --[[
@@ -94,11 +94,11 @@ function ads1115.task_recv( MU1,FSR )
     if FSR > 0x05 then                  --FSR大于5时，切换速率减少噪声，提高采样数据精确度
         a2 = (0x3 * 32) + 3               --量程超过5的时候，速率配置为64sps
         i2c.writeReg(i2cid, i2cslaveaddr, 0x01, string.char(a1, a2)) --给配置寄存器写进去值 A1高八位 A2 低八位
-        sys.wait(40)
+        sys.wait(60)
     else
         a2 = (0x4 * 32) + 3               --其他情况下速率为128sps
         i2c.writeReg(i2cid, i2cslaveaddr, 0x01, string.char(a1, a2)) --给配置寄存器写进去值 A1高八位 A2 低八位
-        sys.wait(20)
+        sys.wait(30)
     end
     
     -- 从转换就绪引脚读取转换好的采集数据2个字节（四个十六进制的数值）的数据

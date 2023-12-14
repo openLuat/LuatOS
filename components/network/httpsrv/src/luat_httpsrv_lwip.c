@@ -36,7 +36,7 @@ typedef struct client_socket_ctx
     struct http_parser parser;
 
     char *uri;
-    // char *headers;
+    char *headers;
     char *body;
 
     size_t body_size;
@@ -118,7 +118,7 @@ static int client_write(client_socket_ctx_t* client, const char* buff, size_t le
 static void client_resp(void* arg) {
     client_socket_ctx_t* client = (client_socket_ctx_t*)arg;
     int code = client->code;
-    // const char* headers = NULL;
+    const char* headers = client->headers;
     // const char* body = client->body;
     size_t body_size = client->body_size;
     //struct tcp_pcb* pcb = client->pcb;
@@ -147,11 +147,11 @@ static void client_resp(void* arg) {
     sprintf(buff, "Content-Length: %d\r\n", body_size);
     client_write(client, buff, strlen(buff));
     client_write(client, "Connection: close\r\n", strlen("Connection: close\r\n"));
-    client_write(client, "X-Powered-By: LuatOS\r\n", strlen("X-Powered-By: LuatOS\r\n"));
-    // if (headers && strlen(headers)) {
+    // client_write(client, "X-Powered-By: LuatOS\r\n", strlen("X-Powered-By: LuatOS\r\n"));
+    if (headers && strlen(headers)) {
     //     LLOGD("send headers %d", strlen(headers));
-    //     client_write(client, (char*)headers, strlen(headers));
-    // }
+        client_write(client, (char*)headers, strlen(headers));
+    }
     client_write(client, "\r\n", 2);
     // 最后发送body
     if (body_size) {
@@ -172,8 +172,10 @@ static void client_cleanup(client_socket_ctx_t *client) {
         luat_heap_free(client->uri);
         client->uri = NULL;
     }
-    // if (client->headers)
-    //     luat_heap_free(client->headers);
+    if (client->headers) {
+        luat_heap_free(client->headers);
+        client->headers = NULL;
+    }
     if (client->body) {
         luat_heap_free(client->body);
         client->body = NULL;
@@ -218,6 +220,30 @@ static int luat_client_cb(lua_State* L, void* ptr) {
         client->body = luat_heap_malloc(body_size);
         client->body_size = body_size;
         memcpy(client->body, body, body_size);
+    }
+    if (lua_istable(L, -2)) {
+        lua_pushvalue(L, -2);
+        lua_pushnil(L);
+        lua_pushnil(L);
+        size_t keylen = 0;
+        size_t vallen = 0;
+		while (lua_next(L, -3) != 0) {
+			lua_pushvalue(L, -2);
+            const char* key = lua_tolstring(L, -1, &keylen);
+            const char* value = lua_tolstring(L, -2, &vallen);
+            if (client->headers == NULL) {
+                client->headers = luat_heap_malloc(keylen + vallen + 6);
+                sprintf(client->headers, "%s: %s\r\n", key, value);
+            }
+            else {
+                char* ptr = luat_heap_realloc(client->headers, strlen(client->headers) + keylen + vallen + 6);
+                if (ptr) {
+                    sprintf(ptr + strlen(ptr), "%s: %s\r\n", key, value);
+                    client->headers = ptr;
+                }
+            }
+			lua_pop(L, 2);
+		}
     }
     client->code = code;
     int ret = tcpip_callback(client_resp, client);

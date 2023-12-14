@@ -162,3 +162,6 @@ function ads1115.task_read(MU1)
 	end
 	return mv   --返回采集到的电压值 单位（mV）有正有负  
 end
+
+return ads1115
+

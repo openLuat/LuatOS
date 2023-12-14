@@ -1,15 +1,16 @@
 PROJECT = "aliyundemo"
 VERSION = "1.0.0"
 local sys = require "sys"
+local libfota = require("libfota")
 require "aliyun"
 
 --根据自己的服务器修改以下参数
 tPara = {
  Registration = false,           --是否是预注册 已预注册为false  true or false,
- DeviceName = "设备名称", --设备名称
- ProductKey = "产品key",     --产品key
- ProductSecret = "产品secret",  --产品secret
- DeviceSecret = "设备secret", --设备secret
+ DeviceName = "", --设备名称
+ ProductKey = "",     --产品key
+ ProductSecret = "",  --产品secret
+ DeviceSecret = "", --设备secret
  InstanceId = "iot-你的实例id",   --如果没有注册需要填写实例id，在实例详情页面
  --新版已经合并, 没有了地域, 1883同时兼容加密和非加密通信，非加密会下线  阿里云资料：https://help.aliyun.com/document_detail/147356.htm?spm=a2c4g.73742.0.0.4782214ch6jkXb#section-rtu-6kn-kru
  mqtt_port = 1883,                 --mqtt端口
@@ -102,6 +103,14 @@ local function connectCbFnc(result)
     if result then
         --订阅主题
         --根据自己的项目需要订阅主题，下面注释掉的一行代码中的主题是非法的，所以不能打开，一旦打开，会导致订阅失败
+        --订阅OTA主题
+        aliyun.subscribe("/ota/device/upgrade/"..tPara.ProductKey.."/"..tPara.DeviceName,1)
+        if not verRpted then        
+            --上报固件版本号给云端
+            verRpt()
+        end
+        --上报固件版本号给云端
+        sys.timerStart(verRpt,10000)
         -- aliyun.subscribe(topic,qos)
         -- aliyun.subscribe("/"..tPara.ProductKey.."/"..tPara.DeviceName.."/user/ceshi",1)
         
@@ -114,7 +123,7 @@ local function connectCbFnc(result)
         local Secret = aliyun.getDeviceSecret()
         local Token = aliyun.getDeviceToken()
         local Clid = aliyun.getClientid()
-        --如果三元组不为空，就把三元组写入到kv区
+         --如果三元组不为空，就把三元组写入到kv区
         if tPara.DeviceName and tPara.ProductKey then
             fskv.set("DeviceName",tPara.DeviceName)
             fskv.set("ProductKey",tPara.ProductKey)
@@ -182,6 +191,18 @@ sys.taskInit(function()
     end
 end)
 
+
+--[[
+函数名：verRpt
+功能  ：上报固件版本号给云端
+参数  ：无
+返回值：无
+]]
+function verRpt()
+    log.info("aliyunOta.verRpt")
+    -- aliyun.publish(topic,qos,payload,cbFnc,cbPara)
+    aliyun.publish("/ota/device/inform/"..tPara.ProductKey.."/"..tPara.DeviceName,1,"{\"id\":1,\"params\":{\"version\":\"".._G.VERSION.."\"}}")
+end
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

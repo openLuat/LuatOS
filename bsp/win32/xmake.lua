@@ -113,7 +113,8 @@ target("luatos")
     add_files(luatos.."components/mbedtls/library/*.c")
     add_includedirs(luatos.."components/mbedtls/include")
     -- iotauth
-    add_files(luatos.."components/iotauth/luat_lib_iotauth.c")
+    add_includedirs(luatos.."components/iotauth")
+    add_files(luatos.."components/iotauth/*.c")
     -- qrcode
     add_includedirs(luatos.."components/qrcode")
     add_files(luatos.."components/qrcode/*.c")

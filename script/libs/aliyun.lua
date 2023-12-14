@@ -5,6 +5,7 @@
 _G.sys = require("sys")
 --[[特别注意, 使用mqtt库需要下列语句]]
 _G.sysplus = require("sysplus")
+local libfota = require("libfota")
 
 aliyun = {}
 
@@ -74,7 +75,8 @@ end
 --二次连接
 -- local function clientDataTask(ClientId,user,PassWord,mqtt_host,mqtt_port,mqtt_isssl,DeviceName,ProductKey)
 local function clientDataTask(DeviceName,ProductKey,mqtt_host,mqtt_port,mqtt_isssl,passtoken,Registration)
-
+    Key = ProductKey
+    Dname = DeviceName
     sys.taskInit(function()
         if not Registration then
             local client_id,user_name,password = iotauth.aliyun(ProductKey,DeviceName,SetDeviceSecretFnc)
@@ -130,6 +132,8 @@ end
 
 --获取预注册和免预注册一型一密一次连接返回的数据
 local function clientEncryptionTask(Registration,DeviceName,ProductKey,ProductSecret,InstanceId,mqtt_host,mqtt_port,mqtt_isssl)
+    Key = ProductKey
+    Dname = DeviceName
     sys.taskInit(function()
         local tm = os.time()
         --一型一密
@@ -192,14 +196,13 @@ function mqtt_cbevent(mqtt_client, event, data, payload,metas)
     elseif event == "recv" then -- 服务器下发的数据
         log.info("mqtt", "downlink", "topic", data, "payload", payload,"qos",metas.qos,"retain",metas.retain,"dup",metas.dup)
 
-        -- log.info("aliyun.procReceive",data,string.toHex(payload))
-        -- --OTA消息
-        -- if data =="/ota/device/upgrade/"..Key.."/"..Dname then
-        --     -- if aliyun and aliyun.upgrade then
-        --         -- log.info("数据开始传进去upgrade",payload)
-        --         upgrade(payload)
-        --     -- end
-        -- end
+        log.info("aliyun.procReceive",data,string.toHex(payload))
+        --OTA消息
+        if data =="/ota/device/upgrade/"..Key.."/"..Dname then
+            if upgrade then
+                upgrade(payload)
+            end
+        end
 
         if EvtCb["receive"] then
             EvtCb["receive"](data, payload,metas.qos,metas.retain,metas.dup)
@@ -282,6 +285,8 @@ end
 
 --正常连接 预注册一型一密获取DeviceSecret后就是正常的一机一密连接   
 function aliyun.clientGetDirectDataTask(DeviceName,ProductKey,mqtt_host,mqtt_port,mqtt_isssl,Registration,DeviceSecret,deviceToken,cid)
+    Key = ProductKey
+    Dname = DeviceName
     sys.taskInit(function()
         if not Registration then
             local client_id,user_name,password = iotauth.aliyun(ProductKey,DeviceName,DeviceSecret)
@@ -399,6 +404,44 @@ end
 function aliyun.getClientid()
     return SetClientidFnc
 end
+
+
+
+
+
+--[[
+函数名：upgrade
+功能  ：收到云端固件升级通知消息时的回调函数
+参数  ：
+        payload：消息负载（原始编码，收到的payload是什么内容，就是什么内容，没有做任何编码转换）
+返回值：无
+]]
+function upgrade(payload)
+    local result
+    local jsonData,result = json.decode(payload)
+    if result and jsonData.data and jsonData.data.url then
+        -- sys.taskInit(downloadTask,jsonData.data.url,jsonData.data.size,jsonData.data.md5,jsonData.data.version)
+        libfota.request(libfota_cb,jsonData.data.url)
+    end
+end
+
+-- 功能:获取fota的回调函数
+-- 参数:
+-- result:number类型
+--   0表示成功
+--   1表示连接失败
+--   2表示url错误
+--   3表示服务器断开
+--   4表示接收报文错误
+--   5表示使用iot平台VERSION需要使用 xxx.yyy.zzz形式
+function libfota_cb(result)
+    log.info("fota", "result", result)
+    -- fota成功
+    if result == 0 then
+        rtos.reboot()   --如果还有其他事情要做,就不要立刻reboot
+    end
+end
+
 
 
 

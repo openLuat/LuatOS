@@ -28,7 +28,7 @@
 #endif
 
 #define LUAT_LCD_SPI_DEVICE 255
-#define LUAT_LCD_HW_INFERFACE_ID 0x20	//专用LCD接口的SPI ID
+#define LUAT_LCD_HW_ID_0 0x20	//专用LCD接口的SPI ID
 
 struct luat_lcd_opts;
 

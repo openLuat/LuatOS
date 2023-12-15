@@ -247,6 +247,7 @@ static int32_t l_errdump_callback(lua_State *L, void* ptr)
 				if (econf.custom_domain_port < 1) {
 					econf.custom_domain_port = LUAT_ERRDUMP_PORT;
 				}
+				// LLOGD("上行到自定义服务器 %s %d", econf.custom_domain_host, econf.custom_domain_port);
 				network_connect(econf.netc, econf.custom_domain_host, strlen(econf.custom_domain_host), NULL, econf.custom_domain_port, 0);
 			}
 			else {
@@ -657,7 +658,7 @@ static int l_errdump_upload_config(lua_State *L) {
 		const char *str;
 		if (LUA_TSTRING == lua_type(L, 3))
 		{
-			str = luaL_tolstring(L, 3, &len);
+			str = luaL_checklstring(L, 3, &len);
 			if (econf.user_string)
 			{
 				luat_heap_free(econf.user_string);
@@ -667,17 +668,21 @@ static int l_errdump_upload_config(lua_State *L) {
 			memcpy(econf.user_string, str, len + 1);
 		}
 		if (LUA_TSTRING == lua_type(L, 4)) {
-			str = luaL_tolstring(L, 4, &len);
+			str = luaL_checklstring(L, 4, &len);
 			if (len < 48) 
 				memcpy(econf.custom_id, str, len + 1);
 		}
 		if (LUA_TSTRING == lua_type(L, 5)) {
-			str = luaL_tolstring(L, 4, &len);
+			str = luaL_checklstring(L, 5, &len);
 			if (len < 48) 
 				memcpy(econf.custom_domain_host, str, len + 1); 
 			if (lua_isinteger(L, 6)) {
 				econf.custom_domain_port = lua_tointeger(L, 6);
 			}
+			if (econf.custom_domain_port < 1) {
+				econf.custom_domain_port = LUAT_ERRDUMP_PORT;
+			}
+			LLOGD("自定义服务器 %s %d", econf.custom_domain_host, econf.custom_domain_port);
 		}
 	}
 	return 0;

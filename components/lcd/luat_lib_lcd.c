@@ -1836,6 +1836,7 @@ static const rotable_Reg_t reg_lcd[] =
     { "direction_90",   ROREG_INT(1)},
     { "direction_180",  ROREG_INT(2)},
     { "direction_270",  ROREG_INT(3)},
+    { "HWID_0",         ROREG_INT(LUAT_LCD_HW_ID_0)},
 	  {NULL, ROREG_INT(0)}
 };
 

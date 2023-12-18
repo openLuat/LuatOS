@@ -63,6 +63,9 @@ static void lcd_auto_flush(luat_lcd_conf_t *conf) {
 }
 
 luat_color_t lcd_str_fg_color,lcd_str_bg_color;
+
+LUAT_WEAK void luat_lcd_IF_init(luat_lcd_conf_t* conf){}
+
 /*
 lcd显示屏初始化
 @api lcd.init(tp, args)

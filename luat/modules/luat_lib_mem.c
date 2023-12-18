@@ -6,7 +6,7 @@
 #include "luat_log.h"
 
 LUAT_WEAK void luat_heap_opt_init(LUAT_HEAP_TYPE_E type){
-    luat_heap_init(void);
+    luat_heap_init();
 }
 
 LUAT_WEAK void* luat_heap_opt_malloc(LUAT_HEAP_TYPE_E type,size_t len){

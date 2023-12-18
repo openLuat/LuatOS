@@ -67,7 +67,7 @@ luat_color_t lcd_str_fg_color,lcd_str_bg_color;
 lcd显示屏初始化
 @api lcd.init(tp, args)
 @string lcd类型，当前支持：<br>st7796<br>st7789<br>st7735<br>st7735v<br>st7735s<br>gc9a01<br>gc9106l<br>gc9306x<br>ili9486<br>custom
-@table 附加参数,与具体设备有关：<br>pin_pwr（背光）为可选项,可不设置<br>port：spi端口,例如0,1,2...如果为device方式则为"device"<br>pin_dc：lcd数据/命令选择引脚<br>pin_rst：lcd复位引脚<br>pin_pwr：lcd背光引脚 可选项,可不设置<br>direction：lcd屏幕方向 0:0° 1:180° 2:270° 3:90°<br>w：lcd 水平分辨率<br>h：lcd 竖直分辨率<br>xoffset：x偏移(不同屏幕ic 不同屏幕方向会有差异)<br>yoffset：y偏移(不同屏幕ic 不同屏幕方向会有差异)<br>direction0：0°方向命令，(不同屏幕ic会有差异)<br>direction90：90°方向命令，(不同屏幕ic会有差异)<br>direction180：180°方向命令，(不同屏幕ic会有差异)<br>direction270：270°方向命令，(不同屏幕ic会有差异) <br>sleepcmd：睡眠命令，默认0X10<br>wakecmd：唤醒命令，默认0X11
+@table 附加参数,与具体设备有关：<br>pin_pwr（背光）为可选项,可不设置<br>port：spi端口,例如0,1,2...如果为device方式则为"device"<br>pin_dc：lcd数据/命令选择引脚<br>pin_rst：lcd复位引脚<br>pin_pwr：lcd背光引脚 可选项,可不设置<br>direction：lcd屏幕方向 0:0° 1:180° 2:270° 3:90°<br>w：lcd 水平分辨率<br>h：lcd 竖直分辨率<br>xoffset：x偏移(不同屏幕ic 不同屏幕方向会有差异)<br>yoffset：y偏移(不同屏幕ic 不同屏幕方向会有差异)<br>direction0：0°方向命令，(不同屏幕ic会有差异)<br>direction90：90°方向命令，(不同屏幕ic会有差异)<br>direction180：180°方向命令，(不同屏幕ic会有差异)<br>direction270：270°方向命令，(不同屏幕ic会有差异) <br>sleepcmd：睡眠命令，默认0X10<br>wakecmd：唤醒命令，默认0X11 <br>interface_mode lcd模式，默认lcd.WIRE_4_BIT_8_INTERFACE_I
 @userdata spi设备,当port = "device"时有效
 @usage
 -- 初始化spi0的st7735s 注意:lcd初始化之前需要先初始化spi
@@ -191,6 +191,7 @@ static int l_lcd_init(lua_State* L) {
                 conf->xoffset = luaL_checkinteger(L, -1);
             }
             lua_pop(L, 1);
+
             lua_pushstring(L, "yoffset");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
                 conf->yoffset = luaL_checkinteger(L, -1);
@@ -202,11 +203,19 @@ static int l_lcd_init(lua_State* L) {
                 conf->opts->sleep_cmd = luaL_checkinteger(L, -1);
             }
             lua_pop(L, 1);
+
             lua_pushstring(L, "wakecmd");
             if (LUA_TNUMBER == lua_gettable(L, 2)) {
                 conf->opts->wakeup_cmd = luaL_checkinteger(L, -1);
             }
             lua_pop(L, 1);
+
+            lua_pushstring(L, "interface_mode");
+            if (LUA_TNUMBER == lua_gettable(L, 2)) {
+                conf->interface_mode = luaL_checkinteger(L, -1);
+            }
+            lua_pop(L, 1);
+
         }
         if (s_index == 0){
             unsigned int cmd = 0;
@@ -1842,6 +1851,16 @@ static const rotable_Reg_t reg_lcd[] =
     { "direction_270",  ROREG_INT(3)},
     //@const HWID_0 硬件lcd驱动id0 (根据芯片支持选择)
     { "HWID_0",         ROREG_INT(LUAT_LCD_HW_ID_0)},
+    //@const WIRE_3_BIT_9_INTERFACE_I 三线spi 9bit 模式I
+    { "WIRE_3_BIT_9_INTERFACE_I",   ROREG_INT(LUAT_LCD_IM_3_WIRE_9_BIT_INTERFACE_I)},
+    //@const WIRE_4_BIT_8_INTERFACE_I 四线spi 8bit 模式I
+    { "WIRE_4_BIT_8_INTERFACE_I",   ROREG_INT(LUAT_LCD_IM_4_WIRE_8_BIT_INTERFACE_I)},
+    //@const WIRE_3_BIT_9_INTERFACE_II 三线spi 9bit 模式II
+    { "WIRE_3_BIT_9_INTERFACE_II",  ROREG_INT(LUAT_LCD_IM_3_WIRE_9_BIT_INTERFACE_II)},
+    //@const WIRE_4_BIT_9_INTERFACE_II 四线spi 9bit 模式II
+    { "WIRE_4_BIT_9_INTERFACE_II",  ROREG_INT(LUAT_LCD_IM_4_WIRE_8_BIT_INTERFACE_II)},
+    //@const DATA_2_LANE 双通道模式
+    { "DATA_2_LANE",                ROREG_INT(LUAT_LCD_IM_2_DATA_LANE)},
 	  {NULL, ROREG_INT(0)}
 };
 

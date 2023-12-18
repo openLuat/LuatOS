@@ -8,6 +8,18 @@
 #ifndef LUAT_MALLOC_H
 #define LUAT_MALLOC_H
 
+typedef enum {
+    LUAT_HEAP_SRAM,
+    LUAT_HEAP_PSRAM,
+} LUAT_HEAP_TYPE_E;
+
+void luat_heap_opt_init(LUAT_HEAP_TYPE_E type);
+void* luat_heap_opt_malloc(LUAT_HEAP_TYPE_E type,size_t len);
+void luat_heap_opt_free(LUAT_HEAP_TYPE_E type,void* ptr);
+void* luat_heap_opt_realloc(LUAT_HEAP_TYPE_E type,void* ptr, size_t len);
+void* luat_heap_opt_calloc(LUAT_HEAP_TYPE_E type,size_t count, size_t size);
+void* luat_heap_opt_zalloc(LUAT_HEAP_TYPE_E type,size_t size);
+
 //----------------
 // 这部分是使用系统内存
 void  luat_heap_init(void);

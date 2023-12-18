@@ -1832,10 +1832,15 @@ static const rotable_Reg_t reg_lcd[] =
     { "font_sarasa_m28_chinese", ROREG_PTR((void*)u8g2_font_sarasa_m28_chinese)},
 #endif
     { "set_direction",  ROREG_FUNC(l_lcd_set_direction)},
+    //@const direction_0 0°方向命令
     { "direction_0",    ROREG_INT(0)},
+    //@const direction_90 90°方向命令
     { "direction_90",   ROREG_INT(1)},
+    //@const direction_180 180°方向命令
     { "direction_180",  ROREG_INT(2)},
+    //@const direction_270 270°方向命令
     { "direction_270",  ROREG_INT(3)},
+    //@const HWID_0 硬件lcd驱动id0 (根据芯片支持选择)
     { "HWID_0",         ROREG_INT(LUAT_LCD_HW_ID_0)},
 	  {NULL, ROREG_INT(0)}
 };

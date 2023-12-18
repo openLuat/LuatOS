@@ -614,6 +614,12 @@ mqtt客户端状态
 @return number 客户端状态
 @usage 
 local state = mqttc:state()
+-- 已知状态:
+-- 0: MQTT_STATE_DISCONNECT
+-- 1: MQTT_STATE_CONNECTING
+-- 2: MQTT_STATE_CONNECTED
+-- 3: MQTT_STATE_READY
+-- 4: MQTT_STATE_ERROR
 */
 static int l_mqtt_state(lua_State *L) {
 	luat_mqtt_ctrl_t * mqtt_ctrl = get_mqtt_ctrl(L);

@@ -137,14 +137,14 @@ int luat_lcd_init(luat_lcd_conf_t* conf) {
         conf->w = LCD_W;
     if (conf->h == 0)
         conf->h = LCD_H;
-    if (conf->pin_pwr != 255)
+    if (conf->pin_pwr != LUAT_GPIO_NONE)
         luat_gpio_mode(conf->pin_pwr, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW); // POWER
     if (conf->interface_mode==LUAT_LCD_IM_4_WIRE_8_BIT_INTERFACE_I || conf->interface_mode==LUAT_LCD_IM_4_WIRE_8_BIT_INTERFACE_II){
-        luat_gpio_mode(conf->pin_dc, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_HIGH); // DC
+        if (conf->pin_dc != LUAT_GPIO_NONE) luat_gpio_mode(conf->pin_dc, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_HIGH); // DC
     }
     luat_gpio_mode(conf->pin_rst, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW); // RST
 
-    if (conf->pin_pwr != 255)
+    if (conf->pin_pwr != LUAT_GPIO_NONE)
         luat_gpio_set(conf->pin_pwr, Luat_GPIO_LOW);
     luat_gpio_set(conf->pin_rst, Luat_GPIO_LOW);
     luat_rtos_task_sleep(100);

@@ -31,8 +31,7 @@
 
 #define LUAT_GPIO_MAX_ID             (Luat_GPIO_MAX_ID) ///< 最大GPIO序号
 
-
-
+#define LUAT_GPIO_NONE                 (0xff)
 
 /**
  * @brief GPIO控制参数

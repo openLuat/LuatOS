@@ -12,6 +12,7 @@
 #include "luat_malloc.h"
 #include "luat_zbuff.h"
 #include "luat_fs.h"
+#include "luat_gpio.h"
 
 #define LUAT_LOG_TAG "lcd"
 #include "luat_log.h"

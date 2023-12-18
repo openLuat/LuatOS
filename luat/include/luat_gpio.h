@@ -129,4 +129,5 @@ void luat_gpio_iomux(int pin, int new_pad, uint8_t alt);
 int luat_gpio_driver_ws2812b(int pin, uint8_t *data, uint32_t len, uint32_t frame_cnt, uint8_t bit0h, uint8_t bit0l, uint8_t bit1h, uint8_t bit1l);
 /** @}*/
 
+void luat_gpio_mode(int pin, int mode, int pull, int initOutput);
 #endif

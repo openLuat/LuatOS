@@ -24,7 +24,7 @@ end)
 #include "luat_rtos.h"
 #include "luat_msgbus.h"
 #include "luat_fs.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 #include "http_parser.h"
 #include "luat_http.h"
 

@@ -11,7 +11,7 @@
 #include "luat_rtos.h"
 #include "luat_gpio.h"
 #include "luat_spi.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 
 #include "sx126x/radio.h"
 #include "sx126x/sx126x.h"

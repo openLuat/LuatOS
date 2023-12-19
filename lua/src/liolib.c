@@ -790,7 +790,7 @@ static int f_flush (lua_State *L) {
 #endif
 }
 
-#include "luat_malloc.h"
+#include "luat_mem.h"
 
 /*
 判断文件是否存在

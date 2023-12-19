@@ -4,7 +4,7 @@
 
 #include "pthread.h"
 #include "string.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 #include "limits.h"
 
 #define LUAT_LOG_TAG "posix"

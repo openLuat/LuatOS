@@ -26,7 +26,7 @@ end
 #include "luat_mcu.h"
 #include "luat_fs.h"
 #include "luat_pm.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 
 #ifdef LUAT_USE_NETWORK
 

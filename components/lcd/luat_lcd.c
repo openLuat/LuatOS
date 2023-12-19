@@ -2,7 +2,7 @@
 #include "luat_lcd.h"
 #include "luat_gpio.h"
 #include "luat_spi.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 #include "luat_rtos.h"
 
 #define LUAT_LOG_TAG "lcd"

@@ -10,7 +10,7 @@
 #include "luat_base.h"
 #include "luat_lvgl.h"
 #include "lvgl.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 
 #if LV_USE_ANIMATION
 /*

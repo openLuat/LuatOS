@@ -2,7 +2,7 @@
 #define LUAT_LVGL_MEM
 
 //#include "luat_base.h"
-//#include "luat_malloc.h"
+//#include "luat_mem.h"
 
 void* luat_lvgl_malloc(int len);
 void* luat_lvgl_free(void* ptr);

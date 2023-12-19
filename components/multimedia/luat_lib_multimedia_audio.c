@@ -15,7 +15,7 @@
 
 #include "luat_multimedia.h"
 #include "luat_audio.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 
 #ifndef __BSP_COMMON_H__
 #include "c_common.h"

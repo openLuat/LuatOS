@@ -29,7 +29,7 @@
 #include <stdio.h>
 
 #include "luat_base.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 
 #ifndef LUAT_LOG_TAG
 #define LUAT_LOG_TAG "fal"

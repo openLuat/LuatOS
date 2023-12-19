@@ -1,7 +1,7 @@
 #include "luat_base.h"
 #include "luat_mem.h"
 #include "luat_multimedia.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 #ifdef LUAT_BSP_NOT_SUPPORT_FLOAT
 
 

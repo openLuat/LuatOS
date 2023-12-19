@@ -8,7 +8,7 @@
 #include "luat_base.h"
 #include "lvgl.h"
 #include "luat_lvgl.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 #include "luat_zbuff.h"
 
 int luat_lv_msgbox_add_btns(lua_State *L) {

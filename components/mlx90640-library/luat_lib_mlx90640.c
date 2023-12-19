@@ -8,7 +8,7 @@
 */
 
 #include "luat_base.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 #include <MLX90640_I2C_Driver.h>
 #include <MLX90640_API.h>
 #include <math.h>

@@ -2,7 +2,7 @@
 #include "luat_base.h"
 #ifdef LUAT_USE_DBG
 #include "luat_timer.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 #include "luat_dbg.h"
 #ifdef LUAT_USE_SHELL
 #include "luat_cmux.h"

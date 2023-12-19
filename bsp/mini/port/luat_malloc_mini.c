@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>//add for memset
 #include "bget.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 
 #define LUAT_LOG_TAG "vmheap"
 #include "luat_log.h"

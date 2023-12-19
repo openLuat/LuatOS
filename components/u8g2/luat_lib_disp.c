@@ -9,7 +9,7 @@
 -- disp库已合并到u8g2库,API等价
 */
 #include "luat_base.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 
 /*
 显示屏初始化,请使用u8g2库

@@ -8,7 +8,7 @@
 #include "luat_base.h"
 #include "luat_log.h"
 #include "luat_timer.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 
 /*
 硬阻塞指定时长

@@ -17,7 +17,7 @@
 #include "services/gatt/ble_svc_gatt.h"
 
 #include "luat_msgbus.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 #include "luat_nimble.h"
 
 #define LUAT_LOG_TAG "nimble"

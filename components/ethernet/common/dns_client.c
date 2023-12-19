@@ -1,7 +1,7 @@
 
 #include "luat_base.h"
 #include "luat_mcu.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 #ifdef LUAT_USE_DNS
 #include "platform_def.h"
 #include "dns_def.h"

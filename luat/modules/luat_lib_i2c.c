@@ -10,7 +10,7 @@
 #include "luat_base.h"
 #include "luat_log.h"
 #include "luat_timer.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 #include "luat_i2c.h"
 #include "luat_gpio.h"
 #include "luat_zbuff.h"

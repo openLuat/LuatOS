@@ -27,7 +27,7 @@ freely, subject to the following restrictions:
 #define LODEPNG_H
 
 #include "luat_base.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 #include <string.h> /*for size_t*/
 
 extern const char* LODEPNG_VERSION_STRING;

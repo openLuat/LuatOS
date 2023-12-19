@@ -7,7 +7,7 @@
 #include "luat_base.h"
 #include "luat_lvgl.h"
 #include "lvgl.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 
 static lv_indev_data_t point_emulator_data = {0};
 static lv_indev_data_t keyboard_emulator_data = {0};

@@ -12,7 +12,7 @@
 #include "luat_base.h"
 #include "luat_spi.h"
 #include "luat_lcd.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 
 #include "epdpaint.h"
 

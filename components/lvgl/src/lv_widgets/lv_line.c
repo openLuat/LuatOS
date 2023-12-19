@@ -16,7 +16,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
-#include "luat_malloc.h"
+#include "luat_mem.h"
 
 /*********************
  *      DEFINES

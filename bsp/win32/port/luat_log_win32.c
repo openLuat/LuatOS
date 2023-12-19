@@ -2,7 +2,7 @@
 #include "luat_base.h"
 #include "luat_log.h"
 #include "luat_uart.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 #include "printf.h"
 
 #include <stdio.h>

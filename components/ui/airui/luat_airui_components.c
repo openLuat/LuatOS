@@ -1,6 +1,6 @@
 #include "luat_base.h"
 #include "luat_airui.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 
 #define LUAT_LOG_TAG "airui"
 #include "luat_log.h"

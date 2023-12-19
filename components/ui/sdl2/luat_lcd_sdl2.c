@@ -2,7 +2,7 @@
 
 #include "luat_lcd.h"
 #include "luat_sdl2.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 
 #include "lvgl.h"
 

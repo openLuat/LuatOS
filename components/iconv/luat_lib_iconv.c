@@ -44,7 +44,7 @@
 
 
 #include "luat_base.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 
 #define LIB_NAME                "iconv"
 #define LIB_VERSION             LIB_NAME " r5"

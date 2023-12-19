@@ -46,7 +46,7 @@
 
 #include "er-coap-13.h"
 
-#include "luat_malloc.h"
+#include "luat_mem.h"
 #define LUAT_LOG_TAG "coap"
 #include "luat_log.h"
 

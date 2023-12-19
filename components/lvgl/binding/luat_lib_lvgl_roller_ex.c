@@ -8,7 +8,7 @@
 #include "luat_base.h"
 #include "lvgl.h"
 #include "luat_lvgl.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 #include "luat_zbuff.h"
 
 int luat_lv_roller_get_selected_str(lua_State *L) {

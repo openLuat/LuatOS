@@ -7,7 +7,7 @@
 @tag LUAT_USE_NETWORK
 */
 #include "luat_base.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 // #ifdef LUAT_USE_NETWORK
 #include "luat_network_adapter.h"
 #include "luat_rtos.h"

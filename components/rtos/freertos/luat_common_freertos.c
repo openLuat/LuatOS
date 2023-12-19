@@ -17,7 +17,7 @@
 #include "luat_base.h"
 #include "luat_rtos.h"
 #include "luat_mcu.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 #include "c_common.h"
 
 #define LUAT_LOG_TAG "rtos"

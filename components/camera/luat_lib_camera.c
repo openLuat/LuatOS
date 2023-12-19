@@ -11,7 +11,7 @@
 #include "luat_camera.h"
 #include "luat_msgbus.h"
 #include "luat_fs.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 #include "luat_uart.h"
 #include "luat_zbuff.h"
 #define LUAT_LOG_TAG "camera"

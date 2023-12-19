@@ -27,7 +27,7 @@ extern "C" {
 #include <string.h>
 #ifdef __LUATOS__
 #include "luat_base.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 #define oscl_malloc luat_heap_malloc
 #define oscl_free luat_heap_free
 #define oscl_memset memset

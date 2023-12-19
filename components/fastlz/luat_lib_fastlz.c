@@ -25,7 +25,7 @@ if cdata then
 end
 */
 #include "luat_base.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 
 #define LUAT_LOG_TAG "fastlz"
 #include "luat_log.h"

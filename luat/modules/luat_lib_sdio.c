@@ -16,7 +16,7 @@ local f = io.open("/sd/abc.txt")
 */
 #include "luat_base.h"
 #include "luat_sdio.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 
 #define SDIO_COUNT 2
 static luat_sdio_t sdio_t[SDIO_COUNT];

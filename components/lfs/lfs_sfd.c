@@ -2,7 +2,7 @@
 #
 #include "luat_base.h"
 #include "luat_sfd.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 
 #include "lfs.h"
 

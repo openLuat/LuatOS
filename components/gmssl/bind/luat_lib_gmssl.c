@@ -9,7 +9,7 @@
 @tag LUAT_USE_GMSSL
 */
 #include "luat_base.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 #include "luat_str.h"
 #include <time.h>
 #include "luat_zbuff.h"

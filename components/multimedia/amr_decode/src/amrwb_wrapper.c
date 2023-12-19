@@ -25,7 +25,7 @@
 #include <dtx.h>
 #ifdef __LUATOS__
 #include "luat_base.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 #define malloc luat_heap_malloc
 #define free luat_heap_free
 #endif

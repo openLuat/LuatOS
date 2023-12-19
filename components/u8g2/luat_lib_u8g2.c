@@ -8,7 +8,7 @@
 @tag LUAT_USE_U8G2
 */
 #include "luat_base.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 
 #include "luat_u8g2.h"
 #include "luat_gpio.h"

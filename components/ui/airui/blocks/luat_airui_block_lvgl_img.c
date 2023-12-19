@@ -3,7 +3,7 @@
 
 #define LUAT_LOG_TAG "airui"
 #include "luat_log.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 
 int airui_block_lvgl_img_cb(airui_block_t *bl) {
     lv_obj_t *parent = (lv_obj_t*)bl->parent;    

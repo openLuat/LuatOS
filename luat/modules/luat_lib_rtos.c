@@ -9,7 +9,7 @@
 #include "luat_sys.h"
 #include "luat_msgbus.h"
 #include "luat_timer.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 
 #define LUAT_LOG_TAG "rtos"
 #include "luat_log.h"

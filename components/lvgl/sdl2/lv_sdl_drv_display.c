@@ -22,7 +22,7 @@
  */
 
 #include "luat_base.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 #define LUAT_LOG_TAG "sdl2"
 #include "luat_log.h"
 #ifdef LUAT_USE_LVGL_SDL2

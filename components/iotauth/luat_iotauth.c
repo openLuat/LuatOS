@@ -9,7 +9,7 @@
 */
 #include "luat_base.h"
 #include "luat_crypto.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 #include "time.h"
 #include "luat_str.h"
 #include "luat_mcu.h"

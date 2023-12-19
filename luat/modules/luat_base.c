@@ -2,7 +2,7 @@
 #include "rotable.h"
 #include "rotable2.h"
 #include "luat_msgbus.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 
 #define LUAT_LOG_TAG "main"
 #include "luat_log.h"

@@ -90,7 +90,7 @@ DRESULT diskio_open(BYTE pdrv, block_disk_t * disk) {
 	return RES_OK;
 }
 
-#include "luat_malloc.h"
+#include "luat_mem.h"
 DRESULT diskio_close(BYTE pdrv) {
 	if (pdrv >= FF_VOLUMES || disks[pdrv].opts == NULL) {
 		return RES_NOTRDY;

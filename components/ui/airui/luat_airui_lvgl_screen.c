@@ -1,7 +1,7 @@
 #include "luat_base.h"
 // #include "luat_lvgl.h"
 #include "luat_airui.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 
 #include "math.h"
 #include <stdlib.h>

@@ -8,7 +8,7 @@
 #include "luat_base.h"
 #include "lvgl.h"
 #include "luat_lvgl.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 
 int luat_lv_line_set_points(lua_State *L) {
     LV_DEBUG("CALL lv_line_set_points");

@@ -3,11 +3,9 @@
 #include "luat_ymodem.h"
 #ifdef __LUATOS__
 #include "luat_fs.h"
-#include "luat_malloc.h"
 #include "luat_timer.h"
-#else
-#include "luat_malloc.h"
 #endif
+#include "luat_mem.h"
 #define LUAT_LOG_TAG "ymodem"
 #include "luat_log.h"
 

@@ -1,6 +1,6 @@
 #include "luat_base.h"
 #include "luat_fs.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 
 extern const struct luat_vfs_filesystem vfs_fs_posix;
 

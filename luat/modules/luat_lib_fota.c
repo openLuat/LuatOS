@@ -52,7 +52,7 @@ end)
 #include "luat_zbuff.h"
 #include "luat_spi.h"
 #include "luat_fs.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 
 #define LUAT_LOG_TAG "fota"
 #include "luat_log.h"

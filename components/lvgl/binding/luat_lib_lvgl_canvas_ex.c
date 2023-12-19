@@ -8,7 +8,7 @@
 #include "luat_base.h"
 #include "lvgl.h"
 #include "luat_lvgl.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 #include "luat_zbuff.h"
 
 static lv_res_t _canvas_gc(struct _lv_obj_t * obj, lv_signal_t sign, void * param) {

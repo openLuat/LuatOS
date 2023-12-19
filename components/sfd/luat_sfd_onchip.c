@@ -2,7 +2,7 @@
 #include "luat_base.h"
 
 #include "luat_sfd.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 
 const sdf_opts_t sfd_onchip_opts = {
     .initialize = sfd_onchip_init,

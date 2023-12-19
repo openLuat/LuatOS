@@ -1,7 +1,7 @@
 #include "luat_base.h"
 #include "sqlite3.h"
 #include "luat_fs.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 #include "luat_rtos.h"
 #include "luat_crypto.h"
 

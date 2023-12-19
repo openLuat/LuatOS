@@ -4,7 +4,7 @@
 
 #include <stdlib.h>
 #include <string.h>//add for memset
-#include "luat_malloc.h"
+#include "luat_mem.h"
 
 #ifdef __LUATOS__
 #include "bget.h"

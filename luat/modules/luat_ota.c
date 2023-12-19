@@ -3,7 +3,7 @@
 #include "luat_ota.h"
 #include "luat_fs.h"
 #include "luat_timer.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 #include "luat_flash.h"
 
 #define LUAT_LOG_TAG "ota"

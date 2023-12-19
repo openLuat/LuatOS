@@ -1,7 +1,7 @@
 #include "luat_base.h"
 #include "luat_fs.h"
 
-#include "luat_malloc.h"
+#include "luat_mem.h"
 #define LUAT_LOG_TAG "romfs"
 #include "luat_log.h"
 #include "luat_romfs.h"

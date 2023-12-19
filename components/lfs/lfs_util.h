@@ -29,7 +29,7 @@
 
 //--------------------------------
 #include "luat_base.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 #define LFS_NO_ASSERT 1
 #define LFS_NO_DEBUG 1
 #define LFS_NO_WARN 1

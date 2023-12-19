@@ -1,6 +1,6 @@
 #include "luat_base.h"
 #include "i2c_utils.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 
 #define LUAT_LOG_TAG "i2c tools"
 #include "luat_log.h"

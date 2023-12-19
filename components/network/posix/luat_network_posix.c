@@ -1,6 +1,6 @@
 #include "luat_base.h"
 #include "luat_network_adapter.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 #include "luat_msgbus.h"
 #include "luat_crypto.h"
 

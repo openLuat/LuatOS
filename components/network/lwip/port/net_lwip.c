@@ -1,6 +1,6 @@
 #include "platform_def.h"
 #include "luat_base.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 #include "luat_mcu.h"
 #include "luat_rtos.h"
 #include "dns_def.h"

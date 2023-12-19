@@ -28,7 +28,7 @@
 #include <string.h>
 #include <libemqtt.h>
 #include "luat_base.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 
 #define MQTT_DUP_FLAG     (1<<3)
 #define MQTT_QOS0_FLAG    (0<<1)

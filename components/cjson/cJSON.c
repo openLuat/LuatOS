@@ -175,7 +175,7 @@ typedef struct internal_hooks
 //     return realloc(pointer, size);
 // }
 // #else
-#include "luat_malloc.h"
+#include "luat_mem.h"
 #define internal_malloc luat_heap_malloc
 #define internal_free luat_heap_free
 #define internal_realloc luat_heap_realloc

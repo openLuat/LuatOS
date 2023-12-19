@@ -3,7 +3,7 @@
 #include "luat_msgbus.h"
 #include "luat_gpio.h"
 #include "luat_uart.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 
 int luat_irq_fire(int tp, int arg, void* args);
 int l_gpio_handler(lua_State *L, void* ptr) ;

@@ -8,7 +8,7 @@
 @note 64位数据用9字节string存储，byte7~byte0存数据，byte8=0表示整形，其他表示浮点
 */
 #include "luat_base.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 #define LUAT_LOG_TAG "bit64"
 #include "luat_log.h"
 #include <stdlib.h>

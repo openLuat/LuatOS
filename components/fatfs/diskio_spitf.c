@@ -11,7 +11,7 @@
 #include "luat_spi.h"
 #include "luat_timer.h"
 #include "luat_gpio.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 #ifdef __LUATOS__
 #include "lauxlib.h"
 #endif

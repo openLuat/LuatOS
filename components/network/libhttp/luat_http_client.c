@@ -4,7 +4,7 @@
 #include "luat_rtos.h"
 // #include "luat_msgbus.h"
 
-#include "luat_malloc.h"
+#include "luat_mem.h"
 #include "http_parser.h"
 
 #ifdef __LUATOS__

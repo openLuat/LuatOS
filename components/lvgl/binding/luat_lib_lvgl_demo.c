@@ -9,7 +9,7 @@
 #include "luat_lvgl.h"
 #include "lvgl.h"
 #include "../lv_demos/lv_examples.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 
 /*
 lvgl benchmark demo

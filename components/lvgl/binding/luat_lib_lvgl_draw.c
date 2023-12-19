@@ -8,7 +8,7 @@
 #include "luat_base.h"
 #include "luat_lvgl.h"
 #include "lvgl.h"
-#include "luat_malloc.h"
+#include "luat_mem.h"
 
 /*
 创建一个lv_draw_mask_radius_param_t

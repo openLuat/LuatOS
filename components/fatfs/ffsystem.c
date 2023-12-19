@@ -16,7 +16,7 @@
 /*------------------------------------------------------------------------*/
 
 #ifdef __LUATOS__
-	#include "luat_malloc.h"
+	#include "luat_mem.h"
 #else
 	#include <stdlib.h>		/* with POSIX API */
 #endif

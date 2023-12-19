@@ -37,6 +37,8 @@ LUAT_WEAK void luat_meminfo_opt_sys(LUAT_HEAP_TYPE_E type,size_t* total, size_t*
     luat_meminfo_sys(total, used, max_used);
 }
 
+LUAT_WEAK void luat_heap_init(void){}
+
 LUAT_WEAK void* luat_heap_calloc(size_t count, size_t _size) {
     void *ptr = luat_heap_malloc(count * _size);
     if (ptr) {

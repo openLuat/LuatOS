@@ -187,7 +187,12 @@ int luat_fs_rmdir(char const* _DirName);
 int luat_fs_lsdir(char const* _DirName, luat_fs_dirent_t* ents, size_t offset, size_t len);
 
 int luat_fs_truncate(const char* filename, size_t len);
-
+/**
+ * @brief 文件夹是否存在
+ * @param dir[IN] 文件夹名称
+ * @return int =0不存在,否则存在
+ */
+int luat_fs_dexist(const char *dir);
 /** @}*/
 #ifdef LUAT_USE_FS_VFS
 

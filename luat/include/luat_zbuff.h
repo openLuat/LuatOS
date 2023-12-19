@@ -1,6 +1,7 @@
 #ifndef LUAT_ZBUFF_H
 #define LUAT_ZBUFF_H
 
+#include "luat_mem.h"
 #include "luat_msgbus.h"
 
 #define LUAT_ZBUFF_TYPE "ZBUFF*"
@@ -15,6 +16,7 @@
 #endif
 
 typedef struct luat_zbuff {
+    LUAT_HEAP_TYPE_E type; //内存类型
     uint8_t* addr;      //数据存储的地址
     size_t len;       //实际分配空间的长度
     union {

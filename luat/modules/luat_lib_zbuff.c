@@ -9,7 +9,6 @@
 */
 #include "luat_base.h"
 #include "luat_zbuff.h"
-#include "luat_malloc.h"
 
 #define LUAT_LOG_TAG "zbuff"
 #include "luat_log.h"
@@ -98,6 +97,7 @@ uint32_t get_framebuffer_point(luat_zbuff_t *buff,uint32_t point)
 @api zbuff.create(length,data)
 @int 字节数
 @any 可选参数，number时为填充数据，string时为填充字符串
+@number 可选参数，内存类型，可选：zbuff.SRAM(内部sram,默认) zbuff.PSRAM(外部psram) 注意:此项与硬件支持有关
 @return object zbuff对象，如果创建失败会返回nil
 @usage
 -- 创建zbuff
@@ -142,7 +142,8 @@ static int l_zbuff_create(lua_State *L)
     {
         return 0;
     }
-    buff->addr = (uint8_t *)luat_heap_malloc(len);
+    buff->type = luaL_optinteger(L, 3, LUAT_HEAP_SRAM);
+    buff->addr = (uint8_t *)luat_heap_opt_malloc(buff->type,len);
     if (buff->addr == NULL)
     {
         lua_pushnil(L);
@@ -260,7 +261,7 @@ static int l_zbuff_read(lua_State *L)
         lua_pushlstring(L, NULL, 0);
         return 1;
     }
-    char *return_str = (char *)luat_heap_malloc(read_num);
+    char *return_str = (char *)luat_heap_opt_malloc(buff->type,read_num);
     if (return_str == NULL)
     {
         return 0;
@@ -268,7 +269,7 @@ static int l_zbuff_read(lua_State *L)
     memcpy(return_str, buff->addr + buff->cursor, read_num);
     lua_pushlstring(L, return_str, read_num);
     buff->cursor += read_num;
-    luat_heap_free(return_str);
+    luat_heap_opt_free(buff->type, return_str);
     return 1;
 }
 
@@ -998,17 +999,17 @@ static int l_zbuff_newindex(lua_State *L)
 static int l_zbuff_gc(lua_State *L)
 {
     luat_zbuff_t *buff = tozbuff(L);
-    luat_heap_free(buff->addr);
+    luat_heap_opt_free(buff->type,buff->addr);
     return 0;
 }
 
 int __zbuff_resize(luat_zbuff_t *buff, uint32_t new_size)
 {
-	void *p = luat_heap_malloc(new_size);
+	void *p = luat_heap_opt_malloc(buff->type,new_size);
 	if (p)
 	{
 		memcpy(p, buff->addr, (new_size > buff->used)?buff->used:new_size);
-		luat_heap_free(buff->addr);
+		luat_heap_opt_free(buff->type,buff->addr);
 		buff->addr = p;
 		buff->len = new_size;
 		buff->used = (buff->len > buff->used)?buff->used:buff->len;
@@ -1497,6 +1498,8 @@ static const rotable_Reg_t reg_zbuff[] =
         {"SEEK_CUR", ROREG_INT(ZBUFF_SEEK_CUR)},
         //@const SEEK_END number 以末尾为基点
         {"SEEK_END", ROREG_INT(ZBUFF_SEEK_END)},
+        {"SRAM",    ROREG_INT(LUAT_HEAP_SRAM)},
+        {"PSRAM",   ROREG_INT(LUAT_HEAP_PSRAM)},
         {NULL,       ROREG_INT(0)
     }
 };

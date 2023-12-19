@@ -4,8 +4,11 @@
 
 #include <stdlib.h>
 #include <string.h>//add for memset
-#include "bget.h"
 #include "luat_malloc.h"
+
+#ifdef __LUATOS__
+#include "bget.h"
+#endif
 
 #define LUAT_LOG_TAG "vmheap"
 #include "luat_log.h"
@@ -14,6 +17,7 @@
 
 //------------------------------------------------
 //  管理系统内存
+LUAT_WEAK void luat_heap_init(void){}
 
 LUAT_WEAK void* luat_heap_malloc(size_t len) {
     return malloc(len);
@@ -34,10 +38,20 @@ LUAT_WEAK void* luat_heap_calloc(size_t count, size_t _size) {
     }
     return ptr;
 }
+
+LUAT_WEAK void* luat_heap_zalloc(size_t _size) {
+    void *ptr = luat_heap_malloc(_size);
+    if (ptr) {
+        memset(ptr, 0, _size);
+    }
+    return ptr;
+}
+
 //------------------------------------------------
 
 //------------------------------------------------
 // ---------- 管理 LuaVM所使用的内存----------------
+#ifdef __LUATOS__
 LUAT_WEAK void* luat_heap_alloc(void *ud, void *ptr, size_t osize, size_t nsize) {
     if (0) {
         if (ptr) {
@@ -81,5 +95,5 @@ LUAT_WEAK void luat_meminfo_luavm(size_t *total, size_t *used, size_t *max_used)
 	*max_used = bstatsmaxget();
     *total = curalloc + totfree;
 }
-
+#endif
 //-----------------------------------------------------------------------------

@@ -1089,7 +1089,7 @@ end)
 基站数据已更新
 CELL_INFO_UPDATE
 @usage
--- 订阅式, 模块本身会周期性查询基站信息,但通常不包含临近小区
+-- 订阅式
 sys.subscribe("CELL_INFO_UPDATE", function()
     log.info("cell", json.encode(mobile.getCellInfo()))
 end)

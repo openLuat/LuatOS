@@ -35,6 +35,11 @@ target("luatos")
 
     add_includedirs(luatos.."lua/include",{public = true})
     add_files(luatos.."lua/src/*.c")
+
+    -- weak
+    add_files(luatos.."/luat/weak/luat_malloc_weak.c",
+            luatos.."/luat/weak/luat_mem_weak.c")
+
     -- printf
     add_includedirs(luatos.."components/printf",{public = true})
     add_files(luatos.."components/printf/*.c")

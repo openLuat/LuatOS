@@ -63,7 +63,10 @@ local function fs_test()
     end
 
     local ret, files = io.lsdir("/")
-    log.info("fatfs", "lsdir", json.encode(files))
+    log.info("fs", "lsdir", json.encode(files))
+
+    ret, files = io.lsdir("/luadb/")
+    log.info("fs", "lsdir", json.encode(files))
 
     -- 读取刷机时加入的文件, 并演示按行读取
     -- 刷机时选取的非lua文件, 均存放在/luadb/目录下, 单层无子文件夹

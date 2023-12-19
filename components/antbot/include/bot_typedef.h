@@ -24,15 +24,7 @@ extern "C"
 #include <string.h>
 #include <stdlib.h>
 
-#ifndef _IN_
-#define _IN_            /* indicating input parameter */
-#endif
-#ifndef _OUT_
-#define _OUT_           /* indicating output parameter */
-#endif
-#ifndef _INOUT_
-#define _INOUT_         /* indicating input/output parameter */
-#endif
+
 
 #ifdef __cplusplus
 }

@@ -39,9 +39,9 @@ static const char *bot_app_sta_notify_str[] = {
 static void bot_msg_notify_cb(bot_msg_type_e notify_type, void *args)
 {
     if (g_bot_status != notify_type) {
-        LLOGD("----------------------------------------------------------------------------------");
-        LLOGD("state change: %s ---> %s", bot_app_sta_notify_str[g_bot_status], bot_app_sta_notify_str[notify_type]);
-        LLOGD("----------------------------------------------------------------------------------");
+        LLOGI("----------------------------------------------------------------------------------");
+        LLOGI("state change: %s ---> %s", bot_app_sta_notify_str[g_bot_status], bot_app_sta_notify_str[notify_type]);
+        LLOGI("----------------------------------------------------------------------------------");
         g_bot_status = notify_type;
     }
 }
@@ -89,7 +89,7 @@ static int luat_bot_version_get(lua_State *L)
     else
         lua_pushstring(L, version);
 
-    LLOGD("version: %s", version);
+    //LLOGD("version: %s", version);
     return 1;
 }
 

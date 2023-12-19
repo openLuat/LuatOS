@@ -14,7 +14,7 @@
 #define MAAS_VERSION                    "3.1.2"
 #define MODULE_ID                       "air780e"
 #define PLATFORM_AIR780E                                 1
-#define DATETIME_STRING                 "20231215212101"
+#define DATETIME_STRING                 "20231219162358"
 
 
 

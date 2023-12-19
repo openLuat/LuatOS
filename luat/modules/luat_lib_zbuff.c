@@ -995,11 +995,23 @@ static int l_zbuff_newindex(lua_State *L)
     return 0;
 }
 
-// __gc
+// __gc l_zbuff_gc为zbuff默认gc函数，gc调用时会释放申请内存并gc掉zbuff，下面为用户手动调用注释
+
+/**
+释放zbuff所申请内存 注意：gc时会自动释放zbuff以及zbuff所申请内存，所以通常无需调用此函数，调用前请确认您已清楚此函数用处！调用此函数并不会释放掉zbuff，仅会释放掉zbuff所申请的内存，zbuff需等gc时自动释放！！！
+@api buff:free()
+@usage
+buff:free()
+ */
 static int l_zbuff_gc(lua_State *L)
 {
     luat_zbuff_t *buff = tozbuff(L);
-    luat_heap_opt_free(buff->type,buff->addr);
+    if (buff->addr){
+        luat_heap_opt_free(buff->type,buff->addr);
+        buff->addr = NULL;
+        buff->len = 0;
+        buff->used = 0;
+    }
     return 0;
 }
 
@@ -1434,7 +1446,7 @@ static const luaL_Reg lib_zbuff[] = {
     //{"__index", l_zbuff_index},
     //{"__len", l_zbuff_len},
     //{"__newindex", l_zbuff_newindex},
-    //{"__gc", l_zbuff_gc},
+    {"free", l_zbuff_gc},
 	//以下为扩展用法，数据的增减操作尽量不要和上面的read,write一起使用，对数值指针的用法不一致
 	{"copy", l_zbuff_copy},
 	{"set", l_zbuff_set},

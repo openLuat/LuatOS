@@ -97,7 +97,7 @@ uint32_t get_framebuffer_point(luat_zbuff_t *buff,uint32_t point)
 @api zbuff.create(length,data)
 @int 字节数
 @any 可选参数，number时为填充数据，string时为填充字符串
-@number 可选参数，内存类型，可选：zbuff.SRAM(内部sram,默认) zbuff.PSRAM(外部psram) 注意:此项与硬件支持有关
+@number 可选参数，内存类型，可选：zbuff.HEAP_AUTO(自动申请,如存在psram则在psram进行申请,如不存在或失败则在sram进行申请,默认) zbuff.HEAP_SRAM(内部sram) zbuff.HEAP_PSRAM(外部psram) 注意:此项与硬件支持有关
 @return object zbuff对象，如果创建失败会返回nil
 @usage
 -- 创建zbuff
@@ -142,7 +142,7 @@ static int l_zbuff_create(lua_State *L)
     {
         return 0;
     }
-    buff->type = luaL_optinteger(L, 3, LUAT_HEAP_SRAM);
+    buff->type = luaL_optinteger(L, 3, LUAT_HEAP_AUTO);
     buff->addr = (uint8_t *)luat_heap_opt_malloc(buff->type,len);
     if (buff->addr == NULL)
     {
@@ -1510,8 +1510,12 @@ static const rotable_Reg_t reg_zbuff[] =
         {"SEEK_CUR", ROREG_INT(ZBUFF_SEEK_CUR)},
         //@const SEEK_END number 以末尾为基点
         {"SEEK_END", ROREG_INT(ZBUFF_SEEK_END)},
-        {"SRAM",    ROREG_INT(LUAT_HEAP_SRAM)},
-        {"PSRAM",   ROREG_INT(LUAT_HEAP_PSRAM)},
+        //@const HEAP_AUTO number 自动申请(如存在psram则在psram进行申请,如不存在或失败则在sram进行申请)
+        {"HEAP_AUTO",   ROREG_INT(LUAT_HEAP_AUTO)},
+        //@const HEAP_SRAM number 在sram申请
+        {"HEAP_SRAM",   ROREG_INT(LUAT_HEAP_SRAM)},
+        //@const HEAP_PSRAM number 在psram申请
+        {"HEAP_PSRAM",  ROREG_INT(LUAT_HEAP_PSRAM)},
         {NULL,       ROREG_INT(0)
     }
 };

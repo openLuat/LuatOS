@@ -3,6 +3,7 @@
 #include "luat_malloc.h"
 
 typedef enum {
+    LUAT_HEAP_AUTO,
     LUAT_HEAP_SRAM,
     LUAT_HEAP_PSRAM,
 } LUAT_HEAP_TYPE_E;

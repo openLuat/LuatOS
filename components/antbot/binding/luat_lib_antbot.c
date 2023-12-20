@@ -1,4 +1,4 @@
-/**
+/*
 @module antbot
 @summary 蚂蚁链
 @catalog 扩展API
@@ -6,9 +6,8 @@
 @date    2022.12.18
 @demo antbot
 @tag LUAT_USE_ANTBOT
-@copyright Copyright (C) 2015-2023 Ant Group Holding Limited
 @usage
-
+-- Copyright (C) 2015-2023 Ant Group Holding Limited
 -- 本模块由蚂蚁链提供实现并开放给用户使用
 -- 具体用法请查阅demo,并联系蚂蚁链获取技术支持
  */

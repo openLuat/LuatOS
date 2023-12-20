@@ -6,6 +6,21 @@
 @date    2020.07.03
 @demo adc
 @tag LUAT_USE_ADC
+@usage
+
+-- 本库可读取硬件adc通道, 也支持读取CPU温度和VBAT供电电源(若模块支持的话)
+
+-- 读取CPU温度
+adc.open(adc.CH_CPU)
+local temp = adc.get(adc.CH_CPU)
+adc.close(adc.CH_CPU)
+
+-- 读取VBAT供电电压
+adc.open(adc.CH_VBAT)
+local vbat = adc.get(adc.CH_VBAT)
+adc.close(adc.CH_VBAT)
+
+-- 物理ADC通道请查阅adc.get或者adc.read的注释
 */
 #include "luat_base.h"
 #include "luat_adc.h"

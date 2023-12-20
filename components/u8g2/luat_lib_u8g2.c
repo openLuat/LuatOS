@@ -982,12 +982,13 @@ static int l_u8g2_CopyBuffer(lua_State *L) {
     if (conf == NULL) return 0;
     if (conf->buff_ptr == NULL) return 0;
     size_t len = u8g2_GetBufferSize(&conf->u8g2);
-    if (lua_isnil(L, 1)) {
+    if (lua_gettop(L) == 0 || lua_isnil(L, 1)) {
         lua_pushinteger(L, len);
         return 1;
     }
     luat_zbuff_t* buff = tozbuff(L);
-    if (buff->len <= len) {
+    if (buff->len < len) {
+        LLOGD("zbuff数据长度不够,需要%d 但只有 %d", len, buff->len);
         return 0;
     }
     memcpy(buff->addr, conf->buff_ptr, len);

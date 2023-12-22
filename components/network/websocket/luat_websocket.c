@@ -10,13 +10,13 @@
 #define LUAT_LOG_TAG "websocket"
 #include "luat_log.h"
 
-#define WEBSOCKET_DEBUG 0
-#if WEBSOCKET_DEBUG == 0
+#define LUAT_USE_WEBSOCKET_DEBUG 0
+#if LUAT_USE_WEBSOCKET_DEBUG == 0
 #undef LLOGD
 #define LLOGD(...)
 #endif
 
-#if WEBSOCKET_DEBUG
+#if LUAT_USE_WEBSOCKET_DEBUG
 static void print_pkg(const char *tag, char *buff, luat_websocket_pkg_t *pkg)
 {
 	if (pkg == NULL)
@@ -401,7 +401,7 @@ static int websocket_parse(luat_websocket_ctrl_t *websocket_ctrl)
 		if (memcmp("HTTP/1.1 101", buf, strlen("HTTP/1.1 101")))
 		{
 			buf[websocket_ctrl->buffer_offset] = 0;
-			LLOGD("server not support websocket? resp code %s", buf);
+			LLOGE("server not support websocket? resp code %s", buf);
 			return -1;
 		}
 		// 然后找\r\n\r\n
@@ -412,7 +412,7 @@ static int websocket_parse(luat_websocket_ctrl_t *websocket_ctrl)
 				// LLOGD("Found \\r\\n\\r\\n");
 				//  找到了!! 但貌似完全不用处理呢
 				websocket_ctrl->buffer_offset = 0;
-				LLOGD("ready!!");
+				LLOGI("ready!!");
 				websocket_ctrl->websocket_state = 1;
 				luat_stop_rtos_timer(websocket_ctrl->ping_timer);
 				luat_start_rtos_timer(websocket_ctrl->ping_timer, 30000, 1);

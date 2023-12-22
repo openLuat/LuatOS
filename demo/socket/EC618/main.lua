@@ -34,8 +34,8 @@ sys.subscribe("NTP_ERROR", function()
 end)
 
 -- require "async_socket_demo"
--- require "socket_demo"
-require "server_demo"
+require "socket_demo"
+-- require "server_demo"
 SerDemo(15000)
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

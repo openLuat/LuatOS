@@ -166,6 +166,7 @@ LUAMOD_API int luaopen_onewire( lua_State *L );
 
 LUAMOD_API int luaopen_antbot( lua_State *L );
 
+LUAMOD_API int luaopen_xxtea( lua_State *L );
 
 
 #endif

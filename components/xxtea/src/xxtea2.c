@@ -506,8 +506,8 @@ static void TEA_EncryptCore(int block_size, int *buf, int *key)
 
         for (p=0; p<(n-1); p++)
         {
-            y = v[p + 1];
-            z = v[p] += MX;
+            y = v[((uint8_t)p) + 1];
+            z = v[(uint8_t)p] += MX;
         }
         y = v[0];
         z = v[n - 1] += MX;

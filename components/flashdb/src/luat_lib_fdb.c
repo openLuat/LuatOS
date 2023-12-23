@@ -340,8 +340,8 @@ static int l_fdb_kv_iter(lua_State *L) {
 
 /**
 kv迭代器获取下一个key
-@api fdb.kv_iter(iter)
-@userdata fdb.kv_iter()返回的指针
+@api fdb.kv_next(iter)
+@userdata fdb.kv_next()返回的指针
 @return string 成功返回字符串key值, 否则返回nil
 @usage
 -- 清空

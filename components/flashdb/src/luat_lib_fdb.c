@@ -6,6 +6,9 @@
 @date    2021.11.03
 @demo fdb
 @tag LUAT_USE_FDB
+@deprecated 推荐使用 fskv 库
+@usage
+-- 本库已经废弃, 推荐使用 fskv 库
 */
 
 #include "luat_base.h"
@@ -341,7 +344,7 @@ static int l_fdb_kv_iter(lua_State *L) {
 /**
 kv迭代器获取下一个key
 @api fdb.kv_next(iter)
-@userdata fdb.kv_next()返回的指针
+@userdata fdb.kv_iter()返回的指针
 @return string 成功返回字符串key值, 否则返回nil
 @usage
 -- 清空

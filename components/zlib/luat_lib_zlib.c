@@ -4,6 +4,7 @@
 @version 1.0
 @date    2022.01.06
 @tag LUAT_USE_ZLIB
+@deprecated 请使用miniz或者fastlz库
 @usage
 -- 这个库已经废弃了, 请使用miniz或者fastlz库
 */

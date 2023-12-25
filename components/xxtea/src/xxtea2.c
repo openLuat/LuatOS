@@ -489,7 +489,7 @@ static void TEA_EncryptCore(int block_size, int *buf, int *key)
 {
     char n   = block_size /4;
     int *v   =(int*)buf;
-    int *k   =(int*)key;
+    // int *k   =(int*)key;
     long z   = v[n -1];
     long y   = v[0];
     long sum =0;
@@ -532,7 +532,7 @@ static void TEA_DecrpytCore(int block_size, int *buf, int *key)
 {
     char  n   = block_size /4;
     long *v   = (long*)buf;
-    long *k   = (long*)key;
+    // long *k   = (long*)key;
     long  z   = v[n -1];
     long  y   = v[0];
     long  sum = 0;

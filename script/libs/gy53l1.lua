@@ -144,7 +144,6 @@ function gy53l1.init(id)
     uart.on(id, "receive", function(id, len)
         local s = ""
         repeat
-            -- 如果是air302, len不可信, 传1024
             -- s = uart.read(id, 1024)
             s = uart.read(id, len)
             if #s > 0 then -- #s 是取字符串的长度

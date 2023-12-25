@@ -51,6 +51,10 @@ function aht10.init(i2c_id)
     i2c.send(i2cid, AHT10_ADDRESS_ADR_LOW, AHT10_STATE)
     local data = i2c.recv(i2cid, AHT10_ADDRESS_ADR_LOW, 1)
     local _,state = pack.unpack(data, "b")
+    if not state then
+        log.info("aht10", "not found")
+        return
+    end
     if bit.isclear(state,3) then
         i2c.send(i2cid, AHT10_ADDRESS_ADR_LOW, {AHT10_INIT,0x08,0x00})--初始化
     end

@@ -41,7 +41,6 @@ local result = uart.setup(
 uart.on(uartid, "receive", function(id, len)
     local s = ""
     repeat
-        -- 如果是air302, len不可信, 传1024
         -- s = uart.read(id, 1024)
         s = uart.read(id, len)
         if s and #s > 0 then -- #s 是取字符串的长度

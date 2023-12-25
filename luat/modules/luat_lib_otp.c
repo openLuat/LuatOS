@@ -50,6 +50,7 @@ static int l_otp_read(lua_State *L) {
     }
     luaL_Buffer buff;
     luaL_buffinitsize(L, &buff, len);
+    memset(buff.b, 0, len);
     int ret = luat_otp_read(zone, buff.b, (size_t)offset, (size_t)len);
     if (ret >= 0) {
         lua_pushlstring(L, buff.b, ret);
@@ -115,7 +116,8 @@ static int l_otp_erase(lua_State *L) {
 @return bool 成功返回true,否则返回false
 */
 static int l_otp_lock(lua_State *L) {
-    int ret = luat_otp_lock(0);
+    int zone = luaL_optinteger(L, 1, 0);
+    int ret = luat_otp_lock(zone);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 };

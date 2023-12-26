@@ -18,6 +18,7 @@
 struct luat_audio_codec_opts;
 
 typedef struct luat_audio_codec_conf {
+    int i2c_id;
     int samplerate;         //16k
     int bits;               //16
     int channels;           //1ch/2ch
@@ -39,7 +40,7 @@ typedef struct luat_audio_codec_opts{
 } luat_audio_codec_opts_t;
 
 
-const luat_audio_codec_opts_t codec_opts_es8311;
+extern const luat_audio_codec_opts_t codec_opts_es8311;
 
 
 #endif

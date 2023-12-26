@@ -98,6 +98,12 @@ static int es8311_codec_standby(void){
     return 0;
 }
 
+static uint8_t es8311_codec_mute(uint8_t enable){
+    if (enable)  es8311_write_reg(ES8311_DAC_REG31, 0x64);
+    else es8311_write_reg(ES8311_DAC_REG31, 0x00);
+	return 0;
+}
+
 static uint8_t es8311_codec_vol(uint8_t vol){
     if(vol < 0 || vol > 100){
 		return -1;
@@ -377,7 +383,7 @@ static void es8311_codec_pa(luat_audio_codec_conf_t* conf,uint8_t on){
 	}
 }
 
-static int es8311_codec_control(luat_audio_codec_conf_t* conf,uint8_t cmd,int data){
+static int es8311_codec_control(luat_audio_codec_conf_t* conf,luat_audio_codec_ctl_t cmd,uint32_t data){
     switch (cmd)
     {
     case LUAT_CODEC_CTL_MODE:
@@ -385,6 +391,8 @@ static int es8311_codec_control(luat_audio_codec_conf_t* conf,uint8_t cmd,int da
         break;
     case LUAT_CODEC_CTL_VOLUME:
         es8311_codec_vol((uint8_t)data);
+    case LUAT_CODEC_CTL_MUTE:
+        es8311_codec_mute((uint8_t)data);
         break;
     case LUAT_CODEC_CTL_RATE:
         es8311_codec_samplerate((uint16_t)data);

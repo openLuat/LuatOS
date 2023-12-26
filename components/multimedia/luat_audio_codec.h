@@ -7,13 +7,15 @@
 #define LUAT_CODEC_PA_OFF                    0x00
 #define LUAT_CODEC_PA_ON                     0x01
 
-#define LUAT_CODEC_CTL_MODE                  0x00
-#define LUAT_CODEC_CTL_VOLUME                0x01
-#define LUAT_CODEC_CTL_RATE                  0x02
-#define LUAT_CODEC_CTL_BITS                  0x03
-#define LUAT_CODEC_CTL_CHANNEL               0x04
-#define LUAT_CODEC_CTL_PA                    0x05
-
+typedef enum {
+    LUAT_CODEC_CTL_MODE,        // 模式设置
+    LUAT_CODEC_CTL_VOLUME,      // 音量设置
+    LUAT_CODEC_CTL_MUTE,        // 静音设置
+    LUAT_CODEC_CTL_RATE,        // 采样率设置
+    LUAT_CODEC_CTL_BITS,        // 采样位设置
+    LUAT_CODEC_CTL_CHANNEL,     // 通道设置
+    LUAT_CODEC_CTL_PA,          // pa控制
+} luat_audio_codec_ctl_t;
 
 struct luat_audio_codec_opts;
 
@@ -32,11 +34,11 @@ typedef struct luat_audio_codec_conf {
 
 typedef struct luat_audio_codec_opts{
     const char* name;
-    int (*init)(luat_audio_codec_conf_t* conf);
-    int (*deinit)(luat_audio_codec_conf_t* conf);
-    int (*control)(luat_audio_codec_conf_t* conf,uint8_t cmd,int data);
-    int (*start)(luat_audio_codec_conf_t* conf);
-    int (*stop)(luat_audio_codec_conf_t* conf);
+    int (*init)(luat_audio_codec_conf_t* conf);                         //初始化
+    int (*deinit)(luat_audio_codec_conf_t* conf);                       //反初始化
+    int (*control)(luat_audio_codec_conf_t* conf,luat_audio_codec_ctl_t cmd,uint32_t data); //控制函数
+    int (*start)(luat_audio_codec_conf_t* conf);                        //停止
+    int (*stop)(luat_audio_codec_conf_t* conf);                         //开始
 } luat_audio_codec_opts_t;
 
 

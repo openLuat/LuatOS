@@ -386,8 +386,42 @@ static int l_sensor_hx711(lua_State *L)
 
   return 1;
 }
+/*
+获取cs1237传感数据
+@api    sensor.cs1237(pin_date,pin_clk)
+@int    数据的gpio端口号
+@int    时钟的gpio端口号
+@return int cs1237读到的数据
+@usage
+--  如果设备不存在会卡在读取接口
+sys.taskInit(
+    function()
+        sys.wait(1000)
+        local cs1237_data = sensor.cs1237(0,7)
+        while true do
+            sys.wait(2000)
+            cs1237_data = sensor.cs1237(0,7) - maopi
+            log.info("cs1237_data:", cs1237_data)--得到原始数据
+        end
+    end
+)
+*/
+static int l_sensor_cs1237(lua_State *L)
+{
+  // unsigned int j;
+  unsigned long cs1237_dat = 0;
+  unsigned int temp = 0;
+  int date = luaL_checkinteger(L, 1);
+  int clk = luaL_checkinteger(L, 2);
+  //for (j = 0; j < 5; j++)
+  //  luat_timer_us_delay(5000);
+  cs1237_dat = ReadCount(date,clk);              
+  temp = (unsigned int)cs1237_dat;
+  //LLOGI("cs1237:%d",temp);
+  lua_pushinteger(L, temp);
 
-
+  return 1;
+}
 /*
 设置ws2812b输出(gpio驱动方式)
 @api    sensor.ws2812b(pin,data,T0H,T0L,T1H,T1L)
@@ -726,6 +760,7 @@ static const rotable_Reg_t reg_sensor[] =
         {"w1_read",     ROREG_FUNC(l_w1_read_byte)},
         {"ds18b20",     ROREG_FUNC(l_sensor_ds18b20)},
         {"hx711",       ROREG_FUNC(l_sensor_hx711)},
+        {"cs1237",       ROREG_FUNC(l_sensor_cs1237)},
         {"ws2812b",     ROREG_FUNC(l_sensor_ws2812b)},
         {"dht1x",       ROREG_FUNC(dht1x_read)},
 #ifdef LUAT_USE_PWM

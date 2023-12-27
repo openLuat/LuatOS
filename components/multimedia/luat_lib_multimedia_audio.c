@@ -346,6 +346,7 @@ static int l_audio_vol(lua_State *L) {
 @api audio.setBus(id, bus_type)
 @int 音频通道,例如0
 @int 总线类型, 例如 audio.BUS_SOFT_DAC
+@int 硬件id, 例如 总线类型为audio.BUS_I2S时,硬件id即为i2s codec的i2c id
 @return nil 无返回值
 @usage
 audio.setBus(0, audio.BUS_SOFT_DAC)	--通道0的硬件输出通道设置为软件DAC

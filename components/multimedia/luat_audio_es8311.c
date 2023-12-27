@@ -1,15 +1,11 @@
 #include "luat_base.h"
 #include "luat_gpio.h"
 #include "luat_i2c.h"
-#include "luat_audio_codec.h"
+#include "luat_audio.h"
 #include "luat_timer.h"
-
-// #include "es8311.h"
 
 #define LUAT_LOG_TAG "es8311"
 #include "luat_log.h"
-
-#define I2C_REQ     400*1000
 
 #define ADC_VOLUME_GAIN 0xDF  //0xEF
 #define DADC_GAIN 0x1A        //0x17
@@ -350,7 +346,6 @@ static int es8311_codec_init(luat_audio_codec_conf_t* conf){
         luat_gpio_mode(conf->pa_pin, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, !conf->pa_on_level);
         luat_gpio_set(conf->pa_pin, !conf->pa_on_level);
     }
-    // luat_i2c_setup(0, I2C_REQ);
     temp1 = es8311_read_reg(conf,ES8311_CHD1_REGFD);
     temp2 = es8311_read_reg(conf,ES8311_CHD2_REGFE);
     temp3 = es8311_read_reg(conf,ES8311_CHVER_REGFF);
@@ -417,7 +412,7 @@ static int es8311_codec_stop(luat_audio_codec_conf_t* conf){
     return 0;
 }
 
-const luat_audio_codec_opts_t codec_opts_es8311 = {
+luat_audio_codec_opts_t codec_opts_es8311 = {
     .name = "es8311",
     .init = es8311_codec_init,
     .deinit = es8311_codec_deinit,

@@ -25,6 +25,56 @@
 #ifndef __BSP_COMMON_H__
 #include "c_common.h"
 #endif
+
+#define LUAT_CODEC_MODE_MASTER               0x00
+#define LUAT_CODEC_MODE_SLAVE                0x01
+
+// #define LUAT_CODEC_PA_OFF                    0x00
+// #define LUAT_CODEC_PA_ON                     0x01
+
+typedef enum {
+    LUAT_CODEC_CTL_MODE,        // 模式设置
+    LUAT_CODEC_CTL_VOLUME,      // 音量设置
+    LUAT_CODEC_CTL_MUTE,        // 静音设置
+    LUAT_CODEC_CTL_RATE,        // 采样率设置
+    LUAT_CODEC_CTL_BITS,        // 采样位设置
+    LUAT_CODEC_CTL_CHANNEL,     // 通道设置
+    LUAT_CODEC_CTL_PA,          // pa控制
+} luat_audio_codec_ctl_t;
+
+struct luat_audio_codec_opts;
+
+typedef struct luat_audio_codec_conf {
+    int i2c_id;
+    int i2s_id;
+    int samplerate;         //16k
+    int bits;               //16
+    int channels;           //1ch/2ch
+	uint8_t vol;
+    uint8_t pa_pin;
+	uint8_t pa_on_level;
+    uint32_t dummy_time_len;
+    uint32_t pa_delay_time;
+    const struct luat_audio_codec_opts* codec_opts;
+} luat_audio_codec_conf_t;
+
+typedef struct luat_audio_codec_opts{
+    const char* name;
+    int (*init)(luat_audio_codec_conf_t* conf);                         //初始化
+    int (*deinit)(luat_audio_codec_conf_t* conf);                       //反初始化
+    int (*control)(luat_audio_codec_conf_t* conf,luat_audio_codec_ctl_t cmd,uint32_t data); //控制函数
+    int (*start)(luat_audio_codec_conf_t* conf);                        //停止
+    int (*stop)(luat_audio_codec_conf_t* conf);                         //开始
+} luat_audio_codec_opts_t;
+
+typedef struct luat_audio_conf {
+    uint8_t multimedia_id;
+    uint8_t bus_type;
+    luat_audio_codec_conf_t codec_conf;
+} luat_audio_conf_t;
+
+extern luat_audio_codec_opts_t codec_opts_es8311;
+
 /**
  * @brief 播放指定数量的文件或者ROM数组（文件数据直接写成数组形式）
  *
@@ -136,4 +186,8 @@ uint16_t luat_audio_vol(uint8_t multimedia_id, uint16_t vol);
  * @param bus_type 见MULTIMEDIA_AUDIO_BUS，目前只有0=DAC 1=I2S 2=SOFT_DAC
  */
 void luat_audio_set_bus_type(uint8_t bus_type);
+
+luat_audio_conf_t *luat_audio_get_config(uint8_t multimedia_id);
+int luat_audio_set_config(uint8_t multimedia_id,luat_audio_conf_t * config);
+
 #endif

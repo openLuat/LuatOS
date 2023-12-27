@@ -1078,7 +1078,7 @@ static int32_t network_default_socket_callback(void *data, void *param)
 
 	if (event->ID > EV_NW_TIMEOUT)
 	{
-		if (ctrl && ((ctrl->tag == cb_param->tag) || (event->ID == EV_NW_DNS_RESULT)))
+		if (ctrl && ((event->ID == EV_NW_DNS_RESULT) || (ctrl->tag == cb_param->tag)))
 		{
 			if ((event->ID == EV_NW_DNS_RESULT) && (ctrl->wait_target_state != NW_WAIT_ON_LINE))
 			{
@@ -1105,7 +1105,9 @@ static int32_t network_default_socket_callback(void *data, void *param)
 		else
 		{
 			DBG_ERR("cb ctrl invaild %x %08X", ctrl, event->ID);
-			DBG_HexPrintf(&ctrl->tag, 8);
+			// 下面这行的打印在部分平台会有问题
+			// 原因是ctrl可能已经被释放, 再次访问会导致coredump
+			//DBG_HexPrintf(&ctrl->tag, 8);
 			DBG_HexPrintf(&cb_param->tag, 8);
 		}
 	}

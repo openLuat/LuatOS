@@ -341,6 +341,8 @@ static int l_audio_vol(lua_State *L) {
     return 1;
 }
 
+LUAT_WEAK luat_audio_conf_t *luat_audio_get_config(uint8_t multimedia_id){return NULL;}
+
 /*
 配置一个音频通道的硬件输出总线，只有对应soc软硬件平台支持才设置对应类型
 @api audio.setBus(id, bus_type)
@@ -353,10 +355,34 @@ audio.setBus(0, audio.BUS_SOFT_DAC)	--通道0的硬件输出通道设置为软�
 audio.setBus(0, audio.BUS_I2S)	--通道0的硬件输出通道设置为I2S
 */
 static int l_audio_set_output_bus(lua_State *L) {
+    size_t len;
+    int id = luaL_checkinteger(L, 1);
+    luat_audio_conf_t* audio_conf = luat_audio_get_config(id);
     int tp = luaL_checkinteger(L, 2);
-	luat_audio_set_bus_type(tp);
+    if (audio_conf!=NULL && lua_istable(L,3) && tp==MULTIMEDIA_AUDIO_BUS_I2S){
+		lua_pushstring(L, "chip");
+		if (LUA_TSTRING == lua_gettable(L, 3)) {
+            const char *chip = luaL_checklstring(L, -1,&len);
+            if(strcmp(chip,"es8311") == 0){
+                audio_conf->codec_conf.codec_opts = &codec_opts_es8311;
+            }
+		}
+		lua_pop(L, 1);
+		lua_pushstring(L, "i2cid");
+		if (LUA_TNUMBER == lua_gettable(L, 3)) {
+			audio_conf->codec_conf.i2c_id = luaL_checknumber(L, -1);
+		}
+		lua_pop(L, 1);
+		lua_pushstring(L, "i2sid");
+		if (LUA_TNUMBER == lua_gettable(L, 3)) {
+			audio_conf->codec_conf.i2s_id = luaL_checknumber(L, -1);
+		}
+		lua_pop(L, 1);
+    }
+    luat_audio_set_bus_type(tp);
     return 0;
 }
+
 LUAT_WEAK void luat_audio_set_debug(uint8_t on_off)
 {
 	(void)on_off;

@@ -42,20 +42,18 @@ typedef enum {
     LUAT_CODEC_CTL_PA,          // pa控制
 } luat_audio_codec_ctl_t;
 
+struct luat_audio_conf;
 struct luat_audio_codec_opts;
 
 typedef struct luat_audio_codec_conf {
-    int i2c_id;
-    int i2s_id;
-    int samplerate;         //16k
-    int bits;               //16
-    int channels;           //1ch/2ch
-	uint8_t vol;
-    uint8_t pa_pin;
-	uint8_t pa_on_level;
-    uint32_t dummy_time_len;
-    uint32_t pa_delay_time;
-    const struct luat_audio_codec_opts* codec_opts;
+    int i2c_id;                                                         // i2c id
+    int i2s_id;                                                         // i2s id
+    uint8_t pa_pin;                                                     // pa pin
+	uint8_t pa_on_level;                                                // pa 使能电平
+    uint32_t dummy_time_len;                                            // pa使能前延迟时间
+    uint32_t pa_delay_time;                                             // pa使能后延迟时间
+    struct luat_audio_codec_opts* codec_opts;
+    struct luat_audio_conf* audio_conf;
 } luat_audio_codec_conf_t;
 
 typedef struct luat_audio_codec_opts{
@@ -70,6 +68,10 @@ typedef struct luat_audio_codec_opts{
 typedef struct luat_audio_conf {
     uint8_t multimedia_id;
     uint8_t bus_type;
+    int samplerate;         //16k
+    int bits;               //16
+    int channels;           //1ch/2ch
+	uint8_t vol;
     luat_audio_codec_conf_t codec_conf;
 } luat_audio_conf_t;
 
@@ -188,6 +190,5 @@ uint16_t luat_audio_vol(uint8_t multimedia_id, uint16_t vol);
 void luat_audio_set_bus_type(uint8_t bus_type);
 
 luat_audio_conf_t *luat_audio_get_config(uint8_t multimedia_id);
-int luat_audio_set_config(uint8_t multimedia_id,luat_audio_conf_t * config);
 
 #endif

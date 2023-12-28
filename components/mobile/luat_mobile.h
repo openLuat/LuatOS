@@ -524,6 +524,8 @@ typedef enum LUAT_MOBILE_EVENT
 	LUAT_MOBILE_EVENT_BEARER,/**< PDP承载状态*/
 	LUAT_MOBILE_EVENT_SMS,	/**< SMS短信 >*/
 	LUAT_MOBILE_EVENT_NAS_ERROR,/**< NAS异常消息，air780e, air780ep有效*/
+	LUAT_MOBILE_EVENT_IMS_REGISTER_STATUS, /**< IMS注册状态，volte必须在注册成功情况下使用*/
+	LUAT_MOBILE_EVENT_CC,	/**< 通话相关消息*/
 	LUAT_MOBILE_EVENT_FATAL_ERROR = 0xff,/**< 网络遇到严重故障*/
 }LUAT_MOBILE_EVENT_E;
 
@@ -596,6 +598,48 @@ typedef enum LUAT_MOBILE_SMS_STATUS
 	LUAT_MOBILE_SMS_ACK, /**< 短信已经被接收*/
 }LUAT_MOBILE_SMS_STATUS_E;
 
+typedef enum LUAT_MOBILE_IMS_REGISTER_STATUS
+{
+	LUAT_MOBILE_IMS_READY = 0,	 /**< IMS网络已注册*/
+}LUAT_MOBILE_IMS_REGISTER_STATUS_E;
+
+typedef enum LUAT_MOBILE_CC_STATUS
+{
+	LUAT_MOBILE_CC_READY = 0, /**< 通话准备完成，可以拨打电话了*/
+	LUAT_MOBILE_CC_INCOMINGCALL, /**< 有来电*/
+	LUAT_MOBILE_CC_CALL_NUMBER, /**< 有来电号码*/
+	LUAT_MOBILE_CC_CONNECTED_NUMBER, /**< 已接通电话号码*/
+	LUAT_MOBILE_CC_CONNECTED, /**< 电话已经接通*/
+	LUAT_MOBILE_CC_DISCONNECTED, /**< 电话被对方挂断*/
+	LUAT_MOBILE_CC_SPEECH_START, /**< 通话开始*/
+	LUAT_MOBILE_CC_MAKE_CALL_OK, /**< 拨打电话请求成功*/
+	LUAT_MOBILE_CC_MAKE_CALL_FAILED, /**< 拨打电话请求失败*/
+	LUAT_MOBILE_CC_ANSWER_CALL_DONE, /**< 接听电话请求完成*/
+	LUAT_MOBILE_CC_HANGUP_CALL_DONE, /**< 挂断电话请求完成*/
+	LUAT_MOBILE_CC_LIST_CALL_RESULT, /**< 电话列表，未实现*/
+	LUAT_MOBILE_CC_PLAY, /**< 电话功能相关音频控制*/
+}LUAT_MOBILE_CC_STATUS_E;
+
+typedef enum LUAT_MOBILE_CC_MAKE_CALL_RESULT
+{
+	LUAT_MOBILE_CC_MAKE_CALL_RESULT_OK = 0, /**< 电话相关请求成功*/
+	LUAT_MOBILE_CC_MAKE_CALL_RESULT_NO_CARRIER, /**< 拨打电话无人接听或者已挂断*/
+	LUAT_MOBILE_CC_MAKE_CALL_RESULT_BUSY, /**< 拨打电话对方正忙*/
+	LUAT_MOBILE_CC_MAKE_CALL_RESULT_ERROR, /**< 拨打电话请求发生未知错误*/
+}LUAT_MOBILE_CC_MAKE_CALL_RESULT_E;
+
+typedef enum LUAT_MOBILE_CC_PLAY_IND
+{
+	LUAT_MOBILE_CC_PLAY_STOP, /**< 音频关闭*/
+	LUAT_MOBILE_CC_PLAY_DIAL_TONE, /**< 播放dial音*/
+	LUAT_MOBILE_CC_PLAY_RINGING_TONE, /**< 播放振铃*/
+	LUAT_MOBILE_CC_PLAY_CONGESTION_TONE, /**< 播放振铃*/
+	LUAT_MOBILE_CC_PLAY_BUSY_TONE, /**< 播放振铃*/
+	LUAT_MOBILE_CC_PLAY_CALL_WAITING_TONE, /**< 播放振铃*/
+	LUAT_MOBILE_CC_PLAY_MULTI_CALL_PROMPT_TONE, /**< 播放振铃*/
+	LUAT_MOBILE_CC_PLAY_CALL_INCOMINGCALL_RINGING, /**< 播放来电铃声*/
+}LUAT_MOBILE_CC_PLAY_IND_E;
+
 /**
  * @brief 获取当前SIM卡状态
  *
@@ -647,7 +691,7 @@ int luat_mobile_event_deregister_handler(void);
  * @return int =0成功，其他失败
  */
 int luat_mobile_sms_sdk_event_register_handler(luat_mobile_sms_event_callback_t callback_fun);
-/*
+/**
  * @brief 和luat_mobile_sms_sdk_event_register_handler一样，只是为了兼容老的BSP
  */
 int luat_mobile_sms_event_register_handler(luat_mobile_sms_event_callback_t callback_fun);
@@ -771,7 +815,7 @@ void luat_mobile_rf_test_mode(uint8_t uart_id, uint8_t on_off);
  * @return 无
  */
 void luat_mobile_rf_test_input(char *data, uint32_t data_len);
-/** @}*/
+
 enum
 {
 	MOBILE_CONF_RESELTOWEAKNCELL = 1,
@@ -811,4 +855,46 @@ int luat_mobile_get_isp_from_plmn(uint16_t mcc, uint8_t mnc);
  * @return =0成功，其他错误
  */
 int luat_mobile_get_plmn_from_imsi(char *imsi, uint16_t *mcc, uint8_t *mnc);
+
+/**
+ * @brief 获取最近一次来电号码
+ * @param buf 存放号码的缓存
+ * @param buf_len 存放号码的缓存长度，推荐80
+ * @return 无
+ */
+void luat_mobile_get_last_call_num(char *buf, uint8_t buf_len);
+/**
+ * @brief 主动拨打打电话
+ * @param sim_id sim卡槽
+ * @param number 字符串形式的电话号码
+ * @param len 电话号码长度
+ * @return =0成功，其他错误
+ */
+int luat_mobile_make_call(uint8_t sim_id, char *number, uint8_t len);
+/**
+ * @brief 主动挂断电话
+ * @param sim_id sim卡槽
+ * @return 无
+ */
+void luat_mobile_hangup_call(uint8_t sim_id);
+/**
+ * @brief 接听电话
+ * @param sim_id sim卡槽
+ * @return =0成功，其他错误
+ */
+int luat_mobile_answer_call(uint8_t sim_id);
+/**
+ * @brief 初始化电话功能
+ * @param callback 下行通话数据回调函数
+ * @return 无
+ */
+void luat_mobile_speech_init(void *callback);
+/**
+ * @brief 上行通话数据
+ * @param data 录音数据
+ * @param len 录音数据长度
+ * @return =0成功，其他错误
+ */
+int luat_mobile_speech_upload(uint8_t *data, uint32_t len);
+/** @}*/
 #endif

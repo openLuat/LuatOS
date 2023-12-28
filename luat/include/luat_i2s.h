@@ -36,8 +36,9 @@ void luat_i2s_no_block_tx(uint8_t bus_id, uint8_t* address, uint32_t byte_len, v
 void luat_i2s_no_block_rx(uint8_t bus_id, uint32_t byte_len, void *cb, void *param);
 void luat_i2s_tx_stop(uint8_t bus_id);
 void luat_i2s_rx_stop(uint8_t bus_id);
-void luat_i2s_deinit(uint8_t bus_id);
+void luat_i2s_stop(uint8_t bus_id);
 void luat_i2s_pause(uint8_t bus_id);
 void luat_i2s_transfer(uint8_t bus_id, uint8_t* address, uint32_t byte_len);
+void luat_i2s_transfer_loop(uint8_t bus_id, uint8_t* address, uint32_t one_truck_byte_len, uint32_t total_trunk_cnt, uint8_t need_irq);
 void luat_i2s_transfer_stop(uint8_t bus_id);
 #endif

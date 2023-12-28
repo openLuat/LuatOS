@@ -54,7 +54,7 @@ int l_i2s_handler(lua_State *L, void* ptr) {
     return 1;
 }
 
-int32_t luat_i2s_rx_cb(void *pdata, void *param)
+int luat_i2s_rx_cb(void *pdata, void *param)
 {
 	Buffer_Struct *buffer = (Buffer_Struct *)pdata;
 	int id = (int)param;

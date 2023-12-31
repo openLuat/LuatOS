@@ -248,7 +248,7 @@ static int math_random (lua_State *L) {
   lua_Integer low, up;
 #ifdef LUAT_USE_CRYPTO
   extern int luat_crypto_trng(char* buff, size_t len);
-  luat_crypto_trng((char*)&low, 4);
+  luat_crypto_trng((char*)&low, sizeof(lua_Integer));
   double r = (double)(low & 0x7FFFFFFF) * (1.0 / ((double)L_RANDMAX + 1.0));
 #else
   double r = (double)l_rand() * (1.0 / ((double)L_RANDMAX + 1.0));

@@ -92,11 +92,14 @@ const block_disk_opts_t sdio_disk_opts = {
     .ioctl = sdio_ioctl,
 };
 
-__attribute__((weak)) void luat_sdio_set_sdhc_ctrl(
-		block_disk_t *disk)
+#ifndef LUAT_COMPILER_NOWEAK
+LUAT_WEAK void luat_sdio_set_sdhc_ctrl(block_disk_t *disk)
 {
 
 }
+#else
+void luat_sdio_set_sdhc_ctrl(block_disk_t *disk);
+#endif
 
 static block_disk_t disk = {0};
 

@@ -977,7 +977,7 @@ const block_disk_opts_t spitf_disk_opts = {
     .write = luat_spitf_write,
     .ioctl = luat_spitf_ioctl,
 };
-
+#ifndef LUAT_COMPILER_NOWEAK
 __attribute__((weak)) void luat_spi_set_sdhc_ctrl(
 		block_disk_t *disk)
 {
@@ -1002,7 +1002,9 @@ __attribute__((weak)) void luat_spi_set_sdhc_ctrl(
 	disk->userdata = NULL;
 	disk->opts = &spitf_disk_opts;
 }
-
+#else
+void luat_spi_set_sdhc_ctrl(block_disk_t *disk);
+#endif
 static block_disk_t disk = {0};
 
 DRESULT diskio_open_spitf(BYTE pdrv, luat_fatfs_spi_t* userdata) {

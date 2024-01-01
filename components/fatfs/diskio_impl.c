@@ -102,14 +102,18 @@ DRESULT diskio_close(BYTE pdrv) {
 	return RES_OK;
 }
 
+#include "time.h"
 DWORD get_fattime (void) {
-	
-	return ((2020UL-1980) << 25) /* Year = 2010 */
-			| (1UL << 21) /* Month = 11 */
-			| (1UL << 16) /* Day = 2 */
-			| (1U << 11) /* Hour = 15 */
-			| (0U << 5) /* Min = 0 */
-			| (0U >> 1) /* Sec = 0 */
+	struct tm *tm;
+	time_t t;
+	time(&t);
+    tm = gmtime(&t);
+	return ( ((tm->tm_year-80) & 0x3F) << 25)
+			| ((tm->tm_mon + 1) << 21)
+			| (tm->tm_mday << 16)
+			| (tm->tm_hour << 11)
+			| (tm->tm_min << 5)
+			| ((tm->tm_sec % 60) >> 1)
 	;
 }
 

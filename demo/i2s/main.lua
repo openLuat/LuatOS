@@ -23,8 +23,23 @@ end
 
 sys.taskInit(function()
     sys.wait(500)
+
+    local i2c_id = 0
+    
+    local i2s_id = 0
+    local i2s_mode = 0
+    local i2s_sample_rate = 44100
+    local i2s_bits_per_sample = 16
+    local i2s_channel_format = 0
+    local i2s_communication_format = 0
+    local i2s_channel_bits = 16
+    local i2s_mclk = 8000000
+
+    i2c.setup(i2c_id,i2c.SLOW)
+    i2s.setup(i2s_id, i2s_mode, i2s_sample_rate, i2s_bits_per_sample, i2s_channel_format, i2s_communication_format,i2s_channel_bits, i2s_mclk)
+
     audio.config(0, 20, 1, 0, 20)
-    audio.setBus(0, audio.BUS_I2S)
+    audio.setBus(0, audio.BUS_I2S,{chip = "es8311",i2cid = i2c_id , i2sid = i2s_id})	--通道0的硬件输出通道设置为I2S
 
     -- 播放参数设置
     audio.start(0, audio.PCM, 1, 16000, 16)
@@ -58,49 +73,50 @@ sys.taskInit(function()
     log.info("decoder", decoder)
     local result, audio_format, num_channels, sample_rate, bits_per_sample, is_signed= codec.info(decoder, path)
     log.info("info", result, audio_format, num_channels, sample_rate, bits_per_sample, is_signed)
-    -- 按mp3实际情况切换采样率和采样深度
-    audio.start(0, audio.PCM, 1, sample_rate, bits_per_sample) 
-    
-    -- 音频数据缓存区大小
-    local buff = zbuff.create(8*1024)
-    -- log.info("sys", rtos.meminfo("sys"))
-    -- log.info("buff", buff)
-    while 1 do
-        -- log.info("尝试解码")
-        local result = codec.data(decoder, buff, 4096)
-        -- log.info("解析结果", result)
-        if result then
-            while 1 do
-                -- 判断底层缓冲区是否空闲, 不空闲就需要等待
-                local max, remain = i2s.txStat(0)
-                if max == 0 then
-                    sys.wait(120)
-                    break
+    if result then
+        -- 按mp3实际情况切换采样率和采样深度
+        audio.start(0, audio.PCM, 1, sample_rate, bits_per_sample) 
+        -- 音频数据缓存区大小
+        local buff = zbuff.create(8*1024)
+        -- log.info("sys", rtos.meminfo("sys"))
+        -- log.info("buff", buff)
+        while 1 do
+            -- log.info("尝试解码")
+            local result = codec.data(decoder, buff, 4096)
+            -- log.info("解析结果", result)
+            if result then
+                while 1 do
+                    -- 判断底层缓冲区是否空闲, 不空闲就需要等待
+                    local max, remain = i2s.txStat(0)
+                    if max == 0 then
+                        sys.wait(120)
+                        break
+                    end
+                    if remain > (max / 2) then
+                        sys.wait(10) -- sys.waitUntil("AUDIO_INC", 10)
+                    else
+                        break -- 已经足够空闲,写入数据就好
+                    end
                 end
-                if remain > (max / 2) then
-                    sys.wait(10) -- sys.waitUntil("AUDIO_INC", 10)
-                else
-                    break -- 已经足够空闲,写入数据就好
-                end
+                audio.write(0, buff)
+                -- log.info("音频数据已写入", buff:used())
+            else
+                break
             end
-            audio.write(0, buff)
-            -- log.info("音频数据已写入", buff:used())
-        else
-            break
         end
     end
     -- 释放解码器资源
     codec.release(decoder)
 end)
 
-sys.taskInit(function()
-    while 1 do
-        -- 打印内存状态, 调试用
-        sys.wait(1000)
-        log.info("lua", rtos.meminfo())
-        log.info("sys", rtos.meminfo("sys"))
-    end
-end)
+-- sys.taskInit(function()
+--     while 1 do
+--         -- 打印内存状态, 调试用
+--         sys.wait(1000)
+--         log.info("lua", rtos.meminfo())
+--         log.info("sys", rtos.meminfo("sys"))
+--     end
+-- end)
 
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句

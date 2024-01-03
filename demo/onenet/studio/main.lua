@@ -182,7 +182,7 @@ sys.taskInit(function()
         elseif event == "recv" then
             -- 打印收到的内容, 时间生产环境建议注释掉, 不然挺多的
             log.info("mqtt", "downlink", "topic", data, "payload", payload)
-            on_downlink(topic, payload)
+            on_downlink(data, payload)
         elseif event == "sent" then
             log.info("mqtt", "sent", "pkgid", data)
             -- elseif event == "disconnect" then

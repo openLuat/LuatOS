@@ -78,7 +78,7 @@ LUAT_WEAK int luat_audio_pause_raw(uint8_t multimedia_id, uint8_t is_pause){
 
 LUAT_WEAK void luat_audio_config_pa(uint8_t multimedia_id, uint32_t pin, int level, uint32_t dummy_time_len, uint32_t pa_delay_time){
     luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
-	if (pin < LUAT_GPIO_PIN_MAX){
+	if (pin != 255){
 		audio_conf->codec_conf.pa_pin = pin;
 		audio_conf->codec_conf.pa_on_level = level;
         luat_gpio_mode(pin, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, !level);

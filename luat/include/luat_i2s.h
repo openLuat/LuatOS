@@ -27,6 +27,9 @@ enum {
     LUAT_I2S_HZ_44k = 44100,    // i2s 44.1kHz采样率
     LUAT_I2S_HZ_48k = 48000,    // i2s 48kHz采样率
     LUAT_I2S_HZ_96k = 96000,    // i2s 96kHz采样率
+
+    LUAT_I2S_STATE_STOP = 0,    // i2s停止状态
+    LUAT_I2S_STATE_RUNING,      // i2s传输状态
 };
 
 typedef struct luat_i2s_conf{
@@ -37,7 +40,8 @@ typedef struct luat_i2s_conf{
     uint8_t data_bits;          // i2s有效数据位数
     uint8_t channel_bits;       // i2s通道数据位数
     uint32_t sample_rate;       // i2s采样率  
-    uint32_t cb_rx_len;         // 接收触发回调数据长度 
+    uint32_t cb_rx_len;         // 接收触发回调数据长度
+    volatile uint8_t state;     // i2s状态
     void *userdata;             // 用户数据
 }luat_i2s_conf_t;
 
@@ -62,6 +66,9 @@ int luat_i2s_transfer_loop(uint8_t id, uint8_t* buff, uint32_t one_truck_byte_le
 int luat_i2s_pause(uint8_t id);                 // i2s传输暂停
 int luat_i2s_resume(uint8_t id);                // i2s传输恢复
 int luat_i2s_close(uint8_t id);                 // i2s关闭
+
+// 获取配置
+luat_i2s_conf_t *luat_i2s_get_config(uint8_t id);
 
 int luat_i2s_txbuff_info(uint8_t id, size_t *buffsize, size_t* remain);
 int luat_i2s_rxbuff_info(uint8_t id, size_t *buffsize, size_t* remain);

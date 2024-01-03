@@ -379,7 +379,7 @@ static int es8311_codec_control(luat_audio_codec_conf_t* conf,luat_audio_codec_c
         es8311_codec_mode(conf,(uint8_t)data);
         break;
     case LUAT_CODEC_CTL_VOLUME:
-        es8311_codec_vol(conf,(uint8_t)data);
+        return es8311_codec_vol(conf,(uint8_t)data);
         break;
     case LUAT_CODEC_CTL_MUTE:
         es8311_codec_mute(conf,(uint8_t)data);

@@ -26,11 +26,10 @@
 #include "c_common.h"
 #endif
 
+#include"luat_i2s.h"
+
 #define LUAT_CODEC_MODE_MASTER               0x00
 #define LUAT_CODEC_MODE_SLAVE                0x01
-
-// #define LUAT_CODEC_PA_OFF                    0x00
-// #define LUAT_CODEC_PA_ON                     0x01
 
 typedef enum {
     LUAT_CODEC_CTL_MODE,        // 模式设置
@@ -52,6 +51,7 @@ typedef struct luat_audio_codec_conf {
 	uint8_t pa_on_level;                                                // pa 使能电平
     uint32_t dummy_time_len;                                            // pa使能前延迟时间
     uint32_t pa_delay_time;                                             // pa使能后延迟时间
+    luat_i2s_conf_t* i2s_conf;                                           // i2s配置
     struct luat_audio_codec_opts* codec_opts;
     struct luat_audio_conf* audio_conf;
 } luat_audio_codec_conf_t;
@@ -187,7 +187,7 @@ uint16_t luat_audio_vol(uint8_t multimedia_id, uint16_t vol);
  *
  * @param bus_type 见MULTIMEDIA_AUDIO_BUS，目前只有0=DAC 1=I2S 2=SOFT_DAC
  */
-void luat_audio_set_bus_type(uint8_t bus_type);
+void luat_audio_set_bus_type(uint8_t multimedia_id,uint8_t bus_type);
 
 luat_audio_conf_t *luat_audio_get_config(uint8_t multimedia_id);
 

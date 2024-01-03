@@ -1864,7 +1864,7 @@ static const rotable_Reg_t reg_lcd[] =
     { "WIRE_4_BIT_8_INTERFACE_I",   ROREG_INT(LUAT_LCD_IM_4_WIRE_8_BIT_INTERFACE_I)},
     //@const WIRE_3_BIT_9_INTERFACE_II 三线spi 9bit 模式II
     { "WIRE_3_BIT_9_INTERFACE_II",  ROREG_INT(LUAT_LCD_IM_3_WIRE_9_BIT_INTERFACE_II)},
-    //@const WIRE_4_BIT_9_INTERFACE_II 四线spi 8bit 模式II
+    //@const WIRE_4_BIT_8_INTERFACE_II 四线spi 8bit 模式II
     { "WIRE_4_BIT_8_INTERFACE_II",  ROREG_INT(LUAT_LCD_IM_4_WIRE_8_BIT_INTERFACE_II)},
     //@const DATA_2_LANE 双通道模式
     { "DATA_2_LANE",                ROREG_INT(LUAT_LCD_IM_2_DATA_LANE)},

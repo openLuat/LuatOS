@@ -9,10 +9,7 @@ BLE peripheral的demo, 等待被连接的设备
 1. Air101/Air103, 开发板的BLE天线未引出, 需要靠近使用, 且功耗高
 2. ESP32系列, 包括ESP32C3/ESP32S3
 
--- 配合微信小程序 "LuatOS蓝牙调试"
--- 1. 若开发板无天线, 将手机尽量靠近芯片也能搜到
--- 2. 该小程序是开源的, 每次write会自动分包
--- https://gitee.com/openLuat/luatos-miniapps
+-- 配合APP - BLE调试宝
 ]]
 
 log.info("main", PROJECT, VERSION)

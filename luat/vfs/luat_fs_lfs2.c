@@ -37,7 +37,7 @@ FILE* luat_vfs_lfs2_fopen(void* userdata, const char *filename, const char *mode
         flag = LFS_O_RDWR | LFS_O_CREAT | LFS_O_TRUNC;
     }
     else if(!strcmp("a+", mode) || !strcmp("a+b", mode) || !strcmp("ab+", mode)) {
-        flag = LFS_O_APPEND | LFS_O_CREAT;
+        flag = LFS_O_APPEND | LFS_O_CREAT | LFS_O_WRONLY;
     }
     else if(!strcmp("w", mode) || !strcmp("wb", mode)) {
         flag = LFS_O_RDWR | LFS_O_CREAT | LFS_O_TRUNC;
@@ -46,7 +46,7 @@ FILE* luat_vfs_lfs2_fopen(void* userdata, const char *filename, const char *mode
         flag = LFS_O_RDONLY;
     }
     else if(!strcmp("a", mode) || !strcmp("ab", mode)) {
-        flag = LFS_O_APPEND | LFS_O_CREAT;
+        flag = LFS_O_APPEND | LFS_O_CREAT | LFS_O_WRONLY;
     }
     else {
         LLOGW("bad file open mode %s, fallback to 'r'", mode);

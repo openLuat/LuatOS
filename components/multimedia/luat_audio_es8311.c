@@ -118,7 +118,7 @@ static int es8311_codec_samplerate(luat_audio_codec_conf_t* conf,uint16_t sample
         samplerate != 11025 && samplerate != 22050 && samplerate != 44100 &&
         samplerate != 12000 && samplerate != 24000 && samplerate != 48000)
     {
-        LLOGE("samplerate error!\n");
+        LLOGE("samplerate error! samplerate:%d\n",samplerate);
         return -1;
     }
     // uint8_t i = 0;

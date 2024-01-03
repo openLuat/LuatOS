@@ -32,7 +32,7 @@ sys.taskInit(function()
     local i2s_bits_per_sample = 16
     local i2s_channel_format = 0
     local i2s_communication_format = 0
-    local i2s_channel_bits = 16
+    local i2s_channel_bits = 32
     local i2s_mclk = 8000000
 
     i2c.setup(i2c_id,i2c.SLOW)

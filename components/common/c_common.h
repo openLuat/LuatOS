@@ -26,7 +26,10 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdarg.h>
+
+#ifdef __LUATOS__
 #include "luat_conf_bsp.h"
+#endif
 typedef struct
 {
 	uint32_t MaigcNum; //升级包标识，标识不对直接抛弃

@@ -31,9 +31,6 @@ enum
 	MULTIMEDIA_AUDIO_BUS_I2S,
 	MULTIMEDIA_AUDIO_BUS_SOFT_DAC
 };
-int l_multimedia_raw_handler(lua_State *L, void* ptr);
-
-
 
 #define LUAT_M_CODE_TYPE "MCODER*"
 #define MP3_FRAME_LEN 4 * 1152

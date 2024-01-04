@@ -109,8 +109,16 @@ static uint8_t es8311_codec_vol(luat_audio_codec_conf_t* conf,uint8_t vol){
 }
 
 static void es8311_codec_mode(luat_audio_codec_conf_t* conf,uint8_t mode){
-	if (mode == LUAT_CODEC_MODE_MASTER) es8311_write_reg(conf,ES8311_RESET_REG00, 0xC0);
-	else if(mode == LUAT_CODEC_MODE_SLAVE) es8311_write_reg(conf,ES8311_RESET_REG00, 0x80);
+    switch (mode){
+        case LUAT_CODEC_MODE_MASTER:
+            es8311_write_reg(conf,ES8311_RESET_REG00, 0xC0);
+            break;
+        case LUAT_CODEC_MODE_SLAVE:
+            es8311_write_reg(conf,ES8311_RESET_REG00, 0x80);
+            break;
+        default:
+            break;
+    }
 }
 
 static int es8311_codec_samplerate(luat_audio_codec_conf_t* conf,uint16_t samplerate){

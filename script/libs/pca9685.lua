@@ -19,11 +19,11 @@ sys.taskInit(
     function()
         i2c.setup(i2c_id,i2c.SLOW)
         sys.wait(1000)
-        pca9685.Init(i2c_id,60)
+        pca9685.init(i2c_id,60)
         sys.wait(1000)
         local i=0
         while true do
-            pca9685.setPWM(i2c_id,0,i)
+            pca9685.setpwm(i2c_id,0,i)
             if i >= 100 then
                 i=0
             end
@@ -53,74 +53,73 @@ local LED0_OFF_L= 0x08
 local LED0_OFF_H =0x09
 local PCA_Pre = 0xFE
 
-local function pca9685_Write(i2cId,addr, data)
+local function pca9685_write(i2cId,addr, data)
    local ret
    ret=i2c.send(i2cId, PCA_Addr, { addr, data })
    sys.wait(15)
    if ret then
-      return 1
+      return true
    else
-      return 0
+      return 
    end
 end
 
-local function pca9685_Read(i2cId,addr)
+local function pca9685_read(i2cId,addr)
    i2c.send(i2cId, PCA_Addr, addr)
    sys.wait(5)
    local data = i2c.recv(i2cId,0x40, 1)
    if #data==0 then
-      return 0
+      return 
    else
       return data
    end
 end
 --[[
 pca9685 初始化
-@api pca9685.Init(i2cId,hz, angle)
+@api pca9685.init(i2cId,hz)
 @int i2cid 使用的i2c id, 或者是软件i2c的实例
 @int hz pca9685的输出频率
-@int angle pca9685周期
-@return 成功返回1 失败返回0
+@return 成功返回true 失败返回nil
 ]]
-function pca9685.Init(i2cId,hz)
+function pca9685.init(i2cId,hz)
    local ret=0
-   ret=pca9685_Write(i2cId,PCA_Model,0x00)
-   if ret==0 then
-      return 0
+   ret=pca9685_write(i2cId,PCA_Model,0x00)
+   if not ret then
+      return 
    end
-   ret=pca9685.setFreq(i2cId,hz)
-   if ret==0 then
-      return 0
+   ret=pca9685.setfreq(i2cId,hz)
+   if not ret then
+      return 
    end
-   pca9685.setPWM(i2cId,0,0);
-	pca9685.setPWM(i2cId,1,0);
-   pca9685.setPWM(i2cId,2,0);
-   pca9685.setPWM(i2cId,3,0);
-   pca9685.setPWM(i2cId,4,0);
-   pca9685.setPWM(i2cId,5,0);
-   pca9685.setPWM(i2cId,6,0);
-   pca9685.setPWM(i2cId,7,0);
-   pca9685.setPWM(i2cId,8,0);
-   pca9685.setPWM(i2cId,9,0);
-   pca9685.setPWM(i2cId,10,0);
-   pca9685.setPWM(i2cId,11,0);
-   pca9685.setPWM(i2cId,12,0);
-   pca9685.setPWM(i2cId,13,0);
-   pca9685.setPWM(i2cId,14,0);
-   pca9685.setPWM(i2cId,15,0);
+   pca9685.setpwm(i2cId,0,0);
+	pca9685.setpwm(i2cId,1,0);
+   pca9685.setpwm(i2cId,2,0);
+   pca9685.setpwm(i2cId,3,0);
+   pca9685.setpwm(i2cId,4,0);
+   pca9685.setpwm(i2cId,5,0);
+   pca9685.setpwm(i2cId,6,0);
+   pca9685.setpwm(i2cId,7,0);
+   pca9685.setpwm(i2cId,8,0);
+   pca9685.setpwm(i2cId,9,0);
+   pca9685.setpwm(i2cId,10,0);
+   pca9685.setpwm(i2cId,11,0);
+   pca9685.setpwm(i2cId,12,0);
+   pca9685.setpwm(i2cId,13,0);
+   pca9685.setpwm(i2cId,14,0);
+   pca9685.setpwm(i2cId,15,0);
    sys.wait(100)
-   return 1
+   return true
 end
 
 
 --[[
 pca9685 设置频率
-@api pca9685.setFreq(i2cId,freq)
+@api pca9685.setfreq(i2cId,freq)
 @int i2cid 使用的i2c id, 或者是软件i2c的实例
 @int freq pca9685的输出频率,范围为24HZ~1526HZ
-@return 成功返回1 失败返回0
+@return 成功返回true 失败返回nil
 ]]
-function pca9685.setFreq(i2cId,freq) --PCA9685频率设置
+function pca9685.setfreq(i2cId,freq) --PCA9685频率设置
    local prescale
    local oldmode
    local newmode
@@ -131,37 +130,37 @@ function pca9685.setFreq(i2cId,freq) --PCA9685频率设置
    prescaleval = prescaleval / freq
    prescaleval = prescaleval - 1
    prescale = math.floor(prescaleval + 0.5)
-   oldmode = string.toHex(pca9685_Read(i2cId,PCA_Model))
+   oldmode = string.toHex(pca9685_read(i2cId,PCA_Model))
    newmode = (oldmode & 0x7F)|0x10
-   ret=pca9685_Write(i2cId,PCA_Model, newmode)
-   if ret==0 then
-      return 0
+   ret=pca9685_write(i2cId,PCA_Model, newmode)
+   if not ret then
+      return 
    end
-   ret=pca9685_Write(i2cId,PCA_Pre, prescale)
-   if ret==0 then
-      return 0
+   ret=pca9685_write(i2cId,PCA_Pre, prescale)
+   if not ret then
+      return 
    end
-   ret=pca9685_Write(i2cId,PCA_Model, oldmode)
-   if ret==0 then
-      return 0
+   ret=pca9685_write(i2cId,PCA_Model, oldmode)
+   if not ret then
+      return 
    end
    sys.wait(5)
-   ret=pca9685_Write(i2cId,PCA_Model, oldmode|0xa1)
-   if ret==0 then
-      return 0
+   ret=pca9685_write(i2cId,PCA_Model, oldmode|0xa1)
+   if not ret then
+      return 
    end
-   return 1
+   return true
 end
 
 --[[
 pca9685 设置PWM占空比
-@api pca9685.setPWM(i2cId,num, duty_cycle)
+@api pca9685.setpwm(i2cId,num, duty_cycle)
 @int i2cid 使用的i2c id, 或者是软件i2c的实例
 @int num 通道号
 @int duty_cycle 占空比 0~100
-@return 成功返回1 失败返回0
+@return 成功返回true 失败返回nil
 ]]
-function pca9685.setPWM(i2cId,num, duty_cycle)
+function pca9685.setpwm(i2cId,num, duty_cycle)
    local  on = 0
    if duty_cycle==50 then
       on=0
@@ -172,9 +171,9 @@ function pca9685.setPWM(i2cId,num, duty_cycle)
    local ret = i2c.send(i2cId, PCA_Addr, { LED0_ON_L + 4 * num, on & 0xFF, on >> 8, off & 0xFF, off >> 8 })
    sys.wait(5)
    if ret==false then
-      return 0
+      return 
    end
-   return 1
+   return true
 end
 return pca9685
 

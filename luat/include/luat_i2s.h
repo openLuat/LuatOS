@@ -32,19 +32,21 @@ enum {
     LUAT_I2S_STATE_RUNING,      // i2s传输状态
 };
 
-typedef struct luat_i2s_conf{
-    uint8_t id;                 // i2s id
-    uint8_t mode;               // i2s模式
-    uint8_t standard;           // i2s数据标准
-    uint8_t channel_format;     // i2s声道格式
-    uint8_t data_bits;          // i2s有效数据位数
-    uint8_t channel_bits;       // i2s通道数据位数
-    volatile uint8_t state;     // i2s状态
-    uint8_t is_full_duplex;		// 是否全双工
-    uint32_t sample_rate;       // i2s采样率  
-    uint32_t cb_rx_len;         // 接收触发回调数据长度
+typedef int (*luat_i2s_event_callback_t)(uint8_t id ,luat_i2s_event_t event, void *param); //  i2s回调函数
 
-    void *userdata;             // 用户数据
+typedef struct luat_i2s_conf{
+    uint8_t id;                                             // i2s id
+    uint8_t mode;                                           // i2s模式
+    uint8_t standard;                                       // i2s数据标准
+    uint8_t channel_format;                                 // i2s声道格式
+    uint8_t data_bits;                                      // i2s有效数据位数
+    uint8_t channel_bits;                                   // i2s通道数据位数
+    volatile uint8_t state;                                 // i2s状态
+    uint8_t is_full_duplex;		                            // 是否全双工
+    uint32_t sample_rate;                                   // i2s采样率  
+    uint32_t cb_rx_len;                                     // 接收触发回调数据长度
+    luat_i2s_event_callback_t* luat_i2s_event_callback;     // i2s回调函数
+    void *userdata;                                         // 用户数据
 }luat_i2s_conf_t;
 
 typedef enum {
@@ -59,10 +61,9 @@ typedef enum {
 // 初始化
 int luat_i2s_setup(luat_i2s_conf_t *conf);      // 初始化i2s
 // 传输(异步接口)
-int luat_i2s_event_cb(uint8_t id ,luat_i2s_event_t event, void *param); //  i2s回调函数 (替换掉原 luat_i2s_rx_cb)
-int luat_i2s_send(uint8_t id, uint8_t* buff, size_t len);               //  i2s发送数据
-int luat_i2s_recv(uint8_t id, uint8_t* buff, size_t len);               //  i2s接收数据
-int luat_i2s_transfer(uint8_t id, uint8_t* txbuff, size_t len);         //  i2s传输数据(全双工)
+int luat_i2s_send(uint8_t id, uint8_t* buff, size_t len);                                   //  i2s发送数据
+int luat_i2s_recv(uint8_t id, uint8_t* buff, size_t len);                                   //  i2s接收数据
+int luat_i2s_transfer(uint8_t id, uint8_t* txbuff, size_t len);                             //  i2s传输数据(全双工)
 int luat_i2s_transfer_loop(uint8_t id, uint8_t* buff, uint32_t one_truck_byte_len, uint32_t total_trunk_cnt, uint8_t need_callback);   //  i2s循环传输数据(全双工)
 // 控制
 int luat_i2s_pause(uint8_t id);                 // i2s传输暂停

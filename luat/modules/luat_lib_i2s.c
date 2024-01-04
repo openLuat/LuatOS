@@ -108,6 +108,7 @@ static int l_i2s_setup(lua_State *L) {
     conf.standard = luaL_optinteger(L, 6, LUAT_I2S_MODE_I2S);
     conf.channel_bits = luaL_optinteger(L, 7, LUAT_I2S_BITS_16);
     int ret = luat_i2s_setup(&conf);
+    conf.luat_i2s_event_callback = luat_i2s_event_cb;
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     lua_pushinteger(L, ret);
     return 2;

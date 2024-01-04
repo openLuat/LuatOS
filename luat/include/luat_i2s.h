@@ -32,7 +32,7 @@ enum {
     LUAT_I2S_STATE_RUNING,      // i2s传输状态
 };
 
-typedef int (*luat_i2s_event_callback_t)(uint8_t id ,luat_i2s_event_t event, void *param); //  i2s回调函数
+typedef int (*luat_i2s_event_callback_t)(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint32_t rx_len, void *param); //  i2s回调函数
 
 typedef struct luat_i2s_conf{
     uint8_t id;                                             // i2s id
@@ -45,7 +45,7 @@ typedef struct luat_i2s_conf{
     uint8_t is_full_duplex;		                            // 是否全双工
     uint32_t sample_rate;                                   // i2s采样率  
     uint32_t cb_rx_len;                                     // 接收触发回调数据长度
-    luat_i2s_event_callback_t* luat_i2s_event_callback;     // i2s回调函数
+    luat_i2s_event_callback_t luat_i2s_event_callback;     // i2s回调函数
     void *userdata;                                         // 用户数据
 }luat_i2s_conf_t;
 

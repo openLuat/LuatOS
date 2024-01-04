@@ -84,11 +84,7 @@ const uint16_t camColors[] = {0x480F,
 0xF1E0,0xF1C0,0xF1A0,0xF180,0xF160,0xF140,0xF100,0xF0E0,0xF0C0,0xF0A0,
 0xF080,0xF060,0xF040,0xF020,0xF800,};
 
-uint8_t tempto255(float temp){
-    return (uint8_t)round((temp+40)*255/340);
-}
-
-float map(float val, float I_Min, float I_Max, float O_Min, float O_Max){
+static float map(float val, float I_Min, float I_Max, float O_Min, float O_Max){
     return(((val-I_Min)*((O_Max-O_Min)/(I_Max-I_Min)))+O_Min);
 }
 

@@ -10,12 +10,12 @@
 
 -- 本库可读取硬件adc通道, 也支持读取CPU温度和VBAT供电电源(若模块支持的话)
 
--- 读取CPU温度
+-- 读取CPU温度, 单位为0.001摄氏度, 是内部温度, 非环境温度
 adc.open(adc.CH_CPU)
 local temp = adc.get(adc.CH_CPU)
 adc.close(adc.CH_CPU)
 
--- 读取VBAT供电电压
+-- 读取VBAT供电电压, 单位为mV
 adc.open(adc.CH_VBAT)
 local vbat = adc.get(adc.CH_VBAT)
 adc.close(adc.CH_VBAT)

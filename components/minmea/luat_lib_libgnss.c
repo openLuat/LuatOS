@@ -12,6 +12,10 @@
 -- 相关链接: https://lbsyun.baidu.com/index.php?title=coordinate
 -- 相关链接: https://www.openluat.com/GPS-Offset.html
 
+-- 提醒: GPS功能, GNSS功能, NMEA解析功能,均为当前库的子功能
+-- 本库的主要功能就是解析NMEA协议, 支持内置GNSS也支持外置GNSS
+
+-- 以下是使用本libgnss的示例代码
 -- 方案1, 经lua层进行数据中转
 uart.setup(2, 115200)
 uart.on(2, "recv", function(id, len)

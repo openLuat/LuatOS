@@ -187,20 +187,42 @@ int l_gpio_handler(lua_State *L, void* ptr) {
 @int alt 复用选项，目前只有EC618平台需要这个参数，有些GPIO可以复用到不同引脚上，可以选择复用选项（0或者4）从而复用到对应的引脚上
 @return any 输出模式返回设置电平的闭包, 输入模式和中断模式返回获取电平的闭包
 @usage
+
 -- 设置gpio17为输入
 gpio.setup(17, nil)
+
 -- 设置gpio17为输出,且初始化电平为低,使用硬件默认上下拉配置
 gpio.setup(17, 0)
+
 -- 设置gpio17为输出,且初始化电平为高,且启用内部上拉
 gpio.setup(17, 1, gpio.PULLUP)
--- 设置gpio27为中断
-gpio.setup(27, function(val) print("IRQ_27",val) end, gpio.PULLUP)
--- 设置gpio27为中断
-gpio.setup(27, function(val) print("IRQ_27",val) end, gpio.PULLUP)
+
+-- 设置gpio27为中断, 默认双向触发
+gpio.setup(27, function(val)
+    print("IRQ_27",val) -- 提醒, val并不代表触发方向, 仅代表中断后某个时间点的电平
+end, gpio.PULLUP)
+
+-- 设置gpio27为中断, 仅上升沿触发
+gpio.setup(27, function(val)
+    print("IRQ_27",val) -- 提醒, val并不代表触发方向, 仅代表中断后某个时间点的电平
+end, gpio.PULLUP, gpio.RISING)
 
 -- alt_func 于2023.7.2新增
--- 设置AIR780E的PIN33复用成gpio18，方向输出,且初始化电平为低,使用硬件默认上下拉配置
+-- 本功能仅对部分平台有效, 且仅用于调整GPIO复用,其他复用方式请使用muc.iomux函数
+-- 以下示例代码, 将I2S_DOUT复用成gpio18
+-- AIR780E的PIN33(模块管脚序号), 对应paddr 38, 默认功能是I2S_DOUT, 复用成gpio18
+-- 方向输出,且初始化电平为低,使用硬件默认上下拉配置
+-- Air780E(EC618系列的GPIO复用请查阅 https://air780e.cn 首页硬件资料表格中的Air780E&Air780EG&Air780EX&Air700E_GPIO_table_20231227.pdf)
+-- Air780EP(EC718P系列的GPIO复用请查阅 https://air780ep.cn 首页硬件资料表格中的Air780E&Air780EG&Air780EX&Air700E_GPIO_table_20231227.pdf)
 gpio.setup(18, 0, nil, nil, 4)
+
+-- 提醒: 
+-- 当管脚为输入模式或中断,才能通过gpio.get()获取到电平
+-- 当管脚为输出模式,才能通过gpio.set()设置电平
+-- 当管脚为输出模式,通过gpio.get()总会得到0
+-- 中断回调的val参数不代表触发方向, 仅代表中断后某个时间点的电平
+-- 对Cat.1模块,通常只有AONGPIO才能双向触发, 其他GPIO只能单向触发
+-- 默认设置下,中断是没有防抖时间的,可以通过gpio.set_debounce(pin, 50)来设置防抖时间
 */
 static int l_gpio_setup(lua_State *L) {
     luat_gpio_t conf = {0};

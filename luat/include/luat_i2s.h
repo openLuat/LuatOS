@@ -56,8 +56,9 @@ typedef struct luat_i2s_conf{
     void *userdata;                                         // 用户数据
 }luat_i2s_conf_t;
 
-// 初始化
-int luat_i2s_setup(luat_i2s_conf_t *conf);      // 初始化i2s
+// 配置
+int luat_i2s_setup(luat_i2s_conf_t *conf);                  // 初始化i2s
+int luat_i2s_modify(uint8_t id,uint8_t channel_format,uint8_t data_bits,uint32_t sample_rate);      // 修改i2s配置(不会进行初始化操作,动态修改配置)
 // 传输(异步接口)
 int luat_i2s_send(uint8_t id, uint8_t* buff, size_t len);                                   //  i2s发送数据
 int luat_i2s_recv(uint8_t id, uint8_t* buff, size_t len);                                   //  i2s接收数据

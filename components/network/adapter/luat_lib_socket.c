@@ -625,44 +625,80 @@ static int l_socket_tx(lua_State *L)
 
 /*
 接收对端发出的数据，注意数据已经缓存在底层，使用本函数只是提取出来，UDP模式下一次只会取出一个数据包
-@api socket.rx(ctrl, buff, flag)
+@api socket.rx(ctrl, buff, flag, limit)
 @user_data socket.create得到的ctrl
 @user_data zbuff 存放接收的数据，如果缓冲区不够大会自动扩容
 @int 接收参数，目前预留，不起作用
+@int 接收数据长度限制，如果指定了，则只取前N个字节. 2024.1.5 新增
 @return boolean true没有异常发生，false失败了，如果false则不需要看下一个返回值了，如果false，后续要close
 @return int 本次接收到数据长度
 @return string 对端IP，只有UDP模式下才有意义，TCP模式返回nil，注意返回的格式，如果是IPV4，1byte 0x00 + 4byte地址 如果是IPV6，1byte 0x01 + 16byte地址
 @return int 对端port，只有UDP模式下才有意义，TCP模式返回0
-@usage 
-local succ, data_len, ip, port = socket.rx(ctrl, buff)
+@usage
+-- 从socket中读取数据, ctrl是socket.create返回的, 请查阅demo/socket
+local buff = zbuff.create(2048)
+local succ, data_len, remote_ip, remote_port = socket.rx(ctrl, buff)
+
+-- 限制读取长度, 2024.1.5 新增
+-- 注意
+-- 如果是UDP数据, 如果limit小于UDP数据包长度, 只会取前limit个字节, 剩余数据会丢弃
+-- 如果是TCP数据, 如果有剩余数据, 不会丢弃, 可继续读取.
+-- 有新的数据到来才会有新的EVENT数据, 未读取完成的数据不会触发新EVENT事件
+local succ, data_len, remote_ip, remote_port = socket.rx(ctrl, buff, 1500)
+
+-- 读取缓冲区大小, 2024.1.5 新增, 注意,老版本固件不传buff参数会报错的
+-- 对于TCP数据, 这里返回的是待读取的数据的总长度
+-- 对于UDP数据, 这里返回的是单个UDP数据包的长度
+local succ, data_len = socket.rx(ctrl)
+if succ then
+	log.info("待收取数据长度", data_len)
+end
 */
 static int l_socket_rx(lua_State *L)
 {
 	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
 	L_CTRL_CHECK;
-	luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
-	luat_ip_addr_t ip_addr;
-	uint8_t ip[17];
-	uint16_t port;
+	luat_zbuff_t *buff = NULL;
+	luat_ip_addr_t ip_addr = {0};
+	uint8_t ip[17] = {0};
+	uint16_t port = 0;
 	uint8_t new_flag = 0;
-	int rx_len;
-	int total_len;
+	int rx_len = 0;
+	int total_len = 0;
 	int result = network_rx(l_ctrl->netc, NULL, 0, 0, NULL, NULL, &total_len);
 	if (result < 0)
 	{
 		lua_pushboolean(L, 0);
 		lua_pushinteger(L, 0);
-		lua_pushnil(L);
-		lua_pushnil(L);
+		return 2;
 	}
-	else if (!total_len)
+	if (!total_len)
 	{
 		lua_pushboolean(L, 1);
 		lua_pushinteger(L, 0);
-		lua_pushnil(L);
-		lua_pushnil(L);
+		return 2;
 	}
-	else
+	// 是否传入的zbuff呢? 没有的话就返回值长度
+	if (lua_isuserdata(L, 2)) {
+		buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+	}
+	else {
+		// 仅返回长度
+		lua_pushboolean(L, 1);
+		lua_pushinteger(L, total_len);
+		return 2;
+	}
+	// 是否限制接收数据长度
+	if (lua_gettop(L) >= 4 && lua_isinteger(L, 4)) {
+		int limit = lua_tointeger(L, 4);
+		if (limit > 0 && total_len > limit)
+		{
+			LLOGD("待数据数据长度 %d 限制读取长度 %d", total_len, limit);
+			total_len = limit;
+		}
+	}
+
+	if (1)
 	{
 		if ((buff->len - buff->used) < total_len)
 		{
@@ -673,15 +709,13 @@ static int l_socket_rx(lua_State *L)
 		{
 			lua_pushboolean(L, 0);
 			lua_pushinteger(L, 0);
-			lua_pushnil(L);
-			lua_pushnil(L);
+			return 2;
 		}
 		else if (!rx_len)
 		{
 			lua_pushboolean(L, 1);
 			lua_pushinteger(L, 0);
-			lua_pushnil(L);
-			lua_pushnil(L);
+			return 2;
 		}
 		else
 		{

@@ -10,6 +10,12 @@ typedef enum {
     LUAT_CODEC_MODE_DAC,
     LUAT_CODEC_MODE_ADC,
     
+    LUAT_CODEC_FORMAT_I2S = 0,
+    LUAT_CODEC_FORMAT_LSB,
+    LUAT_CODEC_FORMAT_MSB,
+    LUAT_CODEC_FORMAT_PCMS,
+    LUAT_CODEC_FORMAT_PCML,
+
     LUAT_CODEC_SET_MUTE = 0,        // 静音设置
     LUAT_CODEC_GET_MUTE,            // 
     LUAT_CODEC_SET_VOICE_VOL,   // 音量设置
@@ -17,6 +23,7 @@ typedef enum {
     LUAT_CODEC_SET_MIC_VOL,     // 音量设置
     LUAT_CODEC_GET_MIC_VOL,         //
 
+    LUAT_CODEC_SET_FORMAT,              //
     LUAT_CODEC_SET_RATE,        // 采样率设置
     LUAT_CODEC_SET_BITS,            // 采样位设置
     LUAT_CODEC_SET_CHANNEL,         // 通道设置

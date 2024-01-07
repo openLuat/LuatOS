@@ -67,6 +67,96 @@
 
 static uint8_t es8311_dacvol_bak,es8311_adcvol_bak;
 
+typedef struct{
+    uint32_t mclk;          // mclk frequency
+    uint32_t rate;          // sample rate
+    uint8_t preDiv;         // the pre divider with range from 1 to 8
+    uint8_t preMulti;       // the pre multiplier with x1, x2, x4 and x8 selection
+    uint8_t adcDiv;         // adcclk divider
+    uint8_t dacDiv;         // dacclk divider
+    uint8_t fsMode;         // double speed or single speed, =0, ss, =1, ds
+    uint8_t lrckH;          // adclrck divider and daclrck divider
+    uint8_t lrckL;
+    uint8_t bclkDiv;        // sclk divider
+    uint8_t adcOsr;         // adc osr
+    uint8_t dacOsr;         // dac osr
+}es8311_codec_div_t;
+
+// codec hifi mclk clock divider coefficients
+static const es8311_codec_div_t es8311_codec_div[] =
+{
+    //mclk     rate   preDiv  mult  adcDiv dacDiv fsMode lrch  lrcl  bckdiv adcOsr dacOsr
+    // 8k
+    {12288000, 8000 , 0x06,    0x01, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04,  0x10,   0x20},
+    {18432000, 8000 , 0x03,    0x02, 0x03,   0x03,   0x00,   0x05, 0xff, 0x18,  0x10,   0x20},
+    {16384000, 8000 , 0x08,    0x01, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04,  0x10,   0x20},
+    {8192000 , 8000 , 0x04,    0x01, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04,  0x10,   0x20},
+    {6144000 , 8000 , 0x03,    0x01, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04,  0x10,   0x20},
+    {4096000 , 8000 , 0x02,    0x01, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04,  0x10,   0x20},
+    {3072000 , 8000 , 0x01,    0x01, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04,  0x10,   0x20},
+    {2048000 , 8000 , 0x01,    0x01, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04,  0x10,   0x20},
+    {1536000 , 8000 , 0x03,    0x04, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04,  0x10,   0x20},
+    {1024000 , 8000 , 0x01,    0x02, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04,  0x10,   0x20},
+
+    // 16k
+    {12288000, 16000, 0x03,    0x01, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04, 0x10,    0x20},
+    {18432000, 16000, 0x03,    0x02, 0x03,   0x03,   0x00,   0x02, 0xff, 0x0c, 0x10,    0x20},
+    {16384000, 16000, 0x04,    0x01, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04, 0x10,    0x20},
+    {8192000 , 16000, 0x02,    0x01, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04, 0x10,    0x20},
+    {6144000 , 16000, 0x03,    0x02, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04, 0x10,    0x20},
+    {4096000 , 16000, 0x01,    0x01, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04, 0x10,    0x20},
+    {3072000 , 16000, 0x03,    0x04, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04, 0x10,    0x20},
+    {2048000 , 16000, 0x01,    0x02, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04, 0x10,    0x20},
+    {1536000 , 16000, 0x03,    0x08, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04, 0x10,    0x20},
+    {1024000 , 16000, 0x01,    0x04, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04, 0x10,    0x20},
+
+    // 22.05k
+    {11289600, 22050, 0x02,    0x01, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04, 0x10,    0x10},
+    {5644800 , 22050, 0x01,    0x01, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04, 0x10,    0x10},
+    {2822400 , 22050, 0x01,    0x02, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04, 0x10,    0x10},
+    {1411200 , 22050, 0x01,    0x04, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04, 0x10,    0x10},
+
+    // 32k
+    {12288000, 32000, 0x03,    0x02, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04, 0x10,    0x10},
+    {18432000, 32000, 0x03,    0x04, 0x03,   0x03,   0x00,   0x02, 0xff, 0x0c, 0x10,    0x10},
+    {16384000, 32000, 0x02,    0x01, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04, 0x10,    0x10},
+    {8192000 , 32000, 0x01,    0x01, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04, 0x10,    0x10},
+    {6144000 , 32000, 0x03,    0x04, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04, 0x10,    0x10},
+    {4096000 , 32000, 0x01,    0x02, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04, 0x10,    0x10},
+    {3072000 , 32000, 0x03,    0x08, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04, 0x10,    0x10},
+    {2048000 , 32000, 0x01,    0x04, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04, 0x10,    0x10},
+    {1536000 , 32000, 0x03,    0x08, 0x01,   0x01,   0x01,   0x00, 0x7f, 0x02, 0x10,    0x10},
+    {1024000 , 32000, 0x01,    0x08, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04, 0x10,    0x10},
+
+    // 44.1k
+    {11289600, 44100, 0x01,    0x01, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04, 0x10,    0x10},
+    {5644800 , 44100, 0x01,    0x02, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04, 0x10,    0x10},
+    {2822400 , 44100, 0x01,    0x04, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04, 0x10,    0x10},
+    {1411200 , 44100, 0x01,    0x08, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04, 0x10,    0x10},
+
+    // 48k
+    {12288000, 48000, 0x01,    0x01, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04, 0x10,    0x10},
+    {18432000, 48000, 0x03,    0x02, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04, 0x10,    0x10},
+    {6144000 , 48000, 0x01,    0x02, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04, 0x10,    0x10},
+    {3072000 , 48000, 0x01,    0x04, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04, 0x10,    0x10},
+    {1536000 , 48000, 0x01,    0x08, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04, 0x10,    0x10},
+
+    // 96k
+    {12288000, 96000, 0x01,    0x02, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04, 0x10,    0x10},
+    {18432000, 96000, 0x03,    0x04, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04, 0x10,    0x10},
+    {6144000 , 96000, 0x01,    0x04, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04, 0x10,    0x10},
+    {3072000 , 96000, 0x01,    0x08, 0x01,   0x01,   0x00,   0x00, 0xff, 0x04, 0x10,    0x10},
+    {1536000 , 96000, 0x01,    0x08, 0x01,   0x01,   0x01,   0x00, 0x7f, 0x02, 0x10,    0x10},
+};
+
+static int es8311_get_coeff(uint32_t mclk, uint32_t rate){
+    for (int i = 0; i < (sizeof(es8311_codec_div) / sizeof(es8311_codec_div[0])); i++) {
+        if (es8311_codec_div[i].rate == rate && es8311_codec_div[i].mclk == mclk)
+            return i;
+    }
+    return -1;
+}
+
 static void es8311_write_reg(luat_audio_codec_conf_t* conf,uint8_t addr, uint8_t data){
     uint8_t temp[] = {addr,data};
     luat_i2c_send(conf->i2c_id, ES8311_ADDR, temp, 2 , 1);
@@ -89,9 +179,9 @@ static int es8311_mode_normal(luat_audio_codec_conf_t* conf,uint8_t selece){
         luat_rtos_task_sleep(1);
         es8311_write_reg(conf,ES8311_SYSTEM_REG0D,0x01);
         if (selece == LUAT_CODEC_MODE_ALL) 
-            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG02,0x00);
-        es8311_write_reg(conf,ES8311_DAC_REG37,0x08);
-        if (selece == LUAT_CODEC_MODE_ALL) 
+            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG02,0x00);//--
+        es8311_write_reg(conf,ES8311_DAC_REG37,0x08);//--
+        if (selece == LUAT_CODEC_MODE_ALL) //--
             es8311_write_reg(conf,ES8311_ADC_REG15,0x40);
         else
             es8311_write_reg(conf,ES8311_ADC_REG15,0x00);
@@ -99,7 +189,7 @@ static int es8311_mode_normal(luat_audio_codec_conf_t* conf,uint8_t selece){
             es8311_write_reg(conf,ES8311_SYSTEM_REG12,0x00);
         if(selece != LUAT_CODEC_MODE_DAC)
             es8311_write_reg(conf,ES8311_SYSTEM_REG14,0x18);
-        if (selece == LUAT_CODEC_MODE_ALL)
+        if (selece == LUAT_CODEC_MODE_ALL)//--
             es8311_write_reg(conf,ES8311_SYSTEM_REG0E,0x00);
         else
             es8311_write_reg(conf,ES8311_SYSTEM_REG0E,0x02);
@@ -110,7 +200,7 @@ static int es8311_mode_normal(luat_audio_codec_conf_t* conf,uint8_t selece){
             es8311_write_reg(conf,ES8311_DAC_REG32,es8311_dacvol_bak);
         luat_rtos_task_sleep(50);
         if(selece == LUAT_CODEC_MODE_ADC)
-            es8311_write_reg(conf,ES8311_SDPOUT_REG0A,0x00);
+            es8311_write_reg(conf,ES8311_SDPOUT_REG0A,0x00);//--
     return 0;
 }
 
@@ -210,7 +300,7 @@ static uint8_t es8311_get_mic_vol(luat_audio_codec_conf_t* conf){
 	return reg * 1000 / 2550;
 }
 
-
+#define MCLK_DIV_FRE 256
 static int es8311_codec_samplerate(luat_audio_codec_conf_t* conf,uint16_t samplerate){
     if(samplerate != 8000 && samplerate != 16000 && samplerate != 32000 &&
         samplerate != 11025 && samplerate != 22050 && samplerate != 44100 &&
@@ -219,105 +309,73 @@ static int es8311_codec_samplerate(luat_audio_codec_conf_t* conf,uint16_t sample
         LLOGE("samplerate error! samplerate:%d\n",samplerate);
         return -1;
     }
-    // uint8_t i = 0;
-	static int mclk = 0;
-	static int switchflag = 0;
-    switch(samplerate){
-        case 8000:
-			if (mclk == 0){
-				mclk = 1;
-			}
-            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG02, 0x08);
-            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG05, 0x44);
-			if (switchflag == 0){
-				switchflag = 1;
-	            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG03, 0x19);
-	            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG04, 0x19);
-			}
+    int coeff = es8311_get_coeff(samplerate * MCLK_DIV_FRE, samplerate);
+    if (coeff < 0){
+    	LLOGE("Unable to configure sample rate %dHz with %dHz MCLK", samplerate, samplerate * MCLK_DIV_FRE);
+        return -1;
+    }
+    uint8_t reg = es8311_read_reg(conf,ES8311_CLK_MANAGER_REG02) & 0x07;
+    reg |= (es8311_codec_div[coeff].preDiv - 1) << 5;
+    uint8_t datmp = 0;
+    switch (es8311_codec_div[coeff].preMulti){
+        case 1:
+            datmp = 0;
             break;
-        case 16000:
-			if (mclk == 0){
-				mclk = 1;
-			}
-            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG02, 0x90);
-            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG05, 0x00);
-			if (switchflag == 0){
-				switchflag = 1;
-	            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG03, 0x19);
-	            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG04, 0x19);
-			}
+        case 2:
+            datmp = 1;
             break;
-        case 32000:
-			if (mclk == 0){
-				mclk = 1;
-			}
-            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG02, 0x18);
-            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG05, 0x44);
-			if (switchflag == 0){
-				switchflag = 1;
-	            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG03, 0x19);
-	            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG04, 0x19);
-			}
+        case 4:
+            datmp = 2;
             break;
-        case 44100:
-			mclk = 0;
-			switchflag = 0;
-            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG02, (0x03 << 3));
-            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG05, 0x00);
-            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG03, 0x10);
-            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG04, 0x10);
-            break;
-        case 22050:
-			mclk = 0;
-			switchflag = 0;
-            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG02, (0x02 << 3));
-            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG05, 0x00);
-            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG03, 0x10);
-            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG04, 0x10);
-            break;
-        case 11025:
-			mclk = 0;			
-			switchflag = 0;
-            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG02, (0x01 << 3));
-            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG05, 0x00);
-            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG03, 0x10);
-            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG04, 0x10);
-            break;
-        case 48000:
-			mclk = 0;		
-			switchflag = 0;
-            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG02, (0x03 << 3));
-            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG05, 0x00);
-            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG03, 0x10);
-            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG04, 0x10);
-            break;
-        case 24000:
-			mclk = 0;		
-			switchflag = 0;
-            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG02, (0x02 << 3));
-            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG05, 0x00);
-            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG03, 0x10);
-            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG04, 0x10);
-            break;
-        case 12000:
-			mclk = 0;			
-			switchflag = 0;
-            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG02, (0x01 << 3));
-            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG05, 0x00);
-            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG03, 0x10);
-            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG04, 0x10);
+        case 8:
+            datmp = 3;
             break;
         default:
             break;
     }
+
+    reg |= (datmp) << 3;
+    es8311_write_reg(conf,ES8311_CLK_MANAGER_REG02, reg);
+
+    reg = es8311_read_reg(conf,ES8311_CLK_MANAGER_REG05) & 0x00;
+    reg |= (es8311_codec_div[coeff].adcDiv - 1) << 4;
+    reg |= (es8311_codec_div[coeff].dacDiv - 1) << 0;
+    es8311_write_reg(conf,ES8311_CLK_MANAGER_REG05, reg);
+
+    reg = es8311_read_reg(conf,ES8311_CLK_MANAGER_REG03) & 0x80;
+    reg |= es8311_codec_div[coeff].fsMode << 6;
+    reg |= es8311_codec_div[coeff].adcOsr << 0;
+    es8311_write_reg(conf,ES8311_CLK_MANAGER_REG03, reg);
+
+    reg = es8311_read_reg(conf,ES8311_CLK_MANAGER_REG04) & 0x80;
+    reg |= es8311_codec_div[coeff].dacOsr << 0;
+    es8311_write_reg(conf,ES8311_CLK_MANAGER_REG04, reg);
+
+    reg = es8311_read_reg(conf,ES8311_CLK_MANAGER_REG07) & 0xC0;
+    reg |= es8311_codec_div[coeff].lrckH << 0;
+    es8311_write_reg(conf,ES8311_CLK_MANAGER_REG07, reg);
+
+    reg = es8311_read_reg(conf,ES8311_CLK_MANAGER_REG08) & 0x00;
+    reg |= es8311_codec_div[coeff].lrckL << 0;
+    es8311_write_reg(conf,ES8311_CLK_MANAGER_REG08, reg);
+
+    reg = es8311_read_reg(conf,ES8311_CLK_MANAGER_REG06) & 0xE0;
+    if (es8311_codec_div[coeff].bclkDiv < 19)
+        reg |= (es8311_codec_div[coeff].bclkDiv - 1) << 0;
+    else
+        reg |= (es8311_codec_div[coeff].bclkDiv) << 0;
+    es8311_write_reg(conf,ES8311_CLK_MANAGER_REG06, reg);
     return 0;
 }
 
-static int es8311_update_bits(luat_audio_codec_conf_t* conf,uint8_t reg, uint8_t mask, uint8_t val){
-    uint8_t old, new;
-    old = es8311_read_reg(conf,reg);
-    new = (old & ~mask) | (val & mask);
-    es8311_write_reg(conf,reg, new);
+static int es8311_set_format(luat_audio_codec_conf_t* conf,uint8_t format){
+    // only support I2S format now
+    uint8_t dacIface = es8311_read_reg(conf,ES8311_SDPIN_REG09);
+    uint8_t adcIface = es8311_read_reg(conf,ES8311_SDPOUT_REG0A);
+    dacIface &= 0xFC;
+    adcIface &= 0xFC;
+    es8311_write_reg(conf,ES8311_SDPIN_REG09, dacIface);
+    es8311_write_reg(conf,ES8311_SDPOUT_REG0A, adcIface);
     return 0;
 }
 
@@ -327,32 +385,31 @@ static int es8311_codec_samplebits(luat_audio_codec_conf_t* conf,uint8_t sampleb
         return -1;
     }
     int wl;
-    switch (samplebits)
-    {
-    case 16:
-        wl = 3;
-        break;
-    case 18:
-        wl = 2;
-        break;
-    case 20:
-        wl = 1;
-        break;
-    case 24:
-        wl = 0;
-        break;
-    case 32:
-        wl = 4;
-        break;
-    default:
-        return -1;
+    switch (samplebits){
+        case 16:
+            wl = 3;
+            break;
+        case 18:
+            wl = 2;
+            break;
+        case 20:
+            wl = 1;
+            break;
+        case 24:
+            wl = 0;
+            break;
+        case 32:
+            wl = 4;
+            break;
+        default:
+            return -1;
     }
-    es8311_update_bits(conf,ES8311_SDPIN_REG09,
-                        ES8311_SDPIN_REG09_DACWL_MASK,
-                        wl << ES8311_SDPIN_REG09_DACWL_SHIFT);
-    es8311_update_bits(conf,ES8311_SDPOUT_REG0A,
-                        ES8311_SDPOUT_REG0A_ADCWL_MASK,
-                        wl << ES8311_SDPOUT_REG0A_ADCWL_SHIFT);
+    uint8_t dac_iface = es8311_read_reg(conf,ES8311_SDPIN_REG09);
+    uint8_t adc_iface = es8311_read_reg(conf,ES8311_SDPOUT_REG0A);
+    dac_iface |= wl << ES8311_SDPIN_REG09_DACWL_SHIFT;
+    adc_iface |= wl << ES8311_SDPOUT_REG0A_ADCWL_SHIFT;
+    es8311_write_reg(conf,ES8311_SDPIN_REG09, dac_iface);
+    es8311_write_reg(conf,ES8311_SDPOUT_REG0A, adc_iface);
     return 0;
 }
 
@@ -360,87 +417,11 @@ static int es8311_codec_channels(luat_audio_codec_conf_t* conf,uint8_t channels)
     return 0;
 }
 
-static int es8311_reg_init(luat_audio_codec_conf_t* conf){
-    /* reset codec */
-    es8311_write_reg(conf,ES8311_RESET_REG00, 0x1F);
-    es8311_write_reg(conf,ES8311_GP_REG45, 0x00);
 
-    luat_rtos_task_sleep(10);
-
-    // es8311_write_reg(conf,ES8311_GPIO_REG44, 0x08);
-    // luat_rtos_task_sleep(1);
-    // es8311_write_reg(conf,ES8311_GPIO_REG44, 0x08);
-
-    /* set ADC/DAC CLK */
-    /* MCLK from BCLK  */
-    es8311_write_reg(conf,ES8311_CLK_MANAGER_REG01, 0x30);
-    es8311_write_reg(conf,ES8311_CLK_MANAGER_REG02, 0x90);
-    es8311_write_reg(conf,ES8311_CLK_MANAGER_REG03, 0x19);
-    es8311_write_reg(conf,ES8311_ADC_REG16, 0x02);// bit5:0~non standard audio clock
-    es8311_write_reg(conf,ES8311_CLK_MANAGER_REG04, 0x19);
-    es8311_write_reg(conf,ES8311_CLK_MANAGER_REG05, 0x00);
-	/*new cfg*/
-	es8311_write_reg(conf,ES8311_CLK_MANAGER_REG06, BCLK_DIV);
-	es8311_write_reg(conf,ES8311_CLK_MANAGER_REG07, 0x01);
-	es8311_write_reg(conf,ES8311_CLK_MANAGER_REG08, 0xff);
-    /* set system power up */
-    es8311_write_reg(conf,ES8311_SYSTEM_REG0B, 0x00);
-    es8311_write_reg(conf,ES8311_SYSTEM_REG0C, 0x00);
-    es8311_write_reg(conf,ES8311_SYSTEM_REG10, 0x1F);
-    es8311_write_reg(conf,ES8311_SYSTEM_REG11, 0x7F);
-    /* chip powerup. slave mode */
-    es8311_write_reg(conf,ES8311_RESET_REG00, 0x80);
-    luat_rtos_task_sleep(50);
-
-    /* power up analog */
-    es8311_write_reg(conf,ES8311_SYSTEM_REG0D, 0x01);
-    /* power up digital */
-    es8311_write_reg(conf,ES8311_CLK_MANAGER_REG01, 0x3F);
-    // SET ADC
-    es8311_write_reg(conf,ES8311_SYSTEM_REG14, DADC_GAIN);
-    // SET DAC
-    es8311_write_reg(conf,ES8311_SYSTEM_REG12, 0x00);
-    // ENABLE HP DRIVE
-    es8311_write_reg(conf,ES8311_SYSTEM_REG13, 0x10);
-    // SET ADC/DAC DATA FORMAT
-    es8311_write_reg(conf,ES8311_SDPIN_REG09, 0x0c);
-    es8311_write_reg(conf,ES8311_SDPOUT_REG0A, 0x0c);
-
-    /* set normal power mode */
-    es8311_write_reg(conf,ES8311_SYSTEM_REG0E, 0x02);
-    es8311_write_reg(conf,ES8311_SYSTEM_REG0F, 0x44);
-    // SET ADC
-    /* set adc softramp */
-    es8311_write_reg(conf,ES8311_ADC_REG15, 0x00);
-    /* set adc hpf */
-    es8311_write_reg(conf,ES8311_ADC_REG1B, 0x05);
-    /* set adc hpf,ADC_EQ bypass */
-    es8311_write_reg(conf,ES8311_ADC_REG1C, 0x65);
-    /* set adc digtal vol */
-    es8311_write_reg(conf,ES8311_ADC_REG17, ADC_VOLUME_GAIN);
-
-    /* set dac softramp,disable DAC_EQ */
-    es8311_write_reg(conf,ES8311_DAC_REG37, 0x08);
-    es8311_write_reg(conf,ES8311_DAC_REG32, 0xBF);
-
-    // /* set adc gain scale up */
-    // es8311_write_reg(conf,ES8311_ADC_REG16, 0x24);
-    // /* set adc alc maxgain */
-    // es8311_write_reg(conf,ES8311_ADC_REG17, 0xBF);
-    // /* adc alc disable,alc_winsize */
-    // es8311_write_reg(conf,ES8311_ADC_REG18, 0x07);
-    // /* set alc target level */
-    // es8311_write_reg(conf,ES8311_ADC_REG19, 0xFB);
-    // /* set adc_automute noise gate */
-    // es8311_write_reg(conf,ES8311_ADC_REG1A, 0x03);
-    // /* set adc_automute vol */
-    // es8311_write_reg(conf,ES8311_ADC_REG1B, 0xEA);
-    return 0;
-}
-
+#define IS_DMIC             0
 static int es8311_codec_init(luat_audio_codec_conf_t* conf,uint8_t mode){
     uint8_t temp1 = 0, temp2 = 0, temp3 = 0;
-    if (conf->pa_pin != -1){
+    if (conf->pa_pin != LUAT_CODEC_PA_NONE){
         luat_gpio_mode(conf->pa_pin, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, !conf->pa_on_level);
         luat_gpio_set(conf->pa_pin, !conf->pa_on_level);
     }
@@ -451,17 +432,72 @@ static int es8311_codec_init(luat_audio_codec_conf_t* conf,uint8_t mode){
         LLOGE("codec err, id = 0x%x 0x%x ver = 0x%x", temp1, temp2, temp3);
         return -1;
     }
-    es8311_reg_init(conf);
+
+    /* reset codec */
+    es8311_write_reg(conf,ES8311_RESET_REG00, 0x1F);
+    luat_rtos_task_sleep(50);
+
+    /* power up digital */
+    es8311_write_reg(conf,ES8311_CLK_MANAGER_REG01, 0x3F);
+
+    es8311_write_reg(conf,ES8311_RESET_REG00, 0x80);
+    luat_rtos_task_sleep(50);
+    uint8_t reg = es8311_read_reg(conf,ES8311_RESET_REG00);
     switch (mode){
         case LUAT_CODEC_MODE_MASTER:
-            es8311_write_reg(conf,ES8311_RESET_REG00, 0xC0);
+            es8311_write_reg(conf,ES8311_RESET_REG00, (reg |= 0x40));
             break;
         case LUAT_CODEC_MODE_SLAVE:
-            es8311_write_reg(conf,ES8311_RESET_REG00, 0x80);
+            es8311_write_reg(conf,ES8311_RESET_REG00, (reg &= 0xBF));
             break;
         default:
             break;
     }
+
+    es8311_write_reg(conf,ES8311_SYSTEM_REG13, 0x00/*0x10*/);
+    /* set adc hpf */
+    // es8311_write_reg(conf,ES8311_ADC_REG1B, 0x05);
+    es8311_write_reg(conf,ES8311_ADC_REG1B, 0x0A);//
+    /* set adc hpf,ADC_EQ bypass */
+    // es8311_write_reg(conf,ES8311_ADC_REG1C, 0x65);
+    es8311_write_reg(conf,ES8311_ADC_REG1C, 0x6A);//
+
+    // SET SDP in and SDP out mute
+    es8311_write_reg(conf,ES8311_SDPIN_REG09, (es8311_read_reg(conf,ES8311_SDPIN_REG09) & 0xBF));
+    es8311_write_reg(conf,ES8311_SDPOUT_REG0A, (es8311_read_reg(conf,ES8311_SDPOUT_REG0A) & 0xBF));
+
+    // adc vol
+    es8311_write_reg(conf,ES8311_ADC_REG17, es8311_adcvol_bak);
+    // dac vol
+    es8311_write_reg(conf,ES8311_DAC_REG32, es8311_dacvol_bak);
+
+    /* set normal power mode */
+    es8311_write_reg(conf,ES8311_SYSTEM_REG0E, 0x02);
+    es8311_write_reg(conf,ES8311_SYSTEM_REG12,  0x28/*0x00*/);
+
+    // es8311_write_reg(conf,ES8311_SYSTEM_REG14,  0x18/*0x1A*/);
+
+    // // pdm dmic enable or disable
+    // reg = es8311_read_reg(conf,ES8311_SYSTEM_REG14);
+    // if (IS_DMIC){
+    //     es8311_write_reg(conf,ES8311_SYSTEM_REG14, reg |= 0x40);
+    // }else{
+    //     es8311_write_reg(conf,ES8311_SYSTEM_REG14, reg &= ~(0x40));
+    // }
+
+    es8311_write_reg(conf,ES8311_SYSTEM_REG14, 0x18);  //add for debug
+    // start up vmid normal speed charge
+    es8311_write_reg(conf,ES8311_SYSTEM_REG0D, 0x01);
+    es8311_write_reg(conf,ES8311_ADC_REG15, 0x00/*0x40*/);
+
+    /* set dac softramp,disable DAC_EQ */
+    es8311_write_reg(conf,ES8311_DAC_REG37, 0x48 /*0x08*/);
+
+    // BCLK/LRCK pullup on
+    es8311_write_reg(conf,ES8311_GP_REG45, 0x00);
+    // set internal reference signal (ADC + DAC)
+    es8311_write_reg(conf,ES8311_GPIO_REG44, 0x00);
+
     return 0;
 }
 
@@ -473,9 +509,11 @@ static int es8311_codec_deinit(luat_audio_codec_conf_t* conf){
 static void es8311_codec_pa(luat_audio_codec_conf_t* conf,uint8_t on){
     if (conf->pa_pin == LUAT_CODEC_PA_NONE) return;
 	if (on){
-        luat_rtos_task_sleep(conf->dummy_time_len);
+        if (conf->dummy_time_len)
+            luat_rtos_task_sleep(conf->dummy_time_len);
         luat_gpio_set(conf->pa_pin, conf->pa_on_level);
-        luat_rtos_task_sleep(conf->pa_delay_time);
+        if (conf->pa_delay_time)
+            luat_rtos_task_sleep(conf->pa_delay_time);
 	}else{	
         luat_gpio_set(conf->pa_pin, !conf->pa_on_level);
 	}
@@ -510,7 +548,9 @@ static int es8311_codec_control(luat_audio_codec_conf_t* conf,luat_audio_codec_c
         case LUAT_CODEC_GET_MIC_VOL:
             return es8311_get_mic_vol(conf);
             break;
-
+        case LUAT_CODEC_SET_FORMAT:
+            es8311_set_format(conf,(uint8_t)data);
+            break;
         case LUAT_CODEC_SET_RATE:
             es8311_codec_samplerate(conf,(uint16_t)data);
             break;
@@ -529,37 +569,8 @@ static int es8311_codec_control(luat_audio_codec_conf_t* conf,luat_audio_codec_c
     return 0;
 }
 
-#define IS_DMIC             0
 static int es8311_codec_start(luat_audio_codec_conf_t* conf){
-    // uint8_t adcIface = 0, dacIface = 0;
-    // dacIface = es8311_read_reg(conf,ES8311_SDPIN_REG09) & 0xBF;
-    // adcIface = es8311_read_reg(conf,ES8311_SDPOUT_REG0A) & 0xBF;
-    // adcIface &= ~(BIT(6));
-    // dacIface &= ~(BIT(6));
-    // es8311_write_reg(conf,ES8311_SDPIN_REG09,   dacIface);
-    // es8311_write_reg(conf,ES8311_SDPOUT_REG0A,  adcIface);
-    // es8311_write_reg(conf,ES8311_ADC_REG17,     0x88/*0xBF*/);
-    // es8311_write_reg(conf,ES8311_SYSTEM_REG0E,  0x02);
-    // es8311_write_reg(conf,ES8311_SYSTEM_REG12,  0x28/*0x00*/);
-    // es8311_write_reg(conf,ES8311_SYSTEM_REG14,  0x18/*0x1A*/);
-    // // pdm dmic enable or disable
-    // int regv = 0;
-    // if (IS_DMIC){
-    //     regv = es8311_read_reg(conf,ES8311_SYSTEM_REG14);
-    //     regv |= 0x40;
-    //     es8311_write_reg(conf,ES8311_SYSTEM_REG14, regv);
-    // }else{
-    //     regv = es8311_read_reg(conf,ES8311_SYSTEM_REG14);
-    //     regv &= ~(0x40);
-    //     es8311_write_reg(conf,ES8311_SYSTEM_REG14, regv);
-    // }
-    // es8311_write_reg(conf,ES8311_SYSTEM_REG14, 0x18);  //add for debug
-    // es8311_write_reg(conf,ES8311_SYSTEM_REG0D, 0x01);
-    // es8311_write_reg(conf,ES8311_ADC_REG15, 0x00/*0x40*/);
-    // es8311_write_reg(conf,ES8311_DAC_REG37, 0x48);
-    // es8311_write_reg(conf,ES8311_GP_REG45, 0x00);
-    // // set internal reference signal (ADCL + DACR)
-    // es8311_write_reg(conf,ES8311_GPIO_REG44, 0x00/*0x50*/);
+    es8311_mode_normal(conf,LUAT_CODEC_MODE_ALL);
     es8311_codec_pa(conf,1);
     return 0;
 }

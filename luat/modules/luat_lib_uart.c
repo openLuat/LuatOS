@@ -360,7 +360,7 @@ int l_uart_handler(lua_State *L, void* ptr) {
 @int 缓冲区大小，默认值1024
 @int 485模式下的转换GPIO, 默认值0xffffffff
 @int 485模式下的rx方向GPIO的电平, 默认值0
-@int 485模式下tx向rx转换的延迟时间，默认值12bit的时间，单位us
+@int 485模式下tx向rx转换的延迟时间，默认值12bit的时间，单位us, 9600波特率填20000
 @return int 成功返回0,失败返回其他值
 @usage
 -- 最常用115200 8N1
@@ -368,7 +368,7 @@ uart.setup(1, 115200, 8, 1, uart.NONE)
 -- 可以简写为 uart.setup(1)
 
 -- 485自动切换, 选取GPIO10作为收发转换脚
-uart.setup(1, 115200, 8, 1, uart.NONE, uart.LSB, 1024, 10, 0, 100)
+uart.setup(1, 115200, 8, 1, uart.NONE, uart.LSB, 1024, 10, 0, 2000)
 */
 static int l_uart_setup(lua_State *L)
 {

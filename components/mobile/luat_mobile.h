@@ -857,6 +857,8 @@ int luat_mobile_get_isp_from_plmn(uint16_t mcc, uint8_t mnc);
  */
 int luat_mobile_get_plmn_from_imsi(char *imsi, uint16_t *mcc, uint8_t *mnc);
 
+
+#include"luat_audio_codec.h"
 /**
  * @brief 获取最近一次来电号码
  * @param buf 存放号码的缓存
@@ -886,10 +888,11 @@ void luat_mobile_hangup_call(uint8_t sim_id);
 int luat_mobile_answer_call(uint8_t sim_id);
 /**
  * @brief 初始化电话功能
+ * @param luat_audio_codec codec配置
  * @param callback 下行通话数据回调函数
- * @return 无
+ * @return =0成功，其他错误
  */
-void luat_mobile_speech_init(void *callback);
+int luat_mobile_speech_init(luat_audio_codec_conf_t* luat_audio_codec,void *callback);
 /**
  * @brief 上行通话数据
  * @param data 录音数据

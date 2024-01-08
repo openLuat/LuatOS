@@ -702,7 +702,19 @@ static int l_socket_rx(lua_State *L)
 	{
 		if ((buff->len - buff->used) < total_len)
 		{
-			__zbuff_resize(buff, total_len + buff->used);
+			result = __zbuff_resize(buff, total_len + buff->used);
+			if (result < 0) {
+				if (buff->len > buff->used) {
+					LLOGW("zbuff自动扩容失败, 减少接收到数据长度 %d -> %d", total_len, buff->len - buff->used);
+					total_len = buff->len - buff->used;
+				}
+				else {
+					LLOGE("zbuff自动扩容失败, 且zbuff没有剩余空间,无法读取剩余数据");
+					lua_pushboolean(L, 0);
+					lua_pushinteger(L, 0);
+					return 2;
+				}
+			}
 		}
 		result = network_rx(l_ctrl->netc, buff->addr + buff->used, total_len, 0, &ip_addr, &port, &rx_len);
 		if (result < 0)

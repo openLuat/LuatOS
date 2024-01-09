@@ -201,14 +201,14 @@ static int b_replace (lua_State *L) {
 // Lua: res = bit( position )
 static int b_bit( lua_State* L )
 {
-  lua_pushinteger( L, ( lua_Integer )( 1 << (lua_Unsigned)luaL_checknumber( L, 1 ) ) );
+  lua_pushinteger( L, ( lua_Integer )( 1 << (lua_Unsigned)luaL_checkinteger( L, 1 ) ) );
   return 1;
 }
 
 // Lua: res = set( value, pos1, pos2, ... )
 static int b_set( lua_State* L )
 { 
-  lua_Unsigned val = (lua_Unsigned)luaL_checknumber( L, 1 );
+  lua_Unsigned val = (lua_Unsigned)luaL_checkinteger( L, 1 );
   unsigned total = lua_gettop( L ), i;
   
   for( i = 2; i <= total; i ++ )
@@ -220,7 +220,7 @@ static int b_set( lua_State* L )
 // Lua: res = clear( value, pos1, pos2, ... )
 static int b_clear( lua_State* L )
 {
-  lua_Unsigned val = (lua_Unsigned)luaL_checknumber( L, 1 );
+  lua_Unsigned val = (lua_Unsigned)luaL_checkinteger( L, 1 );
   unsigned total = lua_gettop( L ), i;
   
   for( i = 2; i <= total; i ++ )
@@ -232,7 +232,7 @@ static int b_clear( lua_State* L )
 // Lua: res = isset( value, position )
 static int b_isset( lua_State* L )
 {
-  lua_Unsigned val = (lua_Unsigned)luaL_checknumber( L, 1 );
+  lua_Unsigned val = (lua_Unsigned)luaL_checkinteger( L, 1 );
   unsigned pos = ( unsigned )luaL_checkinteger( L, 2 );
   
   lua_pushboolean( L, val & ( 1 << pos ) ? 1 : 0 );
@@ -242,7 +242,7 @@ static int b_isset( lua_State* L )
 // Lua: res = isclear( value, position )
 static int b_isclear( lua_State* L )
 {
-  lua_Unsigned val = (lua_Unsigned)luaL_checknumber( L, 1 );
+  lua_Unsigned val = (lua_Unsigned)luaL_checkinteger( L, 1 );
   unsigned pos = ( unsigned )luaL_checkinteger( L, 2 );
   
   lua_pushboolean( L, val & ( 1 << pos ) ? 0 : 1 );

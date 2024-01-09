@@ -1409,7 +1409,7 @@ static int l_json_encode_safe(lua_State *L) {
         lua_pushliteral(L, "");
         return 1;
     }
-    memcpy(float_fmt, "%.7g", strlen("%.7g") + 1);
+    memcpy(float_fmt, "%.7f", strlen("%.7f") + 1);
     size_t len = 0;
 	// int prec = 0;
     // char buff[6] = {0};

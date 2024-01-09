@@ -112,7 +112,7 @@ static uint8_t w1_read_bit(int pin){
   luat_gpio_mode(pin, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 0);
   luat_gpio_set(pin, Luat_GPIO_LOW);
   luat_timer_us_delay(2);
-  luat_gpio_set(pin, Luat_GPIO_HIGH);
+//   luat_gpio_set(pin, Luat_GPIO_HIGH);
   luat_gpio_mode(pin, Luat_GPIO_INPUT, Luat_GPIO_PULLUP, 0);
   data = (uint8_t)luat_gpio_get(pin);
   luat_timer_us_delay(60);

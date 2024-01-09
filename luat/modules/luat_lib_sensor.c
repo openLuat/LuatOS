@@ -5,6 +5,9 @@
 @version 1.0
 @date    2020.03.30
 @tag LUAT_USE_SENSOR
+@demo dht11
+@usage
+-- 请查阅demo/dht11 demo/ds18b20
 */
 #include "luat_base.h"
 #include "luat_timer.h"
@@ -59,7 +62,7 @@ static uint8_t w1_read_bit(int pin){
   luat_gpio_mode(pin, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 0);
   luat_gpio_set(pin, Luat_GPIO_LOW);
   luat_timer_us_delay(2);
-  luat_gpio_set(pin, Luat_GPIO_HIGH);
+  // luat_gpio_set(pin, Luat_GPIO_HIGH);
   luat_gpio_mode(pin, Luat_GPIO_INPUT, Luat_GPIO_PULLUP, 0);
   data = (uint8_t)luat_gpio_get(pin);
   luat_timer_us_delay(60);
@@ -206,7 +209,7 @@ static int32_t ds18b20_get_temperature(int pin, int32_t *val, int check_crc)
 
 /*
 获取DS18B20的温度数据
-@api    sensor.ds18b20(pin)
+@api    sensor.ds18b20(pin, check_crc)
 @int    gpio端口号
 @boolean 是否校验crc值,默认为true. 不校验crc值能提高读取成功的概率,但可能会读取到错误的值
 @return int 温度数据,单位0.1摄氏度，读取失败时返回错误码

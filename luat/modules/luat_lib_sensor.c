@@ -754,6 +754,183 @@ static int dht1x_read(lua_State *L)
   return 3;
 }
 
+static unsigned char sc12a_wait_ack(int sda, int scl)
+{
+  luat_gpio_set(sda, Luat_GPIO_HIGH);
+  luat_gpio_mode(sda, Luat_GPIO_INPUT, Luat_GPIO_PULLUP, 1);
+  luat_timer_us_delay(5);
+  luat_gpio_set(scl, Luat_GPIO_HIGH);
+  luat_timer_us_delay(5 * 3);
+  int max_wait_time = 3000;
+  while (max_wait_time--)
+  {
+    if (luat_gpio_get(sda) == Luat_GPIO_LOW)
+    {
+      luat_gpio_set(scl, Luat_GPIO_LOW);
+      return 1;
+    }
+    luat_timer_us_delay(1);
+  }
+  // 停止信号
+  luat_gpio_mode(sda, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 1);
+  luat_gpio_set(scl, Luat_GPIO_LOW);
+  luat_timer_us_delay(5);
+  luat_gpio_set(sda, Luat_GPIO_LOW);
+  luat_timer_us_delay(5);
+  luat_gpio_set(scl, Luat_GPIO_HIGH);
+  luat_timer_us_delay(5);
+  luat_gpio_set(sda, Luat_GPIO_HIGH);
+  luat_timer_us_delay(5);
+  return 0;
+}
+
+static unsigned int read_sc12akey(int sda, int scl)
+{
+  unsigned int data=0 ;
+  unsigned char sc12a_addr = 0x81;
+  // 发送开始信号
+  luat_gpio_mode(scl, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 1);
+  luat_gpio_mode(sda, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 1);
+  luat_timer_us_delay(5);
+  luat_gpio_set(scl, Luat_GPIO_HIGH);
+  luat_timer_us_delay(5);
+  luat_gpio_set(sda, Luat_GPIO_LOW);
+  luat_timer_us_delay(5);
+  luat_gpio_set(scl, Luat_GPIO_LOW);
+  luat_timer_us_delay(5);
+  // 发送地址
+  unsigned char i = 8;
+
+  luat_gpio_mode(sda, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 0);
+  while (i--)
+  {
+    luat_gpio_set(scl, Luat_GPIO_LOW);
+    luat_timer_us_delay(5 * 2);
+    if (sc12a_addr & 0x80)
+    {
+      luat_gpio_set(sda, Luat_GPIO_HIGH);
+    }
+    else
+    {
+      luat_gpio_set(sda, Luat_GPIO_LOW);
+    }
+    luat_timer_us_delay(5);
+    sc12a_addr <<= 1;
+    luat_gpio_set(scl, Luat_GPIO_HIGH);
+    luat_timer_us_delay(5);
+    luat_gpio_set(scl, Luat_GPIO_LOW);
+    luat_timer_us_delay(5);
+  }
+  // 等待回应ack
+  if (!sc12a_wait_ack(sda, scl))
+  {
+    luat_gpio_mode(sda, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 1);
+    luat_gpio_set(scl, Luat_GPIO_LOW);
+    luat_timer_us_delay(5);
+    luat_gpio_set(sda, Luat_GPIO_LOW);
+    luat_timer_us_delay(5);
+    luat_gpio_set(scl, Luat_GPIO_HIGH);
+    luat_timer_us_delay(5);
+    luat_gpio_set(sda, Luat_GPIO_HIGH);
+    luat_timer_us_delay(5);
+    return -1;
+  }
+
+  i = 16;
+  luat_gpio_set(sda, Luat_GPIO_HIGH);
+  luat_gpio_mode(sda, Luat_GPIO_INPUT, Luat_GPIO_PULLUP, 1);
+  while (i--)
+  {
+    data <<= 1;
+    luat_gpio_set(scl, Luat_GPIO_LOW);
+    luat_timer_us_delay(5);
+    luat_gpio_set(scl, Luat_GPIO_HIGH);
+    luat_timer_us_delay(5);
+    if (luat_gpio_get(sda))
+      data |= 0x01;
+  }
+  //发送NOACK
+  luat_gpio_set(scl, Luat_GPIO_LOW);
+  luat_gpio_mode(sda, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 1);
+  luat_timer_us_delay(5);
+  luat_gpio_set(scl, Luat_GPIO_HIGH);
+  luat_timer_us_delay(5);
+  luat_gpio_set(scl, Luat_GPIO_LOW);
+
+  //发送STOP
+  luat_gpio_mode(sda, Luat_GPIO_OUTPUT, Luat_GPIO_PULLUP, 1);
+  luat_gpio_set(scl, Luat_GPIO_LOW);
+  luat_timer_us_delay(5);
+  luat_gpio_set(sda, Luat_GPIO_LOW);
+  luat_timer_us_delay(5);
+  luat_gpio_set(scl, Luat_GPIO_HIGH);
+  luat_timer_us_delay(5);
+  luat_gpio_set(sda, Luat_GPIO_HIGH);
+  luat_timer_us_delay(5);
+
+  return (data);
+}
+/*
+获取sc12a被触摸的通道数据
+@api    sensor.sc12a(sda,scl)
+@int    数据的gpio端口号
+@int    时钟的gpio端口号
+@return int 读取成功返回整形数据，读取失败时返回错误值
+@usage
+while true do
+  local temp1=sensor.sc12a(4,7)
+  if bit.rshift(bit.band( temp1, 0x8000), 15 )==0x01 then
+    log.info("被按下的有通道0")
+  end
+  if bit.rshift(bit.band( temp1, 0x4000), 14 )==0x01 then
+    log.info("被按下的有通道1")
+  end
+  if bit.rshift(bit.band( temp1, 0x2000), 13 )==0x01 then
+    log.info("被按下的有通道2")
+  end
+  if bit.rshift(bit.band( temp1, 0x1000), 12 )==0x01 then
+    log.info("被按下的有通道3")
+  end
+  if bit.rshift(bit.band( temp1, 0x800), 11 )==0x01 then
+    log.info("被按下的有通道4")
+  end
+  if bit.rshift(bit.band( temp1, 0x400), 10 )==0x01 then
+    log.info("被按下的有通道5")
+  end
+  if bit.rshift(bit.band( temp1, 0x200), 9 )==0x01 then
+    log.info("被按下的有通道6")
+  end
+  if bit.rshift(bit.band( temp1, 0x100), 8 )==0x01 then
+    log.info("被按下的有通道7")
+  end
+  if bit.rshift(bit.band( temp1, 0x80), 7 )==0x01 then
+    log.info("被按下的有通道8")
+  end
+  if bit.rshift(bit.band( temp1, 0x40), 6 )==0x01 then
+    log.info("被按下的有通道9")
+  end
+  if bit.rshift(bit.band( temp1, 0x20), 5 )==0x01 then
+    log.info("被按下的有通道10")
+  end
+  if bit.rshift(bit.band( temp1, 0x10), 4 )==0x01 then
+    log.info("被按下的有通道11")
+  end
+  sys.wait(200)
+end
+*/
+static int l_sensor_sc12a(lua_State *L)
+{ 
+  unsigned int sc12a_data = 0xffff;
+ 
+  int sda = luaL_checkinteger(L, 1);
+  int scl = luaL_checkinteger(L, 2);
+  
+  sc12a_data = read_sc12akey(sda,scl);
+  sc12a_data =sc12a_data^0xffff; 
+  lua_pushinteger(L, sc12a_data);
+  return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_sensor[] =
     {
@@ -766,6 +943,7 @@ static const rotable_Reg_t reg_sensor[] =
         {"cs1237",       ROREG_FUNC(l_sensor_cs1237)},
         {"ws2812b",     ROREG_FUNC(l_sensor_ws2812b)},
         {"dht1x",       ROREG_FUNC(dht1x_read)},
+        {"sc12a",       ROREG_FUNC(l_sensor_sc12a)},
 #ifdef LUAT_USE_PWM
         {"ws2812b_pwm", ROREG_FUNC(l_sensor_ws2812b_pwm)},
 #endif

@@ -1019,11 +1019,9 @@ static int l_zbuff_gc(lua_State *L)
 
 int __zbuff_resize(luat_zbuff_t *buff, uint32_t new_size)
 {
-	void *p = luat_heap_opt_malloc(buff->type,new_size);
+	void *p = luat_heap_opt_realloc(buff->type, buff->addr, new_size);
 	if (p)
 	{
-		memcpy(p, buff->addr, (new_size > buff->used)?buff->used:new_size);
-		luat_heap_opt_free(buff->type,buff->addr);
 		buff->addr = p;
 		buff->len = new_size;
 		buff->used = (buff->len > buff->used)?buff->used:buff->len;
@@ -1031,6 +1029,7 @@ int __zbuff_resize(luat_zbuff_t *buff, uint32_t new_size)
 	}
 	else
 	{
+        LLOGE("zbuff realloc failed %d -> %d", buff->len, new_size);
 		return -1;
 	}
 }

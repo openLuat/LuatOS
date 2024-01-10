@@ -345,10 +345,10 @@ end
 发布一条消息
 @api aliyun.publish(topic,qos,payload,cbFnc,cbPara)
 @string UTF8编码的主题
-@number qos，质量等级，0/1，默认0
-@string payload，负载内容，UTF8编码
-@function cbFnc，消息发布结果的回调函数,回调函数的调用形式为：cbFnc(result,cbPara)。result为true表示发布成功，false或者nil表示订阅失败；cbPara为本接口中的第5个参数
-@param cbPara，消息发布结果回调函数的回调参数
+@number qos质量等级，0/1，默认0
+@string payload 负载内容，UTF8编码
+@function cbFnc 消息发布结果的回调函数,回调函数的调用形式为：cbFnc(result,cbPara)。result为true表示发布成功，false或者nil表示订阅失败；cbPara为本接口中的第5个参数
+@param cbPara 消息发布结果回调函数的回调参数
 @return nil
 @usage
 aliyun.publish("/b0FMK1Ga5cp/862991234567890/update",0,"test")
@@ -367,7 +367,7 @@ end
 "connect"表示接入服务器连接结果事件，
 "receive"表示接收到接入服务器的消息事件，
 "publish"表示发送消息的结果事件
-@function cbFnc，事件的处理函数
+@function cbFnc 事件的处理函数
 当evt为"connect"时，cbFnc的调用形式为：cbFnc(result)，result为true表示连接成功，false或者nil表示连接失败，
 当evt为"receive"时，cbFnc的调用形式为：cbFnc(topic,payload)，topic为UTF8编码的主题(string类型)，payload为原始编码的负载(string类型)，
 当evt为"publish"时，cbFnc的调用形式为：cbFnc(result)，result为true表示发送成功，false或者nil表示发送失败
@@ -382,7 +382,7 @@ end
 
 --[[
 @api aliyun.getDeviceSecret()
-@return string，预注册一型一密阿里云返回的DeviceSecret
+@return string 预注册一型一密阿里云返回的DeviceSecret
 可以在应用层使用kv区来保存该参数并使用判断来避免重启后无法连接
 ]]
 function aliyun.getDeviceSecret()
@@ -391,7 +391,7 @@ end
 
 --[[
 @api aliyun.getDeviceToken()
-@return string，免预注册一型一密阿里云返回的DeviceToken
+@return string 免预注册一型一密阿里云返回的DeviceToken
 可以在应用层使用kv区来保存该参数并使用判断来避免重启后无法连接
 ]]
 function aliyun.getDeviceToken()
@@ -400,7 +400,7 @@ end
 
 --[[
 @api aliyun.getClientid()
-@return string，免预注册一型一密阿里云返回的Clientid
+@return string 免预注册一型一密阿里云返回的Clientid
 可以在应用层使用kv区来保存该参数并使用判断来避免重启后无法连接
 ]]
 function aliyun.getClientid()

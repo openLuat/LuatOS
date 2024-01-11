@@ -227,18 +227,20 @@ end
 --[[
 配置阿里云物联网套件的产品信息和设备信息
 @api aliyun.setup(tPara)
-@table tPara，填写设备信息的表函数
-@usage
+@table
 一机一密认证方案时，ProductSecret参数传入nil
 一型一密认证方案时，ProductSecret参数传入真实的产品密钥
-tPara[Registration] ,是否是预注册 已预注册为false，未预注册为true
-tPara[DeviceName] ,设备名称
-tPara[ProductKey] ,产品key
-tPara[ProductSecret] ,产品secret，根据此信息判断是一机一密还是一型一密
-tPara[DeviceSecret] ,设备secret
-tPara[InstanceId] ,如果没有注册需要填写实例id，在实例详情页面
-tPara[mqtt_port] ,mqtt端口
-tPara[mqtt_isssl] ,是否使用ssl加密连接，true为无证书最简单的加密
+Registration 是否是预注册 已预注册为false，未预注册为true
+DeviceName 设备名称
+ProductKey 产品key
+ProductSecret 产品secret，根据此信息判断是一机一密还是一型一密
+DeviceSecret 设备secret
+InstanceId 如果没有注册需要填写实例id，在实例详情页面
+mqtt_port mqtt端口
+mqtt_isssl 是否使用ssl加密连接，true为无证书最简单的加密
+@return nil
+@usage
+aliyun.setup(tPara)
 ]]
 function aliyun.setup(tPara)
     mqtt_host = tPara.host or tPara.InstanceId..".mqtt.iothub.aliyuncs.com"
@@ -328,8 +330,8 @@ end
 --[[
 订阅主题
 @api aliyun.subscribe(topic,qos)
-@param topic，string类型，主题内容为UTF8编码
-@param qos，number，qos为number类型(0/1，默认0)；
+@string 主题内容为UTF8编码
+@number qos为number类型(0/1，默认0)；
 @return nil
 @usage
 aliyun.subscribe("/b0FMK1Ga5cp/862991234567890/get", 0)
@@ -342,11 +344,11 @@ end
 --[[
 发布一条消息
 @api aliyun.publish(topic,qos,payload,cbFnc,cbPara)
-@string topic，UTF8编码的主题
-@number[opt=0] qos，质量等级，0/1，默认0
-@string payload，负载内容，UTF8编码
-@function[opt=nil] cbFnc，消息发布结果的回调函数,回调函数的调用形式为：cbFnc(result,cbPara)。result为true表示发布成功，false或者nil表示订阅失败；cbPara为本接口中的第5个参数
-@param[opt=nil] cbPara，消息发布结果回调函数的回调参数
+@string UTF8编码的主题
+@number qos质量等级，0/1，默认0
+@string payload 负载内容，UTF8编码
+@function cbFnc 消息发布结果的回调函数,回调函数的调用形式为：cbFnc(result,cbPara)。result为true表示发布成功，false或者nil表示订阅失败；cbPara为本接口中的第5个参数
+@param cbPara 消息发布结果回调函数的回调参数
 @return nil
 @usage
 aliyun.publish("/b0FMK1Ga5cp/862991234567890/update",0,"test")
@@ -361,13 +363,13 @@ end
 --[[
 注册事件的处理函数
 @api aliyun.on(evt,cbFnc)
-@string evt 事件
-"connect"表示接入服务器连接结果事件
-"receive"表示接收到接入服务器的消息事件
+@string evt事件，
+"connect"表示接入服务器连接结果事件，
+"receive"表示接收到接入服务器的消息事件，
 "publish"表示发送消息的结果事件
 @function cbFnc 事件的处理函数
-当evt为"connect"时，cbFnc的调用形式为：cbFnc(result)，result为true表示连接成功，false或者nil表示连接失败
-当evt为"receive"时，cbFnc的调用形式为：cbFnc(topic,payload)，topic为UTF8编码的主题(string类型)，payload为原始编码的负载(string类型)
+当evt为"connect"时，cbFnc的调用形式为：cbFnc(result)，result为true表示连接成功，false或者nil表示连接失败，
+当evt为"receive"时，cbFnc的调用形式为：cbFnc(topic,payload)，topic为UTF8编码的主题(string类型)，payload为原始编码的负载(string类型)，
 当evt为"publish"时，cbFnc的调用形式为：cbFnc(result)，result为true表示发送成功，false或者nil表示发送失败
 @return nil
 @usage
@@ -380,7 +382,7 @@ end
 
 --[[
 @api aliyun.getDeviceSecret()
-@function 预注册一型一密阿里云返回的DeviceSecret
+@return string 预注册一型一密阿里云返回的DeviceSecret
 可以在应用层使用kv区来保存该参数并使用判断来避免重启后无法连接
 ]]
 function aliyun.getDeviceSecret()
@@ -389,7 +391,7 @@ end
 
 --[[
 @api aliyun.getDeviceToken()
-@function 免预注册一型一密阿里云返回的DeviceToken
+@return string 免预注册一型一密阿里云返回的DeviceToken
 可以在应用层使用kv区来保存该参数并使用判断来避免重启后无法连接
 ]]
 function aliyun.getDeviceToken()
@@ -398,7 +400,7 @@ end
 
 --[[
 @api aliyun.getClientid()
-@function 免预注册一型一密阿里云返回的Clientid
+@return string 免预注册一型一密阿里云返回的Clientid
 可以在应用层使用kv区来保存该参数并使用判断来避免重启后无法连接
 ]]
 function aliyun.getClientid()
@@ -409,13 +411,7 @@ end
 
 
 
---[[
-函数名：upgrade
-功能  ：收到云端固件升级通知消息时的回调函数
-参数  ：
-        payload：消息负载（原始编码，收到的payload是什么内容，就是什么内容，没有做任何编码转换）
-返回值：无
-]]
+--收到云端固件升级通知消息时的回调函数
 function upgrade(payload)
     local result
     local jsonData,result = json.decode(payload)

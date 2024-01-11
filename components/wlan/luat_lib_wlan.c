@@ -364,7 +364,8 @@ static int l_wlan_ap_start(lua_State *L) {
     memcpy(apinfo.password, password, password_len);
 
     int ret = luat_wlan_ap_start(&apinfo);
-    LLOGD("apstart ret %d", ret);
+    if (ret)
+        LLOGD("apstart ret %d", ret);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }
@@ -378,7 +379,8 @@ wlan.stopAP()
 */
 static int l_wlan_ap_stop(lua_State *L) {
     int ret = luat_wlan_ap_stop();
-    LLOGD("apstop ret %d", ret);
+    if (ret)
+        LLOGD("apstop ret %d", ret);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     return 1;
 }

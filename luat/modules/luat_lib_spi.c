@@ -298,7 +298,7 @@ static int l_spi_close(lua_State *L) {
 
 /**
 传输SPI数据
-@api spi.transfer(id, send_data[, len])
+@api spi.transfer(id, send_data, send_len, recv_len)
 @int SPI号(例如0)或软件SPI对象
 @string/zbuff 待发送的数据，如果为zbuff数据，则会从对象所处的指针处开始读
 @int 可选。待发送数据的长度，默认为data长度

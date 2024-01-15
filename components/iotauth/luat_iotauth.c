@@ -13,7 +13,7 @@
 #include "time.h"
 #include "luat_str.h"
 #include "luat_mcu.h"
-
+#include "printf.h"
 #include "luat_iotauth.h"
 
 #define LUAT_LOG_TAG "iotauth"
@@ -190,7 +190,7 @@ void luat_iotda_token(const char* device_id,const char* device_secret,long long 
     }
     snprintf_(client_id, CLIENT_ID_LEN, "%s_0_%d_%s", device_id,ins_timestamp,timestamp);
     luat_crypto_hmac_sha256_simple(device_secret, strlen(device_secret),timestamp, strlen(timestamp), hmac);
-    str_tohex(hmac, 32, password,0);
+    str_tohex(hmac, 32, (char *)password,0);
 }
 
 /* Max size of base64 encoded PSK = 64, after decode: 64/4*3 = 48*/
@@ -238,7 +238,7 @@ void luat_tuya_token(const char* device_id,const char* device_secret,long long c
     char token_temp[100]  = {0};
     snprintf_(token_temp, 100, "deviceId=%s,timestamp=%lld,secureMode=1,accessType=1", device_id, cur_timestamp);
     luat_crypto_hmac_sha256_simple(token_temp, strlen(token_temp),device_secret, strlen(device_secret), hmac);
-    str_tohex(hmac, 32, password,0);
+    str_tohex(hmac, 32, (char *)password,0);
 }
 
 void luat_baidu_token(const char* iot_core_id,const char* device_key,const char* device_secret,const char* method,long long cur_timestamp,char* username,char* password){

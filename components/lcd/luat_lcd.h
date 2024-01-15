@@ -102,6 +102,10 @@ extern luat_lcd_opts_t lcd_opts_st7789;
 extern luat_lcd_opts_t lcd_opts_st7796;
 extern luat_lcd_opts_t lcd_opts_nv3037;
 
+static inline luat_color_t color_swap(luat_color_t color) {
+    luat_color_t tmp = (color >> 8) + ((color & 0xFF) << 8);
+    return tmp;
+}
 
 int lcd_write_cmd(luat_lcd_conf_t* conf,const uint8_t cmd);
 int lcd_write_data(luat_lcd_conf_t* conf,const uint8_t data);
@@ -123,7 +127,6 @@ int luat_lcd_inv_off(luat_lcd_conf_t* conf);
 int luat_lcd_inv_on(luat_lcd_conf_t* conf);
 int luat_lcd_set_address(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2);
 int luat_lcd_set_color(luat_color_t back, luat_color_t fore);
-luat_color_t color_swap(luat_color_t color);
 int luat_lcd_draw(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t* color);
 int luat_lcd_flush(luat_lcd_conf_t* conf);
 int luat_lcd_draw_no_block(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t* color, uint8_t last_flush);

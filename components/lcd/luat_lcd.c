@@ -13,11 +13,6 @@ luat_color_t BACK_COLOR = LCD_WHITE, FORE_COLOR = LCD_BLACK;
 #define LUAT_LCD_CONF_COUNT (1)
 static luat_lcd_conf_t* confs[LUAT_LCD_CONF_COUNT] = {0};
 
-luat_color_t color_swap(luat_color_t color) {
-    luat_color_t tmp = (color >> 8) + ((color & 0xFF) << 8);
-    return tmp;
-}
-
 void luat_lcd_execute_cmds(luat_lcd_conf_t* conf) {
     uint16_t cmd = 0,cmd_len = 0;
     uint8_t cmd_send = 0;
@@ -372,8 +367,9 @@ int luat_lcd_draw(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int
 #endif
 
 int luat_lcd_draw_point(luat_lcd_conf_t* conf, int16_t x, int16_t y, luat_color_t color) {
-    // 注意, 这里需要把颜色swap了
-    luat_color_t tmp = color_swap(color);
+    luat_color_t tmp = color;
+    if (conf->port != LUAT_LCD_HW_ID_0)
+        tmp = color_swap(color);// 注意, 这里需要把颜色swap了
     return luat_lcd_draw(conf, x, y, x, y, &tmp);
 }
 
@@ -402,6 +398,7 @@ int luat_lcd_draw_hline(luat_lcd_conf_t* conf, int16_t x, int16_t y,int16_t w, l
 }
 
 int luat_lcd_draw_line(luat_lcd_conf_t* conf,int16_t x1, int16_t y1, int16_t x2, int16_t y2,luat_color_t color) {
+    luat_color_t tmp = color;
     int16_t t;
     uint32_t i = 0;
     int xerr = 0, yerr = 0, delta_x, delta_y, distance;
@@ -410,8 +407,8 @@ int luat_lcd_draw_line(luat_lcd_conf_t* conf,int16_t x1, int16_t y1, int16_t x2,
     {
         size_t dots = (x2 - x1 + 1) * (y2 - y1 + 1);//点数量
         luat_color_t* line_buf = (luat_color_t*) luat_heap_malloc(dots * sizeof(luat_color_t));
-        // 颜色swap
-        luat_color_t tmp = color_swap(color);
+        if (conf->port != LUAT_LCD_HW_ID_0)
+            tmp = color_swap(color);// 颜色swap
         if (line_buf) {
             for (i = 0; i < dots; i++)
             {

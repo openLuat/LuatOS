@@ -1019,7 +1019,7 @@ static int l_zbuff_gc(lua_State *L)
 
 int __zbuff_resize(luat_zbuff_t *buff, uint32_t new_size)
 {
-	void *p = luat_heap_opt_realloc(buff->type, buff->addr, new_size);
+	void *p = luat_heap_opt_realloc(buff->type, buff->addr, new_size?new_size:1);
 	if (p)
 	{
 		buff->addr = p;

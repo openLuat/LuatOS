@@ -191,7 +191,7 @@ static int l_socket_gc(lua_State *L)
 @string or function string为消息通知的taskName，function则为回调函数，如果固件没有内置sys_wait，则必须是function
 当通过回调函数回调消息时，输入给function一共3个参数：
 param1为申请的network_ctrl
-param2为具体的消息，只能是socket.RESET, socket.LINK, socket.ON_LINE, socket.TX_OK, socket.RX_NEW, socket.CLOSE等等
+param2为具体的消息，只能是socket.RESET, socket.LINK, socket.ON_LINE, socket.TX_OK, socket.RX_NEW, socket.CLOSED等等
 param3为消息对应的参数
 @return userdata 成功返回network_ctrl，失败返回nil
 @usage

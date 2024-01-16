@@ -50,7 +50,7 @@ local function netCB(netc, event, param)
         socket.wait(netc)
         log.info("发送完成")
         sys.publish("SOCKET_TX_OK")
-	elseif event == socket.CLOSE then
+	elseif event == socket.CLOSED then
         socketIsConnected = false
         sys.timerStop(heartTimerCb)
         sys.publish("socket_disconnect")

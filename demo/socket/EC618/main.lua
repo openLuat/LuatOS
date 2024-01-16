@@ -34,9 +34,10 @@ sys.subscribe("NTP_ERROR", function()
 end)
 
 -- require "async_socket_demo"
-require "socket_demo"
+-- require "socket_demo"
 -- require "server_demo"
-SerDemo(15000)
+-- dtuDemo(1, "xxx", xxx)	--按照实际情况写入自己服务器的IP和PORT，uart id
+-- SerDemo(15000)
 -- 用户代码已结束---------------------------------------------
 -- 结尾总是这一句
 sys.run()

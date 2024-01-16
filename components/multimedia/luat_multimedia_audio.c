@@ -1,14 +1,16 @@
 #include "luat_base.h"
 #include "luat_gpio.h"
-#include"luat_i2s.h"
+#include "luat_i2s.h"
 #include "luat_audio.h"
 #include "luat_multimedia.h"
 
 #define LUAT_LOG_TAG "audio"
 #include "luat_log.h"
 
+static luat_audio_conf_t audio_hardware = {0};
 LUAT_WEAK luat_audio_conf_t *luat_audio_get_config(uint8_t multimedia_id){
-    return NULL;
+    if (multimedia_id == 0) return &audio_hardware;
+    else return NULL;
 }
 
 LUAT_WEAK int luat_audio_play_multi_files(uint8_t multimedia_id, uData_t *info, uint32_t files_num, uint8_t error_stop){
@@ -143,6 +145,7 @@ LUAT_WEAK void luat_audio_set_bus_type(uint8_t multimedia_id,uint8_t bus_type){
         if (bus_type == MULTIMEDIA_AUDIO_BUS_I2S){
             audio_conf->bus_type = MULTIMEDIA_AUDIO_BUS_I2S;
             audio_conf->codec_conf.codec_opts->init(&audio_conf->codec_conf,LUAT_CODEC_MODE_SLAVE);
+            audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_FORMAT,LUAT_CODEC_FORMAT_I2S);
         }
     }
 }

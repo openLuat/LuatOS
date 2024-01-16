@@ -341,8 +341,6 @@ static int l_audio_vol(lua_State *L) {
     return 1;
 }
 
-LUAT_WEAK luat_audio_conf_t *luat_audio_get_config(uint8_t multimedia_id){return NULL;}
-
 /*
 配置一个音频通道的硬件输出总线，只有对应soc软硬件平台支持才设置对应类型
 @api audio.setBus(id, bus_type)

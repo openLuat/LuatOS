@@ -21,7 +21,7 @@ local function netCB(netc, event, param)
 	elseif event == socket.TX_OK then
         socket.wait(netc)
         log.info("发送完成")
-	elseif event == socket.CLOSE then
+	elseif event == socket.CLOSED then
         sys.publish("socket_disconnect")
     end
 end

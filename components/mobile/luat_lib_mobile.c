@@ -1425,8 +1425,6 @@ end)
             lua_call(L, 2, 0);
             break;
         case LUAT_MOBILE_CC_INCOMINGCALL:
-            LLOGD("LUAT_MOBILE_CC_INCOMINGCALL");
-            luat_mobile_answer_call(0);
             lua_pushstring(L, "CC_IND");
             lua_pushstring(L, "INCOMINGCALL");
             lua_call(L, 2, 0);

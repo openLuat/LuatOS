@@ -914,6 +914,226 @@ static int l_mobile_nst_data_input(lua_State* L) {
     return 0;
 }
 
+//VOLTE
+LUAT_WEAK void luat_mobile_get_last_call_num(char *buf, uint8_t buf_len){}
+LUAT_WEAK int luat_mobile_make_call(uint8_t sim_id, char *number, uint8_t len){return -1;}
+LUAT_WEAK void luat_mobile_hangup_call(uint8_t sim_id){}
+LUAT_WEAK int luat_mobile_answer_call(uint8_t sim_id){return -1;}
+LUAT_WEAK int luat_mobile_speech_init(uint8_t multimedia_id,void *callback){return -1;}
+LUAT_WEAK int luat_mobile_speech_upload(uint8_t *data, uint32_t len){return -1;}
+
+#include "luat_i2s.h"
+#include "luat_audio.h"
+static luat_rtos_task_handle luat_volte_task_handle;
+
+#define PA_PWR_PIN 25
+#define PA_ON_LEVEL 0
+
+#define I2C_ID	1
+#define I2S_ID	0
+
+#define VOICE_VOL   70
+#define MIC_VOL     80
+
+static luat_audio_codec_conf_t luat_audio_codec = {
+    .i2c_id = I2C_ID,
+    .i2s_id = I2S_ID,
+    .pa_pin = PA_PWR_PIN,
+    .pa_on_level = PA_ON_LEVEL,
+    // .dummy_time_len,
+    // .pa_delay_time, 
+    .codec_opts = &codec_opts_es8311,
+};
+
+//播放控制
+static uint8_t g_s_codec_is_on;
+static uint8_t g_s_record_type;
+static uint8_t g_s_play_type;
+static luat_i2s_conf_t *g_s_i2s_conf;
+
+enum{
+	VOLTE_EVENT_PLAY_TONE = 1,
+	VOLTE_EVENT_RECORD_VOICE_START,
+	VOLTE_EVENT_RECORD_VOICE_UPLOAD,
+	VOLTE_EVENT_PLAY_VOICE,
+};
+
+static void mobile_voice_data_input(uint8_t *input, uint32_t len, uint32_t sample_rate, uint8_t bits){
+	luat_rtos_event_send(luat_volte_task_handle, VOLTE_EVENT_PLAY_VOICE, (uint32_t)input, len, sample_rate, 0);
+}
+
+static int record_cb(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint32_t rx_len, void *param){
+	switch(event){
+	case LUAT_I2S_EVENT_RX_DONE:
+		luat_rtos_event_send(luat_volte_task_handle, VOLTE_EVENT_RECORD_VOICE_UPLOAD, (uint32_t)rx_data, rx_len, 0, 0);
+		break;
+	case LUAT_I2S_EVENT_TX_DONE:
+	case LUAT_I2S_EVENT_TRANSFER_DONE:
+		break;
+	default:
+		break;
+	}
+	return 0;
+}
+
+static void luat_volte_task(void *param){
+	luat_event_t event;
+	uint8_t multimedia_id = (int)param;
+	luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
+
+    luat_i2s_conf_t i2s_conf = {
+        .id = audio_conf->codec_conf.i2s_id,
+        .mode = LUAT_I2S_MODE_MASTER,
+        .channel_format = LUAT_I2S_CHANNEL_RIGHT,
+        .standard = LUAT_I2S_MODE_LSB,
+        .channel_bits = LUAT_I2S_BITS_16,
+        .data_bits = LUAT_I2S_BITS_16,
+        .luat_i2s_event_callback = record_cb,
+    };
+
+	luat_i2s_setup(&i2s_conf);
+    g_s_i2s_conf = luat_i2s_get_config(audio_conf->codec_conf.i2s_id);
+
+    LLOGE(" i2c_id %d",audio_conf->codec_conf.i2c_id);
+    LLOGE(" i2s_id %d",audio_conf->codec_conf.i2s_id);
+    LLOGE(" pa_pin %d",audio_conf->codec_conf.pa_pin);
+    LLOGE(" pa_on_level %d",audio_conf->codec_conf.pa_on_level);
+    LLOGE(" codec_opts %p",audio_conf->codec_conf.codec_opts);
+
+
+    audio_conf->codec_conf = luat_audio_codec;
+
+    int ret = audio_conf->codec_conf.codec_opts->init(&audio_conf->codec_conf,LUAT_CODEC_MODE_SLAVE);
+    if (ret){
+		LLOGE("no codec %s",audio_conf->codec_conf.codec_opts->name);
+		luat_rtos_task_delete(luat_volte_task_handle);
+		return;
+    }else{
+		LLOGD("find codec %s",audio_conf->codec_conf.codec_opts->name);
+
+        audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_RATE,16000);
+        audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_BITS,16);
+		audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_FORMAT,LUAT_CODEC_FORMAT_I2S);
+
+        audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_VOICE_VOL,70);
+        audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_MIC_VOL,80);
+
+        // // audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_STANDBY,LUAT_CODEC_MODE_ALL);
+        audio_conf->codec_conf.codec_opts->stop(&audio_conf->codec_conf);
+    }
+	while (1){
+		luat_rtos_event_recv(luat_volte_task_handle, 0, &event, NULL, LUAT_WAIT_FOREVER);
+		switch(event.id)
+		{
+		case VOLTE_EVENT_PLAY_TONE:
+            LLOGD("VOLTE_EVENT_PLAY_TONE %d",event.param1);
+
+			// play_tone(multimedia_id,event.param1);
+            if (LUAT_MOBILE_CC_PLAY_STOP == event.param1){
+                g_s_record_type = 0;
+                g_s_play_type = 0;
+                if (g_s_codec_is_on){
+                    g_s_codec_is_on = 0;
+                    audio_conf->codec_conf.codec_opts->stop(&audio_conf->codec_conf);
+                    // audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_STANDBY,LUAT_CODEC_MODE_ALL);
+                }
+                g_s_i2s_conf->is_full_duplex = 0;
+                break;
+            }
+
+            // luat_i2s_transfer_loop(audio_conf->codec_conf.i2s_id, NULL, 1600, 2, 1);
+            // g_s_codec_is_on = 1;
+            // audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_NORMAL,LUAT_CODEC_MODE_ALL);
+
+
+            // audio_conf->codec_conf.codec_opts->start(&audio_conf->codec_conf);
+
+			break;
+		case VOLTE_EVENT_RECORD_VOICE_START:
+            LLOGD("VOLTE_EVENT_RECORD_VOICE_START");
+			g_s_codec_is_on = 1;
+			g_s_record_type = event.param1;
+			luat_rtos_task_sleep(1);
+			g_s_i2s_conf->is_full_duplex = 1;
+			g_s_i2s_conf->cb_rx_len = 320 * g_s_record_type;
+			luat_i2s_modify(audio_conf->codec_conf.i2s_id, LUAT_I2S_CHANNEL_RIGHT, LUAT_I2S_BITS_16, g_s_record_type * 8000);
+			luat_i2s_transfer_loop(audio_conf->codec_conf.i2s_id, NULL, 3200, 2, 0);	//address传入空地址就是播放空白音
+    //         // audio_conf->codec_conf.codec_opts->start(&audio_conf->codec_conf);
+			audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_NORMAL,LUAT_CODEC_MODE_ALL);
+
+			break;
+		case VOLTE_EVENT_RECORD_VOICE_UPLOAD:
+            if (g_s_record_type){
+				luat_mobile_speech_upload((uint8_t *)event.param1, event.param2);
+			}
+			break;
+		case VOLTE_EVENT_PLAY_VOICE:
+            LLOGD("VOLTE_EVENT_PLAY_VOICE");
+			g_s_play_type = event.param3; //1 = 8K 2 = 16K
+			if (!g_s_record_type){
+				g_s_i2s_conf->is_full_duplex = 0;
+				luat_i2s_modify(audio_conf->codec_conf.i2s_id, LUAT_I2S_CHANNEL_RIGHT, LUAT_I2S_BITS_16, g_s_play_type * 8000);
+				if (2 == g_s_play_type){
+					luat_i2s_transfer_loop(audio_conf->codec_conf.i2s_id, (uint8_t *)event.param1, event.param2/3, 3, 0);
+				}else{
+					luat_i2s_transfer_loop(audio_conf->codec_conf.i2s_id, (uint8_t *)event.param1, event.param2/6, 6, 0);
+				}
+				if (!g_s_codec_is_on){
+					g_s_codec_is_on = 1;
+                    // audio_conf->codec_conf.codec_opts->start(&audio_conf->codec_conf);
+					audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_NORMAL,LUAT_CODEC_MODE_ALL);
+				}
+			}else{
+				LLOGD("%x,%d", event.param1, event.param2);
+				if (2 == g_s_record_type){
+					luat_i2s_transfer_loop(audio_conf->codec_conf.i2s_id, (uint8_t *)event.param1, event.param2/3, 3, 0);
+				}else{
+					luat_i2s_transfer_loop(audio_conf->codec_conf.i2s_id, (uint8_t *)event.param1, event.param2/6, 6, 0);
+				}
+			}
+			break;
+		}
+	}
+}
+
+static int l_mobile_get_last_call_num(lua_State* L) {
+    char number[64] = {0};
+    luat_mobile_get_last_call_num(number, sizeof(number));
+    lua_pushlstring(L, (const char*)(number),strlen(number));
+    return 1;
+}
+
+static int l_mobile_make_call(lua_State* L) {
+    uint8_t sim_id = luaL_optinteger(L, 1, 0);
+    size_t len = 0;
+	char* number = luaL_checklstring(L, 2, &len);
+    lua_pushboolean(L, !luat_mobile_make_call(sim_id,number, len));
+    return 1;
+}
+
+static int l_mobile_hangup_call(lua_State* L) {
+    uint8_t sim_id = luaL_optinteger(L, 1, 0);
+    luat_mobile_hangup_call(sim_id);
+    return 0;
+}
+
+static int l_mobile_answer_call(lua_State* L) {
+    uint8_t sim_id = luaL_optinteger(L, 1, 0);
+    lua_pushboolean(L, !luat_mobile_answer_call(sim_id));
+    return 1;
+}
+
+static int l_mobile_speech_init(lua_State* L) {
+    uint8_t multimedia_id = luaL_optinteger(L, 1, 0);
+    if (luat_mobile_speech_init(multimedia_id,mobile_voice_data_input)){
+        lua_pushboolean(L, 0);
+    }
+    luat_rtos_task_create(&luat_volte_task_handle, 4*1024, 100, "volte", luat_volte_task, multimedia_id, 64);
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_mobile[] = {
     {"status",          ROREG_FUNC(l_mobile_status)},
@@ -947,6 +1167,8 @@ static const rotable_Reg_t reg_mobile[] = {
 	{"setBand",          ROREG_FUNC(l_mobile_set_band)},
 	{"nstOnOff",          ROREG_FUNC(l_mobile_nst_test_onoff)},
 	{"nstInput",          ROREG_FUNC(l_mobile_nst_data_input)},
+
+    {"speech_init",          ROREG_FUNC(l_mobile_speech_init)},
 	//@const UNREGISTER number 未注册
     {"UNREGISTER",                  ROREG_INT(LUAT_MOBILE_STATUS_UNREGISTER)},
     //@const REGISTERED number 已注册
@@ -1199,16 +1421,113 @@ end)
 		case LUAT_MOBILE_SMS_ACK:
 			break;
 		}
-
 		break;
+	case LUAT_MOBILE_EVENT_IMS_REGISTER_STATUS:
+        LLOGD("ims reg state %d", status);
+		break;
+    case LUAT_MOBILE_EVENT_CC:
+        LLOGD("LUAT_MOBILE_EVENT_CC status %d",status);
+/*
+@sys_pub mobile
+通话状态变化
+CC_IND
+@usage
+sys.subscribe("CC_IND", function(status, value)
+    log.info("cc status", status, value)
+end)
+*/
+        switch(status){
+        case LUAT_MOBILE_CC_READY:
+            LLOGD("LUAT_MOBILE_CC_READY");
+            lua_pushstring(L, "CC_IND");
+            lua_pushstring(L, "READY");
+            lua_call(L, 2, 0);
+            break;
+        case LUAT_MOBILE_CC_INCOMINGCALL:
+            LLOGD("LUAT_MOBILE_CC_INCOMINGCALL");
+            luat_mobile_answer_call(0);
+            lua_pushstring(L, "CC_IND");
+            lua_pushstring(L, "INCOMINGCALL");
+            lua_call(L, 2, 0);
+            break;
+        case LUAT_MOBILE_CC_CALL_NUMBER:
+            // lua_pushstring(L, "CC_IND");
+            // lua_pushstring(L, "CALL_NUMBER");
+            // lua_call(L, 2, 0);
+            break;
+        case LUAT_MOBILE_CC_CONNECTED_NUMBER:
+            // lua_pushstring(L, "CC_IND");
+            // lua_pushstring(L, "CONNECTED_NUMBER");
+            // lua_call(L, 2, 0);
+            break;
+        case LUAT_MOBILE_CC_CONNECTED:
+            lua_pushstring(L, "CC_IND");
+            lua_pushstring(L, "CONNECTED");
+            lua_call(L, 2, 0);
+            break;
+        case LUAT_MOBILE_CC_DISCONNECTED:
+            lua_pushstring(L, "CC_IND");
+            lua_pushstring(L, "DISCONNECTED");
+            lua_call(L, 2, 0);
+            break;
+        case LUAT_MOBILE_CC_SPEECH_START:
+            // lua_pushstring(L, "CC_IND");
+            // lua_pushstring(L, "SPEECH_START");
+            // lua_call(L, 2, 0);
+            break;
+        case LUAT_MOBILE_CC_MAKE_CALL_OK:
+            // lua_pushstring(L, "CC_IND");
+            // lua_pushstring(L, "MAKE_CALL_OK");
+            // lua_call(L, 2, 0);
+            break;
+        case LUAT_MOBILE_CC_MAKE_CALL_FAILED:
+            // lua_pushstring(L, "CC_IND");
+            // lua_pushstring(L, "MAKE_CALL_FAILED");
+            // lua_call(L, 2, 0);
+            break;
+        case LUAT_MOBILE_CC_ANSWER_CALL_DONE:
+            // lua_pushstring(L, "CC_IND");
+            // lua_pushstring(L, "ANSWER_CALL_DONE");
+            // lua_call(L, 2, 0);
+            break;
+        case LUAT_MOBILE_CC_HANGUP_CALL_DONE:
+            // lua_pushstring(L, "CC_IND");
+            // lua_pushstring(L, "HANGUP_CALL_DONE");
+            // lua_call(L, 2, 0);
+            break;
+        case LUAT_MOBILE_CC_LIST_CALL_RESULT:
+            // lua_pushstring(L, "CC_IND");
+            // lua_pushstring(L, "LIST_CALL_RESULT");
+            // lua_call(L, 2, 0);
+            break;
+        case LUAT_MOBILE_CC_PLAY:// 最先 	
+            lua_pushstring(L, "CC_IND");
+            lua_pushstring(L, "PLAY");
+            lua_call(L, 2, 0);
+            break;
+        }
+        break;
 	default:
 		break;
 	}
     return 0;
 }
 
-// 给luat_mobile_event_register_handler 注册用, 给lua层发消息
 void luat_mobile_event_cb(LUAT_MOBILE_EVENT_E event, uint8_t index, uint8_t status, void* ptr) {
+	switch (event){
+    case LUAT_MOBILE_EVENT_CC:
+        switch(status){
+        case LUAT_MOBILE_CC_SPEECH_START:
+            luat_rtos_event_send(luat_volte_task_handle, VOLTE_EVENT_RECORD_VOICE_START, index + 1, 0, 0, 0);
+            break;
+        case LUAT_MOBILE_CC_PLAY:
+            luat_rtos_event_send(luat_volte_task_handle, VOLTE_EVENT_PLAY_TONE, index, 0, 0, 0);
+            break;
+        }
+        break;
+    default:
+        break;
+	}
     rtos_msg_t msg = {
         .handler = l_mobile_event_handle,
         .arg1 = event,
@@ -1217,3 +1536,9 @@ void luat_mobile_event_cb(LUAT_MOBILE_EVENT_E event, uint8_t index, uint8_t stat
     };
     luat_msgbus_put(&msg, 0);
 }
+
+
+
+
+
+

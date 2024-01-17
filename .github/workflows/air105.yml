@@ -23,8 +23,7 @@ jobs:
         sudo apt-get update
         sudo apt-get install git gcc-multilib libc6 libgcc1 libstdc++5 libstdc++6 libsdl-dev p7zip-full -y
         sudo apt-get install libncurses5-dev -y
-        sudo add-apt-repository ppa:xmake-io/xmake -y
-        sudo apt install xmake -y
+        sudo apt-get install xmake -y
     - name: clone 105
       run: |
         sudo sh -c "curl https://raw.githubusercontent.com/kadwanev/retry/master/retry -o /usr/local/bin/retry && chmod +x /usr/local/bin/retry"

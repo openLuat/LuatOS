@@ -7,7 +7,6 @@
 @demo    mobile
 @tag LUAT_USE_MOBILE
 @usage
--- 简单演示
 
 */
 
@@ -165,6 +164,11 @@ static void luat_volte_task(void *param){
 	}
 }
 
+/**
+获取最后一次通话的号码
+@api cc.lastNum()
+@return string 获取最后一次通话的号码
+ */
 static int l_cc_get_last_call_num(lua_State* L) {
     char number[64] = {0};
     luat_mobile_get_last_call_num(number, sizeof(number));
@@ -172,6 +176,13 @@ static int l_cc_get_last_call_num(lua_State* L) {
     return 1;
 }
 
+/**
+拨打电话
+@api cc.dial(sim_id,number)
+@number sim_id
+@number 电话号码
+@return bool 拨打电话成功与否
+ */
 static int l_cc_make_call(lua_State* L) {
     uint8_t sim_id = luaL_optinteger(L, 1, 0);
     size_t len = 0;
@@ -180,18 +191,35 @@ static int l_cc_make_call(lua_State* L) {
     return 1;
 }
 
+/**
+挂断电话
+@api cc.hangUp(sim_id)
+@number sim_id
+ */
 static int l_cc_hangup_call(lua_State* L) {
     uint8_t sim_id = luaL_optinteger(L, 1, 0);
     luat_mobile_hangup_call(sim_id);
     return 0;
 }
 
+/**
+接听电话
+@api cc.accept(sim_id)
+@number sim_id
+@return bool 接听电话成功与否
+ */
 static int l_cc_answer_call(lua_State* L) {
     uint8_t sim_id = luaL_optinteger(L, 1, 0);
     lua_pushboolean(L, !luat_mobile_answer_call(sim_id));
     return 1;
 }
 
+/**
+初始化电话功能
+@api cc.init(multimedia_id)
+@number multimedia_id 多媒体id
+@return bool 成功与否
+ */
 static int l_cc_speech_init(lua_State* L) {
     uint8_t multimedia_id = luaL_optinteger(L, 1, 0);
     if (luat_mobile_speech_init(multimedia_id,mobile_voice_data_input)){
@@ -206,11 +234,12 @@ static int l_cc_speech_init(lua_State* L) {
 #include "rotable2.h"
 static const rotable_Reg_t reg_cc[] =
 {
-    { "init" ,       ROREG_FUNC(l_cc_speech_init)},
-    { "dial" ,       ROREG_FUNC(l_cc_make_call)},
-    { "accept" ,     ROREG_FUNC(l_cc_answer_call)},
-    { "hangUp" ,     ROREG_FUNC(l_cc_hangup_call)},
-    { "recordCall" , ROREG_FUNC(l_cc_get_last_call_num)},
+    { "init" ,      ROREG_FUNC(l_cc_speech_init)},
+    { "dial" ,      ROREG_FUNC(l_cc_make_call)},
+    { "accept" ,    ROREG_FUNC(l_cc_answer_call)},
+    { "hangUp" ,    ROREG_FUNC(l_cc_hangup_call)},
+    { "lastNum" ,   ROREG_FUNC(l_cc_get_last_call_num)},
+    // { "recordCall" , ROREG_FUNC(l_cc_get_last_call_num)},
 	{ NULL,          {}}
 };
 

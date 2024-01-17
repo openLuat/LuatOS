@@ -23,8 +23,13 @@
 
 #define LUAT_LOG_TAG "cc"
 #include "luat_log.h"
-
-extern luat_rtos_task_handle luat_volte_task_handle;
+enum{
+	VOLTE_EVENT_PLAY_TONE = 1,
+	VOLTE_EVENT_RECORD_VOICE_START,
+	VOLTE_EVENT_RECORD_VOICE_UPLOAD,
+	VOLTE_EVENT_PLAY_VOICE,
+};
+static luat_rtos_task_handle luat_volte_task_handle;
 
 #define VOICE_VOL   70
 #define MIC_VOL     80
@@ -250,4 +255,13 @@ LUAMOD_API int luaopen_cc( lua_State *L ) {
 
 
 
+void luat_cc_start_speech(uint32_t param)
+{
+	luat_rtos_event_send(luat_volte_task_handle, VOLTE_EVENT_RECORD_VOICE_START, param, 0, 0, 0);
+}
+
+void luat_cc_play_tone(uint32_t param)
+{
+	luat_rtos_event_send(luat_volte_task_handle, VOLTE_EVENT_PLAY_TONE, param, 0, 0, 0);
+}
 

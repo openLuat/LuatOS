@@ -1292,6 +1292,7 @@ end)
 }
 
 void luat_mobile_event_cb(LUAT_MOBILE_EVENT_E event, uint8_t index, uint8_t status, void* ptr) {
+#if defined LUAT_USE_VOLTE
 		switch (event){
     case LUAT_MOBILE_EVENT_CC:
         switch(status){
@@ -1306,6 +1307,7 @@ void luat_mobile_event_cb(LUAT_MOBILE_EVENT_E event, uint8_t index, uint8_t stat
     default:
         break;
 	}
+#endif
     rtos_msg_t msg = {
         .handler = l_mobile_event_handle,
         .arg1 = event,

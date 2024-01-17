@@ -1000,7 +1000,6 @@ static void luat_volte_task(void *param){
     LLOGE(" pa_on_level %d",audio_conf->codec_conf.pa_on_level);
     LLOGE(" codec_opts %p",audio_conf->codec_conf.codec_opts);
 
-
     audio_conf->codec_conf = luat_audio_codec;
 
     int ret = audio_conf->codec_conf.codec_opts->init(&audio_conf->codec_conf,LUAT_CODEC_MODE_SLAVE);
@@ -1124,13 +1123,19 @@ static int l_mobile_answer_call(lua_State* L) {
 }
 
 static int l_mobile_speech_init(lua_State* L) {
+#ifdef LUAT_USE_VOLTE
     uint8_t multimedia_id = luaL_optinteger(L, 1, 0);
     if (luat_mobile_speech_init(multimedia_id,mobile_voice_data_input)){
         lua_pushboolean(L, 0);
+        return 1;
     }
     luat_rtos_task_create(&luat_volte_task_handle, 4*1024, 100, "volte", luat_volte_task, multimedia_id, 64);
     lua_pushboolean(L, 1);
     return 1;
+#else
+    lua_pushboolean(L, 0);
+    return 1;
+#endif
 }
 
 

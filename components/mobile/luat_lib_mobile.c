@@ -926,24 +926,8 @@ LUAT_WEAK int luat_mobile_speech_upload(uint8_t *data, uint32_t len){return -1;}
 #include "luat_audio.h"
 static luat_rtos_task_handle luat_volte_task_handle;
 
-#define PA_PWR_PIN 25
-#define PA_ON_LEVEL 0
-
-#define I2C_ID	1
-#define I2S_ID	0
-
 #define VOICE_VOL   70
 #define MIC_VOL     80
-
-static luat_audio_codec_conf_t luat_audio_codec = {
-    .i2c_id = I2C_ID,
-    .i2s_id = I2S_ID,
-    .pa_pin = PA_PWR_PIN,
-    .pa_on_level = PA_ON_LEVEL,
-    // .dummy_time_len,
-    // .pa_delay_time, 
-    .codec_opts = &codec_opts_es8311,
-};
 
 //播放控制
 static uint8_t g_s_codec_is_on;
@@ -993,14 +977,6 @@ static void luat_volte_task(void *param){
 
 	luat_i2s_setup(&i2s_conf);
     g_s_i2s_conf = luat_i2s_get_config(audio_conf->codec_conf.i2s_id);
-
-    LLOGE(" i2c_id %d",audio_conf->codec_conf.i2c_id);
-    LLOGE(" i2s_id %d",audio_conf->codec_conf.i2s_id);
-    LLOGE(" pa_pin %d",audio_conf->codec_conf.pa_pin);
-    LLOGE(" pa_on_level %d",audio_conf->codec_conf.pa_on_level);
-    LLOGE(" codec_opts %p",audio_conf->codec_conf.codec_opts);
-
-    audio_conf->codec_conf = luat_audio_codec;
 
     int ret = audio_conf->codec_conf.codec_opts->init(&audio_conf->codec_conf,LUAT_CODEC_MODE_SLAVE);
     if (ret){

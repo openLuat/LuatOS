@@ -34,7 +34,8 @@ log.info("simid", mobile.simid())
 
 #define LUAT_LOG_TAG "mobile"
 #include "luat_log.h"
-
+extern void luat_cc_start_speech(uint32_t param);
+extern void luat_cc_play_tone(uint32_t param);
 /**
 获取IMEI
 @api mobile.imei(index)
@@ -914,9 +915,6 @@ static int l_mobile_nst_data_input(lua_State* L) {
     return 0;
 }
 
-//VOLTE
-luat_rtos_task_handle luat_volte_task_handle;
-
 #include "rotable2.h"
 static const rotable_Reg_t reg_mobile[] = {
     {"status",          ROREG_FUNC(l_mobile_status)},
@@ -1294,14 +1292,14 @@ end)
 }
 
 void luat_mobile_event_cb(LUAT_MOBILE_EVENT_E event, uint8_t index, uint8_t status, void* ptr) {
-	switch (event){
+		switch (event){
     case LUAT_MOBILE_EVENT_CC:
         switch(status){
         case LUAT_MOBILE_CC_SPEECH_START:
-            luat_rtos_event_send(luat_volte_task_handle, VOLTE_EVENT_RECORD_VOICE_START, index + 1, 0, 0, 0);
+        	luat_cc_start_speech(index+1);
             break;
         case LUAT_MOBILE_CC_PLAY:
-            luat_rtos_event_send(luat_volte_task_handle, VOLTE_EVENT_PLAY_TONE, index, 0, 0, 0);
+        	luat_cc_play_tone(index);
             break;
         }
         break;

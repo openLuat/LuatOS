@@ -840,12 +840,7 @@ enum
 	LUAT_MOBILE_ISP_CRCC,	/*中国广电*/
 };
 
-enum{
-	VOLTE_EVENT_PLAY_TONE = 1,
-	VOLTE_EVENT_RECORD_VOICE_START,
-	VOLTE_EVENT_RECORD_VOICE_UPLOAD,
-	VOLTE_EVENT_PLAY_VOICE,
-};
+
 
 /**
  * @brief 通过PLMN判断运营商，目前只支持国内三大运营商及广电

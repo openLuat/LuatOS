@@ -840,6 +840,13 @@ enum
 	LUAT_MOBILE_ISP_CRCC,	/*中国广电*/
 };
 
+enum{
+	VOLTE_EVENT_PLAY_TONE = 1,
+	VOLTE_EVENT_RECORD_VOICE_START,
+	VOLTE_EVENT_RECORD_VOICE_UPLOAD,
+	VOLTE_EVENT_PLAY_VOICE,
+};
+
 /**
  * @brief 通过PLMN判断运营商，目前只支持国内三大运营商及广电
  * @param mcc MCC码，3位10进制数字，目前只有中国460是支持的
@@ -899,5 +906,6 @@ int luat_mobile_speech_init(uint8_t multimedia_id,void *callback);
  * @return =0成功，其他错误
  */
 int luat_mobile_speech_upload(uint8_t *data, uint32_t len);
+
 /** @}*/
 #endif

@@ -21,7 +21,7 @@ jobs:
     - name: prepare software
       run: |
         sudo apt-get update
-        sudo apt-get install git gcc-multilib libc6 libgcc1 libstdc++5 libstdc++6 libsdl-dev p7zip-full -y
+        sudo apt-get install git gcc-multilib libc6 libgcc1 libstdc++5 libstdc++6 p7zip-full -y
         sudo apt-get install libncurses5-dev -y
         sudo add-apt-repository ppa:xmake-io/xmake -y
         sudo apt-get update

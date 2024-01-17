@@ -14,7 +14,7 @@
 #include "luat_mem.h"
 #include "luat_rtos.h"
 #include "luat_msgbus.h"
-
+#include "luat_zbuff.h"
 #include "luat_mobile.h"
 #include "luat_network_adapter.h"
 
@@ -157,7 +157,7 @@ static void luat_volte_task(void *param){
 					audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_NORMAL,LUAT_CODEC_MODE_ALL);
 				}
 			}else{
-				LLOGD("%x,%d", event.param1, event.param2);
+                LLOGD("%d,%d,%d", g_s_play_type, g_s_record_type, event.param2);
 				if (2 == g_s_record_type){
 					luat_i2s_transfer_loop(audio_conf->codec_conf.i2s_id, (uint8_t *)event.param1, event.param2/3, 3, 0);
 				}else{
@@ -236,6 +236,57 @@ static int l_cc_speech_init(lua_State* L) {
     return 1;
 }
 
+typedef struct luat_uart_cb {
+    int record;//回调函数
+    //预留其他回调
+} luat_cc_cb_t;
+static luat_cc_cb_t luat_cc_cb;
+
+// /**
+// 录音通话
+// @api cc.recordCall(len,zbuff_data)
+// @number len 
+// @return number len
+//  */
+static int l_cc_record_call(lua_State* L) {
+    uint32_t len = luaL_optinteger(L, 1, 0);
+    if(lua_isuserdata(L, 2)){
+        luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+        // 内存复制
+        lua_pushinteger(L, len);
+        return 1;
+    }
+    lua_pushinteger(L, 0);
+    return 1;
+}
+
+// /*
+// 注册通话回调
+// @api    cc.on(event, func)
+// @string 事件名称 音频录音数据为"record"
+// @function 回调方法
+// @return nil 无返回值
+// @usage
+// uart.on("record", function(len)
+//     cc.recordCall(len,zbuff_data)
+// end)
+// */
+static int l_cc_on(lua_State *L) {
+    const char* event = luaL_checkstring(L, 1);
+    if (!strcmp("record", event)) {
+        if (luat_cc_cb.record != 0) {
+            luaL_unref(L, LUA_REGISTRYINDEX, luat_cc_cb.record);
+            luat_cc_cb.record = 0;
+        }
+        if (lua_isfunction(L, 2)) {
+            lua_pushvalue(L, 2);
+            luat_cc_cb.record = luaL_ref(L, LUA_REGISTRYINDEX);
+        }
+    }
+    return 0;
+}
+
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_cc[] =
 {
@@ -244,7 +295,8 @@ static const rotable_Reg_t reg_cc[] =
     { "accept" ,    ROREG_FUNC(l_cc_answer_call)},
     { "hangUp" ,    ROREG_FUNC(l_cc_hangup_call)},
     { "lastNum" ,   ROREG_FUNC(l_cc_get_last_call_num)},
-    // { "recordCall" , ROREG_FUNC(l_cc_get_last_call_num)},
+    { "on" ,        ROREG_FUNC(l_cc_on)},
+    { "recordCall", ROREG_FUNC(l_cc_record_call)},
 	{ NULL,          {}}
 };
 

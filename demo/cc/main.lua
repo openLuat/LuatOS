@@ -1,6 +1,6 @@
 
 -- LuaTools需要PROJECT和VERSION这两个信息
-PROJECT = "voltedemo"
+PROJECT = "ccdemo"
 VERSION = "1.0.0"
 
 --[[
@@ -18,7 +18,9 @@ if wdt then
 end
 
 sys.subscribe("CC_IND", function(state)
-    if state == "INCOMINGCALL" then
+    if state == "READY" then
+        sys.publish("CC_READY")
+    elseif state == "INCOMINGCALL" then
         cc.accept(0)
     end
 end)
@@ -45,7 +47,12 @@ sys.taskInit(function()
     audio.setBus(multimedia_id, audio.BUS_I2S,{chip = "es8311",i2cid = i2c_id , i2sid = i2s_id})	--通道0的硬件输出通道设置为I2S
     audio.config(multimedia_id, 25, 0, 3, 100, 255, 0, 100)
 
-    cc.init(multimedia_id)
+    sys.waitUntil("CC_READY")
+
+    if cc.init(multimedia_id) then
+        -- cc.dial(0,"WTF12138") --拨打电话
+    end
+
 
 end)
 

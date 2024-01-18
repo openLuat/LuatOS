@@ -54,25 +54,24 @@ int l_i2s_handler(lua_State *L, void* ptr) {
     return 1;
 }
 
-int luat_i2s_event_cb(uint8_t id ,luat_i2s_event_t event, void *param){
-    Buffer_Struct *buffer;
-    switch (event){
+int luat_i2s_event_cb(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint32_t rx_len, void *param){
+	uint32_t len;
+	rtos_msg_t msg;
+	switch (event){
     case LUAT_I2S_EVENT_RX_DONE:
-        buffer = (Buffer_Struct *)param;
         if (!i2s_rx_buffer[id] || !i2s_cbs[id])
             return -1;
-        if (buffer && (buffer->Pos)){
-            uint32_t len = (buffer->Pos > i2s_rx_buffer[id]->len)?i2s_rx_buffer[id]->len:buffer->Pos;
-            memcpy(i2s_rx_buffer[id]->addr, buffer->Data, len);
+
+            len = (rx_len > i2s_rx_buffer[id]->len)?i2s_rx_buffer[id]->len:rx_len;
+            memcpy(i2s_rx_buffer[id]->addr, rx_data, rx_len);
             i2s_rx_buffer[id]->used = len;
-            rtos_msg_t msg;
             msg.handler = l_i2s_handler;
             msg.ptr = NULL;
             msg.arg1 = id;
             msg.arg2 = len;
             luat_msgbus_put(&msg, 0);
-            buffer->Pos = 0;
-        }
+
+
         break;
     default:
         break;
@@ -84,7 +83,7 @@ int luat_i2s_event_cb(uint8_t id ,luat_i2s_event_t event, void *param){
 初始化i2s
 @api i2s.setup(id, mode, sample, bitw, channel, format, framebit)
 @int i2s通道号,与具体设备有关
-@int 模式, 当前仅支持0, MASTER|TX|RX 模式, 暂不支持slave. 可选
+@int 模式, 0 主机 1 从机
 @int 采样率,默认44100. 可选
 @int 数据位数,默认16, 可以是8的倍数
 @int 声道, 0 左声道, 1 右声道, 2 立体声. 可选
@@ -107,8 +106,8 @@ static int l_i2s_setup(lua_State *L) {
     conf.channel_format = luaL_optinteger(L, 5, LUAT_I2S_CHANNEL_STEREO);
     conf.standard = luaL_optinteger(L, 6, LUAT_I2S_MODE_I2S);
     conf.channel_bits = luaL_optinteger(L, 7, LUAT_I2S_BITS_16);
-    int ret = luat_i2s_setup(&conf);
     conf.luat_i2s_event_callback = luat_i2s_event_cb;
+    int ret = luat_i2s_setup(&conf);
     lua_pushboolean(L, ret == 0 ? 1 : 0);
     lua_pushinteger(L, ret);
     return 2;

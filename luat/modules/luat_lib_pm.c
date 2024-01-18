@@ -433,8 +433,10 @@ static const rotable_Reg_t reg_pm[] =
     { "GPS_ANT",        ROREG_INT(LUAT_PM_POWER_GPS_ANT)},
     //@const CAMERA number camera电源，CAM_VCC输出
     { "CAMERA",         ROREG_INT(LUAT_PM_POWER_CAMERA)},
-    //@const DAC_EN number Air780E和Air600E的DAC_EN，注意audio的默认配置会自动使用这个脚来控制CODEC的使能
+    //@const DAC_EN number Air780E和Air600E的DAC_EN(新版硬件手册的LDO_CTL，同一个PIN，命名变更)，注意audio的默认配置会自动使用这个脚来控制CODEC的使能
     { "DAC_EN",         ROREG_INT(LUAT_PM_POWER_DAC_EN_PIN)},
+    //@const LDO_CTL number Air780E和Air600E的LDO_CTL(老版硬件手册的DAC_EN，同一个PIN，命名变更)，Air780EP的LDO_CTL, 注意audio的默认配置会自动使用这个脚来控制CODEC的使能
+    { "LDO_CTL",         ROREG_INT(LUAT_PM_POWER_LDO_CTL_PIN)},
     //@const PWK_MODE number 是否开启ec618的powerkey滤波模式，true开，注意滤波模式下reset变成直接关机
     { "PWK_MODE",       ROREG_INT(LUAT_PM_POWER_POWERKEY_MODE)},
     //@const WORK_MODE number ec618的节能模式，0~3，0完全关闭，1性能优先，2平衡，3极致功耗

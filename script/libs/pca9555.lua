@@ -48,7 +48,7 @@ Default               1       1       1       1       1       1       1
 
 --[[
 pca9555初始化
-pca955.setup(i2cid, addr,mode)
+@api pca955.setup(i2cid, addr,mode)
 @number i2cid 所在的i2c总线
 @number addr pca9555设备的i2c地址
 @number mode 配置输入输出模式  --0xffff 高八位配置IO 17-10 低八位配置IO 7-0
@@ -78,8 +78,8 @@ function pca9555.setup(i2cid,addr,mode)
 end
 
 --[[
-pca9555引脚配置
-pca9555.pin(pin,val)
+pca9555 pin控制
+@api pca9555.pin(pin,val)
 @number pin 引脚 0-7 10-17
 @number val 高/低电平 1/0
 @return number 如果val未填,则读取pin的输出电平

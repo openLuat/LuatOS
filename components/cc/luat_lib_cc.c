@@ -5,7 +5,7 @@
 @version 1.0
 @date    2024.1.17
 @demo    mobile
-@tag LUAT_USE_MOBILE
+@tag LUAT_USE_VOLTE
 @usage
 
 */
@@ -29,25 +29,87 @@ enum{
 	VOLTE_EVENT_RECORD_VOICE_UPLOAD,
 	VOLTE_EVENT_PLAY_VOICE,
 };
-static luat_rtos_task_handle luat_volte_task_handle;
 
 #define VOICE_VOL   70
 #define MIC_VOL     80
 
 //播放控制
-static uint8_t g_s_codec_is_on;
-static uint8_t g_s_record_type;
-static uint8_t g_s_play_type;
-static luat_i2s_conf_t *g_s_i2s_conf;
+typedef struct
+{
+	luat_rtos_task_handle task_handle;
+	luat_i2s_conf_t *i2s_conf;
+	luat_zbuff_t *up_buff[2];
+	luat_zbuff_t *down_buff[2];
+	int record_cb;
+	HANDLE record_timer;
+	uint32_t next_download_point;
+	uint8_t *download_buffer;
+	uint8_t total_download_cnt;
+	uint8_t play_type;
+	uint8_t record_type;
+	uint8_t is_codec_on;
+	uint8_t record_on_off;
+	uint8_t record_start;
+	uint8_t upload_need_stop;
+	volatile uint8_t record_down_zbuff_point;
+	volatile uint8_t record_up_zbuff_point;
+}luat_cc_ctrl_t;
+static luat_cc_ctrl_t luat_cc;
+
+static int l_cc_handler(lua_State *L, void* ptr) {
+    (void)ptr;
+    //LLOGD("l_uart_handler");
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    lua_pop(L, 1);
+    if (luat_cc.record_on_off && luat_cc.record_cb)
+    {
+    	lua_geti(L, LUA_REGISTRYINDEX, luat_cc.record_cb);
+        if (lua_isfunction(L, -1)) {
+        	lua_pushboolean(L, msg->arg1);
+        	lua_pushinteger(L, msg->arg2);
+        	lua_call(L, 2, 0);
+        }
+    }
+    // 给rtos.recv方法返回个空数据
+    lua_pushinteger(L, 0);
+    return 1;
+}
 
 static void mobile_voice_data_input(uint8_t *input, uint32_t len, uint32_t sample_rate, uint8_t bits){
-	luat_rtos_event_send(luat_volte_task_handle, VOLTE_EVENT_PLAY_VOICE, (uint32_t)input, len, sample_rate, 0);
+	if (luat_cc.record_on_off) {
+        luat_cc.record_down_zbuff_point = 0;
+        luat_cc.download_buffer = (uint8_t *)input;
+		if (1 == sample_rate)
+		{
+			luat_cc.total_download_cnt = 6;
+		}
+		else
+		{
+			luat_cc.total_download_cnt = 3;
+		}
+        memcpy(luat_cc.down_buff[0]->addr, luat_cc.download_buffer, sample_rate * 320);
+        luat_cc.down_buff[0]->used = sample_rate * 320;
+        luat_cc.next_download_point = 1;
+		luat_start_rtos_timer(luat_cc.record_timer, 20, 1);
+		if (luat_cc.down_buff[0]->used >= luat_cc.down_buff[0]->len) {
+			rtos_msg_t msg;
+			msg.handler = l_cc_handler;
+			msg.arg1 = 1;
+			msg.arg2 = 0;
+			luat_msgbus_put(&msg, 0);
+			luat_cc.record_down_zbuff_point = !luat_cc.record_down_zbuff_point;
+			luat_cc.down_buff[luat_cc.record_down_zbuff_point]->used = 0;
+		}
+	}
+	luat_rtos_event_send(luat_cc.task_handle, VOLTE_EVENT_PLAY_VOICE, (uint32_t)input, len, sample_rate, 0);
+
 }
 
 static int record_cb(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint32_t rx_len, void *param){
+	if (luat_cc.upload_need_stop) return 0;
 	switch(event){
 	case LUAT_I2S_EVENT_RX_DONE:
-		luat_rtos_event_send(luat_volte_task_handle, VOLTE_EVENT_RECORD_VOICE_UPLOAD, (uint32_t)rx_data, rx_len, 0, 0);
+		luat_rtos_event_send(luat_cc.task_handle, VOLTE_EVENT_RECORD_VOICE_UPLOAD, (uint32_t)rx_data, rx_len, 0, 0);
 		break;
 	case LUAT_I2S_EVENT_TX_DONE:
 	case LUAT_I2S_EVENT_TRANSFER_DONE:
@@ -58,7 +120,27 @@ static int record_cb(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint3
 	return 0;
 }
 
+static LUAT_RT_RET_TYPE download_data_callback(LUAT_RT_CB_PARAM)
+{
+	if (luat_cc.record_type && luat_cc.record_on_off) {
+		luat_zbuff_t *buff = luat_cc.down_buff[luat_cc.record_down_zbuff_point];
+		memcpy(buff->addr + buff->used, luat_cc.download_buffer + luat_cc.next_download_point * luat_cc.record_type * 320, luat_cc.record_type * 320);//20ms录音完成
+		luat_cc.next_download_point = (luat_cc.next_download_point + 1) % luat_cc.total_download_cnt;
+		buff->used += luat_cc.record_type * 320;
+		if (buff->used >= buff->len) {
+			rtos_msg_t msg;
+            msg.handler = l_cc_handler;
+            msg.arg2 = luat_cc.record_down_zbuff_point;
+            msg.arg1 = 1;
+            luat_msgbus_put(&msg, 0);
+            luat_cc.record_down_zbuff_point = !luat_cc.record_down_zbuff_point;
+            luat_cc.down_buff[luat_cc.record_down_zbuff_point]->used = 0;
+		}
+	}
+}
+
 static void luat_volte_task(void *param){
+	luat_zbuff_t *zbuff = NULL;
 	luat_event_t event;
 	uint8_t multimedia_id = (int)param;
 	luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
@@ -74,12 +156,12 @@ static void luat_volte_task(void *param){
     };
 
 	luat_i2s_setup(&i2s_conf);
-    g_s_i2s_conf = luat_i2s_get_config(audio_conf->codec_conf.i2s_id);
+    luat_cc.i2s_conf = luat_i2s_get_config(audio_conf->codec_conf.i2s_id);
 
     int ret = audio_conf->codec_conf.codec_opts->init(&audio_conf->codec_conf,LUAT_CODEC_MODE_SLAVE);
     if (ret){
 		LLOGE("no codec %s",audio_conf->codec_conf.codec_opts->name);
-		luat_rtos_task_delete(luat_volte_task_handle);
+		luat_rtos_task_delete(luat_cc.task_handle);
 		return;
     }else{
 		LLOGD("find codec %s",audio_conf->codec_conf.codec_opts->name);
@@ -95,27 +177,40 @@ static void luat_volte_task(void *param){
         audio_conf->codec_conf.codec_opts->stop(&audio_conf->codec_conf);
     }
 	while (1){
-		luat_rtos_event_recv(luat_volte_task_handle, 0, &event, NULL, LUAT_WAIT_FOREVER);
+		luat_rtos_event_recv(luat_cc.task_handle, 0, &event, NULL, LUAT_WAIT_FOREVER);
 		switch(event.id)
 		{
 		case VOLTE_EVENT_PLAY_TONE:
-            LLOGD("VOLTE_EVENT_PLAY_TONE %d",event.param1);
-
 			// play_tone(multimedia_id,event.param1);
             if (LUAT_MOBILE_CC_PLAY_STOP == event.param1){
-                g_s_record_type = 0;
-                g_s_play_type = 0;
-                if (g_s_codec_is_on){
-                    g_s_codec_is_on = 0;
+                luat_cc.record_type = 0;
+                luat_cc.play_type = 0;
+
+                luat_cc.i2s_conf->is_full_duplex = 0;
+                luat_i2s_close(luat_cc.i2s_conf->id);
+				if (luat_rtos_timer_is_active(luat_cc.record_timer))
+				{
+					luat_rtos_timer_stop(luat_cc.record_timer);
+					rtos_msg_t msg;
+					msg.handler = l_cc_handler;
+					msg.arg2 = luat_cc.record_up_zbuff_point;
+					msg.arg1 = 0;
+					luat_msgbus_put(&msg, 0);
+					msg.arg2 = luat_cc.record_down_zbuff_point;
+					msg.arg1 = 1;
+					luat_msgbus_put(&msg, 0);
+				}
+                if (luat_cc.is_codec_on){
+                    luat_cc.is_codec_on = 0;
                     audio_conf->codec_conf.codec_opts->stop(&audio_conf->codec_conf);
                     // audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_STANDBY,LUAT_CODEC_MODE_ALL);
                 }
-                g_s_i2s_conf->is_full_duplex = 0;
+	            LLOGD("VOLTE_EVENT_PLAY_STOP");
                 break;
             }
 
             // luat_i2s_transfer_loop(audio_conf->codec_conf.i2s_id, NULL, 1600, 2, 1);
-            // g_s_codec_is_on = 1;
+            // luat_cc.is_codec_on = 1;
             // audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_NORMAL,LUAT_CODEC_MODE_ALL);
 
 
@@ -123,47 +218,70 @@ static void luat_volte_task(void *param){
 
 			break;
 		case VOLTE_EVENT_RECORD_VOICE_START:
-            LLOGD("VOLTE_EVENT_RECORD_VOICE_START");
-			g_s_codec_is_on = 1;
-			g_s_record_type = event.param1;
-			luat_rtos_task_sleep(1);
-			g_s_i2s_conf->is_full_duplex = 1;
-			g_s_i2s_conf->cb_rx_len = 320 * g_s_record_type;
-			luat_i2s_modify(audio_conf->codec_conf.i2s_id, LUAT_I2S_CHANNEL_RIGHT, LUAT_I2S_BITS_16, g_s_record_type * 8000);
+			luat_cc.is_codec_on = 1;
+			luat_cc.record_type = event.param1;
+//			luat_i2s_close(luat_cc.i2s_conf->id);
+//			luat_rtos_task_sleep(1);
+			luat_cc.i2s_conf->is_full_duplex = 1;
+			luat_cc.i2s_conf->cb_rx_len = 320 * luat_cc.record_type;
+			luat_i2s_modify(audio_conf->codec_conf.i2s_id, LUAT_I2S_CHANNEL_RIGHT, LUAT_I2S_BITS_16, luat_cc.record_type * 8000);
 			luat_i2s_transfer_loop(audio_conf->codec_conf.i2s_id, NULL, 3200, 2, 0);	//address传入空地址就是播放空白音
     //         // audio_conf->codec_conf.codec_opts->start(&audio_conf->codec_conf);
 			audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_NORMAL,LUAT_CODEC_MODE_ALL);
-
+            luat_cc.record_up_zbuff_point = 0;
+            luat_cc.up_buff[0]->used = 0;
+            LLOGD("VOLTE_EVENT_RECORD_VOICE_START");
 			break;
 		case VOLTE_EVENT_RECORD_VOICE_UPLOAD:
-            if (g_s_record_type){
+			if (luat_cc.upload_need_stop) {
+				LLOGD("VOLTE RECORD VOICE ALREADY STOP");
+				break;
+			}
+			if (luat_cc.record_on_off && luat_cc.record_type) {
+				zbuff = luat_cc.up_buff[luat_cc.record_up_zbuff_point];
+				memcpy(zbuff->addr + zbuff->used, (uint8_t *)event.param1, event.param2);
+				zbuff->used += event.param2;
+			}
+            if (luat_cc.record_type) {
 				luat_mobile_speech_upload((uint8_t *)event.param1, event.param2);
 			}
+            if (luat_cc.record_on_off && luat_cc.record_type) {
+				if (zbuff->used >= zbuff->len) {
+					rtos_msg_t msg;
+					msg.handler = l_cc_handler;
+					msg.arg2 = luat_cc.record_up_zbuff_point;
+					msg.arg1 = 0;
+					luat_msgbus_put(&msg, 0);
+					luat_cc.record_up_zbuff_point = !luat_cc.record_up_zbuff_point;
+					luat_cc.up_buff[luat_cc.record_up_zbuff_point]->used = 0;
+				}
+            }
 			break;
 		case VOLTE_EVENT_PLAY_VOICE:
-            LLOGD("VOLTE_EVENT_PLAY_VOICE");
-			g_s_play_type = event.param3; //1 = 8K 2 = 16K
-			if (!g_s_record_type){
-				g_s_i2s_conf->is_full_duplex = 0;
-				luat_i2s_modify(audio_conf->codec_conf.i2s_id, LUAT_I2S_CHANNEL_RIGHT, LUAT_I2S_BITS_16, g_s_play_type * 8000);
-				if (2 == g_s_play_type){
+
+			luat_cc.play_type = event.param3; //1 = 8K 2 = 16K
+			if (!luat_cc.record_type){
+				luat_cc.i2s_conf->is_full_duplex = 0;
+				luat_i2s_modify(audio_conf->codec_conf.i2s_id, LUAT_I2S_CHANNEL_RIGHT, LUAT_I2S_BITS_16, luat_cc.play_type * 8000);
+				if (2 == luat_cc.play_type){
 					luat_i2s_transfer_loop(audio_conf->codec_conf.i2s_id, (uint8_t *)event.param1, event.param2/3, 3, 0);
 				}else{
 					luat_i2s_transfer_loop(audio_conf->codec_conf.i2s_id, (uint8_t *)event.param1, event.param2/6, 6, 0);
 				}
-				if (!g_s_codec_is_on){
-					g_s_codec_is_on = 1;
+				if (!luat_cc.is_codec_on){
+					luat_cc.is_codec_on = 1;
                     // audio_conf->codec_conf.codec_opts->start(&audio_conf->codec_conf);
 					audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_NORMAL,LUAT_CODEC_MODE_ALL);
 				}
 			}else{
-                LLOGD("%d,%d,%d", g_s_play_type, g_s_record_type, event.param2);
-				if (2 == g_s_record_type){
+//                LLOGD("%d,%d,%d", luat_cc.play_type, luat_cc.record_type, event.param2);
+				if (2 == luat_cc.record_type){
 					luat_i2s_transfer_loop(audio_conf->codec_conf.i2s_id, (uint8_t *)event.param1, event.param2/3, 3, 0);
 				}else{
 					luat_i2s_transfer_loop(audio_conf->codec_conf.i2s_id, (uint8_t *)event.param1, event.param2/6, 6, 0);
 				}
 			}
+			LLOGD("VOLTE_EVENT_PLAY_VOICE");
 			break;
 		}
 	}
@@ -231,56 +349,78 @@ static int l_cc_speech_init(lua_State* L) {
         lua_pushboolean(L, 0);
         return 1;
     }
-    luat_rtos_task_create(&luat_volte_task_handle, 4*1024, 100, "volte", luat_volte_task, multimedia_id, 64);
+    luat_cc.record_timer = luat_create_rtos_timer(download_data_callback, NULL, NULL);
+    luat_rtos_task_create(&luat_cc.task_handle, 4*1024, 100, "volte", luat_volte_task, multimedia_id, 64);
     lua_pushboolean(L, 1);
     return 1;
 }
 
-typedef struct luat_uart_cb {
-    int record;//回调函数
-    //预留其他回调
-} luat_cc_cb_t;
-static luat_cc_cb_t luat_cc_cb;
-
-// /**
-// 录音通话
-// @api cc.recordCall(len,zbuff_data)
-// @number len 
-// @return number len
-//  */
+/**
+录音通话
+@api cc.record(on_off,upload_zbuff1, upload_zbuff2, download_zbuff1, download_zbuff2)
+@boolean 开启关闭通话录音功能，false或者nil关闭，其他开启
+@zbuff 上行数据保存区1,zbuff创建时的空间容量必须是640的倍数,下同
+@zbuff 上行数据保存区2,和上行数据保存区1组成双缓冲区
+@zbuff 下行数据保存区1
+@zbuff 下行数据保存区2,和下行数据保存区1组成双缓冲区
+@return bool 成功与否，如果处于通话状态，会失败
+@usage
+buff1 = zbuff.create(6400,0,zbuff.HEAP_AUTO)
+buff2 = zbuff.create(6400,0,zbuff.HEAP_AUTO)
+buff3 = zbuff.create(6400,0,zbuff.HEAP_AUTO)
+buff4 = zbuff.create(6400,0,zbuff.HEAP_AUTO)
+cc.on("record", function(type, buff_point)
+ log.info(type, buff_point) -- type==true是下行数据，false是上行数据 buff_point指示双缓存中返回了哪一个
+end)
+cc.record(true, buff1, buff2, buff3, buff4)
+*/
 static int l_cc_record_call(lua_State* L) {
-    uint32_t len = luaL_optinteger(L, 1, 0);
-    if(lua_isuserdata(L, 2)){
-        luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
-        // 内存复制
-        lua_pushinteger(L, len);
-        return 1;
+	if (luat_cc.record_type)
+	{
+		lua_pushboolean(L, 0);
+		return 1;
+	}
+    luat_cc.record_on_off = lua_toboolean(L, 1);
+    if (luat_cc.record_on_off)
+    {
+    	luat_cc.up_buff[0] = (luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE);
+    	luat_cc.up_buff[1] = (luat_zbuff_t *)luaL_checkudata(L, 3, LUAT_ZBUFF_TYPE);
+    	luat_cc.down_buff[0] = (luat_zbuff_t *)luaL_checkudata(L, 4, LUAT_ZBUFF_TYPE);
+    	luat_cc.down_buff[1] = (luat_zbuff_t *)luaL_checkudata(L, 5, LUAT_ZBUFF_TYPE);
     }
-    lua_pushinteger(L, 0);
+    else
+    {
+    	luat_cc.up_buff[0] = NULL;
+    	luat_cc.up_buff[1] = NULL;
+    	luat_cc.down_buff[0] = NULL;
+    	luat_cc.down_buff[1] = NULL;
+    }
+
+    lua_pushboolean(L, 1);
     return 1;
 }
 
-// /*
-// 注册通话回调
-// @api    cc.on(event, func)
-// @string 事件名称 音频录音数据为"record"
-// @function 回调方法
-// @return nil 无返回值
-// @usage
-// uart.on("record", function(len)
-//     cc.recordCall(len,zbuff_data)
-// end)
-// */
+/**
+注册通话回调
+@api    cc.on(event, func)
+@string 事件名称 音频录音数据为"record"
+@function 回调方法
+@return nil 无返回值
+@usage
+cc.on("record", function(type, buff_point)
+ log.info(type, buff_point) -- type==true是下行数据，false是上行数据 buff_point指示双缓存中返回了哪一个
+end)
+*/
 static int l_cc_on(lua_State *L) {
     const char* event = luaL_checkstring(L, 1);
     if (!strcmp("record", event)) {
-        if (luat_cc_cb.record != 0) {
-            luaL_unref(L, LUA_REGISTRYINDEX, luat_cc_cb.record);
-            luat_cc_cb.record = 0;
+        if (luat_cc.record_cb != 0) {
+            luaL_unref(L, LUA_REGISTRYINDEX, luat_cc.record_cb);
+            luat_cc.record_cb = 0;
         }
         if (lua_isfunction(L, 2)) {
             lua_pushvalue(L, 2);
-            luat_cc_cb.record = luaL_ref(L, LUA_REGISTRYINDEX);
+            luat_cc.record_cb = luaL_ref(L, LUA_REGISTRYINDEX);
         }
     }
     return 0;
@@ -296,7 +436,7 @@ static const rotable_Reg_t reg_cc[] =
     { "hangUp" ,    ROREG_FUNC(l_cc_hangup_call)},
     { "lastNum" ,   ROREG_FUNC(l_cc_get_last_call_num)},
     { "on" ,        ROREG_FUNC(l_cc_on)},
-    { "recordCall", ROREG_FUNC(l_cc_record_call)},
+    { "record", ROREG_FUNC(l_cc_record_call)},
 	{ NULL,          {}}
 };
 
@@ -309,11 +449,13 @@ LUAMOD_API int luaopen_cc( lua_State *L ) {
 
 void luat_cc_start_speech(uint32_t param)
 {
-	luat_rtos_event_send(luat_volte_task_handle, VOLTE_EVENT_RECORD_VOICE_START, param, 0, 0, 0);
+	luat_cc.upload_need_stop = 0;
+	luat_rtos_event_send(luat_cc.task_handle, VOLTE_EVENT_RECORD_VOICE_START, param, 0, 0, 0);
 }
 
 void luat_cc_play_tone(uint32_t param)
 {
-	luat_rtos_event_send(luat_volte_task_handle, VOLTE_EVENT_PLAY_TONE, param, 0, 0, 0);
+	if (!param) luat_cc.upload_need_stop = 1;
+	luat_rtos_event_send(luat_cc.task_handle, VOLTE_EVENT_PLAY_TONE, param, 0, 0, 0);
 }
 

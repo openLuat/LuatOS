@@ -401,6 +401,16 @@ static int l_cc_record_call(lua_State* L) {
 }
 
 /**
+获取当前通话质量
+@api cc.quality()
+@return int 1为低音质，2为高音质，0没有在通话
+ */
+static int l_cc_get_quality(lua_State* L) {
+    lua_pushinteger(L, luat_cc.record_type);
+    return 1;
+}
+
+/**
 注册通话回调
 @api    cc.on(event, func)
 @string 事件名称 音频录音数据为"record"
@@ -435,6 +445,7 @@ static const rotable_Reg_t reg_cc[] =
     { "accept" ,    ROREG_FUNC(l_cc_answer_call)},
     { "hangUp" ,    ROREG_FUNC(l_cc_hangup_call)},
     { "lastNum" ,   ROREG_FUNC(l_cc_get_last_call_num)},
+	{ "quality" ,   ROREG_FUNC(l_cc_get_quality)},
     { "on" ,        ROREG_FUNC(l_cc_on)},
     { "record", ROREG_FUNC(l_cc_record_call)},
 	{ NULL,          {}}

@@ -51,7 +51,7 @@ pca9555初始化
 pca955.setup(i2cid, addr,mode)
 @number i2cid 所在的i2c总线
 @number addr pca9555设备的i2c地址
-@number mode 配置输入输出模式  --0xffff 高八位配置IO 17-10 低八位配置IO 0-7
+@number mode 配置输入输出模式  --0xffff 高八位配置IO 17-10 低八位配置IO 7-0
 @return 初始化失败，返回nil
 @usage
     i2c.setup(0, i2c.FAST)
@@ -93,28 +93,24 @@ function pca9555.pin(pin,val)
         log.info("请选择引脚")
     elseif pin then
         if val==nil then
-            if pin<8 then
-                val=(PCA9555_IOstart&(1<<pin))>>pin
-            else
+            if pin>9 then
                 pin=pin-2
-                val=(PCA9555_IOstart&(1<<pin))>>pin
             end
+            local tmp=i2c.readReg(PCA9555_i2cid, PCA9555_addr,0x00,2)
+            _,tmp=pack.unpack(tmp,"<H")
+            val=(tmp&(1<<pin))>>pin
             return val
         elseif val==0 then
-            if pin<8 then
-                PCA9555_IOstart=PCA9555_IOstart&(~(1<<pin))
-            else
+            if pin>9 then
                 pin=pin-2
-                PCA9555_IOstart=PCA9555_IOstart&(~(1<<pin))
             end
+            PCA9555_IOstart=PCA9555_IOstart&(~(1<<pin))
             i2c.writeReg(PCA9555_i2cid,PCA9555_addr,0x02,pack.pack("<H",PCA9555_IOstart))
         else
-            if pin<8 then
-                PCA9555_IOstart=PCA9555_IOstart|(1<<pin)
-            else
+            if pin>9 then
                 pin=pin-2
-                PCA9555_IOstart=PCA9555_IOstart|(1<<pin)
             end
+            PCA9555_IOstart=PCA9555_IOstart|(1<<pin)
             i2c.writeReg(PCA9555_i2cid,PCA9555_addr,0x02,pack.pack("<H",PCA9555_IOstart))
         end
     end

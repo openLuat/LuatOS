@@ -2,6 +2,9 @@
 #define LUAT_HTTP_H
 
 #ifdef __LUATOS__
+#include "luat_zbuff.h"
+
+
 #if defined(AIR101) || defined(AIR103)
 // #define HTTP_REQ_HEADER_MAX_SIZE 	(2048)
 #define HTTP_RESP_BUFF_SIZE 		(2048)
@@ -86,6 +89,7 @@ typedef struct{
 	char *req_header;
 	char *req_body;				//发送body
 	size_t req_body_len;		//发送body长度
+	luat_zbuff_t *zbuff_body;
 	char *req_auth;
 #ifdef LUAT_USE_FOTA
 	//OTA相关

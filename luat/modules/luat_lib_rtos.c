@@ -263,7 +263,7 @@ static int l_rtos_standy(lua_State *L) {
 /*
 获取内存信息
 @api    rtos.meminfo(type)
-@type   "sys"系统内存, "lua"虚拟机内存, 默认为lua虚拟机内存
+@type   "sys"系统内存, "lua"虚拟机内存,"psram"psram内存, 默认为lua虚拟机内存
 @return int 总内存大小,单位字节
 @return int 当前已使用的内存大小,单位字节
 @return int 历史最高已使用的内存大小,单位字节
@@ -279,13 +279,15 @@ static int l_rtos_meminfo(lua_State *L) {
     size_t max_used = 0;
     const char * str = luaL_optlstring(L, 1, "lua", &len);
     if (strcmp("sys", str) == 0) {
-        //lua_gc(L, LUA_GCCOLLECT, 0);
-        //lua_gc(L, LUA_GCCOLLECT, 0);
-        luat_meminfo_sys(&total, &used, &max_used);
+        luat_meminfo_opt_sys(LUAT_HEAP_SRAM, &total, &used, &max_used);
+    }
+    else if(strcmp("psram", str) == 0){
+        luat_meminfo_opt_sys(LUAT_HEAP_PSRAM, &total, &used, &max_used);
     }
     else {
         luat_meminfo_luavm(&total, &used, &max_used);
     }
+    
     lua_pushinteger(L, total);
     lua_pushinteger(L, used);
     lua_pushinteger(L, max_used);

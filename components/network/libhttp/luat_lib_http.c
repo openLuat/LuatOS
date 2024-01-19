@@ -76,7 +76,7 @@ http客户端
 @string 请求方法, 支持 GET/POST 等合法的HTTP方法
 @string url地址, 支持 http和https, 支持域名, 支持自定义端口
 @tabal  请求头 可选 例如 {["Content-Type"] = "application/x-www-form-urlencoded"}
-@string body 可选, 对POST/PUT等请求方式有效
+@string/zbuff body 可选
 @table  额外配置 可选 包含 timeout:超时时间单位ms 可选,默认10分钟,写0即永久等待 dst:下载路径,可选 adapter:选择使用网卡,可选 debug:是否打开debug信息,可选,ipv6:是否为ipv6 默认不是,可选 callback:下载回调函数,参数 content_len:总长度 body_len:以下载长度 userdata 用户传参,可选 userdata:回调自定义传参  
 @string 服务器ca证书数据, 可选, 一般不需要
 @string 客户端ca证书数据, 可选, 一般不需要, 双向https认证才需要
@@ -242,6 +242,11 @@ static int l_http_request(lua_State *L) {
 	// memcpy(http_ctrl->method, method, len + 1);
 	// LLOGD("method:%s",http_ctrl->method);
 
+	if (strcmp("POST", method) == 0 || strcmp("PUT", method) == 0){
+		http_ctrl->is_post = 1;
+	}
+	
+
 	const char *url = luaL_checklstring(L, 2, &len);
 	// http_ctrl->url = luat_heap_malloc(len + 1);
 	// memset(http_ctrl->url, 0, len + 1);
@@ -278,11 +283,17 @@ static int l_http_request(lua_State *L) {
 	if (lua_isstring(L, 4)) {
 		const char *body = luaL_checklstring(L, 4, &(http_ctrl->req_body_len));
 		http_ctrl->req_body = luat_heap_malloc((http_ctrl->req_body_len) + 1);
-		// TODO 检测req_body是否为NULL
+		// TODO 检测req_body是否为NULL 
 		memset(http_ctrl->req_body, 0, (http_ctrl->req_body_len) + 1);
 		memcpy(http_ctrl->req_body, body, (http_ctrl->req_body_len));
 		snprintf_(body_len, 6,"%d",(http_ctrl->req_body_len));
 		http_add_header(http_ctrl,"Content-Length",body_len);
+	}else if(lua_isuserdata(L, 4)){//zbuff
+		http_ctrl->zbuff_body = ((luat_zbuff_t *)luaL_checkudata(L, 4, LUAT_ZBUFF_TYPE));
+		if (http_ctrl->is_post){
+			snprintf_(body_len, 6,"%d",(http_ctrl->zbuff_body->used));
+			http_add_header(http_ctrl,"Content-Length",body_len);
+		}
 	}
 
     // TODO 对 req_header进行realloc
@@ -413,7 +424,7 @@ int32_t l_http_callback(lua_State *L, void* ptr){
 		http_ctrl->headers_len -= temp-header;
 		header = temp;
 	}
-	LLOGD("http_ctrl->body:%.*s len:%d",http_ctrl->body_len,http_ctrl->body,http_ctrl->body_len);
+	// LLOGD("http_ctrl->body:%.*s len:%d",http_ctrl->body_len,http_ctrl->body,http_ctrl->body_len);
 	// 处理body, 需要区分下载模式和非下载模式
 	if (http_ctrl->is_download) {
 		// 下载模式

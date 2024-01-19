@@ -34,7 +34,12 @@ LUAT_WEAK void* luat_heap_opt_zalloc(LUAT_HEAP_TYPE_E type,size_t size){
 }
 
 LUAT_WEAK void luat_meminfo_opt_sys(LUAT_HEAP_TYPE_E type,size_t* total, size_t* used, size_t* max_used){
-    luat_meminfo_sys(total, used, max_used);
+    if (type == LUAT_HEAP_PSRAM){
+        *total = 0;
+        *used = 0;
+        *max_used = 0;
+    }else
+        luat_meminfo_sys(total, used, max_used);
 }
 
 

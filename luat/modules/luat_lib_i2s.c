@@ -250,7 +250,32 @@ static int l_i2s_tx_stat(lua_State *L) {
     lua_pushinteger(L, remain);
     return 2;
 }
-
+#if 0
+/*
+获取I2S参数，参数具体参考setup
+@api i2s.getPara(id)
+@int 通道id
+@return boolean 是否在工作状态 true是
+@return int 模式, 0 主机 1 从机
+@return int 采样率
+@return int 数据位数
+@return int 声道
+@return int 格式
+@return int 1个声道的BCLK数量
+*/
+static int l_i2s_get_param(lua_State *L) {
+    int id = luaL_checkinteger(L, 1);
+    luat_i2s_conf_t *config = luat_i2s_get_config(id);
+    lua_pushboolean(L, config->state);
+    lua_pushinteger(L, config->mode);
+    lua_pushinteger(L, config->sample_rate);
+    lua_pushinteger(L, config->data_bits);
+    lua_pushinteger(L, config->channel_format);
+    lua_pushinteger(L, config->standard);
+    lua_pushinteger(L, config->channel_bits);
+    return 7;
+}
+#endif
 int l_i2s_play(lua_State *L);
 int l_i2s_pause(lua_State *L);
 int l_i2s_stop(lua_State *L);
@@ -287,6 +312,9 @@ static const rotable_Reg_t reg_i2s[] =
     { "close",      ROREG_FUNC(l_i2s_close)},
 	{ "on",         ROREG_FUNC(l_i2s_on)},
     { "txStat",     ROREG_FUNC(l_i2s_tx_stat)},
+#if 0
+	{ "getPara",         ROREG_FUNC(l_i2s_get_param)},
+#endif
     // 以下为兼容扩展功能,待定
     { "play",       ROREG_FUNC(l_i2s_play)},
     { "pause",      ROREG_FUNC(l_i2s_pause)},

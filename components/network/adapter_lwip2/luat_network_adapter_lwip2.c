@@ -630,7 +630,7 @@ static void net_lwip_task(void *param)
 	OS_EVENT event = *((OS_EVENT *)param);
 	luat_heap_free(param);
 	Buffer_Struct tx_msg_buf = {0,0,0};
-	HANDLE cur_task = luat_get_current_task();
+	// HANDLE cur_task = luat_get_current_task();
 	struct netif *netif;
 	socket_data_t *p;
 	ip_addr_t *p_ip, *local_ip;
@@ -923,7 +923,11 @@ static void platform_send_event(void *p, uint32_t id, uint32_t param1, uint32_t 
 	event->Param1 = param1;
 	event->Param2 = param2;
 	event->Param3 = param3;
+	#if NO_SYS
+	net_lwip_task(event);
+	#else
 	tcpip_callback_with_block(net_lwip_task, event, 1);
+	#endif
 }
 
 
@@ -951,16 +955,21 @@ static void net_lwip_check_network_ready(uint8_t adapter_index)
 		{
 			NET_DBG("network ready");
 			if (prvlwip.dns_adapter_index == adapter_index) {
-				luat_ip_addr_t addr = {
-					.addr = 0
-				};
-				if (prvlwip.lwip_netif[adapter_index] != 0) {
+				luat_ip_addr_t addr = {0};
+				if (prvlwip.lwip_netif[adapter_index] != NULL) {
 					net_lwip_set_dns_server(0, &prvlwip.lwip_netif[adapter_index]->gw, (void*)adapter_index);
+				}
+				else {
+					ip4addr_aton("223.5.5.5", &addr);
+					net_lwip_set_dns_server(0, &addr, (void*)adapter_index);
 				}
 				ip4addr_aton("114.114.114.114", &addr);
 				net_lwip_set_dns_server(2, &addr, (void*)adapter_index);
 				ip4addr_aton("223.5.5.5", &addr);
 				net_lwip_set_dns_server(3, &addr, (void*)adapter_index);
+			}
+			else {
+				//NET_DBG("无需设置DNS服务器 %d %d", prvlwip.dns_adapter_index, adapter_index);
 			}
 
 			// for(i = 0; i < MAX_DNS_SERVER; i++)
@@ -1001,7 +1010,12 @@ static uint8_t net_lwip_check_ready(void *user_data)
 {
 	uint8_t adapter_index = (uint32_t)user_data;
 	if ((uint32_t)user_data >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) return 0;
-	return (prvlwip.netif_network_ready[adapter_index]);
+	// LLOGD("lwip查询网络就绪情况 %d", prvlwip.netif_network_ready[adapter_index]);
+	if (prvlwip.lwip_netif[adapter_index] == NULL) {
+		LLOGD("lwip netif is null %d", adapter_index);
+		return 0;
+	}
+	return !ip_addr_isany(&prvlwip.lwip_netif[adapter_index]->ip_addr);
 }
 
 static void net_lwip_create_socket_now(uint8_t adapter_index, uint8_t socket_id)
@@ -1467,13 +1481,21 @@ static void net_lwip_socket_set_callback(CBFuncEx_t cb_fun, void *param, void *u
 int net_lwip_getsockopt2(int socket_id, uint64_t tag,  int level, int optname, void *optval, uint32_t *optlen, void *user_data) {
 	int result = net_lwip_check_socket(user_data, socket_id, tag);
 	if (result) return result;
+	#if LWIP_SOCKET
 	return lwip_getsockopt(socket_id, level, optname, optval, optlen);
+	#else
+	return 0;
+	#endif
 }
 
 int net_lwip_setsockopt2(int socket_id, uint64_t tag,  int level, int optname, const void *optval, uint32_t optlen, void *user_data) {
 	int result = net_lwip_check_socket(user_data, socket_id, tag);
 	if (result) return result;
+	#if LWIP_SOCKET
 	return lwip_setsockopt(socket_id, level, optname, optval, optlen);
+	#else
+	return 0;
+	#endif
 }
 
 static const network_adapter_info prv_net_lwip_adapter =

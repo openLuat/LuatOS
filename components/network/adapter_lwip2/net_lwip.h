@@ -44,7 +44,7 @@ typedef struct
 void net_lwip_register_adapter(uint8_t adapter_index);
 void net_lwip_init(uint8_t adapter_index);
 int net_lwip_check_all_ack(int socket_id);
-void net_lwip_set_netif(struct netif *netif, uint8_t adapter_index);
+void net_lwip_set_netif(uint8_t adapter_index, struct netif *netif);
 struct netif * net_lwip_get_netif(uint8_t adapter_index);
 // void net_lwip_input_packets(struct netif *netif, struct pbuf *p);
 /*

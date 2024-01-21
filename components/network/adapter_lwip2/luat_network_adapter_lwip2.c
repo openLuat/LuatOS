@@ -97,7 +97,7 @@ void net_lwip_init(uint8_t adapter_index)
 
 static uint8_t prvlwip_inited = 0;
 
-void net_lwip_set_netif(struct netif * lwip_netif, uint8_t adapter_index) {
+void net_lwip_set_netif(uint8_t adapter_index, struct netif *netif) {
 	if (adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) {
 		return; // 超范围了
 	}
@@ -109,7 +109,7 @@ void net_lwip_set_netif(struct netif * lwip_netif, uint8_t adapter_index) {
 		prvlwip.dns_udp = udp_new();
 		prvlwip.dns_udp->recv = net_lwip_dns_recv_cb;
 		prvlwip.dns_udp->recv_arg = adapter_index;
-		//udp_bind(prvlwip.dns_udp, &lwip_netif->gw, 55);
+		//udp_bind(prvlwip.dns_udp, &netif->gw, 55);
 		dns_init_client(&prvlwip.dns_client);
 	}
 	if (adapter_index == NW_ADAPTER_INDEX_LWIP_WIFI_STA && prvlwip.dns_adapter_index == NW_ADAPTER_INDEX_LWIP_WIFI_AP) {
@@ -117,7 +117,7 @@ void net_lwip_set_netif(struct netif * lwip_netif, uint8_t adapter_index) {
 		prvlwip.dns_udp->recv_arg = adapter_index;
 	}
 
-	prvlwip.lwip_netif[adapter_index] = lwip_netif;
+	prvlwip.lwip_netif[adapter_index] = netif;
 }
 
 static int net_lwip_del_data_cache(void *p, void *u)

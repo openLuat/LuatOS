@@ -313,6 +313,13 @@ static int on_body(http_parser* parser, const char *at, size_t length){
 		}
 	}
 #endif
+	else if(http_ctrl->is_post==0 && http_ctrl->zbuff_body!=NULL){
+		if (http_ctrl->zbuff_body->len < http_ctrl->zbuff_body->used+length+1 ){
+			http_ctrl->zbuff_body->addr = luat_heap_realloc(http_ctrl->zbuff_body->addr,http_ctrl->zbuff_body->used+length+1);
+		}
+		memcpy(http_ctrl->zbuff_body->addr + http_ctrl->zbuff_body->used ,at,length);
+		http_ctrl->zbuff_body->used += length;
+	}
 	else{
 		if (!http_ctrl->body){
 			http_ctrl->body = luat_heap_malloc(length+1);
@@ -475,6 +482,8 @@ static void http_send_message(luat_http_ctrl_t *http_ctrl){
 	// 发送body
 	if (http_ctrl->req_body){
 		http_send(http_ctrl, (uint8_t*)http_ctrl->req_body, http_ctrl->req_body_len);
+	}else if(http_ctrl->is_post==1 && http_ctrl->zbuff_body!=NULL){
+		http_send(http_ctrl, http_ctrl->zbuff_body->addr, http_ctrl->zbuff_body->used);
 	}
 #else
 	int result;

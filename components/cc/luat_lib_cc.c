@@ -229,7 +229,10 @@ static void luat_volte_task(void *param){
     //         // audio_conf->codec_conf.codec_opts->start(&audio_conf->codec_conf);
 			audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_NORMAL,LUAT_CODEC_MODE_ALL);
             luat_cc.record_up_zbuff_point = 0;
-            luat_cc.up_buff[0]->used = 0;
+            if (luat_cc.record_on_off) {
+            	luat_cc.up_buff[0]->used = 0;
+            }
+
             LLOGD("VOLTE_EVENT_RECORD_VOICE_START");
 			break;
 		case VOLTE_EVENT_RECORD_VOICE_UPLOAD:
@@ -403,7 +406,7 @@ static int l_cc_record_call(lua_State* L) {
 /**
 获取当前通话质量
 @api cc.quality()
-@return int 1为低音质，2为高音质，0没有在通话
+@return int 1为低音质(8K)，2为高音质(16k)，0没有在通话
  */
 static int l_cc_get_quality(lua_State* L) {
     lua_pushinteger(L, luat_cc.record_type);

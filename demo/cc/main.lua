@@ -28,6 +28,7 @@ local function record(is_dl, point)
     else
         log.info("上行数据，位于缓存", point+1, "缓存1数据量", up1:used(), "缓存2数据量", up2:used())
     end
+	log.info("通话质量", cc.quality())
     -- 可以在初始化串口后，通过uart.tx来发送走对应的zbuff即可
 end
 

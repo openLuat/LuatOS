@@ -374,6 +374,7 @@ static int l_audio_set_output_bus(lua_State *L) {
     luat_audio_conf_t* audio_conf = luat_audio_get_config(id);
     int tp = luaL_checkinteger(L, 2);
     if (audio_conf!=NULL && lua_istable(L,3) && tp==MULTIMEDIA_AUDIO_BUS_I2S){
+        audio_conf->bus_type = MULTIMEDIA_AUDIO_BUS_I2S;
 		lua_pushstring(L, "chip");
 		if (LUA_TSTRING == lua_gettable(L, 3)) {
             const char *chip = luaL_checklstring(L, -1,&len);
@@ -393,8 +394,8 @@ static int l_audio_set_output_bus(lua_State *L) {
 		}
 		lua_pop(L, 1);
     }
-    luat_audio_set_bus_type(id,tp);
-    return 0;
+    lua_pushboolean(L, !luat_audio_set_bus_type(id,tp));
+    return 1;
 }
 
 LUAT_WEAK void luat_audio_set_debug(uint8_t on_off)

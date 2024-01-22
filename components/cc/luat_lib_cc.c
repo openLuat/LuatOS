@@ -158,24 +158,11 @@ static void luat_volte_task(void *param){
 	luat_i2s_setup(&i2s_conf);
     luat_cc.i2s_conf = luat_i2s_get_config(audio_conf->codec_conf.i2s_id);
 
-    int ret = audio_conf->codec_conf.codec_opts->init(&audio_conf->codec_conf,LUAT_CODEC_MODE_SLAVE);
-    if (ret){
-		LLOGE("no codec %s",audio_conf->codec_conf.codec_opts->name);
-		luat_rtos_task_delete(luat_cc.task_handle);
-		return;
-    }else{
-		LLOGD("find codec %s",audio_conf->codec_conf.codec_opts->name);
+	audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_RATE,16000);
+	audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_BITS,16);
 
-        audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_RATE,16000);
-        audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_BITS,16);
-		audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_FORMAT,LUAT_CODEC_FORMAT_I2S);
+	audio_conf->codec_conf.codec_opts->stop(&audio_conf->codec_conf);
 
-        audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_VOICE_VOL,70);
-        audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_MIC_VOL,80);
-
-        // // audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_STANDBY,LUAT_CODEC_MODE_ALL);
-        audio_conf->codec_conf.codec_opts->stop(&audio_conf->codec_conf);
-    }
 	while (1){
 		luat_rtos_event_recv(luat_cc.task_handle, 0, &event, NULL, LUAT_WAIT_FOREVER);
 		switch(event.id)

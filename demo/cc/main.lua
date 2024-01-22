@@ -56,12 +56,19 @@ sys.taskInit(function()
     local i2s_communication_format = 0
     local i2s_channel_bits = 32
 
+    local voice_vol = 70
+    local mic_vol = 80
+
     i2c.setup(i2c_id,i2c.FAST)
     i2s.setup(i2s_id, i2s_mode, i2s_sample_rate, i2s_bits_per_sample, i2s_channel_format, i2s_communication_format,i2s_channel_bits)
 
     audio.setBus(multimedia_id, audio.BUS_I2S,{chip = "es8311",i2cid = i2c_id , i2sid = i2s_id})	--通道0的硬件输出通道设置为I2S
     audio.config(multimedia_id, 25, 0, 3, 100, 255, 0, 100)
+    audio.vol(multimedia_id, voice_vol)
+    audio.micVol(multimedia_id, mic_vol)
+
     cc.init(multimedia_id)
+
     sys.waitUntil("CC_READY")
     sys.wait(100)   
     --cc.dial(0,"114") --拨打电话

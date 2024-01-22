@@ -119,15 +119,23 @@ int luat_crypto_cipher_xxx(luat_crypto_cipher_ctx_t* cctx) {
     cipher_mode = _cipher->mode;
     #endif
 
-    if ((cipher_mode == MBEDTLS_MODE_ECB) && !strcmp("PKCS7", cctx->pad) && (cctx->flags & 0x1)) {
+    if ((cipher_mode == MBEDTLS_MODE_ECB) && (!strcmp("PKCS7", cctx->pad) || !strcmp("ZERO", cctx->pad)) && (cctx->flags & 0x1)) {
     	uint32_t new_len  = ((cctx->str_size / block_size) + 1) * block_size;
     	temp = luat_heap_malloc(new_len);
         if (temp == NULL) {
             LLOGE("out of memory when malloc cipher buffer");
             goto _exit;
         }
+        memset(temp, 0, new_len);
     	memcpy(temp, cctx->str, cctx->str_size);
-    	add_pkcs_padding(temp + cctx->str_size - cctx->str_size % block_size, block_size, cctx->str_size % block_size);
+    	if (!strcmp("PKCS7", cctx->pad))
+    	{
+    		add_pkcs_padding(temp + cctx->str_size - cctx->str_size % block_size, block_size, cctx->str_size % block_size);
+    	}
+    	else
+    	{
+    		LLOGD("zero padding");
+    	}
     	cctx->str_size = new_len;
     	cctx->str = (const char*)temp;
     }

@@ -342,6 +342,22 @@ static int l_audio_vol(lua_State *L) {
 }
 
 /*
+配置一个音频通道的mic音量调节
+@api audio.micVol(id, value)
+@int 音频通道
+@int mic音量，百分比，1%~100%，默认100%，就是不调节
+@return int 当前mic音量
+@usage
+local result = audio.vol(0, 90)	--通道0的音量调节到90%，result存放了调节后的音量水平，有可能仍然是100
+*/
+static int l_audio_mic_vol(lua_State *L) {
+    int id = luaL_checkinteger(L, 1);
+    int mic_vol = luaL_optinteger(L, 2, 100);
+    lua_pushinteger(L, luat_audio_mic_vol(id, mic_vol));
+    return 1;
+}
+
+/*
 配置一个音频通道的硬件输出总线，只有对应soc软硬件平台支持才设置对应类型
 @api audio.setBus(id, bus_type)
 @int 音频通道,例如0
@@ -416,6 +432,7 @@ static const rotable_Reg_t reg_audio[] =
 	{ "isEnd",		   ROREG_FUNC(l_audio_play_wait_end)},
 	{ "config",			ROREG_FUNC(l_audio_config)},
 	{ "vol",			ROREG_FUNC(l_audio_vol)},
+    { "micVol",			ROREG_FUNC(l_audio_mic_vol)},
 	{ "getError",			ROREG_FUNC(l_audio_play_get_last_error)},
 	{ "setBus",			ROREG_FUNC(l_audio_set_output_bus)},
 	{ "debug",			ROREG_FUNC(l_audio_set_debug)},

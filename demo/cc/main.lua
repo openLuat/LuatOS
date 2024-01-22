@@ -64,10 +64,10 @@ sys.taskInit(function()
 
     audio.setBus(multimedia_id, audio.BUS_I2S,{chip = "es8311",i2cid = i2c_id , i2sid = i2s_id})	--通道0的硬件输出通道设置为I2S
     audio.config(multimedia_id, 25, 0, 3, 100, 255, 0, 100)
-    cc.init(multimedia_id)
-
     audio.vol(multimedia_id, voice_vol)
     audio.micVol(multimedia_id, mic_vol)
+
+    cc.init(multimedia_id)
 
     sys.waitUntil("CC_READY")
     sys.wait(100)   

@@ -394,8 +394,8 @@ static int l_audio_set_output_bus(lua_State *L) {
 		}
 		lua_pop(L, 1);
     }
-    luat_audio_set_bus_type(id,tp);
-    return 0;
+    lua_pushboolean(L, !luat_audio_set_bus_type(id,tp));
+    return 1;
 }
 
 LUAT_WEAK void luat_audio_set_debug(uint8_t on_off)

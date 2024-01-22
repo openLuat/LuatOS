@@ -962,7 +962,7 @@ static void asn1_oid_node_to_base128(uint32_t a, uint8_t **out, size_t *outlen)
 
 static int asn1_oid_node_from_base128(uint32_t *a, const uint8_t **in, size_t *inlen)
 {
-	uint8_t buf[5];
+	uint8_t buf[5] = {0};
 	int n = 0;
 	int i;
 

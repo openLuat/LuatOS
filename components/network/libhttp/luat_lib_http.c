@@ -246,7 +246,6 @@ static int l_http_request(lua_State *L) {
 		http_ctrl->is_post = 1;
 	}
 	
-
 	const char *url = luaL_checklstring(L, 2, &len);
 	// http_ctrl->url = luat_heap_malloc(len + 1);
 	// memset(http_ctrl->url, 0, len + 1);

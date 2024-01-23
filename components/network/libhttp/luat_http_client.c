@@ -1149,6 +1149,10 @@ int luat_http_client_start(luat_http_ctrl_t *http_ctrl, const char *url, uint8_t
 #ifdef __LUATOS__
 int http_set_url(luat_http_ctrl_t *http_ctrl, const char* url, const char* method) {
 	const char *tmp = url;
+	if (strcmp("POST", method) != 0 && strcmp("GET", method) != 0 && strcmp("PUT", method) != 0){
+		LLOGE("NOT SUPPORT %s",method);
+		return -1;
+	}
     if (!strncmp("https://", url, strlen("https://"))) {
         http_ctrl->is_tls = 1;
         tmp += strlen("https://");

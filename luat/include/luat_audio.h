@@ -190,4 +190,7 @@ int luat_audio_standby(uint8_t multimedia_id);
 
 int luat_audio_check_ready(uint8_t multimedia_id);
 
+int luat_audio_record(uint8_t multimedia_id, uint32_t sample_rate);
+
+int luat_audio_record_stop(uint8_t multimedia_id);
 #endif

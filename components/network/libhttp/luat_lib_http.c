@@ -121,7 +121,7 @@ static int l_http_request(lua_State *L) {
 	const char *client_key = NULL;
 	const char *client_password = NULL;
 	int adapter_index = -1;
-	char body_len[6] = {0};
+	char body_len[16] = {0};
 	// mbedtls_debug_set_threshold(4);
 
 	luat_http_ctrl_t *http_ctrl = (luat_http_ctrl_t *)luat_heap_malloc(sizeof(luat_http_ctrl_t));
@@ -285,12 +285,12 @@ static int l_http_request(lua_State *L) {
 		// TODO 检测req_body是否为NULL 
 		memset(http_ctrl->req_body, 0, (http_ctrl->req_body_len) + 1);
 		memcpy(http_ctrl->req_body, body, (http_ctrl->req_body_len));
-		snprintf_(body_len, 6,"%d",(http_ctrl->req_body_len));
+		snprintf_(body_len, 16,"%d",(http_ctrl->req_body_len));
 		http_add_header(http_ctrl,"Content-Length",body_len);
 	}else if(lua_isuserdata(L, 4)){//zbuff
 		http_ctrl->zbuff_body = ((luat_zbuff_t *)luaL_checkudata(L, 4, LUAT_ZBUFF_TYPE));
 		if (http_ctrl->is_post){
-			snprintf_(body_len, 6,"%d",(http_ctrl->zbuff_body->used));
+			snprintf_(body_len, 16,"%d",(http_ctrl->zbuff_body->used));
 			http_add_header(http_ctrl,"Content-Length",body_len);
 		}
 	}

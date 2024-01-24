@@ -25,18 +25,47 @@
 #ifndef __BSP_COMMON_H__
 #include "c_common.h"
 #endif
-
+#include "luat_rtos.h"
 #include"luat_audio_codec.h"
 typedef struct luat_audio_conf {
-    uint8_t multimedia_id;
+	uint64_t last_wakeup_time_ms;
+	luat_audio_codec_conf_t codec_conf;
+	void *hardware_data;
+	luat_rtos_timer_t pa_delay_timer;
+	uint16_t soft_vol;
+	uint16_t hardware_vol;
     uint8_t bus_type;
-    int samplerate;         //16k
-    int bits;               //16
-    int channels;           //1ch/2ch
-	uint8_t vol;
-    luat_audio_codec_conf_t codec_conf;
+    uint8_t raw_mode;
+    uint8_t debug_on_off;
+    uint8_t is_sleep;
+    uint8_t wakeup_ready;
 } luat_audio_conf_t;
 
+/**
+ * @brief audio和codec绑定
+ *
+ * @param multimedia_id 多媒体通道，目前只有0，在绑定前，需要先设置好codec的相关信息
+ * @param codec_conf codec信息
+ * @return int =0成功，其他失败
+ */
+int luat_audio_setup_codec(uint8_t multimedia_id, const luat_audio_codec_conf_t *codec_conf);
+
+/**
+ * @brief 初始化codec
+ *
+ * @param multimedia_id 多媒体通道，目前只有0
+ * @return int =0成功，其他失败
+ */
+int luat_audio_init_codec(uint8_t multimedia_id);
+/**
+ * @brief audio休眠控制，进入休眠状态时，芯片才允许进入休眠
+ *
+ * @param multimedia_id 多媒体通道，目前只有0
+ * @param on_off 0退出休眠，其他进入休眠
+ * @return int =0成功，其他失败
+ */
+int luat_audio_sleep(uint8_t multimedia_id, uint8_t on_off);
+#ifdef __LUATOS__
 /**
  * @brief 播放指定数量的文件或者ROM数组（文件数据直接写成数组形式）
  *
@@ -46,7 +75,7 @@ typedef struct luat_audio_conf {
  * @return int =0成功，其他失败
  */
 int luat_audio_play_multi_files(uint8_t multimedia_id, uData_t *info, uint32_t files_num, uint8_t error_stop);
-
+#endif
 /**
  * @brief 播放指定的文件或
  *
@@ -125,7 +154,7 @@ int luat_audio_pause_raw(uint8_t multimedia_id, uint8_t is_pause);
  * @param text_bytes 文字数据长度
  * @return int =0成功，其他失败
  */
-int luat_audio_play_tts_text(uint32_t multimedia_id, void *text, uint32_t text_bytes);
+int luat_audio_play_tts_text(uint8_t multimedia_id, void *text, uint32_t text_bytes);
 /**
  * @brief 在收到MULTIMEDIA_CB_TTS_INIT回调时，可以设置TTS参数，等同于ivTTS_SetParam
  *
@@ -134,7 +163,7 @@ int luat_audio_play_tts_text(uint32_t multimedia_id, void *text, uint32_t text_b
  * @param param_value param_id对应的value
  * @return int =0成功，其他失败
  */
-int luat_audio_play_tts_set_param(uint32_t multimedia_id, uint32_t param_id, uint32_t param_value);
+int luat_audio_play_tts_set_param(uint8_t multimedia_id, uint32_t param_id, uint32_t param_value);
 
 
 
@@ -152,4 +181,9 @@ int luat_audio_set_bus_type(uint8_t multimedia_id,uint8_t bus_type);
 
 luat_audio_conf_t *luat_audio_get_config(uint8_t multimedia_id);
 
+void luat_audio_play_debug_onoff(uint8_t multimedia_id, uint8_t onoff);
+
+int luat_audio_play_blank(uint8_t multimedia_id);
+
+int luat_audio_check_wakeup(uint8_t multimedia_id);
 #endif

@@ -117,7 +117,7 @@ LUAT_WEAK void luat_audio_config_pa(uint8_t multimedia_id, uint32_t pin, int lev
             }else{
                 audio_conf->codec_conf.pa_pin = LUAT_CODEC_PA_NONE;
             }
-            audio_conf->codec_conf.dummy_time_len = dummy_time_len;
+            audio_conf->codec_conf.after_sleep_ready_time = dummy_time_len;
             audio_conf->codec_conf.pa_delay_time = pa_delay_time;
         }
     }

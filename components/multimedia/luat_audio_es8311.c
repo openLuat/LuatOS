@@ -243,6 +243,8 @@ static int es8311_mode_standby(luat_audio_codec_conf_t* conf,uint8_t selece){
 }
 
 static int es8311_mode_pwrdown(luat_audio_codec_conf_t* conf){
+	es8311_dacvol_bak = es8311_read_reg(conf,ES8311_DAC_REG32);
+	es8311_adcvol_bak = es8311_read_reg(conf,ES8311_ADC_REG17);
     es8311_write_reg(conf,ES8311_DAC_REG32,0x00);
     es8311_write_reg(conf,ES8311_ADC_REG17,0x00);
     es8311_write_reg(conf,ES8311_SYSTEM_REG0E,0xff);

@@ -39,6 +39,7 @@ typedef struct luat_audio_conf {
     uint8_t debug_on_off;
     uint8_t is_sleep;
     uint8_t wakeup_ready;
+    uint8_t pa_on_enable;
 } luat_audio_conf_t;
 
 /**
@@ -54,9 +55,11 @@ int luat_audio_setup_codec(uint8_t multimedia_id, const luat_audio_codec_conf_t 
  * @brief 初始化codec
  *
  * @param multimedia_id 多媒体通道，目前只有0
+ * @param init_vol 默认硬件音量，如果不带调节功能的codec，则忽略
+ * @param init_mic_vol 默认MIC音量，如果不带调节功能的codec，则忽略
  * @return int =0成功，其他失败
  */
-int luat_audio_init_codec(uint8_t multimedia_id);
+int luat_audio_init_codec(uint8_t multimedia_id, uint16_t init_vol, uint16_t init_mic_vol);
 /**
  * @brief audio休眠控制，进入休眠状态时，芯片才允许进入休眠
  *
@@ -183,7 +186,8 @@ luat_audio_conf_t *luat_audio_get_config(uint8_t multimedia_id);
 
 void luat_audio_play_debug_onoff(uint8_t multimedia_id, uint8_t onoff);
 
-int luat_audio_play_blank(uint8_t multimedia_id);
+int luat_audio_standby(uint8_t multimedia_id);
 
-int luat_audio_check_wakeup(uint8_t multimedia_id);
+int luat_audio_check_ready(uint8_t multimedia_id);
+
 #endif

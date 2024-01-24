@@ -78,6 +78,7 @@ typedef struct{
 	uint8_t is_post;
 	void* timeout_timer;			/**< timeout_timer 定时器*/
 	uint32_t timeout;
+	uint32_t tx_offset;
 #ifdef __LUATOS__
 	luat_ip_addr_t ip_addr;		// http ip
 	// const char *url;			// url

@@ -444,11 +444,13 @@ int luat_http_client_init(luat_http_ctrl_t* http_ctrl, int use_ipv6) {
 }
 #endif
 
+#define HTTP_SEND_LEN_MAX 		(4096)
+
 static uint32_t http_send(luat_http_ctrl_t *http_ctrl, uint8_t* data, size_t len) {
 	if (len == 0)
 		return 0;
 	uint32_t tx_len = 0;
-	LLOGD("http_send data:%.*s",len,data);
+	// LLOGD("http_send data:%.*s",len,data);
 	network_tx(http_ctrl->netc, data, len, 0, NULL, 0, &tx_len, 0);
 	return tx_len;
 }
@@ -481,9 +483,21 @@ static void http_send_message(luat_http_ctrl_t *http_ctrl){
 	http_send(http_ctrl, (uint8_t*)"\r\n", 2);
 	// 发送body
 	if (http_ctrl->req_body){
-		http_send(http_ctrl, (uint8_t*)http_ctrl->req_body, http_ctrl->req_body_len);
+		if (http_ctrl->req_body_len > HTTP_SEND_LEN_MAX){
+			http_send(http_ctrl, (uint8_t*)http_ctrl->req_body, HTTP_SEND_LEN_MAX);
+			http_ctrl->tx_offset = HTTP_SEND_LEN_MAX;
+		}else{
+			http_send(http_ctrl, (uint8_t*)http_ctrl->req_body, http_ctrl->req_body_len);
+			http_ctrl->tx_offset = 0;
+		}
 	}else if(http_ctrl->is_post==1 && http_ctrl->zbuff_body!=NULL){
-		http_send(http_ctrl, http_ctrl->zbuff_body->addr, http_ctrl->zbuff_body->used);
+		if (http_ctrl->zbuff_body->used > HTTP_SEND_LEN_MAX){
+			http_send(http_ctrl, http_ctrl->zbuff_body->addr, HTTP_SEND_LEN_MAX);
+			http_ctrl->tx_offset = HTTP_SEND_LEN_MAX;
+		}else{
+			http_send(http_ctrl, http_ctrl->zbuff_body->addr, http_ctrl->zbuff_body->used);
+			http_ctrl->tx_offset = 0;
+		}
 	}
 #else
 	int result;
@@ -549,8 +563,8 @@ int32_t luat_lib_http_callback(void *data, void *param){
 	OS_EVENT *event = (OS_EVENT *)data;
 	luat_http_ctrl_t *http_ctrl =(luat_http_ctrl_t *)param;
 	int ret = 0;
-	// LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
-	// LLOGD("luat_lib_http_callback %d %d %p",event->ID & 0x0fffffff,event->Param1, http_ctrl);
+	LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
+	LLOGD("luat_lib_http_callback %d %d %p",event->ID & 0x0fffffff,event->Param1, http_ctrl);
 	if (event->Param1){
 		LLOGD("LINK %d ON_LINE %d EVENT %d TX_OK %d CLOSED %d",EV_NW_RESULT_LINK & 0x0fffffff,EV_NW_RESULT_CONNECT & 0x0fffffff,EV_NW_RESULT_EVENT & 0x0fffffff,EV_NW_RESULT_TX & 0x0fffffff,EV_NW_RESULT_CLOSE & 0x0fffffff);
 		LLOGE("http_ctrl close %08X %d",event->ID & 0x0fffffff, event->Param1);
@@ -572,6 +586,7 @@ int32_t luat_lib_http_callback(void *data, void *param){
 		// 	http_ctrl->resp_headers = NULL;
 		// }
 		http_send_message(http_ctrl);
+		return 0;
 	}else if(event->ID == EV_NW_RESULT_EVENT){
 		uint32_t total_len = 0;
 		uint32_t rx_len = 0;
@@ -646,7 +661,26 @@ int32_t luat_lib_http_callback(void *data, void *param){
 			}
 		}
 	}else if(event->ID == EV_NW_RESULT_TX){
-
+		if (http_ctrl->tx_offset){
+			if (http_ctrl->req_body){
+				if (http_ctrl->req_body_len-http_ctrl->tx_offset > HTTP_SEND_LEN_MAX){
+					http_send(http_ctrl, (uint8_t*)http_ctrl->req_body+http_ctrl->tx_offset, HTTP_SEND_LEN_MAX);
+					http_ctrl->tx_offset += HTTP_SEND_LEN_MAX;
+				}else{
+					http_send(http_ctrl, (uint8_t*)http_ctrl->req_body, http_ctrl->req_body_len-http_ctrl->tx_offset);
+					http_ctrl->tx_offset = 0;
+				}
+			}else if(http_ctrl->is_post==1 && http_ctrl->zbuff_body!=NULL){
+				if (http_ctrl->zbuff_body->used-http_ctrl->tx_offset > HTTP_SEND_LEN_MAX){
+					http_send(http_ctrl, http_ctrl->zbuff_body->addr+http_ctrl->tx_offset, HTTP_SEND_LEN_MAX);
+					http_ctrl->tx_offset += HTTP_SEND_LEN_MAX;
+				}else{
+					http_send(http_ctrl, http_ctrl->zbuff_body->addr, http_ctrl->zbuff_body->used-http_ctrl->tx_offset);
+					http_ctrl->tx_offset = 0;
+				}
+			}
+		}
+		return 0;
 	}else if(event->ID == EV_NW_RESULT_CLOSE){
 		// http_close(http_ctrl);
 		return 0;
@@ -811,7 +845,6 @@ int luat_http_client_base_config(luat_http_ctrl_t* http_ctrl, uint32_t timeout, 
 	http_ctrl->debug_onoff = debug_onoff;
 	http_ctrl->netc->is_debug = debug_onoff;
 	http_ctrl->retry_cnt_max = retry_cnt;
-	http_ctrl->netc->is_debug = debug_onoff;
 	return 0;
 }
 

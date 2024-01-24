@@ -170,4 +170,6 @@ LUAMOD_API int luaopen_xxtea( lua_State *L );
 
 LUAMOD_API int luaopen_cc( lua_State *L );
 
+LUAMOD_API int luaopen_ulwip( lua_State *L );
+
 #endif

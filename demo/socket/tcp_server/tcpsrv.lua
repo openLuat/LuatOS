@@ -6,13 +6,13 @@ local function netCB(msg)
 	log.info("未处理消息", msg[1], msg[2], msg[3], msg[4])
 end
 
-local function serTask(port)
-	log.info("tcpsrv", "准备监听端口", socket.localIP(), port)
+local function serTask(port, adapter)
+	log.info("tcpsrv", "准备监听端口", socket.localIP(adapter), port)
 	local tx_buff = zbuff.create(1024)
 	local rx_buff = zbuff.create(1024)
 	local netc 
 	local result, param, succ, rIP, rPort
-	netc = socket.create(nil, dName)
+	netc = socket.create(adapter, dName)
 	socket.debug(netc, true)
 	socket.config(netc, port)
 	while true do
@@ -67,6 +67,6 @@ local function serTask(port)
 end
 
 
-function SerDemo(port)
-	sysplus.taskInitEx(serTask, dName, netCB, port)
+function SerDemo(port, adapter)
+	sysplus.taskInitEx(serTask, dName, netCB, port, adapter)
 end

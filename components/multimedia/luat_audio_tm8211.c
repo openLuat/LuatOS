@@ -6,31 +6,41 @@
 #define LUAT_LOG_TAG "tm8211"
 #include "luat_log.h"
 
+static luat_rtos_timer_t pa_delay_timer;
+
+static LUAT_RT_RET_TYPE pa_delay_timer_cb(LUAT_RT_CB_PARAM){
+    luat_audio_codec_conf_t* conf = (luat_audio_codec_conf_t*)param;
+    luat_gpio_set(conf->pa_pin, conf->pa_on_level);
+}
 
 static int tm8211_codec_init(luat_audio_codec_conf_t* conf,uint8_t mode){
+    if (conf->pa_pin != LUAT_CODEC_PA_NONE){
+        luat_gpio_mode(conf->pa_pin, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, !conf->pa_on_level);
+        luat_gpio_set(conf->pa_pin, !conf->pa_on_level);
+        luat_rtos_timer_create(&pa_delay_timer);
+    }
     //如果有dac pin 初始化dac pin
-    //如果有pa pin 初始化pa pin
     return 0;
 }
 
 static int tm8211_codec_deinit(luat_audio_codec_conf_t* conf){
+    if (conf->pa_pin != LUAT_CODEC_PA_NONE){
+        luat_gpio_close(conf->pa_pin);
+    }
     //如果有dac pin 控制断电后去初始化
-    //如果有pa pin 控制断电后去初始化
     return 0;
 }
 
 static void tm8211_codec_pa(luat_audio_codec_conf_t* conf,uint8_t on){
-    //如果pa_pin
-//    if (conf->pa_pin == LUAT_CODEC_PA_NONE) return;
-//	if (on){
-//        if (conf->dummy_time_len)
-//            luat_rtos_task_sleep(conf->dummy_time_len);
-//        luat_gpio_set(conf->pa_pin, conf->pa_on_level);
-//        if (conf->pa_delay_time)
-//            luat_rtos_task_sleep(conf->pa_delay_time);
-//	}else{
-//        luat_gpio_set(conf->pa_pin, !conf->pa_on_level);
-//	}
+    if (conf->pa_pin == LUAT_CODEC_PA_NONE) return;
+	if (on){
+        if (conf->after_sleep_ready_time)
+            luat_rtos_timer_start(pa_delay_timer,conf->after_sleep_ready_time,0,pa_delay_timer_cb,(void*)conf);
+        else
+            luat_gpio_set(conf->pa_pin, conf->pa_on_level);
+	}else{
+        luat_gpio_set(conf->pa_pin, !conf->pa_on_level);
+	}
 }
 
 static int tm8211_codec_control(luat_audio_codec_conf_t* conf,luat_audio_codec_ctl_t cmd,uint32_t data){
@@ -45,12 +55,14 @@ static int tm8211_codec_control(luat_audio_codec_conf_t* conf,luat_audio_codec_c
 }
 
 static int tm8211_codec_start(luat_audio_codec_conf_t* conf){
-    //dac pin 控制上电, pa_pin 控制使能功放
+    es8311_codec_pa(conf,1);
+    //dac pin 控制上电
     return 0;
 }
 
 static int tm8211_codec_stop(luat_audio_codec_conf_t* conf){
-    //dac pin 控制断电, pa_pin 控制失能功放
+    es8311_codec_pa(conf,0);
+    //dac pin 控制断电
     return 0;
 }
 

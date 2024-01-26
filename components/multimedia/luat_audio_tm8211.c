@@ -55,13 +55,13 @@ static int tm8211_codec_control(luat_audio_codec_conf_t* conf,luat_audio_codec_c
 }
 
 static int tm8211_codec_start(luat_audio_codec_conf_t* conf){
-    es8311_codec_pa(conf,1);
+	tm8211_codec_pa(conf,1);
     //dac pin 控制上电
     return 0;
 }
 
 static int tm8211_codec_stop(luat_audio_codec_conf_t* conf){
-    es8311_codec_pa(conf,0);
+	tm8211_codec_pa(conf,0);
     //dac pin 控制断电
     return 0;
 }

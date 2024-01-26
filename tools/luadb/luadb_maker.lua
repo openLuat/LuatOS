@@ -74,7 +74,7 @@ local buff = zbuff.create(1024*1024)
 local magic = string.char(0x5A, 0xA5, 0X5A, 0xA5)
 
 -- 先写入magic
---buff:pack("bbbbbb", 0x01, 0x04, 0XA5, 0x5A, 0xA5, 0x5A)
+--buff:pack("bbbbbb", 0x01, 0x5A, 0xA5, 0X5A, 0xA5)
 TLD(buff, 0x01, magic)
 
 -- 然后是版本号, 当前是2

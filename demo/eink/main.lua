@@ -30,7 +30,7 @@ function eink_pin()
     elseif rtos_bsp == "AIR105" then
         return 5,pin.PC12,pin.PE08,pin.PC14,pin.PE09
     elseif rtos_bsp == "ESP32C3" then
-        return 2,10,9,7,11
+        return 2,10,6,7,11
     elseif rtos_bsp == "ESP32S3" then
         return 2,16,15,14,13
     elseif rtos_bsp == "EC618" then

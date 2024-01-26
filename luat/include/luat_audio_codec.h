@@ -20,7 +20,7 @@ typedef enum {
     LUAT_CODEC_MODE_NORMAL,
     LUAT_CODEC_MODE_STANDBY,
     LUAT_CODEC_MODE_PWRDOWN,
-    LUAT_CODEC_PA_NONE  = 255,
+    LUAT_CODEC_PA_NONE  = 255,      //无pa控制引脚
 } luat_audio_codec_ctl_t;
 
 typedef enum {
@@ -47,6 +47,7 @@ typedef struct luat_audio_codec_conf {
     uint32_t after_sleep_ready_time;                                    // pa使能前延迟时间
     uint32_t pa_delay_time;                                             // pa使能后延迟时间
     struct luat_audio_codec_opts* codec_opts;
+    uint8_t multimedia_id;                                              // 多媒体id
     uint8_t pa_pin;                                                     // pa pin
 	uint8_t pa_on_level;                                                // pa 使能电平
 	uint8_t power_pin;													// 电源控制

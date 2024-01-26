@@ -157,6 +157,7 @@ LUAT_WEAK int luat_audio_set_bus_type(uint8_t multimedia_id,uint8_t bus_type){
     luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf){
         if (bus_type == MULTIMEDIA_AUDIO_BUS_I2S){
+            audio_conf->codec_conf.multimedia_id = multimedia_id;
             audio_conf->bus_type = MULTIMEDIA_AUDIO_BUS_I2S;
             if (audio_conf->codec_conf.codec_opts->init(&audio_conf->codec_conf,LUAT_CODEC_MODE_SLAVE)){
                 LLOGE("no codec %s",audio_conf->codec_conf.codec_opts->name);

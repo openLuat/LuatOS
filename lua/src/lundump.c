@@ -243,7 +243,7 @@ static void LoadCode (LoadState *S, Proto *f) {
   char* ptr = (char*)luat_fs_mmap(((LoadF*)S->Z->data)->f);
   Instruction inst[1];
   if (ptr) {
-    f->code = ptr + ptr_offset;
+    f->code = (Instruction*)(ptr + ptr_offset);
     for (size_t i = 0; i < n; i++)
     {
       LoadVector(S, &inst, 1);

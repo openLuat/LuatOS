@@ -54,34 +54,57 @@ static int l_iotauth_aliyun(lua_State *L) {
 /*
 中国移动物联网平台三元组生成
 @api iotauth.onenet(produt_id, device_name,key,method,cur_timestamp,version)
-@string produt_id
-@string device_name
-@string key
+@string produt_id 产品id
+@string device_name 设备名称
+@string key  设备密钥或者项目的acess_key
 @string method 加密方式,"md5" "sha1" "sha256" 可选,默认"md5"
-@number cur_timestamp 可选 默认为 32472115200(2999-01-01 0:0:0)
+@number 时间戳, 不用填
 @string version 可选 默认"2018-10-31"
+@string 当key是access_key时, 填 "products/" .. product_id . 本参数于2024.1.29新增
 @return string mqtt三元组 client_id
 @return string mqtt三元组 user_name
 @return string mqtt三元组 password
 @usage
-local client_id,user_name,password = iotauth.onenet("123456789","test","KuF3NT/jUBJ62LNBB/A8XZA9CqS3Cu79B/ABmfA1UCw=")
-print(client_id,user_name,password)
+-- OneNet平台官网: https://open.iot.10086.cn/
+-- OneNet有多种版本, 注意区分, 一般来说produt_id纯数字就是老版本, 否则就是新版本
+
+-- 新版OneNET平台, 产品id是英文字母字符串
+-- 对应demo/onenet/studio
+local produt_id = "Ck2AF9QD2K"
+local device_name = "test"
+local device_key = "KuF3NT/jUBJ62LNBB/A8XZA9CqS3Cu79B/ABmfA1UCw="
+local client_id,user_name,password = iotauth.onenet(produt_id, device_name, device_key)
+log.info("onenet.new", client_id,user_name,password)
+
+-- 旧版OneNET平台, 产品id是数字字符串. 2024.1.29新增
+-- 对应demo/onenet/old_mqtt
+local produt_id = "12342334"
+local device_name = "test"
+local access_key = "adfasdfadsfadsf="
+local client_id,user_name,password = iotauth.onenet(produt_id, device_name, access_key, nil, nil, nil, "products/" .. produt_id)
+log.info("onenet.old", client_id,user_name,password)
+
 */
 static int l_iotauth_onenet(lua_State *L) {
     char password[PASSWORD_LEN] = {0};
-    size_t len;
-    long long cur_timestamp = 32472115200;
-    const char* produt_id = luaL_checklstring(L, 1, &len);
-    const char* device_name = luaL_checklstring(L, 2, &len);
-    const char* key = luaL_checklstring(L, 3, &len);
-    const char* method = luaL_optlstring(L, 4, "md5", &len);
-    if (lua_type(L, (5)) == LUA_TNUMBER){
-        cur_timestamp = luaL_checkinteger(L, 5);
+    size_t len = 0;
+    iotauth_onenet_t onenet = {
+        .cur_timestamp = 32472115200
+    };
+    onenet.product_id = luaL_checkstring(L, 1);
+    onenet.device_name = luaL_checkstring(L, 2);
+    onenet.device_secret = luaL_checkstring(L, 3);
+    onenet.method = luaL_optstring(L, 4, "md5");
+    // if (lua_type(L, (5)) == LUA_TNUMBER){
+    //     cur_timestamp = luaL_checkinteger(L, 5);
+    // }
+    onenet.version = luaL_optlstring(L, 6, "2018-10-31", &len);
+    if (lua_type(L, 7) == LUA_TSTRING) {
+        onenet.res = luaL_checkstring(L, 7);
     }
-    const char* version = luaL_optlstring(L, 6, "2018-10-31", &len);
-    luat_onenet_token(produt_id,device_name,key,cur_timestamp,method,version, password);
-    lua_pushlstring(L, device_name, strlen(device_name));
-    lua_pushlstring(L, produt_id, strlen(produt_id));
+    luat_onenet_token(&onenet, password);
+    lua_pushlstring(L, onenet.device_name, strlen(onenet.device_name));
+    lua_pushlstring(L, onenet.product_id, strlen(onenet.product_id));
     lua_pushlstring(L, password, strlen(password));
     return 3;
 }

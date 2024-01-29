@@ -151,34 +151,42 @@ static int url_encoding_for_token(sign_msg* msg,char *token){
     return strlen(token);
 }
 
-void luat_onenet_token(const char* product_id,const char* device_name,const char* device_secret,long long cur_timestamp,char * method,char * version,char *token){
+// void luat_onenet_token(const char* product_id,const char* device_name,const char* device_secret,long long cur_timestamp,char * method,char * version,char *token){
+int luat_onenet_token(const iotauth_onenet_t* onenet, char* token) {
     size_t  declen = 0, enclen =  0,hmac_len = 0;
     char plaintext[64]     = { 0 };
     char hmac[64]          = { 0 };
     char StringForSignature[256] = { 0 };
     sign_msg sign = {0};
-    memcpy(sign.method, method, strlen(method));
-    memcpy(sign.version, version, strlen(version));
-    sprintf_(sign.et,"%lld",cur_timestamp);
-    sprintf_(sign.res,"products/%s/devices/%s",product_id,device_name);
-    luat_str_base64_decode((unsigned char *)plaintext, sizeof(plaintext), &declen, (const unsigned char * )device_secret, strlen((char*)device_secret));
+    memcpy(sign.method, onenet->method, strlen(onenet->method));
+    memcpy(sign.version, onenet->version, strlen(onenet->version));
+    sprintf_(sign.et,"%lld", onenet->cur_timestamp);
+    if (onenet->res) {
+        sprintf_(sign.res, "%s", onenet->res);
+    }
+    else {
+        sprintf_(sign.res,"products/%s/devices/%s", onenet->product_id, onenet->device_name);
+    }
+    
+    luat_str_base64_decode((unsigned char *)plaintext, sizeof(plaintext), &declen, (const unsigned char * )onenet->device_secret, strlen((char*)onenet->device_secret));
     sprintf_(StringForSignature, "%s\n%s\n%s\n%s", sign.et, sign.method, sign.res, sign.version);
-    if (!strcmp("md5", method)||!strcmp("MD5", method)) {
+    if (!strcmp("md5", onenet->method)||!strcmp("MD5", onenet->method)) {
         luat_crypto_hmac_md5_simple(StringForSignature, strlen(StringForSignature), plaintext, declen, hmac);
         hmac_len = 16;
-    }else if (!strcmp("sha1", method)||!strcmp("SHA1", method)) {
+    }else if (!strcmp("sha1", onenet->method)||!strcmp("SHA1", onenet->method)) {
         luat_crypto_hmac_sha1_simple(StringForSignature, strlen(StringForSignature),plaintext, declen,  hmac);
         hmac_len = 20;
-    }else if (!strcmp("sha256", method)||!strcmp("SHA256", method)) {
+    }else if (!strcmp("sha256", onenet->method)||!strcmp("SHA256", onenet->method)) {
         luat_crypto_hmac_sha256_simple(StringForSignature, strlen(StringForSignature),plaintext, declen,  hmac);
         hmac_len = 32;
     }else{
-        LLOGE("not support: %s",method);
-        return;
+        LLOGE("not support: %s", onenet->method);
+        return -1;
     }
     
     luat_str_base64_encode((unsigned char *)sign.sign, sizeof(sign.sign), &enclen, (const unsigned char * )hmac, hmac_len);
-    url_encoding_for_token(&sign,token);
+    url_encoding_for_token(&sign, token);
+    return 0;
 }
 
 void luat_iotda_token(const char* device_id,const char* device_secret,long long cur_timestamp,int ins_timestamp,char* client_id,const char* password){

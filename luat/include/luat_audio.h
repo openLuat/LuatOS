@@ -36,13 +36,14 @@ typedef struct luat_audio_conf {
 	uint16_t hardware_vol;
     uint16_t speech_downlink_type;
     uint16_t speech_uplink_type;
+    uint16_t i2s_rx_cb_save;
     uint8_t bus_type;
     uint8_t raw_mode;
     uint8_t debug_on_off;
     uint8_t is_sleep;
     uint8_t wakeup_ready;
     uint8_t pa_on_enable;
-
+    uint8_t record_mode;
 } luat_audio_conf_t;
 
 /**

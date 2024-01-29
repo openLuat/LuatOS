@@ -198,7 +198,7 @@ static int es8311_mode_normal(luat_audio_codec_conf_t* conf,uint8_t selece){
             es8311_write_reg(conf,ES8311_ADC_REG17,es8311_adcvol_bak);
         if(selece != LUAT_CODEC_MODE_ADC)
             es8311_write_reg(conf,ES8311_DAC_REG32,es8311_dacvol_bak);
-        luat_rtos_task_sleep(50);
+//        luat_rtos_task_sleep(50);
         if(selece == LUAT_CODEC_MODE_ADC)
             es8311_write_reg(conf,ES8311_SDPOUT_REG0A,0x00);//--
     return 0;

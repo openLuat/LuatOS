@@ -34,12 +34,15 @@ typedef struct luat_audio_conf {
 	luat_rtos_timer_t pa_delay_timer;
 	uint16_t soft_vol;
 	uint16_t hardware_vol;
+    uint16_t speech_downlink_type;
+    uint16_t speech_uplink_type;
     uint8_t bus_type;
     uint8_t raw_mode;
     uint8_t debug_on_off;
     uint8_t is_sleep;
     uint8_t wakeup_ready;
     uint8_t pa_on_enable;
+
 } luat_audio_conf_t;
 
 /**
@@ -193,4 +196,8 @@ int luat_audio_check_ready(uint8_t multimedia_id);
 int luat_audio_record_and_play(uint8_t multimedia_id, uint32_t sample_rate, const uint8_t *play_buffer, uint32_t one_trunk_len, uint32_t total_trunk_cnt);
 
 int luat_audio_record_stop(uint8_t multimedia_id);
+
+int luat_audio_speech(uint8_t multimedia_id, uint8_t is_downlink, uint8_t type, const uint8_t *downlink_buffer, uint32_t buffer_len, uint8_t channel_num);
+
+int luat_audio_speech_stop(uint8_t multimedia_id);
 #endif

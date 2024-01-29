@@ -145,6 +145,7 @@ int luat_lcd_set_direction(luat_lcd_conf_t* conf, uint8_t direction);
 void luat_lcd_service_init(uint32_t pro);
 void luat_lcd_service_run(void *api, void *data, uint32_t param, uint32_t timeout);
 int luat_lcd_service_draw(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t *data, uint8_t is_static_buf);
+int luat_lcd_service_set_mem_type(uint8_t type);
 uint32_t luat_lcd_service_cache_len(void);
 void luat_lcd_IF_init(luat_lcd_conf_t* conf);
 int luat_lcd_IF_write_cmd_data(luat_lcd_conf_t* conf,const uint8_t cmd, const uint8_t *data, uint8_t data_len);

@@ -47,6 +47,7 @@ static const lcd_reg_t lcd_regs[] = {
   {"gc9306",  &lcd_opts_gc9306x},  //gc9306是gc9306x的别名
   {"ili9341", &lcd_opts_ili9341},
   {"ili9486", &lcd_opts_ili9486},
+  {"nv3037", &lcd_opts_nv3037},
   {"", NULL} // 最后一个必须是空字符串
 };
 

@@ -149,10 +149,10 @@ static int l_pm_dtimer_check(lua_State *L) {
     	lua_pushboolean(L, 1);
         lua_pushinteger(L, remain);
         return 2;
-    }else
+    }else{
     	lua_pushboolean(L, 0);
         return 1;
-
+    }
 }
 
 static int l_pm_dtimer_list(lua_State *L) {

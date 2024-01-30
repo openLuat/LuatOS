@@ -6,7 +6,6 @@
 @author  wendal
 @tag LUAT_USE_NETWORK
 @usage
--- 本API正在开发测试中
 
 -- 是否还在为上报几个数据值而烦恼?
 -- 是否还在为数据存入数据库而头痛不已?
@@ -95,7 +94,7 @@ rtkv.setup()
 rtkv.setup({nodebug=true})
 -- 详细初始化, 可以只填需要配置的项
 rtkv.setup({
-    apiurl = "http://rtkv.air32.cn", -- 服务器地址,可以自行部署
+    apiurl = "http://rtkv.air32.cn", -- 服务器地址,可以自行部署 https://gitee.com/openLuat/luatos-service-rtkv
     device = "abc", -- 设备识别号,只能是英文字符+数值,区别大小写
     token = "123456", -- 设备密钥, 默认是设备的唯一id, 即mcu.unique_id()
     nodebug = false,  -- 关闭调试日志,默认false

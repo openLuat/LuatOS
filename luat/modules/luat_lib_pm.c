@@ -137,7 +137,7 @@ LUAT_WEAK uint32_t luat_pm_dtimer_remain(int id){
 @api pm.dtimerCheck(id)
 @int 定时器id
 @return boolean 处理结果,true还在运行，false不在运行
-@return number 如果运行,运行剩余时间,单位毫秒
+@return number 如果运行,运行剩余时间,单位毫秒(需bsp支持)
 @usage
 -- 检查底层定时器是不是在运行
 pm.dtimerCheck(0) -- 检查id=0的底层定时器
@@ -145,7 +145,7 @@ pm.dtimerCheck(0) -- 检查id=0的底层定时器
 static int l_pm_dtimer_check(lua_State *L) {
     int dtimer_id = luaL_checkinteger(L, 1);
     if (luat_pm_dtimer_check(dtimer_id)){
-        uint32_t remain = luat_pm_dtimer_remain(dtimer_id)
+        uint32_t remain = luat_pm_dtimer_remain(dtimer_id);
     	lua_pushboolean(L, 1);
         lua_pushinteger(L, remain);
         return 2;

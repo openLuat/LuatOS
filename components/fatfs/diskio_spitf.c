@@ -977,9 +977,10 @@ const block_disk_opts_t spitf_disk_opts = {
     .write = luat_spitf_write,
     .ioctl = luat_spitf_ioctl,
 };
-#ifndef LUAT_COMPILER_NOWEAK
-__attribute__((weak)) void luat_spi_set_sdhc_ctrl(
-		block_disk_t *disk)
+
+void luat_spi_set_sdhc_ctrl_default(
+		block_disk_t *disk
+)
 {
 	luat_fatfs_spi_t* userdata = disk->userdata;
 	if (userdata->type)
@@ -1001,6 +1002,13 @@ __attribute__((weak)) void luat_spi_set_sdhc_ctrl(
 	luat_heap_free(disk->userdata);
 	disk->userdata = NULL;
 	disk->opts = &spitf_disk_opts;
+}
+
+#ifndef LUAT_COMPILER_NOWEAK
+__attribute__((weak)) void luat_spi_set_sdhc_ctrl(
+		block_disk_t *disk)
+{
+	luat_spi_set_sdhc_ctrl_default(disk);
 }
 #else
 void luat_spi_set_sdhc_ctrl(block_disk_t *disk);

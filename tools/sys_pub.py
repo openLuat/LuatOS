@@ -133,8 +133,11 @@ for file in file_list:
             line_now += 1
 
 ##################  接口数据提取完毕  ##################
+try:
+    os.remove("../../luatos-wiki/api/sys_pub.md")
+except:
+    pass
 
-os.remove("../../luatos-wiki/api/sys_pub.md")
 doc = open("../../luatos-wiki/api/sys_pub.md", "w+",encoding='utf-8')
 doc.write("# 📮 sys系统消息\n")
 doc.write("\n\n")

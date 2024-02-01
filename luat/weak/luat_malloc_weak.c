@@ -1,9 +1,8 @@
 
 // 这个文件包含 系统heap和lua heap的默认实现
 
-
+#include "luat_base.h"
 #include <stdlib.h>
-#include <string.h>//add for memset
 #include "luat_mem.h"
 
 #ifdef __LUATOS__
@@ -12,8 +11,6 @@
 
 #define LUAT_LOG_TAG "vmheap"
 #include "luat_log.h"
-
-#define LUAT_WEAK                     __attribute__((weak))
 
 //------------------------------------------------
 //  管理系统内存

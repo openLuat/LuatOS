@@ -37,6 +37,9 @@ lua代码 <- ulwip回调函数 <- lwip(netif->low_level_output) <- lwip处理逻
 #include "lwip/dhcp.h"
 #include "lwip/ethip6.h"
 
+// #include "net_lwip.h"
+#include "net_lwip2.h"
+
 #include "luat_network_adapter.h"
 
 #define LUAT_LOG_TAG "ulwip"
@@ -44,7 +47,7 @@ lua代码 <- ulwip回调函数 <- lwip(netif->low_level_output) <- lwip处理逻
 
 #define USERLWIP_NET_COUNT NW_ADAPTER_INDEX_LWIP_NETIF_QTY
 
-void net_lwip_set_link_state(uint8_t adapter_index, uint8_t updown);
+void net_lwip2_set_link_state(uint8_t adapter_index, uint8_t updown);
 
 typedef struct ulwip_ctx
 {
@@ -126,6 +129,7 @@ static err_t netif_output(struct netif *netif, struct pbuf *p) {
     return 0;
 }
 
+#if LWIP_NETIF_STATUS_CALLBACK
 static void netif_status_callback(struct netif *netif)
 {
     LLOGD("netif status changed %s", ip4addr_ntoa(netif_ip4_addr(netif)));
@@ -135,17 +139,18 @@ static void netif_status_callback(struct netif *netif)
         {
             if (!ip_addr_isany(&netif->ip_addr)) {
                 LLOGD("设置网络状态为UP %d", i);
-                net_lwip_set_link_state(nets[i].adapter_index, 1);
+                net_lwip2_set_link_state(nets[i].adapter_index, 1);
             }
             else {
                 LLOGD("设置网络状态为DOWN %d", i);
-                net_lwip_set_link_state(nets[i].adapter_index, 0);
+                net_lwip2_set_link_state(nets[i].adapter_index, 0);
             }
             break;
         }
     }
   
 }
+#endif
 
 static err_t luat_netif_init(struct netif *netif) {
     for (size_t i = 0; i < USERLWIP_NET_COUNT; i++)
@@ -221,23 +226,28 @@ static int l_ulwip_setup(lua_State *L) {
     }
 
     // 已经分配netif, 继续初始化
+    #if defined(TYPE_EC718P)
+    net_lwip2_set_netif(adapter_index, netif, luat_netif_init, 0);
+    #else
     netif_add(netif, IP4_ADDR_ANY, IP4_ADDR_ANY, IP4_ADDR_ANY, NULL, luat_netif_init, netif_input);
-
     netif->name[0] = 'u';
     netif->name[1] = 's';
     #if LWIP_IPV6
     netif_create_ip6_linklocal_address(netif, 1);
     netif->ip6_autoconfig_enabled = 1;
     #endif
-    netif_set_status_callback(netif, netif_status_callback);
-    netif_set_default(netif);
-    // netif_set_up(netif);
-    // netif_set_link_down(netif);
 
-    // LLOGD("netif is up %d", netif_is_up(netif));
-  
-    /* Start DHCP*/
-    // dhcp_start(netif);
+    #endif
+
+    #if LWIP_NETIF_STATUS_CALLBACK
+    netif_set_status_callback(netif, netif_status_callback);
+    #endif
+
+    #if defined(TYPE_EC718P)
+    // nothing
+    #else
+    net_lwip2_set_netif(adapter_index, netif);
+    #endif
     
     lua_pushboolean(L, 1);
     return 1;
@@ -373,6 +383,7 @@ static int l_ulwip_dhcp(lua_State *L) {
         LLOGE("没有找到netif");
         return 0;
     }
+    #if LWIP_DHCP
     if (lua_type(L, 2) == LUA_TBOOLEAN)
     {
         if (lua_toboolean(L, 2))
@@ -385,6 +396,7 @@ static int l_ulwip_dhcp(lua_State *L) {
         lua_pushboolean(L, 1);
         return 1;
     }
+    #endif
     return 0;
 }
 
@@ -403,7 +415,7 @@ local ip, netmask, gw = ulwip.ip(socket.LWIP_STA)
 ulwip.ip(socket.LWIP_STA, "192.168.0.1", "255.255.255.0", "192.168.0.1")
 */
 static int l_ulwip_ip(lua_State *L) {
-    char* tmp = NULL;
+    const char* tmp = NULL;
     // 必须有适配器编号
     int adapter_index = luaL_checkinteger(L, 1);
     struct netif* netif = find_netif(adapter_index);
@@ -430,8 +442,8 @@ static int l_ulwip_ip(lua_State *L) {
     return 3;
 }
 
-void net_lwip_register_adapter(uint8_t adapter_index);
-void net_lwip_set_netif(uint8_t adapter_index, struct netif *netif);
+// void net_lwip2_register_adapter(uint8_t adapter_index);
+// void net_lwip2_set_netif(uint8_t adapter_index, struct netif *netif);
 /*
 将netif注册到luatos socket中
 @api ulwip.reg(adapter_index)
@@ -448,8 +460,7 @@ static int l_ulwip_reg(lua_State *L) {
         LLOGE("没有找到netif %d", adapter_index);
         return 0;
     }
-    net_lwip_set_netif(adapter_index, netif);
-    net_lwip_register_adapter(adapter_index);
+    net_lwip2_register_adapter(adapter_index);
     lua_pushboolean(L, 1);
     return 1;
 }

@@ -73,6 +73,8 @@ target("luatos")
     
     -- add_files(luatos.."luat/modules/*.c")
 
+    add_files(luatos.."luat/weak/luat_mem_weak.c")
+    
     add_files(luatos.."luat/modules/crc.c"
             ,luatos.."luat/modules/luat_base.c"
             ,luatos.."luat/modules/luat_lib_fs.c"

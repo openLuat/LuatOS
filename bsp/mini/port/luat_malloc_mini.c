@@ -12,6 +12,7 @@
 
 //------------------------------------------------
 //  管理系统内存
+void luat_heap_init(void){}
 
 void* luat_heap_malloc(size_t len) {
     return malloc(len);

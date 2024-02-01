@@ -12,7 +12,15 @@
 // 调试开关, 预留
 #define LUAT_DEBUG 0
 
-#if !defined(LUA_USE_C89) && defined(_WIN32) && !defined(_WIN32_WCE)
+#if !defined(LUA_USE_C89) && defined(_WIN32)
+#define LUAT_WEAK
+#elif defined(__ARMCC_VERSION)
+#define LUAT_WEAK                     __attribute__((weak))
+#elif defined(__IAR_SYSTEMS_ICC__)
+#define LUAT_WEAK                     __weak
+#elif defined(__GNUC__)
+#define LUAT_WEAK                     __attribute__((weak))
+#elif defined(_MSC_VER)
 #define LUAT_WEAK
 #else
 #define LUAT_WEAK                     __attribute__((weak))

@@ -7,7 +7,11 @@
 #define LUAT_LOG_TAG "audio"
 #include "luat_log.h"
 
-static luat_audio_conf_t audio_hardware = {0};
+static luat_audio_conf_t audio_hardware = {
+    .codec_conf.power_pin = LUAT_CODEC_PA_NONE,
+    .codec_conf.pa_pin = LUAT_CODEC_PA_NONE,
+};
+
 LUAT_WEAK luat_audio_conf_t *luat_audio_get_config(uint8_t multimedia_id){
     if (multimedia_id == 0) return &audio_hardware;
     else return NULL;
@@ -109,7 +113,7 @@ LUAT_WEAK void luat_audio_config_pa(uint8_t multimedia_id, uint32_t pin, int lev
     luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf){
         if (audio_conf->bus_type == MULTIMEDIA_AUDIO_BUS_I2S){
-            if (pin != 255){
+            if (pin != LUAT_CODEC_PA_NONE){
                 audio_conf->codec_conf.pa_pin = pin;
                 audio_conf->codec_conf.pa_on_level = level;
                 luat_gpio_mode(pin, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, !level);
@@ -123,7 +127,20 @@ LUAT_WEAK void luat_audio_config_pa(uint8_t multimedia_id, uint32_t pin, int lev
     }
 }
 
-LUAT_WEAK void luat_audio_config_dac(uint8_t multimedia_id, int pin, int level, uint32_t dac_off_delay_time){}
+LUAT_WEAK void luat_audio_config_dac(uint8_t multimedia_id, int pin, int level, uint32_t dac_off_delay_time){
+    luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
+    if (audio_conf){
+        if (audio_conf->bus_type == MULTIMEDIA_AUDIO_BUS_I2S){
+            if (pin != LUAT_CODEC_PA_NONE){
+                audio_conf->codec_conf.power_pin = pin;
+                audio_conf->codec_conf.power_on_level = level;
+                audio_conf->codec_conf.pa_dac_delay = dac_off_delay_time;
+            }else{
+                audio_conf->codec_conf.power_pin = LUAT_CODEC_PA_NONE;
+            }
+        }
+    }
+}
 
 LUAT_WEAK uint16_t luat_audio_vol(uint8_t multimedia_id, uint16_t vol){
     if(vol < 0 || vol > 100){

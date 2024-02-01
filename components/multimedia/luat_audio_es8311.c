@@ -426,15 +426,19 @@ static LUAT_RT_RET_TYPE pa_delay_timer_cb(LUAT_RT_CB_PARAM){
 
 #define IS_DMIC             0
 static int es8311_codec_init(luat_audio_codec_conf_t* conf,uint8_t mode){
-    uint8_t temp1 = 0, temp2 = 0, temp3 = 0;
+    if (conf->power_pin != LUAT_CODEC_PA_NONE){
+        luat_gpio_mode(conf->power_pin, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, !conf->power_on_level);
+        luat_gpio_set(conf->power_pin, conf->power_on_level);
+    }
     if (conf->pa_pin != LUAT_CODEC_PA_NONE){
         luat_gpio_mode(conf->pa_pin, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, !conf->pa_on_level);
         luat_gpio_set(conf->pa_pin, !conf->pa_on_level);
         luat_rtos_timer_create(&pa_delay_timer);
     }
-    temp1 = es8311_read_reg(conf,ES8311_CHD1_REGFD);
-    temp2 = es8311_read_reg(conf,ES8311_CHD2_REGFE);
-    temp3 = es8311_read_reg(conf,ES8311_CHVER_REGFF);
+    luat_rtos_task_sleep(50);
+    uint8_t temp1 = es8311_read_reg(conf,ES8311_CHD1_REGFD);
+    uint8_t temp2 = es8311_read_reg(conf,ES8311_CHD2_REGFE);
+    uint8_t temp3 = es8311_read_reg(conf,ES8311_CHVER_REGFF);
     if(temp1 != 0x83 || temp2 != 0x11){
         LLOGE("codec err, id = 0x%x 0x%x ver = 0x%x", temp1, temp2, temp3);
         return -1;
@@ -511,6 +515,10 @@ static int es8311_codec_init(luat_audio_codec_conf_t* conf,uint8_t mode){
 static int es8311_codec_deinit(luat_audio_codec_conf_t* conf){
     if (conf->pa_pin != LUAT_CODEC_PA_NONE){
         luat_gpio_close(conf->pa_pin);
+    }
+    if (conf->power_pin != LUAT_CODEC_PA_NONE){
+        luat_gpio_set(conf->power_pin, !conf->power_on_level);
+        luat_gpio_close(conf->power_pin);
     }
     return 0;
 }

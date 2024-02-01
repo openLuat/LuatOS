@@ -51,8 +51,9 @@ typedef struct luat_audio_codec_conf {
     uint8_t pa_pin;                                                     // pa pin
 	uint8_t pa_on_level;                                                // pa 使能电平
 	uint8_t power_pin;													// 电源控制
-	uint8_t power_on_level;
-	uint8_t power_on_delay_ms;
+	uint8_t power_on_level;                                             // 电源使能电平 
+	uint8_t pa_dac_delay;                                               // PA与DAC关闭的间隔时间
+    uint8_t power_on_delay_ms;
 	uint8_t codec_delay_off_time;
 } luat_audio_codec_conf_t;
 

@@ -16,7 +16,8 @@ add_defines("__LUATOS__", "__XMAKE_BUILD__")
 add_defines("MBEDTLS_CONFIG_FILE=\"mbedtls_config_mini.h\"")
 
 --add_ldflags("-Wl,-gc-sections")
-if os.getenv("VM_64bit") == "1" then
+
+if is_arch("x64") then
     add_defines("LUAT_CONF_VM_64bit")
 end
 
@@ -34,8 +35,6 @@ end
 add_includedirs("include",{public = true})
 add_includedirs(luatos.."lua/include",{public = true})
 add_includedirs(luatos.."luat/include",{public = true})
-
-
 
 target("luatos-lua")
     -- set kind

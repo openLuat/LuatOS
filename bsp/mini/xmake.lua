@@ -17,9 +17,17 @@ add_defines("MBEDTLS_CONFIG_FILE=\"mbedtls_config_mini.h\"")
 
 --add_ldflags("-Wl,-gc-sections")
 
-if is_arch("x64") then
+option("luavm_64bit")
+    set_default(false)
+    set_showmenu(true)
+    set_description("luavm")
+option_end()
+add_options("luavm_64bit")
+
+if has_config("luavm_64bit") and get_config("luavm_64bit") == true then 
     add_defines("LUAT_CONF_VM_64bit")
 end
+
 
 if is_host("windows") then
     -- add_defines("LUA_USE_WINDOWS")

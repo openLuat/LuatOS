@@ -5,10 +5,20 @@
 #define __LUAT_MULTIMEDIA_H__
 
 #include "luat_base.h"
+
+#ifdef __LUATOS__
 #include "luat_zbuff.h"
 
-enum
-{
+#define LUAT_M_CODE_TYPE "MCODER*"
+
+#endif
+
+#define MP3_FRAME_LEN 4 * 1152
+
+#define MAX_DEVICE_COUNT 2
+#define MP3_MAX_CODED_FRAME_SIZE 1792
+
+enum{
 	MULTIMEDIA_DATA_TYPE_NONE,
 	MULTIMEDIA_DATA_TYPE_PCM,
 	MULTIMEDIA_DATA_TYPE_MP3,
@@ -17,8 +27,7 @@ enum
 	MULTIMEDIA_DATA_TYPE_AMR_WB,
 };
 
-enum
-{
+enum{
 	MULTIMEDIA_CB_AUDIO_DECODE_START,	//开始解码文件
 	MULTIMEDIA_CB_AUDIO_OUTPUT_START,	//开始输出解码后的音数据
 	MULTIMEDIA_CB_AUDIO_NEED_DATA,		//底层驱动播放播放完一部分数据，需要更多数据
@@ -32,31 +41,22 @@ enum
 	MULTIMEDIA_AUDIO_BUS_SOFT_DAC
 };
 
-#define LUAT_M_CODE_TYPE "MCODER*"
-#define MP3_FRAME_LEN 4 * 1152
-
-
 #include <stddef.h>
-//#include "mp3_decode/minimp3.h"
-//#include "mp3_decode/libmad/decoder.h"
 
-typedef struct
-{
-
-	union
-	{
+typedef struct{
+	union{
 		void *mp3_decoder;
 		uint32_t read_len;
 		void *amr_coder;
 	};
 	FILE* fd;
+#ifdef __LUATOS__
 	luat_zbuff_t buff;
+#endif
 	uint8_t type;
 	uint8_t is_decoder;
 }luat_multimedia_codec_t;
 
-#define MAX_DEVICE_COUNT 2
-#define MP3_MAX_CODED_FRAME_SIZE 1792
 typedef struct luat_multimedia_cb {
     int function_ref;
 } luat_multimedia_cb_t;

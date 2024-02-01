@@ -12,6 +12,8 @@ print(_VERSION)
 
 sys.timerLoopStart(function()
     print("hi, LuatOS")
+    print("mem.lua", rtos.meminfo())
+    print("mem.sys", rtos.meminfo("sys"))
 end, 3000)
 
 

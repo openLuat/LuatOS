@@ -7,14 +7,8 @@
 #define LUAT_LOG_TAG "audio"
 #include "luat_log.h"
 
-static luat_audio_conf_t audio_hardware = {
-    .codec_conf.power_pin = LUAT_CODEC_PA_NONE,
-    .codec_conf.pa_pin = LUAT_CODEC_PA_NONE,
-};
-
 LUAT_WEAK luat_audio_conf_t *luat_audio_get_config(uint8_t multimedia_id){
-    if (multimedia_id == 0) return &audio_hardware;
-    else return NULL;
+    return NULL;
 }
 
 LUAT_WEAK int luat_audio_play_multi_files(uint8_t multimedia_id, uData_t *info, uint32_t files_num, uint8_t error_stop){
@@ -151,6 +145,17 @@ LUAT_WEAK uint16_t luat_audio_vol(uint8_t multimedia_id, uint16_t vol){
         if (audio_conf->bus_type == MULTIMEDIA_AUDIO_BUS_I2S){
             audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_VOICE_VOL,vol);
             return audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_GET_VOICE_VOL,0);
+        }
+    }
+    return -1;
+}
+
+LUAT_WEAK int luat_audio_setup_codec(uint8_t multimedia_id, const luat_audio_codec_conf_t *codec_conf){
+	luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
+    if (audio_conf){
+        if (audio_conf->bus_type == MULTIMEDIA_AUDIO_BUS_I2S){
+            audio_conf->codec_conf= *codec_conf;
+            return 0;
         }
     }
     return -1;

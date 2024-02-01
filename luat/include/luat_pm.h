@@ -167,5 +167,7 @@ int luat_pm_wakeup_pin(int pin, int val);
  * @note 和luat_pm_set_sleep_mode，luat_pm_set_usb_power冲突，不可以同时使用
  */
 int luat_pm_set_power_mode(uint8_t mode, uint8_t sub_mode);
+
+uint32_t luat_pm_dtimer_remain(int id);
 /** @}*/
 #endif

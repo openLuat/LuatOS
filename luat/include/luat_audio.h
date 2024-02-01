@@ -33,7 +33,6 @@ typedef struct luat_audio_conf {
 	void *hardware_data;
 	luat_rtos_timer_t pa_delay_timer;
 	uint16_t soft_vol;
-	uint16_t hardware_vol;
     uint16_t speech_downlink_type;
     uint16_t speech_uplink_type;
     uint16_t i2s_rx_cb_save;

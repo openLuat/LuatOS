@@ -162,17 +162,43 @@ LUAT_WEAK int luat_audio_setup_codec(uint8_t multimedia_id, const luat_audio_cod
 }
 
 LUAT_WEAK uint8_t luat_audio_mic_vol(uint8_t multimedia_id, uint16_t vol){
-    if(vol < 0 || vol > 100){
-		return -1;
-    }
+    if(vol < 0 || vol > 100) return -1;
     luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf){
         if (audio_conf->bus_type == MULTIMEDIA_AUDIO_BUS_I2S){
+            if (audio_conf->codec_conf.codec_opts->no_control) return -1;
             audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_MIC_VOL,vol);
             return audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_GET_MIC_VOL,0);
         }
     }
     return -1;
+}
+
+LUAT_WEAK int luat_audio_init_codec(uint8_t multimedia_id, uint16_t init_vol, uint16_t init_mic_vol){
+	luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
+    if (audio_conf == NULL) return -1;
+    audio_conf->last_wakeup_time_ms = luat_mcu_tick64_ms();
+    if (audio_conf->bus_type == MULTIMEDIA_AUDIO_BUS_I2S){
+        // i2s此时什么情况要输出空白音
+        int result = audio_conf->codec_conf.codec_opts->init(&audio_conf->codec_conf, LUAT_CODEC_MODE_SLAVE);
+        if (result) return result;
+        result = audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_RATE, LUAT_I2S_HZ_16k);
+        if (result) return result;
+        result = audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_BITS, LUAT_I2S_BITS_16);
+        if (result) return result;
+        result = audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_FORMAT,LUAT_CODEC_FORMAT_I2S);
+        if (result) return result;
+        result = audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_VOICE_VOL, init_vol);
+        if (result) return result;
+        result = audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_MIC_VOL, init_mic_vol);
+        if (result) return result;
+        result = audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_STANDBY,LUAT_CODEC_MODE_ALL);
+        if (result) return result;
+        result = audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_NORMAL,LUAT_CODEC_MODE_ALL);
+        if (result) return result;
+        return 0;
+    }
+	return 0;
 }
 
 LUAT_WEAK int luat_audio_set_bus_type(uint8_t multimedia_id,uint8_t bus_type){
@@ -181,13 +207,6 @@ LUAT_WEAK int luat_audio_set_bus_type(uint8_t multimedia_id,uint8_t bus_type){
         if (bus_type == MULTIMEDIA_AUDIO_BUS_I2S){
             audio_conf->codec_conf.multimedia_id = multimedia_id;
             audio_conf->bus_type = MULTIMEDIA_AUDIO_BUS_I2S;
-            if (audio_conf->codec_conf.codec_opts->init(&audio_conf->codec_conf,LUAT_CODEC_MODE_SLAVE)){
-                LLOGE("no codec %s",audio_conf->codec_conf.codec_opts->name);
-                return -1;
-            }else{
-                LLOGD("find codec %s",audio_conf->codec_conf.codec_opts->name);
-            }
-            audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_FORMAT,LUAT_CODEC_FORMAT_I2S);
             return 0;
         }
     }

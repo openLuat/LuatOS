@@ -23,6 +23,9 @@ static int tm8211_codec_init(luat_audio_codec_conf_t* conf,uint8_t mode){
         luat_gpio_set(conf->pa_pin, !conf->pa_on_level);
         luat_rtos_timer_create(&pa_delay_timer);
     }
+	if (conf->power_on_delay_ms){
+		luat_rtos_task_sleep(conf->power_on_delay_ms);
+	}
     return 0;
 }
 

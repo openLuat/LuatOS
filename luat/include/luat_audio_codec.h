@@ -46,7 +46,7 @@ typedef struct luat_audio_codec_conf {
     int i2s_id;                                                         // i2s id
     uint32_t after_sleep_ready_time;                                    // pa使能前延迟时间
     uint32_t pa_delay_time;                                             // pa使能后延迟时间
-    struct luat_audio_codec_opts* codec_opts;
+    const struct luat_audio_codec_opts* codec_opts;
     uint8_t multimedia_id;                                              // 多媒体id
     uint8_t pa_pin;                                                     // pa pin
 	uint8_t pa_on_level;                                                // pa 使能电平
@@ -67,6 +67,6 @@ typedef struct luat_audio_codec_opts{
 	uint8_t no_control;
 } luat_audio_codec_opts_t;
 
-extern luat_audio_codec_opts_t codec_opts_es8311;
-extern luat_audio_codec_opts_t codec_opts_tm8211;
+extern const luat_audio_codec_opts_t codec_opts_es8311;
+extern const luat_audio_codec_opts_t codec_opts_tm8211;
 #endif

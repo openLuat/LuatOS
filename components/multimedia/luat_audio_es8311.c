@@ -597,7 +597,7 @@ static int es8311_codec_stop(luat_audio_codec_conf_t* conf){
     return 0;
 }
 
-luat_audio_codec_opts_t codec_opts_es8311 = {
+const luat_audio_codec_opts_t codec_opts_es8311 = {
     .name = "es8311",
     .init = es8311_codec_init,
     .deinit = es8311_codec_deinit,

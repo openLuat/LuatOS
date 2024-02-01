@@ -77,7 +77,7 @@ static int tm8211_codec_stop(luat_audio_codec_conf_t* conf){
     return 0;
 }
 
-luat_audio_codec_opts_t codec_opts_tm8211 = {
+const luat_audio_codec_opts_t codec_opts_tm8211 = {
     .name = "tm8211",
     .init = tm8211_codec_init,
     .deinit = tm8211_codec_deinit,

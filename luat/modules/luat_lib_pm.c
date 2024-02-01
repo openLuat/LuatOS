@@ -128,9 +128,11 @@ static int l_pm_dtimer_stop(lua_State *L) {
     return 0;
 }
 
+#ifndef LUAT_COMPILER_NOWEAK
 LUAT_WEAK uint32_t luat_pm_dtimer_remain(int id){
 	return -1;
 }
+#endif
 
 /**
 检查底层定时器是不是在运行

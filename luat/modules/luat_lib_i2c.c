@@ -617,7 +617,7 @@ static int l_i2c_readSHT30(lua_State *L)
     else
     {
         int id = luaL_optinteger(L, 1, 0);
-        luat_i2c_send(id, addr, &buff, 2,1);
+        luat_i2c_send(id, addr, buff, 2, 1);
         luat_timer_mdelay(1);
         result = luat_i2c_recv(id, addr, buff, 6);
     }

@@ -271,7 +271,7 @@ end
 -- 提醒: 返回的坐标值, 是WGS84坐标系
 ]]
 function lbsLoc.request(cbFnc,reqAddr,timeout,productKey,host,port,reqTime,reqWifi)
-    sysplus.taskInitEx(taskClient, d1Name, netCB, cbFnc, reqAddr,timeout or 20000,productKey or _G.PRODUCT_KEY,host or "bs.openluat.com",port or "12411", reqTime == nil and true or reqTime)
+    sysplus.taskInitEx(taskClient, d1Name, netCB, cbFnc, reqAddr,timeout or 20000,productKey or _G.PRODUCT_KEY,host or "bs.openluat.com",port or "12411", reqTime == nil and true or reqTime,reqWifi)
 end
 
 return lbsLoc

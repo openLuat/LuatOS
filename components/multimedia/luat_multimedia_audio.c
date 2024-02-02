@@ -128,7 +128,7 @@ LUAT_WEAK void luat_audio_config_dac(uint8_t multimedia_id, int pin, int level, 
             if (pin != LUAT_CODEC_PA_NONE){
                 audio_conf->codec_conf.power_pin = pin;
                 audio_conf->codec_conf.power_on_level = level;
-                audio_conf->codec_conf.pa_dac_delay = dac_off_delay_time;
+                audio_conf->codec_conf.power_off_delay_time = dac_off_delay_time;
             }else{
                 audio_conf->codec_conf.power_pin = LUAT_CODEC_PA_NONE;
             }
@@ -137,14 +137,16 @@ LUAT_WEAK void luat_audio_config_dac(uint8_t multimedia_id, int pin, int level, 
 }
 
 LUAT_WEAK uint16_t luat_audio_vol(uint8_t multimedia_id, uint16_t vol){
-    if(vol < 0 || vol > 100){
-		return -1;
-    }
     luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
-    if (audio_conf){
-        if (audio_conf->bus_type == MULTIMEDIA_AUDIO_BUS_I2S){
+    if (audio_conf == NULL || vol < 0 || vol > 1000) return -1;
+    audio_conf->soft_vol = vol<=100?100:vol;
+    if (audio_conf->bus_type == MULTIMEDIA_AUDIO_BUS_I2S){
+        if (vol <= 100){
             audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_VOICE_VOL,vol);
             return audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_GET_VOICE_VOL,0);
+        }else{
+            audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_VOICE_VOL,100);
+            return vol;
         }
     }
     return -1;
@@ -179,9 +181,9 @@ LUAT_WEAK int luat_audio_init_codec(uint8_t multimedia_id, uint16_t init_vol, ui
     if (audio_conf == NULL) return -1;
     audio_conf->last_wakeup_time_ms = luat_mcu_tick64_ms();
     if (audio_conf->bus_type == MULTIMEDIA_AUDIO_BUS_I2S){
-        // i2s此时什么情况要输出空白音
         int result = audio_conf->codec_conf.codec_opts->init(&audio_conf->codec_conf, LUAT_CODEC_MODE_SLAVE);
         if (result) return result;
+        LLOGD("codec init %s ",audio_conf->codec_conf.codec_opts->name);
         result = audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_RATE, LUAT_I2S_HZ_16k);
         if (result) return result;
         result = audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_BITS, LUAT_I2S_BITS_16);
@@ -194,6 +196,7 @@ LUAT_WEAK int luat_audio_init_codec(uint8_t multimedia_id, uint16_t init_vol, ui
         if (result) return result;
         result = audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_STANDBY,LUAT_CODEC_MODE_ALL);
         if (result) return result;
+        //不应该默认进normal模式，会增加功耗，无pa控制应该根据pa是否传入有效引脚去播放白音或者用户自己控制
         result = audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_NORMAL,LUAT_CODEC_MODE_ALL);
         if (result) return result;
         return 0;

@@ -5,14 +5,14 @@
 typedef enum {
 
     LUAT_CODEC_SET_MUTE = 0,        // 静音设置
-    LUAT_CODEC_GET_MUTE,            // 
-    LUAT_CODEC_SET_VOICE_VOL,   // 音量设置
-    LUAT_CODEC_GET_VOICE_VOL,       // 
-    LUAT_CODEC_SET_MIC_VOL,     // 音量设置
-    LUAT_CODEC_GET_MIC_VOL,         //
+    LUAT_CODEC_GET_MUTE,            // 获取静音状态
+    LUAT_CODEC_SET_VOICE_VOL,       // 音量设置
+    LUAT_CODEC_GET_VOICE_VOL,       // 获取音量
+    LUAT_CODEC_SET_MIC_VOL,         // mic音量设置
+    LUAT_CODEC_GET_MIC_VOL,         // 获取mic音量
 
-    LUAT_CODEC_SET_FORMAT,              //
-    LUAT_CODEC_SET_RATE,        // 采样率设置
+    LUAT_CODEC_SET_FORMAT,          // codec数据格式设置
+    LUAT_CODEC_SET_RATE,            // 采样率设置
     LUAT_CODEC_SET_BITS,            // 采样位设置
     LUAT_CODEC_SET_CHANNEL,         // 通道设置
     LUAT_CODEC_SET_PA,              // pa控制
@@ -44,17 +44,16 @@ struct luat_audio_codec_opts;
 typedef struct luat_audio_codec_conf {
     int i2c_id;                                                         // i2c id
     int i2s_id;                                                         // i2s id
-    uint32_t after_sleep_ready_time;                                    // pa使能前延迟时间
-    uint32_t pa_delay_time;                                             // pa使能后延迟时间
-    const struct luat_audio_codec_opts* codec_opts;
+    const struct luat_audio_codec_opts* codec_opts;                     // codec 驱动函数
     uint8_t multimedia_id;                                              // 多媒体id
     uint8_t pa_pin;                                                     // pa pin
 	uint8_t pa_on_level;                                                // pa 使能电平
+    uint32_t after_sleep_ready_time;                                    // 
+    uint32_t pa_delay_time;                                             // 
 	uint8_t power_pin;													// 电源控制
-	uint8_t power_on_level;                                             // 电源使能电平 
-	uint8_t pa_dac_delay;                                               // PA与DAC关闭的间隔时间
-    uint8_t power_on_delay_ms;
-	uint8_t codec_delay_off_time;
+	uint8_t power_on_level;                                             // 电源使能电平
+    uint32_t power_on_delay_ms;                                         // 电源使能后延时时间
+	uint32_t power_off_delay_time;                                      // 电源关闭后延时时间 
 } luat_audio_codec_conf_t;
 
 typedef struct luat_audio_codec_opts{

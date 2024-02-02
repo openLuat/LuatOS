@@ -171,8 +171,6 @@ int luat_audio_play_tts_text(uint8_t multimedia_id, void *text, uint32_t text_by
  */
 int luat_audio_play_tts_set_param(uint8_t multimedia_id, uint32_t param_id, uint32_t param_value);
 
-
-
 void luat_audio_config_pa(uint8_t multimedia_id, uint32_t pin, int level, uint32_t dummy_time_len, uint32_t pa_delay_time);
 void luat_audio_config_dac(uint8_t multimedia_id, int pin, int level, uint32_t dac_off_delay_time);
 uint16_t luat_audio_vol(uint8_t multimedia_id, uint16_t vol);

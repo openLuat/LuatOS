@@ -27,6 +27,9 @@
 #endif
 #include "luat_rtos.h"
 #include"luat_audio_codec.h"
+
+
+
 typedef struct luat_audio_conf {
 	uint64_t last_wakeup_time_ms;
 	luat_audio_codec_conf_t codec_conf;
@@ -45,10 +48,32 @@ typedef struct luat_audio_conf {
     uint8_t record_mode;
 } luat_audio_conf_t;
 
+typedef enum{
+    AUDIO_PM_MODE_STANDBY = 0,      /* 待机模式 */
+    AUDIO_PM_MODE_SHUTDOWN,         /* 关断模式 */
+}luat_audio_pm_mode_t;
+
+/**
+ * @brief audio休眠控制
+ * 
+ * @param multimedia_id 多媒体通道
+ * @param mode 
+ * @return int =0成功，其他失败
+ */
+int luat_audio_pm_request(uint8_t multimedia_id,luat_audio_pm_mode_t mode);
+
+/**
+ * @brief 播放空白音
+ * 
+ * @param multimedia_id 多媒体通道
+ * @return int =0成功，其他失败
+ */
+int luat_audio_play_blank(uint8_t multimedia_id);
+
 /**
  * @brief audio和codec绑定
  *
- * @param multimedia_id 多媒体通道，目前只有0，在绑定前，需要先设置好codec的相关信息
+ * @param multimedia_id 多媒体通道，目前只有0
  * @param codec_conf codec信息
  * @return int =0成功，其他失败
  */

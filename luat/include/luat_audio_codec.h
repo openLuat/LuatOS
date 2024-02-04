@@ -24,8 +24,8 @@ typedef enum {
 } luat_audio_codec_ctl_t;
 
 typedef enum {
-    LUAT_CODEC_MODE_MASTER = 0,
-    LUAT_CODEC_MODE_SLAVE,
+    LUAT_CODEC_MODE_SLAVE = 0,      // 默认从模式
+    LUAT_CODEC_MODE_MASTER,
 
     LUAT_CODEC_MODE_ALL = 0,
     LUAT_CODEC_MODE_DAC,

@@ -492,10 +492,8 @@ static int es8311_codec_init(luat_audio_codec_conf_t* conf,uint8_t mode){
     // start up vmid normal speed charge
     es8311_write_reg(conf,ES8311_ADC_REG15, 0x00);
     /* set adc hpf */
-    // es8311_write_reg(conf,ES8311_ADC_REG1B, 0x05);
     es8311_write_reg(conf,ES8311_ADC_REG1B, 0x0A);
     /* set adc hpf,ADC_EQ bypass */
-    // es8311_write_reg(conf,ES8311_ADC_REG1C, 0x65);
     es8311_write_reg(conf,ES8311_ADC_REG1C, 0x6A);
     /* set dac softramp,disable DAC_EQ */
     es8311_write_reg(conf,ES8311_DAC_REG37, 0x08);

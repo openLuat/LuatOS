@@ -11,6 +11,11 @@
 #define DADC_GAIN 0x1A        //0x17
 #define BCLK_DIV  0x13        //0x07
 
+#define ES8311_MCLK_SOURCE      0       //是否硬件没接MCLK需要用SCLK当作MCLK,一般不用
+#define ES8311_DMIC_SEL         0       //DMIC选择:默认选择关闭0,打开为1
+#define ES8311_LINSEL_SEL		1       //0 – no input selection  1 – select Mic1p-Mic1n 2 – select Mic2p-Mic2n 3 – select both pairs of Mic1 and Mic2
+#define ES8311_ADC_PGA_GAIN		8       //ADC模拟增益:(选择范围0~10),具体对应关系见相应DS说明
+
 #define ES8311_ADDR  0x18
 
 /* ES8311_REGISTER NAME_REG_REGISTER ADDRESS */
@@ -174,33 +179,32 @@ static int es8311_mode_normal(luat_audio_codec_conf_t* conf,uint8_t selece){
         es8311_write_reg(conf,ES8311_SYSTEM_REG0D,0x01);
         if (selece == LUAT_CODEC_MODE_ALL) 
             es8311_write_reg(conf,ES8311_GP_REG45,0x00);
-        es8311_write_reg(conf,ES8311_CLK_MANAGER_REG01,0x3F);
+        es8311_write_reg(conf,ES8311_CLK_MANAGER_REG01,0x3F + (ES8311_MCLK_SOURCE<<7));
         es8311_write_reg(conf,ES8311_RESET_REG00,0x80);
         luat_rtos_task_sleep(1);
         es8311_write_reg(conf,ES8311_SYSTEM_REG0D,0x01);
         if (selece == LUAT_CODEC_MODE_ALL) 
-            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG02,0x00);//--
-        es8311_write_reg(conf,ES8311_DAC_REG37,0x08);//--
-        if (selece == LUAT_CODEC_MODE_ALL) //--
+            es8311_write_reg(conf,ES8311_CLK_MANAGER_REG02,0x00);
+        es8311_write_reg(conf,ES8311_DAC_REG37,0x08);
+        if (selece == LUAT_CODEC_MODE_ALL)
             es8311_write_reg(conf,ES8311_ADC_REG15,0x40);
         else
             es8311_write_reg(conf,ES8311_ADC_REG15,0x00);
         if(selece != LUAT_CODEC_MODE_ADC)
             es8311_write_reg(conf,ES8311_SYSTEM_REG12,0x00);
         if(selece != LUAT_CODEC_MODE_DAC)
-            es8311_write_reg(conf,ES8311_SYSTEM_REG14,0x18);
-        if (selece == LUAT_CODEC_MODE_ALL)//--
+            es8311_write_reg(conf,ES8311_SYSTEM_REG14,(ES8311_DMIC_SEL<<6) + (ES8311_LINSEL_SEL<<4) + ES8311_ADC_PGA_GAIN);
+        if (selece == LUAT_CODEC_MODE_ALL)
             es8311_write_reg(conf,ES8311_SYSTEM_REG0E,0x00);
         else
             es8311_write_reg(conf,ES8311_SYSTEM_REG0E,0x02);
-
         if(selece != LUAT_CODEC_MODE_DAC)
             es8311_write_reg(conf,ES8311_ADC_REG17,es8311_adcvol_bak);
         if(selece != LUAT_CODEC_MODE_ADC)
             es8311_write_reg(conf,ES8311_DAC_REG32,es8311_dacvol_bak);
-//        luat_rtos_task_sleep(50);
+        luat_rtos_task_sleep(50);
         if(selece == LUAT_CODEC_MODE_ADC)
-            es8311_write_reg(conf,ES8311_SDPOUT_REG0A,0x00);//--
+            es8311_write_reg(conf,ES8311_SDPOUT_REG0A,0x00);
     return 0;
 }
 
@@ -226,7 +230,7 @@ static int es8311_mode_standby(luat_audio_codec_conf_t* conf,uint8_t selece){
         es8311_write_reg(conf,ES8311_SYSTEM_REG0E,0xFF);
         es8311_write_reg(conf,ES8311_SYSTEM_REG12,0x02);
         es8311_write_reg(conf,ES8311_SYSTEM_REG14,0x00);
-        es8311_write_reg(conf,ES8311_SYSTEM_REG0D, 0xFA);
+        es8311_write_reg(conf,ES8311_SYSTEM_REG0D, 0xFA);//0xF9
     }
     es8311_write_reg(conf,ES8311_ADC_REG15, 0x00);
     es8311_write_reg(conf,ES8311_DAC_REG37, 0x08);
@@ -237,6 +241,11 @@ static int es8311_mode_standby(luat_audio_codec_conf_t* conf,uint8_t selece){
         es8311_write_reg(conf,ES8311_RESET_REG00, 0x81);
         es8311_write_reg(conf,ES8311_CLK_MANAGER_REG01,0x3a);
     }else{
+        es8311_write_reg(conf,ES8311_CLK_MANAGER_REG02,0x10);
+        es8311_write_reg(conf,ES8311_RESET_REG00,0x00);
+        es8311_write_reg(conf,ES8311_RESET_REG00,0x1F);
+        es8311_write_reg(conf,ES8311_CLK_MANAGER_REG01,0x30);
+        es8311_write_reg(conf,ES8311_CLK_MANAGER_REG01,0x00);
         es8311_write_reg(conf,ES8311_GP_REG45,0x01);
     }
     return 0;
@@ -255,10 +264,8 @@ static int es8311_mode_pwrdown(luat_audio_codec_conf_t* conf){
     es8311_write_reg(conf,ES8311_DAC_REG37,0x08);
     es8311_write_reg(conf,ES8311_CLK_MANAGER_REG02,0x10);
     es8311_write_reg(conf,ES8311_RESET_REG00,0x00);
-    luat_rtos_task_sleep(1);
     es8311_write_reg(conf,ES8311_RESET_REG00,0x1f);
     es8311_write_reg(conf,ES8311_CLK_MANAGER_REG01,0x30);
-    luat_rtos_task_sleep(1);
     es8311_write_reg(conf,ES8311_CLK_MANAGER_REG01,0x00);
     es8311_write_reg(conf,ES8311_GP_REG45,0x00);
     es8311_write_reg(conf,ES8311_SYSTEM_REG0D,0xfc);

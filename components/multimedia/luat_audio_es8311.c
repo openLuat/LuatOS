@@ -174,7 +174,7 @@ static uint8_t es8311_read_reg(luat_audio_codec_conf_t* conf,uint8_t addr){
 	return temp;
 }
 
-static int es8311_mode_normal(luat_audio_codec_conf_t* conf,uint8_t selece){
+static int es8311_mode_resume(luat_audio_codec_conf_t* conf,uint8_t selece){
         es8311_write_reg(conf,ES8311_SYSTEM_REG0D,0x01);
         if (selece == LUAT_CODEC_MODE_ALL) 
             es8311_write_reg(conf,ES8311_GP_REG45,0x00);
@@ -531,8 +531,8 @@ static void es8311_codec_pa(luat_audio_codec_conf_t* conf,uint8_t on){
 
 static int es8311_codec_control(luat_audio_codec_conf_t* conf,luat_audio_codec_ctl_t cmd,uint32_t data){
     switch (cmd){
-        case LUAT_CODEC_MODE_NORMAL:
-            es8311_mode_normal(conf,(uint8_t)data);
+        case LUAT_CODEC_MODE_RESUME:
+            es8311_mode_resume(conf,(uint8_t)data);
             break;
         case LUAT_CODEC_MODE_STANDBY:
             es8311_mode_standby(conf,(uint8_t)data);
@@ -580,7 +580,7 @@ static int es8311_codec_control(luat_audio_codec_conf_t* conf,luat_audio_codec_c
 }
 
 static int es8311_codec_start(luat_audio_codec_conf_t* conf){
-    es8311_mode_normal(conf,LUAT_CODEC_MODE_ALL);
+    es8311_mode_resume(conf,LUAT_CODEC_MODE_ALL);
     es8311_codec_pa(conf,1);
     return 0;
 }

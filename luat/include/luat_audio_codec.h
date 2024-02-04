@@ -17,7 +17,7 @@ typedef enum {
     LUAT_CODEC_SET_CHANNEL,         // 通道设置
     LUAT_CODEC_SET_PA,              // pa控制
     
-    LUAT_CODEC_MODE_NORMAL,
+    LUAT_CODEC_MODE_RESUME,
     LUAT_CODEC_MODE_STANDBY,
     LUAT_CODEC_MODE_PWRDOWN,
     LUAT_CODEC_PA_NONE  = 255,      //无pa控制引脚

@@ -203,7 +203,7 @@ LUAT_WEAK int luat_audio_init_codec(uint8_t multimedia_id, uint16_t init_vol, ui
         result = audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_STANDBY,LUAT_CODEC_MODE_ALL);
         if (result) return result;
         //不应该默认进normal模式，会增加功耗，无pa控制应该根据pa是否传入有效引脚去播放白音或者用户自己控制
-        // result = audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_NORMAL,LUAT_CODEC_MODE_ALL);
+        // result = audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_RESUME,LUAT_CODEC_MODE_ALL);
         // if (result) return result;
         return 0;
     }
@@ -226,10 +226,12 @@ LUAT_WEAK int luat_audio_pm_request(uint8_t multimedia_id,luat_audio_pm_mode_t m
     luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf!=NULL && audio_conf->bus_type == MULTIMEDIA_AUDIO_BUS_I2S){
         switch (mode){
-        case AUDIO_PM_MODE_STANDBY:
-
+        case AUDIO_PM_MODE_RESUME:
+            audio_conf->codec_conf.codec_opts->start(&audio_conf->codec_conf);
             break;
-        // case AUDIO_PM_MODE_NORMAL:
+        case AUDIO_PM_MODE_STANDBY:
+            audio_conf->codec_conf.codec_opts->stop(&audio_conf->codec_conf);
+            break;
         case AUDIO_PM_MODE_SHUTDOWN:
             audio_conf->codec_conf.codec_opts->stop(&audio_conf->codec_conf);
 			if (audio_conf->codec_conf.power_off_delay_time)

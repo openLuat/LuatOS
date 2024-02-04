@@ -198,7 +198,7 @@ static void luat_volte_task(void *param){
 
             // luat_i2s_transfer_loop(audio_conf->codec_conf.i2s_id, NULL, 1600, 2, 1);
             // luat_cc.is_codec_on = 1;
-            // audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_NORMAL,LUAT_CODEC_MODE_ALL);
+            // audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_RESUME,LUAT_CODEC_MODE_ALL);
 
 
             // audio_conf->codec_conf.codec_opts->start(&audio_conf->codec_conf);
@@ -214,7 +214,7 @@ static void luat_volte_task(void *param){
 			luat_i2s_modify(audio_conf->codec_conf.i2s_id, LUAT_I2S_CHANNEL_RIGHT, LUAT_I2S_BITS_16, luat_cc.record_type * 8000);
 			luat_i2s_transfer_loop(audio_conf->codec_conf.i2s_id, NULL, 3200, 2, 0);	//address传入空地址就是播放空白音
     //         // audio_conf->codec_conf.codec_opts->start(&audio_conf->codec_conf);
-			audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_NORMAL,LUAT_CODEC_MODE_ALL);
+			audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_RESUME,LUAT_CODEC_MODE_ALL);
             luat_cc.record_up_zbuff_point = 0;
             if (luat_cc.record_on_off) {
             	luat_cc.up_buff[0]->used = 0;
@@ -261,7 +261,7 @@ static void luat_volte_task(void *param){
 				if (!luat_cc.is_codec_on){
 					luat_cc.is_codec_on = 1;
                     // audio_conf->codec_conf.codec_opts->start(&audio_conf->codec_conf);
-					audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_NORMAL,LUAT_CODEC_MODE_ALL);
+					audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_RESUME,LUAT_CODEC_MODE_ALL);
 				}
 			}else{
 //                LLOGD("%d,%d,%d", luat_cc.play_type, luat_cc.record_type, event.param2);

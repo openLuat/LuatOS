@@ -49,26 +49,21 @@ typedef struct luat_audio_conf {
 } luat_audio_conf_t;
 
 typedef enum{
-    AUDIO_PM_MODE_STANDBY = 0,      /* 待机模式 */
+    AUDIO_PM_MODE_RESUME = 0,       /* 工作模式 */
+    AUDIO_PM_MODE_STANDBY,          /* 待机模式 */
     AUDIO_PM_MODE_SHUTDOWN,         /* 关断模式 */
 }luat_audio_pm_mode_t;
 
-/**
- * @brief audio休眠控制
- * 
- * @param multimedia_id 多媒体通道
- * @param mode 
- * @return int =0成功，其他失败
- */
-int luat_audio_pm_request(uint8_t multimedia_id,luat_audio_pm_mode_t mode);
 
 /**
- * @brief 播放空白音
- * 
- * @param multimedia_id 多媒体通道
- * @return int =0成功，其他失败
+ * @brief 设置音频硬件输出类型,后续初始化都会根据类型做不同处理，所以要首先使用此函数设置类型
+ *
+ * @param bus_type 见MULTIMEDIA_AUDIO_BUS，目前只有0=DAC 1=I2S 2=SOFT_DAC
  */
-int luat_audio_play_blank(uint8_t multimedia_id);
+int luat_audio_set_bus_type(uint8_t multimedia_id,uint8_t bus_type);
+
+//此函数可获取multimedia_id对应的audio结构体,用于动态修改,如果有无法直接设置的函数可自行通过此方法修改结构体
+luat_audio_conf_t *luat_audio_get_config(uint8_t multimedia_id);
 
 /**
  * @brief audio和codec绑定
@@ -88,6 +83,24 @@ int luat_audio_setup_codec(uint8_t multimedia_id, const luat_audio_codec_conf_t 
  * @return int =0成功，其他失败
  */
 int luat_audio_init_codec(uint8_t multimedia_id, uint16_t init_vol, uint16_t init_mic_vol);
+
+/**
+ * @brief audio休眠控制,注意，pm各个模式下功耗由具体audio硬件决定
+ * 
+ * @param multimedia_id 多媒体通道
+ * @param mode 
+ * @return int =0成功，其他失败
+ */
+int luat_audio_pm_request(uint8_t multimedia_id,luat_audio_pm_mode_t mode);
+
+/**
+ * @brief 播放空白音
+ * 
+ * @param multimedia_id 多媒体通道
+ * @return int =0成功，其他失败
+ */
+int luat_audio_play_blank(uint8_t multimedia_id);
+
 /**
  * @brief audio休眠控制，进入休眠状态时，芯片才允许进入休眠
  *
@@ -200,15 +213,6 @@ void luat_audio_config_pa(uint8_t multimedia_id, uint32_t pin, int level, uint32
 void luat_audio_config_dac(uint8_t multimedia_id, int pin, int level, uint32_t dac_off_delay_time);
 uint16_t luat_audio_vol(uint8_t multimedia_id, uint16_t vol);
 uint8_t luat_audio_mic_vol(uint8_t multimedia_id, uint16_t vol);
-
-/**
- * @brief 设置音频硬件输出类型
- *
- * @param bus_type 见MULTIMEDIA_AUDIO_BUS，目前只有0=DAC 1=I2S 2=SOFT_DAC
- */
-int luat_audio_set_bus_type(uint8_t multimedia_id,uint8_t bus_type);
-
-luat_audio_conf_t *luat_audio_get_config(uint8_t multimedia_id);
 
 void luat_audio_play_debug_onoff(uint8_t multimedia_id, uint8_t onoff);
 

@@ -22,11 +22,6 @@
 #define LUAT_LOG_TAG "gpio"
 #include "luat_log.h"
 
-// 若bsp没有定义最大PIN编号, 那么默认给个128吧
-#ifndef LUAT_GPIO_PIN_MAX
-#define LUAT_GPIO_PIN_MAX (128)
-#endif
-
 static int l_gpio_set(lua_State *L);
 static int l_gpio_get(lua_State *L);
 static int l_gpio_close(lua_State *L);

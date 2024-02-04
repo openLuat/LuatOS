@@ -6,6 +6,11 @@
 #include "luat_base.h"
 #include "luat_gpio_legacy.h"
 
+// 若bsp没有定义最大PIN编号, 那么默认给个128吧
+#ifndef LUAT_GPIO_PIN_MAX
+#define LUAT_GPIO_PIN_MAX   (128)
+#endif
+
 /**
  * @defgroup luatos_device_gpio GPIO接口
  * @{
@@ -31,6 +36,7 @@
 
 #define LUAT_GPIO_MAX_ID             (Luat_GPIO_MAX_ID) ///< 最大GPIO序号
 
+//无效的GPIO,用作某些函数引脚不指定时使用
 #define LUAT_GPIO_NONE                 (0xff)
 
 /**

@@ -101,14 +101,6 @@ int luat_audio_pm_request(uint8_t multimedia_id,luat_audio_pm_mode_t mode);
  */
 int luat_audio_play_blank(uint8_t multimedia_id);
 
-/**
- * @brief audio休眠控制，进入休眠状态时，芯片才允许进入休眠
- *
- * @param multimedia_id 多媒体通道，目前只有0
- * @param on_off 0退出休眠，其他进入休眠
- * @return int =0成功，其他失败
- */
-int luat_audio_sleep(uint8_t multimedia_id, uint8_t on_off);
 #ifdef __LUATOS__
 /**
  * @brief 播放指定数量的文件或者ROM数组（文件数据直接写成数组形式）
@@ -215,8 +207,6 @@ uint16_t luat_audio_vol(uint8_t multimedia_id, uint16_t vol);
 uint8_t luat_audio_mic_vol(uint8_t multimedia_id, uint16_t vol);
 
 void luat_audio_play_debug_onoff(uint8_t multimedia_id, uint8_t onoff);
-
-int luat_audio_standby(uint8_t multimedia_id);
 
 int luat_audio_check_ready(uint8_t multimedia_id);
 

@@ -7,23 +7,22 @@
 #define LUAT_LOG_TAG "es8311"
 #include "luat_log.h"
 
-#define ADC_VOLUME_GAIN 0xDF  //0xEF
-#define DADC_GAIN 0x1A        //0x17
-#define BCLK_DIV  0x13        //0x07
+#define ES8311_ADDR                     0x18
 
-#define ES8311_MCLK_SOURCE      0       //是否硬件没接MCLK需要用SCLK当作MCLK,一般不用
-#define ES8311_DMIC_SEL         0       //DMIC选择:默认选择关闭0,打开为1
-#define ES8311_LINSEL_SEL		1       //0 – no input selection  1 – select Mic1p-Mic1n 2 – select Mic2p-Mic2n 3 – select both pairs of Mic1 and Mic2
-#define ES8311_ADC_PGA_GAIN		8       //ADC模拟增益:(选择范围0~10),具体对应关系见相应DS说明
-
-#define ES8311_ADDR  0x18
+#define MCLK_DIV_FRE                    256
+#define ES8311_MCLK_SOURCE              0       //是否硬件没接MCLK需要用SCLK当作MCLK,一般不用,除非引脚非常不够要省引脚
+#define ES8311_DMIC_SEL                 0       //DMIC选择:默认选择关闭0,打开为1
+#define ES8311_LINSEL_SEL		        1       //0 – no input selection  1 – select Mic1p-Mic1n 2 – select Mic2p-Mic2n 3 – select both pairs of Mic1 and Mic2
+#define ES8311_ADC_PGA_GAIN		        8       //ADC模拟增益:(选择范围0~10),具体对应关系见相应DS说明
+#define ES8311_ADC2DAC_SEL              0	    //LOOP选择:内部ADC数据给到DAC自回环输出:默认选择关闭0,打开为1
+#define ES8311_DAC_HP_ON	            0	    //输出负载开启HP驱动:默认选择关闭0,打开为1
+#define ES8311_VDDA_3V3			        0x00
+#define ES8311_VDDA_1V8			        0x01
+#define ES8311_VDDA_VOLTAGE		        ES8311_VDDA_3V3    //模拟电压选择为3V3还是1V8,需要和实际硬件匹配,默认选择3V3
 
 /* ES8311_REGISTER NAME_REG_REGISTER ADDRESS */
-
 #define ES8311_RESET_REG00              0x00  /*reset digital,csm,clock manager etc.*/
-
 /* Clock Scheme Register definition */
-
 #define ES8311_CLK_MANAGER_REG01        0x01 /* select clk src for mclk, enable clock for codec */
 #define ES8311_CLK_MANAGER_REG02        0x02 /* clk divider and clk multiplier */
 #define ES8311_CLK_MANAGER_REG03        0x03 /* adc fsmode and osr  */
@@ -70,7 +69,7 @@
 #define ES8311_CHD1_REGFD               0xFD /* CHIP ID1 */
 #define ES8311_MAX_REGISTER             0xFF
 
-static uint8_t es8311_dacvol_bak,es8311_adcvol_bak;
+static uint8_t es8311_dacvol_bak=0,es8311_adcvol_bak=0;
 static luat_rtos_timer_t pa_delay_timer;
 typedef struct{
     uint32_t mclk;          // mclk frequency
@@ -309,7 +308,7 @@ static uint8_t es8311_get_mic_vol(luat_audio_codec_conf_t* conf){
 	return reg * 1000 / 2550;
 }
 
-#define MCLK_DIV_FRE 256
+
 static int es8311_codec_samplerate(luat_audio_codec_conf_t* conf,uint16_t samplerate){
     if(samplerate != 8000 && samplerate != 16000 && samplerate != 32000 &&
         samplerate != 11025 && samplerate != 22050 && samplerate != 44100 &&
@@ -431,7 +430,13 @@ static LUAT_RT_RET_TYPE pa_delay_timer_cb(LUAT_RT_CB_PARAM){
     luat_gpio_set(conf->pa_pin, conf->pa_on_level);
 }
 
-#define IS_DMIC             0
+static inline void es8311_reset(luat_audio_codec_conf_t* conf){
+    es8311_write_reg(conf,ES8311_RESET_REG00, 0x1F);
+    es8311_write_reg(conf,ES8311_RESET_REG00, 0x80);
+    luat_rtos_task_sleep(1);
+    es8311_write_reg(conf,ES8311_SYSTEM_REG0D, 0x01);
+}
+
 static int es8311_codec_init(luat_audio_codec_conf_t* conf,uint8_t mode){
     if (conf->power_pin != LUAT_CODEC_PA_NONE){
         luat_gpio_mode(conf->power_pin, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, !conf->power_on_level);
@@ -453,72 +458,53 @@ static int es8311_codec_init(luat_audio_codec_conf_t* conf,uint8_t mode){
         LLOGE("codec err, id = 0x%x 0x%x ver = 0x%x", temp1, temp2, temp3);
         return -1;
     }
-
     /* reset codec */
-    es8311_write_reg(conf,ES8311_RESET_REG00, 0x1F);
-    luat_rtos_task_sleep(50);
-
+    es8311_reset(conf);
+    // BCLK/LRCK pullup on
+    es8311_write_reg(conf,ES8311_GP_REG45, 0x00);
     /* power up digital */
-    es8311_write_reg(conf,ES8311_CLK_MANAGER_REG01, 0x3F);
-
-    es8311_write_reg(conf,ES8311_RESET_REG00, 0x80);
-    luat_rtos_task_sleep(50);
-    uint8_t reg = es8311_read_reg(conf,ES8311_RESET_REG00);
-    switch (mode){
-        case LUAT_CODEC_MODE_MASTER:
-            es8311_write_reg(conf,ES8311_RESET_REG00, (reg |= 0x40));
-            break;
-        case LUAT_CODEC_MODE_SLAVE:
-            es8311_write_reg(conf,ES8311_RESET_REG00, (reg &= 0xBF));
-            break;
-        default:
-            break;
-    }
-
-    es8311_write_reg(conf,ES8311_SYSTEM_REG13, 0x00/*0x10*/);
-    /* set adc hpf */
-    // es8311_write_reg(conf,ES8311_ADC_REG1B, 0x05);
-    es8311_write_reg(conf,ES8311_ADC_REG1B, 0x0A);//
-    /* set adc hpf,ADC_EQ bypass */
-    // es8311_write_reg(conf,ES8311_ADC_REG1C, 0x65);
-    es8311_write_reg(conf,ES8311_ADC_REG1C, 0x6A);//
+    es8311_write_reg(conf,ES8311_CLK_MANAGER_REG01, 0x30);
 
     // SET SDP in and SDP out mute
     es8311_write_reg(conf,ES8311_SDPIN_REG09, (es8311_read_reg(conf,ES8311_SDPIN_REG09) & 0xBF));
     es8311_write_reg(conf,ES8311_SDPOUT_REG0A, (es8311_read_reg(conf,ES8311_SDPOUT_REG0A) & 0xBF));
 
+    es8311_write_reg(conf,ES8311_SYSTEM_REG0B, 0x00);
+    es8311_write_reg(conf,ES8311_SYSTEM_REG0C, 0x00);
+
+    es8311_write_reg(conf,ES8311_SYSTEM_REG10, (0x1C*ES8311_DAC_HP_ON) + (0x60*ES8311_VDDA_VOLTAGE) + 0x03);
+    es8311_write_reg(conf,ES8311_SYSTEM_REG11, 0x7F);	
+
+    es8311_write_reg(conf,ES8311_CLK_MANAGER_REG01,0x3F + (ES8311_MCLK_SOURCE<<7));
+
+    es8311_write_reg(conf,ES8311_RESET_REG00, 0X80+(mode<<6));
+    luat_rtos_task_sleep(1);
+    es8311_write_reg(conf,ES8311_SYSTEM_REG0D, 0x01);
+
+    es8311_write_reg(conf,ES8311_SYSTEM_REG14,(ES8311_DMIC_SEL<<6) + (ES8311_LINSEL_SEL<<4) + ES8311_ADC_PGA_GAIN);
+    es8311_write_reg(conf,ES8311_SYSTEM_REG12, 0x28);
+    es8311_write_reg(conf,ES8311_SYSTEM_REG13, 0x00 + (ES8311_DAC_HP_ON<<4));
+
+    /* set normal power mode */
+    es8311_write_reg(conf,ES8311_SYSTEM_REG0E, 0x02);
+
+    es8311_write_reg(conf,ES8311_SYSTEM_REG0F, 0x44);
+    // start up vmid normal speed charge
+    es8311_write_reg(conf,ES8311_ADC_REG15, 0x00);
+    /* set adc hpf */
+    // es8311_write_reg(conf,ES8311_ADC_REG1B, 0x05);
+    es8311_write_reg(conf,ES8311_ADC_REG1B, 0x0A);
+    /* set adc hpf,ADC_EQ bypass */
+    // es8311_write_reg(conf,ES8311_ADC_REG1C, 0x65);
+    es8311_write_reg(conf,ES8311_ADC_REG1C, 0x6A);
+    /* set dac softramp,disable DAC_EQ */
+    es8311_write_reg(conf,ES8311_DAC_REG37, 0x08);
+    // set internal reference signal (ADC + DAC)
+    es8311_write_reg(conf,ES8311_GPIO_REG44, (ES8311_ADC2DAC_SEL<<7));
     // adc vol
     es8311_write_reg(conf,ES8311_ADC_REG17, es8311_adcvol_bak);
     // dac vol
     es8311_write_reg(conf,ES8311_DAC_REG32, es8311_dacvol_bak);
-
-    /* set normal power mode */
-    es8311_write_reg(conf,ES8311_SYSTEM_REG0E, 0x02);
-    es8311_write_reg(conf,ES8311_SYSTEM_REG12,  0x28/*0x00*/);
-
-    // es8311_write_reg(conf,ES8311_SYSTEM_REG14,  0x18/*0x1A*/);
-
-    // // pdm dmic enable or disable
-    // reg = es8311_read_reg(conf,ES8311_SYSTEM_REG14);
-    // if (IS_DMIC){
-    //     es8311_write_reg(conf,ES8311_SYSTEM_REG14, reg |= 0x40);
-    // }else{
-    //     es8311_write_reg(conf,ES8311_SYSTEM_REG14, reg &= ~(0x40));
-    // }
-
-    es8311_write_reg(conf,ES8311_SYSTEM_REG14, 0x18);  //add for debug
-    // start up vmid normal speed charge
-    es8311_write_reg(conf,ES8311_SYSTEM_REG0D, 0x01);
-    es8311_write_reg(conf,ES8311_ADC_REG15, 0x00/*0x40*/);
-
-    /* set dac softramp,disable DAC_EQ */
-    es8311_write_reg(conf,ES8311_DAC_REG37, 0x48 /*0x08*/);
-
-    // BCLK/LRCK pullup on
-    es8311_write_reg(conf,ES8311_GP_REG45, 0x00);
-    // set internal reference signal (ADC + DAC)
-    es8311_write_reg(conf,ES8311_GPIO_REG44, 0x00);
-
     return 0;
 }
 

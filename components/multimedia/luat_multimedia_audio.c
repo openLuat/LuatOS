@@ -125,12 +125,12 @@ LUAT_WEAK void luat_audio_config_dac(uint8_t multimedia_id, int pin, int level, 
     luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf){
         if (audio_conf->bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
-            if (pin != LUAT_CODEC_PA_NONE){
+            if (pin != LUAT_GPIO_NONE){
                 audio_conf->codec_conf.power_pin = pin;
                 audio_conf->codec_conf.power_on_level = level;
                 audio_conf->codec_conf.power_off_delay_time = dac_off_delay_time;
             }else{
-                audio_conf->codec_conf.power_pin = LUAT_CODEC_PA_NONE;
+                audio_conf->codec_conf.power_pin = LUAT_GPIO_NONE;
             }
         }
     }
@@ -176,11 +176,23 @@ LUAT_WEAK uint8_t luat_audio_mic_vol(uint8_t multimedia_id, uint16_t vol){
     return -1;
 }
 
+static LUAT_RT_RET_TYPE pa_delay_timer_cb(LUAT_RT_CB_PARAM){
+    uint8_t multimedia_id = (uint8_t)param;
+    luat_audio_pa(multimedia_id,1, 0);
+}
+
 LUAT_WEAK void luat_audio_pa(uint8_t multimedia_id,uint8_t on, uint32_t delay){
     luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf){
+        if (audio_conf->codec_conf.pa_pin == LUAT_GPIO_NONE) return;
         if (audio_conf->bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
-            audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_PA,on);
+            if (audio_conf->pa_delay_timer!=NULL&&delay>0){
+                luat_rtos_timer_start(audio_conf->pa_delay_timer,delay,0,pa_delay_timer_cb,(void*)multimedia_id);
+            }
+            else{
+                audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_PA,on);
+                audio_conf->pa_on_enable = 1;
+            }
         }
     }
 }
@@ -194,11 +206,11 @@ LUAT_WEAK int luat_audio_init(uint8_t multimedia_id, uint16_t init_vol, uint16_t
 	luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf == NULL) return -1;
 
-    // if (audio_conf->codec_conf.pa_pin != LUAT_CODEC_PA_NONE){
-    //     luat_gpio_mode(audio_conf->codec_conf.pa_pin, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, !audio_conf->codec_conf.pa_on_level);
-    //     luat_gpio_set(audio_conf->codec_conf.pa_pin, !audio_conf->codec_conf.pa_on_level);
-    //     luat_rtos_timer_create(&pa_delay_timer);
-    // }
+    if (audio_conf->codec_conf.pa_pin != LUAT_GPIO_NONE){
+        luat_gpio_mode(audio_conf->codec_conf.pa_pin, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, !audio_conf->codec_conf.pa_on_level);
+        luat_gpio_set(audio_conf->codec_conf.pa_pin, !audio_conf->codec_conf.pa_on_level);
+        luat_rtos_timer_create(&audio_conf->pa_delay_timer);
+    }
 
     audio_conf->is_sleep = 0;
     audio_conf->last_wakeup_time_ms = luat_mcu_tick64_ms();

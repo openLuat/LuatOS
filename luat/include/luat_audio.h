@@ -49,9 +49,9 @@ typedef struct luat_audio_conf {
 } luat_audio_conf_t;
 
 typedef enum{
-    AUDIO_PM_MODE_RESUME = 0,       /* 工作模式 */
-    AUDIO_PM_MODE_STANDBY,          /* 待机模式 */
-    AUDIO_PM_MODE_SHUTDOWN,         /* 关断模式 */
+    LUAT_AUDIO_PM_RESUME = 0,       /* 工作模式 */
+    LUAT_AUDIO_PM_STANDBY,          /* 待机模式 */
+    LUAT_AUDIO_PM_SHUTDOWN,         /* 关断模式 */
 }luat_audio_pm_mode_t;
 
 

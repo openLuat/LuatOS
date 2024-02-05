@@ -22,7 +22,7 @@ LUAT_WEAK int luat_audio_play_file(uint8_t multimedia_id, const char *path){
 LUAT_WEAK uint8_t luat_audio_is_finish(uint8_t multimedia_id){
     luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf){
-        if (audio_conf->bus_type == MULTIMEDIA_AUDIO_BUS_I2S){
+        if (audio_conf->bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
             luat_i2s_conf_t * i2s_conf = luat_i2s_get_config(audio_conf->codec_conf.i2s_id);
             i2s_conf->state==LUAT_I2S_STATE_STOP?1:0;
         }
@@ -33,7 +33,7 @@ LUAT_WEAK uint8_t luat_audio_is_finish(uint8_t multimedia_id){
 LUAT_WEAK int luat_audio_play_stop(uint8_t multimedia_id){
     luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf){
-        if (audio_conf->bus_type == MULTIMEDIA_AUDIO_BUS_I2S){
+        if (audio_conf->bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
             return luat_i2s_close(audio_conf->codec_conf.i2s_id);
         }
     }
@@ -47,7 +47,7 @@ LUAT_WEAK int luat_audio_play_get_last_error(uint8_t multimedia_id){
 LUAT_WEAK int luat_audio_start_raw(uint8_t multimedia_id, uint8_t audio_format, uint8_t num_channels, uint32_t sample_rate, uint8_t bits_per_sample, uint8_t is_signed){
     luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf){
-        if (audio_conf->bus_type == MULTIMEDIA_AUDIO_BUS_I2S){
+        if (audio_conf->bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
             luat_i2s_conf_t * i2s_conf = luat_i2s_get_config(audio_conf->codec_conf.i2s_id);
             i2s_conf->data_bits = bits_per_sample;
             i2s_conf->sample_rate = sample_rate,
@@ -62,7 +62,7 @@ LUAT_WEAK int luat_audio_start_raw(uint8_t multimedia_id, uint8_t audio_format, 
 LUAT_WEAK int luat_audio_write_raw(uint8_t multimedia_id, uint8_t *data, uint32_t len){
     luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf){
-        if (audio_conf->bus_type == MULTIMEDIA_AUDIO_BUS_I2S){
+        if (audio_conf->bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
             int send_bytes = 0;
             while (send_bytes < len) {
                 int length = luat_i2s_send(audio_conf->codec_conf.i2s_id,data + send_bytes, len - send_bytes);
@@ -79,7 +79,7 @@ LUAT_WEAK int luat_audio_write_raw(uint8_t multimedia_id, uint8_t *data, uint32_
 LUAT_WEAK int luat_audio_stop_raw(uint8_t multimedia_id){
     luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf){
-        if (audio_conf->bus_type == MULTIMEDIA_AUDIO_BUS_I2S){
+        if (audio_conf->bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
             return luat_i2s_close(audio_conf->codec_conf.i2s_id);
         }
     }
@@ -89,7 +89,7 @@ LUAT_WEAK int luat_audio_stop_raw(uint8_t multimedia_id){
 LUAT_WEAK int luat_audio_pause_raw(uint8_t multimedia_id, uint8_t is_pause){
     luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf){
-        if (audio_conf->bus_type == MULTIMEDIA_AUDIO_BUS_I2S){
+        if (audio_conf->bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
             if (is_pause){
                 audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_PA,!audio_conf->codec_conf.pa_on_level);
                 luat_i2s_pause(audio_conf->codec_conf.i2s_id);
@@ -106,7 +106,7 @@ LUAT_WEAK int luat_audio_pause_raw(uint8_t multimedia_id, uint8_t is_pause){
 LUAT_WEAK void luat_audio_config_pa(uint8_t multimedia_id, uint32_t pin, int level, uint32_t dummy_time_len, uint32_t pa_delay_time){
     luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf){
-        if (audio_conf->bus_type == MULTIMEDIA_AUDIO_BUS_I2S){
+        if (audio_conf->bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
             if (pin != LUAT_GPIO_NONE && pin<LUAT_GPIO_PIN_MAX && pin>0){
                 audio_conf->codec_conf.pa_pin = pin;
                 audio_conf->codec_conf.pa_on_level = level;
@@ -124,7 +124,7 @@ LUAT_WEAK void luat_audio_config_pa(uint8_t multimedia_id, uint32_t pin, int lev
 LUAT_WEAK void luat_audio_config_dac(uint8_t multimedia_id, int pin, int level, uint32_t dac_off_delay_time){
     luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf){
-        if (audio_conf->bus_type == MULTIMEDIA_AUDIO_BUS_I2S){
+        if (audio_conf->bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
             if (pin != LUAT_CODEC_PA_NONE){
                 audio_conf->codec_conf.power_pin = pin;
                 audio_conf->codec_conf.power_on_level = level;
@@ -140,7 +140,7 @@ LUAT_WEAK uint16_t luat_audio_vol(uint8_t multimedia_id, uint16_t vol){
     luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf == NULL || vol < 0 || vol > 1000) return -1;
     audio_conf->soft_vol = vol<=100?100:vol;
-    if (audio_conf->bus_type == MULTIMEDIA_AUDIO_BUS_I2S){
+    if (audio_conf->bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
         if (vol <= 100){
             audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_VOICE_VOL,vol);
             return audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_GET_VOICE_VOL,0);
@@ -155,7 +155,7 @@ LUAT_WEAK uint16_t luat_audio_vol(uint8_t multimedia_id, uint16_t vol){
 LUAT_WEAK int luat_audio_setup_codec(uint8_t multimedia_id, const luat_audio_codec_conf_t *codec_conf){
 	luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf){
-        if (audio_conf->bus_type == MULTIMEDIA_AUDIO_BUS_I2S){
+        if (audio_conf->bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
             audio_conf->codec_conf= *codec_conf;
             return 0;
         }
@@ -167,7 +167,7 @@ LUAT_WEAK uint8_t luat_audio_mic_vol(uint8_t multimedia_id, uint16_t vol){
     if(vol < 0 || vol > 100) return -1;
     luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf){
-        if (audio_conf->bus_type == MULTIMEDIA_AUDIO_BUS_I2S){
+        if (audio_conf->bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
             if (audio_conf->codec_conf.codec_opts->no_control) return -1;
             audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_MIC_VOL,vol);
             return audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_GET_MIC_VOL,0);
@@ -186,7 +186,7 @@ LUAT_WEAK int luat_audio_init_codec(uint8_t multimedia_id, uint16_t init_vol, ui
     if (audio_conf == NULL) return -1;
     audio_conf->is_sleep = 0;
     audio_conf->last_wakeup_time_ms = luat_mcu_tick64_ms();
-    if (audio_conf->bus_type == MULTIMEDIA_AUDIO_BUS_I2S){
+    if (audio_conf->bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
         int result = audio_conf->codec_conf.codec_opts->init(&audio_conf->codec_conf, LUAT_CODEC_MODE_SLAVE);
         if (result) return result;
         LLOGD("codec init %s ",audio_conf->codec_conf.codec_opts->name);
@@ -200,8 +200,11 @@ LUAT_WEAK int luat_audio_init_codec(uint8_t multimedia_id, uint16_t init_vol, ui
         if (result) return result;
         result = audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_MIC_VOL, init_mic_vol);
         if (result) return result;
-        result = audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_STANDBY,LUAT_CODEC_MODE_ALL);
-        if (result) return result;
+
+        luat_audio_pm_request(multimedia_id,LUAT_AUDIO_PM_STANDBY);
+        // result = audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_STANDBY,LUAT_CODEC_MODE_ALL);
+        // if (result) return result;
+
         //不应该默认进normal模式，会增加功耗，无pa控制应该根据pa是否传入有效引脚去播放白音或者用户自己控制
         // result = audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_RESUME,LUAT_CODEC_MODE_ALL);
         // if (result) return result;
@@ -213,9 +216,9 @@ LUAT_WEAK int luat_audio_init_codec(uint8_t multimedia_id, uint16_t init_vol, ui
 LUAT_WEAK int luat_audio_set_bus_type(uint8_t multimedia_id,uint8_t bus_type){
     luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf){
-        if (bus_type == MULTIMEDIA_AUDIO_BUS_I2S){
+        if (bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
             audio_conf->codec_conf.multimedia_id = multimedia_id;
-            audio_conf->bus_type = MULTIMEDIA_AUDIO_BUS_I2S;
+            audio_conf->bus_type = LUAT_MULTIMEDIA_AUDIO_BUS_I2S;
             return 0;
         }
     }
@@ -224,9 +227,9 @@ LUAT_WEAK int luat_audio_set_bus_type(uint8_t multimedia_id,uint8_t bus_type){
 
 LUAT_WEAK int luat_audio_pm_request(uint8_t multimedia_id,luat_audio_pm_mode_t mode){
     luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
-    if (audio_conf!=NULL && audio_conf->bus_type == MULTIMEDIA_AUDIO_BUS_I2S){
+    if (audio_conf!=NULL && audio_conf->bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
         switch (mode){
-        case AUDIO_PM_MODE_RESUME:
+        case LUAT_AUDIO_PM_RESUME:
             //同下,何时传输空白音
             // if (!audio_conf->speech_uplink_type && !audio_conf->speech_downlink_type && !audio_conf->record_mode)
 			// 	luat_audio_play_blank(multimedia_id);
@@ -236,13 +239,13 @@ LUAT_WEAK int luat_audio_pm_request(uint8_t multimedia_id,luat_audio_pm_mode_t m
 			audio_conf->last_wakeup_time_ms = luat_mcu_tick64_ms();
             audio_conf->is_sleep = 0;
             break;
-        case AUDIO_PM_MODE_STANDBY:
+        case LUAT_AUDIO_PM_STANDBY:
             audio_conf->codec_conf.codec_opts->stop(&audio_conf->codec_conf);
             //非控制的关闭i2s输出?输出白噪音?此处或codec具体处理
             // luat_i2s_close(audio_conf->codec_conf.i2s_id);
             audio_conf->is_sleep = 1;
             break;
-        case AUDIO_PM_MODE_SHUTDOWN:
+        case LUAT_AUDIO_PM_SHUTDOWN:
             audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_PA,0);
 			if (audio_conf->codec_conf.power_off_delay_time)
 				luat_rtos_task_sleep(audio_conf->codec_conf.power_off_delay_time);

@@ -35,7 +35,7 @@ local decoder = codec.create(codec.MP3)--创建一个mp3的decoder
 local encoder = codec.create(codec.AMR, false)--创建一个amr的encoder
  */
 static int l_codec_create(lua_State *L) {
-    uint8_t type = luaL_optinteger(L, 1, MULTIMEDIA_DATA_TYPE_MP3);
+    uint8_t type = luaL_optinteger(L, 1, LUAT_MULTIMEDIA_DATA_TYPE_MP3);
     uint8_t is_decoder = 1;
     if (lua_isboolean(L, 2)) {
     	is_decoder = lua_toboolean(L, 2);
@@ -50,7 +50,7 @@ static int l_codec_create(lua_State *L) {
     	if (is_decoder)
     	{
         	switch (type) {
-        	case MULTIMEDIA_DATA_TYPE_MP3:
+        	case LUAT_MULTIMEDIA_DATA_TYPE_MP3:
             	coder->mp3_decoder = mp3_decoder_create();
             	if (!coder->mp3_decoder) {
             		lua_pushnil(L);
@@ -64,7 +64,7 @@ static int l_codec_create(lua_State *L) {
     	{
         	switch (type) {
 #ifdef LUAT_SUPPORT_AMR
-        	case MULTIMEDIA_DATA_TYPE_AMR_NB:
+        	case LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB:
             	coder->amr_coder = Encoder_Interface_init(0);
             	if (!coder->amr_coder) {
             		lua_pushnil(L);
@@ -100,7 +100,7 @@ static int l_codec_get_audio_info(lua_State *L) {
 	uint32_t jump, i;
 	uint8_t temp[16];
 	int result = 0;
-	int audio_format = MULTIMEDIA_DATA_TYPE_NONE;
+	int audio_format = LUAT_MULTIMEDIA_DATA_TYPE_NONE;
 	uint8_t num_channels;
 	uint32_t sample_rate;
 	int bits_per_sample = 16;
@@ -114,7 +114,7 @@ static int l_codec_get_audio_info(lua_State *L) {
 
 		switch(coder->type)
 		{
-		case MULTIMEDIA_DATA_TYPE_MP3:
+		case LUAT_MULTIMEDIA_DATA_TYPE_MP3:
 			mp3_decoder_init(coder->mp3_decoder);
 			coder->buff.addr = luat_heap_malloc(MP3_FRAME_LEN);
 
@@ -139,9 +139,9 @@ static int l_codec_get_audio_info(lua_State *L) {
 			coder->buff.used = luat_fs_fread(coder->buff.addr, MP3_FRAME_LEN, 1, fd);
 			result = mp3_decoder_get_info(coder->mp3_decoder, coder->buff.addr, coder->buff.used, &sample_rate, &num_channels);
 			mp3_decoder_init(coder->mp3_decoder);
-			audio_format = MULTIMEDIA_DATA_TYPE_PCM;
+			audio_format = LUAT_MULTIMEDIA_DATA_TYPE_PCM;
 			break;
-		case MULTIMEDIA_DATA_TYPE_WAV:
+		case LUAT_MULTIMEDIA_DATA_TYPE_WAV:
 			luat_fs_fread(temp, 12, 1, fd);
 			if (!memcmp(temp, "RIFF", 4) || !memcmp(temp + 8, "WAVE", 4))
 			{
@@ -242,7 +242,7 @@ static int l_codec_get_audio_data(lua_State *L) {
     {
 		switch(coder->type)
 		{
-		case MULTIMEDIA_DATA_TYPE_MP3:
+		case LUAT_MULTIMEDIA_DATA_TYPE_MP3:
 GET_MP3_DATA:
 			if (coder->buff.used < MINIMP3_MAX_SAMPLES_PER_FRAME)
 			{
@@ -306,7 +306,7 @@ GET_MP3_DATA:
 				result = 1;
 			}
 			break;
-		case MULTIMEDIA_DATA_TYPE_WAV:
+		case LUAT_MULTIMEDIA_DATA_TYPE_WAV:
 			read_len = luat_fs_fread(out_buff->addr + out_buff->used, coder->read_len, 1, coder->fd);
 			if (read_len > 0)
 			{
@@ -346,7 +346,7 @@ static int l_codec_encode_audio_data(lua_State *L) {
 	luat_zbuff_t *in_buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
 	luat_zbuff_t *out_buff = ((luat_zbuff_t *)luaL_checkudata(L, 3, LUAT_ZBUFF_TYPE));
 	int mode = luaL_optinteger(L, 4, MR475);
-	if (!coder || !in_buff || !out_buff || (coder->type != MULTIMEDIA_DATA_TYPE_AMR_NB) || coder->is_decoder)
+	if (!coder || !in_buff || !out_buff || (coder->type != LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB) || coder->is_decoder)
 	{
 		lua_pushboolean(L, 0);
 		return 1;
@@ -405,14 +405,14 @@ static int l_codec_gc(lua_State *L)
 		memset(&coder->buff, 0, sizeof(luat_zbuff_t));
 	}
 	switch(coder->type) {
-	case MULTIMEDIA_DATA_TYPE_MP3:
+	case LUAT_MULTIMEDIA_DATA_TYPE_MP3:
 		if (coder->is_decoder && coder->mp3_decoder) {
 			luat_heap_free(coder->mp3_decoder);
 			coder->mp3_decoder = NULL;
 		}
 		break;
 #ifdef LUAT_SUPPORT_AMR
-	case MULTIMEDIA_DATA_TYPE_AMR_NB:
+	case LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB:
 		if (!coder->is_decoder && coder->amr_coder) {
 			Encoder_Interface_exit(coder->amr_coder);
 			coder->amr_coder = NULL;
@@ -443,13 +443,13 @@ static const rotable_Reg_t reg_codec[] =
 	{ "encode",  		 ROREG_FUNC(l_codec_encode_audio_data)},
     { "release",         ROREG_FUNC(l_codec_release)},
     //@const MP3 number MP3格式
-	{ "MP3",             ROREG_INT(MULTIMEDIA_DATA_TYPE_MP3)},
+	{ "MP3",             ROREG_INT(LUAT_MULTIMEDIA_DATA_TYPE_MP3)},
     //@const WAV number WAV格式
-	{ "WAV",             ROREG_INT(MULTIMEDIA_DATA_TYPE_WAV)},
+	{ "WAV",             ROREG_INT(LUAT_MULTIMEDIA_DATA_TYPE_WAV)},
 	//@const AMR number AMR-NB格式，一般意义上的AMR
-	{ "AMR",             ROREG_INT(MULTIMEDIA_DATA_TYPE_AMR_NB)},
+	{ "AMR",             ROREG_INT(LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB)},
 	//@const AMR_WB number AMR-WB格式
-	{ "AMR_WB",          ROREG_INT(MULTIMEDIA_DATA_TYPE_AMR_WB)},
+	{ "AMR_WB",          ROREG_INT(LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB)},
 	{ NULL,              {}}
 };
 

@@ -373,9 +373,9 @@ static int l_audio_set_output_bus(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
     luat_audio_conf_t* audio_conf = luat_audio_get_config(id);
     int tp = luaL_checkinteger(L, 2);
-    if (audio_conf!=NULL && lua_istable(L,3) && tp==MULTIMEDIA_AUDIO_BUS_I2S){
+    if (audio_conf!=NULL && lua_istable(L,3) && tp==LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
         audio_conf->codec_conf.multimedia_id = id;
-        audio_conf->bus_type = MULTIMEDIA_AUDIO_BUS_I2S;
+        audio_conf->bus_type = LUAT_MULTIMEDIA_AUDIO_BUS_I2S;
 		lua_pushstring(L, "chip");
 		if (LUA_TSTRING == lua_gettable(L, 3)) {
             const char *chip = luaL_checklstring(L, -1,&len);
@@ -441,17 +441,17 @@ static const rotable_Reg_t reg_audio[] =
 	{ "setBus",			ROREG_FUNC(l_audio_set_output_bus)},
 	{ "debug",			ROREG_FUNC(l_audio_set_debug)},
 	//@const PCM number PCM格式，即原始ADC数据
-    { "PCM",           ROREG_INT(MULTIMEDIA_DATA_TYPE_PCM)},
+    { "PCM",           ROREG_INT(LUAT_MULTIMEDIA_DATA_TYPE_PCM)},
 	//@const MORE_DATA number audio.on回调函数传入参数的值，表示底层播放完一段数据，可以传入更多数据
-	{ "MORE_DATA",     ROREG_INT(MULTIMEDIA_CB_AUDIO_NEED_DATA)},
+	{ "MORE_DATA",     ROREG_INT(LUAT_MULTIMEDIA_CB_AUDIO_NEED_DATA)},
 	//@const DONE number audio.on回调函数传入参数的值，表示底层播放完全部数据了
-	{ "DONE",          ROREG_INT(MULTIMEDIA_CB_AUDIO_DONE)},
+	{ "DONE",          ROREG_INT(LUAT_MULTIMEDIA_CB_AUDIO_DONE)},
 	//@const BUS_DAC number 硬件输出总线，DAC类型
-	{ "BUS_DAC", 		ROREG_INT(MULTIMEDIA_AUDIO_BUS_DAC)},
+	{ "BUS_DAC", 		ROREG_INT(LUAT_MULTIMEDIA_AUDIO_BUS_DAC)},
 	//@const BUS_I2S number 硬件输出总线，I2S类型
-	{ "BUS_I2S", 		ROREG_INT(MULTIMEDIA_AUDIO_BUS_I2S)},
+	{ "BUS_I2S", 		ROREG_INT(LUAT_MULTIMEDIA_AUDIO_BUS_I2S)},
 	//@const BUS_SOFT_DAC number 硬件输出总线，软件模式DAC类型
-	{ "BUS_SOFT_DAC", 		ROREG_INT(MULTIMEDIA_AUDIO_BUS_SOFT_DAC)},
+	{ "BUS_SOFT_DAC", 		ROREG_INT(LUAT_MULTIMEDIA_AUDIO_BUS_SOFT_DAC)},
 	{ NULL,            ROREG_INT(0)}
 };
 

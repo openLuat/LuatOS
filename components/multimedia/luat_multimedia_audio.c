@@ -136,46 +136,6 @@ LUAT_WEAK void luat_audio_config_dac(uint8_t multimedia_id, int pin, int level, 
     }
 }
 
-LUAT_WEAK uint16_t luat_audio_vol(uint8_t multimedia_id, uint16_t vol){
-    luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
-    if (audio_conf == NULL || vol < 0 || vol > 1000) return -1;
-    audio_conf->soft_vol = vol<=100?100:vol;
-    if (audio_conf->bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
-        if (vol <= 100){
-            audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_VOICE_VOL,vol);
-            return audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_GET_VOICE_VOL,0);
-        }else{
-            audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_VOICE_VOL,100);
-            return vol;
-        }
-    }
-    return -1;
-}
-
-LUAT_WEAK int luat_audio_setup_codec(uint8_t multimedia_id, const luat_audio_codec_conf_t *codec_conf){
-	luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
-    if (audio_conf){
-        if (audio_conf->bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
-            audio_conf->codec_conf= *codec_conf;
-            return 0;
-        }
-    }
-    return -1;
-}
-
-LUAT_WEAK uint8_t luat_audio_mic_vol(uint8_t multimedia_id, uint16_t vol){
-    if(vol < 0 || vol > 100) return -1;
-    luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
-    if (audio_conf){
-        if (audio_conf->bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
-            if (audio_conf->codec_conf.codec_opts->no_control) return -1;
-            audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_MIC_VOL,vol);
-            return audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_GET_MIC_VOL,0);
-        }
-    }
-    return -1;
-}
-
 static LUAT_RT_RET_TYPE pa_delay_timer_cb(LUAT_RT_CB_PARAM){
     uint8_t multimedia_id = (uint8_t)param;
     luat_audio_pa(multimedia_id,1, 0);
@@ -195,6 +155,54 @@ LUAT_WEAK void luat_audio_pa(uint8_t multimedia_id,uint8_t on, uint32_t delay){
             }
         }
     }
+}
+
+LUAT_WEAK void luat_audio_power(uint8_t multimedia_id,uint8_t on){
+    luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
+    if (audio_conf){
+        if (audio_conf->power_pin == LUAT_GPIO_NONE) return;
+        luat_gpio_set(audio_conf->power_pin, on?audio_conf->power_on_level:!audio_conf->power_on_level);
+    }
+}
+
+LUAT_WEAK uint16_t luat_audio_vol(uint8_t multimedia_id, uint16_t vol){
+    luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
+    if (audio_conf == NULL || vol < 0 || vol > 1000) return -1;
+    audio_conf->soft_vol = vol<=100?100:vol;
+    if (audio_conf->bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
+        if (vol <= 100){
+            audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_VOICE_VOL,vol);
+            return audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_GET_VOICE_VOL,0);
+        }else{
+            audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_VOICE_VOL,100);
+            return vol;
+        }
+    }
+    return -1;
+}
+
+LUAT_WEAK uint8_t luat_audio_mic_vol(uint8_t multimedia_id, uint16_t vol){
+    if(vol < 0 || vol > 100) return -1;
+    luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
+    if (audio_conf){
+        if (audio_conf->bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
+            if (audio_conf->codec_conf.codec_opts->no_control) return -1;
+            audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_MIC_VOL,vol);
+            return audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_GET_MIC_VOL,0);
+        }
+    }
+    return -1;
+}
+
+LUAT_WEAK int luat_audio_setup_codec(uint8_t multimedia_id, const luat_audio_codec_conf_t *codec_conf){
+	luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
+    if (audio_conf){
+        if (audio_conf->bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
+            audio_conf->codec_conf= *codec_conf;
+            return 0;
+        }
+    }
+    return -1;
 }
 
 //TODO

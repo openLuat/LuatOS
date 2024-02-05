@@ -225,7 +225,7 @@ int luat_audio_speech(uint8_t multimedia_id, uint8_t is_downlink, uint8_t type, 
 
 int luat_audio_speech_stop(uint8_t multimedia_id);
 
-void luat_audio_pa(uint8_t multimedia_id,uint8_t on, uint32_t delay);
-
+void luat_audio_pa(uint8_t multimedia_id,uint8_t on, uint32_t delay);//pa控制函数，一般不需要使用，底层会自动调用
+void luat_audio_power(uint8_t multimedia_id,uint8_t on);//power控制函数，一般不需要使用，底层会自动调用
 
 #endif

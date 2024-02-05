@@ -36,18 +36,14 @@ static int tm8211_codec_control(luat_audio_codec_conf_t* conf,luat_audio_codec_c
 }
 
 static int tm8211_codec_start(luat_audio_codec_conf_t* conf){
+    luat_audio_power(conf->multimedia_id,1);
 	luat_audio_pa(conf->multimedia_id,1, 0);
-    // if (conf->power_pin != LUAT_CODEC_PA_NONE){
-    //     luat_gpio_set(conf->power_pin, conf->power_on_level);
-    // }
     return 0;
 }
 
 static int tm8211_codec_stop(luat_audio_codec_conf_t* conf){
 	luat_audio_pa(conf->multimedia_id,0, 0);
-    // if (conf->power_pin != LUAT_CODEC_PA_NONE){
-    //     luat_gpio_set(conf->power_pin, !conf->power_on_level);
-    // }
+    luat_audio_power(conf->multimedia_id,0);
     return 0;
 }
 

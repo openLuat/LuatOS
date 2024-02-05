@@ -218,7 +218,7 @@ int luat_audio_speech(uint8_t multimedia_id, uint8_t is_downlink, uint8_t type, 
 
 int luat_audio_speech_stop(uint8_t multimedia_id);
 
-void luat_audio_pa(uint8_t multimedia_id, ,uint8_t on, uint32_t delay);
+void luat_audio_pa(uint8_t multimedia_id,uint8_t on, uint32_t delay);
 
 
 #endif

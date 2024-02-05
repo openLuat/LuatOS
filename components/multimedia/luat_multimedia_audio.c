@@ -53,7 +53,7 @@ LUAT_WEAK int luat_audio_start_raw(uint8_t multimedia_id, uint8_t audio_format, 
             i2s_conf->sample_rate = sample_rate,
             luat_i2s_modify(audio_conf->codec_conf.i2s_id,i2s_conf->channel_format,i2s_conf->data_bits, i2s_conf->sample_rate);
             audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_RATE,sample_rate);
-            audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_PA,audio_conf->codec_conf.pa_on_level);
+            luat_audio_pa(multimedia_id,1,0);
         }
     }
     return 0;
@@ -91,10 +91,10 @@ LUAT_WEAK int luat_audio_pause_raw(uint8_t multimedia_id, uint8_t is_pause){
     if (audio_conf){
         if (audio_conf->bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
             if (is_pause){
-                audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_PA,!audio_conf->codec_conf.pa_on_level);
+                luat_audio_pa(multimedia_id,0,0);
                 luat_i2s_pause(audio_conf->codec_conf.i2s_id);
             }else{
-                audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_PA,audio_conf->codec_conf.pa_on_level);
+                luat_audio_pa(multimedia_id,1,0);
                 luat_i2s_resume(audio_conf->codec_conf.i2s_id);
             }
             return 0;
@@ -108,15 +108,15 @@ LUAT_WEAK void luat_audio_config_pa(uint8_t multimedia_id, uint32_t pin, int lev
     if (audio_conf){
         if (audio_conf->bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
             if (pin != LUAT_GPIO_NONE && pin<LUAT_GPIO_PIN_MAX && pin>0){
-                audio_conf->codec_conf.pa_pin = pin;
-                audio_conf->codec_conf.pa_on_level = level;
+                audio_conf->pa_pin = pin;
+                audio_conf->pa_on_level = level;
                 luat_gpio_mode(pin, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, !level);
                 luat_gpio_set(pin, !level);
             }else{
-                audio_conf->codec_conf.pa_pin = LUAT_GPIO_NONE;
+                audio_conf->pa_pin = LUAT_GPIO_NONE;
             }
-            audio_conf->codec_conf.after_sleep_ready_time = dummy_time_len;
-            audio_conf->codec_conf.pa_delay_time = pa_delay_time;
+            audio_conf->after_sleep_ready_time = dummy_time_len;
+            audio_conf->pa_delay_time = pa_delay_time;
         }
     }
 }
@@ -126,11 +126,11 @@ LUAT_WEAK void luat_audio_config_dac(uint8_t multimedia_id, int pin, int level, 
     if (audio_conf){
         if (audio_conf->bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
             if (pin != LUAT_GPIO_NONE){
-                audio_conf->codec_conf.power_pin = pin;
-                audio_conf->codec_conf.power_on_level = level;
-                audio_conf->codec_conf.power_off_delay_time = dac_off_delay_time;
+                audio_conf->power_pin = pin;
+                audio_conf->power_on_level = level;
+                audio_conf->power_off_delay_time = dac_off_delay_time;
             }else{
-                audio_conf->codec_conf.power_pin = LUAT_GPIO_NONE;
+                audio_conf->power_pin = LUAT_GPIO_NONE;
             }
         }
     }
@@ -184,13 +184,13 @@ static LUAT_RT_RET_TYPE pa_delay_timer_cb(LUAT_RT_CB_PARAM){
 LUAT_WEAK void luat_audio_pa(uint8_t multimedia_id,uint8_t on, uint32_t delay){
     luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf){
-        if (audio_conf->codec_conf.pa_pin == LUAT_GPIO_NONE) return;
+        if (audio_conf->pa_pin == LUAT_GPIO_NONE) return;
         if (audio_conf->bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
             if (audio_conf->pa_delay_timer!=NULL&&delay>0){
                 luat_rtos_timer_start(audio_conf->pa_delay_timer,delay,0,pa_delay_timer_cb,(void*)multimedia_id);
             }
             else{
-                audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_PA,on);
+                luat_gpio_set(audio_conf->pa_pin, on?audio_conf->pa_on_level:!audio_conf->pa_on_level);
                 audio_conf->pa_on_enable = 1;
             }
         }
@@ -206,9 +206,7 @@ LUAT_WEAK int luat_audio_init(uint8_t multimedia_id, uint16_t init_vol, uint16_t
 	luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf == NULL) return -1;
 
-    if (audio_conf->codec_conf.pa_pin != LUAT_GPIO_NONE){
-        luat_gpio_mode(audio_conf->codec_conf.pa_pin, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, !audio_conf->codec_conf.pa_on_level);
-        luat_gpio_set(audio_conf->codec_conf.pa_pin, !audio_conf->codec_conf.pa_on_level);
+    if (audio_conf->pa_pin != LUAT_GPIO_NONE){
         luat_rtos_timer_create(&audio_conf->pa_delay_timer);
     }
 
@@ -229,9 +227,7 @@ LUAT_WEAK int luat_audio_init(uint8_t multimedia_id, uint16_t init_vol, uint16_t
         result = audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_MIC_VOL, init_mic_vol);
         if (result) return result;
 
-        luat_audio_pm_request(multimedia_id,LUAT_AUDIO_PM_STANDBY);
-        // result = audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_STANDBY,LUAT_CODEC_MODE_ALL);
-        // if (result) return result;
+        luat_audio_pm_request(multimedia_id,LUAT_AUDIO_PM_STANDBY); //默认进入standby模式
 
         //不应该默认进normal模式，会增加功耗，无pa控制应该根据pa是否传入有效引脚去播放白音或者用户自己控制
         // result = audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_RESUME,LUAT_CODEC_MODE_ALL);
@@ -274,9 +270,9 @@ LUAT_WEAK int luat_audio_pm_request(uint8_t multimedia_id,luat_audio_pm_mode_t m
             audio_conf->is_sleep = 1;
             break;
         case LUAT_AUDIO_PM_SHUTDOWN:
-            audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_PA,0);
-			if (audio_conf->codec_conf.power_off_delay_time)
-				luat_rtos_task_sleep(audio_conf->codec_conf.power_off_delay_time);
+            luat_audio_pa(multimedia_id,0,0);
+			if (audio_conf->power_off_delay_time)
+				luat_rtos_task_sleep(audio_conf->power_off_delay_time);
             audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_PWRDOWN,0);
             //非控制的关闭i2s输出?
             // luat_i2s_close(audio_conf->codec_conf.i2s_id);

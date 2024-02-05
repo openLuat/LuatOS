@@ -46,6 +46,13 @@ typedef struct luat_audio_conf {
     uint8_t wakeup_ready;
     uint8_t pa_on_enable;
     uint8_t record_mode;
+    uint8_t pa_pin;                                                     // pa pin
+	uint8_t pa_on_level;                                                // pa 使能电平
+    uint32_t after_sleep_ready_time;                                    // 
+    uint32_t pa_delay_time;                                             // 
+	uint8_t power_pin;													// 电源控制
+	uint8_t power_on_level;                                             // 电源使能电平
+	uint32_t power_off_delay_time;                                      // 电源关闭后延时时间 
 } luat_audio_conf_t;
 
 typedef enum{

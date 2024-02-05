@@ -433,13 +433,6 @@ static inline void es8311_reset(luat_audio_codec_conf_t* conf){
 }
 
 static int es8311_codec_init(luat_audio_codec_conf_t* conf,uint8_t mode){
-    if (conf->power_pin != LUAT_CODEC_PA_NONE){
-        luat_gpio_mode(conf->power_pin, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, !conf->power_on_level);
-        luat_gpio_set(conf->power_pin, conf->power_on_level);
-    }
-	if (conf->power_on_delay_ms){
-		luat_rtos_task_sleep(conf->power_on_delay_ms);
-	}
     luat_rtos_task_sleep(50);
     uint8_t temp1 = es8311_read_reg(conf,ES8311_CHD1_REGFD);
     uint8_t temp2 = es8311_read_reg(conf,ES8311_CHD2_REGFE);
@@ -497,23 +490,11 @@ static int es8311_codec_init(luat_audio_codec_conf_t* conf,uint8_t mode){
 }
 
 static int es8311_codec_deinit(luat_audio_codec_conf_t* conf){
-    if (conf->pa_pin != LUAT_CODEC_PA_NONE){
-        luat_gpio_close(conf->pa_pin);
-    }
-    if (conf->power_pin != LUAT_CODEC_PA_NONE){
-        luat_gpio_set(conf->power_pin, !conf->power_on_level);
-        luat_gpio_close(conf->power_pin);
-    }
+    //也提出去做一个audio的close
+    // if (conf->pa_pin != LUAT_CODEC_PA_NONE){
+    //     luat_gpio_close(conf->pa_pin);
+    // }
     return 0;
-}
-
-static void es8311_codec_pa(luat_audio_codec_conf_t* conf,uint8_t on){
-    if (conf->pa_pin == LUAT_CODEC_PA_NONE) return;
-	if (on){
-            luat_gpio_set(conf->pa_pin, conf->pa_on_level);
-	}else{
-        luat_gpio_set(conf->pa_pin, !conf->pa_on_level);
-	}
 }
 
 static int es8311_codec_control(luat_audio_codec_conf_t* conf,luat_audio_codec_ctl_t cmd,uint32_t data){
@@ -557,9 +538,6 @@ static int es8311_codec_control(luat_audio_codec_conf_t* conf,luat_audio_codec_c
         case LUAT_CODEC_SET_CHANNEL:
             es8311_codec_channels(conf,(uint8_t)data);
             break;
-        case LUAT_CODEC_SET_PA:
-            es8311_codec_pa(conf,(uint8_t)data);
-            break;
         default:
             break;
     }
@@ -568,13 +546,13 @@ static int es8311_codec_control(luat_audio_codec_conf_t* conf,luat_audio_codec_c
 
 static int es8311_codec_start(luat_audio_codec_conf_t* conf){
     es8311_mode_resume(conf,LUAT_CODEC_MODE_ALL);
-    es8311_codec_pa(conf,1);
+    luat_audio_pa(conf->multimedia_id,1, 0);
     return 0;
 }
 
 static int es8311_codec_stop(luat_audio_codec_conf_t* conf){
+    luat_audio_pa(conf->multimedia_id,0, 0);
     es8311_mode_standby(conf,LUAT_CODEC_MODE_ALL);
-    es8311_codec_pa(conf,0);
     return 0;
 }
 

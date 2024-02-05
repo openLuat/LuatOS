@@ -3,7 +3,6 @@
 #define __LUAT_AUDIO_CODEC_H__
 
 typedef enum {
-
     LUAT_CODEC_SET_MUTE = 0,        // 静音设置
     LUAT_CODEC_GET_MUTE,            // 获取静音状态
     LUAT_CODEC_SET_VOICE_VOL,       // 音量设置
@@ -15,7 +14,6 @@ typedef enum {
     LUAT_CODEC_SET_RATE,            // 采样率设置
     LUAT_CODEC_SET_BITS,            // 采样位设置
     LUAT_CODEC_SET_CHANNEL,         // 通道设置
-    LUAT_CODEC_SET_PA,              // pa控制
     
     LUAT_CODEC_MODE_RESUME,
     LUAT_CODEC_MODE_STANDBY,
@@ -46,14 +44,6 @@ typedef struct luat_audio_codec_conf {
     int i2s_id;                                                         // i2s id
     const struct luat_audio_codec_opts* codec_opts;                     // codec 驱动函数
     uint8_t multimedia_id;                                              // 多媒体id
-    uint8_t pa_pin;                                                     // pa pin
-	uint8_t pa_on_level;                                                // pa 使能电平
-    uint32_t after_sleep_ready_time;                                    // 
-    uint32_t pa_delay_time;                                             // 
-	uint8_t power_pin;													// 电源控制
-	uint8_t power_on_level;                                             // 电源使能电平
-    uint32_t power_on_delay_ms;                                         // 电源使能后延时时间
-	uint32_t power_off_delay_time;                                      // 电源关闭后延时时间 
 } luat_audio_codec_conf_t;
 
 typedef struct luat_audio_codec_opts{

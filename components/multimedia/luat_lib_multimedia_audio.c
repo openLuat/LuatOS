@@ -396,7 +396,7 @@ static int l_audio_set_output_bus(lua_State *L) {
 		lua_pop(L, 1);
     }
     int ret = luat_audio_set_bus_type(id,tp);
-    ret |= luat_audio_init_codec(id, 0, 0);
+    ret |= luat_audio_init(id, 0, 0);
     lua_pushboolean(L, !ret);
     return 1;
 }

@@ -75,14 +75,14 @@ luat_audio_conf_t *luat_audio_get_config(uint8_t multimedia_id);
 int luat_audio_setup_codec(uint8_t multimedia_id, const luat_audio_codec_conf_t *codec_conf);
 
 /**
- * @brief 初始化codec
+ * @brief 初始化audio
  *
  * @param multimedia_id 多媒体通道，目前只有0
- * @param init_vol 默认硬件音量，如果不带调节功能的codec，则忽略
- * @param init_mic_vol 默认MIC音量，如果不带调节功能的codec，则忽略
+ * @param init_vol 默认硬件音量
+ * @param init_mic_vol 默认MIC音量
  * @return int =0成功，其他失败
  */
-int luat_audio_init_codec(uint8_t multimedia_id, uint16_t init_vol, uint16_t init_mic_vol);
+int luat_audio_init(uint8_t multimedia_id, uint16_t init_vol, uint16_t init_mic_vol);
 
 /**
  * @brief audio休眠控制,注意，pm各个模式下功耗由具体audio硬件决定
@@ -217,4 +217,8 @@ int luat_audio_record_stop(uint8_t multimedia_id);
 int luat_audio_speech(uint8_t multimedia_id, uint8_t is_downlink, uint8_t type, const uint8_t *downlink_buffer, uint32_t buffer_len, uint8_t channel_num);
 
 int luat_audio_speech_stop(uint8_t multimedia_id);
+
+void luat_audio_pa(uint8_t multimedia_id, ,uint8_t on, uint32_t delay);
+
+
 #endif

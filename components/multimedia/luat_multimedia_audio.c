@@ -176,12 +176,21 @@ LUAT_WEAK uint8_t luat_audio_mic_vol(uint8_t multimedia_id, uint16_t vol){
     return -1;
 }
 
+LUAT_WEAK void luat_audio_pa(uint8_t multimedia_id, ,uint8_t on, uint32_t delay){
+    luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
+    if (audio_conf){
+        if (audio_conf->bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
+            audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_PA,on);
+        }
+    }
+}
+
 //TODO
 LUAT_WEAK int luat_audio_play_blank(uint8_t multimedia_id){
     return -1;
 }
 
-LUAT_WEAK int luat_audio_init_codec(uint8_t multimedia_id, uint16_t init_vol, uint16_t init_mic_vol){
+LUAT_WEAK int luat_audio_init(uint8_t multimedia_id, uint16_t init_vol, uint16_t init_mic_vol){
 	luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf == NULL) return -1;
     audio_conf->is_sleep = 0;

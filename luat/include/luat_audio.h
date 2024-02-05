@@ -63,13 +63,13 @@ typedef enum{
 
 
 /**
- * @brief 设置音频硬件输出类型,后续初始化都会根据类型做不同处理，所以要首先使用此函数设置类型
+ * @brief 设置音频硬件输出类型,后续初始化都会根据类型做不同处理，所以要首先使用此函数设置类型!!!
  *
  * @param bus_type 见MULTIMEDIA_AUDIO_BUS，目前只有0=DAC 1=I2S 2=SOFT_DAC
  */
 int luat_audio_set_bus_type(uint8_t multimedia_id,uint8_t bus_type);
 
-//此函数可获取multimedia_id对应的audio结构体,用于动态修改,如果有无法直接设置的函数可自行通过此方法修改结构体
+//此函数可获取multimedia_id对应的audio结构体,用于动态修改,如果有无法直接设置的函数可自行通过此方法修改结构体，一般不需要使用此函数
 luat_audio_conf_t *luat_audio_get_config(uint8_t multimedia_id);
 
 /**
@@ -208,24 +208,117 @@ int luat_audio_play_tts_text(uint8_t multimedia_id, void *text, uint32_t text_by
  */
 int luat_audio_play_tts_set_param(uint8_t multimedia_id, uint32_t param_id, uint32_t param_value);
 
+/**
+ * @brief pa引脚配置
+ * 
+ * @param multimedia_id multimedia_id 多媒体通道
+ * @param pin pa pin
+ * @param level pa使能电平
+ * @param dummy_time_len 
+ * @param pa_delay_time 
+ */
 void luat_audio_config_pa(uint8_t multimedia_id, uint32_t pin, int level, uint32_t dummy_time_len, uint32_t pa_delay_time);
+
+/**
+ * @brief power引脚配置
+ * 
+ * @param multimedia_id 多媒体通道
+ * @param pin power pin
+ * @param level 使能电平
+ * @param dac_off_delay_time 
+ */
 void luat_audio_config_dac(uint8_t multimedia_id, int pin, int level, uint32_t dac_off_delay_time);
+
+/**
+ * @brief 音量控制
+ * 
+ * @param multimedia_id 多媒体通道
+ * @param vol 音量，0-1000 0-100为硬件 100-1000为软件缩放，实际根据不同bsp不同硬件底层实现
+ * @return uint16_t 音量，0-1000
+ */
 uint16_t luat_audio_vol(uint8_t multimedia_id, uint16_t vol);
+
+/**
+ * @brief mic音量控制
+ * 
+ * @param multimedia_id 多媒体通道
+ * @param vol 音量，0-100
+ * @return uint8_t 音量 0-100
+ */
 uint8_t luat_audio_mic_vol(uint8_t multimedia_id, uint16_t vol);
 
+/**
+ * @brief 调试开关
+ * 
+ * @param multimedia_id 多媒体通道
+ * @param onoff 0关闭，1打开
+ */
 void luat_audio_play_debug_onoff(uint8_t multimedia_id, uint8_t onoff);
 
+/**
+ * @brief 检测音频是否准备就绪
+ * 
+ * @param multimedia_id 多媒体通道
+ * @return int -1未就绪，0就绪
+ */
 int luat_audio_check_ready(uint8_t multimedia_id);
 
+/**
+ * @brief 录音并播放
+ * 
+ * @param multimedia_id 多媒体通道
+ * @param sample_rate 采样率
+ * @param play_buffer buffer
+ * @param one_trunk_len 一次传输长度
+ * @param total_trunk_cnt 传输次数
+ * @return int 成功返回0，失败返回-1
+ */
 int luat_audio_record_and_play(uint8_t multimedia_id, uint32_t sample_rate, const uint8_t *play_buffer, uint32_t one_trunk_len, uint32_t total_trunk_cnt);
 
+/**
+ * @brief 录音停止
+ * 
+ * @param multimedia_id 多媒体通道
+ * @return int 成功返回0，失败返回-1
+ */
 int luat_audio_record_stop(uint8_t multimedia_id);
 
+/**
+ * @brief 开始通话输出
+ * 
+ * @param multimedia_id 多媒体通道
+ * @param is_downlink 通话是否连接
+ * @param type 类型
+ * @param downlink_buffer buffer
+ * @param buffer_len buffer 长度
+ * @param channel_num 通道
+ * @return int 成功返回0，失败返回-1
+ */
 int luat_audio_speech(uint8_t multimedia_id, uint8_t is_downlink, uint8_t type, const uint8_t *downlink_buffer, uint32_t buffer_len, uint8_t channel_num);
 
+/**
+ * @brief 通话输出停止
+ * 
+ * @param multimedia_id 多媒体通道
+ * @return int 成功返回0，失败返回-1
+ */
 int luat_audio_speech_stop(uint8_t multimedia_id);
 
-void luat_audio_pa(uint8_t multimedia_id,uint8_t on, uint32_t delay);//pa控制函数，一般不需要使用，底层会自动调用
-void luat_audio_power(uint8_t multimedia_id,uint8_t on);//power控制函数，一般不需要使用，底层会自动调用
+/**
+ * @brief pa控制函数，一般不需要使用，底层会自动调用
+ * 
+ * @param multimedia_id multimedia_id 多媒体通道
+ * @param on 1开，0关
+ * @param delay 延迟时间，非阻塞，不延迟写0
+ */
+void luat_audio_pa(uint8_t multimedia_id,uint8_t on, uint32_t delay);
+
+/**
+ * @brief power控制函数，一般不需要使用，底层会自动调用
+ * 
+ * @param multimedia_id 多媒体通道
+ * @param on 1开，0关
+ */
+void luat_audio_power(uint8_t multimedia_id,uint8_t on);
 
 #endif

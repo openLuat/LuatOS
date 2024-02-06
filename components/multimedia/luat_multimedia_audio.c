@@ -288,6 +288,9 @@ LUAT_WEAK int luat_audio_pm_request(uint8_t multimedia_id,luat_audio_pm_mode_t m
 			audio_conf->pa_on_enable = 0;
             audio_conf->is_sleep = 1;
             break;
+        case LUAT_AUDIO_PM_MUTE:
+        	luat_audio_play_blank(multimedia_id);
+        	break;
         default:
             return -1;
         }

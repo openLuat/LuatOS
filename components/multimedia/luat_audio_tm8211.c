@@ -11,10 +11,6 @@ static int tm8211_codec_init(luat_audio_codec_conf_t* conf,uint8_t mode){
 }
 
 static int tm8211_codec_deinit(luat_audio_codec_conf_t* conf){
-    // if (conf->pa_pin != LUAT_CODEC_PA_NONE){
-    //     luat_gpio_set(conf->pa_pin, !conf->pa_on_level);
-    //     luat_gpio_close(conf->pa_pin);
-    // }
     return 0;
 }
 

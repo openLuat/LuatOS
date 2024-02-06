@@ -489,10 +489,6 @@ static int es8311_codec_init(luat_audio_codec_conf_t* conf,uint8_t mode){
 }
 
 static int es8311_codec_deinit(luat_audio_codec_conf_t* conf){
-    //也提出去做一个audio的close
-    // if (conf->pa_pin != LUAT_CODEC_PA_NONE){
-    //     luat_gpio_close(conf->pa_pin);
-    // }
     return 0;
 }
 

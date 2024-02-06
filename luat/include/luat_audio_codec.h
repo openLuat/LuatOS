@@ -18,7 +18,6 @@ typedef enum {
     LUAT_CODEC_MODE_RESUME,
     LUAT_CODEC_MODE_STANDBY,
     LUAT_CODEC_MODE_PWRDOWN,
-    LUAT_CODEC_PA_NONE  = 255,      //无pa控制引脚
 } luat_audio_codec_ctl_t;
 
 typedef enum {

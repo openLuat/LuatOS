@@ -616,6 +616,8 @@ static const rotable_Reg_t reg_gpio[] =
 #ifdef LUAT_USE_MCU
     { "caplevel" ,      ROREG_FUNC(l_gpio_caplevel)},
 #endif
+    //@const NONE number 无效引脚,一般用于告诉底层某功能引脚不指定
+    { "NONE",          ROREG_INT(LUAT_GPIO_NONE)},
     //@const LOW number 低电平
     { "LOW",            ROREG_INT(Luat_GPIO_LOW)},
     //@const HIGH number 高电平

@@ -171,14 +171,14 @@ LUAT_WEAK uint16_t luat_audio_vol(uint8_t multimedia_id, uint16_t vol){
     audio_conf->soft_vol = vol<=100?100:vol;
     if (audio_conf->bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
         uint8_t sleep_mode = audio_conf->sleep_mode;
-        if (sleep_mode) luat_audio_pm_request(multimedia_id,LUAT_AUDIO_PM_RESUME);
+        if (sleep_mode && audio_conf->codec_conf.codec_opts->no_control!=1) luat_audio_pm_request(multimedia_id,LUAT_AUDIO_PM_RESUME);
         if (vol <= 100){
             audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_VOICE_VOL,vol);
             vol = audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_GET_VOICE_VOL,0);
         }else{
             audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_VOICE_VOL,100);
         }
-        if (sleep_mode) luat_audio_pm_request(multimedia_id,sleep_mode);
+        if (sleep_mode && audio_conf->codec_conf.codec_opts->no_control!=1) luat_audio_pm_request(multimedia_id,sleep_mode);
         return vol;
     }
     return -1;
@@ -201,6 +201,27 @@ LUAT_WEAK uint8_t luat_audio_mic_vol(uint8_t multimedia_id, uint16_t vol){
     return -1;
 }
 
+//TODO
+LUAT_WEAK int luat_audio_play_blank(uint8_t multimedia_id){
+    return -1;
+}
+
+LUAT_WEAK uint8_t luat_audio_mute(uint8_t multimedia_id, uint8_t on){
+    luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
+    if (audio_conf){
+        if (audio_conf->bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
+            uint8_t sleep_mode = audio_conf->sleep_mode;
+            if (sleep_mode && audio_conf->codec_conf.codec_opts->no_control!=1) luat_audio_pm_request(multimedia_id,LUAT_AUDIO_PM_RESUME);
+            if (audio_conf->codec_conf.codec_opts->no_control) luat_audio_play_blank(multimedia_id);
+            audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_MUTE,on);
+            uint8_t mute = audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_GET_MUTE,0);
+            if (sleep_mode && audio_conf->codec_conf.codec_opts->no_control!=1) luat_audio_pm_request(multimedia_id,sleep_mode);
+            return mute;
+        }
+    }
+    return -1;
+}
+
 LUAT_WEAK int luat_audio_setup_codec(uint8_t multimedia_id, const luat_audio_codec_conf_t *codec_conf){
 	luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf){
@@ -209,11 +230,6 @@ LUAT_WEAK int luat_audio_setup_codec(uint8_t multimedia_id, const luat_audio_cod
             return 0;
         }
     }
-    return -1;
-}
-
-//TODO
-LUAT_WEAK int luat_audio_play_blank(uint8_t multimedia_id){
     return -1;
 }
 
@@ -295,9 +311,6 @@ LUAT_WEAK int luat_audio_pm_request(uint8_t multimedia_id,luat_audio_pm_mode_t m
 			audio_conf->pa_on_enable = 0;
             audio_conf->sleep_mode = LUAT_AUDIO_PM_SHUTDOWN;
             break;
-        case LUAT_AUDIO_PM_MUTE:
-        	luat_audio_play_blank(multimedia_id);
-        	break;
         default:
             return -1;
         }

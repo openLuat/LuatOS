@@ -274,8 +274,7 @@ static int es8311_mode_pwrdown(luat_audio_codec_conf_t* conf){
 
 // mute
 static uint8_t es8311_set_mute(luat_audio_codec_conf_t* conf,uint8_t enable){
-    if (enable)  es8311_write_reg(conf,ES8311_DAC_REG31, 0x20);
-    else es8311_write_reg(conf,ES8311_DAC_REG31, 0x00);
+    es8311_write_reg(conf,ES8311_DAC_REG31, enable?0x20:0x00);
 	return 0;
 }
 

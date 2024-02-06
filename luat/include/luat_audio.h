@@ -59,7 +59,6 @@ typedef enum{
     LUAT_AUDIO_PM_RESUME = 0,       /* 工作模式 */
     LUAT_AUDIO_PM_STANDBY,          /* 待机模式 */
     LUAT_AUDIO_PM_SHUTDOWN,         /* 关断模式 */
-	LUAT_AUDIO_PM_MUTE,       		/* 静音模式 */
 }luat_audio_pm_mode_t;
 
 
@@ -247,6 +246,15 @@ uint16_t luat_audio_vol(uint8_t multimedia_id, uint16_t vol);
  * @return uint8_t 音量 0-100
  */
 uint8_t luat_audio_mic_vol(uint8_t multimedia_id, uint16_t vol);
+
+/**
+ * @brief 静音
+ * 
+ * @param multimedia_id 多媒体通道
+ * @param on 1 静音，0 取消静音
+ * @return uint8_t 1 静音，0 取消静音
+ */
+uint8_t luat_audio_mute(uint8_t multimedia_id, uint8_t on);
 
 /**
  * @brief 调试开关

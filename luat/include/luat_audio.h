@@ -35,6 +35,9 @@ typedef struct luat_audio_conf {
 	luat_audio_codec_conf_t codec_conf;
 	void *hardware_data;
 	luat_rtos_timer_t pa_delay_timer;
+    uint32_t after_sleep_ready_time;                                    //
+    uint16_t pa_delay_time;
+	uint16_t power_off_delay_time;                                      // 电源关闭后延时时间
 	uint16_t soft_vol;
     uint16_t speech_downlink_type;
     uint16_t speech_uplink_type;
@@ -48,11 +51,10 @@ typedef struct luat_audio_conf {
     uint8_t record_mode;
     uint8_t pa_pin;                                                     // pa pin
 	uint8_t pa_on_level;                                                // pa 使能电平
-    uint32_t after_sleep_ready_time;                                    // 
-    uint32_t pa_delay_time;                                             // 
+                                      //
 	uint8_t power_pin;													// 电源控制
 	uint8_t power_on_level;                                             // 电源使能电平
-	uint32_t power_off_delay_time;                                      // 电源关闭后延时时间 
+	uint8_t pa_is_control_enable;
 } luat_audio_conf_t;
 
 typedef enum{
@@ -101,12 +103,13 @@ int luat_audio_init(uint8_t multimedia_id, uint16_t init_vol, uint16_t init_mic_
 int luat_audio_pm_request(uint8_t multimedia_id,luat_audio_pm_mode_t mode);
 
 /**
- * @brief 播放空白音
+ * @brief 播放空白音，一般不需要主动调用
  * 
  * @param multimedia_id 多媒体通道
+ * @param on_off 1打开空白，0关闭
  * @return int =0成功，其他失败
  */
-int luat_audio_play_blank(uint8_t multimedia_id);
+int luat_audio_play_blank(uint8_t multimedia_id, uint8_t on_off);
 
 #ifdef __LUATOS__
 /**

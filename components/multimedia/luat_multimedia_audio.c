@@ -243,8 +243,6 @@ LUAT_WEAK int luat_audio_init(uint8_t multimedia_id, uint16_t init_vol, uint16_t
     if (audio_conf->pa_pin != LUAT_GPIO_NONE){
         luat_rtos_timer_create(&audio_conf->pa_delay_timer);
     }
-
-    audio_conf->sleep_mode = 0;
     audio_conf->last_wakeup_time_ms = luat_mcu_tick64_ms();
     if (audio_conf->bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
         int result = audio_conf->codec_conf.codec_opts->init(&audio_conf->codec_conf, LUAT_CODEC_MODE_SLAVE);

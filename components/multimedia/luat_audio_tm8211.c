@@ -47,7 +47,10 @@ static int tm8211_codec_start(luat_audio_codec_conf_t* conf){
 }
 
 static int tm8211_codec_stop(luat_audio_codec_conf_t* conf){
+    luat_audio_conf_t* audio_conf = luat_audio_get_config(conf->multimedia_id);
 	luat_audio_pa(conf->multimedia_id,0, 0);
+    if (audio_conf->power_off_delay_time)
+        luat_rtos_task_sleep(audio_conf->power_off_delay_time);
     luat_audio_power(conf->multimedia_id,0);
     return 0;
 }

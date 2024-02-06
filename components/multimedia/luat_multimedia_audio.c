@@ -258,12 +258,10 @@ LUAT_WEAK int luat_audio_init(uint8_t multimedia_id, uint16_t init_vol, uint16_t
         if (result) return result;
         result = audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_MIC_VOL, init_mic_vol);
         if (result) return result;
-
-        luat_audio_pm_request(multimedia_id,LUAT_AUDIO_PM_STANDBY); //默认进入standby模式
-
-        //不应该默认进normal模式，会增加功耗，无pa控制应该根据pa是否传入有效引脚去播放白音或者用户自己控制
-        // result = audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_RESUME,LUAT_CODEC_MODE_ALL);
-        // if (result) return result;
+        if (audio_conf->pa_pin == LUAT_GPIO_NONE)
+            luat_audio_play_blank(multimedia_id);
+        else
+            luat_audio_pm_request(multimedia_id,LUAT_AUDIO_PM_STANDBY); //默认进入standby模式
         return 0;
     }
 	return 0;

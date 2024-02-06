@@ -42,7 +42,7 @@ typedef struct luat_audio_conf {
     uint8_t bus_type;
     uint8_t raw_mode;
     uint8_t debug_on_off;
-    uint8_t is_sleep;
+    uint8_t sleep_mode;
     uint8_t wakeup_ready;
     uint8_t pa_on_enable;
     uint8_t record_mode;

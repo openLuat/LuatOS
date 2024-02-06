@@ -14,7 +14,7 @@ static int tm8211_codec_deinit(luat_audio_codec_conf_t* conf){
     return 0;
 }
 
-static int es8311_mode_resume(luat_audio_codec_conf_t* conf,uint8_t selece){
+static int tm8211_mode_resume(luat_audio_codec_conf_t* conf,uint8_t selece){
     luat_audio_power(conf->multimedia_id,1);
     return 0;
 }

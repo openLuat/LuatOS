@@ -103,6 +103,9 @@ LUAT_WEAK int luat_audio_pause_raw(uint8_t multimedia_id, uint8_t is_pause){
     return -1;
 }
 
+//以上函数通用方法待实现
+
+
 LUAT_WEAK void luat_audio_config_pa(uint8_t multimedia_id, uint32_t pin, int level, uint32_t dummy_time_len, uint32_t pa_delay_time){
     luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf){
@@ -201,7 +204,7 @@ LUAT_WEAK uint8_t luat_audio_mic_vol(uint8_t multimedia_id, uint16_t vol){
     return -1;
 }
 
-//TODO
+//通用方式待实现
 LUAT_WEAK int luat_audio_play_blank(uint8_t multimedia_id){
     return -1;
 }
@@ -296,7 +299,7 @@ LUAT_WEAK int luat_audio_pm_request(uint8_t multimedia_id,luat_audio_pm_mode_t m
             break;
         case LUAT_AUDIO_PM_STANDBY:
             audio_conf->codec_conf.codec_opts->stop(&audio_conf->codec_conf);
-            //非控制的关闭i2s输出?输出白噪音?此处或codec具体处理
+            //非控制的关闭i2s输出?输出空白音?此处或codec具体处理
             // luat_i2s_close(audio_conf->codec_conf.i2s_id);
             audio_conf->sleep_mode = LUAT_AUDIO_PM_STANDBY;
             break;
@@ -305,7 +308,7 @@ LUAT_WEAK int luat_audio_pm_request(uint8_t multimedia_id,luat_audio_pm_mode_t m
 			if (audio_conf->power_off_delay_time)
 				luat_rtos_task_sleep(audio_conf->power_off_delay_time);
             audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_PWRDOWN,0);
-            //非控制的关闭i2s输出?
+            //非控制的关闭i2s输出?貌似stop合理?
             // luat_i2s_close(audio_conf->codec_conf.i2s_id);
 			audio_conf->wakeup_ready = 0;
 			audio_conf->pa_on_enable = 0;

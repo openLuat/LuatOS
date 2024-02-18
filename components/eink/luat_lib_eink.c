@@ -1342,6 +1342,8 @@ static const rotable_Reg_t reg_eink[] =
     { "MODEL_2in9b_V3",       ROREG_INT(MODEL_2in9b_V3)},
     //@const MODEL_2in9d number 2.9寸d
     { "MODEL_2in9d",          ROREG_INT(MODEL_2in9d)},
+    //@const MODEL_3in52 number 3.52寸
+    { "MODEL_3in52",           ROREG_INT(MODEL_3in52)},
     //@const MODEL_3in7 number 3.7寸
     { "MODEL_3in7",           ROREG_INT(MODEL_3in7)},
     //@const MODEL_4in2 number 4.2寸

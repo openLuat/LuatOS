@@ -115,6 +115,7 @@ LUAT_WEAK void luat_audio_config_pa(uint8_t multimedia_id, uint32_t pin, int lev
             luat_gpio_mode(pin, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, !level);
             luat_gpio_set(pin, !level);
             audio_conf->pa_is_control_enable = 1;
+            luat_rtos_timer_create(&audio_conf->pa_delay_timer);
         }else{
             audio_conf->pa_pin = LUAT_GPIO_NONE;
         }
@@ -145,6 +146,7 @@ LUAT_WEAK void luat_audio_pa(uint8_t multimedia_id,uint8_t on, uint32_t delay){
     luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf){
         if (!audio_conf->pa_is_control_enable) return;
+        
         if (audio_conf->pa_delay_timer!=NULL&&delay>0){
             luat_rtos_timer_start(audio_conf->pa_delay_timer,delay,0,pa_delay_timer_cb,(void*)multimedia_id);
         }
@@ -240,10 +242,6 @@ LUAT_WEAK int luat_audio_setup_codec(uint8_t multimedia_id, const luat_audio_cod
 LUAT_WEAK int luat_audio_init(uint8_t multimedia_id, uint16_t init_vol, uint16_t init_mic_vol){
 	luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf == NULL) return -1;
-
-    if (audio_conf->pa_is_control_enable){
-        luat_rtos_timer_create(&audio_conf->pa_delay_timer);
-    }
     audio_conf->last_wakeup_time_ms = luat_mcu_tick64_ms();
     if (audio_conf->bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
         int result = audio_conf->codec_conf.codec_opts->init(&audio_conf->codec_conf, LUAT_CODEC_MODE_SLAVE);

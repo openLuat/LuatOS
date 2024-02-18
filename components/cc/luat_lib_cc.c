@@ -30,9 +30,6 @@ enum{
 	VOLTE_EVENT_PLAY_VOICE,
 };
 
-#define VOICE_VOL   70
-#define MIC_VOL     80
-
 //播放控制
 typedef struct
 {
@@ -158,17 +155,11 @@ static void luat_volte_task(void *param){
 	luat_i2s_setup(&i2s_conf);
     luat_cc.i2s_conf = luat_i2s_get_config(audio_conf->codec_conf.i2s_id);
 
-	audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_RATE,16000);
-	audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_BITS,16);
-
-	audio_conf->codec_conf.codec_opts->stop(&audio_conf->codec_conf);
-
 	while (1){
 		luat_rtos_event_recv(luat_cc.task_handle, 0, &event, NULL, LUAT_WAIT_FOREVER);
 		switch(event.id)
 		{
 		case VOLTE_EVENT_PLAY_TONE:
-			// play_tone(multimedia_id,event.param1);
             if (LUAT_MOBILE_CC_PLAY_STOP == event.param1){
                 luat_cc.record_type = 0;
                 luat_cc.play_type = 0;
@@ -189,37 +180,33 @@ static void luat_volte_task(void *param){
 				}
                 if (luat_cc.is_codec_on){
                     luat_cc.is_codec_on = 0;
-                    audio_conf->codec_conf.codec_opts->stop(&audio_conf->codec_conf);
-                    // audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_STANDBY,LUAT_CODEC_MODE_ALL);
+					luat_audio_pm_request(multimedia_id,LUAT_AUDIO_PM_STANDBY);
                 }
 	            LLOGD("VOLTE_EVENT_PLAY_STOP");
                 break;
             }
-
-            // luat_i2s_transfer_loop(audio_conf->codec_conf.i2s_id, NULL, 1600, 2, 1);
-            // luat_cc.is_codec_on = 1;
-            // audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_RESUME,LUAT_CODEC_MODE_ALL);
-
-
-            // audio_conf->codec_conf.codec_opts->start(&audio_conf->codec_conf);
-
+			if (!luat_cc.is_codec_on){
+				luat_cc.is_codec_on = 1;
+				luat_audio_pm_request(multimedia_id,LUAT_AUDIO_PM_RESUME);
+				audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_RATE,LUAT_I2S_HZ_16k);
+				audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_BITS,LUAT_I2S_BITS_16);
+				LLOGD("VOLTE_EVENT_PLAY_START");
+			}
 			break;
 		case VOLTE_EVENT_RECORD_VOICE_START:
-			luat_cc.is_codec_on = 1;
 			luat_cc.record_type = event.param1;
-//			luat_i2s_close(luat_cc.i2s_conf->id);
-//			luat_rtos_task_sleep(1);
 			luat_cc.i2s_conf->is_full_duplex = 1;
 			luat_cc.i2s_conf->cb_rx_len = 320 * luat_cc.record_type;
 			luat_i2s_modify(audio_conf->codec_conf.i2s_id, LUAT_I2S_CHANNEL_RIGHT, LUAT_I2S_BITS_16, luat_cc.record_type * 8000);
 			luat_i2s_transfer_loop(audio_conf->codec_conf.i2s_id, NULL, 3200, 2, 0);	//address传入空地址就是播放空白音
-    //         // audio_conf->codec_conf.codec_opts->start(&audio_conf->codec_conf);
+            // audio_conf->codec_conf.codec_opts->start(&audio_conf->codec_conf);
 			audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_RESUME,LUAT_CODEC_MODE_ALL);
+
+			// luat_audio_pm_request(multimedia_id,LUAT_AUDIO_PM_RESUME);
             luat_cc.record_up_zbuff_point = 0;
             if (luat_cc.record_on_off) {
             	luat_cc.up_buff[0]->used = 0;
             }
-
             LLOGD("VOLTE_EVENT_RECORD_VOICE_START");
 			break;
 		case VOLTE_EVENT_RECORD_VOICE_UPLOAD:
@@ -248,7 +235,6 @@ static void luat_volte_task(void *param){
             }
 			break;
 		case VOLTE_EVENT_PLAY_VOICE:
-
 			luat_cc.play_type = event.param3; //1 = 8K 2 = 16K
 			if (!luat_cc.record_type){
 				luat_cc.i2s_conf->is_full_duplex = 0;
@@ -257,11 +243,6 @@ static void luat_volte_task(void *param){
 					luat_i2s_transfer_loop(audio_conf->codec_conf.i2s_id, (uint8_t *)event.param1, event.param2/3, 3, 0);
 				}else{
 					luat_i2s_transfer_loop(audio_conf->codec_conf.i2s_id, (uint8_t *)event.param1, event.param2/6, 6, 0);
-				}
-				if (!luat_cc.is_codec_on){
-					luat_cc.is_codec_on = 1;
-                    // audio_conf->codec_conf.codec_opts->start(&audio_conf->codec_conf);
-					audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_RESUME,LUAT_CODEC_MODE_ALL);
 				}
 			}else{
 //                LLOGD("%d,%d,%d", luat_cc.play_type, luat_cc.record_type, event.param2);

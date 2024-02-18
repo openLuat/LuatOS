@@ -47,7 +47,7 @@ sys.taskInit(function()
     cc.on("record", record)
     cc.record(true, up1, up2, down1, down2)
     local multimedia_id = 0
-    local i2c_id = 1
+    local i2c_id = 0
     local i2s_id = 0
     local i2s_mode = 0
     local i2s_sample_rate = 16000
@@ -56,14 +56,23 @@ sys.taskInit(function()
     local i2s_communication_format = 0
     local i2s_channel_bits = 32
 
+    local pa_pin = 25
+    local pa_on_level = 1
+    local pa_delay = 100
+    local power_pin = 255
+    local power_on_level = 1
+    local power_delay = 3
+    local power_time_delay = 100
+
     local voice_vol = 70
     local mic_vol = 80
 
     i2c.setup(i2c_id,i2c.FAST)
     i2s.setup(i2s_id, i2s_mode, i2s_sample_rate, i2s_bits_per_sample, i2s_channel_format, i2s_communication_format,i2s_channel_bits)
 
+    audio.config(multimedia_id, pa_pin, pa_on_level, power_delay, pa_delay, power_pin, power_on_level, power_time_delay)
     audio.setBus(multimedia_id, audio.BUS_I2S,{chip = "es8311",i2cid = i2c_id , i2sid = i2s_id})	--通道0的硬件输出通道设置为I2S
-    audio.config(multimedia_id, 25, 0, 3, 100, 255, 0, 100)
+
     audio.vol(multimedia_id, voice_vol)
     audio.micVol(multimedia_id, mic_vol)
 

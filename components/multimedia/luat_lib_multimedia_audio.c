@@ -373,6 +373,7 @@ static int l_audio_set_output_bus(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
     luat_audio_conf_t* audio_conf = luat_audio_get_config(id);
     int tp = luaL_checkinteger(L, 2);
+    int ret = luat_audio_set_bus_type(id,tp);
     if (audio_conf!=NULL && lua_istable(L,3) && tp==LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
         audio_conf->codec_conf.multimedia_id = id;
         audio_conf->bus_type = LUAT_MULTIMEDIA_AUDIO_BUS_I2S;
@@ -395,7 +396,6 @@ static int l_audio_set_output_bus(lua_State *L) {
 		}
 		lua_pop(L, 1);
     }
-    int ret = luat_audio_set_bus_type(id,tp);
     ret |= luat_audio_init(id, 0, 0);
     lua_pushboolean(L, !ret);
     return 1;

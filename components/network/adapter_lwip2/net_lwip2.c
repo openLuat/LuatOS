@@ -353,7 +353,12 @@ static err_t net_lwip2_tcp_sent_cb(void *arg, struct tcp_pcb *tpcb,
 		p = llist_traversal(&prvlwip.socket[socket_id].tx_head, net_lwip2_next_data_cache, &prvlwip.socket[socket_id]);
 		if (p)
 		{
+			#if ENABLE_PSIF
+			sockdataflag_t dataflag={0};
+			if (ERR_OK == tcp_write(prvlwip.socket[socket_id].pcb.tcp, p->data, p->len, 0, dataflag, 0))
+			#else
 			if (ERR_OK == tcp_write(prvlwip.socket[socket_id].pcb.tcp, p->data, p->len, 0))
+			#endif
 			{
 				llist_del(&p->node);
 				llist_add_tail(&p->node, &prvlwip.socket[socket_id].wait_ack_head);
@@ -668,7 +673,12 @@ static void net_lwip2_task(void *param)
 					p = llist_traversal(&prvlwip.socket[socket_id].tx_head, net_lwip2_next_data_cache, &prvlwip.socket[socket_id]);
 					if (p->len <= tcp_sndbuf(prvlwip.socket[socket_id].pcb.tcp))
 					{
+						#if ENABLE_PSIF
+						sockdataflag_t dataflag={0};
+						if (ERR_OK == tcp_write(prvlwip.socket[socket_id].pcb.tcp, p->data, p->len, 0, dataflag, 0))
+						#else
 						if (ERR_OK == tcp_write(prvlwip.socket[socket_id].pcb.tcp, p->data, p->len, 0))
+						#endif
 						{
 							llist_del(&p->node);
 							llist_add_tail(&p->node, &prvlwip.socket[socket_id].wait_ack_head);

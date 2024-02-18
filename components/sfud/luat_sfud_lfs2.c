@@ -73,7 +73,7 @@ lfs_t* flash_lfs_sfud(sfud_flash* flash, size_t offset, size_t maxsize) {
     lfs_cfg->read_size = LFS_BLOCK_DEVICE_READ_SIZE;
     lfs_cfg->prog_size = LFS_BLOCK_DEVICE_PROG_SIZE;
     lfs_cfg->block_size = flash->chip.erase_gran;
-    lfs_cfg->block_count = (maxsize > 0 ? maxsize : flash->chip.capacity) / flash->chip.erase_gran;
+    lfs_cfg->block_count = (maxsize > 0 ? maxsize : (flash->chip.capacity - offset)) / flash->chip.erase_gran;
     lfs_cfg->block_cycles = 200;
     lfs_cfg->cache_size = LFS_BLOCK_DEVICE_CACHE_SIZE;
     lfs_cfg->lookahead_size = LFS_BLOCK_DEVICE_LOOK_AHEAD;

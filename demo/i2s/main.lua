@@ -23,9 +23,8 @@ end
 
 sys.taskInit(function()
     sys.wait(500)
-
+    local multimedia_id = 0
     local i2c_id = 0
-    
     local i2s_id = 0
     local i2s_mode = 0
     local i2s_sample_rate = 44100
@@ -33,19 +32,26 @@ sys.taskInit(function()
     local i2s_channel_format = 0
     local i2s_communication_format = 0
     local i2s_channel_bits = 32
-    local i2s_mclk = 8000000
 
-    i2c.setup(i2c_id,i2c.SLOW)
-    i2s.setup(i2s_id, i2s_mode, i2s_sample_rate, i2s_bits_per_sample, i2s_channel_format, i2s_communication_format,i2s_channel_bits, i2s_mclk)
+    local pa_pin = 20
+    local pa_on_level = 1
+    local pa_delay = 20
+    local power_pin = 255
+    local power_delay = 0
 
-    audio.config(0, 20, 1, 0, 20)
-    audio.setBus(0, audio.BUS_I2S,{chip = "es8311",i2cid = i2c_id , i2sid = i2s_id})	--通道0的硬件输出通道设置为I2S
+    local voice_vol = 70
+
+    i2c.setup(i2c_id,i2c.FAST)
+    i2s.setup(i2s_id, i2s_mode, i2s_sample_rate, i2s_bits_per_sample, i2s_channel_format, i2s_communication_format,i2s_channel_bits)
+
+    audio.config(multimedia_id, pa_pin, pa_on_level, power_delay, pa_delay, power_pin)
+    audio.setBus(multimedia_id, audio.BUS_I2S,{chip = "es8311",i2cid = i2c_id , i2sid = i2s_id})	--通道0的硬件输出通道设置为I2S
 
     -- 播放参数设置
-    audio.start(0, audio.PCM, 1, 16000, 16)
+    audio.start(multimedia_id, audio.PCM, 1, 16000, 16)
     -- 音量设置
-    audio.vol(0, 50)
-
+    audio.vol(multimedia_id, 50)
+    audio.pm(multimedia_id,audio.RESUME)
     -- PCM播放演示, 16k采样率, 16bit采样深度
     local file_size = fs.fsize("/luadb/test.pcm")
     -- print("/luadb/test.pcm size",file_size)   

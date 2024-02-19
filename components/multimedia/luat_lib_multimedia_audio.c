@@ -419,6 +419,19 @@ static int l_audio_set_debug(lua_State *L) {
     return 0;
 }
 
+/*
+audio 休眠控制(一般会自动调用不需要手动执行)
+@api audio.pm(id,pm_mode)
+@int 音频通道
+@int 休眠模式 
+@return boolean true成功
+@usage
+audio.pm(multimedia_id,audio.RESUME)
+*/
+static int l_audio_pm_request(lua_State *L) {
+    lua_pushboolean(L, !luat_audio_pm_request(luaL_checkinteger(L, 1),luaL_checkinteger(L, 2)));
+    return 1;
+}
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_audio[] =
@@ -437,9 +450,17 @@ static const rotable_Reg_t reg_audio[] =
 	{ "config",			ROREG_FUNC(l_audio_config)},
 	{ "vol",			ROREG_FUNC(l_audio_vol)},
     { "micVol",			ROREG_FUNC(l_audio_mic_vol)},
-	{ "getError",			ROREG_FUNC(l_audio_play_get_last_error)},
+	{ "getError",		ROREG_FUNC(l_audio_play_get_last_error)},
 	{ "setBus",			ROREG_FUNC(l_audio_set_output_bus)},
 	{ "debug",			ROREG_FUNC(l_audio_set_debug)},
+    { "pm",			    ROREG_FUNC(l_audio_pm_request)},
+
+	//@const RESUME number PM模式 工作模式
+    { "RESUME",         ROREG_INT(LUAT_AUDIO_PM_RESUME)},
+    //@const STANDBY number PM模式 待机模式
+    { "STANDBY",        ROREG_INT(LUAT_AUDIO_PM_STANDBY)},
+    //@const SHUTDOWN number PM模式 关断模式
+    { "SHUTDOWN",       ROREG_INT(LUAT_AUDIO_PM_SHUTDOWN)},
 	//@const PCM number PCM格式，即原始ADC数据
     { "PCM",           ROREG_INT(LUAT_MULTIMEDIA_DATA_TYPE_PCM)},
 	//@const MORE_DATA number audio.on回调函数传入参数的值，表示底层播放完一段数据，可以传入更多数据

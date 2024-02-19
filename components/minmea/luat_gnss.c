@@ -75,39 +75,29 @@ int luat_libgnss_init(int clear) {
     return 0;
 }
 
+#define MAX_LEN (120)
+static char nmea_tmp_buff[MAX_LEN] = {0}; // nmea 最大长度82,含换行符
 int luat_libgnss_parse_data(const char* data, size_t len) {
     size_t prev = 0;
-    #define MAX_LEN (120)
-    static char nmea_tmp_buff[MAX_LEN] = {0}; // nmea 最大长度82,含换行符
-    // if (data[0] == 0xAA && data[1] == 0xF0) {
-    //     LLOGD("EPH data resp?");
-    // }
-
-    for (size_t offset = 0; offset < len; offset++)
+    size_t offset = strlen(nmea_tmp_buff);
+    // 流式解析nmea数据
+    for (size_t i = 0; i < len; i++)
     {
-        // \r == 0x0D  \n == 0x0A
-        if (data[offset] == 0x0A) {
-            // 最短也需要是 OK\r\n
-            // 应该\r\n的
-            // 太长了
-            if (offset - prev < 3 || data[offset - 1] != 0x0D || offset - prev > 82) {
-                prev = offset + 1;
-                continue;
-            }
-            if (offset - prev - 1 < MAX_LEN) {
-                memcpy(nmea_tmp_buff, data + prev, offset - prev - 1);
-                nmea_tmp_buff[offset - prev - 1] = 0x00;
-                // if (gnss_debug) {
-                //     LLOGD(">> %s", nmea_tmp_buff);
-                // }
-                luat_libgnss_parse_nmea((const char*)nmea_tmp_buff);
-            }
-            else {
-                // 超长了, 忽略
-            }
-            prev = offset + 1;
+        if (offset >= MAX_LEN) {
+            offset = 0;
         }
+        if (data[i] == 0x0A) {
+            nmea_tmp_buff[offset] = 0;
+            luat_libgnss_parse_nmea((const char*)nmea_tmp_buff);
+            offset = 0;
+            continue;
+        }
+        else {
+            nmea_tmp_buff[offset++] = data[i];
+        }
+        //LLOGD("当前数据 %s", nmea_tmp_buff);
     }
+    nmea_tmp_buff[offset] = 0;
     return 0;
 }
 
@@ -117,8 +107,10 @@ int luat_libgnss_parse_nmea(const char* line) {
     }
     struct minmea_sentence_gsv *frame_gsv = &libgnss_gnsstmp->frame_gsv;
     enum minmea_sentence_id id = minmea_sentence_id(line, false);
-    if (id == MINMEA_UNKNOWN || id >= MINMEA_SENTENCE_MAX_ID || id == MINMEA_INVALID)
+    if (id == MINMEA_UNKNOWN || id >= MINMEA_SENTENCE_MAX_ID || id == MINMEA_INVALID) {
+        LLOGD("非法的NMEA数据 %s", line);
         return -1;
+    }
     // msg_counter[id] ++;
     // int ticks = 0;
     struct tm tblock = {0};

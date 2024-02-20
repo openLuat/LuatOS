@@ -177,6 +177,17 @@ local function http_opts_parse(opts)
         end
     end
 
+    -- 直接设置bodyfile
+    if opts.bodyfile then
+        local fd = io.open(opts.bodyfile, "rb")
+        if not fd then
+            log.error("httpplus", "bodyfile失败,文件不存在", opts.bodyfile)
+            return -104, "bodyfile失败,文件不存在"
+        end
+        fd:close()
+        opts.body_len = io.fileSize(opts.bodyfile)
+    end
+
     -- 有设置body, 而且没设置长度
     if opts.body and (not opts.body_len or opts.body_len == 0) then
         -- body是zbuff的情况
@@ -229,7 +240,7 @@ local function http_opts_parse(opts)
         opts.timeout = 30
     end
 
-    return -- 完成,不需要返回值
+    return -- 成功完成,不需要返回值
 end
 
 
@@ -476,6 +487,23 @@ local function http_exec(opts)
         socket.tx(netc, opts.boundary)
         socket.tx(netc, "--\r\n")
         write_counter = write_counter + #opts.boundary + 2 + 2 + 2
+    elseif opts.bodyfile then
+        local fd = io.open(opts.bodyfile, "rb")
+        -- log.info("写入文件数据", v[1])
+        if fd then
+            while not opts.is_closed do
+                local fdata = fd:read(1400)
+                if not fdata or #fdata == 0 then
+                    break
+                end
+                -- log.info("写入文件数据", "长度", #fdata)
+                socket.tx(netc, fdata)
+                write_counter = write_counter + #fdata
+                -- 注意, 这里要等待TX_OK事件
+                sys.waitUntil(opts.topic, 3000)
+            end
+            fd:close()
+        end
     elseif opts.body then
         if type(opts.body) == "string" and #opts.body > 0 then
             socket.tx(netc, opts.body)
@@ -518,6 +546,7 @@ local opts = {
     try_ipv6 = false, -- 可选,是否优先尝试ipv6地址,默认是false
     adapter = nil,    -- 可选,网络适配器编号, 默认是自动选
     timeout = 30,     -- 可选,读取服务器响应的超时时间,单位秒,默认30
+    bodyfile = "xxx"  -- 可选,直接把文件内容作为body上传, 优先级高于body参数
 }
 
 local code, resp = httpplus.request({url="https://httpbin.air32.cn/get"})

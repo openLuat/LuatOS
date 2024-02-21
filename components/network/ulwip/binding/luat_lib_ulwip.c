@@ -164,8 +164,8 @@ static err_t luat_netif_init(struct netif *netif) {
             #if LWIP_IPV6
             netif->output_ip6 = ethip6_output;
             #endif
-            netif->mtu        = 1460; // TODO 支持配置
-            netif->flags      = NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP | NETIF_FLAG_ETHERNET | NETIF_FLAG_IGMP | NETIF_FLAG_MLD6;
+            netif->mtu        = nets[i].mtu;
+            netif->flags      = nets[i].flags;
             memcpy(netif->hwaddr, nets[i].hwaddr, ETH_HWADDR_LEN);
             netif->hwaddr_len = ETH_HWADDR_LEN;
             return 0;
@@ -180,6 +180,7 @@ static err_t luat_netif_init(struct netif *netif) {
 @int adapter_index 适配器编号
 @string mac 网卡mac地址
 @function output_lua_ref 回调函数, 参数为(adapter_index, data)
+@table 额外参数, 例如 {mtu=1500, flags=(ulwip.FLAG_BROADCAST | ulwip.FLAG_ETHARP |)}
 @return boolean 成功与否
 @usage
 -- 初始化一个适配器, 并设置回调函数
@@ -187,6 +188,11 @@ ulwip.setup(socket.LWIP_STA, string.fromHex("18fe34a27b69"), function(adapter_in
     log.info("ulwip", "output_lua_ref", adapter_index, data:toHex())
 end)
 -- 注意, setup之后, netif的状态是down, 调用ulwip.updown(adapter_index, true)后, 才能正常收发数据
+
+-- 额外参数配置table可选值
+-- mtu, 默认1460
+-- flags, 默认 ulwip.FLAG_BROADCAST | ulwip.FLAG_ETHARP | ulwip.FLAG_ETHERNET | ulwip.FLAG_IGMP | ulwip.FLAG_MLD6
+-- 即如下格式 {mtu=1460, flags=(ulwip.FLAG_BROADCAST | ulwip.FLAG_ETHARP | ulwip.FLAG_ETHERNET | ulwip.FLAG_IGMP | ulwip.FLAG_MLD6)}
 */
 static int l_ulwip_setup(lua_State *L) {
     // 必须有适配器编号
@@ -202,6 +208,20 @@ static int l_ulwip_setup(lua_State *L) {
         LLOGE("output_lua_ref must be a function");
         return 0;
     }
+    int mtu = 1460;
+    int flags = NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP | NETIF_FLAG_ETHERNET | NETIF_FLAG_IGMP | NETIF_FLAG_MLD6;
+    if (lua_istable(L, 4)) {
+        lua_getfield(L, 4, "mtu");
+        if (lua_isinteger(L, -1)) {
+            mtu = luaL_checkinteger(L, -1);
+        }
+        lua_pop(L, 1);
+        lua_getfield(L, 4, "flags");
+        if (lua_isinteger(L, -1)) {
+            flags = luaL_checkinteger(L, -1);
+        }
+        lua_pop(L, 1);
+    }
     struct netif *netif = NULL;
     for (size_t i = 0; i < USERLWIP_NET_COUNT; i++)
     {
@@ -212,6 +232,8 @@ static int l_ulwip_setup(lua_State *L) {
                 memset(netif, 0, sizeof(struct netif));
                 nets[i].adapter_index = adapter_index;
                 nets[i].netif = netif;
+                nets[i].mtu = mtu;
+                nets[i].flags = flags;
                 lua_pushvalue(L, 3);
                 memcpy(nets[i].hwaddr, mac, ETH_HWADDR_LEN);
                 nets[i].output_lua_ref = luaL_ref(L, LUA_REGISTRYINDEX);
@@ -226,9 +248,9 @@ static int l_ulwip_setup(lua_State *L) {
     }
 
     // 已经分配netif, 继续初始化
-    #if defined(TYPE_EC718P)
-    net_lwip2_set_netif(adapter_index, netif, luat_netif_init, 0);
-    #else
+    // #if defined(TYPE_EC718P)
+    // net_lwip2_set_netif(adapter_index, netif, luat_netif_init, 0);
+    // #else
     netif_add(netif, IP4_ADDR_ANY, IP4_ADDR_ANY, IP4_ADDR_ANY, NULL, luat_netif_init, netif_input);
     netif->name[0] = 'u';
     netif->name[1] = 's';
@@ -237,17 +259,17 @@ static int l_ulwip_setup(lua_State *L) {
     netif->ip6_autoconfig_enabled = 1;
     #endif
 
-    #endif
+    // #endif
 
     #if LWIP_NETIF_STATUS_CALLBACK
     netif_set_status_callback(netif, netif_status_callback);
     #endif
 
-    #if defined(TYPE_EC718P)
+    // #if defined(TYPE_EC718P)
     // nothing
-    #else
+    // #else
     net_lwip2_set_netif(adapter_index, netif);
-    #endif
+    // #endif
     
     lua_pushboolean(L, 1);
     return 1;
@@ -475,6 +497,20 @@ static const rotable_Reg_t reg_ulwip[] =
     { "dhcp" ,              ROREG_FUNC(l_ulwip_dhcp)},
     { "ip" ,                ROREG_FUNC(l_ulwip_ip)},
     { "reg" ,               ROREG_FUNC(l_ulwip_reg)},
+
+    // 网卡FLAGS,默认
+    // NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP | NETIF_FLAG_ETHERNET | NETIF_FLAG_IGMP | NETIF_FLAG_MLD6
+
+    // @const FLAG_BROADCAST number 支持广播
+    { "FLAG_BROADCAST",     ROREG_INT(NETIF_FLAG_BROADCAST)}, 
+    // @const FLAG_ETHARP number 支持ARP
+    { "FLAG_ETHARP",        ROREG_INT(NETIF_FLAG_ETHARP)}, 
+    // @const FLAG_ETHERNET number 以太网模式
+    { "FLAG_ETHERNET",      ROREG_INT(NETIF_FLAG_ETHERNET)}, 
+    // @const FLAG_IGMP number 支持IGMP
+    { "FLAG_IGMP",          ROREG_INT(NETIF_FLAG_IGMP)}, 
+    // @const FLAG_MLD6 number 支持_MLD6
+    { "FLAG_MLD6",          ROREG_INT(NETIF_FLAG_MLD6)}, 
 	{ NULL,                 ROREG_INT(0)}
 };
 

@@ -12,11 +12,12 @@ LUAT_WEAK luat_audio_conf_t *luat_audio_get_config(uint8_t multimedia_id){
 }
 
 LUAT_WEAK int luat_audio_play_multi_files(uint8_t multimedia_id, uData_t *info, uint32_t files_num, uint8_t error_stop){
-
+    return -1;
 }
 
-LUAT_WEAK int luat_audio_play_file(uint8_t multimedia_id, const char *path){
 
+LUAT_WEAK int luat_audio_play_file(uint8_t multimedia_id, const char *path){
+	return -1;
 }
 
 LUAT_WEAK uint8_t luat_audio_is_finish(uint8_t multimedia_id){
@@ -283,10 +284,10 @@ LUAT_WEAK int luat_audio_pm_request(uint8_t multimedia_id,luat_audio_pm_mode_t m
     if (audio_conf!=NULL && audio_conf->bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
         switch (mode){
         case LUAT_AUDIO_PM_RESUME:
-        	if (!audio_conf->pa_is_control_enable && !audio_conf->speech_uplink_type && !audio_conf->speech_downlink_type && !audio_conf->record_mode)
-        	{
-    			 luat_audio_play_blank(multimedia_id, 1);
-        	}
+        	// if (!audio_conf->pa_is_control_enable && !audio_conf->speech_uplink_type && !audio_conf->speech_downlink_type && !audio_conf->record_mode)
+        	// {
+    			luat_audio_play_blank(multimedia_id, 1);
+        	// }
             audio_conf->codec_conf.codec_opts->start(&audio_conf->codec_conf);
 			audio_conf->wakeup_ready = 0;
 			audio_conf->pa_on_enable = 0;
@@ -294,13 +295,10 @@ LUAT_WEAK int luat_audio_pm_request(uint8_t multimedia_id,luat_audio_pm_mode_t m
             audio_conf->sleep_mode = LUAT_AUDIO_PM_RESUME;
             break;
         case LUAT_AUDIO_PM_STANDBY:
-        	if (!audio_conf->pa_is_control_enable) {
-        		luat_audio_play_blank(multimedia_id, 1);
-        	} else {
+            luat_audio_play_blank(multimedia_id, 1);
+        	if (audio_conf->pa_is_control_enable) {
         		audio_conf->codec_conf.codec_opts->stop(&audio_conf->codec_conf);
         	}
-            //非控制的关闭i2s输出?输出空白音?此处或codec具体处理
-            // luat_i2s_close(audio_conf->codec_conf.i2s_id);
             audio_conf->sleep_mode = LUAT_AUDIO_PM_STANDBY;
             break;
         case LUAT_AUDIO_PM_SHUTDOWN:
@@ -308,7 +306,10 @@ LUAT_WEAK int luat_audio_pm_request(uint8_t multimedia_id,luat_audio_pm_mode_t m
             luat_audio_pa(multimedia_id,0,0);
 			if (audio_conf->power_off_delay_time)
 				luat_rtos_task_sleep(audio_conf->power_off_delay_time);
+            luat_audio_play_blank(multimedia_id, 1);
             audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_PWRDOWN,0);
+            luat_rtos_task_sleep(50);
+            luat_audio_play_blank(multimedia_id, 0);
             //非控制的关闭i2s输出?貌似stop合理?
             // luat_i2s_close(audio_conf->codec_conf.i2s_id);
 			audio_conf->wakeup_ready = 0;

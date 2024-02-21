@@ -284,10 +284,10 @@ LUAT_WEAK int luat_audio_pm_request(uint8_t multimedia_id,luat_audio_pm_mode_t m
     if (audio_conf!=NULL && audio_conf->bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
         switch (mode){
         case LUAT_AUDIO_PM_RESUME:
-        	// if (!audio_conf->pa_is_control_enable && !audio_conf->speech_uplink_type && !audio_conf->speech_downlink_type && !audio_conf->record_mode)
-        	// {
+        	if (!audio_conf->pa_is_control_enable && !audio_conf->speech_uplink_type && !audio_conf->speech_downlink_type && !audio_conf->record_mode)
+        	{
     			luat_audio_play_blank(multimedia_id, 1);
-        	// }
+        	}
             audio_conf->codec_conf.codec_opts->start(&audio_conf->codec_conf);
 			audio_conf->wakeup_ready = 0;
 			audio_conf->pa_on_enable = 0;

@@ -52,7 +52,7 @@ typedef struct luat_audio_codec_opts{
     int (*control)(luat_audio_codec_conf_t* conf,luat_audio_codec_ctl_t cmd,uint32_t data); //控制函数
     int (*start)(luat_audio_codec_conf_t* conf);                        //停止
     int (*stop)(luat_audio_codec_conf_t* conf);                         //开始
-	uint8_t no_control;
+	uint8_t no_control;													//无法调节，只能开关
 } luat_audio_codec_opts_t;
 
 extern const luat_audio_codec_opts_t codec_opts_es8311;

@@ -153,7 +153,7 @@ LUAT_WEAK void luat_audio_pa(uint8_t multimedia_id,uint8_t on, uint32_t delay){
         }
         else{
             luat_gpio_set(audio_conf->pa_pin, on?audio_conf->pa_on_level:!audio_conf->pa_on_level);
-            audio_conf->pa_on_enable = 1;
+            if (on) audio_conf->pa_on_enable = 1;
         }
     }
 }
@@ -172,6 +172,7 @@ LUAT_WEAK uint16_t luat_audio_vol(uint8_t multimedia_id, uint16_t vol){
     audio_conf->soft_vol = vol<=100?100:vol;
     if (audio_conf->bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
         uint8_t sleep_mode = audio_conf->sleep_mode;
+        audio_conf->last_vol = vol;
         if (sleep_mode && audio_conf->codec_conf.codec_opts->no_control!=1) luat_audio_pm_request(multimedia_id,LUAT_AUDIO_PM_RESUME);
         if (vol <= 100){
             audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_VOICE_VOL,vol);
@@ -196,6 +197,7 @@ LUAT_WEAK uint8_t luat_audio_mic_vol(uint8_t multimedia_id, uint16_t vol){
             audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_MIC_VOL,vol);
             vol = audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_GET_MIC_VOL,0);
             if (sleep_mode) luat_audio_pm_request(multimedia_id,sleep_mode);
+            audio_conf->last_mic_vol = vol;
             return vol;
         }
     }
@@ -210,21 +212,19 @@ LUAT_WEAK int luat_audio_play_blank(uint8_t multimedia_id, uint8_t on_off){
 LUAT_WEAK uint8_t luat_audio_mute(uint8_t multimedia_id, uint8_t on){
     luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf){
+    	if (audio_conf->bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S)
+    	{
+    		if (audio_conf->codec_conf.codec_opts->no_control)
+    		{
+    			luat_audio_play_blank(multimedia_id, 1);
+    		}
+    		else
+    		{
+    			audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_MUTE,on);
+    			return audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_GET_MUTE,0);
+    		}
 
-    	if (!audio_conf->pa_is_control_enable) {
-    		luat_audio_play_blank(multimedia_id, 1);
-    		return 1;
     	}
-
-        if (audio_conf->bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
-            uint8_t sleep_mode = audio_conf->sleep_mode;
-            if (sleep_mode && audio_conf->codec_conf.codec_opts->no_control!=1) luat_audio_pm_request(multimedia_id,LUAT_AUDIO_PM_RESUME);
-
-            audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_MUTE,on);
-            uint8_t mute = audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_GET_MUTE,0);
-            if (sleep_mode && audio_conf->codec_conf.codec_opts->no_control!=1) luat_audio_pm_request(multimedia_id,sleep_mode);
-            return mute;
-        }
     }
     return -1;
 }
@@ -244,7 +244,15 @@ LUAT_WEAK int luat_audio_init(uint8_t multimedia_id, uint16_t init_vol, uint16_t
 	luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf == NULL) return -1;
     audio_conf->last_wakeup_time_ms = luat_mcu_tick64_ms();
+    audio_conf->last_vol = init_vol;
+    audio_conf->last_mic_vol = init_mic_vol;
     if (audio_conf->bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
+    	if (audio_conf->codec_conf.codec_opts->no_control)
+    	{
+    		audio_conf->sleep_mode = LUAT_AUDIO_PM_SHUTDOWN;
+    		return 0;
+    	}
+    	luat_audio_power_keep_ctrl_by_bsp(1);
         int result = audio_conf->codec_conf.codec_opts->init(&audio_conf->codec_conf, LUAT_CODEC_MODE_SLAVE);
         if (result) return result;
         LLOGD("codec init %s ",audio_conf->codec_conf.codec_opts->name);
@@ -258,10 +266,18 @@ LUAT_WEAK int luat_audio_init(uint8_t multimedia_id, uint16_t init_vol, uint16_t
         if (result) return result;
         result = audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_MIC_VOL, init_mic_vol);
         if (result) return result;
-        if (!audio_conf->pa_is_control_enable)
-            luat_audio_play_blank(multimedia_id, 1);
+
+        if (!audio_conf->pa_is_control_enable)	//PA无法控制的状态，则通过静音来控制
+        {
+        	audio_conf->codec_conf.codec_opts->start(&audio_conf->codec_conf);
+        	audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_MUTE, 1);
+        }
         else
+        {
             luat_audio_pm_request(multimedia_id,LUAT_AUDIO_PM_STANDBY); //默认进入standby模式
+
+        }
+        audio_conf->sleep_mode = LUAT_AUDIO_PM_STANDBY;
         return 0;
     }
 	return 0;
@@ -282,49 +298,106 @@ LUAT_WEAK int luat_audio_set_bus_type(uint8_t multimedia_id,uint8_t bus_type){
 LUAT_WEAK int luat_audio_pm_request(uint8_t multimedia_id,luat_audio_pm_mode_t mode){
     luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
     if (audio_conf!=NULL && audio_conf->bus_type == LUAT_MULTIMEDIA_AUDIO_BUS_I2S){
-        switch (mode){
-        case LUAT_AUDIO_PM_RESUME:
-        	if (!audio_conf->pa_is_control_enable && !audio_conf->speech_uplink_type && !audio_conf->speech_downlink_type && !audio_conf->record_mode)
-        	{
-    			luat_audio_play_blank(multimedia_id, 1);
-        	}
-            audio_conf->codec_conf.codec_opts->start(&audio_conf->codec_conf);
-			audio_conf->wakeup_ready = 0;
-			audio_conf->pa_on_enable = 0;
-			audio_conf->last_wakeup_time_ms = luat_mcu_tick64_ms();
-            audio_conf->sleep_mode = LUAT_AUDIO_PM_RESUME;
-            break;
-        case LUAT_AUDIO_PM_STANDBY:
-            luat_audio_play_blank(multimedia_id, 1);
-        	if (audio_conf->pa_is_control_enable) {
-        		audio_conf->codec_conf.codec_opts->stop(&audio_conf->codec_conf);
-        	}
-            audio_conf->sleep_mode = LUAT_AUDIO_PM_STANDBY;
-            break;
-        case LUAT_AUDIO_PM_SHUTDOWN:
-        	luat_audio_play_blank(multimedia_id, 0);
-            luat_audio_pa(multimedia_id,0,0);
-			if (audio_conf->power_off_delay_time)
-				luat_rtos_task_sleep(audio_conf->power_off_delay_time);
-            luat_audio_play_blank(multimedia_id, 1);
-            audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_PWRDOWN,0);
-            luat_rtos_task_sleep(50);
-            luat_audio_play_blank(multimedia_id, 0);
-            //非控制的关闭i2s输出?貌似stop合理?
-            // luat_i2s_close(audio_conf->codec_conf.i2s_id);
-			audio_conf->wakeup_ready = 0;
-			audio_conf->pa_on_enable = 0;
-            audio_conf->sleep_mode = LUAT_AUDIO_PM_SHUTDOWN;
-            break;
-        default:
-            return -1;
-        }
+    	if (!audio_conf->pa_is_control_enable)
+    	{
+    		if (mode)
+    		{
+    			luat_audio_mute(multimedia_id, 1);
+    		}
+    		else
+    		{
+    			luat_audio_mute(multimedia_id, 0);
+    		}
+    		audio_conf->sleep_mode = mode;
+        	return 0;
+    	}
+    	if (audio_conf->codec_conf.codec_opts->no_control)	//codec没有寄存器的情况
+    	{
+			switch(mode)
+			{
+			case LUAT_AUDIO_PM_RESUME:
+				luat_audio_power_keep_ctrl_by_bsp(1);
+				luat_audio_play_blank(multimedia_id, 1);
+				luat_audio_power(multimedia_id,1);
+				break;
+			case LUAT_AUDIO_PM_STANDBY:	//只关PA，codec不关，这样下次播放的时候不需要重新启动codec，节省启动时间
+				luat_audio_power_keep_ctrl_by_bsp(1);
+				luat_audio_play_blank(multimedia_id, 1);
+				luat_audio_pa(multimedia_id,0,0);
+				break;
+			default:
+				luat_audio_power_keep_ctrl_by_bsp(0);
+				luat_audio_pa(multimedia_id,0,0);
+				if (audio_conf->power_off_delay_time)
+					luat_rtos_task_sleep(audio_conf->power_off_delay_time);
+				luat_audio_power(multimedia_id,0);
+				audio_conf->wakeup_ready = 0;
+				audio_conf->pa_on_enable = 0;
+				break;
+			}
+			audio_conf->sleep_mode = mode;
+
+
+    	}
+    	else	//codec有寄存器的情况
+    	{
+    		switch (mode){
+			case LUAT_AUDIO_PM_RESUME:
+				luat_audio_power_keep_ctrl_by_bsp(1);
+				if (!audio_conf->speech_uplink_type && !audio_conf->speech_downlink_type && !audio_conf->record_mode)
+				{
+					luat_audio_play_blank(multimedia_id, 1);
+				}
+				if (LUAT_AUDIO_PM_POWER_OFF == audio_conf->sleep_mode)	//之前已经强制断电过了，就必须重新初始化
+				{
+					luat_audio_init(multimedia_id, audio_conf->last_vol, audio_conf->last_mic_vol);
+				}
+				audio_conf->codec_conf.codec_opts->start(&audio_conf->codec_conf);
+				audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_VOICE_VOL, audio_conf->last_vol);
+				audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_MIC_VOL, audio_conf->last_mic_vol);
+				audio_conf->last_wakeup_time_ms = luat_mcu_tick64_ms();
+				audio_conf->sleep_mode = LUAT_AUDIO_PM_RESUME;
+				break;
+			case LUAT_AUDIO_PM_STANDBY:
+				luat_audio_power_keep_ctrl_by_bsp(1);
+				luat_audio_pa(multimedia_id,0,0);
+				audio_conf->codec_conf.codec_opts->stop(&audio_conf->codec_conf);
+				audio_conf->sleep_mode = LUAT_AUDIO_PM_STANDBY;
+				break;
+			case LUAT_AUDIO_PM_SHUTDOWN:
+				luat_audio_pa(multimedia_id,0,0);
+				if (audio_conf->power_off_delay_time)
+					luat_rtos_task_sleep(audio_conf->power_off_delay_time);
+				audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_PWRDOWN,0);
+				luat_audio_power_keep_ctrl_by_bsp(0);
+				audio_conf->wakeup_ready = 0;
+				audio_conf->pa_on_enable = 0;
+				audio_conf->sleep_mode = LUAT_AUDIO_PM_SHUTDOWN;
+				break;
+			case LUAT_AUDIO_PM_POWER_OFF:
+				luat_audio_pa(multimedia_id,0,0);
+				if (audio_conf->power_off_delay_time)
+					luat_rtos_task_sleep(audio_conf->power_off_delay_time);
+				luat_audio_power(multimedia_id,0);
+				luat_audio_power_keep_ctrl_by_bsp(0);
+				audio_conf->wakeup_ready = 0;
+				audio_conf->pa_on_enable = 0;
+				audio_conf->sleep_mode = LUAT_AUDIO_PM_POWER_OFF;
+				break;
+			default:
+				return -1;
+			}
+    	}
+
         return 0;
     }
     return -1;
 }
 
-
+LUAT_WEAK void luat_audio_power_keep_ctrl_by_bsp(uint8_t on_off)
+{
+	;
+}
 
 
 

@@ -42,6 +42,8 @@ typedef struct luat_audio_conf {
     uint16_t speech_downlink_type;
     uint16_t speech_uplink_type;
     uint16_t i2s_rx_cb_save;
+	uint16_t last_vol;
+	uint16_t last_mic_vol;
     uint8_t bus_type;
     uint8_t raw_mode;
     uint8_t debug_on_off;
@@ -61,6 +63,7 @@ typedef enum{
     LUAT_AUDIO_PM_RESUME = 0,       /* 工作模式 */
     LUAT_AUDIO_PM_STANDBY,          /* 待机模式 */
     LUAT_AUDIO_PM_SHUTDOWN,         /* 关断模式 */
+	LUAT_AUDIO_PM_POWER_OFF,        /* 完全断电模式 */
 }luat_audio_pm_mode_t;
 
 
@@ -332,5 +335,10 @@ void luat_audio_pa(uint8_t multimedia_id,uint8_t on, uint32_t delay);
  * @param on 1开，0关
  */
 void luat_audio_power(uint8_t multimedia_id,uint8_t on);
-
+/**
+ * @brief power保持控制，部分平台休眠时部分GPIO断电，因此需要控制是否进入休眠来
+ *
+ * @param on_off 1保持，0不保持
+ */
+void luat_audio_power_keep_ctrl_by_bsp(uint8_t on_off);
 #endif

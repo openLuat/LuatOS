@@ -49,6 +49,7 @@ function adc_pin() -- 根据不同开发板，设置ADC编号
         return 0,1,255,255,adc.CH_CPU ,adc.CH_VBAT 
     elseif rtos_bsp == "EC718P" then --Air780EP开发板ADC编号
         -- 默认不开启分压,范围是0-1.6v精度高
+        -- 开启分压后，外部输入最大不可超过3.3V
         -- adc.setRange(adc.ADC_RANGE_MAX)
         return 0,1,255,255,adc.CH_CPU ,adc.CH_VBAT 
     elseif rtos_bsp == "UIS8850BM" then 

@@ -27,10 +27,11 @@
 #endif
 #include "luat_rtos.h"
 #include"luat_audio_codec.h"
-
+#include"luat_multimedia_codec.h"
 
 
 typedef struct luat_audio_conf {
+    luat_multimedia_codec_t multimedia_codec;
 	uint64_t last_wakeup_time_ms;
 	luat_audio_codec_conf_t codec_conf;
 	void *hardware_data;
@@ -53,7 +54,6 @@ typedef struct luat_audio_conf {
     uint8_t record_mode;
     uint8_t pa_pin;                                                     // pa pin
 	uint8_t pa_on_level;                                                // pa 使能电平
-                                      //
 	uint8_t power_pin;													// 电源控制
 	uint8_t power_on_level;                                             // 电源使能电平
 	uint8_t pa_is_control_enable;
@@ -66,6 +66,11 @@ typedef enum{
 	LUAT_AUDIO_PM_POWER_OFF,        /* 完全断电模式 */
 }luat_audio_pm_mode_t;
 
+typedef enum{
+	LUAT_AUDIO_BUS_DAC=0,
+	LUAT_AUDIO_BUS_I2S,
+	LUAT_AUDIO_BUS_SOFT_DAC
+}luat_audio_bus_type_t;
 
 /**
  * @brief 设置音频硬件输出类型,后续初始化都会根据类型做不同处理，所以要首先使用此函数设置类型!!!

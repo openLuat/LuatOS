@@ -138,11 +138,11 @@ static void netif_status_callback(struct netif *netif)
         if (nets[i].netif == netif)
         {
             if (!ip_addr_isany(&netif->ip_addr)) {
-                LLOGD("设置网络状态为UP %d", i);
+                LLOGD("设置网络状态为UP %d", nets[i].adapter_index);
                 net_lwip2_set_link_state(nets[i].adapter_index, 1);
             }
             else {
-                LLOGD("设置网络状态为DOWN %d", i);
+                LLOGD("设置网络状态为DOWN %d", nets[i].adapter_index);
                 net_lwip2_set_link_state(nets[i].adapter_index, 0);
             }
             break;
@@ -157,7 +157,7 @@ static err_t luat_netif_init(struct netif *netif) {
     {
         if (nets[i].netif == netif)
         {
-            LLOGD("netif init %d %p", i, netif);
+            LLOGD("netif init %d %p", nets[i].adapter_index, netif);
             
             netif->linkoutput = netif_output;
             netif->output     = etharp_output;
@@ -483,6 +483,50 @@ static int l_ulwip_reg(lua_State *L) {
         return 0;
     }
     net_lwip2_register_adapter(adapter_index);
+    // netif_set_default(netif);
+    lua_pushboolean(L, 1);
+    return 1;
+}
+
+/*
+设置默认netif网卡
+@api ulwip.dft(adapter_index)
+@int/boolean adapter_index 适配器编号或还原默认网卡
+@return boolean 成功与否
+@usage
+-- 将默认网卡设置为socket.LWIP_ETH
+ulwip.dft(socket.LWIP_ETH)
+-- 还原默认网卡
+ulwip.dft(true)
+*/
+static struct netif* prev_netif;
+extern struct netif *netif_default;
+static int l_ulwip_dft(lua_State *L) {
+    // 必须有适配器编号
+    if (lua_type(L, 1) == LUA_TNUMBER)
+    {
+        int adapter_index = luaL_checkinteger(L, 1);
+        struct netif* netif = find_netif(adapter_index);
+        if (netif == NULL) {
+            LLOGE("没有找到netif %d", adapter_index);
+            return 0;
+        }
+        if (prev_netif == NULL && netif_default != NULL) {
+            LLOGD("保存系统默认网卡 %s %p", netif_default->name, netif_default);
+            prev_netif = netif_default;
+        }
+        LLOGD("设置默认网卡 %s %p", netif->name, netif);
+        netif_set_default(netif);
+    }
+    else if (lua_type(L, 1) == LUA_TBOOLEAN) {
+        if (lua_toboolean(L, 1) && prev_netif != NULL) {
+            LLOGD("还原系统默认网卡 %s %p", prev_netif->name, prev_netif);
+            netif_set_default(prev_netif);
+        }
+        else {
+            LLOGE("没有找到系统默认网卡");
+        }
+    }
     lua_pushboolean(L, 1);
     return 1;
 }
@@ -497,6 +541,7 @@ static const rotable_Reg_t reg_ulwip[] =
     { "dhcp" ,              ROREG_FUNC(l_ulwip_dhcp)},
     { "ip" ,                ROREG_FUNC(l_ulwip_ip)},
     { "reg" ,               ROREG_FUNC(l_ulwip_reg)},
+    { "dft" ,               ROREG_FUNC(l_ulwip_dft)},
 
     // 网卡FLAGS,默认
     // NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP | NETIF_FLAG_ETHERNET | NETIF_FLAG_IGMP | NETIF_FLAG_MLD6

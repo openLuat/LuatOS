@@ -22,13 +22,14 @@
 #ifndef __LUAT_AUDIO_H__
 #define __LUAT_AUDIO_H__
 #include "luat_base.h"
-#ifndef __BSP_COMMON_H__
-#include "c_common.h"
-#endif
+
 #include "luat_rtos.h"
 #include"luat_audio_codec.h"
 #include"luat_multimedia_codec.h"
 
+#ifndef __BSP_COMMON_H__
+#include "c_common.h"
+#endif
 
 typedef struct luat_audio_conf {
     luat_multimedia_codec_t multimedia_codec;

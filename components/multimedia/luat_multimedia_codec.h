@@ -38,6 +38,7 @@ enum{
 };
 
 #include <stddef.h>
+#include <stdio.h>
 
 typedef struct{
 	union{

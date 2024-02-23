@@ -667,7 +667,7 @@ int32_t luat_lib_http_callback(void *data, void *param){
 					http_send(http_ctrl, (uint8_t*)http_ctrl->req_body+http_ctrl->tx_offset, HTTP_SEND_LEN_MAX);
 					http_ctrl->tx_offset += HTTP_SEND_LEN_MAX;
 				}else{
-					http_send(http_ctrl, (uint8_t*)http_ctrl->req_body, http_ctrl->req_body_len-http_ctrl->tx_offset);
+					http_send(http_ctrl, (uint8_t*)http_ctrl->req_body+http_ctrl->tx_offset, http_ctrl->req_body_len-http_ctrl->tx_offset);
 					http_ctrl->tx_offset = 0;
 				}
 			}else if(http_ctrl->is_post==1 && http_ctrl->zbuff_body!=NULL){
@@ -675,7 +675,7 @@ int32_t luat_lib_http_callback(void *data, void *param){
 					http_send(http_ctrl, http_ctrl->zbuff_body->addr+http_ctrl->tx_offset, HTTP_SEND_LEN_MAX);
 					http_ctrl->tx_offset += HTTP_SEND_LEN_MAX;
 				}else{
-					http_send(http_ctrl, http_ctrl->zbuff_body->addr, http_ctrl->zbuff_body->used-http_ctrl->tx_offset);
+					http_send(http_ctrl, http_ctrl->zbuff_body->addr+http_ctrl->tx_offset, http_ctrl->zbuff_body->used-http_ctrl->tx_offset);
 					http_ctrl->tx_offset = 0;
 				}
 			}

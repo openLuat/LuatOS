@@ -104,6 +104,24 @@ void doc_sys_timerStop(void){};
 
 
 /*
+关闭同一回调函数的所有定时器.
+@api sys.timerStopAll(fnc)
+@function fnc回调的函数
+@return nil 无返回值
+@usage
+-- 关闭回调函数为publicTimerCbFnc的所有定时器
+local function publicTimerCbFnc(tag)
+log.info("publicTimerCbFnc",tag)
+end
+sys.timerStart(publicTimerCbFnc,8000,"first")
+sys.timerStart(publicTimerCbFnc,8000,"second")
+sys.timerStart(publicTimerCbFnc,8000,"third")
+sys.timerStopAll(publicTimerCbFnc)
+*/
+void doc_sys_timerStopAll(void){};
+
+
+/*
 往特定topic通道发布一个消息
 @api sys.publish(topic, arg1, agr2, argN)
 @string topic的值

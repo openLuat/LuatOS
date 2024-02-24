@@ -59,6 +59,8 @@ int32_t luatos_mqtt_callback(lua_State *L, void* ptr){
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
     luat_mqtt_ctrl_t *mqtt_ctrl =(luat_mqtt_ctrl_t *)msg->ptr;
     switch (msg->arg1) {
+//		case MQTT_MSG_TCP_TX_DONE:
+//			break;
 		case MQTT_MSG_TIMER_PING : {
 			luat_mqtt_ping(mqtt_ctrl);
 			break;

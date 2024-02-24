@@ -390,6 +390,12 @@ int32_t luat_mqtt_callback(void *data, void *param) {
 			// luat_start_rtos_timer(mqtt_ctrl->ping_timer, mqtt_ctrl->keepalive*1000*0.75, 1);
 		}
 	}else if(event->ID == EV_NW_RESULT_TX){
+#ifdef __LUATOS__
+#else
+		if (MQTT_STATE_READY == mqtt_ctrl->mqtt_state) {
+			l_luat_mqtt_msg_cb(mqtt_ctrl, MQTT_MSG_TCP_TX_DONE, 0);
+		}
+#endif
 		// luat_stop_rtos_timer(mqtt_ctrl->ping_timer);
 		// luat_start_rtos_timer(mqtt_ctrl->ping_timer, mqtt_ctrl->keepalive*1000*0.75, 1);
 	}else if(event->ID == EV_NW_RESULT_CLOSE){

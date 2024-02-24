@@ -5,6 +5,7 @@
  * @{
  */
 #define MQTT_MSG_RELEASE 		0	/**< mqtt 释放资源前回调消息 */
+#define MQTT_MSG_TCP_TX_DONE 	1	/**< mqtt tcp发送完成*/
 #define MQTT_MSG_TIMER_PING 	2	/**< mqtt ping前回调消息 */
 #define MQTT_MSG_RECONNECT  	3	/**< mqtt 重连前回调消息 */
 #define MQTT_MSG_CLOSE 			4	/**< mqtt 关闭回调消息(不会再重连) */

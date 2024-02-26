@@ -1342,6 +1342,10 @@ network_ctrl_t *network_alloc_ctrl(uint8_t adapter_index)
 {
 	int i;
 	network_ctrl_t *ctrl = NULL;
+	if (adapter_index >= NW_ADAPTER_QTY || prv_adapter_table[adapter_index].opt == NULL) {
+		DBG_ERR("adapter index %d is invalid!", adapter_index);
+		return NULL;
+	}
 	network_adapter_t *adapter = &prv_adapter_table[adapter_index];
 	OS_LOCK;
 	for (i = 0; i < adapter->opt->max_socket_num; i++)

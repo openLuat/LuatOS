@@ -41,7 +41,7 @@ TODO:
 ]]
 
 local TAG = "w5100s"
-local tx_queue = {}
+w5100s.tx_queue = {}
 
 function w5100s.init(tp, opts)
     -- buffsize 缓冲区大小, 型号相关
@@ -336,12 +336,12 @@ local function one_time( )
     end
 
     -- 处理发送队列
-    if #tx_queue > 0 then
+    if #w5100s.tx_queue > 0 then
         local send_buff_remain = read_UINT16(0x0420)
-        local tmpdata = tx_queue[1]
-        log.info(TAG, "发送队列", #tx_queue, #tmpdata, send_buff_remain)
+        local tmpdata = w5100s.tx_queue[1]
+        log.info(TAG, "发送队列", #w5100s.tx_queue, #tmpdata, send_buff_remain)
         if send_buff_remain >= #tmpdata then
-            tmpdata = table.remove(tx_queue, 1)
+            tmpdata = table.remove(w5100s.tx_queue, 1)
             w5xxx_write_data(tmpdata)
             sys.wait(5)
         end
@@ -350,7 +350,7 @@ local function one_time( )
 
     -- 有没有待接收的数据呢
     rx_size = read_UINT16(0x0426)
-    if rx_size == 0 and #tx_queue == 0 then
+    if rx_size == 0 and #w5100s.tx_queue == 0 then
         sys.wait(20)
     else
         sys.wait(5)
@@ -360,7 +360,12 @@ end
 
 local function netif_write_out(adapter_index, data)
     -- log.info(TAG, "待发送mac数据", data:toHex())
-    table.insert(tx_queue, data)
+    if w5100s.ready() then
+        -- TODO 限制传输队列的大小
+        table.insert(w5100s.tx_queue, data)
+    else
+        log.info(TAG, "w5100s未就绪,丢弃数据", #data)
+    end
 end
 
 function w5100s.main_loop()
@@ -398,6 +403,7 @@ function w5100s.main_task()
                 w5100s.do_init()
             else
                 log.info(TAG, "w5100s就绪,执行主逻辑")
+                w5100s.tx_queue = {} -- 清空队列
                 w5100s.main_loop()
             end
         end

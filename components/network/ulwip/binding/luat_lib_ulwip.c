@@ -512,15 +512,15 @@ static int l_ulwip_dft(lua_State *L) {
             return 0;
         }
         if (prev_netif == NULL && netif_default != NULL) {
-            LLOGD("保存系统默认网卡 %s %p", netif_default->name, netif_default);
+            LLOGD("保存系统默认网卡 %.2s %p", netif_default->name, netif_default);
             prev_netif = netif_default;
         }
-        LLOGD("设置默认网卡 %s %p", netif->name, netif);
+        LLOGD("设置默认网卡 %.2s %p", netif->name, netif);
         netif_set_default(netif);
     }
     else if (lua_type(L, 1) == LUA_TBOOLEAN) {
         if (lua_toboolean(L, 1) && prev_netif != NULL) {
-            LLOGD("还原系统默认网卡 %s %p", prev_netif->name, prev_netif);
+            LLOGD("还原系统默认网卡 %.2s %p", prev_netif->name, prev_netif);
             netif_set_default(prev_netif);
         }
         else {

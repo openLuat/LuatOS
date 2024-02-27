@@ -276,11 +276,11 @@ function w5100s.link()
         log.info(TAG, "未初始化")
         return
     end
-    -- local pyh = w5xxx_read(0x0035, 1)
-    -- if not pyh or #pyh ~= 1 or ((pyh:byte(1) & 0x20) == 0) then
-    --     log.info(TAG, "PYH状态值", string.toHex(pyh or ""))
-    --     return
-    -- end
+    local pyh = w5xxx_read(0x003C, 1)
+    if not pyh or #pyh ~= 1 or ((pyh:byte(1) & 0x80) ~= 0) then
+        log.info(TAG, "PYH状态值", string.toHex(pyh or ""))
+        return
+    end
     return true
 end
 
@@ -388,15 +388,13 @@ function w5100s.main_loop()
         ulwip.reg(adapter_index)
         ulwip.updown(adapter_index, true)
         ulwip.dhcp(adapter_index, true)
-        ulwip.link(adapter_index, true)
-        w5100s.ulwip_ready = true
         log.info(TAG, "ulwip初始化完成")
         if w5100s.opts.dft then
             ulwip.dft(adapter_index)
         end
-    else
-        ulwip.link(adapter_index, true)
+        w5100s.ulwip_ready = true
     end
+    ulwip.link(adapter_index, true)
     while w5100s.link() and w5100s.ready(true, true, true) do
         one_time()
     end

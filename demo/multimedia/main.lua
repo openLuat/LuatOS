@@ -140,6 +140,8 @@ local function audio_task()
             log.info("手动关闭")
             audio.playStop(0)
         end
+		audio.pm(0,audio.STANDBY)
+		--audio.pm(0,audio.POWEROFF)	--低功耗可以选择SHUTDOWN或者POWEROFF
         -- log.info(rtos.meminfo("sys"))
         -- log.info(rtos.meminfo("lua"))
         sys.wait(1000)

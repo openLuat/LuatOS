@@ -457,10 +457,12 @@ static const rotable_Reg_t reg_audio[] =
 
 	//@const RESUME number PM模式 工作模式
     { "RESUME",         ROREG_INT(LUAT_AUDIO_PM_RESUME)},
-    //@const STANDBY number PM模式 待机模式
+    //@const STANDBY number PM模式 待机模式，PA断电，codec待机状态，系统不能进低功耗状态，如果PA不可控，codec进入静音模式
     { "STANDBY",        ROREG_INT(LUAT_AUDIO_PM_STANDBY)},
-    //@const SHUTDOWN number PM模式 关断模式
+    //@const SHUTDOWN number PM模式 关机模式，PA断电，可配置的codec关机状态，不可配置的codec断电，系统能进低功耗状态
     { "SHUTDOWN",       ROREG_INT(LUAT_AUDIO_PM_SHUTDOWN)},
+	//@const POWEROFF number PM模式 断电模式，PA断电，codec断电，系统能进低功耗状态
+    { "POWEROFF",         ROREG_INT(LUAT_AUDIO_PM_POWER_OFF)},
 	//@const PCM number PCM格式，即原始ADC数据
     { "PCM",           ROREG_INT(LUAT_MULTIMEDIA_DATA_TYPE_PCM)},
 	//@const MORE_DATA number audio.on回调函数传入参数的值，表示底层播放完一段数据，可以传入更多数据

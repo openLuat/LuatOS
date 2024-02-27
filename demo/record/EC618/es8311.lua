@@ -16,7 +16,7 @@ local i2c_id = 0
 local i2s_id = 0
 
 -- es8311器件地址
-local es8311_address = 0x18
+local es8311_address = 0x18    -- 注意硬件差异，自己的实际地址
 local record_cnt = 0
 -- es8311初始化寄存器配置
 local es8311_reg = {
@@ -122,10 +122,14 @@ local function record_task()
     i2c.send(i2c_id, es8311_address, {0x00, 0x80}, 1)			-- ES8311停止录音
     log.info("录音5秒结束")
 	io.writeFile(recordPath, "#!AMR\n")					-- 向文件写入amr文件标识数据
-	io.writeFile(recordPath, amr_buff:query(), "a+b")	-- 向文件写入编码后的amr数据
-
+	
+	if rx_buff:len()  then
+		io.writeFile(recordPath, amr_buff:query(), "a+b")	-- 向文件写入编码后的amr数据
+	else
+		log.info("--------------> buff nil")
+	end
+	
 	i2s.setup(i2s_id, 0, 0, 0, 0, i2s.MODE_MSB)
-   
 	local result = audio.play(0, {recordPath})			-- 请求音频播放
 	log.info("音频播放结果", result)
 	if result then

@@ -188,6 +188,7 @@ static void luat_volte_task(void *param){
 			if (!luat_cc.is_codec_on){
 				luat_cc.is_codec_on = 1;
 				luat_audio_pm_request(multimedia_id,LUAT_AUDIO_PM_RESUME);
+				luat_audio_pa(multimedia_id,1, 0);
 				audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_RATE,LUAT_I2S_HZ_16k);
 				audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_BITS,LUAT_I2S_BITS_16);
 				LLOGD("VOLTE_EVENT_PLAY_START");

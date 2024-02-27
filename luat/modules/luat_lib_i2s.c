@@ -325,6 +325,12 @@ static const rotable_Reg_t reg_i2s[] =
 	{ "MODE_LSB", 	ROREG_INT(1)},
 	//@const MODE_MSB number MSB格式，比如TM8211
 	{ "MODE_MSB", 	ROREG_INT(2)},
+	//@const MONO_L number 左声道
+	{ "MONO_L", 	ROREG_INT(0)},
+	//@const MONO_R number 右声道
+	{ "MONO_R", 	ROREG_INT(1)},
+	//@const STEREO number 立体声
+	{ "STEREO", 	ROREG_INT(2)},
 	{ NULL,         ROREG_INT(0) }
 };
 

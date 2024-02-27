@@ -83,6 +83,7 @@ function audio_setup()
         -- end
         audio.config(0, 25, 1, 3, 100)
     elseif bsp == "EC718P" then
+		-- CORE+音频小板是这个配置
         pm.power(pm.LDO_CTL, false)  --开发板上ES8311由LDO_CTL控制上下电
         sys.wait(100)
         pm.power(pm.LDO_CTL, true)  --开发板上ES8311由LDO_CTL控制上下电
@@ -116,7 +117,31 @@ function audio_setup()
 
         audio.vol(multimedia_id, voice_vol)
         audio.micVol(multimedia_id, mic_vol)
+    --带TM8211的云喇叭开发板参考下面的配置
+		--[[
+		local multimedia_id = 0
+        local i2s_id = 0
+        local i2s_mode = 0
+        local i2s_sample_rate = 0
+        local i2s_bits_per_sample = 16
+        local i2s_channel_format = i2s.STEREO
+        local i2s_communication_format = i2s.MODE_MSB
+        local i2s_channel_bits = 16
     
+        local pa_pin = 25
+        local pa_on_level = 1
+        local pa_delay = 100
+        local power_pin = nil
+        local power_on_level = 1
+        local power_delay = 3
+        local power_time_delay = 0
+
+        -- local voice_vol = 200	--默认就不放大了
+        i2s.setup(i2s_id, i2s_mode, i2s_sample_rate, i2s_bits_per_sample, i2s_channel_format, i2s_communication_format,i2s_channel_bits)
+        audio.config(multimedia_id, pa_pin, pa_on_level, power_delay, pa_delay, power_pin, power_on_level, power_time_delay)
+        audio.setBus(multimedia_id, audio.BUS_I2S,{chip = "tm8211", i2sid = i2s_id})	--通道0的硬件输出通道设置为I2S
+        -- audio.vol(multimedia_id, voice_vol)
+		]]
     elseif bsp == "AIR105" then
         -- Air105开发板支持DAC直接输出
         audio.config(0, 25, 1, 3, 100)
@@ -212,8 +237,8 @@ local function audio_task()
             log.info("手动关闭")
             audio.playStop(0)
         end
-        audio.pm(0,audio.STANDBY)
-		--audio.pm(0,audio.POWEROFF)	--低功耗可以选择SHUTDOWN或者POWEROFF
+		audio.pm(0,audio.STANDBY)
+		-- audio.pm(0,audio.SHUTDOWN)	--低功耗可以选择SHUTDOWN或者POWEROFF，如果codec无法断电用SHUTDOWN
         log.info("mem", "sys", rtos.meminfo("sys"))
         log.info("mem", "lua", rtos.meminfo("lua"))
         sys.wait(1000)

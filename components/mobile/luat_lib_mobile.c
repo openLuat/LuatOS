@@ -1249,34 +1249,34 @@ end)
             lua_call(L, 2, 0);
             break;
         case LUAT_MOBILE_CC_SPEECH_START:
-            // lua_pushstring(L, "CC_IND");
-            // lua_pushstring(L, "SPEECH_START");
-            // lua_call(L, 2, 0);
+            lua_pushstring(L, "CC_IND");
+            lua_pushstring(L, "SPEECH_START");
+            lua_call(L, 2, 0);
             break;
         case LUAT_MOBILE_CC_MAKE_CALL_OK:
-            // lua_pushstring(L, "CC_IND");
-            // lua_pushstring(L, "MAKE_CALL_OK");
-            // lua_call(L, 2, 0);
+            lua_pushstring(L, "CC_IND");
+            lua_pushstring(L, "MAKE_CALL_OK");
+            lua_call(L, 2, 0);
             break;
         case LUAT_MOBILE_CC_MAKE_CALL_FAILED:
-            // lua_pushstring(L, "CC_IND");
-            // lua_pushstring(L, "MAKE_CALL_FAILED");
-            // lua_call(L, 2, 0);
+            lua_pushstring(L, "CC_IND");
+            lua_pushstring(L, "MAKE_CALL_FAILED");
+            lua_call(L, 2, 0);
             break;
         case LUAT_MOBILE_CC_ANSWER_CALL_DONE:
-            // lua_pushstring(L, "CC_IND");
-            // lua_pushstring(L, "ANSWER_CALL_DONE");
-            // lua_call(L, 2, 0);
+            lua_pushstring(L, "CC_IND");
+            lua_pushstring(L, "ANSWER_CALL_DONE");
+            lua_call(L, 2, 0);
             break;
         case LUAT_MOBILE_CC_HANGUP_CALL_DONE:
-            // lua_pushstring(L, "CC_IND");
-            // lua_pushstring(L, "HANGUP_CALL_DONE");
-            // lua_call(L, 2, 0);
+            lua_pushstring(L, "CC_IND");
+            lua_pushstring(L, "HANGUP_CALL_DONE");
+            lua_call(L, 2, 0);
             break;
         case LUAT_MOBILE_CC_LIST_CALL_RESULT:
-            // lua_pushstring(L, "CC_IND");
-            // lua_pushstring(L, "LIST_CALL_RESULT");
-            // lua_call(L, 2, 0);
+            lua_pushstring(L, "CC_IND");
+            lua_pushstring(L, "LIST_CALL_RESULT");
+            lua_call(L, 2, 0);
             break;
         case LUAT_MOBILE_CC_PLAY:// 最先 	
             lua_pushstring(L, "CC_IND");

@@ -4,7 +4,7 @@ PROJECT = "testtts"
 VERSION = "2.0.0"
 
 --[[
-本demo当前仅支持Ar780E和Air600E
+本demo当前仅支持ec618系列和ec718系列
 
 ## 提醒:
 1. 本demo需要2022.12.21及之后的源码所编译的LuatOS固件
@@ -14,7 +14,9 @@ VERSION = "2.0.0"
 5. 内置TTS资源的LuatOS最低版本是V1104,且去掉了很多库, 尤其是UI方面的库
 
 ## 使用本demo前,如果是外置TTS资源的LuatOS固件, 必须先刷tts.binpkg进行SPI Flash的刷写
-1. 下载链接 https://gitee.com/openLuat/luatos-soc-2022/attach_files
+1. 下载链接:
+    618系列:https://gitee.com/openLuat/luatos-soc-2022/attach_files
+    718系列:https://gitee.com/openLuat/luatos-soc-2023/attach_files
 2. 在LuaTools主界面, 用"下载固件"按钮进行下载.
 3. 下载前需要接好SPI Flash!!
 4. 下载前选日志模式 4G USB, luatools版本号2.1.85或以上
@@ -210,6 +212,7 @@ local function audio_task()
             log.info("手动关闭")
             audio.playStop(0)
         end
+        audio.pm(0,audio.STANDBY)
         log.info("mem", "sys", rtos.meminfo("sys"))
         log.info("mem", "lua", rtos.meminfo("lua"))
         sys.wait(1000)

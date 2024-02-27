@@ -350,6 +350,7 @@ static int l_ulwip_input(lua_State *L) {
     struct pbuf *q = NULL;
     const char* data = NULL;
     size_t len = 0;
+    size_t offset = 0;
     struct netif* netif = find_netif(adapter_index);
     if (netif == NULL) {
         LLOGE("没有找到netif %d", adapter_index);
@@ -360,14 +361,22 @@ static int l_ulwip_input(lua_State *L) {
         data = luaL_checklstring(L, 2, &len);
     }
     else if (lua_type(L, 2) == LUA_TUSERDATA) {
-        luat_zbuff_t* zb = (luat_zbuff_t*)luaL_checkudata(L, 2, "zbuff");
+        luat_zbuff_t* zb = (luat_zbuff_t*)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE);
         data = (const char*)zb->addr;
-        len = zb->used;
+        if (lua_isinteger(L, 3)) {
+            len = luaL_checkinteger(L, 3);
+            offset = luaL_checkinteger(L, 4);
+            data += offset;
+        }
+        else {
+            len = zb->used;
+        }
     }
     else {
         LLOGE("未知的数据格式, 当前仅支持zbuff和string");
         return 0;
     }
+    // LLOGD("输入的mac帧 %d %02X:%02X:%02X:%02X:%02X:%02X", len, data[0], data[1], data[2], data[3], data[4], data[5]);
     struct pbuf *p = pbuf_alloc(PBUF_RAW, len, PBUF_POOL);
     if (p == NULL) {
         LLOGE("pbuf_alloc failed");

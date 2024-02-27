@@ -17,8 +17,6 @@ local w5100s = {}
 硬件资料:
 1. w5100s/w5100 https://www.w5100s.io/wp-content/uploads/w5100shome/Chip/W5100/Document/W5100_DS_V128E.pdf
 2. w5200 https://www.w5100s.io/wp-content/uploads/w5100shome/Chip/W5200/Documents/W5200_DS_V140E.pdf
-3. w5500 中文 https://www.w5500.com/download/index/W5500%E6%95%B0%E6%8D%AE%E6%89%8B%E5%86%8C/W5500%E6%95%B0%E6%8D%AE%E6%89%8B%E5%86%8CV1.3.pdf
-4. w5500 英文 https://docs.w5100s.io/img/products/w5500/W5500_ds_v110e.pdf
 
 不同芯片之间的主要差异:
 1. 通用缓冲区的长度不同, 但设置MAC的寄存器地址是一样的
@@ -37,7 +35,6 @@ local w5100s = {}
 TODO:
 1. 控制txqueue的大小
 2. 定时检测link状态,如果断掉则通知ulwip库
-3. 优化读取数据的逻辑, 塞进zbuff里, 不然lua的gc压力比较大
 ]]
 
 local TAG = "w5100s"
@@ -78,6 +75,7 @@ function w5100s.init(tp, opts)
 
     w5100s.opts = opts
     w5100s.cmdbuff = zbuff.create(4)
+    w5100s.rxbuff = zbuff.create(1600)
     return true
 end
 
@@ -103,7 +101,7 @@ local function w5xxx_write(addr, data)
 end
 
 -- 封装读取函数, w5100s的格式是32bit一次读取, 有效数据仅1个字节
-local function w5xxx_read(addr, len)
+local function w5xxx_read(addr, len, rxbuff, offset)
     local result = ""
     local cmdbuff = w5100s.cmdbuff
     for i=1, len do
@@ -116,7 +114,12 @@ local function w5xxx_read(addr, len)
         -- spi.send(SPI_ID, data)
         spi.send(SPI_ID, cmdbuff, 3)
         --log.info("发送读取命令", data:toHex())
-        result = result .. spi.recv(SPI_ID, 1)
+        local ival = spi.recv(SPI_ID, 1)
+        if rxbuff then
+            rxbuff[offset + i - 1] = #ival == 1 and ival:byte(1) or 0
+        else
+            result = result .. ival
+        end
         addr = addr + 1
         w5100s.opts.pin_cs(1)
     end
@@ -172,7 +175,7 @@ function w5100s.mac(mac)
 end
 
 -- 读取接收到的数据, 从缓冲区取
-local function w5xxx_read_data(len, update_mark)
+local function w5xxx_read_data(len, update_mark, rawmode)
     -- 先读取数据长度
     -- local data = w5xxx_read(0x0426, 2)
     local remain_size = read_UINT16(0x0426)
@@ -187,14 +190,19 @@ local function w5xxx_read_data(len, update_mark)
         -- return
     end
     local data = ""
+    local rxbuff = w5100s.rxbuff
     if rx_offset + len > 0x2000 then
         -- 需要环形读取了
-        local data1 = w5xxx_read(0x6000 + rx_offset, 0x2000 - rx_offset)
-        local data2 = w5xxx_read(0x6000, len - #data1)
-        data = data1 .. data2
+        -- local data1 = w5xxx_read(0x6000 + rx_offset, 0x2000 - rx_offset)
+        -- local data2 = w5xxx_read(0x6000, len - #data1)
+        -- data = data1 .. data2
+        w5xxx_read(0x6000 + rx_offset, 0x2000 - rx_offset, rxbuff, 0)
+        w5xxx_read(0x6000, len - (0x2000 - rx_offset), rxbuff, 0x2000 - rx_offset)
     else
-        data = w5xxx_read(0x6000 + rx_offset, len)
+        -- data = w5xxx_read(0x6000 + rx_offset, len)
+        w5xxx_read(0x6000 + rx_offset, len, rxbuff, 0)
     end
+    -- log.info(TAG, "读取数据", data:toHex())
     -- 更新读取指针位置
     if update_mark then
         local t = (read_UINT16(0x0428) + len)
@@ -203,7 +211,10 @@ local function w5xxx_read_data(len, update_mark)
         -- 告知已经读取完毕
         w5xxx_write(0x0401, string.char(0x40))
     end
-    return data
+    if rawmode then
+        return rxbuff
+    end
+    return rxbuff:toStr(0, len)
 end
 
 -- 写入数据到发送缓冲区,并执行发送
@@ -317,7 +328,7 @@ local function one_time( )
     local rx_size = read_UINT16(0x0426)
     --log.info(TAG, "待接收数据长度", rx_size)
     if rx_size > 0 then
-        data = w5xxx_read_data(2)
+        local data = w5xxx_read_data(2)
         local frame_size = data:byte(1) * 256 + data:byte(2)
         if frame_size < 60 or frame_size > 1600 then
             log.info(TAG, "MAC帧大小异常", frame_size, "强制复位芯片")
@@ -325,11 +336,12 @@ local function one_time( )
             w5xxx_write(0x0, string.char(0x80))
             return
         else
-            -- log.info(TAG, "MAC帧大小", frame_size - 2)
-            local mac_frame = w5xxx_read_data(frame_size, true)
+            -- log.info(TAG, "输入MAC帧,大小", frame_size - 2)
+            local mac_frame = w5xxx_read_data(frame_size, true, true)
             if mac_frame then
                 -- log.info(TAG, "MAC帧数据(含2字节头部)",  mac_frame:toHex())
-                ulwip.input(w5100s.opts.adapter, mac_frame:sub(3))
+                -- ulwip.input(w5100s.opts.adapter, mac_frame:sub(3))
+                ulwip.input(w5100s.opts.adapter, mac_frame, frame_size - 2, 2)
             end
             mac_frame = nil -- 释放内存
         end

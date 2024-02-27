@@ -65,6 +65,72 @@ if rtos.bsp() == "EC618" and pm and pm.PWK_MODE then
     pm.power(pm.PWK_MODE, false)
 end
 
+function audio_setup()
+    local bsp = rtos.bsp()
+    if bsp == "EC618" then
+        --Air780E开发板配套+音频扩展板. ES7149
+        --由于音频扩展板的PA是长供电的,有塔塔声音是正常的,做产品的话有额外的参考设计
+        i2s.setup(0, 0, 0, 0, 0, i2s.MODE_I2S)
+
+        --如果用TM8211，打开下面的注释
+        -- i2s.setup(0, 0, 0, 0, 0, i2s.MODE_MSB)
+
+        --如果用软件DAC，打开下面的注释
+        -- if audio.setBus then
+        --     audio.setBus(0, audio.BUS_SOFT_DAC)
+        -- end
+        audio.config(0, 25, 1, 3, 100)
+    elseif bsp == "EC718P" then
+        pm.power(pm.LDO_CTL, false)  --开发板上ES8311由LDO_CTL控制上下电
+        sys.wait(100)
+        pm.power(pm.LDO_CTL, true)  --开发板上ES8311由LDO_CTL控制上下电
+
+        local multimedia_id = 0
+        local i2c_id = 0
+        local i2s_id = 0
+        local i2s_mode = 0
+        local i2s_sample_rate = 16000
+        local i2s_bits_per_sample = 16
+        local i2s_channel_format = 0
+        local i2s_communication_format = 0
+        local i2s_channel_bits = 16
+    
+        local pa_pin = 25
+        local pa_on_level = 1
+        local pa_delay = 100
+        local power_pin = 255
+        local power_on_level = 1
+        local power_delay = 3
+        local power_time_delay = 100
+
+        local voice_vol = 70
+        local mic_vol = 80
+    
+        i2c.setup(i2c_id,i2c.FAST)
+        i2s.setup(i2s_id, i2s_mode, i2s_sample_rate, i2s_bits_per_sample, i2s_channel_format, i2s_communication_format,i2s_channel_bits)
+    
+        audio.config(multimedia_id, pa_pin, pa_on_level, power_delay, pa_delay, power_pin, power_on_level, power_time_delay)
+        audio.setBus(multimedia_id, audio.BUS_I2S,{chip = "es8311",i2cid = i2c_id , i2sid = i2s_id})	--通道0的硬件输出通道设置为I2S
+
+        audio.vol(multimedia_id, voice_vol)
+        audio.micVol(multimedia_id, mic_vol)
+    
+    elseif bsp == "AIR105" then
+        -- Air105开发板支持DAC直接输出
+        audio.config(0, 25, 1, 3, 100)
+    else
+        -- 其他板子未支持
+        while 1 do
+            log.info("audio", "尚未支持的BSP")
+            sys.wait(1000)
+        end
+    end
+    sys.publish("AUDIO_READY")
+end
+
+-- 配置好audio外设
+sys.taskInit(audio_setup)
+
 local taskName = "task_audio"
 
 local MSG_MD = "moreData"   -- 播放缓存有空余
@@ -85,25 +151,8 @@ end)
 
 
 local function audio_task()
-    local result
-    --Air780E开发板配套+音频扩展板. ES7149
-    --由于音频扩展板的PA是长供电的,有塔塔声音是正常的,做产品的话有额外的参考设计
-    i2s.setup(0, 0, 0, 0, 0, i2s.MODE_I2S)
-
-    --如果用TM8211，打开下面的注释
-    -- i2s.setup(0, 0, 0, 0, 0, i2s.MODE_MSB)
-
-    
-    --如果用软件DAC，打开下面的注释
-    -- if audio.setBus then
-    --     audio.setBus(0, audio.BUS_SOFT_DAC)
-    -- end
-    audio.config(0, 25, 1, 6, 200)
-    -- gpio.setup(24, 0)
-    -- gpio.setup(23, 0)
-    -- gpio.setup(27, 0)
-    -- gpio.setup(2, 0)
-
+    local result    
+    sys.waitUntil("AUDIO_READY")
     -- 初始化spi flash, 如果是极限版TTS_ONCHIP,就不需要初始化
     if sfud then
         spi_flash = spi.deviceSetup(0,8,0,0,8,25600000,spi.MSB,1,0)

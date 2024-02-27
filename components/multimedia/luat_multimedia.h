@@ -8,7 +8,7 @@
 #include "luat_multimedia_codec.h"
 #include "luat_audio.h"	// 音频设备
 //预留
-// #include "luat_vedio.h"	// 视频设备
+// #include "luat_video.h"	// 视频设备
 
 //以下LUAT_MULTIMEDIA_AUDIO_BUS_XXX 枚举只做保留，不要再使用,使用 LUAT_AUDIO_BUS_XXX 
 enum{

@@ -40,6 +40,10 @@ enum{
 #include <stddef.h>
 #include <stdio.h>
 
+#ifndef __BSP_COMMON_H__
+#include "c_common.h"
+#endif
+
 typedef struct{
 	union{
 		void *mp3_decoder;
@@ -50,6 +54,8 @@ typedef struct{
 #ifdef __LUATOS__
 	luat_zbuff_t buff;
 #endif
+	Buffer_Struct file_data_buffer;
+	Buffer_Struct audio_data_buffer;
 	uint8_t type;
 	uint8_t is_decoder;
 }luat_multimedia_codec_t;

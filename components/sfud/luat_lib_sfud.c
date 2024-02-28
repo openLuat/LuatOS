@@ -113,7 +113,7 @@ static int luat_sfud_chip_erase(lua_State *L){
 }
 
 /*
-擦除 Flash 指定地址指定大小
+擦除 Flash 指定地址指定大小，按照flash block大小进行擦除
 @api  sfud.erase(flash,add,size)
 @userdata flash Flash 设备对象 sfud.get_device_table()返回的数据结构
 @number add 擦除地址

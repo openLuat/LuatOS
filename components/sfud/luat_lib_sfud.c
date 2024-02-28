@@ -196,6 +196,28 @@ static int luat_sfud_erase_write(lua_State *L){
     return 1;
 }
 
+/*
+获取 Flash 容量和page大小
+@api  sfud.getInfo(flash)
+@userdata flash Flash 设备对象 sfud.get_device_table()返回的数据结构
+@return int Flash 容量
+@return int page 页大小
+@usage
+log.info("sfud.getInfo",sfud.getInfo(sfud_device))
+*/
+
+static int luat_sfud_get_info(lua_State *L){
+    const sfud_flash *flash = lua_touserdata(L, 1);
+    uint32_t capacity = 0;
+    uint32_t page = 0;
+    capacity = flash->chip.capacity;
+    page = flash->chip.erase_gran;
+    lua_pushinteger(L, capacity);
+    lua_pushinteger(L, page);
+    return 2;
+}
+
+
 #ifdef LUAT_USE_FS_VFS
 #include "luat_fs.h"
 #include "lfs.h"
@@ -250,6 +272,7 @@ static const rotable_Reg_t reg_sfud[] =
     { "read",           ROREG_FUNC(luat_sfud_read)},
     { "write",          ROREG_FUNC(luat_sfud_write)},
     { "eraseWrite",     ROREG_FUNC(luat_sfud_erase_write)},
+    { "getInfo",        ROREG_FUNC(luat_sfud_get_info)},
 #ifdef LUAT_USE_FS_VFS
     { "mount",          ROREG_FUNC(luat_sfud_mount)},
 #endif

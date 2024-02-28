@@ -28,6 +28,8 @@ local function sfud_spi_pin()
         return 2,14
     elseif rtos_bsp == "EC618" then
         return 0,8
+    elseif rtos_bsp == "EC718P" then
+        return 0,8
     else
         log.info("main", "bsp not support")
         return
@@ -57,6 +59,10 @@ sys.taskInit(function()
     end
     log.info("sfud.getDeviceNum",sfud.getDeviceNum())
     local sfud_device = sfud.getDeviceTable()
+
+    if sfud.getInfo then
+        log.info("sfud.getInfo", sfud.getInfo(sfud_device))
+    end
 
     local test_sfud_raw = false
     local test_sfud_mount = true

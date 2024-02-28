@@ -1461,6 +1461,11 @@ void network_set_base_mode(network_ctrl_t *ctrl, uint8_t is_tcp, uint32_t tcp_ti
 	ctrl->tcp_timeout_ms = tcp_timeout_ms;
 }
 
+void network_set_debug_onoff(network_ctrl_t *ctrl, uint8_t on_off)
+{
+	ctrl->is_debug = on_off;
+}
+
 void network_connect_ipv6_domain(network_ctrl_t *ctrl, uint8_t onoff)
 {
 	ctrl->domain_ipv6 = onoff;

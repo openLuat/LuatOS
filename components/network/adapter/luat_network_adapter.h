@@ -334,9 +334,18 @@ void network_init_ctrl(network_ctrl_t *ctrl, HANDLE task_handle, CBFuncEx_t call
  * 设置必须在socket处于close状态，在进行connect和tls初始之前
  */
 void network_set_base_mode(network_ctrl_t *ctrl, uint8_t is_tcp, uint32_t tcp_timeout_ms, uint8_t keep_alive, uint32_t keep_idle, uint8_t keep_interval, uint8_t keep_cnt);
+/**
+ * 是否开启debug功能
+ * @param ctrl
+ * @param on_off
+ */
+void network_set_debug_onoff(network_ctrl_t *ctrl, uint8_t on_off);
+
 
 /**
  * 使用域名时是否选择IPV6地址
+ * @param ctrl
+ * @param onoff
  */
 void network_connect_ipv6_domain(network_ctrl_t *ctrl, uint8_t onoff);
 

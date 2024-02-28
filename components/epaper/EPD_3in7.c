@@ -229,6 +229,7 @@ void EPD_3IN7_4Gray_Init(UBYTE mode)
     EPD_3IN7_SendData(0x00);
     EPD_3IN7_SendData(0x00);
     EPD_3IN7_SendData(0x00);
+    EPD_3IN7_SendData(0x00);  
     EPD_3IN7_SendData(0x00);
     EPD_3IN7_SendData(0x00);
     EPD_3IN7_SendData(0x00);
@@ -401,7 +402,7 @@ void EPD_3IN7_1Gray_Clear(void)
     EPD_3IN7_SendData(0xff);
   }
 
-  EPD_3IN7_Load_LUT(1);
+  EPD_3IN7_Load_LUT(2);
 
   EPD_3IN7_SendCommand(0x20);
   EPD_3IN7_ReadBusy_HIGH();
@@ -543,7 +544,7 @@ void EPD_3IN7_1Gray_Display(const UBYTE *Image, UBYTE *Image2)
     EPD_3IN7_SendData(Image[i]);
   }
 
-  EPD_3IN7_Load_LUT(1);
+  EPD_3IN7_Load_LUT(2);
   EPD_3IN7_SendCommand(0x20);
   EPD_3IN7_ReadBusy_HIGH();
 }
@@ -586,9 +587,6 @@ parameter:
 ******************************************************************************/
 void EPD_3IN7_Sleep(void)
 {
-    EPD_3IN7_SendCommand(0X50);
-    EPD_3IN7_SendData(0xf7);
-    EPD_3IN7_SendCommand(0X02);  	//power off
-    EPD_3IN7_SendCommand(0X07);  	//deep sleep
-    EPD_3IN7_SendData(0xA5);
+    EPD_3IN7_SendCommand(0X10);  	//deep sleep
+    EPD_3IN7_SendData(0x03);
 }

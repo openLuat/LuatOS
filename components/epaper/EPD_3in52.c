@@ -238,7 +238,7 @@ parameter:
 ******************************************************************************/
 void EPD_3IN52_ReadBusy(void)
 {
-    EPD_Busy_WaitUntil(0,0);
+    EPD_Busy_WaitUntil(1,0);
     // Debug("e-Paper busy\r\n");
     // UBYTE busy;
     // do {
@@ -460,7 +460,14 @@ void EPD_3IN52_Init(UBYTE mode)
     EPD_3IN52_SendData(0x68);			//  VRES[7:0]
 
     EPD_3IN52_SendCommand(0x50);			
-    EPD_3IN52_SendData(0xB7);			
+    EPD_3IN52_SendData(0xB7);		
+    
+    EPD_3IN52_display_NUM(EPD_3IN52_WHITE);
+    EPD_3IN52_lut_GC();
+    EPD_3IN52_refresh();
+
+    EPD_3IN52_SendCommand(0x50);
+    EPD_3IN52_SendData(0x17);	
 }
 
 
@@ -473,6 +480,8 @@ void EPD_3IN52_display(UBYTE *Image, UBYTE *Image2)
         EPD_3IN52_SendData(*Image);
         Image++;
     }
+    EPD_3IN52_lut_GC();
+    EPD_3IN52_refresh();
 }
 
 void EPD_3IN52_display_NUM(UBYTE NUM)

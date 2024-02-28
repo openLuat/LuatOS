@@ -151,6 +151,37 @@ void luat_lcd_IF_init(luat_lcd_conf_t* conf);
 int luat_lcd_IF_write_cmd_data(luat_lcd_conf_t* conf,const uint8_t cmd, const uint8_t *data, uint8_t data_len);
 int luat_lcd_IF_read_cmd_data(luat_lcd_conf_t* conf,const uint8_t cmd, uint8_t *data, uint8_t data_len, uint8_t dummy_bit);
 int luat_lcd_IF_draw(luat_lcd_conf_t* conf, int16_t x1, int16_t y1, int16_t x2, int16_t y2, luat_color_t* color);
+/**
+ * @brief luat_lcd_init放到service里跑，避免luat_lcd_init里漫长的delay带来的影响
+ * @param conf lcd配置
+ * @return 0无异常，其他失败
+ */
+int luat_lcd_init_in_service(luat_lcd_conf_t* conf);
 
+typedef struct
+{
+	uint16_t top_cut_lines;
+	uint16_t bottom_cut_lines;
+	uint16_t left_cut_lines;
+	uint16_t right_cut_lines;
+	uint16_t w_scale;	//宽度比例缩小，0不缩
+	uint16_t h_scale;	//高度度比例缩小，0不缩
+}camera_cut_info_t;
+
+/**
+ * @brief 摄像头启动预览
+ * @param camera_info camera配置，里面有lcd配置
+ * @param cut_info 剪裁配置，可以留空
+ * @param start_x 起始位置x
+ * @param start_y 起始位置y
+ * @return 0无异常，其他失败
+ */
+int luat_lcd_show_camera_in_service(void *camera_info, camera_cut_info_t *cut_info, uint16_t start_x, uint16_t start_y);
+
+/**
+ * @brief 停止摄像头预览
+ * @return 0无异常，其他失败
+ */
+int luat_lcd_stop_show_camera(void);
 #endif
 

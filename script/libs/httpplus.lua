@@ -500,7 +500,7 @@ local function http_exec(opts)
                 socket.tx(netc, fdata)
                 write_counter = write_counter + #fdata
                 -- 注意, 这里要等待TX_OK事件
-                sys.waitUntil(opts.topic, 3000)
+                sys.waitUntil(opts.topic, 300)
             end
             fd:close()
         end
@@ -510,7 +510,24 @@ local function http_exec(opts)
             write_counter = write_counter + #opts.body
         elseif type(opts.body) == "userdata" then
             write_counter = write_counter + opts.body:used()
-            socket.tx(netc, opts.body)
+            if opts.body:used() < 4*1024 then
+                socket.tx(netc, opts.body)
+            else
+                local offset = 0
+                local tmpbuff = opts.body
+                local tsize = tmpbuff:used()
+                while offset < tsize do
+                    opts.log(TAG, "body(zbuff)分段写入", offset, tsize)
+                    if tsize - offset > 4096 then
+                        socket.tx(netc, tmpbuff:toStr(offset, 4096))
+                        offset = offset + 4096
+                        sys.waitUntil(opts.topic, 300)
+                    else
+                        socket.tx(netc, tmpbuff:toStr(offset, tsize - offset))
+                        break
+                    end
+                end
+            end
         end
     end
     -- log.info("写入长度", "期望", opts.body_len, "实际", write_counter)

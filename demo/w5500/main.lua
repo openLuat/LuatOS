@@ -48,6 +48,10 @@ sys.taskInit(function()
         -- EC618系列, 如Air780E/Air600E/Air700E
         -- GPIO8接SCS, GPIO1接IRQ/INT, GPIO22接RST
         w5500.init(0, 25600000, 8, 1, 22) 
+    elseif rtos_bsp:startsWith("EC718") then
+        -- EC718P系列, 如Air780EP/Air780EPV
+        -- GPIO8接SCS, GPIO1接IRQ/INT, GPIO22接RST
+        w5500.init(0, 25600000, 8, 1, 22)
     elseif rtos_bsp == "AIR101" or rtos_bsp == "AIR103" or rtos_bsp == "AIR601" then
         -- PA1接SCS, PB01接IRQ/INT, PA7接RST
         w5500.init(0, 20000000, pin.PA01, pin.PB01, pin.PA07)

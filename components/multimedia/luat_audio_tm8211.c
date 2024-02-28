@@ -60,7 +60,15 @@ const luat_audio_codec_opts_t codec_opts_tm8211 = {
 	.no_control = 1,
 };
 
-
+const luat_audio_codec_opts_t codec_opts_common = {
+    .name = "common",
+    .init = NULL,
+    .deinit = NULL,
+    .control = NULL,
+    .start = NULL,
+    .stop = NULL,
+	.no_control = 1,
+};
 
 
 

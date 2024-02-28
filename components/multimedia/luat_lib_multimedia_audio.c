@@ -377,6 +377,7 @@ static int l_audio_set_output_bus(lua_State *L) {
     if (audio_conf!=NULL && lua_istable(L,3) && tp==LUAT_AUDIO_BUS_I2S){
         audio_conf->codec_conf.multimedia_id = id;
         audio_conf->bus_type = LUAT_AUDIO_BUS_I2S;
+        audio_conf->codec_conf.codec_opts = &codec_opts_common;
 		lua_pushstring(L, "chip");
 		if (LUA_TSTRING == lua_gettable(L, 3)) {
             const char *chip = luaL_checklstring(L, -1,&len);

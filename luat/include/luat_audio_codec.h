@@ -57,4 +57,5 @@ typedef struct luat_audio_codec_opts{
 
 extern const luat_audio_codec_opts_t codec_opts_es8311;
 extern const luat_audio_codec_opts_t codec_opts_tm8211;
+extern const luat_audio_codec_opts_t codec_opts_common;
 #endif

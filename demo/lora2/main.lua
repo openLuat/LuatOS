@@ -47,12 +47,10 @@ sys.taskInit(function()
     lora_device = lora2.init("llcc68",{res = pin_reset,busy = pin_busy,dio1 = pin_dio1},spi_lora)
     print("lora_device",lora_device)
     lora_device:set_channel(433000000)
-    lora_device:set_txconfig("llcc68",
-    {mode=1,power=22,fdev=0,bandwidth=0,datarate=9,coderate=4,preambleLen=8,
+    lora_device:set_txconfig({mode=1,power=22,fdev=0,bandwidth=0,datarate=9,coderate=4,preambleLen=8,
         fixLen=false,crcOn=true,freqHopOn=0,hopPeriod=0,iqInverted=false,timeout=3000}
     )
-    lora_device:set_rxconfig("llcc68",
-    {mode=1,bandwidth=0,datarate=9,coderate=4,bandwidthAfc=0,preambleLen=8,symbTimeout=0,fixLen=false,
+    lora_device:set_rxconfig({mode=1,bandwidth=0,datarate=9,coderate=4,bandwidthAfc=0,preambleLen=8,symbTimeout=0,fixLen=false,
         payloadLen=0,crcOn=true,freqHopOn=0,hopPeriod=0,iqInverted=false,rxContinuous=false}
     )
 

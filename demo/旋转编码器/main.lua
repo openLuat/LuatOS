@@ -3,7 +3,7 @@
 PROJECT = "testrotary"
 VERSION = "1.0.0"
 
--- 仅air105支持!!
+-- 仅支持ioqueue的平台能使用!!
 
 -- sys库是标配
 _G.sys = require("sys")

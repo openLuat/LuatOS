@@ -17,6 +17,8 @@ end
 local PWM_ID = 0
 if rtos.bsp() == "EC618" then
     PWM_ID = 4 -- GPIO 27, NetLed
+elseif rtos.bsp() == "EC718P" then
+    PWM_ID = 2 -- GPIO 25
 elseif rtos.bsp() == "AIR101" or rtos.bsp() == "AIR103" or rtos.bsp() == "AIR601"  then
     PWM_ID = 4 -- GPIO 4
 elseif rtos.bsp():startsWith("ESP32") then

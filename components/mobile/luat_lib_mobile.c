@@ -1183,7 +1183,7 @@ end)
         lua_call(L, 1, 0);
 		break;
 	case LUAT_MOBILE_EVENT_CSCON:
-		LLOGD("CSCON %d", status);
+//		LLOGD("CSCON %d", status);
 		break;
 	case LUAT_MOBILE_EVENT_BEARER:
 		LLOGD("bearer act %d, result %d",status, index);

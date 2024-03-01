@@ -94,8 +94,8 @@ function audio_setup()
         local i2s_mode = 0
         local i2s_sample_rate = 16000
         local i2s_bits_per_sample = 16
-        local i2s_channel_format = 0
-        local i2s_communication_format = 0
+        local i2s_channel_format = i2s.MONO_R
+        local i2s_communication_format = i2s.MODE_LSB
         local i2s_channel_bits = 16
     
         local pa_pin = 25

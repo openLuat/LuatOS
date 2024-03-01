@@ -28,13 +28,14 @@ enum{
 	VOLTE_EVENT_RECORD_VOICE_START,
 	VOLTE_EVENT_RECORD_VOICE_UPLOAD,
 	VOLTE_EVENT_PLAY_VOICE,
+	VOLTE_EVENT_HANGUP,
+	VOLTE_EVENT_CALL_READY,
 };
 
 //播放控制
 typedef struct
 {
 	luat_rtos_task_handle task_handle;
-	luat_i2s_conf_t *i2s_conf;
 	luat_zbuff_t *up_buff[2];
 	luat_zbuff_t *down_buff[2];
 	int record_cb;
@@ -44,7 +45,7 @@ typedef struct
 	uint8_t total_download_cnt;
 	uint8_t play_type;
 	uint8_t record_type;
-	uint8_t is_codec_on;
+	uint8_t is_call_uplink_on;
 	uint8_t record_on_off;
 	uint8_t record_start;
 	uint8_t upload_need_stop;
@@ -141,20 +142,9 @@ static void luat_volte_task(void *param){
 	luat_event_t event;
 	uint8_t multimedia_id = (int)param;
 	luat_audio_conf_t* audio_conf = luat_audio_get_config(multimedia_id);
-
-    luat_i2s_conf_t i2s_conf = {
-        .id = audio_conf->codec_conf.i2s_id,
-        .mode = LUAT_I2S_MODE_MASTER,
-        .channel_format = LUAT_I2S_CHANNEL_RIGHT,
-        .standard = LUAT_I2S_MODE_LSB,
-        .channel_bits = LUAT_I2S_BITS_16,
-        .data_bits = LUAT_I2S_BITS_16,
-        .luat_i2s_event_callback = record_cb,
-    };
-
-	luat_i2s_setup(&i2s_conf);
-    luat_cc.i2s_conf = luat_i2s_get_config(audio_conf->codec_conf.i2s_id);
-
+	luat_i2s_conf_t *i2s = luat_i2s_get_config(multimedia_id);
+	i2s->is_full_duplex = 1;
+	i2s->luat_i2s_event_callback = record_cb;
 	while (1){
 		luat_rtos_event_recv(luat_cc.task_handle, 0, &event, NULL, LUAT_WAIT_FOREVER);
 		switch(event.id)
@@ -163,9 +153,6 @@ static void luat_volte_task(void *param){
             if (LUAT_MOBILE_CC_PLAY_STOP == event.param1){
                 luat_cc.record_type = 0;
                 luat_cc.play_type = 0;
-
-                luat_cc.i2s_conf->is_full_duplex = 0;
-                luat_i2s_close(luat_cc.i2s_conf->id);
 				if (luat_rtos_timer_is_active(luat_cc.record_timer))
 				{
 					luat_rtos_timer_stop(luat_cc.record_timer);
@@ -178,32 +165,16 @@ static void luat_volte_task(void *param){
 					msg.arg1 = 1;
 					luat_msgbus_put(&msg, 0);
 				}
-                if (luat_cc.is_codec_on){
-                    luat_cc.is_codec_on = 0;
-					luat_audio_pm_request(multimedia_id,LUAT_AUDIO_PM_STANDBY);
-                }
+                luat_cc.is_call_uplink_on = 0;
+                luat_audio_speech_stop(multimedia_id);
 	            LLOGD("VOLTE_EVENT_PLAY_STOP");
                 break;
             }
-			if (!luat_cc.is_codec_on){
-				luat_cc.is_codec_on = 1;
-				luat_audio_pm_request(multimedia_id,LUAT_AUDIO_PM_RESUME);
-				luat_audio_pa(multimedia_id,1, 0);
-				audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_RATE,LUAT_I2S_HZ_16k);
-				audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_BITS,LUAT_I2S_BITS_16);
-				LLOGD("VOLTE_EVENT_PLAY_START");
-			}
 			break;
 		case VOLTE_EVENT_RECORD_VOICE_START:
 			luat_cc.record_type = event.param1;
-			luat_cc.i2s_conf->is_full_duplex = 1;
-			luat_cc.i2s_conf->cb_rx_len = 320 * luat_cc.record_type;
-			luat_i2s_modify(audio_conf->codec_conf.i2s_id, LUAT_I2S_CHANNEL_RIGHT, LUAT_I2S_BITS_16, luat_cc.record_type * 8000);
-			luat_i2s_transfer_loop(audio_conf->codec_conf.i2s_id, NULL, 3200, 2, 0);	//address传入空地址就是播放空白音
-            // audio_conf->codec_conf.codec_opts->start(&audio_conf->codec_conf);
-			audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_MODE_RESUME,LUAT_CODEC_MODE_ALL);
-
-			// luat_audio_pm_request(multimedia_id,LUAT_AUDIO_PM_RESUME);
+			luat_cc.is_call_uplink_on = 1;
+			luat_audio_speech(multimedia_id, 0, event.param1, NULL, 0, 1);
             luat_cc.record_up_zbuff_point = 0;
             if (luat_cc.record_on_off) {
             	luat_cc.up_buff[0]->used = 0;
@@ -211,6 +182,7 @@ static void luat_volte_task(void *param){
             LLOGD("VOLTE_EVENT_RECORD_VOICE_START");
 			break;
 		case VOLTE_EVENT_RECORD_VOICE_UPLOAD:
+			if (!luat_cc.is_call_uplink_on) break;
 			if (luat_cc.upload_need_stop) {
 				LLOGD("VOLTE RECORD VOICE ALREADY STOP");
 				break;
@@ -237,23 +209,11 @@ static void luat_volte_task(void *param){
 			break;
 		case VOLTE_EVENT_PLAY_VOICE:
 			luat_cc.play_type = event.param3; //1 = 8K 2 = 16K
-			if (!luat_cc.record_type){
-				luat_cc.i2s_conf->is_full_duplex = 0;
-				luat_i2s_modify(audio_conf->codec_conf.i2s_id, LUAT_I2S_CHANNEL_RIGHT, LUAT_I2S_BITS_16, luat_cc.play_type * 8000);
-				if (2 == luat_cc.play_type){
-					luat_i2s_transfer_loop(audio_conf->codec_conf.i2s_id, (uint8_t *)event.param1, event.param2/3, 3, 0);
-				}else{
-					luat_i2s_transfer_loop(audio_conf->codec_conf.i2s_id, (uint8_t *)event.param1, event.param2/6, 6, 0);
-				}
-			}else{
-//                LLOGD("%d,%d,%d", luat_cc.play_type, luat_cc.record_type, event.param2);
-				if (2 == luat_cc.record_type){
-					luat_i2s_transfer_loop(audio_conf->codec_conf.i2s_id, (uint8_t *)event.param1, event.param2/3, 3, 0);
-				}else{
-					luat_i2s_transfer_loop(audio_conf->codec_conf.i2s_id, (uint8_t *)event.param1, event.param2/6, 6, 0);
-				}
-			}
-			LLOGD("VOLTE_EVENT_PLAY_VOICE");
+			luat_audio_speech(multimedia_id, 1, event.param3, (uint8_t *)event.param1, event.param2, 1);
+			LLOGD("VOLTE PLAY VOICE");
+			break;
+		case VOLTE_EVENT_HANGUP:
+			luat_mobile_hangup_call(event.param1);
 			break;
 		}
 	}
@@ -293,7 +253,7 @@ static int l_cc_make_call(lua_State* L) {
  */
 static int l_cc_hangup_call(lua_State* L) {
     uint8_t sim_id = luaL_optinteger(L, 1, 0);
-    luat_mobile_hangup_call(sim_id);
+    luat_rtos_event_send(luat_cc.task_handle, VOLTE_EVENT_HANGUP, sim_id, 0, 0, 0);
     return 0;
 }
 

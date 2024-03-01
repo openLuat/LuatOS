@@ -13,14 +13,14 @@ sys = require("sys")
 
 if wdt then
     --添加硬狗防止程序卡死，在支持的设备上启用这个功能
-    wdt.init(9000)--初始化watchdog设置为9s
-    sys.timerLoopStart(wdt.feed, 3000)--3s喂一次狗
+    --wdt.init(9000)--初始化watchdog设置为9s
+    --sys.timerLoopStart(wdt.feed, 3000)--3s喂一次狗
 end
 local up1 = zbuff.create(6400,0)
 local up2 = zbuff.create(6400,0)
 local down1 = zbuff.create(6400,0)
 local down2 = zbuff.create(6400,0)
-
+local cnt = 0
 
 local function record(is_dl, point)
     if is_dl then
@@ -36,14 +36,17 @@ sys.subscribe("CC_IND", function(state)
     if state == "READY" then
         sys.publish("CC_READY")
     elseif state == "INCOMINGCALL" then
-        cc.accept(0)
-    end
+		cnt = cnt + 1
+		if cnt > 1 then
+			cc.accept(0)
+		end
+    elseif state == "HANGUP_CALL_DONE" or state == "MAKE_CALL_FAILED" or state == "DISCONNECTED" then
+		audio.pm(0,audio.STANDBY)
+		-- audio.pm(0,audio.SHUTDOWN)	--低功耗可以选择SHUTDOWN或者POWEROFF，如果codec无法断电用SHUTDOWN
+	end
 end)
 
 sys.taskInit(function()
-    pm.power(pm.LDO_CTL, false)  --开发板上ES8311由LDO_CTL控制上下电
-    sys.wait(100)
-    pm.power(pm.LDO_CTL, true)  --开发板上ES8311由LDO_CTL控制上下电
     cc.on("record", record)
     cc.record(true, up1, up2, down1, down2)
     local multimedia_id = 0
@@ -52,9 +55,9 @@ sys.taskInit(function()
     local i2s_mode = 0
     local i2s_sample_rate = 16000
     local i2s_bits_per_sample = 16
-    local i2s_channel_format = 0
-    local i2s_communication_format = 0
-    local i2s_channel_bits = 32
+    local i2s_channel_format = i2s.MONO_R
+    local i2s_communication_format = i2s.MODE_LSB
+    local i2s_channel_bits = 16
 
     local pa_pin = 25
     local pa_on_level = 1
@@ -65,9 +68,23 @@ sys.taskInit(function()
     local power_time_delay = 100
 
     local voice_vol = 70
-    local mic_vol = 80
-
-    i2c.setup(i2c_id,i2c.FAST)
+    local mic_vol = 65
+	--自适应开发板，如果明确是I2C几就不用了
+    i2c.setup(0,i2c.FAST)
+	i2c.setup(1,i2c.FAST)
+	pm.power(pm.LDO_CTL, false)  --开发板上ES8311由LDO_CTL控制上下电
+    sys.wait(10)
+    pm.power(pm.LDO_CTL, true)  --开发板上ES8311由LDO_CTL控制上下电
+	sys.wait(10)
+	if i2c.send(0, 0x18, 0xfd) == true then
+		log.info("音频小板", "codec on i2c0")
+	end
+	if i2c.send(1, 0x18, 0xfd) == true then
+		log.info("云喇叭开发板", "codec on i2c1")
+		power_pin = nil
+		
+		i2c_id = 1
+	end
     i2s.setup(i2s_id, i2s_mode, i2s_sample_rate, i2s_bits_per_sample, i2s_channel_format, i2s_communication_format,i2s_channel_bits)
 
     audio.config(multimedia_id, pa_pin, pa_on_level, power_delay, pa_delay, power_pin, power_on_level, power_time_delay)
@@ -77,9 +94,10 @@ sys.taskInit(function()
     audio.micVol(multimedia_id, mic_vol)
 
     cc.init(multimedia_id)
-
+	audio.pm(0,audio.STANDBY)
     sys.waitUntil("CC_READY")
     sys.wait(100)   
+	cc.dial(0, "15068398077")
     --cc.dial(0,"114") --拨打电话
 
 

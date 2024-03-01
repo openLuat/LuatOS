@@ -153,6 +153,7 @@ LUAT_WEAK void luat_audio_pa(uint8_t multimedia_id,uint8_t on, uint32_t delay){
         }
         else{
             luat_gpio_set(audio_conf->pa_pin, on?audio_conf->pa_on_level:!audio_conf->pa_on_level);
+            //LLOGD("PA %d,%d,%d", audio_conf->pa_pin, audio_conf->pa_on_level, on);
             if (on) audio_conf->pa_on_enable = 1;
         }
     }
@@ -345,17 +346,20 @@ LUAT_WEAK int luat_audio_pm_request(uint8_t multimedia_id,luat_audio_pm_mode_t m
     	}
     	else	//codec有寄存器的情况
     	{
+    		if (audio_conf->sleep_mode == mode) return 0;
     		switch (mode){
 			case LUAT_AUDIO_PM_RESUME:
 				luat_audio_power_keep_ctrl_by_bsp(1);
 				if (!audio_conf->speech_uplink_type && !audio_conf->speech_downlink_type && !audio_conf->record_mode)
 				{
+					//LLOGD("audio pm !");
 					luat_audio_play_blank(multimedia_id, 1);
 				}
 				if (LUAT_AUDIO_PM_POWER_OFF == audio_conf->sleep_mode)	//之前已经强制断电过了，就必须重新初始化
 				{
 					luat_audio_init(multimedia_id, audio_conf->last_vol, audio_conf->last_mic_vol);
 				}
+				//LLOGD("audio pm %d,%d", audio_conf->last_vol, audio_conf->last_mic_vol);
 				audio_conf->codec_conf.codec_opts->start(&audio_conf->codec_conf);
 				audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_VOICE_VOL, audio_conf->last_vol);
 				audio_conf->codec_conf.codec_opts->control(&audio_conf->codec_conf,LUAT_CODEC_SET_MIC_VOL, audio_conf->last_mic_vol);

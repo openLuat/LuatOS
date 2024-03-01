@@ -119,35 +119,33 @@ local buff = zbuff.create({128,160,16},0xf800)--创建一个128*160的framebuff�
 static int l_zbuff_create(lua_State *L)
 {
     size_t len;
-    if (lua_istable(L, 1))
-    {
+    uint32_t width = 0,height = 0;
+    uint8_t bit = 0;
+    if (lua_istable(L, 1)){
         lua_rawgeti(L, 1, 3);
         lua_rawgeti(L, 1, 2);
         lua_rawgeti(L, 1, 1);
-        uint8_t bit = luaL_checkinteger(L, -3);
-        if (bit != 1 && bit != 4 && bit != 8 && bit != 16 && bit != 24 && bit != 32)
-            return 0;
-        len = (luaL_checkinteger(L, -1) * luaL_checkinteger(L, -2) * bit - 1) / 8 + 1;
-    }
-    else
-    {
+        width = luaL_checkinteger(L, -1);
+        height = luaL_checkinteger(L, -2);
+        bit = luaL_checkinteger(L, -3);
+        if (bit != 1 && bit != 4 && bit != 8 && bit != 16 && bit != 24 && bit != 32) return 0;
+        len = (width * height * bit - 1) / 8 + 1;
+        lua_pop(L, 3);
+    } else {
         len = luaL_checkinteger(L, 1);
     }
-    if (len <= 0)
-        return 0;
+    if (len <= 0) return 0;
 
     luat_zbuff_t *buff = (luat_zbuff_t *)lua_newuserdata(L, sizeof(luat_zbuff_t));
-    if (buff == NULL)
-    {
-        return 0;
-    }
-    if (lua_isinteger(L, 3))
+    if (buff == NULL) return 0;
+
+    if (lua_isinteger(L, 3)){
     	buff->type = luaL_optinteger(L, 3, LUAT_HEAP_SRAM);
-    else
+    } else {
         buff->type = LUAT_HEAP_SRAM;
+    }
     buff->addr = (uint8_t *)luat_heap_opt_malloc(buff->type,len);
-    if (buff->addr == NULL)
-    {
+    if (buff->addr == NULL){
         lua_pushnil(L);
         lua_pushstring(L, "memory not enough");
         return 2;
@@ -156,40 +154,28 @@ static int l_zbuff_create(lua_State *L)
     buff->len = len;
     buff->cursor = 0;
 
-    if (lua_istable(L, 1))
-    {
-        buff->width = luaL_checkinteger(L, -2);
-        buff->height = luaL_checkinteger(L, -3);
-        buff->bit = luaL_checkinteger(L, -4);
-        if (lua_isinteger(L, 2))
-        {
+    if (lua_istable(L, 1)){
+        buff->width = width;
+        buff->height = height;
+        buff->bit = bit;
+        if (lua_isinteger(L, 2)){
             LUA_INTEGER initial = luaL_checkinteger(L, 2);
             uint32_t i;
-            for (i = 0; i < buff->width * buff->height; i++)
-            {
+            for (i = 0; i < buff->width * buff->height; i++){
                 set_framebuffer_point(buff, i, initial);
             }
         }
-    }
-    else
-    {
+    }else{
         buff->width = buff->height = buff->bit = 0;
-        if (lua_isinteger(L, 2))
-        {
+        if (lua_isinteger(L, 2)){
             memset(buff->addr, luaL_checkinteger(L, 2) % 0x100, len);
         }
-        else if (lua_isstring(L, 2))
-        {
+        else if (lua_isstring(L, 2)){
             const char *data = luaL_optlstring(L, 2, "", &len);
-            if (len > buff->len) //防止越界
-            {
-                len = buff->len;
-            }
+            if (len > buff->len) len = buff->len; //防止越界
             memcpy(buff->addr, data, len);
             buff->cursor = len;
-        }
-        else
-        {
+        }else{
             memset(buff->addr, 0, len);
         }
     }

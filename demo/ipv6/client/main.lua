@@ -27,9 +27,9 @@ end
 -- 演示task
 function ipv6test()
     -- 仅EC618系列支持, 例如Air780E/Air600E/Air780UG/Air700E
-    if rtos.bsp() ~= "EC618" then
+    if rtos.bsp() ~= "EC618" and rtos.bsp() ~= "EC718P" then
         while 1 do
-            log.info("ipv6", "only Air780E/Air600E/Air780UG/Air700E supported")
+            log.info("ipv6", "only Air780E/Air600E/Air780UG/Air700E/Air780EP supported")
             sys.wait(1000)
         end
     end

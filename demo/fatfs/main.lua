@@ -34,17 +34,19 @@ local rtos_bsp = rtos.bsp()
 -- spi_id,pin_cs
 local function fatfs_spi_pin()     
     if rtos_bsp == "AIR101" then
-        return 0,pin.PB04
+        return 0, pin.PB04
     elseif rtos_bsp == "AIR103" then
-        return 0,pin.PB04
+        return 0, pin.PB04
     elseif rtos_bsp == "AIR105" then
-        return 2,pin.PB03
+        return 2, pin.PB03
     elseif rtos_bsp == "ESP32C3" then
-        return 2,7
+        return 2, 7
     elseif rtos_bsp == "ESP32S3" then
-        return 2,14
+        return 2, 14
     elseif rtos_bsp == "EC618" then
-        return 0,8
+        return 0, 8
+    elseif rtos_bsp == "EC718P" then
+        return 0, 8
     else
         log.info("main", "bsp not support")
         return
@@ -56,13 +58,13 @@ sys.taskInit(function()
     -- fatfs.debug(1) -- 若挂载失败,可以尝试打开调试信息,查找原因
 
     -- 此为spi方式
-    local spi_id,pin_cs = fatfs_spi_pin() 
-    spi.setup(spi_id,nil,0,0,8,400*1000)
+    local spi_id, pin_cs = fatfs_spi_pin() 
+    spi.setup(spi_id, nil, 0, 0, 8, 400 * 1000)
     gpio.setup(pin_cs, 1)
-    fatfs.mount(fatfs.SPI,"/sd", spi_id, pin_cs, 24*1000*1000)
+    fatfs.mount(fatfs.SPI, "/sd", spi_id, pin_cs, 24 * 1000 * 1000)
 
     -- 此为sdio方式,目前只101/103支持sdio,按需使用
-    -- fatfs.mount(fatfs.SDIO,"/sd")
+    -- fatfs.mount(fatfs.SDIO, "/sd")
 
     local data, err = fatfs.getfree("/sd")
     if data then

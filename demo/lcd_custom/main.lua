@@ -45,6 +45,8 @@ local function lcd_pin()
         return 2,16,15,14,13
     elseif rtos_bsp == "EC618" then
         return 0,1,10,8,22
+    elseif rtos_bsp == "EC718P" then
+        return lcd.HWID_0,36,0xff,0xff,0xff -- 注意:EC718P有硬件lcd驱动接口, 无需使用spi,当然spi驱动也支持
     else
         log.info("main", "bsp not support")
         return
@@ -53,8 +55,12 @@ end
 
 local spi_id,pin_reset,pin_dc,pin_cs,bl = lcd_pin() 
 
--- v0006及以后版本可用pin方式, 请升级到最新固件 https://gitee.com/openLuat/LuatOS/releases
-spi_lcd = spi.deviceSetup(spi_id,pin_cs,0,0,8,20*1000*1000,spi.MSB,1,0)
+if spi_id ~= lcd.HWID_0 then
+    spi_lcd = spi.deviceSetup(spi_id,pin_cs,0,0,8,20*1000*1000,spi.MSB,1,0)
+    port = "device"
+else
+    port = spi_id
+end
 
 --[[ 下面为custom方式示例,自己传入lcd指令来实现驱动,示例以st7735s做展示 ]]
 --[[ 注意修改下面的pin_xx对应的gpio信息, 数值与pin.XXX 均可]]
@@ -66,7 +72,7 @@ spi_lcd = spi.deviceSetup(spi_id,pin_cs,0,0,8,20*1000*1000,spi.MSB,1,0)
 ]]
 
 -- lcd.init("custom",{
---     port = "device",
+--     port = port,
 --     pin_dc = pin_dc, 
 --     pin_pwr = bl,
 --     pin_rst = pin_reset,
@@ -111,10 +117,10 @@ spi_lcd = spi.deviceSetup(spi_id,pin_cs,0,0,8,20*1000*1000,spi.MSB,1,0)
 
 --[[ 下面为custom方式示例,自己传入lcd指令来实现驱动,示例以st7789做展示 ]]
 -- lcd.init("custom",{
---     port = "device",
---     pin_dc = pin.PB01, 
---     pin_pwr = pin.PB00,
---     pin_rst = pin.PB03,
+--     port = port,
+--     pin_dc = pin_dc, 
+--     pin_pwr = bl,
+--     pin_rst = pin_reset,
 --     direction = 0,
 --     direction0 = 0x00,
 --     w = 240,

@@ -50,8 +50,8 @@ sys.taskInit(function()
         w5500.init(0, 25600000, 8, 1, 22) 
     elseif rtos_bsp:startsWith("EC718") then
         -- EC718P系列, 如Air780EP/Air780EPV
-        -- GPIO8接SCS, GPIO1接IRQ/INT, GPIO22接RST
-        w5500.init(0, 25600000, 8, 1, 22)
+        -- GPIO8接SCS, GPIO29接IRQ/INT, GPIO30接RST
+        w5500.init(0, 25600000, 8, 29, 30)
     elseif rtos_bsp == "AIR101" or rtos_bsp == "AIR103" or rtos_bsp == "AIR601" then
         -- PA1接SCS, PB01接IRQ/INT, PA7接RST
         w5500.init(0, 20000000, pin.PA01, pin.PB01, pin.PA07)
@@ -80,7 +80,7 @@ local function sockettest()
     -- 等待联网
     sys.waitUntil("net_ready")
 
-    socket.sntp()
+    socket.sntp(nil, socket.ETH0)
     sys.wait(500)
 
     -- 注意这里的adapter参数, 所在bsp可能有多种适配器, 例如Air780E本身也有4G网络适配器

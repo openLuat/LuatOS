@@ -36,7 +36,7 @@ function eink_pin()
     elseif rtos_bsp == "EC618" then
         return 0,1,10,8,22
     elseif rtos_bsp == "EC718P" then
-        return 0,1,14,8,15
+        return 0,10,14,8,15
     else
         log.info("main", "bsp not support")
         return

@@ -296,16 +296,12 @@ int luat_vfs_posix_lsdir(void* fsdata, char const* _DirName, luat_fs_dirent_t* e
             }
             if (len > 0) {
                 memcpy(ents[index].d_name, ep->d_name, strlen(ep->d_name) + 1);
-                #ifdef LUA_USE_WINDOWS
-                ents[index].d_type = 0;
-                #else
                 if (ep->d_type == DT_REG) {
                     ents[index].d_type = 0;
                 }
                 else {
                     ents[index].d_type = 1;
                 }
-                #endif
                 index++;
                 len --;
             }

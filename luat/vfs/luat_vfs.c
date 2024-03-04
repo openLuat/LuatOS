@@ -339,7 +339,19 @@ int luat_fs_lsdir(char const* _DirName, luat_fs_dirent_t* ents, size_t offset, s
         LLOGD("such mount not support lsdir");
         return 0;
     }
-    return mount->fs->opts.lsdir(mount->userdata,  _DirName + strlen(mount->prefix), ents, offset, len);
+    LLOGD("luat_fs_lsdir _DirName:%s mount->prefix:%s dir:%s", _DirName,mount->prefix,_DirName + strlen(mount->prefix));
+    int ret = mount->fs->opts.lsdir(mount->userdata,  _DirName + strlen(mount->prefix), ents, offset, len);
+
+    char file_path[256] = {0};
+    memcpy(file_path, _DirName, strlen(_DirName) + 1);
+    for (size_t i = 0; i < ret; i++){
+        if (ents[i].d_type==0){
+            memcpy(file_path+strlen(_DirName), ents[i].d_name, strlen(ents[i].d_name) + 1);
+            file_path[strlen(_DirName) + strlen(ents[i].d_name)] = 0;
+            ents[i].d_size = luat_fs_fsize(file_path);
+        }
+    }
+    return ret;
 }
 
 void* luat_fs_mmap(FILE* stream) {

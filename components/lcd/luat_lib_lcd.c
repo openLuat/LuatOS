@@ -962,6 +962,7 @@ static int l_lcd_draw_str(lua_State* L) {
         data++;
         if ( e != 0x0fffe ){
         delta = u8g2_font_draw_glyph(&(default_conf->luat_lcd_u8g2), x, y, e);
+        if (e < 0x0080) delta = luat_u8g2_need_ascii_cut(delta);
         switch(default_conf->luat_lcd_u8g2.font_decode.dir){
             case 0:
             x += delta;

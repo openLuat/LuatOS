@@ -1185,11 +1185,13 @@ static int io_lsdir (lua_State *L) {
 
     for (size_t i = 0; i < ret; i++)
     {
-      lua_createtable(L, 0, 2);
+      lua_createtable(L, 0, 3);
       lua_pushinteger(L, ents[i].d_type);
       lua_setfield(L, -2, "type");
       lua_pushstring(L, ents[i].d_name);
       lua_setfield(L, -2, "name");
+      lua_pushinteger(L, ents[i].d_size);
+      lua_setfield(L, -2, "size");
       lua_seti(L, -2, i + 1);
     }
     luat_heap_free(ents);

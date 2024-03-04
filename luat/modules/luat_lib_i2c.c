@@ -185,11 +185,16 @@ static int l_i2c_exist(lua_State *L)
     return 1;
 }
 
+LUAT_WEAK int luat_i2c_set_polling_mode(int id, uint8_t on_off){
+    return -1;
+}
+
 /*
 i2c初始化
-@api i2c.setup(id, speed, slaveAddr)
+@api i2c.setup(id, speed, pullup)
 @int 设备id, 例如i2c1的id为1, i2c2的id为2
 @int I2C速度, 例如i2c.FAST
+@bool 是否软件上拉, 默认不开启，需要硬件支持
 @return int 成功就返回1,否则返回0
 @usage
 -- 初始化i2c1
@@ -204,6 +209,9 @@ static int l_i2c_setup(lua_State *L)
         return 1;
     }
     int re = luat_i2c_setup(luaL_checkinteger(L, 1), luaL_optinteger(L, 2, 0));
+    if (lua_isboolean(L, 3) && lua_toboolean(L, 3)) {
+        luat_i2c_set_polling_mode(luaL_checkinteger(L, 1), lua_toboolean(L, 3));
+    }
     lua_pushinteger(L, re == 0 ? 1 : 0);
     return 1;
 }

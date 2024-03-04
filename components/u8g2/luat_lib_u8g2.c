@@ -432,7 +432,7 @@ static int l_u8g2_SetFontMode(lua_State *L){
     lua_pushboolean(L, 1);
     return 1;
 }
-
+extern void luat_u8g2_set_ascii_indentation(uint8_t value);
 /*
 设置字体
 @api u8g2.SetFont(font, indentation)
@@ -457,9 +457,9 @@ static int l_u8g2_SetFont(lua_State *L) {
         LLOGE("only font pointer is allow");
         return 0;
     }
-    conf->equal_width_cut_for_ascii = 0xff;
+    luat_u8g2_set_ascii_indentation(0xff);
     if (lua_isinteger(L, 2)) {
-    	conf->equal_width_cut_for_ascii = lua_tointeger(L, 2);
+    	luat_u8g2_set_ascii_indentation(lua_tointeger(L, 2));
     }
     u8g2_SetFont(&conf->u8g2, ptr);
     lua_pushboolean(L, 1);
@@ -1564,16 +1564,4 @@ uint8_t u8x8_luat_gpio_and_delay_default(u8x8_t *u8x8, uint8_t msg, uint8_t arg_
 }
 
 
-void luat_u8g2_set_equal_width(uint8_t is_true)
-{
-	conf->is_equal_width = is_true;
-}
 
-u8g2_uint_t luat_u8g2_need_ascii_cut(u8g2_uint_t org_delta)
-{
-	if (conf->is_equal_width) {
-		if ((conf->equal_width_cut_for_ascii < org_delta)) return org_delta - conf->equal_width_cut_for_ascii;
-		return ((org_delta - 1) >> 1) + 1;
-	}
-	return org_delta;
-}

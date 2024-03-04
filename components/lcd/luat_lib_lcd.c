@@ -887,11 +887,12 @@ static int16_t u8g2_font_draw_glyph(u8g2_t *u8g2, int16_t x, int16_t y, uint16_t
   }
   return dx;
 }
-
+extern void luat_u8g2_set_ascii_indentation(uint8_t value);
 /*
 设置字体
-@api lcd.setFont(font)
+@api lcd.setFont(font, indentation)
 @int font lcd.font_XXX 请查阅常量表
+@int indentation, 等宽字体ascii右侧缩进0~127个pixel，等宽字体的ascii字符可能在右侧有大片空白，用户可以选择删除部分。留空或者超过127则直接删除右半边, 非等宽字体无效
 @usage
 -- 设置为字体,对之后的drawStr有效,调用lcd.drawStr前一定要先设置
 
@@ -915,7 +916,11 @@ static int l_lcd_set_font(lua_State *L) {
       LLOGE("only font pointer is allow");
       return 0;
     }
+    luat_u8g2_set_ascii_indentation(0xff);
     u8g2_SetFont(&(default_conf->luat_lcd_u8g2), ptr);
+    if (lua_isinteger(L, 2)) {
+    	luat_u8g2_set_ascii_indentation(lua_tointeger(L, 2));
+    }
     lua_pushboolean(L, 1);
     return 1;
 }

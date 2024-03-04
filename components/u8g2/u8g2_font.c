@@ -40,8 +40,18 @@
 #define U8G2_FONT_DATA_STRUCT_SIZE 23
 
 #if (defined __LUATOS__) || defined (__USER_CODE__)
-void luat_u8g2_set_equal_width(uint8_t is_true);
-u8g2_uint_t luat_u8g2_need_ascii_cut(u8g2_uint_t org_delta);
+
+static uint8_t luat_u8g2_is_equal_width;	//是否是等宽字体
+static uint8_t luat_u8g2_ascii_indentation;//等宽字体ascii码缩进处理
+void luat_u8g2_set_ascii_indentation(uint8_t value) {luat_u8g2_ascii_indentation = value;}
+u8g2_uint_t luat_u8g2_need_ascii_cut(u8g2_uint_t org_delta)
+{
+	if (luat_u8g2_is_equal_width) {
+		if ((luat_u8g2_ascii_indentation < org_delta)) return org_delta - luat_u8g2_ascii_indentation;
+		return ((org_delta - 1) >> 1) + 1;
+	}
+	return org_delta;
+}
 #endif
 /*
   font data:
@@ -1305,7 +1315,7 @@ void u8g2_SetFont(u8g2_t *u8g2, const uint8_t  *font)
     x = u8g2_font_decode_get_signed_bits(decode, u8g2->font_info.bits_per_char_x);
     y = u8g2_font_decode_get_signed_bits(decode, u8g2->font_info.bits_per_char_y);
     d = u8g2_font_decode_get_signed_bits(decode, u8g2->font_info.bits_per_delta_x);
-    luat_u8g2_set_equal_width(d == u8g2->font_info.max_char_width);
+    luat_u8g2_is_equal_width = (d == u8g2->font_info.max_char_width);
 #endif
   }
 }

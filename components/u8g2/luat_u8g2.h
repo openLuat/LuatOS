@@ -13,8 +13,6 @@ typedef struct luat_u8g2_conf
     uint16_t h;
     uint8_t sleepcmd;
     uint8_t wakecmd;
-    uint8_t is_equal_width;	//是否是等宽字体
-    uint8_t equal_width_cut_for_ascii;//等宽字体ascii码缩进处理
     int lua_ref;
     char* cname; // 控制器名称, 例如SSD1306
     u8g2_t u8g2;
@@ -27,6 +25,6 @@ int luat_u8g2_setup(luat_u8g2_conf_t *conf);
 
 int luat_u8g2_close(luat_u8g2_conf_t *conf);
 
-void luat_u8g2_set_equal_width(uint8_t is_true);
+void luat_u8g2_set_ascii_indentation(uint8_t value);
 
 u8g2_uint_t luat_u8g2_need_ascii_cut(u8g2_uint_t org_delta);

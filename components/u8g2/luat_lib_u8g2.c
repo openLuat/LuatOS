@@ -357,7 +357,7 @@ static int l_u8g2_SendBuffer(lua_State *L) {
 }
 
 /*
-在显示屏上画一段文字，在显示屏上画一段文字,要调用u8g2.SendBuffer()才会更新到屏幕
+在显示屏上画一段文字，在显示屏上画一段文字,要调用u8g2.SendBuffer()才会更新到屏 注意:设置坐标为显示字符串左下角坐标
 @api u8g2.DrawUTF8(str, x, y)
 @string 文件内容
 @int 横坐标
@@ -382,7 +382,7 @@ static int l_u8g2_DrawUTF8(lua_State *L) {
 }
 
 /*
-在提供的文本周围画一个框。这与 DrawUTF8 类似，但为文本添加了一些装饰。,要调用u8g2.SendBuffer()才会更新到屏幕
+在提供的文本周围画一个框。这与 DrawUTF8 类似，但为文本添加了一些装饰。要调用u8g2.SendBuffer()才会更新到屏幕 注意:设置坐标为显示字符串左下角坐标
 @api u8g2.DrawButtonUTF8(str, x, y, flags, w, h, v, str)
 @string 文件内容
 @int 横坐标

@@ -39,6 +39,10 @@
 /* this is the size for the new font format */
 #define U8G2_FONT_DATA_STRUCT_SIZE 23
 
+#if (defined __LUATOS__) || defined (__USER_CODE__)
+void luat_u8g2_set_equal_width(uint8_t is_true);
+u8g2_uint_t luat_u8g2_need_ascii_cut(u8g2_uint_t org_delta);
+#endif
 /*
   font data:
 
@@ -979,7 +983,9 @@ static u8g2_uint_t u8g2_draw_string(u8g2_t *u8g2, u8g2_uint_t x, u8g2_uint_t y, 
     if ( e != 0x0fffe )
     {
       delta = u8g2_DrawGlyph(u8g2, x, y, e);
-    
+#if (defined __LUATOS__) || defined (__USER_CODE__)
+      if (e < 0x0080) delta = luat_u8g2_need_ascii_cut(delta);
+#endif
 #ifdef U8G2_WITH_FONT_ROTATION
       switch(u8g2->font_decode.dir)
       {
@@ -1288,6 +1294,19 @@ void u8g2_SetFont(u8g2_t *u8g2, const uint8_t  *font)
     u8g2_read_font_info(&(u8g2->font_info), font);
     u8g2_UpdateRefHeight(u8g2);
     /* u8g2_SetFontPosBaseline(u8g2); */ /* removed with issue 195 */
+#if (defined __LUATOS__) || defined (__USER_CODE__)
+//探测一下是不是等宽字体
+    const uint8_t *glyph_data = u8g2_font_get_glyph_data(u8g2, 'a');
+    int8_t x, y;
+    int8_t d;
+    u8g2_font_decode_t *decode = &(u8g2->font_decode);
+
+    u8g2_font_setup_decode(u8g2, glyph_data);     /* set values in u8g2->font_decode data structure */
+    x = u8g2_font_decode_get_signed_bits(decode, u8g2->font_info.bits_per_char_x);
+    y = u8g2_font_decode_get_signed_bits(decode, u8g2->font_info.bits_per_char_y);
+    d = u8g2_font_decode_get_signed_bits(decode, u8g2->font_info.bits_per_delta_x);
+    luat_u8g2_set_equal_width(d == u8g2->font_info.max_char_width);
+#endif
   }
 }
 

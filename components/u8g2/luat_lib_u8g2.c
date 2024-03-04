@@ -357,7 +357,7 @@ static int l_u8g2_SendBuffer(lua_State *L) {
 }
 
 /*
-在显示屏上画一段文字，在显示屏上画一段文字,要调用u8g2.SendBuffer()才会更新到屏幕
+在显示屏上画一段文字，在显示屏上画一段文字,要调用u8g2.SendBuffer()才会更新到屏幕，坐标原点为左下角！！！，其他显示API均同
 @api u8g2.DrawUTF8(str, x, y)
 @string 文件内容
 @int 横坐标
@@ -435,8 +435,9 @@ static int l_u8g2_SetFontMode(lua_State *L){
 
 /*
 设置字体
-@api u8g2.SetFont(font)
+@api u8g2.SetFont(font, indentation)
 @userdata font, u8g2.font_opposansm8 为纯英文8号字体,还有font_opposansm10 font_opposansm12 font_opposansm16 font_opposansm18 font_opposansm20 font_opposansm22 font_opposansm24 font_opposansm32 可选 u8g2.font_opposansm12_chinese 为12x12全中文,还有 font_opposansm16_chinese font_opposansm24_chinese font_opposansm32_chinese 可选, u8g2.font_unifont_t_symbols 为符号.
+@int indentation, 等宽字体ascii右侧缩进0~127个pixel，等宽字体的ascii字符可能在右侧有大片空白，用户可以选择删除部分。留空或者超过127则直接删除右半边, 非等宽字体无效
 @usage
 -- 设置为中文字体,对之后的drawStr有效
 u8g2.SetFont(u8g2.font_opposansm12)
@@ -455,6 +456,10 @@ static int l_u8g2_SetFont(lua_State *L) {
     if (ptr == NULL) {
         LLOGE("only font pointer is allow");
         return 0;
+    }
+    conf->equal_width_cut_for_ascii = 0xff;
+    if (lua_isinteger(L, 2)) {
+    	conf->equal_width_cut_for_ascii = lua_tointeger(L, 2);
     }
     u8g2_SetFont(&conf->u8g2, ptr);
     lua_pushboolean(L, 1);
@@ -1559,4 +1564,16 @@ uint8_t u8x8_luat_gpio_and_delay_default(u8x8_t *u8x8, uint8_t msg, uint8_t arg_
 }
 
 
+void luat_u8g2_set_equal_width(uint8_t is_true)
+{
+	conf->is_equal_width = is_true;
+}
 
+u8g2_uint_t luat_u8g2_need_ascii_cut(u8g2_uint_t org_delta)
+{
+	if (conf->is_equal_width) {
+		if ((conf->equal_width_cut_for_ascii < org_delta)) return org_delta - conf->equal_width_cut_for_ascii;
+		return ((org_delta - 1) >> 1) + 1;
+	}
+	return org_delta;
+}

@@ -38,6 +38,8 @@ function u8g2_pin()
         return 0,12,11,2,16,15,14,13
     elseif rtos_bsp == "EC618" then
         return 0,10,11,0,1,10,8,18
+    elseif rtos_bsp == "EC718P" then
+        return 0,14,15,0,1,10,8,18
     else
         log.info("main", "bsp not support")
         return
@@ -113,6 +115,10 @@ if u8g2.font_opposansm12_chinese then
     u8g2.SetFont(u8g2.font_opposansm12_chinese)
 elseif u8g2.font_opposansm10_chinese then
     u8g2.SetFont(u8g2.font_opposansm10_chinese)
+elseif u8g2.font_sarasa_m12_chinese then
+    u8g2.SetFont(u8g2.font_sarasa_m12_chinese)
+elseif u8g2.font_sarasa_m10_chinese then
+    u8g2.SetFont(u8g2.font_sarasa_m10_chinese)
 else
     print("no chinese font")
 end

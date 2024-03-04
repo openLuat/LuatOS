@@ -26,6 +26,12 @@
 #define IPPROTO_ND                   77			/**< UNOFFICIAL net disk protocol */
 #define IPPROTO_RAW                  255		/**< Raw IP packet */
 
+enum{
+	W5500_IP_READY = 0,
+	W5500_IP_LOSE,
+	W5500_CABLE_INSERT,
+	W5500_CABLE_REMOVE,
+};
 void w5500_set_static_ip(uint32_t ipv4, uint32_t submask, uint32_t gateway);
 void w5500_set_mac(uint8_t mac[6]);
 void w5500_get_mac(uint8_t mac[6]);

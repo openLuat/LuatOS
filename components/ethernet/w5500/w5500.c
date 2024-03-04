@@ -576,7 +576,7 @@ static void w5500_nw_state(w5500_ctrl_t *w5500)
 			w5500->socket[0].tx_wait_size = 0;	//dns可以继续发送了
 			w5500_callback_to_nw_task(w5500, EV_NW_STATE, 0, 1, w5500->self_index);
 			LLOGD("network ready");
-			w5500_nw_state_cb(1, w5500->dhcp_client.temp_ip == 0 ? w5500->static_ip : w5500->dhcp_client.temp_ip);
+			w5500_nw_state_cb(W5500_IP_READY, w5500->dhcp_client.temp_ip == 0 ? w5500->static_ip : w5500->dhcp_client.temp_ip);
 			for(i = 0; i < MAX_DNS_SERVER; i++)
 			{
 #ifdef LUAT_USE_LWIP
@@ -603,7 +603,7 @@ static void w5500_nw_state(w5500_ctrl_t *w5500)
 			dns_clear(&w5500->dns_client);
 			w5500_callback_to_nw_task(w5500, EV_NW_STATE, 0, 0, w5500->self_index);
 			LLOGD("network not ready");
-			w5500_nw_state_cb(0, 0);
+			w5500_nw_state_cb(W5500_IP_LOSE, 0);
 			for(i = 0; i < MAX_SOCK_NUM; i++)
 			{
 				w5500->socket[i].tx_wait_size = 0;
@@ -693,7 +693,7 @@ static void w5500_link_state(w5500_ctrl_t *w5500, uint8_t check_state)
 	{
 		LLOGD("link %d -> %d", w5500->link_ready, check_state);
 		w5500->link_ready = check_state;
-
+		w5500_nw_state_cb(w5500->link_ready ? W5500_CABLE_INSERT : W5500_CABLE_REMOVE, 0);
 		if (w5500->link_ready)
 		{
 			if (!w5500->static_ip)

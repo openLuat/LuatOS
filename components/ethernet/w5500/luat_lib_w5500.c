@@ -156,7 +156,9 @@ static int l_nw_state_handler(lua_State *L, void* ptr) {
 	(void)ptr;
 	rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
 	lua_getglobal(L, "sys_pub");
-	if (msg->arg1) {
+
+	switch (msg->arg1)
+	{
 /*
 @sys_pub w5500
 已联网
@@ -167,13 +169,13 @@ sys.subscribe("IP_READY", function(ip, adapter)
     log.info("w5500", "IP_READY", ip, (adapter or -1) == socket.LWIP_GP)
 end)
 */
+	case W5500_IP_READY:
 		lua_pushliteral(L, "IP_READY");
 		uint32_t ip = msg->arg2;
 		lua_pushfstring(L, "%d.%d.%d.%d", (ip) & 0xFF, (ip >> 8) & 0xFF, (ip >> 16) & 0xFF, (ip >> 24) & 0xFF);
 		lua_pushinteger(L, NW_ADAPTER_INDEX_ETH0);
 		lua_call(L, 3, 0);
-	}
-	else {
+		break;
 /*
 @sys_pub w5500
 已断网
@@ -184,9 +186,41 @@ sys.subscribe("IP_LOSE", function(adapter)
     log.info("w5500", "IP_LOSE", (adapter or -1) == socket.ETH0)
 end)
 */
+	case W5500_IP_LOSE:
 		lua_pushliteral(L, "IP_LOSE");
 		lua_pushinteger(L, NW_ADAPTER_INDEX_ETH0);
 		lua_call(L, 2, 0);
+		break;
+/*
+@sys_pub w5500
+网线已插入
+CABLE_INSERT
+@usage
+-- 网线插入后会发一次这个消息
+sys.subscribe("CABLE_INSERT", function()
+    log.info("w5500", "CABLE_INSERT")
+end)
+*/
+	case W5500_CABLE_INSERT:
+		lua_pushliteral(L, "CABLE_INSERT");
+		lua_call(L, 1, 0);
+		break;
+/*
+@sys_pub w5500
+网线已拔出
+CABLE_REMOVE
+@usage
+-- 网线拔出后会发一次这个消息
+sys.subscribe("CABLE_REMOVE", function()
+    log.info("w5500", "CABLE_REMOVE")
+end)
+*/
+	case W5500_CABLE_REMOVE:
+		lua_pushliteral(L, "CABLE_REMOVE");
+		lua_call(L, 1, 0);
+		break;
+	default:
+		break;
 	}
 	return 0;
 }

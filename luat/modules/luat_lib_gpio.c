@@ -177,7 +177,7 @@ int l_gpio_handler(lua_State *L, void* ptr) {
 @api gpio.setup(pin, mode, pull, irq, alt)
 @int pin gpio编号,必须是数值
 @any mode 输入输出模式：<br>数字0/1代表输出模式<br>nil代表输入模式<br>function代表中断模式
-@int pull 上拉下列模式, 可以是gpio.PULLUP 或 gpio.PULLDOWN, 需要根据实际硬件选用
+@int pull 上拉下列模式, 可以是gpio.PULLUP 或 gpio.PULLDOWN, 或者 0. 需要根据实际硬件选用
 @int irq 中断触发模式,默认gpio.BOTH。中断触发模式<br>上升沿gpio.RISING<br>下降沿gpio.FALLING<br>上升和下降都触发gpio.BOTH 
 @int alt 复用选项，目前只有EC618平台需要这个参数，有些GPIO可以复用到不同引脚上，可以选择复用选项（0或者4）从而复用到对应的引脚上
 @return any 输出模式返回设置电平的闭包, 输入模式和中断模式返回获取电平的闭包
@@ -218,6 +218,14 @@ gpio.setup(18, 0, nil, nil, 4)
 -- 中断回调的val参数不代表触发方向, 仅代表中断后某个时间点的电平
 -- 对Cat.1模块,通常只有AONGPIO才能双向触发, 其他GPIO只能单向触发
 -- 默认设置下,中断是没有防抖时间的,可以通过gpio.set_debounce(pin, 50)来设置防抖时间
+
+-- pull参数的额外说明, 上拉/下拉配置
+-- 对于部分的BSP来说, 只支持 gpio.PULLUP 或 gpio.PULLDOWN, 但有部分BSP支持开漏模式
+-- 对于支持开漏的bsp, pull参数要传 0 才能开启开漏模式, 不是传nil
+-- 例如:
+-- EC618系列(Air780E/Air780EG/Air780EX/Air700E等)
+-- EC718系列(Air780EP/Air780EPV等)
+-- XT804系列(Air101/Air103/Air601)
 */
 static int l_gpio_setup(lua_State *L) {
     luat_gpio_t conf = {0};

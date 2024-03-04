@@ -159,6 +159,7 @@ typedef struct luat_fs_dirent
 {
     unsigned char d_type; //0:文件；1：文件夹
     char d_name[255];
+    size_t d_size;
 }luat_fs_dirent_t;
 
 

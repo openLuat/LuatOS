@@ -561,7 +561,7 @@ static int w5500_socket_rx(w5500_ctrl_t *w5500, uint8_t socket_id, uint8_t *data
 	return len;
 }
 
-extern void w5500_nw_state_cb(int state, uint32_t ip);
+extern void w5500_nw_state_cb(int state, uint32_t param);
 
 static void w5500_nw_state(w5500_ctrl_t *w5500)
 {

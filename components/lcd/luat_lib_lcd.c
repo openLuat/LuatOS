@@ -19,6 +19,7 @@
 
 #include "u8g2.h"
 #include "u8g2_luat_fonts.h"
+#include "luat_u8g2.h"
 
 #include "qrcodegen.h"
 

@@ -207,7 +207,7 @@ static int l_gtfont_init(lua_State* L) {
 static const rotable_Reg_t reg_gtfont[] =
 {
     { "init" ,          ROREG_FUNC(l_gtfont_init)},
-	{ NULL,             {}}
+	{ NULL,             ROREG_INT(0)}
 };
 
 LUAMOD_API int luaopen_gtfont( lua_State *L ) {

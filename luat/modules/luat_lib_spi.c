@@ -657,6 +657,12 @@ static int l_spi_device_recv(lua_State *L) {
     return 0;
 }
 
+static int _spi_struct_gc(lua_State *L) {
+    luat_spi_device_t* spi_device = (luat_spi_device_t*)lua_touserdata(L, 1);
+    LLOGI("spi_device对象正在被回收,相关内存将释放 %p , spi id=%d", spi_device, spi_device->bus_id);
+    return 0;
+}
+
 int _spi_struct_newindex(lua_State *L) {
     const char* key = luaL_checkstring(L, 2);
     if (!strcmp("close", key)) {
@@ -680,6 +686,8 @@ int _spi_struct_newindex(lua_State *L) {
 
 void luat_spi_struct_init(lua_State *L) {
     luaL_newmetatable(L, META_SPI);
+    lua_pushcfunction(L, _spi_struct_gc);
+    lua_setfield( L, -2, "__gc" );
     lua_pushcfunction(L, _spi_struct_newindex);
     lua_setfield( L, -2, "__index" );
     lua_pop(L, 1);

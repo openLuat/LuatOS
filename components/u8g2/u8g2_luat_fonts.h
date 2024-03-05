@@ -36,8 +36,6 @@ extern const uint8_t u8g2_font_opposansm22_chinese[] U8G2_FONT_SECTION("u8g2_fon
 extern const uint8_t u8g2_font_opposansm24_chinese[] U8G2_FONT_SECTION("u8g2_font_opposansm24_chinese");
 extern const uint8_t u8g2_font_opposansm32_chinese[] U8G2_FONT_SECTION("u8g2_font_opposansm32_chinese");
 
-extern const uint8_t u8g2_font_sarasa_m8_ascii[] U8G2_FONT_SECTION("u8g2_font_sarasa_m8_ascii");
-extern const uint8_t u8g2_font_sarasa_m10_ascii[] U8G2_FONT_SECTION("u8g2_font_sarasa_m10_ascii");
 extern const uint8_t u8g2_font_sarasa_m12_ascii[] U8G2_FONT_SECTION("u8g2_font_sarasa_m12_ascii");
 extern const uint8_t u8g2_font_sarasa_m14_ascii[] U8G2_FONT_SECTION("u8g2_font_sarasa_m14_ascii");
 extern const uint8_t u8g2_font_sarasa_m16_ascii[] U8G2_FONT_SECTION("u8g2_font_sarasa_m16_ascii");

@@ -1435,8 +1435,6 @@ static const rotable_Reg_t reg_eink[] =
 #endif
 
 #ifdef USE_U8G2_SARASA_ENGLISH
-    { "font_sarasa_m8_ascii", ROREG_PTR((void*)u8g2_font_sarasa_m8_ascii)},
-    { "font_sarasa_m10_ascii", ROREG_PTR((void*)u8g2_font_sarasa_m10_ascii)},
     { "font_sarasa_m12_ascii", ROREG_PTR((void*)u8g2_font_sarasa_m12_ascii)},
     { "font_sarasa_m14_ascii", ROREG_PTR((void*)u8g2_font_sarasa_m14_ascii)},
     { "font_sarasa_m16_ascii", ROREG_PTR((void*)u8g2_font_sarasa_m16_ascii)},

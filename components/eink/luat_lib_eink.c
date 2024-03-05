@@ -21,7 +21,7 @@
 #include "imagedata.h"
 #include "qrcodegen.h"
 #include <stdlib.h>
-
+#include "luat_u8g2.h"
 #include "u8g2_luat_fonts.h"
 #include "luat_zbuff.h"
 
@@ -566,6 +566,7 @@ static int l_eink_set_font(lua_State *L) {
         LLOGE("only font pointer is allow");
         return 0;
     }
+    luat_u8g2_set_ascii_indentation(0xff);
     u8g2_SetFont(&(econf.luat_eink_u8g2), ptr);
     lua_pushboolean(L, 1);
     return 1;
@@ -614,6 +615,7 @@ static int l_eink_print(lua_State *L)
         str++;
         if ( e != 0x0fffe ){
         delta = u8g2_font_draw_glyph(&(econf.luat_eink_u8g2), x, y, e);
+        if (e < 0x0080) delta = luat_u8g2_need_ascii_cut(delta);
         switch(econf.luat_eink_u8g2.font_decode.dir){
             case 0:
             x += delta;

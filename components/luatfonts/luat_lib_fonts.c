@@ -28,6 +28,7 @@ static const u8g2_font_t u8g2_fonts[] = {
 #ifdef USE_U8G2_OPPOSANSM_ENGLISH
     {.name="unifont_t_symbols", .font=u8g2_font_unifont_t_symbols},
     {.name="open_iconic_weather_6x_t", .font=u8g2_font_open_iconic_weather_6x_t},
+    {.name="opposansm10", .font=u8g2_font_opposansm10},
     {.name="opposansm12", .font=u8g2_font_opposansm12},
     {.name="opposansm16", .font=u8g2_font_opposansm16},
     {.name="opposansm20", .font=u8g2_font_opposansm20},

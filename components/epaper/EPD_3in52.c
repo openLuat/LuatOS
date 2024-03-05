@@ -461,7 +461,7 @@ void EPD_3IN52_Init(UBYTE mode)
 
     EPD_3IN52_SendCommand(0x50);			
     EPD_3IN52_SendData(0xB7);		
-    
+    // add for luatos
     EPD_3IN52_display_NUM(EPD_3IN52_WHITE);
     EPD_3IN52_lut_GC();
     EPD_3IN52_refresh();
@@ -480,6 +480,7 @@ void EPD_3IN52_display(UBYTE *Image, UBYTE *Image2)
         EPD_3IN52_SendData(*Image);
         Image++;
     }
+    // add for luatos
     EPD_3IN52_lut_GC();
     EPD_3IN52_refresh();
 }

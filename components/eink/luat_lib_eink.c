@@ -160,7 +160,7 @@ static int l_eink_init(lua_State* L) {
         econf.ctxs[i]->paint.inited = 1;
     }
 
-    u8g2_SetFont(&(econf.luat_eink_u8g2), u8g2_font_opposansm8);
+    u8g2_SetFont(&(econf.luat_eink_u8g2), u8g2_font_opposansm12);
     u8g2_SetFontMode(&(econf.luat_eink_u8g2), 0);
     u8g2_SetFontDirection(&(econf.luat_eink_u8g2), 0);
     lua_pushboolean(L, 1);
@@ -250,7 +250,7 @@ static int l_eink_setup(lua_State *L) {
         }
 
     }
-    u8g2_SetFont(&(econf.luat_eink_u8g2), u8g2_font_opposansm8);
+    u8g2_SetFont(&(econf.luat_eink_u8g2), u8g2_font_opposansm12);
     u8g2_SetFontMode(&(econf.luat_eink_u8g2), 0);
     u8g2_SetFontDirection(&(econf.luat_eink_u8g2), 0);
     //paint.inited = 1;
@@ -1377,39 +1377,27 @@ static const rotable_Reg_t reg_eink[] =
     //@const MODEL_7in5b_V2 number 7.5寸b_V2
     { "MODEL_7in5b_V2",           ROREG_INT(MODEL_7in5b_V2)},
 
-    // 默认只带8号字体
-    //@const font_opposansm8 font 8号字体
-    { "font_opposansm8", ROREG_PTR((void*)u8g2_font_opposansm8)},
+    // 默认只带12号字体
+    //@const font_opposansm12 font 12号字体
+    { "font_opposansm12", ROREG_PTR((void*)u8g2_font_opposansm12)},
 #ifdef USE_U8G2_OPPOSANSM_ENGLISH
     //@const font_unifont_t_symbols font 符号字体
     { "font_unifont_t_symbols",   ROREG_PTR((void*)u8g2_font_unifont_t_symbols)},
     //@const font_open_iconic_weather_6x_t font 天气字体
     { "font_open_iconic_weather_6x_t", ROREG_PTR((void*)u8g2_font_open_iconic_weather_6x_t)},
 
-    //@const font_opposansm10 font 10号字体
-    //@const font_opposansm12 font 12号字体
     //@const font_opposansm16 font 16号字体
     //@const font_opposansm18 font 18号字体
     //@const font_opposansm20 font 20号字体
     //@const font_opposansm22 font 22号字体
     //@const font_opposansm24 font 24号字体
     //@const font_opposansm32 font 32号字体
-    { "font_opposansm10", ROREG_PTR((void*)u8g2_font_opposansm10)},
-    { "font_opposansm12", ROREG_PTR((void*)u8g2_font_opposansm12)},
     { "font_opposansm16", ROREG_PTR((void*)u8g2_font_opposansm16)},
     { "font_opposansm18", ROREG_PTR((void*)u8g2_font_opposansm18)},
     { "font_opposansm20", ROREG_PTR((void*)u8g2_font_opposansm20)},
     { "font_opposansm22", ROREG_PTR((void*)u8g2_font_opposansm22)},
     { "font_opposansm24", ROREG_PTR((void*)u8g2_font_opposansm24)},
     { "font_opposansm32", ROREG_PTR((void*)u8g2_font_opposansm32)},
-#endif
-#ifdef USE_U8G2_OPPOSANSM8_CHINESE
-    //@const font_opposansm8_chinese font 8号中文字体
-    { "font_opposansm8_chinese", ROREG_PTR((void*)u8g2_font_opposansm8_chinese)},
-#endif
-#ifdef USE_U8G2_OPPOSANSM10_CHINESE
-    //@const font_opposansm8_chinese font 10号中文字体
-    { "font_opposansm10_chinese", ROREG_PTR((void*)u8g2_font_opposansm10_chinese)},
 #endif
 #ifdef USE_U8G2_OPPOSANSM12_CHINESE
     //@const font_opposansm12_chinese font 12号中文字体

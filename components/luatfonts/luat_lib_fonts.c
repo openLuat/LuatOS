@@ -60,8 +60,6 @@ static const u8g2_font_t u8g2_fonts[] = {
     {.name="opposansm32_chinese", .font=u8g2_font_opposansm32_chinese},
 #endif
 #ifdef USE_U8G2_SARASA_ENGLISH
-    { .name="sarasa_m8_ascii", .font=u8g2_font_sarasa_m8_ascii},
-    { .name="sarasa_m10_ascii", .font=u8g2_font_sarasa_m10_ascii},
     { .name="sarasa_m12_ascii", .font=u8g2_font_sarasa_m12_ascii},
     { .name="sarasa_m14_ascii", .font=u8g2_font_sarasa_m14_ascii},
     { .name="sarasa_m16_ascii", .font=u8g2_font_sarasa_m16_ascii},

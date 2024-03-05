@@ -51,7 +51,6 @@ typedef struct
 	size_t  camera_speed;			//提供给camera时钟频率
 	uint16_t sensor_width;			//camera的最大宽度
     uint16_t sensor_height;			//camera的最大高度
-    uint16_t one_buf_height;		//1个接收缓存的高度，接收缓存大小=sensor_width * one_buf_height * (1 or 2，only_y=1), 底层根据实际情况会做调整，从而修改这个值，目前废弃
     uint8_t only_y;
 	uint8_t rowScaleRatio;
 	uint8_t colScaleRatio;
@@ -60,8 +59,6 @@ typedef struct
 	uint8_t is_msb;	//0 or 1;
 	uint8_t is_two_line_rx; //0 or 1;
 	uint8_t seq_type;	//0 or 1
-    uint8_t image_scan;
-    uint8_t draw_lcd;
 	uint8_t plat_param[4];
 #ifdef __LUATOS__
     luat_lcd_conf_t* lcd_conf;
@@ -136,6 +133,8 @@ int luat_camera_image_decode_once(uint8_t *data, uint16_t image_w, uint16_t imag
 void luat_camera_image_decode_deinit(void);
 
 int luat_camera_image_decode_get_result(uint8_t *buf);
+
+int luat_camera_preview(int id, uint8_t on_off);
 
 /** @}*/
 #endif

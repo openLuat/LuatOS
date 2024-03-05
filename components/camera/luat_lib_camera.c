@@ -17,7 +17,7 @@
 #define LUAT_LOG_TAG "camera"
 #include "luat_log.h"
 
-#define MAX_DEVICE_COUNT 2
+#define MAX_DEVICE_COUNT 3
 
 typedef struct luat_camera_cb {
     int scanned;
@@ -53,9 +53,18 @@ int l_camera_handler(lua_State *L, void* ptr) {
 
 /*
 初始化摄像头
-@api    camera.init(InitReg)
-@table InitReg camera初始化命令 见demo/camera/AIR105 注意:如扫码 camera初始化时需设置为灰度输出
-@return int camera_id
+@api    camera.init(InitReg_or_cspi_id, cspi_speed, mode, is_msb, rx_bit, seq_type, is_ddr, only_y, w, h)
+@table/integer 如果是table,则是DVP摄像头的配置见demo/camera/AIR105,同时忽略后续参数;如果是数字,则是camera spi总线序号
+@int camera spi总线速度
+@int camera spi模式,0~3
+@int 字节的bit顺序是否是msb,0否1是
+@int 同时接收bit数,1,2,4
+@int byte序列,0~1
+@int 双边沿采样配置,0不启用,其他值根据实际SOC决定
+@int 只采集Y分量,0不启用,其他值启用
+@int 摄像头宽度
+@int 摄像头高度
+@return int/false 成功返回camera_id，失败返回false
 @usage
 camera_id = camera.init(GC032A_InitReg)--屏幕输出rgb图像
 --初始化后需要start才开始输出/扫码
@@ -63,9 +72,10 @@ camera.start(camera_id)--开始指定的camera
 */
 
 static int l_camera_init(lua_State *L){
-    luat_camera_conf_t conf = {0};
-    conf.lcd_conf = luat_lcd_get_default();
+	int result;
     if (lua_istable(L, 1)) {
+    	luat_camera_conf_t conf = {0};
+    	conf.lcd_conf = luat_lcd_get_default();
         lua_pushliteral(L, "zbar_scan");
         lua_gettable(L, 1);
         if (lua_isinteger(L, -1)) {
@@ -189,8 +199,42 @@ static int l_camera_init(lua_State *L){
             }
         }
         lua_pop(L, 1);
+        result = luat_camera_init(&conf);
+        if (result < 0) {
+        	lua_pushboolean(L, 0);
+        } else {
+        	lua_pushinteger(L, result);
+        }
+
+    } else if (lua_isinteger(L, 1)) {
+    	luat_spi_camera_t conf = {0};
+    	conf.lcd_conf = luat_lcd_get_default();
+    	int cspi_id = lua_tointeger(L, 1);
+    	int default_value = 24000000;
+    	conf.camera_speed = lua_tointegerx(L, 2, &default_value);
+    	default_value = 0;
+    	conf.spi_mode = lua_tointegerx(L, 3, &default_value);
+    	conf.is_msb = lua_tointegerx(L, 4, &default_value);
+    	conf.is_two_line_rx = lua_tointegerx(L, 5, &default_value) - 1;
+    	conf.seq_type = lua_tointegerx(L, 6, &default_value);
+    	result = lua_tointegerx(L, 7, &default_value);
+    	memcpy(conf.plat_param, &result, 4);
+    	conf.only_y = lua_tointegerx(L, 8, &default_value);
+    	default_value = 240;
+    	conf.sensor_width = lua_tointegerx(L, 8, &default_value);
+    	default_value = 320;
+    	conf.sensor_height = lua_tointegerx(L, 8, &default_value);
+    	luat_camera_init(NULL);
+    	result = luat_camera_setup(cspi_id, &conf, NULL, 0);
+        if (result < 0) {
+        	lua_pushboolean(L, 0);
+        } else {
+        	lua_pushinteger(L, result);
+        }
+    } else {
+    	lua_pushboolean(L, 0);
     }
-    lua_pushinteger(L, luat_camera_init(&conf));
+
     return 1;
 }
 
@@ -286,6 +330,10 @@ LUAT_WEAK luat_camera_video(int id, int w, int h, uint8_t uart_id) {
     return -1;
 }
 
+LUAT_WEAK int luat_camera_preview(int id, uint8_t on_off){
+    LLOGD("not support yet");
+    return -1;
+}
 /**
 camera拍照
 @api camera.capture(id, save_path, quality)
@@ -300,8 +348,8 @@ static int l_camera_capture(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
     const char* save_path = luaL_checkstring(L, 2);
     int quality = luaL_optinteger(L, 3, 1);
-    luat_camera_capture(id, quality, save_path);
-    return 0;
+    lua_pushboolean(L, !luat_camera_capture(id, quality, save_path));
+    return 1;
 }
 
 /**
@@ -320,8 +368,8 @@ static int l_camera_video(lua_State *L) {
     int w = luaL_optinteger(L, 2, 320);
     int h = luaL_optinteger(L, 3, 240);
     int param = luaL_optinteger(L, 4, LUAT_VUART_ID_0);
-    luat_camera_video(id, w, h, param);
-    return 0;
+    lua_pushboolean(L, !luat_camera_video(id, w, h, param));
+    return 1;
 }
 
 
@@ -341,8 +389,8 @@ static int l_camera_start_raw(lua_State *L) {
     int w = luaL_optinteger(L, 2, 320);
     int h = luaL_optinteger(L, 3, 240);
     luat_zbuff_t *buff = luaL_checkudata(L, 4, LUAT_ZBUFF_TYPE);
-    luat_camera_get_raw_start(id, w, h, buff->addr, buff->len);
-    return 0;
+    lua_pushboolean(L, !luat_camera_get_raw_start(id, w, h, buff->addr, buff->len));
+    return 1;
 }
 
 /**
@@ -355,15 +403,33 @@ camera.getRaw(0)
 */
 static int l_camera_get_raw(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
-    luat_camera_get_raw_again(id);
-    return 0;
+    lua_pushboolean(L, !luat_camera_get_raw_again(id));
+    return 1;
 }
+
+/**
+启停camera预览功能，直接输出到LCD上，只有硬件支持的SOC可以运行
+@api camera.preview(id, onoff)
+@int camera id,例如0
+@boolean true开启，false停止
+@return boolean 成功返回true,否则返回false
+@usage
+camera.preview(1, true)
+*/
+static int l_camera_preview(lua_State *L) {
+    int id = luaL_checkinteger(L, 1);
+    uint8_t onoff = lua_toboolean(L, 2);
+    lua_pushboolean(L, !luat_camera_preview(id, onoff));
+    return 1;
+}
+
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_camera[] =
 {
     { "init" ,       ROREG_FUNC(l_camera_init )},
     { "start" ,      ROREG_FUNC(l_camera_start )},
+	{ "preview",     ROREG_FUNC(l_camera_preview)},
     { "stop" ,       ROREG_FUNC(l_camera_stop)},
     { "capture",     ROREG_FUNC(l_camera_capture)},
 	{ "video",     ROREG_FUNC(l_camera_video)},

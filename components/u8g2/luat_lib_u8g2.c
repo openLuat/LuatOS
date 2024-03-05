@@ -1065,7 +1065,8 @@ static const rotable_Reg_t reg_u8g2[] =
     { "drawGtfontUtf8", ROREG_FUNC(l_u8g2_draw_gtfont_utf8)},
 #endif // LUAT_USE_GTFONT_UTF8
 #endif // LUAT_USE_GTFONT
-    // 默认只带12号字体
+    // 默认带10 12号字体
+    { "font_opposansm10", ROREG_PTR((void*)u8g2_font_opposansm10)},
     { "font_opposansm12", ROREG_PTR((void*)u8g2_font_opposansm12)},
 #ifdef USE_U8G2_OPPOSANSM_ENGLISH
     { "font_unifont_t_symbols",   ROREG_PTR((void*)u8g2_font_unifont_t_symbols)},

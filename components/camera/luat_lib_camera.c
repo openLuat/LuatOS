@@ -310,6 +310,11 @@ static int l_camera_close(lua_State *L) {
     return 1;
 }
 
+LUAT_WEAK int luat_camera_setup(int id, luat_spi_camera_t *conf, void * callback, void *param) {
+    LLOGD("not support yet");
+    return -1;
+}
+
 LUAT_WEAK int luat_camera_capture(int id, uint8_t quality, const char *path) {
     LLOGD("not support yet");
     return -1;

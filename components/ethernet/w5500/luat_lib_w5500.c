@@ -193,31 +193,25 @@ end)
 		break;
 /*
 @sys_pub w5500
-网线已插入
-CABLE_INSERT
+w5500状态变化
+W5500_IND
 @usage
--- 网线插入后会发一次这个消息
-sys.subscribe("CABLE_INSERT", function()
-    log.info("w5500", "CABLE_INSERT")
+sys.subscribe("W5500_IND", function(status)
+    -- status的取值有:
+    -- CABLE_INWERT 网线插入
+    -- CABLE_REMOVE 网线拔出
+    log.info("w5500 status", status)
 end)
 */
 	case W5500_CABLE_INSERT:
+		lua_pushliteral(L, "W5500_IND");
 		lua_pushliteral(L, "CABLE_INSERT");
-		lua_call(L, 1, 0);
+		lua_call(L, 2, 0);
 		break;
-/*
-@sys_pub w5500
-网线已拔出
-CABLE_REMOVE
-@usage
--- 网线拔出后会发一次这个消息
-sys.subscribe("CABLE_REMOVE", function()
-    log.info("w5500", "CABLE_REMOVE")
-end)
-*/
 	case W5500_CABLE_REMOVE:
+		lua_pushliteral(L, "W5500_IND");
 		lua_pushliteral(L, "CABLE_REMOVE");
-		lua_call(L, 1, 0);
+		lua_call(L, 2, 0);
 		break;
 	default:
 		break;
@@ -226,11 +220,11 @@ end)
 }
 
 // W5500的状态回调函数
-void w5500_nw_state_cb(int state, uint32_t ip) {
+void w5500_nw_state_cb(int state, uint32_t param) {
 	rtos_msg_t msg = {0};
 	msg.handler = l_nw_state_handler;
 	msg.arg1 = state; // READY
-	msg.arg2 = ip;
+	msg.arg2 = param;
 	luat_msgbus_put(&msg, 0);
 }
 

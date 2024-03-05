@@ -26,6 +26,8 @@ typedef struct luat_wlan_apinfo
     uint8_t netmask[4];
     uint8_t channel;
     uint8_t encrypt;
+    uint8_t hidden;
+    uint8_t max_conn;
 }luat_wlan_apinfo_t;
 
 enum LUAT_WLAN_MODE {

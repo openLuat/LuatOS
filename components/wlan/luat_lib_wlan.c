@@ -315,18 +315,27 @@ static int l_wlan_get_ip(lua_State* L){
 
 /*
 启动AP
-@api wlan.createAP(ssid, passwd, gateway, netmask, channel)
+@api wlan.createAP(ssid, passwd, gateway, netmask, channel, opts)
 @string AP的SSID,必填
 @string AP的密码,可选
 @string AP的网关地址, 默认192.168.4.1
 @string AP的网关掩码, 默认255.255.255.0
 @int    AP建立的通道, 默认6
+@table  AP的配置选项, 可选
 @return bool 成功创建返回true,否则返回false
 @usage
 -- 注意, 调用本AP时,若wifi模式为STATION,会自动切换成 APSTA
 wlan.createAP("uiot", "12345678")
 -- 设置网关IP,掩码, 通道, 2023.7.13 新增, BSP未必支持
 -- wlan.createAP("uiot", "12345678", "192.168.4.1", "255.255.255.0", 6)
+
+-- opts更多配置项, 2024.3.5新增
+--[[
+{
+    hidden = false, -- 是否隐藏SSID, 默认false,不隐藏
+    max_conn = 4 -- 最大客户端数量, 默认4
+}
+]]
 */
 #include "lwip/opt.h"
 #include "lwip/ip_addr.h"
@@ -358,6 +367,15 @@ static int l_wlan_ap_start(lua_State *L) {
     if (password_len > 63) {
         LLOGE("password too long [%s]", password);
         return 0;
+    }
+
+    if (lua_istable(L, 6)) {
+        lua_getfield(L, 6, "hidden");
+        apinfo.hidden = lua_toboolean(L, -1);
+        lua_pop(L, 1);
+        lua_getfield(L, 6, "max_conn");
+        apinfo.max_conn = lua_tonumber(L, -1);
+        lua_pop(L, 1);
     }
 
     memcpy(apinfo.ssid, ssid, ssid_len);

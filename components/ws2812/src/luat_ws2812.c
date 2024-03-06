@@ -4,7 +4,7 @@
 #include "luat_gpio.h"
 #include "luat_spi.h"
 #include "luat_pwm.h"
-
+#include "luat_mem.h"
 #define LUAT_LOG_TAG "ws2812"
 #include "luat_log.h"
 

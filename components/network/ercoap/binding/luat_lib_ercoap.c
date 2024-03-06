@@ -10,7 +10,7 @@
 #include "luat_timer.h"
 #include "luat_mem.h"
 #include "luat_msgbus.h"
-
+#include "luat_mcu.h"
 #include "er-coap-13.h"
 
 #define LUAT_LOG_TAG "ercoap"

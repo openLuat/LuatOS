@@ -348,7 +348,7 @@ LUAT_WEAK int luat_camera_preview(int id, uint8_t on_off){
     return -1;
 }
 
-LUAT_WEAK int luat_camera_work_mode(int id, uint8_t mode){
+LUAT_WEAK int luat_camera_work_mode(int id, int mode){
     LLOGD("not support yet");
     return -1;
 }

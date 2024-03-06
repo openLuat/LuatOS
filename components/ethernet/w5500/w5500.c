@@ -677,6 +677,7 @@ PRINT_DNS:
 	if ((!w5500->last_udp_send_ok && w5500->dhcp_client.discover_cnt >= 1) || (w5500->last_udp_send_ok && w5500->dhcp_client.discover_cnt >= 3))
 	{
 		LLOGD("dhcp long time not get ip, reboot w5500");
+		w5500_nw_state_cb(W5500_DHCP_RESULT, 0);
 		memset(&w5500->dhcp_client, 0, sizeof(w5500->dhcp_client));
 		platform_send_event(w5500->task_handle, EV_W5500_RE_INIT, 0, 0, 0);
 	}

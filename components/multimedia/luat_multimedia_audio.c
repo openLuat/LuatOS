@@ -25,7 +25,7 @@ LUAT_WEAK uint8_t luat_audio_is_finish(uint8_t multimedia_id){
     if (audio_conf){
         if (audio_conf->bus_type == LUAT_AUDIO_BUS_I2S){
             luat_i2s_conf_t * i2s_conf = luat_i2s_get_config(audio_conf->codec_conf.i2s_id);
-            i2s_conf->state==LUAT_I2S_STATE_STOP?1:0;
+            i2s_conf->state=LUAT_I2S_STATE_STOP?1:0;
         }
     }
     return -1;

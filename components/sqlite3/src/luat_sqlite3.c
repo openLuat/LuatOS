@@ -116,7 +116,7 @@ static const sqlite3_mem_methods mems = {
 
 int luat_sqlite3_init(void) {
     // sqlite3_config(SQLITE_CONFIG_MALLOC, &mems);
-    sqlite3_initialize();
+    return sqlite3_initialize();
 }
 
 static FILE* sopen(const char* zName, int flags) {

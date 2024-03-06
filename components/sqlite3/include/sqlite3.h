@@ -42,7 +42,9 @@
 #define SQLITE_OMIT_MEMORYDB 1
 #define SQLITE_OMIT_SHARED_CACHE
 #define SQLITE_OS_OTHER 1
-#define SQLITE_OMIT_SEH
+#define SQLITE_OMIT_SEH 1
+#define SQLITE_OMIT_AUTHORIZATION 1
+#define SQLITE_OMIT_POPEN 1
 
 /*
 ** Make sure we can call this stuff from C++.

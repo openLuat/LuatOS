@@ -31,6 +31,7 @@ enum{
 	W5500_IP_LOSE,
 	W5500_CABLE_INSERT,
 	W5500_CABLE_REMOVE,
+	W5500_DHCP_RESULT,
 };
 void w5500_set_static_ip(uint32_t ipv4, uint32_t submask, uint32_t gateway);
 void w5500_set_mac(uint8_t mac[6]);

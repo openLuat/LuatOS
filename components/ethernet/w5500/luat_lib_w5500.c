@@ -200,6 +200,7 @@ sys.subscribe("W5500_IND", function(status)
     -- status的取值有:
     -- CABLE_INSERT 网线插入
     -- CABLE_REMOVE 网线拔出
+	-- DHCP_TIMEOUT 获取IP超时
     log.info("w5500 status", status)
 end)
 */
@@ -212,6 +213,14 @@ end)
 		lua_pushliteral(L, "W5500_IND");
 		lua_pushliteral(L, "CABLE_REMOVE");
 		lua_call(L, 2, 0);
+		break;
+	case W5500_DHCP_RESULT:
+		if (0 == msg->arg2)
+		{
+			lua_pushliteral(L, "W5500_IND");
+			lua_pushliteral(L, "DHCP_TIMEOUT");
+			lua_call(L, 2, 0);
+		}
 		break;
 	default:
 		break;

@@ -50,10 +50,14 @@ static void sm3_df_update(SM3_DF_CTX *df_ctx, const uint8_t *data, size_t datale
 
 static void sm3_df_finish(SM3_DF_CTX *df_ctx, uint8_t out[55])
 {
-	uint8_t buf[32];
+	uint8_t buf[32] = {0};
 	sm3_finish(&df_ctx->sm3_ctx[0], out);
 	sm3_finish(&df_ctx->sm3_ctx[1], buf);
-	memcpy(out + 32, buf, 55 - 32);
+	for (size_t i = 0; i < 55 - 32; i++)
+	{
+		out[i+32] = buf[i];
+	}
+	//memcpy(out + 32, buf, 55 - 32);
 }
 
 int sm3_rng_init(SM3_RNG *rng, const uint8_t *nonce, size_t nonce_len,

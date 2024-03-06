@@ -19,7 +19,10 @@ enum
 	LUAT_CAMERA_FRAME_START = 0,
 	LUAT_CAMERA_FRAME_END,
 	LUAT_CAMERA_FRAME_RX_DONE,
-	LUAT_CAMARA_FRAME_ERROR,
+	LUAT_CAMERA_FRAME_ERROR,
+
+	LUAT_CAMERA_MODE_AUTO = 0,
+	LUAT_CAMERA_MODE_SCAN,
 };
 
 typedef struct luat_camera_conf
@@ -105,9 +108,20 @@ int luat_camera_stop(int id);
  * @return 0成功，其他失败
  */
 int luat_camera_close(int id);
-int luat_camera_capture(int id, uint8_t quality, const char *path);
 
+/**
+ * @brief 摄像头启动开始接收数据
+ * @param id camera接收数据总线ID
+ * @param buf 用户区地址，如果为NULL，则表示不存放到用户区
+ * @return 0成功，其他失败
+ */
 int luat_camera_start_with_buffer(int id, void *buf);
+/**
+ * @brief 摄像头切换接收数据缓冲区
+ * @param id camera接收数据总线ID
+ * @param buf 用户区地址，如果为NULL，则表示不存放到用户区
+ * @return 0成功，其他失败
+ */
 void luat_camera_continue_with_buffer(int id, void *buf);
 /**
  * @brief 暂停接收camera数据
@@ -134,7 +148,13 @@ void luat_camera_image_decode_deinit(void);
 
 int luat_camera_image_decode_get_result(uint8_t *buf);
 
+/**********以下是luatos使用，csdk不要使用***********/
 int luat_camera_preview(int id, uint8_t on_off);
 
+int luat_camera_work_mode(int id, int mode);
+
+int luat_camera_capture(int id, uint8_t quality, const char *path);
+
+int luat_camera_capture_in_ram(int id, uint8_t quality, void *buffer);
 /** @}*/
 #endif

@@ -17,7 +17,7 @@
 #define LUAT_LOG_TAG "camera"
 #include "luat_log.h"
 
-#define MAX_DEVICE_COUNT 3
+#define MAX_DEVICE_COUNT 2
 
 typedef struct luat_camera_cb {
     int scanned;
@@ -61,7 +61,7 @@ int l_camera_handler(lua_State *L, void* ptr) {
 @int 同时接收bit数,1,2,4
 @int byte序列,0~1
 @int 双边沿采样配置,0不启用,其他值根据实际SOC决定
-@int 只采集Y分量,0不启用,其他值启用
+@int 只接收Y分量,0不启用,1启用,扫码必须启用,不开启时扫码直接失败
 @int 摄像头宽度
 @int 摄像头高度
 @return int/false 成功返回camera_id，失败返回false
@@ -221,9 +221,9 @@ static int l_camera_init(lua_State *L){
     	memcpy(conf.plat_param, &result, 4);
     	conf.only_y = lua_tointegerx(L, 8, &default_value);
     	default_value = 240;
-    	conf.sensor_width = lua_tointegerx(L, 8, &default_value);
+    	conf.sensor_width = lua_tointegerx(L, 9, &default_value);
     	default_value = 320;
-    	conf.sensor_height = lua_tointegerx(L, 8, &default_value);
+    	conf.sensor_height = lua_tointegerx(L, 10, &default_value);
     	luat_camera_init(NULL);
     	result = luat_camera_setup(cspi_id, &conf, NULL, 0);
         if (result < 0) {
@@ -238,7 +238,7 @@ static int l_camera_init(lua_State *L){
     return 1;
 }
 
-/*
+/**
 注册摄像头事件回调
 @api    camera.on(id, event, func)
 @int camera id, camera 0写0, camera 1写1
@@ -270,14 +270,17 @@ static int l_camera_on(lua_State *L) {
 
 /**
 开始指定的camera
-@api camera.start(id)
+@api camera.start(id,mode)
 @int camera id,例如0
+@int 工作模式，目前只有camera.AUTO自动，camera.SCAN连续扫码，默认是0
 @return boolean 成功返回true,否则返回false
 @usage
 camera.start(0)
 */
 static int l_camera_start(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
+    int mode = luaL_optinteger(L, 2, LUAT_CAMERA_MODE_AUTO);
+    luat_camera_work_mode(id, mode);
     lua_pushboolean(L, luat_camera_start(id) == 0 ? 1 : 0);
     return 1;
 }
@@ -320,6 +323,11 @@ LUAT_WEAK int luat_camera_capture(int id, uint8_t quality, const char *path) {
     return -1;
 }
 
+LUAT_WEAK int luat_camera_capture_in_ram(int id, uint8_t quality, void *buffer) {
+    LLOGD("not support yet");
+    return -1;
+}
+
 LUAT_WEAK int luat_camera_get_raw_start(int id, int w, int h, uint8_t *data, uint32_t max_len) {
     LLOGD("not support yet");
     return -1;
@@ -339,13 +347,18 @@ LUAT_WEAK int luat_camera_preview(int id, uint8_t on_off){
     LLOGD("not support yet");
     return -1;
 }
+
+LUAT_WEAK int luat_camera_work_mode(int id, uint8_t mode){
+    LLOGD("not support yet");
+    return -1;
+}
 /**
 camera拍照
 @api camera.capture(id, save_path, quality)
 @int camera id,例如0
-@string save_path,文件保存路径，空则写在上次路径里，默认是/capture.jpg
+@string/zbuff/nil save_path,文件保存路径，空则写在上次路径里，默认是/capture.jpg，如果是zbuff，则将图片保存在buff内不写入文件系统
 @int quality, jpeg压缩质量，1最差，占用空间小，3最高，占用空间最大而且费时间，默认1
-@return boolean 成功返回true,否则返回false
+@return boolean 成功返回true,否则返回false,真正完成后通过camera.on设置的回调函数回调接收到的长度
 @usage
 camera.capture(0)
 */
@@ -442,6 +455,11 @@ static const rotable_Reg_t reg_camera[] =
 	{ "getRaw",     ROREG_FUNC(l_camera_get_raw)},
 	{ "close",		 ROREG_FUNC(l_camera_close)},
     { "on",          ROREG_FUNC(l_camera_on)},
+
+    //@const AUTO number 摄像头工作在自动模式
+	{ "AUTO",             ROREG_INT(LUAT_CAMERA_MODE_AUTO)},
+    //@const SCAN number 摄像头工作在扫码模式，只输出Y分量
+	{ "SCAN",             ROREG_INT(LUAT_CAMERA_MODE_SCAN)},
 	{ NULL,          {}}
 };
 

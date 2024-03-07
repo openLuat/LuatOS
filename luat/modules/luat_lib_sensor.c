@@ -469,12 +469,12 @@ static int l_sensor_ws2812b(lua_State *L)
   }
 #ifdef LUAT_WS2812B_MAX_CNT
   luat_gpio_mode(pin, Luat_GPIO_OUTPUT, Luat_GPIO_DEFAULT, Luat_GPIO_LOW);
-  uint32_t bit0h = luaL_optinteger(L, 3, 10);
-  uint32_t bit0l = luaL_optinteger(L, 4, 0);
-  uint32_t bit1h = luaL_optinteger(L, 5, 10);
-  uint32_t bit1l = luaL_optinteger(L, 6, 0);
+  uint8_t bit0h = luaL_optinteger(L, 3, 10);
+  uint8_t bit0l = luaL_optinteger(L, 4, 0);
+  uint8_t bit1h = luaL_optinteger(L, 5, 10);
+  uint8_t bit1l = luaL_optinteger(L, 6, 0);
   uint32_t frame_cnt = luaL_optinteger(L, 7, 0);
-  luat_gpio_driver_ws2812b(pin, send_buff, len, frame_cnt, 10, 0, 10, 0);
+  luat_gpio_driver_ws2812b(pin, send_buff, len, frame_cnt,  bit0h, bit0l, bit1h, bit1l);
 #else
   volatile uint32_t t0h_temp,t0h = luaL_checkinteger(L, 3);
   volatile uint32_t t0l_temp,t0l = luaL_checkinteger(L, 4);

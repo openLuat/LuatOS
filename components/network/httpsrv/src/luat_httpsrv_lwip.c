@@ -94,7 +94,7 @@ static int client_write(client_socket_ctx_t* client, const char* buff, size_t le
         return 0;
     int ret = 0;
 #if ENABLE_PSIF
-    #if defined(CHIP_EC618) || defined(CHIP_EC718)
+    #if defined(CHIP_EC618)
     ret = tcp_write(client->pcb, (const void*)buff, len, TCP_WRITE_FLAG_COPY, 0, 0, 0);
     #else
     sockdataflag_t dataflag={0};

@@ -78,30 +78,19 @@ int l_camera_handler(lua_State *L, void* ptr);
  * @param conf camera相关配置
  * @param callback camera接收中断回调，注意这是在中断里的回调
  * @param param 中断回调时用户的参数
- * @return 0成功，其他失败
+ * @return >=0成功，其他失败
  */
 int luat_camera_setup(int id, luat_spi_camera_t *conf, void* callback, void *param);
 
 int luat_camera_set_image_w_h(int id, uint16_t w, uint16_t h);
 
 /**
- * @brief 配置camera并且初始化camera
+ * @brief 配置camera并且初始化camera，spi camera不要使用这个
  * @param conf camera相关配置
  * @return 0成功，其他失败
  */
 int luat_camera_init(luat_camera_conf_t *conf);
-/**
- * @brief 开始接收camera数据
- * @param id camera接收数据总线ID
- * @return 0成功，其他失败
- */
-int luat_camera_start(int id);
-/**
- * @brief 停止接收camera数据
- * @param id camera接收数据总线ID
- * @return 0成功，其他失败
- */
-int luat_camera_stop(int id);
+
 /**
  * @brief 关闭camera并且释放资源
  * @param id camera接收数据总线ID
@@ -110,14 +99,14 @@ int luat_camera_stop(int id);
 int luat_camera_close(int id);
 
 /**
- * @brief 摄像头启动开始接收数据
+ * @brief 摄像头启动开始接收数据，csdk专用
  * @param id camera接收数据总线ID
  * @param buf 用户区地址，如果为NULL，则表示不存放到用户区
  * @return 0成功，其他失败
  */
 int luat_camera_start_with_buffer(int id, void *buf);
 /**
- * @brief 摄像头切换接收数据缓冲区
+ * @brief 摄像头切换接收数据缓冲区，csdk专用
  * @param id camera接收数据总线ID
  * @param buf 用户区地址，如果为NULL，则表示不存放到用户区
  * @return 0成功，其他失败
@@ -149,6 +138,19 @@ void luat_camera_image_decode_deinit(void);
 int luat_camera_image_decode_get_result(uint8_t *buf);
 
 /**********以下是luatos使用，csdk不要使用***********/
+/**
+ * @brief 开始接收camera数据
+ * @param id camera接收数据总线ID
+ * @return 0成功，其他失败
+ */
+int luat_camera_start(int id);
+/**
+ * @brief 停止接收camera数据
+ * @param id camera接收数据总线ID
+ * @return 0成功，其他失败
+ */
+int luat_camera_stop(int id);
+
 int luat_camera_preview(int id, uint8_t on_off);
 
 int luat_camera_work_mode(int id, int mode);

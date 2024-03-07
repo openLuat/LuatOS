@@ -53,7 +53,7 @@ int l_camera_handler(lua_State *L, void* ptr) {
 
 /*
 初始化摄像头
-@api    camera.init(InitReg_or_cspi_id, cspi_speed, mode, is_msb, rx_bit, seq_type, is_ddr, only_y, w, h)
+@api    camera.init(InitReg_or_cspi_id, cspi_speed, mode, is_msb, rx_bit, seq_type, is_ddr, only_y, scan_mode, w, h)
 @table/integer 如果是table,则是DVP摄像头的配置见demo/camera/AIR105,同时忽略后续参数;如果是数字,则是camera spi总线序号
 @int camera spi总线速度
 @int camera spi模式,0~3
@@ -61,7 +61,8 @@ int l_camera_handler(lua_State *L, void* ptr) {
 @int 同时接收bit数,1,2,4
 @int byte序列,0~1
 @int 双边沿采样配置,0不启用,其他值根据实际SOC决定
-@int 只接收Y分量,0不启用,1启用,扫码必须启用,不开启时扫码直接失败
+@int 只接收Y分量，0不启用，1启用，扫码必须启用，否则会失败
+@int 工作模式，camera.AUTO自动,camera.SCAN扫码
 @int 摄像头宽度
 @int 摄像头高度
 @return int/false 成功返回camera_id，失败返回false
@@ -220,12 +221,15 @@ static int l_camera_init(lua_State *L){
     	result = lua_tointegerx(L, 7, &default_value);
     	memcpy(conf.plat_param, &result, 4);
     	conf.only_y = lua_tointegerx(L, 8, &default_value);
+    	int mode = lua_tointegerx(L, 9, &default_value);
     	default_value = 240;
-    	conf.sensor_width = lua_tointegerx(L, 9, &default_value);
+    	conf.sensor_width = lua_tointegerx(L, 10, &default_value);
     	default_value = 320;
-    	conf.sensor_height = lua_tointegerx(L, 10, &default_value);
+    	conf.sensor_height = lua_tointegerx(L, 11, &default_value);
     	luat_camera_init(NULL);
+    	luat_camera_work_mode(cspi_id, mode);
     	result = luat_camera_setup(cspi_id, &conf, NULL, 0);
+
         if (result < 0) {
         	lua_pushboolean(L, 0);
         } else {
@@ -270,17 +274,14 @@ static int l_camera_on(lua_State *L) {
 
 /**
 开始指定的camera
-@api camera.start(id,mode)
+@api camera.start(id)
 @int camera id,例如0
-@int 工作模式，目前只有camera.AUTO自动，camera.SCAN连续扫码，默认是0
 @return boolean 成功返回true,否则返回false
 @usage
 camera.start(0)
 */
 static int l_camera_start(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
-    int mode = luaL_optinteger(L, 2, LUAT_CAMERA_MODE_AUTO);
-    luat_camera_work_mode(id, mode);
     lua_pushboolean(L, luat_camera_start(id) == 0 ? 1 : 0);
     return 1;
 }
@@ -364,9 +365,14 @@ camera.capture(0)
 */
 static int l_camera_capture(lua_State *L) {
     int id = luaL_checkinteger(L, 1);
-    const char* save_path = luaL_checkstring(L, 2);
     int quality = luaL_optinteger(L, 3, 1);
-    lua_pushboolean(L, !luat_camera_capture(id, quality, save_path));
+    if (lua_isstring(L, 2)){
+    	const char* save_path = luaL_checkstring(L, 2);
+    	lua_pushboolean(L, !luat_camera_capture(id, quality, save_path));
+    } else {
+    	luat_zbuff_t *buff = luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE);
+    	lua_pushboolean(L, !luat_camera_capture_in_ram(id, quality, buff));
+    }
     return 1;
 }
 

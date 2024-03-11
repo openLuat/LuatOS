@@ -64,8 +64,9 @@ static uint8_t nes_read_cpu(nes_t* nes,uint16_t address){
                 return nes_read_joypad(nes, address);
             else if (address < 0x4016){
                 return nes_read_apu_register(nes, address);
-            }else
+            }else {
                 nes_printf("nes_read address %04X not sPport\n",address);
+            }
             return 0;
         case 3://$6000-$7FFF SRAM
 #if (NES_USE_SRAM == 1)
@@ -122,14 +123,16 @@ static void nes_write_cpu(nes_t* nes,uint16_t address, uint8_t data){
                     const uint8_t* src = nes_get_dma_address(nes,data);
                     memcpy(dst, src + len, len);
                     memcpy(dst + len, src, 256 - len);
-                } else 
+                } else {
                     memcpy(nes->nes_ppu.oam_data, nes_get_dma_address(nes,data), 256);
+                }
                 nes->nes_cpu.cycles += 513;
                 nes->nes_cpu.cycles += nes->nes_cpu.cycles & 1;
             }else if (address < 0x4016){
                 nes_write_apu_register(nes, address,data);
-            }else
+            }else {
                 nes_printf("nes_write address %04X not sPport\n",address);
+            }
             return;
         case 3://$6000-$7FFF SRAM
 #if (NES_USE_SRAM == 1)

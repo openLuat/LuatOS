@@ -24,15 +24,18 @@
 #endif
 /**
 创建编解码用的codec
-@api codec.create(type, isDecoder)
+@api codec.create(type, isDecoder, quality)
 @int 多媒体类型，目前支持codec.MP3 codec.AMR
 @boolean 是否是解码器，true解码器，false编码器，默认true，是解码器
+@int 编码等级，部分bsp有内部编码器，可能需要提前输入编码等级，比如air780ep的内部amr编码器
 @return userdata 成功返回一个数据结构,否则返回nil
 @usage
 -- 创建解码器
 local decoder = codec.create(codec.MP3)--创建一个mp3的decoder
 -- 创建编码器
 local encoder = codec.create(codec.AMR, false)--创建一个amr的encoder
+-- 创建编码器
+local encoder = codec.create(codec.AMR_WB, false, 8)--创建一个amr-wb的encoder，编码等级默认8
  */
 static int l_codec_create(lua_State *L) {
     uint8_t type = luaL_optinteger(L, 1, LUAT_MULTIMEDIA_DATA_TYPE_MP3);
@@ -64,6 +67,22 @@ static int l_codec_create(lua_State *L) {
     	{
         	switch (type) {
 #ifdef LUAT_SUPPORT_AMR
+#ifdef LUAT_USE_INTER_AMR
+        	case LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB:
+            	coder->amr_coder = luat_audio_inter_amr_coder_init(0, luaL_optinteger(L, 3, 7));
+            	if (!coder->amr_coder) {
+            		lua_pushnil(L);
+            		return 1;
+            	}
+            	break;
+        	case LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB:
+        		coder->amr_coder = luat_audio_inter_amr_coder_init(1, luaL_optinteger(L, 3, 8));
+            	if (!coder->amr_coder) {
+            		lua_pushnil(L);
+            		return 1;
+            	}
+            	break;
+#else
         	case LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB:
             	coder->amr_coder = Encoder_Interface_init(0);
             	if (!coder->amr_coder) {
@@ -72,8 +91,11 @@ static int l_codec_create(lua_State *L) {
             	}
             	break;
 #endif
+#endif
+
         	default:
-        		break;
+        		lua_pushnil(L);
+        		return 1;
         	}
     	}
     	luaL_setmetatable(L, LUAT_M_CODE_TYPE);
@@ -330,18 +352,59 @@ GET_MP3_DATA:
 
 
 /**
-编码音频数据，由于flash和ram空间一般比较有限，目前只支持amr-nb编码
+编码音频数据，由于flash和ram空间一般比较有限，除了部分bsp有内部amr编码功能，目前只支持amr-nb编码
 @api codec.encode(coder, in_buffer, out_buffer, mode)
 @userdata codec.create创建的编解码用的coder
 @zbuff 输入的数据,zbuff形式,从0到used
 @zbuff 输出的数据,zbuff形式,自动添加到buff的尾部,如果空间大小不足,会自动扩展,但是会额外消耗时间,甚至会失败,所以尽量一开始就给足空间
-@int amr_nb的编码等级 0~7(即 MR475~MR122)值越大消耗的空间越多,音质越高,默认0
+@int amr_nb的编码等级 0~7(即 MR475~MR122)值越大消耗的空间越多,音质越高,默认0 amr_wb的编码等级 0~8,值越大消耗的空间越多,音质越高,默认0
 @return boolean 成功返回true,失败返回false
 @usage
 codec.encode(amr_coder, inbuf, outbuf, codec.AMR_)
  */
 static int l_codec_encode_audio_data(lua_State *L) {
 #ifdef LUAT_SUPPORT_AMR
+#ifdef LUAT_USE_INTER_AMR
+	luat_multimedia_codec_t *coder = (luat_multimedia_codec_t *)luaL_checkudata(L, 1, LUAT_M_CODE_TYPE);
+	luat_zbuff_t *in_buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+	luat_zbuff_t *out_buff = ((luat_zbuff_t *)luaL_checkudata(L, 3, LUAT_ZBUFF_TYPE));
+	if (!coder || !in_buff || !out_buff || (coder->type != LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB && coder->type != LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB) || coder->is_decoder)
+	{
+		lua_pushboolean(L, 0);
+		return 1;
+	}
+	uint8_t outbuf[128];
+	int16_t *pcm = (int16_t *)in_buff->addr;
+	uint32_t total_len = in_buff->used >> 1;
+	uint32_t done_len = 0;
+	uint32_t pcm_len = (coder->type - LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB + 1) * 160;
+	uint8_t out_len;
+
+	while ((total_len - done_len) >= pcm_len)
+	{
+		luat_audio_inter_amr_coder_encode(coder->amr_coder, &pcm[done_len], outbuf, &out_len);
+		if (out_len <= 0)
+		{
+			LLOGE("encode error in %d,result %d", done_len, out_len);
+		}
+		else
+		{
+			if ((out_buff->len - out_buff->used) < out_len)
+			{
+				if (__zbuff_resize(out_buff, out_buff->len * 2 + out_len))
+				{
+					lua_pushboolean(L, 0);
+					return 1;
+				}
+			}
+			memcpy(out_buff->addr + out_buff->used, outbuf, out_len);
+			out_buff->used += out_len;
+		}
+		done_len += pcm_len;
+	}
+	lua_pushboolean(L, 1);
+	return 1;
+#else
 	luat_multimedia_codec_t *coder = (luat_multimedia_codec_t *)luaL_checkudata(L, 1, LUAT_M_CODE_TYPE);
 	luat_zbuff_t *in_buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
 	luat_zbuff_t *out_buff = ((luat_zbuff_t *)luaL_checkudata(L, 3, LUAT_ZBUFF_TYPE));
@@ -384,6 +447,7 @@ static int l_codec_encode_audio_data(lua_State *L) {
 	}
 	lua_pushboolean(L, 1);
 	return 1;
+#endif
 #else
 	lua_pushboolean(L, 0);
 	return 1;
@@ -412,12 +476,22 @@ static int l_codec_gc(lua_State *L)
 		}
 		break;
 #ifdef LUAT_SUPPORT_AMR
+#ifdef LUAT_USE_INTER_AMR
+	case LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB:
+	case LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB:
+		if (!coder->is_decoder && coder->amr_coder) {
+			luat_audio_inter_amr_coder_deinit(coder->amr_coder);
+			coder->amr_coder = NULL;
+		}
+		break;
+#else
 	case LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB:
 		if (!coder->is_decoder && coder->amr_coder) {
 			Encoder_Interface_exit(coder->amr_coder);
 			coder->amr_coder = NULL;
 		}
 		break;
+#endif
 #endif
 	}
     return 0;

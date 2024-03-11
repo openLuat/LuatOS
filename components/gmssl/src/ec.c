@@ -31,9 +31,9 @@ static uint32_t oid_secp521r1[] = { oid_secg_curve,35 }; // NIST P-521
 
 static const ASN1_OID_INFO ec_named_curves[] = {
 	{ OID_sm2, "sm2p256v1", oid_sm2, sizeof(oid_sm2)/sizeof(int), 0, "SM2" },
-	{ OID_prime192v1, "prime192v1", oid_prime192v1, sizeof(oid_prime192v1)/sizeof(int), 0, },
+	{ OID_prime192v1, "prime192v1", oid_prime192v1, sizeof(oid_prime192v1)/sizeof(int), 0, "NIST P-192" },
 	{ OID_prime256v1, "prime256v1", oid_prime256v1, sizeof(oid_prime256v1)/sizeof(int), 0, "NIST P-256" },
-	{ OID_secp256k1, "secp256k1", oid_secp256k1, sizeof(oid_secp256k1)/sizeof(int) },
+	{ OID_secp256k1, "secp256k1", oid_secp256k1, sizeof(oid_secp256k1)/sizeof(int), 0, "NIST K-256"},
 	{ OID_secp384r1, "secp384r1", oid_secp384r1, sizeof(oid_secp384r1)/sizeof(int), 0, "NIST P-384" },
 	{ OID_secp521r1, "secp521r1", oid_secp521r1, sizeof(oid_secp521r1)/sizeof(int), 0, "NIST P-521" }
 };

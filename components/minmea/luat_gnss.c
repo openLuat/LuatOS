@@ -108,7 +108,7 @@ int luat_libgnss_parse_nmea(const char* line) {
     struct minmea_sentence_gsv *frame_gsv = &libgnss_gnsstmp->frame_gsv;
     enum minmea_sentence_id id = minmea_sentence_id(line, false);
     if (id == MINMEA_UNKNOWN || id >= MINMEA_SENTENCE_MAX_ID || id == MINMEA_INVALID) {
-        LLOGD("非法的NMEA数据 %s", line);
+        //LLOGD("非法的NMEA数据 %s", line);
         return -1;
     }
     // msg_counter[id] ++;

@@ -38,12 +38,12 @@ static uint32_t oid_cms_key_agreement_info[] = { oid_sm2_cms,6 };
 #define OID_CMS_CONUNT (sizeof(oid_cms_data)/sizeof(int))
 
 static const ASN1_OID_INFO cms_content_types[] = {
-	{ OID_cms_data, "data", oid_cms_data, OID_CMS_CONUNT },
-	{ OID_cms_signed_data, "signedData", oid_cms_signed_data, OID_CMS_CONUNT },
-	{ OID_cms_enveloped_data, "envelopedData", oid_cms_enveloped_data, OID_CMS_CONUNT },
-	{ OID_cms_signed_and_enveloped_data, "signedAndEnvelopedData", oid_cms_signed_and_enveloped_data, OID_CMS_CONUNT },
-	{ OID_cms_encrypted_data, "encryptedData", oid_cms_encrypted_data, OID_CMS_CONUNT },
-	{ OID_cms_key_agreement_info, "keyAgreementInfo", oid_cms_key_agreement_info, OID_CMS_CONUNT }
+	{ OID_cms_data, "data", oid_cms_data, OID_CMS_CONUNT, 0, "" },
+	{ OID_cms_signed_data, "signedData", oid_cms_signed_data, OID_CMS_CONUNT, 0, ""  },
+	{ OID_cms_enveloped_data, "envelopedData", oid_cms_enveloped_data, OID_CMS_CONUNT, 0, ""  },
+	{ OID_cms_signed_and_enveloped_data, "signedAndEnvelopedData", oid_cms_signed_and_enveloped_data, OID_CMS_CONUNT, 0, ""  },
+	{ OID_cms_encrypted_data, "encryptedData", oid_cms_encrypted_data, OID_CMS_CONUNT, 0, ""  },
+	{ OID_cms_key_agreement_info, "keyAgreementInfo", oid_cms_key_agreement_info, OID_CMS_CONUNT, 0, ""  }
 };
 
 static const size_t cms_content_types_count =

@@ -15,6 +15,9 @@ end)
 local i2c_id = 1
 local i2s_id = 0
 
+local samplerate = 16000	--支持内部amr编码的soc才能用
+
+
 -- es8311器件地址
 local es8311_address = 0x18
 local record_cnt = 0
@@ -71,10 +74,18 @@ local function record_cb(id, buff)
         log.info("I2S", id, "接收了", rx_buff:used())
         log.info("编码结果", codec.encode(encoder, rx_buff, amr_buff))		-- 对录音数据进行amr编码，成功的话这个接口会返回true, 默认编码等级为MR475
 		record_cnt = record_cnt + 1
-		if record_cnt >= 25 then	--超过5秒后停止
-			log.info("I2S", "stop") 
-			i2s.stop(i2s_id)	
+		if samplerate > 8000 then
+			if record_cnt >= 50 then	--超过5秒后停止
+				log.info("I2S", "stop") 
+				i2s.stop(i2s_id)	
+			end
+		else
+			if record_cnt >= 25 then	--超过5秒后停止
+				log.info("I2S", "stop") 
+				i2s.stop(i2s_id)	
+			end
 		end
+
     end
 end
 
@@ -122,9 +133,20 @@ local function record_task()
     for i, v in pairs(es8311_reg) do					-- 初始化es8311
         i2c.send(i2c_id, es8311_address, v, 1)
     end
-	i2s.setup(i2s_id, 1, 8000, 16, 1, i2s.MODE_LSB)			-- 开启i2s
+	if samplerate > 8000 then
+		encoder = codec.create(codec.AMR_WB, false, 7)
+		if encoder == nil then
+		log.info("不支持16K编码，改成8K采样")
+			samplerate = 8000
+			encoder = codec.create(codec.AMR, false, 7)
+		end
+	else
+		encoder = codec.create(codec.AMR, false, 7)
+	end
+	
+	i2s.setup(i2s_id, 1, samplerate, 16, 1, i2s.MODE_LSB)			-- 开启i2s
     i2s.on(i2s_id, record_cb) 								-- 注册i2s接收回调
-	encoder = codec.create(codec.AMR, false, 7)
+
     i2s.recv(i2s_id, rx_buff, 3200)
 	i2c.send(i2c_id, es8311_address, {0x00, 0xc0}, 1)
     sys.wait(6000)
@@ -132,7 +154,11 @@ local function record_task()
     log.info("录音5秒结束")
 	codec.release(encoder)
 	codec = nil
-	io.writeFile(recordPath, "#!AMR\n")					-- 向文件写入amr文件标识数据
+	if samplerate > 8000 then
+		io.writeFile(recordPath, "#!AMR-WB\n")					-- 向文件写入amr文件标识数据
+	else
+		io.writeFile(recordPath, "#!AMR\n")					-- 向文件写入amr文件标识数据
+	end
 	io.writeFile(recordPath, amr_buff:query(), "a+b")	-- 向文件写入编码后的amr数据
 	i2s.setup(i2s_id, 0, 0, 0, 0, i2s.MODE_LSB)
    

@@ -1024,6 +1024,7 @@ static network_state_fun network_state_fun_list[]=
 static void network_default_statemachine(network_ctrl_t *ctrl, OS_EVENT *event, network_adapter_t *adapter)
 {
 	int result = -1;
+	uint8_t close_flag = 0;
 	NW_LOCK;
 	if (ctrl->state > NW_STATE_DISCONNECTING)
 	{
@@ -1036,6 +1037,10 @@ static void network_default_statemachine(network_ctrl_t *ctrl, OS_EVENT *event, 
 	}
 	else
 	{
+		if ((NW_STATE_DISCONNECTING == ctrl->state) && (NW_WAIT_OFF_LINE == ctrl->wait_target_state))
+		{
+			close_flag = 1;
+		}
 		result = network_state_fun_list[ctrl->state](ctrl, event, adapter);
 		if (result > 0)
 		{
@@ -1048,7 +1053,14 @@ static void network_default_statemachine(network_ctrl_t *ctrl, OS_EVENT *event, 
 			}
 			return ;
 		}
-		event->ID = (ctrl->wait_target_state?ctrl->wait_target_state:NW_WAIT_EVENT) + EV_NW_RESULT_BASE;
+		if (close_flag && (NW_WAIT_NONE == ctrl->wait_target_state))
+		{
+			event->ID = EV_NW_RESULT_CLOSE;
+		}
+		else
+		{
+			event->ID = (ctrl->wait_target_state?ctrl->wait_target_state:NW_WAIT_EVENT) + EV_NW_RESULT_BASE;
+		}
 		event->Param1 = result;
 	}
 	if ((ctrl->state != NW_STATE_LISTEN) || (result < 0))

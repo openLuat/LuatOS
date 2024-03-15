@@ -5,9 +5,13 @@ VERSION = "1.0.0"
 require "bf302a"
 require "gc032a"
 sys = require("sys")
+log.style(1)
 
-local SCAN_MODE = 1
+local SCAN_MODE = 1 --写1演示扫码
 local scan_pause = true
+local getRawStart = false
+local RAW_MODE = 0 --写1演示获取原始图像
+-- SCAN_MODE和RAW_MODE都没有写1就是拍照
 
 -- 根据不同的BSP返回不同的值
 -- spi_id,pin_reset,pin_dc,pin_cs,bl
@@ -70,10 +74,19 @@ local function press_key()
 end
 gpio.setup(0, press_key, gpio.PULLDOWN,gpio.RISING)
 gpio.debounce(0 ,100, 1)
-local rawbuff = zbuff.create(60 * 1024, zbuff.HEAP_AUTO)
+local rawbuff,err
+if RAW_MODE ~= 1 then
+    rawbuff,err = zbuff.create(60 * 1024, 0, zbuff.HEAP_AUTO)
+else
+    rawbuff,err = zbuff.create(640 * 480 * 2, 0, zbuff.HEAP_AUTO)    --gc032a
+    --local rawbuff = zbuff.create(240 * 320 * 2, zbuff.HEAP_AUTO)  --bf302a
+end
+if rawbuff == nil then log.info(err) end
+
 sys.taskInit(function()
     log.info("摄像头启动")
     local cspiId,i2cId=1,1
+
     i2c.setup(i2cId,i2c.FAST)
     gpio.setup(5,0) --PD拉低
     --local camera_id = bf302aInit(cspiId,i2cId,25500000,SCAN_MODE,SCAN_MODE)
@@ -81,6 +94,8 @@ sys.taskInit(function()
     camera.stop(camera_id)
     camera.preview(camera_id,true)
     log.info("按下boot开始测试")
+    log.info(rtos.meminfo("sys"))
+    log.info(rtos.meminfo("psram"))
     while 1 do
         result, data = sys.waitUntil("PRESS", 30000)
         if result==true and data==true then
@@ -100,8 +115,23 @@ sys.taskInit(function()
                     log.info(rtos.meminfo("sys"))
                     log.info(rtos.meminfo("psram"))
                 end
+            elseif RAW_MODE == 1 then
+                if getRawStart  == false then
+                    getRawStart = true
+                    log.debug("摄像头首次捕获原始图像")
+                    camera.startRaw(camera_id,640,480,rawbuff)  --gc032a
+                    --camera.startRaw(camera_id,240,320,rawbuff) --bf302a
+                else 
+                    log.debug("摄像头继续捕获原始图像")
+                    camera.getRaw(camera_id)
+                end
+                result, data = sys.waitUntil("capture done", 30000)
+                log.info("摄像头捕获原始图像完成")
+                log.info(rtos.meminfo("sys"))
+                log.info(rtos.meminfo("psram"))
+                --uart.tx(uartid, rawbuff) --找个能保存数据的串口工具保存成文件就能在电脑上看了, 格式为JPG                
             else
-                log.debug("摄像头捕获图像")
+                log.debug("摄像头拍照")
                 camera.capture(camera_id,rawbuff,1)
                 result, data = sys.waitUntil("capture done", 30000)
                 log.info(rawbuff:used())

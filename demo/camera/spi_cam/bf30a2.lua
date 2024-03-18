@@ -105,7 +105,7 @@ local reg_table = {
 	{0x13,0x07},
 }
 
-function bf302aInit(cspiId,i2cId,speed,scanMode,onlyY)
+function bf30a2Init(cspiId,i2cId,speed,scanMode,onlyY)
 	local id = camera.init(cspiId,speed,0,0,1,0,0,onlyY,scanMode,240,320)
 	for i=1,#reg_table do
 		i2c.send(i2cId,0x6e,reg_table[i],1)

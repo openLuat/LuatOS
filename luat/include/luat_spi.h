@@ -112,5 +112,9 @@ int luat_spi_device_transfer(luat_spi_device_t* spi_dev, const char* send_buf, s
 int luat_spi_device_recv(luat_spi_device_t* spi_dev, char* recv_buf, size_t length);
 //发SPI数据，返回发送字节数
 int luat_spi_device_send(luat_spi_device_t* spi_dev, const char* send_buf, size_t length);
+
+int luat_spi_get_mode(int spi_id);
+
+int luat_spi_set_mode(int spi_id, uint8_t mode);
 /**@}*/
 #endif

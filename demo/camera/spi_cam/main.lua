@@ -2,7 +2,7 @@
 
 PROJECT = "camerademo"
 VERSION = "1.0.0"
-require "bf302a"
+require "bf30a2"
 require "gc032a"
 sys = require("sys")
 log.style(1)
@@ -89,7 +89,7 @@ sys.taskInit(function()
 
     i2c.setup(i2cId,i2c.FAST)
     gpio.setup(5,0) --PD拉低
-    --local camera_id = bf302aInit(cspiId,i2cId,25500000,SCAN_MODE,SCAN_MODE)
+    --local camera_id = bf30a2Init(cspiId,i2cId,25500000,SCAN_MODE,SCAN_MODE)
     local camera_id = gc032aInit(cspiId,i2cId,24000000,SCAN_MODE,SCAN_MODE)
     camera.stop(camera_id)
     camera.preview(camera_id,true)

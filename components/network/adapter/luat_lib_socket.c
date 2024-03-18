@@ -891,6 +891,25 @@ static int l_socket_accept(lua_State *L)
 }
 
 /*
+获取socket当前状态
+@api socket.state(ctrl)
+@user_data socket.create得到的ctrl
+@return int or nil,输入参数正确的情况下，返回状态的数值，否则返回nil
+@return string or nil,输入参数正确的情况下，返回状态的中文描述，否则返回nil
+@usage
+local state, str = socket.state(ctrl)
+log.info("state", state, str)
+*/
+static int l_socket_state(lua_State *L)
+{
+	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	L_CTRL_CHECK;
+	lua_pushinteger(L, l_ctrl->netc->state);
+	lua_pushstring(L, network_ctrl_state_string(l_ctrl->netc->state));
+	return 2;
+}
+
+/*
 主动释放掉network_ctrl
 @api    socket.release(ctrl)
 @user_data	socket.create得到的ctrl
@@ -1126,8 +1145,7 @@ static const rotable_Reg_t reg_socket_adapter[] =
 	{"tx",			ROREG_FUNC(l_socket_tx)},
 	{"rx",			ROREG_FUNC(l_socket_rx)},
 	{"wait",			ROREG_FUNC(l_socket_wait)},
-	//{"listen",			ROREG_FUNC(l_socket_listen)},
-	//{"accept",			ROREG_FUNC(l_socket_accept)},
+	{"state",		ROREG_FUNC(l_socket_state)},
 	{"release",			ROREG_FUNC(l_socket_release)},
 	{ "setDNS",           ROREG_FUNC(l_socket_set_dns)},
 	{ "sslLog",			ROREG_FUNC(l_socket_set_ssl_log)},

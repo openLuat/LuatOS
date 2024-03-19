@@ -73,7 +73,7 @@ struct ble_gatt_chr *peer_chrs[MAX_PER_SERV*MAX_PER_SERV];
 static int buff2uuid(ble_uuid_any_t* uuid, const char* data, size_t data_len) {
     if (data_len > 16)
         return -1;
-    char tmp[data_len];
+    char tmp[16];
     for (size_t i = 0; i < data_len; i++)
     {
         if (ble_uuid_addr_conv == 0)

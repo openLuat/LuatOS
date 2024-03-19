@@ -827,6 +827,7 @@ enum
 	MOBILE_CONF_CE_MODE,
 	MOBILE_CONF_SIM_WC_MODE,
 	MOBILE_CONF_FAKE_CELL_BARTIME,
+	MOBILE_CONF_RESET_TO_FACTORY,
 };
 
 uint32_t luat_mobile_sim_write_counter(void);

@@ -987,6 +987,10 @@ static const rotable_Reg_t reg_mobile[] = {
 	{"CONF_CE_MODE",            ROREG_INT(MOBILE_CONF_CE_MODE)},
     //@const CONF_SIM_WC_MODE number SIM写入次数的配置和读取
     {"CONF_SIM_WC_MODE",        ROREG_INT(MOBILE_CONF_SIM_WC_MODE)},
+    //@const CONF_FAKE_CELL_BARTIME number 伪基站禁止接入的时间，取值为0时取消，0xffff永久
+    {"CONF_FAKE_CELL_BARTIME",        ROREG_INT(MOBILE_CONF_FAKE_CELL_BARTIME)},
+    //@const CONF_RESET_TO_FACTORY number 删除已保存的协议栈参数，重启后会使用默认配置
+    {"CONF_RESET_TO_FACTORY",        ROREG_INT(MOBILE_CONF_RESET_TO_FACTORY)},
 	//@const PIN_VERIFY number 验证PIN码操作
 	{"PIN_VERIFY",              ROREG_INT(LUAT_SIM_PIN_VERIFY)},
 	//@const PIN_CHANGE number 更换PIN码操作

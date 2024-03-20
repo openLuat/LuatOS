@@ -124,8 +124,8 @@ typedef struct{
 	size_t resp_headers_done;
 #else
 	Buffer_Struct request_head_buffer;	/**<存放用户自定义的请求head数据*/
-	luat_http_cb http_cb;				/**< http lua回调函数 */
-	void *http_cb_userdata;				/**< http lua回调函数用户传参*/
+	luat_http_cb http_cb;				/**< http 回调函数 */
+	void *http_cb_userdata;				/**< http 回调函数用户传参*/
 	Buffer_Struct response_head_buffer;	/**<接收到的head数据缓存，回调给客户后就销毁了*/
 	int error_code;
 	Buffer_Struct response_cache;

@@ -755,7 +755,7 @@ static tdefl_sym_freq *tdefl_radix_sort_syms(mz_uint num_syms, tdefl_sym_freq *p
     mz_uint32 total_passes = 2, pass_shift, pass, i;
     mz_uint32 *hist = luat_heap_malloc(256 * 2 * sizeof(mz_uint32));
     tdefl_sym_freq *pCur_syms = pSyms0, *pNew_syms = pSyms1;
-    MZ_CLEAR_ARR(hist);
+    memset(hist, 0, 256 * 2 * sizeof(mz_uint32));
     for (i = 0; i < num_syms; i++)
     {
         mz_uint freq = pSyms0[i].m_key;

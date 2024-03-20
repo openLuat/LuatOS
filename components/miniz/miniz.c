@@ -34,7 +34,7 @@ typedef unsigned char mz_validate_uint64[sizeof(mz_uint64) == 8 ? 1 : -1];
 #ifdef __cplusplus
 extern "C" {
 #endif
-
+#include "luat_mem.h"
 /* ------------------- zlib-style API's */
 
 mz_ulong mz_adler32(mz_ulong adler, const unsigned char *ptr, size_t buf_len)
@@ -752,9 +752,10 @@ typedef struct
 } tdefl_sym_freq;
 static tdefl_sym_freq *tdefl_radix_sort_syms(mz_uint num_syms, tdefl_sym_freq *pSyms0, tdefl_sym_freq *pSyms1)
 {
-    mz_uint32 total_passes = 2, pass_shift, pass, i, hist[256 * 2];
+    mz_uint32 total_passes = 2, pass_shift, pass, i;
+    mz_uint32 *hist = luat_heap_malloc(256 * 2 * sizeof(mz_uint32));
     tdefl_sym_freq *pCur_syms = pSyms0, *pNew_syms = pSyms1;
-    MZ_CLEAR_ARR(hist);
+    memset(hist, 0, 256 * 2 * sizeof(mz_uint32));
     for (i = 0; i < num_syms; i++)
     {
         mz_uint freq = pSyms0[i].m_key;
@@ -780,6 +781,7 @@ static tdefl_sym_freq *tdefl_radix_sort_syms(mz_uint num_syms, tdefl_sym_freq *p
             pNew_syms = t;
         }
     }
+    luat_heap_free(hist);
     return pCur_syms;
 }
 
@@ -880,7 +882,10 @@ static void tdefl_optimize_huffman_table(tdefl_compressor *d, int table_num, int
     }
     else
     {
-        tdefl_sym_freq syms0[TDEFL_MAX_HUFF_SYMBOLS], syms1[TDEFL_MAX_HUFF_SYMBOLS], *pSyms;
+        // tdefl_sym_freq syms0[TDEFL_MAX_HUFF_SYMBOLS], syms1[TDEFL_MAX_HUFF_SYMBOLS], *pSyms;
+        tdefl_sym_freq *pSyms;
+        tdefl_sym_freq *syms0 = luat_heap_malloc(sizeof(tdefl_sym_freq) * TDEFL_MAX_HUFF_SYMBOLS);
+        tdefl_sym_freq *syms1 = luat_heap_malloc(sizeof(tdefl_sym_freq) * TDEFL_MAX_HUFF_SYMBOLS);
         int num_used_syms = 0;
         const mz_uint16 *pSym_count = &d->m_huff_count[table_num][0];
         for (i = 0; i < table_len; i++)
@@ -891,6 +896,8 @@ static void tdefl_optimize_huffman_table(tdefl_compressor *d, int table_num, int
             }
 
         pSyms = tdefl_radix_sort_syms(num_used_syms, syms0, syms1);
+        luat_heap_free(syms0);
+        luat_heap_free(syms1);
         tdefl_calculate_minimum_redundancy(pSyms, num_used_syms);
 
         for (i = 0; i < num_used_syms; i++)

@@ -446,14 +446,14 @@ static int l_mlx90640_draw2lcd(lua_State *L) {
     int index_data_out_w = RAW_DATA_W*fold;
     int index_data_out_h = RAW_DATA_H*fold;
 
-    luat_color_t line[index_data_out_w];
+    luat_color_t *line = luat_heap_malloc(index_data_out_w * sizeof(luat_color_t));
     for (size_t y = 0; y < index_data_out_h; y++){
         for (size_t x = 0; x < index_data_out_w; x++){
             line[x] = color_swap(camColors[index_data_out[y*index_data_out_w + x]]);
         }
         luat_lcd_draw(lcd_conf, lcd_x, lcd_y+y, lcd_x+index_data_out_w-1, lcd_y+y, line);
     }
-
+    luat_heap_free(line);
     luat_heap_free(index_data_out);
     return 0;
 }

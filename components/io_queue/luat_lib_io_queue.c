@@ -167,7 +167,7 @@ static int l_io_queue_gpio_output(lua_State *L) {
 
 /*
 对io操作队列增加设置捕获某个IO命令
-@api  ioqueue.setcap(hwtimer_id,pin,pull_mode,irq_mode,max_tick)
+@api  ioqueue.set_cap(hwtimer_id,pin,pull_mode,irq_mode,max_tick)
 @int  硬件定时器id
 @int  pin
 @int 上下拉模式,只能是0,gpio.PULLUP,gpio.PULLDOWN

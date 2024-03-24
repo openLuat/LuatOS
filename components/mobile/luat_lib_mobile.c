@@ -550,6 +550,23 @@ static int l_mobile_flymode(lua_State* L) {
 }
 
 /**
+配置基站同步时间开关，默认开启
+@api mobile.syncTime(enable)
+@bool 开启,true开启, false关闭, nil不设置
+@return bool 当前开关状态
+@usage
+mobile.syncTime() --获取当前开关状态
+mobile.syncTime(false) --关闭基站同步时间
+ */
+static int l_mobile_sync_time(lua_State* L) {
+    if (lua_isboolean(L, 1)) {
+    	luat_mobile_set_sync_time(lua_toboolean(L, 1));
+    }
+    lua_pushboolean(L, luat_mobile_get_sync_time());
+    return 1;
+}
+
+/**
 获取网络状态
 @api mobile.status()
 @return int 当前网络状态,0:网络未注册;1:网络已注册;2:正在搜网中;3:网络注册被拒绝
@@ -948,7 +965,7 @@ static const rotable_Reg_t reg_mobile[] = {
 	{"setBand",          ROREG_FUNC(l_mobile_set_band)},
 	{"nstOnOff",          ROREG_FUNC(l_mobile_nst_test_onoff)},
 	{"nstInput",          ROREG_FUNC(l_mobile_nst_data_input)},
-
+	{"syncTime",          ROREG_FUNC(l_mobile_sync_time)},
 	//@const UNREGISTER number 未注册
     {"UNREGISTER",                  ROREG_INT(LUAT_MOBILE_STATUS_UNREGISTER)},
     //@const REGISTERED number 已注册

@@ -175,20 +175,23 @@ gatt_svr_chr_access_func(uint16_t conn_handle, uint16_t attr_handle,
     LLOGD("gatt_svr_chr_access_func %d %d-%s %d", conn_handle, attr_handle, buff, ctxt->op);
     switch (ctxt->op) {
         case BLE_GATT_ACCESS_OP_WRITE_CHR:
-              while(om) {
-                  wmsg = (ble_write_msg_t*)(luat_heap_malloc(sizeof(ble_write_msg_t) + om->om_len - 1));
-                  if (wmsg != NULL) {
-                      wmsg->len = om->om_len;
-                      msg.handler = l_ble_chr_write_cb;
-                      msg.ptr = wmsg;
-                      msg.arg1 = conn_handle;
-                      msg.arg2 = attr_handle;
-                      memcpy(wmsg->buff, om->om_data, om->om_len);
-                      luat_msgbus_put(&msg, 0);
-                  }
-                  om = SLIST_NEXT(om, om_next);
-              }
-              return 0;
+            wmsg = (ble_write_msg_t*)(luat_heap_malloc(sizeof(ble_write_msg_t) + MYNEWT_VAL(BLE_ATT_PREFERRED_MTU) - 1));
+            if (!wmsg) {
+                LLOGW("out of memory when malloc ble_write_msg_t");
+                return 0;
+            }
+            memset(wmsg, 0, sizeof(ble_write_msg_t) + MYNEWT_VAL(BLE_ATT_PREFERRED_MTU) - 1);
+            msg.handler = l_ble_chr_write_cb;
+            msg.ptr = wmsg;
+            msg.arg1 = conn_handle;
+            msg.arg2 = attr_handle;
+            while(om) {
+                memcpy(&wmsg->buff[wmsg->len], om->om_data, om->om_len);
+                wmsg->len += om->om_len;
+                om = SLIST_NEXT(om, om_next);
+            }
+            luat_msgbus_put(&msg, 0);
+            return 0;
         case BLE_GATT_ACCESS_OP_READ_CHR:
             LLOGD("gatt svr read size = %d", buff_for_read_size);
             if (buff_for_read_size) {

@@ -398,6 +398,7 @@ int32_t BSP_GetBit(uint8_t *Data, uint32_t Sn, uint8_t *Value);
 uint8_t BSP_TestBit(uint8_t *Data, uint32_t Sn);
 uint8_t XorCheck(void *Src, uint32_t Len, uint8_t CheckStart);
 uint8_t SumCheck(uint8_t *Data, uint32_t Len);
+uint8_t CRC8Cal(void *Data, uint16_t Len, uint8_t CRC8Last, uint8_t CRCRoot, uint8_t IsReverse);
 uint16_t CRC16Cal(void *Data, uint16_t Len, uint16_t CRC16Last, uint16_t CRCRoot, uint8_t IsReverse);
 uint32_t AsciiToU32(uint8_t *Src, uint32_t Len);
 void CRC32_CreateTable(uint32_t *Tab, uint32_t Gen);

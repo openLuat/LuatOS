@@ -64,6 +64,7 @@ static uint32_t luat_ftp_cmd_send(luat_ftp_ctrl_t *ftp_ctrl, uint8_t* send_data,
 
 static int luat_ftp_cmd_recv(luat_ftp_ctrl_t *ftp_ctrl,uint8_t *recv_data,uint32_t *recv_len,uint32_t timeout_ms){
 	uint32_t total_len = 0;
+	uint32_t read_len;
 	uint8_t is_break = 0,is_timeout = 0;
 	int ret = network_wait_rx(g_s_ftp.network->cmd_netc, timeout_ms, &is_break, &is_timeout);
 	LLOGD("network_wait_rx ret:%d is_break:%d is_timeout:%d",ret,is_break,is_timeout);
@@ -73,25 +74,7 @@ static int luat_ftp_cmd_recv(luat_ftp_ctrl_t *ftp_ctrl,uint8_t *recv_data,uint32
 		return 1;
 	else if (is_break)
 		return 2;
-	int result = network_rx(g_s_ftp.network->cmd_netc, NULL, 0, 0, NULL, NULL, &total_len);
-	if (0 == result){
-		if (total_len>0){
-next:
-			result = network_rx(g_s_ftp.network->cmd_netc, recv_data, total_len, 0, NULL, NULL, recv_len);
-			LLOGD("result:%d recv_len:%d",result,*recv_len);
-			LLOGD("recv_data %.*s",total_len, recv_data);
-			if (result)
-				goto next;
-			if (*recv_len == 0||result!=0) {
-				return -1;
-			}
-			return 0;
-		}
-	}else{
-		LLOGE("ftp network_rx fail");
-		return -1;
-	}
-	return 0;
+	return network_rx(g_s_ftp.network->cmd_netc, recv_data, FTP_CMD_RECV_MAX, 0, NULL, NULL, recv_len);
 }
 
 static int32_t luat_ftp_data_callback(void *data, void *param){
@@ -390,6 +373,78 @@ static void l_ftp_cb(FTP_SUCCESS_STATE_e state){
 #endif
 }
 
+static int find_newline(void)
+{
+	uint32_t pos = 0;
+	while (pos < g_s_ftp.network->cmd_recv_len)
+	{
+		if(('\r' == g_s_ftp.network->cmd_recv_data[pos]) || ('\n' == g_s_ftp.network->cmd_recv_data[pos]))
+		{
+			return pos;
+		}
+		else
+		{
+			pos++;
+		}
+	}
+	return -1;
+}
+
+static int pasv_recv(void)
+{
+	int ret;
+	int pos;
+	uint8_t rx_finish = 0;
+	ret = luat_ftp_cmd_recv(&g_s_ftp,g_s_ftp.network->cmd_recv_data,&g_s_ftp.network->cmd_recv_len,FTP_SOCKET_TIMEOUT);
+	if (ret){
+		return -1;
+	}
+	g_s_ftp.network->cmd_recv_data[g_s_ftp.network->cmd_recv_len] = 0;
+	if (memcmp(g_s_ftp.network->cmd_recv_data, FTP_FILE_STATUS_OK, 3)){
+		return -1;
+	}
+	pos = find_newline();
+	if (pos >= 0)
+	{
+		memmove(g_s_ftp.network->cmd_recv_data, g_s_ftp.network->cmd_recv_data + pos, g_s_ftp.network->cmd_recv_len - pos);
+		g_s_ftp.network->cmd_recv_len -= pos;
+		g_s_ftp.network->cmd_recv_data[g_s_ftp.network->cmd_recv_len] = 0;
+		if (strstr((const char *)(g_s_ftp.network->cmd_recv_data), FTP_CLOSE_CONNECT))
+		{
+			rx_finish = 1;
+		}
+	}
+	while(!rx_finish && g_s_ftp.network->data_netc_online)
+	{
+		ret = luat_ftp_cmd_recv(&g_s_ftp,g_s_ftp.network->cmd_recv_data,&g_s_ftp.network->cmd_recv_len,FTP_SOCKET_TIMEOUT);
+		if (ret < 0){
+			return -1;
+		} else if (!ret) {
+			if (memcmp(g_s_ftp.network->cmd_recv_data, FTP_CLOSE_CONNECT, 3)){
+				return -1;
+			}
+			else {
+				rx_finish = 1;
+			}
+		}
+	}
+	if (!rx_finish) {	//没接收完就断开了
+		return -1;
+	}
+	//等服务器关闭接收通道
+	if (g_s_ftp.network->data_netc_online) {
+		ret = luat_ftp_cmd_recv(&g_s_ftp,g_s_ftp.network->cmd_recv_data,&g_s_ftp.network->cmd_recv_len,1000);
+		if (ret < 0) {
+			return -1;
+		}
+	}
+	//主动关闭掉接收
+	if (g_s_ftp.network->data_netc_online && g_s_ftp.network->data_netc) {
+		network_close(g_s_ftp.network->data_netc, 0);
+	}
+	return 0;
+}
+
 static void ftp_task(void *param){
 	FTP_SUCCESS_STATE_e ftp_state = FTP_SUCCESS_NO_DATE;
 	int ret;
@@ -397,6 +452,8 @@ static void ftp_task(void *param){
 	luat_rtos_task_handle task_handle = g_s_ftp.task_handle;
 	OS_EVENT task_event;
 	uint8_t is_timeout = 0;
+
+
 	g_s_ftp.is_run = 1;
 	luat_rtos_event_recv(g_s_ftp.task_handle, FTP_EVENT_LOGIN, &task_event, NULL, LUAT_WAIT_FOREVER);
 	if (ftp_login()){
@@ -441,44 +498,7 @@ static void ftp_task(void *param){
 			}
 			snprintf_((char *)(g_s_ftp.network->cmd_send_data), FTP_CMD_SEND_MAX, "RETR %s\r\n",g_s_ftp.network->remote_name);
 			luat_ftp_cmd_send(&g_s_ftp, g_s_ftp.network->cmd_send_data, strlen((const char *)g_s_ftp.network->cmd_send_data),FTP_SOCKET_TIMEOUT);
-			ret = luat_ftp_cmd_recv(&g_s_ftp,g_s_ftp.network->cmd_recv_data,&g_s_ftp.network->cmd_recv_len,FTP_SOCKET_TIMEOUT);
-			if (ret){
-				goto operation_failed;
-			}else{
-
-				if (memcmp(g_s_ftp.network->cmd_recv_data, FTP_FILE_STATUS_OK, 3)){
-					LLOGD("ftp RETR wrong");
-					goto operation_failed;
-				}
-			}
-			if (!g_s_ftp.network->data_netc_online)
-			{
-				g_s_ftp.network->cmd_recv_data[g_s_ftp.network->cmd_recv_len] = 0;
-				LLOGD("ftp RETR maybe done!");
-				if (strstr((const char *)(g_s_ftp.network->cmd_recv_data), "226 "))
-				{
-					LLOGD("ftp RETR ok!");
-					if (g_s_ftp.fd){
-						luat_fs_fclose(g_s_ftp.fd);
-						g_s_ftp.fd = NULL;
-					}
-					l_ftp_cb(ftp_state);
-					break;
-				}
-			}
-			ret = luat_ftp_cmd_recv(&g_s_ftp,g_s_ftp.network->cmd_recv_data,&g_s_ftp.network->cmd_recv_len,FTP_SOCKET_TIMEOUT);
-			if (ret){
-				goto operation_failed;
-			}else{
-				if (memcmp(g_s_ftp.network->cmd_recv_data, FTP_CLOSE_CONNECT, 3)){
-					LLOGD("ftp RETR wrong");
-					goto operation_failed;
-				}
-			}
-			while (count<3 && g_s_ftp.network->data_netc_online!=0){
-				luat_ftp_cmd_recv(&g_s_ftp,g_s_ftp.network->cmd_recv_data,&g_s_ftp.network->cmd_recv_len,FTP_SOCKET_TIMEOUT/3);
-				count++;
-			}
+			if (pasv_recv()) goto operation_failed;
 			if (g_s_ftp.fd){
 				luat_fs_fclose(g_s_ftp.fd);
 				g_s_ftp.fd = NULL;
@@ -551,36 +571,7 @@ static void ftp_task(void *param){
 					goto operation_failed;
 				}
 				luat_ftp_cmd_send(&g_s_ftp, g_s_ftp.network->cmd_send_data, strlen((const char *)(g_s_ftp.network->cmd_send_data)),FTP_SOCKET_TIMEOUT);
-				ret = luat_ftp_cmd_recv(&g_s_ftp,g_s_ftp.network->cmd_recv_data,&g_s_ftp.network->cmd_recv_len,FTP_SOCKET_TIMEOUT);
-				if (ret){
-					goto operation_failed;
-				}else{
-					if (memcmp(g_s_ftp.network->cmd_recv_data, FTP_FILE_STATUS_OK, 3)){
-						LLOGE("ftp LIST wrong");
-						goto operation_failed;
-					}
-				}
-				if (!g_s_ftp.network->data_netc_online)
-				{
-					g_s_ftp.network->cmd_recv_data[g_s_ftp.network->cmd_recv_len] = 0;
-					LLOGD("ftp LIST maybe done!");
-					if (strstr((const char *)(g_s_ftp.network->cmd_recv_data), FTP_CLOSE_CONNECT))
-					{
-						LLOGD("ftp LIST ok!");
-						ftp_state = FTP_SUCCESS_DATE;
-						l_ftp_cb(ftp_state);
-						break;
-					}
-				}
-				ret = luat_ftp_cmd_recv(&g_s_ftp,g_s_ftp.network->cmd_recv_data,&g_s_ftp.network->cmd_recv_len,FTP_SOCKET_TIMEOUT);
-				if (ret){
-					goto operation_failed;
-				}else{
-					if (memcmp(g_s_ftp.network->cmd_recv_data, FTP_CLOSE_CONNECT, 3)){
-						LLOGE("ftp LIST wrong");
-						goto operation_failed;
-					}
-				}
+				if (pasv_recv()) goto operation_failed;
 				ftp_state = FTP_SUCCESS_DATE;
 				l_ftp_cb(ftp_state);
 				break;

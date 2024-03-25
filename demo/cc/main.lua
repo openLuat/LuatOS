@@ -97,7 +97,6 @@ sys.taskInit(function()
 	audio.pm(0,audio.STANDBY)
     sys.waitUntil("CC_READY")
     sys.wait(100)   
-	cc.dial(0, "15068398077")
     --cc.dial(0,"114") --拨打电话
 
 

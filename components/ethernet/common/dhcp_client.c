@@ -394,7 +394,7 @@ int ip4_dhcp_run(dhcp_client_info_t *dhcp, Buffer_Struct *in, Buffer_Struct *out
 			LLOGD("DHCP get ip ready");
 			break;
 		}
-		if (dhcp->wait_selec_ack_cnt > 2)
+		if (dhcp->wait_selec_ack_cnt > 3)
 		{
 			LLOGD("select ip long time no ack");
 			if ((dhcp->weak_temp_ip == dhcp->temp_ip) && (dhcp->weak_server_ip == dhcp->server_ip))
@@ -420,7 +420,7 @@ int ip4_dhcp_run(dhcp_client_info_t *dhcp, Buffer_Struct *in, Buffer_Struct *out
 		}
 		else
 		{
-			if (luat_mcu_tick64_ms() >= (dhcp->last_tx_time + 1900))
+			if (luat_mcu_tick64_ms() >= (dhcp->last_tx_time + 1900 * (dhcp->wait_selec_ack_cnt + 1)))
 			{
 				dhcp->wait_selec_ack_cnt++;
 				LLOGD("select ip no ack,resend %d", dhcp->wait_selec_ack_cnt);

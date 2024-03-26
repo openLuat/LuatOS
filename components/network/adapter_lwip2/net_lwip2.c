@@ -1554,6 +1554,7 @@ void net_lwip2_register_adapter(uint8_t adapter_index)
 	register_statue |= (1 << adapter_index);
 }
 
+#if !defined(CHIP_EC718) && !defined(CHIP_EC618)
 int net_lwip_check_all_ack(int socket_id)
 {
 
@@ -1580,7 +1581,7 @@ int net_lwip_check_all_ack(int socket_id)
 	}
 	return 0;
 }
-
+#endif
 
 void net_lwip2_set_link_state(uint8_t adapter_index, uint8_t updown)
 {

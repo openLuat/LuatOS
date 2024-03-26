@@ -45,7 +45,7 @@ void i2c_tools(const char * data,size_t len){
                 }
             }
             sprintf_(buff + 2 + 4*len, " ]");
-            LLOGD(buff);
+            LLOGD("%s", buff);
         }
         luat_heap_free(buffer);
     }else if(memcmp("scan",command,4) == 0){

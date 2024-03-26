@@ -1,29 +1,30 @@
--- PROJECT = "aliyundemo"
--- VERSION = "1.0.0"
--- local sys = require "sys"
--- sys库是标配
+--[[
+@module aliyun
+@summary AliYun阿里云物联网平台
+@version 1.0
+@date    2023.06.07
+@author  wendal
+@demo    aliyun
+@usage
+-- 请查阅demo
+]]
 _G.sys = require("sys")
 --[[特别注意, 使用mqtt库需要下列语句]]
 _G.sysplus = require("sysplus")
 local libfota = require("libfota")
 
-aliyun = {}
-
+-- 总的库对象
+local aliyun = {}
 local ClientId,PassWord,UserName,SetClientidFnc,SetDeviceTokenFnc,SetDeviceSecretFnc
-
 local OutQueue =
 {
     SUBSCRIBE = {},
     PUBLISH = {},
 }
-
 local Item = {}
-
 local EvtCb = {}
-
 local mqttc = nil
-
-local Key,Dname 
+local Key,Dname
 
 --添加
 local function insert(type,topic,qos,payload,cbFnc,cbPara)
@@ -89,8 +90,8 @@ local function clientDataTask(DeviceName,ProductKey,mqtt_host,mqtt_port,mqtt_iss
 
         mqttc:keepalive(300) -- 默认值240s
         mqttc:autoreconn(true, 20000) -- 自动重连机制
-        mqttc:connect()
         mqttc:on(mqtt_cbevent)  --mqtt回调注册
+        mqttc:connect()
 
         local conres = sys.waitUntil("aliyun_conack",30000)
         if mqttc:ready() and conres then
@@ -228,7 +229,11 @@ end
 --[[
 配置阿里云物联网套件的产品信息和设备信息
 @api aliyun.setup(tPara)
-@table
+@table 阿里云物联网套件的产品信息和设备信息
+@return nil
+@usage
+aliyun.setup(tPara)
+-- 参数说明
 一机一密认证方案时，ProductSecret参数传入nil
 一型一密认证方案时，ProductSecret参数传入真实的产品密钥
 Registration 是否是预注册 已预注册为false，未预注册为true
@@ -239,9 +244,6 @@ DeviceSecret 设备secret
 InstanceId 如果没有注册需要填写实例id，在实例详情页面
 mqtt_port mqtt端口
 mqtt_isssl 是否使用ssl加密连接，true为无证书最简单的加密
-@return nil
-@usage
-aliyun.setup(tPara)
 ]]
 function aliyun.setup(tPara)
     mqtt_host = tPara.host or tPara.InstanceId..".mqtt.iothub.aliyuncs.com"
@@ -333,7 +335,7 @@ end
 订阅主题
 @api aliyun.subscribe(topic,qos)
 @string 主题内容为UTF8编码
-@number qos为number类型(0/1，默认0)；
+@number qos为number类型(0/1，默认0)
 @return nil
 @usage
 aliyun.subscribe("/b0FMK1Ga5cp/862991234567890/get", 0)
@@ -440,8 +442,4 @@ function libfota_cb(result)
     end
 end
 
-
-
-
 return aliyun
--- 用户代码已结束---------------------------------------------

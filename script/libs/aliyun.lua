@@ -265,7 +265,7 @@ function confiDentialTask(DeviceName,ProductKey,DeviceSecret,mqtt_host,mqtt_port
         mqttc:auth(client_id,user_name,password) --mqtt三元组配置
 
 
-        mqttc:keepalive(30) -- 默认值240s
+        mqttc:keepalive(300) -- 默认值240s
         mqttc:autoreconn(true, 20000) -- 自动重连机制
         mqttc:connect()
         mqttc:on(mqtt_cbevent)  --mqtt回调注册

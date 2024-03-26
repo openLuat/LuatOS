@@ -87,12 +87,12 @@ local function clientDataTask(DeviceName,ProductKey,mqtt_host,mqtt_port,mqtt_iss
             mqttc:auth(DeviceName,ProductKey,passtoken) --mqtt三元组配置
         end
 
-        mqttc:keepalive(30) -- 默认值240s
+        mqttc:keepalive(300) -- 默认值240s
         mqttc:autoreconn(true, 20000) -- 自动重连机制
         mqttc:connect()
         mqttc:on(mqtt_cbevent)  --mqtt回调注册
 
-        local conres = sys.waitUntil("mqtt_conack",30000)
+        local conres = sys.waitUntil("aliyun_conack",30000)
         if mqttc:ready() and conres then
             -- if connectCb then connectCb(true,ProductKey,DeviceName) end
             -- if EvtCb["connect"] then EvtCb["connect"](true) end
@@ -149,6 +149,7 @@ local function clientEncryptionTask(Registration,DeviceName,ProductKey,ProductSe
             PassWord = crypto.hmac_md5(content,ProductSecret)
             
             local mqttClient = mqtt.create(nil,mqtt_host,mqtt_port,mqtt_isssl)  --客户端创建
+            log.info("mqtt三元组", ClientId,UserName,PassWord)
             mqttClient:auth(ClientId,UserName,PassWord) --三元组配置
             mqttClient:on(function(mqtt_client, event, data, payload)  --mqtt回调注册
                 -- 用户自定义代码
@@ -191,7 +192,7 @@ end
 --底层libMQTT回调函数，上层的回调函数，通过 aliyun.on注册
 function mqtt_cbevent(mqtt_client, event, data, payload,metas)
     if event == "conack" then
-        sys.publish("mqtt_conack")
+        sys.publish("aliyun_conack")
         EvtCb["connect"](true) 
     elseif event == "recv" then -- 服务器下发的数据
         log.info("mqtt", "downlink", "topic", data, "payload", payload,"qos",metas.qos,"retain",metas.retain,"dup",metas.dup)
@@ -258,6 +259,7 @@ function confiDentialTask(DeviceName,ProductKey,DeviceSecret,mqtt_host,mqtt_port
     sys.taskInit(function()
         local client_id,user_name,password = iotauth.aliyun(ProductKey,DeviceName,DeviceSecret)
         mqttc = mqtt.create(nil,mqtt_host, mqtt_port,mqtt_isssl)  --mqtt客户端创建
+        log.info("mqtt三元组", client_id,user_name,password)
         mqttc:auth(client_id,user_name,password) --mqtt三元组配置
 
 
@@ -266,7 +268,7 @@ function confiDentialTask(DeviceName,ProductKey,DeviceSecret,mqtt_host,mqtt_port
         mqttc:connect()
         mqttc:on(mqtt_cbevent)  --mqtt回调注册
 
-        local conres = sys.waitUntil("mqtt_conack",30000)
+        local conres = sys.waitUntil("aliyun_conack",30000)
         if mqttc:ready() and conres then
             -- if connectCb then connectCb(true,ProductKey,DeviceName) end
             -- if EvtCb["connect"] then EvtCb["connect"](true) end
@@ -308,7 +310,7 @@ function aliyun.clientGetDirectDataTask(DeviceName,ProductKey,mqtt_host,mqtt_por
         mqttc:connect()
         mqttc:on(mqtt_cbevent)  --mqtt回调注册
 
-        local conres = sys.waitUntil("mqtt_conack",30000)
+        local conres = sys.waitUntil("aliyun_conack",30000)
         if mqttc:ready() and conres then
             -- if connectCb then connectCb(true,ProductKey,DeviceName) end
             -- if EvtCb["connect"] then EvtCb["connect"](true) end

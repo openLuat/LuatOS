@@ -1,12 +1,16 @@
 
 /*
 @module  gmssl
-@summary 国密算法
+@summary 国密算法(SM2/SM3/SM4)
 @version 1.1
 @date    2023.03.02
 @author  chenxudong1208
 @demo gmssl
 @tag LUAT_USE_GMSSL
+@usage
+-- 本库 支持 SM2 SM3 SM4 三个算法
+-- 理论上可以扩展支持 SM9 算法
+-- 不支持SM1, 因为那是硬件算法, 没有软件实现的
 */
 #include "luat_base.h"
 #include "luat_mem.h"

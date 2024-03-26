@@ -282,7 +282,7 @@ local function resp_parse(opts)
     local state_line_offset = zbuff_find(opts.rx_buff, "\r\n")
     local state_line = opts.rx_buff:query(0, state_line_offset)
     local tmp = state_line:split(" ")
-    if not tmp or #tmp < 3 then
+    if not tmp or #tmp < 2 then
         log.warn(TAG, "非法的响应行", state_line)
         opts.resp_code = -197
         return

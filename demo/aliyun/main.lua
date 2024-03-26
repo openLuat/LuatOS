@@ -18,6 +18,9 @@ tPara = {
     mqtt_isssl = false,                --是否使用ssl加密连接，true为无证书最简单的加密
  }
 
+-- 低功耗测试, 打开之后, 连接阿里云后5秒请求低功耗
+local PM_TEST = false
+
  -- 统一联网函数
 sys.taskInit(function()
     -----------------------------
@@ -201,6 +204,9 @@ end
 
 -- 低功耗演示
 sys.taskInit(function()
+    if not PM_TEST then
+        return 
+    end
     sys.waitUntil("aliyun_ready")
     log.info("aliyun.pm", "阿里云已经连接成功, 5秒后请求进入低功耗模式, USB功能会断开")
     sys.wait(5000)

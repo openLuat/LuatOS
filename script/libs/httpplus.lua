@@ -7,9 +7,12 @@
 @demo   httpplus
 @tag    LUAT_USE_NETWORK
 @usage
--- 本库的目的:
---   1. 解决大文件上传的问题
---   2. 探索http库的扩展
+-- 本库支持的功能有:
+--   1. 大文件上传的问题,不限大小
+--   2. 任意长度的header设置
+--   3. 任意长度的body设置
+--   4. 鉴权URL自动识别
+--   5. body使用zbuff返回,可直接传输给uart等库
 
 -- 与http库的差异
 --   1. 不支持文件下载
@@ -282,7 +285,7 @@ local function resp_parse(opts)
     local state_line_offset = zbuff_find(opts.rx_buff, "\r\n")
     local state_line = opts.rx_buff:query(0, state_line_offset)
     local tmp = state_line:split(" ")
-    if not tmp or #tmp < 3 then
+    if not tmp or #tmp < 2 then
         log.warn(TAG, "非法的响应行", state_line)
         opts.resp_code = -197
         return
@@ -547,7 +550,7 @@ end
 --[[
 执行HTTP请求
 @api httpplus.request(opts)
-@table 额外的待上传参数
+@table 请求参数,是一个table,最起码得有url属性
 @return int 响应码,服务器返回的状态码>=100, 若本地检测到错误,会返回<0的值
 @return 服务器正常响应时返回结果, 否则是错误信息或者nil
 @usage

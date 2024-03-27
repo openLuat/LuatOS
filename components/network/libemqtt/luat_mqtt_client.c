@@ -9,9 +9,11 @@
 #define LUAT_LOG_TAG "mqtt"
 #include "luat_log.h"
 
+#ifndef LUAT_MQTT_DEBUG
+#define LUAT_MQTT_DEBUG 0
+#endif
 
-#define MQTT_DEBUG 0
-#if MQTT_DEBUG == 0
+#if LUAT_MQTT_DEBUG == 0
 #undef LLOGD
 #define LLOGD(...)
 #endif
@@ -304,9 +306,11 @@ static int luat_mqtt_msg_cb(luat_mqtt_ctrl_t *mqtt_ctrl) {
 			LLOGD("msg %d qos %d", msg_id, qos);
 			// 还要回复puback
 			if (qos == 1) {
+				LLOGD("reply puback %d", msg_id);
 				mqtt_puback(&(mqtt_ctrl->broker), msg_id);
 			}
 			else if (qos == 2) {
+				LLOGD("reply pubrec %d", msg_id);
 				mqtt_pubrec(&(mqtt_ctrl->broker), msg_id);
 			}
             break;

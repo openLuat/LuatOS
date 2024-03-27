@@ -43,30 +43,30 @@ int http_close(luat_http_ctrl_t *http_ctrl);
 int http_set_url(luat_http_ctrl_t *http_ctrl, const char* url, const char* method);
 
 static int http_add_header(luat_http_ctrl_t *http_ctrl, const char* name, const char* value){
-	// TODO 对value还需要进行urlencode
-	char tmp[1024] = {0};
-	int ret = snprintf(tmp, 1023, "%s:%s\r\n", name, value);
-	// LLOGI("snprintf %d", ret);
-	if (ret < 1) {
-		return 0;
+	if (name == NULL || value == NULL || strlen(name) == 0 || strlen(value) == 0) {
+		return -1;
 	}
+	size_t len = strlen(name) + strlen(value) + 4;
 	if (http_ctrl->req_header == NULL) {
-		http_ctrl->req_header = luat_heap_malloc(strlen(tmp)+1);
+		http_ctrl->req_header = luat_heap_malloc(len + 1);
 		if (http_ctrl->req_header == NULL) {
 			LLOGE("out of memory when malloc custom headers");
-			return 0;
+			return -1;
 		}
 		http_ctrl->req_header[0] = 0;
 	}
 	else {
-		void *ptr = luat_heap_realloc(http_ctrl->req_header, strlen(http_ctrl->req_header) + strlen(tmp) + 1);
+		void *ptr = luat_heap_realloc(http_ctrl->req_header, strlen(http_ctrl->req_header) + len + 1);
 		if (ptr == NULL) {
 			LLOGE("out of memory when malloc custom headers");
-			return 0;
+			return -1;
 		}
 		http_ctrl->req_header = ptr;
 	}
-	memcpy(http_ctrl->req_header + strlen(http_ctrl->req_header), tmp, strlen(tmp) + 1);
+	memcpy(http_ctrl->req_header + strlen(http_ctrl->req_header), name, strlen(name) + 1);
+	memcpy(http_ctrl->req_header + strlen(http_ctrl->req_header), ": ", 3);
+	memcpy(http_ctrl->req_header + strlen(http_ctrl->req_header), value, strlen(value) + 1);
+	memcpy(http_ctrl->req_header + strlen(http_ctrl->req_header), "\r\n", 3);
 	return 0;
 }
 

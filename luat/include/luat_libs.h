@@ -164,12 +164,22 @@ LUAMOD_API int luaopen_ws2812( lua_State *L );
 
 LUAMOD_API int luaopen_onewire( lua_State *L );
 
+// 蚂蚁链
 LUAMOD_API int luaopen_antbot( lua_State *L );
 
+// xxtea加解密, 强度其实很低
 LUAMOD_API int luaopen_xxtea( lua_State *L );
 
+// 电话功能
 LUAMOD_API int luaopen_cc( lua_State *L );
 
+// 用户侧LWIP集成, 用于对接以太网,wifi等第三方网络设备,通常是SPI或者SDIO协议
 LUAMOD_API int luaopen_ulwip( lua_State *L );
+
+// 基于真正的cjson做的json解析库,未完成
+LUAMOD_API int luaopen_json2( lua_State *L );
+
+// SPI 从机
+LUAMOD_API int luaopen_spislave( lua_State *L );
 
 #endif

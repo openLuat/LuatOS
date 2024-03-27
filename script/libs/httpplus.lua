@@ -7,9 +7,12 @@
 @demo   httpplus
 @tag    LUAT_USE_NETWORK
 @usage
--- 本库的目的:
---   1. 解决大文件上传的问题
---   2. 探索http库的扩展
+-- 本库支持的功能有:
+--   1. 大文件上传的问题,不限大小
+--   2. 任意长度的header设置
+--   3. 任意长度的body设置
+--   4. 鉴权URL自动识别
+--   5. body使用zbuff返回,可直接传输给uart等库
 
 -- 与http库的差异
 --   1. 不支持文件下载

@@ -550,7 +550,7 @@ end
 --[[
 执行HTTP请求
 @api httpplus.request(opts)
-@table 额外的待上传参数
+@table 请求参数,是一个table,最起码得有url属性
 @return int 响应码,服务器返回的状态码>=100, 若本地检测到错误,会返回<0的值
 @return 服务器正常响应时返回结果, 否则是错误信息或者nil
 @usage

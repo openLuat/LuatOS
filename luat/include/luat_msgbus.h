@@ -26,6 +26,7 @@ uint32_t luat_msgbus_put(rtos_msg_t* msg, size_t timeout);
 uint32_t luat_msgbus_get(rtos_msg_t* msg, size_t timeout);
 uint32_t luat_msgbus_freesize(void);
 uint8_t luat_msgbus_is_empty(void);
+uint8_t luat_msgbus_is_ready(void);
 
 #define luat_msgbug_put2(ABC1,ABC2,ABC3,ABC4,ABC5) {\
     rtos_msg_t _msg = {.handler=ABC1,.ptr=ABC2,.arg1=ABC3,.arg2=ABC4};\

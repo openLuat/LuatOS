@@ -86,20 +86,6 @@ int luat_nimble_set_adv_data(char* buff, size_t len, int flags) {
     adv_fields.mfg_data = adv_buff;
     adv_fields.mfg_data_len = adv_buff_len;
     adv_fields.flags = flags;
-#if (defined(CONFIG_IDF_CMAKE))
-#else
-    if (luat_ble_dev_name_len == 0) {
-        const char * name = ble_svc_gap_device_name();
-        adv_fields.name = (uint8_t *)name;
-        adv_fields.name_len = 5;
-        adv_fields.name_is_complete = 1;
-    }
-    else {
-        adv_fields.name = (uint8_t *)luat_ble_dev_name;
-        adv_fields.name_len = 5;
-        adv_fields.name_is_complete = 1;
-    }
-#endif
     if (ble_ready) {
         rc = ble_gap_adv_set_fields(&adv_fields);
         LLOGD("ble_gap_adv_set_fields rc %d", rc);

@@ -29,7 +29,6 @@
 #include <libemqtt.h>
 #include "luat_base.h"
 #include "luat_mem.h"
-#include "luat_rtos.h"
 
 #define MQTT_DUP_FLAG     (1<<3)
 #define MQTT_QOS0_FLAG    (0<<1)
@@ -46,6 +45,7 @@
 
 #define LUAT_LOG_TAG "mqtt"
 #include "luat_log.h"
+
 
 uint8_t mqtt_num_rem_len_bytes(const uint8_t* buf) {
 	uint8_t num_bytes = 1;
@@ -339,8 +339,6 @@ int mqtt_publish(mqtt_broker_handle_t* broker, const char* topic, const char* ms
 }
 
 int mqtt_publish_with_qos(mqtt_broker_handle_t* broker, const char* topic, const char* msg, uint32_t msg_len, uint8_t retain, uint8_t qos, uint16_t* message_id) {
-	luat_rtos_mutex_t mqtt_lock;
-	luat_rtos_mutex_create(&mqtt_lock);
 	uint16_t topiclen = strlen(topic);
 	uint32_t msglen = msg_len;
 	// uint32_t tem_len;
@@ -399,12 +397,10 @@ int mqtt_publish_with_qos(mqtt_broker_handle_t* broker, const char* topic, const
    	}
 	memcpy(fixed_header+1, buf, rc);
 
-	#define SMALL_PUB (1400)
-
 	uint8_t header_size = fixed_header_len+var_header_len;
 	uint32_t total_size = header_size + msg_len;
 	int ret = 0;
-	uint8_t *packet = luat_heap_malloc(total_size <= SMALL_PUB ? total_size : SMALL_PUB);
+	uint8_t *packet = luat_heap_malloc(total_size);
 	if (packet == NULL) {
 		luat_heap_free(var_header);
 		LLOGE("out of memory when malloc publish packet");
@@ -413,39 +409,19 @@ int mqtt_publish_with_qos(mqtt_broker_handle_t* broker, const char* topic, const
 	memset(packet, 0, header_size);
 	memcpy(packet, fixed_header, fixed_header_len);
 	memcpy(packet+fixed_header_len, var_header, var_header_len);
-	//memcpy(packet+sizeof(fixed_header)+sizeof(var_header), msg, msglen);
-    if(luat_rtos_mutex_lock(mqtt_lock, 200)) goto ERROR;
+
 	// Send the packet
-	if (total_size <= SMALL_PUB) { // 针对小包的情况进行优化, 减少TCP交互
-		memcpy(packet + header_size, msg, msg_len);
-		ret = broker->send(broker->socket_info, packet, total_size);
-		if(ret < 0 || ret < total_size) {
-			goto ERROR;
-		}
+	memcpy(packet + header_size, msg, msg_len);
+	ret = broker->send(broker->socket_info, packet, total_size);
+	if(ret < 0 || ret < total_size) {
+		luat_heap_free(packet);
+		luat_heap_free(var_header);
+		return -1;
 	}
-	else {
-		ret = broker->send(broker->socket_info, packet, header_size);
-		//LLOGD("publish packet header %d ret %d", sizeof(packet), ret);
-		if(ret < 0 || ret < header_size) {
-			goto ERROR;
-		}
-		ret = broker->send(broker->socket_info, msg, msg_len);
-		//LLOGD("publish packet body %d ret %d", msg_len, ret);
-		if(ret < 0 || ret < msg_len) {
-			goto ERROR;
-		}
-	}
-	luat_rtos_mutex_unlock(mqtt_lock);
-    luat_rtos_mutex_delete(mqtt_lock);
+
 	luat_heap_free(packet);
 	luat_heap_free(var_header);
 	return 1;
-ERROR:
-	luat_rtos_mutex_unlock(mqtt_lock);
-	luat_rtos_mutex_delete(mqtt_lock);
-	luat_heap_free(packet);
-	luat_heap_free(var_header);
-	return -1;
 }
 
 int mqtt_pubrel(mqtt_broker_handle_t* broker, uint16_t message_id) {

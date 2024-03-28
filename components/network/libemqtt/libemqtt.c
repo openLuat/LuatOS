@@ -400,7 +400,7 @@ int mqtt_publish_with_qos(mqtt_broker_handle_t* broker, const char* topic, const
 	uint8_t header_size = fixed_header_len+var_header_len;
 	uint32_t total_size = header_size + msg_len;
 	int ret = 0;
-	uint8_t *packet = luat_heap_malloc(total_size);
+	uint8_t *packet = luat_heap_opt_malloc(LUAT_HEAP_AUTO,total_size);
 	if (packet == NULL) {
 		luat_heap_free(var_header);
 		LLOGE("out of memory when malloc publish packet");
@@ -419,7 +419,7 @@ int mqtt_publish_with_qos(mqtt_broker_handle_t* broker, const char* topic, const
 		return -1;
 	}
 
-	luat_heap_free(packet);
+	luat_heap_opt_free(LUAT_HEAP_AUTO,packet);
 	luat_heap_free(var_header);
 	return 1;
 }

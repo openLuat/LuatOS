@@ -33,3 +33,7 @@ uint32_t luat_msgbus_freesize(void) {
 uint8_t luat_msgbus_is_empty(void) {
     return uxQueueMessagesWaiting(xQueue) == 0 ? 1 : 0;
 }
+
+uint8_t luat_msgbus_is_ready(void) {
+	return xQueue?1:0;
+}

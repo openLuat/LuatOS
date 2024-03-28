@@ -57,6 +57,25 @@ pm.request(pm.IDLE) -- 通过切换不同的值请求进入不同的休眠模式
 #include "luat_log.h"
 
 // static int lua_event_cb = 0;
+/*
+@sys_pub pm
+deep sleep timer定时时间到回调
+DTIMER_WAKEUP
+@usage
+sys.subscribe("DTIMER_WAKEUP", function(timer_id)
+    log.info("deep sleep timer", timer_id)
+end)
+*/
+int luat_dtimer_cb(lua_State *L, void* ptr) {
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    lua_getglobal(L, "sys_pub");
+    if (lua_isfunction(L, -1)) {
+        lua_pushstring(L, "DTIMER_WAKEUP");
+        lua_pushinteger(L, msg->arg1);
+        lua_call(L, 2, 0);
+    }
+    return 0;
+}
 
 /**
 请求进入指定的休眠模式

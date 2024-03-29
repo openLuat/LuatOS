@@ -655,7 +655,10 @@ NET_DNS_TX_IPV4:
 			process->dns_cnt++;
 			if (process->dns_cnt >= MAX_DNS_SERVER)
 			{
+				LLOGE("no ipv6, no ipv4");
 				process->ip_nums = 0;
+				process->is_done = 1;
+				client->new_result = 1;
 				llist_traversal(&client->require_head, dns_set_result, process);
 				llist_del(&process->node);
 				free(process);

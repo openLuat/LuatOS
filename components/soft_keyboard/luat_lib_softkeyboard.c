@@ -1,9 +1,10 @@
 
 /*
-@module  softkeyboard
-@summary 软件键盘矩阵(当前仅air105支持)
+@module  softkb
+@summary 软件键盘矩阵
 @version 1.0
 @date    2022.03.09
+@tag LUAT_USE_SOFTKB
 */
 
 #include "luat_base.h"

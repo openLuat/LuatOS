@@ -17,6 +17,7 @@
 #include "luat_zbuff.h"
 #include "luat_gpio.h"
 #include "luat_irq.h"
+#include "luat_zbuff.h"
 #define LUAT_LOG_TAG "spi"
 
 #define META_SPI "SPI*"
@@ -383,31 +384,56 @@ static int l_spi_transfer(lua_State *L) {
 
 /**
 接收指定长度的SPI数据
-@api spi.recv(id, size)
+@api spi.recv(id, size, buff)
 @int SPI号,例如0
 @int 数据长度
-@return string 读取成功返回字符串,否则返回nil
+@userdata zbuff对象,可选,2024.3.29新增
+@return string/int 读取成功返回字符串,若传入的是zbuff就返回读取大小,出错返回nil
 @usage
 -- 初始化spi
 spi.setup(0,nil,0,0,8,2000000,spi.MSB,1,1)
+-- 接收数据
 local recv = spi.recv(0, 4)--接收4字节数据
+
+-- 当传入zbuff参数时,返回值有所不同. 2024.3.29新增
+-- 读取成功后, 指针会往后移动len个字节
+-- 写入位置以当前used()位置开始, 请务必确保有足够空间写入len长度的数据
+local len = spi.recv(0, 4, buff)
 */
 static int l_spi_recv(lua_State *L) {
+    luat_zbuff_t* buff = NULL;
+    char* recv_buff = NULL;
+    int ret = 0;
     int len = luaL_optinteger(L, 2, 1);
-    char* recv_buff = luat_heap_malloc(len);
+    if (len <= 0) {
+        return 0;
+    }
+    if (lua_isuserdata(L, 3)) {
+        buff = (luat_zbuff_t*)luaL_checkudata(L, 3, LUAT_ZBUFF_TYPE);
+        recv_buff = (char*)buff->addr + buff->used;
+        if (buff->len - buff->used < len) {
+            return 0;
+        }
+    }
+    else {
+        recv_buff = luat_heap_malloc(len);
+    }
     if(recv_buff == NULL)return 0;
+    
     if (lua_isinteger(L, 1))
     {
         int id = luaL_checkinteger(L, 1);
-        int ret = luat_spi_recv(id, recv_buff, len);
+        ret = luat_spi_recv(id, recv_buff, len);
         if (ret > 0) {
             lua_pushlstring(L, recv_buff, ret);
-            luat_heap_free(recv_buff);
+            if (buff == NULL)
+                luat_heap_free(recv_buff);
             return 1;
         }
         else
         {
-            luat_heap_free(recv_buff);
+            if (buff == NULL)
+                luat_heap_free(recv_buff);
             return 0;
         }
     }
@@ -423,11 +449,20 @@ static int l_spi_recv(lua_State *L) {
                 luat_spi_soft_recv(espi, recv_buff, len);
             }
         }
+    }
+    if (ret) {
+        return 0;
+    }
+    
+    if (buff == NULL) {
         lua_pushlstring(L, recv_buff, len);
         luat_heap_free(recv_buff);
-        return 1;
     }
-    return 0;
+    else {
+        buff->used += len;
+        lua_pushinteger(L, len);
+    }
+    return 1;
 }
 
 /**

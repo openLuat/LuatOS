@@ -275,8 +275,8 @@ if fonts.list then
 end
 */
 static int l_fonts_list(lua_State *L) {
-    const char* tp = luaL_optstring(L, 1, "u8g2");
 #ifdef LUAT_USE_LVGL
+    const char* tp = luaL_optstring(L, 1, "u8g2");
     if (!strcmp("lvgl", tp)) {
         return l_fonts_lvgl_list(L);
     }
@@ -306,8 +306,8 @@ else
 end
 */
 static int l_fonts_get(lua_State *L) {
-    const char* tp = luaL_optstring(L, 2, "u8g2");
 #ifdef LUAT_USE_LVGL
+    const char* tp = luaL_optstring(L, 2, "u8g2");
     if (!strcmp("lvgl", tp)) {
         return l_fonts_lvgl_get(L);
     }
@@ -334,8 +334,8 @@ else
 end
 */
 static int l_fonts_load(lua_State *L) {
-    const char* tp = luaL_optstring(L, 2, "u8g2");
 #ifdef LUAT_USE_LVGL
+    const char* tp = luaL_optstring(L, 2, "u8g2");
     if (!strcmp("lvgl", tp)) {
         const char* fontname = luaL_checkstring(L, 1);
         lv_font_t* font = lv_font_load(fontname);

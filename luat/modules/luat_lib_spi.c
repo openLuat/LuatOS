@@ -286,13 +286,14 @@ static int l_spi_close(lua_State *L) {
         luat_spi_device_t *spi_device = (luat_spi_device_t *)luaL_testudata(L, 1, META_SPI);
         if (spi_device){
             int ret = luat_spi_device_close(spi_device);
-            lua_pushboolean(L, ret == 0 ? 1 : 0);
+            lua_pushinteger(L, ret);
         }
-        luat_espi_t *espi = (luat_espi_t *)luaL_testudata(L, 1, LUAT_ESPI_TYPE);
-        if (espi){
-            luat_espi_t *espi = (luat_espi_t*)lua_touserdata(L, 1);
+        else {
             lua_pushinteger(L, 0);
         }
+    }
+    else {
+        lua_pushinteger(L, 0);
     }
     return 1;
 }

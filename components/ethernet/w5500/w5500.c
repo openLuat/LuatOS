@@ -985,6 +985,12 @@ static void w5500_dns_tx_next(w5500_ctrl_t *w5500, Buffer_Struct *tx_msg_buf)
 		}
 		OS_DeInitBuffer(tx_msg_buf);
 		llist_traversal(&w5500->dns_client.require_head, w5500_dns_check_result, w5500);
+		w5500->dns_client.new_result = 0;
+	}
+	else if (w5500->dns_client.new_result)
+	{
+		llist_traversal(&w5500->dns_client.require_head, w5500_dns_check_result, w5500);
+		w5500->dns_client.new_result = 0;
 	}
 }
 

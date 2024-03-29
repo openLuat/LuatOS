@@ -404,6 +404,7 @@ local len = spi.recv(0, 4, buff)
 static int l_spi_recv(lua_State *L) {
     luat_zbuff_t* buff = NULL;
     char* recv_buff = NULL;
+    luaL_Buffer b = {0};
     int ret = 0;
     int len = luaL_optinteger(L, 2, 1);
     if (len <= 0) {
@@ -413,51 +414,45 @@ static int l_spi_recv(lua_State *L) {
         buff = (luat_zbuff_t*)luaL_checkudata(L, 3, LUAT_ZBUFF_TYPE);
         recv_buff = (char*)buff->addr + buff->used;
         if (buff->len - buff->used < len) {
+            LLOGW("zbuff放不下 %d %d %d", buff->len - buff->used, len);
             return 0;
         }
     }
     else {
-        recv_buff = luat_heap_malloc(len);
+        luaL_buffinitsize(L, &b, len);
+        recv_buff = b.b;
     }
-    if(recv_buff == NULL)return 0;
+    if(recv_buff == NULL) {
+        LLOGW("out of memory when malloc spi buff %d", recv_buff);
+        return 0;
+    }
     
     if (lua_isinteger(L, 1))
     {
         int id = luaL_checkinteger(L, 1);
         ret = luat_spi_recv(id, recv_buff, len);
-        if (ret > 0) {
-            lua_pushlstring(L, recv_buff, ret);
-            if (buff == NULL)
-                luat_heap_free(recv_buff);
-            return 1;
-        }
-        else
-        {
-            if (buff == NULL)
-                luat_heap_free(recv_buff);
-            return 0;
-        }
     }
     else if (lua_isuserdata(L, 1))
     {
         luat_spi_device_t *spi_device = (luat_spi_device_t *)luaL_testudata(L, 1, META_SPI);
         if (spi_device){
             luat_spi_device_recv(spi_device, recv_buff, len);
+            ret = len;
         }
         else {
             luat_espi_t *espi = (luat_espi_t *)luaL_testudata(L, 1, LUAT_ESPI_TYPE);
             if (espi){
                 luat_spi_soft_recv(espi, recv_buff, len);
+                ret = len;
             }
         }
     }
-    if (ret) {
+    if (ret <= 0) {
         return 0;
     }
     
     if (buff == NULL) {
-        lua_pushlstring(L, recv_buff, len);
-        luat_heap_free(recv_buff);
+        luaL_pushresult(&b);
     }
     else {
         buff->used += len;

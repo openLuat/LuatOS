@@ -16,11 +16,17 @@ tmpbuff = zbuff.create(4)
 
 function xt804_read(addr, len)
     -- 尝试读取
+    if not len or len < 1 or len > 1500 then
+        return
+    end
+    tmpbuff:seek(0)
     PIN_CS(0)
     spi.send(SPI_ID, string.char(addr & 0xFF))
-    local data = spi.recv(SPI_ID, len)
+    local data = spi.recv(SPI_ID, len, tmpbuff)
+    -- local data = spi.recv(SPI_ID, len)
     PIN_CS(1)
-    return data
+    return tmpbuff:query(0, len)
+    -- return data
 end
 
 

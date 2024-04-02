@@ -59,49 +59,6 @@ static const u8g2_font_t u8g2_fonts[] = {
 #ifdef USE_U8G2_OPPOSANSM32_CHINESE
     {.name="opposansm32_chinese", .font=u8g2_font_opposansm32_chinese},
 #endif
-#ifdef USE_U8G2_SARASA_ENGLISH
-    { .name="sarasa_m12_ascii", .font=u8g2_font_sarasa_m12_ascii},
-    { .name="sarasa_m14_ascii", .font=u8g2_font_sarasa_m14_ascii},
-    { .name="sarasa_m16_ascii", .font=u8g2_font_sarasa_m16_ascii},
-    { .name="sarasa_m18_ascii", .font=u8g2_font_sarasa_m18_ascii},
-    { .name="sarasa_m20_ascii", .font=u8g2_font_sarasa_m20_ascii},
-    { .name="sarasa_m22_ascii", .font=u8g2_font_sarasa_m22_ascii},
-    //再大的很少用到先不加了
-#endif
-
-#ifdef USE_U8G2_SARASA_M8_CHINESE
-    { .name="sarasa_m8_chinese", .font=u8g2_font_sarasa_m8_chinese},
-#endif
-#ifdef USE_U8G2_SARASA_M10_CHINESE
-    { .name="sarasa_m10_chinese", .font=u8g2_font_sarasa_m10_chinese},
-#endif
-#ifdef USE_U8G2_SARASA_M12_CHINESE
-    { .name="sarasa_m12_chinese", .font=u8g2_font_sarasa_m12_chinese},
-#endif
-#ifdef USE_U8G2_SARASA_M14_CHINESE
-    { .name="sarasa_m14_chinese", .font=u8g2_font_sarasa_m14_chinese},
-#endif
-#ifdef USE_U8G2_SARASA_M16_CHINESE
-    { .name="sarasa_m16_chinese", .font=u8g2_font_sarasa_m16_chinese},
-#endif
-#ifdef USE_U8G2_SARASA_M18_CHINESE
-    { .name="sarasa_m18_chinese", .font=u8g2_font_sarasa_m18_chinese},
-#endif
-#ifdef USE_U8G2_SARASA_M20_CHINESE
-    { .name="sarasa_m20_chinese", .font=u8g2_font_sarasa_m20_chinese},
-#endif
-#ifdef USE_U8G2_SARASA_M22_CHINESE
-    { .name="sarasa_m22_chinese", .font=u8g2_font_sarasa_m22_chinese},
-#endif
-#ifdef USE_U8G2_SARASA_M24_CHINESE
-    { .name="sarasa_m24_chinese", .font=u8g2_font_sarasa_m24_chinese},
-#endif
-#ifdef USE_U8G2_SARASA_M26_CHINESE
-    { .name="sarasa_m26_chinese", .font=u8g2_font_sarasa_m26_chinese},
-#endif
-#ifdef USE_U8G2_SARASA_M28_CHINESE
-    { .name="sarasa_m28_chinese", .font=u8g2_font_sarasa_m28_chinese},
-#endif
 #ifdef LUAT_FONTS_CUSTOM_U8G2
     LUAT_FONTS_CUSTOM_U8G2
 #endif

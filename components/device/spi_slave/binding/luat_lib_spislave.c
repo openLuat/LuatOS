@@ -139,7 +139,6 @@ static int l_spi_slave_write(lua_State *L) {
 static const rotable_Reg_t reg_spi_slave[] = {
     { "setup",              ROREG_FUNC(l_spi_slave_setup)},
     { "ready",              ROREG_FUNC(l_spi_slave_ready)},
-    { "ready",              ROREG_FUNC(l_spi_slave_ready)},
     { "read",               ROREG_FUNC(l_spi_slave_read)},
     { "write",              ROREG_FUNC(l_spi_slave_write)},
     { "on",                 ROREG_FUNC(l_spi_slave_on)},

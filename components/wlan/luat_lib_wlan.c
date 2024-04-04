@@ -404,7 +404,7 @@ static int l_wlan_ap_stop(lua_State *L) {
 }
 
 /*
-获取信息,如AP的bssid,信号强度
+获取信息,如AP的bssid,信号强度, STA联网后可获取
 @api wlan.getInfo()
 @return table 详情,键值对形式
 @usage

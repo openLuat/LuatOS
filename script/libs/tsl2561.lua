@@ -30,7 +30,7 @@ local TSL2561_ADDRESS_ADR
 
 local TSL2561_ADDRESS_ADR_LOW     =   0x29
 local TSL2561_ADDRESS_ADR_FLOAT   =   0x39
-local TSL2561_ADDRESS_ADR_LOW     =   0x49
+local TSL2561_ADDRESS_ADR_HIGH     =   0x49
 
 local TSL2561_CHIP_ID_CHECK       =   0x0A
 
@@ -68,11 +68,11 @@ local function chip_check()
     if revData:byte() ~= nil then
         TSL2561_ADDRESS_ADR = TSL2561_ADDRESS_ADR_LOW
     else
-        i2c.send(i2cid, TSL2561_ADDRESS_ADR_LOW, TSL2561_CHIP_ID_CHECK)--读器件地址
+        i2c.send(i2cid, TSL2561_ADDRESS_ADR_HIGH, TSL2561_CHIP_ID_CHECK)--读器件地址
         sys.wait(50)
-        local revData = i2c.recv(i2cid, TSL2561_ADDRESS_ADR_LOW, 1)
+        local revData = i2c.recv(i2cid, TSL2561_ADDRESS_ADR_HIGH, 1)
         if revData:byte() ~= nil then
-            TSL2561_ADDRESS_ADR = TSL2561_ADDRESS_ADR_LOW
+            TSL2561_ADDRESS_ADR = TSL2561_ADDRESS_ADR_HIGH
         else
             i2c.send(i2cid, TSL2561_ADDRESS_ADR_FLOAT, TSL2561_CHIP_ID_CHECK)--读器件地址
             sys.wait(50)

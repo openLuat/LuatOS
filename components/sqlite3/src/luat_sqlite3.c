@@ -94,6 +94,7 @@ int sqlite3_os_end(void) {
     return 0;
 }
 
+#if 0
 static void * luat_sqlite3_Malloc(int);         /* Memory allocation function */
 static  void luat_sqlite3_Free(void*);          /* Free a prior allocation */
 static  void *luat_sqlite3_Realloc(void*,int);  /* Resize an allocation */
@@ -101,7 +102,6 @@ static  int luat_sqlite3_Size(void*);           /* Return the size of an allocat
 static  int luat_sqlite3_Roundup(int);          /* Round up request size to allocation size */
 static  int luat_sqlite3_Init(void*);           /* Initialize the memory allocator */
 static  void luat_sqlite3_xShutdown(void*);      /* Deinitialize the memory allocator */
-
 
 static const sqlite3_mem_methods mems = {
   .xMalloc = luat_sqlite3_Malloc,
@@ -113,6 +113,7 @@ static const sqlite3_mem_methods mems = {
   .xShutdown = luat_sqlite3_xShutdown,
   NULL
 };
+#endif
 
 int luat_sqlite3_init(void) {
     // sqlite3_config(SQLITE_CONFIG_MALLOC, &mems);
@@ -120,7 +121,7 @@ int luat_sqlite3_init(void) {
 }
 
 static FILE* sopen(const char* zName, int flags) {
-    size_t len = luat_fs_fsize(zName);
+    // size_t len = luat_fs_fsize(zName);
     LLOGD("打开文件 %s %d %d", zName, flags, len);
     FILE* fd = NULL;
     if (!luat_fs_fexist(zName)) {
@@ -184,6 +185,8 @@ static int svfs_GetLastError(sqlite3_vfs* ctx, int err, char * msg) {
 // vfs io
 static int svfs_io_Close(sqlite3_file* f) {
     sfile_t* t = (sfile_t*)f;
+    if (!t)
+        return -1;
     LLOGD("文件关闭 %s", t->path);
     return 0;
 }
@@ -229,7 +232,7 @@ static int svfs_io_Read(sqlite3_file* f, void* data, int iAmt, sqlite3_int64 iOf
 static int svfs_io_Write(sqlite3_file* f, const void* data, int iAmt, sqlite3_int64 iOfst) {
     int ret = 0;
     sfile_t* t = (sfile_t*)f;
-    char* ptr = data;
+    const char* ptr = data;
     if (ptr == NULL) {
         LLOGD("io write 目标地址为NULL");
         return SQLITE_IOERR;
@@ -309,6 +312,7 @@ static int svfs_io_DeviceCharacteristics(sqlite3_file* f) {
 
 // 内存函数
 
+#if 0
 static void * luat_sqlite3_Malloc(int len) {
     if (len == 0) {
         return NULL;
@@ -366,3 +370,4 @@ static  int luat_sqlite3_Init(void* args) {
 static  void luat_sqlite3_xShutdown(void* args) {
     return;
 }
+#endif

@@ -294,7 +294,7 @@ static int l_w1_write_byte(lua_State *L)
   int top = lua_gettop(L);
   if (top > 1)
   {
-    for (size_t i = 2; i <= top; i++)
+    for (int i = 2; i <= top; i++)
     {
       uint8_t data = luaL_checkinteger(L, i);
       w1_write_byte(pin, data);
@@ -314,7 +314,7 @@ static int l_w1_read_byte(lua_State *L)
 {
   int pin = luaL_checkinteger(L, 1);
   int len = luaL_checkinteger(L, 2);
-  for (size_t i = 0; i < len; i++)
+  for (int i = 0; i < len; i++)
   {
     lua_pushinteger(L, w1_read_byte(pin));
   }
@@ -739,8 +739,15 @@ static int dht1x_read(lua_State *L)
   buff[4] = dht_read_byte(pin);//这是crc
   luat_os_exit_cri();
 
-  lua_pushinteger(L,buff[0]*100+buff[1]);
-  lua_pushinteger(L,buff[2]*100+buff[3]);
+  int temp = (buff[0] & 0x7F) *100 + buff[1];
+  int humi = (buff[2] & 0x7F) *100 + buff[3];
+  if (buff[0] & 0x80)
+  {
+    temp = -temp;
+  }
+
+  lua_pushinteger(L, temp);
+  lua_pushinteger(L, humi);
   if(check)
   {
     uint8_t check_r = 0;

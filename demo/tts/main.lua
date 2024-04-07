@@ -237,7 +237,9 @@ local function audio_task()
             log.info("手动关闭")
             audio.playStop(0)
         end
-		audio.pm(0,audio.STANDBY)
+        if audio.pm then
+		    audio.pm(0,audio.STANDBY)
+        end
 		-- audio.pm(0,audio.SHUTDOWN)	--低功耗可以选择SHUTDOWN或者POWEROFF，如果codec无法断电用SHUTDOWN
         log.info("mem", "sys", rtos.meminfo("sys"))
         log.info("mem", "lua", rtos.meminfo("lua"))

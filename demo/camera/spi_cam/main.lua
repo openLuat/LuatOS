@@ -9,7 +9,7 @@ require "gc0310"
 sys = require("sys")
 log.style(1)
 
-local SCAN_MODE = 1 --写1演示扫码
+local SCAN_MODE = 0 --写1演示扫码
 local scan_pause = true
 local getRawStart = false
 local RAW_MODE = 0 --写1演示获取原始图像
@@ -135,9 +135,10 @@ sys.taskInit(function()
                 --uart.tx(uartid, rawbuff) --找个能保存数据的串口工具保存成文件就能在电脑上看了, 格式为JPG                
             else
                 log.debug("摄像头拍照")
-                camera.capture(camera_id,rawbuff,1)
+                camera.capture(camera_id,rawbuff,3)	--2和3需要非常多非常多的psram,尽量不要用
                 result, data = sys.waitUntil("capture done", 30000)
                 log.info(rawbuff:used())
+				rawbuff:resize(60 * 1024)
                 log.info(rtos.meminfo("sys"))
                 log.info(rtos.meminfo("psram"))
                 uart.tx(uartid, rawbuff) --找个能保存数据的串口工具保存成文件就能在电脑上看了, 格式为JPG

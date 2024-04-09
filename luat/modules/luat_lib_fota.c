@@ -109,8 +109,10 @@ static int l_fota_wait(lua_State* L)
 
 /**
 写入fota数据
-@api fota.run(buff)
+@api fota.run(buff, offset, len)
 @zbuff/string fota数据，尽量用zbuff
+@int 起始偏移量,传入zbuff时有效,默认是0
+@int 写入长度,传入zbuff时有效,默认是zbuff:used()
 @return boolean 有异常返回false，无异常返回true
 @return boolean 接收到最后一块返回true
 @return int 还未写入的数据量，超过64K必须做等待
@@ -118,16 +120,27 @@ static int l_fota_wait(lua_State* L)
 local result, isDone, cache = fota.run(buf) -- 写入fota流程
 
 -- 提示: ，如果传入的是zbuff，写入成功后，请自行清空zbuff内的数据
+
+-- 2024.4.3新增offset, len参数, 仅对zbuff有效
+fota.run(buff, 0, 1024)
 */
 static int l_fota_write(lua_State* L)
 {
-	int result;
-    size_t len;
-    const char *buf;
+	int result = 0;
+    size_t len = 0;
+    const char *buf = NULL;
     if(lua_isuserdata(L, 1))
     {
         luat_zbuff_t *buff = ((luat_zbuff_t *)luaL_checkudata(L, 1, LUAT_ZBUFF_TYPE));
-        result = luat_fota_write(buff->addr, buff->used);
+        size_t offset = luaL_optinteger(L, 2, 0);
+        len = luaL_optinteger(L, 3, buff->used - offset);
+        if (len + offset > buff->len) {
+            LLOGE("len too long %d > %d", len, buff->len);
+            result = -1;
+        }
+        else {
+            result = luat_fota_write(buff->addr + offset, len);
+        }
     }
     else
     {

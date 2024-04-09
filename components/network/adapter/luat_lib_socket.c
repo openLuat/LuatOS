@@ -662,9 +662,9 @@ static int l_socket_rx(lua_State *L)
 	luat_ip_addr_t ip_addr = {0};
 	uint8_t ip[17] = {0};
 	uint16_t port = 0;
-	uint8_t new_flag = 0;
-	int rx_len = 0;
-	int total_len = 0;
+	// uint8_t new_flag = 0;
+	uint32_t rx_len = 0;
+	uint32_t total_len = 0;
 	int result = network_rx(l_ctrl->netc, NULL, 0, 0, NULL, NULL, &total_len);
 	if (result < 0)
 	{
@@ -690,8 +690,8 @@ static int l_socket_rx(lua_State *L)
 	}
 	// 是否限制接收数据长度
 	if (lua_gettop(L) >= 4 && lua_isinteger(L, 4)) {
-		int limit = lua_tointeger(L, 4);
-		if (limit > 0 && total_len > limit)
+		uint32_t limit = lua_tointeger(L, 4);
+		if (total_len > limit)
 		{
 			LLOGD("待数据数据长度 %d 限制读取长度 %d", total_len, limit);
 			total_len = limit;
@@ -779,6 +779,118 @@ static int l_socket_rx(lua_State *L)
 		}
 	}
 	return 4;
+}
+
+/*
+读取数据(非zbuff版本)
+@api socket.read(netc, limit)
+@userdata	网络控制句柄
+@int		限制读取数据长度,可选,不传就是读出全部
+@return		boolean, 读取成功与否
+@return		string, 读取的数据,仅当读取成功时有效
+@return		string, 对方IP地址,仅当读取成功且UDP通信时有效
+@return		int, 对方端口,仅当读取成功且UDP通信时有效
+@usage
+-- 本函数于2024.4.8添加, 用于简易读取不大的数据
+-- 请优先使用socket.rx函数, 本函数主要用于固件不含zbuff库时的变通调用
+local ok, data = socket.read(netc, 1500)
+if ok and #data > 0 then
+	log.info("读取到的数据", data)
+end
+*/
+static int l_socket_read(lua_State *L) {
+	luat_socket_ctrl_t *l_ctrl = l_get_ctrl(L, 1);
+	L_CTRL_CHECK;
+	luat_ip_addr_t ip_addr = {0};
+	uint8_t ip[17] = {0};
+	uint16_t port = 0;
+	// uint8_t new_flag = 0;
+	uint32_t rx_len = 0;
+	uint32_t total_len = 0;
+	int result = network_rx(l_ctrl->netc, NULL, 0, 0, NULL, NULL, &total_len);
+	if (result < 0)
+	{
+		lua_pushboolean(L, 0);
+		lua_pushinteger(L, 0);
+		return 2;
+	}
+	if (!total_len)
+	{
+		lua_pushboolean(L, 1);
+		lua_pushinteger(L, 0);
+		return 2;
+	}
+	// 是否限制接收数据长度
+	if (lua_gettop(L) >= 2 && lua_isinteger(L, 2)) {
+		uint32_t limit = lua_tointeger(L, 2);
+		if (limit > 0 && total_len > limit)
+		{
+			LLOGD("待数据数据长度 %d 限制读取长度 %d", total_len, limit);
+			total_len = limit;
+		}
+	}
+	luaL_Buffer bf = {0};
+	char* buff = luaL_buffinitsize(L, &bf, total_len);
+	result = network_rx(l_ctrl->netc, (uint8_t*)buff, total_len, 0, &ip_addr, &port, &rx_len);
+	if (result < 0)
+	{
+		lua_pushboolean(L, 0);
+		lua_pushinteger(L, result);
+		return 2;
+	}
+	else if (!rx_len)
+	{
+		lua_pushboolean(L, 1);
+		lua_pushstring(L, "");
+		return 2;
+	}
+	else
+	{
+		lua_pushboolean(L, 1);
+		luaL_pushresultsize(&bf, rx_len);
+		if (l_ctrl->netc->is_tcp)
+		{
+			return 2;
+		}
+		else
+		{
+		#ifdef LUAT_USE_LWIP
+			#if LWIP_IPV6
+			if (IPADDR_TYPE_V4 == ip_addr.type)
+			{
+				ip[0] = 0;
+				memcpy(ip + 1, &ip_addr.u_addr.ip4.addr, 4);
+				lua_pushlstring(L, (const char*)ip, 5);
+			}
+			else
+			{
+				ip[0] = 1;
+				memcpy(ip + 1, ip_addr.u_addr.ip6.addr, 16);
+				lua_pushlstring(L, (const char*)ip, 17);
+			}
+			#else
+			ip[0] = 0;
+			memcpy(ip + 1, &ip_addr.addr, 4);
+			lua_pushlstring(L, (const char*)ip, 5);
+			#endif
+		#else
+			if (!ip_addr.is_ipv6)
+			{
+				ip[0] = 0;
+				memcpy(ip + 1, &ip_addr.ipv4, 4);
+				lua_pushlstring(L, (const char*)ip, 5);
+			}
+			else
+			{
+				ip[0] = 1;
+				memcpy(ip + 1, &ip_addr.ipv6_u8_addr, 16);
+				lua_pushlstring(L, (const char*)ip, 17);
+			}
+		#endif
+			lua_pushinteger(L, port);
+			return 4;
+		}
+	}
 }
 
 /*
@@ -1144,6 +1256,7 @@ static const rotable_Reg_t reg_socket_adapter[] =
 	{"close",			ROREG_FUNC(l_socket_close)},
 	{"tx",			ROREG_FUNC(l_socket_tx)},
 	{"rx",			ROREG_FUNC(l_socket_rx)},
+	{"read",			ROREG_FUNC(l_socket_read)},
 	{"wait",			ROREG_FUNC(l_socket_wait)},
 	{"state",		ROREG_FUNC(l_socket_state)},
 	{"release",			ROREG_FUNC(l_socket_release)},

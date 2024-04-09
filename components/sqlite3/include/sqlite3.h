@@ -45,6 +45,7 @@
 #define SQLITE_OMIT_SEH 1
 #define SQLITE_OMIT_AUTHORIZATION 1
 #define SQLITE_OMIT_POPEN 1
+#define SQLITE_OMIT_BLOB_LITERAL 1
 
 /*
 ** Make sure we can call this stuff from C++.

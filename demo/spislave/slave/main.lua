@@ -39,13 +39,15 @@ sys.taskInit(function()
     wbuff[3] = 0x16
     local count = 0
     while true do
+        --wbuff:seek(0)
         wbuff[7] = count & 0xFF
-        wbuff[8] = count >> 8
+        wbuff[8] = (count >> 8) & 0xFF
         if spislave.ready(2) then
             spislave.write(2, 0, wbuff, 16 + 4)
         else
             log.info("spislave", "当前不可写入")
         end
+        --log.info("wbuff数据", wbuff[7], wbuff[8])
         sys.wait(1000)
         count = count + 1
     end

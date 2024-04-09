@@ -59,6 +59,11 @@ typedef struct ulwip_ctx
     uint8_t hwaddr[ETH_HWADDR_LEN];
 }ulwip_ctx_t;
 
+typedef struct netif_cb_ctx {
+    struct netif *netif;
+    struct pbuf *p;
+}netif_cb_ctx_t;
+
 static ulwip_ctx_t nets[USERLWIP_NET_COUNT];
 
 // 搜索adpater_index对应的netif
@@ -334,6 +339,12 @@ static int l_ulwip_link(lua_State *L) {// 必须有适配器编号
     return 1;
 }
 
+static void netif_input_cb(void *ptr) {
+    netif_cb_ctx_t* ctx = (netif_cb_ctx_t*)ptr;
+    ctx->netif->input(ctx->p, ctx->netif);
+    luat_heap_free(ctx);
+}
+
 /*
 往netif输入数据
 @api ulwip.input(adapter_index, data)
@@ -349,7 +360,7 @@ static int l_ulwip_input(lua_State *L) {
     int ret = 0;
     struct pbuf *q = NULL;
     const char* data = NULL;
-    size_t len = 0;
+    size_t len = ERR_OK;
     size_t offset = 0;
     struct netif* netif = find_netif(adapter_index);
     if (netif == NULL) {
@@ -386,7 +397,20 @@ static int l_ulwip_input(lua_State *L) {
         memcpy(q->payload, data, q->len);
         data += q->len;
     }
+    #if NO_SYS
     ret = netif->input(p, netif);
+    #else
+    netif_cb_ctx_t* ctx = (netif_cb_ctx_t*)luat_heap_malloc(sizeof(netif_cb_ctx_t));
+    if (ctx == NULL) {
+        LLOGE("netif->input ret %d", ret);
+        LWIP_DEBUGF(NETIF_DEBUG, ("l_ulwip_input: IP input error\n"));
+        pbuf_free(p);
+        return 0;
+    }
+    ctx->netif = netif;
+    ctx->p = p;
+    ret = tcpip_callback(netif_input_cb, ctx);
+    #endif
     if(ret != ERR_OK) {
         LLOGE("netif->input ret %d", ret);
         LWIP_DEBUGF(NETIF_DEBUG, ("l_ulwip_input: IP input error\n"));

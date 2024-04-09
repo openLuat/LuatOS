@@ -27,7 +27,7 @@ sys.taskInit(function()
     end
     -- 加载 pb 文件, 这个是从pbtxt 转换得到的
     -- 下载资源到模块时不需要下载pbtxt
-    -- 转换命令: protoc.exe -operson.pb --cpp_out=cpp person.pbtxt
+    -- 转换命令: protoc.exe -operson.pb person.pbtxt
     -- protoc.exe 下载地址: https://github.com/protocolbuffers/protobuf/releases
     protobuf.load(io.readFile("/luadb/person.pb"))
     local tb = {

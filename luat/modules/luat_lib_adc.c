@@ -1,7 +1,7 @@
 
 /*
 @module  adc
-@summary 数模转换
+@summary 模数转换
 @version 1.0
 @date    2020.07.03
 @demo adc

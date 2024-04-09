@@ -4,6 +4,7 @@
 @version 1.0
 @date    2023.02.01
 @author  Dozingfiretruck
+@demo    fota
 @usage
 --注意:因使用了sys.wait()所有api需要在协程中使用
 --用法实例
@@ -85,10 +86,14 @@ local function fota_task(cbFnc,storge_location, len, param1,ota_url,ota_port,lib
         end
     end
     local ret
-    if server_cert then
-        
+    local opts = {timeout = libfota_timeout}
+    if fota then
+        opts.fota = true
+    else
+        opts.dst = "/update.bin"
     end
-    local code, headers, body = http.request("GET", ota_url, nil, nil, {fota=true,timeout = libfota_timeout},server_cert, client_cert, client_key, client_password).wait()
+    log.info("fota.url", ota_url)
+    local code, headers, body = http.request("GET", ota_url, nil, nil, opts, server_cert, client_cert, client_key, client_password).wait()
     log.info("http fota", code, headers, body)
     if code == 200 or code == 206 then
         if body == 0 then

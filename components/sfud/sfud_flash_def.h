@@ -93,6 +93,7 @@ typedef struct {
 #define SFUD_MF_ID_ISSI                                0xD5
 #define SFUD_MF_ID_WINBOND                             0xEF
 #define SFUD_MF_ID_PUYA                                0x85
+#define SFUD_MF_ID_XTX                                 0x0B
 
 /* SFUD supported manufacturer information table */
 #define SFUD_MF_TABLE                                     \
@@ -115,6 +116,7 @@ typedef struct {
     {"Macronix",   SFUD_MF_ID_MACRONIX},                  \
     {"NOR-MEM",    SFUD_MF_ID_NOR_MEM},                   \
     {"PUYA",       SFUD_MF_ID_PUYA},                      \
+    {"XTX",        SFUD_MF_ID_XTX},                       \
 }
 
 #ifdef SFUD_USING_FLASH_INFO_TABLE
@@ -155,6 +157,7 @@ typedef struct {
     {"P25D20H", SFUD_MF_ID_PUYA, 0x60, 0x11, 2L*1024L*1024L, SFUD_WM_PAGE_256B, 4096, 0x20},                        \
     {"P25D40H", SFUD_MF_ID_PUYA, 0x60, 0x10, 4L*1024L*1024L, SFUD_WM_PAGE_256B, 4096, 0x20},                        \
     {"P25Q80H", SFUD_MF_ID_PUYA, 0x30, 0x14, 8L*1024L*1024L, SFUD_WM_PAGE_256B, 4096, 0x20},                        \
+    {"XT25F16B", SFUD_MF_ID_XTX, 0x40, 0x15, 2L*1024L*1024L, SFUD_WM_PAGE_256B, 4096, 0x20},                        \
 }
 #endif /* SFUD_USING_FLASH_INFO_TABLE */
 

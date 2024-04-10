@@ -1,6 +1,6 @@
 --[[
 @module pca9685
-@summary pca9685 pwm 
+@summary pca9685 16路PWM驱动舵机 
 @version 1.0
 @date    2023.12.26
 @author  xwtx

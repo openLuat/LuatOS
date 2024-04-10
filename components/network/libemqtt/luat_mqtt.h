@@ -38,8 +38,9 @@ typedef struct{
 	network_ctrl_t *netc;		/**< mqtt netc*/
 	luat_ip_addr_t ip_addr;		/**<mqtt ip*/
 	char host[192]; 			/**<mqtt host*/
-	uint16_t buffer_offset; 	/**< 用于标识mqtt_packet_buffer当前有多少数据*/
-	uint8_t mqtt_packet_buffer[MQTT_RECV_BUF_LEN_MAX + 4];/**< 接收BUFF*/
+	uint32_t buffer_offset; 	/**< 用于标识mqtt_packet_buffer当前有多少数据*/
+	uint32_t rxbuff_size; 		/**< mqtt_packet_buffer的长度*/
+	uint8_t *mqtt_packet_buffer;/**< 接收BUFF*/
 	void* mqtt_cb;			/**< mqtt 回调函数*/
 	int8_t error_state;    		/**< mqtt 错误状态*/
 	uint16_t remote_port; 		/**< 远程端口号*/
@@ -132,6 +133,14 @@ int luat_mqtt_init(luat_mqtt_ctrl_t *mqtt_ctrl, int adapter_index);
  *@return 成功为0，其他值失败
  */
 int luat_mqtt_set_connopts(luat_mqtt_ctrl_t *mqtt_ctrl, luat_mqtt_connopts_t *opts);
+
+/**
+ *@brief 设置MQTT服务器接收buff大小
+ *@param mqtt_ctrl luatos_mqtt对象实例
+ *@param rxbuff_size 接收buff大小
+ *@return 成功为0，其他值失败
+ */
+int luat_mqtt_set_rxbuff_size(luat_mqtt_ctrl_t *mqtt_ctrl, uint32_t rxbuff_size);
 
 /**
  *@brief 设置MQTT服务器信息、加密信息函数

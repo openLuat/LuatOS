@@ -74,6 +74,7 @@ int luat_mqtt_ping(luat_mqtt_ctrl_t *mqtt_ctrl) {
 
 int luat_mqtt_init(luat_mqtt_ctrl_t *mqtt_ctrl, int adapter_index) {
 	memset(mqtt_ctrl, 0, sizeof(luat_mqtt_ctrl_t));
+	mqtt_ctrl->rxbuff_size = MQTT_RECV_BUF_LEN_MAX+4;
 	mqtt_ctrl->adapter_index = adapter_index;
 	mqtt_ctrl->netc = network_alloc_ctrl(adapter_index);
 	if (!mqtt_ctrl->netc){
@@ -90,6 +91,11 @@ int luat_mqtt_init(luat_mqtt_ctrl_t *mqtt_ctrl, int adapter_index) {
 	mqtt_ctrl->reconnect_timer = luat_create_rtos_timer(reconnect_timer_cb, mqtt_ctrl, NULL);
 	mqtt_ctrl->ping_timer = luat_create_rtos_timer(luat_mqtt_timer_callback, mqtt_ctrl, NULL);
     return 0;
+}
+
+int luat_mqtt_set_rxbuff_size(luat_mqtt_ctrl_t *mqtt_ctrl, uint32_t rxbuff_size){
+	mqtt_ctrl->rxbuff_size = rxbuff_size;
+	return 0;
 }
 
 int luat_mqtt_set_connopts(luat_mqtt_ctrl_t *mqtt_ctrl, luat_mqtt_connopts_t *opts) {
@@ -216,7 +222,7 @@ int luat_mqtt_read_packet(luat_mqtt_ctrl_t *mqtt_ctrl){
 	uint32_t total_len = 0;
 	uint32_t rx_len = 0;
 	int result = network_rx(mqtt_ctrl->netc, NULL, 0, 0, NULL, NULL, &total_len);
-	if (total_len > MQTT_RECV_BUF_LEN_MAX - mqtt_ctrl->buffer_offset) {
+	if (total_len > mqtt_ctrl->rxbuff_size - mqtt_ctrl->buffer_offset) {
 		LLOGE("too many data wait for recv %d", total_len);
 		luat_mqtt_close_socket(mqtt_ctrl);
 		return -1;
@@ -225,7 +231,7 @@ int luat_mqtt_read_packet(luat_mqtt_ctrl_t *mqtt_ctrl){
 		LLOGW("rx event but NO data wait for recv");
 		return 0;
 	}
-	if (MQTT_RECV_BUF_LEN_MAX - mqtt_ctrl->buffer_offset <= 0) {
+	if (mqtt_ctrl->rxbuff_size - mqtt_ctrl->buffer_offset <= 0) {
 		LLOGE("buff is FULL, mqtt packet too big");
 		luat_mqtt_close_socket(mqtt_ctrl);
 		return -1;
@@ -233,9 +239,9 @@ int luat_mqtt_read_packet(luat_mqtt_ctrl_t *mqtt_ctrl){
 	#define MAX_READ (1024)
 	int recv_want = 0;
 
-	while (MQTT_RECV_BUF_LEN_MAX - mqtt_ctrl->buffer_offset > 0) {
-		if (MAX_READ > (MQTT_RECV_BUF_LEN_MAX - mqtt_ctrl->buffer_offset)) {
-			recv_want = MQTT_RECV_BUF_LEN_MAX - mqtt_ctrl->buffer_offset;
+	while (mqtt_ctrl->rxbuff_size - mqtt_ctrl->buffer_offset > 0) {
+		if (MAX_READ > (mqtt_ctrl->rxbuff_size - mqtt_ctrl->buffer_offset)) {
+			recv_want = mqtt_ctrl->rxbuff_size - mqtt_ctrl->buffer_offset;
 		}
 		else {
 			recv_want = MAX_READ;
@@ -435,6 +441,11 @@ int luat_mqtt_send_packet(void* socket_info, const void* buf, unsigned int count
 int luat_mqtt_connect(luat_mqtt_ctrl_t *mqtt_ctrl) {
 	int ret = 0;
 	mqtt_ctrl->error_state=0;
+	mqtt_ctrl->mqtt_packet_buffer = luat_heap_malloc(mqtt_ctrl->rxbuff_size+4);
+	if (mqtt_ctrl->mqtt_packet_buffer == NULL){
+		return -1;
+	}
+	memset(mqtt_ctrl->mqtt_packet_buffer, 0, mqtt_ctrl->rxbuff_size+4);
     const char *hostname = mqtt_ctrl->host;
     uint16_t port = mqtt_ctrl->remote_port;
     uint16_t keepalive = mqtt_ctrl->keepalive;

@@ -801,8 +801,6 @@ static void net_lwip2_task(void *param)
 		if (prvlwip.socket[socket_id].is_tcp)
 		{
 
-			tcp_bind(prvlwip.socket[socket_id].pcb.tcp, local_ip, prvlwip.socket[socket_id].local_port);
-			// tcp_bind_netif(prvlwip.socket[socket_id].pcb.tcp, &prvlwip.lwip_netif[adapter_index]);
 			error = tcp_connect(prvlwip.socket[socket_id].pcb.tcp, p_ip, prvlwip.socket[socket_id].remote_port, net_lwip2_tcp_connected_cb);
 			if (error)
 			{

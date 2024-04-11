@@ -490,7 +490,7 @@ static int l_ulwip_ip(lua_State *L) {
         ipaddr_aton(tmp, &netif->ip_addr);
         tmp = luaL_checkstring(L, 3);
         ipaddr_aton(tmp, &netif->netmask);
-        tmp = luaL_checkstring(L, 2);
+        tmp = luaL_checkstring(L, 4);
         ipaddr_aton(tmp, &netif->gw);
         #if LWIP_NETIF_STATUS_CALLBACK == 0
         netif_status_callback(netif);

@@ -233,7 +233,7 @@ static int l_http_request(lua_State *L) {
 	}
 
     luat_http_client_init(http_ctrl, use_ipv6);
-	http_ctrl->netc->is_debug = 1;
+	http_ctrl->netc->is_debug = (uint8_t)is_debug;
 
 	const char *method = luaL_optlstring(L, 1, "GET", &len);
 	if (len > 11) {

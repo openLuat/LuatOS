@@ -63,6 +63,7 @@ static void net_lwip2_create_socket_now(uint8_t adapter_index, uint8_t socket_id
 static void platform_send_event(void *p, uint32_t id, uint32_t param1, uint32_t param2, uint32_t param3);
 static ip_addr_t *net_lwip2_get_ip6(void);
 static err_t net_lwip2_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, u16_t port);
+static int net_lwip2_check_ack(uint8_t adapter_index, int socket_id);
 
 static uint32_t register_statue;
 
@@ -973,10 +974,12 @@ static void net_lwip2_check_network_ready(uint8_t adapter_index)
 			NET_DBG("network ready");
 			if (prvlwip.dns_adapter_index == adapter_index) {
 				luat_ip_addr_t addr = {0};
-				if (prvlwip.lwip_netif[adapter_index] != NULL) {
+				if (prvlwip.lwip_netif[adapter_index] != NULL && !ip_addr_isany(&prvlwip.lwip_netif[adapter_index]->gw)) {
+					NET_DBG("使用网关作为默认DNS服务器");
 					net_lwip2_set_dns_server(0, &prvlwip.lwip_netif[adapter_index]->gw, (void*)adapter_index);
 				}
 				else {
+					NET_DBG("使用223.5.5.5作为默认DNS服务器");
 					ip4addr_aton("223.5.5.5", &addr);
 					net_lwip2_set_dns_server(0, &addr, (void*)adapter_index);
 				}
@@ -986,7 +989,7 @@ static void net_lwip2_check_network_ready(uint8_t adapter_index)
 				net_lwip2_set_dns_server(3, &addr, (void*)adapter_index);
 			}
 			else {
-				//NET_DBG("无需设置DNS服务器 %d %d", prvlwip.dns_adapter_index, adapter_index);
+				NET_DBG("非默认网卡, 无需设置DNS服务器 %d %d", prvlwip.dns_adapter_index, adapter_index);
 			}
 
 			// for(i = 0; i < MAX_DNS_SERVER; i++)
@@ -1545,6 +1548,7 @@ static const network_adapter_info prv_net_lwip2_adapter =
 		.max_socket_num = MAX_SOCK_NUM,
 		.no_accept = 1,
 		.is_posix = 1,
+		.check_ack = net_lwip2_check_ack
 };
 
 
@@ -1561,10 +1565,10 @@ void net_lwip2_register_adapter(uint8_t adapter_index)
 	register_statue |= (1 << adapter_index);
 }
 
-#if !defined(CHIP_EC718) && !defined(CHIP_EC618)
-int net_lwip_check_all_ack(int socket_id)
-{
 
+static int net_lwip2_check_ack(uint8_t adapter_index, int socket_id) {
+	if (prvlwip.socket[socket_id].pcb.tcp == NULL)
+		return 0;
 	if (!llist_empty(&prvlwip.socket[socket_id].wait_ack_head))
 	{
 		NET_ERR("socekt %d not all ack", socket_id);
@@ -1588,6 +1592,12 @@ int net_lwip_check_all_ack(int socket_id)
 	}
 	return 0;
 }
+
+#if !defined(CHIP_EC718) && !defined(CHIP_EC618)
+int net_lwip_check_all_ack(int socket_id)
+{
+	return net_lwip2_check_ack(0, socket_id);
+}
 #endif
 
 void net_lwip2_set_link_state(uint8_t adapter_index, uint8_t updown)
@@ -1603,5 +1613,6 @@ struct netif * net_lwip2_get_netif(uint8_t adapter_index)
 		return NULL;
 	return prvlwip.lwip_netif[adapter_index];
 }
+
 
 #endif

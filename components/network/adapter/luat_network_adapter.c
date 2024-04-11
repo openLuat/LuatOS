@@ -883,6 +883,11 @@ static int network_state_on_line(network_ctrl_t *ctrl, OS_EVENT *event, network_
 				{
 					if (ctrl->adapter_index < NW_ADAPTER_INDEX_LWIP_NETIF_QTY)
 					{
+						// 如果 适配器自带check_ack函数, 那就直接调用, 不需要再调用全局的
+						if (prv_adapter_table[ctrl->adapter_index].opt->check_ack) {
+							return prv_adapter_table[ctrl->adapter_index].opt->check_ack(ctrl->adapter_index, ctrl->socket_id);
+						}
+						// TODO 待全部bsp都增加check_ack函数后, 就不再需要下面的调用了
 						return net_lwip_check_all_ack(ctrl->socket_id);
 					}
 					else

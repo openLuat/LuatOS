@@ -291,6 +291,7 @@ typedef struct
 	//OS_EVENT ID为EV_NW_XXX，param1是socket id param2是各自参数 param3是create_soceket传入的socket_param(就是network_ctrl *)
 	//dns结果是特别的，ID为EV_NW_SOCKET_DNS_RESULT，param1是获取到的IP数据量，0就是失败了，param2是ip组，动态分配的， param3是dns传入的param(就是network_ctrl *)
 	void (*socket_set_callback)(CBFuncEx_t cb_fun, void *param, void *user_data);
+	int (*check_ack)(uint8_t adapter_index, int socket_id); // 2024.4.11新增
 
 	char *name;
 	int max_socket_num;//最大socket数量，也是最大network_ctrl申请数量的基础值

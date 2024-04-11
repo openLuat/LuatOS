@@ -182,4 +182,6 @@ LUAMOD_API int luaopen_json2( lua_State *L );
 // SPI 从机
 LUAMOD_API int luaopen_spislave( lua_State *L );
 
+// WLAN 裸数据收发
+LUAMOD_API int luaopen_wlan_raw(lua_State *L);
 #endif

@@ -63,7 +63,8 @@ sys.taskInit(function()
             end
         end
         -- 数据写入测试
-        xt804_write(0x11, "abcd")
+        xt804_write(0x01, string.char(0xA5, 0, 0x04, 0x00))
+        xt804_write(0x11, string.char(0x01, 0x00, 0x01, 0x00))
         sys.wait(1000)
     end
 end)

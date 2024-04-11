@@ -28,7 +28,7 @@ sys.taskInit(function()
     ----------------------------
     if wlan and wlan.connect then
         -- wifi 联网, ESP32系列均支持
-        local ssid = "luatos"
+        local ssid = "luatos1234"
         local password = "12341234"
         log.info("wifi", ssid, password)
         -- TODO 改成esptouch配网

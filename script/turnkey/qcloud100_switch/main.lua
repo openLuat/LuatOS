@@ -88,7 +88,7 @@ sys.taskInit(function()
         --
         -- ESP32系列, 这里要填wifi的名称和密码. 只支持2.4G频段
         --
-        local ssid, password = "uiot", "12345678"
+        local ssid, password = "luatos1234", "12341234"
         wlan.setMode(wlan.STATION)
         wlan.connect(ssid, password, 1)
     elseif rtos.bsp() == "AIR105" then -- Air105走网卡,W5500

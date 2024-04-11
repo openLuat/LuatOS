@@ -33,7 +33,7 @@ sys.taskInit(function()
     sys.wait(100)
     wlan.init()
     sys.wait(100)
-    wlan.connect("uiot", "123456890")
+    wlan.connect("luatos1234", "123456890")
     log.info("wlan", "wait for IP_READY", wlan.getMac())
     sys.waitUntil("IP_READY", 30000)
 

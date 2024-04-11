@@ -27,7 +27,7 @@ end
 sys.taskInit(function()
     sys.wait(1000)
     wlan.init()
-    wlan.connect("uiot", "czcjhp1985cbm")
+    wlan.connect("luatos1234", "12341234")
     log.info("wlan", "wait for IP_READY")
     sys.waitUntil("IP_READY", 30000)
     if wlan.ready() then

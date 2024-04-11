@@ -325,9 +325,9 @@ static int l_wlan_get_ip(lua_State* L){
 @return bool 成功创建返回true,否则返回false
 @usage
 -- 注意, 调用本AP时,若wifi模式为STATION,会自动切换成 APSTA
-wlan.createAP("uiot", "12345678")
+wlan.createAP("luatos1234", "12341234")
 -- 设置网关IP,掩码, 通道, 2023.7.13 新增, BSP未必支持
--- wlan.createAP("uiot", "12345678", "192.168.4.1", "255.255.255.0", 6)
+-- wlan.createAP("luatos1234", "12341234", "192.168.4.1", "255.255.255.0", 6)
 
 -- opts更多配置项, 2024.3.5新增
 --[[

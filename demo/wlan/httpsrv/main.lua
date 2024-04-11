@@ -20,8 +20,8 @@ sys.taskInit(function()
     sys.wait(1000)
     wlan.init()
     -- 修改成自己的ssid和password
-    wlan.connect("myssid", "mypassword")
-    -- wlan.connect("uiot", "")
+    -- wlan.connect("myssid", "mypassword", 1)
+    wlan.connect("luatos1234", "12341234", 1)
     log.info("wlan", "wait for IP_READY")
     
     while not wlan.ready() do

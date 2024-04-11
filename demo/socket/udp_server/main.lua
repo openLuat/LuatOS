@@ -21,8 +21,8 @@ sys.taskInit(function()
     ----------------------------
     if wlan and wlan.connect then
         -- wifi 联网, ESP32系列均支持
-        local ssid = "uiot"
-        local password = "czcjhp1985cbm"
+        local ssid = "luatos1234"
+        local password = "12341234"
         log.info("wifi", ssid, password)
         -- TODO 改成自动配网
         -- LED = gpio.setup(12, 0, gpio.PULLUP)
@@ -66,7 +66,7 @@ sys.taskInit(function()
     -- local srv = udpsrv.create(12345, mytopic, socket.LWIP_AP)
     if srv then
         -- 单播
-        srv:send("I am UP", "192.168.1.12", 777)
+        srv:send("I am UP", "192.168.1.5", 777)
         -- 广播
         srv:send("I am UP", "255.255.255.255", 777)
         while 1 do

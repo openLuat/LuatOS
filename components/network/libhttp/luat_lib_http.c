@@ -32,9 +32,10 @@ end)
 #include "luat_log.h"
 
 
-
-#define HTTP_DEBUG 0
-#if HTTP_DEBUG == 0
+#ifndef LUAT_HTTP_DEBUG
+#define LUAT_HTTP_DEBUG 0
+#endif
+#if LUAT_HTTP_DEBUG == 0
 #undef LLOGD
 #define LLOGD(...)
 #endif
@@ -230,9 +231,9 @@ static int l_http_request(lua_State *L) {
 		LLOGE("netc create fail");
 		goto error;
 	}
-	http_ctrl->netc->is_debug = (uint8_t)is_debug;
 
     luat_http_client_init(http_ctrl, use_ipv6);
+	http_ctrl->netc->is_debug = 1;
 
 	const char *method = luaL_optlstring(L, 1, "GET", &len);
 	if (len > 11) {

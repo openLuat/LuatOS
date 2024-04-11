@@ -4,6 +4,9 @@
 #include <string.h> // memcpy
 
 #include "bsp_common.h"
+#ifdef assert
+#undef assert
+#endif
 #define assert(x) ASSERT(x)
 #define tjei_min(a, b) ((a) < b) ? (a) : (b);
 #define tjei_max(a, b) ((a) < b) ? (b) : (a);

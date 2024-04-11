@@ -134,7 +134,6 @@ static err_t netif_output(struct netif *netif, struct pbuf *p) {
     return 0;
 }
 
-#if LWIP_NETIF_STATUS_CALLBACK
 static void netif_status_callback(struct netif *netif)
 {
     LLOGD("netif status changed %s", ip4addr_ntoa(netif_ip4_addr(netif)));
@@ -155,12 +154,11 @@ static void netif_status_callback(struct netif *netif)
     }
   
 }
-#endif
 
 static err_t luat_netif_init(struct netif *netif) {
     for (size_t i = 0; i < USERLWIP_NET_COUNT; i++)
     {
-        if (nets[i].netif == netif)
+    if (nets[i].netif == netif)
         {
             LLOGD("netif init %d %p", nets[i].adapter_index, netif);
             
@@ -228,6 +226,7 @@ static int l_ulwip_setup(lua_State *L) {
         lua_pop(L, 1);
     }
     struct netif *netif = NULL;
+    struct netif *tmp = NULL;
     for (size_t i = 0; i < USERLWIP_NET_COUNT; i++)
     {
         if (nets[i].netif == NULL)
@@ -256,9 +255,10 @@ static int l_ulwip_setup(lua_State *L) {
     // #if defined(TYPE_EC718P)
     // net_lwip2_set_netif(adapter_index, netif, luat_netif_init, 0);
     // #else
-    netif_add(netif, IP4_ADDR_ANY, IP4_ADDR_ANY, IP4_ADDR_ANY, NULL, luat_netif_init, netif_input);
+    tmp = netif_add(netif, IP4_ADDR_ANY, IP4_ADDR_ANY, IP4_ADDR_ANY, NULL, luat_netif_init, netif_input);
     netif->name[0] = 'u';
     netif->name[1] = 's';
+    LLOGD("netif_add 返回值 %p", tmp);
     #if LWIP_IPV6
     netif_create_ip6_linklocal_address(netif, 1);
     netif->ip6_autoconfig_enabled = 1;
@@ -267,7 +267,10 @@ static int l_ulwip_setup(lua_State *L) {
     // #endif
 
     #if LWIP_NETIF_STATUS_CALLBACK
+    //LLOGD("支持netif_status_callback");
     netif_set_status_callback(netif, netif_status_callback);
+    #else
+    LLOGD("不支持netif_status_callback");
     #endif
 
     // #if defined(TYPE_EC718P)
@@ -334,6 +337,9 @@ static int l_ulwip_link(lua_State *L) {// 必须有适配器编号
         else {
             netif_set_link_down(netif);
         }
+        #if LWIP_NETIF_STATUS_CALLBACK == 0
+        netif_status_callback(netif);
+        #endif
     }
     lua_pushboolean(L, netif_is_link_up(netif));
     return 1;
@@ -388,7 +394,7 @@ static int l_ulwip_input(lua_State *L) {
         return 0;
     }
     // LLOGD("输入的mac帧 %d %02X:%02X:%02X:%02X:%02X:%02X", len, data[0], data[1], data[2], data[3], data[4], data[5]);
-    struct pbuf *p = pbuf_alloc(PBUF_RAW, len, PBUF_POOL);
+    struct pbuf *p = pbuf_alloc(PBUF_RAW, len, PBUF_RAM);
     if (p == NULL) {
         LLOGE("pbuf_alloc failed");
         return 0;
@@ -486,6 +492,9 @@ static int l_ulwip_ip(lua_State *L) {
         ipaddr_aton(tmp, &netif->netmask);
         tmp = luaL_checkstring(L, 2);
         ipaddr_aton(tmp, &netif->gw);
+        #if LWIP_NETIF_STATUS_CALLBACK == 0
+        netif_status_callback(netif);
+        #endif
     }
     // 反馈IP信息
     tmp = ip_ntoa(&netif->ip_addr);

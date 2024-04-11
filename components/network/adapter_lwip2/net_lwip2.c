@@ -109,7 +109,7 @@ void net_lwip2_set_netif(uint8_t adapter_index, struct netif *netif) {
 		prvlwip.dns_udp = udp_new();
 		prvlwip.dns_udp->recv = net_lwip2_dns_recv_cb;
 		prvlwip.dns_udp->recv_arg = adapter_index;
-		//udp_bind(prvlwip.dns_udp, &netif->gw, 55);
+		// udp_bind(prvlwip.dns_udp, &netif->gw, 11155);
 		dns_init_client(&prvlwip.dns_client);
 	}
 	if (adapter_index == NW_ADAPTER_INDEX_LWIP_WIFI_STA && prvlwip.dns_adapter_index == NW_ADAPTER_INDEX_LWIP_WIFI_AP) {
@@ -354,8 +354,12 @@ static err_t net_lwip2_tcp_sent_cb(void *arg, struct tcp_pcb *tpcb,
 		if (p)
 		{
 			#if ENABLE_PSIF
+			#if defined(CHIP_EC618)
+			if (ERR_OK == tcp_write(prvlwip.socket[socket_id].pcb.tcp, p->data, p->len, TCP_WRITE_FLAG_COPY, 0, 0, 0))
+			#else
 			sockdataflag_t dataflag={0};
 			if (ERR_OK == tcp_write(prvlwip.socket[socket_id].pcb.tcp, p->data, p->len, 0, dataflag, 0))
+			#endif
 			#else
 			if (ERR_OK == tcp_write(prvlwip.socket[socket_id].pcb.tcp, p->data, p->len, 0))
 			#endif
@@ -674,8 +678,12 @@ static void net_lwip2_task(void *param)
 					if (p->len <= tcp_sndbuf(prvlwip.socket[socket_id].pcb.tcp))
 					{
 						#if ENABLE_PSIF
+						#if defined(CHIP_EC618)
+						if (ERR_OK == tcp_write(prvlwip.socket[socket_id].pcb.tcp, p->data, p->len, TCP_WRITE_FLAG_COPY, 0, 0, 0))
+						#else
 						sockdataflag_t dataflag={0};
 						if (ERR_OK == tcp_write(prvlwip.socket[socket_id].pcb.tcp, p->data, p->len, 0, dataflag, 0))
+						#endif
 						#else
 						if (ERR_OK == tcp_write(prvlwip.socket[socket_id].pcb.tcp, p->data, p->len, 0))
 						#endif
@@ -784,7 +792,7 @@ static void net_lwip2_task(void *param)
 		// 	local_ip = net_lwip2_get_ip6();
 
 		// }
-		if (!local_ip)
+		if (!local_ip && prvlwip.socket[socket_id].is_tcp)
 		{
 			NET_DBG("netif no ip !!!!!!");
 			net_lwip2_tcp_error(adapter_index, socket_id);
@@ -793,7 +801,8 @@ static void net_lwip2_task(void *param)
 		if (prvlwip.socket[socket_id].is_tcp)
 		{
 
-			//tcp_bind(prvlwip.socket[socket_id].pcb.tcp, local_ip, prvlwip.socket[socket_id].local_port);
+			tcp_bind(prvlwip.socket[socket_id].pcb.tcp, local_ip, prvlwip.socket[socket_id].local_port);
+			// tcp_bind_netif(prvlwip.socket[socket_id].pcb.tcp, &prvlwip.lwip_netif[adapter_index]);
 			error = tcp_connect(prvlwip.socket[socket_id].pcb.tcp, p_ip, prvlwip.socket[socket_id].remote_port, net_lwip2_tcp_connected_cb);
 			if (error)
 			{

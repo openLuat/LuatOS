@@ -620,7 +620,7 @@ NET_DNS_TX:
 						if (process->ipv6_done && process->ip_nums)
 						{
 							LLOGD("get ipv6, no ipv4");
-							process->ip_nums = 0;
+//							process->ip_nums = 0;
 							process->is_done = 1;
 							client->new_result = 1;
 							llist_traversal(&client->require_head, dns_set_result, process);

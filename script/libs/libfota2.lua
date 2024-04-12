@@ -53,7 +53,7 @@ local libfota2 = {}
 local function fota_task(cbFnc, opts)
     local ret = 0
     local code, headers, body = http.request(opts.method, opts.url, opts.headers, opts.body, opts, opts.server_cert, opts.client_cert, opts.client_key, opts.client_password).wait()
-    log.info("http fota", code, headers, body)
+    -- log.info("http fota", code, headers, body)
     if code == 200 or code == 206 then
         if body == 0 then
             ret = 4
@@ -65,6 +65,7 @@ local function fota_task(cbFnc, opts)
     elseif code == -5 then
         ret = 3
     else
+        log.info("fota", code, body)
         ret = 4
     end
     cbFnc(ret)
@@ -109,7 +110,7 @@ function libfota2.request(cbFnc, opts)
     if not opts.url then
         opts.url = "http://iot.openluat.com/api/site/firmware_upgrade"
     end
-    if opts.url:sub(1, 4) ~= "###" then
+    if opts.url:sub(1, 4) ~= "###" and not opts.url_done then
         -- 补齐project_key函数
         if not opts.project_key then
             opts.project_key = _G.PRODUCT_KEY
@@ -145,6 +146,7 @@ function libfota2.request(cbFnc, opts)
         opts.url = string.format("%s?imei=%s&project_key=%s&firmware_name=%s&version=%s", opts.url, opts.imei, opts.project_key, opts.firmware_name, opts.version)
     else
         opts.url = opts.url:sub(4)
+        opts.url_done = true
     end
     -- 处理method
     if not opts.method then

@@ -68,7 +68,7 @@ typedef struct netif_cb_ctx {
 static ulwip_ctx_t nets[USERLWIP_NET_COUNT];
 
 // 搜索adpater_index对应的netif
-static struct netif* find_netif(int adapter_index) {
+static struct netif* find_netif(uint8_t adapter_index) {
     struct netif *netif = NULL;
     for (size_t i = 0; i < USERLWIP_NET_COUNT; i++)
     {
@@ -135,8 +135,12 @@ static err_t netif_output(struct netif *netif, struct pbuf *p) {
     return 0;
 }
 
-static void netif_status_callback(struct netif *netif)
-{
+#ifdef TLS_CONFIG_CPU_XT804
+static void netif_status_callback(struct netif *netif, unsigned char stat) {
+    (void)stat;
+#else
+static void netif_status_callback(struct netif *netif) {
+#endif
     LLOGD("netif status changed %s", ip4addr_ntoa(netif_ip4_addr(netif)));
     for (size_t i = 0; i < USERLWIP_NET_COUNT; i++)
     {
@@ -328,7 +332,7 @@ static int l_ulwip_setup(lua_State *L) {
     // #if defined(TYPE_EC718P)
     // net_lwip2_set_netif(adapter_index, netif, luat_netif_init, 0);
     // #else
-    tmp = netif_add(netif, IP4_ADDR_ANY, IP4_ADDR_ANY, IP4_ADDR_ANY, NULL, luat_netif_init, netif_input);
+    tmp = netif_add(netif, IP4_ADDR_ANY4, IP4_ADDR_ANY4, IP4_ADDR_ANY4, NULL, luat_netif_init, netif_input);
     netif->name[0] = 'u';
     netif->name[1] = 's';
     LLOGD("netif_add 返回值 %p", tmp);
@@ -367,7 +371,7 @@ static int l_ulwip_setup(lua_State *L) {
 */
 static int l_ulwip_updown(lua_State *L) {
     // 必须有适配器编号
-    int adapter_index = luaL_checkinteger(L, 1);
+    uint8_t adapter_index = (uint8_t)luaL_checkinteger(L, 1);
     struct netif* netif = find_netif(adapter_index);
     if (netif == NULL) {
         LLOGE("没有找到netif");
@@ -394,8 +398,9 @@ static int l_ulwip_updown(lua_State *L) {
 @usage
 -- 参考ulwip.setup
 */
-static int l_ulwip_link(lua_State *L) {// 必须有适配器编号
-    int adapter_index = luaL_checkinteger(L, 1);
+static int l_ulwip_link(lua_State *L) {
+    // 必须有适配器编号
+    uint8_t adapter_index = (uint8_t)luaL_checkinteger(L, 1);
     struct netif* netif = find_netif(adapter_index);
     if (netif == NULL) {
         LLOGE("没有找到netif");
@@ -435,11 +440,11 @@ static void netif_input_cb(void *ptr) {
 */
 static int l_ulwip_input(lua_State *L) {
     // 必须有适配器编号
-    int adapter_index = luaL_checkinteger(L, 1);
+    uint8_t adapter_index = (uint8_t)luaL_checkinteger(L, 1);
     int ret = 0;
     struct pbuf *q = NULL;
     const char* data = NULL;
-    size_t len = ERR_OK;
+    size_t len = 0;
     size_t offset = 0;
     struct netif* netif = find_netif(adapter_index);
     if (netif == NULL) {
@@ -467,7 +472,7 @@ static int l_ulwip_input(lua_State *L) {
         return 0;
     }
     // LLOGD("输入的mac帧 %d %02X:%02X:%02X:%02X:%02X:%02X", len, data[0], data[1], data[2], data[3], data[4], data[5]);
-    struct pbuf *p = pbuf_alloc(PBUF_RAW, len, PBUF_RAM);
+    struct pbuf *p = pbuf_alloc(PBUF_RAW, (uint16_t)len, PBUF_RAM);
     if (p == NULL) {
         LLOGE("pbuf_alloc failed");
         return 0;
@@ -511,7 +516,7 @@ static int l_ulwip_input(lua_State *L) {
 */
 static int l_ulwip_dhcp(lua_State *L) {
     // 必须有适配器编号
-    int adapter_index = luaL_checkinteger(L, 1);
+    uint8_t adapter_index = (uint8_t)luaL_checkinteger(L, 1);
     struct netif* netif = find_netif(adapter_index);
     if (netif == NULL) {
         LLOGE("没有找到netif");
@@ -551,7 +556,7 @@ ulwip.ip(socket.LWIP_STA, "192.168.0.1", "255.255.255.0", "192.168.0.1")
 static int l_ulwip_ip(lua_State *L) {
     const char* tmp = NULL;
     // 必须有适配器编号
-    int adapter_index = luaL_checkinteger(L, 1);
+    uint8_t adapter_index = (uint8_t)luaL_checkinteger(L, 1);
     struct netif* netif = find_netif(adapter_index);
     if (netif == NULL) {
         LLOGE("没有找到netif %d", adapter_index);
@@ -591,14 +596,13 @@ static int l_ulwip_ip(lua_State *L) {
 */
 static int l_ulwip_reg(lua_State *L) {
     // 必须有适配器编号
-    int adapter_index = luaL_checkinteger(L, 1);
+    uint8_t adapter_index = (uint8_t)luaL_checkinteger(L, 1);
     struct netif* netif = find_netif(adapter_index);
     if (netif == NULL) {
         LLOGE("没有找到netif %d", adapter_index);
         return 0;
     }
     net_lwip2_register_adapter(adapter_index);
-    // netif_set_default(netif);
     lua_pushboolean(L, 1);
     return 1;
 }
@@ -620,7 +624,7 @@ static int l_ulwip_dft(lua_State *L) {
     // 必须有适配器编号
     if (lua_type(L, 1) == LUA_TNUMBER)
     {
-        int adapter_index = luaL_checkinteger(L, 1);
+        uint8_t adapter_index = (uint8_t)luaL_checkinteger(L, 1);
         struct netif* netif = find_netif(adapter_index);
         if (netif == NULL) {
             LLOGE("没有找到netif %d", adapter_index);

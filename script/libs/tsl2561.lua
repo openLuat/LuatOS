@@ -126,20 +126,22 @@ function tsl2561.get_data()
     local Lux
     i2c.send(i2cid, TSL2561_ADDRESS_ADR,TSL2561_DATA0LOW)
     local _, ch0, ch1 = pack.unpack(i2c.recv(i2cid, TSL2561_ADDRESS_ADR, 4),"<HH")
-    if 0.0 < ch1/ch0 and ch1/ch0 <= 0.50 then
-		Lux = 0.0304*ch0 - 0.062*ch0*math.pow(ch1/ch0,1.4)
-    end
-    if 0.50 < ch1/ch0 and ch1/ch0 <= 0.61 then
-        Lux = 0.0224*ch0 - 0.031*ch1
-    end
-    if 0.61 < ch1/ch0 and ch1/ch0 <= 0.80 then
-        Lux = 0.0128*ch0 - 0.0153*ch1
-    end
-    if 0.80 < ch1/ch0 and ch1/ch0 <= 1.30 then
-        Lux = 0.00146*ch0 - 0.00112*ch1
-    end
-    if ch1/ch0 > 1.30 then
-        Lux = 0;
+     if ch0 ~= nil and ch1 ~= nil then
+        if 0.0 < ch1/ch0 and ch1/ch0 <= 0.50 then
+            Lux = 0.0304*ch0 - 0.062*ch0*math.pow(ch1/ch0,1.4)
+        end
+        if 0.50 < ch1/ch0 and ch1/ch0 <= 0.61 then
+            Lux = 0.0224*ch0 - 0.031*ch1
+        end
+        if 0.61 < ch1/ch0 and ch1/ch0 <= 0.80 then
+            Lux = 0.0128*ch0 - 0.0153*ch1
+        end
+        if 0.80 < ch1/ch0 and ch1/ch0 <= 1.30 then
+            Lux = 0.00146*ch0 - 0.00112*ch1
+        end
+        if ch1/ch0 > 1.30 then
+            Lux = 0;
+        end
     end
     return Lux or 0
 end

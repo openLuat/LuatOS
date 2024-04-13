@@ -1,6 +1,5 @@
 #include "platform_def.h"
 #include "luat_base.h"
-#if defined(LUAT_USE_NETWORK) && defined(LUAT_USE_LWIP)
 #include "luat_timer.h"
 #include "luat_mcu.h"
 #include "luat_rtos.h"
@@ -66,6 +65,7 @@ static err_t net_lwip2_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *
 static int net_lwip2_check_ack(uint8_t adapter_index, int socket_id);
 
 static uint32_t register_statue;
+static uint8_t prvlwip_inited = 0;
 
 
 static LUAT_RT_RET_TYPE net_lwip2_timer_cb(LUAT_RT_CB_PARAM)
@@ -76,7 +76,6 @@ static LUAT_RT_RET_TYPE net_lwip2_timer_cb(LUAT_RT_CB_PARAM)
 
 void net_lwip2_init(uint8_t adapter_index)
 {
-
 	uint8_t i;
 	for(i = 0; i < MAX_SOCK_NUM; i++)
 	{
@@ -85,18 +84,7 @@ void net_lwip2_init(uint8_t adapter_index)
 		INIT_LLIST_HEAD(&prvlwip.socket[i].rx_head);
 		prvlwip.socket[i].mutex = platform_create_mutex();
 	}
-	// mbedtls_debug_set_threshold(0);
-	prvlwip.dns_timer = platform_create_timer(net_lwip2_timer_cb, (void *)adapter_index, 0);
 }
-
-// static net_lwip2_ctrl_struct* get_lwip_ctrl(uint8_t adapter_index) {
-// 	if (adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) {
-// 		return NULL; // 超范围了
-// 	}
-// 	return lwip_ctrls[adapter_index];
-// }
-
-static uint8_t prvlwip_inited = 0;
 
 void net_lwip2_set_netif(uint8_t adapter_index, struct netif *netif) {
 	if (adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY) {
@@ -105,19 +93,14 @@ void net_lwip2_set_netif(uint8_t adapter_index, struct netif *netif) {
 	if (prvlwip_inited == 0) {
 		prvlwip_inited = 1;
 		net_lwip2_init(adapter_index);
-		
-		prvlwip.dns_adapter_index = adapter_index;
-		prvlwip.dns_udp = udp_new();
-		prvlwip.dns_udp->recv = net_lwip2_dns_recv_cb;
-		prvlwip.dns_udp->recv_arg = adapter_index;
-		// udp_bind(prvlwip.dns_udp, &netif->gw, 11155);
 		dns_init_client(&prvlwip.dns_client);
 	}
-	if (adapter_index == NW_ADAPTER_INDEX_LWIP_WIFI_STA && prvlwip.dns_adapter_index == NW_ADAPTER_INDEX_LWIP_WIFI_AP) {
-		prvlwip.dns_adapter_index = adapter_index;
-		prvlwip.dns_udp->recv_arg = adapter_index;
+	if (prvlwip.dns_udp[adapter_index] == NULL) {
+		prvlwip.dns_udp[adapter_index] = udp_new();
+		prvlwip.dns_udp[adapter_index]->recv = net_lwip2_dns_recv_cb;
+		prvlwip.dns_udp[adapter_index]->recv_arg = adapter_index;
+		prvlwip.dns_timer[adapter_index] = platform_create_timer(net_lwip2_timer_cb, (void *)adapter_index, 0);
 	}
-
 	prvlwip.lwip_netif[adapter_index] = netif;
 }
 
@@ -496,9 +479,9 @@ static err_t net_lwip2_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *
 	ip_addr_t *t_ip;
 	int i;
 	uint8_t adapter_index = (uint32_t)arg;
-	if (prvlwip.lwip_netif[prvlwip.dns_adapter_index] == NULL) {
+	if (adapter_index >= NW_ADAPTER_INDEX_LWIP_NETIF_QTY || prvlwip.lwip_netif[adapter_index] == NULL) {
 		return ERR_OK;
-	} 
+	}
 	// char ip_string[64];
 	//LLOGD("%s:%d", __FILE__, __LINE__);
 	if (p)
@@ -517,34 +500,18 @@ static err_t net_lwip2_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *
 				if (out_p)
 				{
 					out_p->payload = tx_msg_buf.Data;
-					// if (prvlwip.dns_client.dns_server[i].type == IPADDR_TYPE_V4)
-					// {
-						prvlwip.dns_udp->local_ip = prvlwip.lwip_netif[prvlwip.dns_adapter_index]->ip_addr;
-						// ipaddr_ntoa_r(&prvlwip.lwip_netif->ip_addr, ip_string, 64);
-						// LLOGD("net_lwip2_dns_recv_cb local_ip %s", ip_string);
-
-					// }
-					// else
-					// {
-					// 	t_ip = net_lwip2_get_ip6();
-					// 	if (t_ip)
-					// 	{
-					// 		prvlwip.dns_udp->local_ip = *t_ip;
-					// 	}
-					// }
+					prvlwip.dns_udp[adapter_index]->local_ip = prvlwip.lwip_netif[adapter_index]->ip_addr;
 					err_t err = udp_sendto(prvlwip.dns_udp, out_p, &prvlwip.dns_client.dns_server[i], DNS_SERVER_PORT);
 					pbuf_free(out_p);
 				}
 				OS_DeInitBuffer(&tx_msg_buf);
 				llist_traversal(&prvlwip.dns_client.require_head, net_lwip2_dns_check_result, NULL);
 			}
-
 		}
-
 	}
 	if (!prvlwip.dns_client.is_run)
 	{
-		platform_stop_timer(prvlwip.dns_timer);
+		platform_stop_timer(prvlwip.dns_timer[adapter_index]);
 	}
 	return ERR_OK;
 }
@@ -801,7 +768,12 @@ static void net_lwip2_task(void *param)
 		}
 		if (prvlwip.socket[socket_id].is_tcp)
 		{
-
+			error = tcp_bind(prvlwip.socket[socket_id].pcb.tcp, local_ip, 0);
+			if (error) {
+				NET_DBG("adapter %d socket %d tcp bind error %d", adapter_index, socket_id, error);
+				net_lwip2_tcp_error(adapter_index, socket_id);
+				return;
+			}
 			error = tcp_connect(prvlwip.socket[socket_id].pcb.tcp, p_ip, prvlwip.socket[socket_id].remote_port, net_lwip2_tcp_connected_cb);
 			if (error)
 			{
@@ -815,9 +787,11 @@ static void net_lwip2_task(void *param)
 		}
 		else
 		{
-			if (prvlwip.socket[socket_id].local_port) {
-				error = udp_bind(prvlwip.socket[socket_id].pcb.udp, local_ip, prvlwip.socket[socket_id].local_port);
-				// LLOGD("udp bind ret %d port %d", error, prvlwip.socket[socket_id].local_port);
+			error = udp_bind(prvlwip.socket[socket_id].pcb.udp, local_ip, prvlwip.socket[socket_id].local_port);
+			if (error) {
+				NET_DBG("udp bind ret %d port %d", error, prvlwip.socket[socket_id].local_port);
+				net_lwip2_callback_to_nw_task(adapter_index, EV_NW_SOCKET_ERROR, socket_id, 0, 0);
+				return;
 			}
 			error = udp_connect(prvlwip.socket[socket_id].pcb.udp, p_ip, prvlwip.socket[socket_id].remote_port);
 			if (error)
@@ -951,63 +925,40 @@ static void platform_send_event(void *p, uint32_t id, uint32_t param1, uint32_t 
 
 static void net_lwip2_check_network_ready(uint8_t adapter_index)
 {
-	int i;
-	char ip_string[64];
-	uint8_t active_flag = network_state;
-	
-	// LLOGD("CALL net_lwip2_check_network_ready %d", adapter_index);
-
-	if (prvlwip.netif_network_ready[adapter_index] != active_flag)
-	{
-		prvlwip.netif_network_ready[adapter_index] = active_flag;
-		if (!active_flag)
-		{
-			if (prvlwip.dns_adapter_index == adapter_index) {
-				dns_clear(&prvlwip.dns_client);
-				prvlwip.dns_client.is_run = 0;
-			}
-//			NET_DBG("network not ready");
-			net_lwip2_callback_to_nw_task(adapter_index, EV_NW_STATE, 0, 0, adapter_index);
-		}
-		else
-		{
-			NET_DBG("network ready");
-			if (prvlwip.dns_adapter_index == adapter_index) {
-				luat_ip_addr_t addr = {0};
-				if (prvlwip.lwip_netif[adapter_index] != NULL && !ip_addr_isany(&prvlwip.lwip_netif[adapter_index]->gw)) {
-					NET_DBG("使用网关作为默认DNS服务器");
-					net_lwip2_set_dns_server(0, &prvlwip.lwip_netif[adapter_index]->gw, (void*)adapter_index);
-				}
-				else {
-					NET_DBG("使用223.5.5.5作为默认DNS服务器");
-					ip4addr_aton("223.5.5.5", &addr);
-					net_lwip2_set_dns_server(0, &addr, (void*)adapter_index);
-				}
-				ip4addr_aton("114.114.114.114", &addr);
-				net_lwip2_set_dns_server(2, &addr, (void*)adapter_index);
-				ip4addr_aton("223.5.5.5", &addr);
-				net_lwip2_set_dns_server(3, &addr, (void*)adapter_index);
-			}
-			else {
-				NET_DBG("非默认网卡, 无需设置DNS服务器 %d %d", prvlwip.dns_adapter_index, adapter_index);
-			}
-
-			// for(i = 0; i < MAX_DNS_SERVER; i++)
-			// {
-			// 	#if LWIP_IPV6
-			// 	if (prvlwip.dns_client.dns_server[i].type != 0xff)
-			// 	#else
-			// 	if (prvlwip.dns_client.dns_server[i].addr != 0)
-			// 	#endif
-			// 	{
-			// 		NET_DBG("DNS%d:%s",i, ipaddr_ntoa_r(&prvlwip.dns_client.dns_server[i], ip_string, sizeof(ip_string)));
-			// 	}
-			// }
-			net_lwip2_callback_to_nw_task(adapter_index, EV_NW_STATE, 0, 1, adapter_index);
-		}
-
+	int i = 0;
+	luat_ip_addr_t addr = {0};
+	// char ip_string[64];
+	uint8_t active_flag = !ip_addr_isany(&prvlwip.lwip_netif[adapter_index]->ip_addr);
+	if (prvlwip.netif_network_ready[adapter_index] == active_flag) {
+		LLOGD("网络[%d]状态没有变化, 跳过检查", adapter_index);
+		return;
 	}
-	// LLOGD("done net_lwip2_check_network_ready");
+	prvlwip.netif_network_ready[adapter_index] = active_flag;
+	if (!active_flag)
+	{
+		// TODO 如果没有活跃的netif了, 应该关闭dns客户端
+		net_lwip2_callback_to_nw_task(adapter_index, EV_NW_STATE, 0, 0, adapter_index);
+	}
+	else
+	{
+		NET_DBG("network ready");
+		if (prvlwip.lwip_netif[adapter_index] != NULL && !ip_addr_isany(&prvlwip.lwip_netif[adapter_index]->gw)) {
+			NET_DBG("使用网关作为默认DNS服务器");
+			net_lwip2_set_dns_server(0, &prvlwip.lwip_netif[adapter_index]->gw, (void*)adapter_index);
+		}
+		else {
+			NET_DBG("使用223.5.5.5作为默认DNS服务器");
+			ip4addr_aton("223.5.5.5", &addr);
+			net_lwip2_set_dns_server(0, &addr, (void*)adapter_index);
+		}
+		ip4addr_aton("114.114.114.114", &addr);
+		net_lwip2_set_dns_server(1, &addr, (void*)adapter_index);
+		ip4addr_aton("223.5.5.5", &addr);
+		net_lwip2_set_dns_server(2, &addr, (void*)adapter_index);
+		ip4addr_aton("119.29.29.29", &addr);
+		net_lwip2_set_dns_server(3, &addr, (void*)adapter_index);
+		net_lwip2_callback_to_nw_task(adapter_index, EV_NW_STATE, 0, 1, adapter_index);
+	}
 }
 
 static int net_lwip2_check_socket(void *user_data, int socket_id, uint64_t tag)
@@ -1252,7 +1203,7 @@ static uint32_t net_lwip2_socket_read_data(int socket_id, uint8_t *buf, uint32_t
 	{
 		if (prvlwip.socket[socket_id].is_tcp)
 		{
-			platform_send_event(NULL, EV_LWIP_SOCKET_RX_DONE, socket_id, p->len, prvlwip.dns_adapter_index);
+			platform_send_event(NULL, EV_LWIP_SOCKET_RX_DONE, socket_id, p->len, 0);
 		}
 		llist_del(&p->node);
 		luat_heap_free(p->data);
@@ -1613,6 +1564,3 @@ struct netif * net_lwip2_get_netif(uint8_t adapter_index)
 		return NULL;
 	return prvlwip.lwip_netif[adapter_index];
 }
-
-
-#endif

@@ -29,14 +29,12 @@ typedef struct
 	CBFuncEx_t socket_cb;
 	void *user_data;
 	void *task_handle;
-	struct udp_pcb *dns_udp;
 	uint32_t socket_busy;
 	uint32_t socket_connect;
-	HANDLE dns_timer;//dhcp_fine_tmr,dhcp6_tmr
-	uint8_t dns_adapter_index;
 	uint8_t netif_network_ready[NW_ADAPTER_INDEX_LWIP_NETIF_QTY];
-	// uint8_t common_timer_active;
-//	uint8_t fast_sleep_enable;
+	// DNS相关
+	struct udp_pcb *dns_udp[NW_ADAPTER_INDEX_LWIP_NETIF_QTY];
+	HANDLE dns_timer[NW_ADAPTER_INDEX_LWIP_NETIF_QTY];
 	uint8_t next_socket_index;
 }net_lwip2_ctrl_struct;
 

@@ -79,7 +79,7 @@ tm1650.MODE_KEY_INPUT  = 0x79   --按键扫描模式
 
 local TM1650_SCL
 local TM1650_SDA
-local TM650_SDA_PIN       --SDA引脚
+local TM1650_SDA_PIN      --SDA引脚
 local TM1650_IRQ_PIN      --按键检测使用的中断引脚号
 local TM1650_KEY_CALLBACK --按键回调函数
 
@@ -156,12 +156,12 @@ local function tm1650_readReg(reg)
 
     --=======读数据=========
     dat = 0
-    gpio.setup(TM650_SDA_PIN,nil,gpio.PULLUP)  --SDA输入模式
+    gpio.setup(TM1650_SDA_PIN,nil,gpio.PULLUP)  --SDA输入模式
     for i = 0, 7, 1 do
         TM1650_SCL(0)
         dat = (dat << 1)
         TM1650_SCL(1)
-        if gpio.HIGH ==  gpio.get(TM650_SDA_PIN) then
+        if gpio.HIGH ==  gpio.get(TM1650_SDA_PIN) then
             dat = ( dat | 0x01)
         end 
         TM1650_SCL(0)
@@ -171,7 +171,7 @@ local function tm1650_readReg(reg)
     TM1650_SCL(1)
     TM1650_SCL(0)
 
-    TM1650_SDA = gpio.setup(TM650_SDA_PIN,1)  --SDA重新设置为输出模式
+    TM1650_SDA = gpio.setup(TM1650_SDA_PIN,1)  --SDA重新设置为输出模式
     --=======stop=======
     TM1650_SCL(0)
     TM1650_SDA(0)
@@ -198,7 +198,7 @@ function tm1650.init(scl_pin,sda_pin,mode,irq_pin,key_cb)
 
     TM1650_SCL =  gpio.setup(scl_pin, 1)
     TM1650_SDA =  gpio.setup(sda_pin, 1)
-    TM650_SDA_PIN = sda_pin
+    TM1650_SDA_PIN = sda_pin
 
     if mode == tm1650.MODE_KEY_INPUT then
         TM1650_IRQ_PIN      = irq_pin

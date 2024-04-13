@@ -34,7 +34,7 @@ enum
 	EV_LWIP_SOCKET_TX,
 	EV_LWIP_NETIF_INPUT,
 	EV_LWIP_TCP_TIMER,
-	EV_LWIP_COMMON_TIMER,
+	EV_LWIP_DNS_TIMER,
 	EV_LWIP_SOCKET_RX_DONE,
 	EV_LWIP_SOCKET_CREATE,
 	EV_LWIP_SOCKET_CONNECT,
@@ -70,7 +70,7 @@ static uint8_t prvlwip_inited = 0;
 
 static LUAT_RT_RET_TYPE net_lwip2_timer_cb(LUAT_RT_CB_PARAM)
 {
-	platform_send_event(NULL, (uint32_t)EV_LWIP_COMMON_TIMER, 0, 0, (uint32_t)param);
+	platform_send_event(NULL, (uint32_t)EV_LWIP_DNS_TIMER, 0, 0, (uint32_t)param);
 	return LUAT_RT_RET;
 }
 
@@ -99,6 +99,7 @@ void net_lwip2_set_netif(uint8_t adapter_index, struct netif *netif) {
 		prvlwip.dns_udp[adapter_index] = udp_new();
 		prvlwip.dns_udp[adapter_index]->recv = net_lwip2_dns_recv_cb;
 		prvlwip.dns_udp[adapter_index]->recv_arg = adapter_index;
+		udp_bind_netif(prvlwip.dns_udp[adapter_index], netif);
 		prvlwip.dns_timer[adapter_index] = platform_create_timer(net_lwip2_timer_cb, (void *)adapter_index, 0);
 	}
 	prvlwip.lwip_netif[adapter_index] = netif;
@@ -501,7 +502,7 @@ static err_t net_lwip2_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *
 				{
 					out_p->payload = tx_msg_buf.Data;
 					prvlwip.dns_udp[adapter_index]->local_ip = prvlwip.lwip_netif[adapter_index]->ip_addr;
-					err_t err = udp_sendto(prvlwip.dns_udp, out_p, &prvlwip.dns_client.dns_server[i], DNS_SERVER_PORT);
+					udp_sendto(prvlwip.dns_udp[adapter_index], out_p, &prvlwip.dns_client.dns_server[i], DNS_SERVER_PORT);
 					pbuf_free(out_p);
 				}
 				OS_DeInitBuffer(&tx_msg_buf);
@@ -509,7 +510,7 @@ static err_t net_lwip2_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *
 			}
 		}
 	}
-	if (!prvlwip.dns_client.is_run)
+	if (!prvlwip.dns_client.is_run && prvlwip.dns_timer[adapter_index])
 	{
 		platform_stop_timer(prvlwip.dns_timer[adapter_index]);
 	}
@@ -519,7 +520,7 @@ static err_t net_lwip2_dns_recv_cb(void *arg, struct udp_pcb *pcb, struct pbuf *
 
 
 
-static void net_lwip2_dns_tx_next(Buffer_Struct *tx_msg_buf)
+static void net_lwip2_dns_tx_next(uint8_t adapter_index, Buffer_Struct *tx_msg_buf)
 {
 	int i;
 	err_t err;
@@ -533,29 +534,13 @@ static void net_lwip2_dns_tx_next(Buffer_Struct *tx_msg_buf)
 		if (p)
 		{
 			p->payload = tx_msg_buf->Data;
-			// if (prvlwip.dns_client.dns_server[i].type == IPADDR_TYPE_V4)
-			// {
-				// prvlwip.dns_udp->local_ip = prvlwip.lwip_netif->ip_addr;
-
-			// }
-			// else
-			// {
-			// 	for (i = 0; i < LWIP_IPV6_NUM_ADDRESSES; i++)
-			// 	{
-			// 		if (prvlwip.lwip_netif->ip6_addr_state[i] & IP6_ADDR_VALID)
-			// 		{
-			// 			prvlwip.dns_udp->local_ip = prvlwip.lwip_netif->ip6_addr[i];
-			// 			break;
-			// 		}
-			// 	}
-			// }
-			// prvlwip.dns_udp->local_ip = prvlwip.lwip_netif->ip_addr;
-			err = udp_connect(prvlwip.dns_udp, &prvlwip.dns_client.dns_server[i], DNS_SERVER_PORT);
+			
+			err = udp_connect(prvlwip.dns_udp[adapter_index], &prvlwip.dns_client.dns_server[i], DNS_SERVER_PORT);
 			if (err) {
 				LLOGI("udp_connect ret %d");
 			}
 			else {
-				err = udp_sendto(prvlwip.dns_udp, p, &prvlwip.dns_client.dns_server[i], DNS_SERVER_PORT);
+				err = udp_sendto(prvlwip.dns_udp[adapter_index], p, &prvlwip.dns_client.dns_server[i], DNS_SERVER_PORT);
 				if (err) {
 					LLOGI("udp_sendto ret %d");
 				}
@@ -716,14 +701,14 @@ static void net_lwip2_task(void *param)
 
 		break;
 
-	case EV_LWIP_COMMON_TIMER:
+	case EV_LWIP_DNS_TIMER:
 #ifdef LUAT_USE_DNS
-		net_lwip2_dns_tx_next(&tx_msg_buf);
-#endif
-		if (!prvlwip.dns_client.is_run)
+		net_lwip2_dns_tx_next(adapter_index, &tx_msg_buf);
+		if (!prvlwip.dns_client.is_run && prvlwip.dns_timer[adapter_index])
 		{
-			platform_stop_timer(prvlwip.dns_timer);
+			platform_stop_timer(prvlwip.dns_timer[adapter_index]);
 		}
+#endif
 		break;
 	case EV_LWIP_SOCKET_RX_DONE:
 		if (!prvlwip.socket[socket_id].in_use || !prvlwip.socket[socket_id].pcb.ip || !prvlwip.socket[socket_id].is_tcp)
@@ -813,13 +798,13 @@ static void net_lwip2_task(void *param)
 	case EV_LWIP_SOCKET_DNS:
 	case EV_LWIP_SOCKET_DNS_IPV6:
 		// LLOGD("event dns query");
-		if (!prvlwip.dns_client.is_run)
+		if (!prvlwip.dns_client.is_run && prvlwip.dns_timer[adapter_index])
 		{
-			platform_start_timer(prvlwip.dns_timer, 1000, 1);
+			platform_start_timer(prvlwip.dns_timer[adapter_index], 1000, 1);
 		}
 		dns_require_ipv6(&prvlwip.dns_client, event.Param1, event.Param2, event.Param3, (event.ID - EV_LWIP_SOCKET_DNS));
 		// LLOGD("event dns query 2");
-		net_lwip2_dns_tx_next(&tx_msg_buf);
+		net_lwip2_dns_tx_next(adapter_index, &tx_msg_buf);
 		// LLOGD("event dns query 3");
 		break;
 	case EV_LWIP_SOCKET_LISTEN:

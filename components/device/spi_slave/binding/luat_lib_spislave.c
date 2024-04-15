@@ -1,12 +1,13 @@
 /*
 @module spislave
-@summary SPI从机(开发中)
+@summary SPI从机
 @version 1.0
 @date    2024.3.27
 @demo spislave
 @tag LUAT_USE_SPI_SLAVE
 @usage
 -- 请查阅demo
+-- 当前仅XT804系列支持, 例如 Air101/Air103/Air601
  */
 #include "luat_base.h"
 #include "rotable2.h"

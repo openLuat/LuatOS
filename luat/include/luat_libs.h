@@ -184,4 +184,8 @@ LUAMOD_API int luaopen_spislave( lua_State *L );
 
 // WLAN 裸数据收发
 LUAMOD_API int luaopen_wlan_raw(lua_State *L);
+
+// 液晶屏驱动
+LUAMOD_API int luaopen_ht1621(lua_State *L);
+
 #endif

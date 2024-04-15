@@ -1,7 +1,7 @@
 #include "luat_base.h"
 #include "luat_mem.h"
 #include "luat_mcu.h"
-#ifdef LUAT_USE_DHCP
+#if 1
 #include "luat_network_adapter.h"
 #include "dhcp_def.h"
 #define LUAT_LOG_TAG "DHCP"

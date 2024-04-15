@@ -76,7 +76,7 @@ local tick_scan = 0
 camera.on(0, "scanned", function(id, str)
     if type(str) == 'string' then
         log.info("扫码结果", str)
-        -- air105每次扫码仅需200ms, 当目标一维码或二维码持续被识别, 本函数会反复触发
+        -- air105每次扫码需600ms, 当目标一维码或二维码持续被识别, 本函数会反复触发
         -- 鉴于某些场景需要间隔时间输出, 下列代码就是演示间隔输出
         -- if mcu.ticks() - tick < 1000 then
         --     return

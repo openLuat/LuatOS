@@ -204,7 +204,7 @@ int analyze_ip4_dhcp(dhcp_client_info_t *dhcp, Buffer_Struct *in)
 		return -4;
 	}
 	dhcp->temp_ip = BytesGetLe32(&in->Data[16]);
-	LLOGD("find ip %x", dhcp->temp_ip);
+	LLOGD("find ip %x %d.%d.%d.%d", dhcp->temp_ip, in->Data[16], in->Data[17], in->Data[18], in->Data[19]);
 
 
 	in->Pos = DHCP_OPTIONS_OFS;
@@ -248,7 +248,7 @@ __CHECK:
 		case DHCP_OPTION_END:
 			return ack;
 		default:
-			LLOGD("jump %d,%d", in->Data[in->Pos], in->Data[in->Pos+1]);
+			//LLOGD("jump %d,%d", in->Data[in->Pos], in->Data[in->Pos+1]);
 			break;
 		}
 		in->Pos += 2 + in->Data[in->Pos+1];

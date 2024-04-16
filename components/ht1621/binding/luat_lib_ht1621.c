@@ -20,10 +20,13 @@ ht1621.data(seg, 0, 0xeb) -- 位置0显示数字1
 
 /*
 初始化ht1621
-@api ht1621.setup(pin_cs, pin_data, pin_wr)
+@api ht1621.setup(pin_cs, pin_data, pin_wr, cmd_com_mode, cmd_rc, cmd_sysen)
 @int 片选引脚, 填模块的GPIO编码
 @int 数据引脚, 填模块的GPIO编码
 @int WR引脚, 填模块的GPIO编码
+@int 命令模式, 默认是0x52
+@int 内部RC振荡器,默认0x30
+@int 系统振荡器开,默认0x02
 @return userdata 返回ht1621对象
 @usage
 local seg = ht1621.setup(4, 5, 3)
@@ -37,6 +40,27 @@ static int l_ht1621_setup(lua_State *L) {
     conf->pin_cs = pin_cs;
     conf->pin_data = pin_data;
     conf->pin_wr = pin_wr;
+    if (lua_isinteger(L, 4)) {
+        conf->cmd_com_mode = luaL_checkinteger(L, 4);
+    }
+    else {
+        conf->cmd_com_mode = ComMode;
+    }
+    
+    if (lua_isinteger(L, 5)) {
+        conf->cmd_rc = luaL_checkinteger(L, 5);
+    }
+    else {
+        conf->cmd_rc = RCosc;
+    }
+
+    if (lua_isinteger(L, 6)) {
+        conf->cmd_sysen = luaL_checkinteger(L, 6);
+    }
+    else {
+        conf->cmd_sysen = Sys_en;
+    }
+
     luat_ht1621_init(conf);
     return 1;
 }

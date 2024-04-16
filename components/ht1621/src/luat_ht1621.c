@@ -35,9 +35,9 @@ void luat_ht1621_init(luat_ht1621_conf_t *conf) {
 	luat_gpio_mode(conf->pin_data, LUAT_GPIO_OUTPUT, LUAT_GPIO_PULLUP, 0);
 	luat_gpio_mode(conf->pin_wr, LUAT_GPIO_OUTPUT, LUAT_GPIO_PULLUP, 1);
 	luat_ht1621_lcd(conf, 0);
-	luat_ht1621_write_cmd(conf, Sys_en);
-	luat_ht1621_write_cmd(conf, RCosc);
-	luat_ht1621_write_cmd(conf, ComMode);
+	luat_ht1621_write_cmd(conf, conf->cmd_com_mode);
+	luat_ht1621_write_cmd(conf, conf->cmd_rc);
+	luat_ht1621_write_cmd(conf, conf->cmd_sysen);
 	luat_ht1621_lcd(conf, 1);
 }
 

@@ -18,9 +18,9 @@
 // #define cbi(x, y)  (x &= ~(1 <<y ))  /*清零寄器x的第y位*/  
 
 //IO端口定义
-#define LCD_DATA 4
-#define LCD_WR 5
-#define LCD_CS 6
+// #define LCD_DATA 4
+// #define LCD_WR 5
+// #define LCD_CS 6
 
 #ifndef HIGH
 #define HIGH 1
@@ -31,9 +31,12 @@
 #endif
 
 typedef struct luat_ht1621_conf {
-    int pin_data;
-    int pin_wr;
-    int pin_cs;
+    uint8_t pin_data;
+    uint8_t pin_wr;
+    uint8_t pin_cs;
+    uint8_t cmd_com_mode;
+    uint8_t cmd_rc;
+    uint8_t cmd_sysen;
 }luat_ht1621_conf_t;
 
 //定义端口HT1621数据端口 

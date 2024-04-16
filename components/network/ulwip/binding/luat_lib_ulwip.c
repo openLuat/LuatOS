@@ -129,6 +129,7 @@ static int netif_output_cb(lua_State *L, void* ptr) {
         }
         else {
             lua_pushlstring(L, (const char*)ptr, msg->arg1);
+            luat_heap_free(ptr);
         }
         lua_call(L, 2, 0);
     }

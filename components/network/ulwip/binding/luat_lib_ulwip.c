@@ -61,6 +61,7 @@ typedef struct ulwip_ctx
     uint16_t mtu;
     uint8_t flags;
     uint8_t adapter_index;
+    uint16_t use_zbuff_out;
     uint8_t hwaddr[ETH_HWADDR_LEN];
     dhcp_client_info_t *dhcp_client;
     luat_rtos_timer_t dhcp_timer;
@@ -105,12 +106,30 @@ static int find_index(uint8_t adapter_index) {
 static int netif_output_cb(lua_State *L, void* ptr) {
     // LLOGD("netif_output_cb");
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
-    lua_geti(L, LUA_REGISTRYINDEX, nets[msg->arg2].output_lua_ref);
+    int idx = find_index(msg->arg2);
+    if (idx < 0 || nets[idx].netif == NULL) {
+        LLOGE("非法的适配器索引号 %d", msg->arg2);
+        return 0;
+    }
+    lua_geti(L, LUA_REGISTRYINDEX, nets[idx].output_lua_ref);
     if (lua_isfunction(L, -1)) {
         lua_pushinteger(L, msg->arg2);
-        // TODO ? 改成zbuff?
-        lua_pushlstring(L, ptr, msg->arg1);
-        luat_heap_free(ptr);
+        if (nets[idx].use_zbuff_out) {
+            luat_zbuff_t* buff = lua_newuserdata(L, sizeof(luat_zbuff_t));
+            if (buff == NULL)
+            {
+                LLOGE("malloc failed for netif_output_cb");
+                return 0;
+            }
+            memset(buff, 0, sizeof(luat_zbuff_t));
+            buff->addr = ptr;
+            buff->len = msg->arg1;
+            buff->used = msg->arg1;
+            luaL_setmetatable(L, LUAT_ZBUFF_TYPE);
+        }
+        else {
+            lua_pushlstring(L, (const char*)ptr, msg->arg1);
+        }
         lua_call(L, 2, 0);
     }
     else {
@@ -130,7 +149,7 @@ static err_t netif_output(struct netif *netif, struct pbuf *p) {
     {
         if (nets[i].netif == netif)
         {
-            msg.arg2 = i;
+            msg.arg2 = nets[i].adapter_index;
             break;
         }
     }
@@ -241,15 +260,26 @@ static int l_ulwip_setup(lua_State *L) {
     }
     uint16_t mtu = 1460;
     uint8_t flags = NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP | NETIF_FLAG_ETHERNET | NETIF_FLAG_IGMP | NETIF_FLAG_MLD6;
+    uint16_t zbuff_out = 0;
     if (lua_istable(L, 4)) {
         lua_getfield(L, 4, "mtu");
         if (lua_isinteger(L, -1)) {
             mtu = (uint16_t)luaL_checkinteger(L, -1);
         }
         lua_pop(L, 1);
+        
         lua_getfield(L, 4, "flags");
         if (lua_isinteger(L, -1)) {
             flags = (uint8_t)luaL_checkinteger(L, -1);
+        }
+        lua_pop(L, 1);
+
+        lua_getfield(L, 4, "zbuff_out");
+        if (lua_isboolean(L, -1)) {
+            zbuff_out = lua_toboolean(L, -1);
+            if (zbuff_out) {
+                LLOGD("使用zbuff作为netif out的回调函数");
+            }
         }
         lua_pop(L, 1);
     }
@@ -266,6 +296,7 @@ static int l_ulwip_setup(lua_State *L) {
                 nets[i].netif = netif;
                 nets[i].mtu = mtu;
                 nets[i].flags = flags;
+                nets[i].use_zbuff_out = zbuff_out;
                 lua_pushvalue(L, 3);
                 memcpy(nets[i].hwaddr, mac, ETH_HWADDR_LEN);
                 nets[i].output_lua_ref = luaL_ref(L, LUA_REGISTRYINDEX);

@@ -33,10 +33,12 @@ typedef struct ulwip_ctx
 {
     int output_lua_ref;
     struct netif *netif;
-    uint16_t mtu;
     uint8_t flags;
     uint8_t adapter_index;
+    uint8_t ip_ready;
+    uint8_t ip_static;
     uint16_t use_zbuff_out;
+    uint16_t mtu;
     uint8_t hwaddr[ETH_HWADDR_LEN];
     dhcp_client_info_t *dhcp_client;
     luat_rtos_timer_t dhcp_timer;

@@ -25,6 +25,7 @@ lua代码 <- ulwip回调函数 <- lwip(netif->low_level_output) <- lwip处理逻
 
 #include "luat_base.h"
 #include "luat_ulwip.h"
+#include "luat_crypto.h"
 
 #define LUAT_LOG_TAG "ulwip"
 #include "luat_log.h"
@@ -33,6 +34,8 @@ static ulwip_ctx_t nets[USERLWIP_NET_COUNT];
 
 static void dhcp_client_cb(void *arg);
 static err_t ulwip_etharp_output(struct netif *netif, struct pbuf *q, const ip4_addr_t *ipaddr);
+static void ulwip_dhcp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, u16_t port);
+static int l_dhcp_client_cb(lua_State *L, void* ptr);
 
 // 搜索adpater_index对应的netif
 static struct netif* find_netif(uint8_t adapter_index) {
@@ -57,6 +60,52 @@ static int find_index(uint8_t adapter_index) {
         }
     }
     return -1;
+}
+
+static int netif_ip_event_cb(lua_State *L, void* ptr) {
+    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
+    lua_getglobal(L, "sys_pub");
+    char buff[32] = {0};
+    if (lua_isfunction(L, -1)) {
+        if (msg->arg2) {
+            lua_pushstring(L, "IP_READY");
+            ipaddr_ntoa_r(&nets[msg->arg1].netif->ip_addr, buff,  32);
+            LLOGD("IP_READY %d %s", nets[msg->arg1].adapter_index, buff);
+            lua_pushstring(L, buff);
+            lua_pushinteger(L, nets[msg->arg1].adapter_index);
+            lua_call(L, 3, 0);
+        }
+        else {
+            lua_pushstring(L, "IP_LOSE");
+            LLOGD("IP_LOSE %d", nets[msg->arg1].adapter_index);
+            lua_pushinteger(L, nets[msg->arg1].adapter_index);
+            lua_call(L, 2, 0);
+        }
+    }
+    return 0;
+}
+
+static int ulwip_netif_ip_event(int8_t adapter_index) {
+    int idx = find_index(adapter_index);
+    if (idx < 0) {
+        return -1;
+    }
+    struct netif* netif = nets[idx].netif;
+    int ready_now = !ip_addr_isany(&netif->ip_addr);
+    ready_now &= netif_is_link_up(netif);
+    ready_now &= netif_is_up(netif);
+
+    net_lwip2_set_link_state(nets[idx].adapter_index, ready_now);
+    if (nets[idx].ip_ready == ready_now) {
+        return 0;
+    }
+    nets[idx].ip_ready = ready_now;
+    rtos_msg_t msg = {0};
+    msg.arg1 = idx;
+    msg.arg2 = ready_now;
+    msg.handler = netif_ip_event_cb;
+    luat_msgbus_put(&msg, 0);
+    return 0;
 }
 
 // 回调函数, 用于lwip的netif输出数据
@@ -132,38 +181,13 @@ static err_t netif_output(struct netif *netif, struct pbuf *p) {
     return 0;
 }
 
-#ifdef TLS_CONFIG_CPU_XT804
-static void netif_status_callback(struct netif *netif, unsigned char stat) {
-    (void)stat;
-#else
-static void netif_status_callback(struct netif *netif) {
-#endif
-    LLOGD("netif status changed %s", ip4addr_ntoa(netif_ip4_addr(netif)));
-    for (size_t i = 0; i < USERLWIP_NET_COUNT; i++)
-    {
-        if (nets[i].netif == netif)
-        {
-            if (!ip_addr_isany(&netif->ip_addr)) {
-                LLOGD("设置网络状态为UP %d", nets[i].adapter_index);
-                net_lwip2_set_link_state(nets[i].adapter_index, 1);
-            }
-            else {
-                LLOGD("设置网络状态为DOWN %d", nets[i].adapter_index);
-                net_lwip2_set_link_state(nets[i].adapter_index, 0);
-            }
-            break;
-        }
-    }
-  
-}
-
 static err_t luat_netif_init(struct netif *netif) {
     for (size_t i = 0; i < USERLWIP_NET_COUNT; i++)
     {
     if (nets[i].netif == netif)
         {
             LLOGD("netif init %d %p", nets[i].adapter_index, netif);
-            
+
             netif->linkoutput = netif_output;
             netif->output     = ulwip_etharp_output;
             #if LWIP_IPV6
@@ -181,11 +205,11 @@ static err_t luat_netif_init(struct netif *netif) {
 
 /*
 初始化lwip netif
-@api ulwip.setup(adapter_index, mac, output_lua_ref)
+@api ulwip.setup(adapter_index, mac, output_lua_ref, opts)
 @int adapter_index 适配器编号
 @string mac 网卡mac地址
 @function output_lua_ref 回调函数, 参数为(adapter_index, data)
-@table 额外参数, 例如 {mtu=1500, flags=(ulwip.FLAG_BROADCAST | ulwip.FLAG_ETHARP |)}
+@table 额外参数, 例如 {mtu=1500, flags=(ulwip.FLAG_BROADCAST | ulwip.FLAG_ETHARP)}
 @return boolean 成功与否
 @usage
 -- 初始化一个适配器, 并设置回调函数
@@ -266,32 +290,18 @@ static int l_ulwip_setup(lua_State *L) {
     }
 
     // 已经分配netif, 继续初始化
-    // #if defined(TYPE_EC718P)
-    // net_lwip2_set_netif(adapter_index, netif, luat_netif_init, 0);
-    // #else
     tmp = netif_add(netif, IP4_ADDR_ANY4, IP4_ADDR_ANY4, IP4_ADDR_ANY4, NULL, luat_netif_init, netif_input);
     netif->name[0] = 'u';
     netif->name[1] = 's';
-    LLOGD("netif_add 返回值 %p", tmp);
+    if (NULL == tmp) {
+        LLOGE("netif_add 返回异常!!!");
+    }
     #if LWIP_IPV6
     netif_create_ip6_linklocal_address(netif, 1);
     netif->ip6_autoconfig_enabled = 1;
     #endif
 
-    // #endif
-
-    #if LWIP_NETIF_STATUS_CALLBACK
-    //LLOGD("支持netif_status_callback");
-    netif_set_status_callback(netif, netif_status_callback);
-    #else
-    LLOGD("不支持netif_status_callback");
-    #endif
-
-    // #if defined(TYPE_EC718P)
-    // nothing
-    // #else
     net_lwip2_set_netif(adapter_index, netif);
-    // #endif
     
     lua_pushboolean(L, 1);
     return 1;
@@ -321,6 +331,7 @@ static int l_ulwip_updown(lua_State *L) {
         else {
             netif_set_down(netif);
         }
+        ulwip_netif_ip_event(adapter_index);
     }
     lua_pushboolean(L, netif_is_up(netif));
     return 1;
@@ -352,9 +363,7 @@ static int l_ulwip_link(lua_State *L) {
         else {
             netif_set_link_down(netif);
         }
-        #if LWIP_NETIF_STATUS_CALLBACK == 0
-        netif_status_callback(netif);
-        #endif
+        ulwip_netif_ip_event(adapter_index);
     }
     lua_pushboolean(L, netif_is_link_up(netif));
     return 1;
@@ -432,6 +441,9 @@ static int l_ulwip_input(lua_State *L) {
     ctx->netif = netif;
     ctx->p = p;
     ret = tcpip_callback(netif_input_cb, ctx);
+    if(ret != ERR_OK) {
+        luat_heap_free(ctx);
+    }
     #endif
     if(ret != ERR_OK) {
         LLOGE("netif->input ret %d", ret);
@@ -443,7 +455,6 @@ static int l_ulwip_input(lua_State *L) {
     return 1;
 }
 
-static void dhcp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, u16_t port);
 
 /*
 启动或关闭dhcp
@@ -463,7 +474,7 @@ static int l_ulwip_dhcp(lua_State *L) {
         return 0;
     }
     int dhcp_enable = lua_toboolean(L, 2);
-    #if LWIP_DHCP
+    #if 0
     if (dhcp_enable)
     {
         dhcp_start(netif);
@@ -480,10 +491,11 @@ static int l_ulwip_dhcp(lua_State *L) {
         LLOGE("没有找到adapter_index %d", adapter_index);
         return 0;
     }
-    if (nets[i].dhcp_client == NULL) {
+    if (dhcp_enable && nets[i].dhcp_client == NULL) {
         nets[i].dhcp_client = luat_heap_malloc(sizeof(dhcp_client_info_t));
         memset(nets[i].dhcp_client, 0, sizeof(dhcp_client_info_t));
         memcpy(nets[i].dhcp_client->mac, netif->hwaddr, 6);
+        luat_crypto_trng((char*)&nets[i].dhcp_client->xid, sizeof(nets[i].dhcp_client->xid));
         sprintf_(nets[i].dhcp_client->name, "airm2m-%02x%02x%02x%02x%02x%02x",
 			nets[i].dhcp_client->mac[0],nets[i].dhcp_client->mac[1], nets[i].dhcp_client->mac[2],
 			nets[i].dhcp_client->mac[3],nets[i].dhcp_client->mac[4], nets[i].dhcp_client->mac[5]);
@@ -492,15 +504,18 @@ static int l_ulwip_dhcp(lua_State *L) {
         ip_set_option(nets[i].dhcp_pcb, SOF_BROADCAST);
         udp_bind(nets[i].dhcp_pcb, IP4_ADDR_ANY, 68);
         udp_connect(nets[i].dhcp_pcb, IP4_ADDR_ANY, 67);
-        udp_recv(nets[i].dhcp_pcb, dhcp_recv, (void*)i);
+        udp_recv(nets[i].dhcp_pcb, ulwip_dhcp_recv, (void*)i);
     }
     if (nets[i].dhcp_timer != NULL)
     {
         if (dhcp_enable)
         {
+            nets[i].ip_static = 0;
+            ip_addr_set_any(0, &nets[i].netif->ip_addr);
             if (!luat_rtos_timer_is_active(nets[i].dhcp_timer))
             {
                 nets[i].dhcp_client->state = DHCP_STATE_DISCOVER;
+                nets[i].dhcp_client->discover_cnt = 0;
                 luat_rtos_timer_start(nets[i].dhcp_timer, 1000, 1, dhcp_client_cb, (void*)i);
                 dhcp_client_cb((void*)i);
             }
@@ -548,9 +563,9 @@ static int l_ulwip_ip(lua_State *L) {
         ipaddr_aton(tmp, &netif->netmask);
         tmp = luaL_checkstring(L, 4);
         ipaddr_aton(tmp, &netif->gw);
-        #if LWIP_NETIF_STATUS_CALLBACK == 0
-        netif_status_callback(netif);
-        #endif
+        
+        int idx = find_index(adapter_index);
+        nets[idx].ip_static = !ip_addr_isany(&netif->ip_addr);
     }
     // 反馈IP信息
     tmp = ip_ntoa(&netif->ip_addr);
@@ -663,7 +678,6 @@ LUAMOD_API int luaopen_ulwip( lua_State *L ) {
 //           DHCP 相关的逻辑
 // -------------------------------------
 
-static int l_dhcp_client_cb(lua_State *L, void* ptr);
 
 // timer回调, 或者是直接被调用, arg是nets的索引号
 static void dhcp_client_cb(void *arg) {
@@ -711,15 +725,14 @@ static int dhcp_task_run(int idx, char* rxbuff, size_t len) {
 		LLOGD("租约时间:%u秒", dhcp->lease_time);
 
         // 设置到netif
-        net_lwip2_set_link_state(nets[idx].adapter_index, 0);
         ip_addr_set_ip4_u32(&netif->ip_addr, dhcp->ip);
         ip_addr_set_ip4_u32(&netif->netmask, dhcp->submask);
         ip_addr_set_ip4_u32(&netif->gw,      dhcp->gateway);
-        net_lwip2_set_link_state(nets[idx].adapter_index, 1);
         dhcp->state = DHCP_STATE_WAIT_LEASE_P1;
         if (rxbuff) {
             luat_heap_free(rxbuff);
-        }   
+        }
+        ulwip_netif_ip_event(nets[idx].adapter_index);
         return 0;
     }
     result = ip4_dhcp_run(dhcp, rxbuff == NULL ? NULL : &rx_msg_buf, &tx_msg_buf, &remote_ip);
@@ -758,7 +771,7 @@ static int l_dhcp_client_cb(lua_State *L, void* ptr) {
     return 0;
 }
 
-static void dhcp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, u16_t port) {
+static void ulwip_dhcp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, u16_t port) {
     LLOGD("收到DHCP数据包(len=%d)", p->tot_len);
     int idx = (int)arg;
     char* ptr = luat_heap_malloc(p->tot_len);

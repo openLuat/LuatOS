@@ -811,13 +811,12 @@ static int l_socket_read(lua_State *L) {
 	if (result < 0)
 	{
 		lua_pushboolean(L, 0);
-		lua_pushinteger(L, 0);
-		return 2;
+		return 1;
 	}
 	if (!total_len)
 	{
 		lua_pushboolean(L, 1);
-		lua_pushinteger(L, 0);
+		lua_pushstring(L, "");
 		return 2;
 	}
 	// 是否限制接收数据长度
@@ -835,8 +834,7 @@ static int l_socket_read(lua_State *L) {
 	if (result < 0)
 	{
 		lua_pushboolean(L, 0);
-		lua_pushinteger(L, result);
-		return 2;
+		return 1;
 	}
 	else if (!rx_len)
 	{

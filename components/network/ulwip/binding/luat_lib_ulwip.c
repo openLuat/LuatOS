@@ -24,58 +24,15 @@ lua代码 <- ulwip回调函数 <- lwip(netif->low_level_output) <- lwip处理逻
 */
 
 #include "luat_base.h"
-#include "luat_msgbus.h"
-#include "luat_timer.h"
-#include "luat_mem.h"
-#include "luat_zbuff.h"
-#include "luat_rtos.h"
-
-#include "lwip/opt.h"
-#include "lwip/debug.h"
-#include "lwip/stats.h"
-#include "lwip/netif.h"
-#include "lwip/etharp.h"
-#include "lwip/dhcp.h"
-#include "lwip/ethip6.h"
-#include "lwip/udp.h"
-// #include "lwip/prot/iana.h"
-#include "netif/ethernet.h"
-
-// #include "net_lwip.h"
-#include "net_lwip2.h"
-
-#include "luat_network_adapter.h"
-#include "dhcp_def.h"
+#include "luat_ulwip.h"
 
 #define LUAT_LOG_TAG "ulwip"
 #include "luat_log.h"
 
-#define USERLWIP_NET_COUNT NW_ADAPTER_INDEX_LWIP_NETIF_QTY
-
-void net_lwip2_set_link_state(uint8_t adapter_index, uint8_t updown);
-
-typedef struct ulwip_ctx
-{
-    int output_lua_ref;
-    struct netif *netif;
-    uint16_t mtu;
-    uint8_t flags;
-    uint8_t adapter_index;
-    uint16_t use_zbuff_out;
-    uint8_t hwaddr[ETH_HWADDR_LEN];
-    dhcp_client_info_t *dhcp_client;
-    luat_rtos_timer_t dhcp_timer;
-    struct udp_pcb *dhcp_pcb;
-}ulwip_ctx_t;
-
-typedef struct netif_cb_ctx {
-    struct netif *netif;
-    struct pbuf *p;
-}netif_cb_ctx_t;
-
 static ulwip_ctx_t nets[USERLWIP_NET_COUNT];
 
 static void dhcp_client_cb(void *arg);
+static err_t ulwip_etharp_output(struct netif *netif, struct pbuf *q, const ip4_addr_t *ipaddr);
 
 // 搜索adpater_index对应的netif
 static struct netif* find_netif(uint8_t adapter_index) {
@@ -199,9 +156,6 @@ static void netif_status_callback(struct netif *netif) {
     }
   
 }
-
-static err_t ulwip_etharp_output(struct netif *netif, struct pbuf *q, const ip4_addr_t *ipaddr);
-
 
 static err_t luat_netif_init(struct netif *netif) {
     for (size_t i = 0; i < USERLWIP_NET_COUNT; i++)
@@ -608,8 +562,6 @@ static int l_ulwip_ip(lua_State *L) {
     return 3;
 }
 
-// void net_lwip2_register_adapter(uint8_t adapter_index);
-// void net_lwip2_set_netif(uint8_t adapter_index, struct netif *netif);
 /*
 将netif注册到luatos socket中
 @api ulwip.reg(adapter_index)

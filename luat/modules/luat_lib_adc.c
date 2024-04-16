@@ -54,6 +54,8 @@ static int l_adc_open(lua_State *L) {
 @int range参数,与具体设备有关,比如air105填adc.ADC_RANGE_1_8和adc.ADC_RANGE_3_6
 @return nil
 @usage
+-- 本函数要在调用adc.open之前就调用, 之后调用无效!!!
+
 -- 关闭air105内部分压
 adc.setRange(adc.ADC_RANGE_1_8)
 -- 打开air105内部分压

@@ -69,9 +69,9 @@ static const u8g2_font_t u8g2_fonts[] = {
     //再大的很少用到先不加了
 #endif
 
-#ifdef USE_U8G2_SARASA_M8_CHINESE
-    { .name="sarasa_m8_chinese", .font=u8g2_font_sarasa_m8_chinese},
-#endif
+// #ifdef USE_U8G2_SARASA_M8_CHINESE
+//     { .name="sarasa_m8_chinese", .font=u8g2_font_sarasa_m8_chinese},
+// #endif
 #ifdef USE_U8G2_SARASA_M10_CHINESE
     { .name="sarasa_m10_chinese", .font=u8g2_font_sarasa_m10_chinese},
 #endif

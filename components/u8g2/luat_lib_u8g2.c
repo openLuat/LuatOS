@@ -1113,9 +1113,9 @@ static const rotable_Reg_t reg_u8g2[] =
     //再大的很少用到先不加了
 #endif
 
-#ifdef USE_U8G2_SARASA_M8_CHINESE
-    { "font_sarasa_m8_chinese", ROREG_PTR((void*)u8g2_font_sarasa_m8_chinese)},
-#endif
+// #ifdef USE_U8G2_SARASA_M8_CHINESE
+//     { "font_sarasa_m8_chinese", ROREG_PTR((void*)u8g2_font_sarasa_m8_chinese)},
+// #endif
 #ifdef USE_U8G2_SARASA_M10_CHINESE
     { "font_sarasa_m10_chinese", ROREG_PTR((void*)u8g2_font_sarasa_m10_chinese)},
 #endif

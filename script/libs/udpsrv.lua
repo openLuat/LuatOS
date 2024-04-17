@@ -16,7 +16,7 @@ local udpsrv = {}
 
 --[[
 创建UDP服务器
-@api udpsrv.create(port, topic)
+@api udpsrv.create(port, topic, adapter)
 @int 端口号, 必填, 必须大于0小于65525
 @string 收取UDP数据的topic,必填
 @int 网络适配编号, 默认为nil,可选

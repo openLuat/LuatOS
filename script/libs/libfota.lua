@@ -90,6 +90,7 @@ local function fota_task(cbFnc,storge_location, len, param1,ota_url,ota_port,lib
     if fota then
         opts.fota = true
     else
+        os.remove("/update.bin")
         opts.dst = "/update.bin"
     end
     log.info("fota.url", ota_url)

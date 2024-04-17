@@ -101,6 +101,7 @@ function libfota2.request(cbFnc, opts)
     if fota then
         opts.fota = true
     else
+        os.remove("/update.bin")
         opts.dst = "/update.bin"
     end
     if not cbFnc then

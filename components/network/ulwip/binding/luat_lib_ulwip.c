@@ -371,7 +371,10 @@ static int l_ulwip_link(lua_State *L) {
 
 static void netif_input_cb(void *ptr) {
     netif_cb_ctx_t* ctx = (netif_cb_ctx_t*)ptr;
-    ctx->netif->input(ctx->p, ctx->netif);
+    if (ERR_OK != ctx->netif->input(ctx->p, ctx->netif)) {
+        LLOGW("ctx->netif->input 失败 %d", ctx->p->tot_len);
+        pbuf_free(ctx->p);
+    }
     luat_heap_free(ctx);
 }
 

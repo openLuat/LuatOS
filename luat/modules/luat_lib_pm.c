@@ -120,6 +120,9 @@ static int l_pm_request(lua_State *L) {
 @usage
 -- 添加底层定时器
 pm.dtimerStart(0, 300 * 1000) -- 5分钟后唤醒
+-- Air780E/Air780EP系列
+-- id = 0 或者 id = 1 是, 最大休眠时长是2.5小时
+-- id = 2 或者 id = 3 是, 最大休眠时长是3个月
  */
 static int l_pm_dtimer_start(lua_State *L) {
     int dtimer_id = luaL_checkinteger(L, 1);

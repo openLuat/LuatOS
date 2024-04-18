@@ -19,7 +19,7 @@
 
 /*
 解析coap数据包
-@ercoap.parse(data)
+@api ercoap.parse(data)
 @string coap数据包
 @return table 成功返回table,否则返回nil
 @usage
@@ -63,7 +63,7 @@ static int l_ercoap_parse(lua_State *L)
 
 /*
 打印coap数据包
-@ercoap.print(data)
+@api ercoap.print(data)
 @string coap数据包
 @return boolean 解析成功返回true
 @usage
@@ -172,7 +172,7 @@ static void add_random_token(coap_packet_t* pkt, uint16_t mid)
 
 /*
 快速生成onenet数据包
-@ercoap.onenet(tp, product_id, device_name, token, payload)
+@api ercoap.onenet(tp, product_id, device_name, token, payload)
 @string 请求类型,作为reply时可选,其他情况必选
 @string 项目id,必须填写
 @string 设备名称,必须填写

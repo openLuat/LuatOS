@@ -751,7 +751,7 @@ static int dhcp_task_run(int idx, char* rxbuff, size_t len) {
     struct pbuf *q;
     // LLOGD("待发送DHCP包长度 %d 前4个字节分别是 %02X%02X%02X%02X", tx_msg_buf.Pos, 
     //     tx_msg_buf.Data[0], tx_msg_buf.Data[1], tx_msg_buf.Data[2], tx_msg_buf.Data[3]);
-    p = pbuf_alloc(PBUF_RAW, tx_msg_buf.Pos, PBUF_RAM);
+    p = pbuf_alloc(PBUF_TRANSPORT, tx_msg_buf.Pos, PBUF_RAM);
     char* data = (char*)tx_msg_buf.Data;
     for (q = p; q != NULL; q = q->next) {
         memcpy(q->payload, data, q->len);
@@ -760,6 +760,7 @@ static int dhcp_task_run(int idx, char* rxbuff, size_t len) {
     data = p->payload;
     // LLOGI("dhcp payload len %d %02X%02X%02X%02X", p->tot_len, data[0], data[1], data[2], data[3]);
     udp_sendto_if(nets[idx].dhcp_pcb, p, IP_ADDR_BROADCAST, 67, netif);
+    pbuf_free(p);
     return 0;
 }
 

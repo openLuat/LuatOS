@@ -89,6 +89,7 @@ def get_modules(file_list, start="/*", end="*/"):
         try:
             f = io.open(file,"r",encoding="utf-8")
             text = f.read()
+            text = text.replace("\t","    ")
             f.close()
         except:
             #print("read fail, maybe not use utf8")
@@ -213,7 +214,9 @@ def get_modules(file_list, start="/*", end="*/"):
         #没有api的包，不导入
         if len(module["api"]) > 0:
             modules.append(module)
-            print(module["module"])
+            #print(module["module"])
+        else:
+            print("没有API", module["module"])
 
     #按名字排个序
     def sorfFnc(k):

@@ -105,7 +105,6 @@ local function http_opts_parse(opts)
     -- Connection 必须关闭
     opts.headers["Connection"] = "Close"
 
-    
     -- 复位一些变量,免得判断出错
     opts.is_closed = nil
     opts.body_len = 0
@@ -131,7 +130,7 @@ local function http_opts_parse(opts)
         for kk, vv in pairs(opts.files) do
             local ct = contentType[vv:match("%.(%w+)$")] or "application/octet-stream"
             local fname = vv:match("[^%/]+%w$")
-            local tmp = string.format("--%s\r\nContent-Disposition: form-data; name=\"%s\"\r\nContent-Type: %s\r\n\r\n", boundary, kk, ct)
+            local tmp = string.format("--%s\r\nContent-Disposition: form-data; name=\"%s\"; filename=\"%s\"\r\nContent-Type: %s\r\n\r\n", boundary, kk, fname, ct)
             -- log.info("文件传输头", tmp)
             table.insert(opts.mp, {vv, tmp, "file"})
             opts.body_len = opts.body_len + #tmp + io.fileSize(vv) + 2
@@ -474,13 +473,8 @@ local function http_exec(opts)
                     fd:close()
                 end
             else
-                socket.tx(netc, v[2])
-                write_counter = write_counter + #v[2]
                 socket.tx(netc, v[1])
                 write_counter = write_counter + #v[1]
-                -- rbody = rbody .. "\r\n"
-                socket.tx(netc, "\r\n")
-                write_counter = write_counter + 2
             end
             socket.tx(netc, "\r\n")
             write_counter = write_counter + 2

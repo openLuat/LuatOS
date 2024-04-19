@@ -783,13 +783,13 @@ static int l_socket_rx(lua_State *L)
 
 /*
 读取数据(非zbuff版本)
-@api socket.read(netc, limit)
-@userdata	网络控制句柄
-@int		限制读取数据长度,可选,不传就是读出全部
-@return		boolean, 读取成功与否
-@return		string, 读取的数据,仅当读取成功时有效
-@return		string, 对方IP地址,仅当读取成功且UDP通信时有效
-@return		int, 对方端口,仅当读取成功且UDP通信时有效
+@api socket.read(netc, len)
+@userdata socket.create得到的ctrl
+@int        限制读取数据长度,可选,不传就是读出全部
+@return        boolean 读取成功与否
+@return        string 读取的数据,仅当读取成功时有效
+@return        string 对方IP地址,仅当读取成功且UDP通信时有效
+@return        int 对方端口,仅当读取成功且UDP通信时有效
 @usage
 -- 本函数于2024.4.8添加, 用于简易读取不大的数据
 -- 请优先使用socket.rx函数, 本函数主要用于固件不含zbuff库时的变通调用

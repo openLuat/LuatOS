@@ -4,8 +4,8 @@ PROJECT = "httpdemo"
 VERSION = "1.0.0"
 
 --[[
-本demo需要http库, 大部分能联网的设备都具有这个库
-http也是内置库, 无需require
+本demo需要socket库, 大部分能联网的设备都具有这个库
+socket是内置库, 无需require
 ]]
 
 -- sys库是标配

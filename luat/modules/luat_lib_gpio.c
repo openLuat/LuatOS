@@ -177,7 +177,7 @@ int l_gpio_handler(lua_State *L, void* ptr) {
 @api gpio.setup(pin, mode, pull, irq, alt)
 @int pin gpio编号,必须是数值
 @any mode 输入输出模式：<br>数字0/1代表输出模式<br>nil代表输入模式<br>function代表中断模式
-@int pull 上拉下列模式, 可以是gpio.PULLUP 或 gpio.PULLDOWN, 或者 0. 需要根据实际硬件选用
+@int pull 上拉下拉模式, 可以是上拉模式 gpio.PULLUP 或下拉模式 gpio.PULLDOWN, 或者开漏模式 0. 需要根据实际硬件选用
 @int irq 中断触发模式,默认gpio.BOTH。中断触发模式<br>上升沿gpio.RISING<br>下降沿gpio.FALLING<br>上升和下降都触发gpio.BOTH 
 @int alt 复用选项，目前只有EC618平台需要这个参数，有些GPIO可以复用到不同引脚上，可以选择复用选项（0或者4）从而复用到对应的引脚上
 @return any 输出模式返回设置电平的闭包, 输入模式和中断模式返回获取电平的闭包

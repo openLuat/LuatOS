@@ -48,7 +48,7 @@ typedef struct ulwip_ctx
 }ulwip_ctx_t;
 
 typedef struct netif_cb_ctx {
-    struct netif *netif;
+    ulwip_ctx_t* ctx;
     struct pbuf *p;
 }netif_cb_ctx_t;
 
@@ -58,7 +58,7 @@ void ulwip_dhcp_client_stop(ulwip_ctx_t *ctx);
 
 err_t ulwip_etharp_output(struct netif *netif, struct pbuf *q, const ip4_addr_t *ipaddr);
 
-int ulwip_netif_ip_event(int8_t adapter_index);
+int ulwip_netif_ip_event(ulwip_ctx_t* ctx);
 
 int l_dhcp_client_cb(lua_State *L, void* ptr);
 

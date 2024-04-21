@@ -50,7 +50,7 @@ static int ulwip_dhcp_client_run(ulwip_ctx_t* ctx, char* rxbuff, size_t len) {
         if (rxbuff) {
             luat_heap_free(rxbuff);
         }
-        ulwip_netif_ip_event(ctx->adapter_index);
+        ulwip_netif_ip_event(ctx);
         return 0;
     }
     result = ip4_dhcp_run(dhcp, rxbuff == NULL ? NULL : &rx_msg_buf, &tx_msg_buf, &remote_ip);
@@ -82,7 +82,7 @@ static int ulwip_dhcp_client_run(ulwip_ctx_t* ctx, char* rxbuff, size_t len) {
     return 0;
 }
 
-static err_t ulwip_dhcp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, u16_t port) {
+static int ulwip_dhcp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, u16_t port) {
     LLOGD("收到DHCP数据包(len=%d)", p->tot_len);
     ulwip_ctx_t *ctx = (ulwip_ctx_t *)arg;
     char* ptr = luat_heap_malloc(p->tot_len);

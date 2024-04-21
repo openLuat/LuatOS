@@ -32,11 +32,6 @@ lua代码 <- ulwip回调函数 <- lwip(netif->low_level_output) <- lwip处理逻
 
 static ulwip_ctx_t nets[USERLWIP_NET_COUNT];
 
-static void dhcp_client_cb(void *arg);
-static err_t ulwip_etharp_output(struct netif *netif, struct pbuf *q, const ip4_addr_t *ipaddr);
-static void ulwip_dhcp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, u16_t port);
-static int l_dhcp_client_cb(lua_State *L, void* ptr);
-
 // 搜索adpater_index对应的netif
 static struct netif* find_netif(uint8_t adapter_index) {
     struct netif *netif = NULL;
@@ -85,7 +80,7 @@ static int netif_ip_event_cb(lua_State *L, void* ptr) {
     return 0;
 }
 
-static int ulwip_netif_ip_event(int8_t adapter_index) {
+int ulwip_netif_ip_event(int8_t adapter_index) {
     int idx = find_index(adapter_index);
     if (idx < 0) {
         return -1;
@@ -477,62 +472,22 @@ static int l_ulwip_dhcp(lua_State *L) {
         return 0;
     }
     int dhcp_enable = lua_toboolean(L, 2);
-    #if 0
-    if (dhcp_enable)
-    {
-        dhcp_start(netif);
-    }
-    else {
-        dhcp_stop(netif);
-    }
-    lua_pushboolean(L, 1);
-    return 1;
-    #else
     int i = find_index(adapter_index);
     if (i < 0)
     {
         LLOGE("没有找到adapter_index %d", adapter_index);
         return 0;
     }
-    if (dhcp_enable && nets[i].dhcp_client == NULL) {
-        nets[i].dhcp_client = luat_heap_malloc(sizeof(dhcp_client_info_t));
-        memset(nets[i].dhcp_client, 0, sizeof(dhcp_client_info_t));
-        memcpy(nets[i].dhcp_client->mac, netif->hwaddr, 6);
-        luat_crypto_trng((char*)&nets[i].dhcp_client->xid, sizeof(nets[i].dhcp_client->xid));
-        sprintf_(nets[i].dhcp_client->name, "airm2m-%02x%02x%02x%02x%02x%02x",
-			nets[i].dhcp_client->mac[0],nets[i].dhcp_client->mac[1], nets[i].dhcp_client->mac[2],
-			nets[i].dhcp_client->mac[3],nets[i].dhcp_client->mac[4], nets[i].dhcp_client->mac[5]);
-        luat_rtos_timer_create(&nets[i].dhcp_timer);
-        nets[i].dhcp_pcb = udp_new();
-        ip_set_option(nets[i].dhcp_pcb, SOF_BROADCAST);
-        udp_bind(nets[i].dhcp_pcb, IP4_ADDR_ANY, 68);
-        udp_connect(nets[i].dhcp_pcb, IP4_ADDR_ANY, 67);
-        udp_recv(nets[i].dhcp_pcb, ulwip_dhcp_recv, (void*)i);
+    nets[i].dhcp_enable = dhcp_enable;
+    if (dhcp_enable) {
+        nets[i].ip_static = 0;
+        ulwip_dhcp_client_start(&nets[i]);
     }
-    if (nets[i].dhcp_timer != NULL)
-    {
-        if (dhcp_enable)
-        {
-            nets[i].ip_static = 0;
-            ip_addr_set_any(0, &nets[i].netif->ip_addr);
-            if (!luat_rtos_timer_is_active(nets[i].dhcp_timer))
-            {
-                nets[i].dhcp_client->state = DHCP_STATE_DISCOVER;
-                nets[i].dhcp_client->discover_cnt = 0;
-                luat_rtos_timer_start(nets[i].dhcp_timer, 1000, 1, dhcp_client_cb, (void*)i);
-                dhcp_client_cb((void*)i);
-            }
-        }
-        else {
-            if (luat_rtos_timer_is_active(nets[i].dhcp_timer)) {
-                luat_rtos_timer_stop(nets[i].dhcp_timer);
-            }
-        }
-        lua_pushboolean(L, 1);
-        return 1;
+    else {
+        ulwip_dhcp_client_stop(&nets[i]);
     }
-    return 0;
-    #endif
+    lua_pushboolean(L, 1);
+    return 1;
 }
 
 /*
@@ -601,48 +556,7 @@ static int l_ulwip_reg(lua_State *L) {
     return 1;
 }
 
-/*
-设置默认netif网卡
-@api ulwip.dft(adapter_index)
-@int/boolean adapter_index 适配器编号或还原默认网卡
-@return boolean 成功与否
-@usage
--- 将默认网卡设置为socket.LWIP_ETH
-ulwip.dft(socket.LWIP_ETH)
--- 还原默认网卡
-ulwip.dft(true)
-*/
-static struct netif* prev_netif;
-extern struct netif *netif_default;
-static int l_ulwip_dft(lua_State *L) {
-    // 必须有适配器编号
-    if (lua_type(L, 1) == LUA_TNUMBER)
-    {
-        uint8_t adapter_index = (uint8_t)luaL_checkinteger(L, 1);
-        struct netif* netif = find_netif(adapter_index);
-        if (netif == NULL) {
-            LLOGE("没有找到netif %d", adapter_index);
-            return 0;
-        }
-        if (prev_netif == NULL && netif_default != NULL) {
-            LLOGD("保存系统默认网卡 %.2s %p", netif_default->name, netif_default);
-            prev_netif = netif_default;
-        }
-        LLOGD("设置默认网卡 %.2s %p", netif->name, netif);
-        netif_set_default(netif);
-    }
-    else if (lua_type(L, 1) == LUA_TBOOLEAN) {
-        if (lua_toboolean(L, 1) && prev_netif != NULL) {
-            LLOGD("还原系统默认网卡 %.2s %p", prev_netif->name, prev_netif);
-            netif_set_default(prev_netif);
-        }
-        else {
-            LLOGE("没有找到系统默认网卡");
-        }
-    }
-    lua_pushboolean(L, 1);
-    return 1;
-}
+extern struct netif * net_lwip_get_netif(uint8_t adapter_index);
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_ulwip[] =
@@ -654,7 +568,6 @@ static const rotable_Reg_t reg_ulwip[] =
     { "dhcp" ,              ROREG_FUNC(l_ulwip_dhcp)},
     { "ip" ,                ROREG_FUNC(l_ulwip_ip)},
     { "reg" ,               ROREG_FUNC(l_ulwip_reg)},
-    { "dft" ,               ROREG_FUNC(l_ulwip_dft)},
 
     // 网卡FLAGS,默认
     // NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP | NETIF_FLAG_ETHERNET | NETIF_FLAG_IGMP | NETIF_FLAG_MLD6
@@ -677,198 +590,32 @@ LUAMOD_API int luaopen_ulwip( lua_State *L ) {
     return 1;
 }
 
-// -------------------------------------
-//           DHCP 相关的逻辑
-// -------------------------------------
-
-
-// timer回调, 或者是直接被调用, arg是nets的索引号
-static void dhcp_client_cb(void *arg) {
-    int i = (int)arg;
-    // 简单防御一下
-    if (i < 0 || i >= USERLWIP_NET_COUNT) {
-        return;
-    }
-    if (nets[i].netif == NULL || nets[i].dhcp_client == NULL) {
-        return;
-    }
-    // 压入lua线程进行处理
-    rtos_msg_t msg = {
-        .handler = l_dhcp_client_cb,
-        .arg1 = i
-    };
-    luat_msgbus_put(&msg, 0);
-}
-
-static int dhcp_task_run(int idx, char* rxbuff, size_t len) {
-    PV_Union uIP;
-    // 检查dhcp的状态
-    dhcp_client_info_t* dhcp = nets[idx].dhcp_client;
-    struct netif* netif = nets[idx].netif;
-
-    Buffer_Struct rx_msg_buf = {0,0,0};
-    Buffer_Struct tx_msg_buf = {0,0,0};
-	uint32_t remote_ip = 0;
-    int result = 0;
-
-    if (rxbuff) {
-        rx_msg_buf.Data = (uint8_t*)rxbuff;
-        rx_msg_buf.Pos = len;
-        rx_msg_buf.MaxLen = len;
-    }
-
-    // 看看是不是获取成功了
-    if (DHCP_STATE_CHECK == dhcp->state) {
-        uIP.u32 = dhcp->ip;
-		LLOGD("动态IP:%d.%d.%d.%d", uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
-		uIP.u32 = dhcp->submask;
-		LLOGD("子网掩码:%d.%d.%d.%d", uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
-		uIP.u32 = dhcp->gateway;
-		LLOGD("网关:%d.%d.%d.%d", uIP.u8[0], uIP.u8[1], uIP.u8[2], uIP.u8[3]);
-		LLOGD("租约时间:%u秒", dhcp->lease_time);
-
-        // 设置到netif
-        ip_addr_set_ip4_u32(&netif->ip_addr, dhcp->ip);
-        ip_addr_set_ip4_u32(&netif->netmask, dhcp->submask);
-        ip_addr_set_ip4_u32(&netif->gw,      dhcp->gateway);
-        dhcp->state = DHCP_STATE_WAIT_LEASE_P1;
-        if (rxbuff) {
-            luat_heap_free(rxbuff);
+// 针对EC618/EC7xx平台的IP包输入回调
+err_t ulwip_ip_input_cb(struct pbuf *p, struct netif *inp) {
+    LLOGD("收到IP数据包(len=%d)", p->tot_len);
+    u8_t ipVersion;
+    ipVersion = IP_HDR_GET_VERSION(p->payload);
+    if (ipVersion == 4) {
+        // 解析出里面的协议内容
+        struct ip_hdr *ip = (struct ip_hdr *)p->payload;
+        u16_t udpPort = 0;
+        if (ip->_proto == IP_PROTO_UDP) {
+            // UDP协议
+            struct udp_hdr *udp = (struct udp_hdr *)((char*)p->payload + sizeof(struct ip_hdr));
+            udpPort = lwip_ntohs(udp->dest);
         }
-        ulwip_netif_ip_event(nets[idx].adapter_index);
-        return 0;
-    }
-    result = ip4_dhcp_run(dhcp, rxbuff == NULL ? NULL : &rx_msg_buf, &tx_msg_buf, &remote_ip);
-    if (rxbuff) {
-        luat_heap_free(rxbuff);
-    }
-    if (result) {
-        LLOGE("ip4_dhcp_run error %d", result);
-        return 0;
-    }
-    if (!tx_msg_buf.Pos) {
-        return 0; // 没有数据需要发送
-    }
-    // 通过UDP发出来
-    struct pbuf *p;
-    struct pbuf *q;
-    // LLOGD("待发送DHCP包长度 %d 前4个字节分别是 %02X%02X%02X%02X", tx_msg_buf.Pos, 
-    //     tx_msg_buf.Data[0], tx_msg_buf.Data[1], tx_msg_buf.Data[2], tx_msg_buf.Data[3]);
-    p = pbuf_alloc(PBUF_TRANSPORT, tx_msg_buf.Pos, PBUF_RAM);
-    char* data = (char*)tx_msg_buf.Data;
-    for (q = p; q != NULL; q = q->next) {
-        memcpy(q->payload, data, q->len);
-        data += q->len;
-    }
-    data = p->payload;
-    // LLOGI("dhcp payload len %d %02X%02X%02X%02X", p->tot_len, data[0], data[1], data[2], data[3]);
-    udp_sendto_if(nets[idx].dhcp_pcb, p, IP_ADDR_BROADCAST, 67, netif);
-    pbuf_free(p);
-    return 0;
-}
-
-static int l_dhcp_client_cb(lua_State *L, void* ptr) {
-    (void)ptr;
-    rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
-    int idx = msg->arg1;
-    dhcp_task_run(idx, ptr, msg->arg2);
-    return 0;
-}
-
-static void ulwip_dhcp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, u16_t port) {
-    LLOGD("收到DHCP数据包(len=%d)", p->tot_len);
-    int idx = (int)arg;
-    char* ptr = luat_heap_malloc(p->tot_len);
-    if (!ptr) {
-        return;
-    }
-    rtos_msg_t msg = {
-        .ptr = ptr,
-        .handler = l_dhcp_client_cb,
-    };
-    msg.arg1 = idx;
-    msg.arg2 = p->tot_len;
-    size_t offset = 0;
-    do {
-        memcpy((char*)msg.ptr + offset, p->payload, p->len);
-        offset += p->len;
-        p = p->next;
-    } while (p);
-    luat_msgbus_put(&msg, 0);
-    LLOGD("传递DHCP数据包");
-    return;
-}
-
-// ARP 修正
-
-static err_t ulwip_etharp_output(struct netif *netif, struct pbuf *q, const ip4_addr_t *ipaddr) {
-  const struct eth_addr *dest;
-  struct eth_addr mcastaddr;
-  const ip4_addr_t *dst_addr = ipaddr;
-
-  /* Determine on destination hardware address. Broadcasts and multicasts
-   * are special, other IP addresses are looked up in the ARP table. */
-
-  /* broadcast destination IP address? */
-  if (ip4_addr_isbroadcast(ipaddr, netif)) {
-    /* broadcast on Ethernet also */
-    dest = (const struct eth_addr *)&ethbroadcast;
-  /* multicast destination IP address? */
-  } else if (ip4_addr_ismulticast(ipaddr)) {
-    /* Hash IP multicast address to MAC address.*/
-    mcastaddr.addr[0] = LL_IP4_MULTICAST_ADDR_0;
-    mcastaddr.addr[1] = LL_IP4_MULTICAST_ADDR_1;
-    mcastaddr.addr[2] = LL_IP4_MULTICAST_ADDR_2;
-    mcastaddr.addr[3] = ip4_addr2(ipaddr) & 0x7f;
-    mcastaddr.addr[4] = ip4_addr3(ipaddr);
-    mcastaddr.addr[5] = ip4_addr4(ipaddr);
-    /* destination Ethernet address is multicast */
-    dest = &mcastaddr;
-  /* unicast destination IP address? */
-  } else {
-    // s8_t i;
-#if 1
-    /* outside local network? if so, this can neither be a global broadcast nor
-       a subnet broadcast. */
-    if (!ip4_addr_netcmp(ipaddr, netif_ip4_addr(netif), netif_ip4_netmask(netif)) &&
-        !ip4_addr_islinklocal(ipaddr)) {
-#if LWIP_AUTOIP
-      struct ip_hdr *iphdr = LWIP_ALIGNMENT_CAST(struct ip_hdr*, q->payload);
-      /* According to RFC 3297, chapter 2.6.2 (Forwarding Rules), a packet with
-         a link-local source address must always be "directly to its destination
-         on the same physical link. The host MUST NOT send the packet to any
-         router for forwarding". */
-      if (!ip4_addr_islinklocal(&iphdr->src))
-#endif /* LWIP_AUTOIP */
-      {
-#ifdef LWIP_HOOK_ETHARP_GET_GW
-        /* For advanced routing, a single default gateway might not be enough, so get
-           the IP address of the gateway to handle the current destination address. */
-        dst_addr = LWIP_HOOK_ETHARP_GET_GW(netif, ipaddr);
-        if (dst_addr == NULL)
-#endif /* LWIP_HOOK_ETHARP_GET_GW */
-        {
-          /* interface has default gateway? */
-          if (!ip4_addr_isany_val(*netif_ip4_gw(netif))) {
-            /* send to hardware address of default gateway IP address */
-            dst_addr = netif_ip4_gw(netif);
-          /* no default gateway available */
-          } else {
-            /* no route to destination error (default gateway missing) */
-            return ERR_RTE;
-          }
+        else if (ip->_proto == IP_PROTO_TCP) {
+            // TCP协议
+            struct tcp_hdr *tcp = (struct tcp_hdr *)((char*)p->payload + sizeof(struct ip_hdr));
+            udpPort = lwip_ntohs(tcp->dest);
         }
-      }
+        // else {
+        //     // 其他协议
+        //     LLOGD("IP协议版本 %d, 协议 %d, 源端口 %d, 目的端口 %d", ipVersion, IP_HDR_GET_PROTO(ip), lwip_ntohs(ip->src.addr), udpPort);
+        // }
+        char buff[32] = {0};
+        ip4addr_ntoa_r(&ip->src, buff, 32);
+        LLOGD("IP协议版本 %d, 协议 %d, 源IP %s, 目的端口 %d", ipVersion, ip->_proto, buff, udpPort);
     }
-#endif
-
-    /* no stable entry found, use the (slower) query function:
-       queue on destination Ethernet address belonging to ipaddr */
-    return etharp_query(netif, dst_addr, q);
-  }
-
-  /* continuation for multicast/broadcast destinations */
-  /* obtain source Ethernet address of the given interface */
-  /* send packet directly on the link */
-  return ethernet_output(netif, q, (struct eth_addr*)(netif->hwaddr), dest, ETHTYPE_IP);
+    return ERR_OK;
 }

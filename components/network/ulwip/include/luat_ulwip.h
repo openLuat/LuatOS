@@ -37,6 +37,8 @@ typedef struct ulwip_ctx
     uint8_t adapter_index;
     uint8_t ip_ready;
     uint8_t ip_static;
+    uint8_t dhcp_enable;
+    uint8_t reverse; // 反向的
     uint16_t use_zbuff_out;
     uint16_t mtu;
     uint8_t hwaddr[ETH_HWADDR_LEN];
@@ -49,5 +51,15 @@ typedef struct netif_cb_ctx {
     struct netif *netif;
     struct pbuf *p;
 }netif_cb_ctx_t;
+
+// DHCP Client相关
+void ulwip_dhcp_client_start(ulwip_ctx_t *ctx);
+void ulwip_dhcp_client_stop(ulwip_ctx_t *ctx);
+
+err_t ulwip_etharp_output(struct netif *netif, struct pbuf *q, const ip4_addr_t *ipaddr);
+
+int ulwip_netif_ip_event(int8_t adapter_index);
+
+int l_dhcp_client_cb(lua_State *L, void* ptr);
 
 #endif

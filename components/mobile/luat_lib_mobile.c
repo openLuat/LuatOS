@@ -221,8 +221,9 @@ static int l_mobile_simid(lua_State* L) {
     int ret = 0;
     int id = 0;
     if (lua_isinteger(L, 1)) {
-        ret = luat_mobile_set_sim_id(lua_tointeger(L, 1));
-        LLOGI("sim set to %d , ret %d", lua_tointeger(L, 1), ret);
+        id = luaL_checkinteger(L, 1);
+        ret = luat_mobile_set_sim_id(id);
+        LLOGI("sim set to %d , ret %d", id, ret);
     }
     if (LUA_TBOOLEAN == lua_type(L, 2)) {
     	if (lua_toboolean(L, 2)) {

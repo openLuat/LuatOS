@@ -404,6 +404,7 @@ local len = spi.recv(0, 4, buff)
 static int l_spi_recv(lua_State *L) {
     luat_zbuff_t* buff = NULL;
     char* recv_buff = NULL;
+    luaL_Buffer b = {0};
     int ret = 0;
     int len = luaL_optinteger(L, 2, 1);
     if (len <= 0) {
@@ -418,7 +419,8 @@ static int l_spi_recv(lua_State *L) {
         }
     }
     else {
-        recv_buff = (char *)luat_heap_malloc(len);
+        luaL_buffinitsize(L, &b, len);
+        recv_buff = b.b;
     }
     if(recv_buff == NULL) {
         LLOGW("out of memory when malloc spi buff %d", len);
@@ -429,6 +431,7 @@ static int l_spi_recv(lua_State *L) {
     {
         int id = luaL_checkinteger(L, 1);
         ret = luat_spi_recv(id, recv_buff, len);
+        b.n = ret;
     }
     else if (lua_isuserdata(L, 1))
     {
@@ -450,8 +453,7 @@ static int l_spi_recv(lua_State *L) {
     }
     
     if (buff == NULL) {
-        lua_pushlstring(L, recv_buff, ret);
-        luat_heap_free(recv_buff);
+        luaL_pushresult(&b);
     }
     else {
         buff->used += len;

@@ -1128,7 +1128,7 @@ static int alg_udp_proc(u8 is_inet,
         luat_napt_unlock(napt_table_lock_4udp);
 #endif
 
-redo:
+// redo:
 
         ip_hdr->src.addr = ip_addr_get_ip4_u32(gw_ip);
         ip_hdr->_chksum = 0;
@@ -1192,13 +1192,13 @@ redo:
         }
     }
 
-end:
+// end:
     return -1;
 }
 
 static int alg_gre_proc(u8 is_inet, struct ip_hdr *ip_hdr, ip_addr_t* gw_ip)
 {
-    int err;
+    // int err;
     u8 src_ip;
     u8 iphdr_len;
 

@@ -459,7 +459,8 @@ static int l_u8g2_SetFont(lua_State *L) {
     }
     luat_u8g2_set_ascii_indentation(0xff);
     if (lua_isinteger(L, 2)) {
-    	luat_u8g2_set_ascii_indentation(lua_tointeger(L, 2));
+        int indentation = luaL_checkinteger(L, 2);
+        luat_u8g2_set_ascii_indentation(indentation);
     }
     u8g2_SetFont(&conf->u8g2, ptr);
     lua_pushboolean(L, 1);

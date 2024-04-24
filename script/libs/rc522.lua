@@ -9,7 +9,7 @@
 -- 用法实例
 local rc522 = require "rc522"
 sys.taskInit(function()
-    spi_rc522 = spi.setup(0,nil,0,0,8,10*1000*1000,spi.MSB,1,1)
+    spi_rc522 = spi.setup(0,nil,0,0,8,10*1000*1000,spi.MSB,1,0)
     rc522.init(0,pin.PB04,pin.PB01)
     wdata = {0x01,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00}
     while 1 do

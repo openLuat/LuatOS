@@ -188,4 +188,7 @@ LUAMOD_API int luaopen_wlan_raw(lua_State *L);
 // 液晶屏驱动
 LUAMOD_API int luaopen_ht1621(lua_State *L);
 
+// NAPT
+LUAMOD_API int luaopen_napt(lua_State *L);
+
 #endif

@@ -20,6 +20,8 @@ lua代码 <- ulwip回调函数 <- lwip(netif->low_level_output) <- lwip处理逻
 1. Air601的wifi模块作为被控端, 通过UART/SPI收发MAC包, 实现Air780E/Air780EP集成wifi模块的功能
 2. 使用W5500/CH395/ENC28J60等以太网模块, 在用户lua代码中控制其mac包收发, 并集成到luatos socket框架中
 3. 通过蓝牙模块,集成lowpan6
+
+-- 开发中, 请关注 https://github.com/wendal/xt804-spinet
 ]]
 */
 
@@ -34,7 +36,7 @@ static ulwip_ctx_t nets[USERLWIP_NET_COUNT];
 extern struct netif *netif_default;
 
 // 搜索adpater_index对应的netif
-static struct netif* find_netif(uint8_t adapter_index) {
+struct netif* ulwip_find_netif(uint8_t adapter_index) {
     struct netif *netif = NULL;
     for (size_t i = 0; i < USERLWIP_NET_COUNT; i++)
     {
@@ -47,7 +49,7 @@ static struct netif* find_netif(uint8_t adapter_index) {
     return netif;
 }
 
-static int find_index(uint8_t adapter_index) {
+int ulwip_find_index(uint8_t adapter_index) {
     for (size_t i = 0; i < USERLWIP_NET_COUNT; i++)
     {
         if (nets[i].adapter_index == adapter_index)
@@ -103,10 +105,10 @@ int ulwip_netif_ip_event(ulwip_ctx_t* ctx) {
 }
 
 // 回调函数, 用于lwip的netif输出数据
-static int netif_output_cb(lua_State *L, void* ptr) {
-    // LLOGD("netif_output_cb");
+int l_ulwip_netif_output_cb(lua_State *L, void* ptr) {
+    // LLOGD("l_ulwip_netif_output_cb");
     rtos_msg_t* msg = (rtos_msg_t*)lua_topointer(L, -1);
-    int idx = find_index(msg->arg2);
+    int idx = ulwip_find_index(msg->arg2);
     if (idx < 0 || nets[idx].netif == NULL) {
         LLOGE("非法的适配器索引号 %d", msg->arg2);
         return 0;
@@ -118,7 +120,7 @@ static int netif_output_cb(lua_State *L, void* ptr) {
             luat_zbuff_t* buff = lua_newuserdata(L, sizeof(luat_zbuff_t));
             if (buff == NULL)
             {
-                LLOGE("malloc failed for netif_output_cb");
+                LLOGE("malloc failed for l_ulwip_netif_output_cb");
                 return 0;
             }
             memset(buff, 0, sizeof(luat_zbuff_t));
@@ -143,7 +145,7 @@ static int netif_output_cb(lua_State *L, void* ptr) {
 static err_t netif_output(struct netif *netif, struct pbuf *p) {
     // LLOGD("lwip待发送数据 %p %d", p, p->tot_len);
     rtos_msg_t msg = {0};
-    msg.handler = netif_output_cb;
+    msg.handler = l_ulwip_netif_output_cb;
     msg.arg1 = p->tot_len;
     msg.arg2 = -1;
     for (size_t i = 0; i < USERLWIP_NET_COUNT; i++)
@@ -262,6 +264,9 @@ static int l_ulwip_setup(lua_State *L) {
         if (lua_isinteger(L, -1)) {
             reverse = (uint8_t)luaL_checkinteger(L, -1);
         }
+        if (lua_isboolean(L, -1)) {
+            reverse = (uint8_t)lua_toboolean(L, -1);
+        }
         lua_pop(L, 1);
     }
 
@@ -271,6 +276,7 @@ static int l_ulwip_setup(lua_State *L) {
     {
         if (nets[i].netif == NULL)
         {
+            
             if (reverse) {
                 #if defined(CHIP_EC718) || defined(CHIP_EC618) || defined(CHIP_EC716)
                 extern struct netif * net_lwip_get_netif(uint8_t adapter_index);
@@ -292,6 +298,7 @@ static int l_ulwip_setup(lua_State *L) {
                 memcpy(nets[i].hwaddr, netif->hwaddr, ETH_HWADDR_LEN);
                 nets[i].output_lua_ref = luaL_ref(L, LUA_REGISTRYINDEX);
                 lua_pushboolean(L, 1);
+                LLOGD("挂载netif(reverse模式) %p %d %d", netif, i, adapter_index);
                 return 1;
             }
 
@@ -307,6 +314,7 @@ static int l_ulwip_setup(lua_State *L) {
                 lua_pushvalue(L, 3);
                 memcpy(nets[i].hwaddr, mac, ETH_HWADDR_LEN);
                 nets[i].output_lua_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+                LLOGD("挂载netif(普通模式) %p %d %d", netif, i, adapter_index);
                 break;
             }
         }
@@ -347,7 +355,7 @@ static int l_ulwip_setup(lua_State *L) {
 static int l_ulwip_updown(lua_State *L) {
     // 必须有适配器编号
     uint8_t adapter_index = (uint8_t)luaL_checkinteger(L, 1);
-    int idx = find_index(adapter_index);
+    int idx = ulwip_find_index(adapter_index);
     if (idx < 0) {
         LLOGE("没有找到netif");
         return 0;
@@ -377,7 +385,7 @@ static int l_ulwip_updown(lua_State *L) {
 static int l_ulwip_link(lua_State *L) {
     // 必须有适配器编号
     uint8_t adapter_index = (uint8_t)luaL_checkinteger(L, 1);
-    int idx = find_index(adapter_index);
+    int idx = ulwip_find_index(adapter_index);
     if (idx < 0) {
         LLOGE("没有找到netif");
         return 0;
@@ -399,27 +407,20 @@ static int l_ulwip_link(lua_State *L) {
 
 static void netif_input_cb(void *ptr) {
     netif_cb_ctx_t* cb_ctx = (netif_cb_ctx_t*)ptr;
-    if (cb_ctx->ctx->reverse) {
-        if (ERR_OK != cb_ctx->ctx->netif->output(cb_ctx->ctx->netif, cb_ctx->p, NULL)) {
-            LLOGW("ctx->netif->input 失败 %d", cb_ctx->p->tot_len);
-            pbuf_free(cb_ctx->p);
-        }
-    }
-    else {
-        if (ERR_OK != cb_ctx->ctx->netif->input(cb_ctx->p, cb_ctx->ctx->netif)) {
-            LLOGW("ctx->netif->input 失败 %d", cb_ctx->p->tot_len);
-            pbuf_free(cb_ctx->p);
-        }
-
+    if (ERR_OK != cb_ctx->ctx->netif->input(cb_ctx->p, cb_ctx->ctx->netif)) {
+        LLOGW("ctx->netif->input 失败 %d", cb_ctx->p->tot_len);
+        pbuf_free(cb_ctx->p);
     }
     luat_heap_free(cb_ctx);
 }
 
 /*
 往netif输入数据
-@api ulwip.input(adapter_index, data)
+@api ulwip.input(adapter_index, data, len, offset)
 @int adapter_index 适配器编号
-@string data 输入的数据
+@string/userdata data 输入的数据
+@int 如果data是zbuff, len默认是zbuff的used, 对string无效
+@int 如果data是zbuff, offset为数据起始位置, 默认是0, 对string无效
 @return boolean 成功与否
 @usage
 -- 参考ulwip.setup
@@ -432,9 +433,13 @@ static int l_ulwip_input(lua_State *L) {
     const char* data = NULL;
     size_t len = 0;
     size_t offset = 0;
-    int idx = find_index(adapter_index);
+    int idx = ulwip_find_index(adapter_index);
     if (idx < 0) {
         LLOGE("没有找到netif %d", adapter_index);
+        return 0;
+    }
+    if (nets[idx].netif == NULL || nets[idx].netif->input == NULL) {
+        LLOGE("该netif 不支持input操作 %d", adapter_index);
         return 0;
     }
     if (lua_type(L, 2) == LUA_TSTRING)
@@ -468,12 +473,7 @@ static int l_ulwip_input(lua_State *L) {
         data += q->len;
     }
     #if NO_SYS
-    if (nets[idx].reverse) {
-        ret = nets[idx].netif->output(p, nets[idx].netif, NULL);
-    }
-    else {
-        ret = nets[idx].netif->input(p, nets[idx].netif);
-    }
+    ret = nets[idx].netif->input(p, nets[idx].netif);
     #else
     netif_cb_ctx_t* cb_ctx = (netif_cb_ctx_t*)luat_heap_malloc(sizeof(netif_cb_ctx_t));
     if (cb_ctx == NULL) {
@@ -514,13 +514,13 @@ static int l_ulwip_input(lua_State *L) {
 static int l_ulwip_dhcp(lua_State *L) {
     // 必须有适配器编号
     uint8_t adapter_index = (uint8_t)luaL_checkinteger(L, 1);
-    struct netif* netif = find_netif(adapter_index);
+    struct netif* netif = ulwip_find_netif(adapter_index);
     if (netif == NULL) {
         LLOGE("没有找到netif");
         return 0;
     }
     int dhcp_enable = lua_toboolean(L, 2);
-    int i = find_index(adapter_index);
+    int i = ulwip_find_index(adapter_index);
     if (i < 0)
     {
         LLOGE("没有找到adapter_index %d", adapter_index);
@@ -556,7 +556,7 @@ static int l_ulwip_ip(lua_State *L) {
     const char* tmp = NULL;
     // 必须有适配器编号
     uint8_t adapter_index = (uint8_t)luaL_checkinteger(L, 1);
-    struct netif* netif = find_netif(adapter_index);
+    struct netif* netif = ulwip_find_netif(adapter_index);
     if (netif == NULL) {
         LLOGE("没有找到netif %d", adapter_index);
         return 0;
@@ -570,7 +570,7 @@ static int l_ulwip_ip(lua_State *L) {
         tmp = luaL_checkstring(L, 4);
         ipaddr_aton(tmp, &netif->gw);
         
-        int idx = find_index(adapter_index);
+        int idx = ulwip_find_index(adapter_index);
         nets[idx].ip_static = !ip_addr_isany(&netif->ip_addr);
     }
     // 反馈IP信息
@@ -594,7 +594,7 @@ static int l_ulwip_ip(lua_State *L) {
 static int l_ulwip_reg(lua_State *L) {
     // 必须有适配器编号
     uint8_t adapter_index = (uint8_t)luaL_checkinteger(L, 1);
-    struct netif* netif = find_netif(adapter_index);
+    struct netif* netif = ulwip_find_netif(adapter_index);
     if (netif == NULL) {
         LLOGE("没有找到netif %d", adapter_index);
         return 0;
@@ -636,45 +636,4 @@ static const rotable_Reg_t reg_ulwip[] =
 LUAMOD_API int luaopen_ulwip( lua_State *L ) {
     luat_newlib2(L, reg_ulwip);
     return 1;
-}
-
-// 针对EC618/EC7xx平台的IP包输入回调
-err_t ulwip_ip_input_cb(struct pbuf *p, struct netif *inp) {
-    for (size_t i = 0; i < NW_ADAPTER_INDEX_LWIP_NETIF_QTY; i++)
-    {
-        if (nets[i].netif == inp)
-        {
-            // TODO 过滤一下当前能处理的包
-            // 回调到lua中
-            netif_output(inp, p);
-            break;
-        }
-    }
-    
-    // LLOGD("收到IP数据包(len=%d)", p->tot_len);
-    // u8_t ipVersion;
-    // ipVersion = IP_HDR_GET_VERSION(p->payload);
-    // if (ipVersion == 4) {
-    //     // 解析出里面的协议内容
-    //     struct ip_hdr *ip = (struct ip_hdr *)p->payload;
-    //     u16_t udpPort = 0;
-    //     if (ip->_proto == IP_PROTO_UDP) {
-    //         // UDP协议
-    //         struct udp_hdr *udp = (struct udp_hdr *)((char*)p->payload + sizeof(struct ip_hdr));
-    //         udpPort = lwip_ntohs(udp->dest);
-    //     }
-    //     else if (ip->_proto == IP_PROTO_TCP) {
-    //         // TCP协议
-    //         struct tcp_hdr *tcp = (struct tcp_hdr *)((char*)p->payload + sizeof(struct ip_hdr));
-    //         udpPort = lwip_ntohs(tcp->dest);
-    //     }
-    //     // else {
-    //     //     // 其他协议
-    //     //     LLOGD("IP协议版本 %d, 协议 %d, 源端口 %d, 目的端口 %d", ipVersion, IP_HDR_GET_PROTO(ip), lwip_ntohs(ip->src.addr), udpPort);
-    //     // }
-    //     char buff[32] = {0};
-    //     ip4addr_ntoa_r(&ip->src, buff, 32);
-    //     LLOGD("IP协议版本 %d, 协议 %d, 源IP %s, 目的端口 %d", ipVersion, ip->_proto, buff, udpPort);
-    // }
-    return ERR_OK;
 }

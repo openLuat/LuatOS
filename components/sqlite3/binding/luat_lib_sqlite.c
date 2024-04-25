@@ -67,7 +67,8 @@ static int l_sqlite3_open(lua_State *L) {
 static int s_cb(void* args, int nc, char* azResults[], char* azColumns[]) {
     lua_State *L = (lua_State*)args;
     lua_createtable(L, 0, nc);
-    for (size_t i = 0; i < nc; i++)
+    size_t count = nc > 0 ? nc : 0;
+    for (size_t i = 0; i < count; i++)
     {
         lua_pushstring(L, azResults[i]);
         lua_setfield(L, -2, azColumns[i]);
@@ -162,4 +163,3 @@ LUAMOD_API int luaopen_sqlite3( lua_State *L ) {
 
 对sqlite3的最大限制是内存占用, 栈内存据说需要12k以上, 堆内存需要100~200k, 尚无实际验证
 */
-

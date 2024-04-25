@@ -11,6 +11,7 @@
 #include "luat_multimedia.h"
 #include "luat_msgbus.h"
 #include "luat_zbuff.h"
+#include "luat_lib_io_queue.h"
 #define LUAT_LOG_TAG "io_queue"
 #include "luat_log.h"
 int l_io_queue_done_handler(lua_State *L, void* ptr)

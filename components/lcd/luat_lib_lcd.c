@@ -937,7 +937,8 @@ static int l_lcd_set_font(lua_State *L) {
     luat_u8g2_set_ascii_indentation(0xff);
     u8g2_SetFont(&(default_conf->luat_lcd_u8g2), ptr);
     if (lua_isinteger(L, 2)) {
-    	luat_u8g2_set_ascii_indentation(lua_tointeger(L, 2));
+        int indentation = luaL_checkinteger(L, 2);
+    	  luat_u8g2_set_ascii_indentation(indentation);
     }
     lua_pushboolean(L, 1);
     return 1;

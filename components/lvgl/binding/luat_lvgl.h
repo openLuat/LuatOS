@@ -24,7 +24,7 @@
 
 int luat_lv_init(lua_State *L);
 void luat_lv_fs_init(void);
-
+void luat_lvgl_tick_sleep(uint8_t OnOff);
 
 #if LV_USE_ANIMATION
 #include "luat_lvgl_anim.h"

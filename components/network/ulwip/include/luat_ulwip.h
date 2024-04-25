@@ -61,5 +61,8 @@ err_t ulwip_etharp_output(struct netif *netif, struct pbuf *q, const ip4_addr_t 
 int ulwip_netif_ip_event(ulwip_ctx_t* ctx);
 
 int l_dhcp_client_cb(lua_State *L, void* ptr);
+int l_ulwip_netif_output_cb(lua_State *L, void* ptr);
+
+struct netif* ulwip_find_netif(uint8_t adapter_index);
 
 #endif

@@ -33,8 +33,10 @@ enum{
 	LUAT_MULTIMEDIA_CB_AUDIO_NEED_DATA,		//底层驱动播放播放完一部分数据，需要更多数据
 	LUAT_MULTIMEDIA_CB_AUDIO_DONE,			//底层驱动播放完全部数据了
 	LUAT_MULTIMEDIA_CB_DECODE_DONE,			//音频解码完成
-	LUAT_MULTIMEDIA_CB_TTS_INIT,				//TTS做完了必要的初始化，用户可以通过audio_play_tts_set_param做个性化配置
-	LUAT_MULTIMEDIA_CB_TTS_DONE,				//TTS编码完成了。注意不是播放完成
+	LUAT_MULTIMEDIA_CB_TTS_INIT,			//TTS做完了必要的初始化，用户可以通过audio_play_tts_set_param做个性化配置
+	LUAT_MULTIMEDIA_CB_TTS_DONE,			//TTS编码完成了。注意不是播放完成
+	LUAT_MULTIMEDIA_CB_RECORD_DATA,			//录音数据
+	LUAT_MULTIMEDIA_CB_RECORD_DONE,			//录音完成
 };
 
 #include <stddef.h>

@@ -423,7 +423,7 @@ static int l_spi_recv(lua_State *L) {
         recv_buff = b.b;
     }
     if(recv_buff == NULL) {
-        LLOGW("out of memory when malloc spi buff %d", recv_buff);
+        LLOGW("out of memory when malloc spi buff %d", len);
         return 0;
     }
     
@@ -431,6 +431,7 @@ static int l_spi_recv(lua_State *L) {
     {
         int id = luaL_checkinteger(L, 1);
         ret = luat_spi_recv(id, recv_buff, len);
+        b.n = ret;
     }
     else if (lua_isuserdata(L, 1))
     {

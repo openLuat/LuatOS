@@ -59,6 +59,10 @@ void luat_os_print_heapinfo(const char* tag) {
     LLOGD("%s luavm %ld %ld %ld", tag, total, used, max_used);
     luat_meminfo_sys(&total, &used, &max_used);
     LLOGD("%s sys   %ld %ld %ld", tag, total, used, max_used);
+    #ifdef LUAT_USE_PSRAM
+    luat_meminfo_opt_sys(LUAT_HEAP_PSRAM, &total, &used, &max_used);
+    LLOGD("%s psram %ld %ld %ld", tag, total, used, max_used);
+    #endif
 }
 
 

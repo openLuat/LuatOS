@@ -41,10 +41,26 @@ void luat_newlib2(lua_State* l, const rotable_Reg_t* reg) {
   for (; reg->name != NULL; reg++) {  /* fill the table with given functions */
         for (i = 0; i < nup; i++)  /* copy upvalues to the top */
             lua_pushvalue(l, -nup);
-        if (reg->func)
-            lua_pushcclosure(l, reg->func, nup);  /* closure with those upvalues */
-        else
-            lua_pushinteger(l, reg->value);
+        switch (reg->value.type) {
+            case LUA_TFUNCTION:
+              lua_pushcfunction( l, reg->value.value.func );
+              break;
+            case LUA_TINTEGER:
+              lua_pushinteger( l, reg->value.value.intvalue );
+              break;
+            case LUA_TSTRING:
+              lua_pushstring( l, reg->value.value.strvalue );
+              break;
+            case LUA_TNUMBER:
+              lua_pushnumber( l, reg->value.value.numvalue );
+              break;
+            case LUA_TLIGHTUSERDATA:
+              lua_pushlightuserdata(l, reg->value.value.ptr);
+              break;
+            default:
+              lua_pushinteger( l, 0 );
+              break;
+        }
         lua_setfield(l, -(nup + 2), reg->name);
     }
     lua_pop(l, nup);  /* remove upvalues */

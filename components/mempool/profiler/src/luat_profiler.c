@@ -68,7 +68,7 @@ int luat_profiler_stop(void) {
 }
 
 void luat_profiler_print(void) {
-    size_t total; size_t used; size_t max_used;
+    // size_t total; size_t used; size_t max_used;
     LLOGD("============================================");
     // 输出调用次数
     LLOGD("counter malloc %08X free %08X realloc %08X", ctx.counter_malloc, ctx.counter_free, ctx.counter_realloc);

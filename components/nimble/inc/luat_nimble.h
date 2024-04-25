@@ -4,6 +4,11 @@
 #include "luat_base.h"
 #include "luat_msgbus.h"
 
+#include "host/ble_gatt.h"
+#include "host/ble_hs_id.h"
+#include "host/util/util.h"
+#include "host/ble_hs_adv.h"
+#include "host/ble_gap.h"
 #include "host/ble_uuid.h"
 
 #define LUAT_BLE_MAX_CHR (3)

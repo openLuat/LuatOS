@@ -366,7 +366,12 @@ static int l_codec_encode_audio_data(lua_State *L) {
 #ifdef LUAT_SUPPORT_AMR
 #ifdef LUAT_USE_INTER_AMR
 	luat_multimedia_codec_t *coder = (luat_multimedia_codec_t *)luaL_checkudata(L, 1, LUAT_M_CODE_TYPE);
-	luat_zbuff_t *in_buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+	luat_zbuff_t *in_buff;
+	if (luaL_testudata(L, 2, LUAT_ZBUFF_TYPE)){
+		in_buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+	}else{
+		in_buff = ((luat_zbuff_t *)lua_touserdata(L, 2));
+	}
 	luat_zbuff_t *out_buff = ((luat_zbuff_t *)luaL_checkudata(L, 3, LUAT_ZBUFF_TYPE));
 	if (!coder || !in_buff || !out_buff || (coder->type != LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB && coder->type != LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB) || coder->is_decoder)
 	{
@@ -406,7 +411,12 @@ static int l_codec_encode_audio_data(lua_State *L) {
 	return 1;
 #else
 	luat_multimedia_codec_t *coder = (luat_multimedia_codec_t *)luaL_checkudata(L, 1, LUAT_M_CODE_TYPE);
-	luat_zbuff_t *in_buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+	luat_zbuff_t *in_buff;
+	if (luaL_testudata(L, 2, LUAT_ZBUFF_TYPE)){
+		in_buff = ((luat_zbuff_t *)luaL_checkudata(L, 2, LUAT_ZBUFF_TYPE));
+	}else{
+		in_buff = ((luat_zbuff_t *)lua_touserdata(L, 2));
+	}
 	luat_zbuff_t *out_buff = ((luat_zbuff_t *)luaL_checkudata(L, 3, LUAT_ZBUFF_TYPE));
 	int mode = luaL_optinteger(L, 4, MR475);
 	if (!coder || !in_buff || !out_buff || (coder->type != LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB) || coder->is_decoder)

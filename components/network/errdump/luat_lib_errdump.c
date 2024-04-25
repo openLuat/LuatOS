@@ -349,24 +349,21 @@ SOCKET_CLOSE:
 
 static LUAT_RT_RET_TYPE luat_errdump_rx_timer_callback(LUAT_RT_CB_PARAM)
 {
-	if (param)
+	uint32_t retry = (uint32_t)param;
+	if (retry && (retry < 3))
 	{
-		uint32_t retry = (uint32_t)param;
-		if (retry < 3)
-		{
-			LLOGE("errdump tx fail %d cnt, retry", retry);
-			rtos_msg_t msg = {
-				.handler = l_errdump_callback,
-				.ptr = NULL,
-				.arg1 = LUAT_ERRDUMP_TX,
-				.arg2 = retry,
-			};
-			luat_msgbus_put(&msg, 0);
-		}
+		LLOGE("errdump tx fail %d cnt, retry", retry);
+		rtos_msg_t msg = {
+			.handler = l_errdump_callback,
+			.ptr = NULL,
+			.arg1 = LUAT_ERRDUMP_TX,
+			.arg2 = retry,
+		};
+		luat_msgbus_put(&msg, 0);
 	}
 	else
 	{
-		LLOGE("errdump server connect fail, after %d second retry", econf.upload_period);
+		LLOGE("errdump server connect or tx fail, after %d second retry", econf.upload_period);
 		rtos_msg_t msg = {
 			.handler = l_errdump_callback,
 			.ptr = NULL,

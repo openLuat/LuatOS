@@ -37,7 +37,7 @@ typedef struct luat_onewire_opt {
 
 int luat_onewire_set_hw_opt(const luat_onewire_opt_t* ctx);
 
-int luat_onewire_ds18b20(const luat_onewire_ctx_t* ctx, int check_crc, int32_t *re);
+int luat_onewire_ds18b20(luat_onewire_ctx_t* ctx, int check_crc, int32_t *re);
 
 int luat_onewire_dht(luat_onewire_ctx_t* ctx, int32_t* temp, int32_t* hm, int check_crc);
 

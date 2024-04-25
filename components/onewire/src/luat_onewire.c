@@ -2,6 +2,7 @@
 #include "luat_onewire.h"
 #include "luat_gpio.h"
 #include "luat_rtos.h"
+#include "luat_timer.h"
 
 #define LUAT_LOG_TAG "onewire"
 #include "luat_log.h"
@@ -202,7 +203,7 @@ static const uint8_t crc8_maxim[256] = {
     116, 42, 200, 150, 21, 75, 169, 247, 182, 232, 10, 84, 215, 137, 107, 53};
 
 
-int luat_onewire_ds18b20(const luat_onewire_ctx_t* ctx, int check_crc, int32_t *re) {
+int luat_onewire_ds18b20(luat_onewire_ctx_t* ctx, int check_crc, int32_t *re) {
 
     // 初始化单总线
     luat_os_entry_cri();

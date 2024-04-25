@@ -3,7 +3,7 @@
 #include "luat_i2s.h"
 #include "luat_audio.h"
 #include "luat_multimedia.h"
-
+#include "luat_mcu.h"
 #define LUAT_LOG_TAG "audio"
 #include "luat_log.h"
 
@@ -42,7 +42,7 @@ LUAT_WEAK int luat_audio_play_stop(uint8_t multimedia_id){
 }
 
 LUAT_WEAK int luat_audio_play_get_last_error(uint8_t multimedia_id){
-
+    return 0;
 }
 
 LUAT_WEAK int luat_audio_start_raw(uint8_t multimedia_id, uint8_t audio_format, uint8_t num_channels, uint32_t sample_rate, uint8_t bits_per_sample, uint8_t is_signed){

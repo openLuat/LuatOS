@@ -339,7 +339,7 @@ LUAT_WEAK int luat_camera_get_raw_again(int id) {
     return -1;
 }
 
-LUAT_WEAK luat_camera_video(int id, int w, int h, uint8_t uart_id) {
+LUAT_WEAK int luat_camera_video(int id, int w, int h, uint8_t uart_id) {
     LLOGD("not support yet");
     return -1;
 }

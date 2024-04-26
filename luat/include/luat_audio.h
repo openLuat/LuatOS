@@ -74,6 +74,7 @@ typedef enum{
 }luat_audio_bus_type_t;
 
 #ifdef LUAT_USE_RECORD
+#include "luat_i2s.h"
 typedef struct{
 	luat_rtos_task_handle task_handle;
 	FILE* fd;

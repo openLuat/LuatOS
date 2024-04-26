@@ -35,17 +35,24 @@ int l_multimedia_raw_handler(lua_State *L, void* ptr) {
             lua_pushinteger(L, msg->arg1);
 #ifdef LUAT_USE_RECORD
             if (msg->arg1 == LUAT_MULTIMEDIA_CB_RECORD_DATA){
-                lua_pushlightuserdata(L, g_s_record.record_buffer);
+                lua_pushlightuserdata(L, g_s_record.record_buffer[(int)msg->ptr]);
                 lua_call(L, 3, 0);
             }else{
                 lua_call(L, 2, 0);
                 if (msg->arg1 == LUAT_MULTIMEDIA_CB_RECORD_DONE){
-                    luaL_unref(L,LUA_REGISTRYINDEX, g_s_record.zbuff_ref);
-                    if (g_s_record.record_buffer->addr){
-                        luat_heap_opt_free(g_s_record.record_buffer->type,g_s_record.record_buffer->addr);
-                        g_s_record.record_buffer->addr = NULL;
-                        g_s_record.record_buffer->len = 0;
-                        g_s_record.record_buffer->used = 0;
+                    luaL_unref(L,LUA_REGISTRYINDEX, g_s_record.zbuff_ref[0]);
+                    if (g_s_record.record_buffer[0]->addr){
+                        luat_heap_opt_free(g_s_record.record_buffer[0]->type,g_s_record.record_buffer[0]->addr);
+                        g_s_record.record_buffer[0]->addr = NULL;
+                        g_s_record.record_buffer[0]->len = 0;
+                        g_s_record.record_buffer[0]->used = 0;
+                    }
+                    luaL_unref(L,LUA_REGISTRYINDEX, g_s_record.zbuff_ref[1]);
+                    if (g_s_record.record_buffer[1]->addr){
+                        luat_heap_opt_free(g_s_record.record_buffer[1]->type,g_s_record.record_buffer[1]->addr);
+                        g_s_record.record_buffer[1]->addr = NULL;
+                        g_s_record.record_buffer[1]->len = 0;
+                        g_s_record.record_buffer[1]->used = 0;
                     }
                 }
             }
@@ -131,6 +138,8 @@ static void record_stop_encode_amr(void){
         luat_fs_fclose(g_s_record.fd);
         g_s_record.fd = NULL;
     }
+	luat_i2s_conf_t *i2s = luat_i2s_get_config(g_s_record.multimedia_id);
+    memcpy(i2s, &g_s_record.i2s_back, sizeof(luat_i2s_conf_t));
 }
 #endif
 
@@ -155,8 +164,8 @@ static void record_task(void *arg)
     rtos_msg_t msg = {0};
     msg.handler = l_multimedia_raw_handler;
 	luat_i2s_conf_t *i2s = luat_i2s_get_config(g_s_record.multimedia_id);
-    // 最好保存下i2s配置，录音后恢复
-    i2s->cb_rx_len = g_s_record.record_buffer->len;
+    memcpy(&g_s_record.i2s_back, i2s, sizeof(luat_i2s_conf_t));
+    i2s->cb_rx_len = g_s_record.record_buffer[g_s_record.record_buffer_index]->len;
 	i2s->is_full_duplex = 1;
 	i2s->luat_i2s_event_callback = record_cb;
     if (g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB){
@@ -190,12 +199,14 @@ static void record_task(void *arg)
                 if (g_s_record.fd){
                     record_encode_amr((uint8_t *)event.param1, event.param2);
                 }else{
-                    memcpy(g_s_record.record_buffer->addr, (uint8_t *)event.param1, event.param2);
-                    g_s_record.record_buffer->used = event.param2;
+                    memcpy(g_s_record.record_buffer[g_s_record.record_buffer_index]->addr, (uint8_t *)event.param1, event.param2);
+                    g_s_record.record_buffer[g_s_record.record_buffer_index]->used = event.param2;
                     
                     msg.arg1 = LUAT_MULTIMEDIA_CB_RECORD_DATA;
                     msg.arg2 = g_s_record.multimedia_id;
+                    msg.ptr = g_s_record.record_buffer_index;
                     luat_msgbus_put(&msg, 1);
+                    g_s_record.record_buffer_index = !g_s_record.record_buffer_index;
                 }
                 g_s_record.record_time_tmp++;
                 if (g_s_record.record_time_tmp >= (g_s_record.record_time * (g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB?5:10) ))	//8K 5秒 16K 10秒
@@ -214,6 +225,7 @@ static void record_task(void *arg)
 end:
     g_s_record.record_time_tmp = 0;
     g_s_record.is_run = 0;
+    g_s_record.record_buffer_index = 0;
     luat_rtos_task_delete(g_s_record.task_handle);
 }
 
@@ -263,13 +275,22 @@ static int l_audio_record(lua_State *L){
 #endif
     }
     
-    g_s_record.record_buffer = lua_newuserdata(L, sizeof(luat_zbuff_t));
-    g_s_record.record_buffer->type = LUAT_HEAP_SRAM;
-    g_s_record.record_buffer->len = record_buffer_len;
-    g_s_record.record_buffer->addr = luat_heap_opt_malloc(LUAT_HEAP_SRAM,g_s_record.record_buffer->len);
-    lua_pushlightuserdata(L, g_s_record.record_buffer);
-    g_s_record.zbuff_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+    g_s_record.record_buffer[0] = lua_newuserdata(L, sizeof(luat_zbuff_t));
+    g_s_record.record_buffer[0]->type = LUAT_HEAP_SRAM;
+    g_s_record.record_buffer[0]->len = record_buffer_len;
+    g_s_record.record_buffer[0]->addr = luat_heap_opt_malloc(LUAT_HEAP_SRAM,g_s_record.record_buffer[0]->len);
+    lua_pushlightuserdata(L, g_s_record.record_buffer[0]);
+    g_s_record.zbuff_ref[0] = luaL_ref(L, LUA_REGISTRYINDEX);
     lua_pop(L, 1);
+
+    g_s_record.record_buffer[1] = lua_newuserdata(L, sizeof(luat_zbuff_t));
+    g_s_record.record_buffer[1]->type = LUAT_HEAP_SRAM;
+    g_s_record.record_buffer[1]->len = record_buffer_len;
+    g_s_record.record_buffer[1]->addr = luat_heap_opt_malloc(LUAT_HEAP_SRAM,g_s_record.record_buffer[1]->len);
+    lua_pushlightuserdata(L, g_s_record.record_buffer[1]);
+    g_s_record.zbuff_ref[1] = luaL_ref(L, LUA_REGISTRYINDEX);
+    lua_pop(L, 1);
+
 #else
     LLOGE("not support AMR");
     return 0;

@@ -78,15 +78,18 @@ typedef enum{
 typedef struct{
 	luat_rtos_task_handle task_handle;
 	FILE* fd;
+	luat_i2s_conf_t i2s_back;
     uint8_t multimedia_id;
 	uint8_t quailty;
 	uint8_t type;
+	uint8_t is_run;
 	uint16_t record_time;
 	uint16_t record_time_tmp;
 	void* encoder_handler;
-	luat_zbuff_t * record_buffer;
-	int zbuff_ref;
-	uint8_t is_run;
+	luat_zbuff_t * record_buffer[2];
+	int record_buffer_index;
+	int zbuff_ref[2];
+	
 }luat_record_ctrl_t;
 
 #endif

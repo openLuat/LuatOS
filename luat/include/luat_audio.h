@@ -73,6 +73,7 @@ typedef enum{
 	LUAT_AUDIO_BUS_SOFT_DAC
 }luat_audio_bus_type_t;
 
+#ifdef LUAT_USE_RECORD
 typedef struct{
 	luat_rtos_task_handle task_handle;
 	FILE* fd;
@@ -86,6 +87,8 @@ typedef struct{
 	int zbuff_ref;
 	uint8_t is_run;
 }luat_record_ctrl_t;
+
+#endif
 
 /**
  * @brief 设置音频硬件输出类型,后续初始化都会根据类型做不同处理，所以要首先使用此函数设置类型!!!

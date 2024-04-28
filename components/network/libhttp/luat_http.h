@@ -210,12 +210,12 @@ int luat_http_client_set_user_head(luat_http_ctrl_t *http_ctrl, const char *name
  *
  * @param http_ctrl 客户端
  * @param url http请求完整的url，如果有转义字符需要提前转义好
- * @param is_post 是否是post请求
+ * @param type 请求类型，0 get 1 post 2 put 3 delete
  * @param ipv6 是否存在IPV6的服务器
  * @param data_mode 大数据模式，接收数据超过1KB的时候，必须开启。开启后请求头里自动加入"Accept: application/octet-stream\r\n"
  * @return 成功返回0，其他值失败
  */
-int luat_http_client_start(luat_http_ctrl_t *http_ctrl, const char *url, uint8_t is_post, uint8_t ipv6, uint8_t continue_mode);
+int luat_http_client_start(luat_http_ctrl_t *http_ctrl, const char *url, uint8_t type, uint8_t ipv6, uint8_t continue_mode);
 /**
  * @brief 停止当前的http请求，调用后不再有http回调了
  *

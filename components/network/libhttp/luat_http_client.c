@@ -1043,7 +1043,7 @@ int luat_http_client_post_body(luat_http_ctrl_t *http_ctrl, void *data, uint32_t
 	http_send(http_ctrl, data, len);
 	return 0;
 }
-int luat_http_client_start(luat_http_ctrl_t *http_ctrl, const char *url, uint8_t is_post, uint8_t ipv6, uint8_t data_mode)
+int luat_http_client_start(luat_http_ctrl_t *http_ctrl, const char *url, uint8_t type, uint8_t ipv6, uint8_t data_mode)
 {
 	if (!http_ctrl) return -ERROR_PARAM_INVALID;
 	if (http_ctrl->state)
@@ -1054,7 +1054,19 @@ int luat_http_client_start(luat_http_ctrl_t *http_ctrl, const char *url, uint8_t
 		}
 		return -ERROR_PERMISSION_DENIED;
 	}
-	http_ctrl->is_post = is_post;
+	switch(type)
+	{
+	case 0:
+	case 3:
+		http_ctrl->is_post = 0;
+		break;
+	case 1:
+	case 2:
+		http_ctrl->is_post = 1;
+		break;
+	default:
+		return -ERROR_PARAM_INVALID;
+	}
 	http_ctrl->data_mode = data_mode;
 	http_ctrl->retry_cnt = 0;
 	http_ctrl->total_len = 0;
@@ -1149,8 +1161,10 @@ int luat_http_client_start(luat_http_ctrl_t *http_ctrl, const char *url, uint8_t
         return -ERROR_NO_MEMORY;
     }
 
-
-	snprintf_((char*)http_ctrl->request_line, 8192, "%s %s HTTP/1.1\r\n", is_post?"POST":"GET", tmpuri);
+    const char *me[4] = {
+    		"GET","POST","PUT","DELETE"
+    };
+	snprintf_((char*)http_ctrl->request_line, 8192, "%s %s HTTP/1.1\r\n", me[type], tmpuri);
 
 	if (http_ctrl->timeout)
 	{

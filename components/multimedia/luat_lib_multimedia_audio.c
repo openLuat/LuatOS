@@ -308,6 +308,43 @@ static int l_audio_record(lua_State *L){
     return 1;
 }
 
+/**
+录音停止
+@api audio.recordStop(id)
+@int id         多媒体播放通道号
+@return boolean 成功返回true,否则返回false
+@usage
+audio.recordStop(0)
+*/
+static int l_audio_record_stop(lua_State *L) {
+    rtos_msg_t msg = {0};
+    msg.handler = l_multimedia_raw_handler;
+    if (g_s_record.is_run) {
+        if (g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB||g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB){
+#ifdef LUAT_SUPPORT_AMR
+            record_stop_encode_amr();
+#endif
+        }else if(g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_PCM){
+            // 不需要特殊处理
+        }else{
+            LLOGE("not support %d", g_s_record.type);
+            return 0;
+        }
+        msg.arg1 = LUAT_MULTIMEDIA_CB_RECORD_DONE;
+        msg.arg2 = g_s_record.multimedia_id;
+        luat_msgbus_put(&msg, 1);
+        g_s_record.record_time_tmp = 0;
+        g_s_record.is_run = 0;
+        g_s_record.record_buffer_index = 0;
+        luat_rtos_task_delete(g_s_record.task_handle);
+        lua_pushboolean(L, 1);
+        return 1;
+    } else {
+        LLOGE("record is not running");
+        return 0;
+    }
+}
+
 #endif
 
 /**
@@ -700,6 +737,8 @@ static const rotable_Reg_t reg_audio[] =
     { "pm",			    ROREG_FUNC(l_audio_pm_request)},
 #ifdef LUAT_USE_RECORD
     { "record",			ROREG_FUNC(l_audio_record)},
+    { "recordStop",		ROREG_FUNC(l_audio_record_stop)},
+    
 #endif
 	//@const RESUME number PM模式 工作模式
     { "RESUME",         ROREG_INT(LUAT_AUDIO_PM_RESUME)},

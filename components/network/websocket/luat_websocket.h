@@ -41,7 +41,7 @@ typedef struct
 typedef struct luat_websocket_connopts
 {
 	const char *url;
-	uint16_t is_tls;
+	uint16_t keepalive;
 } luat_websocket_connopts_t;
 
 typedef struct luat_websocket_pkg
@@ -51,7 +51,7 @@ typedef struct luat_websocket_pkg
 	uint8_t R;
 	uint8_t mark;
 	uint16_t plen; // 最多支持64k
-	char *payload;
+	const char *payload;
 } luat_websocket_pkg_t;
 
 #define WebSocket_OP_CONTINUE 0x0 /* 0000 - continue frame */
@@ -70,8 +70,8 @@ void luat_websocket_release_socket(luat_websocket_ctrl_t *websocket_ctrl);
 void luat_websocket_ping(luat_websocket_ctrl_t *websocket_ctrl);
 void luat_websocket_reconnect(luat_websocket_ctrl_t *websocket_ctrl);
 int luat_websocket_init(luat_websocket_ctrl_t *websocket_ctrl, int adapter_index);
-int luat_websocket_set_connopts(luat_websocket_ctrl_t *websocket_ctrl, const char *url);
+int luat_websocket_set_connopts(luat_websocket_ctrl_t *websocket_ctrl, luat_websocket_connopts_t* opts);
 int luat_websocket_payload(char *buff, luat_websocket_pkg_t *pkg, size_t limit);
 int luat_websocket_send_frame(luat_websocket_ctrl_t *websocket_ctrl, luat_websocket_pkg_t *pkg);
-int luat_websocket_set_headers(luat_websocket_ctrl_t *websocket_ctrl, const char *headers);
+int luat_websocket_set_headers(luat_websocket_ctrl_t *websocket_ctrl, char *headers);
 #endif

@@ -128,13 +128,13 @@ static void record_encode_amr(uint8_t *data, uint32_t len){
 static void record_stop_encode_amr(void){
 	luat_audio_record_stop(g_s_record.multimedia_id);
 	luat_audio_pm_request(g_s_record.multimedia_id, LUAT_AUDIO_PM_STANDBY);
-#ifdef LUAT_USE_INTER_AMR
-    luat_audio_inter_amr_coder_deinit(g_s_record.encoder_handler);
-#else
-    Encoder_Interface_exit(g_s_record.encoder_handler);
-#endif
-	g_s_record.encoder_handler = NULL;
     if (g_s_record.fd){
+#ifdef LUAT_USE_INTER_AMR
+        luat_audio_inter_amr_coder_deinit(g_s_record.encoder_handler);
+#else
+        Encoder_Interface_exit(g_s_record.encoder_handler);
+#endif
+        g_s_record.encoder_handler = NULL;
         luat_fs_fclose(g_s_record.fd);
         g_s_record.fd = NULL;
     }

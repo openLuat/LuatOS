@@ -1295,4 +1295,5 @@ int tlsf_stat(pool_t pool, size_t *total, size_t *used, size_t *maxused) {
     *total = ctx.total;
     *used = ctx.used;
 	*maxused = ctx.used;
+	return 0;
 }

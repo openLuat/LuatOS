@@ -100,7 +100,7 @@ static inline const uint8_t* nes_get_dma_address(nes_t* nes,uint8_t data) {
     //     return famicom->save_ram + ((uint16_t)(data & 0x1f) << 8);
     case 4: case 5: case 6: case 7:
         // 高一位为1, [$8000, $10000) 程序PRG-ROM区
-        return nes->nes_cpu.prg_banks[data >> 4] + ((uint16_t)(data & 0x0f) << 8);
+        return nes->nes_cpu.prg_banks[(data >> 4) & 0x3] + ((uint16_t)(data & 0x0f) << 8);
     }
 }
 

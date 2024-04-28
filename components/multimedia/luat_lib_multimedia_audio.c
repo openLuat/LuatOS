@@ -100,7 +100,8 @@ static int l_audio_start_raw(lua_State *L){
 #include "interf_dec.h"
 #endif
 #include "luat_fs.h"
-#define RECORD_ONCE_LEN	10	   //单声道 8K录音单次10个编码块，总共200ms回调 320B 20ms，amr编码要求，20ms一个块
+#define RECORD_ONCE_LEN	5
+
 
 #ifdef LUAT_SUPPORT_AMR
 static void record_encode_amr(uint8_t *data, uint32_t len){
@@ -109,8 +110,8 @@ static void record_encode_amr(uint8_t *data, uint32_t len){
 	uint32_t total_len = len >> 1;
 	uint32_t done_len = 0;
 	uint8_t out_len;
-
-	while ((total_len - done_len) >= 160){
+	uint32_t pcm_len = (g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB)?160:320;
+	while ((total_len - done_len) >= pcm_len){
 #ifdef LUAT_USE_INTER_AMR
 		luat_audio_inter_amr_coder_encode(g_s_record.encoder_handler, &pcm[done_len], outbuf,&out_len);
 #else
@@ -121,36 +122,66 @@ static void record_encode_amr(uint8_t *data, uint32_t len){
 		}else{
             luat_fs_fwrite(outbuf, out_len, 1, g_s_record.fd);
 		}
-		done_len += 160;
+		done_len += pcm_len;
 	}
 }
 
 static void record_stop_encode_amr(void){
-	luat_audio_record_stop(g_s_record.multimedia_id);
-	luat_audio_pm_request(g_s_record.multimedia_id, LUAT_AUDIO_PM_STANDBY);
-    if (g_s_record.fd){
 #ifdef LUAT_USE_INTER_AMR
-        luat_audio_inter_amr_coder_deinit(g_s_record.encoder_handler);
+	luat_audio_inter_amr_coder_deinit(g_s_record.encoder_handler);
 #else
-        Encoder_Interface_exit(g_s_record.encoder_handler);
+	Encoder_Interface_exit(g_s_record.encoder_handler);
 #endif
-        g_s_record.encoder_handler = NULL;
-        luat_fs_fclose(g_s_record.fd);
-        g_s_record.fd = NULL;
-    }
-	luat_i2s_conf_t *i2s = luat_i2s_get_config(g_s_record.multimedia_id);
-    memcpy(i2s, &g_s_record.i2s_back, sizeof(luat_i2s_conf_t));
+	g_s_record.encoder_handler = NULL;
 }
 #endif
 
-int record_cb(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint32_t rx_len, void *param)
+static void record_stop(uint8_t *data, uint32_t len);
+static void record_run(uint8_t *data, uint32_t len)
+{
+	rtos_msg_t msg = {0};
+	if (g_s_record.fd){
+#ifdef LUAT_SUPPORT_AMR
+		if (g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB||g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB){
+			record_encode_amr(data, len);
+		}
+		else
+#endif
+		{
+			luat_fs_fwrite(data, len, 1, g_s_record.fd);
+		}
+	}else{
+		memcpy(g_s_record.record_buffer[g_s_record.record_buffer_index]->addr + g_s_record.record_buffer[g_s_record.record_buffer_index]->used, data, len);
+		g_s_record.record_buffer[g_s_record.record_buffer_index]->used += len;
+		if (g_s_record.record_buffer[g_s_record.record_buffer_index]->used >= g_s_record.record_buffer[g_s_record.record_buffer_index]->len)
+		{
+			msg.handler = l_multimedia_raw_handler;
+			msg.arg1 = LUAT_MULTIMEDIA_CB_RECORD_DATA;
+			msg.arg2 = g_s_record.multimedia_id;
+			msg.ptr = g_s_record.record_buffer_index;
+			luat_msgbus_put(&msg, 1);
+			g_s_record.record_buffer_index = !g_s_record.record_buffer_index;
+			g_s_record.record_buffer[g_s_record.record_buffer_index]->used = 0;
+		}
+
+
+	}
+	if (g_s_record.record_time)
+	{
+		g_s_record.record_time_tmp++;
+		if (g_s_record.record_time_tmp >= (g_s_record.record_time * 10) )
+		{
+			record_stop(NULL, 0);
+		}
+	}
+}
+
+static int record_cb(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint32_t rx_len, void *param)
 {
 	switch(event)
 	{
 	case LUAT_I2S_EVENT_RX_DONE:
-        luat_rtos_event_send(g_s_record.task_handle, LUAT_I2S_EVENT_RX_DONE, (uint32_t)rx_data, rx_len, 0, 0);
-		break;
-	case LUAT_I2S_EVENT_TRANSFER_DONE:
+		luat_audio_run_callback_in_task(record_run, rx_data, rx_len);
 		break;
 	default:
 		break;
@@ -158,22 +189,24 @@ int record_cb(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint32_t rx_
 	return 0;
 }
 
-static void record_task(void *arg)
-{
-    luat_event_t event;
-    rtos_msg_t msg = {0};
-    msg.handler = l_multimedia_raw_handler;
+static void record_start(uint8_t *data, uint32_t len){
 	luat_i2s_conf_t *i2s = luat_i2s_get_config(g_s_record.multimedia_id);
-    memcpy(&g_s_record.i2s_back, i2s, sizeof(luat_i2s_conf_t));
-    i2s->cb_rx_len = g_s_record.record_buffer[g_s_record.record_buffer_index]->len;
+	g_s_record.bak_cb_rx_len = i2s->cb_rx_len;
+	g_s_record.bak_is_full_duplex = i2s->is_full_duplex;
+	g_s_record.bak_sample_rate = i2s->sample_rate;
+	g_s_record.bak_luat_i2s_event_callback = i2s->luat_i2s_event_callback;
+
+
 	i2s->is_full_duplex = 1;
 	i2s->luat_i2s_event_callback = record_cb;
     if (g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB){
+    	i2s->cb_rx_len = 320 * RECORD_ONCE_LEN;
         i2s->sample_rate = 8000;
     }else if(g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB){
+    	i2s->cb_rx_len = 640 * RECORD_ONCE_LEN;
         i2s->sample_rate = 16000;
     }
-    
+    //需要保存文件，看情况打开编码功能
     if (g_s_record.fd){
         if (g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB||g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB){
 #ifdef LUAT_SUPPORT_AMR
@@ -186,57 +219,54 @@ static void record_task(void *arg)
 #endif
         }
     }
+	luat_audio_record_and_play(g_s_record.multimedia_id, i2s->sample_rate, NULL, 3200, 2);
+}
 
-    luat_audio_record_and_play(g_s_record.multimedia_id, i2s->sample_rate, NULL, 3200, 2);
 
-    while (1)
-    {
-        luat_rtos_event_recv(g_s_record.task_handle, 0, &event, NULL, LUAT_WAIT_FOREVER);
-        switch(event.id){
-        case LUAT_I2S_EVENT_RX_DONE:
-            if (g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB||g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB){
+static void record_stop(uint8_t *data, uint32_t len){
+	rtos_msg_t msg = {0};
+	//关闭audio硬件功能
+	luat_audio_record_stop(g_s_record.multimedia_id);
+	luat_audio_pm_request(g_s_record.multimedia_id, LUAT_AUDIO_PM_STANDBY);
+	//还原参数
+	luat_i2s_conf_t *i2s = luat_i2s_get_config(g_s_record.multimedia_id);
+	i2s->cb_rx_len = g_s_record.bak_cb_rx_len;
+	i2s->is_full_duplex = g_s_record.bak_is_full_duplex;
+	i2s->sample_rate = g_s_record.bak_sample_rate;
+	i2s->luat_i2s_event_callback = g_s_record.bak_luat_i2s_event_callback;
+	//录音存文件时，看情况关闭编码功能
+	if (g_s_record.fd) {
+		if (g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB||g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB){
 #ifdef LUAT_SUPPORT_AMR
-                if (g_s_record.fd){
-                    record_encode_amr((uint8_t *)event.param1, event.param2);
-                }else{
-                    memcpy(g_s_record.record_buffer[g_s_record.record_buffer_index]->addr, (uint8_t *)event.param1, event.param2);
-                    g_s_record.record_buffer[g_s_record.record_buffer_index]->used = event.param2;
-                    
-                    msg.arg1 = LUAT_MULTIMEDIA_CB_RECORD_DATA;
-                    msg.arg2 = g_s_record.multimedia_id;
-                    msg.ptr = g_s_record.record_buffer_index;
-                    luat_msgbus_put(&msg, 1);
-                    g_s_record.record_buffer_index = !g_s_record.record_buffer_index;
-                }
-                g_s_record.record_time_tmp++;
-                if (g_s_record.record_time_tmp >= (g_s_record.record_time * (g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB?5:10) ))	//8K 5秒 16K 10秒
-                {
-                    record_stop_encode_amr();
-                    msg.arg1 = LUAT_MULTIMEDIA_CB_RECORD_DONE;
-                    msg.arg2 = g_s_record.multimedia_id;
-                    luat_msgbus_put(&msg, 1);
-                    goto end;
-                }
+			record_stop_encode_amr();
 #endif
-            }
-            break;
-        }
-    }
-end:
-    g_s_record.record_time_tmp = 0;
-    g_s_record.is_run = 0;
-    g_s_record.record_buffer_index = 0;
-    luat_rtos_task_delete(g_s_record.task_handle);
+		}else if(g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_PCM){
+			// 不需要特殊处理
+		}else{
+			LLOGE("not support %d", g_s_record.type);
+		}
+		luat_fs_fclose(g_s_record.fd);
+		g_s_record.fd = NULL;
+	}
+	//通知luat task清除zbuff数据，并回调用户
+	msg.handler = l_multimedia_raw_handler;
+	msg.arg1 = LUAT_MULTIMEDIA_CB_RECORD_DONE;
+	msg.arg2 = g_s_record.multimedia_id;
+	g_s_record.record_time_tmp = 0;
+	g_s_record.is_run = 0;
+	g_s_record.record_buffer_index = 0;
+	luat_msgbus_put(&msg, 1);
 }
 
 /**
 录音
 @api audio.record(id, record_type, record_time, amr_quailty, path)
 @int id             多媒体播放通道号
-@int record_type    录音文件音频格式,支持 audio.AMR audio.PCM 
+@int record_type    录音音频格式,支持 audio.AMR audio.PCM (部分平台支持audio.AMR_WB)
 @int record_time    录制时长 单位秒
 @int amr_quailty    质量,audio.AMR下有效
 @string path        录音文件路径,可选,不指定则不保存,可在audio.on回调函数中处理原始PCM数据
+@int record_callback_time	不指定录音文件路径时，单次录音回调时长，单位是100ms。默认1，既100ms
 @return boolean     成功返回true,否则返回false
 @usage
 err,info = audio.record(id, type, record_time, quailty, path)
@@ -248,6 +278,7 @@ static int l_audio_record(lua_State *L){
     g_s_record.type = luaL_optinteger(L, 2,LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB);
     g_s_record.record_time = luaL_checkinteger(L, 3);
     g_s_record.quailty = luaL_optinteger(L, 4, 0);
+
     if (lua_isstring(L, 5)) {
         const char *path = luaL_checklstring(L, 5, &len);
         luat_fs_remove(path);
@@ -261,14 +292,14 @@ static int l_audio_record(lua_State *L){
         LLOGE("record is running");
         return 0;
     }
-
+    record_buffer_len = luaL_optinteger(L, 6, 1);
     if (g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB||g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB){
 #ifdef LUAT_SUPPORT_AMR
     if (g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB){
-        record_buffer_len = 320 * RECORD_ONCE_LEN;
+        record_buffer_len *= 320 * RECORD_ONCE_LEN;
     }else if(g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB){
 #ifdef LUAT_USE_INTER_AMR
-        record_buffer_len = 640 * RECORD_ONCE_LEN;
+        record_buffer_len *= 640 * RECORD_ONCE_LEN;
 #else
     LLOGE("not support 16k");
     return 0;
@@ -276,17 +307,19 @@ static int l_audio_record(lua_State *L){
     }
     
     g_s_record.record_buffer[0] = lua_newuserdata(L, sizeof(luat_zbuff_t));
-    g_s_record.record_buffer[0]->type = LUAT_HEAP_SRAM;
+    g_s_record.record_buffer[0]->type = LUAT_HEAP_AUTO;
     g_s_record.record_buffer[0]->len = record_buffer_len;
-    g_s_record.record_buffer[0]->addr = luat_heap_opt_malloc(LUAT_HEAP_SRAM,g_s_record.record_buffer[0]->len);
+    g_s_record.record_buffer[0]->used = 0;
+    g_s_record.record_buffer[0]->addr = luat_heap_opt_malloc(LUAT_HEAP_AUTO,g_s_record.record_buffer[0]->len);
     lua_pushlightuserdata(L, g_s_record.record_buffer[0]);
     g_s_record.zbuff_ref[0] = luaL_ref(L, LUA_REGISTRYINDEX);
     lua_pop(L, 1);
 
     g_s_record.record_buffer[1] = lua_newuserdata(L, sizeof(luat_zbuff_t));
-    g_s_record.record_buffer[1]->type = LUAT_HEAP_SRAM;
+    g_s_record.record_buffer[1]->type = LUAT_HEAP_AUTO;
+    g_s_record.record_buffer[0]->used = 0;
     g_s_record.record_buffer[1]->len = record_buffer_len;
-    g_s_record.record_buffer[1]->addr = luat_heap_opt_malloc(LUAT_HEAP_SRAM,g_s_record.record_buffer[1]->len);
+    g_s_record.record_buffer[1]->addr = luat_heap_opt_malloc(LUAT_HEAP_AUTO,g_s_record.record_buffer[1]->len);
     lua_pushlightuserdata(L, g_s_record.record_buffer[1]);
     g_s_record.zbuff_ref[1] = luaL_ref(L, LUA_REGISTRYINDEX);
     lua_pop(L, 1);
@@ -301,9 +334,10 @@ static int l_audio_record(lua_State *L){
         LLOGE("not support %d", g_s_record.type);
         return 0;
     }
-
-    luat_rtos_task_create(&g_s_record.task_handle, 8*1024, 100, "record_task", record_task, NULL, 0);
     g_s_record.is_run = 1;
+    luat_audio_run_callback_in_task(record_start, NULL, 0);
+//    luat_rtos_task_create(&g_s_record.task_handle, 8*1024, 100, "record_task", record_task, NULL, 0);
+
     lua_pushboolean(L, 1);
     return 1;
 }
@@ -317,26 +351,9 @@ static int l_audio_record(lua_State *L){
 audio.recordStop(0)
 */
 static int l_audio_record_stop(lua_State *L) {
-    rtos_msg_t msg = {0};
-    msg.handler = l_multimedia_raw_handler;
+
     if (g_s_record.is_run) {
-        if (g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB||g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB){
-#ifdef LUAT_SUPPORT_AMR
-            record_stop_encode_amr();
-#endif
-        }else if(g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_PCM){
-            // 不需要特殊处理
-        }else{
-            LLOGE("not support %d", g_s_record.type);
-            return 0;
-        }
-        msg.arg1 = LUAT_MULTIMEDIA_CB_RECORD_DONE;
-        msg.arg2 = g_s_record.multimedia_id;
-        luat_msgbus_put(&msg, 1);
-        g_s_record.record_time_tmp = 0;
-        g_s_record.is_run = 0;
-        g_s_record.record_buffer_index = 0;
-        luat_rtos_task_delete(g_s_record.task_handle);
+    	luat_audio_run_callback_in_task(record_stop, NULL, 0);
         lua_pushboolean(L, 1);
         return 1;
     } else {

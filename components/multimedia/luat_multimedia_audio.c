@@ -407,5 +407,8 @@ LUAT_WEAK void luat_audio_power_keep_ctrl_by_bsp(uint8_t on_off)
 	;
 }
 
-
+LUAT_WEAK void luat_audio_run_callback_in_task(void *api, uint8_t *data, uint32_t len)
+{
+	;
+}
 

@@ -76,20 +76,22 @@ typedef enum{
 #ifdef LUAT_USE_RECORD
 #include "luat_i2s.h"
 typedef struct{
-	luat_rtos_task_handle task_handle;
+//	luat_rtos_task_handle task_handle;
 	FILE* fd;
-	luat_i2s_conf_t i2s_back;
     uint8_t multimedia_id;
 	uint8_t quailty;
 	uint8_t type;
 	uint8_t is_run;
-	uint16_t record_time;
-	uint16_t record_time_tmp;
+	uint32_t record_time;
+	uint32_t record_time_tmp;
 	void* encoder_handler;
 	luat_zbuff_t * record_buffer[2];
 	int record_buffer_index;
 	int zbuff_ref[2];
-	
+    uint32_t bak_sample_rate;                                   // i2s采样率
+    uint32_t bak_cb_rx_len;                                     // 接收触发回调数据长度
+    int (*bak_luat_i2s_event_callback)(uint8_t id ,luat_i2s_event_t event, uint8_t *rx_data, uint32_t rx_len, void *param); //  i2s回调函数
+    uint8_t bak_is_full_duplex;		                            // 是否全双工
 }luat_record_ctrl_t;
 
 #endif
@@ -368,6 +370,15 @@ void luat_audio_power(uint8_t multimedia_id,uint8_t on);
  * @param on_off 1保持，0不保持
  */
 void luat_audio_power_keep_ctrl_by_bsp(uint8_t on_off);
+
+/**
+ * @brief 把api投放到audio task运行
+ *
+ * @param api 需要运行的api
+ * @param data api输入数据
+ * @param len api输入数据长度
+ */
+void luat_audio_run_callback_in_task(void *api, uint8_t *data, uint32_t len);
 
 void *luat_audio_inter_amr_coder_init(uint8_t is_wb, uint8_t quality);
 int luat_audio_inter_amr_coder_encode(void *handle, const uint16_t *pcm_buf, uint8_t *amr_buf, uint8_t *amr_len);

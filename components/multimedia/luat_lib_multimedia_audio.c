@@ -263,7 +263,7 @@ static void record_stop(uint8_t *data, uint32_t len){
 @api audio.record(id, record_type, record_time, amr_quailty, path)
 @int id             多媒体播放通道号
 @int record_type    录音音频格式,支持 audio.AMR audio.PCM (部分平台支持audio.AMR_WB)
-@int record_time    录制时长 单位秒
+@int record_time    录制时长 单位秒,可选，默认0即表示一直录制
 @int amr_quailty    质量,audio.AMR下有效
 @string path        录音文件路径,可选,不指定则不保存,可在audio.on回调函数中处理原始PCM数据
 @int record_callback_time	不指定录音文件路径时，单次录音回调时长，单位是100ms。默认1，既100ms
@@ -276,9 +276,9 @@ static int l_audio_record(lua_State *L){
     uint32_t record_buffer_len;
     g_s_record.multimedia_id = luaL_checkinteger(L, 1);
     g_s_record.type = luaL_optinteger(L, 2,LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB);
-    g_s_record.record_time = luaL_checkinteger(L, 3);
+    g_s_record.record_time = luaL_optinteger(L, 3, 0);
     g_s_record.quailty = luaL_optinteger(L, 4, 0);
-
+    
     if (lua_isstring(L, 5)) {
         const char *path = luaL_checklstring(L, 5, &len);
         luat_fs_remove(path);

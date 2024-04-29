@@ -19,18 +19,29 @@ local taskName = "task_audio"
 local MSG_MD = "moreData"   -- 播放缓存有空余
 local MSG_PD = "playDone"   -- 播放完成所有数据
 
-audio.on(0, function(id, event)
+-- amr数据存放buffer，尽可能地给大一些
+amr_buff = zbuff.create(20 * 1024)
+--创建一个amr的encoder
+encoder = nil
+
+audio.on(0, function(id, event,buff)
     --使用play来播放文件时只有播放完成回调
-    local succ,stop,file_cnt = audio.getError(0)
-    if not succ then
-        if stop then
-            log.info("用户停止播放")
-        else
-            log.info("第", file_cnt, "个文件解码失败")
+    if event == audio.RECORD_DATA then -- 录音数据
+        codec.encode(encoder, buff, amr_buff)
+    elseif event == audio.RECORD_DONE then -- 录音完成
+        sys.publish("AUDIO_RECORD_DONE")
+    else
+        local succ,stop,file_cnt = audio.getError(0)
+        if not succ then
+            if stop then
+                log.info("用户停止播放")
+            else
+                log.info("第", file_cnt, "个文件解码失败")
+            end
         end
+        -- log.info("播放完成一个音频")
+        sysplus.sendMsg(taskName, MSG_PD)
     end
-    -- log.info("播放完成一个音频")
-    sysplus.sendMsg(taskName, MSG_PD)
 end)
 
 function audio_setup()
@@ -68,7 +79,7 @@ function audio_setup()
         local pa_pin = 25
         local pa_on_level = 1
         local pa_delay = 100
-        local power_pin = 255
+        local power_pin = 16
         local power_on_level = 1
         local power_delay = 3
         local power_time_delay = 100
@@ -84,7 +95,8 @@ function audio_setup()
 
         audio.vol(multimedia_id, voice_vol)
         audio.micVol(multimedia_id, mic_vol)
-	
+        -- audio.debug(true)
+
 	--带TM8211的云喇叭开发板参考下面的配置
 		--[[
 		local multimedia_id = 0
@@ -129,6 +141,50 @@ sys.taskInit(audio_setup)
 local function audio_task()
     sys.waitUntil("AUDIO_READY")
     local result
+
+    --下面为录音demo，根据适配情况选择性开启
+    -- local recordPath = "/record.amr"
+    
+    -- -- 直接录音到文件
+    -- err = audio.record(0, audio.AMR, 5, 7, recordPath)
+    -- sys.waitUntil("AUDIO_RECORD_DONE")
+    -- log.info("record","录音结束")
+    -- result = audio.play(0, {recordPath})
+    -- while true do
+    --     msg = sysplus.waitMsg(taskName, nil)
+    --     if type(msg) == 'table' then
+    --         if msg[1] == MSG_PD then
+    --             log.info("播放结束")
+    --             break
+    --         end
+    --     else
+    --         log.error(type(msg), msg)
+    --     end
+    -- end
+
+    -- -- 录音到内存自行编码
+    -- encoder = codec.create(codec.AMR, false, 7)
+    -- print("encoder",encoder)
+    -- err = audio.record(0, audio.AMR, 5, 7)
+    -- sys.waitUntil("AUDIO_RECORD_DONE")
+    -- log.info("record","录音结束")
+    -- os.remove(recordPath)
+    -- io.writeFile(recordPath, "#!AMR\n")
+	-- io.writeFile(recordPath, amr_buff:query(), "a+b")
+
+	-- result = audio.play(0, {recordPath})
+    -- while true do
+    --     msg = sysplus.waitMsg(taskName, nil)
+    --     if type(msg) == 'table' then
+    --         if msg[1] == MSG_PD then
+    --             log.info("播放结束")
+    --             break
+    --         end
+    --     else
+    --         log.error(type(msg), msg)
+    --     end
+    -- end
+
     -- amr 可播放采样率 8k/16k
     local amrs = {"/luadb/alipay.amr", "/luadb/2.amr", "/luadb/10.amr", "/luadb/yuan.amr"}
     -- 如需在同一个table内混播, 需要使用相同的采样率

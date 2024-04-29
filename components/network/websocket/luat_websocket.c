@@ -161,11 +161,11 @@ int luat_websocket_init(luat_websocket_ctrl_t *websocket_ctrl, int adapter_index
 	return 0;
 }
 
-int luat_websocket_set_connopts(luat_websocket_ctrl_t *websocket_ctrl, const char *url)
+int luat_websocket_set_connopts(luat_websocket_ctrl_t *websocket_ctrl, luat_websocket_connopts_t* opts)
 {
 	int is_tls = 0;
-	const char *tmp = url;
-	LLOGD("url %s", url);
+	const char *tmp = opts->url;
+	LLOGD("url %s", tmp);
 
 	// TODO 支持基本授权的URL ws://wendal:123@wendal.cn:8080/abc
 
@@ -247,6 +247,10 @@ int luat_websocket_set_connopts(luat_websocket_ctrl_t *websocket_ctrl, const cha
 	else
 	{
 		network_deinit_tls(websocket_ctrl->netc);
+	}
+	
+	if (opts->keepalive > 0) {
+		websocket_ctrl->keepalive = opts->keepalive;
 	}
 	return 0;
 }
@@ -644,7 +648,7 @@ int luat_websocket_connect(luat_websocket_ctrl_t *websocket_ctrl)
 	return 0;
 }
 
-int luat_websocket_set_headers(luat_websocket_ctrl_t *websocket_ctrl, const char *headers) {
+int luat_websocket_set_headers(luat_websocket_ctrl_t *websocket_ctrl, char *headers) {
 	if (websocket_ctrl == NULL)
 		return 0;
 	if (websocket_ctrl->headers != NULL) {

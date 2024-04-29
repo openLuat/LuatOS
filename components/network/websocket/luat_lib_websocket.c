@@ -55,7 +55,7 @@ static luat_websocket_ctrl_t *get_websocket_ctrl(lua_State *L)
 	}
 }
 
-static int32_t l_websocket_callback(lua_State *L, void *ptr)
+static int l_websocket_callback(lua_State *L, void *ptr)
 {
 	(void)ptr;
 	rtos_msg_t *msg = (rtos_msg_t *)lua_topointer(L, -1);
@@ -192,9 +192,10 @@ static int l_websocket_set_debug(lua_State *L)
 
 /*
 websocket客户端创建
-@api websocket.create(adapter, url)
+@api websocket.create(adapter, url, keepalive)
 @int 适配器序号, 只能是socket.ETH0, socket.STA, socket.AP,如果不填,会选择平台自带的方式,然后是最后一个注册的适配器
 @string 连接字符串,参考usage
+@int 心跳间隔,默认60秒. 2024.4.28新增
 @return userdata 若成功会返回websocket客户端实例,否则返回nil
 @usage
 -- 普通TCP链接
@@ -210,6 +211,14 @@ static int l_websocket_create(lua_State *L)
 	{
 		return 0;
 	}
+	// 连接参数相关
+	luat_websocket_connopts_t opts = {0};
+	size_t ip_len = 0;
+	opts.url = luaL_checklstring(L, 2, &ip_len);
+	if (lua_isinteger(L, 3)) {
+		opts.keepalive = luaL_checkinteger(L, 3);
+	}
+
 	luat_websocket_ctrl_t *websocket_ctrl = (luat_websocket_ctrl_t *)lua_newuserdata(L, sizeof(luat_websocket_ctrl_t));
 	if (!websocket_ctrl)
 	{
@@ -224,15 +233,8 @@ static int l_websocket_create(lua_State *L)
 		return 0;
 	}
 
-	luat_websocket_connopts_t opts = {0};
-
-	// 连接参数相关
-	// const char *ip;
-	size_t ip_len = 0;
 	network_set_ip_invaild(&websocket_ctrl->ip_addr);
-	opts.url = luaL_checklstring(L, 2, &ip_len);
-
-	ret = luat_websocket_set_connopts(websocket_ctrl, luaL_checklstring(L, 2, &ip_len));
+	ret = luat_websocket_set_connopts(websocket_ctrl, &opts);
 	if (ret){
 		luat_websocket_release_socket(websocket_ctrl);
 		return 0;
@@ -519,7 +521,6 @@ const rotable_Reg_t reg_websocket[] =
 		{"ready", 			ROREG_FUNC(l_websocket_ready)},
 		{"headers", 		ROREG_FUNC(l_websocket_headers)},
 		{"debug",           ROREG_FUNC(l_websocket_set_debug)},
-
 		{NULL, 				ROREG_INT(0)}
 };
 

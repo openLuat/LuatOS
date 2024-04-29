@@ -14,7 +14,7 @@
 #define MQTT_ERROR_STATE_DISCONNECT	-2
 
 #if defined(CHIP_EC618) || defined(CHIP_EC718)
-#define MQTT_RECV_BUF_LEN_MAX 8192 ///< MQTT 接收BUFF大小
+#define MQTT_RECV_BUF_LEN_MAX (32*1024) ///< MQTT 接收BUFF大小
 #else
 #define MQTT_RECV_BUF_LEN_MAX 4096 ///< MQTT 接收BUFF大小
 #endif

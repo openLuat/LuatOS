@@ -88,12 +88,12 @@ if rawbuff == nil then log.info(err) end
 sys.taskInit(function()
     log.info("摄像头启动")
     local cspiId,i2cId=1,1
-
+	local camera_id
     i2c.setup(i2cId,i2c.FAST)
     gpio.setup(5,0) --PD拉低
-    --local camera_id = bf30a2Init(cspiId,i2cId,25500000,SCAN_MODE,SCAN_MODE)
-	local camera_id = gc0310Init(cspiId,i2cId,25500000,SCAN_MODE,SCAN_MODE)
-    --local camera_id = gc032aInit(cspiId,i2cId,24000000,SCAN_MODE,SCAN_MODE)
+    --camera_id = bf30a2Init(cspiId,i2cId,25500000,SCAN_MODE,SCAN_MODE)
+	camera_id = gc0310Init(cspiId,i2cId,25500000,SCAN_MODE,SCAN_MODE)
+    --camera_id = gc032aInit(cspiId,i2cId,24000000,SCAN_MODE,SCAN_MODE)
     camera.stop(camera_id)
     camera.preview(camera_id,true)
     log.info("按下boot开始测试")
@@ -105,14 +105,16 @@ sys.taskInit(function()
             if SCAN_MODE == 1 then
                 if scan_pause then
                     log.info("启动扫码")
-                    camera.start(camera_id)
-                    scan_pause = false
+                    --camera_id = gc0310Init(cspiId,i2cId,25500000,SCAN_MODE,SCAN_MODE)
+                    camera.start(camera_id)	
+					scan_pause = false
                     sys.wait(200)
                     log.info(rtos.meminfo("sys"))
                     log.info(rtos.meminfo("psram"))
                 else
                     log.info("停止扫码")
-                    camera.stop(camera_id)
+                    --camera.close(camera_id)	--完全关闭摄像头才用这个
+					camera.stop(camera_id)
                     scan_pause = true
                     sys.wait(200)
                     log.info(rtos.meminfo("sys"))
@@ -135,13 +137,16 @@ sys.taskInit(function()
                 --uart.tx(uartid, rawbuff) --找个能保存数据的串口工具保存成文件就能在电脑上看了, 格式为JPG                
             else
                 log.debug("摄像头拍照")
+				--camera_id = gc0310Init(cspiId,i2cId,25500000,SCAN_MODE,SCAN_MODE)
                 camera.capture(camera_id,rawbuff,3)	--2和3需要非常多非常多的psram,尽量不要用
                 result, data = sys.waitUntil("capture done", 30000)
                 log.info(rawbuff:used())
+				--camera.close(camera_id)	--完全关闭摄像头才用这个
+				camera.stop(camera_id)
+				uart.tx(uartid, rawbuff) --找个能保存数据的串口工具保存成文件就能在电脑上看了, 格式为JPG
 				rawbuff:resize(60 * 1024)
                 log.info(rtos.meminfo("sys"))
                 log.info(rtos.meminfo("psram"))
-                uart.tx(uartid, rawbuff) --找个能保存数据的串口工具保存成文件就能在电脑上看了, 格式为JPG
             end
 
 

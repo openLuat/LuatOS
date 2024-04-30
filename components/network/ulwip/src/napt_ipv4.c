@@ -1010,12 +1010,12 @@ static int alg_tcp_proc(u8 is_inet,
 #endif
                 return -1;
             }
-            LLOGD("分配新的TCP映射 ip %d port %d -> %d", src_ip, tcp_hdr->src, napt->new_port);
+            // LLOGD("分配新的TCP映射 ip %d port %d -> %d", src_ip, tcp_hdr->src, napt->new_port);
         }
         else
         {
             luat_napt_table_update_4tcp(napt);
-            LLOGD("复用老的TCP映射 ip %d port %d -> %d", src_ip, tcp_hdr->src, napt->new_port);
+            // LLOGD("复用老的TCP映射 ip %d port %d -> %d", src_ip, tcp_hdr->src, napt->new_port);
         }
         memcpy(napt->mac, ptr + 6, 6); //保存源mac地址
         // LLOGD("记录内网-->外网的源MAC %02X%02X%02X%02X%02X%02X", napt->mac[0], napt->mac[1], napt->mac[2], napt->mac[3], napt->mac[4], napt->mac[5]);

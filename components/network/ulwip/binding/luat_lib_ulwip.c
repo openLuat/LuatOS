@@ -28,6 +28,8 @@ lua代码 <- ulwip回调函数 <- lwip(netif->low_level_output) <- lwip处理逻
 #include "luat_base.h"
 #include "luat_ulwip.h"
 #include "luat_crypto.h"
+#include "luat_gpio.h"
+#include "luat_spi.h"
 
 #define LUAT_LOG_TAG "ulwip"
 #include "luat_log.h"
@@ -604,7 +606,69 @@ static int l_ulwip_reg(lua_State *L) {
     return 1;
 }
 
-extern struct netif * net_lwip_get_netif(uint8_t adapter_index);
+/*
+操作XT804进行SPI快速收发
+@api ulwip.xt804_xfer(spi_id, cs_pin, addr, zbuff, len, offset, auto_seek, auto_len)
+@int spi_id SPI的ID号
+@int cs_pin CS脚的GPIO号
+@int addr 寄存器地址
+@zbuff zbuff对象
+@int len 长度
+@int offset 偏移量, 默认buff:used()
+@boolean auto_seek 是否自动移动偏移量, 默认false
+@int auto_len 自动分片长度, 默认按寄存器自动选择
+@return nil 无返回值
+@usage
+-- 本函数属于辅助函数
+*/
+static int l_ulwip_xt804_xfer(lua_State *L) {
+    int spi_id = luaL_checkinteger(L, 1);  // SPI的ID号
+    int cs_pin = luaL_checkinteger(L, 2);  // CS脚的GPIO号
+    int addr = luaL_checkinteger(L, 3);    // 寄存器地址
+    luat_zbuff_t* zbuff = ((luat_zbuff_t *)luaL_checkudata(L, 4, LUAT_ZBUFF_TYPE));
+    size_t len = luaL_checkinteger(L, 5);
+    size_t offset = luaL_optinteger(L, 6, zbuff->used);
+    int auto_seek = lua_toboolean(L, 7);
+    size_t auto_len = luaL_optinteger(L, 8, 0);
+    if (auto_len == 0) {
+        int tmpaddr = addr & 0x7F;
+        if (tmpaddr == 0x00 || tmpaddr == 0x10 || tmpaddr == 0x01 || tmpaddr == 0x11)
+            auto_len = 4;
+        else
+            auto_len = 2;
+    }
+    if (len % auto_len != 0) {
+        len = (len + auto_len - 1) / auto_len * auto_len;
+    }
+
+    char tmp[5] = {0};
+    tmp[0] = addr & 0xFF;
+    int is_write = addr & 0x80;
+    
+    if (is_write) {
+        for (size_t i = 0; i < len / auto_len; i++) {
+            memcpy(tmp+1, zbuff->addr + offset, auto_len);
+            luat_gpio_set(cs_pin, 0);
+            luat_spi_send(spi_id, tmp, auto_len + 1);
+            luat_gpio_set(cs_pin, 1);
+            offset += auto_len;
+        }
+    }
+    else {
+        for (size_t i = 0; i < len / auto_len; i++) {
+            luat_gpio_set(cs_pin, 0);
+            memcpy(tmp+1, zbuff->addr + offset, auto_len);
+            luat_spi_send(spi_id, tmp, 1);
+            luat_spi_recv(spi_id, zbuff->addr + offset, auto_len);
+            luat_gpio_set(cs_pin, 1);
+            offset += auto_len;
+        }
+    }
+    if (auto_seek) {
+        zbuff->used += len;
+    }
+    return 0;
+ }
 
 #include "rotable2.h"
 static const rotable_Reg_t reg_ulwip[] =
@@ -616,6 +680,8 @@ static const rotable_Reg_t reg_ulwip[] =
     { "dhcp" ,              ROREG_FUNC(l_ulwip_dhcp)},
     { "ip" ,                ROREG_FUNC(l_ulwip_ip)},
     { "reg" ,               ROREG_FUNC(l_ulwip_reg)},
+
+    { "xt804_xfer" ,        ROREG_FUNC(l_ulwip_xt804_xfer)},
 
     // 网卡FLAGS,默认
     // NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP | NETIF_FLAG_ETHERNET | NETIF_FLAG_IGMP | NETIF_FLAG_MLD6

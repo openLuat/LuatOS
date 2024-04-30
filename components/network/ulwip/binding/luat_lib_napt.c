@@ -64,7 +64,7 @@ static void toPs(void *ctx)
     UINT8 cid = ipv == 4 ? 1 : 2;
 
     int rc = PsifRawUlOutput(cid, pkt, len);
-    if (rc) {
+    if (rc != 1) {
         LLOGE("PsifRawUlOutput rc %d", rc);
     }
 
@@ -76,6 +76,7 @@ static void sendIp2Ps(uint8_t *pkt, uint32_t len, struct netif* netif)
 {
     void **param = (void **)luat_heap_malloc(sizeof(void *) * 2);
     if (param == NULL) {
+        luat_heap_free(pkt);
         LLOGE("no mem for sendIp2Ps");
         return;
     }
@@ -150,7 +151,7 @@ static int l_napt_rebuild(lua_State *L) {
 @api napt.check()
 @return nil
 @usage
--- 需要周期性调用, 30秒一次
+-- 两次check之间没有数据包的映射记录,会被清理
 */
 static int l_napt_check(lua_State *L) {
     luat_napt_table_check(NULL);

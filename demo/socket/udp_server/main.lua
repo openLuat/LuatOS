@@ -27,7 +27,7 @@ sys.taskInit(function()
         -- TODO 改成自动配网
         -- LED = gpio.setup(12, 0, gpio.PULLUP)
         wlan.init()
-        wlan.setMac(0, string.fromHex("6055F9779010"))
+        -- wlan.setMac(0, string.fromHex("6055F9779010"))
         wlan.setMode(wlan.STATION) -- 默认也是这个模式,不调用也可以
         device_id = wlan.getMac()
         wlan.connect(ssid, password, 1)

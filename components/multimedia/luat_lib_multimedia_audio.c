@@ -205,7 +205,11 @@ static void record_start(uint8_t *data, uint32_t len){
     }else if(g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB){
     	i2s->cb_rx_len = 640 * RECORD_ONCE_LEN;
         i2s->sample_rate = 16000;
+    }else if(g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_PCM){
+    	i2s->cb_rx_len = 320 * RECORD_ONCE_LEN;
+        i2s->sample_rate = 8000;
     }
+
     //需要保存文件，看情况打开编码功能
     if (g_s_record.fd){
         if (g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_NB||g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_AMR_WB){
@@ -306,6 +310,16 @@ static int l_audio_record(lua_State *L){
 #endif
     }
     
+#else
+    LLOGE("not support AMR");
+    return 0;
+#endif
+    }else if(g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_PCM){
+        record_buffer_len *= 320 * RECORD_ONCE_LEN;
+    }else{
+        LLOGE("not support %d", g_s_record.type);
+        return 0;
+    }
     g_s_record.record_buffer[0] = lua_newuserdata(L, sizeof(luat_zbuff_t));
     g_s_record.record_buffer[0]->type = LUAT_HEAP_AUTO;
     g_s_record.record_buffer[0]->len = record_buffer_len;
@@ -324,16 +338,6 @@ static int l_audio_record(lua_State *L){
     g_s_record.zbuff_ref[1] = luaL_ref(L, LUA_REGISTRYINDEX);
     lua_pop(L, 1);
 
-#else
-    LLOGE("not support AMR");
-    return 0;
-#endif
-    }else if(g_s_record.type==LUAT_MULTIMEDIA_DATA_TYPE_PCM){
-        // 不需要特殊处理
-    }else{
-        LLOGE("not support %d", g_s_record.type);
-        return 0;
-    }
     g_s_record.is_run = 1;
     luat_audio_run_callback_in_task(record_start, NULL, 0);
 //    luat_rtos_task_create(&g_s_record.task_handle, 8*1024, 100, "record_task", record_task, NULL, 0);

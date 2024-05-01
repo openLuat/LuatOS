@@ -649,7 +649,7 @@ static int l_ulwip_xt804_xfer(lua_State *L) {
         for (size_t i = 0; i < len / auto_len; i++) {
             memcpy(tmp+1, zbuff->addr + offset, auto_len);
             luat_gpio_set(cs_pin, 0);
-            luat_spi_send(spi_id, tmp, auto_len + 1);
+            luat_spi_send(spi_id, (const char*)tmp, auto_len + 1);
             luat_gpio_set(cs_pin, 1);
             offset += auto_len;
         }
@@ -658,8 +658,8 @@ static int l_ulwip_xt804_xfer(lua_State *L) {
         for (size_t i = 0; i < len / auto_len; i++) {
             luat_gpio_set(cs_pin, 0);
             memcpy(tmp+1, zbuff->addr + offset, auto_len);
-            luat_spi_send(spi_id, tmp, 1);
-            luat_spi_recv(spi_id, zbuff->addr + offset, auto_len);
+            luat_spi_send(spi_id, (const char*)tmp, 1);
+            luat_spi_recv(spi_id, (char*)(zbuff->addr + offset), auto_len);
             luat_gpio_set(cs_pin, 1);
             offset += auto_len;
         }

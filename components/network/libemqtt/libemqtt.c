@@ -235,37 +235,41 @@ int mqtt_connect(mqtt_broker_handle_t* broker)
 
 
    	// Fixed header
-    uint8_t fixedHeaderSize = 2;    // Default size = one byte Message Type + one byte Remaining Length
-    uint8_t remainLen = sizeof(var_header)+payload_len;
-    if (remainLen > 127) {
-        fixedHeaderSize++;          // add an additional byte for Remaining Length
-    }
-    uint8_t fixed_header[3];
+    // uint16_t fixedHeaderSize = 2;    // Default size = one byte Message Type + one byte Remaining Length
+    uint16_t remainLen = sizeof(var_header)+payload_len;
+    uint8_t buf[4] = {0};
+	int rc = 0;
+	uint32_t length = remainLen;
+	do
+	{
+		char d = length % 128;
+		length /= 128;
+		/* if there are more digits to encode, set the top bit of this digit */
+		if (length > 0)
+			d |= 0x80;
+		buf[rc++] = d;
+	} while (length > 0);
+	size_t fixed_header_len = rc + 1;
+
+    // Allocate memory for the fixed header (3 bytes
+    uint8_t fixed_header[8] = {0};
     
     // Message Type
     fixed_header[0] = MQTT_MSG_CONNECT;
 
     // Remaining Length
-    if (remainLen <= 127) {
-        fixed_header[1] = remainLen;
-    } else {
-        // first byte is remainder (mod) of 128, then set the MSB to indicate more bytes
-        fixed_header[1] = remainLen % 128;
-        fixed_header[1] = fixed_header[1] | 0x80;
-        // second byte is number of 128s
-        fixed_header[2] = remainLen / 128;
-    }
+	memcpy(fixed_header + 1, buf, fixed_header_len - 1);
 
 	uint16_t offset = 0;
-	uint32_t packet_size = fixedHeaderSize+sizeof(var_header)+payload_len;
+	uint32_t packet_size = fixed_header_len+sizeof(var_header)+payload_len;
 	uint8_t *packet = luat_heap_malloc(packet_size);
 	if (packet == NULL) {
 		LLOGE("out of memory when malloc connect packet");
 		return -2;
 	}
 	memset(packet, 0, packet_size);
-	memcpy(packet, fixed_header, fixedHeaderSize);
-	offset += fixedHeaderSize;
+	memcpy(packet, fixed_header, fixed_header_len);
+	offset += fixed_header_len;
 	memcpy(packet+offset, var_header, sizeof(var_header));
 	offset += sizeof(var_header);
 	// Client ID - UTF encoded

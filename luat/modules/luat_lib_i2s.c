@@ -144,7 +144,7 @@ static int l_i2s_send(lua_State *L) {
     else {
         buff = (char*)luaL_checklstring(L, 2, &len);
     }
-    if (lua_type(L, 3) == LUA_TINTEGER) {
+    if (lua_type(L, 3) == LUA_TNUMBER) {
         len = luaL_checkinteger(L, 3);
     }
     int ret = luat_i2s_send(id, buff, len);

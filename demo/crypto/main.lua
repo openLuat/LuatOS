@@ -64,15 +64,32 @@ sys.taskInit(function()
         log.info("des", data1:toHex())
         local data2 = crypto.cipher_decrypt("DES-ECB", "PKCS7", data1, "12345678")
         log.info("des", data2)
+    else
+        log.info("des", "当前固件不支持DES/3DES")
     end
+
+    -- 3DES-ECB 加解密
+    local data1 = crypto.cipher_encrypt("DES-EDE3-ECB", "PKCS7", "abcdefg!!--ZZSS", "123456781234567812345678")
+    if data1 then -- DES-ECB 在某些平台不支持的
+        log.info("3des", data1:toHex())
+        local data2 = crypto.cipher_decrypt("DES-EDE3-ECB", "PKCS7", data1, "123456781234567812345678")
+        log.info("3des", data2)
+    else
+        log.info("3des", "当前固件不支持DES/3DES")
+    end
+
 
     -- 打印所有支持的cipher
     if crypto.cipher_list then
         log.info("cipher", "list", json.encode(crypto.cipher_list()))
+    else
+        log.info("cipher", "当前固件不支持crypto.cipher_list")
     end
     -- 打印所有支持的cipher suites
     if crypto.cipher_suites then
         log.info("cipher", "suites", json.encode(crypto.cipher_suites()))
+    else
+        log.info("cipher", "当前固件不支持crypto.cipher_suites")
     end
 
     ---------------------------------------
@@ -106,11 +123,15 @@ sys.taskInit(function()
         log.info("hmac_md5", crypto.md_file("MD5", "/luadb/logo.jpg", "123456"))
         log.info("hmac_sha1", crypto.md_file("SHA1", "/luadb/logo.jpg", "123456"))
         log.info("hmac_sha256", crypto.md_file("SHA256", "/luadb/logo.jpg", "123456"))
+    else
+        log.info("文件hash值测试", "当前固件不支持crypto.md_file")
     end
 
     if crypto.checksum then
         log.info("checksum", "OK", string.char(crypto.checksum("OK")):toHex())
         log.info("checksum", "357E", string.char(crypto.checksum("357E", 1)):toHex())
+    else
+        log.info("checksum", "当前固件不支持crypto.checksum")
     end
 
     -- 流式hash测试
@@ -199,12 +220,16 @@ sys.taskInit(function()
             log.info("hmac_sha512_stream", hmac_sha512_result)
             log.info("hmac_sha512", crypto.hmac_sha512("1234567890123456789012345678901234567890", "1234567890"))
         end
+    else
+        log.info("crypto", "当前固件不支持crypto.hash_init")
     end
 
     log.info("crc7测试")
     if crypto.crc7 then
         local result = crypto.crc7(string.char(0xAA), 0xE5, 0x00)
         log.info("crc7测试", result, string.format("%02X", result))
+    else
+        log.info("crypto", "当前固件不支持crypto.crc7")
     end
 
     log.info("crypto", "ALL Done")

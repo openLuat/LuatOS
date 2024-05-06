@@ -915,6 +915,8 @@ static void net_lwip2_check_network_ready(uint8_t adapter_index)
 	int i = 0;
 	luat_ip_addr_t addr = {0};
 	// char ip_string[64];
+	if (prvlwip.lwip_netif[adapter_index] == NULL)
+		return;
 	uint8_t active_flag = !ip_addr_isany(&prvlwip.lwip_netif[adapter_index]->ip_addr);
 	if (prvlwip.netif_network_ready[adapter_index] == active_flag) {
 		LLOGD("网络[%d]状态没有变化, 跳过检查", adapter_index);

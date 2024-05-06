@@ -1,13 +1,13 @@
 
 /*
 @module  cc
-@summary 通话功能
+@summary VoLTE通话功能
 @version 1.0
 @date    2024.1.17
-@demo    mobile
+@demo    cc
 @tag LUAT_USE_VOLTE
 @usage
-
+-- 当前仅Air780EPV支持VoLTE通话功能
 */
 
 #include "luat_base.h"

@@ -110,10 +110,11 @@ static int l_wlan_ready(lua_State* L){
 
 /*
 作为STATION时,连接到指定AP
-@api wlan.connect(ssid, password, auto_reconnect)
+@api wlan.connect(ssid, password, auto_reconnect, bssid)
 @string AP的ssid
 @string AP的password,可选
 @int    0关闭自动重连,1开启自动重连.当前强制开启自动重连
+@string AP的bssid,可选,必须是6字节
 @return bool 发起连接成功返回true,否则返回false.注意,不代表连接AP成功!!
 @usage
 
@@ -124,14 +125,23 @@ wlan.connect("myap")
 -- 特殊模式, 重用之前的ssid和密码,本次直接连接
 -- 注意, 前提是本次上电后已经传过ssid和或password,否则必失败
 wlan.connect()
+
+-- 特殊模式, 使用ssid和密码,本次连接指定bssid, 2024.5.7新增
+local bssid = string.fromHex("00182946365f")
+wlan.connect("myap", "12345678", 1, bssid)
 */
 static int l_wlan_connect(lua_State* L){
     const char* ssid = luaL_optstring(L, 1, "");
     const char* password = luaL_optstring(L, 2, "");
+    size_t len = 0;
     luat_wlan_conninfo_t info = {0};
     info.auto_reconnection = 1;
     memcpy(info.ssid, ssid, strlen(ssid));
     memcpy(info.password, password, strlen(password));
+    const char* bssid = luaL_optlstring(L, 4, "", &len);
+    if (len == 6) {
+        memcpy(info.bssid, bssid, 6);
+    }
 
     int ret = luat_wlan_connect(&info);
     lua_pushboolean(L, ret == 0 ? 1 : 0);

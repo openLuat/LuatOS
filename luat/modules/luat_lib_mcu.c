@@ -77,6 +77,7 @@ static int l_mcu_unique_id(lua_State* L) {
 @usage
 local tick = mcu.ticks()
 print("ticks", tick)
+-- 如需不会溢出的值, 可用mcu.ticks32(), 于2024.5.7新增
 */
 static int l_mcu_ticks(lua_State* L) {
     long tick = luat_mcu_ticks();
@@ -307,6 +308,59 @@ static int l_mcu_alt_ctrl(lua_State* L)
 #endif
 	return 0;
 }
+
+/*
+获取高精度的计数
+@api mcu.ticks2(mode)
+@int 模式, 看后面的用法说明
+@return int 根据mode的不同,返回值的含义不同
+@usage
+-- 本函数于2024.5.7新增
+-- 与mcu.ticks()的区别是,底层计数器是64bit的, 在可预计的将来不会溢出
+-- 所以本函数返回的值总是递增的, 而且32bit固件也能处理
+
+-- 模式可选值 及 对应的返回值
+-- 0: 返回微秒数, 以秒为分割, 例如 1234567890us 返回2个值: 1234, 567890
+-- 1: 返回毫秒数, 以千秒为分割, 例如 1234567890ms 返回2个值: 1234, 567890
+-- 2: 返回秒数,   以百万秒为分割, 例如 1234567890s  返回2个值: 1234, 567890
+
+local us_h, us_l = mcu.ticks2(0)
+local ms_h, ms_l = mcu.ticks2(1)
+local sec_h, sec_l = mcu.ticks2(2)
+log.info("us_h", us_h, "us_l", us_l)
+log.info("ms_h", ms_h, "ms_l", ms_l)
+log.info("sec_h", sec_h, "sec_l", sec_l)
+*/
+static int l_mcu_ticks2(lua_State* L) {
+	int mode = luaL_optinteger(L, 1, 0);
+    uint64_t tick = luat_mcu_tick64();
+    uint32_t us_period = luat_mcu_us_period();
+	uint64_t us = tick / us_period;
+	uint64_t ms = us / 1000;
+	uint64_t sec = ms / 1000;
+    switch (mode)
+	{
+	case 0:
+		// 模式0, 返回微秒数
+		lua_pushinteger(L, (uint32_t)(us / 1000 / 1000));
+		lua_pushinteger(L, (uint32_t)(us % 1000 % 1000));
+		return 2;
+	case 1:
+		// 模式1, 返回毫秒数
+		lua_pushinteger(L, (uint32_t)(ms / 1000 / 1000));
+		lua_pushinteger(L, (uint32_t)(ms % 1000 % 1000));
+		return 2;
+	case 2:
+		// 模式2, 返回秒数
+		lua_pushinteger(L, (uint32_t)(sec / 1000 / 1000));
+		lua_pushinteger(L, (uint32_t)(sec % 1000 % 1000));
+		return 2;
+	default:
+		break;
+	}
+    return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_mcu[] =
 {
@@ -316,17 +370,18 @@ static const rotable_Reg_t reg_mcu[] =
     { "ticks",          ROREG_FUNC(l_mcu_ticks)},
     { "hz",             ROREG_FUNC(l_mcu_hz)},
 	{ "reg32",          ROREG_FUNC(l_mcu_reg32)},
-	{ "x32",             ROREG_FUNC(l_mcu_x32)},
+	{ "x32",            ROREG_FUNC(l_mcu_x32)},
 // #ifdef __LUATOS_TICK_64BIT__
 	{ "tick64",			ROREG_FUNC(l_mcu_hw_tick64)},
 	{ "dtick64",		ROREG_FUNC(l_mcu_hw_diff_tick64)},
 	{ "setXTAL",		ROREG_FUNC(l_mcu_set_xtal)},
-	{ "hardfault",	ROREG_FUNC(l_mcu_set_hardfault_mode)},
+	{ "hardfault",		ROREG_FUNC(l_mcu_set_hardfault_mode)},
 #ifdef LUAT_MCU_IOMUX_CTRL
-	{ "altfun",	ROREG_FUNC(l_mcu_alt_ctrl)},
+	{ "altfun",			ROREG_FUNC(l_mcu_alt_ctrl)},
 #else
-	{ "iomux",	ROREG_FUNC(l_mcu_iomux)},
+	{ "iomux",			ROREG_FUNC(l_mcu_iomux)},
 #endif
+    { "ticks2",         ROREG_FUNC(l_mcu_ticks2)},
 // #endif
 	//@const UART number 外设类型-串口
 	{ "UART",             ROREG_INT(LUAT_MCU_PERIPHERAL_UART) },

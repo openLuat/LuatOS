@@ -602,13 +602,13 @@ static inline uint16_t u162bcd(uint16_t src) {
 }
 
 /**
-获取机制信息
+获取基站信息
 @api mobile.getCellInfo()
 @return table 包含基站数据的数组
 @usage
 -- 注意: 从2023.06.20开始, 需要主动请求一次reqCellInfo才会有基站数据.
 
---示例输出
+--示例输出(原始数据是table, 下面是json格式化后的内容)
 --[[
 [
     {"rsrq":-10,"rssi":-55,"cid":124045360,"mnc":17,"pci":115,"earfcn":1850,"snr":15,"rsrp":-85,"mcc":1120,"tdd":0},
@@ -754,6 +754,7 @@ static int l_mobile_request_cell_info(lua_State* L) {
 /**
 重启协议栈
 @api mobile.reset()
+@return nil 无返回值
 @usage
 -- 重启LTE协议栈
 mobile.reset()
@@ -780,6 +781,8 @@ local uplinkGB, uplinkB, downlinkGB, downlinkB = mobile.dataTraffic()
 
 -- 清空上下行流量累计值
 mobile.dataTraffic(true, true)
+
+-- 仅记录开机后的流量,复位/重启会归零
  */
 static int l_mobile_data_traffic(lua_State* L) {
     uint64_t uplink;
@@ -809,12 +812,14 @@ static int l_mobile_data_traffic(lua_State* L) {
 }
 
 /**
-网络特殊配置，针对不同平台有不同的配置，谨慎使用，目前只有EC618
+网络特殊配置
 @api mobile.config(item, value)
 @int 配置项目，看mobile.CONF_XXX
-@int 配置值
+@int 配置值,根据具体配置的item决定
 @return boolean 是否成功
 @usage
+--针对不同平台有不同的配置，谨慎使用，目前只有EC618/EC718系列
+
 -- EC618配置小区重选信号差值门限，不能大于15dbm，必须在飞行模式下才能用
 mobile.flymode(0,true)
 mobile.config(mobile.CONF_RESELTOWEAKNCELL, 15)

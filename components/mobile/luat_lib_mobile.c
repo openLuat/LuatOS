@@ -570,7 +570,20 @@ static int l_mobile_sync_time(lua_State* L) {
 /**
 获取网络状态
 @api mobile.status()
-@return int 当前网络状态,0:网络未注册;1:网络已注册;2:正在搜网中;3:网络注册被拒绝
+@return int 当前网络状态
+@usage
+-- 状态描述
+-- 0:网络未注册
+-- 1:网络已注册
+-- 2:正在搜网中
+-- 3:网络注册被拒绝
+-- 4:网络状态未知
+-- 5:漫游,且已注册
+-- 6:仅SMS可用
+-- 7:仅SMS可用,且漫游状态
+-- 8:仅紧急呼叫. 注意, 国内不支持此状态,模块也不支持紧急呼叫
+
+-- 不推荐使用本API判断联网状态, 建议使用socket.localIP()来判断
  */
 static int l_mobile_status(lua_State* L) {
     int LUAT_MOBILE_REGISTER_STATUS_E = luat_mobile_get_register_status();

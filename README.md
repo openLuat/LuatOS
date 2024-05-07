@@ -4,11 +4,11 @@
 [![fork](https://gitee.com/openLuat/LuatOS/badge/fork.svg?theme=gvp)](https://gitee.com/openLuat/LuatOS/members)
 [![license](https://img.shields.io/github/license/openLuat/LuatOS)](/LICENSE)
 
+[![ec618,Air780E](https://github.com/openLuat/luatos-soc-2022/actions/workflows/ci.yaml/badge.svg)](https://wiki.luatos.com/chips/air780e/index.html)
+[![ec7xx,Air780EP](https://github.com/openLuat/luatos-soc-2024/actions/workflows/ci.yaml/badge.svg)](https://wiki.luatos.com/chips/air780ep/index.html)
 [![air101](https://pg.air32.cn/openLuat/LuatOS/actions/workflows/air101.yml/badge.svg)](https://wiki.luatos.com/chips/air101/index.html)
 [![air105](https://pg.air32.cn/openLuat/LuatOS/actions/workflows/air105.yml/badge.svg)](https://wiki.luatos.com/chips/air105/index.html)
 [![esp32](https://pg.air32.cn/openLuat/LuatOS/actions/workflows/esp32-idf5.yml/badge.svg)](https://wiki.luatos.com/chips/esp32c3/index.html)
-[![ec618,Air780E](https://github.com/openLuat/luatos-soc-2022/actions/workflows/ci.yaml/badge.svg)](https://wiki.luatos.com/chips/air780e/index.html)
-[![ec7xx](https://github.com/openLuat/luatos-soc-2023/actions/workflows/ci.yaml/badge.svg)](https://wiki.luatos.com/chips/air780ep/index.html)
 [![PC](https://github.com/openLuat/luatos-soc-pc/actions/workflows/ci.yml/badge.svg)](https://wiki.luatos.com/chips/pc/index.html)
 
 LuatOS : Powerful embedded Lua Engine for IoT devices, with many components and low memory requirements (16K RAM, 128K Flash)

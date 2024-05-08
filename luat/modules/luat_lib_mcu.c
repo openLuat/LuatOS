@@ -71,7 +71,7 @@ static int l_mcu_unique_id(lua_State* L) {
 }
 
 /*
-获取启动后的tick数,注意会出现溢出会出现负数
+获取启动后的tick数,本身是无符号值,范围0~0xffffffff,lua是有符号计算,计算时超过0x7fffffff会变负数
 @api mcu.ticks()
 @return int 当前tick值
 @usage

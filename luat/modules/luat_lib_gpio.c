@@ -25,12 +25,14 @@
 static int l_gpio_set(lua_State *L);
 static int l_gpio_get(lua_State *L);
 static int l_gpio_close(lua_State *L);
+static int l_gpio_get_count(lua_State *L);
 int l_gpio_handler(lua_State *L, void* ptr) ;
 
 typedef struct gpio_ctx
 {
     int lua_ref; // irq下的回调函数
     luat_rtos_timer_t timer;
+    uint32_t irq_cnt;		//中断数量计数
     uint32_t latest_tick; // 防抖功能的最后tick数
     uint16_t conf_tick;   // 防抖设置的超时tick数
     uint8_t debounce_mode;
@@ -111,6 +113,11 @@ static LUAT_RT_RET_TYPE l_gpio_debounce_mode1_cb(LUAT_RT_CB_PARAM) {
 }
 #endif
 
+static int luat_gpio_irq_count(int pin, void* args) {
+	gpios[pin].irq_cnt++;
+	return 0;
+}
+
 int luat_gpio_irq_default(int pin, void* args) {
     rtos_msg_t msg = {0};
 #ifdef LUAT_GPIO_PIN_MAX
@@ -167,7 +174,8 @@ int l_gpio_handler(lua_State *L, void* ptr) {
     lua_geti(L, LUA_REGISTRYINDEX, gpios[pin].lua_ref);
     if (!lua_isnil(L, -1)) {
         lua_pushinteger(L, msg->arg2);
-        lua_call(L, 1, 0);
+        lua_pushinteger(L, msg->arg1);
+        lua_call(L, 2, 0);
     }
     return 0;
 }
@@ -176,7 +184,7 @@ int l_gpio_handler(lua_State *L, void* ptr) {
 设置管脚功能
 @api gpio.setup(pin, mode, pull, irq, alt)
 @int pin gpio编号,必须是数值
-@any mode 输入输出模式：<br>数字0/1代表输出模式<br>nil代表输入模式<br>function代表中断模式
+@any mode 输入输出模式：<br>数字0/1代表输出模式<br>nil代表输入模式<br>function代表中断模式，如果填gpio.count，则为中断计数功能，中断时不回调
 @int pull 上拉下拉模式, 可以是上拉模式 gpio.PULLUP 或下拉模式 gpio.PULLDOWN, 或者开漏模式 0. 需要根据实际硬件选用
 @int irq 中断触发模式,默认gpio.BOTH。中断触发模式<br>上升沿gpio.RISING<br>下降沿gpio.FALLING<br>上升和下降都触发gpio.BOTH 
 @int alt 复用选项，目前只有EC618平台需要这个参数，有些GPIO可以复用到不同引脚上，可以选择复用选项（0或者4）从而复用到对应的引脚上
@@ -202,6 +210,10 @@ gpio.setup(27, function(val)
     print("IRQ_27",val) -- 提醒, val并不代表触发方向, 仅代表中断后某个时间点的电平
 end, gpio.PULLUP, gpio.RISING)
 
+-- 中断计数 于2024.5.8新增
+-- 设置gpio7为中断计数，详细demo见gpio/gpio_irq_count
+gpio.setup(7, gpio.count)
+
 -- alt_func 于2023.7.2新增
 -- 本功能仅对部分平台有效, 且仅用于调整GPIO复用,其他复用方式请使用muc.iomux函数
 -- 以下示例代码, 将I2S_DOUT复用成gpio18
@@ -216,7 +228,7 @@ gpio.setup(18, 0, nil, nil, 4)
 -- 当管脚为输出模式,才能通过gpio.set()设置电平
 -- 当管脚为输出模式,通过gpio.get()总会得到0
 -- 中断回调的val参数不代表触发方向, 仅代表中断后某个时间点的电平
--- 对Cat.1模块,通常只有AONGPIO才能双向触发, 其他GPIO只能单向触发
+-- 对Cat.1模块,EC618系列只有AONGPIO才能双向触发，其他系列所有GPIO都能双向触发，具体看硬件手册
 -- 默认设置下,中断是没有防抖时间的,可以通过gpio.set_debounce(pin, 50)来设置防抖时间
 
 -- pull参数的额外说明, 上拉/下拉配置
@@ -230,16 +242,31 @@ gpio.setup(18, 0, nil, nil, 4)
 static int l_gpio_setup(lua_State *L) {
     luat_gpio_t conf = {0};
     conf.pin = luaL_checkinteger(L, 1);
+    if (conf.pin >= LUAT_GPIO_PIN_MAX) {
+        LLOGW("MUST pin < %d", LUAT_GPIO_PIN_MAX);
+        return 0;
+    }
     //conf->mode = luaL_checkinteger(L, 2);
     conf.lua_ref = 0;
     conf.irq = 0;
     gpios[conf.pin].irq_type = 0xff;
     if (lua_isfunction(L, 2)) {
+    	conf.irq_cb = 0;
         conf.mode = Luat_GPIO_IRQ;
-        lua_pushvalue(L, 2);
-        conf.lua_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+        if (lua_tocfunction(L, 2) == l_gpio_get_count) {
+        	if (gpios[conf.pin].lua_ref) {
+                luaL_unref(L, LUA_REGISTRYINDEX, gpios[conf.pin].lua_ref);
+                gpios[conf.pin].lua_ref = 0;
+        	}
+        	conf.irq_cb = luat_gpio_irq_count;
+        	LLOGD("pin %d use irq count mode", conf.pin);
+        } else {
+            lua_pushvalue(L, 2);
+            conf.lua_ref = luaL_ref(L, LUA_REGISTRYINDEX);
+        }
         conf.irq = luaL_optinteger(L, 4, Luat_GPIO_BOTH);
         gpios[conf.pin].irq_type = conf.irq;
+
     }
     else if (lua_isinteger(L, 2)) {
         conf.mode = Luat_GPIO_OUTPUT;
@@ -249,7 +276,7 @@ static int l_gpio_setup(lua_State *L) {
         conf.mode = Luat_GPIO_INPUT;
     }
     conf.pull = luaL_optinteger(L, 3, default_gpio_pull);
-    conf.irq_cb = 0;
+
     if (lua_isinteger(L, 5)) {
         conf.alt_func = luaL_checkinteger(L, 5);
     }
@@ -584,7 +611,7 @@ static int l_gpio_debounce(lua_State *L) {
     uint16_t timeout = luaL_checkinteger(L, 2);
     uint8_t mode = luaL_optinteger(L, 3, 0);
     if (pin >= LUAT_GPIO_PIN_MAX) {
-        LLOGW("MUST pin < 128");
+        LLOGW("MUST pin < %d", LUAT_GPIO_PIN_MAX);
         return 0;
     }
     //LLOGD("debounce %d %d %d", pin, timeout, mode);
@@ -610,6 +637,30 @@ static int l_gpio_debounce(lua_State *L) {
     return 0;
 }
 
+/*
+获取gpio中断数量，并清空累计值，类似air724的脉冲计数
+@api gpio.count(pin)
+@int gpio号, 0~127, 与硬件相关
+@return int 返回从上次获取中断数量后到当前的中断计数
+@usage
+log.info("irq cnt", gpio.count(10))
+*/
+static int l_gpio_get_count(lua_State *L) {
+    uint8_t pin = luaL_checkinteger(L, 1);
+    if (pin >= LUAT_GPIO_PIN_MAX) {
+        LLOGW("MUST pin < %d", LUAT_GPIO_PIN_MAX);
+        lua_pushinteger(L, 0);
+        return 1;
+    }
+    uint32_t v,cr;
+    cr = luat_rtos_entry_critical();
+    v = gpios[pin].irq_cnt;
+    gpios[pin].irq_cnt = 0;
+    luat_rtos_exit_critical(cr);
+    lua_pushinteger(L, v);
+    return 1;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_gpio[] =
 {
@@ -621,6 +672,7 @@ static const rotable_Reg_t reg_gpio[] =
     { "debounce",       ROREG_FUNC(l_gpio_debounce)},
     { "pulse",          ROREG_FUNC(l_gpio_pulse)},
     { "setDefaultPull", ROREG_FUNC(l_gpio_set_default_pull)},
+	{ "count",			ROREG_FUNC(l_gpio_get_count)},
 #ifdef LUAT_USE_MCU
     { "caplevel" ,      ROREG_FUNC(l_gpio_caplevel)},
 #endif

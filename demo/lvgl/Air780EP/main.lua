@@ -104,7 +104,7 @@ local function ft6336Scan()
     end
     x = ((data:byte(1) & 0x0F) << 8) + data:byte(2)
     y = ((data:byte(3) & 0x0F) << 8) + data:byte(4)
-    return 1, x, y, true
+    return 1
 end
 
 sys.taskInit(function()

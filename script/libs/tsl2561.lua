@@ -26,7 +26,7 @@ local tsl2561 = {}
 local sys = require "sys"
 local i2cid
 
-local TSL2561_ADDRESS_ADR
+local TSL2561_ADDRESS_ADR = 0x39
 
 local TSL2561_ADDRESS_ADR_LOW     =   0x29
 local TSL2561_ADDRESS_ADR_FLOAT   =   0x39

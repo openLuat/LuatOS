@@ -105,6 +105,7 @@ end
 
 --串行发送一个字节，LSB First
 local function tm1640_writeByte(data)
+  if data~=nil then--防止未接入数码管或者测试时接线不稳定，传来空数据导致程序运行异常
     for i = 0, 7, 1 do
         local mbit = (data&0x01~=0) and 1 or 0
         TM1640_DAT(mbit)
@@ -113,6 +114,7 @@ local function tm1640_writeByte(data)
         TM1640_CLK(0)
         --data = data>>1 将这句话放在上面是为了尽量让时钟接近50%占空比
     end
+  end
 end
 
 

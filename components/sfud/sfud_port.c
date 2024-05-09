@@ -122,10 +122,7 @@ sfud_err sfud_spi_port_init(sfud_flash *flash) {
     /* port SPI device interface */
     flash->spi.wr = spi_write_read;
     flash->spi.user_data = &(flash->luat_sfud);
-    if (NULL == flash->luat_sfud.sem)
-    {
-        flash->luat_sfud.sem = luat_mutex_create();
-    }
+    flash->luat_sfud.sem = luat_mutex_create();
     flash->spi.lock = luat_sfud_lock;
     flash->spi.unlock = luat_sfud_unlock;
     /* 100 microsecond delay */

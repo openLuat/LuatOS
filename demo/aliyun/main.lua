@@ -216,10 +216,12 @@ sys.taskInit(function()
         log.info("aliyun.pm", "EC618方案进入低功耗模式")
         -- gpio.setup(23,nil)
         -- gpio.close(33)
+        -- mobile.rtime(2)  -- RRC快速释放减少connect时间能大幅降低功耗，但是会带来可能得离线风险，可选择延迟时间或者不用
         pm.power(pm.USB, false)
         pm.force(pm.LIGHT)
     elseif bsp == "EC718P" or bsp == "EC718PV" then
         log.info("aliyun.pm", "EC718P/EC718PV方案进入低功耗模式")
+        -- mobile.rtime(2) -- RRC快速释放减少connect时间能大幅降低功耗，但是会带来可能得离线风险，可选择延迟时间或者不用
         pm.power(pm.USB, false)
         pm.force(pm.LIGHT)
     elseif bsp == "AIR101" or bsp == "AIR601" or bsp == "AIR103" then

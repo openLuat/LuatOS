@@ -30,7 +30,7 @@
 #include <stdarg.h>
 
 #include "luat_spi.h"
-
+#include "luat_rtos.h"
 // static char log_buf[256];
 
 // void sfud_log_debug(const char *file, const long line, const char *format, ...);
@@ -105,12 +105,29 @@ static void retry_delay_100us(void) {
     while(delay--);
 }
 
+static void luat_sfud_lock(const sfud_spi *spi)
+{
+    luat_sfud_flash_t *sfud_flash = (luat_sfud_flash_t*)(spi->user_data);
+    luat_mutex_lock(sfud_flash->sem);
+}
+
+static void luat_sfud_unlock(const sfud_spi *spi)
+{
+    luat_sfud_flash_t *sfud_flash = (luat_sfud_flash_t*)(spi->user_data);
+    luat_mutex_unlock(sfud_flash->sem);
+}
 sfud_err sfud_spi_port_init(sfud_flash *flash) {
     sfud_err result = SFUD_SUCCESS;
 
     /* port SPI device interface */
     flash->spi.wr = spi_write_read;
     flash->spi.user_data = &(flash->luat_sfud);
+    if (NULL == flash->luat_sfud.sem)
+    {
+        flash->luat_sfud.sem = luat_mutex_create();
+    }
+    flash->spi.lock = luat_sfud_lock;
+    flash->spi.unlock = luat_sfud_unlock;
     /* 100 microsecond delay */
     flash->retry.delay = retry_delay_100us;
     /* 60 seconds timeout */

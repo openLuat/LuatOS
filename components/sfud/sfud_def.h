@@ -53,6 +53,7 @@ typedef struct luat_sfud_flash
 {
     int luat_spi;     // bus
     void *user_data;// some user data
+    void *sem;
 } luat_sfud_flash_t;
 
 

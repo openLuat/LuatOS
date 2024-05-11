@@ -107,9 +107,7 @@ lf_err_t little_flash_device_init(little_flash_t *lf){
     little_flash_port_init(lf);
     LF_ASSERT(lf->wait_10us);
     LF_ASSERT(lf->wait_ms);
-#ifdef LF_USE_SPI
     LF_ASSERT(lf->spi.transfer);
-#endif
 #ifdef LF_USE_HEAP
     LF_ASSERT(lf->malloc);
     LF_ASSERT(lf->free);

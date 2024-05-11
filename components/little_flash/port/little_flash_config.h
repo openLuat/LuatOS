@@ -17,8 +17,6 @@ extern "C" {
 
 #define LF_USE_HEAP                     /* enable malloc/free for little flash */
 
-#define LF_USE_SPI                      /* enable SPI for little flash */
-
 // #define LF_USE_QSPI                     /* enable QSPI for little flash */
 
 // #define LF_USE_SFDP                     /* enable SFDP driver for little flash */

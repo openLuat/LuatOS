@@ -5,7 +5,6 @@
 #include "luat_mem.h"
 #include "luat_spi.h"
 
-#ifdef LF_USE_SPI
 static lf_err_t little_flash_spi_transfer(const little_flash_t *lf,uint8_t *tx_buf, uint32_t tx_len, uint8_t *rx_buf, uint32_t rx_len){
     lf_err_t result = LF_ERR_OK;
     luat_spi_device_t *spi_dev = (luat_spi_device_t*)lf->spi.user_data;
@@ -24,7 +23,6 @@ static lf_err_t little_flash_spi_transfer(const little_flash_t *lf,uint8_t *tx_b
     }
     return result;
 }
-#endif
 
 static void little_flash_wait_10us(void){
     uint32_t delay = 12;
@@ -46,9 +44,7 @@ static void little_flash_free(void* ptr){
 #endif
 
 lf_err_t little_flash_port_init(little_flash_t *lf){
-#ifdef LF_USE_SPI
     lf->spi.transfer = little_flash_spi_transfer;
-#endif
     lf->wait_10us = little_flash_wait_10us;
     lf->wait_ms = little_flash_wait_ms;
 #ifdef LF_USE_HEAP

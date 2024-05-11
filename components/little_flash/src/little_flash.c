@@ -141,8 +141,6 @@ lf_err_t little_flash_deinit(void){
     return LF_ERR_OK;
 }
 
-// lf_err_t little_flash_get_info(const little_flash_t *lf, uint32_t *total_size, uint32_t *block_size, uint32_t *page_size, uint32_t *sector_size);
-
 static lf_err_t little_flash_cheak_erase(const little_flash_t *lf){
     lf_err_t result = LF_ERR_OK;
     uint8_t status;

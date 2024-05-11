@@ -15,8 +15,6 @@
 #include "luat_log.h"
 #include "little_flash.h"
 
-static little_flash_t lf_flash = {0};
-
 /*
 初始化 little_flash
 @api  lf.init(spi_device)
@@ -28,14 +26,19 @@ local spi_device = spi.deviceSetup(0,17,0,0,8,2000000,spi.MSB,1,0)
 log.info("lf.init",lf.init(spi_device))
 */
 static int luat_little_flash_init(lua_State *L){
-    static luat_spi_device_t* little_flash_spi_device = NULL;
+    luat_spi_device_t* little_flash_spi_device = NULL;
+    little_flash_t* lf_flash = NULL;
     if (lua_type(L, 1) == LUA_TUSERDATA){
         little_flash_spi_device = (luat_spi_device_t*)lua_touserdata(L, 1);
-        lf_flash.spi.user_data = little_flash_spi_device;
+        lf_flash = luat_heap_malloc(sizeof(little_flash_t));
+        lf_flash->spi.user_data = little_flash_spi_device;
+    }else{
+        LLOGW("little_flash init spi_device is nil");
+        return 0;
     }
     little_flash_init();
-    int re = little_flash_device_init(&lf_flash);
-    lua_pushlightuserdata(L, &lf_flash);
+    int re = little_flash_device_init(lf_flash);
+    lua_pushlightuserdata(L, lf_flash);
     return 1;
 }
 

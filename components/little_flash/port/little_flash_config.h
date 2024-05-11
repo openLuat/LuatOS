@@ -1,15 +1,15 @@
 #ifndef _LITTLE_FLASH_CONFIG_H_
 #define _LITTLE_FLASH_CONFIG_H_
 
-#include "luat_debug.h"
-
+#define LUAT_LOG_TAG "little_flash"
+#include "luat_log.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 /* define the printf function for little flash */
-#define LF_PRINTF LUAT_DEBUG_PRINT
+#define LF_PRINTF LLOGI
 
 #define LF_DEBUG_MODE                   /* enable debug mode for little flash */
 

@@ -6,6 +6,8 @@
 #define LUAT_LOG_TAG "little_flash"
 #include "luat_log.h"
 
+#ifdef LUAT_USE_LITTLE_FLASH
+
 #ifdef LUAT_USE_FS_VFS
 #include "lfs.h"
 #include "little_flash.h"
@@ -17,7 +19,7 @@ static int lf_block_device_read(const struct lfs_config *cfg, lfs_block_t block,
     little_flash_t* flash = (little_flash_t*)cfg->context;
     // int ret = lf_read(flash, lf_offset + block * flash->chip.erase_gran + off, size, buffer);
     int ret = little_flash_read(flash, lf_offset + block * flash->chip_info.erase_size + off, buffer, size);
-    // LUAT_DEBUG_PRINT("lf_block_device_read ret %d", ret);
+    // LLOGD("lf_block_device_read ret %d", ret);
     return ret;
 }
 
@@ -25,7 +27,7 @@ static int lf_block_device_prog(const struct lfs_config *cfg, lfs_block_t block,
     little_flash_t* flash = (little_flash_t*)cfg->context;
     // int ret = lf_write(flash, lf_offset + block * flash->chip.erase_gran + off, size, buffer);
     int ret = little_flash_write(flash, lf_offset + block * flash->chip_info.erase_size + off, buffer, size);
-    // LUAT_DEBUG_PRINT("lf_block_device_prog ret %d", ret);
+    // LLOGD("lf_block_device_prog ret %d", ret);
     return ret;
 }
 
@@ -33,7 +35,7 @@ static int lf_block_device_erase(const struct lfs_config *cfg, lfs_block_t block
     little_flash_t* flash = (little_flash_t*)cfg->context;
     // int ret = lf_erase(flash, lf_offset + block * flash->chip.erase_gran, flash->chip.erase_gran);
     int ret = little_flash_erase(flash, lf_offset + block * flash->chip_info.erase_size, flash->chip_info.erase_size);
-    // LUAT_DEBUG_PRINT("lf_block_device_erase ret %d", ret);
+    // LLOGD("lf_block_device_erase ret %d", ret);
     return ret;
 }
 
@@ -103,4 +105,4 @@ fail :
 
 #endif
 
-
+#endif

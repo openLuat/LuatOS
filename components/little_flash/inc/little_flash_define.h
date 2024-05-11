@@ -34,11 +34,11 @@ typedef struct little_flash little_flash_t;
 #ifndef LF_DEBUG
 #define LF_DEBUG(...)  LF_PRINTF(__VA_ARGS__)
 #endif
-#define LF_ASSERT(EXPR)                                                      \
-if (!(EXPR))                                                                   \
-{                                                                              \
-    LF_PRINTF("(%s) has assert failed at %s.", #EXPR, __FUNCTION__);          \
-    while (1);                                                                 \
+#define LF_ASSERT(EXPR)                                                         \
+if (!(EXPR))                                                                    \
+{                                                                               \
+    LF_PRINTF("(%s) has assert failed at %s.", #EXPR, __FUNCTION__);            \
+    while (1);                                                                  \
 }
 #else
 #ifndef LF_DEBUG

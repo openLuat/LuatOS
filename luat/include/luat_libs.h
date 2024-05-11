@@ -45,6 +45,8 @@ LUAMOD_API int luaopen_disp( lua_State *L );
 LUAMOD_API int luaopen_u8g2( lua_State *L );
 /** sfud库*/
 LUAMOD_API int luaopen_sfud( lua_State *L );
+/** little_flash库*/
+LUAMOD_API int luaopen_little_flash( lua_State *L );
 /** utest库*/
 // LUAMOD_API int luaopen_utest( lua_State *L );
 /** mqtt库*/

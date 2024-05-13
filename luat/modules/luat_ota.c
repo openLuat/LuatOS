@@ -71,7 +71,7 @@ int luat_ota_checkfile(const char* path) {
         return -1;
     }
     
-    unsigned int len = 0;
+    size_t len = 0;
     int remain = binsize - 16;
 
     luat_md5_init(&ota->context);
@@ -89,7 +89,7 @@ int luat_ota_checkfile(const char* path) {
         if (len == 0) { // 不可能的事
             break;
         }
-        if (len < 0 || len > 512) {
+        if (len > 512) {
             luat_heap_free(ota);
             luat_fs_fclose(fd);
             LLOGE("read file fail");
@@ -99,7 +99,7 @@ int luat_ota_checkfile(const char* path) {
         remain -= len;
         luat_md5_update(&ota->context, ota->buff, len);
     }
-    luat_md5_finalize(&ota->context, &ota->digest);
+    luat_md5_finalize(&ota->context, ota->digest.bytes);
     #ifdef LUAT_USE_CRYPTO
     mbedtls_md5_free(&ota->context);
     #endif

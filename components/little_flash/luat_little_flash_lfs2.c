@@ -49,6 +49,10 @@ typedef struct LFS2 {
 }LFS2_t;
 
 lfs_t* flash_lfs_lf(little_flash_t* flash, size_t offset, size_t maxsize) {
+    if (flash==NULL){
+        LLOGE("flash is null");
+        return NULL;
+    }
     LFS2_t *_lfs = luat_heap_malloc(sizeof(LFS2_t));
     if (_lfs == NULL)
         return NULL;

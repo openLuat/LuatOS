@@ -75,4 +75,5 @@ luat_i2s_conf_t *luat_i2s_get_config(uint8_t id);
 int luat_i2s_txbuff_info(uint8_t id, size_t *buffsize, size_t* remain);
 int luat_i2s_rxbuff_info(uint8_t id, size_t *buffsize, size_t* remain);
 
+int luat_i2s_set_user_data(uint8_t id, void *user_data);
 #endif

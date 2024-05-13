@@ -23,7 +23,7 @@ extern "C" {
 
 #define LF_USE_LOCAL_TABLE              /* enable local table driver for little flash */
 
-// #define LF_USE_NOR                      /* enable NOR for little flash */
+#define LF_USE_NOR                      /* enable NOR for little flash */
 
 #define LF_USE_NAND                     /* enable NAND for little flash */
 

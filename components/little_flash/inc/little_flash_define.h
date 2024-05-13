@@ -80,11 +80,129 @@ typedef enum {
     LF_ERR_BUSY,
     LF_ERR_BAD_ADDRESS,
     LF_ERR_NO_MEM,
+    LF_ERR_SFDP_HEADER,
+    LF_ERR_SFDP_PARAMETER,
 }lf_err_t;
 
 #ifndef LF_FLASH_NAME_LEN
 #define LF_FLASH_NAME_LEN 16
 #endif
+
+/* JEDEC Basic Flash Parameter Table */
+typedef struct {
+    union{                                          /**< 1st DWORD */
+        struct {
+            uint32_t Erase_Sizes : 2;               /**< Erase Sizes */
+            uint32_t Write_Granularity:1;           /**< Write Granularity */
+            uint32_t Volatile_Block_Protect:1;      /**< Volatile Status Register Block Protect bits */
+            uint32_t Write_Enable_Select:1;         /**< Write Enable Instruction Select for Writing to Volatile Status Register */
+            uint32_t :3;                            /**< Contains 111b and can never be changed. */
+            uint32_t Erase_4k:8;                    /**< 4 Kilobyte Erase Instruction */
+            uint32_t Fast_Read_1S1S2S:1;            /**< Supports (1S-1S-2S) Fast Read */
+            uint32_t Address_Bytes:2;               /**< Address Bytes */
+            uint32_t DTR_Clocking:1;                /**< Supports Double Transfer Rate (DTR) Clocking */
+            uint32_t Fast_Read_1S2S2S:1;            /**< Supports (1S-2S-2S) Fast Read */
+            uint32_t Fast_Read_1S4S4S:1;            /**< Supports (1S-4S-4S) Fast Read */
+            uint32_t Fast_Read_1S1S4S:1;            /**< Supports (1S-1S-4S) Fast Read */
+            uint32_t :8;                            /**< Contains FFh and can never be changed. */
+        };
+        uint32_t pt1;                         
+    };
+    uint32_t Flash_Memory_Density;                  /**< Flash Memory Density */
+    union{
+        struct {
+            uint32_t Fast_Read_1S4S4S_Wait:5;       /**< (1S-4S-4S) Fast Read Number of Wait states (dummy clocks) needed before valid output */
+            uint32_t Fast_Read_1S4S4S_Clocks:3;     /**< Quad Input Address Quad Output (1S-4S-4S) Fast Read Number of Mode Clocks */
+            uint32_t Fast_Read_1S4S4S_Instruction:8;/**< (1S-4S-4S) Fast Read Instruction */
+            uint32_t Fast_Read_1S1S4S_Wait:5;       /**< (1S-1S-4S) Fast Read Number of Wait states (dummy clocks) needed before valid output */
+            uint32_t Fast_Read_1S1S4S_Clocks:3;     /**< (1S-1S-4S) Fast Read Number of Mode Clocks */
+            uint32_t Fast_Read_1S1S4S_Instruction:8;/**< (1S-1S-4S) Fast Read Instruction */
+        };
+        uint32_t pt3;
+    };
+    union{
+        struct {
+            uint32_t Fast_Read_1S1S2S_Wait:5;       /**< (1S-1S-2S) Fast Read Number of Wait states (dummy clocks) needed before valid output */
+            uint32_t Fast_Read_1S1S2S_Clocks:3;     /**< Quad Input Address Quad Output (1S-1S-2S) Fast Read Number of Mode Clocks */
+            uint32_t Fast_Read_1S1S2S_Instruction:8;/**< (1S-1S-2S) Fast Read Instruction */
+            uint32_t Fast_Read_1S2S2S_Wait:5;       /**< (1S-2S-2S) Fast Read Number of Wait states (dummy clocks) needed before valid output */
+            uint32_t Fast_Read_1S2S2S_Clocks:3;     /**< (1S-2S-2S) Fast Read Number of Mode Clocks */
+            uint32_t Fast_Read_1S2S2S_Instruction:8;/**< (1S-2S-2S) Fast Read Instruction */
+        };
+        uint32_t pt4;
+    };
+    union{
+        struct {
+            uint32_t Fast_Read_2S2S2S:1;            /**< Supports (2S-2S-2S) Fast Read */
+            uint32_t :3;                            /**< Reserved. These bits default to all 1’s */
+            uint32_t Fast_Read_4S4S4S:1;            /**< Supports (4S-4S-4S) Fast Read */
+            uint32_t :27;                           /**< Reserved. These bits default to all 1’s */
+        };
+        uint32_t pt5;
+    };
+    union{
+        struct {
+            uint32_t :16;                           /**< Reserved. These bits default to all 1’s */
+            uint32_t Fast_Read_2S2S2S_Wait:5;       /**< (2S-2S-2S) Fast Read Number of Wait states (dummy clocks) needed before valid output */
+            uint32_t Fast_Read_2S2S2S_Clocks:3;     /**< (2S-2S-2S) Fast Read Number of Mode Clocks */
+            uint32_t Fast_Read_2S2S2S_Instruction:8;/**< (2S-2S-2S) Fast Read Instruction */
+        };
+        uint32_t pt6;
+    };
+    union{
+        struct {
+            uint32_t :16;                           /**< Reserved. These bits default to all 1’s */
+            uint32_t Fast_Read_4S4S4S_Wait:5;       /**< (4S-4S-4S) Fast Read Number of Wait states (dummy clocks) needed before valid output */
+            uint32_t Fast_Read_4S4S4S_Clocks:3;     /**< (4S-4S-4S) Fast Read Number of Mode Clocks */
+            uint32_t Fast_Read_4S4S4S_Instruction:8;/**< (4S-4S-4S) Fast Read Instruction */
+        };
+        uint32_t pt7;
+    };
+    union{
+        struct {
+            uint32_t Erase_Type_1_Size:8;           /**< Erase Type 1 Size */
+            uint32_t Erase_Type_1_Instruction:8;    /**< Erase Type 1 Instruction */
+            uint32_t Erase_Type_2_Size:8;           /**< Erase Type 2 Size */
+            uint32_t Erase_Type_2_Instruction:8;    /**< Erase Type 2 Instruction */
+        };
+        uint32_t pt8;
+    };
+    union{
+        struct {
+            uint32_t Erase_Type_3_Size:8;           /**< Erase Type 3 Size */
+            uint32_t Erase_Type_3_Instruction:8;    /**< Erase Type 3 Instruction */
+            uint32_t Erase_Type_4_Size:8;           /**< Erase Type 4 Size */
+            uint32_t Erase_Type_4_Instruction:8;    /**< Erase Type 4 Instruction */
+        };
+        uint32_t pt9;
+    };
+    union{
+        struct {
+            uint32_t Erase_Time_Multiplier:4;       /**< Multiplier from typical erase time to maximum erase time */
+            uint32_t Erase_Type_1_Time:7;           /**< Erase Type 1 Erase, Typical time */
+            uint32_t Erase_Type_2_Time:7;           /**< Erase Type 2 Erase, Typical time */
+            uint32_t Erase_Type_3_Time:7;           /**< Erase Type 3 Erase, Typical time */
+            uint32_t Erase_Type_4_Time:7;           /**< Erase Type 4 Erase, Typical time */
+        };
+        uint32_t pt10;
+    };
+    // ...
+
+}little_flash_sfdp_pt_t;
+
+typedef struct {
+    uint8_t minor_rev;                          /**< sfdp minor revision */
+    uint8_t major_rev;                          /**< sfdp major revision */
+    uint8_t nph;                                /**< Number of Parameter Headers (NPH) */
+    uint8_t access_protocol;                    /**< SFDP Access Protocol */
+
+    uint16_t parameter_id;                      /**< Parameter ID */
+    uint8_t parameter_minor_rev;                /**< Parameter Minor Revision */
+    uint8_t parameter_major_rev;                /**< Parameter Major Revision */
+    uint8_t parameter_length;                   /**< Parameter Length */
+    uint32_t parameter_pointer;                 /**< Parameter Table Pointer */
+    little_flash_sfdp_pt_t pt;                  /**< Parameter Table */
+}little_flash_sfdp_t;
 
 typedef struct {
     char name[LF_FLASH_NAME_LEN];                /**< flash chip name */
@@ -98,10 +216,10 @@ typedef struct {
         uint16_t driver_type;                          
     };
     uint32_t capacity;                           /**< flash capacity (bytes) */
-    uint8_t addr_bytes;                          /**< address bytes 2 3 4*/
     uint8_t erase_cmd;                           /**< erase granularity size block command */
     uint32_t erase_size;                         /**< erase granularity (bytes) */
     /* 以下基本可以代码自动推断无需指定 */
+    uint8_t addr_bytes;                          /**< address bytes 2 3 4*/
     uint32_t prog_size;                          /**< page size (bytes) */
     uint32_t read_size;                          /**< read size (bytes) */
     uint32_t retry_times;                        /**< retry times */
@@ -133,7 +251,14 @@ struct little_flash{
     void* user_data;
 };
 
+/* SFDP JESD216F revision */
+#define LF_SFDP_MAJOR_REV                           (0x01)
+#define LF_SFDP_MINOR_REV                           (0x0A)
+
 #define LF_RETRY_TIMES                              (500000)
+
+#define LF_NORFLASH_PAGE_ZISE                       (256)      /**< NOR flash page size (bytes) */
+#define LF_NORFLASH_SECTOR_ZISE                     (4096)     /**< NOR flash sector size (bytes) */
 
 #define LF_NANDFLASH_PAGE_ZISE                      (2048)     /**< NAND flash page size (bytes) */
 
@@ -145,7 +270,14 @@ struct little_flash{
 
 #define LF_CMD_WRITE_ENABLE                         (0x06)
 
+#define LF_CMD_SFDP_REGISTER                        (0x5A)
+#define LF_CMD_SFDP_HEADER                          (0x00)
+#define LF_CMD_SFDP_PARAMETER_HEADER1               (0x08)
+#define LF_CMD_SFDP_PARAMETER_HEADER2               (0x10)
+
 #define LF_CMD_JEDEC_ID                             (0x9F)
+
+#define LF_CMD_ERASE_CHIP                           (0xC7)
 
 #define LF_CMD_ENABLE_RESET                         (0x66)
 

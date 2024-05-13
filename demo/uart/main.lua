@@ -18,7 +18,7 @@ log.info("main", "uart demo")
 local uartid = 1 -- 根据实际设备选取不同的uartid
 
 --初始化
-local result = uart.setup(
+uart.setup(
     uartid,--串口id
     115200,--波特率
     8,--数据位
@@ -32,17 +32,17 @@ sys.timerLoopStart(uart.write,1000, uartid, "test")
 uart.on(uartid, "receive", function(id, len)
     local s = ""
     repeat
-        -- s = uart.read(id, 1024)
-        s = uart.read(id, len)
+        s = uart.read(id, 128)
         if #s > 0 then -- #s 是取字符串的长度
             -- 如果传输二进制/十六进制数据, 部分字符不可见, 不代表没收到
             -- 关于收发hex值,请查阅 https://doc.openluat.com/article/583
             log.info("uart", "receive", id, #s, s)
             -- log.info("uart", "receive", id, #s, s:toHex())
         end
-        if #s == len then
-            break
-        end
+        -- 如使用2024.5.13之前编译的ESP32C3/ESP32S3固件, 恢复下面的代码可以正常工作
+        -- if #s == len then
+        --     break
+        -- end
     until s == ""
 end)
 

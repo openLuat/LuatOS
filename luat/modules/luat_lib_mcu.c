@@ -286,8 +286,14 @@ IO外设功能复用选择，注意普通MCU是以GPIO号为序号，但是专�
 @int 复用功能序号，0~N。具体看平台的IOMUX复用表
 @boolean 是否是输入功能，true是，留空是false
 @usage
+-- 以 Air780EP 为例
+-- 将GPIO46映射到paddr 32 alt 1
 mcu.altfun(mcu.GPIO, 46, 32, 1, 0)
-mcu.altfun(mcu.GPIO, 46)
+-- mcu.altfun(mcu.GPIO, 46) -- 还原成默认配置
+
+-- UART2复用到paddr 25/26 alt 3
+mcu.altfun(mcu.UART,2,  25, 3, 1)
+mcu.altfun(mcu.UART,2,  26, 3, 0)
  */
 static int l_mcu_alt_ctrl(lua_State* L)
 {

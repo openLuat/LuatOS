@@ -19,7 +19,7 @@ extern "C" {
 
 // #define LF_USE_QSPI                     /* enable QSPI for little flash */
 
-#define LF_USE_SFDP                     /* enable SFDP driver for little flash */
+// #define LF_USE_SFDP                     /* enable SFDP driver for little flash */
 
 #define LF_USE_LOCAL_TABLE              /* enable local table driver for little flash */
 

@@ -81,16 +81,16 @@ lfs_t* flash_lfs_lf(little_flash_t* flash, size_t offset, size_t maxsize) {
 
     // LLOGD("block_size %d", lfs_cfg->block_size);
     // LLOGD("block_count %d", lfs_cfg->block_count);
-    // LLOGD("capacity %d", flash->chip.capacity);
-    // LLOGD("erase_gran %d", flash->chip.erase_gran);
+    // LLOGD("capacity %d", flash->chip_info.capacity);
+    // LLOGD("erase_size %d", flash->chip_info.erase_size);
 
     // ------
     int err = lfs_mount(lfs, lfs_cfg);
-    LLOGD("lfs_mount %d",err);
+    // LLOGD("lfs_mount %d",err);
     if (err)
     {
         err = lfs_format(lfs, lfs_cfg);
-        // LLOGD("lfs_format %d",err);
+        LLOGD("lfs_format %d",err);
         if(err)
             goto fail;
         err = lfs_mount(lfs, lfs_cfg);

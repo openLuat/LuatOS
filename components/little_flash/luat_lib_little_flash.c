@@ -22,7 +22,7 @@
 @return userdata 成功返回一个数据结构,否则返回nil
 @usage
 --spi_device
-local spi_device = spi.deviceSetup(0,17,0,0,8,2000000,spi.MSB,1,0)
+spi_device = spi.deviceSetup(0,17,0,0,8,2000000,spi.MSB,1,0)
 log.info("lf.init",lf.init(spi_device))
 */
 static int luat_little_flash_init(lua_State *L){
@@ -37,9 +37,13 @@ static int luat_little_flash_init(lua_State *L){
         return 0;
     }
     little_flash_init();
-    int re = little_flash_device_init(lf_flash);
-    lua_pushlightuserdata(L, lf_flash);
-    return 1;
+    lf_err_t re = little_flash_device_init(lf_flash);
+    if (re == LF_ERR_OK){
+        lua_pushlightuserdata(L, lf_flash);
+        return 1;
+    }
+    luat_heap_free(lf_flash);
+    return 0;
 }
 
 #ifdef LUAT_USE_FS_VFS
@@ -59,7 +63,11 @@ extern lfs_t* flash_lfs_lf(little_flash_t* flash, size_t offset, size_t maxsize)
 log.info("lf.mount",lf.mount(little_flash_device,"/little_flash"))
 */
 static int luat_little_flash_mount(lua_State *L) {
-    const little_flash_t *flash = lua_touserdata(L, 1);
+    little_flash_t *flash = lua_touserdata(L, 1);
+    if (flash == NULL) {
+        LLOGE("little_flash mount flash is nil");
+        return 0;
+    }
     const char* mount_point = luaL_checkstring(L, 2);
     size_t offset = luaL_optinteger(L, 3, 0);
     size_t maxsize = luaL_optinteger(L, 4, 0);

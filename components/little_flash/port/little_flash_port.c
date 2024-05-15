@@ -24,13 +24,9 @@ static lf_err_t little_flash_spi_transfer(const little_flash_t *lf,uint8_t *tx_b
     return result;
 }
 
-static void little_flash_wait_10us(void){
-    uint32_t delay = 12;
+static void little_flash_wait_10us(uint32_t count){
+    uint32_t delay = 12*count;
     while(delay--);
-}
-
-static void little_flash_wait_ms(uint32_t ms){
-    luat_rtos_task_sleep(ms);
 }
 
 #ifdef LF_USE_HEAP
@@ -46,7 +42,6 @@ static void little_flash_free(void* ptr){
 lf_err_t little_flash_port_init(little_flash_t *lf){
     lf->spi.transfer = little_flash_spi_transfer;
     lf->wait_10us = little_flash_wait_10us;
-    lf->wait_ms = little_flash_wait_ms;
 #ifdef LF_USE_HEAP
     lf->malloc = little_flash_malloc;
     lf->free = little_flash_free;

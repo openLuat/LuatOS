@@ -242,9 +242,7 @@ struct little_flash{
     /* unlock */
     void (*unlock)(little_flash_t *lf);
     /* wait 10us */
-    void (*wait_10us)(void);
-    /* wait ms */
-    void (*wait_ms)(uint32_t ms);
+    void (*wait_10us)(uint32_t count);
 #ifdef LF_USE_HEAP
     /* malloc */
     void* (*malloc)(size_t size);

@@ -51,7 +51,7 @@ static lf_err_t little_flash_wait_busy(const little_flash_t *lf) {
             LF_ERROR("Error: Wait busy timeout.");
             return LF_ERR_TIMEOUT;
         }else{
-            lf->wait_10us();
+            lf->wait_10us(1);
         }
     }
     return result;
@@ -73,7 +73,7 @@ static lf_err_t little_flash_reset(little_flash_t *lf){
         result |= lf->spi.transfer(lf,(uint8_t[]){LF_CMD_NANDFLASH_RESET}, 1,LF_NULL,0);
     }
 
-    lf->wait_ms(1);
+    lf->wait_10us(100);
     result |= little_flash_wait_busy(lf);
     if (result) return result;
     if(lf->chip_info.type==LF_DRIVER_NOR_FLASH){
@@ -250,7 +250,6 @@ lf_err_t little_flash_device_init(little_flash_t *lf){
     uint16_t device_id = 0;
     little_flash_port_init(lf);
     LF_ASSERT(lf->wait_10us);
-    LF_ASSERT(lf->wait_ms);
     LF_ASSERT(lf->spi.transfer);
 #ifdef LF_USE_HEAP
     LF_ASSERT(lf->malloc);
@@ -352,7 +351,7 @@ lf_err_t little_flash_chip_erase(const little_flash_t *lf){
     if(result) goto error;
     if(lf->chip_info.type==LF_DRIVER_NOR_FLASH){
         result |= lf->spi.transfer(lf,(uint8_t[]){LF_CMD_ERASE_CHIP}, 1,LF_NULL,0);
-        lf->wait_ms(40000);
+        lf->wait_10us(4000000);
         result |= little_flash_cheak_erase(lf);
     }else{
         cmd_data[0] = lf->chip_info.erase_cmd;
@@ -363,7 +362,7 @@ lf_err_t little_flash_chip_erase(const little_flash_t *lf){
             cmd_data[3] = page_addr;
             result |= lf->spi.transfer(lf,cmd_data, 4,LF_NULL,0);
             if(result) goto error;
-            lf->wait_ms(2);
+            lf->wait_10us(200);
             result |= little_flash_cheak_erase(lf);
             if(result) goto error;
             addr += lf->chip_info.erase_size;
@@ -410,7 +409,7 @@ lf_err_t little_flash_erase(const little_flash_t *lf, uint32_t addr, uint32_t le
         cmd_data[3] = page_addr;
         result |= lf->spi.transfer(lf,cmd_data, 4,LF_NULL,0);
         if(result) goto error;
-        lf->wait_ms(2);
+        lf->wait_10us(200);
         result |= little_flash_cheak_erase(lf);
         if(result) goto error;
         addr += lf->chip_info.erase_size;

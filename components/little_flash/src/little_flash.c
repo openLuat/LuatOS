@@ -140,7 +140,7 @@ lf_err_t little_flash_sfdp_probe(little_flash_t *lf){
     uint8_t recv_data[8]={0};
     little_flash_sfdp_read(lf, LF_CMD_SFDP_HEADER, recv_data, sizeof(recv_data));
     if (recv_data[0]!='S' || recv_data[1]!='F' || recv_data[2]!='D' || recv_data[3]!='P'){
-        LF_DEBUG("Error: SFDP header not found.");
+        LF_DEBUG("SFDP header not found.");
         return LF_ERR_SFDP_HEADER;
     }
 

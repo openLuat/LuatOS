@@ -78,8 +78,6 @@ lfs_t* flash_lfs_lf(little_flash_t* flash, size_t offset, size_t maxsize) {
     lfs_cfg->lookahead_size = flash->chip_info.prog_size;
 
     lfs_cfg->name_max = 63;
-    lfs_cfg->file_max = 0;
-    lfs_cfg->attr_max = 0;
 
     // LLOGD("block_size %d", lfs_cfg->block_size);
     // LLOGD("block_count %d", lfs_cfg->block_count);

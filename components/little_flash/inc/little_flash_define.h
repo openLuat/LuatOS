@@ -69,6 +69,10 @@ enum {
 #define LF_DRIVER_NOR_FLASH     (0)
 #define LF_DRIVER_NAND_FLASH    (1)
 
+/** Address Bytes */
+#define LF_ADDR_BYTES_3         (1<<0)
+#define LF_ADDR_BYTES_4         (1<<1)
+
 typedef enum {
     LF_ERR_OK = 0,
     LF_ERR_NO_FLASH,
@@ -219,7 +223,7 @@ typedef struct {
     uint8_t erase_cmd;                           /**< erase granularity size block command */
     uint32_t erase_size;                         /**< erase granularity (bytes) */
     /* 以下基本可以代码自动推断无需指定 */
-    uint8_t addr_bytes;                          /**< address bytes 2 3 4*/
+    uint8_t addr_bytes;                          /**< address bytes */
     uint32_t prog_size;                          /**< page size (bytes) */
     uint32_t read_size;                          /**< read size (bytes) */
     uint32_t retry_times;                        /**< retry times */

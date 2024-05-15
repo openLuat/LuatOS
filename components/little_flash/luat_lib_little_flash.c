@@ -31,6 +31,7 @@ static int luat_little_flash_init(lua_State *L){
     if (lua_type(L, 1) == LUA_TUSERDATA){
         little_flash_spi_device = (luat_spi_device_t*)lua_touserdata(L, 1);
         lf_flash = luat_heap_malloc(sizeof(little_flash_t));
+        memset(lf_flash, 0, sizeof(little_flash_t));
         lf_flash->spi.user_data = little_flash_spi_device;
     }else{
         LLOGW("little_flash init spi_device is nil");

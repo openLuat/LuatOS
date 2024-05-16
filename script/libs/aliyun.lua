@@ -149,13 +149,13 @@ local function clientEncryptionTask(Registration,DeviceName,ProductKey,ProductSe
             local content = "deviceName"..DeviceName.."productKey"..ProductKey.."random"..tm
             PassWord = crypto.hmac_md5(content,ProductSecret)
             
-            local mqttClient = mqtt.create(nil,mqtt_host,mqtt_port,mqtt_isssl)  --客户端创建
+            local mqttClient = mqtt.create(nil,mqtt_host,mqtt_port, true)  --客户端创建
             log.info("mqtt三元组", ClientId,UserName,PassWord)
             mqttClient:auth(ClientId,UserName,PassWord) --三元组配置
             mqttClient:on(function(mqtt_client, event, data, payload)  --mqtt回调注册
                 -- 用户自定义代码
                 if event == "conack" then
-
+                    -- 无需订阅topic, 阿里云会主动下发通知
                 elseif event == "recv" then
                     log.info("mqtt", "downlink", "topic", data, "payload", payload)
                     if payload then

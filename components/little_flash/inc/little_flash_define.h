@@ -227,6 +227,7 @@ typedef struct {
     uint32_t prog_size;                          /**< page size (bytes) */
     uint32_t read_size;                          /**< read size (bytes) */
     uint32_t retry_times;                        /**< retry times */
+    uint32_t erase_times;                        /**< erase time (ms) */
 } little_flash_chipinfo_t;
 
 typedef struct{
@@ -243,6 +244,8 @@ struct little_flash{
     void (*unlock)(little_flash_t *lf);
     /* wait 10us */
     void (*wait_10us)(uint32_t count);
+    /* wait ms */
+    void (*wait_ms)(uint32_t ms);
 #ifdef LF_USE_HEAP
     /* malloc */
     void* (*malloc)(size_t size);
@@ -257,7 +260,9 @@ struct little_flash{
 #define LF_SFDP_MAJOR_REV                           (0x01)
 #define LF_SFDP_MINOR_REV                           (0x0A)
 
-#define LF_RETRY_TIMES                              (5000000)
+#define LF_RETRY_TIMES                              (10)
+#define LF_NORFLASH_ERASE_TIMES                     (50)
+#define LF_NANDFLASH_ERASE_TIMES                    (2)
 
 #define LF_NORFLASH_PAGE_ZISE                       (256)      /**< NOR flash page size (bytes) */
 #define LF_NORFLASH_SECTOR_ZISE                     (4096)     /**< NOR flash sector size (bytes) */

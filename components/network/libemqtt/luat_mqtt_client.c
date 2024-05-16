@@ -171,6 +171,10 @@ void luat_mqtt_release_socket(luat_mqtt_ctrl_t *mqtt_ctrl){
 		network_release_ctrl(mqtt_ctrl->netc);
     	mqtt_ctrl->netc = NULL;
 	}
+	if (mqtt_ctrl->mqtt_packet_buffer) {
+		luat_heap_free(mqtt_ctrl->mqtt_packet_buffer);
+		mqtt_ctrl->mqtt_packet_buffer = NULL;
+	}
 }
 
 static int mqtt_parse(luat_mqtt_ctrl_t *mqtt_ctrl) {
@@ -441,7 +445,10 @@ int luat_mqtt_send_packet(void* socket_info, const void* buf, unsigned int count
 int luat_mqtt_connect(luat_mqtt_ctrl_t *mqtt_ctrl) {
 	int ret = 0;
 	mqtt_ctrl->error_state=0;
-	mqtt_ctrl->mqtt_packet_buffer = luat_heap_malloc(mqtt_ctrl->rxbuff_size+4);
+	if (!mqtt_ctrl->mqtt_packet_buffer) {
+		mqtt_ctrl->mqtt_packet_buffer = luat_heap_malloc(mqtt_ctrl->rxbuff_size+4);
+	}
+
 	if (mqtt_ctrl->mqtt_packet_buffer == NULL){
 		return -1;
 	}

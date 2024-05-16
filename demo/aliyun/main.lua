@@ -8,14 +8,22 @@ local aliyun = require "aliyun"
 --新版已经合并, 没有了地域, 1883同时兼容加密和非加密通信，非加密会下线
 -- 阿里云资料：https://help.aliyun.com/document_detail/147356.htm?spm=a2c4g.73742.0.0.4782214ch6jkXb#section-rtu-6kn-kru
 tPara = {
-    Registration = false,           --是否是预注册 已预注册为false  true or false,
-    DeviceName = "dht11", --设备名称
+    -- 是否为一型一密, true为一型一密, false为一机一密(预注册)
+    Registration = false,
+    -- 设备名名称, 必须唯一
+    DeviceName = (mobile and mobile.imei() or (wlan and wlan.mac() or mcu.unique_id():toHex())),
+    -- 产品key, 在产品详情页面
     ProductKey = "k0ti3QNOFaH",     --产品key
-    ProductSecret = "",  --产品secret,已经预注册就不需要填
+    --产品secret,一型一密就需要填, 一机一密(预注册)不填
+    ProductSecret = "",
+    --设备密钥,一型一密就不填, 一机一密(预注册)必须填
     DeviceSecret = "62a17dfe2192526f90bc5fad7cd951fc", --设备secret
-    InstanceId = "iot-06z00hmbog1v175",   --如果没有注册需要填写实例id，在实例详情页面
+    -- 填写实例id，在实例详情页面
+    InstanceId = "iot-06z00hmbog1v175",
+    -- 固定值, 不要修改
     mqtt_port = 1883,                --    mqtt端口
-    mqtt_isssl = false,                --是否使用ssl加密连接，true为无证书最简单的加密
+    --是否使用ssl加密连接，注意: 如果使用一型一密，则必须使用ssl加密
+    mqtt_isssl = false,
  }
 
 -- 低功耗测试, 打开之后, 连接阿里云后5秒请求低功耗

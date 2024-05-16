@@ -257,7 +257,7 @@ struct little_flash{
 #define LF_SFDP_MAJOR_REV                           (0x01)
 #define LF_SFDP_MINOR_REV                           (0x0A)
 
-#define LF_RETRY_TIMES                              (500000)
+#define LF_RETRY_TIMES                              (5000000)
 
 #define LF_NORFLASH_PAGE_ZISE                       (256)      /**< NOR flash page size (bytes) */
 #define LF_NORFLASH_SECTOR_ZISE                     (4096)     /**< NOR flash sector size (bytes) */

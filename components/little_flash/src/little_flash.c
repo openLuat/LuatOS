@@ -90,7 +90,7 @@ static lf_err_t little_flash_reset(little_flash_t *lf){
         result |= little_flash_write_status(lf,LF_NANDFLASH_STATUS_REGISTER2,(1 << 4) | (1 << 3));
     }
     if(lf->chip_info.retry_times==0) lf->chip_info.retry_times = LF_RETRY_TIMES;
-            
+    lf->wait_10us(5);
     return result;
 }
 
@@ -410,8 +410,7 @@ lf_err_t little_flash_erase(const little_flash_t *lf, uint32_t addr, uint32_t le
         cmd_data[1] = page_addr >> 16;
         cmd_data[2] = page_addr >> 8;
         cmd_data[3] = page_addr;
-        result |= lf->spi.transfer(lf,cmd_data, 4,LF_NULL,0);
-        if(result) goto error;
+        lf->spi.transfer(lf,cmd_data, 4,LF_NULL,0);
         lf->wait_10us(200);
         result |= little_flash_cheak_erase(lf);
         if(result) goto error;
@@ -454,11 +453,13 @@ lf_err_t little_flash_write(const little_flash_t *lf, uint32_t addr, const uint8
         lf->lock(lf);
     }
 
-    result = little_flash_write_enabled(lf, LF_ENABLE);
-    if(result) goto error;
+    if(little_flash_write_enabled(lf, LF_ENABLE)){
+        goto error;
+    }
     while (len){
-        result |= little_flash_wait_busy(lf);
-        if(result) goto error;
+        if (little_flash_wait_busy(lf)){
+            goto error;
+        }
         
         if (lf->chip_info.type==LF_DRIVER_NOR_FLASH){
             cmd_data[0] = LF_CMD_PROG_DATA;
@@ -533,7 +534,6 @@ lf_err_t little_flash_write(const little_flash_t *lf, uint32_t addr, const uint8
                     addr += lf->chip_info.prog_size;
                 }
             }
-
             little_flash_wait_busy(lf);
             cmd_data[0] = LF_NANDFLASH_PAGE_PROG_EXEC;
             cmd_data[1] = page_addr >> 16;
@@ -579,7 +579,9 @@ lf_err_t little_flash_read(const little_flash_t *lf, uint32_t addr, uint8_t *dat
         }
     }else{
         while (len){
-            little_flash_wait_busy(lf);
+            if (little_flash_wait_busy(lf)){
+                goto error;
+            }
             uint32_t page_addr = addr/lf->chip_info.prog_size;
             uint16_t column_addr = addr%lf->chip_info.prog_size;
 

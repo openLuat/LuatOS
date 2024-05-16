@@ -19,21 +19,21 @@ static int lf_block_device_read(const struct lfs_config *cfg, lfs_block_t block,
     little_flash_t* flash = (little_flash_t*)cfg->context;
     int ret = little_flash_read(flash, lf_offset + block * flash->chip_info.erase_size + off, buffer, size);
     // LLOGD("lf_block_device_read ret %d", ret);
-    return ret;
+    return LFS_ERR_OK;
 }
 
 static int lf_block_device_prog(const struct lfs_config *cfg, lfs_block_t block, lfs_off_t off, const void *buffer, lfs_size_t size) {
     little_flash_t* flash = (little_flash_t*)cfg->context;
     int ret = little_flash_write(flash, lf_offset + block * flash->chip_info.erase_size + off, buffer, size);
     // LLOGD("lf_block_device_prog ret %d", ret);
-    return ret;
+    return LFS_ERR_OK;
 }
 
 static int lf_block_device_erase(const struct lfs_config *cfg, lfs_block_t block) {
     little_flash_t* flash = (little_flash_t*)cfg->context;
     int ret = little_flash_erase(flash, lf_offset + block * flash->chip_info.erase_size, flash->chip_info.erase_size);
     // LLOGD("lf_block_device_erase ret %d", ret);
-    return ret;
+    return LFS_ERR_OK;
 }
 
 static int lf_block_device_sync(const struct lfs_config *cfg) {

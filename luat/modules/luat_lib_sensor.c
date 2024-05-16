@@ -228,9 +228,15 @@ static int l_sensor_ds18b20(lua_State *L)
   int32_t val = 0;
   int check_crc = lua_gettop(L) > 1 ? lua_toboolean(L, 2) : 1;
   int pin = luaL_checkinteger(L, 1);
+#ifdef LUAT_USE_MOBILE
+#else
   luat_os_entry_cri();
+#endif
   int32_t ret = ds18b20_get_temperature(pin, &val, check_crc);
+#ifdef LUAT_USE_MOBILE
+#else
   luat_os_exit_cri();
+#endif
   // -55°C ~ 125°C
   if (ret || !(val <= 1250 && val >= -550))
   {

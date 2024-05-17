@@ -46,6 +46,12 @@ uint8_t luat_mcu_iomux_is_default(uint8_t type, uint8_t sn);
 void luat_mcu_iomux_ctrl(uint8_t type, uint8_t sn, int pad_index, uint8_t alt, uint8_t is_input);
 
 void luat_mcu_set_hardfault_mode(int mode);
-
+/**
+ * @brief 外部晶振参考信号输出
+ * @param main_enable 主晶振参考信号输出使能，0关闭，其他开启
+ * @param slow_32k_enable 慢速（一般是32K）晶振参考信号输出使能，0关闭，其他开启
+ * @return 无
+ */
+void luat_mcu_xtal_ref_output(uint8_t main_enable, uint8_t slow_32k_enable);
 #endif
 

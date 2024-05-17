@@ -228,6 +228,9 @@ static int l_mcu_set_xtal(lua_State* L) {
 #ifdef LUAT_COMPILER_NOWEAK
 #else
 LUAT_WEAK void luat_mcu_set_hardfault_mode(int mode) {;}
+LUAT_WEAK void luat_mcu_xtal_ref_output(uint8_t main_enable, uint8_t slow_32k_enable) {;}
+LUAT_WEAK int luat_uart_pre_setup(int uart_id, uint8_t use_alt_type){return -1;}
+LUAT_WEAK int luat_i2c_set_iomux(int id, uint8_t value){return -1;}
 #endif
 /*
 mcu死机时处理模式，目前只有EC618平台适用
@@ -244,8 +247,6 @@ static int l_mcu_set_hardfault_mode(lua_State* L)
 	return 0;
 }
 
-LUAT_WEAK int luat_uart_pre_setup(int uart_id, uint8_t use_alt_type){return -1;}
-LUAT_WEAK int luat_i2c_set_iomux(int id, uint8_t value){return -1;}
 /*
 在外设打开前，将外设IO复用到非默认配置上，目前只支持Air780E的部分外设复用到其他配置，这是一个临时接口，如果后续有更合适的api，本接口将不再更新
 @api mcu.iomux(type, channel, value)
@@ -367,6 +368,29 @@ static int l_mcu_ticks2(lua_State* L) {
     return 0;
 }
 
+
+/*
+晶振参考时钟输出
+@api mcu.XTALRefOutput(source_main, source_32k)
+@boolean 高速晶振参考时钟是否输出
+@boolean 低速32K晶振参考时钟是否输出
+@usage
+mcu.XTALRefOutput(true, false)	--高速晶振参考时钟输出,低速32K不输出
+*/
+static int l_mcu_xtal_ref_output(lua_State* L) {
+	int source_main = 0;
+	int source_32k = 0;
+	int delay = luaL_optinteger(L, 3, 1200);
+	if (lua_isboolean(L, 1)) {
+		source_main = lua_toboolean(L, 1);
+	}
+	if (lua_isboolean(L, 2)) {
+		source_32k = lua_toboolean(L, 2);
+	}
+	luat_mcu_xtal_ref_output(source_main, source_32k);
+    return 0;
+}
+
 #include "rotable2.h"
 static const rotable_Reg_t reg_mcu[] =
 {
@@ -388,6 +412,7 @@ static const rotable_Reg_t reg_mcu[] =
 	{ "iomux",			ROREG_FUNC(l_mcu_iomux)},
 #endif
     { "ticks2",         ROREG_FUNC(l_mcu_ticks2)},
+	{ "XTALRefOutput",         ROREG_FUNC(l_mcu_xtal_ref_output)},
 // #endif
 	//@const UART number 外设类型-串口
 	{ "UART",             ROREG_INT(LUAT_MCU_PERIPHERAL_UART) },
